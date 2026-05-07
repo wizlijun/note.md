@@ -2,6 +2,7 @@
   import { onMount, onDestroy } from 'svelte'
   import type { Tab } from '../lib/tabs.svelte'
   import { setContent } from '../lib/tabs.svelte'
+  import { buildFencedBlock, stripCodeFence } from '../lib/code-fence'
 
   // NOTE: @moraya/core (ProseMirror + plugins, multi-MB) is dynamically imported
   // inside onMount so it never loads when the user only uses source mode.
@@ -12,12 +13,29 @@
     destroy(): void
   }
 
-  let { tab, onFlush }: { tab: Tab; onFlush?: (md: string) => void } = $props()
+  let {
+    tab,
+    onFlush,
+    wrapAsCodeBlock,
+  }: {
+    tab: Tab
+    onFlush?: (md: string) => void
+    /**
+     * If defined, the editor is mounted with content wrapped in a fenced block
+     * (` ```<lang>...``` `) and `onChange` / `onDestroy` strip the fence before
+     * propagating raw content back. Used for code-kind tabs.
+     */
+    wrapAsCodeBlock?: string
+  } = $props()
 
   let host: HTMLDivElement | undefined = $state()
   let editor: EditorInstance | null = null
   let status = $state<'mounting' | 'mounted' | 'error'>('mounting')
   let errorMsg = $state<string | null>(null)
+
+  function unwrapIfNeeded(md: string): string {
+    return wrapAsCodeBlock !== undefined ? stripCodeFence(md) : md
+  }
 
   onMount(() => {
     if (!host) {
@@ -26,10 +44,15 @@
       return
     }
     const tabId = tab.id
+    const initial = wrapAsCodeBlock !== undefined
+      ? buildFencedBlock(tab.currentContent, wrapAsCodeBlock)
+      : tab.currentContent
     ;(async () => {
       try {
         const { mountRichEditor } = await import('../lib/editor-bridge')
-        const inst = await mountRichEditor(host!, tab.currentContent, (md) => setContent(tabId, md))
+        const inst = await mountRichEditor(host!, initial, (md) => {
+          setContent(tabId, unwrapIfNeeded(md))
+        })
         editor = inst
         status = 'mounted'
       } catch (e) {
@@ -44,7 +67,7 @@
     if (editor) {
       try {
         const md = editor.getMarkdown()
-        onFlush?.(md)
+        onFlush?.(unwrapIfNeeded(md))
         editor.destroy()
       } catch (e) {
         console.warn('[RichEditor] destroy failed:', e)
