@@ -12,6 +12,7 @@
   import { cmdOpen, cmdSave, cmdSaveAs, cmdCloseActive, cmdToggleMode } from './lib/commands'
   import { confirmDirtyClose } from './lib/dialogs'
   import { startAutoSaveWatcher } from './lib/autosave.svelte'
+  import SettingsDialog from './components/SettingsDialog.svelte'
 
   let showSettings = $state(false)
 
@@ -94,6 +95,7 @@
       <EmptyState />
     {/if}
   </section>
+  <SettingsDialog bind:open={showSettings} />
 </main>
 
 <style>
