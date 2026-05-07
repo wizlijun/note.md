@@ -1,37 +1,59 @@
 <script lang="ts">
-  import { tabs, activeId, isDirty, activate, closeTab } from '../lib/tabs.svelte'
+  import { tabs, activeId, activeTab, isDirty, activate, closeTab } from '../lib/tabs.svelte'
   import { confirmDirtyClose } from '../lib/dialogs'
+  import ModeToggle from './ModeToggle.svelte'
 
   async function onClose(e: MouseEvent, id: string) {
     e.stopPropagation()
     await closeTab(id, confirmDirtyClose)
   }
+
+  let active = $derived(activeTab())
 </script>
 
-<div class="tabbar">
-  {#each tabs as tab (tab.id)}
-    <button
-      class="tab"
-      class:active={tab.id === activeId.value}
-      onclick={() => activate(tab.id)}
-      title={tab.filePath}
-    >
-      <span class="title">{tab.title}</span>
-      {#if isDirty(tab.id)}<span class="dot" aria-label="modified"></span>{/if}
-      <span class="close" role="button" onclick={(e) => onClose(e, tab.id)}>×</span>
-    </button>
-  {/each}
-</div>
+{#if tabs.length > 1 && active}
+  <div class="bar">
+    <div class="tabs">
+      {#each tabs as tab (tab.id)}
+        <button
+          class="tab"
+          class:active={tab.id === activeId.value}
+          onclick={() => activate(tab.id)}
+          title={tab.filePath}
+        >
+          <span class="title">{tab.title}</span>
+          {#if isDirty(tab.id)}<span class="dot" aria-label="modified"></span>{/if}
+          <span class="close" role="button" onclick={(e) => onClose(e, tab.id)}>×</span>
+        </button>
+      {/each}
+    </div>
+    <div class="spacer"></div>
+    <div class="right">
+      <ModeToggle tab={active} />
+    </div>
+  </div>
+{/if}
 
 <style>
-  .tabbar {
+  .bar {
     display: flex;
+    align-items: center;
     flex-shrink: 0;
     height: 36px;
+    padding: 0 8px 0 0;
+    box-sizing: border-box;
     border-bottom: 1px solid color-mix(in srgb, CanvasText 15%, transparent);
-    overflow-x: auto;
     background: color-mix(in srgb, Canvas 92%, CanvasText 8%);
   }
+  .tabs {
+    display: flex;
+    height: 100%;
+    overflow-x: auto;
+    flex: 0 1 auto;
+    min-width: 0;
+  }
+  .spacer { flex: 1 1 auto; }
+  .right { flex-shrink: 0; padding-right: 4px; }
   .tab {
     display: inline-flex;
     align-items: center;
