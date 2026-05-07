@@ -84,10 +84,10 @@
 
   let current = $derived(activeTab())
 
-  // Window title: filename when single tab, plain "mdeditor" otherwise
+  // Window title: filename when single tab, plain "M↓" otherwise
   $effect(() => {
     const tabCount = tabs.length
-    const title = tabCount === 1 && current ? `${current.title} — mdeditor` : 'mdeditor'
+    const title = tabCount === 1 && current ? `${current.title} — M↓` : 'M↓'
     getCurrentWindow().setTitle(title).catch(() => {})
   })
 </script>

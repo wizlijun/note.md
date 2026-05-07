@@ -16,14 +16,14 @@ const ALL_EXTS = [
 
 export async function confirmDirtyClose(): Promise<DirtyChoice> {
   const wantSave = await ask('Save changes before closing?', {
-    title: 'mdeditor',
+    title: 'M↓',
     kind: 'warning',
     okLabel: 'Save',
     cancelLabel: 'Cancel',
   })
   if (wantSave) return 'save'
   const wantDiscard = await ask('Close without saving?', {
-    title: 'mdeditor',
+    title: 'M↓',
     kind: 'warning',
     okLabel: 'Discard changes',
     cancelLabel: 'Keep editing',
@@ -60,5 +60,5 @@ export async function pickSaveFile(defaultPath?: string): Promise<string | null>
 }
 
 export async function showError(text: string): Promise<void> {
-  await message(text, { title: 'mdeditor', kind: 'error' })
+  await message(text, { title: 'M↓', kind: 'error' })
 }

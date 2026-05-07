@@ -83,13 +83,13 @@ fn emit_open_file_delayed<R: tauri::Runtime>(app: &tauri::AppHandle<R>, path: &s
 
 fn build_menu<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> tauri::Result<Menu<R>> {
     let app_meta = AboutMetadata {
-        name: Some("mdeditor".into()),
+        name: Some("M↓".into()),
         version: Some(env!("CARGO_PKG_VERSION").into()),
         ..Default::default()
     };
 
-    let app_menu: Submenu<R> = SubmenuBuilder::new(app, "mdeditor")
-        .item(&PredefinedMenuItem::about(app, Some("About mdeditor"), Some(app_meta))?)
+    let app_menu: Submenu<R> = SubmenuBuilder::new(app, "M↓")
+        .item(&PredefinedMenuItem::about(app, Some("About M↓"), Some(app_meta))?)
         .separator()
         .item(
             &MenuItemBuilder::with_id("preferences", "Preferences…")

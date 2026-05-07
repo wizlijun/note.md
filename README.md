@@ -1,8 +1,11 @@
-# mdeditor
+# M↓ (mdeditor)
 
 Minimal text editor for macOS. Markdown / HTML / code. Source + rich modes. Tabs.
 
 Built on `@moraya/core`. Supports ~36 plain-text file extensions plus HTML.
+
+The product name is **M↓** (M with a downward arrow, hinting at "markdown"); the
+underlying repo / crate / bundle identifier remain `mdeditor` / `com.bruce.mdeditor`.
 
 ## Develop
 
