@@ -10,6 +10,7 @@ vi.mock('@tauri-apps/plugin-store', () => ({
 
 beforeEach(() => {
   vi.clearAllMocks()
+  vi.resetModules()
   mockGet.mockResolvedValue(undefined)
 })
 

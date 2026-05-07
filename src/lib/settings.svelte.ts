@@ -15,9 +15,9 @@ async function getStore() {
 
 export async function loadSettings(): Promise<void> {
   const s = await getStore()
-  settings.autoSave = ((await s.get<boolean>('autoSave')) ?? false) as boolean
-  recentFiles = ((await s.get<string[]>('recentFiles')) ?? []) as string[]
-  recentModes = ((await s.get<Record<string, Mode>>('recentModes')) ?? {}) as Record<string, Mode>
+  settings.autoSave = (await s.get<boolean>('autoSave')) ?? false
+  recentFiles = (await s.get<string[]>('recentFiles')) ?? []
+  recentModes = (await s.get<Record<string, Mode>>('recentModes')) ?? {}
 }
 
 export async function saveSettings(): Promise<void> {
