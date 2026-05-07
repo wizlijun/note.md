@@ -79,6 +79,7 @@ export async function saveAs(id: string, newPath: string): Promise<void> {
   t.title = basename(newPath)
   t.initialContent = t.currentContent
   await pushRecentFile(newPath)
+  setRecentMode(newPath, t.mode).catch((e) => console.warn(e))
 }
 
 export type DirtyChoice = 'save' | 'discard' | 'cancel'
@@ -93,9 +94,10 @@ export async function closeTab(
     const choice = await confirm()
     if (choice === 'cancel') return false
     if (choice === 'save') {
-      const wasActive = activeId.value === id
-      if (!wasActive) activeId.value = id
+      const previousActiveId = activeId.value
+      activeId.value = id
       await saveActive()
+      activeId.value = previousActiveId
     }
   }
   tabs.splice(idx, 1)

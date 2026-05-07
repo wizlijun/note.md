@@ -122,7 +122,7 @@ describe('tabs', () => {
     m.activate(bId)
     await m.closeTab(bId, async () => 'discard')
     expect(m.tabs.length).toBe(2)
-    expect(m.activeId.value).not.toBe(null)
+    expect(m.activeId.value).toBe(m.tabs[1].id)  // C (originally idx 2, now idx 1 after splice)
   })
 
   it('toggleMode flips source ⇄ rich', async () => {
@@ -134,5 +134,50 @@ describe('tabs', () => {
     expect(m.tabs[0].mode).toBe('rich')
     m.toggleMode(id)
     expect(m.tabs[0].mode).toBe('source')
+  })
+
+  it('closeTab dirty non-active tab → save restores original active', async () => {
+    const fs = await import('./fs')
+    const m = await import('./tabs.svelte')
+    await m.openFile('/tmp/a.md')
+    await m.openFile('/tmp/b.md')
+    await m.openFile('/tmp/c.md')
+    const aId = m.tabs[0].id
+    const bId = m.tabs[1].id
+    m.activate(aId)             // A is active
+    m.setContent(bId, 'edited') // B dirty
+    const ok = await m.closeTab(bId, async () => 'save')
+    expect(ok).toBe(true)
+    expect(fs.writeMd).toHaveBeenCalledWith('/tmp/b.md', 'edited')
+    expect(m.tabs.length).toBe(2)
+    expect(m.activeId.value).toBe(aId)  // A still active, NOT C
+  })
+
+  it('saveAs renames path, updates title/baseline, clears dirty, persists mode', async () => {
+    const fs = await import('./fs')
+    const settings = await import('./settings.svelte')
+    const m = await import('./tabs.svelte')
+    await m.openFile('/tmp/foo.md')
+    const id = m.tabs[0].id
+    m.toggleMode(id)              // mode = 'rich'
+    m.setContent(id, 'edited')
+    expect(m.isDirty(id)).toBe(true)
+    await m.saveAs(id, '/tmp/bar.md')
+    expect(fs.writeMd).toHaveBeenCalledWith('/tmp/bar.md', 'edited')
+    expect(m.tabs[0].filePath).toBe('/tmp/bar.md')
+    expect(m.tabs[0].title).toBe('bar.md')
+    expect(m.isDirty(id)).toBe(false)
+    expect(settings.pushRecentFile).toHaveBeenCalledWith('/tmp/bar.md')
+    // Allow setRecentMode to flush
+    await new Promise((r) => setTimeout(r, 0))
+    expect(settings.setRecentMode).toHaveBeenCalledWith('/tmp/bar.md', 'rich')
+  })
+
+  it('openFile uses recent mode when available', async () => {
+    const settings = await import('./settings.svelte')
+    ;(settings.getRecentMode as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce('rich')
+    const m = await import('./tabs.svelte')
+    await m.openFile('/tmp/foo.md')
+    expect(m.tabs[0].mode).toBe('rich')
   })
 })
