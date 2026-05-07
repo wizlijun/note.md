@@ -1,4 +1,4 @@
-import { readMd, writeMd, basename, isMarkdownPath } from './fs'
+import { readMd, writeMd, basename, classifyPath, isSupportedPath, looksBinary, type FileKind } from './fs'
 import { pushRecentFile, getRecentMode, setRecentMode } from './settings.svelte'
 
 export type Mode = 'source' | 'rich'
@@ -10,6 +10,8 @@ export interface Tab {
   initialContent: string
   currentContent: string
   mode: Mode
+  kind: FileKind
+  language?: string
 }
 
 export const tabs = $state<Tab[]>([])
@@ -28,17 +30,25 @@ export function activate(id: string): void {
   if (tabs.some((t) => t.id === id)) activeId.value = id
 }
 
+function defaultModeFor(kind: FileKind): Mode {
+  return kind === 'html' ? 'rich' : 'source'
+}
+
 export async function openFile(path: string): Promise<void> {
-  if (!isMarkdownPath(path)) {
-    throw new Error(`Not a markdown file: ${path}`)
+  if (!isSupportedPath(path)) {
+    throw new Error(`Unsupported file type: ${path}`)
   }
+  const cls = classifyPath(path)!
   const existing = tabs.find((t) => t.filePath === path)
   if (existing) {
     activeId.value = existing.id
     return
   }
   const content = await readMd(path)
-  const mode = getRecentMode(path) ?? 'source'
+  if (looksBinary(content)) {
+    throw new Error(`Binary file not supported: ${path}`)
+  }
+  const mode = getRecentMode(path) ?? defaultModeFor(cls.kind)
   const tab: Tab = {
     id: crypto.randomUUID(),
     filePath: path,
@@ -46,6 +56,8 @@ export async function openFile(path: string): Promise<void> {
     initialContent: content,
     currentContent: content,
     mode,
+    kind: cls.kind,
+    language: cls.language,
   }
   tabs.push(tab)
   activeId.value = tab.id
@@ -60,8 +72,14 @@ export function setContent(id: string, md: string): void {
 export function toggleMode(id: string): void {
   const t = tabs.find((x) => x.id === id)
   if (!t) return
-  t.mode = t.mode === 'source' ? 'rich' : 'source'
-  setRecentMode(t.filePath, t.mode).catch((e) => console.warn(e))
+  setMode(id, t.mode === 'source' ? 'rich' : 'source')
+}
+
+export function setMode(id: string, mode: Mode): void {
+  const t = tabs.find((x) => x.id === id)
+  if (!t || t.mode === mode) return
+  t.mode = mode
+  setRecentMode(t.filePath, mode).catch((e) => console.warn(e))
 }
 
 export async function saveActive(): Promise<void> {
@@ -78,6 +96,12 @@ export async function saveAs(id: string, newPath: string): Promise<void> {
   t.filePath = newPath
   t.title = basename(newPath)
   t.initialContent = t.currentContent
+  // Re-classify in case user changed extension
+  const cls = classifyPath(newPath)
+  if (cls) {
+    t.kind = cls.kind
+    t.language = cls.language
+  }
   await pushRecentFile(newPath)
   setRecentMode(newPath, t.mode).catch((e) => console.warn(e))
 }

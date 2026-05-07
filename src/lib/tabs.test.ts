@@ -4,7 +4,17 @@ vi.mock('./fs', () => ({
   readMd: vi.fn(async (p: string) => `# content of ${p}`),
   writeMd: vi.fn(async () => {}),
   basename: (p: string) => p.split('/').pop() ?? p,
-  isMarkdownPath: (p: string) => p.endsWith('.md'),
+  classifyPath: (p: string) => {
+    const lower = p.toLowerCase()
+    if (/\.(md|markdown|mdown|mkd)$/.test(lower)) return { kind: 'markdown' }
+    if (/\.html?$/.test(lower)) return { kind: 'html' }
+    if (/\.py$/.test(lower)) return { kind: 'code', language: 'python' }
+    if (/\.json$/.test(lower)) return { kind: 'code', language: 'json' }
+    if (/\.txt$/.test(lower)) return { kind: 'code', language: '' }
+    return null
+  },
+  isSupportedPath: (p: string) => /\.(md|markdown|mdown|mkd|html?|py|json|txt)$/i.test(p),
+  looksBinary: (s: string) => s.indexOf('\x00') >= 0,
 }))
 
 vi.mock('./settings.svelte', () => ({
@@ -41,9 +51,9 @@ describe('tabs', () => {
     expect(m.activeId.value).toBe(m.tabs[0].id)
   })
 
-  it('openFile rejects non-markdown extensions', async () => {
+  it('openFile rejects unsupported extensions', async () => {
     const m = await import('./tabs.svelte')
-    await expect(m.openFile('/tmp/foo.txt')).rejects.toThrow(/markdown/i)
+    await expect(m.openFile('/tmp/foo.png')).rejects.toThrow(/unsupported/i)
     expect(m.tabs.length).toBe(0)
   })
 
@@ -179,5 +189,46 @@ describe('tabs', () => {
     const m = await import('./tabs.svelte')
     await m.openFile('/tmp/foo.md')
     expect(m.tabs[0].mode).toBe('rich')
+  })
+
+  it('openFile classifies markdown', async () => {
+    const m = await import('./tabs.svelte')
+    await m.openFile('/tmp/foo.md')
+    expect(m.tabs[0].kind).toBe('markdown')
+    expect(m.tabs[0].language).toBeUndefined()
+    expect(m.tabs[0].mode).toBe('source')
+  })
+
+  it('openFile classifies html with default rich mode', async () => {
+    const m = await import('./tabs.svelte')
+    await m.openFile('/tmp/index.html')
+    expect(m.tabs[0].kind).toBe('html')
+    expect(m.tabs[0].mode).toBe('rich')
+  })
+
+  it('openFile classifies code with language', async () => {
+    const m = await import('./tabs.svelte')
+    await m.openFile('/tmp/script.py')
+    expect(m.tabs[0].kind).toBe('code')
+    expect(m.tabs[0].language).toBe('python')
+    expect(m.tabs[0].mode).toBe('source')
+  })
+
+  it('openFile rejects binary content', async () => {
+    const fs = await import('./fs')
+    ;(fs.readMd as ReturnType<typeof vi.fn>).mockResolvedValueOnce('plain\x00text')
+    const m = await import('./tabs.svelte')
+    await expect(m.openFile('/tmp/foo.md')).rejects.toThrow(/binary/i)
+    expect(m.tabs.length).toBe(0)
+  })
+
+  it('saveAs reclassifies tab when extension changes', async () => {
+    const m = await import('./tabs.svelte')
+    await m.openFile('/tmp/foo.md')
+    const id = m.tabs[0].id
+    await m.saveAs(id, '/tmp/foo.py')
+    expect(m.tabs[0].kind).toBe('code')
+    expect(m.tabs[0].language).toBe('python')
+    expect(m.tabs[0].title).toBe('foo.py')
   })
 })
