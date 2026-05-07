@@ -1,8 +1,8 @@
 # mdeditor
 
-Minimal markdown editor for macOS. Source / rich dual mode. Tabs. Nothing else.
+Minimal text editor for macOS. Markdown / HTML / code. Source + rich modes. Tabs.
 
-Built on `@moraya/core`.
+Built on `@moraya/core`. Supports ~36 plain-text file extensions plus HTML.
 
 ## Develop
 
@@ -45,11 +45,17 @@ Output: `src-tauri/target/release/bundle/macos/mdeditor.app` (single-arch) or
 12. **Open a md with KaTeX, mermaid, code block** → all render in rich mode
 13. **Cmd+W to close last tab** → empty state appears (window does not close)
 14. **Close window with one dirty tab → Cancel** → window stays open
+15. Open a `.py` file → source view shows raw content with markdown-style heading colors (irrelevant for Python); switch to rich → renders as Python-highlighted code block (hljs colors)
+16. Open a `.html` file → opens in **rich mode by default** (sandboxed iframe preview); switch to source → edit raw HTML
+17. Open `Dockerfile` (no extension, exact filename match) → classified as code with `dockerfile` language
+18. Drag a `.png` into the window → toast: `Unsupported: png`, no tab opened
+19. Open a 6 MB log file → confirm dialog: `File is large (6 MB). Continue?` (manual: prepare such a file with `dd if=/dev/zero of=/tmp/big.log bs=1M count=6`); cancel → no tab; confirm → opens with potential lag
+20. Open `.json` file, switch to rich → edit a value inside the rendered code block, switch back to source → see edit; Cmd+S → reopen → contents persist (round-trip byte-stable when fence intact)
 
 ## Spec & Plan
 
-- Design: `docs/superpowers/specs/2026-05-07-mdeditor-design.md` (in moraya repo)
-- Implementation plan: `docs/superpowers/plans/2026-05-07-mdeditor.md` (in moraya repo)
+- Designs: `docs/superpowers/specs/`
+- Plans: `docs/superpowers/plans/`
 
 ## License
 
