@@ -84,6 +84,10 @@
     padding: 16px 24px;
     box-sizing: border-box;
     min-height: 200px;
+    /* GPU compositing hints — promote scroll container to its own layer */
+    will-change: transform;
+    transform: translateZ(0);
+    contain: layout paint;
   }
   .host :global(.ProseMirror),
   .host :global(.moraya-editor) {
