@@ -7,7 +7,7 @@
   import EditorPane from './components/EditorPane.svelte'
   import EmptyState from './components/EmptyState.svelte'
   import ModeToggle from './components/ModeToggle.svelte'
-  import { activeTab, tabs, closeTab } from './lib/tabs.svelte'
+  import { activeTab, tabs, closeTab, openFile } from './lib/tabs.svelte'
   import { loadSettings } from './lib/settings.svelte'
   import { cmdOpen, cmdSave, cmdSaveAs, cmdCloseActive, cmdToggleMode } from './lib/commands'
   import { confirmDirtyClose } from './lib/dialogs'
@@ -49,10 +49,24 @@
       }
     })
 
+    const unlistenDrop = win.onDragDropEvent(async (event) => {
+      if (event.payload.type === 'drop') {
+        for (const path of event.payload.paths) {
+          try { await openFile(path) } catch (e) { console.warn('[App] drop openFile:', e) }
+        }
+      }
+    })
+
+    const unlistenOpenFile = listen<string>('open-file', async (e) => {
+      try { await openFile(e.payload) } catch (err) { console.warn('[App] open-file:', err) }
+    })
+
     return () => {
       window.removeEventListener('keydown', onKeyDown)
       unlistenClose.then((fn) => fn())
       unlistenMenu.then((fn) => fn())
+      unlistenDrop.then((fn) => fn())
+      unlistenOpenFile.then((fn) => fn())
       stopAutoSave?.()
     }
   })

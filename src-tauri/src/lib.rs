@@ -26,6 +26,21 @@ pub fn run() {
             app.on_menu_event(|app, event| {
                 let _ = app.emit("menu-event", event.id().0.as_str());
             });
+
+            // Forward CLI arguments (skip arg0, the app binary itself).
+            // macOS routes "open with" via argv on first launch; subsequent launches
+            // hit the single_instance plugin handler instead.
+            let args: Vec<String> = std::env::args().skip(1).collect();
+            if !args.is_empty() {
+                let app_handle = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+                    for arg in args {
+                        let _ = app_handle.emit("open-file", arg);
+                    }
+                });
+            }
+
             Ok(())
         })
         .run(tauri::generate_context!())
