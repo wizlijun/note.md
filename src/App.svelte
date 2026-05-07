@@ -83,13 +83,22 @@
   }
 
   let current = $derived(activeTab())
+
+  // Window title: filename when single tab, plain "mdeditor" otherwise
+  $effect(() => {
+    const tabCount = tabs.length
+    const title = tabCount === 1 && current ? `${current.title} — mdeditor` : 'mdeditor'
+    getCurrentWindow().setTitle(title).catch(() => {})
+  })
 </script>
 
 <main>
   <TabBar />
   <section class="pane">
     {#if current}
-      <ModeToggle tab={current} />
+      {#if tabs.length === 1}
+        <div class="float-toggle"><ModeToggle tab={current} /></div>
+      {/if}
       <EditorPane tab={current} />
     {:else}
       <EmptyState />
@@ -112,8 +121,16 @@
     overflow: hidden;
   }
   .pane :global(.empty),
-  .pane :global(textarea.source),
-  .pane :global(.rich) {
+  .pane :global(.src),
+  .pane :global(.rich-wrap),
+  .pane :global(.html-preview-wrap) {
     flex: 1;
+    min-width: 0;
+  }
+  .float-toggle {
+    position: absolute;
+    top: 0;
+    right: 28px;
+    z-index: 10;
   }
 </style>
