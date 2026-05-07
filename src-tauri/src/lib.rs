@@ -1,8 +1,25 @@
+use std::fs::OpenOptions;
+use std::io::Write;
 use tauri::menu::{
     AboutMetadata, Menu, MenuBuilder, MenuItemBuilder, PredefinedMenuItem, Submenu,
     SubmenuBuilder,
 };
 use tauri::{Emitter, Manager, RunEvent, WindowEvent};
+
+/// Append a diagnostic line to /tmp/mdeditor.log (best-effort; no error if write fails).
+fn dlog(msg: &str) {
+    if let Ok(mut f) = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open("/tmp/mdeditor.log")
+    {
+        let ts = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis())
+            .unwrap_or(0);
+        let _ = writeln!(f, "{} {}", ts, msg);
+    }
+}
 
 /// Quit the application. Called from the frontend after the close-window
 /// dirty-tab confirmation loop completes successfully. macOS does NOT quit
@@ -14,8 +31,12 @@ fn quit_app(app: tauri::AppHandle) {
 }
 
 pub fn run() {
+    dlog("=== M↓ start ===");
+    dlog(&format!("argv: {:?}", std::env::args().collect::<Vec<_>>()));
+
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+            dlog(&format!("single_instance argv: {:?}", argv));
             for arg in argv.iter().skip(1) {
                 emit_open_file_delayed(app, arg);
             }
@@ -53,17 +74,31 @@ pub fn run() {
 
     app.run(|app_handle, event| {
         match event {
-            // macOS Apple Event for Finder double-click / Open With.
-            // (Belt-and-braces: tauri-plugin-deep-link also handles this.)
+            RunEvent::Ready => {
+                dlog("RunEvent::Ready");
+            }
             RunEvent::Opened { urls } => {
+                dlog(&format!("RunEvent::Opened {} urls: {:?}",
+                    urls.len(),
+                    urls.iter().map(|u| u.to_string()).collect::<Vec<_>>()));
                 for url in urls {
                     if let Ok(path) = url.to_file_path() {
                         if let Some(p) = path.to_str() {
+                            dlog(&format!("  emit open-file: {}", p));
                             emit_open_file_delayed(app_handle, p);
                         }
                     }
                 }
             }
+            RunEvent::Reopen { has_visible_windows, .. } => {
+                dlog(&format!("RunEvent::Reopen has_visible_windows={}", has_visible_windows));
+            }
+            RunEvent::WindowEvent { ref label, event: ref e, .. } => {
+                if matches!(e, WindowEvent::CloseRequested { .. } | WindowEvent::Destroyed) {
+                    dlog(&format!("WindowEvent {:?} on {}", e, label));
+                }
+            }
+            RunEvent::Exit => dlog("RunEvent::Exit"),
             _ => {}
         }
     });
@@ -74,6 +109,7 @@ fn emit_open_file_delayed<R: tauri::Runtime>(app: &tauri::AppHandle<R>, path: &s
     let path = path.to_string();
     tauri::async_runtime::spawn(async move {
         tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+        dlog(&format!("emit open-file → {}", path));
         let _ = app.emit("open-file", path);
     });
 }
