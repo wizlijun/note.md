@@ -39,7 +39,7 @@ const EXT_TABLE: Record<string, FileClass> = {
   jsonc:     { kind: 'code', language: 'json' },
   yaml:      { kind: 'code', language: 'yaml' },
   yml:       { kind: 'code', language: 'yaml' },
-  toml:      { kind: 'code', language: 'ini' },
+  toml:      { kind: 'code', language: 'ini' },     // hljs has no toml; ini is closest available
   ini:       { kind: 'code', language: 'ini' },
   conf:      { kind: 'code', language: 'ini' },
   xml:       { kind: 'code', language: 'xml' },
@@ -84,9 +84,9 @@ const NAME_TABLE: Record<string, FileClass> = {
 
 export function classifyPath(path: string): FileClass | null {
   const base = basename(path).toLowerCase()
-  if (NAME_TABLE[base]) return NAME_TABLE[base]
+  if (NAME_TABLE[base]) return { ...NAME_TABLE[base] }
   const ext = base.includes('.') ? base.split('.').pop()! : ''
-  if (ext && EXT_TABLE[ext]) return EXT_TABLE[ext]
+  if (ext && EXT_TABLE[ext]) return { ...EXT_TABLE[ext] }
   return null
 }
 
@@ -109,7 +109,7 @@ export function looksBinary(s: string): boolean {
   let nonText = 0
   for (let i = 0; i < sample.length; i++) {
     const c = sample.charCodeAt(i)
-    // Allow 9 (tab), 10 (LF), 13 (CR); reject other control chars
+    // Allow TAB(9), LF(10), VT(11), FF(12), CR(13); reject other control chars
     if (c < 9 || (c > 13 && c < 32)) nonText++
   }
   return nonText / sample.length > 0.05
