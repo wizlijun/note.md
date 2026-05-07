@@ -1,4 +1,6 @@
+#[cfg(debug_assertions)]
 use std::fs::OpenOptions;
+#[cfg(debug_assertions)]
 use std::io::Write;
 use tauri::image::Image;
 use tauri::menu::{
@@ -8,18 +10,23 @@ use tauri::menu::{
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{Emitter, Manager, RunEvent, WindowEvent};
 
-/// Append a diagnostic line to /tmp/mdeditor.log (best-effort; no error if write fails).
+/// Append a diagnostic line to /tmp/mdeditor.log in debug builds (best-effort).
+/// Compiled out in release — kept as a no-op so call sites need no `cfg` gates.
+#[allow(unused_variables)]
 fn dlog(msg: &str) {
-    if let Ok(mut f) = OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open("/tmp/mdeditor.log")
+    #[cfg(debug_assertions)]
     {
-        let ts = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_millis())
-            .unwrap_or(0);
-        let _ = writeln!(f, "{} {}", ts, msg);
+        if let Ok(mut f) = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open("/tmp/mdeditor.log")
+        {
+            let ts = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_millis())
+                .unwrap_or(0);
+            let _ = writeln!(f, "{} {}", ts, msg);
+        }
     }
 }
 
