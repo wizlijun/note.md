@@ -7,10 +7,26 @@
   import ModeToggle from './components/ModeToggle.svelte'
   import { activeTab } from './lib/tabs.svelte'
   import { loadSettings } from './lib/settings.svelte'
+  import { cmdOpen, cmdSave, cmdSaveAs, cmdCloseActive, cmdToggleMode } from './lib/commands'
 
-  onMount(async () => {
-    try { await loadSettings() } catch (e) { console.warn('[App] loadSettings:', e) }
+  onMount(() => {
+    ;(async () => {
+      try { await loadSettings() } catch (e) { console.warn('[App] loadSettings:', e) }
+    })()
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
   })
+
+  function onKeyDown(e: KeyboardEvent) {
+    if (!e.metaKey) return
+    const k = e.key.toLowerCase()
+    if (k === 'o') { e.preventDefault(); cmdOpen() }
+    else if (k === 's' && !e.shiftKey) { e.preventDefault(); cmdSave() }
+    else if (k === 's' && e.shiftKey) { e.preventDefault(); cmdSaveAs() }
+    else if (k === 'w') { e.preventDefault(); cmdCloseActive() }
+    else if (k === '/') { e.preventDefault(); cmdToggleMode() }
+  }
 
   let current = $derived(activeTab())
 </script>
