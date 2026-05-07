@@ -35,10 +35,10 @@ function defaultModeFor(kind: FileKind): Mode {
 }
 
 export async function openFile(path: string): Promise<void> {
-  if (!isSupportedPath(path)) {
+  const cls = classifyPath(path)
+  if (!cls) {
     throw new Error(`Unsupported file type: ${path}`)
   }
-  const cls = classifyPath(path)!
   const existing = tabs.find((t) => t.filePath === path)
   if (existing) {
     activeId.value = existing.id
@@ -101,6 +101,8 @@ export async function saveAs(id: string, newPath: string): Promise<void> {
   if (cls) {
     t.kind = cls.kind
     t.language = cls.language
+  } else {
+    console.warn(`[saveAs] unrecognised extension; retained old kind: ${newPath}`)
   }
   await pushRecentFile(newPath)
   setRecentMode(newPath, t.mode).catch((e) => console.warn(e))
