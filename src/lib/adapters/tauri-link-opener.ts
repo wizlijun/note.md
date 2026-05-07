@@ -11,9 +11,14 @@ export class TauriLinkOpener implements LinkOpener {
   open(href: string): void {
     if (isLocalFilePath(href)) {
       let path = href
-      if (path.startsWith('file:///')) path = path.slice(7)
-      else if (path.startsWith('file://')) path = path.slice(5)
-      try { path = decodeURIComponent(path) } catch { /* keep */ }
+      if (path.startsWith('file://')) {
+        try {
+          const url = new URL(path)
+          path = decodeURIComponent(url.pathname)
+        } catch {
+          // Fall through with original href if URL parse fails
+        }
+      }
 
       import('@tauri-apps/plugin-opener')
         .then(({ openPath }) => openPath(path))

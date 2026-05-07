@@ -17,7 +17,9 @@ const MEDIA_MIME: Record<string, string> = {
 }
 
 function pathExt(path: string): string {
-  return path.split('.').pop()?.toLowerCase() || ''
+  const basename = path.split('/').pop() ?? ''
+  const dot = basename.lastIndexOf('.')
+  return dot > 0 ? basename.slice(dot + 1).toLowerCase() : ''
 }
 
 function buildBlob(bytes: Uint8Array, mime: string): string {
@@ -55,6 +57,8 @@ export class TauriMediaResolver implements MediaResolver {
   }
 
   async loadRemoteMedia(url: string): Promise<string> {
+    // mdeditor has no plugin-http; return URL unchanged and let WKWebView handle it.
+    // Remote http:// images may fail due to WKWebView mixed-content restrictions.
     return url
   }
 }
