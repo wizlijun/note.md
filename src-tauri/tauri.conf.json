@@ -39,6 +39,12 @@
         "name": "Markdown",
         "description": "Markdown document",
         "role": "Editor"
+      },
+      {
+        "ext": ["html", "htm"],
+        "name": "HTML",
+        "description": "HTML document",
+        "role": "Editor"
       }
     ]
   }
