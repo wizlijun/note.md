@@ -1,9 +1,11 @@
 use std::fs::OpenOptions;
 use std::io::Write;
+use tauri::image::Image;
 use tauri::menu::{
-    AboutMetadata, Menu, MenuBuilder, MenuItemBuilder, PredefinedMenuItem, Submenu,
+    AboutMetadata, Menu, MenuBuilder, MenuItem, MenuItemBuilder, PredefinedMenuItem, Submenu,
     SubmenuBuilder,
 };
+use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{Emitter, Manager, RunEvent, WindowEvent};
 
 /// Append a diagnostic line to /tmp/mdeditor.log (best-effort; no error if write fails).
@@ -28,6 +30,14 @@ fn dlog(msg: &str) {
 #[tauri::command]
 fn quit_app(app: tauri::AppHandle) {
     app.exit(0);
+}
+
+fn show_main_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
+    if let Some(w) = app.get_webview_window("main") {
+        let _ = w.show();
+        let _ = w.unminimize();
+        let _ = w.set_focus();
+    }
 }
 
 pub fn run() {
@@ -57,6 +67,42 @@ pub fn run() {
             app.on_menu_event(|app, event| {
                 let _ = app.emit("menu-event", event.id().0.as_str());
             });
+
+            // Persistent menu-bar tray icon. White circle with M↓ cutout —
+            // template-style mark fits both light and dark menu bars.
+            // Left-click toggles main window visibility; right-click shows menu.
+            let tray_icon = Image::from_bytes(include_bytes!("../icons/tray-icon.png"))?;
+            let show_item = MenuItem::with_id(app, "tray-show", "Show M↓", true, None::<&str>)?;
+            let quit_item = MenuItem::with_id(app, "tray-quit", "Quit M↓", true, None::<&str>)?;
+            let tray_menu = MenuBuilder::new(app)
+                .item(&show_item)
+                .separator()
+                .item(&quit_item)
+                .build()?;
+            let _tray = TrayIconBuilder::with_id("main")
+                .icon(tray_icon)
+                .icon_as_template(false)
+                .tooltip("M↓")
+                .menu(&tray_menu)
+                .show_menu_on_left_click(false)
+                .on_menu_event(|app, event| {
+                    match event.id().0.as_str() {
+                        "tray-show" => show_main_window(app),
+                        "tray-quit" => app.exit(0),
+                        _ => {}
+                    }
+                })
+                .on_tray_icon_event(|tray, event| {
+                    if let TrayIconEvent::Click {
+                        button: MouseButton::Left,
+                        button_state: MouseButtonState::Up,
+                        ..
+                    } = event
+                    {
+                        show_main_window(tray.app_handle());
+                    }
+                })
+                .build(app)?;
 
             // Initial CLI argv (Linux / Windows / macOS-when-launched-from-shell).
             // macOS Finder double-click does NOT arrive via argv — uses Apple Events
