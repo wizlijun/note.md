@@ -2,6 +2,7 @@
   import './styles/app.css'
   import { onMount } from 'svelte'
   import { getCurrentWindow } from '@tauri-apps/api/window'
+  import { listen } from '@tauri-apps/api/event'
   import TabBar from './components/TabBar.svelte'
   import EditorPane from './components/EditorPane.svelte'
   import EmptyState from './components/EmptyState.svelte'
@@ -11,6 +12,8 @@
   import { cmdOpen, cmdSave, cmdSaveAs, cmdCloseActive, cmdToggleMode } from './lib/commands'
   import { confirmDirtyClose } from './lib/dialogs'
   import { startAutoSaveWatcher } from './lib/autosave.svelte'
+
+  let showSettings = $state(false)
 
   onMount(() => {
     let stopAutoSave: (() => void) | undefined
@@ -23,19 +26,33 @@
     window.addEventListener('keydown', onKeyDown)
 
     const win = getCurrentWindow()
-    const unlisten = win.onCloseRequested(async (event) => {
+    const unlistenClose = win.onCloseRequested(async (event) => {
       for (const t of [...tabs]) {
         const ok = await closeTab(t.id, confirmDirtyClose)
-        if (!ok) {
-          event.preventDefault()
-          return
-        }
+        if (!ok) { event.preventDefault(); return }
+      }
+    })
+
+    const unlistenMenu = listen<string>('menu-event', (e) => {
+      switch (e.payload) {
+        case 'open':        cmdOpen(); break
+        case 'save':        cmdSave(); break
+        case 'save-as':     cmdSaveAs(); break
+        case 'close-tab':   cmdCloseActive(); break
+        case 'toggle-mode': cmdToggleMode(); break
+        case 'preferences': showSettings = true; break
+        case 'docs':
+          import('@tauri-apps/plugin-opener')
+            .then(({ openUrl }) => openUrl('https://github.com/bruce/mdeditor'))
+            .catch(() => {})
+          break
       }
     })
 
     return () => {
       window.removeEventListener('keydown', onKeyDown)
-      unlisten.then((fn) => fn())
+      unlistenClose.then((fn) => fn())
+      unlistenMenu.then((fn) => fn())
       stopAutoSave?.()
     }
   })
