@@ -2,15 +2,16 @@ use tauri::menu::{
     AboutMetadata, Menu, MenuBuilder, MenuItemBuilder, PredefinedMenuItem, Submenu,
     SubmenuBuilder,
 };
-use tauri::{Emitter, Manager};
+use tauri::{Emitter, Manager, RunEvent, WindowEvent};
 
 pub fn run() {
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+            // Subsequent launches: forward each file arg to the running instance.
             for arg in argv.iter().skip(1) {
-                let _ = app.emit("open-file", arg);
+                emit_open_file_delayed(app, arg);
             }
-            // Bring window to front when re-launched
+            // Bring window to front
             if let Some(w) = app.get_webview_window("main") {
                 let _ = w.show();
                 let _ = w.set_focus();
@@ -27,24 +28,57 @@ pub fn run() {
                 let _ = app.emit("menu-event", event.id().0.as_str());
             });
 
-            // Forward CLI arguments (skip arg0, the app binary itself).
-            // macOS routes "open with" via argv on first launch; subsequent launches
-            // hit the single_instance plugin handler instead.
-            let args: Vec<String> = std::env::args().skip(1).collect();
-            if !args.is_empty() {
-                let app_handle = app.handle().clone();
-                tauri::async_runtime::spawn(async move {
-                    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
-                    for arg in args {
-                        let _ = app_handle.emit("open-file", arg);
-                    }
-                });
+            // Initial CLI argv (Linux / Windows / macOS-when-launched-from-shell).
+            // macOS Finder double-click does NOT arrive via argv — it comes
+            // through `RunEvent::Opened` handled in app.run() below.
+            let handle = app.handle();
+            for arg in std::env::args().skip(1) {
+                emit_open_file_delayed(handle, &arg);
             }
 
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application");
+
+    app.run(|app_handle, event| {
+        match event {
+            // macOS Apple Event (Finder double-click of registered file types,
+            // drag-onto-dock-icon while not running, "Open With → mdeditor").
+            // Tauri delivers each file as a `file://` URL.
+            RunEvent::Opened { urls } => {
+                for url in urls {
+                    if let Ok(path) = url.to_file_path() {
+                        if let Some(p) = path.to_str() {
+                            emit_open_file_delayed(app_handle, p);
+                        }
+                    }
+                }
+            }
+            // Quit the app when the main window is destroyed. macOS's default
+            // is to keep the app alive after window close, but the user wants
+            // close-quits behavior (typical of single-window doc apps).
+            RunEvent::WindowEvent {
+                event: WindowEvent::Destroyed,
+                ..
+            } => {
+                app_handle.exit(0);
+            }
+            _ => {}
+        }
+    });
+}
+
+/// Emit `open-file` to the frontend after a small delay, so the listener
+/// (registered in App.svelte's onMount) has time to attach. Avoids losing
+/// the event when files arrive during cold startup.
+fn emit_open_file_delayed<R: tauri::Runtime>(app: &tauri::AppHandle<R>, path: &str) {
+    let app = app.clone();
+    let path = path.to_string();
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+        let _ = app.emit("open-file", path);
+    });
 }
 
 fn build_menu<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> tauri::Result<Menu<R>> {
