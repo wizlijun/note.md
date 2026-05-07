@@ -6,6 +6,8 @@
   "permissions": [
     "core:default",
     "core:window:allow-set-title",
+    "core:window:allow-destroy",
+    "deep-link:default",
     "dialog:default",
     "fs:default",
     "fs:allow-read-text-file",

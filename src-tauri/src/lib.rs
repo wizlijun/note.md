@@ -4,23 +4,32 @@ use tauri::menu::{
 };
 use tauri::{Emitter, Manager, RunEvent, WindowEvent};
 
+/// Quit the application. Called from the frontend after the close-window
+/// dirty-tab confirmation loop completes successfully. macOS does NOT quit
+/// the app on its own when the last NSWindow is closed (unlike Windows / Linux),
+/// so we trigger it explicitly.
+#[tauri::command]
+fn quit_app(app: tauri::AppHandle) {
+    app.exit(0);
+}
+
 pub fn run() {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
-            // Subsequent launches: forward each file arg to the running instance.
             for arg in argv.iter().skip(1) {
                 emit_open_file_delayed(app, arg);
             }
-            // Bring window to front
             if let Some(w) = app.get_webview_window("main") {
                 let _ = w.show();
                 let _ = w.set_focus();
             }
         }))
+        .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::new().build())
+        .invoke_handler(tauri::generate_handler![quit_app])
         .setup(|app| {
             let menu = build_menu(&app.handle())?;
             app.set_menu(menu)?;
@@ -29,8 +38,9 @@ pub fn run() {
             });
 
             // Initial CLI argv (Linux / Windows / macOS-when-launched-from-shell).
-            // macOS Finder double-click does NOT arrive via argv — it comes
-            // through `RunEvent::Opened` handled in app.run() below.
+            // macOS Finder double-click does NOT arrive via argv — uses Apple Events
+            // captured via `RunEvent::Opened` (handled in app.run() below) AND via
+            // `tauri-plugin-deep-link`'s `on_open_url` (frontend-side belt-and-braces).
             let handle = app.handle();
             for arg in std::env::args().skip(1) {
                 emit_open_file_delayed(handle, &arg);
@@ -43,9 +53,8 @@ pub fn run() {
 
     app.run(|app_handle, event| {
         match event {
-            // macOS Apple Event (Finder double-click of registered file types,
-            // drag-onto-dock-icon while not running, "Open With → mdeditor").
-            // Tauri delivers each file as a `file://` URL.
+            // macOS Apple Event for Finder double-click / Open With.
+            // (Belt-and-braces: tauri-plugin-deep-link also handles this.)
             RunEvent::Opened { urls } => {
                 for url in urls {
                     if let Ok(path) = url.to_file_path() {
@@ -55,23 +64,11 @@ pub fn run() {
                     }
                 }
             }
-            // Quit the app when the main window is destroyed. macOS's default
-            // is to keep the app alive after window close, but the user wants
-            // close-quits behavior (typical of single-window doc apps).
-            RunEvent::WindowEvent {
-                event: WindowEvent::Destroyed,
-                ..
-            } => {
-                app_handle.exit(0);
-            }
             _ => {}
         }
     });
 }
 
-/// Emit `open-file` to the frontend after a small delay, so the listener
-/// (registered in App.svelte's onMount) has time to attach. Avoids losing
-/// the event when files arrive during cold startup.
 fn emit_open_file_delayed<R: tauri::Runtime>(app: &tauri::AppHandle<R>, path: &str) {
     let app = app.clone();
     let path = path.to_string();
@@ -150,6 +147,9 @@ fn build_menu<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> tauri::Result<Men
     let help_menu: Submenu<R> = SubmenuBuilder::new(app, "Help")
         .item(&MenuItemBuilder::with_id("docs", "Documentation").build(app)?)
         .build()?;
+
+    // Suppress unused warning when WindowEvent isn't matched in run loop above
+    let _ = std::any::type_name::<WindowEvent>();
 
     MenuBuilder::new(app)
         .items(&[&app_menu, &file_menu, &edit_menu, &view_menu, &window_menu, &help_menu])

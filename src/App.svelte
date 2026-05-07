@@ -3,6 +3,8 @@
   import { onMount } from 'svelte'
   import { getCurrentWindow } from '@tauri-apps/api/window'
   import { listen } from '@tauri-apps/api/event'
+  import { invoke } from '@tauri-apps/api/core'
+  import { onOpenUrl } from '@tauri-apps/plugin-deep-link'
   import TabBar from './components/TabBar.svelte'
   import EditorPane from './components/EditorPane.svelte'
   import EmptyState from './components/EmptyState.svelte'
@@ -28,10 +30,15 @@
 
     const win = getCurrentWindow()
     const unlistenClose = win.onCloseRequested(async (event) => {
+      // Walk dirty tabs; user can cancel.
       for (const t of [...tabs]) {
         const ok = await closeTab(t.id, confirmDirtyClose)
         if (!ok) { event.preventDefault(); return }
       }
+      // All tabs closed cleanly → quit the app explicitly.
+      // macOS NSWindow's default behavior is hide-not-destroy on close, so we
+      // need to call our Rust `quit_app` command to actually exit the process.
+      try { await invoke('quit_app') } catch (e) { console.warn('[App] quit_app:', e) }
     })
 
     const unlistenMenu = listen<string>('menu-event', (e) => {
@@ -62,12 +69,32 @@
       try { await openFile(e.payload) } catch (err) { console.warn('[App] open-file:', err) }
     })
 
+    // tauri-plugin-deep-link `onOpenUrl` — handles macOS Apple Events for
+    // file associations. Fires for: Finder double-click, "Open With → M↓",
+    // drag-onto-Dock-icon, when the app is registered as the file's handler.
+    // URLs come as `file:///path/to/file.md` (already URL-decoded by plugin).
+    const unlistenDeepLink = onOpenUrl((urls) => {
+      for (const url of urls) {
+        let path = url
+        if (path.startsWith('file://')) {
+          try {
+            const u = new URL(path)
+            path = decodeURIComponent(u.pathname)
+          } catch {
+            // Fall through; openFile will reject if path is bad
+          }
+        }
+        openFile(path).catch((err) => console.warn('[App] deep-link openFile:', path, err))
+      }
+    })
+
     return () => {
       window.removeEventListener('keydown', onKeyDown)
       unlistenClose.then((fn) => fn())
       unlistenMenu.then((fn) => fn())
       unlistenDrop.then((fn) => fn())
       unlistenOpenFile.then((fn) => fn())
+      unlistenDeepLink.then((fn) => fn())
       stopAutoSave?.()
     }
   })
