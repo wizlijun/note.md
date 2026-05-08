@@ -36,6 +36,19 @@ pub struct PluginManifest {
 fn default_timeout() -> u64 { 30 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PromptFilter {
+    pub name: String,
+    pub extensions: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PromptSpec {
+    pub kind: String,                           // "save-dialog" only in v1
+    pub default_filename: String,
+    pub filters: Vec<PromptFilter>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MenuEntry {
     pub location: String,
     pub label: String,
@@ -44,6 +57,8 @@ pub struct MenuEntry {
     pub command: String,
     #[serde(default)]
     pub enabled_when: Option<String>,
+    #[serde(default)]
+    pub prompt: Option<PromptSpec>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -63,15 +78,62 @@ pub struct SettingsBlock {
 
 #[derive(Debug, Default)]
 struct State {
-    /// Plugin id → (manifest, source-directory containing the binary).
-    plugins: HashMap<String, (PluginManifest, PathBuf)>,
+    /// Manifests the host considers active (passed plugins.enabled filter).
+    /// Drives menu registration, settings tabs, invocation lookups.
+    enabled: HashMap<String, (PluginManifest, PathBuf)>,
+    /// Every manifest discovered on disk (including disabled). Used only
+    /// by the Preferences "Plugins" tab to render the on/off list.
+    all: Vec<PluginManifest>,
 }
 
 static STATE: LazyLock<RwLock<State>> = LazyLock::new(|| RwLock::new(State::default()));
 
+/// Read the `plugins.enabled` map from settings.json. Best-effort — any
+/// error returns an empty map so all plugins fall through to the
+/// default-on rule. Accepts three on-disk shapes:
+///   1. Top-level "plugins.enabled" key:    `{"plugins.enabled": {"foo": true}}`
+///   2. Nested under "plugins":              `{"plugins": {"enabled": {"foo": true}}}`
+///   3. Flat fully-qualified keys:           `{"plugins.enabled.foo": true}`
+/// Shape (1) is what the front-end writes today via tauri-plugin-store.
+fn read_enabled_map<R: Runtime>(app: &AppHandle<R>) -> HashMap<String, bool> {
+    let path = match app.path().app_config_dir() {
+        Ok(p) => p.join("settings.json"),
+        Err(_) => return HashMap::new(),
+    };
+    let bytes = match std::fs::read(&path) {
+        Ok(b) => b,
+        Err(_) => return HashMap::new(),
+    };
+    let v: serde_json::Value = match serde_json::from_slice(&bytes) {
+        Ok(v) => v,
+        Err(_) => return HashMap::new(),
+    };
+    let mut out = HashMap::new();
+    // Shape (1): top-level key "plugins.enabled" → object
+    if let Some(obj) = v.get("plugins.enabled").and_then(|e| e.as_object()) {
+        for (k, vv) in obj { if let Some(b) = vv.as_bool() { out.insert(k.clone(), b); } }
+    }
+    // Shape (2): nested {"plugins": {"enabled": {...}}}
+    if let Some(obj) = v.get("plugins").and_then(|p| p.get("enabled")).and_then(|e| e.as_object()) {
+        for (k, vv) in obj { if let Some(b) = vv.as_bool() { out.insert(k.clone(), b); } }
+    }
+    // Shape (3): flat top-level "plugins.enabled.<id>" keys
+    if let Some(top) = v.as_object() {
+        for (k, vv) in top {
+            if let Some(rest) = k.strip_prefix("plugins.enabled.") {
+                if let Some(b) = vv.as_bool() { out.insert(rest.to_string(), b); }
+            }
+        }
+    }
+    out
+}
+
 /// Called from `lib.rs` once at app startup. Walks `<resource_dir>/plugins/*/manifest.json`,
 /// parses each, and stashes valid ones in STATE. Invalid manifests are logged
-/// to stderr and skipped — they do not crash the app.
+/// to stderr and skipped — they do not crash the app. Manifests where the
+/// user has set `plugins.enabled.<id> = false` are recorded in the "all"
+/// list (so the Preferences UI can render them) but not added to the
+/// active map; their menus / shortcuts / settings tabs do not register.
 pub fn init<R: Runtime>(app: &AppHandle<R>) {
     let plugins_dir = match app.path().resource_dir() {
         Ok(rd) => rd.join("plugins"),
@@ -83,6 +145,8 @@ pub fn init<R: Runtime>(app: &AppHandle<R>) {
         Ok(e) => e,
         Err(e) => { eprintln!("[plugin_host] read_dir {:?}: {e}", plugins_dir); return; }
     };
+
+    let enabled_map = read_enabled_map(app);
 
     let mut state = STATE.write().unwrap();
     for entry in entries.flatten() {
@@ -99,17 +163,33 @@ pub fn init<R: Runtime>(app: &AppHandle<R>) {
             Ok(m) => m,
             Err(e) => { eprintln!("[plugin_host] parse {:?}: {e}", manifest_path); continue }
         };
-        if state.plugins.contains_key(&manifest.id) {
+
+        // Always record the manifest in the "all" list (even if disabled).
+        state.all.push(manifest.clone());
+
+        // Default-on rule: missing key → enabled.
+        let is_enabled = enabled_map.get(&manifest.id).copied().unwrap_or(true);
+        if !is_enabled { continue }
+
+        if state.enabled.contains_key(&manifest.id) {
             eprintln!("[plugin_host] duplicate id '{}' — keeping first", manifest.id);
             continue
         }
-        state.plugins.insert(manifest.id.clone(), (manifest, dir));
+        state.enabled.insert(manifest.id.clone(), (manifest, dir));
     }
 }
 
 #[tauri::command]
 pub fn get_plugin_manifests() -> Vec<PluginManifest> {
-    STATE.read().unwrap().plugins.values().map(|(m, _)| m.clone()).collect()
+    STATE.read().unwrap().enabled.values().map(|(m, _)| m.clone()).collect()
+}
+
+/// Returns *every* manifest discovered on disk, including disabled ones.
+/// Only the Preferences "Plugins" tab uses this — runtime menus / dispatch
+/// must use `get_plugin_manifests` so disabled plugins remain inert.
+#[tauri::command]
+pub fn get_all_plugin_manifests() -> Vec<PluginManifest> {
+    STATE.read().unwrap().all.clone()
 }
 
 #[derive(Debug, Serialize)]
@@ -221,7 +301,7 @@ pub async fn run_plugin_binary(
 pub async fn invoke_plugin(plugin_id: String, request_json: String) -> Result<InvokeResult, String> {
     let (manifest, plugin_dir) = {
         let st = STATE.read().unwrap();
-        match st.plugins.get(&plugin_id) {
+        match st.enabled.get(&plugin_id) {
             Some((m, d)) => (m.clone(), d.clone()),
             None => return Err(format!("unknown plugin: {plugin_id}")),
         }
@@ -241,7 +321,8 @@ pub async fn invoke_plugin(plugin_id: String, request_json: String) -> Result<In
 /// or otherwise touch the plugin binary file referenced by `manifest.binary`.
 pub fn init_from(plugins_dir: &PathBuf) -> usize {
     let mut state = STATE.write().unwrap();
-    state.plugins.clear();
+    state.enabled.clear();
+    state.all.clear();
     let entries = match std::fs::read_dir(plugins_dir) {
         Ok(e) => e,
         Err(_) => return 0,
@@ -259,10 +340,11 @@ pub fn init_from(plugins_dir: &PathBuf) -> usize {
             Ok(m) => m,
             Err(_) => continue,
         };
-        if state.plugins.contains_key(&manifest.id) { continue }
-        state.plugins.insert(manifest.id.clone(), (manifest, dir));
+        state.all.push(manifest.clone());
+        if state.enabled.contains_key(&manifest.id) { continue }
+        state.enabled.insert(manifest.id.clone(), (manifest, dir));
     }
-    state.plugins.len()
+    state.enabled.len()
 }
 
 pub struct LocatedMenuItem {
@@ -277,7 +359,7 @@ pub struct LocatedMenuItem {
 pub fn collect_top_menu_items() -> Vec<LocatedMenuItem> {
     let st = STATE.read().unwrap();
     let mut out = Vec::new();
-    for (_, (m, _)) in st.plugins.iter() {
+    for (_, (m, _)) in st.enabled.iter() {
         for me in m.menus.iter() {
             out.push(LocatedMenuItem {
                 id: format!("plugin:{}:{}", m.id, me.command),

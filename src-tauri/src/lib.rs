@@ -228,6 +228,7 @@ pub fn run() {
             set_plugin_menu_item_enabled,
             pdf::export_pdf,
             plugin_host::get_plugin_manifests,
+            plugin_host::get_all_plugin_manifests,
             plugin_host::invoke_plugin,
         ])
         .setup(|app| {
