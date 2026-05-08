@@ -6,8 +6,8 @@ import { htmlEscape } from './plugins/host-render-html'
  * rendered SVG. Per-block errors become red placeholder text — one bad
  * diagram doesn't sink the whole render.
  *
- * Used by both pdf-export and share-baker so PDF / share visuals stay in
- * sync with M↓'s rich mode.
+ * Used by host-render-html (the shared renderer.html pipeline) so the
+ * share, md2pdf, and any future plugins stay in sync with M↓'s rich mode.
  */
 export async function renderDiagrams(staging: HTMLElement): Promise<void> {
   type Lang = 'mermaid' | 'dot' | 'graphviz'
