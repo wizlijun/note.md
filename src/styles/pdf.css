@@ -1,1 +1,148 @@
-@page { size: A4; margin: 25mm 20mm; }
+/* === Page setup === */
+@page {
+  size: A4;
+  margin: 25mm 20mm;
+  @top-center {
+    content: attr(data-pdf-title);
+    font-family: -apple-system, system-ui, sans-serif;
+    font-size: 9pt;
+    color: #555;
+    margin-top: 12mm;
+  }
+  @bottom-right {
+    content: counter(page) " / " counter(pages);
+    font-family: -apple-system, system-ui, sans-serif;
+    font-size: 9pt;
+    color: #555;
+    margin-bottom: 12mm;
+  }
+}
+@page :first {
+  @top-center { content: none; }
+}
+
+/* === Reset & body === */
+* { box-sizing: border-box; }
+body {
+  font-family: 'Charter', 'Iowan Old Style', 'Georgia', serif;
+  font-size: 11pt;
+  line-height: 1.7;
+  color: #1a1a1a;
+  background: white;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+  margin: 0;
+}
+
+/* === Headings === */
+h1 {
+  font-family: -apple-system, system-ui, sans-serif;
+  font-size: 22pt;
+  font-weight: 700;
+  line-height: 1.25;
+  margin: 0 0 0.6em 0;
+  break-after: avoid;
+}
+h2 {
+  font-family: -apple-system, system-ui, sans-serif;
+  font-size: 16pt;
+  font-weight: 600;
+  margin: 1.6em 0 0.4em 0;
+  break-after: avoid;
+}
+h3 {
+  font-family: -apple-system, system-ui, sans-serif;
+  font-size: 13pt;
+  font-weight: 600;
+  margin: 1.3em 0 0.3em 0;
+  break-after: avoid;
+}
+h4 {
+  font-size: 11pt;
+  font-weight: 600;
+  margin: 1em 0 0.3em 0;
+  break-after: avoid;
+}
+
+/* === Paragraphs / lists === */
+p { margin: 0 0 0.7em 0; orphans: 3; widows: 3; }
+ul, ol { margin: 0 0 0.7em 0; padding-left: 1.4em; }
+li { margin-bottom: 0.2em; }
+li > p { margin-bottom: 0.3em; }
+
+/* === Inline code & code blocks === */
+code {
+  font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+  font-size: 9.5pt;
+  background: #f4f4f4;
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+pre {
+  font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+  font-size: 9.5pt;
+  line-height: 1.5;
+  background: #f8f8fa;
+  border: 1px solid #e1e4e8;
+  border-radius: 4px;
+  padding: 0.9em 1.1em;
+  margin: 0.8em 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  break-inside: avoid;
+}
+pre code { background: transparent; padding: 0; font-size: inherit; }
+
+/* === Blockquote === */
+blockquote {
+  margin: 0.8em 0;
+  padding: 0.4em 1em;
+  border-left: 3px solid #d0d7de;
+  color: #555;
+  background: #fafbfc;
+}
+
+/* === Tables === */
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.8em 0;
+  break-inside: avoid;
+  font-size: 10pt;
+}
+th, td {
+  padding: 6px 10px;
+  border: 1px solid #d0d7de;
+  text-align: left;
+  vertical-align: top;
+}
+th { background: #f6f8fa; font-weight: 600; }
+
+/* === Images / figures === */
+img { max-width: 100%; height: auto; break-inside: avoid; }
+figure { margin: 0.8em 0; break-inside: avoid; }
+figcaption {
+  font-size: 9pt;
+  color: #555;
+  text-align: center;
+  margin-top: 0.3em;
+}
+
+/* === Math (KaTeX) === */
+.katex-display { margin: 0.8em 0; break-inside: avoid; overflow-wrap: anywhere; }
+.katex { font-size: 11pt; }
+
+/* === Mermaid === */
+.mermaid {
+  display: block;
+  max-width: 100%;
+  margin: 0.8em auto;
+  break-inside: avoid;
+}
+.mermaid svg { max-width: 100%; height: auto; }
+
+/* === Horizontal rule === */
+hr { border: 0; border-top: 1px solid #d0d7de; margin: 1.5em 0; }
+
+/* === Links: keep visible color, do not auto-append URL === */
+a { color: #0366d6; text-decoration: none; }
