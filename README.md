@@ -75,6 +75,14 @@ Output:
 20. Open `.json` file, switch to rich → edit a value inside the rendered code block, switch back to source → see edit; Cmd+S → reopen → contents persist (round-trip byte-stable when fence intact)
 21. **Menu-bar tray** — confirm M↓ glyph is visible in the macOS menu bar; click → window comes to front
 22. **Close window (red traffic-light)** → app quits (no orphaned dock icon)
+23. **External change — clean tab auto-reload**: open `~/foo.md` in M↓ (no edits), run `echo x >> ~/foo.md` from a shell. Within ~1 s (or after focusing M↓) editor content updates silently.
+24. **External change — dirty tab banner**: edit `~/foo.md` in M↓ (dirty), run the same external append. Yellow banner appears with three buttons.
+25. **Banner — Reload from disk**: clicking it replaces the editor with disk content; banner clears.
+26. **Banner — Overwrite with my changes**: clicking it writes the buffer to disk; banner clears; `cat ~/foo.md` shows the buffer content.
+27. **External delete**: `rm ~/foo.md` while open. Banner switches to "deleted" variant (red accent).
+28. **Recreate on Save**: ⌘S in deleted state writes the buffer to the (now non-existent) path, recreating the file. Banner clears.
+29. **Stale banner refresh**: while the changed-banner is showing, modify the file again externally. Banner stays. Clicking Reload pulls the LATEST content (not stale).
+30. **Self-write suppression**: Cmd+S inside M↓. Watcher receives the echo. Banner does NOT appear.
 
 ## Spec & Plan
 
