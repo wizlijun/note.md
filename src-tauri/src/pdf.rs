@@ -294,23 +294,29 @@ mod imp {
         }
     }
 
-    /// Expand a captured single-page PDF's MediaBox so the page becomes A4
-    /// with the original content offset by (MARGIN_H, MARGIN_V).
+    /// Expand a captured single-page PDF's page boxes so the page becomes
+    /// A4 with the original content offset by (MARGIN_H, MARGIN_V).
     ///
     /// PDF coordinates: origin is bottom-left. Content drawn at PDF (x, y)
     /// appears at viewer-page (x - mediabox.x, y - mediabox.y). Setting
     /// MediaBox origin to (-MARGIN_H, -MARGIN_V) shifts the displayed
     /// content by (MARGIN_H, MARGIN_V) → visible left/bottom margin.
-    /// MediaBox size = A4 → final page is A4-sized with margins on all
-    /// four sides (top/right margins emerge automatically because content
-    /// is INNER_W × INNER_H, smaller than A4 minus offset).
+    ///
+    /// Sets MediaBox AND CropBox AND TrimBox AND BleedBox AND ArtBox.
+    /// Some viewers (Preview included) clip to CropBox by default; if
+    /// only MediaBox is updated and CropBox stays at the original
+    /// content rect, the viewer shows no margins.
     fn expand_to_a4_with_margins(page: &PDFPage) {
-        let new_media = NSRect::new(
+        let new_box = NSRect::new(
             objc2_foundation::NSPoint::new(-MARGIN_H, -MARGIN_V),
             objc2_foundation::NSSize::new(A4_W, A4_H),
         );
         unsafe {
-            page.setBounds_forBox(new_media, PDFDisplayBox::MediaBox);
+            page.setBounds_forBox(new_box, PDFDisplayBox::MediaBox);
+            page.setBounds_forBox(new_box, PDFDisplayBox::CropBox);
+            page.setBounds_forBox(new_box, PDFDisplayBox::BleedBox);
+            page.setBounds_forBox(new_box, PDFDisplayBox::TrimBox);
+            page.setBounds_forBox(new_box, PDFDisplayBox::ArtBox);
         }
     }
 
