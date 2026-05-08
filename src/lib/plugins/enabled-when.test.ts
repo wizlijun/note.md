@@ -33,6 +33,13 @@ describe('parseEnabledWhen', () => {
   it('throws on trailing operator', () => {
     expect(() => parseEnabledWhen('a &&')).toThrow()
   })
+  it('rejects double negation per grammar (! applies to atom only)', () => {
+    expect(() => parseEnabledWhen('!!a')).toThrow()
+  })
+  it('allows ! applied to a parenthesized expr (an atom)', () => {
+    // !(...)  is OK because the parens make the inner an atom.
+    expect(() => parseEnabledWhen('!(a && b)')).not.toThrow()
+  })
 })
 
 describe('evaluateEnabledWhen', () => {

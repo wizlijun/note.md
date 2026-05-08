@@ -76,7 +76,7 @@ class Parser {
   private parseUnary(): Node {
     if (this.peekSym('!')) {
       this.consume()
-      return { kind: 'not', inner: this.parseUnary() }
+      return { kind: 'not', inner: this.parseAtom() }
     }
     return this.parseAtom()
   }
