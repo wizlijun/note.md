@@ -10,7 +10,8 @@
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "tauri": "tauri",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "build:mdshare": "bash scripts/build-mdshare.sh"
   },
   "dependencies": {
     "@moraya/core": "^0.1.0",

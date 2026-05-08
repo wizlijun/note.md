@@ -1,8 +1,10 @@
 import type { EnabledWhenContext } from './types'
 
+type PathSegment = { kind: 'literal'; value: string } | { kind: 'computed'; node: Node }
+
 type Node =
   | { kind: 'lit'; value: boolean }
-  | { kind: 'path'; segments: string[] }
+  | { kind: 'path'; segments: PathSegment[] }
   | { kind: 'not'; inner: Node }
   | { kind: 'and'; left: Node; right: Node }
   | { kind: 'or';  left: Node; right: Node }
@@ -100,24 +102,32 @@ class Parser {
   }
 
   private parsePath(): Node {
-    const segments: string[] = []
+    const segments: PathSegment[] = []
     const head = this.consume()
     if (head.kind !== 'ident') throw new Error('path must start with identifier')
-    segments.push(head.value)
+    segments.push({ kind: 'literal', value: head.value })
     while (true) {
       if (this.peekSym('.')) {
         this.consume()
         const t = this.consume()
         if (t.kind !== 'ident') throw new Error('expected identifier after `.`')
-        segments.push(t.value)
+        segments.push({ kind: 'literal', value: t.value })
         continue
       }
       if (this.peekSym('[')) {
         this.consume()
-        const t = this.consume()
-        if (t.kind !== 'string' && t.kind !== 'ident')
+        const next = this.peek()
+        if (next.kind === 'string') {
+          this.consume()
+          segments.push({ kind: 'literal', value: next.value })
+        } else if (next.kind === 'ident') {
+          // Multi-segment computed index — recursively parse a full path,
+          // then evaluate it at lookup time and use the result as the key.
+          const sub = this.parsePath()
+          segments.push({ kind: 'computed', node: sub })
+        } else {
           throw new Error('expected string or identifier inside `[ ]`')
-        segments.push(t.value)
+        }
         this.expectSym(']')
         continue
       }
@@ -151,13 +161,28 @@ export function parseEnabledWhen(src: string): Node {
   return node
 }
 
-function lookup(ctx: EnabledWhenContext, segments: string[]): unknown {
+function lookup(ctx: EnabledWhenContext, segments: PathSegment[]): unknown {
   let cur: unknown = ctx as unknown
   for (const seg of segments) {
     if (cur == null || typeof cur !== 'object') return undefined
-    cur = (cur as Record<string, unknown>)[seg]
+    let key: string
+    if (seg.kind === 'literal') {
+      key = seg.value
+    } else {
+      const v = evalRaw(seg.node, ctx)
+      if (v == null) return undefined
+      key = String(v)
+    }
+    cur = (cur as Record<string, unknown>)[key]
   }
   return cur
+}
+
+/** Returns the raw (non-boolean-coerced) value for a node — used for computed index resolution. */
+function evalRaw(node: Node, ctx: EnabledWhenContext): unknown {
+  if (node.kind === 'path') return lookup(ctx, node.segments)
+  // For non-path nodes (logical ops, literals), fall back to boolean result.
+  return evalNode(node, ctx)
 }
 
 function truthy(v: unknown): boolean {

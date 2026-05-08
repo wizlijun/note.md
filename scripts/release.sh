@@ -183,6 +183,9 @@ grep -q "^version = \"$VERSION\"$"              src-tauri/Cargo.toml      || die
 
 say "building (signed)"
 
+say "building mdshare plugin binaries"
+pnpm build:mdshare
+
 if (( UNIVERSAL )); then
   rustup target add x86_64-apple-darwin aarch64-apple-darwin >/dev/null 2>&1 || true
   APPLE_SIGNING_IDENTITY="$APPLE_SIGNING_IDENTITY" pnpm tauri build --target universal-apple-darwin

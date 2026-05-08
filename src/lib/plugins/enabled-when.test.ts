@@ -40,6 +40,12 @@ describe('parseEnabledWhen', () => {
     // !(...)  is OK because the parens make the inner an atom.
     expect(() => parseEnabledWhen('!(a && b)')).not.toThrow()
   })
+  it('parses computed bracket index (multi-segment path)', () => {
+    expect(() => parseEnabledWhen('settings["share.records"][currentTab.path]')).not.toThrow()
+  })
+  it('parses chained computed indices', () => {
+    expect(() => parseEnabledWhen('a[b.c][d.e]')).not.toThrow()
+  })
 })
 
 describe('evaluateEnabledWhen', () => {
@@ -93,5 +99,31 @@ describe('evaluateEnabledWhen', () => {
       .toBe(true)
     expect(evaluateEnabledWhen('(currentTab.isDirty || currentTab.hasContent) && currentTab.isUntitled', c))
       .toBe(false)
+  })
+  it('uses inner-path value as the lookup key', () => {
+    const settings = { 'share.records': { '/foo.md': { slug: 'x' } } }
+    const c = ctx({
+      currentTab: {
+        path: '/foo.md', filename: 'foo.md', extension: 'md',
+        hasContent: true, isDirty: false, isUntitled: false,
+      },
+      settings,
+    })
+    expect(evaluateEnabledWhen('settings["share.records"][currentTab.path]', c)).toBe(true)
+  })
+  it('returns false when computed key is not present in container', () => {
+    const settings = { 'share.records': { '/other.md': { slug: 'x' } } }
+    const c = ctx({
+      currentTab: {
+        path: '/foo.md', filename: 'foo.md', extension: 'md',
+        hasContent: true, isDirty: false, isUntitled: false,
+      },
+      settings,
+    })
+    expect(evaluateEnabledWhen('settings["share.records"][currentTab.path]', c)).toBe(false)
+  })
+  it('returns false when inner path resolves to undefined', () => {
+    const c = ctx({ currentTab: null, settings: { 'share.records': { 'x': 1 } } })
+    expect(evaluateEnabledWhen('settings["share.records"][currentTab.path]', c)).toBe(false)
   })
 })
