@@ -1,3 +1,6 @@
+/**
+ * @vitest-environment happy-dom
+ */
 import { describe, it, expect } from 'vitest'
 import {
   shareHeaderLabel, isoDateStamp, viewportMetaTag, themeCssBlock,
@@ -99,5 +102,63 @@ describe('renderTabBody', () => {
     const t = fakeTab({ currentContent: '```js\nconst x = 1\n```' })
     const body = await renderTabBody(t)
     expect(body).toContain('hljs language-js')
+  })
+})
+
+import { inlineImages } from './share-baker'
+
+describe('inlineImages', () => {
+  function makeReader(map: Record<string, Uint8Array | Error>) {
+    return async (path: string) => {
+      const v = map[path]
+      if (v instanceof Error) throw v
+      if (!v) throw new Error(`fixture missing: ${path}`)
+      return v
+    }
+  }
+  function pngFixture(): Uint8Array {
+    return new Uint8Array([
+      0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00,
+    ])
+  }
+
+  it('inlines a relative png path as base64 data URL', async () => {
+    const html = '<p><img src="./pic.png" alt="ok"></p>'
+    const out = await inlineImages(html, '/Users/bruce/notes/foo.md', makeReader({
+      '/Users/bruce/notes/pic.png': pngFixture(),
+    }))
+    expect(out).toContain('src="data:image/png;base64,')
+    expect(out).not.toContain('./pic.png')
+  })
+
+  it('inlines a file:// absolute path', async () => {
+    const html = '<img src="file:///tmp/abs.jpg">'
+    const out = await inlineImages(html, '/Users/bruce/notes/foo.md', makeReader({
+      '/tmp/abs.jpg': new Uint8Array([0xff, 0xd8, 0xff]),
+    }))
+    expect(out).toContain('src="data:image/jpeg;base64,')
+  })
+
+  it('leaves remote https:// untouched', async () => {
+    const html = '<img src="https://example.com/x.png">'
+    const out = await inlineImages(html, '/p/foo.md', makeReader({}))
+    expect(out).toBe(html)
+  })
+
+  it('replaces unreadable image with italic alt text', async () => {
+    const html = '<img src="./missing.png" alt="missing alt">'
+    const out = await inlineImages(html, '/p/foo.md', makeReader({
+      '/p/missing.png': new Error('ENOENT'),
+    }))
+    expect(out).not.toContain('<img')
+    expect(out).toContain('<em>missing alt</em>')
+  })
+
+  it('uses [image] placeholder when alt is missing', async () => {
+    const html = '<img src="./missing.png">'
+    const out = await inlineImages(html, '/p/foo.md', makeReader({
+      '/p/missing.png': new Error('ENOENT'),
+    }))
+    expect(out).toContain('<em>[image]</em>')
   })
 })
