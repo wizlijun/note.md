@@ -233,6 +233,38 @@ pub async fn invoke_plugin(plugin_id: String, request_json: String) -> Result<In
     run_plugin_binary(&binary, &request_json, manifest.timeout_seconds).await
 }
 
+/// Test-only: initialize STATE from an arbitrary directory rather than the
+/// app's resource_dir. Lets integration tests measure startup cost without
+/// needing a Tauri AppHandle. Returns the number of plugins loaded.
+///
+/// Like `init`, this only reads manifest.json files. It does NOT open, stat,
+/// or otherwise touch the plugin binary file referenced by `manifest.binary`.
+pub fn init_from(plugins_dir: &PathBuf) -> usize {
+    let mut state = STATE.write().unwrap();
+    state.plugins.clear();
+    let entries = match std::fs::read_dir(plugins_dir) {
+        Ok(e) => e,
+        Err(_) => return 0,
+    };
+    for entry in entries.flatten() {
+        let dir = entry.path();
+        if !dir.is_dir() { continue }
+        let manifest_path = dir.join("manifest.json");
+        if !manifest_path.exists() { continue }
+        let bytes = match std::fs::read(&manifest_path) {
+            Ok(b) => b,
+            Err(_) => continue,
+        };
+        let manifest: PluginManifest = match serde_json::from_slice(&bytes) {
+            Ok(m) => m,
+            Err(_) => continue,
+        };
+        if state.plugins.contains_key(&manifest.id) { continue }
+        state.plugins.insert(manifest.id.clone(), (manifest, dir));
+    }
+    state.plugins.len()
+}
+
 pub struct LocatedMenuItem {
     pub id: String,
     pub label: String,
