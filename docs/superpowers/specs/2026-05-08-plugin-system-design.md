@@ -4,7 +4,7 @@
 **Date**: 2026-05-08
 **Owner**: bruce@hemory.com
 **Driving use case**: "Share via Cloudflare" feature — see companion spec
-`2026-05-09-mdshare-plugin-design.md` (to be written next)
+`2026-05-08-mdshare-plugin-design.md`
 
 ## Goal
 
