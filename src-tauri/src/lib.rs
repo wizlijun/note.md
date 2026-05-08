@@ -4,8 +4,8 @@ use std::fs::OpenOptions;
 use std::io::Write;
 use tauri::image::Image;
 use tauri::menu::{
-    AboutMetadata, Menu, MenuBuilder, MenuItem, MenuItemBuilder, PredefinedMenuItem, Submenu,
-    SubmenuBuilder,
+    AboutMetadata, Menu, MenuBuilder, MenuItem, MenuItemBuilder, MenuItemKind, PredefinedMenuItem,
+    Submenu, SubmenuBuilder,
 };
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{Emitter, Manager, RunEvent, WindowEvent};
@@ -40,6 +40,42 @@ fn dlog(msg: &str) {
 #[tauri::command]
 fn quit_app(app: tauri::AppHandle) {
     app.exit(0);
+}
+
+/// Set the enabled state of a plugin-contributed menu item by id.
+/// IDs follow the `plugin:<plugin-id>:<command>` convention.
+/// Walks the entire menu tree (top-level + submenus) so it finds items
+/// regardless of which submenu they were appended to.
+#[tauri::command]
+fn set_plugin_menu_item_enabled(app: tauri::AppHandle, id: String, enabled: bool) -> Result<(), String> {
+    fn walk<R: tauri::Runtime>(items: Vec<MenuItemKind<R>>, id: &str, enabled: bool) -> bool {
+        for item in items {
+            match item {
+                MenuItemKind::MenuItem(mi) => {
+                    if mi.id().0.as_str() == id {
+                        let _ = mi.set_enabled(enabled);
+                        return true;
+                    }
+                }
+                MenuItemKind::Submenu(sm) => {
+                    if let Ok(child) = sm.items() {
+                        if walk(child, id, enabled) {
+                            return true;
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+        false
+    }
+    let menu = app.menu().ok_or_else(|| "no menu set".to_string())?;
+    let items = menu.items().map_err(|e| e.to_string())?;
+    if walk(items, &id, enabled) {
+        Ok(())
+    } else {
+        Err(format!("menu item not found: {id}"))
+    }
 }
 
 #[derive(serde::Serialize)]
@@ -189,6 +225,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             quit_app,
             set_default_app_for_extensions,
+            set_plugin_menu_item_enabled,
             pdf::export_pdf,
             plugin_host::get_plugin_manifests,
             plugin_host::invoke_plugin,

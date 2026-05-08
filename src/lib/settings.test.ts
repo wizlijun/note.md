@@ -71,19 +71,33 @@ describe('plugin-scoped settings', () => {
     expect(getPluginScopedAll('mystery')).toEqual({})
   })
 
-  it('mergePluginScoped writes deeply', async () => {
+  it('mergePluginScoped replaces value at each fully-qualified key (shallow, not recursive)', async () => {
     mockGet.mockResolvedValue({ share: { records: { a: 1 } } })
     const { loadSettings, getPluginScopedAll, mergePluginScoped } = await import('./settings.svelte')
     await loadSettings()
     await mergePluginScoped({ 'share.records': { b: 2 }, 'share.baseUrl': 'https://y' })
+    // share.records is REPLACED entirely — { a: 1 } is gone.
+    // Plugins must read-modify-write the full sub-map themselves if they
+    // want to preserve other entries (see spec § Actions § settings.merge).
     expect(getPluginScopedAll('share')).toEqual({
       'share.records': { b: 2 },
       'share.baseUrl': 'https://y',
     })
-    // Verify the underlying store.set was called with the nested form.
     const setCall = mockSet.mock.calls.find((args) => args[0] === 'plugins')
     expect(setCall?.[1]).toEqual({
       share: { records: { b: 2 }, baseUrl: 'https://y' },
+    })
+  })
+
+  it('preserves untouched keys at the same level (only patched keys are replaced)', async () => {
+    mockGet.mockResolvedValue({ share: { baseUrl: 'https://x', apiKey: 'secret' } })
+    const { loadSettings, getPluginScopedAll, mergePluginScoped } = await import('./settings.svelte')
+    await loadSettings()
+    await mergePluginScoped({ 'share.baseUrl': 'https://y' })
+    // apiKey is preserved because it wasn't in the patch.
+    expect(getPluginScopedAll('share')).toEqual({
+      'share.baseUrl': 'https://y',
+      'share.apiKey': 'secret',
     })
   })
 })

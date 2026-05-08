@@ -276,8 +276,13 @@ Action types emitted by plugins:
   ```json
   { "type": "settings.merge", "patch": { "<plugin-id>.<key>": <any-json> } }
   ```
-  Performs a deep merge into the existing settings store. Keys outside the
-  plugin's declared `settings.write:*` scopes are dropped.
+  Replaces the value at each fully-qualified key in the existing settings
+  store. The patch is treated as a flat key→value map: each key replaces its
+  prior value entirely (no recursive object merge). Plugins that need to
+  preserve other entries under the same parent key (e.g. `share.records`
+  storing many file paths) MUST read the current value with `settings.read`
+  and write back the full updated map. Keys outside the plugin's declared
+  `settings.write:*` scopes are dropped.
 - `dialog.confirm` (Note: blocking; plugin process has already exited, so this
   is fire-and-forget — the plugin cannot get the user's answer in v1. Use it
   for "are you sure?" follow-ups that produce a *new* invocation rather than

@@ -18,13 +18,21 @@
   import SettingsDialog from './components/SettingsDialog.svelte'
   import Toast from './components/Toast.svelte'
   import { invokePlugin } from './lib/plugins/host'
-  import { applyActions, __setHandlersForTests } from './lib/plugins/action-handlers'
-  import { parsePluginMenuId } from './lib/plugins/menu-registry'
-  import { getPluginScopedAll } from './lib/settings.svelte'
+  import { applyActions, configureActionHandlers } from './lib/plugins/action-handlers'
+  import {
+    collectMenuItems, evaluateEnabled, parsePluginMenuId,
+    type CollectedItem, type CollectedItems,
+  } from './lib/plugins/menu-registry'
+  import { pluginRuntime, setPluginDispatcher } from './lib/plugins/runtime.svelte'
+  import { getPluginScopedAll, pluginScopedVersion } from './lib/settings.svelte'
   import { pushToast } from './lib/toast.svelte'
-  import type { PluginManifest } from './lib/plugins/types'
+  import type { PluginManifest, EnabledWhenContext } from './lib/plugins/types'
 
   let showSettings = $state(false)
+  let collectedItems = $derived<CollectedItems>(collectMenuItems(pluginRuntime.manifests))
+  // Tracks last applied enabled state per menu-item id, so we only invoke the
+  // Tauri command when something actually changes.
+  const lastEnabledState = new Map<string, boolean>()
 
   onMount(() => {
     let stopAutoSave: (() => void) | undefined
@@ -34,11 +42,10 @@
       try { await loadSettings() } catch (e) { console.warn('[App] loadSettings:', e) }
       stopAutoSave = startAutoSaveWatcher()
 
-      let manifests: PluginManifest[] = []
-      try { manifests = await invoke<PluginManifest[]>('get_plugin_manifests') }
+      try { pluginRuntime.manifests = await invoke<PluginManifest[]>('get_plugin_manifests') }
       catch (e) { console.warn('[App] get_plugin_manifests:', e) }
       const manifestById: Record<string, PluginManifest> = Object.fromEntries(
-        manifests.map((m) => [m.id, m]))
+        pluginRuntime.manifests.map((m) => [m.id, m]))
 
       dispatchPlugin = async (pluginId: string, command: string) => {
         const m = manifestById[pluginId]
@@ -64,7 +71,9 @@
 
       // Register the reinvoke handler so dialog.confirm action-flow can re-enter
       // through the same plugin-dispatch path.
-      __setHandlersForTests({ reinvokePlugin: dispatchPlugin })
+      configureActionHandlers({ reinvokePlugin: dispatchPlugin })
+      // Make dispatchPlugin reachable from other components (TabBar's right-click).
+      setPluginDispatcher(dispatchPlugin)
     })()
 
     const uninstallFocus = installFocusPoll()
@@ -168,6 +177,51 @@
     const tabCount = tabs.length
     const title = tabCount === 1 && current ? `${current.title} — M↓` : 'M↓'
     getCurrentWindow().setTitle(title).catch(() => {})
+  })
+
+  // Re-evaluate enabled_when expressions whenever the active tab, its content
+  // (for hasContent/isDirty), or plugin-scoped settings change. Pushes the
+  // result to the native menu via the Tauri command. Deduped so we only
+  // invoke when state actually flips.
+  $effect(() => {
+    const tab = current
+    // Read these so the effect re-runs on tab/content changes:
+    const _tabCount = tabs.length
+    const _settingsTick = pluginScopedVersion.value
+    void _tabCount; void _settingsTick
+
+    const ewTab: EnabledWhenContext['currentTab'] = tab
+      ? {
+          path: tab.filePath || null,
+          filename: tab.title || null,
+          extension: tab.filePath ? (tab.filePath.split('.').pop() ?? null) : null,
+          hasContent: (tab.currentContent ?? '').length > 0,
+          isDirty: tab.currentContent !== tab.initialContent,
+          isUntitled: !tab.filePath,
+        }
+      : null
+
+    const allItems: CollectedItem[] = [
+      ...collectedItems.file,
+      ...collectedItems.edit,
+      ...collectedItems.view,
+      ...collectedItems.window,
+      ...collectedItems.help,
+      ...collectedItems.plugins,
+    ]
+
+    for (const item of allItems) {
+      if (!item.enabledWhen) continue  // always-enabled — no need to invoke
+      const ctx: EnabledWhenContext = {
+        currentTab: ewTab,
+        settings: getPluginScopedAll(item.pluginId),
+      }
+      const enabled = evaluateEnabled(item, ctx)
+      if (lastEnabledState.get(item.id) === enabled) continue
+      lastEnabledState.set(item.id, enabled)
+      invoke('set_plugin_menu_item_enabled', { id: item.id, enabled })
+        .catch((e) => console.warn(`[App] set_plugin_menu_item_enabled ${item.id}:`, e))
+    }
   })
 </script>
 
