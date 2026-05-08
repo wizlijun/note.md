@@ -51,4 +51,15 @@ describe('decide', () => {
     )
     expect(d).toEqual({ kind: 'showChanged', snapshot: { mtime: 2000, hash: 'h-B', content: 'B' } })
   })
+
+  it('modify on already-deleted tab with same hash → autoReload (not ignore)', () => {
+    // File was deleted then recreated with content equal to the pre-deletion
+    // version. Hash matches lastKnownHash, but the state must still transition
+    // back from 'deleted' so the banner clears.
+    const d = decide(
+      fresh({ externalState: 'deleted' }),
+      modifiedEvent(2000, 'h-A', 'A'),
+    )
+    expect(d).toEqual({ kind: 'autoReload', snapshot: { mtime: 2000, hash: 'h-A', content: 'A' } })
+  })
 })

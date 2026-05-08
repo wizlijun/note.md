@@ -38,14 +38,15 @@ export function decide(tab: TabSnapshot, event: ExternalEvent): Decision {
     return tab.externalState === 'deleted' ? { kind: 'ignore' } : { kind: 'showDeleted' }
   }
   // event.type === 'modified'
-  const { mtime, hash } = event.snapshot
-  // Hash equality alone is enough to ignore: identical content means there's
-  // nothing the user could possibly want to know about (covers both "we just
-  // saved and it echoed" and "external touch with no content change").
-  if (hash === tab.lastKnownHash) return { kind: 'ignore' }
-  // mtime equality with hash mismatch is impossible if our recordOurWrite is
-  // correct, but treat it as a real change anyway — the hash is authoritative.
-  void mtime
+  const { hash } = event.snapshot
+  // Hash equality usually means "disk content matches what we last accepted"
+  // → ignore (covers self-write echoes and external touch with no content
+  // change). Exception: when the tab is currently `deleted`, a modify event
+  // means the file was recreated and we MUST transition state, even if the
+  // recreated content happens to equal the pre-deletion content.
+  if (hash === tab.lastKnownHash && tab.externalState !== 'deleted') {
+    return { kind: 'ignore' }
+  }
   const dirty = tab.currentContent !== tab.initialContent
   return dirty
     ? { kind: 'showChanged', snapshot: event.snapshot }
