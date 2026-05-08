@@ -288,4 +288,45 @@ describe('tabs', () => {
     const { sha256Hex } = await import('./hash')
     expect(t.lastKnownHash).toBe(await sha256Hex('edited'))
   })
+
+  it('reloadFromDisk replaces buffer with pendingExternal content and clears banner', async () => {
+    const m = await import('./tabs.svelte')
+    await m.openFile('/tmp/foo.md')
+    const t = m.tabs[0]
+    // Simulate banner shown:
+    m.setContent(t.id, 'edited')
+    t.externalState = 'changed'
+    t.pendingExternal = { mtime: 5000, hash: 'h-X', content: 'NEW DISK' }
+    await m.reloadFromDisk(t.id)
+    expect(t.currentContent).toBe('NEW DISK')
+    expect(t.initialContent).toBe('NEW DISK')
+    expect(t.externalState).toBe('fresh')
+    expect(t.lastKnownMtime).toBe(5000)
+    expect(t.lastKnownHash).toBe('h-X')
+    expect(t.pendingExternal).toBeUndefined()
+  })
+
+  it('overwriteOnDisk writes the local buffer and clears banner', async () => {
+    const fs = await import('./fs')
+    const m = await import('./tabs.svelte')
+    await m.openFile('/tmp/foo.md')
+    const t = m.tabs[0]
+    m.setContent(t.id, 'mine')
+    t.externalState = 'changed'
+    t.pendingExternal = { mtime: 5000, hash: 'h-X', content: 'theirs' }
+    await m.overwriteOnDisk(t.id)
+    expect(fs.writeMd).toHaveBeenCalledWith('/tmp/foo.md', 'mine')
+    expect(t.externalState).toBe('fresh')
+    expect(t.pendingExternal).toBeUndefined()
+  })
+
+  it('dismissExternalBanner sets the flag without changing externalState', async () => {
+    const m = await import('./tabs.svelte')
+    await m.openFile('/tmp/foo.md')
+    const t = m.tabs[0]
+    t.externalState = 'changed'
+    m.dismissExternalBanner(t.id)
+    expect(t.externalBannerDismissed).toBe(true)
+    expect(t.externalState).toBe('changed')
+  })
 })

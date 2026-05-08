@@ -168,3 +168,43 @@ async function recordOurWrite(t: Tab): Promise<void> {
   t.externalBannerDismissed = false
   t.pendingExternal = undefined
 }
+
+/**
+ * Discard local edits and replace the buffer with whatever the watcher last
+ * read from disk (`pendingExternal`). Clears banner state.
+ *
+ * Pre: tab.externalState === 'changed' && tab.pendingExternal != null.
+ */
+export async function reloadFromDisk(id: string): Promise<void> {
+  const t = tabs.find((x) => x.id === id)
+  if (!t || !t.pendingExternal) return
+  const p = t.pendingExternal
+  t.initialContent = p.content
+  t.currentContent = p.content
+  t.lastKnownMtime = p.mtime
+  t.lastKnownHash = p.hash
+  t.externalState = 'fresh'
+  t.externalBannerDismissed = false
+  t.pendingExternal = undefined
+}
+
+/**
+ * Write the current buffer to disk, accepting the loss of the external
+ * change. Clears banner state.
+ */
+export async function overwriteOnDisk(id: string): Promise<void> {
+  const t = tabs.find((x) => x.id === id)
+  if (!t) return
+  await writeMd(t.filePath, t.currentContent)
+  t.initialContent = t.currentContent
+  await recordOurWrite(t)
+}
+
+/**
+ * Hide the banner without resolving the change. State stays non-fresh; the
+ * banner reappears on the next external event.
+ */
+export function dismissExternalBanner(id: string): void {
+  const t = tabs.find((x) => x.id === id)
+  if (t) t.externalBannerDismissed = true
+}
