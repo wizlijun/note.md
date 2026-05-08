@@ -2018,7 +2018,7 @@ dependencies = [
 
 [[package]]
 name = "mdeditor"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "core-foundation",
  "serde",

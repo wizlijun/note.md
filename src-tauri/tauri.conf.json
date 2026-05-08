@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "M↓",
-  "version": "0.1.0",
+  "productName": "M\u2193",
+  "version": "0.1.1",
   "identifier": "com.bruce.mdeditor",
   "build": {
     "beforeDevCommand": "pnpm dev",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "M↓",
+        "title": "M\u2193",
         "width": 1000,
         "height": 700,
         "minWidth": 600,
@@ -27,35 +27,217 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["app", "dmg"],
-    "icon": ["icons/icon.png"],
+    "targets": [
+      "app",
+      "dmg"
+    ],
+    "icon": [
+      "icons/icon.png"
+    ],
     "category": "DeveloperTool",
     "macOS": {
       "minimumSystemVersion": "11.0"
     },
     "fileAssociations": [
-      { "ext": ["md", "markdown", "mdown", "mkd"], "name": "Markdown", "description": "Markdown document", "role": "Editor" },
-      { "ext": ["html", "htm"],                    "name": "HTML",         "description": "HTML document",          "role": "Editor" },
-      { "ext": ["txt", "log", "csv", "tsv", "env"],"name": "Plain Text",   "description": "Plain text file",        "role": "Editor" },
-      { "ext": ["json", "jsonc"],                  "name": "JSON",         "description": "JSON document",          "role": "Editor" },
-      { "ext": ["yaml", "yml"],                    "name": "YAML",         "description": "YAML document",          "role": "Editor" },
-      { "ext": ["toml", "ini", "conf"],            "name": "Config",       "description": "Configuration file",     "role": "Editor" },
-      { "ext": ["xml"],                            "name": "XML",          "description": "XML document",           "role": "Editor" },
-      { "ext": ["sh", "bash", "zsh"],              "name": "Shell Script", "description": "Shell script",           "role": "Editor" },
-      { "ext": ["py"],                             "name": "Python",       "description": "Python source file",     "role": "Editor" },
-      { "ext": ["js", "mjs", "cjs", "jsx"],        "name": "JavaScript",   "description": "JavaScript source file", "role": "Editor" },
-      { "ext": ["ts", "tsx"],                      "name": "TypeScript",   "description": "TypeScript source file", "role": "Editor" },
-      { "ext": ["rs"],                             "name": "Rust",         "description": "Rust source file",       "role": "Editor" },
-      { "ext": ["go"],                             "name": "Go",           "description": "Go source file",         "role": "Editor" },
-      { "ext": ["java"],                           "name": "Java",         "description": "Java source file",       "role": "Editor" },
-      { "ext": ["c", "cpp", "cc", "h", "hpp"],     "name": "C/C++",        "description": "C / C++ source file",    "role": "Editor" },
-      { "ext": ["rb"],                             "name": "Ruby",         "description": "Ruby source file",       "role": "Editor" },
-      { "ext": ["swift"],                          "name": "Swift",        "description": "Swift source file",      "role": "Editor" },
-      { "ext": ["kt"],                             "name": "Kotlin",       "description": "Kotlin source file",     "role": "Editor" },
-      { "ext": ["php"],                            "name": "PHP",          "description": "PHP source file",        "role": "Editor" },
-      { "ext": ["cs"],                             "name": "C#",           "description": "C# source file",         "role": "Editor" },
-      { "ext": ["css", "scss"],                    "name": "CSS",          "description": "Stylesheet",             "role": "Editor" },
-      { "ext": ["sql"],                            "name": "SQL",          "description": "SQL script",             "role": "Editor" }
+      {
+        "ext": [
+          "md",
+          "markdown",
+          "mdown",
+          "mkd"
+        ],
+        "name": "Markdown",
+        "description": "Markdown document",
+        "role": "Editor"
+      },
+      {
+        "ext": [
+          "html",
+          "htm"
+        ],
+        "name": "HTML",
+        "description": "HTML document",
+        "role": "Editor"
+      },
+      {
+        "ext": [
+          "txt",
+          "log",
+          "csv",
+          "tsv",
+          "env"
+        ],
+        "name": "Plain Text",
+        "description": "Plain text file",
+        "role": "Editor"
+      },
+      {
+        "ext": [
+          "json",
+          "jsonc"
+        ],
+        "name": "JSON",
+        "description": "JSON document",
+        "role": "Editor"
+      },
+      {
+        "ext": [
+          "yaml",
+          "yml"
+        ],
+        "name": "YAML",
+        "description": "YAML document",
+        "role": "Editor"
+      },
+      {
+        "ext": [
+          "toml",
+          "ini",
+          "conf"
+        ],
+        "name": "Config",
+        "description": "Configuration file",
+        "role": "Editor"
+      },
+      {
+        "ext": [
+          "xml"
+        ],
+        "name": "XML",
+        "description": "XML document",
+        "role": "Editor"
+      },
+      {
+        "ext": [
+          "sh",
+          "bash",
+          "zsh"
+        ],
+        "name": "Shell Script",
+        "description": "Shell script",
+        "role": "Editor"
+      },
+      {
+        "ext": [
+          "py"
+        ],
+        "name": "Python",
+        "description": "Python source file",
+        "role": "Editor"
+      },
+      {
+        "ext": [
+          "js",
+          "mjs",
+          "cjs",
+          "jsx"
+        ],
+        "name": "JavaScript",
+        "description": "JavaScript source file",
+        "role": "Editor"
+      },
+      {
+        "ext": [
+          "ts",
+          "tsx"
+        ],
+        "name": "TypeScript",
+        "description": "TypeScript source file",
+        "role": "Editor"
+      },
+      {
+        "ext": [
+          "rs"
+        ],
+        "name": "Rust",
+        "description": "Rust source file",
+        "role": "Editor"
+      },
+      {
+        "ext": [
+          "go"
+        ],
+        "name": "Go",
+        "description": "Go source file",
+        "role": "Editor"
+      },
+      {
+        "ext": [
+          "java"
+        ],
+        "name": "Java",
+        "description": "Java source file",
+        "role": "Editor"
+      },
+      {
+        "ext": [
+          "c",
+          "cpp",
+          "cc",
+          "h",
+          "hpp"
+        ],
+        "name": "C/C++",
+        "description": "C / C++ source file",
+        "role": "Editor"
+      },
+      {
+        "ext": [
+          "rb"
+        ],
+        "name": "Ruby",
+        "description": "Ruby source file",
+        "role": "Editor"
+      },
+      {
+        "ext": [
+          "swift"
+        ],
+        "name": "Swift",
+        "description": "Swift source file",
+        "role": "Editor"
+      },
+      {
+        "ext": [
+          "kt"
+        ],
+        "name": "Kotlin",
+        "description": "Kotlin source file",
+        "role": "Editor"
+      },
+      {
+        "ext": [
+          "php"
+        ],
+        "name": "PHP",
+        "description": "PHP source file",
+        "role": "Editor"
+      },
+      {
+        "ext": [
+          "cs"
+        ],
+        "name": "C#",
+        "description": "C# source file",
+        "role": "Editor"
+      },
+      {
+        "ext": [
+          "css",
+          "scss"
+        ],
+        "name": "CSS",
+        "description": "Stylesheet",
+        "role": "Editor"
+      },
+      {
+        "ext": [
+          "sql"
+        ],
+        "name": "SQL",
+        "description": "SQL script",
+        "role": "Editor"
+      }
     ]
   }
 }
