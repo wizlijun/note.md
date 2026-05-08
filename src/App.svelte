@@ -18,7 +18,7 @@
   import SettingsDialog from './components/SettingsDialog.svelte'
   import Toast from './components/Toast.svelte'
   import { invokePlugin } from './lib/plugins/host'
-  import { applyActions, __setHandlersForTests } from './lib/plugins/action-handlers'
+  import { applyActions, configureActionHandlers } from './lib/plugins/action-handlers'
   import { parsePluginMenuId } from './lib/plugins/menu-registry'
   import { getPluginScopedAll } from './lib/settings.svelte'
   import { pushToast } from './lib/toast.svelte'
@@ -64,7 +64,7 @@
 
       // Register the reinvoke handler so dialog.confirm action-flow can re-enter
       // through the same plugin-dispatch path.
-      __setHandlersForTests({ reinvokePlugin: dispatchPlugin })
+      configureActionHandlers({ reinvokePlugin: dispatchPlugin })
     })()
 
     const uninstallFocus = installFocusPoll()

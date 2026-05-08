@@ -9,9 +9,22 @@ interface Handlers {
   reinvokePlugin: (pluginId: string, command: string) => Promise<void>
 }
 
-let testHandlers: Partial<Handlers> | null = null
+let installedHandlers: Partial<Handlers> | null = null
 
-export function __setHandlersForTests(h: Partial<Handlers> | null): void { testHandlers = h }
+/**
+ * Install or override action handlers. Used in two ways:
+ *
+ * 1. **Production wiring** (App.svelte): inject `reinvokePlugin` so
+ *    `dialog.confirm` actions can re-enter the plugin dispatch loop.
+ *    Other handlers fall through to real Tauri-backed implementations.
+ *
+ * 2. **Test override**: stub any handler with a vi.fn() mock; pass `null`
+ *    to reset to defaults.
+ *
+ * Partial input: only the keys you provide override defaults; omitted keys
+ * keep their built-in `real*` implementation.
+ */
+export function configureActionHandlers(h: Partial<Handlers> | null): void { installedHandlers = h }
 
 async function realWriteText(s: string): Promise<void> {
   const { writeText } = await import('@tauri-apps/plugin-clipboard-manager')
@@ -38,7 +51,7 @@ async function realReinvokePlugin(_id: string, _cmd: string): Promise<void> {
 }
 
 function pickHandlers(): Handlers {
-  const t = testHandlers ?? {}
+  const t = installedHandlers ?? {}
   return {
     writeText: t.writeText ?? realWriteText,
     showMessage: t.showMessage ?? realShowMessage,
