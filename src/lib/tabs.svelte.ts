@@ -163,8 +163,12 @@ export async function closeTab(
  * After a write that we initiated, capture the post-write mtime and hash so
  * the imminent watcher echo (or focus-poll re-stat) can be recognised as our
  * own and ignored. Also resets externalState back to 'fresh'.
+ *
+ * Exported so the autosave loop can call it after each silent write — without
+ * this, every autosave would race the watcher and show a phantom external-
+ * change banner while the user is still typing.
  */
-async function recordOurWrite(t: Tab): Promise<void> {
+export async function recordOurWrite(t: Tab): Promise<void> {
   const stat = await statFile(t.filePath)
   t.lastKnownMtime = stat?.mtime ?? Date.now()
   t.lastKnownHash = await sha256Hex(t.currentContent)

@@ -1,4 +1,4 @@
-import { tabs, isDirty } from './tabs.svelte'
+import { tabs, isDirty, recordOurWrite } from './tabs.svelte'
 import { writeMd } from './fs'
 import { settings } from './settings.svelte'
 
@@ -34,6 +34,11 @@ export function startAutoSaveWatcher(): () => void {
             const cur = tabs.find((x) => x.id === id)
             if (cur && cur.currentContent === content) {
               cur.initialContent = content
+              // Suppress the imminent watcher echo: capture post-write
+              // mtime+hash so the change-detection state machine can ignore
+              // our own write. Without this, every autosave would surface a
+              // spurious external-change banner ~1 s later.
+              await recordOurWrite(cur)
             }
           } catch (e) {
             console.warn('[autosave] failed:', path, e)
