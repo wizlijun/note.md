@@ -10,7 +10,6 @@ use tauri::menu::{
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{Emitter, Manager, RunEvent, WindowEvent};
 
-mod pdf;
 pub mod plugin_host;
 
 /// Append a diagnostic line to /tmp/mdeditor.log in debug builds (best-effort).
@@ -226,7 +225,6 @@ pub fn run() {
             quit_app,
             set_default_app_for_extensions,
             set_plugin_menu_item_enabled,
-            pdf::export_pdf,
             plugin_host::get_plugin_manifests,
             plugin_host::get_all_plugin_manifests,
             plugin_host::invoke_plugin,
@@ -373,12 +371,6 @@ fn build_menu<R: tauri::Runtime>(
         .item(
             &MenuItemBuilder::with_id("save-as", "Save As…")
                 .accelerator("Cmd+Shift+S")
-                .build(app)?,
-        )
-        .separator()
-        .item(
-            &MenuItemBuilder::with_id("export-pdf", "Export to PDF…")
-                .accelerator("Cmd+Shift+E")
                 .build(app)?,
         );
     for it in plugin_items.iter().filter(|p| p.location == "file") {
