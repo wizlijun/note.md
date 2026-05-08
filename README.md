@@ -121,6 +121,21 @@ Output:
 48. **Plugin platform — protocol error**: Replace fixture binary with one
     that prints `not json\n` → click → toast `❌ <name>: 协议错误` with
     expandable detail showing the offending stdout fragment.
+49. **Plugin: install share** — run `pnpm build:mdshare`, then in `worker/`
+    deploy via `wrangler deploy` and copy the URL + API key into M↓
+    Preferences → Share. Restart M↓.
+50. `Cmd+Shift+L` on a saved markdown file → toast "✅ 分享成功（已复制）：…";
+    paste from clipboard → URL works in browser.
+51. Same file, edit a paragraph, `Cmd+Shift+L` again → toast "✅ 内容已更新（链接已复制）";
+    same URL still in clipboard; recipient page reflects new content.
+52. File → Unshare Current File → toast "✅ 已撤销分享"; reload recipient
+    page → 410 page shown.
+53. Right-click a tab → "Share This Tab..." appears; click → publishes.
+54. Open M↓ on iPhone Safari → recipient page is readable, no horizontal
+    scroll, code blocks scroll within their container.
+55. Switch system to dark mode → recipient page automatically switches.
+56. Disconnect network, click `Cmd+Shift+L` → toast "❌ Share: 网络错误";
+    M↓ remains responsive throughout.
 
 ## Spec & Plan
 
