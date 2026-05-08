@@ -48,7 +48,16 @@ fn happy_path_writes_a_file() {
     assert_eq!(v["success"], true);
 
     let bytes = std::fs::read(&out_path).expect("output file exists");
-    assert!(bytes.len() > 0);
+    assert!(
+        bytes.len() > 1024,
+        "PDF should be ≥ 1 KB once produced; got {} bytes",
+        bytes.len(),
+    );
+    assert!(
+        bytes.starts_with(b"%PDF"),
+        "expected PDF magic bytes, got: {:?}",
+        &bytes[..bytes.len().min(8)],
+    );
 
     let _ = std::fs::remove_file(&out_path);
 }

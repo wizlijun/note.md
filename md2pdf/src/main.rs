@@ -14,6 +14,15 @@
 mod ipc;
 mod template;
 
+#[cfg(target_os = "macos")]
+mod pdf;
+#[cfg(not(target_os = "macos"))]
+mod pdf {
+    pub fn render_to_path(_html: &str, _path: &str) -> Result<(), String> {
+        Err("md2pdf is macOS-only".into())
+    }
+}
+
 use std::io::{self, Read, Write};
 use ipc::{Request, Response};
 
@@ -50,17 +59,14 @@ fn main() {
 }
 
 fn run_export(req: &Request) -> Response {
-    // Stub: write the wrapped HTML to the output path so the smoke test can
-    // verify the request → response round-trip without yet pulling in
-    // WKWebView. Task 11 swaps this for the real PDF pipeline.
     let html = template::wrap_html(&req.context.rendered_html, &req.context.tab.title);
-    match std::fs::write(&req.context.output_path, html.as_bytes()) {
+    match pdf::render_to_path(&html, &req.context.output_path) {
         Ok(()) => Response::ok(vec![ipc::toast_success(
             format!("✅ 已导出到 {}", req.context.output_path),
         )]),
         Err(e) => Response::fail(vec![ipc::toast_error(
-            format!("❌ {PLUGIN_NAME}: 写入失败"),
-            Some(e.to_string()),
+            format!("❌ {PLUGIN_NAME}: 渲染失败"),
+            Some(e),
         )]),
     }
 }
