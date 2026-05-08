@@ -3,6 +3,7 @@ import { tabs, type Tab } from './tabs.svelte'
 import { readMd, statFile } from './fs'
 import { sha256Hex } from './hash'
 import { decide, type ExternalEvent } from './external-state'
+import * as self from './file-watcher.svelte'
 
 /**
  * Visit every open tab, compare its known state to disk, and apply the
@@ -105,4 +106,17 @@ export async function rebindTabPath(tabId: string, newPath: string): Promise<voi
   // we always watch the latest path (covers callers that didn't pre-set it).
   tab.filePath = newPath
   await startWatchingTab(tab)
+}
+
+/**
+ * Attach a window-focus listener that triggers `verifyAllOpen`. Returns an
+ * uninstall function. Idempotent: calling install twice is safe (the second
+ * call replaces the first).
+ */
+export function installFocusPoll(): () => void {
+  // Route through the module namespace so test spies on `verifyAllOpen`
+  // (vi.spyOn) intercept the call from within the listener.
+  const handler = () => { void self.verifyAllOpen() }
+  window.addEventListener('focus', handler)
+  return () => window.removeEventListener('focus', handler)
 }

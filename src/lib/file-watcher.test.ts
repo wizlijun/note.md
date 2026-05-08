@@ -127,3 +127,17 @@ describe('startWatchingTab / stopWatchingTab', () => {
     expect(plug.watchImmediate).toHaveBeenLastCalledWith('/tmp/bar.md', expect.any(Function))
   })
 })
+
+describe('installFocusPoll', () => {
+  it('attaches a window focus listener that calls verifyAllOpen', async () => {
+    const watcher = await import('./file-watcher.svelte')
+    const spy = vi.spyOn(watcher, 'verifyAllOpen')
+      .mockImplementation(async () => {})
+    const uninstall = watcher.installFocusPoll()
+    window.dispatchEvent(new Event('focus'))
+    expect(spy).toHaveBeenCalledTimes(1)
+    uninstall()
+    window.dispatchEvent(new Event('focus'))
+    expect(spy).toHaveBeenCalledTimes(1)  // not called after uninstall
+  })
+})

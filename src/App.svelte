@@ -14,6 +14,7 @@
   import { cmdOpen, cmdSave, cmdSaveAs, cmdCloseActive, cmdToggleMode } from './lib/commands'
   import { confirmDirtyClose } from './lib/dialogs'
   import { startAutoSaveWatcher } from './lib/autosave.svelte'
+  import { installFocusPoll } from './lib/file-watcher.svelte'
   import SettingsDialog from './components/SettingsDialog.svelte'
 
   let showSettings = $state(false)
@@ -25,6 +26,8 @@
       try { await loadSettings() } catch (e) { console.warn('[App] loadSettings:', e) }
       stopAutoSave = startAutoSaveWatcher()
     })()
+
+    const uninstallFocus = installFocusPoll()
 
     window.addEventListener('keydown', onKeyDown)
 
@@ -90,6 +93,7 @@
 
     return () => {
       window.removeEventListener('keydown', onKeyDown)
+      uninstallFocus()
       unlistenClose.then((fn) => fn())
       unlistenMenu.then((fn) => fn())
       unlistenDrop.then((fn) => fn())
