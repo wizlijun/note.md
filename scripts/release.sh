@@ -27,6 +27,12 @@
 
 set -euo pipefail
 
+# Prefer rustup-managed rustc/cargo so cross-compile targets resolve.
+# Some macs have Homebrew rust earlier in PATH which lacks the alternate-arch
+# std libraries (causes E0463 "can't find crate for `core`" during the
+# x86_64 leg of universal builds).
+export PATH="$HOME/.cargo/bin:$PATH"
+
 # ---------- load secrets (kept out of git) ----------
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
