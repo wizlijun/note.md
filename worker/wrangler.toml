@@ -1,6 +1,7 @@
 name = "mdeditor-share"
 main = "src/index.ts"
 compatibility_date = "2026-05-01"
+compatibility_flags = ["nodejs_compat"]
 
 # Created via `wrangler kv:namespace create SHARES` and ID pasted in.
 # Until then a placeholder is fine — `pnpm test` (Miniflare) doesn't need it.
