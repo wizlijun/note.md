@@ -26,7 +26,8 @@ pub fn generate(filename: Option<&str>, content: &str, with_suffix: bool) -> Str
         .unwrap_or_default();
 
     let stripped = strip_to_ascii_slug(&base);
-    let truncated: String = stripped.chars().take(40).collect();
+    let truncated: String = stripped.chars().take(40).collect::<String>()
+        .trim_end_matches('-').to_string();
 
     let filename_part = if truncated.is_empty() {
         format!("untitled-{}", content_hash_hex8(content))

@@ -5,6 +5,9 @@ import { markedHighlight } from 'marked-highlight'
 import hljs from 'highlight.js'
 import type { Tab } from '../tabs.svelte'
 import { htmlEscape } from '../pdf-export'
+import katexCss from 'katex/dist/katex.min.css?raw'
+import hljsLightCss from 'highlight.js/styles/github.css?raw'
+import hljsDarkCss from 'highlight.js/styles/github-dark.css?raw'
 
 export const MAX_HTML_BYTES = 25 * 1024 * 1024
 
@@ -179,6 +182,9 @@ export async function bakeShareHtml(tab: Tab): Promise<string> {
 <meta charset="utf-8">
 ${viewportMetaTag()}
 <title>${title}</title>
+<style>${katexCss}</style>
+<style>${hljsLightCss}</style>
+<style>@media (prefers-color-scheme: dark) { ${hljsDarkCss} }</style>
 <style>${themeCssBlock()}</style>
 </head>
 <body>

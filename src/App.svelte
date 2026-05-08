@@ -60,14 +60,34 @@
           isUntitled: !tab?.filePath,
           content: tab?.currentContent ?? '',
         }
-        const result = await invokePlugin(m, command, snap, {
-          settingsReader: (id) => getPluginScopedAll(id),
-          htmlBaker: async (snapshot) => {
-            const t = tabs.find((tab) => tab.filePath === snapshot.path)
-            if (!t) throw new Error('share-baker: no matching open tab')
-            return bakeShareHtml(t)
-          },
-        })
+        let result
+        try {
+          result = await invokePlugin(m, command, snap, {
+            settingsReader: (id) => getPluginScopedAll(id),
+            htmlBaker: async (snapshot) => {
+              const t = tabs.find((tab) => tab.filePath === snapshot.path)
+              if (!t) throw new Error('share-baker: no matching open tab')
+              return bakeShareHtml(t)
+            },
+          })
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e)
+          const tooLarge = /^share_too_large:(\d+)$/.exec(msg)
+          if (tooLarge) {
+            const mb = (Number(tooLarge[1]) / 1024 / 1024).toFixed(1)
+            pushToast({
+              level: 'error',
+              message: `❌ ${m.name}: 文档过大（${mb} MB / 上限 25 MB）`,
+            })
+          } else {
+            pushToast({
+              level: 'error',
+              message: `❌ ${m.name}: 内部错误`,
+              detail: msg,
+            })
+          }
+          return
+        }
         if (result.ok && result.response) {
           await applyActions(result.response.actions, m)
         } else {

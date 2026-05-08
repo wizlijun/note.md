@@ -27,6 +27,10 @@ non-trivial features can live entirely outside the main program.
 - ❌ Anything beyond Markdown / HTML / code-as-fenced-block (the editor's
   three rich-mode kinds)
 - ❌ Cloudflare features beyond Workers + KV (no R2, no D1, no Durable Objects)
+- ❌ Inline-rendered Mermaid / Graphviz diagrams in shared output. Code blocks
+  with ```mermaid / ```dot are passed through as syntax-highlighted code
+  in v1. Adding the offscreen-DOM render pass (as pdf-export does) is a
+  v2 enhancement.
 
 ## Brainstorm decisions (locked from prior session)
 
