@@ -4,3 +4,9 @@ dist/
 src-tauri/target/
 src-tauri/gen/
 *.log
+
+# Local secrets — never commit
+.env
+.env.*
+*.p8
+*.p12
