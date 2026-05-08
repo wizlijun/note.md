@@ -11,7 +11,7 @@ use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent}
 use tauri::{Emitter, Manager, RunEvent, WindowEvent};
 
 mod pdf;
-mod plugin_host;
+pub mod plugin_host;
 
 /// Append a diagnostic line to /tmp/mdeditor.log in debug builds (best-effort).
 /// Compiled out in release — kept as a no-op so call sites need no `cfg` gates.
@@ -190,6 +190,7 @@ pub fn run() {
             set_default_app_for_extensions,
             pdf::export_pdf,
             plugin_host::get_plugin_manifests,
+            plugin_host::invoke_plugin,
         ])
         .setup(|app| {
             plugin_host::init(&app.handle());
