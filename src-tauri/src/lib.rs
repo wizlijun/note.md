@@ -195,7 +195,8 @@ pub fn run() {
         ])
         .setup(|app| {
             plugin_host::init(&app.handle());
-            let menu = build_menu(&app.handle())?;
+            let plugin_items = plugin_host::collect_top_menu_items();
+            let menu = build_menu(&app.handle(), &plugin_items)?;
             app.set_menu(menu)?;
             app.on_menu_event(|app, event| {
                 let _ = app.emit("menu-event", event.id().0.as_str());
@@ -293,7 +294,10 @@ fn emit_open_file_delayed<R: tauri::Runtime>(app: &tauri::AppHandle<R>, path: &s
     });
 }
 
-fn build_menu<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> tauri::Result<Menu<R>> {
+fn build_menu<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    plugin_items: &[plugin_host::LocatedMenuItem],
+) -> tauri::Result<Menu<R>> {
     let app_meta = AboutMetadata {
         name: Some("M↓".into()),
         version: Some(env!("CARGO_PKG_VERSION").into()),
@@ -318,7 +322,7 @@ fn build_menu<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> tauri::Result<Men
         .item(&PredefinedMenuItem::quit(app, None)?)
         .build()?;
 
-    let file_menu: Submenu<R> = SubmenuBuilder::new(app, "File")
+    let mut file_b = SubmenuBuilder::new(app, "File")
         .item(&MenuItemBuilder::with_id("open", "Open…").accelerator("Cmd+O").build(app)?)
         .separator()
         .item(
@@ -338,41 +342,80 @@ fn build_menu<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> tauri::Result<Men
             &MenuItemBuilder::with_id("export-pdf", "Export to PDF…")
                 .accelerator("Cmd+Shift+E")
                 .build(app)?,
-        )
-        .build()?;
+        );
+    for it in plugin_items.iter().filter(|p| p.location == "file") {
+        let mut b = MenuItemBuilder::with_id(&it.id, &it.label);
+        if let Some(s) = &it.shortcut { b = b.accelerator(s); }
+        file_b = file_b.item(&b.build(app)?);
+    }
+    let file_menu: Submenu<R> = file_b.build()?;
 
-    let edit_menu: Submenu<R> = SubmenuBuilder::new(app, "Edit")
+    let mut edit_b = SubmenuBuilder::new(app, "Edit")
         .item(&PredefinedMenuItem::undo(app, None)?)
         .item(&PredefinedMenuItem::redo(app, None)?)
         .separator()
         .item(&PredefinedMenuItem::cut(app, None)?)
         .item(&PredefinedMenuItem::copy(app, None)?)
         .item(&PredefinedMenuItem::paste(app, None)?)
-        .item(&PredefinedMenuItem::select_all(app, None)?)
-        .build()?;
+        .item(&PredefinedMenuItem::select_all(app, None)?);
+    for it in plugin_items.iter().filter(|p| p.location == "edit") {
+        let mut b = MenuItemBuilder::with_id(&it.id, &it.label);
+        if let Some(s) = &it.shortcut { b = b.accelerator(s); }
+        edit_b = edit_b.item(&b.build(app)?);
+    }
+    let edit_menu: Submenu<R> = edit_b.build()?;
 
-    let view_menu: Submenu<R> = SubmenuBuilder::new(app, "View")
+    let mut view_b = SubmenuBuilder::new(app, "View")
         .item(
             &MenuItemBuilder::with_id("toggle-mode", "Toggle Source / Rich")
                 .accelerator("Cmd+/")
                 .build(app)?,
         )
-        .item(&PredefinedMenuItem::fullscreen(app, None)?)
-        .build()?;
+        .item(&PredefinedMenuItem::fullscreen(app, None)?);
+    for it in plugin_items.iter().filter(|p| p.location == "view") {
+        let mut b = MenuItemBuilder::with_id(&it.id, &it.label);
+        if let Some(s) = &it.shortcut { b = b.accelerator(s); }
+        view_b = view_b.item(&b.build(app)?);
+    }
+    let view_menu: Submenu<R> = view_b.build()?;
 
-    let window_menu: Submenu<R> = SubmenuBuilder::new(app, "Window")
+    let mut window_b = SubmenuBuilder::new(app, "Window")
         .item(&PredefinedMenuItem::minimize(app, None)?)
-        .item(&PredefinedMenuItem::maximize(app, None)?)
-        .build()?;
+        .item(&PredefinedMenuItem::maximize(app, None)?);
+    for it in plugin_items.iter().filter(|p| p.location == "window") {
+        let mut b = MenuItemBuilder::with_id(&it.id, &it.label);
+        if let Some(s) = &it.shortcut { b = b.accelerator(s); }
+        window_b = window_b.item(&b.build(app)?);
+    }
+    let window_menu: Submenu<R> = window_b.build()?;
 
-    let help_menu: Submenu<R> = SubmenuBuilder::new(app, "Help")
-        .item(&MenuItemBuilder::with_id("docs", "Documentation").build(app)?)
-        .build()?;
+    let mut help_b = SubmenuBuilder::new(app, "Help")
+        .item(&MenuItemBuilder::with_id("docs", "Documentation").build(app)?);
+    for it in plugin_items.iter().filter(|p| p.location == "help") {
+        let mut b = MenuItemBuilder::with_id(&it.id, &it.label);
+        if let Some(s) = &it.shortcut { b = b.accelerator(s); }
+        help_b = help_b.item(&b.build(app)?);
+    }
+    let help_menu: Submenu<R> = help_b.build()?;
+
+    let plugins_in_plugins: Vec<_> = plugin_items.iter().filter(|p| p.location == "plugins").collect();
+    let plugins_menu: Option<Submenu<R>> = if !plugins_in_plugins.is_empty() {
+        let mut b = SubmenuBuilder::new(app, "Plugins");
+        for it in plugins_in_plugins {
+            let mut mb = MenuItemBuilder::with_id(&it.id, &it.label);
+            if let Some(s) = &it.shortcut { mb = mb.accelerator(s); }
+            b = b.item(&mb.build(app)?);
+        }
+        Some(b.build()?)
+    } else {
+        None
+    };
 
     // Suppress unused warning when WindowEvent isn't matched in run loop above
     let _ = std::any::type_name::<WindowEvent>();
 
-    MenuBuilder::new(app)
-        .items(&[&app_menu, &file_menu, &edit_menu, &view_menu, &window_menu, &help_menu])
-        .build()
+    let mut top = MenuBuilder::new(app);
+    top = top.items(&[&app_menu, &file_menu, &edit_menu, &view_menu]);
+    if let Some(pm) = &plugins_menu { top = top.item(pm); }
+    top.items(&[&window_menu, &help_menu]).build()
 }

@@ -232,3 +232,28 @@ pub async fn invoke_plugin(plugin_id: String, request_json: String) -> Result<In
     };
     run_plugin_binary(&binary, &request_json, manifest.timeout_seconds).await
 }
+
+pub struct LocatedMenuItem {
+    pub id: String,
+    pub label: String,
+    pub shortcut: Option<String>,
+    pub location: String,
+}
+
+/// Returns menu entries flattened across all loaded plugins, with ids encoded
+/// as `plugin:<id>:<command>`.
+pub fn collect_top_menu_items() -> Vec<LocatedMenuItem> {
+    let st = STATE.read().unwrap();
+    let mut out = Vec::new();
+    for (_, (m, _)) in st.plugins.iter() {
+        for me in m.menus.iter() {
+            out.push(LocatedMenuItem {
+                id: format!("plugin:{}:{}", m.id, me.command),
+                label: me.label.clone(),
+                shortcut: me.shortcut.clone(),
+                location: me.location.clone(),
+            });
+        }
+    }
+    out
+}
