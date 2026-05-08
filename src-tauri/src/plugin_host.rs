@@ -7,7 +7,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::RwLock;
+use std::sync::{LazyLock, RwLock};
 use tauri::{AppHandle, Manager, Runtime};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -63,7 +63,7 @@ struct State {
     plugins: HashMap<String, (PluginManifest, PathBuf)>,
 }
 
-static STATE: RwLock<State> = RwLock::new(State { plugins: HashMap::new() });
+static STATE: LazyLock<RwLock<State>> = LazyLock::new(|| RwLock::new(State::default()));
 
 /// Called from `lib.rs` once at app startup. Walks `<resource_dir>/plugins/*/manifest.json`,
 /// parses each, and stashes valid ones in STATE. Invalid manifests are logged
