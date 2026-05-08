@@ -130,7 +130,7 @@ export async function saveAs(id: string, newPath: string): Promise<void> {
   await pushRecentFile(newPath)
   setRecentMode(modeKeyFor(newPath), t.mode).catch((e) => console.warn(e))
   await recordOurWrite(t)
-  await rebindTabPath(id, newPath)
+  await rebindTabPath(id)
 }
 
 export type DirtyChoice = 'save' | 'discard' | 'cancel'

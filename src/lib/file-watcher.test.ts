@@ -122,7 +122,9 @@ describe('startWatchingTab / stopWatchingTab', () => {
     ;(fs.statFile as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ mtime: 1000, size: 1 })
     await tabs.openFile('/tmp/foo.md')
     await watcher.startWatchingTab(tabs.tabs[0])
-    await watcher.rebindTabPath(tabs.tabs[0].id, '/tmp/bar.md')
+    // Caller owns filePath: set it first, then rebind.
+    tabs.tabs[0].filePath = '/tmp/bar.md'
+    await watcher.rebindTabPath(tabs.tabs[0].id)
     expect(unwatchOld).toHaveBeenCalled()
     expect(plug.watchImmediate).toHaveBeenLastCalledWith('/tmp/bar.md', expect.any(Function))
   })

@@ -103,13 +103,14 @@ export async function stopWatchingTab(tabId: string): Promise<void> {
   subscriptions.delete(tabId)
 }
 
-export async function rebindTabPath(tabId: string, newPath: string): Promise<void> {
+/**
+ * Re-bind the FSEvents subscription to the tab's *current* `filePath`.
+ * Caller is the sole owner of `tab.filePath` — set it first, then call this.
+ */
+export async function rebindTabPath(tabId: string): Promise<void> {
   await stopWatchingTab(tabId)
   const tab = tabs.find((t) => t.id === tabId)
   if (!tab) return
-  // tab.filePath is normally updated by saveAs before this is called; ensure
-  // we always watch the latest path (covers callers that didn't pre-set it).
-  tab.filePath = newPath
   await startWatchingTab(tab)
 }
 
