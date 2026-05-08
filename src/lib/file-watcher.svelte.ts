@@ -48,6 +48,7 @@ function applyDecision(
       return
     case 'autoReload': {
       const s = decision.snapshot
+      const oldContent = tab.initialContent
       tab.initialContent = s.content
       tab.currentContent = s.content
       tab.lastKnownMtime = s.mtime
@@ -55,6 +56,10 @@ function applyDecision(
       tab.externalState = 'fresh'
       tab.externalBannerDismissed = false
       tab.pendingExternal = undefined
+      // Hint for source-mode editor: try to keep the user near where they were.
+      window.dispatchEvent(new CustomEvent('mdeditor:auto-reloaded', {
+        detail: { tabId: tab.id, oldContent, newContent: s.content },
+      }))
       return
     }
     case 'showChanged': {

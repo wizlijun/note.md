@@ -2,9 +2,11 @@
   let {
     value,
     oninput,
+    tabId,
   }: {
     value: string
     oninput: (e: Event) => void
+    tabId?: string
   } = $props()
 
   let textareaEl: HTMLTextAreaElement | undefined = $state()
@@ -55,6 +57,8 @@
     <pre class="hl" bind:this={highlightEl} aria-hidden="true">{@html highlighted}</pre>
     <textarea
       bind:this={textareaEl}
+      class="src-textarea"
+      data-tab-id={tabId}
       {value}
       {oninput}
       onscroll={syncScroll}
