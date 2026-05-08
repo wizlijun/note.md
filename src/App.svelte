@@ -16,6 +16,7 @@
   import { startAutoSaveWatcher } from './lib/autosave.svelte'
   import { installFocusPoll } from './lib/file-watcher.svelte'
   import SettingsDialog from './components/SettingsDialog.svelte'
+  import Toast from './components/Toast.svelte'
 
   let showSettings = $state(false)
 
@@ -138,6 +139,7 @@
     {/if}
   </section>
   <SettingsDialog bind:open={showSettings} />
+  <Toast />
 </main>
 
 <style>
