@@ -3,6 +3,7 @@ dist/
 .DS_Store
 src-tauri/target/
 mdshare/target/
+md2pdf/target/
 src-tauri/gen/
 .worktrees/
 *.log
