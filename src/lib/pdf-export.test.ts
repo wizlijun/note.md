@@ -1,3 +1,6 @@
+/**
+ * @vitest-environment happy-dom
+ */
 import { describe, it, expect } from 'vitest'
 import {
   extractH1FromMarkdown,
@@ -111,5 +114,70 @@ describe('wrapInPrintTemplate', () => {
   it('includes lang attr on <html>', () => {
     const out = wrapInPrintTemplate(inputBody, 'X')
     expect(out).toMatch(/<html\s+lang="en"/)
+  })
+})
+
+import { renderForPrint } from './pdf-export'
+
+describe('renderForPrint', () => {
+  it('renders markdown body to HTML and returns a full document', async () => {
+    const tab = {
+      id: 'x', filePath: '/tmp/foo.md', title: 'foo.md',
+      initialContent: '# Hi\n\nbody', currentContent: '# Hi\n\nbody',
+      mode: 'source' as const,
+      kind: 'markdown' as const,
+      externalState: 'fresh' as const,
+      externalBannerDismissed: false,
+      lastKnownMtime: 0, lastKnownHash: '',
+    }
+    const html = await renderForPrint(tab)
+    expect(html).toMatch(/^<!doctype html>/i)
+    expect(html).toContain('<h1')
+    expect(html).toContain('Hi')
+    expect(html).toMatch(/<body[^>]*data-pdf-title="Hi"/)
+  })
+
+  it('renders html body verbatim inside print template', async () => {
+    const tab = {
+      id: 'y', filePath: '/tmp/page.html', title: 'page.html',
+      initialContent: '', currentContent: '<h1>Hello</h1><p>World</p>',
+      mode: 'source' as const,
+      kind: 'html' as const,
+      externalState: 'fresh' as const,
+      externalBannerDismissed: false,
+      lastKnownMtime: 0, lastKnownHash: '',
+    }
+    const html = await renderForPrint(tab)
+    expect(html).toContain('<h1>Hello</h1>')
+    expect(html).toContain('<p>World</p>')
+    expect(html).toMatch(/data-pdf-title="page"/)
+  })
+})
+
+describe('renderForPrint with KaTeX + hljs', () => {
+  it('renders $...$ as KaTeX HTML (not raw dollars)', async () => {
+    const tab = {
+      id: 'k', filePath: '/tmp/eq.md', title: 'eq.md',
+      initialContent: '', currentContent: 'Mass-energy: $E=mc^2$ done.',
+      mode: 'source' as const, kind: 'markdown' as const,
+      externalState: 'fresh' as const, externalBannerDismissed: false,
+      lastKnownMtime: 0, lastKnownHash: '',
+    }
+    const html = await renderForPrint(tab)
+    expect(html).toContain('class="katex"')
+    expect(html).not.toMatch(/\$E=mc\^2\$/)
+  })
+
+  it('applies hljs class names to fenced code blocks', async () => {
+    const tab = {
+      id: 'c', filePath: '/tmp/code.md', title: 'code.md',
+      initialContent: '',
+      currentContent: '```js\nconst x = 1\n```',
+      mode: 'source' as const, kind: 'markdown' as const,
+      externalState: 'fresh' as const, externalBannerDismissed: false,
+      lastKnownMtime: 0, lastKnownHash: '',
+    }
+    const html = await renderForPrint(tab)
+    expect(html).toMatch(/class="hljs language-js"/)
   })
 })

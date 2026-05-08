@@ -32,9 +32,21 @@ importers:
       '@viz-js/viz':
         specifier: ^3.26.0
         version: 3.26.0
+      highlight.js:
+        specifier: ^11.11.1
+        version: 11.11.1
       katex:
         specifier: ^0.16.45
         version: 0.16.45
+      marked:
+        specifier: ^18.0.3
+        version: 18.0.3
+      marked-highlight:
+        specifier: ^2.2.4
+        version: 2.2.4(marked@18.0.3)
+      marked-katex-extension:
+        specifier: ^5.1.8
+        version: 5.1.8(katex@0.16.45)(marked@18.0.3)
       mermaid:
         specifier: ^11.14.0
         version: 11.14.0
@@ -1064,8 +1076,24 @@ packages:
     resolution: {integrity: sha512-BuU2qnTti9YKgK5N+IeMubp14ZUKUUw7yeJbkjtosvHiP0AZ5c8IAgEMk79D0eC8F23r4Ac/q8cAIFdm2FtyoA==}
     hasBin: true
 
+  marked-highlight@2.2.4:
+    resolution: {integrity: sha512-PZxisNMJDduSjc0q6uvjsnqqHCXc9s0eyzxDO9sB1eNGJnd/H1/Fu+z6g/liC1dfJdFW4SftMwMlLvsBhUPrqQ==}
+    peerDependencies:
+      marked: '>=4 <19'
+
+  marked-katex-extension@5.1.8:
+    resolution: {integrity: sha512-TsV9OCHHDjVBf4IH0RSjLs4Eqsjj8HGfmVCKlimrS391EtBBxzXj2gBYdF9tY7f7oXu9tb1kHV86ExJsG3iMhw==}
+    peerDependencies:
+      katex: '>=0.16 <0.17'
+      marked: '>=4 <19'
+
   marked@16.4.2:
     resolution: {integrity: sha512-TI3V8YYWvkVf3KJe1dRkpnjs68JUPyEa5vjKrp1XEEJUAOaQc+Qj+L1qWbPd0SJuAdQkFU0h73sXXqwDYxsiDA==}
+    engines: {node: '>= 20'}
+    hasBin: true
+
+  marked@18.0.3:
+    resolution: {integrity: sha512-7VT90JOkDeaRWpfjOReRGPEKn0ecdARBkDGL+tT1wZY0efPPqkUxLUSmzy/C7TIylQYJC9STISEsCHrqb/7VIA==}
     engines: {node: '>= 20'}
     hasBin: true
 
@@ -2306,7 +2334,18 @@ snapshots:
       punycode.js: 2.3.1
       uc.micro: 2.1.0
 
+  marked-highlight@2.2.4(marked@18.0.3):
+    dependencies:
+      marked: 18.0.3
+
+  marked-katex-extension@5.1.8(katex@0.16.45)(marked@18.0.3):
+    dependencies:
+      katex: 0.16.45
+      marked: 18.0.3
+
   marked@16.4.2: {}
+
+  marked@18.0.3: {}
 
   mdurl@2.0.0: {}
 
