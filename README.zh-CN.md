@@ -18,6 +18,9 @@
 - **HTML 文件** —— 默认在沙箱化 iframe 里预览
 - **代码文件** —— ~36 种纯文本扩展名 + `Dockerfile` 等精确文件名匹配；
   富文本模式下渲染为带语法高亮的代码块
+- **图片文件**（jpg / jpeg / png / gif / webp / svg / bmp / heic / heif / avif）
+  作为预览专用标签打开（富文本模式显示图片；无源码视图）。
+  `Cmd+Shift+L` 把图片上传到 Cloudflare R2 并复制公开 URL 到剪贴板。
 - **Finder 集成** —— 双击 `.md` / `.html` 即可打开；将文件拖入窗口或 Dock 图标
 - **菜单栏托盘** —— 常驻 M↓ 图标；点击让窗口前置
 - **自动保存**（Preferences 中开启）和**最近文件**记录到

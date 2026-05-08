@@ -13,7 +13,7 @@ export function basename(path: string): string {
   return seg[seg.length - 1] ?? path
 }
 
-export type FileKind = 'markdown' | 'html' | 'code'
+export type FileKind = 'markdown' | 'html' | 'code' | 'image'
 
 export interface FileClass {
   kind: FileKind
@@ -28,6 +28,18 @@ const EXT_TABLE: Record<string, FileClass> = {
 
   html:      { kind: 'html' },
   htm:       { kind: 'html' },
+
+  // Image files (rendered as <img> preview; not editable as text)
+  avif:      { kind: 'image' },
+  bmp:       { kind: 'image' },
+  gif:       { kind: 'image' },
+  heic:      { kind: 'image' },
+  heif:      { kind: 'image' },
+  jpg:       { kind: 'image' },
+  jpeg:      { kind: 'image' },
+  png:       { kind: 'image' },
+  svg:       { kind: 'image' },
+  webp:      { kind: 'image' },
 
   txt:       { kind: 'code', language: '' },
   log:       { kind: 'code', language: '' },

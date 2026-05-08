@@ -2,6 +2,8 @@ import { ask, message, save as saveDialog, open as openDialog } from '@tauri-app
 import type { DirtyChoice } from './tabs.svelte'
 import { basename } from './fs'
 
+const IMAGE_EXTS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'heic', 'heif', 'avif']
+
 const ALL_EXTS = [
   'md', 'markdown', 'mdown', 'mkd',
   'html', 'htm',
@@ -12,6 +14,7 @@ const ALL_EXTS = [
   'rs', 'go', 'java', 'c', 'cpp', 'cc', 'h', 'hpp',
   'rb', 'swift', 'kt', 'php', 'cs',
   'css', 'scss', 'sql',
+  ...IMAGE_EXTS,
 ]
 
 export async function confirmDirtyClose(): Promise<DirtyChoice> {
@@ -37,6 +40,7 @@ export async function pickOpenFile(): Promise<string | null> {
     filters: [
       { name: 'Markdown', extensions: ['md', 'markdown', 'mdown', 'mkd'] },
       { name: 'HTML', extensions: ['html', 'htm'] },
+      { name: 'Images', extensions: IMAGE_EXTS },
       { name: 'All supported', extensions: ALL_EXTS },
     ],
   })

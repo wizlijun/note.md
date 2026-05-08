@@ -283,7 +283,8 @@
   .pane :global(.empty),
   .pane :global(.src),
   .pane :global(.rich-wrap),
-  .pane :global(.html-preview-wrap) {
+  .pane :global(.html-preview-wrap),
+  .pane :global(.image-preview-wrap) {
     flex: 1;
     min-width: 0;
   }

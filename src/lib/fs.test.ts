@@ -41,8 +41,26 @@ describe('classifyPath', () => {
     expect(classifyPath('DOCKERFILE')).toEqual({ kind: 'code', language: 'dockerfile' })
   })
 
+  it('image extensions', () => {
+    expect(classifyPath('/tmp/foo.png')).toEqual({ kind: 'image' })
+    expect(classifyPath('/tmp/foo.jpg')).toEqual({ kind: 'image' })
+    expect(classifyPath('/tmp/foo.jpeg')).toEqual({ kind: 'image' })
+    expect(classifyPath('/tmp/foo.gif')).toEqual({ kind: 'image' })
+    expect(classifyPath('/tmp/foo.webp')).toEqual({ kind: 'image' })
+    expect(classifyPath('/tmp/foo.svg')).toEqual({ kind: 'image' })
+    expect(classifyPath('/tmp/foo.bmp')).toEqual({ kind: 'image' })
+    expect(classifyPath('/tmp/foo.heic')).toEqual({ kind: 'image' })
+    expect(classifyPath('/tmp/foo.heif')).toEqual({ kind: 'image' })
+    expect(classifyPath('/tmp/foo.avif')).toEqual({ kind: 'image' })
+  })
+
+  it('image extensions case-insensitive', () => {
+    expect(classifyPath('/tmp/foo.HEIC')).toEqual({ kind: 'image' })
+    expect(classifyPath('/tmp/photo.PNG')).toEqual({ kind: 'image' })
+    expect(classifyPath('/tmp/img.SVG')).toEqual({ kind: 'image' })
+  })
+
   it('unknown extensions return null', () => {
-    expect(classifyPath('foo.png')).toBe(null)
     expect(classifyPath('foo.exe')).toBe(null)
     expect(classifyPath('noextension')).toBe(null)
   })
@@ -56,8 +74,15 @@ describe('isSupportedPath', () => {
     expect(isSupportedPath('Dockerfile')).toBe(true)
   })
 
+  it('returns true for image extensions', () => {
+    expect(isSupportedPath('foo.png')).toBe(true)
+    expect(isSupportedPath('foo.jpg')).toBe(true)
+    expect(isSupportedPath('photo.HEIC')).toBe(true)
+    expect(isSupportedPath('image.svg')).toBe(true)
+  })
+
   it('returns false for unsupported', () => {
-    expect(isSupportedPath('foo.png')).toBe(false)
+    expect(isSupportedPath('foo.exe')).toBe(false)
     expect(isSupportedPath('foo')).toBe(false)
   })
 })

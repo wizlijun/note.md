@@ -58,13 +58,25 @@ export async function openFile(path: string): Promise<void> {
     activeId.value = existing.id
     return
   }
-  const content = await readMd(path)
-  if (looksBinary(content)) {
-    throw new Error(`Binary file not supported: ${path}`)
+
+  let content = ''
+  let stat = null
+  let hash = ''
+
+  if (cls.kind === 'image') {
+    // Image files: do not read text content; render via <img src=convertFileSrc(...)>
+    // currentContent stays empty so isDirty() is always false
+    stat = await statFile(path)
+  } else {
+    content = await readMd(path)
+    if (looksBinary(content)) {
+      throw new Error(`Binary file not supported: ${path}`)
+    }
+    stat = await statFile(path)
+    hash = await sha256Hex(content)
   }
-  const mode = getRecentMode(modeKeyFor(path)) ?? defaultModeFor(cls.kind)
-  const stat = await statFile(path)
-  const hash = await sha256Hex(content)
+
+  const mode = cls.kind === 'image' ? 'rich' : (getRecentMode(modeKeyFor(path)) ?? defaultModeFor(cls.kind))
   const tab: Tab = {
     id: crypto.randomUUID(),
     filePath: path,

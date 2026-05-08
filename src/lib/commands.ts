@@ -12,12 +12,14 @@ export async function cmdOpen(): Promise<void> {
 export async function cmdSave(): Promise<void> {
   const t = activeTab()
   if (!t) return
+  if (t.kind === 'image') return  // images are read-only
   try { await saveActive() } catch (e) { await showError(`Save failed: ${e}`) }
 }
 
 export async function cmdSaveAs(): Promise<void> {
   const t = activeTab()
   if (!t) return
+  if (t.kind === 'image') return  // images are read-only
   const p = await pickSaveFile(t.filePath)
   if (!p) return
   try { await saveAs(t.id, p) } catch (e) { await showError(`Save As failed: ${e}`) }
@@ -31,7 +33,7 @@ export async function cmdCloseActive(): Promise<void> {
 
 export function cmdToggleMode(): void {
   const t = activeTab()
-  if (t) toggleMode(t.id)
+  if (t && t.kind !== 'image') toggleMode(t.id)
 }
 
 export async function cmdExportPdf(): Promise<void> {

@@ -6,6 +6,7 @@
   import HtmlPreview from './HtmlPreview.svelte'
   import ExternalChangeBanner from './ExternalChangeBanner.svelte'
   import { offsetToLineCol, lineColToOffset } from '../lib/cursor-preserve'
+  import { convertFileSrc } from '@tauri-apps/api/core'
 
   let { tab }: { tab: Tab } = $props()
 
@@ -45,7 +46,17 @@
 
 <div class="editor-stack">
   <ExternalChangeBanner {tab} />
-  {#if tab.mode === 'source'}
+  {#if tab.kind === 'image'}
+    {#key tab.id}
+      <div class="image-preview-wrap">
+        <img
+          class="image-preview"
+          src={`${convertFileSrc(tab.filePath)}?v=${tab.lastKnownMtime}`}
+          alt={tab.title}
+        />
+      </div>
+    {/key}
+  {:else if tab.mode === 'source'}
     {#key tab.id}
       <SourceView value={tab.currentContent} oninput={onSourceInput} tabId={tab.id} />
     {/key}
@@ -71,5 +82,19 @@
     flex: 1;
     min-width: 0;
     min-height: 0;
+  }
+  .image-preview-wrap {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: auto;
+    background: color-mix(in srgb, Canvas 92%, CanvasText 8%);
+    padding: 24px;
+  }
+  .image-preview {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
   }
 </style>

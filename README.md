@@ -19,6 +19,9 @@ Built on [`@moraya/core`](https://www.npmjs.com/package/@moraya/core).
 - **HTML files** open in a sandboxed iframe preview by default
 - **Code files** (~36 plain-text extensions, plus exact matches like `Dockerfile`)
   render as syntax-highlighted code blocks in rich mode
+- **Image files** (jpg / jpeg / png / gif / webp / svg / bmp / heic / heif / avif)
+  open as preview-only tabs (rich mode shows the image; no source view).
+  `Cmd+Shift+L` uploads them to Cloudflare R2 and copies the public URL.
 - **Finder integration** — double-click a `.md` / `.html` file to open it; drag
   files onto the window or Dock icon
 - **Menu-bar tray** — persistent M↓ icon stays in the menu bar; click to bring
@@ -155,6 +158,17 @@ Output:
 57. **Share with Mermaid block** — share a markdown file containing a
     ` ```mermaid ` flowchart → recipient page shows the rendered SVG, not
     the raw source.
+58. **Open image** — `Cmd+O` → file picker shows image filter; pick a
+    `.png` / `.jpg` → opens as a preview tab. Mode toggle is hidden.
+    `Cmd+S` is no-op (image is read-only).
+59. **Drag image into window** — drag a `.png` from Finder onto M↓'s
+    window → opens as a preview tab (no longer rejected with toast).
+60. **Share image** — open an image, `Cmd+Shift+L` → toast "✅ 图片分享成功
+    （已复制）：https://.../f/<id>.<ext>"; paste from clipboard → URL works
+    in browser; image displays at full quality.
+61. **External image change** — replace the open image file from a shell
+    (e.g. `cp other.png foo.png`). Within ~1 s the preview refreshes to
+    the new content (no banner — images can't be dirty).
 
 ## Spec & Plan
 

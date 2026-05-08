@@ -5,6 +5,7 @@
   let { tab }: { tab: Tab } = $props()
 </script>
 
+{#if tab.kind !== 'image'}
 <div class="seg" role="tablist" aria-label="Editor mode">
   <button
     type="button"
@@ -33,6 +34,7 @@
     </svg>
   </button>
 </div>
+{/if}
 
 <style>
   .seg {

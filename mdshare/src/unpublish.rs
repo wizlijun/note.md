@@ -28,13 +28,30 @@ pub fn run(req: Request) -> Response {
         Some(r) => r,
         None => return Response::fail(vec![toast_error(PLUGIN_NAME, "本文件未分享过", None)]),
     };
-    let slug = record.get("slug").and_then(|v| v.as_str()).unwrap_or("").to_string();
     let edit_token = record.get("edit_token").and_then(|v| v.as_str()).unwrap_or("").to_string();
-    if slug.is_empty() || edit_token.is_empty() {
+    if edit_token.is_empty() {
         return Response::fail(vec![toast_error(PLUGIN_NAME, "本地分享记录损坏", None)]);
     }
 
-    let url = format!("{base_url}/{slug}");
+    let kind = record.get("kind").and_then(|v| v.as_str()).unwrap_or("html");
+    let url = if kind == "image" {
+        let id = record.get("id").and_then(|v| v.as_str()).unwrap_or("");
+        let ext = record.get("ext").and_then(|v| v.as_str()).unwrap_or("");
+        if id.is_empty() || ext.is_empty() {
+            return Response::fail(vec![toast_error(
+                PLUGIN_NAME, "本地分享记录损坏（缺 id/ext）", None,
+            )]);
+        }
+        format!("{base_url}/f/{id}.{ext}")
+    } else {
+        let slug = record.get("slug").and_then(|v| v.as_str()).unwrap_or("");
+        if slug.is_empty() {
+            return Response::fail(vec![toast_error(
+                PLUGIN_NAME, "本地分享记录损坏（缺 slug）", None,
+            )]);
+        }
+        format!("{base_url}/{slug}")
+    };
     let body = json!({ "edit_token": edit_token });
     let result = ureq::delete(&url)
         .set("Authorization", &format!("Bearer {api_key}"))

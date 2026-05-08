@@ -18,6 +18,20 @@ export async function verifyAllOpen(): Promise<void> {
 
 async function checkTab(tab: Tab): Promise<void> {
   const stat = await statFile(tab.filePath)
+
+  // Image tabs: just update lastKnownMtime so the <img ?v=mtime> cache-buster
+  // picks up external changes. No text to read, no dirty/banner logic needed.
+  if (tab.kind === 'image') {
+    if (!stat) {
+      tab.externalState = 'deleted'
+      tab.externalBannerDismissed = false
+    } else if (stat.mtime !== tab.lastKnownMtime) {
+      tab.lastKnownMtime = stat.mtime
+      tab.externalState = 'fresh'
+    }
+    return
+  }
+
   let event: ExternalEvent
   if (!stat) {
     event = { type: 'deleted' }
