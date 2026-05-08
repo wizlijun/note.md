@@ -1,0 +1,44 @@
+[package]
+name = "md2pdf"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+objc2-foundation = { version = "0.3", features = [
+  "NSString",
+  "NSURL",
+  "NSData",
+  "NSError",
+  "NSValue",
+  "NSGeometry",
+] }
+objc2-app-kit = { version = "0.3", features = [
+  "NSApplication",
+  "NSWindow",
+  "NSView",
+] }
+objc2-web-kit = { version = "0.3", features = [
+  "WKWebView",
+  "WKWebViewConfiguration",
+  "WKNavigationDelegate",
+  "WKNavigation",
+  "WKPDFConfiguration",
+  "block2",
+] }
+objc2-pdf-kit = { version = "0.3", features = ["PDFDocument", "PDFPage"] }
+block2 = "0.6"
+
+[dev-dependencies]
+tempfile = "3"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
