@@ -24,6 +24,28 @@ serde = { version = "1", features = ["derive"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 core-foundation = "0.10"
+objc2 = "0.6"
+objc2-foundation = { version = "0.3", features = [
+  "NSString",
+  "NSURL",
+  "NSData",
+  "NSError",
+  "NSValue",
+  "NSGeometry",
+] }
+objc2-app-kit = { version = "0.3", features = [
+  "NSApplication",
+  "NSWindow",
+  "NSView",
+] }
+objc2-web-kit = { version = "0.3", features = [
+  "WKWebView",
+  "WKWebViewConfiguration",
+  "WKNavigationDelegate",
+  "WKNavigation",
+  "WKPDFConfiguration",
+] }
+block2 = "0.6"
 
 [profile.release]
 opt-level = "z"       # optimize for size

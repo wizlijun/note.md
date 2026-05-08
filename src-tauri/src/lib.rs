@@ -10,6 +10,8 @@ use tauri::menu::{
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{Emitter, Manager, RunEvent, WindowEvent};
 
+mod pdf;
+
 /// Append a diagnostic line to /tmp/mdeditor.log in debug builds (best-effort).
 /// Compiled out in release — kept as a no-op so call sites need no `cfg` gates.
 #[allow(unused_variables)]
@@ -182,7 +184,11 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::new().build())
-        .invoke_handler(tauri::generate_handler![quit_app, set_default_app_for_extensions])
+        .invoke_handler(tauri::generate_handler![
+            quit_app,
+            set_default_app_for_extensions,
+            pdf::export_pdf,
+        ])
         .setup(|app| {
             let menu = build_menu(&app.handle())?;
             app.set_menu(menu)?;
