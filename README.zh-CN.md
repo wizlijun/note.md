@@ -22,9 +22,18 @@
 - **菜单栏托盘** —— 常驻 M↓ 图标；点击让窗口前置
 - **自动保存**（Preferences 中开启）和**最近文件**记录到
   `~/Library/Application Support/com.bruce.mdeditor/settings.json`
+- **PDF 导出** (`Cmd+Shift+E`) —— 把当前 Markdown / HTML 标签导出成排版精致的
+  A4 PDF，KaTeX 公式、Mermaid 图表、代码语法高亮全部内联渲染
+  （macOS 原生 WKWebView 离屏渲染，不带 headless Chromium）
+- **插件系统** —— 跨进程插件，通过 stdin/stdout JSON 通信，manifest 声明式
+  注册菜单项、上下文菜单、设置面板，宿主能力按声明授权（toast / 剪贴板 /
+  settings.merge / 对话框）。插件未触发时不运行；启动成本只到读一份小 manifest
+- **Share 插件（内置）** —— `Cmd+Shift+L` 一键把当前文件以自包含网页发布到
+  你自己的 Cloudflare Worker。接收方打开链接看到的文档跟 M↓ 显示的完全一致
+  （KaTeX、Mermaid / Graphviz SVG、语法高亮、浅/深双主题跟随系统、移动端优化）。
+  图片多的文档溢出到 Cloudflare R2；Worker 还开放了 MCP 端点，方便 LLM agent
+  代你发布
 - **Universal binary**（Intel + Apple Silicon 通用）
-- **分享插件** —— 一键将当前文件以漂亮的网页发布到 Cloudflare Worker
-  （需要先在 Preferences → Share 配置自己的 Worker 部署）
 
 ## 开发
 

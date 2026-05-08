@@ -25,6 +25,20 @@ Built on [`@moraya/core`](https://www.npmjs.com/package/@moraya/core).
   the window forward
 - **Auto-save** (opt-in via Preferences) and **Recent files** persisted to
   `~/Library/Application Support/com.bruce.mdeditor/settings.json`
+- **PDF export** (`Cmd+Shift+E`) — typographically-clean A4 PDF of the current
+  Markdown / HTML tab, with KaTeX, Mermaid, and syntax-highlighted code rendered
+  inline (offscreen WKWebView; macOS-native, no headless Chromium)
+- **Plugin system** — out-of-process plugins via stdin/stdout JSON, declarative
+  manifests for menu items, context menus, settings panels, and capability-gated
+  host actions (toast / clipboard / settings.merge / dialog). Plugins stay
+  dormant until invoked; startup cost is bounded to one tiny manifest read each
+- **Share plugin (built-in)** — `Cmd+Shift+L` to publish the current file as a
+  self-contained web page on your own Cloudflare Worker. Recipients open the
+  URL and see the document rendered exactly as M↓ shows it (KaTeX, Mermaid /
+  Graphviz SVG, syntax highlighting, light + dark themes via
+  `prefers-color-scheme`, mobile-optimized viewport). Image-heavy documents
+  spill to Cloudflare R2; the Worker also exposes an MCP endpoint so LLM
+  agents can publish on your behalf
 - **Universal binary** support (Intel + Apple Silicon)
 
 ## Develop
