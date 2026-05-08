@@ -113,6 +113,24 @@ async function handleGet(slug: string, env: Env): Promise<Response> {
   })
 }
 
+async function handleDelete(slug: string, req: Request, env: Env): Promise<Response> {
+  if (unauthorized(req, env)) return new Response('Unauthorized', { status: 401 })
+  if (!SLUG_RE.test(slug)) return new Response('Bad slug', { status: 400 })
+  let body: { edit_token?: string }
+  try { body = await req.json() } catch { return new Response('Bad JSON', { status: 400 }) }
+  if (!TOKEN_RE.test(body?.edit_token ?? '')) return new Response('Bad edit_token', { status: 400 })
+
+  const existing = await env.SHARES.getWithMetadata<KvMeta>(slug)
+  if (!existing.value || !existing.metadata) {
+    return new Response('Not Found', { status: 404 })
+  }
+  if (existing.metadata.edit_token !== body.edit_token) {
+    return new Response('Forbidden', { status: 403 })
+  }
+  await env.SHARES.delete(slug)
+  return new Response(null, { status: 204 })
+}
+
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
     const url = new URL(req.url)
@@ -120,7 +138,7 @@ export default {
     const baseUrl = `${url.protocol}//${url.host}`
     if (req.method === 'POST' && path === 'publish') return handlePublish(req, env, baseUrl)
     if (req.method === 'GET' && path) return handleGet(path, env)
-    if (req.method === 'DELETE' && path) return new Response('not implemented', { status: 501 })
+    if (req.method === 'DELETE' && path) return handleDelete(path, req, env)
     return new Response('Not Found', { status: 404 })
   }
 }

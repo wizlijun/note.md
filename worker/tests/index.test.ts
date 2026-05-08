@@ -85,3 +85,50 @@ describe('GET /:slug', () => {
     expect(await r.text()).toContain('<p>page</p>')
   })
 })
+
+describe('DELETE /:slug', () => {
+  it('rejects 401 without Authorization', async () => {
+    const r = await SELF.fetch('http://x/2026-05-08-x-aaa', {
+      method: 'DELETE',
+      body: JSON.stringify({ edit_token: VALID_TOKEN }),
+    })
+    expect(r.status).toBe(401)
+  })
+
+  it('returns 404 for missing slug', async () => {
+    const r = await SELF.fetch('http://x/2026-05-08-x-aaa', {
+      method: 'DELETE',
+      headers: HEADERS,
+      body: JSON.stringify({ edit_token: VALID_TOKEN }),
+    })
+    expect(r.status).toBe(404)
+  })
+
+  it('returns 403 for token mismatch', async () => {
+    await SELF.fetch('http://x/publish', {
+      method: 'POST', headers: HEADERS,
+      body: JSON.stringify({ slug: VALID_SLUG, edit_token: VALID_TOKEN, html: '<p>x</p>', metadata: { original_filename: 'a', source_ext: 'md' } }),
+    })
+    const r = await SELF.fetch(`http://x/${VALID_SLUG}`, {
+      method: 'DELETE',
+      headers: HEADERS,
+      body: JSON.stringify({ edit_token: 'z'.repeat(32) }),
+    })
+    expect(r.status).toBe(403)
+  })
+
+  it('deletes with matching token (204)', async () => {
+    await SELF.fetch('http://x/publish', {
+      method: 'POST', headers: HEADERS,
+      body: JSON.stringify({ slug: VALID_SLUG, edit_token: VALID_TOKEN, html: '<p>x</p>', metadata: { original_filename: 'a', source_ext: 'md' } }),
+    })
+    const r = await SELF.fetch(`http://x/${VALID_SLUG}`, {
+      method: 'DELETE',
+      headers: HEADERS,
+      body: JSON.stringify({ edit_token: VALID_TOKEN }),
+    })
+    expect(r.status).toBe(204)
+    const get = await SELF.fetch(`http://x/${VALID_SLUG}`)
+    expect(get.status).toBe(410)
+  })
+})
