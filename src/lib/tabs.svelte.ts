@@ -1,4 +1,8 @@
-import { readMd, writeMd, basename, classifyPath, isSupportedPath, looksBinary, type FileKind } from './fs'
+import {
+  readMd, writeMd, basename, classifyPath, isSupportedPath, looksBinary,
+  modeKeyFor, statFile, type FileKind,
+} from './fs'
+import { sha256Hex } from './hash'
 import { pushRecentFile, getRecentMode, setRecentMode } from './settings.svelte'
 
 export type Mode = 'source' | 'rich'
@@ -12,6 +16,15 @@ export interface Tab {
   mode: Mode
   kind: FileKind
   language?: string
+  /** External-change state (see external-state.ts). */
+  externalState: 'fresh' | 'changed' | 'deleted'
+  /** True after the user clicks the banner's × until the next external event. */
+  externalBannerDismissed: boolean
+  /** mtime (ms) and sha256 of the disk version we last accepted. */
+  lastKnownMtime: number
+  lastKnownHash: string
+  /** Cached new-content snapshot when externalState === 'changed'. */
+  pendingExternal?: { mtime: number; hash: string; content: string }
 }
 
 export const tabs = $state<Tab[]>([])
@@ -48,7 +61,9 @@ export async function openFile(path: string): Promise<void> {
   if (looksBinary(content)) {
     throw new Error(`Binary file not supported: ${path}`)
   }
-  const mode = getRecentMode(path) ?? defaultModeFor(cls.kind)
+  const mode = getRecentMode(modeKeyFor(path)) ?? defaultModeFor(cls.kind)
+  const stat = await statFile(path)
+  const hash = await sha256Hex(content)
   const tab: Tab = {
     id: crypto.randomUUID(),
     filePath: path,
@@ -58,6 +73,11 @@ export async function openFile(path: string): Promise<void> {
     mode,
     kind: cls.kind,
     language: cls.language,
+    externalState: 'fresh',
+    externalBannerDismissed: false,
+    lastKnownMtime: stat?.mtime ?? 0,
+    lastKnownHash: hash,
+    pendingExternal: undefined,
   }
   tabs.push(tab)
   activeId.value = tab.id
@@ -79,7 +99,7 @@ export function setMode(id: string, mode: Mode): void {
   const t = tabs.find((x) => x.id === id)
   if (!t || t.mode === mode) return
   t.mode = mode
-  setRecentMode(t.filePath, mode).catch((e) => console.warn(e))
+  setRecentMode(modeKeyFor(t.filePath), mode).catch((e) => console.warn(e))
 }
 
 export async function saveActive(): Promise<void> {
@@ -105,7 +125,7 @@ export async function saveAs(id: string, newPath: string): Promise<void> {
     console.warn(`[saveAs] unrecognised extension; retained old kind: ${newPath}`)
   }
   await pushRecentFile(newPath)
-  setRecentMode(newPath, t.mode).catch((e) => console.warn(e))
+  setRecentMode(modeKeyFor(newPath), t.mode).catch((e) => console.warn(e))
 }
 
 export type DirtyChoice = 'save' | 'discard' | 'cancel'

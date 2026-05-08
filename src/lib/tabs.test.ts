@@ -15,6 +15,12 @@ vi.mock('./fs', () => ({
   },
   isSupportedPath: (p: string) => /\.(md|markdown|mdown|mkd|html?|py|json|txt)$/i.test(p),
   looksBinary: (s: string) => s.indexOf('\x00') >= 0,
+  modeKeyFor: (p: string) => {
+    const base = (p.split('/').pop() ?? p).toLowerCase()
+    const dot = base.lastIndexOf('.')
+    return dot <= 0 ? base : base.slice(dot + 1)
+  },
+  statFile: vi.fn(async () => ({ mtime: 1_700_000_000_000, size: 100 })),
 }))
 
 vi.mock('./settings.svelte', () => ({
@@ -180,7 +186,7 @@ describe('tabs', () => {
     expect(settings.pushRecentFile).toHaveBeenCalledWith('/tmp/bar.md')
     // Allow setRecentMode to flush
     await new Promise((r) => setTimeout(r, 0))
-    expect(settings.setRecentMode).toHaveBeenCalledWith('/tmp/bar.md', 'rich')
+    expect(settings.setRecentMode).toHaveBeenCalledWith('md', 'rich')
   })
 
   it('openFile uses recent mode when available', async () => {
@@ -189,6 +195,27 @@ describe('tabs', () => {
     const m = await import('./tabs.svelte')
     await m.openFile('/tmp/foo.md')
     expect(m.tabs[0].mode).toBe('rich')
+  })
+
+  it('openFile looks up recent mode by extension key', async () => {
+    const settings = await import('./settings.svelte')
+    const m = await import('./tabs.svelte')
+    await m.openFile('/tmp/foo.md')
+    expect(settings.getRecentMode).toHaveBeenCalledWith('md')
+  })
+
+  it('toggleMode persists choice keyed by extension (carries to other .md files)', async () => {
+    const settings = await import('./settings.svelte')
+    const m = await import('./tabs.svelte')
+    // Open foo.md, toggle to rich; persistence should be keyed by 'md'
+    await m.openFile('/tmp/foo.md')
+    m.toggleMode(m.tabs[0].id)
+    await new Promise((r) => setTimeout(r, 0))
+    expect(settings.setRecentMode).toHaveBeenCalledWith('md', 'rich')
+    // Now opening a different .md file: stub getRecentMode to return what we just stored
+    ;(settings.getRecentMode as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce('rich')
+    await m.openFile('/tmp/bar.md')
+    expect(m.tabs[1].mode).toBe('rich')
   })
 
   it('openFile classifies markdown', async () => {
@@ -230,5 +257,16 @@ describe('tabs', () => {
     expect(m.tabs[0].kind).toBe('code')
     expect(m.tabs[0].language).toBe('python')
     expect(m.tabs[0].title).toBe('foo.py')
+  })
+
+  it('openFile populates externalState/lastKnownMtime/lastKnownHash', async () => {
+    const m = await import('./tabs.svelte')
+    await m.openFile('/tmp/foo.md')
+    const t = m.tabs[0]
+    expect(t.externalState).toBe('fresh')
+    expect(t.externalBannerDismissed).toBe(false)
+    expect(typeof t.lastKnownMtime).toBe('number')
+    expect(t.lastKnownHash).toMatch(/^[0-9a-f]{64}$/)
+    expect(t.pendingExternal).toBeUndefined()
   })
 })
