@@ -24,6 +24,7 @@ serde = { version = "1", features = ["derive"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 core-foundation = "0.10"
+objc2-pdf-kit = { version = "0.3", features = ["PDFDocument", "PDFPage"] }
 objc2 = "0.6"
 objc2-foundation = { version = "0.3", features = [
   "NSString",

@@ -1,61 +1,75 @@
-//! PDF export via `NSPrintOperation.PDFOperationWithView:insideRect:toPath:printInfo:`.
+//! PDF export via WKWebView's `createPDFWithConfiguration:` + PDFKit merge.
 //!
 //! Frontend hands us a fully-rendered, self-contained HTML document plus a
 //! base URL (file:// of the source file's directory, used so relative-path
 //! images can resolve). We spin up an offscreen WKWebView on the main
-//! thread, load the HTML, wait for navigation completion, and run a
-//! *PDF-specific* `NSPrintOperation` configured for A4 + auto-pagination.
+//! thread, load the HTML, and:
 //!
-//! Why `PDFOperationWithView:` and not the more obvious paths:
+//! 1. After navigation completes, evaluate JavaScript to read
+//!    `document.documentElement.scrollHeight` — the full content height.
+//! 2. Compute how many A4 pages tall that is.
+//! 3. For each page, call `createPDFWithConfiguration:` with a rect
+//!    `(0, page_index * 842, 595, 842)`. Each call yields a single-page
+//!    PDF as NSData.
+//! 4. Merge the per-page PDFs into one multi-page document via PDFKit.
+//! 5. Write the merged PDF bytes to disk.
 //!
-//! - `WKWebView.createPDFWithConfiguration:` captures the entire scroll
-//!   region as one tall PDF page — no pagination.
-//! - `WKWebView.printOperationWithPrintInfo:` even with NSPrintSaveJob
-//!   disposition triggers the system "set up a printer" prompt on Macs
-//!   without any installed printer. macOS treats it as a real print
-//!   operation and validates against printers.
+//! Why this dance instead of obvious alternatives:
+//!
+//! - `WKWebView.createPDFWithConfiguration:` with no rect captures the
+//!   entire scroll region as one tall PDF page — no pagination.
+//! - `WKWebView.printOperationWithPrintInfo:` requires a printer to be
+//!   installed on the system (it validates against printers even with
+//!   `NSPrintSaveJob`). Macs without printers get a "Set up a printer"
+//!   prompt instead of a save dialog.
 //! - `+[NSPrintOperation PDFOperationWithView:insideRect:toPath:printInfo:]`
-//!   is the PDF-specific factory that writes paginated PDF directly to
-//!   disk, bypassing any printer configuration entirely.
+//!   needs the WKWebView to be window-attached and laid out at full
+//!   content height — out-of-window webviews produce blank PDFs.
+//!
+//! This rect-per-page + PDFKit-merge approach has none of those issues.
 
 #[cfg(target_os = "macos")]
 mod imp {
-    use std::cell::RefCell;
+    use std::cell::{Cell, RefCell};
     use std::path::Path;
     use std::sync::Mutex;
 
+    use block2::RcBlock;
     use objc2::rc::Retained;
-    use objc2::runtime::ProtocolObject;
-    use objc2::{define_class, msg_send, DefinedClass, MainThreadOnly};
-    use objc2_app_kit::{
-        NSPrintInfo, NSPrintOperation, NSPrintingPaginationMode, NSPaperOrientation, NSView,
-    };
+    use objc2::runtime::{AnyObject, ProtocolObject};
+    use objc2::{define_class, msg_send, AnyThread, DefinedClass, MainThreadOnly};
     use objc2_foundation::{
-        MainThreadMarker, NSError, NSObject, NSObjectProtocol, NSRect, NSString, NSURL,
+        MainThreadMarker, NSData, NSError, NSNumber, NSObject, NSObjectProtocol, NSRect,
+        NSString, NSURL,
     };
+    use objc2_pdf_kit::PDFDocument;
     use objc2_web_kit::{
-        WKNavigation, WKNavigationDelegate, WKWebView, WKWebViewConfiguration,
+        WKNavigation, WKNavigationDelegate, WKPDFConfiguration, WKWebView,
+        WKWebViewConfiguration,
     };
 
-    /// Ivars held by the navigation delegate.
+    /// A4 page size in PostScript points (1pt = 1/72 inch).
+    const A4_W: f64 = 595.0;
+    const A4_H: f64 = 842.0;
+
+    /// Ivars held by the navigation delegate. Holds enough state to drive
+    /// the multi-stage async capture (height-measure → per-page createPDF
+    /// loop → merge + write).
     pub(super) struct DelegateIvars {
         webview: RefCell<Option<Retained<WKWebView>>>,
         self_ref: RefCell<Option<Retained<NavDelegate>>>,
         sender: Mutex<Option<tokio::sync::oneshot::Sender<Result<(), String>>>>,
         output_path: String,
+
+        /// Per-page captured PDF NSData buffers, in order.
+        pages: RefCell<Vec<Retained<NSData>>>,
+        num_pages: Cell<usize>,
+        current_page: Cell<usize>,
     }
 
     impl DelegateIvars {
         fn take_sender(&self) -> Option<tokio::sync::oneshot::Sender<Result<(), String>>> {
             self.sender.lock().ok().and_then(|mut g| g.take())
-        }
-
-        fn take_webview(&self) -> Option<Retained<WKWebView>> {
-            self.webview.borrow_mut().take()
-        }
-
-        fn take_self_ref(&self) -> Option<Retained<NavDelegate>> {
-            self.self_ref.borrow_mut().take()
         }
     }
 
@@ -71,8 +85,7 @@ mod imp {
         unsafe impl WKNavigationDelegate for NavDelegate {
             #[unsafe(method(webView:didFinishNavigation:))]
             fn did_finish(&self, _webview: &WKWebView, _nav: Option<&WKNavigation>) {
-                let result = self.run_print_to_pdf();
-                self.dispatch_result(result);
+                self.start_height_measurement();
             }
 
             #[unsafe(method(webView:didFailNavigation:withError:))]
@@ -113,94 +126,198 @@ mod imp {
                 self_ref: RefCell::new(None),
                 sender: Mutex::new(Some(sender)),
                 output_path,
+                pages: RefCell::new(Vec::new()),
+                num_pages: Cell::new(0),
+                current_page: Cell::new(0),
             };
             let this = Self::alloc(mtm).set_ivars(ivars);
             let retained: Retained<Self> = unsafe { msg_send![super(this), init] };
-            // Self-retain so the delegate stays alive across the navigation
-            // and the print operation. Cleared in dispatch_result.
+            // Self-retain for the duration of the async chain.
             *retained.ivars().self_ref.borrow_mut() = Some(retained.clone());
             retained
         }
 
-        /// Send the result back to the awaiting future and tear down.
+        /// Send result + tear down. Idempotent.
         fn dispatch_result(&self, result: Result<(), String>) {
             if let Some(sender) = self.ivars().take_sender() {
                 let _ = sender.send(result);
             }
-            let _ = self.ivars().take_webview();
-            let _ = self.ivars().take_self_ref();
+            let _ = self.ivars().webview.borrow_mut().take();
+            let _ = self.ivars().self_ref.borrow_mut().take();
         }
 
-        /// Configure NSPrintInfo for A4 + zero outer margins (CSS @page in
-        /// pdf.css supplies the visible 25mm/20mm margin) and run a
-        /// PDF-specific print operation that writes paginated PDF directly
-        /// to disk.
-        ///
-        /// Uses `+[NSPrintOperation PDFOperationWithView:insideRect:toPath:printInfo:]`
-        /// — bypasses the regular print pipeline so it works on Macs with
-        /// no printers installed.
-        fn run_print_to_pdf(&self) -> Result<(), String> {
-            let _ = self.mtm();
+        /// Step 1: ask the page how tall its content is.
+        fn start_height_measurement(&self) {
+            let webview = match self.ivars().webview.borrow().as_ref() {
+                Some(w) => w.clone(),
+                None => {
+                    self.dispatch_result(Err("WKWebView dropped before height read".into()));
+                    return;
+                }
+            };
+
+            let self_for_block: Retained<NavDelegate> = self
+                .ivars()
+                .self_ref
+                .borrow()
+                .as_ref()
+                .expect("self_ref set before nav finish")
+                .clone();
+
+            let block = RcBlock::new(move |result: *mut AnyObject, err: *mut NSError| {
+                if !err.is_null() {
+                    let err_obj = unsafe { &*err };
+                    let msg = err_obj.localizedDescription().to_string();
+                    self_for_block
+                        .dispatch_result(Err(format!("evaluateJavaScript failed: {msg}")));
+                    return;
+                }
+                if result.is_null() {
+                    self_for_block.dispatch_result(Err(
+                        "evaluateJavaScript returned no result".into(),
+                    ));
+                    return;
+                }
+                // The result is an NSNumber (scrollHeight is a number).
+                let number = unsafe { &*(result as *mut NSNumber) };
+                let height: f64 = number.doubleValue();
+
+                // Compute number of pages. Always at least 1 even for
+                // empty docs, so we always produce a valid 1-page PDF.
+                let num_pages =
+                    ((height / A4_H as f64).ceil() as usize).max(1);
+                self_for_block.ivars().num_pages.set(num_pages);
+                self_for_block.ivars().current_page.set(0);
+
+                self_for_block.capture_next_page();
+            });
+
+            let js = NSString::from_str("document.documentElement.scrollHeight");
+            unsafe {
+                webview.evaluateJavaScript_completionHandler(&js, Some(&block));
+            }
+        }
+
+        /// Step 2 (loop): capture the current page's slice as a single-page PDF.
+        fn capture_next_page(&self) {
+            let i = self.ivars().current_page.get();
+            let n = self.ivars().num_pages.get();
+            if i >= n {
+                self.finalize();
+                return;
+            }
 
             let webview = match self.ivars().webview.borrow().as_ref() {
                 Some(w) => w.clone(),
-                None => return Err("WKWebView dropped before print".into()),
+                None => {
+                    self.dispatch_result(Err("WKWebView dropped during page capture".into()));
+                    return;
+                }
             };
+
+            let rect = NSRect::new(
+                objc2_foundation::NSPoint::new(0.0, i as f64 * A4_H),
+                objc2_foundation::NSSize::new(A4_W, A4_H),
+            );
+
+            let self_for_block: Retained<NavDelegate> = self
+                .ivars()
+                .self_ref
+                .borrow()
+                .as_ref()
+                .expect("self_ref set during page capture")
+                .clone();
+
+            let block = RcBlock::new(move |data: *mut NSData, err: *mut NSError| {
+                if !err.is_null() {
+                    let err_obj = unsafe { &*err };
+                    let msg = err_obj.localizedDescription().to_string();
+                    self_for_block
+                        .dispatch_result(Err(format!("createPDF page failed: {msg}")));
+                    return;
+                }
+                if data.is_null() {
+                    self_for_block.dispatch_result(Err(
+                        "createPDF returned null data".into(),
+                    ));
+                    return;
+                }
+                let nsdata = unsafe { Retained::retain(data).expect("non-null data") };
+                self_for_block.ivars().pages.borrow_mut().push(nsdata);
+                self_for_block.ivars().current_page.set(i + 1);
+                self_for_block.capture_next_page();
+            });
+
+            unsafe {
+                let config = WKPDFConfiguration::new(self.mtm());
+                config.setRect(rect);
+                webview.createPDFWithConfiguration_completionHandler(Some(&config), &block);
+            }
+        }
+
+        /// Step 3: merge all per-page PDFs into one multi-page PDF via
+        /// PDFKit, then write the bytes to disk.
+        fn finalize(&self) {
+            let pieces: Vec<Retained<NSData>> = self.ivars().pages.borrow_mut().drain(..).collect();
             let output_path = self.ivars().output_path.clone();
 
-            {
-                let print_info: Retained<NSPrintInfo> = NSPrintInfo::new();
-
-                let paper = objc2_foundation::NSSize {
-                    width: 595.0,
-                    height: 842.0,
-                };
-                print_info.setPaperSize(paper);
-                print_info.setOrientation(NSPaperOrientation::Portrait);
-
-                // Zero outer margins; pdf.css controls visible margins.
-                print_info.setTopMargin(0.0);
-                print_info.setBottomMargin(0.0);
-                print_info.setLeftMargin(0.0);
-                print_info.setRightMargin(0.0);
-
-                print_info.setHorizontalPagination(NSPrintingPaginationMode::Automatic);
-                print_info.setVerticalPagination(NSPrintingPaginationMode::Automatic);
-                print_info.setHorizontallyCentered(false);
-                print_info.setVerticallyCentered(false);
-
-                // The full content area to capture. Pagination cuts this
-                // into A4 pages automatically.
-                let bounds: NSRect = webview.bounds();
-
-                // WKWebView is an NSView subclass — pass it where NSView
-                // is expected. The deref to &NSView goes through Retained's
-                // Deref → WKWebView → NSView via objc2's class hierarchy.
-                let view: &NSView = &*webview;
-
-                let path_ns = NSString::from_str(&output_path);
-                let op: Retained<NSPrintOperation> =
-                    NSPrintOperation::PDFOperationWithView_insideRect_toPath_printInfo(
-                        view,
-                        bounds,
-                        &path_ns,
-                        &print_info,
-                    );
-                op.setShowsPrintPanel(false);
-                op.setShowsProgressPanel(false);
-
-                if !op.runOperation() {
-                    return Err("PDFOperationWithView reported failure".into());
+            let merged = match merge_page_pdfs(&pieces) {
+                Ok(d) => d,
+                Err(e) => {
+                    self.dispatch_result(Err(e));
+                    return;
                 }
-            }
+            };
 
+            // Write to disk.
+            let bytes: Vec<u8> = merged.to_vec();
+            if let Err(e) = std::fs::write(&output_path, bytes) {
+                self.dispatch_result(Err(format!("Failed to write PDF: {e}")));
+                return;
+            }
             if !Path::new(&output_path).exists() {
-                return Err(format!(
-                    "PDF operation returned success but no file at {output_path}"
-                ));
+                self.dispatch_result(Err(format!(
+                    "PDF reportedly written but no file at {output_path}"
+                )));
+                return;
             }
+            self.dispatch_result(Ok(()));
+        }
+    }
 
-            Ok(())
+    /// Merge a sequence of single-page PDF datas into one multi-page PDF.
+    fn merge_page_pdfs(pieces: &[Retained<NSData>]) -> Result<Retained<NSData>, String> {
+        if pieces.is_empty() {
+            return Err("no pages to merge".into());
+        }
+        // Optimisation: with one page, no merge needed.
+        if pieces.len() == 1 {
+            return Ok(pieces[0].clone());
+        }
+
+        let combined = unsafe { PDFDocument::new() };
+        for (idx, piece) in pieces.iter().enumerate() {
+            let alloc = PDFDocument::alloc();
+            let single = unsafe { PDFDocument::initWithData(alloc, piece) }
+                .ok_or_else(|| format!("PDFDocument::initWithData failed for page {idx}"))?;
+            let page = unsafe { single.pageAtIndex(0) }
+                .ok_or_else(|| format!("page {idx} missing in single-page PDF"))?;
+            let insert_at = unsafe { combined.pageCount() };
+            unsafe { combined.insertPage_atIndex(&page, insert_at) };
+        }
+        let data = unsafe { combined.dataRepresentation() }
+            .ok_or_else(|| "merged PDF dataRepresentation returned nil".to_string())?;
+        // Cast NSData → NSData (it already is one; clone to own).
+        Ok(data)
+    }
+
+    /// Helper for converting NSData to Vec<u8>.
+    trait NSDataToVec {
+        fn to_vec(&self) -> Vec<u8>;
+    }
+    impl NSDataToVec for Retained<NSData> {
+        fn to_vec(&self) -> Vec<u8> {
+            (**self).to_vec()
         }
     }
 
@@ -212,8 +329,6 @@ mod imp {
     ) -> Result<String, String> {
         let (done_tx, done_rx) = tokio::sync::oneshot::channel::<Result<(), String>>();
 
-        // Wrap the sender so we can move it into the `FnOnce + Send`
-        // closure dispatched to the main thread.
         let sender_holder = Mutex::new(Some(done_tx));
         let output_path_for_main = output_path.clone();
 
@@ -226,12 +341,12 @@ mod imp {
                 None => return,
             };
 
-            // The webview frame is incidental — pagination is driven by
-            // NSPrintInfo's paper size. A4-ish initial frame keeps layout
-            // close to final and avoids an initial reflow.
+            // The webview needs at least A4-page-width frame so content
+            // lays out for that width. Height is incidental — we'll capture
+            // each A4 slice via createPDF rect.
             let frame = NSRect::new(
                 objc2_foundation::NSPoint::new(0.0, 0.0),
-                objc2_foundation::NSSize::new(595.0, 842.0),
+                objc2_foundation::NSSize::new(A4_W, A4_H),
             );
 
             unsafe {
@@ -258,7 +373,6 @@ mod imp {
         })
         .map_err(|e| format!("run_on_main_thread failed: {e}"))?;
 
-        // Resolve the print operation outcome.
         done_rx
             .await
             .map_err(|_| "PDF generation channel closed unexpectedly".to_string())??;
