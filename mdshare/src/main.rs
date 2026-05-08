@@ -1,6 +1,7 @@
 mod ipc;
 mod publish;
 mod slug;
+mod unpublish;
 
 use std::io::{self, Read, Write};
 use ipc::{Request, Response};
@@ -23,7 +24,7 @@ fn main() {
 
     let resp = match req.command.as_str() {
         "publish" => publish::run(req),
-        "unpublish" => Response::fail(vec![ipc::toast_error(PLUGIN_NAME, "unpublish 未实现", None)]),
+        "unpublish" => unpublish::run(req),
         "copy-link" => Response::fail(vec![ipc::toast_error(PLUGIN_NAME, "copy-link 未实现", None)]),
         other => Response::fail(vec![ipc::toast_error(PLUGIN_NAME, "未知命令", Some(other))]),
     };
