@@ -1,3 +1,4 @@
+mod copy_link;
 mod ipc;
 mod publish;
 mod slug;
@@ -25,7 +26,7 @@ fn main() {
     let resp = match req.command.as_str() {
         "publish" => publish::run(req),
         "unpublish" => unpublish::run(req),
-        "copy-link" => Response::fail(vec![ipc::toast_error(PLUGIN_NAME, "copy-link 未实现", None)]),
+        "copy-link" => copy_link::run(req),
         other => Response::fail(vec![ipc::toast_error(PLUGIN_NAME, "未知命令", Some(other))]),
     };
     emit(resp);
