@@ -1,4 +1,4 @@
-import { readTextFile, writeTextFile } from '@tauri-apps/plugin-fs'
+import { readTextFile, writeTextFile, stat as fsStat } from '@tauri-apps/plugin-fs'
 
 export async function readMd(path: string): Promise<string> {
   return readTextFile(path)
@@ -95,6 +95,19 @@ export function isSupportedPath(path: string): boolean {
 }
 
 /**
+ * Returns the key under which a file's preferred edit mode is remembered.
+ * Files with extensions key by the extension only (`foo.md` → `md`); files
+ * without extensions or dotfile names key by the full lowercased basename
+ * (`Dockerfile` → `dockerfile`, `.env` → `.env`). Always lowercased.
+ */
+export function modeKeyFor(path: string): string {
+  const base = basename(path).toLowerCase()
+  const dot = base.lastIndexOf('.')
+  if (dot <= 0) return base
+  return base.slice(dot + 1)
+}
+
+/**
  * Heuristic: does the content look like a binary file?
  * Returns true if the first 8KB contains a NUL byte, or
  * more than 5% of bytes are control characters outside whitespace.
@@ -113,4 +126,28 @@ export function looksBinary(s: string): boolean {
     if (c < 9 || (c > 13 && c < 32)) nonText++
   }
   return nonText / sample.length > 0.05
+}
+
+export interface FileStat {
+  /** Last-modification time in milliseconds since epoch. */
+  mtime: number
+  /** File size in bytes. */
+  size: number
+}
+
+/**
+ * Stat a path. Returns null if the file does not exist or stat throws.
+ * Used by external-change detection to compare the on-disk state against
+ * what we last accepted.
+ */
+export async function statFile(path: string): Promise<FileStat | null> {
+  try {
+    const info = await fsStat(path)
+    return {
+      mtime: info.mtime ? info.mtime.getTime() : 0,
+      size: info.size ?? 0,
+    }
+  } catch {
+    return null
+  }
 }

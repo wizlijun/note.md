@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
-import { classifyPath, isSupportedPath, looksBinary } from './fs'
+import { describe, it, expect, vi } from 'vitest'
+import { classifyPath, isSupportedPath, looksBinary, modeKeyFor } from './fs'
 
 describe('classifyPath', () => {
   it('markdown extensions', () => {
@@ -82,5 +82,51 @@ describe('looksBinary', () => {
 
   it('common control chars (tab, LF, CR) are OK', () => {
     expect(looksBinary('a\tb\nc\rd')).toBe(false)
+  })
+})
+
+describe('modeKeyFor', () => {
+  it('returns lowercased extension for normal files', () => {
+    expect(modeKeyFor('/tmp/foo.md')).toBe('md')
+    expect(modeKeyFor('/tmp/script.PY')).toBe('py')
+    expect(modeKeyFor('relative/path/index.html')).toBe('html')
+  })
+
+  it('returns full basename for files without extension', () => {
+    expect(modeKeyFor('/repo/Dockerfile')).toBe('dockerfile')
+    expect(modeKeyFor('Makefile')).toBe('makefile')
+  })
+
+  it('treats dotfiles as full-name keys (not extensions)', () => {
+    expect(modeKeyFor('/proj/.env')).toBe('.env')
+    expect(modeKeyFor('.gitignore')).toBe('.gitignore')
+  })
+
+  it('handles multiple dots — uses the last one', () => {
+    expect(modeKeyFor('/tmp/archive.tar.gz')).toBe('gz')
+    expect(modeKeyFor('/proj/.env.local')).toBe('local')
+  })
+})
+
+vi.mock('@tauri-apps/plugin-fs', () => ({
+  readTextFile: vi.fn(),
+  writeTextFile: vi.fn(),
+  stat: vi.fn(async () => ({ mtime: new Date(1_700_000_000_000), size: 42 })),
+}))
+
+describe('statFile', () => {
+  it('returns mtime in ms and size from plugin-fs.stat', async () => {
+    const { statFile } = await import('./fs')
+    const info = await statFile('/tmp/foo.md')
+    expect(info).not.toBeNull()
+    expect(info!.mtime).toBe(1_700_000_000_000)
+    expect(info!.size).toBe(42)
+  })
+
+  it('returns null when stat throws', async () => {
+    const fsPlug = await import('@tauri-apps/plugin-fs')
+    ;(fsPlug.stat as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('ENOENT'))
+    const { statFile } = await import('./fs')
+    expect(await statFile('/tmp/missing.md')).toBe(null)
   })
 })
