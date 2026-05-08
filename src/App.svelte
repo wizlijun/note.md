@@ -19,6 +19,7 @@
   import Toast from './components/Toast.svelte'
   import { invokePlugin } from './lib/plugins/host'
   import { applyActions, configureActionHandlers } from './lib/plugins/action-handlers'
+  import { bakeShareHtml } from './lib/plugins/share-baker'
   import {
     collectMenuItems, evaluateEnabled, parsePluginMenuId,
     type CollectedItem, type CollectedItems,
@@ -61,6 +62,11 @@
         }
         const result = await invokePlugin(m, command, snap, {
           settingsReader: (id) => getPluginScopedAll(id),
+          htmlBaker: async (snapshot) => {
+            const t = tabs.find((tab) => tab.filePath === snapshot.path)
+            if (!t) throw new Error('share-baker: no matching open tab')
+            return bakeShareHtml(t)
+          },
         })
         if (result.ok && result.response) {
           await applyActions(result.response.actions, m)
