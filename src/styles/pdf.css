@@ -132,14 +132,37 @@ figcaption {
 .katex-display { margin: 0.8em 0; break-inside: avoid; overflow-wrap: anywhere; }
 .katex { font-size: 11pt; }
 
-/* === Mermaid === */
-.mermaid {
+/* === Diagrams (mermaid + dot/graphviz) === */
+.mermaid, .dot {
   display: block;
   max-width: 100%;
+  width: 100%;
   margin: 0.8em auto;
   break-inside: avoid;
+  text-align: center;
 }
-.mermaid svg { max-width: 100%; height: auto; }
+.mermaid svg, .dot svg {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+}
+.renderer-error {
+  color: #b00020;
+  background: #fff3f3;
+  border: 1px solid #f8d7da;
+  border-radius: 4px;
+  padding: 0.5em 0.8em;
+  font-family: 'SF Mono', 'Menlo', monospace;
+  font-size: 9pt;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+.renderer-empty {
+  color: #888;
+  font-style: italic;
+  padding: 0.5em;
+}
 
 /* === Horizontal rule === */
 hr { border: 0; border-top: 1px solid #d0d7de; margin: 1.5em 0; }

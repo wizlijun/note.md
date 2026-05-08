@@ -42,7 +42,7 @@ mod imp {
         MainThreadMarker, NSData, NSError, NSNumber, NSObject, NSObjectProtocol, NSRect,
         NSString, NSURL,
     };
-    use objc2_pdf_kit::PDFDocument;
+    use objc2_pdf_kit::{PDFDisplayBox, PDFDocument, PDFPage};
     use objc2_web_kit::{
         WKNavigation, WKNavigationDelegate, WKPDFConfiguration, WKWebView,
         WKWebViewConfiguration,
@@ -51,6 +51,14 @@ mod imp {
     /// A4 page size in PostScript points (1pt = 1/72 inch).
     const A4_W: f64 = 595.0;
     const A4_H: f64 = 842.0;
+    /// Visible margins inside each A4 page. ~20mm horizontal, ~25mm vertical
+    /// at 1pt = 1/72 inch (1mm ≈ 2.835pt).
+    const MARGIN_H: f64 = 57.0;
+    const MARGIN_V: f64 = 71.0;
+    /// Inner content area = A4 minus margins. The webview renders into this
+    /// width; pages are captured this tall.
+    const INNER_W: f64 = A4_W - 2.0 * MARGIN_H; // 481
+    const INNER_H: f64 = A4_H - 2.0 * MARGIN_V; // 700
 
     /// Ivars held by the navigation delegate. Holds enough state to drive
     /// the multi-stage async capture (height-measure → per-page createPDF
@@ -182,10 +190,11 @@ mod imp {
                 let number = unsafe { &*(result as *mut NSNumber) };
                 let height: f64 = number.doubleValue();
 
-                // Compute number of pages. Always at least 1 even for
-                // empty docs, so we always produce a valid 1-page PDF.
+                // Compute number of pages by inner content height
+                // (content area, not full A4) — PDFKit pads each captured
+                // page out to A4 with margins later.
                 let num_pages =
-                    ((height / A4_H as f64).ceil() as usize).max(1);
+                    ((height / INNER_H as f64).ceil() as usize).max(1);
                 self_for_block.ivars().num_pages.set(num_pages);
                 self_for_block.ivars().current_page.set(0);
 
@@ -216,8 +225,8 @@ mod imp {
             };
 
             let rect = NSRect::new(
-                objc2_foundation::NSPoint::new(0.0, i as f64 * A4_H),
-                objc2_foundation::NSSize::new(A4_W, A4_H),
+                objc2_foundation::NSPoint::new(0.0, i as f64 * INNER_H),
+                objc2_foundation::NSSize::new(INNER_W, INNER_H),
             );
 
             let self_for_block: Retained<NavDelegate> = self
@@ -285,14 +294,33 @@ mod imp {
         }
     }
 
+    /// Expand a captured single-page PDF's MediaBox so the page becomes A4
+    /// with the original content offset by (MARGIN_H, MARGIN_V).
+    ///
+    /// PDF coordinates: origin is bottom-left. Content drawn at PDF (x, y)
+    /// appears at viewer-page (x - mediabox.x, y - mediabox.y). Setting
+    /// MediaBox origin to (-MARGIN_H, -MARGIN_V) shifts the displayed
+    /// content by (MARGIN_H, MARGIN_V) → visible left/bottom margin.
+    /// MediaBox size = A4 → final page is A4-sized with margins on all
+    /// four sides (top/right margins emerge automatically because content
+    /// is INNER_W × INNER_H, smaller than A4 minus offset).
+    fn expand_to_a4_with_margins(page: &PDFPage) {
+        let new_media = NSRect::new(
+            objc2_foundation::NSPoint::new(-MARGIN_H, -MARGIN_V),
+            objc2_foundation::NSSize::new(A4_W, A4_H),
+        );
+        unsafe {
+            page.setBounds_forBox(new_media, PDFDisplayBox::MediaBox);
+        }
+    }
+
     /// Merge a sequence of single-page PDF datas into one multi-page PDF.
+    /// Each captured page (INNER_W × INNER_H) gets its MediaBox expanded
+    /// to A4 (595×842) with the content offset by the margin amounts —
+    /// gives every output page clean white margins.
     fn merge_page_pdfs(pieces: &[Retained<NSData>]) -> Result<Retained<NSData>, String> {
         if pieces.is_empty() {
             return Err("no pages to merge".into());
-        }
-        // Optimisation: with one page, no merge needed.
-        if pieces.len() == 1 {
-            return Ok(pieces[0].clone());
         }
 
         let combined = unsafe { PDFDocument::new() };
@@ -302,12 +330,12 @@ mod imp {
                 .ok_or_else(|| format!("PDFDocument::initWithData failed for page {idx}"))?;
             let page = unsafe { single.pageAtIndex(0) }
                 .ok_or_else(|| format!("page {idx} missing in single-page PDF"))?;
+            expand_to_a4_with_margins(&page);
             let insert_at = unsafe { combined.pageCount() };
             unsafe { combined.insertPage_atIndex(&page, insert_at) };
         }
         let data = unsafe { combined.dataRepresentation() }
             .ok_or_else(|| "merged PDF dataRepresentation returned nil".to_string())?;
-        // Cast NSData → NSData (it already is one; clone to own).
         Ok(data)
     }
 
@@ -341,12 +369,13 @@ mod imp {
                 None => return,
             };
 
-            // The webview needs at least A4-page-width frame so content
-            // lays out for that width. Height is incidental — we'll capture
-            // each A4 slice via createPDF rect.
+            // The webview's frame width = inner content area. Content
+            // reflows for this width; pages are captured at INNER_H height
+            // each, then PDFKit pads each captured page out to A4 with
+            // margins. Frame height is incidental.
             let frame = NSRect::new(
                 objc2_foundation::NSPoint::new(0.0, 0.0),
-                objc2_foundation::NSSize::new(A4_W, A4_H),
+                objc2_foundation::NSSize::new(INNER_W, INNER_H),
             );
 
             unsafe {
