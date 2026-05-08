@@ -49,3 +49,55 @@ describe('guardSize', () => {
     expect(() => guardSize(big)).toThrow(/^share_too_large:\d+$/)
   })
 })
+
+import { renderTabBody } from './share-baker'
+import type { Tab } from '../tabs.svelte'
+
+const fakeTab = (over: Partial<Tab> = {}): Tab => ({
+  id: 'x',
+  filePath: '/tmp/foo.md',
+  title: 'foo.md',
+  initialContent: '',
+  currentContent: '',
+  mode: 'source',
+  kind: 'markdown',
+  externalState: 'fresh',
+  externalBannerDismissed: false,
+  lastKnownMtime: 0,
+  lastKnownHash: '',
+  ...over,
+})
+
+describe('renderTabBody', () => {
+  it('renders markdown headings to <h1>/<h2>', async () => {
+    const t = fakeTab({ currentContent: '# Hello\n\n## World\n\nbody' })
+    const body = await renderTabBody(t)
+    expect(body).toMatch(/<h1[^>]*>Hello/i)
+    expect(body).toMatch(/<h2[^>]*>World/i)
+  })
+
+  it('passes HTML tabs through unchanged in body', async () => {
+    const t = fakeTab({
+      kind: 'html', filePath: '/tmp/foo.html', title: 'foo.html',
+      currentContent: '<p>raw</p>',
+    })
+    const body = await renderTabBody(t)
+    expect(body).toContain('<p>raw</p>')
+  })
+
+  it('wraps code-kind tabs in a highlighted code block', async () => {
+    const t = fakeTab({
+      kind: 'code', filePath: '/tmp/foo.py', title: 'foo.py', language: 'python',
+      currentContent: 'def f():\n    return 1',
+    })
+    const body = await renderTabBody(t)
+    expect(body).toMatch(/<pre>/)
+    expect(body).toContain('language-python')
+  })
+
+  it('highlights fenced code blocks via highlight.js', async () => {
+    const t = fakeTab({ currentContent: '```js\nconst x = 1\n```' })
+    const body = await renderTabBody(t)
+    expect(body).toContain('hljs language-js')
+  })
+})

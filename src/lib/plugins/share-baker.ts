@@ -1,4 +1,10 @@
 import { basename } from '../fs'
+import { Marked } from 'marked'
+import markedKatex from 'marked-katex-extension'
+import { markedHighlight } from 'marked-highlight'
+import hljs from 'highlight.js'
+import type { Tab } from '../tabs.svelte'
+import { htmlEscape } from '../pdf-export'
 
 export const MAX_HTML_BYTES = 25 * 1024 * 1024
 
@@ -45,4 +51,34 @@ th, td { padding: 6px 10px; border: 1px solid rgba(0,0,0,0.1); }
 export function guardSize(html: string): void {
   const bytes = new TextEncoder().encode(html).byteLength
   if (bytes > MAX_HTML_BYTES) throw new Error(`share_too_large:${bytes}`)
+}
+
+const shareMarked = new Marked(
+  markedHighlight({
+    langPrefix: 'hljs language-',
+    highlight(code: string, lang: string): string {
+      const language = lang && hljs.getLanguage(lang) ? lang : 'plaintext'
+      return hljs.highlight(code, { language }).value
+    },
+  }),
+  markedKatex({ throwOnError: false }),
+)
+
+/**
+ * Render a tab to an HTML body fragment (no <html>/<head> wrapper).
+ * Pipeline mirrors pdf-export.ts so that share & PDF outputs stay visually
+ * consistent.
+ */
+export async function renderTabBody(tab: Tab): Promise<string> {
+  if (tab.kind === 'html') {
+    return tab.currentContent
+  }
+  if (tab.kind === 'code') {
+    const lang = tab.language && hljs.getLanguage(tab.language) ? tab.language : 'plaintext'
+    const highlighted = hljs.highlight(tab.currentContent, { language: lang }).value
+    return `<pre><code class="hljs language-${htmlEscape(lang)}">${highlighted}</code></pre>`
+  }
+  // markdown
+  const result = await shareMarked.parse(tab.currentContent, { async: true })
+  return result
 }
