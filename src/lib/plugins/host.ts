@@ -1,9 +1,11 @@
-import type { PluginManifest, PluginRequest, PluginResponse, PluginAction } from './types'
+import type { PluginManifest, PluginRequest, PluginResponse, PluginAction, TabKind } from './types'
 
 export interface TabSnapshot {
   path: string | null
   filename: string | null
   extension: string | null
+  kind: TabKind
+  title: string
   isDirty: boolean
   isUntitled: boolean
   content: string
@@ -12,6 +14,13 @@ export interface TabSnapshot {
 export interface BuildContextOpts {
   htmlBaker?: (tab: TabSnapshot) => Promise<string>
   settingsReader?: (pluginId: string) => Record<string, unknown>
+  /**
+   * If the menu item that triggered this invoke declared a `prompt` block
+   * (e.g. save-dialog), the dispatcher should resolve the user's chosen
+   * path and pass it here. The host serialises it into context.output_path
+   * so the plugin can use it without the host needing per-plugin code.
+   */
+  outputPath?: string
 }
 
 export async function buildContext(
@@ -24,6 +33,8 @@ export async function buildContext(
       path: tab.path,
       filename: tab.filename,
       extension: tab.extension,
+      kind: tab.kind,
+      title: tab.title,
       is_dirty: tab.isDirty,
       is_untitled: tab.isUntitled,
     },
@@ -34,6 +45,9 @@ export async function buildContext(
   if (manifest.host_capabilities.includes('renderer.html')) {
     if (!opts.htmlBaker) throw new Error('plugin needs renderer.html but no htmlBaker provided')
     ctx.rendered_html = await opts.htmlBaker(tab)
+  }
+  if (opts.outputPath != null) {
+    ctx.output_path = opts.outputPath
   }
   let settings: PluginRequest['settings'] | undefined
   if (manifest.host_capabilities.includes('settings.read') && opts.settingsReader) {

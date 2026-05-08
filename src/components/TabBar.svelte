@@ -35,6 +35,7 @@
             path: tab.filePath || null,
             filename: tab.title || null,
             extension: tab.filePath ? (tab.filePath.split('.').pop() ?? null) : null,
+            kind: tab.kind === 'image' ? null : tab.kind,
             hasContent: (tab.currentContent ?? '').length > 0,
             isDirty: tab.currentContent !== tab.initialContent,
             isUntitled: !tab.filePath,

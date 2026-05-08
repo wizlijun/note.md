@@ -20,6 +20,8 @@
   import { invokePlugin } from './lib/plugins/host'
   import { applyActions, configureActionHandlers } from './lib/plugins/action-handlers'
   import { bakeShareHtml } from './lib/plugins/share-baker'
+  import { renderTabAsInlineBody, buildPdfTitle } from './lib/plugins/host-render-html'
+  import { renderFilenameTemplate } from './lib/plugins/prompt'
   import {
     collectMenuItems, evaluateEnabled, parsePluginMenuId,
     type CollectedItem, type CollectedItems,
@@ -51,24 +53,46 @@
       dispatchPlugin = async (pluginId: string, command: string) => {
         const m = manifestById[pluginId]
         if (!m) { console.warn('[App] unknown plugin', pluginId); return }
+        const menu = m.menus?.find((me) => me.command === command)
         const tab = activeTab()
         const snap = {
           path: tab?.filePath ?? null,
           filename: tab?.title ?? null,
           extension: tab?.filePath?.split('.').pop() ?? null,
+          kind: tab?.kind === 'image' ? 'markdown' : (tab?.kind ?? 'markdown'),
+          title: tab ? buildPdfTitle(tab) : 'Untitled',
           isDirty: tab ? tab.currentContent !== tab.initialContent : false,
           isUntitled: !tab?.filePath,
           content: tab?.currentContent ?? '',
         }
+
+        // If the menu item declares a save-dialog prompt, ask the user where
+        // to write before invoking. Cancel → silent return.
+        let outputPath: string | undefined
+        if (menu?.prompt?.kind === 'save-dialog') {
+          const { save } = await import('@tauri-apps/plugin-dialog')
+          const defaultPath = renderFilenameTemplate(menu.prompt.default_filename, snap.path)
+          const picked = await save({ defaultPath, filters: menu.prompt.filters })
+          if (!picked) return
+          outputPath = picked.endsWith('.pdf') || menu.prompt.filters[0]?.extensions[0] !== 'pdf'
+            ? picked
+            : `${picked}.pdf`
+        }
+
         let result
         try {
           result = await invokePlugin(m, command, snap, {
             settingsReader: (id) => getPluginScopedAll(id),
             htmlBaker: async (snapshot) => {
               const t = tabs.find((tab) => tab.filePath === snapshot.path)
-              if (!t) throw new Error('share-baker: no matching open tab')
-              return bakeShareHtml(t)
+              if (!t) throw new Error('renderer.html: no matching open tab')
+              // share has its own wrapping (theme CSS, viewport meta, header/footer).
+              // Other plugins (md2pdf, future) take just the inline body and wrap
+              // it themselves.
+              if (m.id === 'share') return bakeShareHtml(t)
+              return renderTabAsInlineBody(t)
             },
+            outputPath,
           })
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e)
@@ -221,6 +245,7 @@
           path: tab.filePath || null,
           filename: tab.title || null,
           extension: tab.filePath ? (tab.filePath.split('.').pop() ?? null) : null,
+          kind: tab.kind === 'image' ? null : tab.kind,
           hasContent: (tab.currentContent ?? '').length > 0,
           isDirty: tab.currentContent !== tab.initialContent,
           isUntitled: !tab.filePath,

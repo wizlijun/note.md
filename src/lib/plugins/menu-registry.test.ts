@@ -49,7 +49,7 @@ describe('evaluateEnabled', () => {
     const items = collectMenuItems([baseManifest()])
     const empty = { currentTab: null, settings: {} }
     const full = {
-      currentTab: { path: '/x.md', filename: 'x.md', extension: 'md',
+      currentTab: { path: '/x.md', filename: 'x.md', extension: 'md', kind: 'markdown' as const,
                     hasContent: true, isDirty: false, isUntitled: false },
       settings: {},
     }
