@@ -7,6 +7,11 @@ kv_namespaces = [
   { binding = "SHARES", id = "5ca75b01c7534ae5b73eb41d212b18c9" }
 ]
 
+[[r2_buckets]]
+binding = "MEDIA"
+bucket_name = "mdeditor-share-media"
+preview_bucket_name = "mdeditor-share-media-preview"
+
 # Custom domain: uncomment after pointing DNS at Cloudflare.
 # routes = [
 #   { pattern = "share.example.com/*", custom_domain = true }
