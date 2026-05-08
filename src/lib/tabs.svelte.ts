@@ -4,6 +4,7 @@ import {
 } from './fs'
 import { sha256Hex } from './hash'
 import { pushRecentFile, getRecentMode, setRecentMode } from './settings.svelte'
+import { startWatchingTab, stopWatchingTab, rebindTabPath } from './file-watcher.svelte'
 
 export type Mode = 'source' | 'rich'
 
@@ -82,6 +83,7 @@ export async function openFile(path: string): Promise<void> {
   tabs.push(tab)
   activeId.value = tab.id
   await pushRecentFile(path)
+  await startWatchingTab(tab)
 }
 
 export function setContent(id: string, md: string): void {
@@ -128,6 +130,7 @@ export async function saveAs(id: string, newPath: string): Promise<void> {
   await pushRecentFile(newPath)
   setRecentMode(modeKeyFor(newPath), t.mode).catch((e) => console.warn(e))
   await recordOurWrite(t)
+  await rebindTabPath(id, newPath)
 }
 
 export type DirtyChoice = 'save' | 'discard' | 'cancel'
@@ -149,6 +152,7 @@ export async function closeTab(
     }
   }
   tabs.splice(idx, 1)
+  await stopWatchingTab(id)
   if (activeId.value === id) {
     activeId.value = tabs[idx]?.id ?? tabs[idx - 1]?.id ?? null
   }

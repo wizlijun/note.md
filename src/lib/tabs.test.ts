@@ -30,6 +30,13 @@ vi.mock('./settings.svelte', () => ({
   settings: { autoSave: false },
 }))
 
+vi.mock('./file-watcher.svelte', () => ({
+  startWatchingTab: vi.fn(async () => {}),
+  stopWatchingTab: vi.fn(async () => {}),
+  rebindTabPath: vi.fn(async () => {}),
+  verifyAllOpen: vi.fn(async () => {}),
+}))
+
 beforeEach(() => {
   vi.clearAllMocks()
   vi.resetModules()

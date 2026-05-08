@@ -1,3 +1,4 @@
+import { watchImmediate } from '@tauri-apps/plugin-fs'
 import { tabs, type Tab } from './tabs.svelte'
 import { readMd, statFile } from './fs'
 import { sha256Hex } from './hash'
@@ -69,4 +70,39 @@ function applyDecision(
       return
     }
   }
+}
+
+type Unwatch = () => void
+const subscriptions = new Map<string /* tab.id */, Unwatch>()
+
+export async function startWatchingTab(tab: Tab): Promise<void> {
+  if (subscriptions.has(tab.id)) return
+  try {
+    const stop = await watchImmediate(tab.filePath, () => {
+      // Coalesce: any event triggers a verify pass for this single tab.
+      void checkTab(tab)
+    })
+    subscriptions.set(tab.id, stop)
+  } catch (e) {
+    // Watcher unavailable on this filesystem (network, sandboxed, etc.) —
+    // silently degrade; verifyAllOpen on window-focus is the fallback.
+    console.warn('[file-watcher] watch failed for', tab.filePath, e)
+  }
+}
+
+export async function stopWatchingTab(tabId: string): Promise<void> {
+  const stop = subscriptions.get(tabId)
+  if (!stop) return
+  try { stop() } catch (e) { console.warn('[file-watcher] stop failed:', e) }
+  subscriptions.delete(tabId)
+}
+
+export async function rebindTabPath(tabId: string, newPath: string): Promise<void> {
+  await stopWatchingTab(tabId)
+  const tab = tabs.find((t) => t.id === tabId)
+  if (!tab) return
+  // tab.filePath is normally updated by saveAs before this is called; ensure
+  // we always watch the latest path (covers callers that didn't pre-set it).
+  tab.filePath = newPath
+  await startWatchingTab(tab)
 }

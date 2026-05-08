@@ -21,6 +21,10 @@ vi.mock('./settings.svelte', () => ({
   settings: { autoSave: false },
 }))
 
+vi.mock('@tauri-apps/plugin-fs', () => ({
+  watchImmediate: vi.fn(async () => () => {}),
+}))
+
 beforeEach(() => {
   vi.clearAllMocks()
   vi.resetModules()
@@ -84,5 +88,42 @@ describe('verifyAllOpen', () => {
     await tabs.openFile('/tmp/foo.md')
     await watcher.verifyAllOpen()
     expect(tabs.tabs[0].externalState).toBe('fresh')
+  })
+})
+
+describe('startWatchingTab / stopWatchingTab', () => {
+  it('startWatchingTab subscribes via watchImmediate and stop unsubscribes', async () => {
+    const unwatch = vi.fn()
+    const plug = await import('@tauri-apps/plugin-fs')
+    ;(plug.watchImmediate as ReturnType<typeof vi.fn>).mockResolvedValueOnce(unwatch)
+    const tabs = await import('./tabs.svelte')
+    const watcher = await import('./file-watcher.svelte')
+    const fs = await import('./fs')
+    ;(fs.readMd as ReturnType<typeof vi.fn>).mockResolvedValueOnce('A')
+    ;(fs.statFile as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ mtime: 1000, size: 1 })
+    await tabs.openFile('/tmp/foo.md')
+    await watcher.startWatchingTab(tabs.tabs[0])
+    expect(plug.watchImmediate).toHaveBeenCalledWith('/tmp/foo.md', expect.any(Function))
+    await watcher.stopWatchingTab(tabs.tabs[0].id)
+    expect(unwatch).toHaveBeenCalled()
+  })
+
+  it('rebindTabPath stops the old subscription and starts a new one', async () => {
+    const unwatchOld = vi.fn()
+    const unwatchNew = vi.fn()
+    const plug = await import('@tauri-apps/plugin-fs')
+    ;(plug.watchImmediate as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce(unwatchOld)
+      .mockResolvedValueOnce(unwatchNew)
+    const tabs = await import('./tabs.svelte')
+    const watcher = await import('./file-watcher.svelte')
+    const fs = await import('./fs')
+    ;(fs.readMd as ReturnType<typeof vi.fn>).mockResolvedValueOnce('A')
+    ;(fs.statFile as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ mtime: 1000, size: 1 })
+    await tabs.openFile('/tmp/foo.md')
+    await watcher.startWatchingTab(tabs.tabs[0])
+    await watcher.rebindTabPath(tabs.tabs[0].id, '/tmp/bar.md')
+    expect(unwatchOld).toHaveBeenCalled()
+    expect(plug.watchImmediate).toHaveBeenLastCalledWith('/tmp/bar.md', expect.any(Function))
   })
 })
