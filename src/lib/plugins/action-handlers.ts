@@ -1,0 +1,85 @@
+import { pushToast } from '../toast.svelte'
+import type { PluginAction, PluginManifest } from './types'
+
+interface Handlers {
+  writeText: (s: string) => Promise<void>
+  showMessage: (msg: string, opts: { title: string; kind: 'info' | 'warning' | 'error' }) => Promise<void>
+  askDialog: (msg: string, opts: { title: string }) => Promise<boolean>
+  writeSettings: (patch: Record<string, unknown>) => Promise<void>
+  reinvokePlugin: (pluginId: string, command: string) => Promise<void>
+}
+
+let testHandlers: Partial<Handlers> | null = null
+
+export function __setHandlersForTests(h: Partial<Handlers> | null): void { testHandlers = h }
+
+async function realWriteText(s: string): Promise<void> {
+  const { writeText } = await import('@tauri-apps/plugin-clipboard-manager')
+  await writeText(s)
+}
+
+async function realShowMessage(msg: string, opts: { title: string; kind: 'info' | 'warning' | 'error' }): Promise<void> {
+  const { message } = await import('@tauri-apps/plugin-dialog')
+  await message(msg, opts)
+}
+
+async function realAskDialog(msg: string, opts: { title: string }): Promise<boolean> {
+  const { ask } = await import('@tauri-apps/plugin-dialog')
+  return await ask(msg, opts)
+}
+
+async function realWriteSettings(_patch: Record<string, unknown>): Promise<void> {
+  // Wired in Task 11 once settings.svelte.ts has plugin-scoped writers.
+  throw new Error('settings writer not yet wired (see Task 11)')
+}
+
+async function realReinvokePlugin(_id: string, _cmd: string): Promise<void> {
+  throw new Error('re-invoke not wired here; the App.svelte entry point owns plugin invocation')
+}
+
+function pickHandlers(): Handlers {
+  const t = testHandlers ?? {}
+  return {
+    writeText: t.writeText ?? realWriteText,
+    showMessage: t.showMessage ?? realShowMessage,
+    askDialog: t.askDialog ?? realAskDialog,
+    writeSettings: t.writeSettings ?? realWriteSettings,
+    reinvokePlugin: t.reinvokePlugin ?? realReinvokePlugin,
+  }
+}
+
+export async function applyActions(actions: PluginAction[], manifest: PluginManifest): Promise<void> {
+  const h = pickHandlers()
+  for (const a of actions) {
+    try {
+      switch (a.type) {
+        case 'toast':
+          pushToast({ level: a.level, message: a.message, detail: a.detail })
+          break
+        case 'clipboard.write':
+          await h.writeText(a.text)
+          break
+        case 'settings.merge':
+          await h.writeSettings(a.patch)
+          break
+        case 'dialog.message': {
+          const kind: 'info' | 'warning' | 'error' = a.level === 'warn' ? 'warning' : a.level
+          await h.showMessage(a.message, { title: a.title, kind })
+          break
+        }
+        case 'dialog.confirm': {
+          const yes = await h.askDialog(a.message, { title: a.title })
+          if (yes) await h.reinvokePlugin(manifest.id, a.if_confirm_invoke)
+          break
+        }
+      }
+    } catch (e) {
+      const detail = e instanceof Error ? e.message : String(e)
+      pushToast({
+        level: 'error',
+        message: `${manifest.name}: ${a.type} 失败`,
+        detail,
+      })
+    }
+  }
+}
