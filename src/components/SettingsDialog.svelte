@@ -5,11 +5,12 @@
   import { settings, saveSettings, getPluginScopedAll, mergePluginScoped } from '../lib/settings.svelte'
   import { collectSettingsTabs, type SettingsTab } from '../lib/plugins/settings-registry'
   import type { PluginManifest } from '../lib/plugins/types'
+  import PluginsSettingsTab from './PluginsSettingsTab.svelte'
 
   let { open = $bindable(false) }: { open: boolean } = $props()
 
   let pluginTabs = $state<SettingsTab[]>([])
-  let selectedTab = $state<'core' | string>('core')
+  let selectedTab = $state<'plugins' | 'core' | string>('core')
   let pluginValues = $state<Record<string, Record<string, unknown>>>({})
 
   onMount(async () => {
@@ -132,16 +133,17 @@
     <div class="dialog" role="dialog" aria-modal="true" onclick={(e) => e.stopPropagation()}>
       <h2>Preferences</h2>
 
-      {#if pluginTabs.length > 0}
-        <nav class="tab-strip">
-          <button class:active={selectedTab === 'core'} onclick={() => selectedTab = 'core'}>Core</button>
-          {#each pluginTabs as t (t.pluginId)}
-            <button class:active={selectedTab === t.pluginId} onclick={() => selectedTab = t.pluginId}>{t.label}</button>
-          {/each}
-        </nav>
-      {/if}
+      <nav class="tab-strip">
+        <button class:active={selectedTab === 'plugins'} onclick={() => selectedTab = 'plugins'}>Plugins</button>
+        <button class:active={selectedTab === 'core'} onclick={() => selectedTab = 'core'}>Core</button>
+        {#each pluginTabs as t (t.pluginId)}
+          <button class:active={selectedTab === t.pluginId} onclick={() => selectedTab = t.pluginId}>{t.label}</button>
+        {/each}
+      </nav>
 
-      {#if selectedTab === 'core'}
+      {#if selectedTab === 'plugins'}
+        <PluginsSettingsTab />
+      {:else if selectedTab === 'core'}
         <section class="block">
           <label class="row">
             <input type="checkbox" checked={settings.autoSave} onchange={onToggle} />
