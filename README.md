@@ -89,7 +89,7 @@ Output:
 15. Open a `.py` file → source view shows raw content; switch to rich → renders as Python-highlighted code block (hljs colors)
 16. Open a `.html` file → opens in **rich mode by default** (sandboxed iframe preview); switch to source → edit raw HTML
 17. Open `Dockerfile` (no extension, exact filename match) → classified as code with `dockerfile` language
-18. Drag a `.png` into the window → toast: `Unsupported: png`, no tab opened
+18. Drag an unsupported binary (e.g. `.zip` or `.exe`) into the window → toast: `Unsupported: <ext>`, no tab opened. (Image files are now supported — see item 59.)
 19. Open a 6 MB log file → confirm dialog: `File is large (6 MB). Continue?` (manual: prepare such a file with `dd if=/dev/zero of=/tmp/big.log bs=1M count=6`); cancel → no tab; confirm → opens with potential lag
 20. Open `.json` file, switch to rich → edit a value inside the rendered code block, switch back to source → see edit; Cmd+S → reopen → contents persist (round-trip byte-stable when fence intact)
 21. **Menu-bar tray** — confirm M↓ glyph is visible in the macOS menu bar; click → window comes to front
