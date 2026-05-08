@@ -3,6 +3,7 @@ dist/
 .DS_Store
 src-tauri/target/
 src-tauri/gen/
+.worktrees/
 *.log
 
 # Local secrets — never commit
