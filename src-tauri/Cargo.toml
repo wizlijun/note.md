@@ -44,6 +44,7 @@ objc2-web-kit = { version = "0.3", features = [
   "WKNavigationDelegate",
   "WKNavigation",
   "WKPDFConfiguration",
+  "block2",
 ] }
 block2 = "0.6"
 
