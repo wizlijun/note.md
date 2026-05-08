@@ -174,6 +174,10 @@ export async function bakeShareHtml(tab: Tab): Promise<string> {
   if (rawBytes > MAX_HTML_BYTES) throw new Error(`share_too_large:${rawBytes}`)
   const body = await renderTabBody(tab)
   const inlined = await inlineImages(body, tab.filePath, pickImageReader())
+  // Render mermaid / dot / graphviz code blocks to inline SVG. Mounts a
+  // hidden staging element so the renderer plugins can do their async DOM
+  // work, then serializes the mutated subtree back to a string.
+  const withDiagrams = await renderDiagramsToString(inlined)
   const title = htmlEscape(shareHeaderLabel(tab.filePath))
   const date = isoDateStamp()
   const html = `<!doctype html>
@@ -190,13 +194,30 @@ ${viewportMetaTag()}
 <body>
 <div class="share-shell">
 <header class="share-header">${title} · ${date}</header>
-<main>${inlined}</main>
+<main>${withDiagrams}</main>
 <footer class="share-footer">Powered by <a href="https://github.com/wizlijun/MdEditor">M↓</a></footer>
 </div>
 </body>
 </html>`
   guardSize(html)
   return html
+}
+
+async function renderDiagramsToString(html: string): Promise<string> {
+  const { renderDiagrams } = await import('../diagram-render')
+  const staging = document.createElement('div')
+  staging.setAttribute(
+    'style',
+    'position:absolute;left:-10000px;top:0;width:800px;visibility:hidden;',
+  )
+  staging.innerHTML = html
+  document.body.appendChild(staging)
+  try {
+    await renderDiagrams(staging)
+    return staging.innerHTML
+  } finally {
+    staging.remove()
+  }
 }
 
 /**

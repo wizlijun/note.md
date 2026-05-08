@@ -138,6 +138,9 @@ Output:
 55. Switch system to dark mode → recipient page automatically switches.
 56. Disconnect network, click `Cmd+Shift+L` → toast "❌ Share: 网络错误";
     M↓ remains responsive throughout.
+57. **Share with Mermaid block** — share a markdown file containing a
+    ` ```mermaid ` flowchart → recipient page shows the rendered SVG, not
+    the raw source.
 
 ## Spec & Plan
 
