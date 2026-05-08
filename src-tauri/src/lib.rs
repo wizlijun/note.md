@@ -39,6 +39,121 @@ fn quit_app(app: tauri::AppHandle) {
     app.exit(0);
 }
 
+#[derive(serde::Serialize)]
+struct ExtResult {
+    ext: String,
+    uti: Option<String>,
+    ok: bool,
+    error: Option<String>,
+}
+
+#[cfg(target_os = "macos")]
+mod macos_defaults {
+    use core_foundation::base::TCFType;
+    use core_foundation::string::{CFString, CFStringRef};
+
+    // LaunchServices APIs: deprecated in macOS 12+ in favor of NSWorkspace's
+    // async setDefaultApplicationAtURL:toOpenContentType:, but still functional
+    // and synchronous (which is much easier to call from Rust FFI).
+    #[link(name = "ApplicationServices", kind = "framework")]
+    extern "C" {
+        fn LSSetDefaultRoleHandlerForContentType(
+            in_content_type: CFStringRef,
+            in_role: u32,
+            in_handler_bundle_id: CFStringRef,
+        ) -> i32;
+
+        fn UTTypeCreatePreferredIdentifierForTag(
+            in_tag_class: CFStringRef,
+            in_tag: CFStringRef,
+            in_conforming_to_uti: CFStringRef,
+        ) -> CFStringRef;
+    }
+
+    const K_LS_ROLES_ALL: u32 = 0xFFFFFFFF;
+
+    /// Resolve the canonical UTI for a filename extension (e.g. "py" → "public.python-script").
+    /// Returns None when the system can't determine a UTI.
+    pub fn resolve_uti(ext: &str) -> Option<String> {
+        let tag_class = CFString::new("public.filename-extension");
+        let ext_cf = CFString::new(ext);
+        let uti_ref = unsafe {
+            UTTypeCreatePreferredIdentifierForTag(
+                tag_class.as_concrete_TypeRef(),
+                ext_cf.as_concrete_TypeRef(),
+                std::ptr::null(),
+            )
+        };
+        if uti_ref.is_null() {
+            return None;
+        }
+        let uti = unsafe { CFString::wrap_under_create_rule(uti_ref) };
+        Some(uti.to_string())
+    }
+
+    /// Set `bundle_id` as the default handler for the given UTI across all roles.
+    /// Returns `Ok(())` on success or `Err(OSStatus)` on failure.
+    pub fn set_handler(uti: &str, bundle_id: &str) -> Result<(), i32> {
+        let uti_cf = CFString::new(uti);
+        let bundle_cf = CFString::new(bundle_id);
+        let status = unsafe {
+            LSSetDefaultRoleHandlerForContentType(
+                uti_cf.as_concrete_TypeRef(),
+                K_LS_ROLES_ALL,
+                bundle_cf.as_concrete_TypeRef(),
+            )
+        };
+        if status == 0 {
+            Ok(())
+        } else {
+            Err(status)
+        }
+    }
+}
+
+/// Set this app as the macOS default handler for each given file extension.
+/// For each extension we resolve the UTI and call LaunchServices to register
+/// the bundle as the default handler across all roles. Returns a per-extension
+/// result so the frontend can report partial success.
+#[tauri::command]
+fn set_default_app_for_extensions(app: tauri::AppHandle, exts: Vec<String>) -> Vec<ExtResult> {
+    #[cfg(target_os = "macos")]
+    {
+        let bundle_id = app.config().identifier.clone();
+        exts.into_iter()
+            .map(|ext| match macos_defaults::resolve_uti(&ext) {
+                None => ExtResult {
+                    ext,
+                    uti: None,
+                    ok: false,
+                    error: Some("no UTI registered for this extension".into()),
+                },
+                Some(uti) => match macos_defaults::set_handler(&uti, &bundle_id) {
+                    Ok(()) => ExtResult { ext, uti: Some(uti), ok: true, error: None },
+                    Err(status) => ExtResult {
+                        ext,
+                        uti: Some(uti),
+                        ok: false,
+                        error: Some(format!("LaunchServices OSStatus {}", status)),
+                    },
+                },
+            })
+            .collect()
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = app;
+        exts.into_iter()
+            .map(|ext| ExtResult {
+                ext,
+                uti: None,
+                ok: false,
+                error: Some("only supported on macOS".into()),
+            })
+            .collect()
+    }
+}
+
 fn show_main_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
     if let Some(w) = app.get_webview_window("main") {
         let _ = w.show();
@@ -67,7 +182,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::new().build())
-        .invoke_handler(tauri::generate_handler![quit_app])
+        .invoke_handler(tauri::generate_handler![quit_app, set_default_app_for_extensions])
         .setup(|app| {
             let menu = build_menu(&app.handle())?;
             app.set_menu(menu)?;
