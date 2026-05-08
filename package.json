@@ -11,7 +11,8 @@
     "tauri": "tauri",
     "test": "vitest run",
     "test:watch": "vitest",
-    "build:mdshare": "bash scripts/build-mdshare.sh"
+    "build:mdshare": "bash scripts/build-mdshare.sh",
+    "build:md2pdf": "bash scripts/build-md2pdf.sh"
   },
   "dependencies": {
     "@moraya/core": "^0.1.0",
