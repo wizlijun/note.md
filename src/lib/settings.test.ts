@@ -101,3 +101,41 @@ describe('plugin-scoped settings', () => {
     })
   })
 })
+
+describe('plugins.enabled', () => {
+  it('returns true (default-on) for a plugin not in the map', async () => {
+    mockGet.mockResolvedValue(undefined)
+    const { loadSettings, isPluginEnabled } = await import('./settings.svelte')
+    await loadSettings()
+    expect(isPluginEnabled('newplugin')).toBe(true)
+  })
+
+  it('reads explicit false from the store', async () => {
+    mockGet.mockImplementation(async (k: string) =>
+      k === 'plugins.enabled' ? { share: false } : undefined,
+    )
+    const { loadSettings, isPluginEnabled } = await import('./settings.svelte')
+    await loadSettings()
+    expect(isPluginEnabled('share')).toBe(false)
+    expect(isPluginEnabled('md2pdf')).toBe(true)  // default-on for missing
+  })
+
+  it('round-trips a disabled plugin via setPluginEnabled', async () => {
+    mockGet.mockResolvedValue(undefined)
+    const { loadSettings, isPluginEnabled, setPluginEnabled } = await import('./settings.svelte')
+    await loadSettings()
+    await setPluginEnabled('foo', false)
+    expect(isPluginEnabled('foo')).toBe(false)
+    await setPluginEnabled('foo', true)
+    expect(isPluginEnabled('foo')).toBe(true)
+  })
+
+  it('persists the enabled map under "plugins.enabled" key', async () => {
+    mockGet.mockResolvedValue(undefined)
+    const { loadSettings, setPluginEnabled } = await import('./settings.svelte')
+    await loadSettings()
+    await setPluginEnabled('foo', false)
+    const setCall = mockSet.mock.calls.find((args) => args[0] === 'plugins.enabled')
+    expect(setCall?.[1]).toEqual({ foo: false })
+  })
+})

@@ -8,6 +8,7 @@ let store: Awaited<ReturnType<typeof Store.load>> | null = null
 let recentFiles: string[] = []
 let recentModesByExt: Record<string, Mode> = {}
 let pluginScoped: Record<string, Record<string, unknown>> = {}
+let pluginsEnabled: Record<string, boolean> = {}
 
 async function getStore() {
   if (!store) store = await Store.load('settings.json')
@@ -20,6 +21,7 @@ export async function loadSettings(): Promise<void> {
   recentFiles = (await s.get<string[]>('recentFiles')) ?? []
   recentModesByExt = (await s.get<Record<string, Mode>>('recentModesByExt')) ?? {}
   pluginScoped = (await s.get<Record<string, Record<string, unknown>>>('plugins')) ?? {}
+  pluginsEnabled = (await s.get<Record<string, boolean>>('plugins.enabled')) ?? {}
   pluginScopedVersion.value++
 }
 
@@ -29,6 +31,7 @@ export async function saveSettings(): Promise<void> {
   await s.set('recentFiles', recentFiles)
   await s.set('recentModesByExt', recentModesByExt)
   await s.set('plugins', pluginScoped)
+  await s.set('plugins.enabled', pluginsEnabled)
   await s.save()
 }
 
@@ -97,5 +100,28 @@ export async function mergePluginScoped(patch: Record<string, unknown>): Promise
     pluginScoped[id][key] = value
   }
   pluginScopedVersion.value++
+  await saveSettings()
+}
+
+// --- Plugin enable/disable ---
+
+/**
+ * Whether the given plugin id is enabled. Default-on: a plugin not present
+ * in the settings map is treated as enabled (so newly bundled plugins are
+ * usable on first launch without migration).
+ */
+export function isPluginEnabled(pluginId: string): boolean {
+  const v = pluginsEnabled[pluginId]
+  if (v === undefined) return true
+  return v === true
+}
+
+/**
+ * Persist whether a plugin should be loaded at app startup. Honored by the
+ * Rust plugin host; takes effect on the next launch (active manifests are
+ * cached at boot).
+ */
+export async function setPluginEnabled(pluginId: string, enabled: boolean): Promise<void> {
+  pluginsEnabled[pluginId] = enabled
   await saveSettings()
 }
