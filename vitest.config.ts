@@ -7,5 +7,9 @@ export default defineConfig({
     environment: 'node',
     globals: false,
     include: ['src/**/*.test.ts'],
+    // Allow `?raw` imports of CSS files (e.g. src/styles/pdf.css?raw) to
+    // resolve to their text contents instead of being stubbed by vitest's
+    // default CSS-disable plugin.
+    css: { include: [/\.css\?raw$/] },
   },
 })

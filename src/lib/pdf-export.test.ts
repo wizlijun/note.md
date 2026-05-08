@@ -4,6 +4,7 @@ import {
   suggestedPdfFilename,
   buildPdfTitle,
   htmlEscape,
+  wrapInPrintTemplate,
 } from './pdf-export'
 
 describe('extractH1FromMarkdown', () => {
@@ -77,5 +78,38 @@ describe('htmlEscape', () => {
   })
   it('passes plain text through', () => {
     expect(htmlEscape('Hello World')).toBe('Hello World')
+  })
+})
+
+describe('wrapInPrintTemplate', () => {
+  const inputBody = '<h1>Title</h1><p>Body</p>'
+
+  it('produces an HTML5 document with utf-8 charset', () => {
+    const out = wrapInPrintTemplate(inputBody, 'My Doc')
+    expect(out).toMatch(/^<!doctype html>/i)
+    expect(out).toContain('<meta charset="utf-8">')
+  })
+
+  it('escapes the title in <title> and on data-pdf-title', () => {
+    const out = wrapInPrintTemplate(inputBody, 'A & B <c>')
+    expect(out).toContain('<title>A &amp; B &lt;c&gt;</title>')
+    expect(out).toContain('data-pdf-title="A &amp; B &lt;c&gt;"')
+  })
+
+  it('inlines the print stylesheet (non-empty <style> block)', () => {
+    const out = wrapInPrintTemplate(inputBody, 'X')
+    // The injected <style> for pdf.css should contain a sentinel rule
+    expect(out).toMatch(/@page\s*{[^}]*size:\s*A4/)
+  })
+
+  it('places the body html inside <body>', () => {
+    const out = wrapInPrintTemplate(inputBody, 'X')
+    const bodyMatch = out.match(/<body[^>]*>([\s\S]*?)<\/body>/)
+    expect(bodyMatch?.[1]).toContain(inputBody)
+  })
+
+  it('includes lang attr on <html>', () => {
+    const out = wrapInPrintTemplate(inputBody, 'X')
+    expect(out).toMatch(/<html\s+lang="en"/)
   })
 })

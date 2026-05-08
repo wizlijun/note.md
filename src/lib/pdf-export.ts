@@ -1,5 +1,6 @@
 import { basename } from './fs'
 import type { Tab } from './tabs.svelte'
+import pdfCss from '../styles/pdf.css?raw'
 
 /**
  * Extract the first ATX-style `# ` heading text from markdown source.
@@ -49,4 +50,24 @@ export function htmlEscape(s: string): string {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
+}
+
+/**
+ * Assemble a fully self-contained HTML5 document suitable for handing to
+ * WKWebView. All CSS is inlined so the offscreen webview need not fetch
+ * external resources.
+ */
+export function wrapInPrintTemplate(bodyHtml: string, title: string): string {
+  const escTitle = htmlEscape(title)
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>${escTitle}</title>
+  <style>${pdfCss}</style>
+</head>
+<body data-pdf-title="${escTitle}">
+${bodyHtml}
+</body>
+</html>`
 }
