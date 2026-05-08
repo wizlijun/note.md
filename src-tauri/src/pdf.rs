@@ -1,17 +1,22 @@
-//! PDF export via WKWebView's `printOperation(with:)` API.
+//! PDF export via `NSPrintOperation.PDFOperationWithView:insideRect:toPath:printInfo:`.
 //!
 //! Frontend hands us a fully-rendered, self-contained HTML document plus a
 //! base URL (file:// of the source file's directory, used so relative-path
 //! images can resolve). We spin up an offscreen WKWebView on the main
-//! thread, load the HTML, wait for navigation completion, and run an
-//! `NSPrintOperation` configured for A4 paper with auto-pagination — that
-//! routes through the same PDF engine the system print dialog uses, so
-//! `@page` rules in the print stylesheet are honoured.
+//! thread, load the HTML, wait for navigation completion, and run a
+//! *PDF-specific* `NSPrintOperation` configured for A4 + auto-pagination.
 //!
-//! `WKWebView.createPDFWithConfiguration:completionHandler:` (the more
-//! obvious-looking API) does NOT paginate — it captures the entire scroll
-//! region as one tall PDF page. That's why we use the print operation
-//! instead.
+//! Why `PDFOperationWithView:` and not the more obvious paths:
+//!
+//! - `WKWebView.createPDFWithConfiguration:` captures the entire scroll
+//!   region as one tall PDF page — no pagination.
+//! - `WKWebView.printOperationWithPrintInfo:` even with NSPrintSaveJob
+//!   disposition triggers the system "set up a printer" prompt on Macs
+//!   without any installed printer. macOS treats it as a real print
+//!   operation and validates against printers.
+//! - `+[NSPrintOperation PDFOperationWithView:insideRect:toPath:printInfo:]`
+//!   is the PDF-specific factory that writes paginated PDF directly to
+//!   disk, bypassing any printer configuration entirely.
 
 #[cfg(target_os = "macos")]
 mod imp {
@@ -23,7 +28,7 @@ mod imp {
     use objc2::runtime::ProtocolObject;
     use objc2::{define_class, msg_send, DefinedClass, MainThreadOnly};
     use objc2_app_kit::{
-        NSPrintInfo, NSPrintOperation, NSPrintingPaginationMode, NSPaperOrientation,
+        NSPrintInfo, NSPrintOperation, NSPrintingPaginationMode, NSPaperOrientation, NSView,
     };
     use objc2_foundation::{
         MainThreadMarker, NSError, NSObject, NSObjectProtocol, NSRect, NSString, NSURL,
@@ -31,14 +36,6 @@ mod imp {
     use objc2_web_kit::{
         WKNavigation, WKNavigationDelegate, WKWebView, WKWebViewConfiguration,
     };
-
-    /// The keys + values for the NSPrintInfo dictionary, defined as
-    /// `NSPrintJobDisposition` / `NSPrintSaveJob` / `NSPrintJobSavingURL`
-    /// in AppKit. objc2-app-kit doesn't expose these as constants in the
-    /// version we're pinned to, so we construct them from string literals.
-    fn nspr_key(s: &str) -> Retained<NSString> {
-        NSString::from_str(s)
-    }
 
     /// Ivars held by the navigation delegate.
     pub(super) struct DelegateIvars {
@@ -134,12 +131,16 @@ mod imp {
             let _ = self.ivars().take_self_ref();
         }
 
-        /// Configure NSPrintInfo for A4 + zero margins (CSS @page controls
-        /// the visible margins) + save-to-file disposition, run the print
-        /// operation synchronously, and return Ok(()) if the PDF was
-        /// written.
+        /// Configure NSPrintInfo for A4 + zero outer margins (CSS @page in
+        /// pdf.css supplies the visible 25mm/20mm margin) and run a
+        /// PDF-specific print operation that writes paginated PDF directly
+        /// to disk.
+        ///
+        /// Uses `+[NSPrintOperation PDFOperationWithView:insideRect:toPath:printInfo:]`
+        /// — bypasses the regular print pipeline so it works on Macs with
+        /// no printers installed.
         fn run_print_to_pdf(&self) -> Result<(), String> {
-            let mtm = self.mtm();
+            let _ = self.mtm();
 
             let webview = match self.ivars().webview.borrow().as_ref() {
                 Some(w) => w.clone(),
@@ -147,21 +148,17 @@ mod imp {
             };
             let output_path = self.ivars().output_path.clone();
 
-            unsafe {
-                let _ = mtm;
+            {
                 let print_info: Retained<NSPrintInfo> = NSPrintInfo::new();
 
-                // A4 paper size in PostScript points (1pt = 1/72 inch).
-                // 595.276 x 841.890; round to whole pts (NSPrintInfo accepts
-                // fractional but whole numbers reduce flakiness).
-                print_info.setPaperSize(objc2_foundation::NSSize {
+                let paper = objc2_foundation::NSSize {
                     width: 595.0,
                     height: 842.0,
-                });
+                };
+                print_info.setPaperSize(paper);
                 print_info.setOrientation(NSPaperOrientation::Portrait);
 
-                // Zero margins — let CSS @page rules in pdf.css control
-                // the visible margin area.
+                // Zero outer margins; pdf.css controls visible margins.
                 print_info.setTopMargin(0.0);
                 print_info.setBottomMargin(0.0);
                 print_info.setLeftMargin(0.0);
@@ -172,35 +169,34 @@ mod imp {
                 print_info.setHorizontallyCentered(false);
                 print_info.setVerticallyCentered(false);
 
-                // Set save-to-file disposition + URL via the print info dict.
-                // (The print info dict is a mutable NSMutableDictionary.)
-                let url = NSURL::fileURLWithPath(&NSString::from_str(&output_path));
-                let dict = print_info.dictionary();
+                // The full content area to capture. Pagination cuts this
+                // into A4 pages automatically.
+                let bounds: NSRect = webview.bounds();
 
-                let key_disposition = nspr_key("NSPrintJobDisposition");
-                let value_save = nspr_key("NSPrintSaveJob");
-                let key_url = nspr_key("NSPrintJobSavingURL");
+                // WKWebView is an NSView subclass — pass it where NSView
+                // is expected. The deref to &NSView goes through Retained's
+                // Deref → WKWebView → NSView via objc2's class hierarchy.
+                let view: &NSView = &*webview;
 
-                // setObject:forKey: on the mutable dict
-                let _: () = msg_send![&*dict, setObject: &*value_save, forKey: &*key_disposition];
-                let _: () = msg_send![&*dict, setObject: &*url, forKey: &*key_url];
-
-                // Build the operation and run it synchronously, suppressing
-                // both the print panel and progress sheet.
+                let path_ns = NSString::from_str(&output_path);
                 let op: Retained<NSPrintOperation> =
-                    webview.printOperationWithPrintInfo(&print_info);
+                    NSPrintOperation::PDFOperationWithView_insideRect_toPath_printInfo(
+                        view,
+                        bounds,
+                        &path_ns,
+                        &print_info,
+                    );
                 op.setShowsPrintPanel(false);
                 op.setShowsProgressPanel(false);
 
                 if !op.runOperation() {
-                    return Err("NSPrintOperation reported failure".into());
+                    return Err("PDFOperationWithView reported failure".into());
                 }
             }
 
-            // Defence-in-depth: confirm the file actually appeared on disk.
             if !Path::new(&output_path).exists() {
                 return Err(format!(
-                    "print operation returned success but no file at {output_path}"
+                    "PDF operation returned success but no file at {output_path}"
                 ));
             }
 
