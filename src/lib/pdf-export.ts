@@ -7,6 +7,7 @@ import { Marked } from 'marked'
 import markedKatex from 'marked-katex-extension'
 import { markedHighlight } from 'marked-highlight'
 import hljs from 'highlight.js'
+import { renderDiagrams } from './diagram-render'
 
 /**
  * Extract the first ATX-style `# ` heading text from markdown source.
@@ -119,67 +120,6 @@ const printMarked = new Marked(
   }),
   markedKatex({ throwOnError: false }),
 )
-
-/**
- * Replace fenced ` ```mermaid ` / ` ```dot ` / ` ```graphviz ` blocks in the
- * staging DOM with rendered SVG. Awaits all renders before returning.
- *
- * Code-fence parsing already happened (marked → hljs); we look for the
- * `language-<lang>` class that marked-highlight emits and swap the
- * containing `<pre>` for a div the plugin can render into.
- *
- * Errors per-block are inlined as red placeholder text — one bad diagram
- * doesn't sink the whole export.
- */
-async function renderDiagrams(staging: HTMLElement): Promise<void> {
-  type Lang = 'mermaid' | 'dot' | 'graphviz'
-  const blocks: Array<{ lang: Lang; pre: HTMLElement; source: string }> = []
-  const candidates = staging.querySelectorAll<HTMLElement>(
-    'pre code.language-mermaid, pre code.language-dot, pre code.language-graphviz',
-  )
-  for (const code of Array.from(candidates)) {
-    const pre = code.parentElement as HTMLElement | null
-    if (!pre || pre.tagName !== 'PRE') continue
-    const langClass = Array.from(code.classList).find((c) =>
-      c === 'language-mermaid' || c === 'language-dot' || c === 'language-graphviz',
-    )
-    if (!langClass) continue
-    const lang = langClass.slice('language-'.length) as Lang
-    blocks.push({ lang, pre, source: code.textContent ?? '' })
-  }
-  if (blocks.length === 0) return
-
-  // Lazy-load each plugin once; reuse for all blocks of that language.
-  const { loadDotRenderer, loadMermaidRenderer } = await import(
-    '../lib/adapters/renderer-registry'
-  )
-  const langCache = new Map<
-    Lang,
-    { render: (source: string, container: HTMLElement) => void | Promise<void> }
-  >()
-  const loaderFor = async (lang: Lang) => {
-    if (langCache.has(lang)) return langCache.get(lang)!
-    const plugin =
-      lang === 'mermaid' ? await loadMermaidRenderer() : await loadDotRenderer()
-    langCache.set(lang, plugin)
-    return plugin
-  }
-
-  await Promise.all(
-    blocks.map(async ({ lang, pre, source }) => {
-      const container = document.createElement('div')
-      container.className = lang === 'mermaid' ? 'mermaid' : 'dot'
-      pre.parentNode?.replaceChild(container, pre)
-      try {
-        const plugin = await loaderFor(lang)
-        await plugin.render(source, container)
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : String(e)
-        container.innerHTML = `<div class="renderer-error">${htmlEscape(`${lang} render failed: ${msg}`)}</div>`
-      }
-    }),
-  )
-}
 
 /**
  * Render the tab's content to a fully-settled, self-contained HTML document
