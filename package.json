@@ -20,11 +20,14 @@
     "@tauri-apps/plugin-fs": "^2",
     "@tauri-apps/plugin-opener": "^2",
     "@tauri-apps/plugin-store": "^2",
-    "katex": "^0.16.45"
+    "@viz-js/viz": "^3.26.0",
+    "katex": "^0.16.45",
+    "mermaid": "^11.14.0"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^5",
     "@tauri-apps/cli": "^2",
+    "happy-dom": "^20.9.0",
     "svelte": "^5",
     "svelte-check": "^4",
     "typescript": "^5",

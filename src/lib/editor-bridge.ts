@@ -2,7 +2,7 @@ import 'katex/dist/katex.min.css'
 import { createEditor as coreCreateEditor, type MorayaEditorInstance } from '@moraya/core'
 import { tauriMediaResolver } from './adapters/tauri-media-resolver'
 import { tauriLinkOpener } from './adapters/tauri-link-opener'
-import { emptyRendererRegistry } from './adapters/empty-renderer-registry'
+import { rendererRegistry } from './adapters/renderer-registry'
 import { activeTab } from './tabs.svelte'
 
 const platform = {
@@ -27,7 +27,7 @@ export async function mountRichEditor(
     container: root,
     initialContent,
     mediaResolver: tauriMediaResolver,
-    rendererRegistry: emptyRendererRegistry,
+    rendererRegistry,
     linkOpener: tauriLinkOpener,
     platform,
     enableMath: true,
