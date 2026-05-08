@@ -50,6 +50,21 @@ export function validateManifest(m: unknown): ValidateResult {
     }
   }
 
+  if (Array.isArray(o.menus)) {
+    for (const me of o.menus) {
+      const mr = me as Record<string, unknown>
+      if (mr.prompt != null) {
+        const p = mr.prompt as Record<string, unknown>
+        if (p.kind !== 'save-dialog')
+          return { ok: false, error: `unsupported prompt.kind: ${String(p.kind)}` }
+        if (typeof p.default_filename !== 'string' || p.default_filename.length === 0)
+          return { ok: false, error: 'prompt.default_filename required' }
+        if (!Array.isArray(p.filters))
+          return { ok: false, error: 'prompt.filters must be an array' }
+      }
+    }
+  }
+
   return { ok: true, value: o as unknown as PluginManifest }
 }
 

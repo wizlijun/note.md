@@ -13,12 +13,19 @@ export type SettingsField =
   | { key: string; type: 'select'; label: string; options: string[]; default?: string }
   | { key: string; type: 'boolean'; label: string; default?: boolean }
 
+export interface PromptSpec {
+  kind: 'save-dialog'
+  default_filename: string
+  filters: Array<{ name: string; extensions: string[] }>
+}
+
 export interface MenuEntry {
   location: 'file' | 'edit' | 'view' | 'window' | 'help' | 'plugins'
   label: string
   shortcut?: string
   command: string
   enabled_when?: string
+  prompt?: PromptSpec
 }
 
 export interface ContextMenuEntry {
@@ -45,6 +52,8 @@ export interface RequestContextTab {
   path: string | null
   filename: string | null
   extension: string | null
+  kind: TabKind
+  title: string
   is_dirty: boolean
   is_untitled: boolean
 }
@@ -55,6 +64,7 @@ export interface PluginRequest {
     tab: RequestContextTab
     rendered_html?: string
     raw_content?: string
+    output_path?: string
   }
   settings?: Record<string, unknown>
   host_version: string
