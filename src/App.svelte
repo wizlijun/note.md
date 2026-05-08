@@ -23,13 +23,13 @@
     collectMenuItems, evaluateEnabled, parsePluginMenuId,
     type CollectedItem, type CollectedItems,
   } from './lib/plugins/menu-registry'
+  import { pluginRuntime, setPluginDispatcher } from './lib/plugins/runtime.svelte'
   import { getPluginScopedAll, pluginScopedVersion } from './lib/settings.svelte'
   import { pushToast } from './lib/toast.svelte'
   import type { PluginManifest, EnabledWhenContext } from './lib/plugins/types'
 
   let showSettings = $state(false)
-  let manifests = $state<PluginManifest[]>([])
-  let collectedItems = $derived<CollectedItems>(collectMenuItems(manifests))
+  let collectedItems = $derived<CollectedItems>(collectMenuItems(pluginRuntime.manifests))
   // Tracks last applied enabled state per menu-item id, so we only invoke the
   // Tauri command when something actually changes.
   const lastEnabledState = new Map<string, boolean>()
@@ -42,10 +42,10 @@
       try { await loadSettings() } catch (e) { console.warn('[App] loadSettings:', e) }
       stopAutoSave = startAutoSaveWatcher()
 
-      try { manifests = await invoke<PluginManifest[]>('get_plugin_manifests') }
+      try { pluginRuntime.manifests = await invoke<PluginManifest[]>('get_plugin_manifests') }
       catch (e) { console.warn('[App] get_plugin_manifests:', e) }
       const manifestById: Record<string, PluginManifest> = Object.fromEntries(
-        manifests.map((m) => [m.id, m]))
+        pluginRuntime.manifests.map((m) => [m.id, m]))
 
       dispatchPlugin = async (pluginId: string, command: string) => {
         const m = manifestById[pluginId]
@@ -72,6 +72,8 @@
       // Register the reinvoke handler so dialog.confirm action-flow can re-enter
       // through the same plugin-dispatch path.
       configureActionHandlers({ reinvokePlugin: dispatchPlugin })
+      // Make dispatchPlugin reachable from other components (TabBar's right-click).
+      setPluginDispatcher(dispatchPlugin)
     })()
 
     const uninstallFocus = installFocusPoll()
