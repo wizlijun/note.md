@@ -105,7 +105,7 @@ describe('renderTabBody', () => {
   })
 })
 
-import { inlineImages } from './share-baker'
+import { inlineImages, bakeShareHtml, __setImageReaderForTests } from './share-baker'
 
 describe('inlineImages', () => {
   function makeReader(map: Record<string, Uint8Array | Error>) {
@@ -160,5 +160,30 @@ describe('inlineImages', () => {
       '/p/missing.png': new Error('ENOENT'),
     }))
     expect(out).toContain('<em>[image]</em>')
+  })
+})
+
+describe('bakeShareHtml', () => {
+  it('produces a full self-contained HTML document', async () => {
+    __setImageReaderForTests(async () => new Uint8Array([0]))
+    const t = fakeTab({ currentContent: '# Hi\n\nbody' })
+    const html = await bakeShareHtml(t)
+    expect(html.startsWith('<!doctype html>')).toBe(true)
+    expect(html).toContain('<meta name="viewport"')
+    expect(html).toContain('@media (prefers-color-scheme: dark)')
+    expect(html).toContain('<h1')
+    expect(html).toContain('class="share-shell"')
+    expect(html).toContain('class="share-header"')
+    expect(html).toContain('class="share-footer"')
+    expect(html).toContain('foo.md')
+    __setImageReaderForTests(null)
+  })
+
+  it('throws share_too_large for >25MB output', async () => {
+    __setImageReaderForTests(async () => new Uint8Array([0]))
+    const huge = 'x'.repeat(26 * 1024 * 1024)
+    const t = fakeTab({ currentContent: huge })
+    await expect(bakeShareHtml(t)).rejects.toThrow(/^share_too_large:/)
+    __setImageReaderForTests(null)
   })
 })

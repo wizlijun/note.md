@@ -143,6 +143,56 @@ export async function inlineImages(
   return root.innerHTML
 }
 
+let testImageReader: ImageReader | null = null
+export function __setImageReaderForTests(r: ImageReader | null): void {
+  testImageReader = r
+}
+
+async function realImageReader(absolutePath: string): Promise<Uint8Array> {
+  const { readFile } = await import('@tauri-apps/plugin-fs')
+  return readFile(absolutePath)
+}
+
+function pickImageReader(): ImageReader {
+  return testImageReader ?? realImageReader
+}
+
+/**
+ * Render a tab into a fully self-contained HTML document suitable for posting
+ * to the share Worker. Inlines images as base64, bakes light + dark themes,
+ * adds mobile-responsive viewport, wraps in a minimal header/footer shell.
+ *
+ * Throws `share_too_large:<bytes>` if the result exceeds 25 MB.
+ */
+export async function bakeShareHtml(tab: Tab): Promise<string> {
+  // Guard raw content size before running the rendering pipeline to avoid
+  // stack overflows in the markdown parser on pathologically large inputs.
+  const rawBytes = new TextEncoder().encode(tab.currentContent).byteLength
+  if (rawBytes > MAX_HTML_BYTES) throw new Error(`share_too_large:${rawBytes}`)
+  const body = await renderTabBody(tab)
+  const inlined = await inlineImages(body, tab.filePath, pickImageReader())
+  const title = htmlEscape(shareHeaderLabel(tab.filePath))
+  const date = isoDateStamp()
+  const html = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+${viewportMetaTag()}
+<title>${title}</title>
+<style>${themeCssBlock()}</style>
+</head>
+<body>
+<div class="share-shell">
+<header class="share-header">${title} · ${date}</header>
+<main>${inlined}</main>
+<footer class="share-footer">Powered by <a href="https://github.com/wizlijun/MdEditor">M↓</a></footer>
+</div>
+</body>
+</html>`
+  guardSize(html)
+  return html
+}
+
 /**
  * Render a tab to an HTML body fragment (no <html>/<head> wrapper).
  * Pipeline mirrors pdf-export.ts so that share & PDF outputs stay visually
