@@ -107,6 +107,7 @@ export async function saveActive(): Promise<void> {
   if (!t) return
   await writeMd(t.filePath, t.currentContent)
   t.initialContent = t.currentContent
+  await recordOurWrite(t)
 }
 
 export async function saveAs(id: string, newPath: string): Promise<void> {
@@ -126,6 +127,7 @@ export async function saveAs(id: string, newPath: string): Promise<void> {
   }
   await pushRecentFile(newPath)
   setRecentMode(modeKeyFor(newPath), t.mode).catch((e) => console.warn(e))
+  await recordOurWrite(t)
 }
 
 export type DirtyChoice = 'save' | 'discard' | 'cancel'
@@ -151,4 +153,18 @@ export async function closeTab(
     activeId.value = tabs[idx]?.id ?? tabs[idx - 1]?.id ?? null
   }
   return true
+}
+
+/**
+ * After a write that we initiated, capture the post-write mtime and hash so
+ * the imminent watcher echo (or focus-poll re-stat) can be recognised as our
+ * own and ignored. Also resets externalState back to 'fresh'.
+ */
+async function recordOurWrite(t: Tab): Promise<void> {
+  const stat = await statFile(t.filePath)
+  t.lastKnownMtime = stat?.mtime ?? Date.now()
+  t.lastKnownHash = await sha256Hex(t.currentContent)
+  t.externalState = 'fresh'
+  t.externalBannerDismissed = false
+  t.pendingExternal = undefined
 }

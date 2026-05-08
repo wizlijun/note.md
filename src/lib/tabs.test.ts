@@ -269,4 +269,23 @@ describe('tabs', () => {
     expect(t.lastKnownHash).toMatch(/^[0-9a-f]{64}$/)
     expect(t.pendingExternal).toBeUndefined()
   })
+
+  it('saveActive updates lastKnownMtime/lastKnownHash to post-write values', async () => {
+    const fs = await import('./fs')
+    const m = await import('./tabs.svelte')
+    await m.openFile('/tmp/foo.md')
+    const id = m.tabs[0].id
+    m.setContent(id, 'edited')
+    // Queue the post-write stat result so recordOurWrite captures it.
+    ;(fs.statFile as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      mtime: 9_999_999_999_999, size: 7,
+    })
+    await m.saveActive()
+    const t = m.tabs.find((x) => x.id === id)!
+    expect(t.lastKnownMtime).toBe(9_999_999_999_999)
+    expect(t.lastKnownHash).toMatch(/^[0-9a-f]{64}$/)
+    // After save, hash must be the hash of "edited"
+    const { sha256Hex } = await import('./hash')
+    expect(t.lastKnownHash).toBe(await sha256Hex('edited'))
+  })
 })
