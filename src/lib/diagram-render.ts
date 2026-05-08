@@ -1,4 +1,4 @@
-import { htmlEscape } from './pdf-export'
+import { htmlEscape } from './plugins/host-render-html'
 
 /**
  * Walk a staged DOM root, find ```mermaid / ```dot / ```graphviz code blocks,
