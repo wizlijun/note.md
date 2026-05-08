@@ -328,6 +328,12 @@ fn build_menu<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> tauri::Result<Men
                 .accelerator("Cmd+Shift+S")
                 .build(app)?,
         )
+        .separator()
+        .item(
+            &MenuItemBuilder::with_id("export-pdf", "Export to PDF…")
+                .accelerator("Cmd+Shift+E")
+                .build(app)?,
+        )
         .build()?;
 
     let edit_menu: Submenu<R> = SubmenuBuilder::new(app, "Edit")

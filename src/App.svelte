@@ -11,7 +11,7 @@
   import ModeToggle from './components/ModeToggle.svelte'
   import { activeTab, tabs, closeTab, openFile } from './lib/tabs.svelte'
   import { loadSettings } from './lib/settings.svelte'
-  import { cmdOpen, cmdSave, cmdSaveAs, cmdCloseActive, cmdToggleMode } from './lib/commands'
+  import { cmdOpen, cmdSave, cmdSaveAs, cmdCloseActive, cmdToggleMode, cmdExportPdf } from './lib/commands'
   import { confirmDirtyClose } from './lib/dialogs'
   import { startAutoSaveWatcher } from './lib/autosave.svelte'
   import { installFocusPoll } from './lib/file-watcher.svelte'
@@ -51,6 +51,7 @@
         case 'save-as':     cmdSaveAs(); break
         case 'close-tab':   cmdCloseActive(); break
         case 'toggle-mode': cmdToggleMode(); break
+        case 'export-pdf':  cmdExportPdf(); break
         case 'preferences': showSettings = true; break
         case 'docs':
           import('@tauri-apps/plugin-opener')
@@ -109,6 +110,7 @@
     if (k === 'o') { e.preventDefault(); cmdOpen() }
     else if (k === 's' && !e.shiftKey) { e.preventDefault(); cmdSave() }
     else if (k === 's' && e.shiftKey) { e.preventDefault(); cmdSaveAs() }
+    else if (k === 'e' && e.shiftKey) { e.preventDefault(); cmdExportPdf() }
     else if (k === 'w') { e.preventDefault(); cmdCloseActive() }
     else if (k === '/') { e.preventDefault(); cmdToggleMode() }
   }
