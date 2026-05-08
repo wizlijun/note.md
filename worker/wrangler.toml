@@ -3,10 +3,8 @@ main = "src/index.ts"
 compatibility_date = "2026-05-01"
 compatibility_flags = ["nodejs_compat"]
 
-# Created via `wrangler kv:namespace create SHARES` and ID pasted in.
-# Until then a placeholder is fine — `pnpm test` (Miniflare) doesn't need it.
 kv_namespaces = [
-  { binding = "SHARES", id = "0000000000000000000000000000000000" }
+  { binding = "SHARES", id = "5ca75b01c7534ae5b73eb41d212b18c9" }
 ]
 
 # Custom domain: uncomment after pointing DNS at Cloudflare.
