@@ -92,6 +92,35 @@ Output:
 37. **Export long markdown** (>200 lines): page breaks fall on safe boundaries — headings not orphaned at page bottom; code blocks not split across pages.
 38. **Export markdown with relative-path images** (`![alt](./assets/foo.png)`): image appears in the PDF (the offscreen WKWebView resolves relative paths via the source file's directory).
 39. **Try Export to PDF on a code tab** (e.g., `.py`): info dialog says "PDF export only supports Markdown and HTML files."
+40. **Plugin platform — manifest discovery**: Place a fixture manifest under
+    `src-tauri/plugins/test/manifest.json` (with `binary: "bin"` and
+    `bin-aarch64-apple-darwin` plus `bin-x86_64-apple-darwin` shell scripts);
+    `pnpm tauri dev` → verify the plugin's File-menu items appear with their
+    shortcuts shown.
+41. **Plugin platform — enabled_when**: Same fixture, with
+    `enabled_when: "currentTab.hasContent"` on one item. Open M↓ with no tabs
+    → menu item is disabled. Open a markdown file → menu item enables.
+42. **Plugin platform — context menu**: Right-click a tab → fixture's
+    context-menu item appears.
+43. **Plugin platform — Preferences tab**: Open Preferences → fixture's tab
+    label appears in the strip; click it → form fields render correctly for
+    each `string`/`secret`/`select`/`boolean` schema entry; edit a value and
+    re-open Preferences → value persists.
+44. **Plugin platform — happy path**: Click the fixture's File-menu item →
+    fixture echoes a `toast` action → toast appears bottom-right with the
+    expected message and auto-dismisses.
+45. **Plugin platform — clipboard.write**: Fixture returns
+    `clipboard.write` action → after the click, paste anywhere → expected
+    text is in the clipboard.
+46. **Plugin platform — settings.merge persistence**: Fixture returns a
+    `settings.merge` action → re-launch M↓ → fixture's command sees the
+    merged value back in the next request's `settings` field.
+47. **Plugin platform — timeout**: Replace fixture binary with one that
+    sleeps forever → click → toast `❌ <name>: 未响应（30s）` appears within
+    ~30s and editing remains responsive throughout.
+48. **Plugin platform — protocol error**: Replace fixture binary with one
+    that prints `not json\n` → click → toast `❌ <name>: 协议错误` with
+    expandable detail showing the offending stdout fragment.
 
 ## Spec & Plan
 
