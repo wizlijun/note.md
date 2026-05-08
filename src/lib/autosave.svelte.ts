@@ -14,6 +14,13 @@ export function startAutoSaveWatcher(): () => void {
         return
       }
       for (const tab of tabs) {
+        // Auto-save is on hold while the user reconciles an external change;
+        // resuming would silently overwrite either the disk or the buffer.
+        if (tab.externalState !== 'fresh') {
+          const t = timers.get(tab.id)
+          if (t) { clearTimeout(t); timers.delete(tab.id) }
+          continue
+        }
         const content = tab.currentContent
         const id = tab.id
         const path = tab.filePath
