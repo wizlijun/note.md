@@ -28,9 +28,9 @@ async function realAskDialog(msg: string, opts: { title: string }): Promise<bool
   return await ask(msg, opts)
 }
 
-async function realWriteSettings(_patch: Record<string, unknown>): Promise<void> {
-  // Wired in Task 11 once settings.svelte.ts has plugin-scoped writers.
-  throw new Error('settings writer not yet wired (see Task 11)')
+async function realWriteSettings(patch: Record<string, unknown>): Promise<void> {
+  const { mergePluginScoped } = await import('../settings.svelte')
+  await mergePluginScoped(patch)
 }
 
 async function realReinvokePlugin(_id: string, _cmd: string): Promise<void> {
