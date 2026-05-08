@@ -1,8 +1,9 @@
 mod ipc;
+mod publish;
 mod slug;
 
 use std::io::{self, Read, Write};
-use ipc::{Request, Response, Action};
+use ipc::{Request, Response};
 
 const PLUGIN_NAME: &str = "Share";
 
@@ -21,21 +22,9 @@ fn main() {
     };
 
     let resp = match req.command.as_str() {
-        "publish" => Response::ok(vec![Action::Toast {
-            level: "info".into(),
-            message: "publish stub".into(),
-            detail: None,
-        }]),
-        "unpublish" => Response::ok(vec![Action::Toast {
-            level: "info".into(),
-            message: "unpublish stub".into(),
-            detail: None,
-        }]),
-        "copy-link" => Response::ok(vec![Action::Toast {
-            level: "info".into(),
-            message: "copy-link stub".into(),
-            detail: None,
-        }]),
+        "publish" => publish::run(req),
+        "unpublish" => Response::fail(vec![ipc::toast_error(PLUGIN_NAME, "unpublish 未实现", None)]),
+        "copy-link" => Response::fail(vec![ipc::toast_error(PLUGIN_NAME, "copy-link 未实现", None)]),
         other => Response::fail(vec![ipc::toast_error(PLUGIN_NAME, "未知命令", Some(other))]),
     };
     emit(resp);
