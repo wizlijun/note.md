@@ -6,7 +6,7 @@ export const settings = $state<{ autoSave: boolean }>({ autoSave: false })
 
 let store: Awaited<ReturnType<typeof Store.load>> | null = null
 let recentFiles: string[] = []
-let recentModes: Record<string, Mode> = {}
+let recentModesByExt: Record<string, Mode> = {}
 
 async function getStore() {
   if (!store) store = await Store.load('settings.json')
@@ -17,14 +17,14 @@ export async function loadSettings(): Promise<void> {
   const s = await getStore()
   settings.autoSave = (await s.get<boolean>('autoSave')) ?? false
   recentFiles = (await s.get<string[]>('recentFiles')) ?? []
-  recentModes = (await s.get<Record<string, Mode>>('recentModes')) ?? {}
+  recentModesByExt = (await s.get<Record<string, Mode>>('recentModesByExt')) ?? {}
 }
 
 export async function saveSettings(): Promise<void> {
   const s = await getStore()
   await s.set('autoSave', settings.autoSave)
   await s.set('recentFiles', recentFiles)
-  await s.set('recentModes', recentModes)
+  await s.set('recentModesByExt', recentModesByExt)
   await s.save()
 }
 
@@ -37,11 +37,13 @@ export async function pushRecentFile(path: string): Promise<void> {
   await saveSettings()
 }
 
-export function getRecentMode(path: string): Mode | null {
-  return recentModes[path] ?? null
+/** `key` is the extension (or special basename) returned by `modeKeyFor`. */
+export function getRecentMode(key: string): Mode | null {
+  return recentModesByExt[key] ?? null
 }
 
-export async function setRecentMode(path: string, mode: Mode): Promise<void> {
-  recentModes[path] = mode
+/** `key` is the extension (or special basename) returned by `modeKeyFor`. */
+export async function setRecentMode(key: string, mode: Mode): Promise<void> {
+  recentModesByExt[key] = mode
   await saveSettings()
 }

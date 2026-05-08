@@ -33,10 +33,22 @@ describe('settings', () => {
     expect(list).not.toContain('/tmp/1.md')
   })
 
-  it('setRecentMode / getRecentMode round-trips', async () => {
+  it('setRecentMode / getRecentMode round-trips by key (extension)', async () => {
     const { setRecentMode, getRecentMode } = await import('./settings.svelte')
-    await setRecentMode('/tmp/foo.md', 'rich')
-    expect(getRecentMode('/tmp/foo.md')).toBe('rich')
-    expect(getRecentMode('/tmp/missing.md')).toBe(null)
+    await setRecentMode('md', 'rich')
+    expect(getRecentMode('md')).toBe('rich')
+    expect(getRecentMode('html')).toBe(null)
+  })
+
+  it('loadSettings hydrates recentModesByExt and getRecentMode reads it', async () => {
+    const stored = { md: 'rich', py: 'source' }
+    mockGet.mockImplementation(async (key: string) =>
+      key === 'recentModesByExt' ? stored : undefined,
+    )
+    const { loadSettings, getRecentMode } = await import('./settings.svelte')
+    await loadSettings()
+    expect(getRecentMode('md')).toBe('rich')
+    expect(getRecentMode('py')).toBe('source')
+    expect(getRecentMode('json')).toBe(null)
   })
 })
