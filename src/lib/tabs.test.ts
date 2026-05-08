@@ -11,9 +11,10 @@ vi.mock('./fs', () => ({
     if (/\.py$/.test(lower)) return { kind: 'code', language: 'python' }
     if (/\.json$/.test(lower)) return { kind: 'code', language: 'json' }
     if (/\.txt$/.test(lower)) return { kind: 'code', language: '' }
+    if (/\.(png|jpg|jpeg|gif|webp|svg|bmp|heic|heif|avif)$/.test(lower)) return { kind: 'image' }
     return null
   },
-  isSupportedPath: (p: string) => /\.(md|markdown|mdown|mkd|html?|py|json|txt)$/i.test(p),
+  isSupportedPath: (p: string) => /\.(md|markdown|mdown|mkd|html?|py|json|txt|png|jpg|jpeg|gif|webp|svg|bmp|heic|heif|avif)$/i.test(p),
   looksBinary: (s: string) => s.indexOf('\x00') >= 0,
   modeKeyFor: (p: string) => {
     const base = (p.split('/').pop() ?? p).toLowerCase()
@@ -66,7 +67,7 @@ describe('tabs', () => {
 
   it('openFile rejects unsupported extensions', async () => {
     const m = await import('./tabs.svelte')
-    await expect(m.openFile('/tmp/foo.png')).rejects.toThrow(/unsupported/i)
+    await expect(m.openFile('/tmp/foo.exe')).rejects.toThrow(/unsupported/i)
     expect(m.tabs.length).toBe(0)
   })
 
@@ -335,5 +336,36 @@ describe('tabs', () => {
     m.dismissExternalBanner(t.id)
     expect(t.externalBannerDismissed).toBe(true)
     expect(t.externalState).toBe('changed')
+  })
+
+  it('openFile image: kind=image, currentContent empty, mode=rich', async () => {
+    const fs = await import('./fs')
+    const m = await import('./tabs.svelte')
+    await m.openFile('/tmp/photo.png')
+    expect(m.tabs.length).toBe(1)
+    const t = m.tabs[0]
+    expect(t.kind).toBe('image')
+    expect(t.currentContent).toBe('')
+    expect(t.initialContent).toBe('')
+    expect(t.mode).toBe('rich')
+    expect(m.isDirty(t.id)).toBe(false)
+    // readMd should NOT have been called for an image
+    expect(fs.readMd).not.toHaveBeenCalled()
+  })
+
+  it('openFile image: isDirty always false even after setContent', async () => {
+    const m = await import('./tabs.svelte')
+    await m.openFile('/tmp/photo.jpg')
+    const t = m.tabs[0]
+    // Even if somehow content were set, isDirty stays false because initialContent=''
+    expect(m.isDirty(t.id)).toBe(false)
+  })
+
+  it('openFile image: lastKnownMtime populated from stat', async () => {
+    const m = await import('./tabs.svelte')
+    await m.openFile('/tmp/img.svg')
+    const t = m.tabs[0]
+    expect(t.lastKnownMtime).toBe(1_700_000_000_000)
+    expect(t.lastKnownHash).toBe('')
   })
 })

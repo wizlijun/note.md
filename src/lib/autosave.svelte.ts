@@ -14,6 +14,8 @@ export function startAutoSaveWatcher(): () => void {
         return
       }
       for (const tab of tabs) {
+        // Image files have no text content and are never dirty; skip entirely.
+        if (tab.kind === 'image') continue
         // Auto-save is on hold while the user reconciles an external change;
         // resuming would silently overwrite either the disk or the buffer.
         if (tab.externalState !== 'fresh') {
