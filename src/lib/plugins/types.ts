@@ -75,12 +75,15 @@ export interface PluginResponse {
   actions: PluginAction[]
 }
 
+export type TabKind = 'markdown' | 'html' | 'code'
+
 /** What we evaluate `enabled_when` expressions against. */
 export interface EnabledWhenContext {
   currentTab: {
     path: string | null
     filename: string | null
     extension: string | null
+    kind: TabKind | null
     hasContent: boolean
     isDirty: boolean
     isUntitled: boolean

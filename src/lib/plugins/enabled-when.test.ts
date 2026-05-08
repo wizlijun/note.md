@@ -4,7 +4,7 @@ import type { EnabledWhenContext } from './types'
 
 const ctx = (over: Partial<EnabledWhenContext> = {}): EnabledWhenContext => ({
   currentTab: {
-    path: '/foo.md', filename: 'foo.md', extension: 'md',
+    path: '/foo.md', filename: 'foo.md', extension: 'md', kind: 'markdown',
     hasContent: true, isDirty: false, isUntitled: false,
   },
   settings: {},
@@ -45,6 +45,17 @@ describe('parseEnabledWhen', () => {
   })
   it('parses chained computed indices', () => {
     expect(() => parseEnabledWhen('a[b.c][d.e]')).not.toThrow()
+  })
+  it('parses == comparison with string literal', () => {
+    expect(() => parseEnabledWhen("currentTab.kind == 'markdown'")).not.toThrow()
+  })
+  it('parses != comparison', () => {
+    expect(() => parseEnabledWhen("currentTab.kind != 'code'")).not.toThrow()
+  })
+  it('parses comparison combined with || and &&', () => {
+    expect(() => parseEnabledWhen(
+      "currentTab.kind == 'markdown' || currentTab.kind == 'html'"
+    )).not.toThrow()
   })
 })
 
@@ -104,7 +115,7 @@ describe('evaluateEnabledWhen', () => {
     const settings = { 'share.records': { '/foo.md': { slug: 'x' } } }
     const c = ctx({
       currentTab: {
-        path: '/foo.md', filename: 'foo.md', extension: 'md',
+        path: '/foo.md', filename: 'foo.md', extension: 'md', kind: 'markdown',
         hasContent: true, isDirty: false, isUntitled: false,
       },
       settings,
@@ -115,7 +126,7 @@ describe('evaluateEnabledWhen', () => {
     const settings = { 'share.records': { '/other.md': { slug: 'x' } } }
     const c = ctx({
       currentTab: {
-        path: '/foo.md', filename: 'foo.md', extension: 'md',
+        path: '/foo.md', filename: 'foo.md', extension: 'md', kind: 'markdown',
         hasContent: true, isDirty: false, isUntitled: false,
       },
       settings,
@@ -125,5 +136,30 @@ describe('evaluateEnabledWhen', () => {
   it('returns false when inner path resolves to undefined', () => {
     const c = ctx({ currentTab: null, settings: { 'share.records': { 'x': 1 } } })
     expect(evaluateEnabledWhen('settings["share.records"][currentTab.path]', c)).toBe(false)
+  })
+  it('== returns true on string match', () => {
+    const c = ctx()
+    expect(evaluateEnabledWhen("currentTab.kind == 'markdown'", c)).toBe(true)
+    expect(evaluateEnabledWhen("currentTab.kind == 'html'", c)).toBe(false)
+  })
+  it('!= returns true on string mismatch', () => {
+    const c = ctx()
+    expect(evaluateEnabledWhen("currentTab.kind != 'code'", c)).toBe(true)
+    expect(evaluateEnabledWhen("currentTab.kind != 'markdown'", c)).toBe(false)
+  })
+  it('comparison composes with || at correct precedence', () => {
+    const c = ctx({
+      currentTab: {
+        path: '/x.html', filename: 'x.html', extension: 'html', kind: 'html',
+        hasContent: true, isDirty: false, isUntitled: false,
+      },
+    })
+    expect(evaluateEnabledWhen(
+      "currentTab.kind == 'markdown' || currentTab.kind == 'html'", c
+    )).toBe(true)
+  })
+  it('== against null currentTab returns false', () => {
+    const c = ctx({ currentTab: null })
+    expect(evaluateEnabledWhen("currentTab.kind == 'markdown'", c)).toBe(false)
   })
 })

@@ -4,13 +4,15 @@ type PathSegment = { kind: 'literal'; value: string } | { kind: 'computed'; node
 
 type Node =
   | { kind: 'lit'; value: boolean }
+  | { kind: 'str'; value: string }
   | { kind: 'path'; segments: PathSegment[] }
   | { kind: 'not'; inner: Node }
   | { kind: 'and'; left: Node; right: Node }
   | { kind: 'or';  left: Node; right: Node }
+  | { kind: 'cmp'; op: '==' | '!='; left: Node; right: Node }
 
 type Token =
-  | { kind: 'sym'; value: '(' | ')' | '!' | '&&' | '||' | '.' | '[' | ']' }
+  | { kind: 'sym'; value: '(' | ')' | '!' | '&&' | '||' | '.' | '[' | ']' | '==' | '!=' }
   | { kind: 'ident'; value: string }
   | { kind: 'string'; value: string }
   | { kind: 'eof' }
@@ -24,7 +26,9 @@ function tokenize(src: string): Token[] {
     if (c === '(' || c === ')' || c === '.' || c === '[' || c === ']') {
       out.push({ kind: 'sym', value: c }); i++; continue
     }
+    if (c === '!' && src[i + 1] === '=') { out.push({ kind: 'sym', value: '!=' }); i += 2; continue }
     if (c === '!') { out.push({ kind: 'sym', value: '!' }); i++; continue }
+    if (c === '=' && src[i + 1] === '=') { out.push({ kind: 'sym', value: '==' }); i += 2; continue }
     if (c === '&' && src[i + 1] === '&') { out.push({ kind: 'sym', value: '&&' }); i += 2; continue }
     if (c === '|' && src[i + 1] === '|') { out.push({ kind: 'sym', value: '||' }); i += 2; continue }
     if (c === '"' || c === "'") {
@@ -66,11 +70,22 @@ class Parser {
   }
 
   private parseAnd(): Node {
-    let left = this.parseUnary()
+    let left = this.parseCompare()
     while (this.peekSym('&&')) {
       this.consume()
-      const right = this.parseUnary()
+      const right = this.parseCompare()
       left = { kind: 'and', left, right }
+    }
+    return left
+  }
+
+  private parseCompare(): Node {
+    const left = this.parseUnary()
+    if (this.peekSym('==') || this.peekSym('!=')) {
+      const tok = this.consume() as Extract<Token, { kind: 'sym' }>
+      const op = tok.value as '==' | '!='
+      const right = this.parseUnary()
+      return { kind: 'cmp', op, left, right }
     }
     return left
   }
@@ -94,6 +109,10 @@ class Parser {
     if (t.kind === 'ident' && (t.value === 'true' || t.value === 'false')) {
       this.consume()
       return { kind: 'lit', value: t.value === 'true' }
+    }
+    if (t.kind === 'string') {
+      this.consume()
+      return { kind: 'str', value: t.value }
     }
     if (t.kind === 'ident') {
       return this.parsePath()
@@ -178,10 +197,12 @@ function lookup(ctx: EnabledWhenContext, segments: PathSegment[]): unknown {
   return cur
 }
 
-/** Returns the raw (non-boolean-coerced) value for a node — used for computed index resolution. */
+/** Returns the raw (non-boolean-coerced) value for a node — used for computed index resolution and == / != comparisons. */
 function evalRaw(node: Node, ctx: EnabledWhenContext): unknown {
   if (node.kind === 'path') return lookup(ctx, node.segments)
-  // For non-path nodes (logical ops, literals), fall back to boolean result.
+  if (node.kind === 'str')  return node.value
+  if (node.kind === 'lit')  return node.value
+  // For non-path nodes (logical ops), fall back to boolean result.
   return evalNode(node, ctx)
 }
 
@@ -198,10 +219,17 @@ function truthy(v: unknown): boolean {
 function evalNode(node: Node, ctx: EnabledWhenContext): boolean {
   switch (node.kind) {
     case 'lit': return node.value
+    case 'str': return node.value.length > 0
     case 'path': return truthy(lookup(ctx, node.segments))
     case 'not': return !evalNode(node.inner, ctx)
     case 'and': return evalNode(node.left, ctx) && evalNode(node.right, ctx)
     case 'or':  return evalNode(node.left, ctx) || evalNode(node.right, ctx)
+    case 'cmp': {
+      const l = evalRaw(node.left, ctx)
+      const r = evalRaw(node.right, ctx)
+      const eq = l === r || (l == null && r == null)
+      return node.op === '==' ? eq : !eq
+    }
   }
 }
 
