@@ -1,3 +1,4 @@
+import { invoke } from '@tauri-apps/api/core'
 import { basename } from './fs'
 import type { Tab } from './tabs.svelte'
 import pdfCss from '../styles/pdf.css?raw'
@@ -152,4 +153,23 @@ export async function renderForPrint(tab: Tab): Promise<string> {
 
   const title = buildPdfTitle(tab)
   return wrapInPrintTemplate(bodyHtml, title)
+}
+
+/**
+ * Render the tab to PDF and write to `outputPath`. Returns the canonical
+ * absolute path on success.
+ *
+ * Caller is responsible for showing a save dialog and supplying the path.
+ */
+export async function exportTabAsPdf(tab: Tab, outputPath: string): Promise<string> {
+  const html = await renderForPrint(tab)
+  // Base URL = parent dir of the source file, so <img src="./foo.png"> can
+  // resolve when the offscreen WKWebView loads the document.
+  const dir = tab.filePath.replace(/[^/]+$/, '')
+  const baseUrl = 'file://' + (dir.endsWith('/') ? dir : dir + '/')
+  return await invoke<string>('export_pdf', {
+    html,
+    outputPath,
+    baseUrl,
+  })
 }
