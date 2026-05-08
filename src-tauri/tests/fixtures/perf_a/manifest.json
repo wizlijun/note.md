@@ -1,0 +1,7 @@
+{
+  "id": "perf-a",
+  "name": "Perf A",
+  "version": "1.0.0",
+  "binary": "noexist",
+  "host_capabilities": ["toast"]
+}

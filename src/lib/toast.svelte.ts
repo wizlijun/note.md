@@ -1,0 +1,54 @@
+import type { ToastLevel } from './plugins/types'
+
+export interface ToastItem {
+  id: number
+  level: ToastLevel
+  message: string
+  detail?: string
+}
+
+interface PushOpts {
+  level: ToastLevel
+  message: string
+  detail?: string
+  /** ms before auto-dismiss; 0 = sticky. Default 3000 for success/info, 5000 for warn/error. */
+  autoDismissMs?: number
+}
+
+export const toasts = $state<{ list: ToastItem[] }>({ list: [] })
+
+let nextId = 1
+const timers = new Map<number, ReturnType<typeof setTimeout>>()
+
+const MSG_MAX = 200
+const DETAIL_MAX = 2048
+
+export function pushToast(opts: PushOpts): number {
+  const id = nextId++
+  const item: ToastItem = {
+    id,
+    level: opts.level,
+    message: opts.message.slice(0, MSG_MAX),
+    detail: opts.detail ? opts.detail.slice(0, DETAIL_MAX) : undefined,
+  }
+  toasts.list = [...toasts.list, item]
+  const ms = opts.autoDismissMs ?? (opts.level === 'warn' || opts.level === 'error' ? 5000 : 3000)
+  if (ms > 0) {
+    timers.set(id, setTimeout(() => dismissToast(id), ms))
+  }
+  return id
+}
+
+export function dismissToast(id: number): void {
+  const t = timers.get(id)
+  if (t) clearTimeout(t)
+  timers.delete(id)
+  toasts.list = toasts.list.filter((t) => t.id !== id)
+}
+
+export function clearToasts(): void {
+  for (const t of timers.values()) clearTimeout(t)
+  timers.clear()
+  toasts.list = []
+  nextId = 1
+}

@@ -1,9 +1,39 @@
 <script lang="ts">
   import { invoke } from '@tauri-apps/api/core'
+  import { onMount } from 'svelte'
   import { ask } from '@tauri-apps/plugin-dialog'
-  import { settings, saveSettings } from '../lib/settings.svelte'
+  import { settings, saveSettings, getPluginScopedAll, mergePluginScoped } from '../lib/settings.svelte'
+  import { collectSettingsTabs, type SettingsTab } from '../lib/plugins/settings-registry'
+  import type { PluginManifest } from '../lib/plugins/types'
 
   let { open = $bindable(false) }: { open: boolean } = $props()
+
+  let pluginTabs = $state<SettingsTab[]>([])
+  let selectedTab = $state<'core' | string>('core')
+  let pluginValues = $state<Record<string, Record<string, unknown>>>({})
+
+  onMount(async () => {
+    try {
+      const manifests = await invoke<PluginManifest[]>('get_plugin_manifests')
+      pluginTabs = collectSettingsTabs(manifests)
+      for (const tab of pluginTabs) {
+        const all = getPluginScopedAll(tab.pluginId)
+        // Strip the `<id>.` prefix for form binding.
+        const stripped: Record<string, unknown> = {}
+        for (const [k, v] of Object.entries(all)) {
+          stripped[k.slice(tab.pluginId.length + 1)] = v
+        }
+        pluginValues[tab.pluginId] = stripped
+      }
+    } catch (e) {
+      console.warn('[SettingsDialog] manifest load:', e)
+    }
+  })
+
+  async function savePluginField(pluginId: string, key: string, value: unknown) {
+    pluginValues[pluginId] = { ...(pluginValues[pluginId] ?? {}), [key]: value }
+    await mergePluginScoped({ [`${pluginId}.${key}`]: value })
+  }
 
   // The 22 categories cover every extension our editor supports as a document type.
   // These must match the `fileAssociations` in src-tauri/tauri.conf.json — that's
@@ -102,53 +132,99 @@
     <div class="dialog" role="dialog" aria-modal="true" onclick={(e) => e.stopPropagation()}>
       <h2>Preferences</h2>
 
-      <section class="block">
-        <label class="row">
-          <input type="checkbox" checked={settings.autoSave} onchange={onToggle} />
-          Enable auto-save (writes after 800 ms idle)
-        </label>
-      </section>
+      {#if pluginTabs.length > 0}
+        <nav class="tab-strip">
+          <button class:active={selectedTab === 'core'} onclick={() => selectedTab = 'core'}>Core</button>
+          {#each pluginTabs as t (t.pluginId)}
+            <button class:active={selectedTab === t.pluginId} onclick={() => selectedTab = t.pluginId}>{t.label}</button>
+          {/each}
+        </nav>
+      {/if}
 
-      <section class="block">
-        <h3>Default app for text &amp; code files</h3>
-        <p class="desc">
-          Make M↓ the default macOS application for opening text and source code files.
-          Once set, double-clicking any of the supported file types in Finder (or selecting
-          <em>Open With…</em>) will launch M↓.
-        </p>
-        <p class="desc">
-          This affects <strong>{ALL_EXTS.length}</strong> file extensions across
-          <strong>{FILE_GROUPS.length}</strong> categories. Every change goes through macOS Launch
-          Services, so the system, Finder, and other apps all pick it up immediately.
-        </p>
-        <details class="ext-list">
-          <summary>Show affected file types ({ALL_EXTS.length} extensions)</summary>
-          <ul>
-            {#each FILE_GROUPS as g}
-              <li><strong>{g.label}</strong> — {g.exts.map((e) => `.${e}`).join(', ')}</li>
-            {/each}
-          </ul>
-        </details>
-        <button class="primary" onclick={handleSetDefault} disabled={busy}>
-          {busy ? 'Setting…' : `Set M↓ as default for all ${ALL_EXTS.length} types`}
-        </button>
-        {#if resultText}
-          <p
-            class="result"
-            class:ok={resultDetails?.every((r) => r.ok)}
-            class:partial={resultDetails && resultDetails.some((r) => !r.ok) && resultDetails.some((r) => r.ok)}
-            class:fail={resultDetails && resultDetails.every((r) => !r.ok)}
-          >
-            {resultText}
+      {#if selectedTab === 'core'}
+        <section class="block">
+          <label class="row">
+            <input type="checkbox" checked={settings.autoSave} onchange={onToggle} />
+            Enable auto-save (writes after 800 ms idle)
+          </label>
+        </section>
+
+        <section class="block">
+          <h3>Default app for text &amp; code files</h3>
+          <p class="desc">
+            Make M↓ the default macOS application for opening text and source code files.
+            Once set, double-clicking any of the supported file types in Finder (or selecting
+            <em>Open With…</em>) will launch M↓.
           </p>
-        {/if}
-        <p class="undo-note">
-          <strong>To undo for one file type:</strong> in Finder, select a file → File menu →
-          <em>Get Info</em> → <em>Open with</em> section → pick another app → click
-          <em>Change All…</em>. There's no way to bulk-undo through macOS, so make sure you want this
-          before clicking the button above.
-        </p>
-      </section>
+          <p class="desc">
+            This affects <strong>{ALL_EXTS.length}</strong> file extensions across
+            <strong>{FILE_GROUPS.length}</strong> categories. Every change goes through macOS Launch
+            Services, so the system, Finder, and other apps all pick it up immediately.
+          </p>
+          <details class="ext-list">
+            <summary>Show affected file types ({ALL_EXTS.length} extensions)</summary>
+            <ul>
+              {#each FILE_GROUPS as g}
+                <li><strong>{g.label}</strong> — {g.exts.map((e) => `.${e}`).join(', ')}</li>
+              {/each}
+            </ul>
+          </details>
+          <button class="primary" onclick={handleSetDefault} disabled={busy}>
+            {busy ? 'Setting…' : `Set M↓ as default for all ${ALL_EXTS.length} types`}
+          </button>
+          {#if resultText}
+            <p
+              class="result"
+              class:ok={resultDetails?.every((r) => r.ok)}
+              class:partial={resultDetails && resultDetails.some((r) => !r.ok) && resultDetails.some((r) => r.ok)}
+              class:fail={resultDetails && resultDetails.every((r) => !r.ok)}
+            >
+              {resultText}
+            </p>
+          {/if}
+          <p class="undo-note">
+            <strong>To undo for one file type:</strong> in Finder, select a file → File menu →
+            <em>Get Info</em> → <em>Open with</em> section → pick another app → click
+            <em>Change All…</em>. There's no way to bulk-undo through macOS, so make sure you want this
+            before clicking the button above.
+          </p>
+        </section>
+      {:else}
+        {#each pluginTabs as t (t.pluginId)}
+          {#if selectedTab === t.pluginId}
+            <div class="plugin-settings">
+              {#each t.schema as field (field.key)}
+                {@const localKey = field.key.slice(t.pluginId.length + 1)}
+                <label class="plugin-field">
+                  <span class="lbl">{field.label}</span>
+                  {#if field.type === 'string'}
+                    <input type="text"
+                      value={(pluginValues[t.pluginId]?.[localKey] as string) ?? field.default ?? ''}
+                      placeholder={field.placeholder ?? ''}
+                      onchange={(e) => savePluginField(t.pluginId, localKey, (e.currentTarget as HTMLInputElement).value)} />
+                  {:else if field.type === 'secret'}
+                    <input type="password"
+                      value={(pluginValues[t.pluginId]?.[localKey] as string) ?? ''}
+                      onchange={(e) => savePluginField(t.pluginId, localKey, (e.currentTarget as HTMLInputElement).value)} />
+                  {:else if field.type === 'select'}
+                    <select
+                      value={(pluginValues[t.pluginId]?.[localKey] as string) ?? field.default ?? ''}
+                      onchange={(e) => savePluginField(t.pluginId, localKey, (e.currentTarget as HTMLSelectElement).value)}>
+                      {#each field.options as opt}
+                        <option value={opt}>{opt}</option>
+                      {/each}
+                    </select>
+                  {:else if field.type === 'boolean'}
+                    <input type="checkbox"
+                      checked={(pluginValues[t.pluginId]?.[localKey] as boolean) ?? field.default ?? false}
+                      onchange={(e) => savePluginField(t.pluginId, localKey, (e.currentTarget as HTMLInputElement).checked)} />
+                  {/if}
+                </label>
+              {/each}
+            </div>
+          {/if}
+        {/each}
+      {/if}
 
       <div class="actions">
         <button onclick={() => (open = false)}>Done</button>
@@ -250,5 +326,39 @@
     font-size: 11px;
     line-height: 1.5;
     color: color-mix(in srgb, CanvasText 60%, transparent);
+  }
+  .tab-strip {
+    display: flex;
+    gap: 4px;
+    border-bottom: 1px solid color-mix(in srgb, CanvasText 20%, transparent);
+    margin-bottom: 12px;
+  }
+  .tab-strip button {
+    background: transparent;
+    border: 0;
+    padding: 8px 12px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    font-size: 12px;
+    color: CanvasText;
+    border-radius: 0;
+  }
+  .tab-strip button.active {
+    border-bottom-color: AccentColor;
+    font-weight: 600;
+  }
+  .plugin-settings { display: flex; flex-direction: column; gap: 12px; padding: 4px 0; }
+  .plugin-field { display: flex; align-items: center; gap: 12px; font-size: 13px; }
+  .plugin-field .lbl { width: 160px; flex-shrink: 0; }
+  .plugin-field input[type="text"],
+  .plugin-field input[type="password"],
+  .plugin-field select {
+    flex: 1;
+    padding: 6px;
+    border-radius: 4px;
+    border: 1px solid color-mix(in srgb, CanvasText 25%, transparent);
+    background: Canvas;
+    color: CanvasText;
+    font-size: 12px;
   }
 </style>

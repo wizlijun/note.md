@@ -52,3 +52,38 @@ describe('settings', () => {
     expect(getRecentMode('json')).toBe(null)
   })
 })
+
+describe('plugin-scoped settings', () => {
+  it('loads plugin-scoped keys from the store', async () => {
+    mockGet.mockImplementation(async (k: string) => {
+      if (k === 'plugins') return { share: { baseUrl: 'https://x', records: { a: 1 } } }
+      return undefined
+    })
+    const { loadSettings, getPluginScopedAll } = await import('./settings.svelte')
+    await loadSettings()
+    expect(getPluginScopedAll('share')).toEqual({ 'share.baseUrl': 'https://x', 'share.records': { a: 1 } })
+  })
+
+  it('returns empty object for unknown plugin', async () => {
+    mockGet.mockResolvedValue(undefined)
+    const { loadSettings, getPluginScopedAll } = await import('./settings.svelte')
+    await loadSettings()
+    expect(getPluginScopedAll('mystery')).toEqual({})
+  })
+
+  it('mergePluginScoped writes deeply', async () => {
+    mockGet.mockResolvedValue({ share: { records: { a: 1 } } })
+    const { loadSettings, getPluginScopedAll, mergePluginScoped } = await import('./settings.svelte')
+    await loadSettings()
+    await mergePluginScoped({ 'share.records': { b: 2 }, 'share.baseUrl': 'https://y' })
+    expect(getPluginScopedAll('share')).toEqual({
+      'share.records': { b: 2 },
+      'share.baseUrl': 'https://y',
+    })
+    // Verify the underlying store.set was called with the nested form.
+    const setCall = mockSet.mock.calls.find((args) => args[0] === 'plugins')
+    expect(setCall?.[1]).toEqual({
+      share: { records: { b: 2 }, baseUrl: 'https://y' },
+    })
+  })
+})

@@ -16,15 +16,55 @@
   import { startAutoSaveWatcher } from './lib/autosave.svelte'
   import { installFocusPoll } from './lib/file-watcher.svelte'
   import SettingsDialog from './components/SettingsDialog.svelte'
+  import Toast from './components/Toast.svelte'
+  import { invokePlugin } from './lib/plugins/host'
+  import { applyActions, __setHandlersForTests } from './lib/plugins/action-handlers'
+  import { parsePluginMenuId } from './lib/plugins/menu-registry'
+  import { getPluginScopedAll } from './lib/settings.svelte'
+  import { pushToast } from './lib/toast.svelte'
+  import type { PluginManifest } from './lib/plugins/types'
 
   let showSettings = $state(false)
 
   onMount(() => {
     let stopAutoSave: (() => void) | undefined
+    let dispatchPlugin: (pluginId: string, command: string) => Promise<void> = async () => {}
 
     ;(async () => {
       try { await loadSettings() } catch (e) { console.warn('[App] loadSettings:', e) }
       stopAutoSave = startAutoSaveWatcher()
+
+      let manifests: PluginManifest[] = []
+      try { manifests = await invoke<PluginManifest[]>('get_plugin_manifests') }
+      catch (e) { console.warn('[App] get_plugin_manifests:', e) }
+      const manifestById: Record<string, PluginManifest> = Object.fromEntries(
+        manifests.map((m) => [m.id, m]))
+
+      dispatchPlugin = async (pluginId: string, command: string) => {
+        const m = manifestById[pluginId]
+        if (!m) { console.warn('[App] unknown plugin', pluginId); return }
+        const tab = activeTab()
+        const snap = {
+          path: tab?.filePath ?? null,
+          filename: tab?.title ?? null,
+          extension: tab?.filePath?.split('.').pop() ?? null,
+          isDirty: tab ? tab.currentContent !== tab.initialContent : false,
+          isUntitled: !tab?.filePath,
+          content: tab?.currentContent ?? '',
+        }
+        const result = await invokePlugin(m, command, snap, {
+          settingsReader: (id) => getPluginScopedAll(id),
+        })
+        if (result.ok && result.response) {
+          await applyActions(result.response.actions, m)
+        } else {
+          pushToast({ level: 'error', message: result.errorMessage ?? 'Plugin error', detail: result.errorDetail })
+        }
+      }
+
+      // Register the reinvoke handler so dialog.confirm action-flow can re-enter
+      // through the same plugin-dispatch path.
+      __setHandlersForTests({ reinvokePlugin: dispatchPlugin })
     })()
 
     const uninstallFocus = installFocusPoll()
@@ -44,8 +84,14 @@
       try { await invoke('quit_app') } catch (e) { console.warn('[App] quit_app:', e) }
     })
 
-    const unlistenMenu = listen<string>('menu-event', (e) => {
-      switch (e.payload) {
+    const unlistenMenu = listen<string>('menu-event', async (e) => {
+      const id = e.payload
+      const plugin = parsePluginMenuId(id)
+      if (plugin) {
+        await dispatchPlugin(plugin.pluginId, plugin.command)
+        return
+      }
+      switch (id) {
         case 'open':        cmdOpen(); break
         case 'save':        cmdSave(); break
         case 'save-as':     cmdSaveAs(); break
@@ -138,6 +184,7 @@
     {/if}
   </section>
   <SettingsDialog bind:open={showSettings} />
+  <Toast />
 </main>
 
 <style>
