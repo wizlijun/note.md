@@ -1,10 +1,12 @@
 import { basename } from '../fs'
-import { Marked } from 'marked'
-import markedKatex from 'marked-katex-extension'
-import { markedHighlight } from 'marked-highlight'
-import hljs from 'highlight.js'
 import type { Tab } from '../tabs.svelte'
-import { htmlEscape } from '../pdf-export'
+import {
+  htmlEscape,
+  renderTabAsInlineBody,
+  renderTabBody as sharedRenderTabBody,
+  inlineImages as sharedInlineImages,
+  __setImageReaderForTests as sharedSetImageReader,
+} from './host-render-html'
 import katexCss from 'katex/dist/katex.min.css?raw'
 import hljsLightCss from 'highlight.js/styles/github.css?raw'
 import hljsDarkCss from 'highlight.js/styles/github-dark.css?raw'
@@ -56,114 +58,17 @@ export function guardSize(html: string): void {
   if (bytes > MAX_HTML_BYTES) throw new Error(`share_too_large:${bytes}`)
 }
 
-const shareMarked = new Marked(
-  markedHighlight({
-    langPrefix: 'hljs language-',
-    highlight(code: string, lang: string): string {
-      const language = lang && hljs.getLanguage(lang) ? lang : 'plaintext'
-      return hljs.highlight(code, { language }).value
-    },
-  }),
-  markedKatex({ throwOnError: false }),
-)
-
-type ImageReader = (absolutePath: string) => Promise<Uint8Array>
-
-function mimeFromExt(p: string): string {
-  const lower = p.toLowerCase()
-  if (lower.endsWith('.png')) return 'image/png'
-  if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg'
-  if (lower.endsWith('.gif')) return 'image/gif'
-  if (lower.endsWith('.webp')) return 'image/webp'
-  if (lower.endsWith('.svg')) return 'image/svg+xml'
-  if (lower.endsWith('.bmp')) return 'image/bmp'
-  return 'application/octet-stream'
-}
-
-function bytesToBase64(bytes: Uint8Array): string {
-  let s = ''
-  const CHUNK = 8192
-  for (let i = 0; i < bytes.length; i += CHUNK) {
-    s += String.fromCharCode(...bytes.subarray(i, i + CHUNK))
-  }
-  return btoa(s)
-}
-
-function dirname(p: string): string {
-  const i = p.lastIndexOf('/')
-  return i <= 0 ? '/' : p.slice(0, i)
-}
-
-function resolveImagePath(src: string, tabPath: string): string | null {
-  if (/^(https?:|data:|mailto:)/i.test(src)) return null
-  let p = src
-  if (p.startsWith('file://')) {
-    try {
-      const u = new URL(p)
-      p = decodeURIComponent(u.pathname)
-    } catch {
-      return null
-    }
-  }
-  if (p.startsWith('/')) return p
-  return `${dirname(tabPath)}/${p}`.replace(/\/\.\//g, '/')
-}
-
-/**
- * Replace <img> tags whose src points at local files with base64 data URLs.
- * Remote URLs (https://) are left untouched. Unreadable images become
- * `<em>alt</em>` text (or `<em>[image]</em>` if no alt).
- */
-export async function inlineImages(
-  html: string,
-  tabPath: string | null,
-  reader: ImageReader,
-): Promise<string> {
-  if (!tabPath) return html
-
-  const doc = new DOMParser().parseFromString(`<div>${html}</div>`, 'text/html')
-  const root = doc.body.firstElementChild
-  if (!root) return html
-
-  const imgs = Array.from(root.querySelectorAll('img'))
-  for (const img of imgs) {
-    const src = img.getAttribute('src') ?? ''
-    if (!src) continue
-    if (/^(https?:|data:|mailto:)/i.test(src)) continue
-    const abs = resolveImagePath(src, tabPath)
-    if (!abs) continue
-    try {
-      const bytes = await reader(abs)
-      const mime = mimeFromExt(abs)
-      img.setAttribute('src', `data:${mime};base64,${bytesToBase64(bytes)}`)
-    } catch {
-      const alt = img.getAttribute('alt')?.trim() || '[image]'
-      const em = doc.createElement('em')
-      em.textContent = alt
-      img.replaceWith(em)
-    }
-  }
-  return root.innerHTML
-}
-
-let testImageReader: ImageReader | null = null
-export function __setImageReaderForTests(r: ImageReader | null): void {
-  testImageReader = r
-}
-
-async function realImageReader(absolutePath: string): Promise<Uint8Array> {
-  const { readFile } = await import('@tauri-apps/plugin-fs')
-  return readFile(absolutePath)
-}
-
-function pickImageReader(): ImageReader {
-  return testImageReader ?? realImageReader
-}
+// Re-export shared pipeline pieces so existing share-baker tests keep their
+// imports stable. Real implementations live in host-render-html.ts.
+export const renderTabBody = sharedRenderTabBody
+export const inlineImages = sharedInlineImages
+export const __setImageReaderForTests = sharedSetImageReader
 
 /**
  * Render a tab into a fully self-contained HTML document suitable for posting
- * to the share Worker. Inlines images as base64, bakes light + dark themes,
- * adds mobile-responsive viewport, wraps in a minimal header/footer shell.
+ * to the share Worker. Inlines images as base64 (via the shared host-render
+ * pipeline), bakes light + dark themes, adds mobile-responsive viewport,
+ * wraps in a minimal header/footer shell.
  *
  * Throws `share_too_large:<bytes>` if the result exceeds 25 MB.
  */
@@ -172,12 +77,8 @@ export async function bakeShareHtml(tab: Tab): Promise<string> {
   // stack overflows in the markdown parser on pathologically large inputs.
   const rawBytes = new TextEncoder().encode(tab.currentContent).byteLength
   if (rawBytes > MAX_HTML_BYTES) throw new Error(`share_too_large:${rawBytes}`)
-  const body = await renderTabBody(tab)
-  const inlined = await inlineImages(body, tab.filePath, pickImageReader())
-  // Render mermaid / dot / graphviz code blocks to inline SVG. Mounts a
-  // hidden staging element so the renderer plugins can do their async DOM
-  // work, then serializes the mutated subtree back to a string.
-  const withDiagrams = await renderDiagramsToString(inlined)
+
+  const inlineBody = await renderTabAsInlineBody(tab)
   const title = htmlEscape(shareHeaderLabel(tab.filePath))
   const date = isoDateStamp()
   const html = `<!doctype html>
@@ -194,47 +95,11 @@ ${viewportMetaTag()}
 <body>
 <div class="share-shell">
 <header class="share-header">${title} · ${date}</header>
-<main>${withDiagrams}</main>
+<main>${inlineBody}</main>
 <footer class="share-footer">Powered by <a href="https://github.com/wizlijun/MdEditor">M↓</a></footer>
 </div>
 </body>
 </html>`
   guardSize(html)
   return html
-}
-
-async function renderDiagramsToString(html: string): Promise<string> {
-  const { renderDiagrams } = await import('../diagram-render')
-  const staging = document.createElement('div')
-  staging.setAttribute(
-    'style',
-    'position:absolute;left:-10000px;top:0;width:800px;visibility:hidden;',
-  )
-  staging.innerHTML = html
-  document.body.appendChild(staging)
-  try {
-    await renderDiagrams(staging)
-    return staging.innerHTML
-  } finally {
-    staging.remove()
-  }
-}
-
-/**
- * Render a tab to an HTML body fragment (no <html>/<head> wrapper).
- * Pipeline mirrors pdf-export.ts so that share & PDF outputs stay visually
- * consistent.
- */
-export async function renderTabBody(tab: Tab): Promise<string> {
-  if (tab.kind === 'html') {
-    return tab.currentContent
-  }
-  if (tab.kind === 'code') {
-    const lang = tab.language && hljs.getLanguage(tab.language) ? tab.language : 'plaintext'
-    const highlighted = hljs.highlight(tab.currentContent, { language: lang }).value
-    return `<pre><code class="hljs language-${htmlEscape(lang)}">${highlighted}</code></pre>`
-  }
-  // markdown
-  const result = await shareMarked.parse(tab.currentContent, { async: true })
-  return result
 }
