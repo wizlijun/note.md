@@ -1,5 +1,7 @@
 # M↓ (mdeditor)
 
+[English](README.md) · [简体中文](README.zh-CN.md)
+
 A minimal native text editor for macOS — Markdown, HTML, and source code, with both
 **source** and **rich** (WYSIWYG) modes, a tabbed window, and a persistent menu-bar tray.
 
