@@ -20,6 +20,7 @@ export async function loadSettings(): Promise<void> {
   recentFiles = (await s.get<string[]>('recentFiles')) ?? []
   recentModesByExt = (await s.get<Record<string, Mode>>('recentModesByExt')) ?? {}
   pluginScoped = (await s.get<Record<string, Record<string, unknown>>>('plugins')) ?? {}
+  pluginScopedVersion.value++
 }
 
 export async function saveSettings(): Promise<void> {
@@ -52,6 +53,13 @@ export async function setRecentMode(key: string, mode: Mode): Promise<void> {
 }
 
 // --- Plugin-scoped settings ---
+
+/**
+ * Reactive version counter — increments on every `loadSettings` and every
+ * `mergePluginScoped`. Subscribers (like App.svelte's enabled_when re-eval
+ * effect) should depend on `.value` to re-run when plugin settings change.
+ */
+export const pluginScopedVersion = $state<{ value: number }>({ value: 0 })
 
 /**
  * Get all keys for a single plugin id, returned with their fully-qualified
@@ -88,5 +96,6 @@ export async function mergePluginScoped(patch: Record<string, unknown>): Promise
     if (!pluginScoped[id]) pluginScoped[id] = {}
     pluginScoped[id][key] = value
   }
+  pluginScopedVersion.value++
   await saveSettings()
 }
