@@ -48,6 +48,7 @@ function applyDecision(
       return
     case 'autoReload': {
       const s = decision.snapshot
+      const wasDeleted = tab.externalState === 'deleted'
       const oldContent = tab.initialContent
       tab.initialContent = s.content
       tab.currentContent = s.content
@@ -60,13 +61,19 @@ function applyDecision(
       window.dispatchEvent(new CustomEvent('mdeditor:auto-reloaded', {
         detail: { tabId: tab.id, oldContent, newContent: s.content },
       }))
+      // After delete→recreate, the original FSEvents subscription may be
+      // dead on filesystems that drop the watch when the inode disappears
+      // (NFS, some FUSE). APFS usually keeps it; rebind defensively.
+      if (wasDeleted) void rebindTabPath(tab.id)
       return
     }
     case 'showChanged': {
+      const wasDeleted = tab.externalState === 'deleted'
       tab.pendingExternal = decision.snapshot
       tab.externalState = 'changed'
       // Reset dismissed flag so a *new* event resurfaces the banner.
       tab.externalBannerDismissed = false
+      if (wasDeleted) void rebindTabPath(tab.id)
       return
     }
     case 'showDeleted': {

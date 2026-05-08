@@ -169,12 +169,16 @@ export async function closeTab(
  * change banner while the user is still typing.
  */
 export async function recordOurWrite(t: Tab): Promise<void> {
+  const wasDeleted = t.externalState === 'deleted'
   const stat = await statFile(t.filePath)
   t.lastKnownMtime = stat?.mtime ?? Date.now()
   t.lastKnownHash = await sha256Hex(t.currentContent)
   t.externalState = 'fresh'
   t.externalBannerDismissed = false
   t.pendingExternal = undefined
+  // Recreate-on-Save: the original FSEvents subscription may be dead after
+  // an external delete. Rebind so future external changes still notify us.
+  if (wasDeleted) await rebindTabPath(t.id)
 }
 
 /**
