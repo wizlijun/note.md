@@ -192,6 +192,9 @@ say "building (signed)"
 say "building mdshare plugin binaries"
 pnpm build:mdshare
 
+say "building md2pdf plugin binaries"
+pnpm build:md2pdf
+
 if (( UNIVERSAL )); then
   rustup target add x86_64-apple-darwin aarch64-apple-darwin >/dev/null 2>&1 || true
   APPLE_SIGNING_IDENTITY="$APPLE_SIGNING_IDENTITY" pnpm tauri build --target universal-apple-darwin
@@ -224,7 +227,9 @@ git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Ca
 # change), so working tree picks up modifications. Include them in the release
 # commit so HEAD matches what shipped and the next run sees a clean tree.
 git add src-tauri/plugins/share/bin-aarch64-apple-darwin \
-        src-tauri/plugins/share/bin-x86_64-apple-darwin 2>/dev/null || true
+        src-tauri/plugins/share/bin-x86_64-apple-darwin \
+        src-tauri/plugins/md2pdf/bin-aarch64-apple-darwin \
+        src-tauri/plugins/md2pdf/bin-x86_64-apple-darwin 2>/dev/null || true
 git commit -m "chore: release v$VERSION"
 git tag -a "$TAG" -m "M↓ $VERSION"
 

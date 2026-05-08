@@ -169,6 +169,24 @@ Output:
 61. **External image change** — replace the open image file from a shell
     (e.g. `cp other.png foo.png`). Within ~1 s the preview refreshes to
     the new content (no banner — images can't be dirty).
+62. **Disable md2pdf** — Preferences → Plugins → uncheck "Export to PDF"
+    → restart M↓ → File menu has no "Export to PDF…", `Cmd+Shift+E` does
+    not respond.
+63. **Re-enable md2pdf** — re-check → restart → menu item returns,
+    `Cmd+Shift+E` works.
+64. **Disable share** — same flow on the share row (uncheck → restart →
+    no Share items in the File menu; `Cmd+Shift+L` un-bound).
+65. **Default-on for new plugin** — delete the `plugins.enabled` segment
+    from `~/Library/Application Support/com.bruce.mdeditor/settings.json`
+    → restart → both `share` and `md2pdf` are still active (default-on
+    rule).
+66. **md2pdf timeout** — temporarily edit
+    `src-tauri/plugins/md2pdf/manifest.json` `timeout_seconds: 1`, export
+    a sizable doc → toast `❌ md2pdf: 未响应（1s）`, M↓ stays responsive.
+    Restore the manifest after the smoke test.
+67. **md2pdf write failure** — try saving a PDF into a read-only directory
+    → toast `❌ md2pdf: 渲染失败` (or `写入失败` depending on which step
+    failed); M↓ stays responsive.
 
 ## Spec & Plan
 
