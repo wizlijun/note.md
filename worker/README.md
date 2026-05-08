@@ -6,7 +6,7 @@ Cloudflare Worker backing the M↓ "Share" plugin. KV holds shared HTML; R2 hold
 
 ### HTML shares (KV-backed)
 
-- `POST /publish` — `Authorization: Bearer <SHARE_API_KEY>`. Body: `{slug, edit_token, html, expires_in_seconds?, metadata}`.
+- `POST /publish` — `Authorization: Bearer <SHARE_API_KEY>`. Body: `{slug, edit_token, html, expires_in_seconds?, metadata}`. **Default TTL is 7 days** when `expires_in_seconds` is omitted.
 - `GET /:slug` — public; returns the stored HTML or a 410 page.
 - `DELETE /:slug` — `Authorization: Bearer <SHARE_API_KEY>`. Body: `{edit_token}`.
 
@@ -23,7 +23,7 @@ Cloudflare Worker backing the M↓ "Share" plugin. KV holds shared HTML; R2 hold
     `video/mp4`, `video/webm`, `video/quicktime`.
   - `X-Edit-Token` (required) — 16–128 chars, `[a-zA-Z0-9]`.
   - `X-Filename` (optional) — original filename.
-  - `X-Expires-In` (optional, ≥60) — seconds until expiry.
+  - `X-Expires-In` (optional, ≥60) — seconds until expiry. **Defaults to 7 days** when omitted.
   Body: raw file bytes (≤ 50 MB). Magic-byte sniffing rejects mismatched content.
   Returns `{id, ext, url, edit_token, expires_at, size_bytes}`.
 - `GET /f/:id.:ext` — public; streams the file with `Cache-Control: immutable`,

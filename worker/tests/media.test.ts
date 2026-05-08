@@ -158,7 +158,7 @@ describe('POST /upload — magic bytes', () => {
 })
 
 describe('POST /upload — success', () => {
-  it('200 returns id, ext, url, expires_at=null', async () => {
+  it('200 returns id, ext, url; defaults expires_at to ~7 days', async () => {
     const r = await SELF.fetch('http://x/upload', {
       method: 'POST',
       headers: { ...AUTH, 'Content-Type': 'image/png', 'X-Edit-Token': VALID_TOKEN },
@@ -167,14 +167,18 @@ describe('POST /upload — success', () => {
     expect(r.status).toBe(200)
     const body = await r.json() as {
       id: string; ext: string; url: string; edit_token: string;
-      expires_at: string | null; size_bytes: number;
+      expires_at: string; size_bytes: number;
     }
     expect(body.ext).toBe('png')
     expect(body.id).toMatch(/^[a-z0-9]{12}$/)
     expect(body.url).toBe(`http://x/f/${body.id}.png`)
     expect(body.edit_token).toBe(VALID_TOKEN)
-    expect(body.expires_at).toBeNull()
     expect(body.size_bytes).toBe(pngBytes('one').byteLength)
+    const at = new Date(body.expires_at).getTime()
+    const now = Date.now()
+    const sevenDays = 7 * 24 * 60 * 60 * 1000
+    expect(at).toBeGreaterThan(now + sevenDays - 60_000)
+    expect(at).toBeLessThan(now + sevenDays + 60_000)
   })
 
   it('expires_at set when X-Expires-In is provided', async () => {

@@ -9,6 +9,7 @@ const TOKEN_RE = /^[a-zA-Z0-9]{16,128}$/
 const MAX_HTML_BYTES = 25 * 1024 * 1024
 const MAX_MEDIA_BYTES = 50 * 1024 * 1024
 const MIN_EXPIRES_IN = 60
+const DEFAULT_EXPIRES_IN = 7 * 24 * 60 * 60   // 7 days
 
 const MIME_EXT: Record<string, string> = {
   'image/jpeg': 'jpg',
@@ -174,10 +175,10 @@ async function publishHtmlCore(
   }
 
   const expiresInRaw = args.expires_in_seconds
-  const expirationTtl = typeof expiresInRaw === 'number' && expiresInRaw > 60
-    ? expiresInRaw : undefined
-  const expiresAt = expirationTtl
-    ? new Date(Date.now() + expirationTtl * 1000).toISOString() : null
+  const expirationTtl = typeof expiresInRaw === 'number' && expiresInRaw >= MIN_EXPIRES_IN
+    ? Math.floor(expiresInRaw)
+    : DEFAULT_EXPIRES_IN
+  const expiresAt = new Date(Date.now() + expirationTtl * 1000).toISOString()
 
   const meta: KvMeta = {
     edit_token: editToken,
@@ -187,10 +188,7 @@ async function publishHtmlCore(
     source_ext: typeof args.metadata?.source_ext === 'string' ? args.metadata.source_ext : '',
     size_bytes: new TextEncoder().encode(html).byteLength,
   }
-  await env.SHARES.put(slug, html, {
-    metadata: meta,
-    ...(expirationTtl ? { expirationTtl } : {}),
-  })
+  await env.SHARES.put(slug, html, { metadata: meta, expirationTtl })
 
   return { ok: true, data: { slug, edit_token: editToken, url: `${baseUrl}/${slug}`, expires_at: expiresAt } }
 }
@@ -256,7 +254,7 @@ async function uploadMediaCore(
   if (!ext) {
     return coreErr(415, 'unsupported_media_type', `content_type "${contentType}" not in whitelist`)
   }
-  let expirationTtl: number | undefined
+  let expirationTtl: number = DEFAULT_EXPIRES_IN
   if (args.expires_in_seconds !== undefined) {
     const n = args.expires_in_seconds
     if (!Number.isFinite(n) || n < MIN_EXPIRES_IN) {
@@ -271,15 +269,14 @@ async function uploadMediaCore(
     return coreErr(415, 'magic_mismatch', 'body bytes do not match declared content_type')
   }
 
-  const expiresAt = expirationTtl
-    ? new Date(Date.now() + expirationTtl * 1000).toISOString() : null
+  const expiresAt = new Date(Date.now() + expirationTtl * 1000).toISOString()
   const { id, key } = await allocateMediaKey(env, ext)
   await env.MEDIA.put(key, args.body, {
     httpMetadata: { contentType },
     customMetadata: {
       edit_token: args.edit_token,
       original_filename: encodeURIComponent(args.original_filename ?? ''),
-      expires_at: expiresAt ?? '',
+      expires_at: expiresAt,
       size_bytes: String(args.body.byteLength),
     },
   })
@@ -539,8 +536,7 @@ const MCP_TOOLS: McpTool[] = [
       'e.g. "2026-05-08-trip-notes-x7k". Republishing the same slug REQUIRES the same edit_token; ' +
       'using a different token returns slug_conflict. Generate edit_token once (16-128 chars [a-zA-Z0-9], ' +
       'cryptographically random) and persist it locally — without it you cannot update or delete the share. ' +
-      'HTML body capped at 25 MB. Set expires_in_seconds (>=61) to auto-expire after that many seconds; ' +
-      'omit for permanent until manually deleted.',
+      'HTML body capped at 25 MB. Default lifetime is 7 days; pass expires_in_seconds (>=60) to override.',
     inputSchema: {
       type: 'object',
       additionalProperties: false,
@@ -548,7 +544,7 @@ const MCP_TOOLS: McpTool[] = [
         slug: { type: 'string', description: 'YYYY-MM-DD-<slug>[-<suffix>]', pattern: '^\\d{4}-\\d{2}-\\d{2}-[a-z0-9-]{1,50}(?:-[a-zA-Z0-9]{2,4})?$' },
         edit_token: { type: 'string', description: '16-128 chars [a-zA-Z0-9]; required to update or delete this share later', minLength: 16, maxLength: 128 },
         html: { type: 'string', description: 'Self-contained HTML (≤ 25 MB UTF-8 bytes)' },
-        expires_in_seconds: { type: 'integer', description: 'Optional; >=61. Omit for permanent.', minimum: 61 },
+        expires_in_seconds: { type: 'integer', description: 'Optional; >=60. Default 604800 (7 days) when omitted.', minimum: 60 },
         original_filename: { type: 'string', description: 'Optional; for display only' },
         source_ext: { type: 'string', description: 'Optional; original source extension, e.g. "md"' },
       },
@@ -596,7 +592,7 @@ const MCP_TOOLS: McpTool[] = [
       'Magic-byte sniffing rejects mismatched content (e.g. HTML disguised as image/png). ' +
       'Generate edit_token once (16-128 chars [a-zA-Z0-9], cryptographically random) and persist it — ' +
       'it is required to delete the file later. ' +
-      'The returned url is permanent unless expires_in_seconds (>=60) was supplied. ' +
+      'Default lifetime is 7 days; pass expires_in_seconds (>=60) to override. ' +
       'After upload, embed the url in HTML and call share_publish_html.',
     inputSchema: {
       type: 'object',
@@ -606,7 +602,7 @@ const MCP_TOOLS: McpTool[] = [
         body_base64: { type: 'string', description: 'File bytes, base64-encoded (standard alphabet, with or without padding)' },
         edit_token: { type: 'string', description: '16-128 chars [a-zA-Z0-9]; required to delete this file later', minLength: 16, maxLength: 128 },
         original_filename: { type: 'string', description: 'Optional; for display in Content-Disposition' },
-        expires_in_seconds: { type: 'integer', description: 'Optional; >=60. Omit for permanent.', minimum: 60 },
+        expires_in_seconds: { type: 'integer', description: 'Optional; >=60. Default 604800 (7 days) when omitted.', minimum: 60 },
       },
       required: ['content_type', 'body_base64', 'edit_token'],
     },

@@ -111,8 +111,8 @@ describe('tools/list', () => {
 })
 
 describe('tool: share_publish_html', () => {
-  it('publishes and returns url + slug', async () => {
-    const { data, result } = await callTool<{ slug: string; url: string; edit_token: string; expires_at: string | null }>('share_publish_html', {
+  it('publishes and returns url + slug; defaults expires_at to ~7 days', async () => {
+    const { data, result } = await callTool<{ slug: string; url: string; edit_token: string; expires_at: string }>('share_publish_html', {
       slug: VALID_SLUG_A,
       edit_token: VALID_TOKEN,
       html: '<!doctype html><p>mcp publish</p>',
@@ -120,7 +120,10 @@ describe('tool: share_publish_html', () => {
     expect(result.isError).toBeFalsy()
     expect(data!.slug).toBe(VALID_SLUG_A)
     expect(data!.url).toContain(`/${VALID_SLUG_A}`)
-    expect(data!.expires_at).toBeNull()
+    const at = new Date(data!.expires_at).getTime()
+    const sevenDays = 7 * 24 * 60 * 60 * 1000
+    expect(at).toBeGreaterThan(Date.now() + sevenDays - 60_000)
+    expect(at).toBeLessThan(Date.now() + sevenDays + 60_000)
   })
 
   it('isError on bad slug', async () => {
