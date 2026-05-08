@@ -92,6 +92,18 @@ command -v pnpm  >/dev/null || die "pnpm not found"
 command -v gh    >/dev/null || die "gh not found"
 command -v cargo >/dev/null || die "cargo not found"
 
+# Detach any leftover bundle_dmg.sh random-mount points from previous failed
+# runs. They show up as /Volumes/dmg.XXXXXX. Tauri's dmg packaging step
+# (bundle_dmg.sh) silently fails if a conflicting mount exists.
+LEFTOVER_MOUNTS=$(ls -d /Volumes/dmg.* 2>/dev/null || true)
+if [[ -n "$LEFTOVER_MOUNTS" ]]; then
+  echo "    detaching stuck dmg mounts:"
+  for m in $LEFTOVER_MOUNTS; do
+    echo "      $m"
+    hdiutil detach "$m" -force >/dev/null 2>&1 || true
+  done
+fi
+
 # Signing identity — prefer Developer ID Application (Gatekeeper-friendly when
 # notarized) and fall back to Apple Distribution (App-Store-only; never passes
 # Gatekeeper for direct downloads even with notarization).
