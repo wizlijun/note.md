@@ -141,24 +141,40 @@ export async function invokePlugin(
     host_version: '0.1.1',
     plugin_api_version: 1,
   }
-  const result = await invokeTauri('invoke_plugin', {
-    pluginId: manifest.id, requestJson: JSON.stringify(request),
-  }) as { stdout_line: string | null; stderr_tail: string; exit_code: number | null; error: string | null; success: boolean }
+  let result: { stdout_line: string | null; stderr_tail: string; exit_code: number | null; error: string | null; success: boolean }
+  try {
+    result = await invokeTauri('invoke_plugin', {
+      pluginId: manifest.id, requestJson: JSON.stringify(request),
+    }) as typeof result
+  } catch (e) {
+    return {
+      ok: false,
+      errorMessage: `❌ ${manifest.name}: 启动失败`,
+      errorDetail: e instanceof Error ? e.message : String(e),
+    }
+  }
 
   if (result.error) {
-    return { ok: false, errorMessage: `${manifest.name}: ${result.error}`, errorDetail: result.stderr_tail }
+    let msg: string
+    const tokenMatch = /^timeout:(\d+)$/.exec(result.error)
+    if (tokenMatch) {
+      msg = `${manifest.name}: 未响应（${tokenMatch[1]}s）`
+    } else {
+      msg = `${manifest.name}: ${result.error}`
+    }
+    return { ok: false, errorMessage: `❌ ${msg}`, errorDetail: result.stderr_tail }
   }
   if (result.exit_code != null && result.exit_code !== 0) {
     return { ok: false,
-      errorMessage: `${manifest.name}: 异常退出（code ${result.exit_code}）`,
+      errorMessage: `❌ ${manifest.name}: 异常退出（code ${result.exit_code}）`,
       errorDetail: result.stderr_tail.slice(-1024) }
   }
   if (!result.stdout_line) {
-    return { ok: false, errorMessage: `${manifest.name}: 协议错误（空响应）`, errorDetail: result.stderr_tail.slice(-1024) }
+    return { ok: false, errorMessage: `❌ ${manifest.name}: 协议错误（空响应）`, errorDetail: result.stderr_tail.slice(-1024) }
   }
   const parsedResult = parseAndFilterResponse(result.stdout_line, manifest)
   if (!parsedResult.ok) {
-    return { ok: false, errorMessage: `${manifest.name}: 协议错误`, errorDetail: parsedResult.error + '\n---\n' + result.stdout_line.slice(0, 1024) }
+    return { ok: false, errorMessage: `❌ ${manifest.name}: 协议错误`, errorDetail: parsedResult.error + '\n---\n' + result.stdout_line.slice(0, 1024) }
   }
   return { ok: true, response: parsedResult.value }
 }

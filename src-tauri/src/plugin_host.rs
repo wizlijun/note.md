@@ -206,7 +206,7 @@ pub async fn run_plugin_binary(
                 stdout_line: None,
                 stderr_tail: String::new(),
                 exit_code: None,
-                error: Some(format!("timeout after {}s", timeout_seconds)),
+                error: Some(format!("timeout:{}", timeout_seconds)),
             })
         }
         Ok(Err(e)) => Err(format!("io error: {e}")),
