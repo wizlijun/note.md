@@ -63,15 +63,41 @@ export function htmlEscape(s: string): string {
  * WKWebView. All CSS is inlined so the offscreen webview need not fetch
  * external resources.
  */
-export function wrapInPrintTemplate(bodyHtml: string, title: string): string {
+/**
+ * Heuristic: does the markdown source contain inline or display math
+ * delimiters that KaTeX would render? Used to skip the ~500-1000 KB
+ * KaTeX font CSS for documents with no math, dramatically shrinking
+ * the resulting PDF.
+ */
+export function hasMathContent(md: string): boolean {
+  // Inline `$ ... $` (single dollars, no newline inside).
+  if (/\$[^\$\n]+\$/.test(md)) return true
+  // Display `$$ ... $$` (allows newlines).
+  if (/\$\$[\s\S]+?\$\$/.test(md)) return true
+  // LaTeX-style `\(...\)` and `\[...\]`.
+  if (/\\\([\s\S]+?\\\)/.test(md)) return true
+  if (/\\\[[\s\S]+?\\\]/.test(md)) return true
+  return false
+}
+
+/**
+ * Build the self-contained HTML document for PDF export.
+ * `includeKatex` controls whether the (heavy) KaTeX font stylesheet is
+ * inlined; pass false for documents with no math to keep the PDF small.
+ */
+export function wrapInPrintTemplate(
+  bodyHtml: string,
+  title: string,
+  includeKatex: boolean = true,
+): string {
   const escTitle = htmlEscape(title)
+  const katexBlock = includeKatex ? `<style>${katexCss}</style>\n  ` : ''
   return `<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <title>${escTitle}</title>
-  <style>${katexCss}</style>
-  <style>${pdfCss}</style>
+  ${katexBlock}<style>${pdfCss}</style>
 </head>
 <body data-pdf-title="${escTitle}">
 ${bodyHtml}
@@ -216,7 +242,11 @@ export async function renderForPrint(tab: Tab): Promise<string> {
   }
 
   const title = buildPdfTitle(tab)
-  return wrapInPrintTemplate(bodyHtml, title)
+  // Only inline KaTeX CSS (~500KB-1MB) when the document actually uses
+  // math; for plain prose / code / diagrams it just bloats the PDF.
+  const includeKatex =
+    tab.kind === 'markdown' && hasMathContent(tab.currentContent)
+  return wrapInPrintTemplate(bodyHtml, title, includeKatex)
 }
 
 /**
