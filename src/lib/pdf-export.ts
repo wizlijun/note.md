@@ -95,17 +95,78 @@ const printMarked = new Marked(
 )
 
 /**
+ * Replace fenced ` ```mermaid ` / ` ```dot ` / ` ```graphviz ` blocks in the
+ * staging DOM with rendered SVG. Awaits all renders before returning.
+ *
+ * Code-fence parsing already happened (marked → hljs); we look for the
+ * `language-<lang>` class that marked-highlight emits and swap the
+ * containing `<pre>` for a div the plugin can render into.
+ *
+ * Errors per-block are inlined as red placeholder text — one bad diagram
+ * doesn't sink the whole export.
+ */
+async function renderDiagrams(staging: HTMLElement): Promise<void> {
+  type Lang = 'mermaid' | 'dot' | 'graphviz'
+  const blocks: Array<{ lang: Lang; pre: HTMLElement; source: string }> = []
+  const candidates = staging.querySelectorAll<HTMLElement>(
+    'pre code.language-mermaid, pre code.language-dot, pre code.language-graphviz',
+  )
+  for (const code of Array.from(candidates)) {
+    const pre = code.parentElement as HTMLElement | null
+    if (!pre || pre.tagName !== 'PRE') continue
+    const langClass = Array.from(code.classList).find((c) =>
+      c === 'language-mermaid' || c === 'language-dot' || c === 'language-graphviz',
+    )
+    if (!langClass) continue
+    const lang = langClass.slice('language-'.length) as Lang
+    blocks.push({ lang, pre, source: code.textContent ?? '' })
+  }
+  if (blocks.length === 0) return
+
+  // Lazy-load each plugin once; reuse for all blocks of that language.
+  const { loadDotRenderer, loadMermaidRenderer } = await import(
+    '../lib/adapters/renderer-registry'
+  )
+  const langCache = new Map<
+    Lang,
+    { render: (source: string, container: HTMLElement) => void | Promise<void> }
+  >()
+  const loaderFor = async (lang: Lang) => {
+    if (langCache.has(lang)) return langCache.get(lang)!
+    const plugin =
+      lang === 'mermaid' ? await loadMermaidRenderer() : await loadDotRenderer()
+    langCache.set(lang, plugin)
+    return plugin
+  }
+
+  await Promise.all(
+    blocks.map(async ({ lang, pre, source }) => {
+      const container = document.createElement('div')
+      container.className = lang === 'mermaid' ? 'mermaid' : 'dot'
+      pre.parentNode?.replaceChild(container, pre)
+      try {
+        const plugin = await loaderFor(lang)
+        await plugin.render(source, container)
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e)
+        container.innerHTML = `<div class="renderer-error">${htmlEscape(`${lang} render failed: ${msg}`)}</div>`
+      }
+    }),
+  )
+}
+
+/**
  * Render the tab's content to a fully-settled, self-contained HTML document
  * ready to hand off to the Rust PDF generator.
  *
- * For markdown tabs: marked + marked-katex-extension + marked-highlight (hljs).
- *   Mermaid is NOT yet integrated — fenced ```mermaid blocks render as
- *   plain code blocks in v1. Follow-up task adds mermaid.
+ * For markdown tabs: marked + marked-katex-extension + marked-highlight (hljs)
+ *   + post-pass that replaces ```mermaid / ```dot / ```graphviz code blocks
+ *   with rendered SVG via the renderer-registry plugins.
  *
  * For HTML tabs: the content is wrapped verbatim in the print template.
  *
- * Awaits font loading and image loading before returning, so the static HTML
- * is layout-stable in the offscreen WKWebView.
+ * Awaits font loading, image loading, AND all diagram rendering before
+ * returning, so the static HTML is layout-stable in the offscreen WKWebView.
  */
 export async function renderForPrint(tab: Tab): Promise<string> {
   let bodyHtml: string
@@ -118,7 +179,7 @@ export async function renderForPrint(tab: Tab): Promise<string> {
   }
 
   // Mount a hidden staging element so we can await async settling on real
-  // DOM (fonts, images). Subscribe to fonts.ready and image load events.
+  // DOM (fonts, images, diagram renders).
   const staging = document.createElement('div')
   staging.id = 'pdf-staging'
   staging.setAttribute(
@@ -129,6 +190,9 @@ export async function renderForPrint(tab: Tab): Promise<string> {
   document.body.appendChild(staging)
 
   try {
+    // Diagrams (mermaid / dot / graphviz) — async per-block; settle all
+    // before reading back the serialized HTML.
+    await renderDiagrams(staging)
     // Fonts (no-op in happy-dom; behaves correctly in WKWebView)
     if ((document as Document & { fonts?: { ready: Promise<unknown> } }).fonts) {
       await (document as Document & { fonts: { ready: Promise<unknown> } }).fonts.ready
@@ -145,7 +209,7 @@ export async function renderForPrint(tab: Tab): Promise<string> {
             }),
       ),
     )
-    // Re-extract serialized HTML after any DOM mutations
+    // Re-extract serialized HTML after diagram + image mutations
     bodyHtml = staging.innerHTML
   } finally {
     staging.remove()
