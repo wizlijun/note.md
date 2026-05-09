@@ -15,6 +15,7 @@
  * falls through to system fonts (Iowan / Songti) — degradation is graceful.
  */
 
+@import url('https://cdn.jsdelivr.net/npm/lxgw-wenkai-lite-webfont@1.7.0/lxgwwenkailite-light.css');
 @import url('https://cdn.jsdelivr.net/npm/lxgw-wenkai-lite-webfont@1.7.0/lxgwwenkailite-regular.css');
 
 [data-skin="effie"] {
@@ -29,9 +30,13 @@
     'Songti SC', 'STSong', serif;
   font-feature-settings: 'palt';
   font-size: 20px;
+  font-weight: 300;
   line-height: 1.6;
   color: #2c2c2c;
   background: transparent;
+  /* Grayscale AA renders Kai-style strokes thinner on macOS Retina —
+   * pairs with weight 300 to match the lighter feel the user wants. */
+  -webkit-font-smoothing: antialiased;
 }
 
 /* ── Headings: same family, distinguished by size + teal color ──────────── */
@@ -43,7 +48,7 @@
 [data-skin="effie"] .moraya-editor h5,
 [data-skin="effie"] .moraya-editor h6 {
   color: #4a9296;
-  font-weight: 600;
+  font-weight: 400;
   letter-spacing: 0.01em;
 }
 
@@ -62,7 +67,7 @@
 
 [data-skin="effie"] .moraya-editor strong {
   color: #5e4cc4;
-  font-weight: 600;
+  font-weight: 400;
 }
 [data-skin="effie"] .moraya-editor em {
   color: #d4753e;
@@ -132,7 +137,7 @@
   border-top: 1px solid #cdd9cb;
   border-bottom: 1px solid #cdd9cb;
   padding: 8px 12px;
-  font-weight: 600;
+  font-weight: 400;
   text-align: left;
   background: transparent;
   color: #3d4d44;
