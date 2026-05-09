@@ -61,9 +61,19 @@ fn main() {
 fn run_export(req: &Request) -> Response {
     let html = template::wrap_html(&req.context.rendered_html, &req.context.tab.title);
     match pdf::render_to_path(&html, &req.context.output_path) {
-        Ok(()) => Response::ok(vec![ipc::toast_success(
-            format!("✅ 已导出到 {}", req.context.output_path),
-        )]),
+        Ok(()) => {
+            // Reveal the produced PDF in Finder. `open -R <path>` is the macOS
+            // CLI equivalent of "Show in Finder" — opens the parent dir and
+            // selects the file. Best-effort: a failure here does not turn a
+            // successful export into a failure.
+            let _ = std::process::Command::new("open")
+                .args(["-R", &req.context.output_path])
+                .spawn();
+            Response::ok(vec![ipc::toast_success(format!(
+                "✅ 已导出到 {}",
+                req.context.output_path
+            ))])
+        }
         Err(e) => Response::fail(vec![ipc::toast_error(
             format!("❌ {PLUGIN_NAME}: 渲染失败"),
             Some(e),
