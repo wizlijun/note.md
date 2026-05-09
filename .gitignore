@@ -4,7 +4,8 @@ dist/
 src-tauri/target/
 mdshare/target/
 md2pdf/target/
-src-tauri/gen/
+src-tauri/gen/*
+!src-tauri/gen/apple/
 .worktrees/
 *.log
 
