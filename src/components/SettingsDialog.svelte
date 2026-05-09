@@ -3,6 +3,11 @@
   import { onMount } from 'svelte'
   import { ask } from '@tauri-apps/plugin-dialog'
   import { settings, saveSettings, getPluginScopedAll, mergePluginScoped } from '../lib/settings.svelte'
+  import { platform } from '../lib/platform.svelte'
+  let isIOSPlatform = $state(false)
+  $effect(() => {
+    platform().then((p) => { isIOSPlatform = p === 'ios' })
+  })
   import { SKINS, skin, setSkin, type SkinId, isValidSkinId } from '../lib/skin.svelte'
   import { collectSettingsTabs, type SettingsTab } from '../lib/plugins/settings-registry'
   import type { PluginManifest } from '../lib/plugins/types'
@@ -147,14 +152,16 @@
       <h2>Preferences</h2>
 
       <nav class="tab-strip">
-        <button class:active={selectedTab === 'plugins'} onclick={() => selectedTab = 'plugins'}>Plugins</button>
+        {#if !isIOSPlatform}
+          <button class:active={selectedTab === 'plugins'} onclick={() => selectedTab = 'plugins'}>Plugins</button>
+        {/if}
         <button class:active={selectedTab === 'core'} onclick={() => selectedTab = 'core'}>Core</button>
         {#each pluginTabs as t (t.pluginId)}
           <button class:active={selectedTab === t.pluginId} onclick={() => selectedTab = t.pluginId}>{t.label}</button>
         {/each}
       </nav>
 
-      {#if selectedTab === 'plugins'}
+      {#if !isIOSPlatform && selectedTab === 'plugins'}
         <PluginsSettingsTab />
       {:else if selectedTab === 'core'}
         <section class="block">
@@ -176,46 +183,48 @@
           </label>
         </section>
 
-        <section class="block">
-          <h3>Default app for text &amp; code files</h3>
-          <p class="desc">
-            Make M↓ the default macOS application for opening text and source code files.
-            Once set, double-clicking any of the supported file types in Finder (or selecting
-            <em>Open With…</em>) will launch M↓.
-          </p>
-          <p class="desc">
-            This affects <strong>{ALL_EXTS.length}</strong> file extensions across
-            <strong>{FILE_GROUPS.length}</strong> categories. Every change goes through macOS Launch
-            Services, so the system, Finder, and other apps all pick it up immediately.
-          </p>
-          <details class="ext-list">
-            <summary>Show affected file types ({ALL_EXTS.length} extensions)</summary>
-            <ul>
-              {#each FILE_GROUPS as g}
-                <li><strong>{g.label}</strong> — {g.exts.map((e) => `.${e}`).join(', ')}</li>
-              {/each}
-            </ul>
-          </details>
-          <button class="primary" onclick={handleSetDefault} disabled={busy}>
-            {busy ? 'Setting…' : `Set M↓ as default for all ${ALL_EXTS.length} types`}
-          </button>
-          {#if resultText}
-            <p
-              class="result"
-              class:ok={resultDetails?.every((r) => r.ok)}
-              class:partial={resultDetails && resultDetails.some((r) => !r.ok) && resultDetails.some((r) => r.ok)}
-              class:fail={resultDetails && resultDetails.every((r) => !r.ok)}
-            >
-              {resultText}
+        {#if !isIOSPlatform}
+          <section class="block">
+            <h3>Default app for text &amp; code files</h3>
+            <p class="desc">
+              Make M↓ the default macOS application for opening text and source code files.
+              Once set, double-clicking any of the supported file types in Finder (or selecting
+              <em>Open With…</em>) will launch M↓.
             </p>
-          {/if}
-          <p class="undo-note">
-            <strong>To undo for one file type:</strong> in Finder, select a file → File menu →
-            <em>Get Info</em> → <em>Open with</em> section → pick another app → click
-            <em>Change All…</em>. There's no way to bulk-undo through macOS, so make sure you want this
-            before clicking the button above.
-          </p>
-        </section>
+            <p class="desc">
+              This affects <strong>{ALL_EXTS.length}</strong> file extensions across
+              <strong>{FILE_GROUPS.length}</strong> categories. Every change goes through macOS Launch
+              Services, so the system, Finder, and other apps all pick it up immediately.
+            </p>
+            <details class="ext-list">
+              <summary>Show affected file types ({ALL_EXTS.length} extensions)</summary>
+              <ul>
+                {#each FILE_GROUPS as g}
+                  <li><strong>{g.label}</strong> — {g.exts.map((e) => `.${e}`).join(', ')}</li>
+                {/each}
+              </ul>
+            </details>
+            <button class="primary" onclick={handleSetDefault} disabled={busy}>
+              {busy ? 'Setting…' : `Set M↓ as default for all ${ALL_EXTS.length} types`}
+            </button>
+            {#if resultText}
+              <p
+                class="result"
+                class:ok={resultDetails?.every((r) => r.ok)}
+                class:partial={resultDetails && resultDetails.some((r) => !r.ok) && resultDetails.some((r) => r.ok)}
+                class:fail={resultDetails && resultDetails.every((r) => !r.ok)}
+              >
+                {resultText}
+              </p>
+            {/if}
+            <p class="undo-note">
+              <strong>To undo for one file type:</strong> in Finder, select a file → File menu →
+              <em>Get Info</em> → <em>Open with</em> section → pick another app → click
+              <em>Change All…</em>. There's no way to bulk-undo through macOS, so make sure you want this
+              before clicking the button above.
+            </p>
+          </section>
+        {/if}
       {:else}
         {#each pluginTabs as t (t.pluginId)}
           {#if selectedTab === t.pluginId}
