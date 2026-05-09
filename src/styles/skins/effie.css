@@ -1,0 +1,166 @@
+/* effie skin — Effie-inspired mint-paper aesthetic.
+ *
+ * Unlike default/shuyuan (which let system Canvas/CanvasText drive colors),
+ * this skin owns its full palette. The mint paper, teal headings, blue bold,
+ * and orange italic are the *point* of the look — they don't bend to dark
+ * mode. Code-block hljs tokens still come from editor-base.css; this skin
+ * forces the surrounding paper, so on light system the result is consistent
+ * and on dark system the editor area still presents as light mint.
+ */
+
+[data-skin="effie"] {
+  background: #eef3eb;
+}
+
+[data-skin="effie"] .moraya-editor {
+  font-family:
+    'Iowan Old Style', 'Charter', 'Georgia',
+    'Source Han Serif SC', 'Noto Serif CJK SC',
+    'Songti SC', 'STSong', serif;
+  font-feature-settings: 'palt';
+  line-height: 1.95;
+  color: #3d4d44;
+  background: transparent;
+}
+
+/* ── Headings: same family, distinguished by size + teal color ──────────── */
+
+[data-skin="effie"] .moraya-editor h1,
+[data-skin="effie"] .moraya-editor h2,
+[data-skin="effie"] .moraya-editor h3,
+[data-skin="effie"] .moraya-editor h4,
+[data-skin="effie"] .moraya-editor h5,
+[data-skin="effie"] .moraya-editor h6 {
+  color: #5a9090;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+[data-skin="effie"] .moraya-editor h1 { font-size: 1.6em;  margin: 1.6em 0 1em; }
+[data-skin="effie"] .moraya-editor h2 { font-size: 1.3em;  margin: 1.4em 0 0.7em; }
+[data-skin="effie"] .moraya-editor h3 { font-size: 1.15em; margin: 1.2em 0 0.5em; }
+[data-skin="effie"] .moraya-editor h4 { font-size: 1em;    margin: 1em 0 0.4em; }
+[data-skin="effie"] .moraya-editor h5 { font-size: 0.95em; margin: 1em 0 0.4em; color: #6ba0a0; }
+[data-skin="effie"] .moraya-editor h6 { font-size: 0.9em;  margin: 1em 0 0.4em; color: #6ba0a0; }
+
+/* ── Paragraphs: roomy, no indent ───────────────────────────────────────── */
+
+[data-skin="effie"] .moraya-editor p { margin: 0.9em 0; }
+
+/* ── Inline emphasis: each weight gets its own accent color ─────────────── */
+
+[data-skin="effie"] .moraya-editor strong {
+  color: #4a6db5;
+  font-weight: 600;
+}
+[data-skin="effie"] .moraya-editor em {
+  color: #cc7d4a;
+  font-style: italic;
+}
+
+/* ── Links: blue-purple, underline w/ slight offset ─────────────────────── */
+
+[data-skin="effie"] .moraya-editor a {
+  color: #4a6db5;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+/* ── Blockquote: muted left rail (Effie images don't show one, so guess) ── */
+
+[data-skin="effie"] .moraya-editor blockquote {
+  border-left: 3px solid #b8d2c0;
+  margin: 0.9em 0;
+  padding: 0.2em 1em;
+  color: #5a6e62;
+}
+
+/* ── Lists ──────────────────────────────────────────────────────────────── */
+
+[data-skin="effie"] .moraya-editor ol {
+  padding-left: 2em;
+  margin: 0.8em 0;
+}
+[data-skin="effie"] .moraya-editor ol > li {
+  margin: 0.35em 0;
+}
+[data-skin="effie"] .moraya-editor ol > li::marker {
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  color: #5a9090;
+}
+
+[data-skin="effie"] .moraya-editor ul {
+  list-style: none;
+  padding-left: 1.5em;
+  margin: 0.8em 0;
+}
+[data-skin="effie"] .moraya-editor ul > li {
+  position: relative;
+  margin: 0.35em 0;
+}
+[data-skin="effie"] .moraya-editor ul > li::before {
+  content: '●';
+  position: absolute;
+  left: -1.1em;
+  top: 0;
+  color: #7da89e;
+  font-size: 0.7em;
+  line-height: 2.6;
+}
+
+/* ── Tables: horizontal-only, with row dividers ─────────────────────────── */
+
+[data-skin="effie"] .moraya-editor table {
+  border-collapse: collapse;
+  margin: 1em 0;
+  width: 100%;
+}
+[data-skin="effie"] .moraya-editor th {
+  border: 0;
+  border-top: 1px solid #cdd9cb;
+  border-bottom: 1px solid #cdd9cb;
+  padding: 8px 12px;
+  font-weight: 600;
+  text-align: left;
+  background: transparent;
+  color: #3d4d44;
+}
+[data-skin="effie"] .moraya-editor td {
+  border: 0;
+  border-bottom: 1px solid #e0e7df;
+  padding: 8px 12px;
+}
+
+/* ── Horizontal rule: thin sage line ────────────────────────────────────── */
+
+[data-skin="effie"] .moraya-editor hr {
+  border: 0;
+  border-top: 1px solid #cdd9cb;
+  margin: 2em 0;
+}
+
+/* ── Images: rounded corners ────────────────────────────────────────────── */
+
+[data-skin="effie"] .moraya-editor img {
+  max-width: 100%;
+  border-radius: 10px;
+}
+
+/* ── Inline code: warm-orange tint, no heavy box ────────────────────────── */
+
+[data-skin="effie"] .moraya-editor :not(pre) > code {
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 0.9em;
+  color: #cc7d4a;
+  padding: 1px 4px;
+  background: rgba(204, 125, 74, 0.08);
+  border-radius: 3px;
+}
+
+/* ── Code block paper-tone (override the system-color bg from base) ─────── */
+
+[data-skin="effie"] .moraya-editor .code-block-wrapper,
+[data-skin="effie"] .moraya-editor pre:not(.code-block-pre) {
+  background: rgba(45, 70, 60, 0.06);
+}

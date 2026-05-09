@@ -59,6 +59,13 @@ describe('settings', () => {
     expect(settings.skin).toBe('shuyuan')
   })
 
+  it('loadSettings hydrates "effie" skin', async () => {
+    const { loadSettings, settings } = await import('./settings.svelte')
+    mockGet.mockImplementation(async (key: string) => key === 'skin' ? 'effie' : undefined)
+    await loadSettings()
+    expect(settings.skin).toBe('effie')
+  })
+
   it('loadSettings falls back to "default" when stored skin is unknown', async () => {
     const { loadSettings, settings } = await import('./settings.svelte')
     mockGet.mockImplementation(async (key: string) => key === 'skin' ? 'no-such-skin' : undefined)

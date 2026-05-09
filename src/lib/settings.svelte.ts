@@ -7,7 +7,7 @@ export const settings = $state<{ autoSave: boolean; skin: string }>({
   skin: 'default',
 })
 
-const KNOWN_SKIN_IDS = new Set(['default', 'shuyuan'])
+const KNOWN_SKIN_IDS = new Set(['default', 'shuyuan', 'effie'])
 
 let store: Awaited<ReturnType<typeof Store.load>> | null = null
 let recentFiles: string[] = []

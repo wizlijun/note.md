@@ -3,6 +3,7 @@
   import './styles/editor-base.css'
   import './styles/skins/default.css'
   import './styles/skins/shuyuan.css'
+  import './styles/skins/effie.css'
   import { onMount } from 'svelte'
   import { getCurrentWindow } from '@tauri-apps/api/window'
   import { listen } from '@tauri-apps/api/event'
@@ -51,7 +52,7 @@
       try {
         const { skin: skinState } = await import('./lib/skin.svelte')
         const { settings: s } = await import('./lib/settings.svelte')
-        if (s.skin === 'default' || s.skin === 'shuyuan') skinState.current = s.skin
+        if (s.skin === 'default' || s.skin === 'shuyuan' || s.skin === 'effie') skinState.current = s.skin
       } catch (e) { console.warn('[App] hydrate skin:', e) }
       stopAutoSave = startAutoSaveWatcher()
 

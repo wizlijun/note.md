@@ -1,4 +1,4 @@
-export type SkinId = 'default' | 'shuyuan'
+export type SkinId = 'default' | 'shuyuan' | 'effie'
 
 export const SKINS: { id: SkinId; label: string; description: string }[] = [
   {
@@ -10,6 +10,11 @@ export const SKINS: { id: SkinId; label: string; description: string }[] = [
     id: 'shuyuan',
     label: '书苑（中文优化）',
     description: '思源宋体正文 + 思源黑体标题，仿现代中文书籍排版，含首行缩进与楷体引文。',
+  },
+  {
+    id: 'effie',
+    label: 'Effie（薄荷青）',
+    description: '薄荷纸色 + 青绿色标题 + 蓝紫粗体 + 暖橙斜体，仿 Effie 写作软件配色。深色模式下保持原色。',
   },
 ]
 
