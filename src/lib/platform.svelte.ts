@@ -3,12 +3,13 @@ import { platform as tauriPlatform } from '@tauri-apps/plugin-os'
 export type Platform = 'macos' | 'ios' | 'unknown'
 export type FormFactor = 'desktop' | 'tablet' | 'phone'
 
-let cached: Platform | null = null
+let cached: Promise<Platform> | null = null
 
-export async function platform(): Promise<Platform> {
-  if (cached) return cached
-  const p = await tauriPlatform()
-  cached = p === 'macos' || p === 'ios' ? (p as Platform) : 'unknown'
+export function platform(): Promise<Platform> {
+  if (cached !== null) return cached
+  cached = tauriPlatform().then((p) =>
+    p === 'macos' || p === 'ios' ? p : 'unknown'
+  )
   return cached
 }
 
@@ -16,14 +17,15 @@ export const isIOS = async () => (await platform()) === 'ios'
 export const isMacOS = async () => (await platform()) === 'macos'
 
 /** test-only escape hatch */
-export function _resetCacheForTests() {
-  cached = null
-}
+export function _resetCacheForTests() { cached = null }
 
 /** Reactive form-factor signal. Initialized by `initFormFactor()` in main.ts. */
 export const formFactor = $state<{ value: FormFactor }>({ value: 'desktop' })
 
+let initialized = false
 export async function initFormFactor(): Promise<void> {
+  if (initialized) return
+  initialized = true
   const p = await platform()
   const compute = () => {
     if (p !== 'ios') return 'desktop' as FormFactor
@@ -31,8 +33,12 @@ export async function initFormFactor(): Promise<void> {
   }
   formFactor.value = compute()
   if (p === 'ios') {
+    // Listener intentionally never removed — formFactor is a process-lifetime
+    // singleton. Do not call initFormFactor more than once (see idempotency guard).
     window.addEventListener('resize', () => {
       formFactor.value = compute()
     })
   }
 }
+
+export function _resetInitForTests() { initialized = false }

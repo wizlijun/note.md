@@ -37,4 +37,15 @@ describe('platform()', () => {
     await platform()
     expect((tauriPlatform as any).mock.calls.length).toBe(1)
   })
+
+  it('parallel calls share a single in-flight promise', async () => {
+    ;(tauriPlatform as any).mockImplementation(
+      () => new Promise((resolve) => setTimeout(() => resolve('ios'), 10)),
+    )
+    const [a, b, c] = await Promise.all([platform(), platform(), platform()])
+    expect(a).toBe('ios')
+    expect(b).toBe('ios')
+    expect(c).toBe('ios')
+    expect((tauriPlatform as any).mock.calls.length).toBe(1)
+  })
 })
