@@ -30,16 +30,20 @@ export async function renderDiagrams(staging: HTMLElement): Promise<void> {
   const { loadDotRenderer, loadMermaidRenderer } = await import(
     './adapters/renderer-registry'
   )
+  // Cache the in-flight load *promise*, not the resolved plugin. Otherwise
+  // the first batch of parallel callers all see cache-miss before the first
+  // load resolves, each spin up their own plugin instance, and per-instance
+  // state (e.g. mermaid id counters) collides.
   const langCache = new Map<
     Lang,
-    { render: (source: string, container: HTMLElement) => void | Promise<void> }
+    Promise<{ render: (source: string, container: HTMLElement) => void | Promise<void> }>
   >()
-  const loaderFor = async (lang: Lang) => {
-    if (langCache.has(lang)) return langCache.get(lang)!
-    const plugin =
-      lang === 'mermaid' ? await loadMermaidRenderer() : await loadDotRenderer()
-    langCache.set(lang, plugin)
-    return plugin
+  const loaderFor = (lang: Lang) => {
+    const cached = langCache.get(lang)
+    if (cached) return cached
+    const promise = lang === 'mermaid' ? loadMermaidRenderer() : loadDotRenderer()
+    langCache.set(lang, promise)
+    return promise
   }
 
   await Promise.all(

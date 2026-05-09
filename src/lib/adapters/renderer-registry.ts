@@ -48,6 +48,14 @@ interface MermaidLike {
   render: (id: string, src: string) => Promise<{ svg: string }>
 }
 
+// Module-scoped — even if multiple plugin instances get created (e.g. a
+// renderDiagrams() race before its langCache is populated), every render
+// across the whole app gets a unique id, and only one mermaid.render runs
+// at a time. Mermaid uses a shared scratch element in document.body for
+// layout, so concurrent calls absolutely clobber each other.
+let mermaidCounter = 0
+let mermaidQueue: Promise<unknown> = Promise.resolve()
+
 const mermaidPlugin: PluginEntry = {
   version: '1',
   load: async () => {
@@ -63,7 +71,6 @@ const mermaidPlugin: PluginEntry = {
       mermaid.initialize({ startOnLoad: false, securityLevel: 'loose' })
       initialized = true
     }
-    let counter = 0
 
     return {
       async render(source, container) {
@@ -73,13 +80,20 @@ const mermaidPlugin: PluginEntry = {
           return
         }
         ensureInit()
-        const id = `mermaid-${++counter}-${Date.now()}`
-        try {
-          const result = await mermaid.render(id, source)
-          container.innerHTML = result.svg
-        } catch (e) {
-          container.innerHTML = `<div class="renderer-error">${escapeRenderError(e)}</div>`
-        }
+        const id = `mermaid-${++mermaidCounter}-${Date.now()}`
+        const job = mermaidQueue.then(async () => {
+          try {
+            const result = await mermaid.render(id, source)
+            container.innerHTML = result.svg
+          } catch (e) {
+            container.innerHTML = `<div class="renderer-error">${escapeRenderError(e)}</div>`
+          }
+        })
+        // Swallow rejections in the queue so one bad diagram doesn't poison
+        // every subsequent render. The job above already converts errors to
+        // a renderer-error div, so this catch is just chain-hygiene.
+        mermaidQueue = job.catch(() => {})
+        return job
       },
       destroy(container) {
         container.innerHTML = ''
