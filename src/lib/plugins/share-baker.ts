@@ -1,5 +1,6 @@
 import { basename } from '../fs'
 import type { Tab } from '../tabs.svelte'
+import type { SkinId } from '../skin.svelte'
 import {
   htmlEscape,
   renderTabAsInlineBody,
@@ -10,6 +11,15 @@ import {
 import katexCss from 'katex/dist/katex.min.css?raw'
 import hljsLightCss from 'highlight.js/styles/github.css?raw'
 import hljsDarkCss from 'highlight.js/styles/github-dark.css?raw'
+import defaultSkinCss from '../../styles/skins/default.css?raw'
+import shuyuanSkinCss from '../../styles/skins/shuyuan.css?raw'
+import effieSkinCss from '../../styles/skins/effie.css?raw'
+
+const SKIN_CSS: Record<SkinId, string> = {
+  default: defaultSkinCss,
+  shuyuan: shuyuanSkinCss,
+  effie: effieSkinCss,
+}
 
 export const MAX_HTML_BYTES = 25 * 1024 * 1024
 
@@ -53,6 +63,34 @@ th, td { padding: 6px 10px; border: 1px solid rgba(0,0,0,0.1); }
 `.trim()
 }
 
+/**
+ * Phone-width adjustments for the shared page. Skin CSS is desktop-tuned
+ * (designed for the editor pane, where the user controls the window width),
+ * so on narrow viewports we trim padding, hide effie's gutter labels,
+ * and let tables scroll horizontally instead of overflowing.
+ */
+export function mobileOverridesCssBlock(): string {
+  return `
+@media (max-width: 600px) {
+  body { padding: 16px; }
+  .share-header { margin-bottom: 24px; }
+  .share-footer { margin-top: 40px; }
+  .moraya-editor { font-size: 16px; }
+  /* effie: drop the 2.5em left gutter and hide the H-labels — no room on
+     phones, and the labels look orphaned without their indent buddy. */
+  [data-skin="effie"] .moraya-editor { padding-left: 0; }
+  [data-skin="effie"] .moraya-editor h1::before,
+  [data-skin="effie"] .moraya-editor h2::before,
+  [data-skin="effie"] .moraya-editor h3::before,
+  [data-skin="effie"] .moraya-editor h4::before { display: none; }
+  /* shuyuan: shrink blockquote outer margin so it doesn't pinch the text. */
+  [data-skin="shuyuan"] .moraya-editor blockquote { margin: 1em 0; padding: 0.6em 0.8em; }
+  /* Tables: scroll horizontally instead of bleeding off the viewport. */
+  .moraya-editor table { display: block; overflow-x: auto; max-width: 100%; }
+}
+`.trim()
+}
+
 export function guardSize(html: string): void {
   const bytes = new TextEncoder().encode(html).byteLength
   if (bytes > MAX_HTML_BYTES) throw new Error(`share_too_large:${bytes}`)
@@ -67,12 +105,17 @@ export const __setImageReaderForTests = sharedSetImageReader
 /**
  * Render a tab into a fully self-contained HTML document suitable for posting
  * to the share Worker. Inlines images as base64 (via the shared host-render
- * pipeline), bakes light + dark themes, adds mobile-responsive viewport,
- * wraps in a minimal header/footer shell.
+ * pipeline), bakes light + dark themes plus the user's chosen skin, adds
+ * mobile-responsive viewport overrides, wraps in a minimal header/footer
+ * shell.
+ *
+ * `skinId` defaults to 'default' so callers (and tests) can omit it. The
+ * skin CSS is inlined as-is and scoped via `[data-skin="<id>"] .moraya-editor`,
+ * matching the in-app preview's selector contract.
  *
  * Throws `share_too_large:<bytes>` if the result exceeds 25 MB.
  */
-export async function bakeShareHtml(tab: Tab): Promise<string> {
+export async function bakeShareHtml(tab: Tab, skinId: SkinId = 'default'): Promise<string> {
   // Guard raw content size before running the rendering pipeline to avoid
   // stack overflows in the markdown parser on pathologically large inputs.
   const rawBytes = new TextEncoder().encode(tab.currentContent).byteLength
@@ -81,6 +124,7 @@ export async function bakeShareHtml(tab: Tab): Promise<string> {
   const inlineBody = await renderTabAsInlineBody(tab)
   const title = htmlEscape(shareHeaderLabel(tab.filePath))
   const date = isoDateStamp()
+  const skinCss = SKIN_CSS[skinId] ?? SKIN_CSS.default
   const html = `<!doctype html>
 <html lang="en">
 <head>
@@ -91,11 +135,13 @@ ${viewportMetaTag()}
 <style>${hljsLightCss}</style>
 <style>@media (prefers-color-scheme: dark) { ${hljsDarkCss} }</style>
 <style>${themeCssBlock()}</style>
+<style>${skinCss}</style>
+<style>${mobileOverridesCssBlock()}</style>
 </head>
-<body>
+<body data-skin="${htmlEscape(skinId)}">
 <div class="share-shell">
 <header class="share-header">${title} · ${date}</header>
-<main>${inlineBody}</main>
+<main class="moraya-editor">${inlineBody}</main>
 <footer class="share-footer">Powered by <a href="https://github.com/wizlijun/MdEditor">M↓</a></footer>
 </div>
 </body>

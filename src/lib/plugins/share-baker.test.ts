@@ -179,6 +179,37 @@ describe('bakeShareHtml', () => {
     __setImageReaderForTests(null)
   })
 
+  it('defaults to the default skin when no skin id is passed', async () => {
+    __setImageReaderForTests(async () => new Uint8Array([0]))
+    const t = fakeTab({ currentContent: '# Hi' })
+    const html = await bakeShareHtml(t)
+    expect(html).toContain('data-skin="default"')
+    expect(html).toContain('[data-skin="default"] .moraya-editor')
+    expect(html).toContain('class="moraya-editor"')
+    __setImageReaderForTests(null)
+  })
+
+  it('inlines effie skin css and sets data-skin="effie" when requested', async () => {
+    __setImageReaderForTests(async () => new Uint8Array([0]))
+    const t = fakeTab({ currentContent: '# Hi' })
+    const html = await bakeShareHtml(t, 'effie')
+    expect(html).toContain('data-skin="effie"')
+    expect(html).toContain('[data-skin="effie"] .moraya-editor')
+    // effie pulls in lxgw webfont via @import — should survive verbatim.
+    expect(html).toContain('lxgw-wenkai-lite-webfont')
+    __setImageReaderForTests(null)
+  })
+
+  it('inlines mobile overrides so phone-width viewports look sane', async () => {
+    __setImageReaderForTests(async () => new Uint8Array([0]))
+    const t = fakeTab({ currentContent: '# Hi' })
+    const html = await bakeShareHtml(t, 'effie')
+    expect(html).toContain('@media (max-width: 600px)')
+    // effie's gutter labels must be hidden on phones — no room for them.
+    expect(html).toMatch(/\[data-skin="effie"\][^{]*h1::before[\s\S]*?display: none/)
+    __setImageReaderForTests(null)
+  })
+
   it('throws share_too_large for >25MB output', async () => {
     __setImageReaderForTests(async () => new Uint8Array([0]))
     const huge = 'x'.repeat(26 * 1024 * 1024)
