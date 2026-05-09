@@ -2,14 +2,21 @@
 use std::fs::OpenOptions;
 #[cfg(debug_assertions)]
 use std::io::Write;
+#[cfg(not(target_os = "ios"))]
 use tauri::image::Image;
+#[cfg(not(target_os = "ios"))]
 use tauri::menu::{
     AboutMetadata, Menu, MenuBuilder, MenuItem, MenuItemBuilder, MenuItemKind, PredefinedMenuItem,
     Submenu, SubmenuBuilder,
 };
+#[cfg(not(target_os = "ios"))]
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{Emitter, Manager, RunEvent, WindowEvent};
 
+#[cfg(not(target_os = "ios"))]
+pub mod plugin_host;
+#[cfg(target_os = "ios")]
+#[path = "plugin_host_ios.rs"]
 pub mod plugin_host;
 
 /// Append a diagnostic line to /tmp/mdeditor.log in debug builds (best-effort).
@@ -36,6 +43,7 @@ fn dlog(msg: &str) {
 /// dirty-tab confirmation loop completes successfully. macOS does NOT quit
 /// the app on its own when the last NSWindow is closed (unlike Windows / Linux),
 /// so we trigger it explicitly.
+#[cfg(not(target_os = "ios"))]
 #[tauri::command]
 fn quit_app(app: tauri::AppHandle) {
     app.exit(0);
@@ -45,6 +53,7 @@ fn quit_app(app: tauri::AppHandle) {
 /// IDs follow the `plugin:<plugin-id>:<command>` convention.
 /// Walks the entire menu tree (top-level + submenus) so it finds items
 /// regardless of which submenu they were appended to.
+#[cfg(not(target_os = "ios"))]
 #[tauri::command]
 fn set_plugin_menu_item_enabled(app: tauri::AppHandle, id: String, enabled: bool) -> Result<(), String> {
     fn walk<R: tauri::Runtime>(items: Vec<MenuItemKind<R>>, id: &str, enabled: bool) -> bool {
@@ -153,6 +162,7 @@ mod macos_defaults {
 /// For each extension we resolve the UTI and call LaunchServices to register
 /// the bundle as the default handler across all roles. Returns a per-extension
 /// result so the frontend can report partial success.
+#[cfg(not(target_os = "ios"))]
 #[tauri::command]
 fn set_default_app_for_extensions(app: tauri::AppHandle, exts: Vec<String>) -> Vec<ExtResult> {
     #[cfg(target_os = "macos")]
@@ -192,6 +202,7 @@ fn set_default_app_for_extensions(app: tauri::AppHandle, exts: Vec<String>) -> V
     }
 }
 
+#[cfg(not(target_os = "ios"))]
 fn show_main_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
     if let Some(w) = app.get_webview_window("main") {
         let _ = w.show();
@@ -204,75 +215,90 @@ pub fn run() {
     dlog("=== M↓ start ===");
     dlog(&format!("argv: {:?}", std::env::args().collect::<Vec<_>>()));
 
-    let app = tauri::Builder::default()
-        .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
-            dlog(&format!("single_instance argv: {:?}", argv));
-            for arg in argv.iter().skip(1) {
-                emit_open_file_delayed(app, arg);
-            }
-            if let Some(w) = app.get_webview_window("main") {
-                let _ = w.show();
-                let _ = w.set_focus();
-            }
-        }))
+    let builder = tauri::Builder::default();
+    #[cfg(not(target_os = "ios"))]
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+        dlog(&format!("single_instance argv: {:?}", argv));
+        for arg in argv.iter().skip(1) {
+            emit_open_file_delayed(app, arg);
+        }
+        if let Some(w) = app.get_webview_window("main") {
+            let _ = w.show();
+            let _ = w.set_focus();
+        }
+    }));
+    let app = builder
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::new().build())
-        .invoke_handler(tauri::generate_handler![
-            quit_app,
-            set_default_app_for_extensions,
-            set_plugin_menu_item_enabled,
-            plugin_host::get_plugin_manifests,
-            plugin_host::get_all_plugin_manifests,
-            plugin_host::invoke_plugin,
-        ])
+        .invoke_handler({
+            #[cfg(not(target_os = "ios"))]
+            { tauri::generate_handler![
+                quit_app,
+                set_default_app_for_extensions,
+                set_plugin_menu_item_enabled,
+                plugin_host::get_plugin_manifests,
+                plugin_host::get_all_plugin_manifests,
+                plugin_host::invoke_plugin,
+            ] }
+            #[cfg(target_os = "ios")]
+            { tauri::generate_handler![
+                plugin_host::get_plugin_manifests,
+                plugin_host::get_all_plugin_manifests,
+                plugin_host::invoke_plugin,
+            ] }
+        })
         .setup(|app| {
             plugin_host::init(&app.handle());
-            let plugin_items = plugin_host::collect_top_menu_items();
-            let menu = build_menu(&app.handle(), &plugin_items)?;
-            app.set_menu(menu)?;
-            app.on_menu_event(|app, event| {
-                let _ = app.emit("menu-event", event.id().0.as_str());
-            });
 
-            // Persistent menu-bar tray icon. White circle with M↓ cutout —
-            // template-style mark fits both light and dark menu bars.
-            // Left-click toggles main window visibility; right-click shows menu.
-            let tray_icon = Image::from_bytes(include_bytes!("../icons/tray-icon.png"))?;
-            let show_item = MenuItem::with_id(app, "tray-show", "Show M↓", true, None::<&str>)?;
-            let quit_item = MenuItem::with_id(app, "tray-quit", "Quit M↓", true, None::<&str>)?;
-            let tray_menu = MenuBuilder::new(app)
-                .item(&show_item)
-                .separator()
-                .item(&quit_item)
-                .build()?;
-            let _tray = TrayIconBuilder::with_id("main")
-                .icon(tray_icon)
-                .icon_as_template(false)
-                .tooltip("M↓")
-                .menu(&tray_menu)
-                .show_menu_on_left_click(false)
-                .on_menu_event(|app, event| {
-                    match event.id().0.as_str() {
-                        "tray-show" => show_main_window(app),
-                        "tray-quit" => app.exit(0),
-                        _ => {}
-                    }
-                })
-                .on_tray_icon_event(|tray, event| {
-                    if let TrayIconEvent::Click {
-                        button: MouseButton::Left,
-                        button_state: MouseButtonState::Up,
-                        ..
-                    } = event
-                    {
-                        show_main_window(tray.app_handle());
-                    }
-                })
-                .build(app)?;
+            #[cfg(not(target_os = "ios"))]
+            {
+                let plugin_items = plugin_host::collect_top_menu_items();
+                let menu = build_menu(&app.handle(), &plugin_items)?;
+                app.set_menu(menu)?;
+                app.on_menu_event(|app, event| {
+                    let _ = app.emit("menu-event", event.id().0.as_str());
+                });
+
+                // Persistent menu-bar tray icon. White circle with M↓ cutout —
+                // template-style mark fits both light and dark menu bars.
+                // Left-click toggles main window visibility; right-click shows menu.
+                let tray_icon = Image::from_bytes(include_bytes!("../icons/tray-icon.png"))?;
+                let show_item = MenuItem::with_id(app, "tray-show", "Show M↓", true, None::<&str>)?;
+                let quit_item = MenuItem::with_id(app, "tray-quit", "Quit M↓", true, None::<&str>)?;
+                let tray_menu = MenuBuilder::new(app)
+                    .item(&show_item)
+                    .separator()
+                    .item(&quit_item)
+                    .build()?;
+                let _tray = TrayIconBuilder::with_id("main")
+                    .icon(tray_icon)
+                    .icon_as_template(false)
+                    .tooltip("M↓")
+                    .menu(&tray_menu)
+                    .show_menu_on_left_click(false)
+                    .on_menu_event(|app, event| {
+                        match event.id().0.as_str() {
+                            "tray-show" => show_main_window(app),
+                            "tray-quit" => app.exit(0),
+                            _ => {}
+                        }
+                    })
+                    .on_tray_icon_event(|tray, event| {
+                        if let TrayIconEvent::Click {
+                            button: MouseButton::Left,
+                            button_state: MouseButtonState::Up,
+                            ..
+                        } = event
+                        {
+                            show_main_window(tray.app_handle());
+                        }
+                    })
+                    .build(app)?;
+            }
 
             // Initial CLI argv (Linux / Windows / macOS-when-launched-from-shell).
             // macOS Finder double-click does NOT arrive via argv — uses Apple Events
@@ -330,6 +356,7 @@ fn emit_open_file_delayed<R: tauri::Runtime>(app: &tauri::AppHandle<R>, path: &s
     });
 }
 
+#[cfg(not(target_os = "ios"))]
 fn build_menu<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
     plugin_items: &[plugin_host::LocatedMenuItem],
