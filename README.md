@@ -187,6 +187,20 @@ Output:
 67. **md2pdf write failure** — try saving a PDF into a read-only directory
     → toast `❌ md2pdf: 渲染失败` (or `写入失败` depending on which step
     failed); M↓ stays responsive.
+68. **Skin switch** — open a markdown file with H1/H2/H3, blockquote,
+    bullet list, table, hr → Preferences (Cmd+,) → Core → switch Skin
+    to "书苑（中文优化）". Editor visually updates immediately:
+    Songti/思源宋体 body, sans-serif headings, first-line paragraph
+    indent, Kaiti blockquote, middle-dot bullets, horizontal-only
+    table borders, three-asterisk hr. No flash, no scroll jump. Switch
+    back to "Default" → look reverts to GitHub-ish style.
+69. **Skin persistence** — set Skin to "书苑", quit M↓, relaunch.
+    Editor opens with 书苑 still applied; Preferences dropdown still
+    shows "书苑（中文优化）".
+70. **Skin + dark mode** — with 书苑 active, toggle macOS Appearance
+    between Light and Dark. Text/background invert via system
+    colors; skin decoration (heading rules, blockquote borders, table
+    horizontals, hr asterisks) all stay legible in both modes.
 
 ## Spec & Plan
 
