@@ -4,6 +4,7 @@ import { readMd, statFile } from './fs'
 import { sha256Hex } from './hash'
 import { decide, type ExternalEvent } from './external-state'
 import * as self from './file-watcher.svelte'
+import { isIOS } from './platform.svelte'
 
 /**
  * Visit every open tab, compare its known state to disk, and apply the
@@ -103,6 +104,9 @@ type Unwatch = () => void
 const subscriptions = new Map<string /* tab.id */, Unwatch>()
 
 export async function startWatchingTab(tab: Tab): Promise<void> {
+  // On iOS the sandbox prevents reliable push-mode file watching; the
+  // focus-poll path (installFocusPoll / verifyAllOpen) is the sole mechanism.
+  if (await isIOS().catch(() => false)) return
   if (subscriptions.has(tab.id)) return
   try {
     const stop = await watchImmediate(tab.filePath, () => {
