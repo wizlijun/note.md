@@ -9,6 +9,8 @@
     "preview": "vite preview",
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "tauri": "tauri",
+    "tauri:ios:dev": "tauri ios dev",
+    "tauri:ios:build": "tauri ios build",
     "test": "vitest run",
     "test:watch": "vitest",
     "build:mdshare": "bash scripts/build-mdshare.sh",
