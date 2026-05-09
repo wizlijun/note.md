@@ -169,11 +169,17 @@
   border-radius: 3px;
 }
 
-/* ── Code block paper-tone (override the system-color bg from base) ─────── */
+/* ── Diagram / code-block backgrounds: transparent so they inherit the
+ *    paper (effie's light bg in light mode, dark bg in dark mode). The
+ *    base layer's `color-mix(CanvasText, Canvas)` tint clashed with the
+ *    skin's own paper. Mermaid SVGs and hljs tokens still carry their
+ *    own colors; we only flatten the wrapper plates. ───────────────────── */
 
 [data-skin="effie"] .moraya-editor .code-block-wrapper,
-[data-skin="effie"] .moraya-editor pre:not(.code-block-pre) {
-  background: rgba(45, 70, 60, 0.06);
+[data-skin="effie"] .moraya-editor pre:not(.code-block-pre),
+[data-skin="effie"] .moraya-editor .mermaid-preview,
+[data-skin="effie"] .moraya-editor .renderer-preview {
+  background: transparent;
 }
 
 /* ── Dark mode: Dracula-inspired palette ────────────────────────────────── */
@@ -230,10 +236,5 @@
 
   [data-skin="effie"] .moraya-editor hr {
     border-top-color: #3a3a3a;
-  }
-
-  [data-skin="effie"] .moraya-editor .code-block-wrapper,
-  [data-skin="effie"] .moraya-editor pre:not(.code-block-pre) {
-    background: rgba(255, 255, 255, 0.04);
   }
 }
