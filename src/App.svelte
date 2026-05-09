@@ -43,6 +43,13 @@
 
     ;(async () => {
       try { await loadSettings() } catch (e) { console.warn('[App] loadSettings:', e) }
+      // Sync persisted skin into the reactive skin module so RichEditor's
+      // [data-skin] binding picks it up before first mount.
+      try {
+        const { skin: skinState } = await import('./lib/skin.svelte')
+        const { settings: s } = await import('./lib/settings.svelte')
+        if (s.skin === 'default' || s.skin === 'shuyuan') skinState.current = s.skin
+      } catch (e) { console.warn('[App] hydrate skin:', e) }
       stopAutoSave = startAutoSaveWatcher()
 
       try { pluginRuntime.manifests = await invoke<PluginManifest[]>('get_plugin_manifests') }
