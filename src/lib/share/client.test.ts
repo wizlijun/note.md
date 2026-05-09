@@ -10,7 +10,7 @@ const setCfg = (patch: Partial<{ baseUrl: string; apiKey: string }>) =>
   })
 
 const mockFetch = (init: { status: number; body?: any; throws?: boolean }) => {
-  global.fetch = vi.fn().mockImplementation(async () => {
+  globalThis.fetch = vi.fn().mockImplementation(async () => {
     if (init.throws) throw new Error('boom')
     return {
       ok: init.status >= 200 && init.status < 300,
@@ -63,21 +63,21 @@ describe('client', () => {
     _setSettingsForTests({ baseUrl: 'https://w.example.com/', apiKey: 'k' })
     mockFetch({ status: 200 })
     await post('/publish', {})
-    const call = (global.fetch as any).mock.calls[0]
+    const call = (globalThis.fetch as any).mock.calls[0]
     expect(call[0]).toBe('https://w.example.com/publish')
   })
 
   it('sends Authorization Bearer header', async () => {
     mockFetch({ status: 200 })
     await post('/publish', {})
-    const call = (global.fetch as any).mock.calls[0]
+    const call = (globalThis.fetch as any).mock.calls[0]
     expect(call[1].headers.authorization).toBe('Bearer k')
   })
 
   it('del passes body for DELETE', async () => {
     mockFetch({ status: 200 })
     await del('/abc-123', { edit_token: 'tok' })
-    const call = (global.fetch as any).mock.calls[0]
+    const call = (globalThis.fetch as any).mock.calls[0]
     expect(call[1].method).toBe('DELETE')
     expect(JSON.parse(call[1].body)).toEqual({ edit_token: 'tok' })
   })

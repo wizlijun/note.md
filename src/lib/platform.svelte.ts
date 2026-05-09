@@ -7,10 +7,11 @@ let cached: Promise<Platform> | null = null
 
 export function platform(): Promise<Platform> {
   if (cached !== null) return cached
-  cached = tauriPlatform().then((p) =>
-    p === 'macos' || p === 'ios' ? p : 'unknown'
+  const result = Promise.resolve(tauriPlatform() as unknown as string).then(
+    (raw: string): Platform => (raw === 'macos' || raw === 'ios' ? raw : 'unknown'),
   )
-  return cached
+  cached = result
+  return result
 }
 
 export const isIOS = async () => (await platform()) === 'ios'

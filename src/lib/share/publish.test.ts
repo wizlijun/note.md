@@ -18,6 +18,7 @@ vi.mock('./slug', () => ({
 import { publishHtml } from './publish'
 import { post } from './client'
 import * as records from './records'
+import type { HtmlShareRecord } from './types'
 
 describe('publishHtml', () => {
   beforeEach(() => {
@@ -39,7 +40,7 @@ describe('publishHtml', () => {
     expect(body.expires_in_seconds).toBeNull()
     expect(r.url).toBe('https://w/2026-05-09-foo-XYZ')
     expect(r.isUpdate).toBe(false)
-    expect(records.getRecord('/foo.md')?.slug).toBe('2026-05-09-foo-XYZ')
+    expect((records.getRecord('/foo.md') as HtmlShareRecord | undefined)?.slug).toBe('2026-05-09-foo-XYZ')
   })
 
   it('reuses slug + edit_token from existing record (update flow)', async () => {

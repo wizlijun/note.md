@@ -26,8 +26,10 @@ const EXPIRY_TO_SECONDS: Record<string, number | null> = {
 }
 
 export async function publishHtml(input: PublishHtmlInput): Promise<PublishHtmlResult> {
-  const prev = getRecord(input.path) as HtmlShareRecord | undefined
-  const isUpdate = !!prev && prev.kind !== 'image' && !!prev.slug && !!prev.edit_token
+  const prevRaw = getRecord(input.path)
+  const prev: HtmlShareRecord | undefined =
+    prevRaw && prevRaw.kind !== 'image' ? (prevRaw as HtmlShareRecord) : undefined
+  const isUpdate = !!prev && !!prev.slug && !!prev.edit_token
   const slug = isUpdate ? prev!.slug : generateSlug(input.filename, input.html, input.slugRandomSuffix)
   const editToken = isUpdate ? prev!.edit_token : generateEditToken()
   const expiresInSeconds = EXPIRY_TO_SECONDS[input.defaultExpiry] ?? null

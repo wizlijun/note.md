@@ -18,6 +18,7 @@ import { uploadImage } from './upload-image'
 import { postBytes, del } from './client'
 import * as records from './records'
 import { ShareError } from './types'
+import type { ImageShareRecord } from './types'
 
 describe('uploadImage', () => {
   beforeEach(() => {
@@ -44,7 +45,7 @@ describe('uploadImage', () => {
     expect(mime).toBe('image/png')
     expect(headers['X-Filename']).toBe('foo.png')
     expect(headers['X-Edit-Token']).toMatch(/^[0-9a-f]{32}$/)
-    expect(records.getRecord('/foo.png')?.id).toBe('abc')
+    expect((records.getRecord('/foo.png') as ImageShareRecord | undefined)?.id).toBe('abc')
   })
 
   it('deletes prior image best-effort on update', async () => {

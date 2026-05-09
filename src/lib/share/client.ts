@@ -73,7 +73,7 @@ export async function postBytes(
         'content-type': contentType,
         ...extraHeaders,
       },
-      body: bytes,
+      body: bytes as BodyInit,
     })
   } catch (e) {
     throw new ShareError('network', e instanceof Error ? e.message : String(e))
