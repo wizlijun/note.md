@@ -31,7 +31,8 @@
     'Source Han Serif SC', 'Noto Serif CJK SC',
     'Songti SC', 'STSong', serif;
   font-feature-settings: 'palt';
-  line-height: 1.95;
+  font-size: 20px;
+  line-height: 1.6;
   color: #3d4d44;
   background: transparent;
 }
@@ -49,12 +50,12 @@
   letter-spacing: 0.01em;
 }
 
-[data-skin="effie"] .moraya-editor h1 { font-size: 1.6em;  margin: 1.6em 0 1em; }
-[data-skin="effie"] .moraya-editor h2 { font-size: 1.3em;  margin: 1.4em 0 0.7em; }
-[data-skin="effie"] .moraya-editor h3 { font-size: 1.15em; margin: 1.2em 0 0.5em; }
-[data-skin="effie"] .moraya-editor h4 { font-size: 1em;    margin: 1em 0 0.4em; }
-[data-skin="effie"] .moraya-editor h5 { font-size: 0.95em; margin: 1em 0 0.4em; color: #6ba0a0; }
-[data-skin="effie"] .moraya-editor h6 { font-size: 0.9em;  margin: 1em 0 0.4em; color: #6ba0a0; }
+[data-skin="effie"] .moraya-editor h1 { font-size: 22px; margin: 1.6em 0 1em; }
+[data-skin="effie"] .moraya-editor h2 { font-size: 21px; margin: 1.4em 0 0.7em; }
+[data-skin="effie"] .moraya-editor h3 { font-size: 20px; margin: 1.2em 0 0.5em; }
+[data-skin="effie"] .moraya-editor h4 { font-size: 20px; margin: 1em 0 0.4em; }
+[data-skin="effie"] .moraya-editor h5 { font-size: 20px; margin: 1em 0 0.4em; color: #6ba0a0; }
+[data-skin="effie"] .moraya-editor h6 { font-size: 20px; margin: 1em 0 0.4em; color: #6ba0a0; }
 
 /* ── Paragraphs: roomy, no indent ───────────────────────────────────────── */
 
