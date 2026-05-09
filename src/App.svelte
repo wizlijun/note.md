@@ -37,6 +37,16 @@
   import { pushToast } from './lib/toast.svelte'
   import type { PluginManifest, EnabledWhenContext } from './lib/plugins/types'
   import { uiState, openSettings } from './lib/ui-state.svelte'
+  import MobileToolbar from './components/MobileToolbar.svelte'
+  import DrawerNav from './components/DrawerNav.svelte'
+  import { platform, isIOS } from './lib/platform.svelte'
+
+  let platformName = $state<'macos' | 'ios' | 'unknown'>('unknown')
+  let drawerOpen = $state(false)
+  $effect(() => {
+    platform().then((p) => { platformName = p })
+  })
+
   let collectedItems = $derived<CollectedItems>(collectMenuItems(pluginRuntime.manifests))
   // Tracks last applied enabled state per menu-item id, so we only invoke the
   // Tauri command when something actually changes.
@@ -146,17 +156,22 @@
     window.addEventListener('keydown', onKeyDown)
 
     const win = getCurrentWindow()
-    const unlistenClose = win.onCloseRequested(async (event) => {
-      // Walk dirty tabs; user can cancel.
-      for (const t of [...tabs]) {
-        const ok = await closeTab(t.id, confirmDirtyClose)
-        if (!ok) { event.preventDefault(); return }
+    let unlistenClose: (() => void) | null = null
+    ;(async () => {
+      if (!(await isIOS())) {
+        unlistenClose = await win.onCloseRequested(async (event) => {
+          // Walk dirty tabs; user can cancel.
+          for (const t of [...tabs]) {
+            const ok = await closeTab(t.id, confirmDirtyClose)
+            if (!ok) { event.preventDefault(); return }
+          }
+          // All tabs closed cleanly → quit the app explicitly.
+          // macOS NSWindow's default behavior is hide-not-destroy on close, so we
+          // need to call our Rust `quit_app` command to actually exit the process.
+          try { await invoke('quit_app') } catch (e) { console.warn('[App] quit_app:', e) }
+        })
       }
-      // All tabs closed cleanly → quit the app explicitly.
-      // macOS NSWindow's default behavior is hide-not-destroy on close, so we
-      // need to call our Rust `quit_app` command to actually exit the process.
-      try { await invoke('quit_app') } catch (e) { console.warn('[App] quit_app:', e) }
-    })
+    })()
 
     const unlistenMenu = listen<string>('menu-event', async (e) => {
       const id = e.payload
@@ -202,7 +217,7 @@
     return () => {
       window.removeEventListener('keydown', onKeyDown)
       uninstallFocus()
-      unlistenClose.then((fn) => fn())
+      if (unlistenClose) unlistenClose()
       unlistenMenu.then((fn) => fn())
       unlistenDrop.then((fn) => fn())
       unlistenOpenFile.then((fn) => fn())
@@ -278,10 +293,14 @@
 </script>
 
 <main>
+  {#if platformName === 'ios'}
+    <MobileToolbar onOpenDrawer={() => (drawerOpen = true)} />
+    <DrawerNav bind:open={drawerOpen} />
+  {/if}
   <TabBar />
   <section class="pane">
     {#if current}
-      {#if tabs.length === 1}
+      {#if tabs.length === 1 && platformName !== 'ios'}
         <div class="float-toggle"><ModeToggle tab={current} /></div>
       {/if}
       <EditorPane tab={current} />
