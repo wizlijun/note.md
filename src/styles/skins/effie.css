@@ -21,7 +21,7 @@
 }
 
 [data-skin="effie"] {
-  background: #eef3eb;
+  background: #f5faf3;
 }
 
 [data-skin="effie"] .moraya-editor {
@@ -33,7 +33,7 @@
   font-feature-settings: 'palt';
   font-size: 20px;
   line-height: 1.6;
-  color: #3d4d44;
+  color: #2c2c2c;
   background: transparent;
 }
 
@@ -45,7 +45,7 @@
 [data-skin="effie"] .moraya-editor h4,
 [data-skin="effie"] .moraya-editor h5,
 [data-skin="effie"] .moraya-editor h6 {
-  color: #5a9090;
+  color: #4a9296;
   font-weight: 600;
   letter-spacing: 0.01em;
 }
@@ -54,8 +54,8 @@
 [data-skin="effie"] .moraya-editor h2 { font-size: 21px; margin: 1.4em 0 0.7em; }
 [data-skin="effie"] .moraya-editor h3 { font-size: 20px; margin: 1.2em 0 0.5em; }
 [data-skin="effie"] .moraya-editor h4 { font-size: 20px; margin: 1em 0 0.4em; }
-[data-skin="effie"] .moraya-editor h5 { font-size: 20px; margin: 1em 0 0.4em; color: #6ba0a0; }
-[data-skin="effie"] .moraya-editor h6 { font-size: 20px; margin: 1em 0 0.4em; color: #6ba0a0; }
+[data-skin="effie"] .moraya-editor h5 { font-size: 20px; margin: 1em 0 0.4em; color: #6ba8aa; }
+[data-skin="effie"] .moraya-editor h6 { font-size: 20px; margin: 1em 0 0.4em; color: #6ba8aa; }
 
 /* ── Paragraphs: roomy, no indent ───────────────────────────────────────── */
 
@@ -64,18 +64,18 @@
 /* ── Inline emphasis: each weight gets its own accent color ─────────────── */
 
 [data-skin="effie"] .moraya-editor strong {
-  color: #4a6db5;
+  color: #5e4cc4;
   font-weight: 600;
 }
 [data-skin="effie"] .moraya-editor em {
-  color: #cc7d4a;
+  color: #d4753e;
   font-style: italic;
 }
 
-/* ── Links: blue-purple, underline w/ slight offset ─────────────────────── */
+/* ── Links: blue (matches the ++text++ underline-blue in Effie) ─────────── */
 
 [data-skin="effie"] .moraya-editor a {
-  color: #4a6db5;
+  color: #4a7cb8;
   text-decoration: underline;
   text-decoration-thickness: 1px;
   text-underline-offset: 3px;
@@ -101,7 +101,7 @@
 }
 [data-skin="effie"] .moraya-editor ol > li::marker {
   font-family: ui-monospace, 'SF Mono', Menlo, monospace;
-  color: #5a9090;
+  color: #4a9296;
 }
 
 [data-skin="effie"] .moraya-editor ul {
@@ -118,7 +118,7 @@
   position: absolute;
   left: -1.1em;
   top: 0;
-  color: #7da89e;
+  color: #4a9296;
   font-size: 0.7em;
   line-height: 2.6;
 }
@@ -161,14 +161,14 @@
   border-radius: 10px;
 }
 
-/* ── Inline code: warm-orange tint, no heavy box ────────────────────────── */
+/* ── Inline code: dark-teal text on a light-teal tint ───────────────────── */
 
 [data-skin="effie"] .moraya-editor :not(pre) > code {
   font-family: ui-monospace, 'SF Mono', Menlo, monospace;
   font-size: 0.9em;
-  color: #cc7d4a;
-  padding: 1px 4px;
-  background: rgba(204, 125, 74, 0.08);
+  color: #1f6e5e;
+  padding: 1px 5px;
+  background: rgba(31, 110, 94, 0.16);
   border-radius: 3px;
 }
 
@@ -183,60 +183,60 @@
 
 @media (prefers-color-scheme: dark) {
   [data-skin="effie"] {
-    background: #282a36;
+    background: #1c1c1c;
   }
 
   [data-skin="effie"] .moraya-editor {
-    color: #f8f8f2;
+    color: #c8c8c8;
   }
 
   [data-skin="effie"] .moraya-editor h1,
   [data-skin="effie"] .moraya-editor h2,
   [data-skin="effie"] .moraya-editor h3,
   [data-skin="effie"] .moraya-editor h4 {
-    color: #8be9fd;
+    color: #6da0a0;
   }
   [data-skin="effie"] .moraya-editor h5,
   [data-skin="effie"] .moraya-editor h6 {
-    color: #6fc8e0;
+    color: #5a8888;
   }
 
-  [data-skin="effie"] .moraya-editor strong { color: #ffb86c; }
-  [data-skin="effie"] .moraya-editor em      { color: #f1fa8c; }
+  [data-skin="effie"] .moraya-editor strong { color: #ee8a4a; }
+  [data-skin="effie"] .moraya-editor em      { color: #ede78a; }
 
   [data-skin="effie"] .moraya-editor a {
-    color: #bd93f9;
-    text-decoration-color: rgba(189, 147, 249, 0.6);
+    color: #aa88c4;
+    text-decoration-color: rgba(170, 136, 196, 0.6);
   }
 
   [data-skin="effie"] .moraya-editor blockquote {
-    border-left-color: #6272a4;
-    color: #cdd6f4;
+    border-left-color: #555;
+    color: #b0b0b0;
   }
 
-  [data-skin="effie"] .moraya-editor ol > li::marker { color: #8be9fd; }
-  [data-skin="effie"] .moraya-editor ul > li::before { color: #8be9fd; }
+  [data-skin="effie"] .moraya-editor ol > li::marker { color: #6da0a0; }
+  [data-skin="effie"] .moraya-editor ul > li::before { color: #6da0a0; }
 
   [data-skin="effie"] .moraya-editor :not(pre) > code {
-    color: #50fa7b;
-    background: rgba(80, 250, 123, 0.12);
+    color: #d8d8d8;
+    background: rgba(255, 255, 255, 0.08);
   }
 
   [data-skin="effie"] .moraya-editor th {
-    border-top-color: #44475a;
-    border-bottom-color: #44475a;
-    color: #f8f8f2;
+    border-top-color: #3a3a3a;
+    border-bottom-color: #3a3a3a;
+    color: #d8d8d8;
   }
   [data-skin="effie"] .moraya-editor td {
-    border-bottom-color: #44475a;
+    border-bottom-color: #2e2e2e;
   }
 
   [data-skin="effie"] .moraya-editor hr {
-    border-top-color: #44475a;
+    border-top-color: #3a3a3a;
   }
 
   [data-skin="effie"] .moraya-editor .code-block-wrapper,
   [data-skin="effie"] .moraya-editor pre:not(.code-block-pre) {
-    background: rgba(248, 248, 242, 0.05);
+    background: rgba(255, 255, 255, 0.04);
   }
 }
