@@ -1,24 +1,21 @@
 /* effie skin — Effie-inspired aesthetic with two palettes.
  *
- * Light mode: mint paper, teal headings, blue strong, orange em — the
- * Effie "Summer Rain" mood.
+ * Light mode: mint paper, teal headings, purple strong, orange em — the
+ * Effie "Summer Rain" mood. Dark mode: near-black bg, muted teal headings,
+ * orange strong, yellow em, purple links — Effie "Dracula" mood.
  *
- * Dark mode: Dracula-inspired — near-black bg, cyan headings, orange
- * strong, yellow em, purple links, green inline code. The skin owns
- * its full palette in both modes, so it doesn't drift into the system
- * neutrals the way default/shuyuan do.
+ * Body font: LXGW WenKai Lite (霞鹜文楷, OFL — https://github.com/lxgw/LxgwWenKai-Lite),
+ * pulled from jsDelivr's chunked-subset webfont package. Each glyph subset
+ * is a small woff2; the webview fetches only what the document actually
+ * uses, then caches it via NSURLCache. Users on default/shuyuan never pay
+ * any cost; users on effie pay once-per-glyph-subset on first appearance.
  *
- * Bundles LXGW WenKai (霞鹜文楷 Lite, OFL-licensed) as the body font; license
- * lives next to the .ttf in fonts/OFL.txt.
+ * Pinned version keeps URLs immutable so the cache never invalidates on a
+ * package republish. If offline on first effie use, the font-family stack
+ * falls through to system fonts (Iowan / Songti) — degradation is graceful.
  */
 
-@font-face {
-  font-family: 'LXGW WenKai';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url('../fonts/LXGWWenKaiLite-Regular.ttf') format('truetype');
-}
+@import url('https://cdn.jsdelivr.net/npm/lxgw-wenkai-lite-webfont@1.7.0/lxgwwenkailite-regular.css');
 
 [data-skin="effie"] {
   background: #f5faf3;
@@ -26,7 +23,7 @@
 
 [data-skin="effie"] .moraya-editor {
   font-family:
-    'LXGW WenKai',
+    'LXGW WenKai Lite',
     'Iowan Old Style', 'Charter', 'Georgia',
     'Source Han Serif SC', 'Noto Serif CJK SC',
     'Songti SC', 'STSong', serif;
