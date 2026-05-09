@@ -16,6 +16,12 @@ Built on [`@moraya/core`](https://www.npmjs.com/package/@moraya/core).
 - **Tabs** with dirty indicator, drag-to-reorder, and confirm-on-close
 - **Source / rich toggle** (`Cmd+/`) — textarea ↔ WYSIWYG
 - **Markdown rendering** with KaTeX math, Mermaid diagrams, and highlight.js code
+- **Skins** for rich mode (Preferences → Core): GitHub-style **default**;
+  **shuyuan**, modern Chinese book typography (思源宋体 body, Kaiti blockquote,
+  first-line indent); and **effie**, an Effie-inspired mint-paper aesthetic in
+  LXGW WenKai (霞鹜文楷) with paired light + dark palettes — the kai-style
+  webfont streams on demand from jsDelivr only when the skin is selected, then
+  is cached by the system webview
 - **HTML files** open in a sandboxed iframe preview by default
 - **Code files** (~36 plain-text extensions, plus exact matches like `Dockerfile`)
   render as syntax-highlighted code blocks in rich mode
