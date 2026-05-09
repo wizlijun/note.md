@@ -1,5 +1,6 @@
 <script lang="ts">
   import { tabs, activeId, activeTab, isDirty, activate, closeTab } from '../lib/tabs.svelte'
+  import { formFactor } from '../lib/platform.svelte'
   import { confirmDirtyClose } from '../lib/dialogs'
   import ModeToggle from './ModeToggle.svelte'
   import {
@@ -97,49 +98,51 @@
 
 <svelte:window onmousedown={onWindowMouseDown} onkeydown={onWindowKeyDown} />
 
-{#if tabs.length > 1 && active}
-  <div class="bar">
-    <div class="tabs">
-      {#each tabs as tab (tab.id)}
+{#if formFactor.value !== 'phone'}
+  {#if tabs.length > 1 && active}
+    <div class="bar">
+      <div class="tabs">
+        {#each tabs as tab (tab.id)}
+          <button
+            class="tab"
+            class:active={tab.id === activeId.value}
+            onclick={() => activate(tab.id)}
+            oncontextmenu={(e) => openTabContextMenu(e, tab.id)}
+            title={tab.filePath}
+          >
+            <span class="title">{tab.title}</span>
+            {#if isDirty(tab.id)}<span class="dot" aria-label="modified"></span>{/if}
+            <span class="close" role="button" onclick={(e) => onClose(e, tab.id)}>×</span>
+          </button>
+        {/each}
+      </div>
+      <div class="spacer"></div>
+      <div class="right">
+        <ModeToggle tab={active} />
+      </div>
+    </div>
+  {/if}
+
+  {#if ctx.open}
+    <div
+      class="tab-ctx-menu"
+      role="menu"
+      style="left: {ctx.x}px; top: {ctx.y}px"
+    >
+      {#each ctx.items as { item, enabled } (item.id)}
         <button
-          class="tab"
-          class:active={tab.id === activeId.value}
-          onclick={() => activate(tab.id)}
-          oncontextmenu={(e) => openTabContextMenu(e, tab.id)}
-          title={tab.filePath}
+          type="button"
+          role="menuitem"
+          class="tab-ctx-item"
+          class:disabled={!enabled}
+          disabled={!enabled}
+          onclick={() => onCtxItemClick(item, enabled)}
         >
-          <span class="title">{tab.title}</span>
-          {#if isDirty(tab.id)}<span class="dot" aria-label="modified"></span>{/if}
-          <span class="close" role="button" onclick={(e) => onClose(e, tab.id)}>×</span>
+          {item.label}
         </button>
       {/each}
     </div>
-    <div class="spacer"></div>
-    <div class="right">
-      <ModeToggle tab={active} />
-    </div>
-  </div>
-{/if}
-
-{#if ctx.open}
-  <div
-    class="tab-ctx-menu"
-    role="menu"
-    style="left: {ctx.x}px; top: {ctx.y}px"
-  >
-    {#each ctx.items as { item, enabled } (item.id)}
-      <button
-        type="button"
-        role="menuitem"
-        class="tab-ctx-item"
-        class:disabled={!enabled}
-        disabled={!enabled}
-        onclick={() => onCtxItemClick(item, enabled)}
-      >
-        {item.label}
-      </button>
-    {/each}
-  </div>
+  {/if}
 {/if}
 
 <style>
