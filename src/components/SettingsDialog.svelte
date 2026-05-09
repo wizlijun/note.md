@@ -3,6 +3,7 @@
   import { onMount } from 'svelte'
   import { ask } from '@tauri-apps/plugin-dialog'
   import { settings, saveSettings, getPluginScopedAll, mergePluginScoped } from '../lib/settings.svelte'
+  import { SKINS, skin, setSkin, type SkinId, isValidSkinId } from '../lib/skin.svelte'
   import { collectSettingsTabs, type SettingsTab } from '../lib/plugins/settings-registry'
   import type { PluginManifest } from '../lib/plugins/types'
   import PluginsSettingsTab from './PluginsSettingsTab.svelte'
@@ -121,6 +122,18 @@
     settings.autoSave = (e.currentTarget as HTMLInputElement).checked
     await saveSettings()
   }
+
+  async function onSkinChange(e: Event) {
+    const val = (e.currentTarget as HTMLSelectElement).value
+    if (!isValidSkinId(val)) return
+    setSkin(val)
+    settings.skin = val
+    await saveSettings()
+  }
+
+  function describeSkin(id: SkinId): string {
+    return SKINS.find((s) => s.id === id)?.description ?? ''
+  }
 </script>
 
 {#if open}
@@ -144,6 +157,18 @@
       {#if selectedTab === 'plugins'}
         <PluginsSettingsTab />
       {:else if selectedTab === 'core'}
+        <section class="block">
+          <label class="row">
+            <span class="lbl">Skin</span>
+            <select value={skin.current} onchange={onSkinChange}>
+              {#each SKINS as s (s.id)}
+                <option value={s.id}>{s.label}</option>
+              {/each}
+            </select>
+          </label>
+          <p class="desc">{describeSkin(skin.current)}</p>
+        </section>
+
         <section class="block">
           <label class="row">
             <input type="checkbox" checked={settings.autoSave} onchange={onToggle} />
@@ -265,6 +290,20 @@
   }
   .block:first-of-type { border-top: 0; padding-top: 0; }
   .row { display: flex; gap: 8px; align-items: center; font-size: 13px; }
+  .row .lbl {
+    width: 60px;
+    flex-shrink: 0;
+  }
+  .row select {
+    padding: 4px 8px;
+    border-radius: 4px;
+    border: 1px solid color-mix(in srgb, CanvasText 25%, transparent);
+    background: Canvas;
+    color: CanvasText;
+    font-size: 13px;
+    flex: 1;
+    max-width: 240px;
+  }
   .desc {
     font-size: 12px;
     line-height: 1.5;
