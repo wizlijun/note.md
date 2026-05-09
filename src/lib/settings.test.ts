@@ -51,6 +51,36 @@ describe('settings', () => {
     expect(getRecentMode('py')).toBe('source')
     expect(getRecentMode('json')).toBe(null)
   })
+
+  it('loadSettings hydrates skin from store, defaults to "default"', async () => {
+    const { loadSettings, settings } = await import('./settings.svelte')
+    mockGet.mockImplementation(async (key: string) => key === 'skin' ? 'shuyuan' : undefined)
+    await loadSettings()
+    expect(settings.skin).toBe('shuyuan')
+  })
+
+  it('loadSettings falls back to "default" when stored skin is unknown', async () => {
+    const { loadSettings, settings } = await import('./settings.svelte')
+    mockGet.mockImplementation(async (key: string) => key === 'skin' ? 'no-such-skin' : undefined)
+    await loadSettings()
+    expect(settings.skin).toBe('default')
+  })
+
+  it('loadSettings defaults skin to "default" when store has no value', async () => {
+    const { loadSettings, settings } = await import('./settings.svelte')
+    mockGet.mockResolvedValue(undefined)
+    await loadSettings()
+    expect(settings.skin).toBe('default')
+  })
+
+  it('saveSettings writes skin under "skin" key', async () => {
+    const { loadSettings, saveSettings, settings } = await import('./settings.svelte')
+    await loadSettings()
+    settings.skin = 'shuyuan'
+    await saveSettings()
+    const setCall = mockSet.mock.calls.find((args) => args[0] === 'skin')
+    expect(setCall?.[1]).toBe('shuyuan')
+  })
 })
 
 describe('plugin-scoped settings', () => {
