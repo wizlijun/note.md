@@ -165,7 +165,7 @@
   font-size: 0.9em;
   color: #1f6e5e;
   padding: 1px 5px;
-  background: rgba(31, 110, 94, 0.16);
+  background: #d4e4e1;
   border-radius: 3px;
 }
 
@@ -209,7 +209,7 @@
 
   [data-skin="effie"] .moraya-editor a {
     color: #aa88c4;
-    text-decoration-color: rgba(170, 136, 196, 0.6);
+    text-decoration-color: #715d81;
   }
 
   [data-skin="effie"] .moraya-editor blockquote {
@@ -222,7 +222,7 @@
 
   [data-skin="effie"] .moraya-editor :not(pre) > code {
     color: #d8d8d8;
-    background: rgba(255, 255, 255, 0.08);
+    background: #2e2e2e;
   }
 
   [data-skin="effie"] .moraya-editor th {
