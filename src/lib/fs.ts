@@ -1,6 +1,20 @@
 import { readTextFile, writeTextFile, stat as fsStat } from '@tauri-apps/plugin-fs'
+import { platform } from './platform.svelte'
+
+/** Maximum file size before we refuse to open as text. Platform-aware. */
+async function largeFileThreshold(): Promise<number> {
+  return (await platform().catch(() => 'unknown')) === 'ios'
+    ? 4 * 1024 * 1024   // 4 MB — tighter iOS memory budget
+    : 6 * 1024 * 1024   // 6 MB — default
+}
 
 export async function readMd(path: string): Promise<string> {
+  const info = await fsStat(path).catch(() => null)
+  const limit = await largeFileThreshold()
+  if (info && (info.size ?? 0) > limit) {
+    const mb = (limit / 1024 / 1024).toFixed(0)
+    throw new Error(`File too large to open (limit ${mb} MB): ${path}`)
+  }
   return readTextFile(path)
 }
 
