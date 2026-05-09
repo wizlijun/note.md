@@ -4,6 +4,7 @@
   import './styles/skins/default.css'
   import './styles/skins/shuyuan.css'
   import './styles/skins/effie.css'
+  import './styles/responsive.css'
   import { onMount } from 'svelte'
   import { getCurrentWindow } from '@tauri-apps/api/window'
   import { listen } from '@tauri-apps/api/event'
