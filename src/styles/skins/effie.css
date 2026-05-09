@@ -6,7 +6,18 @@
  * mode. Code-block hljs tokens still come from editor-base.css; this skin
  * forces the surrounding paper, so on light system the result is consistent
  * and on dark system the editor area still presents as light mint.
+ *
+ * Bundles LXGW WenKai (霞鹜文楷 Lite, OFL-licensed) as the body font; license
+ * lives next to the .ttf in fonts/OFL.txt.
  */
+
+@font-face {
+  font-family: 'LXGW WenKai';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../fonts/LXGWWenKaiLite-Regular.ttf') format('truetype');
+}
 
 [data-skin="effie"] {
   background: #eef3eb;
@@ -14,6 +25,7 @@
 
 [data-skin="effie"] .moraya-editor {
   font-family:
+    'LXGW WenKai',
     'Iowan Old Style', 'Charter', 'Georgia',
     'Source Han Serif SC', 'Noto Serif CJK SC',
     'Songti SC', 'STSong', serif;
