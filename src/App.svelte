@@ -97,6 +97,9 @@
             htmlBaker: async (snapshot) => {
               const t = tabs.find((tab) => tab.filePath === snapshot.path)
               if (!t) throw new Error('renderer.html: no matching open tab')
+              // Image tabs don't get rendered to HTML — the share plugin's Rust
+              // side branches on file extension and uploads bytes directly.
+              if (t.kind === 'image') return ''
               // share has its own wrapping (theme CSS, viewport meta, header/footer).
               // Other plugins (md2pdf, future) take just the inline body and wrap
               // it themselves.
@@ -255,7 +258,7 @@
           filename: tab.title || null,
           extension: tab.filePath ? (tab.filePath.split('.').pop() ?? null) : null,
           kind: tab.kind === 'image' ? null : tab.kind,
-          hasContent: (tab.currentContent ?? '').length > 0,
+          hasContent: tab.kind === 'image' ? !!tab.filePath : (tab.currentContent ?? '').length > 0,
           isDirty: tab.currentContent !== tab.initialContent,
           isUntitled: !tab.filePath,
         }
