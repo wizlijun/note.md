@@ -2094,7 +2094,7 @@ dependencies = [
 
 [[package]]
 name = "mdeditor"
-version = "0.4.2"
+version = "0.5.0"
 dependencies = [
  "core-foundation",
  "serde",
