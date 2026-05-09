@@ -1,5 +1,6 @@
 import { activeTab, saveActive, saveAs, openFile, closeTab, toggleMode } from './tabs.svelte'
 import { confirmDirtyClose, pickOpenFile, pickSaveFile, showError } from './dialogs'
+import { sharePublishCurrent, shareUnpublishCurrent, shareCopyLinkCurrent } from './share'
 
 export async function cmdOpen(): Promise<void> {
   const p = await pickOpenFile()
@@ -55,10 +56,9 @@ const handlers: Record<CommandId, () => void | Promise<void>> = {
   'close-tab': cmdCloseActive,
   'toggle-mode': cmdToggleMode,
   'preferences': openSettings,
-  // share handlers wired in Task 11; no-op stubs for now keep the type complete
-  'share': () => {},
-  'unshare': () => {},
-  'copy-share-link': () => {},
+  'share': sharePublishCurrent,
+  'unshare': shareUnpublishCurrent,
+  'copy-share-link': shareCopyLinkCurrent,
   'docs': () => {
     import('@tauri-apps/plugin-opener')
       .then(({ openUrl }) => openUrl('https://github.com/bruce/mdeditor'))
