@@ -67,8 +67,12 @@
       } catch (e) { console.warn('[App] hydrate skin:', e) }
       stopAutoSave = startAutoSaveWatcher()
 
-      try { pluginRuntime.manifests = await invoke<PluginManifest[]>('get_plugin_manifests') }
-      catch (e) { console.warn('[App] get_plugin_manifests:', e) }
+      if (await isIOS()) {
+        pluginRuntime.manifests = []
+      } else {
+        try { pluginRuntime.manifests = await invoke<PluginManifest[]>('get_plugin_manifests') }
+        catch (e) { console.warn('[App] get_plugin_manifests:', e) }
+      }
       const manifestById: Record<string, PluginManifest> = Object.fromEntries(
         pluginRuntime.manifests.map((m) => [m.id, m]))
 
