@@ -5,6 +5,7 @@ import { describe, it, expect } from 'vitest'
 import {
   shareHeaderLabel, isoDateStamp, viewportMetaTag, themeCssBlock,
   guardSize, MAX_HTML_BYTES,
+  extractShareDescription, metadataBlock,
 } from './share-baker'
 
 describe('shareHeaderLabel', () => {
@@ -40,6 +41,95 @@ describe('themeCssBlock', () => {
     expect(css).toContain('@media (prefers-color-scheme: dark)')
     expect(css).toContain('img { max-width: 100%')
     expect(css).toContain('pre { overflow-x: auto')
+  })
+})
+
+describe('extractShareDescription', () => {
+  it('takes the first prose paragraph after the H1', () => {
+    const md = '# Title\n\nThis is the first paragraph.\n\nSecond para.'
+    expect(extractShareDescription(md)).toBe('This is the first paragraph.')
+  })
+  it('skips fenced code blocks', () => {
+    const md = '# T\n\n```js\nconst x = 1\n```\n\nReal prose here.'
+    expect(extractShareDescription(md)).toBe('Real prose here.')
+  })
+  it('strips inline markdown', () => {
+    const md = 'a **bold** and *italic* and `code` and [link](http://x) word.'
+    expect(extractShareDescription(md)).toBe('a bold and italic and code and link word.')
+  })
+  it('drops images down to alt text', () => {
+    const md = 'Before ![alt](x.png) after.'
+    expect(extractShareDescription(md)).toBe('Before alt after.')
+  })
+  it('strips YAML front matter', () => {
+    const md = '---\ntitle: Hi\n---\n\nBody text here.'
+    expect(extractShareDescription(md)).toBe('Body text here.')
+  })
+  it('skips list items, blockquotes, table rows, hr', () => {
+    const md = '> quoted\n\n- a\n- b\n\n| col | col |\n|---|---|\n| 1 | 2 |\n\n---\n\nFinally prose.'
+    expect(extractShareDescription(md)).toBe('Finally prose.')
+  })
+  it('truncates with ellipsis at word boundary', () => {
+    const md = 'Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua ut enim ad minim veniam quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.'
+    const out = extractShareDescription(md, 80)
+    expect(out.length).toBeLessThanOrEqual(80)
+    expect(out.endsWith('…')).toBe(true)
+    expect(out).not.toContain('  ')
+  })
+  it('returns empty string when no usable prose exists', () => {
+    expect(extractShareDescription('# Just a heading\n\n## And another')).toBe('')
+    expect(extractShareDescription('```js\ncode only\n```')).toBe('')
+  })
+})
+
+describe('metadataBlock', () => {
+  it('emits title + description + og + twitter tags', () => {
+    const out = metadataBlock({ title: 'Hello', description: 'A nice doc.', filename: 'h.md' })
+    expect(out).toContain('<title>Hello</title>')
+    expect(out).toContain('<meta name="description" content="A nice doc.">')
+    expect(out).toContain('<meta property="og:type" content="article">')
+    expect(out).toContain('<meta property="og:title" content="Hello">')
+    expect(out).toContain('<meta property="og:description" content="A nice doc.">')
+    expect(out).toContain('<meta property="og:site_name" content="M↓">')
+    expect(out).toContain('<meta name="twitter:card" content="summary">')
+    expect(out).toContain('<meta name="twitter:title" content="Hello">')
+    expect(out).toContain('<meta name="twitter:description" content="A nice doc.">')
+    expect(out).toContain('<meta name="filename" content="h.md">')
+  })
+  it('falls back to the default M↓ logo as og:image / twitter:image', () => {
+    const out = metadataBlock({ title: 'T', description: 'D', filename: 'x.md' })
+    expect(out).toContain('<meta property="og:image" content="https://raw.githubusercontent.com/wizlijun/MdEditor/main/src-tauri/icons/64x64.png">')
+    expect(out).toContain('<meta property="og:image:width" content="64">')
+    expect(out).toContain('<meta property="og:image:height" content="64">')
+    expect(out).toContain('<meta property="og:image:alt" content="T">')
+    expect(out).toContain('<meta name="twitter:image" content="https://raw.githubusercontent.com/wizlijun/MdEditor/main/src-tauri/icons/64x64.png">')
+  })
+  it('honours an explicit imageUrl override', () => {
+    const out = metadataBlock({
+      title: 'T', description: 'D', filename: 'x.md',
+      imageUrl: 'https://example.com/cover.png',
+    })
+    expect(out).toContain('<meta property="og:image" content="https://example.com/cover.png">')
+    expect(out).toContain('<meta name="twitter:image" content="https://example.com/cover.png">')
+  })
+  it('omits description meta when description is empty', () => {
+    const out = metadataBlock({ title: 'T', description: '', filename: 'x.png' })
+    expect(out).not.toContain('name="description"')
+    expect(out).not.toContain('og:description')
+    expect(out).not.toContain('twitter:description')
+    expect(out).toContain('<meta property="og:title" content="T">')
+    // og:image should still emit even without a description.
+    expect(out).toContain('og:image')
+  })
+  it('escapes HTML-special chars in title and description', () => {
+    const out = metadataBlock({
+      title: 'A & B <c>',
+      description: '"quoted" & <tag>',
+      filename: 'x.md',
+    })
+    expect(out).toContain('A &amp; B &lt;c&gt;')
+    expect(out).toContain('&quot;quoted&quot; &amp; &lt;tag&gt;')
+    expect(out).not.toContain('<c>')
   })
 })
 
@@ -176,6 +266,38 @@ describe('bakeShareHtml', () => {
     expect(html).toContain('class="share-header"')
     expect(html).toContain('class="share-footer"')
     expect(html).toContain('foo.md')
+    __setImageReaderForTests(null)
+  })
+
+  it('uses H1 as the page <title> when present, falling back to filename basename', async () => {
+    __setImageReaderForTests(async () => new Uint8Array([0]))
+    const t1 = fakeTab({ currentContent: '# My Big Topic\n\nbody.' })
+    const h1 = await bakeShareHtml(t1)
+    expect(h1).toContain('<title>My Big Topic</title>')
+    expect(h1).toContain('og:title" content="My Big Topic"')
+
+    const t2 = fakeTab({ currentContent: 'just body, no heading' })
+    const h2 = await bakeShareHtml(t2)
+    expect(h2).toContain('<title>foo</title>') // basename minus .md
+    __setImageReaderForTests(null)
+  })
+
+  it('emits og:description and meta description from extracted prose', async () => {
+    __setImageReaderForTests(async () => new Uint8Array([0]))
+    const t = fakeTab({ currentContent: '# Topic\n\nThis is the lead paragraph.\n\nSecond.' })
+    const html = await bakeShareHtml(t)
+    expect(html).toContain('name="description" content="This is the lead paragraph."')
+    expect(html).toContain('og:description" content="This is the lead paragraph."')
+    __setImageReaderForTests(null)
+  })
+
+  it('keeps the filename in the visible header even when title comes from H1', async () => {
+    __setImageReaderForTests(async () => new Uint8Array([0]))
+    const t = fakeTab({ currentContent: '# Big Idea\n\nbody.' })
+    const html = await bakeShareHtml(t)
+    // Page title should be "Big Idea", but the visible subtitle keeps "foo.md".
+    expect(html).toContain('<title>Big Idea</title>')
+    expect(html).toMatch(/class="share-header">foo\.md/)
     __setImageReaderForTests(null)
   })
 
