@@ -35,8 +35,7 @@
   import { getPluginScopedAll, pluginScopedVersion } from './lib/settings.svelte'
   import { pushToast } from './lib/toast.svelte'
   import type { PluginManifest, EnabledWhenContext } from './lib/plugins/types'
-
-  let showSettings = $state(false)
+  import { uiState, openSettings } from './lib/ui-state.svelte'
   let collectedItems = $derived<CollectedItems>(collectMenuItems(pluginRuntime.manifests))
   // Tracks last applied enabled state per menu-item id, so we only invoke the
   // Tauri command when something actually changes.
@@ -171,7 +170,7 @@
         case 'save-as':     cmdSaveAs(); break
         case 'close-tab':   cmdCloseActive(); break
         case 'toggle-mode': cmdToggleMode(); break
-        case 'preferences': showSettings = true; break
+        case 'preferences': openSettings(); break
         case 'docs':
           import('@tauri-apps/plugin-opener')
             .then(({ openUrl }) => openUrl('https://github.com/bruce/mdeditor'))
@@ -301,7 +300,7 @@
       <EmptyState />
     {/if}
   </section>
-  <SettingsDialog bind:open={showSettings} />
+  <SettingsDialog bind:open={uiState.showSettings} />
   <Toast />
 </main>
 
