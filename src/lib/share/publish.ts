@@ -1,0 +1,83 @@
+import { post } from './client'
+import { generateSlug } from './slug'
+import { getRecord, putRecord } from './records'
+import { ShareError, type HtmlShareRecord } from './types'
+
+export interface PublishHtmlInput {
+  path: string
+  filename: string
+  html: string
+  baseUrl: string
+  defaultExpiry: 'never' | '7d' | '30d' | '90d'
+  slugRandomSuffix: boolean
+}
+
+export interface PublishHtmlResult {
+  url: string
+  slug: string
+  isUpdate: boolean
+}
+
+const EXPIRY_TO_SECONDS: Record<string, number | null> = {
+  never: null,
+  '7d': 7 * 24 * 3600,
+  '30d': 30 * 24 * 3600,
+  '90d': 90 * 24 * 3600,
+}
+
+export async function publishHtml(input: PublishHtmlInput): Promise<PublishHtmlResult> {
+  const prev = getRecord(input.path) as HtmlShareRecord | undefined
+  const isUpdate = !!prev && prev.kind !== 'image' && !!prev.slug && !!prev.edit_token
+  const slug = isUpdate ? prev!.slug : generateSlug(input.filename, input.html, input.slugRandomSuffix)
+  const editToken = isUpdate ? prev!.edit_token : generateEditToken()
+  const expiresInSeconds = EXPIRY_TO_SECONDS[input.defaultExpiry] ?? null
+
+  // Retry on slug conflict for new shares only (max 3 attempts).
+  let attempts = 0
+  let currentSlug = slug
+  while (true) {
+    attempts++
+    try {
+      await post('/publish', {
+        slug: currentSlug,
+        edit_token: editToken,
+        html: input.html,
+        expires_in_seconds: expiresInSeconds,
+        metadata: {
+          original_filename: input.filename,
+          source_ext: input.filename.split('.').pop() ?? '',
+        },
+      })
+      break
+    } catch (e) {
+      if (e instanceof ShareError && e.kind === 'conflict' && !isUpdate && attempts < 3) {
+        currentSlug = `${slug}-${attempts + 1}`
+        continue
+      }
+      throw e
+    }
+  }
+
+  const base = input.baseUrl.replace(/\/+$/, '')
+  const shareUrl = `${base}/${currentSlug}`
+  const now = new Date().toISOString()
+  const expiresAt = expiresInSeconds == null
+    ? null
+    : new Date(Date.now() + expiresInSeconds * 1000).toISOString()
+  await putRecord(input.path, {
+    slug: currentSlug,
+    edit_token: editToken,
+    url: shareUrl,
+    created_at: prev?.created_at ?? now,
+    expires_at: expiresAt,
+    filename: input.filename,
+  })
+
+  return { url: shareUrl, slug: currentSlug, isUpdate }
+}
+
+function generateEditToken(): string {
+  const bytes = new Uint8Array(16)
+  crypto.getRandomValues(bytes)
+  return [...bytes].map((b) => b.toString(16).padStart(2, '0')).join('')
+}
