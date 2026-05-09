@@ -33,3 +33,44 @@ export function cmdToggleMode(): void {
   const t = activeTab()
   if (t && t.kind !== 'image') toggleMode(t.id)
 }
+
+import { openSettings } from './ui-state.svelte'
+
+export type CommandId =
+  | 'open'
+  | 'save'
+  | 'save-as'
+  | 'close-tab'
+  | 'toggle-mode'
+  | 'preferences'
+  | 'share'
+  | 'unshare'
+  | 'copy-share-link'
+  | 'docs'
+
+const handlers: Record<CommandId, () => void | Promise<void>> = {
+  'open': cmdOpen,
+  'save': cmdSave,
+  'save-as': cmdSaveAs,
+  'close-tab': cmdCloseActive,
+  'toggle-mode': cmdToggleMode,
+  'preferences': openSettings,
+  // share handlers wired in Task 11; no-op stubs for now keep the type complete
+  'share': () => {},
+  'unshare': () => {},
+  'copy-share-link': () => {},
+  'docs': () => {
+    import('@tauri-apps/plugin-opener')
+      .then(({ openUrl }) => openUrl('https://github.com/bruce/mdeditor'))
+      .catch(() => {})
+  },
+}
+
+export function dispatch(id: CommandId): void | Promise<void> {
+  return handlers[id]?.()
+}
+
+/** Test-only: replace a handler. Used to wire share entries from share/index.ts. */
+export function _registerHandler(id: CommandId, fn: () => void | Promise<void>) {
+  handlers[id] = fn
+}

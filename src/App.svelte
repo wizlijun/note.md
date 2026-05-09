@@ -15,7 +15,7 @@
   import ModeToggle from './components/ModeToggle.svelte'
   import { activeTab, tabs, closeTab, openFile } from './lib/tabs.svelte'
   import { loadSettings } from './lib/settings.svelte'
-  import { cmdOpen, cmdSave, cmdSaveAs, cmdCloseActive, cmdToggleMode } from './lib/commands'
+  import { cmdOpen, cmdSave, cmdSaveAs, cmdCloseActive, cmdToggleMode, dispatch, type CommandId } from './lib/commands'
   import { confirmDirtyClose } from './lib/dialogs'
   import { startAutoSaveWatcher } from './lib/autosave.svelte'
   import { installFocusPoll } from './lib/file-watcher.svelte'
@@ -164,19 +164,7 @@
         await dispatchPlugin(plugin.pluginId, plugin.command)
         return
       }
-      switch (id) {
-        case 'open':        cmdOpen(); break
-        case 'save':        cmdSave(); break
-        case 'save-as':     cmdSaveAs(); break
-        case 'close-tab':   cmdCloseActive(); break
-        case 'toggle-mode': cmdToggleMode(); break
-        case 'preferences': openSettings(); break
-        case 'docs':
-          import('@tauri-apps/plugin-opener')
-            .then(({ openUrl }) => openUrl('https://github.com/bruce/mdeditor'))
-            .catch(() => {})
-          break
-      }
+      await dispatch(id as CommandId)
     })
 
     const unlistenDrop = win.onDragDropEvent(async (event) => {
