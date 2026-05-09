@@ -81,7 +81,7 @@
   {#if status === 'error'}
     <div class="diag err">[error] {errorMsg ?? 'unknown'}</div>
   {/if}
-  <div class="host" bind:this={host}></div>
+  <div class="host" data-skin="default" bind:this={host}></div>
 </div>
 
 <style>

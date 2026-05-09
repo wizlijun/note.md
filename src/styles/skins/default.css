@@ -1,0 +1,47 @@
+/* Default skin — current GitHub-ish typography. */
+
+[data-skin="default"] .moraya-editor { line-height: 1.6; }
+
+[data-skin="default"] .moraya-editor h1 { font-size: 2em;    font-weight: 700; margin: 1.2em 0 0.4em; }
+[data-skin="default"] .moraya-editor h2 { font-size: 1.5em;  font-weight: 600; margin: 1.1em 0 0.4em; }
+[data-skin="default"] .moraya-editor h3 { font-size: 1.25em; font-weight: 600; margin: 1em   0 0.3em; }
+[data-skin="default"] .moraya-editor h4,
+[data-skin="default"] .moraya-editor h5,
+[data-skin="default"] .moraya-editor h6 { font-size: 1em; font-weight: 600; margin: 1em 0 0.3em; }
+
+[data-skin="default"] .moraya-editor p { margin: 0.6em 0; }
+[data-skin="default"] .moraya-editor a { color: #0969da; text-decoration: underline; }
+
+[data-skin="default"] .moraya-editor blockquote {
+  border-left: 3px solid color-mix(in srgb, CanvasText 30%, transparent);
+  margin: 0.6em 0;
+  padding: 0 12px;
+  color: GrayText;
+}
+
+[data-skin="default"] .moraya-editor ul,
+[data-skin="default"] .moraya-editor ol { padding-left: 1.6em; margin: 0.6em 0; }
+[data-skin="default"] .moraya-editor li { margin: 0.2em 0; }
+
+[data-skin="default"] .moraya-editor img { max-width: 100%; }
+
+[data-skin="default"] .moraya-editor table { border-collapse: collapse; margin: 0.8em 0; }
+[data-skin="default"] .moraya-editor th,
+[data-skin="default"] .moraya-editor td {
+  border: 1px solid color-mix(in srgb, CanvasText 20%, transparent);
+  padding: 6px 10px;
+}
+[data-skin="default"] .moraya-editor hr {
+  border: 0;
+  border-top: 1px solid color-mix(in srgb, CanvasText 20%, transparent);
+  margin: 1em 0;
+}
+
+/* Inline code (not inside a pre). */
+[data-skin="default"] .moraya-editor :not(pre) > code {
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 0.92em;
+  padding: 1px 4px;
+  background: color-mix(in srgb, CanvasText 8%, transparent);
+  border-radius: 3px;
+}
