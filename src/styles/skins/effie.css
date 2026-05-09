@@ -1,11 +1,12 @@
-/* effie skin — Effie-inspired mint-paper aesthetic.
+/* effie skin — Effie-inspired aesthetic with two palettes.
  *
- * Unlike default/shuyuan (which let system Canvas/CanvasText drive colors),
- * this skin owns its full palette. The mint paper, teal headings, blue bold,
- * and orange italic are the *point* of the look — they don't bend to dark
- * mode. Code-block hljs tokens still come from editor-base.css; this skin
- * forces the surrounding paper, so on light system the result is consistent
- * and on dark system the editor area still presents as light mint.
+ * Light mode: mint paper, teal headings, blue strong, orange em — the
+ * Effie "Summer Rain" mood.
+ *
+ * Dark mode: Dracula-inspired — near-black bg, cyan headings, orange
+ * strong, yellow em, purple links, green inline code. The skin owns
+ * its full palette in both modes, so it doesn't drift into the system
+ * neutrals the way default/shuyuan do.
  *
  * Bundles LXGW WenKai (霞鹜文楷 Lite, OFL-licensed) as the body font; license
  * lives next to the .ttf in fonts/OFL.txt.
@@ -175,4 +176,66 @@
 [data-skin="effie"] .moraya-editor .code-block-wrapper,
 [data-skin="effie"] .moraya-editor pre:not(.code-block-pre) {
   background: rgba(45, 70, 60, 0.06);
+}
+
+/* ── Dark mode: Dracula-inspired palette ────────────────────────────────── */
+
+@media (prefers-color-scheme: dark) {
+  [data-skin="effie"] {
+    background: #282a36;
+  }
+
+  [data-skin="effie"] .moraya-editor {
+    color: #f8f8f2;
+  }
+
+  [data-skin="effie"] .moraya-editor h1,
+  [data-skin="effie"] .moraya-editor h2,
+  [data-skin="effie"] .moraya-editor h3,
+  [data-skin="effie"] .moraya-editor h4 {
+    color: #8be9fd;
+  }
+  [data-skin="effie"] .moraya-editor h5,
+  [data-skin="effie"] .moraya-editor h6 {
+    color: #6fc8e0;
+  }
+
+  [data-skin="effie"] .moraya-editor strong { color: #ffb86c; }
+  [data-skin="effie"] .moraya-editor em      { color: #f1fa8c; }
+
+  [data-skin="effie"] .moraya-editor a {
+    color: #bd93f9;
+    text-decoration-color: rgba(189, 147, 249, 0.6);
+  }
+
+  [data-skin="effie"] .moraya-editor blockquote {
+    border-left-color: #6272a4;
+    color: #cdd6f4;
+  }
+
+  [data-skin="effie"] .moraya-editor ol > li::marker { color: #8be9fd; }
+  [data-skin="effie"] .moraya-editor ul > li::before { color: #8be9fd; }
+
+  [data-skin="effie"] .moraya-editor :not(pre) > code {
+    color: #50fa7b;
+    background: rgba(80, 250, 123, 0.12);
+  }
+
+  [data-skin="effie"] .moraya-editor th {
+    border-top-color: #44475a;
+    border-bottom-color: #44475a;
+    color: #f8f8f2;
+  }
+  [data-skin="effie"] .moraya-editor td {
+    border-bottom-color: #44475a;
+  }
+
+  [data-skin="effie"] .moraya-editor hr {
+    border-top-color: #44475a;
+  }
+
+  [data-skin="effie"] .moraya-editor .code-block-wrapper,
+  [data-skin="effie"] .moraya-editor pre:not(.code-block-pre) {
+    background: rgba(248, 248, 242, 0.05);
+  }
 }
