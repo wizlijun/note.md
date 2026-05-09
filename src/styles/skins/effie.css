@@ -15,8 +15,9 @@
  * falls through to system fonts (Iowan / Songti) — degradation is graceful.
  */
 
-@import url('https://cdn.jsdelivr.net/npm/lxgw-wenkai-lite-webfont@1.7.0/lxgwwenkailite-light.css');
 @import url('https://cdn.jsdelivr.net/npm/lxgw-wenkai-lite-webfont@1.7.0/lxgwwenkailite-regular.css');
+@import url('https://cdn.jsdelivr.net/npm/lxgw-wenkai-lite-webfont@1.7.0/lxgwwenkailite-bold.css');
+@import url('https://cdn.jsdelivr.net/npm/lxgw-wenkai-lite-webfont@1.7.0/lxgwwenkaimonolite-regular.css');
 
 [data-skin="effie"] {
   background: #e8f0ea;
@@ -30,7 +31,7 @@
     'Songti SC', 'STSong', serif;
   font-feature-settings: 'palt';
   font-size: 20px;
-  font-weight: 300;
+  font-weight: 400;
   line-height: 1.6;
   color: #2c2c2c;
   background: transparent;
@@ -38,9 +39,6 @@
    * outside the heading text without overlapping. All block content
    * (paragraphs, lists, headings) shares this indent so they line up. */
   padding-left: 2.5em;
-  /* Grayscale AA renders Kai-style strokes thinner on macOS Retina —
-   * pairs with weight 300 to match the lighter feel the user wants. */
-  -webkit-font-smoothing: antialiased;
 }
 
 /* ── Headings: same family, distinguished by size + teal color ──────────── */
@@ -52,7 +50,7 @@
 [data-skin="effie"] .moraya-editor h5,
 [data-skin="effie"] .moraya-editor h6 {
   color: #4a9296;
-  font-weight: 400;
+  font-weight: 700;
   letter-spacing: 0.01em;
 }
 
@@ -100,7 +98,7 @@
 
 [data-skin="effie"] .moraya-editor strong {
   color: #5e4cc4;
-  font-weight: 400;
+  font-weight: 700;
 }
 [data-skin="effie"] .moraya-editor em {
   color: #d4753e;
@@ -153,28 +151,23 @@
   color: #6a7a72;
 }
 
-/* ── Tables: horizontal-only, with row dividers ─────────────────────────── */
+/* ── Tables: full grid, pale sage borders, header same weight as body ───── */
 
 [data-skin="effie"] .moraya-editor table {
   border-collapse: collapse;
   margin: 1em 0;
   width: 100%;
 }
-[data-skin="effie"] .moraya-editor th {
-  border: 0;
-  border-top: 1px solid #cdd9cb;
-  border-bottom: 1px solid #cdd9cb;
+[data-skin="effie"] .moraya-editor th,
+[data-skin="effie"] .moraya-editor td {
+  border: 1px solid #c8d6cd;
   padding: 8px 12px;
-  font-weight: 400;
   text-align: left;
   background: transparent;
-  color: #3d4d44;
+  color: inherit;
 }
-[data-skin="effie"] .moraya-editor td {
-  border: 0;
-  border-bottom: 1px solid #e0e7df;
-  padding: 8px 12px;
-}
+[data-skin="effie"] .moraya-editor th { font-weight: 700; }
+[data-skin="effie"] .moraya-editor td { font-weight: 400; }
 
 /* ── Horizontal rule: thin sage line ────────────────────────────────────── */
 
@@ -194,12 +187,22 @@
 /* ── Inline code: dark-teal text on a light-teal tint ───────────────────── */
 
 [data-skin="effie"] .moraya-editor :not(pre) > code {
-  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-family: 'LXGW WenKai Mono Lite', ui-monospace, 'SF Mono', Menlo, monospace;
   font-size: 0.9em;
   color: #1f6e5e;
   padding: 1px 5px;
   background: #d4e4e1;
   border-radius: 3px;
+}
+
+/* ── Code blocks: pick up the matching kai-mono variant so code reads in
+ *    the same typographic family as body text. font-size and the rest of
+ *    the structural styles still come from editor-base.css. ───────────── */
+
+[data-skin="effie"] .moraya-editor pre,
+[data-skin="effie"] .moraya-editor .code-block-pre,
+[data-skin="effie"] .moraya-editor .code-block-code {
+  font-family: 'LXGW WenKai Mono Lite', ui-monospace, 'SF Mono', Menlo, monospace;
 }
 
 /* ── Diagram / code-block backgrounds: transparent so they inherit the
@@ -269,13 +272,10 @@
     background: #2e2e2e;
   }
 
-  [data-skin="effie"] .moraya-editor th {
-    border-top-color: #3a3a3a;
-    border-bottom-color: #3a3a3a;
-    color: #d8d8d8;
-  }
+  [data-skin="effie"] .moraya-editor th,
   [data-skin="effie"] .moraya-editor td {
-    border-bottom-color: #2e2e2e;
+    border-color: #3a3a3a;
+    color: #d8d8d8;
   }
 
   [data-skin="effie"] .moraya-editor hr {
