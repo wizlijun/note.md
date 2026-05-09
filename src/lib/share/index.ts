@@ -70,7 +70,10 @@ export async function sharePublishCurrent(): Promise<void> {
       })
       const { writeText } = await import('@tauri-apps/plugin-clipboard-manager')
       await writeText(url)
-      if (await isIOS()) await invoke('present_share_sheet', { url, text: tab.title })
+      if (await isIOS()) {
+        try { await invoke('present_share_sheet', { url, text: tab.title }) }
+        catch { /* present_share_sheet not implemented yet — Swift bridge deferred to post-v1 */ }
+      }
       return
     }
 
@@ -92,7 +95,10 @@ export async function sharePublishCurrent(): Promise<void> {
       message: isUpdate ? '✅ 内容已更新（链接已复制）' : '✅ 分享成功（已复制）',
       detail: url,
     })
-    if (await isIOS()) await invoke('present_share_sheet', { url, text: tab.title })
+    if (await isIOS()) {
+      try { await invoke('present_share_sheet', { url, text: tab.title }) }
+      catch { /* present_share_sheet not implemented yet — Swift bridge deferred to post-v1 */ }
+    }
   } catch (e) {
     reportError(e, '分享')
   }
