@@ -3,6 +3,7 @@
   import type { Tab } from '../lib/tabs.svelte'
   import { setContent } from '../lib/tabs.svelte'
   import { buildFencedBlock, stripCodeFence } from '../lib/code-fence'
+  import { skin } from '../lib/skin.svelte'
 
   // NOTE: @moraya/core (ProseMirror + plugins, multi-MB) is dynamically imported
   // inside onMount so it never loads when the user only uses source mode.
@@ -81,7 +82,7 @@
   {#if status === 'error'}
     <div class="diag err">[error] {errorMsg ?? 'unknown'}</div>
   {/if}
-  <div class="host" data-skin="default" bind:this={host}></div>
+  <div class="host" data-skin={skin.current} bind:this={host}></div>
 </div>
 
 <style>
