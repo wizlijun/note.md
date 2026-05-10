@@ -134,7 +134,7 @@
   <div class="host-shell">
     <div class="host" data-skin={skin.current} bind:this={host}></div>
     {#if isHoverActive() && settings.mdblock.hover.showRichOverlay && hoverYaml && host}
-      <RichOverlay container={host} yaml={hoverYaml} badgeFormat={settings.mdblock.hover.badgeFormat} />
+      <RichOverlay container={host} yaml={hoverYaml} pageBasename={(activeTab()?.filePath ?? '').replace(/^.*[\\/]/, '')} />
     {/if}
   </div>
 </div>

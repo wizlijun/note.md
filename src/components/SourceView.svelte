@@ -114,7 +114,7 @@
     <SourceGutter
       textarea={textareaEl ?? null}
       yaml={hoverYaml}
-      badgeFormat={settings.mdblock.hover.badgeFormat}
+      pageBasename={(activeTab()?.filePath ?? '').replace(/^.*[\\/]/, '')}
     />
   {/if}
   <div class="host">

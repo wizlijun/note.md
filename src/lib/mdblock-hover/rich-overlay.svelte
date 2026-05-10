@@ -4,19 +4,20 @@
   interface Props {
     container: HTMLElement | null   // the rich editor's content root
     yaml: BlockYaml | null
-    badgeFormat: 'short' | 'full'
+    pageBasename: string
   }
-  let { container, yaml, badgeFormat }: Props = $props()
+  let { container, yaml, pageBasename }: Props = $props()
 
   interface Frame { x: number; y: number; w: number; h: number; ids: string[] }
   let frames = $state<Frame[]>([])
+  let copiedId = $state<string | null>(null)
+  let copiedTimer: ReturnType<typeof setTimeout> | null = null
 
   /**
    * @moraya/core wraps content in `.ProseMirror` (or `.moraya-editor`) inside
    * the host. The block-level elements (h1, p, ul, pre, …) are children of
    * THAT wrapper, not direct children of `host`. Descend one level so the
-   * overlay frames each rendered block instead of one giant frame around
-   * the whole document.
+   * overlay frames each rendered block instead of one giant frame.
    */
   function findContentRoot(host: HTMLElement): HTMLElement {
     return (
@@ -34,9 +35,6 @@
     if (children.length === 0 || active.length === 0) { frames = []; return }
     const out: Frame[] = []
     const containerRect = container.getBoundingClientRect()
-    // Naive 1:1 mapping with ids in document order; collapse 1:N when there
-    // are more active blocks than DOM children by grouping extras into the
-    // last seen DOM child.
     const span = Math.max(1, active.length / Math.max(1, children.length))
     for (let i = 0; i < children.length; i++) {
       const r = children[i].getBoundingClientRect()
@@ -76,10 +74,21 @@
     }
   })
 
-  function badgeText(ids: string[]): string {
+  function citation(id: string): string {
+    return `((${pageBasename}#${id}))`
+  }
+
+  function tooltipFor(ids: string[]): string {
     if (ids.length === 0) return ''
-    const head = badgeFormat === 'full' ? ids[0] : ids[0]
-    return ids.length > 1 ? `${head} +${ids.length - 1}` : head
+    if (ids.length === 1) return citation(ids[0])
+    return ids.map((id) => citation(id)).join('\n')
+  }
+
+  function copyCitation(id: string) {
+    navigator.clipboard.writeText(citation(id)).catch(() => {})
+    copiedId = id
+    if (copiedTimer) clearTimeout(copiedTimer)
+    copiedTimer = setTimeout(() => { copiedId = null }, 1200)
   }
 </script>
 
@@ -90,7 +99,16 @@
          style:top="{f.y}px"
          style:width="{f.w}px"
          style:height="{f.h}px">
-      <div class="mdblock-badge">{badgeText(f.ids)}</div>
+      <button class="mdblock-marker"
+              class:copied={f.ids.length > 0 && copiedId === f.ids[0]}
+              type="button"
+              title={tooltipFor(f.ids)}
+              aria-label={f.ids.length > 0 ? `Copy citation ${citation(f.ids[0])}` : ''}
+              onclick={() => f.ids.length > 0 && copyCitation(f.ids[0])}>
+        {#if f.ids.length > 1}
+          <span class="mdblock-marker-count">+{f.ids.length - 1}</span>
+        {/if}
+      </button>
     </div>
   {/each}
 </div>
@@ -106,16 +124,40 @@
     border: 1px dashed color-mix(in srgb, currentColor 30%, transparent);
     border-radius: 3px;
   }
-  .mdblock-badge {
+  .mdblock-marker {
     position: absolute;
-    top: -10px;
-    left: 6px;
-    padding: 1px 6px;
-    background: Canvas;
-    border: 1px solid color-mix(in srgb, currentColor 30%, transparent);
+    top: -7px;
+    left: -7px;
+    width: 12px;
+    height: 12px;
+    padding: 0;
+    border: 1px solid color-mix(in srgb, currentColor 50%, transparent);
     border-radius: 3px;
+    background: color-mix(in srgb, currentColor 18%, Canvas);
+    cursor: pointer;
+    pointer-events: auto;
+    transition: background 120ms ease, transform 120ms ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .mdblock-marker:hover {
+    background: color-mix(in srgb, currentColor 35%, Canvas);
+    transform: scale(1.18);
+  }
+  .mdblock-marker.copied {
+    background: #4caf50;
+    border-color: #4caf50;
+  }
+  .mdblock-marker-count {
+    position: absolute;
+    top: -2px;
+    right: -10px;
     font-family: ui-monospace, monospace;
-    font-size: 11px;
-    color: color-mix(in srgb, currentColor 80%, transparent);
+    font-size: 9px;
+    color: color-mix(in srgb, currentColor 70%, transparent);
+    background: Canvas;
+    padding: 0 2px;
+    border-radius: 2px;
   }
 </style>
