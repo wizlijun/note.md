@@ -39,7 +39,7 @@ describe('mergeBlocks', () => {
     expect(out.retired[0].replacedBy).toEqual([])
   })
 
-  it('Pass 3: 1 old → 2 new (split)', async () => {
+  it('Pass 3: 1 old → 2 new (split). Siblings appear ONLY in splits[].siblings, not in fresh.', async () => {
     const long = 'the quick brown fox jumps over the lazy dog. ' +
                  'a stitch in time saves nine when no one is looking.'
     const half1 = 'the quick brown fox jumps over the lazy dog.'
@@ -49,11 +49,12 @@ describe('mergeBlocks', () => {
     const out = mergeBlocks(old, nw, 0.95, 0.3) // raise threshold so neither edited path matches
     expect(out.splits.length).toBe(1)
     expect(out.splits[0].oldId).toBe('b-aaaaaa')
-    expect(out.fresh.length).toBe(1) // the sibling that didn't inherit
+    expect(out.splits[0].siblings.length).toBe(1) // the sibling that didn't inherit
+    expect(out.fresh.length).toBe(0)              // siblings are NOT also in fresh
     expect(out.retired.length).toBe(0)
   })
 
-  it('Pass 4: 2 old → 1 new (merge)', async () => {
+  it('Pass 4: 2 old → 1 new (merge). Caller derives retirements from merges[].', async () => {
     const half1 = 'the quick brown fox jumps over the lazy dog.'
     const half2 = 'a stitch in time saves nine when no one is looking.'
     const long  = `${half1} ${half2}`
@@ -63,8 +64,10 @@ describe('mergeBlocks', () => {
     expect(out.merges.length).toBe(1)
     expect(out.merges[0].oldIds.sort()).toEqual(['b-aaaaaa', 'b-bbbbbb'])
     expect(out.fresh.length).toBe(0) // the merged new block is in `merges`, not `fresh`
-    expect(out.retired.length).toBe(2)
-    expect(out.retired.every((r) => r.replacedBy.length === 1)).toBe(true)
+    // mergeBlocks does NOT push to retired for merge participants — the
+    // caller does that once it has allocated the new block's id. So both
+    // old ids are absorbed by `merges` and `retired` stays empty here.
+    expect(out.retired.length).toBe(0)
   })
 
   it('handles identical-content blocks via document-order tiebreak', async () => {

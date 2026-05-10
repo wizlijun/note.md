@@ -16,20 +16,31 @@ export interface MergeOutcome {
 const TINY_BLOCK_LEN = 20
 
 /**
- * 5-pass merge:
- *   1. exact hash equality → kept
- *   2. Jaccard ≥ threshold (1:1) → edited (id inherited)
- *   3. one old maps to 2+ new with ≥ splitCoverage → split (one sibling
- *      inherits id; the rest get fresh ids with parents=[oldId])
- *   4. multiple old map to one new with ≥ splitCoverage → merge (all old
- *      retire; new gets fresh id with parents=[...])
- *   5. residue: unmatched old → retired (deleted); unmatched new → fresh
+ * 5-pass merge.
  *
- * Lineage on the new block (carried by the caller, not by this function):
- *   - kept/edited: parents=[]
- *   - splits.siblings (the non-inheriting new entries): parents=[oldId]
- *   - merges: parents=oldIds
- *   - fresh: parents=[]
+ * Output partitioning rule: each new block index appears in EXACTLY ONE of
+ * `kept | edited | splits[].newIdx | splits[].siblings | merges | fresh`.
+ * Each old block index appears in EXACTLY ONE of `kept | edited |
+ * splits | merges | retired`.
+ *
+ *   1. exact hash equality (kept)
+ *   2. Jaccard ≥ threshold, 1:1 greedy (edited; new inherits oldId)
+ *   3. one old → multiple new with ≥ splitCoverage (split; first sibling by
+ *      coverage inherits oldId, the rest are recorded under siblings[] —
+ *      they are NOT in fresh; the caller assigns them fresh ids with
+ *      parents=[oldId])
+ *   4. multiple old → one new with ≥ splitCoverage (merge; new is in
+ *      merges[]. The OLD blocks are NOT pushed to retired by this function;
+ *      the caller iterates merges[].oldIds and creates the retirement
+ *      entries with the new block's allocated id as replacedBy)
+ *   5. residue: unmatched old → retired (replacedBy=[]); unmatched new → fresh
+ *
+ * Lineage assignment is the caller's responsibility:
+ *   - kept/edited:  inherit oldId; parents=[]; created_gen unchanged
+ *   - splits.newIdx: inherit splits.oldId; parents=[]; created_gen unchanged
+ *   - splits.siblings: fresh id; parents=[splits.oldId]; new created_gen
+ *   - merges: fresh id; parents=merges.oldIds; new created_gen
+ *   - fresh: fresh id; parents=[]; new created_gen
  */
 export function mergeBlocks(
   oldBlocks: OldBlockEntry[],
@@ -109,6 +120,10 @@ export function mergeBlocks(
       })
       oldUsed.add(oi)
       newUsed.add(inheritor.ni)
+      // Siblings belong solely to splits[].siblings — exclude them from
+      // Pass 5's fresh residue so each new index appears in exactly one
+      // outcome category.
+      for (const s of siblings) newUsed.add(s.ni)
     }
   }
 
@@ -124,10 +139,11 @@ export function mergeBlocks(
     if (matchedOld.length >= 2) {
       out.merges.push({ newIdx: ni, oldIds: matchedOld.map((m) => oldBlocks[m.oi].id) })
       newUsed.add(ni)
-      for (const m of matchedOld) {
-        oldUsed.add(m.oi)
-        out.retired.push({ oldId: oldBlocks[m.oi].id, replacedBy: [`${ni}`] })
-      }
+      for (const m of matchedOld) oldUsed.add(m.oi)
+      // Note: the caller derives retired entries for merge participants from
+      // out.merges (each merges.oldIds[i] retires with replacedBy=[<allocated
+      // new id>]). We don't push retired entries here because we don't yet
+      // know the new id.
     }
   }
 
