@@ -319,3 +319,45 @@ export async function cmdMdblockRefresh(): Promise<void> {
     await showError(`mdblock.refresh failed: ${e}`)
   }
 }
+
+export async function cmdMdblockGenerateBlockMd(): Promise<void> {
+  const t = activeTab()
+  if (!t || !t.filePath || t.kind === 'image') return
+  try {
+    const source = await readSource(t.filePath)
+    let prev = await readBlockYaml(yamlPathFor(t.filePath))
+    if (!prev) {
+      // No yaml yet — compute first
+      const built = await computeAndBuildYaml(t.filePath, source, null)
+      prev = built.yaml
+    }
+    prev.meta.has_block_md = true
+    prev = await writeBlockMdIfNeeded(t.filePath, source, prev)
+    await writeBlockYamlAtomic(yamlPathFor(t.filePath), prev)
+    emitYamlUpdated(t.filePath)
+    pushToast({ level: 'success', message: `Wrote ${blockMdPathFor(t.filePath)}` })
+  } catch (e) {
+    await showError(`mdblock.generateBlockMd failed: ${e}`)
+  }
+}
+
+export async function cmdMdblockReset(): Promise<void> {
+  const t = activeTab()
+  if (!t || !t.filePath || t.kind === 'image') return
+  const { confirm } = await import('@tauri-apps/plugin-dialog')
+  const ok = await confirm(
+    'This will discard all block-id lineage and reassign fresh ids to every block. ' +
+    'External references to old ids will resolve to "deleted". Continue?',
+    { title: 'Reset block ids', kind: 'warning' },
+  )
+  if (!ok) return
+  try {
+    const source = await readSource(t.filePath)
+    const { yaml, stats } = await computeAndBuildYaml(t.filePath, source, null)
+    await writeBlockYamlAtomic(yamlPathFor(t.filePath), yaml)
+    emitYamlUpdated(t.filePath)
+    pushToast({ level: 'success', message: `Reset: ${stats.active} fresh blocks (gen 1)` })
+  } catch (e) {
+    await showError(`mdblock.reset failed: ${e}`)
+  }
+}
