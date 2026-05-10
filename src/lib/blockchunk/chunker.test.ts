@@ -108,7 +108,9 @@ describe('chunkDocument', () => {
   })
 
   it('does not split inside fenced code blocks', () => {
-    const before = 'Some intro. '.repeat(30)
+    // The fence's opening ``` must be preceded by \n so findCodeFences (which
+    // matches /\n```/g) detects it. The trailing \n on `before` provides that.
+    const before = 'Some intro. '.repeat(30) + '\n'
     const fence = '```typescript\n' + 'const x = 1;\n'.repeat(100) + '```\n'
     const after = 'After code text. '.repeat(30)
     const blocks = chunkDocument(before + fence + after, 1000, 0, 400)
