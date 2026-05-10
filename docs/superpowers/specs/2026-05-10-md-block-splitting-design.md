@@ -236,6 +236,7 @@ config:
   inject_ai_hint: true
 
 active:
+  # genesis block, never edited
   - id: b-7f3a9c
     src_line: 1
     src_pos: 0
@@ -246,23 +247,75 @@ active:
     text: |-
       # introduction
       this is the first paragraph of the document...
-    parents: []                     # genesis block
+    parents: []
     created_gen: 1
 
-  - id: b-2e8b41
+  # block whose content has been edited multiple times across generations;
+  # id is unchanged because each merge round saw similarity ≥ threshold
+  - id: b-c91d22
     src_line: 24
-    ...
-    parents: [b-c91d22]             # edited from b-c91d22
-    created_gen: 1                  # unchanged on inheritance — only fresh blocks bump
+    src_pos: 856
+    out_line: 27
+    fingerprint:
+      hash: "f6e5d4c3b2a1"          # current hash; may differ from gen-1 hash
+      length: 1893
+    text: |-
+      ## background
+      ...current paragraph text...
+    parents: []                     # never split or merged; clean inheritance
+    created_gen: 1                  # birth generation; never bumped on inheritance
+
+  # fresh block born from a split: a long paragraph at gen 46 was rechunked
+  # into two; b-c91d22 (above) inherited the larger half, b-9a0d11 is the
+  # smaller half whose lineage points back to the parent it diverged from
+  - id: b-9a0d11
+    src_line: 51
+    src_pos: 2310
+    fingerprint: { hash: "...", length: 612 }
+    text: |- ...
+    parents: [b-c91d22]             # spawned by Pass-3 split out of b-c91d22
+    created_gen: 46
+
+  # fresh block born from a merge: gen 47 combined b-aa11bb and b-cc22dd
+  - id: b-44ee7a
+    src_line: 80
+    src_pos: 4920
+    fingerprint: { hash: "112233445566", length: 980 }
+    text: |- ...
+    parents: [b-aa11bb, b-cc22dd]   # both ancestors retired this round
+    created_gen: 47
 
 history:                            # append-only; oldest first
-  - id: b-c91d22
+  - id: b-aa11bb
     retired_gen: 47
-    replaced_by: [b-2e8b41]
-    last_fingerprint: { hash: "...", length: 1850 }
-    text: |-                        # only retained for recent retirements; older entries omit
+    replaced_by: [b-44ee7a]
+    last_fingerprint: { hash: "...", length: 410 }
+    text: |-                        # retained because retired in last 5 gens
       ...
+  - id: b-cc22dd
+    retired_gen: 47
+    replaced_by: [b-44ee7a]
+    last_fingerprint: { hash: "...", length: 570 }
+    text: |- ...
+  - id: b-9f0e1d
+    retired_gen: 23                 # too old for text retention; only fingerprint
+    replaced_by: []                 # pure deletion
+    last_fingerprint: { hash: "...", length: 88 }
 ```
+
+**ID inheritance model** (resolves any ambiguity around `parents`):
+
+- An id `b-XXX` is allocated **once**, on the generation a block first appears
+  (`created_gen`). It is **never reissued** to different content.
+- When merge Pass 1 (hash exact) or Pass 2 (Jaccard ≥ threshold) sees old → new
+  with the same identity, the new block keeps `id = old.id` and
+  `parents = []`. `created_gen` is unchanged.
+- `parents` is non-empty **only** for blocks born by Pass 3 (split siblings —
+  `parents = [the parent that was split]`) or Pass 4 (merged blocks —
+  `parents = [all ancestors that contributed]`).
+- Citations against any id ever issued — active or retired — must resolve.
+  Active: direct hit. Retired: walk `replaced_by` forward to find the current
+  carrier of that content.
 
 **Persistence**:
 
@@ -325,14 +378,21 @@ following `# Heading` into the HTML block.
 4. **Compute `out_line`**: scan output, count `\n` up to each anchor, write
    into yaml.
 5. **Optional AI hint** (`config.inject_ai_hint: true`): inject below
-   frontmatter / above first block:
+   frontmatter / above first block. The injected text substitutes the actual
+   source basename; placeholders below are template syntax in the spec, not
+   in the output:
 
    ```html
    <!--
-     Each block is preceded by an anchor: <a id="b-xxxxxx"></a>
-     Cite a block as: ((<this-document-uri>#b-xxxxxx))
+     Each block in this document is preceded by an HTML anchor like:
+       <a id="b-xxxxxx"></a>
+     When citing a block from this document, use:
+       ((${SOURCE_BASENAME}#b-xxxxxx))
    -->
    ```
+
+   With `${SOURCE_BASENAME}` substituted to the actual filename (e.g.
+   `my-doc.md`).
 
 6. **Atomic write** to `<basename>.block.md`.
 
