@@ -45,7 +45,7 @@
     const out: number[] = []
     let inFence = false
     let inGroup: 'paragraph' | 'list' | 'blockquote' | null = null
-    let lastParaLine = -1
+    let prevBlank = false
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
       const lineNum = i + 1 + fmLines
@@ -54,19 +54,26 @@
         if (!inFence) { out.push(lineNum); inFence = true }
         else { inFence = false }
         inGroup = null
-        lastParaLine = -1
+        prevBlank = false
         continue
       }
       if (inFence) continue
-      if (line.trim() === '') { inGroup = null; lastParaLine = -1; continue }
-      if (/^#{1,6}\s/.test(trimmed)) { out.push(lineNum); inGroup = null; lastParaLine = -1; continue }
-      // Setext heading: previous line was paragraph, current is === or --- only.
-      // ProseMirror treats this as ONE heading node, not paragraph + HR. Adjust.
-      if (inGroup === 'paragraph' && /^(?:=+|-+)\s*$/.test(trimmed)) {
-        // Already pushed the paragraph start; the underline is part of it.
+      if (line.trim() === '') {
+        // @moraya/core / many ProseMirror markdown adapters render runs of
+        // 2+ consecutive blank lines as N-1 empty paragraph nodes (one
+        // child per "extra" blank). Emit a placeholder entry for each so
+        // our index stays in sync with the rendered DOM child count.
+        if (prevBlank) out.push(lineNum)
+        prevBlank = true
+        inGroup = null
         continue
       }
-      if (/^(?:---|\*\*\*|___)\s*$/.test(trimmed)) { out.push(lineNum); inGroup = null; lastParaLine = -1; continue }
+      prevBlank = false
+      if (/^#{1,6}\s/.test(trimmed)) { out.push(lineNum); inGroup = null; continue }
+      // Setext heading: previous line was paragraph, current is === or --- only.
+      // ProseMirror coalesces "Title\n===" into ONE heading node.
+      if (inGroup === 'paragraph' && /^(?:=+|-+)\s*$/.test(trimmed)) continue
+      if (/^(?:---|\*\*\*|___)\s*$/.test(trimmed)) { out.push(lineNum); inGroup = null; continue }
       if (/^[-*+]\s|^\d+\.\s/.test(trimmed)) {
         if (inGroup !== 'list') { out.push(lineNum); inGroup = 'list' }
         continue
@@ -75,7 +82,7 @@
         if (inGroup !== 'blockquote') { out.push(lineNum); inGroup = 'blockquote' }
         continue
       }
-      if (inGroup !== 'paragraph') { out.push(lineNum); inGroup = 'paragraph'; lastParaLine = lineNum }
+      if (inGroup !== 'paragraph') { out.push(lineNum); inGroup = 'paragraph' }
     }
     return out
   }
