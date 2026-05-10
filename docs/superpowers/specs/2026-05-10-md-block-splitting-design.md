@@ -1,49 +1,49 @@
 # Markdown Block Splitting & Stable Block IDs — Design
 
-**Status**: Brainstorm complete; pending implementation plan
-**Date**: 2026-05-10
-**Owner**: bruce@hemory.com
-**Reference implementation studied**: `qmd` (`/Users/bruce/git/qmd/src/store.ts`,
+**Status**: Brainstorm complete; pending implementation plan  
+**Date**: 2026-05-10  
+**Owner**: bruce@hemory.com  
+**Reference implementation studied**: `qmd` (`/Users/bruce/git/qmd/src/store.ts`,  
 `src/ast.ts`, `test/store.test.ts`)
 
 ## Goal
 
-Add a system for assigning **stable, edit-resilient block ids** to every
-section of a markdown document so that AI tools can cite individual passages
+Add a system for assigning **stable, edit-resilient block ids** to every  
+section of a markdown document so that AI tools can cite individual passages  
 of M↓-edited documents at sub-page granularity.
 
 The system produces three artifacts per document:
 
 1. The original `<basename>.md` — never mutated by this system
 2. A sidecar `<basename>.block.yaml` — id ↔ block metadata + full lineage
-3. A generated `<basename>.block.md` — same content with HTML anchor lines
+3. A generated `<basename>.block.md` — same content with HTML anchor lines  
    inserted before each block, suitable as input to an LLM
 
-When AI output cites `((<doc-uri>#b-7f3a9c))`, M↓ resolves the citation back
-to a precise position in the source `.md`, even after the document has been
-edited many times. Citations to retired ids follow a lineage chain to the
+When AI output cites `((<doc-uri>#b-7f3a9c))`, M↓ resolves the citation back  
+to a precise position in the source `.md`, even after the document has been  
+edited many times. Citations to retired ids follow a lineage chain to the  
 current location of the content.
 
 ## Non-goals (v1)
 
-- ❌ Built-in LLM client / chat — M↓ produces inputs and consumes citation
+- ❌ Built-in LLM client / chat — M↓ produces inputs and consumes citation  
   outputs; the AI itself runs externally (Claude Code, ChatGPT, etc.)
-- ❌ Real-time per-keystroke chunking — re-chunking is an explicit user action
+- ❌ Real-time per-keystroke chunking — re-chunking is an explicit user action  
   or opt-in `onSave` hook
-- ❌ AST-aware chunking for code files — markdown only (qmd's tree-sitter
+- ❌ AST-aware chunking for code files — markdown only (qmd's tree-sitter  
   path is not ported)
 - ❌ Token-precise sizing via a real tokenizer — char-based approximation only
 - ❌ Per-block embedding / search / RAG — that's qmd's job; M↓ stays an editor
 - ❌ frontmatter as a citable block — frontmatter is preserved but not chunked
-- ❌ Cross-tool URI schemes (`qmd://`, `file://`) in citations — first version
+- ❌ Cross-tool URI schemes (`qmd://`, `file://`) in citations — first version  
   resolves local relative/absolute paths only
-- ❌ Editing the generated `.block.md` — it is a build artifact, regenerated
+- ❌ Editing the generated `.block.md` — it is a build artifact, regenerated  
   whole
 
 ## Brainstorm decisions (locked)
 
-| # | Decision | Rationale |
-|---|---|---|
+| \# | Decision | Rationale |
+| --- | --- | --- |
 | Q1 | Goal: stable block ids for AI source attribution | Drives all later choices toward identity stability over algorithmic novelty |
 | Q2 | Block granularity: **D** (qmd-style size-bounded with break-point scoring) | User chose; enables sub-paragraph precision when needed |
 | Q3 | ID stability: **B** (content fingerprint + best-match merge) with **git-merge semantics** | Heavy edits should preserve as many ids as possible; historical citations should remain resolvable |
@@ -53,7 +53,7 @@ current location of the content.
 | Q6 | Integration: built-in plugin `mdblock` + sister visualization plugin `mdblock-hover` | Aligns with existing share/md2pdf pattern; opt-in; doesn't clutter every `.md` |
 | Q6a | Trigger: explicit `Cmd+Shift+B` + optional auto-refresh on save | Default off; user enables per-document |
 | Q6b | Scope: only documents with existing `.block.yaml` get auto-tracking | Opt-in via "Compute Blocks" command |
-| (c) | Old block text storage: **X2** (inline normalized text in yaml) | Self-contained; merge stays offline-capable; ~1.3× source size is acceptable |
+| (c) | Old block text storage: **X2** (inline normalized text in yaml) | Self-contained; merge stays offline-capable; \~1.3× source size is acceptable |
 | (c) | history text retention: only recent N or near-distance retired blocks keep `text` | Bounds yaml growth |
 | (c) | `.block.yaml` checked into git; `.block.md` gitignored | Yaml is the shared id source of truth; md is a build artifact |
 
@@ -104,10 +104,10 @@ export function mergeBreakPoints(a: BreakPoint[], b: BreakPoint[]): BreakPoint[]
 **Break point patterns** (identical scores to qmd):
 
 | type | pattern | score |
-|---|---|---|
+| --- | --- | --- |
 | h1–h6 | `\n#{1..6}(?!#)` | 100/90/80/70/60/50 |
-| codeblock | `\n```` | 80 |
-| hr | `\n(?:---\|\*\*\*\|___)\s*\n` | 60 |
+| codeblock | \`\\n\`\`\`\` | 80 |
+| hr | `\n(?:---|\*\*\*|___)\s*\n` | 60 |
 | blank | `\n\n+` | 20 |
 | list | `\n[-*]\s` | 5 |
 | numlist | `\n\d+\.\s` | 5 |
@@ -126,12 +126,12 @@ while charPos < content.length:
   if charPos <= last.pos: charPos = end   # forward-progress safety
 ```
 
-`findBestCutoff` uses qmd's squared distance decay (`1 - (d/window)² × 0.7`) with
+`findBestCutoff` uses qmd's squared distance decay (`1 - (d/window)² × 0.7`) with  
 the result that headings far back beat low-quality breaks near the target.
 
 **Differences from qmd**:
 
-1. `CHUNK_OVERLAP_TOKENS = 0` — block ids must be 1:1 with content; overlap
+1. `CHUNK_OVERLAP_TOKENS = 0` — block ids must be 1:1 with content; overlap  
    would split a paragraph's identity across two ids
 2. Output type adds `src_line` (1-based) — useful downstream; computed once
 3. No `chunkDocumentByTokens` — char-based suffices; no tokenizer dependency
@@ -158,7 +158,7 @@ export function computeFingerprint(text: string): BlockFingerprint;
 export function jaccard(a: BlockFingerprint, b: BlockFingerprint): number;
 ```
 
-**Normalization**: lowercase + collapse whitespace + trim + retain structural
+**Normalization**: lowercase + collapse whitespace + trim + retain structural  
 markers (`#`, `-`, `>`, fence markers) since they encode block type.
 
 **Merge — 5 passes**:
@@ -182,23 +182,23 @@ export function mergeBlocks(
 ```
 
 | Pass | Purpose | Effect |
-|---|---|---|
+| --- | --- | --- |
 | 1 — exact hash | Detect untouched blocks | 1:1 kept; both pools shrink |
 | 2 — Jaccard ≥ T | Detect minor edits | 1:1 edited; new inherits old's id |
 | 3 — split detection | Old → multiple new | Highest-coverage new inherits id; siblings get fresh ids with `parents: [old.id]` |
 | 4 — merge detection | Multiple old → one new | New gets fresh id with `parents: [...]`; all old retired with `replaced_by: [new.id]` |
 | 5 — residue | Anything left | Unmatched old → retired (deleted); unmatched new → fresh |
 
-**Tiebreak for identical text** (e.g. two `## Section` headings): Pass 1
+**Tiebreak for identical text** (e.g. two `## Section` headings): Pass 1  
 matches in document order — first old to first new.
 
-**Edge: tiny blocks** (< 50 normalized chars): skip Pass 2 (Jaccard unreliable
+**Edge: tiny blocks** (< 50 normalized chars): skip Pass 2 (Jaccard unreliable  
 on small shingle sets); rely on Pass 1 + Pass 5 position fallback.
 
 **Stability promise**:
 
 | Edit | ID behavior |
-|---|---|
+| --- | --- |
 | Untouched | preserved (Pass 1) |
 | Minor edits, ≥ 50% Jaccard | preserved (Pass 2) |
 | Reorder | preserved (content-keyed, position-agnostic) |
@@ -305,33 +305,33 @@ history:                            # append-only; oldest first
 
 **ID inheritance model** (resolves any ambiguity around `parents`):
 
-- An id `b-XXX` is allocated **once**, on the generation a block first appears
+- An id `b-XXX` is allocated **once**, on the generation a block first appears  
   (`created_gen`). It is **never reissued** to different content.
-- When merge Pass 1 (hash exact) or Pass 2 (Jaccard ≥ threshold) sees old → new
-  with the same identity, the new block keeps `id = old.id` and
+- When merge Pass 1 (hash exact) or Pass 2 (Jaccard ≥ threshold) sees old → new  
+  with the same identity, the new block keeps `id = old.id` and  
   `parents = []`. `created_gen` is unchanged.
-- `parents` is non-empty **only** for blocks born by Pass 3 (split siblings —
-  `parents = [the parent that was split]`) or Pass 4 (merged blocks —
+- `parents` is non-empty **only** for blocks born by Pass 3 (split siblings —  
+  `parents = [the parent that was split]`) or Pass 4 (merged blocks —  
   `parents = [all ancestors that contributed]`).
-- Citations against any id ever issued — active or retired — must resolve.
-  Active: direct hit. Retired: walk `replaced_by` forward to find the current
+- Citations against any id ever issued — active or retired — must resolve.  
+  Active: direct hit. Retired: walk `replaced_by` forward to find the current  
   carrier of that content.
 
 **Persistence**:
 
 - Atomic write: `*.tmp` → fsync → `rename`
-- `js-yaml` with `noCompatMode: true, lineWidth: -1` (preserves long lines and
+- `js-yaml` with `noCompatMode: true, lineWidth: -1` (preserves long lines and  
   block scalars)
-- Corruption recovery: parse failure → rename `*.broken-<ts>` + log + treat as
+- Corruption recovery: parse failure → rename `*.broken-<ts>` + log + treat as  
   fresh chunking on next run
 
 **`history[].text` retention policy**:
 
-- Keep `text` for retired blocks where `retired_gen >= meta.generation - 5`
-  (last five generations) **OR** `replaced_by` is empty (deletions, for
+- Keep `text` for retired blocks where `retired_gen >= meta.generation - 5`  
+  (last five generations) **OR** `replaced_by` is empty (deletions, for  
   forensic value)
 - Older retired entries keep only `last_fingerprint` (hash + length)
-- This bounds yaml growth at ~5 generations × current block count
+- This bounds yaml growth at \~5 generations × current block count
 
 **Git policy**:
 
@@ -340,7 +340,7 @@ history:                            # append-only; oldest first
 
 ### (d) `.block.md` generation — `src/lib/blockio/inject.ts`
 
-**File naming**: `<original-name>.block.md` (preserves original extension).
+**File naming**: `<original-name>.block.md` (preserves original extension).  
 `note.md` → `note.block.md`; `note.markdown` → `note.markdown.block.md`.
 
 **Anchor format** (validated CommonMark-compatible):
@@ -351,20 +351,20 @@ history:                            # append-only; oldest first
 <original block content>
 ```
 
-Two lines per block: anchor + blank. The blank is mandatory — type-7 HTML
-blocks in CommonMark only terminate at a blank line, so omitting it folds a
+Two lines per block: anchor + blank. The blank is mandatory — type-7 HTML  
+blocks in CommonMark only terminate at a blank line, so omitting it folds a  
 following `# Heading` into the HTML block.
 
 **Algorithm**:
 
-1. **Frontmatter**: if source matches `/^---\n[\s\S]*?\n---\n/`, lift it
-   verbatim to top of output; chunker operates on the remainder; `src_pos` and
+1. **Frontmatter**: if source matches `/^---\n[\s\S]*?\n---\n/`, lift it  
+   verbatim to top of output; chunker operates on the remainder; `src_pos` and  
    `src_line` are offset accordingly.
 2. **Sort active blocks** by `src_pos`. For each:
-   - If `src_pos` falls at a line boundary (after `\n`): insertion point is
+   - If `src_pos` falls at a line boundary (after `\n`): insertion point is  
      `src_pos`.
-   - Else (rare; only when chunker fell back to char-position split inside an
-     unbroken line): retreat to nearest preceding `\n + 1`; this becomes
+   - Else (rare; only when chunker fell back to char-position split inside an  
+     unbroken line): retreat to nearest preceding `\n + 1`; this becomes  
      `adjusted_pos`. Update yaml's `src_pos` and `src_line` to match.
 3. **Splice**:
 
@@ -375,11 +375,11 @@ following `# Heading` into the HTML block.
      prevEnd = block.adjusted_pos
    output += source.slice(prevEnd)
    ```
-4. **Compute `out_line`**: scan output, count `\n` up to each anchor, write
+4. **Compute `out_line`**: scan output, count `\n` up to each anchor, write  
    into yaml.
-5. **Optional AI hint** (`config.inject_ai_hint: true`): inject below
-   frontmatter / above first block. The injected text substitutes the actual
-   source basename; placeholders below are template syntax in the spec, not
+5. **Optional AI hint** (`config.inject_ai_hint: true`): inject below  
+   frontmatter / above first block. The injected text substitutes the actual  
+   source basename; placeholders below are template syntax in the spec, not  
    in the output:
 
    ```html
@@ -391,17 +391,16 @@ following `# Heading` into the HTML block.
    -->
    ```
 
-   With `${SOURCE_BASENAME}` substituted to the actual filename (e.g.
+   With `${SOURCE_BASENAME}` substituted to the actual filename (e.g.  
    `my-doc.md`).
-
 6. **Atomic write** to `<basename>.block.md`.
 
 **Properties**:
 
 - Pure function: same source + same active → same output bytes
-- Read-only artifact: M↓ marks `.block.md` tabs read-only (or refuses to open
+- Read-only artifact: M↓ marks `.block.md` tabs read-only (or refuses to open  
   them in source view; if opened, banner: "generated; edits will be discarded")
-- Each block costs +2 output lines vs source — non-equal line numbers between
+- Each block costs +2 output lines vs source — non-equal line numbers between  
   `.md` and `.block.md`, by design (yaml carries both `src_line` and `out_line`)
 
 ### (e) `((pageuri#blockid))` parsing & navigation — `src/lib/blockio/citation.ts`
@@ -412,7 +411,7 @@ following `# Heading` into the HTML block.
 export const CITATION_RE = /\(\(([^()#]*)#(b-[0-9a-f]{6})\)\)/g;
 ```
 
-`pageuri` may be empty (same-doc), relative path, or absolute path. URI
+`pageuri` may be empty (same-doc), relative path, or absolute path. URI  
 schemes (`qmd://`, `file://`) are rejected in v1.
 
 **Rendering**:
@@ -442,8 +441,8 @@ marked.use({
 });
 ```
 
-CSS lives in `editor-base.css` so all skins share pill styling. Retired
-citations get `[data-status="retired"]`; deleted get `[data-status="deleted"]`
+CSS lives in `editor-base.css` so all skins share pill styling. Retired  
+citations get `[data-status="retired"]`; deleted get `[data-status="deleted"]`  
 applied at hover-resolve time.
 
 **`resolveCitation`**:
@@ -461,35 +460,35 @@ async function resolveCitation(
 }>;
 ```
 
-1. Resolve `pageuri` to an absolute path (empty → current; relative → resolve
-   against current's dir; absolute → as-is). Reject `..` traversal outside
+1. Resolve `pageuri` to an absolute path (empty → current; relative → resolve  
+   against current's dir; absolute → as-is). Reject `..` traversal outside  
    Tauri fs sandbox.
 2. Locate the target's `.block.yaml` (sibling of the path).
 3. Search `active` first; hit → return `{ srcLine, status: 'active' }`.
-4. Search `history`; hit → walk `replaced_by` chain forward to an active
+4. Search `history`; hit → walk `replaced_by` chain forward to an active  
    block; return `{ srcLine, status: 'retired', banner: "原 block 已编辑，跳转到当前继承块 b-xxxxxx" }`.
-5. Chain ends in `replaced_by: []` → return
-   `{ status: 'deleted', banner: "原 block 已删除（在 generation N）" }`;
+5. Chain ends in `replaced_by: []` → return  
+   `{ status: 'deleted', banner: "原 block 已删除（在 generation N）" }`;  
    no jump performed.
 
 **Failure modes** (all non-fatal; toast + log):
 
 | Cause | UX |
-|---|---|
+| --- | --- |
 | Target file not found | toast: `引用的文件不存在: <path>` |
 | `.block.yaml` missing | toast: `目标文档未启用块 id（无 .block.yaml）` |
 | blockid not in active or history | toast: `引用的 block id 在目标文档中无记录` |
 | yaml corrupted | toast: `目标文档的 block.yaml 解析失败` |
 
-**Source-mode jump**: command `mdblock.followCitationAtCursor` (default
-`Cmd+Enter`, scoped to `((..))` ranges). Implementation scans backward from
+**Source-mode jump**: command `mdblock.followCitationAtCursor` (default  
+`Cmd+Enter`, scoped to `((..))` ranges). Implementation scans backward from  
 selectionStart for `((`, forward for `))`, regex-matches.
 
 ### (f) `mdblock-hover` visualization — `src/lib/mdblock-hover/`
 
-A separate, in-process Svelte module gated by `settings.mdblock.hover.enabled`.
-mdeditor's existing plugin protocol is out-of-process IPC and unsuited to UI
-decoration; "plugin" here is a settings-toggleable subsystem, not a child
+A separate, in-process Svelte module gated by `settings.mdblock.hover.enabled`.  
+mdeditor's existing plugin protocol is out-of-process IPC and unsuited to UI  
+decoration; "plugin" here is a settings-toggleable subsystem, not a child  
 process.
 
 **Module layout**:
@@ -513,17 +512,17 @@ src/lib/mdblock-hover/
 └──────────┴──────────────────────────────────┘
 ```
 
-- Block-start lines show full `b-xxxxxx`; continuation lines show a thin
+- Block-start lines show full `b-xxxxxx`; continuation lines show a thin  
   vertical bar
 - Click on label → copy `b-xxxxxx` to clipboard
 - Hover → highlight matching block's text background (CSS sibling selector)
-- Scroll synced via `textarea.addEventListener('scroll', ...)` setting
+- Scroll synced via `textarea.addEventListener('scroll', ...)` setting  
   `gutter.scrollTop`
-- Width fixed at ~84px; font / line-height match textarea via
+- Width fixed at \~84px; font / line-height match textarea via  
   `getComputedStyle`
 
-**Soft-wrap handling**: when hover is enabled, source textarea's
-`white-space` is forced to `pre` (no wrap). User accepts horizontal scrolling
+**Soft-wrap handling**: when hover is enabled, source textarea's  
+`white-space` is forced to `pre` (no wrap). User accepts horizontal scrolling  
 of long lines as a tradeoff for visual alignment. Documented in Settings UI.
 
 **Rich view overlay**:
@@ -534,20 +533,20 @@ of long lines as a tradeoff for visual alignment. Documented in Settings UI.
 └──────────────────────────────────┘
 ```
 
-- Absolute-positioned `<div class="mdblock-overlay">` outside `@moraya/core`,
+- Absolute-positioned `<div class="mdblock-overlay">` outside `@moraya/core`,  
   `pointer-events: none`
-- `MutationObserver` on rich editor root, throttled to 100ms; on change, walk
+- `MutationObserver` on rich editor root, throttled to 100ms; on change, walk  
   top-level DOM children and 1:1 align with `active[]` (in document order)
-- Each top-level element gets a dashed outer rect + `b-xxxxxx` badge anchored
+- Each top-level element gets a dashed outer rect + `b-xxxxxx` badge anchored  
   to its top-left
-- **1:N reconciliation** (multiple active blocks landing in the same rendered
-  top-level node — happens when chunker splits a long paragraph): merge into
+- **1:N reconciliation** (multiple active blocks landing in the same rendered  
+  top-level node — happens when chunker splits a long paragraph): merge into  
   one rect; badge shows `b-7f3a9c +1`; clicking badge popovers full id list
 
 **Lifecycle**:
 
 | Event | Effect |
-|---|---|
+| --- | --- |
 | Hover enabled + tab has `.block.yaml` | Mount gutter + overlay |
 | Tab switch | Tear down + remount per new tab |
 | Hover disabled | Tear down; restore textarea CSS; unbind listeners |
@@ -578,15 +577,15 @@ src/components/
 **Commands**:
 
 | Command | Default shortcut | Behavior |
-|---|---|---|
+| --- | --- | --- |
 | `mdblock.compute` | — | First-time `.block.yaml` generation (gen=1, all fresh) |
 | `mdblock.refresh` | `Cmd+Shift+B` | Re-chunk + merge; update yaml; regenerate `.block.md` if `has_block_md` |
 | `mdblock.generateBlockMd` | — | Generate / regenerate `.block.md` only |
 | `mdblock.reset` | — | Discard all lineage; rebuild fresh (confirm dialog) |
-| `mdblock.followCitationAtCursor` | `Cmd+Enter`* | Resolve `((..))` under cursor and jump |
+| `mdblock.followCitationAtCursor` | `Cmd+Enter`\* | Resolve `((..))` under cursor and jump |
 | `mdblock.toggleHover` | — | Toggle visualization (also in View menu) |
 
-*`Cmd+Enter` only when cursor is inside `((..))`; otherwise pass-through.
+\*`Cmd+Enter` only when cursor is inside `((..))`; otherwise pass-through.
 
 **Settings schema** (added to `settings.svelte.ts`):
 
@@ -628,14 +627,14 @@ mdblock.refresh
       toast "Refreshed: 23 active, +2 fresh, 1 retired"
 ```
 
-**Cross-platform**: `blockchunk/` is pure TS (works in iOS port unchanged);
-`blockio/` uses `@tauri-apps/plugin-fs` (same API on Tauri-mobile);
+**Cross-platform**: `blockchunk/` is pure TS (works in iOS port unchanged);  
+`blockio/` uses `@tauri-apps/plugin-fs` (same API on Tauri-mobile);  
 `mdblock-hover/` is DOM + Svelte (works in any webview).
 
 ### (h) Test strategy
 
 | Layer | Type | Tooling | Scope |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `blockchunk/` | unit, pure | vitest | algorithm + fingerprint + merge edge cases |
 | `blockio/` | unit + integration | vitest + tmp dirs | yaml round-trip, inject idempotency, citation parsing |
 | `mdblock-hover/` | component | vitest + happy-dom | line-block-map, gutter DOM, overlay DOM |
@@ -643,12 +642,12 @@ mdblock.refresh
 
 **Algorithm-layer key cases**:
 
-1. Port qmd's `test/store.test.ts` chunking describes (~40 cases) — verbatim
-   coverage of break-point detection, code fences, best-cutoff scoring,
+1. Port qmd's `test/store.test.ts` chunking describes (\~40 cases) — verbatim  
+   coverage of break-point detection, code fences, best-cutoff scoring,  
    integration
-2. Fingerprint: identical text → identical hash; whitespace/case-equivalent
+2. Fingerprint: identical text → identical hash; whitespace/case-equivalent  
    text → identical hash; trigram Jaccard at 0 / 0.5 / 1
-3. Merge: each outcome (kept / edited / split / merge / fresh / retired)
+3. Merge: each outcome (kept / edited / split / merge / fresh / retired)  
    isolated; composite (split + merge in same pass)
 
 **Persistence-layer key cases**:
@@ -658,7 +657,7 @@ mdblock.refresh
 6. Inject idempotency: source + active → byte-identical output across runs
 7. Inject offset: with frontmatter / without / mid-line block boundary
 8. Citation regex: nested-paren rejection, malformed id rejection, valid forms
-9. Citation resolution: active hit, single-hop history, multi-hop history,
+9. Citation resolution: active hit, single-hop history, multi-hop history,  
    deleted terminal, missing file, missing yaml, corrupted yaml
 
 **Visualization-layer key cases**:
@@ -669,7 +668,7 @@ mdblock.refresh
 
 **Performance benchmarks** (local, not CI):
 
-- 50 KB markdown / ~200 blocks: chunk + merge < 50 ms; yaml serialize < 20 ms;
+- 50 KB markdown / \~200 blocks: chunk + merge < 50 ms; yaml serialize < 20 ms;  
   `.block.md` generation < 10 ms
 - 100-generation lineage: citation resolution < 5 ms
 
@@ -686,33 +685,32 @@ N+5. In another .md, paste ((foo.md#b-xxxxxx)) → Cmd+Enter → opens foo.md an
 
 ## Open questions / risks
 
-1. **`@moraya/core` decoration API unknown at design time** — rich overlay
-   relies on DOM walking + `MutationObserver`, which works regardless of the
-   editor framework, but if `@moraya/core` exposes a proper decoration API
+1. **`@moraya/core` decoration API unknown at design time** — rich overlay  
+   relies on DOM walking + `MutationObserver`, which works regardless of the  
+   editor framework, but if `@moraya/core` exposes a proper decoration API  
    later, it would be cleaner to migrate.
-2. **`Cmd+Enter` shortcut conflict** — needs implementation-time audit against
+2. **`Cmd+Enter` shortcut conflict** — needs implementation-time audit against  
    existing M↓ shortcuts; alternative: `Cmd+J`.
-3. **Soft-wrap toggle UX surprise** — users enabling hover for the first time
-   will notice their source view stops wrapping. Settings tooltip should
+3. **Soft-wrap toggle UX surprise** — users enabling hover for the first time  
+   will notice their source view stops wrapping. Settings tooltip should  
    explain.
-4. **YAML merge conflicts in git** — when two collaborators run `Compute
-   Blocks` on diverged branches, manual yaml merge is non-trivial. Document a
-   recovery procedure: re-run `mdblock.refresh` on the merged source and let
-   the algorithm re-derive ids; old citations resolve through the `history`
+4. **YAML merge conflicts in git** — when two collaborators run `Compute Blocks` on diverged branches, manual yaml merge is non-trivial. Document a  
+   recovery procedure: re-run `mdblock.refresh` on the merged source and let  
+   the algorithm re-derive ids; old citations resolve through the `history`  
    chain.
-5. **Generation counter monotonicity** — relies on yaml being trustworthy;
-   if a user manually edits yaml's `meta.generation` lower, history ordering
+5. **Generation counter monotonicity** — relies on yaml being trustworthy;  
+   if a user manually edits yaml's `meta.generation` lower, history ordering  
    breaks. Spec assumes yaml is not hand-edited; future: signature/checksum.
 
 ## Future work (not in v1, captured for the implementation plan)
 
 - KaTeX `$$..$$` blocks as unsplittable regions (fingerprint algorithm change)
-- Token-based sizing via a real tokenizer (only if char-based proves
+- Token-based sizing via a real tokenizer (only if char-based proves  
   insufficient in practice)
 - Cross-tool URI schemes in citations (`qmd://`, `file://`)
 - frontmatter as a first-class citable block
 - Embedding-based similarity for merge (replace Jaccard with semantic match)
-- A "lineage graph" panel that visualizes a block's full ancestry/descendant
+- A "lineage graph" panel that visualizes a block's full ancestry/descendant  
   tree
 - mdshare integration: share-page link `((doc#b-xxx))` resolves remotely
 - Export "block diff between two generations" for review workflows
