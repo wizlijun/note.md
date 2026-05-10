@@ -31,7 +31,7 @@ export interface ActiveBlock {
   src_pos: number
   out_line?: number          // present only when meta.has_block_md=true
   fingerprint: { hash: string; length: number }
-  text: string               // normalized text, used by next merge round
+  text: string               // raw block text; re-normalized by computeFingerprint at next merge
   parents: string[]          // empty for kept/edited; non-empty for splits/merges
   created_gen: number        // birth generation; never updated on inheritance
 }

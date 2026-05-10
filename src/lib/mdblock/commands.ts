@@ -377,7 +377,16 @@ export async function cmdMdblockReset(): Promise<void> {
   if (!ok) return
   try {
     const source = await readSource(t.filePath)
-    const { yaml, stats } = await computeAndBuildYaml(t.filePath, source, null)
+    // Preserve the user's "I want a .block.md generated" preference across
+    // the reset so they aren't left with a stale .block.md whose anchors
+    // point at retired ids the new yaml never heard of.
+    const prev = await readBlockYaml(yamlPathFor(t.filePath))
+    const wantsBlockMd = prev?.meta.has_block_md ?? false
+    let { yaml, stats } = await computeAndBuildYaml(t.filePath, source, null)
+    if (wantsBlockMd) {
+      yaml.meta.has_block_md = true
+      yaml = await writeBlockMdIfNeeded(t.filePath, source, yaml)
+    }
     await writeBlockYamlAtomic(yamlPathFor(t.filePath), yaml)
     emitYamlUpdated(t.filePath)
     pushToast({ level: 'success', message: `Reset: ${stats.active} fresh blocks (gen 1)` })
