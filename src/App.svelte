@@ -14,8 +14,9 @@
   import EmptyState from './components/EmptyState.svelte'
   import ModeToggle from './components/ModeToggle.svelte'
   import { activeTab, tabs, closeTab, openFile } from './lib/tabs.svelte'
-  import { loadSettings } from './lib/settings.svelte'
+  import { loadSettings, settings } from './lib/settings.svelte'
   import { cmdOpen, cmdSave, cmdSaveAs, cmdCloseActive, cmdToggleMode } from './lib/commands'
+  import { cmdMdblockRefresh } from './lib/mdblock/commands'
   import { confirmDirtyClose } from './lib/dialogs'
   import { startAutoSaveWatcher } from './lib/autosave.svelte'
   import { installFocusPoll } from './lib/file-watcher.svelte'
@@ -235,6 +236,10 @@
     else if (k === 's' && e.shiftKey) { e.preventDefault(); cmdSaveAs() }
     else if (k === 'w') { e.preventDefault(); cmdCloseActive() }
     else if (k === '/') { e.preventDefault(); cmdToggleMode() }
+    else if (k === 'b' && e.shiftKey && settings.mdblock.enabled) {
+      e.preventDefault()
+      void cmdMdblockRefresh()
+    }
   }
 
   let current = $derived(activeTab())
