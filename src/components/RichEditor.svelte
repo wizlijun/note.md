@@ -1,9 +1,16 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte'
   import type { Tab } from '../lib/tabs.svelte'
-  import { setContent } from '../lib/tabs.svelte'
+  import { setContent, activeTab } from '../lib/tabs.svelte'
   import { buildFencedBlock, stripCodeFence } from '../lib/code-fence'
   import { skin } from '../lib/skin.svelte'
+  import RichOverlay from '../lib/mdblock-hover/rich-overlay.svelte'
+  import {
+    hoverStore,
+    getHoverState,
+    isHoverActive,
+  } from '../lib/mdblock-hover/hover-store.svelte'
+  import { settings } from '../lib/settings.svelte'
 
   // NOTE: @moraya/core (ProseMirror + plugins, multi-MB) is dynamically imported
   // inside onMount so it never loads when the user only uses source mode.
@@ -33,6 +40,13 @@
   let editor: EditorInstance | null = null
   let status = $state<'mounting' | 'mounted' | 'error'>('mounting')
   let errorMsg = $state<string | null>(null)
+
+  let hoverYaml = $derived.by(() => {
+    void hoverStore.version
+    const t = activeTab()
+    if (!t?.filePath) return null
+    return getHoverState(t.filePath)?.yaml ?? null
+  })
   /**
    * Last value either pushed *out* of the editor (via onChange) or pulled
    * *into* it (via inbound resync). Lets us tell "editor has user edits not
@@ -117,7 +131,12 @@
   {#if status === 'error'}
     <div class="diag err">[error] {errorMsg ?? 'unknown'}</div>
   {/if}
-  <div class="host" data-skin={skin.current} bind:this={host}></div>
+  <div class="host-shell">
+    <div class="host" data-skin={skin.current} bind:this={host}></div>
+    {#if isHoverActive() && settings.mdblock.hover.showRichOverlay && hoverYaml && host}
+      <RichOverlay container={host} yaml={hoverYaml} badgeFormat={settings.mdblock.hover.badgeFormat} />
+    {/if}
+  </div>
 </div>
 
 <style>
@@ -137,8 +156,14 @@
     color: GrayText;
   }
   .err { color: #c0392b; }
-  .host {
+  .host-shell {
     flex: 1;
+    position: relative;
+    min-height: 0;
+  }
+  .host {
+    position: absolute;
+    inset: 0;
     overflow: auto;
     padding: 16px 24px;
     box-sizing: border-box;

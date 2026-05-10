@@ -1,4 +1,15 @@
 <script lang="ts">
+  import SourceGutter from '../lib/mdblock-hover/source-gutter.svelte'
+  import {
+    hoverStore,
+    getHoverState,
+    loadHoverYaml,
+    isHoverActive,
+  } from '../lib/mdblock-hover/hover-store.svelte'
+  import { settings } from '../lib/settings.svelte'
+  import { activeTab } from '../lib/tabs.svelte'
+  import { cmdMdblockFollowCitationAtCursor } from '../lib/mdblock/commands'
+
   let {
     value,
     oninput,
@@ -12,6 +23,52 @@
   let textareaEl: HTMLTextAreaElement | undefined = $state()
   let highlightEl: HTMLPreElement | undefined = $state()
   let gutterEl: HTMLDivElement | undefined = $state()
+
+  // Subscribe to hover-store version so this component re-derives when yaml updates.
+  let hoverYaml = $derived.by(() => {
+    void hoverStore.version
+    const t = activeTab()
+    if (!t?.filePath) return null
+    return getHoverState(t.filePath)?.yaml ?? null
+  })
+
+  // Trigger initial yaml load whenever the active tab changes and hover is on.
+  $effect(() => {
+    const t = activeTab()
+    if (t?.filePath?.endsWith('.md') && isHoverActive()) {
+      void loadHoverYaml(t.filePath)
+    }
+  })
+
+  // Listen for citation-jump events from rich-mode pills or the source-mode
+  // command, and scroll this textarea to the requested src_line.
+  $effect(() => {
+    function onJump(ev: Event) {
+      const d = (ev as CustomEvent<{ filePath: string; srcLine: number }>).detail
+      const t = activeTab()
+      if (!textareaEl || !t || t.filePath !== d.filePath) return
+      const lines = textareaEl.value.split('\n')
+      let pos = 0
+      for (let i = 0; i < d.srcLine - 1; i++) pos += lines[i].length + 1
+      textareaEl.focus()
+      textareaEl.setSelectionRange(pos, pos)
+      const lh = parseFloat(getComputedStyle(textareaEl).lineHeight) || 20
+      textareaEl.scrollTop = (d.srcLine - 1) * lh - textareaEl.clientHeight / 2
+    }
+    window.addEventListener('mdblock:jump', onJump)
+    return () => window.removeEventListener('mdblock:jump', onJump)
+  })
+
+  async function onTextareaKeydown(ev: KeyboardEvent) {
+    if (!settings.mdblock.enabled) return
+    if ((ev.metaKey || ev.ctrlKey) && ev.key === 'Enter') {
+      const handled = await cmdMdblockFollowCitationAtCursor()
+      if (handled) {
+        ev.preventDefault()
+        ev.stopPropagation()
+      }
+    }
+  }
 
   function escapeHtml(s: string): string {
     return s
@@ -53,6 +110,13 @@
 
 <div class="src">
   <div class="gutter" bind:this={gutterEl} aria-hidden="true">{lineNumbers}</div>
+  {#if isHoverActive() && settings.mdblock.hover.showSourceGutter && hoverYaml}
+    <SourceGutter
+      textarea={textareaEl ?? null}
+      yaml={hoverYaml}
+      badgeFormat={settings.mdblock.hover.badgeFormat}
+    />
+  {/if}
   <div class="host">
     <pre class="hl" bind:this={highlightEl} aria-hidden="true">{@html highlighted}</pre>
     <textarea
@@ -62,6 +126,7 @@
       {value}
       {oninput}
       onscroll={syncScroll}
+      onkeydown={onTextareaKeydown}
       spellcheck="true"
       autocapitalize="off"
     ></textarea>

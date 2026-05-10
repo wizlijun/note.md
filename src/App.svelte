@@ -48,6 +48,10 @@
 
     ;(async () => {
       try { await loadSettings() } catch (e) { console.warn('[App] loadSettings:', e) }
+      try {
+        const { installHoverInvalidator } = await import('./lib/mdblock-hover/hover-store.svelte')
+        installHoverInvalidator()
+      } catch (e) { console.warn('[App] installHoverInvalidator:', e) }
       // Sync persisted skin into the reactive skin module so RichEditor's
       // [data-skin] binding picks it up before first mount.
       try {

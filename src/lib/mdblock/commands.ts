@@ -370,11 +370,9 @@ export async function cmdMdblockFollowCitationAtCursor(): Promise<boolean> {
   const t = activeTab()
   if (!t || !t.filePath || t.kind === 'image') return false
 
-  // Source mode keeps a textarea visible; locate it via class selector.
-  // The wrapper class (.source-pane) is added in Task 23 when SourceView
-  // mounts mdblock-hover; if hover is not enabled, the textarea may not be
-  // wrapped and this query returns null — that's fine, we silently skip.
-  const textarea = document.querySelector<HTMLTextAreaElement>('.source-pane textarea')
+  // Source mode renders an active textarea with the .src-textarea class.
+  // If we're in rich mode (no such textarea is mounted), silently skip.
+  const textarea = document.querySelector<HTMLTextAreaElement>('textarea.src-textarea')
   if (!textarea) return false
   const cursor = textarea.selectionStart
   const text = textarea.value
