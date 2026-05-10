@@ -4,7 +4,7 @@
   import { setContent, activeTab } from '../lib/tabs.svelte'
   import { buildFencedBlock, stripCodeFence } from '../lib/code-fence'
   import { skin } from '../lib/skin.svelte'
-  import RichOverlay from '../lib/mdblock-hover/rich-overlay.svelte'
+  import RichGutter from '../lib/mdblock-hover/rich-gutter.svelte'
   import {
     hoverStore,
     getHoverState,
@@ -131,11 +131,11 @@
   {#if status === 'error'}
     <div class="diag err">[error] {errorMsg ?? 'unknown'}</div>
   {/if}
-  <div class="host-shell">
-    <div class="host" data-skin={skin.current} bind:this={host}></div>
+  <div class="rich-pane">
     {#if isHoverActive() && settings.mdblock.hover.showRichOverlay && hoverYaml && host}
-      <RichOverlay container={host} yaml={hoverYaml} pageBasename={(activeTab()?.filePath ?? '').replace(/^.*[\\/]/, '')} />
+      <RichGutter container={host} yaml={hoverYaml} pageBasename={(activeTab()?.filePath ?? '').replace(/^.*[\\/]/, '')} />
     {/if}
+    <div class="host" data-skin={skin.current} bind:this={host}></div>
   </div>
 </div>
 
@@ -156,14 +156,13 @@
     color: GrayText;
   }
   .err { color: #c0392b; }
-  .host-shell {
+  .rich-pane {
     flex: 1;
-    position: relative;
+    display: flex;
     min-height: 0;
   }
   .host {
-    position: absolute;
-    inset: 0;
+    flex: 1;
     overflow: auto;
     padding: 16px 24px;
     box-sizing: border-box;
