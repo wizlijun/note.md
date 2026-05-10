@@ -3,6 +3,7 @@ import { Marked } from 'marked'
 import markedKatex from 'marked-katex-extension'
 import { markedHighlight } from 'marked-highlight'
 import hljs from 'highlight.js'
+import { blockCitationExtension } from '../blockio/marked-citation'
 import type { Tab } from '../tabs.svelte'
 
 /**
@@ -73,6 +74,7 @@ const sharedMarked = new Marked(
   }),
   markedKatex({ throwOnError: false }),
 )
+sharedMarked.use({ extensions: [blockCitationExtension] })
 
 /**
  * Render a tab to an HTML body fragment (no <html>/<head>). markdown runs
