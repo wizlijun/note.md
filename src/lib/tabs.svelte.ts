@@ -119,6 +119,16 @@ export function setMode(id: string, mode: Mode): void {
 export async function saveActive(): Promise<void> {
   const t = activeTab()
   if (!t) return
+  // 'changed' means the file on disk has been modified externally and the
+  // user has not yet reconciled. A blind write here would silently overwrite
+  // those external edits — exactly the loss path the banner exists to
+  // prevent. The 'deleted' state has no external content to clobber, so
+  // Recreate-on-Save is allowed.
+  if (t.externalState === 'changed') {
+    throw new Error(
+      `"${t.title}" was modified externally. Use the banner to Reload, Overwrite, or Save as…`,
+    )
+  }
   await writeMd(t.filePath, t.currentContent)
   t.initialContent = t.currentContent
   await recordOurWrite(t)

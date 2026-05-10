@@ -25,6 +25,14 @@ export interface TabSnapshot {
   lastKnownMtime: number
   lastKnownHash: string
   externalState: 'fresh' | 'changed' | 'deleted'
+  /**
+   * Editor mode. Rich mode owns its own internal document state, which
+   * cannot be silently resynced without surprising the user — so rich-mode
+   * tabs always surface the banner instead of taking the autoReload
+   * fast-path. Source mode is a plain controlled textarea and reloads
+   * cleanly.
+   */
+  mode: 'source' | 'rich'
 }
 
 export type Decision =
@@ -48,7 +56,12 @@ export function decide(tab: TabSnapshot, event: ExternalEvent): Decision {
     return { kind: 'ignore' }
   }
   const dirty = tab.currentContent !== tab.initialContent
-  return dirty
-    ? { kind: 'showChanged', snapshot: event.snapshot }
-    : { kind: 'autoReload', snapshot: event.snapshot }
+  // Rich-mode tabs never autoReload: the editor's internal state would still
+  // show the pre-change content, and the next keystroke or destroy-flush
+  // would silently overwrite the disk's new version. Force the banner so
+  // the user explicitly chooses Reload vs. Overwrite.
+  if (dirty || tab.mode === 'rich') {
+    return { kind: 'showChanged', snapshot: event.snapshot }
+  }
+  return { kind: 'autoReload', snapshot: event.snapshot }
 }

@@ -33,9 +33,23 @@
   let editor: EditorInstance | null = null
   let status = $state<'mounting' | 'mounted' | 'error'>('mounting')
   let errorMsg = $state<string | null>(null)
+  /**
+   * Last value either pushed *out* of the editor (via onChange) or pulled
+   * *into* it (via inbound resync). Lets us tell "editor has user edits not
+   * yet propagated" from "editor and tab.currentContent already agree".
+   * Without this:
+   *   - the inbound $effect would loop on every onChange round-trip;
+   *   - the destroy-flush would silently overwrite externally-replaced
+   *     content with the editor's pre-replacement state.
+   */
+  let lastSync: string | null = null
 
   function unwrapIfNeeded(md: string): string {
     return wrapAsCodeBlock !== undefined ? stripCodeFence(md) : md
+  }
+
+  function wrapIfNeeded(md: string): string {
+    return wrapAsCodeBlock !== undefined ? buildFencedBlock(md, wrapAsCodeBlock) : md
   }
 
   onMount(() => {
@@ -45,15 +59,19 @@
       return
     }
     const tabId = tab.id
-    const initial = wrapAsCodeBlock !== undefined
-      ? buildFencedBlock(tab.currentContent, wrapAsCodeBlock)
-      : tab.currentContent
     ;(async () => {
       try {
         const { mountRichEditor } = await import('../lib/editor-bridge')
-        const inst = await mountRichEditor(host!, initial, (md) => {
-          setContent(tabId, unwrapIfNeeded(md))
+        const inst = await mountRichEditor(host!, wrapIfNeeded(tab.currentContent), (md) => {
+          const unwrapped = unwrapIfNeeded(md)
+          lastSync = unwrapped
+          setContent(tabId, unwrapped)
         })
+        // Mark in-sync BEFORE exposing the editor: the inbound $effect runs
+        // immediately on `status === 'mounted'`, and would otherwise see a
+        // null lastSync and re-push the same content into a freshly-mounted
+        // view (harmless but wasteful).
+        lastSync = tab.currentContent
         editor = inst
         status = 'mounted'
       } catch (e) {
@@ -64,11 +82,28 @@
     })()
   })
 
+  // Inbound sync: when tab.currentContent is replaced from outside the
+  // editor (reloadFromDisk, future autoReload paths, etc.), push it into
+  // the ProseMirror view. Round-trips from our own onChange are filtered
+  // by `lastSync`.
+  $effect(() => {
+    const target = tab.currentContent
+    if (status !== 'mounted' || !editor) return
+    if (target === lastSync) return
+    editor.setContent(wrapIfNeeded(target))
+    lastSync = target
+  })
+
   onDestroy(() => {
     if (editor) {
       try {
         const md = editor.getMarkdown()
-        onFlush?.(unwrapIfNeeded(md))
+        const unwrapped = unwrapIfNeeded(md)
+        // Skip flush when the editor is already in sync with tab.currentContent
+        // — flushing then would overwrite a just-arrived external replacement
+        // with the editor's pre-replacement state. Only push when there are
+        // genuinely unflushed user edits (debounce hasn't fired yet).
+        if (unwrapped !== lastSync) onFlush?.(unwrapped)
         editor.destroy()
       } catch (e) {
         console.warn('[RichEditor] destroy failed:', e)

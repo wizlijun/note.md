@@ -48,6 +48,29 @@ describe('verifyAllOpen', () => {
     expect(t.lastKnownMtime).toBe(2000)
   })
 
+  it('rich-mode clean tab + external modify → changed (banner), no silent reload', async () => {
+    // Regression: previously rich-mode tabs hit the autoReload fast-path,
+    // which left the ProseMirror view stale while tab.currentContent was
+    // swapped underneath. The next keystroke/destroy-flush then overwrote
+    // the disk's new content with the editor's pre-change state.
+    const fs = await import('./fs')
+    ;(fs.readMd as ReturnType<typeof vi.fn>).mockResolvedValueOnce('A')
+    ;(fs.statFile as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ mtime: 1000, size: 1 })
+    ;(fs.readMd as ReturnType<typeof vi.fn>).mockResolvedValueOnce('B')
+    ;(fs.statFile as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ mtime: 2000, size: 1 })
+    const tabs = await import('./tabs.svelte')
+    const watcher = await import('./file-watcher.svelte')
+    await tabs.openFile('/tmp/foo.md')
+    tabs.setMode(tabs.tabs[0].id, 'rich')
+    await watcher.verifyAllOpen()
+    const t = tabs.tabs[0]
+    expect(t.externalState).toBe('changed')
+    expect(t.pendingExternal?.content).toBe('B')
+    // Critical: tab.currentContent must NOT have been silently swapped.
+    expect(t.currentContent).toBe('A')
+    expect(t.initialContent).toBe('A')
+  })
+
   it('marks a dirty tab as changed when disk content differs', async () => {
     const fs = await import('./fs')
     ;(fs.readMd as ReturnType<typeof vi.fn>).mockResolvedValueOnce('A')

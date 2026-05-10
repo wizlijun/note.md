@@ -93,6 +93,40 @@ describe('tabs', () => {
     expect(m.isDirty(id)).toBe(false)
   })
 
+  it('saveActive refuses to write when externalState is "changed"', async () => {
+    // The banner provides the explicit reconciliation UI (Reload / Overwrite /
+    // Save as…). A blind ⌘S during this state would silently clobber the
+    // external change — so saveActive must refuse and let the caller surface
+    // a useful error.
+    const fs = await import('./fs')
+    const m = await import('./tabs.svelte')
+    await m.openFile('/tmp/foo.md')
+    const t = m.tabs[0]
+    m.setContent(t.id, 'mine')
+    t.externalState = 'changed'
+    t.pendingExternal = { mtime: 5000, hash: 'h-X', content: 'theirs' }
+    await expect(m.saveActive()).rejects.toThrow(/external/i)
+    expect(fs.writeMd).not.toHaveBeenCalled()
+    // State must not have been mutated.
+    expect(t.externalState).toBe('changed')
+    expect(t.currentContent).toBe('mine')
+  })
+
+  it('saveActive still works when externalState is "deleted" (Recreate-on-Save)', async () => {
+    // The deleted state has no external content to clobber — the file is
+    // gone, and the banner's "Recreate on Save (⌘S)" button explicitly
+    // delegates here. Only 'changed' is blocked.
+    const fs = await import('./fs')
+    const m = await import('./tabs.svelte')
+    await m.openFile('/tmp/foo.md')
+    const t = m.tabs[0]
+    m.setContent(t.id, 'recreated body')
+    t.externalState = 'deleted'
+    await m.saveActive()
+    expect(fs.writeMd).toHaveBeenCalledWith('/tmp/foo.md', 'recreated body')
+    expect(t.externalState).toBe('fresh')
+  })
+
   it('closeTab removes when not dirty without prompt', async () => {
     const m = await import('./tabs.svelte')
     await m.openFile('/tmp/foo.md')

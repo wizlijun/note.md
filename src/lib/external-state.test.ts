@@ -7,6 +7,7 @@ const fresh = (overrides: Partial<TabSnapshot> = {}): TabSnapshot => ({
   lastKnownMtime: 1000,
   lastKnownHash: 'h-A',
   externalState: 'fresh',
+  mode: 'source',
   ...overrides,
 })
 
@@ -61,5 +62,23 @@ describe('decide', () => {
       modifiedEvent(2000, 'h-A', 'A'),
     )
     expect(d).toEqual({ kind: 'autoReload', snapshot: { mtime: 2000, hash: 'h-A', content: 'A' } })
+  })
+
+  it('clean rich-mode tab + external modify → showChanged (never silent autoReload)', () => {
+    // Rich-mode editor maintains internal state we cannot smoothly resync.
+    // Always surface the banner so the user explicitly chooses Reload vs.
+    // Overwrite. Source mode keeps the autoReload fast-path.
+    const d = decide(fresh({ mode: 'rich' }), modifiedEvent(2000, 'h-B', 'B'))
+    expect(d).toEqual({ kind: 'showChanged', snapshot: { mtime: 2000, hash: 'h-B', content: 'B' } })
+  })
+
+  it('clean rich-mode tab recreated after deletion → still showChanged', () => {
+    // Even when transitioning out of `deleted`, rich mode must not silently
+    // swap content under the editor.
+    const d = decide(
+      fresh({ mode: 'rich', externalState: 'deleted' }),
+      modifiedEvent(2000, 'h-A', 'A'),
+    )
+    expect(d).toEqual({ kind: 'showChanged', snapshot: { mtime: 2000, hash: 'h-A', content: 'A' } })
   })
 })
