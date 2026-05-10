@@ -92,17 +92,17 @@ describe('resolveCitationViaYaml (pure)', () => {
     },
     active: [
       { id: 'b-aaaaaa', src_line: 5, src_pos: 50,
-        fingerprint: { hash: '', length: 1 }, text: '', parents: [], created_gen: 1 },
+        fingerprint: { hash: '', length: 1, minhash: '' }, parents: [], created_gen: 1 },
       { id: 'b-eeeeee', src_line: 30, src_pos: 500,
-        fingerprint: { hash: '', length: 1 }, text: '', parents: [], created_gen: 47 },
+        fingerprint: { hash: '', length: 1, minhash: '' }, parents: [], created_gen: 47 },
     ],
     history: [
       { id: 'b-bbbbbb', retired_gen: 47, replaced_by: ['b-eeeeee'],
-        last_fingerprint: { hash: '', length: 0 } },
+        last_fingerprint: { hash: '', length: 0, minhash: '' } },
       { id: 'b-cccccc', retired_gen: 47, replaced_by: ['b-bbbbbb'],
-        last_fingerprint: { hash: '', length: 0 } },
+        last_fingerprint: { hash: '', length: 0, minhash: '' } },
       { id: 'b-dddddd', retired_gen: 23, replaced_by: [],
-        last_fingerprint: { hash: '', length: 0 } },
+        last_fingerprint: { hash: '', length: 0, minhash: '' } },
     ],
   }
 

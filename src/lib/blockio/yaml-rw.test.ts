@@ -18,8 +18,13 @@ const sample: BlockYaml = {
       id: 'b-7f3a9c',
       src_line: 1,
       src_pos: 0,
-      fingerprint: { hash: 'a1b2c3d4e5f6', length: 14 },
-      text: '# introduction',
+      src_end_line: 1,
+      src_end_pos: 14,
+      fingerprint: {
+        hash: 'a1b2c3d4e5f6',
+        length: 14,
+        minhash: 'a'.repeat(256),
+      },
       parents: [],
       created_gen: 1,
     },
@@ -34,21 +39,26 @@ describe('serializeBlockYaml + parseBlockYaml round-trip', () => {
     expect(parsed).toEqual(sample)
   })
 
-  it('preserves multi-line text content', () => {
-    const withMultiline: BlockYaml = {
-      ...sample,
-      active: [{ ...sample.active[0], text: 'line one\nline two\nline three' }],
-    }
-    const round = parseBlockYaml(serializeBlockYaml(withMultiline))
-    expect(round.active[0].text).toBe('line one\nline two\nline three')
+  it('preserves long minhash hex string on a single line', () => {
+    const yaml = serializeBlockYaml(sample)
+    // The 256-char minhash should not be folded across lines.
+    expect(yaml).toContain(`minhash: ${'a'.repeat(256)}`)
   })
 
   it('rejects yaml with wrong schema_version', () => {
     const wrong = serializeBlockYaml(sample).replace(
-      'schema_version: 1',
+      `schema_version: ${SCHEMA_VERSION}`,
       'schema_version: 99',
     )
     expect(() => parseBlockYaml(wrong)).toThrow(/schema/i)
+  })
+
+  it('rejects v1 yaml so the caller can quarantine and rebuild', () => {
+    const v1 = serializeBlockYaml(sample).replace(
+      `schema_version: ${SCHEMA_VERSION}`,
+      'schema_version: 1',
+    )
+    expect(() => parseBlockYaml(v1)).toThrow(/schema/i)
   })
 
   it('throws on malformed yaml', () => {

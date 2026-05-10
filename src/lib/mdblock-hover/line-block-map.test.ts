@@ -5,8 +5,8 @@ import type { ActiveBlock } from '../blockio/yaml-schema'
 function ab(id: string, line: number): ActiveBlock {
   return {
     id, src_line: line, src_pos: 0,
-    fingerprint: { hash: '', length: 0 },
-    text: '', parents: [], created_gen: 1,
+    fingerprint: { hash: '', length: 0, minhash: '' },
+    parents: [], created_gen: 1,
   }
 }
 

@@ -36,8 +36,7 @@ More body content.`
       id: `b-${i.toString(16).padStart(6, '0')}`,
       src_pos: b.src_pos + fm.fm.length,
       src_line: b.src_line + fm.fmLines,
-      fingerprint: { hash: '0', length: 1 },
-      text: b.text,
+      fingerprint: { hash: '0', length: 1, minhash: '' },
       parents: [],
       created_gen: 1,
     }))

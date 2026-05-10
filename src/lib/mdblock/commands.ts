@@ -2,7 +2,11 @@ import { activeTab } from '../tabs.svelte'
 import { showError } from '../dialogs'
 import { pushToast } from '../toast.svelte'
 import { chunkDocument } from '../blockchunk/chunker'
-import { computeFingerprint } from '../blockchunk/fingerprint'
+import {
+  computeFingerprint,
+  serializeMinHash,
+  parseMinHash,
+} from '../blockchunk/fingerprint'
 import { newBlockId } from '../blockchunk/id'
 import {
   mergeBlocks,
@@ -15,7 +19,6 @@ import {
   type RetiredBlock,
   SCHEMA_VERSION,
   DEFAULT_CONFIG,
-  HISTORY_TEXT_KEEP_GENS,
 } from '../blockio/yaml-schema'
 import { readBlockYaml, writeBlockYamlAtomic } from '../blockio/yaml-rw'
 import { generateBlockMd, splitFrontmatter } from '../blockio/inject'
@@ -114,16 +117,20 @@ async function computeAndBuildYaml(
 
   // Fingerprints (parallel)
   const newFps = await Promise.all(newBlocks.map((b) => computeFingerprint(b.text)))
-  const newEntries: NewBlockEntry[] = newBlocks.map((b, i) => ({ fp: newFps[i], text: b.text }))
+  const newEntries: NewBlockEntry[] = newFps.map((fp) => ({ fp }))
 
-  // Old entries from prev yaml
-  const oldEntries: OldBlockEntry[] = []
-  if (prev) {
-    for (const a of prev.active) {
-      const fp = await computeFingerprint(a.text)
-      oldEntries.push({ id: a.id, fp, text: a.text })
-    }
-  }
+  // Old entries: rebuild fingerprints from the persisted MinHash signature.
+  // No re-tokenization needed because v2 schema stores the signature directly.
+  const oldEntries: OldBlockEntry[] = prev
+    ? prev.active.map((a) => ({
+        id: a.id,
+        fp: {
+          hash: a.fingerprint.hash,
+          length: a.fingerprint.length,
+          minhash: parseMinHash(a.fingerprint.minhash),
+        },
+      }))
+    : []
 
   const generation = (prev?.meta.generation ?? 0) + 1
   const out = mergeBlocks(
@@ -178,18 +185,30 @@ async function computeAndBuildYaml(
     newCreatedGen[f.newIdx] = generation
   }
 
-  // Build active[] (sorted by src_pos via newBlocks order)
-  const active: ActiveBlock[] = newBlocks.map((b, i) => ({
-    id: newIds[i],
-    src_line: b.src_line,
-    src_pos: b.src_pos,
-    fingerprint: { hash: newFps[i].hash, length: newFps[i].length },
-    text: b.text,
-    parents: newParents[i],
-    created_gen: newCreatedGen[i],
-  }))
+  // Build active[] (sorted by src_pos via newBlocks order). Compute end
+  // extents (1-based src_end_line, exclusive src_end_pos) so the yaml is
+  // self-describing for line-range consumers.
+  const active: ActiveBlock[] = newBlocks.map((b, i) => {
+    const newlines = (b.text.match(/\n/g) ?? []).length
+    return {
+      id: newIds[i],
+      src_line: b.src_line,
+      src_pos: b.src_pos,
+      src_end_line: b.src_line + newlines,
+      src_end_pos: b.src_pos + b.text.length,
+      fingerprint: {
+        hash: newFps[i].hash,
+        length: newFps[i].length,
+        minhash: serializeMinHash(newFps[i].minhash),
+      },
+      parents: newParents[i],
+      created_gen: newCreatedGen[i],
+    }
+  })
 
-  // Build history: carry forward + append new retirements
+  // Build history: carry forward + append new retirements. Schema v2 retires
+  // store only the persisted fingerprint (no inline text); a retired block's
+  // identity for citation-chain resolution is its id, not its content.
   const history: RetiredBlock[] = prev ? prev.history.map((h) => ({ ...h })) : []
 
   // 1. Pure deletions (out.retired)
@@ -199,11 +218,7 @@ async function computeAndBuildYaml(
       id: r.oldId,
       retired_gen: generation,
       replaced_by: [],
-      last_fingerprint: {
-        hash: oldRecord.fingerprint.hash,
-        length: oldRecord.fingerprint.length,
-      },
-      text: oldRecord.text,
+      last_fingerprint: { ...oldRecord.fingerprint },
     })
   }
   // 2. Merge-derived retirements (from out.merges)
@@ -215,20 +230,9 @@ async function computeAndBuildYaml(
         id: oldId,
         retired_gen: generation,
         replaced_by: [successorId],
-        last_fingerprint: {
-          hash: oldRecord.fingerprint.hash,
-          length: oldRecord.fingerprint.length,
-        },
-        text: oldRecord.text,
+        last_fingerprint: { ...oldRecord.fingerprint },
       })
     }
-  }
-
-  // 3. GC history.text: keep only recent or pure-deletion entries
-  for (const h of history) {
-    const isRecent = generation - h.retired_gen <= HISTORY_TEXT_KEEP_GENS
-    const isDeletion = h.replaced_by.length === 0
-    if (!isRecent && !isDeletion) delete h.text
   }
 
   const yaml: BlockYaml = {

@@ -5,8 +5,8 @@ import type { ActiveBlock } from './yaml-schema'
 function ab(id: string, src_line: number, src_pos: number): ActiveBlock {
   return {
     id, src_line, src_pos,
-    fingerprint: { hash: '0', length: 1 },
-    text: '', parents: [], created_gen: 1,
+    fingerprint: { hash: '0', length: 1, minhash: '' },
+    parents: [], created_gen: 1,
   }
 }
 

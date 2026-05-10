@@ -1,8 +1,8 @@
 import type { BlockFingerprint } from './fingerprint'
-import { jaccard } from './fingerprint'
+import { jaccard, coverage } from './fingerprint'
 
-export interface OldBlockEntry { id: string; fp: BlockFingerprint; text: string }
-export interface NewBlockEntry  { fp: BlockFingerprint; text: string }
+export interface OldBlockEntry { id: string; fp: BlockFingerprint }
+export interface NewBlockEntry  { fp: BlockFingerprint }
 
 export interface MergeOutcome {
   kept:    { newIdx: number; oldId: string }[]
@@ -88,16 +88,6 @@ export function mergeBlocks(
     if (oldUsed.has(c.oi) || newUsed.has(c.ni)) continue
     out.edited.push({ newIdx: c.ni, oldId: oldBlocks[c.oi].id, similarity: c.sim })
     oldUsed.add(c.oi); newUsed.add(c.ni)
-  }
-
-  // Coverage helper: shingles of `small` ⊆ shingles of `big` (rough).
-  function coverage(small: BlockFingerprint, big: BlockFingerprint): number {
-    if (small.shingles === '' || big.shingles === '') return 0
-    const A = new Set(small.shingles.split('|'))
-    const B = new Set(big.shingles.split('|'))
-    let inter = 0
-    for (const s of A) if (B.has(s)) inter++
-    return A.size === 0 ? 0 : inter / A.size
   }
 
   // ---- Pass 3: split (one old → multiple new) ----

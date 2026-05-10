@@ -3,10 +3,10 @@ import { mergeBlocks, type OldBlockEntry, type NewBlockEntry } from './merge'
 import { computeFingerprint } from './fingerprint'
 
 async function entry(id: string, text: string): Promise<OldBlockEntry> {
-  return { id, fp: await computeFingerprint(text), text }
+  return { id, fp: await computeFingerprint(text) }
 }
 async function nblock(text: string): Promise<NewBlockEntry> {
-  return { fp: await computeFingerprint(text), text }
+  return { fp: await computeFingerprint(text) }
 }
 
 describe('mergeBlocks', () => {
