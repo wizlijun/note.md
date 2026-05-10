@@ -91,40 +91,20 @@
 
   let highlighted = $derived(highlight(value))
   let lineCount = $derived(value === '' ? 1 : (value.match(/\n/g)?.length ?? 0) + 1)
-  let lineNumbers = $derived(
-    Array.from({ length: lineCount }, (_, i) => i + 1).join('\n'),
-  )
 
-  // ---- mdblock markers overlaid in the line-number gutter ----
+  // Map src_line → blockid for the FIRST line of each block. Used to wrap
+  // that line's number in a clickable box.
+  let blockStartLines = $derived.by<Map<number, string>>(() => {
+    const map = new Map<number, string>()
+    if (!hoverYaml) return map
+    for (const a of hoverYaml.active) map.set(a.src_line, a.id)
+    return map
+  })
 
-  let lineHeight = $state(20)
-  let gutterPadTop = $state(16)
   let copiedId = $state<string | null>(null)
   let copiedTimer: ReturnType<typeof setTimeout> | null = null
 
-  $effect(() => {
-    if (!textareaEl) return
-    const cs = getComputedStyle(textareaEl)
-    const lh = parseFloat(cs.lineHeight)
-    if (!Number.isNaN(lh)) lineHeight = lh
-    const pt = parseFloat(cs.paddingTop)
-    if (!Number.isNaN(pt)) gutterPadTop = pt
-  })
-
   let pageBasename = $derived((activeTab()?.filePath ?? '').replace(/^.*[\\/]/, ''))
-
-  interface BlockMarker { id: string; line: number; lineSpan: number }
-  let blockMarkers = $derived.by<BlockMarker[]>(() => {
-    if (!hoverYaml || hoverYaml.active.length === 0) return []
-    const sorted = [...hoverYaml.active].sort((a, b) => a.src_line - b.src_line)
-    const out: BlockMarker[] = []
-    for (let i = 0; i < sorted.length; i++) {
-      const line = sorted[i].src_line
-      const nextLine = i + 1 < sorted.length ? sorted[i + 1].src_line : lineCount + 1
-      out.push({ id: sorted[i].id, line, lineSpan: Math.max(1, nextLine - line) })
-    }
-    return out
-  })
 
   function citation(id: string): string { return `((${pageBasename}#${id}))` }
 
@@ -133,6 +113,49 @@
     copiedId = id
     if (copiedTimer) clearTimeout(copiedTimer)
     copiedTimer = setTimeout(() => { copiedId = null }, 1200)
+  }
+
+  function escapeAttr(s: string): string {
+    return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')
+  }
+
+  // Render line numbers as one HTML string. Block-start lines become
+  // <button> elements (full width via display:block). Other lines are
+  // raw text. Newlines are preserved by white-space: pre on .gutter.
+  let showMarkers = $derived(
+    isHoverActive() && settings.mdblock.hover.showSourceGutter && !!hoverYaml,
+  )
+  let lineNumbersHtml = $derived.by(() => {
+    if (!showMarkers) {
+      // Plain text fallback
+      return Array.from({ length: lineCount }, (_, i) => i + 1).join('\n')
+    }
+    const out: string[] = []
+    for (let i = 0; i < lineCount; i++) {
+      const n = i + 1
+      const id = blockStartLines.get(n)
+      if (id) {
+        const cls = id === copiedId ? 'num block-start copied' : 'num block-start'
+        const cite = citation(id)
+        out.push(
+          `<button type="button" class="${cls}" data-blockid="${escapeAttr(id)}" ` +
+          `title="${escapeAttr(cite)}" aria-label="Copy citation ${escapeAttr(cite)}">${n}</button>`,
+        )
+      } else {
+        out.push(String(n))
+      }
+    }
+    return out.join('\n')
+  })
+
+  function onGutterClick(ev: MouseEvent) {
+    const t = ev.target as HTMLElement | null
+    const btn = t?.closest<HTMLButtonElement>('button.block-start')
+    if (!btn) return
+    ev.preventDefault()
+    ev.stopPropagation()
+    const id = btn.dataset.blockid
+    if (id) copyCitation(id)
   }
 
   function syncScroll() {
@@ -145,32 +168,14 @@
     }
     if (gutterEl) gutterEl.scrollTop = top
   }
-
-  let showMarkers = $derived(
-    isHoverActive() && settings.mdblock.hover.showSourceGutter && hoverYaml,
-  )
 </script>
 
 <div class="src">
-  <div class="gutter" class:gutter-with-markers={showMarkers} bind:this={gutterEl} aria-hidden="true">
-    <span class="gutter-numbers">{lineNumbers}</span>
-    {#if showMarkers}
-      <div class="gutter-marker-layer">
-        {#each blockMarkers as m (m.id)}
-          <span class="gutter-bar"
-                style:top="{(m.line - 1) * lineHeight + lineHeight}px"
-                style:height="{Math.max(0, (m.lineSpan - 1) * lineHeight)}px"></span>
-          <button class="gutter-marker"
-                  class:copied={copiedId === m.id}
-                  type="button"
-                  style:top="{(m.line - 1) * lineHeight + (lineHeight - 10) / 2}px"
-                  title={citation(m.id)}
-                  aria-label="Copy citation {citation(m.id)}"
-                  onclick={() => copyCitation(m.id)}></button>
-        {/each}
-      </div>
-    {/if}
-  </div>
+  <div class="gutter"
+       class:gutter-with-markers={showMarkers}
+       bind:this={gutterEl}
+       onclick={onGutterClick}
+       role="presentation">{@html lineNumbersHtml}</div>
   <div class="host">
     <pre class="hl" bind:this={highlightEl} aria-hidden="true">{@html highlighted}</pre>
     <textarea
@@ -210,53 +215,44 @@
     box-sizing: border-box;
     min-width: 3.2em;
     opacity: 0.7;
-    position: relative;
   }
   .gutter-with-markers {
-    /* Reserve right-side space for the marker column (≈14 px). */
-    padding-right: 18px;
-    min-width: calc(3.2em + 14px);
+    min-width: 4em;
   }
-  .gutter-numbers {
+  /* The block-start button replaces a single line's number with a
+     full-width framed clickable cell. `display: block` makes it occupy
+     exactly one row of line-height; positioned in the natural text flow
+     so it ALWAYS lines up with the textarea content row at the same
+     line number, regardless of cumulative subpixel rounding. */
+  .gutter :global(button.num.block-start) {
     display: block;
-    position: relative;
-  }
-  .gutter-marker-layer {
-    position: absolute;
-    top: 16px;          /* matches .gutter padding-top; markers are content-relative */
-    right: 4px;
-    width: 12px;
-    height: 0;          /* doesn't take layout space; children are absolutely positioned */
-    pointer-events: none;
-    will-change: transform;
-  }
-  .gutter-marker {
-    position: absolute;
-    right: 0;
-    width: 10px;
-    height: 10px;
-    padding: 0;
-    border: 1px solid color-mix(in srgb, currentColor 50%, transparent);
+    width: 100%;
+    margin: 0;
+    padding: 0 4px;
+    border: 1px solid color-mix(in srgb, currentColor 35%, transparent);
     border-radius: 2px;
-    background: color-mix(in srgb, currentColor 18%, Canvas);
+    background: color-mix(in srgb, currentColor 12%, Canvas);
+    color: inherit;
+    font: inherit;
+    text-align: right;
     cursor: pointer;
-    pointer-events: auto;
-    transition: background 120ms ease, transform 120ms ease;
-    opacity: 1;
+    box-sizing: border-box;
+    line-height: inherit;
+    /* The 1px borders steal 2px of vertical space. Compensate so the
+       row's outer height stays exactly line-height, keeping subsequent
+       line numbers aligned with textarea rows. */
+    padding-top: 0;
+    padding-bottom: 0;
+    margin-top: -1px;
+    margin-bottom: -1px;
   }
-  .gutter-marker:hover {
-    background: color-mix(in srgb, currentColor 35%, Canvas);
-    transform: scale(1.18);
+  .gutter :global(button.num.block-start:hover) {
+    background: color-mix(in srgb, currentColor 22%, Canvas);
   }
-  .gutter-marker.copied {
+  .gutter :global(button.num.block-start.copied) {
     background: #4caf50;
+    color: white;
     border-color: #4caf50;
-  }
-  .gutter-bar {
-    position: absolute;
-    right: 4px;
-    width: 2px;
-    background: color-mix(in srgb, currentColor 22%, transparent);
   }
   .host {
     flex: 1;
