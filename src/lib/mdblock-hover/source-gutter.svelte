@@ -14,6 +14,8 @@
   let lineHeight = $state(20)
   let fontFamily = $state('ui-monospace, monospace')
   let fontSize = $state('14px')
+  let paddingTop = $state(0)
+  let paddingBottom = $state(0)
 
   // Recompute geometry when textarea attaches/changes
   $effect(() => {
@@ -23,6 +25,8 @@
     if (!Number.isNaN(lh)) lineHeight = lh
     fontFamily = cs.fontFamily
     fontSize = cs.fontSize
+    paddingTop = parseFloat(cs.paddingTop) || 0
+    paddingBottom = parseFloat(cs.paddingBottom) || 0
     totalLines = textarea.value.split('\n').length
 
     const onScroll = () => { scrollTop = textarea!.scrollTop }
@@ -56,7 +60,9 @@
 <div class="block-gutter"
      style:font-family={fontFamily}
      style:font-size={fontSize}
-     style:line-height="{lineHeight}px">
+     style:line-height="{lineHeight}px"
+     style:padding-top="{paddingTop}px"
+     style:padding-bottom="{paddingBottom}px">
   <div class="block-gutter-inner" style:transform="translateY({-scrollTop}px)">
     {#each Array(totalLines) as _, i}
       {@const line = i + 1}

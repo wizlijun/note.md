@@ -11,10 +11,27 @@
   interface Frame { x: number; y: number; w: number; h: number; ids: string[] }
   let frames = $state<Frame[]>([])
 
+  /**
+   * @moraya/core wraps content in `.ProseMirror` (or `.moraya-editor`) inside
+   * the host. The block-level elements (h1, p, ul, pre, …) are children of
+   * THAT wrapper, not direct children of `host`. Descend one level so the
+   * overlay frames each rendered block instead of one giant frame around
+   * the whole document.
+   */
+  function findContentRoot(host: HTMLElement): HTMLElement {
+    return (
+      (host.querySelector('.ProseMirror') as HTMLElement | null) ??
+      (host.querySelector('.moraya-editor') as HTMLElement | null) ??
+      host
+    )
+  }
+
   function recompute() {
     if (!container || !yaml) { frames = []; return }
-    const children = Array.from(container.children) as HTMLElement[]
+    const root = findContentRoot(container)
+    const children = Array.from(root.children) as HTMLElement[]
     const active = yaml.active
+    if (children.length === 0 || active.length === 0) { frames = []; return }
     const out: Frame[] = []
     const containerRect = container.getBoundingClientRect()
     // Naive 1:1 mapping with ids in document order; collapse 1:N when there
