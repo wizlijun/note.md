@@ -2,9 +2,44 @@ import { Store } from '@tauri-apps/plugin-store'
 
 type Mode = 'source' | 'rich'
 
-export const settings = $state<{ autoSave: boolean; skin: string }>({
+export interface MdblockSettings {
+  enabled: boolean
+  autoRefreshOnSave: boolean
+  injectAiHint: boolean
+  similarityThreshold: number
+  splitCoverageThreshold: number
+  chunkSizeChars: number
+  hover: {
+    enabled: boolean
+    showSourceGutter: boolean
+    showRichOverlay: boolean
+    badgeFormat: 'short' | 'full'
+  }
+}
+
+export const DEFAULT_MDBLOCK_SETTINGS: MdblockSettings = {
+  enabled: false,
+  autoRefreshOnSave: false,
+  injectAiHint: true,
+  similarityThreshold: 0.5,
+  splitCoverageThreshold: 0.3,
+  chunkSizeChars: 2400,
+  hover: {
+    enabled: false,
+    showSourceGutter: true,
+    showRichOverlay: true,
+    badgeFormat: 'short',
+  },
+}
+
+export const settings = $state<{
+  autoSave: boolean
+  skin: string
+  mdblock: MdblockSettings
+}>({
   autoSave: false,
   skin: 'default',
+  mdblock: structuredClone(DEFAULT_MDBLOCK_SETTINGS),
 })
 
 const KNOWN_SKIN_IDS = new Set(['default', 'shuyuan', 'effie'])
@@ -29,6 +64,14 @@ export async function loadSettings(): Promise<void> {
   recentModesByExt = (await s.get<Record<string, Mode>>('recentModesByExt')) ?? {}
   pluginScoped = (await s.get<Record<string, Record<string, unknown>>>('plugins')) ?? {}
   pluginsEnabled = (await s.get<Record<string, boolean>>('plugins.enabled')) ?? {}
+  const storedMdblock = await s.get<MdblockSettings>('mdblock')
+  settings.mdblock = storedMdblock
+    ? {
+        ...DEFAULT_MDBLOCK_SETTINGS,
+        ...storedMdblock,
+        hover: { ...DEFAULT_MDBLOCK_SETTINGS.hover, ...(storedMdblock.hover ?? {}) },
+      }
+    : structuredClone(DEFAULT_MDBLOCK_SETTINGS)
   pluginScopedVersion.value++
 }
 
@@ -40,6 +83,7 @@ export async function saveSettings(): Promise<void> {
   await s.set('recentModesByExt', recentModesByExt)
   await s.set('plugins', pluginScoped)
   await s.set('plugins.enabled', pluginsEnabled)
+  await s.set('mdblock', settings.mdblock)
   await s.save()
 }
 
