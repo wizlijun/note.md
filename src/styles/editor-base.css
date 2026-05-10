@@ -311,3 +311,36 @@
   border-radius: 6px;
 }
 .moraya-editor .renderer-preview svg { max-width: 100%; height: auto; }
+
+/* mdblock citation pill — rendered by marked-citation extension.
+ * Scope: applies anywhere a `.block-citation` element is rendered.
+ * Notes:
+ *   - In v1 these pills appear in share/PDF output. The live @moraya/core
+ *     rich editor (prosemirror-based) does NOT route through marked, so
+ *     pills currently do NOT appear there.
+ *   - data-status overrides are applied at runtime by the citation resolver
+ *     (Task 13) when it detects a retired or deleted target.
+ */
+.block-citation {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: color-mix(in srgb, Canvas 90%, currentColor 10%);
+  border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
+  font-family: ui-monospace, monospace;
+  font-size: 0.85em;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  margin: 0 0.1em;
+}
+.block-citation:hover {
+  background: color-mix(in srgb, Canvas 80%, currentColor 20%);
+}
+.block-citation[data-status="retired"] {
+  background: color-mix(in srgb, #fff8d8 70%, Canvas 30%);
+}
+.block-citation[data-status="deleted"] {
+  background: color-mix(in srgb, #fdd 70%, Canvas 30%);
+  text-decoration: line-through;
+}
