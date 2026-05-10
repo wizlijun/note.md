@@ -92,12 +92,86 @@
   let highlighted = $derived(highlight(value))
   let lineCount = $derived(value === '' ? 1 : (value.match(/\n/g)?.length ?? 0) + 1)
 
-  // Map src_line → blockid for the FIRST line of each block. Used to wrap
-  // that line's number in a clickable box.
+  // Live block-start line tracking. yaml.src_line is the persisted truth
+  // (set by the last Compute/Refresh). As the user types in the textarea,
+  // those line numbers drift — inserting 3 lines above a block shifts its
+  // start line by +3. We track those drifts in-memory and re-render
+  // markers at the live positions, so the box always frames the correct
+  // line as you type.
+  //
+  // Reset on yaml change (a fresh refresh) and apply diffs on every value
+  // change. The yaml file itself is not rewritten; user can run Cmd+Shift+B
+  // to persist new positions.
+  let liveLines = $state<Map<string, number>>(new Map())
+  // Plain (non-reactive) tracker for the diff effect. Initialized lazily
+  // in the first effect run so we don't capture the prop's initial value
+  // at module scope (Svelte 5 flags that as state_referenced_locally).
+  let prevValue = ''
+  let prevInited = false
+
+  $effect(() => {
+    if (!hoverYaml) {
+      liveLines = new Map()
+      prevValue = value
+      prevInited = true
+      return
+    }
+    // hoverYaml just changed (refresh or first load) — re-seed
+    const m = new Map<string, number>()
+    for (const a of hoverYaml.active) m.set(a.id, a.src_line)
+    liveLines = m
+    prevValue = value
+    prevInited = true
+  })
+
+  $effect(() => {
+    const cur = value
+    if (!prevInited) { prevValue = cur; prevInited = true; return }
+    if (cur === prevValue) return
+    if (!hoverYaml || liveLines.size === 0) { prevValue = cur; return }
+
+    // Find the longest common prefix and suffix to localize the change.
+    const oldLen = prevValue.length
+    const newLen = cur.length
+    let first = 0
+    const minLen = Math.min(oldLen, newLen)
+    while (first < minLen && prevValue.charCodeAt(first) === cur.charCodeAt(first)) first++
+    let lastOld = oldLen
+    let lastNew = newLen
+    while (
+      lastOld > first && lastNew > first &&
+      prevValue.charCodeAt(lastOld - 1) === cur.charCodeAt(lastNew - 1)
+    ) { lastOld--; lastNew-- }
+
+    // Newline delta: lines in the new segment minus lines in the old segment
+    let oldNl = 0
+    for (let i = first; i < lastOld; i++) if (prevValue.charCodeAt(i) === 10) oldNl++
+    let newNl = 0
+    for (let i = first; i < lastNew; i++) if (cur.charCodeAt(i) === 10) newNl++
+    const lineDelta = newNl - oldNl
+
+    if (lineDelta !== 0) {
+      // Line of `first` in the OLD source. Any block currently AT OR BELOW
+      // this line shifts by lineDelta.
+      let splitLine = 1
+      for (let i = 0; i < first; i++) if (prevValue.charCodeAt(i) === 10) splitLine++
+      const next = new Map(liveLines)
+      for (const [id, line] of next) {
+        if (line >= splitLine) next.set(id, line + lineDelta)
+      }
+      liveLines = next
+    }
+    prevValue = cur
+  })
+
+  // Map live src_line → blockid for the FIRST line of each block.
   let blockStartLines = $derived.by<Map<number, string>>(() => {
     const map = new Map<number, string>()
     if (!hoverYaml) return map
-    for (const a of hoverYaml.active) map.set(a.src_line, a.id)
+    for (const a of hoverYaml.active) {
+      const live = liveLines.get(a.id) ?? a.src_line
+      map.set(live, a.id)
+    }
     return map
   })
 
