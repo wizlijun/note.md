@@ -230,13 +230,11 @@
         </section>
 
         <section class="block">
-          <label class="row">
-            <input type="checkbox"
-                   bind:checked={settings.mdblock.autoRefreshOnSave}
-                   disabled={!settings.mdblock.enabled}
-                   onchange={() => saveSettings()} />
-            Auto-refresh on save
-          </label>
+          <p class="desc">
+            <strong>Saving the .md file</strong> automatically persists the matching
+            <code>.block.yaml</code> in the cache. While editing, block markers
+            update in-memory in real time; the file write happens on save.
+          </p>
           <label class="row">
             <input type="checkbox"
                    bind:checked={settings.mdblock.injectAiHint}

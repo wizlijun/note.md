@@ -313,6 +313,30 @@ async function doFirstTimeCompute(filePath: string, source: string): Promise<voi
   pushToast({ level: 'success', message: `Computed: ${stats.active} blocks (gen 1)` })
 }
 
+/**
+ * Persist the in-memory liveYaml (computed by recomputeLiveYaml) to disk.
+ * Called by the tab save flow so saving the .md also commits the matching
+ * block.yaml in one shot — avoids the separate Cmd+Shift+B step. If no
+ * liveYaml exists yet, falls through to a fresh compute against the saved
+ * source.
+ */
+export async function persistLiveYamlOrCompute(filePath: string, source: string): Promise<void> {
+  const { getHoverState } = await import('../mdblock-hover/hover-store.svelte')
+  const state = getHoverState(filePath)
+  let yaml = state?.liveYaml ?? null
+  if (!yaml) {
+    // No live preview yet; either no yaml at all (first time) or the user
+    // didn't trigger a recompute. Run the full pipeline against the saved
+    // source.
+    const prev = await readBlockYaml(await yamlPathFor(filePath))
+    const built = await computeAndBuildYaml(filePath, source, prev)
+    yaml = built.yaml
+  }
+  yaml = await writeBlockMdIfNeeded(filePath, source, yaml)
+  await writeBlockYamlAtomic(await yamlPathFor(filePath), yaml)
+  emitYamlUpdated(filePath)
+}
+
 export async function cmdMdblockCompute(): Promise<void> {
   const t = activeTab()
   if (!t || !t.filePath || t.kind === 'image') return
