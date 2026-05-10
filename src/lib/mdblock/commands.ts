@@ -262,15 +262,19 @@ function emitYamlUpdated(filePath: string): void {
 
 // ---- Public commands ----
 
+async function doFirstTimeCompute(filePath: string, source: string): Promise<void> {
+  const { yaml, stats } = await computeAndBuildYaml(filePath, source, null)
+  await writeBlockYamlAtomic(yamlPathFor(filePath), yaml)
+  emitYamlUpdated(filePath)
+  pushToast({ level: 'success', message: `Computed: ${stats.active} blocks (gen 1)` })
+}
+
 export async function cmdMdblockCompute(): Promise<void> {
   const t = activeTab()
   if (!t || !t.filePath || t.kind === 'image') return
   try {
     const source = await readSource(t.filePath)
-    const { yaml, stats } = await computeAndBuildYaml(t.filePath, source, null)
-    await writeBlockYamlAtomic(yamlPathFor(t.filePath), yaml)
-    emitYamlUpdated(t.filePath)
-    pushToast({ level: 'success', message: `Computed: ${stats.active} blocks (gen 1)` })
+    await doFirstTimeCompute(t.filePath, source)
   } catch (e) {
     await showError(`mdblock.compute failed: ${e}`)
   }
@@ -283,8 +287,9 @@ export async function cmdMdblockRefresh(): Promise<void> {
     const source = await readSource(t.filePath)
     const prev = await readBlockYaml(yamlPathFor(t.filePath))
     if (!prev) {
-      // First-time → behave like compute
-      return cmdMdblockCompute()
+      // First-time → reuse the source we already read
+      await doFirstTimeCompute(t.filePath, source)
+      return
     }
     const newHash = await sourceHash(source)
     if (newHash === prev.meta.source_hash) {
