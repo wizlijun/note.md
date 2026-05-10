@@ -133,7 +133,10 @@
   {/if}
   <div class="rich-pane">
     {#if isHoverActive() && settings.mdblock.hover.showRichOverlay && hoverYaml && host}
-      <RichGutter container={host} yaml={hoverYaml} pageBasename={(activeTab()?.filePath ?? '').replace(/^.*[\\/]/, '')} />
+      <RichGutter container={host}
+                  yaml={hoverYaml}
+                  source={tab.currentContent}
+                  pageBasename={(activeTab()?.filePath ?? '').replace(/^.*[\\/]/, '')} />
     {/if}
     <div class="host" data-skin={skin.current} bind:this={host}></div>
   </div>

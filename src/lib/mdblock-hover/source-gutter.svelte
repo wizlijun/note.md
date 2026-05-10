@@ -1,11 +1,10 @@
 <script lang="ts">
   import type { BlockYaml } from '../blockio/yaml-schema'
-  import { buildLineBlockMap } from './line-block-map'
 
   interface Props {
     textarea: HTMLTextAreaElement | null
     yaml: BlockYaml | null
-    pageBasename: string  // used to format the citation copied on click
+    pageBasename: string
   }
   let { textarea, yaml, pageBasename }: Props = $props()
 
@@ -13,7 +12,6 @@
   let totalLines = $state(0)
   let lineHeight = $state(20)
   let paddingTop = $state(0)
-  let paddingBottom = $state(0)
   let copiedId = $state<string | null>(null)
   let copiedTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -23,7 +21,6 @@
     const lh = parseFloat(cs.lineHeight)
     if (!Number.isNaN(lh)) lineHeight = lh
     paddingTop = parseFloat(cs.paddingTop) || 0
-    paddingBottom = parseFloat(cs.paddingBottom) || 0
     totalLines = textarea.value.split('\n').length
 
     const onScroll = () => { scrollTop = textarea!.scrollTop }
@@ -42,7 +39,21 @@
     }
   })
 
-  let lineMap = $derived(yaml ? buildLineBlockMap(yaml.active, totalLines) : new Map())
+  // Build absolute-positioned markers from yaml.active. Avoids per-row
+  // height stacking (which accumulates subpixel rounding error and would
+  // drift the marker by ~1 line over many lines).
+  interface BlockMarker { id: string; line: number; lineSpan: number }
+  let blockMarkers = $derived.by<BlockMarker[]>(() => {
+    if (!yaml || yaml.active.length === 0) return []
+    const sorted = [...yaml.active].sort((a, b) => a.src_line - b.src_line)
+    const out: BlockMarker[] = []
+    for (let i = 0; i < sorted.length; i++) {
+      const line = sorted[i].src_line
+      const nextLine = i + 1 < sorted.length ? sorted[i + 1].src_line : totalLines + 1
+      out.push({ id: sorted[i].id, line, lineSpan: Math.max(1, nextLine - line) })
+    }
+    return out
+  })
 
   function citation(id: string): string {
     return `((${pageBasename}#${id}))`
@@ -56,25 +67,19 @@
   }
 </script>
 
-<div class="block-gutter"
-     style:padding-top="{paddingTop}px"
-     style:padding-bottom="{paddingBottom}px">
+<div class="block-gutter" style:padding-top="{paddingTop}px">
   <div class="block-gutter-inner" style:transform="translateY({-scrollTop}px)">
-    {#each Array(totalLines) as _, i}
-      {@const line = i + 1}
-      {@const entry = lineMap.get(line)}
-      <div class="block-gutter-row" style:height="{lineHeight}px">
-        {#if entry?.isStart}
-          <button class="block-gutter-marker"
-                  class:copied={copiedId === entry.blockid}
-                  type="button"
-                  title={citation(entry.blockid)}
-                  aria-label="Copy citation {citation(entry.blockid)}"
-                  onclick={() => copyCitation(entry.blockid)}></button>
-        {:else if entry}
-          <span class="block-gutter-bar"></span>
-        {/if}
-      </div>
+    {#each blockMarkers as m (m.id)}
+      <span class="block-gutter-bar"
+            style:top="{(m.line - 1) * lineHeight + lineHeight}px"
+            style:height="{Math.max(0, (m.lineSpan - 1) * lineHeight)}px"></span>
+      <button class="block-gutter-marker"
+              class:copied={copiedId === m.id}
+              type="button"
+              style:top="{(m.line - 1) * lineHeight + (lineHeight - 10) / 2}px"
+              title={citation(m.id)}
+              aria-label="Copy citation {citation(m.id)}"
+              onclick={() => copyCitation(m.id)}></button>
     {/each}
   </div>
 </div>
@@ -87,17 +92,17 @@
     border-right: 1px solid color-mix(in srgb, currentColor 15%, transparent);
     user-select: none;
     background: color-mix(in srgb, Canvas 95%, currentColor 5%);
+    position: relative;
   }
   .block-gutter-inner {
+    position: relative;
+    height: 100%;
     will-change: transform;
   }
-  .block-gutter-row {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-  }
   .block-gutter-marker {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
     width: 10px;
     height: 10px;
     padding: 0;
@@ -109,16 +114,17 @@
   }
   .block-gutter-marker:hover {
     background: color-mix(in srgb, currentColor 35%, Canvas);
-    transform: scale(1.15);
+    transform: translateX(-50%) scale(1.18);
   }
   .block-gutter-marker.copied {
     background: #4caf50;
     border-color: #4caf50;
   }
   .block-gutter-bar {
-    display: inline-block;
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
     width: 2px;
-    height: 100%;
     background: color-mix(in srgb, currentColor 18%, transparent);
   }
 </style>

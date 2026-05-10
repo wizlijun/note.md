@@ -4,9 +4,10 @@
   interface Props {
     container: HTMLElement | null   // the rich editor's host (.host element)
     yaml: BlockYaml | null
+    source: string                  // raw source markdown — needed to map src_line → DOM child
     pageBasename: string
   }
-  let { container, yaml, pageBasename }: Props = $props()
+  let { container, yaml, source, pageBasename }: Props = $props()
 
   interface Marker { id: string; y: number; h: number; siblings: string[] }
   let markers = $state<Marker[]>([])
@@ -22,30 +23,107 @@
     )
   }
 
+  /**
+   * Walk the source markdown line-by-line and emit the 1-based start line
+   * of every "top-level construct" — heading, paragraph, list (the whole
+   * group, not each item), code fence, blockquote, hr.
+   *
+   * The result's length is the expected number of top-level DOM children
+   * the rich editor produces; result[i] = source line where construct i
+   * begins. Front-matter is *not* re-detected here because the rich
+   * editor already strips it on render.
+   */
+  function topLevelStartLines(src: string): number[] {
+    const lines = src.split('\n')
+    const out: number[] = []
+    let inFence = false
+    let inGroup: 'paragraph' | 'list' | 'blockquote' | null = null
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i]
+      const lineNum = i + 1
+      const trimmed = line.trimStart()
+      if (/^```/.test(trimmed)) {
+        if (!inFence) { out.push(lineNum); inFence = true }
+        else { inFence = false }
+        inGroup = null
+        continue
+      }
+      if (inFence) continue
+      if (line.trim() === '') { inGroup = null; continue }
+      if (/^#{1,6}\s/.test(trimmed)) { out.push(lineNum); inGroup = null; continue }
+      if (/^(?:---|\*\*\*|___)\s*$/.test(trimmed)) { out.push(lineNum); inGroup = null; continue }
+      if (/^[-*+]\s|^\d+\.\s/.test(trimmed)) {
+        if (inGroup !== 'list') { out.push(lineNum); inGroup = 'list' }
+        continue
+      }
+      if (/^>/.test(trimmed)) {
+        if (inGroup !== 'blockquote') { out.push(lineNum); inGroup = 'blockquote' }
+        continue
+      }
+      if (inGroup !== 'paragraph') { out.push(lineNum); inGroup = 'paragraph' }
+    }
+    return out
+  }
+
+  /**
+   * For each yaml block, find the index range [startIdx, endIdx) of
+   * top-level constructs that fall within [src_line, src_end_line].
+   * Then look up the corresponding DOM children for absolute Y positions.
+   */
   function recompute() {
     if (!container || !yaml) { markers = []; return }
     const root = findContentRoot(container)
     const children = Array.from(root.children) as HTMLElement[]
-    const active = yaml.active
-    if (children.length === 0 || active.length === 0) { markers = []; return }
-    const out: Marker[] = []
+    if (children.length === 0 || yaml.active.length === 0) { markers = []; return }
+
+    const tops = topLevelStartLines(source)
+    if (tops.length === 0) { markers = []; return }
+
+    // Map from a 1-based source line to the index of the top-level construct
+    // that starts at-or-before it. Greedy linear scan.
+    function topIdxForLine(line: number): number {
+      let lo = 0
+      let hi = tops.length - 1
+      while (lo < hi) {
+        const mid = (lo + hi + 1) >> 1
+        if (tops[mid] <= line) lo = mid
+        else hi = mid - 1
+      }
+      return lo
+    }
+
     const containerRect = container.getBoundingClientRect()
-    const span = Math.max(1, active.length / Math.max(1, children.length))
-    for (let i = 0; i < children.length; i++) {
-      const r = children[i].getBoundingClientRect()
-      const startIdx = Math.floor(i * span)
-      const endIdx = Math.min(active.length, Math.floor((i + 1) * span))
-      const ids = active.slice(startIdx, Math.max(startIdx + 1, endIdx)).map((a) => a.id)
-      if (ids.length === 0) continue
-      // Convert viewport-relative top to content-relative Y so the marker
-      // stays anchored as the editor scrolls. Apply translateY(-scrollTop)
-      // on the wrapper to project content-relative back to viewport.
-      const contentY = (r.top - containerRect.top) + container.scrollTop
+    const sortedActive = [...yaml.active].sort((a, b) => a.src_line - b.src_line)
+    const out: Marker[] = []
+    for (let bi = 0; bi < sortedActive.length; bi++) {
+      const block = sortedActive[bi]
+      const nextLine = bi + 1 < sortedActive.length ? sortedActive[bi + 1].src_line : Number.POSITIVE_INFINITY
+      const startIdx = topIdxForLine(block.src_line)
+      // End just before the next block's first top-level construct
+      let endIdx: number
+      if (nextLine === Number.POSITIVE_INFINITY) {
+        endIdx = tops.length - 1
+      } else {
+        endIdx = Math.max(startIdx, topIdxForLine(nextLine) - 1)
+        if (endIdx < 0) endIdx = startIdx
+      }
+      // Clamp to actual DOM children (protects against parser/render mismatch)
+      const ds = Math.min(startIdx, children.length - 1)
+      const de = Math.min(endIdx, children.length - 1)
+      const startEl = children[ds]
+      const endEl = children[de]
+      if (!startEl || !endEl) continue
+      const sr = startEl.getBoundingClientRect()
+      const er = endEl.getBoundingClientRect()
+      // Convert viewport-relative to content-relative so the marker stays
+      // anchored when the editor scrolls.
+      const contentTop = sr.top - containerRect.top + container.scrollTop
+      const contentBottom = er.bottom - containerRect.top + container.scrollTop
       out.push({
-        id: ids[0],
-        siblings: ids.slice(1),
-        y: contentY,
-        h: r.height,
+        id: block.id,
+        siblings: [],
+        y: contentTop,
+        h: Math.max(0, contentBottom - contentTop),
       })
     }
     markers = out
@@ -60,9 +138,7 @@
       cancelAnimationFrame(raf)
       raf = requestAnimationFrame(recompute)
     }
-    const onScroll = () => {
-      scrollTop = container!.scrollTop
-    }
+    const onScroll = () => { scrollTop = container!.scrollTop }
     observer = new MutationObserver(schedule)
     observer.observe(container, { childList: true, subtree: true, characterData: true })
     schedule()
@@ -78,12 +154,17 @@
     }
   })
 
+  // Recompute when source / yaml changes (e.g. user edits the doc, or
+  // commands.refresh writes a new yaml).
+  $effect(() => {
+    void source
+    void yaml
+    cancelAnimationFrame(raf)
+    raf = requestAnimationFrame(recompute)
+  })
+
   function citation(id: string): string {
     return `((${pageBasename}#${id}))`
-  }
-
-  function tooltipFor(m: Marker): string {
-    return [m.id, ...m.siblings].map((id) => citation(id)).join('\n')
   }
 
   function copyCitation(id: string) {
@@ -96,18 +177,14 @@
 
 <div class="rich-block-gutter">
   <div class="rich-block-gutter-inner" style:transform="translateY({-scrollTop}px)">
-    {#each markers as m}
+    {#each markers as m (m.id)}
       <div class="rich-block-row" style:top="{m.y}px" style:height="{m.h}px">
         <button class="rich-block-marker"
                 class:copied={copiedId === m.id}
                 type="button"
-                title={tooltipFor(m)}
+                title={citation(m.id)}
                 aria-label="Copy citation {citation(m.id)}"
-                onclick={() => copyCitation(m.id)}>
-          {#if m.siblings.length > 0}
-            <span class="rich-block-count">+{m.siblings.length}</span>
-          {/if}
-        </button>
+                onclick={() => copyCitation(m.id)}></button>
         <span class="rich-block-bar"></span>
       </div>
     {/each}
@@ -159,17 +236,6 @@
   .rich-block-marker.copied {
     background: #4caf50;
     border-color: #4caf50;
-  }
-  .rich-block-count {
-    position: absolute;
-    top: -2px;
-    right: -12px;
-    font-family: ui-monospace, monospace;
-    font-size: 9px;
-    color: color-mix(in srgb, currentColor 70%, transparent);
-    background: Canvas;
-    padding: 0 2px;
-    border-radius: 2px;
   }
   .rich-block-bar {
     flex: 1;
