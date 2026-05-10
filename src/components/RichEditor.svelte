@@ -8,6 +8,7 @@
   import {
     hoverStore,
     getHoverState,
+    loadHoverYaml,
     isHoverActive,
   } from '../lib/mdblock-hover/hover-store.svelte'
   import { settings } from '../lib/settings.svelte'
@@ -46,6 +47,17 @@
     const t = activeTab()
     if (!t?.filePath) return null
     return getHoverState(t.filePath)?.yaml ?? null
+  })
+
+  // Auto-load yaml when this rich tab activates and mdblock is enabled.
+  // SourceView has the same effect; without it here, opening a doc
+  // directly into rich mode wouldn't trigger any load until the user
+  // toggles to source or runs Cmd+Shift+B manually.
+  $effect(() => {
+    const t = activeTab()
+    if (t?.filePath?.endsWith('.md') && isHoverActive()) {
+      void loadHoverYaml(t.filePath)
+    }
   })
   /**
    * Last value either pushed *out* of the editor (via onChange) or pulled
