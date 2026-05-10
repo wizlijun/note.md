@@ -18,7 +18,7 @@ import {
   HISTORY_TEXT_KEEP_GENS,
 } from '../blockio/yaml-schema'
 import { readBlockYaml, writeBlockYamlAtomic } from '../blockio/yaml-rw'
-import { generateBlockMd } from '../blockio/inject'
+import { generateBlockMd, splitFrontmatter } from '../blockio/inject'
 import { citationAtCursor, resolveCitation } from '../blockio/citation'
 
 // ---- Path helpers ----
@@ -54,6 +54,11 @@ async function readSource(mdPath: string): Promise<string> {
   return await readTextFile(mdPath)
 }
 
+function clamp(n: number, lo: number, hi: number): number {
+  if (!Number.isFinite(n)) return lo
+  return Math.max(lo, Math.min(hi, n))
+}
+
 function reservedIdsFromYaml(y: BlockYaml | null): Set<string> {
   if (!y) return new Set()
   const s = new Set<string>()
@@ -81,13 +86,31 @@ async function computeAndBuildYaml(
   source: string,
   prev: BlockYaml | null,
 ): Promise<{ yaml: BlockYaml; stats: MergeStats }> {
-  const cfg = prev?.config ?? DEFAULT_CONFIG
-  const newBlocks = chunkDocument(
-    source,
+  // Defensive clamp: protect chunker from out-of-range config values that
+  // could slip in via Settings UI paste / hand-edit of yaml.
+  const rawCfg = prev?.config ?? DEFAULT_CONFIG
+  const cfg: typeof rawCfg = {
+    ...rawCfg,
+    chunk_size_chars: clamp(rawCfg.chunk_size_chars, 200, 20000),
+    break_window_chars: clamp(rawCfg.break_window_chars, 50, 5000),
+    similarity_threshold: clamp(rawCfg.similarity_threshold, 0, 1),
+    split_coverage_threshold: clamp(rawCfg.split_coverage_threshold, 0, 1),
+  }
+  // Frontmatter is preserved verbatim and never chunked. Run chunker on the
+  // body alone, then offset src_pos/src_line back to full-source coordinates
+  // so callers and citations land in the right place.
+  const fm = splitFrontmatter(source)
+  const bodyBlocks = chunkDocument(
+    fm.body,
     cfg.chunk_size_chars,
     0,
     cfg.break_window_chars,
   )
+  const newBlocks = bodyBlocks.map((b) => ({
+    text: b.text,
+    src_pos: b.src_pos + fm.fm.length,
+    src_line: b.src_line + fm.fmLines,
+  }))
 
   // Fingerprints (parallel)
   const newFps = await Promise.all(newBlocks.map((b) => computeFingerprint(b.text)))
