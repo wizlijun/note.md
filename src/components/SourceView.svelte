@@ -220,17 +220,22 @@
     min-width: 4em;
   }
   /* The block-start button replaces a single line's number with a
-     full-width framed clickable cell. `display: block` makes it occupy
-     exactly one row of line-height; positioned in the natural text flow
-     so it ALWAYS lines up with the textarea content row at the same
-     line number, regardless of cumulative subpixel rounding. */
+     full-width framed clickable cell.
+     - `display: inline-block` keeps the element in the surrounding
+       white-space: pre inline flow (using `display: block` would inject
+       anonymous block breaks that consume an extra row above and below,
+       throwing off every line below).
+     - `width: 100%` makes the box span the gutter's content width while
+       still being part of inline flow.
+     - `outline` (not `border`) draws the visible frame WITHOUT taking
+       layout space, so the row outer height stays exactly line-height
+       and subsequent line numbers align with textarea rows. */
   .gutter :global(button.num.block-start) {
-    display: block;
+    display: inline-block;
     width: 100%;
     margin: 0;
     padding: 0 4px;
-    border: 1px solid color-mix(in srgb, currentColor 35%, transparent);
-    border-radius: 2px;
+    border: 0;
     background: color-mix(in srgb, currentColor 12%, Canvas);
     color: inherit;
     font: inherit;
@@ -238,13 +243,9 @@
     cursor: pointer;
     box-sizing: border-box;
     line-height: inherit;
-    /* The 1px borders steal 2px of vertical space. Compensate so the
-       row's outer height stays exactly line-height, keeping subsequent
-       line numbers aligned with textarea rows. */
-    padding-top: 0;
-    padding-bottom: 0;
-    margin-top: -1px;
-    margin-bottom: -1px;
+    outline: 1px solid color-mix(in srgb, currentColor 35%, transparent);
+    outline-offset: -1px;
+    border-radius: 2px;
   }
   .gutter :global(button.num.block-start:hover) {
     background: color-mix(in srgb, currentColor 22%, Canvas);
