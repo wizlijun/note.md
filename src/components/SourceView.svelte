@@ -99,7 +99,6 @@
 
   let lineHeight = $state(20)
   let gutterPadTop = $state(16)
-  let gutterScroll = $state(0)
   let copiedId = $state<string | null>(null)
   let copiedTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -145,7 +144,6 @@
       highlightEl.scrollLeft = left
     }
     if (gutterEl) gutterEl.scrollTop = top
-    gutterScroll = top
   }
 
   let showMarkers = $derived(
@@ -157,7 +155,7 @@
   <div class="gutter" class:gutter-with-markers={showMarkers} bind:this={gutterEl} aria-hidden="true">
     <span class="gutter-numbers">{lineNumbers}</span>
     {#if showMarkers}
-      <div class="gutter-marker-layer" style:transform="translateY({-gutterScroll}px)">
+      <div class="gutter-marker-layer">
         {#each blockMarkers as m (m.id)}
           <span class="gutter-bar"
                 style:top="{(m.line - 1) * lineHeight + lineHeight}px"
