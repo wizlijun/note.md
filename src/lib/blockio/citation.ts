@@ -123,15 +123,13 @@ export async function resolveCitation(
   currentDocPath: string,
 ): Promise<ResolvedCitation & { filePath: string }> {
   const filePath = resolvePageUri(pageuri, currentDocPath)
-  const yamlPath = filePath.replace(/\.md$/, '.block.yaml').endsWith('.block.yaml')
-    ? filePath.replace(/\.md$/, '.block.yaml')
-    : `${filePath}.block.yaml`
-  const yaml = await readBlockYaml(yamlPath)
+  const { cachedYamlPath } = await import('../mdblock/path')
+  const yaml = await readBlockYaml(await cachedYamlPath(filePath))
   if (!yaml) {
     return {
       status: 'not_found',
       filePath,
-      banner: '目标文档未启用块 id（无 .block.yaml）或 yaml 解析失败',
+      banner: '目标文档未启用 block id（缓存中未找到 yaml；请先 Compute Blocks）',
     }
   }
   const r = resolveCitationViaYaml(yaml, blockid)

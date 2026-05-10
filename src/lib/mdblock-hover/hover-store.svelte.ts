@@ -1,6 +1,7 @@
 import type { BlockYaml } from '../blockio/yaml-schema'
 import { readBlockYaml } from '../blockio/yaml-rw'
 import { settings } from '../settings.svelte'
+import { cachedYamlPath } from '../mdblock/path'
 
 interface PerTabState {
   filePath: string
@@ -24,19 +25,13 @@ export function getHoverState(filePath: string): PerTabState | null {
   return tabStates.get(filePath) ?? null
 }
 
-function yamlPathFor(mdPath: string): string {
-  return mdPath.endsWith('.md')
-    ? mdPath.slice(0, -3) + '.block.yaml'
-    : `${mdPath}.block.yaml`
-}
-
 export async function loadHoverYaml(filePath: string): Promise<void> {
   if (!filePath.endsWith('.md')) return
   const existing = tabStates.get(filePath)
   if (existing?.loading) return
   tabStates.set(filePath, { filePath, yaml: null, loading: true })
   bumpVersion()
-  const yaml = await readBlockYaml(yamlPathFor(filePath))
+  const yaml = await readBlockYaml(await cachedYamlPath(filePath))
   tabStates.set(filePath, { filePath, yaml, loading: false })
   bumpVersion()
 }
@@ -54,6 +49,12 @@ export function installHoverInvalidator(): void {
   })
 }
 
+/**
+ * Whether block markers should display. Tied to the master mdblock toggle —
+ * once mdblock is enabled, opening any document with an existing yaml will
+ * auto-load and show the markers. The legacy `hover.enabled` sub-toggle is
+ * no longer consulted (see Settings UI: it is hidden / always true).
+ */
 export function isHoverActive(): boolean {
-  return settings.mdblock.enabled && settings.mdblock.hover.enabled
+  return settings.mdblock.enabled
 }

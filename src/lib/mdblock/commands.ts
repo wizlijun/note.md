@@ -33,17 +33,9 @@ function basename(p: string): string {
   return p.replace(/^.*\//, '')
 }
 
-function yamlPathFor(mdPath: string): string {
-  return mdPath.endsWith('.md')
-    ? mdPath.slice(0, -3) + '.block.yaml'
-    : `${mdPath}.block.yaml`
-}
+import { cachedYamlPath, blockMdPathFor } from './path'
 
-function blockMdPathFor(mdPath: string): string {
-  return mdPath.endsWith('.md')
-    ? mdPath.slice(0, -3) + '.block.md'
-    : `${mdPath}.block.md`
-}
+const yamlPathFor = (mdPath: string): Promise<string> => cachedYamlPath(mdPath)
 
 // ---- Hash + IO helpers ----
 
@@ -316,7 +308,7 @@ function emitYamlUpdated(filePath: string): void {
 
 async function doFirstTimeCompute(filePath: string, source: string): Promise<void> {
   const { yaml, stats } = await computeAndBuildYaml(filePath, source, null)
-  await writeBlockYamlAtomic(yamlPathFor(filePath), yaml)
+  await writeBlockYamlAtomic(await yamlPathFor(filePath), yaml)
   emitYamlUpdated(filePath)
   pushToast({ level: 'success', message: `Computed: ${stats.active} blocks (gen 1)` })
 }
@@ -337,7 +329,7 @@ export async function cmdMdblockRefresh(): Promise<void> {
   if (!t || !t.filePath || t.kind === 'image') return
   try {
     const source = await readSource(t.filePath)
-    const prev = await readBlockYaml(yamlPathFor(t.filePath))
+    const prev = await readBlockYaml(await yamlPathFor(t.filePath))
     if (!prev) {
       // First-time → reuse the source we already read
       await doFirstTimeCompute(t.filePath, source)
@@ -349,7 +341,7 @@ export async function cmdMdblockRefresh(): Promise<void> {
       let yaml = prev
       if (yaml.meta.has_block_md) {
         yaml = await writeBlockMdIfNeeded(t.filePath, source, yaml)
-        await writeBlockYamlAtomic(yamlPathFor(t.filePath), yaml)
+        await writeBlockYamlAtomic(await yamlPathFor(t.filePath), yaml)
         emitYamlUpdated(t.filePath)
       }
       pushToast({ level: 'info', message: 'No changes detected' })
@@ -357,7 +349,7 @@ export async function cmdMdblockRefresh(): Promise<void> {
     }
     let { yaml, stats } = await computeAndBuildYaml(t.filePath, source, prev)
     yaml = await writeBlockMdIfNeeded(t.filePath, source, yaml)
-    await writeBlockYamlAtomic(yamlPathFor(t.filePath), yaml)
+    await writeBlockYamlAtomic(await yamlPathFor(t.filePath), yaml)
     emitYamlUpdated(t.filePath)
     pushToast({
       level: 'success',
@@ -377,7 +369,7 @@ export async function cmdMdblockGenerateBlockMd(): Promise<void> {
   if (!t || !t.filePath || t.kind === 'image') return
   try {
     const source = await readSource(t.filePath)
-    let prev = await readBlockYaml(yamlPathFor(t.filePath))
+    let prev = await readBlockYaml(await yamlPathFor(t.filePath))
     if (!prev) {
       // No yaml yet — compute first
       const built = await computeAndBuildYaml(t.filePath, source, null)
@@ -385,7 +377,7 @@ export async function cmdMdblockGenerateBlockMd(): Promise<void> {
     }
     prev.meta.has_block_md = true
     prev = await writeBlockMdIfNeeded(t.filePath, source, prev)
-    await writeBlockYamlAtomic(yamlPathFor(t.filePath), prev)
+    await writeBlockYamlAtomic(await yamlPathFor(t.filePath), prev)
     emitYamlUpdated(t.filePath)
     pushToast({ level: 'success', message: `Wrote ${blockMdPathFor(t.filePath)}` })
   } catch (e) {
@@ -408,14 +400,14 @@ export async function cmdMdblockReset(): Promise<void> {
     // Preserve the user's "I want a .block.md generated" preference across
     // the reset so they aren't left with a stale .block.md whose anchors
     // point at retired ids the new yaml never heard of.
-    const prev = await readBlockYaml(yamlPathFor(t.filePath))
+    const prev = await readBlockYaml(await yamlPathFor(t.filePath))
     const wantsBlockMd = prev?.meta.has_block_md ?? false
     let { yaml, stats } = await computeAndBuildYaml(t.filePath, source, null)
     if (wantsBlockMd) {
       yaml.meta.has_block_md = true
       yaml = await writeBlockMdIfNeeded(t.filePath, source, yaml)
     }
-    await writeBlockYamlAtomic(yamlPathFor(t.filePath), yaml)
+    await writeBlockYamlAtomic(await yamlPathFor(t.filePath), yaml)
     emitYamlUpdated(t.filePath)
     pushToast({ level: 'success', message: `Reset: ${stats.active} fresh blocks (gen 1)` })
   } catch (e) {

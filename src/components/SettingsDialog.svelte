@@ -307,40 +307,25 @@
         </p>
 
         <section class="block">
-          <h3>Visualization (mdblock-hover)</h3>
-          <label class="row">
-            <input type="checkbox"
-                   bind:checked={settings.mdblock.hover.enabled}
-                   disabled={!settings.mdblock.enabled}
-                   onchange={() => saveSettings()} />
-            Show block boundaries
-          </label>
+          <h3>Visualization</h3>
           <p class="desc">
-            Enabling visualization disables soft-wrap in source view to keep the gutter aligned
-            with logical line numbers.
+            When Block IDs is enabled, opening any document automatically loads its
+            cached yaml and displays markers — no manual "Show" toggle required.
+            Use the checkboxes below to opt out of either view individually.
           </p>
           <label class="row">
             <input type="checkbox"
                    bind:checked={settings.mdblock.hover.showSourceGutter}
-                   disabled={!settings.mdblock.enabled || !settings.mdblock.hover.enabled}
+                   disabled={!settings.mdblock.enabled}
                    onchange={() => saveSettings()} />
-            Source gutter (left rail with block ids)
+            Source-mode markers (in the line-number gutter)
           </label>
           <label class="row">
             <input type="checkbox"
                    bind:checked={settings.mdblock.hover.showRichOverlay}
-                   disabled={!settings.mdblock.enabled || !settings.mdblock.hover.enabled}
+                   disabled={!settings.mdblock.enabled}
                    onchange={() => saveSettings()} />
-            Rich-mode borders (dashed frame around each block)
-          </label>
-          <label class="row">
-            <span class="lbl">Badge format</span>
-            <select bind:value={settings.mdblock.hover.badgeFormat}
-                    disabled={!settings.mdblock.enabled || !settings.mdblock.hover.enabled}
-                    onchange={() => saveSettings()}>
-              <option value="short">short (b-xxxxxx)</option>
-              <option value="full">full (b-xxxxxx, line N)</option>
-            </select>
+            Rich-mode left gutter (block markers + bars)
           </label>
         </section>
       {:else}

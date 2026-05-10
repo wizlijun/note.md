@@ -51,6 +51,10 @@
       "identifier": "fs:allow-remove",
       "allow": [{ "path": "**" }]
     },
+    {
+      "identifier": "fs:allow-mkdir",
+      "allow": [{ "path": "**" }]
+    },
     "opener:default",
     "opener:allow-open-path",
     "opener:allow-open-url",
