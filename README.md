@@ -207,6 +207,36 @@ Output:
     between Light and Dark. Text/background invert via system
     colors; skin decoration (heading rules, blockquote borders, table
     horizontals, hr asterisks) all stay legible in both modes.
+71. **mdblock — first compute** — open a `.md` file → Settings →
+    Block → enable "Enable Block IDs" → close Settings → press
+    `Cmd+Shift+B` → toast shows `Computed: K blocks (gen 1)`. The
+    file's directory now contains `<basename>.block.yaml` with
+    `meta.generation: 1` and `active[]` listing K entries with
+    `b-xxxxxx` ids.
+72. **mdblock — generate `.block.md`** — with the yaml from #71 in
+    place, run a hypothetical "Generate" path (currently triggered
+    by the same compute flow with `has_block_md` set in yaml). The
+    file `<basename>.block.md` should appear with `<a id="b-xxxxxx"></a>`
+    lines preceding each block. Source `.md` is unchanged.
+73. **mdblock — visualization** — Settings → Block → enable "Show
+    block boundaries". In source view a left rail appears with one
+    blockid label per block; in rich view dashed frames appear
+    around each rendered top-level element with a `b-xxxxxx` badge
+    in the top-left.
+74. **mdblock — light edit preserves ids** — edit the document
+    lightly (fix a typo) → `Cmd+Shift+B` → toast: `Refreshed: K active,
+    ≥(K-1) kept, …`. Comparing yaml before/after, ids are unchanged
+    for untouched blocks.
+75. **mdblock — heavy edit retires ids** — delete a paragraph
+    entirely → `Cmd+Shift+B` → yaml `history` grows by one; the
+    deleted id has `replaced_by: []`.
+76. **mdblock — citation jump (rich pill in share output)** — after
+    publishing a doc with `((other.md#b-xxxxxx))` via the share
+    plugin, the generated HTML contains a `.block-citation` pill.
+77. **mdblock — citation jump (source mode)** — in another `.md`
+    paste `((<other-doc-name>.md#b-xxxxxx))` (use a real id from
+    #71) → place cursor inside `((..))` → `Cmd+Enter` → other doc
+    opens, jumps to the right line.
 
 ## Spec & Plan
 

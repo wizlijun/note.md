@@ -13,3 +13,9 @@ src-tauri/gen/
 .env.*
 *.p8
 *.p12
+
+# mdblock generated artifacts (the .yaml is the source of truth and IS tracked)
+*.block.md
+*.block.yaml.tmp
+*.block.yaml.broken-*
+*.block.md.tmp
