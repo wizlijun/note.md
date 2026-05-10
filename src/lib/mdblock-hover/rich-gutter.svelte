@@ -11,7 +11,7 @@
 
   interface Marker { id: string; y: number; h: number; siblings: string[] }
   let markers = $state<Marker[]>([])
-  let scrollTop = $state(0)
+  let innerEl: HTMLDivElement | undefined = $state()
   let copiedId = $state<string | null>(null)
   let copiedTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -172,18 +172,27 @@
       cancelAnimationFrame(raf)
       raf = requestAnimationFrame(recompute)
     }
-    const onScroll = () => { scrollTop = container!.scrollTop }
+    // Scroll path: update only the inner div's transform directly via DOM.
+    // Going through Svelte reactive state causes a 1-frame lag (the transform
+    // applies on the NEXT paint after Svelte's batched update flushes), which
+    // visibly trails the host's scroll. Synchronous DOM write in the scroll
+    // listener keeps the gutter and the host content frame-locked.
+    // Crucially, we do NOT recompute marker positions on scroll — content-Y
+    // is independent of scroll, so re-measuring would only inject subpixel
+    // jitter from accumulated getBoundingClientRect noise across many DOM
+    // children.
+    const onScroll = () => {
+      if (innerEl) innerEl.style.transform = `translateY(${-container!.scrollTop}px)`
+    }
     observer = new MutationObserver(schedule)
     observer.observe(container, { childList: true, subtree: true, characterData: true })
     schedule()
     window.addEventListener('resize', schedule)
     container.addEventListener('scroll', onScroll, { passive: true })
-    container.addEventListener('scroll', schedule, { passive: true })
     return () => {
       observer?.disconnect()
       window.removeEventListener('resize', schedule)
       container?.removeEventListener('scroll', onScroll)
-      container?.removeEventListener('scroll', schedule)
       cancelAnimationFrame(raf)
     }
   })
@@ -210,7 +219,7 @@
 </script>
 
 <div class="rich-block-gutter">
-  <div class="rich-block-gutter-inner" style:transform="translateY({-scrollTop}px)">
+  <div class="rich-block-gutter-inner" bind:this={innerEl}>
     {#each markers as m (m.id)}
       <div class="rich-block-row" style:top="{m.y}px" style:height="{m.h}px">
         <button class="rich-block-marker"
