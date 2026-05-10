@@ -43,6 +43,14 @@
       "identifier": "fs:allow-stat",
       "allow": [{ "path": "**" }]
     },
+    {
+      "identifier": "fs:allow-rename",
+      "allow": [{ "path": "**" }]
+    },
+    {
+      "identifier": "fs:allow-remove",
+      "allow": [{ "path": "**" }]
+    },
     "opener:default",
     "opener:allow-open-path",
     "opener:allow-open-url",
