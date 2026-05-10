@@ -7,8 +7,9 @@
   import RichGutter from '../lib/mdblock-hover/rich-gutter.svelte'
   import {
     hoverStore,
-    getHoverState,
+    getDisplayYaml,
     loadHoverYaml,
+    recomputeLiveYaml,
     isHoverActive,
   } from '../lib/mdblock-hover/hover-store.svelte'
   import { settings } from '../lib/settings.svelte'
@@ -46,7 +47,7 @@
     void hoverStore.version
     const t = activeTab()
     if (!t?.filePath) return null
-    return getHoverState(t.filePath)?.yaml ?? null
+    return getDisplayYaml(t.filePath)
   })
 
   // Auto-load yaml when this rich tab activates and mdblock is enabled.
@@ -58,6 +59,22 @@
     if (t?.filePath?.endsWith('.md') && isHoverActive()) {
       void loadHoverYaml(t.filePath)
     }
+  })
+
+  // Debounced live recompute when the rich editor's content changes.
+  // Mirrors SourceView so users editing in rich also see structural
+  // updates (new blocks, removed blocks, line shifts) within ~250 ms
+  // of pausing typing.
+  let richRecomputeTimer: ReturnType<typeof setTimeout> | null = null
+  $effect(() => {
+    void tab.currentContent
+    if (!tab.filePath || !isHoverActive() || !tab.filePath.endsWith('.md')) return
+    if (richRecomputeTimer) clearTimeout(richRecomputeTimer)
+    const filePath = tab.filePath
+    const cur = tab.currentContent
+    richRecomputeTimer = setTimeout(() => {
+      void recomputeLiveYaml(filePath, cur)
+    }, 250)
   })
   /**
    * Last value either pushed *out* of the editor (via onChange) or pulled

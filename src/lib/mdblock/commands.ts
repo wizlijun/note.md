@@ -79,7 +79,7 @@ interface MergeStats {
 
 // ---- Core: chunk + merge + build new yaml ----
 
-async function computeAndBuildYaml(
+export async function computeAndBuildYaml(
   mdPath: string,
   source: string,
   prev: BlockYaml | null,
