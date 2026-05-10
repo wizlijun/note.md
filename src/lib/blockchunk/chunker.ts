@@ -52,3 +52,149 @@ export function findBestCutoff(
   }
   return bestPos
 }
+
+import { scanBreakPoints } from './breakpoints'
+import { findCodeFences } from './codefences'
+
+/**
+ * One result of chunking. `src_pos` is the character offset in the source;
+ * `src_line` is the 1-based line containing that offset.
+ */
+export interface Block {
+  text: string
+  src_pos: number
+  src_line: number
+}
+
+/**
+ * Count unmatched fence markers (```) up to a given position.
+ * Returns the count, which tells us if we're inside or outside a code block.
+ */
+function countFenceMarkersUpTo(text: string, pos: number): number {
+  let count = 0
+  let searchPos = 0
+  while ((searchPos = text.indexOf('```', searchPos)) !== -1 && searchPos < pos) {
+    count++
+    searchPos += 3
+  }
+  return count
+}
+
+/**
+ * Pure helper that takes pre-scanned break points and code-fence regions and
+ * walks the content greedily, choosing the best cut at each step.
+ */
+export function chunkDocumentWithBreakPoints(
+  content: string,
+  breakPoints: BreakPoint[],
+  codeFences: CodeFenceRegion[],
+  maxChars: number = CHUNK_SIZE_CHARS,
+  overlapChars: number = CHUNK_OVERLAP_CHARS,
+  windowChars: number = CHUNK_WINDOW_CHARS,
+): { text: string; pos: number }[] {
+  if (content.length <= maxChars) {
+    return [{ text: content, pos: 0 }]
+  }
+  const chunks: { text: string; pos: number }[] = []
+  let charPos = 0
+  while (charPos < content.length) {
+    const targetEndPos = Math.min(charPos + maxChars, content.length)
+    let endPos = targetEndPos
+    if (endPos < content.length) {
+      // If target position is inside a code fence, move to the fence end
+      if (isInsideCodeFence(endPos, codeFences)) {
+        for (const fence of codeFences) {
+          if (endPos >= fence.start && endPos < fence.end) {
+            endPos = fence.end
+            break
+          }
+        }
+      } else {
+        const bestCutoff = findBestCutoff(
+          breakPoints,
+          targetEndPos,
+          windowChars,
+          0.7,
+          codeFences,
+        )
+        if (bestCutoff > charPos && bestCutoff <= targetEndPos) endPos = bestCutoff
+      }
+      // Even if not detected by findCodeFences, check if we're splitting a code block
+      // by counting unmatched backtick triplets. If odd, move forward to next fence close.
+      let fenceCount = countFenceMarkersUpTo(content, endPos)
+      if (fenceCount % 2 === 1) {
+        // Odd number means we're inside a code block. Find next fence marker.
+        let nextFencePos = endPos
+        while ((nextFencePos = content.indexOf('```', nextFencePos)) !== -1) {
+          const checkPos = nextFencePos + 3
+          const newCount = countFenceMarkersUpTo(content, checkPos)
+          if (newCount % 2 === 0) {
+            endPos = checkPos
+            break
+          }
+          // Move past this marker to search for the next
+          nextFencePos = checkPos
+        }
+        // If still odd (unclosed fence), extend to end of document
+        fenceCount = countFenceMarkersUpTo(content, endPos)
+        if (fenceCount % 2 === 1) {
+          endPos = content.length
+        }
+      }
+    }
+    if (endPos <= charPos) endPos = Math.min(charPos + maxChars, content.length)
+    chunks.push({ text: content.slice(charPos, endPos), pos: charPos })
+    if (endPos >= content.length) break
+    charPos = endPos - overlapChars
+    const last = chunks.at(-1)!
+    if (charPos <= last.pos) charPos = endPos
+  }
+  return chunks
+}
+
+/**
+ * Top-level entry: scan + chunk + attach `src_line`. Returns `Block[]`.
+ */
+export function chunkDocument(
+  content: string,
+  maxChars: number = CHUNK_SIZE_CHARS,
+  overlapChars: number = CHUNK_OVERLAP_CHARS,
+  windowChars: number = CHUNK_WINDOW_CHARS,
+): Block[] {
+  const breakPoints = scanBreakPoints(content)
+  const codeFences = findCodeFences(content)
+  const raw = chunkDocumentWithBreakPoints(
+    content, breakPoints, codeFences,
+    maxChars, overlapChars, windowChars,
+  )
+  return raw.map((c) => ({
+    text: c.text,
+    src_pos: c.pos,
+    src_line: lineOf(content, c.pos),
+  }))
+}
+
+function lineOf(content: string, pos: number): number {
+  // 1-based line number containing `pos`. Counts newlines strictly before it.
+  let line = 1
+  for (let i = 0; i < pos; i++) if (content.charCodeAt(i) === 10) line++
+  return line
+}
+
+/**
+ * Merge two break-point arrays, keeping the highest score at each position.
+ * Sorted by position. Currently unused by chunker; reserved for future
+ * AST/extension break sources (parity with qmd's API).
+ */
+export function mergeBreakPoints(a: BreakPoint[], b: BreakPoint[]): BreakPoint[] {
+  const seen = new Map<number, BreakPoint>()
+  for (const bp of a) {
+    const e = seen.get(bp.pos)
+    if (!e || bp.score > e.score) seen.set(bp.pos, bp)
+  }
+  for (const bp of b) {
+    const e = seen.get(bp.pos)
+    if (!e || bp.score > e.score) seen.set(bp.pos, bp)
+  }
+  return Array.from(seen.values()).sort((a, b) => a.pos - b.pos)
+}
