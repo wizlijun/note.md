@@ -48,6 +48,19 @@ Built on [`@moraya/core`](https://www.npmjs.com/package/@moraya/core).
   `prefers-color-scheme`, mobile-optimized viewport). Image-heavy documents
   spill to Cloudflare R2; the Worker also exposes an MCP endpoint so LLM
   agents can publish on your behalf
+- **Block IDs (mdblock)** — Settings → Block → enable to assign each top-level
+  Markdown unit (paragraph, heading, code block, list, table, …) a stable
+  `b-xxxxxx` id. Cite a specific block from anywhere via
+  `((path/to/file.md#b-xxxxxx))` so agents and humans can quote passages with
+  sub-page granularity. Boundaries auto-load when a `.md` opens, recompute
+  live (~250 ms debounce) as you type in either source or rich mode, and
+  persist on `Cmd+S`. The yaml lives in a centralized path-hashed cache
+  (`~/Library/Application Support/com.bruce.mdeditor/blocks/<hash>.yaml`),
+  never sibling-of-source — working trees stay clean. Identity is
+  edit-resilient via content MinHash + a five-pass merge: light edits keep
+  ids, heavy rewrites retire them with full history. Click a marker in the
+  gutter to copy `((file#blockid))`; `Cmd+Enter` on a citation in source
+  mode opens the target doc at that block.
 - **Universal binary** support (Intel + Apple Silicon)
 
 ## Develop
@@ -207,36 +220,47 @@ Output:
     between Light and Dark. Text/background invert via system
     colors; skin decoration (heading rules, blockquote borders, table
     horizontals, hr asterisks) all stay legible in both modes.
-71. **mdblock — first compute** — open a `.md` file → Settings →
-    Block → enable "Enable Block IDs" → close Settings → press
-    `Cmd+Shift+B` → toast shows `Computed: K blocks (gen 1)`. The
-    file's directory now contains `<basename>.block.yaml` with
-    `meta.generation: 1` and `active[]` listing K entries with
-    `b-xxxxxx` ids.
-72. **mdblock — generate `.block.md`** — with the yaml from #71 in
-    place, run a hypothetical "Generate" path (currently triggered
-    by the same compute flow with `has_block_md` set in yaml). The
-    file `<basename>.block.md` should appear with `<a id="b-xxxxxx"></a>`
-    lines preceding each block. Source `.md` is unchanged.
-73. **mdblock — visualization** — Settings → Block → enable "Show
-    block boundaries". In source view a left rail appears with one
-    blockid label per block; in rich view dashed frames appear
-    around each rendered top-level element with a `b-xxxxxx` badge
-    in the top-left.
+71. **mdblock — auto-load on open** — Settings → Block → check
+    "Enable Block IDs" → open any `.md` file. Markers appear
+    immediately in both source (left gutter) and rich (left gutter
+    overlay) without any explicit compute step. Behind the scenes
+    a yaml is computed in-memory.
+72. **mdblock — live update on type** — start typing in source
+    mode (or rich mode). Within ~250 ms of pausing, marker
+    positions and ids re-flow to match the new structure (new
+    blocks appear, removed blocks vanish, line offsets shift).
+73. **mdblock — persist on save** — with the yaml from #71-72 in
+    memory, press `Cmd+S`. The yaml is written atomically to
+    `~/Library/Application Support/com.bruce.mdeditor/blocks/<sha256-of-abs-path>.yaml`
+    — *not* next to the source file. `meta.generation` increments
+    each save; `active[]` lists `b-xxxxxx` entries with line/pos
+    extents and MinHash fingerprints.
 74. **mdblock — light edit preserves ids** — edit the document
-    lightly (fix a typo) → `Cmd+Shift+B` → toast: `Refreshed: K active,
-    ≥(K-1) kept, …`. Comparing yaml before/after, ids are unchanged
-    for untouched blocks.
+    lightly (fix a typo) → `Cmd+S` → reopen the cached yaml. Ids
+    for untouched blocks are unchanged; the touched block keeps
+    its id with status `edited` (parents unchanged).
 75. **mdblock — heavy edit retires ids** — delete a paragraph
-    entirely → `Cmd+Shift+B` → yaml `history` grows by one; the
-    deleted id has `replaced_by: []`.
-76. **mdblock — citation jump (rich pill in share output)** — after
-    publishing a doc with `((other.md#b-xxxxxx))` via the share
-    plugin, the generated HTML contains a `.block-citation` pill.
-77. **mdblock — citation jump (source mode)** — in another `.md`
-    paste `((<other-doc-name>.md#b-xxxxxx))` (use a real id from
+    entirely → `Cmd+S` → yaml `history[]` grows by one entry; the
+    deleted id has `replaced_by: []` and a `last_fingerprint`.
+76. **mdblock — copy citation** — click any block marker in the
+    source-mode gutter or the rich-mode overlay. A toast confirms
+    `((<basename>#b-xxxxxx))` was copied to the clipboard. Paste
+    elsewhere to verify.
+77. **mdblock — follow citation** — in another `.md` paste
+    `((<other-doc-basename>.md#b-xxxxxx))` (use a real id from
     #71) → place cursor inside `((..))` → `Cmd+Enter` → other doc
-    opens, jumps to the right line.
+    opens, jumps to the right line. If the target id has been
+    retired, M↓ walks the lineage chain via `replaced_by` and lands
+    on the successor (or surfaces a "deleted" toast if none).
+78. **mdblock — citation pill in share output** — share a doc that
+    contains `((other.md#b-xxxxxx))` via the share plugin → the
+    generated HTML renders a `.block-citation` pill, not raw
+    parens.
+79. **mdblock — yaml stays out of working tree** — confirm the
+    source directory contains *no* `<basename>.block.yaml`. The
+    only block file that ever lands sibling-of-source is the
+    optional `<basename>.block.md` (only when "Generate
+    .block.md" is explicitly invoked).
 
 ## Spec & Plan
 

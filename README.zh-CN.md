@@ -42,6 +42,18 @@
   （KaTeX、Mermaid / Graphviz SVG、语法高亮、浅/深双主题跟随系统、移动端优化）。
   图片多的文档溢出到 Cloudflare R2；Worker 还开放了 MCP 端点，方便 LLM agent
   代你发布
+- **块 ID（mdblock）** —— Preferences → Block 勾选启用后，给每个顶层
+  Markdown 单元（段落、标题、代码块、列表、表格 …）分配一个稳定的
+  `b-xxxxxx` id；任何位置都可以用 `((path/to/file.md#b-xxxxxx))`
+  引用某一具体块，方便 LLM agent 与人协作时按子页面粒度精准引用。
+  打开 `.md` 时块边界自动加载，源码或富文本编辑过程中实时（约 250 ms
+  防抖）跟随结构变化重算，`Cmd+S` 保存时一并持久化。yaml 不放在源文件
+  旁边，统一写入按路径哈希定位的缓存目录
+  `~/Library/Application Support/com.bruce.mdeditor/blocks/<hash>.yaml`，
+  开发/工作目录保持干净。身份稳定算法基于内容 MinHash + 五轮合并：轻微
+  编辑保留旧 id，大幅改写优雅退役（带完整 history 链）。点击侧栏标记
+  即把 `((file#blockid))` 复制到剪贴板；源码模式下把光标放到 `((..))`
+  里按 `Cmd+Enter` 直接跳转到目标文档对应位置
 - **Universal binary**（Intel + Apple Silicon 通用）
 
 ## 开发
