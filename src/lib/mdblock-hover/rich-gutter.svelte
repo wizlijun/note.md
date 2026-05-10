@@ -34,24 +34,39 @@
    * editor already strips it on render.
    */
   function topLevelStartLines(src: string): number[] {
-    const lines = src.split('\n')
+    // Strip leading frontmatter so the line-numbering matches what ProseMirror
+    // actually renders (most rich editors don't render the YAML frontmatter
+    // as a top-level node).
+    const fmMatch = /^---\r?\n[\s\S]*?\r?\n---\r?\n/.exec(src)
+    const fmLines = fmMatch ? fmMatch[0].split('\n').length - 1 : 0
+    const body = fmMatch ? src.slice(fmMatch[0].length) : src
+
+    const lines = body.split('\n')
     const out: number[] = []
     let inFence = false
     let inGroup: 'paragraph' | 'list' | 'blockquote' | null = null
+    let lastParaLine = -1
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
-      const lineNum = i + 1
+      const lineNum = i + 1 + fmLines
       const trimmed = line.trimStart()
       if (/^```/.test(trimmed)) {
         if (!inFence) { out.push(lineNum); inFence = true }
         else { inFence = false }
         inGroup = null
+        lastParaLine = -1
         continue
       }
       if (inFence) continue
-      if (line.trim() === '') { inGroup = null; continue }
-      if (/^#{1,6}\s/.test(trimmed)) { out.push(lineNum); inGroup = null; continue }
-      if (/^(?:---|\*\*\*|___)\s*$/.test(trimmed)) { out.push(lineNum); inGroup = null; continue }
+      if (line.trim() === '') { inGroup = null; lastParaLine = -1; continue }
+      if (/^#{1,6}\s/.test(trimmed)) { out.push(lineNum); inGroup = null; lastParaLine = -1; continue }
+      // Setext heading: previous line was paragraph, current is === or --- only.
+      // ProseMirror treats this as ONE heading node, not paragraph + HR. Adjust.
+      if (inGroup === 'paragraph' && /^(?:=+|-+)\s*$/.test(trimmed)) {
+        // Already pushed the paragraph start; the underline is part of it.
+        continue
+      }
+      if (/^(?:---|\*\*\*|___)\s*$/.test(trimmed)) { out.push(lineNum); inGroup = null; lastParaLine = -1; continue }
       if (/^[-*+]\s|^\d+\.\s/.test(trimmed)) {
         if (inGroup !== 'list') { out.push(lineNum); inGroup = 'list' }
         continue
@@ -60,7 +75,7 @@
         if (inGroup !== 'blockquote') { out.push(lineNum); inGroup = 'blockquote' }
         continue
       }
-      if (inGroup !== 'paragraph') { out.push(lineNum); inGroup = 'paragraph' }
+      if (inGroup !== 'paragraph') { out.push(lineNum); inGroup = 'paragraph'; lastParaLine = lineNum }
     }
     return out
   }
@@ -78,6 +93,18 @@
 
     const tops = topLevelStartLines(source)
     if (tops.length === 0) { markers = []; return }
+
+    // Diagnostic: if the parser disagrees with ProseMirror's child count by
+    // a wide margin, the index-based mapping will be wrong. Log once so the
+    // user can paste it back if needed; never throws.
+    if (typeof console !== 'undefined' && Math.abs(tops.length - children.length) > 2) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[mdblock-hover] tops/children mismatch: ` +
+        `tops=${tops.length}, children=${children.length}. ` +
+        `Some block markers may misalign.`,
+      )
+    }
 
     // Map from a 1-based source line to the index of the top-level construct
     // that starts at-or-before it. Greedy linear scan.
