@@ -9,6 +9,9 @@ export interface MdblockSettings {
   similarityThreshold: number
   splitCoverageThreshold: number
   chunkSizeChars: number
+  chunkStrategy: 'size' | 'section'
+  sectionCutLevel: number          // 1..6
+  sectionMinChars: number
   hover: {
     enabled: boolean
     showSourceGutter: boolean
@@ -24,6 +27,9 @@ export const DEFAULT_MDBLOCK_SETTINGS: MdblockSettings = {
   similarityThreshold: 0.5,
   splitCoverageThreshold: 0.3,
   chunkSizeChars: 2400,
+  chunkStrategy: 'section',
+  sectionCutLevel: 2,
+  sectionMinChars: 400,
   hover: {
     enabled: false,
     showSourceGutter: true,

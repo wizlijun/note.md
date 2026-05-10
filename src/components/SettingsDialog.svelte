@@ -247,21 +247,64 @@
         </section>
 
         <section class="block">
+          <h3>Chunking strategy</h3>
           <label class="row">
-            <span class="lbl">Chunk size (chars)</span>
-            <input type="number" min="800" max="8000" step="100"
+            <span class="lbl">Strategy</span>
+            <select bind:value={settings.mdblock.chunkStrategy}
+                    disabled={!settings.mdblock.enabled}
+                    onchange={() => saveSettings()}>
+              <option value="section">Section-first (cut at headings; recommended)</option>
+              <option value="size">Size-first (qmd-style; cut anywhere structural)</option>
+            </select>
+          </label>
+          <p class="desc">
+            <strong>Section-first</strong> cuts at H2 boundaries by default; oversized sections
+            are split at deeper headings; tiny sections are merged with neighbors.
+            Each block stays a self-contained semantic unit (one chapter / sub-section),
+            ideal for selecting + sending to an LLM for revision.
+          </p>
+          <label class="row" style:opacity={settings.mdblock.chunkStrategy === 'section' ? 1 : 0.5}>
+            <span class="lbl">Section cut level</span>
+            <select bind:value={settings.mdblock.sectionCutLevel}
+                    disabled={!settings.mdblock.enabled || settings.mdblock.chunkStrategy !== 'section'}
+                    onchange={() => saveSettings()}>
+              <option value={1}>H1 (one block per top-level chapter)</option>
+              <option value={2}>H2 (one block per chapter; default)</option>
+              <option value={3}>H3 (one block per sub-section)</option>
+            </select>
+          </label>
+          <label class="row" style:opacity={settings.mdblock.chunkStrategy === 'section' ? 1 : 0.5}>
+            <span class="lbl">Min section chars (merge below)</span>
+            <input type="number" min="0" max="5000" step="50"
+                   bind:value={settings.mdblock.sectionMinChars}
+                   disabled={!settings.mdblock.enabled || settings.mdblock.chunkStrategy !== 'section'}
+                   onchange={() => saveSettings()} />
+          </label>
+          <label class="row">
+            <span class="lbl">Max chars per block</span>
+            <input type="number" min="200" max="20000" step="100"
                    bind:value={settings.mdblock.chunkSizeChars}
                    disabled={!settings.mdblock.enabled}
                    onchange={() => saveSettings()} />
           </label>
+          <p class="desc">
+            For section-first: oversized sections get split at deeper headings (or by size as a last resort).
+            For size-first: this is the per-chunk target.
+          </p>
           <label class="row">
-            <span class="lbl">Similarity threshold</span>
+            <span class="lbl">Similarity threshold (id stability)</span>
             <input type="number" min="0" max="1" step="0.05"
                    bind:value={settings.mdblock.similarityThreshold}
                    disabled={!settings.mdblock.enabled}
                    onchange={() => saveSettings()} />
           </label>
         </section>
+
+        <p class="desc">
+          ⚠ Strategy / max / min changes affect <strong>new</strong> documents.
+          Existing <code>.block.yaml</code> keeps its own config until you run
+          <strong>Reset Block Lineage</strong>.
+        </p>
 
         <section class="block">
           <h3>Visualization (mdblock-hover)</h3>

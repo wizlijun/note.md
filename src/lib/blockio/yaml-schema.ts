@@ -26,8 +26,11 @@ export interface BlockYamlMeta {
 }
 
 export interface BlockYamlConfig {
-  chunk_size_chars: number
-  break_window_chars: number
+  chunk_strategy?: 'size' | 'section'  // default 'section'
+  chunk_size_chars: number              // size mode: target; section mode: max per block
+  break_window_chars: number            // size mode only
+  section_cut_level?: number            // section mode: heading depth (1..6); default 2
+  section_min_chars?: number            // section mode: merge threshold; default 400
   similarity_threshold: number
   split_coverage_threshold: number
   inject_ai_hint: boolean
@@ -66,8 +69,11 @@ export interface BlockYaml {
 }
 
 export const DEFAULT_CONFIG: BlockYamlConfig = {
+  chunk_strategy: 'section',
   chunk_size_chars: 2400,
   break_window_chars: 800,
+  section_cut_level: 2,
+  section_min_chars: 400,
   similarity_threshold: 0.5,
   split_coverage_threshold: 0.3,
   inject_ai_hint: true,

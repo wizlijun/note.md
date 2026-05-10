@@ -2,6 +2,7 @@ import { activeTab } from '../tabs.svelte'
 import { showError } from '../dialogs'
 import { pushToast } from '../toast.svelte'
 import { chunkDocument } from '../blockchunk/chunker'
+import { chunkDocumentSemantic } from '../blockchunk/semantic-chunker'
 import {
   computeFingerprint,
   serializeMinHash,
@@ -22,6 +23,8 @@ import {
 } from '../blockio/yaml-schema'
 import { readBlockYaml, writeBlockYamlAtomic } from '../blockio/yaml-rw'
 import { generateBlockMd, splitFrontmatter } from '../blockio/inject'
+import type { BlockYamlConfig } from '../blockio/yaml-schema'
+import { settings } from '../settings.svelte'
 import { citationAtCursor, resolveCitation } from '../blockio/citation'
 
 // ---- Path helpers ----
@@ -89,13 +92,31 @@ async function computeAndBuildYaml(
   source: string,
   prev: BlockYaml | null,
 ): Promise<{ yaml: BlockYaml; stats: MergeStats }> {
+  // For first-time compute, seed config from user settings (so the Settings
+  // UI defaults take effect). For refresh, prev.config wins so per-document
+  // overrides survive global setting changes.
+  const seedCfg: BlockYamlConfig = prev
+    ? prev.config
+    : {
+        ...DEFAULT_CONFIG,
+        chunk_strategy: settings.mdblock.chunkStrategy,
+        chunk_size_chars: settings.mdblock.chunkSizeChars,
+        section_cut_level: settings.mdblock.sectionCutLevel,
+        section_min_chars: settings.mdblock.sectionMinChars,
+        similarity_threshold: settings.mdblock.similarityThreshold,
+        split_coverage_threshold: settings.mdblock.splitCoverageThreshold,
+        inject_ai_hint: settings.mdblock.injectAiHint,
+      }
   // Defensive clamp: protect chunker from out-of-range config values that
   // could slip in via Settings UI paste / hand-edit of yaml.
-  const rawCfg = prev?.config ?? DEFAULT_CONFIG
+  const rawCfg = seedCfg
   const cfg: typeof rawCfg = {
     ...rawCfg,
+    chunk_strategy: rawCfg.chunk_strategy ?? 'section',
     chunk_size_chars: clamp(rawCfg.chunk_size_chars, 200, 20000),
     break_window_chars: clamp(rawCfg.break_window_chars, 50, 5000),
+    section_cut_level: clamp(rawCfg.section_cut_level ?? 2, 1, 6),
+    section_min_chars: clamp(rawCfg.section_min_chars ?? 400, 0, 5000),
     similarity_threshold: clamp(rawCfg.similarity_threshold, 0, 1),
     split_coverage_threshold: clamp(rawCfg.split_coverage_threshold, 0, 1),
   }
@@ -103,12 +124,15 @@ async function computeAndBuildYaml(
   // body alone, then offset src_pos/src_line back to full-source coordinates
   // so callers and citations land in the right place.
   const fm = splitFrontmatter(source)
-  const bodyBlocks = chunkDocument(
-    fm.body,
-    cfg.chunk_size_chars,
-    0,
-    cfg.break_window_chars,
-  )
+  const bodyBlocks =
+    cfg.chunk_strategy === 'size'
+      ? chunkDocument(fm.body, cfg.chunk_size_chars, 0, cfg.break_window_chars)
+      : chunkDocumentSemantic(fm.body, {
+          cutLevel: cfg.section_cut_level,
+          maxChars: cfg.chunk_size_chars,
+          minChars: cfg.section_min_chars,
+          windowChars: cfg.break_window_chars,
+        })
   const newBlocks = bodyBlocks.map((b) => ({
     text: b.text,
     src_pos: b.src_pos + fm.fm.length,
