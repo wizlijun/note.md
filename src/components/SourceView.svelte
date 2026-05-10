@@ -1,5 +1,4 @@
 <script lang="ts">
-  import SourceGutter from '../lib/mdblock-hover/source-gutter.svelte'
   import {
     hoverStore,
     getHoverState,
@@ -96,6 +95,47 @@
     Array.from({ length: lineCount }, (_, i) => i + 1).join('\n'),
   )
 
+  // ---- mdblock markers overlaid in the line-number gutter ----
+
+  let lineHeight = $state(20)
+  let gutterPadTop = $state(16)
+  let gutterScroll = $state(0)
+  let copiedId = $state<string | null>(null)
+  let copiedTimer: ReturnType<typeof setTimeout> | null = null
+
+  $effect(() => {
+    if (!textareaEl) return
+    const cs = getComputedStyle(textareaEl)
+    const lh = parseFloat(cs.lineHeight)
+    if (!Number.isNaN(lh)) lineHeight = lh
+    const pt = parseFloat(cs.paddingTop)
+    if (!Number.isNaN(pt)) gutterPadTop = pt
+  })
+
+  let pageBasename = $derived((activeTab()?.filePath ?? '').replace(/^.*[\\/]/, ''))
+
+  interface BlockMarker { id: string; line: number; lineSpan: number }
+  let blockMarkers = $derived.by<BlockMarker[]>(() => {
+    if (!hoverYaml || hoverYaml.active.length === 0) return []
+    const sorted = [...hoverYaml.active].sort((a, b) => a.src_line - b.src_line)
+    const out: BlockMarker[] = []
+    for (let i = 0; i < sorted.length; i++) {
+      const line = sorted[i].src_line
+      const nextLine = i + 1 < sorted.length ? sorted[i + 1].src_line : lineCount + 1
+      out.push({ id: sorted[i].id, line, lineSpan: Math.max(1, nextLine - line) })
+    }
+    return out
+  })
+
+  function citation(id: string): string { return `((${pageBasename}#${id}))` }
+
+  function copyCitation(id: string) {
+    navigator.clipboard.writeText(citation(id)).catch(() => {})
+    copiedId = id
+    if (copiedTimer) clearTimeout(copiedTimer)
+    copiedTimer = setTimeout(() => { copiedId = null }, 1200)
+  }
+
   function syncScroll() {
     if (!textareaEl) return
     const top = textareaEl.scrollTop
@@ -105,18 +145,34 @@
       highlightEl.scrollLeft = left
     }
     if (gutterEl) gutterEl.scrollTop = top
+    gutterScroll = top
   }
+
+  let showMarkers = $derived(
+    isHoverActive() && settings.mdblock.hover.showSourceGutter && hoverYaml,
+  )
 </script>
 
 <div class="src">
-  <div class="gutter" bind:this={gutterEl} aria-hidden="true">{lineNumbers}</div>
-  {#if isHoverActive() && settings.mdblock.hover.showSourceGutter && hoverYaml}
-    <SourceGutter
-      textarea={textareaEl ?? null}
-      yaml={hoverYaml}
-      pageBasename={(activeTab()?.filePath ?? '').replace(/^.*[\\/]/, '')}
-    />
-  {/if}
+  <div class="gutter" class:gutter-with-markers={showMarkers} bind:this={gutterEl} aria-hidden="true">
+    <span class="gutter-numbers">{lineNumbers}</span>
+    {#if showMarkers}
+      <div class="gutter-marker-layer" style:transform="translateY({-gutterScroll}px)">
+        {#each blockMarkers as m (m.id)}
+          <span class="gutter-bar"
+                style:top="{(m.line - 1) * lineHeight + lineHeight}px"
+                style:height="{Math.max(0, (m.lineSpan - 1) * lineHeight)}px"></span>
+          <button class="gutter-marker"
+                  class:copied={copiedId === m.id}
+                  type="button"
+                  style:top="{(m.line - 1) * lineHeight + (lineHeight - 10) / 2}px"
+                  title={citation(m.id)}
+                  aria-label="Copy citation {citation(m.id)}"
+                  onclick={() => copyCitation(m.id)}></button>
+        {/each}
+      </div>
+    {/if}
+  </div>
   <div class="host">
     <pre class="hl" bind:this={highlightEl} aria-hidden="true">{@html highlighted}</pre>
     <textarea
@@ -156,6 +212,53 @@
     box-sizing: border-box;
     min-width: 3.2em;
     opacity: 0.7;
+    position: relative;
+  }
+  .gutter-with-markers {
+    /* Reserve right-side space for the marker column (≈14 px). */
+    padding-right: 18px;
+    min-width: calc(3.2em + 14px);
+  }
+  .gutter-numbers {
+    display: block;
+    position: relative;
+  }
+  .gutter-marker-layer {
+    position: absolute;
+    top: 16px;          /* matches .gutter padding-top; markers are content-relative */
+    right: 4px;
+    width: 12px;
+    height: 0;          /* doesn't take layout space; children are absolutely positioned */
+    pointer-events: none;
+    will-change: transform;
+  }
+  .gutter-marker {
+    position: absolute;
+    right: 0;
+    width: 10px;
+    height: 10px;
+    padding: 0;
+    border: 1px solid color-mix(in srgb, currentColor 50%, transparent);
+    border-radius: 2px;
+    background: color-mix(in srgb, currentColor 18%, Canvas);
+    cursor: pointer;
+    pointer-events: auto;
+    transition: background 120ms ease, transform 120ms ease;
+    opacity: 1;
+  }
+  .gutter-marker:hover {
+    background: color-mix(in srgb, currentColor 35%, Canvas);
+    transform: scale(1.18);
+  }
+  .gutter-marker.copied {
+    background: #4caf50;
+    border-color: #4caf50;
+  }
+  .gutter-bar {
+    position: absolute;
+    right: 4px;
+    width: 2px;
+    background: color-mix(in srgb, currentColor 22%, transparent);
   }
   .host {
     flex: 1;
