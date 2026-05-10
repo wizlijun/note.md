@@ -5,6 +5,7 @@ import {
 import { sha256Hex } from './hash'
 import { pushRecentFile, getRecentMode, setRecentMode } from './settings.svelte'
 import { startWatchingTab, stopWatchingTab, rebindTabPath } from './file-watcher.svelte'
+import { maybeAutoRefresh } from './mdblock/auto-refresh'
 
 export type Mode = 'source' | 'rich'
 
@@ -132,6 +133,11 @@ export async function saveActive(): Promise<void> {
   await writeMd(t.filePath, t.currentContent)
   t.initialContent = t.currentContent
   await recordOurWrite(t)
+  // Opt-in mdblock auto-refresh; no-op unless settings enable it
+  // and the document already has a .block.yaml.
+  if (t.filePath.endsWith('.md')) {
+    void maybeAutoRefresh(t.filePath)
+  }
 }
 
 export async function saveAs(id: string, newPath: string): Promise<void> {
@@ -153,6 +159,9 @@ export async function saveAs(id: string, newPath: string): Promise<void> {
   setRecentMode(modeKeyFor(newPath), t.mode).catch((e) => console.warn(e))
   await recordOurWrite(t)
   await rebindTabPath(id)
+  if (newPath.endsWith('.md')) {
+    void maybeAutoRefresh(newPath)
+  }
 }
 
 export type DirtyChoice = 'save' | 'discard' | 'cancel'
