@@ -149,6 +149,7 @@
       <nav class="tab-strip">
         <button class:active={selectedTab === 'plugins'} onclick={() => selectedTab = 'plugins'}>Plugins</button>
         <button class:active={selectedTab === 'core'} onclick={() => selectedTab = 'core'}>Core</button>
+        <button class:active={selectedTab === 'block'} onclick={() => selectedTab = 'block'}>Block</button>
         {#each pluginTabs as t (t.pluginId)}
           <button class:active={selectedTab === t.pluginId} onclick={() => selectedTab = t.pluginId}>{t.label}</button>
         {/each}
@@ -215,6 +216,89 @@
             <em>Change All…</em>. There's no way to bulk-undo through macOS, so make sure you want this
             before clicking the button above.
           </p>
+        </section>
+      {:else if selectedTab === 'block'}
+        <section class="block">
+          <label class="row">
+            <input type="checkbox" bind:checked={settings.mdblock.enabled} onchange={() => saveSettings()} />
+            Enable Block IDs (mdblock)
+          </label>
+          <p class="desc">
+            Assigns stable ids to every block in markdown documents so AI tools can cite passages
+            with sub-page precision. Run <strong>Compute Blocks</strong> on a document to opt it in.
+          </p>
+        </section>
+
+        <section class="block">
+          <label class="row">
+            <input type="checkbox"
+                   bind:checked={settings.mdblock.autoRefreshOnSave}
+                   disabled={!settings.mdblock.enabled}
+                   onchange={() => saveSettings()} />
+            Auto-refresh on save
+          </label>
+          <label class="row">
+            <input type="checkbox"
+                   bind:checked={settings.mdblock.injectAiHint}
+                   disabled={!settings.mdblock.enabled}
+                   onchange={() => saveSettings()} />
+            Inject AI usage hint into <code>.block.md</code>
+          </label>
+        </section>
+
+        <section class="block">
+          <label class="row">
+            <span class="lbl">Chunk size (chars)</span>
+            <input type="number" min="800" max="8000" step="100"
+                   bind:value={settings.mdblock.chunkSizeChars}
+                   disabled={!settings.mdblock.enabled}
+                   onchange={() => saveSettings()} />
+          </label>
+          <label class="row">
+            <span class="lbl">Similarity threshold</span>
+            <input type="number" min="0" max="1" step="0.05"
+                   bind:value={settings.mdblock.similarityThreshold}
+                   disabled={!settings.mdblock.enabled}
+                   onchange={() => saveSettings()} />
+          </label>
+        </section>
+
+        <section class="block">
+          <h3>Visualization (mdblock-hover)</h3>
+          <label class="row">
+            <input type="checkbox"
+                   bind:checked={settings.mdblock.hover.enabled}
+                   disabled={!settings.mdblock.enabled}
+                   onchange={() => saveSettings()} />
+            Show block boundaries
+          </label>
+          <p class="desc">
+            Enabling visualization disables soft-wrap in source view to keep the gutter aligned
+            with logical line numbers.
+          </p>
+          <label class="row">
+            <input type="checkbox"
+                   bind:checked={settings.mdblock.hover.showSourceGutter}
+                   disabled={!settings.mdblock.enabled || !settings.mdblock.hover.enabled}
+                   onchange={() => saveSettings()} />
+            Source gutter (left rail with block ids)
+          </label>
+          <label class="row">
+            <input type="checkbox"
+                   bind:checked={settings.mdblock.hover.showRichOverlay}
+                   disabled={!settings.mdblock.enabled || !settings.mdblock.hover.enabled}
+                   onchange={() => saveSettings()} />
+            Rich-mode borders (dashed frame around each block)
+          </label>
+          <label class="row">
+            <span class="lbl">Badge format</span>
+            <select bind:value={settings.mdblock.hover.badgeFormat}
+                    disabled={!settings.mdblock.enabled || !settings.mdblock.hover.enabled}
+                    onchange={() => saveSettings()}>
+              <option value="short">short (b-xxxxxx)</option>
+              <option value="full">full (b-xxxxxx, line N)</option>
+            </select>
+          </label>
         </section>
       {:else}
         {#each pluginTabs as t (t.pluginId)}
