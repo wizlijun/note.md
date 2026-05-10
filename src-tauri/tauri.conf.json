@@ -61,15 +61,6 @@
       },
       {
         "ext": [
-          "html",
-          "htm"
-        ],
-        "name": "HTML",
-        "description": "HTML document",
-        "role": "Editor"
-      },
-      {
-        "ext": [
           "txt",
           "log",
           "csv",
