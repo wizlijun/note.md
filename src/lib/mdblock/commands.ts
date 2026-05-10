@@ -19,6 +19,7 @@ import {
 } from '../blockio/yaml-schema'
 import { readBlockYaml, writeBlockYamlAtomic } from '../blockio/yaml-rw'
 import { generateBlockMd } from '../blockio/inject'
+import { citationAtCursor, resolveCitation } from '../blockio/citation'
 
 // ---- Path helpers ----
 
@@ -359,5 +360,51 @@ export async function cmdMdblockReset(): Promise<void> {
     pushToast({ level: 'success', message: `Reset: ${stats.active} fresh blocks (gen 1)` })
   } catch (e) {
     await showError(`mdblock.reset failed: ${e}`)
+  }
+}
+
+export async function cmdMdblockFollowCitationAtCursor(): Promise<boolean> {
+  // Returns true if a citation was followed (or the citation was found but
+  // unresolvable — e.g., target deleted), false to let the caller fall back
+  // to default keystroke handling (e.g., insert newline).
+  const t = activeTab()
+  if (!t || !t.filePath || t.kind === 'image') return false
+
+  // Source mode keeps a textarea visible; locate it via class selector.
+  // The wrapper class (.source-pane) is added in Task 23 when SourceView
+  // mounts mdblock-hover; if hover is not enabled, the textarea may not be
+  // wrapped and this query returns null — that's fine, we silently skip.
+  const textarea = document.querySelector<HTMLTextAreaElement>('.source-pane textarea')
+  if (!textarea) return false
+  const cursor = textarea.selectionStart
+  const text = textarea.value
+  const cite = citationAtCursor(text, cursor)
+  if (!cite) return false
+
+  try {
+    const r = await resolveCitation(cite.pageuri, cite.blockid, t.filePath)
+    if (r.status === 'not_found') {
+      pushToast({ level: 'warn', message: r.banner ?? '引用未找到' })
+      return true
+    }
+    if (r.status === 'deleted') {
+      pushToast({ level: 'warn', message: r.banner! })
+      return true
+    }
+    // Open the target file (if different) and jump to the line.
+    const { openFile } = await import('../tabs.svelte')
+    if (r.filePath !== t.filePath) {
+      await openFile(r.filePath)
+    }
+    requestAnimationFrame(() => {
+      window.dispatchEvent(new CustomEvent('mdblock:jump', {
+        detail: { filePath: r.filePath, srcLine: r.srcLine, blockid: cite.blockid },
+      }))
+    })
+    if (r.banner) pushToast({ level: 'info', message: r.banner })
+    return true
+  } catch (e) {
+    await showError(`mdblock.followCitation failed: ${e}`)
+    return true
   }
 }
