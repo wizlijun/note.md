@@ -5,7 +5,7 @@ const VALID_CAPS = new Set<string>([
   'clipboard.write', 'toast', 'dialog',
 ])
 
-const BUILTIN_SUBCOMMANDS = ['help', 'version', 'plugin']
+export const BUILTIN_SUBCOMMANDS = ['help', 'version', 'plugin']
 const RESERVED_GLOBAL_FLAGS = [
   '-h', '--help', '-v', '--version',
   '-q', '--quiet', '--json',
@@ -111,6 +111,8 @@ export function validateManifest(m: unknown): ValidateResult {
             return { ok: false, error: `cli.flag.long '${fr.long}' collides with reserved global flag` }
           if (fr.short != null && (typeof fr.short !== 'string' || !SHORT_FLAG_RE.test(fr.short)))
             return { ok: false, error: `cli.flag.short invalid: ${String(fr.short)}` }
+          if (fr.short != null && RESERVED_GLOBAL_FLAGS.includes(fr.short as string))
+            return { ok: false, error: `cli flag short '${String(fr.short)}' is a reserved global flag` }
         }
       }
       if (cr.args != null && !Array.isArray(cr.args))
@@ -133,6 +135,45 @@ export function buildRegistry(manifests: PluginManifest[]): Registry {
     if (m.id in byId) { errors.push(`duplicate plugin id '${m.id}' — keeping first`); continue }
     byId[m.id] = m
   }
+
+  // Detect and drop conflicting cli entries; non-cli fields are unaffected.
+  const accepted = Object.values(byId)
+  const conflicts = findCliConflicts(accepted, BUILTIN_SUBCOMMANDS)
+  // Per-plugin set of (kind:key) pairs that should be removed from the plugin's cli.
+  const dropByPlugin = new Map<string, Array<{ kind: 'subcommand' | 'alias'; key: string }>>()
+  for (const c of conflicts) {
+    if (c.kind === 'subcommand') {
+      if (c.reservedCore) {
+        const owners = c.owners.map(o => o.pluginId).join(', ')
+        errors.push(`cli subcommand '${c.key}' is a reserved built-in — dropped from '${owners}'`)
+      } else {
+        const owners = c.owners.map(o => o.pluginId).join(', ')
+        errors.push(`cli subcommand '${c.key}' claimed by multiple plugins: ${owners} — dropped from all`)
+      }
+    } else {
+      const owners = c.owners.map(o => o.pluginId).join(', ')
+      errors.push(`cli alias '${c.key}' claimed by multiple plugins: ${owners} — dropped from all`)
+    }
+    for (const o of c.owners) {
+      const arr = dropByPlugin.get(o.pluginId) ?? []
+      arr.push({ kind: c.kind, key: c.key })
+      dropByPlugin.set(o.pluginId, arr)
+    }
+  }
+  for (const [pluginId, drops] of dropByPlugin) {
+    const orig = byId[pluginId]
+    if (!orig) continue
+    const filteredCli = (orig.cli ?? []).filter(entry => {
+      for (const d of drops) {
+        if (d.kind === 'subcommand' && entry.subcommand === d.key) return false
+        if (d.kind === 'alias' && (entry.aliases ?? []).includes(d.key)) return false
+      }
+      return true
+    })
+    // Return a NEW manifest object; do not mutate the input.
+    byId[pluginId] = { ...orig, cli: filteredCli }
+  }
+
   return { byId, errors }
 }
 
