@@ -35,6 +35,30 @@ export interface ContextMenuEntry {
   enabled_when?: string
 }
 
+export interface CliArg {
+  name: string
+  type: 'path' | 'string' | 'integer'
+  required: boolean
+  help?: string
+}
+
+export interface CliFlag {
+  long: string                  // must start with "--"
+  short?: string                // must be "-x" where x is a single ASCII letter
+  type: 'boolean' | 'string'
+  help?: string
+}
+
+export interface CliEntry {
+  subcommand: string
+  aliases?: string[]            // each must start with "-"
+  command: string               // must match a command implemented by the plugin binary
+  summary: string
+  args?: CliArg[]
+  flags?: CliFlag[]
+  requires_tab_context?: boolean
+}
+
 export interface PluginManifest {
   id: string
   name: string
@@ -46,6 +70,7 @@ export interface PluginManifest {
   settings?: { tab_label: string; schema: SettingsField[] }
   host_capabilities: Capability[]
   timeout_seconds?: number
+  cli?: CliEntry[]              // new, optional
 }
 
 export interface RequestContextTab {
@@ -79,6 +104,7 @@ export type PluginAction =
   | { type: 'settings.merge'; patch: Record<string, unknown> }
   | { type: 'dialog.confirm'; title: string; message: string; if_confirm_invoke: string }
   | { type: 'dialog.message'; title: string; message: string; level: 'info' | 'warn' | 'error' }
+  | { type: 'cli.result'; data: Record<string, unknown> }
 
 export interface PluginResponse {
   success: boolean
