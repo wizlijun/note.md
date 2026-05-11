@@ -92,6 +92,10 @@ function actionAllowed(action: PluginAction, manifest: PluginManifest): PluginAc
       if (Object.keys(filtered).length === 0) return null
       return { type: 'settings.merge', patch: filtered }
     }
+    case 'cli.result':
+      // No capability gate: cli.result is metadata-only and consumed by
+      // the CLI runner. The GUI applier ignores it.
+      return action
   }
 }
 

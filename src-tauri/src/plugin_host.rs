@@ -31,6 +31,8 @@ pub struct PluginManifest {
     pub host_capabilities: Vec<String>,
     #[serde(default = "default_timeout")]
     pub timeout_seconds: u64,
+    #[serde(default)]
+    pub cli: Vec<CliEntry>,
 }
 
 fn default_timeout() -> u64 { 30 }
@@ -68,6 +70,42 @@ pub struct ContextMenuEntry {
     pub command: String,
     #[serde(default)]
     pub enabled_when: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CliArg {
+    pub name: String,
+    #[serde(rename = "type")]
+    pub ty: String,             // "path" | "string" | "integer"
+    pub required: bool,
+    #[serde(default)]
+    pub help: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CliFlag {
+    pub long: String,
+    #[serde(default)]
+    pub short: Option<String>,
+    #[serde(rename = "type")]
+    pub ty: String,             // "boolean" | "string"
+    #[serde(default)]
+    pub help: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CliEntry {
+    pub subcommand: String,
+    #[serde(default)]
+    pub aliases: Vec<String>,
+    pub command: String,
+    pub summary: String,
+    #[serde(default)]
+    pub args: Vec<CliArg>,
+    #[serde(default)]
+    pub flags: Vec<CliFlag>,
+    #[serde(default)]
+    pub requires_tab_context: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -370,4 +408,175 @@ pub fn collect_top_menu_items() -> Vec<LocatedMenuItem> {
         }
     }
     out
+}
+
+/// Read-only access to every discovered enabled plugin with its directory path.
+/// The CLI router uses this to find plugins by subcommand/alias.
+pub fn enabled_manifests_with_paths() -> Vec<(PluginManifest, PathBuf)> {
+    STATE.read().unwrap().enabled.values().cloned().collect()
+}
+
+pub fn all_manifests() -> Vec<PluginManifest> {
+    STATE.read().unwrap().all.clone()
+}
+
+/// Same as `read_enabled_map` but takes an explicit config path. The CLI uses
+/// this before any Tauri AppHandle exists.
+pub fn read_enabled_map_from(config_dir: &std::path::Path) -> HashMap<String, bool> {
+    let path = config_dir.join("settings.json");
+    let bytes = match std::fs::read(&path) {
+        Ok(b) => b,
+        Err(_) => return HashMap::new(),
+    };
+    let v: serde_json::Value = match serde_json::from_slice(&bytes) {
+        Ok(v) => v,
+        Err(_) => return HashMap::new(),
+    };
+    let mut out = HashMap::new();
+    if let Some(obj) = v.get("plugins.enabled").and_then(|e| e.as_object()) {
+        for (k, vv) in obj { if let Some(b) = vv.as_bool() { out.insert(k.clone(), b); } }
+    }
+    if let Some(obj) = v.get("plugins").and_then(|p| p.get("enabled")).and_then(|e| e.as_object()) {
+        for (k, vv) in obj { if let Some(b) = vv.as_bool() { out.insert(k.clone(), b); } }
+    }
+    if let Some(top) = v.as_object() {
+        for (k, vv) in top {
+            if let Some(rest) = k.strip_prefix("plugins.enabled.") {
+                if let Some(b) = vv.as_bool() { out.insert(rest.to_string(), b); }
+            }
+        }
+    }
+    out
+}
+
+/// Persist plugins.enabled.<plugin_id> to <config_dir>/settings.json, preserving
+/// every other top-level key. Creates the config dir + file if needed.
+pub fn write_enabled_flag(
+    config_dir: &std::path::Path,
+    plugin_id: &str,
+    enabled: bool,
+) -> Result<(), String> {
+    let path = config_dir.join("settings.json");
+    std::fs::create_dir_all(config_dir).map_err(|e| e.to_string())?;
+    let mut v: serde_json::Value = match std::fs::read(&path) {
+        Ok(b) if !b.is_empty() => serde_json::from_slice(&b).map_err(|e| e.to_string())?,
+        _ => serde_json::json!({}),
+    };
+    let root = v.as_object_mut().ok_or_else(|| "settings.json root not an object".to_string())?;
+    let entry = root.entry("plugins.enabled".to_string())
+        .or_insert_with(|| serde_json::json!({}));
+    let map = entry.as_object_mut().ok_or_else(|| "plugins.enabled not an object".to_string())?;
+    map.insert(plugin_id.to_string(), serde_json::Value::Bool(enabled));
+    let bytes = serde_json::to_vec_pretty(&v).map_err(|e| e.to_string())?;
+    std::fs::write(&path, bytes).map_err(|e| e.to_string())
+}
+
+/// CLI router uses this to discover manifests + enabled-state from disk
+/// without a Tauri AppHandle. Errors are silently ignored.
+pub fn scan_disk(
+    plugins_dir: &std::path::Path,
+    config_dir: &std::path::Path,
+) -> (Vec<(PluginManifest, PathBuf)>, HashMap<String, bool>) {
+    let mut out = Vec::new();
+    if let Ok(entries) = std::fs::read_dir(plugins_dir) {
+        for entry in entries.flatten() {
+            let dir = entry.path();
+            if !dir.is_dir() { continue }
+            let mp = dir.join("manifest.json");
+            if !mp.exists() { continue }
+            if let Ok(bytes) = std::fs::read(&mp) {
+                if let Ok(m) = serde_json::from_slice::<PluginManifest>(&bytes) {
+                    out.push((m, dir));
+                }
+            }
+        }
+    }
+    let enabled = read_enabled_map_from(config_dir);
+    (out, enabled)
+}
+
+#[cfg(test)]
+mod cli_helpers_tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    #[test]
+    fn read_enabled_map_from_missing_returns_empty() {
+        let tmp = TempDir::new().unwrap();
+        let m = read_enabled_map_from(tmp.path());
+        assert!(m.is_empty());
+    }
+
+    #[test]
+    fn write_then_read_round_trips() {
+        let tmp = TempDir::new().unwrap();
+        write_enabled_flag(tmp.path(), "foo", false).unwrap();
+        let m = read_enabled_map_from(tmp.path());
+        assert_eq!(m.get("foo"), Some(&false));
+    }
+
+    #[test]
+    fn write_preserves_other_top_level_keys() {
+        let tmp = TempDir::new().unwrap();
+        let settings = tmp.path().join("settings.json");
+        std::fs::write(&settings, r#"{"unrelated": 42, "plugins.enabled": {"x": true}}"#).unwrap();
+        write_enabled_flag(tmp.path(), "foo", true).unwrap();
+        let v: serde_json::Value = serde_json::from_slice(&std::fs::read(&settings).unwrap()).unwrap();
+        assert_eq!(v.get("unrelated").and_then(|v| v.as_i64()), Some(42));
+        assert_eq!(v.get("plugins.enabled").and_then(|p| p.get("x")).and_then(|v| v.as_bool()), Some(true));
+        assert_eq!(v.get("plugins.enabled").and_then(|p| p.get("foo")).and_then(|v| v.as_bool()), Some(true));
+    }
+
+    #[test]
+    fn manifest_with_cli_round_trips() {
+        let json = r#"{
+            "id": "demo",
+            "name": "Demo",
+            "version": "0.1.0",
+            "binary": "bin",
+            "host_capabilities": [],
+            "cli": [{
+                "subcommand": "demo",
+                "command": "noop",
+                "summary": "s",
+                "args": [{"name": "f", "type": "path", "required": true}]
+            }]
+        }"#;
+        let m: PluginManifest = serde_json::from_str(json).unwrap();
+        assert_eq!(m.cli.len(), 1);
+        assert_eq!(m.cli[0].subcommand, "demo");
+        assert_eq!(m.cli[0].args.len(), 1);
+        assert_eq!(m.cli[0].args[0].ty, "path");
+    }
+
+    #[test]
+    fn manifest_without_cli_defaults_to_empty() {
+        let json = r#"{
+            "id": "old",
+            "name": "Old",
+            "version": "0.1.0",
+            "binary": "bin",
+            "host_capabilities": []
+        }"#;
+        let m: PluginManifest = serde_json::from_str(json).unwrap();
+        assert!(m.cli.is_empty());
+    }
+
+    #[test]
+    fn share_manifest_parses_with_cli() {
+        let mp = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("plugins/share/manifest.json");
+        let bytes = std::fs::read(&mp).expect("read manifest");
+        let m: PluginManifest = serde_json::from_slice(&bytes).expect("parse");
+        assert_eq!(m.id, "share");
+        assert_eq!(m.cli.len(), 1);
+        assert_eq!(m.cli[0].subcommand, "share");
+        assert!(m.cli[0].aliases.contains(&"-s".to_string()));
+        assert!(m.cli[0].requires_tab_context);
+        assert_eq!(m.cli[0].flags.len(), 3);
+        assert_eq!(m.cli[0].args.len(), 1);
+        assert_eq!(m.cli[0].args[0].name, "file");
+        assert_eq!(m.cli[0].args[0].ty, "path");
+        assert!(m.cli[0].args[0].required);
+    }
 }

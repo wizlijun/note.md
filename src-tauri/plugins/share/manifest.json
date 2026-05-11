@@ -71,5 +71,39 @@
     "toast",
     "dialog"
   ],
+  "cli": [
+    {
+      "subcommand": "share",
+      "aliases": ["-s", "--share"],
+      "command": "publish",
+      "summary": "Render and publish file as a shareable URL",
+      "args": [
+        {
+          "name": "file",
+          "type": "path",
+          "required": true,
+          "help": "Markdown or image file to share"
+        }
+      ],
+      "flags": [
+        {
+          "long": "--update",
+          "type": "boolean",
+          "help": "Force update existing share (default if already shared)"
+        },
+        {
+          "long": "--copy-link",
+          "type": "boolean",
+          "help": "Print previously-shared URL instead of re-publishing"
+        },
+        {
+          "long": "--unshare",
+          "type": "boolean",
+          "help": "Remove share for this file"
+        }
+      ],
+      "requires_tab_context": true
+    }
+  ],
   "timeout_seconds": 30
 }

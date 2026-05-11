@@ -10,6 +10,7 @@ use tauri::menu::{
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{Emitter, Manager, RunEvent, WindowEvent};
 
+pub mod cli;
 pub mod plugin_host;
 pub mod themes;
 
@@ -201,6 +202,17 @@ fn show_main_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
     }
 }
 
+/// Build the Tauri runtime `Context` from the embedded tauri.conf.json.
+///
+/// `tauri::generate_context!()` is a proc-macro that emits a `_EMBED_INFO_PLIST`
+/// static at its call-site. Calling it from two places in the same crate gives
+/// a duplicate-symbol link error. Funneling every consumer through this single
+/// helper guarantees one expansion. Both the GUI `run()` and the headless CLI
+/// runner use it.
+pub fn tauri_context() -> tauri::Context {
+    tauri::generate_context!()
+}
+
 pub fn run() {
     dlog("=== M↓ start ===");
     dlog(&format!("argv: {:?}", std::env::args().collect::<Vec<_>>()));
@@ -229,6 +241,12 @@ pub fn run() {
             plugin_host::get_plugin_manifests,
             plugin_host::get_all_plugin_manifests,
             plugin_host::invoke_plugin,
+            cli::state::cli_payload,
+            cli::state::cli_finish,
+            cli::install::cli_install_status,
+            cli::install::cli_install,
+            cli::install::cli_uninstall,
+            cli::install::cli_install_candidates,
             themes::commands::theme_list,
             themes::commands::theme_reveal,
             themes::commands::theme_load_compiled,
@@ -303,7 +321,7 @@ pub fn run() {
 
             Ok(())
         })
-        .build(tauri::generate_context!())
+        .build(tauri_context())
         .expect("error while building tauri application");
 
     app.run(|app_handle, event| {
@@ -450,7 +468,10 @@ fn build_menu<R: tauri::Runtime>(
     let window_menu: Submenu<R> = window_b.build()?;
 
     let mut help_b = SubmenuBuilder::new(app, "Help")
-        .item(&MenuItemBuilder::with_id("docs", "Documentation").build(app)?);
+        .item(&MenuItemBuilder::with_id("docs", "Documentation").build(app)?)
+        .separator()
+        .item(&MenuItemBuilder::with_id("cli-install", "Install 'mdedit' Command in PATH…").build(app)?)
+        .item(&MenuItemBuilder::with_id("cli-uninstall", "Uninstall 'mdedit' Command").build(app)?);
     for it in plugin_items.iter().filter(|p| p.location == "help") {
         let mut b = MenuItemBuilder::with_id(&it.id, &it.label);
         if let Some(s) = &it.shortcut { b = b.accelerator(s); }

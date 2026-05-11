@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { validateManifest, buildRegistry, findShortcutConflicts } from './registry'
+import { validateManifest, buildRegistry, findShortcutConflicts, findCliConflicts } from './registry'
 import type { PluginManifest } from './types'
 
 const valid = (over: Partial<PluginManifest> = {}): PluginManifest => ({
@@ -66,5 +66,166 @@ describe('findShortcutConflicts', () => {
   it('detects conflict with reserved core shortcut', () => {
     const a = valid({ menus: [{ location: 'file', label: 'A', shortcut: 'Cmd+S', command: 'a' }] })
     expect(findShortcutConflicts([a], ['Cmd+S']).length).toBe(1)
+  })
+})
+
+describe('manifest cli validation', () => {
+  const base = {
+    id: 'demo',
+    name: 'Demo',
+    version: '0.1.0',
+    binary: 'bin',
+    host_capabilities: [] as string[],
+  }
+
+  it('accepts a well-formed cli entry', () => {
+    const r = validateManifest({
+      ...base,
+      cli: [{ subcommand: 'demo', command: 'noop', summary: 's' }],
+    })
+    expect(r.ok).toBe(true)
+  })
+
+  it('rejects subcommand that collides with a builtin', () => {
+    const r = validateManifest({
+      ...base,
+      cli: [{ subcommand: 'help', command: 'noop', summary: 's' }],
+    })
+    expect(r.ok).toBe(false)
+  })
+
+  it('rejects subcommand with bad characters', () => {
+    const r = validateManifest({
+      ...base,
+      cli: [{ subcommand: 'Bad Name', command: 'noop', summary: 's' }],
+    })
+    expect(r.ok).toBe(false)
+  })
+
+  it('rejects alias that does not start with "-"', () => {
+    const r = validateManifest({
+      ...base,
+      cli: [{ subcommand: 'demo', aliases: ['ess'], command: 'noop', summary: 's' }],
+    })
+    expect(r.ok).toBe(false)
+  })
+
+  it('rejects alias that collides with a reserved global flag', () => {
+    const r = validateManifest({
+      ...base,
+      cli: [{ subcommand: 'demo', aliases: ['--json'], command: 'noop', summary: 's' }],
+    })
+    expect(r.ok).toBe(false)
+  })
+
+  it('rejects flag short that collides with a reserved global flag', () => {
+    const r = validateManifest({
+      ...base,
+      cli: [{
+        subcommand: 'demo', command: 'noop', summary: 's',
+        flags: [{ long: '--update', short: '-h', type: 'boolean' }],
+      }],
+    })
+    expect(r.ok).toBe(false)
+  })
+})
+
+describe('findCliConflicts', () => {
+  const builtins = ['help', 'version', 'plugin']
+
+  function m(id: string, cli: PluginManifest['cli']): PluginManifest {
+    return {
+      id, name: id, version: '0.1.0', binary: 'bin',
+      host_capabilities: [], cli,
+    } as PluginManifest
+  }
+
+  it('returns empty when no conflicts', () => {
+    const conflicts = findCliConflicts([
+      m('a', [{ subcommand: 'one', command: 'x', summary: 's' }]),
+      m('b', [{ subcommand: 'two', command: 'x', summary: 's' }]),
+    ], builtins)
+    expect(conflicts).toEqual([])
+  })
+
+  it('detects duplicate subcommand across plugins', () => {
+    const conflicts = findCliConflicts([
+      m('a', [{ subcommand: 'dup', command: 'x', summary: 's' }]),
+      m('b', [{ subcommand: 'dup', command: 'x', summary: 's' }]),
+    ], builtins)
+    expect(conflicts).toHaveLength(1)
+    expect(conflicts[0].kind).toBe('subcommand')
+    expect(conflicts[0].owners.map(o => o.pluginId).sort()).toEqual(['a', 'b'])
+  })
+
+  it('detects duplicate alias across plugins', () => {
+    const conflicts = findCliConflicts([
+      m('a', [{ subcommand: 'one', aliases: ['-x'], command: 'x', summary: 's' }]),
+      m('b', [{ subcommand: 'two', aliases: ['-x'], command: 'x', summary: 's' }]),
+    ], builtins)
+    expect(conflicts).toHaveLength(1)
+    expect(conflicts[0].kind).toBe('alias')
+    expect(conflicts[0].key).toBe('-x')
+  })
+
+  it('detects subcommand colliding with builtin even at registry level', () => {
+    const conflicts = findCliConflicts([
+      m('a', [{ subcommand: 'help', command: 'x', summary: 's' }]),
+    ], builtins)
+    expect(conflicts).toHaveLength(1)
+    expect(conflicts[0].kind).toBe('subcommand')
+    expect(conflicts[0].reservedCore).toBe(true)
+  })
+})
+
+describe('buildRegistry drops cli entries from conflicting plugins', () => {
+  function mfest(id: string, cli: PluginManifest['cli']): PluginManifest {
+    return {
+      id, name: id, version: '0.1.0', binary: 'bin',
+      host_capabilities: [],
+      menus: [{ location: 'file' as const, label: id, command: 'noop' }],
+      cli,
+    } as PluginManifest
+  }
+
+  it('drops conflicting subcommand cli entries from both plugins; leaves menus intact', () => {
+    const a = mfest('a', [{ subcommand: 'dup', command: 'x', summary: 's' }])
+    const b = mfest('b', [{ subcommand: 'dup', command: 'x', summary: 's' }])
+    const reg = buildRegistry([a, b])
+    expect(Object.keys(reg.byId).sort()).toEqual(['a', 'b'])
+    expect(reg.byId['a'].cli ?? []).toEqual([])
+    expect(reg.byId['b'].cli ?? []).toEqual([])
+    expect(reg.byId['a'].menus?.length).toBe(1)
+    expect(reg.byId['b'].menus?.length).toBe(1)
+    expect(reg.errors.some(e => e.includes("'dup'"))).toBe(true)
+  })
+
+  it('drops a subcommand that collides with a reserved builtin', () => {
+    const a = mfest('a', [{ subcommand: 'help', command: 'x', summary: 's' }])
+    const reg = buildRegistry([a])
+    expect(reg.byId['a'].cli ?? []).toEqual([])
+    expect(reg.errors.some(e => e.includes("'help'") && e.includes('reserved'))).toBe(true)
+  })
+
+  it('drops conflicting alias entries; leaves non-conflicting cli entries from same plugin alone', () => {
+    const a = mfest('a', [
+      { subcommand: 'one', aliases: ['-x'], command: 'cmd', summary: 's' },
+      { subcommand: 'two', command: 'cmd', summary: 's' },
+    ])
+    const b = mfest('b', [
+      { subcommand: 'three', aliases: ['-x'], command: 'cmd', summary: 's' },
+    ])
+    const reg = buildRegistry([a, b])
+    // 'one' has the conflicting alias; 'two' should survive.
+    expect(reg.byId['a'].cli?.map(c => c.subcommand).sort()).toEqual(['two'])
+    expect(reg.byId['b'].cli ?? []).toEqual([])
+  })
+
+  it('does not modify input manifests', () => {
+    const a = mfest('a', [{ subcommand: 'dup', command: 'x', summary: 's' }])
+    const b = mfest('b', [{ subcommand: 'dup', command: 'x', summary: 's' }])
+    const aBefore = JSON.parse(JSON.stringify(a))
+    buildRegistry([a, b])
+    expect(a).toEqual(aBefore)
   })
 })

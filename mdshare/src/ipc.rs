@@ -42,6 +42,8 @@ pub enum Action {
     ClipboardWrite { text: String },
     #[serde(rename = "settings.merge")]
     SettingsMerge { patch: Map<String, Value> },
+    #[serde(rename = "cli.result")]
+    CliResult { data: Map<String, Value> },
 }
 
 impl Response {
@@ -59,4 +61,8 @@ pub fn toast_error(name: &str, message_zh: &str, detail: Option<&str>) -> Action
         message: format!("❌ {name}: {message_zh}"),
         detail: detail.map(|s| s.to_string()),
     }
+}
+
+pub fn cli_result(data: Map<String, Value>) -> Action {
+    Action::CliResult { data }
 }

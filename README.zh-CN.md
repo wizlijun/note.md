@@ -85,6 +85,24 @@ pnpm tauri build --target universal-apple-darwin
 - 单架构：`src-tauri/target/release/bundle/macos/M↓.app`
 - Universal：`src-tauri/target/universal-apple-darwin/release/bundle/macos/M↓.app`
 
+## CLI
+
+M↓ 内置一个 `mdedit` 命令行工具，方便其他应用在不打开 GUI 的情况下调用插件功能。
+通过 **Help → Install 'mdedit' Command in PATH...** 安装（安装到 `/usr/local/bin`
+会要求管理员授权），也可以在 **Preferences → CLI** 里安装/卸载。
+
+```bash
+mdedit -s draft.md                         # 通过 Share 插件发布，stdout 输出 URL
+mdedit share draft.md --json               # 结构化输出（JSON）
+mdedit share draft.md --copy-link          # 复用已有分享链接
+mdedit share draft.md --unshare            # 取消该文件的分享
+mdedit help                                # 完整帮助
+mdedit plugin list                         # 列出所有插件及启用状态
+```
+
+CLI 只暴露**已启用**插件贡献的子命令。在 **Preferences → Plugins** 中禁用某个插件
+会同步从 `mdedit` 移除其子命令。
+
 ## 发布（仓库维护者）
 
 ```bash

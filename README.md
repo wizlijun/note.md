@@ -88,6 +88,25 @@ Output:
 - single-arch: `src-tauri/target/release/bundle/macos/M↓.app`
 - universal: `src-tauri/target/universal-apple-darwin/release/bundle/macos/M↓.app`
 
+## CLI
+
+M↓ ships a `mdedit` command that lets other applications drive plugin
+features without opening the GUI. Install it from **Help → Install 'mdedit'
+Command in PATH...** (you'll be prompted for admin if installing into
+`/usr/local/bin`), or from **Preferences → CLI**.
+
+```bash
+mdedit -s draft.md                         # publish via Share plugin, prints URL
+mdedit share draft.md --json               # structured output
+mdedit share draft.md --copy-link          # re-fetch existing URL
+mdedit share draft.md --unshare            # remove the share
+mdedit help                                # full reference
+mdedit plugin list                         # see all plugins and their status
+```
+
+The CLI only exposes commands contributed by *enabled* plugins. Disable a
+plugin in **Preferences → Plugins** to remove its subcommand from `mdedit`.
+
 ## Manual Smoke Test (run before each release)
 
 1. **Launch via Finder double-click** of any `.md` file → app opens with that file in a tab

@@ -101,4 +101,21 @@ describe('parseAndFilterResponse', () => {
     expect(r.ok).toBe(true)
     if (r.ok) expect(r.value.actions).toEqual([])
   })
+
+  it('passes cli.result actions through unconditionally', () => {
+    const manifest = {
+      id: 'demo', name: 'Demo', version: '0.1.0', binary: 'bin',
+      host_capabilities: [],  // intentionally no capabilities
+    } as PluginManifest
+    const line = JSON.stringify({
+      success: true,
+      actions: [{ type: 'cli.result', data: { url: 'https://example.com' } }],
+    })
+    const r = parseAndFilterResponse(line, manifest)
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.value.actions).toEqual([
+      { type: 'cli.result', data: { url: 'https://example.com' } },
+    ])
+  })
 })

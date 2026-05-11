@@ -85,6 +85,9 @@ export async function applyActions(actions: PluginAction[], manifest: PluginMani
           if (yes) await h.reinvokePlugin(manifest.id, a.if_confirm_invoke)
           break
         }
+        case 'cli.result':
+          // No-op in GUI; CliRunner reads this in CLI mode.
+          break
       }
     } catch (e) {
       const detail = e instanceof Error ? e.message : String(e)
