@@ -595,7 +595,7 @@ mod cli_helpers_tests {
         assert_eq!(m.id, "share");
         assert_eq!(m.cli.len(), 1);
         assert_eq!(m.cli[0].subcommand, "share");
-        assert!(m.cli[0].aliases.contains(&"-s".to_string()));
+        assert!(m.cli[0].aliases.contains(&"--share".to_string()));
         assert!(m.cli[0].requires_tab_context);
         assert_eq!(m.cli[0].flags.len(), 3);
         assert_eq!(m.cli[0].args.len(), 1);

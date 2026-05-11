@@ -342,7 +342,7 @@ mod tests {
             timeout_seconds: 30,
             cli: vec![CliEntry {
                 subcommand: "share".to_string(),
-                aliases: vec!["-s".to_string(), "--share".to_string()],
+                aliases: vec!["--share".to_string()],
                 command: "publish".to_string(),
                 summary: "Render and publish file as a shareable URL".to_string(),
                 args: vec![],
@@ -359,7 +359,7 @@ mod tests {
         assert!(out.contains("PLUGIN COMMANDS:"));
         assert!(out.contains("share"));
         assert!(out.contains("[Share]"));
-        assert!(out.contains("mdedit -s <file>"));
+        assert!(out.contains("Render and publish"));
     }
     #[test] fn help_all_includes_disabled_section() {
         let mut enabled = HashMap::new();

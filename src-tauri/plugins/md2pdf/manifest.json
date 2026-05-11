@@ -19,5 +19,30 @@
     }
   ],
   "host_capabilities": ["renderer.html", "toast"],
-  "timeout_seconds": 60
+  "timeout_seconds": 60,
+  "cli": [
+    {
+      "subcommand": "pdf",
+      "aliases": ["--pdf"],
+      "command": "export",
+      "summary": "Export Markdown or HTML file to PDF",
+      "args": [
+        {
+          "name": "file",
+          "type": "path",
+          "required": true,
+          "help": "Markdown or HTML file to export"
+        }
+      ],
+      "flags": [
+        {
+          "long": "--output",
+          "short": "-o",
+          "type": "string",
+          "help": "Output PDF path (default: <stem>.pdf in same directory)"
+        }
+      ],
+      "requires_tab_context": true
+    }
+  ]
 }

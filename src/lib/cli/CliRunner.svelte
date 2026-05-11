@@ -101,12 +101,11 @@
       lastKnownHash: fileContent ? await sha256Hex(fileContent) : '',
     }
 
-    // For commands requiring rendered HTML (publish), bake; else skip.
+    // For commands requiring rendered HTML, bake the content.
     const entry = (manifest.cli ?? []).find(c => c.subcommand === payload.subcommand)
     let renderedHtml: string | undefined
-    if (entry?.requires_tab_context && payload.plugin_command === 'publish') {
+    if (entry?.requires_tab_context && manifest.host_capabilities.includes('renderer.html')) {
       try {
-        // Image tabs: share plugin handles bytes server-side; skip bake.
         if (fileKind !== 'image') {
           const systemDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false
           const themeId = computeActiveThemeId(settings.theme, systemDark)
@@ -118,6 +117,16 @@
         await finish({ exit_code: 1, stderr: [`mdedit: render failed: ${e}`] })
         return
       }
+    }
+
+    // Resolve output_path for plugins that need it (e.g. md2pdf export).
+    let outputPath: string | undefined
+    const outputFlag = payload.flags['output'] as string | undefined
+    if (outputFlag) {
+      outputPath = outputFlag.startsWith('/') ? outputFlag
+        : `${payload.file!.replace(/\/[^/]+$/, '')}/${outputFlag}`
+    } else if (manifest.id === 'md2pdf') {
+      outputPath = payload.file!.replace(/\.[^.]+$/, '.pdf')
     }
 
     const settings = getPluginScopedAll(manifest.id)
@@ -138,6 +147,7 @@
       {
         htmlBaker: renderedHtml != null ? async () => renderedHtml! : undefined,
         settingsReader: () => settings,
+        outputPath,
       },
     )
 
