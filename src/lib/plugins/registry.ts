@@ -5,6 +5,16 @@ const VALID_CAPS = new Set<string>([
   'clipboard.write', 'toast', 'dialog',
 ])
 
+const BUILTIN_SUBCOMMANDS = ['help', 'version', 'plugin']
+const RESERVED_GLOBAL_FLAGS = [
+  '-h', '--help', '-v', '--version',
+  '-q', '--quiet', '--json',
+  '--no-clipboard', '--yes', '-y', '--plugin-dir',
+]
+const SUBCOMMAND_RE = /^[a-z][a-z0-9-]{1,31}$/
+const SHORT_FLAG_RE = /^-[a-zA-Z]$/
+const LONG_FLAG_RE = /^--[a-z][a-z0-9-]*$/
+
 function isValidCapability(c: string): c is Capability {
   if (VALID_CAPS.has(c)) return true
   if (c.startsWith('settings.write:') && c.length > 'settings.write:'.length) return true
@@ -65,6 +75,49 @@ export function validateManifest(m: unknown): ValidateResult {
     }
   }
 
+  if (o.cli != null) {
+    if (!Array.isArray(o.cli))
+      return { ok: false, error: 'cli must be an array' }
+    for (const ce of o.cli) {
+      const cr = ce as Record<string, unknown>
+      if (typeof cr.subcommand !== 'string' || !SUBCOMMAND_RE.test(cr.subcommand))
+        return { ok: false, error: `cli.subcommand invalid: ${String(cr.subcommand)}` }
+      if (BUILTIN_SUBCOMMANDS.includes(cr.subcommand))
+        return { ok: false, error: `cli.subcommand '${cr.subcommand}' collides with builtin` }
+      if (typeof cr.command !== 'string' || cr.command.length === 0)
+        return { ok: false, error: 'cli.command required' }
+      if (typeof cr.summary !== 'string' || cr.summary.length === 0)
+        return { ok: false, error: 'cli.summary required' }
+      if (cr.aliases != null) {
+        if (!Array.isArray(cr.aliases))
+          return { ok: false, error: 'cli.aliases must be an array' }
+        for (const a of cr.aliases) {
+          if (typeof a !== 'string' || !a.startsWith('-'))
+            return { ok: false, error: `cli.alias must start with '-': ${String(a)}` }
+          if (RESERVED_GLOBAL_FLAGS.includes(a))
+            return { ok: false, error: `cli.alias '${a}' collides with reserved global flag` }
+          if (!SHORT_FLAG_RE.test(a) && !LONG_FLAG_RE.test(a))
+            return { ok: false, error: `cli.alias has invalid format: ${a}` }
+        }
+      }
+      if (cr.flags != null) {
+        if (!Array.isArray(cr.flags))
+          return { ok: false, error: 'cli.flags must be an array' }
+        for (const f of cr.flags) {
+          const fr = f as Record<string, unknown>
+          if (typeof fr.long !== 'string' || !LONG_FLAG_RE.test(fr.long))
+            return { ok: false, error: `cli.flag.long invalid: ${String(fr.long)}` }
+          if (RESERVED_GLOBAL_FLAGS.includes(fr.long))
+            return { ok: false, error: `cli.flag.long '${fr.long}' collides with reserved global flag` }
+          if (fr.short != null && (typeof fr.short !== 'string' || !SHORT_FLAG_RE.test(fr.short)))
+            return { ok: false, error: `cli.flag.short invalid: ${String(fr.short)}` }
+        }
+      }
+      if (cr.args != null && !Array.isArray(cr.args))
+        return { ok: false, error: 'cli.args must be an array' }
+    }
+  }
+
   return { ok: true, value: o as unknown as PluginManifest }
 }
 
@@ -109,6 +162,47 @@ export function findShortcutConflicts(
       if (reserved) c.reservedCore = true
       conflicts.push(c)
     }
+  }
+  return conflicts
+}
+
+export interface CliConflict {
+  kind: 'subcommand' | 'alias'
+  key: string
+  owners: { pluginId: string; subcommand: string }[]
+  reservedCore?: boolean
+}
+
+export function findCliConflicts(
+  manifests: PluginManifest[],
+  builtinSubcommands: string[],
+): CliConflict[] {
+  const subMap = new Map<string, CliConflict>()
+  const aliasMap = new Map<string, CliConflict>()
+  for (const m of manifests) {
+    for (const entry of m.cli ?? []) {
+      const sub = subMap.get(entry.subcommand) ?? {
+        kind: 'subcommand', key: entry.subcommand, owners: [],
+      }
+      sub.owners.push({ pluginId: m.id, subcommand: entry.subcommand })
+      subMap.set(entry.subcommand, sub)
+      for (const a of entry.aliases ?? []) {
+        const al = aliasMap.get(a) ?? { kind: 'alias', key: a, owners: [] }
+        al.owners.push({ pluginId: m.id, subcommand: entry.subcommand })
+        aliasMap.set(a, al)
+      }
+    }
+  }
+  const conflicts: CliConflict[] = []
+  for (const [key, c] of subMap) {
+    const reserved = builtinSubcommands.includes(key)
+    if (c.owners.length > 1 || reserved) {
+      if (reserved) c.reservedCore = true
+      conflicts.push(c)
+    }
+  }
+  for (const [, c] of aliasMap) {
+    if (c.owners.length > 1) conflicts.push(c)
   }
   return conflicts
 }
