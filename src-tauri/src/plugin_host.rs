@@ -188,16 +188,10 @@ fn fallback_plugins_dir_from_exe() -> Option<PathBuf> {
 pub fn init<R: Runtime>(app: &AppHandle<R>) {
     let plugins_dir = match app.path().resource_dir() {
         Ok(rd) => rd.join("plugins"),
-        Err(e) => {
+        Err(_) => {
             match fallback_plugins_dir_from_exe() {
-                Some(p) => {
-                    eprintln!("[plugin_host] resource_dir failed ({e}); falling back to {p:?}");
-                    p
-                }
-                None => {
-                    eprintln!("[plugin_host] resource_dir failed: {e}");
-                    return;
-                }
+                Some(p) => p,
+                None => return,
             }
         }
     };
