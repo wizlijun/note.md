@@ -230,6 +230,8 @@ pub fn run() {
             plugin_host::get_plugin_manifests,
             plugin_host::get_all_plugin_manifests,
             plugin_host::invoke_plugin,
+            cli::state::cli_payload,
+            cli::state::cli_finish,
             themes::commands::theme_list,
             themes::commands::theme_reveal,
             themes::commands::theme_load_compiled,
