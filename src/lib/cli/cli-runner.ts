@@ -127,6 +127,8 @@ export function interpretActions(
     }
   } else if (exitCode === 0 && cliData && typeof cliData.url === 'string') {
     stdout = cliData.url as string
+  } else if (exitCode === 0 && cliData && typeof cliData.path === 'string') {
+    stdout = cliData.path as string
   }
 
   const stderr = [...errorLines, ...progressLines]

@@ -40,6 +40,10 @@ pub enum Action {
         #[serde(skip_serializing_if = "Option::is_none")]
         detail: Option<String>,
     },
+    #[serde(rename = "cli.result")]
+    CliResult {
+        data: serde_json::Map<String, serde_json::Value>,
+    },
 }
 
 impl Response {
