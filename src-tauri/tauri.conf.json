@@ -41,7 +41,8 @@
       "icons/icon.png"
     ],
     "resources": [
-      "plugins/**/*"
+      "plugins/**/*",
+      "resources/themes/**/*"
     ],
     "category": "DeveloperTool",
     "macOS": {
