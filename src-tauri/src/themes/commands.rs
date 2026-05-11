@@ -1,6 +1,7 @@
 use crate::themes::compiler::compile_theme_css;
 use crate::themes::paths::{compiled_path, compiled_dir, ensure_dirs, source_path, themes_dir, asset_dir};
 use crate::themes::registry::{scan_themes_dir, ThemeMeta};
+use tauri::Manager;
 
 /// Ids of the themes we ship with the app. Used for the `built_in` flag and
 /// the "Restore built-in themes" affordance.
@@ -52,4 +53,16 @@ pub fn theme_recompile_all(app: tauri::AppHandle) -> Result<Vec<String>, String>
         }
     }
     Ok(errs)
+}
+
+#[tauri::command]
+pub fn theme_restore_builtins(app: tauri::AppHandle) -> Result<usize, String> {
+    use crate::themes::migration::force_copy_built_ins;
+    ensure_dirs(&app)?;
+    let res_dir = app.path().resource_dir().map_err(|e| e.to_string())?.join("resources").join("themes");
+    let themes = themes_dir(&app)?;
+    let n = force_copy_built_ins(&res_dir, &themes, BUILT_IN_THEME_IDS)?;
+    // Recompile so the .compiled/ cache reflects the restored sources.
+    let _ = theme_recompile_all(app.clone());
+    Ok(n)
 }

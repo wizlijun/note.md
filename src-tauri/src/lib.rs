@@ -233,6 +233,7 @@ pub fn run() {
             themes::commands::theme_reveal,
             themes::commands::theme_recompile,
             themes::commands::theme_recompile_all,
+            themes::commands::theme_restore_builtins,
         ])
         .setup(|app| {
             plugin_host::init(&app.handle());
