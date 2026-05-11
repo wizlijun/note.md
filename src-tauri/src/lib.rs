@@ -243,6 +243,10 @@ pub fn run() {
             plugin_host::invoke_plugin,
             cli::state::cli_payload,
             cli::state::cli_finish,
+            cli::install::cli_install_status,
+            cli::install::cli_install,
+            cli::install::cli_uninstall,
+            cli::install::cli_install_candidates,
             themes::commands::theme_list,
             themes::commands::theme_reveal,
             themes::commands::theme_load_compiled,
@@ -464,7 +468,10 @@ fn build_menu<R: tauri::Runtime>(
     let window_menu: Submenu<R> = window_b.build()?;
 
     let mut help_b = SubmenuBuilder::new(app, "Help")
-        .item(&MenuItemBuilder::with_id("docs", "Documentation").build(app)?);
+        .item(&MenuItemBuilder::with_id("docs", "Documentation").build(app)?)
+        .separator()
+        .item(&MenuItemBuilder::with_id("cli-install", "Install 'mdedit' Command in PATH…").build(app)?)
+        .item(&MenuItemBuilder::with_id("cli-uninstall", "Uninstall 'mdedit' Command").build(app)?);
     for it in plugin_items.iter().filter(|p| p.location == "help") {
         let mut b = MenuItemBuilder::with_id(&it.id, &it.label);
         if let Some(s) = &it.shortcut { b = b.accelerator(s); }

@@ -228,6 +228,45 @@
             .then(({ openUrl }) => openUrl('https://github.com/bruce/mdeditor'))
             .catch(() => {})
           break
+        case 'cli-install': {
+          const { invoke } = await import('@tauri-apps/api/core')
+          const { ask, message } = await import('@tauri-apps/plugin-dialog')
+          const candidates = await invoke<string[]>('cli_install_candidates')
+          // Walk candidates; first acceptance installs there.
+          for (const dir of candidates) {
+            const ok = await ask(`Install 'mdedit' into ${dir}?`, { title: "Install 'mdedit' Command", kind: 'info' })
+            if (ok) {
+              try {
+                await invoke('cli_install', { dir })
+                const { pushToast } = await import('./lib/toast.svelte')
+                pushToast({ level: 'success', message: `'mdedit' installed at ${dir}` })
+              } catch (e) {
+                await message(`Install failed: ${e}`, { title: 'mdedit', kind: 'error' })
+              }
+              break
+            }
+          }
+          break
+        }
+        case 'cli-uninstall': {
+          const { invoke } = await import('@tauri-apps/api/core')
+          const status = await invoke<{ installed: boolean; path: string | null }>('cli_install_status')
+          if (!status.installed || !status.path) {
+            const { pushToast } = await import('./lib/toast.svelte')
+            pushToast({ level: 'info', message: "'mdedit' is not installed" })
+            break
+          }
+          const dir = status.path.replace(/\/mdedit$/, '')
+          try {
+            await invoke('cli_uninstall', { dir })
+            const { pushToast } = await import('./lib/toast.svelte')
+            pushToast({ level: 'success', message: `'mdedit' uninstalled from ${dir}` })
+          } catch (e) {
+            const { message } = await import('@tauri-apps/plugin-dialog')
+            await message(`Uninstall failed: ${e}`, { title: 'mdedit', kind: 'error' })
+          }
+          break
+        }
       }
     })
 
