@@ -178,11 +178,11 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
-    #[test]
-    fn status_reports_not_installed_when_no_link() {
-        let st = status(Some(Path::new("/this/does/not/exist/mdedit")));
-        assert!(!st.installed);
-    }
+    // (Removed: `status_reports_not_installed_when_no_link` depended on no
+    // `mdedit` symlink existing in any of the hardcoded candidate dirs, which
+    // isn't a property the test can enforce. `status(Some(stale_path))`
+    // legitimately falls through to candidate probing, so on a developer
+    // machine with a real install the test reports "installed" — by design.)
 
     #[test]
     fn install_creates_symlink_in_writable_dir() {

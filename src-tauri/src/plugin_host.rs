@@ -172,10 +172,34 @@ fn read_enabled_map<R: Runtime>(app: &AppHandle<R>) -> HashMap<String, bool> {
 /// user has set `plugins.enabled.<id> = false` are recorded in the "all"
 /// list (so the Preferences UI can render them) but not added to the
 /// active map; their menus / shortcuts / settings tabs do not register.
+/// Best-effort fallback: derive `<bundle>/Contents/Resources/plugins/` from
+/// `current_exe()`. Used when `app.path().resource_dir()` fails — which
+/// happens at least when the process is launched through a symlink in a
+/// non-`.app` location (e.g., the CLI's `/usr/local/bin/mdedit → .app/.../mdeditor`).
+fn fallback_plugins_dir_from_exe() -> Option<PathBuf> {
+    let exe = std::env::current_exe().ok()?;
+    let exe = exe.canonicalize().unwrap_or(exe);
+    let macos_dir = exe.parent()?;
+    let contents = macos_dir.parent()?;
+    let candidate = contents.join("Resources").join("plugins");
+    if candidate.exists() { Some(candidate) } else { None }
+}
+
 pub fn init<R: Runtime>(app: &AppHandle<R>) {
     let plugins_dir = match app.path().resource_dir() {
         Ok(rd) => rd.join("plugins"),
-        Err(e) => { eprintln!("[plugin_host] resource_dir failed: {e}"); return; }
+        Err(e) => {
+            match fallback_plugins_dir_from_exe() {
+                Some(p) => {
+                    eprintln!("[plugin_host] resource_dir failed ({e}); falling back to {p:?}");
+                    p
+                }
+                None => {
+                    eprintln!("[plugin_host] resource_dir failed: {e}");
+                    return;
+                }
+            }
+        }
     };
     if !plugins_dir.exists() { return }
 
