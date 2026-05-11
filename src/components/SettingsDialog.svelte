@@ -2,7 +2,7 @@
   import { invoke } from '@tauri-apps/api/core'
   import { onMount } from 'svelte'
   import { ask, open as openFilePicker } from '@tauri-apps/plugin-dialog'
-  import { settings, saveSettings, getPluginScopedAll, mergePluginScoped } from '../lib/settings.svelte'
+  import { settings, saveSettings, getPluginScopedAll, mergePluginScoped, pluginScopedVersion } from '../lib/settings.svelte'
   import { themes, loadThemes, reloadThemes } from '../lib/themes.svelte'
   import { pendingThemeImport } from '../lib/theme-import-bus.svelte'
   import ThemeImportDialog from './ThemeImportDialog.svelte'
@@ -73,19 +73,23 @@
     try {
       const manifests = await invoke<PluginManifest[]>('get_plugin_manifests')
       pluginTabs = collectSettingsTabs(manifests)
-      for (const tab of pluginTabs) {
-        const all = getPluginScopedAll(tab.pluginId)
-        // Strip the `<id>.` prefix for form binding.
-        const stripped: Record<string, unknown> = {}
-        for (const [k, v] of Object.entries(all)) {
-          stripped[k.slice(tab.pluginId.length + 1)] = v
-        }
-        pluginValues[tab.pluginId] = stripped
-      }
     } catch (e) {
       console.warn('[SettingsDialog] manifest load:', e)
     }
     void refreshCliStatus()
+  })
+
+  $effect(() => {
+    void pluginScopedVersion.value
+    if (!open || pluginTabs.length === 0) return
+    for (const tab of pluginTabs) {
+      const all = getPluginScopedAll(tab.pluginId)
+      const stripped: Record<string, unknown> = {}
+      for (const [k, v] of Object.entries(all)) {
+        stripped[k.slice(tab.pluginId.length + 1)] = v
+      }
+      pluginValues[tab.pluginId] = stripped
+    }
   })
 
   async function savePluginField(pluginId: string, key: string, value: unknown) {
