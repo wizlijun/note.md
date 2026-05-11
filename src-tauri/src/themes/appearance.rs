@@ -56,45 +56,35 @@ fn contains_token(haystack: &str, needle: &str) -> bool {
 /// `claude-like-dark` → "Claude-Like Dark". Tokens are split on `_` and `.`
 /// (rendered as spaces). `-` is preserved.
 pub fn title_case_from_stem(stem: &str) -> String {
-    // Convert dark/night keyword delimiters from `-` to space
-    let lower = stem.to_ascii_lowercase();
-    let mut dash_to_space = vec![false; stem.len()];
-
+    // Find which '-' characters (by char index) precede a `dark`/`night` keyword token.
+    let chars: Vec<char> = stem.to_lowercase().chars().collect();
+    let mut space_at: std::collections::HashSet<usize> = Default::default();
     for keyword in &["dark", "night"] {
-        let mut i = 0;
-        while let Some(found) = lower[i..].find(keyword) {
-            let start = i + found;
-            let end = start + keyword.len();
-            let left_ok = start == 0 || matches!(lower.as_bytes()[start - 1], b'-' | b'_');
-            let right_ok = end == lower.len() || matches!(lower.as_bytes()[end], b'-' | b'_');
-            if left_ok && right_ok && start > 0 && lower.as_bytes()[start - 1] == b'-' {
-                dash_to_space[start - 1] = true;
+        let kchars: Vec<char> = keyword.chars().collect();
+        for i in 0..chars.len() {
+            if chars[i..].starts_with(&kchars) {
+                let end = i + kchars.len();
+                let left_ok = i == 0 || matches!(chars[i - 1], '-' | '_');
+                let right_ok = end == chars.len() || matches!(chars[end], '-' | '_');
+                if left_ok && right_ok && i > 0 && chars[i - 1] == '-' {
+                    space_at.insert(i - 1);
+                }
             }
-            i = start + 1;
         }
     }
-
-    let normalized: String = stem.chars().enumerate().map(|(idx, c)| {
-        if dash_to_space[idx] {
-            ' '
-        } else if c == '_' || c == '.' {
-            ' '
-        } else {
-            c
-        }
-    }).collect();
-
-    let mut out = String::with_capacity(normalized.len());
+    let stem_chars: Vec<char> = stem.chars().collect();
+    let mut out = String::with_capacity(stem.len());
     let mut capitalize_next = true;
-    for c in normalized.chars() {
-        if c == ' ' || c == '-' {
-            out.push(c);
+    for (idx, c) in stem_chars.iter().enumerate() {
+        let mapped = if space_at.contains(&idx) || *c == '_' || *c == '.' { ' ' } else { *c };
+        if mapped == ' ' || mapped == '-' {
+            out.push(mapped);
             capitalize_next = true;
         } else if capitalize_next {
-            for u in c.to_uppercase() { out.push(u); }
+            for u in mapped.to_uppercase() { out.push(u); }
             capitalize_next = false;
         } else {
-            out.push(c);
+            out.push(mapped);
         }
     }
     out

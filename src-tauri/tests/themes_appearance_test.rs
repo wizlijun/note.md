@@ -55,3 +55,17 @@ fn title_case_underscores_dots() {
     assert_eq!(title_case_from_stem("theme_v2"), "Theme V2");
     assert_eq!(title_case_from_stem("dracula.dark"), "Dracula Dark");
 }
+
+#[test]
+fn title_case_handles_non_ascii_before_keyword() {
+    // The previous byte-indexed implementation produced "Café- ark" for this input.
+    assert_eq!(title_case_from_stem("café-dark"), "Café Dark");
+    assert_eq!(title_case_from_stem("á-dark"), "Á Dark");
+}
+
+#[test]
+fn title_case_handles_non_ascii_in_general() {
+    // CJK / accented chars in stems should pass through cleanly.
+    assert_eq!(title_case_from_stem("书苑-dark"), "书苑 Dark");
+    assert_eq!(title_case_from_stem("naïve"), "Naïve");
+}
