@@ -30,6 +30,24 @@ pub fn candidate_dirs() -> Vec<PathBuf> {
     out
 }
 
+/// POSIX-escape a string so it can be embedded inside a single-quoted shell
+/// argument. Replaces `'` with `'\''` (close-quote, escaped quote, open-quote).
+fn sh_single_quote_escape(s: &str) -> String {
+    s.replace('\'', "'\\''")
+}
+
+fn assert_candidate(dir: &str) -> Result<(), String> {
+    let candidates = candidate_dirs();
+    let path = std::path::Path::new(dir);
+    if candidates.iter().any(|c| c == path) {
+        Ok(())
+    } else {
+        Err(format!(
+            "mdedit: refusing to install into '{dir}' — only candidate dirs are allowed"
+        ))
+    }
+}
+
 pub fn install(dir: &Path) -> Result<bool, String> {
     let target = current_app_binary();
     if !target.exists() {
@@ -50,9 +68,9 @@ pub fn install(dir: &Path) -> Result<bool, String> {
 
     let script = format!(
         "mkdir -p '{dir}' && ln -sfn '{target}' '{link}'",
-        dir = dir.display(),
-        target = target.display(),
-        link = link.display(),
+        dir = sh_single_quote_escape(&dir.display().to_string()),
+        target = sh_single_quote_escape(&target.display().to_string()),
+        link = sh_single_quote_escape(&link.display().to_string()),
     );
     let status = Command::new("osascript")
         .args(["-e", &format!("do shell script \"{}\" with administrator privileges",
@@ -75,7 +93,10 @@ pub fn uninstall(dir: &Path) -> Result<(), String> {
         std::fs::remove_file(&link).map_err(|e| e.to_string())?;
         return Ok(());
     }
-    let script = format!("rm -f '{}'", link.display());
+    let script = format!(
+        "rm -f '{}'",
+        sh_single_quote_escape(&link.display().to_string())
+    );
     let status = Command::new("osascript")
         .args(["-e", &format!("do shell script \"{}\" with administrator privileges",
             script.replace('"', "\\\""))])
@@ -123,11 +144,13 @@ pub fn cli_install_status() -> InstallStatus {
 
 #[tauri::command]
 pub fn cli_install(dir: String) -> Result<(), String> {
+    assert_candidate(&dir)?;
     install(Path::new(&dir)).map(|_| ())
 }
 
 #[tauri::command]
 pub fn cli_uninstall(dir: String) -> Result<(), String> {
+    assert_candidate(&dir)?;
     uninstall(Path::new(&dir))
 }
 
@@ -180,5 +203,28 @@ mod tests {
         uninstall(&dir).unwrap();
         assert!(dir.join("mdedit").symlink_metadata().is_err());
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn cli_install_rejects_arbitrary_dir() {
+        // Calling assert_candidate directly since cli_install is a Tauri command.
+        let r = assert_candidate("/tmp/whatever");
+        assert!(r.is_err());
+        assert!(r.unwrap_err().contains("only candidate dirs"));
+    }
+
+    #[test]
+    fn cli_install_accepts_candidate_dirs() {
+        let cands = candidate_dirs();
+        // First candidate is /usr/local/bin (or /opt/homebrew/bin on Apple Silicon)
+        let r = assert_candidate(&cands[0].display().to_string());
+        assert!(r.is_ok());
+    }
+
+    #[test]
+    fn sh_single_quote_escape_handles_quote() {
+        assert_eq!(sh_single_quote_escape("a'b"), "a'\\''b");
+        assert_eq!(sh_single_quote_escape("no quotes"), "no quotes");
+        assert_eq!(sh_single_quote_escape("'"), "'\\''");
     }
 }
