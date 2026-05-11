@@ -129,7 +129,7 @@
       outputPath = payload.file!.replace(/\.[^.]+$/, '.pdf')
     }
 
-    const settings = getPluginScopedAll(manifest.id)
+    const pluginSettings = getPluginScopedAll(manifest.id)
 
     const result = await invokePlugin(
       manifest,
@@ -146,7 +146,7 @@
       },
       {
         htmlBaker: renderedHtml != null ? async () => renderedHtml! : undefined,
-        settingsReader: () => settings,
+        settingsReader: () => pluginSettings,
         outputPath,
       },
     )
