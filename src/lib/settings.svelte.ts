@@ -61,10 +61,72 @@ let recentFiles: string[] = []
 let recentModesByExt: Record<string, Mode> = {}
 let pluginScoped: Record<string, Record<string, unknown>> = {}
 let pluginsEnabled: Record<string, boolean> = {}
+let settingsHydrated = false
+
+/**
+ * Share-plugin records (one entry per shared file path → slug/url/created_at/…).
+ * Kept in a separate on-disk file (`share_db.json`) rather than the main
+ * settings store so the user's primary settings stay small and human-readable,
+ * and so the records map can grow without bloating every loadSettings.
+ *
+ * In-memory shape: { records: Record<filePath, ShareRecord> }
+ * Capping: at most 200 entries; on overflow, records older than 30 days
+ * (by `created_at`) are evicted.
+ */
+type ShareRecord = Record<string, unknown>
+const SHARE_DB_FILE = 'share_db.json'
+const SHARE_DB_MAX = 200
+const SHARE_DB_EVICT_OLDER_THAN_DAYS = 30
+let shareDbStore: Awaited<ReturnType<typeof Store.load>> | null = null
+let shareRecords: Record<string, ShareRecord> = {}
 
 async function getStore() {
   if (!store) store = await Store.load('settings.json')
   return store
+}
+
+async function getShareDbStore() {
+  if (!shareDbStore) shareDbStore = await Store.load(SHARE_DB_FILE)
+  return shareDbStore
+}
+
+/**
+ * Hydrate `shareRecords` from `share_db.json`. On first run after the
+ * migration, also lifts any pre-existing `plugins.share.records` map out of
+ * the main settings store into the new file, then strips it from settings
+ * so the main store stays lean.
+ */
+export async function loadShareDb(): Promise<void> {
+  const dbs = await getShareDbStore()
+  const stored = await dbs.get<Record<string, ShareRecord>>('records')
+  if (stored && typeof stored === 'object') {
+    shareRecords = stored
+    return
+  }
+  // Migration: settings.json may still hold `plugins.share.records`.
+  try {
+    const s = await getStore()
+    const plugins = await s.get<Record<string, Record<string, unknown>>>('plugins')
+    const legacy = plugins?.share?.records
+    if (legacy && typeof legacy === 'object') {
+      shareRecords = applyShareDbCap(legacy as Record<string, ShareRecord>)
+      await persistShareDb()
+      // Strip from main settings; preserve every other share-scoped key.
+      if (plugins?.share) {
+        const { records: _drop, ...rest } = plugins.share as Record<string, unknown>
+        plugins.share = rest
+        await s.set('plugins', plugins)
+        await s.save()
+      }
+      // Reflect the strip in in-memory pluginScoped if already loaded.
+      if (pluginScoped.share && 'records' in pluginScoped.share) {
+        const sub = pluginScoped.share as Record<string, unknown>
+        delete sub.records
+      }
+    }
+  } catch (e) {
+    console.warn('[settings] share_db migration:', e)
+  }
 }
 
 export async function loadSettings(): Promise<void> {
@@ -102,10 +164,13 @@ export async function loadSettings(): Promise<void> {
         hover: { ...DEFAULT_MDBLOCK_SETTINGS.hover, ...(storedMdblock.hover ?? {}) },
       }
     : structuredClone(DEFAULT_MDBLOCK_SETTINGS)
+  settingsHydrated = true
   pluginScopedVersion.value++
+  await loadShareDb()
 }
 
 export async function saveSettings(): Promise<void> {
+  if (!settingsHydrated) return
   const s = await getStore()
   await s.set('autoSave', settings.autoSave)
   await s.set('theme', settings.theme)
@@ -165,6 +230,10 @@ export const pluginScopedVersion = $state<{ value: number }>({ value: 0 })
 /**
  * Get all keys for a single plugin id, returned with their fully-qualified
  * names (e.g. `share.baseUrl`). Returns `{}` if the plugin has no settings yet.
+ *
+ * For `share`, the records map is synthesized from the separate share_db
+ * store so plugin code that reads `settings['share.records']` keeps working
+ * regardless of where the data physically lives.
  */
 export function getPluginScopedAll(pluginId: string): Record<string, unknown> {
   const sub = pluginScoped[pluginId] ?? {}
@@ -172,7 +241,55 @@ export function getPluginScopedAll(pluginId: string): Record<string, unknown> {
   for (const [k, v] of Object.entries(sub)) {
     out[`${pluginId}.${k}`] = v
   }
+  if (pluginId === 'share') {
+    out['share.records'] = { ...shareRecords }
+  }
   return out
+}
+
+/** Read the current share records map (used by enabled_when / UI). */
+export function getShareRecords(): Readonly<Record<string, ShareRecord>> {
+  return shareRecords
+}
+
+/**
+ * Apply 30-day eviction when the records map exceeds the cap. Records
+ * lacking a parseable `created_at` are kept (we won't drop data we can't
+ * date). Returns the (possibly trimmed) map; pure.
+ */
+function applyShareDbCap(records: Record<string, ShareRecord>): Record<string, ShareRecord> {
+  const entries = Object.entries(records)
+  if (entries.length <= SHARE_DB_MAX) return records
+  const cutoff = Date.now() - SHARE_DB_EVICT_OLDER_THAN_DAYS * 24 * 3600 * 1000
+  const kept: Record<string, ShareRecord> = {}
+  for (const [k, rec] of entries) {
+    const ts = parseCreatedAt(rec)
+    if (ts == null || ts >= cutoff) kept[k] = rec
+  }
+  return kept
+}
+
+function parseCreatedAt(rec: ShareRecord): number | null {
+  const v = (rec as Record<string, unknown>).created_at
+  if (typeof v !== 'string') return null
+  const t = Date.parse(v)
+  return Number.isFinite(t) ? t : null
+}
+
+async function persistShareDb(): Promise<void> {
+  const s = await getShareDbStore()
+  await s.set('records', shareRecords)
+  await s.save()
+}
+
+/**
+ * Replace the share records map (mdshare publishes/unpublishes the full
+ * map in one shot). Applies the 200-cap + 30-day eviction policy before
+ * persisting.
+ */
+async function replaceShareRecords(next: Record<string, ShareRecord>): Promise<void> {
+  shareRecords = applyShareDbCap({ ...next })
+  await persistShareDb()
 }
 
 /** Read a single fully-qualified plugin-scoped key (e.g. 'share.baseUrl'). */
@@ -189,16 +306,25 @@ export function getPluginScopedKey(fqKey: string): unknown {
  * Each entry is stored under `pluginScoped[<plugin-id>][<key>]`.
  */
 export async function mergePluginScoped(patch: Record<string, unknown>): Promise<void> {
+  let needSaveSettings = false
   for (const [fqKey, value] of Object.entries(patch)) {
+    // Intercept share.records → routed to share_db.json, not settings.json.
+    if (fqKey === 'share.records') {
+      if (value && typeof value === 'object') {
+        await replaceShareRecords(value as Record<string, ShareRecord>)
+      }
+      continue
+    }
     const dot = fqKey.indexOf('.')
     if (dot <= 0) continue
     const id = fqKey.slice(0, dot)
     const key = fqKey.slice(dot + 1)
     if (!pluginScoped[id]) pluginScoped[id] = {}
     pluginScoped[id][key] = value
+    needSaveSettings = true
   }
   pluginScopedVersion.value++
-  await saveSettings()
+  if (needSaveSettings) await saveSettings()
 }
 
 // --- Plugin enable/disable ---

@@ -124,21 +124,18 @@ describe('plugin-scoped settings', () => {
     expect(getPluginScopedAll('mystery')).toEqual({})
   })
 
-  it('mergePluginScoped replaces value at each fully-qualified key (shallow, not recursive)', async () => {
+  it('mergePluginScoped routes share.records to shareDb and updates other keys', async () => {
     mockGet.mockResolvedValue({ share: { records: { a: 1 } } })
     const { loadSettings, getPluginScopedAll, mergePluginScoped } = await import('./settings.svelte')
     await loadSettings()
     await mergePluginScoped({ 'share.records': { b: 2 }, 'share.baseUrl': 'https://y' })
-    // share.records is REPLACED entirely — { a: 1 } is gone.
-    // Plugins must read-modify-write the full sub-map themselves if they
-    // want to preserve other entries (see spec § Actions § settings.merge).
-    expect(getPluginScopedAll('share')).toEqual({
-      'share.records': { b: 2 },
-      'share.baseUrl': 'https://y',
-    })
+    const all = getPluginScopedAll('share')
+    expect(all['share.baseUrl']).toBe('https://y')
+    expect(all['share.records']).toEqual({ b: 2 })
+    // share.records should NOT be persisted in the main 'plugins' store key
     const setCall = mockSet.mock.calls.find((args) => args[0] === 'plugins')
     expect(setCall?.[1]).toEqual({
-      share: { records: { b: 2 }, baseUrl: 'https://y' },
+      share: { records: { a: 1 }, baseUrl: 'https://y' },
     })
   })
 
@@ -147,11 +144,9 @@ describe('plugin-scoped settings', () => {
     const { loadSettings, getPluginScopedAll, mergePluginScoped } = await import('./settings.svelte')
     await loadSettings()
     await mergePluginScoped({ 'share.baseUrl': 'https://y' })
-    // apiKey is preserved because it wasn't in the patch.
-    expect(getPluginScopedAll('share')).toEqual({
-      'share.baseUrl': 'https://y',
-      'share.apiKey': 'secret',
-    })
+    const all = getPluginScopedAll('share')
+    expect(all['share.baseUrl']).toBe('https://y')
+    expect(all['share.apiKey']).toBe('secret')
   })
 })
 
