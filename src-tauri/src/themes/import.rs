@@ -7,10 +7,10 @@ use crate::themes::compiler::compile_theme_css;
 use crate::themes::header::parse_header;
 use crate::themes::id::is_valid_theme_id;
 use crate::themes::zip_safety::{extract_zip_safely, ExtractError, ExtractLimits};
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
 use std::path::{Path, PathBuf};
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ImportTheme {
     pub id: String,
     pub name: String,
@@ -19,13 +19,13 @@ pub struct ImportTheme {
     pub conflict: bool,
 }
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ImportError {
     pub file: String,
     pub message: String,
 }
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ImportReport {
     pub themes: Vec<ImportTheme>,
     pub asset_dirs: Vec<String>,

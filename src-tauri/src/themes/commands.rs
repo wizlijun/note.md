@@ -1,7 +1,8 @@
 use crate::themes::compiler::compile_theme_css;
+use crate::themes::import::{prepare_import, install_prepared, cleanup_staging, ImportReport};
 use crate::themes::paths::{compiled_path, compiled_dir, ensure_dirs, source_path, themes_dir, asset_dir};
 use crate::themes::registry::{scan_themes_dir, ThemeMeta};
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 
 /// Ids of the themes we ship with the app. Used for the `built_in` flag and
 /// the "Restore built-in themes" affordance.
@@ -65,4 +66,23 @@ pub fn theme_restore_builtins(app: tauri::AppHandle) -> Result<usize, String> {
     // Recompile so the .compiled/ cache reflects the restored sources.
     let _ = theme_recompile_all(app.clone());
     Ok(n)
+}
+
+#[tauri::command]
+pub fn theme_import(app: tauri::AppHandle, zip_path: String) -> Result<ImportReport, String> {
+    let existing: Vec<String> = theme_list(app)?.into_iter().map(|m| m.id).collect();
+    prepare_import(std::path::Path::new(&zip_path), &existing)
+}
+
+#[tauri::command]
+pub fn theme_install(app: tauri::AppHandle, report: ImportReport, overwrite: bool) -> Result<usize, String> {
+    let dir = themes_dir(&app)?;
+    let n = install_prepared(&report, &dir, overwrite)?;
+    let _ = app.emit("themes-updated", ());
+    Ok(n)
+}
+
+#[tauri::command]
+pub fn theme_cancel_import(_app: tauri::AppHandle, staging_dir: String) {
+    cleanup_staging(std::path::Path::new(&staging_dir));
 }

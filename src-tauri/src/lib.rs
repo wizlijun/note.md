@@ -234,6 +234,9 @@ pub fn run() {
             themes::commands::theme_recompile,
             themes::commands::theme_recompile_all,
             themes::commands::theme_restore_builtins,
+            themes::commands::theme_import,
+            themes::commands::theme_install,
+            themes::commands::theme_cancel_import,
         ])
         .setup(|app| {
             plugin_host::init(&app.handle());
