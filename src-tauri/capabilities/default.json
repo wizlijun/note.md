@@ -13,47 +13,47 @@
     "fs:default",
     {
       "identifier": "fs:allow-read-text-file",
-      "allow": [{ "path": "**" }]
+      "allow": [{ "path": "**" }, { "path": "/**" }]
     },
     {
       "identifier": "fs:allow-write-text-file",
-      "allow": [{ "path": "**" }]
+      "allow": [{ "path": "**" }, { "path": "/**" }]
     },
     {
       "identifier": "fs:allow-read-file",
-      "allow": [{ "path": "**" }]
+      "allow": [{ "path": "**" }, { "path": "/**" }]
     },
     {
       "identifier": "fs:allow-exists",
-      "allow": [{ "path": "**" }]
+      "allow": [{ "path": "**" }, { "path": "/**" }]
     },
     {
       "identifier": "fs:scope",
-      "allow": [{ "path": "**" }]
+      "allow": [{ "path": "**" }, { "path": "/**" }]
     },
     {
       "identifier": "fs:allow-watch",
-      "allow": [{ "path": "**" }]
+      "allow": [{ "path": "**" }, { "path": "/**" }]
     },
     {
       "identifier": "fs:allow-unwatch",
-      "allow": [{ "path": "**" }]
+      "allow": [{ "path": "**" }, { "path": "/**" }]
     },
     {
       "identifier": "fs:allow-stat",
-      "allow": [{ "path": "**" }]
+      "allow": [{ "path": "**" }, { "path": "/**" }]
     },
     {
       "identifier": "fs:allow-rename",
-      "allow": [{ "path": "**" }]
+      "allow": [{ "path": "**" }, { "path": "/**" }]
     },
     {
       "identifier": "fs:allow-remove",
-      "allow": [{ "path": "**" }]
+      "allow": [{ "path": "**" }, { "path": "/**" }]
     },
     {
       "identifier": "fs:allow-mkdir",
-      "allow": [{ "path": "**" }]
+      "allow": [{ "path": "**" }, { "path": "/**" }]
     },
     "opener:default",
     "opener:allow-open-path",
