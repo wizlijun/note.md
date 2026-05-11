@@ -7,7 +7,7 @@ A minimal native text editor for macOS — Markdown, HTML, and source code, with
 
 The product name is **M↓** (an *M* with a downward arrow, hinting at *markdown*);
 the underlying repo, crate, and bundle identifier remain `mdeditor` /
-`com.bruce.mdeditor`.
+`com.laobu.mdeditor`.
 
 Built on [`@moraya/core`](https://www.npmjs.com/package/@moraya/core).
 
@@ -33,7 +33,7 @@ Built on [`@moraya/core`](https://www.npmjs.com/package/@moraya/core).
 - **Menu-bar tray** — persistent M↓ icon stays in the menu bar; click to bring
   the window forward
 - **Auto-save** (opt-in via Preferences) and **Recent files** persisted to
-  `~/Library/Application Support/com.bruce.mdeditor/settings.json`
+  `~/Library/Application Support/com.laobu.mdeditor/settings.json`
 - **PDF export** (`Cmd+Shift+E`) — typographically-clean A4 PDF of the current
   Markdown / HTML tab, with KaTeX, Mermaid, and syntax-highlighted code rendered
   inline (offscreen WKWebView; macOS-native, no headless Chromium)
@@ -55,7 +55,7 @@ Built on [`@moraya/core`](https://www.npmjs.com/package/@moraya/core).
   sub-page granularity. Boundaries auto-load when a `.md` opens, recompute
   live (~250 ms debounce) as you type in either source or rich mode, and
   persist on `Cmd+S`. The yaml lives in a centralized path-hashed cache
-  (`~/Library/Application Support/com.bruce.mdeditor/blocks/<hash>.yaml`),
+  (`~/Library/Application Support/com.laobu.mdeditor/blocks/<hash>.yaml`),
   never sibling-of-source — working trees stay clean. Identity is
   edit-resilient via content MinHash + a five-pass merge: light edits keep
   ids, heavy rewrites retire them with full history. Click a marker in the
@@ -100,7 +100,7 @@ Output:
 7. **Cmd+Shift+S** → save dialog → save to new path → tab title updates to new filename
 8. **Close dirty tab (× or Cmd+W)** → confirm dialog appears (Save / Discard / Cancel)
 9. **Cmd+/** → toggles between source mode (textarea) and rich mode (WYSIWYG)
-10. **Re-launch app** — Open Recent submenu is not yet implemented in v0.1; recent list is stored in `~/Library/Application Support/com.bruce.mdeditor/settings.json`
+10. **Re-launch app** — Open Recent submenu is not yet implemented in v0.1; recent list is stored in `~/Library/Application Support/com.laobu.mdeditor/settings.json`
 11. **Toggle Preferences → Enable auto-save** (Cmd+,), edit, wait 1s, verify file saved silently
 12. **Open a md with KaTeX, mermaid, code block** → all render in rich mode
 13. **Cmd+W to close last tab** → empty state appears (window does not close)
@@ -196,7 +196,7 @@ Output:
 64. **Disable share** — same flow on the share row (uncheck → restart →
     no Share items in the File menu; `Cmd+Shift+L` un-bound).
 65. **Default-on for new plugin** — delete the `plugins.enabled` segment
-    from `~/Library/Application Support/com.bruce.mdeditor/settings.json`
+    from `~/Library/Application Support/com.laobu.mdeditor/settings.json`
     → restart → both `share` and `md2pdf` are still active (default-on
     rule).
 66. **md2pdf timeout** — temporarily edit
@@ -231,7 +231,7 @@ Output:
     blocks appear, removed blocks vanish, line offsets shift).
 73. **mdblock — persist on save** — with the yaml from #71-72 in
     memory, press `Cmd+S`. The yaml is written atomically to
-    `~/Library/Application Support/com.bruce.mdeditor/blocks/<sha256-of-abs-path>.yaml`
+    `~/Library/Application Support/com.laobu.mdeditor/blocks/<sha256-of-abs-path>.yaml`
     — *not* next to the source file. `meta.generation` increments
     each save; `active[]` lists `b-xxxxxx` entries with line/pos
     extents and MinHash fingerprints.

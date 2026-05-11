@@ -2504,7 +2504,7 @@ In `README.md`, append (after the existing item 57):
 60. **Disable share** — same flow, just to confirm enabling works for any
     plugin (uncheck → restart → no Share items in File menu).
 61. **Default-on for new plugin** — delete the `plugins.enabled` segment
-    from `~/Library/Application Support/com.bruce.mdeditor/settings.json`
+    from `~/Library/Application Support/com.laobu.mdeditor/settings.json`
     → restart → both `share` and `md2pdf` are still active (default-on
     rule).
 62. **md2pdf timeout** — temporarily edit `src-tauri/plugins/md2pdf/manifest.json`

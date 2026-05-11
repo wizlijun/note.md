@@ -142,7 +142,7 @@ added `src_end_line`/`src_end_pos` per active block.
 ```
 <appLocalDataDir>/blocks/<sha256(absolute-source-path).slice(0,16)>.yaml
 
-macOS: ~/Library/Application Support/com.bruce.mdeditor/blocks/
+macOS: ~/Library/Application Support/com.laobu.mdeditor/blocks/
 ```
 
 `appLocalDataDir` resolved via Tauri's path API. Directory created lazily
@@ -587,7 +587,7 @@ keep the IO layer out of the test environment by default.
 ## 13. File system layout (after a session)
 
 ```
-~/Library/Application Support/com.bruce.mdeditor/
+~/Library/Application Support/com.laobu.mdeditor/
 ├── settings.json                       (mdeditor's existing prefs)
 └── blocks/                              ← created on first compute
     ├── a3f7c9b2e4d18e5c.yaml            (one cache per source path)

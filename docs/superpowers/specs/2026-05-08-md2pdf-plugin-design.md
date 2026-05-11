@@ -51,7 +51,7 @@
 
 ## Non-goals (v1)
 
-- ❌ 用户级第三方插件目录（如 `~/Library/Application Support/com.bruce.mdeditor/plugins/`）
+- ❌ 用户级第三方插件目录（如 `~/Library/Application Support/com.laobu.mdeditor/plugins/`）
   —— 沿用既有约定：所有插件随 `.app` 一起 ship。
 - ❌ 启用/禁用状态实时生效。改动需要重启 M↓ 才生效；动态加/删
   Tauri 菜单的复杂度不在 v1 范围。

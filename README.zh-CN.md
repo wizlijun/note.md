@@ -6,7 +6,7 @@
 **源码**与**富文本**（所见即所得）双模式、多标签页、常驻菜单栏托盘。
 
 产品名为 **M↓**（一个 *M* 加一个向下的箭头，暗示 *markdown*）；
-仓库名、crate 名、bundle identifier 仍是 `mdeditor` / `com.bruce.mdeditor`。
+仓库名、crate 名、bundle identifier 仍是 `mdeditor` / `com.laobu.mdeditor`。
 
 基于 [`@moraya/core`](https://www.npmjs.com/package/@moraya/core) 构建。
 
@@ -30,7 +30,7 @@
 - **Finder 集成** —— 双击 `.md` / `.html` 即可打开；将文件拖入窗口或 Dock 图标
 - **菜单栏托盘** —— 常驻 M↓ 图标；点击让窗口前置
 - **自动保存**（Preferences 中开启）和**最近文件**记录到
-  `~/Library/Application Support/com.bruce.mdeditor/settings.json`
+  `~/Library/Application Support/com.laobu.mdeditor/settings.json`
 - **PDF 导出** (`Cmd+Shift+E`) —— 把当前 Markdown / HTML 标签导出成排版精致的
   A4 PDF，KaTeX 公式、Mermaid 图表、代码语法高亮全部内联渲染
   （macOS 原生 WKWebView 离屏渲染，不带 headless Chromium）
@@ -49,7 +49,7 @@
   打开 `.md` 时块边界自动加载，源码或富文本编辑过程中实时（约 250 ms
   防抖）跟随结构变化重算，`Cmd+S` 保存时一并持久化。yaml 不放在源文件
   旁边，统一写入按路径哈希定位的缓存目录
-  `~/Library/Application Support/com.bruce.mdeditor/blocks/<hash>.yaml`，
+  `~/Library/Application Support/com.laobu.mdeditor/blocks/<hash>.yaml`，
   开发/工作目录保持干净。身份稳定算法基于内容 MinHash + 五轮合并：轻微
   编辑保留旧 id，大幅改写优雅退役（带完整 history 链）。点击侧栏标记
   即把 `((file#blockid))` 复制到剪贴板；源码模式下把光标放到 `((..))`

@@ -282,7 +282,7 @@ closeTab(id):
 
 ### 5.1 设置（tauri-plugin-store）
 
-`~/Library/Application Support/com.bruce.mdeditor/settings.json`：
+`~/Library/Application Support/com.laobu.mdeditor/settings.json`：
 
 ```json
 {

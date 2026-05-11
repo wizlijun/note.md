@@ -590,7 +590,7 @@ needs.
 
 ## Future work
 
-- Third-party plugin install (`~/Library/Application Support/com.bruce.mdeditor/plugins/`)
+- Third-party plugin install (`~/Library/Application Support/com.laobu.mdeditor/plugins/`)
   with a trust-on-first-use prompt
 - Keychain-backed secret storage for `secret` field type
 - A long-running daemon mode (opt-in via manifest) for plugins that benefit
