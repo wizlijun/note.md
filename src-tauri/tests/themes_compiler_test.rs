@@ -107,6 +107,55 @@ fn scope_attribute_uses_id_verbatim() {
     assert_eq!(out, r#"[data-theme="claude-like"] .moraya-editor"#);
 }
 
+use mdeditor_lib::themes::compiler::compile_theme_css;
+
+#[test]
+fn end_to_end_minimal_theme() {
+    let src = "/*\n * Theme Name: X\n */\n:root { --c: red; }\n#write h1 { color: var(--c); }";
+    let out = compile_theme_css(src, "x", "/tmp/themes/x").expect("compile ok");
+    assert!(out.contains(r#"[data-theme="x"] .moraya-editor"#));
+    assert!(out.contains("--c: red"));
+    assert!(out.contains("color: var(--c)"));
+    assert!(!out.contains("#write"));
+}
+
+#[test]
+fn end_to_end_strips_include_when_export() {
+    let src = "@include-when-export url(https://x);\n:root {}";
+    let out = compile_theme_css(src, "x", "/tmp/x").unwrap();
+    assert!(!out.contains("@include-when-export"));
+}
+
+#[test]
+fn end_to_end_preserves_media_print() {
+    let src = "@media print { #write { color: black; } }";
+    let out = compile_theme_css(src, "x", "/tmp/x").unwrap();
+    assert!(out.contains("@media print"));
+    assert!(out.contains(r#"[data-theme="x"] .moraya-editor"#));
+}
+
+#[test]
+fn end_to_end_preserves_imports() {
+    let src = "@import url(https://cdn.example.com/font.css);\n:root {}";
+    let out = compile_theme_css(src, "x", "/tmp/x").unwrap();
+    assert!(out.contains("@import"));
+    assert!(out.contains("https://cdn.example.com/font.css"));
+}
+
+#[test]
+fn end_to_end_rewrites_font_face_url() {
+    let src = "@font-face { font-family: 'X'; src: url('./fonts/x.woff2') format('woff2'); }";
+    let out = compile_theme_css(src, "claude-like", "/themes/claude-like").unwrap();
+    assert!(out.contains("file:///themes/claude-like/fonts/x.woff2"));
+}
+
+#[test]
+fn malformed_css_returns_err() {
+    let src = ":root { color: ";  // unterminated
+    let result = compile_theme_css(src, "x", "/tmp/x");
+    assert!(result.is_err());
+}
+
 use mdeditor_lib::themes::compiler::rewrite_url_value;
 
 #[test]

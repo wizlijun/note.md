@@ -250,3 +250,135 @@ fn normalize(p: &Path) -> PathBuf {
     }
     out
 }
+
+// ---------------------------------------------------------------------------
+// Task 10: Full compile pipeline
+// ---------------------------------------------------------------------------
+
+use lightningcss::{
+    rules::CssRule,
+    stylesheet::{ParserOptions, PrinterOptions, StyleSheet},
+    traits::ToCss,
+};
+
+/// Compile Typora source CSS into a scoped, M↓-ready form.
+///
+/// `theme_id` is used both as the `data-theme` attribute value and (with
+/// `asset_dir`) to resolve relative `url(...)` paths inside `@font-face`.
+pub fn compile_theme_css(src: &str, theme_id: &str, asset_dir: &str) -> Result<String, String> {
+    let stripped = strip_include_when_export(src);
+    // Pre-validate: check for unclosed blocks and unterminated declarations.
+    // lightningcss applies CSS error-recovery by default and would silently
+    // accept e.g. `:root { color: ` — we want to surface that as an error.
+    check_structural_validity(&stripped)?;
+    // Box::leak gives us a 'static str so the stylesheet can outlive this fn's local.
+    let static_src: &'static str = Box::leak(stripped.into_boxed_str());
+    let mut ss = StyleSheet::parse(static_src, ParserOptions::default())
+        .map_err(|e| format!("parse error: {e}"))?;
+    rewrite_rules(&mut ss.rules.0, theme_id, asset_dir);
+    let printed = ss
+        .to_css(PrinterOptions { minify: false, ..PrinterOptions::default() })
+        .map_err(|e| format!("print error: {e}"))?;
+    Ok(printed.code)
+}
+
+/// Quick structural check: ensure all `{` are closed and there is no
+/// unterminated string literal or colon-without-value declaration.
+///
+/// This supplements lightningcss's error-recovery parser so that obviously
+/// malformed input (like `:root { color: `) is rejected as an error.
+fn check_structural_validity(css: &str) -> Result<(), String> {
+    let mut depth: i32 = 0;
+    let mut chars = css.chars().peekable();
+    while let Some(c) = chars.next() {
+        match c {
+            // Skip string literals (single or double quoted).
+            '"' | '\'' => {
+                let quote = c;
+                let mut closed = false;
+                while let Some(sc) = chars.next() {
+                    if sc == '\\' { chars.next(); continue; }
+                    if sc == quote { closed = true; break; }
+                }
+                if !closed {
+                    return Err(format!("parse error: unterminated string literal"));
+                }
+            }
+            // Skip comments.
+            '/' if chars.peek() == Some(&'*') => {
+                chars.next(); // consume '*'
+                let mut closed = false;
+                while let Some(cc) = chars.next() {
+                    if cc == '*' && chars.peek() == Some(&'/') {
+                        chars.next(); // consume '/'
+                        closed = true;
+                        break;
+                    }
+                }
+                if !closed {
+                    return Err(format!("parse error: unterminated comment"));
+                }
+            }
+            '{' => depth += 1,
+            '}' => {
+                depth -= 1;
+                if depth < 0 {
+                    return Err(format!("parse error: unexpected `}}`"));
+                }
+            }
+            _ => {}
+        }
+    }
+    if depth != 0 {
+        return Err(format!("parse error: unclosed block (`{{` without matching `}}`), depth={depth}"));
+    }
+    Ok(())
+}
+
+fn rewrite_rules(rules: &mut Vec<CssRule<'static>>, theme_id: &str, asset_dir: &str) {
+    for rule in rules.iter_mut() {
+        match rule {
+            CssRule::Style(style) => {
+                // Serialize the current selector list to a string.
+                let sel_str = style
+                    .selectors
+                    .to_css_string(PrinterOptions::default())
+                    .unwrap_or_default();
+                let rewritten = rewrite_selector_text(&sel_str, theme_id);
+                // Build a synthetic stylesheet to re-parse the rewritten selectors.
+                // Box::leak gives us a 'static str required by StyleSheet::parse.
+                let synthetic = format!("{} {{ _: 0; }}", rewritten);
+                let static_synthetic: &'static str = Box::leak(synthetic.into_boxed_str());
+                if let Ok(mini) = StyleSheet::parse(static_synthetic, ParserOptions::default()) {
+                    if let Some(CssRule::Style(first)) = mini.rules.0.into_iter().next() {
+                        style.selectors = first.selectors;
+                    }
+                }
+                // Recurse into any nested rules.
+                rewrite_rules(&mut style.rules.0, theme_id, asset_dir);
+            }
+            CssRule::Media(media) => {
+                rewrite_rules(&mut media.rules.0, theme_id, asset_dir);
+            }
+            CssRule::Supports(supports) => {
+                rewrite_rules(&mut supports.rules.0, theme_id, asset_dir);
+            }
+            CssRule::FontFace(ff) => {
+                use lightningcss::rules::font_face::FontFaceProperty;
+                for prop in ff.properties.iter_mut() {
+                    if let FontFaceProperty::Source(sources) = prop {
+                        use lightningcss::rules::font_face::Source;
+                        for src_item in sources.iter_mut() {
+                            if let Source::Url(url_src) = src_item {
+                                let original = url_src.url.url.as_ref().to_string();
+                                let rewritten = rewrite_url_value(&original, asset_dir);
+                                url_src.url.url = rewritten.into();
+                            }
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+}
