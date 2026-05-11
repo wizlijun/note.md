@@ -7,8 +7,8 @@
  * Body font: LXGW WenKai Lite (霞鹜文楷, OFL — https://github.com/lxgw/LxgwWenKai-Lite),
  * pulled from jsDelivr's chunked-subset webfont package. Each glyph subset
  * is a small woff2; the webview fetches only what the document actually
- * uses, then caches it via NSURLCache. Users on default/shuyuan never pay
- * any cost; users on effie pay once-per-glyph-subset on first appearance.
+ * uses, then caches it via NSURLCache. Users on default never pay any
+ * cost; users on effie pay once-per-glyph-subset on first appearance.
  *
  * Pinned version keeps URLs immutable so the cache never invalidates on a
  * package republish. If offline on first effie use, the font-family stack

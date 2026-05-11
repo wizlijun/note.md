@@ -13,12 +13,10 @@ import katexCss from 'katex/dist/katex.min.css?raw'
 import hljsLightCss from 'highlight.js/styles/github.css?raw'
 import hljsDarkCss from 'highlight.js/styles/github-dark.css?raw'
 import defaultSkinCss from '../../styles/skins/default.css?raw'
-import shuyuanSkinCss from '../../styles/skins/shuyuan.css?raw'
 import effieSkinCss from '../../styles/skins/effie.css?raw'
 
 const SKIN_CSS: Record<SkinId, string> = {
   default: defaultSkinCss,
-  shuyuan: shuyuanSkinCss,
   effie: effieSkinCss,
 }
 
@@ -84,8 +82,6 @@ export function mobileOverridesCssBlock(): string {
   [data-skin="effie"] .moraya-editor h2::before,
   [data-skin="effie"] .moraya-editor h3::before,
   [data-skin="effie"] .moraya-editor h4::before { display: none; }
-  /* shuyuan: shrink blockquote outer margin so it doesn't pinch the text. */
-  [data-skin="shuyuan"] .moraya-editor blockquote { margin: 1em 0; padding: 0.6em 0.8em; }
   /* Tables: scroll horizontally instead of bleeding off the viewport. */
   .moraya-editor table { display: block; overflow-x: auto; max-width: 100%; }
 }

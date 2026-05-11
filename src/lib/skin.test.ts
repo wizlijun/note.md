@@ -9,11 +9,10 @@ beforeEach(() => {
 })
 
 describe('skin module', () => {
-  it('SKINS contains default, shuyuan, and effie', async () => {
+  it('SKINS contains default and effie', async () => {
     const { SKINS } = await import('./skin.svelte')
     const ids = SKINS.map((s) => s.id)
     expect(ids).toContain('default')
-    expect(ids).toContain('shuyuan')
     expect(ids).toContain('effie')
   })
 
@@ -35,8 +34,8 @@ describe('skin module', () => {
 
   it('setSkin updates skin.current', async () => {
     const { skin, setSkin } = await import('./skin.svelte')
-    setSkin('shuyuan')
-    expect(skin.current).toBe('shuyuan')
+    setSkin('effie')
+    expect(skin.current).toBe('effie')
     setSkin('default')
     expect(skin.current).toBe('default')
   })
@@ -44,7 +43,6 @@ describe('skin module', () => {
   it('isValidSkinId returns true for known ids, false otherwise', async () => {
     const { isValidSkinId } = await import('./skin.svelte')
     expect(isValidSkinId('default')).toBe(true)
-    expect(isValidSkinId('shuyuan')).toBe(true)
     expect(isValidSkinId('effie')).toBe(true)
     expect(isValidSkinId('nope')).toBe(false)
     expect(isValidSkinId('')).toBe(false)

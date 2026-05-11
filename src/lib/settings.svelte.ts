@@ -48,7 +48,7 @@ export const settings = $state<{
   mdblock: structuredClone(DEFAULT_MDBLOCK_SETTINGS),
 })
 
-const KNOWN_SKIN_IDS = new Set(['default', 'shuyuan', 'effie'])
+const KNOWN_SKIN_IDS = new Set(['default', 'effie'])
 
 let store: Awaited<ReturnType<typeof Store.load>> | null = null
 let recentFiles: string[] = []

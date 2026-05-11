@@ -17,8 +17,7 @@ Built on [`@moraya/core`](https://www.npmjs.com/package/@moraya/core).
 - **Source / rich toggle** (`Cmd+/`) — textarea ↔ WYSIWYG
 - **Markdown rendering** with KaTeX math, Mermaid diagrams, and highlight.js code
 - **Skins** for rich mode (Preferences → Core): GitHub-style **default**;
-  **shuyuan**, modern Chinese book typography (思源宋体 body, Kaiti blockquote,
-  first-line indent); and **effie**, an Effie-inspired mint-paper aesthetic in
+  and **effie**, an Effie-inspired mint-paper aesthetic in
   LXGW WenKai (霞鹜文楷) with paired light + dark palettes — the kai-style
   webfont streams on demand from jsDelivr only when the skin is selected, then
   is cached by the system webview
@@ -208,18 +207,15 @@ Output:
     failed); M↓ stays responsive.
 68. **Skin switch** — open a markdown file with H1/H2/H3, blockquote,
     bullet list, table, hr → Preferences (Cmd+,) → Core → switch Skin
-    to "书苑（中文优化）". Editor visually updates immediately:
-    Songti/思源宋体 body, sans-serif headings, first-line paragraph
-    indent, Kaiti blockquote, middle-dot bullets, horizontal-only
-    table borders, three-asterisk hr. No flash, no scroll jump. Switch
+    to "Effie（薄荷青）". Editor visually updates immediately to
+    Effie's mint-paper palette. No flash, no scroll jump. Switch
     back to "Default" → look reverts to GitHub-ish style.
-69. **Skin persistence** — set Skin to "书苑", quit M↓, relaunch.
-    Editor opens with 书苑 still applied; Preferences dropdown still
-    shows "书苑（中文优化）".
-70. **Skin + dark mode** — with 书苑 active, toggle macOS Appearance
-    between Light and Dark. Text/background invert via system
-    colors; skin decoration (heading rules, blockquote borders, table
-    horizontals, hr asterisks) all stay legible in both modes.
+69. **Skin persistence** — set Skin to "Effie", quit M↓, relaunch.
+    Editor opens with Effie still applied; Preferences dropdown still
+    shows "Effie（薄荷青）".
+70. **Skin + dark mode** — with Effie active, toggle macOS Appearance
+    between Light and Dark. Effie's paired light/dark palettes
+    swap automatically; all decoration stays legible.
 71. **mdblock — auto-load on open** — Settings → Block → check
     "Enable Block IDs" → open any `.md` file. Markers appear
     immediately in both source (left gutter) and rich (left gutter

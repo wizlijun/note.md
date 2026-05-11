@@ -54,13 +54,6 @@ describe('settings', () => {
 
   it('loadSettings hydrates skin from store, defaults to "default"', async () => {
     const { loadSettings, settings } = await import('./settings.svelte')
-    mockGet.mockImplementation(async (key: string) => key === 'skin' ? 'shuyuan' : undefined)
-    await loadSettings()
-    expect(settings.skin).toBe('shuyuan')
-  })
-
-  it('loadSettings hydrates "effie" skin', async () => {
-    const { loadSettings, settings } = await import('./settings.svelte')
     mockGet.mockImplementation(async (key: string) => key === 'skin' ? 'effie' : undefined)
     await loadSettings()
     expect(settings.skin).toBe('effie')
@@ -83,10 +76,10 @@ describe('settings', () => {
   it('saveSettings writes skin under "skin" key', async () => {
     const { loadSettings, saveSettings, settings } = await import('./settings.svelte')
     await loadSettings()
-    settings.skin = 'shuyuan'
+    settings.skin = 'effie'
     await saveSettings()
     const setCall = mockSet.mock.calls.find((args) => args[0] === 'skin')
-    expect(setCall?.[1]).toBe('shuyuan')
+    expect(setCall?.[1]).toBe('effie')
   })
 })
 
