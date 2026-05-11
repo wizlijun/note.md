@@ -15,3 +15,4 @@ pub mod compiler;
 pub mod commands;
 pub mod migration;
 pub mod zip_safety;
+pub mod import;
