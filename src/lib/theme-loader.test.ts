@@ -1,8 +1,8 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-vi.mock('@tauri-apps/plugin-fs', () => ({
-  readTextFile: vi.fn(async (_p: string) => `/* css for ${_p} */`),
+vi.mock('@tauri-apps/api/core', () => ({
+  invoke: vi.fn(async (_cmd: string, args: { id: string }) => `/* css for ${args.id} */`),
 }))
 
 beforeEach(() => {
@@ -23,9 +23,9 @@ describe('theme-loader', () => {
 
   it('writes CSS content into the named slot', async () => {
     const { applyThemeContent } = await import('./theme-loader')
-    await applyThemeContent('light', '/themes/.compiled/default.css')
+    await applyThemeContent('light', 'default')
     const slot = document.querySelector('style[data-theme-slot="light"]')!
-    expect(slot.textContent).toContain('default.css')
+    expect(slot.textContent).toContain('css for default')
   })
 
   it('computeActiveThemeId picks light when !followSystem', () => {

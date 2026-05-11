@@ -1,7 +1,6 @@
 import { basename } from '../fs'
 import type { Tab } from '../tabs.svelte'
-import { readTextFile } from '@tauri-apps/plugin-fs'
-import { findThemeById } from '../themes.svelte'
+import { invoke } from '@tauri-apps/api/core'
 import {
   htmlEscape,
   renderTabAsInlineBody,
@@ -14,10 +13,11 @@ import katexCss from 'katex/dist/katex.min.css?raw'
 import hljsLightCss from 'highlight.js/styles/github.css?raw'
 import hljsDarkCss from 'highlight.js/styles/github-dark.css?raw'
 
+/// Load the compiled CSS for the requested theme via the `theme_load_compiled`
+/// Tauri command (same routing as theme-loader.ts — avoids needing fs:scope
+/// permission for the app-data directory).
 async function readThemeCss(themeId: string): Promise<string> {
-  const meta = findThemeById(themeId)
-  if (!meta) return ''
-  try { return await readTextFile(meta.compiled) }
+  try { return await invoke<string>('theme_load_compiled', { id: themeId }) }
   catch (e) { console.warn('[share-baker] readThemeCss', themeId, e); return '' }
 }
 

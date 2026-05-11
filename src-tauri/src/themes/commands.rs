@@ -31,6 +31,15 @@ pub fn theme_reveal(app: tauri::AppHandle) -> Result<(), String> {
     { let _ = dir; Err("not supported on this platform".into()) }
 }
 
+/// Read the compiled CSS for theme `id` from disk and return it. Used by the
+/// frontend theme-loader to populate <style> slots without needing
+/// tauri-plugin-fs scope permission for the app-data directory.
+#[tauri::command]
+pub fn theme_load_compiled(app: tauri::AppHandle, id: String) -> Result<String, String> {
+    let path = compiled_path(&app, &id)?;
+    std::fs::read_to_string(&path).map_err(|e| format!("read {path:?}: {e}"))
+}
+
 #[tauri::command]
 pub fn theme_recompile(app: tauri::AppHandle, id: String) -> Result<(), String> {
     ensure_dirs(&app)?;

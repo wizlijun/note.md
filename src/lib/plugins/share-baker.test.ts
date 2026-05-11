@@ -3,21 +3,11 @@
  */
 import { describe, it, expect, vi } from 'vitest'
 
-vi.mock('../themes.svelte', () => ({
-  findThemeById: (id: string) => ({
-    id,
-    name: id,
-    appearance: 'light',
-    source: `/themes/${id}.css`,
-    compiled: `/themes/.compiled/${id}.css`,
-    built_in: true,
-  }),
-}))
-
-vi.mock('@tauri-apps/plugin-fs', () => ({
-  readTextFile: vi.fn(async (p: string) => {
-    if (p.includes('default')) return '[data-theme="default"] .moraya-editor { color: black; }'
-    if (p.includes('effie')) return '[data-theme="effie"] .moraya-editor { color: teal; } [data-theme="effie"] .moraya-editor h1::before { content: "H1"; display: block; }'
+vi.mock('@tauri-apps/api/core', () => ({
+  invoke: vi.fn(async (_cmd: string, args: { id: string }) => {
+    const id = args.id
+    if (id === 'default') return '[data-theme="default"] .moraya-editor { color: black; }'
+    if (id === 'effie') return '[data-theme="effie"] .moraya-editor { color: teal; } [data-theme="effie"] .moraya-editor h1::before { content: "H1"; display: block; }'
     return ''
   }),
 }))

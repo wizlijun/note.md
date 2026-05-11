@@ -67,12 +67,12 @@
           const t = settings.theme
           if (t.light !== lightAssigned) {
             const meta = findThemeById(t.light)
-            if (meta) { await applyThemeContent('light', meta.compiled) }
+            if (meta) { await applyThemeContent('light', meta.id) }
             lightAssigned = t.light
           }
           if (t.dark !== darkAssigned) {
             const meta = findThemeById(t.dark)
-            if (meta) { await applyThemeContent('dark', meta.compiled) }
+            if (meta) { await applyThemeContent('dark', meta.id) }
             darkAssigned = t.dark
           }
           setActiveTheme(computeActiveThemeId(t, systemDark))
