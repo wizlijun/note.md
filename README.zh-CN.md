@@ -15,11 +15,15 @@
 - **多标签页** —— 脏标记、拖拽排序、关闭确认
 - **源码 / 富文本切换** (`Cmd+/`) —— textarea ↔ 所见即所得
 - **Markdown 渲染** —— KaTeX 数学公式、Mermaid 图表、highlight.js 代码高亮
-- **皮肤系统** —— 富文本模式下两套排版（Preferences → Core 切换）：
-  GitHub 风格 **default**；以及 **Effie**（薄荷纸 + 青绿标题 + 紫粗体 + 暖橙斜体，
-  正文用 LXGW 霞鹜文楷，浅/深双配色）。霞鹜文楷的 webfont 在切到 effie 时才从
-  jsDelivr 按需流式加载（按字符 unicode-range 切片，只取页面用到的子集），
-  之后由系统 webview 缓存复用
+- **主题系统** —— 富文本模式（Preferences → Core → Themes）兼容 Typora
+  主题：把 `.zip` 拖进窗口或在 Preferences 里选择导入，即可装入 Typora
+  生态里的任意主题。每个位于
+  `~/Library/Application Support/com.laobu.mdeditor/themes/` 下的 `.css`
+  都是一个独立主题；为浅色和深色模式分别选一个主题，M↓ 跟随 macOS Appearance
+  自动切换。内置 **default**（GitHub 风格）与 **effie**（Effie 配色：薄荷
+  纸 + 青绿标题 + 紫粗体 + 暖橙斜体，浅/深双配色经
+  `prefers-color-scheme` 切换，LXGW 霞鹜文楷 webfont 由 jsDelivr 按需流式
+  加载）随应用一并写入同一目录，可像其它主题一样删除或编辑。
 - **HTML 文件** —— 默认在沙箱化 iframe 里预览
 - **代码文件** —— ~36 种纯文本扩展名 + `Dockerfile` 等精确文件名匹配；
   富文本模式下渲染为带语法高亮的代码块

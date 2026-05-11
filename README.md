@@ -205,54 +205,78 @@ Output:
 67. **md2pdf write failure** — try saving a PDF into a read-only directory
     → toast `❌ md2pdf: 渲染失败` (or `写入失败` depending on which step
     failed); M↓ stays responsive.
-68. **Skin switch** — open a markdown file with H1/H2/H3, blockquote,
-    bullet list, table, hr → Preferences (Cmd+,) → Core → switch Skin
-    to "Effie（薄荷青）". Editor visually updates immediately to
-    Effie's mint-paper palette. No flash, no scroll jump. Switch
-    back to "Default" → look reverts to GitHub-ish style.
-69. **Skin persistence** — set Skin to "Effie", quit M↓, relaunch.
-    Editor opens with Effie still applied; Preferences dropdown still
-    shows "Effie（薄荷青）".
-70. **Skin + dark mode** — with Effie active, toggle macOS Appearance
-    between Light and Dark. Effie's paired light/dark palettes
-    swap automatically; all decoration stays legible.
-71. **mdblock — auto-load on open** — Settings → Block → check
+68. **Theme switch (Light)** — open a markdown file with H1/H2/H3,
+    blockquote, bullet list, table, hr → Preferences (Cmd+,) → Themes →
+    switch *Light theme* to "Effie". Editor immediately updates to
+    Effie's mint-paper palette. Switch back to "Default" → reverts.
+69. **Theme persistence** — set Light=Effie, Dark=Default, quit M↓,
+    relaunch. Preferences shows Effie/Default in the dropdowns; editor
+    is styled by Effie in light mode.
+70. **Light/Dark auto-switch** — with Light=Default, Dark=Effie, toggle
+    macOS Appearance between Light and Dark; editor flips themes
+    instantly with no flash.
+71. **Always use light theme** — check the box, toggle macOS Appearance
+    → editor stays on the light theme regardless.
+72. **Import Typora zip via drag** — drag a Typora theme `.zip` onto
+    the window. Confirmation dialog lists detected themes with their
+    appearances. Click Import → toast "Imported N themes." → dropdowns
+    now include them.
+73. **Import via Preferences button** — Preferences → "Import Typora
+    theme…" → pick a zip → import works the same. Re-importing the
+    same zip prompts for an overwrite confirmation; cancel keeps
+    existing themes.
+74. **Apply imported theme** — pick a freshly imported theme in the
+    Light dropdown; editor turns into that theme's palette.
+75. **Reveal themes folder** — click "Reveal themes folder" → Finder
+    opens `~/Library/Application Support/com.laobu.mdeditor/themes/`
+    with source CSS, asset folders, and a `.compiled/` subfolder.
+76. **Manual delete via Finder** — delete a theme's `.css` in Finder,
+    click "Reload themes" → dropdown updates, that theme is gone.
+77. **Restore built-in themes** — delete `default.css` in Finder, then
+    "Restore built-in themes" → file reappears, theme works.
+78. **Theme + share plugin** — with Effie active, share via
+    `Cmd+Shift+L`. Shared HTML uses Effie's compiled palette.
+79. **Malformed zip** — drag a `.zip` containing no CSS → dialog shows
+    "No Typora themes found in this zip." Close → no files written.
+80. **Zip size cap** — drag a `.zip` with a > 5 MB single CSS entry →
+    dialog refuses with "entry too large".
+81. **mdblock — auto-load on open** — Settings → Block → check
     "Enable Block IDs" → open any `.md` file. Markers appear
     immediately in both source (left gutter) and rich (left gutter
     overlay) without any explicit compute step. Behind the scenes
     a yaml is computed in-memory.
-72. **mdblock — live update on type** — start typing in source
+82. **mdblock — live update on type** — start typing in source
     mode (or rich mode). Within ~250 ms of pausing, marker
     positions and ids re-flow to match the new structure (new
     blocks appear, removed blocks vanish, line offsets shift).
-73. **mdblock — persist on save** — with the yaml from #71-72 in
+83. **mdblock — persist on save** — with the yaml from #81-82 in
     memory, press `Cmd+S`. The yaml is written atomically to
     `~/Library/Application Support/com.laobu.mdeditor/blocks/<sha256-of-abs-path>.yaml`
     — *not* next to the source file. `meta.generation` increments
     each save; `active[]` lists `b-xxxxxx` entries with line/pos
     extents and MinHash fingerprints.
-74. **mdblock — light edit preserves ids** — edit the document
+84. **mdblock — light edit preserves ids** — edit the document
     lightly (fix a typo) → `Cmd+S` → reopen the cached yaml. Ids
     for untouched blocks are unchanged; the touched block keeps
     its id with status `edited` (parents unchanged).
-75. **mdblock — heavy edit retires ids** — delete a paragraph
+85. **mdblock — heavy edit retires ids** — delete a paragraph
     entirely → `Cmd+S` → yaml `history[]` grows by one entry; the
     deleted id has `replaced_by: []` and a `last_fingerprint`.
-76. **mdblock — copy citation** — click any block marker in the
+86. **mdblock — copy citation** — click any block marker in the
     source-mode gutter or the rich-mode overlay. A toast confirms
     `((<basename>#b-xxxxxx))` was copied to the clipboard. Paste
     elsewhere to verify.
-77. **mdblock — follow citation** — in another `.md` paste
+87. **mdblock — follow citation** — in another `.md` paste
     `((<other-doc-basename>.md#b-xxxxxx))` (use a real id from
     #71) → place cursor inside `((..))` → `Cmd+Enter` → other doc
     opens, jumps to the right line. If the target id has been
     retired, M↓ walks the lineage chain via `replaced_by` and lands
     on the successor (or surfaces a "deleted" toast if none).
-78. **mdblock — citation pill in share output** — share a doc that
+88. **mdblock — citation pill in share output** — share a doc that
     contains `((other.md#b-xxxxxx))` via the share plugin → the
     generated HTML renders a `.block-citation` pill, not raw
     parens.
-79. **mdblock — yaml stays out of working tree** — confirm the
+89. **mdblock — yaml stays out of working tree** — confirm the
     source directory contains *no* `<basename>.block.yaml`. The
     only block file that ever lands sibling-of-source is the
     optional `<basename>.block.md` (only when "Generate
