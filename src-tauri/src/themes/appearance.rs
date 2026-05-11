@@ -1,6 +1,7 @@
 //! Light/dark appearance resolution from header value and file stem.
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "lowercase")]
 pub enum Appearance {
     Light,
     Dark,
