@@ -561,4 +561,22 @@ mod cli_helpers_tests {
         let m: PluginManifest = serde_json::from_str(json).unwrap();
         assert!(m.cli.is_empty());
     }
+
+    #[test]
+    fn share_manifest_parses_with_cli() {
+        let mp = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("plugins/share/manifest.json");
+        let bytes = std::fs::read(&mp).expect("read manifest");
+        let m: PluginManifest = serde_json::from_slice(&bytes).expect("parse");
+        assert_eq!(m.id, "share");
+        assert_eq!(m.cli.len(), 1);
+        assert_eq!(m.cli[0].subcommand, "share");
+        assert!(m.cli[0].aliases.contains(&"-s".to_string()));
+        assert!(m.cli[0].requires_tab_context);
+        assert_eq!(m.cli[0].flags.len(), 3);
+        assert_eq!(m.cli[0].args.len(), 1);
+        assert_eq!(m.cli[0].args[0].name, "file");
+        assert_eq!(m.cli[0].args[0].ty, "path");
+        assert!(m.cli[0].args[0].required);
+    }
 }
