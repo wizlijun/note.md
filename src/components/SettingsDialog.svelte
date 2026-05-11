@@ -1,9 +1,10 @@
 <script lang="ts">
   import { invoke } from '@tauri-apps/api/core'
   import { onMount } from 'svelte'
-  import { ask } from '@tauri-apps/plugin-dialog'
+  import { ask, open as openFilePicker } from '@tauri-apps/plugin-dialog'
   import { settings, saveSettings, getPluginScopedAll, mergePluginScoped } from '../lib/settings.svelte'
-  import { SKINS, skin, setSkin, type SkinId, isValidSkinId } from '../lib/skin.svelte'
+  import { themes, loadThemes, reloadThemes } from '../lib/themes.svelte'
+  import ThemeImportDialog from './ThemeImportDialog.svelte'
   import { collectSettingsTabs, type SettingsTab } from '../lib/plugins/settings-registry'
   import type { PluginManifest } from '../lib/plugins/types'
   import PluginsSettingsTab from './PluginsSettingsTab.svelte'
@@ -123,17 +124,58 @@
     await saveSettings()
   }
 
-  async function onSkinChange(e: Event) {
-    const val = (e.currentTarget as HTMLSelectElement).value
-    if (!isValidSkinId(val)) return
-    setSkin(val)
-    settings.skin = val
+  let importReport = $state<unknown | null>(null)
+  let importBusy = $state(false)
+
+  async function onLightThemeChange(e: Event) {
+    settings.theme.light = (e.currentTarget as HTMLSelectElement).value
+    await saveSettings()
+  }
+  async function onDarkThemeChange(e: Event) {
+    settings.theme.dark = (e.currentTarget as HTMLSelectElement).value
+    await saveSettings()
+  }
+  async function onFollowSystemToggle(e: Event) {
+    settings.theme.followSystem = !(e.currentTarget as HTMLInputElement).checked
+    // Note: the *checkbox label* says "Always use light theme", so
+    // checked means !followSystem.
     await saveSettings()
   }
 
-  function describeSkin(id: SkinId): string {
-    return SKINS.find((s) => s.id === id)?.description ?? ''
+  async function handleImportTheme() {
+    const selection = await openFilePicker({
+      multiple: false,
+      directory: false,
+      filters: [{ name: 'Typora theme zip', extensions: ['zip'] }],
+    })
+    if (!selection || Array.isArray(selection)) return
+    importBusy = true
+    try {
+      importReport = await invoke('theme_import', { zipPath: selection })
+    } catch (e) {
+      console.warn('[Settings] theme_import:', e)
+      importReport = { themes: [], asset_dirs: [], errors: [{ file: '?', message: String(e) }], staging_dir: '' }
+    } finally {
+      importBusy = false
+    }
   }
+
+  async function handleRevealThemes() {
+    try { await invoke('theme_reveal') }
+    catch (e) { console.warn('[Settings] theme_reveal:', e) }
+  }
+
+  async function handleReloadThemes() {
+    await reloadThemes()
+  }
+
+  async function handleRestoreBuiltins() {
+    try { await invoke('theme_restore_builtins') }
+    catch (e) { console.warn('[Settings] theme_restore_builtins:', e) }
+    await reloadThemes()
+  }
+
+  $effect(() => { void loadThemes() })
 </script>
 
 {#if open}
@@ -159,16 +201,50 @@
         <PluginsSettingsTab />
       {:else if selectedTab === 'core'}
         <section class="block">
+          <h3>Themes</h3>
           <label class="row">
-            <span class="lbl">Skin</span>
-            <select value={skin.current} onchange={onSkinChange}>
-              {#each SKINS as s (s.id)}
-                <option value={s.id}>{s.label}</option>
+            <span class="lbl">Light theme</span>
+            <select value={settings.theme.light} onchange={onLightThemeChange}>
+              {#each themes.list as t (t.id)}
+                <option value={t.id}>{t.name}</option>
               {/each}
             </select>
           </label>
-          <p class="desc">{describeSkin(skin.current)}</p>
+          <label class="row">
+            <span class="lbl">Dark theme</span>
+            <select value={settings.theme.dark} onchange={onDarkThemeChange}>
+              {#each themes.list as t (t.id)}
+                <option value={t.id}>{t.name}</option>
+              {/each}
+            </select>
+          </label>
+          <label class="row" style="margin-top: 6px;">
+            <input
+              type="checkbox"
+              checked={!settings.theme.followSystem}
+              onchange={onFollowSystemToggle}
+            />
+            Always use light theme (ignore system appearance)
+          </label>
+          <div class="row" style="gap: 8px; flex-wrap: wrap; margin-top: 8px;">
+            <button onclick={handleImportTheme} disabled={importBusy}>
+              {importBusy ? 'Importing…' : 'Import Typora theme…'}
+            </button>
+            <button onclick={handleRevealThemes}>Reveal themes folder</button>
+            <button onclick={handleReloadThemes}>Reload themes</button>
+            <button onclick={handleRestoreBuiltins}>Restore built-in themes</button>
+          </div>
+          {#if themes.error}
+            <p class="desc" style="color: tomato;">Failed to load themes: {themes.error}</p>
+          {/if}
         </section>
+
+        {#if importReport}
+          <ThemeImportDialog
+            report={importReport}
+            onClose={() => { importReport = null; reloadThemes() }}
+          />
+        {/if}
 
         <section class="block">
           <label class="row">
