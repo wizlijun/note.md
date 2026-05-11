@@ -5,7 +5,7 @@
   import { bakeShareHtml } from '../plugins/share-baker'
   import { stat, readTextFile } from '@tauri-apps/plugin-fs'
   import { writeText as clipWriteText } from '@tauri-apps/plugin-clipboard-manager'
-  import { mergePluginScoped, getPluginScopedAll } from '../settings.svelte'
+  import { mergePluginScoped, getPluginScopedAll, loadSettings } from '../settings.svelte'
   import { sha256Hex } from '../hash'
   import {
     basenameOf, extensionOf, inferKind, interpretActions,
@@ -35,6 +35,17 @@
       payload = await invoke<CliPayload>('cli_payload')
     } catch (e) {
       await finish({ exit_code: 1, stderr: [`mdedit: failed to fetch cli payload: ${e}`] })
+      return
+    }
+
+    // Hydrate the in-memory settings store from disk BEFORE any plugin
+    // action emits `settings.merge`. Without this, the runner sees defaults
+    // for every key, and the first save (e.g., updating share.records) wipes
+    // the user's stored apiKey / baseUrl / plugins.enabled / recentFiles.
+    try {
+      await loadSettings()
+    } catch (e) {
+      await finish({ exit_code: 1, stderr: [`mdedit: failed to load settings: ${e}`] })
       return
     }
 
