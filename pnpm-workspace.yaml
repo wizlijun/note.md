@@ -1,0 +1,5 @@
+# pnpm 11+ requires git-hosted packages with build scripts to be allowlisted
+# before `pnpm install` will run their `prepare` script. mermaid-mini is a
+# private fork that builds at install-time (see its package.json's prepare).
+allowBuilds:
+  mermaid-mini: true

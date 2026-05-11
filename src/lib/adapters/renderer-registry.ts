@@ -59,7 +59,7 @@ let mermaidQueue: Promise<unknown> = Promise.resolve()
 const mermaidPlugin: PluginEntry = {
   version: '1',
   load: async () => {
-    const mod = (await import('mermaid')) as unknown as { default?: MermaidLike }
+    const mod = (await import('mermaid-mini')) as unknown as { default?: MermaidLike }
     const mermaid: MermaidLike =
       (mod.default as MermaidLike | undefined) ?? (mod as unknown as MermaidLike)
     let initialized = false

@@ -1,6 +1,7 @@
 <script lang="ts">
   import './styles/app.css'
   import './styles/editor-base.css'
+  import 'mermaid-mini/style.css'
   import { onMount } from 'svelte'
   import { getCurrentWindow } from '@tauri-apps/api/window'
   import { listen } from '@tauri-apps/api/event'
