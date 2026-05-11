@@ -13,3 +13,4 @@ pub mod appearance;
 pub mod registry;
 pub mod compiler;
 pub mod commands;
+pub mod migration;

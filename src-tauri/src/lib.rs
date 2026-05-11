@@ -236,6 +236,14 @@ pub fn run() {
         ])
         .setup(|app| {
             plugin_host::init(&app.handle());
+
+            // Bootstrap themes: ensure dirs exist, copy any missing built-ins,
+            // and (re)compile every theme into .compiled/ so the frontend can
+            // load fresh CSS without waiting on a separate compile pass.
+            if let Err(e) = bootstrap_themes(&app.handle()) {
+                eprintln!("[themes] bootstrap failed: {e}");
+            }
+
             let plugin_items = plugin_host::collect_top_menu_items();
             let menu = build_menu(&app.handle(), &plugin_items)?;
             app.set_menu(menu)?;
@@ -323,6 +331,18 @@ pub fn run() {
             _ => {}
         }
     });
+}
+
+fn bootstrap_themes(app: &tauri::AppHandle) -> Result<(), String> {
+    use themes::paths::{themes_dir, ensure_dirs};
+    use themes::commands::BUILT_IN_THEME_IDS;
+
+    ensure_dirs(app)?;
+    let res_dir = app.path().resource_dir().map_err(|e| e.to_string())?.join("resources").join("themes");
+    let themes = themes_dir(app)?;
+    themes::migration::copy_built_ins_if_missing(&res_dir, &themes, BUILT_IN_THEME_IDS)?;
+    let _ = themes::commands::theme_recompile_all(app.clone());
+    Ok(())
 }
 
 fn emit_open_file_delayed<R: tauri::Runtime>(app: &tauri::AppHandle<R>, path: &str) {
