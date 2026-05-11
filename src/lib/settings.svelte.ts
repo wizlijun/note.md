@@ -38,17 +38,23 @@ export const DEFAULT_MDBLOCK_SETTINGS: MdblockSettings = {
   },
 }
 
+export interface ThemeSettings {
+  light: string
+  dark: string
+  followSystem: boolean
+}
+
+const DEFAULT_THEME: ThemeSettings = { light: 'default', dark: 'default', followSystem: true }
+
 export const settings = $state<{
   autoSave: boolean
-  skin: string
+  theme: ThemeSettings
   mdblock: MdblockSettings
 }>({
   autoSave: false,
-  skin: 'default',
+  theme: { ...DEFAULT_THEME },
   mdblock: structuredClone(DEFAULT_MDBLOCK_SETTINGS),
 })
-
-const KNOWN_SKIN_IDS = new Set(['default', 'effie'])
 
 let store: Awaited<ReturnType<typeof Store.load>> | null = null
 let recentFiles: string[] = []
@@ -64,8 +70,26 @@ async function getStore() {
 export async function loadSettings(): Promise<void> {
   const s = await getStore()
   settings.autoSave = (await s.get<boolean>('autoSave')) ?? false
-  const storedSkin = await s.get<string>('skin')
-  settings.skin = storedSkin && KNOWN_SKIN_IDS.has(storedSkin) ? storedSkin : 'default'
+
+  // Theme migration: prefer new shape; fall back to legacy single skin id.
+  const storedTheme = await s.get<ThemeSettings>('theme')
+  if (storedTheme && typeof storedTheme.light === 'string' && typeof storedTheme.dark === 'string') {
+    settings.theme = {
+      light: storedTheme.light,
+      dark: storedTheme.dark,
+      followSystem: storedTheme.followSystem !== false,
+    }
+  } else {
+    const legacy = await s.get<string>('skin')
+    if (legacy) {
+      settings.theme = { light: legacy, dark: legacy, followSystem: false }
+      // Drop the legacy key so future loads take the new path.
+      await s.delete('skin')
+    } else {
+      settings.theme = { ...DEFAULT_THEME }
+    }
+  }
+
   recentFiles = (await s.get<string[]>('recentFiles')) ?? []
   recentModesByExt = (await s.get<Record<string, Mode>>('recentModesByExt')) ?? {}
   pluginScoped = (await s.get<Record<string, Record<string, unknown>>>('plugins')) ?? {}
@@ -84,7 +108,7 @@ export async function loadSettings(): Promise<void> {
 export async function saveSettings(): Promise<void> {
   const s = await getStore()
   await s.set('autoSave', settings.autoSave)
-  await s.set('skin', settings.skin)
+  await s.set('theme', settings.theme)
   await s.set('recentFiles', recentFiles)
   await s.set('recentModesByExt', recentModesByExt)
   await s.set('plugins', pluginScoped)

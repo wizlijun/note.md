@@ -3,9 +3,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 const mockGet = vi.fn()
 const mockSet = vi.fn()
 const mockSave = vi.fn()
+const mockDelete = vi.fn()
 
 vi.mock('@tauri-apps/plugin-store', () => ({
-  Store: { load: vi.fn(async () => ({ get: mockGet, set: mockSet, save: mockSave })) },
+  Store: { load: vi.fn(async () => ({ get: mockGet, set: mockSet, save: mockSave, delete: mockDelete })) },
 }))
 
 beforeEach(() => {
@@ -52,34 +53,56 @@ describe('settings', () => {
     expect(getRecentMode('json')).toBe(null)
   })
 
-  it('loadSettings hydrates skin from store, defaults to "default"', async () => {
+})
+
+describe('theme settings', () => {
+  it('migrates legacy `skin: "effie"` into theme.{light,dark,followSystem:false}', async () => {
+    mockGet.mockImplementation(async (key: string) => {
+      if (key === 'skin') return 'effie'
+      if (key === 'theme') return undefined
+      return undefined
+    })
     const { loadSettings, settings } = await import('./settings.svelte')
-    mockGet.mockImplementation(async (key: string) => key === 'skin' ? 'effie' : undefined)
     await loadSettings()
-    expect(settings.skin).toBe('effie')
+    expect(settings.theme).toEqual({
+      light: 'effie',
+      dark: 'effie',
+      followSystem: false,
+    })
+    const deleteCall = mockSet.mock.calls.find((args) => args[0] === 'skin')
+    // The migration should also delete the legacy `skin` key on save.
+    expect(deleteCall).toBeUndefined()
   })
 
-  it('loadSettings falls back to "default" when stored skin is unknown', async () => {
+  it('respects existing theme settings when present', async () => {
+    const stored = { light: 'default', dark: 'effie', followSystem: true }
+    mockGet.mockImplementation(async (key: string) =>
+      key === 'theme' ? stored : undefined,
+    )
     const { loadSettings, settings } = await import('./settings.svelte')
-    mockGet.mockImplementation(async (key: string) => key === 'skin' ? 'no-such-skin' : undefined)
     await loadSettings()
-    expect(settings.skin).toBe('default')
+    expect(settings.theme).toEqual(stored)
   })
 
-  it('loadSettings defaults skin to "default" when store has no value', async () => {
-    const { loadSettings, settings } = await import('./settings.svelte')
+  it('defaults to {light:"default", dark:"default", followSystem:true} when nothing stored', async () => {
     mockGet.mockResolvedValue(undefined)
+    const { loadSettings, settings } = await import('./settings.svelte')
     await loadSettings()
-    expect(settings.skin).toBe('default')
+    expect(settings.theme).toEqual({
+      light: 'default',
+      dark: 'default',
+      followSystem: true,
+    })
   })
 
-  it('saveSettings writes skin under "skin" key', async () => {
+  it('persists theme via saveSettings', async () => {
+    mockGet.mockResolvedValue(undefined)
     const { loadSettings, saveSettings, settings } = await import('./settings.svelte')
     await loadSettings()
-    settings.skin = 'effie'
+    settings.theme = { light: 'effie', dark: 'default', followSystem: false }
     await saveSettings()
-    const setCall = mockSet.mock.calls.find((args) => args[0] === 'skin')
-    expect(setCall?.[1]).toBe('effie')
+    const setCall = mockSet.mock.calls.find((args) => args[0] === 'theme')
+    expect(setCall?.[1]).toEqual({ light: 'effie', dark: 'default', followSystem: false })
   })
 })
 
