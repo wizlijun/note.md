@@ -10,6 +10,7 @@ use tauri::menu::{
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{Emitter, Manager, RunEvent, WindowEvent};
 
+pub mod cli;
 pub mod plugin_host;
 pub mod themes;
 
