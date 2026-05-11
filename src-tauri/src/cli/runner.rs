@@ -89,38 +89,9 @@ fn current_scan(
     Vec<(PluginManifest, PathBuf)>,
     std::collections::HashMap<String, bool>,
 ) {
-    let plugins_dir = resolve_plugins_dir(parsed);
-    let config_dir = resolve_config_dir();
+    let plugins_dir = super::resolve_plugins_dir(parsed.globals.plugin_dir_override.as_deref());
+    let config_dir = super::resolve_config_dir();
     scan_disk(&plugins_dir, &config_dir)
-}
-
-fn resolve_plugins_dir(parsed: &Parsed) -> PathBuf {
-    if let Some(p) = &parsed.globals.plugin_dir_override {
-        return PathBuf::from(p);
-    }
-    if let Ok(exe) = std::env::current_exe() {
-        let exe = exe.canonicalize().unwrap_or(exe);
-        if let Some(macos_dir) = exe.parent() {
-            if let Some(contents) = macos_dir.parent() {
-                let candidate = contents.join("Resources").join("plugins");
-                if candidate.exists() {
-                    return candidate;
-                }
-            }
-        }
-    }
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("plugins")
-}
-
-fn resolve_config_dir() -> PathBuf {
-    let identifier = "com.laobu.mdeditor";
-    if let Some(home) = std::env::var_os("HOME") {
-        return std::path::Path::new(&home)
-            .join("Library")
-            .join("Application Support")
-            .join(identifier);
-    }
-    PathBuf::from(".")
 }
 
 fn parse_subcommand_args(
