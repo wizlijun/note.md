@@ -213,3 +213,40 @@ fn split_top_level_comma(s: &str) -> Vec<&str> {
     if start < bytes.len() { out.push(&s[start..]) }
     out
 }
+
+use std::path::{Component, Path, PathBuf};
+
+/// Rewrite a single `url(...)` payload (without the surrounding `url(` and
+/// `)`, no quotes) for use in compiled CSS.
+///
+/// - Absolute URL schemes (`https:`, `http:`, `data:`, `file:`) are left alone.
+/// - Empty string is left alone.
+/// - Otherwise the value is treated as a path relative to `asset_dir` (the
+///   theme's same-named asset folder). If the resolved path tries to escape
+///   `asset_dir` via `..`, return `about:blank` to neuter the reference.
+pub fn rewrite_url_value(value: &str, asset_dir: &str) -> String {
+    if value.is_empty() { return String::new() }
+    let lower = value.to_ascii_lowercase();
+    for scheme in ["http://", "https://", "data:", "file://", "about:"] {
+        if lower.starts_with(scheme) { return value.to_string() }
+    }
+    let base = Path::new(asset_dir);
+    let candidate = base.join(value);
+    let normalized = normalize(&candidate);
+    if !normalized.starts_with(base) {
+        return "about:blank".to_string();
+    }
+    format!("file://{}", normalized.display())
+}
+
+fn normalize(p: &Path) -> PathBuf {
+    let mut out = PathBuf::new();
+    for comp in p.components() {
+        match comp {
+            Component::ParentDir => { out.pop(); }
+            Component::CurDir => {}
+            other => out.push(other.as_os_str()),
+        }
+    }
+    out
+}

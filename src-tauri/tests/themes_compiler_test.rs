@@ -106,3 +106,43 @@ fn scope_attribute_uses_id_verbatim() {
     let out = rewrite_selector_text("#write", "claude-like");
     assert_eq!(out, r#"[data-theme="claude-like"] .moraya-editor"#);
 }
+
+use mdeditor_lib::themes::compiler::rewrite_url_value;
+
+#[test]
+fn relative_url_resolves_against_asset_dir() {
+    let out = rewrite_url_value("./fonts/x.woff2", "/Users/u/themes/claude-like");
+    assert_eq!(out, "file:///Users/u/themes/claude-like/fonts/x.woff2");
+}
+
+#[test]
+fn implicit_relative_url() {
+    let out = rewrite_url_value("fonts/x.woff2", "/Users/u/themes/cl");
+    assert_eq!(out, "file:///Users/u/themes/cl/fonts/x.woff2");
+}
+
+#[test]
+fn parent_path_returns_safe_blank() {
+    let out = rewrite_url_value("../escape.woff2", "/Users/u/themes/cl");
+    assert_eq!(out, "about:blank");
+    let out = rewrite_url_value("./a/../../b.woff2", "/Users/u/themes/cl");
+    assert_eq!(out, "about:blank");
+}
+
+#[test]
+fn https_url_is_left_alone() {
+    let out = rewrite_url_value("https://cdn.example.com/x.woff2", "/Users/u/themes/cl");
+    assert_eq!(out, "https://cdn.example.com/x.woff2");
+}
+
+#[test]
+fn data_url_is_left_alone() {
+    let out = rewrite_url_value("data:font/woff2;base64,AAAA", "/Users/u/themes/cl");
+    assert_eq!(out, "data:font/woff2;base64,AAAA");
+}
+
+#[test]
+fn empty_url_is_left_alone() {
+    let out = rewrite_url_value("", "/Users/u/themes/cl");
+    assert_eq!(out, "");
+}
