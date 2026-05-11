@@ -581,3 +581,89 @@ step 68):
 - md2pdf integration of `@media print` blocks.
 - Sidebar / window-chrome theming (would need a separate `data-theme-app`
   attribute and a corresponding selector scope).
+
+## Lessons learned (post-implementation gotchas)
+
+These bit us during the first end-to-end smoke test on a real Typora zip.
+Future maintainers should keep them in mind when touching the same code
+paths.
+
+### 1. `@include-when-export` URLs can contain `;`
+
+Real-world Google Fonts URLs (which several popular Typora themes
+include — Claude-Like, Vue, etc.) embed `;` inside `url(...)`:
+
+```
+@include-when-export url(https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700);
+```
+
+The first version of `strip_include_when_export` used a plain `str::find(';')`
+to locate the terminator. It matched the first embedded `;`, truncated the
+at-rule mid-URL, and left orphan content (`500;600;700);\nhtml {...}`) that
+lightningcss then rejected with "Invalid empty selector at :34:1".
+
+**Fix:** the stripper must balance `(` / `)` while scanning for `;`, only
+treating a depth-0 `;` as the terminator. See the test
+`strips_when_url_contains_semicolons` in `themes_compiler_test.rs`.
+
+**Rule of thumb for future at-rule strippers / rewriters:** any time you
+search for a CSS punctuator (`;`, `}`, `,`), respect `()` and `[]` nesting.
+The selector tokenizer already does this; the stripper had to learn it too.
+
+### 2. `tauri-plugin-fs` `path: "**"` scope ≠ "any absolute path"
+
+The frontend originally loaded compiled CSS via
+`readTextFile(meta.compiled)` where `meta.compiled` is an absolute path
+under `~/Library/Application Support/<bundle-id>/themes/.compiled/`. The
+capability file had:
+
+```json
+{ "identifier": "fs:allow-read-text-file", "allow": [{ "path": "**" }] }
+```
+
+This **does not** grant read access to `/Users/.../Library/Application Support/...`
+in Tauri 2. The plugin's scope syntax treats `**` as a glob over relative
+paths (or paths reachable from a `$VARIABLE` base dir), not "any path on
+the filesystem." Adding `$APPDATA/**` to the scope *might* work on macOS
+but the variable resolution rules across `tauri-plugin-fs` versions are
+fragile — and the change would be silently insecure in dev mode if the
+variable name changes.
+
+The other call sites in M↓ that read arbitrary user files (e.g. `readMd`
+for an opened `.md`) work because the file path comes through the
+**dialog plugin**, which attaches a per-invocation scope token. Files
+that the frontend learns about by any other route (e.g. a Tauri command
+returning a `PathBuf`) cannot pass `readTextFile` even though the
+`fs:allow-read-text-file` scope is set to `**`.
+
+**Fix:** don't ship paths from Rust to the frontend just to have the
+frontend read them back. Add a dedicated Tauri command that reads the
+file server-side and returns the bytes/string. We did this for
+`theme_load_compiled(id) -> Result<String, String>` and both the
+theme-loader and the share-baker call that instead of `readTextFile`.
+
+**Rule of thumb:** when designing a Tauri feature where Rust knows about
+some file under `app_data_dir`, prefer a Rust command that returns the
+file's content over exposing the path to the frontend and counting on
+fs scope. It's one more command, but it side-steps the scope-syntax
+minefield and keeps the frontend ignorant of filesystem layout.
+
+### 3. Capability changes are baked at build time
+
+Tauri capability JSON files are compiled into the binary by `tauri-build`.
+Editing one and re-running `pnpm tauri dev` does NOT always pick up the
+change — sometimes the build cache wins and the running process keeps
+the old capability set in memory. If a capability change "doesn't appear
+to do anything," kill the dev process and let cargo recompile cleanly.
+
+### 4. lightningcss alpha versions silently recover from malformed CSS
+
+`lightningcss = "1.0.0-alpha.71"` (and likely future alpha bumps) treats
+many parse errors as "recoverable" — `:root { color: ` parses to an empty
+declaration block rather than returning `Err`. This caused our
+`malformed_css_returns_err` test to fail until we added a manual
+`check_structural_validity` pre-pass that counts brace depth and rejects
+unterminated strings/comments. If the lightningcss version bumps and its
+error-recovery behavior changes (becomes stricter), the manual check is
+redundant but harmless; if it stays the same, the manual check is
+load-bearing.
