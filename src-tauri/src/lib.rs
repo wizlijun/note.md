@@ -202,6 +202,17 @@ fn show_main_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
     }
 }
 
+/// Build the Tauri runtime `Context` from the embedded tauri.conf.json.
+///
+/// `tauri::generate_context!()` is a proc-macro that emits a `_EMBED_INFO_PLIST`
+/// static at its call-site. Calling it from two places in the same crate gives
+/// a duplicate-symbol link error. Funneling every consumer through this single
+/// helper guarantees one expansion. Both the GUI `run()` and the headless CLI
+/// runner use it.
+pub fn tauri_context() -> tauri::Context {
+    tauri::generate_context!()
+}
+
 pub fn run() {
     dlog("=== M↓ start ===");
     dlog(&format!("argv: {:?}", std::env::args().collect::<Vec<_>>()));
@@ -306,7 +317,7 @@ pub fn run() {
 
             Ok(())
         })
-        .build(tauri::generate_context!())
+        .build(tauri_context())
         .expect("error while building tauri application");
 
     app.run(|app_handle, event| {
