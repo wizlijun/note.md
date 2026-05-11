@@ -9,3 +9,4 @@
 pub mod paths;
 pub mod id;
 pub mod header;
+pub mod appearance;
