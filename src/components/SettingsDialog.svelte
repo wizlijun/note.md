@@ -16,6 +16,59 @@
   let selectedTab = $state<'plugins' | 'core' | string>('core')
   let pluginValues = $state<Record<string, Record<string, unknown>>>({})
 
+  type CliStatus = { installed: boolean; path: string | null; target_valid: boolean }
+  let cliStatus = $state<CliStatus | null>(null)
+  let cliBusy = $state(false)
+  let cliError = $state<string | null>(null)
+
+  async function refreshCliStatus() {
+    try {
+      cliStatus = await invoke<CliStatus>('cli_install_status')
+    } catch (e) {
+      console.warn('[SettingsDialog] cli_install_status:', e)
+      cliStatus = { installed: false, path: null, target_valid: false }
+    }
+  }
+
+  async function handleCliInstall() {
+    cliBusy = true
+    cliError = null
+    try {
+      const candidates = await invoke<string[]>('cli_install_candidates')
+      const { ask } = await import('@tauri-apps/plugin-dialog')
+      for (const dir of candidates) {
+        const ok = await ask(`Install 'mdedit' into ${dir}?`, {
+          title: "Install 'mdedit' Command",
+          kind: 'info',
+        })
+        if (ok) {
+          await invoke('cli_install', { dir })
+          break
+        }
+      }
+    } catch (e) {
+      cliError = e instanceof Error ? e.message : String(e)
+    } finally {
+      cliBusy = false
+      await refreshCliStatus()
+    }
+  }
+
+  async function handleCliUninstall() {
+    if (!cliStatus?.installed || !cliStatus.path) return
+    cliBusy = true
+    cliError = null
+    try {
+      const dir = cliStatus.path.replace(/\/mdedit$/, '')
+      await invoke('cli_uninstall', { dir })
+    } catch (e) {
+      cliError = e instanceof Error ? e.message : String(e)
+    } finally {
+      cliBusy = false
+      await refreshCliStatus()
+    }
+  }
+
   onMount(async () => {
     try {
       const manifests = await invoke<PluginManifest[]>('get_plugin_manifests')
@@ -32,6 +85,7 @@
     } catch (e) {
       console.warn('[SettingsDialog] manifest load:', e)
     }
+    void refreshCliStatus()
   })
 
   async function savePluginField(pluginId: string, key: string, value: unknown) {
@@ -203,6 +257,7 @@
         <button class:active={selectedTab === 'plugins'} onclick={() => selectedTab = 'plugins'}>Plugins</button>
         <button class:active={selectedTab === 'core'} onclick={() => selectedTab = 'core'}>Core</button>
         <button class:active={selectedTab === 'block'} onclick={() => selectedTab = 'block'}>Block</button>
+        <button class:active={selectedTab === 'cli'} onclick={() => { selectedTab = 'cli'; void refreshCliStatus() }}>CLI</button>
         {#each pluginTabs as t (t.pluginId)}
           <button class:active={selectedTab === t.pluginId} onclick={() => selectedTab = t.pluginId}>{t.label}</button>
         {/each}
@@ -412,6 +467,48 @@
                    onchange={() => saveSettings()} />
             Rich-mode left gutter (block markers + bars)
           </label>
+        </section>
+      {:else if selectedTab === 'cli'}
+        <section class="block">
+          <h3>CLI</h3>
+          <p class="desc">
+            The <code>mdedit</code> command lets you drive M↓ from a terminal
+            or other tools — publish files via the Share plugin, list available
+            commands, and more.
+          </p>
+          {#if cliStatus === null}
+            <p class="desc">Loading…</p>
+          {:else if cliStatus.installed}
+            <p class="desc">
+              Installed at: <code>{cliStatus.path}</code>
+              {#if !cliStatus.target_valid}
+                <br />
+                <span style="color: tomato;">Symlink points to a different binary — reinstall to repair.</span>
+              {/if}
+            </p>
+            <div class="row" style="gap: 8px; flex-wrap: wrap;">
+              <button onclick={handleCliInstall} disabled={cliBusy}>
+                {cliBusy ? 'Working…' : 'Reinstall…'}
+              </button>
+              <button onclick={handleCliUninstall} disabled={cliBusy}>
+                {cliBusy ? 'Working…' : 'Uninstall'}
+              </button>
+            </div>
+          {:else}
+            <p class="desc">Not installed.</p>
+            <button class="primary" onclick={handleCliInstall} disabled={cliBusy}>
+              {cliBusy ? 'Installing…' : 'Install…'}
+            </button>
+          {/if}
+          {#if cliError}
+            <p class="result fail">Error: {cliError}</p>
+          {/if}
+          <p class="desc" style="margin-top: 12px;">
+            Once installed, run <code>mdedit help</code> in your terminal for the
+            full reference. The CLI only exposes commands contributed by
+            <em>enabled</em> plugins — disable a plugin in Plugins above to remove
+            its subcommand from <code>mdedit</code>.
+          </p>
         </section>
       {:else}
         {#each pluginTabs as t (t.pluginId)}
