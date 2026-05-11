@@ -22,7 +22,7 @@
   import { invokePlugin } from './lib/plugins/host'
   import { applyActions, configureActionHandlers } from './lib/plugins/action-handlers'
   import { bakeShareHtml } from './lib/plugins/share-baker'
-  import { skin } from './lib/skin.svelte'
+  import { activeTheme } from './lib/active-theme.svelte'
   import { renderTabAsInlineBody, buildPdfTitle } from './lib/plugins/host-render-html'
   import { renderFilenameTemplate } from './lib/plugins/prompt'
   import {
@@ -155,7 +155,7 @@
               // share has its own wrapping (theme CSS, viewport meta, header/footer).
               // Other plugins (md2pdf, future) take just the inline body and wrap
               // it themselves.
-              if (m.id === 'share') return bakeShareHtml(t, skin.current)
+              if (m.id === 'share') return bakeShareHtml(t, activeTheme.id)
               return renderTabAsInlineBody(t)
             },
             outputPath,
