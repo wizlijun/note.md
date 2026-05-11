@@ -229,6 +229,10 @@ pub fn run() {
             plugin_host::get_plugin_manifests,
             plugin_host::get_all_plugin_manifests,
             plugin_host::invoke_plugin,
+            themes::commands::theme_list,
+            themes::commands::theme_reveal,
+            themes::commands::theme_recompile,
+            themes::commands::theme_recompile_all,
         ])
         .setup(|app| {
             plugin_host::init(&app.handle());
