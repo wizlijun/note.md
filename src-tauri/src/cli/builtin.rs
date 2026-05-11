@@ -303,6 +303,7 @@ fn resolve_plugins_dir(parsed: &Parsed) -> PathBuf {
         return PathBuf::from(p);
     }
     if let Ok(exe) = std::env::current_exe() {
+        let exe = exe.canonicalize().unwrap_or(exe);
         if let Some(macos_dir) = exe.parent() {
             if let Some(contents) = macos_dir.parent() {
                 let candidate = contents.join("Resources").join("plugins");
