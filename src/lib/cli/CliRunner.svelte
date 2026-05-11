@@ -3,6 +3,8 @@
   import { invoke } from '@tauri-apps/api/core'
   import { invokePlugin } from '../plugins/host'
   import { bakeShareHtml } from '../plugins/share-baker'
+  import { settings } from '../settings.svelte'
+  import { computeActiveThemeId } from '../theme-loader'
   import { stat, readTextFile } from '@tauri-apps/plugin-fs'
   import { writeText as clipWriteText } from '@tauri-apps/plugin-clipboard-manager'
   import { mergePluginScoped, getPluginScopedAll, loadSettings } from '../settings.svelte'
@@ -106,7 +108,9 @@
       try {
         // Image tabs: share plugin handles bytes server-side; skip bake.
         if (fileKind !== 'image') {
-          renderedHtml = await bakeShareHtml(virtualTab)
+          const systemDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false
+          const themeId = computeActiveThemeId(settings.theme, systemDark)
+          renderedHtml = await bakeShareHtml(virtualTab, themeId)
         } else {
           renderedHtml = ''
         }
