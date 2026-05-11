@@ -288,7 +288,10 @@ pub fn compile_theme_css(src: &str, theme_id: &str, asset_dir: &str) -> Result<S
     check_structural_validity(&stripped)?;
     // Box::leak gives us a 'static str so the stylesheet can outlive this fn's local.
     let static_src: &'static str = Box::leak(stripped.into_boxed_str());
-    let mut ss = StyleSheet::parse(static_src, ParserOptions::default())
+    let mut ss = StyleSheet::parse(static_src, ParserOptions {
+        error_recovery: true,
+        ..ParserOptions::default()
+    })
         .map_err(|e| format!("parse error: {e}"))?;
     rewrite_rules(&mut ss.rules.0, theme_id, asset_dir);
     let printed = ss
