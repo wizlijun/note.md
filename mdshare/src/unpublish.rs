@@ -84,8 +84,17 @@ pub fn run(req: Request) -> Response {
     records.remove(&path);
     let mut patch = Map::new();
     patch.insert("share.records".to_string(), Value::Object(records));
+    let slug_value = if kind == "image" {
+        record.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string()
+    } else {
+        record.get("slug").and_then(|v| v.as_str()).unwrap_or("").to_string()
+    };
+    let mut cli_data = serde_json::Map::new();
+    cli_data.insert("slug".to_string(), serde_json::Value::String(slug_value));
+    cli_data.insert("removed".to_string(), serde_json::Value::Bool(true));
     Response::ok(vec![
         Action::SettingsMerge { patch },
         Action::Toast { level: "success".into(), message: "✅ 已撤销分享".into(), detail: None },
+        crate::ipc::cli_result(cli_data),
     ])
 }

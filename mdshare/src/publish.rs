@@ -1,4 +1,4 @@
-use crate::ipc::{Action, Request, Response, toast_error};
+use crate::ipc::{Action, Request, Response, cli_result, toast_error};
 use crate::slug;
 use rand::RngCore;
 use serde_json::{json, Map, Value};
@@ -137,6 +137,17 @@ pub fn run(req: Request) -> Response {
                 let mut patch = Map::new();
                 patch.insert("share.records".to_string(), Value::Object(records));
                 let msg = if is_update { "✅ 内容已更新（链接已复制）" } else { "✅ 分享成功（已复制）" };
+                let mut cli_data = Map::new();
+                cli_data.insert("url".to_string(), Value::String(share_url.clone()));
+                cli_data.insert("slug".to_string(), Value::String(current_slug.clone()));
+                cli_data.insert("is_update".to_string(), Value::Bool(is_update));
+                cli_data.insert(
+                    "created_at".to_string(),
+                    match created_at.as_str() {
+                        Some(s) => Value::String(s.to_string()),
+                        None => Value::String(now.clone()),
+                    },
+                );
                 return Response::ok(vec![
                     Action::SettingsMerge { patch },
                     Action::ClipboardWrite { text: share_url.clone() },
@@ -145,6 +156,7 @@ pub fn run(req: Request) -> Response {
                         message: format!("{msg}：{share_url}"),
                         detail: None,
                     },
+                    cli_result(cli_data),
                 ]);
             }
             Err(ureq::Error::Status(409, _)) if !is_update && attempts < max_attempts => {
@@ -375,6 +387,14 @@ fn run_image_upload(
     } else {
         "✅ 图片分享成功（已复制）"
     };
+    let mut cli_data = serde_json::Map::new();
+    cli_data.insert("url".to_string(), serde_json::Value::String(share_url.clone()));
+    cli_data.insert("slug".to_string(), serde_json::Value::String(id.clone()));
+    cli_data.insert(
+        "is_update".to_string(),
+        serde_json::Value::Bool(existing_record.is_some()),
+    );
+    cli_data.insert("created_at".to_string(), serde_json::Value::String(now.clone()));
     Response::ok(vec![
         Action::SettingsMerge { patch },
         Action::ClipboardWrite { text: share_url.clone() },
@@ -383,5 +403,6 @@ fn run_image_upload(
             message: format!("{msg}：{share_url}"),
             detail: None,
         },
+        cli_result(cli_data),
     ])
 }

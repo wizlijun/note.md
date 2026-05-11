@@ -20,6 +20,15 @@ pub fn run(req: Request) -> Response {
         Some(s) if !s.is_empty() => s.to_string(),
         _ => return Response::fail(vec![toast_error(PLUGIN_NAME, "本地分享记录损坏", None)]),
     };
+    let kind = record.get("kind").and_then(|v| v.as_str()).unwrap_or("html");
+    let slug = if kind == "image" {
+        record.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string()
+    } else {
+        record.get("slug").and_then(|v| v.as_str()).unwrap_or("").to_string()
+    };
+    let mut cli_data = serde_json::Map::new();
+    cli_data.insert("url".to_string(), serde_json::Value::String(url.clone()));
+    cli_data.insert("slug".to_string(), serde_json::Value::String(slug));
     Response::ok(vec![
         Action::ClipboardWrite { text: url.clone() },
         Action::Toast {
@@ -27,5 +36,6 @@ pub fn run(req: Request) -> Response {
             message: format!("✅ 已复制：{url}"),
             detail: None,
         },
+        crate::ipc::cli_result(cli_data),
     ])
 }
