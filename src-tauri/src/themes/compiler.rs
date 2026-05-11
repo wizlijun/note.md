@@ -36,9 +36,24 @@ pub fn strip_include_when_export(css: &str) -> String {
                 let line_start = before.rfind('\n').map(|n| n + 1).unwrap_or(0);
                 // Emit everything up to the line start.
                 out.push_str(&rest[..line_start]);
-                // Find the terminating semicolon after the at-rule.
+                // Find the terminating semicolon after the at-rule, while
+                // tracking `()` depth — `url(...)` arguments (especially
+                // Google Fonts URLs like `family=Foo:wght@400;500;600;700`)
+                // contain `;` characters inside the parens that we must NOT
+                // mistake for the end of the at-rule.
                 let after = &rest[idx..];
-                match after.find(';') {
+                let after_bytes = after.as_bytes();
+                let mut depth_paren: i32 = 0;
+                let mut terminator: Option<usize> = None;
+                for (i, &b) in after_bytes.iter().enumerate() {
+                    match b {
+                        b'(' => depth_paren += 1,
+                        b')' => depth_paren -= 1,
+                        b';' if depth_paren == 0 => { terminator = Some(i); break }
+                        _ => {}
+                    }
+                }
+                match terminator {
                     None => {
                         // Malformed — bail and keep the rest verbatim.
                         out.push_str(after);

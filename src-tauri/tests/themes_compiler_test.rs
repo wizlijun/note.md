@@ -14,6 +14,18 @@ fn strips_with_extra_whitespace() {
 }
 
 #[test]
+fn strips_when_url_contains_semicolons() {
+    // Real-world case: Google Fonts URLs use `;` inside the query string
+    // (CSS2 family/wght syntax). The stripper must skip past the closing
+    // `)` of url(...) before looking for the terminating semicolon.
+    let css = "@include-when-export url(https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700);\nhtml { color: red; }";
+    let out = strip_include_when_export(css);
+    // The complete at-rule (and its url + url-internal semicolons) must be
+    // gone; the next CSS rule must be intact.
+    assert_eq!(out, "\nhtml { color: red; }", "stripped output: {out:?}");
+}
+
+#[test]
 fn strips_multiple_occurrences() {
     let css = "@include-when-export url(a);\n.a {}\n@include-when-export url(b);\n.b {}";
     let out = strip_include_when_export(css);
