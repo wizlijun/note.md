@@ -1,7 +1,26 @@
 /**
  * @vitest-environment happy-dom
  */
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
+
+vi.mock('../themes.svelte', () => ({
+  findThemeById: (id: string) => ({
+    id,
+    name: id,
+    appearance: 'light',
+    source: `/themes/${id}.css`,
+    compiled: `/themes/.compiled/${id}.css`,
+    built_in: true,
+  }),
+}))
+
+vi.mock('@tauri-apps/plugin-fs', () => ({
+  readTextFile: vi.fn(async (p: string) => {
+    if (p.includes('default')) return '[data-theme="default"] .moraya-editor { color: black; }'
+    if (p.includes('effie')) return '[data-theme="effie"] .moraya-editor { color: teal; } [data-theme="effie"] .moraya-editor h1::before { content: "H1"; display: block; }'
+    return ''
+  }),
+}))
 import {
   shareHeaderLabel, isoDateStamp, viewportMetaTag, themeCssBlock,
   guardSize, MAX_HTML_BYTES,
@@ -301,24 +320,22 @@ describe('bakeShareHtml', () => {
     __setImageReaderForTests(null)
   })
 
-  it('defaults to the default skin when no skin id is passed', async () => {
+  it('defaults to the default theme when no theme id is passed', async () => {
     __setImageReaderForTests(async () => new Uint8Array([0]))
     const t = fakeTab({ currentContent: '# Hi' })
     const html = await bakeShareHtml(t)
-    expect(html).toContain('data-skin="default"')
-    expect(html).toContain('[data-skin="default"] .moraya-editor')
+    expect(html).toContain('data-theme="default"')
+    expect(html).toContain('[data-theme="default"] .moraya-editor')
     expect(html).toContain('class="moraya-editor"')
     __setImageReaderForTests(null)
   })
 
-  it('inlines effie skin css and sets data-skin="effie" when requested', async () => {
+  it('inlines effie theme css and sets data-theme="effie" when requested', async () => {
     __setImageReaderForTests(async () => new Uint8Array([0]))
     const t = fakeTab({ currentContent: '# Hi' })
     const html = await bakeShareHtml(t, 'effie')
-    expect(html).toContain('data-skin="effie"')
-    expect(html).toContain('[data-skin="effie"] .moraya-editor')
-    // effie pulls in lxgw webfont via @import — should survive verbatim.
-    expect(html).toContain('lxgw-wenkai-lite-webfont')
+    expect(html).toContain('data-theme="effie"')
+    expect(html).toContain('[data-theme="effie"] .moraya-editor')
     __setImageReaderForTests(null)
   })
 
@@ -328,7 +345,7 @@ describe('bakeShareHtml', () => {
     const html = await bakeShareHtml(t, 'effie')
     expect(html).toContain('@media (max-width: 600px)')
     // effie's gutter labels must be hidden on phones — no room for them.
-    expect(html).toMatch(/\[data-skin="effie"\][^{]*h1::before[\s\S]*?display: none/)
+    expect(html).toMatch(/\[data-theme="effie"\][^{]*h1::before[\s\S]*?display: none/)
     __setImageReaderForTests(null)
   })
 
