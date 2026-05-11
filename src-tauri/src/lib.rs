@@ -11,6 +11,7 @@ use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent}
 use tauri::{Emitter, Manager, RunEvent, WindowEvent};
 
 pub mod plugin_host;
+pub mod themes;
 
 /// Append a diagnostic line to /tmp/mdeditor.log in debug builds (best-effort).
 /// Compiled out in release — kept as a no-op so call sites need no `cfg` gates.
