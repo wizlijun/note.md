@@ -3,7 +3,7 @@
   import type { Tab } from '../lib/tabs.svelte'
   import { setContent, activeTab } from '../lib/tabs.svelte'
   import { buildFencedBlock, stripCodeFence } from '../lib/code-fence'
-  import { skin } from '../lib/skin.svelte'
+  import { activeTheme } from '../lib/active-theme.svelte'
   import RichGutter from '../lib/mdblock-hover/rich-gutter.svelte'
   import {
     hoverStore,
@@ -13,6 +13,10 @@
     isHoverActive,
   } from '../lib/mdblock-hover/hover-store.svelte'
   import { settings } from '../lib/settings.svelte'
+
+  // Reactive store of the currently active theme id, set by the theme-init
+  // block in App.svelte. Default is 'default'.
+  const activeThemeId = $derived(activeTheme.id)
 
   // NOTE: @moraya/core (ProseMirror + plugins, multi-MB) is dynamically imported
   // inside onMount so it never loads when the user only uses source mode.
@@ -167,7 +171,7 @@
                   source={tab.currentContent}
                   pageBasename={(activeTab()?.filePath ?? '').replace(/^.*[\\/]/, '')} />
     {/if}
-    <div class="host" data-skin={skin.current} bind:this={host}></div>
+    <div class="host" data-theme={activeThemeId} bind:this={host}></div>
   </div>
 </div>
 
