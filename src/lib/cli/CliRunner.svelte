@@ -3,6 +3,7 @@
   import { invoke } from '@tauri-apps/api/core'
   import { invokePlugin } from '../plugins/host'
   import { bakeShareHtml } from '../plugins/share-baker'
+  import { renderTabAsInlineBody } from '../plugins/host-render-html'
   import { settings } from '../settings.svelte'
   import { computeActiveThemeId } from '../theme-loader'
   import { stat, readTextFile } from '@tauri-apps/plugin-fs'
@@ -106,12 +107,14 @@
     let renderedHtml: string | undefined
     if (entry?.requires_tab_context && manifest.host_capabilities.includes('renderer.html')) {
       try {
-        if (fileKind !== 'image') {
+        if (fileKind === 'image') {
+          renderedHtml = ''
+        } else if (manifest.id === 'share') {
           const systemDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false
           const themeId = computeActiveThemeId(settings.theme, systemDark)
           renderedHtml = await bakeShareHtml(virtualTab, themeId)
         } else {
-          renderedHtml = ''
+          renderedHtml = await renderTabAsInlineBody(virtualTab)
         }
       } catch (e) {
         await finish({ exit_code: 1, stderr: [`mdedit: render failed: ${e}`] })

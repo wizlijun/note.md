@@ -219,6 +219,7 @@ fn launch_tauri_headless(
             crate::cli::state::cli_finish,
             crate::plugin_host::get_plugin_manifests,
             crate::plugin_host::invoke_plugin,
+            crate::themes::commands::theme_load_compiled,
         ])
         .setup(move |app| {
             crate::plugin_host::init(&app.handle());
