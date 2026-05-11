@@ -106,13 +106,19 @@ const mermaidPlugin: PluginEntry = {
  *  RichEditor's `rendererRegistry` and the PDF export pipeline. */
 export const loadDotRenderer = dotPlugin.load
 
-/** Top-level loader for the mermaid renderer. */
+/** Top-level loader for the mermaid renderer. Used directly by the
+ *  host-render-html / PDF / share pipelines via `diagram-render.ts`.
+ *  NOT registered in the registry below: @moraya/core has its own built-in
+ *  mermaid path (enableMermaid: true → plugins/mermaid-renderer.ts) and
+ *  registering 'mermaid' here would make its CodeBlock NodeView treat
+ *  mermaid blocks as both isMermaid AND isRenderer, which mis-fires the
+ *  `pre.style.display` formula in syncMermaidMode and hides the source
+ *  pre when the user clicks Edit — leaving a blank area. */
 export const loadMermaidRenderer = mermaidPlugin.load
 
 const PLUGINS: Record<string, PluginEntry> = {
   dot: dotPlugin,
   graphviz: dotPlugin,
-  mermaid: mermaidPlugin,
 }
 
 export class DefaultRendererRegistry implements RendererRegistry {
