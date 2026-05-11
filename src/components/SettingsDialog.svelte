@@ -4,6 +4,7 @@
   import { ask, open as openFilePicker } from '@tauri-apps/plugin-dialog'
   import { settings, saveSettings, getPluginScopedAll, mergePluginScoped } from '../lib/settings.svelte'
   import { themes, loadThemes, reloadThemes } from '../lib/themes.svelte'
+  import { pendingThemeImport } from '../lib/theme-import-bus.svelte'
   import ThemeImportDialog from './ThemeImportDialog.svelte'
   import { collectSettingsTabs, type SettingsTab } from '../lib/plugins/settings-registry'
   import type { PluginManifest } from '../lib/plugins/types'
@@ -127,6 +128,16 @@
   let importReport = $state<unknown | null>(null)
   let importBusy = $state(false)
 
+  // Mirror the App.svelte drag-drop bus: when a .zip is dropped, App stuffs
+  // the prepared ImportReport into pendingThemeImport.report; we surface it
+  // here so the ThemeImportDialog modal renders.
+  $effect(() => {
+    if (pendingThemeImport.report) {
+      importReport = pendingThemeImport.report
+      pendingThemeImport.report = null
+    }
+  })
+
   async function onLightThemeChange(e: Event) {
     settings.theme.light = (e.currentTarget as HTMLSelectElement).value
     await saveSettings()
@@ -241,7 +252,7 @@
 
         {#if importReport}
           <ThemeImportDialog
-            report={importReport}
+            report={importReport as never}
             onClose={() => { importReport = null; reloadThemes() }}
           />
         {/if}

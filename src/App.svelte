@@ -234,6 +234,15 @@
     const unlistenDrop = win.onDragDropEvent(async (event) => {
       if (event.payload.type === 'drop') {
         for (const path of event.payload.paths) {
+          if (path.toLowerCase().endsWith('.zip')) {
+            try {
+              const report = await invoke('theme_import', { zipPath: path })
+              const { pendingThemeImport } = await import('./lib/theme-import-bus.svelte')
+              pendingThemeImport.report = report
+              showSettings = true   // surface the SettingsDialog so its child dialog renders
+            } catch (e) { console.warn('[App] drop theme_import:', e) }
+            continue
+          }
           try { await openFile(path) } catch (e) { console.warn('[App] drop openFile:', e) }
         }
       }
