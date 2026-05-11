@@ -7,3 +7,4 @@
 //! `docs/superpowers/specs/2026-05-11-typora-theme-import-design.md`.
 
 pub mod paths;
+pub mod id;
