@@ -114,6 +114,50 @@
       const manifestById: Record<string, PluginManifest> = Object.fromEntries(
         pluginRuntime.manifests.map((m) => [m.id, m]))
 
+      // First-launch nudge: offer to install the `mdedit` shell command.
+      // Fire-and-forget so a slow dialog doesn't block the rest of startup.
+      void (async () => {
+        try {
+          const { getCliPromptShown, setCliPromptShown } = await import('./lib/settings.svelte')
+          if (await getCliPromptShown()) return
+          const status = await invoke<{ installed: boolean; path: string | null }>('cli_install_status')
+          if (status.installed) {
+            // Already linked — mark prompt as resolved so we don't ask again.
+            await setCliPromptShown(true)
+            return
+          }
+          // Small delay so the main window finishes appearing before the dialog.
+          await new Promise((r) => setTimeout(r, 1200))
+          const { ask } = await import('@tauri-apps/plugin-dialog')
+          const yes = await ask(
+            "把 'mdedit' 命令安装到 PATH 吗？\n\n" +
+            "安装后可以从任何终端或脚本调用 M↓ 的功能：\n" +
+            "  • mdedit -s draft.md   通过 Share 插件发布并打印 URL\n" +
+            "  • mdedit help          查看所有命令\n" +
+            "  • mdedit plugin list   列出插件\n\n" +
+            "随时可以从 Help → Install/Uninstall 'mdedit' Command 重新管理。",
+            { title: "Install 'mdedit' Command", kind: 'info' }
+          )
+          await setCliPromptShown(true)
+          if (yes) {
+            const candidates = await invoke<string[]>('cli_install_candidates')
+            if (candidates.length > 0) {
+              const dir = candidates[0]
+              try {
+                await invoke('cli_install', { dir })
+                const { pushToast } = await import('./lib/toast.svelte')
+                pushToast({ level: 'success', message: `'mdedit' installed at ${dir}` })
+              } catch (e) {
+                const { pushToast } = await import('./lib/toast.svelte')
+                pushToast({ level: 'error', message: `Install failed: ${e}` })
+              }
+            }
+          }
+        } catch (e) {
+          console.warn('[App] cli first-launch prompt:', e)
+        }
+      })()
+
       dispatchPlugin = async (pluginId: string, command: string) => {
         const m = manifestById[pluginId]
         if (!m) { console.warn('[App] unknown plugin', pluginId); return }

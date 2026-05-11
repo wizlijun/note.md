@@ -126,6 +126,22 @@ export async function pushRecentFile(path: string): Promise<void> {
   await saveSettings()
 }
 
+/**
+ * One-shot "we asked about the mdedit CLI install" flag, persisted under
+ * `cli.promptShown` in the settings store. Read by App.svelte on first
+ * launch to decide whether to nudge the user into installing the symlink.
+ */
+export async function getCliPromptShown(): Promise<boolean> {
+  const s = await getStore()
+  return (await s.get<boolean>('cli.promptShown')) ?? false
+}
+
+export async function setCliPromptShown(v: boolean): Promise<void> {
+  const s = await getStore()
+  await s.set('cli.promptShown', v)
+  await s.save()
+}
+
 /** `key` is the extension (or special basename) returned by `modeKeyFor`. */
 export function getRecentMode(key: string): Mode | null {
   return recentModesByExt[key] ?? null
