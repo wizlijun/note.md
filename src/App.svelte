@@ -1,8 +1,6 @@
 <script lang="ts">
   import './styles/app.css'
   import './styles/editor-base.css'
-  import './styles/skins/default.css'
-  import './styles/skins/effie.css'
   import { onMount } from 'svelte'
   import { getCurrentWindow } from '@tauri-apps/api/window'
   import { listen } from '@tauri-apps/api/event'
@@ -52,13 +50,62 @@
         const { installHoverInvalidator } = await import('./lib/mdblock-hover/hover-store.svelte')
         installHoverInvalidator()
       } catch (e) { console.warn('[App] installHoverInvalidator:', e) }
-      // Sync persisted skin into the reactive skin module so RichEditor's
-      // [data-skin] binding picks it up before first mount.
+      // Theme initialization: load registry, install style slots, observe
+      // system appearance, and keep activeTheme.id + slot CSS in sync.
       try {
-        const { skin: skinState } = await import('./lib/skin.svelte')
-        const { settings: s } = await import('./lib/settings.svelte')
-        if (s.skin === 'default' || s.skin === 'effie') skinState.current = s.skin
-      } catch (e) { console.warn('[App] hydrate skin:', e) }
+        const { loadThemes, themes, findThemeById } = await import('./lib/themes.svelte')
+        const { ensureThemeSlots, applyThemeContent, computeActiveThemeId, observePrefersColorScheme } = await import('./lib/theme-loader')
+        const { setActiveTheme } = await import('./lib/active-theme.svelte')
+        await loadThemes()
+        ensureThemeSlots()
+
+        let systemDark = false
+        let lightAssigned: string | null = null
+        let darkAssigned: string | null = null
+
+        async function syncSlots() {
+          const t = settings.theme
+          if (t.light !== lightAssigned) {
+            const meta = findThemeById(t.light)
+            if (meta) { await applyThemeContent('light', meta.compiled) }
+            lightAssigned = t.light
+          }
+          if (t.dark !== darkAssigned) {
+            const meta = findThemeById(t.dark)
+            if (meta) { await applyThemeContent('dark', meta.compiled) }
+            darkAssigned = t.dark
+          }
+          setActiveTheme(computeActiveThemeId(t, systemDark))
+        }
+
+        const stopSystem = observePrefersColorScheme((dark) => {
+          systemDark = dark
+          void syncSlots()
+        })
+        // Re-sync whenever settings.theme changes (the dropdowns mutate it).
+        const stopWatch = $effect.root(() => {
+          $effect(() => {
+            void settings.theme.light
+            void settings.theme.dark
+            void settings.theme.followSystem
+            void syncSlots()
+          })
+        })
+        // Also re-sync when themes list changes (import added new themes).
+        const stopThemesWatch = $effect.root(() => {
+          $effect(() => {
+            void themes.list
+            lightAssigned = null
+            darkAssigned = null
+            void syncSlots()
+          })
+        })
+        ;(window as unknown as { __mdeditor_stop_theme?: () => void }).__mdeditor_stop_theme = () => {
+          stopSystem()
+          stopWatch()
+          stopThemesWatch()
+        }
+      } catch (e) { console.warn('[App] theme init:', e) }
       stopAutoSave = startAutoSaveWatcher()
 
       try { pluginRuntime.manifests = await invoke<PluginManifest[]>('get_plugin_manifests') }
