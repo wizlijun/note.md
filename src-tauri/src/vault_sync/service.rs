@@ -70,6 +70,9 @@ fn run_loop(app: AppHandle, repo: PathBuf, remote: String, branch: String) {
         }
     };
 
+    // Initial sync immediately on start
+    do_sync(&app, &repo, &remote, &branch);
+
     let tx_periodic = tx.clone();
     let app_for_periodic = app.clone();
     std::thread::spawn(move || {

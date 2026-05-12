@@ -27,41 +27,57 @@ pub fn fetch(repo: &Path, remote: &str, branch: &str) -> GitResult<()> {
 }
 
 pub fn sync(repo: &Path, remote: &str, branch: &str) -> GitResult<()> {
-    fetch(repo, remote, branch)?;
+    let has_remote = run_git(repo, &["remote", "get-url", remote]).is_ok();
 
-    if !has_changes(repo)? {
-        let ff = run_git(repo, &["pull", "--ff-only", remote, branch]);
-        if ff.is_err() {
-            run_git(repo, &["pull", "--rebase", remote, branch])?;
+    if has_remote {
+        let fetch_ok = fetch(repo, remote, branch).is_ok();
+
+        if !has_changes(repo)? {
+            if fetch_ok {
+                let ff = run_git(repo, &["pull", "--ff-only", remote, branch]);
+                if ff.is_err() {
+                    let _ = run_git(repo, &["pull", "--rebase", remote, branch]);
+                }
+            }
+            return Ok(());
         }
-        return Ok(());
+
+        run_git(repo, &["add", "-A"])?;
+
+        if fetch_ok {
+            run_git(repo, &["stash", "push", "-m", "vaultgitsync-auto"])?;
+
+            let rebase = run_git(repo, &["rebase", &format!("{remote}/{branch}")]);
+            if rebase.is_err() {
+                let _ = run_git(repo, &["rebase", "--abort"]);
+                let _ = run_git(repo, &["stash", "pop"]);
+                return Err("rebase failed, skipping cycle".into());
+            }
+
+            let pop = run_git(repo, &["stash", "pop"]);
+            if pop.is_err() {
+                super::conflict::handle_conflicts(repo)?;
+            }
+
+            run_git(repo, &["add", "-A"])?;
+        }
+    } else {
+        if !has_changes(repo)? {
+            return Ok(());
+        }
+        run_git(repo, &["add", "-A"])?;
     }
-
-    run_git(repo, &["add", "-A"])?;
-    run_git(repo, &["stash", "push", "-m", "vaultgitsync-auto"])?;
-
-    let rebase = run_git(repo, &["rebase", &format!("{remote}/{branch}")]);
-    if rebase.is_err() {
-        let _ = run_git(repo, &["rebase", "--abort"]);
-        let _ = run_git(repo, &["stash", "pop"]);
-        return Err("rebase failed, skipping cycle".into());
-    }
-
-    let pop = run_git(repo, &["stash", "pop"]);
-    if pop.is_err() {
-        super::conflict::handle_conflicts(repo)?;
-    }
-
-    run_git(repo, &["add", "-A"])?;
 
     if has_changes(repo)? {
         let ts = chrono_now();
         run_git(repo, &["commit", "-m", &format!("vault: auto-sync {ts}")])?;
     }
 
-    let push = run_git(repo, &["push", remote, branch]);
-    if let Err(e) = push {
-        return Err(format!("push failed (will retry): {e}"));
+    if has_remote {
+        let push = run_git(repo, &["push", remote, branch]);
+        if let Err(e) = push {
+            return Err(format!("push failed (will retry): {e}"));
+        }
     }
 
     Ok(())
