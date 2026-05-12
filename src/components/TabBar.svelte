@@ -93,13 +93,24 @@
       closeCtxMenu()
     }
   }
+
+  let tabsContainer: HTMLDivElement | undefined = $state()
+
+  $effect(() => {
+    const id = activeId.value
+    if (!id || !tabsContainer) return
+    queueMicrotask(() => {
+      const el = tabsContainer?.querySelector(`[class*="active"]`) as HTMLElement | null
+      el?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' })
+    })
+  })
 </script>
 
 <svelte:window onmousedown={onWindowMouseDown} onkeydown={onWindowKeyDown} />
 
 {#if tabs.length > 1 && active}
   <div class="bar">
-    <div class="tabs">
+    <div class="tabs" bind:this={tabsContainer}>
       {#each tabs as tab (tab.id)}
         <button
           class="tab"
