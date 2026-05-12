@@ -123,7 +123,7 @@ export async function openFile(path: string): Promise<void> {
     hash = await sha256Hex(content)
   }
 
-  const mode = cls.kind === 'image' ? 'rich' : (getRecentModeByPath(path) ?? getRecentMode(modeKeyFor(path)) ?? defaultModeFor(cls.kind))
+  const mode = cls.kind === 'image' ? 'rich' : (getRecentModeByPath(path) ?? defaultModeFor(cls.kind))
   const tab: Tab = {
     id: crypto.randomUUID(),
     filePath: path,
@@ -184,6 +184,9 @@ export async function saveActive(): Promise<void> {
   await writeMd(t.filePath, t.currentContent)
   t.initialContent = t.currentContent
   await recordOurWrite(t)
+  if (t.filePath) {
+    setRecentModeByPath(t.filePath, t.mode).catch((e) => console.warn(e))
+  }
   if (t.filePath.endsWith('.md')) {
     void maybeAutoRefresh(t.filePath)
   }
@@ -206,6 +209,7 @@ export async function saveAs(id: string, newPath: string): Promise<void> {
   }
   await pushRecentFile(newPath)
   setRecentMode(modeKeyFor(newPath), t.mode).catch((e) => console.warn(e))
+  setRecentModeByPath(newPath, t.mode).catch((e) => console.warn(e))
   await recordOurWrite(t)
   await rebindTabPath(id)
   if (newPath.endsWith('.md')) {

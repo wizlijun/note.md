@@ -233,33 +233,29 @@ describe('tabs', () => {
     expect(settings.setRecentMode).toHaveBeenCalledWith('md', 'rich')
   })
 
-  it('openFile uses recent mode when available', async () => {
+  it('openFile uses recent mode by path when available', async () => {
     const settings = await import('./settings.svelte')
-    ;(settings.getRecentMode as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce('rich')
+    ;(settings.getRecentModeByPath as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce('rich')
     const m = await import('./tabs.svelte')
     await m.openFile('/tmp/foo.md')
     expect(m.tabs[0].mode).toBe('rich')
   })
 
-  it('openFile looks up recent mode by extension key', async () => {
+  it('openFile defaults to source when no per-path mode stored', async () => {
     const settings = await import('./settings.svelte')
+    ;(settings.getRecentModeByPath as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce(null)
     const m = await import('./tabs.svelte')
     await m.openFile('/tmp/foo.md')
-    expect(settings.getRecentMode).toHaveBeenCalledWith('md')
+    expect(m.tabs[0].mode).toBe('source')
   })
 
-  it('toggleMode persists choice keyed by extension (carries to other .md files)', async () => {
+  it('toggleMode persists choice keyed by path', async () => {
     const settings = await import('./settings.svelte')
     const m = await import('./tabs.svelte')
-    // Open foo.md, toggle to rich; persistence should be keyed by 'md'
     await m.openFile('/tmp/foo.md')
     m.toggleMode(m.tabs[0].id)
     await new Promise((r) => setTimeout(r, 0))
-    expect(settings.setRecentMode).toHaveBeenCalledWith('md', 'rich')
-    // Now opening a different .md file: stub getRecentMode to return what we just stored
-    ;(settings.getRecentMode as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce('rich')
-    await m.openFile('/tmp/bar.md')
-    expect(m.tabs[1].mode).toBe('rich')
+    expect(settings.setRecentModeByPath).toHaveBeenCalledWith('/tmp/foo.md', 'rich')
   })
 
   it('openFile classifies markdown', async () => {
