@@ -28,8 +28,6 @@ vi.mock('./settings.svelte', () => ({
   pushRecentFile: vi.fn(async () => {}),
   getRecentMode: vi.fn(() => null),
   setRecentMode: vi.fn(async () => {}),
-  getRecentModeByPath: vi.fn(() => null),
-  setRecentModeByPath: vi.fn(async () => {}),
   settings: { autoSave: false },
 }))
 
@@ -233,29 +231,27 @@ describe('tabs', () => {
     expect(settings.setRecentMode).toHaveBeenCalledWith('md', 'rich')
   })
 
-  it('openFile uses recent mode by path when available', async () => {
+  it('openFile uses stored mode for extension', async () => {
     const settings = await import('./settings.svelte')
-    ;(settings.getRecentModeByPath as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce('rich')
+    ;(settings.getRecentMode as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce('rich')
     const m = await import('./tabs.svelte')
     await m.openFile('/tmp/foo.md')
     expect(m.tabs[0].mode).toBe('rich')
   })
 
-  it('openFile defaults to source when no per-path mode stored', async () => {
-    const settings = await import('./settings.svelte')
-    ;(settings.getRecentModeByPath as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce(null)
+  it('openFile defaults to source when no stored mode', async () => {
     const m = await import('./tabs.svelte')
     await m.openFile('/tmp/foo.md')
     expect(m.tabs[0].mode).toBe('source')
   })
 
-  it('toggleMode persists choice keyed by path', async () => {
+  it('setMode persists choice keyed by extension', async () => {
     const settings = await import('./settings.svelte')
     const m = await import('./tabs.svelte')
     await m.openFile('/tmp/foo.md')
     m.toggleMode(m.tabs[0].id)
     await new Promise((r) => setTimeout(r, 0))
-    expect(settings.setRecentModeByPath).toHaveBeenCalledWith('/tmp/foo.md', 'rich')
+    expect(settings.setRecentMode).toHaveBeenCalledWith('md', 'rich')
   })
 
   it('openFile classifies markdown', async () => {
@@ -266,11 +262,11 @@ describe('tabs', () => {
     expect(m.tabs[0].mode).toBe('source')
   })
 
-  it('openFile classifies html with default rich mode', async () => {
+  it('openFile classifies html with default source mode', async () => {
     const m = await import('./tabs.svelte')
     await m.openFile('/tmp/index.html')
     expect(m.tabs[0].kind).toBe('html')
-    expect(m.tabs[0].mode).toBe('rich')
+    expect(m.tabs[0].mode).toBe('source')
   })
 
   it('openFile classifies code with language', async () => {

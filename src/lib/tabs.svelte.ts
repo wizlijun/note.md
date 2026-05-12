@@ -3,7 +3,7 @@ import {
   modeKeyFor, statFile, type FileKind,
 } from './fs'
 import { sha256Hex } from './hash'
-import { pushRecentFile, getRecentMode, setRecentMode, getRecentModeByPath, setRecentModeByPath } from './settings.svelte'
+import { pushRecentFile, getRecentMode, setRecentMode } from './settings.svelte'
 import { startWatchingTab, stopWatchingTab, rebindTabPath } from './file-watcher.svelte'
 import { maybeAutoRefresh } from './mdblock/auto-refresh'
 
@@ -45,9 +45,6 @@ export function activate(id: string): void {
   if (tabs.some((t) => t.id === id)) activeId.value = id
 }
 
-function defaultModeFor(kind: FileKind): Mode {
-  return kind === 'html' ? 'rich' : 'source'
-}
 
 const newFileTemplates = [
   '# 给未来自己的一封信\n\n亲爱的未来的我，\n\n当你读到这封信时，希望你已经实现了今天许下的愿望。\n\n不要忘记出发时的勇气。\n',
@@ -123,7 +120,7 @@ export async function openFile(path: string): Promise<void> {
     hash = await sha256Hex(content)
   }
 
-  const mode = cls.kind === 'image' ? 'rich' : (getRecentModeByPath(path) ?? defaultModeFor(cls.kind))
+  const mode = cls.kind === 'image' ? 'rich' : (getRecentMode(modeKeyFor(path)) ?? 'source')
   const tab: Tab = {
     id: crypto.randomUUID(),
     filePath: path,
@@ -161,9 +158,6 @@ export function setMode(id: string, mode: Mode): void {
   if (!t || t.mode === mode) return
   t.mode = mode
   setRecentMode(modeKeyFor(t.filePath), mode).catch((e) => console.warn(e))
-  if (t.filePath) {
-    setRecentModeByPath(t.filePath, mode).catch((e) => console.warn(e))
-  }
 }
 
 export async function saveActive(): Promise<void> {
@@ -184,9 +178,7 @@ export async function saveActive(): Promise<void> {
   await writeMd(t.filePath, t.currentContent)
   t.initialContent = t.currentContent
   await recordOurWrite(t)
-  if (t.filePath) {
-    setRecentModeByPath(t.filePath, t.mode).catch((e) => console.warn(e))
-  }
+  setRecentMode(modeKeyFor(t.filePath), t.mode).catch((e) => console.warn(e))
   if (t.filePath.endsWith('.md')) {
     void maybeAutoRefresh(t.filePath)
   }
@@ -209,7 +201,6 @@ export async function saveAs(id: string, newPath: string): Promise<void> {
   }
   await pushRecentFile(newPath)
   setRecentMode(modeKeyFor(newPath), t.mode).catch((e) => console.warn(e))
-  setRecentModeByPath(newPath, t.mode).catch((e) => console.warn(e))
   await recordOurWrite(t)
   await rebindTabPath(id)
   if (newPath.endsWith('.md')) {
