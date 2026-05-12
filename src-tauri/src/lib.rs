@@ -362,7 +362,7 @@ pub fn run() {
                 .icon_as_template(false)
                 .tooltip("M↓")
                 .menu(&tray_menu)
-                .show_menu_on_left_click(false)
+                .show_menu_on_left_click(true)
                 .on_menu_event(|app, event| {
                     match event.id().0.as_str() {
                         "tray-show" => show_main_window(app),
