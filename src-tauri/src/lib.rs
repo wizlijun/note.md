@@ -595,6 +595,7 @@ fn build_menu<R: tauri::Runtime>(
         .build()?;
 
     let mut file_b = SubmenuBuilder::new(app, "File")
+        .item(&MenuItemBuilder::with_id("new", "New").accelerator("Cmd+N").build(app)?)
         .item(&MenuItemBuilder::with_id("open", "Open…").accelerator("Cmd+O").build(app)?)
         .separator()
         .item(
@@ -623,7 +624,10 @@ fn build_menu<R: tauri::Runtime>(
         .item(&PredefinedMenuItem::cut(app, None)?)
         .item(&PredefinedMenuItem::copy(app, None)?)
         .item(&PredefinedMenuItem::paste(app, None)?)
-        .item(&PredefinedMenuItem::select_all(app, None)?);
+        .item(&PredefinedMenuItem::select_all(app, None)?)
+        .separator()
+        .item(&MenuItemBuilder::with_id("find", "Find…").accelerator("Cmd+F").build(app)?)
+        .item(&MenuItemBuilder::with_id("find-replace", "Find and Replace…").accelerator("Cmd+H").build(app)?);
     for it in plugin_items.iter().filter(|p| p.location == "edit") {
         let mut b = MenuItemBuilder::with_id(&it.id, &it.label);
         if let Some(s) = &it.shortcut { b = b.accelerator(s); }
@@ -647,7 +651,11 @@ fn build_menu<R: tauri::Runtime>(
 
     let mut window_b = SubmenuBuilder::new(app, "Window")
         .item(&PredefinedMenuItem::minimize(app, None)?)
-        .item(&PredefinedMenuItem::maximize(app, None)?);
+        .item(&PredefinedMenuItem::maximize(app, None)?)
+        .separator()
+        .item(&MenuItemBuilder::with_id("zoom-in", "Zoom In").accelerator("Cmd+=").build(app)?)
+        .item(&MenuItemBuilder::with_id("zoom-out", "Zoom Out").accelerator("Cmd+-").build(app)?)
+        .item(&MenuItemBuilder::with_id("zoom-reset", "Actual Size").accelerator("Cmd+0").build(app)?);
     for it in plugin_items.iter().filter(|p| p.location == "window") {
         let mut b = MenuItemBuilder::with_id(&it.id, &it.label);
         if let Some(s) = &it.shortcut { b = b.accelerator(s); }

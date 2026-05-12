@@ -374,3 +374,14 @@
   background: color-mix(in srgb, #fdd 70%, Canvas 30%);
   text-decoration: line-through;
 }
+
+/* ── Search highlight decorations ──────────────────────────────────────── */
+
+.search-highlight {
+  background: rgba(255, 213, 0, 0.35);
+  border-radius: 2px;
+}
+.search-highlight-current {
+  background: rgba(255, 150, 0, 0.6);
+  border-radius: 2px;
+}

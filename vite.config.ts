@@ -14,4 +14,7 @@ export default defineConfig({
     minify: 'esbuild',
     sourcemap: false,
   },
+  optimizeDeps: {
+    entries: ['index.html'],
+  },
 })

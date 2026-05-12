@@ -11,7 +11,7 @@
   import EditorPane from './components/EditorPane.svelte'
   import EmptyState from './components/EmptyState.svelte'
   import ModeToggle from './components/ModeToggle.svelte'
-  import { activeTab, tabs, closeTab, openFile, isDirty, saveActive } from './lib/tabs.svelte'
+  import { activeTab, tabs, closeTab, openFile, newFile, isDirty, saveActive } from './lib/tabs.svelte'
   import { loadSettings, settings } from './lib/settings.svelte'
   import { cmdOpen, cmdSave, cmdSaveAs, cmdCloseActive, cmdToggleMode } from './lib/commands'
   import { cmdMdblockRefresh } from './lib/mdblock/commands'
@@ -20,6 +20,8 @@
   import { installFocusPoll } from './lib/file-watcher.svelte'
   import SettingsDialog from './components/SettingsDialog.svelte'
   import Toast from './components/Toast.svelte'
+  import FindReplace from './components/FindReplace.svelte'
+  import { openFind, openFindReplace } from './lib/find-replace.svelte'
   import { invokePlugin } from './lib/plugins/host'
   import { applyActions, configureActionHandlers } from './lib/plugins/action-handlers'
   import { bakeShareHtml } from './lib/plugins/share-baker'
@@ -44,6 +46,39 @@
   onMount(() => {
     let stopAutoSave: (() => void) | undefined
     let dispatchPlugin: (pluginId: string, command: string) => Promise<void> = async () => {}
+
+    const win = getCurrentWindow()
+
+    // Register file-open listeners IMMEDIATELY (before any async work)
+    // so we never miss events from Rust side.
+    const unlistenOpenFile = listen<string>('open-file', async (e) => {
+      try {
+        await openFile(e.payload)
+        win.show()
+        win.setFocus()
+      } catch (err) { console.warn('[App] open-file:', err) }
+    })
+
+    invoke<string[]>('drain_pending_files').then(async (paths) => {
+      for (const p of paths) {
+        try { await openFile(p) } catch (err) { console.warn('[App] drain_pending_files:', err) }
+      }
+    }).catch((err) => console.warn('[App] drain_pending_files:', err))
+
+    const unlistenDeepLink = onOpenUrl((urls) => {
+      for (const url of urls) {
+        let path = url
+        if (path.startsWith('file://')) {
+          try {
+            const u = new URL(path)
+            path = decodeURIComponent(u.pathname)
+          } catch {
+            // Fall through; openFile will reject if path is bad
+          }
+        }
+        openFile(path).catch((err) => console.warn('[App] deep-link openFile:', path, err))
+      }
+    })
 
     ;(async () => {
       try { await loadSettings() } catch (e) { console.warn('[App] loadSettings:', e) }
@@ -241,7 +276,6 @@
 
     window.addEventListener('keydown', onKeyDown)
 
-    const win = getCurrentWindow()
     const unlistenClose = win.onCloseRequested(async (_event) => {
       // Rust side prevents close and hides window.
       // Just close all tabs here (auto-save dirty ones).
@@ -258,11 +292,17 @@
         return
       }
       switch (id) {
+        case 'new':         newFile(); break
         case 'open':        cmdOpen(); break
         case 'save':        cmdSave(); break
         case 'save-as':     cmdSaveAs(); break
         case 'close-tab':   cmdCloseActive(); break
         case 'toggle-mode': cmdToggleMode(); break
+        case 'find':        openFind(); break
+        case 'find-replace': openFindReplace(); break
+        case 'zoom-in':     document.documentElement.style.fontSize = `${Math.min(200, (parseFloat(getComputedStyle(document.documentElement).fontSize) || 16) + 2)}px`; break
+        case 'zoom-out':    document.documentElement.style.fontSize = `${Math.max(10, (parseFloat(getComputedStyle(document.documentElement).fontSize) || 16) - 2)}px`; break
+        case 'zoom-reset':  document.documentElement.style.fontSize = ''; break
         case 'preferences': showSettings = true; break
         case 'docs':
           import('@tauri-apps/plugin-opener')
@@ -282,7 +322,8 @@
                 const { pushToast } = await import('./lib/toast.svelte')
                 pushToast({ level: 'success', message: `'mdedit' installed at ${dir}` })
               } catch (e) {
-                await message(`Install failed: ${e}`, { title: 'mdedit', kind: 'error' })
+                const { pushToast } = await import('./lib/toast.svelte')
+                pushToast({ level: 'error', message: `Install failed: ${e}` })
               }
               break
             }
@@ -303,8 +344,8 @@
             const { pushToast } = await import('./lib/toast.svelte')
             pushToast({ level: 'success', message: `'mdedit' uninstalled from ${dir}` })
           } catch (e) {
-            const { message } = await import('@tauri-apps/plugin-dialog')
-            await message(`Uninstall failed: ${e}`, { title: 'mdedit', kind: 'error' })
+            const { pushToast } = await import('./lib/toast.svelte')
+            pushToast({ level: 'error', message: `Uninstall failed: ${e}` })
           }
           break
         }
@@ -328,39 +369,6 @@
       }
     })
 
-    const unlistenOpenFile = listen<string>('open-file', async (e) => {
-      try {
-        await openFile(e.payload)
-        win.show()
-        win.setFocus()
-      } catch (err) { console.warn('[App] open-file:', err) }
-    })
-
-    invoke<string[]>('drain_pending_files').then(async (paths) => {
-      for (const p of paths) {
-        try { await openFile(p) } catch (err) { console.warn('[App] drain_pending_files:', err) }
-      }
-    }).catch((err) => console.warn('[App] drain_pending_files:', err))
-
-    // tauri-plugin-deep-link `onOpenUrl` — handles macOS Apple Events for
-    // file associations. Fires for: Finder double-click, "Open With → M↓",
-    // drag-onto-Dock-icon, when the app is registered as the file's handler.
-    // URLs come as `file:///path/to/file.md` (already URL-decoded by plugin).
-    const unlistenDeepLink = onOpenUrl((urls) => {
-      for (const url of urls) {
-        let path = url
-        if (path.startsWith('file://')) {
-          try {
-            const u = new URL(path)
-            path = decodeURIComponent(u.pathname)
-          } catch {
-            // Fall through; openFile will reject if path is bad
-          }
-        }
-        openFile(path).catch((err) => console.warn('[App] deep-link openFile:', path, err))
-      }
-    })
-
     return () => {
       window.removeEventListener('keydown', onKeyDown)
       uninstallFocus()
@@ -376,7 +384,10 @@
   function onKeyDown(e: KeyboardEvent) {
     if (!e.metaKey) return
     const k = e.key.toLowerCase()
-    if (k === 'o') { e.preventDefault(); cmdOpen() }
+    if (k === 'n' && !e.shiftKey) { e.preventDefault(); newFile() }
+    else if (k === 'f' && !e.shiftKey) { e.preventDefault(); openFind() }
+    else if (k === 'h') { e.preventDefault(); openFindReplace() }
+    else if (k === 'o') { e.preventDefault(); cmdOpen() }
     else if (k === 's' && !e.shiftKey) { e.preventDefault(); cmdSave() }
     else if (k === 's' && e.shiftKey) { e.preventDefault(); cmdSaveAs() }
     else if (k === 'w') { e.preventDefault(); cmdCloseActive() }
@@ -445,6 +456,8 @@
 
 <main>
   <TabBar />
+  <Toast />
+  <FindReplace />
   <section class="pane">
     {#if current}
       {#if tabs.length === 1}
@@ -456,7 +469,6 @@
     {/if}
   </section>
   <SettingsDialog bind:open={showSettings} />
-  <Toast />
 </main>
 
 <style>

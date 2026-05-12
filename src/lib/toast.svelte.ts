@@ -32,7 +32,7 @@ export function pushToast(opts: PushOpts): number {
     detail: opts.detail ? opts.detail.slice(0, DETAIL_MAX) : undefined,
   }
   toasts.list = [...toasts.list, item]
-  const ms = opts.autoDismissMs ?? (opts.level === 'warn' || opts.level === 'error' ? 5000 : 3000)
+  const ms = opts.autoDismissMs ?? 0
   if (ms > 0) {
     timers.set(id, setTimeout(() => dismissToast(id), ms))
   }
@@ -44,6 +44,16 @@ export function dismissToast(id: number): void {
   if (t) clearTimeout(t)
   timers.delete(id)
   toasts.list = toasts.list.filter((t) => t.id !== id)
+}
+
+export function scheduleAutoDismiss(id: number, ms: number): void {
+  const existing = timers.get(id)
+  if (existing) clearTimeout(existing)
+  if (ms > 0) {
+    timers.set(id, setTimeout(() => dismissToast(id), ms))
+  } else {
+    timers.delete(id)
+  }
 }
 
 export function clearToasts(): void {

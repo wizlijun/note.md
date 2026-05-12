@@ -32,8 +32,8 @@ async function realWriteText(s: string): Promise<void> {
 }
 
 async function realShowMessage(msg: string, opts: { title: string; kind: 'info' | 'warning' | 'error' }): Promise<void> {
-  const { message } = await import('@tauri-apps/plugin-dialog')
-  await message(msg, opts)
+  const level = opts.kind === 'warning' ? 'warn' : opts.kind
+  pushToast({ level, message: msg })
 }
 
 async function realAskDialog(msg: string, opts: { title: string }): Promise<boolean> {

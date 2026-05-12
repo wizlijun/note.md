@@ -13,6 +13,19 @@ Built on [`@moraya/core`](https://www.npmjs.com/package/@moraya/core).
 
 ## Features
 
+- **New file** (`Cmd+N`) — creates an untitled markdown with a random creative
+  writing prompt; inherits the current tab's mode (source or rich); body text
+  is pre-selected so you can start typing immediately. Double-click the empty
+  state to create a new file as well.
+- **Find & Replace** (`Cmd+F` / `Cmd+H`) — inline search bar below the tab
+  strip with case-sensitive, whole-word, and regex options; match highlighting
+  and navigation in both source and rich modes; Enter in the replace field
+  executes replace-and-advance. Also accessible from Edit menu.
+- **Zoom** (`Cmd+=` / `Cmd+-` / `Cmd+0`) — scale the entire UI up or down;
+  reset to default with Cmd+0. Available in the Window menu.
+- **Notification bar** — all messages (errors, success, info) now appear in a
+  Typora-style bar below the tab strip instead of native OS dialogs; includes
+  an optional auto-dismiss checkbox.
 - **Tabs** with dirty indicator, drag-to-reorder, and confirm-on-close
 - **Source / rich toggle** (`Cmd+/`) — textarea ↔ WYSIWYG
 - **Markdown rendering** with KaTeX math, Mermaid diagrams, and highlight.js code

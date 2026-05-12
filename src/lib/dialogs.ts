@@ -1,4 +1,5 @@
-import { ask, message, save as saveDialog, open as openDialog } from '@tauri-apps/plugin-dialog'
+import { ask, save as saveDialog, open as openDialog } from '@tauri-apps/plugin-dialog'
+import { pushToast } from './toast.svelte'
 import type { DirtyChoice } from './tabs.svelte'
 import { basename } from './fs'
 
@@ -63,6 +64,6 @@ export async function pickSaveFile(defaultPath?: string): Promise<string | null>
   return picked ?? null
 }
 
-export async function showError(text: string): Promise<void> {
-  await message(text, { title: 'M↓', kind: 'error' })
+export function showError(text: string): void {
+  pushToast({ level: 'error', message: text })
 }

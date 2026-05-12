@@ -190,6 +190,160 @@
     }
     if (gutterEl) gutterEl.scrollTop = top
   }
+
+  // ── Search / Replace (textarea mode) ──
+
+  import { findState } from '../lib/find-replace.svelte'
+  import { setContent } from '../lib/tabs.svelte'
+
+  interface TextMatch { start: number; end: number }
+  let searchMatches: TextMatch[] = []
+  let searchIndex = -1
+  let lastSearchRegex = false
+  let lastSearchPattern = ''
+  let lastSearchCS = false
+
+  function escapeRegexStr(s: string): string {
+    return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  }
+
+  function findMatches(query: string, cs: boolean, wholeWord: boolean, useRegex: boolean): TextMatch[] {
+    if (!query) return []
+    let pattern = useRegex ? query : escapeRegexStr(query)
+    if (wholeWord) pattern = `\\b${pattern}\\b`
+    let regex: RegExp
+    try { regex = new RegExp(pattern, cs ? 'g' : 'gi') }
+    catch { return [] }
+
+    const matches: TextMatch[] = []
+    let m: RegExpExecArray | null
+    while ((m = regex.exec(value)) !== null) {
+      if (m[0].length === 0) { regex.lastIndex++; continue }
+      matches.push({ start: m.index, end: m.index + m[0].length })
+      if (matches.length >= 10000) break
+    }
+    return matches
+  }
+
+  function scrollToTextMatch(idx: number) {
+    if (!textareaEl || idx < 0 || idx >= searchMatches.length) return
+    const match = searchMatches[idx]
+    textareaEl.setSelectionRange(match.start, match.end)
+    const lh = parseFloat(getComputedStyle(textareaEl).lineHeight) || 20
+    const linesBefore = value.slice(0, match.start).split('\n').length
+    const scrollTarget = (linesBefore - 3) * lh
+    textareaEl.scrollTop = Math.max(0, scrollTarget)
+    syncScroll()
+  }
+
+  function onFindSearch(e: Event) {
+    const { query, caseSensitive, wholeWord, useRegex } = (e as CustomEvent).detail
+    lastSearchPattern = query
+    lastSearchCS = caseSensitive
+    lastSearchRegex = useRegex
+    if (!query) {
+      searchMatches = []
+      searchIndex = -1
+      findState.matchCount = 0
+      findState.currentMatch = 0
+      return
+    }
+    searchMatches = findMatches(query, caseSensitive, wholeWord, useRegex)
+    searchIndex = searchMatches.length > 0 ? 0 : -1
+    findState.matchCount = searchMatches.length
+    findState.currentMatch = searchMatches.length > 0 ? 1 : 0
+    if (searchIndex >= 0) scrollToTextMatch(searchIndex)
+  }
+
+  function onFindNext() {
+    if (searchMatches.length === 0) return
+    searchIndex = (searchIndex + 1) % searchMatches.length
+    findState.currentMatch = searchIndex + 1
+    scrollToTextMatch(searchIndex)
+  }
+
+  function onFindPrev() {
+    if (searchMatches.length === 0) return
+    searchIndex = (searchIndex - 1 + searchMatches.length) % searchMatches.length
+    findState.currentMatch = searchIndex + 1
+    scrollToTextMatch(searchIndex)
+  }
+
+  function onFindReplace(e: Event) {
+    if (searchIndex < 0 || searchIndex >= searchMatches.length) return
+    const { replacement } = (e as CustomEvent).detail
+    const match = searchMatches[searchIndex]
+    const tab = activeTab()
+    if (!tab) return
+
+    let replaceText = replacement
+    if (lastSearchRegex && lastSearchPattern) {
+      try {
+        const regex = new RegExp(lastSearchPattern, lastSearchCS ? '' : 'i')
+        const original = value.slice(match.start, match.end)
+        replaceText = original.replace(regex, replacement)
+      } catch { /* literal fallback */ }
+    }
+
+    const newContent = value.slice(0, match.start) + replaceText + value.slice(match.end)
+    setContent(tab.id, newContent)
+    // Re-search
+    setTimeout(() => onFindSearch(new CustomEvent('', { detail: {
+      query: lastSearchPattern, caseSensitive: lastSearchCS,
+      wholeWord: findState.wholeWord, useRegex: lastSearchRegex,
+    }})), 0)
+  }
+
+  function onFindReplaceAll(e: Event) {
+    const { replacement } = (e as CustomEvent).detail
+    const tab = activeTab()
+    if (!tab || searchMatches.length === 0) return
+
+    let pattern = lastSearchRegex ? lastSearchPattern : escapeRegexStr(lastSearchPattern)
+    if (findState.wholeWord) pattern = `\\b${pattern}\\b`
+    let regex: RegExp
+    try { regex = new RegExp(pattern, lastSearchCS ? 'g' : 'gi') }
+    catch { return }
+
+    const newContent = value.replace(regex, replacement)
+    setContent(tab.id, newContent)
+    onFindClear()
+  }
+
+  function onFindClear() {
+    searchMatches = []
+    searchIndex = -1
+    findState.matchCount = 0
+    findState.currentMatch = 0
+  }
+
+  $effect(() => {
+    window.addEventListener('mdeditor:find-search', onFindSearch)
+    window.addEventListener('mdeditor:find-next', onFindNext)
+    window.addEventListener('mdeditor:find-prev', onFindPrev)
+    window.addEventListener('mdeditor:find-replace', onFindReplace)
+    window.addEventListener('mdeditor:find-replace-all', onFindReplaceAll)
+    window.addEventListener('mdeditor:find-clear', onFindClear)
+    window.addEventListener('mdeditor:new-file-select', onNewFileSelect)
+    return () => {
+      window.removeEventListener('mdeditor:find-search', onFindSearch)
+      window.removeEventListener('mdeditor:find-next', onFindNext)
+      window.removeEventListener('mdeditor:find-prev', onFindPrev)
+      window.removeEventListener('mdeditor:find-replace', onFindReplace)
+      window.removeEventListener('mdeditor:find-replace-all', onFindReplaceAll)
+      window.removeEventListener('mdeditor:find-clear', onFindClear)
+      window.removeEventListener('mdeditor:new-file-select', onNewFileSelect)
+    }
+  })
+
+  function onNewFileSelect(e: Event) {
+    const { start, end } = (e as CustomEvent).detail
+    if (!textareaEl) return
+    setTimeout(() => {
+      textareaEl!.focus()
+      textareaEl!.setSelectionRange(start, end)
+    }, 50)
+  }
 </script>
 
 <div class="src">

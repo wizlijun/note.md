@@ -1,6 +1,6 @@
 {
   "name": "mdeditor",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "type": "module",
   "private": true,
   "scripts": {
@@ -37,6 +37,8 @@
     "@sveltejs/vite-plugin-svelte": "^5",
     "@tauri-apps/cli": "^2",
     "happy-dom": "^20.9.0",
+    "prosemirror-state": "^1.4.4",
+    "prosemirror-view": "^1.41.8",
     "svelte": "^5",
     "svelte-check": "^4",
     "typescript": "^5",

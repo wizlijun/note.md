@@ -69,6 +69,12 @@ importers:
       happy-dom:
         specifier: ^20.9.0
         version: 20.9.0
+      prosemirror-state:
+        specifier: ^1.4.4
+        version: 1.4.4
+      prosemirror-view:
+        specifier: ^1.41.8
+        version: 1.41.8
       svelte:
         specifier: ^5
         version: 5.55.5
