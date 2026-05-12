@@ -228,8 +228,6 @@ fn open_sync_log_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
 }
 
 fn pick_repo_and_start(app: &tauri::AppHandle) {
-    use tauri_plugin_dialog::DialogExt;
-
     let mgr = app.state::<std::sync::Arc<vault_sync::VaultSyncManager>>();
     let has_repo = mgr.repo_path.lock().unwrap().is_some();
 
@@ -239,6 +237,20 @@ fn pick_repo_and_start(app: &tauri::AppHandle) {
     }
 
     let app_clone = app.clone();
+    pick_sync_folder_inner(app, move |path_str| {
+        let _ = vault_sync::vault_sync_start(app_clone.clone());
+    });
+}
+
+fn pick_sync_folder(app: &tauri::AppHandle) {
+    pick_sync_folder_inner(app, move |_| {});
+}
+
+fn pick_sync_folder_inner(app: &tauri::AppHandle, on_done: impl FnOnce(String) + Send + 'static) {
+    use tauri_plugin_dialog::DialogExt;
+    use tauri_plugin_store::StoreExt;
+
+    let app_clone = app.clone();
     app.dialog()
         .file()
         .set_title("Select Vault Git Repository")
@@ -246,10 +258,30 @@ fn pick_repo_and_start(app: &tauri::AppHandle) {
             if let Some(path) = folder {
                 let path_str = path.to_string();
                 let mgr = app_clone.state::<std::sync::Arc<vault_sync::VaultSyncManager>>();
-                *mgr.repo_path.lock().unwrap() = Some(path_str);
-                let _ = vault_sync::vault_sync_start(app_clone.clone());
+                *mgr.repo_path.lock().unwrap() = Some(path_str.clone());
+
+                if let Ok(s) = app_clone.store("settings.json") {
+                    let _ = s.set("vault_sync.repo_path", serde_json::json!(&path_str));
+                    let _ = s.save();
+                }
+
+                update_tray_repo_label(&app_clone, &path_str);
+                on_done(path_str);
             }
         });
+}
+
+fn update_tray_repo_label(_app: &tauri::AppHandle, _path: &str) {
+    // Menu item text updates on next app launch (persisted in settings)
+}
+
+fn abbreviate_path(path: &str) -> String {
+    let home = std::env::var("HOME").unwrap_or_default();
+    if !home.is_empty() && path.starts_with(&home) {
+        format!("~{}", &path[home.len()..])
+    } else {
+        path.to_string()
+    }
 }
 
 /// Build the Tauri runtime `Context` from the embedded tauri.conf.json.
@@ -340,7 +372,15 @@ pub fn run() {
             // Left-click toggles main window visibility; right-click shows menu.
             let tray_icon = Image::from_bytes(include_bytes!("../icons/tray-icon.png"))?;
             let show_item = MenuItem::with_id(app, "tray-show", "Show M\u{2193}", true, None::<&str>)?;
-            let sync_status_item = MenuItem::with_id(app, "tray-sync-status", "Vault Sync: Stopped", false, None::<&str>)?;
+            let sync_repo_label = {
+                let mgr = app.state::<std::sync::Arc<vault_sync::VaultSyncManager>>();
+                let guard = mgr.repo_path.lock().unwrap();
+                match guard.as_deref() {
+                    Some(p) => format!("Vault: {}", abbreviate_path(p)),
+                    None => "Vault: Set Folder\u{2026}".to_string(),
+                }
+            };
+            let sync_repo_item = MenuItem::with_id(app, "tray-sync-repo", &sync_repo_label, true, None::<&str>)?;
             let sync_start_item = MenuItem::with_id(app, "tray-sync-start", "Start Sync", true, None::<&str>)?;
             let sync_stop_item = MenuItem::with_id(app, "tray-sync-stop", "Stop Sync", true, None::<&str>)?;
             let sync_now_item = MenuItem::with_id(app, "tray-sync-now", "Sync Now", true, None::<&str>)?;
@@ -349,7 +389,7 @@ pub fn run() {
             let tray_menu = MenuBuilder::new(app)
                 .item(&show_item)
                 .separator()
-                .item(&sync_status_item)
+                .item(&sync_repo_item)
                 .item(&sync_start_item)
                 .item(&sync_stop_item)
                 .item(&sync_now_item)
@@ -366,6 +406,7 @@ pub fn run() {
                 .on_menu_event(|app, event| {
                     match event.id().0.as_str() {
                         "tray-show" => show_main_window(app),
+                        "tray-sync-repo" => { pick_sync_folder(app); }
                         "tray-sync-start" => { pick_repo_and_start(app); }
                         "tray-sync-stop" => { let _ = vault_sync::vault_sync_stop(app.clone()); }
                         "tray-sync-now" => { let _ = vault_sync::vault_sync_now(app.clone()); }

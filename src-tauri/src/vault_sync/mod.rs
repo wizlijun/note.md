@@ -87,29 +87,21 @@ pub fn vault_sync_logs(app: AppHandle) -> Vec<log_buffer::LogEntry> {
 }
 
 pub fn init(app: &AppHandle) {
-    let config_dir = match app.path().app_config_dir() {
-        Ok(p) => p,
-        Err(_) => return,
-    };
-    let settings_path = config_dir.join("settings.json");
-    let bytes = match std::fs::read(&settings_path) {
-        Ok(b) => b,
-        Err(_) => return,
-    };
-    let v: serde_json::Value = match serde_json::from_slice(&bytes) {
-        Ok(v) => v,
+    use tauri_plugin_store::StoreExt;
+
+    let store = match app.store("settings.json") {
+        Ok(s) => s,
         Err(_) => return,
     };
 
-    let repo_path = v.get("vault_sync.repo_path")
-        .and_then(|v| v.as_str())
-        .map(|s| s.to_string());
+    let repo_path = store.get("vault_sync.repo_path")
+        .and_then(|v| v.as_str().map(|s| s.to_string()));
 
     if let Some(ref path) = repo_path {
         let mgr = app.state::<Arc<VaultSyncManager>>();
         *mgr.repo_path.lock().unwrap() = Some(path.clone());
 
-        let auto_start = v.get("vault_sync.auto_start")
+        let auto_start = store.get("vault_sync.auto_start")
             .and_then(|v| v.as_bool())
             .unwrap_or(false);
 
