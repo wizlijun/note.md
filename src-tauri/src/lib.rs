@@ -212,19 +212,19 @@ fn show_main_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
 }
 
 fn open_sync_log_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
-    if let Some(w) = app.get_webview_window("sync-log") {
-        let _ = w.show();
-        let _ = w.set_focus();
-        return;
+    let mgr = app.state::<std::sync::Arc<vault_sync::VaultSyncManager>>();
+    let entries = mgr.logs.entries();
+
+    let log_path = std::env::temp_dir().join("vault-sync.log");
+    let content: String = entries.iter().map(|e| {
+        format!("[{}] [{}] {}\n", e.timestamp, e.level, e.message)
+    }).collect();
+    let _ = std::fs::write(&log_path, &content);
+
+    show_main_window(app);
+    if let Some(path_str) = log_path.to_str() {
+        emit_open_file_delayed(app, path_str);
     }
-    let _ = tauri::WebviewWindowBuilder::new(
-        app,
-        "sync-log",
-        tauri::WebviewUrl::App("vault-sync-log.html".into()),
-    )
-    .title("Vault Sync Log")
-    .inner_size(600.0, 400.0)
-    .build();
 }
 
 fn pick_repo_and_start(app: &tauri::AppHandle) {
