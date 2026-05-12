@@ -520,6 +520,9 @@ pub fn run() {
                     _ => {}
                 }
             }
+            RunEvent::ExitRequested { api, .. } => {
+                api.prevent_exit();
+            }
             RunEvent::Exit => dlog("RunEvent::Exit"),
             _ => {}
         }
