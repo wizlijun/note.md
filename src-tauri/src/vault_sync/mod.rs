@@ -103,7 +103,7 @@ pub fn init(app: &AppHandle) {
 
         let auto_start = store.get("vault_sync.auto_start")
             .and_then(|v| v.as_bool())
-            .unwrap_or(false);
+            .unwrap_or(true);
 
         if auto_start {
             *mgr.state.lock().unwrap() = SyncState::Stopped;

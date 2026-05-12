@@ -263,6 +263,7 @@ fn pick_sync_folder_inner(app: &tauri::AppHandle, on_done: impl FnOnce(String) +
 
                 if let Ok(s) = app_clone.store("settings.json") {
                     let _ = s.set("vault_sync.repo_path", serde_json::json!(&path_str));
+                    let _ = s.set("vault_sync.auto_start", serde_json::json!(true));
                     let _ = s.save();
                 }
 
