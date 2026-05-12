@@ -17,6 +17,7 @@ pub mod themes;
 pub mod vault_sync;
 
 pub struct PendingFiles(Mutex<Vec<String>>);
+pub struct TrayRepoItem(Mutex<Option<MenuItem<tauri::Wry>>>);
 
 #[tauri::command]
 fn drain_pending_files(state: tauri::State<'_, PendingFiles>) -> Vec<String> {
@@ -271,8 +272,12 @@ fn pick_sync_folder_inner(app: &tauri::AppHandle, on_done: impl FnOnce(String) +
         });
 }
 
-fn update_tray_repo_label(_app: &tauri::AppHandle, _path: &str) {
-    // Menu item text updates on next app launch (persisted in settings)
+fn update_tray_repo_label(app: &tauri::AppHandle, path: &str) {
+    if let Some(state) = app.try_state::<TrayRepoItem>() {
+        if let Some(item) = state.0.lock().unwrap().as_ref() {
+            let _ = item.set_text(&format!("Vault: {}", abbreviate_path(path)));
+        }
+    }
 }
 
 fn abbreviate_path(path: &str) -> String {
@@ -301,6 +306,7 @@ pub fn run() {
 
     let app = tauri::Builder::default()
         .manage(PendingFiles(Mutex::new(Vec::new())))
+        .manage(TrayRepoItem(Mutex::new(None)))
         .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
             dlog(&format!("single_instance argv: {:?}", argv));
             for arg in argv.iter().skip(1) {
@@ -381,6 +387,10 @@ pub fn run() {
                 }
             };
             let sync_repo_item = MenuItem::with_id(app, "tray-sync-repo", &sync_repo_label, true, None::<&str>)?;
+            {
+                let tray_item_state = app.state::<TrayRepoItem>();
+                *tray_item_state.0.lock().unwrap() = Some(sync_repo_item.clone());
+            }
             let sync_start_item = MenuItem::with_id(app, "tray-sync-start", "Start Sync", true, None::<&str>)?;
             let sync_stop_item = MenuItem::with_id(app, "tray-sync-stop", "Stop Sync", true, None::<&str>)?;
             let sync_now_item = MenuItem::with_id(app, "tray-sync-now", "Sync Now", true, None::<&str>)?;
