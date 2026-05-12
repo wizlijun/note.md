@@ -506,8 +506,18 @@ pub fn run() {
                 }
             }
             RunEvent::WindowEvent { ref label, event: ref e, .. } => {
-                if matches!(e, WindowEvent::CloseRequested { .. } | WindowEvent::Destroyed) {
-                    dlog(&format!("WindowEvent {:?} on {}", e, label));
+                match e {
+                    WindowEvent::CloseRequested { api, .. } => {
+                        dlog(&format!("WindowEvent CloseRequested on {}", label));
+                        api.prevent_close();
+                        if let Some(w) = app_handle.get_webview_window(label) {
+                            let _ = w.hide();
+                        }
+                    }
+                    WindowEvent::Destroyed => {
+                        dlog(&format!("WindowEvent Destroyed on {}", label));
+                    }
+                    _ => {}
                 }
             }
             RunEvent::Exit => dlog("RunEvent::Exit"),

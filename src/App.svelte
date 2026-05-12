@@ -242,18 +242,12 @@
     window.addEventListener('keydown', onKeyDown)
 
     const win = getCurrentWindow()
-    const unlistenClose = win.onCloseRequested(async (event) => {
-      event.preventDefault()
-      // Close all tabs (save dirty ones that have a path), then hide window.
+    const unlistenClose = win.onCloseRequested(async (_event) => {
+      // Rust side prevents close and hides window.
+      // Just close all tabs here (auto-save dirty ones).
       while (tabs.length > 0) {
-        const t = tabs[0]
-        const saved = await closeTab(t.id, async () => isDirty(t.id) ? 'save' : 'discard')
-        if (!saved) {
-          // If save failed (e.g. no path), discard and continue
-          await closeTab(t.id, async () => 'discard')
-        }
+        await closeTab(tabs[0].id, async () => isDirty(tabs[0].id) ? 'save' : 'discard')
       }
-      await win.hide()
     })
 
     const unlistenMenu = listen<string>('menu-event', async (e) => {
