@@ -243,15 +243,15 @@
 
     const win = getCurrentWindow()
     const unlistenClose = win.onCloseRequested(async (event) => {
+      event.preventDefault()
       // Walk dirty tabs; user can cancel.
       for (const t of [...tabs]) {
         const ok = await closeTab(t.id, confirmDirtyClose)
-        if (!ok) { event.preventDefault(); return }
+        if (!ok) { return }
       }
-      // All tabs closed cleanly → quit the app explicitly.
-      // macOS NSWindow's default behavior is hide-not-destroy on close, so we
-      // need to call our Rust `quit_app` command to actually exit the process.
-      try { await invoke('quit_app') } catch (e) { console.warn('[App] quit_app:', e) }
+      // Hide window instead of quitting — process stays alive for vault sync.
+      // User quits via tray icon "Quit M↓".
+      win.hide()
     })
 
     const unlistenMenu = listen<string>('menu-event', async (e) => {

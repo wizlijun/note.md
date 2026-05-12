@@ -472,6 +472,9 @@ pub fn run() {
             }
             RunEvent::Reopen { has_visible_windows, .. } => {
                 dlog(&format!("RunEvent::Reopen has_visible_windows={}", has_visible_windows));
+                if !has_visible_windows {
+                    show_main_window(app_handle);
+                }
             }
             RunEvent::WindowEvent { ref label, event: ref e, .. } => {
                 if matches!(e, WindowEvent::CloseRequested { .. } | WindowEvent::Destroyed) {
