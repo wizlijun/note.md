@@ -234,12 +234,16 @@ fn pick_repo_and_start(app: &tauri::AppHandle) {
 
     if has_repo {
         let _ = vault_sync::vault_sync_start(app.clone());
+        save_sync_enabled(app, true);
+        update_tray_icon(app, true);
         return;
     }
 
     let app_clone = app.clone();
-    pick_sync_folder_inner(app, move |path_str| {
+    pick_sync_folder_inner(app, move |_path_str| {
         let _ = vault_sync::vault_sync_start(app_clone.clone());
+        save_sync_enabled(&app_clone, true);
+        update_tray_icon(&app_clone, true);
     });
 }
 
@@ -287,6 +291,27 @@ fn abbreviate_path(path: &str) -> String {
         format!("~{}", &path[home.len()..])
     } else {
         path.to_string()
+    }
+}
+
+fn save_sync_enabled(app: &tauri::AppHandle, enabled: bool) {
+    use tauri_plugin_store::StoreExt;
+    if let Ok(s) = app.store("settings.json") {
+        let _ = s.set("vault_sync.auto_start", serde_json::json!(enabled));
+        let _ = s.save();
+    }
+}
+
+pub fn update_tray_icon(app: &tauri::AppHandle, active: bool) {
+    if let Some(tray) = app.tray_by_id("main") {
+        let icon = if active {
+            Image::from_bytes(include_bytes!("../icons/tray-icon-active.png"))
+        } else {
+            Image::from_bytes(include_bytes!("../icons/tray-icon.png"))
+        };
+        if let Ok(img) = icon {
+            let _ = tray.set_icon(Some(img));
+        }
     }
 }
 
@@ -419,7 +444,11 @@ pub fn run() {
                         "tray-show" => show_main_window(app),
                         "tray-sync-repo" => { pick_sync_folder(app); }
                         "tray-sync-start" => { pick_repo_and_start(app); }
-                        "tray-sync-stop" => { let _ = vault_sync::vault_sync_stop(app.clone()); }
+                        "tray-sync-stop" => {
+                            let _ = vault_sync::vault_sync_stop(app.clone());
+                            save_sync_enabled(app, false);
+                            update_tray_icon(app, false);
+                        }
                         "tray-sync-now" => { let _ = vault_sync::vault_sync_now(app.clone()); }
                         "tray-sync-log" => { open_sync_log_window(app); }
                         "tray-quit" => app.exit(0),
