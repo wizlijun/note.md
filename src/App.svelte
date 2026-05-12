@@ -244,16 +244,16 @@
     const win = getCurrentWindow()
     const unlistenClose = win.onCloseRequested(async (event) => {
       event.preventDefault()
-      // Save dirty tabs, then close all and hide window.
-      for (const t of [...tabs]) {
-        if (isDirty(t.id)) {
-          const prev = activeTab?.id
-          await closeTab(t.id, async () => 'save')
-        } else {
+      // Close all tabs (save dirty ones that have a path), then hide window.
+      while (tabs.length > 0) {
+        const t = tabs[0]
+        const saved = await closeTab(t.id, async () => isDirty(t.id) ? 'save' : 'discard')
+        if (!saved) {
+          // If save failed (e.g. no path), discard and continue
           await closeTab(t.id, async () => 'discard')
         }
       }
-      win.hide()
+      await win.hide()
     })
 
     const unlistenMenu = listen<string>('menu-event', async (e) => {
