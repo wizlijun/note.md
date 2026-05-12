@@ -11,7 +11,7 @@
   import EditorPane from './components/EditorPane.svelte'
   import EmptyState from './components/EmptyState.svelte'
   import ModeToggle from './components/ModeToggle.svelte'
-  import { activeTab, tabs, closeTab, openFile } from './lib/tabs.svelte'
+  import { activeTab, tabs, closeTab, openFile, isDirty, saveActive } from './lib/tabs.svelte'
   import { loadSettings, settings } from './lib/settings.svelte'
   import { cmdOpen, cmdSave, cmdSaveAs, cmdCloseActive, cmdToggleMode } from './lib/commands'
   import { cmdMdblockRefresh } from './lib/mdblock/commands'
@@ -244,13 +244,15 @@
     const win = getCurrentWindow()
     const unlistenClose = win.onCloseRequested(async (event) => {
       event.preventDefault()
-      // Walk dirty tabs; user can cancel.
+      // Save dirty tabs, then close all and hide window.
       for (const t of [...tabs]) {
-        const ok = await closeTab(t.id, confirmDirtyClose)
-        if (!ok) { return }
+        if (isDirty(t.id)) {
+          const prev = activeTab?.id
+          await closeTab(t.id, async () => 'save')
+        } else {
+          await closeTab(t.id, async () => 'discard')
+        }
       }
-      // Hide window instead of quitting — process stays alive for vault sync.
-      // User quits via tray icon "Quit M↓".
       win.hide()
     })
 
