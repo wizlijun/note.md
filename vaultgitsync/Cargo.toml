@@ -1,0 +1,23 @@
+[package]
+name = "vaultgitsync"
+version = "0.1.0"
+edition = "2021"
+description = "File vault auto-sync daemon using Git/GitHub as backend"
+
+[dependencies]
+notify = { version = "7", default-features = false, features = ["macos_fsevent"] }
+git2 = "0.19"
+clap = { version = "4", features = ["derive"] }
+tokio = { version = "1", features = ["full"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+serde = { version = "1", features = ["derive"] }
+toml = "0.8"
+dirs = "6"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

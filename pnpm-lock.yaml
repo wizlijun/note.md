@@ -52,7 +52,10 @@ importers:
         version: 5.1.8(katex@0.16.45)(marked@18.0.3)
       mermaid-mini:
         specifier: github:wizlijun/mermaid-mini#prebuilt-v11.14.0-mdeditor.1
-        version: https://codeload.github.com/wizlijun/mermaid-mini/tar.gz/05c0e8817ab516e42c1e366a0c00948b23da1442(svelte@5.55.5)
+        version: https://codeload.github.com/wizlijun/mermaid-mini/tar.gz/05c0e8817ab516e42c1e366a0c00948b23da1442(svelte-sonner@1.1.1(svelte@5.55.5))(svelte@5.55.5)
+      svelte-sonner:
+        specifier: ^1.1.1
+        version: 1.1.1(svelte@5.55.5)
       yaml:
         specifier: ^2.8.4
         version: 2.8.4
@@ -1246,6 +1249,11 @@ packages:
   roughjs@4.6.6:
     resolution: {integrity: sha512-ZUz/69+SYpFN/g/lUlo2FXcIjRkSu3nDarreVdGGndHEBJ6cXPdKguS8JGxwj5HA5xIbVKSmLgr5b3AWxtRfvQ==}
 
+  runed@0.28.0:
+    resolution: {integrity: sha512-k2xx7RuO9hWcdd9f+8JoBeqWtYrm5CALfgpkg2YDB80ds/QE4w0qqu34A7fqiAwiBBSBQOid7TLxwxVC27ymWQ==}
+    peerDependencies:
+      svelte: ^5.7.0
+
   rw@1.3.3:
     resolution: {integrity: sha512-PdhdWy89SiZogBLaw42zdeqtRJ//zFd2PgQavcICDUgJT5oW10QCRKbJ6bg4r0/UY2M6BWd5tkxuGFRvCkgfHQ==}
 
@@ -1283,6 +1291,11 @@ packages:
     peerDependencies:
       svelte: ^4.0.0 || ^5.0.0-next.0
       typescript: '>=5.0.0'
+
+  svelte-sonner@1.1.1:
+    resolution: {integrity: sha512-5cd3p7wa4cq0NsqslMwdlPb7x1JglEZ/GKrLePWNr5bCxR1nagAVrY01FRFrXfUGs41miLt3C327+8XJo5BzZw==}
+    peerDependencies:
+      svelte: ^5.0.0
 
   svelte@5.55.5:
     resolution: {integrity: sha512-2uCs/LZ9us+AktdzYJM8OcxQ8qnPS1kpaO7syGT/MgO+6Qr1Ybl+TqPq+97u7PHqmmMlye5ZkoyXONy5mjjAbw==}
@@ -2395,10 +2408,12 @@ snapshots:
 
   mdurl@2.0.0: {}
 
-  mermaid-mini@https://codeload.github.com/wizlijun/mermaid-mini/tar.gz/05c0e8817ab516e42c1e366a0c00948b23da1442(svelte@5.55.5):
+  mermaid-mini@https://codeload.github.com/wizlijun/mermaid-mini/tar.gz/05c0e8817ab516e42c1e366a0c00948b23da1442(svelte-sonner@1.1.1(svelte@5.55.5))(svelte@5.55.5):
     dependencies:
       mermaid: 11.14.0
       svelte: 5.55.5
+    optionalDependencies:
+      svelte-sonner: 1.1.1(svelte@5.55.5)
 
   mermaid@11.14.0:
     dependencies:
@@ -2579,6 +2594,11 @@ snapshots:
       points-on-curve: 0.2.0
       points-on-path: 0.2.1
 
+  runed@0.28.0(svelte@5.55.5):
+    dependencies:
+      esm-env: 1.2.2
+      svelte: 5.55.5
+
   rw@1.3.3: {}
 
   sade@1.8.1:
@@ -2612,6 +2632,11 @@ snapshots:
       typescript: 5.9.3
     transitivePeerDependencies:
       - picomatch
+
+  svelte-sonner@1.1.1(svelte@5.55.5):
+    dependencies:
+      runed: 0.28.0(svelte@5.55.5)
+      svelte: 5.55.5
 
   svelte@5.55.5:
     dependencies:

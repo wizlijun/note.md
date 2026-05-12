@@ -5,6 +5,9 @@
   import { buildFencedBlock, stripCodeFence } from '../lib/code-fence'
   import { activeTheme } from '../lib/active-theme.svelte'
   import RichGutter from '../lib/mdblock-hover/rich-gutter.svelte'
+  import MermaidCanvasEdit from '../lib/mermaid-canvas/MermaidCanvasEdit.svelte'
+  import { getCanvasAdapter } from '../lib/mermaid-canvas/detect-diagram-type'
+  import type { DiagramAdapter } from 'mermaid-mini/canvasEdit'
   import {
     hoverStore,
     getDisplayYaml,
@@ -91,6 +94,89 @@
    */
   let lastSync: string | null = null
 
+  // --- Mermaid canvas edit state ---
+  let canvasEdit = $state<{
+    wrapper: HTMLElement
+    adapter: DiagramAdapter
+    source: string
+    svgRoot: SVGSVGElement | null
+  } | null>(null)
+  let canvasEditObserver: MutationObserver | null = null
+
+  function startObservingSvg(wrapper: HTMLElement) {
+    stopObservingSvg()
+    const previewEl = wrapper.querySelector('.mermaid-preview')
+    if (!previewEl) return
+    canvasEditObserver = new MutationObserver(() => {
+      if (!canvasEdit) return
+      const newSvg = wrapper.querySelector('.mermaid-preview svg') as SVGSVGElement | null
+      if (newSvg && newSvg !== canvasEdit.svgRoot) {
+        canvasEdit = { ...canvasEdit, svgRoot: newSvg }
+      }
+    })
+    canvasEditObserver.observe(previewEl, { childList: true, subtree: true })
+  }
+
+  function stopObservingSvg() {
+    canvasEditObserver?.disconnect()
+    canvasEditObserver = null
+  }
+
+  function handleMermaidEditIntercept(e: MouseEvent) {
+    const target = e.target as HTMLElement | null
+    if (!target) return
+
+    const preview = target.closest('.mermaid-preview') as HTMLElement | null
+    const toggleBtn = target.closest('.mermaid-toggle-btn') as HTMLElement | null
+
+    if (!preview && !toggleBtn) return
+
+    // For toggle button, only intercept when switching TO edit mode (button says "Edit")
+    if (toggleBtn && !toggleBtn.textContent?.includes('Edit')) return
+
+    const wrapper = target.closest('.code-block-wrapper') as HTMLElement | null
+    if (!wrapper) return
+
+    const codeEl = wrapper.querySelector('code.code-block-code') as HTMLElement | null
+    if (!codeEl) return
+
+    const source = codeEl.textContent || ''
+    const adapter = getCanvasAdapter(source)
+    if (!adapter) return
+
+    // Has canvas adapter — intercept and enter graphical edit mode
+    e.stopPropagation()
+    e.preventDefault()
+
+    const svgEl = wrapper.querySelector('.mermaid-preview svg') as SVGSVGElement | null
+    canvasEdit = { wrapper, adapter, source, svgRoot: svgEl }
+    startObservingSvg(wrapper)
+  }
+
+  function handleCanvasUpdateCode(newSource: string) {
+    if (!canvasEdit || !editor) return
+    const view = (editor as any).view
+    if (!view) return
+
+    const wrapper = canvasEdit.wrapper
+    const pos = view.posAtDOM(wrapper, 0)
+    const node = view.state.doc.nodeAt(pos)
+    if (!node || node.type.name !== 'code_block') return
+
+    const tr = view.state.tr.replaceWith(
+      pos + 1,
+      pos + 1 + node.content.size,
+      node.type.schema.text(newSource),
+    )
+    view.dispatch(tr)
+    canvasEdit = { ...canvasEdit, source: newSource }
+  }
+
+  function exitCanvasEdit() {
+    stopObservingSvg()
+    canvasEdit = null
+  }
+
   function unwrapIfNeeded(md: string): string {
     return wrapAsCodeBlock !== undefined ? stripCodeFence(md) : md
   }
@@ -105,6 +191,9 @@
       status = 'error'
       return
     }
+
+    host.addEventListener('mousedown', handleMermaidEditIntercept, true)
+
     const tabId = tab.id
     ;(async () => {
       try {
@@ -142,14 +231,12 @@
   })
 
   onDestroy(() => {
+    stopObservingSvg()
+    host?.removeEventListener('mousedown', handleMermaidEditIntercept, true)
     if (editor) {
       try {
         const md = editor.getMarkdown()
         const unwrapped = unwrapIfNeeded(md)
-        // Skip flush when the editor is already in sync with tab.currentContent
-        // — flushing then would overwrite a just-arrived external replacement
-        // with the editor's pre-replacement state. Only push when there are
-        // genuinely unflushed user edits (debounce hasn't fired yet).
         if (unwrapped !== lastSync) onFlush?.(unwrapped)
         editor.destroy()
       } catch (e) {
@@ -173,6 +260,14 @@
     {/if}
     <div class="host" data-theme={activeThemeId} bind:this={host}></div>
   </div>
+  {#if canvasEdit}
+    <MermaidCanvasEdit
+      adapter={canvasEdit.adapter}
+      source={canvasEdit.source}
+      svgRoot={canvasEdit.svgRoot}
+      onUpdateCode={handleCanvasUpdateCode}
+      onExit={exitCanvasEdit} />
+  {/if}
 </div>
 
 <style>

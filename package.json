@@ -30,6 +30,7 @@
     "marked-highlight": "^2.2.4",
     "marked-katex-extension": "^5.1.8",
     "mermaid-mini": "github:wizlijun/mermaid-mini#prebuilt-v11.14.0-mdeditor.1",
+    "svelte-sonner": "^1.1.1",
     "yaml": "^2.8.4"
   },
   "devDependencies": {

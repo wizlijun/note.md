@@ -336,6 +336,12 @@
       try { await openFile(e.payload) } catch (err) { console.warn('[App] open-file:', err) }
     })
 
+    invoke<string[]>('drain_pending_files').then(async (paths) => {
+      for (const p of paths) {
+        try { await openFile(p) } catch (err) { console.warn('[App] drain_pending_files:', err) }
+      }
+    }).catch((err) => console.warn('[App] drain_pending_files:', err))
+
     // tauri-plugin-deep-link `onOpenUrl` — handles macOS Apple Events for
     // file associations. Fires for: Finder double-click, "Open With → M↓",
     // drag-onto-Dock-icon, when the app is registered as the file's handler.
