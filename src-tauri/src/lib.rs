@@ -227,6 +227,31 @@ fn open_sync_log_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
     .build();
 }
 
+fn pick_repo_and_start(app: &tauri::AppHandle) {
+    use tauri_plugin_dialog::DialogExt;
+
+    let mgr = app.state::<std::sync::Arc<vault_sync::VaultSyncManager>>();
+    let has_repo = mgr.repo_path.lock().unwrap().is_some();
+
+    if has_repo {
+        let _ = vault_sync::vault_sync_start(app.clone());
+        return;
+    }
+
+    let app_clone = app.clone();
+    app.dialog()
+        .file()
+        .set_title("Select Vault Git Repository")
+        .pick_folder(move |folder| {
+            if let Some(path) = folder {
+                let path_str = path.to_string();
+                let mgr = app_clone.state::<std::sync::Arc<vault_sync::VaultSyncManager>>();
+                *mgr.repo_path.lock().unwrap() = Some(path_str);
+                let _ = vault_sync::vault_sync_start(app_clone.clone());
+            }
+        });
+}
+
 /// Build the Tauri runtime `Context` from the embedded tauri.conf.json.
 ///
 /// `tauri::generate_context!()` is a proc-macro that emits a `_EMBED_INFO_PLIST`
@@ -341,7 +366,7 @@ pub fn run() {
                 .on_menu_event(|app, event| {
                     match event.id().0.as_str() {
                         "tray-show" => show_main_window(app),
-                        "tray-sync-start" => { let _ = vault_sync::vault_sync_start(app.clone()); }
+                        "tray-sync-start" => { pick_repo_and_start(app); }
                         "tray-sync-stop" => { let _ = vault_sync::vault_sync_stop(app.clone()); }
                         "tray-sync-now" => { let _ = vault_sync::vault_sync_now(app.clone()); }
                         "tray-sync-log" => { open_sync_log_window(app); }
