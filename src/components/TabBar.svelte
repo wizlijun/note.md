@@ -157,9 +157,12 @@
     display: flex;
     height: 100%;
     overflow-x: auto;
+    overflow-y: hidden;
     flex: 0 1 auto;
     min-width: 0;
+    scrollbar-width: none;
   }
+  .tabs::-webkit-scrollbar { display: none; }
   .spacer { flex: 1 1 auto; }
   .right { flex-shrink: 0; padding-right: 4px; }
   .tab {
