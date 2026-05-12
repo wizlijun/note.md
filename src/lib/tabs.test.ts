@@ -28,6 +28,8 @@ vi.mock('./settings.svelte', () => ({
   pushRecentFile: vi.fn(async () => {}),
   getRecentMode: vi.fn(() => null),
   setRecentMode: vi.fn(async () => {}),
+  getRecentModeByPath: vi.fn(() => null),
+  setRecentModeByPath: vi.fn(async () => {}),
   settings: { autoSave: false },
 }))
 

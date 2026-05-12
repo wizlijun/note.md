@@ -59,6 +59,7 @@ export const settings = $state<{
 let store: Awaited<ReturnType<typeof Store.load>> | null = null
 let recentFiles: string[] = []
 let recentModesByExt: Record<string, Mode> = {}
+let recentModesByPath: Record<string, Mode> = {}
 let pluginScoped: Record<string, Record<string, unknown>> = {}
 let pluginsEnabled: Record<string, boolean> = {}
 let settingsHydrated = false
@@ -154,6 +155,7 @@ export async function loadSettings(): Promise<void> {
 
   recentFiles = (await s.get<string[]>('recentFiles')) ?? []
   recentModesByExt = (await s.get<Record<string, Mode>>('recentModesByExt')) ?? {}
+  recentModesByPath = (await s.get<Record<string, Mode>>('recentModesByPath')) ?? {}
   pluginScoped = (await s.get<Record<string, Record<string, unknown>>>('plugins')) ?? {}
   pluginsEnabled = (await s.get<Record<string, boolean>>('plugins.enabled')) ?? {}
   const storedMdblock = await s.get<MdblockSettings>('mdblock')
@@ -176,6 +178,7 @@ export async function saveSettings(): Promise<void> {
   await s.set('theme', settings.theme)
   await s.set('recentFiles', recentFiles)
   await s.set('recentModesByExt', recentModesByExt)
+  await s.set('recentModesByPath', recentModesByPath)
   await s.set('plugins', pluginScoped)
   await s.set('plugins.enabled', pluginsEnabled)
   await s.set('mdblock', settings.mdblock)
@@ -215,6 +218,15 @@ export function getRecentMode(key: string): Mode | null {
 /** `key` is the extension (or special basename) returned by `modeKeyFor`. */
 export async function setRecentMode(key: string, mode: Mode): Promise<void> {
   recentModesByExt[key] = mode
+  await saveSettings()
+}
+
+export function getRecentModeByPath(path: string): Mode | null {
+  return recentModesByPath[path] ?? null
+}
+
+export async function setRecentModeByPath(path: string, mode: Mode): Promise<void> {
+  recentModesByPath[path] = mode
   await saveSettings()
 }
 

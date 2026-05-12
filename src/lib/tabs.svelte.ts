@@ -3,7 +3,7 @@ import {
   modeKeyFor, statFile, type FileKind,
 } from './fs'
 import { sha256Hex } from './hash'
-import { pushRecentFile, getRecentMode, setRecentMode } from './settings.svelte'
+import { pushRecentFile, getRecentMode, setRecentMode, getRecentModeByPath, setRecentModeByPath } from './settings.svelte'
 import { startWatchingTab, stopWatchingTab, rebindTabPath } from './file-watcher.svelte'
 import { maybeAutoRefresh } from './mdblock/auto-refresh'
 
@@ -123,7 +123,7 @@ export async function openFile(path: string): Promise<void> {
     hash = await sha256Hex(content)
   }
 
-  const mode = cls.kind === 'image' ? 'rich' : (getRecentMode(modeKeyFor(path)) ?? defaultModeFor(cls.kind))
+  const mode = cls.kind === 'image' ? 'rich' : (getRecentModeByPath(path) ?? getRecentMode(modeKeyFor(path)) ?? defaultModeFor(cls.kind))
   const tab: Tab = {
     id: crypto.randomUUID(),
     filePath: path,
@@ -161,6 +161,9 @@ export function setMode(id: string, mode: Mode): void {
   if (!t || t.mode === mode) return
   t.mode = mode
   setRecentMode(modeKeyFor(t.filePath), mode).catch((e) => console.warn(e))
+  if (t.filePath) {
+    setRecentModeByPath(t.filePath, mode).catch((e) => console.warn(e))
+  }
 }
 
 export async function saveActive(): Promise<void> {
