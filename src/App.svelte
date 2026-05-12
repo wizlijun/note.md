@@ -333,7 +333,11 @@
     })
 
     const unlistenOpenFile = listen<string>('open-file', async (e) => {
-      try { await openFile(e.payload) } catch (err) { console.warn('[App] open-file:', err) }
+      try {
+        await openFile(e.payload)
+        win.show()
+        win.setFocus()
+      } catch (err) { console.warn('[App] open-file:', err) }
     })
 
     invoke<string[]>('drain_pending_files').then(async (paths) => {
