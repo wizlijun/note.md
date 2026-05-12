@@ -209,6 +209,17 @@ fn show_main_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
         let _ = w.show();
         let _ = w.unminimize();
         let _ = w.set_focus();
+    } else {
+        // Window might have been destroyed, recreate it
+        let _ = tauri::WebviewWindowBuilder::new(
+            app,
+            "main",
+            tauri::WebviewUrl::default(),
+        )
+        .title("M\u{2193}")
+        .inner_size(1000.0, 700.0)
+        .min_inner_size(600.0, 400.0)
+        .build();
     }
 }
 
@@ -550,6 +561,7 @@ fn emit_open_file_delayed<R: tauri::Runtime>(app: &tauri::AppHandle<R>, path: &s
     tauri::async_runtime::spawn(async move {
         tokio::time::sleep(std::time::Duration::from_millis(500)).await;
         dlog(&format!("emit open-file → {}", path));
+        show_main_window(&app);
         let _ = app.emit("open-file", path);
     });
 }
