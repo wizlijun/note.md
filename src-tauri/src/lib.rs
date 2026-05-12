@@ -2,6 +2,7 @@
 use std::fs::OpenOptions;
 #[cfg(debug_assertions)]
 use std::io::Write;
+use std::sync::Mutex;
 use tauri::image::Image;
 use tauri::menu::{
     AboutMetadata, Menu, MenuBuilder, MenuItem, MenuItemBuilder, MenuItemKind, PredefinedMenuItem,
@@ -13,6 +14,14 @@ use tauri::{Emitter, Manager, RunEvent, WindowEvent};
 pub mod cli;
 pub mod plugin_host;
 pub mod themes;
+pub mod vault_sync;
+
+pub struct PendingFiles(Mutex<Vec<String>>);
+
+#[tauri::command]
+fn drain_pending_files(state: tauri::State<'_, PendingFiles>) -> Vec<String> {
+    state.0.lock().unwrap().drain(..).collect()
+}
 
 /// Append a diagnostic line to /tmp/mdeditor.log in debug builds (best-effort).
 /// Compiled out in release — kept as a no-op so call sites need no `cfg` gates.
@@ -202,6 +211,22 @@ fn show_main_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
     }
 }
 
+fn open_sync_log_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
+    if let Some(w) = app.get_webview_window("sync-log") {
+        let _ = w.show();
+        let _ = w.set_focus();
+        return;
+    }
+    let _ = tauri::WebviewWindowBuilder::new(
+        app,
+        "sync-log",
+        tauri::WebviewUrl::App("vault-sync-log.html".into()),
+    )
+    .title("Vault Sync Log")
+    .inner_size(600.0, 400.0)
+    .build();
+}
+
 /// Build the Tauri runtime `Context` from the embedded tauri.conf.json.
 ///
 /// `tauri::generate_context!()` is a proc-macro that emits a `_EMBED_INFO_PLIST`
@@ -218,6 +243,7 @@ pub fn run() {
     dlog(&format!("argv: {:?}", std::env::args().collect::<Vec<_>>()));
 
     let app = tauri::Builder::default()
+        .manage(PendingFiles(Mutex::new(Vec::new())))
         .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
             dlog(&format!("single_instance argv: {:?}", argv));
             for arg in argv.iter().skip(1) {
@@ -236,6 +262,7 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
             quit_app,
+            drain_pending_files,
             set_default_app_for_extensions,
             set_plugin_menu_item_enabled,
             plugin_host::get_plugin_manifests,
@@ -256,8 +283,17 @@ pub fn run() {
             themes::commands::theme_import,
             themes::commands::theme_install,
             themes::commands::theme_cancel_import,
+            vault_sync::vault_sync_start,
+            vault_sync::vault_sync_stop,
+            vault_sync::vault_sync_now,
+            vault_sync::vault_sync_status,
+            vault_sync::vault_sync_logs,
         ])
         .setup(|app| {
+            let vault_mgr = std::sync::Arc::new(vault_sync::VaultSyncManager::new());
+            app.manage(vault_mgr);
+            vault_sync::init(&app.handle());
+
             plugin_host::init(&app.handle());
 
             // Bootstrap themes: ensure dirs exist, copy any missing built-ins,
@@ -278,10 +314,21 @@ pub fn run() {
             // template-style mark fits both light and dark menu bars.
             // Left-click toggles main window visibility; right-click shows menu.
             let tray_icon = Image::from_bytes(include_bytes!("../icons/tray-icon.png"))?;
-            let show_item = MenuItem::with_id(app, "tray-show", "Show M↓", true, None::<&str>)?;
-            let quit_item = MenuItem::with_id(app, "tray-quit", "Quit M↓", true, None::<&str>)?;
+            let show_item = MenuItem::with_id(app, "tray-show", "Show M\u{2193}", true, None::<&str>)?;
+            let sync_status_item = MenuItem::with_id(app, "tray-sync-status", "Vault Sync: Stopped", false, None::<&str>)?;
+            let sync_start_item = MenuItem::with_id(app, "tray-sync-start", "Start Sync", true, None::<&str>)?;
+            let sync_stop_item = MenuItem::with_id(app, "tray-sync-stop", "Stop Sync", true, None::<&str>)?;
+            let sync_now_item = MenuItem::with_id(app, "tray-sync-now", "Sync Now", true, None::<&str>)?;
+            let sync_log_item = MenuItem::with_id(app, "tray-sync-log", "View Log\u{2026}", true, None::<&str>)?;
+            let quit_item = MenuItem::with_id(app, "tray-quit", "Quit M\u{2193}", true, None::<&str>)?;
             let tray_menu = MenuBuilder::new(app)
                 .item(&show_item)
+                .separator()
+                .item(&sync_status_item)
+                .item(&sync_start_item)
+                .item(&sync_stop_item)
+                .item(&sync_now_item)
+                .item(&sync_log_item)
                 .separator()
                 .item(&quit_item)
                 .build()?;
@@ -294,6 +341,10 @@ pub fn run() {
                 .on_menu_event(|app, event| {
                     match event.id().0.as_str() {
                         "tray-show" => show_main_window(app),
+                        "tray-sync-start" => { let _ = vault_sync::vault_sync_start(app.clone()); }
+                        "tray-sync-stop" => { let _ = vault_sync::vault_sync_stop(app.clone()); }
+                        "tray-sync-now" => { let _ = vault_sync::vault_sync_now(app.clone()); }
+                        "tray-sync-log" => { open_sync_log_window(app); }
                         "tray-quit" => app.exit(0),
                         _ => {}
                     }
@@ -369,6 +420,9 @@ fn bootstrap_themes(app: &tauri::AppHandle) -> Result<(), String> {
 }
 
 fn emit_open_file_delayed<R: tauri::Runtime>(app: &tauri::AppHandle<R>, path: &str) {
+    if let Some(state) = app.try_state::<PendingFiles>() {
+        state.0.lock().unwrap().push(path.to_string());
+    }
     let app = app.clone();
     let path = path.to_string();
     tauri::async_runtime::spawn(async move {

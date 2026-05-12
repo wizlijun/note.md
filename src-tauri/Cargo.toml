@@ -27,6 +27,7 @@ lightningcss = "1.0.0-alpha.66"
 zip = { version = "2.2", default-features = false, features = ["deflate"] }
 tempfile = "3.13"
 clap = { version = "4", default-features = false, features = ["std", "help", "error-context", "usage"] }
+notify = { version = "7", default-features = false, features = ["macos_fsevent"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 core-foundation = "0.10"

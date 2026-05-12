@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Vault Sync Log</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      font-size: 12px;
+      background: #1e1e1e;
+      color: #d4d4d4;
+      padding: 8px;
+      height: 100vh;
+      overflow: hidden;
+    }
+    #log {
+      height: 100%;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    .info { color: #4ec9b0; }
+    .warn { color: #dcdcaa; }
+    .error { color: #f44747; }
+  </style>
+</head>
+<body>
+  <div id="log"></div>
+  <script>
+    const { listen, invoke } = window.__TAURI_INTERNALS__
+      ? { listen: window.__TAURI_INTERNALS__.listen, invoke: window.__TAURI_INTERNALS__.invoke }
+      : { listen: () => {}, invoke: () => Promise.resolve([]) };
+
+    const logEl = document.getElementById('log');
+
+    function renderEntry(entry) {
+      const line = document.createElement('div');
+      line.className = entry.level.toLowerCase();
+      line.textContent = `[${entry.timestamp}] [${entry.level}] ${entry.message}`;
+      return line;
+    }
+
+    async function loadLogs() {
+      try {
+        const entries = await invoke('vault_sync_logs');
+        logEl.innerHTML = '';
+        entries.forEach(e => logEl.appendChild(renderEntry(e)));
+        logEl.scrollTop = logEl.scrollHeight;
+      } catch(e) { console.error(e); }
+    }
+
+    loadLogs();
+
+    if (window.__TAURI_INTERNALS__) {
+      window.__TAURI_INTERNALS__.listen('vault-sync-log', () => {
+        loadLogs();
+      });
+    }
+  </script>
+</body>
+</html>
