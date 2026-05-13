@@ -139,3 +139,103 @@
 .ProseMirror a[href$=".avi"]::before,
 .ProseMirror a[href$=".mkv"]::before,
 .ProseMirror a[href$=".webm"]::before { content: "🎬 "; }
+
+/* ── Video link cards (YouTube / Bilibili) ──────────────────────────────────── */
+
+/* === Chip style (inline) === */
+.ProseMirror a[href*="youtube.com"],
+.ProseMirror a[href*="youtu.be"],
+.ProseMirror a[href*="bilibili.com"] {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px 2px 6px;
+  border-radius: 4px;
+  text-decoration: none;
+  font-size: 0.88em;
+  white-space: nowrap;
+  vertical-align: middle;
+  color: inherit;
+  cursor: pointer;
+  max-width: 360px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ProseMirror a[href*="youtube.com"]::before,
+.ProseMirror a[href*="youtu.be"]::before {
+  content: "▶";
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  background: #ff0000;
+  color: white;
+  border-radius: 3px;
+  font-size: 8px;
+  line-height: 1;
+}
+
+.ProseMirror a[href*="bilibili.com"]::before {
+  content: "▶";
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  background: #00aeec;
+  color: white;
+  border-radius: 3px;
+  font-size: 8px;
+  line-height: 1;
+}
+
+/* === Card style (standalone line) === */
+.ProseMirror p:has(> a[href*="youtube.com"]:only-child),
+.ProseMirror p:has(> a[href*="youtu.be"]:only-child),
+.ProseMirror p:has(> a[href*="bilibili.com"]:only-child) {
+  margin: 4px 0;
+}
+
+.ProseMirror p:has(> a[href*="youtube.com"]:only-child) > a,
+.ProseMirror p:has(> a[href*="youtu.be"]:only-child) > a,
+.ProseMirror p:has(> a[href*="bilibili.com"]:only-child) > a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  max-width: 100%;
+  font-size: 0.92em;
+  font-weight: 500;
+}
+
+.ProseMirror p:has(> a[href*="youtube.com"]:only-child) > a,
+.ProseMirror p:has(> a[href*="youtu.be"]:only-child) > a {
+  background: color-mix(in srgb, #ff0000 8%, Canvas);
+  border: 1px solid color-mix(in srgb, #ff0000 25%, Canvas);
+}
+
+.ProseMirror p:has(> a[href*="bilibili.com"]:only-child) > a {
+  background: color-mix(in srgb, #00aeec 8%, Canvas);
+  border: 1px solid color-mix(in srgb, #00aeec 25%, Canvas);
+}
+
+/* Larger play icon in card mode */
+.ProseMirror p:has(> a[href*="youtube.com"]:only-child) > a::before,
+.ProseMirror p:has(> a[href*="youtu.be"]:only-child) > a::before {
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.ProseMirror p:has(> a[href*="bilibili.com"]:only-child) > a::before {
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  font-size: 12px;
+}
