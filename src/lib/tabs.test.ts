@@ -11,7 +11,8 @@ vi.mock('./fs', () => ({
     if (/\.py$/.test(lower)) return { kind: 'code', language: 'python' }
     if (/\.json$/.test(lower)) return { kind: 'code', language: 'json' }
     if (/\.txt$/.test(lower)) return { kind: 'code', language: '' }
-    if (/\.(csv|tsv)$/.test(lower)) return { kind: 'spreadsheet' }
+    if (/\.csv$/.test(lower)) return { kind: 'spreadsheet' }
+    if (/\.tsv$/.test(lower)) return { kind: 'code', language: '' }
     if (/\.(png|jpg|jpeg|gif|webp|svg|bmp|heic|heif|avif)$/.test(lower)) return { kind: 'image' }
     return null
   },
@@ -425,6 +426,23 @@ describe('tabs', () => {
     expect(t.externalState).toBe('changed')
   })
 
+  it('openFile spreadsheet (csv): kind=spreadsheet, mode=rich', async () => {
+    const m = await import('./tabs.svelte')
+    await m.openFile('/tmp/data.csv')
+    const t = m.tabs[0]
+    expect(t.kind).toBe('spreadsheet')
+    expect(t.mode).toBe('rich')
+    expect(t.currentContent).toContain('content of /tmp/data.csv')
+  })
+
+  it('openFile tsv: kind=code (tab-delimited not yet implemented), mode=source', async () => {
+    const m = await import('./tabs.svelte')
+    await m.openFile('/tmp/data.tsv')
+    const t = m.tabs[0]
+    expect(t.kind).toBe('code')
+    expect(t.mode).toBe('source')
+  })
+
   it('openFile image: kind=image, currentContent empty, mode=rich', async () => {
     const fs = await import('./fs')
     const m = await import('./tabs.svelte')
@@ -438,6 +456,53 @@ describe('tabs', () => {
     expect(m.isDirty(t.id)).toBe(false)
     // readMd should NOT have been called for an image
     expect(fs.readMd).not.toHaveBeenCalled()
+  })
+
+  // ── newFile ─────────────────────────────────────────────────────────────────
+  it('newFile creates an untitled markdown tab, dirty from the start', async () => {
+    const m = await import('./tabs.svelte')
+    m.newFile()
+    expect(m.tabs.length).toBe(1)
+    const t = m.tabs[0]
+    expect(t.filePath).toBe('')
+    expect(t.title).toBe('untitled.md')
+    expect(t.kind).toBe('markdown')
+    expect(t.initialContent).toBe('')
+    expect(t.currentContent).not.toBe('')  // random template
+    expect(m.isDirty(t.id)).toBe(true)
+    expect(m.activeId.value).toBe(t.id)
+  })
+
+  it('newFile inherits mode from the currently active non-image tab', async () => {
+    const m = await import('./tabs.svelte')
+    await m.openFile('/tmp/foo.md')
+    m.toggleMode(m.tabs[0].id)   // → 'rich'
+    m.newFile()
+    expect(m.tabs[1].mode).toBe('rich')
+  })
+
+  it('newFile falls back to source mode when no tab is open', async () => {
+    const m = await import('./tabs.svelte')
+    m.newFile()
+    expect(m.tabs[0].mode).toBe('source')
+  })
+
+  it('newFile dispatches mdeditor:new-file-select when window is available', async () => {
+    const dispatched: CustomEvent[] = []
+    ;(globalThis as Record<string, unknown>).window = {
+      dispatchEvent: (e: CustomEvent) => dispatched.push(e),
+    }
+    try {
+      const m = await import('./tabs.svelte')
+      m.newFile()
+      await new Promise((r) => setTimeout(r, 0))  // flush queueMicrotask
+      expect(dispatched.length).toBe(1)
+      expect(dispatched[0].type).toBe('mdeditor:new-file-select')
+      expect(dispatched[0].detail.start).toBeGreaterThan(0)
+      expect(dispatched[0].detail.end).toBeGreaterThan(dispatched[0].detail.start)
+    } finally {
+      delete (globalThis as Record<string, unknown>).window
+    }
   })
 
   it('openFile image: isDirty always false even after setContent', async () => {
