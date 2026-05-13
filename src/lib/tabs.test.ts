@@ -38,6 +38,18 @@ vi.mock('./file-watcher.svelte', () => ({
   verifyAllOpen: vi.fn(async () => {}),
 }))
 
+// Default: pickSaveFile returns a path (simulates user completing the save panel)
+vi.mock('./dialogs', () => ({
+  pickSaveFile: vi.fn(async (defaultPath?: string) => defaultPath ?? '/tmp/untitled.md'),
+  confirmDirtyClose: vi.fn(async () => 'discard'),
+  pickOpenFile: vi.fn(async () => null),
+  showError: vi.fn(),
+}))
+
+vi.mock('@tauri-apps/plugin-dialog', () => ({
+  ask: vi.fn(async () => false),  // default: user clicks "Keep Editing"
+}))
+
 beforeEach(() => {
   vi.clearAllMocks()
   vi.resetModules()
@@ -137,8 +149,26 @@ describe('tabs', () => {
     expect(m.activeId.value).toBe(null)
   })
 
-  it('closeTab dirty → calls confirm; cancel keeps tab', async () => {
+  it('closeTab dirty → user picks save path → saves to chosen path and closes', async () => {
+    const dialogs = await import('./dialogs')
+    const fs = await import('./fs')
     const m = await import('./tabs.svelte')
+    vi.mocked(dialogs.pickSaveFile).mockResolvedValueOnce('/tmp/saved.md')
+    await m.openFile('/tmp/foo.md')
+    const id = m.tabs[0].id
+    m.setContent(id, 'edited')
+    const ok = await m.closeTab(id, async () => 'cancel')
+    expect(ok).toBe(true)
+    expect(fs.writeMd).toHaveBeenCalledWith('/tmp/saved.md', 'edited')
+    expect(m.tabs.length).toBe(0)
+  })
+
+  it('closeTab dirty → user cancels save panel + keeps editing → tab stays', async () => {
+    const dialogs = await import('./dialogs')
+    const tauri = await import('@tauri-apps/plugin-dialog')
+    const m = await import('./tabs.svelte')
+    vi.mocked(dialogs.pickSaveFile).mockResolvedValueOnce(null)
+    vi.mocked(tauri.ask).mockResolvedValueOnce(false)  // Keep Editing
     await m.openFile('/tmp/foo.md')
     const id = m.tabs[0].id
     m.setContent(id, 'edited')
@@ -147,25 +177,17 @@ describe('tabs', () => {
     expect(m.tabs.length).toBe(1)
   })
 
-  it('closeTab dirty → save branch saves and removes', async () => {
+  it('closeTab dirty → user cancels save panel + discards → tab closes without saving', async () => {
+    const dialogs = await import('./dialogs')
+    const tauri = await import('@tauri-apps/plugin-dialog')
     const fs = await import('./fs')
     const m = await import('./tabs.svelte')
+    vi.mocked(dialogs.pickSaveFile).mockResolvedValueOnce(null)
+    vi.mocked(tauri.ask).mockResolvedValueOnce(true)  // Close without Saving
     await m.openFile('/tmp/foo.md')
     const id = m.tabs[0].id
     m.setContent(id, 'edited')
-    const ok = await m.closeTab(id, async () => 'save')
-    expect(ok).toBe(true)
-    expect(fs.writeMd).toHaveBeenCalledWith('/tmp/foo.md', 'edited')
-    expect(m.tabs.length).toBe(0)
-  })
-
-  it('closeTab dirty → discard branch removes without saving', async () => {
-    const fs = await import('./fs')
-    const m = await import('./tabs.svelte')
-    await m.openFile('/tmp/foo.md')
-    const id = m.tabs[0].id
-    m.setContent(id, 'edited')
-    const ok = await m.closeTab(id, async () => 'discard')
+    const ok = await m.closeTab(id, async () => 'cancel')
     expect(ok).toBe(true)
     expect(fs.writeMd).not.toHaveBeenCalled()
     expect(m.tabs.length).toBe(0)
@@ -194,9 +216,11 @@ describe('tabs', () => {
     expect(m.tabs[0].mode).toBe('source')
   })
 
-  it('closeTab dirty non-active tab → save restores original active', async () => {
+  it('closeTab dirty non-active tab → save to same path restores original active', async () => {
+    const dialogs = await import('./dialogs')
     const fs = await import('./fs')
     const m = await import('./tabs.svelte')
+    vi.mocked(dialogs.pickSaveFile).mockResolvedValueOnce('/tmp/b.md')
     await m.openFile('/tmp/a.md')
     await m.openFile('/tmp/b.md')
     await m.openFile('/tmp/c.md')
@@ -204,7 +228,7 @@ describe('tabs', () => {
     const bId = m.tabs[1].id
     m.activate(aId)             // A is active
     m.setContent(bId, 'edited') // B dirty
-    const ok = await m.closeTab(bId, async () => 'save')
+    const ok = await m.closeTab(bId, async () => 'cancel')
     expect(ok).toBe(true)
     expect(fs.writeMd).toHaveBeenCalledWith('/tmp/b.md', 'edited')
     expect(m.tabs.length).toBe(2)

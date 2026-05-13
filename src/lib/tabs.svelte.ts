@@ -218,35 +218,24 @@ export async function closeTab(
   if (idx < 0) return false
   const tab = tabs[idx]
   if (isDirty(id)) {
-    // Untitled dirty file: go straight to the native save panel (no pre-ask).
-    // This matches macOS convention for closing a new unsaved document.
-    if (!tab.filePath) {
-      const { pickSaveFile } = await import('./dialogs')
-      const p = await pickSaveFile('untitled.md')
-      if (p) {
-        // User picked a save path — save then fall through to close
-        await saveAs(id, p)
-      } else {
-        // User cancelled the save panel — ask whether to discard or keep
-        const { ask } = await import('@tauri-apps/plugin-dialog')
-        const discard = await ask('Close without saving?', {
-          title: 'M↓',
-          kind: 'warning',
-          okLabel: 'Close without Saving',
-          cancelLabel: 'Keep Editing',
-        })
-        if (!discard) return false
-      }
+    // Always use the native NSSavePanel so users see the system-standard
+    // save dialog (保存为 / 标签 / 位置) for all close-dirty scenarios.
+    const { pickSaveFile } = await import('./dialogs')
+    const defaultPath = tab.filePath || 'untitled.md'
+    const p = await pickSaveFile(defaultPath)
+    if (p) {
+      // User picked a save path — save then fall through to close
+      await saveAs(id, p)
     } else {
-      // Named dirty file: one-step confirmation dialog
-      const choice = await confirm()
-      if (choice === 'cancel') return false
-      if (choice === 'save') {
-        const previousActiveId = activeId.value
-        activeId.value = id
-        await saveActive()
-        activeId.value = previousActiveId
-      }
+      // User cancelled the save panel — ask whether to discard or keep
+      const { ask } = await import('@tauri-apps/plugin-dialog')
+      const discard = await ask('Close without saving?', {
+        title: 'M↓',
+        kind: 'warning',
+        okLabel: 'Close without Saving',
+        cancelLabel: 'Keep Editing',
+      })
+      if (!discard) return false
     }
   }
   tabs.splice(idx, 1)
