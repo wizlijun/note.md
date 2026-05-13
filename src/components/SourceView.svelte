@@ -72,6 +72,20 @@
         ev.stopPropagation()
       }
     }
+    if ((ev.metaKey || ev.ctrlKey) && ev.key === 'h') {
+      ev.preventDefault()
+      const el = textareaEl!
+      const start = el.selectionStart ?? 0
+      const end = el.selectionEnd ?? 0
+      const before = value.slice(0, start)
+      const after = value.slice(end)
+      const selected = value.slice(start, end)
+      const newVal = before + '^^' + selected + '^^' + after
+      el.value = newVal
+      el.selectionStart = start + 2
+      el.selectionEnd = end + 2
+      el.dispatchEvent(new Event('input'))
+    }
   }
 
   function escapeHtml(s: string): string {
@@ -88,7 +102,10 @@
         const level = m[1].length
         return `<span class="h h${level}">${escapeHtml(line)}</span>`
       }
-      return escapeHtml(line) || ' '
+      let out = escapeHtml(line) || ' '
+      out = out.replace(/(\^\^)([^^]+)(\^\^)/g, '<span class="hl-mark">$1$2$3</span>')
+      out = out.replace(/(==)([^=\n]+)(==)/g, '<span class="hl-mark">$1$2$3</span>')
+      return out
     })
     // Trailing space ensures pre matches textarea height when value ends with newline
     return lines.join('\n') + '\n'
@@ -531,5 +548,9 @@
   .host textarea::selection {
     background: color-mix(in srgb, #4a90e2 35%, transparent);
     color: transparent;
+  }
+  .hl-mark {
+    background: #fff176;
+    border-radius: 2px;
   }
 </style>
