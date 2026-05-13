@@ -284,16 +284,15 @@
   function checkSlashMenu() {
     if (!editor) return
     const view = editor.view as unknown as EditorView
-    const { selection } = view.state
-    const { $from } = selection
+    const fromPos = view.state.selection.$from
 
-    if ($from.parent.type.name !== 'paragraph') { closeSlashMenu(); return }
+    if (fromPos.parent.type.name !== 'paragraph') { closeSlashMenu(); return }
 
-    const textToCursor = $from.parent.textBetween(0, $from.parentOffset, '')
+    const textToCursor = fromPos.parent.textBetween(0, fromPos.parentOffset, '')
     const match = /^\/([a-zA-Z0-9一-龥]*)$/.exec(textToCursor)
     if (!match) { closeSlashMenu(); return }
 
-    const coords = view.coordsAtPos($from.pos)
+    const coords = view.coordsAtPos(fromPos.pos)
     slashItems       = filterSlashItems(match[1])
     slashMenuPos     = { top: coords.bottom, left: coords.left }
     slashSelectedIdx = 0
@@ -303,9 +302,9 @@
   function executeSlashItem(item: SlashItem) {
     if (!editor) return
     const view = editor.view as unknown as EditorView
-    const { $from } = view.state.selection
+    const fromPos = view.state.selection.$from
     // Delete '/' + filter text (from paragraph start to cursor)
-    view.dispatch(view.state.tr.delete($from.start(), $from.pos))
+    view.dispatch(view.state.tr.delete(fromPos.start(), fromPos.pos))
     item.execute(view)
     closeSlashMenu()
   }
