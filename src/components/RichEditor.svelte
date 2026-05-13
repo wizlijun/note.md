@@ -14,6 +14,9 @@
   } from '../lib/mdblock-hover/hover-store.svelte'
   import { settings } from '../lib/settings.svelte'
   import '../lib/styles/attachment.css'
+  import { saveClipboardResource, isAttachmentUrl } from '../lib/paste-resources'
+  import { insertImageAtCursor, insertAttachmentLink } from '../lib/attachment-insert'
+  import type { EditorView } from 'prosemirror-view'
 
   // Reactive store of the currently active theme id, set by the theme-init
   // block in App.svelte. Default is 'default'.
@@ -99,6 +102,45 @@
    *     content with the editor's pre-replacement state.
    */
   let lastSync: string | null = null
+  let _pmEl: HTMLElement | null = null
+
+  async function handlePaste(event: ClipboardEvent) {
+    if (!editor || !event.clipboardData) return
+
+    // ── 1. Binary blob in clipboard (screenshot, copied image from browser) ──
+    const items = Array.from(event.clipboardData.items)
+    const binaryItem = items.find(item => item.kind === 'file')
+    if (binaryItem) {
+      const file = binaryItem.getAsFile()
+      if (file) {
+        event.preventDefault()
+        event.stopImmediatePropagation()
+        try {
+          const path = await saveClipboardResource(file, tab.filePath)
+          const view = editor.view as unknown as EditorView
+          if (binaryItem.type.startsWith('image/')) {
+            insertImageAtCursor(view, path)
+          } else {
+            insertAttachmentLink(view, path)
+          }
+        } catch (e) {
+          console.warn('[RichEditor] paste save failed:', e)
+        }
+        return
+      }
+    }
+
+    // ── 2. URL with attachment extension ──
+    const text = event.clipboardData.getData('text/plain')?.trim()
+    if (text && isAttachmentUrl(text)) {
+      try { new URL(text) } catch { return }
+      event.preventDefault()
+      event.stopImmediatePropagation()
+      const view = editor.view as unknown as EditorView
+      insertAttachmentLink(view, text)
+    }
+    // 3. Everything else: let ProseMirror handle
+  }
 
   function unwrapIfNeeded(md: string): string {
     return wrapAsCodeBlock !== undefined ? stripCodeFence(md) : md
@@ -426,6 +468,8 @@
         lastSync = tab.currentContent
         editor = inst
         status = 'mounted'
+        _pmEl = host!.querySelector('.ProseMirror') as HTMLElement | null
+        _pmEl?.addEventListener('paste', handlePaste as EventListener, true)
       } catch (e) {
         console.error('[RichEditor] mount failed:', e)
         errorMsg = e instanceof Error ? `${e.name}: ${e.message}` : String(e)
@@ -447,6 +491,7 @@
   })
 
   onDestroy(() => {
+    _pmEl?.removeEventListener('paste', handlePaste as EventListener, true)
     if (editor) {
       try {
         const md = editor.getMarkdown()
