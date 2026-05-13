@@ -386,7 +386,7 @@
     const k = e.key.toLowerCase()
     if (k === 'n' && !e.shiftKey) { e.preventDefault(); newFile() }
     else if (k === 'f' && !e.shiftKey) { e.preventDefault(); openFind() }
-    else if (k === 'h') { e.preventDefault(); openFindReplace() }
+    else if (k === 'f' && e.shiftKey) { e.preventDefault(); openFindReplace() }
     else if (k === 'o') { e.preventDefault(); cmdOpen() }
     else if (k === 's' && !e.shiftKey) { e.preventDefault(); cmdSave() }
     else if (k === 's' && e.shiftKey) { e.preventDefault(); cmdSaveAs() }

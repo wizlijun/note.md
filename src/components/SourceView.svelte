@@ -73,16 +73,21 @@
       else if (ev.key === 'h') { open = '^^'; close = '^^' }
       if (open) {
         ev.preventDefault()
+        ev.stopPropagation()
         const el = textareaEl!
+        const cur = el.value   // actual textarea content, not the stale prop
         const start = el.selectionStart ?? 0
         const end = el.selectionEnd ?? 0
-        const before = value.slice(0, start)
-        const selected = value.slice(start, end)
-        const after = value.slice(end)
-        el.value = before + open + selected + close + after
-        el.selectionStart = start + open.length
-        el.selectionEnd = end + open.length
+        const targetStart = start + open.length
+        const targetEnd = end + open.length
+        el.value = cur.slice(0, start) + open + cur.slice(start, end) + close + cur.slice(end)
         el.dispatchEvent(new Event('input'))
+        // Svelte's value binding resets selection when it re-renders; restore it
+        // after the framework flushes (requestAnimationFrame runs after all microtasks).
+        requestAnimationFrame(() => {
+          el.selectionStart = targetStart
+          el.selectionEnd = targetEnd
+        })
         return
       }
     }
