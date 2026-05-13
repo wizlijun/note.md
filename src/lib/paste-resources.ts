@@ -147,7 +147,10 @@ export async function saveClipboardResource(
   const buf = await file.arrayBuffer()
   const bytes = new Uint8Array(buf)
   let binary = ''
-  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i])
+  const CHUNK = 8192
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode(...(bytes.subarray(i, i + CHUNK) as unknown as number[]))
+  }
   const base64 = btoa(binary)
 
   const { invoke } = await import('@tauri-apps/api/core')

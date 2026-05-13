@@ -106,6 +106,8 @@
   let _didMigrate = false
   let _pmEl: HTMLElement | null = null
   let _dragDropUnlisten: (() => void) | null = null
+  let _dragoverHandler: ((e: Event) => void) | null = null
+  let _dropHandler: ((e: Event) => void) | null = null
 
   async function handlePaste(event: ClipboardEvent) {
     if (!editor || !event.clipboardData) return
@@ -500,8 +502,10 @@
         _pmEl?.addEventListener('paste', handlePaste as EventListener, true)
 
         // Prevent browser default file drop behaviour
-        host!.addEventListener('dragover', (e) => e.preventDefault())
-        host!.addEventListener('drop',     (e) => e.preventDefault())
+        _dragoverHandler = (e) => e.preventDefault()
+        _dropHandler     = (e) => e.preventDefault()
+        host!.addEventListener('dragover', _dragoverHandler)
+        host!.addEventListener('drop',     _dropHandler)
 
         // Tauri native file drag-drop
         setupDragDrop().then(fn => { _dragDropUnlisten = fn }).catch(console.warn)
@@ -534,9 +538,10 @@
 
     void (async () => {
       try {
+        const snapshot = tab.currentContent
         const tempDir = await getTempDir()
-        const updated = await migrateTempResources(tab.currentContent, tempDir, fp)
-        if (updated === tab.currentContent) return
+        const updated = await migrateTempResources(snapshot, tempDir, fp)
+        if (updated === snapshot) return
         lastSync = updated
         setContent(tab.id, updated)
         editor!.setContent(updated)
@@ -549,6 +554,8 @@
   onDestroy(() => {
     _pmEl?.removeEventListener('paste', handlePaste as EventListener, true)
     _dragDropUnlisten?.()
+    host?.removeEventListener('dragover', _dragoverHandler!)
+    host?.removeEventListener('drop',     _dropHandler!)
     if (editor) {
       try {
         const md = editor.getMarkdown()
