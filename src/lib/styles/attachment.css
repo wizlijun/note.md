@@ -1,0 +1,141 @@
+/* ── Attachment link chip / card styles ────────────────────────────────────── */
+/* Chip: attachment link inline among other text                                */
+/* Card: attachment link as the only child of a paragraph                      */
+
+/* === Base chip styles (all attachment extensions) === */
+.ProseMirror a[href$=".pdf"],
+.ProseMirror a[href$=".doc"],
+.ProseMirror a[href$=".docx"],
+.ProseMirror a[href$=".xls"],
+.ProseMirror a[href$=".xlsx"],
+.ProseMirror a[href$=".ppt"],
+.ProseMirror a[href$=".pptx"],
+.ProseMirror a[href$=".zip"],
+.ProseMirror a[href$=".gz"],
+.ProseMirror a[href$=".tar"],
+.ProseMirror a[href$=".rar"],
+.ProseMirror a[href$=".7z"],
+.ProseMirror a[href$=".mp3"],
+.ProseMirror a[href$=".wav"],
+.ProseMirror a[href$=".ogg"],
+.ProseMirror a[href$=".flac"],
+.ProseMirror a[href$=".mp4"],
+.ProseMirror a[href$=".mov"],
+.ProseMirror a[href$=".avi"],
+.ProseMirror a[href$=".mkv"],
+.ProseMirror a[href$=".webm"],
+.ProseMirror a[href$=".txt"],
+.ProseMirror a[href$=".csv"],
+.ProseMirror a[href$=".json"],
+.ProseMirror a[href$=".xml"] {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 7px 1px 5px;
+  border-radius: 4px;
+  background: color-mix(in srgb, AccentColor 10%, Canvas);
+  border: 1px solid color-mix(in srgb, AccentColor 30%, Canvas);
+  font-size: 0.88em;
+  text-decoration: none;
+  white-space: nowrap;
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+  color: inherit;
+  cursor: pointer;
+}
+
+/* === Card: when the link is the only child of its paragraph === */
+.ProseMirror p:has(> a[href$=".pdf"]:only-child),
+.ProseMirror p:has(> a[href$=".doc"]:only-child),
+.ProseMirror p:has(> a[href$=".docx"]:only-child),
+.ProseMirror p:has(> a[href$=".xls"]:only-child),
+.ProseMirror p:has(> a[href$=".xlsx"]:only-child),
+.ProseMirror p:has(> a[href$=".ppt"]:only-child),
+.ProseMirror p:has(> a[href$=".pptx"]:only-child),
+.ProseMirror p:has(> a[href$=".zip"]:only-child),
+.ProseMirror p:has(> a[href$=".gz"]:only-child),
+.ProseMirror p:has(> a[href$=".tar"]:only-child),
+.ProseMirror p:has(> a[href$=".rar"]:only-child),
+.ProseMirror p:has(> a[href$=".7z"]:only-child),
+.ProseMirror p:has(> a[href$=".mp3"]:only-child),
+.ProseMirror p:has(> a[href$=".wav"]:only-child),
+.ProseMirror p:has(> a[href$=".ogg"]:only-child),
+.ProseMirror p:has(> a[href$=".flac"]:only-child),
+.ProseMirror p:has(> a[href$=".mp4"]:only-child),
+.ProseMirror p:has(> a[href$=".mov"]:only-child),
+.ProseMirror p:has(> a[href$=".avi"]:only-child),
+.ProseMirror p:has(> a[href$=".mkv"]:only-child),
+.ProseMirror p:has(> a[href$=".webm"]:only-child),
+.ProseMirror p:has(> a[href$=".txt"]:only-child),
+.ProseMirror p:has(> a[href$=".csv"]:only-child),
+.ProseMirror p:has(> a[href$=".json"]:only-child),
+.ProseMirror p:has(> a[href$=".xml"]:only-child) {
+  margin: 4px 0;
+}
+
+.ProseMirror p:has(> a[href$=".pdf"]:only-child) > a,
+.ProseMirror p:has(> a[href$=".doc"]:only-child) > a,
+.ProseMirror p:has(> a[href$=".docx"]:only-child) > a,
+.ProseMirror p:has(> a[href$=".xls"]:only-child) > a,
+.ProseMirror p:has(> a[href$=".xlsx"]:only-child) > a,
+.ProseMirror p:has(> a[href$=".ppt"]:only-child) > a,
+.ProseMirror p:has(> a[href$=".pptx"]:only-child) > a,
+.ProseMirror p:has(> a[href$=".zip"]:only-child) > a,
+.ProseMirror p:has(> a[href$=".gz"]:only-child) > a,
+.ProseMirror p:has(> a[href$=".tar"]:only-child) > a,
+.ProseMirror p:has(> a[href$=".rar"]:only-child) > a,
+.ProseMirror p:has(> a[href$=".7z"]:only-child) > a,
+.ProseMirror p:has(> a[href$=".mp3"]:only-child) > a,
+.ProseMirror p:has(> a[href$=".wav"]:only-child) > a,
+.ProseMirror p:has(> a[href$=".ogg"]:only-child) > a,
+.ProseMirror p:has(> a[href$=".flac"]:only-child) > a,
+.ProseMirror p:has(> a[href$=".mp4"]:only-child) > a,
+.ProseMirror p:has(> a[href$=".mov"]:only-child) > a,
+.ProseMirror p:has(> a[href$=".avi"]:only-child) > a,
+.ProseMirror p:has(> a[href$=".mkv"]:only-child) > a,
+.ProseMirror p:has(> a[href$=".webm"]:only-child) > a,
+.ProseMirror p:has(> a[href$=".txt"]:only-child) > a,
+.ProseMirror p:has(> a[href$=".csv"]:only-child) > a,
+.ProseMirror p:has(> a[href$=".json"]:only-child) > a,
+.ProseMirror p:has(> a[href$=".xml"]:only-child) > a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  border-radius: 7px;
+  max-width: 100%;
+  font-size: 0.9em;
+}
+
+/* === Per-category icons via ::before === */
+/* Documents */
+.ProseMirror a[href$=".pdf"]::before  { content: "📄 "; }
+.ProseMirror a[href$=".doc"]::before,
+.ProseMirror a[href$=".docx"]::before { content: "📝 "; }
+.ProseMirror a[href$=".txt"]::before  { content: "📄 "; }
+.ProseMirror a[href$=".csv"]::before,
+.ProseMirror a[href$=".xls"]::before,
+.ProseMirror a[href$=".xlsx"]::before { content: "📊 "; }
+.ProseMirror a[href$=".ppt"]::before,
+.ProseMirror a[href$=".pptx"]::before { content: "📋 "; }
+.ProseMirror a[href$=".json"]::before,
+.ProseMirror a[href$=".xml"]::before  { content: "🗒 "; }
+/* Archives */
+.ProseMirror a[href$=".zip"]::before,
+.ProseMirror a[href$=".gz"]::before,
+.ProseMirror a[href$=".tar"]::before,
+.ProseMirror a[href$=".rar"]::before,
+.ProseMirror a[href$=".7z"]::before   { content: "🗜 "; }
+/* Audio */
+.ProseMirror a[href$=".mp3"]::before,
+.ProseMirror a[href$=".wav"]::before,
+.ProseMirror a[href$=".ogg"]::before,
+.ProseMirror a[href$=".flac"]::before { content: "🎵 "; }
+/* Video */
+.ProseMirror a[href$=".mp4"]::before,
+.ProseMirror a[href$=".mov"]::before,
+.ProseMirror a[href$=".avi"]::before,
+.ProseMirror a[href$=".mkv"]::before,
+.ProseMirror a[href$=".webm"]::before { content: "🎬 "; }

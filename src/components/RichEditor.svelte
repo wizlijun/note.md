@@ -13,6 +13,7 @@
     isHoverActive,
   } from '../lib/mdblock-hover/hover-store.svelte'
   import { settings } from '../lib/settings.svelte'
+  import '../lib/styles/attachment.css'
 
   // Reactive store of the currently active theme id, set by the theme-init
   // block in App.svelte. Default is 'default'.
