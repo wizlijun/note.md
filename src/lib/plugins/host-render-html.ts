@@ -1,5 +1,5 @@
 import { basename } from '../fs'
-import { Marked } from 'marked'
+import { Marked, type TokenizerAndRendererExtension } from 'marked'
 import markedKatex from 'marked-katex-extension'
 import { markedHighlight } from 'marked-highlight'
 import hljs from 'highlight.js'
@@ -64,6 +64,34 @@ export function hasMathContent(md: string): boolean {
   return false
 }
 
+const highlightCaretExtension: TokenizerAndRendererExtension = {
+  name: 'highlightCaret',
+  level: 'inline',
+  start(src: string) { return src.indexOf('^^') },
+  tokenizer(src: string) {
+    const m = /^\^\^([^^]+)\^\^/.exec(src)
+    if (!m) return undefined
+    return { type: 'highlightCaret', raw: m[0], text: m[1] } as any
+  },
+  renderer(token: any) {
+    return `<mark>${htmlEscape(String(token.text))}</mark>`
+  },
+}
+
+const highlightEqExtension: TokenizerAndRendererExtension = {
+  name: 'highlightEq',
+  level: 'inline',
+  start(src: string) { return src.indexOf('==') },
+  tokenizer(src: string) {
+    const m = /^==([^=\n]+)==/.exec(src)
+    if (!m) return undefined
+    return { type: 'highlightEq', raw: m[0], text: m[1] } as any
+  },
+  renderer(token: any) {
+    return `<mark>${htmlEscape(String(token.text))}</mark>`
+  },
+}
+
 const sharedMarked = new Marked(
   markedHighlight({
     langPrefix: 'hljs language-',
@@ -74,7 +102,7 @@ const sharedMarked = new Marked(
   }),
   markedKatex({ throwOnError: false }),
 )
-sharedMarked.use({ extensions: [blockCitationExtension] })
+sharedMarked.use({ extensions: [blockCitationExtension, highlightCaretExtension, highlightEqExtension] })
 
 /**
  * Render a tab to an HTML body fragment (no <html>/<head>). markdown runs
