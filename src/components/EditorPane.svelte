@@ -7,8 +7,32 @@
   import ExternalChangeBanner from './ExternalChangeBanner.svelte'
   import { offsetToLineCol, lineColToOffset } from '../lib/cursor-preserve'
   import { convertFileSrc } from '@tauri-apps/api/core'
+  import { migrateTempResources, getTempDir } from '../lib/paste-resources'
 
   let { tab }: { tab: Tab } = $props()
+
+  // ── Clipboard resource migration ──
+  // When an untitled doc is first saved, move pasted temp resources to
+  // {docBasename}_files/ and update markdown refs. Runs in the shared
+  // parent so it fires regardless of which editor mode is active.
+  const _mountedWithPath = !!tab.filePath
+  let _didMigrate = false
+
+  $effect(() => {
+    const fp = tab.filePath
+    if (_mountedWithPath || _didMigrate || !fp) return
+    _didMigrate = true
+    void (async () => {
+      try {
+        const tempDir = await getTempDir()
+        const snapshot = tab.currentContent
+        const updated = await migrateTempResources(snapshot, tempDir, fp)
+        if (updated !== snapshot) setContent(tab.id, updated)
+      } catch (e) {
+        console.warn('[EditorPane] resource migration failed:', e)
+      }
+    })()
+  })
 
   function onSourceInput(e: Event) {
     const ta = e.currentTarget as HTMLTextAreaElement
