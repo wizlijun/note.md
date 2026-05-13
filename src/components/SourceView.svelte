@@ -11,6 +11,7 @@
   import { activeTab } from '../lib/tabs.svelte'
   import { cmdMdblockFollowCitationAtCursor } from '../lib/mdblock/commands'
   import { saveClipboardResource, isAttachmentUrl, basenameOf } from '../lib/paste-resources'
+  import { isVideoUrl, fetchVideoInfo } from '../lib/video-links'
 
   let {
     value,
@@ -260,8 +261,27 @@
       }
     }
 
-    // 2. 附件扩展名 URL
+    // 2. URL paste (video or attachment)
     const text = event.clipboardData.getData('text/plain')?.trim()
+    if (text && isVideoUrl(text) && /^https?:\/\//.test(text)) {
+      event.preventDefault()
+      event.stopImmediatePropagation()
+      const tab = activeTab()
+      if (!tab) return
+      // Insert placeholder immediately, then replace with real title
+      insertAtCursor(tab.id, `[${text}](${text})`)
+      fetchVideoInfo(text).then(info => {
+        if (!info) return
+        const t = activeTab()
+        if (!t) return
+        const placeholder = `[${text}](${text})`
+        const real = `[${info.title}](${text})`
+        if (t.currentContent.includes(placeholder)) {
+          setContent(t.id, t.currentContent.replace(placeholder, real))
+        }
+      }).catch(() => {})
+      return
+    }
     if (text && isAttachmentUrl(text)) {
       try { new URL(text) } catch { return }
       event.preventDefault()
