@@ -71,23 +71,26 @@
       if (ev.key === 'b') { open = '**'; close = '**' }
       else if (ev.key === 'i') { open = '*'; close = '*' }
       else if (ev.key === 'h') { open = '^^'; close = '^^' }
-      if (open) {
+      if (open && tabId) {
         ev.preventDefault()
         ev.stopPropagation()
         const el = textareaEl!
-        const cur = el.value   // actual textarea content, not the stale prop
+        const cur = el.value
         const start = el.selectionStart ?? 0
         const end = el.selectionEnd ?? 0
-        const targetStart = start + open.length
-        const targetEnd = end + open.length
-        el.value = cur.slice(0, start) + open + cur.slice(start, end) + close + cur.slice(end)
-        el.dispatchEvent(new Event('input'))
-        // Svelte's value binding resets selection when it re-renders; restore it
-        // after the framework flushes (requestAnimationFrame runs after all microtasks).
-        requestAnimationFrame(() => {
-          el.selectionStart = targetStart
-          el.selectionEnd = targetEnd
-        })
+        const sel = cur.slice(start, end)
+        const isWrapped = sel.startsWith(open) && sel.endsWith(close)
+                       && sel.length > open.length + close.length
+        if (isWrapped) {
+          // Toggle off: remove markers
+          const inner = sel.slice(open.length, sel.length - close.length)
+          setContent(tabId, cur.slice(0, start) + inner + cur.slice(end))
+          requestAnimationFrame(() => el.setSelectionRange(start, start + inner.length))
+        } else {
+          // Toggle on: wrap selection (or insert empty markers at cursor)
+          setContent(tabId, cur.slice(0, start) + open + sel + close + cur.slice(end))
+          requestAnimationFrame(() => el.setSelectionRange(start + open.length, end + open.length))
+        }
         return
       }
     }
