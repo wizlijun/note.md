@@ -19,20 +19,15 @@ const ALL_EXTS = [
 ]
 
 export async function confirmDirtyClose(): Promise<DirtyChoice> {
+  // Single native dialog for named dirty files.
+  // Untitled dirty files are handled directly in closeTab (native save panel).
   const wantSave = await ask('Save changes before closing?', {
     title: 'M↓',
     kind: 'warning',
     okLabel: 'Save',
-    cancelLabel: 'Cancel',
+    cancelLabel: "Don't Save",
   })
-  if (wantSave) return 'save'
-  const wantDiscard = await ask('Close without saving?', {
-    title: 'M↓',
-    kind: 'warning',
-    okLabel: 'Discard changes',
-    cancelLabel: 'Keep editing',
-  })
-  return wantDiscard ? 'discard' : 'cancel'
+  return wantSave ? 'save' : 'discard'
 }
 
 export async function pickOpenFile(): Promise<string | null> {
