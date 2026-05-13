@@ -8,6 +8,7 @@ import {
   buildPdfTitle,
   hasMathContent,
   inlineImages,
+  renderTabBody,
   __setImageReaderForTests,
 } from './host-render-html'
 
@@ -103,5 +104,26 @@ describe('inlineImages', () => {
     const html = '<p><img src="./x.png"></p>'
     const out = await inlineImages(html, null, async () => new Uint8Array())
     expect(out).toBe(html)
+  })
+})
+
+describe('highlight rendering', () => {
+  it('renders ^^text^^ as <mark>text</mark>', async () => {
+    const tab = { kind: 'markdown', currentContent: 'Hello ^^world^^ end\n', filePath: '/tmp/test.md' } as never
+    const html = await renderTabBody(tab)
+    expect(html).toContain('<mark>world</mark>')
+  })
+
+  it('renders ==text== as <mark>text</mark>', async () => {
+    const tab = { kind: 'markdown', currentContent: 'Hello ==world== end\n', filePath: '/tmp/test.md' } as never
+    const html = await renderTabBody(tab)
+    expect(html).toContain('<mark>world</mark>')
+  })
+
+  it('does not XSS on malicious ^^content^^', async () => {
+    const tab = { kind: 'markdown', currentContent: '^^<script>alert(1)</script>^^\n', filePath: '/tmp/test.md' } as never
+    const html = await renderTabBody(tab)
+    expect(html).not.toContain('<script>')
+    expect(html).toContain('&lt;script&gt;')
   })
 })
