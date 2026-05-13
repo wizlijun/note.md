@@ -741,7 +741,7 @@ fn build_menu<R: tauri::Runtime>(
         .item(&PredefinedMenuItem::select_all(app, None)?)
         .separator()
         .item(&MenuItemBuilder::with_id("find", "Find…").accelerator("Cmd+F").build(app)?)
-        .item(&MenuItemBuilder::with_id("find-replace", "Find and Replace…").accelerator("Cmd+H").build(app)?);
+        .item(&MenuItemBuilder::with_id("find-replace", "Find and Replace…").build(app)?);
     for it in plugin_items.iter().filter(|p| p.location == "edit") {
         let mut b = MenuItemBuilder::with_id(&it.id, &it.label);
         if let Some(s) = &it.shortcut { b = b.accelerator(s); }
