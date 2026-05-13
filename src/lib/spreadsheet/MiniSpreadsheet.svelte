@@ -136,6 +136,7 @@
     <RevoGrid
       {columns}
       {source}
+      rowHeaders={true}
       resize={true}
       canFocus={true}
       useClipboard={true}
