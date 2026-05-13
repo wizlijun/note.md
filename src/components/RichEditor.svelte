@@ -21,11 +21,8 @@
   import type { EditorView } from 'prosemirror-view'
   import SlashMenu from '../lib/slash-menu/SlashMenu.svelte'
   import { SLASH_ITEMS, filterSlashItems, type SlashItem } from '../lib/slash-menu/slash-items'
-  import {
-    setHeading, toggleCodeBlock, insertMathBlock, insertTable,
-    toggleBlockquote, wrapInBulletList, wrapInOrderedList, wrapInTaskList,
-    insertHorizontalRule,
-  } from '@moraya/core/commands'
+  import { setBlockType, wrapIn } from 'prosemirror-commands'
+  import { wrapInList } from 'prosemirror-schema-list'
 
   // Reactive store of the currently active theme id, set by the theme-init
   // block in App.svelte. Default is 'default'.
@@ -341,61 +338,90 @@
     const key   = event.key.toLowerCase()
     const view  = editor.view as unknown as EditorView
 
+    const s = view.state
+    const sc = s.schema.nodes
+
     // ── Heading shortcuts: Cmd+1-6 ──
     if (mod && !shift && !alt && /^[1-6]$/.test(event.key)) {
       event.preventDefault()
-      setHeading(parseInt(event.key))(view.state, view.dispatch)
+      if (sc.heading) setBlockType(sc.heading, { level: parseInt(event.key) })(s, view.dispatch)
       view.focus(); return
     }
 
     // ── Paragraph: Cmd+0 ──
     if (mod && !shift && !alt && event.key === '0') {
       event.preventDefault()
-      const para = view.state.schema.nodes.paragraph
-      if (para) view.dispatch(view.state.tr.setBlockType(view.state.selection.from, view.state.selection.to, para).scrollIntoView())
+      if (sc.paragraph) setBlockType(sc.paragraph)(s, view.dispatch)
       view.focus(); return
     }
 
     // ── Code block: Cmd+Shift+K ──
     if (mod && shift && !alt && key === 'k') {
       event.preventDefault()
-      toggleCodeBlock(view.state, view.dispatch); view.focus(); return
+      if (sc.code_block) setBlockType(sc.code_block, { language: '' })(s, view.dispatch)
+      view.focus(); return
     }
 
     // ── Math block: Cmd+Shift+M ──
     if (mod && shift && !alt && key === 'm') {
       event.preventDefault()
-      insertMathBlock(view.state, view.dispatch); view.focus(); return
+      if (sc.math_block) view.dispatch(s.tr.replaceSelectionWith(sc.math_block.create({ value: '' })).scrollIntoView())
+      view.focus(); return
     }
 
     // ── Table: Cmd+Shift+T ──
     if (mod && shift && !alt && key === 't') {
       event.preventDefault()
-      insertTable(view.state, view.dispatch); view.focus(); return
+      const { table, table_header_row, table_row, table_header, table_cell, paragraph } = sc
+      if (table && table_header_row && table_row && table_header && table_cell && paragraph) {
+        const rows = 3, cols = 3
+        const ep  = () => paragraph.createAndFill()!
+        const hc  = () => table_header.createAndFill({ alignment: 'left' }, [ep()])!
+        const bc  = () => table_cell.createAndFill(  { alignment: 'left' }, [ep()])!
+        const tbl = table.create(null, [
+          table_header_row.create(null, Array.from({ length: cols }, hc)),
+          ...Array.from({ length: rows - 1 }, () => table_row.create(null, Array.from({ length: cols }, bc))),
+        ])
+        view.dispatch(s.tr.replaceSelectionWith(tbl).scrollIntoView())
+      }
+      view.focus(); return
     }
 
     // ── Blockquote: Cmd+Shift+Q ──
     if (mod && shift && !alt && key === 'q') {
       event.preventDefault()
-      toggleBlockquote(view.state, view.dispatch); view.focus(); return
+      if (sc.blockquote) wrapIn(sc.blockquote)(s, view.dispatch)
+      view.focus(); return
     }
 
     // ── Bullet list: Cmd+Opt+U ──
     if (mod && !shift && alt && key === 'u') {
       event.preventDefault()
-      wrapInBulletList(view.state, view.dispatch); view.focus(); return
+      if (sc.bullet_list) wrapInList(sc.bullet_list)(s, view.dispatch)
+      view.focus(); return
     }
 
     // ── Ordered list: Cmd+Opt+O ──
     if (mod && !shift && alt && key === 'o') {
       event.preventDefault()
-      wrapInOrderedList(view.state, view.dispatch); view.focus(); return
+      if (sc.ordered_list) wrapInList(sc.ordered_list)(s, view.dispatch)
+      view.focus(); return
     }
 
     // ── Task list: Cmd+Opt+X ──
     if (mod && !shift && alt && key === 'x') {
       event.preventDefault()
-      wrapInTaskList(view.state, view.dispatch); view.focus(); return
+      if (sc.bullet_list && sc.list_item) {
+        wrapInList(sc.bullet_list)(s, view.dispatch)
+        const s2 = view.state
+        const tr = s2.tr
+        s2.doc.nodesBetween(s2.selection.from - 200, s2.selection.to + 200, (node, pos) => {
+          if (node.type === sc.list_item && node.attrs.checked === null)
+            tr.setNodeMarkup(pos, undefined, { ...node.attrs, checked: false })
+        })
+        if (tr.docChanged) view.dispatch(tr)
+      }
+      view.focus(); return
     }
   }
 
