@@ -44,6 +44,104 @@ fn dlog(msg: &str) {
     }
 }
 
+// ── File helpers ─────────────────────────────────────────────────────────────
+
+fn sanitize_io_err(e: std::io::Error) -> String {
+    match e.kind() {
+        std::io::ErrorKind::NotFound         => "File not found".to_string(),
+        std::io::ErrorKind::PermissionDenied => "Permission denied".to_string(),
+        std::io::ErrorKind::AlreadyExists    => "File already exists".to_string(),
+        _                                    => "Operation failed".to_string(),
+    }
+}
+
+/// Validate that the path resolves under the user home, /tmp, /var, or /private.
+/// Walks up ancestor dirs to handle not-yet-existing files.
+fn safe_path(path: &str) -> Result<std::path::PathBuf, String> {
+    use std::path::Path;
+    let p = Path::new(path);
+    let canonical = std::fs::canonicalize(p).or_else(|_| {
+        let mut parts: Vec<std::ffi::OsString> = Vec::new();
+        if let Some(fname) = p.file_name() { parts.push(fname.to_owned()); }
+        let mut ancestor = p.parent();
+        loop {
+            match ancestor {
+                Some(dir) if dir.as_os_str().is_empty() => break,
+                Some(dir) if dir.exists() => {
+                    let mut base = std::fs::canonicalize(dir)
+                        .map_err(|e| e.to_string())?;
+                    for part in parts.iter().rev() { base.push(part); }
+                    return Ok(base);
+                }
+                Some(dir) => {
+                    if let Some(n) = dir.file_name() { parts.push(n.to_owned()); }
+                    ancestor = dir.parent();
+                }
+                None => break,
+            }
+        }
+        Err("Cannot resolve path".to_string())
+    })?;
+
+    let home = dirs::home_dir().ok_or("Cannot determine home dir")?;
+    if canonical.starts_with(&home) { return Ok(canonical); }
+    for prefix in &["/tmp", "/var", "/private"] {
+        if canonical.starts_with(prefix) { return Ok(canonical); }
+    }
+    Err("Path outside allowed directories".to_string())
+}
+
+fn base64_decode(input: &str) -> Result<Vec<u8>, String> {
+    const TABLE: &[u8; 64] =
+        b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let input = input.as_bytes();
+    let mut buf: Vec<u8> = Vec::with_capacity(input.len() * 3 / 4);
+    let mut acc: u32 = 0;
+    let mut bits: u32 = 0;
+    for &b in input {
+        if matches!(b, b'\n' | b'\r' | b' ') { continue; }
+        if b == b'=' { break; }
+        let val = TABLE.iter().position(|&c| c == b)
+            .ok_or_else(|| "Invalid base64".to_string())? as u32;
+        acc = (acc << 6) | val;
+        bits += 6;
+        if bits >= 8 {
+            bits -= 8;
+            buf.push((acc >> bits) as u8);
+            acc &= (1 << bits) - 1;
+        }
+    }
+    Ok(buf)
+}
+
+/// Write base64-encoded binary data to a file. Creates parent directories.
+/// Strips optional `data:...;base64,` prefix automatically.
+#[tauri::command]
+fn write_file_binary(path: String, base64_data: String) -> Result<(), String> {
+    use std::io::Write;
+    let dest = safe_path(&path)?;
+    if let Some(parent) = dest.parent() {
+        std::fs::create_dir_all(parent).map_err(sanitize_io_err)?;
+    }
+    let raw = base64_data.find(',').map_or(base64_data.as_str(), |i| &base64_data[i+1..]);
+    let bytes = base64_decode(raw)?;
+    let mut f = std::fs::File::create(&dest).map_err(sanitize_io_err)?;
+    f.write_all(&bytes).map_err(sanitize_io_err)
+}
+
+/// Move a file from old_path to new_path. Creates parent directories of new_path.
+/// Silently succeeds if old_path does not exist (already migrated).
+#[tauri::command]
+fn rename_file(old_path: String, new_path: String) -> Result<(), String> {
+    let src = safe_path(&old_path)?;
+    if !src.exists() { return Ok(()); }
+    let dst = safe_path(&new_path)?;
+    if let Some(parent) = dst.parent() {
+        std::fs::create_dir_all(parent).map_err(sanitize_io_err)?;
+    }
+    std::fs::rename(&src, &dst).map_err(sanitize_io_err)
+}
+
 /// Quit the application. Called from the frontend after the close-window
 /// dirty-tab confirmation loop completes successfully. macOS does NOT quit
 /// the app on its own when the last NSWindow is closed (unlike Windows / Linux),
@@ -388,6 +486,8 @@ pub fn run() {
             vault_sync::vault_sync_now,
             vault_sync::vault_sync_status,
             vault_sync::vault_sync_logs,
+            write_file_binary,
+            rename_file,
         ])
         .setup(|app| {
             let vault_mgr = std::sync::Arc::new(vault_sync::VaultSyncManager::new());
