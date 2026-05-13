@@ -14,7 +14,7 @@
   } from '../lib/mdblock-hover/hover-store.svelte'
   import { settings } from '../lib/settings.svelte'
   import '../lib/styles/attachment.css'
-  import { saveClipboardResource, isAttachmentUrl, isImageExt, isAttachmentExt } from '../lib/paste-resources'
+  import { saveClipboardResource, isAttachmentUrl, isImageExt, isAttachmentExt, migrateTempResources, getTempDir } from '../lib/paste-resources'
   import { insertImageAtCursor, insertAttachmentLink, insertImageAtPos } from '../lib/attachment-insert'
   import type { EditorView } from 'prosemirror-view'
 
@@ -102,6 +102,8 @@
    *     content with the editor's pre-replacement state.
    */
   let lastSync: string | null = null
+  const _mountedWithPath = !!tab.filePath
+  let _didMigrate = false
   let _pmEl: HTMLElement | null = null
   let _dragDropUnlisten: (() => void) | null = null
 
@@ -521,6 +523,27 @@
     if (target === lastSync) return
     editor.setContent(wrapIfNeeded(target))
     lastSync = target
+  })
+
+  // Resource migration: when an untitled doc is first saved, move temp
+  // clipboard resources to {docBasename}_files/ and update markdown refs.
+  $effect(() => {
+    const fp = tab.filePath
+    if (_mountedWithPath || _didMigrate || !fp || status !== 'mounted' || !editor) return
+    _didMigrate = true
+
+    void (async () => {
+      try {
+        const tempDir = await getTempDir()
+        const updated = await migrateTempResources(tab.currentContent, tempDir, fp)
+        if (updated === tab.currentContent) return
+        lastSync = updated
+        setContent(tab.id, updated)
+        editor!.setContent(updated)
+      } catch (e) {
+        console.warn('[RichEditor] resource migration failed:', e)
+      }
+    })()
   })
 
   onDestroy(() => {
