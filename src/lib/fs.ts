@@ -44,7 +44,7 @@ const EXT_TABLE: Record<string, FileClass> = {
   txt:       { kind: 'code', language: '' },
   log:       { kind: 'code', language: '' },
   csv:       { kind: 'spreadsheet' },
-  tsv:       { kind: 'spreadsheet' },
+  tsv:       { kind: 'code', language: '' },
   env:       { kind: 'code', language: '' },
 
   json:      { kind: 'code', language: 'json' },

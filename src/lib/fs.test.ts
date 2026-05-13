@@ -30,7 +30,10 @@ describe('classifyPath', () => {
 
   it('spreadsheet extensions', () => {
     expect(classifyPath('foo.csv')).toEqual({ kind: 'spreadsheet' })
-    expect(classifyPath('foo.tsv')).toEqual({ kind: 'spreadsheet' })
+  })
+
+  it('tsv is plain-text code (tab-delimited parsing not yet implemented)', () => {
+    expect(classifyPath('foo.tsv')).toEqual({ kind: 'code', language: '' })
   })
 
   it('special filenames (no extension)', () => {
