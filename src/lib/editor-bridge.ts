@@ -16,7 +16,8 @@ export function updateDocumentBaseDir(filePath: string): void {
   if (filePath) {
     const sep = filePath.includes('\\') ? '\\' : '/'
     const lastSep = filePath.lastIndexOf(sep)
-    setDocumentBaseDir(lastSep > 0 ? filePath.slice(0, lastSep) : '')
+    const dir = lastSep > 0 ? filePath.slice(0, lastSep) : ''
+    setDocumentBaseDir(dir)
   } else {
     import('@tauri-apps/api/path')
       .then(({ documentDir }) => documentDir())
