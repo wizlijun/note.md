@@ -94,6 +94,23 @@ Built on [`@moraya/core`](https://www.npmjs.com/package/@moraya/core).
   renders as `img.style.width`. Clicking the image toolbar backdrop or anywhere
   outside dismisses it; right-click on an image with a link mark opens the linked
   URL in the browser instead.
+- **CSV spreadsheet editor** — `.csv` files open as a live spreadsheet grid
+  (RevoGrid) with editable cells, formula support (`=SUM(A1:A3)`, `=AVG(...)`,
+  `=COUNT(...)`, and A1-style cross-cell references), row numbers, and dark-mode
+  aware styling. Source mode still available via `Cmd+/`. A `/电子表格` slash
+  command inserts an inline spreadsheet block inside Markdown.
+- **Rich mode block shortcuts** — keyboard shortcuts to insert or convert blocks
+  without typing Markdown syntax: `Cmd+1–6` headings; `Cmd+0` paragraph;
+  `Cmd+Shift+K` code block; `Cmd+Shift+M` math block; `Cmd+Shift+T` table;
+  `Cmd+Shift+Q` blockquote; `Cmd+Opt+U/O/X` bullet / ordered / task list.
+- **Slash command menu** (`/` at start of line in rich mode) — type `/` on an
+  empty paragraph to open a filterable block-insert menu: headings H1–H3, quote,
+  code block, Mermaid diagram, math formula, table, bullet/ordered/task list,
+  divider, and file-picker entries for images and documents. Arrow keys navigate;
+  Enter or Tab inserts.
+- **Highlight mark** (`^^text^^` or `==text==`) — renders yellow highlighted text
+  in both source (syntax decoration) and rich modes. `Cmd+H` in source view wraps
+  the current selection; rich mode renders and serialises the mark transparently.
 - **Universal binary** support (Intel + Apple Silicon)
 
 ## Develop
