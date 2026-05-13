@@ -13,7 +13,7 @@ export function basename(path: string): string {
   return seg[seg.length - 1] ?? path
 }
 
-export type FileKind = 'markdown' | 'html' | 'code' | 'image'
+export type FileKind = 'markdown' | 'html' | 'code' | 'image' | 'spreadsheet'
 
 export interface FileClass {
   kind: FileKind
@@ -43,8 +43,8 @@ const EXT_TABLE: Record<string, FileClass> = {
 
   txt:       { kind: 'code', language: '' },
   log:       { kind: 'code', language: '' },
-  csv:       { kind: 'code', language: '' },
-  tsv:       { kind: 'code', language: '' },
+  csv:       { kind: 'spreadsheet' },
+  tsv:       { kind: 'spreadsheet' },
   env:       { kind: 'code', language: '' },
 
   json:      { kind: 'code', language: 'json' },
