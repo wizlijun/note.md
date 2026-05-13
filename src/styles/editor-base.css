@@ -4,6 +4,25 @@
   outline: none;
 }
 
+/* ── Cursor-syntax markers (Typora-style inline syntax overlay) ──────────── */
+/* Shown by cursor-syntax plugin when cursor is inside a formatted region.    */
+/* e.g. ** around bold, ^^ or == around highlight, # before headings.        */
+
+.syntax-md-prefix,
+.syntax-md-mark {
+  color: var(--text-muted, #999);
+  opacity: 0.45;
+  user-select: none;
+  pointer-events: none;
+}
+
+/* highlight mark rendered as <mark> in the editor */
+.moraya-editor mark {
+  background: #fff176;
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
 /* ── Code block (NodeView wrapper from @moraya/core code-block-view) ───── */
 
 .moraya-editor .code-block-wrapper {
