@@ -11,7 +11,7 @@
     "tauri": "tauri",
     "test": "vitest run",
     "test:watch": "vitest",
-    "sync:core": "node -e \"const d=require('fs'),p=require('path');const dst=p.join(d.realpathSync('node_modules/@moraya/core'),'dist');d.cpSync('../moraya-core/dist',dst,{recursive:true});['@moraya_core.js','@moraya_core.js.map'].forEach(f=>{try{d.rmSync(p.join('node_modules/.vite/deps',f))}catch{}});console.log('synced+cache-cleared',dst)\"",
+    "sync:core": "node -e \"const d=require('fs'),p=require('path');const dst=p.join(d.realpathSync('node_modules/@moraya/core'),'dist');d.cpSync('../moraya-core/dist',dst,{recursive:true});try{d.rmSync('node_modules/.vite/deps',{recursive:true,force:true})}catch(e){};console.log('synced+vite-cache-cleared',dst)\"",
     "build:mdshare": "bash scripts/build-mdshare.sh",
     "build:md2pdf": "bash scripts/build-md2pdf.sh"
   },
