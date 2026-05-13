@@ -583,7 +583,7 @@
     background: color-mix(in srgb, #4a90e2 35%, transparent);
     color: transparent;
   }
-  .hl-mark {
+  :global(.hl-mark) {
     background: #fff176;
     border-radius: 2px;
   }
