@@ -1,5 +1,5 @@
 import 'katex/dist/katex.min.css'
-import { createEditor as coreCreateEditor, type MorayaEditorInstance } from '@moraya/core'
+import { createEditor as coreCreateEditor, setDocumentBaseDir, type MorayaEditorInstance } from '@moraya/core'
 import { tauriMediaResolver } from './adapters/tauri-media-resolver'
 import { tauriLinkOpener } from './adapters/tauri-link-opener'
 import { rendererRegistry } from './adapters/renderer-registry'
@@ -8,6 +8,21 @@ import { activeTab } from './tabs.svelte'
 const platform = {
   getCurrentFilePath: () => activeTab()?.filePath ?? null,
   isMacOS: true,
+}
+
+/** Update the base directory used to resolve relative image paths.
+ *  Call whenever the active document's file path changes. */
+export function updateDocumentBaseDir(filePath: string): void {
+  if (filePath) {
+    const sep = filePath.includes('\\') ? '\\' : '/'
+    const lastSep = filePath.lastIndexOf(sep)
+    setDocumentBaseDir(lastSep > 0 ? filePath.slice(0, lastSep) : '')
+  } else {
+    import('@tauri-apps/api/path')
+      .then(({ documentDir }) => documentDir())
+      .then(dir => setDocumentBaseDir(dir))
+      .catch(() => setDocumentBaseDir(''))
+  }
 }
 
 /**

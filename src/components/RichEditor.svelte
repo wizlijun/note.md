@@ -484,7 +484,8 @@
     const tabId = tab.id
     ;(async () => {
       try {
-        const { mountRichEditor } = await import('../lib/editor-bridge')
+        const { mountRichEditor, updateDocumentBaseDir } = await import('../lib/editor-bridge')
+        updateDocumentBaseDir(tab.filePath)
         const inst = await mountRichEditor(host!, wrapIfNeeded(tab.currentContent), (md) => {
           const unwrapped = unwrapIfNeeded(md)
           lastSync = unwrapped
@@ -526,6 +527,16 @@
     if (target === lastSync) return
     editor.setContent(wrapIfNeeded(target))
     lastSync = target
+  })
+
+  // Keep documentBaseDir in sync with the active file path so relative
+  // image paths (e.g. report_files/image.png) resolve correctly.
+  $effect(() => {
+    const fp = tab.filePath
+    if (status !== 'mounted') return
+    import('../lib/editor-bridge').then(({ updateDocumentBaseDir }) => {
+      updateDocumentBaseDir(fp)
+    })
   })
 
 
