@@ -11,6 +11,7 @@
     "tauri": "tauri",
     "test": "vitest run",
     "test:watch": "vitest",
+    "sync:core": "node -e \"const d=require('fs');const src='../moraya-core/dist';const dst=require('path').join(require('fs').realpathSync('node_modules/@moraya/core'),'dist');d.cpSync(src,dst,{recursive:true});console.log('synced',dst)\"",
     "build:mdshare": "bash scripts/build-mdshare.sh",
     "build:md2pdf": "bash scripts/build-md2pdf.sh"
   },
