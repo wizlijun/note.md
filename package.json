@@ -16,7 +16,9 @@
     "build:md2pdf": "bash scripts/build-md2pdf.sh"
   },
   "dependencies": {
+    "@formulajs/formulajs": "^4.6.0",
     "@moraya/core": "file:../moraya-core",
+    "@revolist/svelte-datagrid": "^4.21.8",
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-clipboard-manager": "^2",
     "@tauri-apps/plugin-deep-link": "^2.4.9",

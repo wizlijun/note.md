@@ -8,9 +8,15 @@ importers:
 
   .:
     dependencies:
+      '@formulajs/formulajs':
+        specifier: ^4.6.0
+        version: 4.6.0
       '@moraya/core':
         specifier: file:../moraya-core
         version: file:../moraya-core(highlight.js@11.11.1)(katex@0.16.45)(markdown-it-deflist@3.0.0)(markdown-it-texmath@1.0.0)(markdown-it@14.1.1)(mermaid@11.14.0)(node-emoji@2.2.0)(prosemirror-commands@1.7.1)(prosemirror-dropcursor@1.8.2)(prosemirror-history@1.5.0)(prosemirror-inputrules@1.5.1)(prosemirror-keymap@1.2.3)(prosemirror-markdown@1.13.4)(prosemirror-model@1.25.4)(prosemirror-schema-list@1.5.1)(prosemirror-state@1.4.4)(prosemirror-tables@1.8.5)(prosemirror-view@1.41.8)
+      '@revolist/svelte-datagrid':
+        specifier: ^4.21.8
+        version: 4.21.8
       '@tauri-apps/api':
         specifier: ^2
         version: 2.11.0
@@ -282,6 +288,10 @@ packages:
     cpu: [x64]
     os: [win32]
 
+  '@formulajs/formulajs@4.6.0':
+    resolution: {integrity: sha512-+SUiZL7cMQZNKhW4wX21QpDXUoCSD79EfT51JF/Ssg0n1HMs3cVwlwBN66wICPoHedyuXarCpS54LTaNcQUlYg==}
+    hasBin: true
+
   '@iconify/types@2.0.0':
     resolution: {integrity: sha512-+wluvCrRhXrhyOmRDJ3q8mux9JkKy5SJ/v8ol2tu4FVjyYvtEzkc/3pK15ET6RKg4b4w4BmTk1+gsCUhf21Ykg==}
 
@@ -332,6 +342,12 @@ packages:
     peerDependenciesMeta:
       mermaid:
         optional: true
+
+  '@revolist/revogrid@4.21.8':
+    resolution: {integrity: sha512-AnnO4rVfYeVKEe9CkN+K8SuUlK9LZKmuxBS8Vs5hVjwAcVrhHYm3wAHz6Bbhupz69tRWBvOU672vcOF7nI/HJg==}
+
+  '@revolist/svelte-datagrid@4.21.8':
+    resolution: {integrity: sha512-I+bucDzESwVwKckSv8uwLT5GH++vOaA33/E1e8ha8w4NTOEe8I3TtCainfK0hkBPwiBlsjTTxYoBKP9vUXY/Eg==}
 
   '@rollup/rollup-android-arm-eabi@4.60.3':
     resolution: {integrity: sha512-x35CNW/ANXG3hE/EZpRU8MXX1JDN86hBb2wMGAtltkz7pc6cxgjpy1OMMfDosOQ+2hWqIkag/fGok1Yady9nGw==}
@@ -782,6 +798,10 @@ packages:
     resolution: {integrity: sha512-qIj0G9wZbMGNLjLmg1PT6v2mE9AH2zlnADJD/2tC6E00hgmhUOfEB6greHPAfLRSufHqROIUTkw6E+M3lH0PTQ==}
     engines: {node: '>= 0.4'}
 
+  bessel@1.0.2:
+    resolution: {integrity: sha512-Al3nHGQGqDYqqinXhQzmwmcRToe/3WyBv4N8aZc5Pef8xw2neZlR9VPi84Sa23JtgWcucu18HxVZrnI0fn2etw==}
+    engines: {node: '>=0.8'}
+
   chai@6.2.2:
     resolution: {integrity: sha512-NUPRluOfOiTKBKvWPtSD4PhFvWCqOi0BGStNWs57X9js7XGTprSmFoz5F0tWhR4WPjNeR9jXqdC7/UpSJTnlRg==}
     engines: {node: '>=18'}
@@ -1083,6 +1103,9 @@ packages:
 
   is-reference@3.0.3:
     resolution: {integrity: sha512-ixkJoqQvAP88E6wLydLGGqCJsrFUnqoH6HnaczB8XmDH1oaWU+xxdptvikTgaEhtZ53Ky6YXiBuUI2WXLMCwjw==}
+
+  jstat@1.9.6:
+    resolution: {integrity: sha512-rPBkJbK2TnA8pzs93QcDDPlKcrtZWuuCo2dVR0TFLOJSxhqfWOVCSp8aV3/oSbn+4uY4yw1URtLpHQedtmXfug==}
 
   katex@0.16.45:
     resolution: {integrity: sha512-pQpZbdBu7wCTmQUh7ufPmLr0pFoObnGUoL/yhtwJDgmmQpbkg/0HSVti25Fu4rmd1oCR6NGWe9vqTWuWv3GcNA==}
@@ -1603,6 +1626,11 @@ snapshots:
   '@esbuild/win32-x64@0.25.12':
     optional: true
 
+  '@formulajs/formulajs@4.6.0':
+    dependencies:
+      bessel: 1.0.2
+      jstat: 1.9.6
+
   '@iconify/types@2.0.0': {}
 
   '@iconify/utils@3.1.3':
@@ -1655,6 +1683,12 @@ snapshots:
       prosemirror-view: 1.41.8
     optionalDependencies:
       mermaid: 11.14.0
+
+  '@revolist/revogrid@4.21.8': {}
+
+  '@revolist/svelte-datagrid@4.21.8':
+    dependencies:
+      '@revolist/revogrid': 4.21.8
 
   '@rollup/rollup-android-arm-eabi@4.60.3':
     optional: true
@@ -2047,6 +2081,8 @@ snapshots:
 
   axobject-query@4.1.0: {}
 
+  bessel@1.0.2: {}
+
   chai@6.2.2: {}
 
   char-regex@1.0.2: {}
@@ -2371,6 +2407,8 @@ snapshots:
   is-reference@3.0.3:
     dependencies:
       '@types/estree': 1.0.9
+
+  jstat@1.9.6: {}
 
   katex@0.16.45:
     dependencies:
