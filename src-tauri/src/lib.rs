@@ -521,6 +521,12 @@ pub fn run() {
             let menu = build_menu(&app.handle(), &plugin_items)?;
             app.set_menu(menu)?;
             app.on_menu_event(|app, event| {
+                if event.id().0.as_str() == "hide-app" {
+                    if let Some(w) = app.get_webview_window("main") {
+                        let _ = w.hide();
+                    }
+                    return;
+                }
                 let _ = app.emit("menu-event", event.id().0.as_str());
             });
 
@@ -701,7 +707,7 @@ fn build_menu<R: tauri::Runtime>(
         .separator()
         .item(&PredefinedMenuItem::services(app, None)?)
         .separator()
-        .item(&PredefinedMenuItem::hide(app, None)?)
+        .item(&MenuItemBuilder::with_id("hide-app", "Hide mdeditor").accelerator("Cmd+Shift+H").build(app)?)
         .item(&PredefinedMenuItem::hide_others(app, None)?)
         .item(&PredefinedMenuItem::show_all(app, None)?)
         .separator()

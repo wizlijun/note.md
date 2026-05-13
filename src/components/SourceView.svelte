@@ -64,6 +64,29 @@
   })
 
   async function onTextareaKeydown(ev: KeyboardEvent) {
+    // Inline formatting shortcuts — independent of mdblock setting
+    if (ev.metaKey || ev.ctrlKey) {
+      let open = '', close = ''
+      if (ev.key === 'b') { open = '**'; close = '**' }
+      else if (ev.key === 'i') { open = '*'; close = '*' }
+      else if (ev.key === 'h') { open = '^^'; close = '^^' }
+      if (open) {
+        ev.preventDefault()
+        const el = textareaEl!
+        const start = el.selectionStart ?? 0
+        const end = el.selectionEnd ?? 0
+        const before = value.slice(0, start)
+        const selected = value.slice(start, end)
+        const after = value.slice(end)
+        el.value = before + open + selected + close + after
+        el.selectionStart = start + open.length
+        el.selectionEnd = end + open.length
+        el.dispatchEvent(new Event('input'))
+        return
+      }
+    }
+
+    // mdblock-specific shortcuts
     if (!settings.mdblock.enabled) return
     if ((ev.metaKey || ev.ctrlKey) && ev.key === 'Enter') {
       const handled = await cmdMdblockFollowCitationAtCursor()
@@ -71,20 +94,6 @@
         ev.preventDefault()
         ev.stopPropagation()
       }
-    }
-    if ((ev.metaKey || ev.ctrlKey) && ev.key === 'h') {
-      ev.preventDefault()
-      const el = textareaEl!
-      const start = el.selectionStart ?? 0
-      const end = el.selectionEnd ?? 0
-      const before = value.slice(0, start)
-      const after = value.slice(end)
-      const selected = value.slice(start, end)
-      const newVal = before + '^^' + selected + '^^' + after
-      el.value = newVal
-      el.selectionStart = start + 2
-      el.selectionEnd = end + 2
-      el.dispatchEvent(new Event('input'))
     }
   }
 
