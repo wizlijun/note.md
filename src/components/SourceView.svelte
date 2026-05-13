@@ -10,6 +10,7 @@
   import { settings } from '../lib/settings.svelte'
   import { activeTab } from '../lib/tabs.svelte'
   import { cmdMdblockFollowCitationAtCursor } from '../lib/mdblock/commands'
+  import { saveClipboardResource, isAttachmentUrl, basenameOf } from '../lib/paste-resources'
 
   let {
     value,
@@ -196,6 +197,56 @@
   import { findState } from '../lib/find-replace.svelte'
   import { setContent } from '../lib/tabs.svelte'
 
+  function insertAtCursor(tabId: string, text: string) {
+    if (!textareaEl) return
+    const start = textareaEl.selectionStart
+    const end   = textareaEl.selectionEnd
+    const newValue = value.slice(0, start) + text + value.slice(end)
+    setContent(tabId, newValue)
+    requestAnimationFrame(() => {
+      textareaEl?.setSelectionRange(start + text.length, start + text.length)
+    })
+  }
+
+  async function handlePaste(event: ClipboardEvent) {
+    if (!event.clipboardData) return
+
+    // 1. 二进制 blob（截图、从浏览器复制的图片）
+    const items = Array.from(event.clipboardData.items)
+    const binaryItem = items.find(item => item.kind === 'file')
+    if (binaryItem) {
+      const file = binaryItem.getAsFile()
+      if (file) {
+        event.preventDefault()
+        event.stopImmediatePropagation()
+        try {
+          const tab = activeTab()
+          if (!tab) return
+          const path = await saveClipboardResource(file, tab.filePath)
+          const md = binaryItem.type.startsWith('image/')
+            ? `![](${path})`
+            : `[${basenameOf(path)}](${path})`
+          insertAtCursor(tab.id, md)
+        } catch (e) {
+          console.warn('[SourceView] paste save failed:', e)
+        }
+        return
+      }
+    }
+
+    // 2. 附件扩展名 URL
+    const text = event.clipboardData.getData('text/plain')?.trim()
+    if (text && isAttachmentUrl(text)) {
+      try { new URL(text) } catch { return }
+      event.preventDefault()
+      event.stopImmediatePropagation()
+      const tab = activeTab()
+      if (!tab) return
+      const filename = basenameOf(text.replace(/[?#].*$/, '')) || text
+      insertAtCursor(tab.id, `[${filename}](${text})`)
+    }
+  }
+
   interface TextMatch { start: number; end: number }
   let searchMatches: TextMatch[] = []
   let searchIndex = -1
@@ -362,6 +413,7 @@
       {oninput}
       onscroll={syncScroll}
       onkeydown={onTextareaKeydown}
+      onpaste={handlePaste}
       spellcheck="true"
       autocapitalize="off"
     ></textarea>
