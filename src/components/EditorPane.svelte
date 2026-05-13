@@ -81,7 +81,7 @@
         />
       </div>
     {/key}
-  {:else if tab.kind === 'spreadsheet'}
+  {:else if tab.kind === 'spreadsheet' && tab.mode !== 'source'}
     {#key tab.id}
       <CsvEditor {tab} />
     {/key}

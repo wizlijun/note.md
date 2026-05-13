@@ -120,7 +120,7 @@ export async function openFile(path: string): Promise<void> {
     hash = await sha256Hex(content)
   }
 
-  const mode = cls.kind === 'image' ? 'rich' : (getRecentMode(modeKeyFor(path)) ?? 'source')
+  const mode = (cls.kind === 'image' || cls.kind === 'spreadsheet') ? 'rich' : (getRecentMode(modeKeyFor(path)) ?? 'source')
   const tab: Tab = {
     id: crypto.randomUUID(),
     filePath: path,
