@@ -218,24 +218,36 @@ export async function closeTab(
   if (idx < 0) return false
   const tab = tabs[idx]
   if (isDirty(id)) {
-    // Always use the native NSSavePanel so users see the system-standard
-    // save dialog (保存为 / 标签 / 位置) for all close-dirty scenarios.
-    const { pickSaveFile } = await import('./dialogs')
-    const defaultPath = tab.filePath || 'untitled.md'
-    const p = await pickSaveFile(defaultPath)
-    if (p) {
-      // User picked a save path — save then fall through to close
-      await saveAs(id, p)
+    if (!tab.filePath) {
+      // ── UNTITLED dirty file ──────────────────────────────────────────────
+      // Go straight to the native NSSavePanel (no pre-ask).
+      const { pickSaveFile } = await import('./dialogs')
+      const p = await pickSaveFile()       // resolves to Documents/untitled.md
+      if (p) {
+        await saveAs(id, p)                // save to chosen path, then close
+      } else {
+        // User cancelled the save panel – offer discard
+        const { ask } = await import('@tauri-apps/plugin-dialog')
+        const doClose = await ask('Close without saving?', {
+          title: 'M↓',
+          kind: 'warning',
+          okLabel: 'Close without Saving',
+          cancelLabel: 'Keep Editing',
+        })
+        if (!doClose) return false
+      }
     } else {
-      // User cancelled the save panel — ask whether to discard or keep
-      const { ask } = await import('@tauri-apps/plugin-dialog')
-      const discard = await ask('Close without saving?', {
-        title: 'M↓',
-        kind: 'warning',
-        okLabel: 'Close without Saving',
-        cancelLabel: 'Keep Editing',
-      })
-      if (!discard) return false
+      // ── NAMED dirty file ─────────────────────────────────────────────────
+      // Step 1: offer to save to the SAME path (not a "Save As" panel)
+      const choice = await confirm()        // uses confirmDirtyClose
+      if (choice === 'cancel') return false
+      if (choice === 'save') {
+        const previousActiveId = activeId.value
+        activeId.value = id
+        await saveActive()                  // saves to existing path, no dialog
+        activeId.value = previousActiveId
+      }
+      // choice === 'discard': fall through to close without saving
     }
   }
   tabs.splice(idx, 1)

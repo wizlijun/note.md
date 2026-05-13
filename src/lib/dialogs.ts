@@ -18,16 +18,30 @@ const ALL_EXTS = [
   ...IMAGE_EXTS,
 ]
 
+/**
+ * Confirm-before-close for NAMED dirty files.
+ * Untitled dirty files are handled directly in closeTab (NSSavePanel).
+ *
+ * Two-step flow:
+ *   1. "Save / Cancel"  — user can save or cancel (keep editing).
+ *   2. If Cancel → "Close without saving / Keep Editing" — explicit discard.
+ */
 export async function confirmDirtyClose(): Promise<DirtyChoice> {
-  // Single native dialog for named dirty files.
-  // Untitled dirty files are handled directly in closeTab (native save panel).
   const wantSave = await ask('Save changes before closing?', {
     title: 'M↓',
     kind: 'warning',
     okLabel: 'Save',
-    cancelLabel: "Don't Save",
+    cancelLabel: 'Cancel',
   })
-  return wantSave ? 'save' : 'discard'
+  if (wantSave) return 'save'
+
+  const wantDiscard = await ask('Close without saving?', {
+    title: 'M↓',
+    kind: 'warning',
+    okLabel: 'Close without Saving',
+    cancelLabel: 'Keep Editing',
+  })
+  return wantDiscard ? 'discard' : 'cancel'
 }
 
 export async function pickOpenFile(): Promise<string | null> {
@@ -43,19 +57,42 @@ export async function pickOpenFile(): Promise<string | null> {
   return typeof picked === 'string' ? picked : null
 }
 
+/** Friendly "File Format" filter names shown in the NSSavePanel dropdown. */
+function saveFilters(ext?: string) {
+  if (!ext) return [
+    { name: 'Markdown', extensions: ['md', 'markdown', 'mdown', 'mkd'] },
+    { name: 'All supported', extensions: ALL_EXTS },
+  ]
+  if (['md', 'markdown', 'mdown', 'mkd'].includes(ext))
+    return [{ name: 'Markdown', extensions: ['md', 'markdown', 'mdown', 'mkd'] }]
+  if (['html', 'htm'].includes(ext))
+    return [{ name: 'HTML', extensions: ['html', 'htm'] }]
+  if (['txt', 'log'].includes(ext))
+    return [{ name: 'Plain Text', extensions: ['txt', 'log'] }]
+  if (IMAGE_EXTS.includes(ext))
+    return [{ name: 'Image', extensions: IMAGE_EXTS }]
+  if (ALL_EXTS.includes(ext))
+    return [{ name: ext.toUpperCase(), extensions: [ext] }]
+  return [{ name: 'All supported', extensions: ALL_EXTS }]
+}
+
 /**
- * Suggest a filter that matches the current file's extension so Save As
- * defaults to the same kind. Falls back to "All supported" if extension is
- * unrecognized.
+ * Open the native NSSavePanel.
+ * - No defaultPath → resolves to Documents/untitled.md (avoids empty dir)
+ * - With defaultPath → pre-fills filename and navigates to that directory
  */
 export async function pickSaveFile(defaultPath?: string): Promise<string | null> {
-  const ext = defaultPath
-    ? basename(defaultPath).split('.').pop()?.toLowerCase()
-    : undefined
-  const filters = ext && ALL_EXTS.includes(ext)
-    ? [{ name: ext.toUpperCase(), extensions: [ext] }, { name: 'All supported', extensions: ALL_EXTS }]
-    : [{ name: 'All supported', extensions: ALL_EXTS }]
-  const picked = await saveDialog({ defaultPath, filters })
+  let resolvedPath = defaultPath
+  if (!resolvedPath) {
+    try {
+      const { documentDir } = await import('@tauri-apps/api/path')
+      resolvedPath = `${(await documentDir()).replace(/\/$/, '')}/untitled.md`
+    } catch {
+      resolvedPath = 'untitled.md'
+    }
+  }
+  const ext = basename(resolvedPath).split('.').pop()?.toLowerCase()
+  const picked = await saveDialog({ defaultPath: resolvedPath, filters: saveFilters(ext) })
   return picked ?? null
 }
 
