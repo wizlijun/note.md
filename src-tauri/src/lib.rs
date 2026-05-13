@@ -59,6 +59,12 @@ fn sanitize_io_err(e: std::io::Error) -> String {
 /// Walks up ancestor dirs to handle not-yet-existing files.
 fn safe_path(path: &str) -> Result<std::path::PathBuf, String> {
     use std::path::Path;
+    if path.is_empty() {
+        return Err("Path must not be empty".to_string());
+    }
+    if !path.starts_with('/') {
+        return Err("Path must be absolute".to_string());
+    }
     let p = Path::new(path);
     let canonical = std::fs::canonicalize(p).or_else(|_| {
         let mut parts: Vec<std::ffi::OsString> = Vec::new();
@@ -71,6 +77,10 @@ fn safe_path(path: &str) -> Result<std::path::PathBuf, String> {
                     let mut base = std::fs::canonicalize(dir)
                         .map_err(|e| e.to_string())?;
                     for part in parts.iter().rev() { base.push(part); }
+                    // Guard against ".." components in the reconstructed path
+                    if base.components().any(|c| c == std::path::Component::ParentDir) {
+                        return Err("Path traversal detected".to_string());
+                    }
                     return Ok(base);
                 }
                 Some(dir) => {
@@ -123,7 +133,11 @@ fn write_file_binary(path: String, base64_data: String) -> Result<(), String> {
     if let Some(parent) = dest.parent() {
         std::fs::create_dir_all(parent).map_err(sanitize_io_err)?;
     }
-    let raw = base64_data.find(',').map_or(base64_data.as_str(), |i| &base64_data[i+1..]);
+    let raw = if let Some(i) = base64_data.find(";base64,") {
+        &base64_data[i + 8..]
+    } else {
+        base64_data.as_str()
+    };
     let bytes = base64_decode(raw)?;
     let mut f = std::fs::File::create(&dest).map_err(sanitize_io_err)?;
     f.write_all(&bytes).map_err(sanitize_io_err)
