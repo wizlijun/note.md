@@ -19,6 +19,13 @@
   import { insertImageAtCursor, insertAttachmentLink, insertImageAtPos } from '../lib/attachment-insert'
   import { isVideoUrl, fetchVideoInfo } from '../lib/video-links'
   import type { EditorView } from 'prosemirror-view'
+  import SlashMenu from '../lib/slash-menu/SlashMenu.svelte'
+  import { SLASH_ITEMS, filterSlashItems, type SlashItem } from '../lib/slash-menu/slash-items'
+  import {
+    setHeading, toggleCodeBlock, insertMathBlock, insertTable,
+    toggleBlockquote, wrapInBulletList, wrapInOrderedList, wrapInTaskList,
+    insertHorizontalRule,
+  } from '@moraya/core/commands'
 
   // Reactive store of the currently active theme id, set by the theme-init
   // block in App.svelte. Default is 'default'.
@@ -114,6 +121,12 @@
   let imageToolbarPosition = $state({ top: 0, left: 0 })
   let imageToolbarCurrentWidth = $state('')
   let imageToolbarTargetPos = $state<number | null>(null)
+
+  // ── Slash menu state ─────────────────────────────────────────────────────────
+  let showSlashMenu    = $state(false)
+  let slashMenuPos     = $state({ top: 0, left: 0 })
+  let slashItems       = $state<SlashItem[]>(SLASH_ITEMS)
+  let slashSelectedIdx = $state(0)
 
   async function handlePaste(event: ClipboardEvent) {
     if (!editor || !event.clipboardData) return
@@ -260,6 +273,131 @@
       view.dispatch(view.state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, title }))
     } catch { /* ignore */ }
     imageToolbarCurrentWidth = width
+  }
+
+  function closeSlashMenu() {
+    showSlashMenu    = false
+    slashItems       = SLASH_ITEMS
+    slashSelectedIdx = 0
+  }
+
+  function checkSlashMenu() {
+    if (!editor) return
+    const view = editor.view as unknown as EditorView
+    const { selection } = view.state
+    const { $from } = selection
+
+    if ($from.parent.type.name !== 'paragraph') { closeSlashMenu(); return }
+
+    const textToCursor = $from.parent.textBetween(0, $from.parentOffset, '')
+    const match = /^\/([a-zA-Z0-9一-龥]*)$/.exec(textToCursor)
+    if (!match) { closeSlashMenu(); return }
+
+    const coords = view.coordsAtPos($from.pos)
+    slashItems       = filterSlashItems(match[1])
+    slashMenuPos     = { top: coords.bottom, left: coords.left }
+    slashSelectedIdx = 0
+    showSlashMenu    = true
+  }
+
+  function executeSlashItem(item: SlashItem) {
+    if (!editor) return
+    const view = editor.view as unknown as EditorView
+    const { $from } = view.state.selection
+    // Delete '/' + filter text (from paragraph start to cursor)
+    view.dispatch(view.state.tr.delete($from.start(), $from.pos))
+    item.execute(view)
+    closeSlashMenu()
+  }
+
+  function handleRichKeydown(event: KeyboardEvent) {
+    // ── Slash menu navigation (highest priority) ──
+    if (showSlashMenu) {
+      if (event.key === 'ArrowDown') {
+        event.preventDefault(); event.stopImmediatePropagation()
+        slashSelectedIdx = Math.min(slashSelectedIdx + 1, slashItems.length - 1)
+        return
+      }
+      if (event.key === 'ArrowUp') {
+        event.preventDefault(); event.stopImmediatePropagation()
+        slashSelectedIdx = Math.max(slashSelectedIdx - 1, 0)
+        return
+      }
+      if ((event.key === 'Enter' || event.key === 'Tab') && slashItems.length > 0) {
+        event.preventDefault(); event.stopImmediatePropagation()
+        executeSlashItem(slashItems[slashSelectedIdx])
+        return
+      }
+      if (event.key === 'Escape') {
+        event.preventDefault(); event.stopImmediatePropagation()
+        closeSlashMenu()
+        return
+      }
+    }
+
+    if (!editor) return
+    const mod   = event.metaKey || event.ctrlKey
+    const shift = event.shiftKey
+    const alt   = event.altKey
+    const key   = event.key.toLowerCase()
+    const view  = editor.view as unknown as EditorView
+
+    // ── Heading shortcuts: Cmd+1-6 ──
+    if (mod && !shift && !alt && /^[1-6]$/.test(event.key)) {
+      event.preventDefault()
+      setHeading(parseInt(event.key))(view.state, view.dispatch)
+      view.focus(); return
+    }
+
+    // ── Paragraph: Cmd+0 ──
+    if (mod && !shift && !alt && event.key === '0') {
+      event.preventDefault()
+      const para = view.state.schema.nodes.paragraph
+      if (para) view.dispatch(view.state.tr.setBlockType(view.state.selection.from, view.state.selection.to, para).scrollIntoView())
+      view.focus(); return
+    }
+
+    // ── Code block: Cmd+Shift+K ──
+    if (mod && shift && !alt && key === 'k') {
+      event.preventDefault()
+      toggleCodeBlock(view.state, view.dispatch); view.focus(); return
+    }
+
+    // ── Math block: Cmd+Shift+M ──
+    if (mod && shift && !alt && key === 'm') {
+      event.preventDefault()
+      insertMathBlock(view.state, view.dispatch); view.focus(); return
+    }
+
+    // ── Table: Cmd+Shift+T ──
+    if (mod && shift && !alt && key === 't') {
+      event.preventDefault()
+      insertTable(view.state, view.dispatch); view.focus(); return
+    }
+
+    // ── Blockquote: Cmd+Shift+Q ──
+    if (mod && shift && !alt && key === 'q') {
+      event.preventDefault()
+      toggleBlockquote(view.state, view.dispatch); view.focus(); return
+    }
+
+    // ── Bullet list: Cmd+Opt+U ──
+    if (mod && !shift && alt && key === 'u') {
+      event.preventDefault()
+      wrapInBulletList(view.state, view.dispatch); view.focus(); return
+    }
+
+    // ── Ordered list: Cmd+Opt+O ──
+    if (mod && !shift && alt && key === 'o') {
+      event.preventDefault()
+      wrapInOrderedList(view.state, view.dispatch); view.focus(); return
+    }
+
+    // ── Task list: Cmd+Opt+X ──
+    if (mod && !shift && alt && key === 'x') {
+      event.preventDefault()
+      wrapInTaskList(view.state, view.dispatch); view.focus(); return
+    }
   }
 
   function unwrapIfNeeded(md: string): string {
@@ -593,6 +731,8 @@
         _pmEl?.addEventListener('paste', handlePaste as EventListener, true)
         _pmEl?.addEventListener('click', handleImageClick as EventListener)
         _pmEl?.addEventListener('click', handleVideoLinkClick as EventListener, true)
+        _pmEl?.addEventListener('keydown', handleRichKeydown as EventListener, true)
+        _pmEl?.addEventListener('input',   checkSlashMenu as EventListener)
 
         // Prevent browser default file drop behaviour
         _dragoverHandler = (e) => e.preventDefault()
@@ -637,6 +777,8 @@
     _pmEl?.removeEventListener('paste', handlePaste as EventListener, true)
     _pmEl?.removeEventListener('click', handleImageClick as EventListener)
     _pmEl?.removeEventListener('click', handleVideoLinkClick as EventListener, true)
+    _pmEl?.removeEventListener('keydown', handleRichKeydown as EventListener, true)
+    _pmEl?.removeEventListener('input',   checkSlashMenu as EventListener)
     _dragDropUnlisten?.()
     host?.removeEventListener('dragover', _dragoverHandler!)
     host?.removeEventListener('drop',     _dropHandler!)
@@ -677,6 +819,15 @@
       currentWidth={imageToolbarCurrentWidth}
       onResize={handleToolbarResize}
       onClose={() => { showImageToolbar = false }}
+    />
+  {/if}
+  {#if showSlashMenu}
+    <SlashMenu
+      position={slashMenuPos}
+      items={slashItems}
+      selectedIndex={slashSelectedIdx}
+      onSelect={executeSlashItem}
+      onClose={closeSlashMenu}
     />
   {/if}
 </div>
