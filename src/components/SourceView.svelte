@@ -79,15 +79,26 @@
         const start = el.selectionStart ?? 0
         const end = el.selectionEnd ?? 0
         const sel = cur.slice(start, end)
-        const isWrapped = sel.startsWith(open) && sel.endsWith(close)
-                       && sel.length > open.length + close.length
-        if (isWrapped) {
-          // Toggle off: remove markers
+        // Case 1: selection itself includes the markers ("**text**" selected)
+        const selWrapped = sel.startsWith(open) && sel.endsWith(close)
+                        && sel.length > open.length + close.length
+        // Case 2: markers are just outside the selection (selected only "text" inside **text**)
+        const beforeOpen = start >= open.length && cur.slice(start - open.length, start) === open
+        const afterClose = cur.slice(end, end + close.length) === close
+        const outerWrapped = beforeOpen && afterClose
+
+        if (selWrapped) {
+          // Remove markers from within selection
           const inner = sel.slice(open.length, sel.length - close.length)
           setContent(tabId, cur.slice(0, start) + inner + cur.slice(end))
           requestAnimationFrame(() => el.setSelectionRange(start, start + inner.length))
+        } else if (outerWrapped) {
+          // Remove markers surrounding the selection
+          const newStart = start - open.length
+          setContent(tabId, cur.slice(0, newStart) + sel + cur.slice(end + close.length))
+          requestAnimationFrame(() => el.setSelectionRange(newStart, newStart + sel.length))
         } else {
-          // Toggle on: wrap selection (or insert empty markers at cursor)
+          // Wrap selection (or insert empty markers at cursor)
           setContent(tabId, cur.slice(0, start) + open + sel + close + cur.slice(end))
           requestAnimationFrame(() => el.setSelectionRange(start + open.length, end + open.length))
         }
