@@ -73,6 +73,27 @@ Built on [`@moraya/core`](https://www.npmjs.com/package/@moraya/core).
   ids, heavy rewrites retire them with full history. Click a marker in the
   gutter to copy `((file#blockid))`; `Cmd+Enter` on a citation in source
   mode opens the target doc at that block.
+- **Paste images & attachments** — screenshots (clipboard image blobs) are saved to
+  `{docname}_files/` beside the document and inserted as `![](relative/path.png)`;
+  untitled documents use a per-session temp directory and the paths are migrated
+  automatically on first save. Drag-drop image files insert an absolute-path
+  reference without copying. Pasting non-image binary files inserts an attachment
+  link `[filename](path)`. Both source and rich modes support all paste paths.
+- **Attachment link cards** — links to documents (`.pdf`, `.docx`, `.zip`, …),
+  audio, and video files render as styled chips (inline) or full-width cards
+  (standalone line) in rich mode, with per-category emoji icons. Pure CSS —
+  no schema changes.
+- **Video link cards** — paste a YouTube or Bilibili URL; the title is fetched
+  from the YouTube oEmbed API (no key required) or the Bilibili Web API, and the
+  link is inserted as `[Video Title](url)`. In rich mode the link renders as a
+  branded card with a coloured ▶ icon (red for YouTube, blue for Bilibili);
+  single-clicking opens the video in the default browser.
+- **Image resize toolbar** — click any image in rich mode to show a floating
+  25 % / 50 % / 75 % / 100 % / 原始 toolbar above it. The selected width is
+  stored in the `title` attribute (`![alt](src "width=50%")`), which the editor
+  renders as `img.style.width`. Clicking the image toolbar backdrop or anywhere
+  outside dismisses it; right-click on an image with a link mark opens the linked
+  URL in the browser instead.
 - **Universal binary** support (Intel + Apple Silicon)
 
 ## Develop
@@ -313,6 +334,38 @@ plugin in **Preferences → Plugins** to remove its subcommand from `mdedit`.
     only block file that ever lands sibling-of-source is the
     optional `<basename>.block.md` (only when "Generate
     .block.md" is explicitly invoked).
+90. **Paste screenshot in rich mode (named doc)** — open a saved `.md`,
+    switch to rich mode, take a screenshot (`Cmd+Ctrl+Shift+4`), paste
+    → image appears in the editor; source mode shows
+    `![](docname_files/image-<ts>.png)`; the file exists at
+    `{docDir}/docname_files/image-<ts>.png`.
+91. **Paste screenshot in source mode** — same flow in source mode →
+    `![](docname_files/image-<ts>.png)` inserted at cursor; switch to
+    rich → image renders.
+92. **Paste screenshot in untitled doc** — new file (unsaved), paste
+    screenshot → absolute temp path in source; save as `notes.md` →
+    path auto-updates to `notes_files/image-<ts>.png`; file moved.
+93. **Drag image file (rich mode)** — drag a `.png`/`.jpg` from Finder
+    onto the rich editor → `![](/absolute/path/photo.jpg)` inserted at
+    drop point; image renders.
+94. **Drag non-image file (rich mode)** — drag a `.pdf` from Finder →
+    `[filename.pdf](/absolute/path)` inserted; renders as a 📄 card.
+95. **Paste attachment URL** — copy `https://example.com/report.pdf`,
+    paste in rich or source mode → `[report.pdf](url)` link; renders
+    as a 📄 chip/card in rich mode.
+96. **Image resize toolbar** — click an image in rich mode → toolbar
+    appears above it with 25%/50%/75%/100%/原始 buttons; click 50% →
+    image shrinks; source shows `"width=50%"` in title attr; click 原始
+    → title cleared.
+97. **YouTube card** — copy `https://www.youtube.com/watch?v=dQw4w9WgXcQ`,
+    paste in rich mode → red ▶ card appears; title updates from oEmbed
+    within ~1 s; click card → browser opens video; source shows
+    `[Never Gonna Give You Up](url)`.
+98. **Bilibili card** — paste a `bilibili.com/video/BV…` URL → blue ▶
+    card; title from Bilibili API; click → browser opens.
+99. **Video card chip vs full-width** — paste a YouTube URL inline
+    (within a sentence) → small chip with red ▶ icon; paste on its
+    own line → full-width card.
 
 ## Spec & Plan
 
