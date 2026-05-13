@@ -2,6 +2,7 @@
   import type { Tab } from '../lib/tabs.svelte'
   import { setContent } from '../lib/tabs.svelte'
   import RichEditor from './RichEditor.svelte'
+  import CsvEditor from './CsvEditor.svelte'
   import SourceView from './SourceView.svelte'
   import HtmlPreview from './HtmlPreview.svelte'
   import ExternalChangeBanner from './ExternalChangeBanner.svelte'
@@ -79,6 +80,10 @@
           alt={tab.title}
         />
       </div>
+    {/key}
+  {:else if tab.kind === 'spreadsheet'}
+    {#key tab.id}
+      <CsvEditor {tab} />
     {/key}
   {:else if tab.mode === 'source'}
     {#key tab.id}
