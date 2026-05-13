@@ -68,6 +68,19 @@ function insertTableSync(v: EditorView) {
   v.focus()
 }
 
+function insertSpreadsheetSync(v: EditorView) {
+  const { schema } = v.state
+  const spreadsheet = schema.nodes.spreadsheet
+  if (!spreadsheet) return
+  const defaultCsv = '列A,列B,列C\n,,\n,,\n,,'
+  v.dispatch(
+    v.state.tr
+      .replaceSelectionWith(spreadsheet.create({ source: defaultCsv }))
+      .scrollIntoView()
+  )
+  v.focus()
+}
+
 function wrapTaskList(v: EditorView) {
   const { schema } = v.state
   const bulletList = schema.nodes.bullet_list
@@ -200,6 +213,14 @@ export const SLASH_ITEMS: SlashItem[] = [
     icon: '▦',
     desc: '3×3 可编辑表格',
     execute: (v) => insertTableSync(v),
+  },
+  {
+    id: 'spreadsheet',
+    label: '电子表格',
+    keywords: ['spreadsheet', 'sheet', 'csv', '表格', '电子表格', '记账', 'excel'],
+    icon: '⊞',
+    desc: '可编辑电子表格（支持公式）',
+    execute: (v) => insertSpreadsheetSync(v),
   },
   {
     id: 'bullet',
