@@ -14,8 +14,8 @@
   } from '../lib/mdblock-hover/hover-store.svelte'
   import { settings } from '../lib/settings.svelte'
   import '../lib/styles/attachment.css'
-  import { saveClipboardResource, isAttachmentUrl } from '../lib/paste-resources'
-  import { insertImageAtCursor, insertAttachmentLink } from '../lib/attachment-insert'
+  import { saveClipboardResource, isAttachmentUrl, isImageExt, isAttachmentExt } from '../lib/paste-resources'
+  import { insertImageAtCursor, insertAttachmentLink, insertImageAtPos } from '../lib/attachment-insert'
   import type { EditorView } from 'prosemirror-view'
 
   // Reactive store of the currently active theme id, set by the theme-init
@@ -103,6 +103,7 @@
    */
   let lastSync: string | null = null
   let _pmEl: HTMLElement | null = null
+  let _dragDropUnlisten: (() => void) | null = null
 
   async function handlePaste(event: ClipboardEvent) {
     if (!editor || !event.clipboardData) return
@@ -140,6 +141,31 @@
       insertAttachmentLink(view, text)
     }
     // 3. Everything else: let ProseMirror handle
+  }
+
+  async function setupDragDrop() {
+    const { getCurrentWebview } = await import('@tauri-apps/api/webview')
+    return getCurrentWebview().onDragDropEvent(async (event) => {
+      if (event.payload.type !== 'drop' || !editor) return
+      const { paths, position } = event.payload
+
+      const view = editor.view as unknown as EditorView
+      let dropPos: number | null = null
+      try {
+        const result = view.posAtCoords({ left: position.x, top: position.y })
+        if (result) dropPos = result.pos
+      } catch { /* fallback: insert at cursor */ }
+
+      for (const path of paths) {
+        if (isImageExt(path)) {
+          dropPos !== null
+            ? insertImageAtPos(view, path, dropPos)
+            : insertImageAtCursor(view, path)
+        } else if (isAttachmentExt(path)) {
+          insertAttachmentLink(view, path, dropPos ?? undefined)
+        }
+      }
+    })
   }
 
   function unwrapIfNeeded(md: string): string {
@@ -470,6 +496,13 @@
         status = 'mounted'
         _pmEl = host!.querySelector('.ProseMirror') as HTMLElement | null
         _pmEl?.addEventListener('paste', handlePaste as EventListener, true)
+
+        // Prevent browser default file drop behaviour
+        host!.addEventListener('dragover', (e) => e.preventDefault())
+        host!.addEventListener('drop',     (e) => e.preventDefault())
+
+        // Tauri native file drag-drop
+        setupDragDrop().then(fn => { _dragDropUnlisten = fn }).catch(console.warn)
       } catch (e) {
         console.error('[RichEditor] mount failed:', e)
         errorMsg = e instanceof Error ? `${e.name}: ${e.message}` : String(e)
@@ -492,6 +525,7 @@
 
   onDestroy(() => {
     _pmEl?.removeEventListener('paste', handlePaste as EventListener, true)
+    _dragDropUnlisten?.()
     if (editor) {
       try {
         const md = editor.getMarkdown()
