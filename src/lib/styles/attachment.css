@@ -109,36 +109,36 @@
   font-size: 0.9em;
 }
 
-/* === Per-category icons via ::before === */
+/* === Per-category icons via ::before (monochrome Unicode) === */
 /* Documents */
-.ProseMirror a[href$=".pdf"]::before  { content: "📄 "; }
+.ProseMirror a[href$=".pdf"]::before  { content: "◻ "; }
 .ProseMirror a[href$=".doc"]::before,
-.ProseMirror a[href$=".docx"]::before { content: "📝 "; }
-.ProseMirror a[href$=".txt"]::before  { content: "📄 "; }
+.ProseMirror a[href$=".docx"]::before { content: "◻ "; }
+.ProseMirror a[href$=".txt"]::before  { content: "≡ "; }
 .ProseMirror a[href$=".csv"]::before,
 .ProseMirror a[href$=".xls"]::before,
-.ProseMirror a[href$=".xlsx"]::before { content: "📊 "; }
+.ProseMirror a[href$=".xlsx"]::before { content: "▤ "; }
 .ProseMirror a[href$=".ppt"]::before,
-.ProseMirror a[href$=".pptx"]::before { content: "📋 "; }
+.ProseMirror a[href$=".pptx"]::before { content: "◻ "; }
 .ProseMirror a[href$=".json"]::before,
-.ProseMirror a[href$=".xml"]::before  { content: "🗒 "; }
+.ProseMirror a[href$=".xml"]::before  { content: "{} "; }
 /* Archives */
 .ProseMirror a[href$=".zip"]::before,
 .ProseMirror a[href$=".gz"]::before,
 .ProseMirror a[href$=".tar"]::before,
 .ProseMirror a[href$=".rar"]::before,
-.ProseMirror a[href$=".7z"]::before   { content: "🗜 "; }
+.ProseMirror a[href$=".7z"]::before   { content: "⊟ "; }
 /* Audio */
 .ProseMirror a[href$=".mp3"]::before,
 .ProseMirror a[href$=".wav"]::before,
 .ProseMirror a[href$=".ogg"]::before,
-.ProseMirror a[href$=".flac"]::before { content: "🎵 "; }
+.ProseMirror a[href$=".flac"]::before { content: "♫ "; }
 /* Video */
 .ProseMirror a[href$=".mp4"]::before,
 .ProseMirror a[href$=".mov"]::before,
 .ProseMirror a[href$=".avi"]::before,
 .ProseMirror a[href$=".mkv"]::before,
-.ProseMirror a[href$=".webm"]::before { content: "🎬 "; }
+.ProseMirror a[href$=".webm"]::before { content: "▷ "; }
 
 /* ── Video link cards (YouTube / Bilibili) ──────────────────────────────────── */
 

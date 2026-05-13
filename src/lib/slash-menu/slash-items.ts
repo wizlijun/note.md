@@ -107,7 +107,7 @@ export const SLASH_ITEMS: SlashItem[] = [
     id: 'insert-image',
     label: '插入图片…',
     keywords: ['image', 'photo', '图片', '图像', 'picture', 'insert'],
-    icon: '🖼',
+    icon: 'img',
     desc: '从本地选择图片文件',
     execute: async (v) => {
       const { open } = await import('@tauri-apps/plugin-dialog')
@@ -124,7 +124,7 @@ export const SLASH_ITEMS: SlashItem[] = [
     id: 'insert-doc',
     label: '插入文档…',
     keywords: ['document', 'file', 'attach', '文档', '文件', '附件'],
-    icon: '📎',
+    icon: 'doc',
     desc: '从本地选择文件作为附件链接',
     execute: async (v) => {
       const { open } = await import('@tauri-apps/plugin-dialog')
