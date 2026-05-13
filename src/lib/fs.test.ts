@@ -26,7 +26,11 @@ describe('classifyPath', () => {
   it('plain-text extensions with empty language', () => {
     expect(classifyPath('foo.txt')).toEqual({ kind: 'code', language: '' })
     expect(classifyPath('foo.log')).toEqual({ kind: 'code', language: '' })
-    expect(classifyPath('foo.csv')).toEqual({ kind: 'code', language: '' })
+  })
+
+  it('spreadsheet extensions', () => {
+    expect(classifyPath('foo.csv')).toEqual({ kind: 'spreadsheet' })
+    expect(classifyPath('foo.tsv')).toEqual({ kind: 'spreadsheet' })
   })
 
   it('special filenames (no extension)', () => {

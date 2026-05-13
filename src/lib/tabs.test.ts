@@ -11,10 +11,11 @@ vi.mock('./fs', () => ({
     if (/\.py$/.test(lower)) return { kind: 'code', language: 'python' }
     if (/\.json$/.test(lower)) return { kind: 'code', language: 'json' }
     if (/\.txt$/.test(lower)) return { kind: 'code', language: '' }
+    if (/\.(csv|tsv)$/.test(lower)) return { kind: 'spreadsheet' }
     if (/\.(png|jpg|jpeg|gif|webp|svg|bmp|heic|heif|avif)$/.test(lower)) return { kind: 'image' }
     return null
   },
-  isSupportedPath: (p: string) => /\.(md|markdown|mdown|mkd|html?|py|json|txt|png|jpg|jpeg|gif|webp|svg|bmp|heic|heif|avif)$/i.test(p),
+  isSupportedPath: (p: string) => /\.(md|markdown|mdown|mkd|html?|py|json|txt|csv|tsv|png|jpg|jpeg|gif|webp|svg|bmp|heic|heif|avif)$/i.test(p),
   looksBinary: (s: string) => s.indexOf('\x00') >= 0,
   modeKeyFor: (p: string) => {
     const base = (p.split('/').pop() ?? p).toLowerCase()
@@ -149,26 +150,33 @@ describe('tabs', () => {
     expect(m.activeId.value).toBe(null)
   })
 
-  it('closeTab dirty → user picks save path → saves to chosen path and closes', async () => {
-    const dialogs = await import('./dialogs')
+  // ── NAMED dirty file: uses the confirm() callback ───────────────────────────
+  it('closeTab named dirty → confirm=save → saves to same path and closes', async () => {
     const fs = await import('./fs')
     const m = await import('./tabs.svelte')
-    vi.mocked(dialogs.pickSaveFile).mockResolvedValueOnce('/tmp/saved.md')
     await m.openFile('/tmp/foo.md')
     const id = m.tabs[0].id
     m.setContent(id, 'edited')
-    const ok = await m.closeTab(id, async () => 'cancel')
+    const ok = await m.closeTab(id, async () => 'save')
     expect(ok).toBe(true)
-    expect(fs.writeMd).toHaveBeenCalledWith('/tmp/saved.md', 'edited')
+    expect(fs.writeMd).toHaveBeenCalledWith('/tmp/foo.md', 'edited')
     expect(m.tabs.length).toBe(0)
   })
 
-  it('closeTab dirty → user cancels save panel + keeps editing → tab stays', async () => {
-    const dialogs = await import('./dialogs')
-    const tauri = await import('@tauri-apps/plugin-dialog')
+  it('closeTab named dirty → confirm=discard → closes without saving', async () => {
+    const fs = await import('./fs')
     const m = await import('./tabs.svelte')
-    vi.mocked(dialogs.pickSaveFile).mockResolvedValueOnce(null)
-    vi.mocked(tauri.ask).mockResolvedValueOnce(false)  // Keep Editing
+    await m.openFile('/tmp/foo.md')
+    const id = m.tabs[0].id
+    m.setContent(id, 'edited')
+    const ok = await m.closeTab(id, async () => 'discard')
+    expect(ok).toBe(true)
+    expect(fs.writeMd).not.toHaveBeenCalled()
+    expect(m.tabs.length).toBe(0)
+  })
+
+  it('closeTab named dirty → confirm=cancel → tab stays', async () => {
+    const m = await import('./tabs.svelte')
     await m.openFile('/tmp/foo.md')
     const id = m.tabs[0].id
     m.setContent(id, 'edited')
@@ -177,16 +185,45 @@ describe('tabs', () => {
     expect(m.tabs.length).toBe(1)
   })
 
-  it('closeTab dirty → user cancels save panel + discards → tab closes without saving', async () => {
+  // ── UNTITLED dirty file: goes straight to NSSavePanel ───────────────────────
+  it('closeTab untitled dirty → user picks save path → saves and closes', async () => {
+    const dialogs = await import('./dialogs')
+    const fs = await import('./fs')
+    const m = await import('./tabs.svelte')
+    vi.mocked(dialogs.pickSaveFile).mockResolvedValueOnce('/tmp/saved.md')
+    m.newFile()
+    const id = m.tabs[0].id
+    m.setContent(id, 'new content')
+    const ok = await m.closeTab(id, async () => 'cancel')
+    expect(ok).toBe(true)
+    expect(fs.writeMd).toHaveBeenCalledWith('/tmp/saved.md', 'new content')
+    expect(m.tabs.length).toBe(0)
+  })
+
+  it('closeTab untitled dirty → cancels save panel + keeps editing → tab stays', async () => {
+    const dialogs = await import('./dialogs')
+    const tauri = await import('@tauri-apps/plugin-dialog')
+    const m = await import('./tabs.svelte')
+    vi.mocked(dialogs.pickSaveFile).mockResolvedValueOnce(null)
+    vi.mocked(tauri.ask).mockResolvedValueOnce(false)  // Keep Editing
+    m.newFile()
+    const id = m.tabs[0].id
+    m.setContent(id, 'new content')
+    const ok = await m.closeTab(id, async () => 'cancel')
+    expect(ok).toBe(false)
+    expect(m.tabs.length).toBe(1)
+  })
+
+  it('closeTab untitled dirty → cancels save panel + discards → closes without saving', async () => {
     const dialogs = await import('./dialogs')
     const tauri = await import('@tauri-apps/plugin-dialog')
     const fs = await import('./fs')
     const m = await import('./tabs.svelte')
     vi.mocked(dialogs.pickSaveFile).mockResolvedValueOnce(null)
     vi.mocked(tauri.ask).mockResolvedValueOnce(true)  // Close without Saving
-    await m.openFile('/tmp/foo.md')
+    m.newFile()
     const id = m.tabs[0].id
-    m.setContent(id, 'edited')
+    m.setContent(id, 'new content')
     const ok = await m.closeTab(id, async () => 'cancel')
     expect(ok).toBe(true)
     expect(fs.writeMd).not.toHaveBeenCalled()
@@ -216,11 +253,9 @@ describe('tabs', () => {
     expect(m.tabs[0].mode).toBe('source')
   })
 
-  it('closeTab dirty non-active tab → save to same path restores original active', async () => {
-    const dialogs = await import('./dialogs')
+  it('closeTab dirty non-active named tab → save=same path restores original active', async () => {
     const fs = await import('./fs')
     const m = await import('./tabs.svelte')
-    vi.mocked(dialogs.pickSaveFile).mockResolvedValueOnce('/tmp/b.md')
     await m.openFile('/tmp/a.md')
     await m.openFile('/tmp/b.md')
     await m.openFile('/tmp/c.md')
@@ -228,7 +263,7 @@ describe('tabs', () => {
     const bId = m.tabs[1].id
     m.activate(aId)             // A is active
     m.setContent(bId, 'edited') // B dirty
-    const ok = await m.closeTab(bId, async () => 'cancel')
+    const ok = await m.closeTab(bId, async () => 'save')
     expect(ok).toBe(true)
     expect(fs.writeMd).toHaveBeenCalledWith('/tmp/b.md', 'edited')
     expect(m.tabs.length).toBe(2)
