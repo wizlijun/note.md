@@ -118,8 +118,6 @@
         return `<span class="h h${level}">${escapeHtml(line)}</span>`
       }
       let out = escapeHtml(line) || ' '
-      out = out.replace(/(\^\^)([^^]+)(\^\^)/g, '<span class="hl-mark">$1$2$3</span>')
-      out = out.replace(/(==)([^=\n]+)(==)/g, '<span class="hl-mark">$1$2$3</span>')
       return out
     })
     // Trailing space ensures pre matches textarea height when value ends with newline
@@ -582,9 +580,5 @@
   .host textarea::selection {
     background: color-mix(in srgb, #4a90e2 35%, transparent);
     color: transparent;
-  }
-  :global(.hl-mark) {
-    background: #fff176;
-    border-radius: 2px;
   }
 </style>
