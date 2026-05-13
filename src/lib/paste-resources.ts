@@ -103,3 +103,60 @@ export async function migrateTempResources(
   }
   return result
 }
+
+// ── Tauri-dependent section ───────────────────────────────────────────────────
+
+const SESSION_ID = Math.random().toString(36).slice(2, 10)
+let _cachedTempDir: string | null = null
+
+/** Returns the per-session temp directory for clipboard resources. Cached after first call. */
+export async function getTempDir(): Promise<string> {
+  if (_cachedTempDir) return _cachedTempDir
+  const { appLocalDataDir } = await import('@tauri-apps/api/path')
+  const base = (await appLocalDataDir()).replace(/\\/g, '/').replace(/\/$/, '')
+  _cachedTempDir = `${base}/paste-temp/${SESSION_ID}`
+  return _cachedTempDir
+}
+
+/**
+ * Save a clipboard File to disk and return the path to use in markdown.
+ *
+ * Named doc   → saves to {docDir}/{basename}_files/, returns relative path
+ * Untitled doc → saves to temp dir, returns absolute path (migrated on first save)
+ */
+export async function saveClipboardResource(
+  file: File,
+  docFilePath: string,  // empty string = untitled
+): Promise<string> {
+  const filename = resourceFilename(file.type || extOf(file.name) || 'bin')
+
+  let targetDir: string
+  let returnRelative: boolean
+
+  if (docFilePath) {
+    targetDir = filesDir(docFilePath)
+    returnRelative = true
+  } else {
+    targetDir = await getTempDir()
+    returnRelative = false
+  }
+
+  const absPath = `${targetDir}/${filename}`
+
+  // Encode to base64
+  const buf = await file.arrayBuffer()
+  const bytes = new Uint8Array(buf)
+  let binary = ''
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i])
+  const base64 = btoa(binary)
+
+  const { invoke } = await import('@tauri-apps/api/core')
+  await invoke('write_file_binary', { path: absPath, base64Data: base64 })
+
+  if (returnRelative) {
+    const norm = docFilePath.replace(/\\/g, '/')
+    const docBasename = norm.replace(/^.*\//, '').replace(/\.[^.]+$/, '')
+    return `${docBasename}_files/${filename}`
+  }
+  return absPath
+}
