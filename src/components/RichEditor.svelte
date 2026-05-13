@@ -17,6 +17,7 @@
   import ImageToolbar from '../lib/image-toolbar/ImageToolbar.svelte'
   import { saveClipboardResource, isAttachmentUrl, isImageExt, isAttachmentExt } from '../lib/paste-resources'
   import { insertImageAtCursor, insertAttachmentLink, insertImageAtPos } from '../lib/attachment-insert'
+  import { isVideoUrl, fetchVideoInfo } from '../lib/video-links'
   import type { EditorView } from 'prosemirror-view'
 
   // Reactive store of the currently active theme id, set by the theme-init
@@ -140,8 +141,35 @@
       }
     }
 
-    // ── 2. URL with attachment extension ──
+    // ── 2. URL paste (video or attachment) ──
     const text = event.clipboardData.getData('text/plain')?.trim()
+    if (text && isVideoUrl(text) && /^https?:\/\//.test(text)) {
+      event.preventDefault()
+      event.stopImmediatePropagation()
+      const view = editor.view as unknown as EditorView
+      // Insert placeholder link immediately
+      insertAttachmentLink(view, text)
+      // Async: fetch real title and replace the placeholder link text
+      fetchVideoInfo(text).then(info => {
+        if (!info || !editor) return
+        const v = editor.view as unknown as EditorView
+        const { doc } = v.state
+        let replaceTr = v.state.tr
+        let updated = false
+        doc.descendants((node, pos) => {
+          if (updated) return false
+          const linkMark = node.marks.find(m => m.type.name === 'link' && m.attrs.href === text)
+          if (linkMark && node.isText && node.text === text) {
+            const newText = v.state.schema.text(info.title, node.marks)
+            replaceTr = replaceTr.replaceWith(pos, pos + node.nodeSize, newText)
+            updated = true
+            return false
+          }
+        })
+        if (updated) v.dispatch(replaceTr)
+      }).catch(() => {})
+      return
+    }
     if (text && isAttachmentUrl(text)) {
       try { new URL(text) } catch { return }
       event.preventDefault()
@@ -206,6 +234,19 @@
     }
 
     showImageToolbar = true
+  }
+
+  function handleVideoLinkClick(event: MouseEvent) {
+    const target = event.target as HTMLElement
+    const anchor = target.closest('a[href]') as HTMLAnchorElement | null
+    if (!anchor) return
+    const href = anchor.getAttribute('href') || ''
+    if (!isVideoUrl(href)) return
+    event.preventDefault()
+    event.stopImmediatePropagation()
+    import('@tauri-apps/plugin-opener')
+      .then(({ openUrl }) => openUrl(href))
+      .catch(() => {})
   }
 
   function handleToolbarResize(width: string) {
@@ -551,6 +592,7 @@
         _pmEl = host!.querySelector('.ProseMirror') as HTMLElement | null
         _pmEl?.addEventListener('paste', handlePaste as EventListener, true)
         _pmEl?.addEventListener('click', handleImageClick as EventListener)
+        _pmEl?.addEventListener('click', handleVideoLinkClick as EventListener, true)
 
         // Prevent browser default file drop behaviour
         _dragoverHandler = (e) => e.preventDefault()
@@ -594,6 +636,7 @@
   onDestroy(() => {
     _pmEl?.removeEventListener('paste', handlePaste as EventListener, true)
     _pmEl?.removeEventListener('click', handleImageClick as EventListener)
+    _pmEl?.removeEventListener('click', handleVideoLinkClick as EventListener, true)
     _dragDropUnlisten?.()
     host?.removeEventListener('dragover', _dragoverHandler!)
     host?.removeEventListener('drop',     _dropHandler!)
