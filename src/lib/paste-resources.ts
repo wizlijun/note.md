@@ -68,3 +68,38 @@ export function findTempRefs(
   }
   return refs
 }
+
+/**
+ * Move all resources under tempDir to {docBasename}_files/, update markdown refs.
+ * Silently keeps absolute paths for any file that fails to move.
+ */
+export async function migrateTempResources(
+  markdown: string,
+  tempDir: string,
+  newDocFilePath: string,
+): Promise<string> {
+  const refs = findTempRefs(markdown, tempDir)
+  if (refs.length === 0) return markdown
+
+  const norm = newDocFilePath.replace(/\\/g, '/')
+  const docDir = norm.replace(/\/[^/]+$/, '')
+  const docBasenameWithExt = norm.replace(/^.*\//, '')
+  const docBasename = docBasenameWithExt.replace(/\.[^.]+$/, '')
+  const targetDir = `${docDir}/${docBasename}_files`
+
+  const { invoke } = await import('@tauri-apps/api/core')
+  let result = markdown
+
+  for (const { absPath } of refs) {
+    const filename = absPath.replace(/^.*\//, '')
+    const newAbsPath = `${targetDir}/${filename}`
+    const relPath = `${docBasename}_files/${filename}`
+    try {
+      await invoke('rename_file', { oldPath: absPath, newPath: newAbsPath })
+      result = result.replaceAll(absPath, relPath)
+    } catch {
+      // leave absolute path intact — file stays in temp dir
+    }
+  }
+  return result
+}

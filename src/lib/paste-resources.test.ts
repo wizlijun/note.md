@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import {
   IMAGE_EXTENSIONS,
   ATTACHMENT_EXTENSIONS,
@@ -142,5 +142,47 @@ describe('findTempRefs', () => {
 
   it('returns empty array when no temp refs', () => {
     expect(findTempRefs('plain text', tempDir)).toHaveLength(0)
+  })
+})
+
+vi.mock('@tauri-apps/api/core', () => ({
+  invoke: vi.fn().mockResolvedValue(undefined),
+}))
+
+describe('migrateTempResources', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('migrates image refs and returns updated markdown', async () => {
+    const { invoke } = await import('@tauri-apps/api/core')
+    const { migrateTempResources } = await import('./paste-resources')
+
+    const md = '![alt](/tmp/mdeditor-paste/s1/image-1.png)\n\nSome text.'
+    const result = await migrateTempResources(md, '/tmp/mdeditor-paste/s1', '/docs/report.md')
+
+    expect(invoke).toHaveBeenCalledWith('rename_file', {
+      oldPath: '/tmp/mdeditor-paste/s1/image-1.png',
+      newPath: '/docs/report_files/image-1.png',
+    })
+    expect(result).toContain('report_files/image-1.png')
+    expect(result).not.toContain('/tmp/mdeditor-paste')
+  })
+
+  it('returns unchanged markdown when no temp refs', async () => {
+    const { migrateTempResources } = await import('./paste-resources')
+    const md = '![alt](./images/photo.png)'
+    const result = await migrateTempResources(md, '/tmp/mdeditor-paste/s1', '/docs/report.md')
+    expect(result).toBe(md)
+  })
+
+  it('keeps absolute path when rename_file throws', async () => {
+    const { invoke } = await import('@tauri-apps/api/core')
+    vi.mocked(invoke).mockRejectedValueOnce(new Error('Permission denied'))
+    const { migrateTempResources } = await import('./paste-resources')
+
+    const md = '![alt](/tmp/mdeditor-paste/s1/image-1.png)'
+    const result = await migrateTempResources(md, '/tmp/mdeditor-paste/s1', '/docs/report.md')
+    expect(result).toBe(md)
   })
 })
