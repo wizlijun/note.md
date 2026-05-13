@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest'
 import { SLASH_ITEMS, filterSlashItems } from './slash-items'
 
 describe('SLASH_ITEMS', () => {
-  it('has 12 items', () => {
-    expect(SLASH_ITEMS).toHaveLength(12)
+  it('has 14 items', () => {
+    expect(SLASH_ITEMS).toHaveLength(14)
   })
   it('every item has id, label, keywords, icon, desc, execute', () => {
     for (const item of SLASH_ITEMS) {
@@ -23,7 +23,7 @@ describe('SLASH_ITEMS', () => {
 
 describe('filterSlashItems', () => {
   it('returns all items for empty query', () => {
-    expect(filterSlashItems('')).toHaveLength(12)
+    expect(filterSlashItems('')).toHaveLength(14)
   })
   it('filters by label (Chinese)', () => {
     const result = filterSlashItems('代码')

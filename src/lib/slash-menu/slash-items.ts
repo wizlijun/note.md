@@ -14,7 +14,7 @@ export interface SlashItem {
   keywords: string[]
   icon: string
   desc: string
-  execute: (view: EditorView) => void
+  execute: (view: EditorView) => void | Promise<void>
 }
 
 // ── schema-aware helpers ──────────────────────────────────────────────────────
@@ -95,7 +95,48 @@ function wrapTaskList(v: EditorView) {
 
 // ── item definitions ──────────────────────────────────────────────────────────
 
+const IMAGE_EXTS = ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp', 'ico', 'tiff', 'tif', 'avif']
+const DOC_EXTS   = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx',
+                    'zip', 'gz', 'tar', 'rar', '7z',
+                    'mp3', 'wav', 'ogg', 'flac',
+                    'mp4', 'mov', 'avi', 'mkv', 'webm',
+                    'txt', 'csv', 'json', 'xml']
+
 export const SLASH_ITEMS: SlashItem[] = [
+  {
+    id: 'insert-image',
+    label: '插入图片…',
+    keywords: ['image', 'photo', '图片', '图像', 'picture', 'insert'],
+    icon: '🖼',
+    desc: '从本地选择图片文件',
+    execute: async (v) => {
+      const { open } = await import('@tauri-apps/plugin-dialog')
+      const result = await open({
+        multiple: false,
+        filters: [{ name: '图片', extensions: IMAGE_EXTS }],
+      })
+      if (typeof result !== 'string') return
+      const { insertImageAtCursor } = await import('../attachment-insert')
+      insertImageAtCursor(v, result)
+    },
+  },
+  {
+    id: 'insert-doc',
+    label: '插入文档…',
+    keywords: ['document', 'file', 'attach', '文档', '文件', '附件'],
+    icon: '📎',
+    desc: '从本地选择文件作为附件链接',
+    execute: async (v) => {
+      const { open } = await import('@tauri-apps/plugin-dialog')
+      const result = await open({
+        multiple: false,
+        filters: [{ name: '文档与文件', extensions: DOC_EXTS }],
+      })
+      if (typeof result !== 'string') return
+      const { insertAttachmentLink } = await import('../attachment-insert')
+      insertAttachmentLink(v, result)
+    },
+  },
   {
     id: 'h1',
     label: '标题 1',
