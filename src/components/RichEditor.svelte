@@ -14,6 +14,7 @@
   } from '../lib/mdblock-hover/hover-store.svelte'
   import { settings } from '../lib/settings.svelte'
   import '../lib/styles/attachment.css'
+  import ImageToolbar from '../lib/image-toolbar/ImageToolbar.svelte'
   import { saveClipboardResource, isAttachmentUrl, isImageExt, isAttachmentExt } from '../lib/paste-resources'
   import { insertImageAtCursor, insertAttachmentLink, insertImageAtPos } from '../lib/attachment-insert'
   import type { EditorView } from 'prosemirror-view'
@@ -108,6 +109,11 @@
   let _dragoverHandler: ((e: Event) => void) | null = null
   let _dropHandler: ((e: Event) => void) | null = null
 
+  let showImageToolbar = $state(false)
+  let imageToolbarPosition = $state({ top: 0, left: 0 })
+  let imageToolbarCurrentWidth = $state('')
+  let imageToolbarTargetPos = $state<number | null>(null)
+
   async function handlePaste(event: ClipboardEvent) {
     if (!editor || !event.clipboardData) return
 
@@ -169,6 +175,50 @@
         }
       }
     })
+  }
+
+  function handleImageClick(event: MouseEvent) {
+    const target = event.target as HTMLElement
+    if (target.tagName !== 'IMG') {
+      showImageToolbar = false
+      return
+    }
+
+    const imgEl = target as HTMLImageElement
+    const rect = imgEl.getBoundingClientRect()
+    imageToolbarPosition = {
+      top:  rect.top - 36,
+      left: rect.left + rect.width / 2,
+    }
+
+    const titleAttr = imgEl.getAttribute('title') || ''
+    const widthMatch = titleAttr.match(/^width=(\d+%?)$/)
+    imageToolbarCurrentWidth = widthMatch ? widthMatch[1] : ''
+
+    if (editor) {
+      try {
+        const view = editor.view as unknown as import('prosemirror-view').EditorView
+        const pos = view.posAtDOM(imgEl, 0)
+        imageToolbarTargetPos = pos
+      } catch {
+        imageToolbarTargetPos = null
+      }
+    }
+
+    showImageToolbar = true
+  }
+
+  function handleToolbarResize(width: string) {
+    if (!editor || imageToolbarTargetPos === null) return
+    try {
+      const view = editor.view as unknown as import('prosemirror-view').EditorView
+      const pos = imageToolbarTargetPos!
+      const node = view.state.doc.nodeAt(pos)
+      if (!node || node.type.name !== 'image') return
+      const title = width ? `width=${width}` : ''
+      view.dispatch(view.state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, title }))
+    } catch { /* ignore */ }
+    imageToolbarCurrentWidth = width
   }
 
   function unwrapIfNeeded(md: string): string {
@@ -500,6 +550,7 @@
         status = 'mounted'
         _pmEl = host!.querySelector('.ProseMirror') as HTMLElement | null
         _pmEl?.addEventListener('paste', handlePaste as EventListener, true)
+        _pmEl?.addEventListener('click', handleImageClick as EventListener)
 
         // Prevent browser default file drop behaviour
         _dragoverHandler = (e) => e.preventDefault()
@@ -542,6 +593,7 @@
 
   onDestroy(() => {
     _pmEl?.removeEventListener('paste', handlePaste as EventListener, true)
+    _pmEl?.removeEventListener('click', handleImageClick as EventListener)
     _dragDropUnlisten?.()
     host?.removeEventListener('dragover', _dragoverHandler!)
     host?.removeEventListener('drop',     _dropHandler!)
@@ -576,6 +628,14 @@
     {/if}
     <div class="host" data-theme={activeThemeId} bind:this={host}></div>
   </div>
+  {#if showImageToolbar}
+    <ImageToolbar
+      position={imageToolbarPosition}
+      currentWidth={imageToolbarCurrentWidth}
+      onResize={handleToolbarResize}
+      onClose={() => { showImageToolbar = false }}
+    />
+  {/if}
 </div>
 
 <style>
