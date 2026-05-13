@@ -188,5 +188,26 @@
   .grid-wrap :global(revo-grid) {
     height: 100%;
     width: 100%;
+    /* Data cells always white */
+    --revo-grid-background: #fff;
+    --revo-grid-foreground: #000;
+    --revo-grid-text: #000;
+  }
+
+  /* Headers adapt to dark mode; data cells stay white */
+  @media (prefers-color-scheme: dark) {
+    .grid-wrap :global(revo-grid) {
+      --revo-grid-header-bg: #2d2f33;
+      --revo-grid-header-color: #c8ccd4;
+      --revo-grid-header-border: #505356;
+      --revo-grid-row-headers-bg: #2d2f33;
+      --revo-grid-row-headers-color: #c8ccd4;
+      --revo-grid-cell-border: #d0d0d0;
+      --revo-grid-border: rgba(255, 255, 255, 0.12);
+      /* Keep data cells white */
+      --revo-grid-background: #fff;
+      --revo-grid-foreground: #000;
+      --revo-grid-text: #000;
+    }
   }
 </style>
