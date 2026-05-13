@@ -40,4 +40,12 @@ describe('evaluateGrid', () => {
     const grid = [['normal', '=B1']]
     expect(evaluateGrid(grid)[0][1]).toBe('0')
   })
+
+  it('handles column refs beyond Z (AA, AB)', () => {
+    // Build a 28-column grid; cell in col AA (index 26) = row 0
+    const row: string[] = Array(28).fill('0')
+    row[26] = '99'  // column AA
+    const grid = [row, ['=AA1']]
+    expect(evaluateGrid(grid)[1][0]).toBe('99')
+  })
 })

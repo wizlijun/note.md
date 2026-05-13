@@ -47,7 +47,12 @@ function resolveRefs(expr: string, grid: string[][]): string {
 }
 
 function colIdx(col: string): number {
-  return col.toUpperCase().charCodeAt(0) - 65
+  const upper = col.toUpperCase()
+  let idx = 0
+  for (let i = 0; i < upper.length; i++) {
+    idx = idx * 26 + (upper.charCodeAt(i) - 64)
+  }
+  return idx - 1
 }
 
 function parseRef(ref: string): [number, number] {

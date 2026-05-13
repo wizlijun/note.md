@@ -48,7 +48,14 @@
   )
 
   function colLabel(ci: number): string {
-    return String.fromCharCode(65 + ci)
+    let name = ''
+    let n = ci + 1
+    while (n > 0) {
+      n--
+      name = String.fromCharCode(65 + (n % 26)) + name
+      n = Math.floor(n / 26)
+    }
+    return name
   }
 
   // Handle cell edit commit — update rawGrid with raw value, propagate
