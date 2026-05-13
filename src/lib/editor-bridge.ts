@@ -3,6 +3,7 @@ import { createEditor as coreCreateEditor, setDocumentBaseDir, type MorayaEditor
 import { tauriMediaResolver } from './adapters/tauri-media-resolver'
 import { tauriLinkOpener } from './adapters/tauri-link-opener'
 import { rendererRegistry } from './adapters/renderer-registry'
+import { spreadsheetFactory } from './adapters/spreadsheet-factory'
 import { activeTab } from './tabs.svelte'
 
 const platform = {
@@ -46,6 +47,7 @@ export async function mountRichEditor(
     rendererRegistry,
     linkOpener: tauriLinkOpener,
     platform,
+    spreadsheetViewFactory: spreadsheetFactory,
     enableMath: true,
     enableMermaid: true,
     enableTableResize: true,
