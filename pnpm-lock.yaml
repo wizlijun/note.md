@@ -69,6 +69,9 @@ importers:
       happy-dom:
         specifier: ^20.9.0
         version: 20.9.0
+      prosemirror-model:
+        specifier: 1.25.4
+        version: 1.25.4
       prosemirror-state:
         specifier: ^1.4.4
         version: 1.4.4
