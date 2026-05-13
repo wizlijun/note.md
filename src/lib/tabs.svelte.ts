@@ -85,9 +85,11 @@ export function newFile(): void {
   const bodyEnd = content.length
   if (bodyStart > 2) {
     queueMicrotask(() => {
-      window.dispatchEvent(new CustomEvent('mdeditor:new-file-select', {
-        detail: { start: bodyStart, end: bodyEnd },
-      }))
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('mdeditor:new-file-select', {
+          detail: { start: bodyStart, end: bodyEnd },
+        }))
+      }
     })
   }
 }
