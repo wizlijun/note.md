@@ -394,6 +394,73 @@
   text-decoration: line-through;
 }
 
+/* ── Lists (bullet / ordered / task) ───────────────────────────────────── */
+/* Baseline so that lists are always legible even when a theme forgets to
+ * style them. Themes can override these via their own `.moraya-editor ul/ol`
+ * selectors (equal specificity, later cascade wins). Task-list rules below
+ * use `[data-item-type="task"]`, which no theme touches, so they always
+ * render — that's the only way the schema's checkbox semantics surface
+ * visually (the toDOM emits data-* attributes but no <input>). */
+
+.moraya-editor ul,
+.moraya-editor ol {
+  padding-left: 1.6em;
+  margin: 0.6em 0;
+}
+.moraya-editor ul       { list-style: disc; }
+.moraya-editor ul ul    { list-style: circle; }
+.moraya-editor ul ul ul { list-style: square; }
+.moraya-editor ol       { list-style: decimal; }
+.moraya-editor li       { margin: 0.2em 0; }
+/* Inside a list item the schema always wraps content in <p>; tighten its
+ * vertical rhythm so list items don't look double-spaced. */
+.moraya-editor li > p   { margin: 0; }
+
+/* Task list item — `data-item-type="task"` is the only marker the schema
+ * exposes. We draw the checkbox ourselves because the schema doesn't emit
+ * an <input> element. The checkbox sits in the marker slot (absolute, left:0)
+ * with the text indented past it so alignment is independent of the parent
+ * ul's padding (which a theme might override). */
+.moraya-editor li[data-item-type="task"] {
+  list-style: none;
+  position: relative;
+  padding-left: 1.5em;
+}
+.moraya-editor li[data-item-type="task"]::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.35em;
+  width: 0.95em;
+  height: 0.95em;
+  border: 1.5px solid color-mix(in srgb, CanvasText 55%, transparent);
+  border-radius: 3px;
+  background: Canvas;
+  box-sizing: border-box;
+  transition: background-color 0.12s ease, border-color 0.12s ease;
+}
+.moraya-editor li[data-item-type="task"][data-checked="true"]::before {
+  background: AccentColor;
+  border-color: AccentColor;
+}
+/* Checkmark — two rotated borders form a tick. */
+.moraya-editor li[data-item-type="task"][data-checked="true"]::after {
+  content: '';
+  position: absolute;
+  left: 0.3em;
+  top: 0.5em;
+  width: 0.3em;
+  height: 0.55em;
+  border-right: 2px solid Canvas;
+  border-bottom: 2px solid Canvas;
+  transform: rotate(45deg);
+  pointer-events: none;
+}
+.moraya-editor li[data-item-type="task"][data-checked="true"] > p {
+  text-decoration: line-through;
+  color: color-mix(in srgb, CanvasText 55%, transparent);
+}
+
 /* ── Search highlight decorations ──────────────────────────────────────── */
 
 .search-highlight {
