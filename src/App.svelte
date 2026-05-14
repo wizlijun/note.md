@@ -19,6 +19,8 @@
   import { startAutoSaveWatcher } from './lib/autosave.svelte'
   import { installFocusPoll } from './lib/file-watcher.svelte'
   import SettingsDialog from './components/SettingsDialog.svelte'
+  import UpdateBanner from './components/UpdateBanner.svelte'
+  import UpdateDialog from './components/UpdateDialog.svelte'
   import Toast from './components/Toast.svelte'
   import FindReplace from './components/FindReplace.svelte'
   import { openFind, openFindReplace } from './lib/find-replace.svelte'
@@ -38,6 +40,7 @@
   import type { PluginManifest, EnabledWhenContext } from './lib/plugins/types'
 
   let showSettings = $state(false)
+  let showUpdateDialog = $state(false)
   let collectedItems = $derived<CollectedItems>(collectMenuItems(pluginRuntime.manifests))
   // Tracks last applied enabled state per menu-item id, so we only invoke the
   // Tauri command when something actually changes.
@@ -82,6 +85,17 @@
 
     ;(async () => {
       try { await loadSettings() } catch (e) { console.warn('[App] loadSettings:', e) }
+
+      // Kick off auto-update check (1.5s delay built in, 20h cache).
+      // Fire-and-forget — failures stay silent in the banner; Settings shows them.
+      void (async () => {
+        try {
+          const { initUpdater } = await import('./lib/updater.svelte')
+          await initUpdater()
+        } catch (e) {
+          console.warn('[App] updater init:', e)
+        }
+      })()
       try {
         const { installHoverInvalidator } = await import('./lib/mdblock-hover/hover-store.svelte')
         installHoverInvalidator()
@@ -455,6 +469,7 @@
 </script>
 
 <main>
+  <UpdateBanner onShowDetails={() => (showUpdateDialog = true)} />
   <TabBar />
   <Toast />
   <FindReplace />
@@ -469,6 +484,7 @@
     {/if}
   </section>
   <SettingsDialog bind:open={showSettings} />
+  <UpdateDialog bind:open={showUpdateDialog} />
 </main>
 
 <style>

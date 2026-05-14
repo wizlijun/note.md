@@ -67,6 +67,9 @@
         { "url": "https://**" },
         { "url": "http://**" }
       ]
-    }
+    },
+    "updater:default",
+    "process:default",
+    "process:allow-restart"
   ]
 }

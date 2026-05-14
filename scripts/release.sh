@@ -2,15 +2,18 @@
 #
 # One-shot release helper for M↓.
 #
-#   scripts/release.sh <version> [--universal] [--draft] [--prerelease]
+#   scripts/release.sh <version> [--draft] [--prerelease]
 #
 # Examples:
 #   scripts/release.sh 0.1.1
-#   scripts/release.sh 0.2.0 --universal
 #   scripts/release.sh 0.2.0-rc1 --prerelease    # not supported (semver only)
 #
+# Builds are ALWAYS a single macOS universal `.dmg` (Intel + Apple Silicon).
+# Per-arch builds are no longer supported.
+#
 # Steps:
-#   pre-flight → tests → bump versions → signed build → tag → push → GitHub release
+#   pre-flight → tests → bump versions → signed universal build → updater artifacts
+#   → latest.json manifest → tag → push → GitHub release (upload dmg + .app.tar.gz + .sig + latest.json)
 #
 # Environment (auto-loaded from `.env.release` in repo root if present):
 #   APPLE_TEAM_ID   default: T5G56DH47L (Wuhan Fulin). Used to locate the
@@ -20,10 +23,16 @@
 #   APPLE_PASSWORD      App-specific password (not the actual Apple ID password).
 #   GH_REPO         default: wizlijun/MdEditor
 #
+# Updater signing (required — release will fail without these):
+#   TAURI_SIGNING_PRIVATE_KEY           private key string OR
+#   TAURI_SIGNING_PRIVATE_KEY_PATH      path to private key file (default: ~/.tauri/mdeditor.key)
+#   TAURI_SIGNING_PRIVATE_KEY_PASSWORD  optional, leave unset if no password
+#
 # When all three notarization vars are set AND the signing cert is Developer ID,
 # Tauri's bundler runs `notarytool` automatically and the resulting .dmg passes
 # Gatekeeper on first launch. Missing any var → unsigned/uninspected → user
-# sees the "unidentified developer" warning.
+# sees the "unidentified developer" warning, AND auto-update will fail because
+# the replacement .app gets blocked.
 
 set -euo pipefail
 
@@ -43,13 +52,16 @@ if [[ -f "$ROOT/.env.release" ]]; then
   set +a
 fi
 
+say() { printf '\033[1;34m▸\033[0m %s\n' "$*"; }
+die() { printf '\033[1;31m✗\033[0m %s\n' "$*" >&2; exit 1; }
+
 # ---------- args ----------
 
 VERSION="${1:-}"; shift || true
-UNIVERSAL=0; DRAFT=0; PRERELEASE=0
+DRAFT=0; PRERELEASE=0
 for arg in "$@"; do
   case "$arg" in
-    --universal)  UNIVERSAL=1  ;;
+    --universal)  ;;  # accepted but ignored — universal is the only mode now
     --draft)      DRAFT=1      ;;
     --prerelease) PRERELEASE=1 ;;
     *) echo "unknown flag: $arg" >&2; exit 2 ;;
@@ -57,7 +69,7 @@ for arg in "$@"; do
 done
 
 if [[ -z "$VERSION" ]]; then
-  echo "usage: $0 <version> [--universal] [--draft] [--prerelease]" >&2
+  echo "usage: $0 <version> [--draft] [--prerelease]" >&2
   exit 2
 fi
 if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
@@ -69,10 +81,21 @@ TAG="v$VERSION"
 APPLE_TEAM_ID="${APPLE_TEAM_ID:-T5G56DH47L}"
 GH_REPO="${GH_REPO:-wizlijun/MdEditor}"
 
-cd "$ROOT"
+# Resolve Tauri updater signing key. Prefer explicit env, then path env, then default file.
+if [[ -z "${TAURI_SIGNING_PRIVATE_KEY:-}" ]]; then
+  TAURI_SIGNING_PRIVATE_KEY_PATH="${TAURI_SIGNING_PRIVATE_KEY_PATH:-$HOME/.tauri/mdeditor.key}"
+  if [[ ! -f "$TAURI_SIGNING_PRIVATE_KEY_PATH" ]]; then
+    die "updater private key not found at $TAURI_SIGNING_PRIVATE_KEY_PATH
 
-say() { printf '\033[1;34m▸\033[0m %s\n' "$*"; }
-die() { printf '\033[1;31m✗\033[0m %s\n' "$*" >&2; exit 1; }
+Either set TAURI_SIGNING_PRIVATE_KEY in .env.release, or generate a fresh keypair:
+  pnpm tauri signer generate -w ~/.tauri/mdeditor.key
+and put the matching public key into src-tauri/tauri.conf.json (plugins.updater.pubkey)."
+  fi
+  export TAURI_SIGNING_PRIVATE_KEY="$(cat "$TAURI_SIGNING_PRIVATE_KEY_PATH")"
+fi
+export TAURI_SIGNING_PRIVATE_KEY_PASSWORD="${TAURI_SIGNING_PRIVATE_KEY_PASSWORD:-}"
+
+cd "$ROOT"
 
 # ---------- pre-flight ----------
 
@@ -195,20 +218,11 @@ pnpm build:mdshare
 say "building md2pdf plugin binaries"
 pnpm build:md2pdf
 
-if (( UNIVERSAL )); then
-  rustup target add x86_64-apple-darwin aarch64-apple-darwin >/dev/null 2>&1 || true
-  APPLE_SIGNING_IDENTITY="$APPLE_SIGNING_IDENTITY" pnpm tauri build --target universal-apple-darwin
-  DMG_DIR="src-tauri/target/universal-apple-darwin/release/bundle/dmg"
-  ARCH_TAG="universal"
-else
-  APPLE_SIGNING_IDENTITY="$APPLE_SIGNING_IDENTITY" pnpm tauri build
-  DMG_DIR="src-tauri/target/release/bundle/dmg"
-  case "$(uname -m)" in
-    arm64)  ARCH_TAG="aarch64" ;;
-    x86_64) ARCH_TAG="x86_64"  ;;
-    *) die "unknown arch: $(uname -m)" ;;
-  esac
-fi
+rustup target add x86_64-apple-darwin aarch64-apple-darwin >/dev/null 2>&1 || true
+APPLE_SIGNING_IDENTITY="$APPLE_SIGNING_IDENTITY" pnpm tauri build --target universal-apple-darwin
+BUNDLE_DIR="src-tauri/target/universal-apple-darwin/release/bundle"
+DMG_DIR="$BUNDLE_DIR/dmg"
+ARCH_TAG="universal"
 
 DMG_PATH=$(find "$DMG_DIR" -maxdepth 1 -type f -name "*_${VERSION}_${ARCH_TAG}.dmg" -print -quit)
 [[ -n "$DMG_PATH" && -f "$DMG_PATH" ]] || die "dmg not found in $DMG_DIR"
@@ -217,6 +231,23 @@ ASSET_NAME="MdEditor-${VERSION}-${ARCH_TAG}.dmg"
 STAGED="/tmp/$ASSET_NAME"
 cp "$DMG_PATH" "$STAGED"
 echo "    built: $STAGED ($(du -h "$STAGED" | cut -f1))"
+
+# Tauri's bundler writes the updater artifact next to the .app bundle in
+# bundle/macos/ (createUpdaterArtifacts=true required, which we set in
+# tauri.conf.json). It's a .app.tar.gz with a sibling .sig.
+UPDATER_TARBALL=$(find "$BUNDLE_DIR/macos" -maxdepth 1 -type f -name "*.app.tar.gz" -print -quit)
+UPDATER_SIG=$(find "$BUNDLE_DIR/macos" -maxdepth 1 -type f -name "*.app.tar.gz.sig" -print -quit)
+[[ -n "$UPDATER_TARBALL" && -f "$UPDATER_TARBALL" ]] \
+  || die "updater tarball not found in $BUNDLE_DIR/macos — is createUpdaterArtifacts enabled and TAURI_SIGNING_PRIVATE_KEY set?"
+[[ -n "$UPDATER_SIG" && -f "$UPDATER_SIG" ]] \
+  || die "updater signature not found — Tauri did not sign the tarball"
+
+UPDATER_TARBALL_STAGED="/tmp/MdEditor.app.tar.gz"
+UPDATER_SIG_STAGED="/tmp/MdEditor.app.tar.gz.sig"
+cp "$UPDATER_TARBALL" "$UPDATER_TARBALL_STAGED"
+cp "$UPDATER_SIG" "$UPDATER_SIG_STAGED"
+SIG_CONTENT="$(cat "$UPDATER_SIG_STAGED")"
+echo "    updater: $UPDATER_TARBALL_STAGED ($(du -h "$UPDATER_TARBALL_STAGED" | cut -f1))"
 
 # ---------- commit, tag, push ----------
 
@@ -267,11 +298,36 @@ EXTRA=()
 (( DRAFT ))      && EXTRA+=(--draft)
 (( PRERELEASE )) && EXTRA+=(--prerelease)
 
+# Generate latest.json — the updater manifest that the app polls. Both darwin
+# arch keys point to the same universal tarball because the .app bundle inside
+# is a fat binary that runs natively on Intel and Apple Silicon.
+TARBALL_URL="https://github.com/$GH_REPO/releases/download/$TAG/MdEditor.app.tar.gz"
+PUB_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+LATEST_JSON_STAGED="/tmp/latest.json"
+python3 - "$VERSION" "$PUB_DATE" "$TARBALL_URL" "$SIG_CONTENT" "$TAG" "$GH_REPO" > "$LATEST_JSON_STAGED" <<'PY'
+import json, sys
+version, pub_date, url, signature, tag, repo = sys.argv[1:7]
+manifest = {
+    "version": version,
+    "notes": f"See https://github.com/{repo}/releases/tag/{tag}",
+    "pub_date": pub_date,
+    "platforms": {
+        "darwin-x86_64": {"signature": signature, "url": url},
+        "darwin-aarch64": {"signature": signature, "url": url},
+    },
+}
+print(json.dumps(manifest, indent=2))
+PY
+echo "    manifest: $LATEST_JSON_STAGED"
+
 gh -R "$GH_REPO" release create "$TAG" \
   --title "M↓ $VERSION" \
   --notes "$NOTES" \
   "${EXTRA[@]}" \
-  "$STAGED"
+  "$STAGED" \
+  "$UPDATER_TARBALL_STAGED" \
+  "$UPDATER_SIG_STAGED" \
+  "$LATEST_JSON_STAGED"
 
 URL=$(gh -R "$GH_REPO" release view "$TAG" --json url -q .url)
 printf '\033[1;32m✓\033[0m released: %s\n' "$URL"

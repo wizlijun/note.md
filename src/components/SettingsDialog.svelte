@@ -3,6 +3,11 @@
   import { onMount } from 'svelte'
   import { ask, open as openFilePicker } from '@tauri-apps/plugin-dialog'
   import { settings, saveSettings, getPluginScopedAll, mergePluginScoped, pluginScopedVersion } from '../lib/settings.svelte'
+  import {
+    updater as updaterState, runCheck as updaterRunCheck, setCheckOnStartup,
+    downloadAndInstall as updaterDownloadAndInstall, restartApp as updaterRestart,
+    hasUpdateForSettings,
+  } from '../lib/updater.svelte'
   import { themes, loadThemes, reloadThemes } from '../lib/themes.svelte'
   import { pendingThemeImport } from '../lib/theme-import-bus.svelte'
   import ThemeImportDialog from './ThemeImportDialog.svelte'
@@ -20,6 +25,58 @@
   let cliStatus = $state<CliStatus | null>(null)
   let cliBusy = $state(false)
   let cliError = $state<string | null>(null)
+
+  let updaterBusy = $state(false)
+  let updaterMessage = $state<string | null>(null)
+
+  async function handleCheckUpdate() {
+    updaterBusy = true
+    updaterMessage = null
+    try {
+      await updaterRunCheck({ forceFresh: true })
+      if (updaterState.state === 'uptodate') {
+        updaterMessage = '已是最新版本。'
+      } else if (updaterState.state === 'available') {
+        updaterMessage = `发现新版本 v${updaterState.latestVersion}`
+      }
+    } catch (e) {
+      updaterMessage = e instanceof Error ? e.message : String(e)
+    } finally {
+      updaterBusy = false
+    }
+  }
+
+  async function handleUpdateNow() {
+    updaterBusy = true
+    updaterMessage = null
+    try {
+      await updaterDownloadAndInstall()
+    } catch (e) {
+      updaterMessage = e instanceof Error ? e.message : String(e)
+    } finally {
+      updaterBusy = false
+    }
+  }
+
+  async function handleRestart() {
+    try {
+      await updaterRestart()
+    } catch (e) {
+      updaterMessage = e instanceof Error ? e.message : String(e)
+    }
+  }
+
+  async function onCheckOnStartupToggle(e: Event) {
+    await setCheckOnStartup((e.currentTarget as HTMLInputElement).checked)
+  }
+
+  function formatLastChecked(iso: string | null): string {
+    if (!iso) return '从未'
+    const t = Date.parse(iso)
+    if (!Number.isFinite(t)) return iso
+    const d = new Date(t)
+    return d.toLocaleString()
+  }
 
   async function refreshCliStatus() {
     try {
@@ -262,6 +319,7 @@
         <button class:active={selectedTab === 'core'} onclick={() => selectedTab = 'core'}>Core</button>
         <button class:active={selectedTab === 'block'} onclick={() => selectedTab = 'block'}>Block</button>
         <button class:active={selectedTab === 'cli'} onclick={() => { selectedTab = 'cli'; void refreshCliStatus() }}>CLI</button>
+        <button class:active={selectedTab === 'updates'} onclick={() => { selectedTab = 'updates' }}>Updates</button>
         {#each pluginTabs as t (t.pluginId)}
           <button class:active={selectedTab === t.pluginId} onclick={() => selectedTab = t.pluginId}>{t.label}</button>
         {/each}
@@ -512,6 +570,61 @@
             full reference. The CLI only exposes commands contributed by
             <em>enabled</em> plugins — disable a plugin in Plugins above to remove
             its subcommand from <code>mdedit</code>.
+          </p>
+        </section>
+      {:else if selectedTab === 'updates'}
+        <section class="block">
+          <h3>软件更新</h3>
+          <p class="desc">
+            当前版本：<strong>v{updaterState.currentVersion || '—'}</strong>
+          </p>
+          <p class="desc">
+            上次检查：{formatLastChecked(updaterState.lastCheckedAt)}
+          </p>
+          <label class="row" style="margin-top: 8px;">
+            <input type="checkbox" checked={updaterState.checkOnStartup} onchange={onCheckOnStartupToggle} />
+            启动时自动检查更新（每 20 小时一次）
+          </label>
+          <div class="row" style="gap: 8px; flex-wrap: wrap; margin-top: 10px;">
+            <button onclick={handleCheckUpdate} disabled={updaterBusy || updaterState.state === 'checking' || updaterState.state === 'downloading'}>
+              {updaterState.state === 'checking' ? '检查中…' : '立即检查更新'}
+            </button>
+            {#if hasUpdateForSettings() && updaterState.state !== 'downloading' && updaterState.state !== 'ready'}
+              <button class="primary" onclick={handleUpdateNow} disabled={updaterBusy}>
+                下载并安装 v{updaterState.latestVersion}
+              </button>
+            {/if}
+            {#if updaterState.state === 'ready'}
+              <button class="primary" onclick={handleRestart}>立即重启完成更新</button>
+            {/if}
+          </div>
+
+          {#if updaterState.state === 'downloading'}
+            <p class="desc" style="margin-top: 10px;">
+              下载中：
+              {#if updaterState.contentLength}
+                {Math.round((updaterState.downloaded / updaterState.contentLength) * 100)}%
+              {:else}
+                {(updaterState.downloaded / 1024 / 1024).toFixed(1)} MB
+              {/if}
+            </p>
+          {/if}
+
+          {#if updaterMessage}
+            <p class="result" class:ok={updaterState.state === 'uptodate'} class:fail={updaterState.state === 'error'}>
+              {updaterMessage}
+            </p>
+          {/if}
+
+          {#if updaterState.state === 'available' && updaterState.notes}
+            <details style="margin-top: 12px;">
+              <summary>v{updaterState.latestVersion} 更新说明</summary>
+              <pre style="margin-top: 8px; white-space: pre-wrap; word-break: break-word; background: color-mix(in srgb, CanvasText 5%, transparent); padding: 8px; border-radius: 6px; font-size: 11px;">{updaterState.notes}</pre>
+            </details>
+          {/if}
+
+          <p class="desc" style="margin-top: 14px;">
+            更新通过 GitHub Releases 分发，下载前会用内置公钥校验签名；只有签名通过的包才会被替换到 .app 中。
           </p>
         </section>
       {:else}
