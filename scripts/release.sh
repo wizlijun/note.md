@@ -237,7 +237,10 @@ build_arch() {
 
   local bundle="src-tauri/target/$arch/release/bundle"
   local dmg_src tarball_src sig_src
-  dmg_src=$(find "$bundle/dmg" -maxdepth 1 -type f -name "*_${VERSION}_${arch_tag}.dmg" -print -quit)
+  # Tauri uses inconsistent arch tags in dmg filenames: 'aarch64' for arm64
+  # but 'x64' (not 'x86_64') for Intel. Since each target dir contains exactly
+  # one dmg, match by version and ignore the arch suffix.
+  dmg_src=$(find "$bundle/dmg" -maxdepth 1 -type f -name "*_${VERSION}_*.dmg" -print -quit)
   tarball_src=$(find "$bundle/macos" -maxdepth 1 -type f -name "*.app.tar.gz" -print -quit)
   sig_src=$(find "$bundle/macos" -maxdepth 1 -type f -name "*.app.tar.gz.sig" -print -quit)
   [[ -n "$dmg_src"     && -f "$dmg_src"     ]] || die "dmg not found for $arch in $bundle/dmg"
