@@ -8,12 +8,16 @@
 #   scripts/release.sh 0.1.1
 #   scripts/release.sh 0.2.0-rc1 --prerelease    # not supported (semver only)
 #
-# Builds are ALWAYS a single macOS universal `.dmg` (Intel + Apple Silicon).
-# Per-arch builds are no longer supported.
+# Builds produce TWO independent per-arch macOS `.dmg`s: aarch64 (Apple Silicon)
+# and x86_64 (Intel). Each architecture has its own .app bundle, dmg, updater
+# tarball and signature. universal mode has been removed.
 #
 # Steps:
-#   pre-flight → tests → bump versions → signed universal build → updater artifacts
-#   → latest.json manifest → tag → push → GitHub release (upload dmg + .app.tar.gz + .sig + latest.json)
+#   pre-flight → tests → bump versions
+#   → for each arch in (aarch64, x86_64):
+#       signed per-arch build → notarize → updater artifact + signature
+#   → latest.json manifest (per-arch signatures + urls)
+#   → tag → push → GitHub release (upload 2 dmg + 2 tarball + 2 sig + latest.json)
 #
 # Environment (auto-loaded from `.env.release` in repo root if present):
 #   APPLE_TEAM_ID   default: T5G56DH47L (Wuhan Fulin). Used to locate the
@@ -61,7 +65,9 @@ VERSION="${1:-}"; shift || true
 DRAFT=0; PRERELEASE=0
 for arg in "$@"; do
   case "$arg" in
-    --universal)  ;;  # accepted but ignored — universal is the only mode now
+    --universal)
+      echo "warning: --universal is no longer supported; building per-arch dmgs instead" >&2
+      ;;
     --draft)      DRAFT=1      ;;
     --prerelease) PRERELEASE=1 ;;
     *) echo "unknown flag: $arg" >&2; exit 2 ;;
@@ -218,36 +224,48 @@ pnpm build:mdshare
 say "building md2pdf plugin binaries"
 pnpm build:md2pdf
 
-rustup target add x86_64-apple-darwin aarch64-apple-darwin >/dev/null 2>&1 || true
-APPLE_SIGNING_IDENTITY="$APPLE_SIGNING_IDENTITY" pnpm tauri build --target universal-apple-darwin
-BUNDLE_DIR="src-tauri/target/universal-apple-darwin/release/bundle"
-DMG_DIR="$BUNDLE_DIR/dmg"
-ARCH_TAG="universal"
+rustup target add aarch64-apple-darwin x86_64-apple-darwin >/dev/null 2>&1 || true
 
-DMG_PATH=$(find "$DMG_DIR" -maxdepth 1 -type f -name "*_${VERSION}_${ARCH_TAG}.dmg" -print -quit)
-[[ -n "$DMG_PATH" && -f "$DMG_PATH" ]] || die "dmg not found in $DMG_DIR"
+# Build each architecture independently. macOS bash 3.2 lacks associative
+# arrays, so we stash results in arch-suffixed variables (e.g. DMG_STAGED_AARCH64).
+STAGED_ASSETS=()
 
-ASSET_NAME="MdEditor-${VERSION}-${ARCH_TAG}.dmg"
-STAGED="/tmp/$ASSET_NAME"
-cp "$DMG_PATH" "$STAGED"
-echo "    built: $STAGED ($(du -h "$STAGED" | cut -f1))"
+build_arch() {
+  local arch="$1" arch_tag="$2"
+  say "building target $arch"
+  APPLE_SIGNING_IDENTITY="$APPLE_SIGNING_IDENTITY" pnpm tauri build --target "$arch"
 
-# Tauri's bundler writes the updater artifact next to the .app bundle in
-# bundle/macos/ (createUpdaterArtifacts=true required, which we set in
-# tauri.conf.json). It's a .app.tar.gz with a sibling .sig.
-UPDATER_TARBALL=$(find "$BUNDLE_DIR/macos" -maxdepth 1 -type f -name "*.app.tar.gz" -print -quit)
-UPDATER_SIG=$(find "$BUNDLE_DIR/macos" -maxdepth 1 -type f -name "*.app.tar.gz.sig" -print -quit)
-[[ -n "$UPDATER_TARBALL" && -f "$UPDATER_TARBALL" ]] \
-  || die "updater tarball not found in $BUNDLE_DIR/macos — is createUpdaterArtifacts enabled and TAURI_SIGNING_PRIVATE_KEY set?"
-[[ -n "$UPDATER_SIG" && -f "$UPDATER_SIG" ]] \
-  || die "updater signature not found — Tauri did not sign the tarball"
+  local bundle="src-tauri/target/$arch/release/bundle"
+  local dmg_src tarball_src sig_src
+  dmg_src=$(find "$bundle/dmg" -maxdepth 1 -type f -name "*_${VERSION}_${arch_tag}.dmg" -print -quit)
+  tarball_src=$(find "$bundle/macos" -maxdepth 1 -type f -name "*.app.tar.gz" -print -quit)
+  sig_src=$(find "$bundle/macos" -maxdepth 1 -type f -name "*.app.tar.gz.sig" -print -quit)
+  [[ -n "$dmg_src"     && -f "$dmg_src"     ]] || die "dmg not found for $arch in $bundle/dmg"
+  [[ -n "$tarball_src" && -f "$tarball_src" ]] || die "updater tarball not found for $arch — is createUpdaterArtifacts on and TAURI_SIGNING_PRIVATE_KEY set?"
+  [[ -n "$sig_src"     && -f "$sig_src"     ]] || die "updater signature not found for $arch — Tauri did not sign the tarball"
 
-UPDATER_TARBALL_STAGED="/tmp/MdEditor.app.tar.gz"
-UPDATER_SIG_STAGED="/tmp/MdEditor.app.tar.gz.sig"
-cp "$UPDATER_TARBALL" "$UPDATER_TARBALL_STAGED"
-cp "$UPDATER_SIG" "$UPDATER_SIG_STAGED"
-SIG_CONTENT="$(cat "$UPDATER_SIG_STAGED")"
-echo "    updater: $UPDATER_TARBALL_STAGED ($(du -h "$UPDATER_TARBALL_STAGED" | cut -f1))"
+  local dmg_staged="/tmp/MdEditor-${VERSION}-${arch_tag}.dmg"
+  local tarball_staged="/tmp/MdEditor-${arch_tag}.app.tar.gz"
+  local sig_staged="/tmp/MdEditor-${arch_tag}.app.tar.gz.sig"
+  cp "$dmg_src" "$dmg_staged"
+  cp "$tarball_src" "$tarball_staged"
+  cp "$sig_src" "$sig_staged"
+
+  # Export results via indirect names so the caller can pick them up. macOS
+  # bash 3.2-friendly (no ${var^^} uppercase substitution).
+  local up_tag
+  up_tag=$(echo "$arch_tag" | tr '[:lower:]' '[:upper:]')
+  eval "DMG_STAGED_${up_tag}=\"$dmg_staged\""
+  eval "TARBALL_STAGED_${up_tag}=\"$tarball_staged\""
+  eval "SIG_STAGED_${up_tag}=\"$sig_staged\""
+  eval "SIG_CONTENT_${up_tag}=\"$(cat "$sig_staged")\""
+
+  STAGED_ASSETS+=("$dmg_staged" "$tarball_staged" "$sig_staged")
+  echo "    ${arch_tag} done: dmg=$(du -h "$dmg_staged" | cut -f1), tarball=$(du -h "$tarball_staged" | cut -f1)"
+}
+
+build_arch aarch64-apple-darwin aarch64
+build_arch x86_64-apple-darwin  x86_64
 
 # ---------- commit, tag, push ----------
 
@@ -275,10 +293,13 @@ say "creating GitHub release"
 PREAMBLE=$(cat <<EOF
 ## Install
 
-Download \`$ASSET_NAME\` below.
+Pick the dmg matching your Mac's chip:
 
-> Code-signed with Apple Distribution (\`$APPLE_TEAM_ID\`), hardened runtime, **not notarized**.
-> First launch shows a Gatekeeper warning — right-click the app → **Open** → confirm. Required only once.
+- **Apple Silicon (M1/M2/M3/…):** \`MdEditor-${VERSION}-aarch64.dmg\`
+- **Intel:** \`MdEditor-${VERSION}-x86_64.dmg\`
+
+> Code-signed with Developer ID Application (\`$APPLE_TEAM_ID\`), hardened runtime, notarized.
+> Auto-update from a previous installed version picks the correct architecture automatically.
 
 EOF
 )
@@ -298,22 +319,27 @@ EXTRA=()
 (( DRAFT ))      && EXTRA+=(--draft)
 (( PRERELEASE )) && EXTRA+=(--prerelease)
 
-# Generate latest.json — the updater manifest that the app polls. Both darwin
-# arch keys point to the same universal tarball because the .app bundle inside
-# is a fat binary that runs natively on Intel and Apple Silicon.
-TARBALL_URL="https://github.com/$GH_REPO/releases/download/$TAG/MdEditor.app.tar.gz"
+# Generate latest.json — the updater manifest that the app polls. Each arch
+# key points to its own tarball + signature.
+TARBALL_URL_AARCH64="https://github.com/$GH_REPO/releases/download/$TAG/MdEditor-aarch64.app.tar.gz"
+TARBALL_URL_X86_64="https://github.com/$GH_REPO/releases/download/$TAG/MdEditor-x86_64.app.tar.gz"
 PUB_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 LATEST_JSON_STAGED="/tmp/latest.json"
-python3 - "$VERSION" "$PUB_DATE" "$TARBALL_URL" "$SIG_CONTENT" "$TAG" "$GH_REPO" > "$LATEST_JSON_STAGED" <<'PY'
+python3 - "$VERSION" "$PUB_DATE" "$TAG" "$GH_REPO" \
+    "$TARBALL_URL_AARCH64" "$SIG_CONTENT_AARCH64" \
+    "$TARBALL_URL_X86_64"  "$SIG_CONTENT_X86_64" \
+    > "$LATEST_JSON_STAGED" <<'PY'
 import json, sys
-version, pub_date, url, signature, tag, repo = sys.argv[1:7]
+(version, pub_date, tag, repo,
+ url_aarch64, sig_aarch64,
+ url_x86_64,  sig_x86_64) = sys.argv[1:9]
 manifest = {
     "version": version,
     "notes": f"See https://github.com/{repo}/releases/tag/{tag}",
     "pub_date": pub_date,
     "platforms": {
-        "darwin-x86_64": {"signature": signature, "url": url},
-        "darwin-aarch64": {"signature": signature, "url": url},
+        "darwin-aarch64": {"signature": sig_aarch64, "url": url_aarch64},
+        "darwin-x86_64":  {"signature": sig_x86_64,  "url": url_x86_64},
     },
 }
 print(json.dumps(manifest, indent=2))
@@ -324,9 +350,7 @@ gh -R "$GH_REPO" release create "$TAG" \
   --title "M↓ $VERSION" \
   --notes "$NOTES" \
   "${EXTRA[@]}" \
-  "$STAGED" \
-  "$UPDATER_TARBALL_STAGED" \
-  "$UPDATER_SIG_STAGED" \
+  "${STAGED_ASSETS[@]}" \
   "$LATEST_JSON_STAGED"
 
 URL=$(gh -R "$GH_REPO" release view "$TAG" --json url -q .url)

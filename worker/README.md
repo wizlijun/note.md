@@ -13,7 +13,15 @@ Cloudflare Worker backing the M↓ "Share" plugin. KV holds shared HTML; R2 hold
 ### MCP (JSON-RPC 2.0 — for LLM agents)
 
 - `POST /mcp` — same Bearer auth. Streamable HTTP transport, single endpoint.
-  Speaks MCP protocol version `2024-11-05`. See [MCP for agents](#mcp-for-agents) below.
+  Response is `application/json` by default, or `text/event-stream` when the
+  client sends `Accept: text/event-stream`.
+- `GET /mcp` — public; returns an empty `text/event-stream` channel
+  (server emits no unsolicited events; `retry: 86400000` discourages reconnects).
+- `DELETE /mcp` — public; returns `204` (idempotent session terminate).
+
+Protocol versions advertised: `2024-11-05`, `2025-03-26`, `2025-06-18`. The
+server echoes whichever version the client requests in `initialize`; unknown
+values fall back to `2025-06-18`. See [MCP for agents](#mcp-for-agents) below.
 
 ### Media uploads (R2-backed)
 
@@ -72,9 +80,12 @@ The worker exposes every capability over the Model Context Protocol so an LLM
 agent can publish, fetch, and delete shares with a single endpoint.
 
 **Connect:** point any MCP client at `https://<your-worker-host>/mcp` with the
-header `Authorization: Bearer <SHARE_API_KEY>`. Transport is Streamable HTTP
-(POST-only JSON-RPC 2.0); SSE is not implemented because every tool returns
-synchronously.
+header `Authorization: Bearer <SHARE_API_KEY>`. Transport is Streamable HTTP:
+clients may POST JSON-RPC and either accept `application/json` (classic single
+response) or `text/event-stream` (each response delivered as one SSE `message`
+event). `GET /mcp` opens an SSE channel that this server never pushes to
+(every tool returns synchronously); `DELETE /mcp` is accepted to satisfy the
+session-terminate semantics in newer clients.
 
 **Methods supported:** `initialize`, `tools/list`, `tools/call`, `ping`,
 `notifications/initialized`. Unknown methods return JSON-RPC `-32601`.

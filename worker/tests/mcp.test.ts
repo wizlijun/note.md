@@ -29,12 +29,25 @@ describe('POST /mcp — protocol framework', () => {
     expect(r.status).toBe(401)
   })
 
-  it('rejects non-POST', async () => {
-    const r = await SELF.fetch('http://x/mcp', { method: 'GET' })
+  it('rejects PUT', async () => {
+    const r = await SELF.fetch('http://x/mcp', { method: 'PUT' })
     expect(r.status).toBe(405)
   })
 
-  it('initialize returns serverInfo and tool capability', async () => {
+  it('GET /mcp returns 200 text/event-stream (Streamable HTTP idle channel)', async () => {
+    const r = await SELF.fetch('http://x/mcp', { method: 'GET' })
+    expect(r.status).toBe(200)
+    expect(r.headers.get('content-type') ?? '').toContain('text/event-stream')
+    const text = await r.text()
+    expect(text).toContain('retry:')
+  })
+
+  it('DELETE /mcp returns 204 (idempotent session terminate)', async () => {
+    const r = await SELF.fetch('http://x/mcp', { method: 'DELETE' })
+    expect(r.status).toBe(204)
+  })
+
+  it('initialize echoes 2024-11-05 when requested (back-compat)', async () => {
     const body = await rpc<{ protocolVersion: string; capabilities: { tools: object }; serverInfo: { name: string; version: string } }>(
       'initialize',
       { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 't', version: '1' } },
@@ -45,6 +58,65 @@ describe('POST /mcp — protocol framework', () => {
     expect(body.result.serverInfo.name).toBe('mdeditor-share')
     expect(body.result.capabilities.tools).toBeDefined()
     expect(body.result.protocolVersion).toBe('2024-11-05')
+  })
+
+  it('initialize echoes 2025-03-26 when requested', async () => {
+    const body = await rpc<{ protocolVersion: string }>('initialize', {
+      protocolVersion: '2025-03-26', capabilities: {}, clientInfo: { name: 't', version: '1' },
+    })
+    expect('result' in body).toBe(true)
+    if (!('result' in body)) return
+    expect(body.result.protocolVersion).toBe('2025-03-26')
+  })
+
+  it('initialize echoes 2025-06-18 when requested', async () => {
+    const body = await rpc<{ protocolVersion: string }>('initialize', {
+      protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 't', version: '1' },
+    })
+    expect('result' in body).toBe(true)
+    if (!('result' in body)) return
+    expect(body.result.protocolVersion).toBe('2025-06-18')
+  })
+
+  it('initialize falls back to latest supported version on unknown protocolVersion', async () => {
+    const body = await rpc<{ protocolVersion: string }>('initialize', {
+      protocolVersion: '1999-01-01', capabilities: {}, clientInfo: { name: 't', version: '1' },
+    })
+    expect('result' in body).toBe(true)
+    if (!('result' in body)) return
+    expect(body.result.protocolVersion).toBe('2025-06-18')
+  })
+
+  it('POST /mcp with Accept: text/event-stream returns SSE-wrapped JSON-RPC', async () => {
+    const r = await SELF.fetch('http://x/mcp', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer test-key',
+        'Content-Type': 'application/json',
+        Accept: 'text/event-stream',
+      },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 42, method: 'ping' }),
+    })
+    expect(r.status).toBe(200)
+    expect(r.headers.get('content-type') ?? '').toContain('text/event-stream')
+    const text = await r.text()
+    expect(text).toContain('event: message')
+    expect(text).toContain('data:')
+    const m = /data: (.+)/.exec(text)
+    expect(m).not.toBeNull()
+    const payload = JSON.parse(m![1]) as { id: number; result: object }
+    expect(payload.id).toBe(42)
+    expect(payload.result).toBeDefined()
+  })
+
+  it('POST /mcp without Accept SSE still returns JSON (back-compat)', async () => {
+    const r = await SELF.fetch('http://x/mcp', {
+      method: 'POST',
+      headers: AUTH,
+      body: JSON.stringify({ jsonrpc: '2.0', id: 7, method: 'ping' }),
+    })
+    expect(r.status).toBe(200)
+    expect(r.headers.get('content-type') ?? '').toContain('application/json')
   })
 
   it('unknown method returns JSON-RPC -32601', async () => {

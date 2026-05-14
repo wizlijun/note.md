@@ -642,23 +642,23 @@ const MCP_TOOLS: McpTool[] = [
 ]
 
 async function mcpCallTool(
-  id: JsonRpcId, params: unknown, env: Env, baseUrl: string,
+  req: Request, id: JsonRpcId, params: unknown, env: Env, baseUrl: string,
 ): Promise<Response> {
   if (!params || typeof params !== 'object') {
-    return rpcErr(id, -32602, 'Invalid params: expected object')
+    return rpcErr(req, id, -32602, 'Invalid params: expected object')
   }
   const p = params as { name?: unknown; arguments?: unknown }
   if (typeof p.name !== 'string') {
-    return rpcErr(id, -32602, 'Invalid params: name must be a string')
+    return rpcErr(req, id, -32602, 'Invalid params: name must be a string')
   }
   const args = (p.arguments && typeof p.arguments === 'object') ? p.arguments as Record<string, unknown> : {}
   const tool = MCP_TOOL_HANDLERS[p.name]
-  if (!tool) return rpcErr(id, -32602, `Unknown tool: ${p.name}`)
+  if (!tool) return rpcErr(req, id, -32602, `Unknown tool: ${p.name}`)
   try {
     const result = await tool(args, env, baseUrl)
-    return rpcOk(id, result)
+    return rpcOk(req, id, result)
   } catch (e) {
-    return rpcErr(id, -32603, 'Internal error', { message: (e as Error).message })
+    return rpcErr(req, id, -32603, 'Internal error', { message: (e as Error).message })
   }
 }
 
@@ -772,69 +772,136 @@ const MCP_TOOL_HANDLERS: Record<string, McpToolHandler> = {
   },
 }
 
-// ── MCP (JSON-RPC 2.0 over POST /mcp) ────────────────────────────────────────
-const MCP_PROTOCOL_VERSION = '2024-11-05'
+// ── MCP (JSON-RPC 2.0; Streamable HTTP on /mcp) ──────────────────────────────
+// Supports both the 2024-11-05 (POST-only JSON) and 2025-03-26 / 2025-06-18
+// (Streamable HTTP with SSE) transport profiles, negotiated per request.
+const SUPPORTED_PROTOCOL_VERSIONS = ['2024-11-05', '2025-03-26', '2025-06-18']
+const LATEST_PROTOCOL_VERSION = '2025-06-18'
 const MCP_SERVER_NAME = 'mdeditor-share'
-const MCP_SERVER_VERSION = '0.2.0'
+const MCP_SERVER_VERSION = '0.3.0'
 
 type JsonRpcId = number | string | null
 interface JsonRpcRequest { jsonrpc: '2.0'; id?: JsonRpcId; method: string; params?: unknown }
 
-function rpcOk(id: JsonRpcId, result: unknown): Response {
-  return new Response(JSON.stringify({ jsonrpc: '2.0', id, result }), {
+function negotiateProtocolVersion(client: unknown): string {
+  return typeof client === 'string' && SUPPORTED_PROTOCOL_VERSIONS.includes(client)
+    ? client
+    : LATEST_PROTOCOL_VERSION
+}
+
+function wantsEventStream(req: Request): boolean {
+  const accept = req.headers.get('Accept') ?? ''
+  return accept.toLowerCase().includes('text/event-stream')
+}
+
+function sseEncode(body: unknown): Uint8Array {
+  return new TextEncoder().encode(`event: message\ndata: ${JSON.stringify(body)}\n\n`)
+}
+
+function sseSingleShot(body: unknown): Response {
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(sseEncode(body))
+      controller.close()
+    },
+  })
+  return new Response(stream, {
     status: 200,
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache, no-transform',
+    },
   })
 }
 
-function rpcErr(id: JsonRpcId, code: number, message: string, data?: unknown): Response {
-  const body: { jsonrpc: '2.0'; id: JsonRpcId; error: { code: number; message: string; data?: unknown } } = {
-    jsonrpc: '2.0', id, error: { code, message },
-  }
-  if (data !== undefined) body.error.data = data
+function jsonRpcEnvelope(id: JsonRpcId, result: unknown): object {
+  return { jsonrpc: '2.0', id, result }
+}
+
+function jsonRpcErrorEnvelope(id: JsonRpcId, code: number, message: string, data?: unknown): object {
+  const err: { code: number; message: string; data?: unknown } = { code, message }
+  if (data !== undefined) err.data = data
+  return { jsonrpc: '2.0', id, error: err }
+}
+
+function rpcRespond(req: Request, body: object): Response {
+  if (wantsEventStream(req)) return sseSingleShot(body)
   return new Response(JSON.stringify(body), {
     status: 200,
     headers: { 'Content-Type': 'application/json' },
   })
 }
 
+function rpcOk(req: Request, id: JsonRpcId, result: unknown): Response {
+  return rpcRespond(req, jsonRpcEnvelope(id, result))
+}
+
+function rpcErr(req: Request, id: JsonRpcId, code: number, message: string, data?: unknown): Response {
+  return rpcRespond(req, jsonRpcErrorEnvelope(id, code, message, data))
+}
+
+// GET /mcp — Streamable HTTP idle channel. This server never pushes
+// server-initiated messages, so we emit a single SSE comment + a long retry
+// hint and close the stream. New-protocol clients accept this as "no events".
+function handleMcpGet(): Response {
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode(
+        'retry: 86400000\n: mdeditor-share has no server-initiated events\n\n',
+      ))
+      controller.close()
+    },
+  })
+  return new Response(stream, {
+    status: 200,
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache, no-transform',
+    },
+  })
+}
+
 async function handleMcp(req: Request, env: Env, baseUrl: string): Promise<Response> {
+  if (req.method === 'GET') return handleMcpGet()
+  if (req.method === 'DELETE') return new Response(null, { status: 204 })
   if (req.method !== 'POST') {
-    return new Response('Method Not Allowed', { status: 405, headers: { Allow: 'POST' } })
+    return new Response('Method Not Allowed', { status: 405, headers: { Allow: 'GET, POST, DELETE' } })
   }
   if (unauthorized(req, env)) return new Response('Unauthorized', { status: 401 })
 
   let raw: string
-  try { raw = await req.text() } catch { return rpcErr(null, -32700, 'Parse error') }
+  try { raw = await req.text() } catch { return rpcErr(req, null, -32700, 'Parse error') }
   let msg: JsonRpcRequest
   try {
     msg = JSON.parse(raw) as JsonRpcRequest
   } catch {
-    return rpcErr(null, -32700, 'Parse error')
+    return rpcErr(req, null, -32700, 'Parse error')
   }
   if (!msg || msg.jsonrpc !== '2.0' || typeof msg.method !== 'string') {
-    return rpcErr(msg?.id ?? null, -32600, 'Invalid Request')
+    return rpcErr(req, msg?.id ?? null, -32600, 'Invalid Request')
   }
   const id = msg.id ?? null
 
   switch (msg.method) {
-    case 'initialize':
-      return rpcOk(id, {
-        protocolVersion: MCP_PROTOCOL_VERSION,
+    case 'initialize': {
+      const params = (msg.params && typeof msg.params === 'object') ? msg.params as { protocolVersion?: unknown } : {}
+      return rpcOk(req, id, {
+        protocolVersion: negotiateProtocolVersion(params.protocolVersion),
         capabilities: { tools: {} },
         serverInfo: { name: MCP_SERVER_NAME, version: MCP_SERVER_VERSION },
       })
+    }
     case 'notifications/initialized':
     case 'notifications/cancelled':
       return new Response(null, { status: 204 })
     case 'ping':
-      return rpcOk(id, {})
+      return rpcOk(req, id, {})
     case 'tools/list':
-      return rpcOk(id, { tools: MCP_TOOLS })
+      return rpcOk(req, id, { tools: MCP_TOOLS })
     case 'tools/call':
-      return mcpCallTool(id, msg.params, env, baseUrl)
+      return mcpCallTool(req, id, msg.params, env, baseUrl)
     default:
-      return rpcErr(id, -32601, `Method not found: ${msg.method}`)
+      return rpcErr(req, id, -32601, `Method not found: ${msg.method}`)
   }
 }
 
