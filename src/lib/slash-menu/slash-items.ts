@@ -89,19 +89,27 @@ function wrapTaskList(v: EditorView) {
 
   if (!wrapInList(bulletList)(v.state, v.dispatch)) return
 
-  // Set checked: false on newly-wrapped list items
+  // Set checked: false on list_items in the NEWLY-wrapped list only. Walking
+  // a ±200 char window around the cursor used to also flip items in adjacent
+  // sibling lists (the cause of "all my lists became checkboxes"); instead,
+  // find the innermost bullet_list enclosing the selection and scope the walk
+  // to its node range.
   const { doc, selection } = v.state
-  const { from, to } = selection
+  const $from = doc.resolve(selection.from)
+  let listDepth = -1
+  for (let d = $from.depth; d >= 0; d--) {
+    if ($from.node(d).type === bulletList) { listDepth = d; break }
+  }
+  if (listDepth < 0) { v.focus(); return }
+  const listStart = $from.before(listDepth)
+  const listEnd   = listStart + $from.node(listDepth).nodeSize
+
   const tr = v.state.tr
-  doc.nodesBetween(
-    Math.max(0, from - 200),
-    Math.min(doc.content.size, to + 200),
-    (node, pos) => {
-      if (node.type === listItem && node.attrs.checked === null) {
-        tr.setNodeMarkup(pos, undefined, { ...node.attrs, checked: false })
-      }
-    },
-  )
+  doc.nodesBetween(listStart, listEnd, (node, pos) => {
+    if (node.type === listItem && node.attrs.checked === null) {
+      tr.setNodeMarkup(pos, undefined, { ...node.attrs, checked: false })
+    }
+  })
   if (tr.docChanged) v.dispatch(tr)
   v.focus()
 }
