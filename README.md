@@ -96,9 +96,14 @@ Built on [`@moraya/core`](https://www.npmjs.com/package/@moraya/core).
   URL in the browser instead.
 - **CSV spreadsheet editor** — `.csv` files open as a live spreadsheet grid
   (RevoGrid) with editable cells, formula support (`=SUM(A1:A3)`, `=AVG(...)`,
-  `=COUNT(...)`, and A1-style cross-cell references), row numbers, and dark-mode
-  aware styling. Source mode still available via `Cmd+/`. A `/电子表格` slash
-  command inserts an inline spreadsheet block inside Markdown.
+  `=COUNT(...)`, and A1-style cross-cell references), row numbers, and a
+  bold first-row visual header. The grid swaps between Material / Material-Dark
+  themes with the system color scheme. Right-click a cell for a context menu —
+  insert / delete rows or columns around the focused cell, or clear the
+  selected range (`Delete` clears too). Source mode still available via
+  `Cmd+/`. A `/电子表格` slash command inserts an inline spreadsheet block
+  inside Markdown (typing inside an embedded grid no longer gets stolen by
+  the outer ProseMirror editor).
 - **Rich mode block shortcuts** — keyboard shortcuts to insert or convert blocks
   without typing Markdown syntax: `Cmd+1–6` headings; `Cmd+0` paragraph;
   `Cmd+Shift+K` code block; `Cmd+Shift+M` math block; `Cmd+Shift+T` table;
