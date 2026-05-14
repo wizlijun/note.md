@@ -15,8 +15,9 @@ Cloudflare Worker backing the M↓ "Share" plugin. KV holds shared HTML; R2 hold
 - `POST /mcp` — same Bearer auth. Streamable HTTP transport, single endpoint.
   Response is `application/json` by default, or `text/event-stream` when the
   client sends `Accept: text/event-stream`.
-- `GET /mcp` — public; returns an empty `text/event-stream` channel
-  (server emits no unsolicited events; `retry: 86400000` discourages reconnects).
+- `GET /mcp` — returns `405 Method Not Allowed` per MCP Streamable HTTP spec:
+  this server has no server-initiated messages to push, so it explicitly
+  declines the GET stream channel. Clients should fall back to POST-only mode.
 - `DELETE /mcp` — public; returns `204` (idempotent session terminate).
 
 Protocol versions advertised: `2024-11-05`, `2025-03-26`, `2025-06-18`. The
@@ -83,8 +84,8 @@ agent can publish, fetch, and delete shares with a single endpoint.
 header `Authorization: Bearer <SHARE_API_KEY>`. Transport is Streamable HTTP:
 clients may POST JSON-RPC and either accept `application/json` (classic single
 response) or `text/event-stream` (each response delivered as one SSE `message`
-event). `GET /mcp` opens an SSE channel that this server never pushes to
-(every tool returns synchronously); `DELETE /mcp` is accepted to satisfy the
+event). `GET /mcp` returns `405` because every tool resolves synchronously and
+this server has nothing to push; `DELETE /mcp` is accepted to satisfy the
 session-terminate semantics in newer clients.
 
 **Methods supported:** `initialize`, `tools/list`, `tools/call`, `ping`,

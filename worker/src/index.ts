@@ -840,32 +840,16 @@ function rpcErr(req: Request, id: JsonRpcId, code: number, message: string, data
   return rpcRespond(req, jsonRpcErrorEnvelope(id, code, message, data))
 }
 
-// GET /mcp — Streamable HTTP idle channel. This server never pushes
-// server-initiated messages, so we emit a single SSE comment + a long retry
-// hint and close the stream. New-protocol clients accept this as "no events".
-function handleMcpGet(): Response {
-  const stream = new ReadableStream<Uint8Array>({
-    start(controller) {
-      controller.enqueue(new TextEncoder().encode(
-        'retry: 86400000\n: mdeditor-share has no server-initiated events\n\n',
-      ))
-      controller.close()
-    },
-  })
-  return new Response(stream, {
-    status: 200,
-    headers: {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache, no-transform',
-    },
-  })
-}
-
 async function handleMcp(req: Request, env: Env, baseUrl: string): Promise<Response> {
-  if (req.method === 'GET') return handleMcpGet()
+  // Per MCP Streamable HTTP spec: servers that do NOT push server-initiated
+  // messages MAY return 405 to GET, telling the client not to open a stream.
+  // All tools here are synchronous request/response, so we decline GET.
+  if (req.method === 'GET') {
+    return new Response('Method Not Allowed', { status: 405, headers: { Allow: 'POST, DELETE' } })
+  }
   if (req.method === 'DELETE') return new Response(null, { status: 204 })
   if (req.method !== 'POST') {
-    return new Response('Method Not Allowed', { status: 405, headers: { Allow: 'GET, POST, DELETE' } })
+    return new Response('Method Not Allowed', { status: 405, headers: { Allow: 'POST, DELETE' } })
   }
   if (unauthorized(req, env)) return new Response('Unauthorized', { status: 401 })
 

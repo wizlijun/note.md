@@ -34,12 +34,10 @@ describe('POST /mcp — protocol framework', () => {
     expect(r.status).toBe(405)
   })
 
-  it('GET /mcp returns 200 text/event-stream (Streamable HTTP idle channel)', async () => {
+  it('GET /mcp returns 405 (server has no server-initiated stream — Streamable HTTP spec MAY)', async () => {
     const r = await SELF.fetch('http://x/mcp', { method: 'GET' })
-    expect(r.status).toBe(200)
-    expect(r.headers.get('content-type') ?? '').toContain('text/event-stream')
-    const text = await r.text()
-    expect(text).toContain('retry:')
+    expect(r.status).toBe(405)
+    expect((r.headers.get('allow') ?? '').toUpperCase()).toContain('POST')
   })
 
   it('DELETE /mcp returns 204 (idempotent session terminate)', async () => {
