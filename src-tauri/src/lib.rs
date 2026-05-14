@@ -701,6 +701,10 @@ fn build_menu<R: tauri::Runtime>(
 
     let app_menu: Submenu<R> = SubmenuBuilder::new(app, "M↓")
         .item(&PredefinedMenuItem::about(app, Some("About M↓"), Some(app_meta))?)
+        .item(
+            &MenuItemBuilder::with_id("check-for-updates", "Check for Updates…")
+                .build(app)?,
+        )
         .separator()
         .item(
             &MenuItemBuilder::with_id("preferences", "Preferences…")

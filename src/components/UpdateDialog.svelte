@@ -45,7 +45,19 @@
     <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="updater-title"
          onclick={(e) => e.stopPropagation()}>
 
-      {#if updater.state === 'available'}
+      {#if updater.state === 'checking'}
+        <h2 id="updater-title">正在检查更新…</h2>
+        <p class="meta">当前版本：v{updater.currentVersion}</p>
+        <div class="progress-wrap">
+          <div class="progress">
+            <div class="bar indeterminate" style:width="30%"></div>
+          </div>
+        </div>
+        <footer>
+          <button class="ghost" onclick={close}>关闭</button>
+        </footer>
+
+      {:else if updater.state === 'available'}
         <h2 id="updater-title">M↓ {updater.latestVersion} 可用</h2>
         <p class="meta">当前版本：v{updater.currentVersion}</p>
         {#if updater.notes}

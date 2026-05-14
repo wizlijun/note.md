@@ -318,6 +318,20 @@
         case 'zoom-out':    document.documentElement.style.fontSize = `${Math.max(10, (parseFloat(getComputedStyle(document.documentElement).fontSize) || 16) - 2)}px`; break
         case 'zoom-reset':  document.documentElement.style.fontSize = ''; break
         case 'preferences': showSettings = true; break
+        case 'check-for-updates': {
+          // Open the dialog first so the user sees "checking…" feedback,
+          // then trigger a forced refresh that bypasses the 20h cache.
+          showUpdateDialog = true
+          void (async () => {
+            try {
+              const { runCheck } = await import('./lib/updater.svelte')
+              await runCheck({ forceFresh: true })
+            } catch (e) {
+              console.warn('[App] manual update check:', e)
+            }
+          })()
+          break
+        }
         case 'docs':
           import('@tauri-apps/plugin-opener')
             .then(({ openUrl }) => openUrl('https://github.com/bruce/mdeditor'))
