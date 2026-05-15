@@ -724,6 +724,7 @@ pub fn run() {
     });
 }
 
+#[cfg(not(target_os = "ios"))]
 fn bootstrap_themes(app: &tauri::AppHandle) -> Result<(), String> {
     use themes::paths::{themes_dir, ensure_dirs};
     use themes::commands::BUILT_IN_THEME_IDS;

@@ -3,11 +3,7 @@
   "bundle": {
     "iOS": {
       "minimumSystemVersion": "18.0",
-      "fileAssociations": [
-        { "ext": ["md", "markdown", "mdown", "mkd"], "name": "Markdown", "role": "Editor" },
-        { "ext": ["html", "htm"], "name": "HTML", "role": "Editor" },
-        { "ext": ["txt", "log"], "name": "Plain Text", "role": "Editor" }
-      ]
+      "developmentTeam": "T5G56DH47L"
     }
   }
 }
