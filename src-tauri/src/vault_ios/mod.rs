@@ -10,6 +10,7 @@ use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Manager};
 
 pub mod path;
+pub mod list_dir;
 
 #[cfg(test)]
 mod tests;

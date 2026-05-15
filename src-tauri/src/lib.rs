@@ -255,6 +255,7 @@ pub fn run() {
                 plugin_host::get_all_plugin_manifests,
                 plugin_host::invoke_plugin,
                 vault_ios::vault_status,
+                vault_ios::list_dir::vault_list_dir,
             ] }
         })
         .setup(|app| {

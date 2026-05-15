@@ -35,6 +35,9 @@ git2 = { version = "0.19", default-features = false, features = ["vendored-libgi
 [target.'cfg(not(target_os = "ios"))'.dependencies]
 git2 = { version = "0.19", default-features = false, features = ["vendored-libgit2", "vendored-openssl"] }
 
+[dev-dependencies]
+tempfile = "3"
+
 [profile.release]
 opt-level = "z"       # optimize for size
 lto = true            # link-time optimization across crates
