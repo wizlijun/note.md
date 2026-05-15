@@ -45,6 +45,15 @@ fi
 
 echo "[Build Rust Code] Tauri orchestrator unavailable (no WebSocket), falling back to standalone cargo build" >&2
 
+# Clear any TAURI_ENV_* that may have leaked from a parent / sibling
+# `tauri ios dev` process. With these unset, tauri-build's build.rs won't
+# emit `cargo:rustc-cfg=dev`, and the binary will load the bundled
+# frontendDist instead of trying http://localhost:1420.
+unset TAURI_ENV_DEV
+unset TAURI_ENV_PLATFORM_VERSION
+unset TAURI_DEV
+unset TAURI_DEV_HOST
+
 # --- Standalone fallback ----------------------------------------------------
 case "${PLATFORM_DISPLAY_NAME:?}" in
   "iOS Simulator")
