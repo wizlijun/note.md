@@ -1,4 +1,5 @@
 import type { ToastLevel } from './plugins/types'
+import { settings } from './settings.svelte'
 
 export interface ToastItem {
   id: number
@@ -11,9 +12,12 @@ interface PushOpts {
   level: ToastLevel
   message: string
   detail?: string
-  /** ms before auto-dismiss; 0 = sticky. Default 3000 for success/info, 5000 for warn/error. */
+  /** ms before auto-dismiss; 0 = sticky. If omitted, falls back to the
+   *  global `settings.toastAutoClose` preference (on → 4000ms, off → 0). */
   autoDismissMs?: number
 }
+
+export const TOAST_AUTO_DISMISS_MS = 4000
 
 export const toasts = $state<{ list: ToastItem[] }>({ list: [] })
 
@@ -32,7 +36,7 @@ export function pushToast(opts: PushOpts): number {
     detail: opts.detail ? opts.detail.slice(0, DETAIL_MAX) : undefined,
   }
   toasts.list = [...toasts.list, item]
-  const ms = opts.autoDismissMs ?? 0
+  const ms = opts.autoDismissMs ?? (settings.toastAutoClose ? TOAST_AUTO_DISMISS_MS : 0)
   if (ms > 0) {
     timers.set(id, setTimeout(() => dismissToast(id), ms))
   }

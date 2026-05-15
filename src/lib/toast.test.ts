@@ -38,4 +38,28 @@ describe('toast queue', () => {
     expect(toasts.list).toEqual([])
     vi.useRealTimers()
   })
+
+  it('auto-dismisses after 4s when settings.toastAutoClose is true and ms not supplied', async () => {
+    vi.useFakeTimers()
+    const { settings } = await import('./settings.svelte')
+    settings.toastAutoClose = true
+    pushToast({ level: 'info', message: 'q' })
+    expect(toasts.list.length).toBe(1)
+    vi.advanceTimersByTime(4000)
+    expect(toasts.list).toEqual([])
+    settings.toastAutoClose = false
+    vi.useRealTimers()
+  })
+
+  it('explicit autoDismissMs overrides settings.toastAutoClose', async () => {
+    vi.useFakeTimers()
+    const { settings } = await import('./settings.svelte')
+    settings.toastAutoClose = true
+    pushToast({ level: 'info', message: 'q', autoDismissMs: 0 })
+    vi.advanceTimersByTime(10_000)
+    expect(toasts.list.length).toBe(1)
+    settings.toastAutoClose = false
+    clearToasts()
+    vi.useRealTimers()
+  })
 })
