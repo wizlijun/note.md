@@ -2,6 +2,7 @@
   import { dispatch } from '../lib/commands'
   import { getRecentFiles } from '../lib/settings.svelte'
   import { openFile } from '../lib/tabs.svelte'
+  import VaultBrowser from './VaultBrowser.svelte'
 
   let { open = $bindable(false) }: { open?: boolean } = $props()
   let recents = $derived(getRecentFiles())
@@ -20,6 +21,7 @@
 <aside class:open class="drawer">
   <div class="head">M↓</div>
   <button class="row primary" onclick={() => { open = false; dispatch('open') }}>📂 Open File</button>
+  <VaultBrowser onCloseDrawer={() => (open = false)} />
   <div class="section-label">Recent</div>
   {#if recents.length === 0}
     <div class="empty">No recent files</div>
