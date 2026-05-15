@@ -258,6 +258,7 @@ pub fn run() {
                 vault_ios::list_dir::vault_list_dir,
                 vault_ios::vault_configure,
                 vault_ios::vault_sync_now,
+                vault_ios::vault_disconnect,
             ] }
         })
         .setup(|app| {

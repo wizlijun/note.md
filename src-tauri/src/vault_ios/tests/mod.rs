@@ -207,3 +207,46 @@ fn sync_dirty_workdir_commits_and_pushes() {
     Command::new("git").args(["clone", remote.to_str().unwrap(), verify.path().to_str().unwrap()]).output().unwrap();
     assert_eq!(std::fs::read_to_string(verify.path().join("README.md")).unwrap(), "edited");
 }
+
+#[test]
+fn sync_conflict_keeps_local_as_conflict_file() {
+    let (_keep, remote) = make_bare_remote();
+    let local = clone_with_local_path(&remote);
+    let vault = local.path().join("Vault");
+
+    // Remote changes README.md
+    let work = tempdir().unwrap();
+    Command::new("git").args(["clone", remote.to_str().unwrap(), work.path().to_str().unwrap()]).output().unwrap();
+    std::fs::write(work.path().join("README.md"), "remote-version").unwrap();
+    Command::new("git").args(["-C", work.path().to_str().unwrap(), "add", "."]).output().unwrap();
+    Command::new("git").args(["-C", work.path().to_str().unwrap(), "config", "user.email", "t@t"]).output().unwrap();
+    Command::new("git").args(["-C", work.path().to_str().unwrap(), "config", "user.name", "t"]).output().unwrap();
+    Command::new("git").args(["-C", work.path().to_str().unwrap(), "commit", "-m", "remote edit"]).output().unwrap();
+    Command::new("git").args(["-C", work.path().to_str().unwrap(), "push"]).output().unwrap();
+
+    // Local also changes README.md (different content)
+    std::fs::write(vault.join("README.md"), "local-version").unwrap();
+
+    let mgr = crate::vault_ios::VaultIosManager::new();
+    *mgr.author_name.lock().unwrap() = "T".into();
+    *mgr.author_email.lock().unwrap() = "t@t".into();
+
+    let outcome = crate::vault_ios::sync::sync_once(&mgr, &vault, "main", remote.to_str().unwrap(), "fake-pat").unwrap();
+    match outcome {
+        crate::vault_ios::sync::SyncOutcome::Pushed { conflicts } => {
+            assert!(!conflicts.is_empty(), "expected conflict log entries");
+        }
+        other => panic!("expected Pushed with conflicts, got {other:?}"),
+    }
+
+    // The .conflict.<ts>.md file should exist alongside README.md
+    let entries: Vec<_> = std::fs::read_dir(&vault).unwrap()
+        .filter_map(|e| e.ok())
+        .map(|e| e.file_name().to_string_lossy().to_string())
+        .collect();
+    assert!(entries.iter().any(|n| n.starts_with("README.conflict.") && n.ends_with(".md")),
+        "no conflict backup file found in {entries:?}");
+
+    // The README.md itself should be the remote version (theirs).
+    assert_eq!(std::fs::read_to_string(vault.join("README.md")).unwrap(), "remote-version");
+}

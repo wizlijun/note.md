@@ -113,15 +113,33 @@ pub fn sync_once(
     repo.set_head(&branch_ref)?;
 
     // 3. Pop stash; on conflict, run conflict::handle.
+    // Reload repo_mut so its in-memory index reflects the post-rebase state on disk.
+    drop(repo_mut);
+    let mut repo_mut = Repository::open(vault_dir)?;
     let pop_result = repo_mut.stash_pop(0, None);
-    if let Err(e) = pop_result {
-        if e.code() == git2::ErrorCode::Conflict || e.message().contains("conflict") {
+    match &pop_result {
+        Err(e) => {
+            let is_conflict = e.code() == git2::ErrorCode::Conflict
+                || e.code() == git2::ErrorCode::MergeConflict
+                || e.message().contains("conflict");
+            if !is_conflict {
+                return Err(VaultError::from(git2::Error::from_str(e.message())));
+            }
             conflict::handle(&repo, &mut conflicts_log)?;
-            *mgr.has_conflicts.lock().unwrap() = !conflicts_log.is_empty();
-        } else {
-            return Err(VaultError::from(e));
+        }
+        Ok(()) => {
+            // libgit2's default stash apply uses GIT_CHECKOUT_SAFE which can write
+            // conflict markers to files without flagging them in the index. If that
+            // happened, treat the marker-containing files as conflicts ourselves.
+            let idx = repo.index()?;
+            if idx.has_conflicts() {
+                conflict::handle(&repo, &mut conflicts_log)?;
+            } else {
+                conflict::handle_marker_files(&repo, &mut conflicts_log)?;
+            }
         }
     }
+    *mgr.has_conflicts.lock().unwrap() = !conflicts_log.is_empty();
 
     // 4. add -A + commit.
     let mut index = repo.index()?;

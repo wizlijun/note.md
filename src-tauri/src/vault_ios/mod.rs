@@ -244,6 +244,34 @@ pub async fn vault_sync_now(app: AppHandle, pat: String) -> Result<VaultStatus, 
     }
 }
 
+#[tauri::command]
+pub async fn vault_disconnect(app: AppHandle) -> Result<(), String> {
+    use tauri_plugin_store::StoreExt;
+    let mgr_state = app.state::<Arc<VaultIosManager>>();
+    let mgr: Arc<VaultIosManager> = mgr_state.inner().clone();
+
+    let vault_dir = path::vault_path(&app).map_err(|e| e.to_string())?;
+    if vault_dir.exists() {
+        std::fs::remove_dir_all(&vault_dir).map_err(|e| e.to_string())?;
+    }
+
+    if let Ok(store) = app.store("settings.json") {
+        let _ = store.delete("vault_ios.remote_url");
+        let _ = store.delete("vault_ios.branch");
+        let _ = store.delete("vault_ios.author_name");
+        let _ = store.delete("vault_ios.author_email");
+        let _ = store.save();
+    }
+
+    *mgr.remote_url.lock().unwrap() = None;
+    *mgr.state.lock().unwrap() = SyncState::NotConfigured;
+    *mgr.last_sync.lock().unwrap() = None;
+    *mgr.error_msg.lock().unwrap() = None;
+    *mgr.has_conflicts.lock().unwrap() = false;
+    let _ = app.emit("vault-status-changed", ());
+    Ok(())
+}
+
 pub fn now_ms() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
