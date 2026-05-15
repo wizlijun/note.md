@@ -40,6 +40,7 @@
   import MobileToolbar from './components/MobileToolbar.svelte'
   import DrawerNav from './components/DrawerNav.svelte'
   import { platform, isIOS } from './lib/platform.svelte'
+  import { vaultStore, refreshStatus, syncNow, attachStatusListener } from './lib/vault.svelte'
 
   let platformName = $state<'macos' | 'ios' | 'unknown'>('unknown')
   let drawerOpen = $state(false)
@@ -69,6 +70,14 @@
 
       if (await isIOS()) {
         pluginRuntime.manifests = []
+        attachStatusListener()
+        await refreshStatus()
+
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'visible' && vaultStore.configured) {
+            void syncNow()
+          }
+        })
       } else {
         try { pluginRuntime.manifests = await invoke<PluginManifest[]>('get_plugin_manifests') }
         catch (e) { console.warn('[App] get_plugin_manifests:', e) }
