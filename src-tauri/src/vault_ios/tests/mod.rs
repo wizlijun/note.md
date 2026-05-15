@@ -111,3 +111,40 @@ fn sig_falls_back_when_email_empty() {
     let sig = crate::vault_ios::sig::author_sig(&mgr).unwrap();
     assert_eq!(sig.email(), Some("noreply@mdeditor.local"));
 }
+
+use std::process::Command;
+
+fn make_bare_remote() -> (tempfile::TempDir, std::path::PathBuf) {
+    let dir = tempdir().unwrap();
+    let remote = dir.path().join("remote.git");
+    Command::new("git").args(["init", "--bare", remote.to_str().unwrap()]).output().unwrap();
+
+    let work = dir.path().join("work");
+    Command::new("git").args(["clone", remote.to_str().unwrap(), work.to_str().unwrap()]).output().unwrap();
+    std::fs::write(work.join("README.md"), "hello").unwrap();
+    Command::new("git").args(["-C", work.to_str().unwrap(), "config", "user.email", "t@t.test"]).output().unwrap();
+    Command::new("git").args(["-C", work.to_str().unwrap(), "config", "user.name", "t"]).output().unwrap();
+    Command::new("git").args(["-C", work.to_str().unwrap(), "add", "."]).output().unwrap();
+    Command::new("git").args(["-C", work.to_str().unwrap(), "commit", "-m", "init"]).output().unwrap();
+    Command::new("git").args(["-C", work.to_str().unwrap(), "push", "origin", "HEAD:main"]).output().unwrap();
+
+    (dir, remote)
+}
+
+#[test]
+fn clone_local_bare_repo_succeeds() {
+    let (_keep, remote) = make_bare_remote();
+    let dest = tempdir().unwrap();
+    let vault_dir = dest.path().join("Vault");
+
+    let res = crate::vault_ios::clone::clone_repo(
+        remote.to_str().unwrap(),
+        "main",
+        "fake-pat-not-checked-for-local-path",
+        &vault_dir,
+        |_progress| {},
+    );
+    assert!(res.is_ok(), "clone failed: {res:?}");
+    assert!(vault_dir.join("README.md").exists());
+    assert!(vault_dir.join(".git").exists());
+}

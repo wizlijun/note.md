@@ -13,6 +13,7 @@ pub mod path;
 pub mod list_dir;
 pub mod keychain;
 pub mod sig;
+pub mod clone;
 
 #[cfg(test)]
 mod tests;
@@ -133,6 +134,74 @@ pub fn vault_status(app: AppHandle) -> VaultStatus {
     let mgr = app.state::<Arc<VaultIosManager>>();
     let configured = mgr.remote_url.lock().unwrap().is_some();
     mgr.snapshot_status(configured)
+}
+
+use tauri::Emitter;
+
+#[tauri::command]
+pub async fn vault_configure(
+    app: AppHandle,
+    cfg: VaultConfigure,
+) -> Result<(), String> {
+    use tauri_plugin_store::StoreExt;
+    let mgr_state = app.state::<Arc<VaultIosManager>>();
+    let mgr: Arc<VaultIosManager> = mgr_state.inner().clone();
+
+    // Save non-secret config to settings.json.
+    if let Ok(store) = app.store("settings.json") {
+        let _ = store.set("vault_ios.remote_url", serde_json::json!(&cfg.remote_url));
+        let _ = store.set("vault_ios.branch", serde_json::json!(&cfg.branch));
+        let _ = store.set("vault_ios.author_name", serde_json::json!(&cfg.author_name));
+        let _ = store.set("vault_ios.author_email", serde_json::json!(&cfg.author_email));
+        let _ = store.save();
+    }
+
+    *mgr.remote_url.lock().unwrap() = Some(cfg.remote_url.clone());
+    *mgr.branch.lock().unwrap() = cfg.branch.clone();
+    *mgr.author_name.lock().unwrap() = cfg.author_name.clone();
+    *mgr.author_email.lock().unwrap() = cfg.author_email.clone();
+    *mgr.state.lock().unwrap() = SyncState::Cloning;
+    let _ = app.emit("vault-status-changed", ());
+
+    let dest = path::vault_path(&app).map_err(|e| e.to_string())?;
+    let app_for_progress = app.clone();
+    let clone_result = clone::clone_repo(
+        &cfg.remote_url,
+        &cfg.branch,
+        &cfg.pat,
+        &dest,
+        move |p| {
+            let _ = app_for_progress.emit("vault-clone-progress", serde_json::json!({
+                "stage": p.stage,
+                "received_objects": p.received_objects,
+                "total_objects": p.total_objects,
+                "bytes": p.bytes,
+            }));
+        },
+    );
+
+    match clone_result {
+        Ok(()) => {
+            *mgr.state.lock().unwrap() = SyncState::Idle;
+            *mgr.last_sync.lock().unwrap() = Some(now_ms());
+            *mgr.error_msg.lock().unwrap() = None;
+            let _ = app.emit("vault-status-changed", ());
+            Ok(())
+        }
+        Err(e) => {
+            *mgr.state.lock().unwrap() = SyncState::Error;
+            *mgr.error_msg.lock().unwrap() = Some(e.to_string());
+            let _ = app.emit("vault-status-changed", ());
+            Err(e.to_string())
+        }
+    }
+}
+
+pub fn now_ms() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64
 }
 
 pub fn init(app: &AppHandle) {
