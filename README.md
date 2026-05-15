@@ -265,6 +265,30 @@ Output:
     preview works.
 95. iOS: Settings → Plugins tab and "Default App for Extensions"
     section are **completely absent**.
+96. iOS：未配置 vault → 抽屉 Vault 分区显示"去设置配置仓库"；点跳到
+    SettingsDialog → Vault tab。
+97. 输入 remote URL + PAT + 保存 → toast "正在 clone..." → 完成后抽屉
+    显示 vault 根目录文件。
+98. 已配置 vault，杀进程重开 → vault 状态自动恢复，文件列表照旧。
+99. 点抽屉里一个 `.md` 文件 → mdeditor 打开；编辑保存 → 工作树 dirty。
+100. 点 vault 区的 [↻] 同步按钮 → spinner → 完成后 toast "✓ Vault 同步
+     完成"；GitHub Web 上能看到新 commit `vault: auto-sync <ts>`。
+101. 另一台设备改一个文件 push → iOS App 切回前台 → 5 秒内自动拉回 →
+     抽屉里该文件 mtime 更新；打开文件看到新内容。
+102. 双向冲突：本地编辑 A + 远端也改 A → 同步 → toast "⚠️ Vault: 同步
+     完成，1 个本地修改保留为 .conflict 副本" → 抽屉里
+     `A.conflict.<ts>.md` 同目录可见；GitHub 仓库收到两个文件。
+103. PAT 失效（GitHub revoke）→ 同步 → toast "❌ Vault: 鉴权失败，请去
+     Vault 设置更新 PAT"。
+104. 飞行模式 → 同步 → toast "❌ Vault: 网络错误"。
+105. "断开 Vault" → 二次确认 → 本地 `Documents/Vault/` 删除、Keychain
+     item 清除、抽屉 Vault 区回到"未配置"；远端仓库不受影响。
+106. iPad 上 ☰ 按钮显示并能打开抽屉；vault 文件浏览行为与 iPhone 一致。
+107. vault 仓库中有 `.png` → 抽屉点击 → 进入 mdeditor 图片预览 tab。
+108. vault 仓库 `.git` 目录在抽屉中不可见。
+109. Files App → `Documents/Vault/` → 用户看到完整工作树（含 `.git`）→
+     顶部不显示 iCloud 图标（`NSURLIsExcludedFromBackupKey` 生效）。
+110. IPA 包体增量 < 10 MB（与 v0.6.0 baseline 对比）；总 IPA < 30 MB。
 
 ## Spec & Plan
 
