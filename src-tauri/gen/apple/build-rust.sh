@@ -77,8 +77,15 @@ esac
 # SRCROOT = src-tauri/gen/apple → climb 2 levels to src-tauri/
 SRC_TAURI=$(cd "${SRCROOT}/../.." && pwd)
 
+# `--features tauri/custom-protocol` is critical: tauri/build.rs sets
+# `cfg(dev) = !has_feature("custom-protocol")`. Without this flag, the
+# binary runs in dev mode and tries to load http://localhost:1420 even
+# when the frontend is bundled (which then fails as "Failed to request
+# http://localhost:1420 / Local Network permissions"). Tauri CLI passes
+# this flag during `tauri build`; we must pass it ourselves in the
+# standalone fallback so Xcode IDE Build produces a self-contained app.
 # shellcheck disable=SC2086
-(cd "$SRC_TAURI" && cargo build $PROFILE_FLAG --target "$TARGET" --lib)
+(cd "$SRC_TAURI" && cargo build $PROFILE_FLAG --target "$TARGET" --lib --features tauri/custom-protocol)
 
 SRC="${SRC_TAURI}/target/${TARGET}/${PROFILE_DIR}/libmdeditor_lib.a"
 DST_DIR="${SRCROOT}/Externals/${ARCHS}/${CONFIGURATION}"
