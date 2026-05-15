@@ -11,6 +11,7 @@ use tauri::{AppHandle, Manager};
 
 pub mod path;
 pub mod list_dir;
+pub mod keychain;
 
 #[cfg(test)]
 mod tests;

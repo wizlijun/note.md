@@ -79,3 +79,16 @@ fn list_dir_rejects_path_traversal() {
     let result = crate::vault_ios::list_dir::list(root, "../etc");
     assert!(result.is_err());
 }
+
+#[test]
+fn keychain_stub_roundtrip() {
+    let dir = tempdir().unwrap();
+    std::env::set_var("MDEDITOR_KEYCHAIN_STUB_DIR", dir.path());
+    crate::vault_ios::keychain::stub::set("pat", "secret-token").unwrap();
+    let got = crate::vault_ios::keychain::stub::get("pat").unwrap();
+    assert_eq!(got.as_deref(), Some("secret-token"));
+    crate::vault_ios::keychain::stub::delete("pat").unwrap();
+    let gone = crate::vault_ios::keychain::stub::get("pat").unwrap();
+    assert_eq!(gone, None);
+    std::env::remove_var("MDEDITOR_KEYCHAIN_STUB_DIR");
+}
