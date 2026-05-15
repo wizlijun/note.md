@@ -337,5 +337,7 @@
 	</array>
 	<key>NSHighResolutionCapable</key>
 	<true/>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>开发模式下连接本机调试服务器需要本地网络访问。Release 版本不会访问本地网络。</string>
 </dict>
 </plist>
