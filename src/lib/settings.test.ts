@@ -53,6 +53,29 @@ describe('settings', () => {
     expect(getRecentMode('json')).toBe(null)
   })
 
+  it('loadSettings hydrates toastAutoClose from store, defaults to false', async () => {
+    const { loadSettings, settings } = await import('./settings.svelte')
+    mockGet.mockImplementation(async (key: string) =>
+      key === 'toastAutoClose' ? true : undefined,
+    )
+    await loadSettings()
+    expect(settings.toastAutoClose).toBe(true)
+  })
+
+  it('loadSettings defaults toastAutoClose to false when missing', async () => {
+    const { loadSettings, settings } = await import('./settings.svelte')
+    await loadSettings()
+    expect(settings.toastAutoClose).toBe(false)
+  })
+
+  it('saveSettings persists toastAutoClose', async () => {
+    const { loadSettings, saveSettings, settings } = await import('./settings.svelte')
+    await loadSettings()
+    settings.toastAutoClose = true
+    await saveSettings()
+    expect(mockSet).toHaveBeenCalledWith('toastAutoClose', true)
+  })
+
 })
 
 describe('theme settings', () => {

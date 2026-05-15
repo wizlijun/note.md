@@ -48,10 +48,12 @@ const DEFAULT_THEME: ThemeSettings = { light: 'default', dark: 'default', follow
 
 export const settings = $state<{
   autoSave: boolean
+  toastAutoClose: boolean
   theme: ThemeSettings
   mdblock: MdblockSettings
 }>({
   autoSave: false,
+  toastAutoClose: false,
   theme: { ...DEFAULT_THEME },
   mdblock: structuredClone(DEFAULT_MDBLOCK_SETTINGS),
 })
@@ -132,6 +134,7 @@ export async function loadShareDb(): Promise<void> {
 export async function loadSettings(): Promise<void> {
   const s = await getStore()
   settings.autoSave = (await s.get<boolean>('autoSave')) ?? false
+  settings.toastAutoClose = (await s.get<boolean>('toastAutoClose')) ?? false
 
   // Theme migration: prefer new shape; fall back to legacy single skin id.
   const storedTheme = await s.get<ThemeSettings>('theme')
@@ -173,6 +176,7 @@ export async function saveSettings(): Promise<void> {
   if (!settingsHydrated) return
   const s = await getStore()
   await s.set('autoSave', settings.autoSave)
+  await s.set('toastAutoClose', settings.toastAutoClose)
   await s.set('theme', settings.theme)
   await s.set('recentFiles', recentFiles)
   await s.set('recentModesByExt', recentModesByExt)
