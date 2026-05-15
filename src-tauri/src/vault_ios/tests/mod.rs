@@ -92,3 +92,22 @@ fn keychain_stub_roundtrip() {
     assert_eq!(gone, None);
     std::env::remove_var("MDEDITOR_KEYCHAIN_STUB_DIR");
 }
+
+#[test]
+fn sig_uses_configured_name_and_email() {
+    let mgr = crate::vault_ios::VaultIosManager::new();
+    *mgr.author_name.lock().unwrap() = "Alice".into();
+    *mgr.author_email.lock().unwrap() = "a@example.com".into();
+    let sig = crate::vault_ios::sig::author_sig(&mgr).unwrap();
+    assert_eq!(sig.name(), Some("Alice"));
+    assert_eq!(sig.email(), Some("a@example.com"));
+}
+
+#[test]
+fn sig_falls_back_when_email_empty() {
+    let mgr = crate::vault_ios::VaultIosManager::new();
+    *mgr.author_name.lock().unwrap() = "Bob".into();
+    // email left empty
+    let sig = crate::vault_ios::sig::author_sig(&mgr).unwrap();
+    assert_eq!(sig.email(), Some("noreply@mdeditor.local"));
+}
