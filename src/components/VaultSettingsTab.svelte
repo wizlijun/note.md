@@ -1,5 +1,6 @@
 <script lang="ts">
   import { vaultStore, syncNow, configureVault, disconnectVault, refreshStatus, fetchGitHubLogin } from '../lib/vault.svelte'
+  import { pushToast } from '../lib/toast.svelte'
   import { ask } from '@tauri-apps/plugin-dialog'
   import { openUrl } from '@tauri-apps/plugin-opener'
 
@@ -37,8 +38,22 @@
       await configureVault({ remoteUrl, branch, pat, authorName, authorEmail })
       showPatInput = false
       pat = ''
+      pushToast({ level: 'success', message: '✓ Vault 已连接，仓库克隆完成' })
     } catch (e) {
-      saveError = String(e)
+      const raw = typeof e === 'string' ? e : String(e)
+      saveError = raw
+      // Map known error patterns to friendlier Chinese toast text.
+      let friendly = `❌ Vault 连接失败：${raw}`
+      if (raw.includes('keychain') || raw.includes('plugin:keychain')) {
+        friendly = '❌ Vault 连接失败：Keychain 桥未就绪（Swift 端 Keychain.swift 还没加入 Xcode 目标）'
+      } else if (raw.includes('auth') || raw.includes('鉴权') || raw.includes('401')) {
+        friendly = '❌ Vault 连接失败：PAT 鉴权失败，请确认 token 有 contents:read/write 权限'
+      } else if (raw.includes('404') || raw.includes('not found')) {
+        friendly = '❌ Vault 连接失败：仓库不存在或 PAT 无访问权'
+      } else if (raw.includes('network') || raw.includes('网络')) {
+        friendly = '❌ Vault 连接失败：网络错误'
+      }
+      pushToast({ level: 'error', message: friendly, detail: raw })
     } finally {
       busy = false
     }
@@ -50,7 +65,14 @@
     })
     if (!ok) return
     busy = true
-    try { await disconnectVault() } finally { busy = false }
+    try {
+      await disconnectVault()
+      pushToast({ level: 'success', message: '✓ 已断开 Vault' })
+    } catch (e) {
+      pushToast({ level: 'error', message: `❌ 断开失败：${e}`, detail: String(e) })
+    } finally {
+      busy = false
+    }
   }
 
   function formatLastSync(ms: number | null): string {
