@@ -19,7 +19,7 @@ pub mod plugin_host;
 #[path = "plugin_host_ios.rs"]
 pub mod plugin_host;
 
-#[cfg(target_os = "ios")]
+#[cfg(any(target_os = "ios", test))]
 pub mod vault_ios;
 
 /// Append a diagnostic line to /tmp/mdeditor.log in debug builds (best-effort).

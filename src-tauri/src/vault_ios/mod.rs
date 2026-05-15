@@ -9,7 +9,12 @@ use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Manager};
 
-// Submodules will be added by later tasks (path, list_dir, keychain, sig, clone, sync, conflict, tests).
+pub mod path;
+
+#[cfg(test)]
+mod tests;
+
+// Submodules will be added by later tasks (list_dir, keychain, sig, clone, sync, conflict).
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
