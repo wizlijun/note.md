@@ -12,6 +12,7 @@
   import { collectSettingsTabs, type SettingsTab } from '../lib/plugins/settings-registry'
   import type { PluginManifest } from '../lib/plugins/types'
   import PluginsSettingsTab from './PluginsSettingsTab.svelte'
+  import VaultSettingsTab from './VaultSettingsTab.svelte'
 
   let { open = $bindable(false) }: { open: boolean } = $props()
 
@@ -156,6 +157,9 @@
           <button class:active={selectedTab === 'plugins'} onclick={() => selectedTab = 'plugins'}>Plugins</button>
         {/if}
         <button class:active={selectedTab === 'core'} onclick={() => selectedTab = 'core'}>Core</button>
+        {#if isIOSPlatform}
+          <button class:active={selectedTab === 'vault'} onclick={() => selectedTab = 'vault'}>Vault</button>
+        {/if}
         {#each pluginTabs as t (t.pluginId)}
           <button class:active={selectedTab === t.pluginId} onclick={() => selectedTab = t.pluginId}>{t.label}</button>
         {/each}
@@ -225,6 +229,8 @@
             </p>
           </section>
         {/if}
+      {:else if selectedTab === 'vault' && isIOSPlatform}
+        <VaultSettingsTab />
       {:else}
         {#each pluginTabs as t (t.pluginId)}
           {#if selectedTab === t.pluginId}
