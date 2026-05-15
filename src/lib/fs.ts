@@ -1,6 +1,15 @@
 import { readTextFile, writeTextFile, stat as fsStat } from '@tauri-apps/plugin-fs'
+import { platform } from './platform.svelte'
+
+const IOS_LARGE_FILE_LIMIT = 4 * 1024 * 1024
 
 export async function readMd(path: string): Promise<string> {
+  if ((await platform().catch(() => 'unknown')) === 'ios') {
+    const info = await fsStat(path).catch(() => null)
+    if (info && (info.size ?? 0) > IOS_LARGE_FILE_LIMIT) {
+      throw new Error(`File too large to open on iOS (limit 4 MB): ${path}`)
+    }
+  }
   return readTextFile(path)
 }
 

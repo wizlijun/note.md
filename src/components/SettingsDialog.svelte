@@ -11,11 +11,18 @@
   import { themes, loadThemes, reloadThemes } from '../lib/themes.svelte'
   import { pendingThemeImport } from '../lib/theme-import-bus.svelte'
   import ThemeImportDialog from './ThemeImportDialog.svelte'
+  import { platform } from '../lib/platform.svelte'
   import { collectSettingsTabs, type SettingsTab } from '../lib/plugins/settings-registry'
   import type { PluginManifest } from '../lib/plugins/types'
   import PluginsSettingsTab from './PluginsSettingsTab.svelte'
+  import VaultSettingsTab from './VaultSettingsTab.svelte'
 
   let { open = $bindable(false) }: { open: boolean } = $props()
+
+  let isIOSPlatform = $state(false)
+  $effect(() => {
+    platform().then((p) => { isIOSPlatform = p === 'ios' })
+  })
 
   let pluginTabs = $state<SettingsTab[]>([])
   let selectedTab = $state<'plugins' | 'core' | string>('core')
@@ -315,17 +322,24 @@
       <h2>Preferences</h2>
 
       <nav class="tab-strip">
-        <button class:active={selectedTab === 'plugins'} onclick={() => selectedTab = 'plugins'}>Plugins</button>
+        {#if !isIOSPlatform}
+          <button class:active={selectedTab === 'plugins'} onclick={() => selectedTab = 'plugins'}>Plugins</button>
+        {/if}
         <button class:active={selectedTab === 'core'} onclick={() => selectedTab = 'core'}>Core</button>
         <button class:active={selectedTab === 'block'} onclick={() => selectedTab = 'block'}>Block</button>
-        <button class:active={selectedTab === 'cli'} onclick={() => { selectedTab = 'cli'; void refreshCliStatus() }}>CLI</button>
-        <button class:active={selectedTab === 'updates'} onclick={() => { selectedTab = 'updates' }}>Updates</button>
+        {#if !isIOSPlatform}
+          <button class:active={selectedTab === 'cli'} onclick={() => { selectedTab = 'cli'; void refreshCliStatus() }}>CLI</button>
+          <button class:active={selectedTab === 'updates'} onclick={() => { selectedTab = 'updates' }}>Updates</button>
+        {/if}
+        {#if isIOSPlatform}
+          <button class:active={selectedTab === 'vault'} onclick={() => selectedTab = 'vault'}>Vault</button>
+        {/if}
         {#each pluginTabs as t (t.pluginId)}
           <button class:active={selectedTab === t.pluginId} onclick={() => selectedTab = t.pluginId}>{t.label}</button>
         {/each}
       </nav>
 
-      {#if selectedTab === 'plugins'}
+      {#if !isIOSPlatform && selectedTab === 'plugins'}
         <PluginsSettingsTab />
       {:else if selectedTab === 'core'}
         <section class="block">
@@ -381,46 +395,48 @@
           </label>
         </section>
 
-        <section class="block">
-          <h3>Default app for text &amp; code files</h3>
-          <p class="desc">
-            Make M↓ the default macOS application for opening text and source code files.
-            Once set, double-clicking any of the supported file types in Finder (or selecting
-            <em>Open With…</em>) will launch M↓.
-          </p>
-          <p class="desc">
-            This affects <strong>{ALL_EXTS.length}</strong> file extensions across
-            <strong>{FILE_GROUPS.length}</strong> categories. Every change goes through macOS Launch
-            Services, so the system, Finder, and other apps all pick it up immediately.
-          </p>
-          <details class="ext-list">
-            <summary>Show affected file types ({ALL_EXTS.length} extensions)</summary>
-            <ul>
-              {#each FILE_GROUPS as g}
-                <li><strong>{g.label}</strong> — {g.exts.map((e) => `.${e}`).join(', ')}</li>
-              {/each}
-            </ul>
-          </details>
-          <button class="primary" onclick={handleSetDefault} disabled={busy}>
-            {busy ? 'Setting…' : `Set M↓ as default for all ${ALL_EXTS.length} types`}
-          </button>
-          {#if resultText}
-            <p
-              class="result"
-              class:ok={resultDetails?.every((r) => r.ok)}
-              class:partial={resultDetails && resultDetails.some((r) => !r.ok) && resultDetails.some((r) => r.ok)}
-              class:fail={resultDetails && resultDetails.every((r) => !r.ok)}
-            >
-              {resultText}
+        {#if !isIOSPlatform}
+          <section class="block">
+            <h3>Default app for text &amp; code files</h3>
+            <p class="desc">
+              Make M↓ the default macOS application for opening text and source code files.
+              Once set, double-clicking any of the supported file types in Finder (or selecting
+              <em>Open With…</em>) will launch M↓.
             </p>
-          {/if}
-          <p class="undo-note">
-            <strong>To undo for one file type:</strong> in Finder, select a file → File menu →
-            <em>Get Info</em> → <em>Open with</em> section → pick another app → click
-            <em>Change All…</em>. There's no way to bulk-undo through macOS, so make sure you want this
-            before clicking the button above.
-          </p>
-        </section>
+            <p class="desc">
+              This affects <strong>{ALL_EXTS.length}</strong> file extensions across
+              <strong>{FILE_GROUPS.length}</strong> categories. Every change goes through macOS Launch
+              Services, so the system, Finder, and other apps all pick it up immediately.
+            </p>
+            <details class="ext-list">
+              <summary>Show affected file types ({ALL_EXTS.length} extensions)</summary>
+              <ul>
+                {#each FILE_GROUPS as g}
+                  <li><strong>{g.label}</strong> — {g.exts.map((e) => `.${e}`).join(', ')}</li>
+                {/each}
+              </ul>
+            </details>
+            <button class="primary" onclick={handleSetDefault} disabled={busy}>
+              {busy ? 'Setting…' : `Set M↓ as default for all ${ALL_EXTS.length} types`}
+            </button>
+            {#if resultText}
+              <p
+                class="result"
+                class:ok={resultDetails?.every((r) => r.ok)}
+                class:partial={resultDetails && resultDetails.some((r) => !r.ok) && resultDetails.some((r) => r.ok)}
+                class:fail={resultDetails && resultDetails.every((r) => !r.ok)}
+              >
+                {resultText}
+              </p>
+            {/if}
+            <p class="undo-note">
+              <strong>To undo for one file type:</strong> in Finder, select a file → File menu →
+              <em>Get Info</em> → <em>Open with</em> section → pick another app → click
+              <em>Change All…</em>. There's no way to bulk-undo through macOS, so make sure you want this
+              before clicking the button above.
+            </p>
+          </section>
+        {/if}
       {:else if selectedTab === 'block'}
         <section class="block">
           <label class="row">
@@ -627,6 +643,8 @@
             更新通过 GitHub Releases 分发，下载前会用内置公钥校验签名；只有签名通过的包才会被替换到 .app 中。
           </p>
         </section>
+      {:else if selectedTab === 'vault' && isIOSPlatform}
+        <VaultSettingsTab />
       {:else}
         {#each pluginTabs as t (t.pluginId)}
           {#if selectedTab === t.pluginId}

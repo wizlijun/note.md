@@ -389,6 +389,88 @@ plugin in **Preferences → Plugins** to remove its subcommand from `mdedit`.
     (within a sentence) → small chip with red ▶ icon; paste on its
     own line → full-width card.
 
+### iOS smoke (run on simulator + real device for v1 release)
+
+> Note: items 79, 84 (system Share Sheet popup) and 78 (Cmd+S/O/W keyboard
+> shortcuts) depend on the Swift bridge that was deferred to post-v1. On
+> v1 the share toast still shows the URL and clipboard still works; iPad
+> keyboard shortcuts use the menu bar instead.
+
+71. iPad simulator: Files App pick a `.md` → "Open With M↓" → editor
+    opens, top toolbar visible.
+72. Edit content → toolbar Save → file written in place (verify timestamp
+    in Files App).
+73. Quit M↓ → relaunch → Recent drawer shows the previous file → tap →
+    re-opens (security-scoped bookmark renewed).
+74. Delete the original file in Files App → return to M↓ → red "deleted"
+    banner.
+75. iPhone real device: single document fullscreen; tap ☰ → drawer slides
+    in; pick Settings → switch skin to "shuyuan" → editor updates
+    immediately.
+76. iPhone: open three different `.md` files via Drawer → `tabs.svelte`
+    store should hold 3 tabs but UI only renders the active one;
+    switching between Recent items preserves edit history (verify
+    `tabs.length === 3` in dev console).
+77. iPhone: long-press a Recent item → Delete-from-Recent option appears.
+78. **DEFERRED:** iPad with external keyboard → Cmd+O / Cmd+S / Cmd+/ /
+    Cmd+Shift+S — requires Swift `UIKeyCommand` bridge (post-v1).
+79. **DEFERRED:** Cmd+Shift+L → share publish + system Share Sheet popup
+    — requires Swift `UIActivityViewController` bridge (post-v1). On v1,
+    use the toolbar Share button; URL is copied to clipboard, share
+    manually.
+80. iOS: share a Mermaid-containing document → open share URL in Safari
+    → flowchart renders as SVG (matches macOS).
+81. iOS: share a KaTeX-containing document → recipient page renders
+    formulas correctly.
+82. iOS: edit shared document → toolbar Share → toast "✅ 内容已更新（链接已复制）"
+    with same URL.
+83. iOS: toolbar Unshare → recipient page returns 410.
+84. iOS: pick a `.png` from Files App → preview tab → toolbar Share →
+    URL copied to clipboard. (System Share Sheet popup deferred — see 79.)
+85. iOS: airplane mode + toolbar Share → toast "❌ Share: 网络错误".
+86. iOS: `share.apiKey` not configured → Share → toast pointing to
+    Settings → Share.
+87. iOS: 25+ MB markdown → Share → toast "❌ Share: 文档过大（X MB / 上限 25 MB）".
+88. iOS: Mail attachment "Open in M↓" a `.md` → editor opens; rich mode
+    renders KaTeX.
+89. iOS: dark mode toggle → editor + skins (incl. effie) re-render.
+90. iOS: rotate iPad portrait↔landscape → toolbar + editor reflow, no
+    overlap.
+91. iPad Split View (M↓ on half-screen) → drawer + toolbar shrink but
+    don't break.
+92. iOS: enable autosave → edit → 1s after pause, file written in place
+    (Files App timestamp updates).
+93. iOS: open `.py` in source mode → switch to rich mode → syntax
+    highlight renders (verify dockerfile / py / ts).
+94. iOS: open `.html` → defaults to rich mode → sandboxed iframe
+    preview works.
+95. iOS: Settings → Plugins tab and "Default App for Extensions"
+    section are **completely absent**.
+96. iOS：未配置 vault → 抽屉 Vault 分区显示"去设置配置仓库"；点跳到
+    SettingsDialog → Vault tab。
+97. 输入 remote URL + PAT + 保存 → toast "正在 clone..." → 完成后抽屉
+    显示 vault 根目录文件。
+98. 已配置 vault，杀进程重开 → vault 状态自动恢复，文件列表照旧。
+99. 点抽屉里一个 `.md` 文件 → mdeditor 打开；编辑保存 → 工作树 dirty。
+100. 点 vault 区的 [↻] 同步按钮 → spinner → 完成后 toast "✓ Vault 同步
+     完成"；GitHub Web 上能看到新 commit `vault: auto-sync <ts>`。
+101. 另一台设备改一个文件 push → iOS App 切回前台 → 5 秒内自动拉回 →
+     抽屉里该文件 mtime 更新；打开文件看到新内容。
+102. 双向冲突：本地编辑 A + 远端也改 A → 同步 → toast "⚠️ Vault: 同步
+     完成，1 个本地修改保留为 .conflict 副本" → 抽屉里
+     `A.conflict.<ts>.md` 同目录可见；GitHub 仓库收到两个文件。
+103. PAT 失效（GitHub revoke）→ 同步 → toast "❌ Vault: 鉴权失败，请去
+     Vault 设置更新 PAT"。
+104. 飞行模式 → 同步 → toast "❌ Vault: 网络错误"。
+105. "断开 Vault" → 二次确认 → 本地 `Documents/Vault/` 删除、Keychain
+     item 清除、抽屉 Vault 区回到"未配置"；远端仓库不受影响。
+106. iPad 上 ☰ 按钮显示并能打开抽屉；vault 文件浏览行为与 iPhone 一致。
+107. vault 仓库中有 `.png` → 抽屉点击 → 进入 mdeditor 图片预览 tab。
+108. vault 仓库 `.git` 目录在抽屉中不可见。
+109. Files App → `Documents/Vault/` → 用户看到完整工作树（含 `.git`）→
+     顶部不显示 iCloud 图标（`NSURLIsExcludedFromBackupKey` 生效）。
+110. IPA 包体增量 < 10 MB（与 v0.6.0 baseline 对比）；总 IPA < 30 MB。
+
 ## Spec & Plan
 
 - Designs: `docs/superpowers/specs/`

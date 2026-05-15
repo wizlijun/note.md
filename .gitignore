@@ -5,7 +5,8 @@ src-tauri/target/
 mdshare/target/
 md2pdf/target/
 vaultgitsync/target/
-src-tauri/gen/
+src-tauri/gen/*
+!src-tauri/gen/apple/
 .worktrees/
 *.log
 

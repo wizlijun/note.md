@@ -1,4 +1,8 @@
 import { mount } from 'svelte'
+import { initFormFactor } from './lib/platform.svelte'
+
+// fire-and-forget; UI starts as 'desktop' and reactively updates after Tauri resolves
+initFormFactor().catch((e) => console.warn('[main] initFormFactor:', e))
 
 declare global {
   interface Window {

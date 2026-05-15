@@ -2,6 +2,7 @@
   import './styles/app.css'
   import './styles/editor-base.css'
   import 'mermaid-mini/style.css'
+  import './styles/responsive.css'
   import { onMount } from 'svelte'
   import { getCurrentWindow } from '@tauri-apps/api/window'
   import { listen } from '@tauri-apps/api/event'
@@ -11,9 +12,9 @@
   import EditorPane from './components/EditorPane.svelte'
   import EmptyState from './components/EmptyState.svelte'
   import ModeToggle from './components/ModeToggle.svelte'
-  import { activeTab, tabs, closeTab, openFile, newFile, isDirty, saveActive } from './lib/tabs.svelte'
+  import { activeTab, tabs, closeTab, openFile, newFile, isDirty } from './lib/tabs.svelte'
   import { loadSettings, settings } from './lib/settings.svelte'
-  import { cmdOpen, cmdSave, cmdSaveAs, cmdCloseActive, cmdToggleMode } from './lib/commands'
+  import { cmdOpen, cmdSave, cmdSaveAs, cmdCloseActive, cmdToggleMode, dispatch, type CommandId } from './lib/commands'
   import { cmdMdblockRefresh } from './lib/mdblock/commands'
   import { confirmDirtyClose } from './lib/dialogs'
   import { startAutoSaveWatcher } from './lib/autosave.svelte'
@@ -38,8 +39,18 @@
   import { getPluginScopedAll, pluginScopedVersion } from './lib/settings.svelte'
   import { pushToast } from './lib/toast.svelte'
   import type { PluginManifest, EnabledWhenContext } from './lib/plugins/types'
+  import { uiState, openSettings } from './lib/ui-state.svelte'
+  import MobileToolbar from './components/MobileToolbar.svelte'
+  import DrawerNav from './components/DrawerNav.svelte'
+  import { platform, isIOS } from './lib/platform.svelte'
+  import { vaultStore, refreshStatus, syncNow, attachStatusListener } from './lib/vault.svelte'
 
-  let showSettings = $state(false)
+  let platformName = $state<'macos' | 'ios' | 'unknown'>('unknown')
+  let drawerOpen = $state(false)
+  $effect(() => {
+    platform().then((p) => { platformName = p })
+  })
+
   let showUpdateDialog = $state(false)
   let collectedItems = $derived<CollectedItems>(collectMenuItems(pluginRuntime.manifests))
   // Tracks last applied enabled state per menu-item id, so we only invoke the
@@ -158,8 +169,20 @@
       } catch (e) { console.warn('[App] theme init:', e) }
       stopAutoSave = startAutoSaveWatcher()
 
-      try { pluginRuntime.manifests = await invoke<PluginManifest[]>('get_plugin_manifests') }
-      catch (e) { console.warn('[App] get_plugin_manifests:', e) }
+      if (await isIOS()) {
+        pluginRuntime.manifests = []
+        attachStatusListener()
+        await refreshStatus()
+
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'visible' && vaultStore.configured) {
+            void syncNow()
+          }
+        })
+      } else {
+        try { pluginRuntime.manifests = await invoke<PluginManifest[]>('get_plugin_manifests') }
+        catch (e) { console.warn('[App] get_plugin_manifests:', e) }
+      }
       const manifestById: Record<string, PluginManifest> = Object.fromEntries(
         pluginRuntime.manifests.map((m) => [m.id, m]))
 
@@ -290,13 +313,17 @@
 
     window.addEventListener('keydown', onKeyDown)
 
-    const unlistenClose = win.onCloseRequested(async (_event) => {
+    let unlistenClose: (() => void) | Promise<() => void> | null = null
+    ;(async () => {
+      if (await isIOS()) return
       // Rust side prevents close and hides window.
       // Just close all tabs here (auto-save dirty ones).
-      while (tabs.length > 0) {
-        await closeTab(tabs[0].id, async () => isDirty(tabs[0].id) ? 'save' : 'discard')
-      }
-    })
+      unlistenClose = await win.onCloseRequested(async (_event) => {
+        while (tabs.length > 0) {
+          await closeTab(tabs[0].id, async () => isDirty(tabs[0].id) ? 'save' : 'discard')
+        }
+      })
+    })()
 
     const unlistenMenu = listen<string>('menu-event', async (e) => {
       const id = e.payload
@@ -317,7 +344,7 @@
         case 'zoom-in':     document.documentElement.style.fontSize = `${Math.min(200, (parseFloat(getComputedStyle(document.documentElement).fontSize) || 16) + 2)}px`; break
         case 'zoom-out':    document.documentElement.style.fontSize = `${Math.max(10, (parseFloat(getComputedStyle(document.documentElement).fontSize) || 16) - 2)}px`; break
         case 'zoom-reset':  document.documentElement.style.fontSize = ''; break
-        case 'preferences': showSettings = true; break
+        case 'preferences': uiState.showSettings = true; break
         case 'check-for-updates': {
           // Open the dialog first so the user sees "checking…" feedback,
           // then trigger a forced refresh that bypasses the 20h cache.
@@ -339,7 +366,7 @@
           break
         case 'cli-install': {
           const { invoke } = await import('@tauri-apps/api/core')
-          const { ask, message } = await import('@tauri-apps/plugin-dialog')
+          const { ask } = await import('@tauri-apps/plugin-dialog')
           const candidates = await invoke<string[]>('cli_install_candidates')
           // Walk candidates; first acceptance installs there.
           for (const dir of candidates) {
@@ -377,6 +404,11 @@
           }
           break
         }
+        default:
+          // Fall back to the central command dispatcher so iOS-port commands
+          // (share, copy-share-link, etc.) still work from the menu.
+          await dispatch(id as CommandId)
+          break
       }
     })
 
@@ -388,7 +420,7 @@
               const report = await invoke('theme_import', { zipPath: path })
               const { pendingThemeImport } = await import('./lib/theme-import-bus.svelte')
               pendingThemeImport.report = report
-              showSettings = true   // surface the SettingsDialog so its child dialog renders
+              uiState.showSettings = true   // surface the SettingsDialog so its child dialog renders
             } catch (e) { console.warn('[App] drop theme_import:', e) }
             continue
           }
@@ -400,7 +432,10 @@
     return () => {
       window.removeEventListener('keydown', onKeyDown)
       uninstallFocus()
-      unlistenClose.then((fn) => fn())
+      if (unlistenClose) {
+        if (typeof unlistenClose === 'function') unlistenClose()
+        else unlistenClose.then((fn) => fn())
+      }
       unlistenMenu.then((fn) => fn())
       unlistenDrop.then((fn) => fn())
       unlistenOpenFile.then((fn) => fn())
@@ -483,13 +518,18 @@
 </script>
 
 <main>
-  <UpdateBanner onShowDetails={() => (showUpdateDialog = true)} />
+  {#if platformName === 'ios'}
+    <MobileToolbar onOpenDrawer={() => (drawerOpen = true)} />
+    <DrawerNav bind:open={drawerOpen} />
+  {:else}
+    <UpdateBanner onShowDetails={() => (showUpdateDialog = true)} />
+  {/if}
   <TabBar />
   <Toast />
   <FindReplace />
   <section class="pane">
     {#if current}
-      {#if tabs.length === 1}
+      {#if tabs.length === 1 && platformName !== 'ios'}
         <div class="float-toggle"><ModeToggle tab={current} /></div>
       {/if}
       <EditorPane tab={current} />
@@ -497,7 +537,7 @@
       <EmptyState />
     {/if}
   </section>
-  <SettingsDialog bind:open={showSettings} />
+  <SettingsDialog bind:open={uiState.showSettings} />
   <UpdateDialog bind:open={showUpdateDialog} />
 </main>
 

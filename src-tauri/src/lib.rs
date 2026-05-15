@@ -3,20 +3,34 @@ use std::fs::OpenOptions;
 #[cfg(debug_assertions)]
 use std::io::Write;
 use std::sync::Mutex;
+#[cfg(not(target_os = "ios"))]
 use tauri::image::Image;
+#[cfg(not(target_os = "ios"))]
 use tauri::menu::{
     AboutMetadata, Menu, MenuBuilder, MenuItem, MenuItemBuilder, MenuItemKind, PredefinedMenuItem,
     Submenu, SubmenuBuilder,
 };
+#[cfg(not(target_os = "ios"))]
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{Emitter, Manager, RunEvent, WindowEvent};
 
+#[cfg(not(target_os = "ios"))]
 pub mod cli;
+#[cfg(not(target_os = "ios"))]
 pub mod plugin_host;
+#[cfg(target_os = "ios")]
+#[path = "plugin_host_ios.rs"]
+pub mod plugin_host;
+#[cfg(not(target_os = "ios"))]
 pub mod themes;
+#[cfg(not(target_os = "ios"))]
 pub mod vault_sync;
 
+#[cfg(any(target_os = "ios", test))]
+pub mod vault_ios;
+
 pub struct PendingFiles(Mutex<Vec<String>>);
+#[cfg(not(target_os = "ios"))]
 pub struct TrayRepoItem(Mutex<Option<MenuItem<tauri::Wry>>>);
 
 #[tauri::command]
@@ -160,6 +174,7 @@ fn rename_file(old_path: String, new_path: String) -> Result<(), String> {
 /// dirty-tab confirmation loop completes successfully. macOS does NOT quit
 /// the app on its own when the last NSWindow is closed (unlike Windows / Linux),
 /// so we trigger it explicitly.
+#[cfg(not(target_os = "ios"))]
 #[tauri::command]
 fn quit_app(app: tauri::AppHandle) {
     app.exit(0);
@@ -169,6 +184,7 @@ fn quit_app(app: tauri::AppHandle) {
 /// IDs follow the `plugin:<plugin-id>:<command>` convention.
 /// Walks the entire menu tree (top-level + submenus) so it finds items
 /// regardless of which submenu they were appended to.
+#[cfg(not(target_os = "ios"))]
 #[tauri::command]
 fn set_plugin_menu_item_enabled(app: tauri::AppHandle, id: String, enabled: bool) -> Result<(), String> {
     fn walk<R: tauri::Runtime>(items: Vec<MenuItemKind<R>>, id: &str, enabled: bool) -> bool {
@@ -277,6 +293,7 @@ mod macos_defaults {
 /// For each extension we resolve the UTI and call LaunchServices to register
 /// the bundle as the default handler across all roles. Returns a per-extension
 /// result so the frontend can report partial success.
+#[cfg(not(target_os = "ios"))]
 #[tauri::command]
 fn set_default_app_for_extensions(app: tauri::AppHandle, exts: Vec<String>) -> Vec<ExtResult> {
     #[cfg(target_os = "macos")]
@@ -316,6 +333,7 @@ fn set_default_app_for_extensions(app: tauri::AppHandle, exts: Vec<String>) -> V
     }
 }
 
+#[cfg(not(target_os = "ios"))]
 fn show_main_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
     if let Some(w) = app.get_webview_window("main") {
         let _ = w.show();
@@ -335,6 +353,7 @@ fn show_main_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
     }
 }
 
+#[cfg(not(target_os = "ios"))]
 fn open_sync_log_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
     let mgr = app.state::<std::sync::Arc<vault_sync::VaultSyncManager>>();
     let entries = mgr.logs.entries();
@@ -351,6 +370,7 @@ fn open_sync_log_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
     }
 }
 
+#[cfg(not(target_os = "ios"))]
 fn pick_repo_and_start(app: &tauri::AppHandle) {
     let mgr = app.state::<std::sync::Arc<vault_sync::VaultSyncManager>>();
     let has_repo = mgr.repo_path.lock().unwrap().is_some();
@@ -370,10 +390,12 @@ fn pick_repo_and_start(app: &tauri::AppHandle) {
     });
 }
 
+#[cfg(not(target_os = "ios"))]
 fn pick_sync_folder(app: &tauri::AppHandle) {
     pick_sync_folder_inner(app, move |_| {});
 }
 
+#[cfg(not(target_os = "ios"))]
 fn pick_sync_folder_inner(app: &tauri::AppHandle, on_done: impl FnOnce(String) + Send + 'static) {
     use tauri_plugin_dialog::DialogExt;
     use tauri_plugin_store::StoreExt;
@@ -400,6 +422,7 @@ fn pick_sync_folder_inner(app: &tauri::AppHandle, on_done: impl FnOnce(String) +
         });
 }
 
+#[cfg(not(target_os = "ios"))]
 fn update_tray_repo_label(app: &tauri::AppHandle, path: &str) {
     if let Some(state) = app.try_state::<TrayRepoItem>() {
         if let Some(item) = state.0.lock().unwrap().as_ref() {
@@ -408,6 +431,7 @@ fn update_tray_repo_label(app: &tauri::AppHandle, path: &str) {
     }
 }
 
+#[cfg(not(target_os = "ios"))]
 fn abbreviate_path(path: &str) -> String {
     let home = std::env::var("HOME").unwrap_or_default();
     if !home.is_empty() && path.starts_with(&home) {
@@ -417,6 +441,7 @@ fn abbreviate_path(path: &str) -> String {
     }
 }
 
+#[cfg(not(target_os = "ios"))]
 fn save_sync_enabled(app: &tauri::AppHandle, enabled: bool) {
     use tauri_plugin_store::StoreExt;
     if let Ok(s) = app.store("settings.json") {
@@ -425,6 +450,7 @@ fn save_sync_enabled(app: &tauri::AppHandle, enabled: bool) {
     }
 }
 
+#[cfg(not(target_os = "ios"))]
 pub fn update_tray_icon(app: &tauri::AppHandle, active: bool) {
     if let Some(tray) = app.tray_by_id("main") {
         let icon = if active {
@@ -449,23 +475,27 @@ pub fn tauri_context() -> tauri::Context {
     tauri::generate_context!()
 }
 
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     dlog("=== M↓ start ===");
     dlog(&format!("argv: {:?}", std::env::args().collect::<Vec<_>>()));
 
-    let app = tauri::Builder::default()
-        .manage(PendingFiles(Mutex::new(Vec::new())))
-        .manage(TrayRepoItem(Mutex::new(None)))
-        .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
-            dlog(&format!("single_instance argv: {:?}", argv));
-            for arg in argv.iter().skip(1) {
-                emit_open_file_delayed(app, arg);
-            }
-            if let Some(w) = app.get_webview_window("main") {
-                let _ = w.show();
-                let _ = w.set_focus();
-            }
-        }))
+    let builder = tauri::Builder::default()
+        .manage(PendingFiles(Mutex::new(Vec::new())));
+    #[cfg(not(target_os = "ios"))]
+    let builder = builder.manage(TrayRepoItem(Mutex::new(None)));
+    #[cfg(not(target_os = "ios"))]
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+        dlog(&format!("single_instance argv: {:?}", argv));
+        for arg in argv.iter().skip(1) {
+            emit_open_file_delayed(app, arg);
+        }
+        if let Some(w) = app.get_webview_window("main") {
+            let _ = w.show();
+            let _ = w.set_focus();
+        }
+    }));
+    let app = builder
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_clipboard_manager::init())
@@ -473,133 +503,163 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_http::init())
+        .plugin(tauri_plugin_os::init());
+    #[cfg(not(target_os = "ios"))]
+    let app = app
         .plugin(tauri_plugin_updater::Builder::new().build())
-        .plugin(tauri_plugin_process::init())
-        .invoke_handler(tauri::generate_handler![
-            quit_app,
-            drain_pending_files,
-            set_default_app_for_extensions,
-            set_plugin_menu_item_enabled,
-            plugin_host::get_plugin_manifests,
-            plugin_host::get_all_plugin_manifests,
-            plugin_host::invoke_plugin,
-            cli::state::cli_payload,
-            cli::state::cli_finish,
-            cli::install::cli_install_status,
-            cli::install::cli_install,
-            cli::install::cli_uninstall,
-            cli::install::cli_install_candidates,
-            themes::commands::theme_list,
-            themes::commands::theme_reveal,
-            themes::commands::theme_load_compiled,
-            themes::commands::theme_recompile,
-            themes::commands::theme_recompile_all,
-            themes::commands::theme_restore_builtins,
-            themes::commands::theme_import,
-            themes::commands::theme_install,
-            themes::commands::theme_cancel_import,
-            vault_sync::vault_sync_start,
-            vault_sync::vault_sync_stop,
-            vault_sync::vault_sync_now,
-            vault_sync::vault_sync_status,
-            vault_sync::vault_sync_logs,
-            write_file_binary,
-            rename_file,
-        ])
+        .plugin(tauri_plugin_process::init());
+    let app = app
+        .invoke_handler({
+            #[cfg(not(target_os = "ios"))]
+            { tauri::generate_handler![
+                quit_app,
+                drain_pending_files,
+                set_default_app_for_extensions,
+                set_plugin_menu_item_enabled,
+                plugin_host::get_plugin_manifests,
+                plugin_host::get_all_plugin_manifests,
+                plugin_host::invoke_plugin,
+                cli::state::cli_payload,
+                cli::state::cli_finish,
+                cli::install::cli_install_status,
+                cli::install::cli_install,
+                cli::install::cli_uninstall,
+                cli::install::cli_install_candidates,
+                themes::commands::theme_list,
+                themes::commands::theme_reveal,
+                themes::commands::theme_load_compiled,
+                themes::commands::theme_recompile,
+                themes::commands::theme_recompile_all,
+                themes::commands::theme_restore_builtins,
+                themes::commands::theme_import,
+                themes::commands::theme_install,
+                themes::commands::theme_cancel_import,
+                vault_sync::vault_sync_start,
+                vault_sync::vault_sync_stop,
+                vault_sync::vault_sync_now,
+                vault_sync::vault_sync_status,
+                vault_sync::vault_sync_logs,
+                write_file_binary,
+                rename_file,
+            ] }
+            #[cfg(target_os = "ios")]
+            { tauri::generate_handler![
+                drain_pending_files,
+                plugin_host::get_plugin_manifests,
+                plugin_host::get_all_plugin_manifests,
+                plugin_host::invoke_plugin,
+                vault_ios::vault_status,
+                vault_ios::list_dir::vault_list_dir,
+                vault_ios::vault_configure,
+                vault_ios::vault_sync_now,
+                vault_ios::vault_disconnect,
+                write_file_binary,
+                rename_file,
+            ] }
+        })
         .setup(|app| {
-            let vault_mgr = std::sync::Arc::new(vault_sync::VaultSyncManager::new());
-            app.manage(vault_mgr);
-            vault_sync::init(&app.handle());
+            #[cfg(not(target_os = "ios"))]
+            {
+                let vault_mgr = std::sync::Arc::new(vault_sync::VaultSyncManager::new());
+                app.manage(vault_mgr);
+                vault_sync::init(&app.handle());
+            }
 
             plugin_host::init(&app.handle());
 
-            // Bootstrap themes: ensure dirs exist, copy any missing built-ins,
-            // and (re)compile every theme into .compiled/ so the frontend can
-            // load fresh CSS without waiting on a separate compile pass.
-            if let Err(e) = bootstrap_themes(&app.handle()) {
-                eprintln!("[themes] bootstrap failed: {e}");
-            }
+            #[cfg(target_os = "ios")]
+            vault_ios::init(&app.handle());
 
-            let plugin_items = plugin_host::collect_top_menu_items();
-            let menu = build_menu(&app.handle(), &plugin_items)?;
-            app.set_menu(menu)?;
-            app.on_menu_event(|app, event| {
-                if event.id().0.as_str() == "hide-app" {
-                    if let Some(w) = app.get_webview_window("main") {
-                        let _ = w.hide();
-                    }
-                    return;
-                }
-                let _ = app.emit("menu-event", event.id().0.as_str());
-            });
-
-            // Persistent menu-bar tray icon. White circle with M↓ cutout —
-            // template-style mark fits both light and dark menu bars.
-            // Left-click toggles main window visibility; right-click shows menu.
-            let tray_icon = Image::from_bytes(include_bytes!("../icons/tray-icon.png"))?;
-            let show_item = MenuItem::with_id(app, "tray-show", "Show M\u{2193}", true, None::<&str>)?;
-            let sync_repo_label = {
-                let mgr = app.state::<std::sync::Arc<vault_sync::VaultSyncManager>>();
-                let guard = mgr.repo_path.lock().unwrap();
-                match guard.as_deref() {
-                    Some(p) => format!("Vault: {}", abbreviate_path(p)),
-                    None => "Vault: Set Folder\u{2026}".to_string(),
-                }
-            };
-            let sync_repo_item = MenuItem::with_id(app, "tray-sync-repo", &sync_repo_label, true, None::<&str>)?;
+            #[cfg(not(target_os = "ios"))]
             {
-                let tray_item_state = app.state::<TrayRepoItem>();
-                *tray_item_state.0.lock().unwrap() = Some(sync_repo_item.clone());
-            }
-            let sync_start_item = MenuItem::with_id(app, "tray-sync-start", "Start Sync", true, None::<&str>)?;
-            let sync_stop_item = MenuItem::with_id(app, "tray-sync-stop", "Stop Sync", true, None::<&str>)?;
-            let sync_now_item = MenuItem::with_id(app, "tray-sync-now", "Sync Now", true, None::<&str>)?;
-            let sync_log_item = MenuItem::with_id(app, "tray-sync-log", "View Log\u{2026}", true, None::<&str>)?;
-            let quit_item = MenuItem::with_id(app, "tray-quit", "Quit M\u{2193}", true, None::<&str>)?;
-            let tray_menu = MenuBuilder::new(app)
-                .item(&show_item)
-                .separator()
-                .item(&sync_repo_item)
-                .item(&sync_start_item)
-                .item(&sync_stop_item)
-                .item(&sync_now_item)
-                .item(&sync_log_item)
-                .separator()
-                .item(&quit_item)
-                .build()?;
-            let _tray = TrayIconBuilder::with_id("main")
-                .icon(tray_icon)
-                .icon_as_template(false)
-                .tooltip("M↓")
-                .menu(&tray_menu)
-                .show_menu_on_left_click(true)
-                .on_menu_event(|app, event| {
-                    match event.id().0.as_str() {
-                        "tray-show" => show_main_window(app),
-                        "tray-sync-repo" => { pick_sync_folder(app); }
-                        "tray-sync-start" => { pick_repo_and_start(app); }
-                        "tray-sync-stop" => {
-                            let _ = vault_sync::vault_sync_stop(app.clone());
-                            save_sync_enabled(app, false);
-                            update_tray_icon(app, false);
+                // Bootstrap themes: ensure dirs exist, copy any missing built-ins,
+                // and (re)compile every theme into .compiled/ so the frontend can
+                // load fresh CSS without waiting on a separate compile pass.
+                if let Err(e) = bootstrap_themes(&app.handle()) {
+                    eprintln!("[themes] bootstrap failed: {e}");
+                }
+
+                let plugin_items = plugin_host::collect_top_menu_items();
+                let menu = build_menu(&app.handle(), &plugin_items)?;
+                app.set_menu(menu)?;
+                app.on_menu_event(|app, event| {
+                    if event.id().0.as_str() == "hide-app" {
+                        if let Some(w) = app.get_webview_window("main") {
+                            let _ = w.hide();
                         }
-                        "tray-sync-now" => { let _ = vault_sync::vault_sync_now(app.clone()); }
-                        "tray-sync-log" => { open_sync_log_window(app); }
-                        "tray-quit" => app.exit(0),
-                        _ => {}
+                        return;
                     }
-                })
-                .on_tray_icon_event(|tray, event| {
-                    if let TrayIconEvent::Click {
-                        button: MouseButton::Left,
-                        button_state: MouseButtonState::Up,
-                        ..
-                    } = event
-                    {
-                        show_main_window(tray.app_handle());
+                    let _ = app.emit("menu-event", event.id().0.as_str());
+                });
+
+                // Persistent menu-bar tray icon. White circle with M↓ cutout —
+                // template-style mark fits both light and dark menu bars.
+                // Left-click toggles main window visibility; right-click shows menu.
+                let tray_icon = Image::from_bytes(include_bytes!("../icons/tray-icon.png"))?;
+                let show_item = MenuItem::with_id(app, "tray-show", "Show M\u{2193}", true, None::<&str>)?;
+                let sync_repo_label = {
+                    let mgr = app.state::<std::sync::Arc<vault_sync::VaultSyncManager>>();
+                    let guard = mgr.repo_path.lock().unwrap();
+                    match guard.as_deref() {
+                        Some(p) => format!("Vault: {}", abbreviate_path(p)),
+                        None => "Vault: Set Folder\u{2026}".to_string(),
                     }
-                })
-                .build(app)?;
+                };
+                let sync_repo_item = MenuItem::with_id(app, "tray-sync-repo", &sync_repo_label, true, None::<&str>)?;
+                {
+                    let tray_item_state = app.state::<TrayRepoItem>();
+                    *tray_item_state.0.lock().unwrap() = Some(sync_repo_item.clone());
+                }
+                let sync_start_item = MenuItem::with_id(app, "tray-sync-start", "Start Sync", true, None::<&str>)?;
+                let sync_stop_item = MenuItem::with_id(app, "tray-sync-stop", "Stop Sync", true, None::<&str>)?;
+                let sync_now_item = MenuItem::with_id(app, "tray-sync-now", "Sync Now", true, None::<&str>)?;
+                let sync_log_item = MenuItem::with_id(app, "tray-sync-log", "View Log\u{2026}", true, None::<&str>)?;
+                let quit_item = MenuItem::with_id(app, "tray-quit", "Quit M\u{2193}", true, None::<&str>)?;
+                let tray_menu = MenuBuilder::new(app)
+                    .item(&show_item)
+                    .separator()
+                    .item(&sync_repo_item)
+                    .item(&sync_start_item)
+                    .item(&sync_stop_item)
+                    .item(&sync_now_item)
+                    .item(&sync_log_item)
+                    .separator()
+                    .item(&quit_item)
+                    .build()?;
+                let _tray = TrayIconBuilder::with_id("main")
+                    .icon(tray_icon)
+                    .icon_as_template(false)
+                    .tooltip("M↓")
+                    .menu(&tray_menu)
+                    .show_menu_on_left_click(true)
+                    .on_menu_event(|app, event| {
+                        match event.id().0.as_str() {
+                            "tray-show" => show_main_window(app),
+                            "tray-sync-repo" => { pick_sync_folder(app); }
+                            "tray-sync-start" => { pick_repo_and_start(app); }
+                            "tray-sync-stop" => {
+                                let _ = vault_sync::vault_sync_stop(app.clone());
+                                save_sync_enabled(app, false);
+                                update_tray_icon(app, false);
+                            }
+                            "tray-sync-now" => { let _ = vault_sync::vault_sync_now(app.clone()); }
+                            "tray-sync-log" => { open_sync_log_window(app); }
+                            "tray-quit" => app.exit(0),
+                            _ => {}
+                        }
+                    })
+                    .on_tray_icon_event(|tray, event| {
+                        if let TrayIconEvent::Click {
+                            button: MouseButton::Left,
+                            button_state: MouseButtonState::Up,
+                            ..
+                        } = event
+                        {
+                            show_main_window(tray.app_handle());
+                        }
+                    })
+                    .build(app)?;
+            }
 
             // Initial CLI argv (Linux / Windows / macOS-when-launched-from-shell).
             // macOS Finder double-click does NOT arrive via argv — uses Apple Events
@@ -633,6 +693,7 @@ pub fn run() {
                     }
                 }
             }
+            #[cfg(not(target_os = "ios"))]
             RunEvent::Reopen { has_visible_windows, .. } => {
                 dlog(&format!("RunEvent::Reopen has_visible_windows={}", has_visible_windows));
                 if !has_visible_windows {
@@ -684,11 +745,13 @@ fn emit_open_file_delayed<R: tauri::Runtime>(app: &tauri::AppHandle<R>, path: &s
     tauri::async_runtime::spawn(async move {
         tokio::time::sleep(std::time::Duration::from_millis(500)).await;
         dlog(&format!("emit open-file → {}", path));
+        #[cfg(not(target_os = "ios"))]
         show_main_window(&app);
         let _ = app.emit("open-file", path);
     });
 }
 
+#[cfg(not(target_os = "ios"))]
 fn build_menu<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
     plugin_items: &[plugin_host::LocatedMenuItem],
