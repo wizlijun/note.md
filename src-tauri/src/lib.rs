@@ -480,6 +480,12 @@ pub fn run() {
     dlog("=== M↓ start ===");
     dlog(&format!("argv: {:?}", std::env::args().collect::<Vec<_>>()));
 
+    // rustls 0.23 no longer auto-selects a crypto provider; install ring as
+    // the default so reqwest::Client::new() doesn't panic with "No provider
+    // set" on first HTTPS use (tauri-plugin-http, tauri-plugin-updater, etc).
+    // Safe to ignore Err: it only fires if already installed (e.g. in tests).
+    let _ = rustls::crypto::ring::default_provider().install_default();
+
     let builder = tauri::Builder::default()
         .manage(PendingFiles(Mutex::new(Vec::new())));
     #[cfg(not(target_os = "ios"))]

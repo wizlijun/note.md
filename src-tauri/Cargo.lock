@@ -2683,6 +2683,7 @@ dependencies = [
  "git2",
  "lightningcss",
  "notify",
+ "rustls",
  "serde",
  "serde_json",
  "tauri",

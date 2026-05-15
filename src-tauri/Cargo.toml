@@ -32,6 +32,11 @@ tempfile = "3.13"
 clap = { version = "4", default-features = false, features = ["std", "help", "error-context", "usage"] }
 notify = { version = "7", default-features = false, features = ["macos_fsevent"] }
 dirs = "5"
+# Pulled in transitively by reqwest (via tauri-plugin-http / tauri-plugin-updater).
+# rustls 0.23 stopped auto-selecting a crypto provider; we install one explicitly
+# at startup (see `lib::run`). Direct dep here so the version we install against
+# matches what reqwest links.
+rustls = { version = "0.23", default-features = false, features = ["ring", "std"] }
 
 [target.'cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))'.dependencies]
 tauri-plugin-single-instance = "2"
