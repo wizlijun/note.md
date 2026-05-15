@@ -14,11 +14,11 @@ pub mod list_dir;
 pub mod keychain;
 pub mod sig;
 pub mod clone;
+pub mod sync;
+pub mod conflict;
 
 #[cfg(test)]
 mod tests;
-
-// Submodules will be added by later tasks (list_dir, keychain, sig, clone, sync, conflict).
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -187,6 +187,53 @@ pub async fn vault_configure(
             *mgr.error_msg.lock().unwrap() = None;
             let _ = app.emit("vault-status-changed", ());
             Ok(())
+        }
+        Err(e) => {
+            *mgr.state.lock().unwrap() = SyncState::Error;
+            *mgr.error_msg.lock().unwrap() = Some(e.to_string());
+            let _ = app.emit("vault-status-changed", ());
+            Err(e.to_string())
+        }
+    }
+}
+
+#[tauri::command]
+pub async fn vault_sync_now(app: AppHandle, pat: String) -> Result<VaultStatus, String> {
+    let mgr_state = app.state::<Arc<VaultIosManager>>();
+    let mgr: Arc<VaultIosManager> = mgr_state.inner().clone();
+
+    let configured = mgr.remote_url.lock().unwrap().is_some();
+    if !configured {
+        *mgr.state.lock().unwrap() = SyncState::Error;
+        *mgr.error_msg.lock().unwrap() = Some("not configured".into());
+        return Err("vault not configured".into());
+    }
+
+    *mgr.state.lock().unwrap() = SyncState::Syncing;
+    *mgr.error_msg.lock().unwrap() = None;
+    let _ = app.emit("vault-status-changed", ());
+
+    let vault_dir = path::vault_path(&app).map_err(|e| e.to_string())?;
+    if !vault_dir.join(".git").exists() {
+        *mgr.state.lock().unwrap() = SyncState::NotConfigured;
+        let _ = app.emit("vault-status-changed", ());
+        return Err("vault directory missing".into());
+    }
+
+    let branch = mgr.branch.lock().unwrap().clone();
+    let remote_url = mgr.remote_url.lock().unwrap().clone().unwrap_or_default();
+
+    let mgr_clone = Arc::clone(&mgr);
+    let result = tokio::task::spawn_blocking(move || {
+        sync::sync_once(&mgr_clone, &vault_dir, &branch, &remote_url, &pat)
+    }).await.map_err(|e| e.to_string())?;
+
+    match result {
+        Ok(_outcome) => {
+            *mgr.state.lock().unwrap() = SyncState::Idle;
+            *mgr.last_sync.lock().unwrap() = Some(now_ms());
+            let _ = app.emit("vault-status-changed", ());
+            Ok(mgr.snapshot_status(true))
         }
         Err(e) => {
             *mgr.state.lock().unwrap() = SyncState::Error;

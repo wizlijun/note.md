@@ -148,3 +148,62 @@ fn clone_local_bare_repo_succeeds() {
     assert!(vault_dir.join("README.md").exists());
     assert!(vault_dir.join(".git").exists());
 }
+
+fn clone_with_local_path(remote: &std::path::Path) -> tempfile::TempDir {
+    let dest = tempdir().unwrap();
+    let vault = dest.path().join("Vault");
+    crate::vault_ios::clone::clone_repo(
+        remote.to_str().unwrap(),
+        "main",
+        "n/a",
+        &vault,
+        |_| {},
+    ).unwrap();
+    dest
+}
+
+#[test]
+fn sync_clean_workdir_fast_forwards() {
+    let (_keep, remote) = make_bare_remote();
+    let local = clone_with_local_path(&remote);
+    let vault = local.path().join("Vault");
+
+    // Make a remote commit through a separate working clone.
+    let work = tempdir().unwrap();
+    Command::new("git").args(["clone", remote.to_str().unwrap(), work.path().to_str().unwrap()]).output().unwrap();
+    std::fs::write(work.path().join("new.md"), "hi").unwrap();
+    Command::new("git").args(["-C", work.path().to_str().unwrap(), "add", "."]).output().unwrap();
+    Command::new("git").args(["-C", work.path().to_str().unwrap(), "config", "user.email", "t@t"]).output().unwrap();
+    Command::new("git").args(["-C", work.path().to_str().unwrap(), "config", "user.name", "t"]).output().unwrap();
+    Command::new("git").args(["-C", work.path().to_str().unwrap(), "commit", "-m", "remote"]).output().unwrap();
+    Command::new("git").args(["-C", work.path().to_str().unwrap(), "push"]).output().unwrap();
+
+    let mgr = crate::vault_ios::VaultIosManager::new();
+    *mgr.author_name.lock().unwrap() = "T".into();
+    *mgr.author_email.lock().unwrap() = "t@t".into();
+
+    let outcome = crate::vault_ios::sync::sync_once(&mgr, &vault, "main", remote.to_str().unwrap(), "fake-pat").unwrap();
+    assert!(matches!(outcome, crate::vault_ios::sync::SyncOutcome::PullOnly));
+    assert!(vault.join("new.md").exists());
+}
+
+#[test]
+fn sync_dirty_workdir_commits_and_pushes() {
+    let (_keep, remote) = make_bare_remote();
+    let local = clone_with_local_path(&remote);
+    let vault = local.path().join("Vault");
+
+    std::fs::write(vault.join("README.md"), "edited").unwrap();
+
+    let mgr = crate::vault_ios::VaultIosManager::new();
+    *mgr.author_name.lock().unwrap() = "T".into();
+    *mgr.author_email.lock().unwrap() = "t@t".into();
+
+    let outcome = crate::vault_ios::sync::sync_once(&mgr, &vault, "main", remote.to_str().unwrap(), "fake-pat").unwrap();
+    assert!(matches!(outcome, crate::vault_ios::sync::SyncOutcome::Pushed { .. }));
+
+    // Verify remote received the push.
+    let verify = tempdir().unwrap();
+    Command::new("git").args(["clone", remote.to_str().unwrap(), verify.path().to_str().unwrap()]).output().unwrap();
+    assert_eq!(std::fs::read_to_string(verify.path().join("README.md")).unwrap(), "edited");
+}
