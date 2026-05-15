@@ -19,6 +19,9 @@ pub mod plugin_host;
 #[path = "plugin_host_ios.rs"]
 pub mod plugin_host;
 
+#[cfg(target_os = "ios")]
+pub mod vault_ios;
+
 /// Append a diagnostic line to /tmp/mdeditor.log in debug builds (best-effort).
 /// Compiled out in release — kept as a no-op so call sites need no `cfg` gates.
 #[allow(unused_variables)]
@@ -211,6 +214,7 @@ fn show_main_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
     }
 }
 
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     dlog("=== M↓ start ===");
     dlog(&format!("argv: {:?}", std::env::args().collect::<Vec<_>>()));
@@ -228,6 +232,7 @@ pub fn run() {
         }
     }));
     let app = builder
+        .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_clipboard_manager::init())
@@ -249,10 +254,14 @@ pub fn run() {
                 plugin_host::get_plugin_manifests,
                 plugin_host::get_all_plugin_manifests,
                 plugin_host::invoke_plugin,
+                vault_ios::vault_status,
             ] }
         })
         .setup(|app| {
             plugin_host::init(&app.handle());
+
+            #[cfg(target_os = "ios")]
+            vault_ios::init(&app.handle());
 
             #[cfg(not(target_os = "ios"))]
             {
@@ -332,6 +341,7 @@ pub fn run() {
                     }
                 }
             }
+            #[cfg(not(target_os = "ios"))]
             RunEvent::Reopen { has_visible_windows, .. } => {
                 dlog(&format!("RunEvent::Reopen has_visible_windows={}", has_visible_windows));
             }
