@@ -29,6 +29,12 @@ tauri-plugin-single-instance = "2"
 [target.'cfg(target_os = "macos")'.dependencies]
 core-foundation = "0.10"
 
+[target.'cfg(target_os = "ios")'.dependencies]
+git2 = { version = "0.19", default-features = false, features = ["vendored-libgit2", "vendored-openssl"] }
+
+[target.'cfg(not(target_os = "ios"))'.dependencies]
+git2 = { version = "0.19", default-features = false, features = ["vendored-libgit2", "vendored-openssl"] }
+
 [profile.release]
 opt-level = "z"       # optimize for size
 lto = true            # link-time optimization across crates
