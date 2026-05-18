@@ -43,6 +43,12 @@ fn sotvault_list_meta(sotvault: String) -> Result<Vec<SotvaultEntry>, String> {
 }
 
 #[tauri::command]
+fn hash_file_sha256(path: String) -> Result<String, String> {
+    crate::hash::file_sha256(std::path::Path::new(&path))
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 fn ping() -> &'static str { "pong" }
 
 #[tauri::command]
@@ -71,7 +77,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_process::init())
-        .invoke_handler(tauri::generate_handler![ping, shared_config_read, shared_config_write, calibre_detect, sotvault_list_meta])
+        .invoke_handler(tauri::generate_handler![ping, shared_config_read, shared_config_write, calibre_detect, sotvault_list_meta, hash_file_sha256])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
