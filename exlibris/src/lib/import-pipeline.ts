@@ -1,3 +1,7 @@
+import { invoke } from "@tauri-apps/api/core";
+import { computeRawPath } from "./rawvault-fs";
+import { serializeMeta } from "./meta";
+import { convert } from "./calibre";
 import { cleanBookName, resolveDuplicateName } from "./bookname";
 import { applyRules } from "./rules";
 import { findDuplicate } from "./dedup";
@@ -66,4 +70,76 @@ export function buildPendingEntry(a: BuildArgs): PendingEntry {
     status: attention ? "needs_attention" : "ready_for_review",
     selected: dedup === "new",
   };
+}
+
+export interface CommitContext {
+  sotvault: string;
+  rawvault: string;
+  calibre_binary_dir: string;
+  convert_timeout_secs: number;
+}
+
+export interface CommitProgress {
+  step: "writing_raw" | "converting" | "writing_sot" | "done";
+}
+
+export type CommitCallback = (p: CommitProgress) => void;
+
+export class CancelledError extends Error {
+  constructor() { super("cancelled"); }
+}
+
+export async function commitEntry(
+  entry: PendingEntry,
+  ctx: CommitContext,
+  signal: { cancelled: boolean },
+  onProgress?: CommitCallback,
+): Promise<BookMeta> {
+  if (signal.cancelled) throw new CancelledError();
+
+  // 5. write-rawvault
+  onProgress?.({ step: "writing_raw" });
+  const now = new Date();
+  const raw_rel = computeRawPath(entry.book_name, entry.source_ext, now);
+  const raw_dst_abs = `${ctx.rawvault}/${raw_rel}`;
+  const final_raw_abs = await invoke<string>("fs_atomic_copy", {
+    src: entry.source_path, dst: raw_dst_abs,
+  });
+  const final_raw_rel = final_raw_abs.startsWith(ctx.rawvault + "/")
+    ? final_raw_abs.slice(ctx.rawvault.length + 1)
+    : raw_rel;
+
+  if (signal.cancelled) throw new CancelledError();
+
+  // 6. convert (output to a temp file under sotvault/.exlibris/.tmp/)
+  onProgress?.({ step: "converting" });
+  const tmp_md = `${ctx.sotvault}/.exlibris/.tmp/${entry.id}.book.md`;
+  await convert(ctx.calibre_binary_dir, entry.source_path, tmp_md, ctx.convert_timeout_secs);
+
+  if (signal.cancelled) throw new CancelledError();
+
+  // 7. write-sotvault
+  // Move tmp_md into place (rename clears the tmp; book.md cannot exist yet
+  // because the parent book directory is freshly created)
+  onProgress?.({ step: "writing_sot" });
+  const sot_book_dir = `${ctx.sotvault}/${entry.target_dir}/${entry.book_name}`;
+  await invoke("fs_rename_strict", { src: tmp_md, dst: `${sot_book_dir}/book.md` });
+
+  const finalized_meta: BookMeta = {
+    ...entry.meta!,
+    schema_version: 1,
+    source_filename: entry.source_filename,
+    source_format: entry.source_ext.toLowerCase(),
+    source_sha256: entry.source_sha256 ?? "",
+    raw_path: final_raw_rel,
+    import_time: now.toISOString(),
+    applied_rule: entry.target_rule_id,
+  };
+  const yaml = serializeMeta(finalized_meta);
+  await invoke<string>("write_text_file", {
+    path: `${sot_book_dir}/meta.yml`, content: yaml,
+  });
+
+  onProgress?.({ step: "done" });
+  return finalized_meta;
 }
