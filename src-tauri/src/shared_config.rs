@@ -47,12 +47,12 @@ pub fn write(path: &Path, cfg: &SharedConfig) -> std::io::Result<()> {
     Ok(())
 }
 
-/// Migrate the legacy `gitsync.repo` value from a JSON store file into the
+/// Migrate the legacy `vault_sync.repo_path` value from a JSON store file into the
 /// shared config's `sotvault` field. Idempotent: a non-empty `sotvault` short-circuits.
 ///
 /// `legacy_store_path` points to the Tauri Store JSON (typically
 /// `~/Library/Application Support/com.laobu.mdeditor/settings.json`).
-pub fn migrate_gitsync_to_shared(
+pub fn migrate_vault_sync_repo_to_shared(
     shared_path: &Path,
     legacy_store_path: &Path,
 ) -> std::io::Result<bool> {
@@ -69,7 +69,7 @@ pub fn migrate_gitsync_to_shared(
         Ok(v) => v,
         Err(_) => return Ok(false),
     };
-    let repo = v.pointer("/gitsync.repo")
+    let repo = v.pointer("/vault_sync.repo_path")
         .and_then(|x| x.as_str())
         .map(|s| s.to_string());
     if let Some(repo) = repo {
@@ -136,9 +136,9 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         let shared = tmp.path().join("shared.json");
         let legacy = tmp.path().join("legacy.json");
-        std::fs::write(&legacy, r#"{"gitsync.repo":"/Users/me/notes"}"#).unwrap();
+        std::fs::write(&legacy, r#"{"vault_sync.repo_path":"/Users/me/notes"}"#).unwrap();
 
-        let migrated = migrate_gitsync_to_shared(&shared, &legacy).unwrap();
+        let migrated = migrate_vault_sync_repo_to_shared(&shared, &legacy).unwrap();
         assert!(migrated);
 
         let cfg = read(&shared).unwrap();
@@ -150,10 +150,10 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         let shared = tmp.path().join("shared.json");
         let legacy = tmp.path().join("legacy.json");
-        std::fs::write(&legacy, r#"{"gitsync.repo":"/Users/me/notes"}"#).unwrap();
+        std::fs::write(&legacy, r#"{"vault_sync.repo_path":"/Users/me/notes"}"#).unwrap();
 
-        let first = migrate_gitsync_to_shared(&shared, &legacy).unwrap();
-        let second = migrate_gitsync_to_shared(&shared, &legacy).unwrap();
+        let first = migrate_vault_sync_repo_to_shared(&shared, &legacy).unwrap();
+        let second = migrate_vault_sync_repo_to_shared(&shared, &legacy).unwrap();
         assert!(first);
         assert!(!second);
     }
@@ -163,7 +163,7 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         let shared = tmp.path().join("shared.json");
         let legacy = tmp.path().join("legacy.json");
-        let migrated = migrate_gitsync_to_shared(&shared, &legacy).unwrap();
+        let migrated = migrate_vault_sync_repo_to_shared(&shared, &legacy).unwrap();
         assert!(!migrated);
     }
 
@@ -177,9 +177,9 @@ mod tests {
             sotvault: Some("/preset".into()),
             ..Default::default()
         }).unwrap();
-        std::fs::write(&legacy, r#"{"gitsync.repo":"/Users/me/notes"}"#).unwrap();
+        std::fs::write(&legacy, r#"{"vault_sync.repo_path":"/Users/me/notes"}"#).unwrap();
 
-        let migrated = migrate_gitsync_to_shared(&shared, &legacy).unwrap();
+        let migrated = migrate_vault_sync_repo_to_shared(&shared, &legacy).unwrap();
         assert!(!migrated);
 
         let cfg = read(&shared).unwrap();
