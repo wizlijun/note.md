@@ -104,9 +104,17 @@ fn uninstall(keep_files: bool) -> Result<(), String> {
     if cfg_path.exists() {
         let mut cfg: Value = parse_or_default(&cfg_path)?;
         let mut changed = false;
+        let install_dir_str = plugin_install_dir()?.to_string_lossy().to_string();
         if let Some(plugins) = cfg.get_mut("plugins").and_then(|v| v.as_object_mut()) {
             if let Some(entries) = plugins.get_mut("entries").and_then(|v| v.as_object_mut()) {
                 changed |= entries.remove("mdeditor").is_some();
+            }
+            if let Some(load) = plugins.get_mut("load").and_then(|v| v.as_object_mut()) {
+                if let Some(paths) = load.get_mut("paths").and_then(|v| v.as_array_mut()) {
+                    let before = paths.len();
+                    paths.retain(|v| v.as_str().map(|s| s != install_dir_str).unwrap_or(true));
+                    changed |= paths.len() != before;
+                }
             }
         }
         if let Some(channels) = cfg.get_mut("channels").and_then(|v| v.as_object_mut()) {
@@ -200,15 +208,32 @@ fn merge_config(plugin_dir: &Path) -> Result<(), String> {
         .or_insert_with(|| json!({}))
         .as_object_mut()
         .ok_or_else(|| "plugins must be object".to_string())?;
+    // Tell OpenClaw to scan this directory for plugin manifests. This is the
+    // canonical localPath install — `plugins.entries.<id>` only accepts
+    // `{enabled, config}` per OpenClaw's schema, not `{type, path}`.
+    let load = plugins
+        .entry("load")
+        .or_insert_with(|| json!({}))
+        .as_object_mut()
+        .ok_or_else(|| "plugins.load must be object".to_string())?;
+    let paths = load
+        .entry("paths")
+        .or_insert_with(|| json!([]))
+        .as_array_mut()
+        .ok_or_else(|| "plugins.load.paths must be array".to_string())?;
+    let plugin_dir_str = plugin_dir.to_string_lossy().to_string();
+    let already = paths
+        .iter()
+        .any(|v| v.as_str().map(|s| s == plugin_dir_str).unwrap_or(false));
+    if !already {
+        paths.push(json!(plugin_dir_str));
+    }
     let entries = plugins
         .entry("entries")
         .or_insert_with(|| json!({}))
         .as_object_mut()
         .ok_or_else(|| "plugins.entries must be object".to_string())?;
-    entries.insert(
-        "mdeditor".into(),
-        json!({ "type": "localPath", "path": plugin_dir.to_string_lossy() }),
-    );
+    entries.insert("mdeditor".into(), json!({ "enabled": true }));
 
     let channels = root
         .entry("channels")
