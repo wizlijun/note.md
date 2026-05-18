@@ -12,7 +12,7 @@
   import EditorPane from './components/EditorPane.svelte'
   import EmptyState from './components/EmptyState.svelte'
   import ModeToggle from './components/ModeToggle.svelte'
-  import { activeTab, tabs, closeTab, openFile, newFile, isDirty } from './lib/tabs.svelte'
+  import { activeTab, tabs, closeTab, openFile, newFile, isDirty, activate } from './lib/tabs.svelte'
   import { loadSettings, settings } from './lib/settings.svelte'
   import { cmdOpen, cmdSave, cmdSaveAs, cmdCloseActive, cmdToggleMode, dispatch, type CommandId } from './lib/commands'
   import { cmdMdblockRefresh } from './lib/mdblock/commands'
@@ -44,6 +44,41 @@
   import DrawerNav from './components/DrawerNav.svelte'
   import { platform, isIOS } from './lib/platform.svelte'
   import { vaultStore, refreshStatus, syncNow, attachStatusListener } from './lib/vault.svelte'
+
+  /** Open an in-memory read-only buffer received from the remote agent.
+   *  The tab gets title "[remote] <basename>" and its content is pre-filled.
+   *  No filePath → treated as untitled (won't auto-save or prompt for a path on
+   *  first Cmd+S). read-only enforcement is a TODO: the Tab interface has no
+   *  readOnly flag yet; for now the user CAN edit but the content is ephemeral.
+   */
+  function openRemoteBuffer(remotePath: string, content: string): void {
+    const baseName = remotePath.split('/').pop() ?? remotePath
+    // Re-use an already-open remote tab for the same path if present.
+    const existing = tabs.find((t) => t.title === `[remote] ${baseName}` && t.filePath === '')
+    if (existing) {
+      existing.currentContent = content
+      existing.initialContent = content
+      activate(existing.id)
+      return
+    }
+    const tab = {
+      id: crypto.randomUUID(),
+      filePath: '',
+      title: `[remote] ${baseName}`,
+      initialContent: content,
+      currentContent: content,
+      mode: 'source' as const,
+      kind: 'markdown' as const,
+      language: undefined,
+      externalState: 'fresh' as const,
+      externalBannerDismissed: false,
+      lastKnownMtime: 0,
+      lastKnownHash: '',
+      pendingExternal: undefined,
+    }
+    tabs.push(tab)
+    activate(tab.id)
+  }
 
   let platformName = $state<'macos' | 'ios' | 'unknown'>('unknown')
   let drawerOpen = $state(false)
@@ -81,6 +116,18 @@
         win.setFocus()
       } catch (err) { console.warn('[App] editor://open-path:', err) }
     })
+
+    // Web-mode remote buffer: agent sends file content → open as untitled tab.
+    const unlistenOpenRemoteBuffer = listen<{ remote_path: string; content: string }>(
+      'editor://open-remote-buffer',
+      (e) => {
+        try {
+          openRemoteBuffer(e.payload.remote_path, e.payload.content)
+          win.show()
+          win.setFocus()
+        } catch (err) { console.warn('[App] editor://open-remote-buffer:', err) }
+      },
+    )
 
     invoke<string[]>('drain_pending_files').then(async (paths) => {
       for (const p of paths) {
@@ -449,6 +496,7 @@
       unlistenDrop.then((fn) => fn())
       unlistenOpenFile.then((fn) => fn())
       unlistenOpenPath.then((fn) => fn())
+      unlistenOpenRemoteBuffer.then((fn) => fn())
       unlistenDeepLink.then((fn) => fn())
       stopAutoSave?.()
     }

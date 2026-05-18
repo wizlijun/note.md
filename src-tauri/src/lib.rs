@@ -360,6 +360,20 @@ async fn editor_show_and_open_path(app: tauri::AppHandle, path: String) -> Resul
 }
 
 #[tauri::command]
+async fn editor_open_remote_buffer(app: tauri::AppHandle, remote_path: String, content: String) -> Result<(), String> {
+    use tauri::Manager;
+    if let Some(win) = app.get_webview_window("main") {
+        let _ = win.show();
+        let _ = win.set_focus();
+        let _ = win.emit("editor://open-remote-buffer", &serde_json::json!({
+            "remote_path": remote_path,
+            "content": content
+        }));
+    }
+    Ok(())
+}
+
+#[tauri::command]
 fn file_exists(path: String) -> bool {
     std::path::Path::new(&path).exists()
 }
@@ -589,6 +603,7 @@ pub fn run() {
                 crate::openclaw::commands::openclaw_approve_pending,
                 crate::openclaw::commands::openclaw_reject_pending,
                 editor_show_and_open_path,
+                editor_open_remote_buffer,
                 file_exists,
             ] }
             #[cfg(target_os = "ios")]
@@ -615,6 +630,7 @@ pub fn run() {
                 crate::openclaw::commands::openclaw_approve_pending,
                 crate::openclaw::commands::openclaw_reject_pending,
                 editor_show_and_open_path,
+                editor_open_remote_buffer,
                 file_exists,
             ] }
         })

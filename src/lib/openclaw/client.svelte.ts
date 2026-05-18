@@ -1,6 +1,11 @@
 // src/lib/openclaw/client.svelte.ts
 import { connect, disconnect, send, onFrame, onStatus, onError } from './commands'
 import type { Frame, Message, PoolSession } from './protocol'
+import { invoke } from '@tauri-apps/api/core'
+
+async function openRemoteFile(path: string, content: string): Promise<void> {
+  await invoke('editor_open_remote_buffer', { remotePath: path, content })
+}
 
 export const state = $state({
   status: 'idle' as 'idle' | 'connecting' | 'connected' | 'disconnected',
@@ -55,9 +60,10 @@ function handleFrame(f: Frame): void {
       else { m.text = f.text || m.text; m.streaming = false }
       break
     }
-    case 'agent.file_content':
-      // Handled by link-handling module; ignored here.
+    case 'agent.file_content': {
+      void openRemoteFile(f.path, f.content)
       break
+    }
   }
 }
 
