@@ -173,6 +173,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![ping, shared_config_read, shared_config_write, calibre_detect, calibre_extract_meta, calibre_convert, sotvault_list_meta, hash_file_sha256, fs_atomic_copy, fs_rename_strict, write_text_file, read_text_file, rawvault_list_files, rules_read, rules_write])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

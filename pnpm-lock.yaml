@@ -135,6 +135,9 @@ importers:
       '@tauri-apps/plugin-process':
         specifier: ^2
         version: 2.3.1
+      '@tauri-apps/plugin-updater':
+        specifier: ^2
+        version: 2.10.1
       svelte-sonner:
         specifier: ^1.1.1
         version: 1.1.1(svelte@5.55.5)

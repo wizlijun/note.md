@@ -41,6 +41,15 @@
     ],
     "macOS": {
       "minimumSystemVersion": "11.0"
+    },
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://raw.githubusercontent.com/wizlijun/MdEditor/main/exlibris/latest.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IENDNzc1QjQ2MkFDM0JGNDEKUldSQnY4TXFSbHQzekhuY0c1b1VGQzc2aHN2OXBjRHFNVHh1d2xGVWIwL0ZSalBIYk9XVnJteVIK"
     }
   }
 }
