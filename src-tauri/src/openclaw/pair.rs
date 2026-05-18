@@ -1,6 +1,16 @@
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
+/// Normalize a relay URL to an HTTP(S) scheme so reqwest accepts it.
+/// Users may store the URL as ws:// or wss:// (since the relay is primarily
+/// a WebSocket endpoint); the pair endpoints however are POST/GET.
+fn http_base(relay_url: &str) -> String {
+    relay_url
+        .trim_end_matches('/')
+        .replacen("wss://", "https://", 1)
+        .replacen("ws://", "http://", 1)
+}
+
 #[derive(Debug, Deserialize)]
 pub struct PairCreateResponse {
     pub code: String,
@@ -35,14 +45,14 @@ pub struct PendingClaim {
 }
 
 pub async fn pair_create(relay_url: &str) -> Result<PairCreateResponse, String> {
-    let url = format!("{}/pair/create", relay_url.trim_end_matches('/'));
+    let url = format!("{}/pair/create", http_base(relay_url));
     let resp = Client::new().post(&url).send().await.map_err(|e| e.to_string())?;
     if !resp.status().is_success() { return Err(format!("status {}", resp.status())); }
     resp.json::<PairCreateResponse>().await.map_err(|e| e.to_string())
 }
 
 pub async fn pair_claim(relay_url: &str, code: &str, hostname: &str) -> Result<PairClaimResponse, String> {
-    let url = format!("{}/pair/claim", relay_url.trim_end_matches('/'));
+    let url = format!("{}/pair/claim", http_base(relay_url));
     let resp = Client::new()
         .post(&url)
         .json(&serde_json::json!({ "code": code, "hostname": hostname }))
@@ -54,7 +64,7 @@ pub async fn pair_claim(relay_url: &str, code: &str, hostname: &str) -> Result<P
 }
 
 pub async fn host_bootstrap(relay_url: &str, pairing_id: &str) -> Result<HostBootstrapResponse, String> {
-    let url = format!("{}/pair/host-bootstrap", relay_url.trim_end_matches('/'));
+    let url = format!("{}/pair/host-bootstrap", http_base(relay_url));
     let resp = Client::new()
         .post(&url)
         .json(&serde_json::json!({ "pairingId": pairing_id }))
@@ -66,7 +76,7 @@ pub async fn host_bootstrap(relay_url: &str, pairing_id: &str) -> Result<HostBoo
 }
 
 pub async fn revoke_device(relay_url: &str, host_token: &str, device_id: &str) -> Result<(), String> {
-    let url = format!("{}/device/revoke", relay_url.trim_end_matches('/'));
+    let url = format!("{}/device/revoke", http_base(relay_url));
     let resp = Client::new()
         .post(&url)
         .header("Authorization", format!("Bearer {}", host_token))
@@ -78,7 +88,7 @@ pub async fn revoke_device(relay_url: &str, host_token: &str, device_id: &str) -
 }
 
 pub async fn pending_claims(relay_url: &str, host_token: &str) -> Result<Vec<PendingClaim>, String> {
-    let url = format!("{}/device/pending-claims", relay_url.trim_end_matches('/'));
+    let url = format!("{}/device/pending-claims", http_base(relay_url));
     let resp = Client::new()
         .get(&url)
         .header("Authorization", format!("Bearer {}", host_token))
