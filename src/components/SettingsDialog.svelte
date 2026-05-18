@@ -17,6 +17,7 @@
   import PluginsSettingsTab from './PluginsSettingsTab.svelte'
   import VaultSettingsTab from './VaultSettingsTab.svelte'
   import OpenClawSettingsTab from './OpenClawSettingsTab.svelte'
+  import OpenClawDevicesTab from './OpenClawDevicesTab.svelte'
 
   let { open = $bindable(false) }: { open: boolean } = $props()
 
@@ -649,6 +650,7 @@
         <VaultSettingsTab />
       {:else if selectedTab === 'openclaw'}
         <OpenClawSettingsTab />
+        <OpenClawDevicesTab />
       {:else}
         {#each pluginTabs as t (t.pluginId)}
           {#if selectedTab === t.pluginId}
