@@ -25,6 +25,7 @@ export class RelayDO implements DurableObject {
       pairingId: body.pairingId,
       expiresAt: body.expiresAt,
     } satisfies PendingPair);
+    await this.scheduleAlarm();
     return new Response("ok");
   }
 
