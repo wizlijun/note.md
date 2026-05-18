@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-cat <<'OPF'
+# Simulates `ebook-meta <file> --to-opf <output-path>`.
+# Args: $1=<input file>  $2=--to-opf  $3=<output opf path>
+cat > "$3" <<'OPF'
 <?xml version="1.0" encoding="utf-8"?>
 <package xmlns="http://www.idpf.org/2007/opf">
   <metadata xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:opf="http://www.idpf.org/2007/opf">

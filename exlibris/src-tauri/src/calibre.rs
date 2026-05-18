@@ -64,10 +64,20 @@ pub async fn extract_meta(
     let bin = binary_dir.join("ebook-meta");
     if !bin.is_file() { return Err(CalibreError::NotFound); }
 
+    // calibre writes OPF to a file path; we capture it via a temp file.
+    // (Earlier `--to-opf=-` was treated as a literal filename `-` rather
+    // than stdout — silently dropping all metadata.)
+    let opf_tmp = tempfile::Builder::new()
+        .suffix(".opf")
+        .tempfile()
+        .map_err(CalibreError::Io)?;
+    let opf_path = opf_tmp.path().to_path_buf();
+
     let output = tokio::time::timeout(
         timeout,
         tokio::process::Command::new(&bin)
-            .arg(file).arg("--to-opf=-")
+            .arg(file)
+            .arg("--to-opf").arg(&opf_path)
             .output(),
     )
     .await
@@ -78,7 +88,7 @@ pub async fn extract_meta(
         let err = String::from_utf8_lossy(&output.stderr).into_owned();
         return Err(CalibreError::NonZero(code, truncate(err, 16 * 1024)));
     }
-    let opf = String::from_utf8_lossy(&output.stdout).into_owned();
+    let opf = std::fs::read_to_string(&opf_path).map_err(CalibreError::Io)?;
     parse_opf(&opf)
 }
 
