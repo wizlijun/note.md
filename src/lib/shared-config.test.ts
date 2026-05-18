@@ -10,9 +10,9 @@ describe("shared-config", () => {
   beforeEach(() => vi.mocked(invoke).mockReset());
 
   it("readSharedConfig delegates to shared_config_read command", async () => {
-    const fake: SharedConfig = {
-      version: 1, sotvault: "/x", rawvault: null, calibre_path: null, exlibris: null,
-    };
+    const fake = {
+      version: 1, sotvault: "/x", rawvault: null, calibre_path: null,
+    } satisfies Partial<SharedConfig>;
     vi.mocked(invoke).mockResolvedValueOnce(fake);
     const got = await readSharedConfig();
     expect(invoke).toHaveBeenCalledWith("shared_config_read");
