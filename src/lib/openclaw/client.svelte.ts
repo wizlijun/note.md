@@ -14,12 +14,13 @@ let unsubFrame: (() => void) | null = null
 let unsubStatus: (() => void) | null = null
 let unsubError: (() => void) | null = null
 
-export async function start(): Promise<void> {
+export async function start(): Promise<string> {
   unsubFrame = await onFrame(handleFrame)
   unsubStatus = await onStatus((s) => { state.status = (s.startsWith('disconnected') ? 'disconnected' : (s as typeof state.status)) })
   unsubError = await onError((e) => { state.error = e })
-  await connect()
+  const mode = await connect()  // 'host' | 'remote'
   await send({ type: 'session.list' })
+  return mode
 }
 
 export async function stop(): Promise<void> {

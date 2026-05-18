@@ -6,19 +6,35 @@
   import MessageList from './components/chat/MessageList.svelte'
   import Composer from './components/chat/Composer.svelte'
   import PendingClaimToast from './components/chat/PendingClaimToast.svelte'
+  import RemoteOnboarding from './components/chat/RemoteOnboarding.svelte'
 
-  onMount(() => {
-    start()
-    return () => { stop() }
-  })
+  let mode = $state<'detecting' | 'host' | 'remote' | 'needs-pairing'>('detecting')
+
+  async function init() {
+    try {
+      const m = await start()
+      mode = m === 'host' ? 'host' : 'remote'
+    } catch (e) {
+      if (String(e).includes('not paired')) mode = 'needs-pairing'
+      else mode = 'remote'
+    }
+  }
+
+  onMount(() => { init(); return () => stop() })
 </script>
 
-<main>
-  <SessionPicker />
-  <MessageList />
-  <Composer />
-</main>
-<PendingClaimToast />
+{#if mode === 'detecting'}
+  <p>Detecting…</p>
+{:else if mode === 'needs-pairing'}
+  <RemoteOnboarding onComplete={() => init()} />
+{:else}
+  <main>
+    <SessionPicker />
+    <MessageList />
+    <Composer />
+  </main>
+  <PendingClaimToast />
+{/if}
 
 <style>
   :global(body) { margin: 0; font-family: -apple-system, system-ui, sans-serif; }
