@@ -1,7 +1,13 @@
 // mdrelay/src/envelope.ts
+
+// Allowed routing addresses on the wire. Literal type lets the compiler catch
+// mistakes at call sites in addition to the runtime guard below.
+export type RoutingAddress = "host" | "broadcast" | `remote:${string}`;
+
 export interface EnvelopeRouting {
-  to: "host" | string;     // string = "remote:<deviceId>" or "broadcast"
-  from: "host" | string;
+  to: RoutingAddress;
+  // `from` cannot be "broadcast" — only host or a specific remote sends a frame.
+  from: Exclude<RoutingAddress, "broadcast">;
 }
 
 export function isValidEnvelope(obj: unknown): obj is EnvelopeRouting & Record<string, unknown> {
