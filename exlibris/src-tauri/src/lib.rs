@@ -77,6 +77,28 @@ fn write_text_file(path: String, content: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn rules_read(sotvault: String) -> Result<String, String> {
+    let p = std::path::PathBuf::from(&sotvault).join(".exlibris/rules.yml");
+    match std::fs::read_to_string(&p) {
+        Ok(s) => Ok(s),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(String::new()),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+#[tauri::command]
+fn rules_write(sotvault: String, content: String) -> Result<(), String> {
+    let p = std::path::PathBuf::from(&sotvault).join(".exlibris/rules.yml");
+    if let Some(parent) = p.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    let tmp = p.with_extension("yml.tmp");
+    std::fs::write(&tmp, content).map_err(|e| e.to_string())?;
+    std::fs::rename(&tmp, &p).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
 fn ping() -> &'static str { "pong" }
 
 #[tauri::command]
@@ -132,7 +154,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_process::init())
-        .invoke_handler(tauri::generate_handler![ping, shared_config_read, shared_config_write, calibre_detect, calibre_extract_meta, calibre_convert, sotvault_list_meta, hash_file_sha256, fs_atomic_copy, fs_rename_strict, write_text_file])
+        .invoke_handler(tauri::generate_handler![ping, shared_config_read, shared_config_write, calibre_detect, calibre_extract_meta, calibre_convert, sotvault_list_meta, hash_file_sha256, fs_atomic_copy, fs_rename_strict, write_text_file, rules_read, rules_write])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
