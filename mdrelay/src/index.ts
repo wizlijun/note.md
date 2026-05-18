@@ -7,6 +7,7 @@ export interface Env {
 export { RelayDO } from "./relay-do.js";
 
 import { handlePairCreate, handlePairClaim, handleHostBootstrap } from "./pair.js";
+import { verifyDeviceToken } from "./auth.js";
 
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
@@ -24,6 +25,17 @@ export default {
         case "/pair/host-bootstrap":
           if (req.method !== "POST") return new Response("method not allowed", { status: 405 });
           return handleHostBootstrap(req, env);
+        case "/ws/host":
+        case "/ws/remote": {
+          const tokenParam = url.searchParams.get("token") ?? "";
+          const payload = await verifyDeviceToken(tokenParam, env.SIGNING_KEY);
+          if (!payload) return new Response("unauthorized", { status: 401 });
+          const expectedRole = url.pathname === "/ws/host" ? "host" : "remote";
+          if (payload.role !== expectedRole) return new Response("role mismatch", { status: 401 });
+          const stub = env.RELAY.get(env.RELAY.idFromName(payload.pairingId));
+          const forwarded = new Request(`https://do/ws?role=${payload.role}&device=${encodeURIComponent(payload.deviceId)}`, req);
+          return stub.fetch(forwarded);
+        }
         default:
           return new Response("not found", { status: 404 });
       }
