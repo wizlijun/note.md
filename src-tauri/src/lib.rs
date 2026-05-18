@@ -473,6 +473,13 @@ fn pick_sync_folder_inner(app: &tauri::AppHandle, on_done: impl FnOnce(String) +
                     let _ = s.save();
                 }
 
+                if let Ok(shared_path) = crate::shared_config::config_path() {
+                    if let Ok(mut cfg) = crate::shared_config::read(&shared_path) {
+                        cfg.sotvault = Some(path_str.clone());
+                        let _ = crate::shared_config::write(&shared_path, &cfg);
+                    }
+                }
+
                 update_tray_repo_label(&app_clone, &path_str);
                 on_done(path_str);
             }

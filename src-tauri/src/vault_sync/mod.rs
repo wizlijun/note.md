@@ -94,8 +94,11 @@ pub fn init(app: &AppHandle) {
         Err(_) => return,
     };
 
-    let repo_path = store.get("vault_sync.repo_path")
-        .and_then(|v| v.as_str().map(|s| s.to_string()));
+    let repo_path = crate::shared_config::config_path()
+        .ok()
+        .and_then(|p| crate::shared_config::read(&p).ok())
+        .and_then(|cfg| cfg.sotvault)
+        .filter(|s| !s.is_empty());
 
     if let Some(ref path) = repo_path {
         let mgr = app.state::<Arc<VaultSyncManager>>();
