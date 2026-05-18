@@ -6,10 +6,18 @@
 //! to fetch the plugin's own runtime deps (zod).
 
 use include_dir::{include_dir, Dir};
+use rand::RngCore;
 use serde_json::{json, Value};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
+
+/// Generate a 64-char hex shared secret (32 random bytes).
+fn generate_access_token() -> String {
+    let mut buf = [0u8; 32];
+    rand::thread_rng().fill_bytes(&mut buf);
+    buf.iter().map(|b| format!("{:02x}", b)).collect()
+}
 
 static PLUGIN_BUNDLE: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/resources/openclaw-plugin");
 
@@ -90,13 +98,44 @@ fn install(force: bool) -> Result<(), String> {
     }
 
     // Merge openclaw.json.
-    merge_config(&dest)?;
+    let token = merge_config(&dest)?;
     println!("✓ updated {} to register the channel", config_path()?.display());
+
+    // Also write the token into M↓'s own settings.json so the host-mode chat
+    // client picks it up automatically (no manual copy-paste).
+    match write_mdeditor_settings(&token) {
+        Ok(path) => println!("✓ token written to M↓ settings: {}", path.display()),
+        Err(e) => println!("⚠ could not update M↓ settings: {e} (paste the token in Settings → OpenClaw manually)"),
+    }
 
     println!();
     println!("Restart OpenClaw for the plugin to take effect.");
-    println!("In M↓, configure Settings → OpenClaw → mode = 'host' (or 'auto').");
+    println!("In M↓: tray → OpenClaw → status should turn green (connected).");
     Ok(())
+}
+
+/// Locate M↓'s settings store on macOS and patch in the access token.
+/// Returns the file path on success.
+fn write_mdeditor_settings(token: &str) -> Result<PathBuf, String> {
+    let home = dirs::home_dir().ok_or_else(|| "no home dir".to_string())?;
+    let path = home
+        .join("Library/Application Support/com.laobu.mdeditor/settings.json");
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|e| format!("mkdir {parent:?}: {e}"))?;
+    }
+    let mut d: Value = if path.exists() {
+        parse_or_default(&path)?
+    } else {
+        json!({})
+    };
+    if let Some(obj) = d.as_object_mut() {
+        obj.insert("openclaw.accessToken".into(), json!(token));
+        // Sensible default for relayUrl/mode if user has not set them yet
+        obj.entry("openclaw.mode".to_string()).or_insert_with(|| json!("auto"));
+    }
+    let pretty = serde_json::to_string_pretty(&d).map_err(|e| e.to_string())?;
+    fs::write(&path, pretty).map_err(|e| format!("write {path:?}: {e}"))?;
+    Ok(path)
 }
 
 fn uninstall(keep_files: bool) -> Result<(), String> {
@@ -149,9 +188,16 @@ fn status() -> Result<(), String> {
         let cfg: Value = parse_or_default(&cfg_path)?;
         let entry = cfg.pointer("/plugins/entries/mdeditor");
         let channel = cfg.pointer("/channels/mdeditor");
+        let token = cfg
+            .pointer("/channels/mdeditor/accounts/default/accessToken")
+            .and_then(|v| v.as_str());
         println!("openclaw.json : {}", cfg_path.display());
         println!("  plugins.entries.mdeditor   : {}", display_value(entry));
         println!("  channels.mdeditor          : {}", display_value(channel));
+        println!(
+            "  access token               : {}",
+            token.map(|t| format!("✓ {} (paste into M↓ Settings → OpenClaw)", t)).unwrap_or_else(|| "✗ not set".into())
+        );
     } else {
         println!("openclaw.json : ✗ {}  (run OpenClaw at least once to create it)", cfg_path.display());
     }
@@ -194,7 +240,9 @@ fn parse_or_default(p: &Path) -> Result<Value, String> {
     serde_json::from_str(&s).map_err(|e| format!("parse {p:?}: {e}"))
 }
 
-fn merge_config(plugin_dir: &Path) -> Result<(), String> {
+/// Merge our entries into ~/.openclaw/openclaw.json and return the
+/// shared-secret access token (newly generated or pre-existing).
+fn merge_config(plugin_dir: &Path) -> Result<String, String> {
     let cfg_path = config_path()?;
     let mut cfg: Value = if cfg_path.exists() {
         parse_or_default(&cfg_path)?
@@ -258,10 +306,30 @@ fn merge_config(plugin_dir: &Path) -> Result<(), String> {
         .ok_or_else(|| "accounts.default must be object".to_string())?;
     default.entry("socketPath".to_string())
         .or_insert_with(|| json!("~/.openclaw/mdeditor.sock"));
+    // Generate the UDS handshake shared secret if not already present.
+    // M↓ host client reads the same token from this file (or user pastes it
+    // into M↓ Settings → OpenClaw → Access Token).
+    let token_was_new = !default.contains_key("accessToken");
+    default
+        .entry("accessToken".to_string())
+        .or_insert_with(|| json!(generate_access_token()));
 
     let pretty = serde_json::to_string_pretty(&cfg).map_err(|e| e.to_string())?;
     fs::write(&cfg_path, pretty).map_err(|e| format!("write {cfg_path:?}: {e}"))?;
-    Ok(())
+
+    let token = cfg
+        .pointer("/channels/mdeditor/accounts/default/accessToken")
+        .and_then(|v| v.as_str())
+        .unwrap_or_default()
+        .to_string();
+    if token_was_new {
+        println!();
+        println!("──────────────────────────────────────────────────────────────");
+        println!("  Generated access token (also written to both configs):");
+        println!("    {}", token);
+        println!("──────────────────────────────────────────────────────────────");
+    }
+    Ok(token)
 }
 
 fn display_value(v: Option<&Value>) -> String {
