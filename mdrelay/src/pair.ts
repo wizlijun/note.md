@@ -66,7 +66,12 @@ export async function handlePairClaim(req: Request, env: Env): Promise<Response>
 }
 
 export async function handleHostBootstrap(req: Request, env: Env): Promise<Response> {
-  const body = await req.json() as { pairingId: string };
+  let body: { pairingId?: string };
+  try {
+    body = await req.json();
+  } catch {
+    return new Response("invalid json", { status: 400 });
+  }
   if (!body.pairingId) return new Response("missing pairingId", { status: 400 });
   const token = await signDeviceToken({
     pairingId: body.pairingId,
