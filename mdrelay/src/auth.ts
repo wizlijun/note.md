@@ -16,6 +16,10 @@ function b64urlEncode(bytes: ArrayBuffer | Uint8Array): string {
 }
 
 function b64urlDecode(s: string): Uint8Array {
+  // b64url string length is always ≡ 0, 2, or 3 (mod 4) for valid inputs.
+  // The slice formula handles those three cases correctly; residue 1 is
+  // structurally impossible in valid base64url output and falls through to
+  // atob() which throws (caught by callers and mapped to null).
   const padded = s.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((s.length + 3) % 4);
   const bin = atob(padded);
   const out = new Uint8Array(bin.length);
