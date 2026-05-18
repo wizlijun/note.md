@@ -1,0 +1,33 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "ExLibris",
+  "version": "0.1.0",
+  "identifier": "com.laobu.exlibris",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:5174",
+    "beforeDevCommand": "pnpm --filter exlibris dev",
+    "beforeBuildCommand": "pnpm --filter exlibris build"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "ExLibris",
+        "width": 1100,
+        "height": 720,
+        "minWidth": 720,
+        "minHeight": 500,
+        "fileDropEnabled": true
+      }
+    ],
+    "security": { "csp": null }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["dmg", "app"],
+    "icon": ["icons/icon.png"],
+    "macOS": {
+      "minimumSystemVersion": "11.0"
+    }
+  }
+}
