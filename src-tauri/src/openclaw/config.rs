@@ -9,6 +9,10 @@ pub struct OpenClawConfig {
     pub relay_url: Option<String>,
     pub host_token: Option<String>,
     pub device_token: Option<String>,
+    /// In remote mode, our own device id assigned by mdrelay on pair-claim
+    /// (e.g. "remote:abc123def456"). Used as the `from` field on every
+    /// envelope we send so the worker can route replies back to this socket.
+    pub device_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -29,6 +33,7 @@ impl Default for OpenClawConfig {
             relay_url: Some("wss://mdrelay.example.com".into()),
             host_token: None,
             device_token: None,
+            device_id: None,
         }
     }
 }
@@ -76,6 +81,9 @@ pub fn read(app: &tauri::AppHandle) -> OpenClawConfig {
     let device_token = store
         .get("openclaw.deviceToken")
         .and_then(|v| v.as_str().map(String::from));
+    let device_id = store
+        .get("openclaw.deviceId")
+        .and_then(|v| v.as_str().map(String::from));
     OpenClawConfig {
         mode,
         socket_path,
@@ -83,5 +91,6 @@ pub fn read(app: &tauri::AppHandle) -> OpenClawConfig {
         relay_url,
         host_token,
         device_token,
+        device_id,
     }
 }

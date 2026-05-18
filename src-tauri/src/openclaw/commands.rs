@@ -60,8 +60,13 @@ pub async fn openclaw_send(app: AppHandle, frame: Frame) -> Result<(), String> {
     match &*guard {
         Backend::Host(c) => c.tx_to_server.send(frame).await.map_err(|e| e.to_string()),
         Backend::Remote(c) => {
-            let env = Envelope { to: "host".into(), from: "remote:self".into(), frame };
-            c.tx_send.send(env).await.map_err(|e| e.to_string())
+            let tx = c.tx_send.clone();
+            drop(guard);
+            // Use our real device_id so worker routes replies back to this socket.
+            let device_id = state.config.lock().await.device_id.clone()
+                .unwrap_or_else(|| "remote:unknown".to_string());
+            let env = Envelope { to: "host".into(), from: device_id, frame };
+            tx.send(env).await.map_err(|e| e.to_string())
         }
         Backend::None => Err("not connected".into()),
     }
@@ -138,6 +143,12 @@ pub async fn openclaw_pair_create(app: AppHandle) -> Result<PairCreateOut, Strin
     let host = crate::openclaw::pair::host_bootstrap(&url, &create.pairing_id).await?;
     persist_setting(&app, "openclaw.hostToken", &host.device_token)?;
     persist_setting(&app, "openclaw.pairingId", &create.pairing_id)?;
+    // Sync the cached config so the host can use the new token immediately.
+    {
+        let state = app.state::<std::sync::Arc<OpenClawState>>();
+        let mut cfg_w = state.config.lock().await;
+        cfg_w.host_token = Some(host.device_token.clone());
+    }
     let qr = QrCode::new(create.code.as_bytes()).map_err(|e| e.to_string())?;
     let qr_svg = qr.render::<Color>().build();
     Ok(PairCreateOut {
@@ -168,6 +179,13 @@ pub async fn openclaw_pair_claim(app: AppHandle, code: String, hostname: Option<
     persist_setting(&app, "openclaw.deviceToken", &claim.device_token)?;
     persist_setting(&app, "openclaw.pairingId", &claim.pairing_id)?;
     persist_setting(&app, "openclaw.deviceId", &claim.device_id)?;
+    // Sync the cached config so a subsequent openclaw_connect sees the new device_token + device_id.
+    {
+        let state = app.state::<std::sync::Arc<OpenClawState>>();
+        let mut cfg_w = state.config.lock().await;
+        cfg_w.device_token = Some(claim.device_token.clone());
+        cfg_w.device_id = Some(claim.device_id.clone());
+    }
     Ok(PairClaimOut { pairing_id: claim.pairing_id, device_id: claim.device_id })
 }
 
