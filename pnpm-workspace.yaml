@@ -3,3 +3,6 @@
 # private fork that builds at install-time (see its package.json's prepare).
 allowBuilds:
   mermaid-mini: true
+  esbuild: true
+  sharp: true
+  workerd: true
