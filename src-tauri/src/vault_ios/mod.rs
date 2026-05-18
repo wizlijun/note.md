@@ -197,7 +197,7 @@ pub async fn vault_configure(
     }
 }
 
-#[tauri::command]
+#[cfg_attr(not(test), tauri::command)]
 pub async fn vault_sync_now(app: AppHandle, pat: String) -> Result<VaultStatus, String> {
     let mgr_state = app.state::<Arc<VaultIosManager>>();
     let mgr: Arc<VaultIosManager> = mgr_state.inner().clone();

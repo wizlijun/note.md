@@ -14,6 +14,8 @@ use tauri::menu::{
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{Emitter, Manager, RunEvent, WindowEvent};
 
+pub mod openclaw;
+
 #[cfg(not(target_os = "ios"))]
 pub mod cli;
 #[cfg(not(target_os = "ios"))]
