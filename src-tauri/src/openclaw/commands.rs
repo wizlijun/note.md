@@ -209,6 +209,28 @@ pub async fn openclaw_reject_pending(app: AppHandle, device_id: String) -> Resul
     openclaw_revoke_device(app, device_id).await
 }
 
+#[tauri::command]
+pub async fn openclaw_upload_attachment(
+    app: AppHandle,
+    session: String,
+    filename: String,
+    bytes_b64: String,
+) -> Result<(), String> {
+    let frame = crate::openclaw::protocol::Frame::UserAttachUpload {
+        session,
+        blob_id: format!("b-{}", uuid_like()),
+        filename,
+        bytes_b64,
+    };
+    openclaw_send(app, frame).await
+}
+
+fn uuid_like() -> String {
+    use rand::Rng;
+    let mut rng = rand::thread_rng();
+    (0..12).map(|_| format!("{:x}", rng.gen_range(0..16))).collect()
+}
+
 fn persist_setting(app: &AppHandle, key: &str, value: &str) -> Result<(), String> {
     use tauri_plugin_store::StoreExt;
     let store = app.store("settings.json").map_err(|e| e.to_string())?;

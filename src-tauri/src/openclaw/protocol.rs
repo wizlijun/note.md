@@ -23,6 +23,8 @@ pub enum Frame {
     UserCancel { session: String, msg_id: String },
     #[serde(rename = "user.request_file")]
     UserRequestFile { session: String, path: String },
+    #[serde(rename = "user.attach.upload")]
+    UserAttachUpload { session: String, blob_id: String, filename: String, bytes_b64: String },
     #[serde(rename = "agent.message.delta")]
     AgentDelta { session: String, msg_id: String, text: String },
     #[serde(rename = "agent.message.end")]

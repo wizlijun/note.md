@@ -1,6 +1,7 @@
 <!-- src/components/chat/Composer.svelte -->
 <script lang="ts">
   import { sendUserMessage } from '../../lib/openclaw/client.svelte'
+  import AttachmentUpload from './AttachmentUpload.svelte'
 
   let text = $state('')
   let sending = $state(false)
@@ -16,6 +17,7 @@
 </script>
 
 <form class="composer" onsubmit={submit}>
+  <AttachmentUpload />
   <textarea
     bind:value={text}
     placeholder="Type to OpenClaw…"
@@ -26,7 +28,7 @@
 </form>
 
 <style>
-  .composer { display: flex; gap: 0.5rem; padding: 0.5rem; border-top: 1px solid #e5e7eb; }
+  .composer { display: flex; align-items: flex-end; gap: 0.5rem; padding: 0.5rem; border-top: 1px solid #e5e7eb; }
   textarea { flex: 1; resize: none; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 6px; font: inherit; }
   button { padding: 0 1rem; border: 0; border-radius: 6px; background: #2563eb; color: white; cursor: pointer; }
   button:disabled { background: #9ca3af; cursor: not-allowed; }
