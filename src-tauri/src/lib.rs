@@ -557,6 +557,9 @@ pub fn run() {
                 vault_sync::vault_sync_logs,
                 write_file_binary,
                 rename_file,
+                crate::openclaw::commands::openclaw_connect,
+                crate::openclaw::commands::openclaw_send,
+                crate::openclaw::commands::openclaw_disconnect,
             ] }
             #[cfg(target_os = "ios")]
             { tauri::generate_handler![
@@ -571,6 +574,9 @@ pub fn run() {
                 vault_ios::vault_disconnect,
                 write_file_binary,
                 rename_file,
+                crate::openclaw::commands::openclaw_connect,
+                crate::openclaw::commands::openclaw_send,
+                crate::openclaw::commands::openclaw_disconnect,
             ] }
         })
         .setup(|app| {
@@ -580,6 +586,9 @@ pub fn run() {
                 app.manage(vault_mgr);
                 vault_sync::init(&app.handle());
             }
+
+            let openclaw_state = crate::openclaw::init_state(&app.handle());
+            app.manage(openclaw_state);
 
             plugin_host::init(&app.handle());
 
