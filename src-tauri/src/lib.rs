@@ -344,6 +344,26 @@ fn show_chat_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
     }
 }
 
+#[tauri::command]
+async fn editor_show_and_open_path(app: tauri::AppHandle, path: String) -> Result<(), String> {
+    if let Some(win) = app.get_webview_window("main") {
+        let _ = win.show();
+        let _ = win.set_focus();
+        let _ = win.unminimize();
+        // Defer to existing frontend "open file" event so the editor can decide tabs.
+        let _ = win.emit("editor://open-path", &path);
+    } else {
+        // Main window isn't built; emit a global event the next startup will drain.
+        let _ = app.emit("editor://pending-open", &path);
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn file_exists(path: String) -> bool {
+    std::path::Path::new(&path).exists()
+}
+
 fn show_main_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
     if let Some(w) = app.get_webview_window("main") {
         let _ = w.show();
@@ -560,6 +580,8 @@ pub fn run() {
                 crate::openclaw::commands::openclaw_connect,
                 crate::openclaw::commands::openclaw_send,
                 crate::openclaw::commands::openclaw_disconnect,
+                editor_show_and_open_path,
+                file_exists,
             ] }
             #[cfg(target_os = "ios")]
             { tauri::generate_handler![
@@ -577,6 +599,8 @@ pub fn run() {
                 crate::openclaw::commands::openclaw_connect,
                 crate::openclaw::commands::openclaw_send,
                 crate::openclaw::commands::openclaw_disconnect,
+                editor_show_and_open_path,
+                file_exists,
             ] }
         })
         .setup(|app| {

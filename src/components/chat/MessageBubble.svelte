@@ -1,13 +1,44 @@
 <!-- src/components/chat/MessageBubble.svelte -->
 <script lang="ts">
   import type { Message } from '../../lib/openclaw/protocol'
+  import { openVaultLink } from '../../lib/openclaw/links'
+  import { state } from '../../lib/openclaw/client.svelte'
 
   let { message }: { message: Message } = $props()
+
+  function renderText(t: string): { html: string } {
+    const escaped = t.replace(/[&<>]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;'} as Record<string,string>)[c])
+    const linked = escaped.replace(
+      /\[([^\]]+)\]\(([^)]+)\)/g,
+      (_m, label, href) => `<a href="${href}" data-link>${label}</a>`
+    )
+    return { html: linked.replace(/\n/g, '<br>') }
+  }
+
+  // Get vault root + auto-sync from settings — fall back to defaults until P2.9 adds the settings tab.
+  function getOpts() {
+    // TODO P2.9: read from settings store. For now: best-effort lookup from existing vault_sync repo_path.
+    return {
+      vaultRoot: null as string | null,
+      isBoundMode: false,
+      currentSession: state.currentSessionId,
+      autoSync: true,
+    }
+  }
+
+  function onClick(e: MouseEvent) {
+    const target = e.target as HTMLElement
+    const a = target.closest('a[data-link]') as HTMLAnchorElement | null
+    if (!a) return
+    e.preventDefault()
+    const href = a.getAttribute('href') ?? ''
+    openVaultLink(href, getOpts())
+  }
 </script>
 
-<div class="bubble" class:user={message.role === 'user'} class:agent={message.role === 'agent'}>
+<div class="bubble" class:user={message.role === 'user'} class:agent={message.role === 'agent'} onclick={onClick}>
   <div class="role">{message.role}</div>
-  <div class="text">{message.text}{#if message.streaming}<span class="cursor">▍</span>{/if}</div>
+  <div class="text">{@html renderText(message.text).html}{#if message.streaming}<span class="cursor">▍</span>{/if}</div>
 </div>
 
 <style>

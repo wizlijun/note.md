@@ -73,6 +73,15 @@
       } catch (err) { console.warn('[App] open-file:', err) }
     })
 
+    // Vault-link resolution: chat window requests editor to focus + open a file.
+    const unlistenOpenPath = listen<string>('editor://open-path', async (e) => {
+      try {
+        await openFile(e.payload)
+        win.show()
+        win.setFocus()
+      } catch (err) { console.warn('[App] editor://open-path:', err) }
+    })
+
     invoke<string[]>('drain_pending_files').then(async (paths) => {
       for (const p of paths) {
         try { await openFile(p) } catch (err) { console.warn('[App] drain_pending_files:', err) }
@@ -439,6 +448,7 @@
       unlistenMenu.then((fn) => fn())
       unlistenDrop.then((fn) => fn())
       unlistenOpenFile.then((fn) => fn())
+      unlistenOpenPath.then((fn) => fn())
       unlistenDeepLink.then((fn) => fn())
       stopAutoSave?.()
     }
