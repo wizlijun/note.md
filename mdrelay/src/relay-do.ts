@@ -7,6 +7,10 @@ interface PendingPair {
 }
 
 export class RelayDO implements DurableObject {
+  private static MAX_FRAMES = 50;
+  private static MAX_BYTES = 1024 * 1024;
+  private static MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
   constructor(private state: DurableObjectState, private env: Env) {}
 
   async fetch(req: Request): Promise<Response> {
@@ -100,9 +104,39 @@ export class RelayDO implements DurableObject {
     }
   }
 
-  // Stubs that Task 6 (offline buffer) will fill:
-  private async drainBuffer(_ws: WebSocket, _deviceId: string): Promise<void> { /* Task 6 */ }
-  private async pushBuffer(_deviceId: string, _text: string): Promise<void> { /* Task 6 */ }
+  private bufferKey(deviceId: string): string { return `buf:${deviceId}`; }
+
+  private async pushBuffer(deviceId: string, text: string): Promise<void> {
+    const key = this.bufferKey(deviceId);
+    const buf = (await this.state.storage.get<{ ts: number; text: string }[]>(key)) ?? [];
+    const now = Date.now();
+    buf.push({ ts: now, text });
+
+    // Age-based pruning.
+    while (buf.length > 0 && now - buf[0].ts > RelayDO.MAX_AGE_MS) buf.shift();
+
+    // Frame-count pruning.
+    while (buf.length > RelayDO.MAX_FRAMES) buf.shift();
+
+    // Byte-cap pruning.
+    let bytes = buf.reduce((acc, f) => acc + f.text.length, 0);
+    while (bytes > RelayDO.MAX_BYTES && buf.length > 0) {
+      bytes -= buf[0].text.length;
+      buf.shift();
+    }
+
+    await this.state.storage.put(key, buf);
+  }
+
+  private async drainBuffer(ws: WebSocket, deviceId: string): Promise<void> {
+    const key = this.bufferKey(deviceId);
+    const buf = (await this.state.storage.get<{ ts: number; text: string }[]>(key)) ?? [];
+    if (buf.length === 0) return;
+    await this.state.storage.delete(key);
+    for (const f of buf) {
+      try { ws.send(f.text); } catch { break; }
+    }
+  }
 
   private async pendingPut(req: Request): Promise<Response> {
     const body = await req.json() as { code: string; pairingId: string; expiresAt: number };
