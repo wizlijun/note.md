@@ -24,14 +24,21 @@
       "csp": null,
       "assetProtocol": {
         "enable": true,
-        "scope": ["**"]
+        "scope": [
+          "**"
+        ]
       }
     }
   },
   "bundle": {
     "active": true,
-    "targets": ["dmg", "app"],
-    "icon": ["icons/icon.png"],
+    "targets": [
+      "dmg",
+      "app"
+    ],
+    "icon": [
+      "icons/icon.png"
+    ],
     "macOS": {
       "minimumSystemVersion": "11.0"
     }
