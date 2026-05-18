@@ -732,6 +732,8 @@ pub fn run() {
                 let sync_stop_item = MenuItem::with_id(app, "tray-sync-stop", "Stop Sync", true, None::<&str>)?;
                 let sync_now_item = MenuItem::with_id(app, "tray-sync-now", "Sync Now", true, None::<&str>)?;
                 let sync_log_item = MenuItem::with_id(app, "tray-sync-log", "View Log\u{2026}", true, None::<&str>)?;
+                let open_books_item = MenuItem::with_id(app, "tray-open-books", "Open Books", true, None::<&str>)?;
+                let open_raw_sync_item = MenuItem::with_id(app, "tray-open-raw-sync", "Open Raw Vault Sync", /*enabled=*/ false, None::<&str>)?;
                 let quit_item = MenuItem::with_id(app, "tray-quit", "Quit M\u{2193}", true, None::<&str>)?;
                 let tray_menu = MenuBuilder::new(app)
                     .item(&show_item)
@@ -743,6 +745,9 @@ pub fn run() {
                     .item(&sync_stop_item)
                     .item(&sync_now_item)
                     .item(&sync_log_item)
+                    .separator()
+                    .item(&open_books_item)
+                    .item(&open_raw_sync_item)
                     .separator()
                     .item(&quit_item)
                     .build()?;
@@ -765,6 +770,15 @@ pub fn run() {
                             }
                             "tray-sync-now" => { let _ = vault_sync::vault_sync_now(app.clone()); }
                             "tray-sync-log" => { open_sync_log_window(app); }
+                            "tray-open-books" => {
+                                let _ = std::process::Command::new("open")
+                                    .arg("-b")
+                                    .arg("com.laobu.exlibris")
+                                    .status();
+                            }
+                            "tray-open-raw-sync" => {
+                                // Disabled in v1; placeholder for upcoming rawvault sync feature
+                            }
                             "tray-quit" => app.exit(0),
                             _ => {}
                         }
