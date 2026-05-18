@@ -16,6 +16,7 @@
     "vitest": "^2.1"
   },
   "pnpm": {
+    "pnpm-note": "onlyBuiltDependencies mirrors root pnpm-workspace.yaml allowBuilds — required because pnpm 11 enforces per-package and workspace-wide build-script allowlists separately",
     "onlyBuiltDependencies": ["esbuild", "sharp", "workerd"]
   }
 }
