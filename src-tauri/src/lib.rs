@@ -379,6 +379,18 @@ fn file_exists(path: String) -> bool {
     std::path::Path::new(&path).exists()
 }
 
+#[tauri::command]
+fn shared_config_read() -> Result<crate::shared_config::SharedConfig, String> {
+    crate::shared_config::read(&crate::shared_config::config_path())
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn shared_config_write(cfg: crate::shared_config::SharedConfig) -> Result<(), String> {
+    crate::shared_config::write(&crate::shared_config::config_path(), &cfg)
+        .map_err(|e| e.to_string())
+}
+
 fn show_main_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
     if let Some(w) = app.get_webview_window("main") {
         let _ = w.show();
@@ -607,6 +619,8 @@ pub fn run() {
                 editor_show_and_open_path,
                 editor_open_remote_buffer,
                 file_exists,
+                shared_config_read,
+                shared_config_write,
             ] }
             #[cfg(target_os = "ios")]
             { tauri::generate_handler![
@@ -635,6 +649,8 @@ pub fn run() {
                 editor_show_and_open_path,
                 editor_open_remote_buffer,
                 file_exists,
+                shared_config_read,
+                shared_config_write,
             ] }
         })
         .setup(|app| {

@@ -18,8 +18,8 @@ pub struct SharedConfig {
 fn default_version() -> u32 { 1 }
 
 pub fn config_path() -> PathBuf {
-    let home = std::env::var("HOME").unwrap_or_default();
-    PathBuf::from(home)
+    dirs::home_dir()
+        .unwrap_or_else(|| PathBuf::from("/tmp"))
         .join("Library/Application Support/com.laobu.mdeditor-shared/config.json")
 }
 
