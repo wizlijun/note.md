@@ -9,7 +9,7 @@ class_name = "RelayDO"
 
 [[migrations]]
 tag = "v1"
-new_classes = ["RelayDO"]
+new_sqlite_classes = ["RelayDO"]
 
 # Secret SIGNING_KEY is set via:
 #   wrangler secret put SIGNING_KEY
