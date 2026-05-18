@@ -3,7 +3,7 @@
   import DropZone from "./components/DropZone.svelte";
   import PendingList from "./components/PendingList.svelte";
   import SettingsDialog from "./components/SettingsDialog.svelte";
-  import { readSharedConfig } from "$lib/shared-config";
+  import LibraryBrowser from "./components/LibraryBrowser.svelte";
   import { extractMeta } from "$lib/calibre";
   import { invoke } from "@tauri-apps/api/core";
   import { buildPendingEntry, commitEntry, CancelledError } from "$lib/import-pipeline";
@@ -16,6 +16,7 @@
   let pending = $state<PendingEntry[]>([]);
   let importing = $state(false);
   let settingsOpen = $state(false);
+  let tab = $state<"import" | "library">("import");
   let cancelSignal = { cancelled: false };
 
   let rules = $state<Rule[]>([]);
@@ -103,12 +104,16 @@
   <header class="top">
     <h1>ExLibris</h1>
     {#if ready}
+      <nav class="tabs">
+        <button class:active={tab === "import"} onclick={() => tab = "import"}>Import</button>
+        <button class:active={tab === "library"} onclick={() => tab = "library"}>Library</button>
+      </nav>
       <button onclick={() => settingsOpen = true}>⚙ Settings</button>
     {/if}
   </header>
   {#if !ready}
     <OnboardingBanner {onReady} />
-  {:else}
+  {:else if tab === "import"}
     <DropZone {onDropFiles} />
     {#if pending.length > 0}
       <PendingList bind:entries={pending} {onImport} {onRemove} />
@@ -116,6 +121,8 @@
         <button onclick={onCancel}>Cancel All</button>
       {/if}
     {/if}
+  {:else if tab === "library" && config?.sotvault}
+    <LibraryBrowser sotvault={config.sotvault} />
   {/if}
   {#if config}
     <SettingsDialog bind:config={config} bind:open={settingsOpen} />
@@ -124,5 +131,8 @@
 
 <style>
   main { padding: 1.5rem; font-family: -apple-system, system-ui, sans-serif; }
-  .top { display: flex; justify-content: space-between; align-items: center; }
+  .top { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
+  .tabs { display: flex; gap: 0.25rem; }
+  .tabs button { padding: 0.25rem 0.75rem; }
+  .tabs button.active { font-weight: bold; border-bottom: 2px solid currentColor; }
 </style>
