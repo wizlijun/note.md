@@ -2,21 +2,27 @@
   import OnboardingBanner from "./components/OnboardingBanner.svelte";
   import DropZone from "./components/DropZone.svelte";
   import PendingList from "./components/PendingList.svelte";
+  import SettingsDialog from "./components/SettingsDialog.svelte";
   import { readSharedConfig } from "$lib/shared-config";
   import { extractMeta } from "$lib/calibre";
   import { invoke } from "@tauri-apps/api/core";
   import { buildPendingEntry, commitEntry, CancelledError } from "$lib/import-pipeline";
   import { loadLibrary } from "$lib/library";
+  import { readRules } from "$lib/rules-io";
   import type { SharedConfig, PendingEntry, Rule } from "$lib/types";
 
   let ready = $state(false);
   let config = $state<SharedConfig | null>(null);
   let pending = $state<PendingEntry[]>([]);
   let importing = $state(false);
+  let settingsOpen = $state(false);
   let cancelSignal = { cancelled: false };
 
-  // Rules will come from rules.yml in Phase 3; placeholder for now.
   let rules = $state<Rule[]>([]);
+
+  $effect(() => { if (ready && config?.sotvault) {
+    readRules(config.sotvault).then((r) => rules = r.rules);
+  }});
 
   async function onReady(cfg: SharedConfig) {
     config = cfg;
@@ -94,7 +100,12 @@
 </script>
 
 <main>
-  <h1>ExLibris</h1>
+  <header class="top">
+    <h1>ExLibris</h1>
+    {#if ready}
+      <button onclick={() => settingsOpen = true}>⚙ Settings</button>
+    {/if}
+  </header>
   {#if !ready}
     <OnboardingBanner {onReady} />
   {:else}
@@ -106,8 +117,12 @@
       {/if}
     {/if}
   {/if}
+  {#if config}
+    <SettingsDialog bind:config={config} bind:open={settingsOpen} />
+  {/if}
 </main>
 
 <style>
   main { padding: 1.5rem; font-family: -apple-system, system-ui, sans-serif; }
+  .top { display: flex; justify-content: space-between; align-items: center; }
 </style>
