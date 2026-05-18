@@ -47,6 +47,41 @@ pub fn write(path: &Path, cfg: &SharedConfig) -> std::io::Result<()> {
     Ok(())
 }
 
+/// Migrate the legacy `gitsync.repo` value from a JSON store file into the
+/// shared config's `sotvault` field. Idempotent: a non-empty `sotvault` short-circuits.
+///
+/// `legacy_store_path` points to the Tauri Store JSON (typically
+/// `~/Library/Application Support/com.laobu.mdeditor/settings.json`).
+pub fn migrate_gitsync_to_shared(
+    shared_path: &Path,
+    legacy_store_path: &Path,
+) -> std::io::Result<bool> {
+    let mut cfg = read(shared_path)?;
+    if cfg.sotvault.as_ref().is_some_and(|s| !s.is_empty()) {
+        return Ok(false);
+    }
+    let legacy_raw = match std::fs::read_to_string(legacy_store_path) {
+        Ok(s) => s,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+        Err(e) => return Err(e),
+    };
+    let v: serde_json::Value = match serde_json::from_str(&legacy_raw) {
+        Ok(v) => v,
+        Err(_) => return Ok(false),
+    };
+    let repo = v.pointer("/gitsync.repo")
+        .and_then(|x| x.as_str())
+        .map(|s| s.to_string());
+    if let Some(repo) = repo {
+        if !repo.is_empty() {
+            cfg.sotvault = Some(repo);
+            write(shared_path, &cfg)?;
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -94,5 +129,60 @@ mod tests {
         std::fs::write(&p, "{ not valid json").unwrap();
         let cfg = read(&p).unwrap();
         assert_eq!(cfg.version, 1);
+    }
+
+    #[test]
+    fn migration_copies_gitsync_repo_when_shared_empty() {
+        let tmp = TempDir::new().unwrap();
+        let shared = tmp.path().join("shared.json");
+        let legacy = tmp.path().join("legacy.json");
+        std::fs::write(&legacy, r#"{"gitsync.repo":"/Users/me/notes"}"#).unwrap();
+
+        let migrated = migrate_gitsync_to_shared(&shared, &legacy).unwrap();
+        assert!(migrated);
+
+        let cfg = read(&shared).unwrap();
+        assert_eq!(cfg.sotvault.as_deref(), Some("/Users/me/notes"));
+    }
+
+    #[test]
+    fn migration_is_idempotent() {
+        let tmp = TempDir::new().unwrap();
+        let shared = tmp.path().join("shared.json");
+        let legacy = tmp.path().join("legacy.json");
+        std::fs::write(&legacy, r#"{"gitsync.repo":"/Users/me/notes"}"#).unwrap();
+
+        let first = migrate_gitsync_to_shared(&shared, &legacy).unwrap();
+        let second = migrate_gitsync_to_shared(&shared, &legacy).unwrap();
+        assert!(first);
+        assert!(!second);
+    }
+
+    #[test]
+    fn migration_noop_when_legacy_missing() {
+        let tmp = TempDir::new().unwrap();
+        let shared = tmp.path().join("shared.json");
+        let legacy = tmp.path().join("legacy.json");
+        let migrated = migrate_gitsync_to_shared(&shared, &legacy).unwrap();
+        assert!(!migrated);
+    }
+
+    #[test]
+    fn migration_noop_when_shared_already_has_sotvault() {
+        let tmp = TempDir::new().unwrap();
+        let shared = tmp.path().join("shared.json");
+        let legacy = tmp.path().join("legacy.json");
+        write(&shared, &SharedConfig {
+            version: 1,
+            sotvault: Some("/preset".into()),
+            ..Default::default()
+        }).unwrap();
+        std::fs::write(&legacy, r#"{"gitsync.repo":"/Users/me/notes"}"#).unwrap();
+
+        let migrated = migrate_gitsync_to_shared(&shared, &legacy).unwrap();
+        assert!(!migrated);
+
+        let cfg = read(&shared).unwrap();
+        assert_eq!(cfg.sotvault.as_deref(), Some("/preset"));
     }
 }
