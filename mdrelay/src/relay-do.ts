@@ -20,6 +20,12 @@ export class RelayDO implements DurableObject {
       case "/pending/pop":  return this.pendingPop(req);
       case "/notify-claim": return this.notifyClaim(req);
       case "/ws":           return this.handleWs(req);
+      case "/revoke":       return this.revoke(req);
+      case "/is-revoked": {
+        const body = await req.json() as { deviceId: string };
+        const revoked = (await this.state.storage.get<string[]>("revoked")) ?? [];
+        return new Response(revoked.includes(body.deviceId) ? "yes" : "no");
+      }
       default: return new Response("not found", { status: 404 });
     }
   }
@@ -136,6 +142,21 @@ export class RelayDO implements DurableObject {
     for (const f of buf) {
       try { ws.send(f.text); } catch { break; }
     }
+  }
+
+  private async revoke(req: Request): Promise<Response> {
+    const body = await req.json() as { deviceId: string };
+    const revoked = (await this.state.storage.get<string[]>("revoked")) ?? [];
+    if (!revoked.includes(body.deviceId)) revoked.push(body.deviceId);
+    await this.state.storage.put("revoked", revoked);
+    // Close any active sockets for the revoked device.
+    const all = this.state.getWebSockets();
+    for (const ws of all) {
+      if (this.state.getTags(ws).includes(`remote:${body.deviceId.replace(/^remote:/, "")}`)) {
+        try { ws.close(4003, "revoked"); } catch { /* ignore */ }
+      }
+    }
+    return new Response("ok");
   }
 
   private async pendingPut(req: Request): Promise<Response> {
