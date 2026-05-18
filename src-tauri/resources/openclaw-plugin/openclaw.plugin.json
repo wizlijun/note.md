@@ -1,0 +1,28 @@
+{
+  "id": "mdeditor",
+  "name": "M↓ Chat",
+  "description": "Local M↓ desktop chat via UDS; remote fan-out via mdrelay.",
+  "channels": ["mdeditor"],
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "socketPath": {
+        "type": "string",
+        "default": "~/.openclaw/mdeditor.sock",
+        "description": "Path of the local Unix Domain Socket the M↓ host will connect to."
+      },
+      "accessToken": {
+        "type": "string",
+        "minLength": 32,
+        "description": "Shared secret used for the UDS handshake and per-frame HMAC. Auto-generated on first run."
+      },
+      "maxClients": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 1,
+        "default": 1
+      }
+    }
+  }
+}

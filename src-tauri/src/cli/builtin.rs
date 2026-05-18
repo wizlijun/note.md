@@ -29,6 +29,7 @@ pub fn run(b: Builtin, parsed: &Parsed) -> ExitCode {
             println!("{}", render_plugin_list(parsed.globals.json, &manifests_only, &enabled));
             ExitCode::from(0)
         }
+        Builtin::Openclaw(cmd) => super::openclaw::run(cmd),
         Builtin::PluginEnable(id) => {
             if !manifests_only.iter().any(|m| m.id == id) {
                 eprintln!("mdedit: unknown plugin id '{id}'");
@@ -124,6 +125,7 @@ pub fn render_help(
     out.push_str("  help          Show this help\n");
     out.push_str("  version       Print version\n");
     out.push_str("  plugin        Manage plugins (list, enable, disable, info)\n");
+    out.push_str("  openclaw      Install the M\u{2193} chat plugin into OpenClaw (install, uninstall, status)\n");
 
     let mut shown_header = false;
     for m in manifests {

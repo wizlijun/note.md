@@ -49,6 +49,8 @@ urlencoding = "2"
 gethostname = "0.5"
 rand = "0.8"
 
+include_dir = "0.7"
+
 [target.'cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))'.dependencies]
 tauri-plugin-single-instance = "2"
 tauri-plugin-window-state = "2"

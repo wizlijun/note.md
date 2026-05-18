@@ -21,6 +21,7 @@ pub enum Builtin {
     PluginEnable(String),
     PluginDisable(String),
     PluginInfo(String),
+    Openclaw(super::openclaw::OpenclawCmd),
 }
 
 #[derive(Debug)]
@@ -77,6 +78,17 @@ pub fn resolve_with(
                 None => Route::Unknown("plugin info (missing id)".to_string()),
             },
             _ => Route::Unknown(format!("plugin {}", rest.get(1).cloned().unwrap_or_default())),
+        };
+    }
+
+    if first == "openclaw" {
+        let force = rest.iter().any(|a| a == "--force" || a == "-f");
+        let keep_files = rest.iter().any(|a| a == "--keep-files");
+        return match rest.get(1).map(|s| s.as_str()) {
+            Some("install") => Route::Builtin(Builtin::Openclaw(super::openclaw::OpenclawCmd::Install { force })),
+            Some("uninstall") => Route::Builtin(Builtin::Openclaw(super::openclaw::OpenclawCmd::Uninstall { keep_files })),
+            Some("status") | None => Route::Builtin(Builtin::Openclaw(super::openclaw::OpenclawCmd::Status)),
+            Some(other) => Route::Unknown(format!("openclaw {}", other)),
         };
     }
 

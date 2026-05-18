@@ -1,0 +1,38 @@
+{
+  "name": "@openclaw/mdeditor",
+  "version": "0.1.0",
+  "description": "OpenClaw mdeditor channel plugin (local UDS bridge to M↓ host)",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "typescript": "^5",
+    "vitest": "^2"
+  },
+  "openclaw": {
+    "extensions": [
+      "./index.ts"
+    ],
+    "channel": {
+      "id": "mdeditor",
+      "label": "M↓ Chat",
+      "selectionLabel": "M↓ Chat (plugin)",
+      "docsPath": "/channels/mdeditor",
+      "docsLabel": "mdeditor",
+      "blurb": "Local M↓ desktop chat via UDS; remote fan-out via mdrelay.",
+      "order": 90,
+      "quickstartAllowFrom": false
+    },
+    "install": {
+      "npmSpec": "@openclaw/mdeditor",
+      "localPath": "extensions/mdeditor",
+      "defaultChoice": "localPath"
+    }
+  }
+}
