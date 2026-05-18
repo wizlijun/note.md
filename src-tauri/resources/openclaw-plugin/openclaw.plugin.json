@@ -24,5 +24,41 @@
         "default": 1
       }
     }
+  },
+  "channelConfigs": {
+    "mdeditor": {
+      "label": "M↓ Chat",
+      "description": "Bridges a local M↓ desktop client to OpenClaw via Unix Domain Socket.",
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "enabled": { "type": "boolean", "default": true },
+          "accounts": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "socketPath": {
+                  "type": "string",
+                  "default": "~/.openclaw/mdeditor.sock"
+                },
+                "accessToken": {
+                  "type": "string",
+                  "minLength": 32
+                },
+                "maxClients": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 1,
+                  "default": 1
+                }
+              }
+            }
+          }
+        }
+      }
+    }
   }
 }
