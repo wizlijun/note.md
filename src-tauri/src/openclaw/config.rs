@@ -8,6 +8,7 @@ pub struct OpenClawConfig {
     pub access_token: Option<String>,
     pub relay_url: Option<String>,
     pub host_token: Option<String>,
+    pub device_token: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -27,6 +28,7 @@ impl Default for OpenClawConfig {
             access_token: None,
             relay_url: Some("wss://mdrelay.example.com".into()),
             host_token: None,
+            device_token: None,
         }
     }
 }
@@ -71,11 +73,15 @@ pub fn read(app: &tauri::AppHandle) -> OpenClawConfig {
     let host_token = store
         .get("openclaw.hostToken")
         .and_then(|v| v.as_str().map(String::from));
+    let device_token = store
+        .get("openclaw.deviceToken")
+        .and_then(|v| v.as_str().map(String::from));
     OpenClawConfig {
         mode,
         socket_path,
         access_token,
         relay_url,
         host_token,
+        device_token,
     }
 }
