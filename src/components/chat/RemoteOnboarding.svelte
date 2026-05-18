@@ -10,8 +10,10 @@
 
   async function submit() {
     busy = true; err = null
+    // Trim guards against trailing whitespace from paste — common UX paper-cut.
+    const trimmed = code.trim()
     try {
-      await pairClaim(code, hostname || undefined)
+      await pairClaim(trimmed, hostname || undefined)
       onComplete()
     } catch (e) {
       err = String(e)
