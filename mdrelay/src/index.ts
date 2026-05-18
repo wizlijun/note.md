@@ -25,6 +25,15 @@ export default {
         case "/pair/host-bootstrap":
           if (req.method !== "POST") return new Response("method not allowed", { status: 405 });
           return handleHostBootstrap(req, env);
+        case "/device/pending-claims": {
+          if (req.method !== "GET") return new Response("method not allowed", { status: 405 });
+          const authHeader = req.headers.get("authorization") ?? "";
+          const bearer = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
+          const payload = await verifyDeviceToken(bearer, env.SIGNING_KEY);
+          if (!payload || payload.role !== "host") return new Response("unauthorized", { status: 401 });
+          const stub = env.RELAY.get(env.RELAY.idFromName(payload.pairingId));
+          return stub.fetch("https://do/pending-claims");
+        }
         case "/device/revoke": {
           if (req.method !== "POST") return new Response("method not allowed", { status: 405 });
           const authHeader = req.headers.get("authorization") ?? "";

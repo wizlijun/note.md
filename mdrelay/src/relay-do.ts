@@ -21,6 +21,11 @@ export class RelayDO implements DurableObject {
       case "/notify-claim": return this.notifyClaim(req);
       case "/ws":           return this.handleWs(req);
       case "/revoke":       return this.revoke(req);
+      case "/pending-claims": {
+        const list = (await this.state.storage.get<unknown[]>("pending-claims")) ?? [];
+        await this.state.storage.delete("pending-claims");
+        return new Response(JSON.stringify(list), { headers: { "content-type": "application/json" } });
+      }
       case "/is-revoked": {
         const body = await req.json() as { deviceId: string };
         const revoked = (await this.state.storage.get<string[]>("revoked")) ?? [];
