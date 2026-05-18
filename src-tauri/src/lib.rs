@@ -542,6 +542,7 @@ pub fn run() {
         .plugin(tauri_plugin_os::init());
     #[cfg(not(target_os = "ios"))]
     let app = app
+        .plugin(tauri_plugin_window_state::Builder::default().build())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init());
     let app = app
