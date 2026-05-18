@@ -62,6 +62,18 @@ TAG="exlibris-v$VERSION"
 GH_REPO="${GH_REPO:-wizlijun/MdEditor}"
 APPLE_TEAM_ID="${APPLE_TEAM_ID:-T5G56DH47L}"
 
+# ExLibris is perma-prerelease through 0.x to keep mdeditor's
+# /releases/latest/ pointing at the latest stable mdeditor.
+PRERELEASE=1
+
+# Tauri updater signing key (shared with mdeditor — same .tauri/mdeditor.key).
+TAURI_SIGNING_PRIVATE_KEY_PATH="${TAURI_SIGNING_PRIVATE_KEY_PATH:-$HOME/.tauri/mdeditor.key}"
+if [[ -z "${TAURI_SIGNING_PRIVATE_KEY:-}" ]]; then
+  [[ -r "$TAURI_SIGNING_PRIVATE_KEY_PATH" ]] || die "TAURI_SIGNING_PRIVATE_KEY_PATH not found: $TAURI_SIGNING_PRIVATE_KEY_PATH"
+  export TAURI_SIGNING_PRIVATE_KEY="$(cat "$TAURI_SIGNING_PRIVATE_KEY_PATH")"
+fi
+export TAURI_SIGNING_PRIVATE_KEY_PASSWORD="${TAURI_SIGNING_PRIVATE_KEY_PASSWORD:-}"
+
 cd "$ROOT"
 
 # ---------- pre-flight ----------
@@ -182,26 +194,71 @@ build_arch() {
   ( cd exlibris && APPLE_SIGNING_IDENTITY="$APPLE_SIGNING_IDENTITY" pnpm tauri build --target "$arch" )
 
   local bundle="exlibris/src-tauri/target/$arch/release/bundle"
-  local dmg_src
+  local dmg_src tarball_src sig_src
   dmg_src=$(find "$bundle/dmg" -maxdepth 1 -type f -name "*_${VERSION}_*.dmg" -print -quit)
-  [[ -n "$dmg_src" && -f "$dmg_src" ]] || die "dmg not found for $arch in $bundle/dmg"
+  tarball_src=$(find "$bundle/macos" -maxdepth 1 -type f -name "*.app.tar.gz" -print -quit)
+  sig_src=$(find "$bundle/macos" -maxdepth 1 -type f -name "*.app.tar.gz.sig" -print -quit)
+  [[ -n "$dmg_src"     && -f "$dmg_src"     ]] || die "dmg not found for $arch in $bundle/dmg"
+  [[ -n "$tarball_src" && -f "$tarball_src" ]] || die "updater tarball not found for $arch — is createUpdaterArtifacts on and TAURI_SIGNING_PRIVATE_KEY set?"
+  [[ -n "$sig_src"     && -f "$sig_src"     ]] || die "updater signature not found for $arch — Tauri did not sign the tarball"
 
   local dmg_staged="/tmp/ExLibris-${VERSION}-${arch_tag}.dmg"
+  local tarball_staged="/tmp/ExLibris-${arch_tag}.app.tar.gz"
+  local sig_staged="/tmp/ExLibris-${arch_tag}.app.tar.gz.sig"
   cp "$dmg_src" "$dmg_staged"
+  cp "$tarball_src" "$tarball_staged"
+  cp "$sig_src" "$sig_staged"
 
-  STAGED_ASSETS+=("$dmg_staged")
-  echo "    ${arch_tag} done: dmg=$(du -h "$dmg_staged" | cut -f1)"
+  local up_tag
+  up_tag=$(echo "$arch_tag" | tr '[:lower:]' '[:upper:]')
+  eval "TARBALL_STAGED_${up_tag}=\"$tarball_staged\""
+  eval "SIG_CONTENT_${up_tag}=\"$(cat "$sig_staged")\""
+
+  STAGED_ASSETS+=("$dmg_staged" "$tarball_staged" "$sig_staged")
+  echo "    ${arch_tag} done: dmg=$(du -h "$dmg_staged" | cut -f1), tarball=$(du -h "$tarball_staged" | cut -f1)"
 }
 
 build_arch aarch64-apple-darwin aarch64
 build_arch x86_64-apple-darwin  x86_64
+
+# ---------- generate latest.json (committed to repo for raw.githubusercontent endpoint) ----------
+
+say "generating exlibris/latest.json"
+
+TARBALL_URL_AARCH64="https://github.com/$GH_REPO/releases/download/$TAG/ExLibris-aarch64.app.tar.gz"
+TARBALL_URL_X86_64="https://github.com/$GH_REPO/releases/download/$TAG/ExLibris-x86_64.app.tar.gz"
+PUB_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+python3 - "$VERSION" "$PUB_DATE" "$TAG" "$GH_REPO" \
+    "$TARBALL_URL_AARCH64" "$SIG_CONTENT_AARCH64" \
+    "$TARBALL_URL_X86_64"  "$SIG_CONTENT_X86_64" \
+    > exlibris/latest.json <<'PY'
+import json, sys
+(version, pub_date, tag, repo,
+ url_aarch64, sig_aarch64,
+ url_x86_64,  sig_x86_64) = sys.argv[1:9]
+manifest = {
+    "version": version,
+    "notes": f"See https://github.com/{repo}/releases/tag/{tag}",
+    "pub_date": pub_date,
+    "platforms": {
+        "darwin-aarch64": {"signature": sig_aarch64, "url": url_aarch64},
+        "darwin-x86_64":  {"signature": sig_x86_64,  "url": url_x86_64},
+    },
+}
+print(json.dumps(manifest, indent=2))
+PY
+# Stage a copy for the GH release attachment (diagnostic copy).
+LATEST_JSON_STAGED="/tmp/exlibris-latest.json"
+cp exlibris/latest.json "$LATEST_JSON_STAGED"
+STAGED_ASSETS+=("$LATEST_JSON_STAGED")
 
 # ---------- commit, tag, push ----------
 
 say "committing $TAG"
 trap - ERR
 git add exlibris/package.json exlibris/src-tauri/tauri.conf.json \
-        exlibris/src-tauri/Cargo.toml exlibris/src-tauri/Cargo.lock
+        exlibris/src-tauri/Cargo.toml exlibris/src-tauri/Cargo.lock \
+        exlibris/latest.json
 git commit -m "chore(exlibris): release v$VERSION"
 git tag -a "$TAG" -m "ExLibris $VERSION"
 
