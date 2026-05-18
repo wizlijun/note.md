@@ -7,6 +7,7 @@ pub struct OpenClawConfig {
     pub socket_path: PathBuf,
     pub access_token: Option<String>,
     pub relay_url: Option<String>,
+    pub host_token: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -25,6 +26,7 @@ impl Default for OpenClawConfig {
             socket_path: home.join(".openclaw").join("mdeditor.sock"),
             access_token: None,
             relay_url: Some("wss://mdrelay.example.com".into()),
+            host_token: None,
         }
     }
 }
@@ -66,10 +68,14 @@ pub fn read(app: &tauri::AppHandle) -> OpenClawConfig {
         .get("openclaw.relayUrl")
         .and_then(|v| v.as_str().map(String::from))
         .or_else(|| OpenClawConfig::default().relay_url);
+    let host_token = store
+        .get("openclaw.hostToken")
+        .and_then(|v| v.as_str().map(String::from));
     OpenClawConfig {
         mode,
         socket_path,
         access_token,
         relay_url,
+        host_token,
     }
 }
