@@ -38,6 +38,7 @@ pub async fn openclaw_connect(app: AppHandle) -> Result<String, String> {
                 *state.relay_tx.lock().await = Some(bridge.client.tx_send.clone());
                 *state.bridge.lock().await = Some(bridge);
             }
+            crate::openclaw::state::spawn_claim_poller(app.clone());
             Ok("host".into())
         }
         ConnectMode::Remote => {
@@ -112,6 +113,107 @@ fn forward_uds_events(app: AppHandle, client: UdsClient) {
             }
         }
     });
+}
+
+use crate::openclaw::devices::{Device, DeviceStatus};
+
+#[derive(serde::Serialize)]
+pub struct PairCreateOut {
+    pub code: String,
+    pub pairing_id: String,
+    pub expires_at: u64,
+    pub qr_svg: String,
+}
+
+#[tauri::command]
+pub async fn openclaw_pair_create(app: AppHandle) -> Result<PairCreateOut, String> {
+    use qrcode::QrCode;
+    use qrcode::render::svg::Color;
+    let cfg = {
+        let state = app.state::<std::sync::Arc<crate::openclaw::state::OpenClawState>>();
+        let x = state.config.lock().await.clone(); x
+    };
+    let url = cfg.relay_url.ok_or("relay URL not configured")?;
+    let create = crate::openclaw::pair::pair_create(&url).await?;
+    let host = crate::openclaw::pair::host_bootstrap(&url, &create.pairing_id).await?;
+    persist_setting(&app, "openclaw.hostToken", &host.device_token)?;
+    persist_setting(&app, "openclaw.pairingId", &create.pairing_id)?;
+    let qr = QrCode::new(create.code.as_bytes()).map_err(|e| e.to_string())?;
+    let qr_svg = qr.render::<Color>().build();
+    Ok(PairCreateOut {
+        code: create.code,
+        pairing_id: create.pairing_id,
+        expires_at: create.expires_at,
+        qr_svg,
+    })
+}
+
+#[derive(serde::Serialize)]
+pub struct PairClaimOut {
+    pub pairing_id: String,
+    pub device_id: String,
+}
+
+#[tauri::command]
+pub async fn openclaw_pair_claim(app: AppHandle, code: String, hostname: Option<String>) -> Result<PairClaimOut, String> {
+    let cfg = {
+        let state = app.state::<std::sync::Arc<crate::openclaw::state::OpenClawState>>();
+        let x = state.config.lock().await.clone(); x
+    };
+    let url = cfg.relay_url.ok_or("relay URL not configured")?;
+    let host_name = hostname.unwrap_or_else(|| {
+        gethostname::gethostname().to_string_lossy().to_string()
+    });
+    let claim = crate::openclaw::pair::pair_claim(&url, &code, &host_name).await?;
+    persist_setting(&app, "openclaw.deviceToken", &claim.device_token)?;
+    persist_setting(&app, "openclaw.pairingId", &claim.pairing_id)?;
+    persist_setting(&app, "openclaw.deviceId", &claim.device_id)?;
+    Ok(PairClaimOut { pairing_id: claim.pairing_id, device_id: claim.device_id })
+}
+
+#[tauri::command]
+pub async fn openclaw_revoke_device(app: AppHandle, device_id: String) -> Result<(), String> {
+    let cfg = {
+        let state = app.state::<std::sync::Arc<crate::openclaw::state::OpenClawState>>();
+        let x = state.config.lock().await.clone(); x
+    };
+    let url = cfg.relay_url.ok_or("relay URL not configured")?;
+    let host_tok = cfg.host_token.ok_or("not the host")?;
+    crate::openclaw::pair::revoke_device(&url, &host_tok, &device_id).await?;
+    crate::openclaw::devices::set_status(&app, &device_id, DeviceStatus::Revoked)?;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn openclaw_forget_device(app: AppHandle, device_id: String) -> Result<(), String> {
+    crate::openclaw::devices::forget(&app, &device_id)
+}
+
+#[tauri::command]
+pub async fn openclaw_list_devices(app: AppHandle) -> Vec<Device> {
+    crate::openclaw::devices::read_all(&app)
+}
+
+#[tauri::command]
+pub async fn openclaw_approve_pending(app: AppHandle, device_id: String, hostname: String) -> Result<(), String> {
+    crate::openclaw::devices::upsert(&app, Device {
+        device_id,
+        hostname,
+        status: DeviceStatus::Active,
+        last_seen: None,
+    })
+}
+
+#[tauri::command]
+pub async fn openclaw_reject_pending(app: AppHandle, device_id: String) -> Result<(), String> {
+    openclaw_revoke_device(app, device_id).await
+}
+
+fn persist_setting(app: &AppHandle, key: &str, value: &str) -> Result<(), String> {
+    use tauri_plugin_store::StoreExt;
+    let store = app.store("settings.json").map_err(|e| e.to_string())?;
+    store.set(key.to_string(), serde_json::Value::String(value.to_string()));
+    Ok(())
 }
 
 fn forward_relay_events(app: AppHandle, client: RelayClient) {
