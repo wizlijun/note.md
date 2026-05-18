@@ -87,6 +87,33 @@ fn calibre_detect(user_configured: Option<String>) -> Option<String> {
         .map(|p| p.to_string_lossy().to_string())
 }
 
+#[tauri::command]
+async fn calibre_extract_meta(
+    binary_dir: String, file: String, timeout_secs: u64,
+) -> Result<crate::calibre::ExtractedMeta, String> {
+    crate::calibre::extract_meta(
+        std::path::Path::new(&binary_dir),
+        std::path::Path::new(&file),
+        std::time::Duration::from_secs(timeout_secs),
+    )
+    .await
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn calibre_convert(
+    binary_dir: String, src: String, dst: String, timeout_secs: u64,
+) -> Result<(), String> {
+    crate::calibre::convert(
+        std::path::Path::new(&binary_dir),
+        std::path::Path::new(&src),
+        std::path::Path::new(&dst),
+        std::time::Duration::from_secs(timeout_secs),
+    )
+    .await
+    .map_err(|e| e.to_string())
+}
+
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -94,7 +121,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_process::init())
-        .invoke_handler(tauri::generate_handler![ping, shared_config_read, shared_config_write, calibre_detect, sotvault_list_meta, hash_file_sha256, fs_atomic_copy, fs_rename_strict])
+        .invoke_handler(tauri::generate_handler![ping, shared_config_read, shared_config_write, calibre_detect, calibre_extract_meta, calibre_convert, sotvault_list_meta, hash_file_sha256, fs_atomic_copy, fs_rename_strict])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
