@@ -381,14 +381,14 @@ fn file_exists(path: String) -> bool {
 
 #[tauri::command]
 fn shared_config_read() -> Result<crate::shared_config::SharedConfig, String> {
-    crate::shared_config::read(&crate::shared_config::config_path())
-        .map_err(|e| e.to_string())
+    let path = crate::shared_config::config_path().map_err(|e| e.to_string())?;
+    crate::shared_config::read(&path).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn shared_config_write(cfg: crate::shared_config::SharedConfig) -> Result<(), String> {
-    crate::shared_config::write(&crate::shared_config::config_path(), &cfg)
-        .map_err(|e| e.to_string())
+    let path = crate::shared_config::config_path().map_err(|e| e.to_string())?;
+    crate::shared_config::write(&path, &cfg).map_err(|e| e.to_string())
 }
 
 fn show_main_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {

@@ -17,10 +17,11 @@ pub struct SharedConfig {
 
 fn default_version() -> u32 { 1 }
 
-pub fn config_path() -> PathBuf {
-    dirs::home_dir()
-        .unwrap_or_else(|| PathBuf::from("/tmp"))
-        .join("Library/Application Support/com.laobu.mdeditor-shared/config.json")
+pub fn config_path() -> std::io::Result<PathBuf> {
+    let home = dirs::home_dir().ok_or_else(|| {
+        std::io::Error::new(std::io::ErrorKind::NotFound, "home directory not found")
+    })?;
+    Ok(home.join("Library/Application Support/com.laobu.mdeditor-shared/config.json"))
 }
 
 pub fn read(path: &Path) -> std::io::Result<SharedConfig> {
