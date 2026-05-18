@@ -15,6 +15,7 @@ use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent}
 use tauri::{Emitter, Manager, RunEvent, WindowEvent};
 
 pub mod openclaw;
+pub mod shared_config;
 
 #[cfg(not(target_os = "ios"))]
 pub mod cli;
@@ -378,6 +379,18 @@ fn file_exists(path: String) -> bool {
     std::path::Path::new(&path).exists()
 }
 
+#[tauri::command]
+fn shared_config_read() -> Result<crate::shared_config::SharedConfig, String> {
+    let path = crate::shared_config::config_path().map_err(|e| e.to_string())?;
+    crate::shared_config::read(&path).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn shared_config_write(cfg: crate::shared_config::SharedConfig) -> Result<(), String> {
+    let path = crate::shared_config::config_path().map_err(|e| e.to_string())?;
+    crate::shared_config::write(&path, &cfg).map_err(|e| e.to_string())
+}
+
 fn show_main_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
     if let Some(w) = app.get_webview_window("main") {
         let _ = w.show();
@@ -458,6 +471,13 @@ fn pick_sync_folder_inner(app: &tauri::AppHandle, on_done: impl FnOnce(String) +
                     let _ = s.set("vault_sync.repo_path", serde_json::json!(&path_str));
                     let _ = s.set("vault_sync.auto_start", serde_json::json!(true));
                     let _ = s.save();
+                }
+
+                if let Ok(shared_path) = crate::shared_config::config_path() {
+                    if let Ok(mut cfg) = crate::shared_config::read(&shared_path) {
+                        cfg.sotvault = Some(path_str.clone());
+                        let _ = crate::shared_config::write(&shared_path, &cfg);
+                    }
                 }
 
                 update_tray_repo_label(&app_clone, &path_str);
@@ -606,6 +626,8 @@ pub fn run() {
                 editor_show_and_open_path,
                 editor_open_remote_buffer,
                 file_exists,
+                shared_config_read,
+                shared_config_write,
             ] }
             #[cfg(target_os = "ios")]
             { tauri::generate_handler![
@@ -634,9 +656,22 @@ pub fn run() {
                 editor_show_and_open_path,
                 editor_open_remote_buffer,
                 file_exists,
+                shared_config_read,
+                shared_config_write,
             ] }
         })
         .setup(|app| {
+            // Migrate legacy vault_sync.repo_path to shared config sotvault
+            {
+                if let (Ok(app_data_dir), Ok(shared)) = (
+                    app.path().app_data_dir(),
+                    crate::shared_config::config_path(),
+                ) {
+                    let legacy_store = app_data_dir.join("settings.json");
+                    let _ = crate::shared_config::migrate_vault_sync_repo_to_shared(&shared, &legacy_store);
+                }
+            }
+
             #[cfg(not(target_os = "ios"))]
             {
                 let vault_mgr = std::sync::Arc::new(vault_sync::VaultSyncManager::new());
@@ -697,6 +732,8 @@ pub fn run() {
                 let sync_stop_item = MenuItem::with_id(app, "tray-sync-stop", "Stop Sync", true, None::<&str>)?;
                 let sync_now_item = MenuItem::with_id(app, "tray-sync-now", "Sync Now", true, None::<&str>)?;
                 let sync_log_item = MenuItem::with_id(app, "tray-sync-log", "View Log\u{2026}", true, None::<&str>)?;
+                let open_books_item = MenuItem::with_id(app, "tray-open-books", "Open Books", true, None::<&str>)?;
+                let open_raw_sync_item = MenuItem::with_id(app, "tray-open-raw-sync", "Open Raw Vault Sync", /*enabled=*/ false, None::<&str>)?;
                 let quit_item = MenuItem::with_id(app, "tray-quit", "Quit M\u{2193}", true, None::<&str>)?;
                 let tray_menu = MenuBuilder::new(app)
                     .item(&show_item)
@@ -708,6 +745,9 @@ pub fn run() {
                     .item(&sync_stop_item)
                     .item(&sync_now_item)
                     .item(&sync_log_item)
+                    .separator()
+                    .item(&open_books_item)
+                    .item(&open_raw_sync_item)
                     .separator()
                     .item(&quit_item)
                     .build()?;
@@ -730,6 +770,15 @@ pub fn run() {
                             }
                             "tray-sync-now" => { let _ = vault_sync::vault_sync_now(app.clone()); }
                             "tray-sync-log" => { open_sync_log_window(app); }
+                            "tray-open-books" => {
+                                let _ = std::process::Command::new("open")
+                                    .arg("-b")
+                                    .arg("com.laobu.exlibris")
+                                    .status();
+                            }
+                            "tray-open-raw-sync" => {
+                                // Disabled in v1; placeholder for upcoming rawvault sync feature
+                            }
                             "tray-quit" => app.exit(0),
                             _ => {}
                         }

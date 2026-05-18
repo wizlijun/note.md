@@ -15,7 +15,10 @@
     "test:watch": "vitest",
     "sync:core": "node -e \"const d=require('fs'),p=require('path');const dst=p.join(d.realpathSync('node_modules/@moraya/core'),'dist');d.cpSync('../moraya-core/dist',dst,{recursive:true});try{d.rmSync('node_modules/.vite/deps',{recursive:true,force:true})}catch(e){};console.log('synced+vite-cache-cleared',dst)\"",
     "build:mdshare": "bash scripts/build-mdshare.sh",
-    "build:md2pdf": "bash scripts/build-md2pdf.sh"
+    "build:md2pdf": "bash scripts/build-md2pdf.sh",
+    "tauri:exlibris:dev": "pnpm --filter exlibris tauri:dev",
+    "tauri:exlibris:build": "pnpm --filter exlibris tauri:build",
+    "build:exlibris": "bash scripts/build-exlibris.sh"
   },
   "dependencies": {
     "@moraya/core": "file:../moraya-core",
