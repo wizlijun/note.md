@@ -1,0 +1,22 @@
+name = "mdrelay"
+main = "src/index.ts"
+compatibility_date = "2026-05-01"
+compatibility_flags = ["nodejs_compat"]
+
+[[durable_objects.bindings]]
+name = "RELAY"
+class_name = "RelayDO"
+
+[[migrations]]
+tag = "v1"
+new_classes = ["RelayDO"]
+
+# Secret SIGNING_KEY is set via:
+#   wrangler secret put SIGNING_KEY
+# Locally for dev, set in .dev.vars:
+#   SIGNING_KEY=dev-only-key-do-not-deploy
+
+# Custom domain (set after pointing DNS):
+# routes = [
+#   { pattern = "relay.example.com/*", custom_domain = true }
+# ]

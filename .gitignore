@@ -21,3 +21,4 @@ src-tauri/gen/*
 *.block.yaml.tmp
 *.block.yaml.broken-*
 *.block.md.tmp
+.dev.vars
