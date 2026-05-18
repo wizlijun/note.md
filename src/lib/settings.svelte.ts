@@ -46,16 +46,34 @@ export interface ThemeSettings {
 
 const DEFAULT_THEME: ThemeSettings = { light: 'default', dark: 'default', followSystem: true }
 
+export interface OpenClawSettings {
+  mode: 'auto' | 'host' | 'remote'
+  socketPath: string
+  accessToken: string
+  relayUrl: string
+  autoSyncBeforeResolve: boolean
+}
+
+const DEFAULT_OPENCLAW: OpenClawSettings = {
+  mode: 'auto',
+  socketPath: '',
+  accessToken: '',
+  relayUrl: '',
+  autoSyncBeforeResolve: true,
+}
+
 export const settings = $state<{
   autoSave: boolean
   toastAutoClose: boolean
   theme: ThemeSettings
   mdblock: MdblockSettings
+  openclaw: OpenClawSettings
 }>({
   autoSave: false,
   toastAutoClose: false,
   theme: { ...DEFAULT_THEME },
   mdblock: structuredClone(DEFAULT_MDBLOCK_SETTINGS),
+  openclaw: { ...DEFAULT_OPENCLAW },
 })
 
 let store: Awaited<ReturnType<typeof Store.load>> | null = null
@@ -167,6 +185,10 @@ export async function loadSettings(): Promise<void> {
         hover: { ...DEFAULT_MDBLOCK_SETTINGS.hover, ...(storedMdblock.hover ?? {}) },
       }
     : structuredClone(DEFAULT_MDBLOCK_SETTINGS)
+  const storedOpenclaw = await s.get<OpenClawSettings>('openclaw')
+  settings.openclaw = storedOpenclaw
+    ? { ...DEFAULT_OPENCLAW, ...storedOpenclaw }
+    : { ...DEFAULT_OPENCLAW }
   settingsHydrated = true
   pluginScopedVersion.value++
   await loadShareDb()
@@ -183,6 +205,7 @@ export async function saveSettings(): Promise<void> {
   await s.set('plugins', pluginScoped)
   await s.set('plugins.enabled', pluginsEnabled)
   await s.set('mdblock', settings.mdblock)
+  await s.set('openclaw', settings.openclaw)
   await s.save()
 }
 

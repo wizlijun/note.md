@@ -16,6 +16,7 @@
   import type { PluginManifest } from '../lib/plugins/types'
   import PluginsSettingsTab from './PluginsSettingsTab.svelte'
   import VaultSettingsTab from './VaultSettingsTab.svelte'
+  import OpenClawSettingsTab from './OpenClawSettingsTab.svelte'
 
   let { open = $bindable(false) }: { open: boolean } = $props()
 
@@ -334,6 +335,7 @@
         {#if isIOSPlatform}
           <button class:active={selectedTab === 'vault'} onclick={() => selectedTab = 'vault'}>Vault</button>
         {/if}
+        <button class:active={selectedTab === 'openclaw'} onclick={() => selectedTab = 'openclaw'}>OpenClaw</button>
         {#each pluginTabs as t (t.pluginId)}
           <button class:active={selectedTab === t.pluginId} onclick={() => selectedTab = t.pluginId}>{t.label}</button>
         {/each}
@@ -645,6 +647,8 @@
         </section>
       {:else if selectedTab === 'vault' && isIOSPlatform}
         <VaultSettingsTab />
+      {:else if selectedTab === 'openclaw'}
+        <OpenClawSettingsTab />
       {:else}
         {#each pluginTabs as t (t.pluginId)}
           {#if selectedTab === t.pluginId}
