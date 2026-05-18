@@ -5,6 +5,7 @@
   import SessionPicker from './components/chat/SessionPicker.svelte'
   import MessageList from './components/chat/MessageList.svelte'
   import Composer from './components/chat/Composer.svelte'
+  import PendingClaimToast from './components/chat/PendingClaimToast.svelte'
 
   onMount(() => {
     start()
@@ -17,6 +18,7 @@
   <MessageList />
   <Composer />
 </main>
+<PendingClaimToast />
 
 <style>
   :global(body) { margin: 0; font-family: -apple-system, system-ui, sans-serif; }
