@@ -27,8 +27,14 @@ export default defineConfig({
     target: 'safari15',
     minify: 'esbuild',
     sourcemap: false,
+    rollupOptions: {
+      input: {
+        index: 'index.html',
+        chat: 'chat.html',
+      },
+    },
   },
   optimizeDeps: {
-    entries: ['index.html'],
+    entries: ['index.html', 'chat.html'],
   },
 })
