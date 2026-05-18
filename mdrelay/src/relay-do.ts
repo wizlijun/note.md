@@ -77,6 +77,9 @@ export class RelayDO implements DurableObject {
     for (const ws of all) {
       const tags = this.state.getTags(ws);
       const tag = tags[0] ?? "";
+      // Don't echo a broadcast back to its sender:
+      // - host-sent broadcast: skip the host socket
+      // - remote-sent broadcast: skip that specific remote (matched on next line)
       if (tag === `host:host` && senderDeviceId === "host") continue;
       if (tag === `remote:${senderDeviceId}`) continue;
       try { ws.send(text); } catch { /* hibernated dropouts are recovered next message */ }
@@ -85,13 +88,16 @@ export class RelayDO implements DurableObject {
 
   private async deliverOrBuffer(deviceId: string, text: string): Promise<void> {
     const sockets = this.getSocketsByDevice(deviceId);
-    if (sockets.length > 0) {
-      for (const ws of sockets) {
-        try { ws.send(text); } catch { /* fall through to buffer */ }
-      }
-      return;
+    let delivered = 0;
+    for (const ws of sockets) {
+      try {
+        ws.send(text);
+        delivered++;
+      } catch { /* this socket failed; try others */ }
     }
-    await this.pushBuffer(deviceId, text);
+    if (delivered === 0) {
+      await this.pushBuffer(deviceId, text);
+    }
   }
 
   // Stubs that Task 6 (offline buffer) will fill:
