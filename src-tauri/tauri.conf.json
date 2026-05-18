@@ -19,6 +19,18 @@
         "minHeight": 400,
         "decorations": true,
         "dragDropEnabled": true
+      },
+      {
+        "label": "chat",
+        "url": "chat.html",
+        "title": "OpenClaw",
+        "width": 480,
+        "height": 720,
+        "minWidth": 360,
+        "minHeight": 480,
+        "resizable": true,
+        "visible": false,
+        "decorations": true
       }
     ],
     "security": {

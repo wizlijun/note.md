@@ -334,6 +334,14 @@ fn set_default_app_for_extensions(app: tauri::AppHandle, exts: Vec<String>) -> V
 }
 
 #[cfg(not(target_os = "ios"))]
+fn show_chat_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
+    if let Some(win) = app.get_webview_window("chat") {
+        let _ = win.show();
+        let _ = win.unminimize();
+        let _ = win.set_focus();
+    }
+}
+
 fn show_main_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
     if let Some(w) = app.get_webview_window("main") {
         let _ = w.show();
@@ -603,6 +611,7 @@ pub fn run() {
                 // Left-click toggles main window visibility; right-click shows menu.
                 let tray_icon = Image::from_bytes(include_bytes!("../icons/tray-icon.png"))?;
                 let show_item = MenuItem::with_id(app, "tray-show", "Show M\u{2193}", true, None::<&str>)?;
+                let openclaw_item = MenuItem::with_id(app, "tray-openclaw", "OpenClaw", true, None::<&str>)?;
                 let sync_repo_label = {
                     let mgr = app.state::<std::sync::Arc<vault_sync::VaultSyncManager>>();
                     let guard = mgr.repo_path.lock().unwrap();
@@ -624,6 +633,8 @@ pub fn run() {
                 let tray_menu = MenuBuilder::new(app)
                     .item(&show_item)
                     .separator()
+                    .item(&openclaw_item)
+                    .separator()
                     .item(&sync_repo_item)
                     .item(&sync_start_item)
                     .item(&sync_stop_item)
@@ -641,6 +652,7 @@ pub fn run() {
                     .on_menu_event(|app, event| {
                         match event.id().0.as_str() {
                             "tray-show" => show_main_window(app),
+                            "tray-openclaw" => show_chat_window(app),
                             "tray-sync-repo" => { pick_sync_folder(app); }
                             "tray-sync-start" => { pick_repo_and_start(app); }
                             "tray-sync-stop" => {
