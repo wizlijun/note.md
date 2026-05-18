@@ -99,6 +99,25 @@ fn rules_write(sotvault: String, content: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn read_text_file(path: String) -> Result<String, String> {
+    std::fs::read_to_string(&path).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn rawvault_list_files(rawvault: String) -> Result<Vec<String>, String> {
+    let root = std::path::PathBuf::from(&rawvault);
+    let books_root = root.join("books");
+    if !books_root.is_dir() { return Ok(vec![]); }
+    let mut out = Vec::new();
+    for entry in walkdir::WalkDir::new(&books_root).into_iter().filter_map(|e| e.ok()) {
+        if !entry.file_type().is_file() { continue; }
+        let rel = entry.path().strip_prefix(&root).map_err(|e| e.to_string())?;
+        out.push(rel.to_string_lossy().to_string());
+    }
+    Ok(out)
+}
+
+#[tauri::command]
 fn ping() -> &'static str { "pong" }
 
 #[tauri::command]
@@ -154,7 +173,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_process::init())
-        .invoke_handler(tauri::generate_handler![ping, shared_config_read, shared_config_write, calibre_detect, calibre_extract_meta, calibre_convert, sotvault_list_meta, hash_file_sha256, fs_atomic_copy, fs_rename_strict, write_text_file, rules_read, rules_write])
+        .invoke_handler(tauri::generate_handler![ping, shared_config_read, shared_config_write, calibre_detect, calibre_extract_meta, calibre_convert, sotvault_list_meta, hash_file_sha256, fs_atomic_copy, fs_rename_strict, write_text_file, read_text_file, rawvault_list_files, rules_read, rules_write])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
