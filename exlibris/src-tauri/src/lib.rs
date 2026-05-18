@@ -3,6 +3,45 @@ pub mod calibre;
 pub mod fs_ops;
 pub mod hash;
 
+use serde::Serialize;
+
+#[derive(Serialize)]
+pub struct SotvaultEntry {
+    pub rule_dir: String,
+    pub book_name: String,
+    pub meta_yaml: String,
+}
+
+#[tauri::command]
+fn sotvault_list_meta(sotvault: String) -> Result<Vec<SotvaultEntry>, String> {
+    let root = std::path::PathBuf::from(&sotvault);
+    let mut out = Vec::new();
+    for entry in walkdir::WalkDir::new(&root)
+        .max_depth(3)
+        .into_iter()
+        .filter_map(|e| e.ok())
+    {
+        if entry.file_name() != "meta.yml" { continue; }
+        let p = entry.path();
+        // expected layout: <sotvault>/<rule_dir>/<book_name>/meta.yml
+        let book_dir = match p.parent() { Some(b) => b, None => continue };
+        let rule_dir_path = match book_dir.parent() { Some(r) => r, None => continue };
+        if rule_dir_path == root { continue; } // depth 1: skip top-level meta.yml
+        if rule_dir_path.file_name().map(|s| s.to_string_lossy().starts_with('.')) == Some(true) {
+            continue; // skip .exlibris/
+        }
+        let book_name = book_dir.file_name()
+            .map(|s| s.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        let rule_dir = rule_dir_path.file_name()
+            .map(|s| s.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        let yaml = std::fs::read_to_string(p).map_err(|e| e.to_string())?;
+        out.push(SotvaultEntry { rule_dir, book_name, meta_yaml: yaml });
+    }
+    Ok(out)
+}
+
 #[tauri::command]
 fn ping() -> &'static str { "pong" }
 
@@ -32,7 +71,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_process::init())
-        .invoke_handler(tauri::generate_handler![ping, shared_config_read, shared_config_write, calibre_detect])
+        .invoke_handler(tauri::generate_handler![ping, shared_config_read, shared_config_write, calibre_detect, sotvault_list_meta])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
