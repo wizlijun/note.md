@@ -338,10 +338,23 @@ fn set_default_app_for_extensions(app: tauri::AppHandle, exts: Vec<String>) -> V
 
 #[cfg(not(target_os = "ios"))]
 fn show_chat_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
-    if let Some(win) = app.get_webview_window("chat") {
-        let _ = win.show();
-        let _ = win.unminimize();
-        let _ = win.set_focus();
+    use tauri::WebviewUrl;
+    if !plugin_host::is_plugin_enabled("openclaw-chat") { return; }
+    let win = app.get_webview_window("chat").or_else(|| {
+        tauri::WebviewWindowBuilder::new(app, "chat", WebviewUrl::App("chat.html".into()))
+            .title("OpenClaw")
+            .inner_size(480.0, 720.0)
+            .min_inner_size(360.0, 480.0)
+            .resizable(true)
+            .visible(false)
+            .build()
+            .map_err(|e| eprintln!("[chat] window build failed: {e}"))
+            .ok()
+    });
+    if let Some(w) = win {
+        let _ = w.show();
+        let _ = w.unminimize();
+        let _ = w.set_focus();
     }
 }
 
@@ -721,7 +734,12 @@ pub fn run() {
                 // Left-click toggles main window visibility; right-click shows menu.
                 let tray_icon = Image::from_bytes(include_bytes!("../icons/tray-icon.png"))?;
                 let show_item = MenuItem::with_id(app, "tray-show", "Show M\u{2193}", true, None::<&str>)?;
-                let openclaw_item = MenuItem::with_id(app, "tray-openclaw", "OpenClaw", true, None::<&str>)?;
+                let openclaw_enabled = plugin_host::is_plugin_enabled("openclaw-chat");
+                let openclaw_item = if openclaw_enabled {
+                    Some(MenuItem::with_id(app, "tray-openclaw", "OpenClaw", true, None::<&str>)?)
+                } else {
+                    None
+                };
                 let sync_repo_label = {
                     let mgr = app.state::<std::sync::Arc<vault_sync::VaultSyncManager>>();
                     let guard = mgr.repo_path.lock().unwrap();
@@ -742,11 +760,13 @@ pub fn run() {
                 let open_books_item = MenuItem::with_id(app, "tray-open-books", "Open Books", true, None::<&str>)?;
                 let open_raw_sync_item = MenuItem::with_id(app, "tray-open-raw-sync", "Open Raw Vault Sync", /*enabled=*/ false, None::<&str>)?;
                 let quit_item = MenuItem::with_id(app, "tray-quit", "Quit M\u{2193}", true, None::<&str>)?;
-                let tray_menu = MenuBuilder::new(app)
+                let mut tray_menu_builder = MenuBuilder::new(app)
                     .item(&show_item)
-                    .separator()
-                    .item(&openclaw_item)
-                    .separator()
+                    .separator();
+                if let Some(ref oc) = openclaw_item {
+                    tray_menu_builder = tray_menu_builder.item(oc).separator();
+                }
+                let tray_menu = tray_menu_builder
                     .item(&sync_repo_item)
                     .item(&sync_start_item)
                     .item(&sync_stop_item)
