@@ -14,6 +14,14 @@ use tauri::{AppHandle, Manager, Runtime};
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader, AsyncBufReadExt};
 use tokio::process::Command;
 
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum PluginKind {
+    #[default]
+    External,
+    Builtin,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PluginManifest {
     pub id: String,
@@ -21,7 +29,12 @@ pub struct PluginManifest {
     pub version: String,
     #[serde(default)]
     pub description: Option<String>,
-    pub binary: String,
+    #[serde(default)]
+    pub kind: PluginKind,
+    #[serde(default)]
+    pub binary: Option<String>,
+    #[serde(default)]
+    pub default_enabled: Option<bool>,
     #[serde(default)]
     pub menus: Vec<MenuEntry>,
     #[serde(default)]
@@ -362,7 +375,9 @@ pub async fn invoke_plugin(plugin_id: String, request_json: String) -> Result<In
             None => return Err(format!("unknown plugin: {plugin_id}")),
         }
     };
-    let binary = match pick_binary_for_arch(&plugin_dir, &manifest.binary) {
+    let binary_name = manifest.binary.as_deref()
+        .ok_or_else(|| "plugin has no binary (builtin plugins cannot be invoked)".to_string())?;
+    let binary = match pick_binary_for_arch(&plugin_dir, binary_name) {
         Some(p) => p,
         None => return Err(format!("binary not found for plugin {plugin_id}")),
     };
@@ -596,5 +611,26 @@ mod cli_helpers_tests {
         assert_eq!(m.cli[0].args[0].name, "file");
         assert_eq!(m.cli[0].args[0].ty, "path");
         assert!(m.cli[0].args[0].required);
+    }
+
+    #[test]
+    fn manifest_defaults_to_external_kind() {
+        let json = r#"{
+            "id": "share", "name": "Share", "version": "1.0.0",
+            "binary": "bin", "host_capabilities": ["toast"]
+        }"#;
+        let m: PluginManifest = serde_json::from_str(json).unwrap();
+        assert_eq!(m.kind, PluginKind::External);
+    }
+
+    #[test]
+    fn manifest_parses_builtin_kind() {
+        let json = r#"{
+            "id": "openclaw-chat", "name": "OpenClaw Chat", "version": "0.1.0",
+            "kind": "builtin", "host_capabilities": []
+        }"#;
+        let m: PluginManifest = serde_json::from_str(json).unwrap();
+        assert_eq!(m.kind, PluginKind::Builtin);
+        assert!(m.binary.is_none());
     }
 }
