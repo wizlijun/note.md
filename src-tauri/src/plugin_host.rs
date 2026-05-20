@@ -260,6 +260,15 @@ pub fn get_all_plugin_manifests() -> Vec<PluginManifest> {
     STATE.read().unwrap().all.clone()
 }
 
+/// Whether the given plugin id is currently registered as enabled.
+/// Single source of truth for all gating logic across Rust + IPC.
+pub fn is_plugin_enabled(id: &str) -> bool {
+    STATE.read().unwrap().enabled.contains_key(id)
+}
+
+#[tauri::command]
+pub fn plugin_is_enabled(id: String) -> bool { is_plugin_enabled(&id) }
+
 #[derive(Debug, Serialize)]
 pub struct InvokeResult {
     pub success: bool,
@@ -374,6 +383,9 @@ pub async fn invoke_plugin(plugin_id: String, request_json: String) -> Result<In
             None => return Err(format!("unknown plugin: {plugin_id}")),
         }
     };
+    if matches!(manifest.kind, PluginKind::Builtin) {
+        return Err("builtin plugins cannot be invoked via dispatch".into());
+    }
     let binary_name = manifest.binary.as_deref()
         .ok_or_else(|| "plugin has no binary (builtin plugins cannot be invoked)".to_string())?;
     let binary = match pick_binary_for_arch(&plugin_dir, binary_name) {
@@ -670,6 +682,12 @@ mod cli_helpers_tests {
             cli: vec![],
         };
         assert_eq!(resolve_enabled(&manifest, &enabled_map), false);
+    }
+
+    #[test]
+    fn is_plugin_enabled_returns_false_for_unknown_id() {
+        // STATE is a global, but tests here run after init returns empty STATE.
+        assert_eq!(is_plugin_enabled("never-existed-plugin"), false);
     }
 
     #[test]

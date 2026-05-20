@@ -23,6 +23,9 @@ pub fn get_plugin_manifests() -> Vec<Value> { Vec::new() }
 pub fn get_all_plugin_manifests() -> Vec<Value> { Vec::new() }
 
 #[tauri::command]
+pub fn plugin_is_enabled(_id: String) -> bool { false }
+
+#[tauri::command]
 pub async fn invoke_plugin(
     _id: String,
     _command: String,
