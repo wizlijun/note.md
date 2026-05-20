@@ -36,6 +36,7 @@
     type CollectedItem, type CollectedItems,
   } from './lib/plugins/menu-registry'
   import { pluginRuntime, setPluginDispatcher } from './lib/plugins/runtime.svelte'
+  import { initActivePluginIds } from './lib/plugins/registry'
   import { getPluginScopedAll, pluginScopedVersion } from './lib/settings.svelte'
   import { pushToast } from './lib/toast.svelte'
   import type { PluginManifest, EnabledWhenContext } from './lib/plugins/types'
@@ -152,6 +153,7 @@
 
     ;(async () => {
       try { await loadSettings() } catch (e) { console.warn('[App] loadSettings:', e) }
+      await initActivePluginIds()
 
       // Kick off auto-update check (1.5s delay built in, 20h cache).
       // Fire-and-forget — failures stay silent in the banner; Settings shows them.

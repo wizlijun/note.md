@@ -229,3 +229,17 @@ describe('buildRegistry drops cli entries from conflicting plugins', () => {
     expect(a).toEqual(aBefore)
   })
 })
+
+import { isPluginActive, setActivePluginIds } from './registry'
+
+describe('activePluginIds', () => {
+  it('returns false for ids not in the active set', () => {
+    setActivePluginIds(new Set())
+    expect(isPluginActive('openclaw-chat')).toBe(false)
+  })
+  it('returns true for ids in the active set', () => {
+    setActivePluginIds(new Set(['share', 'openclaw-chat']))
+    expect(isPluginActive('openclaw-chat')).toBe(true)
+    expect(isPluginActive('md2pdf')).toBe(false)
+  })
+})

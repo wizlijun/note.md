@@ -247,3 +247,27 @@ export function findCliConflicts(
   }
   return conflicts
 }
+
+// --- Active plugin IDs (filled at startup from Rust's get_plugin_manifests) ---
+
+let _activePluginIds = new Set<string>()
+
+export function isPluginActive(id: string): boolean {
+  return _activePluginIds.has(id)
+}
+
+/** Test-only: replace the active set without hitting IPC. */
+export function setActivePluginIds(ids: Set<string>): void {
+  _activePluginIds = ids
+}
+
+export async function initActivePluginIds(): Promise<void> {
+  const { invoke } = await import('@tauri-apps/api/core')
+  try {
+    const list = await invoke<Array<{ id: string }>>('get_plugin_manifests')
+    _activePluginIds = new Set(list.map(m => m.id))
+  } catch (e) {
+    console.warn('[plugins/registry] initActivePluginIds:', e)
+    _activePluginIds = new Set()
+  }
+}
