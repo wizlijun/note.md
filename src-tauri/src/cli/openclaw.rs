@@ -28,7 +28,27 @@ pub enum OpenclawCmd {
     Status,
 }
 
+/// True iff manifest exists on disk AND user has not explicitly disabled it
+/// AND (either explicitly enabled OR default_enabled = true).
+fn is_openclaw_chat_active(plugins_dir: &std::path::Path, config_dir: &std::path::Path) -> bool {
+    let (manifests, enabled) = crate::plugin_host::scan_disk(plugins_dir, config_dir);
+    let manifest = manifests.iter().find(|(m, _)| m.id == "openclaw-chat");
+    let manifest = match manifest {
+        Some((m, _)) => m,
+        None => return false,
+    };
+    crate::plugin_host::resolve_enabled(manifest, &enabled)
+}
+
 pub fn run(cmd: OpenclawCmd) -> ExitCode {
+    let plugins_dir = super::resolve_plugins_dir(None);
+    let config_dir = super::resolve_config_dir();
+    if !is_openclaw_chat_active(&plugins_dir, &config_dir) {
+        eprintln!("mdedit: openclaw-chat plugin is disabled.");
+        eprintln!("Enable it first:");
+        eprintln!("  mdedit plugin enable openclaw-chat");
+        return ExitCode::from(2);
+    }
     let res = match cmd {
         OpenclawCmd::Install { force } => install(force),
         OpenclawCmd::Uninstall { keep_files } => uninstall(keep_files),
@@ -343,5 +363,53 @@ fn display_value(v: Option<&Value>) -> String {
     match v {
         Some(Value::Null) | None => "✗ missing".into(),
         Some(other) => format!("✓ {}", serde_json::to_string(other).unwrap_or_default()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    fn make_settings(dir: &std::path::Path, enabled: bool) {
+        let path = dir.join("settings.json");
+        let v = serde_json::json!({
+            "plugins.enabled": { "openclaw-chat": enabled }
+        });
+        std::fs::write(&path, serde_json::to_vec_pretty(&v).unwrap()).unwrap();
+    }
+
+    #[test]
+    fn returns_disabled_error_when_plugin_off() {
+        let tmp = TempDir::new().unwrap();
+        make_settings(tmp.path(), false);
+        let plugins = TempDir::new().unwrap();
+        std::fs::create_dir_all(plugins.path().join("openclaw-chat")).unwrap();
+        let m = serde_json::json!({
+            "id": "openclaw-chat", "name": "OpenClaw Chat", "version": "0.1.0",
+            "kind": "builtin", "host_capabilities": [], "default_enabled": false
+        });
+        std::fs::write(
+            plugins.path().join("openclaw-chat/manifest.json"),
+            serde_json::to_vec_pretty(&m).unwrap(),
+        ).unwrap();
+        assert!(!is_openclaw_chat_active(plugins.path(), tmp.path()));
+    }
+
+    #[test]
+    fn returns_active_when_enabled_flag_true() {
+        let tmp = TempDir::new().unwrap();
+        make_settings(tmp.path(), true);
+        let plugins = TempDir::new().unwrap();
+        std::fs::create_dir_all(plugins.path().join("openclaw-chat")).unwrap();
+        let m = serde_json::json!({
+            "id": "openclaw-chat", "name": "OpenClaw Chat", "version": "0.1.0",
+            "kind": "builtin", "host_capabilities": [], "default_enabled": false
+        });
+        std::fs::write(
+            plugins.path().join("openclaw-chat/manifest.json"),
+            serde_json::to_vec_pretty(&m).unwrap(),
+        ).unwrap();
+        assert!(is_openclaw_chat_active(plugins.path(), tmp.path()));
     }
 }
