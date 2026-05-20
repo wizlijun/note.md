@@ -129,9 +129,16 @@ fn write_mdeditor_settings(token: &str) -> Result<PathBuf, String> {
         json!({})
     };
     if let Some(obj) = d.as_object_mut() {
-        obj.insert("openclaw.accessToken".into(), json!(token));
-        // Sensible default for relayUrl/mode if user has not set them yet
-        obj.entry("openclaw.mode".to_string()).or_insert_with(|| json!("auto"));
+        let plugins = obj.entry("plugins".to_string())
+            .or_insert_with(|| json!({}))
+            .as_object_mut()
+            .ok_or_else(|| "plugins must be an object".to_string())?;
+        let oc = plugins.entry("openclaw-chat".to_string())
+            .or_insert_with(|| json!({}))
+            .as_object_mut()
+            .ok_or_else(|| "openclaw-chat must be an object".to_string())?;
+        oc.insert("accessToken".into(), json!(token));
+        oc.entry("mode".to_string()).or_insert_with(|| json!("auto"));
     }
     let pretty = serde_json::to_string_pretty(&d).map_err(|e| e.to_string())?;
     fs::write(&path, pretty).map_err(|e| format!("write {path:?}: {e}"))?;

@@ -44,53 +44,40 @@ pub fn read(app: &tauri::AppHandle) -> OpenClawConfig {
         Ok(s) => s,
         Err(_) => return OpenClawConfig::default(),
     };
-    let mode = store
-        .get("openclaw.mode")
-        .and_then(|v| {
-            v.as_str().map(|s| match s {
-                "host" => ConnectMode::Host,
-                "remote" => ConnectMode::Remote,
-                _ => ConnectMode::Auto,
-            })
+    // Plugin-scoped settings live under top-level "plugins" key, then by
+    // plugin id. Read once, navigate the nested object.
+    let plugins = store.get("plugins").unwrap_or(serde_json::json!({}));
+    let oc = plugins.get("openclaw-chat")
+        .cloned()
+        .unwrap_or(serde_json::json!({}));
+
+    let mode = oc.get("mode").and_then(|v| v.as_str())
+        .map(|s| match s {
+            "host" => ConnectMode::Host,
+            "remote" => ConnectMode::Remote,
+            _ => ConnectMode::Auto,
         })
         .unwrap_or(ConnectMode::Auto);
-    let socket_path = store
-        .get("openclaw.socketPath")
-        .and_then(|v| {
-            v.as_str().map(|s| {
-                if s.starts_with("~/") {
-                    dirs::home_dir()
-                        .map(|h| h.join(&s[2..]))
-                        .unwrap_or_else(|| PathBuf::from(s))
-                } else {
-                    PathBuf::from(s)
-                }
-            })
+
+    let socket_path = oc.get("socketPath").and_then(|v| v.as_str())
+        .map(|s| {
+            if s.starts_with("~/") {
+                dirs::home_dir().map(|h| h.join(&s[2..]))
+                    .unwrap_or_else(|| PathBuf::from(s))
+            } else {
+                PathBuf::from(s)
+            }
         })
         .unwrap_or_else(|| OpenClawConfig::default().socket_path);
-    let access_token = store
-        .get("openclaw.accessToken")
-        .and_then(|v| v.as_str().map(String::from));
-    let relay_url = store
-        .get("openclaw.relayUrl")
-        .and_then(|v| v.as_str().map(String::from))
+
+    let access_token = oc.get("accessToken").and_then(|v| v.as_str()).map(String::from);
+    let relay_url = oc.get("relayUrl").and_then(|v| v.as_str()).map(String::from)
         .or_else(|| OpenClawConfig::default().relay_url);
-    let host_token = store
-        .get("openclaw.hostToken")
-        .and_then(|v| v.as_str().map(String::from));
-    let device_token = store
-        .get("openclaw.deviceToken")
-        .and_then(|v| v.as_str().map(String::from));
-    let device_id = store
-        .get("openclaw.deviceId")
-        .and_then(|v| v.as_str().map(String::from));
+    let host_token = oc.get("hostToken").and_then(|v| v.as_str()).map(String::from);
+    let device_token = oc.get("deviceToken").and_then(|v| v.as_str()).map(String::from);
+    let device_id = oc.get("deviceId").and_then(|v| v.as_str()).map(String::from);
+
     OpenClawConfig {
-        mode,
-        socket_path,
-        access_token,
-        relay_url,
-        host_token,
-        device_token,
-        device_id,
+        mode, socket_path, access_token, relay_url, host_token, device_token, device_id,
     }
 }

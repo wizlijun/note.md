@@ -1,14 +1,34 @@
 <script lang="ts">
-  import { settings, saveSettings } from '../lib/settings.svelte'
+  import { getPluginScopedKey, mergePluginScoped } from '../lib/settings.svelte'
 
   let showToken = $state(false)
   let copyHint = $state<string | null>(null)
 
+  function read<T>(key: string, fallback: T): T {
+    const v = getPluginScopedKey(`openclaw-chat.${key}`)
+    return (v === undefined ? fallback : v) as T
+  }
+
+  let mode = $state(read<'auto'|'host'|'remote'>('mode', 'auto'))
+  let socketPath = $state(read<string>('socketPath', ''))
+  let accessToken = $state(read<string>('accessToken', ''))
+  let relayUrl = $state(read<string>('relayUrl', ''))
+  let autoSyncBeforeResolve = $state(read<boolean>('autoSyncBeforeResolve', true))
+
+  async function persist() {
+    await mergePluginScoped({
+      'openclaw-chat.mode': mode,
+      'openclaw-chat.socketPath': socketPath,
+      'openclaw-chat.accessToken': accessToken,
+      'openclaw-chat.relayUrl': relayUrl,
+      'openclaw-chat.autoSyncBeforeResolve': autoSyncBeforeResolve,
+    })
+  }
+
   async function copyToken() {
-    const t = settings.openclaw.accessToken
-    if (!t) return
+    if (!accessToken) return
     try {
-      await navigator.clipboard.writeText(t)
+      await navigator.clipboard.writeText(accessToken)
       copyHint = '✓ copied'
       setTimeout(() => { copyHint = null }, 1500)
     } catch (e) {
@@ -23,7 +43,7 @@
 
   <label class="row">
     <span class="lbl">Connect mode</span>
-    <select bind:value={settings.openclaw.mode} onchange={() => saveSettings()}>
+    <select bind:value={mode} onchange={persist}>
       <option value="auto">Auto-detect</option>
       <option value="host">Host (local UDS)</option>
       <option value="remote">Remote (via mdrelay)</option>
@@ -34,9 +54,9 @@
     <span class="lbl">Socket path</span>
     <input
       type="text"
-      bind:value={settings.openclaw.socketPath}
+      bind:value={socketPath}
       placeholder="~/.openclaw/mdeditor.sock"
-      onchange={() => saveSettings()}
+      onchange={persist}
     />
   </label>
 
@@ -44,29 +64,29 @@
     <span class="lbl">Access token</span>
     <input
       type={showToken ? 'text' : 'password'}
-      bind:value={settings.openclaw.accessToken}
+      bind:value={accessToken}
       placeholder="Run 'mdedit openclaw install' to generate"
-      onchange={() => saveSettings()}
+      onchange={persist}
     />
     <button type="button" class="mini" onclick={() => showToken = !showToken}>{showToken ? 'Hide' : 'Show'}</button>
-    <button type="button" class="mini" onclick={copyToken} disabled={!settings.openclaw.accessToken}>{copyHint ?? 'Copy'}</button>
+    <button type="button" class="mini" onclick={copyToken} disabled={!accessToken}>{copyHint ?? 'Copy'}</button>
   </label>
 
   <label class="row">
     <span class="lbl">Relay URL</span>
     <input
       type="text"
-      bind:value={settings.openclaw.relayUrl}
+      bind:value={relayUrl}
       placeholder="wss://mdrelay.example.com"
-      onchange={() => saveSettings()}
+      onchange={persist}
     />
   </label>
 
   <label class="row" style="margin-top: 6px;">
     <input
       type="checkbox"
-      bind:checked={settings.openclaw.autoSyncBeforeResolve}
-      onchange={() => saveSettings()}
+      bind:checked={autoSyncBeforeResolve}
+      onchange={persist}
     />
     Auto-sync before resolving chat links
   </label>

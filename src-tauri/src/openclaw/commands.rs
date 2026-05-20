@@ -156,8 +156,8 @@ pub async fn openclaw_pair_create(app: AppHandle) -> Result<PairCreateOut, Strin
     let url = cfg.relay_url.ok_or("relay URL not configured")?;
     let create = crate::openclaw::pair::pair_create(&url).await?;
     let host = crate::openclaw::pair::host_bootstrap(&url, &create.pairing_id).await?;
-    persist_setting(&app, "openclaw.hostToken", &host.device_token)?;
-    persist_setting(&app, "openclaw.pairingId", &create.pairing_id)?;
+    persist_setting(&app, "hostToken", &host.device_token)?;
+    persist_setting(&app, "pairingId", &create.pairing_id)?;
     // Sync the cached config so the host can use the new token immediately.
     {
         let state = app.state::<std::sync::Arc<OpenClawState>>();
@@ -197,9 +197,9 @@ pub async fn openclaw_pair_claim(app: AppHandle, code: String, hostname: Option<
         gethostname::gethostname().to_string_lossy().to_string()
     });
     let claim = crate::openclaw::pair::pair_claim(&url, &code, &host_name).await?;
-    persist_setting(&app, "openclaw.deviceToken", &claim.device_token)?;
-    persist_setting(&app, "openclaw.pairingId", &claim.pairing_id)?;
-    persist_setting(&app, "openclaw.deviceId", &claim.device_id)?;
+    persist_setting(&app, "deviceToken", &claim.device_token)?;
+    persist_setting(&app, "pairingId", &claim.pairing_id)?;
+    persist_setting(&app, "deviceId", &claim.device_id)?;
     // Sync the cached config so a subsequent openclaw_connect sees the new device_token + device_id.
     {
         let state = app.state::<std::sync::Arc<OpenClawState>>();
@@ -294,10 +294,28 @@ fn uuid_like() -> String {
     (0..12).map(|_| format!("{:x}", rng.gen_range(0..16))).collect()
 }
 
+/// Write a single key under `plugins.openclaw-chat.<key>` in settings.json.
+/// Reads the whole `plugins` object, patches the nested entry, and writes it
+/// back so the shape is consistent with what config.rs::read expects.
 fn persist_setting(app: &AppHandle, key: &str, value: &str) -> Result<(), String> {
     use tauri_plugin_store::StoreExt;
+    use serde_json::json;
     let store = app.store("settings.json").map_err(|e| e.to_string())?;
-    store.set(key.to_string(), serde_json::Value::String(value.to_string()));
+    let mut plugins = store.get("plugins")
+        .and_then(|v| if v.is_object() { Some(v) } else { None })
+        .unwrap_or_else(|| json!({}));
+    let oc = plugins.get_mut("openclaw-chat")
+        .and_then(|v| v.as_object_mut());
+    if let Some(oc) = oc {
+        oc.insert(key.to_string(), serde_json::Value::String(value.to_string()));
+    } else {
+        let mut oc_map = serde_json::Map::new();
+        oc_map.insert(key.to_string(), serde_json::Value::String(value.to_string()));
+        plugins.as_object_mut()
+            .ok_or_else(|| "plugins must be object".to_string())?
+            .insert("openclaw-chat".to_string(), serde_json::Value::Object(oc_map));
+    }
+    store.set("plugins".to_string(), plugins);
     Ok(())
 }
 
