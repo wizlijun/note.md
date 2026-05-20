@@ -14,6 +14,7 @@
   import { platform } from '../lib/platform.svelte'
   import { collectSettingsTabs, type SettingsTab } from '../lib/plugins/settings-registry'
   import type { PluginManifest } from '../lib/plugins/types'
+  import { isPluginActive } from '../lib/plugins/registry'
   import PluginsSettingsTab from './PluginsSettingsTab.svelte'
   import VaultSettingsTab from './VaultSettingsTab.svelte'
   import OpenClawSettingsTab from './OpenClawSettingsTab.svelte'
@@ -336,7 +337,9 @@
         {#if isIOSPlatform}
           <button class:active={selectedTab === 'vault'} onclick={() => selectedTab = 'vault'}>Vault</button>
         {/if}
-        <button class:active={selectedTab === 'openclaw'} onclick={() => selectedTab = 'openclaw'}>OpenClaw</button>
+        {#if isPluginActive('openclaw-chat')}
+          <button class:active={selectedTab === 'openclaw'} onclick={() => selectedTab = 'openclaw'}>OpenClaw</button>
+        {/if}
         {#each pluginTabs as t (t.pluginId)}
           <button class:active={selectedTab === t.pluginId} onclick={() => selectedTab = t.pluginId}>{t.label}</button>
         {/each}
@@ -648,7 +651,7 @@
         </section>
       {:else if selectedTab === 'vault' && isIOSPlatform}
         <VaultSettingsTab />
-      {:else if selectedTab === 'openclaw'}
+      {:else if selectedTab === 'openclaw' && isPluginActive('openclaw-chat')}
         <OpenClawSettingsTab />
         <OpenClawDevicesTab />
       {:else}
