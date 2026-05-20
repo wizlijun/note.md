@@ -1,0 +1,9 @@
+{
+  "id": "openclaw-chat",
+  "name": "OpenClaw Chat",
+  "version": "0.1.0",
+  "description": "Local M↓ desktop chat via UDS; remote fan-out via mdrelay.",
+  "kind": "builtin",
+  "host_capabilities": [],
+  "default_enabled": false
+}
