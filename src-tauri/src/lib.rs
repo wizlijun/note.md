@@ -346,6 +346,7 @@ fn show_chat_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
             .inner_size(480.0, 720.0)
             .min_inner_size(360.0, 480.0)
             .resizable(true)
+            .decorations(true)
             .visible(false)
             .build()
             .map_err(|e| eprintln!("[chat] window build failed: {e}"))
