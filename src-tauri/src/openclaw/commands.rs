@@ -9,6 +9,9 @@ use crate::openclaw::config::ConnectMode;
 #[tauri::command]
 pub async fn openclaw_connect(app: AppHandle) -> Result<String, String> {
     let state = app.state::<Arc<OpenClawState>>();
+    if !state.is_enabled() {
+        return Err("openclaw-chat plugin is disabled".into());
+    }
     let cfg = state.config.lock().await.clone();
 
     let mode = match cfg.mode {
@@ -56,6 +59,9 @@ pub async fn openclaw_connect(app: AppHandle) -> Result<String, String> {
 #[tauri::command]
 pub async fn openclaw_send(app: AppHandle, frame: Frame) -> Result<(), String> {
     let state = app.state::<Arc<OpenClawState>>();
+    if !state.is_enabled() {
+        return Err("openclaw-chat plugin is disabled".into());
+    }
     let guard = state.backend.lock().await;
     match &*guard {
         Backend::Host(c) => c.tx_to_server.send(frame).await.map_err(|e| e.to_string()),
@@ -75,6 +81,9 @@ pub async fn openclaw_send(app: AppHandle, frame: Frame) -> Result<(), String> {
 #[tauri::command]
 pub async fn openclaw_disconnect(app: AppHandle) -> Result<(), String> {
     let state = app.state::<Arc<OpenClawState>>();
+    if !state.is_enabled() {
+        return Err("openclaw-chat plugin is disabled".into());
+    }
     *state.backend.lock().await = Backend::None;
     *state.bridge.lock().await = None;
     *state.relay_tx.lock().await = None;
@@ -132,6 +141,12 @@ pub struct PairCreateOut {
 
 #[tauri::command]
 pub async fn openclaw_pair_create(app: AppHandle) -> Result<PairCreateOut, String> {
+    {
+        let state = app.state::<Arc<OpenClawState>>();
+        if !state.is_enabled() {
+            return Err("openclaw-chat plugin is disabled".into());
+        }
+    }
     use qrcode::QrCode;
     use qrcode::render::svg::Color;
     let cfg = {
@@ -167,6 +182,12 @@ pub struct PairClaimOut {
 
 #[tauri::command]
 pub async fn openclaw_pair_claim(app: AppHandle, code: String, hostname: Option<String>) -> Result<PairClaimOut, String> {
+    {
+        let state = app.state::<Arc<OpenClawState>>();
+        if !state.is_enabled() {
+            return Err("openclaw-chat plugin is disabled".into());
+        }
+    }
     let cfg = {
         let state = app.state::<std::sync::Arc<crate::openclaw::state::OpenClawState>>();
         let x = state.config.lock().await.clone(); x
@@ -191,6 +212,12 @@ pub async fn openclaw_pair_claim(app: AppHandle, code: String, hostname: Option<
 
 #[tauri::command]
 pub async fn openclaw_revoke_device(app: AppHandle, device_id: String) -> Result<(), String> {
+    {
+        let state = app.state::<Arc<OpenClawState>>();
+        if !state.is_enabled() {
+            return Err("openclaw-chat plugin is disabled".into());
+        }
+    }
     let cfg = {
         let state = app.state::<std::sync::Arc<crate::openclaw::state::OpenClawState>>();
         let x = state.config.lock().await.clone(); x
@@ -204,16 +231,26 @@ pub async fn openclaw_revoke_device(app: AppHandle, device_id: String) -> Result
 
 #[tauri::command]
 pub async fn openclaw_forget_device(app: AppHandle, device_id: String) -> Result<(), String> {
+    let state = app.state::<Arc<OpenClawState>>();
+    if !state.is_enabled() {
+        return Err("openclaw-chat plugin is disabled".into());
+    }
     crate::openclaw::devices::forget(&app, &device_id)
 }
 
 #[tauri::command]
 pub async fn openclaw_list_devices(app: AppHandle) -> Vec<Device> {
+    let state = app.state::<Arc<OpenClawState>>();
+    if !state.is_enabled() { return Vec::new(); }
     crate::openclaw::devices::read_all(&app)
 }
 
 #[tauri::command]
 pub async fn openclaw_approve_pending(app: AppHandle, device_id: String, hostname: String) -> Result<(), String> {
+    let state = app.state::<Arc<OpenClawState>>();
+    if !state.is_enabled() {
+        return Err("openclaw-chat plugin is disabled".into());
+    }
     crate::openclaw::devices::upsert(&app, Device {
         device_id,
         hostname,
@@ -224,6 +261,10 @@ pub async fn openclaw_approve_pending(app: AppHandle, device_id: String, hostnam
 
 #[tauri::command]
 pub async fn openclaw_reject_pending(app: AppHandle, device_id: String) -> Result<(), String> {
+    let state = app.state::<Arc<OpenClawState>>();
+    if !state.is_enabled() {
+        return Err("openclaw-chat plugin is disabled".into());
+    }
     openclaw_revoke_device(app, device_id).await
 }
 
@@ -234,6 +275,10 @@ pub async fn openclaw_upload_attachment(
     filename: String,
     bytes_b64: String,
 ) -> Result<(), String> {
+    let state = app.state::<Arc<OpenClawState>>();
+    if !state.is_enabled() {
+        return Err("openclaw-chat plugin is disabled".into());
+    }
     let frame = crate::openclaw::protocol::Frame::UserAttachUpload {
         session,
         blob_id: format!("b-{}", uuid_like()),

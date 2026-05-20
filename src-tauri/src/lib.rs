@@ -681,10 +681,15 @@ pub fn run() {
                 vault_sync::init(&app.handle());
             }
 
-            let openclaw_state = crate::openclaw::init_state(&app.handle());
-            app.manage(openclaw_state);
-
+            // plugin_host MUST run before any code that calls is_plugin_enabled.
             plugin_host::init(&app.handle());
+
+            let openclaw_state = if plugin_host::is_plugin_enabled("openclaw-chat") {
+                crate::openclaw::init_state(&app.handle())
+            } else {
+                crate::openclaw::OpenClawState::new_disabled()
+            };
+            app.manage(openclaw_state);
 
             #[cfg(target_os = "ios")]
             vault_ios::init(&app.handle());

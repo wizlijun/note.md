@@ -11,6 +11,7 @@ pub enum Backend {
 }
 
 pub struct OpenClawState {
+    pub enabled: bool,
     pub config: Mutex<OpenClawConfig>,
     pub backend: Mutex<Backend>,
     /// Active relay bridge (host mode only).
@@ -24,15 +25,47 @@ pub struct OpenClawState {
     pub claim_poller: Mutex<Option<tauri::async_runtime::JoinHandle<()>>>,
 }
 
+impl OpenClawState {
+    pub fn is_enabled(&self) -> bool { self.enabled }
+
+    /// Empty placeholder when the openclaw-chat plugin is disabled.
+    /// No UDS connection, no relay bridge, no config read — pure zero-cost.
+    pub fn new_disabled() -> Arc<Self> {
+        Arc::new(OpenClawState {
+            enabled: false,
+            config: Mutex::new(OpenClawConfig::default()),
+            backend: Mutex::new(Backend::None),
+            bridge: Mutex::new(None),
+            relay_tx: Mutex::new(None),
+            claim_poller: Mutex::new(None),
+        })
+    }
+}
+
 pub fn init_state(app: &tauri::AppHandle) -> Arc<OpenClawState> {
     let cfg = crate::openclaw::config::read(app);
     Arc::new(OpenClawState {
+        enabled: true,
         config: Mutex::new(cfg),
         backend: Mutex::new(Backend::None),
         bridge: Mutex::new(None),
         relay_tx: Mutex::new(None),
         claim_poller: Mutex::new(None),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn new_disabled_is_disabled() {
+        let s = OpenClawState::new_disabled();
+        assert!(!s.is_enabled());
+    }
+
+    // init_state 需要 Tauri AppHandle，跳过单元测试。
+    // Integration test 在 manual verification 阶段覆盖。
 }
 
 pub fn spawn_claim_poller(app: tauri::AppHandle) {
