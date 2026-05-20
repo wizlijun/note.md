@@ -110,7 +110,7 @@ pub fn render_help(
     out.push_str("USAGE:\n");
     out.push_str("  mdedit <command> [args...]\n");
     for m in manifests {
-        let is_on = enabled.get(&m.id).copied().unwrap_or(true);
+        let is_on = crate::plugin_host::resolve_enabled(m, enabled);
         if !is_on { continue }
         for entry in &m.cli {
             if let Some(short) = entry.aliases.iter().find(|a| a.starts_with('-') && a.len() == 2) {
@@ -129,7 +129,7 @@ pub fn render_help(
 
     let mut shown_header = false;
     for m in manifests {
-        let is_on = enabled.get(&m.id).copied().unwrap_or(true);
+        let is_on = crate::plugin_host::resolve_enabled(m, enabled);
         if !is_on { continue }
         for entry in &m.cli {
             if !shown_header {
@@ -146,7 +146,7 @@ pub fn render_help(
     if all {
         let mut shown = false;
         for m in manifests {
-            let is_on = enabled.get(&m.id).copied().unwrap_or(true);
+            let is_on = crate::plugin_host::resolve_enabled(m, enabled);
             if is_on { continue }
             for entry in &m.cli {
                 if !shown {
@@ -174,7 +174,7 @@ fn render_help_topic(
     for m in manifests {
         for entry in &m.cli {
             if entry.subcommand == topic || entry.aliases.iter().any(|a| a == topic) {
-                let on = enabled.get(&m.id).copied().unwrap_or(true);
+                let on = crate::plugin_host::resolve_enabled(m, enabled);
                 let mut out = String::new();
                 out.push_str(&format!(
                     "mdedit {} — {}\n",
@@ -228,7 +228,7 @@ pub fn render_plugin_list(
 ) -> String {
     if as_json {
         let arr: Vec<_> = manifests.iter().map(|m| {
-            let is_on = enabled.get(&m.id).copied().unwrap_or(true);
+            let is_on = crate::plugin_host::resolve_enabled(m, enabled);
             json!({
                 "id": m.id,
                 "name": m.name,
@@ -247,7 +247,7 @@ pub fn render_plugin_list(
     out.push_str(&format!("{:<10} {:<12} {:<8} {:<10} {}\n",
         "ID", "NAME", "VERSION", "STATUS", "CLI"));
     for m in manifests {
-        let is_on = enabled.get(&m.id).copied().unwrap_or(true);
+        let is_on = crate::plugin_host::resolve_enabled(m, enabled);
         let cli = m.cli.iter().map(|c| {
             let aliases = if c.aliases.is_empty() {
                 String::new()
@@ -269,7 +269,7 @@ pub fn render_plugin_info(
     m: &PluginManifest,
     enabled: &HashMap<String, bool>,
 ) -> String {
-    let is_on = enabled.get(&m.id).copied().unwrap_or(true);
+    let is_on = crate::plugin_host::resolve_enabled(m, enabled);
     let mut out = String::new();
     out.push_str(&format!("{} ({})  v{}\n", m.name, m.id, m.version));
     out.push_str(&format!("Status: {}\n", if is_on { "enabled" } else { "disabled" }));

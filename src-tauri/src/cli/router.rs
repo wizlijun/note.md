@@ -117,7 +117,7 @@ fn match_against_manifests(
     for (m, _dir) in manifests {
         for entry in &m.cli {
             if entry.subcommand == token || entry.aliases.iter().any(|a| a == token) {
-                let is_enabled = enabled.get(&m.id).copied().unwrap_or(true);
+                let is_enabled = crate::plugin_host::resolve_enabled(m, enabled);
                 return Some((m.id.clone(), entry.subcommand.clone(), is_enabled));
             }
         }
