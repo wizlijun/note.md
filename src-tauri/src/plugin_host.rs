@@ -236,8 +236,7 @@ pub fn init<R: Runtime>(app: &AppHandle<R>) {
         // Always record the manifest in the "all" list (even if disabled).
         state.all.push(manifest.clone());
 
-        // Default-on rule: missing key → enabled.
-        let is_enabled = enabled_map.get(&manifest.id).copied().unwrap_or(true);
+        let is_enabled = resolve_enabled(&manifest, &enabled_map);
         if !is_enabled { continue }
 
         if state.enabled.contains_key(&manifest.id) {
@@ -453,6 +452,19 @@ pub fn all_manifests() -> Vec<PluginManifest> {
     STATE.read().unwrap().all.clone()
 }
 
+/// Decide whether a given manifest should be active given the persisted
+/// enabled-map. External plugins default ON (preserves legacy behavior);
+/// builtin plugins use the manifest's `default_enabled` field (default OFF).
+pub fn resolve_enabled(manifest: &PluginManifest, enabled_map: &HashMap<String, bool>) -> bool {
+    match enabled_map.get(&manifest.id) {
+        Some(&v) => v,
+        None => match manifest.kind {
+            PluginKind::External => true,
+            PluginKind::Builtin => manifest.default_enabled.unwrap_or(false),
+        },
+    }
+}
+
 /// Same as `read_enabled_map` but takes an explicit config path. The CLI uses
 /// this before any Tauri AppHandle exists.
 pub fn read_enabled_map_from(config_dir: &std::path::Path) -> HashMap<String, bool> {
@@ -632,5 +644,45 @@ mod cli_helpers_tests {
         let m: PluginManifest = serde_json::from_str(json).unwrap();
         assert_eq!(m.kind, PluginKind::Builtin);
         assert!(m.binary.is_none());
+    }
+
+    #[test]
+    fn resolve_enabled_external_defaults_true_when_absent() {
+        let enabled_map = HashMap::new();
+        let manifest = PluginManifest {
+            id: "share".into(), name: "Share".into(), version: "1.0.0".into(),
+            description: None, kind: PluginKind::External, binary: Some("bin".into()),
+            default_enabled: None, menus: vec![], context_menus: vec![],
+            settings: None, host_capabilities: vec![], timeout_seconds: 30,
+            cli: vec![],
+        };
+        assert_eq!(resolve_enabled(&manifest, &enabled_map), true);
+    }
+
+    #[test]
+    fn resolve_enabled_builtin_defaults_false_when_absent() {
+        let enabled_map = HashMap::new();
+        let manifest = PluginManifest {
+            id: "openclaw-chat".into(), name: "OpenClaw Chat".into(), version: "0.1.0".into(),
+            description: None, kind: PluginKind::Builtin, binary: None,
+            default_enabled: Some(false), menus: vec![], context_menus: vec![],
+            settings: None, host_capabilities: vec![], timeout_seconds: 30,
+            cli: vec![],
+        };
+        assert_eq!(resolve_enabled(&manifest, &enabled_map), false);
+    }
+
+    #[test]
+    fn resolve_enabled_builtin_explicit_true_wins() {
+        let mut enabled_map = HashMap::new();
+        enabled_map.insert("openclaw-chat".to_string(), true);
+        let manifest = PluginManifest {
+            id: "openclaw-chat".into(), name: "OpenClaw Chat".into(), version: "0.1.0".into(),
+            description: None, kind: PluginKind::Builtin, binary: None,
+            default_enabled: Some(false), menus: vec![], context_menus: vec![],
+            settings: None, host_capabilities: vec![], timeout_seconds: 30,
+            cli: vec![],
+        };
+        assert_eq!(resolve_enabled(&manifest, &enabled_map), true);
     }
 }
