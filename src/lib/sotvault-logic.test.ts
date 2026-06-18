@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { isTracked, canSyncToVault, dialogActionFor, sourceForVault, parentDir, type SotRecord } from './sotvault-logic'
+import { isTracked, canSyncToVault, dialogActionFor, sourceForVault, type SotRecord } from './sotvault-logic'
 
 const rec = (vault: string, source: string): SotRecord => ({
   vault_path: vault, source_path: source, synced_at: 1, source_hash: 'a', vault_hash: 'a',
@@ -54,9 +54,3 @@ describe('sourceForVault', () => {
   })
 })
 
-describe('parentDir', () => {
-  it('returns the containing directory', () => {
-    expect(parentDir('/src/proj/a.md')).toBe('/src/proj')
-    expect(parentDir('/a.md')).toBe('/')
-  })
-})

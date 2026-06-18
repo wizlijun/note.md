@@ -17,12 +17,6 @@ export function sourceForVault(path: string | null, records: SotRecord[]): strin
   return records.find((r) => r.vault_path === path)?.source_path ?? null
 }
 
-/** The directory containing `filePath` (absolute POSIX path). */
-export function parentDir(filePath: string): string {
-  const i = filePath.lastIndexOf('/')
-  return i <= 0 ? '/' : filePath.slice(0, i)
-}
-
 function isUnder(path: string, root: string): boolean {
   if (path === root) return true
   const r = root.endsWith('/') ? root : root + '/'

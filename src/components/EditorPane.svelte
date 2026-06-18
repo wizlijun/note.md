@@ -7,6 +7,7 @@
   import HtmlPreview from './HtmlPreview.svelte'
   import ExternalChangeBanner from './ExternalChangeBanner.svelte'
   import SyncOriginBanner from './SyncOriginBanner.svelte'
+  import SyncToVaultBanner from './SyncToVaultBanner.svelte'
   import { offsetToLineCol, lineColToOffset } from '../lib/cursor-preserve'
   import { convertFileSrc } from '@tauri-apps/api/core'
   import { migrateTempResources, getTempDir } from '../lib/paste-resources'
@@ -73,6 +74,7 @@
 <div class="editor-stack">
   <ExternalChangeBanner {tab} />
   <SyncOriginBanner {tab} />
+  <SyncToVaultBanner {tab} />
   {#if tab.kind === 'image'}
     {#key tab.id}
       <div class="image-preview-wrap">

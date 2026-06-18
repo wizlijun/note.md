@@ -6,7 +6,6 @@ import {
   canSyncToVault as computeCanSync,
   isTracked as computeIsTracked,
   sourceForVault as computeSourceForVault,
-  parentDir,
   dialogActionFor,
   type SotRecord,
 } from './sotvault-logic'
@@ -45,11 +44,11 @@ export function sourceForVaultPath(path: string | null): string | null {
   return computeSourceForVault(path, sotvaultStore.records)
 }
 
-/** Open the source file's containing directory in the OS file browser. */
+/** Reveal the source file in the OS file browser (opens its folder, highlights it). */
 export async function revealVaultSource(sourcePath: string): Promise<void> {
   try {
-    const { openPath } = await import('@tauri-apps/plugin-opener')
-    await openPath(parentDir(sourcePath))
+    const { revealItemInDir } = await import('@tauri-apps/plugin-opener')
+    await revealItemInDir(sourcePath)
   } catch (e) {
     pushToast({ level: 'error', message: '❌ 打开来源目录失败', detail: String(e) })
   }
