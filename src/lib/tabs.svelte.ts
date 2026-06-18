@@ -144,6 +144,28 @@ export async function openFile(path: string): Promise<void> {
   await startWatchingTab(tab)
 }
 
+/** Re-read `path` from disk into its open tab (used after a vault apply-update). */
+export async function reloadTabFromDisk(path: string): Promise<void> {
+  const t = tabs.find((x) => x.filePath === path)
+  if (!t) return
+  const content = await readMd(path)
+  const stat = await statFile(path)
+  const hash = await sha256Hex(content)
+  const oldContent = t.initialContent
+  t.initialContent = content
+  t.currentContent = content
+  t.lastKnownMtime = stat?.mtime ?? 0
+  t.lastKnownHash = hash
+  t.externalState = 'fresh'
+  t.externalBannerDismissed = false
+  t.pendingExternal = undefined
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('mdeditor:auto-reloaded', {
+      detail: { tabId: t.id, oldContent, newContent: content },
+    }))
+  }
+}
+
 export function setContent(id: string, md: string): void {
   const t = tabs.find((x) => x.id === id)
   if (t) t.currentContent = md
