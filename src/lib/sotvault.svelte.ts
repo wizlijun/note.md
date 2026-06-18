@@ -7,6 +7,7 @@ import {
   isTracked as computeIsTracked,
   sourceForVault as computeSourceForVault,
   dialogActionFor,
+  todayYmd,
   type SotRecord,
 } from './sotvault-logic'
 
@@ -61,7 +62,7 @@ export async function syncCurrentToVault(): Promise<void> {
     return
   }
   try {
-    await invoke('sotvault_sync_to_vault', { srcPath: tab.filePath })
+    await invoke('sotvault_sync_to_vault', { srcPath: tab.filePath, datePrefix: todayYmd() })
     await refreshSotvault()
     pushToast({ level: 'success', message: '✓ 已同步到 Vault' })
   } catch (e) {

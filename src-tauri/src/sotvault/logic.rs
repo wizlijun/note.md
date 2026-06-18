@@ -81,6 +81,38 @@ pub fn is_under_vault(vault_root: &Path, file: &Path) -> bool {
     file.starts_with(vault_root)
 }
 
+/// True when `name`'s extension is `md` (case-insensitive).
+fn is_markdown(name: &str) -> bool {
+    match name.rfind('.') {
+        Some(i) if i + 1 < name.len() => name[i + 1..].eq_ignore_ascii_case("md"),
+        _ => false,
+    }
+}
+
+/// True when `name` already starts with a `yyyy-MM-dd-` prefix.
+fn has_date_prefix(name: &str) -> bool {
+    let b = name.as_bytes();
+    if b.len() < 11 {
+        return false;
+    }
+    let d = |i: usize| b[i].is_ascii_digit();
+    d(0) && d(1) && d(2) && d(3)
+        && b[4] == b'-'
+        && d(5) && d(6)
+        && b[7] == b'-'
+        && d(8) && d(9)
+        && b[10] == b'-'
+}
+
+/// For Markdown files lacking a `yyyy-MM-dd-` prefix, prepend `<date_prefix>-`.
+/// Non-Markdown files and already-dated names are returned unchanged.
+pub fn dated_basename(basename: &str, date_prefix: &str) -> String {
+    if !is_markdown(basename) || has_date_prefix(basename) {
+        return basename.to_string();
+    }
+    format!("{date_prefix}-{basename}")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -177,5 +209,28 @@ mod tests {
     fn is_under_vault_prefix() {
         assert!(is_under_vault(Path::new("/Users/b/Vault"), Path::new("/Users/b/Vault/Imported/a.md")));
         assert!(!is_under_vault(Path::new("/Users/b/Vault"), Path::new("/Users/b/work/a.md")));
+    }
+
+    #[test]
+    fn dated_basename_prefixes_undated_md() {
+        assert_eq!(dated_basename("notes.md", "2026-06-18"), "2026-06-18-notes.md");
+        assert_eq!(dated_basename("NOTES.MD", "2026-06-18"), "2026-06-18-NOTES.MD");
+    }
+
+    #[test]
+    fn dated_basename_leaves_already_dated_md() {
+        assert_eq!(dated_basename("2026-01-02-notes.md", "2026-06-18"), "2026-01-02-notes.md");
+    }
+
+    #[test]
+    fn dated_basename_ignores_non_md() {
+        assert_eq!(dated_basename("photo.png", "2026-06-18"), "photo.png");
+        assert_eq!(dated_basename("README", "2026-06-18"), "README");
+    }
+
+    #[test]
+    fn dated_basename_prefixes_when_existing_prefix_is_not_strict_format() {
+        // single-digit month/day is not a yyyy-MM-dd- prefix
+        assert_eq!(dated_basename("2026-1-2-notes.md", "2026-06-18"), "2026-06-18-2026-1-2-notes.md");
     }
 }

@@ -60,7 +60,11 @@ pub fn sotvault_forget(app: AppHandle, vault_path: String) -> Result<(), String>
 }
 
 #[tauri::command]
-pub fn sotvault_sync_to_vault(app: AppHandle, src_path: String) -> Result<Record, String> {
+pub fn sotvault_sync_to_vault(
+    app: AppHandle,
+    src_path: String,
+    date_prefix: Option<String>,
+) -> Result<Record, String> {
     let source = PathBuf::from(&src_path);
     if !source.is_file() {
         return Err("source file does not exist".into());
@@ -72,8 +76,13 @@ pub fn sotvault_sync_to_vault(app: AppHandle, src_path: String) -> Result<Record
         .file_name()
         .and_then(|s| s.to_str())
         .ok_or("invalid source filename")?;
+    // For undated .md files, prepend the caller-supplied local date (yyyy-MM-dd).
+    let basename = match date_prefix.as_deref() {
+        Some(p) if !p.is_empty() => logic::dated_basename(basename, p),
+        _ => basename.to_string(),
+    };
 
-    let target = logic::dedup_target(&subdir, basename, &|p| p.exists());
+    let target = logic::dedup_target(&subdir, &basename, &|p| p.exists());
     let bytes = std::fs::read(&source).map_err(|e| e.to_string())?;
     std::fs::write(&target, &bytes).map_err(|e| e.to_string())?;
     let hash = logic::sha256_hex(&bytes);

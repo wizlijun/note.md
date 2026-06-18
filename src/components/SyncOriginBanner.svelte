@@ -26,7 +26,9 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 6px 10px;
+    /* Reserve the top-right corner for the floating ModeToggle (single-tab view)
+       so the action button isn't hidden underneath it. */
+    padding: 6px 104px 6px 10px;
     font-size: 12px;
     border-bottom: 1px solid color-mix(in srgb, CanvasText 15%, transparent);
   }
