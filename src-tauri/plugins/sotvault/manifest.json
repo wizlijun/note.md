@@ -1,0 +1,17 @@
+{
+  "id": "sotvault",
+  "name": "Sync to Vault",
+  "version": "0.1.0",
+  "description": "Copy the current file into the Vault and keep it refreshed from its source.",
+  "kind": "builtin",
+  "default_enabled": false,
+  "host_capabilities": [],
+  "menus": [
+    {
+      "location": "file",
+      "label": "Sync to Vault…",
+      "command": "sync-to-vault",
+      "enabled_when": "currentTab.canSyncToVault"
+    }
+  ]
+}
