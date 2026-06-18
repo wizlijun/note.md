@@ -142,6 +142,14 @@ export async function openFile(path: string): Promise<void> {
   activeId.value = tab.id
   await pushRecentFile(path)
   await startWatchingTab(tab)
+  // Sync-to-Vault: if this is a tracked vault copy whose source changed, prompt.
+  // No-op when the plugin is disabled or the file is untracked.
+  try {
+    const { maybeCheckVaultUpdate } = await import('./sotvault.svelte')
+    await maybeCheckVaultUpdate(tab)
+  } catch (e) {
+    console.warn('[tabs] sotvault check:', e)
+  }
 }
 
 /** Re-read `path` from disk into its open tab (used after a vault apply-update). */

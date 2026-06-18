@@ -123,6 +123,8 @@ export interface EnabledWhenContext {
     hasContent: boolean
     isDirty: boolean
     isUntitled: boolean
+    canSyncToVault?: boolean
+    isTrackedVaultFile?: boolean
   } | null
   settings: Record<string, unknown>
 }

@@ -45,6 +45,7 @@
   import DrawerNav from './components/DrawerNav.svelte'
   import { platform, isIOS } from './lib/platform.svelte'
   import { vaultStore, refreshStatus, syncNow, attachStatusListener } from './lib/vault.svelte'
+  import { syncCurrentToVault, canSyncActive, isTrackedVaultFile, refreshSotvault, sotvaultStore } from './lib/sotvault.svelte'
 
   /** Open an in-memory read-only buffer received from the remote agent.
    *  The tab gets title "[remote] <basename>" and its content is pre-filled.
@@ -289,6 +290,10 @@
       })()
 
       dispatchPlugin = async (pluginId: string, command: string) => {
+        if (pluginId === 'sotvault') {
+          if (command === 'sync-to-vault') await syncCurrentToVault()
+          return
+        }
         const m = manifestById[pluginId]
         if (!m) { console.warn('[App] unknown plugin', pluginId); return }
         const menu = m.menus?.find((me) => me.command === command)
@@ -365,6 +370,7 @@
       configureActionHandlers({ reinvokePlugin: dispatchPlugin })
       // Make dispatchPlugin reachable from other components (TabBar's right-click).
       setPluginDispatcher(dispatchPlugin)
+      void refreshSotvault()
     })()
 
     const uninstallFocus = installFocusPoll()
@@ -540,6 +546,8 @@
     const _tabCount = tabs.length
     const _settingsTick = pluginScopedVersion.value
     void _tabCount; void _settingsTick
+    const _sotvaultTick = sotvaultStore.tick
+    void _sotvaultTick
 
     const ewTab: EnabledWhenContext['currentTab'] = tab
       ? {
@@ -550,6 +558,8 @@
           hasContent: tab.kind === 'image' ? !!tab.filePath : (tab.currentContent ?? '').length > 0,
           isDirty: tab.currentContent !== tab.initialContent,
           isUntitled: !tab.filePath,
+          canSyncToVault: canSyncActive(tab.filePath || null),
+          isTrackedVaultFile: isTrackedVaultFile(tab.filePath || null),
         }
       : null
 
