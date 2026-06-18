@@ -7,7 +7,7 @@ import {
   isTracked as computeIsTracked,
   sourceForVault as computeSourceForVault,
   dialogActionFor,
-  todayYmd,
+  localYmd,
   type SotRecord,
 } from './sotvault-logic'
 
@@ -62,11 +62,24 @@ export async function syncCurrentToVault(): Promise<void> {
     return
   }
   try {
-    await invoke('sotvault_sync_to_vault', { srcPath: tab.filePath, datePrefix: todayYmd() })
+    const datePrefix = await sourceCreationYmd(tab.filePath)
+    await invoke('sotvault_sync_to_vault', { srcPath: tab.filePath, datePrefix })
     await refreshSotvault()
     pushToast({ level: 'success', message: '✓ 已同步到 Vault' })
   } catch (e) {
     pushToast({ level: 'error', message: '❌ 同步到 Vault 失败', detail: String(e) })
+  }
+}
+
+/** Local yyyy-MM-dd of the source file's creation time (birthtime), falling back
+ *  to its mtime, then today, if the OS doesn't report a birthtime. */
+async function sourceCreationYmd(path: string): Promise<string> {
+  try {
+    const { stat } = await import('@tauri-apps/plugin-fs')
+    const info = await stat(path)
+    return localYmd(info.birthtime ?? info.mtime ?? new Date())
+  } catch {
+    return localYmd()
   }
 }
 

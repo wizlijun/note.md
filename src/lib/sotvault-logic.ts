@@ -34,8 +34,8 @@ export function canSyncToVault(
   return true
 }
 
-/** Local date as `yyyy-MM-dd` (used to prefix undated synced filenames). */
-export function todayYmd(d: Date = new Date()): string {
+/** A date formatted as local `yyyy-MM-dd` (used to prefix undated synced filenames). */
+export function localYmd(d: Date = new Date()): string {
   const y = d.getFullYear()
   const m = String(d.getMonth() + 1).padStart(2, '0')
   const day = String(d.getDate()).padStart(2, '0')

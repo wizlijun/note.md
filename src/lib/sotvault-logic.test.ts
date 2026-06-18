@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { isTracked, canSyncToVault, dialogActionFor, sourceForVault, todayYmd, type SotRecord } from './sotvault-logic'
+import { isTracked, canSyncToVault, dialogActionFor, sourceForVault, localYmd, type SotRecord } from './sotvault-logic'
 
 const rec = (vault: string, source: string): SotRecord => ({
   vault_path: vault, source_path: source, synced_at: 1, source_hash: 'a', vault_hash: 'a',
@@ -54,10 +54,10 @@ describe('sourceForVault', () => {
   })
 })
 
-describe('todayYmd', () => {
+describe('localYmd', () => {
   it('formats a local date as zero-padded yyyy-MM-dd', () => {
-    expect(todayYmd(new Date(2026, 0, 5))).toBe('2026-01-05')
-    expect(todayYmd(new Date(2026, 11, 31))).toBe('2026-12-31')
+    expect(localYmd(new Date(2026, 0, 5))).toBe('2026-01-05')
+    expect(localYmd(new Date(2026, 11, 31))).toBe('2026-12-31')
   })
 })
 
