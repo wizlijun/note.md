@@ -60,6 +60,17 @@ Built on [`@moraya/core`](https://www.npmjs.com/package/@moraya/core).
   `prefers-color-scheme`, mobile-optimized viewport). Image-heavy documents
   spill to Cloudflare R2; the Worker also exposes an MCP endpoint so LLM
   agents can publish on your behalf
+- **Sync to Vault plugin (built-in)** — enable in **Preferences → Plugins** to
+  add a **File → Sync to Vault…** action that copies the current file into your
+  git-synced Vault (`~/Documents/Vault/Sync/`, de-duplicating on name collision)
+  and records the copy ↔ source mapping in a dedicated JSON. Markdown filenames
+  without a `yyyy-MM-dd-` prefix get the source file's creation date prepended
+  (e.g. `notes.md` → `2024-03-12-notes.md`). Reopening a vault copy whose source
+  changed prompts a conflict-aware refresh (overwrite from source / keep vault /
+  cancel — never silent; when both sides changed it's flagged as a conflict). A
+  blue banner on a vault copy shows its source path and reveals it in Finder; a
+  green banner on any out-of-vault file offers a one-click sync and explains the
+  benefit, hiding itself once the file is already synced
 - **Block IDs (mdblock)** — Settings → Block → enable to assign each top-level
   Markdown unit (paragraph, heading, code block, list, table, …) a stable
   `b-xxxxxx` id. Cite a specific block from anywhere via

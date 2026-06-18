@@ -55,6 +55,13 @@
   （KaTeX、Mermaid / Graphviz SVG、语法高亮、浅/深双主题跟随系统、移动端优化）。
   图片多的文档溢出到 Cloudflare R2；Worker 还开放了 MCP 端点，方便 LLM agent
   代你发布
+- **Sync to Vault 插件（内置）** —— 在 **Preferences → Plugins** 启用后，文件菜单
+  新增 **Sync to Vault…**：把当前文件复制进 git 同步的 Vault（`~/Documents/Vault/Sync/`，
+  重名自动加后缀），并在专用 JSON 里记录"副本 ↔ 来源"映射。文件名没带 `yyyy-MM-dd-`
+  前缀的 Markdown，会自动补上源文件的创建日期（如 `notes.md` → `2024-03-12-notes.md`）。
+  再次打开 vault 副本时若来源已变更，会弹冲突感知的同步提示（用源覆盖 / 保留 Vault /
+  取消，绝不静默；两边都改则标记为冲突）。vault 副本上有蓝色提示条显示来源路径并可在访达
+  打开；Vault 之外的文件上有绿色提示条可一键同步并说明好处，已同步后自动隐藏
 - **块 ID（mdblock）** —— Preferences → Block 勾选启用后，给每个顶层
   Markdown 单元（段落、标题、代码块、列表、表格 …）分配一个稳定的
   `b-xxxxxx` id；任何位置都可以用 `((path/to/file.md#b-xxxxxx))`
