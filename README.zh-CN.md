@@ -2,13 +2,18 @@
 
 [English](README.md) · [简体中文](README.zh-CN.md)
 
-一款 macOS 原生的极简文本编辑器 —— 支持 Markdown、HTML 和源码，
+一款 macOS 上的极简文本编辑器 —— 支持 Markdown、HTML 和源码，
 **源码**与**富文本**（所见即所得）双模式、多标签页、常驻菜单栏托盘。
 
 产品名为 **M↓**（一个 *M* 加一个向下的箭头，暗示 *markdown*）；
 仓库名、crate 名、bundle identifier 仍是 `mdeditor` / `com.laobu.mdeditor`。
 
-基于 [`@moraya/core`](https://www.npmjs.com/package/@moraya/core) 构建。
+基于 [Tauri](https://tauri.app) 与
+[`@moraya/core`](https://www.npmjs.com/package/@moraya/core) 构建：一个签名并公证的
+原生 `.app` —— 原生 Rust 二进制，菜单、窗口、菜单栏托盘均为系统原生控件 —— 而编辑器
+UI 是 Web 技术（HTML/CSS/JS），渲染在 macOS 系统自带的 WebView（WebKit / WKWebView）里，
+不像 Electron 那样捆绑浏览器。因此它是**基于系统 WebView 的原生 macOS 应用**，而非
+原生 UI（AppKit/SwiftUI）应用。
 
 ## 功能
 

@@ -2,14 +2,20 @@
 
 [English](README.md) · [简体中文](README.zh-CN.md)
 
-A minimal native text editor for macOS — Markdown, HTML, and source code, with both
+A minimal text editor for macOS — Markdown, HTML, and source code, with both
 **source** and **rich** (WYSIWYG) modes, a tabbed window, and a persistent menu-bar tray.
 
 The product name is **M↓** (an *M* with a downward arrow, hinting at *markdown*);
 the underlying repo, crate, and bundle identifier remain `mdeditor` /
 `com.laobu.mdeditor`.
 
-Built on [`@moraya/core`](https://www.npmjs.com/package/@moraya/core).
+Built with [Tauri](https://tauri.app) on
+[`@moraya/core`](https://www.npmjs.com/package/@moraya/core): a code-signed,
+notarized native `.app` — a native Rust binary with native menus, window, and
+menu-bar tray — whose editor UI is web technology (HTML/CSS/JS) rendered in the
+macOS system WebView (WebKit / WKWebView). There's no bundled browser, unlike
+Electron. So it's a *native macOS app powered by the system WebView*, not a
+native-UI (AppKit/SwiftUI) app.
 
 ## Features
 
