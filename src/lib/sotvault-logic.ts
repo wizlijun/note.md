@@ -17,6 +17,12 @@ export function sourceForVault(path: string | null, records: SotRecord[]): strin
   return records.find((r) => r.vault_path === path)?.source_path ?? null
 }
 
+/** True when `path` has already been synced to the vault (it's a record's source). */
+export function isSyncedSource(path: string | null, records: SotRecord[]): boolean {
+  if (!path) return false
+  return records.some((r) => r.source_path === path)
+}
+
 function isUnder(path: string, root: string): boolean {
   if (path === root) return true
   const r = root.endsWith('/') ? root : root + '/'
@@ -31,6 +37,7 @@ export function canSyncToVault(
   if (!path || !vaultRoot) return false
   if (isUnder(path, vaultRoot)) return false
   if (isTracked(path, records)) return false
+  if (isSyncedSource(path, records)) return false
   return true
 }
 

@@ -30,6 +30,9 @@ describe('canSyncToVault', () => {
   it('does not treat a sibling dir sharing a prefix as inside the vault', () => {
     expect(canSyncToVault('/vault-backup/x.md', '/vault', recs)).toBe(true)
   })
+  it('false when the source file has already been synced', () => {
+    expect(canSyncToVault('/src/a.md', '/v', recs)).toBe(false)
+  })
 })
 
 describe('dialogActionFor', () => {
