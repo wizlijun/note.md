@@ -39,8 +39,8 @@ fn resolve_vault_root(app: &AppHandle) -> Option<PathBuf> {
     guard.clone().map(PathBuf::from)
 }
 
-/// Sub-directory inside the vault where imported copies are placed.
-const IMPORT_SUBDIR: &str = "Imported";
+/// Sub-directory inside the vault where synced copies are placed.
+const SYNC_SUBDIR: &str = "Sync";
 
 #[tauri::command]
 pub fn sotvault_vault_root(app: AppHandle) -> Result<Option<String>, String> {
@@ -66,7 +66,7 @@ pub fn sotvault_sync_to_vault(app: AppHandle, src_path: String) -> Result<Record
         return Err("source file does not exist".into());
     }
     let vault_root = resolve_vault_root(&app).ok_or("Vault not configured")?;
-    let subdir = vault_root.join(IMPORT_SUBDIR);
+    let subdir = vault_root.join(SYNC_SUBDIR);
     std::fs::create_dir_all(&subdir).map_err(|e| e.to_string())?;
     let basename = source
         .file_name()

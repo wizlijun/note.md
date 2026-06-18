@@ -5,6 +5,8 @@ import { isPluginActive } from './plugins/registry'
 import {
   canSyncToVault as computeCanSync,
   isTracked as computeIsTracked,
+  sourceForVault as computeSourceForVault,
+  parentDir,
   dialogActionFor,
   type SotRecord,
 } from './sotvault-logic'
@@ -36,6 +38,21 @@ export function canSyncActive(path: string | null): boolean {
 
 export function isTrackedVaultFile(path: string | null): boolean {
   return computeIsTracked(path, sotvaultStore.records)
+}
+
+/** Source path a tracked vault copy was synced from, or null. */
+export function sourceForVaultPath(path: string | null): string | null {
+  return computeSourceForVault(path, sotvaultStore.records)
+}
+
+/** Open the source file's containing directory in the OS file browser. */
+export async function revealVaultSource(sourcePath: string): Promise<void> {
+  try {
+    const { openPath } = await import('@tauri-apps/plugin-opener')
+    await openPath(parentDir(sourcePath))
+  } catch (e) {
+    pushToast({ level: 'error', message: '❌ 打开来源目录失败', detail: String(e) })
+  }
 }
 
 export async function syncCurrentToVault(): Promise<void> {

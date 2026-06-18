@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { isTracked, canSyncToVault, dialogActionFor, type SotRecord } from './sotvault-logic'
+import { isTracked, canSyncToVault, dialogActionFor, sourceForVault, parentDir, type SotRecord } from './sotvault-logic'
 
 const rec = (vault: string, source: string): SotRecord => ({
   vault_path: vault, source_path: source, synced_at: 1, source_hash: 'a', vault_hash: 'a',
@@ -40,5 +40,23 @@ describe('dialogActionFor', () => {
     expect(dialogActionFor('up_to_date')).toBe('none')
     expect(dialogActionFor('not_tracked')).toBe('none')
     expect(dialogActionFor('anything-else')).toBe('none')
+  })
+})
+
+describe('sourceForVault', () => {
+  const recs = [rec('/v/Sync/a.md', '/src/a.md')]
+  it('returns the source path for a tracked vault copy', () => {
+    expect(sourceForVault('/v/Sync/a.md', recs)).toBe('/src/a.md')
+  })
+  it('returns null for an untracked or missing path', () => {
+    expect(sourceForVault('/v/Sync/other.md', recs)).toBe(null)
+    expect(sourceForVault(null, recs)).toBe(null)
+  })
+})
+
+describe('parentDir', () => {
+  it('returns the containing directory', () => {
+    expect(parentDir('/src/proj/a.md')).toBe('/src/proj')
+    expect(parentDir('/a.md')).toBe('/')
   })
 })
