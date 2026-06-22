@@ -27,6 +27,10 @@ impl RecordStore {
         self.records.iter().find(|r| r.vault_path == vault_path)
     }
 
+    pub fn find_by_source(&self, source_path: &str) -> Option<&Record> {
+        self.records.iter().find(|r| r.source_path == source_path)
+    }
+
     pub fn upsert(&mut self, rec: Record) {
         if let Some(existing) = self.records.iter_mut().find(|r| r.vault_path == rec.vault_path) {
             *existing = rec;
@@ -116,6 +120,15 @@ mod tests {
         store.upsert(rec("/vault/a.md", "/src/a.md"));
         store.remove("/vault/a.md");
         assert!(store.find_by_vault("/vault/a.md").is_none());
+    }
+
+    #[test]
+    fn find_by_source_matches_source_path() {
+        let mut store = RecordStore::default();
+        store.upsert(rec("/vault/a.md", "/src/a.md"));
+        assert_eq!(store.find_by_source("/src/a.md").unwrap().vault_path, "/vault/a.md");
+        assert!(store.find_by_source("/vault/a.md").is_none());
+        assert!(store.find_by_source("/src/missing.md").is_none());
     }
 
     #[test]

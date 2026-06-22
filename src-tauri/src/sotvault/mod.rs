@@ -6,6 +6,8 @@ pub mod store;
 
 use std::path::PathBuf;
 use std::sync::Arc;
+
+use serde::Serialize;
 use tauri::{AppHandle, Manager};
 
 use logic::UpdateOutcome;
@@ -100,18 +102,46 @@ pub fn sotvault_sync_to_vault(
     Ok(rec)
 }
 
+/// Result of an open-time update check. `vault_path` is the tracked vault copy
+/// for whichever side was opened; `opened_is_source` distinguishes "opened the
+/// source file" from "opened the vault copy" so the UI can word the prompt.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateCheck {
+    pub outcome: UpdateOutcome,
+    pub vault_path: Option<String>,
+    pub opened_is_source: bool,
+}
+
+/// Check whether an opened file (either the vault copy OR its source) is out of
+/// sync. Keyed by vault_path first, then source_path, so opening either side of
+/// a synced pair surfaces a pending change.
 #[tauri::command]
-pub fn sotvault_check_update(app: AppHandle, opened_path: String) -> Result<UpdateOutcome, String> {
+pub fn sotvault_check_update(app: AppHandle, opened_path: String) -> Result<UpdateCheck, String> {
     let s = load_store(&app)?;
-    let record = match s.find_by_vault(&opened_path) {
-        Some(r) => r.clone(),
-        None => return Ok(UpdateOutcome::NotTracked),
+    let (record, opened_is_source) = match s.find_by_vault(&opened_path) {
+        Some(r) => (r.clone(), false),
+        None => match s.find_by_source(&opened_path) {
+            Some(r) => (r.clone(), true),
+            None => {
+                return Ok(UpdateCheck {
+                    outcome: UpdateOutcome::NotTracked,
+                    vault_path: None,
+                    opened_is_source: false,
+                })
+            }
+        },
     };
-    logic::check_update_io(
+    let outcome = logic::check_update_io(
         &record,
         std::path::Path::new(&record.source_path),
         std::path::Path::new(&record.vault_path),
-    )
+    )?;
+    Ok(UpdateCheck {
+        outcome,
+        vault_path: Some(record.vault_path),
+        opened_is_source,
+    })
 }
 
 /// Overwrite the vault copy from its source, refresh fingerprints, and return

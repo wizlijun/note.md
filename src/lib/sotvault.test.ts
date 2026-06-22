@@ -16,63 +16,88 @@ vi.mock('./tabs.svelte', () => ({
 
 import { maybeCheckVaultUpdate } from './sotvault.svelte'
 
+const VAULT = '/v/Sync/a.md'
+
+/** check_update result for opening the vault copy. */
+const vaultCheck = (outcome: string) => ({ outcome, vaultPath: VAULT, openedIsSource: false })
+/** check_update result for opening the source file. */
+const sourceCheck = (outcome: string) => ({ outcome, vaultPath: VAULT, openedIsSource: true })
+
 beforeEach(() => {
   invoke.mockReset(); ask.mockReset(); pushToast.mockReset(); reloadTabFromDisk.mockReset()
 })
 
 describe('maybeCheckVaultUpdate', () => {
   it('does nothing on up_to_date', async () => {
-    invoke.mockResolvedValueOnce('up_to_date')
-    await maybeCheckVaultUpdate({ filePath: '/v/Imported/a.md' })
+    invoke.mockResolvedValueOnce(vaultCheck('up_to_date'))
+    await maybeCheckVaultUpdate({ filePath: VAULT })
+    expect(ask).not.toHaveBeenCalled()
+  })
+
+  it('does nothing when not tracked', async () => {
+    invoke.mockResolvedValueOnce({ outcome: 'not_tracked', vaultPath: null, openedIsSource: false })
+    await maybeCheckVaultUpdate({ filePath: '/random/x.md' })
     expect(ask).not.toHaveBeenCalled()
   })
 
   it('toasts on source_missing, no dialog', async () => {
-    invoke.mockResolvedValueOnce('source_missing')
-    await maybeCheckVaultUpdate({ filePath: '/v/Imported/a.md' })
+    invoke.mockResolvedValueOnce(vaultCheck('source_missing'))
+    await maybeCheckVaultUpdate({ filePath: VAULT })
     expect(ask).not.toHaveBeenCalled()
     expect(pushToast).toHaveBeenCalledWith(expect.objectContaining({ level: 'warn' }))
   })
 
-  it('applies update when origin_updated is confirmed', async () => {
+  it('applies update when origin_updated is confirmed (vault copy opened)', async () => {
     invoke
-      .mockResolvedValueOnce('origin_updated')   // sotvault_check_update
-      .mockResolvedValueOnce('NEW CONTENT')      // sotvault_apply_update
-      .mockResolvedValueOnce('/v')               // sotvault_vault_root (refresh)
-      .mockResolvedValueOnce([])                 // sotvault_records (refresh)
+      .mockResolvedValueOnce(vaultCheck('origin_updated')) // sotvault_check_update
+      .mockResolvedValueOnce('NEW CONTENT')                // sotvault_apply_update
+      .mockResolvedValueOnce('/v')                         // sotvault_vault_root (refresh)
+      .mockResolvedValueOnce([])                           // sotvault_records (refresh)
     ask.mockResolvedValueOnce(true)
-    await maybeCheckVaultUpdate({ filePath: '/v/Imported/a.md' })
-    expect(invoke).toHaveBeenCalledWith('sotvault_apply_update', { vaultPath: '/v/Imported/a.md' })
-    expect(reloadTabFromDisk).toHaveBeenCalledWith('/v/Imported/a.md')
+    await maybeCheckVaultUpdate({ filePath: VAULT })
+    expect(invoke).toHaveBeenCalledWith('sotvault_apply_update', { vaultPath: VAULT })
+    expect(reloadTabFromDisk).toHaveBeenCalledWith(VAULT)
+  })
+
+  it('prompts to sync when the opened SOURCE file changed since last sync', async () => {
+    invoke
+      .mockResolvedValueOnce(sourceCheck('origin_updated')) // check_update keyed by source
+      .mockResolvedValueOnce('NEW CONTENT')                 // apply_update
+      .mockResolvedValueOnce('/v')                          // refresh root
+      .mockResolvedValueOnce([])                            // refresh records
+    ask.mockResolvedValueOnce(true)
+    await maybeCheckVaultUpdate({ filePath: '/src/a.md' })
+    // applies to the resolved vault path, not the opened source path
+    expect(invoke).toHaveBeenCalledWith('sotvault_apply_update', { vaultPath: VAULT })
   })
 
   it('does not apply when origin_updated is declined', async () => {
-    invoke.mockResolvedValueOnce('origin_updated')
+    invoke.mockResolvedValueOnce(vaultCheck('origin_updated'))
     ask.mockResolvedValueOnce(false)
-    await maybeCheckVaultUpdate({ filePath: '/v/Imported/a.md' })
+    await maybeCheckVaultUpdate({ filePath: VAULT })
     expect(invoke).toHaveBeenCalledTimes(1)
   })
 
   it('conflict: overwrite path applies update', async () => {
     invoke
-      .mockResolvedValueOnce('conflict')
+      .mockResolvedValueOnce(vaultCheck('conflict'))
       .mockResolvedValueOnce('NEW')   // apply_update
       .mockResolvedValueOnce('/v')    // refresh root
       .mockResolvedValueOnce([])      // refresh records
     ask.mockResolvedValueOnce(true)   // overwrite? yes
-    await maybeCheckVaultUpdate({ filePath: '/v/Imported/a.md' })
-    expect(invoke).toHaveBeenCalledWith('sotvault_apply_update', { vaultPath: '/v/Imported/a.md' })
+    await maybeCheckVaultUpdate({ filePath: VAULT })
+    expect(invoke).toHaveBeenCalledWith('sotvault_apply_update', { vaultPath: VAULT })
   })
 
   it('conflict: keep-vault path accepts current', async () => {
     invoke
-      .mockResolvedValueOnce('conflict')
+      .mockResolvedValueOnce(vaultCheck('conflict'))
       .mockResolvedValueOnce(undefined) // accept_current
       .mockResolvedValueOnce('/v')      // refresh root
       .mockResolvedValueOnce([])        // refresh records
     ask.mockResolvedValueOnce(false)    // overwrite? no
     ask.mockResolvedValueOnce(true)     // keep vault & stop prompting? yes
-    await maybeCheckVaultUpdate({ filePath: '/v/Imported/a.md' })
-    expect(invoke).toHaveBeenCalledWith('sotvault_accept_current', { vaultPath: '/v/Imported/a.md' })
+    await maybeCheckVaultUpdate({ filePath: VAULT })
+    expect(invoke).toHaveBeenCalledWith('sotvault_accept_current', { vaultPath: VAULT })
   })
 })
