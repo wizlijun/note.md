@@ -40,9 +40,10 @@ describe('verifyAllOpen', () => {
     const tabs = await import('./tabs.svelte')
     const watcher = await import('./file-watcher.svelte')
     await tabs.openFile('/tmp/foo.md')
+    tabs.toggleMode(tabs.tabs[0].id)              // → source: only source-mode tabs autoReload
     await watcher.verifyAllOpen()
     const t = tabs.tabs[0]
-    expect(t.externalState).toBe('fresh')         // clean → auto-reloaded, stays fresh
+    expect(t.externalState).toBe('fresh')         // clean source tab → auto-reloaded, stays fresh
     expect(t.initialContent).toBe('B')
     expect(t.currentContent).toBe('B')
     expect(t.lastKnownMtime).toBe(2000)
