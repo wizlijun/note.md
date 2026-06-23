@@ -29,8 +29,11 @@ ${body}
  * toast and return — images don't go through the HTML render pipeline.
  */
 export async function printActiveTab(): Promise<void> {
+  // Only markdown / html / code render through the HTML pipeline. image and
+  // spreadsheet (CSV) tabs have no HTML rendering, so printing them is a no-op.
+  const PRINTABLE_KINDS = new Set(['markdown', 'html', 'code'])
   const tab = activeTab()
-  if (!tab || tab.kind === 'image') {
+  if (!tab || !PRINTABLE_KINDS.has(tab.kind)) {
     pushToast({ level: 'info', message: '没有可打印的内容' })
     return
   }
@@ -56,6 +59,8 @@ export async function printActiveTab(): Promise<void> {
     cleaned = true
     iframe.remove()
   }
+
+  iframe.onerror = cleanup
 
   iframe.onload = () => {
     const win = iframe.contentWindow
