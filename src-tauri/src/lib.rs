@@ -972,6 +972,12 @@ fn build_menu<R: tauri::Runtime>(
             &MenuItemBuilder::with_id("save-as", "Save As…")
                 .accelerator("Cmd+Shift+S")
                 .build(app)?,
+        )
+        .separator()
+        .item(
+            &MenuItemBuilder::with_id("print", "Print…")
+                .accelerator("Cmd+P")
+                .build(app)?,
         );
     for it in plugin_items.iter().filter(|p| p.location == "file") {
         let mut b = MenuItemBuilder::with_id(&it.id, &it.label);
