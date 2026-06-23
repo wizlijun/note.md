@@ -3,6 +3,7 @@
   import { vaultStore, syncNow } from '../lib/vault.svelte'
   import { fileIcon, type VaultListEntry } from '../lib/vault-list'
   import { openFile } from '../lib/tabs.svelte'
+  import { showError } from '../lib/dialogs'
 
   let { onCloseDrawer = () => {} }: { onCloseDrawer?: () => void } = $props()
 
@@ -47,7 +48,7 @@
       const docs = await documentDir()
       const abs = `${docs.replace(/\/$/, '')}/Vault/${joinRel(e.name)}`
       onCloseDrawer()
-      try { await openFile(abs) } catch {}
+      try { await openFile(abs) } catch (e) { console.warn(e); showError(String(e)) }
     }
   }
 
