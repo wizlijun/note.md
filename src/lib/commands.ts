@@ -1,6 +1,7 @@
 import { activeTab, saveActive, saveAs, openFile, closeTab, toggleMode } from './tabs.svelte'
 import { confirmDirtyClose, pickOpenFile, pickSaveFile, showError } from './dialogs'
 import { sharePublishCurrent, shareUnpublishCurrent, shareCopyLinkCurrent } from './share'
+import { printActiveTab } from './print'
 
 export async function cmdOpen(): Promise<void> {
   const p = await pickOpenFile()
@@ -24,6 +25,10 @@ export async function cmdSaveAs(): Promise<void> {
   try { await saveAs(t.id, p) } catch (e) { await showError(`Save As failed: ${e}`) }
 }
 
+export async function cmdPrint(): Promise<void> {
+  await printActiveTab()
+}
+
 export async function cmdCloseActive(): Promise<void> {
   const t = activeTab()
   if (!t) return
@@ -41,6 +46,7 @@ export type CommandId =
   | 'open'
   | 'save'
   | 'save-as'
+  | 'print'
   | 'close-tab'
   | 'toggle-mode'
   | 'preferences'
@@ -53,6 +59,7 @@ const handlers: Record<CommandId, () => void | Promise<void>> = {
   'open': cmdOpen,
   'save': cmdSave,
   'save-as': cmdSaveAs,
+  'print': cmdPrint,
   'close-tab': cmdCloseActive,
   'toggle-mode': cmdToggleMode,
   'preferences': openSettings,

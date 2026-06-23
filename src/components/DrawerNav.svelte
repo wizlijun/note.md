@@ -2,6 +2,7 @@
   import { dispatch } from '../lib/commands'
   import { getRecentFiles } from '../lib/settings.svelte'
   import { openFile } from '../lib/tabs.svelte'
+  import { showError } from '../lib/dialogs'
   import VaultBrowser from './VaultBrowser.svelte'
 
   let { open = $bindable(false) }: { open?: boolean } = $props()
@@ -9,7 +10,7 @@
 
   async function pickRecent(p: string) {
     open = false
-    try { await openFile(p) } catch {}
+    try { await openFile(p) } catch (e) { console.warn(e); showError(String(e)) }
   }
 
   function basename(p: string): string {

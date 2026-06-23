@@ -1,11 +1,11 @@
 <script lang="ts">
-  import { pickOpenFile } from '../lib/dialogs'
+  import { pickOpenFile, showError } from '../lib/dialogs'
   import { openFile, newFile } from '../lib/tabs.svelte'
 
   async function onOpen() {
     const p = await pickOpenFile()
     if (p) {
-      try { await openFile(p) } catch (e) { console.warn(e) }
+      try { await openFile(p) } catch (e) { console.warn(e); showError(String(e)) }
     }
   }
 

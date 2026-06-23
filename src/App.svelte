@@ -14,9 +14,9 @@
   import ModeToggle from './components/ModeToggle.svelte'
   import { activeTab, tabs, closeTab, openFile, newFile, isDirty, activate } from './lib/tabs.svelte'
   import { loadSettings, settings } from './lib/settings.svelte'
-  import { cmdOpen, cmdSave, cmdSaveAs, cmdCloseActive, cmdToggleMode, dispatch, type CommandId } from './lib/commands'
+  import { cmdOpen, cmdSave, cmdSaveAs, cmdPrint, cmdCloseActive, cmdToggleMode, dispatch, type CommandId } from './lib/commands'
   import { cmdMdblockRefresh } from './lib/mdblock/commands'
-  import { confirmDirtyClose } from './lib/dialogs'
+  import { confirmDirtyClose, showError } from './lib/dialogs'
   import { startAutoSaveWatcher } from './lib/autosave.svelte'
   import { installFocusPoll } from './lib/file-watcher.svelte'
   import SettingsDialog from './components/SettingsDialog.svelte'
@@ -107,7 +107,7 @@
         await openFile(e.payload)
         win.show()
         win.setFocus()
-      } catch (err) { console.warn('[App] open-file:', err) }
+      } catch (err) { console.warn('[App] open-file:', err); showError(String(err)) }
     })
 
     // Vault-link resolution: chat window requests editor to focus + open a file.
@@ -116,7 +116,7 @@
         await openFile(e.payload)
         win.show()
         win.setFocus()
-      } catch (err) { console.warn('[App] editor://open-path:', err) }
+      } catch (err) { console.warn('[App] editor://open-path:', err); showError(String(err)) }
     })
 
     // Web-mode remote buffer: agent sends file content → open as untitled tab.
@@ -133,7 +133,7 @@
 
     invoke<string[]>('drain_pending_files').then(async (paths) => {
       for (const p of paths) {
-        try { await openFile(p) } catch (err) { console.warn('[App] drain_pending_files:', err) }
+        try { await openFile(p) } catch (err) { console.warn('[App] drain_pending_files:', err); showError(String(err)) }
       }
     }).catch((err) => console.warn('[App] drain_pending_files:', err))
 
@@ -148,7 +148,7 @@
             // Fall through; openFile will reject if path is bad
           }
         }
-        openFile(path).catch((err) => console.warn('[App] deep-link openFile:', path, err))
+        openFile(path).catch((err) => { console.warn('[App] deep-link openFile:', path, err); showError(String(err)) })
       }
     })
 
@@ -401,6 +401,7 @@
         case 'open':        cmdOpen(); break
         case 'save':        cmdSave(); break
         case 'save-as':     cmdSaveAs(); break
+        case 'print':       cmdPrint(); break
         case 'close-tab':   cmdCloseActive(); break
         case 'toggle-mode': cmdToggleMode(); break
         case 'find':        openFind(); break
@@ -488,7 +489,7 @@
             } catch (e) { console.warn('[App] drop theme_import:', e) }
             continue
           }
-          try { await openFile(path) } catch (e) { console.warn('[App] drop openFile:', e) }
+          try { await openFile(path) } catch (e) { console.warn('[App] drop openFile:', e); showError(String(e)) }
         }
       }
     })

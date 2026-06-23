@@ -247,11 +247,11 @@ describe('tabs', () => {
     const m = await import('./tabs.svelte')
     await m.openFile('/tmp/foo.md')
     const id = m.tabs[0].id
-    expect(m.tabs[0].mode).toBe('source')
-    m.toggleMode(id)
     expect(m.tabs[0].mode).toBe('rich')
     m.toggleMode(id)
     expect(m.tabs[0].mode).toBe('source')
+    m.toggleMode(id)
+    expect(m.tabs[0].mode).toBe('rich')
   })
 
   it('closeTab dirty non-active named tab → save=same path restores original active', async () => {
@@ -277,7 +277,7 @@ describe('tabs', () => {
     const m = await import('./tabs.svelte')
     await m.openFile('/tmp/foo.md')
     const id = m.tabs[0].id
-    m.toggleMode(id)              // mode = 'rich'
+    m.toggleMode(id)              // rich (default) → source
     m.setContent(id, 'edited')
     expect(m.isDirty(id)).toBe(true)
     await m.saveAs(id, '/tmp/bar.md')
@@ -288,7 +288,7 @@ describe('tabs', () => {
     expect(settings.pushRecentFile).toHaveBeenCalledWith('/tmp/bar.md')
     // Allow setRecentMode to flush
     await new Promise((r) => setTimeout(r, 0))
-    expect(settings.setRecentMode).toHaveBeenCalledWith('md', 'rich')
+    expect(settings.setRecentMode).toHaveBeenCalledWith('md', 'source')
   })
 
   it('openFile uses stored mode for extension', async () => {
@@ -299,19 +299,19 @@ describe('tabs', () => {
     expect(m.tabs[0].mode).toBe('rich')
   })
 
-  it('openFile defaults to source when no stored mode', async () => {
+  it('openFile defaults to rich when no stored mode', async () => {
     const m = await import('./tabs.svelte')
     await m.openFile('/tmp/foo.md')
-    expect(m.tabs[0].mode).toBe('source')
+    expect(m.tabs[0].mode).toBe('rich')
   })
 
   it('setMode persists choice keyed by extension', async () => {
     const settings = await import('./settings.svelte')
     const m = await import('./tabs.svelte')
     await m.openFile('/tmp/foo.md')
-    m.toggleMode(m.tabs[0].id)
+    m.toggleMode(m.tabs[0].id)   // rich (default) → source
     await new Promise((r) => setTimeout(r, 0))
-    expect(settings.setRecentMode).toHaveBeenCalledWith('md', 'rich')
+    expect(settings.setRecentMode).toHaveBeenCalledWith('md', 'source')
   })
 
   it('openFile classifies markdown', async () => {
@@ -319,14 +319,14 @@ describe('tabs', () => {
     await m.openFile('/tmp/foo.md')
     expect(m.tabs[0].kind).toBe('markdown')
     expect(m.tabs[0].language).toBeUndefined()
-    expect(m.tabs[0].mode).toBe('source')
+    expect(m.tabs[0].mode).toBe('rich')
   })
 
-  it('openFile classifies html with default source mode', async () => {
+  it('openFile classifies html with default rich mode', async () => {
     const m = await import('./tabs.svelte')
     await m.openFile('/tmp/index.html')
     expect(m.tabs[0].kind).toBe('html')
-    expect(m.tabs[0].mode).toBe('source')
+    expect(m.tabs[0].mode).toBe('rich')
   })
 
   it('openFile classifies code with language', async () => {
@@ -334,7 +334,7 @@ describe('tabs', () => {
     await m.openFile('/tmp/script.py')
     expect(m.tabs[0].kind).toBe('code')
     expect(m.tabs[0].language).toBe('python')
-    expect(m.tabs[0].mode).toBe('source')
+    expect(m.tabs[0].mode).toBe('rich')
   })
 
   it('openFile rejects binary content', async () => {
@@ -435,12 +435,12 @@ describe('tabs', () => {
     expect(t.currentContent).toContain('content of /tmp/data.csv')
   })
 
-  it('openFile tsv: kind=code (tab-delimited not yet implemented), mode=source', async () => {
+  it('openFile tsv: kind=code (tab-delimited not yet implemented), mode=rich', async () => {
     const m = await import('./tabs.svelte')
     await m.openFile('/tmp/data.tsv')
     const t = m.tabs[0]
     expect(t.kind).toBe('code')
-    expect(t.mode).toBe('source')
+    expect(t.mode).toBe('rich')
   })
 
   it('openFile image: kind=image, currentContent empty, mode=rich', async () => {
@@ -476,9 +476,9 @@ describe('tabs', () => {
   it('newFile inherits mode from the currently active non-image tab', async () => {
     const m = await import('./tabs.svelte')
     await m.openFile('/tmp/foo.md')
-    m.toggleMode(m.tabs[0].id)   // → 'rich'
+    m.toggleMode(m.tabs[0].id)   // rich (default) → source
     m.newFile()
-    expect(m.tabs[1].mode).toBe('rich')
+    expect(m.tabs[1].mode).toBe('source')
   })
 
   it('newFile falls back to source mode when no tab is open', async () => {
