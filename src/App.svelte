@@ -14,7 +14,7 @@
   import ModeToggle from './components/ModeToggle.svelte'
   import { activeTab, tabs, closeTab, openFile, newFile, isDirty, activate } from './lib/tabs.svelte'
   import { loadSettings, settings } from './lib/settings.svelte'
-  import { cmdOpen, cmdSave, cmdSaveAs, cmdCloseActive, cmdToggleMode, dispatch, type CommandId } from './lib/commands'
+  import { cmdOpen, cmdSave, cmdSaveAs, cmdPrint, cmdCloseActive, cmdToggleMode, dispatch, type CommandId } from './lib/commands'
   import { cmdMdblockRefresh } from './lib/mdblock/commands'
   import { confirmDirtyClose, showError } from './lib/dialogs'
   import { startAutoSaveWatcher } from './lib/autosave.svelte'
@@ -401,6 +401,7 @@
         case 'open':        cmdOpen(); break
         case 'save':        cmdSave(); break
         case 'save-as':     cmdSaveAs(); break
+        case 'print':       cmdPrint(); break
         case 'close-tab':   cmdCloseActive(); break
         case 'toggle-mode': cmdToggleMode(); break
         case 'find':        openFind(); break
