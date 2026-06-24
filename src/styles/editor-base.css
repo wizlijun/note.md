@@ -437,6 +437,7 @@
   border-radius: 3px;
   background: Canvas;
   box-sizing: border-box;
+  cursor: pointer;
   transition: background-color 0.12s ease, border-color 0.12s ease;
 }
 .moraya-editor li[data-item-type="task"][data-checked="true"]::before {
