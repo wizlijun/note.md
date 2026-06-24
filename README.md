@@ -133,7 +133,11 @@ native-UI (AppKit/SwiftUI) app.
 - **Highlight mark** (`^^text^^` or `==text==`) — renders yellow highlighted text
   in both source (syntax decoration) and rich modes. `Cmd+H` in source view wraps
   the current selection; rich mode renders and serialises the mark transparently.
-- **Universal binary** support (Intel + Apple Silicon)
+- **Task list checkboxes** — in rich mode, click a `- [ ]` / `- [x]` checkbox to
+  toggle it; the change round-trips to the Markdown source (`[ ]` ↔ `[x]`). The
+  marker shows a pointer cursor on hover.
+- **Apple Silicon & Intel builds** — shipped as two independent per-arch `.dmg`s
+  (`aarch64` and `x86_64`); auto-update picks the matching architecture
 
 ## Develop
 
@@ -150,16 +154,30 @@ For the current Mac architecture only:
 pnpm tauri build
 ```
 
-For a universal (Intel + Apple Silicon) `.app`:
+For both architectures (each produces its own `.app` — universal mode is retired):
 
 ```bash
-rustup target add x86_64-apple-darwin aarch64-apple-darwin
-pnpm tauri build --target universal-apple-darwin
+rustup target add aarch64-apple-darwin x86_64-apple-darwin
+pnpm tauri build --target aarch64-apple-darwin
+pnpm tauri build --target x86_64-apple-darwin
 ```
 
 Output:
-- single-arch: `src-tauri/target/release/bundle/macos/M↓.app`
-- universal: `src-tauri/target/universal-apple-darwin/release/bundle/macos/M↓.app`
+- current-arch: `src-tauri/target/release/bundle/macos/M↓.app`
+- per-arch: `src-tauri/target/<arch>-apple-darwin/release/bundle/macos/M↓.app`
+
+## Release (maintainers)
+
+```bash
+scripts/release.sh <x.y.z>
+```
+
+Runs, in order: tests → version bump → signed per-arch build (`aarch64` +
+`x86_64`) → notarize → tag → push → GitHub Release. Each release ships two
+`.dmg`s, two updater tarballs + signatures, and a `latest.json` manifest whose
+per-arch entries drive auto-update. Requires `APPLE_ID`, `APPLE_PASSWORD`, and
+`APPLE_TEAM_ID` in `.env.release`, plus the Tauri updater signing key at
+`~/.tauri/mdeditor.key`.
 
 ## CLI
 

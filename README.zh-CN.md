@@ -110,7 +110,10 @@ UI 是 Web 技术（HTML/CSS/JS），渲染在 macOS 系统自带的 WebView（W
   图片和文档的文件选择入口。方向键导航，Enter 或 Tab 插入。
 - **高亮标记**（`^^文字^^` 或 `==文字==`）—— 在源码和富文本模式下均显示黄色高亮。
   源码模式 `Cmd+H` 快速包裹选区；富文本模式透明渲染并序列化。
-- **Universal binary**（Intel + Apple Silicon 通用）
+- **任务列表复选框** —— 富文本模式下单击 `- [ ]` / `- [x]` 复选框即可切换勾选状态，
+  改动会同步回 Markdown 源码（`[ ]` ↔ `[x]`）；鼠标悬停复选框显示手型光标。
+- **Apple Silicon 与 Intel 构建** —— 发布为两个独立的按架构 `.dmg`（`aarch64`
+  与 `x86_64`）；自动更新会自动匹配对应架构
 
 ## 开发
 
@@ -127,16 +130,17 @@ pnpm tauri dev
 pnpm tauri build
 ```
 
-构建 Universal（Intel + Apple Silicon 通用）`.app`：
+分别构建两个架构（各自产出独立 `.app`，Universal 模式已废弃）：
 
 ```bash
-rustup target add x86_64-apple-darwin aarch64-apple-darwin
-pnpm tauri build --target universal-apple-darwin
+rustup target add aarch64-apple-darwin x86_64-apple-darwin
+pnpm tauri build --target aarch64-apple-darwin
+pnpm tauri build --target x86_64-apple-darwin
 ```
 
 输出位置：
-- 单架构：`src-tauri/target/release/bundle/macos/M↓.app`
-- Universal：`src-tauri/target/universal-apple-darwin/release/bundle/macos/M↓.app`
+- 当前架构：`src-tauri/target/release/bundle/macos/M↓.app`
+- 按架构：`src-tauri/target/<arch>-apple-darwin/release/bundle/macos/M↓.app`
 
 ## CLI
 
@@ -159,11 +163,14 @@ CLI 只暴露**已启用**插件贡献的子命令。在 **Preferences → Plugi
 ## 发布（仓库维护者）
 
 ```bash
-scripts/release.sh 0.x.y --universal
+scripts/release.sh <x.y.z>
 ```
 
-会按顺序执行：跑测试 → bump 版本号 → 签名构建 → 公证 → 打 tag → push → 创建 GitHub Release。
-需要在 `.env.release` 里配 `APPLE_ID`、`APPLE_PASSWORD`、`APPLE_TEAM_ID`。
+会按顺序执行：跑测试 → bump 版本号 → 按架构签名构建（`aarch64` + `x86_64`）→ 公证
+→ 打 tag → push → 创建 GitHub Release。每次发布产出两个 `.dmg`、两个 updater 压缩包
+及签名，以及驱动自动更新的 `latest.json`（按架构分别记录）。需要在 `.env.release` 里配
+`APPLE_ID`、`APPLE_PASSWORD`、`APPLE_TEAM_ID`，以及位于 `~/.tauri/mdeditor.key` 的
+Tauri updater 签名私钥。
 
 ## 分享插件部署（可选）
 
@@ -189,8 +196,8 @@ wrangler deploy                       # 输出 Worker URL
 ## 测试清单
 
 完整的手工冒烟测试清单见英文版 [`README.md`](README.md) 的 *Manual Smoke Test*
-小节（共 56 项），覆盖文件操作、外部修改检测、PDF 导出、插件平台、Share 插件
-等所有发布前必须跑一遍的场景。
+小节（覆盖 macOS 与 iOS 全场景），包含文件操作、外部修改检测、PDF 导出、插件平台、
+Share 插件、主题导入、块 ID、Vault 同步等所有发布前必须跑一遍的场景。
 
 ## 许可证
 
