@@ -118,6 +118,10 @@ fn do_sync(app: &AppHandle, repo: &PathBuf, remote: &str, branch: &str) {
     set_state(app, SyncState::Syncing);
     mgr.logs.push("INFO", "Syncing...");
 
+    let head_before = git_ops::run_git(repo, &["rev-parse", "HEAD"])
+        .ok()
+        .map(|s| s.trim().to_string());
+
     match git_ops::sync(repo, remote, branch) {
         Ok(()) => {
             let ts = format!("{}", std::time::SystemTime::now()
@@ -127,6 +131,20 @@ fn do_sync(app: &AppHandle, repo: &PathBuf, remote: &str, branch: &str) {
             *mgr.error_msg.lock().unwrap() = None;
             set_state(app, SyncState::Running);
             mgr.logs.push("INFO", "Sync completed");
+
+            // If this sync changed any per-device recents file, tell the UI to refresh the menu.
+            let head_after = git_ops::run_git(repo, &["rev-parse", "HEAD"])
+                .ok()
+                .map(|s| s.trim().to_string());
+            if let (Some(before), Some(after)) = (head_before.as_ref(), head_after.as_ref()) {
+                if before != after {
+                    if let Ok(diff) = git_ops::run_git(repo, &["diff", "--name-only", before, after]) {
+                        if diff.lines().any(|l| l.trim().starts_with(".mdeditor/recents/")) {
+                            let _ = app.emit("editor://recents-synced", ());
+                        }
+                    }
+                }
+            }
         }
         Err(e) => {
             if e.contains("conflict") || e.contains("Conflict") {
