@@ -78,6 +78,58 @@ describe('settings', () => {
 
 })
 
+describe('recent files: opened-at, tombstones, removal', () => {
+  it('pushRecentFile records a lastOpened timestamp for the path', async () => {
+    const { pushRecentFile, getRecentOpenedAt } = await import('./settings.svelte')
+    const before = Date.now()
+    await pushRecentFile('/tmp/a.md')
+    const ts = getRecentOpenedAt()['/tmp/a.md']
+    expect(ts).toBeGreaterThanOrEqual(before)
+  })
+
+  it('removeRecentFile drops the path, clears its timestamp, and tombstones it', async () => {
+    const { pushRecentFile, removeRecentFile, getRecentFiles, getRecentOpenedAt, getRecentTombstones } =
+      await import('./settings.svelte')
+    await pushRecentFile('/tmp/a.md')
+    await pushRecentFile('/tmp/b.md')
+    await removeRecentFile('/tmp/a.md')
+    expect(getRecentFiles()).not.toContain('/tmp/a.md')
+    expect(getRecentFiles()).toContain('/tmp/b.md')
+    expect(getRecentOpenedAt()['/tmp/a.md']).toBeUndefined()
+    expect(getRecentTombstones()).toContain('/tmp/a.md')
+  })
+
+  it('loadSettings hydrates recentOpenedAt and recentTombstones', async () => {
+    mockGet.mockImplementation(async (key: string) => {
+      if (key === 'recentOpenedAt') return { '/tmp/x.md': 123 }
+      if (key === 'recentTombstones') return ['/tmp/gone.md']
+      return undefined
+    })
+    const { loadSettings, getRecentOpenedAt, getRecentTombstones } = await import('./settings.svelte')
+    await loadSettings()
+    expect(getRecentOpenedAt()['/tmp/x.md']).toBe(123)
+    expect(getRecentTombstones()).toContain('/tmp/gone.md')
+  })
+
+  it('getDeviceId generates and persists an id when absent', async () => {
+    mockGet.mockResolvedValue(undefined)
+    const { loadSettings, getDeviceId } = await import('./settings.svelte')
+    await loadSettings()
+    const id = getDeviceId()
+    expect(typeof id).toBe('string')
+    expect(id.length).toBeGreaterThan(0)
+    expect(mockSet.mock.calls.some((a) => a[0] === 'device.id')).toBe(true)
+  })
+
+  it('setRecentsChangedHandler is invoked on pushRecentFile', async () => {
+    const { setRecentsChangedHandler, pushRecentFile } = await import('./settings.svelte')
+    const fn = vi.fn()
+    setRecentsChangedHandler(fn)
+    await pushRecentFile('/tmp/z.md')
+    expect(fn).toHaveBeenCalled()
+  })
+})
+
 describe('theme settings', () => {
   it('migrates legacy `skin: "effie"` into theme.{light,dark,followSystem:false}', async () => {
     mockGet.mockImplementation(async (key: string) => {

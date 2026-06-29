@@ -61,6 +61,11 @@ export const settings = $state<{
 let store: Awaited<ReturnType<typeof Store.load>> | null = null
 let recentFiles: string[] = []
 let recentModesByExt: Record<string, Mode> = {}
+let recentOpenedAt: Record<string, number> = {}
+let recentTombstones: string[] = []
+let deviceId: string | null = null
+let recentsChangedHandler: (() => void) | null = null
+const TOMBSTONE_CAP = 200
 let pluginScoped: Record<string, Record<string, unknown>> = {}
 let pluginsEnabled: Record<string, boolean> = {}
 let settingsHydrated = false
@@ -157,6 +162,14 @@ export async function loadSettings(): Promise<void> {
 
   recentFiles = (await s.get<string[]>('recentFiles')) ?? []
   recentModesByExt = (await s.get<Record<string, Mode>>('recentModesByExt')) ?? {}
+  recentOpenedAt = (await s.get<Record<string, number>>('recentOpenedAt')) ?? {}
+  recentTombstones = (await s.get<string[]>('recentTombstones')) ?? []
+  deviceId = (await s.get<string>('device.id')) ?? null
+  if (!deviceId) {
+    deviceId = crypto.randomUUID()
+    await s.set('device.id', deviceId)
+    await s.save()
+  }
   pluginScoped = (await s.get<Record<string, Record<string, unknown>>>('plugins')) ?? {}
   pluginsEnabled = (await s.get<Record<string, boolean>>('plugins.enabled')) ?? {}
   const storedMdblock = await s.get<MdblockSettings>('mdblock')
@@ -180,6 +193,8 @@ export async function saveSettings(): Promise<void> {
   await s.set('theme', settings.theme)
   await s.set('recentFiles', recentFiles)
   await s.set('recentModesByExt', recentModesByExt)
+  await s.set('recentOpenedAt', recentOpenedAt)
+  await s.set('recentTombstones', recentTombstones)
   await s.set('plugins', pluginScoped)
   await s.set('plugins.enabled', pluginsEnabled)
   await s.set('mdblock', settings.mdblock)
@@ -192,7 +207,42 @@ export function getRecentFiles(): readonly string[] {
 
 export async function pushRecentFile(path: string): Promise<void> {
   recentFiles = [path, ...recentFiles.filter((p) => p !== path)].slice(0, 10)
+  recentOpenedAt[path] = Date.now()
+  // Drop timestamps for paths no longer in the list.
+  for (const k of Object.keys(recentOpenedAt)) {
+    if (!recentFiles.includes(k)) delete recentOpenedAt[k]
+  }
+  // Re-opening a previously-failed file clears its tombstone.
+  recentTombstones = recentTombstones.filter((p) => p !== path)
   await saveSettings()
+  recentsChangedHandler?.()
+}
+
+/** Remove a recent (e.g. it failed to open) and tombstone it so a synced copy won't resurrect it. */
+export async function removeRecentFile(path: string): Promise<void> {
+  recentFiles = recentFiles.filter((p) => p !== path)
+  delete recentOpenedAt[path]
+  recentTombstones = [path, ...recentTombstones.filter((p) => p !== path)].slice(0, TOMBSTONE_CAP)
+  await saveSettings()
+  recentsChangedHandler?.()
+}
+
+export function getRecentOpenedAt(): Readonly<Record<string, number>> {
+  return recentOpenedAt
+}
+
+export function getRecentTombstones(): readonly string[] {
+  return recentTombstones
+}
+
+export function getDeviceId(): string {
+  if (!deviceId) deviceId = crypto.randomUUID()
+  return deviceId
+}
+
+/** Registered by the recent-sync module; fired after any change to the recents list. */
+export function setRecentsChangedHandler(fn: (() => void) | null): void {
+  recentsChangedHandler = fn
 }
 
 /**
