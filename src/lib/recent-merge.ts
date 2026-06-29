@@ -37,6 +37,33 @@ export function toSyncedEntry(absPath: string, lastOpened: number, vaultRoot: st
   return { abs: absPath, lastOpened }
 }
 
+/**
+ * Resolve this device's recent files (stored most-recent-first) into
+ * ResolvedRecent[] whose `lastOpened` values strictly decrease in list order.
+ *
+ * Real timestamps are honoured where they don't violate that order; entries
+ * without a stored timestamp (e.g. files opened before timestamps were tracked)
+ * slot just below their predecessor. Anchoring to the previous entry — not to
+ * the current wall clock — is what keeps the merged menu in
+ * most-recently-opened-first order: a synthetic "now - index" fallback lets
+ * legacy entries drift above genuinely-recent files as time passes.
+ */
+export function resolveLocalRecents(
+  recentFiles: readonly string[],
+  openedAt: Readonly<Record<string, number>>,
+  nowAnchor: number,
+): ResolvedRecent[] {
+  const out: ResolvedRecent[] = []
+  let ceiling = nowAnchor + 1
+  for (const p of recentFiles) {
+    const real = openedAt[p]
+    const ts = real != null && real < ceiling ? real : ceiling - 1
+    out.push({ path: p, lastOpened: ts })
+    ceiling = ts
+  }
+  return out
+}
+
 /** Resolve a synced entry to an absolute path on this device, or null if unresolvable. */
 export function resolveEntry(e: SyncedEntry, vaultRoot: string | null): ResolvedRecent | null {
   if (e.rel != null) {

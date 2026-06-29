@@ -3,6 +3,7 @@ import {
   isUnder,
   toSyncedEntry,
   resolveEntry,
+  resolveLocalRecents,
   mergeRecents,
   formatRecentLabel,
   type DeviceRecents,
@@ -38,6 +39,39 @@ describe('resolveEntry', () => {
   })
   it('passes abs through unchanged', () => {
     expect(resolveEntry({ abs: '/x/a.md', lastOpened: 5 }, '/local')).toEqual({ path: '/x/a.md', lastOpened: 5 })
+  })
+})
+
+describe('resolveLocalRecents', () => {
+  it('preserves most-recent-first order with strictly-decreasing timestamps when none are tracked', () => {
+    const r = resolveLocalRecents(['/a', '/b', '/c'], {}, 1000)
+    expect(r.map((x) => x.path)).toEqual(['/a', '/b', '/c'])
+    expect(r[0].lastOpened).toBeGreaterThan(r[1].lastOpened)
+    expect(r[1].lastOpened).toBeGreaterThan(r[2].lastOpened)
+  })
+
+  it('does not let a real timestamp drift below later wall-clock legacy entries', () => {
+    // /a opened at t=100 (real). Menu refreshed much later (nowAnchor=10000).
+    // /b and /c have no stored timestamp. /a must stay first; legacy entries
+    // slot just below it — they must NOT jump above /a using the current clock.
+    const r = resolveLocalRecents(['/a', '/b', '/c'], { '/a': 100 }, 10000)
+    expect(r.map((x) => x.path)).toEqual(['/a', '/b', '/c'])
+    expect(r[0].lastOpened).toBe(100)
+    expect(r[1].lastOpened).toBeLessThan(100)
+    expect(r[2].lastOpened).toBeLessThan(r[1].lastOpened)
+  })
+
+  it('honours real timestamps that already match list order', () => {
+    const r = resolveLocalRecents(['/a', '/b'], { '/a': 200, '/b': 100 }, 10000)
+    expect(r).toEqual([{ path: '/a', lastOpened: 200 }, { path: '/b', lastOpened: 100 }])
+  })
+
+  it('clamps an out-of-order real timestamp so list order always wins', () => {
+    // /b has a (stale/larger) timestamp than /a but sits lower in the list.
+    const r = resolveLocalRecents(['/a', '/b'], { '/a': 100, '/b': 999 }, 10000)
+    expect(r.map((x) => x.path)).toEqual(['/a', '/b'])
+    expect(r[0].lastOpened).toBe(100)
+    expect(r[1].lastOpened).toBeLessThan(100)
   })
 })
 

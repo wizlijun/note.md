@@ -13,6 +13,7 @@ import {
 import { sotvaultStore } from './sotvault.svelte'
 import {
   toSyncedEntry,
+  resolveLocalRecents,
   mergeRecents,
   formatRecentLabel,
   type DeviceRecents,
@@ -30,9 +31,7 @@ function recentsDir(vaultRoot: string): string {
 }
 
 function localResolved(): ResolvedRecent[] {
-  const openedAt = getRecentOpenedAt()
-  const now = Date.now()
-  return getRecentFiles().map((p, idx) => ({ path: p, lastOpened: openedAt[p] ?? now - idx }))
+  return resolveLocalRecents(getRecentFiles(), getRecentOpenedAt(), Date.now())
 }
 
 async function readOtherDeviceFiles(vaultRoot: string | null): Promise<DeviceRecents[]> {
