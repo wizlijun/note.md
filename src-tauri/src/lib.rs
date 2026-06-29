@@ -37,6 +37,8 @@ pub mod vault_ios;
 pub struct PendingFiles(Mutex<Vec<String>>);
 #[cfg(not(target_os = "ios"))]
 pub struct TrayRepoItem(Mutex<Option<MenuItem<tauri::Wry>>>);
+#[cfg(not(target_os = "ios"))]
+pub struct RecentMenu(pub Mutex<Option<Submenu<tauri::Wry>>>);
 
 #[tauri::command]
 fn drain_pending_files(state: tauri::State<'_, PendingFiles>) -> Vec<String> {
@@ -571,6 +573,8 @@ pub fn run() {
     #[cfg(not(target_os = "ios"))]
     let builder = builder.manage(TrayRepoItem(Mutex::new(None)));
     #[cfg(not(target_os = "ios"))]
+    let builder = builder.manage(RecentMenu(Mutex::new(None)));
+    #[cfg(not(target_os = "ios"))]
     let builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
         dlog(&format!("single_instance argv: {:?}", argv));
         for arg in argv.iter().skip(1) {
@@ -649,6 +653,7 @@ pub fn run() {
                 crate::openclaw::commands::openclaw_upload_attachment,
                 editor_show_and_open_path,
                 editor_open_remote_buffer,
+                update_recent_menu,
                 file_exists,
                 shared_config_read,
                 shared_config_write,
@@ -727,7 +732,8 @@ pub fn run() {
                 }
 
                 let plugin_items = plugin_host::collect_top_menu_items();
-                let menu = build_menu(&app.handle(), &plugin_items)?;
+                let (menu, recent_submenu) = build_menu(&app.handle(), &plugin_items)?;
+                *app.state::<RecentMenu>().0.lock().unwrap() = Some(recent_submenu);
                 app.set_menu(menu)?;
                 app.on_menu_event(|app, event| {
                     if event.id().0.as_str() == "hide-app" {
@@ -925,10 +931,51 @@ fn emit_open_file_delayed<R: tauri::Runtime>(app: &tauri::AppHandle<R>, path: &s
 }
 
 #[cfg(not(target_os = "ios"))]
+#[cfg(not(target_os = "ios"))]
+#[derive(serde::Deserialize)]
+struct RecentMenuItem {
+    index: usize,
+    label: String,
+}
+
+/// Rebuild the File ▸ Open Recent submenu from the frontend's merged list.
+/// Item ids are `open-recent:<index>`; clicks flow through the normal menu-event.
+#[cfg(not(target_os = "ios"))]
+#[tauri::command]
+fn update_recent_menu(app: tauri::AppHandle, items: Vec<RecentMenuItem>) -> Result<(), String> {
+    let state = app.state::<RecentMenu>();
+    let guard = state.0.lock().unwrap();
+    let submenu = guard.as_ref().ok_or("recent menu not initialized")?;
+
+    // Clear existing items.
+    loop {
+        match submenu.remove_at(0) {
+            Ok(Some(_)) => continue,
+            _ => break,
+        }
+    }
+
+    if items.is_empty() {
+        let placeholder = MenuItemBuilder::with_id("recent-none", "No Recent Files")
+            .enabled(false)
+            .build(&app)
+            .map_err(|e| e.to_string())?;
+        submenu.append(&placeholder).map_err(|e| e.to_string())?;
+    } else {
+        for it in items {
+            let mi = MenuItemBuilder::with_id(format!("open-recent:{}", it.index), it.label)
+                .build(&app)
+                .map_err(|e| e.to_string())?;
+            submenu.append(&mi).map_err(|e| e.to_string())?;
+        }
+    }
+    Ok(())
+}
+
 fn build_menu<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
     plugin_items: &[plugin_host::LocatedMenuItem],
-) -> tauri::Result<Menu<R>> {
+) -> tauri::Result<(Menu<R>, Submenu<R>)> {
     let app_meta = AboutMetadata {
         name: Some("M↓".into()),
         version: Some(env!("CARGO_PKG_VERSION").into()),
@@ -957,9 +1004,18 @@ fn build_menu<R: tauri::Runtime>(
         .item(&PredefinedMenuItem::quit(app, None)?)
         .build()?;
 
+    let recent_menu: Submenu<R> = SubmenuBuilder::new(app, "Open Recent")
+        .item(
+            &MenuItemBuilder::with_id("recent-none", "No Recent Files")
+                .enabled(false)
+                .build(app)?,
+        )
+        .build()?;
+
     let mut file_b = SubmenuBuilder::new(app, "File")
         .item(&MenuItemBuilder::with_id("new", "New").accelerator("Cmd+N").build(app)?)
         .item(&MenuItemBuilder::with_id("open", "Open…").accelerator("Cmd+O").build(app)?)
+        .item(&recent_menu)
         .separator()
         .item(
             &MenuItemBuilder::with_id("close-tab", "Close Tab")
@@ -1063,5 +1119,6 @@ fn build_menu<R: tauri::Runtime>(
     let mut top = MenuBuilder::new(app);
     top = top.items(&[&app_menu, &file_menu, &edit_menu, &view_menu]);
     if let Some(pm) = &plugins_menu { top = top.item(pm); }
-    top.items(&[&window_menu, &help_menu]).build()
+    let menu = top.items(&[&window_menu, &help_menu]).build()?;
+    Ok((menu, recent_menu))
 }
