@@ -1,12 +1,13 @@
 <script lang="ts">
   import { dispatch } from '../lib/commands'
   import { getRecentFiles } from '../lib/settings.svelte'
+  import { mergedRecents } from '../lib/recent-sync.svelte'
   import { openFile } from '../lib/tabs.svelte'
   import { showError } from '../lib/dialogs'
   import VaultBrowser from './VaultBrowser.svelte'
 
   let { open = $bindable(false) }: { open?: boolean } = $props()
-  let recents = $derived(getRecentFiles())
+  let recents = $derived(mergedRecents.paths.length ? mergedRecents.paths : getRecentFiles())
 
   async function pickRecent(p: string) {
     open = false

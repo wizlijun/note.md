@@ -13,7 +13,7 @@
   import EmptyState from './components/EmptyState.svelte'
   import ModeToggle from './components/ModeToggle.svelte'
   import { activeTab, tabs, closeTab, openFile, newFile, isDirty, activate } from './lib/tabs.svelte'
-  import { loadSettings, settings } from './lib/settings.svelte'
+  import { loadSettings, settings, removeRecentFile } from './lib/settings.svelte'
   import { cmdOpen, cmdSave, cmdSaveAs, cmdPrint, cmdCloseActive, cmdToggleMode, dispatch, type CommandId } from './lib/commands'
   import { cmdMdblockRefresh } from './lib/mdblock/commands'
   import { confirmDirtyClose, showError } from './lib/dialogs'
@@ -46,6 +46,7 @@
   import { platform, isIOS } from './lib/platform.svelte'
   import { vaultStore, refreshStatus, syncNow, attachStatusListener } from './lib/vault.svelte'
   import { syncCurrentToVault, canSyncActive, isTrackedVaultFile, refreshSotvault, sotvaultStore } from './lib/sotvault.svelte'
+  import { installRecentsSync, mergedRecents } from './lib/recent-sync.svelte'
 
   /** Open an in-memory read-only buffer received from the remote agent.
    *  The tab gets title "[remote] <basename>" and its content is pre-filled.
@@ -389,11 +390,27 @@
       })
     })()
 
+    let cleanupRecents: (() => void) | null = null
+    installRecentsSync().then((fn) => { cleanupRecents = fn })
+
     const unlistenMenu = listen<string>('menu-event', async (e) => {
       const id = e.payload
       const plugin = parsePluginMenuId(id)
       if (plugin) {
         await dispatchPlugin(plugin.pluginId, plugin.command)
+        return
+      }
+      if (id.startsWith('open-recent:')) {
+        const idx = parseInt(id.slice('open-recent:'.length), 10)
+        const path = mergedRecents.paths[idx]
+        if (path) {
+          try {
+            await openFile(path)
+          } catch (e) {
+            await removeRecentFile(path)
+            await showError(String(e))
+          }
+        }
         return
       }
       switch (id) {
@@ -507,6 +524,7 @@
       unlistenOpenPath.then((fn) => fn())
       unlistenOpenRemoteBuffer.then((fn) => fn())
       unlistenDeepLink.then((fn) => fn())
+      cleanupRecents?.()
       stopAutoSave?.()
     }
   })
