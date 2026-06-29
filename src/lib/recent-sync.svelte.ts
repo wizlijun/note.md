@@ -86,6 +86,13 @@ export async function refreshRecentMenu(): Promise<void> {
 
 /**
  * Wire everything up. Call once on app mount.
+ *
+ * Note: this intentionally does NOT push the menu itself — it can run before
+ * `loadSettings()` has populated `recentFiles`, and publishing an empty list
+ * here would leave the File ▸ Open Recent menu stuck on its "No Recent Files"
+ * placeholder. The caller must invoke `refreshRecentMenu()` once settings (and
+ * the vault root) are loaded.
+ *
  * Returns a cleanup function.
  */
 export async function installRecentsSync(): Promise<() => void> {
@@ -98,7 +105,6 @@ export async function installRecentsSync(): Promise<() => void> {
   const unlisten = await listen('editor://recents-synced', () => {
     void refreshRecentMenu()
   })
-  await refreshRecentMenu()
   return () => {
     setRecentsChangedHandler(null)
     unlisten()

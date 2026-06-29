@@ -46,7 +46,7 @@
   import { platform, isIOS } from './lib/platform.svelte'
   import { vaultStore, refreshStatus, syncNow, attachStatusListener } from './lib/vault.svelte'
   import { syncCurrentToVault, canSyncActive, isTrackedVaultFile, refreshSotvault, sotvaultStore } from './lib/sotvault.svelte'
-  import { installRecentsSync, mergedRecents } from './lib/recent-sync.svelte'
+  import { installRecentsSync, refreshRecentMenu, mergedRecents } from './lib/recent-sync.svelte'
 
   /** Open an in-memory read-only buffer received from the remote agent.
    *  The tab gets title "[remote] <basename>" and its content is pre-filled.
@@ -371,7 +371,10 @@
       configureActionHandlers({ reinvokePlugin: dispatchPlugin })
       // Make dispatchPlugin reachable from other components (TabBar's right-click).
       setPluginDispatcher(dispatchPlugin)
-      void refreshSotvault()
+      // Populate the Open Recent menu now that settings (recentFiles) and the
+      // vault root are loaded. installRecentsSync deliberately skips this — it
+      // can run before loadSettings finishes.
+      void refreshSotvault().then(() => refreshRecentMenu()).catch((e) => console.warn('[App] recents init:', e))
     })()
 
     const uninstallFocus = installFocusPoll()
