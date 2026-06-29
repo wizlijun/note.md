@@ -55,6 +55,10 @@
       "identifier": "fs:allow-mkdir",
       "allow": [{ "path": "**" }, { "path": "/**" }]
     },
+    {
+      "identifier": "fs:allow-read-dir",
+      "allow": [{ "path": "**" }, { "path": "/**" }]
+    },
     "opener:default",
     "opener:allow-open-path",
     "opener:allow-open-url",
