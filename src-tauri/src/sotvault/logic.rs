@@ -113,6 +113,104 @@ pub fn dated_basename(basename: &str, date_prefix: &str) -> String {
     format!("{date_prefix}-{basename}")
 }
 
+/// Image file extensions (lowercase), mirroring paste-resources.ts.
+const IMAGE_EXTENSIONS: &[&str] = &[
+    "png", "jpg", "jpeg", "gif", "svg", "webp", "bmp", "ico", "tiff", "tif", "avif",
+];
+
+/// True when `name`'s extension (case-insensitive) is a known image type.
+pub fn is_image_ext(name: &str) -> bool {
+    match name.rfind('.') {
+        Some(i) if i + 1 < name.len() => {
+            let ext = name[i + 1..].to_ascii_lowercase();
+            IMAGE_EXTENSIONS.contains(&ext.as_str())
+        }
+        _ => false,
+    }
+}
+
+/// The per-md assets directory name derived from the vault md file stem.
+pub fn assets_dir_name(stem: &str) -> String {
+    format!("{stem}.assets")
+}
+
+/// Scan markdown for inline image links `![alt](target)` and return each raw
+/// `target` string (the text between the parentheses), in document order.
+/// v1: no nested `]`/`)`, no reference-style, no HTML.
+pub fn scan_image_link_targets(md: &str) -> Vec<String> {
+    let b = md.as_bytes();
+    let mut out = Vec::new();
+    let mut i = 0usize;
+    while i + 1 < b.len() {
+        if b[i] == b'!' && b[i + 1] == b'[' {
+            if let Some(close) = find_byte(b, i + 2, b']') {
+                if close + 1 < b.len() && b[close + 1] == b'(' {
+                    if let Some(rparen) = find_byte(b, close + 2, b')') {
+                        out.push(md[close + 2..rparen].to_string());
+                        i = rparen + 1;
+                        continue;
+                    }
+                }
+            }
+        }
+        i += 1;
+    }
+    out
+}
+
+fn find_byte(b: &[u8], from: usize, needle: u8) -> Option<usize> {
+    (from..b.len()).find(|&j| b[j] == needle)
+}
+
+/// Extract the path portion from a raw link target, stripping an optional
+/// `"title"` and unwrapping `<...>` angle brackets.
+pub fn extract_link_path(raw: &str) -> String {
+    let t = raw.trim();
+    if let Some(stripped) = t.strip_prefix('<') {
+        return stripped.split('>').next().unwrap_or("").to_string();
+    }
+    // Path runs until the first ASCII whitespace (a title, if any, follows).
+    match t.find(char::is_whitespace) {
+        Some(i) => t[..i].to_string(),
+        None => t.to_string(),
+    }
+}
+
+/// True when `p` is a relative local path (not a URL, not absolute, not data:).
+pub fn is_relative_local(p: &str) -> bool {
+    let t = p.trim();
+    if t.is_empty() || t.starts_with('/') || t.starts_with('#') {
+        return false;
+    }
+    if t.starts_with("data:") || t.contains("://") {
+        return false;
+    }
+    // Windows drive-absolute, e.g. C:\...
+    let b = t.as_bytes();
+    if b.len() >= 2 && b[1] == b':' {
+        return false;
+    }
+    true
+}
+
+/// Rebuild a raw link target with `new_path` swapped in, preserving an optional
+/// `"title"` and `<...>` angle brackets.
+pub fn rewrite_link_target(raw: &str, new_path: &str) -> String {
+    let t = raw.trim();
+    if t.starts_with('<') {
+        // <path>rest  ->  <new_path>rest
+        let after = match t.find('>') {
+            Some(i) => &t[i + 1..],
+            None => "",
+        };
+        return format!("<{new_path}>{after}");
+    }
+    match t.find(char::is_whitespace) {
+        Some(i) => format!("{}{}", new_path, &t[i..]),
+        None => new_path.to_string(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -232,5 +330,59 @@ mod tests {
     fn dated_basename_prefixes_when_existing_prefix_is_not_strict_format() {
         // single-digit month/day is not a yyyy-MM-dd- prefix
         assert_eq!(dated_basename("2026-1-2-notes.md", "2026-06-18"), "2026-06-18-2026-1-2-notes.md");
+    }
+
+    #[test]
+    fn is_image_ext_matches_known_extensions() {
+        assert!(is_image_ext("a/b/pic.PNG"));
+        assert!(is_image_ext("x.jpeg"));
+        assert!(is_image_ext("x.svg"));
+        assert!(!is_image_ext("x.pdf"));
+        assert!(!is_image_ext("noext"));
+        assert!(!is_image_ext("trailing."));
+    }
+
+    #[test]
+    fn assets_dir_name_appends_suffix() {
+        assert_eq!(assets_dir_name("2026-07-03-notes"), "2026-07-03-notes.assets");
+    }
+
+    #[test]
+    fn scan_finds_inline_image_targets_only() {
+        let md = "text ![a](assets/x.png) more [not img](y.md) ![b](<z.png>) end";
+        let got = scan_image_link_targets(md);
+        assert_eq!(got, vec!["assets/x.png".to_string(), "<z.png>".to_string()]);
+    }
+
+    #[test]
+    fn extract_link_path_handles_title_and_angles() {
+        assert_eq!(extract_link_path("assets/x.png"), "assets/x.png");
+        assert_eq!(extract_link_path("  assets/x.png  \"a title\""), "assets/x.png");
+        assert_eq!(extract_link_path("<assets/my file.png>"), "assets/my file.png");
+    }
+
+    #[test]
+    fn is_relative_local_rejects_absolute_and_urls() {
+        assert!(is_relative_local("assets/x.png"));
+        assert!(is_relative_local("./images/x.png"));
+        assert!(!is_relative_local("/abs/x.png"));
+        assert!(!is_relative_local("https://h/x.png"));
+        assert!(!is_relative_local("http://h/x.png"));
+        assert!(!is_relative_local("data:image/png;base64,AAAA"));
+        assert!(!is_relative_local("C:\\win\\x.png"));
+        assert!(!is_relative_local(""));
+    }
+
+    #[test]
+    fn rewrite_link_target_preserves_title_and_angles() {
+        assert_eq!(rewrite_link_target("assets/x.png", "d.assets/x.png"), "d.assets/x.png");
+        assert_eq!(
+            rewrite_link_target("assets/x.png \"t\"", "d.assets/x.png"),
+            "d.assets/x.png \"t\""
+        );
+        assert_eq!(
+            rewrite_link_target("<assets/x.png>", "d.assets/x.png"),
+            "<d.assets/x.png>"
+        );
     }
 }
