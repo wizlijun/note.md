@@ -206,13 +206,35 @@ pub fn sotvault_check_update(app: AppHandle, opened_path: String) -> Result<Upda
 pub fn sotvault_apply_update(app: AppHandle, vault_path: String) -> Result<String, String> {
     let mut s = load_store(&app)?;
     let rec = s.find_by_vault(&vault_path).cloned().ok_or("not tracked")?;
-    let bytes = std::fs::read(&rec.source_path).map_err(|e| e.to_string())?;
-    std::fs::write(&rec.vault_path, &bytes).map_err(|e| e.to_string())?;
-    let hash = logic::sha256_hex(&bytes);
-    let updated = Record { synced_at: now_secs(), source_hash: hash.clone(), vault_hash: hash, ..rec };
+    let src_bytes = std::fs::read(&rec.source_path).map_err(|e| e.to_string())?;
+
+    let vault_pathbuf = PathBuf::from(&rec.vault_path);
+    let dest_dir = vault_pathbuf.parent().unwrap_or_else(|| Path::new("."));
+    let stem = vault_pathbuf
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("")
+        .to_string();
+    let source_dir = Path::new(&rec.source_path)
+        .parent()
+        .unwrap_or_else(|| Path::new("."));
+
+    let vault_string: String = match std::str::from_utf8(&src_bytes) {
+        Ok(src_md) => bundle_referenced_images(src_md, source_dir, dest_dir, &stem)?,
+        Err(_) => return Err("source is not valid UTF-8".into()),
+    };
+    let vault_bytes = vault_string.clone().into_bytes();
+    std::fs::write(&rec.vault_path, &vault_bytes).map_err(|e| e.to_string())?;
+
+    let updated = Record {
+        synced_at: now_secs(),
+        source_hash: logic::sha256_hex(&src_bytes),
+        vault_hash: logic::sha256_hex(&vault_bytes),
+        ..rec
+    };
     s.upsert(updated);
     save_store(&app, &s)?;
-    String::from_utf8(bytes).map_err(|e| e.to_string())
+    Ok(vault_string)
 }
 
 /// Acknowledge a conflict by keeping the vault copy as-is and re-baselining the
