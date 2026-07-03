@@ -221,6 +221,7 @@ pub struct CopyOp {
 
 /// One planned link rewrite. Applied by the caller only after the matching
 /// CopyOp copies successfully (keeps md refs consistent with copied files).
+/// The caller applies rewrites via `str::replace` on `original`, which replaces all identical occurrences at once.
 #[derive(Debug, Clone, PartialEq)]
 pub struct PlannedRef {
     /// The exact `(target)` token in the source md, including parentheses.
@@ -259,7 +260,7 @@ pub fn plan_image_assets(
     exists: &dyn Fn(&Path) -> bool,
 ) -> (Vec<PlannedRef>, Vec<CopyOp>) {
     let mut used_names: HashSet<String> = HashSet::new();
-    let mut abs_to_dest: HashMap<String, String> = HashMap::new();
+    let mut abs_to_dest: HashMap<PathBuf, String> = HashMap::new();
     let mut seen_originals: HashSet<String> = HashSet::new();
     let mut copies: Vec<CopyOp> = Vec::new();
     let mut refs: Vec<PlannedRef> = Vec::new();
@@ -277,14 +278,16 @@ pub fn plan_image_assets(
         if !seen_originals.insert(original.clone()) {
             continue; // identical token already planned
         }
-        let abs_key = abs.to_string_lossy().to_string();
-        let dest = match abs_to_dest.get(&abs_key) {
+        let dest = match abs_to_dest.get(&abs) {
             Some(d) => d.clone(),
             None => {
-                let basename = path.rsplit('/').next().unwrap_or(&path);
+                let basename = std::path::Path::new(&path)
+                    .file_name()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or(&path);
                 let name = dedup_name(basename, &used_names);
                 used_names.insert(name.clone());
-                abs_to_dest.insert(abs_key, name.clone());
+                abs_to_dest.insert(abs.clone(), name.clone());
                 copies.push(CopyOp { src_abs: abs.clone(), dest_filename: name.clone() });
                 name
             }
