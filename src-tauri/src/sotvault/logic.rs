@@ -1,6 +1,7 @@
 use super::store::Record;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 /// SHA-256 hex digest of `bytes`.
@@ -111,6 +112,190 @@ pub fn dated_basename(basename: &str, date_prefix: &str) -> String {
         return basename.to_string();
     }
     format!("{date_prefix}-{basename}")
+}
+
+/// Image file extensions (lowercase), mirroring paste-resources.ts.
+const IMAGE_EXTENSIONS: &[&str] = &[
+    "png", "jpg", "jpeg", "gif", "svg", "webp", "bmp", "ico", "tiff", "tif", "avif",
+];
+
+/// True when `name`'s extension (case-insensitive) is a known image type.
+pub fn is_image_ext(name: &str) -> bool {
+    match name.rfind('.') {
+        Some(i) if i + 1 < name.len() => {
+            let ext = name[i + 1..].to_ascii_lowercase();
+            IMAGE_EXTENSIONS.contains(&ext.as_str())
+        }
+        _ => false,
+    }
+}
+
+/// The per-md assets directory name derived from the vault md file stem.
+pub fn assets_dir_name(stem: &str) -> String {
+    format!("{stem}.assets")
+}
+
+/// Scan markdown for inline image links `![alt](target)` and return each raw
+/// `target` string (the text between the parentheses), in document order.
+/// v1: no nested `]`/`)`, no reference-style, no HTML.
+pub fn scan_image_link_targets(md: &str) -> Vec<String> {
+    let b = md.as_bytes();
+    let mut out = Vec::new();
+    let mut i = 0usize;
+    while i + 1 < b.len() {
+        if b[i] == b'!' && b[i + 1] == b'[' {
+            if let Some(close) = find_byte(b, i + 2, b']') {
+                if close + 1 < b.len() && b[close + 1] == b'(' {
+                    if let Some(rparen) = find_byte(b, close + 2, b')') {
+                        out.push(md[close + 2..rparen].to_string());
+                        i = rparen + 1;
+                        continue;
+                    }
+                }
+            }
+        }
+        i += 1;
+    }
+    out
+}
+
+fn find_byte(b: &[u8], from: usize, needle: u8) -> Option<usize> {
+    (from..b.len()).find(|&j| b[j] == needle)
+}
+
+/// Extract the path portion from a raw link target, stripping an optional
+/// `"title"` and unwrapping `<...>` angle brackets.
+pub fn extract_link_path(raw: &str) -> String {
+    let t = raw.trim();
+    if let Some(stripped) = t.strip_prefix('<') {
+        return stripped.split('>').next().unwrap_or("").to_string();
+    }
+    // Path runs until the first ASCII whitespace (a title, if any, follows).
+    match t.find(char::is_whitespace) {
+        Some(i) => t[..i].to_string(),
+        None => t.to_string(),
+    }
+}
+
+/// True when `p` is a relative local path (not a URL, not absolute, not data:).
+pub fn is_relative_local(p: &str) -> bool {
+    let t = p.trim();
+    if t.is_empty() || t.starts_with('/') || t.starts_with('#') {
+        return false;
+    }
+    if t.starts_with("data:") || t.contains("://") {
+        return false;
+    }
+    // Windows drive-absolute, e.g. C:\...
+    let b = t.as_bytes();
+    if b.len() >= 2 && b[1] == b':' {
+        return false;
+    }
+    true
+}
+
+/// Rebuild a raw link target with `new_path` swapped in, preserving an optional
+/// `"title"` and `<...>` angle brackets.
+pub fn rewrite_link_target(raw: &str, new_path: &str) -> String {
+    let t = raw.trim();
+    if t.starts_with('<') {
+        // <path>rest  ->  <new_path>rest
+        let after = match t.find('>') {
+            Some(i) => &t[i + 1..],
+            None => "",
+        };
+        return format!("<{new_path}>{after}");
+    }
+    match t.find(char::is_whitespace) {
+        Some(i) => format!("{}{}", new_path, &t[i..]),
+        None => new_path.to_string(),
+    }
+}
+
+/// One file to copy into the assets dir: absolute source -> dest filename.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CopyOp {
+    pub src_abs: PathBuf,
+    pub dest_filename: String,
+}
+
+/// One planned link rewrite. Applied by the caller only after the matching
+/// CopyOp copies successfully (keeps md refs consistent with copied files).
+/// The caller applies rewrites via `str::replace` on `original`, which replaces all identical occurrences at once.
+#[derive(Debug, Clone, PartialEq)]
+pub struct PlannedRef {
+    /// The exact `(target)` token in the source md, including parentheses.
+    pub original: String,
+    /// The replacement `(target)` token pointing into the assets dir.
+    pub rewritten: String,
+    pub dest_filename: String,
+}
+
+/// Pick a non-colliding filename within an assets dir given already-used names.
+fn dedup_name(name: &str, used: &HashSet<String>) -> String {
+    if !used.contains(name) {
+        return name.to_string();
+    }
+    let (stem, ext) = split_ext(name);
+    let mut n = 2;
+    loop {
+        let candidate = match &ext {
+            Some(e) => format!("{stem}-{n}.{e}"),
+            None => format!("{stem}-{n}"),
+        };
+        if !used.contains(&candidate) {
+            return candidate;
+        }
+        n += 1;
+    }
+}
+
+/// Scan `md` for inline images with relative-local image paths that exist under
+/// `source_dir`, and plan how to bundle them into `{stem}.assets/`.
+/// Returns (rewrite plan, copy plan). Pure: `exists` decides file presence.
+pub fn plan_image_assets(
+    md: &str,
+    source_dir: &Path,
+    stem: &str,
+    exists: &dyn Fn(&Path) -> bool,
+) -> (Vec<PlannedRef>, Vec<CopyOp>) {
+    let mut used_names: HashSet<String> = HashSet::new();
+    let mut abs_to_dest: HashMap<PathBuf, String> = HashMap::new();
+    let mut seen_originals: HashSet<String> = HashSet::new();
+    let mut copies: Vec<CopyOp> = Vec::new();
+    let mut refs: Vec<PlannedRef> = Vec::new();
+
+    for raw in scan_image_link_targets(md) {
+        let path = extract_link_path(&raw);
+        if !is_relative_local(&path) || !is_image_ext(&path) {
+            continue;
+        }
+        let abs = source_dir.join(&path);
+        if !exists(&abs) {
+            continue;
+        }
+        let original = format!("({raw})");
+        if !seen_originals.insert(original.clone()) {
+            continue; // identical token already planned
+        }
+        let dest = match abs_to_dest.get(&abs) {
+            Some(d) => d.clone(),
+            None => {
+                let basename = std::path::Path::new(&path)
+                    .file_name()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or(&path);
+                let name = dedup_name(basename, &used_names);
+                used_names.insert(name.clone());
+                abs_to_dest.insert(abs.clone(), name.clone());
+                copies.push(CopyOp { src_abs: abs.clone(), dest_filename: name.clone() });
+                name
+            }
+        };
+        let rewritten = format!("({})", rewrite_link_target(&raw, &format!("{stem}.assets/{dest}")));
+        refs.push(PlannedRef { original, rewritten, dest_filename: dest });
+    }
+    (refs, copies)
 }
 
 #[cfg(test)]
@@ -232,5 +417,126 @@ mod tests {
     fn dated_basename_prefixes_when_existing_prefix_is_not_strict_format() {
         // single-digit month/day is not a yyyy-MM-dd- prefix
         assert_eq!(dated_basename("2026-1-2-notes.md", "2026-06-18"), "2026-06-18-2026-1-2-notes.md");
+    }
+
+    #[test]
+    fn is_image_ext_matches_known_extensions() {
+        assert!(is_image_ext("a/b/pic.PNG"));
+        assert!(is_image_ext("x.jpeg"));
+        assert!(is_image_ext("x.svg"));
+        assert!(!is_image_ext("x.pdf"));
+        assert!(!is_image_ext("noext"));
+        assert!(!is_image_ext("trailing."));
+    }
+
+    #[test]
+    fn assets_dir_name_appends_suffix() {
+        assert_eq!(assets_dir_name("2026-07-03-notes"), "2026-07-03-notes.assets");
+    }
+
+    #[test]
+    fn scan_finds_inline_image_targets_only() {
+        let md = "text ![a](assets/x.png) more [not img](y.md) ![b](<z.png>) end";
+        let got = scan_image_link_targets(md);
+        assert_eq!(got, vec!["assets/x.png".to_string(), "<z.png>".to_string()]);
+    }
+
+    #[test]
+    fn extract_link_path_handles_title_and_angles() {
+        assert_eq!(extract_link_path("assets/x.png"), "assets/x.png");
+        assert_eq!(extract_link_path("  assets/x.png  \"a title\""), "assets/x.png");
+        assert_eq!(extract_link_path("<assets/my file.png>"), "assets/my file.png");
+    }
+
+    #[test]
+    fn is_relative_local_rejects_absolute_and_urls() {
+        assert!(is_relative_local("assets/x.png"));
+        assert!(is_relative_local("./images/x.png"));
+        assert!(!is_relative_local("/abs/x.png"));
+        assert!(!is_relative_local("https://h/x.png"));
+        assert!(!is_relative_local("http://h/x.png"));
+        assert!(!is_relative_local("data:image/png;base64,AAAA"));
+        assert!(!is_relative_local("C:\\win\\x.png"));
+        assert!(!is_relative_local(""));
+    }
+
+    #[test]
+    fn rewrite_link_target_preserves_title_and_angles() {
+        assert_eq!(rewrite_link_target("assets/x.png", "d.assets/x.png"), "d.assets/x.png");
+        assert_eq!(
+            rewrite_link_target("assets/x.png \"t\"", "d.assets/x.png"),
+            "d.assets/x.png \"t\""
+        );
+        assert_eq!(
+            rewrite_link_target("<assets/x.png>", "d.assets/x.png"),
+            "<d.assets/x.png>"
+        );
+    }
+
+    fn always(_p: &std::path::Path) -> bool { true }
+
+    #[test]
+    fn plan_no_images_returns_empty() {
+        let (refs, copies) = plan_image_assets("# hi\n[link](a.md)", Path::new("/s"), "d", &always);
+        assert!(refs.is_empty());
+        assert!(copies.is_empty());
+    }
+
+    #[test]
+    fn plan_single_image_rewrites_and_copies() {
+        let md = "![a](assets/x.png)";
+        let (refs, copies) = plan_image_assets(md, Path::new("/s"), "d", &always);
+        assert_eq!(copies.len(), 1);
+        assert_eq!(copies[0].src_abs, PathBuf::from("/s/assets/x.png"));
+        assert_eq!(copies[0].dest_filename, "x.png");
+        assert_eq!(refs.len(), 1);
+        assert_eq!(refs[0].original, "(assets/x.png)");
+        assert_eq!(refs[0].rewritten, "(d.assets/x.png)");
+        assert_eq!(refs[0].dest_filename, "x.png");
+    }
+
+    #[test]
+    fn plan_skips_urls_absolute_and_non_images() {
+        let md = "![a](https://h/x.png) ![b](/abs/y.png) ![c](note.md)";
+        let (refs, copies) = plan_image_assets(md, Path::new("/s"), "d", &always);
+        assert!(refs.is_empty());
+        assert!(copies.is_empty());
+    }
+
+    #[test]
+    fn plan_skips_missing_source_files() {
+        let md = "![a](assets/x.png)";
+        let none = |_p: &Path| false;
+        let (refs, copies) = plan_image_assets(md, Path::new("/s"), "d", &none);
+        assert!(refs.is_empty());
+        assert!(copies.is_empty());
+    }
+
+    #[test]
+    fn plan_dedups_same_basename_from_different_dirs() {
+        let md = "![a](one/img.png) ![b](two/img.png)";
+        let (refs, copies) = plan_image_assets(md, Path::new("/s"), "d", &always);
+        assert_eq!(copies.len(), 2);
+        assert_eq!(copies[0].dest_filename, "img.png");
+        assert_eq!(copies[1].dest_filename, "img-2.png");
+        assert_eq!(refs[0].rewritten, "(d.assets/img.png)");
+        assert_eq!(refs[1].rewritten, "(d.assets/img-2.png)");
+    }
+
+    #[test]
+    fn plan_copies_same_file_once() {
+        let md = "![a](assets/x.png) then again ![a](assets/x.png)";
+        let (refs, copies) = plan_image_assets(md, Path::new("/s"), "d", &always);
+        assert_eq!(copies.len(), 1);
+        assert_eq!(refs.len(), 1); // one unique original token
+        assert_eq!(refs[0].rewritten, "(d.assets/x.png)");
+    }
+
+    #[test]
+    fn plan_preserves_title_in_rewrite() {
+        let md = "![a](assets/x.png \"cap\")";
+        let (refs, _copies) = plan_image_assets(md, Path::new("/s"), "d", &always);
+        assert_eq!(refs[0].original, "(assets/x.png \"cap\")");
+        assert_eq!(refs[0].rewritten, "(d.assets/x.png \"cap\")");
     }
 }
