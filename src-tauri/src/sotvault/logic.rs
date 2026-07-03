@@ -1,6 +1,7 @@
 use super::store::Record;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 /// SHA-256 hex digest of `bytes`.
@@ -211,6 +212,89 @@ pub fn rewrite_link_target(raw: &str, new_path: &str) -> String {
     }
 }
 
+/// One file to copy into the assets dir: absolute source -> dest filename.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CopyOp {
+    pub src_abs: PathBuf,
+    pub dest_filename: String,
+}
+
+/// One planned link rewrite. Applied by the caller only after the matching
+/// CopyOp copies successfully (keeps md refs consistent with copied files).
+#[derive(Debug, Clone, PartialEq)]
+pub struct PlannedRef {
+    /// The exact `(target)` token in the source md, including parentheses.
+    pub original: String,
+    /// The replacement `(target)` token pointing into the assets dir.
+    pub rewritten: String,
+    pub dest_filename: String,
+}
+
+/// Pick a non-colliding filename within an assets dir given already-used names.
+fn dedup_name(name: &str, used: &HashSet<String>) -> String {
+    if !used.contains(name) {
+        return name.to_string();
+    }
+    let (stem, ext) = split_ext(name);
+    let mut n = 2;
+    loop {
+        let candidate = match &ext {
+            Some(e) => format!("{stem}-{n}.{e}"),
+            None => format!("{stem}-{n}"),
+        };
+        if !used.contains(&candidate) {
+            return candidate;
+        }
+        n += 1;
+    }
+}
+
+/// Scan `md` for inline images with relative-local image paths that exist under
+/// `source_dir`, and plan how to bundle them into `{stem}.assets/`.
+/// Returns (rewrite plan, copy plan). Pure: `exists` decides file presence.
+pub fn plan_image_assets(
+    md: &str,
+    source_dir: &Path,
+    stem: &str,
+    exists: &dyn Fn(&Path) -> bool,
+) -> (Vec<PlannedRef>, Vec<CopyOp>) {
+    let mut used_names: HashSet<String> = HashSet::new();
+    let mut abs_to_dest: HashMap<String, String> = HashMap::new();
+    let mut seen_originals: HashSet<String> = HashSet::new();
+    let mut copies: Vec<CopyOp> = Vec::new();
+    let mut refs: Vec<PlannedRef> = Vec::new();
+
+    for raw in scan_image_link_targets(md) {
+        let path = extract_link_path(&raw);
+        if !is_relative_local(&path) || !is_image_ext(&path) {
+            continue;
+        }
+        let abs = source_dir.join(&path);
+        if !exists(&abs) {
+            continue;
+        }
+        let original = format!("({raw})");
+        if !seen_originals.insert(original.clone()) {
+            continue; // identical token already planned
+        }
+        let abs_key = abs.to_string_lossy().to_string();
+        let dest = match abs_to_dest.get(&abs_key) {
+            Some(d) => d.clone(),
+            None => {
+                let basename = path.rsplit('/').next().unwrap_or(&path);
+                let name = dedup_name(basename, &used_names);
+                used_names.insert(name.clone());
+                abs_to_dest.insert(abs_key, name.clone());
+                copies.push(CopyOp { src_abs: abs.clone(), dest_filename: name.clone() });
+                name
+            }
+        };
+        let rewritten = format!("({})", rewrite_link_target(&raw, &format!("{stem}.assets/{dest}")));
+        refs.push(PlannedRef { original, rewritten, dest_filename: dest });
+    }
+    (refs, copies)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -384,5 +468,72 @@ mod tests {
             rewrite_link_target("<assets/x.png>", "d.assets/x.png"),
             "<d.assets/x.png>"
         );
+    }
+
+    fn always(_p: &std::path::Path) -> bool { true }
+
+    #[test]
+    fn plan_no_images_returns_empty() {
+        let (refs, copies) = plan_image_assets("# hi\n[link](a.md)", Path::new("/s"), "d", &always);
+        assert!(refs.is_empty());
+        assert!(copies.is_empty());
+    }
+
+    #[test]
+    fn plan_single_image_rewrites_and_copies() {
+        let md = "![a](assets/x.png)";
+        let (refs, copies) = plan_image_assets(md, Path::new("/s"), "d", &always);
+        assert_eq!(copies.len(), 1);
+        assert_eq!(copies[0].src_abs, PathBuf::from("/s/assets/x.png"));
+        assert_eq!(copies[0].dest_filename, "x.png");
+        assert_eq!(refs.len(), 1);
+        assert_eq!(refs[0].original, "(assets/x.png)");
+        assert_eq!(refs[0].rewritten, "(d.assets/x.png)");
+        assert_eq!(refs[0].dest_filename, "x.png");
+    }
+
+    #[test]
+    fn plan_skips_urls_absolute_and_non_images() {
+        let md = "![a](https://h/x.png) ![b](/abs/y.png) ![c](note.md)";
+        let (refs, copies) = plan_image_assets(md, Path::new("/s"), "d", &always);
+        assert!(refs.is_empty());
+        assert!(copies.is_empty());
+    }
+
+    #[test]
+    fn plan_skips_missing_source_files() {
+        let md = "![a](assets/x.png)";
+        let none = |_p: &Path| false;
+        let (refs, copies) = plan_image_assets(md, Path::new("/s"), "d", &none);
+        assert!(refs.is_empty());
+        assert!(copies.is_empty());
+    }
+
+    #[test]
+    fn plan_dedups_same_basename_from_different_dirs() {
+        let md = "![a](one/img.png) ![b](two/img.png)";
+        let (refs, copies) = plan_image_assets(md, Path::new("/s"), "d", &always);
+        assert_eq!(copies.len(), 2);
+        assert_eq!(copies[0].dest_filename, "img.png");
+        assert_eq!(copies[1].dest_filename, "img-2.png");
+        assert_eq!(refs[0].rewritten, "(d.assets/img.png)");
+        assert_eq!(refs[1].rewritten, "(d.assets/img-2.png)");
+    }
+
+    #[test]
+    fn plan_copies_same_file_once() {
+        let md = "![a](assets/x.png) then again ![a](assets/x.png)";
+        let (refs, copies) = plan_image_assets(md, Path::new("/s"), "d", &always);
+        assert_eq!(copies.len(), 1);
+        assert_eq!(refs.len(), 1); // one unique original token
+        assert_eq!(refs[0].rewritten, "(d.assets/x.png)");
+    }
+
+    #[test]
+    fn plan_preserves_title_in_rewrite() {
+        let md = "![a](assets/x.png \"cap\")";
+        let (refs, _copies) = plan_image_assets(md, Path::new("/s"), "d", &always);
+        assert_eq!(refs[0].original, "(assets/x.png \"cap\")");
+        assert_eq!(refs[0].rewritten, "(d.assets/x.png \"cap\")");
     }
 }
