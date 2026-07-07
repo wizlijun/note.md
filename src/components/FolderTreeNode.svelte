@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { folderView, toggleExpanded, type FolderEntry } from '../lib/folder-view.svelte'
+  import { folderView, toggleExpanded, filterEntries, type FolderEntry } from '../lib/folder-view.svelte'
   import FolderTreeNode from './FolderTreeNode.svelte'
 
   let {
@@ -15,7 +15,9 @@
   } = $props()
 
   let expanded = $derived(folderView.expanded.has(entry.path))
-  let children = $derived(folderView.entriesCache.get(entry.path) ?? [])
+  let children = $derived(
+    filterEntries(folderView.entriesCache.get(entry.path) ?? [], folderView.filter)
+  )
   let isActive = $derived(!entry.isDir && entry.path === activePath)
 
   function onRowClick() {

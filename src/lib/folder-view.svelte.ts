@@ -30,6 +30,31 @@ export function isWithinDir(file: string, dir: string): boolean {
   return file !== d && file.startsWith(prefix)
 }
 
+/**
+ * Compile a filter query into a name matcher. Empty/blank query → `null`
+ * (meaning "match everything"). The query is treated as a case-insensitive
+ * regular expression; an invalid pattern (e.g. a half-typed `(`) falls back to
+ * a case-insensitive substring match so live typing keeps filtering sensibly.
+ */
+export function makeFilterMatcher(query: string): ((name: string) => boolean) | null {
+  const q = query.trim()
+  if (!q) return null
+  try {
+    const re = new RegExp(q, 'i')
+    return (name) => re.test(name)
+  } catch {
+    const lower = q.toLowerCase()
+    return (name) => name.toLowerCase().includes(lower)
+  }
+}
+
+/** Keep only entries whose name matches `query` (regex, case-insensitive). */
+export function filterEntries(entries: FolderEntry[], query: string): FolderEntry[] {
+  const match = makeFilterMatcher(query)
+  if (!match) return entries
+  return entries.filter((e) => match(e.name))
+}
+
 /** Folders first, then files; each group sorted by name, case-insensitive. */
 export function sortEntries(entries: FolderEntry[]): FolderEntry[] {
   return [...entries].sort((a, b) => {
@@ -43,6 +68,8 @@ export interface FolderViewState {
   visible: boolean
   width: number
   rootDir: string | null
+  /** Live name filter (regex, case-insensitive); empty = no filtering. */
+  filter: string
   expanded: SvelteSet<string>
   entriesCache: SvelteMap<string, FolderEntry[]>
 }
@@ -56,6 +83,7 @@ export const folderView = $state<FolderViewState>({
   visible: false,
   width: DEFAULT_WIDTH,
   rootDir: null,
+  filter: '',
   expanded: new SvelteSet(),
   entriesCache: new SvelteMap(),
 })
@@ -102,6 +130,16 @@ export async function syncToActiveFile(filePath: string | null): Promise<void> {
     return
   }
   await setRootDir(parent)
+}
+
+/** Set the live name filter (not persisted). */
+export function setFilter(q: string): void {
+  folderView.filter = q
+}
+
+/** Clear the name filter. */
+export function clearFilter(): void {
+  folderView.filter = ''
 }
 
 /** Expand/collapse a folder; read its children on first expand. */

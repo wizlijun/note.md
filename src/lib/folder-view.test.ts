@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { parentDir, isWithinDir, sortEntries, type FolderEntry } from './folder-view.svelte'
+import {
+  parentDir, isWithinDir, sortEntries,
+  makeFilterMatcher, filterEntries, type FolderEntry,
+} from './folder-view.svelte'
 import { vi, beforeEach } from 'vitest'
 import { SvelteMap, SvelteSet } from 'svelte/reactivity'
 
@@ -148,6 +151,43 @@ describe('isWithinDir', () => {
   })
   it('false when file is the dir itself', () => {
     expect(isWithinDir('/a/b', '/a/b')).toBe(false)
+  })
+})
+
+describe('makeFilterMatcher', () => {
+  it('returns null for empty or blank queries (match everything)', () => {
+    expect(makeFilterMatcher('')).toBeNull()
+    expect(makeFilterMatcher('   ')).toBeNull()
+  })
+  it('matches case-insensitively as a regex', () => {
+    const m = makeFilterMatcher('READ')!
+    expect(m('readme.md')).toBe(true)
+    expect(m('notes.md')).toBe(false)
+  })
+  it('supports regex syntax', () => {
+    const m = makeFilterMatcher('^a.*\\.md$')!
+    expect(m('apple.md')).toBe(true)
+    expect(m('banana.md')).toBe(false)
+    expect(m('apple.txt')).toBe(false)
+  })
+  it('falls back to substring match on an invalid regex', () => {
+    const m = makeFilterMatcher('a(')! // unbalanced group
+    expect(m('data(1).md')).toBe(true)
+    expect(m('nope.md')).toBe(false)
+  })
+})
+
+describe('filterEntries', () => {
+  const entries: FolderEntry[] = [
+    { name: 'sub', path: '/x/sub', isDir: true, kind: null },
+    { name: 'readme.md', path: '/x/readme.md', isDir: false, kind: 'markdown' },
+    { name: 'notes.md', path: '/x/notes.md', isDir: false, kind: 'markdown' },
+  ]
+  it('returns the original list unchanged when the query is empty', () => {
+    expect(filterEntries(entries, '')).toBe(entries)
+  })
+  it('keeps only entries whose name matches (files and folders)', () => {
+    expect(filterEntries(entries, 's').map((e) => e.name)).toEqual(['sub', 'notes.md'])
   })
 })
 
