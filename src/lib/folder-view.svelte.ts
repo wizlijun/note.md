@@ -1,5 +1,7 @@
 import { readDir } from '@tauri-apps/plugin-fs'
 import { Store } from '@tauri-apps/plugin-store'
+import { SvelteMap } from 'svelte/reactivity'
+import { SvelteSet } from 'svelte/reactivity'
 import { classifyPath, type FileKind } from './fs'
 
 export interface FolderEntry {
@@ -36,8 +38,8 @@ export interface FolderViewState {
   visible: boolean
   width: number
   rootDir: string | null
-  expanded: Set<string>
-  entriesCache: Map<string, FolderEntry[]>
+  expanded: SvelteSet<string>
+  entriesCache: SvelteMap<string, FolderEntry[]>
 }
 
 export const DEFAULT_WIDTH = 240
@@ -48,8 +50,8 @@ export const folderView = $state<FolderViewState>({
   visible: false,
   width: DEFAULT_WIDTH,
   rootDir: null,
-  expanded: new Set(),
-  entriesCache: new Map(),
+  expanded: new SvelteSet(),
+  entriesCache: new SvelteMap(),
 })
 
 function joinPath(dir: string, name: string): string {
@@ -78,7 +80,7 @@ export async function readFolder(dir: string): Promise<FolderEntry[]> {
 /** Set the tree root and eagerly read it. */
 export async function setRootDir(dir: string): Promise<void> {
   folderView.rootDir = dir
-  folderView.expanded = new Set()
+  folderView.expanded.clear()
   await readFolder(dir).catch(() => {})
 }
 
@@ -98,14 +100,12 @@ export async function syncToActiveFile(filePath: string | null): Promise<void> {
 
 /** Expand/collapse a folder; read its children on first expand. */
 export async function toggleExpanded(dir: string): Promise<void> {
-  const next = new Set(folderView.expanded)
-  if (next.has(dir)) {
-    next.delete(dir)
+  if (folderView.expanded.has(dir)) {
+    folderView.expanded.delete(dir)
   } else {
-    next.add(dir)
+    folderView.expanded.add(dir)
     if (!folderView.entriesCache.has(dir)) await readFolder(dir).catch(() => {})
   }
-  folderView.expanded = next
 }
 
 /** Re-read every directory currently cached (manual refresh). */

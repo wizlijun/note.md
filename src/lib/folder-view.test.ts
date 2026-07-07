@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { parentDir, isWithinDir, sortEntries, type FolderEntry } from './folder-view.svelte'
 import { vi, beforeEach } from 'vitest'
+import { SvelteMap, SvelteSet } from 'svelte/reactivity'
 
 // Mock the Tauri plugins used by the module's side-effects.
 const readDirMock = vi.fn()
@@ -30,8 +31,8 @@ beforeEach(() => {
   folderView.visible = false
   folderView.width = 240
   folderView.rootDir = null
-  folderView.expanded = new Set()
-  folderView.entriesCache = new Map()
+  folderView.expanded = new SvelteSet()
+  folderView.entriesCache = new SvelteMap()
 })
 
 describe('readFolder', () => {

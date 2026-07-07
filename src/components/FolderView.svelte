@@ -28,13 +28,14 @@
   }
 
   // Drag-to-resize the sidebar width.
+  let asideEl: HTMLElement
   let dragging = false
   function startDrag(e: PointerEvent) {
     dragging = true
     ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
   }
   function onDrag(e: PointerEvent) {
-    if (dragging) setWidth(e.clientX)
+    if (dragging && asideEl) setWidth(e.clientX - asideEl.getBoundingClientRect().left)
   }
   function endDrag(e: PointerEvent) {
     dragging = false
@@ -42,7 +43,7 @@
   }
 </script>
 
-<aside class="folder-view" style="width: {folderView.width}px">
+<aside bind:this={asideEl} class="folder-view" style="width: {folderView.width}px">
   <div class="header">
     <button class="hbtn" onclick={goUp} disabled={!canGoUp} title="Parent folder">↑</button>
     <span class="root-name" title={folderView.rootDir ?? ''}>{rootName || 'No folder'}</span>
