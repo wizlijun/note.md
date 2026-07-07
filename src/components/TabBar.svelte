@@ -2,6 +2,7 @@
   import { tabs, activeId, activeTab, isDirty, activate, closeTab } from '../lib/tabs.svelte'
   import { formFactor } from '../lib/platform.svelte'
   import { confirmDirtyClose } from '../lib/dialogs'
+  import { t } from '../lib/i18n/store.svelte'
   import ModeToggle from './ModeToggle.svelte'
   import {
     collectMenuItems, evaluateEnabled, type CollectedItem,
@@ -122,7 +123,7 @@
             title={tab.filePath}
           >
             <span class="title">{tab.title}</span>
-            {#if isDirty(tab.id)}<span class="dot" aria-label="modified"></span>{/if}
+            {#if isDirty(tab.id)}<span class="dot" aria-label={t('tabBar.modified')}></span>{/if}
             <span class="close" role="button" onclick={(e) => onClose(e, tab.id)}>×</span>
           </button>
         {/each}

@@ -4,6 +4,7 @@
   import { fileIcon, type VaultListEntry } from '../lib/vault-list'
   import { openFile } from '../lib/tabs.svelte'
   import { showError } from '../lib/dialogs'
+  import { t } from '../lib/i18n/store.svelte'
 
   let { onCloseDrawer = () => {} }: { onCloseDrawer?: () => void } = $props()
 
@@ -60,18 +61,18 @@
 <div class="vault-browser">
   <div class="header">
     <span class="section-label">Vault</span>
-    <button class="sync-btn" onclick={() => syncNow()} aria-label="Sync now"
+    <button class="sync-btn" onclick={() => syncNow()} aria-label={t('vaultBrowser.syncNow')}
       class:spinning={vaultStore.state === 'syncing' || vaultStore.state === 'cloning'}>
       ↻
     </button>
   </div>
 
   {#if !vaultStore.configured}
-    <p class="empty">未配置 Vault。<br />请去 Settings → Vault 配置仓库。</p>
+    <p class="empty">{t('vaultBrowser.notConfigured')}<br />{t('vaultBrowser.goConfigure')}</p>
   {:else}
     {#if breadcrumb.length > 0}
       <div class="breadcrumb">
-        <button class="up" onclick={up}>‹ 上级</button>
+        <button class="up" onclick={up}>{t('vaultBrowser.up')}</button>
         <span class="path">Vault › {breadcrumb.join(' › ')}</span>
       </div>
     {/if}
@@ -79,7 +80,7 @@
     {#if loadError}
       <p class="error">❌ {loadError}</p>
     {:else if entries.length === 0}
-      <p class="empty">Vault 为空</p>
+      <p class="empty">{t('vaultBrowser.empty')}</p>
     {:else}
       <ul>
         {#each entries as e (e.name)}

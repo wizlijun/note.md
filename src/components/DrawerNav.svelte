@@ -5,6 +5,7 @@
   import { openFile } from '../lib/tabs.svelte'
   import { showError } from '../lib/dialogs'
   import VaultBrowser from './VaultBrowser.svelte'
+  import { t } from '../lib/i18n/store.svelte'
 
   let { open = $bindable(false) }: { open?: boolean } = $props()
   let recents = $derived(mergedRecents.paths.length ? mergedRecents.paths : getRecentFiles())
@@ -37,7 +38,7 @@
 </aside>
 
 {#if open}
-  <button class="overlay" aria-label="Close menu" onclick={() => (open = false)}></button>
+  <button class="overlay" aria-label={t('drawer.closeMenu')} onclick={() => (open = false)}></button>
 {/if}
 
 <style>

@@ -3,6 +3,7 @@
   import { onMount } from 'svelte'
   import type { PluginManifest } from '../lib/plugins/types'
   import { isPluginEnabled, setPluginEnabled } from '../lib/settings.svelte'
+  import { t } from '../lib/i18n/store.svelte'
 
   type Row = { manifest: PluginManifest; enabled: boolean }
 
@@ -42,7 +43,7 @@
   {#if rows.length === 0}
     <p class="empty">No plugins detected.</p>
   {/if}
-  <p class="restart-note">改动需要重启 M↓ 后生效</p>
+  <p class="restart-note">{t('plugins.restartNote')}</p>
 </div>
 
 <style>

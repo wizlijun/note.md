@@ -18,6 +18,26 @@ export const en = {
   // Settings
   'settings.language': 'Language',
 
+  // CLI (`mdedit`) install/uninstall
+  'cli.installTitle': "Install 'mdedit' Command",
+  'cli.installPrompt':
+    "Install the 'mdedit' command to your PATH?\n\n" +
+    "Once installed you can call M↓'s features from any terminal or script:\n" +
+    '  • mdedit -s draft.md   Publish via the Share plugin and print the URL\n' +
+    '  • mdedit help          Show all commands\n' +
+    '  • mdedit plugin list   List plugins\n\n' +
+    "You can manage this any time from Help → Install/Uninstall 'mdedit' Command.",
+  'cli.installInto': "Install 'mdedit' into {dir}?",
+  'cli.installed': "'mdedit' installed at {dir}",
+  'cli.installFailed': 'Install failed: {error}',
+  'cli.uninstalled': "'mdedit' uninstalled from {dir}",
+  'cli.uninstallFailed': 'Uninstall failed: {error}',
+  'cli.notInstalled': "'mdedit' is not installed",
+
+  // Share
+  'share.docTooLarge': '❌ {name}: document too large ({mb} MB / 25 MB limit)',
+  'share.internalError': '❌ {name}: internal error',
+
   // Editor mode toggle
   'mode.editorMode': 'Editor mode',
   'mode.previewRich': 'Preview (rich)',
@@ -34,6 +54,20 @@ export const en = {
 
   // HTML preview
   'htmlPreview.title': 'HTML preview',
+
+  // Drawer / tab bar
+  'drawer.closeMenu': 'Close menu',
+  'tabBar.modified': 'modified',
+
+  // Plugins settings
+  'plugins.restartNote': 'Changes take effect after restarting M↓',
+
+  // Vault browser
+  'vaultBrowser.syncNow': 'Sync now',
+  'vaultBrowser.notConfigured': 'No Vault configured.',
+  'vaultBrowser.goConfigure': 'Go to Settings → Vault to configure a repo.',
+  'vaultBrowser.up': '‹ Up',
+  'vaultBrowser.empty': 'Vault is empty',
 
   // Empty state
   'emptyState.hint': 'Drop a .md file, or',

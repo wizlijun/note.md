@@ -14,7 +14,7 @@
   import ModeToggle from './components/ModeToggle.svelte'
   import { activeTab, tabs, closeTab, openFile, newFile, isDirty, activate } from './lib/tabs.svelte'
   import { loadSettings, settings, removeRecentFile } from './lib/settings.svelte'
-  import { loadLocale } from './lib/i18n/store.svelte'
+  import { loadLocale, t } from './lib/i18n/store.svelte'
   import { cmdOpen, cmdSave, cmdSaveAs, cmdPrint, cmdCloseActive, cmdToggleMode, dispatch, type CommandId } from './lib/commands'
   import { cmdMdblockRefresh } from './lib/mdblock/commands'
   import { confirmDirtyClose, showError } from './lib/dialogs'
@@ -267,13 +267,8 @@
           await new Promise((r) => setTimeout(r, 1200))
           const { ask } = await import('@tauri-apps/plugin-dialog')
           const yes = await ask(
-            "把 'mdedit' 命令安装到 PATH 吗？\n\n" +
-            "安装后可以从任何终端或脚本调用 M↓ 的功能：\n" +
-            "  • mdedit -s draft.md   通过 Share 插件发布并打印 URL\n" +
-            "  • mdedit help          查看所有命令\n" +
-            "  • mdedit plugin list   列出插件\n\n" +
-            "随时可以从 Help → Install/Uninstall 'mdedit' Command 重新管理。",
-            { title: "Install 'mdedit' Command", kind: 'info' }
+            t('cli.installPrompt'),
+            { title: t('cli.installTitle'), kind: 'info' }
           )
           await setCliPromptShown(true)
           if (yes) {
@@ -283,10 +278,10 @@
               try {
                 await invoke('cli_install', { dir })
                 const { pushToast } = await import('./lib/toast.svelte')
-                pushToast({ level: 'success', message: `'mdedit' installed at ${dir}` })
+                pushToast({ level: 'success', message: t('cli.installed', { dir }) })
               } catch (e) {
                 const { pushToast } = await import('./lib/toast.svelte')
-                pushToast({ level: 'error', message: `Install failed: ${e}` })
+                pushToast({ level: 'error', message: t('cli.installFailed', { error: String(e) }) })
               }
             }
           }
@@ -357,12 +352,12 @@
             const mb = (Number(tooLarge[1]) / 1024 / 1024).toFixed(1)
             pushToast({
               level: 'error',
-              message: `❌ ${m.name}: 文档过大（${mb} MB / 上限 25 MB）`,
+              message: t('share.docTooLarge', { name: m.name, mb }),
             })
           } else {
             pushToast({
               level: 'error',
-              message: `❌ ${m.name}: 内部错误`,
+              message: t('share.internalError', { name: m.name }),
               detail: msg,
             })
           }
@@ -464,15 +459,15 @@
           const candidates = await invoke<string[]>('cli_install_candidates')
           // Walk candidates; first acceptance installs there.
           for (const dir of candidates) {
-            const ok = await ask(`Install 'mdedit' into ${dir}?`, { title: "Install 'mdedit' Command", kind: 'info' })
+            const ok = await ask(t('cli.installInto', { dir }), { title: t('cli.installTitle'), kind: 'info' })
             if (ok) {
               try {
                 await invoke('cli_install', { dir })
                 const { pushToast } = await import('./lib/toast.svelte')
-                pushToast({ level: 'success', message: `'mdedit' installed at ${dir}` })
+                pushToast({ level: 'success', message: t('cli.installed', { dir }) })
               } catch (e) {
                 const { pushToast } = await import('./lib/toast.svelte')
-                pushToast({ level: 'error', message: `Install failed: ${e}` })
+                pushToast({ level: 'error', message: t('cli.installFailed', { error: String(e) }) })
               }
               break
             }
@@ -484,17 +479,17 @@
           const status = await invoke<{ installed: boolean; path: string | null }>('cli_install_status')
           if (!status.installed || !status.path) {
             const { pushToast } = await import('./lib/toast.svelte')
-            pushToast({ level: 'info', message: "'mdedit' is not installed" })
+            pushToast({ level: 'info', message: t('cli.notInstalled') })
             break
           }
           const dir = status.path.replace(/\/mdedit$/, '')
           try {
             await invoke('cli_uninstall', { dir })
             const { pushToast } = await import('./lib/toast.svelte')
-            pushToast({ level: 'success', message: `'mdedit' uninstalled from ${dir}` })
+            pushToast({ level: 'success', message: t('cli.uninstalled', { dir }) })
           } catch (e) {
             const { pushToast } = await import('./lib/toast.svelte')
-            pushToast({ level: 'error', message: `Uninstall failed: ${e}` })
+            pushToast({ level: 'error', message: t('cli.uninstallFailed', { error: String(e) }) })
           }
           break
         }
