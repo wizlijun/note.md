@@ -14,7 +14,7 @@
   import ModeToggle from './components/ModeToggle.svelte'
   import { activeTab, tabs, closeTab, openFile, newFile, isDirty, activate } from './lib/tabs.svelte'
   import { loadSettings, settings, removeRecentFile } from './lib/settings.svelte'
-  import { loadLocale, t } from './lib/i18n/store.svelte'
+  import { loadLocale, t, i18n } from './lib/i18n/store.svelte'
   import { cmdOpen, cmdSave, cmdSaveAs, cmdPrint, cmdCloseActive, cmdToggleMode, dispatch, type CommandId } from './lib/commands'
   import { cmdMdblockRefresh } from './lib/mdblock/commands'
   import { confirmDirtyClose, showError } from './lib/dialogs'
@@ -97,6 +97,21 @@
   // Tracks last applied enabled state per menu-item id, so we only invoke the
   // Tauri command when something actually changes.
   const lastEnabledState = new Map<string, boolean>()
+
+  // Keep the native menu bar in the user's language. Runs on mount (after the
+  // locale hydrates) and on every switch; re-pushes recent files since the menu
+  // rebuild resets that submenu. Best-effort — no native menu on iOS/web.
+  $effect(() => {
+    const locale = i18n.locale
+    void (async () => {
+      try {
+        const { invoke } = await import('@tauri-apps/api/core')
+        await invoke('set_menu_locale', { locale })
+        const { refreshRecentMenu } = await import('./lib/recent-sync.svelte')
+        await refreshRecentMenu()
+      } catch { /* no native menu on this platform */ }
+    })()
+  })
 
   onMount(() => {
     let stopAutoSave: (() => void) | undefined

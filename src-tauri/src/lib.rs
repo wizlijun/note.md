@@ -654,6 +654,7 @@ pub fn run() {
                 editor_show_and_open_path,
                 editor_open_remote_buffer,
                 update_recent_menu,
+                set_menu_locale,
                 file_exists,
                 shared_config_read,
                 shared_config_write,
@@ -732,7 +733,8 @@ pub fn run() {
                 }
 
                 let plugin_items = plugin_host::collect_top_menu_items();
-                let (menu, recent_submenu) = build_menu(&app.handle(), &plugin_items)?;
+                let menu_locale = read_saved_locale(&app.handle());
+                let (menu, recent_submenu) = build_menu(&app.handle(), &plugin_items, &menu_locale)?;
                 *app.state::<RecentMenu>().0.lock().unwrap() = Some(recent_submenu);
                 app.set_menu(menu)?;
                 app.on_menu_event(|app, event| {
@@ -972,9 +974,96 @@ fn update_recent_menu(app: tauri::AppHandle, items: Vec<RecentMenuItem>) -> Resu
     Ok(())
 }
 
+/// Native menu label catalog. Mirrors the JS i18n catalog for the handful of
+/// custom menu strings (macOS-provided items like Undo/Copy/Quit localize
+/// themselves). Unknown locales fall back to English.
+fn menu_label(locale: &str, key: &str) -> String {
+    let (en, zh, ja): (&str, &str, &str) = match key {
+        "app.about" => ("About M↓", "关于 M↓", "M↓ について"),
+        "app.checkUpdates" => ("Check for Updates…", "检查更新…", "更新を確認…"),
+        "app.preferences" => ("Preferences…", "偏好设置…", "環境設定…"),
+        "app.hide" => ("Hide mdeditor", "隐藏 mdeditor", "mdeditor を隠す"),
+        "menu.file" => ("File", "文件", "ファイル"),
+        "menu.edit" => ("Edit", "编辑", "編集"),
+        "menu.view" => ("View", "视图", "表示"),
+        "menu.window" => ("Window", "窗口", "ウインドウ"),
+        "menu.help" => ("Help", "帮助", "ヘルプ"),
+        "menu.plugins" => ("Plugins", "插件", "プラグイン"),
+        "file.openRecent" => ("Open Recent", "打开最近", "最近使ったファイルを開く"),
+        "file.noRecent" => ("No Recent Files", "无最近文件", "最近のファイルなし"),
+        "file.new" => ("New", "新建", "新規"),
+        "file.open" => ("Open…", "打开…", "開く…"),
+        "file.closeTab" => ("Close Tab", "关闭标签页", "タブを閉じる"),
+        "file.save" => ("Save", "保存", "保存"),
+        "file.saveAs" => ("Save As…", "另存为…", "名前を付けて保存…"),
+        "file.print" => ("Print…", "打印…", "プリント…"),
+        "edit.find" => ("Find…", "查找…", "検索…"),
+        "edit.findReplace" => ("Find and Replace…", "查找和替换…", "検索と置換…"),
+        "view.toggleMode" => ("Toggle Source / Rich", "切换源码 / 富文本", "ソース / リッチを切り替え"),
+        "window.zoomIn" => ("Zoom In", "放大", "拡大"),
+        "window.zoomOut" => ("Zoom Out", "缩小", "縮小"),
+        "window.actualSize" => ("Actual Size", "实际大小", "実際のサイズ"),
+        "help.docs" => ("Documentation", "文档", "ドキュメント"),
+        "help.cliInstall" => (
+            "Install 'mdedit' Command in PATH…",
+            "将 'mdedit' 命令安装到 PATH…",
+            "'mdedit' コマンドを PATH にインストール…",
+        ),
+        "help.cliUninstall" => (
+            "Uninstall 'mdedit' Command",
+            "卸载 'mdedit' 命令",
+            "'mdedit' コマンドをアンインストール",
+        ),
+        _ => (key, key, key),
+    };
+    match locale {
+        "zh" => zh,
+        "ja" => ja,
+        _ => en,
+    }
+    .to_string()
+}
+
+/// Best-effort read of the persisted UI locale from the store file so the
+/// native menu can be built in the right language at startup. Falls back to
+/// English if the file is missing/unreadable or the value is unknown.
+fn read_saved_locale<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> String {
+    use tauri::Manager;
+    let path = match app.path().app_config_dir() {
+        Ok(dir) => dir.join("settings.json"),
+        Err(_) => return "en".to_string(),
+    };
+    let text = match std::fs::read_to_string(&path) {
+        Ok(t) => t,
+        Err(_) => return "en".to_string(),
+    };
+    let json: serde_json::Value = match serde_json::from_str(&text) {
+        Ok(j) => j,
+        Err(_) => return "en".to_string(),
+    };
+    match json.get("locale").and_then(|v| v.as_str()) {
+        Some(l @ ("en" | "zh" | "ja")) => l.to_string(),
+        _ => "en".to_string(),
+    }
+}
+
+/// Rebuild the app menu in the given locale and apply it. Called from JS when
+/// the user changes the language. The recent-files submenu resets to its
+/// placeholder; JS re-pushes the list via `refreshRecentMenu()` afterward.
+#[tauri::command]
+fn set_menu_locale(app: tauri::AppHandle, locale: String) -> Result<(), String> {
+    let plugin_items = plugin_host::collect_top_menu_items();
+    let (menu, recent_submenu) =
+        build_menu(&app, &plugin_items, &locale).map_err(|e| e.to_string())?;
+    *app.state::<RecentMenu>().0.lock().unwrap() = Some(recent_submenu);
+    app.set_menu(menu).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 fn build_menu<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
     plugin_items: &[plugin_host::LocatedMenuItem],
+    locale: &str,
 ) -> tauri::Result<(Menu<R>, Submenu<R>)> {
     let app_meta = AboutMetadata {
         name: Some("M↓".into()),
@@ -983,55 +1072,55 @@ fn build_menu<R: tauri::Runtime>(
     };
 
     let app_menu: Submenu<R> = SubmenuBuilder::new(app, "M↓")
-        .item(&PredefinedMenuItem::about(app, Some("About M↓"), Some(app_meta))?)
+        .item(&PredefinedMenuItem::about(app, Some(&menu_label(locale, "app.about")), Some(app_meta))?)
         .item(
-            &MenuItemBuilder::with_id("check-for-updates", "Check for Updates…")
+            &MenuItemBuilder::with_id("check-for-updates", menu_label(locale, "app.checkUpdates"))
                 .build(app)?,
         )
         .separator()
         .item(
-            &MenuItemBuilder::with_id("preferences", "Preferences…")
+            &MenuItemBuilder::with_id("preferences", menu_label(locale, "app.preferences"))
                 .accelerator("Cmd+,")
                 .build(app)?,
         )
         .separator()
         .item(&PredefinedMenuItem::services(app, None)?)
         .separator()
-        .item(&MenuItemBuilder::with_id("hide-app", "Hide mdeditor").accelerator("Cmd+Shift+H").build(app)?)
+        .item(&MenuItemBuilder::with_id("hide-app", menu_label(locale, "app.hide")).accelerator("Cmd+Shift+H").build(app)?)
         .item(&PredefinedMenuItem::hide_others(app, None)?)
         .item(&PredefinedMenuItem::show_all(app, None)?)
         .separator()
         .item(&PredefinedMenuItem::quit(app, None)?)
         .build()?;
 
-    let recent_menu: Submenu<R> = SubmenuBuilder::new(app, "Open Recent")
+    let recent_menu: Submenu<R> = SubmenuBuilder::new(app, menu_label(locale, "file.openRecent"))
         .item(
-            &MenuItemBuilder::with_id("recent-none", "No Recent Files")
+            &MenuItemBuilder::with_id("recent-none", menu_label(locale, "file.noRecent"))
                 .enabled(false)
                 .build(app)?,
         )
         .build()?;
 
-    let mut file_b = SubmenuBuilder::new(app, "File")
-        .item(&MenuItemBuilder::with_id("new", "New").accelerator("Cmd+N").build(app)?)
-        .item(&MenuItemBuilder::with_id("open", "Open…").accelerator("Cmd+O").build(app)?)
+    let mut file_b = SubmenuBuilder::new(app, menu_label(locale, "menu.file"))
+        .item(&MenuItemBuilder::with_id("new", menu_label(locale, "file.new")).accelerator("Cmd+N").build(app)?)
+        .item(&MenuItemBuilder::with_id("open", menu_label(locale, "file.open")).accelerator("Cmd+O").build(app)?)
         .item(&recent_menu)
         .separator()
         .item(
-            &MenuItemBuilder::with_id("close-tab", "Close Tab")
+            &MenuItemBuilder::with_id("close-tab", menu_label(locale, "file.closeTab"))
                 .accelerator("Cmd+W")
                 .build(app)?,
         )
         .separator()
-        .item(&MenuItemBuilder::with_id("save", "Save").accelerator("Cmd+S").build(app)?)
+        .item(&MenuItemBuilder::with_id("save", menu_label(locale, "file.save")).accelerator("Cmd+S").build(app)?)
         .item(
-            &MenuItemBuilder::with_id("save-as", "Save As…")
+            &MenuItemBuilder::with_id("save-as", menu_label(locale, "file.saveAs"))
                 .accelerator("Cmd+Shift+S")
                 .build(app)?,
         )
         .separator()
         .item(
-            &MenuItemBuilder::with_id("print", "Print…")
+            &MenuItemBuilder::with_id("print", menu_label(locale, "file.print"))
                 .accelerator("Cmd+P")
                 .build(app)?,
         );
@@ -1042,7 +1131,7 @@ fn build_menu<R: tauri::Runtime>(
     }
     let file_menu: Submenu<R> = file_b.build()?;
 
-    let mut edit_b = SubmenuBuilder::new(app, "Edit")
+    let mut edit_b = SubmenuBuilder::new(app, menu_label(locale, "menu.edit"))
         .item(&PredefinedMenuItem::undo(app, None)?)
         .item(&PredefinedMenuItem::redo(app, None)?)
         .separator()
@@ -1051,8 +1140,8 @@ fn build_menu<R: tauri::Runtime>(
         .item(&PredefinedMenuItem::paste(app, None)?)
         .item(&PredefinedMenuItem::select_all(app, None)?)
         .separator()
-        .item(&MenuItemBuilder::with_id("find", "Find…").accelerator("Cmd+F").build(app)?)
-        .item(&MenuItemBuilder::with_id("find-replace", "Find and Replace…").build(app)?);
+        .item(&MenuItemBuilder::with_id("find", menu_label(locale, "edit.find")).accelerator("Cmd+F").build(app)?)
+        .item(&MenuItemBuilder::with_id("find-replace", menu_label(locale, "edit.findReplace")).build(app)?);
     for it in plugin_items.iter().filter(|p| p.location == "edit") {
         let mut b = MenuItemBuilder::with_id(&it.id, &it.label);
         if let Some(s) = &it.shortcut { b = b.accelerator(s); }
@@ -1060,9 +1149,9 @@ fn build_menu<R: tauri::Runtime>(
     }
     let edit_menu: Submenu<R> = edit_b.build()?;
 
-    let mut view_b = SubmenuBuilder::new(app, "View")
+    let mut view_b = SubmenuBuilder::new(app, menu_label(locale, "menu.view"))
         .item(
-            &MenuItemBuilder::with_id("toggle-mode", "Toggle Source / Rich")
+            &MenuItemBuilder::with_id("toggle-mode", menu_label(locale, "view.toggleMode"))
                 .accelerator("Cmd+/")
                 .build(app)?,
         )
@@ -1074,13 +1163,13 @@ fn build_menu<R: tauri::Runtime>(
     }
     let view_menu: Submenu<R> = view_b.build()?;
 
-    let mut window_b = SubmenuBuilder::new(app, "Window")
+    let mut window_b = SubmenuBuilder::new(app, menu_label(locale, "menu.window"))
         .item(&PredefinedMenuItem::minimize(app, None)?)
         .item(&PredefinedMenuItem::maximize(app, None)?)
         .separator()
-        .item(&MenuItemBuilder::with_id("zoom-in", "Zoom In").accelerator("Cmd+=").build(app)?)
-        .item(&MenuItemBuilder::with_id("zoom-out", "Zoom Out").accelerator("Cmd+-").build(app)?)
-        .item(&MenuItemBuilder::with_id("zoom-reset", "Actual Size").accelerator("Cmd+0").build(app)?);
+        .item(&MenuItemBuilder::with_id("zoom-in", menu_label(locale, "window.zoomIn")).accelerator("Cmd+=").build(app)?)
+        .item(&MenuItemBuilder::with_id("zoom-out", menu_label(locale, "window.zoomOut")).accelerator("Cmd+-").build(app)?)
+        .item(&MenuItemBuilder::with_id("zoom-reset", menu_label(locale, "window.actualSize")).accelerator("Cmd+0").build(app)?);
     for it in plugin_items.iter().filter(|p| p.location == "window") {
         let mut b = MenuItemBuilder::with_id(&it.id, &it.label);
         if let Some(s) = &it.shortcut { b = b.accelerator(s); }
@@ -1088,11 +1177,11 @@ fn build_menu<R: tauri::Runtime>(
     }
     let window_menu: Submenu<R> = window_b.build()?;
 
-    let mut help_b = SubmenuBuilder::new(app, "Help")
-        .item(&MenuItemBuilder::with_id("docs", "Documentation").build(app)?)
+    let mut help_b = SubmenuBuilder::new(app, menu_label(locale, "menu.help"))
+        .item(&MenuItemBuilder::with_id("docs", menu_label(locale, "help.docs")).build(app)?)
         .separator()
-        .item(&MenuItemBuilder::with_id("cli-install", "Install 'mdedit' Command in PATH…").build(app)?)
-        .item(&MenuItemBuilder::with_id("cli-uninstall", "Uninstall 'mdedit' Command").build(app)?);
+        .item(&MenuItemBuilder::with_id("cli-install", menu_label(locale, "help.cliInstall")).build(app)?)
+        .item(&MenuItemBuilder::with_id("cli-uninstall", menu_label(locale, "help.cliUninstall")).build(app)?);
     for it in plugin_items.iter().filter(|p| p.location == "help") {
         let mut b = MenuItemBuilder::with_id(&it.id, &it.label);
         if let Some(s) = &it.shortcut { b = b.accelerator(s); }
@@ -1102,7 +1191,7 @@ fn build_menu<R: tauri::Runtime>(
 
     let plugins_in_plugins: Vec<_> = plugin_items.iter().filter(|p| p.location == "plugins").collect();
     let plugins_menu: Option<Submenu<R>> = if !plugins_in_plugins.is_empty() {
-        let mut b = SubmenuBuilder::new(app, "Plugins");
+        let mut b = SubmenuBuilder::new(app, menu_label(locale, "menu.plugins"));
         for it in plugins_in_plugins {
             let mut mb = MenuItemBuilder::with_id(&it.id, &it.label);
             if let Some(s) = &it.shortcut { mb = mb.accelerator(s); }
