@@ -9,8 +9,8 @@ import { unpublish } from './unpublish'
 import { copyShareLink } from './copy-link'
 import { uploadImage } from './upload-image'
 import { ShareError } from './types'
-
-const PLUGIN_NAME = 'Share'
+import { t } from '../i18n/store.svelte'
+import type { Messages } from '../i18n/en'
 
 function getShareConfig(): { baseUrl: string; defaultExpiry: 'never'|'7d'|'30d'|'90d'; slugRandomSuffix: boolean } | null {
   const baseUrl = getPluginScopedKey('share.baseUrl') as string | undefined
@@ -23,30 +23,32 @@ function getShareConfig(): { baseUrl: string; defaultExpiry: 'never'|'7d'|'30d'|
   }
 }
 
+const SHARE_ERROR_KEYS: Record<string, keyof Messages> = {
+  not_configured: 'share.err.not_configured',
+  no_path: 'share.err.no_path',
+  empty_content: 'share.err.empty_content',
+  network: 'share.err.network',
+  auth: 'share.err.auth',
+  forbidden: 'share.err.forbidden',
+  too_large: 'share.err.too_large',
+  conflict: 'share.err.conflict',
+  unsupported: 'share.err.unsupported',
+  server: 'share.err.server',
+  http: 'share.err.http',
+  parse: 'share.err.parse',
+  corrupt_record: 'share.err.corrupt_record',
+}
+
 function reportError(e: unknown, action: string) {
   if (e instanceof ShareError) {
-    const messages: Record<string, string> = {
-      not_configured: '请先在 Preferences → Share 配置 Service URL 和 API Key',
-      no_path: '请先保存文件',
-      empty_content: '内容为空',
-      network: '网络错误，请检查网络',
-      auth: 'API key 无效，请检查 Preferences',
-      forbidden: '无权撤销该分享',
-      too_large: '文档过大（上限 25 MB）',
-      conflict: 'slug 冲突，请稍后重试',
-      unsupported: '不支持的图片格式',
-      server: '服务器繁忙，请稍后重试',
-      http: '请求失败',
-      parse: '服务器响应解析失败',
-      corrupt_record: '本地分享记录损坏',
-    }
+    const key = SHARE_ERROR_KEYS[e.kind]
     pushToast({
       level: 'error',
-      message: `❌ ${PLUGIN_NAME}: ${messages[e.kind] ?? e.kind}`,
+      message: t('share.errPrefix', { msg: key ? t(key) : e.kind }),
       detail: e.detail,
     })
   } else {
-    pushToast({ level: 'error', message: `❌ ${PLUGIN_NAME}: ${action}失败`, detail: String(e) })
+    pushToast({ level: 'error', message: t('share.actionFailed', { action }), detail: String(e) })
   }
 }
 
@@ -54,8 +56,8 @@ export async function sharePublishCurrent(): Promise<void> {
   const tab = activeTab()
   if (!tab) return
   const cfg = getShareConfig()
-  if (!cfg) return reportError(new ShareError('not_configured'), '分享')
-  if (!tab.filePath) return reportError(new ShareError('no_path'), '分享')
+  if (!cfg) return reportError(new ShareError('not_configured'), t('share.action.share'))
+  if (!tab.filePath) return reportError(new ShareError('no_path'), t('share.action.share'))
 
   try {
     if (tab.kind === 'image') {
@@ -65,7 +67,7 @@ export async function sharePublishCurrent(): Promise<void> {
       })
       pushToast({
         level: 'success',
-        message: isUpdate ? '✅ 图片已更新（已复制）' : '✅ 图片分享成功（已复制）',
+        message: isUpdate ? t('share.imageUpdated') : t('share.imageShared'),
         detail: url,
       })
       const { writeText } = await import('@tauri-apps/plugin-clipboard-manager')
@@ -78,9 +80,9 @@ export async function sharePublishCurrent(): Promise<void> {
     }
 
     const html = await bakeShareHtml(tab)
-    if (!html) return reportError(new ShareError('empty_content'), '分享')
+    if (!html) return reportError(new ShareError('empty_content'), t('share.action.share'))
     if (new TextEncoder().encode(html).byteLength > 25 * 1024 * 1024)
-      return reportError(new ShareError('too_large'), '分享')
+      return reportError(new ShareError('too_large'), t('share.action.share'))
 
     const { url, isUpdate } = await publishHtml({
       path: tab.filePath, filename: tab.title, html,
@@ -92,7 +94,7 @@ export async function sharePublishCurrent(): Promise<void> {
     await writeText(url)
     pushToast({
       level: 'success',
-      message: isUpdate ? '✅ 内容已更新（链接已复制）' : '✅ 分享成功（已复制）',
+      message: isUpdate ? t('share.contentUpdated') : t('share.shared'),
       detail: url,
     })
     if (await isIOS()) {
@@ -100,7 +102,7 @@ export async function sharePublishCurrent(): Promise<void> {
       catch { /* present_share_sheet not implemented yet — Swift bridge deferred to post-v1 */ }
     }
   } catch (e) {
-    reportError(e, '分享')
+    reportError(e, t('share.action.share'))
   }
 }
 
@@ -110,8 +112,8 @@ export async function shareUnpublishCurrent(): Promise<void> {
   if (!cfg || !tab?.filePath) return
   try {
     await unpublish({ path: tab.filePath, baseUrl: cfg.baseUrl })
-    pushToast({ level: 'success', message: '✅ 已撤销分享' })
-  } catch (e) { reportError(e, '撤销分享') }
+    pushToast({ level: 'success', message: t('share.unpublished') })
+  } catch (e) { reportError(e, t('share.action.unpublish')) }
 }
 
 export async function shareCopyLinkCurrent(): Promise<void> {
@@ -119,6 +121,6 @@ export async function shareCopyLinkCurrent(): Promise<void> {
   if (!tab?.filePath) return
   try {
     const url = await copyShareLink(tab.filePath)
-    pushToast({ level: 'success', message: '✅ 链接已复制', detail: url })
-  } catch (e) { reportError(e, '复制链接') }
+    pushToast({ level: 'success', message: t('share.linkCopied'), detail: url })
+  } catch (e) { reportError(e, t('share.action.copyLink')) }
 }
