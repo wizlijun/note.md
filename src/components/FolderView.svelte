@@ -1,7 +1,7 @@
 <script lang="ts">
   import {
     folderView, setRootDir, setWidth, refreshAll, syncToActiveFile,
-    parentDir, watchRoot, type FolderEntry,
+    setVisible, parentDir, watchRoot, type FolderEntry,
   } from '../lib/folder-view.svelte'
   import { openFile } from '../lib/tabs.svelte'
   import { showError } from '../lib/dialogs'
@@ -66,6 +66,13 @@
         <polyline points="23 4 23 10 17 10" />
         <polyline points="1 20 1 14 7 14" />
         <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+      </svg>
+    </button>
+    <button class="hbtn" onclick={() => setVisible(false)} title="Hide Folder View" aria-label="Hide Folder View">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="3" y="3" width="18" height="18" rx="2" />
+        <line x1="9" y1="3" x2="9" y2="21" />
+        <polyline points="16 15 13 12 16 9" />
       </svg>
     </button>
   </div>

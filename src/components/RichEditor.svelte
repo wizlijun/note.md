@@ -262,8 +262,9 @@
     if (event.button !== 0) return
     const target = event.target as HTMLElement
     const wiki = target.closest('[data-wikilink]') as HTMLElement | null
-    const anchor = wiki ? null : (target.closest('a[href]') as HTMLAnchorElement | null)
-    if (!wiki && !anchor) return
+    const urlEl = wiki ? null : (target.closest('[data-url]') as HTMLElement | null)
+    const anchor = wiki || urlEl ? null : (target.closest('a[href]') as HTMLAnchorElement | null)
+    if (!wiki && !urlEl && !anchor) return
     // Take full control of this event so moraya's mousedown handler never runs.
     event.preventDefault()
     event.stopImmediatePropagation()
@@ -276,7 +277,7 @@
       void openWikilink(wiki.getAttribute('data-wikilink') || '')
       return
     }
-    const href = anchor!.getAttribute('href') || ''
+    const href = urlEl ? urlEl.getAttribute('data-url') || '' : anchor!.getAttribute('href') || ''
     const action = classifyLink(href, tab.filePath)
     if (action.kind !== 'ignore') void openLinkAction(action)
   }

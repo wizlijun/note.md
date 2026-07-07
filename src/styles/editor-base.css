@@ -24,6 +24,17 @@
   .moraya-editor .wikilink { color: #79c0ff; }
 }
 
+/* Bare `http(s)://` URLs: decorated in place so they read (and click) as links
+   while the underlying text stays literal. Matches anchor link affordances. */
+.moraya-editor .url-autolink {
+  color: #0969da;
+  cursor: pointer;
+  text-decoration: underline;
+}
+@media (prefers-color-scheme: dark) {
+  .moraya-editor .url-autolink { color: #79c0ff; }
+}
+
 /* ── Cursor-syntax markers (Typora-style inline syntax overlay) ──────────── */
 /* Shown by cursor-syntax plugin when cursor is inside a formatted region.    */
 /* e.g. ** around bold, ^^ or == around highlight, # before headings.        */
