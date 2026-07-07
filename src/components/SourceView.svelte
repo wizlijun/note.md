@@ -12,6 +12,7 @@
   import { cmdMdblockFollowCitationAtCursor } from '../lib/mdblock/commands'
   import { saveClipboardResource, isAttachmentUrl, basenameOf } from '../lib/paste-resources'
   import { isVideoUrl, fetchVideoInfo } from '../lib/video-links'
+  import { autoPairInsert } from '../lib/autopair'
 
   let {
     value,
@@ -103,6 +104,23 @@
           requestAnimationFrame(() => el.setSelectionRange(start + open.length, end + open.length))
         }
         return
+      }
+    }
+
+    // Auto-close paired markdown markers ([[ ** __ ^^ ~~ == and `). Only on a
+    // collapsed selection and a single printable key with no modifiers.
+    if (!ev.metaKey && !ev.ctrlKey && !ev.altKey && ev.key.length === 1 && tabId && textareaEl) {
+      const el = textareaEl
+      if (el.selectionStart === el.selectionEnd) {
+        const res = autoPairInsert(el.value, el.selectionStart, ev.key)
+        if (res) {
+          ev.preventDefault()
+          const pos = el.selectionStart
+          const newVal = el.value.slice(0, pos) + res.insert + el.value.slice(pos)
+          setContent(tabId, newVal)
+          requestAnimationFrame(() => el.setSelectionRange(pos + res.caret, pos + res.caret))
+          return
+        }
       }
     }
 

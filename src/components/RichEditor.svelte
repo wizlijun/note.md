@@ -2,7 +2,7 @@
   import { onMount, onDestroy } from 'svelte'
   import type { Tab } from '../lib/tabs.svelte'
   import { setContent, activeTab, openFile } from '../lib/tabs.svelte'
-  import { classifyLink, resolveWikilinkPath, type LinkAction } from '../lib/link-open'
+  import { classifyLink, resolveWikilinkPath, restoreWikilinks, type LinkAction } from '../lib/link-open'
   import { buildFencedBlock, stripCodeFence } from '../lib/code-fence'
   import { activeTheme } from '../lib/active-theme.svelte'
   import RichGutter from '../lib/mdblock-hover/rich-gutter.svelte'
@@ -498,7 +498,9 @@
   }
 
   function unwrapIfNeeded(md: string): string {
-    return wrapAsCodeBlock !== undefined ? stripCodeFence(md) : md
+    // Code-kind tabs pass through the fence stripper untouched. Markdown tabs
+    // get wikilink brackets un-escaped so `[[name]]` persists literally.
+    return wrapAsCodeBlock !== undefined ? stripCodeFence(md) : restoreWikilinks(md)
   }
 
   function wrapIfNeeded(md: string): string {

@@ -85,3 +85,16 @@ export function resolveWikilinkPath(name: string, basePath: string | undefined):
   if (!/\.[a-z0-9]+$/i.test(rel)) rel += '.md' // bare name → .md
   return resolveRelative(rel, basePath)
 }
+
+/**
+ * Undo the backslash-escaping that @moraya/core's markdown serializer applies
+ * to `[` and `]`, but only within `[[wikilink]]` spans, so wikilinks persist in
+ * their literal `[[name]]` form instead of `\[\[name\]\]`. Idempotent on text
+ * that is already clean.
+ */
+export function restoreWikilinks(md: string): string {
+  return md.replace(
+    /\\?\[\\?\[([^[\]\n|\\]+(?:\|[^[\]\n\\]+)?)\\?\]\\?\]/g,
+    '[[$1]]',
+  )
+}

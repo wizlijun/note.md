@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { classifyLink, resolveWikilinkPath } from './link-open'
+import { classifyLink, resolveWikilinkPath, restoreWikilinks } from './link-open'
 
 const BASE = '/Users/me/notes/index.md'
 
@@ -70,5 +70,23 @@ describe('resolveWikilinkPath', () => {
     expect(resolveWikilinkPath('  ', BASE)).toBe(null)
     expect(resolveWikilinkPath('foo', '')).toBe(null)
     expect(resolveWikilinkPath('foo', undefined)).toBe(null)
+  })
+})
+
+describe('restoreWikilinks', () => {
+  it('un-escapes serializer-escaped wikilink brackets', () => {
+    expect(restoreWikilinks('see \\[\\[foo\\]\\] here')).toBe('see [[foo]] here')
+  })
+
+  it('preserves alias syntax', () => {
+    expect(restoreWikilinks('\\[\\[foo|Bar\\]\\]')).toBe('[[foo|Bar]]')
+  })
+
+  it('is idempotent on already-clean wikilinks', () => {
+    expect(restoreWikilinks('[[foo]] and [[a/b]]')).toBe('[[foo]] and [[a/b]]')
+  })
+
+  it('handles multiple wikilinks in one string', () => {
+    expect(restoreWikilinks('\\[\\[a\\]\\] x \\[\\[b\\]\\]')).toBe('[[a]] x [[b]]')
   })
 })

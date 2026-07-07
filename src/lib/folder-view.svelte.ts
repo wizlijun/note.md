@@ -1,4 +1,4 @@
-import { readDir } from '@tauri-apps/plugin-fs'
+import { readDir, watchImmediate } from '@tauri-apps/plugin-fs'
 import { Store } from '@tauri-apps/plugin-store'
 import { SvelteMap } from 'svelte/reactivity'
 import { SvelteSet } from 'svelte/reactivity'
@@ -118,6 +118,30 @@ export async function toggleExpanded(dir: string): Promise<void> {
 export async function refreshAll(): Promise<void> {
   const dirs = [...folderView.entriesCache.keys()]
   await Promise.all(dirs.map((d) => readFolder(d).catch(() => {})))
+}
+
+/**
+ * Watch `dir` recursively and re-read the visible tree (debounced) whenever the
+ * filesystem changes under it, so newly created / deleted / renamed files show
+ * up without a manual refresh. Returns an unwatch function that's safe to call
+ * even while the underlying watch is still starting.
+ */
+export function watchRoot(dir: string): () => void {
+  let stop: (() => void) | null = null
+  let cancelled = false
+  let timer: ReturnType<typeof setTimeout> | null = null
+  const schedule = () => {
+    if (timer) clearTimeout(timer)
+    timer = setTimeout(() => { void refreshAll() }, 150)
+  }
+  watchImmediate(dir, schedule, { recursive: true })
+    .then((s) => { if (cancelled) { try { s() } catch { /* ignore */ } } else { stop = s } })
+    .catch((e) => console.warn('[folder-view] watch failed for', dir, e))
+  return () => {
+    cancelled = true
+    if (timer) { clearTimeout(timer); timer = null }
+    if (stop) { try { stop() } catch (e) { console.warn('[folder-view] unwatch failed:', e) } stop = null }
+  }
 }
 
 // ---- persistence (settings.json store; shared with settings.svelte.ts) ----

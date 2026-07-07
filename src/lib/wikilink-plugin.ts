@@ -1,5 +1,6 @@
-import { Plugin, PluginKey } from 'prosemirror-state'
+import { Plugin, PluginKey, TextSelection } from 'prosemirror-state'
 import { Decoration, DecorationSet } from 'prosemirror-view'
+import type { EditorView } from 'prosemirror-view'
 import type { Node as PMNode } from 'prosemirror-model'
 
 const wikilinkKey = new PluginKey<DecorationSet>('wikilink')
@@ -52,6 +53,18 @@ export function wikilinkPlugin(): Plugin<DecorationSet> {
     props: {
       decorations(state): DecorationSet | undefined {
         return wikilinkKey.getState(state)
+      },
+      // Auto-close `[[` → `[[]]` with the caret between the brackets, on the
+      // second `[`. Emphasis markers are left to moraya's live formatting;
+      // only the literal wikilink bracket is closed here.
+      handleTextInput(view: EditorView, from: number, to: number, text: string): boolean {
+        if (text !== '[') return false
+        const before = view.state.doc.textBetween(Math.max(0, from - 2), from)
+        if (!before.endsWith('[') || before.endsWith('[[')) return false
+        const tr = view.state.tr.insertText('[]]', from, to)
+        tr.setSelection(TextSelection.create(tr.doc, from + 1))
+        view.dispatch(tr)
+        return true
       },
     },
   })

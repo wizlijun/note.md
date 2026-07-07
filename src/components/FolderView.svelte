@@ -1,7 +1,7 @@
 <script lang="ts">
   import {
     folderView, setRootDir, setWidth, refreshAll, syncToActiveFile,
-    parentDir, type FolderEntry,
+    parentDir, watchRoot, type FolderEntry,
   } from '../lib/folder-view.svelte'
   import { openFile } from '../lib/tabs.svelte'
   import { showError } from '../lib/dialogs'
@@ -11,6 +11,15 @@
 
   // Keep the tree root in step with the active markdown file.
   $effect(() => { void syncToActiveFile(activePath) })
+
+  // While the folder view is open, watch the tree root so file changes (new
+  // files from wikilink-open / Save As, deletes, renames) refresh the list.
+  // Re-subscribes when the root changes; cleans up on close (component unmount).
+  $effect(() => {
+    const dir = folderView.rootDir
+    if (!dir) return
+    return watchRoot(dir)
+  })
 
   let rootEntries = $derived<FolderEntry[]>(
     folderView.rootDir ? (folderView.entriesCache.get(folderView.rootDir) ?? []) : []
