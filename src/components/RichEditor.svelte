@@ -248,23 +248,47 @@
   }
 
   /**
-   * In rich mode, a plain left-click on a link follows it (URLs → system
-   * browser, editable files → new tab, other local files → system default app).
-   * Hold Cmd/Ctrl to edit instead: the modifier lets the click fall through to
-   * ProseMirror so it just places the caret without navigating.
+   * Own link interaction in rich mode. This runs on `mousedown` in the capture
+   * phase, ahead of @moraya/core's own ProseMirror handler (which otherwise
+   * expands the link to editable source on a plain click and opens it on
+   * Cmd/Ctrl-click — the opposite of what we want here).
+   *
+   *  - plain left-click → follow the link (URLs → system browser, editable
+   *    files → new tab, other local files → system default app)
+   *  - Cmd/Ctrl + click → edit: place the caret at the click point instead of
+   *    navigating, so the user can modify the link text/target.
    */
-  function handleLinkClick(event: MouseEvent) {
+  function handleLinkMouseDown(event: MouseEvent) {
     if (event.button !== 0) return
     const target = event.target as HTMLElement
     const anchor = target.closest('a[href]') as HTMLAnchorElement | null
     if (!anchor) return
-    if (event.metaKey || event.ctrlKey) return // edit-mode override
-    const href = anchor.getAttribute('href') || ''
-    const action = classifyLink(href, tab.filePath)
-    if (action.kind === 'ignore') return
+    // Take full control of this event so moraya's mousedown handler never runs.
     event.preventDefault()
     event.stopImmediatePropagation()
-    void openLinkAction(action)
+
+    if (event.metaKey || event.ctrlKey) {
+      placeCaretAtPoint(event.clientX, event.clientY)
+      return
+    }
+    const href = anchor.getAttribute('href') || ''
+    const action = classifyLink(href, tab.filePath)
+    if (action.kind !== 'ignore') void openLinkAction(action)
+  }
+
+  /** Move the caret to the document position under the given viewport coords. */
+  function placeCaretAtPoint(clientX: number, clientY: number) {
+    const view = editor?.view as EditorView | undefined
+    if (!view) return
+    const coords = view.posAtCoords({ left: clientX, top: clientY })
+    if (!coords) return
+    // prosemirror-state is already loaded (moraya mounts it), so this resolves
+    // synchronously from cache — no perceptible delay.
+    void import('prosemirror-state').then(({ TextSelection }) => {
+      const sel = TextSelection.near(view.state.doc.resolve(coords.pos))
+      view.dispatch(view.state.tr.setSelection(sel))
+      view.focus()
+    })
   }
 
   async function openLinkAction(action: LinkAction) {
@@ -780,7 +804,7 @@
         _pmEl = host!.querySelector('.ProseMirror') as HTMLElement | null
         _pmEl?.addEventListener('paste', handlePaste as EventListener, true)
         _pmEl?.addEventListener('click', handleImageClick as EventListener)
-        _pmEl?.addEventListener('click', handleLinkClick as EventListener, true)
+        _pmEl?.addEventListener('mousedown', handleLinkMouseDown as EventListener, true)
         _pmEl?.addEventListener('keydown', handleRichKeydown as EventListener, true)
         _pmEl?.addEventListener('input',   checkSlashMenu as EventListener)
 
@@ -826,7 +850,7 @@
   onDestroy(() => {
     _pmEl?.removeEventListener('paste', handlePaste as EventListener, true)
     _pmEl?.removeEventListener('click', handleImageClick as EventListener)
-    _pmEl?.removeEventListener('click', handleLinkClick as EventListener, true)
+    _pmEl?.removeEventListener('mousedown', handleLinkMouseDown as EventListener, true)
     _pmEl?.removeEventListener('keydown', handleRichKeydown as EventListener, true)
     _pmEl?.removeEventListener('input',   checkSlashMenu as EventListener)
     _dragDropUnlisten?.()

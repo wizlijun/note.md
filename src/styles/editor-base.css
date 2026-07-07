@@ -4,6 +4,12 @@
   outline: none;
 }
 
+/* Links are clickable in rich mode (plain click follows them; Cmd/Ctrl-click
+   edits). Show the hand cursor so they read as actionable rather than text. */
+.moraya-editor a[href] {
+  cursor: pointer;
+}
+
 /* ── Cursor-syntax markers (Typora-style inline syntax overlay) ──────────── */
 /* Shown by cursor-syntax plugin when cursor is inside a formatted region.    */
 /* e.g. ** around bold, ^^ or == around highlight, # before headings.        */
