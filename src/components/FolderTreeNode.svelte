@@ -7,11 +7,13 @@
     depth,
     activePath,
     onOpen,
+    onContextMenu,
   }: {
     entry: FolderEntry
     depth: number
     activePath: string | null
     onOpen: (path: string) => void
+    onContextMenu: (e: MouseEvent, entry: FolderEntry) => void
   } = $props()
 
   // While filtering, folders that survived the filter are force-expanded so
@@ -37,6 +39,7 @@
   class:active={isActive}
   style="padding-left: {8 + depth * 14}px"
   onclick={onRowClick}
+  oncontextmenu={(e) => onContextMenu(e, entry)}
   title={entry.name}
 >
   {#if entry.isDir}
@@ -58,7 +61,7 @@
 
 {#if entry.isDir && expanded}
   {#each children as child (child.path)}
-    <FolderTreeNode entry={child} depth={depth + 1} {activePath} {onOpen} />
+    <FolderTreeNode entry={child} depth={depth + 1} {activePath} {onOpen} {onContextMenu} />
   {/each}
 {/if}
 

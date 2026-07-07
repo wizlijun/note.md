@@ -1,7 +1,7 @@
 <script lang="ts">
   import {
     folderView, setRootDir, setWidth, refreshAll, syncToActiveFile,
-    setVisible, parentDir, watchRoot, setFilter, clearFilter,
+    setVisible, parentDir, watchRoot, setFilter, clearFilter, revealInFinder,
     type FolderEntry,
   } from '../lib/folder-view.svelte'
   import { tick } from 'svelte'
@@ -57,6 +57,33 @@
     if (e.key === 'Escape') { cancelSearch() }
   }
 
+  // Right-click context menu for a tree node.
+  type CtxState = { open: boolean; x: number; y: number; entry: FolderEntry | null }
+  let ctx = $state<CtxState>({ open: false, x: 0, y: 0, entry: null })
+
+  function onNodeContextMenu(e: MouseEvent, entry: FolderEntry) {
+    e.preventDefault()
+    ctx = { open: true, x: e.clientX, y: e.clientY, entry }
+  }
+  function closeCtxMenu() {
+    ctx = { open: false, x: 0, y: 0, entry: null }
+  }
+  async function revealCtx() {
+    const path = ctx.entry?.path
+    closeCtxMenu()
+    if (!path) return
+    try { await revealInFinder(path) } catch (e) { showError(String(e)) }
+  }
+  function onWindowMouseDown(e: MouseEvent) {
+    if (!ctx.open) return
+    const target = e.target as HTMLElement | null
+    if (target?.closest('.node-ctx-menu')) return
+    closeCtxMenu()
+  }
+  function onWindowKeyDown(e: KeyboardEvent) {
+    if (ctx.open && e.key === 'Escape') { e.preventDefault(); closeCtxMenu() }
+  }
+
   // Drag-to-resize the sidebar width.
   let asideEl: HTMLElement
   let dragging = false
@@ -72,6 +99,8 @@
     ;(e.target as HTMLElement).releasePointerCapture(e.pointerId)
   }
 </script>
+
+<svelte:window onmousedown={onWindowMouseDown} onkeydown={onWindowKeyDown} />
 
 <aside bind:this={asideEl} class="folder-view" style="width: {folderView.width}px">
   <div class="header">
@@ -127,7 +156,7 @@
       <div class="empty">{folderView.filter ? 'No matches' : 'Empty folder'}</div>
     {:else}
       {#each rootEntries as entry (entry.path)}
-        <FolderTreeNode {entry} depth={0} {activePath} onOpen={open} />
+        <FolderTreeNode {entry} depth={0} {activePath} onOpen={open} onContextMenu={onNodeContextMenu} />
       {/each}
     {/if}
   </div>
@@ -140,6 +169,14 @@
     onpointerup={endDrag}
   ></div>
 </aside>
+
+{#if ctx.open}
+  <div class="node-ctx-menu" role="menu" style="left: {ctx.x}px; top: {ctx.y}px">
+    <button type="button" role="menuitem" class="node-ctx-item" onclick={revealCtx}>
+      Reveal in Finder
+    </button>
+  </div>
+{/if}
 
 <style>
   .folder-view {
@@ -196,6 +233,20 @@
     cursor: col-resize; touch-action: none;
   }
   .splitter:hover { background: rgba(0,0,0,0.08); }
+  .node-ctx-menu {
+    position: fixed; z-index: 9998;
+    min-width: 160px; padding: 4px;
+    background: Canvas; color: CanvasText;
+    border: 1px solid color-mix(in srgb, CanvasText 15%, transparent);
+    border-radius: 6px; box-shadow: 0 6px 20px rgba(0,0,0,0.18);
+    font-size: 13px; user-select: none;
+  }
+  .node-ctx-item {
+    display: block; width: 100%; text-align: left;
+    padding: 6px 10px; background: transparent; color: inherit;
+    border: 0; border-radius: 4px; cursor: pointer;
+  }
+  .node-ctx-item:hover { background: color-mix(in srgb, AccentColor 18%, Canvas); }
   @media (prefers-color-scheme: dark) {
     .folder-view { background: var(--drawer-bg, #1c1c1e); border-right-color: rgba(255,255,255,0.08); }
     .header { border-bottom-color: rgba(255,255,255,0.06); }

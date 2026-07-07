@@ -143,6 +143,12 @@ export async function readFolder(dir: string): Promise<FolderEntry[]> {
   return sorted
 }
 
+/** Reveal a file/folder in the OS file browser (Finder), selecting the item. */
+export async function revealInFinder(path: string): Promise<void> {
+  const { revealItemInDir } = await import('@tauri-apps/plugin-opener')
+  await revealItemInDir(path)
+}
+
 /** Set the tree root and eagerly read it. */
 export async function setRootDir(dir: string): Promise<void> {
   folderView.rootDir = dir
