@@ -43,6 +43,8 @@
   import { uiState, openSettings } from './lib/ui-state.svelte'
   import MobileToolbar from './components/MobileToolbar.svelte'
   import DrawerNav from './components/DrawerNav.svelte'
+  import FolderView from './components/FolderView.svelte'
+  import { folderView, loadFolderViewState, setVisible } from './lib/folder-view.svelte'
   import { platform, isIOS } from './lib/platform.svelte'
   import { vaultStore, refreshStatus, syncNow, attachStatusListener } from './lib/vault.svelte'
   import { syncCurrentToVault, canSyncActive, isTrackedVaultFile, refreshSotvault, sotvaultStore } from './lib/sotvault.svelte'
@@ -155,6 +157,11 @@
 
     ;(async () => {
       try { await loadSettings() } catch (e) { console.warn('[App] loadSettings:', e) }
+      await loadFolderViewState()
+      if (folderView.visible) {
+        try { await invoke('set_menu_item_checked', { id: 'toggle-folder-view', checked: true }) }
+        catch (e) { console.warn('[App] init folder-view check:', e) }
+      }
       await initActivePluginIds()
 
       // Kick off auto-update check (1.5s delay built in, 20h cache).
@@ -424,6 +431,14 @@
         case 'print':       cmdPrint(); break
         case 'close-tab':   cmdCloseActive(); break
         case 'toggle-mode': cmdToggleMode(); break
+        case 'toggle-folder-view': {
+          const next = !folderView.visible
+          await setVisible(next)
+          try {
+            await invoke('set_menu_item_checked', { id: 'toggle-folder-view', checked: next })
+          } catch (e) { console.warn('[App] set_menu_item_checked:', e) }
+          break
+        }
         case 'find':        openFind(); break
         case 'find-replace': openFindReplace(); break
         case 'zoom-in':     document.documentElement.style.fontSize = `${Math.min(200, (parseFloat(getComputedStyle(document.documentElement).fontSize) || 16) + 2)}px`; break
@@ -620,6 +635,9 @@
   <Toast />
   <FindReplace />
   <section class="pane">
+    {#if platformName !== 'ios' && folderView.visible}
+      <FolderView activePath={current?.filePath ?? null} />
+    {/if}
     {#if current}
       {#if tabs.length === 1 && platformName !== 'ios'}
         <div class="float-toggle"><ModeToggle tab={current} /></div>
