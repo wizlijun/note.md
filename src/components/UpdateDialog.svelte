@@ -2,6 +2,7 @@
   import {
     updater, downloadAndInstall, dismissCurrent, restartApp,
   } from '../lib/updater.svelte'
+  import { t } from '../lib/i18n/store.svelte'
 
   let { open = $bindable(false) }: { open: boolean } = $props()
 
@@ -46,36 +47,36 @@
          onclick={(e) => e.stopPropagation()}>
 
       {#if updater.state === 'checking'}
-        <h2 id="updater-title">正在检查更新…</h2>
-        <p class="meta">当前版本：v{updater.currentVersion}</p>
+        <h2 id="updater-title">{t('updateDialog.checking')}</h2>
+        <p class="meta">{t('updateDialog.currentVersion', { version: updater.currentVersion ?? '' })}</p>
         <div class="progress-wrap">
           <div class="progress">
             <div class="bar indeterminate" style:width="30%"></div>
           </div>
         </div>
         <footer>
-          <button class="ghost" onclick={close}>关闭</button>
+          <button class="ghost" onclick={close}>{t('common.close')}</button>
         </footer>
 
       {:else if updater.state === 'available'}
-        <h2 id="updater-title">M↓ {updater.latestVersion} 可用</h2>
-        <p class="meta">当前版本：v{updater.currentVersion}</p>
+        <h2 id="updater-title">{t('updateDialog.available', { version: updater.latestVersion ?? '' })}</h2>
+        <p class="meta">{t('updateDialog.currentVersion', { version: updater.currentVersion ?? '' })}</p>
         {#if updater.notes}
           <div class="notes">
-            <h3>更新内容</h3>
+            <h3>{t('updateDialog.whatsNew')}</h3>
             <pre>{updater.notes}</pre>
           </div>
         {:else}
-          <p class="meta">暂无更新说明。</p>
+          <p class="meta">{t('updateDialog.noNotes')}</p>
         {/if}
         <footer>
-          <button class="ghost" onclick={onSkip}>跳过此版本</button>
-          <button class="ghost" onclick={close}>稍后</button>
-          <button class="primary" onclick={onUpdateNow}>立即更新</button>
+          <button class="ghost" onclick={onSkip}>{t('updateDialog.skip')}</button>
+          <button class="ghost" onclick={close}>{t('updateDialog.later')}</button>
+          <button class="primary" onclick={onUpdateNow}>{t('updateDialog.updateNow')}</button>
         </footer>
 
       {:else if updater.state === 'downloading'}
-        <h2 id="updater-title">正在下载 {updater.latestVersion}…</h2>
+        <h2 id="updater-title">{t('updateDialog.downloading', { version: updater.latestVersion ?? '' })}</h2>
         <div class="progress-wrap">
           <div class="progress">
             <div class="bar" style:width={percent !== null ? `${percent}%` : '30%'} class:indeterminate={percent === null}></div>
@@ -89,29 +90,29 @@
           </p>
         </div>
         <footer>
-          <button class="ghost" onclick={close}>后台运行</button>
+          <button class="ghost" onclick={close}>{t('updateDialog.runInBackground')}</button>
         </footer>
 
       {:else if updater.state === 'ready'}
-        <h2 id="updater-title">准备就绪</h2>
-        <p>M↓ {updater.latestVersion} 已下载完成。重启 App 即可完成更新。</p>
+        <h2 id="updater-title">{t('updateDialog.ready')}</h2>
+        <p>{t('updateDialog.readyBody', { version: updater.latestVersion ?? '' })}</p>
         <footer>
-          <button class="ghost" onclick={close}>稍后重启</button>
-          <button class="primary" onclick={onRestart}>立即重启</button>
+          <button class="ghost" onclick={close}>{t('updateDialog.restartLater')}</button>
+          <button class="primary" onclick={onRestart}>{t('updateDialog.restartNow')}</button>
         </footer>
 
       {:else if updater.state === 'error'}
-        <h2 id="updater-title">更新出错</h2>
-        <p class="error">{updater.error ?? '未知错误'}</p>
+        <h2 id="updater-title">{t('updateDialog.error')}</h2>
+        <p class="error">{updater.error ?? t('updateDialog.unknownError')}</p>
         <footer>
-          <button class="ghost" onclick={close}>关闭</button>
+          <button class="ghost" onclick={close}>{t('common.close')}</button>
         </footer>
 
       {:else}
-        <h2 id="updater-title">M↓ 已是最新版本</h2>
-        <p class="meta">当前版本：v{updater.currentVersion}</p>
+        <h2 id="updater-title">{t('updateDialog.upToDate')}</h2>
+        <p class="meta">{t('updateDialog.currentVersion', { version: updater.currentVersion ?? '' })}</p>
         <footer>
-          <button class="primary" onclick={close}>关闭</button>
+          <button class="primary" onclick={close}>{t('common.close')}</button>
         </footer>
       {/if}
     </div>

@@ -3,6 +3,7 @@
   import { pushToast } from '../lib/toast.svelte'
   import { ask } from '@tauri-apps/plugin-dialog'
   import { openUrl } from '@tauri-apps/plugin-opener'
+  import { t } from '../lib/i18n/store.svelte'
 
   let remoteUrl = $state('')
   let branch = $state('main')
@@ -38,20 +39,20 @@
       await configureVault({ remoteUrl, branch, pat, authorName, authorEmail })
       showPatInput = false
       pat = ''
-      pushToast({ level: 'success', message: '✓ Vault 已连接，仓库克隆完成' })
+      pushToast({ level: 'success', message: t('vault.connected') })
     } catch (e) {
       const raw = typeof e === 'string' ? e : String(e)
       saveError = raw
-      // Map known error patterns to friendlier Chinese toast text.
-      let friendly = `❌ Vault 连接失败：${raw}`
+      // Map known error patterns to friendlier toast text.
+      let friendly = t('vault.err.generic', { error: raw })
       if (raw.includes('keychain') || raw.includes('plugin:keychain')) {
-        friendly = '❌ Vault 连接失败：Keychain 桥未就绪（Swift 端 Keychain.swift 还没加入 Xcode 目标）'
+        friendly = t('vault.err.keychain')
       } else if (raw.includes('auth') || raw.includes('鉴权') || raw.includes('401')) {
-        friendly = '❌ Vault 连接失败：PAT 鉴权失败，请确认 token 有 contents:read/write 权限'
+        friendly = t('vault.err.authConnect')
       } else if (raw.includes('404') || raw.includes('not found')) {
-        friendly = '❌ Vault 连接失败：仓库不存在或 PAT 无访问权'
+        friendly = t('vault.err.notFoundConnect')
       } else if (raw.includes('network') || raw.includes('网络')) {
-        friendly = '❌ Vault 连接失败：网络错误'
+        friendly = t('vault.err.networkConnect')
       }
       pushToast({ level: 'error', message: friendly, detail: raw })
     } finally {
@@ -60,27 +61,27 @@
   }
 
   async function onDisconnect() {
-    const ok = await ask('断开 Vault 将删除本机 Vault 副本和 Keychain 中的 PAT，远端仓库不受影响。继续？', {
-      title: 'Disconnect Vault', kind: 'warning',
+    const ok = await ask(t('vault.disconnectConfirm'), {
+      title: t('vault.disconnectTitle'), kind: 'warning',
     })
     if (!ok) return
     busy = true
     try {
       await disconnectVault()
-      pushToast({ level: 'success', message: '✓ 已断开 Vault' })
+      pushToast({ level: 'success', message: t('vault.disconnected') })
     } catch (e) {
-      pushToast({ level: 'error', message: `❌ 断开失败：${e}`, detail: String(e) })
+      pushToast({ level: 'error', message: t('vault.disconnectFailed', { error: String(e) }), detail: String(e) })
     } finally {
       busy = false
     }
   }
 
   function formatLastSync(ms: number | null): string {
-    if (!ms) return '从未'
+    if (!ms) return t('time.never')
     const diff = Date.now() - ms
-    if (diff < 60_000) return '刚刚'
-    if (diff < 3_600_000) return `${Math.round(diff / 60_000)} 分钟前`
-    if (diff < 86_400_000) return `${Math.round(diff / 3_600_000)} 小时前`
+    if (diff < 60_000) return t('time.justNow')
+    if (diff < 3_600_000) return t('time.minutesAgo', { n: Math.round(diff / 60_000) })
+    if (diff < 86_400_000) return t('time.hoursAgo', { n: Math.round(diff / 3_600_000) })
     return new Date(ms).toLocaleString()
   }
 
@@ -92,23 +93,23 @@
 <section class="vault-settings">
   <div class="status-block">
     <div class="status-row">
-      <span class="label">Status:</span>
+      <span class="label">{t('vault.statusLabel')}</span>
       <span class="state state-{vaultStore.state}">
-        {#if vaultStore.state === 'syncing'}同步中…
-        {:else if vaultStore.state === 'cloning'}克隆中…
-        {:else if vaultStore.state === 'idle'}✓ 上次同步：{formatLastSync(vaultStore.lastSync)}
-        {:else if vaultStore.state === 'error'}❌ {vaultStore.errorMsg ?? '未知错误'}
-        {:else if vaultStore.state === 'conflict'}⚠️ 有冲突文件
-        {:else}未配置
+        {#if vaultStore.state === 'syncing'}{t('vault.syncing')}
+        {:else if vaultStore.state === 'cloning'}{t('vault.cloning')}
+        {:else if vaultStore.state === 'idle'}{t('vault.lastSync', { time: formatLastSync(vaultStore.lastSync) })}
+        {:else if vaultStore.state === 'error'}❌ {vaultStore.errorMsg ?? t('vault.unknownError')}
+        {:else if vaultStore.state === 'conflict'}{t('vault.hasConflicts')}
+        {:else}{t('vault.notConfigured')}
         {/if}
       </span>
     </div>
     {#if vaultStore.configured}
       <div class="actions">
         <button onclick={() => syncNow()} disabled={busy || vaultStore.state === 'syncing'}>
-          {vaultStore.state === 'syncing' ? '同步中…' : '立即同步'}
+          {vaultStore.state === 'syncing' ? t('vault.syncing') : t('vault.syncNow')}
         </button>
-        <button class="danger" onclick={onDisconnect} disabled={busy}>断开 Vault</button>
+        <button class="danger" onclick={onDisconnect} disabled={busy}>{t('vault.disconnect')}</button>
       </div>
     {/if}
   </div>
@@ -117,35 +118,35 @@
 
   <div class="form">
     <label>
-      <span>Remote URL</span>
+      <span>{t('vault.remoteUrl')}</span>
       <input type="text" bind:value={remoteUrl} placeholder="https://github.com/user/repo.git" />
     </label>
     <label>
-      <span>Branch</span>
+      <span>{t('vault.branch')}</span>
       <input type="text" bind:value={branch} placeholder="main" />
     </label>
     <label class="pat-row">
-      <span>Personal Access Token</span>
+      <span>{t('vault.pat')}</span>
       {#if !showPatInput && vaultStore.configured}
         <div>
-          <span class="badge ok">✓ 已配置</span>
-          <button type="button" class="link" onclick={() => (showPatInput = true)}>更新…</button>
+          <span class="badge ok">{t('vault.patConfigured')}</span>
+          <button type="button" class="link" onclick={() => (showPatInput = true)}>{t('vault.patUpdate')}</button>
         </div>
       {:else}
         <input type="password" bind:value={pat} placeholder="github_pat_..." />
       {/if}
-      <button type="button" class="link" onclick={openTokenPage}>📖 如何生成 Token</button>
+      <button type="button" class="link" onclick={openTokenPage}>{t('vault.howToToken')}</button>
     </label>
     <label>
-      <span>Author Name</span>
+      <span>{t('vault.authorName')}</span>
       <input type="text" bind:value={authorName} />
     </label>
     <label>
-      <span>Author Email</span>
+      <span>{t('vault.authorEmail')}</span>
       <input type="text" bind:value={authorEmail} placeholder="user@users.noreply.github.com" />
     </label>
     <button class="primary" onclick={onSave} disabled={busy || !remoteUrl || (!vaultStore.configured && !pat)}>
-      {busy ? '保存中…' : '保存配置'}
+      {busy ? t('vault.saving') : t('vault.saveConfig')}
     </button>
     {#if saveError}
       <p class="error">❌ {saveError}</p>
@@ -154,7 +155,7 @@
 
   <hr />
 
-  <p class="note">⚠️ 请勿在 Files App 内修改或删除 Documents/Vault/ 目录，否则同步状态会损坏。</p>
+  <p class="note">{t('vault.filesWarning')}</p>
 </section>
 
 <style>
