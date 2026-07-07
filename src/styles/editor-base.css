@@ -36,13 +36,15 @@
 }
 
 /* ── Cursor-syntax markers (Typora-style inline syntax overlay) ──────────── */
-/* Shown by cursor-syntax plugin when cursor is inside a formatted region.    */
-/* e.g. ** around bold, ^^ or == around highlight, # before headings.        */
+/* Shown by the cursor-syntax plugin for every inline mark on the caret's line */
+/* (inlineSyntaxScope 'line'): ** around bold, ^^/== around highlight, etc.,   */
+/* plus block prefixes (#, >). Kept clearly legible — a faint 45%-opacity gray  */
+/* overlay was read as "markers hidden". Muted tone still distinguishes them    */
+/* from content; markers are decoration widgets, hence non-selectable.          */
 
 .syntax-md-prefix,
 .syntax-md-mark {
-  color: var(--text-muted, #999);
-  opacity: 0.45;
+  color: var(--text-muted, #7a7a7a);
   user-select: none;
   pointer-events: none;
 }
