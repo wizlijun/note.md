@@ -1,0 +1,68 @@
+import { classifyPath } from './fs'
+
+/** Matches a URI scheme prefix like `http:`, `mailto:`, `file:` (RFC 3986). */
+const SCHEME_RE = /^[a-z][a-z0-9+.-]*:/i
+
+export type LinkAction =
+  /** External URL — hand to the system browser / default URL handler. */
+  | { kind: 'browser'; url: string }
+  /** Editable text/markdown/code file — open in a new editor tab. */
+  | { kind: 'edit'; path: string }
+  /** Non-editable local file (image, pdf, …) — open with the system default app. */
+  | { kind: 'system'; path: string }
+  /** In-document anchor or an unresolvable relative link — do nothing. */
+  | { kind: 'ignore' }
+
+/**
+ * Resolve `href` against the directory of `basePath` (an absolute file path).
+ * Returns an absolute path, or null when the link is relative but no base is
+ * available (e.g. an untitled buffer). Normalises `.` / `..` segments.
+ */
+function resolveRelative(href: string, basePath: string | undefined): string | null {
+  if (href.startsWith('/')) return normalize(href)
+  if (!basePath) return null
+  const dir = basePath.slice(0, basePath.lastIndexOf('/'))
+  return normalize(`${dir}/${href}`)
+}
+
+function normalize(path: string): string {
+  const out: string[] = []
+  for (const seg of path.split('/')) {
+    if (seg === '' || seg === '.') continue
+    if (seg === '..') { out.pop(); continue }
+    out.push(seg)
+  }
+  return '/' + out.join('/')
+}
+
+/**
+ * Decide what a clicked link should do, given the current document's path
+ * (used to resolve relative links). Pure — the caller performs the side effect.
+ *
+ *  - `#anchor`                         → ignore (in-document)
+ *  - `http(s)://`, `mailto:`, `tel:` … → browser
+ *  - `file://…` or a local path to an editable text file → edit (new tab)
+ *  - a local path to an image / other  → system (default app)
+ */
+export function classifyLink(href: string, basePath: string | undefined): LinkAction {
+  const raw = href.trim()
+  if (!raw || raw.startsWith('#')) return { kind: 'ignore' }
+
+  let target = raw
+  if (/^file:\/\//i.test(target)) {
+    target = decodeURIComponent(target.replace(/^file:\/\//i, ''))
+  } else if (SCHEME_RE.test(target)) {
+    // Any other scheme (http, https, mailto, tel, ftp, …) → system handler.
+    return { kind: 'browser', url: raw }
+  }
+
+  // Local path (absolute or relative). Drop query string and fragment.
+  const clean = target.split('#')[0].split('?')[0]
+  const abs = resolveRelative(clean, basePath)
+  if (!abs) return { kind: 'ignore' }
+
+  const cls = classifyPath(abs)
+  // Editable = text-bearing kinds. Images and unknown types open externally.
+  if (cls && cls.kind !== 'image') return { kind: 'edit', path: abs }
+  return { kind: 'system', path: abs }
+}

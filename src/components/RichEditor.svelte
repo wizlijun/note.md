@@ -1,7 +1,8 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte'
   import type { Tab } from '../lib/tabs.svelte'
-  import { setContent, activeTab } from '../lib/tabs.svelte'
+  import { setContent, activeTab, openFile } from '../lib/tabs.svelte'
+  import { classifyLink, type LinkAction } from '../lib/link-open'
   import { buildFencedBlock, stripCodeFence } from '../lib/code-fence'
   import { activeTheme } from '../lib/active-theme.svelte'
   import RichGutter from '../lib/mdblock-hover/rich-gutter.svelte'
@@ -246,17 +247,41 @@
     showImageToolbar = true
   }
 
-  function handleVideoLinkClick(event: MouseEvent) {
+  /**
+   * In rich mode, a plain left-click on a link follows it (URLs → system
+   * browser, editable files → new tab, other local files → system default app).
+   * Hold Cmd/Ctrl to edit instead: the modifier lets the click fall through to
+   * ProseMirror so it just places the caret without navigating.
+   */
+  function handleLinkClick(event: MouseEvent) {
+    if (event.button !== 0) return
     const target = event.target as HTMLElement
     const anchor = target.closest('a[href]') as HTMLAnchorElement | null
     if (!anchor) return
+    if (event.metaKey || event.ctrlKey) return // edit-mode override
     const href = anchor.getAttribute('href') || ''
-    if (!isVideoUrl(href)) return
+    const action = classifyLink(href, tab.filePath)
+    if (action.kind === 'ignore') return
     event.preventDefault()
     event.stopImmediatePropagation()
-    import('@tauri-apps/plugin-opener')
-      .then(({ openUrl }) => openUrl(href))
-      .catch(() => {})
+    void openLinkAction(action)
+  }
+
+  async function openLinkAction(action: LinkAction) {
+    try {
+      if (action.kind === 'browser') {
+        const { openUrl } = await import('@tauri-apps/plugin-opener')
+        await openUrl(action.url)
+      } else if (action.kind === 'system') {
+        const { openPath } = await import('@tauri-apps/plugin-opener')
+        await openPath(action.path)
+      } else if (action.kind === 'edit') {
+        await openFile(action.path)
+      }
+    } catch (e) {
+      const { showError } = await import('../lib/dialogs')
+      showError(String(e))
+    }
   }
 
   function handleToolbarResize(width: string) {
@@ -755,7 +780,7 @@
         _pmEl = host!.querySelector('.ProseMirror') as HTMLElement | null
         _pmEl?.addEventListener('paste', handlePaste as EventListener, true)
         _pmEl?.addEventListener('click', handleImageClick as EventListener)
-        _pmEl?.addEventListener('click', handleVideoLinkClick as EventListener, true)
+        _pmEl?.addEventListener('click', handleLinkClick as EventListener, true)
         _pmEl?.addEventListener('keydown', handleRichKeydown as EventListener, true)
         _pmEl?.addEventListener('input',   checkSlashMenu as EventListener)
 
@@ -801,7 +826,7 @@
   onDestroy(() => {
     _pmEl?.removeEventListener('paste', handlePaste as EventListener, true)
     _pmEl?.removeEventListener('click', handleImageClick as EventListener)
-    _pmEl?.removeEventListener('click', handleVideoLinkClick as EventListener, true)
+    _pmEl?.removeEventListener('click', handleLinkClick as EventListener, true)
     _pmEl?.removeEventListener('keydown', handleRichKeydown as EventListener, true)
     _pmEl?.removeEventListener('input',   checkSlashMenu as EventListener)
     _dragDropUnlisten?.()
