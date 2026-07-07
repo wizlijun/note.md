@@ -32,6 +32,10 @@ native-UI (AppKit/SwiftUI) app.
 - **Notification bar** — all messages (errors, success, info) now appear in a
   Typora-style bar below the tab strip instead of native OS dialogs; includes
   an optional auto-dismiss checkbox.
+- **Localizable UI (i18n)** — every interface string is routed through a
+  lightweight in-house layer (`t()` over a flat-keyed English catalog with
+  per-key fallback), so the UI is fully localizable. English ships today;
+  adding a language is registering a partial catalog — no code changes.
 - **Tabs** with dirty indicator, drag-to-reorder, and confirm-on-close
 - **Source / rich toggle** (`Cmd+/`) — textarea ↔ WYSIWYG
 - **Markdown rendering** with KaTeX math, Mermaid diagrams, and highlight.js code
@@ -136,6 +140,21 @@ native-UI (AppKit/SwiftUI) app.
 - **Task list checkboxes** — in rich mode, click a `- [ ]` / `- [x]` checkbox to
   toggle it; the change round-trips to the Markdown source (`[ ]` ↔ `[x]`). The
   marker shows a pointer cursor on hover.
+- **Wikilinks** (`[[note]]`) — in rich mode a `[[target]]` renders as a link;
+  click it to open `target.md` resolved next to the current file, creating an
+  empty note if it doesn't exist yet. `[[target|alias]]` displays the alias.
+  Typing `[[` auto-closes to `[[]]`, and the brackets are preserved literally in
+  the saved Markdown.
+- **Bare URL autolink** — `http(s)://…` URLs written as plain text render as
+  clickable links in rich mode: a plain click opens them in the system browser,
+  Cmd/Ctrl-click places the caret to edit. URLs inside code or existing links
+  stay literal.
+- **Literal inline markers** — typing `**`, `__`, `*`, `_`, `` ` ``, `~~`, `^^`,
+  `==` in rich mode leaves the delimiters as source text instead of
+  auto-collapsing them into a mark, so formatting stays user-driven. Marks
+  already present in an opened file still render, and reveal their source
+  delimiters on the caret's line (Live-Preview style), re-rendering once the
+  caret leaves.
 - **Apple Silicon & Intel builds** — shipped as two independent per-arch `.dmg`s
   (`aarch64` and `x86_64`); auto-update picks the matching architecture
 
