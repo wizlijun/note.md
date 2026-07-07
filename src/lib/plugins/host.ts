@@ -1,4 +1,5 @@
 import type { PluginManifest, PluginRequest, PluginResponse, PluginAction, TabKind } from './types'
+import { t } from '../i18n/store.svelte'
 
 export interface TabSnapshot {
   path: string | null
@@ -167,7 +168,7 @@ export async function invokePlugin(
   } catch (e) {
     return {
       ok: false,
-      errorMessage: `❌ ${manifest.name}: 启动失败`,
+      errorMessage: t('host.startFailed', { name: manifest.name }),
       errorDetail: e instanceof Error ? e.message : String(e),
     }
   }
@@ -176,7 +177,7 @@ export async function invokePlugin(
     let msg: string
     const tokenMatch = /^timeout:(\d+)$/.exec(result.error)
     if (tokenMatch) {
-      msg = `${manifest.name}: 未响应（${tokenMatch[1]}s）`
+      msg = t('host.noResponse', { name: manifest.name, seconds: tokenMatch[1] })
     } else {
       msg = `${manifest.name}: ${result.error}`
     }
@@ -184,15 +185,15 @@ export async function invokePlugin(
   }
   if (result.exit_code != null && result.exit_code !== 0) {
     return { ok: false,
-      errorMessage: `❌ ${manifest.name}: 异常退出（code ${result.exit_code}）`,
+      errorMessage: t('host.abnormalExit', { name: manifest.name, code: result.exit_code }),
       errorDetail: result.stderr_tail.slice(-1024) }
   }
   if (!result.stdout_line) {
-    return { ok: false, errorMessage: `❌ ${manifest.name}: 协议错误（空响应）`, errorDetail: result.stderr_tail.slice(-1024) }
+    return { ok: false, errorMessage: t('host.protocolEmpty', { name: manifest.name }), errorDetail: result.stderr_tail.slice(-1024) }
   }
   const parsedResult = parseAndFilterResponse(result.stdout_line, manifest)
   if (!parsedResult.ok) {
-    return { ok: false, errorMessage: `❌ ${manifest.name}: 协议错误`, errorDetail: parsedResult.error + '\n---\n' + result.stdout_line.slice(0, 1024) }
+    return { ok: false, errorMessage: t('host.protocolError', { name: manifest.name }), errorDetail: parsedResult.error + '\n---\n' + result.stdout_line.slice(0, 1024) }
   }
   return { ok: true, response: parsedResult.value }
 }

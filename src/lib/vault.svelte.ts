@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { pushToast } from './toast.svelte'
+import { t } from './i18n/store.svelte'
 
 export type VaultState = 'idle' | 'cloning' | 'syncing' | 'error' | 'conflict' | 'not_configured'
 
@@ -75,19 +76,19 @@ export async function syncNow(): Promise<void> {
     applyStatus(s)
     const after = s.last_sync
     if (s.has_conflicts) {
-      pushToast({ level: 'warn', message: '⚠️ Vault: 同步完成，部分本地修改保留为 .conflict 副本' })
+      pushToast({ level: 'warn', message: t('vault.syncedWithConflicts') })
     } else if (after !== before) {
-      pushToast({ level: 'success', message: '✓ Vault 同步完成' })
+      pushToast({ level: 'success', message: t('vault.syncComplete') })
     }
   } catch (e) {
     const msg = typeof e === 'string' ? e : String(e)
     vaultStore.errorMsg = msg
     vaultStore.state = 'error'
     let friendly = `❌ Vault: ${msg}`
-    if (msg.includes('auth') || msg.includes('鉴权')) friendly = '❌ Vault: 鉴权失败，请去 Vault 设置更新 PAT'
-    else if (msg.includes('network') || msg.includes('网络')) friendly = '❌ Vault: 网络错误'
-    else if (msg.includes('not found') || msg.includes('404')) friendly = '❌ Vault: 仓库不存在或 PAT 无权访问'
-    else if (msg.includes('rebase')) friendly = '⚠️ Vault: 自动合并失败，本次跳过；下次再试'
+    if (msg.includes('auth') || msg.includes('鉴权')) friendly = t('vault.authFailed')
+    else if (msg.includes('network') || msg.includes('网络')) friendly = t('vault.networkError')
+    else if (msg.includes('not found') || msg.includes('404')) friendly = t('vault.repoNotFound')
+    else if (msg.includes('rebase')) friendly = t('vault.mergeFailed')
     pushToast({ level: msg.includes('rebase') ? 'warn' : 'error', message: friendly, detail: msg })
     throw e
   }

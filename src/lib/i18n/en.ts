@@ -38,6 +38,40 @@ export const en = {
   'share.docTooLarge': '❌ {name}: document too large ({mb} MB / 25 MB limit)',
   'share.internalError': '❌ {name}: internal error',
 
+  // Source-of-truth Vault (sotvault)
+  'sotvault.revealFailed': '❌ Failed to open source folder',
+  'sotvault.saveFirst': 'Please save the file before syncing to the Vault',
+  'sotvault.synced': '✓ Synced to Vault',
+  'sotvault.syncFailed': '❌ Failed to sync to Vault',
+  'sotvault.sourceMovedOrDeleted': '⚠️ Vault: source file moved or deleted; cannot check for updates',
+  'sotvault.askLocalChanged': 'This file is synced to the Vault and has changed since the last sync. Sync to the Vault now?',
+  'sotvault.askSourceUpdated': 'The source file was updated. Sync it into the Vault?',
+  'sotvault.syncTitle': 'Sync to Vault',
+  'sotvault.conflictTitle': 'Vault conflict',
+  'sotvault.conflictOverwrite': 'Both the source and the Vault copy were modified (conflict). Overwrite the Vault copy with the source?',
+  'sotvault.conflictKeep': 'Keep the current Vault content and stop update prompts for this file?',
+  'sotvault.updatedFromSource': '✓ Updated the Vault copy from the source',
+  'sotvault.updateFailed': '❌ Failed to update the Vault copy',
+
+  // Vault sync
+  'vault.syncedWithConflicts': '⚠️ Vault: sync complete; some local edits kept as .conflict copies',
+  'vault.syncComplete': '✓ Vault sync complete',
+  'vault.authFailed': '❌ Vault: authentication failed — update your PAT in Vault settings',
+  'vault.networkError': '❌ Vault: network error',
+  'vault.repoNotFound': '❌ Vault: repository not found or PAT lacks access',
+  'vault.mergeFailed': '⚠️ Vault: auto-merge failed; skipped this time, will retry',
+
+  // Plugin host
+  'host.startFailed': '❌ {name}: failed to start',
+  'host.noResponse': '{name}: no response ({seconds}s)',
+  'host.abnormalExit': '❌ {name}: exited abnormally (code {code})',
+  'host.protocolEmpty': '❌ {name}: protocol error (empty response)',
+  'host.protocolError': '❌ {name}: protocol error',
+
+  // Print
+  'print.nothingToPrint': 'Nothing to print',
+  'print.renderFailed': 'Print rendering failed',
+
   // Editor mode toggle
   'mode.editorMode': 'Editor mode',
   'mode.previewRich': 'Preview (rich)',

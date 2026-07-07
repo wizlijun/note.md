@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core'
 import { pushToast } from './toast.svelte'
+import { t } from './i18n/store.svelte'
 import { activeTab, reloadTabFromDisk } from './tabs.svelte'
 import { isPluginActive } from './plugins/registry'
 import {
@@ -51,23 +52,23 @@ export async function revealVaultSource(sourcePath: string): Promise<void> {
     const { revealItemInDir } = await import('@tauri-apps/plugin-opener')
     await revealItemInDir(sourcePath)
   } catch (e) {
-    pushToast({ level: 'error', message: '❌ 打开来源目录失败', detail: String(e) })
+    pushToast({ level: 'error', message: t('sotvault.revealFailed'), detail: String(e) })
   }
 }
 
 export async function syncCurrentToVault(): Promise<void> {
   const tab = activeTab()
   if (!tab?.filePath) {
-    pushToast({ level: 'warn', message: '请先保存文件，再同步到 Vault' })
+    pushToast({ level: 'warn', message: t('sotvault.saveFirst') })
     return
   }
   try {
     const datePrefix = await sourceCreationYmd(tab.filePath)
     await invoke('sotvault_sync_to_vault', { srcPath: tab.filePath, datePrefix })
     await refreshSotvault()
-    pushToast({ level: 'success', message: '✓ 已同步到 Vault' })
+    pushToast({ level: 'success', message: t('sotvault.synced') })
   } catch (e) {
-    pushToast({ level: 'error', message: '❌ 同步到 Vault 失败', detail: String(e) })
+    pushToast({ level: 'error', message: t('sotvault.syncFailed'), detail: String(e) })
   }
 }
 
@@ -104,7 +105,7 @@ export async function maybeCheckVaultUpdate(tab: { filePath: string }): Promise<
   const action = dialogActionFor(res.outcome)
   if (action === 'none') return
   if (action === 'source-missing') {
-    pushToast({ level: 'warn', message: '⚠️ Vault: 源文件已移动或删除，无法检查更新' })
+    pushToast({ level: 'warn', message: t('sotvault.sourceMovedOrDeleted') })
     return
   }
   const vaultPath = res.vaultPath
@@ -116,20 +117,20 @@ export async function maybeCheckVaultUpdate(tab: { filePath: string }): Promise<
     // Same underlying action (source → vault), but worded for whichever side
     // the user opened.
     const msg = res.openedIsSource
-      ? '此文件已同步到 Vault，且自上次同步后有改动。现在同步到 Vault 吗？'
-      : '源文件已更新，是否同步进 Vault？'
-    const yes = await ask(msg, { title: 'Sync to Vault' })
+      ? t('sotvault.askLocalChanged')
+      : t('sotvault.askSourceUpdated')
+    const yes = await ask(msg, { title: t('sotvault.syncTitle') })
     if (yes) await applyVaultUpdate(vaultPath)
     return
   }
 
   // action === 'conflict'
-  const overwrite = await ask('源文件与 Vault 副本都被修改过（冲突）。用源文件覆盖 Vault 副本？', { title: 'Vault 冲突' })
+  const overwrite = await ask(t('sotvault.conflictOverwrite'), { title: t('sotvault.conflictTitle') })
   if (overwrite) {
     await applyVaultUpdate(vaultPath)
     return
   }
-  const keep = await ask('保留 Vault 当前内容，并停止对此文件的更新提示？', { title: 'Vault 冲突' })
+  const keep = await ask(t('sotvault.conflictKeep'), { title: t('sotvault.conflictTitle') })
   if (keep) {
     try {
       await invoke('sotvault_accept_current', { vaultPath })
@@ -146,8 +147,8 @@ async function applyVaultUpdate(vaultPath: string): Promise<void> {
     await invoke<string>('sotvault_apply_update', { vaultPath })
     await reloadTabFromDisk(vaultPath)
     await refreshSotvault()
-    pushToast({ level: 'success', message: '✓ 已从源文件更新 Vault 副本' })
+    pushToast({ level: 'success', message: t('sotvault.updatedFromSource') })
   } catch (e) {
-    pushToast({ level: 'error', message: '❌ 更新 Vault 副本失败', detail: String(e) })
+    pushToast({ level: 'error', message: t('sotvault.updateFailed'), detail: String(e) })
   }
 }

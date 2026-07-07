@@ -2,6 +2,7 @@ import pdfCss from '../../md2pdf/assets/pdf.css?raw'
 import { activeTab } from './tabs.svelte'
 import { renderTabAsInlineBody, buildPdfTitle, htmlEscape } from './plugins/host-render-html'
 import { pushToast } from './toast.svelte'
+import { t } from './i18n/store.svelte'
 
 /**
  * Wrap an inline-body HTML fragment (from renderTabAsInlineBody) into a
@@ -34,7 +35,7 @@ export async function printActiveTab(): Promise<void> {
   const PRINTABLE_KINDS = new Set(['markdown', 'html', 'code'])
   const tab = activeTab()
   if (!tab || !PRINTABLE_KINDS.has(tab.kind)) {
-    pushToast({ level: 'info', message: '没有可打印的内容' })
+    pushToast({ level: 'info', message: t('print.nothingToPrint') })
     return
   }
 
@@ -43,7 +44,7 @@ export async function printActiveTab(): Promise<void> {
     const body = await renderTabAsInlineBody(tab)
     doc = wrapPrintHtml(body, buildPdfTitle(tab))
   } catch (e) {
-    pushToast({ level: 'error', message: '打印渲染失败', detail: String(e) })
+    pushToast({ level: 'error', message: t('print.renderFailed'), detail: String(e) })
     return
   }
 
