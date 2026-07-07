@@ -53,11 +53,11 @@ export async function mountRichEditor(
     enableTableResize: true,
     enableImageSelection: true,
     enableHistory: true,
-    // Typora-style live formatting is off for inline marks: typing `**`, `__`,
-    // `*`, `_`, `` ` ``, `~~`, `^^`, `==` leaves the delimiters literal so the
-    // line stays "in source" while editing. Existing marks parsed from the file
-    // still render; block-level shortcuts (#, -, >, ```, ---) are unaffected.
-    enableInlineMarkInputRules: false,
+    // Obsidian Live-Preview behaviour: the caret's whole line reveals its
+    // markdown source (all `**`, `*`, `` ` ``, `~~`, `^^`, `==` delimiters shown),
+    // and re-renders once the caret leaves the line. Inline input rules stay on
+    // so typed markers still form marks that this mode then shows as source.
+    inlineSyntaxScope: 'line',
     onChange,
     changeDebounceMs: 200,
   })
