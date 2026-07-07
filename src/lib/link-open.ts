@@ -66,3 +66,22 @@ export function classifyLink(href: string, basePath: string | undefined): LinkAc
   if (cls && cls.kind !== 'image') return { kind: 'edit', path: abs }
   return { kind: 'system', path: abs }
 }
+
+/**
+ * Resolve a `[[wikilink]]` target to an absolute `.md` path, relative to the
+ * current document's directory.
+ *
+ *  - `[[foo]]`          → <dir>/foo.md
+ *  - `[[foo|Display]]`  → <dir>/foo.md   (alias after `|` is display-only)
+ *  - `[[notes/bar]]`    → <dir>/notes/bar.md
+ *  - `[[baz.md]]`       → <dir>/baz.md   (existing extension kept)
+ *
+ * Returns null when the target is empty or the document is unsaved (no base
+ * directory to resolve against).
+ */
+export function resolveWikilinkPath(name: string, basePath: string | undefined): string | null {
+  let rel = name.split('|')[0].trim()
+  if (!rel) return null
+  if (!/\.[a-z0-9]+$/i.test(rel)) rel += '.md' // bare name → .md
+  return resolveRelative(rel, basePath)
+}

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { classifyLink } from './link-open'
+import { classifyLink, resolveWikilinkPath } from './link-open'
 
 const BASE = '/Users/me/notes/index.md'
 
@@ -44,5 +44,31 @@ describe('classifyLink', () => {
   it('ignores relative links when no base path is available (untitled buffer)', () => {
     expect(classifyLink('sibling.md', '')).toEqual({ kind: 'ignore' })
     expect(classifyLink('sibling.md', undefined)).toEqual({ kind: 'ignore' })
+  })
+})
+
+describe('resolveWikilinkPath', () => {
+  const BASE = '/Users/me/notes/index.md'
+
+  it('resolves a bare name to a sibling .md file', () => {
+    expect(resolveWikilinkPath('subagent-cwd-not-worktree', BASE))
+      .toBe('/Users/me/notes/subagent-cwd-not-worktree.md')
+  })
+
+  it('keeps an explicit extension', () => {
+    expect(resolveWikilinkPath('baz.md', BASE)).toBe('/Users/me/notes/baz.md')
+  })
+
+  it('supports subdirectories and alias syntax', () => {
+    expect(resolveWikilinkPath('sub/bar', BASE)).toBe('/Users/me/notes/sub/bar.md')
+    expect(resolveWikilinkPath('foo|Display Text', BASE)).toBe('/Users/me/notes/foo.md')
+    expect(resolveWikilinkPath('../up/x', BASE)).toBe('/Users/me/up/x.md')
+  })
+
+  it('returns null for empty targets or unsaved documents', () => {
+    expect(resolveWikilinkPath('', BASE)).toBe(null)
+    expect(resolveWikilinkPath('  ', BASE)).toBe(null)
+    expect(resolveWikilinkPath('foo', '')).toBe(null)
+    expect(resolveWikilinkPath('foo', undefined)).toBe(null)
   })
 })

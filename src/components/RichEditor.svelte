@@ -2,7 +2,7 @@
   import { onMount, onDestroy } from 'svelte'
   import type { Tab } from '../lib/tabs.svelte'
   import { setContent, activeTab, openFile } from '../lib/tabs.svelte'
-  import { classifyLink, type LinkAction } from '../lib/link-open'
+  import { classifyLink, resolveWikilinkPath, type LinkAction } from '../lib/link-open'
   import { buildFencedBlock, stripCodeFence } from '../lib/code-fence'
   import { activeTheme } from '../lib/active-theme.svelte'
   import RichGutter from '../lib/mdblock-hover/rich-gutter.svelte'
@@ -261,8 +261,9 @@
   function handleLinkMouseDown(event: MouseEvent) {
     if (event.button !== 0) return
     const target = event.target as HTMLElement
-    const anchor = target.closest('a[href]') as HTMLAnchorElement | null
-    if (!anchor) return
+    const wiki = target.closest('[data-wikilink]') as HTMLElement | null
+    const anchor = wiki ? null : (target.closest('a[href]') as HTMLAnchorElement | null)
+    if (!wiki && !anchor) return
     // Take full control of this event so moraya's mousedown handler never runs.
     event.preventDefault()
     event.stopImmediatePropagation()
@@ -271,9 +272,31 @@
       placeCaretAtPoint(event.clientX, event.clientY)
       return
     }
-    const href = anchor.getAttribute('href') || ''
+    if (wiki) {
+      void openWikilink(wiki.getAttribute('data-wikilink') || '')
+      return
+    }
+    const href = anchor!.getAttribute('href') || ''
     const action = classifyLink(href, tab.filePath)
     if (action.kind !== 'ignore') void openLinkAction(action)
+  }
+
+  /** Open a `[[wikilink]]` target, creating an empty `.md` file if it's missing. */
+  async function openWikilink(name: string) {
+    const abs = resolveWikilinkPath(name, tab.filePath)
+    if (!abs) {
+      const { showError } = await import('../lib/dialogs')
+      showError('Save this document first to follow [[wikilinks]].')
+      return
+    }
+    try {
+      const { exists, writeTextFile } = await import('@tauri-apps/plugin-fs')
+      if (!(await exists(abs))) await writeTextFile(abs, '')
+      await openFile(abs)
+    } catch (e) {
+      const { showError } = await import('../lib/dialogs')
+      showError(String(e))
+    }
   }
 
   /** Move the caret to the document position under the given viewport coords. */
@@ -802,6 +825,21 @@
         editor = inst
         status = 'mounted'
         _pmEl = host!.querySelector('.ProseMirror') as HTMLElement | null
+
+        // Append the wikilink decoration plugin. moraya's setContent only
+        // dispatches transactions (never reconfigures), so this survives
+        // inbound content syncs. prosemirror-* is already loaded by moraya,
+        // so these dynamic imports resolve from cache.
+        try {
+          const view = inst.view as unknown as EditorView
+          const { wikilinkPlugin } = await import('../lib/wikilink-plugin')
+          view.updateState(
+            view.state.reconfigure({ plugins: view.state.plugins.concat(wikilinkPlugin()) }),
+          )
+        } catch (e) {
+          console.warn('[RichEditor] wikilink plugin init failed:', e)
+        }
+
         _pmEl?.addEventListener('paste', handlePaste as EventListener, true)
         _pmEl?.addEventListener('click', handleImageClick as EventListener)
         _pmEl?.addEventListener('mousedown', handleLinkMouseDown as EventListener, true)

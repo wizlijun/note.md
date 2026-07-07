@@ -10,6 +10,20 @@
   cursor: pointer;
 }
 
+/* Wikilinks: `[[name]]` decorated in place. The brackets stay visible (part of
+   the doc text); we only add link styling + a hand cursor. */
+.moraya-editor .wikilink {
+  color: #0969da;
+  cursor: pointer;
+  text-decoration: none;
+}
+.moraya-editor .wikilink:hover {
+  text-decoration: underline;
+}
+@media (prefers-color-scheme: dark) {
+  .moraya-editor .wikilink { color: #79c0ff; }
+}
+
 /* ── Cursor-syntax markers (Typora-style inline syntax overlay) ──────────── */
 /* Shown by cursor-syntax plugin when cursor is inside a formatted region.    */
 /* e.g. ** around bold, ^^ or == around highlight, # before headings.        */
