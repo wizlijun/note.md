@@ -179,14 +179,6 @@ fn read_enabled_map<R: Runtime>(app: &AppHandle<R>) -> HashMap<String, bool> {
     out
 }
 
-/// Whether a plugin id is enabled per settings.json, falling back to `default_on`
-/// when the id is absent from the map. Used by the native menu builder to gate
-/// built-in feature toggles (e.g. Folder View) that are managed through the same
-/// `plugins.enabled` map as external plugins.
-pub fn plugin_enabled_in_settings<R: Runtime>(app: &AppHandle<R>, id: &str, default_on: bool) -> bool {
-    read_enabled_map(app).get(id).copied().unwrap_or(default_on)
-}
-
 /// Called from `lib.rs` once at app startup. Walks `<resource_dir>/plugins/*/manifest.json`,
 /// parses each, and stashes valid ones in STATE. Invalid manifests are logged
 /// to stderr and skipped — they do not crash the app. Manifests where the

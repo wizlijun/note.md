@@ -1,0 +1,17 @@
+{
+  "id": "folder-view",
+  "name": "Folder View",
+  "version": "0.1.0",
+  "description": "在左侧以树形显示当前文件所在目录，可浏览并打开文件。",
+  "kind": "builtin",
+  "default_enabled": true,
+  "host_capabilities": [],
+  "menus": [
+    {
+      "location": "view",
+      "label": "Folder View",
+      "shortcut": "Cmd+Shift+E",
+      "command": "toggle"
+    }
+  ]
+}

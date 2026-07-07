@@ -158,10 +158,6 @@
     ;(async () => {
       try { await loadSettings() } catch (e) { console.warn('[App] loadSettings:', e) }
       await loadFolderViewState()
-      if (folderView.enabled && folderView.visible) {
-        try { await invoke('set_menu_item_checked', { id: 'toggle-folder-view', checked: true }) }
-        catch (e) { console.warn('[App] init folder-view check:', e) }
-      }
       await initActivePluginIds()
 
       // Kick off auto-update check (1.5s delay built in, 20h cache).
@@ -302,6 +298,10 @@
           if (command === 'sync-to-vault') await syncCurrentToVault()
           return
         }
+        if (pluginId === 'folder-view') {
+          if (command === 'toggle') await setVisible(!folderView.visible)
+          return
+        }
         const m = manifestById[pluginId]
         if (!m) { console.warn('[App] unknown plugin', pluginId); return }
         const menu = m.menus?.find((me) => me.command === command)
@@ -431,14 +431,6 @@
         case 'print':       cmdPrint(); break
         case 'close-tab':   cmdCloseActive(); break
         case 'toggle-mode': cmdToggleMode(); break
-        case 'toggle-folder-view': {
-          const next = !folderView.visible
-          await setVisible(next)
-          try {
-            await invoke('set_menu_item_checked', { id: 'toggle-folder-view', checked: next })
-          } catch (e) { console.warn('[App] set_menu_item_checked:', e) }
-          break
-        }
         case 'find':        openFind(); break
         case 'find-replace': openFindReplace(); break
         case 'zoom-in':     document.documentElement.style.fontSize = `${Math.min(200, (parseFloat(getComputedStyle(document.documentElement).fontSize) || 16) + 2)}px`; break

@@ -4,35 +4,16 @@
   import type { PluginManifest } from '../lib/plugins/types'
   import { isPluginEnabled, setPluginEnabled } from '../lib/settings.svelte'
 
-  type Row = { manifest: PluginManifest; enabled: boolean; builtin?: boolean }
-
-  // Built-in features that are managed through the same `plugins.enabled` map
-  // as external plugins, but ship inside the app (no on-disk manifest / binary).
-  const BUILTIN_MANIFESTS: PluginManifest[] = [
-    {
-      id: 'folder-view',
-      name: 'Folder View',
-      version: '',
-      binary: '',
-      description: '在左侧以树形显示当前文件所在目录，可浏览并打开文件。',
-      host_capabilities: [],
-    },
-  ]
+  type Row = { manifest: PluginManifest; enabled: boolean }
 
   let rows = $state<Row[]>([])
 
   onMount(async () => {
-    const builtinRows: Row[] = BUILTIN_MANIFESTS.map((m) => ({
-      manifest: m,
-      enabled: isPluginEnabled(m.id),
-      builtin: true,
-    }))
     try {
       const all = await invoke<PluginManifest[]>('get_all_plugin_manifests')
-      rows = [...builtinRows, ...all.map((m) => ({ manifest: m, enabled: isPluginEnabled(m.id) }))]
+      rows = all.map((m) => ({ manifest: m, enabled: isPluginEnabled(m.id) }))
     } catch (e) {
       console.warn('[PluginsSettingsTab] load:', e)
-      rows = builtinRows
     }
   })
 
@@ -50,18 +31,12 @@
         <input type="checkbox" checked={r.enabled}
                onchange={(e) => toggle(r, (e.currentTarget as HTMLInputElement).checked)} />
         <span class="name">{r.manifest.name}</span>
-        {#if r.builtin}
-          <span class="badge">内建</span>
-        {:else}
-          <span class="version">{r.manifest.version}</span>
-        {/if}
+        <span class="version">{r.manifest.version}</span>
       </label>
       {#if r.manifest.description}
         <p class="desc">{r.manifest.description}</p>
       {/if}
-      {#if !r.builtin}
-        <p class="caps">Capabilities: {r.manifest.host_capabilities.join(', ')}</p>
-      {/if}
+      <p class="caps">Capabilities: {r.manifest.host_capabilities.join(', ')}</p>
     </div>
   {/each}
   {#if rows.length === 0}
@@ -83,13 +58,6 @@
     font-size: 11px;
     color: color-mix(in srgb, CanvasText 55%, transparent);
     font-family: ui-monospace, monospace;
-  }
-  .badge {
-    font-size: 10px;
-    padding: 1px 6px;
-    border-radius: 999px;
-    background: color-mix(in srgb, CanvasText 12%, transparent);
-    color: color-mix(in srgb, CanvasText 65%, transparent);
   }
   .desc {
     margin: 4px 0 4px 22px;
