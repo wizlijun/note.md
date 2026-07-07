@@ -365,4 +365,82 @@ export const ja: Record<keyof Messages, string> = {
   'chat.expiresIn': '{time} で期限切れ',
   'chat.typeToOpenClaw': 'OpenClaw に入力…',
   'chat.send': '送信',
+
+  // Settings dialog — header & tabs
+  'settings.title': '環境設定',
+  'settings.done': '完了',
+  'settings.tab.plugins': 'プラグイン',
+  'settings.tab.core': 'コア',
+  'settings.tab.block': 'ブロック',
+  'settings.tab.cli': 'CLI',
+  'settings.tab.updates': '更新',
+  'settings.tab.vault': 'Vault',
+  'settings.tab.openclaw': 'OpenClaw',
+
+  // Settings → Themes
+  'settings.themes': 'テーマ',
+  'settings.lightTheme': 'ライトテーマ',
+  'settings.darkTheme': 'ダークテーマ',
+  'settings.alwaysLight': '常にライトテーマを使用（システム外観を無視）',
+  'settings.importTypora': 'Typora テーマをインポート…',
+  'settings.revealThemes': 'テーマフォルダを表示',
+  'settings.reloadThemes': 'テーマを再読み込み',
+  'settings.restoreBuiltins': '組み込みテーマを復元',
+  'settings.themesLoadFailed': 'テーマの読み込みに失敗：{error}',
+  'settings.autoSaveLabel': '自動保存を有効化（800ms アイドル後に書き込み）',
+
+  // Settings → Default app
+  'settings.defaultApp.heading': 'テキスト・コードファイルの既定アプリ',
+  'settings.defaultApp.desc1': 'M↓ をテキストおよびソースコードファイルを開く macOS の既定アプリケーションにします。設定すると、Finder でサポート対象のファイルをダブルクリック（または <em>このアプリケーションで開く…</em> を選択）すると M↓ が起動します。',
+  'settings.defaultApp.desc2': 'これは <strong>{groups}</strong> カテゴリにわたる <strong>{exts}</strong> 個のファイル拡張子に影響します。すべての変更は macOS Launch Services を通るため、システム・Finder・他のアプリが即座に反映します。',
+  'settings.defaultApp.showTypes': '影響するファイルタイプを表示（{count} 個の拡張子）',
+  'settings.defaultApp.setting': '設定中…',
+  'settings.defaultApp.setDefault': 'M↓ を全 {count} タイプの既定に設定',
+  'settings.defaultApp.undoNote': '<strong>1 つのファイルタイプを元に戻すには：</strong>Finder でファイルを選択 → ファイルメニュー → <em>情報を見る</em> → <em>このアプリケーションで開く</em> → 別のアプリを選択 → <em>すべてを変更…</em> をクリック。macOS では一括で元に戻す方法がないため、上のボタンを押す前に確認してください。',
+  'settings.defaultApp.resultOk': '完了 — M↓ が全 {count} 個の拡張子の既定になりました。',
+  'settings.defaultApp.resultPartial': '{ok}/{total} 個の拡張子を設定しました。失敗：{failed}（macOS にこれらの UTI が登録されていない可能性があります — 明示的に起動すれば M↓ で開きます）。',
+  'settings.defaultApp.resultError': 'エラー：{error}',
+
+  // Settings → Block IDs
+  'settings.block.enable': 'ブロック ID を有効化（mdblock）',
+  'settings.block.enableDesc': 'markdown ドキュメント内の各ブロックに安定した id を割り当て、AI ツールがサブページ精度で文章を引用できるようにします。ドキュメントで <strong>Compute Blocks</strong> を実行して有効化します。',
+  'settings.block.savingDesc': '<strong>.md ファイルを保存</strong>すると、対応する <code>.block.yaml</code> がキャッシュに自動保存されます。編集中はブロックマーカーがメモリ内でリアルタイムに更新され、ファイル書き込みは保存時に行われます。',
+  'settings.block.injectHint': '<code>.block.md</code> に AI 使用ヒントを挿入',
+
+  // Settings → Chunking
+  'settings.chunk.heading': 'チャンク戦略',
+  'settings.chunk.strategy': '戦略',
+  'settings.chunk.sectionFirst': 'セクション優先（見出しで分割・推奨）',
+  'settings.chunk.sizeFirst': 'サイズ優先（qmd 方式・構造上どこでも分割）',
+  'settings.chunk.sectionDesc': '<strong>セクション優先</strong>は既定で H2 境界で分割し、大きすぎるセクションはより深い見出しで分割、小さすぎるセクションは隣と結合します。各ブロックは自己完結した意味単位（1 章／サブセクション）を保ち、選択して LLM に送り推敲させるのに最適です。',
+  'settings.chunk.sectionCutLevel': 'セクション分割レベル',
+  'settings.chunk.h1opt': 'H1（最上位の章ごとに 1 ブロック）',
+  'settings.chunk.h2opt': 'H2（章ごとに 1 ブロック・既定）',
+  'settings.chunk.h3opt': 'H3（サブセクションごとに 1 ブロック）',
+  'settings.chunk.minChars': 'セクション最小文字数（未満は結合）',
+  'settings.chunk.maxChars': 'ブロックあたりの最大文字数',
+  'settings.chunk.maxCharsDesc': 'セクション優先：大きすぎるセクションはより深い見出しで分割されます（最終手段としてサイズで分割）。サイズ優先：これはチャンクごとの目標です。',
+  'settings.chunk.similarity': '類似度しきい値（id の安定性）',
+  'settings.chunk.affectNote': '⚠ 戦略／最大／最小の変更は<strong>新規</strong>ドキュメントに影響します。既存の <code>.block.yaml</code> は <strong>Reset Block Lineage</strong> を実行するまで独自の設定を保持します。',
+
+  // Settings → Visualization
+  'settings.viz.heading': '可視化',
+  'settings.viz.desc': 'ブロック ID を有効にすると、ドキュメントを開くたびにキャッシュされた yaml が自動的に読み込まれマーカーが表示されます — 手動の「表示」切り替えは不要です。下のチェックボックスで各ビューを個別に無効化できます。',
+  'settings.viz.sourceMarkers': 'ソースモードのマーカー（行番号の余白）',
+  'settings.viz.richGutter': 'リッチモードの左余白（ブロックマーカー + バー）',
+
+  // Settings → CLI
+  'settings.cli.heading': 'CLI',
+  'settings.cli.desc': '<code>mdedit</code> コマンドを使うと、ターミナルや他のツールから M↓ を操作できます — Share プラグインでファイルを公開したり、利用可能なコマンドを一覧表示したりできます。',
+  'settings.cli.loading': '読み込み中…',
+  'settings.cli.installedAtLabel': 'インストール先：',
+  'settings.cli.symlinkMismatch': 'シンボリックリンクが別のバイナリを指しています — 再インストールで修復してください。',
+  'settings.cli.working': '処理中…',
+  'settings.cli.reinstall': '再インストール…',
+  'settings.cli.uninstall': 'アンインストール',
+  'settings.cli.notInstalled': '未インストール。',
+  'settings.cli.installing': 'インストール中…',
+  'settings.cli.install': 'インストール…',
+  'settings.cli.error': 'エラー：{error}',
+  'settings.cli.helpDesc': 'インストール後、ターミナルで <code>mdedit help</code> を実行すると完全なリファレンスが表示されます。CLI は<em>有効な</em>プラグインが提供するコマンドのみを公開します — 上の Plugins でプラグインを無効にすると、そのサブコマンドが <code>mdedit</code> から削除されます。',
 }

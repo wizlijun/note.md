@@ -232,15 +232,16 @@
       const successes = results.filter((r) => r.ok).length
       const failures = results.filter((r) => !r.ok)
       if (failures.length === 0) {
-        resultText = `Done — M↓ is now the default for all ${successes} extensions.`
+        resultText = t('settings.defaultApp.resultOk', { count: successes })
       } else {
-        resultText =
-          `Set ${successes}/${results.length} extensions. ` +
-          `Failed: ${failures.map((f) => `.${f.ext}`).join(', ')} ` +
-          `(macOS may not have a registered UTI for these — they will still open in M↓ when launched explicitly).`
+        resultText = t('settings.defaultApp.resultPartial', {
+          ok: successes,
+          total: results.length,
+          failed: failures.map((f) => `.${f.ext}`).join(', '),
+        })
       }
     } catch (e) {
-      resultText = `Error: ${e instanceof Error ? e.message : String(e)}`
+      resultText = t('settings.defaultApp.resultError', { error: e instanceof Error ? e.message : String(e) })
     } finally {
       busy = false
     }
@@ -323,23 +324,23 @@
     onkeydown={(e) => e.key === 'Escape' && (open = false)}
   >
     <div class="dialog" role="dialog" aria-modal="true" onclick={(e) => e.stopPropagation()}>
-      <h2>Preferences</h2>
+      <h2>{t('settings.title')}</h2>
 
       <nav class="tab-strip">
         {#if !isIOSPlatform}
-          <button class:active={selectedTab === 'plugins'} onclick={() => selectedTab = 'plugins'}>Plugins</button>
+          <button class:active={selectedTab === 'plugins'} onclick={() => selectedTab = 'plugins'}>{t('settings.tab.plugins')}</button>
         {/if}
-        <button class:active={selectedTab === 'core'} onclick={() => selectedTab = 'core'}>Core</button>
-        <button class:active={selectedTab === 'block'} onclick={() => selectedTab = 'block'}>Block</button>
+        <button class:active={selectedTab === 'core'} onclick={() => selectedTab = 'core'}>{t('settings.tab.core')}</button>
+        <button class:active={selectedTab === 'block'} onclick={() => selectedTab = 'block'}>{t('settings.tab.block')}</button>
         {#if !isIOSPlatform}
-          <button class:active={selectedTab === 'cli'} onclick={() => { selectedTab = 'cli'; void refreshCliStatus() }}>CLI</button>
-          <button class:active={selectedTab === 'updates'} onclick={() => { selectedTab = 'updates' }}>Updates</button>
+          <button class:active={selectedTab === 'cli'} onclick={() => { selectedTab = 'cli'; void refreshCliStatus() }}>{t('settings.tab.cli')}</button>
+          <button class:active={selectedTab === 'updates'} onclick={() => { selectedTab = 'updates' }}>{t('settings.tab.updates')}</button>
         {/if}
         {#if isIOSPlatform}
-          <button class:active={selectedTab === 'vault'} onclick={() => selectedTab = 'vault'}>Vault</button>
+          <button class:active={selectedTab === 'vault'} onclick={() => selectedTab = 'vault'}>{t('settings.tab.vault')}</button>
         {/if}
         {#if isPluginActive('openclaw-chat')}
-          <button class:active={selectedTab === 'openclaw'} onclick={() => selectedTab = 'openclaw'}>OpenClaw</button>
+          <button class:active={selectedTab === 'openclaw'} onclick={() => selectedTab = 'openclaw'}>{t('settings.tab.openclaw')}</button>
         {/if}
         {#each pluginTabs as ptab (ptab.pluginId)}
           <button class:active={selectedTab === ptab.pluginId} onclick={() => selectedTab = ptab.pluginId}>{ptab.label}</button>
@@ -361,9 +362,9 @@
         </section>
 
         <section class="block">
-          <h3>Themes</h3>
+          <h3>{t('settings.themes')}</h3>
           <label class="row">
-            <span class="lbl">Light theme</span>
+            <span class="lbl">{t('settings.lightTheme')}</span>
             <select value={settings.theme.light} onchange={onLightThemeChange}>
               {#each themes.list as th (th.id)}
                 <option value={th.id}>{th.name}</option>
@@ -371,7 +372,7 @@
             </select>
           </label>
           <label class="row">
-            <span class="lbl">Dark theme</span>
+            <span class="lbl">{t('settings.darkTheme')}</span>
             <select value={settings.theme.dark} onchange={onDarkThemeChange}>
               {#each themes.list as th (th.id)}
                 <option value={th.id}>{th.name}</option>
@@ -384,18 +385,18 @@
               checked={!settings.theme.followSystem}
               onchange={onFollowSystemToggle}
             />
-            Always use light theme (ignore system appearance)
+            {t('settings.alwaysLight')}
           </label>
           <div class="row" style="gap: 8px; flex-wrap: wrap; margin-top: 8px;">
             <button onclick={handleImportTheme} disabled={importBusy}>
-              {importBusy ? 'Importing…' : 'Import Typora theme…'}
+              {importBusy ? t('themeImport.importing') : t('settings.importTypora')}
             </button>
-            <button onclick={handleRevealThemes}>Reveal themes folder</button>
-            <button onclick={handleReloadThemes}>Reload themes</button>
-            <button onclick={handleRestoreBuiltins}>Restore built-in themes</button>
+            <button onclick={handleRevealThemes}>{t('settings.revealThemes')}</button>
+            <button onclick={handleReloadThemes}>{t('settings.reloadThemes')}</button>
+            <button onclick={handleRestoreBuiltins}>{t('settings.restoreBuiltins')}</button>
           </div>
           {#if themes.error}
-            <p class="desc" style="color: tomato;">Failed to load themes: {themes.error}</p>
+            <p class="desc" style="color: tomato;">{t('settings.themesLoadFailed', { error: themes.error })}</p>
           {/if}
         </section>
 
@@ -409,25 +410,17 @@
         <section class="block">
           <label class="row">
             <input type="checkbox" checked={settings.autoSave} onchange={onToggle} />
-            Enable auto-save (writes after 800 ms idle)
+            {t('settings.autoSaveLabel')}
           </label>
         </section>
 
         {#if !isIOSPlatform}
           <section class="block">
-            <h3>Default app for text &amp; code files</h3>
-            <p class="desc">
-              Make M↓ the default macOS application for opening text and source code files.
-              Once set, double-clicking any of the supported file types in Finder (or selecting
-              <em>Open With…</em>) will launch M↓.
-            </p>
-            <p class="desc">
-              This affects <strong>{ALL_EXTS.length}</strong> file extensions across
-              <strong>{FILE_GROUPS.length}</strong> categories. Every change goes through macOS Launch
-              Services, so the system, Finder, and other apps all pick it up immediately.
-            </p>
+            <h3>{t('settings.defaultApp.heading')}</h3>
+            <p class="desc">{@html t('settings.defaultApp.desc1')}</p>
+            <p class="desc">{@html t('settings.defaultApp.desc2', { exts: ALL_EXTS.length, groups: FILE_GROUPS.length })}</p>
             <details class="ext-list">
-              <summary>Show affected file types ({ALL_EXTS.length} extensions)</summary>
+              <summary>{t('settings.defaultApp.showTypes', { count: ALL_EXTS.length })}</summary>
               <ul>
                 {#each FILE_GROUPS as g}
                   <li><strong>{g.label}</strong> — {g.exts.map((e) => `.${e}`).join(', ')}</li>
@@ -435,7 +428,7 @@
               </ul>
             </details>
             <button class="primary" onclick={handleSetDefault} disabled={busy}>
-              {busy ? 'Setting…' : `Set M↓ as default for all ${ALL_EXTS.length} types`}
+              {busy ? t('settings.defaultApp.setting') : t('settings.defaultApp.setDefault', { count: ALL_EXTS.length })}
             </button>
             {#if resultText}
               <p
@@ -447,88 +440,68 @@
                 {resultText}
               </p>
             {/if}
-            <p class="undo-note">
-              <strong>To undo for one file type:</strong> in Finder, select a file → File menu →
-              <em>Get Info</em> → <em>Open with</em> section → pick another app → click
-              <em>Change All…</em>. There's no way to bulk-undo through macOS, so make sure you want this
-              before clicking the button above.
-            </p>
+            <p class="undo-note">{@html t('settings.defaultApp.undoNote')}</p>
           </section>
         {/if}
       {:else if selectedTab === 'block'}
         <section class="block">
           <label class="row">
             <input type="checkbox" bind:checked={settings.mdblock.enabled} onchange={() => saveSettings()} />
-            Enable Block IDs (mdblock)
+            {t('settings.block.enable')}
           </label>
-          <p class="desc">
-            Assigns stable ids to every block in markdown documents so AI tools can cite passages
-            with sub-page precision. Run <strong>Compute Blocks</strong> on a document to opt it in.
-          </p>
+          <p class="desc">{@html t('settings.block.enableDesc')}</p>
         </section>
 
         <section class="block">
-          <p class="desc">
-            <strong>Saving the .md file</strong> automatically persists the matching
-            <code>.block.yaml</code> in the cache. While editing, block markers
-            update in-memory in real time; the file write happens on save.
-          </p>
+          <p class="desc">{@html t('settings.block.savingDesc')}</p>
           <label class="row">
             <input type="checkbox"
                    bind:checked={settings.mdblock.injectAiHint}
                    disabled={!settings.mdblock.enabled}
                    onchange={() => saveSettings()} />
-            Inject AI usage hint into <code>.block.md</code>
+            {@html t('settings.block.injectHint')}
           </label>
         </section>
 
         <section class="block">
-          <h3>Chunking strategy</h3>
+          <h3>{t('settings.chunk.heading')}</h3>
           <label class="row">
-            <span class="lbl">Strategy</span>
+            <span class="lbl">{t('settings.chunk.strategy')}</span>
             <select bind:value={settings.mdblock.chunkStrategy}
                     disabled={!settings.mdblock.enabled}
                     onchange={() => saveSettings()}>
-              <option value="section">Section-first (cut at headings; recommended)</option>
-              <option value="size">Size-first (qmd-style; cut anywhere structural)</option>
+              <option value="section">{t('settings.chunk.sectionFirst')}</option>
+              <option value="size">{t('settings.chunk.sizeFirst')}</option>
             </select>
           </label>
-          <p class="desc">
-            <strong>Section-first</strong> cuts at H2 boundaries by default; oversized sections
-            are split at deeper headings; tiny sections are merged with neighbors.
-            Each block stays a self-contained semantic unit (one chapter / sub-section),
-            ideal for selecting + sending to an LLM for revision.
-          </p>
+          <p class="desc">{@html t('settings.chunk.sectionDesc')}</p>
           <label class="row" style:opacity={settings.mdblock.chunkStrategy === 'section' ? 1 : 0.5}>
-            <span class="lbl">Section cut level</span>
+            <span class="lbl">{t('settings.chunk.sectionCutLevel')}</span>
             <select bind:value={settings.mdblock.sectionCutLevel}
                     disabled={!settings.mdblock.enabled || settings.mdblock.chunkStrategy !== 'section'}
                     onchange={() => saveSettings()}>
-              <option value={1}>H1 (one block per top-level chapter)</option>
-              <option value={2}>H2 (one block per chapter; default)</option>
-              <option value={3}>H3 (one block per sub-section)</option>
+              <option value={1}>{t('settings.chunk.h1opt')}</option>
+              <option value={2}>{t('settings.chunk.h2opt')}</option>
+              <option value={3}>{t('settings.chunk.h3opt')}</option>
             </select>
           </label>
           <label class="row" style:opacity={settings.mdblock.chunkStrategy === 'section' ? 1 : 0.5}>
-            <span class="lbl">Min section chars (merge below)</span>
+            <span class="lbl">{t('settings.chunk.minChars')}</span>
             <input type="number" min="0" max="5000" step="50"
                    bind:value={settings.mdblock.sectionMinChars}
                    disabled={!settings.mdblock.enabled || settings.mdblock.chunkStrategy !== 'section'}
                    onchange={() => saveSettings()} />
           </label>
           <label class="row">
-            <span class="lbl">Max chars per block</span>
+            <span class="lbl">{t('settings.chunk.maxChars')}</span>
             <input type="number" min="200" max="20000" step="100"
                    bind:value={settings.mdblock.chunkSizeChars}
                    disabled={!settings.mdblock.enabled}
                    onchange={() => saveSettings()} />
           </label>
-          <p class="desc">
-            For section-first: oversized sections get split at deeper headings (or by size as a last resort).
-            For size-first: this is the per-chunk target.
-          </p>
+          <p class="desc">{t('settings.chunk.maxCharsDesc')}</p>
           <label class="row">
-            <span class="lbl">Similarity threshold (id stability)</span>
+            <span class="lbl">{t('settings.chunk.similarity')}</span>
             <input type="number" min="0" max="1" step="0.05"
                    bind:value={settings.mdblock.similarityThreshold}
                    disabled={!settings.mdblock.enabled}
@@ -536,75 +509,58 @@
           </label>
         </section>
 
-        <p class="desc">
-          ⚠ Strategy / max / min changes affect <strong>new</strong> documents.
-          Existing <code>.block.yaml</code> keeps its own config until you run
-          <strong>Reset Block Lineage</strong>.
-        </p>
+        <p class="desc">{@html t('settings.chunk.affectNote')}</p>
 
         <section class="block">
-          <h3>Visualization</h3>
-          <p class="desc">
-            When Block IDs is enabled, opening any document automatically loads its
-            cached yaml and displays markers — no manual "Show" toggle required.
-            Use the checkboxes below to opt out of either view individually.
-          </p>
+          <h3>{t('settings.viz.heading')}</h3>
+          <p class="desc">{t('settings.viz.desc')}</p>
           <label class="row">
             <input type="checkbox"
                    bind:checked={settings.mdblock.hover.showSourceGutter}
                    disabled={!settings.mdblock.enabled}
                    onchange={() => saveSettings()} />
-            Source-mode markers (in the line-number gutter)
+            {t('settings.viz.sourceMarkers')}
           </label>
           <label class="row">
             <input type="checkbox"
                    bind:checked={settings.mdblock.hover.showRichOverlay}
                    disabled={!settings.mdblock.enabled}
                    onchange={() => saveSettings()} />
-            Rich-mode left gutter (block markers + bars)
+            {t('settings.viz.richGutter')}
           </label>
         </section>
       {:else if selectedTab === 'cli'}
         <section class="block">
-          <h3>CLI</h3>
-          <p class="desc">
-            The <code>mdedit</code> command lets you drive M↓ from a terminal
-            or other tools — publish files via the Share plugin, list available
-            commands, and more.
-          </p>
+          <h3>{t('settings.cli.heading')}</h3>
+          <p class="desc">{@html t('settings.cli.desc')}</p>
           {#if cliStatus === null}
-            <p class="desc">Loading…</p>
+            <p class="desc">{t('settings.cli.loading')}</p>
           {:else if cliStatus.installed}
             <p class="desc">
-              Installed at: <code>{cliStatus.path}</code>
+              {t('settings.cli.installedAtLabel')} <code>{cliStatus.path}</code>
               {#if !cliStatus.target_valid}
                 <br />
-                <span style="color: tomato;">Symlink points to a different binary — reinstall to repair.</span>
+                <span style="color: tomato;">{t('settings.cli.symlinkMismatch')}</span>
               {/if}
             </p>
             <div class="row" style="gap: 8px; flex-wrap: wrap;">
               <button onclick={handleCliInstall} disabled={cliBusy}>
-                {cliBusy ? 'Working…' : 'Reinstall…'}
+                {cliBusy ? t('settings.cli.working') : t('settings.cli.reinstall')}
               </button>
               <button onclick={handleCliUninstall} disabled={cliBusy}>
-                {cliBusy ? 'Working…' : 'Uninstall'}
+                {cliBusy ? t('settings.cli.working') : t('settings.cli.uninstall')}
               </button>
             </div>
           {:else}
-            <p class="desc">Not installed.</p>
+            <p class="desc">{t('settings.cli.notInstalled')}</p>
             <button class="primary" onclick={handleCliInstall} disabled={cliBusy}>
-              {cliBusy ? 'Installing…' : 'Install…'}
+              {cliBusy ? t('settings.cli.installing') : t('settings.cli.install')}
             </button>
           {/if}
           {#if cliError}
-            <p class="result fail">Error: {cliError}</p>
+            <p class="result fail">{t('settings.cli.error', { error: cliError })}</p>
           {/if}
-          <p class="desc" style="margin-top: 12px;">
-            Once installed, run <code>mdedit help</code> in your terminal for the
-            full reference. The CLI only exposes commands contributed by
-            <em>enabled</em> plugins — disable a plugin in Plugins above to remove
-            its subcommand from <code>mdedit</code>.
-          </p>
+          <p class="desc" style="margin-top: 12px;">{@html t('settings.cli.helpDesc')}</p>
         </section>
       {:else if selectedTab === 'updates'}
         <section class="block">
@@ -704,7 +660,7 @@
       {/if}
 
       <div class="actions">
-        <button onclick={() => (open = false)}>Done</button>
+        <button onclick={() => (open = false)}>{t('settings.done')}</button>
       </div>
     </div>
   </div>

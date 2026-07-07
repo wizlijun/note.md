@@ -370,6 +370,84 @@ export const en = {
   'chat.expiresIn': 'Expires in {time}',
   'chat.typeToOpenClaw': 'Type to OpenClaw…',
   'chat.send': 'Send',
+
+  // Settings dialog — header & tabs
+  'settings.title': 'Preferences',
+  'settings.done': 'Done',
+  'settings.tab.plugins': 'Plugins',
+  'settings.tab.core': 'Core',
+  'settings.tab.block': 'Block',
+  'settings.tab.cli': 'CLI',
+  'settings.tab.updates': 'Updates',
+  'settings.tab.vault': 'Vault',
+  'settings.tab.openclaw': 'OpenClaw',
+
+  // Settings → Themes
+  'settings.themes': 'Themes',
+  'settings.lightTheme': 'Light theme',
+  'settings.darkTheme': 'Dark theme',
+  'settings.alwaysLight': 'Always use light theme (ignore system appearance)',
+  'settings.importTypora': 'Import Typora theme…',
+  'settings.revealThemes': 'Reveal themes folder',
+  'settings.reloadThemes': 'Reload themes',
+  'settings.restoreBuiltins': 'Restore built-in themes',
+  'settings.themesLoadFailed': 'Failed to load themes: {error}',
+  'settings.autoSaveLabel': 'Enable auto-save (writes after 800 ms idle)',
+
+  // Settings → Default app
+  'settings.defaultApp.heading': 'Default app for text & code files',
+  'settings.defaultApp.desc1': 'Make M↓ the default macOS application for opening text and source code files. Once set, double-clicking any of the supported file types in Finder (or selecting <em>Open With…</em>) will launch M↓.',
+  'settings.defaultApp.desc2': 'This affects <strong>{exts}</strong> file extensions across <strong>{groups}</strong> categories. Every change goes through macOS Launch Services, so the system, Finder, and other apps all pick it up immediately.',
+  'settings.defaultApp.showTypes': 'Show affected file types ({count} extensions)',
+  'settings.defaultApp.setting': 'Setting…',
+  'settings.defaultApp.setDefault': 'Set M↓ as default for all {count} types',
+  'settings.defaultApp.undoNote': "<strong>To undo for one file type:</strong> in Finder, select a file → File menu → <em>Get Info</em> → <em>Open with</em> section → pick another app → click <em>Change All…</em>. There's no way to bulk-undo through macOS, so make sure you want this before clicking the button above.",
+  'settings.defaultApp.resultOk': 'Done — M↓ is now the default for all {count} extensions.',
+  'settings.defaultApp.resultPartial': 'Set {ok}/{total} extensions. Failed: {failed} (macOS may not have a registered UTI for these — they will still open in M↓ when launched explicitly).',
+  'settings.defaultApp.resultError': 'Error: {error}',
+
+  // Settings → Block IDs
+  'settings.block.enable': 'Enable Block IDs (mdblock)',
+  'settings.block.enableDesc': 'Assigns stable ids to every block in markdown documents so AI tools can cite passages with sub-page precision. Run <strong>Compute Blocks</strong> on a document to opt it in.',
+  'settings.block.savingDesc': '<strong>Saving the .md file</strong> automatically persists the matching <code>.block.yaml</code> in the cache. While editing, block markers update in-memory in real time; the file write happens on save.',
+  'settings.block.injectHint': 'Inject AI usage hint into <code>.block.md</code>',
+
+  // Settings → Chunking
+  'settings.chunk.heading': 'Chunking strategy',
+  'settings.chunk.strategy': 'Strategy',
+  'settings.chunk.sectionFirst': 'Section-first (cut at headings; recommended)',
+  'settings.chunk.sizeFirst': 'Size-first (qmd-style; cut anywhere structural)',
+  'settings.chunk.sectionDesc': '<strong>Section-first</strong> cuts at H2 boundaries by default; oversized sections are split at deeper headings; tiny sections are merged with neighbors. Each block stays a self-contained semantic unit (one chapter / sub-section), ideal for selecting + sending to an LLM for revision.',
+  'settings.chunk.sectionCutLevel': 'Section cut level',
+  'settings.chunk.h1opt': 'H1 (one block per top-level chapter)',
+  'settings.chunk.h2opt': 'H2 (one block per chapter; default)',
+  'settings.chunk.h3opt': 'H3 (one block per sub-section)',
+  'settings.chunk.minChars': 'Min section chars (merge below)',
+  'settings.chunk.maxChars': 'Max chars per block',
+  'settings.chunk.maxCharsDesc': 'For section-first: oversized sections get split at deeper headings (or by size as a last resort). For size-first: this is the per-chunk target.',
+  'settings.chunk.similarity': 'Similarity threshold (id stability)',
+  'settings.chunk.affectNote': '⚠ Strategy / max / min changes affect <strong>new</strong> documents. Existing <code>.block.yaml</code> keeps its own config until you run <strong>Reset Block Lineage</strong>.',
+
+  // Settings → Visualization
+  'settings.viz.heading': 'Visualization',
+  'settings.viz.desc': 'When Block IDs is enabled, opening any document automatically loads its cached yaml and displays markers — no manual "Show" toggle required. Use the checkboxes below to opt out of either view individually.',
+  'settings.viz.sourceMarkers': 'Source-mode markers (in the line-number gutter)',
+  'settings.viz.richGutter': 'Rich-mode left gutter (block markers + bars)',
+
+  // Settings → CLI
+  'settings.cli.heading': 'CLI',
+  'settings.cli.desc': 'The <code>mdedit</code> command lets you drive M↓ from a terminal or other tools — publish files via the Share plugin, list available commands, and more.',
+  'settings.cli.loading': 'Loading…',
+  'settings.cli.installedAtLabel': 'Installed at:',
+  'settings.cli.symlinkMismatch': 'Symlink points to a different binary — reinstall to repair.',
+  'settings.cli.working': 'Working…',
+  'settings.cli.reinstall': 'Reinstall…',
+  'settings.cli.uninstall': 'Uninstall',
+  'settings.cli.notInstalled': 'Not installed.',
+  'settings.cli.installing': 'Installing…',
+  'settings.cli.install': 'Install…',
+  'settings.cli.error': 'Error: {error}',
+  'settings.cli.helpDesc': 'Once installed, run <code>mdedit help</code> in your terminal for the full reference. The CLI only exposes commands contributed by <em>enabled</em> plugins — disable a plugin in Plugins above to remove its subcommand from <code>mdedit</code>.',
 } as const
 
 export type Messages = typeof en

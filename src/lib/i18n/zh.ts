@@ -365,4 +365,82 @@ export const zh: Record<keyof Messages, string> = {
   'chat.expiresIn': '{time} 后过期',
   'chat.typeToOpenClaw': '输入发送给 OpenClaw…',
   'chat.send': '发送',
+
+  // Settings dialog — header & tabs
+  'settings.title': '偏好设置',
+  'settings.done': '完成',
+  'settings.tab.plugins': '插件',
+  'settings.tab.core': '核心',
+  'settings.tab.block': '区块',
+  'settings.tab.cli': 'CLI',
+  'settings.tab.updates': '更新',
+  'settings.tab.vault': 'Vault',
+  'settings.tab.openclaw': 'OpenClaw',
+
+  // Settings → Themes
+  'settings.themes': '主题',
+  'settings.lightTheme': '浅色主题',
+  'settings.darkTheme': '深色主题',
+  'settings.alwaysLight': '始终使用浅色主题（忽略系统外观）',
+  'settings.importTypora': '导入 Typora 主题…',
+  'settings.revealThemes': '打开主题文件夹',
+  'settings.reloadThemes': '重新加载主题',
+  'settings.restoreBuiltins': '恢复内置主题',
+  'settings.themesLoadFailed': '加载主题失败：{error}',
+  'settings.autoSaveLabel': '启用自动保存（空闲 800 毫秒后写入）',
+
+  // Settings → Default app
+  'settings.defaultApp.heading': '文本与代码文件的默认应用',
+  'settings.defaultApp.desc1': '将 M↓ 设为 macOS 打开文本和源代码文件的默认应用。设置后，在访达中双击任何受支持的文件类型（或选择 <em>打开方式…</em>）都会启动 M↓。',
+  'settings.defaultApp.desc2': '这会影响 <strong>{exts}</strong> 个文件扩展名、共 <strong>{groups}</strong> 个类别。每次更改都会经过 macOS Launch Services，因此系统、访达和其他应用会立即生效。',
+  'settings.defaultApp.showTypes': '显示受影响的文件类型（{count} 个扩展名）',
+  'settings.defaultApp.setting': '设置中…',
+  'settings.defaultApp.setDefault': '将 M↓ 设为全部 {count} 种类型的默认应用',
+  'settings.defaultApp.undoNote': '<strong>撤销单个文件类型：</strong>在访达中选中一个文件 → 文件菜单 → <em>显示简介</em> → <em>打开方式</em> → 选择其他应用 → 点击 <em>全部更改…</em>。macOS 无法批量撤销，请在点击上面的按钮前确认。',
+  'settings.defaultApp.resultOk': '完成 — M↓ 现在是全部 {count} 个扩展名的默认应用。',
+  'settings.defaultApp.resultPartial': '已设置 {ok}/{total} 个扩展名。失败：{failed}（macOS 可能未为这些注册 UTI — 显式启动时它们仍会在 M↓ 中打开）。',
+  'settings.defaultApp.resultError': '错误：{error}',
+
+  // Settings → Block IDs
+  'settings.block.enable': '启用区块 ID（mdblock）',
+  'settings.block.enableDesc': '为 markdown 文档中的每个区块分配稳定 id，让 AI 工具能以子页面精度引用段落。对文档运行 <strong>Compute Blocks</strong> 以启用。',
+  'settings.block.savingDesc': '<strong>保存 .md 文件</strong>会自动把对应的 <code>.block.yaml</code> 持久化到缓存。编辑时区块标记在内存中实时更新；文件写入发生在保存时。',
+  'settings.block.injectHint': '向 <code>.block.md</code> 注入 AI 使用提示',
+
+  // Settings → Chunking
+  'settings.chunk.heading': '分块策略',
+  'settings.chunk.strategy': '策略',
+  'settings.chunk.sectionFirst': '章节优先（在标题处切分；推荐）',
+  'settings.chunk.sizeFirst': '大小优先（qmd 风格；在任意结构处切分）',
+  'settings.chunk.sectionDesc': '<strong>章节优先</strong>默认在 H2 边界切分；过大的章节会在更深的标题处拆分；过小的章节会与相邻合并。每个区块保持为自包含的语义单元（一个章节／子章节），非常适合选中后发给 LLM 修改。',
+  'settings.chunk.sectionCutLevel': '章节切分级别',
+  'settings.chunk.h1opt': 'H1（每个顶级章节一个区块）',
+  'settings.chunk.h2opt': 'H2（每章一个区块；默认）',
+  'settings.chunk.h3opt': 'H3（每个子章节一个区块）',
+  'settings.chunk.minChars': '章节最小字符数（低于则合并）',
+  'settings.chunk.maxChars': '每个区块最大字符数',
+  'settings.chunk.maxCharsDesc': '章节优先：过大的章节会在更深的标题处拆分（万不得已才按大小）。大小优先：这是每块的目标大小。',
+  'settings.chunk.similarity': '相似度阈值（id 稳定性）',
+  'settings.chunk.affectNote': '⚠ 策略／最大／最小的更改只影响<strong>新</strong>文档。现有的 <code>.block.yaml</code> 会保留自己的配置，直到你运行 <strong>Reset Block Lineage</strong>。',
+
+  // Settings → Visualization
+  'settings.viz.heading': '可视化',
+  'settings.viz.desc': '启用区块 ID 后，打开任何文档都会自动加载其缓存的 yaml 并显示标记 — 无需手动切换“显示”。用下面的复选框可分别关闭任一视图。',
+  'settings.viz.sourceMarkers': '源码模式标记（在行号槽中）',
+  'settings.viz.richGutter': '富文本模式左侧槽（区块标记 + 竖条）',
+
+  // Settings → CLI
+  'settings.cli.heading': 'CLI',
+  'settings.cli.desc': '<code>mdedit</code> 命令让你从终端或其他工具驱动 M↓ — 通过 Share 插件发布文件、列出可用命令等。',
+  'settings.cli.loading': '加载中…',
+  'settings.cli.installedAtLabel': '已安装于：',
+  'settings.cli.symlinkMismatch': '符号链接指向了不同的二进制 — 请重新安装修复。',
+  'settings.cli.working': '处理中…',
+  'settings.cli.reinstall': '重新安装…',
+  'settings.cli.uninstall': '卸载',
+  'settings.cli.notInstalled': '未安装。',
+  'settings.cli.installing': '安装中…',
+  'settings.cli.install': '安装…',
+  'settings.cli.error': '错误：{error}',
+  'settings.cli.helpDesc': '安装后，在终端运行 <code>mdedit help</code> 查看完整参考。CLI 只暴露<em>已启用</em>插件贡献的命令 — 在上面的 Plugins 中禁用某插件即可从 <code>mdedit</code> 移除其子命令。',
 }
