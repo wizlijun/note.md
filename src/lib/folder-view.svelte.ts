@@ -3,6 +3,10 @@ import { Store } from '@tauri-apps/plugin-store'
 import { SvelteMap } from 'svelte/reactivity'
 import { SvelteSet } from 'svelte/reactivity'
 import { classifyPath, type FileKind } from './fs'
+import { isPluginEnabled } from './settings.svelte'
+
+/** Plugin id under which Folder View is enabled/disabled in `plugins.enabled`. */
+export const PLUGIN_ID = 'folder-view'
 
 export interface FolderEntry {
   name: string
@@ -35,6 +39,7 @@ export function sortEntries(entries: FolderEntry[]): FolderEntry[] {
 }
 
 export interface FolderViewState {
+  enabled: boolean
   visible: boolean
   width: number
   rootDir: string | null
@@ -47,6 +52,7 @@ export const MIN_WIDTH = 160
 export const MAX_WIDTH = 480
 
 export const folderView = $state<FolderViewState>({
+  enabled: true,
   visible: false,
   width: DEFAULT_WIDTH,
   rootDir: null,
@@ -123,6 +129,9 @@ async function getStore() {
 }
 
 export async function loadFolderViewState(): Promise<void> {
+  // Enabled state is managed through the shared `plugins.enabled` map (same as
+  // external plugins), read here after settings have hydrated. Absent → on.
+  folderView.enabled = isPluginEnabled(PLUGIN_ID)
   const s = await getStore()
   folderView.visible = (await s.get<boolean>('folderView.visible')) ?? false
   folderView.width = (await s.get<number>('folderView.width')) ?? DEFAULT_WIDTH

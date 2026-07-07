@@ -1100,14 +1100,19 @@ fn build_menu<R: tauri::Runtime>(
             &MenuItemBuilder::with_id("toggle-mode", "Toggle Source / Rich")
                 .accelerator("Cmd+/")
                 .build(app)?,
-        )
-        .item(
+        );
+    // Folder View is a built-in feature toggled through the shared
+    // `plugins.enabled` map. Only add its menu item when enabled (default on);
+    // disabling it in Preferences removes the item on next launch.
+    if plugin_host::plugin_enabled_in_settings(app, "folder-view", true) {
+        view_b = view_b.item(
             &CheckMenuItemBuilder::with_id("toggle-folder-view", "Folder View")
                 .accelerator("Cmd+Shift+E")
                 .checked(false)
                 .build(app)?,
-        )
-        .item(&PredefinedMenuItem::fullscreen(app, None)?);
+        );
+    }
+    view_b = view_b.item(&PredefinedMenuItem::fullscreen(app, None)?);
     for it in plugin_items.iter().filter(|p| p.location == "view") {
         let mut b = MenuItemBuilder::with_id(&it.id, &it.label);
         if let Some(s) = &it.shortcut { b = b.accelerator(s); }

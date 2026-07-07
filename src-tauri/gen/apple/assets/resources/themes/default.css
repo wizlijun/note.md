@@ -1,0 +1,53 @@
+/*
+ * Theme Name: Default
+ * Author: M↓
+ * Version: 1.0.0
+ * Appearance: light
+ * Description: GitHub-style sans-serif. Neutral and minimal. Auto-flips to dark via system colors.
+ */
+
+#write { line-height: 1.6; }
+
+#write h1 { font-size: 2em;    font-weight: 700; margin: 1.2em 0 0.4em; }
+#write h2 { font-size: 1.5em;  font-weight: 600; margin: 1.1em 0 0.4em; }
+#write h3 { font-size: 1.25em; font-weight: 600; margin: 1em   0 0.3em; }
+#write h4,
+#write h5,
+#write h6 { font-size: 1em; font-weight: 600; margin: 1em 0 0.3em; }
+
+#write p { margin: 0.6em 0; }
+#write a { color: #0969da; text-decoration: underline; }
+
+#write blockquote {
+  border-left: 3px solid color-mix(in srgb, CanvasText 30%, transparent);
+  margin: 0.6em 0;
+  padding: 0 12px;
+  color: GrayText;
+}
+
+#write ul,
+#write ol { padding-left: 1.6em; margin: 0.6em 0; }
+#write li { margin: 0.2em 0; }
+
+#write img { max-width: 100%; }
+
+#write table { border-collapse: collapse; margin: 0.8em 0; }
+#write th,
+#write td {
+  border: 1px solid color-mix(in srgb, CanvasText 20%, transparent);
+  padding: 6px 10px;
+}
+#write hr {
+  border: 0;
+  border-top: 1px solid color-mix(in srgb, CanvasText 20%, transparent);
+  margin: 1em 0;
+}
+
+/* Inline code (not inside a pre). */
+#write :not(pre) > code {
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 0.92em;
+  padding: 1px 4px;
+  background: color-mix(in srgb, CanvasText 8%, transparent);
+  border-radius: 3px;
+}

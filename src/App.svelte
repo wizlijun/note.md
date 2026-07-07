@@ -158,7 +158,7 @@
     ;(async () => {
       try { await loadSettings() } catch (e) { console.warn('[App] loadSettings:', e) }
       await loadFolderViewState()
-      if (folderView.visible) {
+      if (folderView.enabled && folderView.visible) {
         try { await invoke('set_menu_item_checked', { id: 'toggle-folder-view', checked: true }) }
         catch (e) { console.warn('[App] init folder-view check:', e) }
       }
@@ -635,7 +635,7 @@
   <Toast />
   <FindReplace />
   <section class="pane">
-    {#if platformName !== 'ios' && folderView.visible}
+    {#if platformName !== 'ios' && folderView.enabled && folderView.visible}
       <FolderView activePath={current?.filePath ?? null} />
     {/if}
     {#if current}
