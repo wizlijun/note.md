@@ -53,6 +53,11 @@ export async function mountRichEditor(
     enableTableResize: true,
     enableImageSelection: true,
     enableHistory: true,
+    // Typora-style live formatting is off for inline marks: typing `**`, `__`,
+    // `*`, `_`, `` ` ``, `~~`, `^^`, `==` leaves the delimiters literal so the
+    // line stays "in source" while editing. Existing marks parsed from the file
+    // still render; block-level shortcuts (#, -, >, ```, ---) are unaffected.
+    enableInlineMarkInputRules: false,
     onChange,
     changeDebounceMs: 200,
   })
