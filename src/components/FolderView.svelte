@@ -45,9 +45,20 @@
 
 <aside bind:this={asideEl} class="folder-view" style="width: {folderView.width}px">
   <div class="header">
-    <button class="hbtn" onclick={goUp} disabled={!canGoUp} title="Parent folder">↑</button>
+    <button class="hbtn" onclick={goUp} disabled={!canGoUp} title="Parent folder" aria-label="Parent folder">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <line x1="12" y1="19" x2="12" y2="5" />
+        <polyline points="5 12 12 5 19 12" />
+      </svg>
+    </button>
     <span class="root-name" title={folderView.rootDir ?? ''}>{rootName || 'No folder'}</span>
-    <button class="hbtn" onclick={() => refreshAll()} title="Refresh">⟳</button>
+    <button class="hbtn" onclick={() => refreshAll()} title="Refresh" aria-label="Refresh">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <polyline points="23 4 23 10 17 10" />
+        <polyline points="1 20 1 14 7 14" />
+        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+      </svg>
+    </button>
   </div>
   <div class="tree">
     {#if rootEntries.length === 0}
@@ -89,9 +100,11 @@
     font-weight: 600; text-transform: none; opacity: 0.8;
   }
   .hbtn {
+    display: inline-flex; align-items: center; justify-content: center;
     border: 0; background: transparent; cursor: pointer;
-    font-size: 14px; padding: 2px 4px; border-radius: 4px; opacity: 0.7;
+    padding: 3px; border-radius: 4px; opacity: 0.7;
   }
+  .hbtn svg { display: block; }
   .hbtn:hover:not(:disabled) { background: rgba(0,0,0,0.08); opacity: 1; }
   .hbtn:disabled { opacity: 0.25; cursor: default; }
   .tree { flex: 1; overflow: auto; padding: 4px 0; }

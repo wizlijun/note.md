@@ -32,11 +32,18 @@
   title={entry.name}
 >
   {#if entry.isDir}
-    <span class="twisty" class:open={expanded}>▸</span>
-    <span class="icon">📁</span>
+    <svg class="chev" class:open={expanded} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <polyline points="9 18 15 12 9 6" />
+    </svg>
+    <svg class="icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+    </svg>
   {:else}
-    <span class="twisty spacer"></span>
-    <span class="icon">📄</span>
+    <span class="chev spacer"></span>
+    <svg class="icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <polyline points="14 2 14 8 20 8" />
+    </svg>
   {/if}
   <span class="label">{entry.name}</span>
 </button>
@@ -57,10 +64,10 @@
   }
   .node:hover { background: rgba(0,0,0,0.05); }
   .node.active { background: rgba(0,0,0,0.1); font-weight: 500; }
-  .twisty { display: inline-block; width: 12px; font-size: 10px; opacity: 0.6; transition: transform 0.1s; }
-  .twisty.open { transform: rotate(90deg); }
-  .twisty.spacer { visibility: hidden; }
-  .icon { flex: 0 0 auto; font-size: 12px; }
+  .chev { flex: 0 0 auto; width: 14px; height: 14px; opacity: 0.55; transition: transform 0.12s ease; }
+  .chev.open { transform: rotate(90deg); }
+  .chev.spacer { display: inline-block; visibility: hidden; }
+  .icon { flex: 0 0 auto; display: block; opacity: 0.75; }
   .label { overflow: hidden; text-overflow: ellipsis; }
   @media (prefers-color-scheme: dark) {
     .node:hover { background: rgba(255,255,255,0.07); }
