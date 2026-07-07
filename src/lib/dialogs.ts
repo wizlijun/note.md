@@ -5,10 +5,15 @@ import { basename } from './fs'
 
 const IMAGE_EXTS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'heic', 'heif', 'avif']
 
+const SUBTITLE_EXTS = ['srt', 'vtt', 'ass', 'ssa']
+
 const ALL_EXTS = [
   'md', 'markdown', 'mdown', 'mkd',
   'html', 'htm',
-  'txt', 'log', 'csv', 'tsv', 'env',
+  'txt', 'text', 'log', 'csv', 'tsv', 'env',
+  ...SUBTITLE_EXTS,
+  'rst', 'org', 'adoc', 'asciidoc', 'tex',
+  'diff', 'patch', 'properties',
   'json', 'jsonc', 'yaml', 'yml', 'toml', 'ini', 'conf', 'xml',
   'sh', 'bash', 'zsh',
   'py', 'js', 'mjs', 'cjs', 'ts', 'tsx', 'jsx',
@@ -50,6 +55,7 @@ export async function pickOpenFile(): Promise<string | null> {
     filters: [
       { name: 'Markdown', extensions: ['md', 'markdown', 'mdown', 'mkd'] },
       { name: 'HTML', extensions: ['html', 'htm'] },
+      { name: 'Subtitles', extensions: SUBTITLE_EXTS },
       { name: 'Images', extensions: IMAGE_EXTS },
       { name: 'All supported', extensions: ALL_EXTS },
     ],
@@ -67,8 +73,10 @@ function saveFilters(ext?: string) {
     return [{ name: 'Markdown', extensions: ['md', 'markdown', 'mdown', 'mkd'] }]
   if (['html', 'htm'].includes(ext))
     return [{ name: 'HTML', extensions: ['html', 'htm'] }]
-  if (['txt', 'log'].includes(ext))
-    return [{ name: 'Plain Text', extensions: ['txt', 'log'] }]
+  if (['txt', 'text', 'log'].includes(ext))
+    return [{ name: 'Plain Text', extensions: ['txt', 'text', 'log'] }]
+  if (SUBTITLE_EXTS.includes(ext))
+    return [{ name: 'Subtitles', extensions: SUBTITLE_EXTS }]
   if (IMAGE_EXTS.includes(ext))
     return [{ name: 'Image', extensions: IMAGE_EXTS }]
   if (ALL_EXTS.includes(ext))

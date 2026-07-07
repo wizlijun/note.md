@@ -17,6 +17,23 @@ export async function writeMd(path: string, content: string): Promise<void> {
   return writeTextFile(path, content)
 }
 
+/**
+ * True when a filesystem error stems from a missing access permission rather
+ * than a bad path. Covers both tauri-plugin-fs scope rejections ("forbidden
+ * path: …") and OS-level denials (macOS TCC / Unix EACCES / EPERM). Callers
+ * use this to offer a "grant permission and retry" flow instead of a raw error.
+ */
+export function isPermissionError(e: unknown): boolean {
+  const msg = (e instanceof Error ? e.message : String(e ?? '')).toLowerCase()
+  return (
+    msg.includes('forbidden path') ||
+    msg.includes('not allowed on the scope') ||
+    msg.includes('permission denied') ||
+    msg.includes('operation not permitted') ||
+    msg.includes('access is denied')
+  )
+}
+
 export function basename(path: string): string {
   const seg = path.split('/').filter(Boolean)
   return seg[seg.length - 1] ?? path
@@ -51,10 +68,29 @@ const EXT_TABLE: Record<string, FileClass> = {
   webp:      { kind: 'image' },
 
   txt:       { kind: 'code', language: '' },
+  text:      { kind: 'code', language: '' },
   log:       { kind: 'code', language: '' },
   csv:       { kind: 'spreadsheet' },
   tsv:       { kind: 'code', language: '' },
   env:       { kind: 'code', language: '' },
+
+  // Subtitles (plain-text, no hljs grammar → rendered as plaintext)
+  srt:       { kind: 'code', language: '' },
+  vtt:       { kind: 'code', language: '' },
+  ass:       { kind: 'code', language: '' },
+  ssa:       { kind: 'code', language: '' },
+
+  // Lightweight markup / prose
+  rst:       { kind: 'code', language: '' },
+  org:       { kind: 'code', language: '' },
+  adoc:      { kind: 'code', language: '' },
+  asciidoc:  { kind: 'code', language: '' },
+  tex:       { kind: 'code', language: 'latex' },
+
+  // Diffs / property files
+  diff:      { kind: 'code', language: 'diff' },
+  patch:     { kind: 'code', language: 'diff' },
+  properties:{ kind: 'code', language: 'ini' },
 
   json:      { kind: 'code', language: 'json' },
   jsonc:     { kind: 'code', language: 'json' },

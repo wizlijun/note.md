@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { classifyPath, isSupportedPath, looksBinary, modeKeyFor } from './fs'
+import { classifyPath, isSupportedPath, isPermissionError, looksBinary, modeKeyFor } from './fs'
 
 describe('classifyPath', () => {
   it('markdown extensions', () => {
@@ -26,6 +26,18 @@ describe('classifyPath', () => {
   it('plain-text extensions with empty language', () => {
     expect(classifyPath('foo.txt')).toEqual({ kind: 'code', language: '' })
     expect(classifyPath('foo.log')).toEqual({ kind: 'code', language: '' })
+  })
+
+  it('subtitle extensions are plain-text code', () => {
+    expect(classifyPath('movie.srt')).toEqual({ kind: 'code', language: '' })
+    expect(classifyPath('movie.vtt')).toEqual({ kind: 'code', language: '' })
+    expect(classifyPath('movie.ass')).toEqual({ kind: 'code', language: '' })
+    expect(classifyPath('movie.ssa')).toEqual({ kind: 'code', language: '' })
+  })
+
+  it('diff/patch extensions highlight as diff', () => {
+    expect(classifyPath('a.diff')).toEqual({ kind: 'code', language: 'diff' })
+    expect(classifyPath('a.patch')).toEqual({ kind: 'code', language: 'diff' })
   })
 
   it('spreadsheet extensions', () => {
@@ -70,6 +82,24 @@ describe('classifyPath', () => {
   it('unknown extensions return null', () => {
     expect(classifyPath('foo.exe')).toBe(null)
     expect(classifyPath('noextension')).toBe(null)
+  })
+})
+
+describe('isPermissionError', () => {
+  it('detects tauri-plugin-fs scope rejections', () => {
+    expect(isPermissionError(new Error('forbidden path: /Users/bob/.config/x, maybe it is not allowed on the scope'))).toBe(true)
+  })
+
+  it('detects OS-level permission denials', () => {
+    expect(isPermissionError(new Error('Permission denied (os error 13)'))).toBe(true)
+    expect(isPermissionError('Operation not permitted')).toBe(true)
+    expect(isPermissionError(new Error('Access is denied. (os error 5)'))).toBe(true)
+  })
+
+  it('returns false for unrelated errors', () => {
+    expect(isPermissionError(new Error('File not found'))).toBe(false)
+    expect(isPermissionError(null)).toBe(false)
+    expect(isPermissionError(undefined)).toBe(false)
   })
 })
 

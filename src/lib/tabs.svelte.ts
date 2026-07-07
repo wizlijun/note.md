@@ -1,6 +1,6 @@
 import {
   readMd, writeMd, basename, classifyPath, isSupportedPath, looksBinary,
-  modeKeyFor, statFile, type FileKind,
+  isPermissionError, modeKeyFor, statFile, type FileKind,
 } from './fs'
 import { sha256Hex } from './hash'
 import { pushRecentFile, getRecentMode, setRecentMode } from './settings.svelte'
@@ -94,6 +94,30 @@ export function newFile(): void {
   }
 }
 
+/**
+ * Read a file's text, but when the read fails for lack of permission, prompt
+ * the user to grant access and retry instead of surfacing a raw error. Loops
+ * until the read succeeds or the user cancels (in which case the original error
+ * is re-thrown so callers keep their existing failure handling).
+ */
+async function readTextWithPermissionPrompt(path: string): Promise<string> {
+  for (;;) {
+    try {
+      return await readMd(path)
+    } catch (e) {
+      if (!isPermissionError(e)) throw e
+      const { ask } = await import('@tauri-apps/plugin-dialog')
+      const retry = await ask(
+        `M↓ doesn't have permission to open:\n${path}\n\n` +
+          'Grant access under System Settings › Privacy & Security › ' +
+          'Files and Folders (or Full Disk Access), then Retry.',
+        { title: 'Permission needed', kind: 'warning', okLabel: 'Retry', cancelLabel: 'Cancel' },
+      )
+      if (!retry) throw e
+    }
+  }
+}
+
 export async function openFile(path: string): Promise<void> {
   const cls = classifyPath(path)
   if (!cls) {
@@ -114,7 +138,7 @@ export async function openFile(path: string): Promise<void> {
     // currentContent stays empty so isDirty() is always false
     stat = await statFile(path)
   } else {
-    content = await readMd(path)
+    content = await readTextWithPermissionPrompt(path)
     if (looksBinary(content)) {
       throw new Error(`Binary file not supported: ${path}`)
     }

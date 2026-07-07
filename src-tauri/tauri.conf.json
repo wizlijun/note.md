@@ -64,6 +64,7 @@
       {
         "ext": [
           "txt",
+          "text",
           "log",
           "csv",
           "tsv",
@@ -71,6 +72,32 @@
         ],
         "name": "Plain Text",
         "description": "Plain text file",
+        "role": "Editor"
+      },
+      {
+        "ext": [
+          "srt",
+          "vtt",
+          "ass",
+          "ssa"
+        ],
+        "name": "Subtitles",
+        "description": "Subtitle file",
+        "role": "Editor"
+      },
+      {
+        "ext": [
+          "rst",
+          "org",
+          "adoc",
+          "asciidoc",
+          "tex",
+          "diff",
+          "patch",
+          "properties"
+        ],
+        "name": "Text Document",
+        "description": "Plain-text document",
         "role": "Editor"
       },
       {
@@ -243,6 +270,9 @@
     ]
   },
   "plugins": {
+    "fs": {
+      "requireLiteralLeadingDot": false
+    },
     "updater": {
       "endpoints": [
         "https://github.com/wizlijun/MdEditor/releases/latest/download/latest.json"
