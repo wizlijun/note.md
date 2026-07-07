@@ -7,8 +7,8 @@ use std::sync::Mutex;
 use tauri::image::Image;
 #[cfg(not(target_os = "ios"))]
 use tauri::menu::{
-    AboutMetadata, Menu, MenuBuilder, MenuItem, MenuItemBuilder, MenuItemKind, PredefinedMenuItem,
-    Submenu, SubmenuBuilder,
+    AboutMetadata, CheckMenuItemBuilder, Menu, MenuBuilder, MenuItem,
+    MenuItemBuilder, MenuItemKind, PredefinedMenuItem, Submenu, SubmenuBuilder,
 };
 #[cfg(not(target_os = "ios"))]
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
@@ -221,6 +221,40 @@ fn set_plugin_menu_item_enabled(app: tauri::AppHandle, id: String, enabled: bool
         Ok(())
     } else {
         Err(format!("menu item not found: {id}"))
+    }
+}
+
+/// Set the checked state of a `CheckMenuItem` by id. Walks the whole menu tree.
+#[cfg(not(target_os = "ios"))]
+#[tauri::command]
+fn set_menu_item_checked(app: tauri::AppHandle, id: String, checked: bool) -> Result<(), String> {
+    fn walk<R: tauri::Runtime>(items: Vec<MenuItemKind<R>>, id: &str, checked: bool) -> bool {
+        for item in items {
+            match item {
+                MenuItemKind::Check(ci) => {
+                    if ci.id().0.as_str() == id {
+                        let _ = ci.set_checked(checked);
+                        return true;
+                    }
+                }
+                MenuItemKind::Submenu(sm) => {
+                    if let Ok(child) = sm.items() {
+                        if walk(child, id, checked) {
+                            return true;
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+        false
+    }
+    let menu = app.menu().ok_or_else(|| "no menu set".to_string())?;
+    let items = menu.items().map_err(|e| e.to_string())?;
+    if walk(items, &id, checked) {
+        Ok(())
+    } else {
+        Err(format!("check menu item not found: {id}"))
     }
 }
 
@@ -607,6 +641,7 @@ pub fn run() {
                 drain_pending_files,
                 set_default_app_for_extensions,
                 set_plugin_menu_item_enabled,
+                set_menu_item_checked,
                 plugin_host::get_plugin_manifests,
                 plugin_host::get_all_plugin_manifests,
                 plugin_host::plugin_is_enabled,
@@ -1064,6 +1099,12 @@ fn build_menu<R: tauri::Runtime>(
         .item(
             &MenuItemBuilder::with_id("toggle-mode", "Toggle Source / Rich")
                 .accelerator("Cmd+/")
+                .build(app)?,
+        )
+        .item(
+            &CheckMenuItemBuilder::with_id("toggle-folder-view", "Folder View")
+                .accelerator("Cmd+Shift+E")
+                .checked(false)
                 .build(app)?,
         )
         .item(&PredefinedMenuItem::fullscreen(app, None)?);
