@@ -9,6 +9,11 @@ vi.mock('@tauri-apps/plugin-store', () => ({
 }))
 
 import { i18n, t, setLocale, loadLocale, availableLocales } from './store.svelte'
+import { en } from './en'
+import { zh } from './zh'
+import { ja } from './ja'
+
+const placeholders = (s: string) => (s.match(/\{(\w+)\}/g) ?? []).sort()
 
 beforeEach(() => {
   storeGet.mockReset(); storeSet.mockReset(); storeSave.mockReset()
@@ -32,8 +37,43 @@ describe('t', () => {
 })
 
 describe('availableLocales', () => {
-  it('includes English', () => {
-    expect(availableLocales.some((l) => l.code === 'en')).toBe(true)
+  it('includes English, Simplified Chinese and Japanese', () => {
+    const codes = availableLocales.map((l) => l.code)
+    expect(codes).toEqual(expect.arrayContaining(['en', 'zh', 'ja']))
+  })
+})
+
+describe.each([
+  ['zh', zh],
+  ['ja', ja],
+])('%s catalog', (_name, catalog) => {
+  const enKeys = Object.keys(en) as (keyof typeof en)[]
+
+  it('translates every English key to a non-empty string', () => {
+    for (const key of enKeys) {
+      expect(catalog[key], `missing key: ${key}`).toBeTruthy()
+    }
+  })
+
+  it('has no keys beyond the English catalog', () => {
+    expect(Object.keys(catalog).sort()).toEqual(enKeys.slice().sort())
+  })
+
+  it('preserves the same {placeholders} as English', () => {
+    for (const key of enKeys) {
+      expect(placeholders(catalog[key]), `placeholder mismatch: ${key}`)
+        .toEqual(placeholders(en[key]))
+    }
+  })
+})
+
+describe('t with a non-English locale', () => {
+  it('returns the localized string for the active locale', () => {
+    i18n.locale = 'zh'
+    expect(t('folderView.reveal')).toBe('在访达中显示')
+    i18n.locale = 'ja'
+    expect(t('folderView.reveal')).toBe('Finder で表示')
+    i18n.locale = 'en'
   })
 })
 

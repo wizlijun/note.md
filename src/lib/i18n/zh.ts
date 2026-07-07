@@ -1,0 +1,319 @@
+import type { Messages } from './en'
+
+// Simplified Chinese catalog. Typed as a full record so a missing key is a
+// compile error — keep it complete and in sync with `en.ts`.
+export const zh: Record<keyof Messages, string> = {
+  // Generic / shared
+  'common.cancel': '取消',
+  'common.ok': '确定',
+  'common.close': '关闭',
+  'common.dismiss': '关闭',
+  'common.saveAs': '另存为…',
+
+  // Settings
+  'settings.language': '语言',
+
+  // CLI (`mdedit`) install/uninstall
+  'cli.installTitle': "安装 'mdedit' 命令",
+  'cli.installPrompt':
+    "把 'mdedit' 命令安装到 PATH 吗？\n\n" +
+    '安装后可以从任何终端或脚本调用 M↓ 的功能：\n' +
+    '  • mdedit -s draft.md   通过 Share 插件发布并打印 URL\n' +
+    '  • mdedit help          查看所有命令\n' +
+    '  • mdedit plugin list   列出插件\n\n' +
+    "随时可以从 Help → Install/Uninstall 'mdedit' Command 重新管理。",
+  'cli.installInto': "将 'mdedit' 安装到 {dir}？",
+  'cli.installed': "'mdedit' 已安装到 {dir}",
+  'cli.installFailed': '安装失败：{error}',
+  'cli.uninstalled': "已从 {dir} 卸载 'mdedit'",
+  'cli.uninstallFailed': '卸载失败：{error}',
+  'cli.notInstalled': "'mdedit' 未安装",
+
+  // Share
+  'share.docTooLarge': '❌ {name}：文档过大（{mb} MB / 上限 25 MB）',
+  'share.internalError': '❌ {name}：内部错误',
+  'share.errPrefix': '❌ Share：{msg}',
+  'share.actionFailed': '❌ Share：{action}失败',
+  'share.action.share': '分享',
+  'share.action.unpublish': '撤销分享',
+  'share.action.copyLink': '复制链接',
+  'share.imageUpdated': '✅ 图片已更新（已复制）',
+  'share.imageShared': '✅ 图片分享成功（已复制）',
+  'share.contentUpdated': '✅ 内容已更新（链接已复制）',
+  'share.shared': '✅ 分享成功（已复制）',
+  'share.unpublished': '✅ 已撤销分享',
+  'share.linkCopied': '✅ 链接已复制',
+  'share.err.not_configured': '请先在 Preferences → Share 配置 Service URL 和 API Key',
+  'share.err.no_path': '请先保存文件',
+  'share.err.empty_content': '内容为空',
+  'share.err.network': '网络错误，请检查网络',
+  'share.err.auth': 'API key 无效，请检查 Preferences',
+  'share.err.forbidden': '无权撤销该分享',
+  'share.err.too_large': '文档过大（上限 25 MB）',
+  'share.err.conflict': 'slug 冲突，请稍后重试',
+  'share.err.unsupported': '不支持的图片格式',
+  'share.err.server': '服务器繁忙，请稍后重试',
+  'share.err.http': '请求失败',
+  'share.err.parse': '服务器响应解析失败',
+  'share.err.corrupt_record': '本地分享记录损坏',
+
+  // Source-of-truth Vault (sotvault)
+  'sotvault.revealFailed': '❌ 打开来源目录失败',
+  'sotvault.saveFirst': '请先保存文件，再同步到 Vault',
+  'sotvault.synced': '✓ 已同步到 Vault',
+  'sotvault.syncFailed': '❌ 同步到 Vault 失败',
+  'sotvault.sourceMovedOrDeleted': '⚠️ Vault：源文件已移动或删除，无法检查更新',
+  'sotvault.askLocalChanged': '此文件已同步到 Vault，且自上次同步后有改动。现在同步到 Vault 吗？',
+  'sotvault.askSourceUpdated': '源文件已更新，是否同步进 Vault？',
+  'sotvault.syncTitle': '同步到 Vault',
+  'sotvault.conflictTitle': 'Vault 冲突',
+  'sotvault.conflictOverwrite': '源文件与 Vault 副本都被修改过（冲突）。用源文件覆盖 Vault 副本？',
+  'sotvault.conflictKeep': '保留 Vault 当前内容，并停止对此文件的更新提示？',
+  'sotvault.updatedFromSource': '✓ 已从源文件更新 Vault 副本',
+  'sotvault.updateFailed': '❌ 更新 Vault 副本失败',
+
+  // Vault settings tab
+  'vault.connected': '✓ Vault 已连接，仓库克隆完成',
+  'vault.err.keychain': '❌ Vault 连接失败：Keychain 桥未就绪（Swift 端 Keychain.swift 还没加入 Xcode 目标）',
+  'vault.err.authConnect': '❌ Vault 连接失败：PAT 鉴权失败，请确认 token 有 contents:read/write 权限',
+  'vault.err.notFoundConnect': '❌ Vault 连接失败：仓库不存在或 PAT 无访问权',
+  'vault.err.networkConnect': '❌ Vault 连接失败：网络错误',
+  'vault.err.generic': '❌ Vault 连接失败：{error}',
+  'vault.disconnectConfirm': '断开 Vault 将删除本机 Vault 副本和 Keychain 中的 PAT，远端仓库不受影响。继续？',
+  'vault.disconnectTitle': '断开 Vault',
+  'vault.disconnected': '✓ 已断开 Vault',
+  'vault.disconnectFailed': '❌ 断开失败：{error}',
+  'vault.statusLabel': '状态：',
+  'vault.syncing': '同步中…',
+  'vault.cloning': '克隆中…',
+  'vault.lastSync': '✓ 上次同步：{time}',
+  'vault.unknownError': '未知错误',
+  'vault.hasConflicts': '⚠️ 有冲突文件',
+  'vault.notConfigured': '未配置',
+  'vault.syncNow': '立即同步',
+  'vault.disconnect': '断开 Vault',
+  'vault.remoteUrl': '远程 URL',
+  'vault.branch': '分支',
+  'vault.pat': '个人访问令牌',
+  'vault.patConfigured': '✓ 已配置',
+  'vault.patUpdate': '更新…',
+  'vault.howToToken': '📖 如何生成 Token',
+  'vault.authorName': '作者名',
+  'vault.authorEmail': '作者邮箱',
+  'vault.saving': '保存中…',
+  'vault.saveConfig': '保存配置',
+  'vault.filesWarning': '⚠️ 请勿在 Files App 内修改或删除 Documents/Vault/ 目录，否则同步状态会损坏。',
+
+  // Vault sync
+  'vault.syncedWithConflicts': '⚠️ Vault：同步完成，部分本地修改保留为 .conflict 副本',
+  'vault.syncComplete': '✓ Vault 同步完成',
+  'vault.authFailed': '❌ Vault：鉴权失败，请去 Vault 设置更新 PAT',
+  'vault.networkError': '❌ Vault：网络错误',
+  'vault.repoNotFound': '❌ Vault：仓库不存在或 PAT 无权访问',
+  'vault.mergeFailed': '⚠️ Vault：自动合并失败，本次跳过；下次再试',
+
+  // Plugin host
+  'host.startFailed': '❌ {name}：启动失败',
+  'host.noResponse': '{name}：未响应（{seconds}s）',
+  'host.abnormalExit': '❌ {name}：异常退出（code {code}）',
+  'host.protocolEmpty': '❌ {name}：协议错误（空响应）',
+  'host.protocolError': '❌ {name}：协议错误',
+
+  // Print
+  'print.nothingToPrint': '没有可打印的内容',
+  'print.renderFailed': '打印渲染失败',
+
+  // Slash menu items
+  'slash.filter.images': '图片',
+  'slash.filter.docs': '文档与文件',
+  'slash.image.label': '插入图片…',
+  'slash.image.desc': '从本地选择图片文件',
+  'slash.doc.label': '插入文档…',
+  'slash.doc.desc': '从本地选择文件作为附件链接',
+  'slash.h1.label': '标题 1',
+  'slash.h1.desc': '一级大标题',
+  'slash.h2.label': '标题 2',
+  'slash.h2.desc': '二级标题',
+  'slash.h3.label': '标题 3',
+  'slash.h3.desc': '三级标题',
+  'slash.quote.label': '引用',
+  'slash.quote.desc': '引用块',
+  'slash.code.label': '代码块',
+  'slash.code.desc': '带语法高亮的代码块',
+  'slash.mermaid.label': 'Mermaid 图表',
+  'slash.mermaid.desc': '流程图、时序图、甘特图…',
+  'slash.math.label': '数学公式',
+  'slash.math.desc': 'LaTeX 数学公式块',
+  'slash.table.label': '表格',
+  'slash.table.desc': '3×3 可编辑表格',
+  'slash.spreadsheet.label': '电子表格',
+  'slash.spreadsheet.desc': '可编辑电子表格（支持公式）',
+  'slash.bullet.label': '无序列表',
+  'slash.bullet.desc': '无序列表',
+  'slash.ordered.label': '有序列表',
+  'slash.ordered.desc': '有序列表',
+  'slash.task.label': '任务列表',
+  'slash.task.desc': '任务清单 / Todo',
+  'slash.hr.label': '分割线',
+  'slash.hr.desc': '水平分割线',
+
+  // Editor mode toggle
+  'mode.editorMode': '编辑模式',
+  'mode.previewRich': '预览（富文本）',
+  'mode.source': '源码（Cmd+/）',
+
+  // Mobile toolbar
+  'toolbar.openMenu': '打开菜单',
+  'toolbar.toggleMode': '切换源码/富文本',
+  'toolbar.more': '更多',
+  'toolbar.save': '保存',
+  'toolbar.saveAs': '另存为…',
+  'toolbar.share': '分享',
+  'toolbar.settings': '设置',
+
+  // HTML preview
+  'htmlPreview.title': 'HTML 预览',
+
+  // Drawer / tab bar
+  'drawer.closeMenu': '关闭菜单',
+  'tabBar.modified': '已修改',
+
+  // Plugins settings
+  'plugins.restartNote': '改动需要重启 M↓ 后生效',
+
+  // Slash menu (empty state)
+  'slashMenu.noMatches': '无匹配项',
+
+  // Find / replace
+  'findReplace.find': '查找',
+  'findReplace.matchCase': '区分大小写',
+  'findReplace.wholeWord': '全字匹配',
+  'findReplace.regex': '正则表达式',
+  'findReplace.previous': '上一个',
+  'findReplace.next': '下一个',
+  'findReplace.replaceWith': '替换为…',
+  'findReplace.replace': '替换',
+  'findReplace.replaceAll': '全部替换',
+  'findReplace.replaceToggle': '替换 ▾',
+
+  // Spreadsheet context menu
+  'spreadsheet.insertRowAbove': '在上方插入行',
+  'spreadsheet.insertRowBelow': '在下方插入行',
+  'spreadsheet.deleteRow': '删除此行',
+  'spreadsheet.insertColLeft': '在左侧插入列',
+  'spreadsheet.insertColRight': '在右侧插入列',
+  'spreadsheet.deleteCol': '删除此列',
+  'spreadsheet.clearSelection': '清空选中',
+
+  // Image toolbar
+  'imageToolbar.original': '原始',
+  'imageToolbar.originalSize': '原始大小',
+
+  // Citations (block references)
+  'citation.notFound': '引用未找到',
+  'citation.here': '此处',
+  'citation.sameDoc': '同文档',
+  'citation.jumpTitle': '跳转 {target} #{blockid}',
+  'citation.blockDeleted': '原 block 已删除（在 generation {gen}）',
+  'citation.blockEdited': '原 block 已编辑，跳转到当前继承块 {id}',
+  'citation.noBlockIds': '目标文档未启用 block id（缓存中未找到 yaml；请先 Compute Blocks）',
+
+  // Plugin action failure
+  'pluginAction.failed': '{name}：{type} 失败',
+
+  // Settings → Software update
+  'settings.update.heading': '软件更新',
+  'settings.update.upToDate': '已是最新版本。',
+  'settings.update.foundNew': '发现新版本 v{version}',
+  'settings.update.currentVersionLabel': '当前版本：',
+  'settings.update.lastChecked': '上次检查：{time}',
+  'settings.update.autoCheck': '启动时自动检查更新（每 20 小时一次）',
+  'settings.update.checking': '检查中…',
+  'settings.update.checkNow': '立即检查更新',
+  'settings.update.downloadInstall': '下载并安装 v{version}',
+  'settings.update.restartNow': '立即重启完成更新',
+  'settings.update.downloading': '下载中：',
+  'settings.update.notes': 'v{version} 更新说明',
+  'settings.update.distNote': '更新通过 GitHub Releases 分发，下载前会用内置公钥校验签名；只有签名通过的包才会被替换到 .app 中。',
+
+  // Vault browser
+  'vaultBrowser.syncNow': '立即同步',
+  'vaultBrowser.notConfigured': '未配置 Vault。',
+  'vaultBrowser.goConfigure': '请去 Settings → Vault 配置仓库。',
+  'vaultBrowser.up': '‹ 上级',
+  'vaultBrowser.empty': 'Vault 为空',
+
+  // Empty state
+  'emptyState.hint': '拖入 .md 文件 或',
+  'emptyState.new': '新建（⌘N）',
+  'emptyState.open': '打开…（⌘O）',
+
+  // Toast
+  'toast.showDetails': '显示详情',
+  'toast.collapse': '收起',
+  'toast.details': '详情',
+  'toast.autoClose': '自动关闭',
+
+  // Synced-from-source banner
+  'syncOrigin.synced': '📎 已从来源同步：',
+  'syncOrigin.revealTitle': '打开来源所在目录',
+  'syncOrigin.openSourceDir': '打开来源目录',
+
+  // External-change banner
+  'externalChange.modified': '“{title}” 已被其他应用修改。',
+  'externalChange.deleted': '“{title}” 已在磁盘上被删除。',
+  'externalChange.reload': '从磁盘重新加载',
+  'externalChange.overwrite': '用我的修改覆盖',
+  'externalChange.recreate': '保存时重新创建（⌘S）',
+  'externalChange.closeTab': '关闭标签页',
+
+  // Sync-to-Vault offer banner
+  'syncToVault.offer': '💡 此文件在 Vault 之外。同步到 Vault 会在 Vault 留一份副本，随 git 自动备份、多设备同步；来源更新时还能一键刷新。',
+  'syncToVault.sync': '同步到 Vault',
+
+  // Update dialog
+  'updateDialog.checking': '正在检查更新…',
+  'updateDialog.currentVersion': '当前版本：v{version}',
+  'updateDialog.available': 'M↓ {version} 可用',
+  'updateDialog.whatsNew': '更新内容',
+  'updateDialog.noNotes': '暂无更新说明。',
+  'updateDialog.skip': '跳过此版本',
+  'updateDialog.later': '稍后',
+  'updateDialog.updateNow': '立即更新',
+  'updateDialog.downloading': '正在下载 {version}…',
+  'updateDialog.runInBackground': '后台运行',
+  'updateDialog.ready': '准备就绪',
+  'updateDialog.readyBody': 'M↓ {version} 已下载完成。重启 App 即可完成更新。',
+  'updateDialog.restartLater': '稍后重启',
+  'updateDialog.restartNow': '立即重启',
+  'updateDialog.error': '更新出错',
+  'updateDialog.unknownError': '未知错误',
+  'updateDialog.upToDate': 'M↓ 已是最新版本',
+
+  // Update banner
+  'updateBanner.available': '✨ M↓ {version} 可用',
+  'updateBanner.viewDetails': '查看详情',
+  'updateBanner.downloading': '正在下载 {version}…',
+  'updateBanner.showProgress': '显示进度',
+  'updateBanner.ready': '✅ {version} 已下载，重启即可完成更新',
+  'updateBanner.restart': '重启…',
+
+  // Relative time
+  'time.never': '从未',
+  'time.justNow': '刚刚',
+  'time.minutesAgo': '{n} 分钟前',
+  'time.hoursAgo': '{n} 小时前',
+  'time.daysAgo': '{n} 天前',
+
+  // Folder view
+  'folderView.parentFolder': '上级文件夹',
+  'folderView.find': '查找',
+  'folderView.refresh': '刷新',
+  'folderView.hide': '隐藏文件夹视图',
+  'folderView.clearFilter': '清除筛选',
+  'folderView.filterPlaceholder': '筛选（正则）…',
+  'folderView.noMatches': '无匹配项',
+  'folderView.emptyFolder': '空文件夹',
+  'folderView.noFolder': '无文件夹',
+  'folderView.reveal': '在访达中显示',
+}

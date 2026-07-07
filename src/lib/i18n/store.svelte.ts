@@ -1,17 +1,21 @@
 import { Store } from '@tauri-apps/plugin-store'
 import { en, type Messages } from './en'
+import { zh } from './zh'
+import { ja } from './ja'
 
 /** Every locale code the UI knows about. Extend as catalogs are added. */
-export type Locale = 'en'
+export type Locale = 'en' | 'zh' | 'ja'
 
 /** Locales offered in the Settings picker (label is each language's own name). */
 export const availableLocales: { code: Locale; label: string }[] = [
   { code: 'en', label: 'English' },
+  { code: 'zh', label: '简体中文' },
+  { code: 'ja', label: '日本語' },
 ]
 
-// English is the complete catalog; other locales may be partial and fall back
-// to English per missing key.
-const registry: Record<Locale, Partial<Messages>> = { en }
+// English is the source of truth; other locales fall back to English per any
+// missing key (they're kept complete, but the fallback keeps `t()` total).
+const registry: Record<Locale, Partial<Record<keyof Messages, string>>> = { en, zh, ja }
 
 /** Reactive active-locale holder; read by `t()` so switching re-renders the UI. */
 export const i18n = $state<{ locale: Locale }>({ locale: 'en' })
