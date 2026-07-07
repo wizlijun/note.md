@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { SlashItem } from './slash-items'
+  import { t } from '../i18n/store.svelte'
 
   let {
     position,
@@ -49,7 +50,7 @@
     onclick={(e) => e.stopPropagation()}
   >
     {#if items.length === 0}
-      <div class="slash-empty">无匹配项</div>
+      <div class="slash-empty">{t('slashMenu.noMatches')}</div>
     {:else}
       {#each items as item, i (item.id)}
         <!-- svelte-ignore a11y_click_events_have_key_events -->

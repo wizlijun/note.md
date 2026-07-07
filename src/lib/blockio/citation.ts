@@ -45,6 +45,7 @@ export function citationAtCursor(text: string, cursor: number): ParsedCitation |
 
 import type { BlockYaml } from './yaml-schema'
 import { readBlockYaml } from './yaml-rw'
+import { t } from '../i18n/store.svelte'
 
 export function resolvePageUri(pageuri: string, currentDocPath: string): string {
   if (pageuri === '') return currentDocPath
@@ -92,7 +93,7 @@ export function resolveCitationViaYaml(
     if (retired.replaced_by.length === 0) {
       return {
         status: 'deleted',
-        banner: `原 block 已删除（在 generation ${retired.retired_gen}）`,
+        banner: t('citation.blockDeleted', { gen: retired.retired_gen }),
       }
     }
     // Chain forward; if multiple successors, follow the first that resolves.
@@ -103,7 +104,7 @@ export function resolveCitationViaYaml(
         resolved = {
           status: 'retired',
           srcLine: a.src_line,
-          banner: `原 block 已编辑，跳转到当前继承块 ${a.id}`,
+          banner: t('citation.blockEdited', { id: a.id }),
         }
         break
       }
@@ -129,7 +130,7 @@ export async function resolveCitation(
     return {
       status: 'not_found',
       filePath,
-      banner: '目标文档未启用 block id（缓存中未找到 yaml；请先 Compute Blocks）',
+      banner: t('citation.noBlockIds'),
     }
   }
   const r = resolveCitationViaYaml(yaml, blockid)

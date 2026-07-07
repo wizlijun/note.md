@@ -1,5 +1,6 @@
 <script lang="ts">
   import { RevoGrid, type ColumnRegular } from '@revolist/svelte-datagrid'
+  import { t as tr } from '../i18n/store.svelte'
   import { parseCsv, serializeCsv } from './csv'
   import { evaluateGrid } from './formula'
   import { observePrefersColorScheme } from '../theme-loader'
@@ -204,15 +205,15 @@
 
   let menuPos = $state<{ x: number; y: number } | null>(null)
   let menuItems = $derived<MenuItem[]>([
-    { kind: 'item', label: '在上方插入行', action: insertRowAbove },
-    { kind: 'item', label: '在下方插入行', action: insertRowBelow },
-    { kind: 'item', label: '删除此行', action: deleteFocusedRow, disabled: rawGrid.length <= 1 },
+    { kind: 'item', label: tr('spreadsheet.insertRowAbove'), action: insertRowAbove },
+    { kind: 'item', label: tr('spreadsheet.insertRowBelow'), action: insertRowBelow },
+    { kind: 'item', label: tr('spreadsheet.deleteRow'), action: deleteFocusedRow, disabled: rawGrid.length <= 1 },
     { kind: 'divider' },
-    { kind: 'item', label: '在左侧插入列', action: insertColLeft },
-    { kind: 'item', label: '在右侧插入列', action: insertColRight },
-    { kind: 'item', label: '删除此列', action: deleteFocusedCol, disabled: (rawGrid[0]?.length ?? 0) <= 1 },
+    { kind: 'item', label: tr('spreadsheet.insertColLeft'), action: insertColLeft },
+    { kind: 'item', label: tr('spreadsheet.insertColRight'), action: insertColRight },
+    { kind: 'item', label: tr('spreadsheet.deleteCol'), action: deleteFocusedCol, disabled: (rawGrid[0]?.length ?? 0) <= 1 },
     { kind: 'divider' },
-    { kind: 'item', label: '清空选中', action: clearSelection, disabled: focusRow == null && range == null },
+    { kind: 'item', label: tr('spreadsheet.clearSelection'), action: clearSelection, disabled: focusRow == null && range == null },
   ])
 
   function handleContextMenu(e: MouseEvent) {

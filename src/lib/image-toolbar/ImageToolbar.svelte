@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { t } from '../i18n/store.svelte'
+
   let {
     position,
     currentWidth,
@@ -16,7 +18,7 @@
     { label: '50%',  value: '50%'  },
     { label: '75%',  value: '75%'  },
     { label: '100%', value: '100%' },
-    { label: '原始', value: ''     },
+    { label: t('imageToolbar.original'), value: '' },
   ]
 </script>
 
@@ -33,7 +35,7 @@
         class="size-btn"
         class:active={currentWidth === opt.value}
         onclick={() => onResize(opt.value)}
-        title={opt.value || '原始大小'}
+        title={opt.value || t('imageToolbar.originalSize')}
       >
         {opt.label}
       </button>

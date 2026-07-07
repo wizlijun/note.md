@@ -1,4 +1,5 @@
 import type { TokenizerAndRendererExtension } from 'marked'
+import { t } from '../i18n/store.svelte'
 
 const INLINE_RE = /^\(\(([^()#]*)#(b-[0-9a-f]{6})\)\)/
 
@@ -30,9 +31,9 @@ export const blockCitationExtension: TokenizerAndRendererExtension = {
   renderer(token: any) {
     const pageuri = String(token.pageuri ?? '')
     const blockid = String(token.blockid ?? '')
-    const label = pageuri || '此处'
+    const label = pageuri || t('citation.here')
     const tail = blockid.slice(0, 8)
-    const title = `跳转 ${pageuri || '同文档'} #${blockid}`
+    const title = t('citation.jumpTitle', { target: pageuri || t('citation.sameDoc'), blockid })
     return `<span class="block-citation" data-pageuri="${escapeHtml(pageuri)}" data-blockid="${escapeHtml(blockid)}" title="${escapeHtml(title)}">→ ${escapeHtml(label)}#${escapeHtml(tail)}</span>`
   },
 }

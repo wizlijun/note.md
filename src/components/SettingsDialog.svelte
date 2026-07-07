@@ -46,9 +46,9 @@
     try {
       await updaterRunCheck({ forceFresh: true })
       if (updaterState.state === 'uptodate') {
-        updaterMessage = '已是最新版本。'
+        updaterMessage = t('settings.update.upToDate')
       } else if (updaterState.state === 'available') {
-        updaterMessage = `发现新版本 v${updaterState.latestVersion}`
+        updaterMessage = t('settings.update.foundNew', { version: updaterState.latestVersion ?? '' })
       }
     } catch (e) {
       updaterMessage = e instanceof Error ? e.message : String(e)
@@ -82,10 +82,10 @@
   }
 
   function formatLastChecked(iso: string | null): string {
-    if (!iso) return '从未'
-    const t = Date.parse(iso)
-    if (!Number.isFinite(t)) return iso
-    const d = new Date(t)
+    if (!iso) return t('time.never')
+    const ms = Date.parse(iso)
+    if (!Number.isFinite(ms)) return iso
+    const d = new Date(ms)
     return d.toLocaleString()
   }
 
@@ -608,34 +608,34 @@
         </section>
       {:else if selectedTab === 'updates'}
         <section class="block">
-          <h3>软件更新</h3>
+          <h3>{t('settings.update.heading')}</h3>
           <p class="desc">
-            当前版本：<strong>v{updaterState.currentVersion || '—'}</strong>
+            {t('settings.update.currentVersionLabel')}<strong>v{updaterState.currentVersion || '—'}</strong>
           </p>
           <p class="desc">
-            上次检查：{formatLastChecked(updaterState.lastCheckedAt)}
+            {t('settings.update.lastChecked', { time: formatLastChecked(updaterState.lastCheckedAt) })}
           </p>
           <label class="row" style="margin-top: 8px;">
             <input type="checkbox" checked={updaterState.checkOnStartup} onchange={onCheckOnStartupToggle} />
-            启动时自动检查更新（每 20 小时一次）
+            {t('settings.update.autoCheck')}
           </label>
           <div class="row" style="gap: 8px; flex-wrap: wrap; margin-top: 10px;">
             <button onclick={handleCheckUpdate} disabled={updaterBusy || updaterState.state === 'checking' || updaterState.state === 'downloading'}>
-              {updaterState.state === 'checking' ? '检查中…' : '立即检查更新'}
+              {updaterState.state === 'checking' ? t('settings.update.checking') : t('settings.update.checkNow')}
             </button>
             {#if hasUpdateForSettings() && updaterState.state !== 'downloading' && updaterState.state !== 'ready'}
               <button class="primary" onclick={handleUpdateNow} disabled={updaterBusy}>
-                下载并安装 v{updaterState.latestVersion}
+                {t('settings.update.downloadInstall', { version: updaterState.latestVersion ?? '' })}
               </button>
             {/if}
             {#if updaterState.state === 'ready'}
-              <button class="primary" onclick={handleRestart}>立即重启完成更新</button>
+              <button class="primary" onclick={handleRestart}>{t('settings.update.restartNow')}</button>
             {/if}
           </div>
 
           {#if updaterState.state === 'downloading'}
             <p class="desc" style="margin-top: 10px;">
-              下载中：
+              {t('settings.update.downloading')}
               {#if updaterState.contentLength}
                 {Math.round((updaterState.downloaded / updaterState.contentLength) * 100)}%
               {:else}
@@ -652,13 +652,13 @@
 
           {#if updaterState.state === 'available' && updaterState.notes}
             <details style="margin-top: 12px;">
-              <summary>v{updaterState.latestVersion} 更新说明</summary>
+              <summary>{t('settings.update.notes', { version: updaterState.latestVersion ?? '' })}</summary>
               <pre style="margin-top: 8px; white-space: pre-wrap; word-break: break-word; background: color-mix(in srgb, CanvasText 5%, transparent); padding: 8px; border-radius: 6px; font-size: 11px;">{updaterState.notes}</pre>
             </details>
           {/if}
 
           <p class="desc" style="margin-top: 14px;">
-            更新通过 GitHub Releases 分发，下载前会用内置公钥校验签名；只有签名通过的包才会被替换到 .app 中。
+            {t('settings.update.distNote')}
           </p>
         </section>
       {:else if selectedTab === 'vault' && isIOSPlatform}

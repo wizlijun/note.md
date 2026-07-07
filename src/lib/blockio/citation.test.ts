@@ -128,7 +128,7 @@ describe('resolveCitationViaYaml (pure)', () => {
     const r = resolveCitationViaYaml(yaml, 'b-dddddd')
     expect(r.status).toBe('deleted')
     expect(r.srcLine).toBeUndefined()
-    expect(r.banner).toMatch(/已删除/)
+    expect(r.banner).toMatch(/deleted/)
   })
 
   it('unknown id returns not_found', () => {

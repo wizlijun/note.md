@@ -1,6 +1,7 @@
 import { activeTab } from '../tabs.svelte'
 import { showError } from '../dialogs'
 import { pushToast } from '../toast.svelte'
+import { t as tr } from '../i18n/store.svelte'
 import { chunkDocument } from '../blockchunk/chunker'
 import { chunkDocumentSemantic } from '../blockchunk/semantic-chunker'
 import {
@@ -458,7 +459,7 @@ export async function cmdMdblockFollowCitationAtCursor(): Promise<boolean> {
   try {
     const r = await resolveCitation(cite.pageuri, cite.blockid, t.filePath)
     if (r.status === 'not_found') {
-      pushToast({ level: 'warn', message: r.banner ?? '引用未找到' })
+      pushToast({ level: 'warn', message: r.banner ?? tr('citation.notFound') })
       return true
     }
     if (r.status === 'deleted') {

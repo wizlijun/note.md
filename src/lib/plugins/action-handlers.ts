@@ -1,5 +1,6 @@
 import { pushToast } from '../toast.svelte'
 import type { PluginAction, PluginManifest } from './types'
+import { t as tr } from '../i18n/store.svelte'
 
 interface Handlers {
   writeText: (s: string) => Promise<void>
@@ -93,7 +94,7 @@ export async function applyActions(actions: PluginAction[], manifest: PluginMani
       const detail = e instanceof Error ? e.message : String(e)
       pushToast({
         level: 'error',
-        message: `${manifest.name}: ${a.type} 失败`,
+        message: tr('pluginAction.failed', { name: manifest.name, type: a.type }),
         detail,
       })
     }

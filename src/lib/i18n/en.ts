@@ -186,6 +186,61 @@ export const en = {
   // Plugins settings
   'plugins.restartNote': 'Changes take effect after restarting M↓',
 
+  // Slash menu (empty state)
+  'slashMenu.noMatches': 'No matches',
+
+  // Find / replace
+  'findReplace.find': 'Find',
+  'findReplace.matchCase': 'Match case',
+  'findReplace.wholeWord': 'Whole word',
+  'findReplace.regex': 'Regular expression',
+  'findReplace.previous': 'Previous',
+  'findReplace.next': 'Next',
+  'findReplace.replaceWith': 'Replace with…',
+  'findReplace.replace': 'Replace',
+  'findReplace.replaceAll': 'Replace all',
+  'findReplace.replaceToggle': 'Replace ▾',
+
+  // Spreadsheet context menu
+  'spreadsheet.insertRowAbove': 'Insert row above',
+  'spreadsheet.insertRowBelow': 'Insert row below',
+  'spreadsheet.deleteRow': 'Delete row',
+  'spreadsheet.insertColLeft': 'Insert column left',
+  'spreadsheet.insertColRight': 'Insert column right',
+  'spreadsheet.deleteCol': 'Delete column',
+  'spreadsheet.clearSelection': 'Clear selection',
+
+  // Image toolbar
+  'imageToolbar.original': 'Original',
+  'imageToolbar.originalSize': 'Original size',
+
+  // Citations (block references)
+  'citation.notFound': 'Citation not found',
+  'citation.here': 'here',
+  'citation.sameDoc': 'same document',
+  'citation.jumpTitle': 'Jump to {target} #{blockid}',
+  'citation.blockDeleted': 'Original block deleted (in generation {gen})',
+  'citation.blockEdited': 'Original block edited; jumped to the current inherited block {id}',
+  'citation.noBlockIds': 'Target document has no block ids (no yaml in cache; run Compute Blocks first)',
+
+  // Plugin action failure
+  'pluginAction.failed': '{name}: {type} failed',
+
+  // Settings → Software update
+  'settings.update.heading': 'Software update',
+  'settings.update.upToDate': 'Up to date.',
+  'settings.update.foundNew': 'Found new version v{version}',
+  'settings.update.currentVersionLabel': 'Current version: ',
+  'settings.update.lastChecked': 'Last checked: {time}',
+  'settings.update.autoCheck': 'Automatically check for updates on launch (every 20 hours)',
+  'settings.update.checking': 'Checking…',
+  'settings.update.checkNow': 'Check for updates now',
+  'settings.update.downloadInstall': 'Download and install v{version}',
+  'settings.update.restartNow': 'Restart now to finish updating',
+  'settings.update.downloading': 'Downloading:',
+  'settings.update.notes': 'v{version} release notes',
+  'settings.update.distNote': 'Updates are distributed via GitHub Releases; downloads are signature-verified with a built-in public key before install — only signed packages replace the .app.',
+
   // Vault browser
   'vaultBrowser.syncNow': 'Sync now',
   'vaultBrowser.notConfigured': 'No Vault configured.',

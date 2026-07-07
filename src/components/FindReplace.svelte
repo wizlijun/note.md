@@ -1,5 +1,6 @@
 <script lang="ts">
   import { findState, closeFind } from '../lib/find-replace.svelte'
+  import { t } from '../lib/i18n/store.svelte'
 
   let searchInput: HTMLInputElement | undefined = $state()
 
@@ -72,36 +73,36 @@
           bind:this={searchInput}
           class="find-input"
           type="text"
-          placeholder="查找"
+          placeholder={t('findReplace.find')}
           bind:value={findState.query}
         />
         <button
           class="opt-btn"
           class:active={findState.caseSensitive}
           onclick={() => findState.caseSensitive = !findState.caseSensitive}
-          title="区分大小写"
-          aria-label="Case sensitive"
+          title={t('findReplace.matchCase')}
+          aria-label={t('findReplace.matchCase')}
         >Aa</button>
         <button
           class="opt-btn"
           class:active={findState.wholeWord}
           onclick={() => findState.wholeWord = !findState.wholeWord}
-          title="全字匹配"
-          aria-label="Whole word"
+          title={t('findReplace.wholeWord')}
+          aria-label={t('findReplace.wholeWord')}
         >wd</button>
         <button
           class="opt-btn"
           class:active={findState.useRegex}
           onclick={() => findState.useRegex = !findState.useRegex}
-          title="正则表达式"
-          aria-label="Regex"
+          title={t('findReplace.regex')}
+          aria-label={t('findReplace.regex')}
         >.*</button>
       </div>
       <span class="sep"></span>
-      <button class="nav-btn" onclick={prev} title="上一个" aria-label="Previous match">‹</button>
-      <button class="nav-btn" onclick={next} title="下一个" aria-label="Next match">›</button>
+      <button class="nav-btn" onclick={prev} title={t('findReplace.previous')} aria-label={t('findReplace.previous')}>‹</button>
+      <button class="nav-btn" onclick={next} title={t('findReplace.next')} aria-label={t('findReplace.next')}>›</button>
       <span class="match-count">{findState.currentMatch}/{findState.matchCount}</span>
-      <button class="close-btn" onclick={closeFind} aria-label="Close">×</button>
+      <button class="close-btn" onclick={closeFind} aria-label={t('common.close')}>×</button>
     </div>
     {#if findState.showReplace}
       <div class="replace-row">
@@ -110,16 +111,16 @@
             bind:this={replaceInput}
             class="find-input"
             type="text"
-            placeholder="替换为…"
+            placeholder={t('findReplace.replaceWith')}
             bind:value={findState.replacement}
           />
         </div>
         <span class="sep"></span>
-        <button class="action-btn" onclick={replaceCurrent} title="替换">R↵</button>
-        <button class="action-btn" onclick={replaceAll} title="全部替换">R*</button>
+        <button class="action-btn" onclick={replaceCurrent} title={t('findReplace.replace')}>R↵</button>
+        <button class="action-btn" onclick={replaceAll} title={t('findReplace.replaceAll')}>R*</button>
       </div>
     {:else}
-      <button class="toggle-replace" onclick={toggleReplace}>替换 ▾</button>
+      <button class="toggle-replace" onclick={toggleReplace}>{t('findReplace.replaceToggle')}</button>
     {/if}
   </div>
 {/if}
