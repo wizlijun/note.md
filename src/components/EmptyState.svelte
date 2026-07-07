@@ -1,6 +1,7 @@
 <script lang="ts">
   import { pickOpenFile, showError } from '../lib/dialogs'
   import { openFile, newFile } from '../lib/tabs.svelte'
+  import { t } from '../lib/i18n/store.svelte'
 
   async function onOpen() {
     const p = await pickOpenFile()
@@ -19,10 +20,10 @@
 </script>
 
 <div class="empty" ondblclick={onDblClick}>
-  <p class="hint">拖入 .md 文件 或</p>
+  <p class="hint">{t('emptyState.hint')}</p>
   <div class="actions">
-    <button onclick={onNew}>New (⌘N)</button>
-    <button onclick={onOpen}>Open… (⌘O)</button>
+    <button onclick={onNew}>{t('emptyState.new')}</button>
+    <button onclick={onOpen}>{t('emptyState.open')}</button>
   </div>
 </div>
 

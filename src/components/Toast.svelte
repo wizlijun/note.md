@@ -2,6 +2,7 @@
   import { toasts, dismissToast, scheduleAutoDismiss, TOAST_AUTO_DISMISS_MS, type ToastItem } from '../lib/toast.svelte'
   import { settings, saveSettings } from '../lib/settings.svelte'
   import { splitUrls } from '../lib/toast-urls'
+  import { t } from '../lib/i18n/store.svelte'
 
   let expanded = $state<Record<number, boolean>>({})
 
@@ -14,7 +15,7 @@
     settings.toastAutoClose = on
     void saveSettings()
     const ms = on ? TOAST_AUTO_DISMISS_MS : 0
-    for (const t of toasts.list) scheduleAutoDismiss(t.id, ms)
+    for (const ti of toasts.list) scheduleAutoDismiss(ti.id, ms)
   }
 
   async function openLink(url: string) {
@@ -22,8 +23,8 @@
     await openUrl(url)
   }
 
-  function levelIcon(t: ToastItem) {
-    switch (t.level) {
+  function levelIcon(item: ToastItem) {
+    switch (item.level) {
       case 'success': return '✓'
       case 'error': return '✕'
       case 'warn': return '⚠'
@@ -34,12 +35,12 @@
 
 {#if toasts.list.length > 0}
   <div class="toast-bar" role="status" aria-live="polite">
-    {#each toasts.list as t (t.id)}
-      <div class="toast toast-{t.level}">
+    {#each toasts.list as ti (ti.id)}
+      <div class="toast toast-{ti.level}">
         <div class="row">
-          <span class="icon">{levelIcon(t)}</span>
+          <span class="icon">{levelIcon(ti)}</span>
           <span class="msg">
-            {#each splitUrls(t.message) as seg}
+            {#each splitUrls(ti.message) as seg}
               {#if seg.kind === 'url'}
                 <button type="button" class="link" onclick={() => openLink(seg.value)}>{seg.value}</button>
               {:else}
@@ -47,19 +48,19 @@
               {/if}
             {/each}
           </span>
-          {#if t.detail}
-            <button class="more" onclick={() => toggle(t.id)} aria-label="Show details">
-              {expanded[t.id] ? '收起' : '详情'}
+          {#if ti.detail}
+            <button class="more" onclick={() => toggle(ti.id)} aria-label={t('toast.showDetails')}>
+              {expanded[ti.id] ? t('toast.collapse') : t('toast.details')}
             </button>
           {/if}
           <label class="auto-close">
             <input type="checkbox" checked={settings.toastAutoClose} onchange={toggleAutoClose} />
-            自动关闭
+            {t('toast.autoClose')}
           </label>
-          <button class="close" onclick={() => dismissToast(t.id)} aria-label="Dismiss">×</button>
+          <button class="close" onclick={() => dismissToast(ti.id)} aria-label={t('common.dismiss')}>×</button>
         </div>
-        {#if t.detail && expanded[t.id]}
-          <pre class="detail">{t.detail}</pre>
+        {#if ti.detail && expanded[ti.id]}
+          <pre class="detail">{ti.detail}</pre>
         {/if}
       </div>
     {/each}

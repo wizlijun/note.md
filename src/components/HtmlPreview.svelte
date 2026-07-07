@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '../lib/i18n/store.svelte'
   let { html }: { html: string } = $props()
 </script>
 
@@ -10,7 +11,7 @@
 -->
 <div class="html-preview-wrap">
   <iframe
-    title="HTML preview"
+    title={t('htmlPreview.title')}
     sandbox=""
     srcdoc={html}
     class="html-preview-frame"

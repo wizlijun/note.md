@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Tab } from '../lib/tabs.svelte'
   import { sourceForVaultPath, revealVaultSource } from '../lib/sotvault.svelte'
+  import { t } from '../lib/i18n/store.svelte'
 
   let { tab }: { tab: Tab } = $props()
 
@@ -11,13 +12,13 @@
 
 {#if source}
   <div class="banner sync-origin" role="status" aria-live="polite">
-    <span class="label">📎 已从来源同步：</span>
+    <span class="label">{t('syncOrigin.synced')}</span>
     <button
       class="origin-link"
-      title="打开来源所在目录"
+      title={t('syncOrigin.revealTitle')}
       onclick={() => revealVaultSource(source)}
     >{source}</button>
-    <button class="action" onclick={() => revealVaultSource(source)}>打开来源目录</button>
+    <button class="action" onclick={() => revealVaultSource(source)}>{t('syncOrigin.openSourceDir')}</button>
   </div>
 {/if}
 

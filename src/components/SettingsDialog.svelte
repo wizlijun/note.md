@@ -3,6 +3,7 @@
   import { onMount } from 'svelte'
   import { ask, open as openFilePicker } from '@tauri-apps/plugin-dialog'
   import { settings, saveSettings, getPluginScopedAll, mergePluginScoped, pluginScopedVersion } from '../lib/settings.svelte'
+  import { i18n, setLocale, availableLocales, t, type Locale } from '../lib/i18n/store.svelte'
   import {
     updater as updaterState, runCheck as updaterRunCheck, setCheckOnStartup,
     downloadAndInstall as updaterDownloadAndInstall, restartApp as updaterRestart,
@@ -340,8 +341,8 @@
         {#if isPluginActive('openclaw-chat')}
           <button class:active={selectedTab === 'openclaw'} onclick={() => selectedTab = 'openclaw'}>OpenClaw</button>
         {/if}
-        {#each pluginTabs as t (t.pluginId)}
-          <button class:active={selectedTab === t.pluginId} onclick={() => selectedTab = t.pluginId}>{t.label}</button>
+        {#each pluginTabs as ptab (ptab.pluginId)}
+          <button class:active={selectedTab === ptab.pluginId} onclick={() => selectedTab = ptab.pluginId}>{ptab.label}</button>
         {/each}
       </nav>
 
@@ -349,20 +350,31 @@
         <PluginsSettingsTab />
       {:else if selectedTab === 'core'}
         <section class="block">
+          <label class="row">
+            <span class="lbl">{t('settings.language')}</span>
+            <select value={i18n.locale} onchange={(e) => setLocale((e.currentTarget as HTMLSelectElement).value as Locale)}>
+              {#each availableLocales as loc (loc.code)}
+                <option value={loc.code}>{loc.label}</option>
+              {/each}
+            </select>
+          </label>
+        </section>
+
+        <section class="block">
           <h3>Themes</h3>
           <label class="row">
             <span class="lbl">Light theme</span>
             <select value={settings.theme.light} onchange={onLightThemeChange}>
-              {#each themes.list as t (t.id)}
-                <option value={t.id}>{t.name}</option>
+              {#each themes.list as th (th.id)}
+                <option value={th.id}>{th.name}</option>
               {/each}
             </select>
           </label>
           <label class="row">
             <span class="lbl">Dark theme</span>
             <select value={settings.theme.dark} onchange={onDarkThemeChange}>
-              {#each themes.list as t (t.id)}
-                <option value={t.id}>{t.name}</option>
+              {#each themes.list as th (th.id)}
+                <option value={th.id}>{th.name}</option>
               {/each}
             </select>
           </label>
@@ -655,34 +667,34 @@
         <OpenClawSettingsTab />
         <OpenClawDevicesTab />
       {:else}
-        {#each pluginTabs as t (t.pluginId)}
-          {#if selectedTab === t.pluginId}
+        {#each pluginTabs as ptab (ptab.pluginId)}
+          {#if selectedTab === ptab.pluginId}
             <div class="plugin-settings">
-              {#each t.schema as field (field.key)}
-                {@const localKey = field.key.slice(t.pluginId.length + 1)}
+              {#each ptab.schema as field (field.key)}
+                {@const localKey = field.key.slice(ptab.pluginId.length + 1)}
                 <label class="plugin-field">
                   <span class="lbl">{field.label}</span>
                   {#if field.type === 'string'}
                     <input type="text"
-                      value={(pluginValues[t.pluginId]?.[localKey] as string) ?? field.default ?? ''}
+                      value={(pluginValues[ptab.pluginId]?.[localKey] as string) ?? field.default ?? ''}
                       placeholder={field.placeholder ?? ''}
-                      onchange={(e) => savePluginField(t.pluginId, localKey, (e.currentTarget as HTMLInputElement).value)} />
+                      onchange={(e) => savePluginField(ptab.pluginId, localKey, (e.currentTarget as HTMLInputElement).value)} />
                   {:else if field.type === 'secret'}
                     <input type="password"
-                      value={(pluginValues[t.pluginId]?.[localKey] as string) ?? ''}
-                      onchange={(e) => savePluginField(t.pluginId, localKey, (e.currentTarget as HTMLInputElement).value)} />
+                      value={(pluginValues[ptab.pluginId]?.[localKey] as string) ?? ''}
+                      onchange={(e) => savePluginField(ptab.pluginId, localKey, (e.currentTarget as HTMLInputElement).value)} />
                   {:else if field.type === 'select'}
                     <select
-                      value={(pluginValues[t.pluginId]?.[localKey] as string) ?? field.default ?? ''}
-                      onchange={(e) => savePluginField(t.pluginId, localKey, (e.currentTarget as HTMLSelectElement).value)}>
+                      value={(pluginValues[ptab.pluginId]?.[localKey] as string) ?? field.default ?? ''}
+                      onchange={(e) => savePluginField(ptab.pluginId, localKey, (e.currentTarget as HTMLSelectElement).value)}>
                       {#each field.options as opt}
                         <option value={opt}>{opt}</option>
                       {/each}
                     </select>
                   {:else if field.type === 'boolean'}
                     <input type="checkbox"
-                      checked={(pluginValues[t.pluginId]?.[localKey] as boolean) ?? field.default ?? false}
-                      onchange={(e) => savePluginField(t.pluginId, localKey, (e.currentTarget as HTMLInputElement).checked)} />
+                      checked={(pluginValues[ptab.pluginId]?.[localKey] as boolean) ?? field.default ?? false}
+                      onchange={(e) => savePluginField(ptab.pluginId, localKey, (e.currentTarget as HTMLInputElement).checked)} />
                   {/if}
                 </label>
               {/each}

@@ -2,6 +2,7 @@
   import { activeTab } from '../lib/tabs.svelte'
   import { dispatch } from '../lib/commands'
   import { formFactor } from '../lib/platform.svelte'
+  import { t } from '../lib/i18n/store.svelte'
 
   let { onOpenDrawer = () => {} }: { onOpenDrawer?: () => void } = $props()
   let menuOpen = $state(false)
@@ -11,7 +12,7 @@
 
 <header class="mtb" style="display: var(--toolbar-display)">
   {#if formFactor.value === 'phone'}
-    <button class="hamburger" aria-label="Open menu" onclick={onOpenDrawer}>☰</button>
+    <button class="hamburger" aria-label={t('toolbar.openMenu')} onclick={onOpenDrawer}>☰</button>
   {/if}
   <div class="title">
     {tab?.title ?? 'M↓'}
@@ -19,17 +20,17 @@
   </div>
   <div class="actions">
     {#if tab && tab.kind !== 'image'}
-      <button onclick={() => dispatch('toggle-mode')} title="Toggle source/rich">⇄</button>
+      <button onclick={() => dispatch('toggle-mode')} title={t('toolbar.toggleMode')}>⇄</button>
     {/if}
-    <button onclick={() => (menuOpen = !menuOpen)} aria-label="More">⋯</button>
+    <button onclick={() => (menuOpen = !menuOpen)} aria-label={t('toolbar.more')}>⋯</button>
   </div>
 
   {#if menuOpen}
     <div class="menu" role="menu">
-      <button role="menuitem" onclick={() => { menuOpen = false; dispatch('save') }}>Save</button>
-      <button role="menuitem" onclick={() => { menuOpen = false; dispatch('save-as') }}>Save As…</button>
-      <button role="menuitem" onclick={() => { menuOpen = false; dispatch('share') }}>Share</button>
-      <button role="menuitem" onclick={() => { menuOpen = false; dispatch('preferences') }}>Settings</button>
+      <button role="menuitem" onclick={() => { menuOpen = false; dispatch('save') }}>{t('toolbar.save')}</button>
+      <button role="menuitem" onclick={() => { menuOpen = false; dispatch('save-as') }}>{t('toolbar.saveAs')}</button>
+      <button role="menuitem" onclick={() => { menuOpen = false; dispatch('share') }}>{t('toolbar.share')}</button>
+      <button role="menuitem" onclick={() => { menuOpen = false; dispatch('preferences') }}>{t('toolbar.settings')}</button>
     </div>
   {/if}
 </header>

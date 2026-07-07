@@ -4,6 +4,7 @@
     setVisible, parentDir, watchRoot, setFilter, clearFilter, revealInFinder,
     type FolderEntry,
   } from '../lib/folder-view.svelte'
+  import { t } from '../lib/i18n/store.svelte'
   import { tick } from 'svelte'
   import { openFile } from '../lib/tabs.svelte'
   import { showError } from '../lib/dialogs'
@@ -104,27 +105,27 @@
 
 <aside bind:this={asideEl} class="folder-view" style="width: {folderView.width}px">
   <div class="header">
-    <button class="hbtn" onclick={goUp} disabled={!canGoUp} title="Parent folder" aria-label="Parent folder">
+    <button class="hbtn" onclick={goUp} disabled={!canGoUp} title={t('folderView.parentFolder')} aria-label={t('folderView.parentFolder')}>
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <line x1="12" y1="19" x2="12" y2="5" />
         <polyline points="5 12 12 5 19 12" />
       </svg>
     </button>
-    <span class="root-name" title={folderView.rootDir ?? ''}>{rootName || 'No folder'}</span>
-    <button class="hbtn" class:on={searching || !!folderView.filter} onclick={toggleSearch} title="Find" aria-label="Find">
+    <span class="root-name" title={folderView.rootDir ?? ''}>{rootName || t('folderView.noFolder')}</span>
+    <button class="hbtn" class:on={searching || !!folderView.filter} onclick={toggleSearch} title={t('folderView.find')} aria-label={t('folderView.find')}>
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <circle cx="11" cy="11" r="8" />
         <line x1="21" y1="21" x2="16.65" y2="16.65" />
       </svg>
     </button>
-    <button class="hbtn" onclick={() => refreshAll()} title="Refresh" aria-label="Refresh">
+    <button class="hbtn" onclick={() => refreshAll()} title={t('folderView.refresh')} aria-label={t('folderView.refresh')}>
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <polyline points="23 4 23 10 17 10" />
         <polyline points="1 20 1 14 7 14" />
         <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
       </svg>
     </button>
-    <button class="hbtn" onclick={() => setVisible(false)} title="Hide Folder View" aria-label="Hide Folder View">
+    <button class="hbtn" onclick={() => setVisible(false)} title={t('folderView.hide')} aria-label={t('folderView.hide')}>
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <rect x="3" y="3" width="18" height="18" rx="2" />
         <line x1="9" y1="3" x2="9" y2="21" />
@@ -138,12 +139,12 @@
         bind:this={searchInput}
         class="search-input"
         type="text"
-        placeholder="Filter (regex)…"
+        placeholder={t('folderView.filterPlaceholder')}
         value={folderView.filter}
         oninput={(e) => setFilter((e.currentTarget as HTMLInputElement).value)}
         onkeydown={onSearchKeydown}
       />
-      <button class="clear" onclick={cancelSearch} title="Clear filter" aria-label="Clear filter">
+      <button class="clear" onclick={cancelSearch} title={t('folderView.clearFilter')} aria-label={t('folderView.clearFilter')}>
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <line x1="18" y1="6" x2="6" y2="18" />
           <line x1="6" y1="6" x2="18" y2="18" />
@@ -153,7 +154,7 @@
   {/if}
   <div class="tree">
     {#if rootEntries.length === 0}
-      <div class="empty">{folderView.filter ? 'No matches' : 'Empty folder'}</div>
+      <div class="empty">{folderView.filter ? t('folderView.noMatches') : t('folderView.emptyFolder')}</div>
     {:else}
       {#each rootEntries as entry (entry.path)}
         <FolderTreeNode {entry} depth={0} {activePath} onOpen={open} onContextMenu={onNodeContextMenu} />
@@ -173,7 +174,7 @@
 {#if ctx.open}
   <div class="node-ctx-menu" role="menu" style="left: {ctx.x}px; top: {ctx.y}px">
     <button type="button" role="menuitem" class="node-ctx-item" onclick={revealCtx}>
-      Reveal in Finder
+      {t('folderView.reveal')}
     </button>
   </div>
 {/if}

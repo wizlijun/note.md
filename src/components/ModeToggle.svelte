@@ -1,19 +1,20 @@
 <script lang="ts">
   import type { Tab } from '../lib/tabs.svelte'
   import { setMode } from '../lib/tabs.svelte'
+  import { t } from '../lib/i18n/store.svelte'
 
   let { tab }: { tab: Tab } = $props()
 </script>
 
 {#if tab.kind !== 'image'}
-<div class="seg" role="tablist" aria-label="Editor mode">
+<div class="seg" role="tablist" aria-label={t('mode.editorMode')}>
   <button
     type="button"
     role="tab"
     aria-selected={tab.mode === 'rich'}
     class:active={tab.mode === 'rich'}
     onclick={() => setMode(tab.id, 'rich')}
-    title="Preview (rich)"
+    title={t('mode.previewRich')}
   >
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
@@ -26,7 +27,7 @@
     aria-selected={tab.mode === 'source'}
     class:active={tab.mode === 'source'}
     onclick={() => setMode(tab.id, 'source')}
-    title="Source (Cmd+/)"
+    title={t('mode.source')}
   >
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <polyline points="16 18 22 12 16 6"/>

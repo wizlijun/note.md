@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Tab } from '../lib/tabs.svelte'
   import { canSyncActive, syncCurrentToVault } from '../lib/sotvault.svelte'
+  import { t } from '../lib/i18n/store.svelte'
 
   let { tab }: { tab: Tab } = $props()
 
@@ -13,10 +14,8 @@
 
 {#if canSync}
   <div class="banner sync-offer" role="status" aria-live="polite">
-    <span class="msg"
-      >💡 此文件在 Vault 之外。同步到 Vault 会在 Vault 留一份副本，随 git 自动备份、多设备同步；来源更新时还能一键刷新。</span
-    >
-    <button class="action" onclick={() => syncCurrentToVault()}>同步到 Vault</button>
+    <span class="msg">{t('syncToVault.offer')}</span>
+    <button class="action" onclick={() => syncCurrentToVault()}>{t('syncToVault.sync')}</button>
   </div>
 {/if}
 

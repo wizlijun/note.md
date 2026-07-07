@@ -5,6 +5,7 @@
     saveActive, saveAs, closeTab, activate,
   } from '../lib/tabs.svelte'
   import { pickSaveFile, confirmDirtyClose } from '../lib/dialogs'
+  import { t } from '../lib/i18n/store.svelte'
 
   let { tab }: { tab: Tab } = $props()
 
@@ -26,20 +27,20 @@
 {#if !tab.externalBannerDismissed}
   {#if tab.externalState === 'changed'}
     <div class="banner changed" role="status" aria-live="polite">
-      <span class="msg">"{tab.title}" was modified by another application.</span>
-      <button class="action" onclick={() => reloadFromDisk(tab.id)}>Reload from disk</button>
-      <button class="action" onclick={() => overwriteOnDisk(tab.id)}>Overwrite with my changes</button>
-      <button class="action" onclick={onSaveAs}>Save as…</button>
-      <button class="dismiss" aria-label="Dismiss"
+      <span class="msg">{t('externalChange.modified', { title: tab.title })}</span>
+      <button class="action" onclick={() => reloadFromDisk(tab.id)}>{t('externalChange.reload')}</button>
+      <button class="action" onclick={() => overwriteOnDisk(tab.id)}>{t('externalChange.overwrite')}</button>
+      <button class="action" onclick={onSaveAs}>{t('common.saveAs')}</button>
+      <button class="dismiss" aria-label={t('common.dismiss')}
               onclick={() => dismissExternalBanner(tab.id)}>×</button>
     </div>
   {:else if tab.externalState === 'deleted'}
     <div class="banner deleted" role="status" aria-live="polite">
-      <span class="msg">"{tab.title}" was deleted on disk.</span>
-      <button class="action" onclick={onRecreate}>Recreate on Save (⌘S)</button>
-      <button class="action" onclick={onSaveAs}>Save as…</button>
-      <button class="action" onclick={onCloseTab}>Close tab</button>
-      <button class="dismiss" aria-label="Dismiss"
+      <span class="msg">{t('externalChange.deleted', { title: tab.title })}</span>
+      <button class="action" onclick={onRecreate}>{t('externalChange.recreate')}</button>
+      <button class="action" onclick={onSaveAs}>{t('common.saveAs')}</button>
+      <button class="action" onclick={onCloseTab}>{t('externalChange.closeTab')}</button>
+      <button class="dismiss" aria-label={t('common.dismiss')}
               onclick={() => dismissExternalBanner(tab.id)}>×</button>
     </div>
   {/if}

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { updater, shouldShowBanner, dismissCurrent } from '../lib/updater.svelte'
+  import { t } from '../lib/i18n/store.svelte'
 
   let { onShowDetails }: { onShowDetails: () => void } = $props()
 
@@ -14,22 +15,22 @@
 {#if visible}
   {#if updater.state === 'available'}
     <div class="banner available" role="status" aria-live="polite">
-      <span class="msg">✨ M↓ {updater.latestVersion} 可用</span>
-      <button class="action" onclick={onShowDetails}>查看详情</button>
-      <button class="dismiss" aria-label="关闭" onclick={() => dismissCurrent()}>×</button>
+      <span class="msg">{t('updateBanner.available', { version: updater.latestVersion ?? '' })}</span>
+      <button class="action" onclick={onShowDetails}>{t('updateBanner.viewDetails')}</button>
+      <button class="dismiss" aria-label={t('common.close')} onclick={() => dismissCurrent()}>×</button>
     </div>
   {:else if updater.state === 'downloading'}
     <div class="banner downloading" role="status" aria-live="polite">
       <span class="msg">
-        正在下载 {updater.latestVersion}…
+        {t('updateBanner.downloading', { version: updater.latestVersion ?? '' })}
         {#if percent !== null}({percent}%){/if}
       </span>
-      <button class="action" onclick={onShowDetails}>显示进度</button>
+      <button class="action" onclick={onShowDetails}>{t('updateBanner.showProgress')}</button>
     </div>
   {:else if updater.state === 'ready'}
     <div class="banner ready" role="status" aria-live="polite">
-      <span class="msg">✅ {updater.latestVersion} 已下载，重启即可完成更新</span>
-      <button class="action" onclick={onShowDetails}>重启…</button>
+      <span class="msg">{t('updateBanner.ready', { version: updater.latestVersion ?? '' })}</span>
+      <button class="action" onclick={onShowDetails}>{t('updateBanner.restart')}</button>
     </div>
   {/if}
 {/if}

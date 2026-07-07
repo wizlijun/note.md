@@ -14,6 +14,7 @@
   import ModeToggle from './components/ModeToggle.svelte'
   import { activeTab, tabs, closeTab, openFile, newFile, isDirty, activate } from './lib/tabs.svelte'
   import { loadSettings, settings, removeRecentFile } from './lib/settings.svelte'
+  import { loadLocale } from './lib/i18n/store.svelte'
   import { cmdOpen, cmdSave, cmdSaveAs, cmdPrint, cmdCloseActive, cmdToggleMode, dispatch, type CommandId } from './lib/commands'
   import { cmdMdblockRefresh } from './lib/mdblock/commands'
   import { confirmDirtyClose, showError } from './lib/dialogs'
@@ -157,6 +158,7 @@
 
     ;(async () => {
       try { await loadSettings() } catch (e) { console.warn('[App] loadSettings:', e) }
+      try { await loadLocale() } catch (e) { console.warn('[App] loadLocale:', e) }
       await loadFolderViewState()
       await initActivePluginIds()
 

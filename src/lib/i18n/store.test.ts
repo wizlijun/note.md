@@ -1,0 +1,70 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+
+// Mock the Tauri store plugin used for persistence.
+const storeGet = vi.fn()
+const storeSet = vi.fn()
+const storeSave = vi.fn()
+vi.mock('@tauri-apps/plugin-store', () => ({
+  Store: { load: vi.fn(async () => ({ get: storeGet, set: storeSet, save: storeSave })) },
+}))
+
+import { i18n, t, setLocale, loadLocale, availableLocales } from './store.svelte'
+
+beforeEach(() => {
+  storeGet.mockReset(); storeSet.mockReset(); storeSave.mockReset()
+  i18n.locale = 'en'
+})
+
+describe('t', () => {
+  it('returns the English string for a known key', () => {
+    expect(t('folderView.reveal')).toBe('Reveal in Finder')
+  })
+  it('interpolates {name} placeholders from params', () => {
+    expect(t('time.minutesAgo', { n: 5 })).toBe('5 min ago')
+  })
+  it('leaves a placeholder untouched when no matching param is given', () => {
+    expect(t('time.minutesAgo')).toBe('{n} min ago')
+  })
+  it('falls back to the raw key when the key is unknown', () => {
+    // @ts-expect-error — intentionally passing a key outside the catalog
+    expect(t('does.not.exist')).toBe('does.not.exist')
+  })
+})
+
+describe('availableLocales', () => {
+  it('includes English', () => {
+    expect(availableLocales.some((l) => l.code === 'en')).toBe(true)
+  })
+})
+
+describe('loadLocale', () => {
+  it('hydrates a valid stored locale', async () => {
+    storeGet.mockResolvedValue('en')
+    await loadLocale()
+    expect(i18n.locale).toBe('en')
+  })
+  it('falls back to English for an unknown stored value', async () => {
+    storeGet.mockResolvedValue('zz')
+    await loadLocale()
+    expect(i18n.locale).toBe('en')
+  })
+  it('falls back to English when nothing is stored', async () => {
+    storeGet.mockResolvedValue(undefined)
+    await loadLocale()
+    expect(i18n.locale).toBe('en')
+  })
+})
+
+describe('setLocale', () => {
+  it('sets and persists a valid locale', async () => {
+    await setLocale('en')
+    expect(i18n.locale).toBe('en')
+    expect(storeSet).toHaveBeenCalledWith('locale', 'en')
+    expect(storeSave).toHaveBeenCalled()
+  })
+  it('ignores an invalid locale', async () => {
+    // @ts-expect-error — intentionally passing an unsupported code
+    await setLocale('zz')
+    expect(storeSet).not.toHaveBeenCalled()
+  })
+})
