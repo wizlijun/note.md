@@ -1,12 +1,12 @@
 import { describe, it, expect } from 'vitest'
-import { SLASH_ITEMS, filterSlashItems } from './slash-items'
+import { getSlashItems, filterSlashItems } from './slash-items'
 
-describe('SLASH_ITEMS', () => {
+describe('getSlashItems', () => {
   it('has 15 items', () => {
-    expect(SLASH_ITEMS).toHaveLength(15)
+    expect(getSlashItems()).toHaveLength(15)
   })
   it('every item has id, label, keywords, icon, desc, execute', () => {
-    for (const item of SLASH_ITEMS) {
+    for (const item of getSlashItems()) {
       expect(typeof item.id).toBe('string')
       expect(typeof item.label).toBe('string')
       expect(Array.isArray(item.keywords)).toBe(true)
@@ -16,7 +16,7 @@ describe('SLASH_ITEMS', () => {
     }
   })
   it('ids are unique', () => {
-    const ids = SLASH_ITEMS.map(i => i.id)
+    const ids = getSlashItems().map(i => i.id)
     expect(new Set(ids).size).toBe(ids.length)
   })
 })
@@ -25,7 +25,7 @@ describe('filterSlashItems', () => {
   it('returns all items for empty query', () => {
     expect(filterSlashItems('')).toHaveLength(15)
   })
-  it('filters by label (Chinese)', () => {
+  it('filters by keyword (Chinese)', () => {
     const result = filterSlashItems('代码')
     expect(result.some(i => i.id === 'code')).toBe(true)
   })

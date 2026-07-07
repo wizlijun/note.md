@@ -21,7 +21,7 @@
   import { isVideoUrl, fetchVideoInfo } from '../lib/video-links'
   import type { EditorView } from 'prosemirror-view'
   import SlashMenu from '../lib/slash-menu/SlashMenu.svelte'
-  import { SLASH_ITEMS, filterSlashItems, type SlashItem } from '../lib/slash-menu/slash-items'
+  import { getSlashItems, filterSlashItems, type SlashItem } from '../lib/slash-menu/slash-items'
   import { setBlockType, wrapIn } from 'prosemirror-commands'
   import { wrapInList } from 'prosemirror-schema-list'
 
@@ -123,7 +123,7 @@
   // ── Slash menu state ─────────────────────────────────────────────────────────
   let showSlashMenu    = $state(false)
   let slashMenuPos     = $state({ top: 0, left: 0 })
-  let slashItems       = $state<SlashItem[]>(SLASH_ITEMS)
+  let slashItems       = $state<SlashItem[]>(getSlashItems())
   let slashSelectedIdx = $state(0)
 
   async function handlePaste(event: ClipboardEvent) {
@@ -347,7 +347,7 @@
 
   function closeSlashMenu() {
     showSlashMenu    = false
-    slashItems       = SLASH_ITEMS
+    slashItems       = getSlashItems()
     slashSelectedIdx = 0
   }
 

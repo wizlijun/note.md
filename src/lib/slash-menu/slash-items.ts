@@ -1,6 +1,7 @@
 import type { EditorView } from 'prosemirror-view'
 import { setBlockType, wrapIn } from 'prosemirror-commands'
 import { wrapInList } from 'prosemirror-schema-list'
+import { t } from '../i18n/store.svelte'
 
 // NOTE: Do NOT import commands from '@moraya/core/commands' here.
 // commands.js uses its own defaultSchema (nullMediaResolver) which is a
@@ -123,18 +124,23 @@ const DOC_EXTS   = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx',
                     'mp4', 'mov', 'avi', 'mkv', 'webm',
                     'txt', 'csv', 'json', 'xml']
 
-export const SLASH_ITEMS: SlashItem[] = [
+// Built lazily (as a function, not a module-level const) so labels/descriptions
+// reflect the current locale — switching language rebuilds them on next open.
+// `keywords` intentionally keep both English and Chinese terms so search works
+// regardless of the UI language.
+export function getSlashItems(): SlashItem[] {
+  return [
   {
     id: 'insert-image',
-    label: '插入图片…',
+    label: t('slash.image.label'),
     keywords: ['image', 'photo', '图片', '图像', 'picture', 'insert'],
     icon: 'img',
-    desc: '从本地选择图片文件',
+    desc: t('slash.image.desc'),
     execute: async (v) => {
       const { open } = await import('@tauri-apps/plugin-dialog')
       const result = await open({
         multiple: false,
-        filters: [{ name: '图片', extensions: IMAGE_EXTS }],
+        filters: [{ name: t('slash.filter.images'), extensions: IMAGE_EXTS }],
       })
       if (typeof result !== 'string') return
       const { insertImageAtCursor } = await import('../attachment-insert')
@@ -143,15 +149,15 @@ export const SLASH_ITEMS: SlashItem[] = [
   },
   {
     id: 'insert-doc',
-    label: '插入文档…',
+    label: t('slash.doc.label'),
     keywords: ['document', 'file', 'attach', '文档', '文件', '附件'],
     icon: 'doc',
-    desc: '从本地选择文件作为附件链接',
+    desc: t('slash.doc.desc'),
     execute: async (v) => {
       const { open } = await import('@tauri-apps/plugin-dialog')
       const result = await open({
         multiple: false,
-        filters: [{ name: '文档与文件', extensions: DOC_EXTS }],
+        filters: [{ name: t('slash.filter.docs'), extensions: DOC_EXTS }],
       })
       if (typeof result !== 'string') return
       const { insertAttachmentLink } = await import('../attachment-insert')
@@ -160,114 +166,116 @@ export const SLASH_ITEMS: SlashItem[] = [
   },
   {
     id: 'h1',
-    label: '标题 1',
+    label: t('slash.h1.label'),
     keywords: ['h1', 'heading', '标题', '一级', 'heading1'],
     icon: 'H1',
-    desc: '一级大标题',
+    desc: t('slash.h1.desc'),
     execute: (v) => setBlock(v, 'heading', { level: 1 }),
   },
   {
     id: 'h2',
-    label: '标题 2',
+    label: t('slash.h2.label'),
     keywords: ['h2', 'heading', '标题', '二级', 'heading2'],
     icon: 'H2',
-    desc: '二级标题',
+    desc: t('slash.h2.desc'),
     execute: (v) => setBlock(v, 'heading', { level: 2 }),
   },
   {
     id: 'h3',
-    label: '标题 3',
+    label: t('slash.h3.label'),
     keywords: ['h3', 'heading', '标题', '三级', 'heading3'],
     icon: 'H3',
-    desc: '三级标题',
+    desc: t('slash.h3.desc'),
     execute: (v) => setBlock(v, 'heading', { level: 3 }),
   },
   {
     id: 'quote',
-    label: '引用',
+    label: t('slash.quote.label'),
     keywords: ['quote', 'blockquote', '引用', '引言', 'block'],
     icon: '❝',
-    desc: '引用块',
+    desc: t('slash.quote.desc'),
     execute: (v) => wrap(v, 'blockquote'),
   },
   {
     id: 'code',
-    label: '代码块',
+    label: t('slash.code.label'),
     keywords: ['code', 'codeblock', '代码', 'programming', 'pre'],
     icon: '{}',
-    desc: '带语法高亮的代码块',
+    desc: t('slash.code.desc'),
     execute: (v) => setBlock(v, 'code_block', { language: '' }),
   },
   {
     id: 'mermaid',
-    label: 'Mermaid 图表',
+    label: t('slash.mermaid.label'),
     keywords: ['mermaid', 'diagram', 'chart', '图表', '流程图', '时序图', 'flowchart'],
     icon: '⬡',
-    desc: '流程图、时序图、甘特图…',
+    desc: t('slash.mermaid.desc'),
     execute: (v) => setBlock(v, 'code_block', { language: 'mermaid' }),
   },
   {
     id: 'math',
-    label: '数学公式',
+    label: t('slash.math.label'),
     keywords: ['math', 'equation', 'latex', '数学', '公式', 'formula'],
     icon: '∑',
-    desc: 'LaTeX 数学公式块',
+    desc: t('slash.math.desc'),
     execute: (v) => insertAtom(v, 'math_block', { value: '' }),
   },
   {
     id: 'table',
-    label: '表格',
+    label: t('slash.table.label'),
     keywords: ['table', '表格', 'grid'],
     icon: '▦',
-    desc: '3×3 可编辑表格',
+    desc: t('slash.table.desc'),
     execute: (v) => insertTableSync(v),
   },
   {
     id: 'spreadsheet',
-    label: '电子表格',
+    label: t('slash.spreadsheet.label'),
     keywords: ['spreadsheet', 'sheet', 'csv', '表格', '电子表格', '记账', 'excel'],
     icon: '⊞',
-    desc: '可编辑电子表格（支持公式）',
+    desc: t('slash.spreadsheet.desc'),
     execute: (v) => insertSpreadsheetSync(v),
   },
   {
     id: 'bullet',
-    label: '无序列表',
+    label: t('slash.bullet.label'),
     keywords: ['bullet', 'list', 'ul', '列表', '无序', '项目'],
     icon: '•',
-    desc: '无序列表',
+    desc: t('slash.bullet.desc'),
     execute: (v) => wrapList(v, 'bullet_list'),
   },
   {
     id: 'ordered',
-    label: '有序列表',
+    label: t('slash.ordered.label'),
     keywords: ['ordered', 'list', 'ol', '列表', '有序', '编号', 'numbered'],
     icon: '1.',
-    desc: '有序列表',
+    desc: t('slash.ordered.desc'),
     execute: (v) => wrapList(v, 'ordered_list'),
   },
   {
     id: 'task',
-    label: '任务列表',
+    label: t('slash.task.label'),
     keywords: ['task', 'todo', 'checklist', '任务', '待办', '清单', 'checkbox'],
     icon: '☐',
-    desc: '任务清单 / Todo',
+    desc: t('slash.task.desc'),
     execute: (v) => wrapTaskList(v),
   },
   {
     id: 'hr',
-    label: '分割线',
+    label: t('slash.hr.label'),
     keywords: ['hr', 'divider', 'rule', '分割', '横线', 'horizontal'],
     icon: '—',
-    desc: '水平分割线',
+    desc: t('slash.hr.desc'),
     execute: (v) => insertAtom(v, 'horizontal_rule'),
   },
-]
+  ]
+}
 
 export function filterSlashItems(query: string): SlashItem[] {
-  if (!query) return SLASH_ITEMS
+  const items = getSlashItems()
+  if (!query) return items
   const q = query.toLowerCase()
-  return SLASH_ITEMS.filter(item =>
+  return items.filter(item =>
     item.label.toLowerCase().includes(q) ||
     item.keywords.some(k => k.toLowerCase().includes(q))
   )
