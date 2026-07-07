@@ -48,11 +48,40 @@ export function makeFilterMatcher(query: string): ((name: string) => boolean) | 
   }
 }
 
-/** Keep only entries whose name matches `query` (regex, case-insensitive). */
-export function filterEntries(entries: FolderEntry[], query: string): FolderEntry[] {
+/**
+ * Compute the set of paths that should stay visible under `query`, searching
+ * the whole cached subtree under `rootDir`. A path is visible when:
+ *   - it is a file whose name matches, or
+ *   - it is a folder whose name matches (its entire subtree is then included), or
+ *   - it is an ancestor folder on the path to any matching descendant.
+ * Returns `null` when the query is empty (meaning "show everything").
+ */
+export function computeFilterVisibility(
+  rootDir: string,
+  cache: Map<string, FolderEntry[]>,
+  query: string,
+): Set<string> | null {
   const match = makeFilterMatcher(query)
-  if (!match) return entries
-  return entries.filter((e) => match(e.name))
+  if (!match) return null
+  const visible = new Set<string>()
+  // `inherited` is true once an ancestor folder's name has matched, so its
+  // whole subtree is included regardless of individual names.
+  const walk = (entry: FolderEntry, inherited: boolean): boolean => {
+    const selfMatch = inherited || match(entry.name)
+    if (!entry.isDir) {
+      if (selfMatch) visible.add(entry.path)
+      return selfMatch
+    }
+    let anyChild = false
+    for (const child of cache.get(entry.path) ?? []) {
+      if (walk(child, selfMatch)) anyChild = true
+    }
+    const vis = selfMatch || anyChild
+    if (vis) visible.add(entry.path)
+    return vis
+  }
+  for (const e of cache.get(rootDir) ?? []) walk(e, false)
+  return visible
 }
 
 /** Folders first, then files; each group sorted by name, case-insensitive. */
@@ -70,6 +99,8 @@ export interface FolderViewState {
   rootDir: string | null
   /** Live name filter (regex, case-insensitive); empty = no filtering. */
   filter: string
+  /** Paths kept visible by the active filter (recursive; empty when no filter). */
+  filterVisible: SvelteSet<string>
   expanded: SvelteSet<string>
   entriesCache: SvelteMap<string, FolderEntry[]>
 }
@@ -84,6 +115,7 @@ export const folderView = $state<FolderViewState>({
   width: DEFAULT_WIDTH,
   rootDir: null,
   filter: '',
+  filterVisible: new SvelteSet(),
   expanded: new SvelteSet(),
   entriesCache: new SvelteMap(),
 })
@@ -116,6 +148,8 @@ export async function setRootDir(dir: string): Promise<void> {
   folderView.rootDir = dir
   folderView.expanded.clear()
   await readFolder(dir).catch(() => {})
+  // Re-run an active filter against the new root's subtree.
+  if (folderView.filter.trim()) await setFilter(folderView.filter)
 }
 
 /**
@@ -132,14 +166,47 @@ export async function syncToActiveFile(filePath: string | null): Promise<void> {
   await setRootDir(parent)
 }
 
-/** Set the live name filter (not persisted). */
-export function setFilter(q: string): void {
+// Bumped on every filter change so a slow recursive load can tell it has been
+// superseded by newer input and skip its (now stale) recompute.
+let filterSeq = 0
+
+/**
+ * Set the live name filter (not persisted). Loads the whole subtree under the
+ * root so matches in any subfolder are found, then recomputes visibility.
+ */
+export async function setFilter(q: string): Promise<void> {
   folderView.filter = q
+  const seq = ++filterSeq
+  if (!q.trim() || !folderView.rootDir) {
+    folderView.filterVisible.clear()
+    return
+  }
+  await ensureSubtreeLoaded(folderView.rootDir)
+  if (seq !== filterSeq) return // a newer query took over while we loaded
+  recomputeFilter()
 }
 
-/** Clear the name filter. */
+/** Clear the name filter and cancel any in-flight recursive load. */
 export function clearFilter(): void {
   folderView.filter = ''
+  folderView.filterVisible.clear()
+  filterSeq++
+}
+
+/** Recompute `filterVisible` from the current cache + filter. */
+function recomputeFilter(): void {
+  const vis = folderView.rootDir
+    ? computeFilterVisibility(folderView.rootDir, folderView.entriesCache, folderView.filter)
+    : null
+  folderView.filterVisible.clear()
+  if (vis) for (const p of vis) folderView.filterVisible.add(p)
+}
+
+/** Recursively read every folder under `dir` (skipping already-cached ones). */
+async function ensureSubtreeLoaded(dir: string): Promise<void> {
+  if (!folderView.entriesCache.has(dir)) await readFolder(dir).catch(() => {})
+  const dirs = (folderView.entriesCache.get(dir) ?? []).filter((e) => e.isDir)
+  await Promise.all(dirs.map((e) => ensureSubtreeLoaded(e.path)))
 }
 
 /** Expand/collapse a folder; read its children on first expand. */
@@ -156,6 +223,11 @@ export async function toggleExpanded(dir: string): Promise<void> {
 export async function refreshAll(): Promise<void> {
   const dirs = [...folderView.entriesCache.keys()]
   await Promise.all(dirs.map((d) => readFolder(d).catch(() => {})))
+  // Keep the active filter current: pick up newly added subfolders/files.
+  if (folderView.filter.trim() && folderView.rootDir) {
+    await ensureSubtreeLoaded(folderView.rootDir)
+    recomputeFilter()
+  }
 }
 
 /**

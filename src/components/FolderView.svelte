@@ -1,7 +1,7 @@
 <script lang="ts">
   import {
     folderView, setRootDir, setWidth, refreshAll, syncToActiveFile,
-    setVisible, parentDir, watchRoot, setFilter, clearFilter, filterEntries,
+    setVisible, parentDir, watchRoot, setFilter, clearFilter,
     type FolderEntry,
   } from '../lib/folder-view.svelte'
   import { tick } from 'svelte'
@@ -23,12 +23,11 @@
     return watchRoot(dir)
   })
 
-  let rootEntries = $derived<FolderEntry[]>(
-    filterEntries(
-      folderView.rootDir ? (folderView.entriesCache.get(folderView.rootDir) ?? []) : [],
-      folderView.filter,
-    )
-  )
+  let filtering = $derived(!!folderView.filter.trim())
+  let rootEntries = $derived.by<FolderEntry[]>(() => {
+    const all = folderView.rootDir ? (folderView.entriesCache.get(folderView.rootDir) ?? []) : []
+    return filtering ? all.filter((e) => folderView.filterVisible.has(e.path)) : all
+  })
   let rootName = $derived(
     folderView.rootDir ? (folderView.rootDir.split('/').filter(Boolean).pop() ?? '/') : ''
   )

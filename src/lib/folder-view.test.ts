@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   parentDir, isWithinDir, sortEntries,
-  makeFilterMatcher, filterEntries, type FolderEntry,
+  makeFilterMatcher, computeFilterVisibility, type FolderEntry,
 } from './folder-view.svelte'
 import { vi, beforeEach } from 'vitest'
 import { SvelteMap, SvelteSet } from 'svelte/reactivity'
@@ -41,6 +41,8 @@ beforeEach(() => {
   folderView.visible = false
   folderView.width = 240
   folderView.rootDir = null
+  folderView.filter = ''
+  folderView.filterVisible = new SvelteSet()
   folderView.expanded = new SvelteSet()
   folderView.entriesCache = new SvelteMap()
 })
@@ -177,17 +179,44 @@ describe('makeFilterMatcher', () => {
   })
 })
 
-describe('filterEntries', () => {
-  const entries: FolderEntry[] = [
-    { name: 'sub', path: '/x/sub', isDir: true, kind: null },
-    { name: 'readme.md', path: '/x/readme.md', isDir: false, kind: 'markdown' },
-    { name: 'notes.md', path: '/x/notes.md', isDir: false, kind: 'markdown' },
-  ]
-  it('returns the original list unchanged when the query is empty', () => {
-    expect(filterEntries(entries, '')).toBe(entries)
+describe('computeFilterVisibility', () => {
+  // /r ├ docs ├ deep ├ target.md
+  //    │      └ guide.md
+  //    └ readme.md
+  const cache = new Map<string, FolderEntry[]>([
+    ['/r', [
+      { name: 'docs', path: '/r/docs', isDir: true, kind: null },
+      { name: 'readme.md', path: '/r/readme.md', isDir: false, kind: 'markdown' },
+    ]],
+    ['/r/docs', [
+      { name: 'deep', path: '/r/docs/deep', isDir: true, kind: null },
+      { name: 'guide.md', path: '/r/docs/guide.md', isDir: false, kind: 'markdown' },
+    ]],
+    ['/r/docs/deep', [
+      { name: 'target.md', path: '/r/docs/deep/target.md', isDir: false, kind: 'markdown' },
+    ]],
+  ])
+
+  it('returns null for an empty query (show everything)', () => {
+    expect(computeFilterVisibility('/r', cache, '')).toBeNull()
   })
-  it('keeps only entries whose name matches (files and folders)', () => {
-    expect(filterEntries(entries, 's').map((e) => e.name)).toEqual(['sub', 'notes.md'])
+
+  it('reveals a deep file match and every ancestor folder', () => {
+    const vis = computeFilterVisibility('/r', cache, 'target')!
+    expect([...vis].sort()).toEqual(
+      ['/r/docs', '/r/docs/deep', '/r/docs/deep/target.md'].sort(),
+    )
+    expect(vis.has('/r/readme.md')).toBe(false)
+    expect(vis.has('/r/docs/guide.md')).toBe(false)
+  })
+
+  it('includes the whole subtree when a folder name matches', () => {
+    const vis = computeFilterVisibility('/r', cache, 'docs')!
+    expect(vis.has('/r/docs')).toBe(true)
+    expect(vis.has('/r/docs/deep')).toBe(true)
+    expect(vis.has('/r/docs/deep/target.md')).toBe(true)
+    expect(vis.has('/r/docs/guide.md')).toBe(true)
+    expect(vis.has('/r/readme.md')).toBe(false)
   })
 })
 

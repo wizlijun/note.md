@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { folderView, toggleExpanded, filterEntries, type FolderEntry } from '../lib/folder-view.svelte'
+  import { folderView, toggleExpanded, type FolderEntry } from '../lib/folder-view.svelte'
   import FolderTreeNode from './FolderTreeNode.svelte'
 
   let {
@@ -14,10 +14,16 @@
     onOpen: (path: string) => void
   } = $props()
 
-  let expanded = $derived(folderView.expanded.has(entry.path))
-  let children = $derived(
-    filterEntries(folderView.entriesCache.get(entry.path) ?? [], folderView.filter)
+  // While filtering, folders that survived the filter are force-expanded so
+  // matches deep in the tree are revealed without manual clicking.
+  let filtering = $derived(!!folderView.filter.trim())
+  let expanded = $derived(
+    filtering ? folderView.filterVisible.has(entry.path) : folderView.expanded.has(entry.path)
   )
+  let children = $derived.by<FolderEntry[]>(() => {
+    const all = folderView.entriesCache.get(entry.path) ?? []
+    return filtering ? all.filter((c) => folderView.filterVisible.has(c.path)) : all
+  })
   let isActive = $derived(!entry.isDir && entry.path === activePath)
 
   function onRowClick() {
