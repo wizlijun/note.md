@@ -2,6 +2,7 @@
 <script lang="ts">
   import { sendUserMessage } from '../../lib/openclaw/client.svelte'
   import AttachmentUpload from './AttachmentUpload.svelte'
+  import { t } from '../../lib/i18n/store.svelte'
 
   let text = $state('')
   let sending = $state(false)
@@ -20,11 +21,11 @@
   <AttachmentUpload />
   <textarea
     bind:value={text}
-    placeholder="Type to OpenClaw…"
+    placeholder={t('chat.typeToOpenClaw')}
     rows="2"
     onkeydown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) submit(new SubmitEvent('submit')) }}
   ></textarea>
-  <button type="submit" disabled={!text.trim() || sending}>Send</button>
+  <button type="submit" disabled={!text.trim() || sending}>{t('chat.send')}</button>
 </form>
 
 <style>

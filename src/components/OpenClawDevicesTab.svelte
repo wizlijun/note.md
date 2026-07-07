@@ -4,18 +4,19 @@
   import { devicesState, refresh } from '../lib/openclaw/devices.svelte'
   import { revokeDevice, forgetDevice } from '../lib/openclaw/pair'
   import PairingDialog from './chat/PairingDialog.svelte'
+  import { t } from '../lib/i18n/store.svelte'
 
   let showAdd = $state(false)
 
   onMount(() => { refresh() })
 
   function fmtLastSeen(ts: number | null): string {
-    if (!ts) return 'never'
+    if (!ts) return t('time.never')
     const d = Date.now() - ts
-    if (d < 60_000) return 'just now'
-    if (d < 3_600_000) return Math.floor(d / 60_000) + 'm ago'
-    if (d < 86_400_000) return Math.floor(d / 3_600_000) + 'h ago'
-    return Math.floor(d / 86_400_000) + 'd ago'
+    if (d < 60_000) return t('time.justNow')
+    if (d < 3_600_000) return t('time.minutesAgo', { n: Math.floor(d / 60_000) })
+    if (d < 86_400_000) return t('time.hoursAgo', { n: Math.floor(d / 3_600_000) })
+    return t('time.daysAgo', { n: Math.floor(d / 86_400_000) })
   }
 
   function onAddClose() {
@@ -25,10 +26,10 @@
 </script>
 
 <section>
-  <h3>Devices</h3>
+  <h3>{t('openclaw.devices')}</h3>
   <table>
     <thead>
-      <tr><th></th><th>Hostname</th><th>Last seen</th><th></th></tr>
+      <tr><th></th><th>{t('openclaw.hostname')}</th><th>{t('openclaw.lastSeen')}</th><th></th></tr>
     </thead>
     <tbody>
       {#each devicesState.list as d (d.device_id)}
@@ -38,19 +39,19 @@
           <td>{fmtLastSeen(d.last_seen)}</td>
           <td>
             {#if d.status === 'active'}
-              <button onclick={async () => { await revokeDevice(d.device_id); await refresh() }}>Revoke</button>
+              <button onclick={async () => { await revokeDevice(d.device_id); await refresh() }}>{t('openclaw.revoke')}</button>
             {:else}
-              <button onclick={async () => { await forgetDevice(d.device_id); await refresh() }}>Forget</button>
+              <button onclick={async () => { await forgetDevice(d.device_id); await refresh() }}>{t('openclaw.forget')}</button>
             {/if}
           </td>
         </tr>
       {:else}
-        <tr><td colspan="4" class="empty">No paired devices yet.</td></tr>
+        <tr><td colspan="4" class="empty">{t('openclaw.noPairedDevices')}</td></tr>
       {/each}
     </tbody>
   </table>
 
-  <button class="primary" onclick={() => showAdd = true}>+ Add device</button>
+  <button class="primary" onclick={() => showAdd = true}>{t('openclaw.addDevice')}</button>
 </section>
 
 {#if showAdd}

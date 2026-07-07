@@ -1,5 +1,6 @@
 <script lang="ts">
   import { getPluginScopedKey, mergePluginScoped } from '../lib/settings.svelte'
+  import { t } from '../lib/i18n/store.svelte'
 
   let showToken = $state(false)
   let copyHint = $state<string | null>(null)
@@ -29,29 +30,29 @@
     if (!accessToken) return
     try {
       await navigator.clipboard.writeText(accessToken)
-      copyHint = '✓ copied'
+      copyHint = t('openclaw.copied')
       setTimeout(() => { copyHint = null }, 1500)
     } catch (e) {
-      copyHint = 'copy failed'
+      copyHint = t('openclaw.copyFailed')
       setTimeout(() => { copyHint = null }, 2000)
     }
   }
 </script>
 
 <section class="block">
-  <h3>OpenClaw</h3>
+  <h3>{t('openclaw.heading')}</h3>
 
   <label class="row">
-    <span class="lbl">Connect mode</span>
+    <span class="lbl">{t('openclaw.connectMode')}</span>
     <select bind:value={mode} onchange={persist}>
-      <option value="auto">Auto-detect</option>
-      <option value="host">Host (local UDS)</option>
-      <option value="remote">Remote (via mdrelay)</option>
+      <option value="auto">{t('openclaw.autoDetect')}</option>
+      <option value="host">{t('openclaw.modeHost')}</option>
+      <option value="remote">{t('openclaw.modeRemote')}</option>
     </select>
   </label>
 
   <label class="row">
-    <span class="lbl">Socket path</span>
+    <span class="lbl">{t('openclaw.socketPath')}</span>
     <input
       type="text"
       bind:value={socketPath}
@@ -61,19 +62,19 @@
   </label>
 
   <label class="row">
-    <span class="lbl">Access token</span>
+    <span class="lbl">{t('openclaw.accessToken')}</span>
     <input
       type={showToken ? 'text' : 'password'}
       bind:value={accessToken}
-      placeholder="Run 'mdedit openclaw install' to generate"
+      placeholder={t('openclaw.runToGenerate')}
       onchange={persist}
     />
-    <button type="button" class="mini" onclick={() => showToken = !showToken}>{showToken ? 'Hide' : 'Show'}</button>
-    <button type="button" class="mini" onclick={copyToken} disabled={!accessToken}>{copyHint ?? 'Copy'}</button>
+    <button type="button" class="mini" onclick={() => showToken = !showToken}>{showToken ? t('openclaw.hide') : t('openclaw.show')}</button>
+    <button type="button" class="mini" onclick={copyToken} disabled={!accessToken}>{copyHint ?? t('openclaw.copy')}</button>
   </label>
 
   <label class="row">
-    <span class="lbl">Relay URL</span>
+    <span class="lbl">{t('openclaw.relayUrl')}</span>
     <input
       type="text"
       bind:value={relayUrl}
@@ -88,7 +89,7 @@
       bind:checked={autoSyncBeforeResolve}
       onchange={persist}
     />
-    Auto-sync before resolving chat links
+    {t('openclaw.autoSync')}
   </label>
 </section>
 

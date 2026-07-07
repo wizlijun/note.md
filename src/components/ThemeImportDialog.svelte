@@ -1,5 +1,6 @@
 <script lang="ts">
   import { invoke } from '@tauri-apps/api/core'
+  import { t } from '../lib/i18n/store.svelte'
 
   interface ImportTheme {
     id: string
@@ -47,31 +48,31 @@
 
 <div class="overlay" role="presentation" onclick={cancel}>
   <div class="dialog" role="dialog" aria-modal="true" onclick={(e) => e.stopPropagation()}>
-    <h2>Import Typora theme</h2>
+    <h2>{t('themeImport.title')}</h2>
 
     {#if report.themes.length === 0}
-      <p>No Typora themes found in this zip.</p>
+      <p>{t('themeImport.noneFound')}</p>
     {:else}
-      <p>Detected {report.themes.length} theme{report.themes.length === 1 ? '' : 's'}:</p>
+      <p>{t('themeImport.detected', { count: report.themes.length })}</p>
       <ul>
-        {#each report.themes as t (t.id)}
+        {#each report.themes as th (th.id)}
           <li>
-            <strong>{t.name}</strong> ({t.appearance})
-            {#if t.conflict}<span class="warn">⚠ will overwrite existing</span>{/if}
+            <strong>{th.name}</strong> ({th.appearance})
+            {#if th.conflict}<span class="warn">{t('themeImport.willOverwrite')}</span>{/if}
           </li>
         {/each}
       </ul>
     {/if}
 
     {#if report.asset_dirs.length > 0}
-      <p>Asset folders:</p>
+      <p>{t('themeImport.assetFolders')}</p>
       <ul>
         {#each report.asset_dirs as d (d)}<li>{d}</li>{/each}
       </ul>
     {/if}
 
     {#if report.errors.length > 0}
-      <p>Errors:</p>
+      <p>{t('themeImport.errors')}</p>
       <ul>
         {#each report.errors as e (e.file)}
           <li class="err">{e.file}: {e.message}</li>
@@ -82,14 +83,14 @@
     {#if hasConflict}
       <label class="overwrite">
         <input type="checkbox" checked={overwrite} onchange={(e) => overwrite = (e.currentTarget as HTMLInputElement).checked} />
-        Overwrite existing themes
+        {t('themeImport.overwriteExisting')}
       </label>
     {/if}
 
     <div class="actions">
-      <button onclick={cancel}>Cancel</button>
+      <button onclick={cancel}>{t('common.cancel')}</button>
       <button class="primary" onclick={confirm} disabled={!canImport}>
-        {busy ? 'Importing…' : 'Import'}
+        {busy ? t('themeImport.importing') : t('themeImport.import')}
       </button>
     </div>
   </div>

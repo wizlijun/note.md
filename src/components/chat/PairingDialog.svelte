@@ -1,6 +1,7 @@
 <!-- src/components/chat/PairingDialog.svelte -->
 <script lang="ts">
   import { pairCreate, type PairCreateOut } from '../../lib/openclaw/pair'
+  import { t } from '../../lib/i18n/store.svelte'
 
   let { onClose }: { onClose: () => void } = $props()
   let data: PairCreateOut | null = $state(null)
@@ -25,18 +26,18 @@
 
 <div class="overlay" onclick={onClose}>
   <div class="dialog" onclick={(e) => e.stopPropagation()}>
-    <h2>Add a new device</h2>
+    <h2>{t('chat.addDevice')}</h2>
     {#if err}
       <p class="err">{err}</p>
-      <button onclick={create}>Retry</button>
+      <button onclick={create}>{t('chat.retry')}</button>
     {:else if !data}
-      <p>Generating pairing code…</p>
+      <p>{t('chat.generatingCode')}</p>
     {:else}
       <div class="qr">{@html data.qr_svg}</div>
       <p class="code">{data.code}</p>
-      <p class="hint">Expires in {String(Math.floor(remaining/60)).padStart(2,'0')}:{String(remaining%60).padStart(2,'0')}</p>
+      <p class="hint">{t('chat.expiresIn', { time: `${String(Math.floor(remaining/60)).padStart(2,'0')}:${String(remaining%60).padStart(2,'0')}` })}</p>
     {/if}
-    <button onclick={onClose}>Cancel</button>
+    <button onclick={onClose}>{t('common.cancel')}</button>
   </div>
 </div>
 

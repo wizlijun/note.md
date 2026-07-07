@@ -1,6 +1,7 @@
 <!-- src/components/chat/RemoteOnboarding.svelte -->
 <script lang="ts">
   import { pairClaim } from '../../lib/openclaw/pair'
+  import { t } from '../../lib/i18n/store.svelte'
 
   let { onComplete }: { onComplete: () => void } = $props()
   let code = $state('')
@@ -22,16 +23,16 @@
 </script>
 
 <section class="onboard">
-  <h2>Connect to your OpenClaw</h2>
-  <p>Enter the pairing code shown on your host machine's M↓ settings.</p>
-  <label>Pairing code
+  <h2>{t('chat.connectTitle')}</h2>
+  <p>{t('chat.enterPairingCode')}</p>
+  <label>{t('chat.pairingCode')}
     <input bind:value={code} placeholder="abc-def-012-345-678-9ab" />
   </label>
-  <label>Device name (optional)
+  <label>{t('chat.deviceNameOptional')}
     <input bind:value={hostname} placeholder="my-laptop" />
   </label>
   {#if err}<p class="err">{err}</p>{/if}
-  <button disabled={busy || code.length < 23} onclick={submit}>{busy ? 'Connecting…' : 'Pair'}</button>
+  <button disabled={busy || code.length < 23} onclick={submit}>{busy ? t('chat.connecting') : t('chat.pair')}</button>
 </section>
 
 <style>
