@@ -53,10 +53,12 @@ export async function mountRichEditor(
     enableTableResize: true,
     enableImageSelection: true,
     enableHistory: true,
-    // Obsidian Live-Preview behaviour: the caret's whole line reveals its
-    // markdown source (all `**`, `*`, `` ` ``, `~~`, `^^`, `==` delimiters shown),
-    // and re-renders once the caret leaves the line. Inline input rules stay on
-    // so typed markers still form marks that this mode then shows as source.
+    // Do NOT auto-format inline markers as you type: `**`, `__`, `*`, `_`,
+    // `` ` ``, `~~`, `^^`, `==` stay literal instead of collapsing into a mark
+    // (and hiding their delimiters). The user controls formatting explicitly.
+    enableInlineMarkInputRules: false,
+    // Marks already parsed from a file still render; on the caret's line their
+    // source delimiters are revealed (Live-Preview style) and re-render on exit.
     inlineSyntaxScope: 'line',
     onChange,
     changeDebounceMs: 200,
