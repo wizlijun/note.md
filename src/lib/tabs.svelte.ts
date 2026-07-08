@@ -42,7 +42,10 @@ export function isDirty(id: string): boolean {
 }
 
 export function activate(id: string): void {
-  if (tabs.some((t) => t.id === id)) activeId.value = id
+  if (tabs.some((t) => t.id === id)) {
+    activeId.value = id
+    void import('./insights/tracker.svelte').then((m) => m.onActiveDocChanged()).catch(() => {})
+  }
 }
 
 
@@ -126,6 +129,7 @@ export async function openFile(path: string): Promise<void> {
   const existing = tabs.find((t) => t.filePath === path)
   if (existing) {
     activeId.value = existing.id
+    void import('./insights/tracker.svelte').then((m) => m.onActiveDocChanged()).catch(() => {})
     return
   }
 
@@ -164,6 +168,7 @@ export async function openFile(path: string): Promise<void> {
   }
   tabs.push(tab)
   activeId.value = tab.id
+  void import('./insights/tracker.svelte').then((m) => m.onActiveDocChanged()).catch(() => {})
   await pushRecentFile(path)
   await startWatchingTab(tab)
   // Sync-to-Vault: if this is a tracked vault copy whose source changed, prompt.
@@ -213,6 +218,7 @@ export function setMode(id: string, mode: Mode): void {
   const t = tabs.find((x) => x.id === id)
   if (!t || t.mode === mode) return
   t.mode = mode
+  void import('./insights/tracker.svelte').then((m) => m.onModeChanged()).catch(() => {})
   setRecentMode(modeKeyFor(t.filePath), mode).catch((e) => console.warn(e))
 }
 

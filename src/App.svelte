@@ -50,6 +50,7 @@
   import { vaultStore, refreshStatus, syncNow, attachStatusListener } from './lib/vault.svelte'
   import { syncCurrentToVault, canSyncActive, isTrackedVaultFile, refreshSotvault, sotvaultStore } from './lib/sotvault.svelte'
   import { installRecentsSync, refreshRecentMenu, mergedRecents } from './lib/recent-sync.svelte'
+  import { installTracker } from './lib/insights/tracker.svelte'
 
   /** Open an in-memory read-only buffer received from the remote agent.
    *  The tab gets title "[remote] <basename>" and its content is pre-filled.
@@ -415,6 +416,9 @@
     let cleanupRecents: (() => void) | null = null
     installRecentsSync().then((fn) => { cleanupRecents = fn })
 
+    let cleanupTracker: (() => void | Promise<void>) | null = null
+    installTracker().then((fn) => { cleanupTracker = fn })
+
     const unlistenMenu = listen<string>('menu-event', async (e) => {
       const id = e.payload
       const plugin = parsePluginMenuId(id)
@@ -547,6 +551,7 @@
       unlistenOpenRemoteBuffer.then((fn) => fn())
       unlistenDeepLink.then((fn) => fn())
       cleanupRecents?.()
+      void cleanupTracker?.()
       stopAutoSave?.()
     }
   })
