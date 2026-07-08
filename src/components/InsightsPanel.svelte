@@ -11,6 +11,9 @@
   import { getRecord } from '../lib/share/records'
   import { basename } from '../lib/fs'
   import { t } from '../lib/i18n/store.svelte'
+  import { renderDailyReport } from '../lib/insights/report'
+  import { openFile } from '../lib/tabs.svelte'
+  import { pushToast } from '../lib/toast.svelte'
 
   const fs: Fs = {
     exists: (p) => exists(p),
@@ -123,6 +126,22 @@
   $effect(() => {
     if (!fromDay) applyPreset('7d')
   })
+
+  async function generateReport() {
+    const root = sotvaultStore.vaultRoot
+    if (!root || rows.length === 0) return
+    try {
+      const { filename, markdown } = renderDailyReport(rows, fromDay, toDay)
+      const base = root.replace(/\/$/, '')
+      await mkdir(`${base}/stat`, { recursive: true }).catch(() => {})
+      const abs = `${base}/${filename}`
+      await writeTextFile(abs, markdown)
+      await openFile(abs)
+      pushToast({ level: 'success', message: t('insights.reportSaved') })
+    } catch (e) {
+      pushToast({ level: 'error', message: t('insights.reportFailed'), detail: e instanceof Error ? e.message : String(e) })
+    }
+  }
 </script>
 
 <div class="insights-panel">
@@ -162,6 +181,11 @@
         onchange={() => { preset = 'custom'; void load() }}
       />
     </div>
+    <button
+      class="report-btn"
+      onclick={() => void generateReport()}
+      disabled={rows.length === 0}
+    >{t('insights.generateReport')}</button>
   </div>
 
   {#if loading}
@@ -286,6 +310,28 @@
 
   .date-sep {
     color: color-mix(in srgb, CanvasText 50%, transparent);
+  }
+
+  .report-btn {
+    padding: 3px 10px;
+    border-radius: 4px;
+    border: 1px solid color-mix(in srgb, CanvasText 20%, transparent);
+    background: transparent;
+    color: color-mix(in srgb, CanvasText 75%, transparent);
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 0.1s, color 0.1s;
+    white-space: nowrap;
+  }
+
+  .report-btn:hover:not(:disabled) {
+    background: color-mix(in srgb, CanvasText 8%, transparent);
+    color: CanvasText;
+  }
+
+  .report-btn:disabled {
+    opacity: 0.4;
+    cursor: default;
   }
 
   .status-msg {

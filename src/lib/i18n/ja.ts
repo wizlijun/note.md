@@ -449,6 +449,9 @@ export const ja: Record<keyof Messages, string> = {
   'insights.col.aud': '閲覧者時間',
   'insights.col.readers': '閲覧者',
   'insights.col.value': '価値',
+  'insights.generateReport': 'レポート生成',
+  'insights.reportSaved': 'レポートを保存しました',
+  'insights.reportFailed': 'レポート生成に失敗しました',
 
   // Settings → CLI
   'settings.cli.heading': 'CLI',

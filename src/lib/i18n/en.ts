@@ -454,6 +454,9 @@ export const en = {
   'insights.col.aud': 'Aud. time',
   'insights.col.readers': 'Readers',
   'insights.col.value': 'Value',
+  'insights.generateReport': 'Generate report',
+  'insights.reportSaved': 'Report saved',
+  'insights.reportFailed': 'Failed to generate report',
 
   // Settings → CLI
   'settings.cli.heading': 'CLI',
