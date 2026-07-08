@@ -7,6 +7,21 @@
   "default_enabled": true,
   "available_when": "vaultConfigured",
   "host_capabilities": [],
+  "cli": [
+    {
+      "subcommand": "report",
+      "command": "report",
+      "summary": "Generate a reading engagement report (owner + online audience) from the Vault",
+      "args": [],
+      "flags": [
+        { "long": "--vault", "type": "string", "help": "Vault root (defaults to the configured Vault)" },
+        { "long": "--date", "type": "string", "help": "today | yesterday (default) | 7d | 30d | month" },
+        { "long": "--from", "type": "string", "help": "YYYY-MM-DD (with --to, overrides --date)" },
+        { "long": "--to", "type": "string", "help": "YYYY-MM-DD" },
+        { "long": "--stdout", "type": "boolean", "help": "Print to stdout instead of writing <vault>/stat/*.md" }
+      ]
+    }
+  ],
   "i18n": {
     "zh": {
       "name": "阅读洞察",

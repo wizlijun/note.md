@@ -6,9 +6,12 @@
   import { renderTabAsInlineBody } from '../plugins/host-render-html'
   import { settings } from '../settings.svelte'
   import { computeActiveThemeId } from '../theme-loader'
-  import { stat, readTextFile } from '@tauri-apps/plugin-fs'
+  import { stat, readTextFile, mkdir, writeTextFile } from '@tauri-apps/plugin-fs'
   import { writeText as clipWriteText } from '@tauri-apps/plugin-clipboard-manager'
   import { mergePluginScoped, getPluginScopedAll, loadSettings } from '../settings.svelte'
+  import { generateInsightsReport } from '../insights/run'
+  import { presetRange, type Preset } from '../insights/value'
+  import { localTzOffsetMinutes } from '../insights/model'
   import { sha256Hex } from '../hash'
   import {
     basenameOf, extensionOf, inferKind, interpretActions,
@@ -32,6 +35,41 @@
     return k
   }
 
+  /** `mdedit reading-insights report` — file-less; generates the digest (owner +
+   *  online audience) and writes it to <vault>/stat or prints to stdout. */
+  async function runInsightsReport(payload: CliPayload): Promise<void> {
+    try {
+      const vaultFlag = (payload.flags['vault'] as string | undefined) || undefined
+      const vaultRoot = vaultFlag ?? (await invoke<string | null>('sotvault_vault_root'))
+      if (!vaultRoot) {
+        await finish({ exit_code: 2, stderr: ['mdedit: no Vault configured. Pass --vault <path> or configure one in the app.'] })
+        return
+      }
+      let from = payload.flags['from'] as string | undefined
+      let to = payload.flags['to'] as string | undefined
+      if (!from || !to) {
+        const valid = ['today', 'yesterday', '7d', '30d', 'month']
+        const dateFlag = payload.flags['date'] as string | undefined
+        const preset = (dateFlag && valid.includes(dateFlag) ? dateFlag : 'yesterday') as Preset
+        const r = presetRange(preset, Date.now(), localTzOffsetMinutes())
+        from = r.from
+        to = r.to
+      }
+      const { filename, markdown } = await generateInsightsReport(from, to, vaultRoot)
+      if (payload.flags['stdout']) {
+        await finish({ exit_code: 0, stdout: markdown, stderr: [] })
+        return
+      }
+      const base = vaultRoot.replace(/\/$/, '')
+      await mkdir(`${base}/stat`, { recursive: true }).catch(() => {})
+      const abs = `${base}/${filename}`
+      await writeTextFile(abs, markdown)
+      await finish({ exit_code: 0, stdout: `wrote ${abs}`, stderr: [] })
+    } catch (e) {
+      await finish({ exit_code: 1, stderr: [`mdedit: reading-insights report failed: ${e}`] })
+    }
+  }
+
   async function run(): Promise<void> {
     let payload: CliPayload
     try {
@@ -49,6 +87,14 @@
       await loadSettings()
     } catch (e) {
       await finish({ exit_code: 1, stderr: [`mdedit: failed to load settings: ${e}`] })
+      return
+    }
+
+    // reading-insights report: a file-less command that reuses the in-app report
+    // logic (owner analytics from the Vault + audience stats fetched online with
+    // the configured share API key + records). No plugin binary involved.
+    if (payload.plugin_id === 'reading-insights') {
+      await runInsightsReport(payload)
       return
     }
 

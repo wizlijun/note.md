@@ -12,7 +12,6 @@ pub mod builtin;
 pub mod runner;
 pub mod install;
 pub mod openclaw;
-pub mod insights;
 pub mod state;
 
 const APP_BUNDLE_ID: &str = "com.laobu.mdeditor";

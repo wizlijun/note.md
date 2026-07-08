@@ -1,64 +1,16 @@
 <script lang="ts">
-  import { exists, mkdir, readDir, readTextFile, writeTextFile } from '@tauri-apps/plugin-fs'
-  import { createAnalyticsStore, type Fs } from '../lib/insights/store.svelte'
-  import { assembleRows, type AssembleDeps, type InsightRow } from '../lib/insights/dashboard.svelte'
-  import { DEFAULT_WEIGHTS, presetRange, type Preset } from '../lib/insights/value'
-  import { fetchAudienceStatsBatch } from '../lib/insights/audience'
-  import { localTzOffsetMinutes, docKeyFor } from '../lib/insights/model'
+  import { mkdir, writeTextFile } from '@tauri-apps/plugin-fs'
+  import { assembleRows, type InsightRow } from '../lib/insights/dashboard.svelte'
+  import { presetRange, type Preset } from '../lib/insights/value'
+  import { localTzOffsetMinutes } from '../lib/insights/model'
   import { flushNow } from '../lib/insights/tracker.svelte'
-  import { getDeviceId, getPluginScopedKey } from '../lib/settings.svelte'
+  import { buildDashboardDeps } from '../lib/insights/run'
   import { sotvaultStore } from '../lib/sotvault.svelte'
-  import { getRecord, allShareRecordPaths } from '../lib/share/records'
-  import { basename } from '../lib/fs'
+  import { getRecord } from '../lib/share/records'
   import { t } from '../lib/i18n/store.svelte'
   import { renderDailyReport } from '../lib/insights/report'
   import { openFile } from '../lib/tabs.svelte'
   import { pushToast } from '../lib/toast.svelte'
-
-  const fs: Fs = {
-    exists: (p) => exists(p),
-    mkdir: (p, o) => mkdir(p, o).then(() => {}),
-    readDir: async (p) => (await readDir(p)).map((e) => ({ name: e.name, isFile: e.isFile })),
-    readTextFile: (p) => readTextFile(p),
-    writeTextFile: (p, c) => writeTextFile(p, c),
-  }
-
-  function trimSlash(s: string): string {
-    return s.replace(/\/+$/, '')
-  }
-
-  function buildDeps(): AssembleDeps {
-    const vaultRoot = sotvaultStore.vaultRoot
-    const baseUrl = (getPluginScopedKey('share.baseUrl') as string | undefined) ?? ''
-    const apiKey = (getPluginScopedKey('share.apiKey') as string | undefined) ?? ''
-    return {
-      readDevices: () =>
-        createAnalyticsStore({
-          fs,
-          vaultRoot: () => sotvaultStore.vaultRoot,
-          deviceId: getDeviceId(),
-          deviceName: '',
-          tzOffsetMinutes: localTzOffsetMinutes(),
-        }).readAllDevices(),
-      resolveShare: (docKey) => {
-        const path = docKey.startsWith('rel:')
-          ? vaultRoot
-            ? trimSlash(vaultRoot) + '/' + docKey.slice(4)
-            : null
-          : docKey.slice(4) // 'abs:'
-        const rec = path ? getRecord(path) : undefined
-        return {
-          path,
-          label: path ? basename(path) : docKey,
-          slug: (rec && 'slug' in rec ? rec.slug : null) ?? null,
-        }
-      },
-      // One batch request for every shared doc, authenticated with the share API key.
-      fetchAudienceBatch: (slugs, from, to) => fetchAudienceStatsBatch(baseUrl, apiKey, slugs, from, to),
-      listSharedDocKeys: () => allShareRecordPaths().map((p) => docKeyFor(p, vaultRoot)),
-      weights: DEFAULT_WEIGHTS,
-    }
-  }
 
   let preset = $state<Preset | 'custom'>('7d')
   let fromDay = $state('')
@@ -82,7 +34,7 @@
     loading = true
     try {
       await flushNow()
-      rows = await assembleRows(buildDeps(), fromDay, toDay)
+      rows = await assembleRows(buildDashboardDeps(), fromDay, toDay)
       resort()
     } finally {
       loading = false

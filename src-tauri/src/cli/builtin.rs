@@ -30,7 +30,6 @@ pub fn run(b: Builtin, parsed: &Parsed) -> ExitCode {
             ExitCode::from(0)
         }
         Builtin::Openclaw(cmd) => super::openclaw::run(cmd),
-        Builtin::Insights(cmd) => super::insights::run(cmd),
         Builtin::PluginEnable(id) => {
             if !manifests_only.iter().any(|m| m.id == id) {
                 eprintln!("mdedit: unknown plugin id '{id}'");

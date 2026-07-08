@@ -22,7 +22,6 @@ pub enum Builtin {
     PluginDisable(String),
     PluginInfo(String),
     Openclaw(super::openclaw::OpenclawCmd),
-    Insights(super::insights::InsightsCmd),
 }
 
 #[derive(Debug)]
@@ -93,21 +92,29 @@ pub fn resolve_with(
         };
     }
 
+    // reading-insights uses the two-level `mdedit reading-insights report` form
+    // and is handled through the webview runner (reusing the in-app report logic,
+    // incl. online audience) — not a plugin binary.
     if first == "reading-insights" {
-        let flag_val = |name: &str| -> Option<String> {
-            rest.iter().position(|a| a == name).and_then(|i| rest.get(i + 1).cloned())
+        let skip = match rest.get(1).map(|s| s.as_str()) {
+            Some("report") => 2,
+            Some(s) if s.starts_with('-') => 1, // flags → implicit `report`
+            None => 1,
+            Some(other) => return Route::Unknown(format!("reading-insights {}", other)),
         };
-        let report = Route::Builtin(Builtin::Insights(super::insights::InsightsCmd::Report {
-            vault: flag_val("--vault"),
-            date: flag_val("--date"),
-            from: flag_val("--from"),
-            to: flag_val("--to"),
-            stdout: rest.iter().any(|a| a == "--stdout"),
-        }));
-        return match rest.get(1).map(|s| s.as_str()) {
-            Some("report") | None => report,
-            Some(s) if s.starts_with('-') => report, // flags without explicit `report`
-            Some(other) => Route::Unknown(format!("reading-insights {}", other)),
+        let remaining: Vec<String> = rest.iter().skip(skip).cloned().collect();
+        let is_enabled = enabled.get("reading-insights").copied().unwrap_or(true);
+        return if is_enabled {
+            Route::Plugin(PluginRoute {
+                plugin_id: "reading-insights".to_string(),
+                subcommand: "report".to_string(),
+                remaining,
+            })
+        } else {
+            Route::Disabled {
+                plugin_id: "reading-insights".to_string(),
+                subcommand: "report".to_string(),
+            }
         };
     }
 
