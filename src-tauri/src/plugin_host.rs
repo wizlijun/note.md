@@ -22,6 +22,25 @@ pub enum PluginKind {
     Builtin,
 }
 
+/// Per-locale overrides for a plugin's user-facing strings. Keys mirror the
+/// stable identifiers in the manifest (menu/context command, settings field
+/// key) so translations don't depend on array order.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct PluginI18n {
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub description: Option<String>,
+    #[serde(default)]
+    pub menus: HashMap<String, String>,
+    #[serde(default)]
+    pub context_menus: HashMap<String, String>,
+    #[serde(rename = "settings.tab_label", default)]
+    pub settings_tab_label: Option<String>,
+    #[serde(rename = "settings.fields", default)]
+    pub settings_fields: HashMap<String, String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PluginManifest {
     pub id: String,
@@ -29,6 +48,9 @@ pub struct PluginManifest {
     pub version: String,
     #[serde(default)]
     pub description: Option<String>,
+    /// locale code -> string overrides (English base lives in the fields above).
+    #[serde(default)]
+    pub i18n: HashMap<String, PluginI18n>,
     #[serde(default)]
     pub kind: PluginKind,
     #[serde(default)]
@@ -437,15 +459,22 @@ pub struct LocatedMenuItem {
 }
 
 /// Returns menu entries flattened across all loaded plugins, with ids encoded
-/// as `plugin:<id>:<command>`.
-pub fn collect_top_menu_items() -> Vec<LocatedMenuItem> {
+/// as `plugin:<id>:<command>`. Menu labels are resolved for `locale` (falling
+/// back to the manifest's English label per missing key).
+pub fn collect_top_menu_items(locale: &str) -> Vec<LocatedMenuItem> {
     let st = STATE.read().unwrap();
     let mut out = Vec::new();
     for (_, (m, _)) in st.enabled.iter() {
         for me in m.menus.iter() {
+            let label = m
+                .i18n
+                .get(locale)
+                .and_then(|t| t.menus.get(&me.command))
+                .cloned()
+                .unwrap_or_else(|| me.label.clone());
             out.push(LocatedMenuItem {
                 id: format!("plugin:{}:{}", m.id, me.command),
-                label: me.label.clone(),
+                label,
                 shortcut: me.shortcut.clone(),
                 location: me.location.clone(),
             });

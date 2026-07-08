@@ -52,7 +52,12 @@
         "key": "share.defaultExpiry",
         "type": "select",
         "label": "Default expiry",
-        "options": ["never", "7d", "30d", "90d"],
+        "options": [
+          "never",
+          "7d",
+          "30d",
+          "90d"
+        ],
         "default": "never"
       },
       {
@@ -74,7 +79,9 @@
   "cli": [
     {
       "subcommand": "share",
-      "aliases": ["--share"],
+      "aliases": [
+        "--share"
+      ],
       "command": "publish",
       "summary": "Render and publish file as a shareable URL",
       "args": [
@@ -105,5 +112,45 @@
       "requires_tab_context": true
     }
   ],
-  "timeout_seconds": 30
+  "timeout_seconds": 30,
+  "i18n": {
+    "zh": {
+      "name": "分享",
+      "description": "将当前文件发布为可分享的网页",
+      "menus": {
+        "publish": "分享当前文件…",
+        "unpublish": "取消分享当前文件…",
+        "copy-link": "复制分享链接"
+      },
+      "context_menus": {
+        "publish": "分享此标签页…"
+      },
+      "settings.tab_label": "分享",
+      "settings.fields": {
+        "share.baseUrl": "服务基础 URL",
+        "share.apiKey": "API Key",
+        "share.defaultExpiry": "默认有效期",
+        "share.slugRandomSuffix": "在 URL 后追加 3 位随机后缀（推荐）"
+      }
+    },
+    "ja": {
+      "name": "共有",
+      "description": "現在のファイルを共有可能な Web ページとして公開",
+      "menus": {
+        "publish": "現在のファイルを共有…",
+        "unpublish": "現在のファイルの共有を解除…",
+        "copy-link": "共有リンクをコピー"
+      },
+      "context_menus": {
+        "publish": "このタブを共有…"
+      },
+      "settings.tab_label": "共有",
+      "settings.fields": {
+        "share.baseUrl": "サービスのベース URL",
+        "share.apiKey": "API Key",
+        "share.defaultExpiry": "既定の有効期限",
+        "share.slugRandomSuffix": "URL に 3 文字のランダムな接尾辞を追加（推奨）"
+      }
+    }
+  }
 }

@@ -4,6 +4,7 @@
   import { ask, open as openFilePicker } from '@tauri-apps/plugin-dialog'
   import { settings, saveSettings, getPluginScopedAll, mergePluginScoped, pluginScopedVersion } from '../lib/settings.svelte'
   import { i18n, setLocale, availableLocales, t, type Locale } from '../lib/i18n/store.svelte'
+  import { pluginTabLabel, pluginFieldLabel } from '../lib/plugins/plugin-i18n'
   import {
     updater as updaterState, runCheck as updaterRunCheck, setCheckOnStartup,
     downloadAndInstall as updaterDownloadAndInstall, restartApp as updaterRestart,
@@ -343,7 +344,7 @@
           <button class:active={selectedTab === 'openclaw'} onclick={() => selectedTab = 'openclaw'}>{t('settings.tab.openclaw')}</button>
         {/if}
         {#each pluginTabs as ptab (ptab.pluginId)}
-          <button class:active={selectedTab === ptab.pluginId} onclick={() => selectedTab = ptab.pluginId}>{ptab.label}</button>
+          <button class:active={selectedTab === ptab.pluginId} onclick={() => selectedTab = ptab.pluginId}>{pluginTabLabel(ptab.manifest, ptab.label)}</button>
         {/each}
       </nav>
 
@@ -629,7 +630,7 @@
               {#each ptab.schema as field (field.key)}
                 {@const localKey = field.key.slice(ptab.pluginId.length + 1)}
                 <label class="plugin-field">
-                  <span class="lbl">{field.label}</span>
+                  <span class="lbl">{pluginFieldLabel(ptab.manifest, field.key, field.label)}</span>
                   {#if field.type === 'string'}
                     <input type="text"
                       value={(pluginValues[ptab.pluginId]?.[localKey] as string) ?? field.default ?? ''}

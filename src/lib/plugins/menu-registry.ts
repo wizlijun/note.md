@@ -1,5 +1,6 @@
 import type { PluginManifest, EnabledWhenContext } from './types'
 import { evaluateEnabledWhen } from './enabled-when'
+import { pluginMenuLabel, pluginContextMenuLabel } from './plugin-i18n'
 
 export interface CollectedItem {
   id: string                    // 'plugin:<pluginId>:<command>'
@@ -43,7 +44,7 @@ export function collectMenuItems(manifests: PluginManifest[]): CollectedItems {
       const item: CollectedItem = {
         id: mkPluginMenuId(m.id, me.command),
         pluginId: m.id, command: me.command,
-        label: me.label, shortcut: me.shortcut, enabledWhen: me.enabled_when,
+        label: pluginMenuLabel(m, me.command, me.label), shortcut: me.shortcut, enabledWhen: me.enabled_when,
       }
       out[me.location].push(item)
     }
@@ -51,7 +52,7 @@ export function collectMenuItems(manifests: PluginManifest[]): CollectedItems {
       const item: CollectedItem = {
         id: mkPluginMenuId(m.id, ce.command),
         pluginId: m.id, command: ce.command,
-        label: ce.label, enabledWhen: ce.enabled_when,
+        label: pluginContextMenuLabel(m, ce.command, ce.label), enabledWhen: ce.enabled_when,
       }
       if (ce.location === 'tab') out.tabContext.push(item)
       else out.editorContext.push(item)

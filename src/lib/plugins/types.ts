@@ -59,11 +59,24 @@ export interface CliEntry {
   requires_tab_context?: boolean
 }
 
+/** Per-locale overrides for a plugin's user-facing strings (English base lives
+ *  in the top-level manifest fields). Keys mirror stable ids: menu/context
+ *  entries by `command`, settings fields by `key`. */
+export interface PluginI18n {
+  name?: string
+  description?: string
+  menus?: Record<string, string>
+  context_menus?: Record<string, string>
+  'settings.tab_label'?: string
+  'settings.fields'?: Record<string, string>
+}
+
 export interface PluginManifest {
   id: string
   name: string
   version: string
   description?: string
+  i18n?: Record<string, PluginI18n>
   binary: string
   menus?: MenuEntry[]
   context_menus?: ContextMenuEntry[]

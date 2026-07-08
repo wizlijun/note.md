@@ -732,8 +732,8 @@ pub fn run() {
                     eprintln!("[themes] bootstrap failed: {e}");
                 }
 
-                let plugin_items = plugin_host::collect_top_menu_items();
                 let menu_locale = read_saved_locale(&app.handle());
+                let plugin_items = plugin_host::collect_top_menu_items(&menu_locale);
                 let (menu, recent_submenu) = build_menu(&app.handle(), &plugin_items, &menu_locale)?;
                 *app.state::<RecentMenu>().0.lock().unwrap() = Some(recent_submenu);
                 app.set_menu(menu)?;
@@ -751,51 +751,11 @@ pub fn run() {
                 // template-style mark fits both light and dark menu bars.
                 // Left-click toggles main window visibility; right-click shows menu.
                 let tray_icon = Image::from_bytes(include_bytes!("../icons/tray-icon.png"))?;
-                let show_item = MenuItem::with_id(app, "tray-show", "Show M\u{2193}", true, None::<&str>)?;
-                let openclaw_enabled = plugin_host::is_plugin_enabled("openclaw-chat");
-                let openclaw_item = if openclaw_enabled {
-                    Some(MenuItem::with_id(app, "tray-openclaw", "OpenClaw", true, None::<&str>)?)
-                } else {
-                    None
-                };
-                let sync_repo_label = {
-                    let mgr = app.state::<std::sync::Arc<vault_sync::VaultSyncManager>>();
-                    let guard = mgr.repo_path.lock().unwrap();
-                    match guard.as_deref() {
-                        Some(p) => format!("Vault: {}", abbreviate_path(p)),
-                        None => "Vault: Set Folder\u{2026}".to_string(),
-                    }
-                };
-                let sync_repo_item = MenuItem::with_id(app, "tray-sync-repo", &sync_repo_label, true, None::<&str>)?;
+                let (tray_menu, sync_repo_item) = build_tray_menu(&app.handle(), &menu_locale)?;
                 {
                     let tray_item_state = app.state::<TrayRepoItem>();
                     *tray_item_state.0.lock().unwrap() = Some(sync_repo_item.clone());
                 }
-                let sync_start_item = MenuItem::with_id(app, "tray-sync-start", "Start Sync", true, None::<&str>)?;
-                let sync_stop_item = MenuItem::with_id(app, "tray-sync-stop", "Stop Sync", true, None::<&str>)?;
-                let sync_now_item = MenuItem::with_id(app, "tray-sync-now", "Sync Now", true, None::<&str>)?;
-                let sync_log_item = MenuItem::with_id(app, "tray-sync-log", "View Log\u{2026}", true, None::<&str>)?;
-                let open_books_item = MenuItem::with_id(app, "tray-open-books", "Open Books", true, None::<&str>)?;
-                let open_raw_sync_item = MenuItem::with_id(app, "tray-open-raw-sync", "Open Raw Vault Sync", /*enabled=*/ false, None::<&str>)?;
-                let quit_item = MenuItem::with_id(app, "tray-quit", "Quit M\u{2193}", true, None::<&str>)?;
-                let mut tray_menu_builder = MenuBuilder::new(app)
-                    .item(&show_item)
-                    .separator();
-                if let Some(ref oc) = openclaw_item {
-                    tray_menu_builder = tray_menu_builder.item(oc).separator();
-                }
-                let tray_menu = tray_menu_builder
-                    .item(&sync_repo_item)
-                    .item(&sync_start_item)
-                    .item(&sync_stop_item)
-                    .item(&sync_now_item)
-                    .item(&sync_log_item)
-                    .separator()
-                    .item(&open_books_item)
-                    .item(&open_raw_sync_item)
-                    .separator()
-                    .item(&quit_item)
-                    .build()?;
                 let _tray = TrayIconBuilder::with_id("main")
                     .icon(tray_icon)
                     .icon_as_template(false)
@@ -1014,6 +974,29 @@ fn menu_label(locale: &str, key: &str) -> String {
             "卸载 'mdedit' 命令",
             "'mdedit' コマンドをアンインストール",
         ),
+        // System / framework items (text overrides for PredefinedMenuItem, so
+        // they follow the in-app locale instead of the macOS system language).
+        "sys.services" => ("Services", "服务", "サービス"),
+        "sys.hideOthers" => ("Hide Others", "隐藏其他", "ほかを隠す"),
+        "sys.showAll" => ("Show All", "全部显示", "すべてを表示"),
+        "sys.quit" => ("Quit M↓", "退出 M↓", "M↓ を終了"),
+        "sys.undo" => ("Undo", "撤销", "取り消す"),
+        "sys.redo" => ("Redo", "重做", "やり直す"),
+        "sys.cut" => ("Cut", "剪切", "カット"),
+        "sys.copy" => ("Copy", "拷贝", "コピー"),
+        "sys.paste" => ("Paste", "粘贴", "ペースト"),
+        "sys.selectAll" => ("Select All", "全选", "すべてを選択"),
+        "sys.minimize" => ("Minimize", "最小化", "しまう"),
+        "sys.maximize" => ("Zoom", "缩放", "拡大／縮小"),
+        // Menu-bar tray dropdown
+        "tray.show" => ("Show M↓", "显示 M↓", "M↓ を表示"),
+        "tray.vaultSetFolder" => ("Vault: Set Folder…", "Vault：选择文件夹…", "Vault：フォルダを選択…"),
+        "tray.startSync" => ("Start Sync", "开始同步", "同期を開始"),
+        "tray.stopSync" => ("Stop Sync", "停止同步", "同期を停止"),
+        "tray.syncNow" => ("Sync Now", "立即同步", "今すぐ同期"),
+        "tray.viewLog" => ("View Log…", "查看日志…", "ログを表示…"),
+        "tray.openBooks" => ("Open Books", "打开 Books", "Books を開く"),
+        "tray.openRawSync" => ("Open Raw Vault Sync", "打开原始 Vault 同步", "Raw Vault Sync を開く"),
         _ => (key, key, key),
     };
     match locale {
@@ -1047,16 +1030,73 @@ fn read_saved_locale<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> String {
     }
 }
 
-/// Rebuild the app menu in the given locale and apply it. Called from JS when
-/// the user changes the language. The recent-files submenu resets to its
-/// placeholder; JS re-pushes the list via `refreshRecentMenu()` afterward.
+/// Build the menu-bar tray dropdown in the given locale. Returns the menu and
+/// the (dynamic) "Vault:" item so the caller can stash it for later label
+/// updates. Event handling stays on the TrayIcon, so rebuilding just the menu
+/// preserves click behavior.
+fn build_tray_menu<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    locale: &str,
+) -> tauri::Result<(Menu<R>, MenuItem<R>)> {
+    let show_item = MenuItem::with_id(app, "tray-show", menu_label(locale, "tray.show"), true, None::<&str>)?;
+    let openclaw_item = if plugin_host::is_plugin_enabled("openclaw-chat") {
+        Some(MenuItem::with_id(app, "tray-openclaw", "OpenClaw", true, None::<&str>)?)
+    } else {
+        None
+    };
+    let sync_repo_label = {
+        let mgr = app.state::<std::sync::Arc<vault_sync::VaultSyncManager>>();
+        let guard = mgr.repo_path.lock().unwrap();
+        match guard.as_deref() {
+            Some(p) => format!("Vault: {}", abbreviate_path(p)),
+            None => menu_label(locale, "tray.vaultSetFolder"),
+        }
+    };
+    let sync_repo_item = MenuItem::with_id(app, "tray-sync-repo", &sync_repo_label, true, None::<&str>)?;
+    let sync_start_item = MenuItem::with_id(app, "tray-sync-start", menu_label(locale, "tray.startSync"), true, None::<&str>)?;
+    let sync_stop_item = MenuItem::with_id(app, "tray-sync-stop", menu_label(locale, "tray.stopSync"), true, None::<&str>)?;
+    let sync_now_item = MenuItem::with_id(app, "tray-sync-now", menu_label(locale, "tray.syncNow"), true, None::<&str>)?;
+    let sync_log_item = MenuItem::with_id(app, "tray-sync-log", menu_label(locale, "tray.viewLog"), true, None::<&str>)?;
+    let open_books_item = MenuItem::with_id(app, "tray-open-books", menu_label(locale, "tray.openBooks"), true, None::<&str>)?;
+    let open_raw_sync_item = MenuItem::with_id(app, "tray-open-raw-sync", menu_label(locale, "tray.openRawSync"), /*enabled=*/ false, None::<&str>)?;
+    let quit_item = MenuItem::with_id(app, "tray-quit", menu_label(locale, "sys.quit"), true, None::<&str>)?;
+    let mut b = MenuBuilder::new(app).item(&show_item).separator();
+    if let Some(ref oc) = openclaw_item {
+        b = b.item(oc).separator();
+    }
+    let menu = b
+        .item(&sync_repo_item)
+        .item(&sync_start_item)
+        .item(&sync_stop_item)
+        .item(&sync_now_item)
+        .item(&sync_log_item)
+        .separator()
+        .item(&open_books_item)
+        .item(&open_raw_sync_item)
+        .separator()
+        .item(&quit_item)
+        .build()?;
+    Ok((menu, sync_repo_item))
+}
+
+/// Rebuild the app menu (and tray) in the given locale and apply them. Called
+/// from JS when the user changes the language. The recent-files submenu resets
+/// to its placeholder; JS re-pushes the list via `refreshRecentMenu()` after.
 #[tauri::command]
 fn set_menu_locale(app: tauri::AppHandle, locale: String) -> Result<(), String> {
-    let plugin_items = plugin_host::collect_top_menu_items();
+    let plugin_items = plugin_host::collect_top_menu_items(&locale);
     let (menu, recent_submenu) =
         build_menu(&app, &plugin_items, &locale).map_err(|e| e.to_string())?;
     *app.state::<RecentMenu>().0.lock().unwrap() = Some(recent_submenu);
     app.set_menu(menu).map_err(|e| e.to_string())?;
+
+    // Rebuild the tray dropdown too (event handling lives on the TrayIcon).
+    if let Some(tray) = app.tray_by_id("main") {
+        let (tray_menu, sync_repo_item) =
+            build_tray_menu(&app, &locale).map_err(|e| e.to_string())?;
+        *app.state::<TrayRepoItem>().0.lock().unwrap() = Some(sync_repo_item);
+        tray.set_menu(Some(tray_menu)).map_err(|e| e.to_string())?;
+    }
     Ok(())
 }
 
@@ -1084,13 +1124,13 @@ fn build_menu<R: tauri::Runtime>(
                 .build(app)?,
         )
         .separator()
-        .item(&PredefinedMenuItem::services(app, None)?)
+        .item(&PredefinedMenuItem::services(app, Some(&menu_label(locale, "sys.services")))?)
         .separator()
         .item(&MenuItemBuilder::with_id("hide-app", menu_label(locale, "app.hide")).accelerator("Cmd+Shift+H").build(app)?)
-        .item(&PredefinedMenuItem::hide_others(app, None)?)
-        .item(&PredefinedMenuItem::show_all(app, None)?)
+        .item(&PredefinedMenuItem::hide_others(app, Some(&menu_label(locale, "sys.hideOthers")))?)
+        .item(&PredefinedMenuItem::show_all(app, Some(&menu_label(locale, "sys.showAll")))?)
         .separator()
-        .item(&PredefinedMenuItem::quit(app, None)?)
+        .item(&PredefinedMenuItem::quit(app, Some(&menu_label(locale, "sys.quit")))?)
         .build()?;
 
     let recent_menu: Submenu<R> = SubmenuBuilder::new(app, menu_label(locale, "file.openRecent"))
@@ -1132,13 +1172,13 @@ fn build_menu<R: tauri::Runtime>(
     let file_menu: Submenu<R> = file_b.build()?;
 
     let mut edit_b = SubmenuBuilder::new(app, menu_label(locale, "menu.edit"))
-        .item(&PredefinedMenuItem::undo(app, None)?)
-        .item(&PredefinedMenuItem::redo(app, None)?)
+        .item(&PredefinedMenuItem::undo(app, Some(&menu_label(locale, "sys.undo")))?)
+        .item(&PredefinedMenuItem::redo(app, Some(&menu_label(locale, "sys.redo")))?)
         .separator()
-        .item(&PredefinedMenuItem::cut(app, None)?)
-        .item(&PredefinedMenuItem::copy(app, None)?)
-        .item(&PredefinedMenuItem::paste(app, None)?)
-        .item(&PredefinedMenuItem::select_all(app, None)?)
+        .item(&PredefinedMenuItem::cut(app, Some(&menu_label(locale, "sys.cut")))?)
+        .item(&PredefinedMenuItem::copy(app, Some(&menu_label(locale, "sys.copy")))?)
+        .item(&PredefinedMenuItem::paste(app, Some(&menu_label(locale, "sys.paste")))?)
+        .item(&PredefinedMenuItem::select_all(app, Some(&menu_label(locale, "sys.selectAll")))?)
         .separator()
         .item(&MenuItemBuilder::with_id("find", menu_label(locale, "edit.find")).accelerator("Cmd+F").build(app)?)
         .item(&MenuItemBuilder::with_id("find-replace", menu_label(locale, "edit.findReplace")).build(app)?);
@@ -1164,8 +1204,8 @@ fn build_menu<R: tauri::Runtime>(
     let view_menu: Submenu<R> = view_b.build()?;
 
     let mut window_b = SubmenuBuilder::new(app, menu_label(locale, "menu.window"))
-        .item(&PredefinedMenuItem::minimize(app, None)?)
-        .item(&PredefinedMenuItem::maximize(app, None)?)
+        .item(&PredefinedMenuItem::minimize(app, Some(&menu_label(locale, "sys.minimize")))?)
+        .item(&PredefinedMenuItem::maximize(app, Some(&menu_label(locale, "sys.maximize")))?)
         .separator()
         .item(&MenuItemBuilder::with_id("zoom-in", menu_label(locale, "window.zoomIn")).accelerator("Cmd+=").build(app)?)
         .item(&MenuItemBuilder::with_id("zoom-out", menu_label(locale, "window.zoomOut")).accelerator("Cmd+-").build(app)?)

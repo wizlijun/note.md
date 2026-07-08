@@ -14,7 +14,7 @@ pub struct LocatedMenuItem {
 }
 
 pub fn init<R: tauri::Runtime>(_app: &AppHandle<R>) {}
-pub fn collect_top_menu_items() -> Vec<LocatedMenuItem> { Vec::new() }
+pub fn collect_top_menu_items(_locale: &str) -> Vec<LocatedMenuItem> { Vec::new() }
 
 #[tauri::command]
 pub fn get_plugin_manifests() -> Vec<Value> { Vec::new() }

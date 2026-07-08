@@ -185,6 +185,8 @@ export const en = {
 
   // Plugins settings
   'plugins.restartNote': 'Changes take effect after restarting M↓',
+  'plugins.capabilities': 'Capabilities: {caps}',
+  'plugins.none': 'No plugins detected.',
 
   // Slash menu (empty state)
   'slashMenu.noMatches': 'No matches',

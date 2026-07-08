@@ -5,5 +5,15 @@
   "description": "Local M↓ desktop chat via UDS; remote fan-out via mdrelay.",
   "kind": "builtin",
   "host_capabilities": [],
-  "default_enabled": false
+  "default_enabled": false,
+  "i18n": {
+    "zh": {
+      "name": "OpenClaw 聊天",
+      "description": "通过 UDS 的本地 M↓ 桌面聊天；经 mdrelay 远程分发。"
+    },
+    "ja": {
+      "name": "OpenClaw チャット",
+      "description": "UDS 経由のローカル M↓ デスクトップチャット、mdrelay 経由でリモート配信。"
+    }
+  }
 }

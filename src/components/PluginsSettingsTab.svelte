@@ -4,6 +4,7 @@
   import type { PluginManifest } from '../lib/plugins/types'
   import { isPluginEnabled, setPluginEnabled } from '../lib/settings.svelte'
   import { t } from '../lib/i18n/store.svelte'
+  import { pluginName, pluginDescription } from '../lib/plugins/plugin-i18n'
 
   type Row = { manifest: PluginManifest; enabled: boolean }
 
@@ -31,17 +32,17 @@
       <label class="head">
         <input type="checkbox" checked={r.enabled}
                onchange={(e) => toggle(r, (e.currentTarget as HTMLInputElement).checked)} />
-        <span class="name">{r.manifest.name}</span>
+        <span class="name">{pluginName(r.manifest)}</span>
         <span class="version">{r.manifest.version}</span>
       </label>
-      {#if r.manifest.description}
-        <p class="desc">{r.manifest.description}</p>
+      {#if pluginDescription(r.manifest)}
+        <p class="desc">{pluginDescription(r.manifest)}</p>
       {/if}
-      <p class="caps">Capabilities: {r.manifest.host_capabilities.join(', ')}</p>
+      <p class="caps">{t('plugins.capabilities', { caps: r.manifest.host_capabilities.join(', ') })}</p>
     </div>
   {/each}
   {#if rows.length === 0}
-    <p class="empty">No plugins detected.</p>
+    <p class="empty">{t('plugins.none')}</p>
   {/if}
   <p class="restart-note">{t('plugins.restartNote')}</p>
 </div>
