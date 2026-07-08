@@ -92,6 +92,7 @@ describe('CORS', () => {
   it('includes Allow-Origin on the actual response', async () => {
     const r = await stats('2026-07-08-cors-x', API_KEY)
     expect(r.headers.get('Access-Control-Allow-Origin')).toBe('*')
+    await r.text() // drain the DO-backed body so isolated storage cleans up
   })
 })
 
