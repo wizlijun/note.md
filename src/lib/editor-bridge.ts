@@ -4,6 +4,7 @@ import { tauriMediaResolver } from './adapters/tauri-media-resolver'
 import { tauriLinkOpener } from './adapters/tauri-link-opener'
 import { rendererRegistry } from './adapters/renderer-registry'
 import { spreadsheetFactory } from './adapters/spreadsheet-factory'
+import { frontmatterFactory } from './frontmatter-view'
 import { activeTab } from './tabs.svelte'
 
 const platform = {
@@ -48,6 +49,7 @@ export async function mountRichEditor(
     linkOpener: tauriLinkOpener,
     platform,
     spreadsheetViewFactory: spreadsheetFactory,
+    frontmatterViewFactory: frontmatterFactory,
     enableMath: true,
     enableMermaid: true,
     enableTableResize: true,

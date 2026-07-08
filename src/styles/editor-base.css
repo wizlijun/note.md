@@ -183,10 +183,55 @@
   border-radius: 6px;
 }
 .moraya-editor pre.moraya-frontmatter {
-  /* YAML frontmatter block: raw metadata, newlines preserved */
-  white-space: pre;
+  /* Fallback when no frontmatterViewFactory is wired: raw metadata, wrapped. */
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
   border-left: 3px solid color-mix(in srgb, CanvasText 25%, transparent);
   color: color-mix(in srgb, CanvasText 75%, Canvas);
+}
+
+/* ── Frontmatter read-only view (key/value table) ───────────────────────── */
+.moraya-editor .frontmatter-node-view {
+  margin: 0 0 0.8em;
+}
+.moraya-editor .frontmatter-table {
+  border-collapse: collapse;
+  width: 100%;
+  table-layout: fixed;
+  font-size: 0.92em;
+}
+.moraya-editor .frontmatter-table td {
+  border: 1px solid color-mix(in srgb, CanvasText 15%, transparent);
+  padding: 4px 8px;
+  vertical-align: top;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+.moraya-editor .frontmatter-table .fm-key {
+  width: 30%;
+  font-weight: 600;
+  color: color-mix(in srgb, CanvasText 70%, Canvas);
+  background: color-mix(in srgb, CanvasText 4%, Canvas);
+}
+.moraya-editor .frontmatter-table .fm-list {
+  margin: 0;
+  padding-left: 1.2em;
+}
+.moraya-editor .frontmatter-table .fm-nested-line {
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+.moraya-editor .frontmatter-table .fm-nested-key {
+  font-weight: 600;
+  color: color-mix(in srgb, CanvasText 60%, Canvas);
+}
+.moraya-editor .frontmatter-raw {
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  border-left: 3px solid color-mix(in srgb, CanvasText 25%, transparent);
+  color: color-mix(in srgb, CanvasText 75%, Canvas);
+  padding: 0 12px;
 }
 .moraya-editor pre code,
 .moraya-editor .code-block-code {

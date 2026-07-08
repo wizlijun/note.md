@@ -107,6 +107,22 @@ describe('inlineImages', () => {
   })
 })
 
+describe('line breaks', () => {
+  it('renders multi-line blockquotes with <br> instead of merging to one line', async () => {
+    const tab = { kind: 'markdown', currentContent: '> Line one\n> Line two\n> Line three\n', filePath: '/tmp/q.md' } as never
+    const html = await renderTabBody(tab)
+    expect(html).toContain('<br>')
+    expect(html).toContain('Line one')
+    expect(html).toContain('Line two')
+  })
+
+  it('renders in-paragraph soft breaks as <br> (matches the editor model)', async () => {
+    const tab = { kind: 'markdown', currentContent: 'first line\nsecond line\n', filePath: '/tmp/p.md' } as never
+    const html = await renderTabBody(tab)
+    expect(html).toContain('<br>')
+  })
+})
+
 describe('highlight rendering', () => {
   it('renders ^^text^^ as <mark>text</mark>', async () => {
     const tab = { kind: 'markdown', currentContent: 'Hello ^^world^^ end\n', filePath: '/tmp/test.md' } as never

@@ -93,6 +93,11 @@ const highlightEqExtension: TokenizerAndRendererExtension = {
 }
 
 const sharedMarked = new Marked(
+  // The rich editor maps every markdown soft break to a hard line break
+  // (moraya's softbreak → hardbreak). `breaks: true` mirrors that in exported
+  // / previewed HTML so multi-line blockquotes and wrapped paragraphs keep
+  // their line breaks instead of collapsing onto one line.
+  { breaks: true, gfm: true },
   markedHighlight({
     langPrefix: 'hljs language-',
     highlight(code: string, lang: string): string {
