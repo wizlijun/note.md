@@ -100,6 +100,9 @@ export async function installTracker(): Promise<() => void> {
     deviceName,
     tzOffsetMinutes: localTzOffsetMinutes(),
   })
+  // Seed today's buckets from any file an earlier session wrote, so this session's
+  // flush merges with it instead of overwriting (no restart data loss).
+  await store.preloadToday()
   tracker = {
     store,
     timing: initTiming(Date.now(), currentMode()),
