@@ -21,6 +21,14 @@ preview_bucket_name = "mdeditor-share-media-preview"
 name = "AUDIENCE"
 class_name = "SlugAnalytics"
 
+[[durable_objects.bindings]]
+name = "AUDIENCE_DAY"
+class_name = "DayRollup"
+
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["SlugAnalytics"]
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["DayRollup"]

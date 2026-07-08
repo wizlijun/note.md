@@ -3,9 +3,10 @@ export interface Env {
   MEDIA: R2Bucket
   SHARE_API_KEY: string
   AUDIENCE: DurableObjectNamespace
+  AUDIENCE_DAY: DurableObjectNamespace
 }
 
-export { SlugAnalytics } from './audience'
+export { SlugAnalytics, DayRollup } from './audience'
 import { SLUG_RE as AUDIENCE_SLUG_RE } from './audience'
 
 const SLUG_RE = /^\d{4}-\d{2}-\d{2}-[a-z0-9-]{1,50}(?:-[a-zA-Z0-9]{2,4})?$/
@@ -929,6 +930,79 @@ async function handleAudienceStatsBatch(req: Request, env: Env): Promise<Respons
   return Response.json(Object.fromEntries(entries))
 }
 
+/**
+ * One-time backfill: migrate the given slugs' existing per-slug DO data into the
+ * per-day rollup DOs (so /a/stats-all covers history). Idempotent (/set
+ * overwrites). Share-API-key auth.
+ */
+async function handleAudienceBackfill(req: Request, env: Env): Promise<Response> {
+  if (unauthorized(req, env)) return new Response('Unauthorized', { status: 401 })
+  let body: { slugs?: unknown }
+  try { body = await req.json() } catch { return new Response('bad json', { status: 400 }) }
+  const slugs = Array.isArray(body.slugs)
+    ? [...new Set(body.slugs.filter((s): s is string => typeof s === 'string' && AUDIENCE_SLUG_RE.test(s)))].slice(0, 5000)
+    : []
+  let dayWrites = 0
+  await Promise.all(slugs.map(async (slug) => {
+    const stub = env.AUDIENCE.get(env.AUDIENCE.idFromName(slug))
+    const exp = (await (await stub.fetch('https://do/export')).json()) as Record<string, { ms: number; visitors: string[] }>
+    await Promise.all(Object.entries(exp).map(async ([day, { ms, visitors }]) => {
+      const dayDo = env.AUDIENCE_DAY.get(env.AUDIENCE_DAY.idFromName(`day:${day}`))
+      await dayDo.fetch('https://day/set', { method: 'POST', body: JSON.stringify({ slug, ms, visitors }) })
+      dayWrites++
+    }))
+  }))
+  return Response.json({ ok: true, slugs: slugs.length, day_writes: dayWrites })
+}
+
+/** UTC day strings 'YYYY-MM-DD' for the inclusive [from, to] epoch-ms range. */
+function daysInRange(from: number, to: number, cap = 400): string[] {
+  const day = 86_400_000
+  const start = Math.floor(from / day)
+  const end = Math.floor(to / day)
+  const out: string[] = []
+  for (let d = start; d <= end && out.length < cap; d++) {
+    out.push(new Date(d * day).toISOString().slice(0, 10))
+  }
+  return out
+}
+
+/**
+ * ALL shares' audience stats for a DATE RANGE in one request, WITHOUT a slug
+ * list. Reads only the per-day rollup DOs in the range (O(days)), so it stays
+ * fast regardless of how many shares exist. Defaults to the last 30 days.
+ * Returns `{ slug: { total_ms, unique_readers, days } }`. Share-API-key auth.
+ */
+async function handleAudienceStatsAll(req: Request, env: Env, url: URL): Promise<Response> {
+  if (unauthorized(req, env)) return new Response('Unauthorized', { status: 401 })
+  const now = Date.now()
+  const to = Number(url.searchParams.get('to')) || now
+  const from = Number(url.searchParams.get('from')) || to - 30 * 86_400_000
+  const days = daysInRange(from, to)
+
+  // Read each day's rollup in parallel, then merge per slug.
+  const perDay = await Promise.all(days.map(async (day) => {
+    const dayDo = env.AUDIENCE_DAY.get(env.AUDIENCE_DAY.idFromName(`day:${day}`))
+    const data = (await (await dayDo.fetch('https://day/day')).json()) as Record<string, { ms: number; visitors: string[] }>
+    return [day, data] as const
+  }))
+
+  const merged: Record<string, { total_ms: number; unique_readers: number; days: Record<string, number>; _visitors: Set<string> }> = {}
+  for (const [day, data] of perDay) {
+    for (const [slug, { ms, visitors }] of Object.entries(data)) {
+      const m = (merged[slug] ??= { total_ms: 0, unique_readers: 0, days: {}, _visitors: new Set<string>() })
+      m.total_ms += ms
+      if (ms > 0) m.days[day] = (m.days[day] ?? 0) + ms
+      for (const v of visitors) m._visitors.add(v)
+    }
+  }
+  const out: Record<string, { total_ms: number; unique_readers: number; days: Record<string, number> }> = {}
+  for (const [slug, m] of Object.entries(merged)) {
+    out[slug] = { total_ms: m.total_ms, unique_readers: m._visitors.size, days: m.days }
+  }
+  return Response.json(out)
+}
+
 async function handleAudienceHit(req: Request, env: Env): Promise<Response> {
   let body: { slug?: unknown }
   try { body = await req.json() } catch { return new Response('bad json', { status: 400 }) }
@@ -967,6 +1041,8 @@ export default {
       let res: Response
       if (req.method === 'POST' && path === 'a/hit') res = await handleAudienceHit(req, env)
       else if (req.method === 'POST' && path === 'a/stats-batch') res = await handleAudienceStatsBatch(req, env)
+      else if (req.method === 'GET' && path === 'a/stats-all') res = await handleAudienceStatsAll(req, env, url)
+      else if (req.method === 'POST' && path === 'a/backfill') res = await handleAudienceBackfill(req, env)
       else if (req.method === 'GET' && path === 'a/stats') res = await handleAudienceStats(req, env, url)
       else res = new Response('Not Found', { status: 404 })
       return withCors(res)

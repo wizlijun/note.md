@@ -51,6 +51,13 @@ async function statsBatch(slugs: string[], key: string, from?: number, to?: numb
   })
 }
 
+async function statsAll(key: string, from?: number, to?: number) {
+  const u = new URL('http://x/a/stats-all')
+  if (from != null) u.searchParams.set('from', String(from))
+  if (to != null) u.searchParams.set('to', String(to))
+  return SELF.fetch(u, { headers: { 'Authorization': `Bearer ${key}` } })
+}
+
 describe('GET /a/stats', () => {
   it('rejects a wrong API key with 401', async () => {
     const r = await stats('2026-07-08-stat-a', 'wrong-key')
@@ -123,5 +130,31 @@ describe('POST /a/stats-batch', () => {
     await hit({ slug, visitor_id: 'v1', session_id: 'y2', delta_ms: 4000, ts: Date.UTC(2026, 6, 10, 10, 0) })
     const map = await (await statsBatch([slug], API_KEY, Date.UTC(2026, 6, 8, 0, 0), Date.UTC(2026, 6, 8, 23, 59))).json() as any
     expect(map[slug].total_ms).toBe(8000)
+  })
+})
+
+describe('GET /a/stats-all (date-range, no slug list)', () => {
+  it('rejects a wrong API key with 401', async () => {
+    expect((await statsAll('wrong-key')).status).toBe(401)
+  })
+
+  it('returns every slug that had a hit in the range, merged (via per-day rollup)', async () => {
+    const d = Date.UTC(2026, 6, 8, 9, 0)
+    await hit({ slug: '2026-07-08-all-a', visitor_id: 'v1', session_id: 's1', delta_ms: 6000, ts: d })
+    await hit({ slug: '2026-07-08-all-a', visitor_id: 'v2', session_id: 's2', delta_ms: 4000, ts: d })
+    await hit({ slug: '2026-07-08-all-b', visitor_id: 'v1', session_id: 's3', delta_ms: 2000, ts: d })
+
+    const map = await (await statsAll(API_KEY, Date.UTC(2026, 6, 8, 0, 0), Date.UTC(2026, 6, 8, 23, 59))).json() as any
+    expect(map['2026-07-08-all-a'].total_ms).toBe(10000)
+    expect(map['2026-07-08-all-a'].unique_readers).toBe(2)
+    expect(map['2026-07-08-all-a'].days['2026-07-08']).toBe(10000)
+    expect(map['2026-07-08-all-b'].total_ms).toBe(2000)
+    expect(map['2026-07-08-all-b'].unique_readers).toBe(1)
+  })
+
+  it('excludes days outside the range', async () => {
+    await hit({ slug: '2026-07-20-all-c', visitor_id: 'v9', session_id: 'sx', delta_ms: 5000, ts: Date.UTC(2026, 6, 20, 9, 0) })
+    const map = await (await statsAll(API_KEY, Date.UTC(2026, 6, 8, 0, 0), Date.UTC(2026, 6, 8, 23, 59))).json() as any
+    expect(map['2026-07-20-all-c']).toBeUndefined()
   })
 })
