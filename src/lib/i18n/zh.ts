@@ -182,6 +182,7 @@ export const zh: Record<keyof Messages, string> = {
   'plugins.restartNote': '改动需要重启 M↓ 后生效',
   'plugins.capabilities': '能力：{caps}',
   'plugins.none': '未检测到插件。',
+  'plugins.needsVault': '需先设置 Vault 才能启用此插件',
 
   // Slash menu (empty state)
   'slashMenu.noMatches': '无匹配项',
@@ -378,6 +379,7 @@ export const zh: Record<keyof Messages, string> = {
   'settings.tab.updates': '更新',
   'settings.tab.vault': 'Vault',
   'settings.tab.openclaw': 'OpenClaw',
+  'settings.tab.insights': '阅读洞察',
 
   // Settings → Themes
   'settings.themes': '主题',
@@ -430,6 +432,26 @@ export const zh: Record<keyof Messages, string> = {
   'settings.viz.desc': '启用区块 ID 后，打开任何文档都会自动加载其缓存的 yaml 并显示标记 — 无需手动切换“显示”。用下面的复选框可分别关闭任一视图。',
   'settings.viz.sourceMarkers': '源码模式标记（在行号槽中）',
   'settings.viz.richGutter': '富文本模式左侧槽（区块标记 + 竖条）',
+
+  // Reading Insights panel
+  'insights.preset.today': '今天',
+  'insights.preset.yesterday': '昨天',
+  'insights.preset.7d': '近 7 天',
+  'insights.preset.30d': '近 30 天',
+  'insights.preset.month': '本月',
+  'insights.loading': '加载中…',
+  'insights.empty': '此区间没有阅读或编辑记录。',
+  'insights.col.doc': '文档',
+  'insights.col.read': '阅读',
+  'insights.col.edit': '编辑',
+  'insights.col.sessions': '编辑段',
+  'insights.col.marks': '标注',
+  'insights.col.aud': '受众时长',
+  'insights.col.readers': '读者',
+  'insights.col.value': '价值',
+  'insights.generateReport': '生成报告',
+  'insights.reportSaved': '报告已保存',
+  'insights.reportFailed': '生成报告失败',
 
   // Settings → CLI
   'settings.cli.heading': 'CLI',

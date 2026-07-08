@@ -42,16 +42,17 @@ describe('collectMenuItems', () => {
 describe('evaluateEnabled', () => {
   it('returns true when enabled_when is omitted', () => {
     const items = collectMenuItems([baseManifest()])
-    const ctx = { currentTab: null, settings: {} }
+    const ctx = { currentTab: null, settings: {}, vaultConfigured: false }
     expect(evaluateEnabled(items.file[1], ctx)).toBe(true)
   })
   it('evaluates expression against context', () => {
     const items = collectMenuItems([baseManifest()])
-    const empty = { currentTab: null, settings: {} }
+    const empty = { currentTab: null, settings: {}, vaultConfigured: false }
     const full = {
       currentTab: { path: '/x.md', filename: 'x.md', extension: 'md', kind: 'markdown' as const,
                     hasContent: true, isDirty: false, isUntitled: false },
       settings: {},
+      vaultConfigured: false,
     }
     expect(evaluateEnabled(items.file[0], empty)).toBe(false)
     expect(evaluateEnabled(items.file[0], full)).toBe(true)

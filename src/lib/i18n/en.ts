@@ -187,6 +187,7 @@ export const en = {
   'plugins.restartNote': 'Changes take effect after restarting M↓',
   'plugins.capabilities': 'Capabilities: {caps}',
   'plugins.none': 'No plugins detected.',
+  'plugins.needsVault': 'Set a Vault first to enable this plugin',
 
   // Slash menu (empty state)
   'slashMenu.noMatches': 'No matches',
@@ -383,6 +384,7 @@ export const en = {
   'settings.tab.updates': 'Updates',
   'settings.tab.vault': 'Vault',
   'settings.tab.openclaw': 'OpenClaw',
+  'settings.tab.insights': 'Insights',
 
   // Settings → Themes
   'settings.themes': 'Themes',
@@ -435,6 +437,26 @@ export const en = {
   'settings.viz.desc': 'When Block IDs is enabled, opening any document automatically loads its cached yaml and displays markers — no manual "Show" toggle required. Use the checkboxes below to opt out of either view individually.',
   'settings.viz.sourceMarkers': 'Source-mode markers (in the line-number gutter)',
   'settings.viz.richGutter': 'Rich-mode left gutter (block markers + bars)',
+
+  // Reading Insights panel
+  'insights.preset.today': 'Today',
+  'insights.preset.yesterday': 'Yesterday',
+  'insights.preset.7d': 'Last 7 days',
+  'insights.preset.30d': 'Last 30 days',
+  'insights.preset.month': 'This month',
+  'insights.loading': 'Loading…',
+  'insights.empty': 'No reading or editing activity in this range.',
+  'insights.col.doc': 'Doc',
+  'insights.col.read': 'Read',
+  'insights.col.edit': 'Edit',
+  'insights.col.sessions': 'Sessions',
+  'insights.col.marks': 'Marks',
+  'insights.col.aud': 'Aud. time',
+  'insights.col.readers': 'Readers',
+  'insights.col.value': 'Value',
+  'insights.generateReport': 'Generate report',
+  'insights.reportSaved': 'Report saved',
+  'insights.reportFailed': 'Failed to generate report',
 
   // Settings → CLI
   'settings.cli.heading': 'CLI',

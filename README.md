@@ -243,6 +243,24 @@ mdedit plugin list                         # see all plugins and their status
 The CLI only exposes commands contributed by *enabled* plugins. Disable a
 plugin in **Preferences → Plugins** to remove its subcommand from `mdedit`.
 
+### Reading Insights report (`scripts/insights-report.mjs`)
+
+When the **Reading Insights** plugin is enabled, your per-document reading /
+editing engagement is stored in the Vault under `.mdeditor/analytics/`. A
+dependency-free Node script turns any date range into a markdown digest written
+to `<vault>/stat/`, so external tools / cron can generate it headlessly:
+
+```bash
+node scripts/insights-report.mjs --vault ~/Vault --date yesterday      # default: yesterday
+node scripts/insights-report.mjs --vault ~/Vault --date 7d             # today|yesterday|7d|30d|month
+node scripts/insights-report.mjs --vault ~/Vault --from 2026-07-01 --to 2026-07-07
+node scripts/insights-report.mjs --vault ~/Vault --date yesterday --stdout   # print instead of writing
+```
+
+The CLI digest covers your own (owner) engagement only; audience reading stats
+for shared links appear in the in-app **Settings → Insights** panel (which also
+has a one-click *Generate report* button that includes the value score).
+
 ## Manual Smoke Test (run before each release)
 
 1. **Launch via Finder double-click** of any `.md` file → app opens with that file in a tab

@@ -440,7 +440,7 @@ git commit -m "feat(insights): pure read/edit dwell timing reducer with idle pau
 ```typescript
 // src/lib/insights/observer.test.ts
 import { describe, it, expect } from 'vitest'
-import { EditorState } from 'prosemirror-state'
+import { EditorState, TextSelection } from 'prosemirror-state'
 import { schema } from 'prosemirror-schema-basic'
 import { countMarkSteps, analyticsObserverPlugin, type ObserverDelta } from './observer'
 
@@ -493,7 +493,7 @@ describe('analyticsObserverPlugin', () => {
     let state = EditorState.create({ schema, doc: schema.node('doc', null, [
       schema.node('paragraph', null, [schema.text('abcd')]),
     ]), plugins: [analyticsObserverPlugin((d) => seen.push(d))] })
-    const tr = state.tr.setSelection(state.selection.constructor.near(state.doc.resolve(2)))
+    const tr = state.tr.setSelection(TextSelection.near(state.doc.resolve(2)))
     state = state.apply(tr)
     expect(seen).toEqual([])
   })
@@ -867,10 +867,12 @@ git commit -m "feat(insights): analytics store with day-bucket accrual and per-d
 - Create: `src-tauri/plugins/reading-insights/manifest.json`
 - Reference: `src-tauri/plugins/sotvault/manifest.json` (shape), `src-tauri/plugins/README.md` (builtin registration)
 
-- [ ] **Step 1: Confirm how builtin manifests are registered**
+**Known facts (verified):** builtins are auto-discovered by walking `<resource_dir>/plugins/*/manifest.json` at startup (`src-tauri/src/plugin_host.rs`), and `plugins/**/*` is already bundled via `src-tauri/tauri.conf.json` `resources` — so **no explicit registration list exists; creating the directory is enough**. The Rust `PluginManifest` struct has NO `#[serde(deny_unknown_fields)]`, so the extra `available_when` field is silently ignored on the Rust side (it is a host/TS-only concern). `default_enabled` is **false** on purpose: the Rust side resolves builtin enabled-state as `default_enabled.unwrap_or(false)` and does NOT understand `available_when`, so `true` would make it show as "checked-but-grayed" before a vault exists. The "on by default once a vault is configured" behavior is delivered by the auto-enable hook in Task 9 instead.
 
-Run: `grep -rn "sotvault/manifest\|include_str!\|builtin\|manifest.json" src-tauri/src | head`
-Expected: reveals where builtin manifests are embedded/loaded (e.g. an `include_str!` list or a plugins registry). Add `reading-insights` alongside `sotvault` there in Step 3 if required.
+- [ ] **Step 1: Confirm auto-discovery (no code change expected)**
+
+Run: `grep -rn "manifest.json\|default_enabled\|PluginKind::Builtin" src-tauri/src/plugin_host.rs | head`
+Expected: confirms directory-walk discovery + `default_enabled.unwrap_or(false)`. No registration list to edit.
 
 - [ ] **Step 2: Write the manifest**
 
@@ -881,7 +883,7 @@ Expected: reveals where builtin manifests are embedded/loaded (e.g. an `include_
   "version": "0.1.0",
   "description": "Track your reading and editing engagement per document, stored in your Vault.",
   "kind": "builtin",
-  "default_enabled": true,
+  "default_enabled": false,
   "available_when": "vaultConfigured",
   "host_capabilities": [],
   "i18n": {
@@ -1017,84 +1019,59 @@ git commit -m "feat(insights): fill vaultConfigured in enabled-when contexts"
 
 ---
 
-## Task 9: Settings UI — gray out toggle without a vault; auto-enable on first vault set
+## Task 9: Settings UI — gray out the toggle without a vault
 
 **Files:**
 - Modify: `src/components/PluginsSettingsTab.svelte`
-- Reference: `src/lib/settings.svelte.ts:391` (`isPluginEnabled`), `:402` (`setPluginEnabled`)
+- Modify: `src/lib/i18n/en.ts`, `src/lib/i18n/zh.ts`, `src/lib/i18n/ja.ts`
 
-- [ ] **Step 1: Read the current toggle rendering**
+**Simplification (verified against the code):** `isPluginEnabled` in `src/lib/settings.svelte.ts` is **default-on** — a plugin id absent from the `pluginsEnabled` map returns `true`. So `reading-insights` is already "enabled by default" the moment it exists, which satisfies "on by default once a vault is set" WITHOUT any auto-enable hook. The tracker (Task 10) guards on `isPluginEnabled('reading-insights') && vaultConfigured`, so with no vault the plugin collects nothing even though `isPluginEnabled` is `true`. Therefore this task is ONLY the settings-UI graying + one i18n key. Do NOT add `hasExplicitPluginEnabled` or any vault-set auto-enable hook — they are unnecessary.
 
-Run: `grep -n "isPluginEnabled\|setPluginEnabled\|available_when\|manifest" src/components/PluginsSettingsTab.svelte`
-Expected: shows the loop that renders one row per plugin with an enable checkbox.
+- [ ] **Step 1: Gray out the toggle when `available_when` is unmet**
 
-- [ ] **Step 2: Disable the toggle when `available_when` is unmet**
+Edit `src/components/PluginsSettingsTab.svelte`. Add two imports to the `<script>` block:
 
-In the row template, compute availability from the manifest and the current context, e.g.:
-
-```svelte
-<script lang="ts">
+```typescript
   import { sotvaultStore } from '../lib/sotvault.svelte'
   import { evaluateEnabledWhen } from '../lib/plugins/enabled-when'
-  // existing imports…
+```
 
-  function isAvailable(manifest): boolean {
-    if (!manifest.available_when) return true
-    return evaluateEnabledWhen(manifest.available_when, {
+Add an availability helper (below the existing `toggle` function):
+
+```typescript
+  function isAvailable(m: PluginManifest): boolean {
+    if (!m.available_when) return true
+    return evaluateEnabledWhen(m.available_when, {
       currentTab: null,
       settings: {},
       vaultConfigured: sotvaultStore.vaultRoot !== null,
     })
   }
-</script>
-
-<!-- per-row: -->
-<label class:disabled={!isAvailable(manifest)}>
-  <input
-    type="checkbox"
-    disabled={!isAvailable(manifest)}
-    checked={isPluginEnabled(manifest.id)}
-    onchange={(e) => setPluginEnabled(manifest.id, e.currentTarget.checked)}
-  />
-  {manifest.name}
-  {#if !isAvailable(manifest)}
-    <span class="hint">{t('insights.needs_vault')}</span>
-  {/if}
-</label>
 ```
 
-Add the i18n key `insights.needs_vault` ("需先设置 Vault" / "Set a Vault first" / etc.) following the pattern in `src/lib/i18n/en.ts` (per the i18n memory: flat dot-keys in `en.ts`, other locales register Partial dirs).
+In the `{#each rows as r ...}` block, compute availability with `{@const avail = isAvailable(r.manifest)}` at the top of the row `<div>`, then:
+- checkbox: `disabled={!avail}` and `checked={avail && r.enabled}` (grayed rows read as unchecked).
+- after the `.name`/`.version` spans, show the hint when unavailable: `{#if !avail}<span class="needs-vault">{t('plugins.needsVault')}</span>{/if}`.
+- optionally add `class:unavailable={!avail}` on the row `<div>` and a dim style.
 
-- [ ] **Step 3: Auto-enable on first vault configuration**
+Add a small style for `.needs-vault` (reuse the muted color pattern already in the file, e.g. `font-size: 11px; color: color-mix(in srgb, CanvasText 55%, transparent);`).
 
-Find where the vault root becomes set (Run: `grep -rn "sotvaultStore.vaultRoot =\|sotvault_vault_root\|setVaultRoot" src/lib | grep -v test`). At the point the root transitions to non-null, run a one-time default-on that respects any prior explicit choice:
+- [ ] **Step 2: Add the i18n key to all three locales**
 
-```typescript
-import { hasExplicitPluginEnabled, setPluginEnabled } from './settings.svelte'
-// after vaultRoot is set to a non-null value:
-if (!hasExplicitPluginEnabled('reading-insights')) {
-  await setPluginEnabled('reading-insights', true)
-}
-```
+- `src/lib/i18n/en.ts` (next to the other `'plugins.*'` keys): `'plugins.needsVault': 'Set a Vault first to enable this plugin',`
+- `src/lib/i18n/zh.ts`: `'plugins.needsVault': '需先设置 Vault 才能启用此插件',`
+- `src/lib/i18n/ja.ts`: `'plugins.needsVault': '有効にするには先に Vault を設定してください',`
 
-Add `hasExplicitPluginEnabled` to `src/lib/settings.svelte.ts` — it returns whether the id has a stored boolean in the `pluginsEnabled` map (i.e. `Object.prototype.hasOwnProperty.call(pluginsEnabled, id)`), so default-on only fires when the user has never toggled it:
+- [ ] **Step 3: Typecheck**
 
-```typescript
-export function hasExplicitPluginEnabled(pluginId: string): boolean {
-  return Object.prototype.hasOwnProperty.call(pluginsEnabled, pluginId)
-}
-```
+Run: `pnpm check`
+Expected: 0 ERRORS (pre-existing a11y WARNINGS are fine).
 
-- [ ] **Step 4: Typecheck + run settings tests**
-
-Run: `pnpm check && pnpm vitest run src/lib/settings.test.ts`
-Expected: no type errors; settings tests pass.
-
-- [ ] **Step 5: Commit**
+- [ ] **Step 4: Commit**
 
 ```bash
-git add src/components/PluginsSettingsTab.svelte src/lib/settings.svelte.ts src/lib/i18n
-git commit -m "feat(insights): gate plugin toggle on vault; auto-enable on first vault set"
+git add src/components/PluginsSettingsTab.svelte src/lib/i18n
+git commit -m "feat(insights): gray out reading-insights toggle until a vault is configured"
 ```
 
 ---

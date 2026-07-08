@@ -83,6 +83,9 @@ export interface PluginManifest {
   settings?: { tab_label: string; schema: SettingsField[] }
   host_capabilities: Capability[]
   timeout_seconds?: number
+  /** Whole-plugin availability gate (distinct from per-menu `enabled_when`).
+   *  When present and false, the plugin is not selectable in settings. */
+  available_when?: string
   cli?: CliEntry[]              // new, optional
 }
 
@@ -140,4 +143,6 @@ export interface EnabledWhenContext {
     isTrackedVaultFile?: boolean
   } | null
   settings: Record<string, unknown>
+  /** True once the user has configured a Vault (sotvault root is set). */
+  vaultConfigured: boolean
 }

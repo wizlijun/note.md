@@ -50,6 +50,7 @@
   import { vaultStore, refreshStatus, syncNow, attachStatusListener } from './lib/vault.svelte'
   import { syncCurrentToVault, canSyncActive, isTrackedVaultFile, refreshSotvault, sotvaultStore } from './lib/sotvault.svelte'
   import { installRecentsSync, refreshRecentMenu, mergedRecents } from './lib/recent-sync.svelte'
+  import { installTracker } from './lib/insights/tracker.svelte'
 
   /** Open an in-memory read-only buffer received from the remote agent.
    *  The tab gets title "[remote] <basename>" and its content is pre-filled.
@@ -415,6 +416,16 @@
     let cleanupRecents: (() => void) | null = null
     installRecentsSync().then((fn) => { cleanupRecents = fn })
 
+    // The reading-insights tracker must install only AFTER the vault root has
+    // loaded — installTracker() no-ops when sotvaultStore.vaultRoot is still null.
+    // The earlier refreshSotvault() call (in the setup IIFE above) is fire-and-
+    // forget, so chain off a fresh resolve here to make the ordering deterministic.
+    let cleanupTracker: (() => void | Promise<void>) | null = null
+    void refreshSotvault()
+      .then(() => installTracker())
+      .then((fn) => { cleanupTracker = fn })
+      .catch((e) => console.warn('[App] insights tracker init:', e))
+
     const unlistenMenu = listen<string>('menu-event', async (e) => {
       const id = e.payload
       const plugin = parsePluginMenuId(id)
@@ -547,6 +558,7 @@
       unlistenOpenRemoteBuffer.then((fn) => fn())
       unlistenDeepLink.then((fn) => fn())
       cleanupRecents?.()
+      void cleanupTracker?.()
       stopAutoSave?.()
     }
   })
@@ -618,6 +630,7 @@
       const ctx: EnabledWhenContext = {
         currentTab: ewTab,
         settings: getPluginScopedAll(item.pluginId),
+        vaultConfigured: sotvaultStore.vaultRoot !== null,
       }
       const enabled = evaluateEnabled(item, ctx)
       if (lastEnabledState.get(item.id) === enabled) continue

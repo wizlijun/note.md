@@ -182,6 +182,7 @@ export const ja: Record<keyof Messages, string> = {
   'plugins.restartNote': '変更は M↓ を再起動すると有効になります',
   'plugins.capabilities': '機能：{caps}',
   'plugins.none': 'プラグインが検出されませんでした。',
+  'plugins.needsVault': '有効にするには先に Vault を設定してください',
 
   // Slash menu (empty state)
   'slashMenu.noMatches': '一致なし',
@@ -378,6 +379,7 @@ export const ja: Record<keyof Messages, string> = {
   'settings.tab.updates': '更新',
   'settings.tab.vault': 'Vault',
   'settings.tab.openclaw': 'OpenClaw',
+  'settings.tab.insights': 'インサイト',
 
   // Settings → Themes
   'settings.themes': 'テーマ',
@@ -430,6 +432,26 @@ export const ja: Record<keyof Messages, string> = {
   'settings.viz.desc': 'ブロック ID を有効にすると、ドキュメントを開くたびにキャッシュされた yaml が自動的に読み込まれマーカーが表示されます — 手動の「表示」切り替えは不要です。下のチェックボックスで各ビューを個別に無効化できます。',
   'settings.viz.sourceMarkers': 'ソースモードのマーカー（行番号の余白）',
   'settings.viz.richGutter': 'リッチモードの左余白（ブロックマーカー + バー）',
+
+  // Reading Insights panel
+  'insights.preset.today': '今日',
+  'insights.preset.yesterday': '昨日',
+  'insights.preset.7d': '過去7日',
+  'insights.preset.30d': '過去30日',
+  'insights.preset.month': '今月',
+  'insights.loading': '読み込み中…',
+  'insights.empty': 'この期間に閲覧・編集の記録はありません。',
+  'insights.col.doc': 'ドキュメント',
+  'insights.col.read': '閲覧',
+  'insights.col.edit': '編集',
+  'insights.col.sessions': 'セッション',
+  'insights.col.marks': 'マーク',
+  'insights.col.aud': '閲覧者時間',
+  'insights.col.readers': '閲覧者',
+  'insights.col.value': '価値',
+  'insights.generateReport': 'レポート生成',
+  'insights.reportSaved': 'レポートを保存しました',
+  'insights.reportFailed': 'レポート生成に失敗しました',
 
   // Settings → CLI
   'settings.cli.heading': 'CLI',

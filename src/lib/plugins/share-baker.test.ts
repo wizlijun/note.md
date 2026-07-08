@@ -11,6 +11,9 @@ vi.mock('@tauri-apps/api/core', () => ({
     return ''
   }),
 }))
+
+vi.mock('../settings.svelte', () => ({ isPluginEnabled: vi.fn(() => true) }))
+import { isPluginEnabled } from '../settings.svelte'
 import {
   shareHeaderLabel, isoDateStamp, viewportMetaTag, themeCssBlock,
   guardSize, MAX_HTML_BYTES,
@@ -345,5 +348,29 @@ describe('bakeShareHtml', () => {
     const t = fakeTab({ currentContent: huge })
     await expect(bakeShareHtml(t)).rejects.toThrow(/^share_too_large:/)
     __setImageReaderForTests(null)
+  })
+})
+
+function mdTab(): any {
+  return {
+    id: 't1', filePath: '/notes/foo.md', title: 'foo.md',
+    initialContent: '# Title\n\nHello world.', currentContent: '# Title\n\nHello world.',
+    mode: 'rich', kind: 'markdown', externalState: 'fresh', externalBannerDismissed: false,
+    lastKnownMtime: 0, lastKnownHash: '',
+  }
+}
+
+describe('bakeShareHtml beacon injection', () => {
+  it('injects the beacon when reading-insights is enabled', async () => {
+    ;(isPluginEnabled as any).mockReturnValue(true)
+    const html = await bakeShareHtml(mdTab(), 'default')
+    expect(html).toContain('/a/hit')
+    expect(html).toContain('mdi_vid')
+  })
+
+  it('omits the beacon when reading-insights is disabled', async () => {
+    ;(isPluginEnabled as any).mockReturnValue(false)
+    const html = await bakeShareHtml(mdTab(), 'default')
+    expect(html).not.toContain('/a/hit')
   })
 })

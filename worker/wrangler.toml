@@ -16,3 +16,11 @@ preview_bucket_name = "mdeditor-share-media-preview"
 # routes = [
 #   { pattern = "share.example.com/*", custom_domain = true }
 # ]
+
+[[durable_objects.bindings]]
+name = "AUDIENCE"
+class_name = "SlugAnalytics"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["SlugAnalytics"]

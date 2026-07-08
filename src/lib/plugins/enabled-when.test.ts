@@ -8,6 +8,7 @@ const ctx = (over: Partial<EnabledWhenContext> = {}): EnabledWhenContext => ({
     hasContent: true, isDirty: false, isUntitled: false,
   },
   settings: {},
+  vaultConfigured: false,
   ...over,
 })
 
@@ -161,5 +162,15 @@ describe('evaluateEnabledWhen', () => {
   it('== against null currentTab returns false', () => {
     const c = ctx({ currentTab: null })
     expect(evaluateEnabledWhen("currentTab.kind == 'markdown'", c)).toBe(false)
+  })
+})
+
+describe('vaultConfigured gate', () => {
+  it('evaluates a bare vaultConfigured identifier', () => {
+    expect(evaluateEnabledWhen('vaultConfigured', ctx({ vaultConfigured: true }))).toBe(true)
+    expect(evaluateEnabledWhen('vaultConfigured', ctx({ vaultConfigured: false }))).toBe(false)
+  })
+  it('supports negation', () => {
+    expect(evaluateEnabledWhen('!vaultConfigured', ctx({ vaultConfigured: false }))).toBe(true)
   })
 })

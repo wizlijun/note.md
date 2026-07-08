@@ -12,6 +12,8 @@ import {
 import katexCss from 'katex/dist/katex.min.css?raw'
 import hljsLightCss from 'highlight.js/styles/github.css?raw'
 import hljsDarkCss from 'highlight.js/styles/github-dark.css?raw'
+import shareBeaconJs from './share-beacon.js?raw'
+import { isPluginEnabled } from '../settings.svelte'
 
 /// Load the compiled CSS for the requested theme via the `theme_load_compiled`
 /// Tauri command (same routing as theme-loader.ts — avoids needing fs:scope
@@ -283,6 +285,7 @@ ${metadataBlock({ title: pageTitle, description, filename })}
 <main class="moraya-editor">${inlineBody}</main>
 <footer class="share-footer">Powered by <a href="https://github.com/wizlijun/MdEditor">M↓</a></footer>
 </div>
+${isPluginEnabled('reading-insights') ? `<script>${shareBeaconJs}</script>` : ''}
 </body>
 </html>`
   guardSize(html)
