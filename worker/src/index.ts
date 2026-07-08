@@ -893,6 +893,20 @@ async function handleMcp(req: Request, env: Env, baseUrl: string): Promise<Respo
   }
 }
 
+async function handleAudienceStats(req: Request, env: Env, url: URL): Promise<Response> {
+  const slug = url.searchParams.get('slug') ?? ''
+  if (!AUDIENCE_SLUG_RE.test(slug)) return new Response('bad slug', { status: 400 })
+  const auth = req.headers.get('Authorization') ?? ''
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : ''
+  const rec = await env.SHARES.getWithMetadata<KvMeta>(slug)
+  if (!rec || !rec.metadata) return new Response('not found', { status: 404 })
+  if (!token || token !== rec.metadata.edit_token) return new Response('forbidden', { status: 403 })
+  const stub = env.AUDIENCE.get(env.AUDIENCE.idFromName(slug))
+  const doUrl = new URL('https://do/stats')
+  doUrl.search = url.search
+  return stub.fetch(doUrl.toString())
+}
+
 async function handleAudienceHit(req: Request, env: Env): Promise<Response> {
   let body: { slug?: unknown }
   try { body = await req.json() } catch { return new Response('bad json', { status: 400 }) }
@@ -913,6 +927,7 @@ export default {
     if (req.method === 'GET' && path.startsWith('f/')) return handleMediaGet(path, req, env)
     if (req.method === 'DELETE' && path.startsWith('f/')) return handleMediaDelete(path, req, env)
     if (req.method === 'POST' && path === 'a/hit') return handleAudienceHit(req, env)
+    if (req.method === 'GET' && path === 'a/stats') return handleAudienceStats(req, env, url)
     if (req.method === 'GET' && path) return handleGet(path, env)
     if (req.method === 'DELETE' && path) return handleDelete(path, req, env)
     return new Response('Not Found', { status: 404 })

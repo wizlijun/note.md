@@ -37,8 +37,29 @@ export class SlugAnalytics {
       return new Response(null, { status: 204 })
     }
     if (url.pathname === '/stats' && req.method === 'GET') {
-      // Query added in a later task.
-      return Response.json({ total_ms: 0, unique_readers: 0, days: {} })
+      const from = Number(url.searchParams.get('from')) || -Infinity
+      const to = Number(url.searchParams.get('to')) || Infinity
+      const hours = await this.state.storage.list<number>({ prefix: 'h:' })
+      const days: Record<string, number> = {}
+      let total = 0
+      for (const [k, ms] of hours) {
+        const hour = Number(k.slice(2))
+        const tsStart = hour * 3_600_000
+        if (tsStart < from || tsStart > to) continue
+        total += ms
+        const day = new Date(tsStart).toISOString().slice(0, 10)
+        days[day] = (days[day] ?? 0) + ms
+      }
+      const visitorDays = await this.state.storage.list<string[]>({ prefix: 'vd:' })
+      const uniques = new Set<string>()
+      for (const [k, ids] of visitorDays) {
+        const day = k.slice(3)
+        const dayStart = Date.parse(day + 'T00:00:00Z')
+        const dayEnd = dayStart + 86_400_000 - 1
+        if (dayEnd < from || dayStart > to) continue
+        for (const id of ids) uniques.add(id)
+      }
+      return Response.json({ total_ms: total, unique_readers: uniques.size, days })
     }
     return new Response('Not Found', { status: 404 })
   }
