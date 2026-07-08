@@ -12,10 +12,11 @@ export interface ShareResolution {
 export interface AssembleDeps {
   readDevices: () => Promise<DeviceAnalytics[]>
   resolveShare: (docKey: string) => ShareResolution
-  /** Fetch audience stats for MANY slugs in one request (fail-soft → {}). */
-  fetchAudienceBatch: (slugs: string[], from: string, to: string) => Promise<Record<string, AudienceStats>>
-  /** docKeys of every shared doc — lets audience-only shares (read online but not
-   *  opened by the owner in range) still surface. */
+  /** Fetch audience stats for EVERY slug read in the range — no slug list needed
+   *  (server queries per-day rollups by date). Fail-soft → {}. */
+  fetchAudienceAll: (from: string, to: string) => Promise<Record<string, AudienceStats>>
+  /** docKeys of every shared doc — used to map audience slugs back to local
+   *  paths so online-only reads surface under the right document. */
   listSharedDocKeys: () => string[]
   weights: ValueWeights
 }
@@ -49,14 +50,14 @@ export async function assembleRows(deps: AssembleDeps, fromDay: string, toDay: s
   const merged = mergeDeviceAnalytics(devices)
   const owner = aggregateRange(merged, fromDay, toDay)
   const ownerKeys = Object.keys(owner)
-  const extraKeys = deps.listSharedDocKeys().filter((k) => !(k in owner))
 
-  // Resolve shares for every candidate doc, then fetch ALL their audience stats
-  // in a single batch request.
-  const allKeys = [...ownerKeys, ...extraKeys]
-  const shareByKey = new Map(allKeys.map((k) => [k, deps.resolveShare(k)]))
-  const slugs = [...new Set(allKeys.map((k) => shareByKey.get(k)!.slug).filter((s): s is string => !!s))]
-  const audMap = await deps.fetchAudienceBatch(slugs, fromDay, toDay)
+  // Resolve shares for owner docs + every known shared doc, so we can map audience
+  // slugs back to their local path. Fetch ALL audience data by date in one request.
+  const knownKeys = [...new Set([...ownerKeys, ...deps.listSharedDocKeys()])]
+  const shareByKey = new Map(knownKeys.map((k) => [k, deps.resolveShare(k)]))
+  const bySlug = new Map<string, { docKey: string; share: ShareResolution }>()
+  for (const [docKey, share] of shareByKey) if (share.slug) bySlug.set(share.slug, { docKey, share })
+  const audMap = await deps.fetchAudienceAll(fromDay, toDay)
 
   const ownerRows = ownerKeys.map((docKey) => {
     const share = shareByKey.get(docKey)!
@@ -64,13 +65,14 @@ export async function assembleRows(deps: AssembleDeps, fromDay: string, toDay: s
     return makeRow(docKey, owner[docKey], share, aud, deps.weights)
   })
 
-  // Shared docs read online but with no owner activity in range.
-  const extraRows = extraKeys.flatMap((docKey) => {
-    const share = shareByKey.get(docKey)!
-    if (!share.slug) return []
-    const aud = audMap[share.slug] ?? null
+  // Every slug read online but with no owner activity in range — surfaced under
+  // its known docKey/path when we have a local record, else under the slug itself.
+  const ownerSlugs = new Set(ownerKeys.map((k) => shareByKey.get(k)!.slug).filter(Boolean))
+  const extraRows = Object.entries(audMap).flatMap(([slug, aud]) => {
+    if (ownerSlugs.has(slug)) return []
     if (!aud || (aud.total_ms <= 0 && aud.unique_readers <= 0)) return []
-    return [makeRow(docKey, emptyCounters(0), share, aud, deps.weights)]
+    const hit = bySlug.get(slug) ?? { docKey: slug, share: { path: null, label: slug, slug } }
+    return [makeRow(hit.docKey, emptyCounters(0), hit.share, aud, deps.weights)]
   })
 
   return [...ownerRows, ...extraRows].sort((a, b) => b.value - a.value)

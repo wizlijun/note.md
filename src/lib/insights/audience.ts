@@ -64,3 +64,29 @@ export async function fetchAudienceStatsBatch(
     return {}
   }
 }
+
+/**
+ * Fetch audience aggregates for EVERY slug that had a reader in the range, in one
+ * request — no slug list required. The server reads per-day rollup DOs over the
+ * range (O(days), independent of how many shares exist), so this stays fast as
+ * the library grows. Returns a `{ slug: stats }` map. Fail-soft: `{}` on error.
+ */
+export async function fetchAudienceStatsAll(
+  baseUrl: string,
+  apiKey: string,
+  fromDay: string,
+  toDay: string,
+): Promise<Record<string, AudienceStats>> {
+  try {
+    const base = baseUrl.replace(/\/+$/, '')
+    const { from, to } = dayRangeToEpoch(fromDay, toDay)
+    const res = await fetch(`${base}/a/stats-all?from=${from}&to=${to}`, {
+      cache: 'no-store',
+      headers: { Authorization: `Bearer ${apiKey}` },
+    })
+    if (!res.ok) return {}
+    return (await res.json()) as Record<string, AudienceStats>
+  } catch {
+    return {}
+  }
+}

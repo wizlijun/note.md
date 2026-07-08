@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { fetchAudienceStats, fetchAudienceStatsBatch, dayRangeToEpoch } from './audience'
+import { fetchAudienceStats, fetchAudienceStatsBatch, fetchAudienceStatsAll, dayRangeToEpoch } from './audience'
 
 afterEach(() => vi.restoreAllMocks())
 
@@ -55,5 +55,25 @@ describe('fetchAudienceStatsBatch', () => {
   it('returns {} on a non-ok response or network error', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('no', { status: 401 }))
     expect(await fetchAudienceStatsBatch('https://w/', 'k', ['s'], '2026-07-08', '2026-07-08')).toEqual({})
+  })
+})
+
+describe('fetchAudienceStatsAll', () => {
+  it('GETs /a/stats-all with just the range + API key, returns the map', async () => {
+    const spy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ 'slug-a': { total_ms: 5000, unique_readers: 2, days: {} } }), { status: 200 }),
+    )
+    const out = await fetchAudienceStatsAll('https://w.example/', 'apikey', '2026-07-08', '2026-07-08')
+    expect(out['slug-a'].total_ms).toBe(5000)
+    const [url, init] = spy.mock.calls[0]
+    expect(String(url)).toContain('https://w.example/a/stats-all?from=')
+    expect(String(url)).toContain(`to=${Date.UTC(2026, 6, 8, 23, 59, 59, 999)}`)
+    expect((init as RequestInit).headers).toMatchObject({ Authorization: 'Bearer apikey' })
+  })
+  it('returns {} on a non-ok response or network error', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('no', { status: 401 }))
+    expect(await fetchAudienceStatsAll('https://w/', 'k', '2026-07-08', '2026-07-08')).toEqual({})
+    vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('offline'))
+    expect(await fetchAudienceStatsAll('https://w/', 'k', '2026-07-08', '2026-07-08')).toEqual({})
   })
 })

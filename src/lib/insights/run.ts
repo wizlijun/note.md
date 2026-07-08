@@ -2,7 +2,7 @@ import { exists, mkdir, readDir, readTextFile, writeTextFile } from '@tauri-apps
 import { createAnalyticsStore, type Fs } from './store.svelte'
 import { assembleRows, type AssembleDeps } from './dashboard.svelte'
 import { DEFAULT_WEIGHTS } from './value'
-import { fetchAudienceStatsBatch } from './audience'
+import { fetchAudienceStatsAll } from './audience'
 import { localTzOffsetMinutes, docKeyFor } from './model'
 import { renderDailyReport } from './report'
 import { getDeviceId, getPluginScopedKey } from '../settings.svelte'
@@ -24,8 +24,9 @@ const trimSlash = (s: string) => s.replace(/\/+$/, '')
  * Build the dashboard/report data dependencies (owner analytics from the Vault +
  * audience stats from the Worker, joined via share records). Shared by the
  * in-app Insights window and the `mdedit reading-insights report` CLI so the CLI
- * gets the SAME online (audience) data — the API key + share records come from
- * the loaded settings, and audience is fetched in one `/a/stats-batch` request.
+ * gets the SAME online (audience) data — the API key comes from the loaded
+ * settings, and ALL audience data is fetched by date in one `/a/stats-all`
+ * request (no slug list needed; share records only map slugs back to paths).
  */
 export function buildDashboardDeps(vaultOverride?: string | null): AssembleDeps {
   const vaultRoot = vaultOverride ?? sotvaultStore.vaultRoot
@@ -53,7 +54,7 @@ export function buildDashboardDeps(vaultOverride?: string | null): AssembleDeps 
         slug: (rec && 'slug' in rec ? rec.slug : null) ?? null,
       }
     },
-    fetchAudienceBatch: (slugs, from, to) => fetchAudienceStatsBatch(baseUrl, apiKey, slugs, from, to),
+    fetchAudienceAll: (from, to) => fetchAudienceStatsAll(baseUrl, apiKey, from, to),
     listSharedDocKeys: () => allShareRecordPaths().map((p) => docKeyFor(p, vaultRoot)),
     weights: DEFAULT_WEIGHTS,
   }

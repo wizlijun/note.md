@@ -4,9 +4,9 @@ import { emptyCounters, type DeviceAnalytics } from './model'
 import type { AudienceStats } from './audience'
 import { DEFAULT_WEIGHTS } from './value'
 
-/** Build a batch fetcher from a plain slug→stats map. */
-function batch(map: Record<string, AudienceStats>): AssembleDeps['fetchAudienceBatch'] {
-  return async (slugs) => Object.fromEntries(slugs.filter((s) => s in map).map((s) => [s, map[s]]))
+/** Build an all-audience fetcher from a plain slug→stats map. */
+function all(map: Record<string, AudienceStats>): AssembleDeps['fetchAudienceAll'] {
+  return async () => map
 }
 
 function deps(over: Partial<AssembleDeps> = {}): AssembleDeps {
@@ -21,7 +21,7 @@ function deps(over: Partial<AssembleDeps> = {}): AssembleDeps {
     resolveShare: (docKey) => docKey === 'rel:a.md'
       ? { path: '/v/a.md', label: 'a.md', slug: '2026-07-08-a-x' }
       : { path: '/tmp/b.md', label: 'b.md', slug: null },
-    fetchAudienceBatch: batch({ '2026-07-08-a-x': { total_ms: 90_000, unique_readers: 4, days: {} } }),
+    fetchAudienceAll: all({ '2026-07-08-a-x': { total_ms: 90_000, unique_readers: 4, days: {} } }),
     listSharedDocKeys: () => ['rel:a.md'],
     weights: DEFAULT_WEIGHTS,
     ...over,
@@ -42,16 +42,17 @@ describe('assembleRows', () => {
     expect(rows[1].shared).toBe(false)
   })
 
-  it('fetches all slugs in a SINGLE batch call', async () => {
+  it('fetches all audience data in a SINGLE request (no slug list)', async () => {
     let calls = 0
     await assembleRows(deps({
-      fetchAudienceBatch: async (slugs) => { calls++; expect(slugs).toEqual(['2026-07-08-a-x']); return {} },
+      fetchAudienceAll: async () => { calls++; return {} },
     }), '2026-07-08', '2026-07-08')
     expect(calls).toBe(1)
   })
 
   it('omits docs with no owner activity AND no audience in the range', async () => {
-    const rows = await assembleRows(deps({ listSharedDocKeys: () => [] }), '2026-07-01', '2026-07-02')
+    // The server date-filters, so an out-of-range query yields no audience.
+    const rows = await assembleRows(deps({ fetchAudienceAll: all({}) }), '2026-07-01', '2026-07-02')
     expect(rows).toHaveLength(0)
   })
 
@@ -60,7 +61,7 @@ describe('assembleRows', () => {
       resolveShare: (docKey) => docKey === 'rel:c.md'
         ? { path: '/v/c.md', label: 'c.md', slug: '2026-07-08-c-x' }
         : { path: null, label: docKey, slug: null },
-      fetchAudienceBatch: batch({ '2026-07-08-c-x': { total_ms: 45_000, unique_readers: 2, days: {} } }),
+      fetchAudienceAll: all({ '2026-07-08-c-x': { total_ms: 45_000, unique_readers: 2, days: {} } }),
       listSharedDocKeys: () => ['rel:c.md'],
     }), '2026-07-01', '2026-07-02')
 
@@ -76,9 +77,21 @@ describe('assembleRows', () => {
     const rows = await assembleRows(deps({
       readDevices: async () => [{ deviceId: 'D1', deviceName: 'Mac', docs: {} }],
       resolveShare: () => ({ path: '/v/c.md', label: 'c.md', slug: '2026-07-08-c-x' }),
-      fetchAudienceBatch: batch({ '2026-07-08-c-x': { total_ms: 0, unique_readers: 0, days: {} } }),
+      fetchAudienceAll: all({ '2026-07-08-c-x': { total_ms: 0, unique_readers: 0, days: {} } }),
       listSharedDocKeys: () => ['rel:c.md'],
     }), '2026-07-08', '2026-07-08')
     expect(rows).toHaveLength(0)
+  })
+
+  it('surfaces an audience-only slug with NO local record under the slug itself', async () => {
+    const rows = await assembleRows(deps({
+      readDevices: async () => [{ deviceId: 'D1', deviceName: 'Mac', docs: {} }],
+      listSharedDocKeys: () => [],
+      fetchAudienceAll: all({ '2026-07-08-orphan-z': { total_ms: 12_000, unique_readers: 1, days: {} } }),
+    }), '2026-07-08', '2026-07-08')
+    expect(rows).toHaveLength(1)
+    expect(rows[0].docKey).toBe('2026-07-08-orphan-z')
+    expect(rows[0].label).toBe('2026-07-08-orphan-z')
+    expect(rows[0].aud_read_ms).toBe(12_000)
   })
 })
