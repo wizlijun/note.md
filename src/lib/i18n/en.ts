@@ -187,6 +187,7 @@ export const en = {
   'plugins.restartNote': 'Changes take effect after restarting M↓',
   'plugins.capabilities': 'Capabilities: {caps}',
   'plugins.none': 'No plugins detected.',
+  'plugins.needsVault': 'Set a Vault first to enable this plugin',
 
   // Slash menu (empty state)
   'slashMenu.noMatches': 'No matches',

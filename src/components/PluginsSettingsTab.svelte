@@ -5,6 +5,8 @@
   import { isPluginEnabled, setPluginEnabled } from '../lib/settings.svelte'
   import { t } from '../lib/i18n/store.svelte'
   import { pluginName, pluginDescription } from '../lib/plugins/plugin-i18n'
+  import { sotvaultStore } from '../lib/sotvault.svelte'
+  import { evaluateEnabledWhen } from '../lib/plugins/enabled-when'
 
   type Row = { manifest: PluginManifest; enabled: boolean }
 
@@ -24,16 +26,27 @@
     rows = [...rows]
     await setPluginEnabled(row.manifest.id, value)
   }
+
+  function isAvailable(m: PluginManifest): boolean {
+    if (!m.available_when) return true
+    return evaluateEnabledWhen(m.available_when, {
+      currentTab: null,
+      settings: {},
+      vaultConfigured: sotvaultStore.vaultRoot !== null,
+    })
+  }
 </script>
 
 <div class="plugins-list">
   {#each rows as r (r.manifest.id)}
-    <div class="row">
+    {@const avail = isAvailable(r.manifest)}
+    <div class="row" class:unavailable={!avail}>
       <label class="head">
-        <input type="checkbox" checked={r.enabled}
+        <input type="checkbox" disabled={!avail} checked={avail && r.enabled}
                onchange={(e) => toggle(r, (e.currentTarget as HTMLInputElement).checked)} />
         <span class="name">{pluginName(r.manifest)}</span>
         <span class="version">{r.manifest.version}</span>
+        {#if !avail}<span class="needs-vault">{t('plugins.needsVault')}</span>{/if}
       </label>
       {#if pluginDescription(r.manifest)}
         <p class="desc">{pluginDescription(r.manifest)}</p>
@@ -81,5 +94,9 @@
     margin-top: 12px;
     font-size: 11px;
     color: color-mix(in srgb, CanvasText 60%, transparent);
+  }
+  .needs-vault {
+    font-size: 11px;
+    color: color-mix(in srgb, CanvasText 55%, transparent);
   }
 </style>

@@ -182,6 +182,7 @@ export const ja: Record<keyof Messages, string> = {
   'plugins.restartNote': '変更は M↓ を再起動すると有効になります',
   'plugins.capabilities': '機能：{caps}',
   'plugins.none': 'プラグインが検出されませんでした。',
+  'plugins.needsVault': '有効にするには先に Vault を設定してください',
 
   // Slash menu (empty state)
   'slashMenu.noMatches': '一致なし',

@@ -182,6 +182,7 @@ export const zh: Record<keyof Messages, string> = {
   'plugins.restartNote': '改动需要重启 M↓ 后生效',
   'plugins.capabilities': '能力：{caps}',
   'plugins.none': '未检测到插件。',
+  'plugins.needsVault': '需先设置 Vault 才能启用此插件',
 
   // Slash menu (empty state)
   'slashMenu.noMatches': '无匹配项',
