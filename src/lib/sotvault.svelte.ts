@@ -27,12 +27,16 @@ export function setVaultRootChangedHandler(fn: (() => void) | null): void {
 }
 
 export async function refreshSotvault(): Promise<void> {
-  if (!isPluginActive('sotvault')) return
   try {
-    const [root, records] = await Promise.all([
-      invoke<string | null>('sotvault_vault_root'),
-      invoke<SotRecord[]>('sotvault_records'),
-    ])
+    // The vault root is a GLOBAL setting (VaultSyncManager.repo_path), independent
+    // of whether the sotvault *plugin* is enabled. Other features — notably
+    // reading-insights — rely on it, so always load it; otherwise they wrongly
+    // report "no vault configured" whenever sotvault happens to be off.
+    const root = await invoke<string | null>('sotvault_vault_root')
+    // Records are sotvault-specific — only meaningful when its plugin is active.
+    const records = isPluginActive('sotvault')
+      ? await invoke<SotRecord[]>('sotvault_records')
+      : []
     sotvaultStore.vaultRoot = root
     sotvaultStore.records = records
     sotvaultStore.tick++

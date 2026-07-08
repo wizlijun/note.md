@@ -8,13 +8,14 @@ const reloadTabFromDisk = vi.fn()
 vi.mock('@tauri-apps/api/core', () => ({ invoke: (...a: unknown[]) => invoke(...a) }))
 vi.mock('@tauri-apps/plugin-dialog', () => ({ ask: (...a: unknown[]) => ask(...a) }))
 vi.mock('./toast.svelte', () => ({ pushToast: (...a: unknown[]) => pushToast(...a) }))
-vi.mock('./plugins/registry', () => ({ isPluginActive: () => true }))
+let sotvaultActive = true
+vi.mock('./plugins/registry', () => ({ isPluginActive: () => sotvaultActive }))
 vi.mock('./tabs.svelte', () => ({
   activeTab: () => ({ filePath: '/src/a.md' }),
   reloadTabFromDisk: (...a: unknown[]) => reloadTabFromDisk(...a),
 }))
 
-import { maybeCheckVaultUpdate } from './sotvault.svelte'
+import { maybeCheckVaultUpdate, refreshSotvault, sotvaultStore } from './sotvault.svelte'
 
 const VAULT = '/v/Sync/a.md'
 
@@ -25,6 +26,34 @@ const sourceCheck = (outcome: string) => ({ outcome, vaultPath: VAULT, openedIsS
 
 beforeEach(() => {
   invoke.mockReset(); ask.mockReset(); pushToast.mockReset(); reloadTabFromDisk.mockReset()
+  sotvaultActive = true
+  sotvaultStore.vaultRoot = null
+  sotvaultStore.records = []
+})
+
+describe('refreshSotvault', () => {
+  it('loads the vault root even when the sotvault plugin is inactive', async () => {
+    // The vault root is a global setting (VaultSyncManager.repo_path), independent
+    // of the sotvault plugin. Features like reading-insights rely on it, so it must
+    // load regardless — otherwise they wrongly report "no vault configured".
+    sotvaultActive = false
+    invoke.mockResolvedValueOnce('/v') // sotvault_vault_root
+    await refreshSotvault()
+    expect(sotvaultStore.vaultRoot).toBe('/v')
+    // Records are sotvault-specific: skipped (no sotvault_records IPC) when inactive.
+    expect(invoke).toHaveBeenCalledTimes(1)
+    expect(invoke).toHaveBeenCalledWith('sotvault_vault_root')
+    expect(sotvaultStore.records).toEqual([])
+  })
+
+  it('loads root and records when the plugin is active', async () => {
+    invoke
+      .mockResolvedValueOnce('/v')                          // sotvault_vault_root
+      .mockResolvedValueOnce([{ source: '/s', vault: '/v/Sync/s.md' }]) // sotvault_records
+    await refreshSotvault()
+    expect(sotvaultStore.vaultRoot).toBe('/v')
+    expect(sotvaultStore.records).toHaveLength(1)
+  })
 })
 
 describe('maybeCheckVaultUpdate', () => {
