@@ -618,6 +618,7 @@
       const ctx: EnabledWhenContext = {
         currentTab: ewTab,
         settings: getPluginScopedAll(item.pluginId),
+        vaultConfigured: sotvaultStore.vaultRoot !== null,
       }
       const enabled = evaluateEnabled(item, ctx)
       if (lastEnabledState.get(item.id) === enabled) continue

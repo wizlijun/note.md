@@ -10,6 +10,7 @@
   import { pluginRuntime, dispatchPluginCommand } from '../lib/plugins/runtime.svelte'
   import { getPluginScopedAll, pluginScopedVersion } from '../lib/settings.svelte'
   import type { EnabledWhenContext } from '../lib/plugins/types'
+  import { sotvaultStore } from '../lib/sotvault.svelte'
 
   async function onClose(e: MouseEvent, id: string) {
     e.stopPropagation()
@@ -47,6 +48,7 @@
       // plugin settings changes (so a re-evaluation after settings.merge picks
       // up the latest values).
       settings: {} as Record<string, unknown>,
+      vaultConfigured: sotvaultStore.vaultRoot !== null,
     }
   }
 
