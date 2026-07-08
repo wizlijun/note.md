@@ -175,6 +175,12 @@
   background: color-mix(in srgb, CanvasText 5%, Canvas);
   border-radius: 6px;
 }
+.moraya-editor pre.moraya-frontmatter {
+  /* YAML frontmatter block: raw metadata, newlines preserved */
+  white-space: pre;
+  border-left: 3px solid color-mix(in srgb, CanvasText 25%, transparent);
+  color: color-mix(in srgb, CanvasText 75%, Canvas);
+}
 .moraya-editor pre code,
 .moraya-editor .code-block-code {
   background: none;
