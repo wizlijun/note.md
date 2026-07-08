@@ -48,9 +48,9 @@
   import { folderView, loadFolderViewState, setVisible } from './lib/folder-view.svelte'
   import { platform, isIOS } from './lib/platform.svelte'
   import { vaultStore, refreshStatus, syncNow, attachStatusListener } from './lib/vault.svelte'
-  import { syncCurrentToVault, canSyncActive, isTrackedVaultFile, refreshSotvault, sotvaultStore } from './lib/sotvault.svelte'
+  import { syncCurrentToVault, canSyncActive, isTrackedVaultFile, refreshSotvault, sotvaultStore, setVaultRootChangedHandler } from './lib/sotvault.svelte'
   import { installRecentsSync, refreshRecentMenu, mergedRecents } from './lib/recent-sync.svelte'
-  import { installTracker } from './lib/insights/tracker.svelte'
+  import { maybeInstallTracker, shutdownTracker } from './lib/insights/tracker.svelte'
 
   /** Open an in-memory read-only buffer received from the remote agent.
    *  The tab gets title "[remote] <basename>" and its content is pre-filled.
@@ -416,15 +416,13 @@
     let cleanupRecents: (() => void) | null = null
     installRecentsSync().then((fn) => { cleanupRecents = fn })
 
-    // The reading-insights tracker must install only AFTER the vault root has
-    // loaded — installTracker() no-ops when sotvaultStore.vaultRoot is still null.
-    // The earlier refreshSotvault() call (in the setup IIFE above) is fire-and-
-    // forget, so chain off a fresh resolve here to make the ordering deterministic.
-    let cleanupTracker: (() => void | Promise<void>) | null = null
-    void refreshSotvault()
-      .then(() => installTracker())
-      .then((fn) => { cleanupTracker = fn })
-      .catch((e) => console.warn('[App] insights tracker init:', e))
+    // reading-insights tracker: install is STATE-driven, not boot-order-driven.
+    // Register a handler so every refreshSotvault() that (re)loads the vault root
+    // — at startup (post-plugin-init) or when the user configures a vault mid-
+    // session — (re)installs the tracker idempotently. A direct call covers the
+    // case where the root was already loaded before this handler was registered.
+    setVaultRootChangedHandler(() => { void maybeInstallTracker() })
+    void maybeInstallTracker().catch((e) => console.warn('[App] insights tracker init:', e))
 
     const unlistenMenu = listen<string>('menu-event', async (e) => {
       const id = e.payload
@@ -558,7 +556,8 @@
       unlistenOpenRemoteBuffer.then((fn) => fn())
       unlistenDeepLink.then((fn) => fn())
       cleanupRecents?.()
-      void cleanupTracker?.()
+      setVaultRootChangedHandler(null)
+      void shutdownTracker()
       stopAutoSave?.()
     }
   })

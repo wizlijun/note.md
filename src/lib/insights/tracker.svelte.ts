@@ -33,6 +33,9 @@ interface TrackerState {
 
 let tracker: TrackerState | null = null
 
+/** Which vault the tracker is currently installed for, plus its disposer. */
+let installed: { root: string; dispose: () => void | Promise<void> } | null = null
+
 function currentDocKey(): string | null {
   const t = activeTab()
   if (!t || !t.filePath || t.kind !== 'markdown') return null
@@ -111,6 +114,7 @@ export async function installTracker(): Promise<() => void> {
     tickCount: 0,
     disposers: [],
   }
+  const self = tracker
 
   // Window focus/blur.
   const unlistenFocus = await getCurrentWindow().onFocusChanged(({ payload: focused }) => {
@@ -143,10 +147,12 @@ export async function installTracker(): Promise<() => void> {
 
   return async () => {
     dispatch({ type: 'blur' })
-    if (tracker?.timer) clearInterval(tracker.timer)
-    tracker?.disposers.forEach((d) => d())
-    await store.flush()
-    tracker = null
+    if (self.timer) clearInterval(self.timer)
+    self.disposers.forEach((d) => d())
+    await self.store.flush()
+    // Only clear the module slot if a newer install hasn't replaced us (guards
+    // the rare vault-change reinstall from nulling the fresh tracker mid-flush).
+    if (tracker === self) tracker = null
   }
 }
 
@@ -158,4 +164,38 @@ export function onModeChanged(): void {
 /** Flush in-memory analytics to disk immediately (e.g. before reading all devices). */
 export async function flushNow(): Promise<void> {
   if (tracker) await tracker.store.flush()
+}
+
+/**
+ * Idempotently (re)install the tracker for the currently-configured vault.
+ *
+ * Call this whenever the vault root may have changed (it is wired to
+ * `refreshSotvault` via `setVaultRootChangedHandler`). Unlike a one-shot
+ * `onMount` install, this is driven by STATE, not app-boot ordering — so it
+ * installs correctly both when a vault is already configured at launch (once
+ * `refreshSotvault` loads the root, post-plugin-init) and when the user
+ * configures a vault mid-session. No-ops when the plugin is disabled, no vault
+ * is set, or the tracker is already installed for that same vault.
+ */
+export async function maybeInstallTracker(
+  install: () => Promise<() => void | Promise<void>> = installTracker,
+): Promise<void> {
+  const root = sotvaultStore.vaultRoot
+  if (!isPluginEnabled(PLUGIN_ID) || root === null) return
+  if (installed && installed.root === root) return
+  if (installed) {
+    const prev = installed
+    installed = null
+    await prev.dispose()
+  }
+  const dispose = await install()
+  installed = { root, dispose }
+}
+
+/** Tear down the tracker (app teardown). */
+export async function shutdownTracker(): Promise<void> {
+  if (!installed) return
+  const prev = installed
+  installed = null
+  await prev.dispose()
 }

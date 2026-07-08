@@ -18,6 +18,14 @@ export const sotvaultStore = $state<{ vaultRoot: string | null; records: SotReco
   tick: 0,
 })
 
+/** Notified after every refresh that (re)assigns the vault root — lets features
+ *  like reading-insights install themselves once a vault becomes available,
+ *  independent of app-boot ordering. Mirrors `setRecentsChangedHandler`. */
+let vaultRootChangedHandler: (() => void) | null = null
+export function setVaultRootChangedHandler(fn: (() => void) | null): void {
+  vaultRootChangedHandler = fn
+}
+
 export async function refreshSotvault(): Promise<void> {
   if (!isPluginActive('sotvault')) return
   try {
@@ -28,6 +36,7 @@ export async function refreshSotvault(): Promise<void> {
     sotvaultStore.vaultRoot = root
     sotvaultStore.records = records
     sotvaultStore.tick++
+    vaultRootChangedHandler?.()
   } catch (e) {
     console.warn('[sotvault] refresh:', e)
   }
