@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { EditorState } from 'prosemirror-state'
+import { EditorState, TextSelection } from 'prosemirror-state'
 import { schema } from 'prosemirror-schema-basic'
 import { countMarkSteps, analyticsObserverPlugin, type ObserverDelta } from './observer'
 
@@ -52,7 +52,7 @@ describe('analyticsObserverPlugin', () => {
     let state = EditorState.create({ schema, doc: schema.node('doc', null, [
       schema.node('paragraph', null, [schema.text('abcd')]),
     ]), plugins: [analyticsObserverPlugin((d) => seen.push(d))] })
-    const tr = state.tr.setSelection(state.selection.constructor.near(state.doc.resolve(2)))
+    const tr = state.tr.setSelection(TextSelection.near(state.doc.resolve(2)))
     state = state.apply(tr)
     expect(seen).toEqual([])
   })
