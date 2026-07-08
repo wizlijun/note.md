@@ -182,6 +182,12 @@
       />
     </div>
     <button
+      class="refresh-btn"
+      onclick={() => void load()}
+      disabled={loading}
+      title={t('insights.refresh')}
+    >{loading ? '…' : '↻'} {t('insights.refresh')}</button>
+    <button
       class="report-btn"
       onclick={() => void generateReport()}
       disabled={rows.length === 0}
@@ -312,7 +318,7 @@
     color: color-mix(in srgb, CanvasText 50%, transparent);
   }
 
-  .report-btn {
+  .report-btn, .refresh-btn {
     padding: 3px 10px;
     border-radius: 4px;
     border: 1px solid color-mix(in srgb, CanvasText 20%, transparent);
@@ -324,12 +330,12 @@
     white-space: nowrap;
   }
 
-  .report-btn:hover:not(:disabled) {
+  .report-btn:hover:not(:disabled), .refresh-btn:hover:not(:disabled) {
     background: color-mix(in srgb, CanvasText 8%, transparent);
     color: CanvasText;
   }
 
-  .report-btn:disabled {
+  .report-btn:disabled, .refresh-btn:disabled {
     opacity: 0.4;
     cursor: default;
   }

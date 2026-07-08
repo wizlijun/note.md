@@ -4,6 +4,7 @@ vi.mock('../settings.svelte', () => {
   let bag: Record<string, unknown> = {}
   return {
     getPluginScopedKey: (k: string) => bag[k],
+    getShareRecords: () => (bag['share.records'] as Record<string, unknown>) ?? {},
     mergePluginScoped: vi.fn(async (patch: Record<string, unknown>) => {
       Object.assign(bag, patch)
     }),

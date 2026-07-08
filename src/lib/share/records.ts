@@ -1,11 +1,14 @@
-import { getPluginScopedKey, mergePluginScoped } from '../settings.svelte'
+import { getShareRecords, mergePluginScoped } from '../settings.svelte'
 import type { ShareRecord } from './types'
 
 const KEY = 'share.records'
 
 function readAll(): Record<string, ShareRecord> {
-  const v = getPluginScopedKey(KEY)
-  return (v && typeof v === 'object' ? v : {}) as Record<string, ShareRecord>
+  // Share records live in `share_db.json`, hydrated into `shareRecords` and
+  // exposed via getShareRecords(). getPluginScopedKey('share.records') does NOT
+  // return them (it reads the pluginScoped map, where they no longer live), so
+  // reading through it yields {} — which silently broke the audience join.
+  return getShareRecords() as unknown as Record<string, ShareRecord>
 }
 
 export function getRecord(path: string): ShareRecord | undefined {

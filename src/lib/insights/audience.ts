@@ -54,6 +54,7 @@ export async function fetchAudienceStatsBatch(
     const { from, to } = dayRangeToEpoch(fromDay, toDay)
     const res = await fetch(`${base}/a/stats-batch`, {
       method: 'POST',
+      cache: 'no-store',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({ slugs, from, to }),
     })

@@ -455,6 +455,7 @@ export const en = {
   'insights.col.readers': 'Readers',
   'insights.col.value': 'Value',
   'insights.generateReport': 'Generate report',
+  'insights.refresh': 'Refresh',
   'insights.reportSaved': 'Report saved',
   'insights.reportFailed': 'Failed to generate report',
 
