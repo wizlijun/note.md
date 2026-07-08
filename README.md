@@ -170,6 +170,17 @@ native-UI (AppKit/SwiftUI) app.
   already present in an opened file still render, and reveal their source
   delimiters on the caret's line (Live-Preview style), re-rendering once the
   caret leaves.
+- **YAML frontmatter** — a leading `--- … ---` block renders in rich mode as a
+  **collapsible metadata panel**, collapsed by default so it doesn't crowd the
+  document (the summary shows the top-level keys; click to expand). Inside, the
+  frontmatter is segmented: contiguous `key: value` runs become a table with
+  **inline-editable scalar values** — edits write back to the YAML on blur,
+  preserving comments and key order; lists, nested maps, and block scalars
+  render read-only in their key's row; and non-`key: value` lines in between
+  render as read-only Markdown.
+- **Line-break fidelity** — multi-line blockquotes and in-block (Shift-Enter)
+  breaks keep their line breaks in rich mode, and in exported / previewed /
+  shared HTML (md2pdf, share), instead of collapsing onto one line.
 - **Apple Silicon & Intel builds** — shipped as two independent per-arch `.dmg`s
   (`aarch64` and `x86_64`); auto-update picks the matching architecture
 
