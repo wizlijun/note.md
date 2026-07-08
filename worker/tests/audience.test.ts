@@ -78,6 +78,23 @@ describe('GET /a/stats', () => {
   })
 })
 
+describe('CORS', () => {
+  it('answers the preflight with permissive CORS headers', async () => {
+    const r = await SELF.fetch('http://x/a/stats-batch', {
+      method: 'OPTIONS',
+      headers: { 'Origin': 'tauri://localhost', 'Access-Control-Request-Method': 'POST', 'Access-Control-Request-Headers': 'authorization,content-type' },
+    })
+    expect(r.status).toBe(204)
+    expect(r.headers.get('Access-Control-Allow-Origin')).toBe('*')
+    expect(r.headers.get('Access-Control-Allow-Headers')?.toLowerCase()).toContain('authorization')
+  })
+
+  it('includes Allow-Origin on the actual response', async () => {
+    const r = await stats('2026-07-08-cors-x', API_KEY)
+    expect(r.headers.get('Access-Control-Allow-Origin')).toBe('*')
+  })
+})
+
 describe('POST /a/stats-batch', () => {
   it('rejects a wrong API key with 401', async () => {
     const r = await statsBatch(['2026-07-08-b1-x'], 'wrong-key')

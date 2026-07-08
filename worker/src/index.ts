@@ -938,19 +938,43 @@ async function handleAudienceHit(req: Request, env: Env): Promise<Response> {
   return stub.fetch('https://do/hit', { method: 'POST', body: JSON.stringify(body) })
 }
 
+// The audience API is called cross-origin from the app's WKWebView (and from
+// the shared page's beacon), so its responses must carry CORS headers and the
+// endpoints must answer the preflight. `*` is safe: access is gated by the
+// Authorization header (API key), not cookies/credentials.
+const CORS_HEADERS: Record<string, string> = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'authorization, content-type',
+  'Access-Control-Max-Age': '86400',
+}
+
+function withCors(res: Response): Response {
+  const headers = new Headers(res.headers)
+  for (const [k, v] of Object.entries(CORS_HEADERS)) headers.set(k, v)
+  return new Response(res.body, { status: res.status, statusText: res.statusText, headers })
+}
+
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
     const url = new URL(req.url)
     const path = url.pathname.slice(1)
     const baseUrl = `${url.protocol}//${url.host}`
     if (path === 'mcp') return handleMcp(req, env, baseUrl)
+    // Audience analytics: CORS-enabled (cross-origin from the app webview).
+    if (path.startsWith('a/')) {
+      if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS_HEADERS })
+      let res: Response
+      if (req.method === 'POST' && path === 'a/hit') res = await handleAudienceHit(req, env)
+      else if (req.method === 'POST' && path === 'a/stats-batch') res = await handleAudienceStatsBatch(req, env)
+      else if (req.method === 'GET' && path === 'a/stats') res = await handleAudienceStats(req, env, url)
+      else res = new Response('Not Found', { status: 404 })
+      return withCors(res)
+    }
     if (req.method === 'POST' && path === 'publish') return handlePublish(req, env, baseUrl)
     if (req.method === 'POST' && path === 'upload') return handleUpload(req, env, baseUrl)
     if (req.method === 'GET' && path.startsWith('f/')) return handleMediaGet(path, req, env)
     if (req.method === 'DELETE' && path.startsWith('f/')) return handleMediaDelete(path, req, env)
-    if (req.method === 'POST' && path === 'a/hit') return handleAudienceHit(req, env)
-    if (req.method === 'POST' && path === 'a/stats-batch') return handleAudienceStatsBatch(req, env)
-    if (req.method === 'GET' && path === 'a/stats') return handleAudienceStats(req, env, url)
     if (req.method === 'GET' && path) return handleGet(path, env)
     if (req.method === 'DELETE' && path) return handleDelete(path, req, env)
     return new Response('Not Found', { status: 404 })
