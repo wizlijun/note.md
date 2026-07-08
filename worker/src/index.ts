@@ -896,15 +896,37 @@ async function handleMcp(req: Request, env: Env, baseUrl: string): Promise<Respo
 async function handleAudienceStats(req: Request, env: Env, url: URL): Promise<Response> {
   const slug = url.searchParams.get('slug') ?? ''
   if (!AUDIENCE_SLUG_RE.test(slug)) return new Response('bad slug', { status: 400 })
-  const auth = req.headers.get('Authorization') ?? ''
-  const token = auth.startsWith('Bearer ') ? auth.slice(7) : ''
-  const rec = await env.SHARES.getWithMetadata<KvMeta>(slug)
-  if (!rec || !rec.metadata) return new Response('not found', { status: 404 })
-  if (!token || token !== rec.metadata.edit_token) return new Response('forbidden', { status: 403 })
+  // Authenticated by the author's share API key (same key used to publish), not
+  // per-share edit_token — the key holder owns all their shares' stats.
+  if (unauthorized(req, env)) return new Response('Unauthorized', { status: 401 })
   const stub = env.AUDIENCE.get(env.AUDIENCE.idFromName(slug))
   const doUrl = new URL('https://do/stats')
   doUrl.search = url.search
   return stub.fetch(doUrl.toString())
+}
+
+/**
+ * Batch audience stats: authenticate once with the share API key, fan out to
+ * each slug's Durable Object in parallel, return a `{ slug: stats }` map.
+ * Body: `{ slugs: string[], from?: number, to?: number }` (epoch ms).
+ */
+async function handleAudienceStatsBatch(req: Request, env: Env): Promise<Response> {
+  if (unauthorized(req, env)) return new Response('Unauthorized', { status: 401 })
+  let body: { slugs?: unknown; from?: unknown; to?: unknown }
+  try { body = await req.json() } catch { return new Response('bad json', { status: 400 }) }
+  const slugs = Array.isArray(body.slugs)
+    ? [...new Set(body.slugs.filter((s): s is string => typeof s === 'string' && AUDIENCE_SLUG_RE.test(s)))].slice(0, 500)
+    : []
+  const qs = new URLSearchParams()
+  if (typeof body.from === 'number' && isFinite(body.from)) qs.set('from', String(body.from))
+  if (typeof body.to === 'number' && isFinite(body.to)) qs.set('to', String(body.to))
+  const search = qs.toString()
+  const entries = await Promise.all(slugs.map(async (slug) => {
+    const stub = env.AUDIENCE.get(env.AUDIENCE.idFromName(slug))
+    const res = await stub.fetch(`https://do/stats${search ? '?' + search : ''}`)
+    return [slug, await res.json()] as const
+  }))
+  return Response.json(Object.fromEntries(entries))
 }
 
 async function handleAudienceHit(req: Request, env: Env): Promise<Response> {
@@ -927,6 +949,7 @@ export default {
     if (req.method === 'GET' && path.startsWith('f/')) return handleMediaGet(path, req, env)
     if (req.method === 'DELETE' && path.startsWith('f/')) return handleMediaDelete(path, req, env)
     if (req.method === 'POST' && path === 'a/hit') return handleAudienceHit(req, env)
+    if (req.method === 'POST' && path === 'a/stats-batch') return handleAudienceStatsBatch(req, env)
     if (req.method === 'GET' && path === 'a/stats') return handleAudienceStats(req, env, url)
     if (req.method === 'GET' && path) return handleGet(path, env)
     if (req.method === 'DELETE' && path) return handleDelete(path, req, env)

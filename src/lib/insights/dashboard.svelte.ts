@@ -7,19 +7,16 @@ export interface ShareResolution {
   path: string | null
   label: string
   slug: string | null
-  editToken: string | null
 }
 
 export interface AssembleDeps {
   readDevices: () => Promise<DeviceAnalytics[]>
   resolveShare: (docKey: string) => ShareResolution
-  /** Fetch audience stats for a shared slug (fail-soft → null). Receives the
-   *  per-doc edit token + range + baseUrl the assembly already has in hand. */
-  fetchAudience: (slug: string, editToken: string, from: string, to: string, baseUrl: string) => Promise<AudienceStats | null>
+  /** Fetch audience stats for MANY slugs in one request (fail-soft → {}). */
+  fetchAudienceBatch: (slugs: string[], from: string, to: string) => Promise<Record<string, AudienceStats>>
   /** docKeys of every shared doc — lets audience-only shares (read online but not
    *  opened by the owner in range) still surface. */
   listSharedDocKeys: () => string[]
-  baseUrl: string
   weights: ValueWeights
 }
 
@@ -51,28 +48,30 @@ export async function assembleRows(deps: AssembleDeps, fromDay: string, toDay: s
   const devices = await deps.readDevices()
   const merged = mergeDeviceAnalytics(devices)
   const owner = aggregateRange(merged, fromDay, toDay)
-  const ownerKeys = new Set(Object.keys(owner))
+  const ownerKeys = Object.keys(owner)
+  const extraKeys = deps.listSharedDocKeys().filter((k) => !(k in owner))
 
-  // Docs the owner read/edited in range (audience joined for shared ones).
-  const ownerRows = await Promise.all(Object.entries(owner).map(async ([docKey, c]) => {
-    const share = deps.resolveShare(docKey)
-    let aud: AudienceStats | null = null
-    if (share.slug && share.editToken) {
-      aud = await deps.fetchAudience(share.slug, share.editToken, fromDay, toDay, deps.baseUrl)
-    }
-    return makeRow(docKey, c, share, aud, deps.weights)
-  }))
+  // Resolve shares for every candidate doc, then fetch ALL their audience stats
+  // in a single batch request.
+  const allKeys = [...ownerKeys, ...extraKeys]
+  const shareByKey = new Map(allKeys.map((k) => [k, deps.resolveShare(k)]))
+  const slugs = [...new Set(allKeys.map((k) => shareByKey.get(k)!.slug).filter((s): s is string => !!s))]
+  const audMap = await deps.fetchAudienceBatch(slugs, fromDay, toDay)
 
-  // Shared docs with audience engagement in range but NO owner activity — so a
-  // doc read online (but not opened by the owner in range) still appears.
-  const extraKeys = deps.listSharedDocKeys().filter((k) => !ownerKeys.has(k))
-  const extraRows = (await Promise.all(extraKeys.map(async (docKey) => {
-    const share = deps.resolveShare(docKey)
-    if (!share.slug || !share.editToken) return null
-    const aud = await deps.fetchAudience(share.slug, share.editToken, fromDay, toDay, deps.baseUrl)
-    if (!aud || (aud.total_ms <= 0 && aud.unique_readers <= 0)) return null
-    return makeRow(docKey, emptyCounters(0), share, aud, deps.weights)
-  }))).filter((r): r is InsightRow => r !== null)
+  const ownerRows = ownerKeys.map((docKey) => {
+    const share = shareByKey.get(docKey)!
+    const aud = share.slug ? audMap[share.slug] ?? null : null
+    return makeRow(docKey, owner[docKey], share, aud, deps.weights)
+  })
+
+  // Shared docs read online but with no owner activity in range.
+  const extraRows = extraKeys.flatMap((docKey) => {
+    const share = shareByKey.get(docKey)!
+    if (!share.slug) return []
+    const aud = audMap[share.slug] ?? null
+    if (!aud || (aud.total_ms <= 0 && aud.unique_readers <= 0)) return []
+    return [makeRow(docKey, emptyCounters(0), share, aud, deps.weights)]
+  })
 
   return [...ownerRows, ...extraRows].sort((a, b) => b.value - a.value)
 }

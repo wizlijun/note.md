@@ -3,7 +3,7 @@
   import { createAnalyticsStore, type Fs } from '../lib/insights/store.svelte'
   import { assembleRows, type AssembleDeps, type InsightRow } from '../lib/insights/dashboard.svelte'
   import { DEFAULT_WEIGHTS, presetRange, type Preset } from '../lib/insights/value'
-  import { fetchAudienceStats } from '../lib/insights/audience'
+  import { fetchAudienceStatsBatch } from '../lib/insights/audience'
   import { localTzOffsetMinutes, docKeyFor } from '../lib/insights/model'
   import { flushNow } from '../lib/insights/tracker.svelte'
   import { getDeviceId, getPluginScopedKey } from '../lib/settings.svelte'
@@ -30,6 +30,7 @@
   function buildDeps(): AssembleDeps {
     const vaultRoot = sotvaultStore.vaultRoot
     const baseUrl = (getPluginScopedKey('share.baseUrl') as string | undefined) ?? ''
+    const apiKey = (getPluginScopedKey('share.apiKey') as string | undefined) ?? ''
     return {
       readDevices: () =>
         createAnalyticsStore({
@@ -50,13 +51,11 @@
           path,
           label: path ? basename(path) : docKey,
           slug: (rec && 'slug' in rec ? rec.slug : null) ?? null,
-          editToken: (rec && 'edit_token' in rec ? rec.edit_token : null) ?? null,
         }
       },
-      fetchAudience: (slug, editToken, from, to, base) =>
-        fetchAudienceStats(base, editToken, slug, from, to),
+      // One batch request for every shared doc, authenticated with the share API key.
+      fetchAudienceBatch: (slugs, from, to) => fetchAudienceStatsBatch(baseUrl, apiKey, slugs, from, to),
       listSharedDocKeys: () => allShareRecordPaths().map((p) => docKeyFor(p, vaultRoot)),
-      baseUrl,
       weights: DEFAULT_WEIGHTS,
     }
   }

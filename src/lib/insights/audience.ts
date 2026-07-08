@@ -12,10 +12,13 @@ export function dayRangeToEpoch(fromDay: string, toDay: string): { from: number;
   }
 }
 
-/** Fetch audience aggregates for one shared slug. Fail-soft: returns null on any error. */
+/**
+ * Fetch audience aggregates for one shared slug. Authenticated with the share
+ * API key (the same key used to publish). Fail-soft: returns null on any error.
+ */
 export async function fetchAudienceStats(
   baseUrl: string,
-  editToken: string,
+  apiKey: string,
   slug: string,
   fromDay: string,
   toDay: string,
@@ -24,10 +27,39 @@ export async function fetchAudienceStats(
     const base = baseUrl.replace(/\/+$/, '')
     const { from, to } = dayRangeToEpoch(fromDay, toDay)
     const url = `${base}/a/stats?slug=${encodeURIComponent(slug)}&from=${from}&to=${to}`
-    const res = await fetch(url, { headers: { Authorization: `Bearer ${editToken}` } })
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${apiKey}` } })
     if (!res.ok) return null
     return (await res.json()) as AudienceStats
   } catch {
     return null
+  }
+}
+
+/**
+ * Fetch audience aggregates for many slugs in ONE request (the author's share
+ * API key authenticates all of them). Returns a `{ slug: stats }` map; slugs
+ * with no data map to `{ total_ms: 0, unique_readers: 0, days: {} }`. Fail-soft:
+ * returns `{}` on any error.
+ */
+export async function fetchAudienceStatsBatch(
+  baseUrl: string,
+  apiKey: string,
+  slugs: string[],
+  fromDay: string,
+  toDay: string,
+): Promise<Record<string, AudienceStats>> {
+  if (slugs.length === 0) return {}
+  try {
+    const base = baseUrl.replace(/\/+$/, '')
+    const { from, to } = dayRangeToEpoch(fromDay, toDay)
+    const res = await fetch(`${base}/a/stats-batch`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({ slugs, from, to }),
+    })
+    if (!res.ok) return {}
+    return (await res.json()) as Record<string, AudienceStats>
+  } catch {
+    return {}
   }
 }

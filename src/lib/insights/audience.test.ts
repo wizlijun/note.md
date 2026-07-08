@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { fetchAudienceStats, dayRangeToEpoch } from './audience'
+import { fetchAudienceStats, fetchAudienceStatsBatch, dayRangeToEpoch } from './audience'
 
 afterEach(() => vi.restoreAllMocks())
 
@@ -29,5 +29,31 @@ describe('fetchAudienceStats', () => {
   it('returns null on a network error', async () => {
     vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('offline'))
     expect(await fetchAudienceStats('https://w/', 't', '2026-07-08-foo-x7k', '2026-07-08', '2026-07-08')).toBeNull()
+  })
+})
+
+describe('fetchAudienceStatsBatch', () => {
+  it('POSTs all slugs + range in one request with the API key, returns the map', async () => {
+    const spy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ 'slug-a': { total_ms: 5000, unique_readers: 2, days: {} } }), { status: 200 }),
+    )
+    const out = await fetchAudienceStatsBatch('https://w.example/', 'apikey', ['slug-a', 'slug-b'], '2026-07-08', '2026-07-08')
+    expect(out['slug-a'].total_ms).toBe(5000)
+    const [url, init] = spy.mock.calls[0]
+    expect(String(url)).toBe('https://w.example/a/stats-batch')
+    expect((init as RequestInit).method).toBe('POST')
+    expect((init as RequestInit).headers).toMatchObject({ Authorization: 'Bearer apikey' })
+    const body = JSON.parse((init as RequestInit).body as string)
+    expect(body.slugs).toEqual(['slug-a', 'slug-b'])
+    expect(body.from).toBe(Date.UTC(2026, 6, 8, 0, 0, 0, 0))
+  })
+  it('returns {} without fetching when there are no slugs', async () => {
+    const spy = vi.spyOn(globalThis, 'fetch')
+    expect(await fetchAudienceStatsBatch('https://w/', 'k', [], '2026-07-08', '2026-07-08')).toEqual({})
+    expect(spy).not.toHaveBeenCalled()
+  })
+  it('returns {} on a non-ok response or network error', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('no', { status: 401 }))
+    expect(await fetchAudienceStatsBatch('https://w/', 'k', ['s'], '2026-07-08', '2026-07-08')).toEqual({})
   })
 })
