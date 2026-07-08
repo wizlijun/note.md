@@ -21,6 +21,9 @@
   import VaultSettingsTab from './VaultSettingsTab.svelte'
   import OpenClawSettingsTab from './OpenClawSettingsTab.svelte'
   import OpenClawDevicesTab from './OpenClawDevicesTab.svelte'
+  import InsightsPanel from './InsightsPanel.svelte'
+  import { isPluginEnabled } from '../lib/settings.svelte'
+  import { sotvaultStore } from '../lib/sotvault.svelte'
 
   let { open = $bindable(false) }: { open: boolean } = $props()
 
@@ -343,6 +346,9 @@
         {#if isPluginActive('openclaw-chat')}
           <button class:active={selectedTab === 'openclaw'} onclick={() => selectedTab = 'openclaw'}>{t('settings.tab.openclaw')}</button>
         {/if}
+        {#if isPluginEnabled('reading-insights') && sotvaultStore.vaultRoot !== null}
+          <button class:active={selectedTab === 'insights'} onclick={() => selectedTab = 'insights'}>{t('settings.tab.insights')}</button>
+        {/if}
         {#each pluginTabs as ptab (ptab.pluginId)}
           <button class:active={selectedTab === ptab.pluginId} onclick={() => selectedTab = ptab.pluginId}>{pluginTabLabel(ptab.manifest, ptab.label)}</button>
         {/each}
@@ -623,6 +629,8 @@
       {:else if selectedTab === 'openclaw' && isPluginActive('openclaw-chat')}
         <OpenClawSettingsTab />
         <OpenClawDevicesTab />
+      {:else if selectedTab === 'insights'}
+        <InsightsPanel />
       {:else}
         {#each pluginTabs as ptab (ptab.pluginId)}
           {#if selectedTab === ptab.pluginId}

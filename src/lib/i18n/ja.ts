@@ -379,6 +379,7 @@ export const ja: Record<keyof Messages, string> = {
   'settings.tab.updates': '更新',
   'settings.tab.vault': 'Vault',
   'settings.tab.openclaw': 'OpenClaw',
+  'settings.tab.insights': 'インサイト',
 
   // Settings → Themes
   'settings.themes': 'テーマ',

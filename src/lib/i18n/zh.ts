@@ -379,6 +379,7 @@ export const zh: Record<keyof Messages, string> = {
   'settings.tab.updates': '更新',
   'settings.tab.vault': 'Vault',
   'settings.tab.openclaw': 'OpenClaw',
+  'settings.tab.insights': '阅读洞察',
 
   // Settings → Themes
   'settings.themes': '主题',

@@ -384,6 +384,7 @@ export const en = {
   'settings.tab.updates': 'Updates',
   'settings.tab.vault': 'Vault',
   'settings.tab.openclaw': 'OpenClaw',
+  'settings.tab.insights': 'Insights',
 
   // Settings → Themes
   'settings.themes': 'Themes',
