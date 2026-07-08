@@ -31,10 +31,11 @@ export default defineConfig({
       input: {
         index: 'index.html',
         chat: 'chat.html',
+        insights: 'insights.html',
       },
     },
   },
   optimizeDeps: {
-    entries: ['index.html', 'chat.html'],
+    entries: ['index.html', 'chat.html', 'insights.html'],
   },
 })

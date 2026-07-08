@@ -451,6 +451,7 @@ export const ja: Record<keyof Messages, string> = {
   'insights.col.value': '価値',
   'insights.generateReport': 'レポート生成',
   'insights.refresh': '更新',
+  'insights.windowTitle': 'リーディングインサイト',
   'insights.reportSaved': 'レポートを保存しました',
   'insights.reportFailed': 'レポート生成に失敗しました',
 

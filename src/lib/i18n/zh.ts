@@ -451,6 +451,7 @@ export const zh: Record<keyof Messages, string> = {
   'insights.col.value': '价值',
   'insights.generateReport': '生成报告',
   'insights.refresh': '刷新',
+  'insights.windowTitle': '阅读洞察数据',
   'insights.reportSaved': '报告已保存',
   'insights.reportFailed': '生成报告失败',
 

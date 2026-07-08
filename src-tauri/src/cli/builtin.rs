@@ -108,7 +108,7 @@ pub fn render_help(
     out.push_str("mdedit — M↓ command-line interface\n");
     out.push_str(&format!("Version: {version} (plugin API {PLUGIN_API_VERSION})\n\n"));
     out.push_str("USAGE:\n");
-    out.push_str("  mdedit <command> [args...]\n");
+    out.push_str("  mdedit [global options] <command> [args...]\n");
     for m in manifests {
         let is_on = crate::plugin_host::resolve_enabled(m, enabled);
         if !is_on { continue }
@@ -122,8 +122,8 @@ pub fn render_help(
         }
     }
     out.push_str("\nCORE COMMANDS:\n");
-    out.push_str("  help          Show this help\n");
-    out.push_str("  version       Print version\n");
+    out.push_str("  help          Show this help (aliases: -h, --help)\n");
+    out.push_str("  version       Print version (aliases: -v, --version)\n");
     out.push_str("  plugin        Manage plugins (list, enable, disable, info)\n");
     out.push_str("  openclaw      Install the M\u{2193} chat plugin into OpenClaw (install, uninstall, status)\n");
 
@@ -161,6 +161,20 @@ pub fn render_help(
         }
     }
 
+    out.push_str("\nGLOBAL OPTIONS:\n");
+    out.push_str("  --json              Emit machine-readable JSON instead of text\n");
+    out.push_str("  -q, --quiet         Suppress non-essential status output\n");
+    out.push_str("  -y, --yes           Assume 'yes' for confirmation prompts\n");
+    out.push_str("  --no-clipboard      Don't copy the result to the clipboard (default: copy)\n");
+    out.push_str("  --plugin-dir <dir>  Override the plugin discovery directory\n");
+
+    out.push_str("\nEXIT CODES:\n");
+    out.push_str("  0    Success\n");
+    out.push_str("  2    File or argument error\n");
+    out.push_str("  3    Plugin disabled\n");
+    out.push_str("  4    Network or server error\n");
+    out.push_str("  127  Unknown command\n");
+
     out.push_str("\nRun 'mdedit help <command>' for details on a specific command.\n");
     out.push_str("Run 'mdedit help --all' to see disabled / unavailable commands too.\n");
     out
@@ -171,6 +185,9 @@ fn render_help_topic(
     manifests: &[PluginManifest],
     enabled: &HashMap<String, bool>,
 ) -> String {
+    if let Some(core) = render_core_topic(topic) {
+        return core;
+    }
     for m in manifests {
         for entry in &m.cli {
             if entry.subcommand == topic || entry.aliases.iter().any(|a| a == topic) {
@@ -219,6 +236,70 @@ fn render_help_topic(
         }
     }
     format!("mdedit: unknown topic '{topic}'. Run 'mdedit help' to see commands.\n")
+}
+
+/// Detailed help for the built-in core commands.
+fn render_core_topic(topic: &str) -> Option<String> {
+    let body = match topic {
+        "help" | "-h" | "--help" => "\
+mdedit help — Show help for mdedit and its commands
+
+USAGE:
+  mdedit help [command]
+  mdedit help --all
+
+DESCRIPTION:
+  With no argument, lists every available command. Pass a command name to see
+  its arguments, flags, and exit codes. Add --all to also list commands that
+  are provided by disabled plugins.
+
+ALIASES:
+  -h, --help
+",
+        "version" | "-v" | "--version" => "\
+mdedit version — Print the mdedit version and plugin API level
+
+USAGE:
+  mdedit version [--json]
+
+ALIASES:
+  -v, --version
+",
+        "plugin" => "\
+mdedit plugin — Manage plugins
+
+USAGE:
+  mdedit plugin list                 List installed plugins and their state
+  mdedit plugin enable  <plugin-id>  Enable a plugin
+  mdedit plugin disable <plugin-id>  Disable a plugin
+  mdedit plugin info    <plugin-id>  Show details for a single plugin
+
+NOTES:
+  Use 'mdedit plugin list' to discover plugin ids. Enable/disable persist to
+  the app's settings and affect both the CLI and the desktop app.
+",
+        "openclaw" => "\
+mdedit openclaw — Manage the M\u{2193} chat plugin inside OpenClaw
+
+USAGE:
+  mdedit openclaw status             Show whether the plugin is installed (default)
+  mdedit openclaw install [--force]  Install the plugin into OpenClaw
+  mdedit openclaw uninstall [--keep-files]
+                                     Remove the plugin from OpenClaw
+
+FLAGS:
+  --force        Reinstall even if already present
+  --keep-files   Leave plugin files on disk when uninstalling
+",
+        _ => return None,
+    };
+
+    let mut out = body.to_string();
+    out.push_str("\nEXIT CODES:\n");
+    out.push_str("  0    Success\n");
+    out.push_str("  1    Runtime error\n");
+    out.push_str("  2    File or argument error\n");
+    Some(out)
 }
 
 pub fn render_plugin_list(
@@ -320,6 +401,7 @@ mod tests {
             settings: None,
             host_capabilities: vec![],
             timeout_seconds: 30,
+            i18n: HashMap::new(),
             cli: vec![CliEntry {
                 subcommand: "share".to_string(),
                 aliases: vec!["--share".to_string()],
@@ -347,6 +429,22 @@ mod tests {
         let out = render_help(None, true, &[share_manifest()], &enabled);
         assert!(out.contains("DISABLED COMMANDS:"));
         assert!(out.contains("mdedit plugin enable share"));
+    }
+    #[test] fn help_lists_global_options() {
+        let out = render_help(None, false, &[], &HashMap::new());
+        assert!(out.contains("GLOBAL OPTIONS:"));
+        assert!(out.contains("--json"));
+        assert!(out.contains("-q, --quiet"));
+        assert!(out.contains("-y, --yes"));
+        assert!(out.contains("--no-clipboard"));
+        assert!(out.contains("--plugin-dir"));
+    }
+    #[test] fn help_topic_resolves_core_commands() {
+        for topic in ["help", "version", "plugin", "openclaw"] {
+            let out = render_help(Some(topic), false, &[], &HashMap::new());
+            assert!(out.contains(&format!("mdedit {topic}")), "topic {topic} not documented");
+            assert!(!out.contains("unknown topic"), "topic {topic} rendered as unknown");
+        }
     }
     #[test] fn help_topic_shows_per_subcommand_detail() {
         let mut enabled = HashMap::new();

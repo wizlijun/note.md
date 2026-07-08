@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "description": "Track your reading and editing engagement per document, stored in your Vault.",
   "kind": "builtin",
-  "default_enabled": false,
+  "default_enabled": true,
   "available_when": "vaultConfigured",
   "host_capabilities": [],
   "i18n": {

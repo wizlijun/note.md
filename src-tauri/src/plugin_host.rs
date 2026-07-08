@@ -695,7 +695,7 @@ mod cli_helpers_tests {
             description: None, kind: PluginKind::External, binary: Some("bin".into()),
             default_enabled: None, menus: vec![], context_menus: vec![],
             settings: None, host_capabilities: vec![], timeout_seconds: 30,
-            cli: vec![],
+            i18n: HashMap::new(), cli: vec![],
         };
         assert_eq!(resolve_enabled(&manifest, &enabled_map), true);
     }
@@ -708,7 +708,7 @@ mod cli_helpers_tests {
             description: None, kind: PluginKind::Builtin, binary: None,
             default_enabled: Some(false), menus: vec![], context_menus: vec![],
             settings: None, host_capabilities: vec![], timeout_seconds: 30,
-            cli: vec![],
+            i18n: HashMap::new(), cli: vec![],
         };
         assert_eq!(resolve_enabled(&manifest, &enabled_map), false);
     }
@@ -728,7 +728,7 @@ mod cli_helpers_tests {
             description: None, kind: PluginKind::Builtin, binary: None,
             default_enabled: Some(false), menus: vec![], context_menus: vec![],
             settings: None, host_capabilities: vec![], timeout_seconds: 30,
-            cli: vec![],
+            i18n: HashMap::new(), cli: vec![],
         };
         assert_eq!(resolve_enabled(&manifest, &enabled_map), true);
     }

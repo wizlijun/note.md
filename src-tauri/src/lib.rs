@@ -363,6 +363,27 @@ fn show_chat_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
     }
 }
 
+fn show_insights_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
+    use tauri::WebviewUrl;
+    let win = app.get_webview_window("insights").or_else(|| {
+        tauri::WebviewWindowBuilder::new(app, "insights", WebviewUrl::App("insights.html".into()))
+            .title("Reading Insights")
+            .inner_size(900.0, 640.0)
+            .min_inner_size(520.0, 360.0)
+            .resizable(true)
+            .decorations(true)
+            .visible(false)
+            .build()
+            .map_err(|e| eprintln!("[insights] window build failed: {e}"))
+            .ok()
+    });
+    if let Some(w) = win {
+        let _ = w.show();
+        let _ = w.unminimize();
+        let _ = w.set_focus();
+    }
+}
+
 #[tauri::command]
 async fn editor_show_and_open_path(app: tauri::AppHandle, path: String) -> Result<(), String> {
     if let Some(win) = app.get_webview_window("main") {
@@ -744,6 +765,10 @@ pub fn run() {
                         }
                         return;
                     }
+                    if event.id().0.as_str() == "open-insights" {
+                        show_insights_window(app);
+                        return;
+                    }
                     let _ = app.emit("menu-event", event.id().0.as_str());
                 });
 
@@ -960,6 +985,7 @@ fn menu_label(locale: &str, key: &str) -> String {
         "edit.find" => ("Find…", "查找…", "検索…"),
         "edit.findReplace" => ("Find and Replace…", "查找和替换…", "検索と置換…"),
         "view.toggleMode" => ("Toggle Source / Rich", "切换源码 / 富文本", "ソース / リッチを切り替え"),
+        "view.insights" => ("Reading Insights…", "阅读洞察数据…", "リーディングインサイト…"),
         "window.zoomIn" => ("Zoom In", "放大", "拡大"),
         "window.zoomOut" => ("Zoom Out", "缩小", "縮小"),
         "window.actualSize" => ("Actual Size", "实际大小", "実際のサイズ"),
@@ -1195,7 +1221,9 @@ fn build_menu<R: tauri::Runtime>(
                 .accelerator("Cmd+/")
                 .build(app)?,
         )
-        .item(&PredefinedMenuItem::fullscreen(app, None)?);
+        .item(&PredefinedMenuItem::fullscreen(app, None)?)
+        .separator()
+        .item(&MenuItemBuilder::with_id("open-insights", menu_label(locale, "view.insights")).build(app)?);
     for it in plugin_items.iter().filter(|p| p.location == "view") {
         let mut b = MenuItemBuilder::with_id(&it.id, &it.label);
         if let Some(s) = &it.shortcut { b = b.accelerator(s); }

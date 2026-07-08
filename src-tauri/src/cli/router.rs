@@ -151,6 +151,7 @@ mod tests {
             settings: None,
             host_capabilities: vec![],
             timeout_seconds: 30,
+            i18n: std::collections::HashMap::new(),
             cli: vec![CliEntry {
                 subcommand: sub.to_string(),
                 aliases: aliases.iter().map(|s| s.to_string()).collect(),
