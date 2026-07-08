@@ -3,7 +3,9 @@
 [English](README.md) · [简体中文](README.zh-CN.md)
 
 A minimal text editor for macOS — Markdown, HTML, and source code, with both
-**source** and **rich** (WYSIWYG) modes, a tabbed window, and a persistent menu-bar tray.
+**source** and **rich** (WYSIWYG) modes, a tabbed window, a folder-tree sidebar,
+and a persistent menu-bar tray. The whole interface — including the native macOS
+menu bar and tray — speaks **English, 简体中文, and 日本語**.
 
 The product name is **M↓** (an *M* with a downward arrow, hinting at *markdown*);
 the underlying repo, crate, and bundle identifier remain `mdeditor` /
@@ -32,10 +34,23 @@ native-UI (AppKit/SwiftUI) app.
 - **Notification bar** — all messages (errors, success, info) now appear in a
   Typora-style bar below the tab strip instead of native OS dialogs; includes
   an optional auto-dismiss checkbox.
-- **Localizable UI (i18n)** — every interface string is routed through a
-  lightweight in-house layer (`t()` over a flat-keyed English catalog with
-  per-key fallback), so the UI is fully localizable. English ships today;
-  adding a language is registering a partial catalog — no code changes.
+- **Trilingual UI (i18n)** — the entire interface ships in **English, Simplified
+  Chinese (简体中文), and Japanese (日本語)**, switchable live in **Preferences →
+  Core → Language** (default English; no restart). Coverage is complete: every
+  component and dialog, the **native macOS menu bar**, the standard system items
+  (Undo / Copy / Paste / Quit / Services …, localized via text overrides so they
+  follow the in-app language rather than the OS language), the **menu-bar tray**
+  dropdown, and each plugin's menu / settings / name-and-description labels.
+  Strings run through a lightweight in-house layer (`t()` over a flat-keyed,
+  type-checked English base catalog with per-key fallback); the Chinese and
+  Japanese packs are complete and enforced at compile time. Adding a language is
+  dropping in one catalog object — no code changes.
+- **Folder View** — a resizable left sidebar showing the current file's directory
+  as a live tree; click to open files, expand folders, and it auto-refreshes as
+  files change on disk. A **Find** button filters the tree by a case-insensitive
+  **regex**, searching recursively into every subfolder and revealing matches
+  along with their parent folders. Right-click any node → **Reveal in Finder**.
+  Toggle it from the **View** menu.
 - **Tabs** with dirty indicator, drag-to-reorder, and confirm-on-close
 - **Source / rich toggle** (`Cmd+/`) — textarea ↔ WYSIWYG
 - **Markdown rendering** with KaTeX math, Mermaid diagrams, and highlight.js code
@@ -110,7 +125,7 @@ native-UI (AppKit/SwiftUI) app.
   branded card with a coloured ▶ icon (red for YouTube, blue for Bilibili);
   single-clicking opens the video in the default browser.
 - **Image resize toolbar** — click any image in rich mode to show a floating
-  25 % / 50 % / 75 % / 100 % / 原始 toolbar above it. The selected width is
+  25 % / 50 % / 75 % / 100 % / Original toolbar above it. The selected width is
   stored in the `title` attribute (`![alt](src "width=50%")`), which the editor
   renders as `img.style.width`. Clicking the image toolbar backdrop or anywhere
   outside dismisses it; right-click on an image with a link mark opens the linked
@@ -122,7 +137,7 @@ native-UI (AppKit/SwiftUI) app.
   themes with the system color scheme. Right-click a cell for a context menu —
   insert / delete rows or columns around the focused cell, or clear the
   selected range (`Delete` clears too). Source mode still available via
-  `Cmd+/`. A `/电子表格` slash command inserts an inline spreadsheet block
+  `Cmd+/`. A `/spreadsheet` slash command inserts an inline spreadsheet block
   inside Markdown (typing inside an embedded grid no longer gets stolen by
   the outer ProseMirror editor).
 - **Rich mode block shortcuts** — keyboard shortcuts to insert or convert blocks
@@ -228,7 +243,7 @@ plugin in **Preferences → Plugins** to remove its subcommand from `mdedit`.
 7. **Cmd+Shift+S** → save dialog → save to new path → tab title updates to new filename
 8. **Close dirty tab (× or Cmd+W)** → confirm dialog appears (Save / Discard / Cancel)
 9. **Cmd+/** → toggles between source mode (textarea) and rich mode (WYSIWYG)
-10. **Re-launch app** — Open Recent submenu is not yet implemented in v0.1; recent list is stored in `~/Library/Application Support/com.laobu.mdeditor/settings.json`
+10. **Re-launch app** — **File → Open Recent** lists recently opened files (also mirrored across devices through the Vault when the Sync-to-Vault plugin is on); recent list persists in `~/Library/Application Support/com.laobu.mdeditor/settings.json`
 11. **Toggle Preferences → Enable auto-save** (Cmd+,), edit, wait 1s, verify file saved silently
 12. **Open a md with KaTeX, mermaid, code block** → all render in rich mode
 13. **Cmd+W to close last tab** → empty state appears (window does not close)
@@ -282,25 +297,25 @@ plugin in **Preferences → Plugins** to remove its subcommand from `mdedit`.
     `settings.merge` action → re-launch M↓ → fixture's command sees the
     merged value back in the next request's `settings` field.
 47. **Plugin platform — timeout**: Replace fixture binary with one that
-    sleeps forever → click → toast `❌ <name>: 未响应（30s）` appears within
+    sleeps forever → click → toast `❌ <name>: no response (30s)` appears within
     ~30s and editing remains responsive throughout.
 48. **Plugin platform — protocol error**: Replace fixture binary with one
-    that prints `not json\n` → click → toast `❌ <name>: 协议错误` with
+    that prints `not json\n` → click → toast `❌ <name>: protocol error` with
     expandable detail showing the offending stdout fragment.
 49. **Plugin: install share** — run `pnpm build:mdshare`, then in `worker/`
     deploy via `wrangler deploy` and copy the URL + API key into M↓
     Preferences → Share. Restart M↓.
-50. `Cmd+Shift+L` on a saved markdown file → toast "✅ 分享成功（已复制）：…";
+50. `Cmd+Shift+L` on a saved markdown file → toast "✅ Shared (copied)";
     paste from clipboard → URL works in browser.
-51. Same file, edit a paragraph, `Cmd+Shift+L` again → toast "✅ 内容已更新（链接已复制）";
+51. Same file, edit a paragraph, `Cmd+Shift+L` again → toast "✅ Content updated (link copied)";
     same URL still in clipboard; recipient page reflects new content.
-52. File → Unshare Current File → toast "✅ 已撤销分享"; reload recipient
+52. File → Unshare Current File → toast "✅ Share revoked"; reload recipient
     page → 410 page shown.
 53. Right-click a tab → "Share This Tab..." appears; click → publishes.
 54. Open M↓ on iPhone Safari → recipient page is readable, no horizontal
     scroll, code blocks scroll within their container.
 55. Switch system to dark mode → recipient page automatically switches.
-56. Disconnect network, click `Cmd+Shift+L` → toast "❌ Share: 网络错误";
+56. Disconnect network, click `Cmd+Shift+L` → toast "❌ Share: Network error, please check your connection";
     M↓ remains responsive throughout.
 57. **Share with Mermaid block** — share a markdown file containing a
     ` ```mermaid ` flowchart → recipient page shows the rendered SVG, not
@@ -310,9 +325,9 @@ plugin in **Preferences → Plugins** to remove its subcommand from `mdedit`.
     `Cmd+S` is no-op (image is read-only).
 59. **Drag image into window** — drag a `.png` from Finder onto M↓'s
     window → opens as a preview tab (no longer rejected with toast).
-60. **Share image** — open an image, `Cmd+Shift+L` → toast "✅ 图片分享成功
-    （已复制）：https://.../f/<id>.<ext>"; paste from clipboard → URL works
-    in browser; image displays at full quality.
+60. **Share image** — open an image, `Cmd+Shift+L` → toast "✅ Image shared
+    (copied)" and the URL `https://.../f/<id>.<ext>` in the clipboard; paste →
+    URL works in browser; image displays at full quality.
 61. **External image change** — replace the open image file from a shell
     (e.g. `cp other.png foo.png`). Within ~1 s the preview refreshes to
     the new content (no banner — images can't be dirty).
@@ -329,11 +344,11 @@ plugin in **Preferences → Plugins** to remove its subcommand from `mdedit`.
     rule).
 66. **md2pdf timeout** — temporarily edit
     `src-tauri/plugins/md2pdf/manifest.json` `timeout_seconds: 1`, export
-    a sizable doc → toast `❌ md2pdf: 未响应（1s）`, M↓ stays responsive.
+    a sizable doc → toast `❌ md2pdf: no response (1s)`, M↓ stays responsive.
     Restore the manifest after the smoke test.
 67. **md2pdf write failure** — try saving a PDF into a read-only directory
-    → toast `❌ md2pdf: 渲染失败` (or `写入失败` depending on which step
-    failed); M↓ stays responsive.
+    → an `❌ md2pdf: …` failure toast (render/write, from the plugin);
+    M↓ stays responsive.
 68. **Theme switch (Light)** — open a markdown file with H1/H2/H3,
     blockquote, bullet list, table, hr → Preferences (Cmd+,) → Themes →
     switch *Light theme* to "Effie". Editor immediately updates to
@@ -430,8 +445,8 @@ plugin in **Preferences → Plugins** to remove its subcommand from `mdedit`.
     paste in rich or source mode → `[report.pdf](url)` link; renders
     as a 📄 chip/card in rich mode.
 96. **Image resize toolbar** — click an image in rich mode → toolbar
-    appears above it with 25%/50%/75%/100%/原始 buttons; click 50% →
-    image shrinks; source shows `"width=50%"` in title attr; click 原始
+    appears above it with 25%/50%/75%/100%/Original buttons; click 50% →
+    image shrinks; source shows `"width=50%"` in title attr; click Original
     → title cleared.
 97. **YouTube card** — copy `https://www.youtube.com/watch?v=dQw4w9WgXcQ`,
     paste in rich mode → red ▶ card appears; title updates from oEmbed
@@ -442,6 +457,18 @@ plugin in **Preferences → Plugins** to remove its subcommand from `mdedit`.
 99. **Video card chip vs full-width** — paste a YouTube URL inline
     (within a sentence) → small chip with red ▶ icon; paste on its
     own line → full-width card.
+100. **Folder View** — View → Folder View (or `Cmd+Shift+E`) opens the left
+     sidebar tree of the current file's folder; click a file → opens in a tab;
+     click the **Find** icon, type a regex (e.g. `\.md$`) → the tree filters
+     recursively, showing matches under their parent folders; the ✕ clears it.
+     Right-click any node → **Reveal in Finder** selects it in Finder. Create a
+     file in that folder from a shell → the tree refreshes within ~1 s.
+101. **Language switch** — Preferences → Core → **Language** → pick 简体中文 →
+     the whole UI (dialogs, banners, toasts, slash menu), the **macOS menu bar**
+     and its system items (Undo/Copy/Quit…), and the **menu-bar tray** dropdown
+     all switch to Chinese immediately; pick 日本語 → switches to Japanese;
+     back to English → reverts. Quit and relaunch → the choice persists and the
+     menu bar comes up already localized.
 
 ### iOS smoke (run on simulator + real device for v1 release)
 
@@ -476,15 +503,15 @@ plugin in **Preferences → Plugins** to remove its subcommand from `mdedit`.
     → flowchart renders as SVG (matches macOS).
 81. iOS: share a KaTeX-containing document → recipient page renders
     formulas correctly.
-82. iOS: edit shared document → toolbar Share → toast "✅ 内容已更新（链接已复制）"
+82. iOS: edit shared document → toolbar Share → toast "✅ Content updated (link copied)"
     with same URL.
 83. iOS: toolbar Unshare → recipient page returns 410.
 84. iOS: pick a `.png` from Files App → preview tab → toolbar Share →
     URL copied to clipboard. (System Share Sheet popup deferred — see 79.)
-85. iOS: airplane mode + toolbar Share → toast "❌ Share: 网络错误".
+85. iOS: airplane mode + toolbar Share → toast "❌ Share: Network error, please check your connection".
 86. iOS: `share.apiKey` not configured → Share → toast pointing to
     Settings → Share.
-87. iOS: 25+ MB markdown → Share → toast "❌ Share: 文档过大（X MB / 上限 25 MB）".
+87. iOS: 25+ MB markdown → Share → toast "❌ Share: Document too large (25 MB limit)".
 88. iOS: Mail attachment "Open in M↓" a `.md` → editor opens; rich mode
     renders KaTeX.
 89. iOS: dark mode toggle → editor + skins (incl. effie) re-render.
@@ -500,30 +527,39 @@ plugin in **Preferences → Plugins** to remove its subcommand from `mdedit`.
     preview works.
 95. iOS: Settings → Plugins tab and "Default App for Extensions"
     section are **completely absent**.
-96. iOS：未配置 vault → 抽屉 Vault 分区显示"去设置配置仓库"；点跳到
-    SettingsDialog → Vault tab。
-97. 输入 remote URL + PAT + 保存 → toast "正在 clone..." → 完成后抽屉
-    显示 vault 根目录文件。
-98. 已配置 vault，杀进程重开 → vault 状态自动恢复，文件列表照旧。
-99. 点抽屉里一个 `.md` 文件 → mdeditor 打开；编辑保存 → 工作树 dirty。
-100. 点 vault 区的 [↻] 同步按钮 → spinner → 完成后 toast "✓ Vault 同步
-     完成"；GitHub Web 上能看到新 commit `vault: auto-sync <ts>`。
-101. 另一台设备改一个文件 push → iOS App 切回前台 → 5 秒内自动拉回 →
-     抽屉里该文件 mtime 更新；打开文件看到新内容。
-102. 双向冲突：本地编辑 A + 远端也改 A → 同步 → toast "⚠️ Vault: 同步
-     完成，1 个本地修改保留为 .conflict 副本" → 抽屉里
-     `A.conflict.<ts>.md` 同目录可见；GitHub 仓库收到两个文件。
-103. PAT 失效（GitHub revoke）→ 同步 → toast "❌ Vault: 鉴权失败，请去
-     Vault 设置更新 PAT"。
-104. 飞行模式 → 同步 → toast "❌ Vault: 网络错误"。
-105. "断开 Vault" → 二次确认 → 本地 `Documents/Vault/` 删除、Keychain
-     item 清除、抽屉 Vault 区回到"未配置"；远端仓库不受影响。
-106. iPad 上 ☰ 按钮显示并能打开抽屉；vault 文件浏览行为与 iPhone 一致。
-107. vault 仓库中有 `.png` → 抽屉点击 → 进入 mdeditor 图片预览 tab。
-108. vault 仓库 `.git` 目录在抽屉中不可见。
-109. Files App → `Documents/Vault/` → 用户看到完整工作树（含 `.git`）→
-     顶部不显示 iCloud 图标（`NSURLIsExcludedFromBackupKey` 生效）。
-110. IPA 包体增量 < 10 MB（与 v0.6.0 baseline 对比）；总 IPA < 30 MB。
+96. iOS: vault not configured → the drawer's Vault section shows "go to Settings
+    to configure a repo"; tapping it jumps to SettingsDialog → Vault tab.
+97. Enter remote URL + PAT + Save → clone runs → on completion the drawer shows
+    the vault root's files.
+98. Vault configured, kill the process and reopen → vault state auto-restores,
+    file list intact.
+99. Tap a `.md` file in the drawer → mdeditor opens it; edit + save → working
+    tree goes dirty.
+100. Tap the [↻] sync button in the Vault section → spinner → on completion
+     toast "✓ Vault sync complete"; a new commit `vault: auto-sync <ts>` is
+     visible on GitHub Web.
+101. Change a file on another device and push → bring the iOS app to the
+     foreground → within ~5 s it auto-pulls → that file's mtime updates in the
+     drawer; opening it shows the new content.
+102. Two-way conflict: edit A locally + A also changed remotely → sync → toast
+     "⚠️ Vault: sync complete; some local edits kept as .conflict copies" →
+     `A.conflict.<ts>.md` appears in the same folder in the drawer; the GitHub
+     repo receives both files.
+103. PAT invalidated (GitHub revoke) → sync → toast "❌ Vault: authentication
+     failed — update your PAT in Vault settings".
+104. Airplane mode → sync → toast "❌ Vault: network error".
+105. "Disconnect Vault" → confirm → local `Documents/Vault/` deleted, the
+     Keychain item cleared, the drawer's Vault section returns to "Not
+     configured"; the remote repo is unaffected.
+106. On iPad the ☰ button shows and opens the drawer; vault file browsing
+     behaves the same as on iPhone.
+107. A `.png` in the vault repo → tap it in the drawer → opens an mdeditor image
+     preview tab.
+108. The vault repo's `.git` directory is not visible in the drawer.
+109. Files App → `Documents/Vault/` → the user sees the full working tree (incl.
+     `.git`) → no iCloud icon at the top (`NSURLIsExcludedFromBackupKey` in
+     effect).
+110. IPA size increment < 10 MB (vs the v0.6.0 baseline); total IPA < 30 MB.
 
 ## Spec & Plan
 
