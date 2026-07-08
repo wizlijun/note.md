@@ -437,6 +437,23 @@ export const en = {
   'settings.viz.sourceMarkers': 'Source-mode markers (in the line-number gutter)',
   'settings.viz.richGutter': 'Rich-mode left gutter (block markers + bars)',
 
+  // Reading Insights panel
+  'insights.preset.today': 'Today',
+  'insights.preset.yesterday': 'Yesterday',
+  'insights.preset.7d': 'Last 7 days',
+  'insights.preset.30d': 'Last 30 days',
+  'insights.preset.month': 'This month',
+  'insights.loading': 'Loading…',
+  'insights.empty': 'No reading or editing activity in this range.',
+  'insights.col.doc': 'Doc',
+  'insights.col.read': 'Read',
+  'insights.col.edit': 'Edit',
+  'insights.col.sessions': 'Sessions',
+  'insights.col.marks': 'Marks',
+  'insights.col.aud': 'Aud. time',
+  'insights.col.readers': 'Readers',
+  'insights.col.value': 'Value',
+
   // Settings → CLI
   'settings.cli.heading': 'CLI',
   'settings.cli.desc': 'The <code>mdedit</code> command lets you drive M↓ from a terminal or other tools — publish files via the Share plugin, list available commands, and more.',

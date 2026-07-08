@@ -154,3 +154,8 @@ export async function installTracker(): Promise<() => void> {
 export function onModeChanged(): void {
   dispatch({ type: 'mode', mode: currentMode() })
 }
+
+/** Flush in-memory analytics to disk immediately (e.g. before reading all devices). */
+export async function flushNow(): Promise<void> {
+  if (tracker) await tracker.store.flush()
+}

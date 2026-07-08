@@ -432,6 +432,23 @@ export const ja: Record<keyof Messages, string> = {
   'settings.viz.sourceMarkers': 'ソースモードのマーカー（行番号の余白）',
   'settings.viz.richGutter': 'リッチモードの左余白（ブロックマーカー + バー）',
 
+  // Reading Insights panel
+  'insights.preset.today': '今日',
+  'insights.preset.yesterday': '昨日',
+  'insights.preset.7d': '過去7日',
+  'insights.preset.30d': '過去30日',
+  'insights.preset.month': '今月',
+  'insights.loading': '読み込み中…',
+  'insights.empty': 'この期間に閲覧・編集の記録はありません。',
+  'insights.col.doc': 'ドキュメント',
+  'insights.col.read': '閲覧',
+  'insights.col.edit': '編集',
+  'insights.col.sessions': 'セッション',
+  'insights.col.marks': 'マーク',
+  'insights.col.aud': '閲覧者時間',
+  'insights.col.readers': '閲覧者',
+  'insights.col.value': '価値',
+
   // Settings → CLI
   'settings.cli.heading': 'CLI',
   'settings.cli.desc': '<code>mdedit</code> コマンドを使うと、ターミナルや他のツールから M↓ を操作できます — Share プラグインでファイルを公開したり、利用可能なコマンドを一覧表示したりできます。',

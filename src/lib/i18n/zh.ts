@@ -432,6 +432,23 @@ export const zh: Record<keyof Messages, string> = {
   'settings.viz.sourceMarkers': '源码模式标记（在行号槽中）',
   'settings.viz.richGutter': '富文本模式左侧槽（区块标记 + 竖条）',
 
+  // Reading Insights panel
+  'insights.preset.today': '今天',
+  'insights.preset.yesterday': '昨天',
+  'insights.preset.7d': '近 7 天',
+  'insights.preset.30d': '近 30 天',
+  'insights.preset.month': '本月',
+  'insights.loading': '加载中…',
+  'insights.empty': '此区间没有阅读或编辑记录。',
+  'insights.col.doc': '文档',
+  'insights.col.read': '阅读',
+  'insights.col.edit': '编辑',
+  'insights.col.sessions': '编辑段',
+  'insights.col.marks': '标注',
+  'insights.col.aud': '受众时长',
+  'insights.col.readers': '读者',
+  'insights.col.value': '价值',
+
   // Settings → CLI
   'settings.cli.heading': 'CLI',
   'settings.cli.desc': '<code>mdedit</code> 命令让你从终端或其他工具驱动 M↓ — 通过 Share 插件发布文件、列出可用命令等。',
