@@ -1,7 +1,7 @@
 # Frontmatter Table Rendering (rich editor)
 
 Date: 2026-07-08
-Status: Approved
+Status: Approved — Revised 2026-07-08 (segmented + editable, see "Revision 2")
 
 ## Problem
 
@@ -67,5 +67,53 @@ robustly.
 
 ## Out of scope
 
-- Editing frontmatter inside the rich editor (source view only).
 - Export/preview (marked) frontmatter rendering.
+
+---
+
+## Revision 2 — segmented rendering + editable scalar values
+
+Shipped v3.15.0 rendered the whole frontmatter as one read-only table and only
+when the entire block parsed as a YAML mapping. Revised requirements:
+
+1. **Segment** the frontmatter into contiguous `key: value` regions vs. other
+   content — do not require the whole block to be a mapping.
+2. Non-key:value regions render as **markdown** (read-only).
+3. Multi-line values (list / block scalar under a key) belong to that key's row.
+4. **Scalar values are editable** in the rich editor; write back on blur.
+
+### Segmentation (`src/lib/frontmatter-segment.ts`, pure)
+
+`segmentFrontmatter(raw): Segment[]`, `Segment = { kind: 'kv'|'md', text, start, end }`.
+Segments partition `raw` contiguously (concat of `text` === `raw`).
+
+Line scan:
+- A **top-level key line** matches `/^[^\s#][^:]*:(\s|$)/` (col 0, not `- `, not `---`).
+- **Continuation** of a key = following indented lines (`/^\s/`); blank lines are
+  continuations only when the next non-blank line is still indented (keeps block
+  scalars with internal blanks intact), otherwise they end the kv block.
+- Maximal runs of key lines (+continuations) → `kv` segment; everything else → `md`.
+
+### Rendering (`frontmatter-view.ts`)
+
+- `kv` segment → `<table class="frontmatter-table">` built from
+  `yaml.parseDocument(segment.text)`. One `<tr>` per top-level pair:
+  - **scalar** (string/number/boolean) → `td.fm-val[contenteditable]`; on blur, if
+    changed, `doc.set(key, text)` → `String(doc)` re-stringifies the segment
+    (preserves comments + key order; minor whitespace normalization accepted),
+    spliced back into `raw` → `onChange(newRaw)`.
+  - **list / nested / multi-line** → read-only rendering in the value cell.
+- `md` segment → shared `marked` (sync parse) → read-only HTML.
+
+### @moraya/core
+
+Extend `FrontmatterViewFactory.render(container, raw, onChange?)`. The
+`frontmatter` NodeView passes an `onChange(newRaw)` that replaces the node's
+text content via a transaction (`tr.replaceWith(pos+1, pos+size-1, text)`),
+marking the doc dirty. Re-render happens after blur, so it does not interrupt
+typing. Schema node still `text*`; serialization/roundtrip unchanged.
+
+### Testing
+
+Segmentation (mixed / block-scalar / blank-line cases), kv→table, md segment
+render, scalar edit write-back + full-raw roundtrip, malformed-YAML fallback.

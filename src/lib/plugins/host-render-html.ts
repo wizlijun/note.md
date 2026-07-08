@@ -110,6 +110,14 @@ const sharedMarked = new Marked(
 sharedMarked.use({ extensions: [blockCitationExtension, highlightCaretExtension, highlightEqExtension] })
 
 /**
+ * Synchronously render a small markdown fragment to an HTML string using the
+ * shared pipeline. Used for the non-key:value regions inside frontmatter.
+ */
+export function renderMarkdownInline(md: string): string {
+  return sharedMarked.parse(md, { async: false }) as string
+}
+
+/**
  * Render a tab to an HTML body fragment (no <html>/<head>). markdown runs
  * through the shared marked + KaTeX + hljs pipeline; html tabs are passed
  * through; code tabs are syntax-highlighted in a `<pre>`.

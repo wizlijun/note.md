@@ -233,6 +233,29 @@
   color: color-mix(in srgb, CanvasText 75%, Canvas);
   padding: 0 12px;
 }
+.moraya-editor .frontmatter-segments > * + * {
+  margin-top: 0.5em;
+}
+.moraya-editor .frontmatter-table .fm-val.fm-editable {
+  cursor: text;
+}
+.moraya-editor .frontmatter-table .fm-val.fm-editable:focus {
+  outline: 2px solid color-mix(in srgb, AccentColor 60%, transparent);
+  outline-offset: -2px;
+  border-radius: 2px;
+}
+/* Non-key:value regions render as markdown, muted like the rest of the block. */
+.moraya-editor .frontmatter-md {
+  color: color-mix(in srgb, CanvasText 78%, Canvas);
+  overflow-wrap: break-word;
+}
+.moraya-editor .frontmatter-md > :first-child { margin-top: 0; }
+.moraya-editor .frontmatter-md > :last-child { margin-bottom: 0; }
+.moraya-editor .frontmatter-md blockquote {
+  border-left: 3px solid color-mix(in srgb, CanvasText 25%, transparent);
+  margin: 0.3em 0;
+  padding: 0 10px;
+}
 .moraya-editor pre code,
 .moraya-editor .code-block-code {
   background: none;
