@@ -41,10 +41,22 @@ export function isDirty(id: string): boolean {
   return t ? t.currentContent !== t.initialContent : false
 }
 
+/**
+ * Fire-and-forget notification to the reading-insights tracker (when that plugin
+ * is loaded). The dynamic import breaks the tabs⇄tracker static import cycle; the
+ * empty catch swallows the circular-init TDZ that only surfaces in unit tests
+ * (in the running app, App.svelte statically imports the tracker, so its module
+ * graph is fully initialized before any of these calls fire). Engagement
+ * analytics must never break the tab flow.
+ */
+function notifyInsights(method: 'onActiveDocChanged' | 'onModeChanged'): void {
+  void import('./insights/tracker.svelte').then((m) => m[method]()).catch(() => {})
+}
+
 export function activate(id: string): void {
   if (tabs.some((t) => t.id === id)) {
     activeId.value = id
-    void import('./insights/tracker.svelte').then((m) => m.onActiveDocChanged()).catch(() => {})
+    notifyInsights('onActiveDocChanged')
   }
 }
 
@@ -129,7 +141,7 @@ export async function openFile(path: string): Promise<void> {
   const existing = tabs.find((t) => t.filePath === path)
   if (existing) {
     activeId.value = existing.id
-    void import('./insights/tracker.svelte').then((m) => m.onActiveDocChanged()).catch(() => {})
+    notifyInsights('onActiveDocChanged')
     return
   }
 
@@ -168,7 +180,7 @@ export async function openFile(path: string): Promise<void> {
   }
   tabs.push(tab)
   activeId.value = tab.id
-  void import('./insights/tracker.svelte').then((m) => m.onActiveDocChanged()).catch(() => {})
+  notifyInsights('onActiveDocChanged')
   await pushRecentFile(path)
   await startWatchingTab(tab)
   // Sync-to-Vault: if this is a tracked vault copy whose source changed, prompt.
@@ -218,7 +230,7 @@ export function setMode(id: string, mode: Mode): void {
   const t = tabs.find((x) => x.id === id)
   if (!t || t.mode === mode) return
   t.mode = mode
-  void import('./insights/tracker.svelte').then((m) => m.onModeChanged()).catch(() => {})
+  notifyInsights('onModeChanged')
   setRecentMode(modeKeyFor(t.filePath), mode).catch((e) => console.warn(e))
 }
 
