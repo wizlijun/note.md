@@ -22,6 +22,7 @@ pub enum Builtin {
     PluginDisable(String),
     PluginInfo(String),
     Openclaw(super::openclaw::OpenclawCmd),
+    Insights(super::insights::InsightsCmd),
 }
 
 #[derive(Debug)]
@@ -89,6 +90,24 @@ pub fn resolve_with(
             Some("uninstall") => Route::Builtin(Builtin::Openclaw(super::openclaw::OpenclawCmd::Uninstall { keep_files })),
             Some("status") | None => Route::Builtin(Builtin::Openclaw(super::openclaw::OpenclawCmd::Status)),
             Some(other) => Route::Unknown(format!("openclaw {}", other)),
+        };
+    }
+
+    if first == "reading-insights" {
+        let flag_val = |name: &str| -> Option<String> {
+            rest.iter().position(|a| a == name).and_then(|i| rest.get(i + 1).cloned())
+        };
+        let report = Route::Builtin(Builtin::Insights(super::insights::InsightsCmd::Report {
+            vault: flag_val("--vault"),
+            date: flag_val("--date"),
+            from: flag_val("--from"),
+            to: flag_val("--to"),
+            stdout: rest.iter().any(|a| a == "--stdout"),
+        }));
+        return match rest.get(1).map(|s| s.as_str()) {
+            Some("report") | None => report,
+            Some(s) if s.starts_with('-') => report, // flags without explicit `report`
+            Some(other) => Route::Unknown(format!("reading-insights {}", other)),
         };
     }
 

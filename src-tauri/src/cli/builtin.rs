@@ -30,6 +30,7 @@ pub fn run(b: Builtin, parsed: &Parsed) -> ExitCode {
             ExitCode::from(0)
         }
         Builtin::Openclaw(cmd) => super::openclaw::run(cmd),
+        Builtin::Insights(cmd) => super::insights::run(cmd),
         Builtin::PluginEnable(id) => {
             if !manifests_only.iter().any(|m| m.id == id) {
                 eprintln!("mdedit: unknown plugin id '{id}'");
@@ -126,6 +127,7 @@ pub fn render_help(
     out.push_str("  version       Print version (aliases: -v, --version)\n");
     out.push_str("  plugin        Manage plugins (list, enable, disable, info)\n");
     out.push_str("  openclaw      Install the M\u{2193} chat plugin into OpenClaw (install, uninstall, status)\n");
+    out.push_str("  reading-insights report   Generate a reading digest from the Vault (--vault, --date, --stdout)\n");
 
     let mut shown_header = false;
     for m in manifests {
@@ -291,6 +293,22 @@ FLAGS:
   --force        Reinstall even if already present
   --keep-files   Leave plugin files on disk when uninstalling
 ",
+        "reading-insights" => "\
+mdedit reading-insights — Reading Insights (engagement) report
+
+USAGE:
+  mdedit reading-insights report --vault <path> [--date <preset>] [--stdout]
+  mdedit reading-insights report --vault <path> --from YYYY-MM-DD --to YYYY-MM-DD
+
+FLAGS:
+  --vault <path>   Vault root (or set MDEDITOR_VAULT). Reads <vault>/.mdeditor/analytics/
+  --date <preset>  today | yesterday (default) | 7d | 30d | month
+  --from --to      Explicit YYYY-MM-DD range (overrides --date)
+  --stdout         Print to stdout instead of writing <vault>/stat/*.md
+
+Owner engagement only (read/edit time, edit bursts, marks). Audience (online
+reading) stats are shown in the in-app Reading Insights window.
+",
         _ => return None,
     };
 
@@ -440,7 +458,7 @@ mod tests {
         assert!(out.contains("--plugin-dir"));
     }
     #[test] fn help_topic_resolves_core_commands() {
-        for topic in ["help", "version", "plugin", "openclaw"] {
+        for topic in ["help", "version", "plugin", "openclaw", "reading-insights"] {
             let out = render_help(Some(topic), false, &[], &HashMap::new());
             assert!(out.contains(&format!("mdedit {topic}")), "topic {topic} not documented");
             assert!(!out.contains("unknown topic"), "topic {topic} rendered as unknown");
