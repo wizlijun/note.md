@@ -416,8 +416,15 @@
     let cleanupRecents: (() => void) | null = null
     installRecentsSync().then((fn) => { cleanupRecents = fn })
 
+    // The reading-insights tracker must install only AFTER the vault root has
+    // loaded — installTracker() no-ops when sotvaultStore.vaultRoot is still null.
+    // The earlier refreshSotvault() call (in the setup IIFE above) is fire-and-
+    // forget, so chain off a fresh resolve here to make the ordering deterministic.
     let cleanupTracker: (() => void | Promise<void>) | null = null
-    installTracker().then((fn) => { cleanupTracker = fn })
+    void refreshSotvault()
+      .then(() => installTracker())
+      .then((fn) => { cleanupTracker = fn })
+      .catch((e) => console.warn('[App] insights tracker init:', e))
 
     const unlistenMenu = listen<string>('menu-event', async (e) => {
       const id = e.payload
