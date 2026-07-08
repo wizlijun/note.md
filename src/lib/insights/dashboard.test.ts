@@ -17,6 +17,7 @@ function deps(over: Partial<AssembleDeps> = {}): AssembleDeps {
       : { path: '/tmp/b.md', label: 'b.md', slug: null, editToken: null },
     fetchAudience: async (slug) => slug === '2026-07-08-a-x'
       ? { total_ms: 90_000, unique_readers: 4, days: {} } : null,
+    listSharedDocKeys: () => ['rel:a.md'],
     baseUrl: 'https://w/',
     weights: DEFAULT_WEIGHTS,
     ...over,
@@ -37,8 +38,39 @@ describe('assembleRows', () => {
     expect(rows[1].shared).toBe(false)
   })
 
-  it('omits docs with no activity in the range', async () => {
-    const rows = await assembleRows(deps(), '2026-07-01', '2026-07-02')
+  it('omits docs with no owner activity AND no audience in the range', async () => {
+    // a.md's audience fetcher returns data regardless of range in this fixture,
+    // so restrict listSharedDocKeys to nothing to isolate the owner-empty case.
+    const rows = await assembleRows(deps({ listSharedDocKeys: () => [] }), '2026-07-01', '2026-07-02')
+    expect(rows).toHaveLength(0)
+  })
+
+  it('surfaces a shared doc read online even with no owner activity in range', async () => {
+    // 'rel:c.md' has NO owner counters, but is shared and has audience reads.
+    const rows = await assembleRows(deps({
+      resolveShare: (docKey) => docKey === 'rel:c.md'
+        ? { path: '/v/c.md', label: 'c.md', slug: '2026-07-08-c-x', editToken: 'tokc' }
+        : { path: null, label: docKey, slug: null, editToken: null },
+      fetchAudience: async (slug) => slug === '2026-07-08-c-x'
+        ? { total_ms: 45_000, unique_readers: 2, days: {} } : null,
+      listSharedDocKeys: () => ['rel:c.md'],
+    }), '2026-07-01', '2026-07-02')  // range with no owner activity
+
+    expect(rows).toHaveLength(1)
+    expect(rows[0].docKey).toBe('rel:c.md')
+    expect(rows[0].read_ms).toBe(0)          // owner never read it
+    expect(rows[0].aud_read_ms).toBe(45_000) // but the audience did
+    expect(rows[0].unique_readers).toBe(2)
+    expect(rows[0].shared).toBe(true)
+  })
+
+  it('does not add an audience-only row when the share has no reads', async () => {
+    const rows = await assembleRows(deps({
+      readDevices: async () => [{ deviceId: 'D1', deviceName: 'Mac', docs: {} }],
+      resolveShare: () => ({ path: '/v/c.md', label: 'c.md', slug: '2026-07-08-c-x', editToken: 'tokc' }),
+      fetchAudience: async () => ({ total_ms: 0, unique_readers: 0, days: {} }),
+      listSharedDocKeys: () => ['rel:c.md'],
+    }), '2026-07-08', '2026-07-08')
     expect(rows).toHaveLength(0)
   })
 })

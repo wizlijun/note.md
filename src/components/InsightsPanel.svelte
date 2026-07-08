@@ -4,11 +4,11 @@
   import { assembleRows, type AssembleDeps, type InsightRow } from '../lib/insights/dashboard.svelte'
   import { DEFAULT_WEIGHTS, presetRange, type Preset } from '../lib/insights/value'
   import { fetchAudienceStats } from '../lib/insights/audience'
-  import { localTzOffsetMinutes } from '../lib/insights/model'
+  import { localTzOffsetMinutes, docKeyFor } from '../lib/insights/model'
   import { flushNow } from '../lib/insights/tracker.svelte'
   import { getDeviceId, getPluginScopedKey } from '../lib/settings.svelte'
   import { sotvaultStore } from '../lib/sotvault.svelte'
-  import { getRecord } from '../lib/share/records'
+  import { getRecord, allShareRecordPaths } from '../lib/share/records'
   import { basename } from '../lib/fs'
   import { t } from '../lib/i18n/store.svelte'
   import { renderDailyReport } from '../lib/insights/report'
@@ -55,6 +55,7 @@
       },
       fetchAudience: (slug, editToken, from, to, base) =>
         fetchAudienceStats(base, editToken, slug, from, to),
+      listSharedDocKeys: () => allShareRecordPaths().map((p) => docKeyFor(p, vaultRoot)),
       baseUrl,
       weights: DEFAULT_WEIGHTS,
     }
