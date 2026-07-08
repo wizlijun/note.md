@@ -198,10 +198,59 @@ function renderReadonlyValue(value: unknown): Node {
   return document.createTextNode(String(value))
 }
 
+/** Top-level keys across all kv segments, for the collapsed-state summary. */
+function summaryKeys(raw: string): string[] {
+  const keys: string[] = []
+  for (const seg of segmentFrontmatter(raw)) {
+    if (seg.kind !== 'kv') continue
+    try {
+      const doc = parseDocument(seg.text)
+      if (doc.errors.length === 0 && isMap(doc.contents)) {
+        for (const p of doc.contents.items) {
+          keys.push(String((p.key as { value?: unknown })?.value ?? p.key))
+        }
+      }
+    } catch { /* ignore malformed segment */ }
+  }
+  return keys
+}
+
+/**
+ * Wrap the frontmatter in a collapsible <details>. It starts collapsed so the
+ * metadata doesn't dominate the document; the open/closed state is stashed on
+ * the (persistent) container so it survives the re-render triggered by editing
+ * a value. The <summary> shows the top-level keys as a hint.
+ */
+export function buildFrontmatterView(
+  container: HTMLElement,
+  raw: string,
+  onChange?: (newRaw: string) => void,
+): HTMLElement {
+  const details = document.createElement('details')
+  details.className = 'frontmatter-details'
+  if (container.dataset.fmOpen === '1') details.open = true
+
+  const summary = document.createElement('summary')
+  summary.className = 'frontmatter-summary'
+  const keys = summaryKeys(raw)
+  const label = document.createElement('span')
+  label.className = 'frontmatter-summary-keys'
+  label.textContent = keys.length ? keys.join(', ') : 'frontmatter'
+  summary.appendChild(label)
+  details.appendChild(summary)
+
+  details.appendChild(renderFrontmatter(raw, onChange))
+
+  details.addEventListener('toggle', () => {
+    container.dataset.fmOpen = details.open ? '1' : '0'
+  })
+  return details
+}
+
 /** Factory wired into the moraya editor via `frontmatterViewFactory`. */
 export const frontmatterFactory: FrontmatterViewFactory = {
   render(container: HTMLElement, raw: string, onChange?: (newRaw: string) => void) {
-    container.appendChild(renderFrontmatter(raw, onChange))
+    container.appendChild(buildFrontmatterView(container, raw, onChange))
     return { destroy() { /* DOM owned by container; nothing to release */ } }
   },
 }

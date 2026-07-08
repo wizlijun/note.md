@@ -194,6 +194,37 @@
 .moraya-editor .frontmatter-node-view {
   margin: 0 0 0.8em;
 }
+
+/* Collapsible wrapper: starts collapsed so metadata doesn't dominate. */
+.moraya-editor .frontmatter-details {
+  border: 1px solid color-mix(in srgb, CanvasText 12%, transparent);
+  border-radius: 6px;
+  background: color-mix(in srgb, CanvasText 3%, Canvas);
+}
+.moraya-editor .frontmatter-summary {
+  cursor: pointer;
+  padding: 4px 10px;
+  font-size: 0.85em;
+  color: color-mix(in srgb, CanvasText 60%, Canvas);
+  user-select: none;
+  list-style-position: inside;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.moraya-editor .frontmatter-summary:hover {
+  color: color-mix(in srgb, CanvasText 85%, Canvas);
+}
+.moraya-editor .frontmatter-summary-keys {
+  opacity: 0.9;
+}
+.moraya-editor .frontmatter-details[open] > .frontmatter-summary {
+  border-bottom: 1px solid color-mix(in srgb, CanvasText 10%, transparent);
+  margin-bottom: 6px;
+}
+.moraya-editor .frontmatter-details > .frontmatter-segments {
+  padding: 0 10px 8px;
+}
 .moraya-editor .frontmatter-table {
   border-collapse: collapse;
   width: 100%;

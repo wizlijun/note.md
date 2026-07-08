@@ -2,7 +2,7 @@
  * @vitest-environment happy-dom
  */
 import { describe, it, expect, vi } from 'vitest'
-import { renderFrontmatter, buildFrontmatterDom } from './frontmatter-view'
+import { renderFrontmatter, buildFrontmatterDom, buildFrontmatterView } from './frontmatter-view'
 
 describe('renderFrontmatter — rendering', () => {
   it('renders key: value pairs as a table with editable scalar cells', () => {
@@ -87,6 +87,34 @@ describe('renderFrontmatter — editing', () => {
     expect(newRaw).toContain('title: New')
     expect(newRaw).toContain('# keep me')
     expect(newRaw).toContain('count: 3')
+  })
+})
+
+describe('buildFrontmatterView — collapse', () => {
+  it('defaults to collapsed (details not open) with a keys summary', () => {
+    const container = document.createElement('div')
+    const details = buildFrontmatterView(container, 'title: Hello\nauthor: Bruce\n')
+    expect(details.tagName).toBe('DETAILS')
+    expect((details as HTMLDetailsElement).open).toBe(false)
+    const summary = details.querySelector('.frontmatter-summary-keys')!
+    expect(summary.textContent).toBe('title, author')
+    // Body (the table) is present inside, ready to reveal on expand.
+    expect(details.querySelector('.frontmatter-table')).toBeTruthy()
+  })
+
+  it('honours a previously-open state stashed on the container', () => {
+    const container = document.createElement('div')
+    container.dataset.fmOpen = '1'
+    const details = buildFrontmatterView(container, 'title: Hello\n') as HTMLDetailsElement
+    expect(details.open).toBe(true)
+  })
+
+  it('persists the open state back to the container on toggle', () => {
+    const container = document.createElement('div')
+    const details = buildFrontmatterView(container, 'title: Hello\n') as HTMLDetailsElement
+    details.open = true
+    details.dispatchEvent(new Event('toggle'))
+    expect(container.dataset.fmOpen).toBe('1')
   })
 })
 
