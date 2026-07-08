@@ -1,0 +1,20 @@
+{
+  "id": "reading-insights",
+  "name": "Reading Insights",
+  "version": "0.1.0",
+  "description": "Track your reading and editing engagement per document, stored in your Vault.",
+  "kind": "builtin",
+  "default_enabled": false,
+  "available_when": "vaultConfigured",
+  "host_capabilities": [],
+  "i18n": {
+    "zh": {
+      "name": "阅读洞察",
+      "description": "统计你在每篇文档上的阅读与编辑投入，数据存入你的 Vault。"
+    },
+    "ja": {
+      "name": "リーディングインサイト",
+      "description": "ドキュメントごとの閲覧・編集の関与を記録し、Vault に保存します。"
+    }
+  }
+}

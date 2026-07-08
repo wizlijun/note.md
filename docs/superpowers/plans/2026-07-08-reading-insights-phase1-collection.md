@@ -440,7 +440,7 @@ git commit -m "feat(insights): pure read/edit dwell timing reducer with idle pau
 ```typescript
 // src/lib/insights/observer.test.ts
 import { describe, it, expect } from 'vitest'
-import { EditorState } from 'prosemirror-state'
+import { EditorState, TextSelection } from 'prosemirror-state'
 import { schema } from 'prosemirror-schema-basic'
 import { countMarkSteps, analyticsObserverPlugin, type ObserverDelta } from './observer'
 
@@ -493,7 +493,7 @@ describe('analyticsObserverPlugin', () => {
     let state = EditorState.create({ schema, doc: schema.node('doc', null, [
       schema.node('paragraph', null, [schema.text('abcd')]),
     ]), plugins: [analyticsObserverPlugin((d) => seen.push(d))] })
-    const tr = state.tr.setSelection(state.selection.constructor.near(state.doc.resolve(2)))
+    const tr = state.tr.setSelection(TextSelection.near(state.doc.resolve(2)))
     state = state.apply(tr)
     expect(seen).toEqual([])
   })
@@ -867,10 +867,12 @@ git commit -m "feat(insights): analytics store with day-bucket accrual and per-d
 - Create: `src-tauri/plugins/reading-insights/manifest.json`
 - Reference: `src-tauri/plugins/sotvault/manifest.json` (shape), `src-tauri/plugins/README.md` (builtin registration)
 
-- [ ] **Step 1: Confirm how builtin manifests are registered**
+**Known facts (verified):** builtins are auto-discovered by walking `<resource_dir>/plugins/*/manifest.json` at startup (`src-tauri/src/plugin_host.rs`), and `plugins/**/*` is already bundled via `src-tauri/tauri.conf.json` `resources` — so **no explicit registration list exists; creating the directory is enough**. The Rust `PluginManifest` struct has NO `#[serde(deny_unknown_fields)]`, so the extra `available_when` field is silently ignored on the Rust side (it is a host/TS-only concern). `default_enabled` is **false** on purpose: the Rust side resolves builtin enabled-state as `default_enabled.unwrap_or(false)` and does NOT understand `available_when`, so `true` would make it show as "checked-but-grayed" before a vault exists. The "on by default once a vault is configured" behavior is delivered by the auto-enable hook in Task 9 instead.
 
-Run: `grep -rn "sotvault/manifest\|include_str!\|builtin\|manifest.json" src-tauri/src | head`
-Expected: reveals where builtin manifests are embedded/loaded (e.g. an `include_str!` list or a plugins registry). Add `reading-insights` alongside `sotvault` there in Step 3 if required.
+- [ ] **Step 1: Confirm auto-discovery (no code change expected)**
+
+Run: `grep -rn "manifest.json\|default_enabled\|PluginKind::Builtin" src-tauri/src/plugin_host.rs | head`
+Expected: confirms directory-walk discovery + `default_enabled.unwrap_or(false)`. No registration list to edit.
 
 - [ ] **Step 2: Write the manifest**
 
@@ -881,7 +883,7 @@ Expected: reveals where builtin manifests are embedded/loaded (e.g. an `include_
   "version": "0.1.0",
   "description": "Track your reading and editing engagement per document, stored in your Vault.",
   "kind": "builtin",
-  "default_enabled": true,
+  "default_enabled": false,
   "available_when": "vaultConfigured",
   "host_capabilities": [],
   "i18n": {
