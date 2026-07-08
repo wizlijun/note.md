@@ -2,6 +2,13 @@
 
 .moraya-editor {
   outline: none;
+  /* ProseMirror renders hard/soft line breaks as a `<span>` containing a raw
+     "\n". Without pre-wrap on the content root the browser collapses that "\n"
+     to a space, so multi-line blockquotes (and any in-block Shift-Enter breaks)
+     merged onto one line. pre-wrap keeps the newline while still wrapping long
+     lines. Blocks with their own whitespace mode (pre, code) override this. */
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
 }
 
 /* Links are clickable in rich mode (plain click follows them; Cmd/Ctrl-click
