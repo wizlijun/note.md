@@ -2,7 +2,11 @@ export interface Env {
   SHARES: KVNamespace
   MEDIA: R2Bucket
   SHARE_API_KEY: string
+  AUDIENCE: DurableObjectNamespace
 }
+
+export { SlugAnalytics } from './audience'
+import { SLUG_RE as AUDIENCE_SLUG_RE } from './audience'
 
 const SLUG_RE = /^\d{4}-\d{2}-\d{2}-[a-z0-9-]{1,50}(?:-[a-zA-Z0-9]{2,4})?$/
 const TOKEN_RE = /^[a-zA-Z0-9]{16,128}$/
@@ -889,6 +893,15 @@ async function handleMcp(req: Request, env: Env, baseUrl: string): Promise<Respo
   }
 }
 
+async function handleAudienceHit(req: Request, env: Env): Promise<Response> {
+  let body: { slug?: unknown }
+  try { body = await req.json() } catch { return new Response('bad json', { status: 400 }) }
+  const slug = typeof body.slug === 'string' ? body.slug : ''
+  if (!AUDIENCE_SLUG_RE.test(slug)) return new Response('bad slug', { status: 400 })
+  const stub = env.AUDIENCE.get(env.AUDIENCE.idFromName(slug))
+  return stub.fetch('https://do/hit', { method: 'POST', body: JSON.stringify(body) })
+}
+
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
     const url = new URL(req.url)
@@ -899,6 +912,7 @@ export default {
     if (req.method === 'POST' && path === 'upload') return handleUpload(req, env, baseUrl)
     if (req.method === 'GET' && path.startsWith('f/')) return handleMediaGet(path, req, env)
     if (req.method === 'DELETE' && path.startsWith('f/')) return handleMediaDelete(path, req, env)
+    if (req.method === 'POST' && path === 'a/hit') return handleAudienceHit(req, env)
     if (req.method === 'GET' && path) return handleGet(path, env)
     if (req.method === 'DELETE' && path) return handleDelete(path, req, env)
     return new Response('Not Found', { status: 404 })
