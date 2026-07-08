@@ -1,5 +1,11 @@
 /// Per-slug audience aggregator. One instance per share slug (addressed by
 /// `idFromName(slug)`), so heartbeats for different shares never contend.
+
+const MAX_DELTA_MS = 60_000
+
+function epochHour(ts: number): number { return Math.floor(ts / 3_600_000) }
+function utcDay(ts: number): string { return new Date(ts).toISOString().slice(0, 10) }
+
 export class SlugAnalytics {
   private state: DurableObjectState
   constructor(state: DurableObjectState) {
@@ -9,7 +15,25 @@ export class SlugAnalytics {
   async fetch(req: Request): Promise<Response> {
     const url = new URL(req.url)
     if (url.pathname === '/hit' && req.method === 'POST') {
-      // Aggregation added in a later task.
+      const body = await req.json() as { visitor_id?: string; delta_ms?: number; ts?: number }
+      const ts = typeof body.ts === 'number' && isFinite(body.ts) ? body.ts : Date.now()
+      const delta = Math.max(0, Math.min(MAX_DELTA_MS, Number(body.delta_ms) || 0))
+      const visitor = typeof body.visitor_id === 'string' ? body.visitor_id.slice(0, 64) : ''
+      await this.state.blockConcurrencyWhile(async () => {
+        const hKey = `h:${epochHour(ts)}`
+        const prev = (await this.state.storage.get<number>(hKey)) ?? 0
+        await this.state.storage.put(hKey, prev + delta)
+        const total = (await this.state.storage.get<number>('total_ms')) ?? 0
+        await this.state.storage.put('total_ms', total + delta)
+        if (visitor) {
+          const vKey = `vd:${utcDay(ts)}`
+          const seen = (await this.state.storage.get<string[]>(vKey)) ?? []
+          if (!seen.includes(visitor)) {
+            seen.push(visitor)
+            await this.state.storage.put(vKey, seen)
+          }
+        }
+      })
       return new Response(null, { status: 204 })
     }
     if (url.pathname === '/stats' && req.method === 'GET') {
