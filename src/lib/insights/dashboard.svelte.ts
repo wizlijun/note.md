@@ -13,8 +13,9 @@ export interface ShareResolution {
 export interface AssembleDeps {
   readDevices: () => Promise<DeviceAnalytics[]>
   resolveShare: (docKey: string) => ShareResolution
-  /** Fetch audience stats for a shared slug. Slug is already resolved; fail-soft returns null. */
-  fetchAudience: (slug: string) => Promise<AudienceStats | null>
+  /** Fetch audience stats for a shared slug (fail-soft → null). Receives the
+   *  per-doc edit token + range + baseUrl the assembly already has in hand. */
+  fetchAudience: (slug: string, editToken: string, from: string, to: string, baseUrl: string) => Promise<AudienceStats | null>
   baseUrl: string
   weights: ValueWeights
 }
@@ -42,8 +43,8 @@ export async function assembleRows(deps: AssembleDeps, fromDay: string, toDay: s
   const rows = await Promise.all(Object.entries(owner).map(async ([docKey, c]) => {
     const share = deps.resolveShare(docKey)
     let aud: AudienceStats | null = null
-    if (share.slug) {
-      aud = await deps.fetchAudience(share.slug)
+    if (share.slug && share.editToken) {
+      aud = await deps.fetchAudience(share.slug, share.editToken, fromDay, toDay, deps.baseUrl)
     }
     const aud_read_ms = aud?.total_ms ?? 0
     const unique_readers = aud?.unique_readers ?? 0
