@@ -35,7 +35,7 @@
 │  · mark_ops（所有 mark 操作）           │      └───────────┬───────────────────────┘
 │         ↓ 定期 flush（按天分桶）         │                  │ POST /a/hit（增量, 匿名）
 │  sotvault/.mdeditor/analytics/          │                  ↓
-│     <device_id>.json（git 同步、按设备）│      ┌─ Cloudflare Worker（中心，仅受众）┐
+│   <day>.<device_id>.json（git 同步·按天）│      ┌─ Cloudflare Worker（中心，仅受众）┐
 └───────────────┬─────────────────────────┘      │  DO/slug 聚合: 时长/会话/独立读者   │
                 │ 跨自己设备 merge（sum/max）      │  按小时 rollup; GET /a/stats(鉴权) │
                 │                                  └───────────┬───────────────────────┘
@@ -95,12 +95,13 @@
 - `mark_ops`：从 `@moraya/core` `toggleMark` 命令路径埋点，每次 +1。
 - `edit_sessions` / `net_chars`：监听 ProseMirror transaction，`docChanged` 按去抖窗口聚合。
 
-**存储与合并**（照搬 recents 的 per-device 文件模式）
-- 文件：`sotvault/.mdeditor/analytics/<device_id>.json`
-- 结构：`{ [docPath]: { "YYYY-MM-DD": { read_ms, edit_ms, edit_sessions, net_chars, mark_ops, open_count, first_seen_at, last_active_at } } }`
-- 按设备**本地时区**日历日分桶。
-- flush 时机：去抖 30s + 窗口 blur + tab 切换 + 关闭前；只写 diff。
-- 读取合并：所有设备文件按 (docPath, day) 合并，计数器 sum、时间戳 max。改名/删除走 recents 已有 tombstone 逻辑。
+**存储与合并**（per-device + **per-day** 分区，避免单文件无限膨胀）
+- 文件：`sotvault/.mdeditor/analytics/<YYYY-MM-DD>.<device_id>.json` —— **每设备每天一个文件**。
+- 单文件结构：`{ deviceId, deviceName, day, docs: { [docKey]: { read_ms, edit_ms, edit_sessions, net_chars, mark_ops, open_count, first_seen_at, last_active_at } } }`（day 由文件名决定，docs 扁平到 docKey）。
+- 按设备**本地时区**日历日分桶；docKey = vault 相对路径用 `rel:`，否则 `abs:`。
+- **防重启丢数据**：安装时预加载"今天"的文件播种内存，flush **合并**而非覆盖；只重写本会话 touch 过的天，历史天文件写一次后不再变（git 友好）。
+- flush 时机：周期 ~30s（tick）+ 关闭前（pagehide）。
+- 读取合并：扫所有 `<day>.<device>.json` 重建每设备 DocDays，本设备叠加内存最新值；跨设备按 (docKey, day) 求和（`mergeDeviceAnalytics`）。
 
 ## 6. Web 端（受众）beacon
 
