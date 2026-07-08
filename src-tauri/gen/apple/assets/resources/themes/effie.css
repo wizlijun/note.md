@@ -149,16 +149,23 @@
   border-radius: 3px;
 }
 
+/* Fonts only: the tinted box lives on the outermost element below. The
+   background must never sit on `.code-block-code` — it's an inline element,
+   so a translucent background + vertical padding paints per line box and
+   the overlapping strips double-darken. */
 #write pre,
 #write .code-block-pre,
 #write .code-block-code {
   font-family: 'LXGW WenKai Mono Lite', ui-monospace, 'SF Mono', Menlo, monospace;
-  font-size: 0.92em;
   line-height: 1.5;
-  background: rgba(74, 139, 142, 0.06);
+}
+
+#write pre {
+  font-size: 0.92em;
+}
+
+#write pre:not(.code-block-pre) {
   padding: 12px 14px;
-  border-radius: 4px;
-  border: 1px solid rgba(74, 139, 142, 0.18);
 }
 
 #write .code-block-wrapper,

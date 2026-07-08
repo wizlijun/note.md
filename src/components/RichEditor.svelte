@@ -843,7 +843,7 @@
           console.warn('[RichEditor] wikilink plugin init failed:', e)
         }
 
-        _pmEl?.addEventListener('paste', handlePaste as EventListener, true)
+        _pmEl?.addEventListener('paste', handlePaste, true)
         _pmEl?.addEventListener('click', handleImageClick as EventListener)
         _pmEl?.addEventListener('mousedown', handleLinkMouseDown as EventListener, true)
         _pmEl?.addEventListener('keydown', handleRichKeydown as EventListener, true)
@@ -889,7 +889,7 @@
 
 
   onDestroy(() => {
-    _pmEl?.removeEventListener('paste', handlePaste as EventListener, true)
+    _pmEl?.removeEventListener('paste', handlePaste, true)
     _pmEl?.removeEventListener('click', handleImageClick as EventListener)
     _pmEl?.removeEventListener('mousedown', handleLinkMouseDown as EventListener, true)
     _pmEl?.removeEventListener('keydown', handleRichKeydown as EventListener, true)
