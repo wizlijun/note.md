@@ -910,8 +910,14 @@ fn emit_open_file_delayed<R: tauri::Runtime>(app: &tauri::AppHandle<R>, path: &s
     }
     let app = app.clone();
     let path = path.to_string();
-    tauri::async_runtime::spawn(async move {
-        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+    // Use a plain OS thread + sleep rather than tauri::async_runtime::spawn +
+    // tokio::time::sleep. The async task's body never executed when invoked
+    // from the single-instance / RunEvent::Opened callbacks (the "emit
+    // open-file →" dlog never fired), so files opened while the app was already
+    // running — `mdedit <file>` re-launch, Finder double-click — never reached
+    // the frontend. A raw thread has no dependency on Tauri's async runtime.
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_millis(300));
         dlog(&format!("emit open-file → {}", path));
         #[cfg(not(target_os = "ios"))]
         show_main_window(&app);
