@@ -1,5 +1,5 @@
 // src/lib/outline/store.svelte.ts
-import { createTree, childrenOf, type OutlineTree, type OutlineNode } from './model'
+import { createTree, childrenOf, type OutlineTree } from './model'
 import { serializeOutline, parseOutline } from './markdown'
 import { deriveAutoItems } from './derive'
 import { syncAutoItems, regenerate as regenerateTree } from './sync'
@@ -54,29 +54,51 @@ export function persistIdsFor(tree: OutlineTree): Set<string> {
 // ---------- IO 管线（组件层通过这些函数驱动；手动验证覆盖） ----------
 
 let ourLastWrite = ''   // 识别自写事件，避免 file-watcher 回环
+let attachSeq = 0       // re-entrancy token：rapid tab switches guard
 
 export async function attachTab(mainPath: string, mainContent: string): Promise<void> {
   const companion = companionPathFor(mainPath)
   if (!companion) { detach(); return }
   if (outline.mainPath === mainPath) return
+
+  // Flush outgoing doc's pending save before resetting state, then kill any
+  // pending sync timer so a stale 300ms callback can't inject the old doc's
+  // auto items into the new tree.
+  await flushSave()                                    // clears saveTimer internally
+  if (syncTimer) { clearTimeout(syncTimer); syncTimer = null }
+
+  // Claim a sequence token; if another attachTab overtakes us we bail before
+  // mutating shared state.
+  const token = ++attachSeq
+
   outline.mainPath = mainPath
   outline.companionPath = companion
   outline.editingId = null
   outline.dirty = false
   outline.externalConflict = false
+
   const { exists, readTextFile } = await import('@tauri-apps/plugin-fs')
+  if (token !== attachSeq) return
+
   if (await exists(companion).catch(() => false)) {
+    if (token !== attachSeq) return
     const text = await readTextFile(companion).catch(() => null)
+    if (token !== attachSeq) return
     outline.tree = text != null ? parseOutline(text) : createTree()
   } else {
     outline.tree = createTree()
   }
+
   // 附加后立刻对当前主文内容跑一次同步（含首开派生）
   syncAutoItems(outline.tree, deriveAutoItems(mainContent))
   bump()
 }
 
 export function detach(): void {
+  // Clear pending timers; caller (panel unmount) is responsible for flushing
+  // any unsaved work via flushSave() before calling detach().
+  if (saveTimer) { clearTimeout(saveTimer); saveTimer = null }
+  if (syncTimer) { clearTimeout(syncTimer); syncTimer = null }
   outline.mainPath = null
   outline.companionPath = null
   outline.tree = createTree()
@@ -114,10 +136,10 @@ export async function flushSave(): Promise<void> {
   if (saveTimer) { clearTimeout(saveTimer); saveTimer = null }
   if (!outline.dirty || !outline.companionPath) return
   const text = serializeOutline(outline.tree, persistIdsFor(outline.tree))
-  ourLastWrite = text
   const { writeTextFile } = await import('@tauri-apps/plugin-fs')
   try {
     await writeTextFile(outline.companionPath, text)
+    ourLastWrite = text   // set only after successful write to avoid masking external changes on failure
     outline.dirty = false
   } catch (e) {
     console.warn('[outline] save failed:', e)
