@@ -183,7 +183,10 @@
   .row {
     display: flex; align-items: flex-start; gap: 4px;
     padding: 1px 4px 1px calc(var(--depth) * 16px + 4px);
-    border-radius: 4px; font-size: 13px; line-height: 1.5;
+    border-radius: 4px;
+    font-family: var(--outline-font-family);
+    font-size: var(--outline-font-size, 13px);
+    line-height: var(--outline-line-height, 1.5);
   }
   .row:hover { background: var(--hover-bg, #8881); }
   .row.drop-sibling { box-shadow: 0 2px 0 var(--accent-color, #4a80d4); }

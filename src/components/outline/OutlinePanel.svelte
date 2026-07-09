@@ -16,6 +16,7 @@
   import { filterSlashItems, applySlashItem, pageLinkQueryAt, confirmPageLink, filterPages, type SlashItem } from '../../lib/outline/completion'
   import { pageCandidates } from '../../lib/outline/backlinks'
 
+  import { activeTheme } from '../../lib/active-theme.svelte'
   import { requestReveal } from '../../lib/outline/reveal.svelte'
   import { ensureIndex, teardownIndex, openPageOrCreate } from '../../lib/outline/backlinks-io.svelte'
   import BacklinksSection from './BacklinksSection.svelte'
@@ -24,6 +25,11 @@
 
   // Whether the current tab has an editable outline. Drives body state + button enablement.
   let applicable = $derived(tab != null && outlineAppliesTo(tab))
+
+  // Theme-driven typography: measured from an offscreen probe (see effect below).
+  let activeThemeId = $derived(activeTheme.id)
+  let probeEl = $state<HTMLDivElement>()
+  let typo = $state({ family: '', size: '', line: '' })
 
   // resolved shortcuts：接设置覆盖，随 outlineShortcuts.overrides 变化响应式更新
   let resolved = $derived(resolveShortcuts(outlineShortcuts.overrides))
@@ -52,6 +58,19 @@
     void outline.version
     if (!applicable) return
     if (outline.tree.nodes.size === 0 && outline.editingId == null) addRootNote()
+  })
+  // Read the theme's base body typography (font-family/size/line-height, which
+  // live on `.moraya-editor` under `[data-theme=<id>]`) and expose as CSS vars.
+  // rAF waits for the theme slot CSS to apply after an id change.
+  $effect(() => {
+    void activeThemeId
+    const probe = probeEl?.querySelector('.moraya-editor') as HTMLElement | null
+    if (!probe) return
+    const raf = requestAnimationFrame(() => {
+      const cs = getComputedStyle(probe)
+      typo = { family: cs.fontFamily, size: cs.fontSize, line: cs.lineHeight }
+    })
+    return () => cancelAnimationFrame(raf)
   })
 
   let roots = $derived.by(() => { void outline.version; return childrenOf(outline.tree, null) })
@@ -246,7 +265,13 @@
   }
 </script>
 
-<aside class="outline-panel" style="width: {outlineGate.width}px">
+<aside
+  class="outline-panel"
+  style="width: {outlineGate.width}px; --outline-font-family: {typo.family}; --outline-font-size: {typo.size}; --outline-line-height: {typo.line};"
+>
+  <div class="typo-probe" data-theme={activeThemeId} aria-hidden="true" bind:this={probeEl}>
+    <div class="moraya-editor"></div>
+  </div>
   <div
     class="splitter"
     onpointerdown={onSplitterDown}
@@ -353,6 +378,13 @@
     background: var(--warn-bg, #fef08a); color: var(--warn-fg, #78350f);
     font-size: 11px; padding: 4px 8px; border-bottom: 1px solid var(--border-color, #3333);
   }
-  .body { flex: 1; overflow-y: auto; padding: 8px; }
+  .body { flex: 1; overflow-y: auto; padding: 8px; font-family: var(--outline-font-family); }
   .empty { opacity: 0.5; font-size: 12px; }
+  .typo-probe {
+    position: absolute;
+    left: -9999px; top: 0;
+    width: 0; height: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
 </style>
