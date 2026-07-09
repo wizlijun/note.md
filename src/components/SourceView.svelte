@@ -260,7 +260,7 @@
   import { setContent } from '../lib/tabs.svelte'
   import { reveal } from '../lib/outline/reveal.svelte'
 
-  let lastRevealSeq = 0
+  let lastRevealSeq = reveal.req?.seq ?? 0
   $effect(() => {
     const req = reveal.req
     if (!req || req.seq === lastRevealSeq || !textareaEl) return
