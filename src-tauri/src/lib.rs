@@ -861,9 +861,11 @@ pub fn run() {
             #[cfg(not(target_os = "ios"))]
             RunEvent::Reopen { has_visible_windows, .. } => {
                 dlog(&format!("RunEvent::Reopen has_visible_windows={}", has_visible_windows));
-                if !has_visible_windows {
-                    show_main_window(app_handle);
-                }
+                // Always reveal the main window on dock reactivation. The
+                // `has_visible_windows` guard mis-fired when the window was
+                // hidden (close → hide), leaving no way to reopen. Showing an
+                // already-visible window is a no-op.
+                show_main_window(app_handle);
             }
             RunEvent::WindowEvent { ref label, event: ref e, .. } => {
                 match e {

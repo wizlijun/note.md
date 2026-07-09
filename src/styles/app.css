@@ -8,7 +8,11 @@ html, body, #app {
   margin: 0;
   padding: 0;
   height: 100vh;
-  overflow: hidden;
+  /* `clip` (not `hidden`) so these are NOT scroll containers: an overflow:hidden
+     root can still be scrolled programmatically (focus()/scrollIntoView on a
+     descendant, or scroll-chaining), which would push the tab bar / toolbar out
+     of view with no way to scroll back. `clip` makes that impossible. */
+  overflow: clip;
   background: Canvas;
   color: CanvasText;
 }
