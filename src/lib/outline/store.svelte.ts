@@ -61,15 +61,16 @@ export async function attachTab(mainPath: string, mainContent: string): Promise<
   if (!companion) { detach(); return }
   if (outline.mainPath === mainPath) return
 
+  // Claim a sequence token before any await so a concurrent attachTab can't
+  // race past the flush and steal the token.
+  const token = ++attachSeq
+
   // Flush outgoing doc's pending save before resetting state, then kill any
   // pending sync timer so a stale 300ms callback can't inject the old doc's
   // auto items into the new tree.
   await flushSave()                                    // clears saveTimer internally
+  if (token !== attachSeq) return
   if (syncTimer) { clearTimeout(syncTimer); syncTimer = null }
-
-  // Claim a sequence token; if another attachTab overtakes us we bail before
-  // mutating shared state.
-  const token = ++attachSeq
 
   outline.mainPath = mainPath
   outline.companionPath = companion
