@@ -319,6 +319,8 @@ export const en = {
   'outline.regenerateConfirm': 'Rebuild auto items from the source document? Manual notes are kept.',
   'outline.addNote': 'Add note',
   'outline.empty': 'No outline yet',
+  'outline.noDocument': 'Open a Markdown file to see its outline',
+  'outline.notApplicable': 'This file has no outline',
   'outline.externalChanged': 'Companion file changed on disk',
   'outline.jumpToSource': 'Jump to source',
   'outline.copyText': 'Copy text',
