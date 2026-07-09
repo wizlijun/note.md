@@ -8,7 +8,7 @@ export interface AutoItem {
 }
 
 const HEADING_RE = /^(#{1,6})\s+(.*)$/
-const HIGHLIGHT_RE = /\^\^([^^\n]+?)\^\^|==([^=\n]+?)==/g
+const HIGHLIGHT_RE = /\^\^([^^\n]+?)\^\^|(?<![\w=])==([^\s=][^=\n]*?)==(?![\w=])/g
 
 export function deriveAutoItems(md: string): AutoItem[] {
   const lines = md.split('\n')

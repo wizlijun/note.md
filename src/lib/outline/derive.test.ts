@@ -31,4 +31,8 @@ describe('deriveAutoItems', () => {
     const md = '# H\n^^a^^ and ^^b^^\n'
     expect(strip(deriveAutoItems(md)).map(i => i.content)).toEqual(['H', 'a', 'b'])
   })
+  it('== noise (a==b) does not create false highlights', () => {
+    const md = '# H\nformula a==b and ==real==\n'
+    expect(strip(deriveAutoItems(md)).map(i => i.content)).toEqual(['H', 'real'])
+  })
 })
