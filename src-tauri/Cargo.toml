@@ -1,6 +1,6 @@
 [package]
 name = "mdeditor"
-version = "3.18.0"
+version = "3.17.13"
 edition = "2021"
 
 [lib]
