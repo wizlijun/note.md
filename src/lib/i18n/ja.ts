@@ -321,6 +321,8 @@ export const ja: Record<keyof Messages, string> = {
   'outline.copyBlockRef': 'ブロック参照をコピー',
   'outline.delete': '削除',
   'outline.deleteConfirm': 'このノードとすべての子ノードを削除しますか？',
+  'outline.backlinks': 'バックリンク',
+  'outline.noBacklinks': 'バックリンクはありません',
 
   // Folder view
   'folderView.parentFolder': '親フォルダ',

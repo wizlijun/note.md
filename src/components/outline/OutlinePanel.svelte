@@ -17,8 +17,8 @@
   import { pageCandidates } from '../../lib/outline/backlinks'
 
   import { requestReveal } from '../../lib/outline/reveal.svelte'
-  // TODO(Task 16): replace with real import from '../../lib/outline/backlinks-io'
-  function openPageOrCreate(_target: string): void {}
+  import { ensureIndex, teardownIndex, openPageOrCreate } from '../../lib/outline/backlinks-io.svelte'
+  import BacklinksSection from './BacklinksSection.svelte'
 
   let { tab }: { tab: Tab } = $props()
 
@@ -33,7 +33,8 @@
     const content = tab.currentContent
     if (outline.mainPath === tab.filePath) scheduleSyncFromMain(content)
   })
-  $effect(() => () => { void flushSave(); detach() })  // unmount 兜底保存
+  $effect(() => () => { void flushSave(); detach(); teardownIndex() })  // unmount 兜底保存
+  $effect(() => { if (outlineGate.visible && tab.filePath) void ensureIndex(tab.filePath) })
   // Close any floating menu whose owning node is no longer in edit mode (e.g. blur → commitEdit).
   $effect(() => {
     if (menu.kind !== 'none' && outline.editingId !== menu.nodeId) {
@@ -219,6 +220,7 @@
       <p class="empty">{t('outline.empty')}</p>
     {/if}
   </div>
+  <BacklinksSection />
   {#if menu.kind === 'slash'}
     <SlashMenu items={slashItems} selected={menu.selected} x={menu.x} y={menu.y} onPick={pickSlash} />
   {:else if menu.kind === 'link'}

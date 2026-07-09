@@ -326,6 +326,8 @@ export const en = {
   'outline.copyBlockRef': 'Copy block reference',
   'outline.delete': 'Delete',
   'outline.deleteConfirm': 'Delete this node and all its children?',
+  'outline.backlinks': 'Backlinks',
+  'outline.noBacklinks': 'No backlinks',
 
   // Folder view
   'folderView.parentFolder': 'Parent folder',

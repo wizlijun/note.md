@@ -321,6 +321,8 @@ export const zh: Record<keyof Messages, string> = {
   'outline.copyBlockRef': '复制块引用',
   'outline.delete': '删除',
   'outline.deleteConfirm': '删除该节点及其全部子节点？',
+  'outline.backlinks': '反向链接',
+  'outline.noBacklinks': '暂无反向链接',
 
   // Folder view
   'folderView.parentFolder': '上级文件夹',

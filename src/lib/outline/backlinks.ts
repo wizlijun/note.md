@@ -77,6 +77,7 @@ export async function buildFolderIndex(rootDir: string): Promise<BacklinkIndex> 
     const entries = await readDir(dir).catch(() => [])
     for (const e of entries) {
       if (e.name.startsWith('.')) continue
+      if (e.isSymlink) continue // skip symlinks to avoid cycle risk
       const path = (dir.endsWith('/') ? dir.slice(0, -1) : dir) + '/' + e.name
       if (e.isDirectory) { await walk(path); continue }
       if (!/\.md$/i.test(e.name)) continue
