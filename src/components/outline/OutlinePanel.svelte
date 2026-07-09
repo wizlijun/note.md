@@ -21,6 +21,8 @@
   import { ensureIndex, teardownIndex, openPageOrCreate } from '../../lib/outline/backlinks-io.svelte'
   import BacklinksSection from './BacklinksSection.svelte'
 
+  import { untrack } from 'svelte'
+
   let { tab }: { tab: Tab | null } = $props()
 
   // Whether the current tab has an editable outline. Drives body state + button enablement.
@@ -34,10 +36,18 @@
   // resolved shortcuts：接设置覆盖，随 outlineShortcuts.overrides 变化响应式更新
   let resolved = $derived(resolveShortcuts(outlineShortcuts.overrides))
 
-  // 绑定当前 tab + 主文内容变化驱动同步
+  // 绑定当前 tab + 主文内容变化驱动同步。store 调用必须 untrack：
+  // attachTab/flushSave/detach 会同步读写 outline.*（尤其 detach→bump 的
+  // version++ 是读+写），在 effect 内被追踪会自我失效 → 无限重跑 →
+  // effect_update_depth_exceeded → 整个 UI 冻结（大纲开着关闭文档即触发）。
   $effect(() => {
-    if (applicable && tab) void attachTab(tab.filePath, tab.currentContent)
-    else { void flushSave(); detach(); teardownIndex() }
+    if (applicable && tab) {
+      const path = tab.filePath
+      const content = tab.currentContent
+      untrack(() => { void attachTab(path, content) })
+    } else {
+      untrack(() => { void flushSave(); detach(); teardownIndex() })
+    }
   })
   $effect(() => {
     if (!applicable || !tab) return

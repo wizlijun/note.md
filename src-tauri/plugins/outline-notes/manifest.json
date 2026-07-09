@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "description": "Outliner view on the right: syncs the document TOC and ^^highlights^^ into an editable outline saved as a companion .notes.md file.",
   "kind": "builtin",
-  "default_enabled": false,
+  "default_enabled": true,
   "host_capabilities": [],
   "menus": [
     {
