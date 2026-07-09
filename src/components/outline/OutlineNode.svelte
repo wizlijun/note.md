@@ -38,13 +38,16 @@
   $effect(() => { if (editing && textareaEl) textareaEl.focus() })
 
   function startEdit() {
-    if (node.source !== 'manual') { onJump(node); return }
     outline.editingId = node.id
   }
   function commitEdit(value: string) {
+    if (node.source !== 'manual') { outline.editingId = null; return }  // auto is read-only
     node.content = value
     outline.editingId = null
     bump(); markDirty()
+  }
+  function onBulletClick() {
+    if (node.anchorLine != null) onJump(node)
   }
 
   function focusNode(id: string | null) {
@@ -61,6 +64,12 @@
 
     if (e.key === 'Enter' && !e.shiftKey && !e.metaKey && !e.ctrlKey) {
       e.preventDefault()
+      if (node.source !== 'manual') {
+        // read-only: Enter spawns an editable manual sibling directly below
+        const id = createSiblingBelow(outline.tree, node.id)
+        bump(); markDirty(); focusNode(id)
+        return
+      }
       node.content = el.value
       // 行首 Enter → 上方建兄弟（render.cljs handle-key-down 语义）
       const id = atStart && el.value.length > 0
@@ -148,12 +157,15 @@
       class:src-hl={node.source === 'highlight'}
       draggable={node.source === 'manual'}
       ondragstart={onDragStart}
+      onclick={onBulletClick}
     >•</span>
     {#if editing}
       <textarea
         bind:this={textareaEl}
         class="content edit"
+        class:hl={node.source === 'highlight'}
         rows="1"
+        readonly={node.source !== 'manual'}
         value={node.content}
         onblur={(e) => commitEdit((e.currentTarget as HTMLTextAreaElement).value)}
         onkeydown={onKeydown}
@@ -165,7 +177,7 @@
         }}
       ></textarea>
     {:else}
-      <span class="content" onclick={startEdit} role="button" tabindex="0"
+      <span class="content" class:hl={node.source === 'highlight'} onclick={startEdit} role="button" tabindex="0"
         onkeydown={(e) => { if (e.key === 'Enter') startEdit() }}>
         <InlineRender content={node.content} onPageClick={onPageClick} />
       </span>
@@ -195,10 +207,12 @@
   .tri { background: none; border: none; padding: 0; width: 14px; cursor: pointer; font-size: 10px; opacity: 0.6; transition: transform 0.1s; }
   .tri.closed { transform: rotate(-90deg); }
   .tri-spacer { width: 14px; flex-shrink: 0; }
-  .bullet { cursor: grab; opacity: 0.7; }
+  .bullet { cursor: pointer; opacity: 0.7; }
   .bullet.src-toc { color: var(--accent-color, #4a80d4); }
   .bullet.src-hl { color: #d4a94a; }
   .content { flex: 1; min-width: 0; white-space: pre-wrap; word-break: break-word; cursor: text; }
+  .content.hl,
+  textarea.hl { background: var(--highlight-bg, #fde68a); border-radius: 2px; }
   textarea.edit {
     resize: none; overflow: hidden; border: none; outline: 1px solid var(--accent-color, #4a80d4);
     border-radius: 3px; background: transparent; color: inherit; font: inherit; padding: 0 2px;
