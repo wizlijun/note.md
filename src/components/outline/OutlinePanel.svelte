@@ -3,6 +3,8 @@
   import { outlineGate, setOutlineWidth, setOutlineWidthLive } from '../../lib/outline/gate.svelte'
   import { t } from '../../lib/i18n/store.svelte'
   import OutlineNode from './OutlineNode.svelte'
+  import SlashMenu from './SlashMenu.svelte'
+  import LinkAutocomplete from './LinkAutocomplete.svelte'
   import {
     outline, attachTab, detach, scheduleSyncFromMain, regenerate,
     flushSave, bump, markDirty,
@@ -10,6 +12,8 @@
   import { childrenOf, newId, calculateOrderBetween, type OutlineNode as NodeT } from '../../lib/outline/model'
   import { moveNodeAfter, moveNodeToChild } from '../../lib/outline/commands'
   import { resolveShortcuts, type OutlineCommandId } from '../../lib/outline/shortcuts'
+  import { filterSlashItems, applySlashItem, pageLinkQueryAt, confirmPageLink, filterPages, type SlashItem } from '../../lib/outline/completion'
+  import { pageCandidates } from '../../lib/outline/backlinks'
 
   // TODO(Task 15): replace with real import from '../../lib/outline/reveal'
   function requestReveal(_anchorLine: number, _content: string): void {}
@@ -55,8 +59,95 @@
       regenerate(tab.currentContent)
     }
   }
-  // Task 13 填充：菜单接线；本任务先永远返回 false
-  function onEditorInput(): boolean { return false }
+  type MenuState =
+    | { kind: 'none' }
+    | { kind: 'slash'; nodeId: string; start: number; query: string; selected: number; x: number; y: number; el: HTMLTextAreaElement }
+    | { kind: 'link'; nodeId: string; start: number; query: string; selected: number; x: number; y: number; el: HTMLTextAreaElement }
+  let menu = $state<MenuState>({ kind: 'none' })
+
+  let slashItems = $derived(menu.kind === 'slash' ? filterSlashItems(menu.query) : [])
+  let linkPages = $derived(menu.kind === 'link'
+    ? filterPages(outline.backlinkIndex ? pageCandidates(outline.backlinkIndex) : [], menu.query)
+    : [])
+
+  function menuAnchor(el: HTMLTextAreaElement): { x: number; y: number } {
+    const r = el.getBoundingClientRect()
+    return { x: Math.min(r.left, window.innerWidth - 220), y: r.bottom + 2 }
+  }
+
+  function applyToTextarea(el: HTMLTextAreaElement, node: NodeT, text: string, cursor: number) {
+    el.value = text
+    node.content = text
+    el.setSelectionRange(cursor, cursor)
+    bump(); markDirty()
+  }
+
+  /** 返回 true = 事件被菜单消费（keydown 时 Node 组件会 preventDefault） */
+  function onEditorInput(node: NodeT, value: string, cursor: number, el: HTMLTextAreaElement, e?: KeyboardEvent): boolean {
+    // --- keydown 阶段：菜单打开时接管导航键 ---
+    if (e && menu.kind !== 'none') {
+      const count = menu.kind === 'slash' ? slashItems.length : linkPages.length
+      if (e.key === 'ArrowDown') { menu.selected = (menu.selected + 1) % Math.max(count, 1); return true }
+      if (e.key === 'ArrowUp') { menu.selected = (menu.selected - 1 + Math.max(count, 1)) % Math.max(count, 1); return true }
+      if (e.key === 'Escape') { menu = { kind: 'none' }; return true }
+      if (e.key === 'Enter') {
+        if (menu.kind === 'slash' && slashItems[menu.selected]) { pickSlash(slashItems[menu.selected]); return true }
+        if (menu.kind === 'link') { pickPage(linkPages[menu.selected] ?? null); return true }
+        menu = { kind: 'none' }
+        return false
+      }
+      return false
+    }
+    if (e) {
+      // `[` 后接着输 `[` → 自动补 `]]` 并开链接菜单（render.cljs:1117）
+      if (e.key === '[' && value[cursor - 1] === '[') {
+        const text = value.slice(0, cursor) + '[]]' + value.slice(cursor)
+        applyToTextarea(el, node, text, cursor + 1)
+        menu = { kind: 'link', nodeId: node.id, start: cursor - 1, query: '', selected: 0, ...menuAnchor(el), el }
+        return true
+      }
+      return false
+    }
+    // --- input 阶段：维护菜单 query / 触发 slash 菜单 ---
+    if (menu.kind === 'link') {
+      const q = pageLinkQueryAt(value, cursor)
+      if (q && q.start === menu.start) menu.query = q.query
+      else menu = { kind: 'none' }
+      return false
+    }
+    if (menu.kind === 'slash') {
+      const seg = value.slice(menu.start, cursor)
+      if (seg.startsWith('/') && !seg.includes(' ')) { menu.query = seg.slice(1); menu.selected = 0 }
+      else menu = { kind: 'none' }
+      return false
+    }
+    // `/` 在行首或空格后触发（render.cljs filtered-slash-commands 语义）
+    if (value[cursor - 1] === '/' && (cursor === 1 || /\s/.test(value[cursor - 2]))) {
+      menu = { kind: 'slash', nodeId: node.id, start: cursor - 1, query: '', selected: 0, ...menuAnchor(el), el }
+    }
+    return false
+  }
+
+  function pickSlash(item: SlashItem) {
+    if (menu.kind !== 'slash') return
+    const node = outline.tree.nodes.get(menu.nodeId)
+    if (node) {
+      const r = applySlashItem(menu.el.value, menu.start, menu.el.selectionStart, item)
+      applyToTextarea(menu.el, node, r.text, r.cursor)
+    }
+    menu = { kind: 'none' }
+  }
+
+  function pickPage(page: string | null) {
+    if (menu.kind !== 'link') return
+    const node = outline.tree.nodes.get(menu.nodeId)
+    if (node) {
+      const r = confirmPageLink(menu.el.value, menu.start, menu.query, page)
+      applyToTextarea(menu.el, node, r.text, r.cursor)
+    }
+    menu = { kind: 'none' }
+  }
+
   function onContextMenu(): void {}   // Task 14 填充
 
   let startX = 0
@@ -101,6 +192,11 @@
       <p class="empty">{t('outline.empty')}</p>
     {/if}
   </div>
+  {#if menu.kind === 'slash'}
+    <SlashMenu items={slashItems} selected={menu.selected} x={menu.x} y={menu.y} onPick={pickSlash} />
+  {:else if menu.kind === 'link'}
+    <LinkAutocomplete pages={linkPages} selected={menu.selected} x={menu.x} y={menu.y} onPick={pickPage} />
+  {/if}
 </aside>
 
 <style>
