@@ -279,10 +279,27 @@
     onpointerup={onSplitterUp}
   ></div>
   <header>
-    <button class="hbtn" title={t('outline.hide')} onclick={() => void setOutlineVisible(false)}>«</button>
+    <button class="hbtn" title={t('outline.hide')} aria-label={t('outline.hide')} onclick={() => void setOutlineVisible(false)}>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="3" y="3" width="18" height="18" rx="2" />
+        <line x1="15" y1="3" x2="15" y2="21" />
+        <polyline points="8 9 11 12 8 15" />
+      </svg>
+    </button>
     <span class="title">{t('outline.title')}</span>
-    <button class="hbtn" class:active={searchOpen} title={t('outline.search')} disabled={!applicable} onclick={toggleSearch}>⌕</button>
-    <button class="hbtn" title={t('outline.regenerate')} disabled={!applicable} onclick={onRegenerate}>⟳</button>
+    <button class="hbtn" class:on={searchOpen} title={t('outline.search')} aria-label={t('outline.search')} disabled={!applicable} onclick={toggleSearch}>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="8" />
+        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+      </svg>
+    </button>
+    <button class="hbtn" title={t('outline.regenerate')} aria-label={t('outline.regenerate')} disabled={!applicable} onclick={onRegenerate}>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <polyline points="23 4 23 10 17 10" />
+        <polyline points="1 20 1 14 7 14" />
+        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+      </svg>
+    </button>
   </header>
   {#if searchOpen}
     <div class="search-row">
@@ -295,7 +312,12 @@
         onkeydown={onSearchKeydown}
       />
       {#if searchQuery}
-        <button class="hbtn" title={t('common.close')} onclick={() => (searchQuery = '')}>✕</button>
+        <button class="hbtn" title={t('common.close')} aria-label={t('common.close')} onclick={() => (searchQuery = '')}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
       {/if}
     </div>
   {/if}
@@ -358,12 +380,14 @@
   }
   .title { flex: 1; }
   .hbtn {
-    background: none; border: none; cursor: pointer; font-size: 14px;
-    opacity: 0.6; padding: 0 2px; line-height: 1;
+    display: inline-flex; align-items: center; justify-content: center;
+    border: 0; background: transparent; cursor: pointer;
+    padding: 3px; border-radius: 4px; opacity: 0.7;
   }
-  .hbtn:hover { opacity: 1; }
+  .hbtn svg { display: block; }
+  .hbtn:hover:not(:disabled) { background: rgba(0,0,0,0.08); opacity: 1; }
   .hbtn:disabled { opacity: 0.25; cursor: default; }
-  .hbtn.active { opacity: 1; color: var(--accent-color, #4a80d4); }
+  .hbtn.on { background: rgba(0,0,0,0.1); opacity: 1; }
   .search-row {
     display: flex; align-items: center; gap: 4px;
     padding: 4px 8px; border-bottom: 1px solid var(--border-color, #3333);
@@ -386,5 +410,9 @@
     width: 0; height: 0;
     visibility: hidden;
     pointer-events: none;
+  }
+  @media (prefers-color-scheme: dark) {
+    .hbtn:hover:not(:disabled) { background: rgba(255,255,255,0.1); }
+    .hbtn.on { background: rgba(255,255,255,0.15); }
   }
 </style>
