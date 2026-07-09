@@ -314,6 +314,8 @@ export const zh: Record<keyof Messages, string> = {
   'outline.regenerateConfirm': '从原文重建自动项？手写笔记会保留。',
   'outline.addNote': '添加笔记',
   'outline.empty': '暂无大纲',
+  'outline.noDocument': '打开一个 Markdown 文件以查看大纲',
+  'outline.notApplicable': '此文件无大纲',
   'outline.externalChanged': '伴生文件在磁盘上已被修改',
   'outline.jumpToSource': '跳转到原文',
   'outline.copyText': '复制文本',

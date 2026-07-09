@@ -1,6 +1,6 @@
 // src/lib/outline/store.test.ts
 import { describe, it, expect } from 'vitest'
-import { companionPathFor, persistIdsFor } from './store.svelte'
+import { companionPathFor, persistIdsFor, isEffectivelyEmpty } from './store.svelte'
 import { createTree, addNode } from './model'
 
 describe('companionPathFor', () => {
@@ -24,5 +24,27 @@ describe('persistIdsFor', () => {
     expect(ids.has('toc1')).toBe(true)   // auto 带手写子节点 → 保 id
     expect(ids.has('m1')).toBe(true)     // 被 ((m1)) 引用
     expect(ids.has('m2')).toBe(false)
+  })
+})
+
+describe('isEffectivelyEmpty', () => {
+  it('true when tree has only empty manual nodes', () => {
+    const t = createTree()
+    addNode(t, { id: 'm1', parentId: null, order: 0, content: '', collapsed: false, source: 'manual' })
+    addNode(t, { id: 'm2', parentId: null, order: 100, content: '   ', collapsed: false, source: 'manual' })
+    expect(isEffectivelyEmpty(t)).toBe(true)
+  })
+  it('true for a brand-new empty tree', () => {
+    expect(isEffectivelyEmpty(createTree())).toBe(true)
+  })
+  it('false when any manual node has content', () => {
+    const t = createTree()
+    addNode(t, { id: 'm1', parentId: null, order: 0, content: 'hi', collapsed: false, source: 'manual' })
+    expect(isEffectivelyEmpty(t)).toBe(false)
+  })
+  it('false when any auto node exists', () => {
+    const t = createTree()
+    addNode(t, { id: 'toc1', parentId: null, order: 0, content: 'H', collapsed: false, source: 'toc', anchorLine: 1 })
+    expect(isEffectivelyEmpty(t)).toBe(false)
   })
 })

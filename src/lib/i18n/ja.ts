@@ -314,6 +314,8 @@ export const ja: Record<keyof Messages, string> = {
   'outline.regenerateConfirm': '原文から自動項目を再構築しますか？手書きノートは保持されます。',
   'outline.addNote': 'ノートを追加',
   'outline.empty': 'アウトラインはまだありません',
+  'outline.noDocument': 'Markdown ファイルを開くとアウトラインが表示されます',
+  'outline.notApplicable': 'このファイルにアウトラインはありません',
   'outline.externalChanged': 'ノートファイルが外部で変更されました',
   'outline.jumpToSource': '原文へジャンプ',
   'outline.copyText': 'テキストをコピー',

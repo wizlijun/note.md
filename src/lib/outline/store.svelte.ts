@@ -51,6 +51,16 @@ export function persistIdsFor(tree: OutlineTree): Set<string> {
   return ids
 }
 
+/** True when the tree carries no meaningful outline: no auto nodes and every
+ *  manual node is blank. Used to skip writing a phantom `.notes.md`. */
+export function isEffectivelyEmpty(tree: OutlineTree): boolean {
+  for (const n of tree.nodes.values()) {
+    if (n.source !== 'manual') return false
+    if (n.content.trim() !== '') return false
+  }
+  return true
+}
+
 /** copy-ref 时固定写入 id 的集合：确保即使引用被粘到别的文件，本文件也会落盘 id:: */
 export const pinnedIds = new Set<string>()
 
@@ -140,6 +150,7 @@ export async function flushSave(): Promise<void> {
   if (saveTimer) { clearTimeout(saveTimer); saveTimer = null }
   const path = outline.companionPath
   if (!outline.dirty || !path) return
+  if (isEffectivelyEmpty(outline.tree)) { outline.dirty = false; return }  // don't write phantom companion
   const text = serializeOutline(outline.tree, new Set([...persistIdsFor(outline.tree), ...pinnedIds]))
   const { writeTextFile } = await import('@tauri-apps/plugin-fs')
   try {

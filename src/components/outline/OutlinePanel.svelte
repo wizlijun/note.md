@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Tab } from '../../lib/tabs.svelte'
-  import { outlineGate, outlineShortcuts, setOutlineWidth, setOutlineWidthLive, setOutlineVisible } from '../../lib/outline/gate.svelte'
+  import { outlineGate, outlineShortcuts, setOutlineWidth, setOutlineWidthLive, setOutlineVisible, outlineAppliesTo } from '../../lib/outline/gate.svelte'
   import { t } from '../../lib/i18n/store.svelte'
   import OutlineNode from './OutlineNode.svelte'
   import SlashMenu from './SlashMenu.svelte'
@@ -16,30 +16,61 @@
   import { filterSlashItems, applySlashItem, pageLinkQueryAt, confirmPageLink, filterPages, type SlashItem } from '../../lib/outline/completion'
   import { pageCandidates } from '../../lib/outline/backlinks'
 
+  import { activeTheme } from '../../lib/active-theme.svelte'
   import { requestReveal } from '../../lib/outline/reveal.svelte'
   import { ensureIndex, teardownIndex, openPageOrCreate } from '../../lib/outline/backlinks-io.svelte'
   import BacklinksSection from './BacklinksSection.svelte'
 
-  let { tab }: { tab: Tab } = $props()
+  let { tab }: { tab: Tab | null } = $props()
+
+  // Whether the current tab has an editable outline. Drives body state + button enablement.
+  let applicable = $derived(tab != null && outlineAppliesTo(tab))
+
+  // Theme-driven typography: measured from an offscreen probe (see effect below).
+  let activeThemeId = $derived(activeTheme.id)
+  let probeEl = $state<HTMLDivElement>()
+  let typo = $state({ family: '', size: '', line: '' })
 
   // resolved shortcuts：接设置覆盖，随 outlineShortcuts.overrides 变化响应式更新
   let resolved = $derived(resolveShortcuts(outlineShortcuts.overrides))
 
   // 绑定当前 tab + 主文内容变化驱动同步
   $effect(() => {
-    if (tab.filePath) void attachTab(tab.filePath, tab.currentContent)
+    if (applicable && tab) void attachTab(tab.filePath, tab.currentContent)
+    else { void flushSave(); detach(); teardownIndex() }
   })
   $effect(() => {
+    if (!applicable || !tab) return
     const content = tab.currentContent
     if (outline.mainPath === tab.filePath) scheduleSyncFromMain(content)
   })
   $effect(() => () => { void flushSave(); detach(); teardownIndex() })  // unmount 兜底保存
-  $effect(() => { if (outlineGate.visible && tab.filePath) void ensureIndex(tab.filePath) })
+  $effect(() => { if (applicable && outlineGate.visible && tab) void ensureIndex(tab.filePath) })
   // Close any floating menu whose owning node is no longer in edit mode (e.g. blur → commitEdit).
   $effect(() => {
     if (menu.kind !== 'none' && outline.editingId !== menu.nodeId) {
       menu = { kind: 'none' }
     }
+  })
+  // Default-editable: an applicable but empty outline gets one ready-to-type
+  // root node (no + button needed). Guarded so it fires once, not on every bump.
+  $effect(() => {
+    void outline.version
+    if (!applicable) return
+    if (outline.tree.nodes.size === 0 && outline.editingId == null) addRootNote()
+  })
+  // Read the theme's base body typography (font-family/size/line-height, which
+  // live on `.moraya-editor` under `[data-theme=<id>]`) and expose as CSS vars.
+  // rAF waits for the theme slot CSS to apply after an id change.
+  $effect(() => {
+    void activeThemeId
+    const probe = probeEl?.querySelector('.moraya-editor') as HTMLElement | null
+    if (!probe) return
+    const raf = requestAnimationFrame(() => {
+      const cs = getComputedStyle(probe)
+      typo = { family: cs.fontFamily, size: cs.fontSize, line: cs.lineHeight }
+    })
+    return () => cancelAnimationFrame(raf)
   })
 
   let roots = $derived.by(() => { void outline.version; return childrenOf(outline.tree, null) })
@@ -86,9 +117,18 @@
     }
     outline.tree.nodes.set(node.id, node)
     outline.editingId = node.id
-    bump(); markDirty()
+    bump()   // no markDirty(): an empty node alone must not trigger a save
+  }
+
+  // Click in the empty region below the last node → new trailing root node.
+  function onBodyClick(e: MouseEvent) {
+    if (!applicable) return
+    const target = e.target as HTMLElement
+    if (target.closest('.node')) return   // clicks on existing rows handled by the node
+    addRootNote()
   }
   async function onRegenerate() {
+    if (!tab) return
     const { confirm } = await import('@tauri-apps/plugin-dialog')
     if (await confirm(t('outline.regenerateConfirm'), { title: t('outline.regenerate') })) {
       regenerate(tab.currentContent)
@@ -225,7 +265,13 @@
   }
 </script>
 
-<aside class="outline-panel" style="width: {outlineGate.width}px">
+<aside
+  class="outline-panel"
+  style="width: {outlineGate.width}px; --outline-font-family: {typo.family}; --outline-font-size: {typo.size}; --outline-line-height: {typo.line};"
+>
+  <div class="typo-probe" data-theme={activeThemeId} aria-hidden="true" bind:this={probeEl}>
+    <div class="moraya-editor"></div>
+  </div>
   <div
     class="splitter"
     onpointerdown={onSplitterDown}
@@ -233,11 +279,27 @@
     onpointerup={onSplitterUp}
   ></div>
   <header>
-    <button class="hbtn" title={t('outline.hide')} onclick={() => void setOutlineVisible(false)}>«</button>
+    <button class="hbtn" title={t('outline.hide')} aria-label={t('outline.hide')} onclick={() => void setOutlineVisible(false)}>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="3" y="3" width="18" height="18" rx="2" />
+        <line x1="15" y1="3" x2="15" y2="21" />
+        <polyline points="8 9 11 12 8 15" />
+      </svg>
+    </button>
     <span class="title">{t('outline.title')}</span>
-    <button class="hbtn" class:active={searchOpen} title={t('outline.search')} onclick={toggleSearch}>⌕</button>
-    <button class="hbtn" title={t('outline.regenerate')} onclick={onRegenerate}>⟳</button>
-    <button class="hbtn" title={t('outline.addNote')} onclick={addRootNote}>＋</button>
+    <button class="hbtn" class:on={searchOpen} title={t('outline.search')} aria-label={t('outline.search')} disabled={!applicable} onclick={toggleSearch}>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="8" />
+        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+      </svg>
+    </button>
+    <button class="hbtn" title={t('outline.regenerate')} aria-label={t('outline.regenerate')} disabled={!applicable} onclick={onRegenerate}>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <polyline points="23 4 23 10 17 10" />
+        <polyline points="1 20 1 14 7 14" />
+        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+      </svg>
+    </button>
   </header>
   {#if searchOpen}
     <div class="search-row">
@@ -250,23 +312,35 @@
         onkeydown={onSearchKeydown}
       />
       {#if searchQuery}
-        <button class="hbtn" title={t('common.close')} onclick={() => (searchQuery = '')}>✕</button>
+        <button class="hbtn" title={t('common.close')} aria-label={t('common.close')} onclick={() => (searchQuery = '')}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
       {/if}
     </div>
   {/if}
   {#if outline.externalConflict}
     <div class="conflict">{t('outline.externalChanged')}</div>
   {/if}
-  <div class="body" role="tree">
-    {#each visibleRoots as node (node.id)}
-      <OutlineNode {node} depth={0} {resolved} {onJump} {onPageClick} {onEditorInput} {onContextMenu} {onDragOp} {visibleIds} />
-    {/each}
-    {#if visibleRoots.length === 0}
-      <p class="empty">{visibleIds ? t('outline.noSearchResults') : t('outline.empty')}</p>
+  {#if !applicable}
+    <div class="body">
+      <p class="empty">{tab == null ? t('outline.noDocument') : t('outline.notApplicable')}</p>
+    </div>
+  {:else}
+    <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+    <div class="body" role="tree" onclick={onBodyClick}>
+      {#each visibleRoots as node (node.id)}
+        <OutlineNode {node} depth={0} {resolved} {onJump} {onPageClick} {onEditorInput} {onContextMenu} {onDragOp} {visibleIds} />
+      {/each}
+      {#if visibleRoots.length === 0}
+        <p class="empty">{visibleIds ? t('outline.noSearchResults') : t('outline.empty')}</p>
+      {/if}
+    </div>
+    {#if !visibleIds}
+      <BacklinksSection />
     {/if}
-  </div>
-  {#if !visibleIds}
-    <BacklinksSection />
   {/if}
   {#if menu.kind === 'slash'}
     <SlashMenu items={slashItems} selected={menu.selected} x={menu.x} y={menu.y} onPick={pickSlash} />
@@ -306,11 +380,14 @@
   }
   .title { flex: 1; }
   .hbtn {
-    background: none; border: none; cursor: pointer; font-size: 14px;
-    opacity: 0.6; padding: 0 2px; line-height: 1;
+    display: inline-flex; align-items: center; justify-content: center;
+    border: 0; background: transparent; cursor: pointer;
+    padding: 3px; border-radius: 4px; opacity: 0.7;
   }
-  .hbtn:hover { opacity: 1; }
-  .hbtn.active { opacity: 1; color: var(--accent-color, #4a80d4); }
+  .hbtn svg { display: block; }
+  .hbtn:hover:not(:disabled) { background: rgba(0,0,0,0.08); opacity: 1; }
+  .hbtn:disabled { opacity: 0.25; cursor: default; }
+  .hbtn.on { background: rgba(0,0,0,0.1); opacity: 1; }
   .search-row {
     display: flex; align-items: center; gap: 4px;
     padding: 4px 8px; border-bottom: 1px solid var(--border-color, #3333);
@@ -325,6 +402,17 @@
     background: var(--warn-bg, #fef08a); color: var(--warn-fg, #78350f);
     font-size: 11px; padding: 4px 8px; border-bottom: 1px solid var(--border-color, #3333);
   }
-  .body { flex: 1; overflow-y: auto; padding: 8px; }
+  .body { flex: 1; overflow-y: auto; padding: 8px; font-family: var(--outline-font-family); }
   .empty { opacity: 0.5; font-size: 12px; }
+  .typo-probe {
+    position: absolute;
+    left: -9999px; top: 0;
+    width: 0; height: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+  @media (prefers-color-scheme: dark) {
+    .hbtn:hover:not(:disabled) { background: rgba(255,255,255,0.1); }
+    .hbtn.on { background: rgba(255,255,255,0.15); }
+  }
 </style>
