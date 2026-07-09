@@ -34,6 +34,12 @@
     if (outline.mainPath === tab.filePath) scheduleSyncFromMain(content)
   })
   $effect(() => () => { void flushSave(); detach() })  // unmount 兜底保存
+  // Close any floating menu whose owning node is no longer in edit mode (e.g. blur → commitEdit).
+  $effect(() => {
+    if (menu.kind !== 'none' && outline.editingId !== menu.nodeId) {
+      menu = { kind: 'none' }
+    }
+  })
 
   let roots = $derived.by(() => { void outline.version; return childrenOf(outline.tree, null) })
 
@@ -75,6 +81,9 @@
     return { x: Math.min(r.left, window.innerWidth - 220), y: r.bottom + 2 }
   }
 
+  // Invariant: el.value and node.content must be set to the SAME string before bump() so
+  // Svelte's `value={node.content}` attribute reconciliation skips the DOM write and the
+  // caret position set by setSelectionRange survives without being reset by a Svelte patch.
   function applyToTextarea(el: HTMLTextAreaElement, node: NodeT, text: string, cursor: number) {
     el.value = text
     node.content = text
