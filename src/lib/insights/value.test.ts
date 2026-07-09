@@ -13,10 +13,19 @@ describe('valueScore', () => {
     expect(b).toBeGreaterThan(a)
     expect(a).toBeGreaterThan(0)
   })
-  it('weights unique readers and edits above raw read time', () => {
-    const readOnly = valueScore({ ...base, read_ms: 600_000 }, DEFAULT_WEIGHTS)
+  it('weights owner reading and audience reading equally (same per-minute)', () => {
+    const owner = valueScore({ ...base, read_ms: 600_000 }, DEFAULT_WEIGHTS)
+    const audience = valueScore({ ...base, aud_read_ms: 600_000 }, DEFAULT_WEIGHTS)
+    expect(audience).toBe(owner)
+  })
+  it('treats unique-reader count as a minor signal, below equal reading time', () => {
+    const readTime = valueScore({ ...base, read_ms: 600_000 }, DEFAULT_WEIGHTS)
     const readers = valueScore({ ...base, unique_readers: 10 }, DEFAULT_WEIGHTS)
     expect(readers).toBeGreaterThan(0)
+    expect(readers).toBeLessThan(readTime)
+  })
+  it('a rich doc still outranks a read-only one', () => {
+    const readOnly = valueScore({ ...base, read_ms: 600_000 }, DEFAULT_WEIGHTS)
     const rich = valueScore({ ...base, read_ms: 600_000, edit_ms: 300_000, mark_ops: 5, unique_readers: 10 }, DEFAULT_WEIGHTS)
     expect(rich).toBeGreaterThan(readOnly)
   })

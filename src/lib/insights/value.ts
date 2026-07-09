@@ -13,9 +13,14 @@ export interface ValueWeights {
   read: number; edit: number; sessions: number; marks: number; audRead: number; readers: number
 }
 
-/** Reasonable defaults; edits + unique readers weigh above raw reading. Tunable later. */
+/**
+ * Reasonable defaults. Owner reading and audience reading carry the SAME
+ * per-minute weight (most activity here is private reading, so time is the
+ * primary signal). Edits weigh a bit above reading; unique-reader count is only
+ * a minor extra signal, not a dominant one. Tunable later.
+ */
 export const DEFAULT_WEIGHTS: ValueWeights = {
-  read: 1, edit: 1.5, sessions: 0.5, marks: 0.3, audRead: 1, readers: 2,
+  read: 1, edit: 1.5, sessions: 0.5, marks: 0.3, audRead: 1, readers: 0.5,
 }
 
 const log1p = (x: number) => Math.log1p(Math.max(0, x))
