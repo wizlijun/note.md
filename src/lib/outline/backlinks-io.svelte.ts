@@ -7,6 +7,7 @@ import { openFile } from '../tabs.svelte'
 
 let unwatch: (() => void) | null = null
 let indexedRoot: string | null = null
+let indexGen = 0
 
 /** 面板首次显示/主文件换目录时调用；插件关闭时 teardownIndex() */
 export async function ensureIndex(mainPath: string): Promise<void> {
@@ -14,8 +15,11 @@ export async function ensureIndex(mainPath: string): Promise<void> {
   const root = folderView.rootDir ?? parentDir(mainPath)
   if (indexedRoot === root && outline.backlinkIndex) return
   teardownIndex()
+  const gen = ++indexGen
   indexedRoot = root
-  outline.backlinkIndex = await buildFolderIndex(root)
+  const idx = await buildFolderIndex(root)
+  if (gen !== indexGen) return   // superseded by teardown or a concurrent call
+  outline.backlinkIndex = idx
   bump()
   let timer: ReturnType<typeof setTimeout> | null = null
   const pending = new Set<string>()
@@ -23,17 +27,21 @@ export async function ensureIndex(mainPath: string): Promise<void> {
     for (const p of (ev.paths ?? [])) if (/\.md$/i.test(p)) pending.add(p)
     if (timer) clearTimeout(timer)
     timer = setTimeout(async () => {
-      const idx = outline.backlinkIndex
-      if (!idx) return
-      for (const p of [...pending]) { pending.delete(p); await refreshFileInIndex(idx, p) }
+      const current = outline.backlinkIndex
+      if (!current) return
+      for (const p of [...pending]) { pending.delete(p); await refreshFileInIndex(current, p) }
       bump()
     }, 300)
   }, { recursive: true })
-    .then(s => { unwatch = s })
+    .then(s => {
+      if (gen !== indexGen) { try { s() } catch { /* ignore */ } }
+      else { unwatch = s }
+    })
     .catch(e => console.warn('[outline] backlink watch failed:', e))
 }
 
 export function teardownIndex(): void {
+  indexGen++
   if (unwatch) { try { unwatch() } catch { /* ignore */ } unwatch = null }
   outline.backlinkIndex = null
   indexedRoot = null
@@ -45,7 +53,7 @@ export async function openPageOrCreate(target: string): Promise<void> {
   if (!dir) return
   const idx = outline.backlinkIndex
   const existing = idx ? [...idx.filePages.entries()].find(
-    ([, page]) => page.toLowerCase() === target.toLowerCase() && !/\.notes\.md$/i.test(page)) : null
+    ([p, page]) => page.toLowerCase() === target.toLowerCase() && !/\.notes\.md$/i.test(p)) : null
   if (existing) { await openFile(existing[0]); return }
   const path = `${dir}/${target}.md`
   const { exists, writeTextFile } = await import('@tauri-apps/plugin-fs')
