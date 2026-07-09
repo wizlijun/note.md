@@ -410,12 +410,16 @@
     let unlistenClose: (() => void) | Promise<() => void> | null = null
     ;(async () => {
       if (await isIOS()) return
-      // Rust side prevents close and hides window.
-      // Just close all tabs here (auto-save dirty ones).
-      unlistenClose = await win.onCloseRequested(async (_event) => {
+      // Keep the window alive on close: hide instead of destroy so it can be
+      // reopened from the dock. We MUST preventDefault here — without it the
+      // webview's close proceeds and destroys the window (racing/overriding the
+      // Rust-side prevent_close), after which the app has no window to re-show.
+      unlistenClose = await win.onCloseRequested(async (event) => {
+        event.preventDefault()
         while (tabs.length > 0) {
           await closeTab(tabs[0].id, async () => isDirty(tabs[0].id) ? 'save' : 'discard')
         }
+        await win.hide()
       })
     })()
 
@@ -587,6 +591,13 @@
 
   let current = $derived(activeTab())
 
+  // Right-edge inset for the floating mode toggle: when the outline column is
+  // showing it sits to the right of the editor, so push the toggle left by the
+  // outline width to keep it over the editor (not hidden behind the panel).
+  let outlineRightOffset = $derived(
+    platformName !== 'ios' && outlineGate.enabled && outlineGate.visible ? outlineGate.width : 0
+  )
+
   // Window title: filename when single tab, plain "M↓" otherwise
   $effect(() => {
     const tabCount = tabs.length
@@ -662,7 +673,7 @@
     {/if}
     {#if current}
       {#if tabs.length === 1 && platformName !== 'ios'}
-        <div class="float-toggle"><ModeToggle tab={current} /></div>
+        <div class="float-toggle" style="right: {outlineRightOffset + 28}px"><ModeToggle tab={current} /></div>
       {/if}
       <EditorPane tab={current} />
     {:else}
@@ -683,7 +694,10 @@
     display: flex;
     flex-direction: column;
     height: 100vh;
-    overflow: hidden;
+    /* clip, not hidden: keep this from ever being a programmatically-scrollable
+       container (focus()/scrollIntoView on a descendant would otherwise push the
+       tab bar out of view with no way back). */
+    overflow: clip;
   }
   .pane {
     position: relative;
