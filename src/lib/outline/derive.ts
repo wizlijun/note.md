@@ -2,21 +2,29 @@
 export interface AutoItem {
   source: 'toc' | 'highlight'
   content: string
-  /** 树深度：toc 按标题级别相对嵌套；highlight = 所属 toc 深度 + 1（无标题时 0） */
+  /** 树深度：顶层 H1 = 0；其下高亮 = 1；任何 H1 之前的高亮 = 0 */
   depth: number
   anchorLine: number
 }
 
-const HEADING_RE = /^(#{1,6})\s+(.*)$/
+const H1_RE = /^#\s+(.*)$/
 const HIGHLIGHT_RE = /\^\^([^^\n]+?)\^\^|(?<![\w=])==([^\s=][^=\n]*?)==(?![\w=])/g
 
+/**
+ * Derive outline auto-items: only highlights, each grouped under the most recent
+ * top-level `#` heading (emitted once, read-only, as context). Sub-headings
+ * (`##`+) are ignored. H1s with no highlights are omitted.
+ */
 export function deriveAutoItems(md: string): AutoItem[] {
   const lines = md.split('\n')
   const items: AutoItem[] = []
-  // levelStack: 祖先链的标题级别（如 [1,3] = h1 下的 h3），深度 = 栈长-1
-  const levelStack: number[] = []
   let inFence = false
   let start = 0
+
+  // Current top-level H1 context, and whether we've already emitted its toc item.
+  let h1Content: string | null = null
+  let h1Line = 0
+  let h1Emitted = false
 
   if (lines[0] === '---') {
     const close = lines.indexOf('---', 1)
@@ -28,20 +36,24 @@ export function deriveAutoItems(md: string): AutoItem[] {
     if (/^(```|~~~)/.test(line.trim())) { inFence = !inFence; continue }
     if (inFence) continue
 
-    const h = line.match(HEADING_RE)
-    if (h) {
-      const level = h[1].length
-      while (levelStack.length && levelStack[levelStack.length - 1] >= level) levelStack.pop()
-      levelStack.push(level)
-      items.push({ source: 'toc', content: h[2].trim(), depth: levelStack.length - 1, anchorLine: li + 1 })
+    const h1 = line.match(H1_RE)
+    if (h1) {
+      h1Content = h1[1].trim()
+      h1Line = li + 1
+      h1Emitted = false
       continue
     }
+
     HIGHLIGHT_RE.lastIndex = 0
     let m: RegExpExecArray | null
     while ((m = HIGHLIGHT_RE.exec(line)) !== null) {
       const text = (m[1] ?? m[2]).trim()
       if (!text) continue
-      items.push({ source: 'highlight', content: text, depth: levelStack.length, anchorLine: li + 1 })
+      if (h1Content !== null && !h1Emitted) {
+        items.push({ source: 'toc', content: h1Content, depth: 0, anchorLine: h1Line })
+        h1Emitted = true
+      }
+      items.push({ source: 'highlight', content: text, depth: h1Content !== null ? 1 : 0, anchorLine: li + 1 })
     }
   }
   return items
