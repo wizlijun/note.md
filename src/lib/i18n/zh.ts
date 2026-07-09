@@ -485,6 +485,9 @@ export const zh: Record<keyof Messages, string> = {
   'insights.windowTitle': '阅读洞察数据',
   'insights.reportSaved': '报告已保存',
   'insights.reportFailed': '生成报告失败',
+  'insights.openDoc': '打开此文档',
+  'insights.docMissing': '文件不存在',
+  'insights.openFailed': '打开文档失败',
 
   // Settings → CLI
   'settings.cli.heading': 'CLI',

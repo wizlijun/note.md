@@ -490,6 +490,9 @@ export const en = {
   'insights.windowTitle': 'Reading Insights',
   'insights.reportSaved': 'Report saved',
   'insights.reportFailed': 'Failed to generate report',
+  'insights.openDoc': 'Open this document',
+  'insights.docMissing': 'File not found',
+  'insights.openFailed': 'Failed to open the document',
 
   // Settings → CLI
   'settings.cli.heading': 'CLI',

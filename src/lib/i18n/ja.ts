@@ -485,6 +485,9 @@ export const ja: Record<keyof Messages, string> = {
   'insights.windowTitle': 'リーディングインサイト',
   'insights.reportSaved': 'レポートを保存しました',
   'insights.reportFailed': 'レポート生成に失敗しました',
+  'insights.openDoc': 'このドキュメントを開く',
+  'insights.docMissing': 'ファイルが見つかりません',
+  'insights.openFailed': 'ドキュメントを開けませんでした',
 
   // Settings → CLI
   'settings.cli.heading': 'CLI',
