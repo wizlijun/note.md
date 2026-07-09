@@ -1,0 +1,29 @@
+{
+  "id": "outline-notes",
+  "name": "Outline Notes",
+  "version": "0.1.0",
+  "description": "Outliner view on the right: syncs the document TOC and ^^highlights^^ into an editable outline saved as a companion .notes.md file.",
+  "kind": "builtin",
+  "default_enabled": false,
+  "host_capabilities": [],
+  "menus": [
+    {
+      "location": "view",
+      "label": "Outliner View",
+      "shortcut": "Cmd+Shift+O",
+      "command": "toggle"
+    }
+  ],
+  "i18n": {
+    "zh": {
+      "name": "大纲笔记",
+      "description": "右侧大纲视图：将文档目录结构与 ^^高亮^^ 实时同步为可编辑大纲，存为伴生 .notes.md 文件。",
+      "menus": { "toggle": "大纲视图" }
+    },
+    "ja": {
+      "name": "アウトラインノート",
+      "description": "右側のアウトラインビュー：文書の見出しと ^^ハイライト^^ を編集可能なアウトラインに同期し、.notes.md ファイルに保存します。",
+      "menus": { "toggle": "アウトラインビュー" }
+    }
+  }
+}

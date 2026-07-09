@@ -46,6 +46,7 @@
   import DrawerNav from './components/DrawerNav.svelte'
   import FolderView from './components/FolderView.svelte'
   import { folderView, loadFolderViewState, setVisible } from './lib/folder-view.svelte'
+  import { outlineGate, loadOutlineGate, setOutlineVisible } from './lib/outline/gate.svelte'
   import { platform, isIOS } from './lib/platform.svelte'
   import { vaultStore, refreshStatus, syncNow, attachStatusListener } from './lib/vault.svelte'
   import { syncCurrentToVault, canSyncActive, isTrackedVaultFile, refreshSotvault, sotvaultStore, setVaultRootChangedHandler } from './lib/sotvault.svelte'
@@ -176,6 +177,7 @@
       try { await loadSettings() } catch (e) { console.warn('[App] loadSettings:', e) }
       try { await loadLocale() } catch (e) { console.warn('[App] loadLocale:', e) }
       await loadFolderViewState()
+      await loadOutlineGate()
       await initActivePluginIds()
 
       // Kick off auto-update check (1.5s delay built in, 20h cache).
@@ -313,6 +315,10 @@
         }
         if (pluginId === 'folder-view') {
           if (command === 'toggle') await setVisible(!folderView.visible)
+          return
+        }
+        if (pluginId === 'outline-notes') {
+          if (command === 'toggle') await setOutlineVisible(!outlineGate.visible)
           return
         }
         const m = manifestById[pluginId]
@@ -659,6 +665,11 @@
         <div class="float-toggle"><ModeToggle tab={current} /></div>
       {/if}
       <EditorPane tab={current} />
+      {#if platformName !== 'ios' && outlineGate.enabled && outlineGate.visible && current && current.kind === 'markdown' && !(current.filePath ?? '').endsWith('.notes.md')}
+        {#await import('./components/outline/OutlinePanel.svelte') then Panel}
+          <Panel.default tab={current} />
+        {/await}
+      {/if}
     {:else}
       <EmptyState />
     {/if}

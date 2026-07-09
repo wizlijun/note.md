@@ -308,6 +308,9 @@ export const ja: Record<keyof Messages, string> = {
   'time.hoursAgo': '{n} 時間前',
   'time.daysAgo': '{n} 日前',
 
+  // Outline Notes
+  'outline.title': 'アウトライン',
+
   // Folder view
   'folderView.parentFolder': '親フォルダ',
   'folderView.find': '検索',

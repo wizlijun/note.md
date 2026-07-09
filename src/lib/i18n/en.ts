@@ -313,6 +313,9 @@ export const en = {
   'time.hoursAgo': '{n} h ago',
   'time.daysAgo': '{n} d ago',
 
+  // Outline Notes
+  'outline.title': 'Outline',
+
   // Folder view
   'folderView.parentFolder': 'Parent folder',
   'folderView.find': 'Find',

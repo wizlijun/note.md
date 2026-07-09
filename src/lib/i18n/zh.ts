@@ -308,6 +308,9 @@ export const zh: Record<keyof Messages, string> = {
   'time.hoursAgo': '{n} 小时前',
   'time.daysAgo': '{n} 天前',
 
+  // Outline Notes
+  'outline.title': '大纲',
+
   // Folder view
   'folderView.parentFolder': '上级文件夹',
   'folderView.find': '查找',
