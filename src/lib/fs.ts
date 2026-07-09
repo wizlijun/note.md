@@ -39,6 +39,10 @@ export function basename(path: string): string {
   return seg[seg.length - 1] ?? path
 }
 
+export function joinPath(dir: string, name: string): string {
+  return (dir.endsWith('/') ? dir.slice(0, -1) : dir) + '/' + name
+}
+
 export type FileKind = 'markdown' | 'html' | 'code' | 'image' | 'spreadsheet'
 
 export interface FileClass {

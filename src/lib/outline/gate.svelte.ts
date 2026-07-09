@@ -1,6 +1,7 @@
 import { Store } from '@tauri-apps/plugin-store'
 import { isPluginEnabled } from '../settings.svelte'
 import { DEFAULT_SHORTCUTS, normalizeShortcut, type OutlineCommandId } from './shortcuts'
+import { companionPathFor } from './store.svelte'
 
 export const PLUGIN_ID = 'outline-notes'
 export const DEFAULT_WIDTH = 360
@@ -59,7 +60,9 @@ export async function setOutlineWidth(w: number): Promise<void> {
   await s.save()
 }
 
-/** Returns true when the outline panel should be shown for a given tab. */
+/** Returns true when the outline panel should be shown for a given tab.
+ *  Delegates to companionPathFor so "applicable" and "has a companion path"
+ *  can never disagree (e.g. on `.NOTES.MD` case variants). */
 export function outlineAppliesTo(tab: { kind: string; filePath: string }): boolean {
-  return tab.kind === 'markdown' && !tab.filePath.endsWith('.notes.md')
+  return tab.kind === 'markdown' && companionPathFor(tab.filePath) != null
 }

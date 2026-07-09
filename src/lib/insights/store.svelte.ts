@@ -48,6 +48,8 @@ export function createAnalyticsStore(cfg: AnalyticsStoreConfig) {
   const docs: DocDays = {}
   /** Days accrued (or preloaded) this session — only these get (re)written on flush. */
   const dirtyDays = new Set<string>()
+  /** Days whose on-disk file has been folded into memory (safe to overwrite on flush). */
+  const preloadedDays = new Set<string>()
 
   function accrue(docKey: string, patch: Partial<DayCounters>, now: number): void {
     const day = dayKey(now, cfg.tzOffsetMinutes)
@@ -78,17 +80,19 @@ export function createAnalyticsStore(cfg: AnalyticsStoreConfig) {
     const root = cfg.vaultRoot()
     if (!root) return
     const file = `${analyticsDir(root)}/${fileNameFor(day, cfg.deviceId)}`
-    if (!(await cfg.fs.exists(file).catch(() => false))) return
-    try {
-      const parsed = JSON.parse(await cfg.fs.readTextFile(file)) as DayFile
-      if (parsed && parsed.docs) {
-        for (const [docKey, counters] of Object.entries(parsed.docs)) {
-          ;(docs[docKey] ??= {})[day] = counters
+    if (await cfg.fs.exists(file).catch(() => false)) {
+      try {
+        const parsed = JSON.parse(await cfg.fs.readTextFile(file)) as DayFile
+        if (parsed && parsed.docs) {
+          for (const [docKey, counters] of Object.entries(parsed.docs)) {
+            ;(docs[docKey] ??= {})[day] = counters
+          }
         }
+      } catch {
+        // Skip corrupt / partially-written files.
       }
-    } catch {
-      // Skip corrupt / partially-written files.
     }
+    preloadedDays.add(day)
     dirtyDays.delete(day)
   }
 
@@ -107,6 +111,40 @@ export function createAnalyticsStore(cfg: AnalyticsStoreConfig) {
   }
 
   /**
+   * Fold this device's on-disk file for `day` into memory by SUMMING counters.
+   * Covers days accrued without a preload (a session that crossed midnight):
+   * an earlier same-day session's file must not be overwritten by flush.
+   * Unlike preloadDay (overwrite; must run before accruing), summing is correct
+   * here because the in-memory buckets hold only this session's accruals.
+   */
+  async function absorbDiskDay(dir: string, day: string): Promise<void> {
+    const file = `${dir}/${fileNameFor(day, cfg.deviceId)}`
+    if (await cfg.fs.exists(file).catch(() => false)) {
+      try {
+        const parsed = JSON.parse(await cfg.fs.readTextFile(file)) as DayFile
+        if (parsed && parsed.docs) {
+          for (const [docKey, prior] of Object.entries(parsed.docs)) {
+            const perDoc = (docs[docKey] ??= {})
+            const bucket = perDoc[day]
+            if (!bucket) { perDoc[day] = prior; continue }
+            bucket.read_ms += prior.read_ms
+            bucket.edit_ms += prior.edit_ms
+            bucket.open_count += prior.open_count
+            bucket.edit_sessions += prior.edit_sessions
+            bucket.net_chars += prior.net_chars
+            bucket.mark_ops += prior.mark_ops
+            bucket.first_seen_at = Math.min(bucket.first_seen_at, prior.first_seen_at)
+            bucket.last_active_at = Math.max(bucket.last_active_at, prior.last_active_at)
+          }
+        }
+      } catch {
+        // Skip corrupt / partially-written files.
+      }
+    }
+    preloadedDays.add(day)
+  }
+
+  /**
    * Write one file per dirty day: `<day>.<deviceId>.json`. Only touched days are
    * rewritten, so historical files stay stable. No-op without a vault.
    */
@@ -117,6 +155,7 @@ export function createAnalyticsStore(cfg: AnalyticsStoreConfig) {
     const dir = analyticsDir(root)
     await cfg.fs.mkdir(dir, { recursive: true }).catch(() => {})
     for (const day of dirtyDays) {
+      if (!preloadedDays.has(day)) await absorbDiskDay(dir, day)
       const file: DayFile = {
         deviceId: cfg.deviceId,
         deviceName: cfg.deviceName,
@@ -143,14 +182,15 @@ export function createAnalyticsStore(cfg: AnalyticsStoreConfig) {
 
     const byDevice = new Map<string, DeviceAnalytics>()
     const entries = await cfg.fs.readDir(dir).catch(() => [])
-    for (const ent of entries) {
-      if (!ent.isFile) continue
+    // One file per day×device: read them in parallel, merge as each resolves.
+    await Promise.all(entries.map(async (ent) => {
+      if (!ent.isFile) return
       const m = FILE_RE.exec(ent.name)
-      if (!m) continue
+      if (!m) return
       const [, day, deviceId] = m
       try {
         const parsed = JSON.parse(await cfg.fs.readTextFile(`${dir}/${ent.name}`)) as DayFile
-        if (!parsed || !parsed.docs) continue
+        if (!parsed || !parsed.docs) return
         let dev = byDevice.get(deviceId)
         if (!dev) {
           dev = { deviceId, deviceName: parsed.deviceName ?? deviceId, docs: {} }
@@ -162,7 +202,7 @@ export function createAnalyticsStore(cfg: AnalyticsStoreConfig) {
       } catch {
         // Skip corrupt / partially-written files.
       }
-    }
+    }))
 
     // Overlay this device's live in-memory buckets (freshest — includes unflushed).
     const ownDev = byDevice.get(cfg.deviceId) ?? { deviceId: cfg.deviceId, deviceName: cfg.deviceName, docs: {} }

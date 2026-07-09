@@ -103,6 +103,32 @@ describe('analytics store', () => {
     expect(byId['DEV2'].docs['rel:a.md'][DAY].read_ms).toBe(250)
   })
 
+  it('flush merges a same-day file from disk even when the day was never preloaded (midnight rollover)', async () => {
+    const fs = memoryFs()
+    // An earlier session (e.g. this morning after midnight) already wrote today's file.
+    const prior: DayFile = {
+      deviceId: 'DEV1', deviceName: 'Mac', day: DAY,
+      docs: { 'rel:a.md': { ...emptyCounters(NOW), read_ms: 1000, open_count: 1 } },
+    }
+    fs.files[`/v/.mdeditor/analytics/${DAY}.DEV1.json`] = JSON.stringify(prior)
+
+    // This session started "yesterday" and crossed midnight: it accrues into DAY
+    // without ever having preloaded it.
+    const store = createAnalyticsStore({ fs, vaultRoot: () => '/v', ...CFG })
+    store.accrue('rel:a.md', { read_ms: 500, open_count: 1 }, NOW)
+    await store.flush()
+
+    const parsed = JSON.parse(fs.files[`/v/.mdeditor/analytics/${DAY}.DEV1.json`]) as DayFile
+    expect(parsed.docs['rel:a.md'].read_ms).toBe(1500) // prior 1000 must not be overwritten
+    expect(parsed.docs['rel:a.md'].open_count).toBe(2)
+
+    // A second flush must not double-absorb the disk data.
+    store.accrue('rel:a.md', { read_ms: 1 }, NOW)
+    await store.flush()
+    const again = JSON.parse(fs.files[`/v/.mdeditor/analytics/${DAY}.DEV1.json`]) as DayFile
+    expect(again.docs['rel:a.md'].read_ms).toBe(1501)
+  })
+
   it('flush is a no-op when no vault is configured', async () => {
     const fs = memoryFs()
     const store = createAnalyticsStore({ fs, vaultRoot: () => null, ...CFG })

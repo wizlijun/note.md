@@ -1,5 +1,6 @@
 // src/lib/outline/backlinks.ts
 import { parseInline } from './parser'
+import { basename, joinPath } from '../fs'
 
 export interface BacklinkHit { file: string; text: string; line: number }
 
@@ -17,8 +18,7 @@ export function createIndex(): BacklinkIndex {
 }
 
 export function pageNameOf(path: string): string {
-  const base = path.split('/').pop() ?? path
-  return base.replace(/\.notes\.md$/i, '').replace(/\.md$/i, '')
+  return basename(path).replace(/\.notes\.md$/i, '').replace(/\.md$/i, '')
 }
 
 export function removeFileFromIndex(idx: BacklinkIndex, file: string): void {
@@ -78,7 +78,7 @@ export async function buildFolderIndex(rootDir: string): Promise<BacklinkIndex> 
     for (const e of entries) {
       if (e.name.startsWith('.')) continue
       if (e.isSymlink) continue // skip symlinks to avoid cycle risk
-      const path = (dir.endsWith('/') ? dir.slice(0, -1) : dir) + '/' + e.name
+      const path = joinPath(dir, e.name)
       if (e.isDirectory) { await walk(path); continue }
       if (!/\.md$/i.test(e.name)) continue
       const info = await stat(path).catch(() => null)

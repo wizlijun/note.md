@@ -71,7 +71,10 @@ let attachSeq = 0       // re-entrancy token：rapid tab switches guard
 
 export async function attachTab(mainPath: string, mainContent: string): Promise<void> {
   const companion = companionPathFor(mainPath)
-  if (!companion) { detach(); return }
+  // Flush the outgoing doc before detach wipes companionPath/dirty — detach
+  // alone would silently drop a pending debounced save. flushSave captures
+  // path + serialized text synchronously, so no await is needed here.
+  if (!companion) { void flushSave(); detach(); return }
   if (outline.mainPath === mainPath) return
 
   // Claim a sequence token before any await so a concurrent attachTab can't

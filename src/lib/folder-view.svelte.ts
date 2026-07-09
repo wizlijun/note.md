@@ -2,7 +2,7 @@ import { readDir, watchImmediate } from '@tauri-apps/plugin-fs'
 import { Store } from '@tauri-apps/plugin-store'
 import { SvelteMap } from 'svelte/reactivity'
 import { SvelteSet } from 'svelte/reactivity'
-import { classifyPath, type FileKind } from './fs'
+import { classifyPath, joinPath, type FileKind } from './fs'
 import { isPluginEnabled } from './settings.svelte'
 
 /** Plugin id under which Folder View is enabled/disabled in `plugins.enabled`. */
@@ -119,10 +119,6 @@ export const folderView = $state<FolderViewState>({
   expanded: new SvelteSet(),
   entriesCache: new SvelteMap(),
 })
-
-function joinPath(dir: string, name: string): string {
-  return (dir.endsWith('/') ? dir.slice(0, -1) : dir) + '/' + name
-}
 
 /** Read a directory, classify + sort entries, hide dotfiles, and cache. */
 export async function readFolder(dir: string): Promise<FolderEntry[]> {
