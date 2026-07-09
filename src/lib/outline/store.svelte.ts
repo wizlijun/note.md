@@ -135,11 +135,12 @@ export function markDirty(): void {
 
 export async function flushSave(): Promise<void> {
   if (saveTimer) { clearTimeout(saveTimer); saveTimer = null }
-  if (!outline.dirty || !outline.companionPath) return
+  const path = outline.companionPath
+  if (!outline.dirty || !path) return
   const text = serializeOutline(outline.tree, persistIdsFor(outline.tree))
   const { writeTextFile } = await import('@tauri-apps/plugin-fs')
   try {
-    await writeTextFile(outline.companionPath, text)
+    await writeTextFile(path, text)
     ourLastWrite = text   // set only after successful write to avoid masking external changes on failure
     outline.dirty = false
   } catch (e) {
