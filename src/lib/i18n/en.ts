@@ -315,6 +315,11 @@ export const en = {
 
   // Outline Notes
   'outline.title': 'Outline',
+  'outline.regenerate': 'Regenerate from source',
+  'outline.regenerateConfirm': 'Rebuild auto items from the source document? Manual notes are kept.',
+  'outline.addNote': 'Add note',
+  'outline.empty': 'No outline yet',
+  'outline.externalChanged': 'Companion file changed on disk',
 
   // Folder view
   'folderView.parentFolder': 'Parent folder',

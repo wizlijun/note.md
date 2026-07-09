@@ -310,6 +310,11 @@ export const ja: Record<keyof Messages, string> = {
 
   // Outline Notes
   'outline.title': 'アウトライン',
+  'outline.regenerate': '原文から再生成',
+  'outline.regenerateConfirm': '原文から自動項目を再構築しますか？手書きノートは保持されます。',
+  'outline.addNote': 'ノートを追加',
+  'outline.empty': 'アウトラインはまだありません',
+  'outline.externalChanged': 'ノートファイルが外部で変更されました',
 
   // Folder view
   'folderView.parentFolder': '親フォルダ',

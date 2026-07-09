@@ -310,6 +310,11 @@ export const zh: Record<keyof Messages, string> = {
 
   // Outline Notes
   'outline.title': '大纲',
+  'outline.regenerate': '重新从原文提取',
+  'outline.regenerateConfirm': '从原文重建自动项？手写笔记会保留。',
+  'outline.addNote': '添加笔记',
+  'outline.empty': '暂无大纲',
+  'outline.externalChanged': '伴生文件在磁盘上已被修改',
 
   // Folder view
   'folderView.parentFolder': '上级文件夹',
