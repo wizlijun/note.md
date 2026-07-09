@@ -23,6 +23,9 @@ function deps(over: Partial<AssembleDeps> = {}): AssembleDeps {
       : { path: '/tmp/b.md', label: 'b.md', slug: null },
     fetchAudienceAll: all({ '2026-07-08-a-x': { total_ms: 90_000, unique_readers: 4, days: {} } }),
     listSharedDocKeys: () => ['rel:a.md'],
+    resolveSrc: (src) => src.startsWith('/')
+      ? { docKey: `abs:${src}`, path: src, label: src.split('/').pop()! }
+      : { docKey: `rel:${src}`, path: `/v/${src}`, label: src.split('/').pop()! },
     weights: DEFAULT_WEIGHTS,
     ...over,
   }
@@ -83,7 +86,7 @@ describe('assembleRows', () => {
     expect(rows).toHaveLength(0)
   })
 
-  it('surfaces an audience-only slug with NO local record under the slug itself', async () => {
+  it('falls back to the slug when a legacy share has no local record and no src', async () => {
     const rows = await assembleRows(deps({
       readDevices: async () => [{ deviceId: 'D1', deviceName: 'Mac', docs: {} }],
       listSharedDocKeys: () => [],
@@ -93,5 +96,23 @@ describe('assembleRows', () => {
     expect(rows[0].docKey).toBe('2026-07-08-orphan-z')
     expect(rows[0].label).toBe('2026-07-08-orphan-z')
     expect(rows[0].aud_read_ms).toBe(12_000)
+  })
+
+  it('resolves an audience-only slug to its md via the server-provided src', async () => {
+    const rows = await assembleRows(deps({
+      readDevices: async () => [{ deviceId: 'D1', deviceName: 'Mac', docs: {} }],
+      listSharedDocKeys: () => [],
+      fetchAudienceAll: all({
+        '2026-07-08-vault-z': { total_ms: 12_000, unique_readers: 1, days: {}, src: 'notes/deep.md' },
+        '2026-07-08-outside-z': { total_ms: 5_000, unique_readers: 1, days: {}, src: '/elsewhere/x.md' },
+      }),
+    }), '2026-07-08', '2026-07-08')
+    const byKey = Object.fromEntries(rows.map((r) => [r.docKey, r]))
+    // Vault-relative src → rel: key + absolute path under the vault + basename label.
+    expect(byKey['rel:notes/deep.md'].path).toBe('/v/notes/deep.md')
+    expect(byKey['rel:notes/deep.md'].label).toBe('deep.md')
+    // Absolute src (outside the vault) → abs: key, path as-is.
+    expect(byKey['abs:/elsewhere/x.md'].path).toBe('/elsewhere/x.md')
+    expect(byKey['abs:/elsewhere/x.md'].label).toBe('x.md')
   })
 })

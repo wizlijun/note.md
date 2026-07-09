@@ -18,6 +18,10 @@ export interface AssembleDeps {
   /** docKeys of every shared doc — used to map audience slugs back to local
    *  paths so online-only reads surface under the right document. */
   listSharedDocKeys: () => string[]
+  /** Resolve a server-provided `src` (vault-relative or absolute md path) to a
+   *  local docKey/path/label, so audience-only shares surface under the right md
+   *  even when this device has no local share record for them. */
+  resolveSrc: (src: string) => { docKey: string; path: string | null; label: string }
   weights: ValueWeights
 }
 
@@ -66,12 +70,16 @@ export async function assembleRows(deps: AssembleDeps, fromDay: string, toDay: s
   })
 
   // Every slug read online but with no owner activity in range — surfaced under
-  // its known docKey/path when we have a local record, else under the slug itself.
+  // its known docKey/path when we have a local record, else resolved from the
+  // server-provided `src`, else (legacy shares) under the slug itself.
   const ownerSlugs = new Set(ownerKeys.map((k) => shareByKey.get(k)!.slug).filter(Boolean))
   const extraRows = Object.entries(audMap).flatMap(([slug, aud]) => {
     if (ownerSlugs.has(slug)) return []
     if (!aud || (aud.total_ms <= 0 && aud.unique_readers <= 0)) return []
-    const hit = bySlug.get(slug) ?? { docKey: slug, share: { path: null, label: slug, slug } }
+    const hit = bySlug.get(slug)
+      ?? (aud.src
+        ? (() => { const r = deps.resolveSrc(aud.src!); return { docKey: r.docKey, share: { path: r.path, label: r.label, slug } } })()
+        : { docKey: slug, share: { path: null, label: slug, slug } })
     return [makeRow(hit.docKey, emptyCounters(0), hit.share, aud, deps.weights)]
   })
 

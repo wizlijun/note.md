@@ -2,6 +2,11 @@ export interface AudienceStats {
   total_ms: number
   unique_readers: number
   days: Record<string, number>
+  /** The source md's path relative to the vault root (e.g. `notes/foo.md`), or an
+   *  absolute path if it lives outside the vault. Recorded at publish time so an
+   *  online-read share maps back to the right local document. Absent for shares
+   *  published before this was tracked. */
+  src?: string
 }
 
 /** Inclusive day range → epoch-ms [start-of-from, end-of-to] in UTC. */

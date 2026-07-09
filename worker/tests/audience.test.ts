@@ -158,3 +158,39 @@ describe('GET /a/stats-all (date-range, no slug list)', () => {
     expect(map['2026-07-20-all-c']).toBeUndefined()
   })
 })
+
+async function publish(slug: string, src: string) {
+  return SELF.fetch('http://x/publish', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${API_KEY}` },
+    body: JSON.stringify({
+      slug, edit_token: 'a'.repeat(32), html: '<p>hi</p>',
+      metadata: { original_filename: 'foo.md', source_ext: 'md', src },
+    }),
+  })
+}
+
+describe('stats carry the source md (src) recorded at publish', () => {
+  it('stats-all attaches each slug\'s src from KV metadata', async () => {
+    await publish('2026-07-08-src-a', 'notes/foo.md')
+    await publish('2026-07-08-src-b', '/outside/bar.md')
+    const d = Date.UTC(2026, 6, 8, 9, 0)
+    await hit({ slug: '2026-07-08-src-a', visitor_id: 'v1', session_id: 's1', delta_ms: 3000, ts: d })
+    await hit({ slug: '2026-07-08-src-b', visitor_id: 'v2', session_id: 's2', delta_ms: 2000, ts: d })
+
+    const map = await (await statsAll(API_KEY, Date.UTC(2026, 6, 8, 0, 0), Date.UTC(2026, 6, 8, 23, 59))).json() as any
+    expect(map['2026-07-08-src-a'].src).toBe('notes/foo.md')
+    expect(map['2026-07-08-src-b'].src).toBe('/outside/bar.md')
+  })
+
+  it('single /a/stats and /a/stats-batch also return src', async () => {
+    await publish('2026-07-08-src-c', 'deep/c.md')
+    await hit({ slug: '2026-07-08-src-c', visitor_id: 'v1', session_id: 's1', delta_ms: 1000, ts: Date.UTC(2026, 6, 8, 9, 0) })
+
+    const single = await (await stats('2026-07-08-src-c', API_KEY)).json() as any
+    expect(single.src).toBe('deep/c.md')
+
+    const batch = await (await statsBatch(['2026-07-08-src-c'], API_KEY)).json() as any
+    expect(batch['2026-07-08-src-c'].src).toBe('deep/c.md')
+  })
+})

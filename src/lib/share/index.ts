@@ -4,7 +4,8 @@ import { getPluginScopedKey } from '../settings.svelte'
 import { pushToast } from '../toast.svelte'
 import { isIOS } from '../platform.svelte'
 import { bakeShareHtml } from '../plugins/share-baker'
-import { publishHtml } from './publish'
+import { publishHtml, vaultRelativeSrc } from './publish'
+import { sotvaultStore } from '../sotvault.svelte'
 import { unpublish } from './unpublish'
 import { copyShareLink } from './copy-link'
 import { uploadImage } from './upload-image'
@@ -89,6 +90,7 @@ export async function sharePublishCurrent(): Promise<void> {
       baseUrl: cfg.baseUrl,
       defaultExpiry: cfg.defaultExpiry,
       slugRandomSuffix: cfg.slugRandomSuffix,
+      src: vaultRelativeSrc(tab.filePath, sotvaultStore.vaultRoot),
     })
     const { writeText } = await import('@tauri-apps/plugin-clipboard-manager')
     await writeText(url)

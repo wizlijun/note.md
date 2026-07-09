@@ -10,6 +10,24 @@ export interface PublishHtmlInput {
   baseUrl: string
   defaultExpiry: 'never' | '7d' | '30d' | '90d'
   slugRandomSuffix: boolean
+  /** Path of the source md relative to the vault root (identifies which local
+   *  document this share represents), or the absolute path if the file lives
+   *  outside the vault. Recorded server-side so audience stats can be attributed
+   *  back to the md — see {@link vaultRelativeSrc}. */
+  src: string
+}
+
+/**
+ * The `src` recorded for a share: the file's path relative to the vault root
+ * (e.g. `notes/foo.md`) when it lives under the vault, else its absolute path
+ * (starts with `/`). Consumers tell the two apart by the leading slash.
+ */
+export function vaultRelativeSrc(absPath: string, vaultRoot: string | null): string {
+  if (vaultRoot) {
+    const root = vaultRoot.replace(/\/+$/, '')
+    if (absPath !== root && absPath.startsWith(root + '/')) return absPath.slice(root.length + 1)
+  }
+  return absPath
 }
 
 export interface PublishHtmlResult {
@@ -48,6 +66,7 @@ export async function publishHtml(input: PublishHtmlInput): Promise<PublishHtmlR
         metadata: {
           original_filename: input.filename,
           source_ext: input.filename.split('.').pop() ?? '',
+          src: input.src,
         },
       })
       break

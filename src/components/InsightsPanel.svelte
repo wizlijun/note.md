@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { mkdir, writeTextFile } from '@tauri-apps/plugin-fs'
+  import { mkdir, writeTextFile, exists } from '@tauri-apps/plugin-fs'
+  import { invoke } from '@tauri-apps/api/core'
   import { assembleRows, type InsightRow } from '../lib/insights/dashboard.svelte'
   import { presetRange, type Preset } from '../lib/insights/value'
   import { localTzOffsetMinutes } from '../lib/insights/model'
@@ -78,6 +79,20 @@
   $effect(() => {
     if (!fromDay) applyPreset('7d')
   })
+
+  /** Open the row's md in the main editor window, if the file still exists. */
+  async function openDoc(r: InsightRow) {
+    if (!r.path) return
+    try {
+      if (!(await exists(r.path))) {
+        pushToast({ level: 'error', message: t('insights.docMissing'), detail: r.path })
+        return
+      }
+      await invoke('editor_show_and_open_path', { path: r.path })
+    } catch (e) {
+      pushToast({ level: 'error', message: t('insights.openFailed'), detail: e instanceof Error ? e.message : String(e) })
+    }
+  }
 
   async function generateReport() {
     const root = sotvaultStore.vaultRoot
@@ -173,7 +188,15 @@
               onclick={() => { expanded = expanded === r.docKey ? null : r.docKey }}
             >
               <td class="col-doc">
-                <span class="doc-label">{r.label}</span>
+                {#if r.path}
+                  <button
+                    class="doc-label doc-open"
+                    title={t('insights.openDoc')}
+                    onclick={(e) => { e.stopPropagation(); void openDoc(r) }}
+                  >{r.label}</button>
+                {:else}
+                  <span class="doc-label">{r.label}</span>
+                {/if}
                 {#if r.shared}<span class="shared-badge" title="Shared">🔗</span>{/if}
               </td>
               <td>{fmtDuration(r.read_ms)}</td>
@@ -367,6 +390,21 @@
 
   .doc-label {
     vertical-align: middle;
+  }
+
+  button.doc-open {
+    all: unset;
+    vertical-align: middle;
+    cursor: pointer;
+    color: CanvasText;
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  button.doc-open:hover {
+    text-decoration: underline;
   }
 
   .shared-badge {

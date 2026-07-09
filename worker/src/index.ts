@@ -105,7 +105,7 @@ interface PublishBody {
   edit_token: string
   html: string
   expires_in_seconds?: number
-  metadata: { original_filename: string; source_ext: string }
+  metadata: { original_filename: string; source_ext: string; src?: string }
 }
 
 interface KvMeta {
@@ -115,6 +115,11 @@ interface KvMeta {
   original_filename: string
   source_ext: string
   size_bytes: number
+  /** Path of the source md relative to the owner's vault (e.g. `notes/foo.md`),
+   *  or an absolute path if it lives outside the vault. Lets audience stats be
+   *  attributed back to a local document. Empty for shares published before this
+   *  field existed. */
+  src?: string
 }
 
 const NOT_FOUND_HTML = `<!doctype html><html lang="en"><head>
@@ -142,7 +147,7 @@ const coreErr = (status: number, code: string, message: string): CoreErr =>
 interface PublishArgs {
   slug?: unknown; edit_token?: unknown; html?: unknown
   expires_in_seconds?: unknown
-  metadata?: { original_filename?: unknown; source_ext?: unknown }
+  metadata?: { original_filename?: unknown; source_ext?: unknown; src?: unknown }
 }
 
 interface PublishResult {
@@ -192,6 +197,7 @@ async function publishHtmlCore(
     original_filename: typeof args.metadata?.original_filename === 'string' ? args.metadata.original_filename : '',
     source_ext: typeof args.metadata?.source_ext === 'string' ? args.metadata.source_ext : '',
     size_bytes: new TextEncoder().encode(html).byteLength,
+    src: typeof args.metadata?.src === 'string' ? args.metadata.src : '',
   }
   await env.SHARES.put(slug, html, { metadata: meta, expirationTtl })
 
@@ -894,6 +900,21 @@ async function handleMcp(req: Request, env: Env, baseUrl: string): Promise<Respo
   }
 }
 
+/**
+ * Attach each slug's recorded `src` (the source md's vault-relative or absolute
+ * path, from KV metadata) to a stats map, so the client can attribute audience
+ * data back to a local document. Best-effort — slugs with no/expired metadata
+ * are simply left without a src.
+ */
+async function attachSrc(env: Env, map: Record<string, { src?: string }>): Promise<void> {
+  await Promise.all(Object.keys(map).map(async (slug) => {
+    try {
+      const meta = (await env.SHARES.getWithMetadata<KvMeta>(slug)).metadata
+      if (meta?.src) map[slug].src = meta.src
+    } catch { /* best-effort */ }
+  }))
+}
+
 async function handleAudienceStats(req: Request, env: Env, url: URL): Promise<Response> {
   const slug = url.searchParams.get('slug') ?? ''
   if (!AUDIENCE_SLUG_RE.test(slug)) return new Response('bad slug', { status: 400 })
@@ -903,7 +924,10 @@ async function handleAudienceStats(req: Request, env: Env, url: URL): Promise<Re
   const stub = env.AUDIENCE.get(env.AUDIENCE.idFromName(slug))
   const doUrl = new URL('https://do/stats')
   doUrl.search = url.search
-  return stub.fetch(doUrl.toString())
+  const stats = (await (await stub.fetch(doUrl.toString())).json()) as { src?: string }
+  const meta = (await env.SHARES.getWithMetadata<KvMeta>(slug)).metadata
+  if (meta?.src) stats.src = meta.src
+  return Response.json(stats)
 }
 
 /**
@@ -927,7 +951,9 @@ async function handleAudienceStatsBatch(req: Request, env: Env): Promise<Respons
     const res = await stub.fetch(`https://do/stats${search ? '?' + search : ''}`)
     return [slug, await res.json()] as const
   }))
-  return Response.json(Object.fromEntries(entries))
+  const map = Object.fromEntries(entries) as Record<string, { src?: string }>
+  await attachSrc(env, map)
+  return Response.json(map)
 }
 
 /**
@@ -996,10 +1022,11 @@ async function handleAudienceStatsAll(req: Request, env: Env, url: URL): Promise
       for (const v of visitors) m._visitors.add(v)
     }
   }
-  const out: Record<string, { total_ms: number; unique_readers: number; days: Record<string, number> }> = {}
+  const out: Record<string, { total_ms: number; unique_readers: number; days: Record<string, number>; src?: string }> = {}
   for (const [slug, m] of Object.entries(merged)) {
     out[slug] = { total_ms: m.total_ms, unique_readers: m._visitors.size, days: m.days }
   }
+  await attachSrc(env, out)
   return Response.json(out)
 }
 

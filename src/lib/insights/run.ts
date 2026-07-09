@@ -56,6 +56,13 @@ export function buildDashboardDeps(vaultOverride?: string | null): AssembleDeps 
     },
     fetchAudienceAll: (from, to) => fetchAudienceStatsAll(baseUrl, apiKey, from, to),
     listSharedDocKeys: () => allShareRecordPaths().map((p) => docKeyFor(p, vaultRoot)),
+    resolveSrc: (src) => {
+      // Absolute path (file outside the vault) → device-local abs: key, as-is.
+      if (src.startsWith('/')) return { docKey: `abs:${src}`, path: src, label: basename(src) }
+      // Otherwise vault-relative → rel: key + absolute path under the vault root.
+      const path = vaultRoot ? trimSlash(vaultRoot) + '/' + src : null
+      return { docKey: `rel:${src}`, path, label: basename(src) }
+    },
     weights: DEFAULT_WEIGHTS,
   }
 }
