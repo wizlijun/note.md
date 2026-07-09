@@ -46,6 +46,13 @@
       menu = { kind: 'none' }
     }
   })
+  // Default-editable: an applicable but empty outline gets one ready-to-type
+  // root node (no + button needed). Guarded so it fires once, not on every bump.
+  $effect(() => {
+    void outline.version
+    if (!applicable) return
+    if (outline.tree.nodes.size === 0 && outline.editingId == null) addRootNote()
+  })
 
   let roots = $derived.by(() => { void outline.version; return childrenOf(outline.tree, null) })
 
@@ -91,7 +98,15 @@
     }
     outline.tree.nodes.set(node.id, node)
     outline.editingId = node.id
-    bump(); markDirty()
+    bump()   // no markDirty(): an empty node alone must not trigger a save
+  }
+
+  // Click in the empty region below the last node → new trailing root node.
+  function onBodyClick(e: MouseEvent) {
+    if (!applicable) return
+    const target = e.target as HTMLElement
+    if (target.closest('.node')) return   // clicks on existing rows handled by the node
+    addRootNote()
   }
   async function onRegenerate() {
     if (!tab) return
@@ -243,7 +258,6 @@
     <span class="title">{t('outline.title')}</span>
     <button class="hbtn" class:active={searchOpen} title={t('outline.search')} disabled={!applicable} onclick={toggleSearch}>⌕</button>
     <button class="hbtn" title={t('outline.regenerate')} disabled={!applicable} onclick={onRegenerate}>⟳</button>
-    <button class="hbtn" title={t('outline.addNote')} onclick={addRootNote}>＋</button>
   </header>
   {#if searchOpen}
     <div class="search-row">
@@ -268,7 +282,8 @@
       <p class="empty">{tab == null ? t('outline.noDocument') : t('outline.notApplicable')}</p>
     </div>
   {:else}
-    <div class="body" role="tree">
+    <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+    <div class="body" role="tree" onclick={onBodyClick}>
       {#each visibleRoots as node (node.id)}
         <OutlineNode {node} depth={0} {resolved} {onJump} {onPageClick} {onEditorInput} {onContextMenu} {onDragOp} {visibleIds} />
       {/each}
