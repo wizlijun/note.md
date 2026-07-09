@@ -16,8 +16,7 @@
   import { filterSlashItems, applySlashItem, pageLinkQueryAt, confirmPageLink, filterPages, type SlashItem } from '../../lib/outline/completion'
   import { pageCandidates } from '../../lib/outline/backlinks'
 
-  // TODO(Task 15): replace with real import from '../../lib/outline/reveal'
-  function requestReveal(_anchorLine: number, _content: string): void {}
+  import { requestReveal } from '../../lib/outline/reveal.svelte'
   // TODO(Task 16): replace with real import from '../../lib/outline/backlinks-io'
   function openPageOrCreate(_target: string): void {}
 

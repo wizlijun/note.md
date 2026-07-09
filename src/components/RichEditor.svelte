@@ -658,6 +658,26 @@
   }
 
   import { findState } from '../lib/find-replace.svelte'
+  import { reveal } from '../lib/outline/reveal.svelte'
+
+  let lastRevealSeq = 0
+  $effect(() => {
+    const req = reveal.req
+    if (!req || req.seq === lastRevealSeq || !host) return
+    lastRevealSeq = req.seq
+    // 渲染 DOM 中按锚文本查找第一个匹配的元素
+    const walker = document.createTreeWalker(host, NodeFilter.SHOW_TEXT)
+    let target: Element | null = null
+    while (walker.nextNode()) {
+      const tn = walker.currentNode as Text
+      if (tn.textContent && tn.textContent.includes(req.text)) { target = tn.parentElement; break }
+    }
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      target.classList.add('outline-reveal-flash')
+      setTimeout(() => target!.classList.remove('outline-reveal-flash'), 1200)
+    }
+  })
 
   function onFindSearch(e: Event) {
     const { query, caseSensitive, wholeWord, useRegex } = (e as CustomEvent).detail

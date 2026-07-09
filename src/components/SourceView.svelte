@@ -258,6 +258,27 @@
 
   import { findState } from '../lib/find-replace.svelte'
   import { setContent } from '../lib/tabs.svelte'
+  import { reveal } from '../lib/outline/reveal.svelte'
+
+  let lastRevealSeq = 0
+  $effect(() => {
+    const req = reveal.req
+    if (!req || req.seq === lastRevealSeq || !textareaEl) return
+    lastRevealSeq = req.seq
+    const lines = value.split('\n')
+    // 行号定位；若该行文本已变（debounce 窗口），按锚文本全文搜索兜底
+    let lineIdx = req.line - 1
+    if (lineIdx >= lines.length || !lines[lineIdx]?.includes(req.text)) {
+      const found = lines.findIndex(l => l.includes(req.text))
+      if (found >= 0) lineIdx = found
+    }
+    const offset = lines.slice(0, lineIdx).reduce((acc, l) => acc + l.length + 1, 0)
+    textareaEl.focus()
+    textareaEl.setSelectionRange(offset, offset + (lines[lineIdx]?.length ?? 0))
+    // 估算滚动：行高 × 行号 - 视口的 1/3
+    const lineHeight = parseFloat(getComputedStyle(textareaEl).lineHeight) || 20
+    textareaEl.scrollTop = Math.max(0, lineIdx * lineHeight - textareaEl.clientHeight / 3)
+  })
 
   function insertAtCursor(tabId: string, text: string) {
     if (!textareaEl) return

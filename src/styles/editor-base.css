@@ -617,3 +617,13 @@
   background: rgba(255, 150, 0, 0.6);
   border-radius: 2px;
 }
+
+/* ── Outline reverse-jump flash ──────────────────────────────────────────── */
+
+.outline-reveal-flash {
+  animation: outline-reveal-flash 1.2s ease-out;
+}
+@keyframes outline-reveal-flash {
+  0% { background-color: rgba(74, 128, 212, 0.35); }
+  100% { background-color: transparent; }
+}
