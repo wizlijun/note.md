@@ -328,6 +328,16 @@ export const en = {
   'outline.deleteConfirm': 'Delete this node and all its children?',
   'outline.backlinks': 'Backlinks',
   'outline.noBacklinks': 'No backlinks',
+  'outline.shortcutsTitle': 'Outline shortcuts',
+  'outline.pressKeys': 'Press keys…',
+  'outline.shortcutConflict': 'Conflicts with "{other}"',
+  'outline.cmd.indent': 'Indent',
+  'outline.cmd.outdent': 'Outdent',
+  'outline.cmd.toggleCollapse': 'Collapse/expand',
+  'outline.cmd.moveUp': 'Move up',
+  'outline.cmd.moveDown': 'Move down',
+  'outline.cmd.bold': 'Bold',
+  'outline.cmd.italic': 'Italic',
 
   // Folder view
   'folderView.parentFolder': 'Parent folder',

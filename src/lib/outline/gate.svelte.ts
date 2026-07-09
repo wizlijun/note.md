@@ -1,5 +1,6 @@
 import { Store } from '@tauri-apps/plugin-store'
 import { isPluginEnabled } from '../settings.svelte'
+import { DEFAULT_SHORTCUTS, normalizeShortcut, type OutlineCommandId } from './shortcuts'
 
 export const PLUGIN_ID = 'outline-notes'
 export const DEFAULT_WIDTH = 360
@@ -11,6 +12,8 @@ export const outlineGate = $state<{ enabled: boolean; visible: boolean; width: n
   visible: false,
   width: DEFAULT_WIDTH,
 })
+
+export const outlineShortcuts = $state<{ overrides: Partial<Record<OutlineCommandId, string>> }>({ overrides: {} })
 
 let store: Awaited<ReturnType<typeof Store.load>> | null = null
 async function getStore() {
@@ -24,6 +27,16 @@ export async function loadOutlineGate(): Promise<void> {
   const s = await getStore()
   outlineGate.visible = (await s.get<boolean>('outline.visible')) ?? false
   outlineGate.width = (await s.get<number>('outline.width')) ?? DEFAULT_WIDTH
+  outlineShortcuts.overrides = (await s.get<Partial<Record<OutlineCommandId, string>>>('outline.shortcuts')) ?? {}
+}
+
+export async function setShortcutOverride(id: OutlineCommandId, shortcut: string | null): Promise<void> {
+  const n = shortcut ? normalizeShortcut(shortcut) : null
+  if (n && n !== DEFAULT_SHORTCUTS[id]) outlineShortcuts.overrides[id] = n
+  else delete outlineShortcuts.overrides[id]
+  const s = await getStore()
+  await s.set('outline.shortcuts', { ...outlineShortcuts.overrides })
+  await s.save()
 }
 
 export async function setOutlineVisible(v: boolean): Promise<void> {

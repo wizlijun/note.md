@@ -323,6 +323,16 @@ export const zh: Record<keyof Messages, string> = {
   'outline.deleteConfirm': '删除该节点及其全部子节点？',
   'outline.backlinks': '反向链接',
   'outline.noBacklinks': '暂无反向链接',
+  'outline.shortcutsTitle': '大纲快捷键',
+  'outline.pressKeys': '按下组合键…',
+  'outline.shortcutConflict': '与「{other}」冲突',
+  'outline.cmd.indent': '缩进',
+  'outline.cmd.outdent': '反缩进',
+  'outline.cmd.toggleCollapse': '折叠/展开',
+  'outline.cmd.moveUp': '上移',
+  'outline.cmd.moveDown': '下移',
+  'outline.cmd.bold': '粗体',
+  'outline.cmd.italic': '斜体',
 
   // Folder view
   'folderView.parentFolder': '上级文件夹',

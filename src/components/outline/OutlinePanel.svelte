@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Tab } from '../../lib/tabs.svelte'
-  import { outlineGate, setOutlineWidth, setOutlineWidthLive } from '../../lib/outline/gate.svelte'
+  import { outlineGate, outlineShortcuts, setOutlineWidth, setOutlineWidthLive } from '../../lib/outline/gate.svelte'
   import { t } from '../../lib/i18n/store.svelte'
   import OutlineNode from './OutlineNode.svelte'
   import SlashMenu from './SlashMenu.svelte'
@@ -22,8 +22,8 @@
 
   let { tab }: { tab: Tab } = $props()
 
-  // resolved shortcuts：Task 17 接设置覆盖；先用默认表
-  let resolved = $state(resolveShortcuts({}))
+  // resolved shortcuts：接设置覆盖，随 outlineShortcuts.overrides 变化响应式更新
+  let resolved = $derived(resolveShortcuts(outlineShortcuts.overrides))
 
   // 绑定当前 tab + 主文内容变化驱动同步
   $effect(() => {

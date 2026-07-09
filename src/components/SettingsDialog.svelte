@@ -4,6 +4,7 @@
   import { ask, open as openFilePicker } from '@tauri-apps/plugin-dialog'
   import { settings, saveSettings, getPluginScopedAll, mergePluginScoped, pluginScopedVersion } from '../lib/settings.svelte'
   import { i18n, setLocale, availableLocales, t, type Locale } from '../lib/i18n/store.svelte'
+  import type { Messages } from '../lib/i18n/en'
   import { pluginTabLabel, pluginFieldLabel } from '../lib/plugins/plugin-i18n'
   import {
     updater as updaterState, runCheck as updaterRunCheck, setCheckOnStartup,
@@ -17,6 +18,12 @@
   import { collectSettingsTabs, type SettingsTab } from '../lib/plugins/settings-registry'
   import type { PluginManifest } from '../lib/plugins/types'
   import { isPluginActive } from '../lib/plugins/registry'
+  import { isPluginEnabled } from '../lib/settings.svelte'
+  import { outlineShortcuts, setShortcutOverride } from '../lib/outline/gate.svelte'
+  import {
+    DEFAULT_SHORTCUTS, resolveShortcuts, displayShortcut, eventToShortcut, findConflict,
+    type OutlineCommandId,
+  } from '../lib/outline/shortcuts'
   import PluginsSettingsTab from './PluginsSettingsTab.svelte'
   import VaultSettingsTab from './VaultSettingsTab.svelte'
   import OpenClawSettingsTab from './OpenClawSettingsTab.svelte'
@@ -315,6 +322,35 @@
   }
 
   $effect(() => { void loadThemes() })
+
+  // Outline shortcut rebinding
+  const isMac = typeof navigator !== 'undefined' && navigator.platform.includes('Mac')
+  let recording = $state<OutlineCommandId | null>(null)
+  let conflictMsg = $state('')
+  let resolvedOutline = $derived(resolveShortcuts(outlineShortcuts.overrides))
+
+  const OUTLINE_CMD_LABELS: Record<OutlineCommandId, keyof Messages> = {
+    'outline.indent': 'outline.cmd.indent',
+    'outline.outdent': 'outline.cmd.outdent',
+    'outline.toggleCollapse': 'outline.cmd.toggleCollapse',
+    'outline.moveUp': 'outline.cmd.moveUp',
+    'outline.moveDown': 'outline.cmd.moveDown',
+    'outline.bold': 'outline.cmd.bold',
+    'outline.italic': 'outline.cmd.italic',
+  }
+
+  async function onRecordKey(e: KeyboardEvent, id: OutlineCommandId) {
+    e.preventDefault(); e.stopPropagation()
+    if (e.key === 'Escape') { recording = null; conflictMsg = ''; return }
+    const sc = eventToShortcut(e)
+    if (!sc) return
+    const trial = resolveShortcuts({ ...outlineShortcuts.overrides, [id]: sc })
+    const conflict = findConflict(trial, id)
+    if (conflict) { conflictMsg = t('outline.shortcutConflict', { other: t(OUTLINE_CMD_LABELS[conflict]) }); return }
+    conflictMsg = ''
+    await setShortcutOverride(id, sc)
+    recording = null
+  }
 </script>
 
 {#if open}
@@ -414,6 +450,29 @@
             {t('settings.autoSaveLabel')}
           </label>
         </section>
+
+        {#if isPluginEnabled('outline-notes')}
+          <section class="block">
+            <h3>{t('outline.shortcutsTitle')}</h3>
+            {#each Object.keys(DEFAULT_SHORTCUTS) as id (id)}
+              <div class="shortcut-row">
+                <span class="shortcut-label">{t(OUTLINE_CMD_LABELS[id as OutlineCommandId])}</span>
+                <button
+                  class="shortcut-input" class:recording={recording === id}
+                  onclick={() => (recording = id as OutlineCommandId)}
+                  onkeydown={(e) => recording === id && onRecordKey(e, id as OutlineCommandId)}
+                  onblur={() => { if (recording === id) recording = null }}
+                >
+                  {recording === id ? t('outline.pressKeys') : displayShortcut(resolvedOutline[id as OutlineCommandId], isMac)}
+                </button>
+                {#if outlineShortcuts.overrides[id as OutlineCommandId]}
+                  <button class="shortcut-reset" onclick={() => void setShortcutOverride(id as OutlineCommandId, null)}>↺</button>
+                {/if}
+              </div>
+            {/each}
+            {#if conflictMsg}<p class="shortcut-conflict">{conflictMsg}</p>{/if}
+          </section>
+        {/if}
 
         {#if !isIOSPlatform}
           <section class="block">
@@ -808,5 +867,38 @@
     background: Canvas;
     color: CanvasText;
     font-size: 12px;
+  }
+  .shortcut-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 6px;
+    font-size: 13px;
+  }
+  .shortcut-label {
+    width: 120px;
+    flex-shrink: 0;
+  }
+  .shortcut-input {
+    font-family: ui-monospace, Menlo, monospace;
+    font-size: 12px;
+    padding: 4px 8px;
+    min-width: 120px;
+    text-align: center;
+  }
+  .shortcut-input.recording {
+    outline: 1px solid AccentColor;
+    color: AccentColor;
+  }
+  .shortcut-reset {
+    padding: 4px 8px;
+    font-size: 13px;
+    opacity: 0.6;
+  }
+  .shortcut-reset:hover { opacity: 1; }
+  .shortcut-conflict {
+    color: #d44a4a;
+    font-size: 12px;
+    margin: 4px 0 0 0;
   }
 </style>

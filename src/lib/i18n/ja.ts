@@ -323,6 +323,16 @@ export const ja: Record<keyof Messages, string> = {
   'outline.deleteConfirm': 'このノードとすべての子ノードを削除しますか？',
   'outline.backlinks': 'バックリンク',
   'outline.noBacklinks': 'バックリンクはありません',
+  'outline.shortcutsTitle': 'アウトラインのショートカット',
+  'outline.pressKeys': 'キーを押してください…',
+  'outline.shortcutConflict': '「{other}」と競合しています',
+  'outline.cmd.indent': 'インデント',
+  'outline.cmd.outdent': 'アウトデント',
+  'outline.cmd.toggleCollapse': '折りたたみ切替',
+  'outline.cmd.moveUp': '上へ移動',
+  'outline.cmd.moveDown': '下へ移動',
+  'outline.cmd.bold': '太字',
+  'outline.cmd.italic': '斜体',
 
   // Folder view
   'folderView.parentFolder': '親フォルダ',
