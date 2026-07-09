@@ -23,10 +23,31 @@ markdown 文件提供大纲笔记面板。
 另提供手动"重新生成"。大纲存为主文件的**伴生文件**
 （`foo.md` → `foo.outline.md`），**永不修改原文**。
 
-交互逻辑与行内语法移植自开源项目 hulunote
-（`~/git/hulunote/hulunote`，ClojureScript → TypeScript 翻译重写），
-主要来源：`render.cljs`（大纲交互）、`parser.cljc`（行内文法）、
-`shortcuts.cljs`（快捷键引擎）、`db.cljs`（分数排序模型）。
+交互逻辑与行内语法移植自开源项目 hulunote（ClojureScript → TypeScript
+翻译重写），参考文件清单见下节。
+
+## 参考代码仓库
+
+**hulunote**（移植来源）：`/Users/bruce/git/hulunote/hulunote`
+
+| 参考文件（`src/cljs/hulunote/` 下） | 移植内容 → 目标文件 |
+|---|---|
+| `render.cljs` | 大纲全部交互：建/删/缩进/折叠/拖拽（`detect-drop-mode`、`move-nav-after!`、`move-nav-to-child!`）、键盘处理（`handle-key-down`）、`/` 菜单（`filtered-slash-commands`、`execute-slash-command!`）、`[[` 补全（`update-page-link-menu!`、`confirm-page-link-entry!`）、行内包裹（`apply-inline-wrap!`）→ `commands.ts`、`completion.ts`、组件层 |
+| `db.cljs` | 节点模型（id/parid/same-deep-order）、分数排序（`calculate-order-between`、`normalize-sibling-orders!` 在 render.cljs）→ `model.ts` |
+| `parser.cljc` | Instaparse 行内文法（页面链接/标签/块引用/粗斜删高/代码/URL/图片）→ `parser.ts` |
+| `shortcuts.cljs` | 按键归一化、Mac/Win 显示、事件匹配、作用域判定 → `shortcuts.ts` |
+| `settings/hotkeys.cljs` | 快捷键改绑设置 UI 交互 → 设置页大纲区 |
+| `single_note.cljs` | 子树 → markdown 序列化（`get-all-navs-content`）→ `markdown.ts` 与右键"复制子树为 markdown" |
+| `components.cljs` | AST → 渲染（`parse-and-render`）→ `InlineRender.svelte` |
+
+**mdeditor 内部先例**（集成模式参照）：
+
+- `src-tauri/plugins/folder-view/manifest.json` — builtin 插件清单格式；
+- `src/lib/folder-view.svelte.ts` + `src/components/FolderView.svelte` —
+  前端插件状态管理（`plugins.enabled`）、侧面板布局/splitter/持久化；
+- `src/App.svelte` `dispatchPlugin` 的 `folder-view` 分支 — View 菜单命令拦截；
+- `src/lib/slash-menu/` — 浮层菜单组件模式；
+- `src/lib/plugins/registry.ts` `findShortcutConflicts` — 快捷键冲突检测。
 
 ## Positioning：builtin 前端插件（Folder View 同款机制）
 
