@@ -1,7 +1,7 @@
 # Outline Notes（大纲笔记）— Design
 
-**Date:** 2026-07-09（修订 v2：插件化 + TOC/高亮实时同步 + 反向跳转）  
-**Status:** Approved (design), pending implementation plan
+**Date:** 2026-07-09（修订 v3：独立设置标签 + 面板隐藏/搜索按钮）  
+**Status:** Implemented；v3 增量随 3.17.13 发布
 
 ## Summary
 
@@ -264,6 +264,54 @@ src/components/outline/
 6. `pnpm test` / `pnpm check` 全绿；
 7. 手动清单：插件页启用 → View 菜单/快捷键开面板 → TOC 出现 → 打高亮出现  
    → 手写子节点 → 改原文标题 → 大纲跟随且手写保留 → 重启后一切恢复。
+
+## 修订 v3：独立设置标签 + 面板隐藏/搜索按钮
+
+本次迭代不改同步/保存/伴生文件逻辑，仅调整设置归置与面板头部工具栏。
+
+### 1. 大纲设置独立成 Settings 标签
+
+- 原先大纲快捷键改绑 UI 内嵌在 **Settings → Core** 标签内、以
+  `isPluginEnabled('outline-notes')` 门控。改为**独立标签**：
+  - 标签条新增 `settings.tab.outline`（"大纲笔记" / "Outline" / "アウトライン"），
+    紧随 OpenClaw 标签之后；
+  - 门控从 `isPluginEnabled`（持久化的"下次启动是否加载"）改为
+    **`isPluginActive('outline-notes')`**——即插件**已实际加载**时才出现，
+    与 OpenClaw 标签同款语义（`_activePluginIds` 来自 `get_plugin_manifests`）；
+  - 快捷键区块整体迁入该标签的内容分支，Core 标签不再承载大纲设置；
+  - 移除 SettingsDialog 中不再使用的 `isPluginEnabled` import。
+- **视图菜单入口**：无需新增——manifest 已声明 `location: "view"` 的
+  "大纲视图"（`Cmd+Shift+O`，command `toggle`），经 Rust 注册为原生 View
+  菜单项。不再叠加重复项。
+
+### 2. OutlinePanel 头部工具栏
+
+`header` 布局：`[« 隐藏]  标题(flex:1)  [⌕ 搜索] [⟳ 刷新] [＋ 加笔记]`
+
+- **左上角隐藏按钮**（`«`）→ `setOutlineVisible(false)`，整体收起面板，
+  与 View 菜单 / `Cmd+Shift+O` 联动，可见性持久化到 store（既有 API）。
+- **右上角搜索按钮**（`⌕`，toggle）→ 在 header 下展开输入框：
+  - 对**当前文档大纲**做大小写不敏感子串过滤；命中节点 + 其祖先路径保留，
+    其余隐藏；无视折叠（命中项始终展开可见）；清空 / Esc / 关闭即恢复全量；
+  - 实现：给 `OutlineNode` 增可选 prop **`visibleIds: Set<string> | null`**，
+    `null` = 现有全量渲染（零行为变化）；非 null 时按集合过滤子节点、并以
+    `visibleIds ? kids.length>0 : !collapsed` 决定是否展开子树；
+  - 面板层 `visibleIds` 为 `$derived`：遍历 `outline.tree.nodes`，命中节点沿
+    `parentId` 链补齐祖先入集合；`searchQuery` 为空时返回 `null`；
+  - **搜索期间隐藏 BacklinksSection**（`{#if !visibleIds}`）。
+- `⟳` 即原有"重新生成"（从源文重建），承担"刷新"语义；`＋` 加根笔记保留。
+
+### 3. i18n
+
+新增键（en/zh/ja）：`settings.tab.outline`、`outline.hide`、`outline.search`、
+`outline.searchPlaceholder`、`outline.noSearchResults`。
+
+### 4. 验收（v3 增量）
+
+- 插件未加载时：Settings 无"大纲笔记"标签；加载后出现且仅含快捷键区；
+- 面板 `«` 收起面板、菜单项状态联动；
+- `⌕` 过滤：输入即时收敛到命中项 + 祖先路径，清空恢复，搜索时反链区隐藏；
+- `pnpm check` 0 error、`pnpm test` 全绿（859 tests）。
 
 ## Out of Scope（本期不做）
 
