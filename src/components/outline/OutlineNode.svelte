@@ -33,6 +33,13 @@
     return visibleIds ? all.filter((k) => visibleIds.has(k.id)) : all
   })
   let editing = $derived(outline.editingId === node.id)
+  // Route collapse state through outline.version so bump() re-renders it —
+  // `node.collapsed` is a plain (non-proxied) property Svelte doesn't track.
+  let isCollapsed = $derived.by(() => { void outline.version; return node.collapsed })
+  let showChildren = $derived.by(() => {
+    void outline.version
+    return visibleIds ? kids.length > 0 : !node.collapsed
+  })
   let textareaEl: HTMLTextAreaElement | undefined = $state()
 
   $effect(() => { if (editing && textareaEl) textareaEl.focus() })
@@ -148,7 +155,7 @@
     oncontextmenu={(e) => { e.preventDefault(); onContextMenu(e, node) }}
   >
     {#if kids.length > 0}
-      <button class="tri" class:closed={node.collapsed}
+      <button class="tri" class:closed={isCollapsed}
         onclick={() => { node.collapsed = !node.collapsed; bump(); markDirty() }}>▾</button>
     {:else}<span class="tri-spacer"></span>{/if}
     <span
@@ -183,7 +190,7 @@
       </span>
     {/if}
   </div>
-  {#if visibleIds ? kids.length > 0 : !node.collapsed}
+  {#if showChildren}
     {#each kids as child (child.id)}
       <OutlineNode node={child} depth={depth + 1} {resolved} {onJump} {onPageClick} {onEditorInput} {onContextMenu} {onDragOp} {visibleIds} />
     {/each}
@@ -204,15 +211,29 @@
   .row.drop-sibling { box-shadow: 0 2px 0 var(--accent-color, #4a80d4); }
   .row.drop-child { box-shadow: inset 2px 0 0 var(--accent-color, #4a80d4); background: #4a80d411; }
   .row.auto .content { opacity: 0.92; }
-  .tri { background: none; border: none; padding: 0; width: 14px; cursor: pointer; font-size: 10px; opacity: 0.6; transition: transform 0.1s; }
+  .tri {
+    background: none; border: none; padding: 0;
+    width: 1.1em; font-size: 0.7em;
+    line-height: var(--outline-line-height, 1.5);
+    cursor: pointer; opacity: 0.6; transition: transform 0.1s;
+  }
   .tri.closed { transform: rotate(-90deg); }
-  .tri-spacer { width: 14px; flex-shrink: 0; }
-  .bullet { cursor: pointer; opacity: 0.7; }
+  .tri-spacer { width: 1.1em; flex-shrink: 0; }
+  .bullet {
+    font-size: 1em;
+    line-height: var(--outline-line-height, 1.5);
+    cursor: pointer; opacity: 0.7;
+  }
   .bullet.src-toc { color: var(--accent-color, #4a80d4); }
   .bullet.src-hl { color: #d4a94a; }
   .content { flex: 1; min-width: 0; white-space: pre-wrap; word-break: break-word; cursor: text; }
   .content.hl,
-  textarea.hl { background: var(--highlight-bg, #fde68a); border-radius: 2px; }
+  textarea.hl {
+    text-decoration: underline;
+    text-decoration-color: var(--highlight-underline, #e0a500);
+    text-decoration-thickness: 2px;
+    text-underline-offset: 2px;
+  }
   textarea.edit {
     resize: none; overflow: hidden; border: none; outline: 1px solid var(--accent-color, #4a80d4);
     border-radius: 3px; background: transparent; color: inherit; font: inherit; padding: 0 2px;
