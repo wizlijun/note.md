@@ -33,10 +33,20 @@ export async function setOutlineVisible(v: boolean): Promise<void> {
   await s.save()
 }
 
+/** Update width in state only (clamped, no persist). Call during drag. */
+export function setOutlineWidthLive(w: number): void {
+  outlineGate.width = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, w))
+}
+
 export async function setOutlineWidth(w: number): Promise<void> {
   const clamped = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, Math.round(w)))
   outlineGate.width = clamped
   const s = await getStore()
   await s.set('outline.width', clamped)
   await s.save()
+}
+
+/** Returns true when the outline panel should be shown for a given tab. */
+export function outlineAppliesTo(tab: { kind: string; filePath: string }): boolean {
+  return tab.kind === 'markdown' && !tab.filePath.endsWith('.notes.md')
 }

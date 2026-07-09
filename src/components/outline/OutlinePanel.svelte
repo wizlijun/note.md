@@ -1,33 +1,36 @@
 <script lang="ts">
   import type { Tab } from '../../lib/tabs.svelte'
-  import { outlineGate, setOutlineWidth, MIN_WIDTH, MAX_WIDTH } from '../../lib/outline/gate.svelte'
+  import { outlineGate, setOutlineWidth, setOutlineWidthLive } from '../../lib/outline/gate.svelte'
   import { t } from '../../lib/i18n/store.svelte'
 
   let { tab }: { tab: Tab } = $props()
 
-  let dragging = false
+  let startX = 0
+  let startW = 0
+
   function onSplitterDown(e: PointerEvent) {
-    dragging = true
-    const startX = e.clientX
-    const startW = outlineGate.width
-    const move = (ev: PointerEvent) => {
-      if (!dragging) return
-      const w = startW + (startX - ev.clientX)
-      outlineGate.width = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, w))
-    }
-    const up = () => {
-      dragging = false
-      void setOutlineWidth(outlineGate.width)
-      window.removeEventListener('pointermove', move)
-      window.removeEventListener('pointerup', up)
-    }
-    window.addEventListener('pointermove', move)
-    window.addEventListener('pointerup', up)
+    startX = e.clientX
+    startW = outlineGate.width
+    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+  }
+  function onSplitterMove(e: PointerEvent) {
+    if (!(e.currentTarget as HTMLElement).hasPointerCapture(e.pointerId)) return
+    setOutlineWidthLive(startW + (startX - e.clientX))
+  }
+  function onSplitterUp(e: PointerEvent) {
+    if (!(e.currentTarget as HTMLElement).hasPointerCapture(e.pointerId)) return
+    ;(e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId)
+    void setOutlineWidth(outlineGate.width)
   }
 </script>
 
 <aside class="outline-panel" style="width: {outlineGate.width}px">
-  <div class="splitter" onpointerdown={onSplitterDown}></div>
+  <div
+    class="splitter"
+    onpointerdown={onSplitterDown}
+    onpointermove={onSplitterMove}
+    onpointerup={onSplitterUp}
+  ></div>
   <header>
     <span class="title">{t('outline.title')}</span>
   </header>
