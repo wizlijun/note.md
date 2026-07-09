@@ -323,6 +323,10 @@ export const zh: Record<keyof Messages, string> = {
   'outline.deleteConfirm': '删除该节点及其全部子节点？',
   'outline.backlinks': '反向链接',
   'outline.noBacklinks': '暂无反向链接',
+  'outline.hide': '隐藏大纲',
+  'outline.search': '搜索大纲',
+  'outline.searchPlaceholder': '过滤大纲…',
+  'outline.noSearchResults': '无匹配项',
   'outline.shortcutsTitle': '大纲快捷键',
   'outline.pressKeys': '按下组合键…',
   'outline.shortcutConflict': '与「{other}」冲突',
@@ -405,6 +409,7 @@ export const zh: Record<keyof Messages, string> = {
   'settings.tab.updates': '更新',
   'settings.tab.vault': 'Vault',
   'settings.tab.openclaw': 'OpenClaw',
+  'settings.tab.outline': '大纲笔记',
   'settings.tab.insights': '阅读洞察',
 
   // Settings → Themes

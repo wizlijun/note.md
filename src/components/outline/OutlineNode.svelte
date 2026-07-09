@@ -12,6 +12,7 @@
 
   let {
     node, depth, resolved, onJump, onPageClick, onEditorInput, onContextMenu, onDragOp,
+    visibleIds = null,
   }: {
     node: NodeT
     depth: number
@@ -22,9 +23,15 @@
     onEditorInput: (node: NodeT, value: string, cursor: number, el: HTMLTextAreaElement, e?: KeyboardEvent) => boolean
     onContextMenu: (e: MouseEvent, n: NodeT) => void
     onDragOp: (drag: string, target: string, mode: 'sibling' | 'child') => void
+    /** 搜索过滤：非 null 时仅渲染集合内的子节点（保住匹配节点的祖先路径），并无视折叠展开命中项 */
+    visibleIds?: Set<string> | null
   } = $props()
 
-  let kids = $derived.by(() => { void outline.version; return childrenOf(outline.tree, node.id) })
+  let kids = $derived.by(() => {
+    void outline.version
+    const all = childrenOf(outline.tree, node.id)
+    return visibleIds ? all.filter((k) => visibleIds.has(k.id)) : all
+  })
   let editing = $derived(outline.editingId === node.id)
   let textareaEl: HTMLTextAreaElement | undefined = $state()
 
@@ -164,9 +171,9 @@
       </span>
     {/if}
   </div>
-  {#if !node.collapsed}
+  {#if visibleIds ? kids.length > 0 : !node.collapsed}
     {#each kids as child (child.id)}
-      <OutlineNode node={child} depth={depth + 1} {resolved} {onJump} {onPageClick} {onEditorInput} {onContextMenu} {onDragOp} />
+      <OutlineNode node={child} depth={depth + 1} {resolved} {onJump} {onPageClick} {onEditorInput} {onContextMenu} {onDragOp} {visibleIds} />
     {/each}
   {/if}
 </div>

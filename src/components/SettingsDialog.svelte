@@ -18,7 +18,6 @@
   import { collectSettingsTabs, type SettingsTab } from '../lib/plugins/settings-registry'
   import type { PluginManifest } from '../lib/plugins/types'
   import { isPluginActive } from '../lib/plugins/registry'
-  import { isPluginEnabled } from '../lib/settings.svelte'
   import { outlineShortcuts, setShortcutOverride } from '../lib/outline/gate.svelte'
   import {
     DEFAULT_SHORTCUTS, resolveShortcuts, displayShortcut, eventToShortcut, findConflict,
@@ -379,6 +378,9 @@
         {#if isPluginActive('openclaw-chat')}
           <button class:active={selectedTab === 'openclaw'} onclick={() => selectedTab = 'openclaw'}>{t('settings.tab.openclaw')}</button>
         {/if}
+        {#if isPluginActive('outline-notes')}
+          <button class:active={selectedTab === 'outline-notes'} onclick={() => selectedTab = 'outline-notes'}>{t('settings.tab.outline')}</button>
+        {/if}
         {#each pluginTabs as ptab (ptab.pluginId)}
           <button class:active={selectedTab === ptab.pluginId} onclick={() => selectedTab = ptab.pluginId}>{pluginTabLabel(ptab.manifest, ptab.label)}</button>
         {/each}
@@ -450,29 +452,6 @@
             {t('settings.autoSaveLabel')}
           </label>
         </section>
-
-        {#if isPluginEnabled('outline-notes')}
-          <section class="block">
-            <h3>{t('outline.shortcutsTitle')}</h3>
-            {#each Object.keys(DEFAULT_SHORTCUTS) as id (id)}
-              <div class="shortcut-row">
-                <span class="shortcut-label">{t(OUTLINE_CMD_LABELS[id as OutlineCommandId])}</span>
-                <button
-                  class="shortcut-input" class:recording={recording === id}
-                  onclick={() => (recording = id as OutlineCommandId)}
-                  onkeydown={(e) => recording === id && onRecordKey(e, id as OutlineCommandId)}
-                  onblur={() => { if (recording === id) recording = null }}
-                >
-                  {recording === id ? t('outline.pressKeys') : displayShortcut(resolvedOutline[id as OutlineCommandId], isMac)}
-                </button>
-                {#if outlineShortcuts.overrides[id as OutlineCommandId]}
-                  <button class="shortcut-reset" onclick={() => void setShortcutOverride(id as OutlineCommandId, null)}>↺</button>
-                {/if}
-              </div>
-            {/each}
-            {#if conflictMsg}<p class="shortcut-conflict">{conflictMsg}</p>{/if}
-          </section>
-        {/if}
 
         {#if !isIOSPlatform}
           <section class="block">
@@ -682,6 +661,27 @@
       {:else if selectedTab === 'openclaw' && isPluginActive('openclaw-chat')}
         <OpenClawSettingsTab />
         <OpenClawDevicesTab />
+      {:else if selectedTab === 'outline-notes' && isPluginActive('outline-notes')}
+        <section class="block">
+          <h3>{t('outline.shortcutsTitle')}</h3>
+          {#each Object.keys(DEFAULT_SHORTCUTS) as id (id)}
+            <div class="shortcut-row">
+              <span class="shortcut-label">{t(OUTLINE_CMD_LABELS[id as OutlineCommandId])}</span>
+              <button
+                class="shortcut-input" class:recording={recording === id}
+                onclick={() => (recording = id as OutlineCommandId)}
+                onkeydown={(e) => recording === id && onRecordKey(e, id as OutlineCommandId)}
+                onblur={() => { if (recording === id) recording = null }}
+              >
+                {recording === id ? t('outline.pressKeys') : displayShortcut(resolvedOutline[id as OutlineCommandId], isMac)}
+              </button>
+              {#if outlineShortcuts.overrides[id as OutlineCommandId]}
+                <button class="shortcut-reset" onclick={() => void setShortcutOverride(id as OutlineCommandId, null)}>↺</button>
+              {/if}
+            </div>
+          {/each}
+          {#if conflictMsg}<p class="shortcut-conflict">{conflictMsg}</p>{/if}
+        </section>
       {:else}
         {#each pluginTabs as ptab (ptab.pluginId)}
           {#if selectedTab === ptab.pluginId}

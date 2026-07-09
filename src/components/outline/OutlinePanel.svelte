@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Tab } from '../../lib/tabs.svelte'
-  import { outlineGate, outlineShortcuts, setOutlineWidth, setOutlineWidthLive } from '../../lib/outline/gate.svelte'
+  import { outlineGate, outlineShortcuts, setOutlineWidth, setOutlineWidthLive, setOutlineVisible } from '../../lib/outline/gate.svelte'
   import { t } from '../../lib/i18n/store.svelte'
   import OutlineNode from './OutlineNode.svelte'
   import SlashMenu from './SlashMenu.svelte'
@@ -43,6 +43,34 @@
   })
 
   let roots = $derived.by(() => { void outline.version; return childrenOf(outline.tree, null) })
+
+  // 搜索：过滤当前文档大纲。visibleIds 非 null 时仅保留命中节点及其祖先路径。
+  let searchOpen = $state(false)
+  let searchQuery = $state('')
+  let searchInputEl: HTMLInputElement | undefined = $state()
+  let visibleIds = $derived.by<Set<string> | null>(() => {
+    void outline.version
+    const q = searchQuery.trim().toLowerCase()
+    if (!q) return null
+    const nodes = outline.tree.nodes
+    const set = new Set<string>()
+    for (const n of nodes.values()) {
+      if (!n.content.toLowerCase().includes(q)) continue
+      let cur: NodeT | undefined = n
+      while (cur && !set.has(cur.id)) { set.add(cur.id); cur = cur.parentId ? nodes.get(cur.parentId) : undefined }
+    }
+    return set
+  })
+  let visibleRoots = $derived(visibleIds ? roots.filter((r) => visibleIds!.has(r.id)) : roots)
+
+  function toggleSearch() {
+    searchOpen = !searchOpen
+    if (!searchOpen) searchQuery = ''
+    else queueMicrotask(() => searchInputEl?.focus())
+  }
+  function onSearchKeydown(e: KeyboardEvent) {
+    if (e.key === 'Escape') { e.preventDefault(); searchQuery = ''; searchOpen = false }
+  }
 
   function onJump(n: NodeT) { if (n.anchorLine != null) requestReveal(n.anchorLine, n.content) }
   function onPageClick(target: string) { void openPageOrCreate(target) }
@@ -205,22 +233,41 @@
     onpointerup={onSplitterUp}
   ></div>
   <header>
+    <button class="hbtn" title={t('outline.hide')} onclick={() => void setOutlineVisible(false)}>«</button>
     <span class="title">{t('outline.title')}</span>
+    <button class="hbtn" class:active={searchOpen} title={t('outline.search')} onclick={toggleSearch}>⌕</button>
     <button class="hbtn" title={t('outline.regenerate')} onclick={onRegenerate}>⟳</button>
     <button class="hbtn" title={t('outline.addNote')} onclick={addRootNote}>＋</button>
   </header>
+  {#if searchOpen}
+    <div class="search-row">
+      <input
+        bind:this={searchInputEl}
+        class="search-input"
+        type="text"
+        placeholder={t('outline.searchPlaceholder')}
+        bind:value={searchQuery}
+        onkeydown={onSearchKeydown}
+      />
+      {#if searchQuery}
+        <button class="hbtn" title={t('common.close')} onclick={() => (searchQuery = '')}>✕</button>
+      {/if}
+    </div>
+  {/if}
   {#if outline.externalConflict}
     <div class="conflict">{t('outline.externalChanged')}</div>
   {/if}
   <div class="body" role="tree">
-    {#each roots as node (node.id)}
-      <OutlineNode {node} depth={0} {resolved} {onJump} {onPageClick} {onEditorInput} {onContextMenu} {onDragOp} />
+    {#each visibleRoots as node (node.id)}
+      <OutlineNode {node} depth={0} {resolved} {onJump} {onPageClick} {onEditorInput} {onContextMenu} {onDragOp} {visibleIds} />
     {/each}
-    {#if roots.length === 0}
-      <p class="empty">{t('outline.empty')}</p>
+    {#if visibleRoots.length === 0}
+      <p class="empty">{visibleIds ? t('outline.noSearchResults') : t('outline.empty')}</p>
     {/if}
   </div>
-  <BacklinksSection />
+  {#if !visibleIds}
+    <BacklinksSection />
+  {/if}
   {#if menu.kind === 'slash'}
     <SlashMenu items={slashItems} selected={menu.selected} x={menu.x} y={menu.y} onPick={pickSlash} />
   {:else if menu.kind === 'link'}
@@ -263,6 +310,17 @@
     opacity: 0.6; padding: 0 2px; line-height: 1;
   }
   .hbtn:hover { opacity: 1; }
+  .hbtn.active { opacity: 1; color: var(--accent-color, #4a80d4); }
+  .search-row {
+    display: flex; align-items: center; gap: 4px;
+    padding: 4px 8px; border-bottom: 1px solid var(--border-color, #3333);
+  }
+  .search-input {
+    flex: 1; min-width: 0; font-size: 12px; padding: 3px 6px;
+    border: 1px solid var(--border-color, #3335); border-radius: 4px;
+    background: var(--input-bg, transparent); color: inherit; outline: none;
+  }
+  .search-input:focus { outline: 1px solid var(--accent-color, #4a80d4); }
   .conflict {
     background: var(--warn-bg, #fef08a); color: var(--warn-fg, #78350f);
     font-size: 11px; padding: 4px 8px; border-bottom: 1px solid var(--border-color, #3333);

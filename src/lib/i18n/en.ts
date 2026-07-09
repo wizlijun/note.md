@@ -328,6 +328,10 @@ export const en = {
   'outline.deleteConfirm': 'Delete this node and all its children?',
   'outline.backlinks': 'Backlinks',
   'outline.noBacklinks': 'No backlinks',
+  'outline.hide': 'Hide outline',
+  'outline.search': 'Search outline',
+  'outline.searchPlaceholder': 'Filter outline…',
+  'outline.noSearchResults': 'No matching items',
   'outline.shortcutsTitle': 'Outline shortcuts',
   'outline.pressKeys': 'Press keys…',
   'outline.shortcutConflict': 'Conflicts with "{other}"',
@@ -410,6 +414,7 @@ export const en = {
   'settings.tab.updates': 'Updates',
   'settings.tab.vault': 'Vault',
   'settings.tab.openclaw': 'OpenClaw',
+  'settings.tab.outline': 'Outline',
   'settings.tab.insights': 'Insights',
 
   // Settings → Themes

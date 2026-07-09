@@ -323,6 +323,10 @@ export const ja: Record<keyof Messages, string> = {
   'outline.deleteConfirm': 'このノードとすべての子ノードを削除しますか？',
   'outline.backlinks': 'バックリンク',
   'outline.noBacklinks': 'バックリンクはありません',
+  'outline.hide': 'アウトラインを隠す',
+  'outline.search': 'アウトラインを検索',
+  'outline.searchPlaceholder': 'アウトラインを絞り込み…',
+  'outline.noSearchResults': '一致する項目がありません',
   'outline.shortcutsTitle': 'アウトラインのショートカット',
   'outline.pressKeys': 'キーを押してください…',
   'outline.shortcutConflict': '「{other}」と競合しています',
@@ -405,6 +409,7 @@ export const ja: Record<keyof Messages, string> = {
   'settings.tab.updates': '更新',
   'settings.tab.vault': 'Vault',
   'settings.tab.openclaw': 'OpenClaw',
+  'settings.tab.outline': 'アウトライン',
   'settings.tab.insights': 'インサイト',
 
   // Settings → Themes
