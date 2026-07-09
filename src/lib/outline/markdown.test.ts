@@ -1,0 +1,79 @@
+// src/lib/outline/markdown.test.ts
+import { describe, it, expect } from 'vitest'
+import { serializeOutline, parseOutline } from './markdown'
+import { createTree, addNode, type OutlineTree } from './model'
+
+function roundTrip(md: string): string {
+  return serializeOutline(parseOutline(md))
+}
+
+describe('parseOutline', () => {
+  it('parses nesting by 2-space indent', () => {
+    const t = parseOutline('- A\n  - A1\n    - A1a\n- B\n')
+    const ids = [...t.nodes.values()]
+    expect(ids).toHaveLength(4)
+    const a = ids.find(n => n.content === 'A')!
+    const a1 = ids.find(n => n.content === 'A1')!
+    const a1a = ids.find(n => n.content === 'A1a')!
+    expect(a.parentId).toBeNull()
+    expect(a1.parentId).toBe(a.id)
+    expect(a1a.parentId).toBe(a1.id)
+  })
+  it('reads property lines', () => {
+    const md = '- Chapter\n  type:: toc\n  line:: 12\n  collapsed:: true\n  id:: abc-123\n'
+    const n = [...parseOutline(md).nodes.values()][0]
+    expect(n.source).toBe('toc')
+    expect(n.anchorLine).toBe(12)
+    expect(n.collapsed).toBe(true)
+    expect(n.id).toBe('abc-123')
+  })
+  it('joins continuation lines into multi-line content', () => {
+    const md = '- ```js\n  const x = 1\n  ```\n- next\n'
+    const nodes = [...parseOutline(md).nodes.values()]
+    expect(nodes[0].content).toBe('```js\nconst x = 1\n```')
+    expect(nodes[1].content).toBe('next')
+  })
+  it('degrades unparseable lines to plain manual nodes (spec: 不丢内容)', () => {
+    const t = parseOutline('stray text no bullet\n- ok\n')
+    const contents = [...t.nodes.values()].map(n => n.content)
+    expect(contents).toContain('stray text no bullet')
+    expect(contents).toContain('ok')
+  })
+})
+
+describe('serializeOutline', () => {
+  it('writes only non-default props', () => {
+    const t = createTree()
+    addNode(t, { id: 'm', parentId: null, order: 0, content: 'hand', collapsed: false, source: 'manual' })
+    addNode(t, { id: 'h', parentId: null, order: 100, content: 'marked', collapsed: false, source: 'highlight', anchorLine: 3 })
+    const md = serializeOutline(t)
+    expect(md).toBe('- hand\n- marked\n  type:: highlight\n  line:: 3\n')
+  })
+  it('persists manual node id only when flagged', () => {
+    const t = createTree()
+    addNode(t, { id: 'x-1', parentId: null, order: 0, content: 'ref target', collapsed: false, source: 'manual' })
+    expect(serializeOutline(t)).not.toContain('id::')
+    expect(serializeOutline(t, new Set(['x-1']))).toContain('id:: x-1')
+  })
+})
+
+describe('round-trip（验收标准 2）', () => {
+  it('lossless: nesting + props + multi-line + special chars', () => {
+    const md = [
+      '- Title',
+      '  type:: toc',
+      '  line:: 1',
+      '  - ^^note^^ with [[link]] and #tag',
+      '    type:: highlight',
+      '    line:: 4',
+      '    id:: h-1',
+      '    collapsed:: true',
+      '    - my thought **bold** `code`',
+      '- ```py',
+      '  print("hi :: not a prop")',
+      '  ```',
+      '',
+    ].join('\n')
+    expect(roundTrip(md)).toBe(md)
+  })
+})
