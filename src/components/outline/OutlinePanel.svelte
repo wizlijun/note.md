@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Tab } from '../../lib/tabs.svelte'
-  import { outlineGate, outlineShortcuts, setOutlineWidth, setOutlineWidthLive, setOutlineVisible } from '../../lib/outline/gate.svelte'
+  import { outlineGate, outlineShortcuts, setOutlineWidth, setOutlineWidthLive, setOutlineVisible, outlineAppliesTo } from '../../lib/outline/gate.svelte'
   import { t } from '../../lib/i18n/store.svelte'
   import OutlineNode from './OutlineNode.svelte'
   import SlashMenu from './SlashMenu.svelte'
@@ -20,21 +20,26 @@
   import { ensureIndex, teardownIndex, openPageOrCreate } from '../../lib/outline/backlinks-io.svelte'
   import BacklinksSection from './BacklinksSection.svelte'
 
-  let { tab }: { tab: Tab } = $props()
+  let { tab }: { tab: Tab | null } = $props()
+
+  // Whether the current tab has an editable outline. Drives body state + button enablement.
+  let applicable = $derived(tab != null && outlineAppliesTo(tab))
 
   // resolved shortcuts：接设置覆盖，随 outlineShortcuts.overrides 变化响应式更新
   let resolved = $derived(resolveShortcuts(outlineShortcuts.overrides))
 
   // 绑定当前 tab + 主文内容变化驱动同步
   $effect(() => {
-    if (tab.filePath) void attachTab(tab.filePath, tab.currentContent)
+    if (applicable && tab) void attachTab(tab.filePath, tab.currentContent)
+    else { void flushSave(); detach(); teardownIndex() }
   })
   $effect(() => {
+    if (!applicable || !tab) return
     const content = tab.currentContent
     if (outline.mainPath === tab.filePath) scheduleSyncFromMain(content)
   })
   $effect(() => () => { void flushSave(); detach(); teardownIndex() })  // unmount 兜底保存
-  $effect(() => { if (outlineGate.visible && tab.filePath) void ensureIndex(tab.filePath) })
+  $effect(() => { if (applicable && outlineGate.visible && tab) void ensureIndex(tab.filePath) })
   // Close any floating menu whose owning node is no longer in edit mode (e.g. blur → commitEdit).
   $effect(() => {
     if (menu.kind !== 'none' && outline.editingId !== menu.nodeId) {
@@ -89,6 +94,7 @@
     bump(); markDirty()
   }
   async function onRegenerate() {
+    if (!tab) return
     const { confirm } = await import('@tauri-apps/plugin-dialog')
     if (await confirm(t('outline.regenerateConfirm'), { title: t('outline.regenerate') })) {
       regenerate(tab.currentContent)
@@ -235,8 +241,8 @@
   <header>
     <button class="hbtn" title={t('outline.hide')} onclick={() => void setOutlineVisible(false)}>«</button>
     <span class="title">{t('outline.title')}</span>
-    <button class="hbtn" class:active={searchOpen} title={t('outline.search')} onclick={toggleSearch}>⌕</button>
-    <button class="hbtn" title={t('outline.regenerate')} onclick={onRegenerate}>⟳</button>
+    <button class="hbtn" class:active={searchOpen} title={t('outline.search')} disabled={!applicable} onclick={toggleSearch}>⌕</button>
+    <button class="hbtn" title={t('outline.regenerate')} disabled={!applicable} onclick={onRegenerate}>⟳</button>
     <button class="hbtn" title={t('outline.addNote')} onclick={addRootNote}>＋</button>
   </header>
   {#if searchOpen}
@@ -257,16 +263,22 @@
   {#if outline.externalConflict}
     <div class="conflict">{t('outline.externalChanged')}</div>
   {/if}
-  <div class="body" role="tree">
-    {#each visibleRoots as node (node.id)}
-      <OutlineNode {node} depth={0} {resolved} {onJump} {onPageClick} {onEditorInput} {onContextMenu} {onDragOp} {visibleIds} />
-    {/each}
-    {#if visibleRoots.length === 0}
-      <p class="empty">{visibleIds ? t('outline.noSearchResults') : t('outline.empty')}</p>
+  {#if !applicable}
+    <div class="body">
+      <p class="empty">{tab == null ? t('outline.noDocument') : t('outline.notApplicable')}</p>
+    </div>
+  {:else}
+    <div class="body" role="tree">
+      {#each visibleRoots as node (node.id)}
+        <OutlineNode {node} depth={0} {resolved} {onJump} {onPageClick} {onEditorInput} {onContextMenu} {onDragOp} {visibleIds} />
+      {/each}
+      {#if visibleRoots.length === 0}
+        <p class="empty">{visibleIds ? t('outline.noSearchResults') : t('outline.empty')}</p>
+      {/if}
+    </div>
+    {#if !visibleIds}
+      <BacklinksSection />
     {/if}
-  </div>
-  {#if !visibleIds}
-    <BacklinksSection />
   {/if}
   {#if menu.kind === 'slash'}
     <SlashMenu items={slashItems} selected={menu.selected} x={menu.x} y={menu.y} onPick={pickSlash} />
@@ -310,6 +322,7 @@
     opacity: 0.6; padding: 0 2px; line-height: 1;
   }
   .hbtn:hover { opacity: 1; }
+  .hbtn:disabled { opacity: 0.25; cursor: default; }
   .hbtn.active { opacity: 1; color: var(--accent-color, #4a80d4); }
   .search-row {
     display: flex; align-items: center; gap: 4px;
