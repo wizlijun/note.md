@@ -46,7 +46,7 @@
   import DrawerNav from './components/DrawerNav.svelte'
   import FolderView from './components/FolderView.svelte'
   import { folderView, loadFolderViewState, setVisible } from './lib/folder-view.svelte'
-  import { outlineGate, loadOutlineGate, setOutlineVisible, outlineAppliesTo } from './lib/outline/gate.svelte'
+  import { outlineGate, loadOutlineGate, setOutlineVisible } from './lib/outline/gate.svelte'
   import { platform, isIOS } from './lib/platform.svelte'
   import { vaultStore, refreshStatus, syncNow, attachStatusListener } from './lib/vault.svelte'
   import { syncCurrentToVault, canSyncActive, isTrackedVaultFile, refreshSotvault, sotvaultStore, setVaultRootChangedHandler } from './lib/sotvault.svelte'
@@ -665,13 +665,13 @@
         <div class="float-toggle"><ModeToggle tab={current} /></div>
       {/if}
       <EditorPane tab={current} />
-      {#if platformName !== 'ios' && outlineGate.enabled && outlineGate.visible && current && outlineAppliesTo(current)}
-        {#await import('./components/outline/OutlinePanel.svelte') then Panel}
-          <Panel.default tab={current} />
-        {/await}
-      {/if}
     {:else}
       <EmptyState />
+    {/if}
+    {#if platformName !== 'ios' && outlineGate.enabled && outlineGate.visible}
+      {#await import('./components/outline/OutlinePanel.svelte') then Panel}
+        <Panel.default tab={current ?? null} />
+      {/await}
     {/if}
   </section>
   <SettingsDialog bind:open={uiState.showSettings} />
