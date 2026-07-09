@@ -9,6 +9,8 @@ export interface OutlineNode {
   collapsed: boolean
   source: NodeSource
   anchorLine?: number     // auto 节点：主文档 1-based 行号
+  /** id:: was explicitly present in the companion file (or must be written); survives node copies */
+  persistId?: boolean
 }
 
 export interface OutlineTree { nodes: Map<string, OutlineNode> }
