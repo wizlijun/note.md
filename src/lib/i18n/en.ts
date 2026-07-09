@@ -320,6 +320,12 @@ export const en = {
   'outline.addNote': 'Add note',
   'outline.empty': 'No outline yet',
   'outline.externalChanged': 'Companion file changed on disk',
+  'outline.jumpToSource': 'Jump to source',
+  'outline.copyText': 'Copy text',
+  'outline.copySubtree': 'Copy subtree as Markdown',
+  'outline.copyBlockRef': 'Copy block reference',
+  'outline.delete': 'Delete',
+  'outline.deleteConfirm': 'Delete this node and all its children?',
 
   // Folder view
   'folderView.parentFolder': 'Parent folder',

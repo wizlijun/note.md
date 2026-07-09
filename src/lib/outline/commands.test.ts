@@ -3,6 +3,7 @@ import { describe, it, expect } from 'vitest'
 import {
   createSiblingBelow, createSiblingAbove, indentNode, outdentNode,
   moveNodeUp, moveNodeDown, mergeWithPrevious, applyInlineWrap,
+  subtreeToMarkdown,
 } from './commands'
 import { createTree, addNode, childrenOf, type OutlineTree } from './model'
 
@@ -80,5 +81,13 @@ describe('applyInlineWrap (render.cljs:1003)', () => {
   })
   it('inserts paired markers at collapsed caret, caret centered', () => {
     expect(applyInlineWrap('ab', 1, 1, '__')).toEqual({ text: 'a____b', selStart: 3, selEnd: 3 })
+  })
+})
+
+describe('subtreeToMarkdown', () => {
+  it('indents multi-line content continuations', () => {
+    const t = createTree()
+    addNode(t, { id: 'c', parentId: null, order: 0, content: '```js\nconst x = 1\n```', collapsed: false, source: 'manual' })
+    expect(subtreeToMarkdown(t, 'c')).toBe('- ```js\n  const x = 1\n  ```\n')
   })
 })

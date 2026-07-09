@@ -167,7 +167,11 @@ export function subtreeToMarkdown(tree: OutlineTree, id: string, depth = 0): str
   const node = tree.nodes.get(id)
   if (!node) return ''
   const indent = '  '.repeat(depth)
-  let out = `${indent}- ${node.content}\n`
+  const contIndent = indent + '  '
+  const lines = node.content.split('\n')
+  const firstLine = `${indent}- ${lines[0]}\n`
+  const restLines = lines.slice(1).map(l => `${contIndent}${l}\n`).join('')
+  let out = firstLine + restLines
   for (const c of childrenOf(tree, id)) out += subtreeToMarkdown(tree, c.id, depth + 1)
   return out
 }

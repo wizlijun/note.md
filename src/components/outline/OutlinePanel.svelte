@@ -5,12 +5,13 @@
   import OutlineNode from './OutlineNode.svelte'
   import SlashMenu from './SlashMenu.svelte'
   import LinkAutocomplete from './LinkAutocomplete.svelte'
+  import NodeContextMenu from './NodeContextMenu.svelte'
   import {
     outline, attachTab, detach, scheduleSyncFromMain, regenerate,
-    flushSave, bump, markDirty,
+    flushSave, bump, markDirty, pinnedIds,
   } from '../../lib/outline/store.svelte'
   import { childrenOf, newId, calculateOrderBetween, type OutlineNode as NodeT } from '../../lib/outline/model'
-  import { moveNodeAfter, moveNodeToChild } from '../../lib/outline/commands'
+  import { moveNodeAfter, moveNodeToChild, deleteNode, subtreeToMarkdown } from '../../lib/outline/commands'
   import { resolveShortcuts, type OutlineCommandId } from '../../lib/outline/shortcuts'
   import { filterSlashItems, applySlashItem, pageLinkQueryAt, confirmPageLink, filterPages, type SlashItem } from '../../lib/outline/completion'
   import { pageCandidates } from '../../lib/outline/backlinks'
@@ -157,7 +158,25 @@
     menu = { kind: 'none' }
   }
 
-  function onContextMenu(): void {}   // Task 14 填充
+  let ctxMenu = $state<{ node: NodeT; x: number; y: number } | null>(null)
+
+  function onContextMenu(e: MouseEvent, node: NodeT) {
+    ctxMenu = { node, x: e.clientX, y: e.clientY }
+  }
+  async function onCtxAction(action: string, node: NodeT) {
+    const { writeText } = await import('@tauri-apps/plugin-clipboard-manager')
+    if (action === 'jump') onJump(node)
+    else if (action === 'copy') await writeText(node.content)
+    else if (action === 'copy-subtree') await writeText(subtreeToMarkdown(outline.tree, node.id))
+    else if (action === 'copy-ref') { pinnedIds.add(node.id); await writeText(`((${node.id}))`); markDirty() }
+    else if (action === 'delete') {
+      const { confirm } = await import('@tauri-apps/plugin-dialog')
+      const kids = childrenOf(outline.tree, node.id).length
+      if (kids === 0 || await confirm(t('outline.deleteConfirm'), { title: t('outline.delete') })) {
+        if (deleteNode(outline.tree, node.id)) { bump(); markDirty() }
+      }
+    }
+  }
 
   let startX = 0
   let startW = 0
@@ -205,6 +224,9 @@
     <SlashMenu items={slashItems} selected={menu.selected} x={menu.x} y={menu.y} onPick={pickSlash} />
   {:else if menu.kind === 'link'}
     <LinkAutocomplete pages={linkPages} selected={menu.selected} x={menu.x} y={menu.y} onPick={pickPage} />
+  {/if}
+  {#if ctxMenu}
+    <NodeContextMenu node={ctxMenu.node} x={ctxMenu.x} y={ctxMenu.y} onAction={onCtxAction} onClose={() => (ctxMenu = null)} />
   {/if}
 </aside>
 

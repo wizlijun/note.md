@@ -315,6 +315,12 @@ export const ja: Record<keyof Messages, string> = {
   'outline.addNote': 'ノートを追加',
   'outline.empty': 'アウトラインはまだありません',
   'outline.externalChanged': 'ノートファイルが外部で変更されました',
+  'outline.jumpToSource': '原文へジャンプ',
+  'outline.copyText': 'テキストをコピー',
+  'outline.copySubtree': 'サブツリーを Markdown としてコピー',
+  'outline.copyBlockRef': 'ブロック参照をコピー',
+  'outline.delete': '削除',
+  'outline.deleteConfirm': 'このノードとすべての子ノードを削除しますか？',
 
   // Folder view
   'folderView.parentFolder': '親フォルダ',

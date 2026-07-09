@@ -315,6 +315,12 @@ export const zh: Record<keyof Messages, string> = {
   'outline.addNote': '添加笔记',
   'outline.empty': '暂无大纲',
   'outline.externalChanged': '伴生文件在磁盘上已被修改',
+  'outline.jumpToSource': '跳转到原文',
+  'outline.copyText': '复制文本',
+  'outline.copySubtree': '复制子树为 Markdown',
+  'outline.copyBlockRef': '复制块引用',
+  'outline.delete': '删除',
+  'outline.deleteConfirm': '删除该节点及其全部子节点？',
 
   // Folder view
   'folderView.parentFolder': '上级文件夹',

@@ -51,6 +51,9 @@ export function persistIdsFor(tree: OutlineTree): Set<string> {
   return ids
 }
 
+/** copy-ref 时固定写入 id 的集合：确保即使引用被粘到别的文件，本文件也会落盘 id:: */
+export const pinnedIds = new Set<string>()
+
 // ---------- IO 管线（组件层通过这些函数驱动；手动验证覆盖） ----------
 
 let ourLastWrite = ''   // 识别自写事件，避免 file-watcher 回环
@@ -137,7 +140,7 @@ export async function flushSave(): Promise<void> {
   if (saveTimer) { clearTimeout(saveTimer); saveTimer = null }
   const path = outline.companionPath
   if (!outline.dirty || !path) return
-  const text = serializeOutline(outline.tree, persistIdsFor(outline.tree))
+  const text = serializeOutline(outline.tree, new Set([...persistIdsFor(outline.tree), ...pinnedIds]))
   const { writeTextFile } = await import('@tauri-apps/plugin-fs')
   try {
     await writeTextFile(path, text)
