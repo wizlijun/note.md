@@ -79,4 +79,9 @@ describe('attachDoc / serializeDoc', () => {
     setChangeSink(null)
     detach()
   })
+  it('serializeDoc(false) does not stamp updated (attach-compare must be side-effect-free)', async () => {
+    await attachDoc('/v/bare.note.md', '- x\n', null)
+    expect(serializeDoc(false)).toBe('- x\n')
+    detach()
+  })
 })

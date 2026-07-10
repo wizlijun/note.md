@@ -106,6 +106,7 @@ export async function attachDoc(docPath: string, text: string, mainContent: stri
   if (!fmHas(outline.tree.frontmatter, 'created')) {
     const info = await import('@tauri-apps/plugin-fs')
       .then(m => m.stat(docPath)).catch(() => null)
+    if (outline.docPath !== docPath) return   // superseded by a later attachDoc
     if (info?.birthtime) {
       outline.tree.frontmatter = touchFrontmatter(outline.tree.frontmatter, {
         title: pageNameOf(docPath), created: new Date(info.birthtime).toISOString(),
@@ -116,9 +117,14 @@ export async function attachDoc(docPath: string, text: string, mainContent: stri
   bump()
 }
 
-/** 序列化当前树(含 title/created 补齐 + updated 刷新)。编辑器 sink 与保存共用。 */
-export function serializeDoc(): string {
-  if (outline.docPath) {
+/**
+ * 序列化当前树。touch=true(默认,编辑 sink 路径)刷新 front-matter 的
+ * updated 并补齐 title;touch=false 用于挂载时的无副作用对比,避免
+ * "打开即脏"(updated 刷新会让未编辑的 tab 变 dirty)。
+ * 注:setContent 只是赋值 tab.currentContent,不会回调 markDirty,无再入循环。
+ */
+export function serializeDoc(touch = true): string {
+  if (outline.docPath && touch) {
     outline.tree.frontmatter = touchFrontmatter(outline.tree.frontmatter, {
       title: pageNameOf(outline.docPath),
     })
