@@ -1,7 +1,7 @@
 // src/lib/outline/backlinks-io.svelte.ts
 import { watchImmediate } from '@tauri-apps/plugin-fs'
 import { outline, bump } from './store.svelte'
-import { buildFolderIndex, refreshFileInIndex, pageNameOf, resolveTarget, detectNameCollisions } from './backlinks'
+import { buildFolderIndex, refreshFileInIndex, resolveTarget, detectNameCollisions } from './backlinks'
 import { sanitizeFileName } from './slug'
 import { outlineDirs } from './dirs.svelte'
 import { folderView, parentDir } from '../folder-view.svelte'
@@ -80,23 +80,36 @@ export async function openPageOrCreate(target: string): Promise<void> {
   const safe = sanitizeFileName(target)
   const docPath = outline.docPath
   const vault = sotvaultStore.vaultRoot
-  if (vault && docPath && isUnder(docPath, vault)) {
+  // in-vault 判定:编辑器挂载的 doc 在 vault 内,或当前索引根就是 vault
+  // (面板点击时 docPath 为空——面板不挂载全局 store,靠 indexedRoot 判定)
+  const inVault = vault && ((docPath != null && isUnder(docPath, vault)) || indexedRoot === vault)
+  if (inVault) {
     // spec §5:vault 内未解析链接 → vault/{wikipage}/{slug}.note.md,fm title 存原文
-    const { mkdir } = await import('@tauri-apps/plugin-fs')
-    const dir = joinPath(vault, outlineDirs.wikipage)
-    await mkdir(dir, { recursive: true }).catch(() => {})
-    const path = joinPath(dir, `${safe}.note.md`)
-    await ensureOutlineFile(path, target)
-    await openFile(path)
+    try {
+      const { mkdir } = await import('@tauri-apps/plugin-fs')
+      const dir = joinPath(vault, outlineDirs.wikipage)
+      await mkdir(dir, { recursive: true }).catch(() => {})
+      const path = joinPath(dir, `${safe}.note.md`)
+      await ensureOutlineFile(path, target)
+      await openFile(path)
+    } catch (e) {
+      console.warn('[outline] create wiki page failed:', e)
+      pushToast({ level: 'error', message: String(e) })
+    }
     return
   }
   // vault 外:维持现状(同目录建 .md)
   const dir = indexedRoot ?? (docPath ? parentDir(docPath) : null)
   if (!dir) return
   const path = joinPath(dir, `${safe}.md`)
-  const { exists, writeTextFile } = await import('@tauri-apps/plugin-fs')
-  if (!(await exists(path).catch(() => false))) {
-    await writeTextFile(path, `# ${safe}\n`)
+  try {
+    const { exists, writeTextFile } = await import('@tauri-apps/plugin-fs')
+    if (!(await exists(path).catch(() => false))) {
+      await writeTextFile(path, `# ${safe}\n`)
+    }
+    await openFile(path)
+  } catch (e) {
+    console.warn('[outline] create page failed:', e)
+    pushToast({ level: 'error', message: String(e) })
   }
-  await openFile(path)
 }
