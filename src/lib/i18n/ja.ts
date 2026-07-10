@@ -310,6 +310,7 @@ export const ja: Record<keyof Messages, string> = {
 
   // Outline Notes
   'outline.title': 'アウトライン',
+  'outline.editNote': 'ノートを編集',
   'outline.regenerate': '原文から再生成',
   'outline.regenerateConfirm': '原文から自動項目を再構築しますか？手書きノートは保持されます。',
   'outline.addNote': 'ノートを追加',

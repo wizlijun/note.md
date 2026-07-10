@@ -315,6 +315,7 @@ export const en = {
 
   // Outline Notes
   'outline.title': 'Outline',
+  'outline.editNote': 'Edit note',
   'outline.regenerate': 'Regenerate from source',
   'outline.regenerateConfirm': 'Rebuild auto items from the source document? Manual notes are kept.',
   'outline.addNote': 'Add note',

@@ -53,7 +53,7 @@ export function teardownIndex(): void {
 
 /** 点击 [[页面]]：找同目录同名 .md 打开；不存在则创建后打开 */
 export async function openPageOrCreate(target: string): Promise<void> {
-  const dir = indexedRoot ?? (outline.mainPath ? parentDir(outline.mainPath) : null)
+  const dir = indexedRoot ?? (outline.docPath ? parentDir(outline.docPath) : null)
   if (!dir) return
   const idx = outline.backlinkIndex
   const existing = idx ? [...idx.filePages.entries()].find(
@@ -68,5 +68,5 @@ export async function openPageOrCreate(target: string): Promise<void> {
 }
 
 export function currentPageName(): string | null {
-  return outline.mainPath ? pageNameOf(outline.mainPath) : null
+  return outline.docPath ? pageNameOf(outline.docPath) : null
 }

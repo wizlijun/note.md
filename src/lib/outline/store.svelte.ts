@@ -9,9 +9,6 @@ import { pageNameOf } from './backlinks'
 import { touchFrontmatter, fmHas } from './frontmatter'
 
 export interface OutlineState {
-  /** 主文件路径（当前面板绑定的 tab 文件） */
-  mainPath: string | null
-  companionPath: string | null
   /** 全屏大纲 tab 模式:当前挂载的 .note.md 路径 */
   docPath: string | null
   tree: OutlineTree
@@ -22,23 +19,16 @@ export interface OutlineState {
   selectedIds: Set<string>
   /** Shift 连选的锚点：最近一次点击/进入编辑的节点 */
   selectionAnchor: string | null
-  dirty: boolean
-  /** 伴生文件被外部改且本地有未存改动 */
-  externalConflict: boolean
   backlinkIndex: BacklinkIndex | null
 }
 
 export const outline = $state<OutlineState>({
-  mainPath: null,
-  companionPath: null,
   docPath: null,
   tree: createTree(),
   version: 0,
   editingId: null,
   selectedIds: new Set(),
   selectionAnchor: null,
-  dirty: false,
-  externalConflict: false,
   backlinkIndex: null,
 })
 
@@ -132,85 +122,14 @@ export function serializeDoc(touch = true): string {
   return serializeOutline(outline.tree, new Set([...persistIdsFor(outline.tree), ...pinnedIds]))
 }
 
-// ---------- IO 管线（组件层通过这些函数驱动；手动验证覆盖） ----------
-
-let ourLastWrite = ''   // 识别自写事件，避免 file-watcher 回环
-let attachSeq = 0       // re-entrancy token：rapid tab switches guard
-
-export async function attachTab(mainPath: string, mainContent: string): Promise<void> {
-  const companion = companionPathFor(mainPath)
-  // Flush the outgoing doc before detach wipes companionPath/dirty — detach
-  // alone would silently drop a pending debounced save. flushSave captures
-  // path + serialized text synchronously, so no await is needed here.
-  if (!companion) { void flushSave(); detach(); return }
-  if (outline.mainPath === mainPath) return
-
-  // Claim a sequence token before any await so a concurrent attachTab can't
-  // race past the flush and steal the token.
-  const token = ++attachSeq
-
-  // Flush outgoing doc's pending save before resetting state, then kill any
-  // pending sync timer so a stale 300ms callback can't inject the old doc's
-  // auto items into the new tree.
-  await flushSave()                                    // clears saveTimer internally
-  if (token !== attachSeq) return
-  if (syncTimer) { clearTimeout(syncTimer); syncTimer = null }
-
-  // 旧后缀伴生文件就地迁移(在读伴生文件之前)
-  const { migrateLegacyCompanion } = await import('./migrate')
-  await migrateLegacyCompanion(mainPath)
-  if (token !== attachSeq) return
-
-  outline.mainPath = mainPath
-  outline.companionPath = companion
-  outline.editingId = null
-  outline.selectedIds = new Set()
-  outline.selectionAnchor = null
-  outline.dirty = false
-  outline.externalConflict = false
-
-  const { exists, readTextFile } = await import('@tauri-apps/plugin-fs')
-  if (token !== attachSeq) return
-
-  if (await exists(companion).catch(() => false)) {
-    if (token !== attachSeq) return
-    const text = await readTextFile(companion).catch(() => null)
-    if (token !== attachSeq) return
-    outline.tree = text != null ? parseOutline(text) : createTree()
-  } else {
-    outline.tree = createTree()
-  }
-
-  // 附加后立刻对当前主文内容跑一次同步（含首开派生）
-  syncAutoItems(outline.tree, deriveAutoItems(mainContent))
-  bump()
-}
-
+/** 卸载当前文档:清 docPath/树/选区。全屏大纲 tab 关闭时由编辑器调用。 */
 export function detach(): void {
-  // Clear pending timers; caller (panel unmount) is responsible for flushing
-  // any unsaved work via flushSave() before calling detach().
-  if (saveTimer) { clearTimeout(saveTimer); saveTimer = null }
-  if (syncTimer) { clearTimeout(syncTimer); syncTimer = null }
-  outline.mainPath = null
-  outline.companionPath = null
   outline.docPath = null
   outline.tree = createTree()
   outline.editingId = null
   outline.selectedIds = new Set()
   outline.selectionAnchor = null
-  outline.dirty = false
   bump()
-}
-
-// -- 主文变化 → debounce 300ms 同步（spec"实时同步"）
-let syncTimer: ReturnType<typeof setTimeout> | null = null
-export function scheduleSyncFromMain(mainContent: string): void {
-  if (syncTimer) clearTimeout(syncTimer)
-  syncTimer = setTimeout(() => {
-    syncAutoItems(outline.tree, deriveAutoItems(mainContent))
-    bump()
-    markDirty()
-  }, 300)
 }
 
 export function regenerate(mainContent: string): void {
@@ -219,64 +138,7 @@ export function regenerate(mainContent: string): void {
   markDirty()
 }
 
-// -- 树变更 → debounce 800ms 写伴生文件；关面板/换 tab 前调 flushSave()
-let saveTimer: ReturnType<typeof setTimeout> | null = null
+/** 任何树变更后调用:通知编辑器 sink 序列化 → setContent(tab)。tab 模式外为 no-op。 */
 export function markDirty(): void {
-  if (changeSink) { changeSink(); return }   // tab 模式:同步通知编辑器
-  outline.dirty = true
-  if (saveTimer) clearTimeout(saveTimer)
-  saveTimer = setTimeout(() => { void flushSave() }, 800)
-}
-
-export async function flushSave(): Promise<void> {
-  if (saveTimer) { clearTimeout(saveTimer); saveTimer = null }
-  const path = outline.companionPath
-  if (!outline.dirty || !path) return
-  if (isEffectivelyEmpty(outline.tree)) { outline.dirty = false; return }  // don't write phantom companion
-
-  let created: string | undefined
-  if (!fmHas(outline.tree.frontmatter, 'created')) {
-    const { stat } = await import('@tauri-apps/plugin-fs')
-    const info = await stat(path).catch(() => null)
-    created = info?.birthtime ? new Date(info.birthtime).toISOString() : undefined
-  }
-  // touchFrontmatter 返回值不带尾换行：serializeOutline 会把它夹在 ---\n…\n--- 之间
-  outline.tree.frontmatter = touchFrontmatter(outline.tree.frontmatter, {
-    title: pageNameOf(path),
-    created,
-  })
-
-  const text = serializeOutline(outline.tree, new Set([...persistIdsFor(outline.tree), ...pinnedIds]))
-  const { writeTextFile } = await import('@tauri-apps/plugin-fs')
-  try {
-    await writeTextFile(path, text)
-    ourLastWrite = text   // set only after successful write to avoid masking external changes on failure
-    outline.dirty = false
-  } catch (e) {
-    console.warn('[outline] save failed:', e)
-    const { pushToast } = await import('../toast.svelte')
-    pushToast({ level: 'error', message: String(e) })
-  }
-}
-
-/** 伴生文件外部变更：无未存改动 → 静默重载；有 → 标记冲突条（spec"保存与错误处理"） */
-export async function onCompanionExternalChange(): Promise<void> {
-  if (!outline.companionPath) return
-  const { readTextFile } = await import('@tauri-apps/plugin-fs')
-  const text = await readTextFile(outline.companionPath).catch(() => null)
-  if (text == null || text === ourLastWrite) return
-  if (outline.dirty) { outline.externalConflict = true; return }
-  outline.tree = parseOutline(text)
-  bump()
-}
-
-export function resolveConflictKeepMine(): void {
-  outline.externalConflict = false
-  markDirty()
-}
-
-export async function resolveConflictReload(): Promise<void> {
-  outline.externalConflict = false
-  outline.dirty = false
-  await onCompanionExternalChange()
+  changeSink?.()
 }
