@@ -65,6 +65,9 @@ tauri-plugin-dialog 原生弹窗：
   CLAUDE.md 内容成为新真相。
 - 按钮 2「用 AGENTS.md 覆盖」：整文件复制 AGENTS.md → CLAUDE.md。
 - 两个方向都是整文件复制，不做文本合并。
+- 安全网：执行覆盖前，把被替换一方备份到系统临时目录
+  （`mdeditor-agents-backup-<ts>-<name>`）。macOS 上 Esc 映射到第二个按钮
+  （覆盖），备份保证任何选择（含 Esc）都不会静默销毁内容。
 
 ## Tray 菜单
 
@@ -100,6 +103,9 @@ truth; CLAUDE.md is an auto-generated copy — edit AGENTS.md only.
 - `wikipage/` — default home of global wikilink pages. Each page is an
   outline note named `title.note.md`, created when a `[[title]]` link is
   first resolved.
+- `sync/` — markdown documents copied in from outside the vault (the
+  editor's sync-to-vault feature). Each file is a snapshot of an external
+  original; edits here do not flow back to the source file.
 - Any other folder — regular markdown documents (`xxx.md`), optionally
   with a companion outline note beside them (see below).
 
