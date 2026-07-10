@@ -55,7 +55,7 @@ export function removeFileFromIndex(idx: BacklinkIndex, file: string): void {
 /** 单文件（重新）索引：逐行提取 [[..]] 与 #tag */
 export function indexFileContent(idx: BacklinkIndex, file: string, content: string): void {
   removeFileFromIndex(idx, file)
-  idx.filePages.set(file, pageNameOf(file))
+  if (isWikiPagePath(idx.scope, file)) idx.filePages.set(file, pageNameOf(file))
   const targets = new Set<string>()
   content.split('\n').forEach((rawLine, i) => {
     const text = rawLine.replace(/^\s*- /, '').trim()

@@ -89,6 +89,46 @@ describe('index', () => {
   })
 })
 
+describe('scoped index (wikipage/dailynote only)', () => {
+  const SCOPE = { root: '/v', dirs: ['wikipage', 'dailynote'] }
+  function scopedIdx(files: Record<string, string>) {
+    const idx = createIndex(SCOPE)
+    for (const [p, c] of Object.entries(files)) indexFileContent(idx, p, c)
+    return idx
+  }
+
+  it('wiki page beats a同名 stray .md; stray is unresolvable', () => {
+    const idx = scopedIdx({ '/v/sub/x.md': 'x', '/v/wikipage/x.note.md': '- x' })
+    expect(resolveTarget(idx, 'x')).toBe('/v/wikipage/x.note.md')
+  })
+  it('two stray .md with same name are NOT a collision', () => {
+    const idx = scopedIdx({ '/v/a/foo.md': '1', '/v/b/foo.md': '2' })
+    expect(detectNameCollisions(idx).size).toBe(0)
+  })
+  it('two wiki pages with same name ARE a collision', () => {
+    const idx = scopedIdx({
+      '/v/wikipage/foo.note.md': '- 1',
+      '/v/wikipage/sub/foo.note.md': '- 2',
+    })
+    expect(detectNameCollisions(idx).get('foo')).toHaveLength(2)
+  })
+  it('nested dailynote page is resolvable (recursive)', () => {
+    const idx = scopedIdx({ '/v/dailynote/2026/2026-07-11.note.md': '- d' })
+    expect(resolveTarget(idx, '2026-07-11')).toBe('/v/dailynote/2026/2026-07-11.note.md')
+  })
+  it('stray doc linking a wiki page is still a backlink source', () => {
+    const idx = scopedIdx({
+      '/v/sub/note.md': '- see [[Wiki]] here\n',
+      '/v/wikipage/wiki.note.md': '- x',
+    })
+    expect(resolveTarget(idx, 'stray-none')).toBeNull()
+    expect(backlinksFor(idx, 'wiki')).toEqual([
+      { file: '/v/sub/note.md', text: 'see [[Wiki]] here', line: 1 },
+    ])
+    expect(pageCandidates(idx)).toEqual(['wiki'])
+  })
+})
+
 describe('isWikiPagePath', () => {
   const scope = { root: '/v', dirs: ['wikipage', 'dailynote'] }
   it('true for .md directly under a scope dir', () => {
