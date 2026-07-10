@@ -119,7 +119,9 @@ fn run_check(app: &tauri::AppHandle, root: &Path) {
     let Some(bp) = baseline_path(app) else { return };
     let current = current_state(root);
     let base = baseline::load(&bp);
-    match logic::decide(&current, &base) {
+    let action = logic::decide(&current, &base);
+    crate::dlog(&format!("agents_sync run_check → {:?}", action));
+    match action {
         SyncAction::None => {}
         SyncAction::RefreshBaseline => baseline::save(&bp, &current),
         SyncAction::MirrorToClaude => {
@@ -158,6 +160,7 @@ fn prompt_conflict(app: &tauri::AppHandle, root: &Path) {
     if state.prompting.swap(true, Ordering::SeqCst) {
         return;
     }
+    crate::dlog("agents_sync showing conflict dialog");
     let locale = crate::read_saved_locale(app);
     let (msg, merge_label, overwrite_label) = match locale.as_str() {
         "zh" => (
@@ -187,6 +190,7 @@ fn prompt_conflict(app: &tauri::AppHandle, root: &Path) {
             overwrite_label.into(),
         ))
         .show(move |merge_back| {
+            crate::dlog(&format!("agents_sync dialog answered merge_back={merge_back}"));
             // Whole-file copy either way; no text merge (spec).
             let (from, to) = if merge_back {
                 (root.join(watcher::CLAUDE_FILE), root.join(watcher::AGENTS_FILE))
@@ -206,6 +210,7 @@ fn prompt_conflict(app: &tauri::AppHandle, root: &Path) {
 /// Tray entry point: ensure AGENTS.md exists (template on first use), sync,
 /// and open it in the main window.
 pub fn edit_agents_md(app: &tauri::AppHandle) {
+    crate::dlog("agents_sync edit_agents_md invoked");
     if let Some(root) = vault_root(app) {
         open_agents_in_editor(app, &root);
     } else {

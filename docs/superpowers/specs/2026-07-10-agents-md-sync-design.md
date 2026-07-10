@@ -65,6 +65,9 @@ tauri-plugin-dialog 原生弹窗：
   CLAUDE.md 内容成为新真相。
 - 按钮 2「用 AGENTS.md 覆盖」：整文件复制 AGENTS.md → CLAUDE.md。
 - 两个方向都是整文件复制，不做文本合并。
+- 安全网：执行覆盖前，把被替换一方备份到系统临时目录
+  （`mdeditor-agents-backup-<ts>-<name>`）。macOS 上 Esc 映射到第二个按钮
+  （覆盖），备份保证任何选择（含 Esc）都不会静默销毁内容。
 
 ## Tray 菜单
 
