@@ -18,7 +18,7 @@ export function createIndex(): BacklinkIndex {
 }
 
 export function pageNameOf(path: string): string {
-  return basename(path).replace(/\.notes\.md$/i, '').replace(/\.md$/i, '')
+  return basename(path).replace(/\.notes?\.md$/i, '').replace(/\.md$/i, '')
 }
 
 export function removeFileFromIndex(idx: BacklinkIndex, file: string): void {

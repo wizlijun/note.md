@@ -53,7 +53,7 @@ export async function openPageOrCreate(target: string): Promise<void> {
   if (!dir) return
   const idx = outline.backlinkIndex
   const existing = idx ? [...idx.filePages.entries()].find(
-    ([p, page]) => page.toLowerCase() === target.toLowerCase() && !/\.notes\.md$/i.test(p)) : null
+    ([p, page]) => page.toLowerCase() === target.toLowerCase() && !/\.notes?\.md$/i.test(p)) : null
   if (existing) { await openFile(existing[0]); return }
   const path = `${dir}/${target}.md`
   const { exists, writeTextFile } = await import('@tauri-apps/plugin-fs')
