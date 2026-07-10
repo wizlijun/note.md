@@ -6,6 +6,8 @@
   import SourceView from './SourceView.svelte'
   import HtmlPreview from './HtmlPreview.svelte'
   import ExternalChangeBanner from './ExternalChangeBanner.svelte'
+  import OutlineEditor from './outline/OutlineEditor.svelte'
+  import { isOutlineNoteTab } from '../lib/outline/gate.svelte'
   import SyncOriginBanner from './SyncOriginBanner.svelte'
   import SyncToVaultBanner from './SyncToVaultBanner.svelte'
   import { offsetToLineCol, lineColToOffset } from '../lib/cursor-preserve'
@@ -92,6 +94,10 @@
   {:else if tab.mode === 'source'}
     {#key tab.id}
       <SourceView value={tab.currentContent} oninput={onSourceInput} tabId={tab.id} />
+    {/key}
+  {:else if isOutlineNoteTab(tab)}
+    {#key tab.id}
+      <OutlineEditor {tab} />
     {/key}
   {:else if tab.kind === 'html'}
     {#key tab.id}

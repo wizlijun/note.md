@@ -15,14 +15,15 @@
   } = $props()
 
   let kids = $derived(childrenOf(tree, node.id))
-  let isCollapsed = $derived(collapsed.has(node.id))
+  // 折叠显示:本地覆盖(会话内)优先,否则跟随文件的 collapsed::(镜像重解析后 id 变化,覆盖自然失效回落到文件态)
+  let isCollapsed = $derived(collapsed.has(node.id) ? !node.collapsed : node.collapsed)
 </script>
 
 <div class="node" style="--depth: {depth}">
   <div class="row" class:auto={node.source !== 'manual'}>
     {#if kids.length > 0}
       <button class="tri" class:closed={isCollapsed}
-        onclick={() => { if (isCollapsed) collapsed.delete(node.id); else collapsed.add(node.id) }}>▾</button>
+        onclick={() => { if (collapsed.has(node.id)) collapsed.delete(node.id); else collapsed.add(node.id) }}>▾</button>
     {:else}<span class="tri-spacer"></span>{/if}
     <span class="bullet"
       class:src-toc={node.source === 'toc'}
