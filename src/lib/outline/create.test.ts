@@ -11,4 +11,8 @@ describe('newOutlineFileText', () => {
     expect(text).toContain('updated: 2026-07-10T09:00:00.000Z')
     expect(text.endsWith('---\n- \n') || text.endsWith('---\n-\n')).toBe(true)
   })
+  it('newOutlineFileText keeps raw title even when filename would differ', () => {
+    const text = newOutlineFileText('a/b 原始标题', '2026-07-10T09:00:00.000Z')
+    expect(text).toContain('a/b 原始标题')
+  })
 })

@@ -8,11 +8,12 @@ export function newOutlineFileText(title: string, now?: string): string {
   return `---\n${fm}\n---\n- \n`
 }
 
-/** 确保 .note.md 存在(不存在则以空大纲创建),返回 path 供 openFile 使用 */
-export async function ensureOutlineFile(path: string): Promise<string> {
+/** 确保 .note.md 存在(不存在则以空大纲创建)。title 缺省取文件名;
+ *  wikipage 建页传原始标题(spec §5:文件名 slug 化、fm title 存原文)。 */
+export async function ensureOutlineFile(path: string, title?: string): Promise<string> {
   const { exists, writeTextFile } = await import('@tauri-apps/plugin-fs')
   if (!(await exists(path).catch(() => false))) {
-    await writeTextFile(path, newOutlineFileText(pageNameOf(path)))
+    await writeTextFile(path, newOutlineFileText(title ?? pageNameOf(path)))
   }
   return path
 }
