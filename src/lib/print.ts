@@ -1,6 +1,6 @@
 import pdfCss from '../../md2pdf/assets/pdf.css?raw'
 import { activeTab } from './tabs.svelte'
-import { renderTabAsInlineBody, buildPdfTitle, htmlEscape } from './plugins/host-render-html'
+import { renderTabAsInlineBody, buildPdfTitle, htmlEscape, CRITIC_CSS } from './plugins/host-render-html'
 import { pushToast } from './toast.svelte'
 import { t } from './i18n/store.svelte'
 
@@ -17,6 +17,7 @@ export function wrapPrintHtml(body: string, title: string): string {
 <meta charset="utf-8">
 <title>${t}</title>
 <style>${pdfCss}</style>
+<style>${CRITIC_CSS}</style>
 </head>
 <body data-pdf-title="${t}">
 ${body}

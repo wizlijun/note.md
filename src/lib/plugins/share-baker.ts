@@ -8,6 +8,7 @@ import {
   inlineImages as sharedInlineImages,
   __setImageReaderForTests as sharedSetImageReader,
   buildPdfTitle,
+  CRITIC_CSS,
 } from './host-render-html'
 import katexCss from 'katex/dist/katex.min.css?raw'
 import hljsLightCss from 'highlight.js/styles/github.css?raw'
@@ -278,6 +279,7 @@ ${metadataBlock({ title: pageTitle, description, filename })}
 <style>${themeCssBlock()}</style>
 <style>${themeCss}</style>
 <style>${mobileOverridesCssBlock()}</style>
+<style>${CRITIC_CSS}</style>
 </head>
 <body data-theme="${htmlEscape(themeId)}">
 <div class="share-shell">
