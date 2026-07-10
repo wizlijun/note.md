@@ -37,31 +37,31 @@ export function getMenuModel(_ctx: MenuContext): MenuGroup[] {
       item('selectAll', 'ctxmenu.selectAll'),
     ] },
     { id: 'emphasis', items: [
-      item('highlight', 'ctxmenu.highlight', { emphasis: true, icon: '⭐' }),
-      item('wikilink', 'ctxmenu.wikilink', { emphasis: true, icon: '🔗' }),
+      item('highlight', 'ctxmenu.highlight', { emphasis: true, icon: 'highlight' }),
+      item('wikilink', 'ctxmenu.wikilink', { emphasis: true, icon: 'wikilink' }),
     ] },
     { id: 'marks', items: [
-      item('bold', 'ctxmenu.bold', { icon: 'B' }),
-      item('italic', 'ctxmenu.italic', { icon: 'I' }),
-      item('strike', 'ctxmenu.strike', { icon: 'S' }),
-      item('code', 'ctxmenu.code', { icon: '<>' }),
+      item('bold', 'ctxmenu.bold', { icon: 'bold' }),
+      item('italic', 'ctxmenu.italic', { icon: 'italic' }),
+      item('strike', 'ctxmenu.strike', { icon: 'strike' }),
+      item('code', 'ctxmenu.code', { icon: 'code' }),
     ] },
     { id: 'link', items: [
-      item('link', 'ctxmenu.link', { needsSelection: true, icon: '↗' }),
+      item('link', 'ctxmenu.link', { needsSelection: true, icon: 'link' }),
     ] },
     { id: 'block', items: [
-      item('heading', 'ctxmenu.heading', { icon: 'H', children: [
+      item('heading', 'ctxmenu.heading', { icon: 'heading', children: [
         item('h1', 'ctxmenu.h1'), item('h2', 'ctxmenu.h2'), item('h3', 'ctxmenu.h3'),
       ] }),
-      item('quote', 'ctxmenu.quote', { icon: '❝' }),
-      item('codeblock', 'ctxmenu.codeblock', { icon: '{}' }),
-      item('list', 'ctxmenu.list', { icon: '•', children: [
+      item('quote', 'ctxmenu.quote', { icon: 'quote' }),
+      item('codeblock', 'ctxmenu.codeblock', { icon: 'codeblock' }),
+      item('list', 'ctxmenu.list', { icon: 'list', children: [
         item('bullet', 'ctxmenu.bullet'), item('ordered', 'ctxmenu.ordered'), item('task', 'ctxmenu.task'),
       ] }),
-      item('hr', 'ctxmenu.hr', { icon: '—' }),
+      item('hr', 'ctxmenu.hr', { icon: 'hr' }),
     ] },
     { id: 'insert', items: [
-      item('insert', 'ctxmenu.insert', { icon: '+', children: [
+      item('insert', 'ctxmenu.insert', { icon: 'insert', children: [
         item('table', 'ctxmenu.table'), item('image', 'ctxmenu.image'),
         item('math', 'ctxmenu.math'), item('mermaid', 'ctxmenu.mermaid'),
         item('date', 'ctxmenu.date'),

@@ -7,6 +7,7 @@
 
 <script lang="ts">
   import { getMenuModel, type MenuItemSpec } from './menu-model'
+  import { iconSvg } from './icons'
 
   let {
     position,
@@ -78,7 +79,7 @@
           onmouseenter={() => openSubId = it.children ? it.id : null}
           onclick={() => choose(it)}
         >
-          {#if it.icon}<span class="ctx-icon">{it.icon}</span>{/if}
+          {#if it.icon}{@html iconSvg(it.icon)}{/if}
           <span class="ctx-label">{it.label}</span>
           {#if it.children}<span class="ctx-arrow">▸</span>{/if}
 
@@ -119,10 +120,11 @@
   .ctx-item.disabled { opacity: 0.4; pointer-events: none; }
   .ctx-item.emphasis { font-weight: 700; }
   .ctx-item.emphasis .ctx-label { color: AccentColor; }
-  .ctx-icon {
-    flex-shrink: 0; width: 20px; text-align: center;
-    font-family: ui-monospace, Menlo, monospace; font-size: 11px; font-weight: 700;
+  /* `.ctx-icon` lives inside {@html}-injected SVG, so it isn't scoped — use :global. */
+  :global(.ctx-menu .ctx-icon) {
+    flex-shrink: 0; width: 16px; height: 16px; display: block; opacity: 0.7;
   }
+  :global(.ctx-item.emphasis .ctx-icon) { opacity: 1; color: AccentColor; }
   .ctx-label { flex: 1; }
   .ctx-arrow { margin-left: 12px; opacity: 0.6; }
   .ctx-sub {
