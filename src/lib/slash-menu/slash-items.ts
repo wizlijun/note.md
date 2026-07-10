@@ -82,6 +82,17 @@ export function getSlashItems(): SlashItem[] {
     },
   },
   {
+    id: 'insert-note',
+    label: t('slash.note.label'),
+    keywords: ['note', 'comment', 'annotation', '批注', '注释', '备注'],
+    icon: '※',
+    desc: t('slash.note.desc'),
+    execute: async (v) => {
+      const { insertNoteRich } = await import('../note-anno/note-commands')
+      insertNoteRich(v)
+    },
+  },
+  {
     id: 'h1',
     label: t('slash.h1.label'),
     keywords: ['h1', 'heading', '标题', '一级', 'heading1'],
