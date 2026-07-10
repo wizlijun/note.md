@@ -1,7 +1,8 @@
 import { Store } from '@tauri-apps/plugin-store'
 import { isPluginEnabled } from '../settings.svelte'
 import { DEFAULT_SHORTCUTS, normalizeShortcut, type OutlineCommandId } from './shortcuts'
-import { companionPathFor } from './store.svelte'
+import { companionPathFor, OUTLINE_SUFFIX_RE } from './store.svelte'
+import { platform } from '../platform.svelte'
 
 export const PLUGIN_ID = 'outline-notes'
 export const DEFAULT_WIDTH = 360
@@ -65,4 +66,13 @@ export async function setOutlineWidth(w: number): Promise<void> {
  *  can never disagree (e.g. on `.NOTES.MD` case variants). */
 export function outlineAppliesTo(tab: { kind: string; filePath: string }): boolean {
   return tab.kind === 'markdown' && companionPathFor(tab.filePath) != null
+}
+
+let isIos = false
+void platform().then((p) => { isIos = p === 'ios' }).catch(() => {})
+
+/** 全屏大纲 tab gate:插件启用 + 桌面端 + .note.md/.notes.md 后缀(spec §3)。
+ *  outlineGate.enabled 是 $state,在组件 $derived 中调用可随插件开关即时切换。 */
+export function isOutlineNoteTab(tab: { kind: string; filePath: string }): boolean {
+  return !isIos && outlineGate.enabled && tab.kind === 'markdown' && OUTLINE_SUFFIX_RE.test(tab.filePath)
 }

@@ -1,6 +1,6 @@
 // src/lib/outline/store.test.ts
 import { describe, it, expect } from 'vitest'
-import { companionPathFor, persistIdsFor, isEffectivelyEmpty } from './store.svelte'
+import { outline, companionPathFor, persistIdsFor, isEffectivelyEmpty, attachDoc, serializeDoc, setChangeSink, markDirty, detach } from './store.svelte'
 import { createTree, addNode } from './model'
 
 describe('companionPathFor', () => {
@@ -48,5 +48,40 @@ describe('isEffectivelyEmpty', () => {
     const t = createTree()
     addNode(t, { id: 'toc1', parentId: null, order: 0, content: 'H', collapsed: false, source: 'toc', anchorLine: 1 })
     expect(isEffectivelyEmpty(t)).toBe(false)
+  })
+})
+
+describe('attachDoc / serializeDoc', () => {
+  it('parses text (front-matter carried) and serializeDoc stamps title/updated', async () => {
+    await attachDoc('/v/foo.note.md', '- hello\n', null)
+    expect(outline.docPath).toBe('/v/foo.note.md')
+    const out = serializeDoc()
+    expect(out).toContain('title: foo')
+    expect(out).toContain('updated:')
+    expect(out).toContain('- hello')
+    detach()
+  })
+  it('derives auto items from main content when provided', async () => {
+    // deriveAutoItems only emits headings lazily when highlights appear beneath them;
+    // '# Heading One\n\ntext\n' produces zero auto items. Use content with an H2 + highlight.
+    await attachDoc('/v/doc.note.md', '- manual\n', '## Section\n^^important^^\n')
+    const contents = [...outline.tree.nodes.values()].map(n => n.content)
+    expect(contents).toContain('manual')
+    expect(contents.length).toBeGreaterThan(1) // 至少派生出一个 auto 节点
+    detach()
+  })
+  it('markDirty invokes the registered change sink', async () => {
+    await attachDoc('/v/foo.note.md', '- x\n', null)
+    let called = 0
+    setChangeSink(() => { called++ })
+    markDirty()
+    expect(called).toBe(1)
+    setChangeSink(null)
+    detach()
+  })
+  it('serializeDoc(false) does not stamp updated (attach-compare must be side-effect-free)', async () => {
+    await attachDoc('/v/bare.note.md', '- x\n', null)
+    expect(serializeDoc(false)).toBe('- x\n')
+    detach()
   })
 })

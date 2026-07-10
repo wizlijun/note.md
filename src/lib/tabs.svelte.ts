@@ -145,6 +145,12 @@ export async function openFile(path: string): Promise<void> {
     return
   }
 
+  // 打开主文档时就地迁移其旧后缀伴生文件(读文件之前,语义与一期挂载点一致)
+  if (cls.kind === 'markdown' && !/\.notes?\.md$/i.test(path)) {
+    const { migrateLegacyCompanion } = await import('./outline/migrate')
+    await migrateLegacyCompanion(path).catch(() => {})
+  }
+
   let content = ''
   let stat = null
   let hash = ''

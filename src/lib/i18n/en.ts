@@ -319,6 +319,7 @@ export const en = {
 
   // Outline Notes
   'outline.title': 'Outline',
+  'outline.editNote': 'Edit note',
   'outline.regenerate': 'Regenerate from source',
   'outline.regenerateConfirm': 'Rebuild auto items from the source document? Manual notes are kept.',
   'outline.addNote': 'Add note',
@@ -361,6 +362,7 @@ export const en = {
   'folderView.emptyFolder': 'Empty folder',
   'folderView.noFolder': 'No folder',
   'folderView.reveal': 'Reveal in Finder',
+  'folderView.openNote': 'Open note',
 
   // OpenClaw settings + devices
   'openclaw.heading': 'OpenClaw',

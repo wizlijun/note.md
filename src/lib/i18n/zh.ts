@@ -345,6 +345,7 @@ export const zh: Record<keyof Messages, string> = {
 
   // Outline Notes
   'outline.title': '大纲',
+  'outline.editNote': '编辑笔记',
   'outline.regenerate': '重新从原文提取',
   'outline.regenerateConfirm': '从原文重建自动项？手写笔记会保留。',
   'outline.addNote': '添加笔记',
@@ -387,6 +388,7 @@ export const zh: Record<keyof Messages, string> = {
   'folderView.emptyFolder': '空文件夹',
   'folderView.noFolder': '无文件夹',
   'folderView.reveal': '在访达中显示',
+  'folderView.openNote': '打开笔记',
 
   // OpenClaw settings + devices
   'openclaw.heading': 'OpenClaw',

@@ -1,17 +1,15 @@
 <script lang="ts">
   import { outline } from '../../lib/outline/store.svelte'
   import { backlinksFor } from '../../lib/outline/backlinks'
-  import { currentPageName } from '../../lib/outline/backlinks-io.svelte'
   import { openFile } from '../../lib/tabs.svelte'
   import { t } from '../../lib/i18n/store.svelte'
   import InlineRender from './InlineRender.svelte'
 
+  let { page = null, excludeFile = null }: { page?: string | null; excludeFile?: string | null } = $props()
   let hits = $derived.by(() => {
     void outline.version
-    const page = currentPageName()
     if (!page || !outline.backlinkIndex) return []
-    // 排除伴生文件对自己主文件的"自引用"噪音：保留，但排掉当前伴生文件
-    return backlinksFor(outline.backlinkIndex, page).filter(h => h.file !== outline.companionPath)
+    return backlinksFor(outline.backlinkIndex, page).filter(h => h.file !== excludeFile)
   })
 </script>
 

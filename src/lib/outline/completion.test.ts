@@ -45,3 +45,10 @@ describe('filterPages', () => {
     expect(filterPages(['Beta', 'Tabla'], 'ab')).toEqual(['Tabla'])
   })
 })
+
+describe('confirmPageLink sanitize (file-over-app write constraint)', () => {
+  it('confirmPageLink sanitizes free-text target to a legal filename', () => {
+    const r = confirmPageLink('[[a/b]]', 0, 'a/b', null)
+    expect(r.text).toContain('[[a-b]]')
+  })
+})
