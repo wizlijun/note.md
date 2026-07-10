@@ -53,6 +53,9 @@ truth; CLAUDE.md is an auto-generated copy — edit AGENTS.md only.
 - `wikipage/` — default home of global wikilink pages. Each page is an
   outline note named `title.note.md`, created when a `[[title]]` link is
   first resolved.
+- `sync/` — markdown documents copied in from outside the vault (the
+  editor's sync-to-vault feature). Each file is a snapshot of an external
+  original; edits here do not flow back to the source file.
 - Any other folder — regular markdown documents (`xxx.md`), optionally
   with a companion outline note beside them (see below).
 
