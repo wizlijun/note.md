@@ -18,10 +18,15 @@ describe('touchFrontmatter', () => {
     expect(out).toContain('created: 2020-01-01T00:00:00.000Z')
     expect(out).toContain(`updated: ${NOW}`)
     expect(out).toContain('roam-uid: abc')
+    expect(out).toBe(`title: 旧标题\ncreated: 2020-01-01T00:00:00.000Z\nupdated: ${NOW}\nroam-uid: abc`)
   })
   it('uses provided created fallback when missing', () => {
     const out = touchFrontmatter('title: t', { title: 't', created: '2019-05-05T00:00:00.000Z', now: NOW })
     expect(out).toContain('created: 2019-05-05T00:00:00.000Z')
+  })
+  it('appends missing keys at end, preserving existing key order', () => {
+    const out = touchFrontmatter('roam-uid: abc', { title: 'T', now: NOW })
+    expect(out).toBe(`roam-uid: abc\ntitle: T\ncreated: ${NOW}\nupdated: ${NOW}`)
   })
   it('leaves non-mapping front-matter untouched (conservative)', () => {
     const raw = 'just some prose'
