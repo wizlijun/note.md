@@ -246,7 +246,7 @@ export function setRecentsChangedHandler(fn: (() => void) | null): void {
 }
 
 /**
- * One-shot "we asked about the mdedit CLI install" flag, persisted under
+ * One-shot "we asked about the notemd CLI install" flag, persisted under
  * `cli.promptShown` in the settings store. Read by App.svelte on first
  * launch to decide whether to nudge the user into installing the symlink.
  */

@@ -124,11 +124,11 @@ interface KvMeta {
 
 const NOT_FOUND_HTML = `<!doctype html><html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width">
-<title>Link expired — M↓</title>
+<title>Link expired — note.md</title>
 <style>body{font-family:system-ui,sans-serif;max-width:36em;margin:6em auto;padding:0 1em;color:#333}@media(prefers-color-scheme:dark){body{background:#111;color:#ddd}}</style>
 </head><body>
 <h1>This share link doesn't exist or has expired.</h1>
-<p><small>Powered by <a href="https://github.com/wizlijun/MdEditor">M↓</a>.</small></p>
+<p><small>Powered by <a href="https://github.com/wizlijun/MdEditor">note.md</a>.</small></p>
 </body></html>`
 
 function unauthorized(req: Request, env: Env): boolean {

@@ -164,7 +164,7 @@ export function extractShareDescription(
 }
 
 /**
- * Default thumbnail for shared pages. Hosted in the public M↓ repo so any
+ * Default thumbnail for shared pages. Hosted in the public note.md repo so any
  * unfurler (WeChat, Slack, Twitter, Discord, iMessage) can fetch it. The
  * file is 64×64 / ~7 KB — the smallest square icon size that still works
  * as a recognizable thumbnail across platforms. WeChat / Slack render it
@@ -187,7 +187,7 @@ const DEFAULT_OG_IMAGE_SIZE = 64
  * og:url is intentionally omitted — the share URL isn't known until after
  * upload, and most consumers infer canonical URL from the request anyway.
  *
- * og:image defaults to the M↓ logo so link cards always have a thumbnail.
+ * og:image defaults to the note.md logo so link cards always have a thumbnail.
  * Callers can pass a different `imageUrl` to override per-document — e.g.
  * a future plugin setting or a hash-extracted hero image.
  */
@@ -212,7 +212,7 @@ export function metadataBlock(opts: {
   if (opts.description) {
     lines.push(`<meta property="og:description" content="${d}">`)
   }
-  lines.push(`<meta property="og:site_name" content="M↓">`)
+  lines.push(`<meta property="og:site_name" content="note.md">`)
   lines.push(`<meta property="og:image" content="${img}">`)
   // Width/height hints let unfurlers skip a HEAD probe — they're advisory,
   // mismatched values still display fine.
@@ -285,7 +285,7 @@ ${metadataBlock({ title: pageTitle, description, filename })}
 <div class="share-shell">
 <header class="share-header">${headerLabel} · ${date}</header>
 <main class="moraya-editor">${inlineBody}</main>
-<footer class="share-footer">Powered by <a href="https://github.com/wizlijun/MdEditor">M↓</a></footer>
+<footer class="share-footer">Powered by <a href="https://github.com/wizlijun/MdEditor">note.md</a></footer>
 </div>
 ${isPluginEnabled('reading-insights') ? `<script>${shareBeaconJs}</script>` : ''}
 </body>

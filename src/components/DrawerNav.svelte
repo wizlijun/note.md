@@ -22,7 +22,7 @@
 </script>
 
 <aside class:open class="drawer">
-  <div class="head">M↓</div>
+  <div class="head">note.md</div>
   <button class="row primary" onclick={() => { open = false; dispatch('open') }}>📂 Open File</button>
   <VaultBrowser onCloseDrawer={() => (open = false)} />
   <div class="section-label">Recent</div>

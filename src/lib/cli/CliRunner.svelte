@@ -35,14 +35,14 @@
     return k
   }
 
-  /** `mdedit reading-insights report` — file-less; generates the digest (owner +
+  /** `notemd reading-insights report` — file-less; generates the digest (owner +
    *  online audience) and writes it to <vault>/stat or prints to stdout. */
   async function runInsightsReport(payload: CliPayload): Promise<void> {
     try {
       const vaultFlag = (payload.flags['vault'] as string | undefined) || undefined
       const vaultRoot = vaultFlag ?? (await invoke<string | null>('sotvault_vault_root'))
       if (!vaultRoot) {
-        await finish({ exit_code: 2, stderr: ['mdedit: no Vault configured. Pass --vault <path> or configure one in the app.'] })
+        await finish({ exit_code: 2, stderr: ['notemd: no Vault configured. Pass --vault <path> or configure one in the app.'] })
         return
       }
       let from = payload.flags['from'] as string | undefined
@@ -66,7 +66,7 @@
       await writeTextFile(abs, markdown)
       await finish({ exit_code: 0, stdout: `wrote ${abs}`, stderr: [] })
     } catch (e) {
-      await finish({ exit_code: 1, stderr: [`mdedit: reading-insights report failed: ${e}`] })
+      await finish({ exit_code: 1, stderr: [`notemd: reading-insights report failed: ${e}`] })
     }
   }
 
@@ -75,7 +75,7 @@
     try {
       payload = await invoke<CliPayload>('cli_payload')
     } catch (e) {
-      await finish({ exit_code: 1, stderr: [`mdedit: failed to fetch cli payload: ${e}`] })
+      await finish({ exit_code: 1, stderr: [`notemd: failed to fetch cli payload: ${e}`] })
       return
     }
 
@@ -86,7 +86,7 @@
     try {
       await loadSettings()
     } catch (e) {
-      await finish({ exit_code: 1, stderr: [`mdedit: failed to load settings: ${e}`] })
+      await finish({ exit_code: 1, stderr: [`notemd: failed to load settings: ${e}`] })
       return
     }
 
@@ -102,12 +102,12 @@
     const manifest = manifests.find(m => m.id === payload.plugin_id)
     if (!manifest) {
       await finish({ exit_code: 3, stderr: [
-        `mdedit: plugin '${payload.plugin_id}' is not enabled. Run 'mdedit plugin enable ${payload.plugin_id}'.`,
+        `notemd: plugin '${payload.plugin_id}' is not enabled. Run 'notemd plugin enable ${payload.plugin_id}'.`,
       ]})
       return
     }
     if (!payload.file) {
-      await finish({ exit_code: 2, stderr: ['mdedit: missing file argument'] })
+      await finish({ exit_code: 2, stderr: ['notemd: missing file argument'] })
       return
     }
 
@@ -124,7 +124,7 @@
         fileContent = await readTextFile(payload.file)
       }
     } catch (e) {
-      await finish({ exit_code: 2, stderr: [`mdedit: cannot read '${payload.file}': ${e}`] })
+      await finish({ exit_code: 2, stderr: [`notemd: cannot read '${payload.file}': ${e}`] })
       return
     }
 
@@ -163,7 +163,7 @@
           renderedHtml = await renderTabAsInlineBody(virtualTab)
         }
       } catch (e) {
-        await finish({ exit_code: 1, stderr: [`mdedit: render failed: ${e}`] })
+        await finish({ exit_code: 1, stderr: [`notemd: render failed: ${e}`] })
         return
       }
     }
@@ -203,7 +203,7 @@
     if (!result.ok || !result.response) {
       await finish({
         exit_code: 1,
-        stderr: [result.errorMessage ?? 'mdedit: plugin invocation failed',
+        stderr: [result.errorMessage ?? 'notemd: plugin invocation failed',
                  result.errorDetail ?? ''].filter(Boolean),
       })
       return
@@ -231,7 +231,7 @@
 
   onMount(() => {
     run().catch(async (e) => {
-      await finish({ exit_code: 1, stderr: [`mdedit: unexpected error: ${e}`] })
+      await finish({ exit_code: 1, stderr: [`notemd: unexpected error: ${e}`] })
     })
   })
 </script>

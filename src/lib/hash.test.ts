@@ -15,9 +15,9 @@ describe('sha256Hex', () => {
   })
 
   it('handles utf-8 multi-byte input', async () => {
-    expect(await sha256Hex('M↓')).toBe(
-      '1319582a7b66abeff20c0164ff0d1d68f3bc9bbb86acf92167091e4addf93550',
+    expect(await sha256Hex('多字节テスト🥑')).toBe(
+      'fedc62a37fc474a492a8a158758c555d6709b21a5176109825795f5803bdcf36',
     )
-    // (regenerate with: echo -n 'M↓' | shasum -a 256)
+    // (regenerate with: printf '多字节テスト🥑' | shasum -a 256)
   })
 })

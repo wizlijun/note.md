@@ -1,5 +1,5 @@
 ;(function () {
-  // Self-contained reading-time beacon for shared M↓ pages. Mirrors the pure
+  // Self-contained reading-time beacon for shared note.md pages. Mirrors the pure
   // reference in ./beacon-timing.ts (its runtime twin — no bundler). Never let
   // anything here throw into the host page.
   try {

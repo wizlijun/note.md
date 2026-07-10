@@ -8,7 +8,7 @@
   let remoteUrl = $state('')
   let branch = $state('main')
   let pat = $state('')
-  let authorName = $state('mdeditor on iOS')
+  let authorName = $state('note.md on iOS')
   let authorEmail = $state('')
   let busy = $state(false)
   let saveError = $state<string | null>(null)

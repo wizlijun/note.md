@@ -1,7 +1,7 @@
 # mdrelay
 
-Cloudflare Worker brokering WSS connections between one M↓ host (paired to a
-local OpenClaw) and N remote M↓ devices. WSS-only — no end-to-end encryption.
+Cloudflare Worker brokering WSS connections between one note.md host (paired to a
+local OpenClaw) and N remote note.md devices. WSS-only — no end-to-end encryption.
 Spec: `docs/superpowers/specs/2026-05-18-openclaw-chat-plugin-design.md`,
 Section 3.
 

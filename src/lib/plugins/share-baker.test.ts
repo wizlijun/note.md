@@ -102,13 +102,13 @@ describe('metadataBlock', () => {
     expect(out).toContain('<meta property="og:type" content="article">')
     expect(out).toContain('<meta property="og:title" content="Hello">')
     expect(out).toContain('<meta property="og:description" content="A nice doc.">')
-    expect(out).toContain('<meta property="og:site_name" content="M↓">')
+    expect(out).toContain('<meta property="og:site_name" content="note.md">')
     expect(out).toContain('<meta name="twitter:card" content="summary">')
     expect(out).toContain('<meta name="twitter:title" content="Hello">')
     expect(out).toContain('<meta name="twitter:description" content="A nice doc.">')
     expect(out).toContain('<meta name="filename" content="h.md">')
   })
-  it('falls back to the default M↓ logo as og:image / twitter:image', () => {
+  it('falls back to the default note.md logo as og:image / twitter:image', () => {
     const out = metadataBlock({ title: 'T', description: 'D', filename: 'x.md' })
     expect(out).toContain('<meta property="og:image" content="https://raw.githubusercontent.com/wizlijun/MdEditor/main/src-tauri/icons/64x64.png">')
     expect(out).toContain('<meta property="og:image:width" content="64">')

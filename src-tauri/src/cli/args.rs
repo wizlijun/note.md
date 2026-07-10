@@ -19,7 +19,7 @@ pub struct Parsed {
 }
 
 pub fn parse(argv: &[String]) -> Parsed {
-    let argv0 = argv.first().cloned().unwrap_or_else(|| "mdedit".to_string());
+    let argv0 = argv.first().cloned().unwrap_or_else(|| "notemd".to_string());
     let mut globals = Globals {
         clipboard: true,        // default-on; --no-clipboard flips it
         ..Default::default()
@@ -55,36 +55,36 @@ mod tests {
     }
     #[test]
     fn strips_globals_keeps_subcommand_and_args() {
-        let p = s(&["mdedit", "--json", "share", "draft.md", "-q"]);
+        let p = s(&["notemd", "--json", "share", "draft.md", "-q"]);
         assert_eq!(p.rest, vec!["share".to_string(), "draft.md".to_string()]);
         assert!(p.globals.json);
         assert!(p.globals.quiet);
     }
     #[test]
     fn alias_short_flag_survives() {
-        let p = s(&["mdedit", "-s", "x.md"]);
+        let p = s(&["notemd", "-s", "x.md"]);
         assert_eq!(p.rest, vec!["-s".to_string(), "x.md".to_string()]);
         assert!(!p.globals.json);
     }
     #[test]
     fn plugin_dir_override_consumes_next() {
-        let p = s(&["mdedit", "--plugin-dir", "/tmp/p", "help"]);
+        let p = s(&["notemd", "--plugin-dir", "/tmp/p", "help"]);
         assert_eq!(p.globals.plugin_dir_override.as_deref(), Some("/tmp/p"));
         assert_eq!(p.rest, vec!["help".to_string()]);
     }
     #[test]
     fn clipboard_defaults_on() {
-        let p = s(&["mdedit", "help"]);
+        let p = s(&["notemd", "help"]);
         assert!(p.globals.clipboard);
     }
     #[test]
     fn no_clipboard_flips_it() {
-        let p = s(&["mdedit", "--no-clipboard", "share", "x.md"]);
+        let p = s(&["notemd", "--no-clipboard", "share", "x.md"]);
         assert!(!p.globals.clipboard);
     }
     #[test]
     fn cli_flag_is_dropped() {
-        let p = s(&["mdedit", "--cli", "help"]);
+        let p = s(&["notemd", "--cli", "help"]);
         assert_eq!(p.rest, vec!["help".to_string()]);
     }
 }

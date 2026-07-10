@@ -15,7 +15,7 @@
     <button class="hamburger" aria-label={t('toolbar.openMenu')} onclick={onOpenDrawer}>☰</button>
   {/if}
   <div class="title">
-    {tab?.title ?? 'M↓'}
+    {tab?.title ?? 'note.md'}
     {#if dirty}<span class="dirty" aria-label="unsaved">•</span>{/if}
   </div>
   <div class="actions">

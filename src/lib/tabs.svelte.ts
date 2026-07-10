@@ -123,7 +123,7 @@ async function readTextWithPermissionPrompt(path: string): Promise<string> {
       if (!isPermissionError(e)) throw e
       const { ask } = await import('@tauri-apps/plugin-dialog')
       const retry = await ask(
-        `M↓ doesn't have permission to open:\n${path}\n\n` +
+        `note.md doesn't have permission to open:\n${path}\n\n` +
           'Grant access under System Settings › Privacy & Security › ' +
           'Files and Folders (or Full Disk Access), then Retry.',
         { title: 'Permission needed', kind: 'warning', okLabel: 'Retry', cancelLabel: 'Cancel' },
@@ -322,7 +322,7 @@ export async function closeTab(
         // User cancelled the save panel – offer discard
         const { ask } = await import('@tauri-apps/plugin-dialog')
         const doClose = await ask('Close without saving?', {
-          title: 'M↓',
+          title: 'note.md',
           kind: 'warning',
           okLabel: 'Close without Saving',
           cancelLabel: 'Keep Editing',

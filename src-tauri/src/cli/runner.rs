@@ -15,7 +15,7 @@ pub fn run(p: PluginRoute, parsed: Parsed) -> ExitCode {
         Some((m, _)) => m.clone(),
         None => {
             eprintln!(
-                "mdedit: internal: plugin '{}' vanished between routing and execution",
+                "notemd: internal: plugin '{}' vanished between routing and execution",
                 p.plugin_id
             );
             return ExitCode::from(1);
@@ -25,7 +25,7 @@ pub fn run(p: PluginRoute, parsed: Parsed) -> ExitCode {
         Some(e) => e.clone(),
         None => {
             eprintln!(
-                "mdedit: internal: subcommand '{}' missing in '{}'",
+                "notemd: internal: subcommand '{}' missing in '{}'",
                 p.subcommand, p.plugin_id
             );
             return ExitCode::from(1);
@@ -46,7 +46,7 @@ pub fn run(p: PluginRoute, parsed: Parsed) -> ExitCode {
         match std::path::Path::new(&f).canonicalize() {
             Ok(p) => Some(p.to_string_lossy().into_owned()),
             Err(_) => {
-                eprintln!("mdedit: cannot read '{f}': No such file or directory");
+                eprintln!("notemd: cannot read '{f}': No such file or directory");
                 return ExitCode::from(2);
             }
         }
@@ -117,7 +117,7 @@ fn parse_subcommand_args(
                 }
                 "string" => {
                     if i + 1 >= remaining.len() {
-                        return Err(format!("mdedit: flag {} requires a value", flag.long));
+                        return Err(format!("notemd: flag {} requires a value", flag.long));
                     }
                     flags.insert(
                         flag.long.trim_start_matches('-').to_string(),
@@ -125,21 +125,21 @@ fn parse_subcommand_args(
                     );
                     i += 1;
                 }
-                _ => return Err(format!("mdedit: internal: unknown flag type '{}'", flag.ty)),
+                _ => return Err(format!("notemd: internal: unknown flag type '{}'", flag.ty)),
             }
         } else if tok.starts_with('-') {
-            return Err(format!("mdedit: unknown flag '{tok}'"));
+            return Err(format!("notemd: unknown flag '{tok}'"));
         } else if file.is_none() && !entry.args.is_empty() {
             file = Some(tok.clone());
         } else {
-            return Err(format!("mdedit: unexpected argument '{tok}'"));
+            return Err(format!("notemd: unexpected argument '{tok}'"));
         }
         i += 1;
     }
     if let Some(first_required) = entry.args.iter().find(|a| a.required) {
         if file.is_none() {
             return Err(format!(
-                "mdedit: missing required argument '<{}>'",
+                "notemd: missing required argument '<{}>'",
                 first_required.name
             ));
         }
@@ -160,7 +160,7 @@ fn decide_plugin_command(
         .collect();
     if exclusive.len() > 1 {
         return Err(format!(
-            "mdedit: flags --{} are mutually exclusive",
+            "notemd: flags --{} are mutually exclusive",
             exclusive.join(" --")
         ));
     }

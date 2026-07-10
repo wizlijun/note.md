@@ -276,7 +276,7 @@ use lightningcss::{
     traits::ToCss,
 };
 
-/// Compile Typora source CSS into a scoped, M↓-ready form.
+/// Compile Typora source CSS into a scoped, note.md-ready form.
 ///
 /// `theme_id` is used both as the `data-theme` attribute value and (with
 /// `asset_dir`) to resolve relative `url(...)` paths inside `@font-face`.

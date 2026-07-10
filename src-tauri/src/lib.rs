@@ -583,7 +583,7 @@ pub fn tauri_context() -> tauri::Context {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    dlog("=== M↓ start ===");
+    dlog("=== note.md start ===");
     dlog(&format!("argv: {:?}", std::env::args().collect::<Vec<_>>()));
 
     // rustls 0.23 no longer auto-selects a crypto provider; install ring as
@@ -789,7 +789,7 @@ pub fn run() {
                     let _ = app.emit("menu-event", event.id().0.as_str());
                 });
 
-                // Persistent menu-bar tray icon. White circle with M↓ cutout —
+                // Persistent menu-bar tray icon. White circle with note.md cutout —
                 // template-style mark fits both light and dark menu bars.
                 // Left-click toggles main window visibility; right-click shows menu.
                 let tray_icon = Image::from_bytes(include_bytes!("../icons/tray-icon.png"))?;
@@ -801,7 +801,7 @@ pub fn run() {
                 let _tray = TrayIconBuilder::with_id("main")
                     .icon(tray_icon)
                     .icon_as_template(false)
-                    .tooltip("M↓")
+                    .tooltip("note.md")
                     .menu(&tray_menu)
                     .show_menu_on_left_click(true)
                     .on_menu_event(|app, event| {
@@ -936,7 +936,7 @@ fn emit_open_file_delayed<R: tauri::Runtime>(app: &tauri::AppHandle<R>, path: &s
     // tokio::time::sleep. The async task's body never executed when invoked
     // from the single-instance / RunEvent::Opened callbacks (the "emit
     // open-file →" dlog never fired), so files opened while the app was already
-    // running — `mdedit <file>` re-launch, Finder double-click — never reached
+    // running — `notemd <file>` re-launch, Finder double-click — never reached
     // the frontend. A raw thread has no dependency on Tauri's async runtime.
     std::thread::spawn(move || {
         std::thread::sleep(std::time::Duration::from_millis(300));
@@ -994,10 +994,10 @@ fn update_recent_menu(app: tauri::AppHandle, items: Vec<RecentMenuItem>) -> Resu
 /// themselves). Unknown locales fall back to English.
 fn menu_label(locale: &str, key: &str) -> String {
     let (en, zh, ja): (&str, &str, &str) = match key {
-        "app.about" => ("About M↓", "关于 M↓", "M↓ について"),
+        "app.about" => ("About note.md", "关于 note.md", "note.md について"),
         "app.checkUpdates" => ("Check for Updates…", "检查更新…", "更新を確認…"),
         "app.preferences" => ("Preferences…", "偏好设置…", "環境設定…"),
-        "app.hide" => ("Hide mdeditor", "隐藏 mdeditor", "mdeditor を隠す"),
+        "app.hide" => ("Hide note.md", "隐藏 note.md", "note.md を隠す"),
         "menu.file" => ("File", "文件", "ファイル"),
         "menu.edit" => ("Edit", "编辑", "編集"),
         "menu.view" => ("View", "视图", "表示"),
@@ -1021,21 +1021,21 @@ fn menu_label(locale: &str, key: &str) -> String {
         "window.actualSize" => ("Actual Size", "实际大小", "実際のサイズ"),
         "help.docs" => ("Documentation", "文档", "ドキュメント"),
         "help.cliInstall" => (
-            "Install 'mdedit' Command in PATH…",
-            "将 'mdedit' 命令安装到 PATH…",
-            "'mdedit' コマンドを PATH にインストール…",
+            "Install 'notemd' Command in PATH…",
+            "将 'notemd' 命令安装到 PATH…",
+            "'notemd' コマンドを PATH にインストール…",
         ),
         "help.cliUninstall" => (
-            "Uninstall 'mdedit' Command",
-            "卸载 'mdedit' 命令",
-            "'mdedit' コマンドをアンインストール",
+            "Uninstall 'notemd' Command",
+            "卸载 'notemd' 命令",
+            "'notemd' コマンドをアンインストール",
         ),
         // System / framework items (text overrides for PredefinedMenuItem, so
         // they follow the in-app locale instead of the macOS system language).
         "sys.services" => ("Services", "服务", "サービス"),
         "sys.hideOthers" => ("Hide Others", "隐藏其他", "ほかを隠す"),
         "sys.showAll" => ("Show All", "全部显示", "すべてを表示"),
-        "sys.quit" => ("Quit M↓", "退出 M↓", "M↓ を終了"),
+        "sys.quit" => ("Quit note.md", "退出 note.md", "note.md を終了"),
         "sys.undo" => ("Undo", "撤销", "取り消す"),
         "sys.redo" => ("Redo", "重做", "やり直す"),
         "sys.cut" => ("Cut", "剪切", "カット"),
@@ -1045,7 +1045,7 @@ fn menu_label(locale: &str, key: &str) -> String {
         "sys.minimize" => ("Minimize", "最小化", "しまう"),
         "sys.maximize" => ("Zoom", "缩放", "拡大／縮小"),
         // Menu-bar tray dropdown
-        "tray.show" => ("Show M↓", "显示 M↓", "M↓ を表示"),
+        "tray.show" => ("Show note.md", "显示 note.md", "note.md を表示"),
         "tray.todayNote" => ("Today's Note", "今天的日记", "今日のノート"),
         "tray.vaultSetFolder" => ("Vault: Set Folder…", "Vault：选择文件夹…", "Vault：フォルダを選択…"),
         "tray.startSync" => ("Start Sync", "开始同步", "同期を開始"),
@@ -1167,12 +1167,12 @@ fn build_menu<R: tauri::Runtime>(
     locale: &str,
 ) -> tauri::Result<(Menu<R>, Submenu<R>)> {
     let app_meta = AboutMetadata {
-        name: Some("M↓".into()),
+        name: Some("note.md".into()),
         version: Some(env!("CARGO_PKG_VERSION").into()),
         ..Default::default()
     };
 
-    let app_menu: Submenu<R> = SubmenuBuilder::new(app, "M↓")
+    let app_menu: Submenu<R> = SubmenuBuilder::new(app, "note.md")
         .item(&PredefinedMenuItem::about(app, Some(&menu_label(locale, "app.about")), Some(app_meta))?)
         .item(
             &MenuItemBuilder::with_id("check-for-updates", menu_label(locale, "app.checkUpdates"))

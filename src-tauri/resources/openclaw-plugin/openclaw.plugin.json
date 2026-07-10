@@ -1,7 +1,7 @@
 {
   "id": "mdeditor",
-  "name": "M↓ Chat",
-  "description": "Local M↓ desktop chat via UDS; remote fan-out via mdrelay.",
+  "name": "note.md Chat",
+  "description": "Local note.md desktop chat via UDS; remote fan-out via mdrelay.",
   "channels": ["mdeditor"],
   "configSchema": {
     "type": "object",
@@ -10,7 +10,7 @@
       "socketPath": {
         "type": "string",
         "default": "~/.openclaw/mdeditor.sock",
-        "description": "Path of the local Unix Domain Socket the M↓ host will connect to."
+        "description": "Path of the local Unix Domain Socket the note.md host will connect to."
       },
       "accessToken": {
         "type": "string",
@@ -27,8 +27,8 @@
   },
   "channelConfigs": {
     "mdeditor": {
-      "label": "M↓ Chat",
-      "description": "Bridges a local M↓ desktop client to OpenClaw via Unix Domain Socket.",
+      "label": "note.md Chat",
+      "description": "Bridges a local note.md desktop client to OpenClaw via Unix Domain Socket.",
       "schema": {
         "type": "object",
         "additionalProperties": false,

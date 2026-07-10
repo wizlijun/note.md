@@ -1,7 +1,7 @@
 //! md2pdf — one-shot CLI plugin that takes a host-rendered inline HTML body
 //! plus an output path, and writes a typographically-clean A4 PDF.
 //!
-//! Protocol mirrors mdshare and the rest of M↓'s plugins:
+//! Protocol mirrors mdshare and the rest of note.md's plugins:
 //!  - read one line of JSON Request from stdin
 //!  - perform the work
 //!  - emit one line of JSON Response on stdout

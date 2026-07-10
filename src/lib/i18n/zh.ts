@@ -13,21 +13,21 @@ export const zh: Record<keyof Messages, string> = {
   // Settings
   'settings.language': '语言',
 
-  // CLI (`mdedit`) install/uninstall
-  'cli.installTitle': "安装 'mdedit' 命令",
+  // CLI (`notemd`) install/uninstall
+  'cli.installTitle': "安装 'notemd' 命令",
   'cli.installPrompt':
-    "把 'mdedit' 命令安装到 PATH 吗？\n\n" +
-    '安装后可以从任何终端或脚本调用 M↓ 的功能：\n' +
-    '  • mdedit -s draft.md   通过 Share 插件发布并打印 URL\n' +
-    '  • mdedit help          查看所有命令\n' +
-    '  • mdedit plugin list   列出插件\n\n' +
-    "随时可以从 Help → Install/Uninstall 'mdedit' Command 重新管理。",
-  'cli.installInto': "将 'mdedit' 安装到 {dir}？",
-  'cli.installed': "'mdedit' 已安装到 {dir}",
+    "把 'notemd' 命令安装到 PATH 吗？\n\n" +
+    '安装后可以从任何终端或脚本调用 note.md 的功能：\n' +
+    '  • notemd -s draft.md   通过 Share 插件发布并打印 URL\n' +
+    '  • notemd help          查看所有命令\n' +
+    '  • notemd plugin list   列出插件\n\n' +
+    "随时可以从 Help → Install/Uninstall 'notemd' Command 重新管理。",
+  'cli.installInto': "将 'notemd' 安装到 {dir}？",
+  'cli.installed': "'notemd' 已安装到 {dir}",
   'cli.installFailed': '安装失败：{error}',
-  'cli.uninstalled': "已从 {dir} 卸载 'mdedit'",
+  'cli.uninstalled': "已从 {dir} 卸载 'notemd'",
   'cli.uninstallFailed': '卸载失败：{error}',
-  'cli.notInstalled': "'mdedit' 未安装",
+  'cli.notInstalled': "'notemd' 未安装",
 
   // Share
   'share.docTooLarge': '❌ {name}：文档过大（{mb} MB / 上限 25 MB）',
@@ -183,7 +183,7 @@ export const zh: Record<keyof Messages, string> = {
   'tabBar.modified': '已修改',
 
   // Plugins settings
-  'plugins.restartNote': '改动需要重启 M↓ 后生效',
+  'plugins.restartNote': '改动需要重启 note.md 后生效',
   'plugins.capabilities': '能力：{caps}',
   'plugins.none': '未检测到插件。',
   'plugins.needsVault': '需先设置 Vault 才能启用此插件',
@@ -312,7 +312,7 @@ export const zh: Record<keyof Messages, string> = {
   // Update dialog
   'updateDialog.checking': '正在检查更新…',
   'updateDialog.currentVersion': '当前版本：v{version}',
-  'updateDialog.available': 'M↓ {version} 可用',
+  'updateDialog.available': 'note.md {version} 可用',
   'updateDialog.whatsNew': '更新内容',
   'updateDialog.noNotes': '暂无更新说明。',
   'updateDialog.skip': '跳过此版本',
@@ -321,15 +321,15 @@ export const zh: Record<keyof Messages, string> = {
   'updateDialog.downloading': '正在下载 {version}…',
   'updateDialog.runInBackground': '后台运行',
   'updateDialog.ready': '准备就绪',
-  'updateDialog.readyBody': 'M↓ {version} 已下载完成。重启 App 即可完成更新。',
+  'updateDialog.readyBody': 'note.md {version} 已下载完成。重启 App 即可完成更新。',
   'updateDialog.restartLater': '稍后重启',
   'updateDialog.restartNow': '立即重启',
   'updateDialog.error': '更新出错',
   'updateDialog.unknownError': '未知错误',
-  'updateDialog.upToDate': 'M↓ 已是最新版本',
+  'updateDialog.upToDate': 'note.md 已是最新版本',
 
   // Update banner
-  'updateBanner.available': '✨ M↓ {version} 可用',
+  'updateBanner.available': '✨ note.md {version} 可用',
   'updateBanner.viewDetails': '查看详情',
   'updateBanner.downloading': '正在下载 {version}…',
   'updateBanner.showProgress': '显示进度',
@@ -406,7 +406,7 @@ export const zh: Record<keyof Messages, string> = {
   'openclaw.modeRemote': '远程（经 mdrelay）',
   'openclaw.socketPath': 'Socket 路径',
   'openclaw.accessToken': '访问令牌',
-  'openclaw.runToGenerate': "运行 'mdedit openclaw install' 生成",
+  'openclaw.runToGenerate': "运行 'notemd openclaw install' 生成",
   'openclaw.hide': '隐藏',
   'openclaw.show': '显示',
   'openclaw.copy': '复制',
@@ -435,7 +435,7 @@ export const zh: Record<keyof Messages, string> = {
 
   // Chat / pairing
   'chat.connectTitle': '连接到你的 OpenClaw',
-  'chat.enterPairingCode': '输入你主机上 M↓ 设置中显示的配对码。',
+  'chat.enterPairingCode': '输入你主机上 note.md 设置中显示的配对码。',
   'chat.pairingCode': '配对码',
   'chat.deviceNameOptional': '设备名称（可选）',
   'chat.connecting': '连接中…',
@@ -474,14 +474,14 @@ export const zh: Record<keyof Messages, string> = {
 
   // Settings → Default app
   'settings.defaultApp.heading': '文本与代码文件的默认应用',
-  'settings.defaultApp.desc1': '将 M↓ 设为 macOS 打开文本和源代码文件的默认应用。设置后，在访达中双击任何受支持的文件类型（或选择 <em>打开方式…</em>）都会启动 M↓。',
+  'settings.defaultApp.desc1': '将 note.md 设为 macOS 打开文本和源代码文件的默认应用。设置后，在访达中双击任何受支持的文件类型（或选择 <em>打开方式…</em>）都会启动 note.md。',
   'settings.defaultApp.desc2': '这会影响 <strong>{exts}</strong> 个文件扩展名、共 <strong>{groups}</strong> 个类别。每次更改都会经过 macOS Launch Services，因此系统、访达和其他应用会立即生效。',
   'settings.defaultApp.showTypes': '显示受影响的文件类型（{count} 个扩展名）',
   'settings.defaultApp.setting': '设置中…',
-  'settings.defaultApp.setDefault': '将 M↓ 设为全部 {count} 种类型的默认应用',
+  'settings.defaultApp.setDefault': '将 note.md 设为全部 {count} 种类型的默认应用',
   'settings.defaultApp.undoNote': '<strong>撤销单个文件类型：</strong>在访达中选中一个文件 → 文件菜单 → <em>显示简介</em> → <em>打开方式</em> → 选择其他应用 → 点击 <em>全部更改…</em>。macOS 无法批量撤销，请在点击上面的按钮前确认。',
-  'settings.defaultApp.resultOk': '完成 — M↓ 现在是全部 {count} 个扩展名的默认应用。',
-  'settings.defaultApp.resultPartial': '已设置 {ok}/{total} 个扩展名。失败：{failed}（macOS 可能未为这些注册 UTI — 显式启动时它们仍会在 M↓ 中打开）。',
+  'settings.defaultApp.resultOk': '完成 — note.md 现在是全部 {count} 个扩展名的默认应用。',
+  'settings.defaultApp.resultPartial': '已设置 {ok}/{total} 个扩展名。失败：{failed}（macOS 可能未为这些注册 UTI — 显式启动时它们仍会在 note.md 中打开）。',
   'settings.defaultApp.resultError': '错误：{error}',
 
   // Settings → Block IDs
@@ -539,7 +539,7 @@ export const zh: Record<keyof Messages, string> = {
 
   // Settings → CLI
   'settings.cli.heading': 'CLI',
-  'settings.cli.desc': '<code>mdedit</code> 命令让你从终端或其他工具驱动 M↓ — 通过 Share 插件发布文件、列出可用命令等。',
+  'settings.cli.desc': '<code>notemd</code> 命令让你从终端或其他工具驱动 note.md — 通过 Share 插件发布文件、列出可用命令等。',
   'settings.cli.loading': '加载中…',
   'settings.cli.installedAtLabel': '已安装于：',
   'settings.cli.symlinkMismatch': '符号链接指向了不同的二进制 — 请重新安装修复。',
@@ -550,5 +550,5 @@ export const zh: Record<keyof Messages, string> = {
   'settings.cli.installing': '安装中…',
   'settings.cli.install': '安装…',
   'settings.cli.error': '错误：{error}',
-  'settings.cli.helpDesc': '安装后，在终端运行 <code>mdedit help</code> 查看完整参考。CLI 只暴露<em>已启用</em>插件贡献的命令 — 在上面的 Plugins 中禁用某插件即可从 <code>mdedit</code> 移除其子命令。',
+  'settings.cli.helpDesc': '安装后，在终端运行 <code>notemd help</code> 查看完整参考。CLI 只暴露<em>已启用</em>插件贡献的命令 — 在上面的 Plugins 中禁用某插件即可从 <code>notemd</code> 移除其子命令。',
 }

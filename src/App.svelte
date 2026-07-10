@@ -287,7 +287,7 @@
       const manifestById: Record<string, PluginManifest> = Object.fromEntries(
         pluginRuntime.manifests.map((m) => [m.id, m]))
 
-      // First-launch nudge: offer to install the `mdedit` shell command.
+      // First-launch nudge: offer to install the `notemd` shell command.
       // Fire-and-forget so a slow dialog doesn't block the rest of startup.
       void (async () => {
         try {
@@ -502,7 +502,7 @@
         }
         case 'docs':
           import('@tauri-apps/plugin-opener')
-            .then(({ openUrl }) => openUrl('https://github.com/bruce/mdeditor'))
+            .then(({ openUrl }) => openUrl('https://github.com/wizlijun/MdEditor'))
             .catch(() => {})
           break
         case 'cli-install': {
@@ -534,7 +534,7 @@
             pushToast({ level: 'info', message: t('cli.notInstalled') })
             break
           }
-          const dir = status.path.replace(/\/mdedit$/, '')
+          const dir = status.path.replace(/\/(?:notemd|mdedit)$/, '')
           try {
             await invoke('cli_uninstall', { dir })
             const { pushToast } = await import('./lib/toast.svelte')
@@ -624,10 +624,10 @@
   // outline width to keep it over the editor (not hidden behind the panel).
   let outlineRightOffset = $derived(showOutlinePanel ? outlineGate.width : 0)
 
-  // Window title: filename when single tab, plain "M↓" otherwise
+  // Window title: filename when single tab, plain "note.md" otherwise
   $effect(() => {
     const tabCount = tabs.length
-    const title = tabCount === 1 && current ? `${current.title} — M↓` : 'M↓'
+    const title = tabCount === 1 && current ? `${current.title} — note.md` : 'note.md'
     getCurrentWindow().setTitle(title).catch(() => {})
   })
 

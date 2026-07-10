@@ -113,8 +113,8 @@
       const candidates = await invoke<string[]>('cli_install_candidates')
       const { ask } = await import('@tauri-apps/plugin-dialog')
       for (const dir of candidates) {
-        const ok = await ask(`Install 'mdedit' into ${dir}?`, {
-          title: "Install 'mdedit' Command",
+        const ok = await ask(`Install 'notemd' into ${dir}?`, {
+          title: "Install 'notemd' Command",
           kind: 'info',
         })
         if (ok) {
@@ -135,7 +135,7 @@
     cliBusy = true
     cliError = null
     try {
-      const dir = cliStatus.path.replace(/\/mdedit$/, '')
+      const dir = cliStatus.path.replace(/\/(?:notemd|mdedit)$/, '')
       await invoke('cli_uninstall', { dir })
     } catch (e) {
       cliError = e instanceof Error ? e.message : String(e)
@@ -175,7 +175,7 @@
 
   // The 22 categories cover every extension our editor supports as a document type.
   // These must match the `fileAssociations` in src-tauri/tauri.conf.json — that's
-  // what tells macOS that M↓ is a legitimate handler for these UTIs in the first place.
+  // what tells macOS that note.md is a legitimate handler for these UTIs in the first place.
   const FILE_GROUPS: { label: string; exts: string[] }[] = [
     { label: 'Markdown',      exts: ['md', 'markdown', 'mdown', 'mkd'] },
     { label: 'HTML',          exts: ['html', 'htm'] },
@@ -215,14 +215,14 @@
 
   async function handleSetDefault() {
     const ok = await ask(
-      `This will register M↓ as the macOS default application for ${ALL_EXTS.length} ` +
+      `This will register note.md as the macOS default application for ${ALL_EXTS.length} ` +
         `file extensions across ${FILE_GROUPS.length} categories.\n\n` +
-        `From then on, double-clicking any of these file types in Finder will open them in M↓ instead of your current default editor.\n\n` +
+        `From then on, double-clicking any of these file types in Finder will open them in note.md instead of your current default editor.\n\n` +
         `Categories: ${FILE_GROUPS.map((g) => g.label).join(', ')}.\n\n` +
         `You can revert this for any single type later: in Finder, select a file → Get Info → "Open with" → choose another app → click "Change All…".\n\n` +
         `Continue?`,
       {
-        title: 'Set M↓ as default for text & code files',
+        title: 'Set note.md as default for text & code files',
         kind: 'warning',
         okLabel: 'Set as default',
         cancelLabel: 'Cancel',

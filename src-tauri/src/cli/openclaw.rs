@@ -1,4 +1,4 @@
-//! `mdedit openclaw {install,uninstall,status}` — install the bundled M↓
+//! `notemd openclaw {install,uninstall,status}` — install the bundled note.md
 //! channel plugin into a local OpenClaw setup (typically `~/.openclaw/`).
 //!
 //! The plugin source is embedded at compile time (~56 KB) via `include_dir`,
@@ -44,9 +44,9 @@ pub fn run(cmd: OpenclawCmd) -> ExitCode {
     let plugins_dir = super::resolve_plugins_dir(None);
     let config_dir = super::resolve_config_dir();
     if !is_openclaw_chat_active(&plugins_dir, &config_dir) {
-        eprintln!("mdedit: openclaw-chat plugin is disabled.");
+        eprintln!("notemd: openclaw-chat plugin is disabled.");
         eprintln!("Enable it first:");
-        eprintln!("  mdedit plugin enable openclaw-chat");
+        eprintln!("  notemd plugin enable openclaw-chat");
         return ExitCode::from(2);
     }
     let res = match cmd {
@@ -57,7 +57,7 @@ pub fn run(cmd: OpenclawCmd) -> ExitCode {
     match res {
         Ok(()) => ExitCode::from(0),
         Err(e) => {
-            eprintln!("mdedit: {e}");
+            eprintln!("notemd: {e}");
             ExitCode::from(1)
         }
     }
@@ -121,20 +121,20 @@ fn install(force: bool) -> Result<(), String> {
     let token = merge_config(&dest)?;
     println!("✓ updated {} to register the channel", config_path()?.display());
 
-    // Also write the token into M↓'s own settings.json so the host-mode chat
+    // Also write the token into note.md's own settings.json so the host-mode chat
     // client picks it up automatically (no manual copy-paste).
     match write_mdeditor_settings(&token) {
-        Ok(path) => println!("✓ token written to M↓ settings: {}", path.display()),
-        Err(e) => println!("⚠ could not update M↓ settings: {e} (paste the token in Settings → OpenClaw manually)"),
+        Ok(path) => println!("✓ token written to note.md settings: {}", path.display()),
+        Err(e) => println!("⚠ could not update note.md settings: {e} (paste the token in Settings → OpenClaw manually)"),
     }
 
     println!();
     println!("Restart OpenClaw for the plugin to take effect.");
-    println!("In M↓: tray → OpenClaw → status should turn green (connected).");
+    println!("In note.md: tray → OpenClaw → status should turn green (connected).");
     Ok(())
 }
 
-/// Locate M↓'s settings store on macOS and patch in the access token.
+/// Locate note.md's settings store on macOS and patch in the access token.
 /// Returns the file path on success.
 fn write_mdeditor_settings(token: &str) -> Result<PathBuf, String> {
     let home = dirs::home_dir().ok_or_else(|| "no home dir".to_string())?;
@@ -223,7 +223,7 @@ fn status() -> Result<(), String> {
         println!("  channels.mdeditor          : {}", display_value(channel));
         println!(
             "  access token               : {}",
-            token.map(|t| format!("✓ {} (paste into M↓ Settings → OpenClaw)", t)).unwrap_or_else(|| "✗ not set".into())
+            token.map(|t| format!("✓ {} (paste into note.md Settings → OpenClaw)", t)).unwrap_or_else(|| "✗ not set".into())
         );
     } else {
         println!("openclaw.json : ✗ {}  (run OpenClaw at least once to create it)", cfg_path.display());
@@ -334,8 +334,8 @@ fn merge_config(plugin_dir: &Path) -> Result<String, String> {
     default.entry("socketPath".to_string())
         .or_insert_with(|| json!("~/.openclaw/mdeditor.sock"));
     // Generate the UDS handshake shared secret if not already present.
-    // M↓ host client reads the same token from this file (or user pastes it
-    // into M↓ Settings → OpenClaw → Access Token).
+    // note.md host client reads the same token from this file (or user pastes it
+    // into note.md Settings → OpenClaw → Access Token).
     let token_was_new = !default.contains_key("accessToken");
     default
         .entry("accessToken".to_string())

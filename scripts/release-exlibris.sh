@@ -273,7 +273,7 @@ say "creating GitHub release"
 PREAMBLE=$(cat <<EOF
 ## ExLibris $VERSION — first release
 
-ExLibris is an independent macOS app for managing an ebook library. Companion to M↓: shares the sotvault git-synced directory and launches from M↓'s tray menu.
+ExLibris is an independent macOS app for managing an ebook library. Companion to note.md: shares the sotvault git-synced directory and launches from note.md's tray menu.
 
 ## Install
 
@@ -283,7 +283,7 @@ Pick the dmg matching your Mac's chip:
 - **Intel:** \`ExLibris-${VERSION}-x86_64.dmg\`
 
 > Code-signed with Developer ID Application (\`$APPLE_TEAM_ID\`), hardened runtime, notarized.
-> Requires M↓ 2.4.2+ (for the shared config integration). Calibre must be installed locally for ebook conversion.
+> Requires note.md 2.4.2+ (for the shared config integration). Calibre must be installed locally for ebook conversion.
 
 EOF
 )

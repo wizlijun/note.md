@@ -18,21 +18,21 @@ export const en = {
   // Settings
   'settings.language': 'Language',
 
-  // CLI (`mdedit`) install/uninstall
-  'cli.installTitle': "Install 'mdedit' Command",
+  // CLI (`notemd`) install/uninstall
+  'cli.installTitle': "Install 'notemd' Command",
   'cli.installPrompt':
-    "Install the 'mdedit' command to your PATH?\n\n" +
-    "Once installed you can call M↓'s features from any terminal or script:\n" +
-    '  • mdedit -s draft.md   Publish via the Share plugin and print the URL\n' +
-    '  • mdedit help          Show all commands\n' +
-    '  • mdedit plugin list   List plugins\n\n' +
-    "You can manage this any time from Help → Install/Uninstall 'mdedit' Command.",
-  'cli.installInto': "Install 'mdedit' into {dir}?",
-  'cli.installed': "'mdedit' installed at {dir}",
+    "Install the 'notemd' command to your PATH?\n\n" +
+    "Once installed you can call note.md's features from any terminal or script:\n" +
+    '  • notemd -s draft.md   Publish via the Share plugin and print the URL\n' +
+    '  • notemd help          Show all commands\n' +
+    '  • notemd plugin list   List plugins\n\n' +
+    "You can manage this any time from Help → Install/Uninstall 'notemd' Command.",
+  'cli.installInto': "Install 'notemd' into {dir}?",
+  'cli.installed': "'notemd' installed at {dir}",
   'cli.installFailed': 'Install failed: {error}',
-  'cli.uninstalled': "'mdedit' uninstalled from {dir}",
+  'cli.uninstalled': "'notemd' uninstalled from {dir}",
   'cli.uninstallFailed': 'Uninstall failed: {error}',
-  'cli.notInstalled': "'mdedit' is not installed",
+  'cli.notInstalled': "'notemd' is not installed",
 
   // Share
   'share.docTooLarge': '❌ {name}: document too large ({mb} MB / 25 MB limit)',
@@ -188,7 +188,7 @@ export const en = {
   'tabBar.modified': 'modified',
 
   // Plugins settings
-  'plugins.restartNote': 'Changes take effect after restarting M↓',
+  'plugins.restartNote': 'Changes take effect after restarting note.md',
   'plugins.capabilities': 'Capabilities: {caps}',
   'plugins.none': 'No plugins detected.',
   'plugins.needsVault': 'Set a Vault first to enable this plugin',
@@ -286,7 +286,7 @@ export const en = {
   // Update dialog
   'updateDialog.checking': 'Checking for updates…',
   'updateDialog.currentVersion': 'Current version: v{version}',
-  'updateDialog.available': 'M↓ {version} available',
+  'updateDialog.available': 'note.md {version} available',
   'updateDialog.whatsNew': "What's new",
   'updateDialog.noNotes': 'No release notes.',
   'updateDialog.skip': 'Skip this version',
@@ -295,15 +295,15 @@ export const en = {
   'updateDialog.downloading': 'Downloading {version}…',
   'updateDialog.runInBackground': 'Run in background',
   'updateDialog.ready': 'Ready',
-  'updateDialog.readyBody': 'M↓ {version} has been downloaded. Restart the app to finish updating.',
+  'updateDialog.readyBody': 'note.md {version} has been downloaded. Restart the app to finish updating.',
   'updateDialog.restartLater': 'Restart later',
   'updateDialog.restartNow': 'Restart now',
   'updateDialog.error': 'Update error',
   'updateDialog.unknownError': 'Unknown error',
-  'updateDialog.upToDate': 'M↓ is up to date',
+  'updateDialog.upToDate': 'note.md is up to date',
 
   // Update banner
-  'updateBanner.available': '✨ M↓ {version} available',
+  'updateBanner.available': '✨ note.md {version} available',
   'updateBanner.viewDetails': 'View details',
   'updateBanner.downloading': 'Downloading {version}…',
   'updateBanner.showProgress': 'Show progress',
@@ -380,7 +380,7 @@ export const en = {
   'openclaw.modeRemote': 'Remote (via mdrelay)',
   'openclaw.socketPath': 'Socket path',
   'openclaw.accessToken': 'Access token',
-  'openclaw.runToGenerate': "Run 'mdedit openclaw install' to generate",
+  'openclaw.runToGenerate': "Run 'notemd openclaw install' to generate",
   'openclaw.hide': 'Hide',
   'openclaw.show': 'Show',
   'openclaw.copy': 'Copy',
@@ -409,7 +409,7 @@ export const en = {
 
   // Chat / pairing
   'chat.connectTitle': 'Connect to your OpenClaw',
-  'chat.enterPairingCode': "Enter the pairing code shown on your host machine's M↓ settings.",
+  'chat.enterPairingCode': "Enter the pairing code shown on your host machine's note.md settings.",
   'chat.pairingCode': 'Pairing code',
   'chat.deviceNameOptional': 'Device name (optional)',
   'chat.connecting': 'Connecting…',
@@ -448,14 +448,14 @@ export const en = {
 
   // Settings → Default app
   'settings.defaultApp.heading': 'Default app for text & code files',
-  'settings.defaultApp.desc1': 'Make M↓ the default macOS application for opening text and source code files. Once set, double-clicking any of the supported file types in Finder (or selecting <em>Open With…</em>) will launch M↓.',
+  'settings.defaultApp.desc1': 'Make note.md the default macOS application for opening text and source code files. Once set, double-clicking any of the supported file types in Finder (or selecting <em>Open With…</em>) will launch note.md.',
   'settings.defaultApp.desc2': 'This affects <strong>{exts}</strong> file extensions across <strong>{groups}</strong> categories. Every change goes through macOS Launch Services, so the system, Finder, and other apps all pick it up immediately.',
   'settings.defaultApp.showTypes': 'Show affected file types ({count} extensions)',
   'settings.defaultApp.setting': 'Setting…',
-  'settings.defaultApp.setDefault': 'Set M↓ as default for all {count} types',
+  'settings.defaultApp.setDefault': 'Set note.md as default for all {count} types',
   'settings.defaultApp.undoNote': "<strong>To undo for one file type:</strong> in Finder, select a file → File menu → <em>Get Info</em> → <em>Open with</em> section → pick another app → click <em>Change All…</em>. There's no way to bulk-undo through macOS, so make sure you want this before clicking the button above.",
-  'settings.defaultApp.resultOk': 'Done — M↓ is now the default for all {count} extensions.',
-  'settings.defaultApp.resultPartial': 'Set {ok}/{total} extensions. Failed: {failed} (macOS may not have a registered UTI for these — they will still open in M↓ when launched explicitly).',
+  'settings.defaultApp.resultOk': 'Done — note.md is now the default for all {count} extensions.',
+  'settings.defaultApp.resultPartial': 'Set {ok}/{total} extensions. Failed: {failed} (macOS may not have a registered UTI for these — they will still open in note.md when launched explicitly).',
   'settings.defaultApp.resultError': 'Error: {error}',
 
   // Settings → Block IDs
@@ -513,7 +513,7 @@ export const en = {
 
   // Settings → CLI
   'settings.cli.heading': 'CLI',
-  'settings.cli.desc': 'The <code>mdedit</code> command lets you drive M↓ from a terminal or other tools — publish files via the Share plugin, list available commands, and more.',
+  'settings.cli.desc': 'The <code>notemd</code> command lets you drive note.md from a terminal or other tools — publish files via the Share plugin, list available commands, and more.',
   'settings.cli.loading': 'Loading…',
   'settings.cli.installedAtLabel': 'Installed at:',
   'settings.cli.symlinkMismatch': 'Symlink points to a different binary — reinstall to repair.',
@@ -524,7 +524,7 @@ export const en = {
   'settings.cli.installing': 'Installing…',
   'settings.cli.install': 'Install…',
   'settings.cli.error': 'Error: {error}',
-  'settings.cli.helpDesc': 'Once installed, run <code>mdedit help</code> in your terminal for the full reference. The CLI only exposes commands contributed by <em>enabled</em> plugins — disable a plugin in Plugins above to remove its subcommand from <code>mdedit</code>.',
+  'settings.cli.helpDesc': 'Once installed, run <code>notemd help</code> in your terminal for the full reference. The CLI only exposes commands contributed by <em>enabled</em> plugins — disable a plugin in Plugins above to remove its subcommand from <code>notemd</code>.',
 
   // ── Editor context menu ──
   'ctxmenu.cut': 'Cut',
