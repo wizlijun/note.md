@@ -1,7 +1,8 @@
 <script lang="ts">
   import OutlineNode from './OutlineNode.svelte'
   import InlineRender from './InlineRender.svelte'
-  import { outline, bump, markDirty } from '../../lib/outline/store.svelte'
+  import { outline, bump, markDirty, setSelection, clearSelection } from '../../lib/outline/store.svelte'
+  import { rangeBetween, selectionRoots } from '../../lib/outline/select'
   import { childrenOf, setNodeContent, type OutlineNode as NodeT } from '../../lib/outline/model'
   import {
     createSiblingBelow, createSiblingAbove, mergeWithPrevious,
@@ -41,6 +42,7 @@
     return visibleIds ? kids.length > 0 : !node.collapsed
   })
   let textareaEl: HTMLTextAreaElement | undefined = $state()
+  let selected = $derived(outline.selectedIds.has(node.id))
 
   $effect(() => {
     if (editing && textareaEl) {
@@ -53,6 +55,19 @@
 
   function startEdit() {
     outline.editingId = node.id
+    outline.selectionAnchor = node.id
+  }
+  /** 普通点击=清选择进编辑；Shift+点击=锚点连选（不进编辑） */
+  function onContentClick(e: MouseEvent) {
+    const anchor = outline.selectionAnchor ?? outline.editingId
+    if (e.shiftKey && anchor && anchor !== node.id) {
+      e.preventDefault()
+      outline.editingId = null
+      setSelection(rangeBetween(outline.tree, anchor, node.id))
+      return
+    }
+    clearSelection()
+    startEdit()
   }
   function commitEdit(value: string) {
     if (node.source !== 'manual') { outline.editingId = null; return }  // auto is read-only
@@ -131,7 +146,11 @@
   let dropMode: 'sibling' | 'child' | null = $state(null)
   function onDragStart(e: DragEvent) {
     if (node.source !== 'manual') { e.preventDefault(); return }
-    e.dataTransfer?.setData('text/outline-node', node.id)
+    // 拖动选中集内的节点 = 整组移动（roots 逗号列表；接收侧 split）
+    const ids = selected
+      ? selectionRoots(outline.tree, outline.selectedIds).filter(n => n.source === 'manual').map(n => n.id)
+      : [node.id]
+    e.dataTransfer?.setData('text/outline-node', ids.join(','))
   }
   function onDragOver(e: DragEvent) {
     if (!e.dataTransfer?.types.includes('text/outline-node')) return
@@ -154,8 +173,10 @@
     class:auto={node.source !== 'manual'}
     class:drop-sibling={dropMode === 'sibling'}
     class:drop-child={dropMode === 'child'}
+    class:selected
+    data-node-id={node.id}
     role="treeitem"
-    aria-selected={editing}
+    aria-selected={editing || selected}
     ondragover={onDragOver}
     ondragleave={() => (dropMode = null)}
     ondrop={onDrop}
@@ -193,9 +214,10 @@
         }}
       ></textarea>
     {:else}
-      <span class="content" class:hl={node.source === 'highlight'} class:src-toc={node.source === 'toc'} onclick={startEdit} role="button" tabindex="0"
+      <span class="content" class:hl={node.source === 'highlight'} class:src-toc={node.source === 'toc'} onclick={onContentClick} role="button" tabindex="0"
         onkeydown={(e) => { if (e.key === 'Enter') startEdit() }}>
-        <InlineRender content={node.content} onPageClick={onPageClick} />
+        <!-- 空内容：塞零宽空格保证有行盒，鼠标可命中进入编辑 -->
+        {#if node.content === ''}{'​'}{:else}<InlineRender content={node.content} onPageClick={onPageClick} />{/if}
       </span>
     {/if}
   </div>
@@ -219,6 +241,11 @@
   .row:hover { background: var(--hover-bg, #8881); }
   .row.drop-sibling { box-shadow: 0 2px 0 var(--accent-color, #4a80d4); }
   .row.drop-child { box-shadow: inset 2px 0 0 var(--accent-color, #4a80d4); background: #4a80d411; }
+  /* 用中性灰而非 accent 蓝,避免与主编辑区文本选区混淆;左侧竖条标示选中 */
+  .row.selected {
+    background: color-mix(in srgb, CanvasText 8%, transparent);
+    box-shadow: inset 2px 0 0 var(--accent-color, #4a80d4);
+  }
   .row.auto .content { opacity: 0.92; }
   .tri {
     background: none; border: none; padding: 0;

@@ -175,3 +175,85 @@ export function subtreeToMarkdown(tree: OutlineTree, id: string, depth = 0): str
   for (const c of childrenOf(tree, id)) out += subtreeToMarkdown(tree, c.id, depth + 1)
   return out
 }
+
+// ---------- 批量操作（多节点选择,见 2026-07-10-outline-multiselect spec） ----------
+import { selectionRoots } from './select'
+
+/** 批量删除：selection roots 中的手写节点连子树删除。返回是否有改动。 */
+export function deleteNodes(tree: OutlineTree, ids: ReadonlySet<string>): boolean {
+  let changed = false
+  for (const r of selectionRoots(tree, ids)) {
+    if (r.source === 'manual') { removeSubtree(tree, r.id); changed = true }
+  }
+  return changed
+}
+
+/** roots 按 parentId 分组（保持可见序） */
+function rootGroups(tree: OutlineTree, ids: ReadonlySet<string>): Map<string | null, OutlineNode[]> {
+  const groups = new Map<string | null, OutlineNode[]>()
+  for (const r of selectionRoots(tree, ids)) {
+    if (r.source !== 'manual') continue
+    const g = groups.get(r.parentId) ?? []
+    g.push(r)
+    groups.set(r.parentId, g)
+  }
+  return groups
+}
+
+/** 批量缩进：每个同父组整组挂到组首前一个未选中兄弟之下,保持相对顺序 */
+export function indentNodes(tree: OutlineTree, ids: ReadonlySet<string>): boolean {
+  let changed = false
+  for (const [parentId, group] of rootGroups(tree, ids)) {
+    const siblings = childrenOf(tree, parentId)
+    const firstIdx = siblings.findIndex(s => s.id === group[0].id)
+    // 组首之前最近的未选中兄弟作为新父
+    let newParent: OutlineNode | null = null
+    for (let i = firstIdx - 1; i >= 0; i--) {
+      if (!ids.has(siblings[i].id)) { newParent = siblings[i]; break }
+    }
+    if (!newParent) continue
+    let prevOrder = childrenOf(tree, newParent.id).pop()?.order ?? null
+    for (const n of group) {
+      n.parentId = newParent.id
+      n.order = calculateOrderBetween(prevOrder, null)
+      prevOrder = n.order
+    }
+    newParent.collapsed = false
+    changed = true
+  }
+  return changed
+}
+
+/** 批量反缩进：逆可见序逐个 outdent,保持组内相对顺序 */
+export function outdentNodes(tree: OutlineTree, ids: ReadonlySet<string>): boolean {
+  let changed = false
+  const roots = selectionRoots(tree, ids)
+  for (let i = roots.length - 1; i >= 0; i--) {
+    if (outdentNode(tree, roots[i].id)) changed = true
+  }
+  return changed
+}
+
+/** 批量拖拽：roots 依次落到 target 之后（组内保持相对顺序） */
+export function moveNodesAfter(tree: OutlineTree, ids: ReadonlySet<string>, targetId: string): boolean {
+  let changed = false
+  let prev = targetId
+  for (const r of selectionRoots(tree, ids)) {
+    if (moveNodeAfter(tree, r.id, prev)) { prev = r.id; changed = true }
+  }
+  return changed
+}
+
+/** 批量拖拽为子节点：整组成为 target 的尾部子节点 */
+export function moveNodesToChild(tree: OutlineTree, ids: ReadonlySet<string>, targetId: string): boolean {
+  let changed = false
+  for (const r of selectionRoots(tree, ids)) {
+    if (moveNodeToChild(tree, r.id, targetId)) changed = true
+  }
+  return changed
+}
+
+/** 选中内容（含子树）→ markdown,用于批量复制 */
+export function nodesToMarkdown(tree: OutlineTree, ids: ReadonlySet<string>): string {
+  return selectionRoots(tree, ids).map(r => subtreeToMarkdown(tree, r.id)).join('')
+}

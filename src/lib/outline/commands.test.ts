@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest'
 import {
   createSiblingBelow, createSiblingAbove, indentNode, outdentNode,
   moveNodeUp, moveNodeDown, mergeWithPrevious, applyInlineWrap,
-  subtreeToMarkdown,
+  subtreeToMarkdown, deleteNodes, indentNodes, outdentNodes, moveNodesAfter, moveNodesToChild, nodesToMarkdown,
 } from './commands'
 import { createTree, addNode, childrenOf, type OutlineTree } from './model'
 
@@ -106,5 +106,53 @@ describe('manual node timestamps', () => {
     const res = mergeWithPrevious(t, 'a2')!
     expect(res.mergedInto).toBe('a')
     expect(t.nodes.get('a')!.updatedAt).toBeDefined()
+  })
+})
+
+describe('batch commands (multi-select)', () => {
+  // a ── b(b1) ── c 全 manual
+  function batchTree(): OutlineTree {
+    const t = createTree()
+    addNode(t, { id: 'a', parentId: null, order: 0, content: 'A', collapsed: false, source: 'manual' })
+    addNode(t, { id: 'b', parentId: null, order: 100, content: 'B', collapsed: false, source: 'manual' })
+    addNode(t, { id: 'b1', parentId: 'b', order: 0, content: 'B1', collapsed: false, source: 'manual' })
+    addNode(t, { id: 'c', parentId: null, order: 200, content: 'C', collapsed: false, source: 'manual' })
+    return t
+  }
+  it('deleteNodes removes manual roots with subtrees, skips auto', () => {
+    const t = batchTree()
+    t.nodes.get('a')!.source = 'toc'
+    expect(deleteNodes(t, new Set(['a', 'b', 'b1']))).toBe(true)
+    expect([...t.nodes.keys()].sort()).toEqual(['a', 'c'])
+  })
+  it('indentNodes moves the group under the previous unselected sibling', () => {
+    const t = batchTree()
+    expect(indentNodes(t, new Set(['b', 'c']))).toBe(true)
+    expect(childrenOf(t, 'a').map(n => n.id)).toEqual(['b', 'c'])
+    expect(childrenOf(t, 'b').map(n => n.id)).toEqual(['b1'])  // 子树随动
+  })
+  it('indentNodes no-ops when group leads its siblings', () => {
+    const t = batchTree()
+    expect(indentNodes(t, new Set(['a']))).toBe(false)
+  })
+  it('outdentNodes keeps relative order', () => {
+    const t = batchTree()
+    addNode(t, { id: 'b2', parentId: 'b', order: 100, content: 'B2', collapsed: false, source: 'manual' })
+    expect(outdentNodes(t, new Set(['b1', 'b2']))).toBe(true)
+    expect(childrenOf(t, null).map(n => n.id)).toEqual(['a', 'b', 'b1', 'b2', 'c'])
+  })
+  it('moveNodesAfter moves group after target preserving order', () => {
+    const t = batchTree()
+    expect(moveNodesAfter(t, new Set(['a', 'b']), 'c')).toBe(true)
+    expect(childrenOf(t, null).map(n => n.id)).toEqual(['c', 'a', 'b'])
+  })
+  it('moveNodesToChild appends group as children of target', () => {
+    const t = batchTree()
+    expect(moveNodesToChild(t, new Set(['a', 'c']), 'b')).toBe(true)
+    expect(childrenOf(t, 'b').map(n => n.id)).toEqual(['b1', 'a', 'c'])
+  })
+  it('nodesToMarkdown serializes selection roots with subtrees', () => {
+    const t = batchTree()
+    expect(nodesToMarkdown(t, new Set(['b', 'b1']))).toBe('- B\n  - B1\n')
   })
 })

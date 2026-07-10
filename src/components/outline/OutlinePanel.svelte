@@ -8,10 +8,14 @@
   import NodeContextMenu from './NodeContextMenu.svelte'
   import {
     outline, attachTab, detach, scheduleSyncFromMain, regenerate,
-    flushSave, bump, markDirty, pinnedIds,
+    flushSave, bump, markDirty, pinnedIds, setSelection, clearSelection,
   } from '../../lib/outline/store.svelte'
   import { childrenOf, newId, calculateOrderBetween, setNodeContent, type OutlineNode as NodeT } from '../../lib/outline/model'
-  import { moveNodeAfter, moveNodeToChild, deleteNode, subtreeToMarkdown } from '../../lib/outline/commands'
+  import {
+    moveNodeAfter, moveNodeToChild, deleteNode, subtreeToMarkdown,
+    deleteNodes, indentNodes, outdentNodes, moveNodesAfter, moveNodesToChild, nodesToMarkdown,
+  } from '../../lib/outline/commands'
+  import { selectionRoots } from '../../lib/outline/select'
   import { resolveShortcuts, type OutlineCommandId } from '../../lib/outline/shortcuts'
   import { filterSlashItems, applySlashItem, pageLinkQueryAt, confirmPageLink, filterPages, type SlashItem } from '../../lib/outline/completion'
   import { pageCandidates } from '../../lib/outline/backlinks'
@@ -116,8 +120,11 @@
   function onJump(n: NodeT) { if (n.anchorLine != null) requestReveal(n.anchorLine, n.content) }
   function onPageClick(target: string) { void openPageOrCreate(target) }
   function onDragOp(drag: string, target: string, mode: 'sibling' | 'child') {
-    const ok = mode === 'child' ? moveNodeToChild(outline.tree, drag, target) : moveNodeAfter(outline.tree, drag, target)
-    if (ok) { bump(); markDirty() }
+    const ids = drag.split(',')
+    const ok = ids.length > 1
+      ? (mode === 'child' ? moveNodesToChild(outline.tree, new Set(ids), target) : moveNodesAfter(outline.tree, new Set(ids), target))
+      : (mode === 'child' ? moveNodeToChild(outline.tree, drag, target) : moveNodeAfter(outline.tree, drag, target))
+    if (ok) { clearSelection(); bump(); markDirty() }
   }
   function addRootNote() {
     const last = roots[roots.length - 1]
@@ -131,11 +138,118 @@
   }
 
   // Click in the empty region below the last node → new trailing root node.
+  // 拖拽手势（mousedown/mouseup 落点不同）的 click 会被浏览器派发到共同祖先
+  // ——常常就是这个空白容器；只有"按下也在空白处且未形成框选"的完整点击才建节点。
   function onBodyClick(e: MouseEvent) {
     if (!applicable) return
     const target = e.target as HTMLElement
     if (target.closest('.node')) return   // clicks on existing rows handled by the node
-    addRootNote()
+    if (bandJustEnded) { bandJustEnded = false; return }  // 框选收尾的 click 不建节点
+    const wasEmptyClick = emptyClickOk
+    emptyClickOk = false
+    if (outline.selectedIds.size > 0) { clearSelection(); return }  // 有选择时点空白只清除
+    if (wasEmptyClick) addRootNote()
+  }
+
+  // ---------- 多选：框选 + 批量快捷键 ----------
+  let bodyEl = $state<HTMLDivElement>()
+  let band = $state<{ x0: number; y0: number; x1: number; y1: number } | null>(null)
+  let bandStart: { x: number; y: number } | null = null
+  let bandJustEnded = false
+  let emptyClickOk = false   // 本次手势从空白处按下且未成为框选 → 允许建节点
+
+  function bandRect(b: NonNullable<typeof band>) {
+    return {
+      left: Math.min(b.x0, b.x1), top: Math.min(b.y0, b.y1),
+      width: Math.abs(b.x1 - b.x0), height: Math.abs(b.y1 - b.y0),
+    }
+  }
+  function onBandDown(e: PointerEvent) {
+    if (!applicable || e.button !== 0) return
+    if ((e.target as HTMLElement).closest('.row')) return   // 行上的按下留给行交互/拖拽
+    bandStart = { x: e.clientX, y: e.clientY }
+    bodyEl?.setPointerCapture(e.pointerId)
+  }
+  function onBandMove(e: PointerEvent) {
+    if (!bandStart) return
+    // 4px 阈值内仍算普通点击（保留点空白建节点）
+    if (!band && Math.hypot(e.clientX - bandStart.x, e.clientY - bandStart.y) < 4) return
+    if (!band) {
+      // 框选一生效就先退出编辑并主动失焦——若拖到松手时才卸载聚焦中的
+      // textarea，浏览器会把焦点/滚动跳回原编辑位置
+      ;(document.activeElement as HTMLElement | null)?.blur?.()
+      outline.editingId = null
+    }
+    // 指针拖出面板时把矩形夹取在列表区域内，不画到标题栏/其他 UI 上
+    const bounds = bodyEl!.getBoundingClientRect()
+    const cx = Math.min(Math.max(e.clientX, bounds.left), bounds.right)
+    const cy = Math.min(Math.max(e.clientY, bounds.top), bounds.bottom)
+    band = { x0: bandStart.x, y0: bandStart.y, x1: cx, y1: cy }
+    const r = bandRect(band)
+    const hit: string[] = []
+    for (const el of bodyEl?.querySelectorAll<HTMLElement>('[data-node-id]') ?? []) {
+      const b = el.getBoundingClientRect()
+      if (b.left < r.left + r.width && b.left + b.width > r.left && b.top < r.top + r.height && b.top + b.height > r.top) {
+        hit.push(el.dataset.nodeId!)
+      }
+    }
+    setSelection(hit)
+  }
+  function onBandUp(e: PointerEvent) {
+    if (!bandStart) return
+    bodyEl?.releasePointerCapture(e.pointerId)
+    if (band) {
+      bandJustEnded = true
+      // 松手点若落在某行文字上，随后的 click 会命中该行 span → startEdit →
+      // 焦点+滚动跳到该节点。捕获阶段一次性吞掉这次 click。
+      const swallow = (ce: MouseEvent) => { ce.stopPropagation(); ce.preventDefault() }
+      window.addEventListener('click', swallow, { capture: true, once: true })
+      // 下一帧兜底：这次手势没产生 click 时摘掉监听并复位 flag，别吞下次点击
+      requestAnimationFrame(() => {
+        window.removeEventListener('click', swallow, { capture: true })
+        bandJustEnded = false
+      })
+    } else {
+      emptyClickOk = true
+      requestAnimationFrame(() => (emptyClickOk = false))
+    }
+    bandStart = null
+    band = null
+  }
+
+  async function onGlobalKeydown(e: KeyboardEvent) {
+    if (outline.selectedIds.size === 0 || outline.editingId != null) return
+    // 其它输入焦点（主编辑器/搜索框）时不抢键
+    const ae = document.activeElement
+    if (ae && (ae.tagName === 'TEXTAREA' || ae.tagName === 'INPUT' || (ae as HTMLElement).isContentEditable)) return
+    if (e.key === 'Escape') { e.preventDefault(); clearSelection(); return }
+    if (e.key === 'Backspace' || e.key === 'Delete') {
+      e.preventDefault()
+      const roots = selectionRoots(outline.tree, outline.selectedIds)
+      const hasKids = roots.some(n => childrenOf(outline.tree, n.id).length > 0)
+      if (hasKids) {
+        const { confirm } = await import('@tauri-apps/plugin-dialog')
+        if (!await confirm(t('outline.deleteConfirm'), { title: t('outline.delete') })) return
+      }
+      if (deleteNodes(outline.tree, outline.selectedIds)) { clearSelection(); bump(); markDirty() }
+      return
+    }
+    if (e.key === 'Tab') {
+      e.preventDefault()
+      const changed = e.shiftKey
+        ? outdentNodes(outline.tree, outline.selectedIds)
+        : indentNodes(outline.tree, outline.selectedIds)
+      if (changed) { bump(); markDirty() }
+      return
+    }
+    if (e.key === 'c' && (e.metaKey || e.ctrlKey)) {
+      const md = nodesToMarkdown(outline.tree, outline.selectedIds)
+      if (md) {
+        e.preventDefault()
+        const { writeText } = await import('@tauri-apps/plugin-clipboard-manager')
+        await writeText(md)
+      }
+    }
   }
   async function onRegenerate() {
     if (!tab) return
@@ -340,7 +454,8 @@
     </div>
   {:else}
     <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-    <div class="body" role="tree" onclick={onBodyClick}>
+    <div class="body" role="tree" bind:this={bodyEl} onclick={onBodyClick}
+      onpointerdown={onBandDown} onpointermove={onBandMove} onpointerup={onBandUp}>
       {#each visibleRoots as node (node.id)}
         <OutlineNode {node} depth={0} {resolved} {onJump} {onPageClick} {onEditorInput} {onContextMenu} {onDragOp} {visibleIds} />
       {/each}
@@ -360,7 +475,13 @@
   {#if ctxMenu}
     <NodeContextMenu node={ctxMenu.node} x={ctxMenu.x} y={ctxMenu.y} onAction={onCtxAction} onClose={() => (ctxMenu = null)} />
   {/if}
+  {#if band}
+    {@const r = bandRect(band)}
+    <div class="band" style="left:{r.left}px; top:{r.top}px; width:{r.width}px; height:{r.height}px"></div>
+  {/if}
 </aside>
+
+<svelte:window onkeydown={onGlobalKeydown} />
 
 <style>
   .outline-panel {
@@ -413,6 +534,11 @@
     font-size: 11px; padding: 4px 8px; border-bottom: 1px solid var(--border-color, #3333);
   }
   .body { flex: 1; overflow-y: auto; padding: 8px; font-family: var(--outline-font-family); }
+  .band {
+    position: fixed; z-index: 30; pointer-events: none;
+    border: 1px solid var(--accent-color, #4a80d4);
+    background: color-mix(in srgb, var(--accent-color, #4a80d4) 10%, transparent);
+  }
   .empty { opacity: 0.5; font-size: 12px; }
   .typo-probe {
     position: absolute;

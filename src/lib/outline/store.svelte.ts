@@ -14,6 +14,10 @@ export interface OutlineState {
   /** 触发 Svelte 重渲染的版本号：任何树结构/内容变更后 bump */
   version: number
   editingId: string | null
+  /** 多选集合。每次变更必须整体重赋值（Set 内部变异不触发响应） */
+  selectedIds: Set<string>
+  /** Shift 连选的锚点：最近一次点击/进入编辑的节点 */
+  selectionAnchor: string | null
   dirty: boolean
   /** 伴生文件被外部改且本地有未存改动 */
   externalConflict: boolean
@@ -26,12 +30,22 @@ export const outline = $state<OutlineState>({
   tree: createTree(),
   version: 0,
   editingId: null,
+  selectedIds: new Set(),
+  selectionAnchor: null,
   dirty: false,
   externalConflict: false,
   backlinkIndex: null,
 })
 
 export function bump(): void { outline.version++ }
+
+export function setSelection(ids: Iterable<string>): void {
+  outline.selectedIds = new Set(ids)
+}
+
+export function clearSelection(): void {
+  if (outline.selectedIds.size > 0) outline.selectedIds = new Set()
+}
 
 export function companionPathFor(mainPath: string): string | null {
   if (/\.notes\.md$/i.test(mainPath)) return null
@@ -91,6 +105,8 @@ export async function attachTab(mainPath: string, mainContent: string): Promise<
   outline.mainPath = mainPath
   outline.companionPath = companion
   outline.editingId = null
+  outline.selectedIds = new Set()
+  outline.selectionAnchor = null
   outline.dirty = false
   outline.externalConflict = false
 
@@ -120,6 +136,8 @@ export function detach(): void {
   outline.companionPath = null
   outline.tree = createTree()
   outline.editingId = null
+  outline.selectedIds = new Set()
+  outline.selectionAnchor = null
   outline.dirty = false
   bump()
 }
