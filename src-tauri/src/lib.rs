@@ -713,6 +713,19 @@ pub fn run() {
             ] }
         })
         .setup(|app| {
+            // Dev builds: drop the webview HTTP cache on every launch. Vite's
+            // optimized-deps URLs (`?v=<hash>`) are served `immutable`, but the
+            // hash only tracks the lockfile — file:-linked @moraya/core content
+            // changes keep the same URL, so WKWebView would pin a stale bundle
+            // forever (pnpm sync:core alone can't fix that side).
+            #[cfg(dev)]
+            {
+                use tauri::Manager;
+                for (_label, w) in app.webview_windows() {
+                    let _ = w.clear_all_browsing_data();
+                }
+            }
+
             // Migrate legacy vault_sync.repo_path to shared config sotvault
             {
                 if let (Ok(app_data_dir), Ok(shared)) = (
