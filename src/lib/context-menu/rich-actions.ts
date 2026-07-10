@@ -1,6 +1,6 @@
 import type { EditorView } from 'prosemirror-view'
 import { toggleMark } from 'prosemirror-commands'
-import { TextSelection } from 'prosemirror-state'
+import { TextSelection, AllSelection } from 'prosemirror-state'
 import type { EditorActions } from './EditorContextMenu.svelte'
 import {
   setBlock, wrapBlock, wrapList, insertAtom, insertTable, insertTaskList,
@@ -62,6 +62,21 @@ function insertDate(view: EditorView) {
   view.focus()
 }
 
+/**
+ * Paste clipboard text at the current selection. `execCommand('paste')` is
+ * blocked in Tauri's WKWebView, so read the clipboard directly and insert.
+ * (Only text — native Cmd+V still routes through the rich paste handler for
+ * images/URLs.)
+ */
+async function pasteText(view: EditorView) {
+  try {
+    const text = await navigator.clipboard.readText()
+    if (!text) return
+    view.dispatch(view.state.tr.insertText(text).scrollIntoView())
+    view.focus()
+  } catch { /* clipboard permission denied */ }
+}
+
 export function createRichActions(view: EditorView): EditorActions {
   return {
     canRun(id) {
@@ -71,14 +86,12 @@ export function createRichActions(view: EditorView): EditorActions {
     async run(id) {
       if (id in MARK_BY_ID) return toggle(view, MARK_BY_ID[id])
       switch (id) {
-        case 'cut':       document.execCommand('cut'); return
-        case 'copy':      document.execCommand('copy'); return
-        case 'paste':     document.execCommand('paste'); return
-        case 'selectAll': {
-          const { doc } = view.state
-          view.dispatch(view.state.tr.setSelection(TextSelection.create(doc, 0, doc.content.size)))
+        case 'cut':       view.focus(); document.execCommand('cut'); return
+        case 'copy':      view.focus(); document.execCommand('copy'); return
+        case 'paste':     return pasteText(view)
+        case 'selectAll':
+          view.dispatch(view.state.tr.setSelection(new AllSelection(view.state.doc)))
           view.focus(); return
-        }
         case 'wikilink':  return wrapWikilink(view)
         case 'link':      return toggleLink(view)
         case 'h1':        return setBlock(view, 'heading', { level: 1 })

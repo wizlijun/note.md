@@ -68,6 +68,18 @@ function insertText(h: SourceHandle, text: string) {
   replaceRange(h, start, end, text)
 }
 
+/**
+ * Paste clipboard text at the current selection. `execCommand('paste')` is
+ * blocked in Tauri's WKWebView, so read the clipboard directly and splice.
+ */
+async function pasteText(h: SourceHandle) {
+  try {
+    const text = await navigator.clipboard.readText()
+    if (!text) return
+    insertText(h, text)
+  } catch { /* clipboard permission denied */ }
+}
+
 export function createSourceActions(h: SourceHandle): EditorActions {
   return {
     canRun(id) {
@@ -77,9 +89,9 @@ export function createSourceActions(h: SourceHandle): EditorActions {
     async run(id) {
       if (id in WRAP_BY_ID) { const [o, c] = WRAP_BY_ID[id]; return wrap(h, o, c) }
       switch (id) {
-        case 'cut':       document.execCommand('cut'); return
-        case 'copy':      document.execCommand('copy'); return
-        case 'paste':     document.execCommand('paste'); return
+        case 'cut':       h.el.focus(); document.execCommand('cut'); return
+        case 'copy':      h.el.focus(); document.execCommand('copy'); return
+        case 'paste':     return pasteText(h)
         case 'selectAll': h.el.focus(); h.el.select(); return
         case 'wikilink':  return wikilink(h)
         case 'link':      return link(h)
