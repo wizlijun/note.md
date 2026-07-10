@@ -6,11 +6,14 @@ import { syncAutoItems, regenerate as regenerateTree } from './sync'
 import { parseInline } from './parser'
 import type { BacklinkIndex } from './backlinks'
 import { pageNameOf } from './backlinks'
+import { touchFrontmatter, fmHas } from './frontmatter'
 
 export interface OutlineState {
   /** 主文件路径（当前面板绑定的 tab 文件） */
   mainPath: string | null
   companionPath: string | null
+  /** 全屏大纲 tab 模式:当前挂载的 .note.md 路径 */
+  docPath: string | null
   tree: OutlineTree
   /** 触发 Svelte 重渲染的版本号：任何树结构/内容变更后 bump */
   version: number
@@ -28,6 +31,7 @@ export interface OutlineState {
 export const outline = $state<OutlineState>({
   mainPath: null,
   companionPath: null,
+  docPath: null,
   tree: createTree(),
   version: 0,
   editingId: null,
@@ -81,6 +85,46 @@ export function isEffectivelyEmpty(tree: OutlineTree): boolean {
 
 /** copy-ref 时固定写入 id 的集合：确保即使引用被粘到别的文件，本文件也会落盘 id:: */
 export const pinnedIds = new Set<string>()
+
+// ---------- 全屏大纲 tab 模式(phase 2):IO 由 tabs 体系接管,这里只有内存树 ----------
+
+let changeSink: (() => void) | null = null
+/** 编辑器注册:任何树变更(markDirty)后被调用,负责 serializeDoc → setContent(tab) */
+export function setChangeSink(fn: (() => void) | null): void { changeSink = fn }
+
+/**
+ * 挂载一篇 .note.md 文本到全局树。mainContent 非 null(伴生笔记)时对主文档
+ * 跑一次派生同步(spec §4:派生移到大纲 tab 挂载时)。不写盘、不触发 sink。
+ */
+export async function attachDoc(docPath: string, text: string, mainContent: string | null): Promise<void> {
+  outline.docPath = docPath
+  outline.tree = parseOutline(text)
+  outline.editingId = null
+  outline.selectedIds = new Set()
+  outline.selectionAnchor = null
+  // 存量文件缺 created → 补文件 birthtime(测试环境 stat 不可用,静默跳过)
+  if (!fmHas(outline.tree.frontmatter, 'created')) {
+    const info = await import('@tauri-apps/plugin-fs')
+      .then(m => m.stat(docPath)).catch(() => null)
+    if (info?.birthtime) {
+      outline.tree.frontmatter = touchFrontmatter(outline.tree.frontmatter, {
+        title: pageNameOf(docPath), created: new Date(info.birthtime).toISOString(),
+      })
+    }
+  }
+  if (mainContent != null) syncAutoItems(outline.tree, deriveAutoItems(mainContent))
+  bump()
+}
+
+/** 序列化当前树(含 title/created 补齐 + updated 刷新)。编辑器 sink 与保存共用。 */
+export function serializeDoc(): string {
+  if (outline.docPath) {
+    outline.tree.frontmatter = touchFrontmatter(outline.tree.frontmatter, {
+      title: pageNameOf(outline.docPath),
+    })
+  }
+  return serializeOutline(outline.tree, new Set([...persistIdsFor(outline.tree), ...pinnedIds]))
+}
 
 // ---------- IO 管线（组件层通过这些函数驱动；手动验证覆盖） ----------
 
@@ -143,6 +187,7 @@ export function detach(): void {
   if (syncTimer) { clearTimeout(syncTimer); syncTimer = null }
   outline.mainPath = null
   outline.companionPath = null
+  outline.docPath = null
   outline.tree = createTree()
   outline.editingId = null
   outline.selectedIds = new Set()
@@ -171,6 +216,7 @@ export function regenerate(mainContent: string): void {
 // -- 树变更 → debounce 800ms 写伴生文件；关面板/换 tab 前调 flushSave()
 let saveTimer: ReturnType<typeof setTimeout> | null = null
 export function markDirty(): void {
+  if (changeSink) { changeSink(); return }   // tab 模式:同步通知编辑器
   outline.dirty = true
   if (saveTimer) clearTimeout(saveTimer)
   saveTimer = setTimeout(() => { void flushSave() }, 800)
@@ -182,7 +228,6 @@ export async function flushSave(): Promise<void> {
   if (!outline.dirty || !path) return
   if (isEffectivelyEmpty(outline.tree)) { outline.dirty = false; return }  // don't write phantom companion
 
-  const { touchFrontmatter, fmHas } = await import('./frontmatter')
   let created: string | undefined
   if (!fmHas(outline.tree.frontmatter, 'created')) {
     const { stat } = await import('@tauri-apps/plugin-fs')
