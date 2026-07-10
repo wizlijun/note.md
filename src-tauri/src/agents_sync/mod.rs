@@ -82,6 +82,9 @@ fn start(app: &tauri::AppHandle, root: &Path) {
         // Startup check catches divergence that happened while the app was
         // closed (baseline is persisted).
         run_check(&app, &root);
+        // stale() is consulted only between checks: an in-flight run_check on
+        // a retired thread may overlap the new generation's first check. Worst
+        // case is a redundant mirror/baseline write — benign, self-correcting.
         loop {
             let stale = || {
                 app.state::<AgentsSyncState>().generation.load(Ordering::SeqCst) != my_gen
@@ -108,6 +111,8 @@ fn start(app: &tauri::AppHandle, root: &Path) {
 
 fn run_check(app: &tauri::AppHandle, root: &Path) {
     let state = app.state::<AgentsSyncState>();
+    // Cheap early-out; the authoritative single-dialog gate is the swap()
+    // in prompt_conflict.
     if state.prompting.load(Ordering::SeqCst) {
         return;
     }
@@ -131,6 +136,20 @@ fn run_check(app: &tauri::AppHandle, root: &Path) {
         }
         SyncAction::PromptConflict => prompt_conflict(app, root),
     }
+}
+
+/// Copy `path` to a timestamped file in the OS temp dir before a conflict
+/// resolution overwrites it. Best-effort: either dialog choice (and Esc,
+/// which maps to the second button on macOS) replaces one side wholesale,
+/// so no choice may silently destroy content.
+fn backup_to_temp(path: &Path) {
+    let Some(name) = path.file_name().and_then(|n| n.to_str()) else { return };
+    let ts = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    let dest = std::env::temp_dir().join(format!("mdeditor-agents-backup-{ts}-{name}"));
+    let _ = std::fs::copy(path, &dest);
 }
 
 fn prompt_conflict(app: &tauri::AppHandle, root: &Path) {
@@ -174,6 +193,7 @@ fn prompt_conflict(app: &tauri::AppHandle, root: &Path) {
             } else {
                 (root.join(watcher::AGENTS_FILE), root.join(watcher::CLAUDE_FILE))
             };
+            backup_to_temp(&to);
             let _ = std::fs::copy(&from, &to);
             if let Some(bp) = baseline_path(&app) {
                 baseline::save(&bp, &current_state(&root));
@@ -191,9 +211,9 @@ pub fn edit_agents_md(app: &tauri::AppHandle) {
     } else {
         // No vault yet: reuse the folder picker, then open. The picker's
         // shared path (pick_sync_folder_inner) also calls restart() for us.
-        let app = app.clone();
-        crate::pick_sync_folder_inner(&app.clone(), move |path| {
-            open_agents_in_editor(&app, Path::new(&path));
+        let app_for_open = app.clone();
+        crate::pick_sync_folder_inner(app, move |path| {
+            open_agents_in_editor(&app_for_open, Path::new(&path));
         });
     }
 }
