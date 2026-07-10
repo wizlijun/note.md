@@ -34,7 +34,7 @@
 <svelte:window onmousedown={onWindowMousedown} />
 
 <div
-  class="note-edit"
+  class="note-edit menu-panel"
   bind:this={root}
   style="left:{editState.x}px; top:{editState.y}px"
   onkeydown={onKeydown}
@@ -59,18 +59,12 @@
 </div>
 
 <style>
-  /* Flat panel matching EditorContextMenu: system colors + color-mix handle
-     light/dark automatically; font inherits from the app/theme. */
+  /* Chrome comes from the shared .menu-panel class in app.css. */
   .note-edit {
     position: fixed;
     z-index: 1001;
     width: 280px;
     padding: 6px;
-    background: Canvas;
-    color: CanvasText;
-    border: 1px solid color-mix(in srgb, CanvasText 18%, Canvas);
-    border-radius: 8px;
-    box-shadow: 0 4px 16px color-mix(in srgb, CanvasText 18%, transparent);
     font: inherit;
     font-size: 13px;
   }
