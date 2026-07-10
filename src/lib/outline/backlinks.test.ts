@@ -8,6 +8,11 @@ describe('pageNameOf', () => {
     expect(pageNameOf('/dir/Foo.notes.md')).toBe('Foo')
     expect(pageNameOf('/dir/a.b.md')).toBe('a.b')
   })
+  it('strips .note.md, legacy .notes.md and plain .md', () => {
+    expect(pageNameOf('/v/foo.note.md')).toBe('foo')
+    expect(pageNameOf('/v/foo.notes.md')).toBe('foo')
+    expect(pageNameOf('/v/foo.md')).toBe('foo')
+  })
 })
 
 describe('index', () => {

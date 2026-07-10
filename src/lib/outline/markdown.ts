@@ -3,6 +3,14 @@ import { createTree, addNode, childrenOf, newId, type OutlineTree, type OutlineN
 
 const PROP_RE = /^(type|line|id|collapsed|created|updated):: (.*)$/
 
+/** 文件头部 YAML front-matter 块。必须从第 0 字符开始,--- 独占一行。 */
+const FM_RE = /^---\r?\n([\s\S]*?)\r?\n---(\r?\n|$)/
+
+export function splitFrontmatterBlock(text: string): { frontmatter: string | null; body: string } {
+  const m = text.match(FM_RE)
+  return m ? { frontmatter: m[1], body: text.slice(m[0].length) } : { frontmatter: null, body: text }
+}
+
 /**
  * Serialize the tree to companion-file markdown.
  * `persistIds`: node ids that must be written (manual block-ref targets).
@@ -11,6 +19,7 @@ const PROP_RE = /^(type|line|id|collapsed|created|updated):: (.*)$/
  */
 export function serializeOutline(tree: OutlineTree, persistIds: Set<string> = new Set()): string {
   const lines: string[] = []
+  if (tree.frontmatter != null) lines.push('---', tree.frontmatter, '---')
   const walk = (parentId: string | null, depth: number) => {
     for (const n of childrenOf(tree, parentId)) {
       const indent = '  '.repeat(depth)
@@ -36,6 +45,8 @@ export function serializeOutline(tree: OutlineTree, persistIds: Set<string> = ne
 
 export function parseOutline(text: string): OutlineTree {
   const tree = createTree()
+  const { frontmatter, body } = splitFrontmatterBlock(text)
+  tree.frontmatter = frontmatter
 
   // 每层的"当前节点"栈：stack[d] = 深度 d 的最近节点
   const stack: OutlineNode[] = []
@@ -65,7 +76,7 @@ export function parseOutline(text: string): OutlineTree {
     return node
   }
 
-  for (const raw of text.split('\n')) {
+  for (const raw of body.split('\n')) {
     if (raw.trim() === '') continue
     const bullet = raw.match(/^((?:  )*)- (.*)$/)
     if (bullet) {

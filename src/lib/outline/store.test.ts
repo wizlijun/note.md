@@ -4,12 +4,14 @@ import { companionPathFor, persistIdsFor, isEffectivelyEmpty } from './store.sve
 import { createTree, addNode } from './model'
 
 describe('companionPathFor', () => {
-  it('maps main file to sibling .notes.md', () => {
-    expect(companionPathFor('/d/foo.md')).toBe('/d/foo.notes.md')
-    expect(companionPathFor('/d/bar.markdown')).toBe('/d/bar.notes.md')
+  it('maps main file to sibling .note.md', () => {
+    expect(companionPathFor('/d/foo.md')).toBe('/d/foo.note.md')
+    expect(companionPathFor('/d/bar.markdown')).toBe('/d/bar.note.md')
   })
-  it('null for companion files themselves and non-md', () => {
+  it('null for companion files themselves (new and legacy suffix) and non-md', () => {
+    expect(companionPathFor('/d/foo.note.md')).toBeNull()
     expect(companionPathFor('/d/foo.notes.md')).toBeNull()
+    expect(companionPathFor('/d/FOO.NOTE.MD')).toBeNull()
     expect(companionPathFor('/d/x.png')).toBeNull()
   })
 })

@@ -5,6 +5,7 @@ import { deriveAutoItems } from './derive'
 import { syncAutoItems, regenerate as regenerateTree } from './sync'
 import { parseInline } from './parser'
 import type { BacklinkIndex } from './backlinks'
+import { pageNameOf } from './backlinks'
 
 export interface OutlineState {
   /** 主文件路径（当前面板绑定的 tab 文件） */
@@ -47,10 +48,13 @@ export function clearSelection(): void {
   if (outline.selectedIds.size > 0) outline.selectedIds = new Set()
 }
 
+/** 新旧两种大纲后缀(迁移期兼容识别) */
+export const OUTLINE_SUFFIX_RE = /\.notes?\.md$/i
+
 export function companionPathFor(mainPath: string): string | null {
-  if (/\.notes\.md$/i.test(mainPath)) return null
+  if (OUTLINE_SUFFIX_RE.test(mainPath)) return null
   const m = mainPath.match(/^(.*)\.(md|markdown|mdown|mkd)$/i)
-  return m ? `${m[1]}.notes.md` : null
+  return m ? `${m[1]}.note.md` : null
 }
 
 /** 需要写 id:: 的节点：被 ((ref)) 引用的 + 带手写子节点的 auto 节点 */
@@ -66,7 +70,7 @@ export function persistIdsFor(tree: OutlineTree): Set<string> {
 }
 
 /** True when the tree carries no meaningful outline: no auto nodes and every
- *  manual node is blank. Used to skip writing a phantom `.notes.md`. */
+ *  manual node is blank. Used to skip writing a phantom `.note.md`. */
 export function isEffectivelyEmpty(tree: OutlineTree): boolean {
   for (const n of tree.nodes.values()) {
     if (n.source !== 'manual') return false
@@ -101,6 +105,11 @@ export async function attachTab(mainPath: string, mainContent: string): Promise<
   await flushSave()                                    // clears saveTimer internally
   if (token !== attachSeq) return
   if (syncTimer) { clearTimeout(syncTimer); syncTimer = null }
+
+  // 旧后缀伴生文件就地迁移(在读伴生文件之前)
+  const { migrateLegacyCompanion } = await import('./migrate')
+  await migrateLegacyCompanion(mainPath)
+  if (token !== attachSeq) return
 
   outline.mainPath = mainPath
   outline.companionPath = companion
@@ -172,6 +181,20 @@ export async function flushSave(): Promise<void> {
   const path = outline.companionPath
   if (!outline.dirty || !path) return
   if (isEffectivelyEmpty(outline.tree)) { outline.dirty = false; return }  // don't write phantom companion
+
+  const { touchFrontmatter, fmHas } = await import('./frontmatter')
+  let created: string | undefined
+  if (!fmHas(outline.tree.frontmatter, 'created')) {
+    const { stat } = await import('@tauri-apps/plugin-fs')
+    const info = await stat(path).catch(() => null)
+    created = info?.birthtime ? new Date(info.birthtime).toISOString() : undefined
+  }
+  // touchFrontmatter 返回值不带尾换行：serializeOutline 会把它夹在 ---\n…\n--- 之间
+  outline.tree.frontmatter = touchFrontmatter(outline.tree.frontmatter, {
+    title: pageNameOf(path),
+    created,
+  })
+
   const text = serializeOutline(outline.tree, new Set([...persistIdsFor(outline.tree), ...pinnedIds]))
   const { writeTextFile } = await import('@tauri-apps/plugin-fs')
   try {

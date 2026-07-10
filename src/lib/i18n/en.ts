@@ -344,6 +344,7 @@ export const en = {
   'outline.cmd.moveDown': 'Move down',
   'outline.cmd.bold': 'Bold',
   'outline.cmd.italic': 'Italic',
+  'outline.migrate.conflict': 'Legacy note not migrated (target exists): {path}',
 
   // Folder view
   'folderView.parentFolder': 'Parent folder',
