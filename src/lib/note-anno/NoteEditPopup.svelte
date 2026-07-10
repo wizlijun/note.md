@@ -83,7 +83,7 @@
     outline: none;
   }
   textarea:focus {
-    background: color-mix(in srgb, AccentColor 8%, Canvas);
+    background: color-mix(in srgb, CanvasText 9%, Canvas);
   }
   .row { display: flex; justify-content: flex-end; margin-top: 4px; }
   .del {
@@ -100,7 +100,7 @@
     color: color-mix(in srgb, CanvasText 65%, Canvas);
   }
   .del:hover {
-    background: color-mix(in srgb, AccentColor 12%, Canvas);
+    background: color-mix(in srgb, CanvasText 10%, Canvas);
     color: CanvasText;
   }
   /* iconSvg() emits class="ctx-icon" inside {@html} — style it unscoped. */

@@ -32,7 +32,11 @@ html, body, #app {
   border-radius: 10px;
   box-shadow: 0 10px 34px rgba(0, 0, 0, 0.22), 0 1px 3px rgba(0, 0, 0, 0.1);
   padding: 5px;
+  /* Always the system UI font — menus mounted inside the editor must not
+     inherit the document theme's content font. */
+  font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
   font-size: 13px;
+  font-weight: 400;
 }
 .menu-row {
   display: flex;
@@ -43,10 +47,21 @@ html, body, #app {
   white-space: nowrap;
   cursor: default;
 }
+/* Native menu highlight: accent-blue row, text flips to white — exactly like
+   NSMenu. `AccentColorText` is unreliable in WebKit (text stayed black), so
+   the text color is explicit white; the macOS menu-blue fallback upgrades to
+   the user's accent color where `AccentColor` is actually supported. */
 .menu-row.active,
 .menu-row:hover {
-  background: AccentColor;
-  color: AccentColorText;
+  background: #0a63ff;
+  color: #fff;
+}
+@supports (background: AccentColor) {
+  .menu-row.active,
+  .menu-row:hover {
+    background: AccentColor;
+    color: #fff;
+  }
 }
 .menu-row.disabled { opacity: 0.35; pointer-events: none; }
 .menu-sep {
