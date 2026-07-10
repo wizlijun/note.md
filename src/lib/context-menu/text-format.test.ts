@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { applyWrap, expandToWord } from './text-format'
+import { applyWrap, expandToWord, insertNoteMarkup } from './text-format'
 
 describe('applyWrap', () => {
   it('wraps a selection', () => {
@@ -40,5 +40,27 @@ describe('expandToWord', () => {
   })
   it('returns the cursor collapsed when not on a word', () => {
     expect(expandToWord('foo   bar', 4)).toEqual({ start: 4, end: 4 })
+  })
+})
+
+describe('insertNoteMarkup', () => {
+  it('wraps a selection and puts the caret inside the note', () => {
+    const r = insertNoteMarkup('hello world', 6, 11)
+    expect(r.value).toBe('hello {==world==}{>><<}')
+    expect(r.selStart).toBe(r.value.length - 3)
+    expect(r.selEnd).toBe(r.selStart)
+  })
+
+  it('inserts a bare point annotation on a collapsed selection', () => {
+    const r = insertNoteMarkup('hello', 5, 5)
+    expect(r.value).toBe('hello{>><<}')
+    expect(r.selStart).toBe('hello{>>'.length)
+    expect(r.selEnd).toBe(r.selStart)
+  })
+
+  it('inserts mid-text without touching surroundings', () => {
+    const r = insertNoteMarkup('abcd', 2, 2)
+    expect(r.value).toBe('ab{>><<}cd')
+    expect(r.selStart).toBe('ab{>>'.length)
   })
 })
