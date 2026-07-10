@@ -358,6 +358,7 @@ export const zh: Record<keyof Messages, string> = {
   'outline.copySubtree': '复制子树为 Markdown',
   'outline.copyBlockRef': '复制块引用',
   'outline.delete': '删除',
+  'outline.noteWriteFailed': '主文档中未找到对应批注，修改未同步',
   'outline.deleteConfirm': '删除该节点及其全部子节点？',
   'outline.backlinks': '反向链接',
   'outline.noBacklinks': '暂无反向链接',
