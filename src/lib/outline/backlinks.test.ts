@@ -1,6 +1,6 @@
 // src/lib/outline/backlinks.test.ts
 import { describe, it, expect } from 'vitest'
-import { createIndex, indexFileContent, removeFileFromIndex, backlinksFor, pageNameOf, pageCandidates, resolveTarget, detectNameCollisions } from './backlinks'
+import { createIndex, indexFileContent, removeFileFromIndex, backlinksFor, pageNameOf, pageCandidates, resolveTarget, detectNameCollisions, isWikiPagePath } from './backlinks'
 
 function idxWith(files: Record<string, string>) {
   const idx = createIndex()
@@ -86,5 +86,34 @@ describe('index', () => {
     indexFileContent(idx, '/d/Alpha.notes.md', 'y\n')
     indexFileContent(idx, '/d/Beta.md', 'z\n')
     expect(pageCandidates(idx).sort()).toEqual(['Alpha', 'Beta'])
+  })
+})
+
+describe('isWikiPagePath', () => {
+  const scope = { root: '/v', dirs: ['wikipage', 'dailynote'] }
+  it('true for .md directly under a scope dir', () => {
+    expect(isWikiPagePath(scope, '/v/wikipage/x.note.md')).toBe(true)
+  })
+  it('true for .md nested deeper under a scope dir (recursive)', () => {
+    expect(isWikiPagePath(scope, '/v/dailynote/2026/2026-07-11.note.md')).toBe(true)
+  })
+  it('false for .md outside scope dirs', () => {
+    expect(isWikiPagePath(scope, '/v/sub/x.md')).toBe(false)
+  })
+  it('false for a file sitting at root without a scope dir', () => {
+    expect(isWikiPagePath(scope, '/v/x.md')).toBe(false)
+  })
+  it('false for non-.md even under a scope dir', () => {
+    expect(isWikiPagePath(scope, '/v/wikipage/x.txt')).toBe(false)
+  })
+  it('false when path is outside root', () => {
+    expect(isWikiPagePath(scope, '/other/wikipage/x.md')).toBe(false)
+  })
+  it('null scope → every .md is a page (backward compat)', () => {
+    expect(isWikiPagePath(null, '/anywhere/x.md')).toBe(true)
+    expect(isWikiPagePath(null, '/anywhere/x.txt')).toBe(false)
+  })
+  it('tolerates trailing slash on root', () => {
+    expect(isWikiPagePath({ root: '/v/', dirs: ['wikipage'] }, '/v/wikipage/x.md')).toBe(true)
   })
 })

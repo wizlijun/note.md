@@ -4,17 +4,35 @@ import { basename, joinPath } from '../fs'
 
 export interface BacklinkHit { file: string; text: string; line: number }
 
+/** 页面命名空间：root 下第一段目录 ∈ dirs 的 .md 才算 wiki 页（递归）。 */
+export interface PageScope { root: string; dirs: string[] }
+
 export interface BacklinkIndex {
   /** lowercased target → hits */
   byTarget: Map<string, BacklinkHit[]>
   /** file → its targets（增量更新用） */
   fileTargets: Map<string, Set<string>>
-  /** 已索引文件的页面名（[[ 补全候选） */
+  /** 已索引「wiki 页」的页面名（[[ 补全候选 / 解析目标） */
   filePages: Map<string, string>
+  /** 页面命名空间；null = 所有 .md 都是页面（向后兼容） */
+  scope: PageScope | null
 }
 
-export function createIndex(): BacklinkIndex {
-  return { byTarget: new Map(), fileTargets: new Map(), filePages: new Map() }
+export function createIndex(scope: PageScope | null = null): BacklinkIndex {
+  return { byTarget: new Map(), fileTargets: new Map(), filePages: new Map(), scope }
+}
+
+/**
+ * path 是否为「wiki 页」：相对 scope.root 的第一段 ∈ scope.dirs 且以 .md 结尾（递归子目录都算）。
+ * scope 为 null → 所有 .md 都是页面（纯逻辑调用 / 向后兼容）。
+ */
+export function isWikiPagePath(scope: PageScope | null, path: string): boolean {
+  if (!/\.md$/i.test(path)) return false
+  if (!scope) return true
+  const root = scope.root.endsWith('/') ? scope.root.slice(0, -1) : scope.root
+  if (!path.startsWith(root + '/')) return false
+  const segs = path.slice(root.length + 1).split('/')
+  return segs.length >= 2 && scope.dirs.includes(segs[0])
 }
 
 export function pageNameOf(path: string): string {
