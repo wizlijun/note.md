@@ -67,6 +67,9 @@ mod tests {
         let create = Event::new(EventKind::Create(CreateKind::File))
             .add_path(PathBuf::from("/vault/AGENTS.md"));
         assert!(should_process(&create));
+        let remove = Event::new(EventKind::Remove(notify::event::RemoveKind::File))
+            .add_path(PathBuf::from("/vault/AGENTS.md"));
+        assert!(should_process(&remove));
         let access = Event::new(EventKind::Access(notify::event::AccessKind::Any))
             .add_path(PathBuf::from("/vault/AGENTS.md"));
         assert!(!should_process(&access));
