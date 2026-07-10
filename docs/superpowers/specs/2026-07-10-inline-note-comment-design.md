@@ -89,7 +89,7 @@ markdown-it inline rule `critic_annotation`，注册在 `==` highlight 规则之
 | 入口 | rich | source |
 |---|---|---|
 | 右键菜单 | menu-model 加 `note` 项，rich-actions 映射插入命令 | source-actions 映射文本包裹 |
-| 快捷键 `Cmd+Shift+M` | RichEditor keydown 表 | SourceView onTextareaKeydown |
+| 快捷键 `Cmd+Shift+N` | RichEditor keydown 表 | SourceView onTextareaKeydown |
 | Slash 菜单 | slash-menu 加"插入批注"项 | 不适用 |
 
 i18n：`en.ts` 加扁平键（如 `ctxmenu.note`、`notepopup.delete` 等），中文目录补翻译；沿用现有 i18n 系统约定。

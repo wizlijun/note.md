@@ -1132,12 +1132,12 @@ git commit -m "feat(note): hover popover + edit popup components, editor annotat
 
 注意：`handleNoteClick` 的 capture 注册必须在 `handleImageClick` 之前不必须，但 `stopPropagation` 需保证角标点击不再触发链接/图片逻辑（capture=true 已保证先于非 capture 的 click）。
 
-- [ ] **Step 9.3: Cmd+Shift+M 快捷键**
+- [ ] **Step 9.3: Cmd+Shift+N 快捷键**
 
 `handleRichKeydown` 中拿到 `mod/shift/key/view` 之后（430 行附近，任务列表快捷键之前）加：
 
 ```ts
-    // ── Insert annotation: Cmd+Shift+M ──
+    // ── Insert annotation: Cmd+Shift+N ──
     if (mod && shift && !alt && key === 'm') {
       event.preventDefault()
       insertNoteRich(view)
@@ -1185,7 +1185,7 @@ Expected: 0 errors，全部测试 PASS。
 
 ```bash
 git add src/components/RichEditor.svelte src/lib/slash-menu/slash-items.ts
-git commit -m "feat(note): rich-mode wiring — badge plugin, hover/click popups, Cmd+Shift+M, slash item"
+git commit -m "feat(note): rich-mode wiring — badge plugin, hover/click popups, Cmd+Shift+N, slash item"
 ```
 
 ---
@@ -1273,12 +1273,12 @@ git commit -m "feat(note): context-menu note item with rich/source adapters"
 **Files:**
 - Modify: `src/components/SourceView.svelte`
 
-- [ ] **Step 11.1: Cmd+Shift+M 插入**
+- [ ] **Step 11.1: Cmd+Shift+N 插入**
 
 `onTextareaKeydown`（69 行起）的 `if (ev.metaKey || ev.ctrlKey)` 块顶部（`let open = ''` 之前）加：
 
 ```ts
-      // ── Insert annotation: Cmd+Shift+M ──
+      // ── Insert annotation: Cmd+Shift+N ──
       if (ev.shiftKey && ev.key.toLowerCase() === 'm' && tabId && textareaEl) {
         ev.preventDefault()
         ev.stopPropagation()
@@ -1339,7 +1339,7 @@ Expected: PASS。
 
 ```bash
 git add src/components/SourceView.svelte
-git commit -m "feat(note): source-mode Cmd+Shift+M insert + CriticMarkup tinting"
+git commit -m "feat(note): source-mode Cmd+Shift+N insert + CriticMarkup tinting"
 ```
 
 ---
@@ -1514,9 +1514,9 @@ EOF
 2. hover 角标/高亮文字 → 浮出批注内容预览。
 3. 点击角标 → 编辑气泡弹出、textarea 聚焦且内容选中；改文字后点外部 → 关闭；切 source 模式确认 md 文本已更新。
 4. 编辑气泡点"删除批注" → 包裹批注去掉标记但正文保留；插入点批注整体消失。
-5. rich 模式选中文字按 Cmd+Shift+M → 包裹并弹出气泡；无选区按 → 插入角标并弹气泡。
+5. rich 模式选中文字按 Cmd+Shift+N → 包裹并弹出气泡；无选区按 → 插入角标并弹气泡。
 6. rich 模式右键 → 菜单有"批注"项且可用；输入 `/` → Slash 菜单可搜到"插入批注"。
-7. source 模式：CriticMarkup 有淡黄着色；选中文字 Cmd+Shift+M → 得到 `{==选中==}{>><<}` 且光标在批注位；右键菜单"批注"同样生效。
+7. source 模式：CriticMarkup 有淡黄着色；选中文字 Cmd+Shift+N → 得到 `{==选中==}{>><<}` 且光标在批注位；右键菜单"批注"同样生效。
 8. 双模式往返切换：批注无损（rich→source→rich）。
 9. File → Print（或打印预览）：高亮 + ※ 角标出现在输出中。
 10. 深色外观下重复 1–3 步，确认配色可读。
