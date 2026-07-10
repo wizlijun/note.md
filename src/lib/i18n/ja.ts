@@ -346,6 +346,11 @@ export const ja: Record<keyof Messages, string> = {
   'outline.cmd.bold': '太字',
   'outline.cmd.italic': '斜体',
   'outline.migrate.conflict': '旧サフィックスのノートは移行されませんでした（移行先が既に存在します）: {path}',
+  'outline.dirsTitle': 'Vault フォルダ',
+  'outline.wikipageDir': 'Wiki ページフォルダ',
+  'outline.dailynoteDir': 'デイリーノートフォルダ',
+  'outline.nameCollision': 'vault 内で {n} 件のリンク名衝突。「{name}」は以下のファイルで競合:\n{files}',
+  'outline.dailyNeedsVault': 'デイリーノートを使うには、まずトレイメニューで Vault を設定してください。',
 
   // Folder view
   'folderView.parentFolder': '親フォルダ',

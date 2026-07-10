@@ -19,6 +19,7 @@
   import type { PluginManifest } from '../lib/plugins/types'
   import { isPluginActive } from '../lib/plugins/registry'
   import { outlineShortcuts, setShortcutOverride } from '../lib/outline/gate.svelte'
+  import { outlineDirs, setOutlineDir } from '../lib/outline/dirs.svelte'
   import {
     DEFAULT_SHORTCUTS, resolveShortcuts, displayShortcut, eventToShortcut, findConflict,
     type OutlineCommandId,
@@ -682,6 +683,19 @@
           {/each}
           {#if conflictMsg}<p class="shortcut-conflict">{conflictMsg}</p>{/if}
         </section>
+        <section class="block">
+          <h3>{t('outline.dirsTitle')}</h3>
+          <div class="field-row">
+            <label for="wikipage-dir">{t('outline.wikipageDir')}</label>
+            <input id="wikipage-dir" type="text" value={outlineDirs.wikipage}
+              onchange={(e) => void setOutlineDir('wikipage', (e.currentTarget as HTMLInputElement).value)} />
+          </div>
+          <div class="field-row">
+            <label for="dailynote-dir">{t('outline.dailynoteDir')}</label>
+            <input id="dailynote-dir" type="text" value={outlineDirs.dailynote}
+              onchange={(e) => void setOutlineDir('dailynote', (e.currentTarget as HTMLInputElement).value)} />
+          </div>
+        </section>
       {:else}
         {#each pluginTabs as ptab (ptab.pluginId)}
           {#if selectedTab === ptab.pluginId}
@@ -896,6 +910,27 @@
     opacity: 0.6;
   }
   .shortcut-reset:hover { opacity: 1; }
+  .field-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 6px;
+    font-size: 13px;
+  }
+  .field-row label {
+    width: 140px;
+    flex-shrink: 0;
+  }
+  .field-row input[type="text"] {
+    flex: 1;
+    padding: 4px 8px;
+    border-radius: 4px;
+    border: 1px solid color-mix(in srgb, CanvasText 25%, transparent);
+    background: Canvas;
+    color: CanvasText;
+    font-size: 12px;
+    max-width: 200px;
+  }
   .shortcut-conflict {
     color: #d44a4a;
     font-size: 12px;

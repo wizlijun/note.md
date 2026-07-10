@@ -65,6 +65,42 @@ export function pageCandidates(idx: BacklinkIndex): string[] {
   return [...new Set(idx.filePages.values())]
 }
 
+/** p 是否为"伴生笔记"(同目录存在同名主文档,均已入索引) */
+function isCompanionIn(idx: BacklinkIndex, p: string): boolean {
+  return /\.notes?\.md$/i.test(p) && idx.filePages.has(p.replace(/\.notes?\.md$/i, '.md'))
+}
+
+/**
+ * [[target]] → 文件路径(spec §5,file-over-app 修订):只按文件名(大小写不敏感)。
+ * 主文档(.md)优先;独立 .note.md(wiki 页)可为目标;伴生 .note.md 永不为目标。
+ * 无命中返回 null。
+ */
+export function resolveTarget(idx: BacklinkIndex, target: string): string | null {
+  const t = target.toLowerCase()
+  const hits = [...idx.filePages.entries()].filter(([, page]) => page.toLowerCase() === t)
+  if (hits.length === 0) return null
+  const md = hits.find(([p]) => !/\.notes?\.md$/i.test(p))
+  if (md) return md[0]
+  const standalone = hits.find(([p]) => !isCompanionIn(idx, p))
+  return standalone ? standalone[0] : null
+}
+
+/**
+ * 文件名碰撞检测(spec §5):同一链接名被多个文件竞争(伴生笔记不算,
+ * 它与主文档同名是格式约定)。返回 小写页名 → 冲突文件列表(仅 >1 时收录)。
+ */
+export function detectNameCollisions(idx: BacklinkIndex): Map<string, string[]> {
+  const byName = new Map<string, string[]>()
+  for (const [p, page] of idx.filePages.entries()) {
+    if (isCompanionIn(idx, p)) continue
+    const key = page.toLowerCase()
+    byName.set(key, [...(byName.get(key) ?? []), p])
+  }
+  const out = new Map<string, string[]>()
+  for (const [k, v] of byName) if (v.length > 1) out.set(k, v)
+  return out
+}
+
 // ---------- IO（组件层调用；vitest 不覆盖，走手动验证） ----------
 
 const MAX_FILE_BYTES = 1024 * 1024 // spec 性能护栏：仅解析 ≤1MB

@@ -47,6 +47,7 @@
   import FolderView from './components/FolderView.svelte'
   import { folderView, loadFolderViewState, setVisible } from './lib/folder-view.svelte'
   import { outlineGate, loadOutlineGate, setOutlineVisible } from './lib/outline/gate.svelte'
+  import { loadOutlineDirs } from './lib/outline/dirs.svelte'
   import { platform, isIOS } from './lib/platform.svelte'
   import { vaultStore, refreshStatus, syncNow, attachStatusListener } from './lib/vault.svelte'
   import { syncCurrentToVault, canSyncActive, isTrackedVaultFile, refreshSotvault, sotvaultStore, setVaultRootChangedHandler } from './lib/sotvault.svelte'
@@ -152,6 +153,22 @@
       },
     )
 
+    // Tray "Today's Note": create (if missing) and open today's daily note.
+    const unlistenTodayNote = listen('tray-today-note', async () => {
+      try {
+        const { ensureDailyNote, todayStr } = await import('./lib/outline/daily')
+        const p = await ensureDailyNote(todayStr())
+        if (p) {
+          await openFile(p)
+        } else {
+          pushToast({ level: 'info', message: t('outline.dailyNeedsVault') })
+        }
+      } catch (e) {
+        console.warn('[App] tray-today-note failed:', e)
+        pushToast({ level: 'error', message: String(e) })
+      }
+    })
+
     invoke<string[]>('drain_pending_files').then(async (paths) => {
       for (const p of paths) {
         try { await openFile(p) } catch (err) { console.warn('[App] drain_pending_files:', err); showError(String(err)) }
@@ -178,6 +195,7 @@
       try { await loadLocale() } catch (e) { console.warn('[App] loadLocale:', e) }
       await loadFolderViewState()
       await loadOutlineGate()
+      await loadOutlineDirs()
       await initActivePluginIds()
 
       // Kick off auto-update check (1.5s delay built in, 20h cache).
@@ -564,6 +582,7 @@
       unlistenOpenFile.then((fn) => fn())
       unlistenOpenPath.then((fn) => fn())
       unlistenOpenRemoteBuffer.then((fn) => fn())
+      unlistenTodayNote.then((fn) => fn())
       unlistenDeepLink.then((fn) => fn())
       cleanupRecents?.()
       setVaultRootChangedHandler(null)
