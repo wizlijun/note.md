@@ -127,6 +127,24 @@ describe('scoped index (wikipage/dailynote only)', () => {
     ])
     expect(pageCandidates(idx)).toEqual(['wiki'])
   })
+  // 增量重扫(file-watcher 走 indexFileContent)须沿用 scope:散落文件重扫后
+  // 仍只更新 byTarget,永不进 filePages。
+  it('re-indexing a stray file honors scope (byTarget updates, filePages stays empty)', () => {
+    const idx = scopedIdx({ '/v/sub/note.md': '- old\n' })
+    indexFileContent(idx, '/v/sub/note.md', '- now links [[Wiki]]\n')
+    expect(resolveTarget(idx, 'note')).toBeNull()
+    expect(pageCandidates(idx)).toEqual([])
+    expect(backlinksFor(idx, 'wiki')).toEqual([
+      { file: '/v/sub/note.md', text: 'now links [[Wiki]]', line: 1 },
+    ])
+  })
+  it('honors a custom (renamed) scope dir', () => {
+    const idx = createIndex({ root: '/v', dirs: ['notes'] })
+    indexFileContent(idx, '/v/notes/x.note.md', '- x')
+    indexFileContent(idx, '/v/wikipage/y.note.md', '- y')
+    expect(resolveTarget(idx, 'x')).toBe('/v/notes/x.note.md')
+    expect(resolveTarget(idx, 'y')).toBeNull()
+  })
 })
 
 describe('isWikiPagePath', () => {
