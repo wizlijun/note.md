@@ -2,7 +2,7 @@
   import OutlineNode from './OutlineNode.svelte'
   import InlineRender from './InlineRender.svelte'
   import { outline, bump, markDirty } from '../../lib/outline/store.svelte'
-  import { childrenOf, type OutlineNode as NodeT } from '../../lib/outline/model'
+  import { childrenOf, setNodeContent, type OutlineNode as NodeT } from '../../lib/outline/model'
   import {
     createSiblingBelow, createSiblingAbove, mergeWithPrevious,
     indentNode, outdentNode, moveNodeUp, moveNodeDown, applyInlineWrap,
@@ -49,7 +49,7 @@
   }
   function commitEdit(value: string) {
     if (node.source !== 'manual') { outline.editingId = null; return }  // auto is read-only
-    node.content = value
+    setNodeContent(node, value)
     outline.editingId = null
     bump(); markDirty()
   }
@@ -77,7 +77,7 @@
         bump(); markDirty(); focusNode(id)
         return
       }
-      node.content = el.value
+      setNodeContent(node, el.value)
       // 行首 Enter → 上方建兄弟（render.cljs handle-key-down 语义）
       const id = atStart && el.value.length > 0
         ? createSiblingAbove(outline.tree, node.id)
@@ -96,7 +96,7 @@
       const nb = e.key === 'ArrowUp' ? (atStart ? vis[idx - 1] : null) : (atEnd ? vis[idx + 1] : null)
       if (nb) {
         e.preventDefault()
-        node.content = el.value
+        setNodeContent(node, el.value)
         bump(); markDirty()
         focusNode(nb.source === 'manual' ? nb.id : null)
       }
@@ -105,7 +105,7 @@
     const cmd = matchCommand(e, resolved)
     if (!cmd) return
     e.preventDefault()
-    node.content = el.value
+    setNodeContent(node, el.value)
     if (cmd === 'outline.indent') indentNode(outline.tree, node.id)
     else if (cmd === 'outline.outdent') outdentNode(outline.tree, node.id)
     else if (cmd === 'outline.toggleCollapse') node.collapsed = !node.collapsed
@@ -115,7 +115,7 @@
       const r = applyInlineWrap(el.value, el.selectionStart, el.selectionEnd, cmd === 'outline.bold' ? '**' : '__')
       el.value = r.text
       el.setSelectionRange(r.selStart, r.selEnd)
-      node.content = r.text
+      setNodeContent(node, r.text)
     }
     bump(); markDirty()
   }

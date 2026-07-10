@@ -11,6 +11,21 @@ export interface OutlineNode {
   anchorLine?: number     // auto 节点：主文档 1-based 行号
   /** id:: was explicitly present in the companion file (or must be written); survives node copies */
   persistId?: boolean
+  /** ISO 8601 创建时间；仅 highlight/manual 节点记录，toc 不记 */
+  createdAt?: string
+  /** ISO 8601 最近内容修改时间；仅 highlight/manual 节点记录 */
+  updatedAt?: string
+}
+
+export function nowIso(): string {
+  return new Date().toISOString()
+}
+
+/** 统一的内容修改入口：内容变化且非 toc 节点时刷新 updatedAt */
+export function setNodeContent(node: OutlineNode, content: string): void {
+  if (node.content === content) return
+  node.content = content
+  if (node.source !== 'toc') node.updatedAt = nowIso()
 }
 
 export interface OutlineTree { nodes: Map<string, OutlineNode> }

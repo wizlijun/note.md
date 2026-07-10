@@ -91,3 +91,20 @@ describe('subtreeToMarkdown', () => {
     expect(subtreeToMarkdown(t, 'c')).toBe('- ```js\n  const x = 1\n  ```\n')
   })
 })
+
+describe('manual node timestamps', () => {
+  it('stamps createdAt on createSiblingBelow/Above', () => {
+    const t = manualTree()
+    const below = t.nodes.get(createSiblingBelow(t, 'a')!)!
+    const above = t.nodes.get(createSiblingAbove(t, 'a')!)!
+    expect(below.createdAt).toBeDefined()
+    expect(above.createdAt).toBeDefined()
+  })
+  it('stamps updatedAt on merge target', () => {
+    const t = manualTree()
+    addNode(t, { id: 'a2', parentId: null, order: 50, content: 'tail', collapsed: false, source: 'manual' })
+    const res = mergeWithPrevious(t, 'a2')!
+    expect(res.mergedInto).toBe('a')
+    expect(t.nodes.get('a')!.updatedAt).toBeDefined()
+  })
+})

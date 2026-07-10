@@ -77,3 +77,17 @@ describe('round-trip（验收标准 2）', () => {
     expect(roundTrip(md)).toBe(md)
   })
 })
+
+describe('created/updated timestamps', () => {
+  it('round-trips created:: and updated:: property lines', () => {
+    const md = '- note\n  created:: 2026-07-10T01:02:03.000Z\n  updated:: 2026-07-10T04:05:06.000Z\n'
+    const t = parseOutline(md)
+    const n = [...t.nodes.values()][0]
+    expect(n.createdAt).toBe('2026-07-10T01:02:03.000Z')
+    expect(n.updatedAt).toBe('2026-07-10T04:05:06.000Z')
+    expect(serializeOutline(t)).toBe(md)
+  })
+  it('omits timestamp lines when fields are absent', () => {
+    expect(roundTrip('- plain\n')).toBe('- plain\n')
+  })
+})

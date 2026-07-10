@@ -1,6 +1,6 @@
 // src/lib/outline/commands.ts
 import {
-  childrenOf, calculateOrderBetween, normalizeSiblingOrders, newId,
+  childrenOf, calculateOrderBetween, normalizeSiblingOrders, newId, nowIso, setNodeContent,
   visibleNodes, removeSubtree, collectDescendantIds, isValidDropTarget,
   type OutlineTree, type OutlineNode,
 } from './model'
@@ -21,7 +21,7 @@ export function createSiblingBelow(tree: OutlineTree, currentId: string): string
   const nextOrder = idx < siblings.length - 1 ? (idx + 1) * 100 : null
   const node: OutlineNode = {
     id: newId(), parentId: cur.parentId, order: calculateOrderBetween(idx * 100, nextOrder),
-    content: '', collapsed: false, source: 'manual',
+    content: '', collapsed: false, source: 'manual', createdAt: nowIso(),
   }
   tree.nodes.set(node.id, node)
   return node.id
@@ -36,7 +36,7 @@ export function createSiblingAbove(tree: OutlineTree, currentId: string): string
   const order = idx > 0 ? calculateOrderBetween((idx - 1) * 100, idx * 100) : idx * 100 - 100
   const node: OutlineNode = {
     id: newId(), parentId: cur.parentId, order,
-    content: '', collapsed: false, source: 'manual',
+    content: '', collapsed: false, source: 'manual', createdAt: nowIso(),
   }
   tree.nodes.set(node.id, node)
   return node.id
@@ -105,7 +105,7 @@ export function mergeWithPrevious(tree: OutlineTree, id: string): { mergedInto: 
     return { mergedInto: prev.id, joinAt: prev.content.length }
   }
   const joinAt = prev.content.length
-  prev.content += node.content
+  setNodeContent(prev, prev.content + node.content)
   tree.nodes.delete(id)
   return { mergedInto: prev.id, joinAt }
 }

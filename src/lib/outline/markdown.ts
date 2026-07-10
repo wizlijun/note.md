@@ -1,7 +1,7 @@
 // src/lib/outline/markdown.ts
 import { createTree, addNode, childrenOf, newId, type OutlineTree, type OutlineNode, type NodeSource } from './model'
 
-const PROP_RE = /^(type|line|id|collapsed):: (.*)$/
+const PROP_RE = /^(type|line|id|collapsed|created|updated):: (.*)$/
 
 /**
  * Serialize the tree to companion-file markdown.
@@ -21,6 +21,8 @@ export function serializeOutline(tree: OutlineTree, persistIds: Set<string> = ne
         lines.push(`${indent}  type:: ${n.source}`)
         if (n.anchorLine != null) lines.push(`${indent}  line:: ${n.anchorLine}`)
       }
+      if (n.createdAt) lines.push(`${indent}  created:: ${n.createdAt}`)
+      if (n.updatedAt) lines.push(`${indent}  updated:: ${n.updatedAt}`)
       if (n.persistId === true || persistIds.has(n.id)) {
         lines.push(`${indent}  id:: ${n.id}`)
       }
@@ -82,6 +84,8 @@ export function parseOutline(text: string): OutlineTree {
           if (key === 'type' && (value === 'toc' || value === 'highlight')) current.source = value as NodeSource
           else if (key === 'line') current.anchorLine = parseInt(value, 10)
           else if (key === 'collapsed') current.collapsed = value === 'true'
+          else if (key === 'created') current.createdAt = value
+          else if (key === 'updated') current.updatedAt = value
           else if (key === 'id') {
             // 重键：换 id 需迁移 map（此时尚无子节点，直接迁移 map）
             // Invariant: id:: precedes any children of this node.

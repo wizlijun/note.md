@@ -1,5 +1,5 @@
 // src/lib/outline/sync.ts
-import { childrenOf, newId, calculateOrderBetween, type OutlineTree, type OutlineNode } from './model'
+import { childrenOf, newId, nowIso, setNodeContent, calculateOrderBetween, type OutlineTree, type OutlineNode } from './model'
 import type { AutoItem } from './derive'
 
 const keyOf = (source: string, content: string) => source + ' ' + content
@@ -72,7 +72,7 @@ export function syncAutoItems(tree: OutlineTree, items: AutoItem[]): void {
     const pid = parent ? parent.id : null
     let node = matchedNew.get(idx)
     if (node) {
-      node.content = it.content
+      setNodeContent(node, it.content)
       node.anchorLine = it.anchorLine
       node.parentId = pid
       node.order = nextAutoOrder(pid)
@@ -80,6 +80,7 @@ export function syncAutoItems(tree: OutlineTree, items: AutoItem[]): void {
       node = {
         id: newId(), parentId: pid, order: nextAutoOrder(pid),
         content: it.content, collapsed: false, source: it.source, anchorLine: it.anchorLine,
+        ...(it.source === 'highlight' ? { createdAt: nowIso() } : {}),
       }
       tree.nodes.set(node.id, node)
     }

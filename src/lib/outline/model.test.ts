@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest'
 import {
   createTree, addNode, childrenOf, calculateOrderBetween,
   normalizeSiblingOrders, collectDescendantIds, isValidDropTarget,
-  visibleNodes, removeSubtree, type OutlineTree,
+  visibleNodes, removeSubtree, setNodeContent, type OutlineTree,
 } from './model'
 
 function sampleTree(): OutlineTree {
@@ -56,5 +56,30 @@ describe('tree basics', () => {
     const t = sampleTree()
     removeSubtree(t, 'b')
     expect([...t.nodes.keys()].sort()).toEqual(['a', 'c'])
+  })
+})
+
+describe('setNodeContent timestamps', () => {
+  it('sets updatedAt when content changes on non-toc nodes', () => {
+    const t = sampleTree()
+    const n = t.nodes.get('a')!
+    setNodeContent(n, 'A2')
+    expect(n.content).toBe('A2')
+    expect(n.updatedAt).toBeDefined()
+    expect(() => new Date(n.updatedAt!)).not.toThrow()
+  })
+  it('is a no-op when content is unchanged', () => {
+    const t = sampleTree()
+    const n = t.nodes.get('a')!
+    setNodeContent(n, n.content)
+    expect(n.updatedAt).toBeUndefined()
+  })
+  it('never stamps toc nodes', () => {
+    const t = sampleTree()
+    const n = t.nodes.get('a')!
+    n.source = 'toc'
+    setNodeContent(n, 'changed')
+    expect(n.content).toBe('changed')
+    expect(n.updatedAt).toBeUndefined()
   })
 })

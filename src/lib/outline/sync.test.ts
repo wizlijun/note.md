@@ -66,3 +66,22 @@ describe('regenerate', () => {
     expect([...t.nodes.values()].filter(n => n.source === 'toc')).toHaveLength(1)
   })
 })
+
+describe('timestamps', () => {
+  it('stamps createdAt on new highlight nodes but not toc nodes', () => {
+    const t = build(md1)
+    const nodes = [...t.nodes.values()]
+    const toc = nodes.find(n => n.source === 'toc')!
+    const hl = nodes.find(n => n.source === 'highlight')!
+    expect(hl.createdAt).toBeDefined()
+    expect(toc.createdAt).toBeUndefined()
+  })
+  it('keeps original createdAt on matched highlight across re-derive', () => {
+    const t = build(md1)
+    const hl = [...t.nodes.values()].find(n => n.source === 'highlight')!
+    hl.createdAt = '2026-01-01T00:00:00.000Z'
+    syncAutoItems(t, deriveAutoItems('# A\n## B\nmore\n^^hl^^\n'))
+    const hl2 = [...t.nodes.values()].find(n => n.source === 'highlight')!
+    expect(hl2.createdAt).toBe('2026-01-01T00:00:00.000Z')
+  })
+})

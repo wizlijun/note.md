@@ -10,7 +10,7 @@
     outline, attachTab, detach, scheduleSyncFromMain, regenerate,
     flushSave, bump, markDirty, pinnedIds,
   } from '../../lib/outline/store.svelte'
-  import { childrenOf, newId, calculateOrderBetween, type OutlineNode as NodeT } from '../../lib/outline/model'
+  import { childrenOf, newId, calculateOrderBetween, setNodeContent, type OutlineNode as NodeT } from '../../lib/outline/model'
   import { moveNodeAfter, moveNodeToChild, deleteNode, subtreeToMarkdown } from '../../lib/outline/commands'
   import { resolveShortcuts, type OutlineCommandId } from '../../lib/outline/shortcuts'
   import { filterSlashItems, applySlashItem, pageLinkQueryAt, confirmPageLink, filterPages, type SlashItem } from '../../lib/outline/completion'
@@ -165,7 +165,7 @@
   // caret position set by setSelectionRange survives without being reset by a Svelte patch.
   function applyToTextarea(el: HTMLTextAreaElement, node: NodeT, text: string, cursor: number) {
     el.value = text
-    node.content = text
+    setNodeContent(node, text)
     el.setSelectionRange(cursor, cursor)
     bump(); markDirty()
   }
