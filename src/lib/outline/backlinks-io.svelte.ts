@@ -4,6 +4,8 @@ import { outline, bump } from './store.svelte'
 import { buildFolderIndex, refreshFileInIndex, pageNameOf } from './backlinks'
 import { folderView, parentDir } from '../folder-view.svelte'
 import { openFile } from '../tabs.svelte'
+import { t } from '../i18n/store.svelte'
+import { pushToast } from '../toast.svelte'
 
 let unwatch: (() => void) | null = null
 let indexedRoot: string | null = null
@@ -17,7 +19,9 @@ export async function ensureIndex(mainPath: string): Promise<void> {
   teardownIndex()
   const gen = ++indexGen
   indexedRoot = root
-  const idx = await buildFolderIndex(root)
+  const idx = await buildFolderIndex(root, (legacyPath) => {
+    pushToast({ level: 'warn', message: t('outline.migrate.conflict', { path: legacyPath }) })
+  })
   if (gen !== indexGen) return   // superseded by teardown or a concurrent call
   outline.backlinkIndex = idx
   bump()

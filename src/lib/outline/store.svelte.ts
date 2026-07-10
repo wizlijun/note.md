@@ -106,6 +106,11 @@ export async function attachTab(mainPath: string, mainContent: string): Promise<
   if (token !== attachSeq) return
   if (syncTimer) { clearTimeout(syncTimer); syncTimer = null }
 
+  // 旧后缀伴生文件就地迁移(在读伴生文件之前)
+  const { migrateLegacyCompanion } = await import('./migrate')
+  await migrateLegacyCompanion(mainPath)
+  if (token !== attachSeq) return
+
   outline.mainPath = mainPath
   outline.companionPath = companion
   outline.editingId = null

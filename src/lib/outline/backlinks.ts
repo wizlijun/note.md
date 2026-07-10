@@ -70,7 +70,10 @@ export function pageCandidates(idx: BacklinkIndex): string[] {
 const MAX_FILE_BYTES = 1024 * 1024 // spec 性能护栏：仅解析 ≤1MB
 
 /** 扫描 rootDir 下所有 .md 建全量索引（递归、跳过点目录/点文件） */
-export async function buildFolderIndex(rootDir: string): Promise<BacklinkIndex> {
+export async function buildFolderIndex(
+  rootDir: string,
+  onMigrateConflict?: (legacyPath: string) => void,
+): Promise<BacklinkIndex> {
   const { readDir, readTextFile, stat } = await import('@tauri-apps/plugin-fs')
   const idx = createIndex()
   const walk = async (dir: string): Promise<void> => {
@@ -78,9 +81,15 @@ export async function buildFolderIndex(rootDir: string): Promise<BacklinkIndex> 
     for (const e of entries) {
       if (e.name.startsWith('.')) continue
       if (e.isSymlink) continue // skip symlinks to avoid cycle risk
-      const path = joinPath(dir, e.name)
+      let path = joinPath(dir, e.name)
       if (e.isDirectory) { await walk(path); continue }
       if (!/\.md$/i.test(e.name)) continue
+      if (/\.notes\.md$/i.test(e.name)) {
+        const { migrateLegacyFile, migratedPathFor } = await import('./migrate')
+        const r = await migrateLegacyFile(path)
+        if (r === 'renamed') path = migratedPathFor(path)!
+        else if (r === 'conflict') onMigrateConflict?.(path)
+      }
       const info = await stat(path).catch(() => null)
       if (info && info.size > MAX_FILE_BYTES) continue
       const content = await readTextFile(path).catch(() => null)
