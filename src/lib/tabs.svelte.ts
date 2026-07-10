@@ -264,6 +264,19 @@ export async function saveActive(): Promise<void> {
   }
 }
 
+/** 文件被应用内重命名后:更新受影响 tab 的路径/标题并重绑 watcher(spec §7)。
+ *  不改内容与脏态;调用方负责磁盘上的实际 rename。 */
+export async function updateTabPath(oldPath: string, newPath: string): Promise<void> {
+  const t = tabs.find((x) => x.filePath === oldPath)
+  if (!t) return
+  t.filePath = newPath
+  t.title = basename(newPath)
+  const cls = classifyPath(newPath)
+  if (cls) { t.kind = cls.kind; t.language = cls.language }
+  await rebindTabPath(t.id)
+  await pushRecentFile(newPath)
+}
+
 export async function saveAs(id: string, newPath: string): Promise<void> {
   const t = tabs.find((x) => x.id === id)
   if (!t) return
