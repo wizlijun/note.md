@@ -7,7 +7,6 @@
 
 <script lang="ts">
   import { getMenuModel, type MenuItemSpec } from './menu-model'
-  import { iconSvg } from './icons'
 
   let {
     position,
@@ -73,13 +72,10 @@
         <!-- svelte-ignore a11y_no_static_element_interactions -->
         <div
           class="ctx-item"
-          class:emphasis={it.emphasis}
           class:disabled={disabled(it)}
-          class:has-sub={!!it.children}
           onmouseenter={() => openSubId = it.children ? it.id : null}
           onclick={() => choose(it)}
         >
-          {#if it.icon}{@html iconSvg(it.icon)}{/if}
           <span class="ctx-label">{it.label}</span>
           {#if it.children}<span class="ctx-arrow">▸</span>{/if}
 
@@ -101,37 +97,33 @@
 </div>
 
 <style>
+  /* Plain macOS-style menu: text-only rows, native accent highlight,
+     no icons / weights / per-item colors. */
   .ctx-backdrop { position: fixed; inset: 0; z-index: 80; }
   .ctx-menu {
-    position: fixed; min-width: 200px; padding: 4px;
+    position: fixed; min-width: 180px; padding: 5px;
     background: Canvas; color: CanvasText;
-    border: 1px solid color-mix(in srgb, CanvasText 18%, Canvas);
-    border-radius: 8px;
-    box-shadow: 0 4px 16px color-mix(in srgb, CanvasText 18%, transparent);
+    border: 1px solid color-mix(in srgb, CanvasText 15%, Canvas);
+    border-radius: 6px;
+    box-shadow: 0 6px 18px color-mix(in srgb, CanvasText 22%, transparent);
     z-index: 81; font-size: 13px;
   }
-  .ctx-sep { height: 1px; margin: 4px 6px; background: color-mix(in srgb, CanvasText 12%, Canvas); }
+  .ctx-sep { height: 1px; margin: 5px 10px; background: color-mix(in srgb, CanvasText 12%, Canvas); }
   .ctx-item {
-    position: relative; display: flex; align-items: center; gap: 8px;
-    padding: 5px 10px; border-radius: 5px; cursor: pointer; user-select: none;
+    position: relative; display: flex; align-items: center;
+    padding: 3px 10px; border-radius: 4px; cursor: default; user-select: none;
     white-space: nowrap;
   }
-  .ctx-item:hover { background: color-mix(in srgb, AccentColor 12%, Canvas); }
-  .ctx-item.disabled { opacity: 0.4; pointer-events: none; }
-  .ctx-item.emphasis { font-weight: 700; }
-  .ctx-item.emphasis .ctx-label { color: AccentColor; }
-  /* `.ctx-icon` lives inside {@html}-injected SVG, so it isn't scoped — use :global. */
-  :global(.ctx-menu .ctx-icon) {
-    flex-shrink: 0; width: 16px; height: 16px; display: block; opacity: 0.7;
-  }
-  :global(.ctx-item.emphasis .ctx-icon) { opacity: 1; color: AccentColor; }
+  .ctx-item:hover { background: AccentColor; color: AccentColorText; }
+  .ctx-item.disabled { opacity: 0.35; pointer-events: none; }
   .ctx-label { flex: 1; }
-  .ctx-arrow { margin-left: 12px; opacity: 0.6; }
+  .ctx-arrow { margin-left: 16px; opacity: 0.6; font-size: 11px; }
+  .ctx-item:hover > .ctx-arrow { opacity: 1; }
   .ctx-sub {
-    position: absolute; top: -5px; left: 100%; min-width: 150px; padding: 4px;
-    background: Canvas;
-    border: 1px solid color-mix(in srgb, CanvasText 18%, Canvas);
-    border-radius: 8px;
-    box-shadow: 0 4px 16px color-mix(in srgb, CanvasText 18%, transparent);
+    position: absolute; top: -6px; left: 100%; min-width: 140px; padding: 5px;
+    background: Canvas; color: CanvasText;
+    border: 1px solid color-mix(in srgb, CanvasText 15%, Canvas);
+    border-radius: 6px;
+    box-shadow: 0 6px 18px color-mix(in srgb, CanvasText 22%, transparent);
   }
 </style>
