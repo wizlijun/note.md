@@ -332,6 +332,7 @@ export const en = {
   'outline.copySubtree': 'Copy subtree as Markdown',
   'outline.copyBlockRef': 'Copy block reference',
   'outline.delete': 'Delete',
+  'outline.noteWriteFailed': 'Annotation not found in the source document — edit not synced',
   'outline.deleteConfirm': 'Delete this node and all its children?',
   'outline.backlinks': 'Backlinks',
   'outline.noBacklinks': 'No backlinks',

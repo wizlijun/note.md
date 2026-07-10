@@ -10,8 +10,10 @@
   import BacklinksSection from './BacklinksSection.svelte'
   import {
     outline, attachDoc, detach, serializeDoc, setChangeSink, regenerate,
-    bump, markDirty, pinnedIds, setSelection, clearSelection,
+    bump, markDirty, pinnedIds, setSelection, clearSelection, companionPathFor,
   } from '../../lib/outline/store.svelte'
+  import { deriveAutoItems } from '../../lib/outline/derive'
+  import { syncAutoItems } from '../../lib/outline/sync'
   import { childrenOf, newId, calculateOrderBetween, setNodeContent, type OutlineNode as NodeT } from '../../lib/outline/model'
   import {
     moveNodeAfter, moveNodeToChild, deleteNode, subtreeToMarkdown,
@@ -26,47 +28,121 @@
   import { ensureIndex, openPageOrCreate } from '../../lib/outline/backlinks-io.svelte'
   import { untrack } from 'svelte'
 
-  let { tab }: { tab: Tab } = $props()
+  let { tab = null, mainTab = null }: {
+    /** tab 模式：单独打开的 .note.md tab —— 纯大纲编辑器 */
+    tab?: Tab | null
+    /** panel 模式：正在编辑的主文档 tab —— 全功能大纲，随主文档实时同步 */
+    mainTab?: Tab | null
+  } = $props()
 
-  /** 伴生笔记的主文档路径;独立笔记(无同名 .md)为 null */
-  let mainPath = $derived(tab.filePath.replace(/\.notes?\.md$/i, '.md'))
+  /** 伴生笔记的主文档路径 */
+  let mainPath = $derived(tab ? tab.filePath.replace(/\.notes?\.md$/i, '.md') : mainTab!.filePath)
+  /** 大纲 .note.md 路径（panel 模式来自主文档的伴生名） */
+  let notePath = $derived(tab ? tab.filePath : companionPathFor(mainTab!.filePath)!)
+  /** 大纲文本落点：.note.md tab 开着 → 走 tab（保脏标记/撤销）；否则写盘 */
+  let noteTab = $derived(tab ?? tabs.find(x => x.filePath === notePath) ?? null)
   let resolved = $derived(resolveShortcuts(outlineShortcuts.overrides))
 
-  // 挂载:解析 tab 文本 → (伴生)派生同步 → 注册 sink。若派生/补 fm 改变了
-  // 序列化结果,回写 tab 让脏标记如实反映。
+  // panel 模式无 tab 时的落盘器（防抖 + 卸载冲刷）。空大纲且文件不存在时不落盘。
+  let diskTimer: ReturnType<typeof setTimeout> | null = null
+  let diskPending: string | null = null
+  async function flushDisk() {
+    if (diskTimer) { clearTimeout(diskTimer); diskTimer = null }
+    const text = diskPending
+    diskPending = null
+    if (text == null) return
+    try {
+      const fs = await import('@tauri-apps/plugin-fs')
+      if (text.trim() === '' && !(await fs.exists(notePath).catch(() => false))) return
+      await fs.writeTextFile(notePath, text)
+    } catch (e) {
+      console.warn('[outline] write companion failed:', e)
+    }
+  }
+  function persistToDisk(text: string) {
+    diskPending = text
+    if (diskTimer) clearTimeout(diskTimer)
+    diskTimer = setTimeout(() => { void flushDisk() }, 500)
+  }
+
+  // 挂载:解析大纲文本 → 派生同步 → 注册 sink。若派生/补 fm 改变了
+  // 序列化结果,回写落点让脏标记如实反映。
   // cancelled 标志防止异步延迟到达的延续覆盖新 tab 的树/回写旧 id/装陈旧 sink。
   $effect(() => {
-    const id = tab.id
-    const path = tab.filePath
+    const path = notePath
+    const persistTab = noteTab
     let cancelled = false
     untrack(() => {
       void (async () => {
-        let mainContent: string | null = null
-        const mainTab = tabs.find(x => x.filePath === mainPath)
-        if (mainTab) mainContent = mainTab.currentContent
-        else {
+        // 大纲初始文本：tab / 镜像 tab / 磁盘
+        let noteText = persistTab?.currentContent ?? null
+        if (noteText == null) {
           const { exists, readTextFile } = await import('@tauri-apps/plugin-fs')
           if (cancelled) return
-          if (await exists(mainPath).catch(() => false)) {
-            mainContent = await readTextFile(mainPath).catch(() => null)
+          if (await exists(path).catch(() => false)) {
+            noteText = await readTextFile(path).catch(() => null)
+          }
+        }
+        // 主文档内容：panel 模式直接取主 tab；tab 模式找 tab / 读盘
+        let mainContent: string | null = mainTab?.currentContent ?? null
+        if (mainContent == null) {
+          const openMain = tabs.find(x => x.filePath === mainPath)
+          if (openMain) mainContent = openMain.currentContent
+          else {
+            const { exists, readTextFile } = await import('@tauri-apps/plugin-fs')
+            if (cancelled) return
+            if (await exists(mainPath).catch(() => false)) {
+              mainContent = await readTextFile(mainPath).catch(() => null)
+            }
           }
         }
         if (cancelled) return
-        await attachDoc(path, tab.currentContent, mainContent)
+        await attachDoc(path, noteText ?? '', mainContent)
         if (cancelled) return   // 迟到的挂载不得覆盖新 tab 的树/回写旧 id/装陈旧 sink
+        lastDerivedMain = mainContent
         const out = serializeDoc(false)
-        if (out !== tab.currentContent) setContent(id, out)
-        setChangeSink(() => setContent(id, serializeDoc()))
+        if (persistTab) {
+          if (out !== persistTab.currentContent) setContent(persistTab.id, out)
+          setChangeSink(() => setContent(persistTab.id, serializeDoc()))
+        } else {
+          if (noteText != null && out !== noteText) persistToDisk(out)
+          setChangeSink(() => persistToDisk(serializeDoc()))
+        }
       })()
     })
-    return () => { cancelled = true; untrack(() => { setChangeSink(null); detach() }) }
+    return () => {
+      cancelled = true
+      untrack(() => { setChangeSink(null); void flushDisk(); detach() })
+    }
+  })
+
+  // 主文档 → 大纲实时同步（panel 模式核心；tab 模式主 tab 开着时同样生效，
+  // 覆盖批注回写等主文档变化）。防抖后仅内容真变才重派生。
+  let lastDerivedMain: string | null = null
+  let deriveTimer: ReturnType<typeof setTimeout> | null = null
+  $effect(() => {
+    const mc = mainTab ? mainTab.currentContent
+      : tabs.find(x => x.filePath === mainPath)?.currentContent
+    if (mc == null) return
+    if (deriveTimer) clearTimeout(deriveTimer)
+    deriveTimer = setTimeout(() => {
+      untrack(() => {
+        if (mc === lastDerivedMain) return
+        lastDerivedMain = mc
+        const before = serializeDoc(false)
+        syncAutoItems(outline.tree, deriveAutoItems(mc))
+        // 只有大纲真的变了才置脏落盘（主文档大多数编辑不产生新条目）
+        if (serializeDoc(false) !== before) { bump(); markDirty() }
+      })
+    }, 300)
+    return () => { if (deriveTimer) clearTimeout(deriveTimer) }
   })
 
   // 外部变更自动重载(干净 tab)→ 重新解析
   $effect(() => {
     const handler = (e: Event) => {
       const detail = (e as CustomEvent).detail as { tabId: string; newContent: string } | undefined
-      if (!detail || detail.tabId !== tab.id) return
+      if (!detail || !tab || detail.tabId !== tab.id) return
       untrack(() => { void attachDoc(tab.filePath, detail.newContent, null) })
     }
     window.addEventListener('mdeditor:auto-reloaded', handler)
@@ -75,7 +151,7 @@
 
   // 索引是共享单例:编辑器卸载不 teardown(面板可能还在用);
   // 追踪 backlinkIndex,被别处 teardown 置 null 时自愈重建
-  $effect(() => { void outline.backlinkIndex; void ensureIndex(tab.filePath) })
+  $effect(() => { void outline.backlinkIndex; void ensureIndex(notePath) })
 
   // 跳转:伴生笔记的 auto 节点 → 打开主文档并 reveal 行号
   async function onJump(n: NodeT) {
@@ -459,7 +535,7 @@
     <div class="moraya-editor"></div>
   </div>
   <div class="toolbar">
-    <span class="doc-title">{pageNameOf(tab.filePath)}</span>
+    <span class="doc-title">{pageNameOf(notePath)}</span>
     <button class="hbtn" class:on={searchOpen} title={t('outline.search')} aria-label={t('outline.search')} onclick={toggleSearch}>
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <circle cx="11" cy="11" r="8" />
@@ -505,7 +581,7 @@
     {/if}
   </div>
   {#if !visibleIds}
-    <BacklinksSection page={pageNameOf(tab.filePath)} excludeFile={tab.filePath} />
+    <BacklinksSection page={pageNameOf(notePath)} excludeFile={notePath} />
   {/if}
   {#if menu.kind === 'slash'}
     <SlashMenu items={slashItems} selected={menu.selected} x={menu.x} y={menu.y} onPick={pickSlash} />

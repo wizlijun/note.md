@@ -80,16 +80,93 @@ describe('deriveAutoItems (H2+ paths to highlights, H1 skipped)', () => {
 })
 
 describe('wikilink derivation', () => {
-  it('emits wikilink items with [[...]] style preserved', () => {
+  it('emits the containing sentence with [[...]] style preserved', () => {
     const items = deriveAutoItems('# T\n## A\nsee [[Page One]] and ==hl==\n')
     expect(items.map(i => [i.source, i.content])).toEqual([
       ['toc', 'A'],
-      ['wikilink', '[[Page One]]'],
+      ['wikilink', 'see [[Page One]] and ==hl=='],
       ['highlight', 'hl'],
     ])
   })
   it('does not double-emit wikilinks inside a highlight span', () => {
     const items = deriveAutoItems('## A\n==note [[X]] here==\n')
     expect(items.map(i => i.source)).toEqual(['toc', 'highlight'])
+  })
+})
+
+describe('deriveAutoItems — annotations (CriticMarkup)', () => {
+  it('wrapped annotation: original text as content, note carried on the item', () => {
+    const md = '这段是{==被批注的文字==}{>>记得核实<<}，后面是正文。\n'
+    const items = deriveAutoItems(md)
+    expect(items).toEqual([
+      { source: 'annotation', content: '被批注的文字', note: '记得核实', depth: 0, anchorLine: 1 },
+    ])
+  })
+
+  it('point annotation: whole sentence (markers stripped) as content', () => {
+    const md = '前一句。这句话结尾有批注{>>单独备注<<}。后一句。\n'
+    const items = deriveAutoItems(md)
+    expect(items).toEqual([
+      { source: 'annotation', content: '这句话结尾有批注。', note: '单独备注', depth: 0, anchorLine: 1 },
+    ])
+  })
+
+  it('annotation groups under headings like highlights do', () => {
+    const md = '## A\n{==核心==}{>>注<<}\n'
+    expect(deriveAutoItems(md)).toEqual([
+      { source: 'toc', content: 'A', depth: 0, anchorLine: 1 },
+      { source: 'annotation', content: '核心', note: '注', depth: 1, anchorLine: 2 },
+    ])
+  })
+
+  it('empty note is preserved as empty string', () => {
+    const items = deriveAutoItems('{==文字==}{>><<}\n')
+    expect(items[0]).toMatchObject({ source: 'annotation', content: '文字', note: '' })
+  })
+
+  it('wrapped annotation is not double-collected as highlight', () => {
+    const items = deriveAutoItems('{==高亮词==}{>>n<<}\n')
+    expect(items.filter(i => i.source === 'highlight')).toEqual([])
+  })
+})
+
+describe('deriveAutoItems — wikilink sentence extraction', () => {
+  it('collects the whole sentence containing the wikilink', () => {
+    const md = '开头。这里提到 [[目标页]] 的内容。结尾。\n'
+    expect(strip(deriveAutoItems(md))).toEqual([
+      { source: 'wikilink', content: '这里提到 [[目标页]] 的内容。', depth: 0, anchorLine: 1 },
+    ])
+  })
+
+  it('one node per sentence even with multiple wikilinks', () => {
+    const md = '同句有 [[甲]] 和 [[乙]] 两个链接。\n'
+    const items = deriveAutoItems(md)
+    expect(items).toHaveLength(1)
+    expect(items[0].content).toBe('同句有 [[甲]] 和 [[乙]] 两个链接。')
+  })
+
+  it('does not split sentences inside [[...]]', () => {
+    const md = '看 [[a.b 页面]] 结束。\n'
+    expect(deriveAutoItems(md)[0].content).toBe('看 [[a.b 页面]] 结束。')
+  })
+
+  it('whole line when no sentence punctuation', () => {
+    const md = '- 列表项提到 [[页]]\n'
+    expect(deriveAutoItems(md)[0].content).toBe('- 列表项提到 [[页]]')
+  })
+
+  it('wikilink inside a highlight is still not separately collected', () => {
+    const md = '==含 [[链]] 的高亮== 后文。\n'
+    const items = deriveAutoItems(md)
+    expect(items).toEqual([
+      { source: 'highlight', content: '含 [[链]] 的高亮', depth: 0, anchorLine: 1 },
+    ])
+  })
+
+  it('sentence content strips annotation markers from sibling annotations', () => {
+    const md = '本句有 [[链]] 也有{==批过的词==}{>>注<<}。\n'
+    const items = deriveAutoItems(md)
+    const wl = items.find(i => i.source === 'wikilink')!
+    expect(wl.content).toBe('本句有 [[链]] 也有批过的词。')
   })
 })

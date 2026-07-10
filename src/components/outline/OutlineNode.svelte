@@ -10,6 +10,7 @@
   } from '../../lib/outline/commands'
   import { visibleNodes } from '../../lib/outline/model'
   import { matchCommand, type OutlineCommandId } from '../../lib/outline/shortcuts'
+  import { writeBackNoteEdit } from '../../lib/outline/note-writeback-io'
 
   let {
     node, depth, resolved, onJump, onPageClick, onEditorInput, onContextMenu, onDragOp,
@@ -43,6 +44,13 @@
   })
   let textareaEl: HTMLTextAreaElement | undefined = $state()
   let selected = $derived(outline.selectedIds.has(node.id))
+  // note 子节点可编辑（其余 auto 只读）；编辑起点内容留作回写定位的"旧批注"
+  let editable = $derived(node.source === 'manual' || node.source === 'note')
+  let noteBaseline: string | null = null
+
+  $effect(() => {
+    if (editing && node.source === 'note') noteBaseline = node.content
+  })
 
   $effect(() => {
     if (editing && textareaEl) {
@@ -73,6 +81,17 @@
     startEdit()
   }
   function commitEdit(value: string) {
+    if (node.source === 'note') {
+      // 批注子节点：改动写回 .note.md 树 + 主文档的 {>>…<<}
+      const old = noteBaseline ?? node.content
+      outline.editingId = null
+      if (value !== old) {
+        setNodeContent(node, value)
+        bump(); markDirty()
+        void writeBackNoteEdit(node, old, value)
+      }
+      return
+    }
     if (node.source !== 'manual') { outline.editingId = null; return }  // auto is read-only
     setNodeContent(node, value)
     outline.editingId = null
@@ -96,6 +115,11 @@
 
     if (e.key === 'Enter' && !e.shiftKey && !e.metaKey && !e.ctrlKey) {
       e.preventDefault()
+      if (node.source === 'note') {
+        // 批注子节点：回车 = 提交并退出编辑
+        commitEdit(el.value)
+        return
+      }
       if (node.source !== 'manual') {
         // read-only: Enter spawns an editable manual sibling directly below
         const id = createSiblingBelow(outline.tree, node.id)
@@ -111,6 +135,7 @@
       return
     }
     if (e.key === 'Backspace' && atStart) {
+      if (node.source === 'note') return   // 批注子节点不参与合并
       const res = mergeWithPrevious(outline.tree, node.id)
       if (res) { e.preventDefault(); bump(); markDirty(); focusNode(res.mergedInto) }
       return
@@ -121,14 +146,15 @@
       const nb = e.key === 'ArrowUp' ? (atStart ? vis[idx - 1] : null) : (atEnd ? vis[idx + 1] : null)
       if (nb) {
         e.preventDefault()
-        setNodeContent(node, el.value)
-        bump(); markDirty()
-        focusNode(nb.source === 'manual' ? nb.id : null)
+        if (node.source === 'note') commitEdit(el.value)
+        else { setNodeContent(node, el.value); bump(); markDirty() }
+        focusNode(nb.source === 'manual' || nb.source === 'note' ? nb.id : null)
       }
       return
     }
     const cmd = matchCommand(e, resolved)
     if (!cmd) return
+    if (node.source === 'note') { e.preventDefault(); return }  // 结构命令对批注子节点无效
     e.preventDefault()
     setNodeContent(node, el.value)
     if (cmd === 'outline.indent') indentNode(outline.tree, node.id)
@@ -194,6 +220,8 @@
       class:src-toc={node.source === 'toc'}
       class:src-hl={node.source === 'highlight'}
       class:src-wl={node.source === 'wikilink'}
+      class:src-anno={node.source === 'annotation'}
+      class:src-note={node.source === 'note'}
       class:jumpable={node.anchorLine != null}
       draggable={node.source === 'manual'}
       ondragstart={onDragStart}
@@ -207,7 +235,7 @@
         class:src-toc={node.source === 'toc'}
         rows="1"
         value={node.content}
-        onbeforeinput={(e) => { if (node.source !== 'manual') e.preventDefault() }}
+        onbeforeinput={(e) => { if (!editable) e.preventDefault() }}
         onblur={(e) => commitEdit((e.currentTarget as HTMLTextAreaElement).value)}
         onkeydown={onKeydown}
         oninput={(e) => {
@@ -267,6 +295,8 @@
   .bullet.src-toc { color: var(--accent-color, #4a80d4); }
   .bullet.src-hl { color: #d4a94a; }
   .bullet.src-wl { color: #3aa99f; }
+  .bullet.src-anno { color: #b8860b; }
+  .bullet.src-note { color: color-mix(in srgb, #b8860b 55%, transparent); }
   .content {
     flex: 1; min-width: 0; white-space: pre-wrap; word-break: break-word; cursor: text;
     /* 面板整体 user-select:none；节点文字本身保留可选（跨行拖动由多选接管） */

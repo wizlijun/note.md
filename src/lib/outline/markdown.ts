@@ -92,7 +92,7 @@ export function parseOutline(text: string): OutlineTree {
         const prop = body.match(PROP_RE)
         if (prop) {
           const [, key, value] = prop
-          if (key === 'type' && (value === 'toc' || value === 'highlight' || value === 'wikilink')) current.source = value as NodeSource
+          if (key === 'type' && ['toc', 'highlight', 'wikilink', 'annotation', 'note'].includes(value)) current.source = value as NodeSource
           else if (key === 'line') current.anchorLine = parseInt(value, 10)
           else if (key === 'collapsed') current.collapsed = value === 'true'
           else if (key === 'created') current.createdAt = value
