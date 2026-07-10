@@ -5,6 +5,7 @@ import { deriveAutoItems } from './derive'
 import { syncAutoItems, regenerate as regenerateTree } from './sync'
 import { parseInline } from './parser'
 import type { BacklinkIndex } from './backlinks'
+import { pageNameOf } from './backlinks'
 
 export interface OutlineState {
   /** 主文件路径（当前面板绑定的 tab 文件） */
@@ -175,6 +176,20 @@ export async function flushSave(): Promise<void> {
   const path = outline.companionPath
   if (!outline.dirty || !path) return
   if (isEffectivelyEmpty(outline.tree)) { outline.dirty = false; return }  // don't write phantom companion
+
+  const { touchFrontmatter, fmHas } = await import('./frontmatter')
+  let created: string | undefined
+  if (!fmHas(outline.tree.frontmatter, 'created')) {
+    const { stat } = await import('@tauri-apps/plugin-fs')
+    const info = await stat(path).catch(() => null)
+    created = info?.birthtime ? new Date(info.birthtime).toISOString() : undefined
+  }
+  // touchFrontmatter 返回值不带尾换行：serializeOutline 会把它夹在 ---\n…\n--- 之间
+  outline.tree.frontmatter = touchFrontmatter(outline.tree.frontmatter, {
+    title: pageNameOf(path),
+    created,
+  })
+
   const text = serializeOutline(outline.tree, new Set([...persistIdsFor(outline.tree), ...pinnedIds]))
   const { writeTextFile } = await import('@tauri-apps/plugin-fs')
   try {
