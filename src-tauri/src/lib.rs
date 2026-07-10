@@ -29,6 +29,8 @@ pub mod themes;
 #[cfg(not(target_os = "ios"))]
 pub mod vault_sync;
 #[cfg(not(target_os = "ios"))]
+pub mod agents_sync;
+#[cfg(not(target_os = "ios"))]
 pub mod sotvault;
 
 #[cfg(any(target_os = "ios", test))]
