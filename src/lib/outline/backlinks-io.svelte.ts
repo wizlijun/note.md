@@ -32,7 +32,7 @@ export async function ensureIndex(mainPath: string): Promise<void> {
   teardownIndex()
   const gen = ++indexGen
   indexedRoot = root
-  const idx = await buildFolderIndex(root, (legacyPath) => {
+  const idx = await buildFolderIndex(root, [outlineDirs.wikipage, outlineDirs.dailynote], (legacyPath) => {
     pushToast({ level: 'warn', message: t('outline.migrate.conflict', { path: legacyPath }) })
   })
   if (gen !== indexGen) return   // superseded by teardown or a concurrent call

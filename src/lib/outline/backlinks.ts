@@ -127,10 +127,11 @@ const MAX_FILE_BYTES = 1024 * 1024 // spec 性能护栏：仅解析 ≤1MB
  *  副作用:遇到旧后缀 *.notes.md 会就地迁移改名为 *.note.md(冲突时回调上报)。 */
 export async function buildFolderIndex(
   rootDir: string,
+  dirs: string[],
   onMigrateConflict?: (legacyPath: string) => void,
 ): Promise<BacklinkIndex> {
   const { readDir, readTextFile, stat } = await import('@tauri-apps/plugin-fs')
-  const idx = createIndex()
+  const idx = createIndex({ root: rootDir, dirs })
   const walk = async (dir: string): Promise<void> => {
     const entries = await readDir(dir).catch(() => [])
     for (const e of entries) {
