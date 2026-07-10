@@ -1,6 +1,6 @@
 // src/lib/outline/backlinks.test.ts
 import { describe, it, expect } from 'vitest'
-import { createIndex, indexFileContent, removeFileFromIndex, backlinksFor, pageNameOf, pageCandidates, resolveTarget, detectNameCollisions } from './backlinks'
+import { createIndex, indexFileContent, removeFileFromIndex, backlinksFor, pageNameOf, pageCandidates, resolveTarget, detectNameCollisions, isWikiPagePath } from './backlinks'
 
 function idxWith(files: Record<string, string>) {
   const idx = createIndex()
@@ -86,5 +86,92 @@ describe('index', () => {
     indexFileContent(idx, '/d/Alpha.notes.md', 'y\n')
     indexFileContent(idx, '/d/Beta.md', 'z\n')
     expect(pageCandidates(idx).sort()).toEqual(['Alpha', 'Beta'])
+  })
+})
+
+describe('scoped index (wikipage/dailynote only)', () => {
+  const SCOPE = { root: '/v', dirs: ['wikipage', 'dailynote'] }
+  function scopedIdx(files: Record<string, string>) {
+    const idx = createIndex(SCOPE)
+    for (const [p, c] of Object.entries(files)) indexFileContent(idx, p, c)
+    return idx
+  }
+
+  it('wiki page beats a同名 stray .md; stray is unresolvable', () => {
+    const idx = scopedIdx({ '/v/sub/x.md': 'x', '/v/wikipage/x.note.md': '- x' })
+    expect(resolveTarget(idx, 'x')).toBe('/v/wikipage/x.note.md')
+  })
+  it('two stray .md with same name are NOT a collision', () => {
+    const idx = scopedIdx({ '/v/a/foo.md': '1', '/v/b/foo.md': '2' })
+    expect(detectNameCollisions(idx).size).toBe(0)
+  })
+  it('two wiki pages with same name ARE a collision', () => {
+    const idx = scopedIdx({
+      '/v/wikipage/foo.note.md': '- 1',
+      '/v/wikipage/sub/foo.note.md': '- 2',
+    })
+    expect(detectNameCollisions(idx).get('foo')).toHaveLength(2)
+  })
+  it('nested dailynote page is resolvable (recursive)', () => {
+    const idx = scopedIdx({ '/v/dailynote/2026/2026-07-11.note.md': '- d' })
+    expect(resolveTarget(idx, '2026-07-11')).toBe('/v/dailynote/2026/2026-07-11.note.md')
+  })
+  it('stray doc linking a wiki page is still a backlink source', () => {
+    const idx = scopedIdx({
+      '/v/sub/note.md': '- see [[Wiki]] here\n',
+      '/v/wikipage/wiki.note.md': '- x',
+    })
+    expect(resolveTarget(idx, 'stray-none')).toBeNull()
+    expect(backlinksFor(idx, 'wiki')).toEqual([
+      { file: '/v/sub/note.md', text: 'see [[Wiki]] here', line: 1 },
+    ])
+    expect(pageCandidates(idx)).toEqual(['wiki'])
+  })
+  // 增量重扫(file-watcher 走 indexFileContent)须沿用 scope:散落文件重扫后
+  // 仍只更新 byTarget,永不进 filePages。
+  it('re-indexing a stray file honors scope (byTarget updates, filePages stays empty)', () => {
+    const idx = scopedIdx({ '/v/sub/note.md': '- old\n' })
+    indexFileContent(idx, '/v/sub/note.md', '- now links [[Wiki]]\n')
+    expect(resolveTarget(idx, 'note')).toBeNull()
+    expect(pageCandidates(idx)).toEqual([])
+    expect(backlinksFor(idx, 'wiki')).toEqual([
+      { file: '/v/sub/note.md', text: 'now links [[Wiki]]', line: 1 },
+    ])
+  })
+  it('honors a custom (renamed) scope dir', () => {
+    const idx = createIndex({ root: '/v', dirs: ['notes'] })
+    indexFileContent(idx, '/v/notes/x.note.md', '- x')
+    indexFileContent(idx, '/v/wikipage/y.note.md', '- y')
+    expect(resolveTarget(idx, 'x')).toBe('/v/notes/x.note.md')
+    expect(resolveTarget(idx, 'y')).toBeNull()
+  })
+})
+
+describe('isWikiPagePath', () => {
+  const scope = { root: '/v', dirs: ['wikipage', 'dailynote'] }
+  it('true for .md directly under a scope dir', () => {
+    expect(isWikiPagePath(scope, '/v/wikipage/x.note.md')).toBe(true)
+  })
+  it('true for .md nested deeper under a scope dir (recursive)', () => {
+    expect(isWikiPagePath(scope, '/v/dailynote/2026/2026-07-11.note.md')).toBe(true)
+  })
+  it('false for .md outside scope dirs', () => {
+    expect(isWikiPagePath(scope, '/v/sub/x.md')).toBe(false)
+  })
+  it('false for a file sitting at root without a scope dir', () => {
+    expect(isWikiPagePath(scope, '/v/x.md')).toBe(false)
+  })
+  it('false for non-.md even under a scope dir', () => {
+    expect(isWikiPagePath(scope, '/v/wikipage/x.txt')).toBe(false)
+  })
+  it('false when path is outside root', () => {
+    expect(isWikiPagePath(scope, '/other/wikipage/x.md')).toBe(false)
+  })
+  it('null scope → every .md is a page (backward compat)', () => {
+    expect(isWikiPagePath(null, '/anywhere/x.md')).toBe(true)
+    expect(isWikiPagePath(null, '/anywhere/x.txt')).toBe(false)
+  })
+  it('tolerates trailing slash on root', () => {
+    expect(isWikiPagePath({ root: '/v/', dirs: ['wikipage'] }, '/v/wikipage/x.md')).toBe(true)
   })
 })
