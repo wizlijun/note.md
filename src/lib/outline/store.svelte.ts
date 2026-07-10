@@ -47,10 +47,13 @@ export function clearSelection(): void {
   if (outline.selectedIds.size > 0) outline.selectedIds = new Set()
 }
 
+/** 新旧两种大纲后缀(迁移期兼容识别) */
+export const OUTLINE_SUFFIX_RE = /\.notes?\.md$/i
+
 export function companionPathFor(mainPath: string): string | null {
-  if (/\.notes\.md$/i.test(mainPath)) return null
+  if (OUTLINE_SUFFIX_RE.test(mainPath)) return null
   const m = mainPath.match(/^(.*)\.(md|markdown|mdown|mkd)$/i)
-  return m ? `${m[1]}.notes.md` : null
+  return m ? `${m[1]}.note.md` : null
 }
 
 /** 需要写 id:: 的节点：被 ((ref)) 引用的 + 带手写子节点的 auto 节点 */
@@ -66,7 +69,7 @@ export function persistIdsFor(tree: OutlineTree): Set<string> {
 }
 
 /** True when the tree carries no meaningful outline: no auto nodes and every
- *  manual node is blank. Used to skip writing a phantom `.notes.md`. */
+ *  manual node is blank. Used to skip writing a phantom `.note.md`. */
 export function isEffectivelyEmpty(tree: OutlineTree): boolean {
   for (const n of tree.nodes.values()) {
     if (n.source !== 'manual') return false
