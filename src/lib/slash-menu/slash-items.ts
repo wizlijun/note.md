@@ -1,7 +1,6 @@
 import type { EditorView } from 'prosemirror-view'
-import { setBlockType, wrapIn } from 'prosemirror-commands'
-import { wrapInList } from 'prosemirror-schema-list'
 import { t } from '../i18n/store.svelte'
+import { setBlock, wrapBlock, wrapList, insertAtom, insertTable, insertTaskList } from '../context-menu/block-helpers'
 
 // NOTE: Do NOT import commands from '@moraya/core/commands' here.
 // commands.js uses its own defaultSchema (nullMediaResolver) which is a
@@ -20,55 +19,6 @@ export interface SlashItem {
 
 // ── schema-aware helpers ──────────────────────────────────────────────────────
 
-function setBlock(v: EditorView, typeName: string, attrs?: Record<string, unknown>) {
-  const type = v.state.schema.nodes[typeName]
-  if (!type) return
-  setBlockType(type, attrs)(v.state, v.dispatch)
-  v.focus()
-}
-
-function wrap(v: EditorView, typeName: string) {
-  const type = v.state.schema.nodes[typeName]
-  if (!type) return
-  wrapIn(type)(v.state, v.dispatch)
-  v.focus()
-}
-
-function wrapList(v: EditorView, typeName: string) {
-  const type = v.state.schema.nodes[typeName]
-  if (!type) return
-  wrapInList(type)(v.state, v.dispatch)
-  v.focus()
-}
-
-function insertAtom(v: EditorView, typeName: string, attrs?: Record<string, unknown>) {
-  const type = v.state.schema.nodes[typeName]
-  if (!type) return
-  v.dispatch(v.state.tr.replaceSelectionWith(type.create(attrs ?? {})).scrollIntoView())
-  v.focus()
-}
-
-function insertTableSync(v: EditorView) {
-  const { schema } = v.state
-  const { table, table_header_row, table_row, table_header, table_cell, paragraph } = schema.nodes
-  if (!table || !table_header_row || !table_row || !table_header || !table_cell || !paragraph) return
-
-  const rows = 3, cols = 3
-  const emptyPara  = () => paragraph.createAndFill()!
-  const headerCell = () => table_header.createAndFill({ alignment: 'left' }, [emptyPara()])!
-  const bodyCell   = () => table_cell.createAndFill(  { alignment: 'left' }, [emptyPara()])!
-
-  const tableNode = table.create(null, [
-    table_header_row.create(null, Array.from({ length: cols }, headerCell)),
-    ...Array.from({ length: rows - 1 }, () =>
-      table_row.create(null, Array.from({ length: cols }, bodyCell))
-    ),
-  ])
-
-  v.dispatch(v.state.tr.replaceSelectionWith(tableNode).scrollIntoView())
-  v.focus()
-}
-
 function insertSpreadsheetSync(v: EditorView) {
   const { schema } = v.state
   const spreadsheet = schema.nodes.spreadsheet
@@ -79,39 +29,6 @@ function insertSpreadsheetSync(v: EditorView) {
       .replaceSelectionWith(spreadsheet.create({ source: defaultCsv }))
       .scrollIntoView()
   )
-  v.focus()
-}
-
-function wrapTaskList(v: EditorView) {
-  const { schema } = v.state
-  const bulletList = schema.nodes.bullet_list
-  const listItem   = schema.nodes.list_item
-  if (!bulletList || !listItem) return
-
-  if (!wrapInList(bulletList)(v.state, v.dispatch)) return
-
-  // Set checked: false on list_items in the NEWLY-wrapped list only. Walking
-  // a ±200 char window around the cursor used to also flip items in adjacent
-  // sibling lists (the cause of "all my lists became checkboxes"); instead,
-  // find the innermost bullet_list enclosing the selection and scope the walk
-  // to its node range.
-  const { doc, selection } = v.state
-  const $from = doc.resolve(selection.from)
-  let listDepth = -1
-  for (let d = $from.depth; d >= 0; d--) {
-    if ($from.node(d).type === bulletList) { listDepth = d; break }
-  }
-  if (listDepth < 0) { v.focus(); return }
-  const listStart = $from.before(listDepth)
-  const listEnd   = listStart + $from.node(listDepth).nodeSize
-
-  const tr = v.state.tr
-  doc.nodesBetween(listStart, listEnd, (node, pos) => {
-    if (node.type === listItem && node.attrs.checked === null) {
-      tr.setNodeMarkup(pos, undefined, { ...node.attrs, checked: false })
-    }
-  })
-  if (tr.docChanged) v.dispatch(tr)
   v.focus()
 }
 
@@ -194,7 +111,7 @@ export function getSlashItems(): SlashItem[] {
     keywords: ['quote', 'blockquote', '引用', '引言', 'block'],
     icon: '❝',
     desc: t('slash.quote.desc'),
-    execute: (v) => wrap(v, 'blockquote'),
+    execute: (v) => wrapBlock(v, 'blockquote'),
   },
   {
     id: 'code',
@@ -226,7 +143,7 @@ export function getSlashItems(): SlashItem[] {
     keywords: ['table', '表格', 'grid'],
     icon: '▦',
     desc: t('slash.table.desc'),
-    execute: (v) => insertTableSync(v),
+    execute: (v) => insertTable(v),
   },
   {
     id: 'spreadsheet',
@@ -258,7 +175,7 @@ export function getSlashItems(): SlashItem[] {
     keywords: ['task', 'todo', 'checklist', '任务', '待办', '清单', 'checkbox'],
     icon: '☐',
     desc: t('slash.task.desc'),
-    execute: (v) => wrapTaskList(v),
+    execute: (v) => insertTaskList(v),
   },
   {
     id: 'hr',

@@ -1,0 +1,71 @@
+import { t } from '../i18n/store.svelte'
+import type { Messages } from '../i18n/en'
+
+export interface MenuItemSpec {
+  id: string
+  label: string
+  icon?: string
+  emphasis?: boolean          // rendered bold/outlined (highlight, wikilink)
+  needsSelection?: boolean    // disabled when there is no selection
+  children?: MenuItemSpec[]   // one level of submenu
+}
+
+export interface MenuGroup {
+  id: string
+  items: MenuItemSpec[]
+}
+
+export interface MenuContext {
+  hasSelection: boolean
+}
+
+function item(id: string, key: keyof Messages, extra: Partial<MenuItemSpec> = {}): MenuItemSpec {
+  return { id, label: t(key), ...extra }
+}
+
+/**
+ * The context menu as pure data. Backend adapters map `item.id` to an edit.
+ * `ctx` currently only gates enablement of selection-dependent items; the
+ * structure itself is identical for rich and source.
+ */
+export function getMenuModel(_ctx: MenuContext): MenuGroup[] {
+  return [
+    { id: 'clipboard', items: [
+      item('cut', 'ctxmenu.cut'),
+      item('copy', 'ctxmenu.copy'),
+      item('paste', 'ctxmenu.paste'),
+      item('selectAll', 'ctxmenu.selectAll'),
+    ] },
+    { id: 'emphasis', items: [
+      item('highlight', 'ctxmenu.highlight', { emphasis: true, icon: '⭐' }),
+      item('wikilink', 'ctxmenu.wikilink', { emphasis: true, icon: '🔗' }),
+    ] },
+    { id: 'marks', items: [
+      item('bold', 'ctxmenu.bold', { icon: 'B' }),
+      item('italic', 'ctxmenu.italic', { icon: 'I' }),
+      item('strike', 'ctxmenu.strike', { icon: 'S' }),
+      item('code', 'ctxmenu.code', { icon: '<>' }),
+    ] },
+    { id: 'link', items: [
+      item('link', 'ctxmenu.link', { needsSelection: true, icon: '↗' }),
+    ] },
+    { id: 'block', items: [
+      item('heading', 'ctxmenu.heading', { icon: 'H', children: [
+        item('h1', 'ctxmenu.h1'), item('h2', 'ctxmenu.h2'), item('h3', 'ctxmenu.h3'),
+      ] }),
+      item('quote', 'ctxmenu.quote', { icon: '❝' }),
+      item('codeblock', 'ctxmenu.codeblock', { icon: '{}' }),
+      item('list', 'ctxmenu.list', { icon: '•', children: [
+        item('bullet', 'ctxmenu.bullet'), item('ordered', 'ctxmenu.ordered'), item('task', 'ctxmenu.task'),
+      ] }),
+      item('hr', 'ctxmenu.hr', { icon: '—' }),
+    ] },
+    { id: 'insert', items: [
+      item('insert', 'ctxmenu.insert', { icon: '+', children: [
+        item('table', 'ctxmenu.table'), item('image', 'ctxmenu.image'),
+        item('math', 'ctxmenu.math'), item('mermaid', 'ctxmenu.mermaid'),
+        item('date', 'ctxmenu.date'),
+      ] }),
+    ] },
+  ]
+}
