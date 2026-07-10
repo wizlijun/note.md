@@ -275,16 +275,16 @@
 
   {#if menuPos}
     <div
-      class="ms-context-menu"
+      class="ms-context-menu menu-panel"
       style="left: {menuPos.x}px; top: {menuPos.y}px;"
       role="menu"
     >
       {#each menuItems as item, i (i)}
         {#if item.kind === 'divider'}
-          <div class="cm-divider"></div>
+          <div class="menu-sep"></div>
         {:else}
           <button
-            class="cm-item"
+            class="cm-item menu-row"
             type="button"
             disabled={item.disabled}
             onclick={() => runMenu(item.action)}
@@ -331,41 +331,24 @@
   }
 
   /* Context menu */
+  /* Chrome comes from the shared .menu-panel / .menu-row classes in app.css. */
   .ms-context-menu {
     position: fixed;
     z-index: 9999;
-    background: Canvas;
-    color: CanvasText;
-    border: 1px solid color-mix(in srgb, CanvasText 18%, Canvas);
-    border-radius: 6px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
-    padding: 4px;
     min-width: 160px;
-    font-size: 13px;
   }
   .cm-item {
-    display: block;
     width: 100%;
     text-align: left;
-    padding: 5px 12px;
-    background: transparent;
+    background: none;
     border: none;
-    border-radius: 4px;
     color: inherit;
-    cursor: pointer;
     font: inherit;
     line-height: 1.4;
-  }
-  .cm-item:not(:disabled):hover {
-    background: color-mix(in srgb, AccentColor 18%, Canvas);
   }
   .cm-item:disabled {
     opacity: 0.45;
     cursor: not-allowed;
-  }
-  .cm-divider {
-    height: 1px;
-    background: color-mix(in srgb, CanvasText 12%, Canvas);
-    margin: 4px 2px;
+    pointer-events: none;
   }
 </style>

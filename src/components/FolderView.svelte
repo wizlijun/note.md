@@ -172,8 +172,8 @@
 </aside>
 
 {#if ctx.open}
-  <div class="node-ctx-menu" role="menu" style="left: {ctx.x}px; top: {ctx.y}px">
-    <button type="button" role="menuitem" class="node-ctx-item" onclick={revealCtx}>
+  <div class="node-ctx-menu menu-panel" role="menu" style="left: {ctx.x}px; top: {ctx.y}px">
+    <button type="button" role="menuitem" class="node-ctx-item menu-row" onclick={revealCtx}>
       {t('folderView.reveal')}
     </button>
   </div>
@@ -234,20 +234,12 @@
     cursor: col-resize; touch-action: none;
   }
   .splitter:hover { background: rgba(0,0,0,0.08); }
-  .node-ctx-menu {
-    position: fixed; z-index: 9998;
-    min-width: 160px; padding: 4px;
-    background: Canvas; color: CanvasText;
-    border: 1px solid color-mix(in srgb, CanvasText 15%, transparent);
-    border-radius: 6px; box-shadow: 0 6px 20px rgba(0,0,0,0.18);
-    font-size: 13px; user-select: none;
-  }
+  /* Chrome comes from the shared .menu-panel / .menu-row classes in app.css. */
+  .node-ctx-menu { position: fixed; z-index: 9998; min-width: 160px; }
   .node-ctx-item {
-    display: block; width: 100%; text-align: left;
-    padding: 6px 10px; background: transparent; color: inherit;
-    border: 0; border-radius: 4px; cursor: pointer;
+    width: 100%; text-align: left; background: none; color: inherit;
+    border: 0; font: inherit;
   }
-  .node-ctx-item:hover { background: color-mix(in srgb, AccentColor 18%, Canvas); }
   @media (prefers-color-scheme: dark) {
     .folder-view { background: var(--drawer-bg, #1c1c1e); border-right-color: rgba(255,255,255,0.08); }
     .header { border-bottom-color: rgba(255,255,255,0.06); }

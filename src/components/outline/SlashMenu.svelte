@@ -5,25 +5,21 @@
   } = $props()
 </script>
 
-<div class="menu" style="left: {x}px; top: {y}px" role="listbox">
+<div class="menu menu-panel" style="left: {x}px; top: {y}px" role="listbox">
   {#each items as item, i}
-    <button class="item" class:sel={i === selected} role="option" aria-selected={i === selected}
+    <button class="item menu-row" class:active={i === selected} role="option" aria-selected={i === selected}
       onmousedown={(e) => { e.preventDefault(); onPick(item) }}>
       <span class="icon">{item.icon}</span>{item.label}
     </button>
   {/each}
-  {#if items.length === 0}<div class="item none">—</div>{/if}
+  {#if items.length === 0}<div class="item menu-row none">—</div>{/if}
 </div>
 
 <style>
-  .menu {
-    position: fixed; z-index: 100; min-width: 180px; max-height: 240px; overflow-y: auto;
-    background: var(--panel-bg, #fff); border: 1px solid var(--border-color, #ccc);
-    border-radius: 6px; box-shadow: 0 4px 16px #0003; padding: 4px;
-  }
-  .item { display: flex; gap: 8px; width: 100%; text-align: left; background: none; border: none;
-    padding: 5px 8px; border-radius: 4px; font-size: 13px; cursor: pointer; color: inherit; }
-  .item.sel, .item:hover { background: var(--accent-color, #4a80d4); color: #fff; }
-  .item.none { opacity: 0.5; cursor: default; }
-  .icon { width: 18px; }
+  /* Chrome comes from the shared .menu-panel / .menu-row classes in app.css. */
+  .menu { position: fixed; z-index: 100; min-width: 180px; max-height: 240px; overflow-y: auto; }
+  .item { gap: 8px; width: 100%; text-align: left; background: none; border: none;
+    font: inherit; color: inherit; }
+  .item.none { opacity: 0.5; }
+  .icon { width: 18px; opacity: 0.75; }
 </style>
