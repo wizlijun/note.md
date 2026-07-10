@@ -376,6 +376,7 @@
   function handleRichContextMenu(event: MouseEvent) {
     if (!editor) return
     event.preventDefault()
+    noteUi.hover = null
     const view = editor.view as unknown as EditorView
     ctxHasSel   = !view.state.selection.empty
     ctxActions  = createRichActions(view)
