@@ -353,6 +353,7 @@ export const en = {
   'outline.dirsTitle': 'Vault folders',
   'outline.wikipageDir': 'Wiki pages folder',
   'outline.dailynoteDir': 'Daily notes folder',
+  'outline.nameCollision': '{n} link-name collision(s) in vault. "{name}" is claimed by:\n{files}',
 
   // Folder view
   'folderView.parentFolder': 'Parent folder',

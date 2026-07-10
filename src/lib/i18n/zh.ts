@@ -379,6 +379,7 @@ export const zh: Record<keyof Messages, string> = {
   'outline.dirsTitle': 'Vault 目录',
   'outline.wikipageDir': 'Wiki 页面目录',
   'outline.dailynoteDir': '每日笔记目录',
+  'outline.nameCollision': 'vault 内有 {n} 组链接名冲突。「{name}」被以下文件竞争:\n{files}',
 
   // Folder view
   'folderView.parentFolder': '上级文件夹',

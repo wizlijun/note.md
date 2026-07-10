@@ -348,6 +348,7 @@ export const ja: Record<keyof Messages, string> = {
   'outline.dirsTitle': 'Vault フォルダ',
   'outline.wikipageDir': 'Wiki ページフォルダ',
   'outline.dailynoteDir': 'デイリーノートフォルダ',
+  'outline.nameCollision': 'vault 内で {n} 件のリンク名衝突。「{name}」は以下のファイルで競合:\n{files}',
 
   // Folder view
   'folderView.parentFolder': '親フォルダ',

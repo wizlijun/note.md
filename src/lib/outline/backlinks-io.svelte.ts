@@ -1,21 +1,33 @@
 // src/lib/outline/backlinks-io.svelte.ts
 import { watchImmediate } from '@tauri-apps/plugin-fs'
 import { outline, bump } from './store.svelte'
-import { buildFolderIndex, refreshFileInIndex, pageNameOf } from './backlinks'
+import { buildFolderIndex, refreshFileInIndex, pageNameOf, resolveTarget, detectNameCollisions } from './backlinks'
 import { sanitizeFileName } from './slug'
+import { outlineDirs } from './dirs.svelte'
 import { folderView, parentDir } from '../folder-view.svelte'
 import { openFile } from '../tabs.svelte'
 import { t } from '../i18n/store.svelte'
 import { pushToast } from '../toast.svelte'
+import { sotvaultStore } from '../sotvault.svelte'
+import { isUnder } from '../recent-merge'
+import { joinPath } from '../fs'
+import { ensureOutlineFile } from './create'
 
 let unwatch: (() => void) | null = null
 let indexedRoot: string | null = null
 let indexGen = 0
 
+/** 索引根(spec §5):文件在 vault 内 → vault 根(全局命名空间);
+ *  否则维持现状(FolderView 根 → 文件所在目录)。 */
+function indexRootFor(path: string): string {
+  const vault = sotvaultStore.vaultRoot
+  if (vault && isUnder(path, vault)) return vault
+  return folderView.rootDir ?? parentDir(path)
+}
+
 /** 面板首次显示/主文件换目录时调用；插件关闭时 teardownIndex() */
 export async function ensureIndex(mainPath: string): Promise<void> {
-  // 范围：FolderView 根目录；未开文件夹 → 主文件所在目录
-  const root = folderView.rootDir ?? parentDir(mainPath)
+  const root = indexRootFor(mainPath)
   if (indexedRoot === root && outline.backlinkIndex) return
   teardownIndex()
   const gen = ++indexGen
@@ -26,6 +38,13 @@ export async function ensureIndex(mainPath: string): Promise<void> {
   if (gen !== indexGen) return   // superseded by teardown or a concurrent call
   outline.backlinkIndex = idx
   bump()
+  const collisions = detectNameCollisions(idx)
+  if (collisions.size > 0) {
+    const [name, files] = [...collisions.entries()][0]
+    pushToast({ level: 'warn', message: t('outline.nameCollision', {
+      n: String(collisions.size), name, files: files.join('\n') }) })
+    console.warn('[outline] name collisions:', Object.fromEntries(collisions))
+  }
   let timer: ReturnType<typeof setTimeout> | null = null
   const pending = new Set<string>()
   watchImmediate(root, (ev) => {
@@ -52,25 +71,32 @@ export function teardownIndex(): void {
   indexedRoot = null
 }
 
-/** 点击 [[页面]]：找同目录同名 .md 打开；不存在则创建后打开 */
+/** 点击 [[页面]]:全局解析(resolveTarget);未解析 → vault 内建 wikipage
+ *  大纲页,vault 外维持旧行为(同目录建 .md)。 */
 export async function openPageOrCreate(target: string): Promise<void> {
-  const dir = indexedRoot ?? (outline.docPath ? parentDir(outline.docPath) : null)
-  if (!dir) return
   const idx = outline.backlinkIndex
-  // 已存在文件匹配仍用原 target(大小写不敏感文件名匹配，不受影响)
-  const existing = idx ? [...idx.filePages.entries()].find(
-    ([p, page]) => page.toLowerCase() === target.toLowerCase() && !/\.notes?\.md$/i.test(p)) : null
-  if (existing) { await openFile(existing[0]); return }
-  // 新建文件时用安全文件名，保证 [[链接文本]] === 文件名 1:1
+  const existing = idx ? (resolveTarget(idx, target) ?? resolveTarget(idx, sanitizeFileName(target))) : null
+  if (existing) { await openFile(existing); return }
   const safe = sanitizeFileName(target)
-  const path = `${dir}/${safe}.md`
+  const docPath = outline.docPath
+  const vault = sotvaultStore.vaultRoot
+  if (vault && docPath && isUnder(docPath, vault)) {
+    // spec §5:vault 内未解析链接 → vault/{wikipage}/{slug}.note.md,fm title 存原文
+    const { mkdir } = await import('@tauri-apps/plugin-fs')
+    const dir = joinPath(vault, outlineDirs.wikipage)
+    await mkdir(dir, { recursive: true }).catch(() => {})
+    const path = joinPath(dir, `${safe}.note.md`)
+    await ensureOutlineFile(path, target)
+    await openFile(path)
+    return
+  }
+  // vault 外:维持现状(同目录建 .md)
+  const dir = indexedRoot ?? (docPath ? parentDir(docPath) : null)
+  if (!dir) return
+  const path = joinPath(dir, `${safe}.md`)
   const { exists, writeTextFile } = await import('@tauri-apps/plugin-fs')
   if (!(await exists(path).catch(() => false))) {
     await writeTextFile(path, `# ${safe}\n`)
   }
   await openFile(path)
-}
-
-export function currentPageName(): string | null {
-  return outline.docPath ? pageNameOf(outline.docPath) : null
 }
