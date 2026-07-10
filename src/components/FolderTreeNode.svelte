@@ -32,6 +32,7 @@
   })
   function commitFromInput(value: string) {
     if (cancelled) return
+    cancelled = true   // 提交后置位:拦截 unmount 触发的尾随 blur 重复提交
     onRenameCommit?.(entry, value)
   }
   function cancelRename() {
