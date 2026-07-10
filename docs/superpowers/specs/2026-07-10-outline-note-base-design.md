@@ -99,15 +99,21 @@
 
 - 索引根从"文件夹视图根"升级为 **vault 根**（`sotvault_vault_root`）；
   递归索引全部 `.md` / `.note.md`（≤1MB，跳过点目录/符号链接）。
-- `[[title]]` 解析优先级：front-matter `title` 匹配（大小写不敏感）→
-  文件名 slug 兜底。跨所有目录全局解析，不按目录隔离。
-- slug 化：中文等非 ASCII 保留原文，替换文件系统非法字符
-  `/ \ : * ? " < > |`。
-- **title/slug 碰撞**：以 front-matter `title` 为准；索引构建时检测碰撞，
-  toast 警告并列出冲突文件路径；**不自动改名**，不阻塞索引。
+- `[[title]]` 解析**只按文件名**（basename 去后缀，大小写不敏感）——与
+  Obsidian / Logseq / 跨 CLI 工具的 wikilink 语义一致（file-over-app：
+  同一批文件在其他 app 打开不产生断链）。front-matter `title` 仅是展示
+  元数据，**不参与解析**。跨所有目录全局解析，不按目录隔离。
+  （2026-07-10 修订：原"front-matter title 优先、文件名兜底"方案废弃——
+  它使链接语义只有本 app 能解析，违反 file-over-app。）
+- **写入端约束**（保证 `[[链接文本]] === 文件名` 的 1:1 映射）：wikilink
+  插入（补全确认/自由输入落盘）与建页时，链接文本必须是合法文件名——
+  中文等非 ASCII 保留原文，文件系统非法字符 `/ \ : * ? " < > |` 在写入时
+  替换为 `-`（`sanitizeFileName`，统一实现，slugify 即此函数）。
+- **文件名碰撞**（同 vault 不同目录出现同名文件竞争一个链接名）：索引构建
+  时检测，toast 警告并列出冲突文件路径；**不自动改名**，不阻塞索引。
 - 点击未解析 `[[title]]` → 在 `vault/{wikipage}/` 创建
-  `{title-slug}.note.md`（front-matter `title` 存原始标题）并以大纲 tab 打开。
-  文件在 vault 外时维持现状行为。
+  `{sanitizeFileName(title)}.note.md`（front-matter `title` 存原始标题）
+  并以大纲 tab 打开。文件在 vault 外时维持现状行为。
 - 索引为派生数据，可随时全量重建；文件是唯一事实源。
 
 ## 6. Dailynote
@@ -137,7 +143,7 @@
 ## 8. 测试与验收
 
 - 单测：slugify、front-matter 解析/序列化往返、`companionPathFor`、
-  日期链接解析、`ensureDailyNote` 路径推导、title 解析优先级、碰撞检测、
+  日期链接解析、`ensureDailyNote` 路径推导、sanitizeFileName、文件名解析、碰撞检测、
   迁移改名逻辑、FolderView 配对合并。
 - GUI 改动（全屏大纲 tab、只读面板、FolderView 角标、托盘项）按惯例
   dev 实机验证后再发布。
@@ -146,5 +152,5 @@
 
 1. **格式与后缀**：`.note.md` 统一 + 迁移 + front-matter 支持
 2. **大纲 tab**：classify、store 实例化重构、全屏编辑组件、面板只读化、FolderView 呈现
-3. **vault 索引**：全局命名空间、title 优先解析、碰撞报告、wikipage 创建
+3. **vault 索引**：全局命名空间、按文件名解析、碰撞报告、wikipage 创建
 4. **dailynote**：目录名配置、托盘入口、ensureDailyNote、日期链接规范解析

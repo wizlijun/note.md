@@ -743,6 +743,88 @@ git commit -m "feat(folder-view): pair .note.md companions — hide row, badge o
 
 ---
 
+### Task 5b: wikilink 写入端文件名约束(sanitizeFileName)
+
+> 2026-07-10 spec 修订:`[[title]]` 解析只按文件名(file-over-app,Obsidian 兼容);
+> 写入端保证 `[[链接文本]] === 文件名` 1:1。本任务落地写入约束;解析端现状
+> (`pageNameOf` 按文件名)已符合,无需改。
+
+**Files:**
+- Create: `src/lib/outline/slug.ts`
+- Modify: `src/lib/outline/completion.ts`(`confirmPageLink`)
+- Modify: `src/lib/outline/backlinks-io.svelte.ts`(`openPageOrCreate`)
+- Test: `src/lib/outline/slug.test.ts`、`src/lib/outline/completion.test.ts`
+
+- [ ] **Step 1: 写失败测试** — 新建 `slug.test.ts`:
+
+```ts
+// src/lib/outline/slug.test.ts
+import { describe, it, expect } from 'vitest'
+import { sanitizeFileName } from './slug'
+
+describe('sanitizeFileName', () => {
+  it('keeps CJK and spaces, replaces filesystem-illegal chars with -', () => {
+    expect(sanitizeFileName('我的 笔记')).toBe('我的 笔记')
+    expect(sanitizeFileName('a/b\\c:d*e?f"g<h>i|j')).toBe('a-b-c-d-e-f-g-h-i-j')
+  })
+  it('trims and collapses leading dots (hidden-file guard)', () => {
+    expect(sanitizeFileName('  x  ')).toBe('x')
+    expect(sanitizeFileName('..secret')).toBe('secret')
+  })
+  it('empty after sanitize → untitled', () => {
+    expect(sanitizeFileName('///')).toBe('untitled')
+    expect(sanitizeFileName('   ')).toBe('untitled')
+  })
+})
+```
+
+`completion.test.ts` 追加(并入现有 confirmPageLink describe,若无则新建):
+
+```ts
+  it('confirmPageLink sanitizes free-text target to a legal filename', () => {
+    const r = confirmPageLink('[[a/b]]', 0, 'a/b', null)
+    expect(r.text).toContain('[[a-b]]')
+  })
+```
+
+(先读 `completion.ts` 确认 `confirmPageLink(value, start, query, page)` 的实际签名与返回,按真实签名调整测试的调用参数;断言核心是自由文本确认路径产出的链接文本不含 `/`。)
+
+- [ ] **Step 2:** 跑两个测试文件 → FAIL
+
+- [ ] **Step 3: 实现**
+
+`slug.ts`:
+
+```ts
+// src/lib/outline/slug.ts
+/** 文件系统非法字符(macOS/Windows 并集,file-over-app 取严) */
+const ILLEGAL_RE = /[/\\:*?"<>|]/g
+
+/**
+ * 链接文本/文件名统一约束(spec §5 写入端):中文等非 ASCII 保留原文,
+ * 非法字符替换为 `-`,去首尾空白与前导点;空结果回退 'untitled'。
+ * wikilink 写入与建页共用,保证 [[链接文本]] === 文件名 1:1。
+ */
+export function sanitizeFileName(raw: string): string {
+  const s = raw.replace(ILLEGAL_RE, '-').trim().replace(/^\.+/, '')
+  return s === '' ? 'untitled' : s
+}
+```
+
+`completion.ts` `confirmPageLink`:自由文本(page 为 null 用 query)与选中候选写入前均过 `sanitizeFileName`(候选来自索引文件名,理论已合法,过一遍保证不变量)。
+`backlinks-io.svelte.ts` `openPageOrCreate`:`const safe = sanitizeFileName(target)` 后以 `safe` 构建路径与 `# 标题`;已存在文件匹配仍用原 target(大小写不敏感文件名匹配,不受影响)。
+
+- [ ] **Step 4:** `pnpm vitest run src/lib/outline` → PASS;`pnpm check` → 0 errors
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/lib/outline/slug.ts src/lib/outline/slug.test.ts src/lib/outline/completion.ts src/lib/outline/completion.test.ts src/lib/outline/backlinks-io.svelte.ts
+git commit -m "feat(outline): sanitizeFileName — wikilink write-side filename constraint (file-over-app)"
+```
+
+---
+
 ### Task 6: 全量回归 + dev 实机验证
 
 - [ ] **Step 1:** `pnpm check && pnpm test` → 全绿
