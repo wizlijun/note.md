@@ -2,7 +2,7 @@
   import type { Tab } from '../../lib/tabs.svelte'
   import { outlineGate, setOutlineWidth, setOutlineWidthLive, setOutlineVisible, outlineAppliesTo } from '../../lib/outline/gate.svelte'
   import { t } from '../../lib/i18n/store.svelte'
-  import { companionPathFor } from '../../lib/outline/store.svelte'
+  import { outline, companionPathFor } from '../../lib/outline/store.svelte'
   import { parseOutline } from '../../lib/outline/markdown'
   import { createTree, childrenOf, type OutlineTree, type OutlineNode as NodeT } from '../../lib/outline/model'
   import { pageNameOf } from '../../lib/outline/backlinks'
@@ -60,7 +60,8 @@
   })
 
   // 背链索引生命周期(与旧面板一致)
-  $effect(() => { if (applicable && outlineGate.visible && tab) void ensureIndex(tab.filePath) })
+  // 只读共享索引,自愈用: backlinkIndex 被别处 teardown 置 null 时触发重建
+  $effect(() => { void outline.backlinkIndex; if (applicable && outlineGate.visible && tab) void ensureIndex(tab.filePath) })
   $effect(() => () => { teardownIndex() })  // unmount 兜底
 
   // Read the theme's base body typography (font-family/size/line-height, which

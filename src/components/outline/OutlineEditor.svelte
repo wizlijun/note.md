@@ -23,7 +23,7 @@
   import { pageCandidates, pageNameOf } from '../../lib/outline/backlinks'
   import { activeTheme } from '../../lib/active-theme.svelte'
   import { requestReveal } from '../../lib/outline/reveal.svelte'
-  import { ensureIndex, teardownIndex, openPageOrCreate } from '../../lib/outline/backlinks-io.svelte'
+  import { ensureIndex, openPageOrCreate } from '../../lib/outline/backlinks-io.svelte'
   import { untrack } from 'svelte'
 
   let { tab }: { tab: Tab } = $props()
@@ -34,9 +34,11 @@
 
   // 挂载:解析 tab 文本 → (伴生)派生同步 → 注册 sink。若派生/补 fm 改变了
   // 序列化结果,回写 tab 让脏标记如实反映。
+  // cancelled 标志防止异步延迟到达的延续覆盖新 tab 的树/回写旧 id/装陈旧 sink。
   $effect(() => {
     const id = tab.id
     const path = tab.filePath
+    let cancelled = false
     untrack(() => {
       void (async () => {
         let mainContent: string | null = null
@@ -44,17 +46,20 @@
         if (mainTab) mainContent = mainTab.currentContent
         else {
           const { exists, readTextFile } = await import('@tauri-apps/plugin-fs')
+          if (cancelled) return
           if (await exists(mainPath).catch(() => false)) {
             mainContent = await readTextFile(mainPath).catch(() => null)
           }
         }
+        if (cancelled) return
         await attachDoc(path, tab.currentContent, mainContent)
+        if (cancelled) return   // 迟到的挂载不得覆盖新 tab 的树/回写旧 id/装陈旧 sink
         const out = serializeDoc(false)
         if (out !== tab.currentContent) setContent(id, out)
         setChangeSink(() => setContent(id, serializeDoc()))
       })()
     })
-    return () => untrack(() => { setChangeSink(null); detach() })
+    return () => { cancelled = true; untrack(() => { setChangeSink(null); detach() }) }
   })
 
   // 外部变更自动重载(干净 tab)→ 重新解析
@@ -68,7 +73,9 @@
     return () => window.removeEventListener('mdeditor:auto-reloaded', handler)
   })
 
-  $effect(() => { void ensureIndex(tab.filePath); return () => teardownIndex() })
+  // 索引是共享单例:编辑器卸载不 teardown(面板可能还在用);
+  // 追踪 backlinkIndex,被别处 teardown 置 null 时自愈重建
+  $effect(() => { void outline.backlinkIndex; void ensureIndex(tab.filePath) })
 
   // 跳转:伴生笔记的 auto 节点 → 打开主文档并 reveal 行号
   async function onJump(n: NodeT) {
