@@ -162,6 +162,7 @@
       class="bullet"
       class:src-toc={node.source === 'toc'}
       class:src-hl={node.source === 'highlight'}
+      class:jumpable={node.anchorLine != null}
       draggable={node.source === 'manual'}
       ondragstart={onDragStart}
       onclick={onBulletClick}
@@ -171,6 +172,7 @@
         bind:this={textareaEl}
         class="content edit"
         class:hl={node.source === 'highlight'}
+        class:src-toc={node.source === 'toc'}
         rows="1"
         readonly={node.source !== 'manual'}
         value={node.content}
@@ -184,7 +186,7 @@
         }}
       ></textarea>
     {:else}
-      <span class="content" class:hl={node.source === 'highlight'} onclick={startEdit} role="button" tabindex="0"
+      <span class="content" class:hl={node.source === 'highlight'} class:src-toc={node.source === 'toc'} onclick={startEdit} role="button" tabindex="0"
         onkeydown={(e) => { if (e.key === 'Enter') startEdit() }}>
         <InlineRender content={node.content} onPageClick={onPageClick} />
       </span>
@@ -222,11 +224,13 @@
   .bullet {
     font-size: 1em;
     line-height: var(--outline-line-height, 1.5);
-    cursor: pointer; opacity: 0.7;
+    cursor: default; opacity: 0.7;
   }
+  .bullet.jumpable { cursor: pointer; }
   .bullet.src-toc { color: var(--accent-color, #4a80d4); }
   .bullet.src-hl { color: #d4a94a; }
   .content { flex: 1; min-width: 0; white-space: pre-wrap; word-break: break-word; cursor: text; }
+  .content.src-toc, textarea.src-toc { color: GrayText; }
   .content.hl,
   textarea.hl {
     text-decoration: underline;
@@ -235,7 +239,7 @@
     text-underline-offset: 2px;
   }
   textarea.edit {
-    resize: none; overflow: hidden; border: none; outline: 1px solid var(--accent-color, #4a80d4);
+    resize: none; overflow: hidden; border: none; outline: none;
     border-radius: 3px; background: transparent; color: inherit; font: inherit; padding: 0 2px;
   }
 </style>
