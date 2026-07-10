@@ -22,6 +22,8 @@
   import type { EditorView } from 'prosemirror-view'
   import SlashMenu from '../lib/slash-menu/SlashMenu.svelte'
   import { getSlashItems, filterSlashItems, type SlashItem } from '../lib/slash-menu/slash-items'
+  import EditorContextMenu, { type EditorActions } from '../lib/context-menu/EditorContextMenu.svelte'
+  import { createRichActions } from '../lib/context-menu/rich-actions'
   import { setBlockType, wrapIn } from 'prosemirror-commands'
   import { wrapInList } from 'prosemirror-schema-list'
 
@@ -125,6 +127,12 @@
   let slashMenuPos     = $state({ top: 0, left: 0 })
   let slashItems       = $state<SlashItem[]>(getSlashItems())
   let slashSelectedIdx = $state(0)
+
+  // ── Context menu state ───────────────────────────────────────────────────────
+  let showCtxMenu   = $state(false)
+  let ctxMenuPos    = $state({ x: 0, y: 0 })
+  let ctxHasSel     = $state(false)
+  let ctxActions    = $state<EditorActions | null>(null)
 
   async function handlePaste(event: ClipboardEvent) {
     if (!editor || !event.clipboardData) return
@@ -330,6 +338,16 @@
       const { showError } = await import('../lib/dialogs')
       showError(String(e))
     }
+  }
+
+  function handleRichContextMenu(event: MouseEvent) {
+    if (!editor) return
+    event.preventDefault()
+    const view = editor.view as unknown as EditorView
+    ctxHasSel   = !view.state.selection.empty
+    ctxActions  = createRichActions(view)
+    ctxMenuPos  = { x: event.clientX, y: event.clientY }
+    showCtxMenu = true
   }
 
   function handleToolbarResize(width: string) {
@@ -868,6 +886,7 @@
         _pmEl?.addEventListener('mousedown', handleLinkMouseDown as EventListener, true)
         _pmEl?.addEventListener('keydown', handleRichKeydown as EventListener, true)
         _pmEl?.addEventListener('input',   checkSlashMenu as EventListener)
+        _pmEl?.addEventListener('contextmenu', handleRichContextMenu as EventListener)
 
         // Prevent browser default file drop behaviour
         _dragoverHandler = (e) => e.preventDefault()
@@ -914,6 +933,7 @@
     _pmEl?.removeEventListener('mousedown', handleLinkMouseDown as EventListener, true)
     _pmEl?.removeEventListener('keydown', handleRichKeydown as EventListener, true)
     _pmEl?.removeEventListener('input',   checkSlashMenu as EventListener)
+    _pmEl?.removeEventListener('contextmenu', handleRichContextMenu as EventListener)
     _dragDropUnlisten?.()
     host?.removeEventListener('dragover', _dragoverHandler!)
     host?.removeEventListener('drop',     _dropHandler!)
@@ -963,6 +983,14 @@
       selectedIndex={slashSelectedIdx}
       onSelect={executeSlashItem}
       onClose={closeSlashMenu}
+    />
+  {/if}
+  {#if showCtxMenu && ctxActions}
+    <EditorContextMenu
+      position={ctxMenuPos}
+      hasSelection={ctxHasSel}
+      actions={ctxActions}
+      onClose={() => { showCtxMenu = false }}
     />
   {/if}
 </div>
