@@ -6,8 +6,10 @@
   } from '../lib/folder-view.svelte'
   import { t } from '../lib/i18n/store.svelte'
   import { tick } from 'svelte'
-  import { openFile } from '../lib/tabs.svelte'
+  import { openFile, updateTabPath } from '../lib/tabs.svelte'
   import { showError } from '../lib/dialogs'
+  import { planRename, executeRename } from '../lib/outline/rename-pair'
+  import { pushToast } from '../lib/toast.svelte'
   import FolderTreeNode from './FolderTreeNode.svelte'
 
   let { activePath }: { activePath: string | null } = $props()
@@ -74,6 +76,38 @@
     closeCtxMenu()
     if (!path) return
     try { await revealInFinder(path) } catch (e) { showError(String(e)) }
+  }
+
+  // Inline rename: the ctx-menu "Rename" arms `renamingPath`; FolderTreeNode
+  // renders an inline <input> for the matching row and calls back to commit/cancel.
+  let renamingPath = $state<string | null>(null)
+
+  function renameCtx() {
+    const p = ctx.entry?.path
+    closeCtxMenu()
+    if (p) renamingPath = p
+  }
+
+  async function commitRename(entry: FolderEntry, newName: string) {
+    renamingPath = null
+    const dir = parentDir(entry.path)
+    const cached = folderView.entriesCache.get(dir) ?? []
+    const siblings = cached.filter((e) => !e.isDir).map((e) => e.name)
+    // A paired companion (.note.md) is hidden from entriesCache but still lives on
+    // disk — feed its filename into siblings so conflict/pairing sees it too.
+    for (const e of cached) {
+      if (e.notePath) siblings.push(e.notePath.slice(e.notePath.lastIndexOf('/') + 1))
+    }
+    const plan = planRename(entry.path, newName, siblings)
+    if (!plan) {
+      // Same-name = silent no-op; only a real conflict warrants a toast.
+      if (newName !== entry.name) pushToast({ level: 'warn', message: t('folderView.renameConflict') })
+      return
+    }
+    const err = await executeRename(plan)
+    if (err) { pushToast({ level: 'error', message: err }); return }
+    for (const op of plan.ops) await updateTabPath(op.from, op.to)
+    await refreshAll()
   }
   function onWindowMouseDown(e: MouseEvent) {
     if (!ctx.open) return
@@ -157,7 +191,16 @@
       <div class="empty">{folderView.filter ? t('folderView.noMatches') : t('folderView.emptyFolder')}</div>
     {:else}
       {#each rootEntries as entry (entry.path)}
-        <FolderTreeNode {entry} depth={0} {activePath} onOpen={open} onContextMenu={onNodeContextMenu} />
+        <FolderTreeNode
+          {entry}
+          depth={0}
+          {activePath}
+          onOpen={open}
+          onContextMenu={onNodeContextMenu}
+          {renamingPath}
+          onRenameCommit={commitRename}
+          onRenameCancel={() => (renamingPath = null)}
+        />
       {/each}
     {/if}
   </div>
@@ -176,6 +219,11 @@
     <button type="button" role="menuitem" class="node-ctx-item menu-row" onclick={revealCtx}>
       {t('folderView.reveal')}
     </button>
+    {#if ctx.entry && !ctx.entry.isDir}
+      <button type="button" role="menuitem" class="node-ctx-item menu-row" onclick={renameCtx}>
+        {t('folderView.rename')}
+      </button>
+    {/if}
   </div>
 {/if}
 
