@@ -15,7 +15,7 @@
     moveNodeAfter, moveNodeToChild, deleteNode, subtreeToMarkdown,
     deleteNodes, indentNodes, outdentNodes, moveNodesAfter, moveNodesToChild, nodesToMarkdown,
   } from '../../lib/outline/commands'
-  import { selectionRoots } from '../../lib/outline/select'
+  import { selectionRoots, rangeBetween } from '../../lib/outline/select'
   import { resolveShortcuts, type OutlineCommandId } from '../../lib/outline/shortcuts'
   import { filterSlashItems, applySlashItem, pageLinkQueryAt, confirmPageLink, filterPages, type SlashItem } from '../../lib/outline/completion'
   import { pageCandidates } from '../../lib/outline/backlinks'
@@ -35,7 +35,7 @@
   // Theme-driven typography: measured from an offscreen probe (see effect below).
   let activeThemeId = $derived(activeTheme.id)
   let probeEl = $state<HTMLDivElement>()
-  let typo = $state({ family: '', size: '', line: '' })
+  let typo = $state({ family: '', size: '', line: '', fg: '', bg: '' })
 
   // resolved shortcuts：接设置覆盖，随 outlineShortcuts.overrides 变化响应式更新
   let resolved = $derived(resolveShortcuts(outlineShortcuts.overrides))
@@ -82,7 +82,13 @@
     if (!probe) return
     const raf = requestAnimationFrame(() => {
       const cs = getComputedStyle(probe)
-      typo = { family: cs.fontFamily, size: cs.fontSize, line: cs.lineHeight }
+      // 同时取主题的前景/背景色，让面板跟随 theme（背景透明时保持系统 Canvas）
+      const bg = cs.backgroundColor
+      typo = {
+        family: cs.fontFamily, size: cs.fontSize, line: cs.lineHeight,
+        fg: cs.color,
+        bg: bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent' ? bg : '',
+      }
     })
     return () => cancelAnimationFrame(raf)
   })
@@ -164,13 +170,45 @@
       width: Math.abs(b.x1 - b.x0), height: Math.abs(b.y1 - b.y0),
     }
   }
+  // 行内文字上按下：先允许原生选字；拖过节点边界后切换为跨节点多选
+  let rowDragFrom: { id: string; top: number; bottom: number } | null = null
+  let crossDrag = false
+
+  function nodeIdAt(x: number, y: number): string | null {
+    const el = document.elementFromPoint(x, y) as HTMLElement | null
+    return el?.closest<HTMLElement>('[data-node-id]')?.dataset.nodeId ?? null
+  }
   function onBandDown(e: PointerEvent) {
     if (!applicable || e.button !== 0) return
-    if ((e.target as HTMLElement).closest('.row')) return   // 行上的按下留给行交互/拖拽
+    const rowEl = (e.target as HTMLElement).closest<HTMLElement>('[data-node-id]')
+    if (rowEl) {
+      // 行上按下：不阻止默认（节点内选字），记录起点行的几何边界等待跨行
+      const r = rowEl.getBoundingClientRect()
+      rowDragFrom = { id: rowEl.dataset.nodeId!, top: r.top, bottom: r.bottom }
+      crossDrag = false
+      return
+    }
+    // 空白处按下：取消 mousedown 默认行为，不启动原生文字选区
+    e.preventDefault()
+    window.getSelection()?.removeAllRanges()
     bandStart = { x: e.clientX, y: e.clientY }
     bodyEl?.setPointerCapture(e.pointerId)
   }
   function onBandMove(e: PointerEvent) {
+    if (rowDragFrom) {
+      // 用起始行的几何边界（±2px 容差）判定跨行，elementFromPoint 的像素漂移
+      // 会把行内选字误判成跨节点多选
+      if (!crossDrag && e.clientY >= rowDragFrom.top - 2 && e.clientY <= rowDragFrom.bottom + 2) return
+      if (!crossDrag) {
+        crossDrag = true
+        ;(document.activeElement as HTMLElement | null)?.blur?.()
+        outline.editingId = null
+      }
+      window.getSelection()?.removeAllRanges()
+      const over = nodeIdAt(e.clientX, e.clientY)
+      if (over) setSelection(rangeBetween(outline.tree, rowDragFrom.id, over))
+      return
+    }
     if (!bandStart) return
     // 4px 阈值内仍算普通点击（保留点空白建节点）
     if (!band && Math.hypot(e.clientX - bandStart.x, e.clientY - bandStart.y) < 4) return
@@ -196,6 +234,17 @@
     setSelection(hit)
   }
   function onBandUp(e: PointerEvent) {
+    if (rowDragFrom) {
+      if (crossDrag) {
+        // 跨节点多选收尾：吞掉随后的 click，防止松手处的行进入编辑
+        const swallow = (ce: MouseEvent) => { ce.stopPropagation(); ce.preventDefault() }
+        window.addEventListener('click', swallow, { capture: true, once: true })
+        requestAnimationFrame(() => window.removeEventListener('click', swallow, { capture: true }))
+      }
+      rowDragFrom = null
+      crossDrag = false
+      return
+    }
     if (!bandStart) return
     bodyEl?.releasePointerCapture(e.pointerId)
     if (band) {
@@ -391,7 +440,8 @@
 
 <aside
   class="outline-panel"
-  style="width: {outlineGate.width}px; --outline-font-family: {typo.family}; --outline-font-size: {typo.size}; --outline-line-height: {typo.line};"
+  oncontextmenu={(e) => e.preventDefault()}
+  style="width: {outlineGate.width}px; --outline-font-family: {typo.family}; --outline-font-size: {typo.size}; --outline-line-height: {typo.line};{typo.fg ? ` color: ${typo.fg};` : ''}{typo.bg ? ` background: ${typo.bg};` : ''}"
 >
   <div class="typo-probe" data-theme={activeThemeId} aria-hidden="true" bind:this={probeEl}>
     <div class="moraya-editor"></div>
@@ -491,6 +541,14 @@
     flex-direction: column;
     border-left: 1px solid var(--border-color, #3333);
     overflow: hidden;
+    /* 整个面板永久禁用原生文字选区/拖字——多选由大纲交互自己处理；
+       编辑态 textarea 与搜索框内例外 */
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .outline-panel :global(textarea), .outline-panel :global(input) {
+    user-select: text;
+    -webkit-user-select: text;
   }
   .splitter {
     position: absolute;
@@ -534,10 +592,12 @@
     font-size: 11px; padding: 4px 8px; border-bottom: 1px solid var(--border-color, #3333);
   }
   .body { flex: 1; overflow-y: auto; padding: 8px; font-family: var(--outline-font-family); }
+  /* 低调的中性框选矩形（Finder 风格），跟随主题前景色 */
   .band {
     position: fixed; z-index: 30; pointer-events: none;
-    border: 1px solid var(--accent-color, #4a80d4);
-    background: color-mix(in srgb, var(--accent-color, #4a80d4) 10%, transparent);
+    border: 1px solid color-mix(in srgb, currentColor 30%, transparent);
+    background: color-mix(in srgb, currentColor 6%, transparent);
+    border-radius: 2px;
   }
   .empty { opacity: 0.5; font-size: 12px; }
   .typo-probe {

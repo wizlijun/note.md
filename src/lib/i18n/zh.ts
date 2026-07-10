@@ -374,6 +374,7 @@ export const zh: Record<keyof Messages, string> = {
   'outline.cmd.moveDown': '下移',
   'outline.cmd.bold': '粗体',
   'outline.cmd.italic': '斜体',
+  'outline.migrate.conflict': '旧后缀笔记未迁移(新文件已存在):{path}',
 
   // Folder view
   'folderView.parentFolder': '上级文件夹',

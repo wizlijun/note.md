@@ -1,5 +1,5 @@
 // src/lib/outline/model.ts
-export type NodeSource = 'toc' | 'highlight' | 'manual'
+export type NodeSource = 'toc' | 'highlight' | 'wikilink' | 'manual'
 
 export interface OutlineNode {
   id: string
@@ -28,9 +28,9 @@ export function setNodeContent(node: OutlineNode, content: string): void {
   if (node.source !== 'toc') node.updatedAt = nowIso()
 }
 
-export interface OutlineTree { nodes: Map<string, OutlineNode> }
+export interface OutlineTree { nodes: Map<string, OutlineNode>; frontmatter: string | null }
 
-export function createTree(): OutlineTree { return { nodes: new Map() } }
+export function createTree(): OutlineTree { return { nodes: new Map(), frontmatter: null } }
 
 export function addNode(tree: OutlineTree, node: OutlineNode): void {
   tree.nodes.set(node.id, node)

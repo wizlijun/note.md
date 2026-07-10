@@ -22,6 +22,7 @@
 
 <style>
   .pl { background: none; border: none; padding: 0; color: var(--accent-color, #4a80d4); cursor: pointer; font: inherit; }
+  .pl:hover { text-decoration: underline; }
   .block-ref { border-bottom: 1px dashed currentColor; opacity: 0.8; }
   mark { background: var(--highlight-bg, #fde68a); border-radius: 2px; }
   img { max-width: 100%; }
