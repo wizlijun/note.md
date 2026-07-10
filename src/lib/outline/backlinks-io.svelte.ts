@@ -2,6 +2,7 @@
 import { watchImmediate } from '@tauri-apps/plugin-fs'
 import { outline, bump } from './store.svelte'
 import { buildFolderIndex, refreshFileInIndex, pageNameOf } from './backlinks'
+import { sanitizeFileName } from './slug'
 import { folderView, parentDir } from '../folder-view.svelte'
 import { openFile } from '../tabs.svelte'
 import { t } from '../i18n/store.svelte'
@@ -56,13 +57,16 @@ export async function openPageOrCreate(target: string): Promise<void> {
   const dir = indexedRoot ?? (outline.docPath ? parentDir(outline.docPath) : null)
   if (!dir) return
   const idx = outline.backlinkIndex
+  // 已存在文件匹配仍用原 target(大小写不敏感文件名匹配，不受影响)
   const existing = idx ? [...idx.filePages.entries()].find(
     ([p, page]) => page.toLowerCase() === target.toLowerCase() && !/\.notes?\.md$/i.test(p)) : null
   if (existing) { await openFile(existing[0]); return }
-  const path = `${dir}/${target}.md`
+  // 新建文件时用安全文件名，保证 [[链接文本]] === 文件名 1:1
+  const safe = sanitizeFileName(target)
+  const path = `${dir}/${safe}.md`
   const { exists, writeTextFile } = await import('@tauri-apps/plugin-fs')
   if (!(await exists(path).catch(() => false))) {
-    await writeTextFile(path, `# ${target}\n`)
+    await writeTextFile(path, `# ${safe}\n`)
   }
   await openFile(path)
 }

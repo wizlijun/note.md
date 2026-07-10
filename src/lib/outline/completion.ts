@@ -1,4 +1,6 @@
 // src/lib/outline/completion.ts
+import { sanitizeFileName } from './slug'
+
 export interface SlashItem {
   id: string
   label: string
@@ -50,7 +52,7 @@ export function pageLinkQueryAt(content: string, cursor: number): { start: numbe
  */
 export function confirmPageLink(content: string, start: number, query: string, selection: string | null):
   { text: string; cursor: number } {
-  const target = selection ?? query
+  const target = sanitizeFileName(selection ?? query)
   const closeAt = start + 2 + query.length
   const text = content.slice(0, start) + '[[' + target + ']]' + content.slice(closeAt + 2)
   return { text, cursor: start + 2 + target.length + 2 }
