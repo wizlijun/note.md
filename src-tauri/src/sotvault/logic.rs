@@ -135,6 +135,23 @@ pub fn assets_dir_name(stem: &str) -> String {
     format!("{stem}.assets")
 }
 
+/// Companion outline-note filename (`foo.md` → `foo.note.md`) for a markdown
+/// basename. None for note files themselves and for non-markdown names —
+/// mirrors `companionPathFor` in src/lib/outline/store.svelte.ts.
+pub fn companion_note_name(basename: &str) -> Option<String> {
+    let lower = basename.to_lowercase();
+    if lower.ends_with(".note.md") || lower.ends_with(".notes.md") {
+        return None;
+    }
+    for ext in [".md", ".markdown", ".mdown", ".mkd"] {
+        if lower.ends_with(ext) {
+            let stem = &basename[..basename.len() - ext.len()];
+            return Some(format!("{stem}.note.md"));
+        }
+    }
+    None
+}
+
 /// Scan markdown for inline image links `![alt](target)` and return each raw
 /// `target` string (the text between the parentheses), in document order.
 /// v1: no nested `]`/`)`, no reference-style, no HTML.
@@ -539,4 +556,24 @@ mod tests {
         assert_eq!(refs[0].original, "(assets/x.png \"cap\")");
         assert_eq!(refs[0].rewritten, "(d.assets/x.png \"cap\")");
     }
+
+    #[test]
+    fn companion_note_name_for_md_files() {
+        assert_eq!(companion_note_name("foo.md").as_deref(), Some("foo.note.md"));
+        assert_eq!(
+            companion_note_name("2026-07-10-foo.md").as_deref(),
+            Some("2026-07-10-foo.note.md")
+        );
+        assert_eq!(companion_note_name("Foo.MD").as_deref(), Some("Foo.note.md"));
+        assert_eq!(companion_note_name("a.markdown").as_deref(), Some("a.note.md"));
+    }
+
+    #[test]
+    fn companion_note_name_skips_notes_and_non_md() {
+        assert_eq!(companion_note_name("foo.note.md"), None);
+        assert_eq!(companion_note_name("foo.notes.md"), None);
+        assert_eq!(companion_note_name("foo.txt"), None);
+        assert_eq!(companion_note_name("foo"), None);
+    }
 }
+
