@@ -42,7 +42,14 @@
   })
   let textareaEl: HTMLTextAreaElement | undefined = $state()
 
-  $effect(() => { if (editing && textareaEl) textareaEl.focus() })
+  $effect(() => {
+    if (editing && textareaEl) {
+      // rows=1 只在 oninput 时自适应；进入编辑态先按内容撑开，多行内容不塌成一行
+      textareaEl.style.height = 'auto'
+      textareaEl.style.height = textareaEl.scrollHeight + 'px'
+      textareaEl.focus()
+    }
+  })
 
   function startEdit() {
     outline.editingId = node.id
@@ -229,7 +236,11 @@
   .bullet.jumpable { cursor: pointer; }
   .bullet.src-toc { color: var(--accent-color, #4a80d4); }
   .bullet.src-hl { color: #d4a94a; }
-  .content { flex: 1; min-width: 0; white-space: pre-wrap; word-break: break-word; cursor: text; }
+  .content {
+    flex: 1; min-width: 0; white-space: pre-wrap; word-break: break-word; cursor: text;
+    /* 空内容时高度塌陷为 0，点击/文本光标落不到 span 上 → 保底一行高 */
+    min-height: calc(1em * var(--outline-line-height, 1.5));
+  }
   .content.src-toc, textarea.src-toc { color: GrayText; }
   .content.hl,
   textarea.hl {
@@ -240,6 +251,6 @@
   }
   textarea.edit {
     resize: none; overflow: hidden; border: none; outline: none;
-    border-radius: 3px; background: transparent; color: inherit; font: inherit; padding: 0 2px;
+    border-radius: 3px; background: transparent; color: inherit; font: inherit; padding: 0;
   }
 </style>
