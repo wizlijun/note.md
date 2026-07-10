@@ -1,6 +1,7 @@
 <script lang="ts">
   import { noteUi } from './note-ui.svelte'
   import { t } from '../i18n/store.svelte'
+  import { iconSvg } from '../context-menu/icons'
 
   // Captured at mount: the parent only mounts this while noteUi.edit is set.
   const editState = noteUi.edit!
@@ -25,7 +26,8 @@
   }
   function onKeydown(e: KeyboardEvent) {
     if (e.key === 'Escape') { e.stopPropagation(); close(true) }
-    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); close(true) }
+    // Notes are single-line (newlines are flattened on save) → Enter confirms.
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.stopPropagation(); close(true) }
   }
 </script>
 
@@ -47,45 +49,66 @@
     placeholder={t('noteedit.placeholder')}
   ></textarea>
   <div class="row">
-    <button class="del" onclick={onDelete}>{t('noteedit.delete')}</button>
+    <button
+      class="del"
+      onclick={onDelete}
+      title={t('noteedit.delete')}
+      aria-label={t('noteedit.delete')}
+    >{@html iconSvg('trash')}</button>
   </div>
 </div>
 
 <style>
+  /* Flat panel matching EditorContextMenu: system colors + color-mix handle
+     light/dark automatically; font inherits from the app/theme. */
   .note-edit {
     position: fixed;
     z-index: 1001;
     width: 280px;
-    padding: 8px;
+    padding: 6px;
+    background: Canvas;
+    color: CanvasText;
+    border: 1px solid color-mix(in srgb, CanvasText 18%, Canvas);
     border-radius: 8px;
-    background: #fff;
-    border: 1px solid rgba(0, 0, 0, 0.15);
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+    box-shadow: 0 4px 16px color-mix(in srgb, CanvasText 18%, transparent);
+    font: inherit;
+    font-size: 13px;
   }
   textarea {
     width: 100%;
     box-sizing: border-box;
-    resize: vertical;
+    resize: none;
     font: inherit;
     font-size: 13px;
-    border: 1px solid rgba(0, 0, 0, 0.15);
+    line-height: 1.5;
+    color: CanvasText;
+    background: color-mix(in srgb, CanvasText 5%, Canvas);
+    border: none;
     border-radius: 5px;
-    padding: 5px 7px;
+    padding: 6px 8px;
     outline: none;
   }
-  .row { display: flex; justify-content: flex-end; margin-top: 6px; }
+  textarea:focus {
+    background: color-mix(in srgb, AccentColor 8%, Canvas);
+  }
+  .row { display: flex; justify-content: flex-end; margin-top: 4px; }
   .del {
-    font-size: 12px;
-    color: #c0392b;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    padding: 0;
     background: none;
     border: none;
+    border-radius: 5px;
     cursor: pointer;
-    padding: 2px 6px;
-    border-radius: 4px;
+    color: color-mix(in srgb, CanvasText 65%, Canvas);
   }
-  .del:hover { background: rgba(192, 57, 43, 0.1); }
-  @media (prefers-color-scheme: dark) {
-    .note-edit { background: #2a2a2e; border-color: rgba(255, 255, 255, 0.15); }
-    textarea { background: #1e1e22; color: #ddd; border-color: rgba(255, 255, 255, 0.15); }
+  .del:hover {
+    background: color-mix(in srgb, AccentColor 12%, Canvas);
+    color: CanvasText;
   }
+  /* iconSvg() emits class="ctx-icon" inside {@html} — style it unscoped. */
+  :global(.note-edit .ctx-icon) { width: 15px; height: 15px; display: block; }
 </style>

@@ -9,27 +9,23 @@
 {/if}
 
 <style>
+  /* Flat panel matching EditorContextMenu / NoteEditPopup: system colors,
+     inherited font, auto light/dark via color-mix. */
   .note-popover {
     position: fixed;
     z-index: 1000;
     max-width: 320px;
     padding: 6px 10px;
-    border-radius: 6px;
-    font-size: 12.5px;
+    border-radius: 8px;
+    font: inherit;
+    font-size: 13px;
     line-height: 1.5;
     white-space: pre-wrap;
     word-break: break-word;
-    background: #fffbe8;
-    color: #3b3b3b;
-    border: 1px solid rgba(0, 0, 0, 0.12);
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.14);
+    background: Canvas;
+    color: CanvasText;
+    border: 1px solid color-mix(in srgb, CanvasText 18%, Canvas);
+    box-shadow: 0 4px 16px color-mix(in srgb, CanvasText 18%, transparent);
     pointer-events: none;
-  }
-  @media (prefers-color-scheme: dark) {
-    .note-popover {
-      background: #3a3520;
-      color: #e8e2c8;
-      border-color: rgba(255, 255, 255, 0.14);
-    }
   }
 </style>
