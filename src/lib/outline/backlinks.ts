@@ -69,7 +69,8 @@ export function pageCandidates(idx: BacklinkIndex): string[] {
 
 const MAX_FILE_BYTES = 1024 * 1024 // spec 性能护栏：仅解析 ≤1MB
 
-/** 扫描 rootDir 下所有 .md 建全量索引（递归、跳过点目录/点文件） */
+/** 扫描 rootDir 下所有 .md 建全量索引（递归、跳过点目录/点文件）。
+ *  副作用:遇到旧后缀 *.notes.md 会就地迁移改名为 *.note.md(冲突时回调上报)。 */
 export async function buildFolderIndex(
   rootDir: string,
   onMigrateConflict?: (legacyPath: string) => void,
