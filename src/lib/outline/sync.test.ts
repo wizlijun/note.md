@@ -85,3 +85,47 @@ describe('timestamps', () => {
     expect(hl2.createdAt).toBe('2026-01-01T00:00:00.000Z')
   })
 })
+
+describe('syncAutoItems — annotation note children', () => {
+  it('creates an annotation node with a note child', () => {
+    const tree = createTree()
+    syncAutoItems(tree, [
+      { source: 'annotation', content: '原文', note: '批注内容', depth: 0, anchorLine: 3 },
+    ])
+    const anno = [...tree.nodes.values()].find(n => n.source === 'annotation')!
+    expect(anno.content).toBe('原文')
+    const kids = childrenOf(tree, anno.id)
+    expect(kids).toHaveLength(1)
+    expect(kids[0].source).toBe('note')
+    expect(kids[0].content).toBe('批注内容')
+  })
+
+  it('updates the note child in place when the md note changes', () => {
+    const tree = createTree()
+    syncAutoItems(tree, [{ source: 'annotation', content: '原文', note: '旧', depth: 0, anchorLine: 1 }])
+    const noteId = [...tree.nodes.values()].find(n => n.source === 'note')!.id
+    syncAutoItems(tree, [{ source: 'annotation', content: '原文', note: '新', depth: 0, anchorLine: 1 }])
+    const note = tree.nodes.get(noteId)!
+    expect(note.content).toBe('新')
+  })
+
+  it('removes the note child together with a vanished annotation', () => {
+    const tree = createTree()
+    syncAutoItems(tree, [{ source: 'annotation', content: '原文', note: 'n', depth: 0, anchorLine: 1 }])
+    syncAutoItems(tree, [])
+    expect(tree.nodes.size).toBe(0)
+  })
+
+  it('keeps manual children of an annotation node alongside the note child', () => {
+    const tree = createTree()
+    syncAutoItems(tree, [{ source: 'annotation', content: '原文', note: 'n', depth: 0, anchorLine: 1 }])
+    const anno = [...tree.nodes.values()].find(n => n.source === 'annotation')!
+    tree.nodes.set('m1', {
+      id: 'm1', parentId: anno.id, order: 500, content: '手写', collapsed: false, source: 'manual',
+    })
+    syncAutoItems(tree, [{ source: 'annotation', content: '原文', note: 'n2', depth: 0, anchorLine: 1 }])
+    const kids = childrenOf(tree, anno.id)
+    expect(kids.map(k => k.source).sort()).toEqual(['manual', 'note'])
+    expect(kids.find(k => k.source === 'note')!.content).toBe('n2')
+  })
+})

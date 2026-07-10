@@ -9,7 +9,8 @@ function autoSequence(tree: OutlineTree): OutlineNode[] {
   const out: OutlineNode[] = []
   const walk = (pid: string | null) => {
     for (const n of childrenOf(tree, pid)) {
-      if (n.source !== 'manual') out.push(n)
+      // note 子节点由 annotation 父节点管理，不参与 LCS 配对
+      if (n.source !== 'manual' && n.source !== 'note') out.push(n)
       walk(n.id)
     }
   }
@@ -54,7 +55,14 @@ export function syncAutoItems(tree: OutlineTree, items: AutoItem[]): void {
   // 1) 删除未匹配的旧 auto（记录父链供重挂）
   const removedParents = new Map<string, string | null>()
   oldSeq.forEach((node, idx) => {
-    if (!matchedOld.has(idx)) { removedParents.set(node.id, node.parentId); tree.nodes.delete(node.id) }
+    if (!matchedOld.has(idx)) {
+      removedParents.set(node.id, node.parentId)
+      // annotation 的 note 子节点随父删除（先删，免得走孤儿重挂）
+      for (const c of childrenOf(tree, node.id)) {
+        if (c.source === 'note') tree.nodes.delete(c.id)
+      }
+      tree.nodes.delete(node.id)
+    }
   })
 
   // 2) 按新序列重建 auto 结构
@@ -83,6 +91,20 @@ export function syncAutoItems(tree: OutlineTree, items: AutoItem[]): void {
         ...(it.source !== 'toc' ? { createdAt: nowIso() } : {}),
       }
       tree.nodes.set(node.id, node)
+    }
+    if (it.source === 'annotation') {
+      // 唯一的 note 子节点承载批注内容：创建或原地更新（保 id）
+      const noteText = it.note ?? ''
+      const child = childrenOf(tree, node.id).find(c => c.source === 'note')
+      if (child) {
+        setNodeContent(child, noteText)
+      } else {
+        const fresh: OutlineNode = {
+          id: newId(), parentId: node.id, order: -100,
+          content: noteText, collapsed: false, source: 'note', createdAt: nowIso(),
+        }
+        tree.nodes.set(fresh.id, fresh)
+      }
     }
     if (it.source === 'toc') parentStack[it.depth] = node
   })
