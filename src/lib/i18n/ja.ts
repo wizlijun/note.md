@@ -364,6 +364,8 @@ export const ja: Record<keyof Messages, string> = {
   'folderView.noFolder': 'フォルダなし',
   'folderView.reveal': 'Finder で表示',
   'folderView.openNote': 'ノートを開く',
+  'folderView.rename': '名前を変更',
+  'folderView.renameConflict': '同名のファイルが既に存在します',
 
   // OpenClaw settings + devices
   'openclaw.heading': 'OpenClaw',

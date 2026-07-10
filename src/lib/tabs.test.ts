@@ -520,4 +520,19 @@ describe('tabs', () => {
     expect(t.lastKnownMtime).toBe(1_700_000_000_000)
     expect(t.lastKnownHash).toBe('')
   })
+
+  it('updateTabPath rebinds filePath and title without touching content', async () => {
+    const m = await import('./tabs.svelte')
+    await m.openFile('/tmp/old.md')
+    const tab = m.tabs.find((t: { filePath: string }) => t.filePath === '/tmp/old.md')!
+    m.setContent(tab.id, 'edited')
+    await m.updateTabPath('/tmp/old.md', '/tmp/new.md')
+    expect(tab.filePath).toBe('/tmp/new.md')
+    expect(tab.title).toBe('new.md')
+    expect(tab.currentContent).toBe('edited')
+  })
+  it('updateTabPath is a no-op when no tab has the path', async () => {
+    const m = await import('./tabs.svelte')
+    await expect(m.updateTabPath('/tmp/nope.md', '/tmp/x.md')).resolves.toBeUndefined()
+  })
 })

@@ -369,6 +369,8 @@ export const en = {
   'folderView.noFolder': 'No folder',
   'folderView.reveal': 'Reveal in Finder',
   'folderView.openNote': 'Open note',
+  'folderView.rename': 'Rename',
+  'folderView.renameConflict': 'A file with that name already exists',
 
   // OpenClaw settings + devices
   'openclaw.heading': 'OpenClaw',

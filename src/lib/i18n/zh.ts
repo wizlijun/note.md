@@ -395,6 +395,8 @@ export const zh: Record<keyof Messages, string> = {
   'folderView.noFolder': '无文件夹',
   'folderView.reveal': '在访达中显示',
   'folderView.openNote': '打开笔记',
+  'folderView.rename': '重命名',
+  'folderView.renameConflict': '同名文件已存在',
 
   // OpenClaw settings + devices
   'openclaw.heading': 'OpenClaw',

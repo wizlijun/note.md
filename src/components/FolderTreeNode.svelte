@@ -9,13 +9,36 @@
     activePath,
     onOpen,
     onContextMenu,
+    renamingPath = null,
+    onRenameCommit,
+    onRenameCancel,
   }: {
     entry: FolderEntry
     depth: number
     activePath: string | null
     onOpen: (path: string) => void
     onContextMenu: (e: MouseEvent, entry: FolderEntry) => void
+    renamingPath?: string | null
+    onRenameCommit?: (entry: FolderEntry, name: string) => void
+    onRenameCancel?: () => void
   } = $props()
+
+  // Escape unmounts the input, which fires blur with the (stale) value → a
+  // double-commit. Guard with a local flag set by Escape before it cancels, so
+  // the trailing blur is skipped. Reset each time a fresh rename input mounts.
+  let cancelled = false
+  $effect(() => {
+    if (renamingPath === entry.path) cancelled = false
+  })
+  function commitFromInput(value: string) {
+    if (cancelled) return
+    cancelled = true   // 提交后置位:拦截 unmount 触发的尾随 blur 重复提交
+    onRenameCommit?.(entry, value)
+  }
+  function cancelRename() {
+    cancelled = true
+    onRenameCancel?.()
+  }
 
   // While filtering, folders that survived the filter are force-expanded so
   // matches deep in the tree are revealed without manual clicking.
@@ -66,7 +89,24 @@
       </svg>
     {/if}
   {/if}
-  <span class="label">{entry.name}</span>
+  {#if renamingPath === entry.path}
+    <!-- svelte-ignore a11y_autofocus -->
+    <input
+      class="rename-input"
+      type="text"
+      value={entry.name}
+      autofocus
+      onclick={(e) => e.stopPropagation()}
+      onkeydown={(e) => {
+        e.stopPropagation()
+        if (e.key === 'Enter') { e.preventDefault(); commitFromInput((e.currentTarget as HTMLInputElement).value) }
+        else if (e.key === 'Escape') { e.preventDefault(); cancelRename() }
+      }}
+      onblur={(e) => commitFromInput((e.currentTarget as HTMLInputElement).value)}
+    />
+  {:else}
+    <span class="label">{entry.name}</span>
+  {/if}
   {#if entry.hasNote && entry.notePath}
     <span class="note-badge" role="button" tabindex="-1" title={t('folderView.openNote')}
       onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); onOpen(entry.notePath!) } }}
@@ -81,7 +121,16 @@
 
 {#if entry.isDir && expanded}
   {#each children as child (child.path)}
-    <FolderTreeNode entry={child} depth={depth + 1} {activePath} {onOpen} {onContextMenu} />
+    <FolderTreeNode
+      entry={child}
+      depth={depth + 1}
+      {activePath}
+      {onOpen}
+      {onContextMenu}
+      {renamingPath}
+      {onRenameCommit}
+      {onRenameCancel}
+    />
   {/each}
 {/if}
 
@@ -100,6 +149,11 @@
   .chev.spacer { display: inline-block; visibility: hidden; }
   .icon { flex: 0 0 auto; display: block; opacity: 0.75; }
   .label { overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
+  .rename-input {
+    flex: 1; min-width: 0; font: inherit; font-size: 13px;
+    padding: 0 2px; border: 1px solid var(--accent-color, #4a80d4);
+    border-radius: 3px; background: Canvas; color: CanvasText; outline: none;
+  }
   .note-badge { flex: 0 0 auto; display: inline-flex; opacity: 0.5; padding: 1px; border-radius: 3px; }
   .note-badge:hover { opacity: 1; background: rgba(0,0,0,0.08); }
   @media (prefers-color-scheme: dark) {
