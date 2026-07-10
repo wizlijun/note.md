@@ -376,6 +376,9 @@ export const zh: Record<keyof Messages, string> = {
   'outline.cmd.bold': '粗体',
   'outline.cmd.italic': '斜体',
   'outline.migrate.conflict': '旧后缀笔记未迁移(新文件已存在):{path}',
+  'outline.dirsTitle': 'Vault 目录',
+  'outline.wikipageDir': 'Wiki 页面目录',
+  'outline.dailynoteDir': '每日笔记目录',
 
   // Folder view
   'folderView.parentFolder': '上级文件夹',

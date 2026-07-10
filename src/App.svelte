@@ -47,6 +47,7 @@
   import FolderView from './components/FolderView.svelte'
   import { folderView, loadFolderViewState, setVisible } from './lib/folder-view.svelte'
   import { outlineGate, loadOutlineGate, setOutlineVisible } from './lib/outline/gate.svelte'
+  import { loadOutlineDirs } from './lib/outline/dirs.svelte'
   import { platform, isIOS } from './lib/platform.svelte'
   import { vaultStore, refreshStatus, syncNow, attachStatusListener } from './lib/vault.svelte'
   import { syncCurrentToVault, canSyncActive, isTrackedVaultFile, refreshSotvault, sotvaultStore, setVaultRootChangedHandler } from './lib/sotvault.svelte'
@@ -178,6 +179,7 @@
       try { await loadLocale() } catch (e) { console.warn('[App] loadLocale:', e) }
       await loadFolderViewState()
       await loadOutlineGate()
+      await loadOutlineDirs()
       await initActivePluginIds()
 
       // Kick off auto-update check (1.5s delay built in, 20h cache).
