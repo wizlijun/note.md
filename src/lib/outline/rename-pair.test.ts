@@ -48,4 +48,12 @@ describe('planRename', () => {
     const plan = planRename('/d/a.md', 'A.md', ['a.md'])
     expect(plan).toEqual({ ops: [{ from: '/d/a.md', to: '/d/A.md' }] })
   })
+  it('rejects extension change on a paired main doc (would orphan companion)', () => {
+    expect(planRename('/d/a.md', 'b', ['a.md', 'a.note.md'])).toBeNull()
+    expect(planRename('/d/a.md', 'b.txt', ['a.md', 'a.notes.md'])).toBeNull()
+    // 无伴生时改扩展名允许
+    expect(planRename('/d/a.md', 'b.txt', ['a.md'])).toEqual({
+      ops: [{ from: '/d/a.md', to: '/d/b.txt' }],
+    })
+  })
 })

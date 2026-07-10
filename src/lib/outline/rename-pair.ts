@@ -42,6 +42,13 @@ export function planRename(oldPath: string, newNameRaw: string, siblings: string
   // 主文档改名 → 伴生联动(仅 .md → .md 的改名;伴生自身改名不反向联动)
   const isMain = /\.md$/i.test(oldName) && !NOTE_SUFFIX_RE.test(oldName)
   const newIsMd = /\.md$/i.test(newName) && !NOTE_SUFFIX_RE.test(newName)
+
+  // 硬性规则(spec §7):有伴生配对的主文档不允许改掉 .md 扩展——
+  // 否则伴生无法联动而成孤儿;拒绝整个操作(UI 弹冲突提示)。
+  const hasCompanion = ['.note.md', '.notes.md'].some(suffix =>
+    siblings.some(s => s.toLowerCase() === oldName.replace(/\.md$/i, suffix).toLowerCase()))
+  if (isMain && hasCompanion && !newIsMd) return null
+
   if (isMain && newIsMd) {
     const base = oldName.replace(/\.md$/i, '')
     const newBase = newName.replace(/\.md$/i, '')
