@@ -76,33 +76,11 @@
         ev.preventDefault()
         ev.stopPropagation()
         const el = textareaEl!
-        const cur = el.value
         const start = el.selectionStart ?? 0
         const end = el.selectionEnd ?? 0
-        const sel = cur.slice(start, end)
-        // Case 1: selection itself includes the markers ("**text**" selected)
-        const selWrapped = sel.startsWith(open) && sel.endsWith(close)
-                        && sel.length > open.length + close.length
-        // Case 2: markers are just outside the selection (selected only "text" inside **text**)
-        const beforeOpen = start >= open.length && cur.slice(start - open.length, start) === open
-        const afterClose = cur.slice(end, end + close.length) === close
-        const outerWrapped = beforeOpen && afterClose
-
-        if (selWrapped) {
-          // Remove markers from within selection
-          const inner = sel.slice(open.length, sel.length - close.length)
-          setContent(tabId, cur.slice(0, start) + inner + cur.slice(end))
-          requestAnimationFrame(() => el.setSelectionRange(start, start + inner.length))
-        } else if (outerWrapped) {
-          // Remove markers surrounding the selection
-          const newStart = start - open.length
-          setContent(tabId, cur.slice(0, newStart) + sel + cur.slice(end + close.length))
-          requestAnimationFrame(() => el.setSelectionRange(newStart, newStart + sel.length))
-        } else {
-          // Wrap selection (or insert empty markers at cursor)
-          setContent(tabId, cur.slice(0, start) + open + sel + close + cur.slice(end))
-          requestAnimationFrame(() => el.setSelectionRange(start + open.length, end + open.length))
-        }
+        const r = applyWrap(el.value, start, end, open, close)
+        setContent(tabId, r.value)
+        requestAnimationFrame(() => el.setSelectionRange(r.selStart, r.selEnd))
         return
       }
     }
@@ -258,6 +236,7 @@
 
   import { findState } from '../lib/find-replace.svelte'
   import { setContent } from '../lib/tabs.svelte'
+  import { applyWrap } from '../lib/context-menu/text-format'
   import { reveal } from '../lib/outline/reveal.svelte'
 
   let lastRevealSeq = reveal.req?.seq ?? 0
