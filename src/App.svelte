@@ -46,7 +46,7 @@
   import DrawerNav from './components/DrawerNav.svelte'
   import FolderView from './components/FolderView.svelte'
   import { folderView, loadFolderViewState, setVisible } from './lib/folder-view.svelte'
-  import { outlineGate, loadOutlineGate, setOutlineVisible } from './lib/outline/gate.svelte'
+  import { outlineGate, loadOutlineGate, setOutlineVisible, isOutlineNoteTab } from './lib/outline/gate.svelte'
   import { loadOutlineDirs } from './lib/outline/dirs.svelte'
   import { platform, isIOS } from './lib/platform.svelte'
   import { vaultStore, refreshStatus, syncNow, attachStatusListener } from './lib/vault.svelte'
@@ -610,12 +610,19 @@
 
   let current = $derived(activeTab())
 
+  // Whether the read-only companion outline panel shows. Force-hidden when the
+  // active tab is itself a full-screen .note.md outline editor — a note has no
+  // companion outline, and showing an empty panel next to the editor is
+  // redundant (user's outline-visible toggle is overridden in this case).
+  let showOutlinePanel = $derived(
+    platformName !== 'ios' && outlineGate.enabled && outlineGate.visible
+      && !(current != null && isOutlineNoteTab(current))
+  )
+
   // Right-edge inset for the floating mode toggle: when the outline column is
   // showing it sits to the right of the editor, so push the toggle left by the
   // outline width to keep it over the editor (not hidden behind the panel).
-  let outlineRightOffset = $derived(
-    platformName !== 'ios' && outlineGate.enabled && outlineGate.visible ? outlineGate.width : 0
-  )
+  let outlineRightOffset = $derived(showOutlinePanel ? outlineGate.width : 0)
 
   // Window title: filename when single tab, plain "M↓" otherwise
   $effect(() => {
@@ -698,7 +705,7 @@
     {:else}
       <EmptyState />
     {/if}
-    {#if platformName !== 'ios' && outlineGate.enabled && outlineGate.visible}
+    {#if showOutlinePanel}
       {#await import('./components/outline/OutlinePanel.svelte') then Panel}
         <Panel.default tab={current ?? null} />
       {/await}
