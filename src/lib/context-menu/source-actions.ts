@@ -1,5 +1,5 @@
 import type { EditorActions } from './EditorContextMenu.svelte'
-import { applyWrap, expandToWord } from './text-format'
+import { applyWrap, expandToWord, insertNoteMarkup } from './text-format'
 import { setContent } from '../tabs.svelte'
 
 const WRAP_BY_ID: Record<string, [string, string]> = {
@@ -94,6 +94,14 @@ export function createSourceActions(h: SourceHandle): EditorActions {
         case 'paste':     return pasteText(h)
         case 'selectAll': h.el.focus(); h.el.select(); return
         case 'wikilink':  return wikilink(h)
+        case 'note': {
+          const start = h.el.selectionStart ?? 0
+          const end = h.el.selectionEnd ?? 0
+          const r = insertNoteMarkup(h.value(), start, end)
+          setContent(h.tabId, r.value)
+          requestAnimationFrame(() => { h.el.focus(); h.el.setSelectionRange(r.selStart, r.selEnd) })
+          return
+        }
         case 'link':      return link(h)
         case 'h1':        return linePrefix(h, '# ')
         case 'h2':        return linePrefix(h, '## ')

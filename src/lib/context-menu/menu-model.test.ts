@@ -10,11 +10,18 @@ describe('getMenuModel', () => {
     expect(ids).toContain('wikilink')
   })
 
-  it('marks highlight and wikilink as emphasis and orders them before other marks', () => {
+  it('marks highlight/wikilink/note as emphasis and orders them before other marks', () => {
     const groups = getMenuModel({ hasSelection: true })
     const emphasis = groups.find(g => g.id === 'emphasis')!
-    expect(emphasis.items.map(i => i.id)).toEqual(['highlight', 'wikilink'])
+    expect(emphasis.items.map(i => i.id)).toEqual(['highlight', 'wikilink', 'note'])
     expect(emphasis.items.every(i => i.emphasis)).toBe(true)
+  })
+
+  it('note works with or without a selection', () => {
+    const groups = getMenuModel({ hasSelection: false })
+    const note = groups.flatMap(g => g.items).find(i => i.id === 'note')!
+    expect(note).toBeDefined()
+    expect(note.needsSelection).toBeUndefined()
   })
 
   it('flags link-from-text as needing a selection', () => {
