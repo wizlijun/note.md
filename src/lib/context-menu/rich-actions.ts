@@ -93,6 +93,10 @@ export function createRichActions(view: EditorView): EditorActions {
           view.dispatch(view.state.tr.setSelection(new AllSelection(view.state.doc)))
           view.focus(); return
         case 'wikilink':  return wrapWikilink(view)
+        case 'note': {
+          const { insertNoteRich } = await import('../note-anno/note-commands')
+          return insertNoteRich(view)
+        }
         case 'link':      return toggleLink(view)
         case 'h1':        return setBlock(view, 'heading', { level: 1 })
         case 'h2':        return setBlock(view, 'heading', { level: 2 })

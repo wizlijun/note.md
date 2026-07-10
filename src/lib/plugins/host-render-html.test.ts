@@ -9,6 +9,7 @@ import {
   hasMathContent,
   inlineImages,
   renderTabBody,
+  renderMarkdownInline,
   __setImageReaderForTests,
 } from './host-render-html'
 
@@ -141,5 +142,34 @@ describe('highlight rendering', () => {
     const html = await renderTabBody(tab)
     expect(html).not.toContain('<script>')
     expect(html).toContain('&lt;script&gt;')
+  })
+})
+
+describe('CriticMarkup annotations in exported HTML', () => {
+  it('renders wrapped annotation as mark + badge with title', () => {
+    const html = renderMarkdownInline('a {==bc==}{>>my note<<} d')
+    expect(html).toContain('<mark class="crit-anno">bc</mark>')
+    expect(html).toContain('class="crit-badge" title="my note"')
+  })
+
+  it('renders point annotation as badge only', () => {
+    const html = renderMarkdownInline('end{>>hi<<}')
+    expect(html).not.toContain('crit-anno')
+    expect(html).toContain('class="crit-badge" title="hi"')
+  })
+
+  it('escapes hostile note text in the title attribute', () => {
+    const html = renderMarkdownInline('x{>>a "b" <i> & c<<}')
+    expect(html).toContain('title="a &quot;b&quot; &lt;i&gt; &amp; c"')
+  })
+
+  it('keeps inline formatting inside the annotated text', () => {
+    const html = renderMarkdownInline('{==has **bold**==}{>>n<<}')
+    expect(html).toContain('<strong>bold</strong>')
+  })
+
+  it('leaves incomplete markers untouched (fail open)', () => {
+    const html = renderMarkdownInline('x {>>never closed')
+    expect(html).not.toContain('crit-badge')
   })
 })

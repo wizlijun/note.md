@@ -45,7 +45,7 @@
 <div class="slash-backdrop" onclick={onClose}>
   <div
     bind:this={menuEl}
-    class="slash-menu"
+    class="slash-menu menu-panel"
     style="top: {adjustedTop}px; left: {adjustedLeft}px"
     onclick={(e) => e.stopPropagation()}
   >
@@ -56,8 +56,8 @@
         <!-- svelte-ignore a11y_click_events_have_key_events -->
         <!-- svelte-ignore a11y_no_static_element_interactions -->
         <div
-          class="slash-item"
-          class:selected={i === selectedIndex}
+          class="slash-item menu-row"
+          class:active={i === selectedIndex}
           onclick={() => onSelect(item)}
         >
           <span class="slash-icon">{item.icon}</span>
@@ -72,6 +72,8 @@
 </div>
 
 <style>
+  /* Chrome (background/blur/highlight) comes from the shared .menu-panel /
+     .menu-row classes in app.css — only layout lives here. */
   .slash-backdrop {
     position: fixed;
     inset: 0;
@@ -83,43 +85,17 @@
     width: 248px;
     max-height: 340px;
     overflow-y: auto;
-    padding: 4px;
-    background: Canvas;
-    border: 1px solid color-mix(in srgb, CanvasText 18%, Canvas);
-    border-radius: 8px;
-    box-shadow: 0 4px 16px color-mix(in srgb, CanvasText 12%, transparent);
     z-index: 71;
   }
 
-  .slash-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 5px 7px;
-    border-radius: 5px;
-    cursor: pointer;
-    user-select: none;
-  }
-
-  .slash-item:hover,
-  .slash-item.selected {
-    background: color-mix(in srgb, AccentColor 10%, Canvas);
-  }
+  .slash-item { gap: 8px; }
 
   .slash-icon {
     flex-shrink: 0;
-    width: 30px;
-    height: 30px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: color-mix(in srgb, CanvasText 6%, Canvas);
-    border: 1px solid color-mix(in srgb, CanvasText 10%, Canvas);
-    border-radius: 5px;
-    font-size: 11px;
-    font-weight: 700;
-    font-family: ui-monospace, Menlo, monospace;
-    color: CanvasText;
+    width: 20px;
+    text-align: center;
+    font-size: 12px;
+    opacity: 0.75;
   }
 
   .slash-text {
@@ -130,14 +106,12 @@
 
   .slash-label {
     font-size: 13px;
-    font-weight: 500;
-    color: CanvasText;
-    line-height: 1.3;
+    line-height: 1.35;
   }
 
   .slash-desc {
     font-size: 11px;
-    color: color-mix(in srgb, CanvasText 55%, Canvas);
+    opacity: 0.55;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -146,7 +120,7 @@
   .slash-empty {
     padding: 8px 12px;
     font-size: 13px;
-    color: color-mix(in srgb, CanvasText 45%, Canvas);
+    opacity: 0.5;
     text-align: center;
   }
 </style>

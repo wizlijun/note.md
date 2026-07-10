@@ -53,3 +53,19 @@ export function expandToWord(value: string, cursor: number): { start: number; en
   while (end < value.length && WORD_CHAR.test(value[end])) end++
   return { start, end }
 }
+
+/**
+ * Insert a CriticMarkup annotation at [start,end): wraps a non-empty selection
+ * as `{==sel==}{>><<}`, or inserts a bare `{>><<}` on a collapsed selection.
+ * The caret lands between `>>` and `<<` so the user can type the note directly.
+ */
+export function insertNoteMarkup(value: string, start: number, end: number): WrapResult {
+  const sel = value.slice(start, end)
+  const insert = sel ? `{==${sel}==}{>><<}` : '{>><<}'
+  const caret = start + insert.length - 3
+  return {
+    value: value.slice(0, start) + insert + value.slice(end),
+    selStart: caret,
+    selEnd: caret,
+  }
+}

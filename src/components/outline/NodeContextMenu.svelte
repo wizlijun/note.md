@@ -17,9 +17,9 @@
 </script>
 
 <svelte:window onclick={onClose} oncontextmenu={onClose} />
-<div class="menu" style="left: {x}px; top: {y}px" role="menu">
+<div class="menu menu-panel" style="left: {x}px; top: {y}px" role="menu">
   {#each items as action}
-    <button class="item" class:danger={action === 'delete'} role="menuitem"
+    <button class="item menu-row" class:danger={action === 'delete'} role="menuitem"
       onclick={(e) => { e.stopPropagation(); onAction(action, node); onClose() }}>
       {labels[action]}
     </button>
@@ -27,10 +27,9 @@
 </div>
 
 <style>
-  .menu { position: fixed; z-index: 100; min-width: 170px; background: var(--panel-bg, #fff);
-    border: 1px solid var(--border-color, #ccc); border-radius: 6px; box-shadow: 0 4px 16px #0003; padding: 4px; }
+  /* Chrome comes from the shared .menu-panel / .menu-row classes in app.css. */
+  .menu { position: fixed; z-index: 100; min-width: 170px; }
   .item { display: block; width: 100%; text-align: left; background: none; border: none;
-    padding: 5px 8px; border-radius: 4px; font-size: 13px; cursor: pointer; color: inherit; }
-  .item:hover { background: var(--hover-bg, #8882); }
+    font: inherit; color: inherit; }
   .item.danger:hover { background: #d44a4a; color: #fff; }
 </style>

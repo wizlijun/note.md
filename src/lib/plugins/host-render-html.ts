@@ -92,6 +92,47 @@ const highlightEqExtension: TokenizerAndRendererExtension = {
   },
 }
 
+// CriticMarkup annotations: {==text==}{>>note<<} and standalone {>>note<<}.
+// Must win over highlightEq: its start() points at the `{`, which precedes
+// the inner `==`, so the lexer tries this extension first.
+const criticAnnotationExtension: TokenizerAndRendererExtension = {
+  name: 'criticAnnotation',
+  level: 'inline',
+  start(src: string) {
+    const a = src.indexOf('{==')
+    const b = src.indexOf('{>>')
+    if (a < 0) return b
+    if (b < 0) return a
+    return Math.min(a, b)
+  },
+  tokenizer(src: string) {
+    let m = /^\{==([^\n]+?)==\}\{>>([^\n]*?)<<\}/.exec(src)
+    if (m) {
+      const token = { type: 'criticAnnotation', raw: m[0], note: m[2], tokens: [] } as any
+      this.lexer.inline(m[1], token.tokens)
+      return token
+    }
+    m = /^\{>>([^\n]*?)<<\}/.exec(src)
+    if (m) return { type: 'criticAnnotation', raw: m[0], note: m[1], tokens: [] } as any
+    return undefined
+  },
+  renderer(token: any) {
+    const badge = `<sup class="crit-badge" title="${htmlEscape(String(token.note))}">※</sup>`
+    if (!token.tokens?.length) return badge
+    return `<mark class="crit-anno">${this.parser.parseInline(token.tokens)}</mark>${badge}`
+  },
+}
+
+/** Styles for exported/printed CriticMarkup annotations (light + dark). */
+export const CRITIC_CSS = `
+.crit-anno { background: #fff3bf; border-bottom: 1px dashed #d9a400; padding: 0 1px; }
+.crit-badge { color: #b8860b; cursor: help; font-size: 0.75em; margin-left: 1px; user-select: none; }
+@media (prefers-color-scheme: dark) {
+  .crit-anno { background: #4d3f00; border-bottom-color: #e3b341; color: inherit; }
+  .crit-badge { color: #e3b341; }
+}
+`
+
 const sharedMarked = new Marked(
   // The rich editor maps every markdown soft break to a hard line break
   // (moraya's softbreak → hardbreak). `breaks: true` mirrors that in exported
@@ -107,7 +148,7 @@ const sharedMarked = new Marked(
   }),
   markedKatex({ throwOnError: false }),
 )
-sharedMarked.use({ extensions: [blockCitationExtension, highlightCaretExtension, highlightEqExtension] })
+sharedMarked.use({ extensions: [criticAnnotationExtension, blockCitationExtension, highlightCaretExtension, highlightEqExtension] })
 
 /**
  * Synchronously render a small markdown fragment to an HTML string using the

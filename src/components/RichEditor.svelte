@@ -24,6 +24,10 @@
   import { getSlashItems, filterSlashItems, type SlashItem } from '../lib/slash-menu/slash-items'
   import EditorContextMenu, { type EditorActions } from '../lib/context-menu/EditorContextMenu.svelte'
   import { createRichActions } from '../lib/context-menu/rich-actions'
+  import { noteUi } from '../lib/note-anno/note-ui.svelte'
+  import { openEditForMark, openEditForAnchor, insertNoteRich } from '../lib/note-anno/note-commands'
+  import NotePopover from '../lib/note-anno/NotePopover.svelte'
+  import NoteEditPopup from '../lib/note-anno/NoteEditPopup.svelte'
   import { setBlockType, wrapIn } from 'prosemirror-commands'
   import { wrapInList } from 'prosemirror-schema-list'
 
@@ -224,6 +228,35 @@
     })
   }
 
+  /** Click on a note badge (annotation widget or note_anchor node) → edit bubble. */
+  function handleNoteClick(e: MouseEvent) {
+    const target = e.target as HTMLElement
+    const badge = target.closest('.note-badge, .moraya-note-anchor') as HTMLElement | null
+    if (!badge || !editor) return
+    e.preventDefault()
+    e.stopPropagation()
+    const view = editor.view as unknown as EditorView
+    const rect = badge.getBoundingClientRect()
+    const pos = view.posAtDOM(badge, 0)
+    if (badge.classList.contains('moraya-note-anchor')) {
+      // posAtDOM may resolve just inside/after the atom — probe both sides.
+      const node = view.state.doc.nodeAt(pos)
+      if (node?.type.name === 'note_anchor') openEditForAnchor(view, pos, rect)
+      else openEditForAnchor(view, pos - 1, rect)
+    } else {
+      // Badge widget sits AFTER the annotated range → look left of it.
+      openEditForMark(view, pos - 1, rect)
+    }
+  }
+
+  /** Hover over anything carrying data-note → floating preview. */
+  function handleNoteHover(e: MouseEvent) {
+    const el = (e.target as HTMLElement).closest('[data-note]') as HTMLElement | null
+    if (!el || !el.dataset.note) { noteUi.hover = null; return }
+    const rect = el.getBoundingClientRect()
+    noteUi.hover = { x: rect.left, y: rect.bottom + 4, note: el.dataset.note }
+  }
+
   function handleImageClick(event: MouseEvent) {
     const target = event.target as HTMLElement
     if (target.tagName !== 'IMG') {
@@ -343,6 +376,7 @@
   function handleRichContextMenu(event: MouseEvent) {
     if (!editor) return
     event.preventDefault()
+    noteUi.hover = null
     const view = editor.view as unknown as EditorView
     ctxHasSel   = !view.state.selection.empty
     ctxActions  = createRichActions(view)
@@ -451,6 +485,14 @@
       event.preventDefault()
       if (sc.code_block) setBlockType(sc.code_block, { language: '' })(s, view.dispatch)
       view.focus(); return
+    }
+
+    // ── Insert annotation: Cmd+Shift+N ──
+    // (Cmd+Shift+M is taken by math block below.)
+    if (mod && shift && !alt && key === 'n') {
+      event.preventDefault()
+      insertNoteRich(view)
+      return
     }
 
     // ── Math block: Cmd+Shift+M ──
@@ -874,14 +916,19 @@
         try {
           const view = inst.view as unknown as EditorView
           const { wikilinkPlugin } = await import('../lib/wikilink-plugin')
+          const { noteBadgePlugin } = await import('../lib/note-anno/note-plugin')
           view.updateState(
-            view.state.reconfigure({ plugins: view.state.plugins.concat(wikilinkPlugin()) }),
+            view.state.reconfigure({
+              plugins: view.state.plugins.concat(wikilinkPlugin(), noteBadgePlugin()),
+            }),
           )
         } catch (e) {
           console.warn('[RichEditor] wikilink plugin init failed:', e)
         }
 
         _pmEl?.addEventListener('paste', handlePaste, true)
+        _pmEl?.addEventListener('click', handleNoteClick as EventListener, true)
+        _pmEl?.addEventListener('mouseover', handleNoteHover as EventListener)
         _pmEl?.addEventListener('click', handleImageClick as EventListener)
         _pmEl?.addEventListener('mousedown', handleLinkMouseDown as EventListener, true)
         _pmEl?.addEventListener('keydown', handleRichKeydown as EventListener, true)
@@ -929,6 +976,8 @@
 
   onDestroy(() => {
     _pmEl?.removeEventListener('paste', handlePaste, true)
+    _pmEl?.removeEventListener('click', handleNoteClick as EventListener, true)
+    _pmEl?.removeEventListener('mouseover', handleNoteHover as EventListener)
     _pmEl?.removeEventListener('click', handleImageClick as EventListener)
     _pmEl?.removeEventListener('mousedown', handleLinkMouseDown as EventListener, true)
     _pmEl?.removeEventListener('keydown', handleRichKeydown as EventListener, true)
@@ -992,6 +1041,10 @@
       actions={ctxActions}
       onClose={() => { showCtxMenu = false }}
     />
+  {/if}
+  <NotePopover />
+  {#if noteUi.edit}
+    <NoteEditPopup />
   {/if}
 </div>
 

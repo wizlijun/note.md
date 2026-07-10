@@ -139,7 +139,7 @@
 
   {#if ctx.open}
     <div
-      class="tab-ctx-menu"
+      class="tab-ctx-menu menu-panel"
       role="menu"
       style="left: {ctx.x}px; top: {ctx.y}px"
     >
@@ -147,7 +147,7 @@
         <button
           type="button"
           role="menuitem"
-          class="tab-ctx-item"
+          class="tab-ctx-item menu-row"
           class:disabled={!enabled}
           disabled={!enabled}
           onclick={() => onCtxItemClick(item, enabled)}
@@ -221,34 +221,18 @@
   }
   .close:hover { opacity: 1; background: color-mix(in srgb, CanvasText 15%, transparent); }
 
+  /* Chrome comes from the shared .menu-panel / .menu-row classes in app.css. */
   .tab-ctx-menu {
     position: fixed;
     z-index: 9998;
     min-width: 180px;
-    padding: 4px;
-    background: Canvas;
-    color: CanvasText;
-    border: 1px solid color-mix(in srgb, CanvasText 15%, transparent);
-    border-radius: 6px;
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
-    font-size: 13px;
   }
   .tab-ctx-item {
-    display: block;
     width: 100%;
     text-align: left;
-    padding: 6px 10px;
-    background: transparent;
+    background: none;
     color: inherit;
     border: 0;
-    border-radius: 4px;
-    cursor: pointer;
-  }
-  .tab-ctx-item:hover:not(.disabled) {
-    background: color-mix(in srgb, AccentColor 18%, Canvas);
-  }
-  .tab-ctx-item.disabled {
-    opacity: 0.45;
-    cursor: default;
+    font: inherit;
   }
 </style>
