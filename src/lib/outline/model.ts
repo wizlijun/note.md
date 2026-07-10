@@ -1,5 +1,5 @@
 // src/lib/outline/model.ts
-export type NodeSource = 'toc' | 'highlight' | 'manual'
+export type NodeSource = 'toc' | 'highlight' | 'wikilink' | 'manual'
 
 export interface OutlineNode {
   id: string

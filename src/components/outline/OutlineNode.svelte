@@ -66,6 +66,9 @@
       setSelection(rangeBetween(outline.tree, anchor, node.id))
       return
     }
+    // 行内刚拖选了一段文字：保留文字选区（供复制），不进入编辑
+    const sel = window.getSelection()
+    if (sel && !sel.isCollapsed) return
     clearSelection()
     startEdit()
   }
@@ -133,7 +136,7 @@
     else if (cmd === 'outline.toggleCollapse') node.collapsed = !node.collapsed
     else if (cmd === 'outline.moveUp') moveNodeUp(outline.tree, node.id)
     else if (cmd === 'outline.moveDown') moveNodeDown(outline.tree, node.id)
-    else if (cmd === 'outline.bold' || cmd === 'outline.italic') {
+    else if ((cmd === 'outline.bold' || cmd === 'outline.italic') && node.source === 'manual') {
       const r = applyInlineWrap(el.value, el.selectionStart, el.selectionEnd, cmd === 'outline.bold' ? '**' : '__')
       el.value = r.text
       el.setSelectionRange(r.selStart, r.selEnd)
@@ -190,6 +193,7 @@
       class="bullet"
       class:src-toc={node.source === 'toc'}
       class:src-hl={node.source === 'highlight'}
+      class:src-wl={node.source === 'wikilink'}
       class:jumpable={node.anchorLine != null}
       draggable={node.source === 'manual'}
       ondragstart={onDragStart}
@@ -202,8 +206,8 @@
         class:hl={node.source === 'highlight'}
         class:src-toc={node.source === 'toc'}
         rows="1"
-        readonly={node.source !== 'manual'}
         value={node.content}
+        onbeforeinput={(e) => { if (node.source !== 'manual') e.preventDefault() }}
         onblur={(e) => commitEdit((e.currentTarget as HTMLTextAreaElement).value)}
         onkeydown={onKeydown}
         oninput={(e) => {
@@ -238,13 +242,12 @@
     font-size: var(--outline-font-size, 13px);
     line-height: var(--outline-line-height, 1.5);
   }
-  .row:hover { background: var(--hover-bg, #8881); }
   .row.drop-sibling { box-shadow: 0 2px 0 var(--accent-color, #4a80d4); }
   .row.drop-child { box-shadow: inset 2px 0 0 var(--accent-color, #4a80d4); background: #4a80d411; }
-  /* 用中性灰而非 accent 蓝,避免与主编辑区文本选区混淆;左侧竖条标示选中 */
+  /* 选中态：与原生文字选区同源（系统 Highlight 色）,无竖条无圆角 */
   .row.selected {
-    background: color-mix(in srgb, CanvasText 8%, transparent);
-    box-shadow: inset 2px 0 0 var(--accent-color, #4a80d4);
+    background: Highlight;
+    border-radius: 0;
   }
   .row.auto .content { opacity: 0.92; }
   .tri {
@@ -263,12 +266,16 @@
   .bullet.jumpable { cursor: pointer; }
   .bullet.src-toc { color: var(--accent-color, #4a80d4); }
   .bullet.src-hl { color: #d4a94a; }
+  .bullet.src-wl { color: #3aa99f; }
   .content {
     flex: 1; min-width: 0; white-space: pre-wrap; word-break: break-word; cursor: text;
+    /* 面板整体 user-select:none；节点文字本身保留可选（跨行拖动由多选接管） */
+    user-select: text; -webkit-user-select: text;
     /* 空内容时高度塌陷为 0，点击/文本光标落不到 span 上 → 保底一行高 */
     min-height: calc(1em * var(--outline-line-height, 1.5));
   }
-  .content.src-toc, textarea.src-toc { color: GrayText; }
+  /* toc 灰色跟随主题前景色（GrayText 是系统色,不随 theme 变化） */
+  .content.src-toc, textarea.src-toc { color: color-mix(in srgb, currentColor 45%, transparent); }
   .content.hl,
   textarea.hl {
     text-decoration: underline;

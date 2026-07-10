@@ -80,7 +80,7 @@ export function syncAutoItems(tree: OutlineTree, items: AutoItem[]): void {
       node = {
         id: newId(), parentId: pid, order: nextAutoOrder(pid),
         content: it.content, collapsed: false, source: it.source, anchorLine: it.anchorLine,
-        ...(it.source === 'highlight' ? { createdAt: nowIso() } : {}),
+        ...(it.source !== 'toc' ? { createdAt: nowIso() } : {}),
       }
       tree.nodes.set(node.id, node)
     }

@@ -1,6 +1,6 @@
 // src/lib/outline/derive.ts
 export interface AutoItem {
-  source: 'toc' | 'highlight'
+  source: 'toc' | 'highlight' | 'wikilink'
   content: string
   /** 树深度：H2 = 0，H3 = 1…；对应高亮 = 栈深；任何 H2 之前的高亮 = 0 */
   depth: number
@@ -8,7 +8,8 @@ export interface AutoItem {
 }
 
 const HEADING_RE = /^(#{1,6})\s+(.*)$/
-const HIGHLIGHT_RE = /\^\^([^^\n]+?)\^\^|(?<![\w=])==([^\s=][^=\n]*?)==(?![\w=])/g
+// 高亮在前：`==text [[x]]==` 整体按高亮收录，内部 wikilink 不再单独出条目
+const INLINE_RE = /\^\^([^^\n]+?)\^\^|(?<![\w=])==([^\s=][^=\n]*?)==(?![\w=])|\[\[([^\]\n]+?)\]\]/g
 
 interface StackEntry { level: number; content: string; anchorLine: number; emitted: boolean }
 
@@ -45,19 +46,25 @@ export function deriveAutoItems(md: string): AutoItem[] {
       continue
     }
 
-    HIGHLIGHT_RE.lastIndex = 0
+    INLINE_RE.lastIndex = 0
     let m: RegExpExecArray | null
-    while ((m = HIGHLIGHT_RE.exec(line)) !== null) {
-      const text = (m[1] ?? m[2]).trim()
+    while ((m = INLINE_RE.exec(line)) !== null) {
+      const isWikilink = m[3] != null
+      const text = (m[1] ?? m[2] ?? m[3]).trim()
       if (!text) continue
-      // Lazily emit the heading path leading to this highlight (shallow → deep).
+      // Lazily emit the heading path leading to this item (shallow → deep).
       for (let d = 0; d < stack.length; d++) {
         const entry = stack[d]
         if (entry.emitted) continue
         items.push({ source: 'toc', content: entry.content, depth: d, anchorLine: entry.anchorLine })
         entry.emitted = true
       }
-      items.push({ source: 'highlight', content: text, depth: stack.length, anchorLine: li + 1 })
+      items.push({
+        source: isWikilink ? 'wikilink' : 'highlight',
+        // wikilink 节点内容保留双方括号样式
+        content: isWikilink ? `[[${text}]]` : text,
+        depth: stack.length, anchorLine: li + 1,
+      })
     }
   }
   return items

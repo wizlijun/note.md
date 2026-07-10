@@ -78,3 +78,18 @@ describe('deriveAutoItems (H2+ paths to highlights, H1 skipped)', () => {
     expect(strip(deriveAutoItems(md)).map(i => i.content)).toEqual(['H', 'real'])
   })
 })
+
+describe('wikilink derivation', () => {
+  it('emits wikilink items with [[...]] style preserved', () => {
+    const items = deriveAutoItems('# T\n## A\nsee [[Page One]] and ==hl==\n')
+    expect(items.map(i => [i.source, i.content])).toEqual([
+      ['toc', 'A'],
+      ['wikilink', '[[Page One]]'],
+      ['highlight', 'hl'],
+    ])
+  })
+  it('does not double-emit wikilinks inside a highlight span', () => {
+    const items = deriveAutoItems('## A\n==note [[X]] here==\n')
+    expect(items.map(i => i.source)).toEqual(['toc', 'highlight'])
+  })
+})

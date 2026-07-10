@@ -91,3 +91,12 @@ describe('created/updated timestamps', () => {
     expect(roundTrip('- plain\n')).toBe('- plain\n')
   })
 })
+
+describe('wikilink node type', () => {
+  it('round-trips type:: wikilink', () => {
+    const md = '- [[Page]]\n  type:: wikilink\n  line:: 3\n  created:: 2026-07-10T00:00:00.000Z\n'
+    const n = [...parseOutline(md).nodes.values()][0]
+    expect(n.source).toBe('wikilink')
+    expect(serializeOutline(parseOutline(md))).toBe(md)
+  })
+})
