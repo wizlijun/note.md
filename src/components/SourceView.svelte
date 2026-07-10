@@ -164,6 +164,11 @@
     return map
   })
 
+  let showCtxMenu = $state(false)
+  let ctxMenuPos  = $state({ x: 0, y: 0 })
+  let ctxHasSel   = $state(false)
+  let ctxActions  = $state<EditorActions | null>(null)
+
   let copiedId = $state<string | null>(null)
   let copiedTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -238,6 +243,8 @@
   import { setContent } from '../lib/tabs.svelte'
   import { applyWrap } from '../lib/context-menu/text-format'
   import { reveal } from '../lib/outline/reveal.svelte'
+  import EditorContextMenu, { type EditorActions } from '../lib/context-menu/EditorContextMenu.svelte'
+  import { createSourceActions } from '../lib/context-menu/source-actions'
 
   let lastRevealSeq = reveal.req?.seq ?? 0
   $effect(() => {
@@ -468,6 +475,16 @@
     }
   })
 
+  function onContextMenu(event: MouseEvent) {
+    if (!textareaEl || !tabId) return
+    event.preventDefault()
+    const el = textareaEl
+    ctxHasSel  = (el.selectionStart ?? 0) !== (el.selectionEnd ?? 0)
+    ctxActions = createSourceActions({ el, tabId, value: () => el.value })
+    ctxMenuPos = { x: event.clientX, y: event.clientY }
+    showCtxMenu = true
+  }
+
   function onNewFileSelect(e: Event) {
     const { start, end } = (e as CustomEvent).detail
     if (!textareaEl) return
@@ -495,10 +512,19 @@
       onscroll={syncScroll}
       onkeydown={onTextareaKeydown}
       onpaste={handlePaste}
+      oncontextmenu={onContextMenu}
       spellcheck="true"
       autocapitalize="off"
     ></textarea>
   </div>
+  {#if showCtxMenu && ctxActions}
+    <EditorContextMenu
+      position={ctxMenuPos}
+      hasSelection={ctxHasSel}
+      actions={ctxActions}
+      onClose={() => { showCtxMenu = false }}
+    />
+  {/if}
 </div>
 
 <style>
