@@ -68,6 +68,16 @@
   async function onTextareaKeydown(ev: KeyboardEvent) {
     // Inline formatting shortcuts — independent of mdblock setting
     if (ev.metaKey || ev.ctrlKey) {
+      // ── Insert annotation: Cmd+Shift+N (mirrors rich mode) ──
+      if (ev.shiftKey && ev.key.toLowerCase() === 'n' && tabId && textareaEl) {
+        ev.preventDefault()
+        ev.stopPropagation()
+        const el = textareaEl
+        const r = insertNoteMarkup(el.value, el.selectionStart ?? 0, el.selectionEnd ?? 0)
+        setContent(tabId, r.value)
+        requestAnimationFrame(() => el.setSelectionRange(r.selStart, r.selEnd))
+        return
+      }
       let open = '', close = ''
       if (ev.key === 'b') { open = '**'; close = '**' }
       else if (ev.key === 'i') { open = '*'; close = '*' }
@@ -128,6 +138,14 @@
         return `<span class="h h${level}">${escapeHtml(line)}</span>`
       }
       let out = escapeHtml(line) || ' '
+      // CriticMarkup annotations: tint {==…==} and {>>…<<} spans. Text is
+      // already HTML-escaped, so match the escaped forms in one pass.
+      out = out.replace(
+        /(\{==.+?==\})?(\{&gt;&gt;.*?&lt;&lt;\})/g,
+        (_all, hl: string | undefined, note: string) =>
+          (hl ? `<span class="crit-hl">${hl}</span>` : '') +
+          `<span class="crit-note">${note}</span>`,
+      )
       return out
     })
     // Trailing space ensures pre matches textarea height when value ends with newline
@@ -241,7 +259,7 @@
 
   import { findState } from '../lib/find-replace.svelte'
   import { setContent } from '../lib/tabs.svelte'
-  import { applyWrap } from '../lib/context-menu/text-format'
+  import { applyWrap, insertNoteMarkup } from '../lib/context-menu/text-format'
   import { reveal } from '../lib/outline/reveal.svelte'
   import EditorContextMenu, { type EditorActions } from '../lib/context-menu/EditorContextMenu.svelte'
   import { createSourceActions } from '../lib/context-menu/source-actions'
@@ -628,6 +646,19 @@
   }
   .hl :global(.h1) { font-weight: 600; }
   .hl :global(.h2) { font-weight: 600; }
+  .hl :global(.crit-hl) {
+    background: rgba(255, 213, 79, 0.28);
+    border-radius: 2px;
+  }
+  .hl :global(.crit-note) {
+    color: #b8860b;
+    background: rgba(217, 164, 0, 0.12);
+    border-radius: 2px;
+  }
+  @media (prefers-color-scheme: dark) {
+    .hl :global(.crit-hl) { background: rgba(217, 164, 0, 0.22); }
+    .hl :global(.crit-note) { color: #e3b341; background: rgba(227, 179, 65, 0.12); }
+  }
   .host textarea {
     background: transparent;
     color: transparent;
