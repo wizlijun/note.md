@@ -100,3 +100,29 @@ describe('wikilink node type', () => {
     expect(serializeOutline(parseOutline(md))).toBe(md)
   })
 })
+
+describe('front-matter', () => {
+  const fm = 'title: 我的笔记\ncreated: 2026-07-10T08:00:00.000Z\nroam-uid: abc'
+  it('parseOutline extracts leading YAML block into tree.frontmatter', () => {
+    const t = parseOutline(`---\n${fm}\n---\n- A\n`)
+    expect(t.frontmatter).toBe(fm)
+    expect([...t.nodes.values()].map(n => n.content)).toEqual(['A'])
+  })
+  it('round-trips front-matter byte-exact (unknown keys preserved)', () => {
+    const md = `---\n${fm}\n---\n- A\n  - B\n`
+    expect(roundTrip(md)).toBe(md)
+  })
+  it('no front-matter → tree.frontmatter is null, output unchanged', () => {
+    const t = parseOutline('- A\n')
+    expect(t.frontmatter).toBeNull()
+    expect(roundTrip('- A\n')).toBe('- A\n')
+  })
+  it('serializes front-matter even when body is empty', () => {
+    const t = parseOutline(`---\n${fm}\n---\n`)
+    expect(serializeOutline(t)).toBe(`---\n${fm}\n---\n`)
+  })
+  it('a lone --- line in body is not front-matter', () => {
+    const t = parseOutline('- A\n---\n')
+    expect(t.frontmatter).toBeNull()
+  })
+})
