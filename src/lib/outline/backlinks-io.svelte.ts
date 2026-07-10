@@ -78,9 +78,15 @@ export async function openPageOrCreate(target: string): Promise<void> {
   {
     const { parseDateLink, ensureDailyNote } = await import('./daily')
     if (parseDateLink(target)) {
-      const p = await ensureDailyNote(target)
-      if (p) { await openFile(p); return }
-      // vault 未配置:落回普通解析/建页逻辑
+      try {
+        const p = await ensureDailyNote(target)
+        if (p) { await openFile(p); return }
+        // vault 未配置:落回普通解析/建页逻辑
+      } catch (e) {
+        console.warn('[outline] open daily note failed:', e)
+        pushToast({ level: 'error', message: String(e) })
+        return
+      }
     }
   }
   const idx = outline.backlinkIndex
