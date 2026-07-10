@@ -31,6 +31,41 @@
   .moraya-editor .wikilink { color: #79c0ff; }
 }
 
+/* ── Inline annotations (CriticMarkup notes) ─────────────────── */
+.moraya-editor .moraya-annotation {
+  background: rgba(255, 213, 79, 0.28);
+  border-bottom: 1px dashed #d9a400;
+}
+.moraya-editor .note-badge,
+.moraya-editor .moraya-note-anchor {
+  display: inline-block;
+  cursor: pointer;
+  user-select: none;
+  color: #b8860b;
+  font-size: 0.72em;
+  vertical-align: super;
+  line-height: 1;
+  margin: 0 1px;
+}
+.moraya-editor .note-badge::before,
+.moraya-editor .moraya-note-anchor::before {
+  content: '※';
+}
+.moraya-editor .note-badge:hover,
+.moraya-editor .moraya-note-anchor:hover {
+  color: #8a6508;
+}
+@media (prefers-color-scheme: dark) {
+  .moraya-editor .moraya-annotation {
+    background: rgba(217, 164, 0, 0.24);
+    border-bottom-color: #e3b341;
+  }
+  .moraya-editor .note-badge,
+  .moraya-editor .moraya-note-anchor { color: #e3b341; }
+  .moraya-editor .note-badge:hover,
+  .moraya-editor .moraya-note-anchor:hover { color: #f5cd60; }
+}
+
 /* Bare `http(s)://` URLs: decorated in place so they read (and click) as links
    while the underlying text stays literal. Matches anchor link affordances. */
 .moraya-editor .url-autolink {
