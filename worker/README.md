@@ -1,6 +1,6 @@
 # mdeditor-share Worker
 
-Cloudflare Worker backing the M↓ "Share" plugin. KV holds shared HTML; R2 holds uploaded images and short videos.
+Cloudflare Worker backing the note.md "Share" plugin. KV holds shared HTML; R2 holds uploaded images and short videos.
 
 ## Routes
 
@@ -58,7 +58,7 @@ wrangler kv:namespace create SHARES
 wrangler r2 bucket create mdeditor-share-media
 wrangler r2 bucket create mdeditor-share-media-preview   # used by `wrangler dev`
 
-# Generate and store the API key as a secret. Use the same value in M↓
+# Generate and store the API key as a secret. Use the same value in note.md
 # Preferences → Share → API Key.
 openssl rand -hex 32 | wrangler secret put SHARE_API_KEY
 
@@ -67,7 +67,7 @@ wrangler deploy
 ```
 
 The deploy step prints the public URL (`https://mdeditor-share.<account>.workers.dev`).
-Paste this into M↓ Preferences → Share → Service Base URL.
+Paste this into note.md Preferences → Share → Service Base URL.
 
 ## Custom domain (optional)
 

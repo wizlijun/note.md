@@ -84,7 +84,7 @@ const messaging: ChannelMessagingAdapter = {
 // deliverDelta for UDS is handled by sendToHost calls from the gateway (Task 9).
 // ---------------------------------------------------------------------------
 const streaming: ChannelStreamingAdapter = {
-  // No deliverDelta in this SDK version; streaming output to M↓ host is done
+  // No deliverDelta in this SDK version; streaming output to note.md host is done
   // via sendToHost() called from the gateway context in Task 9.
 };
 
@@ -107,11 +107,11 @@ export const mdeditorPlugin: ChannelPlugin<ResolvedAccount> = {
   id: "mdeditor",
   meta: {
     id: "mdeditor",
-    label: "M↓ Chat",
-    selectionLabel: "M↓ Chat (plugin)",
+    label: "note.md Chat",
+    selectionLabel: "note.md Chat (plugin)",
     docsPath: "/channels/mdeditor",
     docsLabel: "mdeditor",
-    blurb: "Local M↓ desktop chat via UDS.",
+    blurb: "Local note.md desktop chat via UDS.",
     order: 90,
     quickstartAllowFrom: false,
   },
@@ -126,7 +126,7 @@ export const mdeditorPlugin: ChannelPlugin<ResolvedAccount> = {
 };
 
 // ---------------------------------------------------------------------------
-// Wire the host-frame handler: messages FROM M↓ host arriving on UDS.
+// Wire the host-frame handler: messages FROM note.md host arriving on UDS.
 // ---------------------------------------------------------------------------
 export async function startChannel(): Promise<void> {
   setHostFrameHandler((f) => onHostFrame(f));
@@ -193,7 +193,7 @@ function onHostFrame(f: Frame): void {
                   });
                 },
                 onError: (err) => {
-                  // Surface errors back to M↓ host as an error frame.
+                  // Surface errors back to note.md host as an error frame.
                   sendToHost({
                     v: 1,
                     type: "error",

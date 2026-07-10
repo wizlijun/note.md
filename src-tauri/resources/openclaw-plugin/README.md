@@ -1,6 +1,6 @@
 # @openclaw/mdeditor
 
-OpenClaw channel plugin: bridges a local M↓ desktop client to OpenClaw via a
+OpenClaw channel plugin: bridges a local note.md desktop client to OpenClaw via a
 Unix Domain Socket. No TCP/HTTP/WS ports are opened by this plugin.
 
 ## Install (local path)

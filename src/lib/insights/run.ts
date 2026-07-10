@@ -23,7 +23,7 @@ const trimSlash = (s: string) => s.replace(/\/+$/, '')
 /**
  * Build the dashboard/report data dependencies (owner analytics from the Vault +
  * audience stats from the Worker, joined via share records). Shared by the
- * in-app Insights window and the `mdedit reading-insights report` CLI so the CLI
+ * in-app Insights window and the `notemd reading-insights report` CLI so the CLI
  * gets the SAME online (audience) data — the API key comes from the loaded
  * settings, and ALL audience data is fetched by date in one `/a/stats-all`
  * request (no slug list needed; share records only map slugs back to paths).

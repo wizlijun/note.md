@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# One-shot release helper for M↓.
+# One-shot release helper for note.md.
 #
 #   scripts/release.sh <version> [--draft] [--prerelease]
 #
@@ -247,9 +247,9 @@ build_arch() {
   [[ -n "$tarball_src" && -f "$tarball_src" ]] || die "updater tarball not found for $arch — is createUpdaterArtifacts on and TAURI_SIGNING_PRIVATE_KEY set?"
   [[ -n "$sig_src"     && -f "$sig_src"     ]] || die "updater signature not found for $arch — Tauri did not sign the tarball"
 
-  local dmg_staged="/tmp/MdEditor-${VERSION}-${arch_tag}.dmg"
-  local tarball_staged="/tmp/MdEditor-${arch_tag}.app.tar.gz"
-  local sig_staged="/tmp/MdEditor-${arch_tag}.app.tar.gz.sig"
+  local dmg_staged="/tmp/note.md-${VERSION}-${arch_tag}.dmg"
+  local tarball_staged="/tmp/note.md-${arch_tag}.app.tar.gz"
+  local sig_staged="/tmp/note.md-${arch_tag}.app.tar.gz.sig"
   cp "$dmg_src" "$dmg_staged"
   cp "$tarball_src" "$tarball_staged"
   cp "$sig_src" "$sig_staged"
@@ -283,7 +283,7 @@ git add src-tauri/plugins/share/bin-aarch64-apple-darwin \
         src-tauri/plugins/md2pdf/bin-aarch64-apple-darwin \
         src-tauri/plugins/md2pdf/bin-x86_64-apple-darwin 2>/dev/null || true
 git commit -m "chore: release v$VERSION"
-git tag -a "$TAG" -m "M↓ $VERSION"
+git tag -a "$TAG" -m "note.md $VERSION"
 
 say "pushing to origin"
 git push origin main
@@ -298,8 +298,8 @@ PREAMBLE=$(cat <<EOF
 
 Pick the dmg matching your Mac's chip:
 
-- **Apple Silicon (M1/M2/M3/…):** \`MdEditor-${VERSION}-aarch64.dmg\`
-- **Intel:** \`MdEditor-${VERSION}-x86_64.dmg\`
+- **Apple Silicon (M1/M2/M3/…):** \`note.md-${VERSION}-aarch64.dmg\`
+- **Intel:** \`note.md-${VERSION}-x86_64.dmg\`
 
 > Code-signed with Developer ID Application (\`$APPLE_TEAM_ID\`), hardened runtime, notarized.
 > Auto-update from a previous installed version picks the correct architecture automatically.
@@ -324,8 +324,8 @@ EXTRA=()
 
 # Generate latest.json — the updater manifest that the app polls. Each arch
 # key points to its own tarball + signature.
-TARBALL_URL_AARCH64="https://github.com/$GH_REPO/releases/download/$TAG/MdEditor-aarch64.app.tar.gz"
-TARBALL_URL_X86_64="https://github.com/$GH_REPO/releases/download/$TAG/MdEditor-x86_64.app.tar.gz"
+TARBALL_URL_AARCH64="https://github.com/$GH_REPO/releases/download/$TAG/note.md-aarch64.app.tar.gz"
+TARBALL_URL_X86_64="https://github.com/$GH_REPO/releases/download/$TAG/note.md-x86_64.app.tar.gz"
 PUB_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 LATEST_JSON_STAGED="/tmp/latest.json"
 python3 - "$VERSION" "$PUB_DATE" "$TAG" "$GH_REPO" \
@@ -350,7 +350,7 @@ PY
 echo "    manifest: $LATEST_JSON_STAGED"
 
 gh -R "$GH_REPO" release create "$TAG" \
-  --title "M↓ $VERSION" \
+  --title "note.md $VERSION" \
   --notes "$NOTES" \
   "${EXTRA[@]}" \
   "${STAGED_ASSETS[@]}" \

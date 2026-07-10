@@ -1,7 +1,8 @@
 //! CLI mode: argv parsing, routing, and execution.
 //!
-//! Entered from `main.rs` when `argv[0]` basename equals `"mdedit"` or argv
-//! contains `--cli`. Returns a `std::process::ExitCode` that main propagates.
+//! Entered from `main.rs` when `argv[0]` basename equals `"notemd"` (or the
+//! legacy `"mdedit"`) or argv contains `--cli`. Returns a
+//! `std::process::ExitCode` that main propagates.
 
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -19,7 +20,8 @@ const APP_BUNDLE_ID: &str = "com.laobu.mdeditor";
 /// Resolve the plugins directory. Tries in order:
 /// 1. Explicit `--plugin-dir` override
 /// 2. `current_exe()` canonicalized → `../../Resources/plugins`
-/// 3. Well-known install path `/Applications/M↓.app/Contents/Resources/plugins`
+/// 3. Well-known install paths `/Applications/note.md.app/Contents/Resources/plugins`
+///    (falling back to the legacy `/Applications/M↓.app/…` for pre-rename installs)
 /// 4. Compile-time `CARGO_MANIFEST_DIR/plugins` (dev only)
 pub fn resolve_plugins_dir(override_dir: Option<&str>) -> PathBuf {
     if let Some(p) = override_dir {
@@ -34,8 +36,14 @@ pub fn resolve_plugins_dir(override_dir: Option<&str>) -> PathBuf {
             }
         }
     }
-    let well_known = PathBuf::from("/Applications/M\u{2193}.app/Contents/Resources/plugins");
-    if well_known.exists() { return well_known; }
+    for well_known in [
+        "/Applications/note.md.app/Contents/Resources/plugins",
+        // Auto-updated installs keep the pre-rename bundle folder name.
+        "/Applications/M\u{2193}.app/Contents/Resources/plugins",
+    ] {
+        let well_known = PathBuf::from(well_known);
+        if well_known.exists() { return well_known; }
+    }
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("plugins")
 }
 
@@ -56,7 +64,8 @@ pub fn is_cli_mode(argv: &[String]) -> bool {
             .file_name()
             .and_then(|s| s.to_str())
             .unwrap_or("");
-        if name == "mdedit" { return true; }
+        // `mdedit` is the pre-rename command name; old symlinks keep working.
+        if name == "notemd" || name == "mdedit" { return true; }
     }
     false
 }
@@ -68,13 +77,13 @@ pub fn run_cli(argv: Vec<String>) -> ExitCode {
         router::Route::Builtin(b) => builtin::run(b, &parsed),
         router::Route::Plugin(p) => runner::run(p, parsed),
         router::Route::Disabled { plugin_id, subcommand } => {
-            eprintln!("mdedit: command '{subcommand}' is provided by the '{plugin_id}' plugin, which is disabled.");
+            eprintln!("notemd: command '{subcommand}' is provided by the '{plugin_id}' plugin, which is disabled.");
             eprintln!("Enable it in Preferences → Plugins, or run:");
-            eprintln!("  mdedit plugin enable {plugin_id}");
+            eprintln!("  notemd plugin enable {plugin_id}");
             ExitCode::from(3)
         }
         router::Route::Unknown(name) => {
-            eprintln!("mdedit: unknown command '{name}'. Run 'mdedit help' to see available commands.");
+            eprintln!("notemd: unknown command '{name}'. Run 'notemd help' to see available commands.");
             ExitCode::from(127)
         }
     }

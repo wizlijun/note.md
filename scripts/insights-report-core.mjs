@@ -61,7 +61,7 @@ export function renderOwnerDigest(agg, fromDay, toDay) {
   const divider = '|---|---|---|---|---|'
   const body = rows.map((r) => `| ${r.label} | ${fmtDuration(r.read_ms)} | ${fmtDuration(r.edit_ms)} | ${r.edit_sessions} | ${r.mark_ops} |`)
   const totals = `| **合计** | ${fmtDuration(rows.reduce((n, r) => n + r.read_ms, 0))} | ${fmtDuration(rows.reduce((n, r) => n + r.edit_ms, 0))} | ${rows.reduce((n, r) => n + r.edit_sessions, 0)} | ${rows.reduce((n, r) => n + r.mark_ops, 0)} |`
-  return [`# 阅读数据 · ${rangeLabel}`, '', summary, '', header, divider, ...body, totals, '', '<sub>由 M↓ Reading Insights CLI 生成</sub>', ''].join('\n')
+  return [`# 阅读数据 · ${rangeLabel}`, '', summary, '', header, divider, ...body, totals, '', '<sub>由 note.md Reading Insights CLI 生成</sub>', ''].join('\n')
 }
 
 function dayKey(ms, tz) {

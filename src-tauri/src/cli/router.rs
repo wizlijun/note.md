@@ -92,7 +92,7 @@ pub fn resolve_with(
         };
     }
 
-    // reading-insights uses the two-level `mdedit reading-insights report` form
+    // reading-insights uses the two-level `notemd reading-insights report` form
     // and is handled through the webview runner (reusing the in-app report logic,
     // incl. online audience) — not a plugin binary.
     if first == "reading-insights" {

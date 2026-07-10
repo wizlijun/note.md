@@ -6,8 +6,8 @@ import { MdeditorConfigSchema } from "./src/config-schema.js";
 
 const plugin = {
   id: "mdeditor",
-  name: "M↓ Chat",
-  description: "Local M↓ desktop chat via UDS.",
+  name: "note.md Chat",
+  description: "Local note.md desktop chat via UDS.",
   configSchema: { type: "object" as const, additionalProperties: false, properties: {} },
   // OpenClaw requires `register` to be synchronous (must not return a Promise).
   // The UDS server startup is async, so we fire-and-forget it inside the sync

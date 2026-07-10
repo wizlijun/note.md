@@ -44,7 +44,7 @@ export function renderDailyReport(rows: InsightRow[], fromDay: string, toDay: st
   const markdown = [
     `# 阅读数据 · ${rangeLabel}`, '', summary, '',
     header, divider, ...body, totals, '',
-    '<sub>由 M↓ Reading Insights 生成</sub>', '',
+    '<sub>由 note.md Reading Insights 生成</sub>', '',
   ].join('\n')
 
   return { filename, markdown }

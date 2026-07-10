@@ -10,7 +10,7 @@ pub fn themes_dir<R: Runtime>(app: &AppHandle<R>) -> Result<PathBuf, String> {
 }
 
 /// Subdirectory holding the compiled (scoped) CSS. Users do not edit these
-/// directly; M↓ overwrites them on every compile.
+/// directly; note.md overwrites them on every compile.
 pub fn compiled_dir<R: Runtime>(app: &AppHandle<R>) -> Result<PathBuf, String> {
     Ok(themes_dir(app)?.join(".compiled"))
 }

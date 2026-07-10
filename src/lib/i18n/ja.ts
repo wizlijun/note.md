@@ -13,21 +13,21 @@ export const ja: Record<keyof Messages, string> = {
   // Settings
   'settings.language': '言語',
 
-  // CLI (`mdedit`) install/uninstall
-  'cli.installTitle': "'mdedit' コマンドをインストール",
+  // CLI (`notemd`) install/uninstall
+  'cli.installTitle': "'notemd' コマンドをインストール",
   'cli.installPrompt':
-    "'mdedit' コマンドを PATH にインストールしますか？\n\n" +
-    'インストールすると、任意のターミナルやスクリプトから M↓ の機能を呼び出せます：\n' +
-    '  • mdedit -s draft.md   Share プラグインで公開して URL を表示\n' +
-    '  • mdedit help          すべてのコマンドを表示\n' +
-    '  • mdedit plugin list   プラグイン一覧\n\n' +
-    "この設定は Help → Install/Uninstall 'mdedit' Command からいつでも管理できます。",
-  'cli.installInto': "'mdedit' を {dir} にインストールしますか？",
-  'cli.installed': "'mdedit' を {dir} にインストールしました",
+    "'notemd' コマンドを PATH にインストールしますか？\n\n" +
+    'インストールすると、任意のターミナルやスクリプトから note.md の機能を呼び出せます：\n' +
+    '  • notemd -s draft.md   Share プラグインで公開して URL を表示\n' +
+    '  • notemd help          すべてのコマンドを表示\n' +
+    '  • notemd plugin list   プラグイン一覧\n\n' +
+    "この設定は Help → Install/Uninstall 'notemd' Command からいつでも管理できます。",
+  'cli.installInto': "'notemd' を {dir} にインストールしますか？",
+  'cli.installed': "'notemd' を {dir} にインストールしました",
   'cli.installFailed': 'インストールに失敗しました：{error}',
-  'cli.uninstalled': "{dir} から 'mdedit' をアンインストールしました",
+  'cli.uninstalled': "{dir} から 'notemd' をアンインストールしました",
   'cli.uninstallFailed': 'アンインストールに失敗しました：{error}',
-  'cli.notInstalled': "'mdedit' はインストールされていません",
+  'cli.notInstalled': "'notemd' はインストールされていません",
 
   // Share
   'share.docTooLarge': '❌ {name}：ドキュメントが大きすぎます（{mb} MB / 上限 25 MB）',
@@ -183,7 +183,7 @@ export const ja: Record<keyof Messages, string> = {
   'tabBar.modified': '変更あり',
 
   // Plugins settings
-  'plugins.restartNote': '変更は M↓ を再起動すると有効になります',
+  'plugins.restartNote': '変更は note.md を再起動すると有効になります',
   'plugins.capabilities': '機能：{caps}',
   'plugins.none': 'プラグインが検出されませんでした。',
   'plugins.needsVault': '有効にするには先に Vault を設定してください',
@@ -281,7 +281,7 @@ export const ja: Record<keyof Messages, string> = {
   // Update dialog
   'updateDialog.checking': '更新を確認中…',
   'updateDialog.currentVersion': '現在のバージョン：v{version}',
-  'updateDialog.available': 'M↓ {version} が利用可能',
+  'updateDialog.available': 'note.md {version} が利用可能',
   'updateDialog.whatsNew': '新機能',
   'updateDialog.noNotes': 'リリースノートはありません。',
   'updateDialog.skip': 'このバージョンをスキップ',
@@ -290,15 +290,15 @@ export const ja: Record<keyof Messages, string> = {
   'updateDialog.downloading': '{version} をダウンロード中…',
   'updateDialog.runInBackground': 'バックグラウンドで実行',
   'updateDialog.ready': '準備完了',
-  'updateDialog.readyBody': 'M↓ {version} をダウンロードしました。アプリを再起動すると更新が完了します。',
+  'updateDialog.readyBody': 'note.md {version} をダウンロードしました。アプリを再起動すると更新が完了します。',
   'updateDialog.restartLater': '後で再起動',
   'updateDialog.restartNow': '今すぐ再起動',
   'updateDialog.error': '更新エラー',
   'updateDialog.unknownError': '不明なエラー',
-  'updateDialog.upToDate': 'M↓ は最新です',
+  'updateDialog.upToDate': 'note.md は最新です',
 
   // Update banner
-  'updateBanner.available': '✨ M↓ {version} が利用可能',
+  'updateBanner.available': '✨ note.md {version} が利用可能',
   'updateBanner.viewDetails': '詳細を表示',
   'updateBanner.downloading': '{version} をダウンロード中…',
   'updateBanner.showProgress': '進捗を表示',
@@ -375,7 +375,7 @@ export const ja: Record<keyof Messages, string> = {
   'openclaw.modeRemote': 'リモート（mdrelay 経由）',
   'openclaw.socketPath': 'ソケットパス',
   'openclaw.accessToken': 'アクセストークン',
-  'openclaw.runToGenerate': "'mdedit openclaw install' を実行して生成",
+  'openclaw.runToGenerate': "'notemd openclaw install' を実行して生成",
   'openclaw.hide': '非表示',
   'openclaw.show': '表示',
   'openclaw.copy': 'コピー',
@@ -404,7 +404,7 @@ export const ja: Record<keyof Messages, string> = {
 
   // Chat / pairing
   'chat.connectTitle': 'OpenClaw に接続',
-  'chat.enterPairingCode': 'ホストマシンの M↓ 設定に表示されるペアリングコードを入力してください。',
+  'chat.enterPairingCode': 'ホストマシンの note.md 設定に表示されるペアリングコードを入力してください。',
   'chat.pairingCode': 'ペアリングコード',
   'chat.deviceNameOptional': 'デバイス名（任意）',
   'chat.connecting': '接続中…',
@@ -443,14 +443,14 @@ export const ja: Record<keyof Messages, string> = {
 
   // Settings → Default app
   'settings.defaultApp.heading': 'テキスト・コードファイルの既定アプリ',
-  'settings.defaultApp.desc1': 'M↓ をテキストおよびソースコードファイルを開く macOS の既定アプリケーションにします。設定すると、Finder でサポート対象のファイルをダブルクリック（または <em>このアプリケーションで開く…</em> を選択）すると M↓ が起動します。',
+  'settings.defaultApp.desc1': 'note.md をテキストおよびソースコードファイルを開く macOS の既定アプリケーションにします。設定すると、Finder でサポート対象のファイルをダブルクリック（または <em>このアプリケーションで開く…</em> を選択）すると note.md が起動します。',
   'settings.defaultApp.desc2': 'これは <strong>{groups}</strong> カテゴリにわたる <strong>{exts}</strong> 個のファイル拡張子に影響します。すべての変更は macOS Launch Services を通るため、システム・Finder・他のアプリが即座に反映します。',
   'settings.defaultApp.showTypes': '影響するファイルタイプを表示（{count} 個の拡張子）',
   'settings.defaultApp.setting': '設定中…',
-  'settings.defaultApp.setDefault': 'M↓ を全 {count} タイプの既定に設定',
+  'settings.defaultApp.setDefault': 'note.md を全 {count} タイプの既定に設定',
   'settings.defaultApp.undoNote': '<strong>1 つのファイルタイプを元に戻すには：</strong>Finder でファイルを選択 → ファイルメニュー → <em>情報を見る</em> → <em>このアプリケーションで開く</em> → 別のアプリを選択 → <em>すべてを変更…</em> をクリック。macOS では一括で元に戻す方法がないため、上のボタンを押す前に確認してください。',
-  'settings.defaultApp.resultOk': '完了 — M↓ が全 {count} 個の拡張子の既定になりました。',
-  'settings.defaultApp.resultPartial': '{ok}/{total} 個の拡張子を設定しました。失敗：{failed}（macOS にこれらの UTI が登録されていない可能性があります — 明示的に起動すれば M↓ で開きます）。',
+  'settings.defaultApp.resultOk': '完了 — note.md が全 {count} 個の拡張子の既定になりました。',
+  'settings.defaultApp.resultPartial': '{ok}/{total} 個の拡張子を設定しました。失敗：{failed}（macOS にこれらの UTI が登録されていない可能性があります — 明示的に起動すれば note.md で開きます）。',
   'settings.defaultApp.resultError': 'エラー：{error}',
 
   // Settings → Block IDs
@@ -508,7 +508,7 @@ export const ja: Record<keyof Messages, string> = {
 
   // Settings → CLI
   'settings.cli.heading': 'CLI',
-  'settings.cli.desc': '<code>mdedit</code> コマンドを使うと、ターミナルや他のツールから M↓ を操作できます — Share プラグインでファイルを公開したり、利用可能なコマンドを一覧表示したりできます。',
+  'settings.cli.desc': '<code>notemd</code> コマンドを使うと、ターミナルや他のツールから note.md を操作できます — Share プラグインでファイルを公開したり、利用可能なコマンドを一覧表示したりできます。',
   'settings.cli.loading': '読み込み中…',
   'settings.cli.installedAtLabel': 'インストール先：',
   'settings.cli.symlinkMismatch': 'シンボリックリンクが別のバイナリを指しています — 再インストールで修復してください。',
@@ -519,7 +519,7 @@ export const ja: Record<keyof Messages, string> = {
   'settings.cli.installing': 'インストール中…',
   'settings.cli.install': 'インストール…',
   'settings.cli.error': 'エラー：{error}',
-  'settings.cli.helpDesc': 'インストール後、ターミナルで <code>mdedit help</code> を実行すると完全なリファレンスが表示されます。CLI は<em>有効な</em>プラグインが提供するコマンドのみを公開します — 上の Plugins でプラグインを無効にすると、そのサブコマンドが <code>mdedit</code> から削除されます。',
+  'settings.cli.helpDesc': 'インストール後、ターミナルで <code>notemd help</code> を実行すると完全なリファレンスが表示されます。CLI は<em>有効な</em>プラグインが提供するコマンドのみを公開します — 上の Plugins でプラグインを無効にすると、そのサブコマンドが <code>notemd</code> から削除されます。',
 
   // Editor context menu
   'ctxmenu.cut': 'カット',

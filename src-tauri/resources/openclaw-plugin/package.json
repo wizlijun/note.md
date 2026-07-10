@@ -1,7 +1,7 @@
 {
   "name": "@openclaw/mdeditor",
   "version": "0.1.0",
-  "description": "OpenClaw mdeditor channel plugin (local UDS bridge to M↓ host)",
+  "description": "OpenClaw mdeditor channel plugin (local UDS bridge to note.md host)",
   "type": "module",
   "scripts": {
     "test": "vitest run",
@@ -21,11 +21,11 @@
     ],
     "channel": {
       "id": "mdeditor",
-      "label": "M↓ Chat",
-      "selectionLabel": "M↓ Chat (plugin)",
+      "label": "note.md Chat",
+      "selectionLabel": "note.md Chat (plugin)",
       "docsPath": "/channels/mdeditor",
       "docsLabel": "mdeditor",
-      "blurb": "Local M↓ desktop chat via UDS; remote fan-out via mdrelay.",
+      "blurb": "Local note.md desktop chat via UDS; remote fan-out via mdrelay.",
       "order": 90,
       "quickstartAllowFrom": false
     },

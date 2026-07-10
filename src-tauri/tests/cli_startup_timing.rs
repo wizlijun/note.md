@@ -1,8 +1,8 @@
 //! Regression test: CLI mode dispatch must be fast.
 //!
-//! Asserts that `mdedit help` returns under 500 ms on developer hardware
+//! Asserts that `notemd help` returns under 500 ms on developer hardware
 //! (release builds) or under 2500 ms in debug. The release budget reflects
-//! the real-world goal — a user-perceptible `mdedit help` invocation. Debug
+//! the real-world goal — a user-perceptible `notemd help` invocation. Debug
 //! builds carry significant extra overhead (no opt, large dylib graph,
 //! cargo test harness fork) so we allow more headroom there while still
 //! catching catastrophic regressions (e.g., the dispatch path accidentally
@@ -22,7 +22,7 @@ fn cli_help_returns_quickly() {
     use std::os::unix::process::CommandExt;
     let bin = PathBuf::from(env!("CARGO_BIN_EXE_mdeditor"));
     let dir = std::env::temp_dir().join(format!(
-        "mdedit-timing-{}-{}",
+        "notemd-timing-{}-{}",
         std::process::id(),
         std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos(),
     ));
@@ -37,7 +37,7 @@ fn cli_help_returns_quickly() {
     // We're measuring dispatch overhead, not page-fault-in-the-fs cost.
     {
         let mut warm = Command::new(&bin);
-        warm.arg0("mdedit");
+        warm.arg0("notemd");
         warm.args(["--plugin-dir", dir.to_str().unwrap(), "help"]);
         warm.env("HOME", std::env::temp_dir().to_str().unwrap());
         let _ = warm.output();
@@ -45,7 +45,7 @@ fn cli_help_returns_quickly() {
 
     let start = Instant::now();
     let mut cmd = Command::new(bin);
-    cmd.arg0("mdedit");
+    cmd.arg0("notemd");
     cmd.args(["--plugin-dir", dir.to_str().unwrap(), "help"]);
     cmd.env("HOME", std::env::temp_dir().to_str().unwrap());
     let output = cmd.output().expect("spawn");
@@ -55,7 +55,7 @@ fn cli_help_returns_quickly() {
     assert!(output.status.success(), "help should exit 0, got {:?}", output.status);
     assert!(
         elapsed.as_millis() < BUDGET_MS,
-        "mdedit help took {} ms (budget {})",
+        "notemd help took {} ms (budget {})",
         elapsed.as_millis(),
         BUDGET_MS,
     );

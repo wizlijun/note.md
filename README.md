@@ -1,4 +1,4 @@
-# M↓ (mdeditor)
+# note.md (mdeditor)
 
 [English](README.md) · [简体中文](README.zh-CN.md)
 
@@ -7,9 +7,11 @@ A minimal text editor for macOS — Markdown, HTML, and source code, with both
 and a persistent menu-bar tray. The whole interface — including the native macOS
 menu bar and tray — speaks **English, 简体中文, and 日本語**.
 
-The product name is **M↓** (an *M* with a downward arrow, hinting at *markdown*);
-the underlying repo, crate, and bundle identifier remain `mdeditor` /
-`com.laobu.mdeditor`.
+The product name is **note.md** (all lowercase — a note that *is* a plain
+markdown file); the underlying repo, crate, and bundle identifier remain
+`mdeditor` / `com.laobu.mdeditor`. Versions before v4.8.0 shipped under the
+name **M↓**, and the legacy `mdedit` CLI symlink keeps working alongside the
+new `notemd`.
 
 Built with [Tauri](https://tauri.app) on
 [`@moraya/core`](https://www.npmjs.com/package/@moraya/core): a code-signed,
@@ -67,7 +69,7 @@ native-UI (AppKit/SwiftUI) app.
   `Cmd+Shift+L` uploads them to Cloudflare R2 and copies the public URL.
 - **Finder integration** — double-click a `.md` / `.html` file to open it; drag
   files onto the window or Dock icon
-- **Menu-bar tray** — persistent M↓ icon stays in the menu bar; click to bring
+- **Menu-bar tray** — persistent note.md icon stays in the menu bar; click to bring
   the window forward
 - **Auto-save** (opt-in via Preferences) and **Recent files** persisted to
   `~/Library/Application Support/com.laobu.mdeditor/settings.json`
@@ -80,7 +82,7 @@ native-UI (AppKit/SwiftUI) app.
   dormant until invoked; startup cost is bounded to one tiny manifest read each
 - **Share plugin (built-in)** — `Cmd+Shift+L` to publish the current file as a
   self-contained web page on your own Cloudflare Worker. Recipients open the
-  URL and see the document rendered exactly as M↓ shows it (KaTeX, Mermaid /
+  URL and see the document rendered exactly as note.md shows it (KaTeX, Mermaid /
   Graphviz SVG, syntax highlighting, light + dark themes via
   `prefers-color-scheme`, mobile-optimized viewport). Image-heavy documents
   spill to Cloudflare R2; the Worker also exposes an MCP endpoint so LLM
@@ -208,8 +210,8 @@ pnpm tauri build --target x86_64-apple-darwin
 ```
 
 Output:
-- current-arch: `src-tauri/target/release/bundle/macos/M↓.app`
-- per-arch: `src-tauri/target/<arch>-apple-darwin/release/bundle/macos/M↓.app`
+- current-arch: `src-tauri/target/release/bundle/macos/note.md.app`
+- per-arch: `src-tauri/target/<arch>-apple-darwin/release/bundle/macos/note.md.app`
 
 ## Release (maintainers)
 
@@ -226,22 +228,22 @@ per-arch entries drive auto-update. Requires `APPLE_ID`, `APPLE_PASSWORD`, and
 
 ## CLI
 
-M↓ ships a `mdedit` command that lets other applications drive plugin
-features without opening the GUI. Install it from **Help → Install 'mdedit'
+note.md ships a `notemd` command that lets other applications drive plugin
+features without opening the GUI. Install it from **Help → Install 'notemd'
 Command in PATH...** (you'll be prompted for admin if installing into
 `/usr/local/bin`), or from **Preferences → CLI**.
 
 ```bash
-mdedit -s draft.md                         # publish via Share plugin, prints URL
-mdedit share draft.md --json               # structured output
-mdedit share draft.md --copy-link          # re-fetch existing URL
-mdedit share draft.md --unshare            # remove the share
-mdedit help                                # full reference
-mdedit plugin list                         # see all plugins and their status
+notemd -s draft.md                         # publish via Share plugin, prints URL
+notemd share draft.md --json               # structured output
+notemd share draft.md --copy-link          # re-fetch existing URL
+notemd share draft.md --unshare            # remove the share
+notemd help                                # full reference
+notemd plugin list                         # see all plugins and their status
 ```
 
 The CLI only exposes commands contributed by *enabled* plugins. Disable a
-plugin in **Preferences → Plugins** to remove its subcommand from `mdedit`.
+plugin in **Preferences → Plugins** to remove its subcommand from `notemd`.
 
 ### Reading Insights report
 
@@ -250,10 +252,10 @@ editing engagement is stored in the Vault under `.mdeditor/analytics/`. Turn any
 date range into a markdown digest written to `<vault>/stat/`:
 
 ```bash
-# Integrated in the mdedit CLI (recommended):
-mdedit reading-insights report --vault ~/Vault --date yesterday   # today|yesterday|7d|30d|month
-mdedit reading-insights report --vault ~/Vault --from 2026-07-01 --to 2026-07-07
-mdedit reading-insights report --vault ~/Vault --date 7d --stdout # print instead of writing
+# Integrated in the notemd CLI (recommended):
+notemd reading-insights report --vault ~/Vault --date yesterday   # today|yesterday|7d|30d|month
+notemd reading-insights report --vault ~/Vault --from 2026-07-01 --to 2026-07-07
+notemd reading-insights report --vault ~/Vault --date 7d --stdout # print instead of writing
 # (or set MDEDITOR_VAULT and omit --vault)
 
 # Dependency-free Node script (no app install needed — for cron / other machines):
@@ -286,16 +288,16 @@ has a *Generate report* button that includes audience + the value score).
 18. Drag an unsupported binary (e.g. `.zip` or `.exe`) into the window → toast: `Unsupported: <ext>`, no tab opened. (Image files are now supported — see item 59.)
 19. Open a 6 MB log file → confirm dialog: `File is large (6 MB). Continue?` (manual: prepare such a file with `dd if=/dev/zero of=/tmp/big.log bs=1M count=6`); cancel → no tab; confirm → opens with potential lag
 20. Open `.json` file, switch to rich → edit a value inside the rendered code block, switch back to source → see edit; Cmd+S → reopen → contents persist (round-trip byte-stable when fence intact)
-21. **Menu-bar tray** — confirm M↓ glyph is visible in the macOS menu bar; click → window comes to front
+21. **Menu-bar tray** — confirm note.md glyph is visible in the macOS menu bar; click → window comes to front
 22. **Close window (red traffic-light)** → app quits (no orphaned dock icon)
-23. **External change — clean tab auto-reload**: open `~/foo.md` in M↓ (no edits), run `echo x >> ~/foo.md` from a shell. Within ~1 s (or after focusing M↓) editor content updates silently.
-24. **External change — dirty tab banner**: edit `~/foo.md` in M↓ (dirty), run the same external append. Yellow banner appears with three buttons.
+23. **External change — clean tab auto-reload**: open `~/foo.md` in note.md (no edits), run `echo x >> ~/foo.md` from a shell. Within ~1 s (or after focusing note.md) editor content updates silently.
+24. **External change — dirty tab banner**: edit `~/foo.md` in note.md (dirty), run the same external append. Yellow banner appears with three buttons.
 25. **Banner — Reload from disk**: clicking it replaces the editor with disk content; banner clears.
 26. **Banner — Overwrite with my changes**: clicking it writes the buffer to disk; banner clears; `cat ~/foo.md` shows the buffer content.
 27. **External delete**: `rm ~/foo.md` while open. Banner switches to "deleted" variant (red accent).
 28. **Recreate on Save**: ⌘S in deleted state writes the buffer to the (now non-existent) path, recreating the file. Banner clears.
 29. **Stale banner refresh**: while the changed-banner is showing, modify the file again externally. Banner stays. Clicking Reload pulls the LATEST content (not stale).
-30. **Self-write suppression**: Cmd+S inside M↓. Watcher receives the echo. Banner does NOT appear.
+30. **Self-write suppression**: Cmd+S inside note.md. Watcher receives the echo. Banner does NOT appear.
 31. **Export markdown to PDF**: open a `.md` file → File → Export to PDF… (or Cmd+Shift+E) → default filename = `<basename>.pdf` → save → PDF appears at chosen path within ~2 s.
 32. **Export markdown with KaTeX**: doc with `$E=mc^2$` and `$$\int_0^1 x dx$$` → math renders correctly in the PDF (not raw `$...$`).
 33. **Export markdown with Mermaid** (DEFERRED — see plan): doc with a ` ```mermaid ` block → in v1 the diagram source renders as a plain code block; v1.1 follow-up integrates rendered SVG.
@@ -311,7 +313,7 @@ has a *Generate report* button that includes audience + the value score).
     `pnpm tauri dev` → verify the plugin's File-menu items appear with their
     shortcuts shown.
 41. **Plugin platform — enabled_when**: Same fixture, with
-    `enabled_when: "currentTab.hasContent"` on one item. Open M↓ with no tabs
+    `enabled_when: "currentTab.hasContent"` on one item. Open note.md with no tabs
     → menu item is disabled. Open a markdown file → menu item enables.
 42. **Plugin platform — context menu**: Right-click a tab → fixture's
     context-menu item appears.
@@ -326,7 +328,7 @@ has a *Generate report* button that includes audience + the value score).
     `clipboard.write` action → after the click, paste anywhere → expected
     text is in the clipboard.
 46. **Plugin platform — settings.merge persistence**: Fixture returns a
-    `settings.merge` action → re-launch M↓ → fixture's command sees the
+    `settings.merge` action → re-launch note.md → fixture's command sees the
     merged value back in the next request's `settings` field.
 47. **Plugin platform — timeout**: Replace fixture binary with one that
     sleeps forever → click → toast `❌ <name>: no response (30s)` appears within
@@ -335,8 +337,8 @@ has a *Generate report* button that includes audience + the value score).
     that prints `not json\n` → click → toast `❌ <name>: protocol error` with
     expandable detail showing the offending stdout fragment.
 49. **Plugin: install share** — run `pnpm build:mdshare`, then in `worker/`
-    deploy via `wrangler deploy` and copy the URL + API key into M↓
-    Preferences → Share. Restart M↓.
+    deploy via `wrangler deploy` and copy the URL + API key into note.md
+    Preferences → Share. Restart note.md.
 50. `Cmd+Shift+L` on a saved markdown file → toast "✅ Shared (copied)";
     paste from clipboard → URL works in browser.
 51. Same file, edit a paragraph, `Cmd+Shift+L` again → toast "✅ Content updated (link copied)";
@@ -344,18 +346,18 @@ has a *Generate report* button that includes audience + the value score).
 52. File → Unshare Current File → toast "✅ Share revoked"; reload recipient
     page → 410 page shown.
 53. Right-click a tab → "Share This Tab..." appears; click → publishes.
-54. Open M↓ on iPhone Safari → recipient page is readable, no horizontal
+54. Open note.md on iPhone Safari → recipient page is readable, no horizontal
     scroll, code blocks scroll within their container.
 55. Switch system to dark mode → recipient page automatically switches.
 56. Disconnect network, click `Cmd+Shift+L` → toast "❌ Share: Network error, please check your connection";
-    M↓ remains responsive throughout.
+    note.md remains responsive throughout.
 57. **Share with Mermaid block** — share a markdown file containing a
     ` ```mermaid ` flowchart → recipient page shows the rendered SVG, not
     the raw source.
 58. **Open image** — `Cmd+O` → file picker shows image filter; pick a
     `.png` / `.jpg` → opens as a preview tab. Mode toggle is hidden.
     `Cmd+S` is no-op (image is read-only).
-59. **Drag image into window** — drag a `.png` from Finder onto M↓'s
+59. **Drag image into window** — drag a `.png` from Finder onto note.md's
     window → opens as a preview tab (no longer rejected with toast).
 60. **Share image** — open an image, `Cmd+Shift+L` → toast "✅ Image shared
     (copied)" and the URL `https://.../f/<id>.<ext>` in the clipboard; paste →
@@ -364,7 +366,7 @@ has a *Generate report* button that includes audience + the value score).
     (e.g. `cp other.png foo.png`). Within ~1 s the preview refreshes to
     the new content (no banner — images can't be dirty).
 62. **Disable md2pdf** — Preferences → Plugins → uncheck "Export to PDF"
-    → restart M↓ → File menu has no "Export to PDF…", `Cmd+Shift+E` does
+    → restart note.md → File menu has no "Export to PDF…", `Cmd+Shift+E` does
     not respond.
 63. **Re-enable md2pdf** — re-check → restart → menu item returns,
     `Cmd+Shift+E` works.
@@ -376,16 +378,16 @@ has a *Generate report* button that includes audience + the value score).
     rule).
 66. **md2pdf timeout** — temporarily edit
     `src-tauri/plugins/md2pdf/manifest.json` `timeout_seconds: 1`, export
-    a sizable doc → toast `❌ md2pdf: no response (1s)`, M↓ stays responsive.
+    a sizable doc → toast `❌ md2pdf: no response (1s)`, note.md stays responsive.
     Restore the manifest after the smoke test.
 67. **md2pdf write failure** — try saving a PDF into a read-only directory
     → an `❌ md2pdf: …` failure toast (render/write, from the plugin);
-    M↓ stays responsive.
+    note.md stays responsive.
 68. **Theme switch (Light)** — open a markdown file with H1/H2/H3,
     blockquote, bullet list, table, hr → Preferences (Cmd+,) → Themes →
     switch *Light theme* to "Effie". Editor immediately updates to
     Effie's mint-paper palette. Switch back to "Default" → reverts.
-69. **Theme persistence** — set Light=Effie, Dark=Default, quit M↓,
+69. **Theme persistence** — set Light=Effie, Dark=Default, quit note.md,
     relaunch. Preferences shows Effie/Default in the dropdowns; editor
     is styled by Effie in light mode.
 70. **Light/Dark auto-switch** — with Light=Default, Dark=Effie, toggle
@@ -446,7 +448,7 @@ has a *Generate report* button that includes audience + the value score).
     `((<other-doc-basename>.md#b-xxxxxx))` (use a real id from
     #71) → place cursor inside `((..))` → `Cmd+Enter` → other doc
     opens, jumps to the right line. If the target id has been
-    retired, M↓ walks the lineage chain via `replaced_by` and lands
+    retired, note.md walks the lineage chain via `replaced_by` and lands
     on the successor (or surfaces a "deleted" toast if none).
 88. **mdblock — citation pill in share output** — share a doc that
     contains `((other.md#b-xxxxxx))` via the share plugin → the
@@ -509,13 +511,13 @@ has a *Generate report* button that includes audience + the value score).
 > v1 the share toast still shows the URL and clipboard still works; iPad
 > keyboard shortcuts use the menu bar instead.
 
-71. iPad simulator: Files App pick a `.md` → "Open With M↓" → editor
+71. iPad simulator: Files App pick a `.md` → "Open With note.md" → editor
     opens, top toolbar visible.
 72. Edit content → toolbar Save → file written in place (verify timestamp
     in Files App).
-73. Quit M↓ → relaunch → Recent drawer shows the previous file → tap →
+73. Quit note.md → relaunch → Recent drawer shows the previous file → tap →
     re-opens (security-scoped bookmark renewed).
-74. Delete the original file in Files App → return to M↓ → red "deleted"
+74. Delete the original file in Files App → return to note.md → red "deleted"
     banner.
 75. iPhone real device: single document fullscreen; tap ☰ → drawer slides
     in; pick Settings → switch skin to "shuyuan" → editor updates
@@ -544,12 +546,12 @@ has a *Generate report* button that includes audience + the value score).
 86. iOS: `share.apiKey` not configured → Share → toast pointing to
     Settings → Share.
 87. iOS: 25+ MB markdown → Share → toast "❌ Share: Document too large (25 MB limit)".
-88. iOS: Mail attachment "Open in M↓" a `.md` → editor opens; rich mode
+88. iOS: Mail attachment "Open in note.md" a `.md` → editor opens; rich mode
     renders KaTeX.
 89. iOS: dark mode toggle → editor + skins (incl. effie) re-render.
 90. iOS: rotate iPad portrait↔landscape → toolbar + editor reflow, no
     overlap.
-91. iPad Split View (M↓ on half-screen) → drawer + toolbar shrink but
+91. iPad Split View (note.md on half-screen) → drawer + toolbar shrink but
     don't break.
 92. iOS: enable autosave → edit → 1s after pause, file written in place
     (Files App timestamp updates).

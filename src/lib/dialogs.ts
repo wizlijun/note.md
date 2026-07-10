@@ -33,7 +33,7 @@ const ALL_EXTS = [
  */
 export async function confirmDirtyClose(): Promise<DirtyChoice> {
   const wantSave = await ask('Save changes before closing?', {
-    title: 'M↓',
+    title: 'note.md',
     kind: 'warning',
     okLabel: 'Save',
     cancelLabel: 'Cancel',
@@ -41,7 +41,7 @@ export async function confirmDirtyClose(): Promise<DirtyChoice> {
   if (wantSave) return 'save'
 
   const wantDiscard = await ask('Close without saving?', {
-    title: 'M↓',
+    title: 'note.md',
     kind: 'warning',
     okLabel: 'Close without Saving',
     cancelLabel: 'Keep Editing',

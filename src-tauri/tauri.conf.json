@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "M\u2193",
+  "productName": "note.md",
   "version": "4.7.2",
   "identifier": "com.laobu.mdeditor",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "M\u2193",
+        "title": "note.md",
         "width": 1000,
         "height": 700,
         "minWidth": 600,

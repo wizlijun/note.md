@@ -1,4 +1,4 @@
-# M↓ (mdeditor)
+# note.md (mdeditor)
 
 [English](README.md) · [简体中文](README.zh-CN.md)
 
@@ -6,8 +6,10 @@
 **源码**与**富文本**（所见即所得）双模式、多标签页、文件夹树侧栏、常驻菜单栏托盘。
 整个界面（含原生 macOS 菜单栏与托盘）支持 **English、简体中文、日本語** 三语。
 
-产品名为 **M↓**（一个 *M* 加一个向下的箭头，暗示 *markdown*）；
+产品名为 **note.md**（全小写 —— 一篇笔记就是一个 markdown 文件）；
 仓库名、crate 名、bundle identifier 仍是 `mdeditor` / `com.laobu.mdeditor`。
+v4.8.0 之前的版本以 **M↓** 为名发布，旧的 `mdedit` CLI 软链在改名后依然可用
+（新命令为 `notemd`）。
 
 基于 [Tauri](https://tauri.app) 与
 [`@moraya/core`](https://www.npmjs.com/package/@moraya/core) 构建：一个签名并公证的
@@ -46,7 +48,7 @@ UI 是 Web 技术（HTML/CSS/JS），渲染在 macOS 系统自带的 WebView（W
   主题：把 `.zip` 拖进窗口或在 Preferences 里选择导入，即可装入 Typora
   生态里的任意主题。每个位于
   `~/Library/Application Support/com.laobu.mdeditor/themes/` 下的 `.css`
-  都是一个独立主题；为浅色和深色模式分别选一个主题，M↓ 跟随 macOS Appearance
+  都是一个独立主题；为浅色和深色模式分别选一个主题，note.md 跟随 macOS Appearance
   自动切换。内置 **default**（GitHub 风格）与 **effie**（Effie 配色：薄荷
   纸 + 青绿标题 + 紫粗体 + 暖橙斜体，浅/深双配色经
   `prefers-color-scheme` 切换，LXGW 霞鹜文楷 webfont 由 jsDelivr 按需流式
@@ -58,7 +60,7 @@ UI 是 Web 技术（HTML/CSS/JS），渲染在 macOS 系统自带的 WebView（W
   作为预览专用标签打开（富文本模式显示图片；无源码视图）。
   `Cmd+Shift+L` 把图片上传到 Cloudflare R2 并复制公开 URL 到剪贴板。
 - **Finder 集成** —— 双击 `.md` / `.html` 即可打开；将文件拖入窗口或 Dock 图标
-- **菜单栏托盘** —— 常驻 M↓ 图标；点击让窗口前置
+- **菜单栏托盘** —— 常驻 note.md 图标；点击让窗口前置
 - **自动保存**（Preferences 中开启）和**最近文件**记录到
   `~/Library/Application Support/com.laobu.mdeditor/settings.json`
 - **PDF 导出** (`Cmd+Shift+E`) —— 把当前 Markdown / HTML 标签导出成排版精致的
@@ -68,7 +70,7 @@ UI 是 Web 技术（HTML/CSS/JS），渲染在 macOS 系统自带的 WebView（W
   注册菜单项、上下文菜单、设置面板，宿主能力按声明授权（toast / 剪贴板 /
   settings.merge / 对话框）。插件未触发时不运行；启动成本只到读一份小 manifest
 - **Share 插件（内置）** —— `Cmd+Shift+L` 一键把当前文件以自包含网页发布到
-  你自己的 Cloudflare Worker。接收方打开链接看到的文档跟 M↓ 显示的完全一致
+  你自己的 Cloudflare Worker。接收方打开链接看到的文档跟 note.md 显示的完全一致
   （KaTeX、Mermaid / Graphviz SVG、语法高亮、浅/深双主题跟随系统、移动端优化）。
   图片多的文档溢出到 Cloudflare R2；Worker 还开放了 MCP 端点，方便 LLM agent
   代你发布
@@ -168,26 +170,26 @@ pnpm tauri build --target x86_64-apple-darwin
 ```
 
 输出位置：
-- 当前架构：`src-tauri/target/release/bundle/macos/M↓.app`
-- 按架构：`src-tauri/target/<arch>-apple-darwin/release/bundle/macos/M↓.app`
+- 当前架构：`src-tauri/target/release/bundle/macos/note.md.app`
+- 按架构：`src-tauri/target/<arch>-apple-darwin/release/bundle/macos/note.md.app`
 
 ## CLI
 
-M↓ 内置一个 `mdedit` 命令行工具，方便其他应用在不打开 GUI 的情况下调用插件功能。
-通过 **Help → Install 'mdedit' Command in PATH...** 安装（安装到 `/usr/local/bin`
+note.md 内置一个 `notemd` 命令行工具，方便其他应用在不打开 GUI 的情况下调用插件功能。
+通过 **Help → Install 'notemd' Command in PATH...** 安装（安装到 `/usr/local/bin`
 会要求管理员授权），也可以在 **Preferences → CLI** 里安装/卸载。
 
 ```bash
-mdedit -s draft.md                         # 通过 Share 插件发布，stdout 输出 URL
-mdedit share draft.md --json               # 结构化输出（JSON）
-mdedit share draft.md --copy-link          # 复用已有分享链接
-mdedit share draft.md --unshare            # 取消该文件的分享
-mdedit help                                # 完整帮助
-mdedit plugin list                         # 列出所有插件及启用状态
+notemd -s draft.md                         # 通过 Share 插件发布，stdout 输出 URL
+notemd share draft.md --json               # 结构化输出（JSON）
+notemd share draft.md --copy-link          # 复用已有分享链接
+notemd share draft.md --unshare            # 取消该文件的分享
+notemd help                                # 完整帮助
+notemd plugin list                         # 列出所有插件及启用状态
 ```
 
 CLI 只暴露**已启用**插件贡献的子命令。在 **Preferences → Plugins** 中禁用某个插件
-会同步从 `mdedit` 移除其子命令。
+会同步从 `notemd` 移除其子命令。
 
 ## 发布（仓库维护者）
 
@@ -214,7 +216,7 @@ openssl rand -hex 32 | wrangler secret put SHARE_API_KEY
 wrangler deploy                       # 输出 Worker URL
 ```
 
-把 Worker URL 和 API key 填进 M↓ Preferences → Share，重启 M↓。
+把 Worker URL 和 API key 填进 note.md Preferences → Share，重启 note.md。
 详见 [`worker/README.md`](worker/README.md)。
 
 ## 设计文档与实施计划

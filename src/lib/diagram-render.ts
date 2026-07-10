@@ -7,7 +7,7 @@ import { htmlEscape } from './plugins/host-render-html'
  * diagram doesn't sink the whole render.
  *
  * Used by host-render-html (the shared renderer.html pipeline) so the
- * share, md2pdf, and any future plugins stay in sync with M↓'s rich mode.
+ * share, md2pdf, and any future plugins stay in sync with note.md's rich mode.
  */
 export async function renderDiagrams(staging: HTMLElement): Promise<void> {
   type Lang = 'mermaid' | 'dot' | 'graphviz'
