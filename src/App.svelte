@@ -153,6 +153,17 @@
       },
     )
 
+    // Tray "Today's Note": create (if missing) and open today's daily note.
+    const unlistenTodayNote = listen('tray-today-note', async () => {
+      const { ensureDailyNote, todayStr } = await import('./lib/outline/daily')
+      const p = await ensureDailyNote(todayStr())
+      if (p) {
+        await openFile(p)
+      } else {
+        pushToast({ level: 'info', message: t('outline.dailyNeedsVault') })
+      }
+    })
+
     invoke<string[]>('drain_pending_files').then(async (paths) => {
       for (const p of paths) {
         try { await openFile(p) } catch (err) { console.warn('[App] drain_pending_files:', err); showError(String(err)) }
@@ -566,6 +577,7 @@
       unlistenOpenFile.then((fn) => fn())
       unlistenOpenPath.then((fn) => fn())
       unlistenOpenRemoteBuffer.then((fn) => fn())
+      unlistenTodayNote.then((fn) => fn())
       unlistenDeepLink.then((fn) => fn())
       cleanupRecents?.()
       setVaultRootChangedHandler(null)

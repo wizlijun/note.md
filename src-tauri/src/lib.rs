@@ -807,6 +807,10 @@ pub fn run() {
                     .on_menu_event(|app, event| {
                         match event.id().0.as_str() {
                             "tray-show" => show_main_window(app),
+                            "tray-today-note" => {
+                                show_main_window(app);
+                                let _ = app.emit("tray-today-note", ());
+                            }
                             "tray-openclaw" => show_chat_window(app),
                             "tray-sync-repo" => { pick_sync_folder(app); }
                             "tray-sync-start" => { pick_repo_and_start(app); }
@@ -1042,6 +1046,7 @@ fn menu_label(locale: &str, key: &str) -> String {
         "sys.maximize" => ("Zoom", "缩放", "拡大／縮小"),
         // Menu-bar tray dropdown
         "tray.show" => ("Show M↓", "显示 M↓", "M↓ を表示"),
+        "tray.todayNote" => ("Today's Note", "今天的日记", "今日のノート"),
         "tray.vaultSetFolder" => ("Vault: Set Folder…", "Vault：选择文件夹…", "Vault：フォルダを選択…"),
         "tray.startSync" => ("Start Sync", "开始同步", "同期を開始"),
         "tray.stopSync" => ("Stop Sync", "停止同步", "同期を停止"),
@@ -1092,6 +1097,7 @@ fn build_tray_menu<R: tauri::Runtime>(
     locale: &str,
 ) -> tauri::Result<(Menu<R>, MenuItem<R>)> {
     let show_item = MenuItem::with_id(app, "tray-show", menu_label(locale, "tray.show"), true, None::<&str>)?;
+    let today_note_item = MenuItem::with_id(app, "tray-today-note", menu_label(locale, "tray.todayNote"), true, None::<&str>)?;
     let openclaw_item = if plugin_host::is_plugin_enabled("openclaw-chat") {
         Some(MenuItem::with_id(app, "tray-openclaw", "OpenClaw", true, None::<&str>)?)
     } else {
@@ -1114,7 +1120,7 @@ fn build_tray_menu<R: tauri::Runtime>(
     let open_books_item = MenuItem::with_id(app, "tray-open-books", menu_label(locale, "tray.openBooks"), true, None::<&str>)?;
     let open_raw_sync_item = MenuItem::with_id(app, "tray-open-raw-sync", menu_label(locale, "tray.openRawSync"), /*enabled=*/ false, None::<&str>)?;
     let quit_item = MenuItem::with_id(app, "tray-quit", menu_label(locale, "sys.quit"), true, None::<&str>)?;
-    let mut b = MenuBuilder::new(app).item(&show_item).separator();
+    let mut b = MenuBuilder::new(app).item(&show_item).item(&today_note_item).separator();
     if let Some(ref oc) = openclaw_item {
         b = b.item(oc).separator();
     }

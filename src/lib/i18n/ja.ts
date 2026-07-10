@@ -349,6 +349,7 @@ export const ja: Record<keyof Messages, string> = {
   'outline.wikipageDir': 'Wiki ページフォルダ',
   'outline.dailynoteDir': 'デイリーノートフォルダ',
   'outline.nameCollision': 'vault 内で {n} 件のリンク名衝突。「{name}」は以下のファイルで競合:\n{files}',
+  'outline.dailyNeedsVault': 'デイリーノートを使うには、まずトレイメニューで Vault を設定してください。',
 
   // Folder view
   'folderView.parentFolder': '親フォルダ',

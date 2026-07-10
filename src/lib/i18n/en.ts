@@ -354,6 +354,7 @@ export const en = {
   'outline.wikipageDir': 'Wiki pages folder',
   'outline.dailynoteDir': 'Daily notes folder',
   'outline.nameCollision': '{n} link-name collision(s) in vault. "{name}" is claimed by:\n{files}',
+  'outline.dailyNeedsVault': 'Set up a sync vault first (tray → Vault) to use daily notes.',
 
   // Folder view
   'folderView.parentFolder': 'Parent folder',
