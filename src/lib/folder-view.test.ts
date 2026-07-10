@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   parentDir, isWithinDir, sortEntries,
   makeFilterMatcher, computeFilterVisibility, type FolderEntry,
+  pairNoteEntries,
 } from './folder-view.svelte'
 import { vi, beforeEach } from 'vitest'
 import { SvelteMap, SvelteSet } from 'svelte/reactivity'
@@ -230,5 +231,34 @@ describe('sortEntries', () => {
     ]
     const out = sortEntries(input).map((e) => e.name)
     expect(out).toEqual(['Apple', 'apricot', 'banana.md', 'zebra.md'])
+  })
+})
+
+function f(name: string, isDir = false): FolderEntry {
+  return { name, path: `/r/${name}`, isDir, kind: isDir ? null : 'markdown' }
+}
+
+describe('pairNoteEntries', () => {
+  it('hides companion .note.md and marks its main file', () => {
+    const out = pairNoteEntries([f('a.md'), f('a.note.md'), f('b.md')])
+    expect(out.map(e => e.name)).toEqual(['a.md', 'b.md'])
+    const a = out.find(e => e.name === 'a.md')!
+    expect(a.hasNote).toBe(true)
+    expect(a.notePath).toBe('/r/a.note.md')
+    expect(out.find(e => e.name === 'b.md')!.hasNote).toBeUndefined()
+  })
+  it('legacy .notes.md pairs too', () => {
+    const out = pairNoteEntries([f('a.md'), f('a.notes.md')])
+    expect(out.map(e => e.name)).toEqual(['a.md'])
+    expect(out[0].notePath).toBe('/r/a.notes.md')
+  })
+  it('standalone .note.md stays with isOutlineNote flag', () => {
+    const out = pairNoteEntries([f('wiki.note.md')])
+    expect(out).toHaveLength(1)
+    expect(out[0].isOutlineNote).toBe(true)
+  })
+  it('directories and non-md untouched', () => {
+    const out = pairNoteEntries([f('sub', true), f('x.png')])
+    expect(out).toHaveLength(2)
   })
 })

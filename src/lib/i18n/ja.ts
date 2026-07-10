@@ -353,6 +353,7 @@ export const ja: Record<keyof Messages, string> = {
   'folderView.emptyFolder': '空のフォルダ',
   'folderView.noFolder': 'フォルダなし',
   'folderView.reveal': 'Finder で表示',
+  'folderView.openNote': 'ノートを開く',
 
   // OpenClaw settings + devices
   'openclaw.heading': 'OpenClaw',

@@ -383,6 +383,7 @@ export const zh: Record<keyof Messages, string> = {
   'folderView.emptyFolder': '空文件夹',
   'folderView.noFolder': '无文件夹',
   'folderView.reveal': '在访达中显示',
+  'folderView.openNote': '打开笔记',
 
   // OpenClaw settings + devices
   'openclaw.heading': 'OpenClaw',

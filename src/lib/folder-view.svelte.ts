@@ -13,6 +13,11 @@ export interface FolderEntry {
   path: string
   isDir: boolean
   kind: FileKind | null // null = directory or unsupported file type
+  /** 独立大纲笔记(.note.md 无同名主文档):专属 note 图标 */
+  isOutlineNote?: boolean
+  /** 同目录存在配对 xxx.note.md:行尾角标,点击打开笔记 */
+  hasNote?: boolean
+  notePath?: string
 }
 
 /** Parent directory of a file or directory path. Returns '/' at the root. */
@@ -84,6 +89,32 @@ export function computeFilterVisibility(
   return visible
 }
 
+const NOTE_SUFFIX_RE = /\.notes?\.md$/i
+
+/** 同目录配对:xxx.note.md 有同名 xxx.md → 隐藏该行并给主行打 hasNote;
+ *  无主文档的 .note.md 保留行并标 isOutlineNote。 */
+export function pairNoteEntries(entries: FolderEntry[]): FolderEntry[] {
+  const names = new Set(entries.filter(e => !e.isDir).map(e => e.name.toLowerCase()))
+  const noteFor = new Map<string, FolderEntry>() // 主文件名(小写) → 笔记 entry
+  for (const e of entries) {
+    if (e.isDir || !NOTE_SUFFIX_RE.test(e.name)) continue
+    const mainName = e.name.replace(NOTE_SUFFIX_RE, '.md').toLowerCase()
+    if (names.has(mainName)) noteFor.set(mainName, e)
+  }
+  const out: FolderEntry[] = []
+  for (const e of entries) {
+    if (!e.isDir && NOTE_SUFFIX_RE.test(e.name)) {
+      const mainName = e.name.replace(NOTE_SUFFIX_RE, '.md').toLowerCase()
+      if (names.has(mainName)) continue            // 伴生:行隐藏
+      out.push({ ...e, isOutlineNote: true })       // 独立笔记
+      continue
+    }
+    const note = !e.isDir ? noteFor.get(e.name.toLowerCase()) : undefined
+    out.push(note ? { ...e, hasNote: true, notePath: note.path } : e)
+  }
+  return out
+}
+
 /** Folders first, then files; each group sorted by name, case-insensitive. */
 export function sortEntries(entries: FolderEntry[]): FolderEntry[] {
   return [...entries].sort((a, b) => {
@@ -134,7 +165,7 @@ export async function readFolder(dir: string): Promise<FolderEntry[]> {
         kind: e.isDirectory ? null : (classifyPath(path)?.kind ?? null),
       }
     })
-  const sorted = sortEntries(entries)
+  const sorted = sortEntries(pairNoteEntries(entries))
   folderView.entriesCache.set(dir, sorted)
   return sorted
 }

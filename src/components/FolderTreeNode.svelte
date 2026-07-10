@@ -1,5 +1,6 @@
 <script lang="ts">
   import { folderView, toggleExpanded, type FolderEntry } from '../lib/folder-view.svelte'
+  import { t } from '../lib/i18n/store.svelte'
   import FolderTreeNode from './FolderTreeNode.svelte'
 
   let {
@@ -51,12 +52,31 @@
     </svg>
   {:else}
     <span class="chev spacer"></span>
-    <svg class="icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-      <polyline points="14 2 14 8 20 8" />
-    </svg>
+    {#if entry.isOutlineNote}
+      <svg class="icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <polyline points="14 2 14 8 20 8" />
+        <line x1="8" y1="13" x2="16" y2="13" />
+        <line x1="8" y1="17" x2="13" y2="17" />
+      </svg>
+    {:else}
+      <svg class="icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <polyline points="14 2 14 8 20 8" />
+      </svg>
+    {/if}
   {/if}
   <span class="label">{entry.name}</span>
+  {#if entry.hasNote && entry.notePath}
+    <span class="note-badge" role="button" tabindex="-1" title={t('folderView.openNote')}
+      onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); onOpen(entry.notePath!) } }}
+      onclick={(e) => { e.stopPropagation(); onOpen(entry.notePath!) }}>
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <line x1="8" y1="13" x2="16" y2="13" />
+      </svg>
+    </span>
+  {/if}
 </button>
 
 {#if entry.isDir && expanded}
@@ -79,9 +99,12 @@
   .chev.open { transform: rotate(90deg); }
   .chev.spacer { display: inline-block; visibility: hidden; }
   .icon { flex: 0 0 auto; display: block; opacity: 0.75; }
-  .label { overflow: hidden; text-overflow: ellipsis; }
+  .label { overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
+  .note-badge { flex: 0 0 auto; display: inline-flex; opacity: 0.5; padding: 1px; border-radius: 3px; }
+  .note-badge:hover { opacity: 1; background: rgba(0,0,0,0.08); }
   @media (prefers-color-scheme: dark) {
     .node:hover { background: rgba(255,255,255,0.07); }
     .node.active { background: rgba(255,255,255,0.13); }
+    .note-badge:hover { background: rgba(255,255,255,0.1); }
   }
 </style>

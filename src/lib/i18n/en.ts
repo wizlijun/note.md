@@ -358,6 +358,7 @@ export const en = {
   'folderView.emptyFolder': 'Empty folder',
   'folderView.noFolder': 'No folder',
   'folderView.reveal': 'Reveal in Finder',
+  'folderView.openNote': 'Open note',
 
   // OpenClaw settings + devices
   'openclaw.heading': 'OpenClaw',
