@@ -1,7 +1,9 @@
-# notemd.net — static marketing site, served as a Workers assets-only project.
+# notemd.net — static marketing site, served as a Cloudflare Worker.
+# The worker forces HTTPS (301) then delegates to the [assets] binding.
 # Deploy: `npx wrangler deploy` from this directory (CI: .github/workflows/deploy-website.yml).
 name = "notemd-site"
 account_id = "9aec351745dbb8adf336b98a0f473761"
+main = "src/index.js"
 compatibility_date = "2026-07-01"
 
 routes = [
@@ -11,5 +13,7 @@ routes = [
 
 [assets]
 directory = "./public"
+binding = "ASSETS"
 html_handling = "auto-trailing-slash"
 not_found_handling = "single-page-application"
+run_worker_first = true
