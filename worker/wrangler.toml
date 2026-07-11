@@ -1,4 +1,5 @@
 name = "mdeditor-share"
+account_id = "9aec351745dbb8adf336b98a0f473761"
 main = "src/index.ts"
 compatibility_date = "2026-05-01"
 compatibility_flags = ["nodejs_compat"]
