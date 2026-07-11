@@ -78,7 +78,7 @@ export function getSlashItems(): SlashItem[] {
     keywords: ['highlight', 'mark', '高亮', '荧光'],
     icon: iconSvg('highlight'),
     desc: t('slash.highlight.desc'),
-    execute: (v) => wrapLiteral(v, '==', '=='),
+    execute: (v) => wrapLiteral(v, '^^', '^^'),
   },
   {
     id: 'wikilink',
