@@ -4,12 +4,12 @@ name = "notemd-site"
 account_id = "9aec351745dbb8adf336b98a0f473761"
 compatibility_date = "2026-07-01"
 
-[assets]
-directory = "./public"
-html_handling = "auto-trailing-slash"
-not_found_handling = "single-page-application"
-
 routes = [
   { pattern = "notemd.net", custom_domain = true },
   { pattern = "www.notemd.net", custom_domain = true },
 ]
+
+[assets]
+directory = "./public"
+html_handling = "auto-trailing-slash"
+not_found_handling = "single-page-application"
