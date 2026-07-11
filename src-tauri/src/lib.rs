@@ -1049,6 +1049,7 @@ fn menu_label(locale: &str, key: &str) -> String {
         "file.save" => ("Save", "保存", "保存"),
         "file.saveAs" => ("Save As…", "另存为…", "名前を付けて保存…"),
         "file.print" => ("Print…", "打印…", "プリント…"),
+        "file.import" => ("Import", "导入", "インポート"),
         "edit.find" => ("Find…", "查找…", "検索…"),
         "edit.findReplace" => ("Find and Replace…", "查找和替换…", "検索と置換…"),
         "view.toggleMode" => ("Toggle Source / Rich", "切换源码 / 富文本", "ソース / リッチを切り替え"),
@@ -1262,10 +1263,23 @@ fn build_menu<R: tauri::Runtime>(
                 .accelerator("Cmd+P")
                 .build(app)?,
         );
-    for it in plugin_items.iter().filter(|p| p.location == "file") {
+    // File plugin items: those tagged `submenu: "import"` are grouped under a
+    // nested File ▸ Import submenu; the rest stay flat in the File menu.
+    let file_items: Vec<_> = plugin_items.iter().filter(|p| p.location == "file").collect();
+    let has_import = file_items.iter().any(|p| p.submenu.as_deref() == Some("import"));
+    for it in file_items.iter().filter(|p| p.submenu.is_none()) {
         let mut b = MenuItemBuilder::with_id(&it.id, &it.label);
         if let Some(s) = &it.shortcut { b = b.accelerator(s); }
         file_b = file_b.item(&b.build(app)?);
+    }
+    if has_import {
+        let mut import_b = SubmenuBuilder::new(app, menu_label(locale, "file.import"));
+        for it in file_items.iter().filter(|p| p.submenu.as_deref() == Some("import")) {
+            let mut b = MenuItemBuilder::with_id(&it.id, &it.label);
+            if let Some(s) = &it.shortcut { b = b.accelerator(s); }
+            import_b = import_b.item(&b.build(app)?);
+        }
+        file_b = file_b.separator().item(&import_b.build()?);
     }
     let file_menu: Submenu<R> = file_b.build()?;
 

@@ -11,6 +11,7 @@ pub struct LocatedMenuItem {
     pub label: String,
     pub location: String,
     pub shortcut: Option<String>,
+    pub submenu: Option<String>,
 }
 
 pub fn init<R: tauri::Runtime>(_app: &AppHandle<R>) {}

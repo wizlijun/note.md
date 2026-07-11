@@ -21,6 +21,9 @@ export interface PromptSpec {
 
 export interface MenuEntry {
   location: 'file' | 'edit' | 'view' | 'window' | 'help' | 'plugins'
+  /** Optional named sub-menu under `location` (e.g. 'import' → File ▸ Import).
+   *  Native menu grouping only; the frontend still buckets by `location`. */
+  submenu?: string
   label: string
   shortcut?: string
   command: string

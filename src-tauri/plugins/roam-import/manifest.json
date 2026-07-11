@@ -9,7 +9,8 @@
   "menus": [
     {
       "location": "file",
-      "label": "Import from Roam Research…",
+      "submenu": "import",
+      "label": "Roam Research",
       "command": "open"
     }
   ],
@@ -17,12 +18,12 @@
     "zh": {
       "name": "Roam Research 导入",
       "description": "把 Roam Research 的 JSON 导出转换为 vault 里的日记与 wiki 页，支持增量重导。",
-      "menus": { "open": "从 Roam Research 导入…" }
+      "menus": { "open": "Roam Research" }
     },
     "ja": {
       "name": "Roam Research インポート",
       "description": "Roam Research の JSON エクスポートをデイリーノートと wiki ページとして取り込みます（増分再インポート対応）。",
-      "menus": { "open": "Roam Research からインポート…" }
+      "menus": { "open": "Roam Research" }
     }
   }
 }

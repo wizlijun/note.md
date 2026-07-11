@@ -42,6 +42,24 @@ describe('convertPage', () => {
     const out = convertPage({ title: 'Empty' }, new Set(), new Map())
     expect(out.text).toMatch(/---\n- \n$/)
   })
+
+  it('daily note title becomes the yyyy-MM-dd date (native convention)', () => {
+    const daily: RoamPage = { title: 'August 15th, 2022', uid: '08-15-2022',
+      children: [{ uid: 'd1', string: 'note' }] }
+    const out = convertPage(daily, new Set(), new Map())
+    expect(out.title).toBe('2022-08-15')
+    expect(out.text).toMatch(/^---\ntitle: 2022-08-15\n/)
+  })
+
+  it('normalizes English date links to yyyy-MM-dd even without a matching page', () => {
+    const p: RoamPage = { title: 'X', children: [
+      { uid: 'u1', string: 'went out on [[August 15th, 2022]] and #[[July 1st, 2026]]' },
+    ] }
+    const out = convertPage(p, new Set(), new Map())
+    expect(out.text).toContain('[[2022-08-15]]')
+    expect(out.text).toContain('[[2026-07-01]]')
+    expect(out.text).not.toContain('August 15th')
+  })
 })
 
 describe('maxEditTime', () => {

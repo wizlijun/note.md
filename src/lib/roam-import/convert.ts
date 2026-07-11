@@ -2,7 +2,8 @@
 import { createTree, addNode, newId, type OutlineNode } from '../outline/model'
 import { serializeOutline } from '../outline/markdown'
 import { touchFrontmatter } from '../outline/frontmatter'
-import { convertInline, rewriteLinks, escapeReservedProps } from './syntax'
+import { convertInline, rewriteLinks, normalizeDateLinks, escapeReservedProps } from './syntax'
+import { dailyDateFromUid } from './parse'
 import type { RoamBlock, RoamPage } from './types'
 
 export interface ConvertedPage {
@@ -29,16 +30,20 @@ function iso(ms: number | undefined): string | undefined {
 }
 
 function blockContent(b: RoamBlock, renames: Map<string, string>): string {
-  let s = escapeReservedProps(rewriteLinks(convertInline(b.string ?? ''), renames))
+  let s = escapeReservedProps(normalizeDateLinks(rewriteLinks(convertInline(b.string ?? ''), renames)))
   if (b.heading != null && b.heading >= 1 && b.heading <= 3) s = `${'#'.repeat(b.heading)} ${s}`
   return s
 }
 
 /** RoamPage → 完整 .note.md 文本。refUids 决定哪些节点写 id::,renames 驱动全图重链。 */
 export function convertPage(page: RoamPage, refUids: Set<string>, renames: Map<string, string>): ConvertedPage {
+  // Daily notes must match note.md's native convention (src/lib/outline/daily.ts):
+  // front-matter title is the `yyyy-MM-dd` date string itself, not Roam's English
+  // "August 15th, 2022". Non-daily pages keep their original human title.
+  const displayTitle = dailyDateFromUid(page.uid) ?? page.title
   const tree = createTree()
   tree.frontmatter = touchFrontmatter(null, {
-    title: page.title,
+    title: displayTitle,
     created: iso(page['create-time']),
     now: iso(page['edit-time']) ?? new Date().toISOString(),
   })
@@ -63,5 +68,5 @@ export function convertPage(page: RoamPage, refUids: Set<string>, renames: Map<s
   if (tree.nodes.size === 0) {
     addNode(tree, { id: newId(), parentId: null, order: 0, content: '', collapsed: false, source: 'manual' })
   }
-  return { title: page.title, text: serializeOutline(tree), editTime: maxEditTime(page) }
+  return { title: displayTitle, text: serializeOutline(tree), editTime: maxEditTime(page) }
 }

@@ -1,6 +1,6 @@
 // src/lib/roam-import/syntax.test.ts
 import { describe, it, expect } from 'vitest'
-import { convertInline, rewriteLinks, escapeReservedProps } from './syntax'
+import { convertInline, rewriteLinks, normalizeDateLinks, toIsoDate, escapeReservedProps } from './syntax'
 
 describe('convertInline', () => {
   it('converts TODO/DONE markers', () => {
@@ -36,6 +36,30 @@ describe('rewriteLinks', () => {
   })
   it('empty map is a no-op', () => {
     expect(rewriteLinks('see [[x]]', new Map())).toBe('see [[x]]')
+  })
+})
+
+describe('toIsoDate', () => {
+  it('parses Roam daily-title format with ordinal suffixes', () => {
+    expect(toIsoDate('August 15th, 2022')).toBe('2022-08-15')
+    expect(toIsoDate('July 1st, 2026')).toBe('2026-07-01')
+    expect(toIsoDate('March 3rd, 2020')).toBe('2020-03-03')
+    expect(toIsoDate('December 22nd, 2021')).toBe('2021-12-22')
+  })
+  it('rejects non-date / out-of-range strings', () => {
+    expect(toIsoDate('Some Page')).toBeNull()
+    expect(toIsoDate('Augustus 40th, 2022')).toBeNull()
+    expect(toIsoDate('2022-08-15')).toBeNull()
+  })
+})
+
+describe('normalizeDateLinks', () => {
+  it('rewrites English date links to yyyy-MM-dd, leaves others', () => {
+    expect(normalizeDateLinks('on [[August 15th, 2022]] see [[Project]]'))
+      .toBe('on [[2022-08-15]] see [[Project]]')
+  })
+  it('skips code spans', () => {
+    expect(normalizeDateLinks('`[[August 15th, 2022]]`')).toBe('`[[August 15th, 2022]]`')
   })
 })
 

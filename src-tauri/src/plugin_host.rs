@@ -88,6 +88,10 @@ pub struct PromptSpec {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MenuEntry {
     pub location: String,
+    /// Optional named sub-menu under `location` (e.g. "import" nests the item
+    /// under File ▸ Import). None keeps the item flat in the top-level menu.
+    #[serde(default)]
+    pub submenu: Option<String>,
     pub label: String,
     #[serde(default)]
     pub shortcut: Option<String>,
@@ -456,6 +460,7 @@ pub struct LocatedMenuItem {
     pub label: String,
     pub shortcut: Option<String>,
     pub location: String,
+    pub submenu: Option<String>,
 }
 
 /// Returns menu entries flattened across all loaded plugins, with ids encoded
@@ -477,6 +482,7 @@ pub fn collect_top_menu_items(locale: &str) -> Vec<LocatedMenuItem> {
                 label,
                 shortcut: me.shortcut.clone(),
                 location: me.location.clone(),
+                submenu: me.submenu.clone(),
             });
         }
     }
