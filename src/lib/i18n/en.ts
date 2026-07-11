@@ -560,6 +560,24 @@ export const en = {
   'ctxmenu.math': 'Formula',
   'ctxmenu.mermaid': 'Mermaid diagram',
   'ctxmenu.date': 'Current date',
+
+  // Roam import window
+  'roamImport.title': 'Import from Roam Research',
+  'roamImport.pickFile': 'Choose Roam export (.zip / .json)…',
+  'roamImport.noVault': 'Configure a Vault first (Settings → Vault) to import.',
+  'roamImport.stage.parse': 'Parsing export…',
+  'roamImport.stage.plan': 'Planning import…',
+  'roamImport.stage.write': 'Writing notes…',
+  'roamImport.progress': '{done} / {total} pages — {current}',
+  'roamImport.errors': 'Errors & warnings',
+  'roamImport.copyLog': 'Copy log',
+  'roamImport.done': 'Import finished: {wiki} wiki pages, {daily} daily notes, {skipped} skipped.',
+  'roamImport.doneErrors': 'Finished with {errors} problem(s) — see log below.',
+  'roamImport.conflicts': '{count} page(s) modified locally were skipped.',
+  'roamImport.overwriteSelected': 'Overwrite selected',
+  'roamImport.errParse': 'Export not readable: {error}',
+  'roamImport.errWrite': 'Write failed for {page}: {error}',
+  'roamImport.warnRenamed': 'Renamed "{from}" → "{to}" (filename constraint)',
 } as const
 
 export type Messages = typeof en
