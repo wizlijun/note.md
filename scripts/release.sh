@@ -252,7 +252,36 @@ build_arch() {
   local sig_staged="/tmp/note.md-${arch_tag}.app.tar.gz.sig"
   cp "$dmg_src" "$dmg_staged"
   cp "$tarball_src" "$tarball_staged"
-  cp "$sig_src" "$sig_staged"
+
+  # DO NOT trust Tauri's own .sig ($sig_src). Tauri signs the updater tarball
+  # BEFORE notarization staples the .app, so its .sig is for a stale, pre-staple
+  # tarball. The tarball we actually distribute differs, so every client rejects
+  # the update with "The signature verification failed" (shipped broken in
+  # v5.0.2). Re-sign the EXACT bytes we upload so signature and tarball always
+  # match. `tauri signer sign` writes "<file>.sig" == $sig_staged.
+  say "re-signing updater tarball for $arch_tag (post-notarize bytes)"
+  rm -f "$sig_staged"
+  pnpm tauri signer sign \
+    -k "$TAURI_SIGNING_PRIVATE_KEY" \
+    -p "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD" \
+    "$tarball_staged" >/dev/null
+  [[ -f "$sig_staged" ]] || die "re-sign failed: $sig_staged not produced for $arch_tag"
+
+  # Fail-fast: if minisign is available, verify the fresh pair against the
+  # public key baked into the app. Catches any future re-break at build time
+  # instead of at every user's update attempt.
+  if command -v minisign >/dev/null 2>&1; then
+    local pub_line raw_sig
+    pub_line=$(python3 -c "import base64,json;print(base64.b64decode(json.load(open('src-tauri/tauri.conf.json'))['plugins']['updater']['pubkey']).decode().splitlines()[1])")
+    raw_sig="${sig_staged}.raw"
+    base64 -D -i "$sig_staged" -o "$raw_sig"
+    minisign -V -P "$pub_line" -m "$tarball_staged" -x "$raw_sig" >/dev/null \
+      || die "re-signed updater tarball failed verification for $arch_tag"
+    rm -f "$raw_sig"
+    echo "    ${arch_tag} updater signature verified against app pubkey"
+  else
+    echo "    (minisign not installed — skipping build-time signature self-check)"
+  fi
 
   # Export results via indirect names so the caller can pick them up. macOS
   # bash 3.2-friendly (no ${var^^} uppercase substitution).
