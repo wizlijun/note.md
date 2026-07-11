@@ -1,8 +1,9 @@
 //! CLI mode: argv parsing, routing, and execution.
 //!
-//! Entered from `main.rs` when `argv[0]` basename equals `"notemd"` (or the
-//! legacy `"mdedit"`) or argv contains `--cli`. Returns a
-//! `std::process::ExitCode` that main propagates.
+//! Entered from `main.rs` when argv contains `--cli`, or `argv[0]` is a bare
+//! `notemd` / `mdedit` symlink invocation (not the GUI binary launched from
+//! inside the `.app` bundle or `target/`). Returns a `std::process::ExitCode`
+//! that main propagates. See [`is_cli_mode`] for the exact discrimination.
 
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -57,9 +58,21 @@ pub fn resolve_config_dir() -> PathBuf {
 }
 
 /// Detect whether the current process should run in CLI mode.
+///
+/// The GUI executable is itself named `notemd` (mainBinaryName), the same as
+/// the CLI symlink — so a bare basename check would misfire and drop the GUI
+/// into CLI mode (printing help and exiting instead of opening a window).
+/// Disambiguate by launch path: a GUI launch runs the *real* binary, which
+/// lives inside the `.app` bundle in production or under `target/` in dev /
+/// `cargo run`; a CLI invocation comes through a bin-dir symlink (e.g.
+/// `/usr/local/bin/notemd`) or a bare `notemd` argv[0], neither of which
+/// contains those path segments.
 pub fn is_cli_mode(argv: &[String]) -> bool {
     if argv.iter().any(|a| a == "--cli") { return true; }
     if let Some(arg0) = argv.first() {
+        if arg0.contains(".app/Contents/MacOS/") || arg0.contains("/target/") {
+            return false;
+        }
         let name = std::path::Path::new(arg0)
             .file_name()
             .and_then(|s| s.to_str())
@@ -71,7 +84,6 @@ pub fn is_cli_mode(argv: &[String]) -> bool {
 }
 
 pub fn run_cli(argv: Vec<String>) -> ExitCode {
-    crate::app_dirs::migrate_legacy_app_support();
     let parsed = args::parse(&argv);
     let route = router::resolve(&parsed);
     match route {
@@ -87,5 +99,54 @@ pub fn run_cli(argv: Vec<String>) -> ExitCode {
             eprintln!("notemd: unknown command '{name}'. Run 'notemd help' to see available commands.");
             ExitCode::from(127)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_cli_mode;
+
+    fn argv(a0: &str) -> Vec<String> {
+        vec![a0.to_string(), "help".to_string()]
+    }
+
+    #[test]
+    fn gui_launch_from_app_bundle_is_not_cli() {
+        // Regression: the GUI binary is named `notemd`; launching it from the
+        // .app must open a window, not drop into CLI help + exit.
+        assert!(!is_cli_mode(&argv(
+            "/Applications/note.md.app/Contents/MacOS/notemd"
+        )));
+    }
+
+    #[test]
+    fn gui_launch_from_target_dir_is_not_cli() {
+        assert!(!is_cli_mode(&argv(
+            "/Users/x/src-tauri/target/debug/notemd"
+        )));
+        assert!(!is_cli_mode(&argv(
+            "/Users/x/src-tauri/target/aarch64-apple-darwin/release/notemd"
+        )));
+    }
+
+    #[test]
+    fn bare_symlink_name_is_cli() {
+        assert!(is_cli_mode(&argv("notemd")));
+        assert!(is_cli_mode(&argv("/usr/local/bin/notemd")));
+        assert!(is_cli_mode(&argv("mdedit")));
+        assert!(is_cli_mode(&argv("/opt/homebrew/bin/mdedit")));
+    }
+
+    #[test]
+    fn explicit_cli_flag_always_wins() {
+        assert!(is_cli_mode(&vec![
+            "/Applications/note.md.app/Contents/MacOS/notemd".to_string(),
+            "--cli".to_string(),
+        ]));
+    }
+
+    #[test]
+    fn unrelated_name_is_not_cli() {
+        assert!(!is_cli_mode(&argv("/usr/local/bin/something-else")));
     }
 }
