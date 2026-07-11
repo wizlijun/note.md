@@ -387,6 +387,32 @@ fn show_insights_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
     }
 }
 
+/// File ▸ Import from Roam Research… (roam-import builtin plugin). Frontend
+/// dispatches the plugin menu command here; gated on the plugin being enabled.
+#[cfg(not(target_os = "ios"))]
+#[tauri::command]
+fn show_roam_import_window(app: tauri::AppHandle) {
+    use tauri::WebviewUrl;
+    if !plugin_host::is_plugin_enabled("roam-import") { return; }
+    let win = app.get_webview_window("roam-import").or_else(|| {
+        tauri::WebviewWindowBuilder::new(&app, "roam-import", WebviewUrl::App("roam-import.html".into()))
+            .title("Import from Roam Research")
+            .inner_size(680.0, 620.0)
+            .min_inner_size(520.0, 420.0)
+            .resizable(true)
+            .decorations(true)
+            .visible(false)
+            .build()
+            .map_err(|e| eprintln!("[roam-import] window build failed: {e}"))
+            .ok()
+    });
+    if let Some(w) = win {
+        let _ = w.show();
+        let _ = w.unminimize();
+        let _ = w.set_focus();
+    }
+}
+
 #[tauri::command]
 async fn editor_show_and_open_path(app: tauri::AppHandle, path: String) -> Result<(), String> {
     if let Some(win) = app.get_webview_window("main") {
@@ -676,6 +702,7 @@ pub fn run() {
                 crate::openclaw::commands::openclaw_approve_pending,
                 crate::openclaw::commands::openclaw_reject_pending,
                 crate::openclaw::commands::openclaw_upload_attachment,
+                show_roam_import_window,
                 editor_show_and_open_path,
                 editor_open_remote_buffer,
                 update_recent_menu,

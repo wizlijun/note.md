@@ -339,6 +339,10 @@
           if (command === 'toggle') await setOutlineVisible(!outlineGate.visible)
           return
         }
+        if (pluginId === 'roam-import') {
+          if (command === 'open') await invoke('show_roam_import_window')
+          return
+        }
         const m = manifestById[pluginId]
         if (!m) { console.warn('[App] unknown plugin', pluginId); return }
         const menu = m.menus?.find((me) => me.command === command)
