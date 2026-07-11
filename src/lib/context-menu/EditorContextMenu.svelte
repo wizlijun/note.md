@@ -7,6 +7,7 @@
 
 <script lang="ts">
   import { getMenuModel, type MenuItemSpec } from './menu-model'
+  import { iconSvg } from './icons'
 
   let {
     position,
@@ -76,6 +77,7 @@
           onmouseenter={() => openSubId = it.children ? it.id : null}
           onclick={() => choose(it)}
         >
+          {#if it.emphasis && it.icon}<span class="ctx-ic">{@html iconSvg(it.icon)}</span>{/if}
           <span class="ctx-label">{it.label}</span>
           {#if it.children}<span class="ctx-arrow">▸</span>{/if}
 
@@ -102,6 +104,7 @@
   .ctx-backdrop { position: fixed; inset: 0; z-index: 80; }
   .ctx-menu { position: fixed; min-width: 180px; z-index: 81; }
   .ctx-item { position: relative; }
+  .ctx-ic { flex: 0 0 auto; display: inline-flex; margin-right: 6px; }
   .ctx-label { flex: 1; }
   .ctx-arrow { margin-left: 16px; opacity: 0.6; font-size: 11px; }
   .ctx-item:hover > .ctx-arrow { opacity: 1; }

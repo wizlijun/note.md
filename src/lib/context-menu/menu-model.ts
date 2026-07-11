@@ -37,9 +37,9 @@ export function getMenuModel(_ctx: MenuContext): MenuGroup[] {
       item('selectAll', 'ctxmenu.selectAll'),
     ] },
     { id: 'emphasis', items: [
+      item('note', 'ctxmenu.note', { emphasis: true, icon: 'sparkle' }),
       item('highlight', 'ctxmenu.highlight', { emphasis: true, icon: 'highlight' }),
       item('wikilink', 'ctxmenu.wikilink', { emphasis: true, icon: 'wikilink' }),
-      item('note', 'ctxmenu.note', { emphasis: true, icon: 'note' }),
     ] },
     { id: 'marks', items: [
       item('bold', 'ctxmenu.bold', { icon: 'bold' }),
