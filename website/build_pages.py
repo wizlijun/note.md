@@ -185,7 +185,7 @@ def render(p, lang):
 <nav><div class="wrap nav-in">
 <a class="logo" href="{lp(lang, '/')}">{LOGO_SVG}<span>note<span class="dot">.</span>md</span></a>
 {switcher(lang, p['path'])}
-<a class="nav-cta" href="https://github.com/wizlijun/note.md/releases">{c['dl']}</a>
+<a class="nav-cta" href="/download">{c['dl']}</a>
 </div></nav>
 <header class="ph"><div class="wrap">
 <div class="crumb">{p['crumb']}</div>
@@ -200,7 +200,7 @@ def render(p, lang):
 <section class="cta"><div class="wrap">
 <h2>{c['cta_h2']}</h2>
 <p>{c['cta_p']}</p>
-<a class="btn" href="https://github.com/wizlijun/note.md/releases">{c['cta_btn']}</a>
+<a class="btn" href="/download">{c['cta_btn']}</a>
 </div></section>
 <footer><div class="wrap">
 {foot_links(lang)}
@@ -209,7 +209,7 @@ def render(p, lang):
 </body>
 </html>"""
 
-DL = '<a href="https://github.com/wizlijun/note.md/releases">Download note.md</a>'
+DL = '<a href="/download">Download note.md</a>'
 
 PAGES = [
 # ---------------------------------------------------------------- compare
