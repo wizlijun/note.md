@@ -84,6 +84,28 @@ describe('GET /:slug', () => {
     expect(r.headers.get('X-Robots-Tag')).toBe('noindex')
     expect(await r.text()).toContain('<p>page</p>')
   })
+
+  it('HEAD returns 200 with headers and no body (link checkers / unfurlers)', async () => {
+    await SELF.fetch('http://x/publish', {
+      method: 'POST', headers: HEADERS,
+      body: JSON.stringify({ slug: VALID_SLUG, edit_token: VALID_TOKEN, html: '<!doctype html><p>page</p>', metadata: { original_filename: 'a', source_ext: 'md' } }),
+    })
+    const r = await SELF.fetch(`http://x/${VALID_SLUG}`, { method: 'HEAD' })
+    expect(r.status).toBe(200)
+    expect(r.headers.get('Content-Type')).toContain('text/html')
+    expect(await r.text()).toBe('')
+  })
+
+  it('HEAD returns 410 for a missing slug (not a bare 404)', async () => {
+    const r = await SELF.fetch('http://x/2026-01-01-doesnotexist-abc', { method: 'HEAD' })
+    expect(r.status).toBe(410)
+  })
+
+  it('OPTIONS on a share path returns 204 with Allow (not 404)', async () => {
+    const r = await SELF.fetch(`http://x/${VALID_SLUG}`, { method: 'OPTIONS' })
+    expect(r.status).toBe(204)
+    expect(r.headers.get('Allow')).toContain('GET')
+  })
 })
 
 describe('DELETE /:slug', () => {
