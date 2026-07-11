@@ -4,7 +4,6 @@
   import { outline, bump, markDirty, setSelection, clearSelection } from '../../lib/outline/store.svelte'
   import { rangeBetween, selectionRoots } from '../../lib/outline/select'
   import { childrenOf, setNodeContent, type OutlineNode as NodeT } from '../../lib/outline/model'
-  import { ANNOTATION_MARK } from '../../lib/outline/derive'
   import {
     createSiblingBelow, createSiblingAbove, mergeWithPrevious,
     indentNode, outdentNode, moveNodeUp, moveNodeDown, applyInlineWrap,
@@ -47,8 +46,8 @@
   let selected = $derived(outline.selectedIds.has(node.id))
   // note 子节点可编辑（其余 auto 只读）；编辑起点内容留作回写定位的"旧批注"
   let editable = $derived(node.source === 'manual' || node.source === 'note')
-  // 插入点批注的占位符号：样式如高亮（金色下划线）
-  let markLike = $derived(node.source === 'annotation' && node.content === ANNOTATION_MARK)
+  // 批注行（被批注的原文/※ 占位符）：样式如高亮（金色下划线）
+  let markLike = $derived(node.source === 'annotation')
   let noteBaseline: string | null = null
 
   $effect(() => {

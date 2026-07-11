@@ -70,7 +70,11 @@ pub fn resolve_config_dir() -> PathBuf {
 pub fn is_cli_mode(argv: &[String]) -> bool {
     if argv.iter().any(|a| a == "--cli") { return true; }
     if let Some(arg0) = argv.first() {
-        if arg0.contains(".app/Contents/MacOS/") || arg0.contains("/target/") {
+        // `tauri dev` / `cargo run` may use a relative `target/debug/...` arg0.
+        if arg0.contains(".app/Contents/MacOS/")
+            || arg0.contains("/target/")
+            || arg0.starts_with("target/")
+        {
             return false;
         }
         let name = std::path::Path::new(arg0)
@@ -127,6 +131,8 @@ mod tests {
         assert!(!is_cli_mode(&argv(
             "/Users/x/src-tauri/target/aarch64-apple-darwin/release/notemd"
         )));
+        // `tauri dev` runs the binary via a relative path from src-tauri/.
+        assert!(!is_cli_mode(&argv("target/debug/notemd")));
     }
 
     #[test]
