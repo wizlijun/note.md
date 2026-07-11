@@ -1,0 +1,28 @@
+{
+  "id": "roam-import",
+  "name": "Roam Research Import",
+  "version": "0.1.0",
+  "description": "Import a Roam Research JSON export into your vault as daily notes and wiki pages, with incremental re-import.",
+  "kind": "builtin",
+  "default_enabled": false,
+  "host_capabilities": [],
+  "menus": [
+    {
+      "location": "file",
+      "label": "Import from Roam Research…",
+      "command": "open"
+    }
+  ],
+  "i18n": {
+    "zh": {
+      "name": "Roam Research 导入",
+      "description": "把 Roam Research 的 JSON 导出转换为 vault 里的日记与 wiki 页，支持增量重导。",
+      "menus": { "open": "从 Roam Research 导入…" }
+    },
+    "ja": {
+      "name": "Roam Research インポート",
+      "description": "Roam Research の JSON エクスポートをデイリーノートと wiki ページとして取り込みます（増分再インポート対応）。",
+      "menus": { "open": "Roam Research からインポート…" }
+    }
+  }
+}

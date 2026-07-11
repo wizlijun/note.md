@@ -555,4 +555,22 @@ export const zh: Record<keyof Messages, string> = {
   'settings.cli.install': '安装…',
   'settings.cli.error': '错误：{error}',
   'settings.cli.helpDesc': '安装后，在终端运行 <code>notemd help</code> 查看完整参考。CLI 只暴露<em>已启用</em>插件贡献的命令 — 在上面的 Plugins 中禁用某插件即可从 <code>notemd</code> 移除其子命令。',
+
+  // Roam 导入窗口
+  'roamImport.title': '从 Roam Research 导入',
+  'roamImport.pickFile': '选择 Roam 导出文件（.zip / .json）…',
+  'roamImport.noVault': '请先在 设置 → Vault 配置仓库后再导入。',
+  'roamImport.stage.parse': '正在解析导出文件…',
+  'roamImport.stage.plan': '正在计算导入计划…',
+  'roamImport.stage.write': '正在写入笔记…',
+  'roamImport.progress': '{done} / {total} 页 — {current}',
+  'roamImport.errors': '错误与警告',
+  'roamImport.copyLog': '复制日志',
+  'roamImport.done': '导入完成：{wiki} 个 wiki 页、{daily} 篇日记、跳过 {skipped}。',
+  'roamImport.doneErrors': '完成，但有 {errors} 个问题 — 见下方日志。',
+  'roamImport.conflicts': '{count} 个页面因本地已修改被跳过。',
+  'roamImport.overwriteSelected': '覆盖所选',
+  'roamImport.errParse': '导出文件不可读：{error}',
+  'roamImport.errWrite': '写入 {page} 失败：{error}',
+  'roamImport.warnRenamed': '“{from}”改名为“{to}”（文件名约束）',
 }

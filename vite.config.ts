@@ -32,10 +32,11 @@ export default defineConfig({
         index: 'index.html',
         chat: 'chat.html',
         insights: 'insights.html',
+        roamImport: 'roam-import.html',
       },
     },
   },
   optimizeDeps: {
-    entries: ['index.html', 'chat.html', 'insights.html'],
+    entries: ['index.html', 'chat.html', 'insights.html', 'roam-import.html'],
   },
 })

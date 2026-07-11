@@ -555,4 +555,22 @@ export const ja: Record<keyof Messages, string> = {
   'ctxmenu.math': '数式',
   'ctxmenu.mermaid': 'Mermaid 図',
   'ctxmenu.date': '現在の日付',
+
+  // Roam インポートウィンドウ
+  'roamImport.title': 'Roam Research からインポート',
+  'roamImport.pickFile': 'Roam エクスポートを選択（.zip / .json）…',
+  'roamImport.noVault': '先に 設定 → Vault でボールトを設定してください。',
+  'roamImport.stage.parse': 'エクスポートを解析中…',
+  'roamImport.stage.plan': 'インポート計画を作成中…',
+  'roamImport.stage.write': 'ノートを書き込み中…',
+  'roamImport.progress': '{done} / {total} ページ — {current}',
+  'roamImport.errors': 'エラーと警告',
+  'roamImport.copyLog': 'ログをコピー',
+  'roamImport.done': '完了：wiki {wiki} 件、デイリー {daily} 件、スキップ {skipped} 件。',
+  'roamImport.doneErrors': '完了しましたが {errors} 件の問題があります（下のログ参照）。',
+  'roamImport.conflicts': 'ローカルで変更済みの {count} ページをスキップしました。',
+  'roamImport.overwriteSelected': '選択を上書き',
+  'roamImport.errParse': 'エクスポートを読み込めません：{error}',
+  'roamImport.errWrite': '{page} の書き込みに失敗：{error}',
+  'roamImport.warnRenamed': '「{from}」を「{to}」に改名（ファイル名制約）',
 }
