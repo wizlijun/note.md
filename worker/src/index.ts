@@ -1056,6 +1056,16 @@ function withCors(res: Response): Response {
   return new Response(res.body, { status: res.status, statusText: res.statusText, headers })
 }
 
+/** For a HEAD request, return the GET response with its body removed but the
+ *  status and headers kept (RFC 9110 §9.3.2). Non-HEAD passes through. Without
+ *  this, HEAD probes from link checkers/unfurlers fall through to a bare 404
+ *  even though the page is live on GET. */
+function stripBodyForHead(req: Request, res: Response): Response {
+  return req.method === 'HEAD'
+    ? new Response(null, { status: res.status, headers: res.headers })
+    : res
+}
+
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
     const url = new URL(req.url)
@@ -1076,10 +1086,19 @@ export default {
     }
     if (req.method === 'POST' && path === 'publish') return handlePublish(req, env, baseUrl)
     if (req.method === 'POST' && path === 'upload') return handleUpload(req, env, baseUrl)
-    if (req.method === 'GET' && path.startsWith('f/')) return handleMediaGet(path, req, env)
+    // HEAD is served as GET with the body stripped, so public link checkers and
+    // chat/social unfurlers that probe with HEAD see the real 200/410 instead of
+    // a misleading 404.
+    const getLike = req.method === 'GET' || req.method === 'HEAD'
+    if (getLike && path.startsWith('f/')) return stripBodyForHead(req, await handleMediaGet(path, req, env))
     if (req.method === 'DELETE' && path.startsWith('f/')) return handleMediaDelete(path, req, env)
-    if (req.method === 'GET' && path) return handleGet(path, env)
+    if (getLike && path) return stripBodyForHead(req, await handleGet(path, env))
     if (req.method === 'DELETE' && path) return handleDelete(path, req, env)
+    // A CORS/link-checker preflight (OPTIONS) on a share path must not look like
+    // a missing page — answer it with the allowed methods instead of a 404.
+    if (req.method === 'OPTIONS' && path) {
+      return new Response(null, { status: 204, headers: { Allow: 'GET, HEAD, OPTIONS' } })
+    }
     return new Response('Not Found', { status: 404 })
   }
 }
