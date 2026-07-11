@@ -285,7 +285,7 @@ ${metadataBlock({ title: pageTitle, description, filename })}
 <div class="share-shell">
 <header class="share-header">${headerLabel} · ${date}</header>
 <main class="moraya-editor">${inlineBody}</main>
-<footer class="share-footer">Powered by <a href="https://github.com/wizlijun/note.md">note.md</a></footer>
+<footer class="share-footer">Powered by <a href="https://notemd.net">note.md</a></footer>
 </div>
 ${isPluginEnabled('reading-insights') ? `<script>${shareBeaconJs}</script>` : ''}
 </body>
