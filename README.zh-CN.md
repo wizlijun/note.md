@@ -1,150 +1,142 @@
-# note.md (mdeditor)
+# note.md
 
-[English](README.md) · [简体中文](README.zh-CN.md)
+[English](README.md) · [简体中文](README.zh-CN.md) · [notemd.net](https://notemd.net)
 
-一款 macOS 上的极简文本编辑器 —— 支持 Markdown、HTML 和源码，
-**源码**与**富文本**（所见即所得）双模式、多标签页、文件夹树侧栏、常驻菜单栏托盘。
-整个界面（含原生 macOS 菜单栏与托盘）支持 **English、简体中文、日本語** 三语。
+> **Read what AI writes. Keep what you think.**
+> 读 AI 写的，留下你想的。
 
-产品名为 **note.md**（全小写 —— 一篇笔记就是一个 markdown 文件）；
-仓库名、crate 名、bundle identifier 仍是 `mdeditor` / `com.laobu.mdeditor`。
-v4.8.0 之前的版本以 **M↓** 为名发布，旧的 `mdedit` CLI 软链在改名后依然可用
-（新命令为 `notemd`）。
+**note.md** 是为 AI-native 时代打造的 markdown 阅读器与编辑器——当大多数文档
+由 agent 写出，人最有价值的动作正从"写"转向**读、判断与批注**。人和 agent
+在同一批纯文本文件里协作：agent 写文档，你阅读并做标记，你的批注又成为 agent
+可读的数据。没有数据库、没有云端、没有锁定——只有一个永远属于你的 markdown
+文件夹。
+
+产品名为 **note.md**（全小写——一篇笔记就是一个 markdown 文件）；仓库、crate、
+bundle identifier 仍是 `mdeditor` / `com.laobu.mdeditor`。v4.8.0 之前以
+**M↓** 为名发布，旧的 `mdedit` CLI 软链依然可用（新命令为 `notemd`）。
 
 基于 [Tauri](https://tauri.app) 与
-[`@moraya/core`](https://www.npmjs.com/package/@moraya/core) 构建：一个签名并公证的
-原生 `.app` —— 原生 Rust 二进制，菜单、窗口、菜单栏托盘均为系统原生控件 —— 而编辑器
-UI 是 Web 技术（HTML/CSS/JS），渲染在 macOS 系统自带的 WebView（WebKit / WKWebView）里，
-不像 Electron 那样捆绑浏览器。因此它是**基于系统 WebView 的原生 macOS 应用**，而非
-原生 UI（AppKit/SwiftUI）应用。
+[`@moraya/core`](https://www.npmjs.com/package/@moraya/core) 构建：签名并公证的
+原生 macOS `.app`——原生 Rust 二进制，菜单、窗口、菜单栏托盘均为系统原生控件——
+编辑器 UI 为 Web 技术，渲染在系统 WebView（WKWebView）中，不像 Electron 捆绑
+浏览器。
+
+## 产品理念
+
+三个信念贯穿所有设计：
+
+1. **AI 的文字是无限的，你的注意力不是。** 你真正读过、标注过的文档，才是
+   赢得了你注意力的那部分——这个信号是你拥有的最有价值的数据。note.md 把它
+   留存下来，而不是任它消失在滚动条里。
+2. **文件高于应用（files over app）。** 每篇笔记都是磁盘上的纯 `.md`：
+   对 git 友好、可 grep、今天能用任何编辑器打开、五十年后依然可读。索引是
+   派生数据，文件是唯一事实源。
+3. **agent 是一等公民。** vault 的全部约定都是 agent 可读的纯文本。`✦` 代表
+   AI 写下的，`●` 代表你想到的。这个循环——agent 写、你批注、agent 从你的
+   批注中学习——完全通过磁盘上的文件运转。
+
+## 笔记层
+
+AI-native 笔记系统，逐步落地中：
+
+- [x] **旁车批注（sidecar notes）** —— 阅读 `xxx.md` 时的高亮与评论保存到
+      同目录的 `xxx.note.md`。源文档保持干净、可再生成；你的判断成为可检索
+      的永久数据。没有同名源文件的 `.note.md` 则是一篇独立笔记。
+- [x] **大纲编辑器** —— 所有 `.note.md` 一律以 Roam 风格的大纲视图打开
+      （绝不用普通 markdown 编辑器）；大纲持久化为嵌套的 markdown 列表，
+      文件在任何编辑器里都可读。
+- [ ] **每日笔记** —— `dailynote/yyyy/yyyy-MM-dd.note.md` 一键直达；
+      `yyyy-MM.note.md` / `yyyy.note.md` 作为月度/年度总结；
+      `[[yyyy-MM-dd]]` 为日期链接的规范形式。
+- [ ] **Wiki 页面** —— `wikipage/` 下的独立大纲笔记，全 vault 共用一个
+      `[[title]]` 命名空间。
+- [ ] **全局索引** —— 全库即时搜索、反向链接、链接自动补全，可随时从
+      文件全量重建。
+- [ ] **Roam 导入** —— 从 Roam Research JSON 导出一次性转换（含日期页
+      改写与断链报告）。
+- [ ] **Vault MCP server** —— 暴露 `vault_search` / `vault_read` /
+      `vault_annotate`，任何 agent（Claude Code、Codex、OpenClaw、Hermes …）
+      都能操作你的 vault，note.md 只是众多客户端之一。
 
 ## 功能
 
-- **新建文件** (`Cmd+N`) —— 创建一个 untitled.md，随机填入有趣的写作引导模板；
-  继承当前标签页的编辑模式（源码/富文本）；正文默认选中，可直接开始输入。
-  空白页双击也可新建文件。
-- **查找与替换** (`Cmd+F` / `Cmd+H`) —— tab 栏下方的内联搜索条，支持区分大小写、
-  全字匹配、正则表达式；源码和富文本模式均支持高亮匹配和跳转定位；在替换输入框
-  按回车执行替换并跳转到下一个。Edit 菜单也可进入。
-- **缩放** (`Cmd+=` / `Cmd+-` / `Cmd+0`) —— 放大/缩小整个界面；Cmd+0 还原默认
-  尺寸。位于 Window 菜单。
-- **消息提示条** —— 所有提示消息（错误、成功、信息）改为 Typora 风格的通知条，
-  显示在 tab 栏下方，不再弹出原生系统对话框；可勾选"自动关闭"倒计时消失。
-- **界面三语（i18n）** —— 整个界面提供 **English、简体中文、日本語** 三种语言，
-  在 **Preferences → Core → Language** 中即时切换（默认英文，无需重启）。覆盖完整：
-  每个组件与对话框、**原生 macOS 菜单栏**、其中的系统菜单项（撤销/拷贝/粘贴/退出/
-  服务…，通过文本覆盖使其跟随应用内语言而非系统语言）、**菜单栏托盘**下拉，以及
-  各插件的菜单 / 设置 / 名称与描述文案。文案统一走一套自研轻量 `t()` 层（扁平点分键、
-  编译期类型校验的英文基准词表 + 逐键回退）；中文与日文词表完整并在编译期强制校验，
-  新增语言只需再放入一份词表对象，无需改代码。
-- **文件夹视图（Folder View）** —— 可拖拽调宽的左侧侧栏，把当前文件所在目录以实时
-  树状展示；点击打开文件、展开文件夹，磁盘上文件变化时自动刷新。**Find** 按钮用
-  大小写不敏感的**正则**过滤目录树，会**递归**搜索所有子文件夹，并连同父文件夹一起
-  显示命中项。右键任意节点 → **在访达中显示**。从 **View** 菜单开关。
-- **多标签页** —— 脏标记、拖拽排序、关闭确认
-- **源码 / 富文本切换** (`Cmd+/`) —— textarea ↔ 所见即所得
-- **Markdown 渲染** —— KaTeX 数学公式、Mermaid 图表、highlight.js 代码高亮
-- **主题系统** —— 富文本模式（Preferences → Core → Themes）兼容 Typora
-  主题：把 `.zip` 拖进窗口或在 Preferences 里选择导入，即可装入 Typora
-  生态里的任意主题。每个位于
-  `~/Library/Application Support/com.laobu.mdeditor/themes/` 下的 `.css`
-  都是一个独立主题；为浅色和深色模式分别选一个主题，note.md 跟随 macOS Appearance
-  自动切换。内置 **default**（GitHub 风格）与 **effie**（Effie 配色：薄荷
-  纸 + 青绿标题 + 紫粗体 + 暖橙斜体，浅/深双配色经
-  `prefers-color-scheme` 切换，LXGW 霞鹜文楷 webfont 由 jsDelivr 按需流式
-  加载）随应用一并写入同一目录，可像其它主题一样删除或编辑。
-- **HTML 文件** —— 默认在沙箱化 iframe 里预览
-- **代码文件** —— ~36 种纯文本扩展名 + `Dockerfile` 等精确文件名匹配；
-  富文本模式下渲染为带语法高亮的代码块
-- **图片文件**（jpg / jpeg / png / gif / webp / svg / bmp / heic / heif / avif）
-  作为预览专用标签打开（富文本模式显示图片；无源码视图）。
-  `Cmd+Shift+L` 把图片上传到 Cloudflare R2 并复制公开 URL 到剪贴板。
-- **Finder 集成** —— 双击 `.md` / `.html` 即可打开；将文件拖入窗口或 Dock 图标
-- **菜单栏托盘** —— 常驻 note.md 图标；点击让窗口前置
-- **自动保存**（Preferences 中开启）和**最近文件**记录到
-  `~/Library/Application Support/com.laobu.mdeditor/settings.json`
-- **PDF 导出** (`Cmd+Shift+E`) —— 把当前 Markdown / HTML 标签导出成排版精致的
-  A4 PDF，KaTeX 公式、Mermaid 图表、代码语法高亮全部内联渲染
-  （macOS 原生 WKWebView 离屏渲染，不带 headless Chromium）
-- **插件系统** —— 跨进程插件，通过 stdin/stdout JSON 通信，manifest 声明式
-  注册菜单项、上下文菜单、设置面板，宿主能力按声明授权（toast / 剪贴板 /
-  settings.merge / 对话框）。插件未触发时不运行；启动成本只到读一份小 manifest
-- **Share 插件（内置）** —— `Cmd+Shift+L` 一键把当前文件以自包含网页发布到
-  你自己的 Cloudflare Worker。接收方打开链接看到的文档跟 note.md 显示的完全一致
-  （KaTeX、Mermaid / Graphviz SVG、语法高亮、浅/深双主题跟随系统、移动端优化）。
-  图片多的文档溢出到 Cloudflare R2；Worker 还开放了 MCP 端点，方便 LLM agent
-  代你发布
-- **Sync to Vault 插件（内置）** —— 在 **Preferences → Plugins** 启用后，文件菜单
-  新增 **Sync to Vault…**：把当前文件复制进 git 同步的 Vault（`~/Documents/Vault/Sync/`，
-  重名自动加后缀），并在专用 JSON 里记录"副本 ↔ 来源"映射。文件名没带 `yyyy-MM-dd-`
-  前缀的 Markdown，会自动补上源文件的创建日期（如 `notes.md` → `2024-03-12-notes.md`）。
-  再次打开 vault 副本时若来源已变更，会弹冲突感知的同步提示（用源覆盖 / 保留 Vault /
-  取消，绝不静默；两边都改则标记为冲突）。vault 副本上有蓝色提示条显示来源路径并可在访达
-  打开；Vault 之外的文件上有绿色提示条可一键同步并说明好处，已同步后自动隐藏
-- **块 ID（mdblock）** —— Preferences → Block 勾选启用后，给每个顶层
-  Markdown 单元（段落、标题、代码块、列表、表格 …）分配一个稳定的
-  `b-xxxxxx` id；任何位置都可以用 `((path/to/file.md#b-xxxxxx))`
-  引用某一具体块，方便 LLM agent 与人协作时按子页面粒度精准引用。
-  打开 `.md` 时块边界自动加载，源码或富文本编辑过程中实时（约 250 ms
-  防抖）跟随结构变化重算，`Cmd+S` 保存时一并持久化。yaml 不放在源文件
-  旁边，统一写入按路径哈希定位的缓存目录
-  `~/Library/Application Support/com.laobu.mdeditor/blocks/<hash>.yaml`，
-  开发/工作目录保持干净。身份稳定算法基于内容 MinHash + 五轮合并：轻微
-  编辑保留旧 id，大幅改写优雅退役（带完整 history 链）。点击侧栏标记
-  即把 `((file#blockid))` 复制到剪贴板；源码模式下把光标放到 `((..))`
-  里按 `Cmd+Enter` 直接跳转到目标文档对应位置
-- **粘贴图片与附件** —— 截图（剪贴板 image blob）自动保存到文档旁的
-  `{文档名}_files/` 目录，以相对路径 `![](相对路径.png)` 插入；未保存的新文档
-  先写入临时目录，首次保存时路径自动迁移更新。拖拽图片文件插入绝对路径引用，
-  不复制文件。粘贴非图片二进制文件插入附件链接 `[文件名](路径)`。
-  源码模式与富文本模式均支持以上所有粘贴路径。
-- **附件链接卡片** —— 指向文档（`.pdf`、`.docx`、`.zip` …）、音频、视频的链接
-  在富文本模式下渲染为带表情图标的样式：行内显示为芯片，独占一行时升级为全宽卡片。
-  纯 CSS 实现，无 schema 变更。
-- **视频链接卡片** —— 粘贴 YouTube 或 Bilibili URL，标题从 YouTube oEmbed API
-  或 Bilibili Web API 自动获取，链接以 `[视频标题](url)` 格式存入 markdown。
-  富文本模式下渲染为带品牌色 ▶ 图标的卡片（YouTube 红色，Bilibili 蓝色），
-  单击即在默认浏览器中打开。
-- **图片尺寸工具栏** —— 在富文本模式下单击图片，图片上方显示浮动工具栏，
-  提供 25% / 50% / 75% / 100% / 原始尺寸五个快速尺寸按钮；所选宽度存入
-  title 属性（`"width=50%"`），编辑器实时应用。点击工具栏背景或其他区域
-  关闭工具栏。
-- **CSV 电子表格编辑器** —— `.csv` 文件以可编辑的表格网格（RevoGrid）打开，支持
-  公式（`=SUM(A1:A3)`、`=AVG(...)`、`=COUNT(...)` 及 A1 跨单元格引用）、行号显示
-  和深色模式适配。首行加粗作为视觉表头，主题跟随系统在 Material / Material-Dark
-  间自动切换。右键单元格唤起菜单：在选中位置上下/左右插入或删除行列、清空选中区域；
-  `Delete` 键也可快速清空选中区域。仍可通过 `Cmd+/` 切回源码模式。在 Markdown
-  中键入 `/电子表格` 可插入行内电子表格块（rich 模式下嵌入也能正常输入，不会被外层
-  ProseMirror 抢焦点）。
-- **富文本块快捷键** —— 无需输入 Markdown 语法即可插入或转换块：
-  `Cmd+1–6` 标题；`Cmd+0` 转段落；`Cmd+Shift+K` 代码块；`Cmd+Shift+M` 数学公式；
-  `Cmd+Shift+T` 表格；`Cmd+Shift+Q` 引用；`Cmd+Opt+U/O/X` 无序/有序/任务列表。
-- **斜线菜单**（富文本模式行首输入 `/`）—— 弹出可过滤的块插入菜单，包含 H1–H3、
-  引用、代码块、Mermaid 图表、数学公式、表格、无序/有序/任务列表、分割线，以及
-  图片和文档的文件选择入口。方向键导航，Enter 或 Tab 插入。
-- **高亮标记**（`^^文字^^` 或 `==文字==`）—— 在源码和富文本模式下均显示黄色高亮。
-  源码模式 `Cmd+H` 快速包裹选区；富文本模式透明渲染并序列化。
-- **任务列表复选框** —— 富文本模式下单击 `- [ ]` / `- [x]` 复选框即可切换勾选状态，
-  改动会同步回 Markdown 源码（`[ ]` ↔ `[x]`）；鼠标悬停复选框显示手型光标。
-- **Wikilink 双链**（`[[笔记]]`）—— 富文本模式下 `[[目标]]` 渲染为链接；点击即打开
-  与当前文件同目录的 `目标.md`，若不存在则新建空笔记。`[[目标|别名]]` 显示别名。
-  输入 `[[` 自动补全为 `[[]]`，且方括号在保存的 Markdown 里原样保留。
-- **裸 URL 自动链接** —— 以纯文本写的 `http(s)://…` 链接在富文本模式下渲染为可点击
-  链接：普通点击用系统浏览器打开，Cmd/Ctrl+点击落光标编辑。代码或已有链接内的
-  URL 保持原样。
-- **行内标记保持源码** —— 富文本模式下输入 `**`、`__`、`*`、`_`、`` ` ``、`~~`、
-  `^^`、`==` 时，分隔符保持为源码文本，不再自动折叠成标记，格式由用户主动控制。
-  从文件打开的已有标记仍照常渲染，并在光标所在行显示其源码分隔符（Live-Preview
-  风格），光标移开即重新渲染。
-- **YAML frontmatter** —— 文档开头的 `--- … ---` 块在富文本模式下渲染为
-  **可折叠的元数据面板**，默认折叠以免占据正文（折叠条显示顶层键名，点击展开）。
-  展开后按内容分段：连续的 `键: 值` 行渲染为表格，**标量值可内联编辑**——失焦时
-  写回 YAML，保留注释与键顺序；列表、嵌套映射、块标量在所属键那一行只读展示；
-  其间非 `键: 值` 的内容按只读 Markdown 渲染。
-- **换行保真** —— 多行引用块与块内（Shift+Enter）换行在富文本模式，以及导出／
-  预览／分享的 HTML（md2pdf、share）中都保留换行，不再并成一行。
-- **Apple Silicon 与 Intel 构建** —— 发布为两个独立的按架构 `.dmg`（`aarch64`
-  与 `x86_64`）；自动更新会自动匹配对应架构
+### 阅读与批注
+
+- **富文本阅读视图** —— KaTeX 公式、Mermaid 图表、highlight.js 代码高亮；
+  HTML 在沙箱 iframe 中预览；约 36 种代码文件渲染为高亮代码块；图片以预览
+  标签打开。
+- **高亮标记**（`^^文字^^` 或 `==文字==`）—— 双模式黄色高亮；源码模式
+  `Cmd+H` 快速包裹选区。
+- **块 ID（mdblock）** —— 每个顶层块（段落、标题、代码块、列表、表格 …）
+  获得稳定的 `b-xxxxxx` id，任何位置用 `((path/to/file.md#b-xxxxxx))`
+  即可按子页面粒度引用——对人和 agent 同样有效。id 抗编辑（内容 MinHash +
+  五轮合并）；块元数据存中央缓存，绝不污染你的文件目录。点击侧栏标记复制
+  引用；`Cmd+Enter` 跳转。
+- **阅读洞察（插件）** —— 逐文档的阅读/编辑投入度存入 vault；任意日期范围
+  可从 CLI 或 **View → Reading Insights** 生成 markdown 摘要。
+- **附件与视频卡片** —— 文档、音频、视频链接渲染为芯片/卡片；YouTube 与
+  Bilibili 链接自动取标题，渲染为品牌色播放卡片。
+
+### 写作与编辑
+
+- **源码 / 富文本切换**（`Cmd+/`）—— 纯文本 ↔ 所见即所得，按标签页记忆。
+- **斜线菜单**（空行输入 `/`）与**块快捷键**（`Cmd+1–6` 标题、
+  `Cmd+Shift+K` 代码块、`Cmd+Shift+M` 公式、`Cmd+Shift+T` 表格、
+  `Cmd+Opt+U/O/X` 列表 …）。
+- **Live-Preview 风格标记** —— 输入 `**`、`` ` ``、`==` 等保持源码原样，
+  不自动折叠；已有标记正常渲染，光标所在行显示源码分隔符。
+- **Wikilink 双链** —— `[[笔记]]` 渲染为链接，点击打开（或新建）同目录的
+  `笔记.md`；`[[笔记|别名]]` 显示别名。
+- **任务复选框**、**裸 URL 自动链接**、**可折叠且可内联编辑的 YAML
+  frontmatter 面板**、导出/分享全链路**换行保真**。
+- **随手粘贴** —— 截图落盘到 `{文档名}_files/` 并以相对路径插入；文件粘贴
+  为附件链接；图片点击出现尺寸工具栏（25 / 50 / 75 / 100%）。
+- **CSV 电子表格** —— `.csv` 以可编辑网格打开，支持公式（`=SUM(A1:A3)`、
+  跨单元格引用）、行列操作、深色主题；`/电子表格` 斜线命令可在 markdown
+  内嵌入表格。
+- **查找与替换**（`Cmd+F` / `Cmd+H`）—— 正则、全字、大小写选项，双模式可用。
+- **新建文件**（`Cmd+N`）—— 随机写作引导模板，正文预选中。
+
+### 文件与 Vault
+
+- **文件夹视图** —— 实时目录树侧栏，递归正则过滤，右键在访达中显示。
+- **外部修改检测** —— 干净标签页静默重载；脏标签页出现冲突提示条
+  （重载 / 覆盖 / 删除后可恢复）。绝不静默丢数据。
+- **Sync to Vault（插件）** —— 把任意文件复制进 git 同步的 vault，日期前缀
+  命名、来源映射、冲突感知刷新。
+- **多标签页**（脏标记、拖拽排序）；**自动保存**（可选）；**最近文件**；
+  Finder 双击 / 拖拽打开。
+
+### 为 agent 而建
+
+- **块引用** —— `((file#b-xxxxxx))` 给 agent 一种跨 vault 稳定引用与跳转
+  段落的方式。
+- **`notemd` CLI** —— 不开 GUI 驱动插件功能：`notemd -s draft.md` 发布分享
+  链接；`--json` 结构化输出；`notemd reading-insights report` 生成投入度
+  摘要。从 **Help → Install 'notemd' Command in PATH…** 安装。
+- **MCP 端点** —— 分享 Worker 暴露 MCP，agent 可代你发布文档。
+- **插件系统** —— 跨进程插件（stdin/stdout JSON），manifest 声明式注册菜单、
+  上下文菜单、设置面板，宿主能力按声明授权。未触发时不运行。
+
+### 分享与导出
+
+- **分享（插件）** —— `Cmd+Shift+L` 把当前文件发布为自包含网页，托管在你
+  自己的 Cloudflare Worker：KaTeX、Mermaid SVG、语法高亮、浅/深主题、移动端
+  适配。可原址更新、随时撤销；图片多的文档溢出到 R2。部署见
+  `worker/README.md`。
+- **PDF 导出**（`Cmd+Shift+E`）—— 排版干净的 A4 PDF，公式、图表、代码高亮
+  全部内联（离屏 WKWebView 渲染，无 headless Chromium）。
+- **图片上传** —— 图片标签页 `Cmd+Shift+L` 上传 R2 并复制公开 URL。
+
+### 应用本体
+
+- **三语界面** —— English、简体中文、日本語——覆盖每个对话框、原生 macOS
+  菜单栏（含系统菜单项）、托盘及插件文案；Preferences 即时切换，无需重启。
+- **Typora 主题兼容** —— 导入任意 Typora 主题 `.zip`；浅色/深色可分别选主题，
+  跟随 macOS Appearance。内置 **default**（GitHub 风格）与 **effie**（薄荷纸
+  配色，霞鹜文楷）。
+- **菜单栏托盘**、Typora 风格通知条、全界面缩放（`Cmd+=` / `Cmd+-` / `Cmd+0`）。
+- **Apple Silicon 与 Intel** 双 `.dmg`，按架构自动更新。
 
 ## 开发
 
@@ -155,13 +147,13 @@ pnpm tauri dev
 
 ## 构建
 
-仅构建当前 Mac 架构：
+仅当前架构：
 
 ```bash
 pnpm tauri build
 ```
 
-分别构建两个架构（各自产出独立 `.app`，Universal 模式已废弃）：
+两个架构分别构建（各自独立 `.app`，Universal 模式已废弃）：
 
 ```bash
 rustup target add aarch64-apple-darwin x86_64-apple-darwin
@@ -173,62 +165,40 @@ pnpm tauri build --target x86_64-apple-darwin
 - 当前架构：`src-tauri/target/release/bundle/macos/note.md.app`
 - 按架构：`src-tauri/target/<arch>-apple-darwin/release/bundle/macos/note.md.app`
 
-## CLI
-
-note.md 内置一个 `notemd` 命令行工具，方便其他应用在不打开 GUI 的情况下调用插件功能。
-通过 **Help → Install 'notemd' Command in PATH...** 安装（安装到 `/usr/local/bin`
-会要求管理员授权），也可以在 **Preferences → CLI** 里安装/卸载。
-
-```bash
-notemd -s draft.md                         # 通过 Share 插件发布，stdout 输出 URL
-notemd share draft.md --json               # 结构化输出（JSON）
-notemd share draft.md --copy-link          # 复用已有分享链接
-notemd share draft.md --unshare            # 取消该文件的分享
-notemd help                                # 完整帮助
-notemd plugin list                         # 列出所有插件及启用状态
-```
-
-CLI 只暴露**已启用**插件贡献的子命令。在 **Preferences → Plugins** 中禁用某个插件
-会同步从 `notemd` 移除其子命令。
-
 ## 发布（仓库维护者）
 
 ```bash
 scripts/release.sh <x.y.z>
 ```
 
-会按顺序执行：跑测试 → bump 版本号 → 按架构签名构建（`aarch64` + `x86_64`）→ 公证
-→ 打 tag → push → 创建 GitHub Release。每次发布产出两个 `.dmg`、两个 updater 压缩包
-及签名，以及驱动自动更新的 `latest.json`（按架构分别记录）。需要在 `.env.release` 里配
-`APPLE_ID`、`APPLE_PASSWORD`、`APPLE_TEAM_ID`，以及位于 `~/.tauri/mdeditor.key` 的
-Tauri updater 签名私钥。
+依次执行：测试 → 版本号 → 按架构签名构建 → 公证 → 打 tag → push → GitHub
+Release（两个 `.dmg`、两个 updater 包及签名、驱动按架构自动更新的
+`latest.json`）。需要 `.env.release` 中的 `APPLE_ID`、`APPLE_PASSWORD`、
+`APPLE_TEAM_ID`，以及 `~/.tauri/mdeditor.key` 的 updater 签名私钥。
 
-## 分享插件部署（可选）
-
-如果想用「分享当前文件」功能，需要先在自己的 Cloudflare 账号里部署配套 Worker：
+## CLI
 
 ```bash
-cd worker
-pnpm install
-wrangler login
-wrangler kv:namespace create SHARES   # 把 id 写入 wrangler.toml
-openssl rand -hex 32 | wrangler secret put SHARE_API_KEY
-wrangler deploy                       # 输出 Worker URL
+notemd -s draft.md                         # 通过 Share 插件发布，输出 URL
+notemd share draft.md --json               # 结构化输出
+notemd share draft.md --copy-link          # 复用已有分享链接
+notemd share draft.md --unshare            # 取消分享
+notemd plugin list                         # 列出插件及启用状态
+notemd reading-insights report --vault ~/Vault --date 7d   # 阅读投入度摘要
+notemd help                                # 完整帮助
 ```
 
-把 Worker URL 和 API key 填进 note.md Preferences → Share，重启 note.md。
-详见 [`worker/README.md`](worker/README.md)。
+CLI 只暴露**已启用**插件贡献的子命令。
+
+## 测试
+
+发布前必跑的完整手工冒烟清单（macOS + iOS）见
+[`docs/SMOKE-TEST.md`](docs/SMOKE-TEST.md)。
 
 ## 设计文档与实施计划
 
 - 设计：`docs/superpowers/specs/`
 - 计划：`docs/superpowers/plans/`
-
-## 测试清单
-
-完整的手工冒烟测试清单见英文版 [`README.md`](README.md) 的 *Manual Smoke Test*
-小节（覆盖 macOS 与 iOS 全场景），包含文件操作、外部修改检测、PDF 导出、插件平台、
-Share 插件、主题导入、块 ID、Vault 同步等所有发布前必须跑一遍的场景。
 
 ## 许可证
 
