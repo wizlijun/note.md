@@ -38,6 +38,10 @@
   // Route collapse state through outline.version so bump() re-renders it —
   // `node.collapsed` is a plain (non-proxied) property Svelte doesn't track.
   let isCollapsed = $derived.by(() => { void outline.version; return node.collapsed })
+  // Same for content: sync/note-writeback mutate `node.content` in place on
+  // the same plain object, so a bump() must re-read it or the row keeps
+  // showing stale text until something else re-renders it (e.g. a click).
+  let content = $derived.by(() => { void outline.version; return node.content })
   let showChildren = $derived.by(() => {
     void outline.version
     return visibleIds ? kids.length > 0 : !node.collapsed
@@ -236,7 +240,7 @@
         class:hl={node.source === 'highlight' || markLike}
         class:src-toc={node.source === 'toc'}
         rows="1"
-        value={node.content}
+        value={content}
         onbeforeinput={(e) => { if (!editable) e.preventDefault() }}
         onblur={(e) => commitEdit((e.currentTarget as HTMLTextAreaElement).value)}
         onkeydown={onKeydown}
@@ -251,7 +255,7 @@
       <span class="content" class:hl={node.source === 'highlight' || markLike} class:src-toc={node.source === 'toc'} onclick={onContentClick} role="button" tabindex="0"
         onkeydown={(e) => { if (e.key === 'Enter') startEdit() }}>
         <!-- 空内容：塞零宽空格保证有行盒，鼠标可命中进入编辑 -->
-        {#if node.content === ''}{'​'}{:else}<InlineRender content={node.content} onPageClick={onPageClick} />{/if}
+        {#if content === ''}{'​'}{:else}<InlineRender {content} onPageClick={onPageClick} />{/if}
       </span>
     {/if}
   </div>
