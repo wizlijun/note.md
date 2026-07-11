@@ -52,7 +52,17 @@ describe('planActions', () => {
     expect(planActions(entries, manifest, new Map([['wikipage/A.note.md', 'DIFFERENT']]))[0].action).toBe('conflict')
     expect(planActions(entries, manifest, new Map([['wikipage/A.note.md', null]]))[0].action).toBe('create')
   })
-  it('no manifest → everything is create', () => {
+  it('no manifest and no local file → create', () => {
     expect(planActions([{ key: 'k', relPath: 'f', editTime: 1 }], null, new Map())[0].action).toBe('create')
+  })
+  it('local file exists but was never written by us → conflict, never silent overwrite', () => {
+    expect(planActions(
+      [{ key: 'k', relPath: 'f', editTime: 1 }],
+      null, new Map([['f', 'some-hash']]),
+    )[0].action).toBe('conflict')
+    expect(planActions(
+      [{ key: 'k2', relPath: 'g', editTime: 1 }],
+      manifest, new Map([['g', 'some-hash']]),
+    )[0].action).toBe('conflict')
   })
 })

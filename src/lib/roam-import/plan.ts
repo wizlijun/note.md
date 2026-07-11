@@ -47,8 +47,8 @@ export interface PlannedPage { key: string; relPath: string; action: ImportActio
 
 /**
  * 增量动作判定(spec §增量重导):
- * 清单无记录或本地文件不存在 → create;edit-time 未变 → skip;
- * 变了且本地 hash 与清单一致 → overwrite;本地被改过 → conflict。
+ * 本地文件不存在 → create;存在但清单无记录(不是我们写的)→ conflict,绝不静默覆盖;
+ * edit-time 未变 → skip;变了且本地 hash 与清单一致 → overwrite;本地被改过 → conflict。
  * localHashes: relPath → 现文件 sha256(不存在为 null/缺省)。
  */
 export function planActions(
@@ -59,7 +59,8 @@ export function planActions(
   return entries.map(({ key, relPath, editTime }) => {
     const prev = manifest?.pages[key]
     const local = localHashes.get(relPath) ?? null
-    if (!prev || local == null) return { key, relPath, action: 'create' as const }
+    if (local == null) return { key, relPath, action: 'create' as const }
+    if (!prev) return { key, relPath, action: 'conflict' as const }
     if (prev.editTime === editTime) return { key, relPath, action: 'skip' as const }
     if (local === prev.contentHash) return { key, relPath, action: 'overwrite' as const }
     return { key, relPath, action: 'conflict' as const }
