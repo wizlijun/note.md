@@ -56,6 +56,19 @@ function cleanSentence(text: string): string {
     .trim()
 }
 
+/**
+ * 标题用于 toc 展示：还原为纯净文本 —— 批注同 cleanSentence，高亮/wikilink
+ * 剥掉标记只留文字。标题上的这些标记另派生为 toc 的子节点（见 deriveAutoItems）。
+ */
+function cleanHeading(text: string): string {
+  return cleanSentence(text)
+    .replace(/\^\^([^^\n]+?)\^\^/g, '$1')
+    .replace(/(?<![\w=])==([^\s=][^=\n]*?)==(?![\w=])/g, '$1')
+    .replace(/\[\[([^\]\n]+?)\]\]/g, '$1')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+}
+
 interface StackEntry { level: number; content: string; anchorLine: number; emitted: boolean }
 
 /**
@@ -69,6 +82,8 @@ interface StackEntry { level: number; content: string; anchorLine: number; emitt
  * - annotation `{==原文==}{>>批注<<}`：内容 = 原文，note = 批注。
  * - 插入点批注 `{>>批注<<}`：内容 = 批注符号 `※`（样式如高亮），note = 批注。
  * - wikilink：内容 = 所在整句（保留 [[…]]），同句多个 wikilink 合并为一条。
+ * - 标题上的上述标记：toc 条目保持纯净文本，每个标记降为该 toc 的子条目
+ *   （wikilink 子条目只含 `[[目标]]` 本身）。
  */
 export function deriveAutoItems(md: string): AutoItem[] {
   const lines = md.split('\n')
@@ -101,7 +116,29 @@ export function deriveAutoItems(md: string): AutoItem[] {
       const level = h[1].length
       if (level === 1) { stack.length = 0; continue }   // skip H1, reset context
       while (stack.length && stack[stack.length - 1].level >= level) stack.pop()
-      stack.push({ level, content: h[2].trim(), anchorLine: li + 1, emitted: false })
+      const rawTitle = h[2].trim()
+      stack.push({ level, content: cleanHeading(rawTitle), anchorLine: li + 1, emitted: false })
+      // 标题上的高亮/批注/wikilink：toc 保持纯净，标记降为 toc 的子节点显示。
+      for (const m of rawTitle.matchAll(INLINE_RE)) {
+        const anchorLine = li + 1
+        if (m[1] != null) {
+          const text = m[1].trim()
+          if (!text) continue
+          emitHeadingPath()
+          items.push({ source: 'annotation', content: text, note: m[2], depth: stack.length, anchorLine })
+        } else if (m[3] != null) {
+          emitHeadingPath()
+          items.push({ source: 'annotation', content: ANNOTATION_MARK, note: m[3], depth: stack.length, anchorLine })
+        } else if (m[6] != null) {
+          emitHeadingPath()
+          items.push({ source: 'wikilink', content: `[[${m[6]}]]`, depth: stack.length, anchorLine })
+        } else {
+          const text = (m[4] ?? m[5] ?? '').trim()
+          if (!text) continue
+          emitHeadingPath()
+          items.push({ source: 'highlight', content: text, depth: stack.length, anchorLine })
+        }
+      }
       continue
     }
 

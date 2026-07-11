@@ -184,3 +184,57 @@ describe('deriveAutoItems — wikilink sentence extraction', () => {
     expect(wl.content).toBe('本句有 [[链]] 也有批过的词。')
   })
 })
+
+describe('deriveAutoItems — marks on headings (pure toc + child items)', () => {
+  it('highlight in a heading: toc stays clean, highlight becomes a child', () => {
+    const md = '## 本章 ==重点== 结论\n'
+    expect(deriveAutoItems(md)).toEqual([
+      { source: 'toc', content: '本章 重点 结论', depth: 0, anchorLine: 1 },
+      { source: 'highlight', content: '重点', depth: 1, anchorLine: 1 },
+    ])
+  })
+
+  it('wrapped annotation in a heading: clean toc + annotation child with note', () => {
+    const md = '## 三{==级==}{>>有歧义<<}标题\n'
+    expect(deriveAutoItems(md)).toEqual([
+      { source: 'toc', content: '三级标题', depth: 0, anchorLine: 1 },
+      { source: 'annotation', content: '级', note: '有歧义', depth: 1, anchorLine: 1 },
+    ])
+  })
+
+  it('point annotation in a heading: clean toc + ※ child', () => {
+    const md = '## 标题{>>待补充<<}\n'
+    expect(deriveAutoItems(md)).toEqual([
+      { source: 'toc', content: '标题', depth: 0, anchorLine: 1 },
+      { source: 'annotation', content: '※', note: '待补充', depth: 1, anchorLine: 1 },
+    ])
+  })
+
+  it('wikilink in a heading: toc plain text + [[target]] child', () => {
+    const md = '## 关于 [[规划]] 的讨论\n'
+    expect(deriveAutoItems(md)).toEqual([
+      { source: 'toc', content: '关于 规划 的讨论', depth: 0, anchorLine: 1 },
+      { source: 'wikilink', content: '[[规划]]', depth: 1, anchorLine: 1 },
+    ])
+  })
+
+  it('mixed marks on nested headings keep depths and order', () => {
+    const md = '## A ==亮点==\n### B [[链接]]\n^^正文亮^^\n'
+    expect(deriveAutoItems(md)).toEqual([
+      { source: 'toc', content: 'A 亮点', depth: 0, anchorLine: 1 },
+      { source: 'highlight', content: '亮点', depth: 1, anchorLine: 1 },
+      { source: 'toc', content: 'B 链接', depth: 1, anchorLine: 2 },
+      { source: 'wikilink', content: '[[链接]]', depth: 2, anchorLine: 2 },
+      { source: 'highlight', content: '正文亮', depth: 2, anchorLine: 3 },
+    ])
+  })
+
+  it('heading marks alone force the heading path to emit', () => {
+    const md = '## 无正文\n### 只有标记 {>>注<<}\n'
+    expect(deriveAutoItems(md)).toEqual([
+      { source: 'toc', content: '无正文', depth: 0, anchorLine: 1 },
+      { source: 'toc', content: '只有标记', depth: 1, anchorLine: 2 },
+      { source: 'annotation', content: '※', note: '注', depth: 2, anchorLine: 2 },
+    ])
+  })
+})
