@@ -1,4 +1,11 @@
 // src/lib/outline/derive.ts
+
+/**
+ * 插入点批注（无包裹文字）在大纲中的占位符号，与富文本编辑器里的批注徽标
+ * （editor-base.css 的 note-badge::before）一致；样式如高亮（见 OutlineNode）。
+ */
+export const ANNOTATION_MARK = '※'
+
 export interface AutoItem {
   source: 'toc' | 'highlight' | 'wikilink' | 'annotation'
   content: string
@@ -60,7 +67,7 @@ interface StackEntry { level: number; content: string; anchorLine: number; emitt
  *
  * - highlight（==x== / ^^x^^）：内容 = 高亮文本（原行为）。
  * - annotation `{==原文==}{>>批注<<}`：内容 = 原文，note = 批注。
- * - 插入点批注 `{>>批注<<}`：内容 = 所在句子（清理标记后），note = 批注。
+ * - 插入点批注 `{>>批注<<}`：内容 = 批注符号 `※`（样式如高亮），note = 批注。
  * - wikilink：内容 = 所在整句（保留 [[…]]），同句多个 wikilink 合并为一条。
  */
 export function deriveAutoItems(md: string): AutoItem[] {
@@ -117,12 +124,10 @@ export function deriveAutoItems(md: string): AutoItem[] {
         continue
       }
       if (m[3] != null) {
-        // 插入点批注：所在句子为内容
-        const [s, e] = sentenceRangeAt(line, m.index!, m.index! + m[0].length, protectedRanges)
-        const text = cleanSentence(line.slice(s, e))
-        if (!text) continue
+        // 插入点批注（无包裹文字）：用批注符号占位（样式如高亮），批注文本挂到
+        // note 子节点。空批注也照常出条目——刚插入尚未填写的锚点亦可见可编辑。
         emitHeadingPath()
-        items.push({ source: 'annotation', content: text, note: m[3], depth: stack.length, anchorLine })
+        items.push({ source: 'annotation', content: ANNOTATION_MARK, note: m[3], depth: stack.length, anchorLine })
         continue
       }
       if (m[6] != null) {

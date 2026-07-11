@@ -103,11 +103,25 @@ describe('deriveAutoItems — annotations (CriticMarkup)', () => {
     ])
   })
 
-  it('point annotation: whole sentence (markers stripped) as content', () => {
+  it('point annotation: annotation mark (※) as content, note carried on the item', () => {
     const md = '前一句。这句话结尾有批注{>>单独备注<<}。后一句。\n'
     const items = deriveAutoItems(md)
     expect(items).toEqual([
-      { source: 'annotation', content: '这句话结尾有批注。', note: '单独备注', depth: 0, anchorLine: 1 },
+      { source: 'annotation', content: '※', note: '单独备注', depth: 0, anchorLine: 1 },
+    ])
+  })
+
+  it('point annotation alone on a line still emits a mark node', () => {
+    const items = deriveAutoItems('{>>只有批注<<}\n')
+    expect(items).toEqual([
+      { source: 'annotation', content: '※', note: '只有批注', depth: 0, anchorLine: 1 },
+    ])
+  })
+
+  it('point annotation with an empty note still emits a mark node', () => {
+    const items = deriveAutoItems('文字{>><<}\n')
+    expect(items).toEqual([
+      { source: 'annotation', content: '※', note: '', depth: 0, anchorLine: 1 },
     ])
   })
 

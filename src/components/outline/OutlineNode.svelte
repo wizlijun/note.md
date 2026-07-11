@@ -4,6 +4,7 @@
   import { outline, bump, markDirty, setSelection, clearSelection } from '../../lib/outline/store.svelte'
   import { rangeBetween, selectionRoots } from '../../lib/outline/select'
   import { childrenOf, setNodeContent, type OutlineNode as NodeT } from '../../lib/outline/model'
+  import { ANNOTATION_MARK } from '../../lib/outline/derive'
   import {
     createSiblingBelow, createSiblingAbove, mergeWithPrevious,
     indentNode, outdentNode, moveNodeUp, moveNodeDown, applyInlineWrap,
@@ -46,6 +47,8 @@
   let selected = $derived(outline.selectedIds.has(node.id))
   // note 子节点可编辑（其余 auto 只读）；编辑起点内容留作回写定位的"旧批注"
   let editable = $derived(node.source === 'manual' || node.source === 'note')
+  // 插入点批注的占位符号：样式如高亮（金色下划线）
+  let markLike = $derived(node.source === 'annotation' && node.content === ANNOTATION_MARK)
   let noteBaseline: string | null = null
 
   $effect(() => {
@@ -231,7 +234,7 @@
       <textarea
         bind:this={textareaEl}
         class="content edit"
-        class:hl={node.source === 'highlight'}
+        class:hl={node.source === 'highlight' || markLike}
         class:src-toc={node.source === 'toc'}
         rows="1"
         value={node.content}
@@ -246,7 +249,7 @@
         }}
       ></textarea>
     {:else}
-      <span class="content" class:hl={node.source === 'highlight'} class:src-toc={node.source === 'toc'} onclick={onContentClick} role="button" tabindex="0"
+      <span class="content" class:hl={node.source === 'highlight' || markLike} class:src-toc={node.source === 'toc'} onclick={onContentClick} role="button" tabindex="0"
         onkeydown={(e) => { if (e.key === 'Enter') startEdit() }}>
         <!-- 空内容：塞零宽空格保证有行盒，鼠标可命中进入编辑 -->
         {#if node.content === ''}{'​'}{:else}<InlineRender content={node.content} onPageClick={onPageClick} />{/if}
