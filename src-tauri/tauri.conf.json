@@ -275,7 +275,7 @@
     },
     "updater": {
       "endpoints": [
-        "https://github.com/wizlijun/MdEditor/releases/latest/download/latest.json"
+        "https://github.com/wizlijun/note.md/releases/latest/download/latest.json"
       ],
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IENDNzc1QjQ2MkFDM0JGNDEKUldSQnY4TXFSbHQzekhuY0c1b1VGQzc2aHN2OXBjRHFNVHh1d2xGVWIwL0ZSalBIYk9XVnJteVIK",
       "windows": {

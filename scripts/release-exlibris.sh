@@ -24,7 +24,7 @@
 #   APPLE_TEAM_ID         Apple Developer team id (shared with mdeditor)
 #   APPLE_ID              App-Store-Connect Apple ID for notarization
 #   APPLE_PASSWORD        App-specific password
-#   GH_REPO               default: wizlijun/MdEditor (same repo, separate tag namespace)
+#   GH_REPO               default: wizlijun/note.md (same repo, separate tag namespace)
 
 set -euo pipefail
 
@@ -59,7 +59,7 @@ fi
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "version must be semver X.Y.Z"
 
 TAG="exlibris-v$VERSION"
-GH_REPO="${GH_REPO:-wizlijun/MdEditor}"
+GH_REPO="${GH_REPO:-wizlijun/note.md}"
 APPLE_TEAM_ID="${APPLE_TEAM_ID:-T5G56DH47L}"
 
 # ExLibris is perma-prerelease through 0.x to keep mdeditor's

@@ -25,7 +25,7 @@
 #                   "Developer ID Application" → "Apple Distribution".
 #   APPLE_ID            App-Store-Connect Apple ID for notarization.
 #   APPLE_PASSWORD      App-specific password (not the actual Apple ID password).
-#   GH_REPO         default: wizlijun/MdEditor
+#   GH_REPO         default: wizlijun/note.md
 #
 # Updater signing (required — release will fail without these):
 #   TAURI_SIGNING_PRIVATE_KEY           private key string OR
@@ -85,7 +85,7 @@ fi
 
 TAG="v$VERSION"
 APPLE_TEAM_ID="${APPLE_TEAM_ID:-T5G56DH47L}"
-GH_REPO="${GH_REPO:-wizlijun/MdEditor}"
+GH_REPO="${GH_REPO:-wizlijun/note.md}"
 
 # Resolve Tauri updater signing key. Prefer explicit env, then path env, then default file.
 if [[ -z "${TAURI_SIGNING_PRIVATE_KEY:-}" ]]; then

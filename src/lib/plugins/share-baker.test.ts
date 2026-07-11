@@ -110,11 +110,11 @@ describe('metadataBlock', () => {
   })
   it('falls back to the default note.md logo as og:image / twitter:image', () => {
     const out = metadataBlock({ title: 'T', description: 'D', filename: 'x.md' })
-    expect(out).toContain('<meta property="og:image" content="https://raw.githubusercontent.com/wizlijun/MdEditor/main/src-tauri/icons/64x64.png">')
+    expect(out).toContain('<meta property="og:image" content="https://raw.githubusercontent.com/wizlijun/note.md/main/src-tauri/icons/64x64.png">')
     expect(out).toContain('<meta property="og:image:width" content="64">')
     expect(out).toContain('<meta property="og:image:height" content="64">')
     expect(out).toContain('<meta property="og:image:alt" content="T">')
-    expect(out).toContain('<meta name="twitter:image" content="https://raw.githubusercontent.com/wizlijun/MdEditor/main/src-tauri/icons/64x64.png">')
+    expect(out).toContain('<meta name="twitter:image" content="https://raw.githubusercontent.com/wizlijun/note.md/main/src-tauri/icons/64x64.png">')
   })
   it('honours an explicit imageUrl override', () => {
     const out = metadataBlock({

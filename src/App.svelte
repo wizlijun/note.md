@@ -502,7 +502,7 @@
         }
         case 'docs':
           import('@tauri-apps/plugin-opener')
-            .then(({ openUrl }) => openUrl('https://github.com/wizlijun/MdEditor'))
+            .then(({ openUrl }) => openUrl('https://github.com/wizlijun/note.md'))
             .catch(() => {})
           break
         case 'cli-install': {

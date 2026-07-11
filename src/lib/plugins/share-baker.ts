@@ -176,7 +176,7 @@ export function extractShareDescription(
  * supply this as the fallback.
  */
 export const DEFAULT_OG_IMAGE_URL =
-  'https://raw.githubusercontent.com/wizlijun/MdEditor/main/src-tauri/icons/64x64.png'
+  'https://raw.githubusercontent.com/wizlijun/note.md/main/src-tauri/icons/64x64.png'
 const DEFAULT_OG_IMAGE_SIZE = 64
 
 /**
@@ -285,7 +285,7 @@ ${metadataBlock({ title: pageTitle, description, filename })}
 <div class="share-shell">
 <header class="share-header">${headerLabel} · ${date}</header>
 <main class="moraya-editor">${inlineBody}</main>
-<footer class="share-footer">Powered by <a href="https://github.com/wizlijun/MdEditor">note.md</a></footer>
+<footer class="share-footer">Powered by <a href="https://github.com/wizlijun/note.md">note.md</a></footer>
 </div>
 ${isPluginEnabled('reading-insights') ? `<script>${shareBeaconJs}</script>` : ''}
 </body>
