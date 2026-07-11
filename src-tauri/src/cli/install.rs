@@ -24,8 +24,9 @@ pub struct InstallStatus {
 
 pub fn current_app_binary() -> PathBuf {
     std::env::current_exe()
-        // CFBundleExecutable is the crate name, not the product name.
-        .unwrap_or_else(|_| PathBuf::from("/Applications/note.md.app/Contents/MacOS/mdeditor"))
+        // CFBundleExecutable / MacOS binary is `notemd` (mainBinaryName), not
+        // the product name `note.md`.
+        .unwrap_or_else(|_| PathBuf::from("/Applications/note.md.app/Contents/MacOS/notemd"))
 }
 
 pub fn candidate_dirs() -> Vec<PathBuf> {

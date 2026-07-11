@@ -1,9 +1,11 @@
 [package]
-name = "mdeditor"
+name = "notemd"
 version = "4.8.1"
 edition = "2021"
 
 [lib]
+# Keep the lib crate name stable: the iOS build links `libmdeditor_lib.a` and
+# main.rs / all modules reference `mdeditor_lib::`. Only the binary is renamed.
 name = "mdeditor_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 

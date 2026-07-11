@@ -210,7 +210,7 @@ fn read_enabled_map<R: Runtime>(app: &AppHandle<R>) -> HashMap<String, bool> {
 /// Best-effort fallback: derive `<bundle>/Contents/Resources/plugins/` from
 /// `current_exe()`. Used when `app.path().resource_dir()` fails — which
 /// happens at least when the process is launched through a symlink in a
-/// non-`.app` location (e.g., the CLI's `/usr/local/bin/mdedit → .app/.../mdeditor`).
+/// non-`.app` location (e.g., the CLI's `/usr/local/bin/notemd → .app/.../notemd`).
 fn fallback_plugins_dir_from_exe() -> Option<PathBuf> {
     let exe = std::env::current_exe().ok()?;
     let exe = exe.canonicalize().unwrap_or(exe);

@@ -20,7 +20,7 @@ const BUDGET_MS: u128 = 500;
 #[test]
 fn cli_help_returns_quickly() {
     use std::os::unix::process::CommandExt;
-    let bin = PathBuf::from(env!("CARGO_BIN_EXE_mdeditor"));
+    let bin = PathBuf::from(env!("CARGO_BIN_EXE_notemd"));
     let dir = std::env::temp_dir().join(format!(
         "notemd-timing-{}-{}",
         std::process::id(),
