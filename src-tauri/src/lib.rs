@@ -789,8 +789,8 @@ pub fn run() {
                     let _ = app.emit("menu-event", event.id().0.as_str());
                 });
 
-                // Persistent menu-bar tray icon. White circle with note.md cutout —
-                // template-style mark fits both light and dark menu bars.
+                // Persistent menu-bar tray icon. White ✦ sparkle from the
+                // note.md brand glyph (active state adds a green badge).
                 // Left-click toggles main window visibility; right-click shows menu.
                 let tray_icon = Image::from_bytes(include_bytes!("../icons/tray-icon.png"))?;
                 let (tray_menu, sync_repo_item) = build_tray_menu(&app.handle(), &menu_locale)?;
