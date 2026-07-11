@@ -10,11 +10,12 @@ describe('getMenuModel', () => {
     expect(ids).toContain('wikilink')
   })
 
-  it('marks highlight/wikilink/note as emphasis and orders them before other marks', () => {
+  it('marks note/highlight/wikilink as emphasis, note first, before other marks', () => {
     const groups = getMenuModel({ hasSelection: true })
     const emphasis = groups.find(g => g.id === 'emphasis')!
-    expect(emphasis.items.map(i => i.id)).toEqual(['highlight', 'wikilink', 'note'])
+    expect(emphasis.items.map(i => i.id)).toEqual(['note', 'highlight', 'wikilink'])
     expect(emphasis.items.every(i => i.emphasis)).toBe(true)
+    expect(emphasis.items.map(i => i.icon)).toEqual(['sparkle', 'highlight', 'wikilink'])
   })
 
   it('note works with or without a selection', () => {

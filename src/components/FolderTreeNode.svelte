@@ -111,9 +111,11 @@
     <span class="note-badge" role="button" tabindex="-1" title={t('folderView.openNote')}
       onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); onOpen(entry.notePath!) } }}
       onclick={(e) => { e.stopPropagation(); onOpen(entry.notePath!) }}>
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-        <line x1="8" y1="13" x2="16" y2="13" />
+      <!-- brand ✦ sparkle (same path as the app icon / context-menu note icon) -->
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path transform="translate(12 12) scale(0.083) translate(-185.5 -203)"
+          d="M 185.49318,76.468676 C 202.86539,165.0158 220.23759,183.99019 301.30788,202.96457 220.23759,221.93895 202.86539,240.91333 185.49318,329.46046 168.12097,240.91333 150.74877,221.93895 69.67847,202.96457 150.74877,183.99019 168.12097,165.0158 185.49318,76.468676 Z"
+          fill="#f59e0b" />
       </svg>
     </span>
   {/if}
@@ -154,7 +156,7 @@
     padding: 0 2px; border: 1px solid var(--accent-color, #4a80d4);
     border-radius: 3px; background: Canvas; color: CanvasText; outline: none;
   }
-  .note-badge { flex: 0 0 auto; display: inline-flex; opacity: 0.5; padding: 1px; border-radius: 3px; }
+  .note-badge { flex: 0 0 auto; display: inline-flex; opacity: 0.9; padding: 1px; border-radius: 3px; }
   .note-badge:hover { opacity: 1; background: rgba(0,0,0,0.08); }
   @media (prefers-color-scheme: dark) {
     .node:hover { background: rgba(255,255,255,0.07); }

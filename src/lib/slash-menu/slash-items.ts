@@ -1,6 +1,8 @@
 import type { EditorView } from 'prosemirror-view'
+import { TextSelection } from 'prosemirror-state'
 import { t } from '../i18n/store.svelte'
 import { setBlock, wrapBlock, wrapList, insertAtom, insertTable, insertTaskList } from '../context-menu/block-helpers'
+import { iconSvg } from '../context-menu/icons'
 
 // NOTE: Do NOT import commands from '@moraya/core/commands' here.
 // commands.js uses its own defaultSchema (nullMediaResolver) which is a
@@ -32,6 +34,18 @@ function insertSpreadsheetSync(v: EditorView) {
   v.focus()
 }
 
+/** Wrap the selection (empty at the slash position) in literal delimiters and
+ *  put the caret between them, matching how these marks are typed by hand. */
+function wrapLiteral(v: EditorView, prefix: string, suffix: string) {
+  const { from, to } = v.state.selection
+  const text = v.state.doc.textBetween(from, to) || ''
+  const tr = v.state.tr.insertText(`${prefix}${text}${suffix}`, from, to)
+  const caret = text ? from + prefix.length + text.length + suffix.length : from + prefix.length
+  tr.setSelection(TextSelection.create(tr.doc, caret))
+  v.dispatch(tr)
+  v.focus()
+}
+
 // ── item definitions ──────────────────────────────────────────────────────────
 
 const IMAGE_EXTS = ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp', 'ico', 'tiff', 'tif', 'avif']
@@ -47,6 +61,33 @@ const DOC_EXTS   = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx',
 // regardless of the UI language.
 export function getSlashItems(): SlashItem[] {
   return [
+  {
+    id: 'insert-note',
+    label: t('slash.note.label'),
+    keywords: ['note', 'comment', 'annotation', '批注', '注释', '备注', '笔记'],
+    icon: iconSvg('sparkle'),
+    desc: t('slash.note.desc'),
+    execute: async (v) => {
+      const { insertNoteRich } = await import('../note-anno/note-commands')
+      insertNoteRich(v)
+    },
+  },
+  {
+    id: 'highlight',
+    label: t('slash.highlight.label'),
+    keywords: ['highlight', 'mark', '高亮', '荧光'],
+    icon: iconSvg('highlight'),
+    desc: t('slash.highlight.desc'),
+    execute: (v) => wrapLiteral(v, '==', '=='),
+  },
+  {
+    id: 'wikilink',
+    label: t('slash.wikilink.label'),
+    keywords: ['wikilink', 'link', 'wiki', '双链', '链接'],
+    icon: iconSvg('wikilink'),
+    desc: t('slash.wikilink.desc'),
+    execute: (v) => wrapLiteral(v, '[[', ']]'),
+  },
   {
     id: 'insert-image',
     label: t('slash.image.label'),
@@ -79,17 +120,6 @@ export function getSlashItems(): SlashItem[] {
       if (typeof result !== 'string') return
       const { insertAttachmentLink } = await import('../attachment-insert')
       insertAttachmentLink(v, result)
-    },
-  },
-  {
-    id: 'insert-note',
-    label: t('slash.note.label'),
-    keywords: ['note', 'comment', 'annotation', '批注', '注释', '备注'],
-    icon: '※',
-    desc: t('slash.note.desc'),
-    execute: async (v) => {
-      const { insertNoteRich } = await import('../note-anno/note-commands')
-      insertNoteRich(v)
     },
   },
   {

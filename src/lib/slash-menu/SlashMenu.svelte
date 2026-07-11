@@ -60,7 +60,11 @@
           class:active={i === selectedIndex}
           onclick={() => onSelect(item)}
         >
-          <span class="slash-icon">{item.icon}</span>
+          {#if item.icon.startsWith('<svg')}
+            <span class="slash-icon svg">{@html item.icon}</span>
+          {:else}
+            <span class="slash-icon">{item.icon}</span>
+          {/if}
           <div class="slash-text">
             <span class="slash-label">{item.label}</span>
             <span class="slash-desc">{item.desc}</span>
@@ -97,6 +101,7 @@
     font-size: 12px;
     opacity: 0.75;
   }
+  .slash-icon.svg { display: inline-flex; justify-content: center; opacity: 1; }
 
   .slash-text {
     display: flex;

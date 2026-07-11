@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest'
 import { getSlashItems, filterSlashItems } from './slash-items'
 
 describe('getSlashItems', () => {
-  it('has 16 items', () => {
-    expect(getSlashItems()).toHaveLength(16)
+  it('has 18 items', () => {
+    expect(getSlashItems()).toHaveLength(18)
   })
   it('every item has id, label, keywords, icon, desc, execute', () => {
     for (const item of getSlashItems()) {
@@ -19,11 +19,16 @@ describe('getSlashItems', () => {
     const ids = getSlashItems().map(i => i.id)
     expect(new Set(ids).size).toBe(ids.length)
   })
+  it('puts note, highlight, wikilink first with svg icons', () => {
+    const items = getSlashItems()
+    expect(items.slice(0, 3).map(i => i.id)).toEqual(['insert-note', 'highlight', 'wikilink'])
+    for (const it of items.slice(0, 3)) expect(it.icon.startsWith('<svg')).toBe(true)
+  })
 })
 
 describe('filterSlashItems', () => {
   it('returns all items for empty query', () => {
-    expect(filterSlashItems('')).toHaveLength(16)
+    expect(filterSlashItems('')).toHaveLength(18)
   })
   it('filters by keyword (Chinese)', () => {
     const result = filterSlashItems('代码')

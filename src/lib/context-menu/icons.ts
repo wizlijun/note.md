@@ -1,9 +1,19 @@
 // Feather/Lucide-style line icons matching the app toolbar (see ModeToggle.svelte):
 // 24×24 viewBox, no fill, currentColor stroke, round caps/joins. Each entry is the
 // inner markup; `iconSvg` wraps it in a sized <svg> for injection via {@html}.
+// The brand ✦ sparkle from the app icon (orange fill). Path coordinates come
+// from notemd-favicon-simple.svg (512-space), mapped into 24×24 via transform.
+export const SPARKLE_PATH =
+  '<path transform="translate(12 12) scale(0.083) translate(-185.5 -203)" ' +
+  'd="M 185.49318,76.468676 C 202.86539,165.0158 220.23759,183.99019 301.30788,202.96457 ' +
+  '220.23759,221.93895 202.86539,240.91333 185.49318,329.46046 168.12097,240.91333 ' +
+  '150.74877,221.93895 69.67847,202.96457 150.74877,183.99019 168.12097,165.0158 ' +
+  '185.49318,76.468676 Z" fill="#f59e0b" stroke="none"/>'
+
 const PATHS: Record<string, string> = {
-  highlight:  '<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/>',
-  wikilink:   '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+  sparkle:    SPARKLE_PATH,
+  highlight:  '<rect x="9" y="4" width="6" height="16" rx="1.5" fill="#facc15" stroke="none"/>',
+  wikilink:   '<path d="M5.5 5H3v14h2.5"/><path d="M10.5 5H8v14h2.5"/><path d="M18.5 5H21v14h-2.5"/><path d="M13.5 5H16v14h-2.5"/>',
   note:       '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="12" y2="12"/>',
   trash:      '<polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/>',
   bold:       '<path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/><path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/>',
