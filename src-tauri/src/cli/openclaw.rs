@@ -137,9 +137,7 @@ fn install(force: bool) -> Result<(), String> {
 /// Locate note.md's settings store on macOS and patch in the access token.
 /// Returns the file path on success.
 fn write_mdeditor_settings(token: &str) -> Result<PathBuf, String> {
-    let home = dirs::home_dir().ok_or_else(|| "no home dir".to_string())?;
-    let path = home
-        .join("Library/Application Support/com.laobu.mdeditor/settings.json");
+    let path = super::resolve_config_dir().join("settings.json");
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|e| format!("mkdir {parent:?}: {e}"))?;
     }

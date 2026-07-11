@@ -51,7 +51,7 @@ pub fn write(path: &Path, cfg: &SharedConfig) -> std::io::Result<()> {
 /// shared config's `sotvault` field. Idempotent: a non-empty `sotvault` short-circuits.
 ///
 /// `legacy_store_path` points to the Tauri Store JSON (typically
-/// `~/Library/Application Support/com.laobu.mdeditor/settings.json`).
+/// `~/Library/Application Support/net.notemd.app/settings.json`).
 pub fn migrate_vault_sync_repo_to_shared(
     shared_path: &Path,
     legacy_store_path: &Path,

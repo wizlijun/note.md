@@ -15,7 +15,7 @@ pub mod install;
 pub mod openclaw;
 pub mod state;
 
-const APP_BUNDLE_ID: &str = "com.laobu.mdeditor";
+use crate::app_dirs::BUNDLE_ID as APP_BUNDLE_ID;
 
 /// Resolve the plugins directory. Tries in order:
 /// 1. Explicit `--plugin-dir` override
@@ -71,6 +71,7 @@ pub fn is_cli_mode(argv: &[String]) -> bool {
 }
 
 pub fn run_cli(argv: Vec<String>) -> ExitCode {
+    crate::app_dirs::migrate_legacy_app_support();
     let parsed = args::parse(&argv);
     let route = router::resolve(&parsed);
     match route {

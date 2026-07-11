@@ -14,6 +14,7 @@ use tauri::menu::{
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{Emitter, Manager, RunEvent, WindowEvent};
 
+pub mod app_dirs;
 pub mod openclaw;
 pub mod shared_config;
 
@@ -585,6 +586,9 @@ pub fn tauri_context() -> tauri::Context {
 pub fn run() {
     dlog("=== note.md start ===");
     dlog(&format!("argv: {:?}", std::env::args().collect::<Vec<_>>()));
+
+    // Must run before any plugin (store, window-state) resolves app_data_dir.
+    app_dirs::migrate_legacy_app_support();
 
     // rustls 0.23 no longer auto-selects a crypto provider; install ring as
     // the default so reqwest::Client::new() doesn't panic with "No provider

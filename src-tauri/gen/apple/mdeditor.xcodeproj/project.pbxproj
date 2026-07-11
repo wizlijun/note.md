@@ -356,7 +356,7 @@
 					"-lz",
 					"-liconv",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.laobu.mdeditor;
+				PRODUCT_BUNDLE_IDENTIFIER = net.notemd.app;
 				PRODUCT_NAME = "M↓";
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -403,7 +403,7 @@
 					"-lz",
 					"-liconv",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.laobu.mdeditor;
+				PRODUCT_BUNDLE_IDENTIFIER = net.notemd.app;
 				PRODUCT_NAME = "M↓";
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";

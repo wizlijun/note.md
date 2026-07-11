@@ -2,7 +2,7 @@ import Foundation
 import Security
 import Tauri
 
-private func service() -> String { "com.bruce.mdeditor.vault" }
+private func service() -> String { "net.notemd.app.vault" }
 
 private func baseQuery(account: String) -> [String: Any] {
     return [

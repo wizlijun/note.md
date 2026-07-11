@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use tauri::{AppHandle, Manager, Runtime};
 
 /// Absolute path to the user's themes directory:
-/// `~/Library/Application Support/com.laobu.mdeditor/themes/` on macOS.
+/// `~/Library/Application Support/net.notemd.app/themes/` on macOS.
 /// Created on demand by callers.
 pub fn themes_dir<R: Runtime>(app: &AppHandle<R>) -> Result<PathBuf, String> {
     let base = app.path().app_data_dir().map_err(|e| e.to_string())?;
