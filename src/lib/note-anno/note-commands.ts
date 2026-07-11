@@ -12,6 +12,15 @@ export function sanitizeNote(s: string): string {
 }
 
 /**
+ * Ask the host editor to push the doc into the tab right away, skipping
+ * moraya's 500 ms lazy-change debounce — the outline panel derives from
+ * tab content, so annotation edits would otherwise lag behind.
+ */
+function requestDocFlush() {
+  window.dispatchEvent(new CustomEvent('mdeditor:flush-doc'))
+}
+
+/**
  * Find the contiguous inline range carrying the annotation mark that spans
  * `pos` (inclusive of both boundaries). Adjacent runs with different note
  * texts are treated as separate annotations.
@@ -67,11 +76,13 @@ export function openEditForMark(view: EditorView, pos: number, anchor: DOMRect) 
           .removeMark(r.from, r.to, type)
           .addMark(r.from, r.to, type.create({ note: clean })),
       )
+      requestDocFlush()
     },
     remove() {
       const r = findAnnotationRange(view.state.doc, pos)
       if (!r) return
       view.dispatch(view.state.tr.removeMark(r.from, r.to, view.state.schema.marks.annotation))
+      requestDocFlush()
     },
   }
 }
@@ -91,11 +102,13 @@ export function openEditForAnchor(view: EditorView, pos: number, anchor: DOMRect
       const clean = sanitizeNote(next)
       if (clean === n.attrs.note) return
       view.dispatch(view.state.tr.setNodeMarkup(pos, undefined, { note: clean }))
+      requestDocFlush()
     },
     remove() {
       const n = view.state.doc.nodeAt(pos)
       if (!n || n.type.name !== 'note_anchor') return
       view.dispatch(view.state.tr.delete(pos, pos + n.nodeSize))
+      requestDocFlush()
     },
   }
 }
@@ -114,11 +127,13 @@ export function insertNoteRich(view: EditorView) {
     const type = state.schema.nodes.note_anchor
     if (!type) return
     view.dispatch(state.tr.replaceSelectionWith(type.create({ note: '' })))
+    requestDocFlush()
     openEditForAnchor(view, from, rect)
   } else {
     const type = state.schema.marks.annotation
     if (!type) return
     view.dispatch(state.tr.addMark(from, to, type.create({ note: '' })))
+    requestDocFlush()
     openEditForMark(view, from + 1, rect)
   }
   view.focus()

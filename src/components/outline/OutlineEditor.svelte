@@ -166,11 +166,32 @@
   let probeEl = $state<HTMLDivElement>()
   let typo = $state({ family: '', size: '', line: '', fg: '', bg: '' })
 
+  // Re-measure triggers beyond an id change: the theme slot CSS loads
+  // asynchronously (a mount-time measurement would otherwise stay stale on
+  // system colors forever), and a light/dark flip re-resolves system colors
+  // without any id/CSS change (stale light-mode text turned unreadable on the
+  // dark Canvas).
+  let themeCssTick = $state(0)
+  $effect(() => {
+    const mo = new MutationObserver((muts) => {
+      for (const m of muts) {
+        const el = m.target instanceof Element ? m.target : m.target.parentElement
+        if (el?.closest('style[data-theme-slot]')) { themeCssTick++; break }
+      }
+    })
+    mo.observe(document.head, { childList: true, characterData: true, subtree: true })
+    const mq = window.matchMedia('(prefers-color-scheme: dark)')
+    const onMq = () => { themeCssTick++ }
+    mq.addEventListener('change', onMq)
+    return () => { mo.disconnect(); mq.removeEventListener('change', onMq) }
+  })
+
   // Read the theme's base body typography (font-family/size/line-height, which
   // live on `.moraya-editor` under `[data-theme=<id>]`) and expose as CSS vars.
   // rAF waits for the theme slot CSS to apply after an id change.
   $effect(() => {
     void activeThemeId
+    void themeCssTick
     const probe = probeEl?.querySelector('.moraya-editor') as HTMLElement | null
     if (!probe) return
     const raf = requestAnimationFrame(() => {

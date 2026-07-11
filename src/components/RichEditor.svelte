@@ -120,6 +120,7 @@
   let _dragDropUnlisten: (() => void) | null = null
   let _dragoverHandler: ((e: Event) => void) | null = null
   let _dropHandler: ((e: Event) => void) | null = null
+  let _flushDocHandler: (() => void) | null = null
 
   let showImageToolbar = $state(false)
   let imageToolbarPosition = $state({ top: 0, left: 0 })
@@ -941,6 +942,16 @@
         host!.addEventListener('dragover', _dragoverHandler)
         host!.addEventListener('drop',     _dropHandler)
 
+        // Annotation commands ask for an immediate doc→tab flush so the
+        // outline panel updates without waiting for the lazy-change debounce.
+        _flushDocHandler = () => {
+          if (!editor) return
+          const md = unwrapIfNeeded(editor.getMarkdown())
+          lastSync = md
+          setContent(tabId, md)
+        }
+        window.addEventListener('mdeditor:flush-doc', _flushDocHandler)
+
         // Tauri native file drag-drop
         setupDragDrop().then(fn => { _dragDropUnlisten = fn }).catch(console.warn)
       } catch (e) {
@@ -984,6 +995,7 @@
     _pmEl?.removeEventListener('input',   checkSlashMenu as EventListener)
     _pmEl?.removeEventListener('contextmenu', handleRichContextMenu as EventListener)
     _dragDropUnlisten?.()
+    if (_flushDocHandler) window.removeEventListener('mdeditor:flush-doc', _flushDocHandler)
     host?.removeEventListener('dragover', _dragoverHandler!)
     host?.removeEventListener('drop',     _dropHandler!)
     if (editor) {

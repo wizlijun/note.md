@@ -11,13 +11,26 @@
 
   $effect(() => { ta?.focus(); ta?.select() })
 
+  // 输入即保存（防抖）：大纲/徽标从文档派生，等到关闭弹窗才写入会显得"不更新"。
+  // save() 自带 no-op 判断，重复提交同文本无副作用。
+  let saveTimer: ReturnType<typeof setTimeout> | null = null
+  function scheduleSave() {
+    if (saveTimer) clearTimeout(saveTimer)
+    saveTimer = setTimeout(() => {
+      saveTimer = null
+      if (noteUi.edit === editState) editState.save(text)
+    }, 300)
+  }
+
   function close(save: boolean) {
     if (noteUi.edit !== editState) return
+    if (saveTimer) { clearTimeout(saveTimer); saveTimer = null }
     noteUi.edit = null
     if (save) editState.save(text)
   }
   function onDelete() {
     if (noteUi.edit !== editState) return
+    if (saveTimer) { clearTimeout(saveTimer); saveTimer = null }
     noteUi.edit = null
     editState.remove()
   }
@@ -45,6 +58,7 @@
   <textarea
     bind:this={ta}
     bind:value={text}
+    oninput={scheduleSave}
     rows="3"
     placeholder={t('noteedit.placeholder')}
   ></textarea>

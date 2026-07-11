@@ -442,6 +442,13 @@ async fn editor_open_remote_buffer(app: tauri::AppHandle, remote_path: String, c
     Ok(())
 }
 
+/// Frontend diagnostics into /tmp/mdeditor.log (debug builds only; dlog is a
+/// release no-op). Lets unattended GUI verification trace webview-side state.
+#[tauri::command]
+fn dbg_log(msg: String) {
+    dlog(&format!("[js] {}", msg));
+}
+
 #[tauri::command]
 fn file_exists(path: String) -> bool {
     std::path::Path::new(&path).exists()
@@ -708,6 +715,7 @@ pub fn run() {
                 update_recent_menu,
                 set_menu_locale,
                 file_exists,
+                dbg_log,
                 shared_config_read,
                 shared_config_write,
             ] }
@@ -739,6 +747,7 @@ pub fn run() {
                 editor_show_and_open_path,
                 editor_open_remote_buffer,
                 file_exists,
+                dbg_log,
                 shared_config_read,
                 shared_config_write,
             ] }
