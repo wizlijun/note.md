@@ -1,0 +1,124 @@
+# note.md — full reference for LLM agents
+
+This document tells an LLM agent everything it needs to understand and work
+with note.md and its vaults. It is the authoritative plain-text companion to
+https://notemd.net/. Last updated: 2026-07.
+
+## What note.md is
+
+note.md is a markdown reader & editor for the AI-native era, made by an
+independent developer. Its premise: agents now produce most documents, so the
+human's highest-value act is reading, judging, and annotating — and those
+annotations are the rarest data in the loop. note.md captures them as plain
+files that agents can read back.
+
+- Platform: macOS 13+ (Apple Silicon & Intel), a Tauri app rendering in the
+  system WebView. Code-signed and notarized.
+- Website: https://notemd.net/ · Repo: https://github.com/wizlijun/note.md
+- License: Apache-2.0. Product name is all-lowercase "note.md".
+- Symbol language: `✦` marks what AI writes, `●` marks what the human thinks.
+
+## The vault
+
+A vault is an ordinary folder of markdown. There is no database and no hidden
+state: **files are the single source of truth; every index is derived and can
+be rebuilt from the files at any time.** Everything below is a file-layout
+convention — any agent (Claude Code, Codex, OpenClaw, Hermes, or you) can
+honor it with nothing but file reads and writes.
+
+### Sidecar annotation files
+
+- `xxx.note.md` in the same directory as `xxx.md` is the human's annotation
+  file ("sidecar") for that document: highlights, comments, questions made
+  while reading.
+- The source `xxx.md` stays pristine — often AI-generated and regenerable.
+  The sidecar holds the human judgment, which is NOT regenerable.
+- A `.note.md` with no same-named sibling is a standalone outline note, not
+  an annotation.
+- If a source file is renamed, its sidecar must be renamed atomically with it.
+- Etiquette for agents: read sidecars eagerly — they are the highest-signal
+  content in the vault (they mark what earned human attention). Do not write
+  into a human's `.note.md` unless explicitly asked.
+
+### The .note.md format
+
+- YAML frontmatter with at least `title` (original, un-slugged), `created`,
+  `updated`. Files imported from other systems may carry extra metadata
+  (e.g. `roam-uid`).
+- Body: a nested markdown unordered list (`- ` + indentation) — an outline.
+  The file stays readable in any plain-text editor.
+- `[[title]]` wikilinks are resolved against frontmatter `title` across the
+  entire vault (filename slug as fallback). One global namespace: daily
+  notes, wiki pages, and annotations all interlink.
+- note.md always opens `.note.md` files in an outline view; the extension
+  encodes format, not ownership.
+
+### Daily, monthly, yearly notes
+
+- Daily: `dailynote/{yyyy}/{yyyy-MM-dd}.note.md`
+- Monthly summary: `dailynote/{yyyy}/{yyyy-MM}.note.md`
+- Yearly summary: `dailynote/{yyyy}/{yyyy}.note.md`
+- `title` in frontmatter is the date string itself.
+- Canonical date links: `[[yyyy-MM-dd]]`, `[[yyyy-MM]]`, `[[yyyy]]`. Use
+  these exact forms; do not invent other date formats.
+
+### Wiki pages
+
+- Standalone outline notes live in `wikipage/{title-slug}.note.md`.
+- Slug rule: the title with filesystem-illegal characters replaced; CJK is
+  kept as-is. Frontmatter `title` is authoritative when slug and title
+  differ.
+
+### Block citations (mdblock)
+
+- When enabled, every top-level markdown block (paragraph, heading, code
+  block, list, table, …) of a document has a stable id `b-xxxxxx`.
+- Cite a block from anywhere: `((path/to/file.md#b-xxxxxx))`.
+- Ids survive light edits (content MinHash matching); heavily rewritten
+  blocks retire their ids with a history chain. Block metadata lives in an
+  app-level cache, never beside the source files.
+- Agents should prefer block citations over line numbers when quoting vault
+  documents — they are stable across edits.
+
+### Vault conventions file
+
+A vault may carry an `AGENTS.md` (or similar) at its root describing these
+conventions plus vault-specific rules. Read it first; it is the contract.
+
+## Working with note.md as a tool
+
+### CLI
+
+The `notemd` CLI drives app features headlessly (only commands from enabled
+plugins are exposed):
+
+    notemd -s draft.md              # publish file as a self-contained web page, prints URL
+    notemd share draft.md --json    # structured output
+    notemd share draft.md --unshare # revoke
+    notemd plugin list
+    notemd reading-insights report --vault ~/Vault --date 7d   # engagement digest
+    notemd help
+
+### MCP
+
+The share worker (self-hosted on the user's Cloudflare account) exposes an
+MCP endpoint, so agents can publish documents on the user's behalf. A vault
+MCP server (`vault_search` / `vault_read` / `vault_annotate`) is on the
+roadmap.
+
+### Sharing pipeline
+
+`Cmd+Shift+L` (or `notemd -s`) publishes a document as a self-contained HTML
+page: KaTeX, Mermaid SVG, syntax highlighting, light/dark, mobile-ready.
+Shares can be updated in place or revoked (410 after unshare).
+
+## Roadmap (agent-relevant)
+
+Daily-note quick entry, vault-wide index (search / backlinks / autocomplete),
+one-shot Roam Research import with date-page rewriting and a broken-link
+report, and the vault MCP server. Sidecar annotations and the outline editor
+are shipped.
+
+## Contact
+
+Site: https://notemd.net/ · Issues: https://github.com/wizlijun/note.md/issues

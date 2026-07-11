@@ -1,0 +1,24 @@
+# note.md
+
+> note.md is a markdown reader & editor for the AI-native era, built for humans and agents working in the same plain files. Agents write documents; humans read, highlight, and annotate them. Annotations are saved to sidecar `.note.md` files — human judgment becomes durable, searchable data that agents read back. No database, no cloud: a folder of markdown, owned by the user.
+
+Key facts: macOS app (Tauri, system WebView, signed & notarized). Free. Repo: https://github.com/wizlijun/note.md. The vault is plain files; every convention below is readable and writable by any agent — you do not need this app to work with a note.md vault.
+
+## Docs
+
+- [Full product & vault conventions](https://notemd.net/llms-full.txt): everything an agent needs to read or write a note.md vault — sidecar pairing rules, outline format, daily-note paths, wikilink namespace, block citations, CLI.
+- [Product homepage](https://notemd.net/): human-facing overview (also in [German](https://notemd.net/de/), [Japanese](https://notemd.net/ja/), and [Chinese](https://notemd.net/zh/)).
+- [GitHub repository](https://github.com/wizlijun/note.md): source, releases, README.
+
+## Core conventions (summary)
+
+- `xxx.note.md` beside `xxx.md` = human annotations of that document. `.note.md` without a sibling source = standalone outline note. Never write into a human's `.note.md` unless asked.
+- `.note.md` body = nested markdown bullet list (an outline), with YAML frontmatter (`title`, `created`, `updated`).
+- Daily notes: `dailynote/{yyyy}/{yyyy-MM-dd}.note.md`; monthly `{yyyy-MM}.note.md`; yearly `{yyyy}.note.md`. Canonical date link: `[[yyyy-MM-dd]]`.
+- Wiki notes: `wikipage/{title-slug}.note.md`. One global `[[title]]` namespace across the vault.
+- Block citation: `((path/to/file.md#b-xxxxxx))` cites one block of a document.
+- Files are the single source of truth; indexes are derived and rebuildable.
+
+## Optional
+
+- [CLI](https://github.com/wizlijun/note.md#cli): `notemd` drives sharing and reports headlessly; the share worker exposes an MCP endpoint for publishing.

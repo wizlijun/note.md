@@ -4,10 +4,321 @@
   <url>
     <loc>https://notemd.net/</loc>
     <xhtml:link rel="alternate" hreflang="en" href="https://notemd.net/"/>
-    <xhtml:link rel="alternate" hreflang="zh" href="https://notemd.net/zh/"/>
     <xhtml:link rel="alternate" hreflang="de" href="https://notemd.net/de/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://notemd.net/ja/"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://notemd.net/zh/"/>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://notemd.net/"/>
   </url>
-  <url><loc>https://notemd.net/zh/</loc></url>
-  <url><loc>https://notemd.net/de/</loc></url>
+  <url>
+    <loc>https://notemd.net/de/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://notemd.net/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://notemd.net/de/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://notemd.net/ja/"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://notemd.net/zh/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://notemd.net/"/>
+  </url>
+  <url>
+    <loc>https://notemd.net/ja/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://notemd.net/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://notemd.net/de/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://notemd.net/ja/"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://notemd.net/zh/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://notemd.net/"/>
+  </url>
+  <url>
+    <loc>https://notemd.net/zh/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://notemd.net/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://notemd.net/de/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://notemd.net/ja/"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://notemd.net/zh/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://notemd.net/"/>
+  </url>
+  <url>
+    <loc>https://notemd.net/compare/roam-research/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://notemd.net/compare/roam-research/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://notemd.net/de/compare/roam-research/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://notemd.net/ja/compare/roam-research/"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://notemd.net/zh/compare/roam-research/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://notemd.net/compare/roam-research/"/>
+  </url>
+  <url>
+    <loc>https://notemd.net/de/compare/roam-research/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://notemd.net/compare/roam-research/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://notemd.net/de/compare/roam-research/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://notemd.net/ja/compare/roam-research/"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://notemd.net/zh/compare/roam-research/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://notemd.net/compare/roam-research/"/>
+  </url>
+  <url>
+    <loc>https://notemd.net/ja/compare/roam-research/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://notemd.net/compare/roam-research/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://notemd.net/de/compare/roam-research/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://notemd.net/ja/compare/roam-research/"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://notemd.net/zh/compare/roam-research/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://notemd.net/compare/roam-research/"/>
+  </url>
+  <url>
+    <loc>https://notemd.net/zh/compare/roam-research/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://notemd.net/compare/roam-research/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://notemd.net/de/compare/roam-research/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://notemd.net/ja/compare/roam-research/"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://notemd.net/zh/compare/roam-research/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://notemd.net/compare/roam-research/"/>
+  </url>
+  <url>
+    <loc>https://notemd.net/compare/obsidian/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://notemd.net/compare/obsidian/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://notemd.net/de/compare/obsidian/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://notemd.net/ja/compare/obsidian/"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://notemd.net/zh/compare/obsidian/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://notemd.net/compare/obsidian/"/>
+  </url>
+  <url>
+    <loc>https://notemd.net/de/compare/obsidian/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://notemd.net/compare/obsidian/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://notemd.net/de/compare/obsidian/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://notemd.net/ja/compare/obsidian/"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://notemd.net/zh/compare/obsidian/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://notemd.net/compare/obsidian/"/>
+  </url>
+  <url>
+    <loc>https://notemd.net/ja/compare/obsidian/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://notemd.net/compare/obsidian/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://notemd.net/de/compare/obsidian/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://notemd.net/ja/compare/obsidian/"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://notemd.net/zh/compare/obsidian/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://notemd.net/compare/obsidian/"/>
+  </url>
+  <url>
+    <loc>https://notemd.net/zh/compare/obsidian/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://notemd.net/compare/obsidian/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://notemd.net/de/compare/obsidian/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://notemd.net/ja/compare/obsidian/"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://notemd.net/zh/compare/obsidian/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://notemd.net/compare/obsidian/"/>
+  </url>
+  <url>
+    <loc>https://notemd.net/compare/notion/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://notemd.net/compare/notion/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://notemd.net/de/compare/notion/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://notemd.net/ja/compare/notion/"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://notemd.net/zh/compare/notion/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://notemd.net/compare/notion/"/>
+  </url>
+  <url>
+    <loc>https://notemd.net/de/compare/notion/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://notemd.net/compare/notion/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://notemd.net/de/compare/notion/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://notemd.net/ja/compare/notion/"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://notemd.net/zh/compare/notion/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://notemd.net/compare/notion/"/>
+  </url>
+  <url>
+    <loc>https://notemd.net/ja/compare/notion/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://notemd.net/compare/notion/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://notemd.net/de/compare/notion/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://notemd.net/ja/compare/notion/"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://notemd.net/zh/compare/notion/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://notemd.net/compare/notion/"/>
+  </url>
+  <url>
+    <loc>https://notemd.net/zh/compare/notion/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://notemd.net/compare/notion/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://notemd.net/de/compare/notion/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://notemd.net/ja/compare/notion/"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://notemd.net/zh/compare/notion/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://notemd.net/compare/notion/"/>
+  </url>
+  <url>
+    <loc>https://notemd.net/integrations/openclaw/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://notemd.net/integrations/openclaw/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://notemd.net/de/integrations/openclaw/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://notemd.net/ja/integrations/openclaw/"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://notemd.net/zh/integrations/openclaw/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://notemd.net/integrations/openclaw/"/>
+  </url>
+  <url>
+    <loc>https://notemd.net/de/integrations/openclaw/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://notemd.net/integrations/openclaw/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://notemd.net/de/integrations/openclaw/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://notemd.net/ja/integrations/openclaw/"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://notemd.net/zh/integrations/openclaw/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://notemd.net/integrations/openclaw/"/>
+  </url>
+  <url>
+    <loc>https://notemd.net/ja/integrations/openclaw/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://notemd.net/integrations/openclaw/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://notemd.net/de/integrations/openclaw/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://notemd.net/ja/integrations/openclaw/"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://notemd.net/zh/integrations/openclaw/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://notemd.net/integrations/openclaw/"/>
+  </url>
+  <url>
+    <loc>https://notemd.net/zh/integrations/openclaw/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://notemd.net/integrations/openclaw/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://notemd.net/de/integrations/openclaw/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://notemd.net/ja/integrations/openclaw/"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://notemd.net/zh/integrations/openclaw/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://notemd.net/integrations/openclaw/"/>
+  </url>
+  <url>
+    <loc>https://notemd.net/integrations/cowork/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://notemd.net/integrations/cowork/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://notemd.net/de/integrations/cowork/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://notemd.net/ja/integrations/cowork/"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://notemd.net/zh/integrations/cowork/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://notemd.net/integrations/cowork/"/>
+  </url>
+  <url>
+    <loc>https://notemd.net/de/integrations/cowork/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://notemd.net/integrations/cowork/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://notemd.net/de/integrations/cowork/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://notemd.net/ja/integrations/cowork/"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://notemd.net/zh/integrations/cowork/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://notemd.net/integrations/cowork/"/>
+  </url>
+  <url>
+    <loc>https://notemd.net/ja/integrations/cowork/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://notemd.net/integrations/cowork/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://notemd.net/de/integrations/cowork/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://notemd.net/ja/integrations/cowork/"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://notemd.net/zh/integrations/cowork/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://notemd.net/integrations/cowork/"/>
+  </url>
+  <url>
+    <loc>https://notemd.net/zh/integrations/cowork/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://notemd.net/integrations/cowork/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://notemd.net/de/integrations/cowork/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://notemd.net/ja/integrations/cowork/"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://notemd.net/zh/integrations/cowork/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://notemd.net/integrations/cowork/"/>
+  </url>
+  <url>
+    <loc>https://notemd.net/integrations/codex/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://notemd.net/integrations/codex/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://notemd.net/de/integrations/codex/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://notemd.net/ja/integrations/codex/"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://notemd.net/zh/integrations/codex/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://notemd.net/integrations/codex/"/>
+  </url>
+  <url>
+    <loc>https://notemd.net/de/integrations/codex/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://notemd.net/integrations/codex/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://notemd.net/de/integrations/codex/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://notemd.net/ja/integrations/codex/"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://notemd.net/zh/integrations/codex/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://notemd.net/integrations/codex/"/>
+  </url>
+  <url>
+    <loc>https://notemd.net/ja/integrations/codex/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://notemd.net/integrations/codex/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://notemd.net/de/integrations/codex/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://notemd.net/ja/integrations/codex/"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://notemd.net/zh/integrations/codex/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://notemd.net/integrations/codex/"/>
+  </url>
+  <url>
+    <loc>https://notemd.net/zh/integrations/codex/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://notemd.net/integrations/codex/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://notemd.net/de/integrations/codex/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://notemd.net/ja/integrations/codex/"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://notemd.net/zh/integrations/codex/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://notemd.net/integrations/codex/"/>
+  </url>
+  <url>
+    <loc>https://notemd.net/integrations/hermes/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://notemd.net/integrations/hermes/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://notemd.net/de/integrations/hermes/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://notemd.net/ja/integrations/hermes/"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://notemd.net/zh/integrations/hermes/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://notemd.net/integrations/hermes/"/>
+  </url>
+  <url>
+    <loc>https://notemd.net/de/integrations/hermes/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://notemd.net/integrations/hermes/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://notemd.net/de/integrations/hermes/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://notemd.net/ja/integrations/hermes/"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://notemd.net/zh/integrations/hermes/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://notemd.net/integrations/hermes/"/>
+  </url>
+  <url>
+    <loc>https://notemd.net/ja/integrations/hermes/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://notemd.net/integrations/hermes/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://notemd.net/de/integrations/hermes/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://notemd.net/ja/integrations/hermes/"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://notemd.net/zh/integrations/hermes/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://notemd.net/integrations/hermes/"/>
+  </url>
+  <url>
+    <loc>https://notemd.net/zh/integrations/hermes/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://notemd.net/integrations/hermes/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://notemd.net/de/integrations/hermes/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://notemd.net/ja/integrations/hermes/"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://notemd.net/zh/integrations/hermes/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://notemd.net/integrations/hermes/"/>
+  </url>
+  <url>
+    <loc>https://notemd.net/guides/share-on-cloudflare/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://notemd.net/guides/share-on-cloudflare/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://notemd.net/de/guides/share-on-cloudflare/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://notemd.net/ja/guides/share-on-cloudflare/"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://notemd.net/zh/guides/share-on-cloudflare/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://notemd.net/guides/share-on-cloudflare/"/>
+  </url>
+  <url>
+    <loc>https://notemd.net/de/guides/share-on-cloudflare/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://notemd.net/guides/share-on-cloudflare/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://notemd.net/de/guides/share-on-cloudflare/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://notemd.net/ja/guides/share-on-cloudflare/"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://notemd.net/zh/guides/share-on-cloudflare/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://notemd.net/guides/share-on-cloudflare/"/>
+  </url>
+  <url>
+    <loc>https://notemd.net/ja/guides/share-on-cloudflare/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://notemd.net/guides/share-on-cloudflare/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://notemd.net/de/guides/share-on-cloudflare/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://notemd.net/ja/guides/share-on-cloudflare/"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://notemd.net/zh/guides/share-on-cloudflare/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://notemd.net/guides/share-on-cloudflare/"/>
+  </url>
+  <url>
+    <loc>https://notemd.net/zh/guides/share-on-cloudflare/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://notemd.net/guides/share-on-cloudflare/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://notemd.net/de/guides/share-on-cloudflare/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://notemd.net/ja/guides/share-on-cloudflare/"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://notemd.net/zh/guides/share-on-cloudflare/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://notemd.net/guides/share-on-cloudflare/"/>
+  </url>
+  <url>
+    <loc>https://notemd.net/guides/vault-on-github/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://notemd.net/guides/vault-on-github/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://notemd.net/de/guides/vault-on-github/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://notemd.net/ja/guides/vault-on-github/"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://notemd.net/zh/guides/vault-on-github/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://notemd.net/guides/vault-on-github/"/>
+  </url>
+  <url>
+    <loc>https://notemd.net/de/guides/vault-on-github/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://notemd.net/guides/vault-on-github/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://notemd.net/de/guides/vault-on-github/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://notemd.net/ja/guides/vault-on-github/"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://notemd.net/zh/guides/vault-on-github/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://notemd.net/guides/vault-on-github/"/>
+  </url>
+  <url>
+    <loc>https://notemd.net/ja/guides/vault-on-github/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://notemd.net/guides/vault-on-github/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://notemd.net/de/guides/vault-on-github/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://notemd.net/ja/guides/vault-on-github/"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://notemd.net/zh/guides/vault-on-github/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://notemd.net/guides/vault-on-github/"/>
+  </url>
+  <url>
+    <loc>https://notemd.net/zh/guides/vault-on-github/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://notemd.net/guides/vault-on-github/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://notemd.net/de/guides/vault-on-github/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://notemd.net/ja/guides/vault-on-github/"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://notemd.net/zh/guides/vault-on-github/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://notemd.net/guides/vault-on-github/"/>
+  </url>
 </urlset>
