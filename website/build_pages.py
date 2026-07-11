@@ -59,7 +59,24 @@ html[lang="ja"] .lead{font-style:normal}
 .lang-sw a{text-decoration:none;padding-bottom:2px;border-bottom:1px dotted transparent}
 .lang-sw a:hover{color:#fff}
 .lang-sw a.on{color:var(--amber);border-bottom-color:var(--amber)}
-@media(max-width:720px){h1{font-size:30px}.flinks{grid-template-columns:1fr}.lang-sw{display:none}}
+@media(max-width:720px){
+h1{font-size:28px}
+h2{font-size:22px}
+.flinks{grid-template-columns:1fr}
+.nav-cta{display:none}
+.nav-in{gap:12px;height:54px}
+.logo{font-size:15px}
+.lang-sw{gap:9px;font-size:11.5px;white-space:nowrap}
+header.ph{padding:48px 0 42px}
+.lead{font-size:17px}
+main{padding:40px 0 16px}
+table{display:block;overflow-x:auto}
+td:first-child{min-width:110px}
+td,th{padding:10px 11px;font-size:14.5px}
+pre{font-size:12.5px;padding:14px 15px}
+.cta{padding:48px 0;margin-top:48px}
+.btn{width:calc(100% - 56px)}
+}
 """
 
 LOGO_SVG = '<svg width="24" height="24" viewBox="0 0 512 512" aria-hidden="true"><rect width="512" height="512" rx="115" fill="#17181C" stroke="#3A3D46" stroke-width="14"/><path d="M 185.49318,76.468676 C 202.86539,165.0158 220.23759,183.99019 301.30788,202.96457 220.23759,221.93895 202.86539,240.91333 185.49318,329.46046 168.12097,240.91333 150.74877,221.93895 69.67847,202.96457 150.74877,183.99019 168.12097,165.0158 185.49318,76.468676 Z" fill="#F59E0B"/><rect x="260.643" y="239.444" width="186.136" height="48" rx="29.39" fill="#FAFAF7"/><circle cx="289.722" cy="342.122" r="28.414" fill="#9CA3AF"/><rect x="333.7" y="324.65" width="112.797" height="40" rx="26.856" fill="#9CA3AF"/><circle cx="288.251" cy="420.101" r="28.414" fill="#9CA3AF"/><rect x="336.022" y="403.894" width="109.256" height="40" rx="26.013" fill="#9CA3AF"/></svg>'
