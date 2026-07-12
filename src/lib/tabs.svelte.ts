@@ -226,6 +226,37 @@ export function setContent(id: string, md: string): void {
   if (t) t.currentContent = md
 }
 
+/**
+ * Open an in-memory, unsaved tab holding read-only-ish generated text (e.g. a
+ * git diff). It has no filePath and `initialContent === currentContent`, so it
+ * is never dirty and closes without a save prompt. Not watched, not persisted.
+ */
+export function openTextTab(opts: {
+  title: string
+  content: string
+  kind?: FileKind
+  language?: string
+}): void {
+  const tab: Tab = {
+    id: crypto.randomUUID(),
+    filePath: '',
+    title: opts.title,
+    initialContent: opts.content,
+    currentContent: opts.content,
+    mode: 'source',
+    kind: opts.kind ?? 'code',
+    language: opts.language,
+    externalState: 'fresh',
+    externalBannerDismissed: false,
+    lastKnownMtime: 0,
+    lastKnownHash: '',
+    pendingExternal: undefined,
+  }
+  tabs.push(tab)
+  activeId.value = tab.id
+  notifyInsights('onActiveDocChanged')
+}
+
 export function toggleMode(id: string): void {
   const t = tabs.find((x) => x.id === id)
   if (!t) return

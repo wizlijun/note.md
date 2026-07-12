@@ -536,3 +536,19 @@ describe('tabs', () => {
     await expect(m.updateTabPath('/tmp/nope.md', '/tmp/x.md')).resolves.toBeUndefined()
   })
 })
+
+describe('openTextTab', () => {
+  it('opens a non-dirty active code tab with the given content', async () => {
+    const m = await import('./tabs.svelte')
+    m.tabs.length = 0
+    m.activeId.value = null
+    m.openTextTab({ title: 'abc123 · note.md.diff', content: 'diff --git a b\n', language: 'diff' })
+    expect(m.tabs.length).toBe(1)
+    const t = m.tabs[0]
+    expect(m.activeId.value).toBe(t.id)
+    expect(t.kind).toBe('code')
+    expect(t.language).toBe('diff')
+    expect(t.filePath).toBe('')
+    expect(m.isDirty(t.id)).toBe(false)
+  })
+})
