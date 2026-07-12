@@ -6,9 +6,8 @@
   import { t } from '../../lib/i18n/store.svelte'
   import { pushToast } from '../../lib/toast.svelte'
   import { sotvaultStore } from '../../lib/sotvault.svelte'
-  import {
-    historyGate, setHistoryWidth, setHistoryWidthLive, setHistoryVisible, historyAppliesTo, relTime,
-  } from '../../lib/git-history/gate.svelte'
+  import { historyAppliesTo, relTime } from '../../lib/git-history/gate.svelte'
+  import { setSideVisible } from '../../lib/side-panel/registry.svelte'
   import type { GitCommit } from '../../lib/git-history/types'
 
   let { tab }: { tab: Tab | null } = $props()
@@ -89,27 +88,11 @@
     }
   }
 
-  let startX = 0
-  let startW = 0
-  function onSplitterDown(e: PointerEvent) {
-    startX = e.clientX; startW = historyGate.width
-    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
-  }
-  function onSplitterMove(e: PointerEvent) {
-    if (!(e.currentTarget as HTMLElement).hasPointerCapture(e.pointerId)) return
-    setHistoryWidthLive(startW + (startX - e.clientX))
-  }
-  function onSplitterUp(e: PointerEvent) {
-    if (!(e.currentTarget as HTMLElement).hasPointerCapture(e.pointerId)) return
-    ;(e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId)
-    void setHistoryWidth(historyGate.width)
-  }
 </script>
 
-<aside class="history-panel" style="width: {historyGate.width}px">
-  <div class="splitter" onpointerdown={onSplitterDown} onpointermove={onSplitterMove} onpointerup={onSplitterUp}></div>
+<div class="history-content">
   <header>
-    <button class="hbtn" title={t('history.hide')} aria-label={t('history.hide')} onclick={() => void setHistoryVisible(false)}>
+    <button class="hbtn" title={t('history.hide')} aria-label={t('history.hide')} onclick={() => void setSideVisible('right', false)}>
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <rect x="3" y="3" width="18" height="18" rx="2" />
         <line x1="15" y1="3" x2="15" y2="21" />
@@ -156,24 +139,14 @@
       </ul>
     </div>
   {/if}
-</aside>
+</div>
 
 <style>
-  .history-panel {
-    position: relative;
-    flex-shrink: 0;
+  .history-content {
+    height: 100%;
     display: flex;
     flex-direction: column;
-    border-left: 1px solid var(--border-color, #3333);
     overflow: hidden;
-  }
-  .splitter {
-    position: absolute;
-    left: 0; top: 0; bottom: 0;
-    width: 4px;
-    cursor: col-resize;
-    z-index: 5;
-    touch-action: none;
   }
   header {
     padding: 8px 12px;
