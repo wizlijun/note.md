@@ -19,6 +19,31 @@ pub enum SyncState {
     Syncing,
     Conflict,
     Error,
+    /// The `git` executable could not be found or failed to run.
+    GitUnavailable,
+}
+
+impl SyncState {
+    /// A short human-readable label for menus, tooltips and log headers.
+    pub fn label(self) -> &'static str {
+        match self {
+            SyncState::NotConfigured => "Not configured",
+            SyncState::Stopped => "Stopped",
+            SyncState::Running => "Running",
+            SyncState::Syncing => "Syncing…",
+            SyncState::Conflict => "Conflict — needs attention",
+            SyncState::Error => "Error",
+            SyncState::GitUnavailable => "Git unavailable",
+        }
+    }
+
+    /// True when the state represents a problem the user should notice.
+    pub fn is_problem(self) -> bool {
+        matches!(
+            self,
+            SyncState::Conflict | SyncState::Error | SyncState::GitUnavailable
+        )
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -27,6 +52,7 @@ pub struct VaultSyncStatus {
     pub repo_path: Option<String>,
     pub last_sync: Option<String>,
     pub error_message: Option<String>,
+    pub git_available: bool,
 }
 
 pub struct VaultSyncManager {
@@ -37,6 +63,7 @@ pub struct VaultSyncManager {
     pub logs: LogBuffer,
     pub last_sync: Mutex<Option<String>>,
     pub error_msg: Mutex<Option<String>>,
+    pub git_available: Mutex<bool>,
     pub stop_flag: Mutex<bool>,
 }
 
@@ -50,6 +77,7 @@ impl VaultSyncManager {
             logs: LogBuffer::new(1000),
             last_sync: Mutex::new(None),
             error_msg: Mutex::new(None),
+            git_available: Mutex::new(true),
             stop_flag: Mutex::new(false),
         }
     }
@@ -77,7 +105,8 @@ pub fn vault_sync_status(app: AppHandle) -> VaultSyncStatus {
     let repo_path = mgr.repo_path.lock().unwrap().clone();
     let last_sync = mgr.last_sync.lock().unwrap().clone();
     let error_message = mgr.error_msg.lock().unwrap().clone();
-    VaultSyncStatus { state, repo_path, last_sync, error_message }
+    let git_available = *mgr.git_available.lock().unwrap();
+    VaultSyncStatus { state, repo_path, last_sync, error_message, git_available }
 }
 
 #[tauri::command]

@@ -115,6 +115,27 @@ fn run_loop(app: AppHandle, repo: PathBuf, remote: String, branch: String) {
 
 fn do_sync(app: &AppHandle, repo: &PathBuf, remote: &str, branch: &str) {
     let mgr = app.state::<Arc<VaultSyncManager>>();
+
+    // Guard: if `git` itself cannot be run, never report a healthy sync.
+    match git_ops::version() {
+        Some(ver) => {
+            let was_unavailable = !*mgr.git_available.lock().unwrap();
+            *mgr.git_available.lock().unwrap() = true;
+            if was_unavailable {
+                mgr.logs.push("INFO", &format!("git is available again: {ver}"));
+            }
+        }
+        None => {
+            *mgr.git_available.lock().unwrap() = false;
+            let msg = "git executable not found on PATH — sync is paused";
+            *mgr.error_msg.lock().unwrap() = Some(msg.to_string());
+            set_state(app, SyncState::GitUnavailable);
+            mgr.logs.push("ERROR", msg);
+            let _ = app.emit("vault-sync-log", ());
+            return;
+        }
+    }
+
     set_state(app, SyncState::Syncing);
     mgr.logs.push("INFO", "Syncing...");
 
@@ -165,4 +186,6 @@ fn set_state(app: &AppHandle, state: SyncState) {
     let mgr = app.state::<Arc<VaultSyncManager>>();
     *mgr.state.lock().unwrap() = state;
     let _ = app.emit("vault-sync-state-changed", state);
+    #[cfg(not(target_os = "ios"))]
+    crate::refresh_tray_status(app);
 }

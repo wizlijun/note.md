@@ -41,6 +41,8 @@ pub struct PendingFiles(Mutex<Vec<String>>);
 #[cfg(not(target_os = "ios"))]
 pub struct TrayRepoItem(Mutex<Option<MenuItem<tauri::Wry>>>);
 #[cfg(not(target_os = "ios"))]
+pub struct TrayStatusItem(Mutex<Option<MenuItem<tauri::Wry>>>);
+#[cfg(not(target_os = "ios"))]
 pub struct RecentMenu(pub Mutex<Option<Submenu<tauri::Wry>>>);
 
 #[tauri::command]
@@ -487,14 +489,47 @@ fn show_main_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
 
 #[cfg(not(target_os = "ios"))]
 fn open_sync_log_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
-    let mgr = app.state::<std::sync::Arc<vault_sync::VaultSyncManager>>();
+    use vault_sync::{git_ops, VaultSyncManager};
+
+    let mgr = app.state::<std::sync::Arc<VaultSyncManager>>();
     let entries = mgr.logs.entries();
+    let state = *mgr.state.lock().unwrap();
+    let repo_path = mgr.repo_path.lock().unwrap().clone();
+    let last_sync = mgr.last_sync.lock().unwrap().clone();
+    let error_msg = mgr.error_msg.lock().unwrap().clone();
+
+    // Probe git live so the header reflects reality even before the first cycle.
+    let git = git_ops::version();
+    let git_line = match &git {
+        Some(v) => format!("✅ available — {v}"),
+        None => "❌ NOT AVAILABLE — `git` was not found on PATH".to_string(),
+    };
+    let last_line = match &last_sync {
+        Some(ts) => format!("{} ({})", relative_time(ts), ts),
+        None => "never".to_string(),
+    };
+    let state_icon = if state.is_problem() { "🔴" } else { "🟢" };
+
+    let mut header = String::new();
+    header.push_str("# Vault Sync — Version Control Status\n\n");
+    header.push_str(&format!("- **Status:** {state_icon} {}\n", state.label()));
+    header.push_str(&format!("- **Git:** {git_line}\n"));
+    header.push_str(&format!(
+        "- **Repository:** {}\n",
+        repo_path.as_deref().map(abbreviate_path).unwrap_or_else(|| "— (not configured)".into())
+    ));
+    header.push_str(&format!("- **Last successful sync:** {last_line}\n"));
+    if let Some(err) = &error_msg {
+        header.push_str(&format!("- **Last error:** ⚠️ {err}\n"));
+    }
+    header.push_str("\n---\n\n## Log\n\n");
+
+    let body: String = entries.iter().map(|e| {
+        format!("[{} · {}] [{}] {}\n", e.timestamp, relative_time(&e.timestamp), e.level, e.message)
+    }).collect();
 
     let log_path = std::env::temp_dir().join("vault-sync.log");
-    let content: String = entries.iter().map(|e| {
-        format!("[{}] [{}] {}\n", e.timestamp, e.level, e.message)
-    }).collect();
-    let _ = std::fs::write(&log_path, &content);
+    let _ = std::fs::write(&log_path, format!("{header}{body}"));
 
     show_main_window(app);
     if let Some(path_str) = log_path.to_str() {
@@ -590,8 +625,60 @@ fn save_sync_enabled(app: &tauri::AppHandle, enabled: bool) {
     }
 }
 
+/// Format a Unix-seconds timestamp string as a compact "… ago" relative time.
 #[cfg(not(target_os = "ios"))]
-pub fn update_tray_icon(app: &tauri::AppHandle, active: bool) {
+fn relative_time(unix_secs: &str) -> String {
+    let then: u64 = match unix_secs.trim().parse() {
+        Ok(v) => v,
+        Err(_) => return unix_secs.to_string(),
+    };
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+    let d = now.saturating_sub(then);
+    if d < 5 {
+        "just now".into()
+    } else if d < 60 {
+        format!("{d}s ago")
+    } else if d < 3600 {
+        format!("{}m ago", d / 60)
+    } else if d < 86_400 {
+        format!("{}h ago", d / 3600)
+    } else {
+        format!("{}d ago", d / 86_400)
+    }
+}
+
+/// Refresh the menu-bar tray icon, title, tooltip and status menu item so the
+/// current version-control health is always visible at a glance. Only healthy
+/// active sync shows the green badge icon; problems drop the badge and add a
+/// prominent "⚠" title next to the icon.
+#[cfg(not(target_os = "ios"))]
+pub fn refresh_tray_status(app: &tauri::AppHandle) {
+    use vault_sync::{SyncState, VaultSyncManager};
+
+    let mgr = app.state::<std::sync::Arc<VaultSyncManager>>();
+    let state = *mgr.state.lock().unwrap();
+    let last_sync = mgr.last_sync.lock().unwrap().clone();
+
+    // Green badge only when a sync is genuinely healthy / in progress.
+    let active = matches!(state, SyncState::Running | SyncState::Syncing);
+
+    // Short prominent title shown right next to the icon in the menu bar.
+    let title: Option<&str> = match state {
+        SyncState::Syncing => Some("↻"),
+        SyncState::Conflict | SyncState::Error => Some("⚠"),
+        SyncState::GitUnavailable => Some("⚠ Git"),
+        _ => None,
+    };
+
+    let last = last_sync
+        .as_deref()
+        .map(relative_time)
+        .unwrap_or_else(|| "never".into());
+    let tooltip = format!("note.md — Sync: {} · last {}", state.label(), last);
+
     if let Some(tray) = app.tray_by_id("main") {
         let icon = if active {
             Image::from_bytes(include_bytes!("../icons/tray-icon-active.png"))
@@ -601,7 +688,23 @@ pub fn update_tray_icon(app: &tauri::AppHandle, active: bool) {
         if let Ok(img) = icon {
             let _ = tray.set_icon(Some(img));
         }
+        let _ = tray.set_title(title);
+        let _ = tray.set_tooltip(Some(&tooltip));
     }
+
+    if let Some(status_state) = app.try_state::<TrayStatusItem>() {
+        if let Some(item) = status_state.0.lock().unwrap().as_ref() {
+            let dot = if state.is_problem() { "🔴" } else if active { "🟢" } else { "⚪️" };
+            let _ = item.set_text(&format!("{dot} {} · last {}", state.label(), last));
+        }
+    }
+}
+
+/// Back-compat shim: callers that only know "active or not" now just trigger a
+/// full status refresh from the sync manager's real state.
+#[cfg(not(target_os = "ios"))]
+pub fn update_tray_icon(app: &tauri::AppHandle, _active: bool) {
+    refresh_tray_status(app);
 }
 
 /// Build the Tauri runtime `Context` from the embedded tauri.conf.json.
@@ -630,6 +733,8 @@ pub fn run() {
         .manage(PendingFiles(Mutex::new(Vec::new())));
     #[cfg(not(target_os = "ios"))]
     let builder = builder.manage(TrayRepoItem(Mutex::new(None)));
+    #[cfg(not(target_os = "ios"))]
+    let builder = builder.manage(TrayStatusItem(Mutex::new(None)));
     #[cfg(not(target_os = "ios"))]
     let builder = builder.manage(RecentMenu(Mutex::new(None)));
     #[cfg(not(target_os = "ios"))]
@@ -830,10 +935,12 @@ pub fn run() {
                 // note.md brand glyph (active state adds a green badge).
                 // Left-click toggles main window visibility; right-click shows menu.
                 let tray_icon = Image::from_bytes(include_bytes!("../icons/tray-icon.png"))?;
-                let (tray_menu, sync_repo_item) = build_tray_menu(&app.handle(), &menu_locale)?;
+                let (tray_menu, sync_repo_item, status_item) = build_tray_menu(&app.handle(), &menu_locale)?;
                 {
                     let tray_item_state = app.state::<TrayRepoItem>();
                     *tray_item_state.0.lock().unwrap() = Some(sync_repo_item.clone());
+                    let status_item_state = app.state::<TrayStatusItem>();
+                    *status_item_state.0.lock().unwrap() = Some(status_item.clone());
                 }
                 let _tray = TrayIconBuilder::with_id("main")
                     .icon(tray_icon)
@@ -1133,7 +1240,7 @@ fn read_saved_locale<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> String {
 fn build_tray_menu<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
     locale: &str,
-) -> tauri::Result<(Menu<R>, MenuItem<R>)> {
+) -> tauri::Result<(Menu<R>, MenuItem<R>, MenuItem<R>)> {
     let show_item = MenuItem::with_id(app, "tray-show", menu_label(locale, "tray.show"), true, None::<&str>)?;
     let today_note_item = MenuItem::with_id(app, "tray-today-note", menu_label(locale, "tray.todayNote"), true, None::<&str>)?;
     let openclaw_item = if plugin_host::is_plugin_enabled("openclaw-chat") {
@@ -1150,6 +1257,20 @@ fn build_tray_menu<R: tauri::Runtime>(
         }
     };
     let sync_repo_item = MenuItem::with_id(app, "tray-sync-repo", &sync_repo_label, true, None::<&str>)?;
+    let status_label = {
+        let mgr = app.state::<std::sync::Arc<vault_sync::VaultSyncManager>>();
+        let state = *mgr.state.lock().unwrap();
+        let dot = if state.is_problem() {
+            "🔴"
+        } else if matches!(state, vault_sync::SyncState::Running | vault_sync::SyncState::Syncing) {
+            "🟢"
+        } else {
+            "⚪️"
+        };
+        format!("{dot} {}", state.label())
+    };
+    // Informational (disabled) status line so the dropdown always shows health.
+    let status_item = MenuItem::with_id(app, "tray-sync-status", &status_label, /*enabled=*/ false, None::<&str>)?;
     let sync_start_item = MenuItem::with_id(app, "tray-sync-start", menu_label(locale, "tray.startSync"), true, None::<&str>)?;
     let sync_stop_item = MenuItem::with_id(app, "tray-sync-stop", menu_label(locale, "tray.stopSync"), true, None::<&str>)?;
     let sync_now_item = MenuItem::with_id(app, "tray-sync-now", menu_label(locale, "tray.syncNow"), true, None::<&str>)?;
@@ -1164,6 +1285,7 @@ fn build_tray_menu<R: tauri::Runtime>(
     }
     let menu = b
         .item(&sync_repo_item)
+        .item(&status_item)
         .item(&sync_start_item)
         .item(&sync_stop_item)
         .item(&sync_now_item)
@@ -1175,7 +1297,7 @@ fn build_tray_menu<R: tauri::Runtime>(
         .separator()
         .item(&quit_item)
         .build()?;
-    Ok((menu, sync_repo_item))
+    Ok((menu, sync_repo_item, status_item))
 }
 
 /// Rebuild the app menu (and tray) in the given locale and apply them. Called
@@ -1191,11 +1313,15 @@ fn set_menu_locale(app: tauri::AppHandle, locale: String) -> Result<(), String> 
 
     // Rebuild the tray dropdown too (event handling lives on the TrayIcon).
     if let Some(tray) = app.tray_by_id("main") {
-        let (tray_menu, sync_repo_item) =
+        let (tray_menu, sync_repo_item, status_item) =
             build_tray_menu(&app, &locale).map_err(|e| e.to_string())?;
         *app.state::<TrayRepoItem>().0.lock().unwrap() = Some(sync_repo_item);
+        *app.state::<TrayStatusItem>().0.lock().unwrap() = Some(status_item);
         tray.set_menu(Some(tray_menu)).map_err(|e| e.to_string())?;
     }
+    // Re-apply live status text/icon after the menu handles were replaced.
+    #[cfg(not(target_os = "ios"))]
+    refresh_tray_status(&app);
     Ok(())
 }
 
