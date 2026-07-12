@@ -41,9 +41,6 @@ export function sideActiveView(side: Side, tab: Tab | null): SideView | null {
 export function isSideVisible(side: Side, tab: Tab | null): boolean {
   return sidePanels[side].visible && sideShownViews(side, tab).length > 0
 }
-export function sideShowTabBar(side: Side, tab: Tab | null): boolean {
-  return isSideVisible(side, tab) && sideShownViews(side, tab).length >= 2
-}
 
 // ---- persistence -------------------------------------------------------------
 let store: Awaited<ReturnType<typeof Store.load>> | null = null

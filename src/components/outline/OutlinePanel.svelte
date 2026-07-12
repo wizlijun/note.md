@@ -7,6 +7,7 @@
   import { ensureOutlineFile } from '../../lib/outline/create'
   import { openFile } from '../../lib/tabs.svelte'
   import OutlineEditor from './OutlineEditor.svelte'
+  import SideViewSwitcher from '../side-panel/SideViewSwitcher.svelte'
 
   let { tab }: { tab: Tab | null } = $props()
 
@@ -31,7 +32,7 @@
         <polyline points="8 9 11 12 8 15" />
       </svg>
     </button>
-    <span class="title">{t('outline.title')}</span>
+    <SideViewSwitcher side="right" {tab} />
     <button class="hbtn" title={t('outline.editNote')} aria-label={t('outline.editNote')} disabled={!companionPath} onclick={() => void openNoteTab()}>
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
@@ -66,7 +67,6 @@
     align-items: center;
     gap: 4px;
   }
-  .title { flex: 1; }
   .hbtn {
     display: inline-flex; align-items: center; justify-content: center;
     border: 0; background: transparent; cursor: pointer;

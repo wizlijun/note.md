@@ -9,6 +9,7 @@
   import { sotvaultStore } from '../../lib/sotvault.svelte'
   import { historyAppliesTo, formatDateTime } from '../../lib/git-history/gate.svelte'
   import { setSideVisible } from '../../lib/side-panel/registry.svelte'
+  import SideViewSwitcher from '../side-panel/SideViewSwitcher.svelte'
   import type { GitCommit } from '../../lib/git-history/types'
 
   let { tab }: { tab: Tab | null } = $props()
@@ -111,7 +112,7 @@
         <polyline points="8 9 11 12 8 15" />
       </svg>
     </button>
-    <span class="title">{t('history.title')}</span>
+    <SideViewSwitcher side="right" {tab} />
     <button class="hbtn" title={t('history.refresh')} aria-label={t('history.refresh')} onclick={() => void load()}>
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <polyline points="23 4 23 10 17 10" />
@@ -170,7 +171,6 @@
     align-items: center;
     gap: 4px;
   }
-  .title { flex: 1; }
   .hbtn {
     display: inline-flex; align-items: center; justify-content: center;
     border: 0; background: transparent; cursor: pointer;

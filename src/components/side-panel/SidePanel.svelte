@@ -2,16 +2,13 @@
   import type { Tab } from '../../lib/tabs.svelte'
   import type { Side } from '../../lib/side-panel/model'
   import {
-    sidePanels, sideActiveView, sideShownViews, isSideVisible, sideShowTabBar,
-    setActiveView, setSideWidth, setSideWidthLive,
+    sidePanels, sideActiveView, isSideVisible, setSideWidth, setSideWidthLive,
   } from '../../lib/side-panel/registry.svelte'
 
   let { side, tab }: { side: Side; tab: Tab | null } = $props()
 
   let visible = $derived(isSideVisible(side, tab))
-  let shown = $derived(sideShownViews(side, tab))
   let active = $derived(sideActiveView(side, tab))
-  let showTabs = $derived(sideShowTabBar(side, tab))
 
   let startX = 0
   let startW = 0
@@ -38,20 +35,6 @@
   <aside class="side-panel {side}" style="width: {sidePanels[side].width}px">
     {#if side === 'right'}
       <div class="splitter" role="separator" aria-orientation="vertical" onpointerdown={onSplitterDown} onpointermove={onSplitterMove} onpointerup={onSplitterUp}></div>
-    {/if}
-
-    {#if showTabs}
-      <div class="tab-bar" role="tablist">
-        {#each shown as v (v.id)}
-          <button
-            class="tab"
-            class:active={v.id === active.id}
-            role="tab"
-            aria-selected={v.id === active.id}
-            onclick={() => void setActiveView(side, v.id)}
-          >{v.title()}</button>
-        {/each}
-      </div>
     {/if}
 
     <div class="content">
@@ -91,30 +74,10 @@
   .side-panel.left .splitter { right: 0; }
   .side-panel.right .splitter { left: 0; }
   .splitter:hover { background: rgba(0, 0, 0, 0.08); }
-  .tab-bar {
-    display: flex;
-    gap: 2px;
-    padding: 4px 6px 0;
-    border-bottom: 1px solid var(--border-color, #3333);
-  }
-  .tab {
-    border: 0;
-    background: transparent;
-    cursor: pointer;
-    font: inherit;
-    font-size: 12px;
-    padding: 4px 10px;
-    border-radius: 6px 6px 0 0;
-    opacity: 0.6;
-  }
-  .tab:hover { background: rgba(0, 0, 0, 0.06); opacity: 0.9; }
-  .tab.active { opacity: 1; font-weight: 600; background: rgba(0, 0, 0, 0.08); }
   .content { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
   /* Content components fill the container. */
   .content :global(> *) { flex: 1; min-height: 0; }
   @media (prefers-color-scheme: dark) {
     .splitter:hover { background: rgba(255, 255, 255, 0.1); }
-    .tab:hover { background: rgba(255, 255, 255, 0.08); }
-    .tab.active { background: rgba(255, 255, 255, 0.12); }
   }
 </style>
