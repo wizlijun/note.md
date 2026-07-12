@@ -32,6 +32,8 @@ pub mod vault_sync;
 #[cfg(not(target_os = "ios"))]
 pub mod git_history;
 #[cfg(not(target_os = "ios"))]
+pub mod preview_window;
+#[cfg(not(target_os = "ios"))]
 pub mod agents_sync;
 #[cfg(not(target_os = "ios"))]
 pub mod sotvault;
@@ -805,6 +807,8 @@ pub fn run() {
     #[cfg(not(target_os = "ios"))]
     let builder = builder.manage(RecentMenu(Mutex::new(None)));
     #[cfg(not(target_os = "ios"))]
+    let builder = builder.manage(preview_window::PreviewStore::default());
+    #[cfg(not(target_os = "ios"))]
     let builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
         dlog(&format!("single_instance argv: {:?}", argv));
         for arg in argv.iter().skip(1) {
@@ -872,6 +876,8 @@ pub fn run() {
                 git_history::git_file_show,
                 git_history::git_file_at,
                 git_history::git_diff_current,
+                preview_window::open_preview_window,
+                preview_window::take_preview_payload,
                 write_file_binary,
                 rename_file,
                 crate::openclaw::commands::openclaw_connect,
