@@ -361,6 +361,20 @@ export const en = {
   'outline.nameCollision': '{n} link-name collision(s) in vault. "{name}" is claimed by:\n{files}',
   'outline.dailyNeedsVault': 'Set up a sync vault first (tray → Vault) to use daily notes.',
 
+  // Git history view
+  'history.title': 'History',
+  'history.hide': 'Hide history',
+  'history.refresh': 'Refresh',
+  'history.diff': 'View diff',
+  'history.restore': 'Restore this version',
+  'history.restored': 'Restored into the editor — unsaved. Press ⌘S to keep it.',
+  'history.noDocument': 'Open a file to see its history',
+  'history.notInVault': 'This file is not in a vault — no git history',
+  'history.gitUnavailable': 'git was not found on this system',
+  'history.empty': 'No history for this file yet',
+  'history.loadFailed': 'Could not load history',
+  'history.diffTitle': '{short} · {name}.diff',
+
   // Folder view
   'folderView.parentFolder': 'Parent folder',
   'folderView.find': 'Find',

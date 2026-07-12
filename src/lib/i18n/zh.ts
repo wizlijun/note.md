@@ -387,6 +387,20 @@ export const zh: Record<keyof Messages, string> = {
   'outline.nameCollision': 'vault 内有 {n} 组链接名冲突。「{name}」被以下文件竞争:\n{files}',
   'outline.dailyNeedsVault': '请先在托盘菜单设置同步 Vault,才能使用每日笔记。',
 
+  // Git history view
+  'history.title': '历史',
+  'history.hide': '隐藏历史',
+  'history.refresh': '刷新',
+  'history.diff': '查看差异',
+  'history.restore': '恢复此版本',
+  'history.restored': '已恢复到编辑器（未保存），按 ⌘S 保留。',
+  'history.noDocument': '打开文件以查看其历史',
+  'history.notInVault': '该文件不在 vault 中，没有 git 历史',
+  'history.gitUnavailable': '系统中未找到 git',
+  'history.empty': '该文件暂无历史记录',
+  'history.loadFailed': '无法加载历史',
+  'history.diffTitle': '{short} · {name}.diff',
+
   // Folder view
   'folderView.parentFolder': '上级文件夹',
   'folderView.find': '查找',

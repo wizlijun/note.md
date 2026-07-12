@@ -356,6 +356,20 @@ export const ja: Record<keyof Messages, string> = {
   'outline.nameCollision': 'vault 内で {n} 件のリンク名衝突。「{name}」は以下のファイルで競合:\n{files}',
   'outline.dailyNeedsVault': 'デイリーノートを使うには、まずトレイメニューで Vault を設定してください。',
 
+  // Git history view
+  'history.title': '履歴',
+  'history.hide': '履歴を隠す',
+  'history.refresh': '更新',
+  'history.diff': '差分を表示',
+  'history.restore': 'この版を復元',
+  'history.restored': 'エディタに復元しました（未保存）。⌘S で保存します。',
+  'history.noDocument': 'ファイルを開くと履歴が表示されます',
+  'history.notInVault': 'このファイルは vault にありません — git 履歴なし',
+  'history.gitUnavailable': 'git が見つかりませんでした',
+  'history.empty': 'このファイルの履歴はまだありません',
+  'history.loadFailed': '履歴を読み込めませんでした',
+  'history.diffTitle': '{short} · {name}.diff',
+
   // Folder view
   'folderView.parentFolder': '親フォルダ',
   'folderView.find': '検索',
