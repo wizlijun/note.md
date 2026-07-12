@@ -30,6 +30,8 @@ pub mod themes;
 #[cfg(not(target_os = "ios"))]
 pub mod vault_sync;
 #[cfg(not(target_os = "ios"))]
+pub mod git_history;
+#[cfg(not(target_os = "ios"))]
 pub mod agents_sync;
 #[cfg(not(target_os = "ios"))]
 pub mod sotvault;
