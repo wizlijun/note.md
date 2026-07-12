@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Tab } from '../../lib/tabs.svelte'
-  import { outlineGate, setOutlineWidth, setOutlineWidthLive, setOutlineVisible, outlineAppliesTo } from '../../lib/outline/gate.svelte'
+  import { outlineAppliesTo } from '../../lib/outline/gate.svelte'
+  import { setSideVisible } from '../../lib/side-panel/registry.svelte'
   import { t } from '../../lib/i18n/store.svelte'
   import { companionPathFor } from '../../lib/outline/store.svelte'
   import { ensureOutlineFile } from '../../lib/outline/create'
@@ -19,34 +20,11 @@
     await openFile(companionPath)
   }
 
-  let startX = 0
-  let startW = 0
-
-  function onSplitterDown(e: PointerEvent) {
-    startX = e.clientX
-    startW = outlineGate.width
-    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
-  }
-  function onSplitterMove(e: PointerEvent) {
-    if (!(e.currentTarget as HTMLElement).hasPointerCapture(e.pointerId)) return
-    setOutlineWidthLive(startW + (startX - e.clientX))
-  }
-  function onSplitterUp(e: PointerEvent) {
-    if (!(e.currentTarget as HTMLElement).hasPointerCapture(e.pointerId)) return
-    ;(e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId)
-    void setOutlineWidth(outlineGate.width)
-  }
 </script>
 
-<aside class="outline-panel" style="width: {outlineGate.width}px">
-  <div
-    class="splitter"
-    onpointerdown={onSplitterDown}
-    onpointermove={onSplitterMove}
-    onpointerup={onSplitterUp}
-  ></div>
+<div class="outline-content">
   <header>
-    <button class="hbtn" title={t('outline.hide')} aria-label={t('outline.hide')} onclick={() => void setOutlineVisible(false)}>
+    <button class="hbtn" title={t('outline.hide')} aria-label={t('outline.hide')} onclick={() => void setSideVisible('right', false)}>
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <rect x="3" y="3" width="18" height="18" rx="2" />
         <line x1="15" y1="3" x2="15" y2="21" />
@@ -70,24 +48,14 @@
       <OutlineEditor mainTab={tab} />
     {/key}
   {/if}
-</aside>
+</div>
 
 <style>
-  .outline-panel {
-    position: relative;
-    flex-shrink: 0;
+  .outline-content {
+    height: 100%;
     display: flex;
     flex-direction: column;
-    border-left: 1px solid var(--border-color, #3333);
     overflow: hidden;
-  }
-  .splitter {
-    position: absolute;
-    left: 0; top: 0; bottom: 0;
-    width: 4px;
-    cursor: col-resize;
-    z-index: 5;
-    touch-action: none;
   }
   header {
     padding: 8px 12px;
@@ -110,7 +78,7 @@
   .body { flex: 1; overflow-y: auto; padding: 8px; }
   .empty { opacity: 0.5; font-size: 12px; }
   /* 面板窄容器里收紧编辑器的内边距/宽度约束 */
-  .outline-panel :global(.outline-editor .body) {
+  .outline-content :global(.outline-editor .body) {
     padding: 10px 12px;
     max-width: none;
   }
