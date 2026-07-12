@@ -49,6 +49,45 @@ pub fn rel_path(repo: &Path, abs: &Path) -> Result<String, String> {
     Ok(rel.to_string_lossy().replace('\\', "/"))
 }
 
+/// The `git log` format string. Newest commit first, one line each.
+fn log_format() -> String {
+    format!("--format=%H{FS}%h{FS}%an{FS}%at{FS}%s")
+}
+
+/// Commit history for a single file. Returns an empty list when the file has no
+/// history; returns `Err("git-unavailable")` when git isn't runnable so the UI
+/// can show a distinct empty state.
+#[tauri::command]
+pub fn git_file_log(repo: String, abs_path: String) -> Result<Vec<GitCommit>, String> {
+    if git_ops::version().is_none() {
+        return Err("git-unavailable".to_string());
+    }
+    let repo_path = Path::new(&repo);
+    let rel = rel_path(repo_path, Path::new(&abs_path))?;
+    let out = git_ops::run_git(
+        repo_path,
+        &["log", "--follow", &log_format(), "--", &rel],
+    )?;
+    Ok(parse_log(&out))
+}
+
+/// Full `git show <rev>` diff limited to the file (includes the commit header).
+#[tauri::command]
+pub fn git_file_show(repo: String, rev: String, abs_path: String) -> Result<String, String> {
+    let repo_path = Path::new(&repo);
+    let rel = rel_path(repo_path, Path::new(&abs_path))?;
+    git_ops::run_git(repo_path, &["show", &rev, "--", &rel])
+}
+
+/// File contents as of `<rev>` (`git show <rev>:<rel>`), for buffer restore.
+#[tauri::command]
+pub fn git_file_at(repo: String, rev: String, abs_path: String) -> Result<String, String> {
+    let repo_path = Path::new(&repo);
+    let rel = rel_path(repo_path, Path::new(&abs_path))?;
+    let spec = format!("{rev}:{rel}");
+    git_ops::run_git(repo_path, &["show", &spec])
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -89,5 +128,53 @@ mod tests {
         let repo = PathBuf::from("/vault");
         let abs = PathBuf::from("/elsewhere/note.md");
         assert!(rel_path(&repo, &abs).is_err());
+    }
+
+    use std::process::Command;
+
+    fn git(dir: &Path, args: &[&str]) {
+        let status = Command::new("git")
+            .args(args)
+            .current_dir(dir)
+            .env("GIT_AUTHOR_NAME", "t")
+            .env("GIT_AUTHOR_EMAIL", "t@t")
+            .env("GIT_COMMITTER_NAME", "t")
+            .env("GIT_COMMITTER_EMAIL", "t@t")
+            .status()
+            .unwrap();
+        assert!(status.success(), "git {:?} failed", args);
+    }
+
+    #[test]
+    fn log_show_at_roundtrip_in_temp_repo() {
+        let dir = std::env::temp_dir().join(format!("mdeditor-gh-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        git(&dir, &["init", "-q"]);
+        let file = dir.join("note.md");
+        std::fs::write(&file, "v1\n").unwrap();
+        git(&dir, &["add", "note.md"]);
+        git(&dir, &["commit", "-q", "-m", "first"]);
+        std::fs::write(&file, "v2\n").unwrap();
+        git(&dir, &["add", "note.md"]);
+        git(&dir, &["commit", "-q", "-m", "second"]);
+
+        let repo = dir.to_string_lossy().to_string();
+        let abs = file.to_string_lossy().to_string();
+
+        let log = git_file_log(repo.clone(), abs.clone()).unwrap();
+        assert_eq!(log.len(), 2);
+        assert_eq!(log[0].subject, "second"); // newest first
+        assert_eq!(log[1].subject, "first");
+
+        let old = log[1].hash.clone();
+        let content = git_file_at(repo.clone(), old.clone(), abs.clone()).unwrap();
+        assert_eq!(content, "v1\n");
+
+        let diff = git_file_show(repo.clone(), log[0].hash.clone(), abs.clone()).unwrap();
+        assert!(diff.contains("-v1"));
+        assert!(diff.contains("+v2"));
+
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }
