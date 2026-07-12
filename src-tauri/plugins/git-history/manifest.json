@@ -1,0 +1,30 @@
+{
+  "id": "git-history",
+  "name": "Git History",
+  "version": "0.1.0",
+  "description": "View the git commit history of the current vault file; diff or restore any past version.",
+  "kind": "builtin",
+  "default_enabled": false,
+  "host_capabilities": [],
+  "menus": [
+    {
+      "location": "view",
+      "label": "History View",
+      "shortcut": "Cmd+Shift+Y",
+      "command": "toggle",
+      "enabled_when": "vaultConfigured"
+    }
+  ],
+  "i18n": {
+    "zh": {
+      "name": "Git 历史",
+      "description": "查看当前 vault 文件的 git 提交历史；对任一历史版本查看差异或恢复。",
+      "menus": { "toggle": "历史视图" }
+    },
+    "ja": {
+      "name": "Git 履歴",
+      "description": "現在の vault ファイルの git コミット履歴を表示し、任意の版を差分表示または復元します。",
+      "menus": { "toggle": "履歴ビュー" }
+    }
+  }
+}
