@@ -2851,7 +2851,7 @@ dependencies = [
 
 [[package]]
 name = "notemd"
-version = "5.5.0"
+version = "5.5.1"
 dependencies = [
  "clap",
  "core-foundation 0.10.1",
