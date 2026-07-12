@@ -44,10 +44,13 @@
   import { uiState, openSettings } from './lib/ui-state.svelte'
   import MobileToolbar from './components/MobileToolbar.svelte'
   import DrawerNav from './components/DrawerNav.svelte'
-  import FolderView from './components/FolderView.svelte'
-  import { folderView, loadFolderViewState, setVisible } from './lib/folder-view.svelte'
-  import { outlineGate, loadOutlineGate, setOutlineVisible, isOutlineNoteTab } from './lib/outline/gate.svelte'
-  import { historyGate, loadHistoryGate, setHistoryVisible, historyAppliesTo } from './lib/git-history/gate.svelte'
+  import SidePanel from './components/side-panel/SidePanel.svelte'
+  import {
+    sidePanels, isSideVisible, loadSidePanels, registerBuiltinSideViews, toggleSideView, getSideView,
+  } from './lib/side-panel/registry.svelte'
+  import { loadFolderViewState } from './lib/folder-view.svelte'
+  import { loadOutlineGate } from './lib/outline/gate.svelte'
+  import { loadHistoryGate, historyAppliesTo } from './lib/git-history/gate.svelte'
   import { loadOutlineDirs } from './lib/outline/dirs.svelte'
   import { platform, isIOS } from './lib/platform.svelte'
   import { vaultStore, refreshStatus, syncNow, attachStatusListener } from './lib/vault.svelte'
@@ -197,6 +200,8 @@
       await loadFolderViewState()
       await loadOutlineGate()
       await loadHistoryGate()
+      registerBuiltinSideViews()
+      await loadSidePanels()
       await loadOutlineDirs()
       await initActivePluginIds()
 
@@ -329,28 +334,16 @@
       })()
 
       dispatchPlugin = async (pluginId: string, command: string) => {
+        // Side-view toggles: folder-view / outline-notes / git-history and any
+        // future registered side view all route through the registry. The
+        // per-side "one active tab" model replaces the old outline↔history
+        // mutual-exclusion special-casing.
+        if (command === 'toggle' && getSideView(pluginId)) {
+          await toggleSideView(pluginId)
+          return
+        }
         if (pluginId === 'sotvault') {
           if (command === 'sync-to-vault') await syncCurrentToVault()
-          return
-        }
-        if (pluginId === 'folder-view') {
-          if (command === 'toggle') await setVisible(!folderView.visible)
-          return
-        }
-        if (pluginId === 'outline-notes') {
-          if (command === 'toggle') {
-            const next = !outlineGate.visible
-            await setOutlineVisible(next)
-            if (next) await setHistoryVisible(false)
-          }
-          return
-        }
-        if (pluginId === 'git-history') {
-          if (command === 'toggle') {
-            const next = !historyGate.visible
-            await setHistoryVisible(next)
-            if (next) await setOutlineVisible(false)
-          }
           return
         }
         if (pluginId === 'roam-import') {
@@ -628,28 +621,9 @@
 
   let current = $derived(activeTab())
 
-  // Whether the read-only companion outline panel shows. Force-hidden when the
-  // active tab is itself a full-screen .note.md outline editor — a note has no
-  // companion outline, and showing an empty panel next to the editor is
-  // redundant (user's outline-visible toggle is overridden in this case).
-  let showOutlinePanel = $derived(
-    platformName !== 'ios' && outlineGate.enabled && outlineGate.visible
-      && !(current != null && isOutlineNoteTab(current))
-  )
-
-  // History panel: opt-in plugin, mutually exclusive with the outline panel
-  // (enforced in dispatchPlugin). Only applies to files inside the vault repo.
-  let showHistoryPanel = $derived(
-    platformName !== 'ios' && historyGate.enabled && historyGate.visible
-      && current != null && historyAppliesTo(current, sotvaultStore.vaultRoot)
-  )
-
-  // Right-edge inset for the floating mode toggle: when the outline column is
-  // showing it sits to the right of the editor, so push the toggle left by the
-  // outline width to keep it over the editor (not hidden behind the panel).
-  let rightPanelOffset = $derived(
-    showHistoryPanel ? historyGate.width : showOutlinePanel ? outlineGate.width : 0
-  )
+  // Right-edge inset for the floating mode toggle: push it left by the right
+  // panel width whenever that side is showing, so it stays over the editor.
+  let rightPanelOffset = $derived(isSideVisible('right', current) ? sidePanels.right.width : 0)
 
   // Window title: filename when single tab, plain "note.md" otherwise
   $effect(() => {
@@ -722,8 +696,8 @@
   <Toast />
   <FindReplace />
   <section class="pane">
-    {#if platformName !== 'ios' && folderView.enabled && folderView.visible}
-      <FolderView activePath={current?.filePath ?? null} />
+    {#if platformName !== 'ios'}
+      <SidePanel side="left" tab={current ?? null} />
     {/if}
     {#if current}
       {#if tabs.length === 1 && platformName !== 'ios'}
@@ -733,15 +707,8 @@
     {:else}
       <EmptyState />
     {/if}
-    {#if showOutlinePanel}
-      {#await import('./components/outline/OutlinePanel.svelte') then Panel}
-        <Panel.default tab={current ?? null} />
-      {/await}
-    {/if}
-    {#if showHistoryPanel}
-      {#await import('./components/history/HistoryPanel.svelte') then Panel}
-        <Panel.default tab={current ?? null} />
-      {/await}
+    {#if platformName !== 'ios'}
+      <SidePanel side="right" tab={current ?? null} />
     {/if}
   </section>
   <SettingsDialog bind:open={uiState.showSettings} />

@@ -392,6 +392,7 @@ export const en = {
   'folderView.openNote': 'Open note',
   'folderView.rename': 'Rename',
   'folderView.renameConflict': 'A file with that name already exists',
+  'folderView.tabTitle': 'Files',
 
   // OpenClaw settings + devices
   'openclaw.heading': 'OpenClaw',
