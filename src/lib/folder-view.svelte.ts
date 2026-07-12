@@ -304,6 +304,8 @@ export async function loadFolderViewState(): Promise<void> {
   folderView.width = (await s.get<number>('folderView.width')) ?? DEFAULT_WIDTH
 }
 
+/** @deprecated visibility/width now live in the side-panel registry (sidePanels.left).
+ *  Retained for folder-view.test.ts + settings hydration; the UI no longer reads them. */
 export async function setVisible(v: boolean): Promise<void> {
   folderView.visible = v
   const s = await getStore()

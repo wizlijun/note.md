@@ -41,6 +41,8 @@ export async function setShortcutOverride(id: OutlineCommandId, shortcut: string
   await s.save()
 }
 
+/** @deprecated visibility/width now live in the side-panel registry (sidePanels.right).
+ *  These remain only for settings hydration + test compatibility; the UI no longer reads them. */
 export async function setOutlineVisible(v: boolean): Promise<void> {
   outlineGate.visible = v
   const s = await getStore()

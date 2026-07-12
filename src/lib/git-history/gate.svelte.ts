@@ -28,6 +28,8 @@ export async function loadHistoryGate(): Promise<void> {
   historyGate.width = (await s.get<number>('history.width')) ?? DEFAULT_WIDTH
 }
 
+/** @deprecated visibility/width now live in the side-panel registry (sidePanels.right).
+ *  These remain only for settings hydration + test compatibility; the UI no longer reads them. */
 export async function setHistoryVisible(v: boolean): Promise<void> {
   historyGate.visible = v
   const s = await getStore()

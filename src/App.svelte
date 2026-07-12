@@ -200,6 +200,9 @@
       await loadFolderViewState()
       await loadOutlineGate()
       await loadHistoryGate()
+      // Register the built-in side views before the panels first render so the
+      // registry is populated; loadSidePanels() then hydrates per-side visibility/
+      // width/active tab (migrating legacy outline/history/folderView settings).
       registerBuiltinSideViews()
       await loadSidePanels()
       await loadOutlineDirs()
