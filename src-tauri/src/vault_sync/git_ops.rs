@@ -3,6 +3,18 @@ use std::process::Command;
 
 pub type GitResult<T> = Result<T, String>;
 
+/// Returns the `git --version` string when the executable is present and
+/// runnable, otherwise `None`. Used to surface "git unavailable" prominently
+/// instead of silently reporting a healthy sync.
+pub fn version() -> Option<String> {
+    let output = Command::new("git").arg("--version").output().ok()?;
+    if output.status.success() {
+        Some(String::from_utf8_lossy(&output.stdout).trim().to_string())
+    } else {
+        None
+    }
+}
+
 pub fn run_git(repo: &Path, args: &[&str]) -> GitResult<String> {
     let output = Command::new("git")
         .args(args)
