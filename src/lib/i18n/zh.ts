@@ -400,6 +400,9 @@ export const zh: Record<keyof Messages, string> = {
   'history.empty': '该文件暂无历史记录',
   'history.loadFailed': '无法加载历史',
   'history.diffTitle': '{short} · {name}.diff',
+  'history.compareCurrent': '与当前版本对比',
+  'history.diffCurrentTitle': '{short} ↔ 当前 · {name}.diff',
+  'history.noDiff': '与当前文档无差异',
 
   // Folder view
   'folderView.parentFolder': '上级文件夹',

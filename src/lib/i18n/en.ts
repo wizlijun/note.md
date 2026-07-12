@@ -374,6 +374,9 @@ export const en = {
   'history.empty': 'No history for this file yet',
   'history.loadFailed': 'Could not load history',
   'history.diffTitle': '{short} · {name}.diff',
+  'history.compareCurrent': 'Compare with current',
+  'history.diffCurrentTitle': '{short} ↔ current · {name}.diff',
+  'history.noDiff': 'No differences from the current document',
 
   // Folder view
   'folderView.parentFolder': 'Parent folder',

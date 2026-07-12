@@ -803,6 +803,7 @@ pub fn run() {
                 git_history::git_file_log,
                 git_history::git_file_show,
                 git_history::git_file_at,
+                git_history::git_diff_current,
                 write_file_binary,
                 rename_file,
                 crate::openclaw::commands::openclaw_connect,

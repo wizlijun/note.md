@@ -61,6 +61,23 @@
     }
   }
 
+  async function onCompareCurrent(c: GitCommit) {
+    if (!tab || !vaultRoot) return
+    try {
+      const diff = await invoke<string>('git_diff_current', {
+        repo: vaultRoot, rev: c.hash, absPath: tab.filePath, current: tab.currentContent,
+      })
+      if (!diff.trim()) {
+        pushToast({ level: 'info', message: t('history.noDiff') })
+        return
+      }
+      const title = t('history.diffCurrentTitle', { short: c.short, name: basename(tab.filePath) })
+      openTextTab({ title, content: diff, kind: 'code', language: 'diff' })
+    } catch (e) {
+      pushToast({ level: 'error', message: t('history.loadFailed'), detail: String(e) })
+    }
+  }
+
   async function onRestore(c: GitCommit) {
     if (!tab || !vaultRoot) return
     try {
@@ -130,6 +147,7 @@
             {#if selected === c.hash}
               <div class="actions">
                 <button class="abtn" onclick={() => void onDiff(c)}>{t('history.diff')}</button>
+                <button class="abtn" onclick={() => void onCompareCurrent(c)}>{t('history.compareCurrent')}</button>
                 <button class="abtn" onclick={() => void onRestore(c)}>{t('history.restore')}</button>
               </div>
             {/if}
@@ -188,7 +206,7 @@
   .row:hover { background: rgba(0,0,0,0.05); }
   .subject { font-size: 13px; }
   .meta { font-size: 11px; opacity: 0.6; }
-  .actions { display: flex; gap: 6px; padding: 2px 8px 8px; }
+  .actions { display: flex; flex-wrap: wrap; gap: 6px; padding: 2px 8px 8px; }
   .abtn {
     font-size: 12px; padding: 3px 8px; border-radius: 4px;
     border: 1px solid var(--border-color, #3335); background: transparent; cursor: pointer;

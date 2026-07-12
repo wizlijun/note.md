@@ -87,6 +87,66 @@ pub fn git_file_at(repo: String, rev: String, abs_path: String) -> Result<String
     git_ops::run_git(repo_path, &["show", &spec])
 }
 
+/// Unified diff between the file as of `<rev>` and the caller-provided `current`
+/// buffer (the live editor content, possibly unsaved). Runs `git diff
+/// --no-index` on two temp files so it compares against the buffer regardless of
+/// the file's on-disk/staged state. Returns an empty string when identical.
+#[tauri::command]
+pub fn git_diff_current(
+    repo: String,
+    rev: String,
+    abs_path: String,
+    current: String,
+) -> Result<String, String> {
+    let repo_path = Path::new(&repo);
+    let rel = rel_path(repo_path, Path::new(&abs_path))?;
+    let hist = git_ops::run_git(repo_path, &["show", &format!("{rev}:{rel}")])?;
+
+    let dir = std::env::temp_dir();
+    let uniq = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    let base = format!("notemd-diff-{}-{}", std::process::id(), uniq);
+    let old_p = dir.join(format!("{base}.old"));
+    let new_p = dir.join(format!("{base}.new"));
+    std::fs::write(&old_p, hist.as_bytes()).map_err(|e| format!("write temp: {e}"))?;
+    std::fs::write(&new_p, current.as_bytes()).map_err(|e| format!("write temp: {e}"))?;
+
+    let out = std::process::Command::new("git")
+        .args([
+            "diff",
+            "--no-index",
+            "--",
+            &old_p.to_string_lossy(),
+            &new_p.to_string_lossy(),
+        ])
+        .output();
+    let _ = std::fs::remove_file(&old_p);
+    let _ = std::fs::remove_file(&new_p);
+    let out = out.map_err(|e| format!("git spawn: {e}"))?;
+
+    // `git diff --no-index` exits 1 when there ARE differences (normal), 0 when
+    // identical, >1 on real error.
+    if out.status.code().unwrap_or(-1) > 1 {
+        return Err(String::from_utf8_lossy(&out.stderr).to_string());
+    }
+
+    // Cosmetic: rewrite the temp-file paths in the diff header to friendly
+    // labels (these are meta lines DiffView renders muted). Cover both the
+    // leading-slash and git's prefix-stripped forms.
+    let name = rel.rsplit('/').next().unwrap_or(&rel);
+    let short: String = rev.chars().take(7).collect();
+    let old_abs = old_p.to_string_lossy().to_string();
+    let new_abs = new_p.to_string_lossy().to_string();
+    let diff = String::from_utf8_lossy(&out.stdout)
+        .replace(&old_abs, &format!("{name}@{short}"))
+        .replace(old_abs.trim_start_matches('/'), &format!("{name}@{short}"))
+        .replace(&new_abs, &format!("{name} (current)"))
+        .replace(new_abs.trim_start_matches('/'), &format!("{name} (current)"));
+    Ok(diff)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -173,6 +233,33 @@ mod tests {
         let diff = git_file_show(repo.clone(), log[0].hash.clone(), abs.clone()).unwrap();
         assert!(diff.contains("-v1"));
         assert!(diff.contains("+v2"));
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn diff_current_buffer_vs_rev() {
+        let dir = std::env::temp_dir().join(format!("mdeditor-gh-dc-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        git(&dir, &["init", "-q"]);
+        let file = dir.join("note.md");
+        std::fs::write(&file, "v1\n").unwrap();
+        git(&dir, &["add", "note.md"]);
+        git(&dir, &["commit", "-q", "-m", "first"]);
+
+        let repo = dir.to_string_lossy().to_string();
+        let abs = file.to_string_lossy().to_string();
+        let rev = git_file_log(repo.clone(), abs.clone()).unwrap()[0].hash.clone();
+
+        // committed "v1\n" vs an edited buffer "v2\n" → shows the change
+        let diff = git_diff_current(repo.clone(), rev.clone(), abs.clone(), "v2\n".into()).unwrap();
+        assert!(diff.contains("-v1"), "diff should show removed v1: {diff}");
+        assert!(diff.contains("+v2"), "diff should show added v2: {diff}");
+
+        // identical buffer → no differences → empty
+        let same = git_diff_current(repo, rev, abs, "v1\n".into()).unwrap();
+        assert!(same.trim().is_empty(), "identical buffer should yield empty diff: {same}");
 
         let _ = std::fs::remove_dir_all(&dir);
     }
