@@ -37,7 +37,7 @@
 {#if visible && active}
   <aside class="side-panel {side}" style="width: {sidePanels[side].width}px">
     {#if side === 'right'}
-      <div class="splitter" onpointerdown={onSplitterDown} onpointermove={onSplitterMove} onpointerup={onSplitterUp}></div>
+      <div class="splitter" role="separator" aria-orientation="vertical" onpointerdown={onSplitterDown} onpointermove={onSplitterMove} onpointerup={onSplitterUp}></div>
     {/if}
 
     {#if showTabs}
@@ -63,7 +63,7 @@
     </div>
 
     {#if side === 'left'}
-      <div class="splitter" onpointerdown={onSplitterDown} onpointermove={onSplitterMove} onpointerup={onSplitterUp}></div>
+      <div class="splitter" role="separator" aria-orientation="vertical" onpointerdown={onSplitterDown} onpointermove={onSplitterMove} onpointerup={onSplitterUp}></div>
     {/if}
   </aside>
 {/if}
@@ -77,7 +77,7 @@
     flex-direction: column;
     overflow: hidden;
   }
-  .side-panel.left { border-right: 1px solid var(--border-color, rgba(0, 0, 0, 0.08)); }
+  .side-panel.left { border-right: 1px solid var(--border-color, #3333); }
   .side-panel.right { border-left: 1px solid var(--border-color, #3333); }
   .splitter {
     position: absolute;
