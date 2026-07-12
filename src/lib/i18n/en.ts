@@ -376,6 +376,8 @@ export const en = {
   'history.diffTitle': '{short} · {name}.diff',
   'history.compareCurrent': 'Compare with current',
   'history.diffCurrentTitle': '{short} ↔ current · {name}.diff',
+  'history.preview': 'Preview',
+  'history.previewTitle': '{short} · {name}',
   'history.noDiff': 'No differences from the current document',
 
   // Folder view
