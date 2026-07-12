@@ -507,7 +507,7 @@ fn open_sync_log_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
         None => "❌ NOT AVAILABLE — `git` was not found on PATH".to_string(),
     };
     let last_line = match &last_sync {
-        Some(ts) => format!("{} ({})", relative_time(ts), ts),
+        Some(ts) => format!("{} ({})", relative_time(ts, "en"), ts),
         None => "never".to_string(),
     };
     let state_icon = if state.is_problem() { "🔴" } else { "🟢" };
@@ -527,7 +527,7 @@ fn open_sync_log_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
     header.push_str("\n---\n\n## Log\n\n");
 
     let body: String = entries.iter().map(|e| {
-        format!("[{} · {}] [{}] {}\n", e.timestamp, relative_time(&e.timestamp), e.level, e.message)
+        format!("[{} · {}] [{}] {}\n", e.timestamp, relative_time(&e.timestamp, "en"), e.level, e.message)
     }).collect();
 
     let log_path = std::env::temp_dir().join("vault-sync.log");
@@ -627,9 +627,10 @@ fn save_sync_enabled(app: &tauri::AppHandle, enabled: bool) {
     }
 }
 
-/// Format a Unix-seconds timestamp string as a compact "… ago" relative time.
+/// Format a Unix-seconds timestamp string as a compact, localized "… ago"
+/// relative time. `locale` is one of "en" / "zh" / "ja".
 #[cfg(not(target_os = "ios"))]
-fn relative_time(unix_secs: &str) -> String {
+fn relative_time(unix_secs: &str, locale: &str) -> String {
     let then: u64 = match unix_secs.trim().parse() {
         Ok(v) => v,
         Err(_) => return unix_secs.to_string(),
@@ -639,17 +640,66 @@ fn relative_time(unix_secs: &str) -> String {
         .unwrap_or_default()
         .as_secs();
     let d = now.saturating_sub(then);
-    if d < 5 {
-        "just now".into()
-    } else if d < 60 {
-        format!("{d}s ago")
+    let (n, unit): (u64, &str) = if d < 60 {
+        (d, "s")
     } else if d < 3600 {
-        format!("{}m ago", d / 60)
+        (d / 60, "m")
     } else if d < 86_400 {
-        format!("{}h ago", d / 3600)
+        (d / 3600, "h")
     } else {
-        format!("{}d ago", d / 86_400)
+        (d / 86_400, "d")
+    };
+    if d < 5 {
+        return match locale {
+            "zh" => "刚刚",
+            "ja" => "たった今",
+            _ => "just now",
+        }
+        .to_string();
     }
+    match locale {
+        "zh" => {
+            let u = match unit { "s" => "秒", "m" => "分钟", "h" => "小时", _ => "天" };
+            format!("{n}{u}前")
+        }
+        "ja" => {
+            let u = match unit { "s" => "秒", "m" => "分", "h" => "時間", _ => "日" };
+            format!("{n}{u}前")
+        }
+        _ => format!("{n}{unit} ago"),
+    }
+}
+
+/// Localized "last synced …" phrase for the tray status line / tooltip.
+#[cfg(not(target_os = "ios"))]
+fn last_sync_phrase(locale: &str, last_sync: Option<&str>) -> String {
+    match last_sync {
+        None => menu_label(locale, "sync.neverSynced"),
+        Some(ts) => {
+            let rel = relative_time(ts, locale);
+            match locale {
+                "zh" => format!("{rel}同步"),
+                "ja" => format!("{rel}に同期"),
+                _ => format!("synced {rel}"),
+            }
+        }
+    }
+}
+
+/// Localized human label for a sync state.
+#[cfg(not(target_os = "ios"))]
+fn state_label(locale: &str, state: vault_sync::SyncState) -> String {
+    use vault_sync::SyncState;
+    let key = match state {
+        SyncState::NotConfigured => "sync.state.notConfigured",
+        SyncState::Stopped => "sync.state.stopped",
+        SyncState::Running => "sync.state.running",
+        SyncState::Syncing => "sync.state.syncing",
+        SyncState::Conflict => "sync.state.conflict",
+        SyncState::Error => "sync.state.error",
+        SyncState::GitUnavailable => "sync.state.gitUnavailable",
+    };
+    menu_label(locale, key)
 }
 
 /// Flat, font-harmonized status dot shown to the left of the tray dropdown's
@@ -685,11 +735,13 @@ pub fn refresh_tray_status(app: &tauri::AppHandle) {
     let active = matches!(state, SyncState::Running | SyncState::Syncing);
     let problem = state.is_problem();
 
-    let last = last_sync
-        .as_deref()
-        .map(relative_time)
-        .unwrap_or_else(|| "never".into());
-    let tooltip = format!("note.md — Sync: {} · last {}", state.label(), last);
+    let locale = read_saved_locale(app);
+    let status_text = format!(
+        "{} · {}",
+        state_label(&locale, state),
+        last_sync_phrase(&locale, last_sync.as_deref()),
+    );
+    let tooltip = format!("note.md — {}: {}", menu_label(&locale, "sync.label"), status_text);
 
     if let Some(tray) = app.tray_by_id("main") {
         let icon = if problem {
@@ -710,7 +762,7 @@ pub fn refresh_tray_status(app: &tauri::AppHandle) {
     if let Some(status_state) = app.try_state::<TrayStatusItem>() {
         if let Some(item) = status_state.0.lock().unwrap().as_ref() {
             let _ = item.set_icon(status_dot_image(state));
-            let _ = item.set_text(format!("{} · last {}", state.label(), last));
+            let _ = item.set_text(&status_text);
         }
     }
 }
@@ -1136,7 +1188,8 @@ fn update_recent_menu(app: tauri::AppHandle, items: Vec<RecentMenuItem>) -> Resu
     }
 
     if items.is_empty() {
-        let placeholder = MenuItemBuilder::with_id("recent-none", "No Recent Files")
+        let locale = read_saved_locale(&app);
+        let placeholder = MenuItemBuilder::with_id("recent-none", menu_label(&locale, "file.noRecent"))
             .enabled(false)
             .build(&app)
             .map_err(|e| e.to_string())?;
@@ -1219,6 +1272,16 @@ fn menu_label(locale: &str, key: &str) -> String {
         "tray.openBooks" => ("Open Books", "打开 Books", "Books を開く"),
         "tray.openRawSync" => ("Open Raw Vault Sync", "打开原始 Vault 同步", "Raw Vault Sync を開く"),
         "tray.editAgents" => ("Edit AGENTS.md…", "编辑 AGENTS.md…", "AGENTS.md を編集…"),
+        // Sync status line / tooltip
+        "sync.label" => ("Sync", "同步", "同期"),
+        "sync.neverSynced" => ("never synced", "从未同步", "未同期"),
+        "sync.state.notConfigured" => ("Not configured", "未配置", "未設定"),
+        "sync.state.stopped" => ("Stopped", "已停止", "停止中"),
+        "sync.state.running" => ("Running", "运行中", "実行中"),
+        "sync.state.syncing" => ("Syncing…", "同步中…", "同期中…"),
+        "sync.state.conflict" => ("Conflict — needs attention", "有冲突 — 需处理", "競合 — 要対応"),
+        "sync.state.error" => ("Error", "出错", "エラー"),
+        "sync.state.gitUnavailable" => ("Git unavailable", "Git 不可用", "Git 利用不可"),
         _ => (key, key, key),
     };
     match locale {
@@ -1279,7 +1342,13 @@ fn build_tray_menu<R: tauri::Runtime>(
     let (status_label, status_dot) = {
         let mgr = app.state::<std::sync::Arc<vault_sync::VaultSyncManager>>();
         let state = *mgr.state.lock().unwrap();
-        (state.label().to_string(), status_dot_image(state))
+        let last_sync = mgr.last_sync.lock().unwrap().clone();
+        let label = format!(
+            "{} · {}",
+            state_label(locale, state),
+            last_sync_phrase(locale, last_sync.as_deref()),
+        );
+        (label, status_dot_image(state))
     };
     // Informational (disabled) status line with a flat colored dot icon so the
     // dropdown always shows health in a style that harmonizes with the menu font.
