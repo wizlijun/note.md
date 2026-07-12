@@ -8,6 +8,8 @@
   import ExternalChangeBanner from './ExternalChangeBanner.svelte'
   import OutlineEditor from './outline/OutlineEditor.svelte'
   import { isOutlineNoteTab } from '../lib/outline/gate.svelte'
+  import { isDiffPreviewTab } from '../lib/tabs.svelte'
+  import DiffView from './history/DiffView.svelte'
   import SyncOriginBanner from './SyncOriginBanner.svelte'
   import SyncToVaultBanner from './SyncToVaultBanner.svelte'
   import { offsetToLineCol, lineColToOffset } from '../lib/cursor-preserve'
@@ -90,6 +92,10 @@
   {:else if tab.kind === 'spreadsheet' && tab.mode !== 'source'}
     {#key tab.id}
       <CsvEditor {tab} />
+    {/key}
+  {:else if isDiffPreviewTab(tab)}
+    {#key tab.id}
+      <DiffView content={tab.currentContent} />
     {/key}
   {:else if tab.mode === 'source'}
     {#key tab.id}

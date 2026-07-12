@@ -257,6 +257,13 @@ export function openTextTab(opts: {
   notifyInsights('onActiveDocChanged')
 }
 
+/** True for the in-memory, read-only unified-diff tabs opened by the git-history
+ *  panel (kind 'code', language 'diff', no backing file). EditorPane renders
+ *  these with the colored DiffView instead of the plain source editor. */
+export function isDiffPreviewTab(tab: { kind: FileKind; language?: string; filePath: string }): boolean {
+  return tab.kind === 'code' && tab.language === 'diff' && tab.filePath === ''
+}
+
 export function toggleMode(id: string): void {
   const t = tabs.find((x) => x.id === id)
   if (!t) return
