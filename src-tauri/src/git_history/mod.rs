@@ -20,6 +20,10 @@ pub struct GitCommit {
 /// Separator, 0x1f — will never appear in a one-line subject).
 const FS: char = '\u{1f}';
 
+/// `git log --format` string. The field separators are literal U+001F bytes and
+/// MUST match `FS` above so `parse_log` splits correctly.
+const LOG_FORMAT: &str = "--format=%H\u{1f}%h\u{1f}%an\u{1f}%at\u{1f}%s";
+
 /// Parse the `git log --format=%H<FS>%h<FS>%an<FS>%at<FS>%s` output (one commit
 /// per line) into structured commits. Blank lines and malformed lines are skipped.
 pub fn parse_log(stdout: &str) -> Vec<GitCommit> {
@@ -49,11 +53,6 @@ pub fn rel_path(repo: &Path, abs: &Path) -> Result<String, String> {
     Ok(rel.to_string_lossy().replace('\\', "/"))
 }
 
-/// The `git log` format string. Newest commit first, one line each.
-fn log_format() -> String {
-    format!("--format=%H{FS}%h{FS}%an{FS}%at{FS}%s")
-}
-
 /// Commit history for a single file. Returns an empty list when the file has no
 /// history; returns `Err("git-unavailable")` when git isn't runnable so the UI
 /// can show a distinct empty state.
@@ -66,7 +65,7 @@ pub fn git_file_log(repo: String, abs_path: String) -> Result<Vec<GitCommit>, St
     let rel = rel_path(repo_path, Path::new(&abs_path))?;
     let out = git_ops::run_git(
         repo_path,
-        &["log", "--follow", &log_format(), "--", &rel],
+        &["log", "--follow", LOG_FORMAT, "--", &rel],
     )?;
     Ok(parse_log(&out))
 }
