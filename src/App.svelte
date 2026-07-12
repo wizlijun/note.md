@@ -637,6 +637,8 @@
       && !(current != null && isOutlineNoteTab(current))
   )
 
+  // History panel: opt-in plugin, mutually exclusive with the outline panel
+  // (enforced in dispatchPlugin). Only applies to files inside the vault repo.
   let showHistoryPanel = $derived(
     platformName !== 'ios' && historyGate.enabled && historyGate.visible
       && current != null && historyAppliesTo(current, sotvaultStore.vaultRoot)
@@ -645,7 +647,7 @@
   // Right-edge inset for the floating mode toggle: when the outline column is
   // showing it sits to the right of the editor, so push the toggle left by the
   // outline width to keep it over the editor (not hidden behind the panel).
-  let outlineRightOffset = $derived(
+  let rightPanelOffset = $derived(
     showHistoryPanel ? historyGate.width : showOutlinePanel ? outlineGate.width : 0
   )
 
@@ -724,7 +726,7 @@
     {/if}
     {#if current}
       {#if tabs.length === 1 && platformName !== 'ios'}
-        <div class="float-toggle" style="right: {outlineRightOffset + 28}px"><ModeToggle tab={current} /></div>
+        <div class="float-toggle" style="right: {rightPanelOffset + 28}px"><ModeToggle tab={current} /></div>
       {/if}
       <EditorPane tab={current} />
     {:else}
