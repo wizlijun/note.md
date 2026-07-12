@@ -371,6 +371,8 @@ export const ja: Record<keyof Messages, string> = {
   'history.diffTitle': '{short} · {name}.diff',
   'history.compareCurrent': '現在の版と比較',
   'history.diffCurrentTitle': '{short} ↔ 現在 · {name}.diff',
+  'history.preview': 'プレビュー',
+  'history.previewTitle': '{short} · {name}',
   'history.noDiff': '現在の文書と差分なし',
 
   // Folder view

@@ -402,6 +402,8 @@ export const zh: Record<keyof Messages, string> = {
   'history.diffTitle': '{short} · {name}.diff',
   'history.compareCurrent': '与当前版本对比',
   'history.diffCurrentTitle': '{short} ↔ 当前 · {name}.diff',
+  'history.preview': '预览',
+  'history.previewTitle': '{short} · {name}',
   'history.noDiff': '与当前文档无差异',
 
   // Folder view
