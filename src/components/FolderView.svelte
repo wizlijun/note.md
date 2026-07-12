@@ -1,18 +1,20 @@
 <script lang="ts">
   import {
-    folderView, setRootDir, setWidth, refreshAll, syncToActiveFile,
-    setVisible, parentDir, watchRoot, setFilter, clearFilter, revealInFinder,
+    folderView, setRootDir, refreshAll, syncToActiveFile,
+    parentDir, watchRoot, setFilter, clearFilter, revealInFinder,
     type FolderEntry,
   } from '../lib/folder-view.svelte'
+  import { setSideVisible } from '../lib/side-panel/registry.svelte'
   import { t } from '../lib/i18n/store.svelte'
   import { tick } from 'svelte'
-  import { openFile, updateTabPath } from '../lib/tabs.svelte'
+  import { openFile, updateTabPath, type Tab } from '../lib/tabs.svelte'
   import { showError } from '../lib/dialogs'
   import { planRename, executeRename } from '../lib/outline/rename-pair'
   import { pushToast } from '../lib/toast.svelte'
   import FolderTreeNode from './FolderTreeNode.svelte'
 
-  let { activePath }: { activePath: string | null } = $props()
+  let { tab }: { tab: Tab | null } = $props()
+  let activePath = $derived(tab?.filePath ?? null)
 
   // Keep the tree root in step with the active markdown file.
   $effect(() => { void syncToActiveFile(activePath) })
@@ -119,25 +121,11 @@
     if (ctx.open && e.key === 'Escape') { e.preventDefault(); closeCtxMenu() }
   }
 
-  // Drag-to-resize the sidebar width.
-  let asideEl: HTMLElement
-  let dragging = false
-  function startDrag(e: PointerEvent) {
-    dragging = true
-    ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
-  }
-  function onDrag(e: PointerEvent) {
-    if (dragging && asideEl) setWidth(e.clientX - asideEl.getBoundingClientRect().left)
-  }
-  function endDrag(e: PointerEvent) {
-    dragging = false
-    ;(e.target as HTMLElement).releasePointerCapture(e.pointerId)
-  }
 </script>
 
 <svelte:window onmousedown={onWindowMouseDown} onkeydown={onWindowKeyDown} />
 
-<aside bind:this={asideEl} class="folder-view" style="width: {folderView.width}px">
+<div class="folder-view-content">
   <div class="header">
     <button class="hbtn" onclick={goUp} disabled={!canGoUp} title={t('folderView.parentFolder')} aria-label={t('folderView.parentFolder')}>
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -159,7 +147,7 @@
         <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
       </svg>
     </button>
-    <button class="hbtn" onclick={() => setVisible(false)} title={t('folderView.hide')} aria-label={t('folderView.hide')}>
+    <button class="hbtn" onclick={() => void setSideVisible('left', false)} title={t('folderView.hide')} aria-label={t('folderView.hide')}>
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <rect x="3" y="3" width="18" height="18" rx="2" />
         <line x1="9" y1="3" x2="9" y2="21" />
@@ -204,15 +192,7 @@
       {/each}
     {/if}
   </div>
-  <div
-    class="splitter"
-    role="separator"
-    aria-orientation="vertical"
-    onpointerdown={startDrag}
-    onpointermove={onDrag}
-    onpointerup={endDrag}
-  ></div>
-</aside>
+</div>
 
 {#if ctx.open}
   <div class="node-ctx-menu menu-panel" role="menu" style="left: {ctx.x}px; top: {ctx.y}px">
@@ -228,13 +208,10 @@
 {/if}
 
 <style>
-  .folder-view {
-    position: relative;
-    flex: 0 0 auto;
+  .folder-view-content {
     height: 100%;
     display: flex; flex-direction: column;
     background: var(--drawer-bg, #f6f6f6);
-    border-right: 1px solid rgba(0,0,0,0.08);
     overflow: hidden;
     user-select: none;
     -webkit-user-select: none;
@@ -277,11 +254,6 @@
   .clear:hover { background: rgba(0,0,0,0.08); opacity: 1; }
   .tree { flex: 1; overflow: auto; padding: 4px 0; }
   .empty { padding: 12px 10px; opacity: 0.5; font-size: 13px; }
-  .splitter {
-    position: absolute; top: 0; right: 0; width: 5px; height: 100%;
-    cursor: col-resize; touch-action: none;
-  }
-  .splitter:hover { background: rgba(0,0,0,0.08); }
   /* Chrome comes from the shared .menu-panel / .menu-row classes in app.css. */
   .node-ctx-menu { position: fixed; z-index: 9998; min-width: 160px; }
   .node-ctx-item {
@@ -289,13 +261,12 @@
     border: 0; font: inherit;
   }
   @media (prefers-color-scheme: dark) {
-    .folder-view { background: var(--drawer-bg, #1c1c1e); border-right-color: rgba(255,255,255,0.08); }
+    .folder-view-content { background: var(--drawer-bg, #1c1c1e); }
     .header { border-bottom-color: rgba(255,255,255,0.06); }
     .hbtn:hover:not(:disabled) { background: rgba(255,255,255,0.1); }
     .hbtn.on { background: rgba(255,255,255,0.15); }
     .search { border-bottom-color: rgba(255,255,255,0.06); }
     .search-input { border-color: rgba(255,255,255,0.18); background: var(--input-bg, #2a2a2c); }
     .clear:hover { background: rgba(255,255,255,0.12); }
-    .splitter:hover { background: rgba(255,255,255,0.1); }
   }
 </style>
