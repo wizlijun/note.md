@@ -652,10 +652,11 @@ fn relative_time(unix_secs: &str) -> String {
     }
 }
 
-/// Refresh the menu-bar tray icon, title, tooltip and status menu item so the
-/// current version-control health is always visible at a glance. Only healthy
-/// active sync shows the green badge icon; problems drop the badge and add a
-/// prominent "⚠" title next to the icon.
+/// Refresh the menu-bar tray icon, tooltip and status menu item so the current
+/// version-control health is always visible at a glance. The bottom-right dot
+/// on the icon mirrors the vault git status: green = healthy, red = problem
+/// (git unavailable / error / conflict), no dot = stopped / not configured.
+/// The icon glyph itself stays clean — status is conveyed by the dot only.
 #[cfg(not(target_os = "ios"))]
 pub fn refresh_tray_status(app: &tauri::AppHandle) {
     use vault_sync::{SyncState, VaultSyncManager};
@@ -664,16 +665,9 @@ pub fn refresh_tray_status(app: &tauri::AppHandle) {
     let state = *mgr.state.lock().unwrap();
     let last_sync = mgr.last_sync.lock().unwrap().clone();
 
-    // Green badge only when a sync is genuinely healthy / in progress.
+    // Dot indicator states mirroring the vault git status.
     let active = matches!(state, SyncState::Running | SyncState::Syncing);
-
-    // Short prominent title shown right next to the icon in the menu bar.
-    let title: Option<&str> = match state {
-        SyncState::Syncing => Some("↻"),
-        SyncState::Conflict | SyncState::Error => Some("⚠"),
-        SyncState::GitUnavailable => Some("⚠ Git"),
-        _ => None,
-    };
+    let problem = state.is_problem();
 
     let last = last_sync
         .as_deref()
@@ -682,7 +676,9 @@ pub fn refresh_tray_status(app: &tauri::AppHandle) {
     let tooltip = format!("note.md — Sync: {} · last {}", state.label(), last);
 
     if let Some(tray) = app.tray_by_id("main") {
-        let icon = if active {
+        let icon = if problem {
+            Image::from_bytes(include_bytes!("../icons/tray-icon-error.png"))
+        } else if active {
             Image::from_bytes(include_bytes!("../icons/tray-icon-active.png"))
         } else {
             Image::from_bytes(include_bytes!("../icons/tray-icon.png"))
@@ -690,7 +686,8 @@ pub fn refresh_tray_status(app: &tauri::AppHandle) {
         if let Ok(img) = icon {
             let _ = tray.set_icon(Some(img));
         }
-        let _ = tray.set_title(title);
+        // Keep the menu-bar glyph clean: no text title next to the icon.
+        let _ = tray.set_title(None::<&str>);
         let _ = tray.set_tooltip(Some(&tooltip));
     }
 
