@@ -66,7 +66,17 @@ export function upsertTab(tabs: PreviewTab[], tab: PreviewTab): { tabs: PreviewT
 ### 前端 `src/lib/git-history/preview.ts`
 
 - 私有 `open(tabId, title, kind, content)` → `invoke('open_preview_tab', { tabId, title, kind, content })`。
-- `openDiffPreview(short,title,diff)` → tabId `diff-${short}`；`openComparePreview` → `cmp-${short}`；`openRichPreview` → `rich-${short}`（rich 仍在主窗口 `renderTabAsInlineBody`+`wrapPrintHtml` 生成 HTML 后传入）。
+- `openDiffPreview(short,title,diff)` → tabId `diff-${short}`；`openComparePreview` → `cmp-${short}`；`openRichPreview` → `rich-${short}`。
+
+### rich 预览跟随配置主题（新增要求）
+
+rich 预览**必须跟随用户当前配置的编辑器主题**（Typora/自定义主题），而不是固定打印样式。改法：`openRichPreview` 在主窗口用 `bakeShareHtml(syntheticTab, activeTheme.id)` 生成 HTML，**替换原来的 `renderTabAsInlineBody`+`wrapPrintHtml`（pdf.css）**。
+
+- `bakeShareHtml`（`src/lib/plugins/share-baker.ts`，`async (tab, themeId?) => string`）已产出完全自包含、**主题感知**的 HTML：内联 katex CSS、hljs（浅/深）、`themeCssBlock()` 基础响应式、通过 `readThemeCss(themeId)` 读入的**用户主题 CSS**、mobile overrides，body 带 `data-theme`。
+- 主题 id 用 `activeTheme.id`（`src/lib/active-theme.svelte.ts`）——App.svelte 已按 `settings.theme.{light,dark,followSystem}` + 系统深浅色算好当前活跃主题。
+- 生成的 HTML 内含 `@media (prefers-color-scheme: dark)`，故 iframe 里**系统深浅色切换自动生效**。
+- 主窗口 bake、预览窗口只塞 iframe（不改预览窗口对 rich 的处理，仍是 `srcdoc` iframe）。
+- **实现时验证**：`bakeShareHtml` 不应注入分享专用的可见 chrome（页头/水印/分享按钮）——若有，抽出一个更精简的"主题化 wrap" helper（复用其 katex+hljs+readThemeCss+themeCssBlock+mobileOverrides 的内联，去掉分享元数据）。diff/对比不受影响（仍是纯 diff 文本 → DiffView）。
 
 ### capabilities
 
@@ -82,7 +92,7 @@ export function upsertTab(tabs: PreviewTab[], tab: PreviewTab): { tabs: PreviewT
 
 - **Rust 单测**：stash → drain（返回全部并清空）、多次 drain（第二次空）、drain 保序/去重由前端负责。
 - **前端单测**：`formatDateTime`（固定时间戳→字符串）、`upsertTab`（新增、同 id 更新+激活、激活 id 正确）。
-- **GUI 实机验证**：历史行新布局；预览/diff/对比进入同一窗口的不同 tab；同版本同类型复用 tab；切换/关闭 tab；关最后一个 tab 关窗；深浅色。
+- **GUI 实机验证**：历史行新布局；预览/diff/对比进入同一窗口的不同 tab；同版本同类型复用 tab；切换/关闭 tab；关最后一个 tab 关窗；**rich 预览跟随当前配置主题**（换主题后重开预览观感随之变）；系统深浅色切换自动生效。
 
 ## 非目标（YAGNI）
 
@@ -90,3 +100,4 @@ export function upsertTab(tabs: PreviewTab[], tab: PreviewTab): { tabs: PreviewT
 - 不做窗口尺寸记忆。
 - 恢复动作不变（仍写编辑缓冲、不开窗/ tab）。
 - 历史行不加头像、不加相对时间副标（只用绝对时间）。
+- rich 预览的主题在**打开那一刻**定格（+ 系统深浅色 media query 自动生效）；用户改主题**设置**后已打开的预览窗口不做实时重 bake 同步（重开即更新）。
