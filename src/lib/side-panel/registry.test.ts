@@ -77,4 +77,11 @@ describe('toggleSideView', () => {
     await toggleSideView('git-history')
     expect(sidePanels.right.visible).toBe(false)
   })
+  it('does not throw and leaves state unchanged for unknown id', async () => {
+    const leftBefore = { ...sidePanels.left }
+    const rightBefore = { ...sidePanels.right }
+    await expect(toggleSideView('nonexistent-id')).resolves.toBeUndefined()
+    expect(sidePanels.left).toEqual(leftBefore)
+    expect(sidePanels.right).toEqual(rightBefore)
+  })
 })

@@ -52,16 +52,24 @@ async function getStore() {
   return store
 }
 
-export async function setSideVisible(side: Side, v: boolean): Promise<void> {
+// Private helpers: mutate state + s.set(...) but do NOT call s.save().
+async function persistVisible(side: Side, v: boolean, s: Awaited<ReturnType<typeof getStore>>) {
   sidePanels[side].visible = v
-  const s = await getStore()
   await s.set(`sidebar.${side}.visible`, v)
+}
+async function persistActive(side: Side, id: string, s: Awaited<ReturnType<typeof getStore>>) {
+  sidePanels[side].activeId = id
+  await s.set(`sidebar.${side}.activeId`, id)
+}
+
+export async function setSideVisible(side: Side, v: boolean): Promise<void> {
+  const s = await getStore()
+  await persistVisible(side, v, s)
   await s.save()
 }
 export async function setActiveView(side: Side, id: string): Promise<void> {
-  sidePanels[side].activeId = id
   const s = await getStore()
-  await s.set(`sidebar.${side}.activeId`, id)
+  await persistActive(side, id, s)
   await s.save()
 }
 /** Update width in state only (clamped, no persist). Call during drag. */
@@ -81,8 +89,10 @@ export async function toggleSideView(id: string): Promise<void> {
   const view = getSideView(id)
   if (!view) return
   const r = computeToggle(sidePanels[view.side], view)
-  await setActiveView(view.side, r.activeId)
-  await setSideVisible(view.side, r.visible)
+  const s = await getStore()
+  await persistActive(view.side, r.activeId, s)
+  await persistVisible(view.side, r.visible, s)
+  await s.save()
 }
 
 /** Hydrate per-side state; migrate from legacy keys on first run. */
