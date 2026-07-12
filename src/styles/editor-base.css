@@ -43,8 +43,14 @@
   user-select: none;
   color: #b8860b;
   font-size: 0.72em;
-  vertical-align: super;
-  line-height: 1;
+  /* Raise like a superscript WITHOUT growing the line box: `vertical-align:
+     super` on an inline-block enlarges the line height (badly visible on large
+     headings). Relative offset shifts it visually and leaves line metrics
+     untouched. line-height:0 keeps the badge from contributing its own leading. */
+  vertical-align: baseline;
+  position: relative;
+  top: -0.4em;
+  line-height: 0;
   margin: 0 1px;
 }
 .moraya-editor .note-badge::before,

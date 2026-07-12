@@ -1,6 +1,6 @@
 import type { EditorView } from 'prosemirror-view'
 import type { Node as PMNode } from 'prosemirror-model'
-import { noteUi } from './note-ui.svelte'
+import { noteUi, readThemeStyle } from './note-ui.svelte'
 
 /**
  * Clean a note string so it cannot break out of its CriticMarkup container:
@@ -65,6 +65,7 @@ export function openEditForMark(view: EditorView, pos: number, anchor: DOMRect) 
     x: anchor.left,
     y: anchor.bottom + 4,
     note: range.note,
+    style: readThemeStyle(view.dom),
     save(next) {
       const r = findAnnotationRange(view.state.doc, pos)
       if (!r) return
@@ -96,6 +97,7 @@ export function openEditForAnchor(view: EditorView, pos: number, anchor: DOMRect
     x: anchor.left,
     y: anchor.bottom + 4,
     note: node.attrs.note as string,
+    style: readThemeStyle(view.dom),
     save(next) {
       const n = view.state.doc.nodeAt(pos)
       if (!n || n.type.name !== 'note_anchor') return

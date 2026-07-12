@@ -238,3 +238,32 @@ describe('deriveAutoItems — marks on headings (pure toc + child items)', () =>
     ])
   })
 })
+
+describe('deriveAutoItems — marks on H1 (no toc parent → root depth)', () => {
+  it('wrapped annotation on an H1: emits at root depth, no toc node for the H1', () => {
+    const md = '# 顶级标题{==词==}{>>批注<<}\n'
+    expect(deriveAutoItems(md)).toEqual([
+      { source: 'annotation', content: '词', note: '批注', depth: 0, anchorLine: 1 },
+    ])
+  })
+
+  it('point annotation on an H1: ※ node at root depth', () => {
+    const md = '# 顶级标题{>>备注<<}\n'
+    expect(deriveAutoItems(md)).toEqual([
+      { source: 'annotation', content: '※', note: '备注', depth: 0, anchorLine: 1 },
+    ])
+  })
+
+  it('H1 annotation sits at root; a following H2 subtree nests under itself', () => {
+    const md = '# 顶{>>顶注<<}\n## 子\n^^亮^^\n'
+    expect(deriveAutoItems(md)).toEqual([
+      { source: 'annotation', content: '※', note: '顶注', depth: 0, anchorLine: 1 },
+      { source: 'toc', content: '子', depth: 0, anchorLine: 2 },
+      { source: 'highlight', content: '亮', depth: 1, anchorLine: 3 },
+    ])
+  })
+
+  it('a plain H1 (no marks) still emits nothing', () => {
+    expect(deriveAutoItems('# 纯标题\n')).toEqual([])
+  })
+})

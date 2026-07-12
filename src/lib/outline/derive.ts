@@ -106,6 +106,34 @@ export function deriveAutoItems(md: string): AutoItem[] {
     }
   }
 
+  // Extract highlight/annotation/wikilink markers carried on a heading line and
+  // emit them as children of the current stack path (depth = stack.length). For
+  // H1 the stack is empty, so its markers land at root depth 0 (H1 itself is
+  // never a toc node) — that's how an annotation on an H1 still reaches the
+  // outline instead of being dropped with the skipped H1.
+  const emitHeadingMarkers = (rawTitle: string, li: number) => {
+    for (const m of rawTitle.matchAll(INLINE_RE)) {
+      const anchorLine = li + 1
+      if (m[1] != null) {
+        const text = m[1].trim()
+        if (!text) continue
+        emitHeadingPath()
+        items.push({ source: 'annotation', content: text, note: m[2], depth: stack.length, anchorLine })
+      } else if (m[3] != null) {
+        emitHeadingPath()
+        items.push({ source: 'annotation', content: ANNOTATION_MARK, note: m[3], depth: stack.length, anchorLine })
+      } else if (m[6] != null) {
+        emitHeadingPath()
+        items.push({ source: 'wikilink', content: `[[${m[6]}]]`, depth: stack.length, anchorLine })
+      } else {
+        const text = (m[4] ?? m[5] ?? '').trim()
+        if (!text) continue
+        emitHeadingPath()
+        items.push({ source: 'highlight', content: text, depth: stack.length, anchorLine })
+      }
+    }
+  }
+
   for (let li = start; li < lines.length; li++) {
     const line = lines[li]
     if (/^(```|~~~)/.test(line.trim())) { inFence = !inFence; continue }
@@ -114,31 +142,18 @@ export function deriveAutoItems(md: string): AutoItem[] {
     const h = line.match(HEADING_RE)
     if (h) {
       const level = h[1].length
-      if (level === 1) { stack.length = 0; continue }   // skip H1, reset context
-      while (stack.length && stack[stack.length - 1].level >= level) stack.pop()
       const rawTitle = h[2].trim()
+      if (level === 1) {
+        // H1 resets sub-heading context and is not itself a toc node, but any
+        // marks on its title still surface — at root depth (empty stack).
+        stack.length = 0
+        emitHeadingMarkers(rawTitle, li)
+        continue
+      }
+      while (stack.length && stack[stack.length - 1].level >= level) stack.pop()
       stack.push({ level, content: cleanHeading(rawTitle), anchorLine: li + 1, emitted: false })
       // 标题上的高亮/批注/wikilink：toc 保持纯净，标记降为 toc 的子节点显示。
-      for (const m of rawTitle.matchAll(INLINE_RE)) {
-        const anchorLine = li + 1
-        if (m[1] != null) {
-          const text = m[1].trim()
-          if (!text) continue
-          emitHeadingPath()
-          items.push({ source: 'annotation', content: text, note: m[2], depth: stack.length, anchorLine })
-        } else if (m[3] != null) {
-          emitHeadingPath()
-          items.push({ source: 'annotation', content: ANNOTATION_MARK, note: m[3], depth: stack.length, anchorLine })
-        } else if (m[6] != null) {
-          emitHeadingPath()
-          items.push({ source: 'wikilink', content: `[[${m[6]}]]`, depth: stack.length, anchorLine })
-        } else {
-          const text = (m[4] ?? m[5] ?? '').trim()
-          if (!text) continue
-          emitHeadingPath()
-          items.push({ source: 'highlight', content: text, depth: stack.length, anchorLine })
-        }
-      }
+      emitHeadingMarkers(rawTitle, li)
       continue
     }
 
