@@ -24,7 +24,7 @@
   import { getSlashItems, filterSlashItems, type SlashItem } from '../lib/slash-menu/slash-items'
   import EditorContextMenu, { type EditorActions } from '../lib/context-menu/EditorContextMenu.svelte'
   import { createRichActions } from '../lib/context-menu/rich-actions'
-  import { noteUi } from '../lib/note-anno/note-ui.svelte'
+  import { noteUi, readThemeStyle } from '../lib/note-anno/note-ui.svelte'
   import { openEditForMark, openEditForAnchor, insertNoteRich } from '../lib/note-anno/note-commands'
   import NotePopover from '../lib/note-anno/NotePopover.svelte'
   import NoteEditPopup from '../lib/note-anno/NoteEditPopup.svelte'
@@ -255,7 +255,7 @@
     const el = (e.target as HTMLElement).closest('[data-note]') as HTMLElement | null
     if (!el || !el.dataset.note) { noteUi.hover = null; return }
     const rect = el.getBoundingClientRect()
-    noteUi.hover = { x: rect.left, y: rect.bottom + 4, note: el.dataset.note }
+    noteUi.hover = { x: rect.left, y: rect.bottom + 4, note: el.dataset.note, style: readThemeStyle(el) }
   }
 
   function handleImageClick(event: MouseEvent) {

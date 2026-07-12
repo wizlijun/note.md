@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { noteUi } from './note-ui.svelte'
+  import { noteUi, styleVars } from './note-ui.svelte'
   import { t } from '../i18n/store.svelte'
   import { iconSvg } from '../context-menu/icons'
 
@@ -49,7 +49,7 @@
 <div
   class="note-edit menu-panel"
   bind:this={root}
-  style="left:{editState.x}px; top:{editState.y}px"
+  style="left:{editState.x}px; top:{editState.y}px; {styleVars(editState.style)}"
   onkeydown={onKeydown}
   role="dialog"
   aria-label={t('ctxmenu.note')}
@@ -73,7 +73,10 @@
 </div>
 
 <style>
-  /* Chrome comes from the shared .menu-panel class in app.css. */
+  /* Chrome comes from the shared .menu-panel class in app.css.
+     --note-bg/--note-fg carry the current document theme's rendered surface
+     and text colors (set inline when the popup opens); they fall back to the
+     system Canvas/CanvasText chrome when no theme colors were captured. */
   .note-edit {
     position: fixed;
     z-index: 1001;
@@ -81,23 +84,35 @@
     padding: 6px;
     font: inherit;
     font-size: 13px;
+    background: color-mix(in srgb, var(--note-bg, Canvas) 82%, transparent);
+    color: var(--note-fg, CanvasText);
+    border-color: color-mix(in srgb, var(--note-fg, CanvasText) 22%, transparent);
   }
   textarea {
     width: 100%;
     box-sizing: border-box;
     resize: none;
-    font: inherit;
-    font-size: 13px;
-    line-height: 1.5;
-    color: CanvasText;
-    background: color-mix(in srgb, CanvasText 5%, Canvas);
+    /* Typography follows the document theme (serif body type, line spacing, …)
+       so what you type matches how the annotation renders in the page. */
+    font-family: var(--note-font-family, inherit);
+    font-size: var(--note-font-size, 13px);
+    font-weight: var(--note-font-weight, 400);
+    font-style: var(--note-font-style, normal);
+    line-height: var(--note-line-height, 1.5);
+    letter-spacing: var(--note-letter-spacing, normal);
+    font-feature-settings: var(--note-font-feature, normal);
+    color: var(--note-fg, CanvasText);
+    background: color-mix(in srgb, var(--note-fg, CanvasText) 5%, var(--note-bg, Canvas));
     border: none;
     border-radius: 5px;
     padding: 6px 8px;
     outline: none;
   }
   textarea:focus {
-    background: color-mix(in srgb, CanvasText 9%, Canvas);
+    background: color-mix(in srgb, var(--note-fg, CanvasText) 9%, var(--note-bg, Canvas));
+  }
+  textarea::placeholder {
+    color: color-mix(in srgb, var(--note-fg, CanvasText) 45%, transparent);
   }
   .row { display: flex; justify-content: flex-end; margin-top: 4px; }
   .del {
@@ -111,11 +126,11 @@
     border: none;
     border-radius: 5px;
     cursor: pointer;
-    color: color-mix(in srgb, CanvasText 65%, Canvas);
+    color: color-mix(in srgb, var(--note-fg, CanvasText) 65%, var(--note-bg, Canvas));
   }
   .del:hover {
-    background: color-mix(in srgb, CanvasText 10%, Canvas);
-    color: CanvasText;
+    background: color-mix(in srgb, var(--note-fg, CanvasText) 10%, var(--note-bg, Canvas));
+    color: var(--note-fg, CanvasText);
   }
   /* iconSvg() emits class="ctx-icon" inside {@html} — style it unscoped. */
   :global(.note-edit .ctx-icon) { width: 15px; height: 15px; display: block; }
