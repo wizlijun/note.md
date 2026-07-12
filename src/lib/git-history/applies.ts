@@ -10,15 +10,9 @@ export function historyAppliesTo(
   return isUnder(tab.filePath, vaultRoot)
 }
 
-/** Compact relative time for a Unix-seconds timestamp. `now` (seconds) is
- *  injectable for deterministic tests; defaults to the wall clock. */
-export function relTime(ts: number, now: number = Date.now() / 1000): string {
-  const s = Math.max(0, Math.floor(now - ts))
-  if (s < 60) return 'just now'
-  const m = Math.floor(s / 60)
-  if (m < 60) return `${m}m`
-  const h = Math.floor(m / 60)
-  if (h < 24) return `${h}h`
-  const d = Math.floor(h / 24)
-  return `${d}d`
+/** Local `yyyy-MM-dd HH:mm` for a Unix-seconds timestamp. Pure (no runes). */
+export function formatDateTime(ts: number): string {
+  const d = new Date(ts * 1000)
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
 }
