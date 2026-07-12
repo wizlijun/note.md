@@ -7,8 +7,8 @@ use std::sync::Mutex;
 use tauri::image::Image;
 #[cfg(not(target_os = "ios"))]
 use tauri::menu::{
-    AboutMetadata, Menu, MenuBuilder, MenuItem, MenuItemBuilder, MenuItemKind, PredefinedMenuItem,
-    Submenu, SubmenuBuilder,
+    AboutMetadata, IconMenuItem, Menu, MenuBuilder, MenuItem, MenuItemBuilder, MenuItemKind,
+    PredefinedMenuItem, Submenu, SubmenuBuilder,
 };
 #[cfg(not(target_os = "ios"))]
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
@@ -43,7 +43,7 @@ pub struct PendingFiles(Mutex<Vec<String>>);
 #[cfg(not(target_os = "ios"))]
 pub struct TrayRepoItem(Mutex<Option<MenuItem<tauri::Wry>>>);
 #[cfg(not(target_os = "ios"))]
-pub struct TrayStatusItem(Mutex<Option<MenuItem<tauri::Wry>>>);
+pub struct TrayStatusItem(Mutex<Option<IconMenuItem<tauri::Wry>>>);
 #[cfg(not(target_os = "ios"))]
 pub struct RecentMenu(pub Mutex<Option<Submenu<tauri::Wry>>>);
 
@@ -652,6 +652,22 @@ fn relative_time(unix_secs: &str) -> String {
     }
 }
 
+/// Flat, font-harmonized status dot shown to the left of the tray dropdown's
+/// status line: green = healthy, red = problem, grey = idle. These are plain
+/// filled circles (no gloss) so they sit cleanly next to the menu text.
+#[cfg(not(target_os = "ios"))]
+fn status_dot_image(state: vault_sync::SyncState) -> Option<Image<'static>> {
+    use vault_sync::SyncState;
+    let bytes: &'static [u8] = if state.is_problem() {
+        include_bytes!("../icons/dot-red.png")
+    } else if matches!(state, SyncState::Running | SyncState::Syncing) {
+        include_bytes!("../icons/dot-green.png")
+    } else {
+        include_bytes!("../icons/dot-grey.png")
+    };
+    Image::from_bytes(bytes).ok()
+}
+
 /// Refresh the menu-bar tray icon, tooltip and status menu item so the current
 /// version-control health is always visible at a glance. The bottom-right dot
 /// on the icon mirrors the vault git status: green = healthy, red = problem
@@ -693,8 +709,8 @@ pub fn refresh_tray_status(app: &tauri::AppHandle) {
 
     if let Some(status_state) = app.try_state::<TrayStatusItem>() {
         if let Some(item) = status_state.0.lock().unwrap().as_ref() {
-            let dot = if state.is_problem() { "🔴" } else if active { "🟢" } else { "⚪️" };
-            let _ = item.set_text(&format!("{dot} {} · last {}", state.label(), last));
+            let _ = item.set_icon(status_dot_image(state));
+            let _ = item.set_text(format!("{} · last {}", state.label(), last));
         }
     }
 }
@@ -1243,7 +1259,7 @@ fn read_saved_locale<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> String {
 fn build_tray_menu<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
     locale: &str,
-) -> tauri::Result<(Menu<R>, MenuItem<R>, MenuItem<R>)> {
+) -> tauri::Result<(Menu<R>, MenuItem<R>, IconMenuItem<R>)> {
     let show_item = MenuItem::with_id(app, "tray-show", menu_label(locale, "tray.show"), true, None::<&str>)?;
     let today_note_item = MenuItem::with_id(app, "tray-today-note", menu_label(locale, "tray.todayNote"), true, None::<&str>)?;
     let openclaw_item = if plugin_host::is_plugin_enabled("openclaw-chat") {
@@ -1260,20 +1276,21 @@ fn build_tray_menu<R: tauri::Runtime>(
         }
     };
     let sync_repo_item = MenuItem::with_id(app, "tray-sync-repo", &sync_repo_label, true, None::<&str>)?;
-    let status_label = {
+    let (status_label, status_dot) = {
         let mgr = app.state::<std::sync::Arc<vault_sync::VaultSyncManager>>();
         let state = *mgr.state.lock().unwrap();
-        let dot = if state.is_problem() {
-            "🔴"
-        } else if matches!(state, vault_sync::SyncState::Running | vault_sync::SyncState::Syncing) {
-            "🟢"
-        } else {
-            "⚪️"
-        };
-        format!("{dot} {}", state.label())
+        (state.label().to_string(), status_dot_image(state))
     };
-    // Informational (disabled) status line so the dropdown always shows health.
-    let status_item = MenuItem::with_id(app, "tray-sync-status", &status_label, /*enabled=*/ false, None::<&str>)?;
+    // Informational (disabled) status line with a flat colored dot icon so the
+    // dropdown always shows health in a style that harmonizes with the menu font.
+    let status_item = IconMenuItem::with_id(
+        app,
+        "tray-sync-status",
+        &status_label,
+        /*enabled=*/ false,
+        status_dot,
+        None::<&str>,
+    )?;
     let sync_start_item = MenuItem::with_id(app, "tray-sync-start", menu_label(locale, "tray.startSync"), true, None::<&str>)?;
     let sync_stop_item = MenuItem::with_id(app, "tray-sync-stop", menu_label(locale, "tray.stopSync"), true, None::<&str>)?;
     let sync_now_item = MenuItem::with_id(app, "tray-sync-now", menu_label(locale, "tray.syncNow"), true, None::<&str>)?;
