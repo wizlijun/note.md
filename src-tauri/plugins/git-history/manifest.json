@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "description": "View the git commit history of the current vault file; diff or restore any past version.",
   "kind": "builtin",
-  "default_enabled": false,
+  "default_enabled": true,
   "host_capabilities": [],
   "menus": [
     {

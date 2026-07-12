@@ -1,7 +1,8 @@
 <script lang="ts">
   import { invoke } from '@tauri-apps/api/core'
   import type { Tab } from '../../lib/tabs.svelte'
-  import { openTextTab, setContent } from '../../lib/tabs.svelte'
+  import { setContent } from '../../lib/tabs.svelte'
+  import { openDiffPreview, openComparePreview, openRichPreview } from '../../lib/git-history/preview'
   import { basename } from '../../lib/fs'
   import { t } from '../../lib/i18n/store.svelte'
   import { pushToast } from '../../lib/toast.svelte'
@@ -54,7 +55,18 @@
     try {
       const diff = await invoke<string>('git_file_show', { repo: vaultRoot, rev: c.hash, absPath: tab.filePath })
       const title = t('history.diffTitle', { short: c.short, name: basename(tab.filePath) })
-      openTextTab({ title, content: diff, kind: 'code', language: 'diff' })
+      await openDiffPreview(c.short, title, diff)
+    } catch (e) {
+      pushToast({ level: 'error', message: t('history.loadFailed'), detail: String(e) })
+    }
+  }
+
+  async function onPreview(c: GitCommit) {
+    if (!tab || !vaultRoot) return
+    try {
+      const md = await invoke<string>('git_file_at', { repo: vaultRoot, rev: c.hash, absPath: tab.filePath })
+      const title = t('history.previewTitle', { short: c.short, name: basename(tab.filePath) })
+      await openRichPreview(c.short, title, tab, md)
     } catch (e) {
       pushToast({ level: 'error', message: t('history.loadFailed'), detail: String(e) })
     }
@@ -71,7 +83,7 @@
         return
       }
       const title = t('history.diffCurrentTitle', { short: c.short, name: basename(tab.filePath) })
-      openTextTab({ title, content: diff, kind: 'code', language: 'diff' })
+      await openComparePreview(c.short, title, diff)
     } catch (e) {
       pushToast({ level: 'error', message: t('history.loadFailed'), detail: String(e) })
     }
@@ -129,6 +141,7 @@
             </button>
             {#if selected === c.hash}
               <div class="actions">
+                <button class="abtn" onclick={() => void onPreview(c)}>{t('history.preview')}</button>
                 <button class="abtn" onclick={() => void onDiff(c)}>{t('history.diff')}</button>
                 <button class="abtn" onclick={() => void onCompareCurrent(c)}>{t('history.compareCurrent')}</button>
                 <button class="abtn" onclick={() => void onRestore(c)}>{t('history.restore')}</button>

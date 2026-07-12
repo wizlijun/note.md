@@ -2,7 +2,7 @@
   import { invoke } from '@tauri-apps/api/core'
   import { onMount } from 'svelte'
   import type { PluginManifest } from '../lib/plugins/types'
-  import { isPluginEnabled, setPluginEnabled } from '../lib/settings.svelte'
+  import { resolvePluginEnabled, setPluginEnabled } from '../lib/settings.svelte'
   import { t } from '../lib/i18n/store.svelte'
   import { pluginName, pluginDescription } from '../lib/plugins/plugin-i18n'
   import { sotvaultStore } from '../lib/sotvault.svelte'
@@ -15,7 +15,7 @@
   onMount(async () => {
     try {
       const all = await invoke<PluginManifest[]>('get_all_plugin_manifests')
-      rows = all.map((m) => ({ manifest: m, enabled: isPluginEnabled(m.id) }))
+      rows = all.map((m) => ({ manifest: m, enabled: resolvePluginEnabled(m) }))
     } catch (e) {
       console.warn('[PluginsSettingsTab] load:', e)
     }

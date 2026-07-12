@@ -262,3 +262,32 @@ describe('plugins.enabled', () => {
     expect(setCall?.[1]).toEqual({ foo: false })
   })
 })
+
+describe('resolvePluginEnabled (mirrors backend resolve_enabled)', () => {
+  it('honors an explicit stored value over the manifest default', async () => {
+    mockGet.mockImplementation(async (k: string) =>
+      k === 'plugins.enabled' ? { a: false, b: true } : undefined,
+    )
+    const { loadSettings, resolvePluginEnabled } = await import('./settings.svelte')
+    await loadSettings()
+    expect(resolvePluginEnabled({ id: 'a', kind: 'builtin', default_enabled: true })).toBe(false)
+    expect(resolvePluginEnabled({ id: 'b', kind: 'builtin', default_enabled: false })).toBe(true)
+  })
+
+  it('falls back to default_enabled for unset builtins (missing → off)', async () => {
+    mockGet.mockResolvedValue(undefined)
+    const { loadSettings, resolvePluginEnabled } = await import('./settings.svelte')
+    await loadSettings()
+    expect(resolvePluginEnabled({ id: 'on', kind: 'builtin', default_enabled: true })).toBe(true)
+    expect(resolvePluginEnabled({ id: 'off', kind: 'builtin', default_enabled: false })).toBe(false)
+    expect(resolvePluginEnabled({ id: 'bare', kind: 'builtin' })).toBe(false)
+  })
+
+  it('defaults unset external (or kind-less) plugins on', async () => {
+    mockGet.mockResolvedValue(undefined)
+    const { loadSettings, resolvePluginEnabled } = await import('./settings.svelte')
+    await loadSettings()
+    expect(resolvePluginEnabled({ id: 'ext', kind: 'external' })).toBe(true)
+    expect(resolvePluginEnabled({ id: 'nokind' })).toBe(true)
+  })
+})
