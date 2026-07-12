@@ -226,44 +226,6 @@ export function setContent(id: string, md: string): void {
   if (t) t.currentContent = md
 }
 
-/**
- * Open an in-memory, unsaved tab holding read-only-ish generated text (e.g. a
- * git diff). It has no filePath and `initialContent === currentContent`, so it
- * is never dirty and closes without a save prompt. Not watched, not persisted.
- */
-export function openTextTab(opts: {
-  title: string
-  content: string
-  kind?: FileKind
-  language?: string
-}): void {
-  const tab: Tab = {
-    id: crypto.randomUUID(),
-    filePath: '',
-    title: opts.title,
-    initialContent: opts.content,
-    currentContent: opts.content,
-    mode: 'source',
-    kind: opts.kind ?? 'code',
-    language: opts.language,
-    externalState: 'fresh',
-    externalBannerDismissed: false,
-    lastKnownMtime: 0,
-    lastKnownHash: '',
-    pendingExternal: undefined,
-  }
-  tabs.push(tab)
-  activeId.value = tab.id
-  notifyInsights('onActiveDocChanged')
-}
-
-/** True for the in-memory, read-only unified-diff tabs opened by the git-history
- *  panel (kind 'code', language 'diff', no backing file). EditorPane renders
- *  these with the colored DiffView instead of the plain source editor. */
-export function isDiffPreviewTab(tab: { kind: FileKind; language?: string; filePath: string }): boolean {
-  return tab.kind === 'code' && tab.language === 'diff' && tab.filePath === ''
-}
-
 export function toggleMode(id: string): void {
   const t = tabs.find((x) => x.id === id)
   if (!t) return
