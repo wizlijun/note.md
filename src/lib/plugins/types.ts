@@ -144,6 +144,9 @@ export interface EnabledWhenContext {
     isUntitled: boolean
     canSyncToVault?: boolean
     isTrackedVaultFile?: boolean
+    /** True when the current file lives inside the configured vault git repo
+     *  (drives the git-history menu item's enabled state). */
+    isInVault?: boolean
   } | null
   settings: Record<string, unknown>
   /** True once the user has configured a Vault (sotvault root is set). */

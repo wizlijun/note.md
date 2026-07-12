@@ -12,7 +12,7 @@
       "label": "History View",
       "shortcut": "Cmd+Shift+Y",
       "command": "toggle",
-      "enabled_when": "vaultConfigured"
+      "enabled_when": "currentTab.isInVault"
     }
   ],
   "i18n": {

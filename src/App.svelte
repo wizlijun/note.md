@@ -682,6 +682,7 @@
           isUntitled: !tab.filePath,
           canSyncToVault: canSyncActive(tab.filePath || null),
           isTrackedVaultFile: isTrackedVaultFile(tab.filePath || null),
+          isInVault: historyAppliesTo(tab, sotvaultStore.vaultRoot),
         }
       : null
 
