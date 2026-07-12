@@ -2,7 +2,7 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "note.md capabilities",
-  "windows": ["main", "cli", "chat", "insights", "roam-import", "preview-*"],
+  "windows": ["main", "cli", "chat", "insights", "roam-import", "preview"],
   "permissions": [
     "core:default",
     "core:window:allow-set-title",
