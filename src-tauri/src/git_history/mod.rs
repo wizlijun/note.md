@@ -26,15 +26,15 @@ pub fn parse_log(stdout: &str) -> Vec<GitCommit> {
     stdout
         .lines()
         .filter_map(|line| {
-            let mut parts = line.split(FS);
+            let mut parts = line.splitn(5, FS);
             let hash = parts.next()?.trim().to_string();
             if hash.is_empty() {
                 return None;
             }
-            let short = parts.next()?.to_string();
-            let author = parts.next()?.to_string();
+            let short = parts.next()?.trim().to_string();
+            let author = parts.next()?.trim().to_string();
             let timestamp = parts.next()?.trim().parse::<i64>().ok()?;
-            let subject = parts.next().unwrap_or("").to_string();
+            let subject = parts.next().unwrap_or("").trim().to_string();
             Some(GitCommit { hash, short, author, timestamp, subject })
         })
         .collect()
