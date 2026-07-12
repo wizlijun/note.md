@@ -21,7 +21,9 @@
   let vaultRoot = $derived(sotvaultStore.vaultRoot)
   let applicable = $derived(historyAppliesTo(tab, vaultRoot))
 
+  let loadSeq = 0
   async function load() {
+    const seq = ++loadSeq
     selected = null
     if (!tab || !applicable || !vaultRoot) {
       commits = []
@@ -30,9 +32,12 @@
     }
     loadState = 'loading'
     try {
-      commits = await invoke<GitCommit[]>('git_file_log', { repo: vaultRoot, absPath: tab.filePath })
+      const result = await invoke<GitCommit[]>('git_file_log', { repo: vaultRoot, absPath: tab.filePath })
+      if (seq !== loadSeq) return // superseded by a newer load
+      commits = result
       loadState = 'ready'
     } catch (e) {
+      if (seq !== loadSeq) return // superseded by a newer load
       commits = []
       loadState = String(e).includes('git-unavailable') ? 'git-unavailable' : 'error'
       if (loadState === 'error') console.warn('[git-history] log:', e)
@@ -111,6 +116,8 @@
     <div class="body"><p class="empty">{t('history.loadFailed')}</p></div>
   {:else if loadState === 'ready' && commits.length === 0}
     <div class="body"><p class="empty">{t('history.empty')}</p></div>
+  {:else if loadState === 'loading'}
+    <div class="body"><p class="empty">…</p></div>
   {:else}
     <div class="body">
       <ul class="commits">
@@ -166,7 +173,7 @@
     padding: 3px; border-radius: 4px; opacity: 0.7;
   }
   .hbtn svg { display: block; }
-  .hbtn:hover { background: rgba(0,0,0,0.08); opacity: 1; }
+  .hbtn:hover:not(:disabled) { background: rgba(0,0,0,0.08); opacity: 1; }
   .body { flex: 1; overflow-y: auto; padding: 8px; }
   .empty { opacity: 0.5; font-size: 12px; }
   .commits { list-style: none; margin: 0; padding: 0; }
@@ -188,7 +195,7 @@
   }
   .abtn:hover { background: rgba(0,0,0,0.06); }
   @media (prefers-color-scheme: dark) {
-    .hbtn:hover, .row:hover, .abtn:hover { background: rgba(255,255,255,0.1); }
+    .hbtn:hover:not(:disabled), .row:hover, .abtn:hover { background: rgba(255,255,255,0.1); }
     .commit.selected { background: rgba(255,255,255,0.08); }
   }
 </style>
