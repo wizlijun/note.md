@@ -236,6 +236,38 @@ export const renderTabBody = sharedRenderTabBody
 export const inlineImages = sharedInlineImages
 export const __setImageReaderForTests = sharedSetImageReader
 
+/** The shared inline `<style>` head used by both the share page and the
+ *  git-history rich preview: katex + hljs(light/dark) + base responsive block +
+ *  the user's theme CSS + mobile overrides + CriticMarkup. */
+function themedStyleHead(themeCss: string): string {
+  return `<style>${katexCss}</style>
+<style>${hljsLightCss}</style>
+<style>@media (prefers-color-scheme: dark) { ${hljsDarkCss} }</style>
+<style>${themeCssBlock()}</style>
+<style>${themeCss}</style>
+<style>${mobileOverridesCssBlock()}</style>
+<style>${CRITIC_CSS}</style>`
+}
+
+/** Render a Tab to a self-contained, THEME-STYLED HTML document for the
+ *  git-history rich preview. Same theme/katex/hljs styling as the share page,
+ *  but WITHOUT the share chrome (no header/footer/beacon). */
+export async function bakeThemedPreviewHtml(tab: Tab, themeId: string = 'default'): Promise<string> {
+  const inlineBody = await renderTabAsInlineBody(tab)
+  const themeCss = await readThemeCss(themeId)
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+${viewportMetaTag()}
+${themedStyleHead(themeCss)}
+</head>
+<body data-theme="${htmlEscape(themeId)}">
+<main class="moraya-editor">${inlineBody}</main>
+</body>
+</html>`
+}
+
 /**
  * Render a tab into a fully self-contained HTML document suitable for posting
  * to the share Worker. Inlines images as base64 (via the shared host-render
@@ -273,13 +305,7 @@ export async function bakeShareHtml(tab: Tab, themeId: string = 'default'): Prom
 <meta charset="utf-8">
 ${viewportMetaTag()}
 ${metadataBlock({ title: pageTitle, description, filename })}
-<style>${katexCss}</style>
-<style>${hljsLightCss}</style>
-<style>@media (prefers-color-scheme: dark) { ${hljsDarkCss} }</style>
-<style>${themeCssBlock()}</style>
-<style>${themeCss}</style>
-<style>${mobileOverridesCssBlock()}</style>
-<style>${CRITIC_CSS}</style>
+${themedStyleHead(themeCss)}
 </head>
 <body data-theme="${htmlEscape(themeId)}">
 <div class="share-shell">

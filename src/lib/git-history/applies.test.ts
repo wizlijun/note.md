@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { historyAppliesTo, relTime } from './applies'
+import { historyAppliesTo, formatDateTime } from './applies'
 
 describe('historyAppliesTo', () => {
   it('true when the file is under the vault root', () => {
@@ -19,18 +19,13 @@ describe('historyAppliesTo', () => {
   })
 })
 
-describe('relTime', () => {
-  const now = 1_700_000_000 // seconds
-  it('"just now" within a minute', () => {
-    expect(relTime(now - 5, now)).toBe('just now')
+describe('formatDateTime', () => {
+  it('formats a unix-seconds timestamp as local yyyy-MM-dd HH:mm', () => {
+    const ts = Math.floor(new Date(2026, 6, 12, 17, 36, 0).getTime() / 1000)
+    expect(formatDateTime(ts)).toBe('2026-07-12 17:36')
   })
-  it('minutes', () => {
-    expect(relTime(now - 120, now)).toBe('2m')
-  })
-  it('hours', () => {
-    expect(relTime(now - 3 * 3600, now)).toBe('3h')
-  })
-  it('days', () => {
-    expect(relTime(now - 2 * 86400, now)).toBe('2d')
+  it('zero-pads month, day, hour, minute', () => {
+    const ts = Math.floor(new Date(2026, 0, 3, 4, 5, 0).getTime() / 1000)
+    expect(formatDateTime(ts)).toBe('2026-01-03 04:05')
   })
 })

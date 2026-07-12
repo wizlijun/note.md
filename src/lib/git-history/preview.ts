@@ -1,31 +1,29 @@
 import { invoke } from '@tauri-apps/api/core'
 import type { Tab } from '../tabs.svelte'
-import { renderTabAsInlineBody } from '../plugins/host-render-html'
-import { wrapPrintHtml } from '../print'
+import { bakeThemedPreviewHtml } from '../plugins/share-baker'
+import { activeTheme } from '../active-theme.svelte'
 
-/** Open (or focus+refresh) a native preview window. `label` is unique per
- *  (kind + version) so the same version reuses its window and different
- *  versions open side-by-side. */
-async function open(label: string, title: string, kind: 'diff' | 'rich', content: string): Promise<void> {
-  await invoke('open_preview_window', { label, title, kind, content })
+/** Open (or add a tab to) the single native preview window. `tabId` is unique
+ *  per (kind + version) so the same version reuses its tab; different
+ *  versions/kinds get their own tabs. */
+async function open(tabId: string, title: string, kind: 'diff' | 'rich', content: string): Promise<void> {
+  await invoke('open_preview_tab', { tabId, title, kind, content })
 }
 
-/** A unified diff (git show / git diff) in a native window. */
+/** A unified diff (git show / git diff) as a preview tab. */
 export async function openDiffPreview(short: string, title: string, diff: string): Promise<void> {
-  await open(`preview-diff-${short}`, title, 'diff', diff)
+  await open(`diff-${short}`, title, 'diff', diff)
 }
 
-/** Diff of the selected version against the live editor buffer, in a window. */
+/** Diff of the selected version against the live editor buffer, as a tab. */
 export async function openComparePreview(short: string, title: string, diff: string): Promise<void> {
-  await open(`preview-cmp-${short}`, title, 'diff', diff)
+  await open(`cmp-${short}`, title, 'diff', diff)
 }
 
-/** Rich (rendered markdown) preview of a past version, in a window. Renders the
- *  historical markdown through the same pipeline as print/PDF into a
- *  self-contained styled HTML document. */
+/** Rich (rendered markdown) preview of a past version, as a tab. Rendered with
+ *  the user's CURRENT theme via `bakeThemedPreviewHtml`. */
 export async function openRichPreview(short: string, title: string, tab: Tab, markdown: string): Promise<void> {
   const synthetic: Tab = { ...tab, currentContent: markdown, initialContent: markdown }
-  const body = await renderTabAsInlineBody(synthetic)
-  const html = wrapPrintHtml(body, title)
-  await open(`preview-rich-${short}`, title, 'rich', html)
+  const html = await bakeThemedPreviewHtml(synthetic, activeTheme.id)
+  await open(`rich-${short}`, title, 'rich', html)
 }

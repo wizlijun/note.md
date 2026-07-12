@@ -1,7 +1,7 @@
 import { Store } from '@tauri-apps/plugin-store'
 import { isPluginEnabled } from '../settings.svelte'
 
-export { historyAppliesTo, relTime } from './applies'
+export { historyAppliesTo, formatDateTime } from './applies'
 
 export const PLUGIN_ID = 'git-history'
 export const DEFAULT_WIDTH = 360
