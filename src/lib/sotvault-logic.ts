@@ -23,7 +23,7 @@ export function isSyncedSource(path: string | null, records: SotRecord[]): boole
   return records.some((r) => r.source_path === path)
 }
 
-function isUnder(path: string, root: string): boolean {
+export function isUnder(path: string, root: string): boolean {
   if (path === root) return true
   const r = root.endsWith('/') ? root : root + '/'
   return path.startsWith(r)
