@@ -403,3 +403,23 @@ export async function setPluginEnabled(pluginId: string, enabled: boolean): Prom
   pluginsEnabled[pluginId] = enabled
   await saveSettings()
 }
+
+/**
+ * Resolve a plugin's enabled state the way the Rust host does at boot: an
+ * explicit stored value wins; otherwise external plugins default on and builtin
+ * plugins fall back to their manifest `default_enabled` (missing → off). Use
+ * this wherever a manifest is on hand (e.g. the Plugins settings tab) so the
+ * shown state matches what the backend actually loaded. `isPluginEnabled`
+ * (manifest-less, undefined → true) stays for runtime gates, whose callers are
+ * all default-on builtins where the two agree.
+ */
+export function resolvePluginEnabled(manifest: {
+  id: string
+  kind?: string
+  default_enabled?: boolean
+}): boolean {
+  const v = pluginsEnabled[manifest.id]
+  if (v !== undefined) return v === true
+  if (manifest.kind === 'builtin') return manifest.default_enabled === true
+  return true
+}

@@ -78,6 +78,12 @@ export interface PluginManifest {
   id: string
   name: string
   version: string
+  /** How the host treats the plugin. Builtins ship in-app and honor
+   *  `default_enabled`; anything else (or unset) is treated as external. */
+  kind?: 'builtin' | 'external' | string
+  /** Boot-time default for builtin plugins when the user hasn't set an
+   *  explicit `plugins.enabled.<id>` value. Ignored for external plugins. */
+  default_enabled?: boolean
   description?: string
   i18n?: Record<string, PluginI18n>
   binary: string
