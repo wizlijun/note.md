@@ -47,6 +47,7 @@
   import FolderView from './components/FolderView.svelte'
   import { folderView, loadFolderViewState, setVisible } from './lib/folder-view.svelte'
   import { outlineGate, loadOutlineGate, setOutlineVisible, isOutlineNoteTab } from './lib/outline/gate.svelte'
+  import { historyGate, loadHistoryGate, setHistoryVisible, historyAppliesTo } from './lib/git-history/gate.svelte'
   import { loadOutlineDirs } from './lib/outline/dirs.svelte'
   import { platform, isIOS } from './lib/platform.svelte'
   import { vaultStore, refreshStatus, syncNow, attachStatusListener } from './lib/vault.svelte'
@@ -195,6 +196,7 @@
       try { await loadLocale() } catch (e) { console.warn('[App] loadLocale:', e) }
       await loadFolderViewState()
       await loadOutlineGate()
+      await loadHistoryGate()
       await loadOutlineDirs()
       await initActivePluginIds()
 
@@ -336,7 +338,19 @@
           return
         }
         if (pluginId === 'outline-notes') {
-          if (command === 'toggle') await setOutlineVisible(!outlineGate.visible)
+          if (command === 'toggle') {
+            const next = !outlineGate.visible
+            await setOutlineVisible(next)
+            if (next) await setHistoryVisible(false)
+          }
+          return
+        }
+        if (pluginId === 'git-history') {
+          if (command === 'toggle') {
+            const next = !historyGate.visible
+            await setHistoryVisible(next)
+            if (next) await setOutlineVisible(false)
+          }
           return
         }
         if (pluginId === 'roam-import') {
@@ -623,10 +637,17 @@
       && !(current != null && isOutlineNoteTab(current))
   )
 
+  let showHistoryPanel = $derived(
+    platformName !== 'ios' && historyGate.enabled && historyGate.visible
+      && current != null && historyAppliesTo(current, sotvaultStore.vaultRoot)
+  )
+
   // Right-edge inset for the floating mode toggle: when the outline column is
   // showing it sits to the right of the editor, so push the toggle left by the
   // outline width to keep it over the editor (not hidden behind the panel).
-  let outlineRightOffset = $derived(showOutlinePanel ? outlineGate.width : 0)
+  let outlineRightOffset = $derived(
+    showHistoryPanel ? historyGate.width : showOutlinePanel ? outlineGate.width : 0
+  )
 
   // Window title: filename when single tab, plain "note.md" otherwise
   $effect(() => {
@@ -711,6 +732,11 @@
     {/if}
     {#if showOutlinePanel}
       {#await import('./components/outline/OutlinePanel.svelte') then Panel}
+        <Panel.default tab={current ?? null} />
+      {/await}
+    {/if}
+    {#if showHistoryPanel}
+      {#await import('./components/history/HistoryPanel.svelte') then Panel}
         <Panel.default tab={current ?? null} />
       {/await}
     {/if}
