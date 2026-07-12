@@ -2,48 +2,75 @@
   import { invoke } from '@tauri-apps/api/core'
   import { getCurrentWindow } from '@tauri-apps/api/window'
   import DiffView from './components/history/DiffView.svelte'
+  import { upsertTab, type PreviewTab } from './lib/git-history/preview-tabs'
 
-  interface PreviewPayload { title: string; kind: 'diff' | 'rich'; content: string }
+  let tabs = $state<PreviewTab[]>([])
+  let activeId = $state<string | null>(null)
 
-  let payload = $state<PreviewPayload | null>(null)
-  let missing = $state(false)
+  let active = $derived(tabs.find((x) => x.id === activeId) ?? null)
 
-  async function fetchPayload() {
+  async function drainTabs() {
     try {
-      const label = getCurrentWindow().label
-      const p = await invoke<PreviewPayload | null>('take_preview_payload', { label })
-      if (p) {
-        payload = p
-        missing = false
-        void getCurrentWindow().setTitle(p.title).catch(() => {})
-      } else if (!payload) {
-        missing = true
+      const drained = await invoke<PreviewTab[]>('drain_preview_tabs')
+      for (const t of drained) {
+        const r = upsertTab(tabs, t)
+        tabs = r.tabs
+        activeId = r.activeId
       }
+      const a = tabs.find((x) => x.id === activeId)
+      if (a) void getCurrentWindow().setTitle(a.title).catch(() => {})
     } catch (e) {
-      console.warn('[preview] fetch payload:', e)
-      if (!payload) missing = true
+      console.warn('[preview] drain:', e)
     }
   }
 
+  function selectTab(id: string) {
+    activeId = id
+    const ttl = tabs.find((x) => x.id === id)?.title
+    if (ttl) void getCurrentWindow().setTitle(ttl).catch(() => {})
+  }
+
+  function closeTab(id: string) {
+    const idx = tabs.findIndex((x) => x.id === id)
+    if (idx < 0) return
+    tabs = tabs.filter((x) => x.id !== id)
+    if (tabs.length === 0) {
+      void getCurrentWindow().close()
+      return
+    }
+    if (activeId === id) selectTab(tabs[Math.min(idx, tabs.length - 1)].id)
+  }
+
   $effect(() => {
-    void fetchPayload()
-    const un = getCurrentWindow().listen('preview-updated', () => { void fetchPayload() })
-    // Re-fetch once the listener is ready: on window reuse the backend may emit
-    // `preview-updated` before this listener resolves; the fetch's `!payload`
-    // guard makes the extra call harmless.
-    void un.then(() => fetchPayload())
+    void drainTabs()
+    const un = getCurrentWindow().listen('preview-add-tab', () => { void drainTabs() })
+    // Re-drain once the listener is ready: the backend may emit before it
+    // resolves. drain is idempotent (payloads cleared on take; upsert dedupes).
+    void un.then(() => drainTabs())
     return () => { void un.then((f) => f()) }
   })
 </script>
 
 <main class="preview-root">
-  {#if payload?.kind === 'diff'}
-    <DiffView content={payload.content} />
-  {:else if payload?.kind === 'rich'}
-    <!-- srcdoc is self-generated, self-contained HTML (no scripts); allow-same-origin without allow-scripts cannot escalate. -->
-    <iframe class="rich-frame" title={payload.title} srcdoc={payload.content} sandbox="allow-same-origin"></iframe>
-  {:else if missing}
-    <div class="empty">This preview is no longer available. Reopen it from the history panel.</div>
+  {#if tabs.length > 0}
+    <div class="tabbar" role="tablist">
+      {#each tabs as tt (tt.id)}
+        <div class="tab" class:active={tt.id === activeId}>
+          <button class="tab-label" title={tt.title} onclick={() => selectTab(tt.id)}>{tt.title}</button>
+          <button class="tab-close" aria-label="Close tab" onclick={() => closeTab(tt.id)}>×</button>
+        </div>
+      {/each}
+    </div>
+    <div class="body">
+      {#if active?.kind === 'diff'}
+        <DiffView content={active.content} />
+      {:else if active?.kind === 'rich'}
+        <!-- srcdoc is self-generated, self-contained themed HTML (no scripts); allow-same-origin without allow-scripts cannot escalate. -->
+        <iframe class="rich-frame" title={active.title} srcdoc={active.content} sandbox="allow-same-origin"></iframe>
+      {/if}
+    </div>
+  {:else}
+    <div class="empty">No preview to show. Reopen it from the history panel.</div>
   {/if}
 </main>
 
@@ -60,11 +87,34 @@
     color: CanvasText;
     overflow: hidden;
   }
-  .rich-frame {
-    flex: 1;
-    width: 100%;
-    border: 0;
-    background: Canvas;
+  .tabbar {
+    display: flex;
+    gap: 2px;
+    padding: 4px 6px 0;
+    overflow-x: auto;
+    border-bottom: 1px solid var(--border-color, #3333);
+    flex-shrink: 0;
   }
+  .tab {
+    display: flex; align-items: center;
+    max-width: 220px;
+    border: 1px solid var(--border-color, #3333);
+    border-bottom: 0;
+    border-radius: 6px 6px 0 0;
+    background: color-mix(in srgb, CanvasText 5%, Canvas);
+  }
+  .tab.active { background: Canvas; }
+  .tab-label {
+    border: 0; background: transparent; color: inherit; cursor: pointer;
+    font-size: 12px; padding: 5px 8px;
+    max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .tab-close {
+    border: 0; background: transparent; color: inherit; cursor: pointer;
+    font-size: 13px; line-height: 1; padding: 4px 6px 4px 0; opacity: 0.6;
+  }
+  .tab-close:hover { opacity: 1; }
+  .body { flex: 1; display: flex; min-height: 0; overflow: hidden; }
+  .rich-frame { flex: 1; width: 100%; border: 0; background: Canvas; }
   .empty { padding: 24px; opacity: 0.6; font-size: 13px; }
 </style>

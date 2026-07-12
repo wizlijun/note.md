@@ -7,7 +7,7 @@
   import { t } from '../../lib/i18n/store.svelte'
   import { pushToast } from '../../lib/toast.svelte'
   import { sotvaultStore } from '../../lib/sotvault.svelte'
-  import { historyAppliesTo, relTime } from '../../lib/git-history/gate.svelte'
+  import { historyAppliesTo, formatDateTime } from '../../lib/git-history/gate.svelte'
   import { setSideVisible } from '../../lib/side-panel/registry.svelte'
   import type { GitCommit } from '../../lib/git-history/types'
 
@@ -136,8 +136,8 @@
         {#each commits as c (c.hash)}
           <li class="commit" class:selected={selected === c.hash}>
             <button class="row" onclick={() => (selected = selected === c.hash ? null : c.hash)}>
-              <span class="subject">{c.subject}</span>
-              <span class="meta">{c.short} · {relTime(c.timestamp)} · {c.author}</span>
+              <span class="primary">{formatDateTime(c.timestamp)} · {c.author}</span>
+              <span class="secondary">{c.subject} · {c.short}</span>
             </button>
             {#if selected === c.hash}
               <div class="actions">
@@ -190,8 +190,8 @@
     padding: 6px 8px; border-radius: 6px;
   }
   .row:hover { background: rgba(0,0,0,0.05); }
-  .subject { font-size: 13px; }
-  .meta { font-size: 11px; opacity: 0.6; }
+  .primary { font-size: 13px; font-weight: 500; }
+  .secondary { font-size: 11px; opacity: 0.6; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .actions { display: flex; flex-wrap: wrap; gap: 6px; padding: 2px 8px 8px; }
   .abtn {
     font-size: 12px; padding: 3px 8px; border-radius: 4px;
