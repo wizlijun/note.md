@@ -60,6 +60,7 @@ export function computeToggle(
   state: SidePanelState,
   view: SideView,
 ): { visible: boolean; activeId: string } {
+  // Always returns a non-null activeId: toggling a specific view always names it.
   if (!state.visible) return { visible: true, activeId: view.id }
   if (state.activeId === view.id) return { visible: false, activeId: view.id }
   return { visible: true, activeId: view.id }
@@ -79,6 +80,7 @@ export function migrateRight(old: {
   historyVisible?: boolean
   historyWidth?: number
 }): SidePanelState {
+  // outline takes priority if both legacy flags are somehow set
   const activeId = old.outlineVisible ? 'outline-notes' : old.historyVisible ? 'git-history' : null
   const width = old.outlineVisible ? old.outlineWidth : old.historyVisible ? old.historyWidth : undefined
   return {
