@@ -1,29 +1,29 @@
 {
   "id": "outline-notes",
-  "name": "Outline Notes",
+  "name": "Sidecar Notes",
   "version": "0.1.0",
-  "description": "Outliner view on the right: syncs the document TOC and ^^highlights^^ into an editable outline saved as a companion .notes.md file.",
+  "description": "Sidecar notes on the right: an editable companion note that syncs the document's headings and ^^highlights^^, saved as a .notes.md file.",
   "kind": "builtin",
   "default_enabled": true,
   "host_capabilities": [],
   "menus": [
     {
       "location": "view",
-      "label": "Outliner View",
+      "label": "Sidecar Notes View",
       "shortcut": "Cmd+Shift+O",
       "command": "toggle"
     }
   ],
   "i18n": {
     "zh": {
-      "name": "大纲笔记",
-      "description": "右侧大纲视图：将文档目录结构与 ^^高亮^^ 实时同步为可编辑大纲，存为伴生 .notes.md 文件。",
-      "menus": { "toggle": "大纲视图" }
+      "name": "伴生笔记",
+      "description": "右侧伴生笔记：将文档标题结构与 ^^高亮^^ 实时同步为可编辑笔记，存为伴生 .notes.md 文件。",
+      "menus": { "toggle": "伴生笔记视图" }
     },
     "ja": {
-      "name": "アウトラインノート",
-      "description": "右側のアウトラインビュー：文書の見出しと ^^ハイライト^^ を編集可能なアウトラインに同期し、.notes.md ファイルに保存します。",
-      "menus": { "toggle": "アウトラインビュー" }
+      "name": "サイドカーノート",
+      "description": "右側のサイドカーノート：文書の見出しと ^^ハイライト^^ を編集可能なサイドカーノートに同期し、.notes.md ファイルに保存します。",
+      "menus": { "toggle": "サイドカーノートビュー" }
     }
   }
 }
