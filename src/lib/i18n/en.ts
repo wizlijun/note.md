@@ -343,6 +343,7 @@ export const en = {
   'outline.noBacklinks': 'No backlinks',
   'outline.linkedReferences': 'Linked References',
   'outline.unlinkedReferences': 'Unlinked References',
+  'outline.refWriteFailed': 'Couldn’t locate the source node — edit not synced',
   'outline.hide': 'Hide sidecar notes',
   'outline.search': 'Search sidecar notes',
   'outline.searchPlaceholder': 'Filter sidecar notes…',

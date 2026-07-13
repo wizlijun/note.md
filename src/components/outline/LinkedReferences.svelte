@@ -2,6 +2,7 @@
   import { outline } from '../../lib/outline/store.svelte'
   import { recallGrouped, type RecallGroup } from '../../lib/outline/recall'
   import { openFile } from '../../lib/tabs.svelte'
+  import { commitReferenceEdit } from '../../lib/outline/recall-writeback-io'
   import { t } from '../../lib/i18n/store.svelte'
   import RefTreeNode from './RefTreeNode.svelte'
 
@@ -23,9 +24,10 @@
   })
 
   const fileName = (path: string) => path.split('/').pop() ?? path
-  // Phase A: breadcrumb segments jump to the source file (inline per-level
-  // expansion is deferred to Phase B along with in-place editing).
   const openSource = (file: string) => void openFile(file)
+  // B1: only outline-file sources are editable in place (safe parse↔serialize
+  // round-trip); prose .md references stay read-only.
+  const isOutlineFile = (f: string) => /\.notes?\.md$/i.test(f)
 </script>
 
 {#if count > 0}
@@ -40,6 +42,7 @@
     </header>
 
     {#each groups as g (g.file)}
+      {@const editable = isOutlineFile(g.file)}
       <div class="lr-group">
         <button class="lr-file" onclick={() => void openFile(g.file)}>{fileName(g.file)}</button>
         {#each g.carriers as carrier, i (i)}
@@ -48,7 +51,12 @@
               <button class="lr-crumb" onclick={() => openSource(g.file)} title={g.file}
                 >/{carrier.breadcrumb.join('/')}</button>
             {/if}
-            <RefTreeNode node={carrier.node} defaultCollapsed={true} />
+            <RefTreeNode
+              node={carrier.node}
+              defaultCollapsed={true}
+              {editable}
+              onCommit={(path, oldText, newText) => commitReferenceEdit(g.file, path, oldText, newText)}
+            />
           </div>
         {/each}
       </div>

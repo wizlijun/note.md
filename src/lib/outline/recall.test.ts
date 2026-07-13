@@ -1,7 +1,7 @@
 // src/lib/outline/recall.test.ts
 import { describe, it, expect } from 'vitest'
 import { parseOutline } from './markdown'
-import { recallNodes, recallTree } from './recall'
+import { recallNodes, recallTree, editNodeInOutline } from './recall'
 
 /** parse outline text and recall carrier nodes for `page` */
 function recall(text: string, page: string) {
@@ -61,29 +61,29 @@ describe('recallNodes', () => {
 })
 
 describe('recallTree', () => {
-  it('carrier keeps its subtree nested (for collapse/expand)', () => {
+  it('carrier keeps its subtree nested with root-index paths', () => {
     const text = '- [[X]] 顶\n  - 中\n    - 底\n'
     expect(recallT(text, 'x')).toEqual([
       {
         breadcrumb: [],
         node: {
-          text: '[[X]] 顶',
-          children: [{ text: '中', children: [{ text: '底', children: [] }] }],
+          text: '[[X]] 顶', path: [0],
+          children: [{ text: '中', path: [0, 0], children: [{ text: '底', path: [0, 0, 0], children: [] }] }],
         },
       },
     ])
   })
 
-  it('deep carrier records breadcrumb and nests its own children', () => {
+  it('deep carrier records breadcrumb, paths and nests its own children', () => {
     const text = '- 根\n  - 父\n    - 命中 [[X]]\n      - 子1\n      - 子2\n'
     expect(recallT(text, 'x')).toEqual([
       {
         breadcrumb: ['根', '父'],
         node: {
-          text: '命中 [[X]]',
+          text: '命中 [[X]]', path: [0, 0, 0],
           children: [
-            { text: '子1', children: [] },
-            { text: '子2', children: [] },
+            { text: '子1', path: [0, 0, 0, 0], children: [] },
+            { text: '子2', path: [0, 0, 0, 1], children: [] },
           ],
         },
       },
@@ -95,8 +95,26 @@ describe('recallTree', () => {
     expect(recallT(text, 'x')).toEqual([
       {
         breadcrumb: [],
-        node: { text: '[[X]] 顶', children: [{ text: '又 [[X]] 底', children: [] }] },
+        node: { text: '[[X]] 顶', path: [0], children: [{ text: '又 [[X]] 底', path: [0, 0], children: [] }] },
       },
     ])
+  })
+})
+
+describe('editNodeInOutline', () => {
+  it('edits the node at path and reserializes', () => {
+    expect(editNodeInOutline('- a\n  - b\n  - c\n', [0, 1], 'c', 'C!')).toBe('- a\n  - b\n  - C!\n')
+  })
+
+  it('returns null when old text mismatches (file changed underneath)', () => {
+    expect(editNodeInOutline('- a\n  - b\n', [0, 0], 'STALE', 'x')).toBeNull()
+  })
+
+  it('returns null when the path is out of range', () => {
+    expect(editNodeInOutline('- a\n', [3], 'a', 'x')).toBeNull()
+  })
+
+  it('refuses to edit a read-only (auto) node', () => {
+    expect(editNodeInOutline('- hi\n  type:: highlight\n', [0], 'hi', 'x')).toBeNull()
   })
 })
