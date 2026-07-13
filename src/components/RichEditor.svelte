@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte'
+  import { onMount, onDestroy, untrack } from 'svelte'
   import type { Tab } from '../lib/tabs.svelte'
   import { setContent, activeTab, openFile } from '../lib/tabs.svelte'
   import { classifyLink, resolveWikilinkPath, restoreWikilinks, type LinkAction } from '../lib/link-open'
@@ -30,6 +30,10 @@
   import NoteEditPopup from '../lib/note-anno/NoteEditPopup.svelte'
   import { setBlockType, wrapIn } from 'prosemirror-commands'
   import { wrapInList } from 'prosemirror-schema-list'
+  import LinkedReferences from './outline/LinkedReferences.svelte'
+  import { pageNameOf } from '../lib/outline/backlinks'
+  import { ensureIndex } from '../lib/outline/backlinks-io.svelte'
+  import { outlineGate } from '../lib/outline/gate.svelte'
 
   // Reactive store of the currently active theme id, set by the theme-init
   // block in App.svelte. Default is 'default'.
@@ -58,6 +62,25 @@
      */
     wrapAsCodeBlock?: string
   } = $props()
+
+  // Wiki page name for the inline backlink recall section (rendered below the
+  // document body). Gated on the outline-notes feature; skipped for code-kind
+  // tabs and untitled docs.
+  const backlinkPage = $derived(
+    outlineGate.enabled && !wrapAsCodeBlock && tab.filePath ? pageNameOf(tab.filePath) : null,
+  )
+
+  // The backlink index is normally built lazily by the outline panel. When a
+  // wiki page is shown in the editor without ever opening that panel, build it
+  // here too. `ensureIndex` is idempotent (early-returns once the vault root is
+  // indexed). `untrack` keeps its internal store reads/writes out of this
+  // effect's dependencies — otherwise the bump()/assignment inside would
+  // self-invalidate the effect (see the $effect-untrack lesson).
+  $effect(() => {
+    const fp = tab.filePath
+    if (!backlinkPage || !fp) return
+    untrack(() => void ensureIndex(fp))
+  })
 
   let host: HTMLDivElement | undefined = $state()
   let editor: EditorInstance | null = null
@@ -1027,7 +1050,12 @@
                   source={tab.currentContent}
                   pageBasename={(activeTab()?.filePath ?? '').replace(/^.*[\\/]/, '')} />
     {/if}
-    <div class="host" data-theme={activeThemeId} bind:this={host}></div>
+    <div class="scroll">
+      <div class="host" data-theme={activeThemeId} bind:this={host}></div>
+      {#if backlinkPage}
+        <LinkedReferences page={backlinkPage} excludeFile={tab.filePath ?? null} />
+      {/if}
+    </div>
   </div>
   {#if showImageToolbar}
     <ImageToolbar
@@ -1082,16 +1110,23 @@
     display: flex;
     min-height: 0;
   }
-  .host {
+  /* Scroll container: holds the editor host AND the inline backlinks so they
+     scroll together as one page (horizontal inset lives here so both align). */
+  .scroll {
     flex: 1;
     overflow: auto;
-    padding: 16px 24px;
+    min-height: 0;
+    padding: 0 24px;
     box-sizing: border-box;
-    min-height: 200px;
     /* GPU compositing hints — promote scroll container to its own layer */
     will-change: transform;
     transform: translateZ(0);
     contain: layout paint;
+  }
+  .host {
+    padding: 16px 0;
+    box-sizing: border-box;
+    min-height: 200px;
   }
   .host :global(.ProseMirror),
   .host :global(.moraya-editor) {

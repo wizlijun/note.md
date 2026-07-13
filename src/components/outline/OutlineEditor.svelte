@@ -7,7 +7,7 @@
   import SlashMenu from './SlashMenu.svelte'
   import LinkAutocomplete from './LinkAutocomplete.svelte'
   import NodeContextMenu from './NodeContextMenu.svelte'
-  import BacklinksSection from './BacklinksSection.svelte'
+  import LinkedReferences from './LinkedReferences.svelte'
   import {
     outline, attachDoc, detach, serializeDoc, setChangeSink, regenerate,
     bump, markDirty, pinnedIds, setSelection, clearSelection, companionPathFor,
@@ -600,10 +600,15 @@
     {#if visibleRoots.length === 0}
       <p class="empty">{visibleIds ? t('outline.noSearchResults') : t('outline.empty')}</p>
     {/if}
+    {#if !visibleIds}
+      <!-- Rendered inside the scroll body so it reads as one continuous outline.
+           Stop pointer/click from bubbling to the outline's band-select / body-click. -->
+      <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
+      <div class="lr-wrap" onpointerdown={(e) => e.stopPropagation()} onclick={(e) => e.stopPropagation()}>
+        <LinkedReferences page={pageNameOf(notePath)} excludeFile={notePath} />
+      </div>
+    {/if}
   </div>
-  {#if !visibleIds}
-    <BacklinksSection page={pageNameOf(notePath)} excludeFile={notePath} />
-  {/if}
   {#if menu.kind === 'slash'}
     <SlashMenu items={slashItems} selected={menu.selected} x={menu.x} y={menu.y} onPick={pickSlash} />
   {:else if menu.kind === 'link'}
