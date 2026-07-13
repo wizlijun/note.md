@@ -239,10 +239,14 @@ In `src-tauri/src/sotvault/logic.rs`, inside `#[cfg(test)] mod tests`, add:
 
     #[test]
     fn reconcile_both_changed_non_overlapping_auto_merges() {
-        // base has two lines; source edits the first, vault edits the second.
-        let base = "alpha\nbeta\n";
-        let source = "ALPHA\nbeta\n";
-        let vault = "alpha\nBETA\n";
+        // base has a shared, unchanged middle line; source edits the first line
+        // and vault edits the last. The untouched middle gives diffy the context
+        // it needs to auto-merge the two non-overlapping changes. (diffy's
+        // line-level merge needs a shared context line BETWEEN the two changed
+        // regions — a 2-line doc with both lines changed collapses to a conflict.)
+        let base = "alpha\nmiddle\nbeta\n";
+        let source = "ALPHA\nmiddle\nbeta\n";
+        let vault = "alpha\nmiddle\nBETA\n";
         let p = reconcile_note(Some(base), Some(source), Some(vault));
         assert!(!p.conflict, "non-overlapping edits should auto-merge");
         // both sides converge to the same merged text
@@ -531,13 +535,21 @@ fn companion_path(md: &Path) -> Option<PathBuf> {
     Some(md.with_file_name(note))
 }
 
-/// Read a note file as text. Absent file → None. Non-UTF-8 (unusual for a note)
-/// is also treated as None; notes are markdown text.
-fn read_note(p: &Path) -> Option<String> {
+/// Read a note file. `Ok(None)` = absent. `Ok(Some(text))` = UTF-8 content.
+/// `Err(())` = present but unreadable (IO error or non-UTF-8). The caller must
+/// then skip the whole reconcile rather than treat the file as absent, which
+/// would overwrite an unreadable-but-present note (data loss).
+fn read_note(p: &Path) -> Result<Option<String>, ()> {
     if !p.is_file() {
-        return None;
+        return Ok(None);
     }
-    std::fs::read_to_string(p).ok()
+    match std::fs::read_to_string(p) {
+        Ok(s) => Ok(Some(s)),
+        Err(e) => {
+            eprintln!("[sotvault] read note {p:?} failed ({e}); skipping note reconcile to avoid overwrite");
+            Err(())
+        }
+    }
 }
 
 /// Back up `content` next to `note` as `<stem>.conflict.<ts>.<ext>`
@@ -567,8 +579,12 @@ fn reconcile_companion_notes(source: &Path, vault_md: &Path, base: Option<&str>)
         return NoteReconcileOutcome { new_base: base.map(str::to_string), conflict: false };
     };
 
-    let src_content = read_note(&src_note);
-    let vault_content = read_note(&vault_note);
+    // If either side is present-but-unreadable, skip entirely — never risk
+    // overwriting a note we couldn't read. Keep the stored base unchanged.
+    let (src_content, vault_content) = match (read_note(&src_note), read_note(&vault_note)) {
+        (Ok(s), Ok(v)) => (s, v),
+        _ => return NoteReconcileOutcome { new_base: base.map(str::to_string), conflict: false },
+    };
 
     let plan = logic::reconcile_note(base, src_content.as_deref(), vault_content.as_deref());
 
