@@ -1,5 +1,7 @@
 // src/lib/outline/backlinks.ts
 import { parseInline } from './parser'
+import { parseOutline } from './markdown'
+import type { OutlineTree } from './model'
 import { basename, joinPath } from '../fs'
 
 export interface BacklinkHit { file: string; text: string; line: number }
@@ -16,10 +18,13 @@ export interface BacklinkIndex {
   filePages: Map<string, string>
   /** 页面命名空间；null = 所有 .md 都是页面（向后兼容） */
   scope: PageScope | null
+  /** file → 解析后的大纲树（仅含 ≥1 个链接的文件）。Linked References 层次
+   *  召回复用此缓存，避免视图时重复读盘 + 重新 parseOutline。watcher 增量维护。 */
+  fileTrees: Map<string, OutlineTree>
 }
 
 export function createIndex(scope: PageScope | null = null): BacklinkIndex {
-  return { byTarget: new Map(), fileTargets: new Map(), filePages: new Map(), scope }
+  return { byTarget: new Map(), fileTargets: new Map(), filePages: new Map(), scope, fileTrees: new Map() }
 }
 
 /**
@@ -50,6 +55,7 @@ export function removeFileFromIndex(idx: BacklinkIndex, file: string): void {
   }
   idx.fileTargets.delete(file)
   idx.filePages.delete(file)
+  idx.fileTrees.delete(file)
 }
 
 /** 单文件（重新）索引：逐行提取 [[..]] 与 #tag */
@@ -73,6 +79,9 @@ export function indexFileContent(idx: BacklinkIndex, file: string, content: stri
     }
   })
   idx.fileTargets.set(file, targets)
+  // Cache the parsed outline for hierarchy-aware recall (only linking files can
+  // appear in Linked References). removeFileFromIndex() above cleared any stale one.
+  if (targets.size > 0) idx.fileTrees.set(file, parseOutline(content))
 }
 
 export function backlinksFor(idx: BacklinkIndex, page: string): BacklinkHit[] {

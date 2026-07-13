@@ -10,11 +10,13 @@
     defaultCollapsed = false,
     editable = false,
     onCommit,
+    onPageClick,
   }: {
     node: RecallTreeNode
     defaultCollapsed?: boolean
     editable?: boolean
     onCommit?: (path: number[], oldText: string, newText: string) => void | Promise<unknown>
+    onPageClick?: (target: string) => void
   } = $props()
 
   let collapsed = $state(defaultCollapsed)
@@ -23,8 +25,11 @@
   let editing = $state(false)
   let draft = $state('')
 
-  function startEdit() {
+  function startEdit(e?: MouseEvent) {
     if (!editable) return
+    // Let a wikilink / hashtag / link handle its own click — don't hijack it
+    // into edit mode (they navigate via onPageClick or href).
+    if ((e?.target as HTMLElement | undefined)?.closest('.pl, a')) return
     draft = node.text
     editing = true
   }
@@ -63,13 +68,13 @@
         tabindex={editable ? 0 : undefined}
         onclick={startEdit}
         onkeydown={(e) => { if (editable && e.key === 'Enter') { e.preventDefault(); startEdit() } }}
-      ><InlineRender content={node.text} /></span>
+      ><InlineRender content={node.text} {onPageClick} /></span>
     {/if}
   </div>
   {#if hasChildren && !collapsed}
     <div class="children">
       {#each node.children as c, i (i)}
-        <RefTreeNode node={c} {editable} {onCommit} />
+        <RefTreeNode node={c} {editable} {onCommit} {onPageClick} />
       {/each}
     </div>
   {/if}

@@ -2,6 +2,7 @@
   import { outline } from '../../lib/outline/store.svelte'
   import { recallGrouped, type RecallGroup } from '../../lib/outline/recall'
   import { openFile } from '../../lib/tabs.svelte'
+  import { openPageOrCreate } from '../../lib/outline/backlinks-io.svelte'
   import { commitReferenceEdit } from '../../lib/outline/recall-writeback-io'
   import { t } from '../../lib/i18n/store.svelte'
   import RefTreeNode from './RefTreeNode.svelte'
@@ -11,16 +12,19 @@
   let groups = $state<RecallGroup[]>([])
   const count = $derived(groups.reduce((n, g) => n + g.carriers.length, 0))
 
-  // Recompute on index changes / page switch. Reads store + index (no store
-  // writes); assigns only local state — no self-invalidation loop.
+  // Recompute on index changes / page switch. recallGrouped is now pure +
+  // synchronous (reads the index's cached trees — no disk / re-parse), so this
+  // is cheap; a short debounce coalesces rapid bumps (e.g. while typing in the
+  // outline). Reads store + index only; assigns local state — no self-loop.
+  let timer: ReturnType<typeof setTimeout> | undefined
   $effect(() => {
     void outline.version
     const p = page
     const idx = outline.backlinkIndex
     if (!p || !idx) { groups = []; return }
-    let cancelled = false
-    void recallGrouped(idx, p, excludeFile ?? undefined).then(r => { if (!cancelled) groups = r })
-    return () => { cancelled = true }
+    clearTimeout(timer)
+    timer = setTimeout(() => { groups = recallGrouped(idx, p, excludeFile ?? undefined) }, 30)
+    return () => clearTimeout(timer)
   })
 
   const fileName = (path: string) => path.split('/').pop() ?? path
@@ -28,6 +32,8 @@
   // B1: only outline-file sources are editable in place (safe parse↔serialize
   // round-trip); prose .md references stay read-only.
   const isOutlineFile = (f: string) => /\.notes?\.md$/i.test(f)
+  // Wikilink / hashtag inside a reference navigates (same as the outline).
+  const onPageClick = (target: string) => void openPageOrCreate(target)
 </script>
 
 {#if count > 0}
@@ -55,6 +61,7 @@
               node={carrier.node}
               defaultCollapsed={true}
               {editable}
+              {onPageClick}
               onCommit={(path, oldText, newText) => commitReferenceEdit(g.file, path, oldText, newText)}
             />
           </div>

@@ -1,7 +1,8 @@
 // src/lib/outline/recall.test.ts
 import { describe, it, expect } from 'vitest'
 import { parseOutline } from './markdown'
-import { recallNodes, recallTree, editNodeInOutline } from './recall'
+import { createIndex, indexFileContent } from './backlinks'
+import { recallNodes, recallTree, editNodeInOutline, recallGrouped } from './recall'
 
 /** parse outline text and recall carrier nodes for `page` */
 function recall(text: string, page: string) {
@@ -116,5 +117,32 @@ describe('editNodeInOutline', () => {
 
   it('refuses to edit a read-only (auto) node', () => {
     expect(editNodeInOutline('- hi\n  type:: highlight\n', [0], 'hi', 'x')).toBeNull()
+  })
+})
+
+describe('recallGrouped (from cached index trees)', () => {
+  function idxWith(files: Record<string, string>) {
+    const idx = createIndex()
+    for (const [p, c] of Object.entries(files)) indexFileContent(idx, p, c)
+    return idx
+  }
+
+  it('groups carriers by file using the index-cached tree (no disk read)', () => {
+    const idx = idxWith({
+      '/v/a.note.md': '- [[X]]\n  - child A\n',
+      '/v/b.note.md': '- 根\n  - 命中 [[X]]\n',
+    })
+    const groups = recallGrouped(idx, 'x')
+    expect(groups.map(g => g.file).sort()).toEqual(['/v/a.note.md', '/v/b.note.md'])
+    const a = groups.find(g => g.file === '/v/a.note.md')!
+    expect(a.carriers[0].node.text).toBe('[[X]]')
+    expect(a.carriers[0].node.children.map(c => c.text)).toEqual(['child A'])
+    const b = groups.find(g => g.file === '/v/b.note.md')!
+    expect(b.carriers[0].breadcrumb).toEqual(['根'])
+  })
+
+  it('excludes the current page file and pages with no carriers', () => {
+    const idx = idxWith({ '/v/self.note.md': '- [[X]]\n', '/v/other.note.md': '- [[Y]]\n' })
+    expect(recallGrouped(idx, 'x', '/v/self.note.md')).toEqual([])
   })
 })
