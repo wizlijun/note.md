@@ -31,16 +31,28 @@ describe('syncAutoItems', () => {
     expect(b2.collapsed).toBe(true)
     expect(childrenOf(t, b2.id).some(n => n.id === 'note1')).toBe(true)
   })
-  it('removing highlight deletes its node; manual children reparent to nearest survivor', () => {
+  it('removing a highlight PRESERVES its node as manual (content not lost); child stays attached', () => {
     const t = build(md1)
     const hl = [...t.nodes.values()].find(n => n.source === 'highlight')!
     addNode(t, { id: 'child', parentId: hl.id, order: 0, content: 'attached', collapsed: false, source: 'manual' })
     // Re-derive keeps heading B (still has a highlight) but drops the old 'hl'.
     syncAutoItems(t, deriveAutoItems('## B\n^^other^^\n'))
-    expect([...t.nodes.values()].some(n => n.content === 'hl')).toBe(false)
-    const child = t.nodes.get('child')!
-    const b = [...t.nodes.values()].find(n => n.content === 'B')!
-    expect(child.parentId).toBe(b.id)
+    const preserved = [...t.nodes.values()].find(n => n.content === 'hl')!
+    expect(preserved).toBeDefined()
+    expect(preserved.source).toBe('manual')          // converted, no longer synced
+    expect(preserved.anchorLine).toBeUndefined()      // stale anchor cleared
+    expect(t.nodes.get('child')!.parentId).toBe(preserved.id)  // child stays under it
+  })
+  it('an all-auto note is NOT emptied when the main doc loses all its marks', () => {
+    const t = build('## Section\n^^one^^\n[[Page]]\n')
+    expect(t.nodes.size).toBeGreaterThan(0)
+    syncAutoItems(t, deriveAutoItems('## Section\n\nplain body, no marks\n'))
+    // Section toc survives (still a heading); the highlight + wikilink convert to
+    // manual rather than vanish — the note keeps its content.
+    expect(t.nodes.size).toBeGreaterThan(0)
+    const contents = [...t.nodes.values()].map(n => n.content)
+    expect(contents).toContain('one')
+    expect([...t.nodes.values()].filter(n => n.source !== 'manual' && n.source !== 'toc')).toHaveLength(0)
   })
   it('anchorLine refreshes on match', () => {
     const t = build(md1)
@@ -109,11 +121,14 @@ describe('syncAutoItems — annotation note children', () => {
     expect(note.content).toBe('新')
   })
 
-  it('removes the note child together with a vanished annotation', () => {
+  it('preserves a vanished annotation (and its note comment) as manual instead of deleting', () => {
     const tree = createTree()
     syncAutoItems(tree, [{ source: 'annotation', content: '原文', note: 'n', depth: 0, anchorLine: 1 }])
     syncAutoItems(tree, [])
-    expect(tree.nodes.size).toBe(0)
+    expect(tree.nodes.size).toBe(2)
+    const nodes = [...tree.nodes.values()]
+    expect(nodes.every(n => n.source === 'manual')).toBe(true)
+    expect(nodes.map(n => n.content).sort()).toEqual(['n', '原文'])
   })
 
   it('keeps manual children of an annotation node alongside the note child', () => {
