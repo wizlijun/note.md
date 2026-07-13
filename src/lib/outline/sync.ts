@@ -52,16 +52,19 @@ export function syncAutoItems(tree: OutlineTree, items: AutoItem[]): void {
   const matchedOld = new Map<number, number>(pairs)
   const matchedNew = new Map<number, OutlineNode>(pairs.map(([o, nw]) => [nw, oldSeq[o]]))
 
-  // 1) 删除未匹配的旧 auto（记录父链供重挂）
+  // 1) 未匹配的旧 auto：源标记已从主文档消失，但用户同步过来的内容不应丢失。
+  //    不删除 —— 降级为手写节点永久保留（否则全 auto 的伴生笔记会被清空）。
+  //    annotation 的 note 子节点一并转手写，保住批注文字。清 anchorLine，避免
+  //    悬空锚点被当作可跳转行号。空的自动创建根节点例外——它没有内容，保留只会
+  //    污染，直接删除。
   const removedParents = new Map<string, string | null>()
   oldSeq.forEach((node, idx) => {
     if (!matchedOld.has(idx)) {
-      removedParents.set(node.id, node.parentId)
-      // annotation 的 note 子节点随父删除（先删，免得走孤儿重挂）
+      node.source = 'manual'
+      node.anchorLine = undefined
       for (const c of childrenOf(tree, node.id)) {
-        if (c.source === 'note') tree.nodes.delete(c.id)
+        if (c.source === 'note') { c.source = 'manual'; c.anchorLine = undefined }
       }
-      tree.nodes.delete(node.id)
     }
   })
 
