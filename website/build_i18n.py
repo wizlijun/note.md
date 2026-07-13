@@ -73,33 +73,30 @@ STRINGS = [('<title>note.md — The markdown editor for humans and agents</title
   'Ein Reader, ein Outliner und ein Platz für deine Randnotizen — auf einfachen Dateien, ohne dir im Weg zu stehen.',
   'リーダー、アウトライナー、そして書き込みの置き場所——プレーンなファイルの上で、邪魔にならない。'),
  ('<h3>Read like it matters</h3>', '<h3>认真地读</h3>', '<h3>Lesen, als ob es zählt</h3>', '<h3>読むに値する読み方</h3>'),
- ("Your agent wrote four thousand words while you slept. Open them in a clean view, mark what's true, question what "
-  "isn't. Every mark is kept.",
-  '你睡觉时 agent 写了四千字。用干净的视图打开，标出真的，质疑假的。每个标记都留下来。',
-  'Dein Agent hat viertausend Wörter geschrieben, während du geschlafen hast. Öffne sie in einer klaren Ansicht, '
-  'markiere, was stimmt, hinterfrage, was nicht. Jede Markierung bleibt.',
-  '眠っている間にエージェントが四千語を書いた。クリーンなビューで開き、正しいものに印を、疑わしいものに問いを。すべての印が残る。'),
+ ("Your agent wrote 4,000 words overnight. Open them clean, mark what's true, question the rest.",
+  '你睡觉时 agent 写了四千字。干净地打开，标出真的，质疑其余。',
+  'Dein Agent hat über Nacht 4.000 Wörter geschrieben. Öffne sie sauber, markiere, was stimmt, hinterfrage den Rest.',
+  '眠っている間にエージェントが四千語を書いた。クリーンに開き、正しいものに印を、残りに問いを。'),
  ('<h3>Marginalia is data</h3>', '<h3>批注即数据</h3>', '<h3>Randnotizen sind Daten</h3>', '<h3>余白のメモはデータだ</h3>'),
- ('Your marks live in a partner file: <span class="mono-s">file.note.md</span>. The AI\'s text stays clean. Your '
-  'judgment stays yours. Two files. No tangles.',
-  '你的标记存放在伴生文件（sidecar）中：<span class="mono-s">file.note.md</span>。AI 的文本保持干净，你的判断归你所有。两个文件，互不纠缠。',
-  'Deine Markierungen leben in einer Partnerdatei: <span class="mono-s">file.note.md</span>. Der KI-Text bleibt '
-  'sauber. Dein Urteil bleibt deins. Zwei Dateien. Kein Durcheinander.',
-  '印は相棒のサイドカーファイル <span class="mono-s">file.note.md</span> に入る。AI のテキストはクリーンなまま。あなたの判断はあなたのもの。2つのファイル。絡まらない。'),
+ ('Your marks live in a partner file — <span class="mono-s">file.note.md</span>. The AI\'s text stays clean; your '
+  'judgment stays yours.',
+  '你的标记存放在伴生文件（sidecar）中——<span class="mono-s">file.note.md</span>。AI 的文本保持干净，你的判断归你所有。',
+  'Deine Markierungen leben in einer Partnerdatei — <span class="mono-s">file.note.md</span>. Der KI-Text bleibt '
+  'sauber; dein Urteil bleibt deins.',
+  '印は相棒のサイドカーファイル <span class="mono-s">file.note.md</span> に入る。AI のテキストはクリーンなまま、あなたの判断はあなたのもの。'),
  ('<h3>Think in outlines</h3>', '<h3>用大纲思考</h3>', '<h3>In Outlines denken</h3>', '<h3>アウトラインで考える</h3>'),
- ('Daily notes for whatever crosses your mind. <span class="mono-s">[[links]]</span> between pages. Search that '
-  'answers before you finish typing. Ideas connect on their own.',
-  '每日笔记随手记，<span class="mono-s">[[链接]]</span> 连接页面，搜索快过你打完字。想法自己会串起来。',
-  'Tagesnotizen für alles, was dir durch den Kopf geht. <span class="mono-s">[[Links]]</span> zwischen Seiten. Suche, '
-  'die antwortet, bevor du fertig getippt hast. Ideen verbinden sich von selbst.',
-  '頭をよぎったことはデイリーノートへ。ページは <span class="mono-s">[[リンク]]</span> でつながる。打ち終わる前に答える検索。アイデアは勝手につながる。'),
+ ('Daily notes, <span class="mono-s">[[links]]</span> between pages, search that answers as you type. Ideas connect '
+  'themselves.',
+  '每日笔记随手记，<span class="mono-s">[[链接]]</span> 连接页面，搜索边打边答。想法自己会串起来。',
+  'Tagesnotizen, <span class="mono-s">[[Links]]</span> zwischen Seiten, Suche, die schon beim Tippen antwortet. Ideen '
+  'verbinden sich von selbst.',
+  'デイリーノート、ページをつなぐ <span class="mono-s">[[リンク]]</span>、打ちながら答える検索。アイデアは勝手につながる。'),
  ("<h3>It's just files</h3>", '<h3>就是文件而已</h3>', '<h3>Es sind nur Dateien</h3>', '<h3>ただのファイル</h3>'),
- ('No database. No cloud. No exit interview. A folder of markdown that will outlive every app on your dock — including '
-  'this one.',
-  '没有数据库，没有云端，没有"注销流程"。一个 markdown 文件夹，比你 Dock 上的每个应用都活得久——包括这一个。',
-  'Keine Datenbank. Keine Cloud. Kein Exit-Interview. Ein Ordner voller Markdown, der jede App in deinem Dock überlebt '
-  '— diese hier eingeschlossen.',
-  'データベースなし。クラウドなし。退会手続きなし。Dock のどのアプリより長生きする markdown のフォルダ——このアプリも含めて。'),
+ ('No database. No cloud. A folder of markdown that outlives every app on your dock — including this one.',
+  '没有数据库，没有云端。一个 markdown 文件夹，比你 Dock 上的每个应用都活得久——包括这一个。',
+  'Keine Datenbank. Keine Cloud. Ein Ordner voller Markdown, der jede App in deinem Dock überlebt — diese hier '
+  'eingeschlossen.',
+  'データベースなし。クラウドなし。Dock のどのアプリより長生きする markdown のフォルダ——このアプリも含めて。'),
  ('<div class="sec-k">The trick</div>',
   '<div class="sec-k">戏法</div>',
   '<div class="sec-k">Der Trick</div>',
@@ -124,17 +121,12 @@ STRINGS = [('<title>note.md — The markdown editor for humans and agents</title
   '<span class="ft">你的高亮、怀疑和问题——唯一没有模型能生成的东西。</span>',
   '<span class="ft">Deine Markierungen, Zweifel und Fragen — das Einzige, was kein Modell generieren kann.</span>',
   '<span class="ft">あなたのハイライト、疑問、問い——どのモデルにも生成できない唯一のもの。</span>'),
- ('Anyone can generate ten thousand words now. No one can generate your opinion of them. The files you marked up are a '
-  "map of what you actually cared about — <b>the rarest dataset in the world, and it's sitting on your disk.</b> "
-  'note.md ranks it first in search, and your agents read your margins before they write another word.',
-  '现在谁都能生成一万字，但没人能生成你对这一万字的看法。你标注过的文件，是你真正在乎什么的地图——<b>世界上最稀有的数据集，就躺在你的磁盘上。</b>note.md 让它在搜索里排最前；你的 agent '
-  '在写下一个字之前，先读你的批注。',
-  'Zehntausend Wörter kann heute jeder generieren. Deine Meinung dazu kann niemand generieren. Die Dateien, die du '
-  'markiert hast, sind eine Karte dessen, was dir wirklich wichtig war — <b>der seltenste Datensatz der Welt, und er '
-  'liegt auf deiner Platte.</b> note.md rankt ihn in der Suche zuerst, und deine Agents lesen deine Randnotizen, bevor '
-  'sie ein weiteres Wort schreiben.',
-  '一万語なら、今や誰でも生成できる。だが、それについてのあなたの意見は誰にも生成できない。あなたが印をつけたファイルは、本当に大切だったものの地図——<b>世界で最も希少なデータセットが、あなたのディスクに眠っている。</b>note.md '
-  'はそれを検索で最優先し、エージェントは次の一語を書く前にあなたの余白を読む。'),
+ ('Anyone can generate ten thousand words. No one can generate your opinion of them — <b>the rarest dataset in the '
+  "world, and it's sitting on your disk.</b>",
+  '现在谁都能生成一万字，但没人能生成你对这一万字的看法——<b>世界上最稀有的数据集，就躺在你的磁盘上。</b>',
+  'Zehntausend Wörter kann jeder generieren. Deine Meinung dazu kann niemand generieren — <b>der seltenste Datensatz '
+  'der Welt, und er liegt auf deiner Platte.</b>',
+  '一万語なら誰でも生成できる。だが、それについてのあなたの意見は誰にも生成できない——<b>世界で最も希少なデータセットが、あなたのディスクに眠っている。</b>'),
  ('<div class="sec-k">For agents</div>',
   '<div class="sec-k">给 agent</div>',
   '<div class="sec-k">Für Agents</div>',
@@ -149,29 +141,27 @@ STRINGS = [('<title>note.md — The markdown editor for humans and agents</title
   'Einfache Dateien, einfache Regeln. Claude Code, Codex, OpenClaw, Hermes — oder was nächste Woche erscheint. Sie '
   'alle sprechen Markdown.',
   'プレーンなファイル、シンプルなルール。Claude Code、Codex、OpenClaw、Hermes——来週出る何かでも。みんな markdown を話す。'),
- ("The rules live inside the folder, in a file any agent can read. Point Claude Code at it. Point next year's thing at "
-  'it. It just works. No plugins, no adapters.',
-  '规则就住在文件夹里，写成任何 agent 都能读的文件。把 Claude Code 指过来，把明年的新东西指过来，都能用。不要插件，不要适配器。',
-  'Die Regeln leben im Ordner, in einer Datei, die jeder Agent lesen kann. Zeig Claude Code darauf. Zeig das Ding von '
-  'nächstem Jahr darauf. Es funktioniert einfach. Keine Plugins, keine Adapter.',
-  'ルールはフォルダの中、どのエージェントでも読めるファイルに書いてある。Claude Code を向ける。来年の新顔を向ける。ただ動く。プラグインもアダプタも不要。'),
+ ("The rules live in the folder, in a file any agent reads. Point Claude Code — or next year's agent — at it. No "
+  'plugins, no adapters.',
+  '规则就住在文件夹里，写成任何 agent 都能读的文件。把 Claude Code——或者明年的新 agent——指过来就行。不要插件，不要适配器。',
+  'Die Regeln leben im Ordner, in einer Datei, die jeder Agent liest. Zeig Claude Code — oder den Agent von nächstem '
+  'Jahr — darauf. Keine Plugins, keine Adapter.',
+  'ルールはフォルダの中、どのエージェントでも読めるファイルにある。Claude Code——来年の新顔でも——を向けるだけ。プラグインもアダプタも不要。'),
  ('<h3>Memory that compounds</h3>', '<h3>会复利的记忆</h3>', '<h3>Gedächtnis mit Zinseszins</h3>', '<h3>複利で増える記憶</h3>'),
- ("Your daily notes double as your agent's memory. It searches years of your thinking — and quotes you back to "
-  'yourself, with receipts.',
-  '你的每日笔记就是 agent 的记忆。它能搜遍你多年的思考——再把你的话引用给你听，带出处。',
-  'Deine Tagesnotizen sind zugleich das Gedächtnis deines Agents. Er durchsucht Jahre deines Denkens — und zitiert '
-  'dich dir selbst, mit Beleg.',
-  'デイリーノートはエージェントの記憶を兼ねる。何年分もの思考を検索して——出典つきで、あなたの言葉をあなたに引用し返す。'),
+ ("Your daily notes are your agent's memory — years of your thinking, searchable, quoted back to you with receipts.",
+  '你的每日笔记就是 agent 的记忆——多年的思考，可搜索，还带出处引用给你听。',
+  'Deine Tagesnotizen sind das Gedächtnis deines Agents — Jahre deines Denkens, durchsuchbar, mit Beleg an dich '
+  'zurückzitiert.',
+  'デイリーノートはエージェントの記憶——何年分もの思考が検索でき、出典つきであなたに引用し返される。'),
  ('<h3>Write → read → learn</h3>',
   '<h3>写 → 读 → 学</h3>',
   '<h3>Schreiben → Lesen → Lernen</h3>',
   '<h3>書く → 読む → 学ぶ</h3>'),
- ('Agents write. You mark what matters. Agents read your marks and write better. The whole loop is a few files long '
-  'and runs on your disk.',
-  'agent 写，你标出重要的，agent 读你的标记然后写得更好。整个循环就几个文件长，跑在你的磁盘上。',
-  'Agents schreiben. Du markierst, was zählt. Agents lesen deine Markierungen und schreiben besser. Die ganze Schleife '
-  'ist ein paar Dateien lang und läuft auf deiner Platte.',
-  'エージェントが書く。あなたが大事な箇所に印をつける。エージェントが印を読み、もっとうまく書く。ループ全体が数ファイル分、あなたのディスクの上で回る。'),
+ ('Agents write. You mark what matters. They read your marks and write better — the whole loop runs on your disk.',
+  'agent 写，你标出重要的，它读你的标记然后写得更好——整个循环都跑在你的磁盘上。',
+  'Agents schreiben. Du markierst, was zählt. Sie lesen deine Markierungen und schreiben besser — die ganze Schleife '
+  'läuft auf deiner Platte.',
+  'エージェントが書く。あなたが大事な箇所に印をつける。エージェントが印を読み、もっとうまく書く——ループ全体があなたのディスクの上で回る。'),
  ('<span class="star">✦</span> what AI writes',
   '<span class="star">✦</span> AI 写的',
   '<span class="star">✦</span> was die KI schreibt',
