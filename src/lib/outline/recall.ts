@@ -136,39 +136,6 @@ export function editNodeInOutline(
   return serializeOutline(tree)
 }
 
-// ---------- IO（组件层调用；vitest 不覆盖，走手动验证） ----------
-
-/** A carrier node located in a specific file. */
-export interface RecallHit extends RecallNode {
-  file: string
-}
-
-const MAX_FILE_BYTES = 1024 * 1024 // 与 backlinks 一致的性能护栏
-
-/**
- * 跨 vault 召回页面 `page` 的层次反链。候选文件取自扁平索引（承载节点的行
- * 必然字面含 [[page]]，故 byTarget 已覆盖），再逐个解析大纲抽取承载节点。
- * 为 P1 简化：视图时读取候选文件（每页通常寥寥几个）；大扇入优化留待后续。
- */
-export async function recallForPage(
-  idx: BacklinkIndex,
-  page: string,
-  excludeFile?: string,
-): Promise<RecallHit[]> {
-  const files = [...new Set(backlinksFor(idx, page).map(h => h.file))].filter(f => f !== excludeFile)
-  if (files.length === 0) return []
-  const { readTextFile, stat } = await import('@tauri-apps/plugin-fs')
-  const out: RecallHit[] = []
-  for (const file of files) {
-    const info = await stat(file).catch(() => null)
-    if (info && info.size > MAX_FILE_BYTES) continue
-    const content = await readTextFile(file).catch(() => null)
-    if (content == null) continue
-    for (const n of recallNodes(parseOutline(content), page)) out.push({ file, ...n })
-  }
-  return out
-}
-
 /** One file's linked references: the file it lives in + its carrier subtrees. */
 export interface RecallGroup {
   file: string
@@ -178,23 +145,23 @@ export interface RecallGroup {
 /**
  * Grouped, nested recall for the Linked References outline: one {@link RecallGroup}
  * per source file, each carrying its topmost carrier nodes as nested subtrees.
- * Same candidate-file discovery + performance guard as {@link recallForPage}.
+ *
+ * Pure + synchronous: candidate files come from the flat index (a carrier line
+ * literally contains `[[page]]`, so byTarget covers them), and their parsed
+ * outline is read from `idx.fileTrees` — the index's watcher-maintained cache.
+ * No disk read, no re-parse at view time (see backlinks.ts indexFileContent).
  */
-export async function recallGrouped(
+export function recallGrouped(
   idx: BacklinkIndex,
   page: string,
   excludeFile?: string,
-): Promise<RecallGroup[]> {
+): RecallGroup[] {
   const files = [...new Set(backlinksFor(idx, page).map(h => h.file))].filter(f => f !== excludeFile)
-  if (files.length === 0) return []
-  const { readTextFile, stat } = await import('@tauri-apps/plugin-fs')
   const out: RecallGroup[] = []
   for (const file of files) {
-    const info = await stat(file).catch(() => null)
-    if (info && info.size > MAX_FILE_BYTES) continue
-    const content = await readTextFile(file).catch(() => null)
-    if (content == null) continue
-    const carriers = recallTree(parseOutline(content), page)
+    const tree = idx.fileTrees.get(file)
+    if (!tree) continue
+    const carriers = recallTree(tree, page)
     if (carriers.length) out.push({ file, carriers })
   }
   return out
