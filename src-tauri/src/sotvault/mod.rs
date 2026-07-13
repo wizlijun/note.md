@@ -61,33 +61,6 @@ fn bundle_referenced_images(
     Ok(md)
 }
 
-/// Copy the source's companion outline note (`foo.md` → `foo.note.md`) next to
-/// the vault copy, renamed to the target's (possibly dated/deduped) stem so the
-/// outline finds it by the same filename convention. Missing source companion
-/// is a no-op; an existing vault companion is overwritten (it belongs to this
-/// pair) but never deleted when the source side has none.
-fn sync_companion_note(source: &Path, target: &Path) {
-    let (Some(src_name), Some(dst_name)) = (
-        source.file_name().and_then(|s| s.to_str()),
-        target.file_name().and_then(|s| s.to_str()),
-    ) else {
-        return;
-    };
-    let (Some(src_note), Some(dst_note)) = (
-        logic::companion_note_name(src_name),
-        logic::companion_note_name(dst_name),
-    ) else {
-        return;
-    };
-    let src_note_path = source.with_file_name(src_note);
-    if !src_note_path.is_file() {
-        return;
-    }
-    let dst_note_path = target.with_file_name(dst_note);
-    if let Err(e) = std::fs::copy(&src_note_path, &dst_note_path) {
-        eprintln!("[sotvault] copy companion note {src_note_path:?} failed: {e}");
-    }
-}
 
 /// Outcome of reconciling a pair's companion notes: the new merge base to
 /// persist on the `Record`, and whether conflict markers were produced.
@@ -262,19 +235,23 @@ pub fn sotvault_sync_to_vault(
         Err(_) => src_bytes.clone(),
     };
     std::fs::write(&target, &vault_bytes).map_err(|e| e.to_string())?;
-    sync_companion_note(&source, &target);
+
+    let mut s = load_store(&app)?;
+    let prior_base = s
+        .find_by_vault(&target.to_string_lossy())
+        .and_then(|r| r.note_merge_base.clone());
+    let note = reconcile_companion_notes(&source, &target, prior_base.as_deref());
 
     let source_hash = logic::sha256_hex(&src_bytes);
     let vault_hash = logic::sha256_hex(&vault_bytes);
 
-    let mut s = load_store(&app)?;
     let rec = Record {
         vault_path: target.to_string_lossy().to_string(),
         source_path: source.to_string_lossy().to_string(),
         synced_at: now_secs(),
         source_hash,
         vault_hash,
-        note_merge_base: None,
+        note_merge_base: note.new_base,
     };
     s.upsert(rec.clone());
     save_store(&app, &s)?;
@@ -348,12 +325,18 @@ pub fn sotvault_apply_update(app: AppHandle, vault_path: String) -> Result<Strin
     };
     let vault_bytes = vault_string.clone().into_bytes();
     std::fs::write(&rec.vault_path, &vault_bytes).map_err(|e| e.to_string())?;
-    sync_companion_note(Path::new(&rec.source_path), &vault_pathbuf);
+    let prior = rec.note_merge_base.clone();
+    let note = reconcile_companion_notes(
+        Path::new(&rec.source_path),
+        &vault_pathbuf,
+        prior.as_deref(),
+    );
 
     let updated = Record {
         synced_at: now_secs(),
         source_hash: logic::sha256_hex(&src_bytes),
         vault_hash: logic::sha256_hex(&vault_bytes),
+        note_merge_base: note.new_base,
         ..rec
     };
     s.upsert(updated);
@@ -413,38 +396,6 @@ mod tests {
 
         assert_eq!(out, md);
         assert!(!dest_dir.join("note.assets").exists());
-    }
-
-    #[test]
-    fn companion_note_synced_with_renamed_target() {
-        let tmp = TempDir::new().unwrap();
-        let src_dir = tmp.path().join("src");
-        std::fs::create_dir_all(&src_dir).unwrap();
-        std::fs::write(src_dir.join("foo.md"), b"# main").unwrap();
-        std::fs::write(src_dir.join("foo.note.md"), b"- outline note").unwrap();
-
-        let dest_dir = tmp.path().join("vault");
-        std::fs::create_dir_all(&dest_dir).unwrap();
-        let target = dest_dir.join("2026-07-10-foo.md");
-
-        sync_companion_note(&src_dir.join("foo.md"), &target);
-
-        let copied = dest_dir.join("2026-07-10-foo.note.md");
-        assert_eq!(std::fs::read(&copied).unwrap(), b"- outline note");
-    }
-
-    #[test]
-    fn companion_note_missing_is_a_noop() {
-        let tmp = TempDir::new().unwrap();
-        let src_dir = tmp.path().join("src");
-        std::fs::create_dir_all(&src_dir).unwrap();
-        std::fs::write(src_dir.join("foo.md"), b"# main").unwrap();
-        let dest_dir = tmp.path().join("vault");
-        std::fs::create_dir_all(&dest_dir).unwrap();
-
-        sync_companion_note(&src_dir.join("foo.md"), &dest_dir.join("foo.md"));
-
-        assert!(std::fs::read_dir(&dest_dir).unwrap().next().is_none());
     }
 
     #[test]
