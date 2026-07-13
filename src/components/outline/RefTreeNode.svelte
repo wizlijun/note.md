@@ -29,13 +29,19 @@
 </div>
 
 <style>
-  .ref-row { display: flex; align-items: baseline; gap: 4px; padding: 1px 0; }
+  /* Inherit the main outline's typography so references read as one outline. */
+  .ref-row {
+    display: flex; align-items: baseline; gap: 4px; padding: 1px 0;
+    font-family: var(--outline-font-family);
+    font-size: var(--outline-font-size, 13px);
+    line-height: var(--outline-line-height, 1.5);
+  }
   .twist {
     background: none; border: none; cursor: pointer; color: inherit;
-    font-size: 10px; opacity: 0.55; width: 14px; flex: none; padding: 0; line-height: 1.4;
+    font-size: 0.7em; opacity: 0.55; width: 1.1em; flex: none; padding: 0; line-height: inherit;
   }
   .twist:hover { opacity: 1; }
-  .dot { opacity: 0.35; width: 14px; flex: none; text-align: center; font-size: 10px; }
-  .text { flex: 1; min-width: 0; font-size: 13px; }
-  .children { padding-left: 14px; }
+  .dot { opacity: 0.35; width: 1.1em; flex: none; text-align: center; font-size: 0.7em; }
+  .text { flex: 1; min-width: 0; }
+  .children { padding-left: 1.1em; }
 </style>

@@ -31,7 +31,7 @@
 {#if count > 0}
   <section class="linked-refs">
     <header class="lr-head">
-      <span class="lr-title">{count} {t('outline.backlinks')}</span>
+      <span class="lr-title">{count} {t('outline.linkedReferences')}</span>
       <span class="lr-actions">
         <button class="icon" title="Search" disabled aria-label="search">⌕</button>
         <button class="icon" title="Filter" disabled aria-label="filter">⚑</button>
@@ -57,30 +57,37 @@
 {/if}
 
 <style>
-  .linked-refs { margin-top: 20px; }
+  /* Inherit the main outline's typography so the whole section reads as one
+     continuous outline; header/breadcrumb are sized relative to it. */
+  .linked-refs {
+    margin-top: 20px;
+    font-family: var(--outline-font-family);
+    font-size: var(--outline-font-size, 13px);
+    line-height: var(--outline-line-height, 1.5);
+  }
   .lr-head {
     display: flex; align-items: center; justify-content: space-between;
     border-top: 1px solid var(--border-color, #3333);
     padding: 8px 2px 6px; margin-bottom: 4px;
   }
-  .lr-title { font-size: 12px; font-weight: 600; opacity: 0.6; letter-spacing: 0.02em; }
+  .lr-title { font-size: 0.85em; font-weight: 600; opacity: 0.6; letter-spacing: 0.02em; }
   .lr-actions { display: flex; gap: 2px; }
   .icon {
     background: none; border: none; color: inherit; cursor: pointer;
-    font-size: 13px; opacity: 0.4; padding: 2px 5px; border-radius: 4px;
+    font-size: 1em; opacity: 0.4; padding: 2px 5px; border-radius: 4px;
   }
   .icon:disabled { cursor: default; }
   .icon:not(:disabled):hover { opacity: 0.9; background: var(--hover-bg, #8881); }
   .lr-group { margin: 6px 0 10px; }
   .lr-file {
     background: none; border: none; text-align: left; cursor: pointer; padding: 2px 4px;
-    border-radius: 4px; color: inherit; font-size: 13px; font-weight: 600; opacity: 0.85;
+    border-radius: 4px; color: inherit; font-size: 1em; font-weight: 600; opacity: 0.85;
   }
   .lr-file:hover { background: var(--hover-bg, #8881); text-decoration: underline; }
   .lr-carrier { padding: 2px 0 2px 12px; }
   .lr-crumb {
     display: block; background: none; border: none; text-align: left; cursor: pointer;
-    color: inherit; opacity: 0.45; font-size: 11px; padding: 0 4px 2px; font-family: inherit;
+    color: inherit; opacity: 0.45; font-size: 0.82em; padding: 0 4px 2px; font-family: inherit;
   }
   .lr-crumb:hover { opacity: 0.8; text-decoration: underline; }
 </style>
