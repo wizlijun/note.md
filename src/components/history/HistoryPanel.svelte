@@ -1,7 +1,7 @@
 <script lang="ts">
   import { invoke } from '@tauri-apps/api/core'
   import type { Tab } from '../../lib/tabs.svelte'
-  import { setContent } from '../../lib/tabs.svelte'
+  import { restoreVersion } from '../../lib/tabs.svelte'
   import { openDiffPreview, openComparePreview, openRichPreview } from '../../lib/git-history/preview'
   import { basename } from '../../lib/fs'
   import { t } from '../../lib/i18n/store.svelte'
@@ -94,7 +94,7 @@
     if (!tab || !vaultRoot) return
     try {
       const content = await invoke<string>('git_file_at', { repo: vaultRoot, rev: c.hash, absPath: tab.filePath })
-      setContent(tab.id, content)
+      await restoreVersion(tab.id, content)
       pushToast({ level: 'success', message: t('history.restored') })
     } catch (e) {
       pushToast({ level: 'error', message: t('history.loadFailed'), detail: String(e) })

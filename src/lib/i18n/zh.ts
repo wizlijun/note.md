@@ -397,7 +397,7 @@ export const zh: Record<keyof Messages, string> = {
   'history.refresh': '刷新',
   'history.diff': '查看差异',
   'history.restore': '恢复此版本',
-  'history.restored': '已恢复到编辑器（未保存），按 ⌘S 保留。',
+  'history.restored': '已恢复到此版本并保存。',
   'history.noDocument': '打开文件以查看其历史',
   'history.notInVault': '该文件不在 vault 中，没有 git 历史',
   'history.gitUnavailable': '系统中未找到 git',

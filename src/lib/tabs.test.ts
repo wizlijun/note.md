@@ -535,4 +535,55 @@ describe('tabs', () => {
     const m = await import('./tabs.svelte')
     await expect(m.updateTabPath('/tmp/nope.md', '/tmp/x.md')).resolves.toBeUndefined()
   })
+
+  // ── restoreVersion (git history "Restore this version") ──────────────────────
+  it('restoreVersion writes the old content to disk and lands the tab clean', async () => {
+    // Restore = confirm rollback: persist immediately and clear dirty, so the
+    // user never has to press ⌘S. The buffer is re-read from disk (auto-reload
+    // path), so currentContent === initialContent === the restored bytes.
+    const fs = await import('./fs')
+    const m = await import('./tabs.svelte')
+    await m.openFile('/tmp/foo.md')
+    const t = m.tabs[0]
+    m.setContent(t.id, 'user edits')          // dirty with unrelated content
+    expect(m.isDirty(t.id)).toBe(true)
+    ;(fs.readMd as ReturnType<typeof vi.fn>).mockResolvedValueOnce('OLD VERSION')
+    await m.restoreVersion(t.id, 'OLD VERSION')
+    expect(fs.writeMd).toHaveBeenCalledWith('/tmp/foo.md', 'OLD VERSION')
+    expect(t.currentContent).toBe('OLD VERSION')
+    expect(t.initialContent).toBe('OLD VERSION')
+    expect(m.isDirty(t.id)).toBe(false)
+  })
+
+  it('restoreVersion dispatches mdeditor:auto-reloaded so every editor rebuilds', async () => {
+    // OutlineEditor (and SourceView cursor-preserve) only refresh on this event;
+    // reusing the auto-reload path is what makes restore visible in all modes.
+    const fs = await import('./fs')
+    const m = await import('./tabs.svelte')
+    await m.openFile('/tmp/foo.md')
+    const t = m.tabs[0]
+    const dispatched: CustomEvent[] = []
+    ;(globalThis as Record<string, unknown>).window = {
+      dispatchEvent: (e: CustomEvent) => dispatched.push(e),
+    }
+    try {
+      ;(fs.readMd as ReturnType<typeof vi.fn>).mockResolvedValueOnce('V1')
+      await m.restoreVersion(t.id, 'V1')
+    } finally {
+      delete (globalThis as Record<string, unknown>).window
+    }
+    const evt = dispatched.find((e) => e.type === 'mdeditor:auto-reloaded')
+    expect(evt).toBeTruthy()
+    expect(evt!.detail.tabId).toBe(t.id)
+    expect(evt!.detail.newContent).toBe('V1')
+  })
+
+  it('restoreVersion is a no-op for an untitled (path-less) tab', async () => {
+    const fs = await import('./fs')
+    const m = await import('./tabs.svelte')
+    m.newFile()
+    const t = m.tabs[0]
+    await m.restoreVersion(t.id, 'X')
+    expect(fs.writeMd).not.toHaveBeenCalled()
+  })
 })
