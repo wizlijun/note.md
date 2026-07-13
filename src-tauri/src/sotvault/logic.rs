@@ -327,6 +327,7 @@ mod tests {
             synced_at: 1,
             source_hash: source_hash.into(),
             vault_hash: vault_hash.into(),
+            note_merge_base: None,
         }
     }
 
@@ -380,6 +381,7 @@ mod tests {
             synced_at: 1,
             source_hash: sha256_hex(b"OLD"),
             vault_hash: sha256_hex(b"OLD"),
+            note_merge_base: None,
         };
         let out = check_update_io(&r, &source, &vault).unwrap();
         assert_eq!(out, UpdateOutcome::OriginUpdated);

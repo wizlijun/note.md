@@ -181,6 +181,7 @@ pub fn sotvault_sync_to_vault(
         synced_at: now_secs(),
         source_hash,
         vault_hash,
+        note_merge_base: None,
     };
     s.upsert(rec.clone());
     save_store(&app, &s)?;
