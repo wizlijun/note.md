@@ -4,6 +4,7 @@ import {
   createSiblingBelow, createSiblingAbove, indentNode, outdentNode,
   moveNodeUp, moveNodeDown, mergeWithPrevious, applyInlineWrap,
   subtreeToMarkdown, deleteNodes, indentNodes, outdentNodes, moveNodesAfter, moveNodesToChild, nodesToMarkdown,
+  insertPastedTree,
 } from './commands'
 import { createTree, addNode, childrenOf, type OutlineTree } from './model'
 
@@ -154,5 +155,101 @@ describe('batch commands (multi-select)', () => {
   it('nodesToMarkdown serializes selection roots with subtrees', () => {
     const t = batchTree()
     expect(nodesToMarkdown(t, new Set(['b', 'b1']))).toBe('- B\n  - B1\n')
+  })
+})
+
+describe('insertPastedTree (paste hierarchy)', () => {
+  // helper: 树按可见序返回 [content, depth]
+  function flat(t: OutlineTree) {
+    const out: Array<{ content: string; depth: number }> = []
+    const walk = (pid: string | null, depth: number) => {
+      for (const n of childrenOf(t, pid)) { out.push({ content: n.content, depth }); walk(n.id, depth + 1) }
+    }
+    walk(null, 0)
+    return out
+  }
+
+  it('first line merges into current node; rest attach by relative depth', () => {
+    const t = manualTree() // roots: a(''=>'A'), b('B') with child b1
+    const parsed = [
+      { depth: 0, content: 'X0' },
+      { depth: 1, content: 'X1' },
+      { depth: 0, content: 'X2' },
+    ]
+    insertPastedTree(t, 'a', '', '', parsed)
+    // a becomes 'X0'; X1 is a's child; X2 is a's sibling (after a, before b)
+    expect(t.nodes.get('a')!.content).toBe('X0')
+    expect(flat(t)).toEqual([
+      { content: 'X0', depth: 0 },
+      { content: 'X1', depth: 1 },
+      { content: 'X2', depth: 0 },
+      { content: 'B', depth: 0 },
+      { content: 'B1', depth: 1 },
+    ])
+  })
+
+  it('depth-1 after a depth-0 sibling parents under that sibling, not cur', () => {
+    const t = manualTree()
+    insertPastedTree(t, 'a', '', '', [
+      { depth: 0, content: 'P0' },  // merges into a
+      { depth: 0, content: 'P1' },  // sibling of a
+      { depth: 1, content: 'P2' },  // child of P1 (not of a)
+    ])
+    expect(t.nodes.get('a')!.content).toBe('P0')
+    expect(childrenOf(t, 'a').length).toBe(0)               // a has no new child
+    const roots = childrenOf(t, null)
+    const p1 = roots.find(n => n.content === 'P1')!
+    expect(childrenOf(t, p1.id).map(n => n.content)).toEqual(['P2'])  // P2 is P1's child
+  })
+
+  it('head is preserved before first pasted line', () => {
+    const t = manualTree()
+    insertPastedTree(t, 'a', 'HEAD ', '', [{ depth: 0, content: 'first' }, { depth: 0, content: 'second' }])
+    expect(t.nodes.get('a')!.content).toBe('HEAD first')
+  })
+
+  it('tail is appended to the last created node', () => {
+    const t = manualTree()
+    const lastId = insertPastedTree(t, 'a', '', ' TAIL', [
+      { depth: 0, content: 'p0' },
+      { depth: 1, content: 'p1' },
+    ])
+    expect(t.nodes.get(lastId)!.content).toBe('p1 TAIL')
+  })
+
+  it('deeper nodes append AFTER current node existing children', () => {
+    const t = manualTree() // b already has child b1
+    insertPastedTree(t, 'b', '', '', [
+      { depth: 0, content: 'B*' },
+      { depth: 1, content: 'newkid' },
+    ])
+    const kids = childrenOf(t, 'b').map(n => n.content)
+    expect(kids).toEqual(['B1', 'newkid']) // existing B1 stays first
+  })
+
+  it('returns currentNodeId and only sets content when parsed has a single line', () => {
+    const t = manualTree()
+    const ret = insertPastedTree(t, 'a', 'H', 'T', [{ depth: 0, content: 'solo' }])
+    expect(ret).toBe('a')
+    expect(t.nodes.get('a')!.content).toBe('HsoloT')
+    expect(childrenOf(t, null).map(n => n.id)).toEqual(['a', 'b']) // no new nodes
+  })
+
+  it('new nodes are manual with createdAt', () => {
+    const t = manualTree()
+    const lastId = insertPastedTree(t, 'a', '', '', [{ depth: 0, content: 'p0' }, { depth: 0, content: 'p1' }])
+    const n = t.nodes.get(lastId)!
+    expect(n.source).toBe('manual')
+    expect(typeof n.createdAt).toBe('string')
+  })
+
+  it('multiple same-depth siblings keep paste order and precede original next sibling', () => {
+    const t = manualTree()
+    insertPastedTree(t, 'a', '', '', [
+      { depth: 0, content: 's0' },
+      { depth: 0, content: 's1' },
+      { depth: 0, content: 's2' },
+    ])
+    expect(childrenOf(t, null).map(n => n.content)).toEqual(['s0', 's1', 's2', 'B'])
   })
 })

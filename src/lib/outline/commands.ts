@@ -4,6 +4,7 @@ import {
   visibleNodes, removeSubtree, collectDescendantIds, isValidDropTarget,
   type OutlineTree, type OutlineNode,
 } from './model'
+import type { ParsedPasteNode } from './paste'
 
 const isManual = (n: OutlineNode | undefined): n is OutlineNode => !!n && n.source === 'manual'
 
@@ -174,6 +175,78 @@ export function subtreeToMarkdown(tree: OutlineTree, id: string, depth = 0): str
   let out = firstLine + restLines
   for (const c of childrenOf(tree, id)) out += subtreeToMarkdown(tree, c.id, depth + 1)
   return out
+}
+
+/**
+ * 粘贴解析后的层级列表挂进大纲（spec 2026-07-13 Option A）。
+ * - parsed[0] 并入当前节点：content = head + parsed[0].content
+ * - parsed[1..] 按相对 depth：depth 0 = 当前节点的兄弟（紧跟其后），
+ *   depth d>=1 = levelStack[d-1] 之下（追加到该父现有子末尾）
+ * - tail 追加到最后一个新建节点末尾
+ * 返回最后一个受影响节点 id（用于落焦点）。
+ */
+export function insertPastedTree(
+  tree: OutlineTree,
+  currentNodeId: string,
+  head: string,
+  tail: string,
+  parsed: ParsedPasteNode[],
+): string {
+  const cur = tree.nodes.get(currentNodeId)
+  if (!cur) return currentNodeId
+  if (parsed.length === 0) { setNodeContent(cur, head + tail); return currentNodeId }
+
+  // 单行：并入当前节点，无新节点
+  if (parsed.length < 2) {
+    setNodeContent(cur, head + parsed[0].content + tail)
+    return currentNodeId
+  }
+
+  setNodeContent(cur, head + parsed[0].content)
+
+  // levelStack[d] = 该 depth 最近建出的节点 id；index 0 初始为 currentNodeId, 随 d=0 兄弟推进而更新
+  const levelStack: string[] = [currentNodeId]
+  // 每个父节点的排序游标：{ prev: 上一个已放子节点 order, next: 固定上界 }
+  const cursor = new Map<string | null, { prev: number | null; next: number | null }>()
+  let lastCreated = currentNodeId
+
+  for (let i = 1; i < parsed.length; i++) {
+    const d = parsed[i].depth
+    const parentId = d === 0 ? cur.parentId : levelStack[Math.min(d, levelStack.length) - 1]
+
+    if (!cursor.has(parentId)) {
+      if (d === 0) {
+        // 当前节点的新兄弟：插到 cur 之后、cur 原下一个兄弟之前
+        const sibs = childrenOf(tree, parentId)
+        const idx = sibs.findIndex(s => s.id === cur.id)
+        const nb = idx >= 0 && idx < sibs.length - 1 ? sibs[idx + 1] : null
+        cursor.set(parentId, { prev: cur.order, next: nb ? nb.order : null })
+      } else {
+        // 更深层：追加到父现有子的末尾（父多为刚建出的空节点）
+        const kids = childrenOf(tree, parentId)
+        cursor.set(parentId, { prev: kids.length ? kids[kids.length - 1].order : null, next: null })
+      }
+    }
+    const c = cursor.get(parentId)!
+    const order = calculateOrderBetween(c.prev, c.next)
+    const node: OutlineNode = {
+      id: newId(), parentId, order,
+      content: parsed[i].content, collapsed: false, source: 'manual', createdAt: nowIso(),
+    }
+    tree.nodes.set(node.id, node)
+    c.prev = order
+
+    // 维护 levelStack：本层记为该节点，截断更深层
+    levelStack[d] = node.id
+    levelStack.length = d + 1
+    lastCreated = node.id
+  }
+
+  if (tail) {
+    const last = tree.nodes.get(lastCreated)!
+    setNodeContent(last, last.content + tail)
+  }
+  return lastCreated
 }
 
 // ---------- 批量操作（多节点选择,见 2026-07-10-outline-multiselect spec） ----------
