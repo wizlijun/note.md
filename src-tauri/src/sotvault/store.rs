@@ -8,6 +8,11 @@ pub struct Record {
     pub synced_at: u64,
     pub source_hash: String,
     pub vault_hash: String,
+    /// Last-converged companion-note content = the 3-way merge ancestor.
+    /// `#[serde(default)]` keeps old `sotvault-sync.json` files loadable
+    /// (missing key → `None`, which triggers the migration branch on next sync).
+    #[serde(default)]
+    pub note_merge_base: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -82,6 +87,7 @@ mod tests {
             synced_at: 100,
             source_hash: "aaa".into(),
             vault_hash: "aaa".into(),
+            note_merge_base: None,
         }
     }
 
@@ -139,5 +145,32 @@ mod tests {
         let store = load_records(&p);
         assert_eq!(store.records.len(), 0);
         assert!(p.with_extension("json.corrupt").exists());
+    }
+
+    #[test]
+    fn legacy_json_without_note_base_loads_as_none() {
+        let tmp = TempDir::new().unwrap();
+        let p = tmp.path().join("sotvault-sync.json");
+        // A store written before note_merge_base existed.
+        let legacy = r#"{"version":1,"records":[
+            {"vault_path":"/v/a.md","source_path":"/s/a.md",
+             "synced_at":5,"source_hash":"h1","vault_hash":"h2"}]}"#;
+        std::fs::write(&p, legacy).unwrap();
+        let store = load_records(&p);
+        assert_eq!(store.records.len(), 1);
+        assert_eq!(store.records[0].note_merge_base, None);
+    }
+
+    #[test]
+    fn note_base_round_trips() {
+        let tmp = TempDir::new().unwrap();
+        let p = tmp.path().join("sotvault-sync.json");
+        let mut store = RecordStore::default();
+        let mut r = rec("/v/a.md", "/s/a.md");
+        r.note_merge_base = Some("- base line".into());
+        store.upsert(r);
+        save_records(&p, &store).unwrap();
+        let loaded = load_records(&p);
+        assert_eq!(loaded.records[0].note_merge_base.as_deref(), Some("- base line"));
     }
 }
