@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core'
+import { listen } from '@tauri-apps/api/event'
 import { pushToast } from './toast.svelte'
 import { t } from './i18n/store.svelte'
 import { activeTab, reloadTabFromDisk } from './tabs.svelte'
@@ -24,6 +25,17 @@ export const sotvaultStore = $state<{ vaultRoot: string | null; records: SotReco
 let vaultRootChangedHandler: (() => void) | null = null
 export function setVaultRootChangedHandler(fn: (() => void) | null): void {
   vaultRootChangedHandler = fn
+}
+
+let noteConflictListening = false
+/** Show a toast whenever a sidecar-note merge produced conflict markers.
+ *  Idempotent: safe to call once at app boot. */
+export async function initSotvaultNoteConflictToast(): Promise<void> {
+  if (noteConflictListening) return
+  noteConflictListening = true
+  await listen('sotvault://note-conflict', () => {
+    pushToast({ level: 'warn', message: t('sotvault.noteConflict') })
+  })
 }
 
 export async function refreshSotvault(): Promise<void> {

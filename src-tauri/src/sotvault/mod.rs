@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use serde::Serialize;
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 
 use logic::UpdateOutcome;
 use store::{Record, RecordStore};
@@ -255,6 +255,9 @@ pub fn sotvault_sync_to_vault(
     };
     s.upsert(rec.clone());
     save_store(&app, &s)?;
+    if note.conflict {
+        let _ = app.emit("sotvault://note-conflict", ());
+    }
     Ok(rec)
 }
 
@@ -341,6 +344,9 @@ pub fn sotvault_apply_update(app: AppHandle, vault_path: String) -> Result<Strin
     };
     s.upsert(updated);
     save_store(&app, &s)?;
+    if note.conflict {
+        let _ = app.emit("sotvault://note-conflict", ());
+    }
     Ok(vault_string)
 }
 
