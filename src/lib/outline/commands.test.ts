@@ -188,6 +188,20 @@ describe('insertPastedTree (paste hierarchy)', () => {
     ])
   })
 
+  it('depth-1 after a depth-0 sibling parents under that sibling, not cur', () => {
+    const t = manualTree()
+    insertPastedTree(t, 'a', '', '', [
+      { depth: 0, content: 'P0' },  // merges into a
+      { depth: 0, content: 'P1' },  // sibling of a
+      { depth: 1, content: 'P2' },  // child of P1 (not of a)
+    ])
+    expect(t.nodes.get('a')!.content).toBe('P0')
+    expect(childrenOf(t, 'a').length).toBe(0)               // a has no new child
+    const roots = childrenOf(t, null)
+    const p1 = roots.find(n => n.content === 'P1')!
+    expect(childrenOf(t, p1.id).map(n => n.content)).toEqual(['P2'])  // P2 is P1's child
+  })
+
   it('head is preserved before first pasted line', () => {
     const t = manualTree()
     insertPastedTree(t, 'a', 'HEAD ', '', [{ depth: 0, content: 'first' }, { depth: 0, content: 'second' }])

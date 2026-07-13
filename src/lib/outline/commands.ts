@@ -193,7 +193,8 @@ export function insertPastedTree(
   parsed: ParsedPasteNode[],
 ): string {
   const cur = tree.nodes.get(currentNodeId)
-  if (!cur || parsed.length === 0) return currentNodeId
+  if (!cur) return currentNodeId
+  if (parsed.length === 0) { setNodeContent(cur, head + tail); return currentNodeId }
 
   // 单行：并入当前节点，无新节点
   if (parsed.length < 2) {
@@ -203,7 +204,7 @@ export function insertPastedTree(
 
   setNodeContent(cur, head + parsed[0].content)
 
-  // levelStack[d] = 该 depth 最近建出的节点 id；index 0 = 当前节点
+  // levelStack[d] = 该 depth 最近建出的节点 id；index 0 初始为 currentNodeId, 随 d=0 兄弟推进而更新
   const levelStack: string[] = [currentNodeId]
   // 每个父节点的排序游标：{ prev: 上一个已放子节点 order, next: 固定上界 }
   const cursor = new Map<string | null, { prev: number | null; next: number | null }>()
