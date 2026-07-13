@@ -367,6 +367,8 @@ export const zh: Record<keyof Messages, string> = {
   'outline.deleteConfirm': '删除该节点及其全部子节点？',
   'outline.backlinks': '反向链接',
   'outline.noBacklinks': '暂无反向链接',
+  'outline.linkedReferences': '关联引用',
+  'outline.unlinkedReferences': '未链接引用',
   'outline.hide': '隐藏伴生笔记',
   'outline.search': '搜索伴生笔记',
   'outline.searchPlaceholder': '过滤伴生笔记…',

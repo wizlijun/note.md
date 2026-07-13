@@ -341,6 +341,8 @@ export const en = {
   'outline.deleteConfirm': 'Delete this node and all its children?',
   'outline.backlinks': 'Backlinks',
   'outline.noBacklinks': 'No backlinks',
+  'outline.linkedReferences': 'Linked References',
+  'outline.unlinkedReferences': 'Unlinked References',
   'outline.hide': 'Hide sidecar notes',
   'outline.search': 'Search sidecar notes',
   'outline.searchPlaceholder': 'Filter sidecar notes…',

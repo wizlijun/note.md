@@ -336,6 +336,8 @@ export const ja: Record<keyof Messages, string> = {
   'outline.deleteConfirm': 'このノードとすべての子ノードを削除しますか？',
   'outline.backlinks': 'バックリンク',
   'outline.noBacklinks': 'バックリンクはありません',
+  'outline.linkedReferences': 'リンクされた参照',
+  'outline.unlinkedReferences': 'リンクされていない参照',
   'outline.hide': 'サイドカーノートを隠す',
   'outline.search': 'サイドカーノートを検索',
   'outline.searchPlaceholder': 'サイドカーノートを絞り込み…',
