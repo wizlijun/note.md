@@ -1,7 +1,7 @@
 // src/lib/outline/recall.ts
-import { childrenOf, type OutlineTree } from './model'
+import { childrenOf, type OutlineTree, type OutlineNode } from './model'
 import { parseInline } from './parser'
-import { parseOutline } from './markdown'
+import { parseOutline, serializeOutline } from './markdown'
 import { backlinksFor, type BacklinkIndex } from './backlinks'
 
 /** A hierarchy-aware backlink hit: the node that carries the link, with its
@@ -12,9 +12,11 @@ export interface RecallNode {
   subtree: string[]
 }
 
-/** A node in a recalled subtree (nested, for collapse/expand rendering). */
+/** A node in a recalled subtree (nested, for collapse/expand rendering).
+ *  `path` is the child-index path from the source file's root (for write-back). */
 export interface RecallTreeNode {
   text: string
+  path: number[]
   children: RecallTreeNode[]
 }
 
@@ -78,22 +80,60 @@ export function recallTree(tree: OutlineTree, page: string): RecallCarrier[] {
   const out: RecallCarrier[] = []
   const ancestors: string[] = []
 
-  const treeOf = (nodeId: string): RecallTreeNode[] =>
-    childrenOf(tree, nodeId).map(child => ({ text: child.content, children: treeOf(child.id) }))
+  const treeOf = (nodeId: string, basePath: number[]): RecallTreeNode[] =>
+    childrenOf(tree, nodeId).map((child, i) => {
+      const path = [...basePath, i]
+      return { text: child.content, path, children: treeOf(child.id, path) }
+    })
 
-  const walk = (parentId: string | null): void => {
-    for (const node of childrenOf(tree, parentId)) {
+  const walk = (parentId: string | null, basePath: number[]): void => {
+    childrenOf(tree, parentId).forEach((node, i) => {
+      const path = [...basePath, i]
       if (carriesPage(node.content, pageLower)) {
-        out.push({ breadcrumb: [...ancestors], node: { text: node.content, children: treeOf(node.id) } })
+        out.push({ breadcrumb: [...ancestors], node: { text: node.content, path, children: treeOf(node.id, path) } })
       } else {
         ancestors.push(node.content)
-        walk(node.id)
+        walk(node.id, path)
         ancestors.pop()
       }
-    }
+    })
   }
-  walk(null)
+  walk(null, [])
   return out
+}
+
+/** Navigate to the node at a child-index path from root; null if out of range. */
+function nodeAtPath(tree: OutlineTree, path: number[]): OutlineNode | null {
+  let parentId: string | null = null
+  let node: OutlineNode | null = null
+  for (const idx of path) {
+    node = childrenOf(tree, parentId)[idx] ?? null
+    if (!node) return null
+    parentId = node.id
+  }
+  return node
+}
+
+/**
+ * Edit one node's text inside an outline-file's markdown and reserialize.
+ * Returns the new markdown, or null when the edit is unsafe:
+ *  - the node at `path` no longer exists, or its content ≠ `oldText`
+ *    (the file changed underneath → caller shows "not synced"), or
+ *  - the node is read-only (source other than manual/note).
+ * Sets content directly (no updatedAt stamp) to keep the file diff minimal.
+ */
+export function editNodeInOutline(
+  md: string,
+  path: number[],
+  oldText: string,
+  newText: string,
+): string | null {
+  const tree = parseOutline(md)
+  const node = nodeAtPath(tree, path)
+  if (!node || node.content !== oldText) return null
+  if (node.source !== 'manual' && node.source !== 'note') return null
+  node.content = newText
+  return serializeOutline(tree)
 }
 
 // ---------- IO（组件层调用；vitest 不覆盖，走手动验证） ----------
