@@ -8,7 +8,7 @@ export interface ParsedPasteNode {
 }
 
 const TAB_WIDTH = 4
-/** 行首空白 + 列表标记(-,*,+ 或 1./1)) + 至少一个空格 + 正文 */
+/** 行首空白 + 列表标记(- * + 或 数字后接 . / )) + 至少一个空格 + 正文 */
 const LIST_MARKER = /^(\s*)(?:[-*+]|\d+[.)])\s+(.*)$/
 /** 行首空白 + 正文（无标记时兜底，永远匹配） */
 const INDENT_ONLY = /^(\s*)(.*)$/
@@ -37,6 +37,8 @@ export function parseClipboardOutline(text: string): ParsedPasteNode[] {
   const out: ParsedPasteNode[] = []
   const stack: number[] = [] // 缩进宽度栈，升序
   for (const it of items) {
+    // 缩进宽度不精确匹配任何祖先时（如缩进步长不规则）：弹到最近的、不超过当前宽度的祖先，
+    // 该行归一为其下一层（就近归一，不新造中间层）。
     while (stack.length > 0 && it.width < stack[stack.length - 1]) stack.pop()
     if (stack.length === 0 || it.width > stack[stack.length - 1]) stack.push(it.width)
     // 走到这里栈顶宽度 == it.width（相等或刚压入）

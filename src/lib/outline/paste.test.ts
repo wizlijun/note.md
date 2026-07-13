@@ -70,4 +70,11 @@ describe('parseClipboardOutline', () => {
     expect(parseClipboardOutline('')).toEqual([])
     expect(parseClipboardOutline('   \n\n')).toEqual([])
   })
+
+  it('dedent to a width matching no ancestor snaps to nearest shallower level', () => {
+    // widths 0,4,8,6 → D(6) pops past 8, sits one level under B(4): same depth as C
+    const r = parseClipboardOutline('A\n    B\n        C\n      D')
+    expect(r.map(n => n.depth)).toEqual([0, 1, 2, 2])
+    expect(r.map(n => n.content)).toEqual(['A', 'B', 'C', 'D'])
+  })
 })
