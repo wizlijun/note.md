@@ -7,7 +7,9 @@
   import {
     createSiblingBelow, createSiblingAbove, mergeWithPrevious,
     indentNode, outdentNode, moveNodeUp, moveNodeDown, applyInlineWrap,
+    insertPastedTree,
   } from '../../lib/outline/commands'
+  import { parseClipboardOutline } from '../../lib/outline/paste'
   import { visibleNodes } from '../../lib/outline/model'
   import { matchCommand, type OutlineCommandId } from '../../lib/outline/shortcuts'
   import { writeBackNoteEdit } from '../../lib/outline/note-writeback-io'
@@ -177,6 +179,24 @@
     bump(); markDirty()
   }
 
+  function onPaste(e: ClipboardEvent) {
+    if (node.source !== 'manual') return            // 只在手写节点上解析
+    const cd = e.clipboardData
+    if (!cd) return
+    const text = cd.getData('text/plain')
+    if (!text || !/\r|\n/.test(text)) return         // 单行/无文本 → 原生
+    const el = e.currentTarget as HTMLTextAreaElement
+    if (el.selectionStart !== el.selectionEnd) return // 有选区 → 原生
+    const parsed = parseClipboardOutline(text)
+    if (parsed.length < 2) return                     // 不构成层次 → 原生
+    e.preventDefault()
+    const head = el.value.slice(0, el.selectionStart)
+    const tail = el.value.slice(el.selectionStart)
+    el.value = head + parsed[0].content               // 同步 el.value，避免 blur 用旧值回写
+    const lastId = insertPastedTree(outline.tree, node.id, head, tail, parsed)
+    bump(); markDirty(); focusNode(lastId)
+  }
+
   // 拖拽（render.cljs:733 detect-drop-mode：落点 X 在文本左缘右侧 → child）
   let dropMode: 'sibling' | 'child' | null = $state(null)
   function onDragStart(e: DragEvent) {
@@ -244,6 +264,7 @@
         onbeforeinput={(e) => { if (!editable) e.preventDefault() }}
         onblur={(e) => commitEdit((e.currentTarget as HTMLTextAreaElement).value)}
         onkeydown={onKeydown}
+        onpaste={onPaste}
         oninput={(e) => {
           const el = e.currentTarget as HTMLTextAreaElement
           el.style.height = 'auto'
