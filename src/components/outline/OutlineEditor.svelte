@@ -11,6 +11,7 @@
   import {
     outline, attachDoc, detach, serializeDoc, setChangeSink, regenerate,
     bump, markDirty, pinnedIds, setSelection, clearSelection, companionPathFor,
+    isEffectivelyEmptyTree, noteTextHasContent,
   } from '../../lib/outline/store.svelte'
   import { deriveAutoItems } from '../../lib/outline/derive'
   import { syncAutoItems } from '../../lib/outline/sync'
@@ -54,6 +55,13 @@
     try {
       const fs = await import('@tauri-apps/plugin-fs')
       if (text.trim() === '' && !(await fs.exists(notePath).catch(() => false))) return
+      // Data-loss guard: never clobber an existing note that HAS content with an
+      // empty/blank serialization (the signature of a stale/empty global-tree
+      // race). Only a genuinely empty-on-disk note may be written blank.
+      if (!noteTextHasContent(text)) {
+        const existing = await fs.readTextFile(notePath).catch(() => '')
+        if (noteTextHasContent(existing)) return
+      }
       await fs.writeTextFile(notePath, text)
     } catch (e) {
       console.warn('[outline] write companion failed:', e)
@@ -101,12 +109,26 @@
         if (cancelled) return   // 迟到的挂载不得覆盖新 tab 的树/回写旧 id/装陈旧 sink
         lastDerivedMain = mainContent
         const out = serializeDoc(false)
+        // 数据丢失防线：全局树是单例，attach/detach + "空树自动补根节点" 竞态下 sink
+        // 可能带着空树/空白根节点触发，把非空 note 覆盖成空。写回前一律校验：
+        //   1) 全局树确实属于本笔记(docPath === path)；
+        //   2) 不用"实质为空的树"覆盖一个本来有内容的落点。
+        const wouldWipe = (existing: string): boolean =>
+          outline.docPath !== path ||
+          (isEffectivelyEmptyTree(outline.tree) && noteTextHasContent(existing))
         if (persistTab) {
-          if (out !== persistTab.currentContent) setContent(persistTab.id, out)
-          setChangeSink(() => setContent(persistTab.id, serializeDoc()))
+          if (out !== persistTab.currentContent && !wouldWipe(persistTab.currentContent)) {
+            setContent(persistTab.id, out)
+          }
+          setChangeSink(() => {
+            if (wouldWipe(persistTab.currentContent)) return
+            setContent(persistTab.id, serializeDoc())
+          })
         } else {
-          if (noteText != null && out !== noteText) persistToDisk(out)
-          setChangeSink(() => persistToDisk(serializeDoc()))
+          if (noteText != null && out !== noteText && !wouldWipe(noteText)) persistToDisk(out)
+          // Panel mode persists to disk; the "would this wipe an existing note?"
+          // check against the real file lives in flushDisk (async, reads exists).
+          setChangeSink(() => { if (outline.docPath === path) persistToDisk(serializeDoc()) })
         }
       })()
     })
@@ -270,9 +292,14 @@
 
   // Default-editable: an empty outline gets one ready-to-type root node
   // (no + button needed). Guarded so it fires once, not on every bump.
+  // docPath === notePath gate: the global tree is a singleton — during an
+  // attach/detach transition it can momentarily be empty while belonging to
+  // another doc (or nothing). Auto-creating a node then would let that phantom
+  // empty node get serialized over the real note. Only seed when the tree is
+  // genuinely THIS note's, fully attached.
   $effect(() => {
     void outline.version
-    if (outline.tree.nodes.size === 0 && outline.editingId == null) addRootNote()
+    if (outline.docPath === notePath && outline.tree.nodes.size === 0 && outline.editingId == null) addRootNote()
   })
   // Close any floating menu whose owning node is no longer in edit mode (e.g. blur → commitEdit).
   $effect(() => {

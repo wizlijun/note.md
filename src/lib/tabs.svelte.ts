@@ -226,6 +226,21 @@ export function setContent(id: string, md: string): void {
   if (t) t.currentContent = md
 }
 
+/**
+ * Restore the tab's file to a previous `content` (a git version): persist it to
+ * disk and refresh every editor view immediately — no manual ⌘S. Reuses the
+ * auto-reload path (`reloadTabFromDisk`) so Rich/Source/Outline all rebuild from
+ * the new bytes and the tab lands clean (initialContent === currentContent).
+ * OutlineEditor in particular only rebuilds on `mdeditor:auto-reloaded`, which a
+ * bare `setContent` never fires — hence going through disk here.
+ */
+export async function restoreVersion(id: string, content: string): Promise<void> {
+  const t = tabs.find((x) => x.id === id)
+  if (!t || !t.filePath) return
+  await writeMd(t.filePath, content)
+  await reloadTabFromDisk(t.filePath)
+}
+
 export function toggleMode(id: string): void {
   const t = tabs.find((x) => x.id === id)
   if (!t) return

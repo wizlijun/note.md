@@ -366,7 +366,7 @@ export const ja: Record<keyof Messages, string> = {
   'history.refresh': '更新',
   'history.diff': '差分を表示',
   'history.restore': 'この版を復元',
-  'history.restored': 'エディタに復元しました（未保存）。⌘S で保存します。',
+  'history.restored': 'このバージョンを復元して保存しました。',
   'history.noDocument': 'ファイルを開くと履歴が表示されます',
   'history.notInVault': 'このファイルは vault にありません — git 履歴なし',
   'history.gitUnavailable': 'git が見つかりませんでした',

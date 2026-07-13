@@ -1,5 +1,5 @@
 // src/lib/outline/store.svelte.ts
-import { createTree, childrenOf, type OutlineTree } from './model'
+import { createTree, childrenOf, type OutlineTree, type OutlineNode } from './model'
 import { serializeOutline, parseOutline } from './markdown'
 import { deriveAutoItems } from './derive'
 import { syncAutoItems, regenerate as regenerateTree } from './sync'
@@ -65,6 +65,27 @@ export function persistIdsFor(tree: OutlineTree): Set<string> {
 
 /** copy-ref 时固定写入 id 的集合：确保即使引用被粘到别的文件，本文件也会落盘 id:: */
 export const pinnedIds = new Set<string>()
+
+/**
+ * 数据丢失防线原语。全局树是单例，attach/detach 竞态下 sink 可能在"空树 / 只有
+ * 一个自动创建的空白根节点"时触发序列化——把真实伴生笔记覆盖掉。
+ *
+ * `isEffectivelyEmptyTree`：没有任何用户可辨识内容的树。写回前若树是这种状态、
+ * 而落点(缓冲/磁盘)本来非空，必须拒绝写入（见 OutlineEditor 的 sink 守卫）。
+ */
+export function isEffectivelyEmptyTree(tree: OutlineTree): boolean {
+  if (tree.nodes.size === 0) return true
+  if (tree.nodes.size === 1) {
+    const only = tree.nodes.values().next().value as OutlineNode
+    return only.source === 'manual' && only.content.trim() === ''
+  }
+  return false
+}
+
+/** 伴生笔记 markdown 里是否有"带文字的条目"——空/空白/仅 front-matter/空 bullet 都算无内容。 */
+export function noteTextHasContent(text: string): boolean {
+  return /^\s*-\s+\S/m.test(text)
+}
 
 // ---------- 全屏大纲 tab 模式(phase 2):IO 由 tabs 体系接管,这里只有内存树 ----------
 

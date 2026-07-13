@@ -371,7 +371,7 @@ export const en = {
   'history.refresh': 'Refresh',
   'history.diff': 'View diff',
   'history.restore': 'Restore this version',
-  'history.restored': 'Restored into the editor — unsaved. Press ⌘S to keep it.',
+  'history.restored': 'Restored this version — saved.',
   'history.noDocument': 'Open a file to see its history',
   'history.notInVault': 'This file is not in a vault — no git history',
   'history.gitUnavailable': 'git was not found on this system',

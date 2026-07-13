@@ -1,6 +1,6 @@
 // src/lib/outline/store.test.ts
 import { describe, it, expect } from 'vitest'
-import { outline, companionPathFor, persistIdsFor, attachDoc, serializeDoc, setChangeSink, markDirty, detach } from './store.svelte'
+import { outline, companionPathFor, persistIdsFor, attachDoc, serializeDoc, setChangeSink, markDirty, detach, isEffectivelyEmptyTree, noteTextHasContent } from './store.svelte'
 import { createTree, addNode } from './model'
 
 describe('companionPathFor', () => {
@@ -61,5 +61,43 @@ describe('attachDoc / serializeDoc', () => {
     await attachDoc('/v/bare.note.md', '- x\n', null)
     expect(serializeDoc(false)).toBe('- x\n')
     detach()
+  })
+})
+
+// Data-loss guards: a companion note must never be overwritten by an empty or
+// single-blank-node tree that only exists because of an attach/detach race on
+// the shared global outline singleton.
+describe('isEffectivelyEmptyTree', () => {
+  it('true for an empty tree', () => {
+    expect(isEffectivelyEmptyTree(createTree())).toBe(true)
+  })
+  it('true for a single blank manual node (the auto-created ready-to-type root)', () => {
+    const t = createTree()
+    addNode(t, { id: 'n1', parentId: null, order: 0, content: '   ', collapsed: false, source: 'manual' })
+    expect(isEffectivelyEmptyTree(t)).toBe(true)
+  })
+  it('false for a single node that has text', () => {
+    const t = createTree()
+    addNode(t, { id: 'n1', parentId: null, order: 0, content: 'hello', collapsed: false, source: 'manual' })
+    expect(isEffectivelyEmptyTree(t)).toBe(false)
+  })
+  it('false when there are multiple nodes', () => {
+    const t = createTree()
+    addNode(t, { id: 'n1', parentId: null, order: 0, content: '', collapsed: false, source: 'manual' })
+    addNode(t, { id: 'n2', parentId: null, order: 100, content: '', collapsed: false, source: 'manual' })
+    expect(isEffectivelyEmptyTree(t)).toBe(false)
+  })
+})
+
+describe('noteTextHasContent', () => {
+  it('true when the note markdown has a bullet with text', () => {
+    expect(noteTextHasContent('- real content\n')).toBe(true)
+    expect(noteTextHasContent('---\ntitle: x\n---\n  - nested\n')).toBe(true)
+  })
+  it('false for empty / whitespace / front-matter-only / blank bullets', () => {
+    expect(noteTextHasContent('')).toBe(false)
+    expect(noteTextHasContent('   \n\n')).toBe(false)
+    expect(noteTextHasContent('---\ntitle: x\n---\n')).toBe(false)
+    expect(noteTextHasContent('- \n')).toBe(false)
   })
 })
