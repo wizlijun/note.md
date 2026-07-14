@@ -220,7 +220,7 @@ describe('tabs', () => {
     const tauri = await import('@tauri-apps/plugin-dialog')
     const m = await import('./tabs.svelte')
     vi.mocked(dialogs.pickSaveFile).mockResolvedValueOnce(null)
-    vi.mocked(tauri.ask).mockResolvedValueOnce(false)  // Keep Editing
+    vi.mocked(tauri.ask).mockResolvedValueOnce(false)  // Cancel (keep editing)
     m.newFile()
     const id = m.tabs[0].id
     m.setContent(id, 'new content')
@@ -235,7 +235,7 @@ describe('tabs', () => {
     const fs = await import('./fs')
     const m = await import('./tabs.svelte')
     vi.mocked(dialogs.pickSaveFile).mockResolvedValueOnce(null)
-    vi.mocked(tauri.ask).mockResolvedValueOnce(true)  // Close without Saving
+    vi.mocked(tauri.ask).mockResolvedValueOnce(true)  // Don't Save (close)
     m.newFile()
     const id = m.tabs[0].id
     m.setContent(id, 'new content')
