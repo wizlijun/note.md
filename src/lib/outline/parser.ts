@@ -1,4 +1,6 @@
 // src/lib/outline/parser.ts
+import { isBlockedWikilink } from '../wikilink/blocklist'
+
 export type Inline =
   | { t: 'text'; text: string }
   | { t: 'page-link'; target: string }
@@ -50,7 +52,13 @@ export function parseInline(input: string): Inline[] {
 
     if (two === '[[') {
       const end = findPageLinkEnd(input, i + 2)
-      if (end >= 0) { flush(); out.push({ t: 'page-link', target: input.slice(i + 2, end) }); i = end + 2; continue }
+      if (end >= 0) {
+        const target = input.slice(i + 2, end)
+        // 黑名单命中：保留字面 [[…]] 作普通文本，不产链接（→ 不渲染、不索引、不 recall）
+        if (isBlockedWikilink(target)) { text += `[[${target}]]` }
+        else { flush(); out.push({ t: 'page-link', target }) }
+        i = end + 2; continue
+      }
     }
     if (two === '((') {
       const m = rest.match(BLOCK_REF_RE)

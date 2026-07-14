@@ -1,6 +1,7 @@
 // src/lib/outline/parser.test.ts
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, afterEach } from 'vitest'
 import { parseInline, eachInline } from './parser'
+import { setBlockedWikilinks } from '../wikilink/blocklist'
 
 describe('parseInline (hulunote parser.cljc grammar)', () => {
   it('plain text', () => {
@@ -71,5 +72,15 @@ describe('parseInline (hulunote parser.cljc grammar)', () => {
   it('unclosed markers degrade to text', () => {
     expect(parseInline('**not closed')).toEqual([{ t: 'text', text: '**not closed' }])
     expect(parseInline('[[no close')).toEqual([{ t: 'text', text: '[[no close' }])
+  })
+})
+
+describe('blocklisted wikilinks render as literal text', () => {
+  afterEach(() => setBlockedWikilinks([]))
+  it('blocked [[X]] → text token (literal), unblocked stays page-link', () => {
+    setBlockedWikilinks(['wikilink', '链接'])
+    expect(parseInline('[[wikilink]]')).toEqual([{ t: 'text', text: '[[wikilink]]' }])
+    expect(parseInline('see [[链接]] here')).toEqual([{ t: 'text', text: 'see [[链接]] here' }])
+    expect(parseInline('[[Real]]')).toEqual([{ t: 'page-link', target: 'Real' }])
   })
 })
