@@ -330,6 +330,7 @@ export const en = {
   // Outline Notes
   'outline.title': 'Sidecar Notes',
   'outline.editNote': 'Edit note',
+  'outline.save': 'Save note',
   'outline.regenerate': 'Regenerate from source',
   'outline.regenerateConfirm': 'Rebuild auto items from the source document? Manual notes are kept.',
   'outline.addNote': 'Add note',

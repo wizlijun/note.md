@@ -274,10 +274,24 @@ export async function saveActive(): Promise<void> {
   await writeMd(t.filePath, t.currentContent)
   t.initialContent = t.currentContent
   await recordOurWrite(t)
+  await startWatchingTab(t)   // 幂等：惰性 tab 首存后补挂推送监听（建 tab 时文件尚不存在）
   setRecentMode(modeKeyFor(t.filePath), t.mode).catch((e) => console.warn(e))
   if (t.filePath.endsWith('.md')) {
     void maybeAutoRefresh(t.filePath)
   }
+}
+
+/** 按 id 保存指定 tab（不改变 active）；供大纲工具栏保存按钮在笔记以 tab 打开时调用。 */
+export async function saveTab(id: string): Promise<void> {
+  const t = tabs.find((x) => x.id === id)
+  if (!t || !t.filePath) return
+  if (t.externalState === 'changed') {
+    throw new Error(`"${t.title}" was modified externally. Use the banner to Reload, Overwrite, or Save as…`)
+  }
+  await writeMd(t.filePath, t.currentContent)
+  t.initialContent = t.currentContent
+  await recordOurWrite(t)
+  await startWatchingTab(t)
 }
 
 /** 文件被应用内重命名后:更新受影响 tab 的路径/标题并重绑 watcher(spec §7)。

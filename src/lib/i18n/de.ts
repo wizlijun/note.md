@@ -323,6 +323,7 @@ export const de: Record<keyof Messages, string> = {
   // Outline Notes
   'outline.title': 'Begleitnotizen',
   'outline.editNote': 'Notiz bearbeiten',
+  'outline.save': 'Notiz speichern',
   'outline.regenerate': 'Aus Quelle neu generieren',
   'outline.regenerateConfirm': 'Auto-Elemente aus dem Quelldokument neu aufbauen? Manuelle Notizen bleiben erhalten.',
   'outline.addNote': 'Notiz hinzufügen',

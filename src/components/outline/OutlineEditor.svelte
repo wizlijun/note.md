@@ -472,6 +472,16 @@
       }
     }
   }
+  // 保存按钮脏态：笔记以 tab 打开 → 跟随 tab 脏；否则跟随 panel-disk 的 outline.dirty
+  let saveDirty = $derived(noteTab ? noteTab.currentContent !== noteTab.initialContent : outline.dirty)
+  async function onSave() {
+    if (noteTab) {
+      const { saveTab } = await import('../../lib/tabs.svelte')
+      await saveTab(noteTab.id)
+    } else {
+      await flushDisk()
+    }
+  }
   async function onRegenerate() {
     const { confirm } = await import('@tauri-apps/plugin-dialog')
     if (!(await confirm(t('outline.regenerateConfirm'), { title: t('outline.regenerate') }))) return
@@ -618,6 +628,13 @@
         <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
       </svg>
     </button>
+    <button class="hbtn" class:dirty={saveDirty} title={t('outline.save')} aria-label={t('outline.save')} disabled={!saveDirty} onclick={() => void onSave()}>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z" />
+        <polyline points="17 21 17 13 7 13 7 21" />
+        <polyline points="7 3 7 8 15 8" />
+      </svg>
+    </button>
   </div>
   {#if searchOpen}
     <div class="search-row">
@@ -699,6 +716,12 @@
   .hbtn:hover:not(:disabled) { background: rgba(0,0,0,0.08); opacity: 1; }
   .hbtn:disabled { opacity: 0.25; cursor: default; }
   .hbtn.on { background: rgba(0,0,0,0.1); opacity: 1; }
+  .hbtn.dirty { position: relative; color: var(--accent-color, #4a80d4); opacity: 1; }
+  .hbtn.dirty::after {
+    content: ''; position: absolute; top: 1px; right: 1px;
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent-color, #4a80d4);
+  }
   .search-row {
     display: flex; align-items: center; gap: 4px;
     padding: 4px 8px; border-bottom: 1px solid var(--border-color, #3333);
