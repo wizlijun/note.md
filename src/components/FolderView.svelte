@@ -2,8 +2,8 @@
   import {
     folderView, setRootDir, refreshAll, syncToActiveFile,
     parentDir, watchRoot, setFilter, clearFilter, revealInFinder,
-    setSort, setNotesOnly, setFilesOnly, togglePin, applyNotesOnly, applyFilesOnly,
-    type FolderEntry, type FolderSortKey,
+    setSort, setViewMode, togglePin, filterByViewMode,
+    type FolderEntry, type FolderSortKey, type FolderViewMode,
   } from '../lib/folder-view.svelte'
   import { setSideVisible } from '../lib/side-panel/registry.svelte'
   import { t } from '../lib/i18n/store.svelte'
@@ -33,7 +33,7 @@
   let rootEntries = $derived.by<FolderEntry[]>(() => {
     const all = folderView.rootDir ? (folderView.entriesCache.get(folderView.rootDir) ?? []) : []
     const filtered = filtering ? all.filter((e) => folderView.filterVisible.has(e.path)) : all
-    return applyFilesOnly(applyNotesOnly(filtered, folderView.notesOnly), folderView.filesOnly)
+    return filterByViewMode(filtered, folderView.viewMode)
   })
   let rootName = $derived(
     folderView.rootDir ? (folderView.rootDir.split('/').filter(Boolean).pop() ?? '/') : ''
@@ -101,8 +101,14 @@
     { key: 'created', label: 'folderView.sortCreated' },
   ]
   async function pickSort(key: FolderSortKey) { closeSortMenu(); await setSort(key) }
-  async function toggleNotesOnly() { await setNotesOnly(!folderView.notesOnly) }
-  async function toggleFilesOnly() { await setFilesOnly(!folderView.filesOnly) }
+  const VIEW_OPTS: { mode: FolderViewMode; label: Parameters<typeof t>[0] }[] = [
+    { mode: 'all', label: 'folderView.viewAll' },
+    { mode: 'files', label: 'folderView.viewFiles' },
+    { mode: 'withNotes', label: 'folderView.viewWithNotes' },
+    { mode: 'markdown', label: 'folderView.viewMarkdown' },
+    { mode: 'notes', label: 'folderView.viewNotes' },
+  ]
+  async function pickView(mode: FolderViewMode) { closeSortMenu(); await setViewMode(mode) }
 
   // Inline rename: the ctx-menu "Rename" arms `renamingPath`; FolderTreeNode
   // renders an inline <input> for the matching row and calls back to commit/cancel.
@@ -173,7 +179,7 @@
         <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
       </svg>
     </button>
-    <button class="hbtn sort-btn" class:on={sortMenu.open || folderView.notesOnly || folderView.filesOnly || folderView.sort !== 'edited'} onclick={toggleSortMenu} title={t('folderView.sortBy')} aria-label={t('folderView.sortBy')}>
+    <button class="hbtn sort-btn" class:on={sortMenu.open || folderView.viewMode !== 'all' || folderView.sort !== 'edited'} onclick={toggleSortMenu} title={t('folderView.sortBy')} aria-label={t('folderView.sortBy')}>
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <line x1="4" y1="6" x2="20" y2="6" />
         <line x1="6" y1="12" x2="18" y2="12" />
@@ -252,14 +258,12 @@
       </button>
     {/each}
     <div class="sort-sep"></div>
-    <button type="button" role="menuitemcheckbox" aria-checked={folderView.notesOnly}
-      class="node-ctx-item menu-row" onclick={() => void toggleNotesOnly()}>
-      <span class="check">{folderView.notesOnly ? '✓' : ''}</span>{t('folderView.notesOnly')}
-    </button>
-    <button type="button" role="menuitemcheckbox" aria-checked={folderView.filesOnly}
-      class="node-ctx-item menu-row" onclick={() => void toggleFilesOnly()}>
-      <span class="check">{folderView.filesOnly ? '✓' : ''}</span>{t('folderView.filesOnly')}
-    </button>
+    {#each VIEW_OPTS as opt (opt.mode)}
+      <button type="button" role="menuitemradio" aria-checked={folderView.viewMode === opt.mode}
+        class="node-ctx-item menu-row" onclick={() => void pickView(opt.mode)}>
+        <span class="check">{folderView.viewMode === opt.mode ? '✓' : ''}</span>{t(opt.label)}
+      </button>
+    {/each}
   </div>
 {/if}
 
