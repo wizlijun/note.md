@@ -156,13 +156,33 @@ export function recallGrouped(
   page: string,
   excludeFile?: string,
 ): RecallGroup[] {
-  const files = [...new Set(backlinksFor(idx, page).map(h => h.file))].filter(f => f !== excludeFile)
   const out: RecallGroup[] = []
-  for (const file of files) {
-    const tree = idx.fileTrees.get(file)
-    if (!tree) continue
-    const carriers = recallTree(tree, page)
-    if (carriers.length) out.push({ file, carriers })
+  for (const file of recallCandidateFiles(idx, page, excludeFile)) {
+    const g = recallGroupForFile(idx, page, file)
+    if (g) out.push(g)
   }
   return out
+}
+
+/**
+ * The source files that link `page` (fast: a flat-index lookup, no tree walk).
+ * Lets the UI show the frame + count immediately and stream groups in.
+ */
+export function recallCandidateFiles(
+  idx: BacklinkIndex,
+  page: string,
+  excludeFile?: string,
+): string[] {
+  return [...new Set(backlinksFor(idx, page).map(h => h.file))].filter(f => f !== excludeFile)
+}
+
+/**
+ * Recall one file's group from its cached tree. Returns null when the file has
+ * no cached tree or contributes no carriers. Used for progressive/chunked load.
+ */
+export function recallGroupForFile(idx: BacklinkIndex, page: string, file: string): RecallGroup | null {
+  const tree = idx.fileTrees.get(file)
+  if (!tree) return null
+  const carriers = recallTree(tree, page)
+  return carriers.length ? { file, carriers } : null
 }

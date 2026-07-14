@@ -375,6 +375,7 @@ export const zh: Record<keyof Messages, string> = {
   'outline.linkedReferences': '关联引用',
   'outline.unlinkedReferences': '未链接引用',
   'outline.refWriteFailed': '未能定位源节点，修改未同步',
+  'outline.loading': '加载中',
   'outline.hide': '隐藏伴生笔记',
   'outline.search': '搜索伴生笔记',
   'outline.searchPlaceholder': '过滤伴生笔记…',

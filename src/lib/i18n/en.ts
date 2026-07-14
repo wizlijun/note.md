@@ -349,6 +349,7 @@ export const en = {
   'outline.linkedReferences': 'Linked References',
   'outline.unlinkedReferences': 'Unlinked References',
   'outline.refWriteFailed': 'Couldn’t locate the source node — edit not synced',
+  'outline.loading': 'Loading',
   'outline.hide': 'Hide sidecar notes',
   'outline.search': 'Search sidecar notes',
   'outline.searchPlaceholder': 'Filter sidecar notes…',

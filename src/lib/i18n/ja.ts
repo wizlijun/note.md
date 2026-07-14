@@ -344,6 +344,7 @@ export const ja: Record<keyof Messages, string> = {
   'outline.linkedReferences': 'リンクされた参照',
   'outline.unlinkedReferences': 'リンクされていない参照',
   'outline.refWriteFailed': 'ソースノードが見つかりません — 編集は同期されていません',
+  'outline.loading': '読み込み中',
   'outline.hide': 'サイドカーノートを隠す',
   'outline.search': 'サイドカーノートを検索',
   'outline.searchPlaceholder': 'サイドカーノートを絞り込み…',

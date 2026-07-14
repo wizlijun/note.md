@@ -2,7 +2,10 @@
 import { describe, it, expect } from 'vitest'
 import { parseOutline } from './markdown'
 import { createIndex, indexFileContent } from './backlinks'
-import { recallNodes, recallTree, editNodeInOutline, recallGrouped } from './recall'
+import {
+  recallNodes, recallTree, editNodeInOutline, recallGrouped,
+  recallCandidateFiles, recallGroupForFile,
+} from './recall'
 
 /** parse outline text and recall carrier nodes for `page` */
 function recall(text: string, page: string) {
@@ -144,5 +147,22 @@ describe('recallGrouped (from cached index trees)', () => {
   it('excludes the current page file and pages with no carriers', () => {
     const idx = idxWith({ '/v/self.note.md': '- [[X]]\n', '/v/other.note.md': '- [[Y]]\n' })
     expect(recallGrouped(idx, 'x', '/v/self.note.md')).toEqual([])
+  })
+
+  it('recallCandidateFiles lists linking files fast, honoring excludeFile', () => {
+    const idx = idxWith({
+      '/v/a.note.md': '- [[X]]\n', '/v/b.note.md': '- [[X]]\n', '/v/c.note.md': '- [[Y]]\n',
+    })
+    expect(recallCandidateFiles(idx, 'x').sort()).toEqual(['/v/a.note.md', '/v/b.note.md'])
+    expect(recallCandidateFiles(idx, 'x', '/v/a.note.md')).toEqual(['/v/b.note.md'])
+  })
+
+  it('recallGroupForFile returns one group, or null (no cache / no carriers)', () => {
+    const idx = idxWith({ '/v/a.note.md': '- [[X]]\n  - c\n' })
+    const g = recallGroupForFile(idx, 'x', '/v/a.note.md')!
+    expect(g.file).toBe('/v/a.note.md')
+    expect(g.carriers[0].node.text).toBe('[[X]]')
+    expect(recallGroupForFile(idx, 'x', '/v/missing.note.md')).toBeNull()
+    expect(recallGroupForFile(idx, 'nope', '/v/a.note.md')).toBeNull()
   })
 })
