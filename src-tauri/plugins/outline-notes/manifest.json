@@ -24,6 +24,11 @@
       "name": "サイドカーノート",
       "description": "右側のサイドカーノート：文書の見出しと ^^ハイライト^^ を編集可能なサイドカーノートに同期し、.notes.md ファイルに保存します。",
       "menus": { "toggle": "サイドカーノートビュー" }
+    },
+    "de": {
+      "name": "Begleitnotizen",
+      "description": "Begleitnotizen rechts: Eine bearbeitbare Notiz, die Überschriften und ^^Hervorhebungen^^ des Dokuments synchronisiert und als .notes.md-Datei gespeichert wird.",
+      "menus": { "toggle": "Begleitnotizen-Ansicht" }
     }
   }
 }

@@ -655,6 +655,7 @@ fn relative_time(unix_secs: &str, locale: &str) -> String {
         return match locale {
             "zh" => "刚刚",
             "ja" => "たった今",
+            "de" => "gerade eben",
             _ => "just now",
         }
         .to_string();
@@ -667,6 +668,10 @@ fn relative_time(unix_secs: &str, locale: &str) -> String {
         "ja" => {
             let u = match unit { "s" => "秒", "m" => "分", "h" => "時間", _ => "日" };
             format!("{n}{u}前")
+        }
+        "de" => {
+            let u = match unit { "s" => "Sek.", "m" => "Min.", "h" => "Std.", _ => "T." };
+            format!("vor {n} {u}")
         }
         _ => format!("{n}{unit} ago"),
     }
@@ -682,6 +687,7 @@ fn last_sync_phrase(locale: &str, last_sync: Option<&str>) -> String {
             match locale {
                 "zh" => format!("{rel}同步"),
                 "ja" => format!("{rel}に同期"),
+                "de" => format!("{rel} synchronisiert"),
                 _ => format!("synced {rel}"),
             }
         }
@@ -1215,84 +1221,87 @@ fn update_recent_menu(app: tauri::AppHandle, items: Vec<RecentMenuItem>) -> Resu
 /// custom menu strings (macOS-provided items like Undo/Copy/Quit localize
 /// themselves). Unknown locales fall back to English.
 fn menu_label(locale: &str, key: &str) -> String {
-    let (en, zh, ja): (&str, &str, &str) = match key {
-        "app.about" => ("About note.md", "关于 note.md", "note.md について"),
-        "app.checkUpdates" => ("Check for Updates…", "检查更新…", "更新を確認…"),
-        "app.preferences" => ("Preferences…", "偏好设置…", "環境設定…"),
-        "app.hide" => ("Hide note.md", "隐藏 note.md", "note.md を隠す"),
-        "menu.file" => ("File", "文件", "ファイル"),
-        "menu.edit" => ("Edit", "编辑", "編集"),
-        "menu.view" => ("View", "视图", "表示"),
-        "menu.window" => ("Window", "窗口", "ウインドウ"),
-        "menu.help" => ("Help", "帮助", "ヘルプ"),
-        "menu.plugins" => ("Plugins", "插件", "プラグイン"),
-        "file.openRecent" => ("Open Recent", "打开最近", "最近使ったファイルを開く"),
-        "file.noRecent" => ("No Recent Files", "无最近文件", "最近のファイルなし"),
-        "file.new" => ("New", "新建", "新規"),
-        "file.open" => ("Open…", "打开…", "開く…"),
-        "file.closeTab" => ("Close Tab", "关闭标签页", "タブを閉じる"),
-        "file.save" => ("Save", "保存", "保存"),
-        "file.saveAs" => ("Save As…", "另存为…", "名前を付けて保存…"),
-        "file.print" => ("Print…", "打印…", "プリント…"),
-        "file.import" => ("Import", "导入", "インポート"),
-        "edit.find" => ("Find…", "查找…", "検索…"),
-        "edit.findReplace" => ("Find and Replace…", "查找和替换…", "検索と置換…"),
-        "view.toggleMode" => ("Toggle Source / Rich", "切换源码 / 富文本", "ソース / リッチを切り替え"),
-        "view.insights" => ("Reading Insights…", "阅读洞察数据…", "リーディングインサイト…"),
-        "window.zoomIn" => ("Zoom In", "放大", "拡大"),
-        "window.zoomOut" => ("Zoom Out", "缩小", "縮小"),
-        "window.actualSize" => ("Actual Size", "实际大小", "実際のサイズ"),
-        "help.docs" => ("Documentation", "文档", "ドキュメント"),
+    let (en, zh, ja, de): (&str, &str, &str, &str) = match key {
+        "app.about" => ("About note.md", "关于 note.md", "note.md について", "Über note.md"),
+        "app.checkUpdates" => ("Check for Updates…", "检查更新…", "更新を確認…", "Nach Updates suchen…"),
+        "app.preferences" => ("Preferences…", "偏好设置…", "環境設定…", "Einstellungen…"),
+        "app.hide" => ("Hide note.md", "隐藏 note.md", "note.md を隠す", "note.md ausblenden"),
+        "menu.file" => ("File", "文件", "ファイル", "Ablage"),
+        "menu.edit" => ("Edit", "编辑", "編集", "Bearbeiten"),
+        "menu.view" => ("View", "视图", "表示", "Darstellung"),
+        "menu.window" => ("Window", "窗口", "ウインドウ", "Fenster"),
+        "menu.help" => ("Help", "帮助", "ヘルプ", "Hilfe"),
+        "menu.plugins" => ("Plugins", "插件", "プラグイン", "Plugins"),
+        "file.openRecent" => ("Open Recent", "打开最近", "最近使ったファイルを開く", "Zuletzt geöffnet"),
+        "file.noRecent" => ("No Recent Files", "无最近文件", "最近のファイルなし", "Keine letzten Dateien"),
+        "file.new" => ("New", "新建", "新規", "Neu"),
+        "file.open" => ("Open…", "打开…", "開く…", "Öffnen…"),
+        "file.closeTab" => ("Close Tab", "关闭标签页", "タブを閉じる", "Tab schließen"),
+        "file.save" => ("Save", "保存", "保存", "Speichern"),
+        "file.saveAs" => ("Save As…", "另存为…", "名前を付けて保存…", "Speichern unter…"),
+        "file.print" => ("Print…", "打印…", "プリント…", "Drucken…"),
+        "file.import" => ("Import", "导入", "インポート", "Importieren"),
+        "edit.find" => ("Find…", "查找…", "検索…", "Suchen…"),
+        "edit.findReplace" => ("Find and Replace…", "查找和替换…", "検索と置換…", "Suchen und Ersetzen…"),
+        "view.toggleMode" => ("Toggle Source / Rich", "切换源码 / 富文本", "ソース / リッチを切り替え", "Quelltext / Rich umschalten"),
+        "view.insights" => ("Reading Insights…", "阅读洞察数据…", "リーディングインサイト…", "Leseeinblicke…"),
+        "window.zoomIn" => ("Zoom In", "放大", "拡大", "Vergrößern"),
+        "window.zoomOut" => ("Zoom Out", "缩小", "縮小", "Verkleinern"),
+        "window.actualSize" => ("Actual Size", "实际大小", "実際のサイズ", "Originalgröße"),
+        "help.docs" => ("Documentation", "文档", "ドキュメント", "Dokumentation"),
         "help.cliInstall" => (
             "Install 'notemd' Command in PATH…",
             "将 'notemd' 命令安装到 PATH…",
             "'notemd' コマンドを PATH にインストール…",
+            "'notemd'-Befehl in PATH installieren…",
         ),
         "help.cliUninstall" => (
             "Uninstall 'notemd' Command",
             "卸载 'notemd' 命令",
             "'notemd' コマンドをアンインストール",
+            "'notemd'-Befehl deinstallieren",
         ),
         // System / framework items (text overrides for PredefinedMenuItem, so
         // they follow the in-app locale instead of the macOS system language).
-        "sys.services" => ("Services", "服务", "サービス"),
-        "sys.hideOthers" => ("Hide Others", "隐藏其他", "ほかを隠す"),
-        "sys.showAll" => ("Show All", "全部显示", "すべてを表示"),
-        "sys.quit" => ("Quit note.md", "退出 note.md", "note.md を終了"),
-        "sys.undo" => ("Undo", "撤销", "取り消す"),
-        "sys.redo" => ("Redo", "重做", "やり直す"),
-        "sys.cut" => ("Cut", "剪切", "カット"),
-        "sys.copy" => ("Copy", "拷贝", "コピー"),
-        "sys.paste" => ("Paste", "粘贴", "ペースト"),
-        "sys.selectAll" => ("Select All", "全选", "すべてを選択"),
-        "sys.minimize" => ("Minimize", "最小化", "しまう"),
-        "sys.maximize" => ("Zoom", "缩放", "拡大／縮小"),
+        "sys.services" => ("Services", "服务", "サービス", "Dienste"),
+        "sys.hideOthers" => ("Hide Others", "隐藏其他", "ほかを隠す", "Andere ausblenden"),
+        "sys.showAll" => ("Show All", "全部显示", "すべてを表示", "Alle einblenden"),
+        "sys.quit" => ("Quit note.md", "退出 note.md", "note.md を終了", "note.md beenden"),
+        "sys.undo" => ("Undo", "撤销", "取り消す", "Widerrufen"),
+        "sys.redo" => ("Redo", "重做", "やり直す", "Wiederholen"),
+        "sys.cut" => ("Cut", "剪切", "カット", "Ausschneiden"),
+        "sys.copy" => ("Copy", "拷贝", "コピー", "Kopieren"),
+        "sys.paste" => ("Paste", "粘贴", "ペースト", "Einsetzen"),
+        "sys.selectAll" => ("Select All", "全选", "すべてを選択", "Alles auswählen"),
+        "sys.minimize" => ("Minimize", "最小化", "しまう", "Im Dock ablegen"),
+        "sys.maximize" => ("Zoom", "缩放", "拡大／縮小", "Größe anpassen"),
         // Menu-bar tray dropdown
-        "tray.show" => ("Show note.md", "显示 note.md", "note.md を表示"),
-        "tray.todayNote" => ("Today's Note", "今天的日记", "今日のノート"),
-        "tray.vaultSetFolder" => ("Vault: Set Folder…", "Vault：选择文件夹…", "Vault：フォルダを選択…"),
-        "tray.startSync" => ("Start Sync", "开始同步", "同期を開始"),
-        "tray.stopSync" => ("Stop Sync", "停止同步", "同期を停止"),
-        "tray.syncNow" => ("Sync Now", "立即同步", "今すぐ同期"),
-        "tray.viewLog" => ("View Log…", "查看日志…", "ログを表示…"),
-        "tray.openBooks" => ("Open Books", "打开 Books", "Books を開く"),
-        "tray.openRawSync" => ("Open Raw Vault Sync", "打开原始 Vault 同步", "Raw Vault Sync を開く"),
-        "tray.editAgents" => ("Edit AGENTS.md…", "编辑 AGENTS.md…", "AGENTS.md を編集…"),
+        "tray.show" => ("Show note.md", "显示 note.md", "note.md を表示", "note.md anzeigen"),
+        "tray.todayNote" => ("Today's Note", "今天的日记", "今日のノート", "Heutige Notiz"),
+        "tray.vaultSetFolder" => ("Vault: Set Folder…", "Vault：选择文件夹…", "Vault：フォルダを選択…", "Vault: Ordner wählen…"),
+        "tray.startSync" => ("Start Sync", "开始同步", "同期を開始", "Sync starten"),
+        "tray.stopSync" => ("Stop Sync", "停止同步", "同期を停止", "Sync stoppen"),
+        "tray.syncNow" => ("Sync Now", "立即同步", "今すぐ同期", "Jetzt synchronisieren"),
+        "tray.viewLog" => ("View Log…", "查看日志…", "ログを表示…", "Protokoll anzeigen…"),
+        "tray.openBooks" => ("Open Books", "打开 Books", "Books を開く", "Books öffnen"),
+        "tray.openRawSync" => ("Open Raw Vault Sync", "打开原始 Vault 同步", "Raw Vault Sync を開く", "Raw Vault Sync öffnen"),
+        "tray.editAgents" => ("Edit AGENTS.md…", "编辑 AGENTS.md…", "AGENTS.md を編集…", "AGENTS.md bearbeiten…"),
         // Sync status line / tooltip
-        "sync.label" => ("Sync", "同步", "同期"),
-        "sync.neverSynced" => ("never synced", "从未同步", "未同期"),
-        "sync.state.notConfigured" => ("Not configured", "未配置", "未設定"),
-        "sync.state.stopped" => ("Stopped", "已停止", "停止中"),
-        "sync.state.running" => ("Running", "运行中", "実行中"),
-        "sync.state.syncing" => ("Syncing…", "同步中…", "同期中…"),
-        "sync.state.conflict" => ("Conflict — needs attention", "有冲突 — 需处理", "競合 — 要対応"),
-        "sync.state.error" => ("Error", "出错", "エラー"),
-        "sync.state.gitUnavailable" => ("Git unavailable", "Git 不可用", "Git 利用不可"),
-        _ => (key, key, key),
+        "sync.label" => ("Sync", "同步", "同期", "Sync"),
+        "sync.neverSynced" => ("never synced", "从未同步", "未同期", "noch nie synchronisiert"),
+        "sync.state.notConfigured" => ("Not configured", "未配置", "未設定", "Nicht konfiguriert"),
+        "sync.state.stopped" => ("Stopped", "已停止", "停止中", "Gestoppt"),
+        "sync.state.running" => ("Running", "运行中", "実行中", "Läuft"),
+        "sync.state.syncing" => ("Syncing…", "同步中…", "同期中…", "Synchronisiert…"),
+        "sync.state.conflict" => ("Conflict — needs attention", "有冲突 — 需处理", "競合 — 要対応", "Konflikt — Eingriff nötig"),
+        "sync.state.error" => ("Error", "出错", "エラー", "Fehler"),
+        "sync.state.gitUnavailable" => ("Git unavailable", "Git 不可用", "Git 利用不可", "Git nicht verfügbar"),
+        _ => (key, key, key, key),
     };
     match locale {
         "zh" => zh,
         "ja" => ja,
+        "de" => de,
         _ => en,
     }
     .to_string()
@@ -1316,7 +1325,7 @@ fn read_saved_locale<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> String {
         Err(_) => return "en".to_string(),
     };
     match json.get("locale").and_then(|v| v.as_str()) {
-        Some(l @ ("en" | "zh" | "ja")) => l.to_string(),
+        Some(l @ ("en" | "zh" | "ja" | "de")) => l.to_string(),
         _ => "en".to_string(),
     }
 }

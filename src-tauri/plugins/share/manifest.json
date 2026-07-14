@@ -151,6 +151,25 @@
         "share.defaultExpiry": "既定の有効期限",
         "share.slugRandomSuffix": "URL に 3 文字のランダムな接尾辞を追加（推奨）"
       }
+    },
+    "de": {
+      "name": "Teilen",
+      "description": "Aktuelle Datei als teilbare Webseite veröffentlichen",
+      "menus": {
+        "publish": "Aktuelle Datei teilen…",
+        "unpublish": "Freigabe der aktuellen Datei aufheben…",
+        "copy-link": "Freigabe-Link kopieren"
+      },
+      "context_menus": {
+        "publish": "Diesen Tab teilen…"
+      },
+      "settings.tab_label": "Teilen",
+      "settings.fields": {
+        "share.baseUrl": "Dienst-Basis-URL",
+        "share.apiKey": "API-Schlüssel",
+        "share.defaultExpiry": "Standardablauf",
+        "share.slugRandomSuffix": "3-stelliges Zufallssuffix an URL anhängen (empfohlen)"
+      }
     }
   }
 }

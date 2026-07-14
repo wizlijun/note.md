@@ -14,6 +14,10 @@
     "ja": {
       "name": "OpenClaw チャット",
       "description": "UDS 経由のローカル note.md デスクトップチャット、mdrelay 経由でリモート配信。"
+    },
+    "de": {
+      "name": "OpenClaw Chat",
+      "description": "Lokaler note.md-Desktop-Chat über UDS; Remote-Verteilung über mdrelay."
     }
   }
 }
