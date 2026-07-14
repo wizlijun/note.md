@@ -65,6 +65,34 @@ describe('syncAutoItems', () => {
     syncAutoItems(t, deriveAutoItems('# A2\n'))
     expect(t.nodes.get('root-note')!.parentId).toBeNull()
   })
+
+  it('typing around a [[wikilink]] updates the node in place — no orphan pile-up', () => {
+    // The wikilink item's content is the WHOLE sentence, so every keystroke changes
+    // it. Each debounced re-derive must keep the SAME synced node (same [[target]]
+    // on the same line), not demote the old text to manual and spawn a fresh node.
+    const t = build('I study [[X]] now.\n')
+    const wiki0 = [...t.nodes.values()].filter(n => n.source === 'wikilink')
+    expect(wiki0).toHaveLength(1)
+    const id0 = wiki0[0].id
+
+    syncAutoItems(t, deriveAutoItems('I study [[X]] now, a lot.\n'))
+    syncAutoItems(t, deriveAutoItems('I study [[X]] now, a lot more.\n'))
+
+    const wikis = [...t.nodes.values()].filter(n => n.source === 'wikilink')
+    const manuals = [...t.nodes.values()].filter(n => n.source === 'manual')
+    expect(wikis).toHaveLength(1)                                    // still one synced node
+    expect(wikis[0].id).toBe(id0)                                    // same node, updated in place
+    expect(wikis[0].content).toBe('I study [[X]] now, a lot more.')
+    expect(manuals).toHaveLength(0)                                  // no orphaned handwritten notes
+  })
+
+  it('changing the [[target]] on a line is NOT an in-place edit (old preserved as manual)', () => {
+    const t = build('note about [[X]].\n')
+    syncAutoItems(t, deriveAutoItems('note about [[Y]].\n'))
+    const bySource = (s: string) => [...t.nodes.values()].filter(n => n.source === s)
+    expect(bySource('wikilink').map(n => n.content)).toEqual(['note about [[Y]].'])
+    expect(bySource('manual').map(n => n.content)).toEqual(['note about [[X]].'])
+  })
 })
 
 describe('regenerate', () => {
