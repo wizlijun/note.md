@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { folderView, toggleExpanded, applyNotesOnly, applyFilesOnly, type FolderEntry } from '../lib/folder-view.svelte'
+  import { folderView, toggleExpanded, filterByViewMode, displayNameFor, ensureTitle, type FolderEntry } from '../lib/folder-view.svelte'
   import { t } from '../lib/i18n/store.svelte'
   import FolderTreeNode from './FolderTreeNode.svelte'
 
@@ -49,13 +49,24 @@
   let children = $derived.by<FolderEntry[]>(() => {
     const all = folderView.entriesCache.get(entry.path) ?? []
     const filtered = filtering ? all.filter((c) => folderView.filterVisible.has(c.path)) : all
-    return applyFilesOnly(applyNotesOnly(filtered, folderView.notesOnly), folderView.filesOnly)
+    return filterByViewMode(filtered, folderView.viewMode)
   })
   let isActive = $derived(!entry.isDir && entry.path === activePath)
 
+  // 视图模式下的显示名（只改可见文字；重命名/悬浮/置顶仍用真实 entry.name）
+  let label = $derived(displayNameFor(entry, folderView.viewMode, folderView.titleCache.get(entry.path)?.title))
+  // markdown 模式：对可见 md 行惰性读 H1（按 mtime 缓存，改了才重读）
+  $effect(() => {
+    if (folderView.viewMode !== 'markdown' || entry.isDir || entry.kind !== 'markdown') return
+    const c = folderView.titleCache.get(entry.path)
+    if (c && c.mtime === (entry.mtime ?? 0)) return
+    void ensureTitle(entry)
+  })
+
   function onRowClick() {
-    if (entry.isDir) toggleExpanded(entry.path)
-    else onOpen(entry.path)
+    if (entry.isDir) { toggleExpanded(entry.path); return }
+    const target = folderView.viewMode === 'notes' && entry.hasNote && entry.notePath ? entry.notePath : entry.path
+    onOpen(target)
   }
 </script>
 
@@ -106,7 +117,7 @@
       onblur={(e) => commitFromInput((e.currentTarget as HTMLInputElement).value)}
     />
   {:else}
-    <span class="label">{entry.name}</span>
+    <span class="label">{label}</span>
   {/if}
   {#if entry.pinned}
     <span class="pin-badge" title="pinned" aria-hidden="true">
