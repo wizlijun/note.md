@@ -33,18 +33,19 @@ const ALL_EXTS = [
  * the first arg renders as the gray informative text.
  */
 export async function confirmDirtyClose(name: string): Promise<DirtyChoice> {
+  // NOTE: message() with custom buttons returns the clicked button's LABEL text
+  // (not 'Yes'/'No'/'Cancel'), so we compare against the exact labels we pass.
+  const saveLabel = t('dialog.save')
+  const dontSaveLabel = t('dialog.dontSave')
+  const cancelLabel = t('common.cancel')
   const res = await message(t('dialog.saveChanges.info'), {
     title: t('dialog.saveChanges.message', { name }),
     kind: 'warning',
-    buttons: {
-      yes: t('dialog.save'),
-      no: t('dialog.dontSave'),
-      cancel: t('common.cancel'),
-    },
+    buttons: { yes: saveLabel, no: dontSaveLabel, cancel: cancelLabel },
   })
-  if (res === 'Yes') return 'save'
-  if (res === 'No') return 'discard'
-  return 'cancel'
+  if (res === saveLabel) return 'save'
+  if (res === dontSaveLabel) return 'discard'
+  return 'cancel'   // Cancel button, Esc, or window dismiss → keep editing
 }
 
 export async function pickOpenFile(): Promise<string | null> {

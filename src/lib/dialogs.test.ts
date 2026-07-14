@@ -37,13 +37,17 @@ describe('confirmDirtyClose', () => {
     })
   })
 
-  it('maps Yes→save, No→discard, Cancel→cancel', async () => {
+  it('maps the clicked button label to save / discard / cancel', async () => {
     const { confirmDirtyClose } = await import('./dialogs')
-    messageMock.mockResolvedValueOnce('Yes')
+    // message() returns the LABEL text of the clicked custom button
+    messageMock.mockResolvedValueOnce('dialog.save')
     expect(await confirmDirtyClose('a.md')).toBe('save')
-    messageMock.mockResolvedValueOnce('No')
+    messageMock.mockResolvedValueOnce('dialog.dontSave')
     expect(await confirmDirtyClose('a.md')).toBe('discard')
-    messageMock.mockResolvedValueOnce('Cancel')
+    messageMock.mockResolvedValueOnce('common.cancel')
+    expect(await confirmDirtyClose('a.md')).toBe('cancel')
+    // Esc / window dismiss returns something else → treated as cancel
+    messageMock.mockResolvedValueOnce('')
     expect(await confirmDirtyClose('a.md')).toBe('cancel')
   })
 })
