@@ -101,9 +101,13 @@
       return
     }
     if (node.source !== 'manual') { outline.editingId = null; return }  // auto is read-only
+    // 只在内容真的变了才置脏/激活自动保存：空的自动补根节点失焦、或点进点出没改动,
+    // 都不该 arm 并落盘生成 .note.md（intent-save：写盘要有真实写笔记意愿）。
+    const changed = value !== node.content
     setNodeContent(node, value)
     outline.editingId = null
-    bump(); markDirty()
+    bump()
+    if (changed) markDirty()
   }
   function onBulletClick() {
     if (node.anchorLine != null) onJump(node)
