@@ -482,6 +482,23 @@
       await flushDisk()
     }
   }
+  async function reloadRemote() {
+    const diskText = outline.externalConflict?.diskText ?? ''
+    outline.externalConflict = null
+    noteDiskHash = await sha256Hex(diskText).catch(() => null)
+    const mc = mainTab ? mainTab.currentContent
+      : tabs.find(x => x.filePath === mainPath)?.currentContent ?? null
+    await attachDoc(notePath, diskText, mc)   // 重置 dirty=false、armed 随内容
+  }
+  async function overwriteLocal() {
+    outline.externalConflict = null
+    const text = serializeDoc()
+    const fs = await import('@tauri-apps/plugin-fs')
+    await fs.writeTextFile(notePath, text)
+    noteDiskHash = await sha256Hex(text).catch(() => null)
+    outline.armed = true
+    markSaved()
+  }
   async function onRegenerate() {
     const { confirm } = await import('@tauri-apps/plugin-dialog')
     if (!(await confirm(t('outline.regenerateConfirm'), { title: t('outline.regenerate') }))) return
@@ -636,6 +653,13 @@
       </svg>
     </button>
   </div>
+  {#if outline.externalConflict}
+    <div class="conflict-banner" role="alert">
+      <span class="conflict-msg">{t('outline.externalChanged')}</span>
+      <button class="conflict-btn" onclick={() => void reloadRemote()}>{t('externalChange.reload')}</button>
+      <button class="conflict-btn" onclick={() => void overwriteLocal()}>{t('externalChange.overwrite')}</button>
+    </div>
+  {/if}
   {#if searchOpen}
     <div class="search-row">
       <input
@@ -744,6 +768,18 @@
     border-radius: 2px;
   }
   .empty { opacity: 0.5; font-size: 12px; }
+  .conflict-banner {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    padding: 6px 16px; font-size: 12px;
+    background: color-mix(in srgb, #e0a030 18%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, #e0a030 40%, transparent);
+  }
+  .conflict-msg { flex: 1; min-width: 0; opacity: 0.9; }
+  .conflict-btn {
+    border: 1px solid var(--border-color, #3335); background: transparent;
+    color: inherit; cursor: pointer; padding: 2px 8px; border-radius: 4px; font-size: 12px;
+  }
+  .conflict-btn:hover { background: rgba(0,0,0,0.08); }
   .typo-probe {
     position: absolute;
     left: -9999px; top: 0;
@@ -754,5 +790,6 @@
   @media (prefers-color-scheme: dark) {
     .hbtn:hover:not(:disabled) { background: rgba(255,255,255,0.1); }
     .hbtn.on { background: rgba(255,255,255,0.15); }
+    .conflict-btn:hover { background: rgba(255,255,255,0.1); }
   }
 </style>
