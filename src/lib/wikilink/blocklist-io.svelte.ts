@@ -29,7 +29,7 @@ async function loadFrom(path: string): Promise<void> {
  */
 export async function ensureWikilinkBlocklist(): Promise<void> {
   const vault = sotvaultStore.vaultRoot
-  if (!vault) return
+  if (!vault) { setBlockedWikilinks([]); wikilinkBlocklistState.version++; return }
   const dir = joinPath(vault, outlineDirs.wikilink)
   const path = joinPath(dir, 'blocklist.md')
   try {
