@@ -52,6 +52,10 @@ vi.mock('@tauri-apps/plugin-dialog', () => ({
   ask: vi.fn(async () => false),  // default: user clicks "Keep Editing"
 }))
 
+vi.mock('./i18n/store.svelte', () => ({
+  t: (k: string) => k,
+}))
+
 beforeEach(() => {
   vi.clearAllMocks()
   vi.resetModules()
@@ -184,6 +188,16 @@ describe('tabs', () => {
     const ok = await m.closeTab(id, async () => 'cancel')
     expect(ok).toBe(false)
     expect(m.tabs.length).toBe(1)
+  })
+
+  it('closeTab named dirty passes the basename to the confirm callback', async () => {
+    const m = await import('./tabs.svelte')
+    await m.openFile('/tmp/foo.md')
+    const id = m.tabs[0].id
+    m.setContent(id, 'edited')
+    const confirmSpy = vi.fn(async () => 'discard' as const)
+    await m.closeTab(id, confirmSpy)
+    expect(confirmSpy).toHaveBeenCalledWith('foo.md')
   })
 
   // ── UNTITLED dirty file: goes straight to NSSavePanel ───────────────────────

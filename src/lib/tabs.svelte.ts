@@ -2,6 +2,7 @@ import {
   readMd, writeMd, basename, classifyPath, isSupportedPath, looksBinary,
   isPermissionError, modeKeyFor, statFile, type FileKind,
 } from './fs'
+import { t } from './i18n/store.svelte'
 import { sha256Hex } from './hash'
 import { pushRecentFile, getRecentMode, setRecentMode } from './settings.svelte'
 import { startWatchingTab, stopWatchingTab, rebindTabPath } from './file-watcher.svelte'
@@ -320,7 +321,7 @@ export type DirtyChoice = 'save' | 'discard' | 'cancel'
 
 export async function closeTab(
   id: string,
-  confirm: () => Promise<DirtyChoice>,
+  confirm: (name: string) => Promise<DirtyChoice>,
 ): Promise<boolean> {
   const idx = tabs.findIndex((t) => t.id === id)
   if (idx < 0) return false
@@ -336,18 +337,18 @@ export async function closeTab(
       } else {
         // User cancelled the save panel – offer discard
         const { ask } = await import('@tauri-apps/plugin-dialog')
-        const doClose = await ask('Close without saving?', {
+        const doClose = await ask(t('dialog.discard.message'), {
           title: 'note.md',
           kind: 'warning',
-          okLabel: 'Close without Saving',
-          cancelLabel: 'Keep Editing',
+          okLabel: t('dialog.dontSave'),
+          cancelLabel: t('common.cancel'),
         })
         if (!doClose) return false
       }
     } else {
       // ── NAMED dirty file ─────────────────────────────────────────────────
       // Step 1: offer to save to the SAME path (not a "Save As" panel)
-      const choice = await confirm()        // uses confirmDirtyClose
+      const choice = await confirm(basename(tab.filePath))  // uses confirmDirtyClose
       if (choice === 'cancel') return false
       if (choice === 'save') {
         const previousActiveId = activeId.value
