@@ -10,9 +10,11 @@
   import LinkedReferences from './LinkedReferences.svelte'
   import {
     outline, attachDoc, detach, serializeDoc, setChangeSink, regenerate,
-    bump, markDirty, pinnedIds, setSelection, clearSelection, companionPathFor,
+    bump, markDirty, markSynced, markSaved, pinnedIds, setSelection, clearSelection, companionPathFor,
     isEffectivelyEmptyTree, noteTextHasContent,
   } from '../../lib/outline/store.svelte'
+  import { sha256Hex } from '../../lib/hash'
+  import { decideCompanionWrite } from '../../lib/outline/companion-write'
   import { deriveAutoItems } from '../../lib/outline/derive'
   import { syncAutoItems } from '../../lib/outline/sync'
   import { childrenOf, newId, calculateOrderBetween, setNodeContent, type OutlineNode as NodeT } from '../../lib/outline/model'
@@ -47,22 +49,35 @@
   // panel 模式无 tab 时的落盘器（防抖 + 卸载冲刷）。空大纲且文件不存在时不落盘。
   let diskTimer: ReturnType<typeof setTimeout> | null = null
   let diskPending: string | null = null
+  /** 冲突校验基线：我们上次加载/写入 .note.md 时的 sha256（null=当时磁盘无此文件） */
+  let noteDiskHash: string | null = null
   async function flushDisk() {
     if (diskTimer) { clearTimeout(diskTimer); diskTimer = null }
     const text = diskPending
     diskPending = null
     if (text == null) return
+    if (outline.externalConflict) return               // 冲突未解决前不写
     try {
       const fs = await import('@tauri-apps/plugin-fs')
-      if (text.trim() === '' && !(await fs.exists(notePath).catch(() => false))) return
+      const existed = await fs.exists(notePath).catch(() => false)
+      if (text.trim() === '' && !existed) return       // 空大纲 + 无文件 → 不创建
       // Data-loss guard: never clobber an existing note that HAS content with an
-      // empty/blank serialization (the signature of a stale/empty global-tree
-      // race). Only a genuinely empty-on-disk note may be written blank.
-      if (!noteTextHasContent(text)) {
+      // empty/blank serialization (the signature of a stale/empty global-tree race).
+      if (!noteTextHasContent(text) && existed) {
         const existing = await fs.readTextFile(notePath).catch(() => '')
         if (noteTextHasContent(existing)) return
       }
+      const diskText = existed ? await fs.readTextFile(notePath).catch(() => null) : null
+      const diskHash = diskText != null ? await sha256Hex(diskText) : null
+      const ourHash = await sha256Hex(text)
+      const decision = decideCompanionWrite({
+        fileExists: diskText != null, diskHash, lastHash: noteDiskHash, ourHash,
+      })
+      if (decision === 'conflict') { outline.externalConflict = { diskText: diskText ?? '' }; return }
+      if (decision === 'noop') { noteDiskHash = diskHash; markSaved(); return }
       await fs.writeTextFile(notePath, text)
+      noteDiskHash = ourHash
+      markSaved()
     } catch (e) {
       console.warn('[outline] write companion failed:', e)
     }
@@ -125,9 +140,15 @@
             setContent(persistTab.id, serializeDoc())
           })
         } else {
-          if (noteText != null && out !== noteText && !wouldWipe(noteText)) persistToDisk(out)
-          // Panel mode persists to disk; the "would this wipe an existing note?"
-          // check against the real file lives in flushDisk (async, reads exists).
+          // panel-disk：种下冲突校验基线；不在挂载时自动写盘（避免“打开即写”/浏览即生成）。
+          // “would this wipe an existing note?” 的实盘校验在 flushDisk 内（异步读 exists）。
+          const fsMod = await import('@tauri-apps/plugin-fs')
+          const existed0 = await fsMod.exists(path).catch(() => false)
+          if (cancelled) return
+          noteDiskHash = existed0
+            ? await sha256Hex(await fsMod.readTextFile(path).catch(() => '')).catch(() => null)
+            : null
+          if (cancelled) return
           setChangeSink(() => { if (outline.docPath === path) persistToDisk(serializeDoc()) })
         }
       })()
@@ -153,8 +174,8 @@
         lastDerivedMain = mc
         const before = serializeDoc(false)
         syncAutoItems(outline.tree, deriveAutoItems(mc))
-        // 只有大纲真的变了才置脏落盘（主文档大多数编辑不产生新条目）
-        if (serializeDoc(false) !== before) { bump(); markDirty() }
+        // 同步只置脏、进内存；未激活自动保存时不落盘（浏览/主文档编辑不自动生成笔记）
+        if (serializeDoc(false) !== before) { bump(); markSynced() }
       })
     }, 300)
     return () => { if (deriveTimer) clearTimeout(deriveTimer) }
@@ -451,6 +472,33 @@
       }
     }
   }
+  // 保存按钮脏态：笔记以 tab 打开 → 跟随 tab 脏；否则跟随 panel-disk 的 outline.dirty
+  let saveDirty = $derived(noteTab ? noteTab.currentContent !== noteTab.initialContent : outline.dirty)
+  async function onSave() {
+    if (noteTab) {
+      const { saveTab } = await import('../../lib/tabs.svelte')
+      await saveTab(noteTab.id)
+    } else {
+      await flushDisk()
+    }
+  }
+  async function reloadRemote() {
+    const diskText = outline.externalConflict?.diskText ?? ''
+    outline.externalConflict = null
+    noteDiskHash = await sha256Hex(diskText).catch(() => null)
+    const mc = mainTab ? mainTab.currentContent
+      : tabs.find(x => x.filePath === mainPath)?.currentContent ?? null
+    await attachDoc(notePath, diskText, mc)   // 重置 dirty=false、armed 随内容
+  }
+  async function overwriteLocal() {
+    outline.externalConflict = null
+    const text = serializeDoc()
+    const fs = await import('@tauri-apps/plugin-fs')
+    await fs.writeTextFile(notePath, text)
+    noteDiskHash = await sha256Hex(text).catch(() => null)
+    outline.armed = true
+    markSaved()
+  }
   async function onRegenerate() {
     const { confirm } = await import('@tauri-apps/plugin-dialog')
     if (!(await confirm(t('outline.regenerateConfirm'), { title: t('outline.regenerate') }))) return
@@ -597,7 +645,21 @@
         <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
       </svg>
     </button>
+    <button class="hbtn" class:dirty={saveDirty} title={t('outline.save')} aria-label={t('outline.save')} disabled={!saveDirty} onclick={() => void onSave()}>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z" />
+        <polyline points="17 21 17 13 7 13 7 21" />
+        <polyline points="7 3 7 8 15 8" />
+      </svg>
+    </button>
   </div>
+  {#if outline.externalConflict}
+    <div class="conflict-banner" role="alert">
+      <span class="conflict-msg">{t('outline.externalChanged')}</span>
+      <button class="conflict-btn" onclick={() => void reloadRemote()}>{t('externalChange.reload')}</button>
+      <button class="conflict-btn" onclick={() => void overwriteLocal()}>{t('externalChange.overwrite')}</button>
+    </div>
+  {/if}
   {#if searchOpen}
     <div class="search-row">
       <input
@@ -678,6 +740,12 @@
   .hbtn:hover:not(:disabled) { background: rgba(0,0,0,0.08); opacity: 1; }
   .hbtn:disabled { opacity: 0.25; cursor: default; }
   .hbtn.on { background: rgba(0,0,0,0.1); opacity: 1; }
+  .hbtn.dirty { position: relative; color: var(--accent-color, #4a80d4); opacity: 1; }
+  .hbtn.dirty::after {
+    content: ''; position: absolute; top: 1px; right: 1px;
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent-color, #4a80d4);
+  }
   .search-row {
     display: flex; align-items: center; gap: 4px;
     padding: 4px 8px; border-bottom: 1px solid var(--border-color, #3333);
@@ -700,6 +768,18 @@
     border-radius: 2px;
   }
   .empty { opacity: 0.5; font-size: 12px; }
+  .conflict-banner {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    padding: 6px 16px; font-size: 12px;
+    background: color-mix(in srgb, #e0a030 18%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, #e0a030 40%, transparent);
+  }
+  .conflict-msg { flex: 1; min-width: 0; opacity: 0.9; }
+  .conflict-btn {
+    border: 1px solid var(--border-color, #3335); background: transparent;
+    color: inherit; cursor: pointer; padding: 2px 8px; border-radius: 4px; font-size: 12px;
+  }
+  .conflict-btn:hover { background: rgba(0,0,0,0.08); }
   .typo-probe {
     position: absolute;
     left: -9999px; top: 0;
@@ -710,5 +790,6 @@
   @media (prefers-color-scheme: dark) {
     .hbtn:hover:not(:disabled) { background: rgba(255,255,255,0.1); }
     .hbtn.on { background: rgba(255,255,255,0.15); }
+    .conflict-btn:hover { background: rgba(255,255,255,0.1); }
   }
 </style>

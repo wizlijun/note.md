@@ -1,6 +1,6 @@
 // src/lib/outline/store.test.ts
 import { describe, it, expect } from 'vitest'
-import { outline, companionPathFor, persistIdsFor, attachDoc, serializeDoc, setChangeSink, markDirty, detach, isEffectivelyEmptyTree, noteTextHasContent } from './store.svelte'
+import { outline, companionPathFor, persistIdsFor, attachDoc, serializeDoc, setChangeSink, markDirty, markSynced, markSaved, detach, isEffectivelyEmptyTree, noteTextHasContent } from './store.svelte'
 import { createTree, addNode } from './model'
 
 describe('companionPathFor', () => {
@@ -99,5 +99,40 @@ describe('noteTextHasContent', () => {
     expect(noteTextHasContent('   \n\n')).toBe(false)
     expect(noteTextHasContent('---\ntitle: x\n---\n')).toBe(false)
     expect(noteTextHasContent('- \n')).toBe(false)
+  })
+})
+
+describe('dirty / armed 保存门控', () => {
+  it('attachDoc: 有内容则 armed，空则不 armed，均非 dirty', async () => {
+    await attachDoc('/v/a.note.md', '- hello\n', null)
+    expect(outline.armed).toBe(true)
+    expect(outline.dirty).toBe(false)
+    await attachDoc('/v/b.note.md', '', null)
+    expect(outline.armed).toBe(false)
+    expect(outline.dirty).toBe(false)
+    detach()
+  })
+  it('markSynced 只置 dirty；未 armed 不触发 sink，armed 后触发', async () => {
+    await attachDoc('/v/c.note.md', '', null)   // armed=false
+    let calls = 0
+    setChangeSink(() => { calls++ })
+    markSynced()
+    expect(outline.dirty).toBe(true)
+    expect(calls).toBe(0)
+    markDirty()                                  // 用户编辑激活
+    expect(outline.armed).toBe(true)
+    expect(calls).toBe(1)
+    markSynced()                                 // 已 armed → sink 触发
+    expect(calls).toBe(2)
+    setChangeSink(null)
+    detach()
+  })
+  it('markSaved 清 dirty', async () => {
+    await attachDoc('/v/d.note.md', '- x\n', null)
+    markDirty()
+    expect(outline.dirty).toBe(true)
+    markSaved()
+    expect(outline.dirty).toBe(false)
+    detach()
   })
 })

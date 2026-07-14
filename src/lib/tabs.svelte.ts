@@ -111,6 +111,35 @@ export function newFile(): void {
 }
 
 /**
+ * 打开一个绑定到 `path`、但磁盘上尚无文件的未保存大纲 tab（惰性创建）。
+ * initialContent='' 故 tab 天然 dirty；首次 ⌘S/保存按钮才 writeMd 落盘。
+ * 文件此刻不存在，startWatchingTab 会静默降级（focus-poll 兜底），保存后补挂。
+ */
+export async function openNewOutlineTab(path: string, content: string): Promise<void> {
+  const existing = tabs.find((t) => t.filePath === path)
+  if (existing) { activeId.value = existing.id; notifyInsights('onActiveDocChanged'); return }
+  const tab: Tab = {
+    id: crypto.randomUUID(),
+    filePath: path,
+    title: basename(path),
+    initialContent: '',
+    currentContent: content,
+    mode: 'rich',
+    kind: 'markdown',
+    language: undefined,
+    externalState: 'fresh',
+    externalBannerDismissed: false,
+    lastKnownMtime: 0,
+    lastKnownHash: '',
+    pendingExternal: undefined,
+  }
+  tabs.push(tab)
+  activeId.value = tab.id
+  notifyInsights('onActiveDocChanged')
+  await startWatchingTab(tab).catch(() => {})
+}
+
+/**
  * Read a file's text, but when the read fails for lack of permission, prompt
  * the user to grant access and retry instead of surfacing a raw error. Loops
  * until the read succeeds or the user cancels (in which case the original error
@@ -274,10 +303,24 @@ export async function saveActive(): Promise<void> {
   await writeMd(t.filePath, t.currentContent)
   t.initialContent = t.currentContent
   await recordOurWrite(t)
+  await startWatchingTab(t)   // 幂等：惰性 tab 首存后补挂推送监听（建 tab 时文件尚不存在）
   setRecentMode(modeKeyFor(t.filePath), t.mode).catch((e) => console.warn(e))
   if (t.filePath.endsWith('.md')) {
     void maybeAutoRefresh(t.filePath)
   }
+}
+
+/** 按 id 保存指定 tab（不改变 active）；供大纲工具栏保存按钮在笔记以 tab 打开时调用。 */
+export async function saveTab(id: string): Promise<void> {
+  const t = tabs.find((x) => x.id === id)
+  if (!t || !t.filePath) return
+  if (t.externalState === 'changed') {
+    throw new Error(`"${t.title}" was modified externally. Use the banner to Reload, Overwrite, or Save as…`)
+  }
+  await writeMd(t.filePath, t.currentContent)
+  t.initialContent = t.currentContent
+  await recordOurWrite(t)
+  await startWatchingTab(t)
 }
 
 /** 文件被应用内重命名后:更新受影响 tab 的路径/标题并重绑 watcher(spec §7)。
