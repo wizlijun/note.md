@@ -9,11 +9,11 @@ import { SvelteMap, SvelteSet } from 'svelte/reactivity'
 
 // Mock the Tauri plugins used by the module's side-effects.
 const readDirMock = vi.fn()
-const statMock = vi.fn(async () => ({ mtime: new Date(0), birthtime: new Date(0) }))
-const existsMock = vi.fn(async () => false)
-const readTextFileMock = vi.fn(async () => '')
-const writeTextFileMock = vi.fn(async () => {})
-const removeMock = vi.fn(async () => {})
+const statMock = vi.fn(async (..._a: unknown[]) => ({ mtime: new Date(0), birthtime: new Date(0) }))
+const existsMock = vi.fn(async (..._a: unknown[]) => false)
+const readTextFileMock = vi.fn(async (..._a: unknown[]) => '')
+const writeTextFileMock = vi.fn(async (..._a: unknown[]) => {})
+const removeMock = vi.fn(async (..._a: unknown[]) => {})
 vi.mock('@tauri-apps/plugin-fs', () => ({
   readDir: (...a: unknown[]) => readDirMock(...a),
   stat: (...a: unknown[]) => statMock(...a),
