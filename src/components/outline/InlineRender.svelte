@@ -14,7 +14,7 @@
   {:else if seg.t === 'italics'}<em>{#each seg.children as c}{@render render(c)}{/each}</em>
   {:else if seg.t === 'strikethrough'}<s>{#each seg.children as c}{@render render(c)}{/each}</s>
   {:else if seg.t === 'highlight'}<mark>{#each seg.children as c}{@render render(c)}{/each}</mark>
-  {:else if seg.t === 'code'}<code>{seg.text}</code>
+  {:else if seg.t === 'code'}<code>{#if seg.children}{#each seg.children as c}{@render render(c)}{/each}{:else}{seg.text}{/if}</code>
   {:else if seg.t === 'link'}<a href={seg.url} target="_blank" rel="noreferrer">{seg.text}</a>
   {:else if seg.t === 'image'}<img src={seg.url} alt={seg.alt} />
   {:else if seg.t === 'url'}<a href={seg.url} target="_blank" rel="noreferrer">{seg.url}</a>

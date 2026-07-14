@@ -10,7 +10,7 @@ export type Inline =
   | { t: 'italics'; children: Inline[] }
   | { t: 'strikethrough'; children: Inline[] }
   | { t: 'highlight'; children: Inline[] }
-  | { t: 'code'; text: string }
+  | { t: 'code'; text: string; children?: Inline[] }
   | { t: 'link'; text: string; url: string }
   | { t: 'image'; alt: string; url: string }
   | { t: 'url'; url: string }
@@ -104,7 +104,14 @@ export function parseInline(input: string): Inline[] {
     if (matched) continue
     if (input[i] === '`') {
       const inner = pairSpan(input, i, '`')
-      if (inner != null) { flush(); out.push({ t: 'code', text: inner }); i += inner.length + 2; continue }
+      if (inner != null) {
+        flush()
+        // 代码里的 [[wikilink]] 仍要可点（与 rich 编辑器一致）：含 wikilink 时把内层
+        // 解析成段落挂到 children，渲染时保留代码外壳但链接可点；纯代码保持字面。
+        const children = /\[\[[^\]\n]+?\]\]/.test(inner) ? parseInline(inner) : undefined
+        out.push(children ? { t: 'code', text: inner, children } : { t: 'code', text: inner })
+        i += inner.length + 2; continue
+      }
     }
     if (input[i] === 'h') {
       const m = rest.match(URL_RE)

@@ -55,6 +55,21 @@ describe('parseInline (hulunote parser.cljc grammar)', () => {
       { t: 'text', text: ' more' },
     ])
   })
+  it('a [[wikilink]] inside inline code is still a clickable page-link (code shell kept)', () => {
+    // Matches the rich editor, which decorates wikilinks even inside code.
+    expect(parseInline('`[[X]]`')).toEqual([
+      { t: 'code', text: '[[X]]', children: [{ t: 'page-link', target: 'X' }] },
+    ])
+    expect(parseInline('`见 [[X]] 吧`')).toEqual([
+      { t: 'code', text: '见 [[X]] 吧', children: [
+        { t: 'text', text: '见 ' },
+        { t: 'page-link', target: 'X' },
+        { t: 'text', text: ' 吧' },
+      ] },
+    ])
+    // plain code (no wikilink) stays a leaf — unchanged
+    expect(parseInline('`plain`')).toEqual([{ t: 'code', text: 'plain' }])
+  })
   it('eachInline walks nested tokens (for backlink/recall extraction)', () => {
     const found = [...eachInline(parseInline('a **[[X]] and #tag** b'))]
       .filter((t) => t.t === 'page-link' || t.t === 'hashtag')
