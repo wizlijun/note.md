@@ -216,10 +216,10 @@ export interface FolderViewState {
   entriesCache: SvelteMap<string, FolderEntry[]>
   /** 全局排序方式（存 settings.json） */
   sort: FolderSortKey
-  /** 只显示有配对笔记的 md（渲染过滤，存 settings.json） */
-  notesOnly: boolean
-  /** 只显示文件、隐藏文件夹（渲染过滤，存 settings.json） */
-  filesOnly: boolean
+  /** 单选视图模式（渲染过滤，存 settings.json） */
+  viewMode: FolderViewMode
+  /** markdown 模式 H1 惰性缓存：path → { mtime, title|null } */
+  titleCache: SvelteMap<string, { mtime: number; title: string | null }>
 }
 
 export const DEFAULT_WIDTH = 240
@@ -236,8 +236,8 @@ export const folderView = $state<FolderViewState>({
   expanded: new SvelteSet(),
   entriesCache: new SvelteMap(),
   sort: DEFAULT_SORT,
-  notesOnly: false,
-  filesOnly: false,
+  viewMode: DEFAULT_VIEW_MODE,
+  titleCache: new SvelteMap(),
 })
 
 /** 读本目录 .notemd.json → 置顶名字数组；无文件/异常 → []（绝不创建）。 */
@@ -421,8 +421,16 @@ export async function loadFolderViewState(): Promise<void> {
   folderView.width = (await s.get<number>('folderView.width')) ?? DEFAULT_WIDTH
   const savedSort = await s.get<string>('folderView.sort')
   folderView.sort = savedSort === 'name' || savedSort === 'created' || savedSort === 'edited' ? savedSort : DEFAULT_SORT
-  folderView.notesOnly = (await s.get<boolean>('folderView.notesOnly')) ?? false
-  folderView.filesOnly = (await s.get<boolean>('folderView.filesOnly')) ?? false
+  const savedMode = await s.get<string>('folderView.viewMode')
+  if (savedMode && ['all', 'files', 'withNotes', 'markdown', 'notes'].includes(savedMode)) {
+    folderView.viewMode = savedMode as FolderViewMode
+  } else if (await s.get<boolean>('folderView.filesOnly')) {
+    folderView.viewMode = 'files'
+  } else if (await s.get<boolean>('folderView.notesOnly')) {
+    folderView.viewMode = 'withNotes'
+  } else {
+    folderView.viewMode = DEFAULT_VIEW_MODE
+  }
 }
 
 /** 设置全局排序方式：就地重排所有已缓存目录（时间元数据已在 entry 上，无需重读盘）。 */
@@ -437,20 +445,24 @@ export async function setSort(key: FolderSortKey): Promise<void> {
   await s.save()
 }
 
-/** 设置「只显示有笔记的 md」（渲染过滤，不重读盘）。 */
-export async function setNotesOnly(v: boolean): Promise<void> {
-  folderView.notesOnly = v
+/** 设置单选视图模式（渲染过滤，不重读盘）。 */
+export async function setViewMode(mode: FolderViewMode): Promise<void> {
+  folderView.viewMode = mode
   const s = await getStore()
-  await s.set('folderView.notesOnly', v)
+  await s.set('folderView.viewMode', mode)
   await s.save()
 }
 
-/** 设置「只显示文件」（渲染过滤，不重读盘）。 */
-export async function setFilesOnly(v: boolean): Promise<void> {
-  folderView.filesOnly = v
-  const s = await getStore()
-  await s.set('folderView.filesOnly', v)
-  await s.save()
+/** markdown 模式惰性读某 md 的首个 H1 → titleCache（按 mtime 去重）。 */
+export async function ensureTitle(entry: FolderEntry): Promise<void> {
+  const mtime = entry.mtime ?? 0
+  const cached = folderView.titleCache.get(entry.path)
+  if (cached && cached.mtime === mtime) return
+  let title: string | null = null
+  try {
+    title = parseFirstH1(await readTextFile(entry.path))
+  } catch { title = null }
+  folderView.titleCache.set(entry.path, { mtime, title })
 }
 
 /** @deprecated visibility/width now live in the side-panel registry (sidePanels.left).

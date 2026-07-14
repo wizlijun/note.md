@@ -44,7 +44,7 @@ import {
   setVisible,
   setWidth,
   setSort,
-  setNotesOnly,
+  setViewMode,
   PLUGIN_ID,
 } from './folder-view.svelte'
 
@@ -64,6 +64,8 @@ beforeEach(() => {
   folderView.filterVisible = new SvelteSet()
   folderView.expanded = new SvelteSet()
   folderView.entriesCache = new SvelteMap()
+  folderView.viewMode = 'all'
+  folderView.titleCache = new SvelteMap()
 })
 
 describe('readFolder', () => {
@@ -94,7 +96,7 @@ describe('readFolder pins + sort', () => {
   })
 })
 
-describe('setSort / setNotesOnly', () => {
+describe('setSort / setViewMode', () => {
   it('setSort re-sorts cached dirs and persists', async () => {
     folderView.entriesCache.set('/r', [
       { name: 'a.md', path: '/r/a.md', isDir: false, kind: 'markdown', mtime: 1 },
@@ -104,10 +106,10 @@ describe('setSort / setNotesOnly', () => {
     expect(folderView.entriesCache.get('/r')!.map((e) => e.name)).toEqual(['b.md', 'a.md'])
     expect(storeSet).toHaveBeenCalledWith('folderView.sort', 'edited')
   })
-  it('setNotesOnly persists', async () => {
-    await setNotesOnly(true)
-    expect(folderView.notesOnly).toBe(true)
-    expect(storeSet).toHaveBeenCalledWith('folderView.notesOnly', true)
+  it('setViewMode persists', async () => {
+    await setViewMode('markdown')
+    expect(folderView.viewMode).toBe('markdown')
+    expect(storeSet).toHaveBeenCalledWith('folderView.viewMode', 'markdown')
   })
 })
 
