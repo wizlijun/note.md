@@ -9,8 +9,19 @@ import { SvelteMap, SvelteSet } from 'svelte/reactivity'
 
 // Mock the Tauri plugins used by the module's side-effects.
 const readDirMock = vi.fn()
+const statMock = vi.fn(async () => ({ mtime: new Date(0), birthtime: new Date(0) }))
+const existsMock = vi.fn(async () => false)
+const readTextFileMock = vi.fn(async () => '')
+const writeTextFileMock = vi.fn(async () => {})
+const removeMock = vi.fn(async () => {})
 vi.mock('@tauri-apps/plugin-fs', () => ({
-  readDir: (...args: unknown[]) => readDirMock(...args),
+  readDir: (...a: unknown[]) => readDirMock(...a),
+  stat: (...a: unknown[]) => statMock(...a),
+  exists: (...a: unknown[]) => existsMock(...a),
+  readTextFile: (...a: unknown[]) => readTextFileMock(...a),
+  writeTextFile: (...a: unknown[]) => writeTextFileMock(...a),
+  remove: (...a: unknown[]) => removeMock(...a),
+  watchImmediate: vi.fn(async () => () => {}),
 }))
 const storeGet = vi.fn()
 const storeSet = vi.fn()
@@ -31,11 +42,17 @@ import {
   loadFolderViewState,
   setVisible,
   setWidth,
+  setSort,
+  setNotesOnly,
   PLUGIN_ID,
 } from './folder-view.svelte'
 
 beforeEach(() => {
   readDirMock.mockReset()
+  statMock.mockReset(); statMock.mockResolvedValue({ mtime: new Date(0), birthtime: new Date(0) })
+  existsMock.mockReset(); existsMock.mockResolvedValue(false)
+  readTextFileMock.mockReset(); readTextFileMock.mockResolvedValue('')
+  writeTextFileMock.mockReset(); removeMock.mockReset()
   storeGet.mockReset(); storeSet.mockReset(); storeSave.mockReset()
   isPluginEnabledMock.mockReset(); isPluginEnabledMock.mockReturnValue(true)
   folderView.enabled = true
@@ -60,6 +77,36 @@ describe('readFolder', () => {
     expect(out.map((e) => e.name)).toEqual(['sub', 'note.md', 'pic.png']) // dotfile filtered, folder first
     expect(out.find((e) => e.name === 'note.md')?.kind).toBe('markdown')
     expect(folderView.entriesCache.get('/root')).toEqual(out) // cached
+  })
+})
+
+describe('readFolder pins + sort', () => {
+  it('marks pinned entries and floats them first', async () => {
+    readDirMock.mockResolvedValue([
+      { name: 'a.md', isDirectory: false }, { name: 'b.md', isDirectory: false },
+    ])
+    existsMock.mockResolvedValue(true)
+    readTextFileMock.mockResolvedValue('{"pinned":["b.md"]}')
+    const out = await readFolder('/root')
+    expect(out[0].name).toBe('b.md')
+    expect(out[0].pinned).toBe(true)
+  })
+})
+
+describe('setSort / setNotesOnly', () => {
+  it('setSort re-sorts cached dirs and persists', async () => {
+    folderView.entriesCache.set('/r', [
+      { name: 'a.md', path: '/r/a.md', isDir: false, kind: 'markdown', mtime: 1 },
+      { name: 'b.md', path: '/r/b.md', isDir: false, kind: 'markdown', mtime: 9 },
+    ])
+    await setSort('edited')
+    expect(folderView.entriesCache.get('/r')!.map((e) => e.name)).toEqual(['b.md', 'a.md'])
+    expect(storeSet).toHaveBeenCalledWith('folderView.sort', 'edited')
+  })
+  it('setNotesOnly persists', async () => {
+    await setNotesOnly(true)
+    expect(folderView.notesOnly).toBe(true)
+    expect(storeSet).toHaveBeenCalledWith('folderView.notesOnly', true)
   })
 })
 
