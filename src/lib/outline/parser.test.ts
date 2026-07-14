@@ -83,4 +83,11 @@ describe('blocklisted wikilinks render as literal text', () => {
     expect(parseInline('see [[链接]] here')).toEqual([{ t: 'text', text: 'see [[链接]] here' }])
     expect(parseInline('[[Real]]')).toEqual([{ t: 'page-link', target: 'Real' }])
   })
+
+  it('blocked #[[X]] → literal text too (no hashtag relationship), unblocked stays hashtag', () => {
+    setBlockedWikilinks(['链接'])
+    expect(parseInline('#[[链接]]')).toEqual([{ t: 'text', text: '#[[链接]]' }])
+    expect(parseInline('see #[[链接]] here')).toEqual([{ t: 'text', text: 'see #[[链接]] here' }])
+    expect(parseInline('#[[Real]]')).toEqual([{ t: 'hashtag', tag: 'Real' }])
+  })
 })

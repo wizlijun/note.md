@@ -67,7 +67,13 @@ export function parseInline(input: string): Inline[] {
     if (input[i] === '#') {
       if (rest.startsWith('#[[')) {
         const end = findPageLinkEnd(input, i + 3)
-        if (end >= 0) { flush(); out.push({ t: 'hashtag', tag: input.slice(i + 3, end) }); i = end + 2; continue }
+        if (end >= 0) {
+          const tag = input.slice(i + 3, end)
+          // 黑名单命中：保留字面 #[[…]] 作普通文本，不产 hashtag 关系（与 [[X]] 同）
+          if (isBlockedWikilink(tag)) { text += `#[[${tag}]]` }
+          else { flush(); out.push({ t: 'hashtag', tag }) }
+          i = end + 2; continue
+        }
       }
       const m = rest.match(HASHTAG_RE)
       if (m) { flush(); out.push({ t: 'hashtag', tag: m[1] }); i += m[0].length; continue }
