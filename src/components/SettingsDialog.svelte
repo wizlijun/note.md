@@ -178,7 +178,10 @@
   // what tells macOS that note.md is a legitimate handler for these UTIs in the first place.
   const FILE_GROUPS: { label: string; exts: string[] }[] = [
     { label: 'Markdown',      exts: ['md', 'markdown', 'mdown', 'mkd'] },
-    { label: 'HTML',          exts: ['html', 'htm'] },
+    // NOTE: intentionally NOT registering html/htm here. Setting note.md as the
+    // default handler for public.html makes macOS treat it as a web-browser
+    // candidate and lets it hijack the default browser. Passive "Open With"
+    // support (Info.plist) stays, but we never claim the default role.
     { label: 'Plain text',    exts: ['txt', 'log', 'csv', 'tsv', 'env'] },
     { label: 'JSON',          exts: ['json', 'jsonc'] },
     { label: 'YAML',          exts: ['yaml', 'yml'] },
