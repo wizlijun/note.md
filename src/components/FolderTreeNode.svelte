@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { folderView, toggleExpanded, filterByViewMode, displayNameFor, ensureTitle, type FolderEntry } from '../lib/folder-view.svelte'
+  import { folderView, toggleExpanded, filterByViewMode, applyHideFolders, displayNameFor, ensureTitle, type FolderEntry } from '../lib/folder-view.svelte'
   import { t } from '../lib/i18n/store.svelte'
   import FolderTreeNode from './FolderTreeNode.svelte'
 
@@ -49,7 +49,7 @@
   let children = $derived.by<FolderEntry[]>(() => {
     const all = folderView.entriesCache.get(entry.path) ?? []
     const filtered = filtering ? all.filter((c) => folderView.filterVisible.has(c.path)) : all
-    return filterByViewMode(filtered, folderView.viewMode)
+    return applyHideFolders(filterByViewMode(filtered, folderView.viewMode), folderView.hideFolders)
   })
   let isActive = $derived(!entry.isDir && entry.path === activePath)
 

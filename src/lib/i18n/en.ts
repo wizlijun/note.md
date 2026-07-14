@@ -417,6 +417,7 @@ export const en = {
   'folderView.viewWithNotes': 'Files with notes',
   'folderView.viewMarkdown': 'Markdown only',
   'folderView.viewNotes': 'Notes only',
+  'folderView.hideFolders': 'Hide folders',
   'folderView.renameConflict': 'A file with that name already exists',
   'folderView.tabTitle': 'Files',
 

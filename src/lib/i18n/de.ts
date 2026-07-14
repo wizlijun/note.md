@@ -410,6 +410,7 @@ export const de: Record<keyof Messages, string> = {
   'folderView.viewWithNotes': 'Dateien mit Notizen',
   'folderView.viewMarkdown': 'Nur Markdown',
   'folderView.viewNotes': 'Nur Notizen',
+  'folderView.hideFolders': 'Ordner ausblenden',
   'folderView.renameConflict': 'Eine Datei mit diesem Namen existiert bereits',
   'folderView.tabTitle': 'Dateien',
 

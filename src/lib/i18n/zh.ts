@@ -443,6 +443,7 @@ export const zh: Record<keyof Messages, string> = {
   'folderView.viewWithNotes': '只显示有笔记的文件',
   'folderView.viewMarkdown': '只看 Markdown',
   'folderView.viewNotes': '只看笔记',
+  'folderView.hideFolders': '隐藏文件夹',
   'folderView.renameConflict': '同名文件已存在',
   'folderView.tabTitle': '文件',
 

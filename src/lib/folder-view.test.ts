@@ -3,7 +3,7 @@ import {
   parentDir, isWithinDir, sortEntries,
   makeFilterMatcher, computeFilterVisibility, type FolderEntry,
   pairNoteEntries, parsePinned,
-  filterByViewMode, displayNameFor, parseFirstH1, stripExt, stripNoteSuffix,
+  filterByViewMode, applyHideFolders, displayNameFor, parseFirstH1, stripExt, stripNoteSuffix,
 } from './folder-view.svelte'
 import { vi, beforeEach } from 'vitest'
 import { SvelteMap, SvelteSet } from 'svelte/reactivity'
@@ -45,6 +45,7 @@ import {
   setWidth,
   setSort,
   setViewMode,
+  setHideFolders,
   PLUGIN_ID,
 } from './folder-view.svelte'
 
@@ -65,6 +66,7 @@ beforeEach(() => {
   folderView.expanded = new SvelteSet()
   folderView.entriesCache = new SvelteMap()
   folderView.viewMode = 'all'
+  folderView.hideFolders = false
   folderView.titleCache = new SvelteMap()
 })
 
@@ -110,6 +112,11 @@ describe('setSort / setViewMode', () => {
     await setViewMode('markdown')
     expect(folderView.viewMode).toBe('markdown')
     expect(storeSet).toHaveBeenCalledWith('folderView.viewMode', 'markdown')
+  })
+  it('setHideFolders persists', async () => {
+    await setHideFolders(true)
+    expect(folderView.hideFolders).toBe(true)
+    expect(storeSet).toHaveBeenCalledWith('folderView.hideFolders', true)
   })
 })
 
@@ -353,10 +360,19 @@ describe('filterByViewMode', () => {
   ]
   const names = (m: Parameters<typeof filterByViewMode>[1]) => filterByViewMode(rows, m).map((e) => e.name)
   it('all → unchanged', () => { expect(filterByViewMode(rows, 'all')).toHaveLength(5) })
-  it('files → hide folders', () => { expect(names('files')).toEqual(['has.md', 'plain.md', 'pic.png', 'solo.note.md']) })
   it('withNotes → folders + hasNote', () => { expect(names('withNotes')).toEqual(['dir', 'has.md']) })
   it('markdown → folders + markdown kind', () => { expect(names('markdown')).toEqual(['dir', 'has.md', 'plain.md', 'solo.note.md']) })
   it('notes → folders + notes (independent + hasNote)', () => { expect(names('notes')).toEqual(['dir', 'has.md', 'solo.note.md']) })
+})
+
+describe('applyHideFolders', () => {
+  const rows: FolderEntry[] = [
+    { name: 'dir', path: '/d/dir', isDir: true, kind: null },
+    { name: 'a.md', path: '/d/a.md', isDir: false, kind: 'markdown' },
+    { name: 'b.md', path: '/d/b.md', isDir: false, kind: 'markdown' },
+  ]
+  it('false → unchanged', () => { expect(applyHideFolders(rows, false)).toHaveLength(3) })
+  it('true → drop folders', () => { expect(applyHideFolders(rows, true).map((e) => e.name)).toEqual(['a.md', 'b.md']) })
 })
 
 describe('displayNameFor', () => {

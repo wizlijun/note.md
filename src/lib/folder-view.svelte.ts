@@ -162,7 +162,7 @@ export function parsePinned(text: string): string[] {
   }
 }
 
-export type FolderViewMode = 'all' | 'files' | 'withNotes' | 'markdown' | 'notes'
+export type FolderViewMode = 'all' | 'withNotes' | 'markdown' | 'notes'
 export const DEFAULT_VIEW_MODE: FolderViewMode = 'all'
 
 const EXT_RE = /\.(md|markdown|mdown|mkd)$/i
@@ -181,15 +181,20 @@ export function parseFirstH1(text: string): string | null {
   return m ? m[1] : null
 }
 
-/** 按视图模式过滤条目（markdown/notes 保留文件夹供导航；files 隐藏文件夹）。 */
+/** 按视图模式过滤条目（各模式均保留文件夹供导航；隐藏文件夹由 applyHideFolders 独立处理）。 */
 export function filterByViewMode(entries: FolderEntry[], mode: FolderViewMode): FolderEntry[] {
   switch (mode) {
-    case 'files': return entries.filter((e) => !e.isDir)
     case 'withNotes': return entries.filter((e) => e.isDir || e.hasNote === true)
     case 'markdown': return entries.filter((e) => e.isDir || e.kind === 'markdown')
     case 'notes': return entries.filter((e) => e.isDir || e.isOutlineNote === true || e.hasNote === true)
     default: return entries
   }
+}
+
+/** 「隐藏文件夹」独立过滤（与任意视图模式并行叠加）。 */
+export function applyHideFolders(entries: FolderEntry[], hide: boolean): FolderEntry[] {
+  if (!hide) return entries
+  return entries.filter((e) => !e.isDir)
 }
 
 /** 视图模式下的显示名（只改可见文字）。markdown=H1/去扩展；notes=去后缀。 */
@@ -218,6 +223,8 @@ export interface FolderViewState {
   sort: FolderSortKey
   /** 单选视图模式（渲染过滤，存 settings.json） */
   viewMode: FolderViewMode
+  /** 隐藏文件夹（独立复选，与视图模式并行，存 settings.json） */
+  hideFolders: boolean
   /** markdown 模式 H1 惰性缓存：path → { mtime, title|null } */
   titleCache: SvelteMap<string, { mtime: number; title: string | null }>
 }
@@ -237,6 +244,7 @@ export const folderView = $state<FolderViewState>({
   entriesCache: new SvelteMap(),
   sort: DEFAULT_SORT,
   viewMode: DEFAULT_VIEW_MODE,
+  hideFolders: false,
   titleCache: new SvelteMap(),
 })
 
@@ -422,15 +430,12 @@ export async function loadFolderViewState(): Promise<void> {
   const savedSort = await s.get<string>('folderView.sort')
   folderView.sort = savedSort === 'name' || savedSort === 'created' || savedSort === 'edited' ? savedSort : DEFAULT_SORT
   const savedMode = await s.get<string>('folderView.viewMode')
-  if (savedMode && ['all', 'files', 'withNotes', 'markdown', 'notes'].includes(savedMode)) {
-    folderView.viewMode = savedMode as FolderViewMode
-  } else if (await s.get<boolean>('folderView.filesOnly')) {
-    folderView.viewMode = 'files'
-  } else if (await s.get<boolean>('folderView.notesOnly')) {
-    folderView.viewMode = 'withNotes'
-  } else {
-    folderView.viewMode = DEFAULT_VIEW_MODE
-  }
+  folderView.viewMode = savedMode && ['all', 'withNotes', 'markdown', 'notes'].includes(savedMode)
+    ? (savedMode as FolderViewMode)
+    : (await s.get<boolean>('folderView.notesOnly')) ? 'withNotes' : DEFAULT_VIEW_MODE
+  // 隐藏文件夹：显式设置优先；否则从旧的 files 视图/filesOnly 迁移
+  folderView.hideFolders = (await s.get<boolean>('folderView.hideFolders'))
+    ?? (savedMode === 'files' || ((await s.get<boolean>('folderView.filesOnly')) ?? false))
 }
 
 /** 设置全局排序方式：就地重排所有已缓存目录（时间元数据已在 entry 上，无需重读盘）。 */
@@ -450,6 +455,14 @@ export async function setViewMode(mode: FolderViewMode): Promise<void> {
   folderView.viewMode = mode
   const s = await getStore()
   await s.set('folderView.viewMode', mode)
+  await s.save()
+}
+
+/** 设置「隐藏文件夹」（独立复选，不重读盘）。 */
+export async function setHideFolders(v: boolean): Promise<void> {
+  folderView.hideFolders = v
+  const s = await getStore()
+  await s.set('folderView.hideFolders', v)
   await s.save()
 }
 
