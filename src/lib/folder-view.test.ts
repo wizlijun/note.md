@@ -234,6 +234,30 @@ describe('sortEntries', () => {
   })
 })
 
+function ent(name: string, over: Partial<FolderEntry> = {}): FolderEntry {
+  return { name, path: '/d/' + name, isDir: false, kind: 'markdown', ...over }
+}
+
+describe('sortEntries sort keys + pinning', () => {
+  it('name: folders first then name asc', () => {
+    const input = [ent('b.md'), ent('dir', { isDir: true, kind: null }), ent('a.md')]
+    expect(sortEntries(input, 'name', []).map((e) => e.name)).toEqual(['dir', 'a.md', 'b.md'])
+  })
+  it('edited: mtime desc, tie→name', () => {
+    const input = [ent('a.md', { mtime: 10 }), ent('b.md', { mtime: 30 }), ent('c.md', { mtime: 30 })]
+    expect(sortEntries(input, 'edited', []).map((e) => e.name)).toEqual(['b.md', 'c.md', 'a.md'])
+  })
+  it('created: birthtime desc', () => {
+    const input = [ent('a.md', { birthtime: 5 }), ent('b.md', { birthtime: 50 })]
+    expect(sortEntries(input, 'created', []).map((e) => e.name)).toEqual(['b.md', 'a.md'])
+  })
+  it('pinned group first in array order, rest sorted; missing pins ignored', () => {
+    const input = [ent('a.md', { mtime: 1 }), ent('b.md', { mtime: 9 }), ent('c.md', { mtime: 5 })]
+    const out = sortEntries(input, 'edited', ['c.md', 'ghost.md', 'a.md']).map((e) => e.name)
+    expect(out).toEqual(['c.md', 'a.md', 'b.md'])
+  })
+})
+
 function f(name: string, isDir = false): FolderEntry {
   return { name, path: `/r/${name}`, isDir, kind: isDir ? null : 'markdown' }
 }

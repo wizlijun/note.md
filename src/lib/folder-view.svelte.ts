@@ -18,6 +18,12 @@ export interface FolderEntry {
   /** 同目录存在配对 xxx.note.md:行尾角标,点击打开笔记 */
   hasNote?: boolean
   notePath?: string
+  /** 最后修改(ms)，stat 失败为 0 */
+  mtime?: number
+  /** 创建(ms)，stat 失败为 0 */
+  birthtime?: number
+  /** 名字 ∈ 本目录 .notemd.json pinned 集 */
+  pinned?: boolean
 }
 
 /** Parent directory of a file or directory path. Returns '/' at the root. */
@@ -115,12 +121,33 @@ export function pairNoteEntries(entries: FolderEntry[]): FolderEntry[] {
   return out
 }
 
-/** Folders first, then files; each group sorted by name, case-insensitive. */
-export function sortEntries(entries: FolderEntry[]): FolderEntry[] {
-  return [...entries].sort((a, b) => {
+export type FolderSortKey = 'edited' | 'name' | 'created'
+export const DEFAULT_SORT: FolderSortKey = 'edited'
+
+/**
+ * 排序：置顶组(按 pinned 数组序)在最前；其余"文件夹优先"，组内按 sort
+ * (name 升序 / edited=mtime 倒序 / created=birthtime 倒序，时间相等回退名字)。
+ */
+export function sortEntries(
+  entries: FolderEntry[],
+  sort: FolderSortKey = DEFAULT_SORT,
+  pinned: string[] = [],
+): FolderEntry[] {
+  const byName = (a: FolderEntry, b: FolderEntry) =>
+    a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
+  const pinnedSet = new Set(pinned)
+  const byNameMap = new Map(entries.map((e) => [e.name, e]))
+  const pinnedGroup = pinned
+    .map((n) => byNameMap.get(n))
+    .filter((e): e is FolderEntry => !!e)
+  const rest = entries.filter((e) => !pinnedSet.has(e.name))
+  rest.sort((a, b) => {
     if (a.isDir !== b.isDir) return a.isDir ? -1 : 1
-    return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
+    if (sort === 'name') return byName(a, b)
+    if (sort === 'edited') return ((b.mtime ?? 0) - (a.mtime ?? 0)) || byName(a, b)
+    return ((b.birthtime ?? 0) - (a.birthtime ?? 0)) || byName(a, b)
   })
+  return [...pinnedGroup, ...rest]
 }
 
 export interface FolderViewState {
