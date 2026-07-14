@@ -1,7 +1,7 @@
 {
   "id": "reading-insights",
   "name": "Reading Insights",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "description": "Track your reading and editing engagement per document, stored in your Vault.",
   "kind": "builtin",
   "default_enabled": true,
@@ -14,11 +14,31 @@
       "summary": "Generate a reading engagement report (owner + online audience) from the Vault",
       "args": [],
       "flags": [
-        { "long": "--vault", "type": "string", "help": "Vault root (defaults to the configured Vault)" },
-        { "long": "--date", "type": "string", "help": "today | yesterday (default) | 7d | 30d | month" },
-        { "long": "--from", "type": "string", "help": "YYYY-MM-DD (with --to, overrides --date)" },
-        { "long": "--to", "type": "string", "help": "YYYY-MM-DD" },
-        { "long": "--stdout", "type": "boolean", "help": "Print to stdout instead of writing <vault>/stat/*.md" }
+        {
+          "long": "--vault",
+          "type": "string",
+          "help": "Vault root (defaults to the configured Vault)"
+        },
+        {
+          "long": "--date",
+          "type": "string",
+          "help": "today | yesterday (default) | 7d | 30d | month"
+        },
+        {
+          "long": "--from",
+          "type": "string",
+          "help": "YYYY-MM-DD (with --to, overrides --date)"
+        },
+        {
+          "long": "--to",
+          "type": "string",
+          "help": "YYYY-MM-DD"
+        },
+        {
+          "long": "--stdout",
+          "type": "boolean",
+          "help": "Print to stdout instead of writing <vault>/stat/*.md"
+        }
       ]
     }
   ],

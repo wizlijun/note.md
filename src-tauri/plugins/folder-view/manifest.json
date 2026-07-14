@@ -1,7 +1,7 @@
 {
   "id": "folder-view",
   "name": "Folder View",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Shows the current file's directory as a tree on the left; browse and open files.",
   "kind": "builtin",
   "default_enabled": true,

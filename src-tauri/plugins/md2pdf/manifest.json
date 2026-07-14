@@ -1,7 +1,7 @@
 {
   "id": "md2pdf",
   "name": "Export to PDF",
-  "version": "0.1.0",
+  "version": "0.4.0",
   "description": "Export the current Markdown or HTML tab to a typographically-clean A4 PDF",
   "binary": "bin",
   "menus": [

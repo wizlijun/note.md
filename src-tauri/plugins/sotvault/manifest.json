@@ -1,7 +1,7 @@
 {
   "id": "sotvault",
   "name": "Sync to Vault",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Copy the current file into the Vault and keep it refreshed from its source.",
   "kind": "builtin",
   "default_enabled": false,
