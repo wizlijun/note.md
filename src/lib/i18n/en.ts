@@ -14,6 +14,11 @@ export const en = {
   'common.close': 'Close',
   'common.dismiss': 'Dismiss',
   'common.saveAs': 'Save as…',
+  'dialog.saveChanges.message': 'Do you want to save the changes you made to "{name}"?',
+  'dialog.saveChanges.info': "Your changes will be lost if you don't save them.",
+  'dialog.save': 'Save',
+  'dialog.dontSave': "Don't Save",
+  'dialog.discard.message': 'Are you sure you want to discard your changes?',
 
   // Settings
   'settings.language': 'Language',

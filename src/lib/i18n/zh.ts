@@ -9,6 +9,11 @@ export const zh: Record<keyof Messages, string> = {
   'common.close': '关闭',
   'common.dismiss': '关闭',
   'common.saveAs': '另存为…',
+  'dialog.saveChanges.message': '是否将更改保存到"{name}"？',
+  'dialog.saveChanges.info': '如果不保存，更改将丢失。',
+  'dialog.save': '保存',
+  'dialog.dontSave': '不保存',
+  'dialog.discard.message': '确定放弃更改吗？',
 
   // Settings
   'settings.language': '语言',

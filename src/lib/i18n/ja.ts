@@ -9,6 +9,11 @@ export const ja: Record<keyof Messages, string> = {
   'common.close': '閉じる',
   'common.dismiss': '閉じる',
   'common.saveAs': '名前を付けて保存…',
+  'dialog.saveChanges.message': '"{name}"に加えた変更を保存しますか？',
+  'dialog.saveChanges.info': '保存しない場合、変更は失われます。',
+  'dialog.save': '保存',
+  'dialog.dontSave': '保存しない',
+  'dialog.discard.message': '変更を破棄してもよろしいですか？',
 
   // Settings
   'settings.language': '言語',
