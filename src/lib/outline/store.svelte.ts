@@ -20,6 +20,12 @@ export interface OutlineState {
   /** Shift 连选的锚点：最近一次点击/进入编辑的节点 */
   selectionAnchor: string | null
   backlinkIndex: BacklinkIndex | null
+  /** 相对上次落盘是否有未保存变更（驱动保存按钮指示态） */
+  dirty: boolean
+  /** 自动保存是否已激活（磁盘已有内容 / 用户编辑过 / 点过保存） */
+  armed: boolean
+  /** panel 模式写盘前发现远端已改动的冲突态；非 null 时禁止自动写盘 */
+  externalConflict: { diskText: string } | null
 }
 
 export const outline = $state<OutlineState>({
@@ -30,6 +36,9 @@ export const outline = $state<OutlineState>({
   selectedIds: new Set(),
   selectionAnchor: null,
   backlinkIndex: null,
+  dirty: false,
+  armed: false,
+  externalConflict: null,
 })
 
 export function bump(): void { outline.version++ }
@@ -114,6 +123,9 @@ export async function attachDoc(docPath: string, text: string, mainContent: stri
       })
     }
   }
+  outline.armed = noteTextHasContent(text)
+  outline.dirty = false
+  outline.externalConflict = null
   if (mainContent != null) syncAutoItems(outline.tree, deriveAutoItems(mainContent))
   bump()
 }
@@ -140,6 +152,9 @@ export function detach(): void {
   outline.editingId = null
   outline.selectedIds = new Set()
   outline.selectionAnchor = null
+  outline.dirty = false
+  outline.armed = false
+  outline.externalConflict = null
   bump()
 }
 
@@ -149,7 +164,20 @@ export function regenerate(mainContent: string): void {
   markDirty()
 }
 
-/** 任何树变更后调用:通知编辑器 sink 序列化 → setContent(tab)。tab 模式外为 no-op。 */
+/** 用户编辑：置脏 + 激活自动保存 + 通知 sink 落盘。 */
 export function markDirty(): void {
+  outline.dirty = true
+  outline.armed = true
   changeSink?.()
+}
+
+/** 同步派生：只置脏；仅在已激活时才落盘（浏览/主文档编辑不自动生成笔记）。 */
+export function markSynced(): void {
+  outline.dirty = true
+  if (outline.armed) changeSink?.()
+}
+
+/** 落盘成功后清脏（写盘点回调）。 */
+export function markSaved(): void {
+  outline.dirty = false
 }
