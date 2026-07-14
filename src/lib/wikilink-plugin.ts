@@ -3,6 +3,7 @@ import { Decoration, DecorationSet } from 'prosemirror-view'
 import type { EditorView } from 'prosemirror-view'
 import type { Node as PMNode } from 'prosemirror-model'
 import { toggleMark } from 'prosemirror-commands'
+import { isBlockedWikilink } from './wikilink/blocklist'
 
 const wikilinkKey = new PluginKey<DecorationSet>('wikilink')
 
@@ -61,6 +62,7 @@ function buildDecorations(doc: PMNode): DecorationSet {
       const to = from + m[0].length
       const target = m[1].split('|')[0].trim()
       if (!target) continue
+      if (isBlockedWikilink(target)) continue   // 黑名单命中：不装饰 → 无样式、无 data-wikilink、点击不触发 openWikilink
       decos.push(
         Decoration.inline(from, to, {
           nodeName: 'span',
