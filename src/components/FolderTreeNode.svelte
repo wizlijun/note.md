@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { folderView, toggleExpanded, type FolderEntry } from '../lib/folder-view.svelte'
+  import { folderView, toggleExpanded, applyNotesOnly, type FolderEntry } from '../lib/folder-view.svelte'
   import { t } from '../lib/i18n/store.svelte'
   import FolderTreeNode from './FolderTreeNode.svelte'
 
@@ -48,7 +48,8 @@
   )
   let children = $derived.by<FolderEntry[]>(() => {
     const all = folderView.entriesCache.get(entry.path) ?? []
-    return filtering ? all.filter((c) => folderView.filterVisible.has(c.path)) : all
+    const filtered = filtering ? all.filter((c) => folderView.filterVisible.has(c.path)) : all
+    return applyNotesOnly(filtered, folderView.notesOnly)
   })
   let isActive = $derived(!entry.isDir && entry.path === activePath)
 
@@ -107,6 +108,13 @@
   {:else}
     <span class="label">{entry.name}</span>
   {/if}
+  {#if entry.pinned}
+    <span class="pin-badge" title="pinned" aria-hidden="true">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <path d="M14 4v5l3 3v2h-5v5l-1 1-1-1v-5H5v-2l3-3V4h-1V2h8v2z" />
+      </svg>
+    </span>
+  {/if}
   {#if entry.hasNote && entry.notePath}
     <span class="note-badge" role="button" tabindex="-1" title={t('folderView.openNote')}
       onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); onOpen(entry.notePath!) } }}
@@ -156,6 +164,7 @@
     padding: 0 2px; border: 1px solid var(--accent-color, #4a80d4);
     border-radius: 3px; background: Canvas; color: CanvasText; outline: none;
   }
+  .pin-badge { flex: 0 0 auto; display: inline-flex; opacity: 0.55; }
   .note-badge { flex: 0 0 auto; display: inline-flex; opacity: 0.9; padding: 1px; border-radius: 3px; }
   .note-badge:hover { opacity: 1; background: rgba(0,0,0,0.08); }
   @media (prefers-color-scheme: dark) {
