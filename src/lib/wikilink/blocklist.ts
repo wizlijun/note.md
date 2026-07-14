@@ -11,9 +11,10 @@ export function normalizeWikilinkTarget(raw: string): string {
 }
 
 /**
- * markdown 列表文本 → 条目数组：跳过 --- front-matter 块、空行、# 标题；
- * 剥行首 - / * / + 列表符号；trim；非空即一条（原样，不 normalize —— 由
- * setBlockedWikilinks 统一 normalize）。
+ * markdown 列表文本 → 条目数组：跳过 --- front-matter 块（仅当首行为 ---）、
+ * 空行、# 标题（裸 # 开头的行视为标题；带列表符号的 `- #tag` 仍得到条目 `#tag`，
+ * 因为跳过判断在剥列表符号之前）；剥行首 - / * / + 列表符号；trim；非空即一条
+ * （原样，不 normalize —— 由 setBlockedWikilinks 统一 normalize）。
  */
 export function parseBlocklistFile(text: string): string[] {
   const lines = text.split(/\r\n|\r|\n/)
