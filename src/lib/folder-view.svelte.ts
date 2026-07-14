@@ -168,6 +168,12 @@ export function applyNotesOnly(entries: FolderEntry[], notesOnly: boolean): Fold
   return entries.filter((e) => e.isDir || e.hasNote === true)
 }
 
+/** 「只显示文件」渲染过滤：隐藏文件夹。 */
+export function applyFilesOnly(entries: FolderEntry[], filesOnly: boolean): FolderEntry[] {
+  if (!filesOnly) return entries
+  return entries.filter((e) => !e.isDir)
+}
+
 export interface FolderViewState {
   enabled: boolean
   visible: boolean
@@ -183,6 +189,8 @@ export interface FolderViewState {
   sort: FolderSortKey
   /** 只显示有配对笔记的 md（渲染过滤，存 settings.json） */
   notesOnly: boolean
+  /** 只显示文件、隐藏文件夹（渲染过滤，存 settings.json） */
+  filesOnly: boolean
 }
 
 export const DEFAULT_WIDTH = 240
@@ -200,6 +208,7 @@ export const folderView = $state<FolderViewState>({
   entriesCache: new SvelteMap(),
   sort: DEFAULT_SORT,
   notesOnly: false,
+  filesOnly: false,
 })
 
 /** 读本目录 .notemd.json → 置顶名字数组；无文件/异常 → []（绝不创建）。 */
@@ -384,6 +393,7 @@ export async function loadFolderViewState(): Promise<void> {
   const savedSort = await s.get<string>('folderView.sort')
   folderView.sort = savedSort === 'name' || savedSort === 'created' || savedSort === 'edited' ? savedSort : DEFAULT_SORT
   folderView.notesOnly = (await s.get<boolean>('folderView.notesOnly')) ?? false
+  folderView.filesOnly = (await s.get<boolean>('folderView.filesOnly')) ?? false
 }
 
 /** 设置全局排序方式：就地重排所有已缓存目录（时间元数据已在 entry 上，无需重读盘）。 */
@@ -403,6 +413,14 @@ export async function setNotesOnly(v: boolean): Promise<void> {
   folderView.notesOnly = v
   const s = await getStore()
   await s.set('folderView.notesOnly', v)
+  await s.save()
+}
+
+/** 设置「只显示文件」（渲染过滤，不重读盘）。 */
+export async function setFilesOnly(v: boolean): Promise<void> {
+  folderView.filesOnly = v
+  const s = await getStore()
+  await s.set('folderView.filesOnly', v)
   await s.save()
 }
 

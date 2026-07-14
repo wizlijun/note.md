@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { folderView, toggleExpanded, applyNotesOnly, type FolderEntry } from '../lib/folder-view.svelte'
+  import { folderView, toggleExpanded, applyNotesOnly, applyFilesOnly, type FolderEntry } from '../lib/folder-view.svelte'
   import { t } from '../lib/i18n/store.svelte'
   import FolderTreeNode from './FolderTreeNode.svelte'
 
@@ -49,7 +49,7 @@
   let children = $derived.by<FolderEntry[]>(() => {
     const all = folderView.entriesCache.get(entry.path) ?? []
     const filtered = filtering ? all.filter((c) => folderView.filterVisible.has(c.path)) : all
-    return applyNotesOnly(filtered, folderView.notesOnly)
+    return applyFilesOnly(applyNotesOnly(filtered, folderView.notesOnly), folderView.filesOnly)
   })
   let isActive = $derived(!entry.isDir && entry.path === activePath)
 

@@ -407,10 +407,11 @@ export const en = {
   'folderView.sortBy': 'Sort by',
   'folderView.sortEdited': 'Last edited',
   'folderView.sortName': 'Name',
-  'folderView.sortCreated': 'Date created (newest)',
+  'folderView.sortCreated': 'Date created',
   'folderView.pin': 'Pin to top',
   'folderView.unpin': 'Unpin',
   'folderView.notesOnly': 'Only files with notes',
+  'folderView.filesOnly': 'Only files',
   'folderView.renameConflict': 'A file with that name already exists',
   'folderView.tabTitle': 'Files',
 

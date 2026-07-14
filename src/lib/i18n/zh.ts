@@ -433,10 +433,11 @@ export const zh: Record<keyof Messages, string> = {
   'folderView.sortBy': '排序方式',
   'folderView.sortEdited': '最后编辑时间',
   'folderView.sortName': '名称',
-  'folderView.sortCreated': '创建时间（最新）',
+  'folderView.sortCreated': '创建时间',
   'folderView.pin': '置顶',
   'folderView.unpin': '取消置顶',
   'folderView.notesOnly': '只显示有笔记的文件',
+  'folderView.filesOnly': '只显示文件',
   'folderView.renameConflict': '同名文件已存在',
   'folderView.tabTitle': '文件',
 

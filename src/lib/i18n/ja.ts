@@ -402,10 +402,11 @@ export const ja: Record<keyof Messages, string> = {
   'folderView.sortBy': '並び替え',
   'folderView.sortEdited': '最終編集日時',
   'folderView.sortName': '名前',
-  'folderView.sortCreated': '作成日時（新しい順）',
+  'folderView.sortCreated': '作成日時',
   'folderView.pin': 'ピン留め',
   'folderView.unpin': 'ピン留めを解除',
   'folderView.notesOnly': 'ノートのあるファイルのみ',
+  'folderView.filesOnly': 'ファイルのみ',
   'folderView.renameConflict': '同名のファイルが既に存在します',
   'folderView.tabTitle': 'ファイル',
 
