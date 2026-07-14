@@ -1,6 +1,7 @@
 // src/lib/outline/derive.test.ts
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, afterEach } from 'vitest'
 import { deriveAutoItems, type AutoItem } from './derive'
+import { setBlockedWikilinks } from '../wikilink/blocklist'
 
 const strip = (items: AutoItem[]) => items.map(({ source, content, depth, anchorLine }) => ({ source, content, depth, anchorLine }))
 
@@ -265,5 +266,24 @@ describe('deriveAutoItems — marks on H1 (no toc parent → root depth)', () =>
 
   it('a plain H1 (no marks) still emits nothing', () => {
     expect(deriveAutoItems('# 纯标题\n')).toEqual([])
+  })
+})
+
+describe('blocklisted wikilinks are not derived', () => {
+  afterEach(() => setBlockedWikilinks([]))
+  it('skips a blocklisted [[X]], keeps a normal one', () => {
+    setBlockedWikilinks(['wikilink'])
+    const items = deriveAutoItems('## A\n[[wikilink]]\n[[Real]] here\n')
+    expect(items.map(i => i.source)).toEqual(['toc', 'wikilink'])
+    expect(items.find(i => i.source === 'wikilink')!.content).toContain('[[Real]]')
+  })
+
+  it('skips a blocklisted [[X]] on a heading line too', () => {
+    setBlockedWikilinks(['链接'])
+    const items = deriveAutoItems('## See [[链接]] and [[Real]]\n')
+    const wl = items.filter(i => i.source === 'wikilink')
+    expect(wl).toHaveLength(1)
+    expect(wl[0].content).toContain('[[Real]]')
+    expect(wl.some(i => i.content.includes('[[链接]]'))).toBe(false)
   })
 })

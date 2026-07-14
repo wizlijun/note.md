@@ -57,6 +57,7 @@
   import { syncCurrentToVault, canSyncActive, isTrackedVaultFile, refreshSotvault, sotvaultStore, setVaultRootChangedHandler, initSotvaultNoteConflictToast } from './lib/sotvault.svelte'
   import { installRecentsSync, refreshRecentMenu, mergedRecents } from './lib/recent-sync.svelte'
   import { maybeInstallTracker, shutdownTracker } from './lib/insights/tracker.svelte'
+  import { ensureWikilinkBlocklist } from './lib/wikilink/blocklist-io.svelte'
 
   /** Open an in-memory read-only buffer received from the remote agent.
    *  The tab gets title "[remote] <basename>" and its content is pre-filled.
@@ -464,8 +465,9 @@
     // — at startup (post-plugin-init) or when the user configures a vault mid-
     // session — (re)installs the tracker idempotently. A direct call covers the
     // case where the root was already loaded before this handler was registered.
-    setVaultRootChangedHandler(() => { void maybeInstallTracker() })
+    setVaultRootChangedHandler(() => { void maybeInstallTracker(); void ensureWikilinkBlocklist() })
     void maybeInstallTracker().catch((e) => console.warn('[App] insights tracker init:', e))
+    void ensureWikilinkBlocklist().catch((e) => console.warn('[App] wikilink blocklist init:', e))
 
     const unlistenMenu = listen<string>('menu-event', async (e) => {
       const id = e.payload

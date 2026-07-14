@@ -1,6 +1,7 @@
 // src/lib/outline/backlinks.test.ts
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, afterEach } from 'vitest'
 import { createIndex, indexFileContent, removeFileFromIndex, backlinksFor, pageNameOf, pageCandidates, resolveTarget, detectNameCollisions, isWikiPagePath } from './backlinks'
+import { setBlockedWikilinks } from '../wikilink/blocklist'
 
 function idxWith(files: Record<string, string>) {
   const idx = createIndex()
@@ -60,6 +61,7 @@ describe('pageNameOf', () => {
 })
 
 describe('index', () => {
+  afterEach(() => setBlockedWikilinks([]))
   it('collects [[links]] and #tags with node text and line', () => {
     const idx = createIndex()
     indexFileContent(idx, '/d/one.notes.md', '- see [[Target]] here\n- #Target tagged\n- nothing\n')
@@ -94,6 +96,13 @@ describe('index', () => {
     indexFileContent(idx, '/d/Alpha.notes.md', 'y\n')
     indexFileContent(idx, '/d/Beta.md', 'z\n')
     expect(pageCandidates(idx).sort()).toEqual(['Alpha', 'Beta'])
+  })
+  it('does not index blocklisted wikilinks', () => {
+    setBlockedWikilinks(['wikilink'])
+    const idx = createIndex()
+    indexFileContent(idx, '/d/a.notes.md', '- [[wikilink]] and [[Real]]\n')
+    expect(backlinksFor(idx, 'wikilink')).toEqual([])
+    expect(backlinksFor(idx, 'real')).toHaveLength(1)
   })
 })
 
