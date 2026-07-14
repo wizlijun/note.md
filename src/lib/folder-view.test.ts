@@ -2,7 +2,8 @@ import { describe, it, expect } from 'vitest'
 import {
   parentDir, isWithinDir, sortEntries,
   makeFilterMatcher, computeFilterVisibility, type FolderEntry,
-  pairNoteEntries, parsePinned, applyNotesOnly, applyFilesOnly,
+  pairNoteEntries, parsePinned,
+  filterByViewMode, displayNameFor, parseFirstH1, stripExt, stripNoteSuffix,
 } from './folder-view.svelte'
 import { vi, beforeEach } from 'vitest'
 import { SvelteMap, SvelteSet } from 'svelte/reactivity'
@@ -317,32 +318,58 @@ describe('parsePinned', () => {
   })
 })
 
-describe('applyNotesOnly', () => {
+describe('stripExt / stripNoteSuffix', () => {
+  it('stripExt removes markdown extensions', () => {
+    expect(stripExt('a.md')).toBe('a')
+    expect(stripExt('B.Markdown')).toBe('B')
+    expect(stripExt('note')).toBe('note')
+  })
+  it('stripNoteSuffix removes .note.md / .notes.md', () => {
+    expect(stripNoteSuffix('foo.note.md')).toBe('foo')
+    expect(stripNoteSuffix('bar.notes.md')).toBe('bar')
+    expect(stripNoteSuffix('plain.md')).toBe('plain.md')
+  })
+})
+
+describe('parseFirstH1', () => {
+  it('returns first H1 text', () => {
+    expect(parseFirstH1('intro\n# Title Here\n## sub\n')).toBe('Title Here')
+  })
+  it('null when no H1; front-matter keys are not headings', () => {
+    expect(parseFirstH1('no heading here')).toBeNull()
+    expect(parseFirstH1('---\ntitle: x\n---\nbody')).toBeNull()
+  })
+})
+
+describe('filterByViewMode', () => {
   const rows: FolderEntry[] = [
     { name: 'dir', path: '/d/dir', isDir: true, kind: null },
     { name: 'has.md', path: '/d/has.md', isDir: false, kind: 'markdown', hasNote: true, notePath: '/d/has.note.md' },
     { name: 'plain.md', path: '/d/plain.md', isDir: false, kind: 'markdown' },
+    { name: 'pic.png', path: '/d/pic.png', isDir: false, kind: 'image' },
     { name: 'solo.note.md', path: '/d/solo.note.md', isDir: false, kind: 'markdown', isOutlineNote: true },
   ]
-  it('false → unchanged', () => {
-    expect(applyNotesOnly(rows, false)).toHaveLength(4)
-  })
-  it('true → keep folders + hasNote only', () => {
-    expect(applyNotesOnly(rows, true).map((e) => e.name)).toEqual(['dir', 'has.md'])
-  })
+  const names = (m: Parameters<typeof filterByViewMode>[1]) => filterByViewMode(rows, m).map((e) => e.name)
+  it('all → unchanged', () => { expect(filterByViewMode(rows, 'all')).toHaveLength(5) })
+  it('files → hide folders', () => { expect(names('files')).toEqual(['has.md', 'plain.md', 'pic.png', 'solo.note.md']) })
+  it('withNotes → folders + hasNote', () => { expect(names('withNotes')).toEqual(['dir', 'has.md']) })
+  it('markdown → folders + markdown kind', () => { expect(names('markdown')).toEqual(['dir', 'has.md', 'plain.md', 'solo.note.md']) })
+  it('notes → folders + notes (independent + hasNote)', () => { expect(names('notes')).toEqual(['dir', 'has.md', 'solo.note.md']) })
 })
 
-describe('applyFilesOnly', () => {
-  const rows: FolderEntry[] = [
-    { name: 'dir', path: '/d/dir', isDir: true, kind: null },
-    { name: 'a.md', path: '/d/a.md', isDir: false, kind: 'markdown' },
-    { name: 'b.md', path: '/d/b.md', isDir: false, kind: 'markdown' },
-  ]
-  it('false → unchanged', () => {
-    expect(applyFilesOnly(rows, false)).toHaveLength(3)
+describe('displayNameFor', () => {
+  const has: FolderEntry = { name: 'has.md', path: '/d/has.md', isDir: false, kind: 'markdown', hasNote: true, notePath: '/d/has.note.md' }
+  const solo: FolderEntry = { name: 'solo.note.md', path: '/d/solo.note.md', isDir: false, kind: 'markdown', isOutlineNote: true }
+  it('markdown: H1 title else filename without ext', () => {
+    expect(displayNameFor(has, 'markdown', 'My Title')).toBe('My Title')
+    expect(displayNameFor(has, 'markdown', null)).toBe('has')
   })
-  it('true → drop folders', () => {
-    expect(applyFilesOnly(rows, true).map((e) => e.name)).toEqual(['a.md', 'b.md'])
+  it('notes: strip suffix (independent via note-suffix, hasNote via ext)', () => {
+    expect(displayNameFor(solo, 'notes')).toBe('solo')
+    expect(displayNameFor(has, 'notes')).toBe('has')
+  })
+  it('other modes: raw name', () => {
+    expect(displayNameFor(has, 'all')).toBe('has.md')
   })
 })
 

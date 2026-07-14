@@ -162,16 +162,45 @@ export function parsePinned(text: string): string[] {
   }
 }
 
-/** 「只显示有笔记的 md」渲染过滤：保留文件夹 + 有配对笔记(hasNote)的主文档。 */
-export function applyNotesOnly(entries: FolderEntry[], notesOnly: boolean): FolderEntry[] {
-  if (!notesOnly) return entries
-  return entries.filter((e) => e.isDir || e.hasNote === true)
+export type FolderViewMode = 'all' | 'files' | 'withNotes' | 'markdown' | 'notes'
+export const DEFAULT_VIEW_MODE: FolderViewMode = 'all'
+
+const EXT_RE = /\.(md|markdown|mdown|mkd)$/i
+
+/** 去 markdown 扩展名（无匹配原样返回）。 */
+export function stripExt(name: string): string {
+  return name.replace(EXT_RE, '')
+}
+/** 去伴生笔记后缀 .note.md / .notes.md（无匹配原样返回）。 */
+export function stripNoteSuffix(name: string): string {
+  return name.replace(/\.notes?\.md$/i, '')
+}
+/** 取正文第一个一级标题 `# xxx`；无则 null。front-matter 的 key 不会误判(不以 # 开头)。 */
+export function parseFirstH1(text: string): string | null {
+  const m = text.match(/^#\s+(.+?)\s*$/m)
+  return m ? m[1] : null
 }
 
-/** 「只显示文件」渲染过滤：隐藏文件夹。 */
-export function applyFilesOnly(entries: FolderEntry[], filesOnly: boolean): FolderEntry[] {
-  if (!filesOnly) return entries
-  return entries.filter((e) => !e.isDir)
+/** 按视图模式过滤条目（markdown/notes 保留文件夹供导航；files 隐藏文件夹）。 */
+export function filterByViewMode(entries: FolderEntry[], mode: FolderViewMode): FolderEntry[] {
+  switch (mode) {
+    case 'files': return entries.filter((e) => !e.isDir)
+    case 'withNotes': return entries.filter((e) => e.isDir || e.hasNote === true)
+    case 'markdown': return entries.filter((e) => e.isDir || e.kind === 'markdown')
+    case 'notes': return entries.filter((e) => e.isDir || e.isOutlineNote === true || e.hasNote === true)
+    default: return entries
+  }
+}
+
+/** 视图模式下的显示名（只改可见文字）。markdown=H1/去扩展；notes=去后缀。 */
+export function displayNameFor(entry: FolderEntry, mode: FolderViewMode, title?: string | null): string {
+  if (entry.isDir) return entry.name
+  if (mode === 'markdown') return title && title.length ? title : stripExt(entry.name)
+  if (mode === 'notes') {
+    if (entry.isOutlineNote) return stripNoteSuffix(entry.name)
+    if (entry.hasNote) return stripExt(entry.name)
+  }
+  return entry.name
 }
 
 export interface FolderViewState {
