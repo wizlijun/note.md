@@ -28,6 +28,13 @@
       "menus": {
         "toggle": "フォルダビュー"
       }
+    },
+    "de": {
+      "name": "Ordneransicht",
+      "description": "Zeigt das Verzeichnis der aktuellen Datei als Baum auf der linken Seite; Dateien durchsuchen und öffnen.",
+      "menus": {
+        "toggle": "Ordneransicht"
+      }
     }
   }
 }

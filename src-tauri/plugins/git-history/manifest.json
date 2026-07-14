@@ -25,6 +25,11 @@
       "name": "Git 履歴",
       "description": "現在の vault ファイルの git コミット履歴を表示し、任意の版を差分表示または復元します。",
       "menus": { "toggle": "履歴ビュー" }
+    },
+    "de": {
+      "name": "Git-Verlauf",
+      "description": "Git-Commit-Verlauf der aktuellen Vault-Datei anzeigen; beliebige ältere Version vergleichen oder wiederherstellen.",
+      "menus": { "toggle": "Verlaufsansicht" }
     }
   }
 }

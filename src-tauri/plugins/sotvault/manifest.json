@@ -28,6 +28,13 @@
       "menus": {
         "sync-to-vault": "Vault に同期…"
       }
+    },
+    "de": {
+      "name": "Mit Vault synchronisieren",
+      "description": "Aktuelle Datei in den Vault kopieren und aus der Quelle aktuell halten.",
+      "menus": {
+        "sync-to-vault": "Mit Vault synchronisieren…"
+      }
     }
   }
 }

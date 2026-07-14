@@ -30,6 +30,10 @@
     "ja": {
       "name": "リーディングインサイト",
       "description": "ドキュメントごとの閲覧・編集の関与を記録し、Vault に保存します。"
+    },
+    "de": {
+      "name": "Leseeinblicke",
+      "description": "Lese- und Bearbeitungsengagement pro Dokument verfolgen, gespeichert in Ihrem Vault."
     }
   }
 }

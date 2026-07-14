@@ -10,9 +10,9 @@ export type Locale = 'en' | 'zh' | 'ja' | 'de'
 /** Locales offered in the Settings picker (label is each language's own name). */
 export const availableLocales: { code: Locale; label: string }[] = [
   { code: 'en', label: 'English' },
-  { code: 'zh', label: '简体中文' },
-  { code: 'ja', label: '日本語' },
   { code: 'de', label: 'Deutsch' },
+  { code: 'ja', label: '日本語' },
+  { code: 'zh', label: '简体中文' },
 ]
 
 // English is the source of truth; other locales fall back to English per any

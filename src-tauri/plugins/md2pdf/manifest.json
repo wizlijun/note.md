@@ -71,6 +71,13 @@
       "menus": {
         "export": "PDF に書き出し…"
       }
+    },
+    "de": {
+      "name": "Als PDF exportieren",
+      "description": "Aktuellen Markdown- oder HTML-Tab als typografisch sauberes A4-PDF exportieren",
+      "menus": {
+        "export": "Als PDF exportieren…"
+      }
     }
   }
 }

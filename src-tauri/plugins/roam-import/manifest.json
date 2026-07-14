@@ -24,6 +24,11 @@
       "name": "Roam Research インポート",
       "description": "Roam Research の JSON エクスポートをデイリーノートと wiki ページとして取り込みます（増分再インポート対応）。",
       "menus": { "open": "Roam Research" }
+    },
+    "de": {
+      "name": "Roam Research Import",
+      "description": "Roam Research JSON-Export als Tagesnotizen und Wiki-Seiten in den Vault importieren, mit inkrementellem Reimport.",
+      "menus": { "open": "Roam Research" }
     }
   }
 }
