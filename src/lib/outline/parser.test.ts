@@ -1,6 +1,6 @@
 // src/lib/outline/parser.test.ts
 import { describe, it, expect } from 'vitest'
-import { parseInline } from './parser'
+import { parseInline, eachInline } from './parser'
 
 describe('parseInline (hulunote parser.cljc grammar)', () => {
   it('plain text', () => {
@@ -28,14 +28,36 @@ describe('parseInline (hulunote parser.cljc grammar)', () => {
     ])
     expect(parseInline('#[[multi word]]')).toEqual([{ t: 'hashtag', tag: 'multi word' }])
   })
-  it('emphasis family', () => {
+  it('emphasis family (inner is recursively parsed → children)', () => {
     expect(parseInline('**b** __i__ ~~s~~ ^^h^^ `c`')).toEqual([
-      { t: 'bold', text: 'b' }, { t: 'text', text: ' ' },
-      { t: 'italics', text: 'i' }, { t: 'text', text: ' ' },
-      { t: 'strikethrough', text: 's' }, { t: 'text', text: ' ' },
-      { t: 'highlight', text: 'h' }, { t: 'text', text: ' ' },
+      { t: 'bold', children: [{ t: 'text', text: 'b' }] }, { t: 'text', text: ' ' },
+      { t: 'italics', children: [{ t: 'text', text: 'i' }] }, { t: 'text', text: ' ' },
+      { t: 'strikethrough', children: [{ t: 'text', text: 's' }] }, { t: 'text', text: ' ' },
+      { t: 'highlight', children: [{ t: 'text', text: 'h' }] }, { t: 'text', text: ' ' },
       { t: 'code', text: 'c' },
     ])
+  })
+  it('wikilink nested inside emphasis is parsed as a page-link (priority)', () => {
+    expect(parseInline('**[[X]]**')).toEqual([
+      { t: 'bold', children: [{ t: 'page-link', target: 'X' }] },
+    ])
+    expect(parseInline('^^[[Y]]^^')).toEqual([
+      { t: 'highlight', children: [{ t: 'page-link', target: 'Y' }] },
+    ])
+    expect(parseInline('text **[[Z]] and #tag** more')).toEqual([
+      { t: 'text', text: 'text ' },
+      { t: 'bold', children: [
+        { t: 'page-link', target: 'Z' },
+        { t: 'text', text: ' and ' },
+        { t: 'hashtag', tag: 'tag' },
+      ] },
+      { t: 'text', text: ' more' },
+    ])
+  })
+  it('eachInline walks nested tokens (for backlink/recall extraction)', () => {
+    const found = [...eachInline(parseInline('a **[[X]] and #tag** b'))]
+      .filter((t) => t.t === 'page-link' || t.t === 'hashtag')
+    expect(found).toEqual([{ t: 'page-link', target: 'X' }, { t: 'hashtag', tag: 'tag' }])
   })
   it('md link / image / bare url', () => {
     expect(parseInline('[x](https://a.b)')).toEqual([{ t: 'link', text: 'x', url: 'https://a.b' }])

@@ -1,6 +1,6 @@
 // src/lib/outline/recall.ts
 import { childrenOf, type OutlineTree, type OutlineNode } from './model'
-import { parseInline } from './parser'
+import { parseInline, eachInline } from './parser'
 import { parseOutline, serializeOutline } from './markdown'
 import { backlinksFor, type BacklinkIndex } from './backlinks'
 
@@ -28,7 +28,7 @@ export interface RecallCarrier {
 
 /** Does this node's content directly mention page X via [[X]] or #X? */
 function carriesPage(content: string, pageLower: string): boolean {
-  for (const node of parseInline(content)) {
+  for (const node of eachInline(parseInline(content))) {
     if (node.t === 'page-link' && node.target.toLowerCase() === pageLower) return true
     if (node.t === 'hashtag' && node.tag.toLowerCase() === pageLower) return true
   }

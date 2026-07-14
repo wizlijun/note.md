@@ -4,10 +4,10 @@ export type Inline =
   | { t: 'page-link'; target: string }
   | { t: 'hashtag'; tag: string }
   | { t: 'block-ref'; refId: string }
-  | { t: 'bold'; text: string }
-  | { t: 'italics'; text: string }
-  | { t: 'strikethrough'; text: string }
-  | { t: 'highlight'; text: string }
+  | { t: 'bold'; children: Inline[] }
+  | { t: 'italics'; children: Inline[] }
+  | { t: 'strikethrough'; children: Inline[] }
+  | { t: 'highlight'; children: Inline[] }
   | { t: 'code'; text: string }
   | { t: 'link'; text: string; url: string }
   | { t: 'image'; alt: string; url: string }
@@ -78,7 +78,9 @@ export function parseInline(input: string): Inline[] {
         const inner = pairSpan(input, i, marker)
         if (inner != null) {
           flush()
-          out.push({ t: kind, text: inner })
+          // Recurse so [[wikilink]] / #tag / links inside emphasis are still
+          // parsed (rendered clickable, indexed as relationships, navigable).
+          out.push({ t: kind, children: parseInline(inner) })
           i += marker.length * 2 + inner.length
           matched = true
         }
@@ -99,4 +101,19 @@ export function parseInline(input: string): Inline[] {
   }
   flush()
   return out
+}
+
+/**
+ * Depth-first walk over inline tokens, descending into emphasis children.
+ * Use this (not a flat loop over parseInline) when extracting structural
+ * tokens like page-link / hashtag / block-ref, so ones nested inside
+ * **bold** / ^^highlight^^ / etc. are not missed.
+ */
+export function* eachInline(tokens: Inline[]): Generator<Inline> {
+  for (const t of tokens) {
+    yield t
+    if (t.t === 'bold' || t.t === 'italics' || t.t === 'strikethrough' || t.t === 'highlight') {
+      yield* eachInline(t.children)
+    }
+  }
 }

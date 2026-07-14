@@ -1,5 +1,5 @@
 // src/lib/outline/backlinks.ts
-import { parseInline } from './parser'
+import { parseInline, eachInline } from './parser'
 import { parseOutline } from './markdown'
 import type { OutlineTree } from './model'
 import { basename, joinPath } from '../fs'
@@ -66,7 +66,7 @@ export function indexFileContent(idx: BacklinkIndex, file: string, content: stri
   content.split('\n').forEach((rawLine, i) => {
     const text = rawLine.replace(/^\s*- /, '').trim()
     if (!text) return
-    for (const node of parseInline(text)) {
+    for (const node of eachInline(parseInline(text))) {
       let target: string | null = null
       if (node.t === 'page-link') target = node.target
       else if (node.t === 'hashtag') target = node.tag

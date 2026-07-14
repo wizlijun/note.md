@@ -68,6 +68,14 @@ describe('index', () => {
       { file: '/d/one.notes.md', text: '#Target tagged', line: 2 },
     ])
   })
+  it('indexes [[links]] wrapped in emphasis (**, ^^, …)', () => {
+    const idx = createIndex()
+    indexFileContent(idx, '/d/e.notes.md', '- bold **[[Target]]** here\n- ^^see [[Target]] hi^^\n')
+    expect(backlinksFor(idx, 'target')).toEqual([
+      { file: '/d/e.notes.md', text: 'bold **[[Target]]** here', line: 1 },
+      { file: '/d/e.notes.md', text: '^^see [[Target]] hi^^', line: 2 },
+    ])
+  })
   it('re-indexing a file replaces its old entries', () => {
     const idx = createIndex()
     indexFileContent(idx, '/d/a.md', 'x [[T]]\n')

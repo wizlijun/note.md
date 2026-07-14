@@ -3,7 +3,7 @@ import { createTree, childrenOf, type OutlineTree, type OutlineNode } from './mo
 import { serializeOutline, parseOutline } from './markdown'
 import { deriveAutoItems } from './derive'
 import { syncAutoItems, regenerate as regenerateTree } from './sync'
-import { parseInline } from './parser'
+import { parseInline, eachInline } from './parser'
 import type { BacklinkIndex } from './backlinks'
 import { pageNameOf } from './backlinks'
 import { touchFrontmatter, fmHas } from './frontmatter'
@@ -55,7 +55,7 @@ export function companionPathFor(mainPath: string): string | null {
 export function persistIdsFor(tree: OutlineTree): Set<string> {
   const ids = new Set<string>()
   for (const n of tree.nodes.values()) {
-    for (const seg of parseInline(n.content)) {
+    for (const seg of eachInline(parseInline(n.content))) {
       if (seg.t === 'block-ref' && tree.nodes.has(seg.refId)) ids.add(seg.refId)
     }
     if (n.source !== 'manual' && childrenOf(tree, n.id).some(c => c.source === 'manual')) ids.add(n.id)
