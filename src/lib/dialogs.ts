@@ -1,4 +1,5 @@
-import { ask, save as saveDialog, open as openDialog } from '@tauri-apps/plugin-dialog'
+import { message, save as saveDialog, open as openDialog } from '@tauri-apps/plugin-dialog'
+import { t } from './i18n/store.svelte'
 import { pushToast } from './toast.svelte'
 import type { DirtyChoice } from './tabs.svelte'
 import { basename } from './fs'
@@ -24,29 +25,26 @@ const ALL_EXTS = [
 ]
 
 /**
- * Confirm-before-close for NAMED dirty files.
+ * Confirm-before-close for NAMED dirty files — a single macOS-standard
+ * three-button alert (Save / Don't Save / Cancel).
  * Untitled dirty files are handled directly in closeTab (NSSavePanel).
  *
- * Two-step flow:
- *   1. "Save / Cancel"  — user can save or cancel (keep editing).
- *   2. If Cancel → "Close without saving / Keep Editing" — explicit discard.
+ * `title` renders as NSAlert's bold headline (carries the filename);
+ * the first arg renders as the gray informative text.
  */
-export async function confirmDirtyClose(): Promise<DirtyChoice> {
-  const wantSave = await ask('Save changes before closing?', {
-    title: 'note.md',
+export async function confirmDirtyClose(name: string): Promise<DirtyChoice> {
+  const res = await message(t('dialog.saveChanges.info'), {
+    title: t('dialog.saveChanges.message', { name }),
     kind: 'warning',
-    okLabel: 'Save',
-    cancelLabel: 'Cancel',
+    buttons: {
+      yes: t('dialog.save'),
+      no: t('dialog.dontSave'),
+      cancel: t('common.cancel'),
+    },
   })
-  if (wantSave) return 'save'
-
-  const wantDiscard = await ask('Close without saving?', {
-    title: 'note.md',
-    kind: 'warning',
-    okLabel: 'Close without Saving',
-    cancelLabel: 'Keep Editing',
-  })
-  return wantDiscard ? 'discard' : 'cancel'
+  if (res === 'Yes') return 'save'
+  if (res === 'No') return 'discard'
+  return 'cancel'
 }
 
 export async function pickOpenFile(): Promise<string | null> {
