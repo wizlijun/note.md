@@ -2,7 +2,8 @@
   import {
     folderView, setRootDir, refreshAll, syncToActiveFile,
     parentDir, watchRoot, setFilter, clearFilter, revealInFinder,
-    type FolderEntry,
+    setSort, setNotesOnly, togglePin, applyNotesOnly,
+    type FolderEntry, type FolderSortKey,
   } from '../lib/folder-view.svelte'
   import { setSideVisible } from '../lib/side-panel/registry.svelte'
   import { t } from '../lib/i18n/store.svelte'
@@ -31,7 +32,8 @@
   let filtering = $derived(!!folderView.filter.trim())
   let rootEntries = $derived.by<FolderEntry[]>(() => {
     const all = folderView.rootDir ? (folderView.entriesCache.get(folderView.rootDir) ?? []) : []
-    return filtering ? all.filter((e) => folderView.filterVisible.has(e.path)) : all
+    const filtered = filtering ? all.filter((e) => folderView.filterVisible.has(e.path)) : all
+    return applyNotesOnly(filtered, folderView.notesOnly)
   })
   let rootName = $derived(
     folderView.rootDir ? (folderView.rootDir.split('/').filter(Boolean).pop() ?? '/') : ''
@@ -79,6 +81,27 @@
     if (!path) return
     try { await revealInFinder(path) } catch (e) { showError(String(e)) }
   }
+  async function pinCtx() {
+    const entry = ctx.entry
+    closeCtxMenu()
+    if (!entry) return
+    try { await togglePin(parentDir(entry.path), entry.name) } catch (e) { showError(String(e)) }
+  }
+
+  // 排序菜单（fixed 定位，锚到按钮左下）
+  let sortMenu = $state<{ open: boolean; x: number; y: number }>({ open: false, x: 0, y: 0 })
+  function toggleSortMenu(e: MouseEvent) {
+    const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
+    sortMenu = sortMenu.open ? { open: false, x: 0, y: 0 } : { open: true, x: r.left, y: r.bottom + 2 }
+  }
+  function closeSortMenu() { sortMenu = { open: false, x: 0, y: 0 } }
+  const SORT_OPTS: { key: FolderSortKey; label: Parameters<typeof t>[0] }[] = [
+    { key: 'edited', label: 'folderView.sortEdited' },
+    { key: 'name', label: 'folderView.sortName' },
+    { key: 'created', label: 'folderView.sortCreated' },
+  ]
+  async function pickSort(key: FolderSortKey) { closeSortMenu(); await setSort(key) }
+  async function toggleNotesOnly() { await setNotesOnly(!folderView.notesOnly) }
 
   // Inline rename: the ctx-menu "Rename" arms `renamingPath`; FolderTreeNode
   // renders an inline <input> for the matching row and calls back to commit/cancel.
@@ -112,12 +135,14 @@
     await refreshAll()
   }
   function onWindowMouseDown(e: MouseEvent) {
-    if (!ctx.open) return
     const target = e.target as HTMLElement | null
+    if (sortMenu.open && !target?.closest('.sort-menu') && !target?.closest('.sort-btn')) closeSortMenu()
+    if (!ctx.open) return
     if (target?.closest('.node-ctx-menu')) return
     closeCtxMenu()
   }
   function onWindowKeyDown(e: KeyboardEvent) {
+    if (sortMenu.open && e.key === 'Escape') { e.preventDefault(); closeSortMenu() }
     if (ctx.open && e.key === 'Escape') { e.preventDefault(); closeCtxMenu() }
   }
 
@@ -145,6 +170,13 @@
         <polyline points="23 4 23 10 17 10" />
         <polyline points="1 20 1 14 7 14" />
         <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+      </svg>
+    </button>
+    <button class="hbtn sort-btn" class:on={sortMenu.open || folderView.notesOnly || folderView.sort !== 'edited'} onclick={toggleSortMenu} title={t('folderView.sortBy')} aria-label={t('folderView.sortBy')}>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <line x1="4" y1="6" x2="20" y2="6" />
+        <line x1="6" y1="12" x2="18" y2="12" />
+        <line x1="9" y1="18" x2="15" y2="18" />
       </svg>
     </button>
     <button class="hbtn" onclick={() => void setSideVisible('left', false)} title={t('folderView.hide')} aria-label={t('folderView.hide')}>
@@ -199,11 +231,30 @@
     <button type="button" role="menuitem" class="node-ctx-item menu-row" onclick={revealCtx}>
       {t('folderView.reveal')}
     </button>
+    <button type="button" role="menuitem" class="node-ctx-item menu-row" onclick={pinCtx}>
+      {ctx.entry?.pinned ? t('folderView.unpin') : t('folderView.pin')}
+    </button>
     {#if ctx.entry && !ctx.entry.isDir}
       <button type="button" role="menuitem" class="node-ctx-item menu-row" onclick={renameCtx}>
         {t('folderView.rename')}
       </button>
     {/if}
+  </div>
+{/if}
+
+{#if sortMenu.open}
+  <div class="sort-menu menu-panel" role="menu" style="left: {sortMenu.x}px; top: {sortMenu.y}px">
+    {#each SORT_OPTS as opt (opt.key)}
+      <button type="button" role="menuitemradio" aria-checked={folderView.sort === opt.key}
+        class="node-ctx-item menu-row" onclick={() => void pickSort(opt.key)}>
+        <span class="check">{folderView.sort === opt.key ? '✓' : ''}</span>{t(opt.label)}
+      </button>
+    {/each}
+    <div class="sort-sep"></div>
+    <button type="button" role="menuitemcheckbox" aria-checked={folderView.notesOnly}
+      class="node-ctx-item menu-row" onclick={() => void toggleNotesOnly()}>
+      <span class="check">{folderView.notesOnly ? '✓' : ''}</span>{t('folderView.notesOnly')}
+    </button>
   </div>
 {/if}
 
@@ -256,6 +307,9 @@
   .empty { padding: 12px 10px; opacity: 0.5; font-size: 13px; }
   /* Chrome comes from the shared .menu-panel / .menu-row classes in app.css. */
   .node-ctx-menu { position: fixed; z-index: 9998; min-width: 160px; }
+  .sort-menu { position: fixed; z-index: 9998; min-width: 180px; }
+  .sort-menu .check { display: inline-block; width: 14px; }
+  .sort-sep { height: 1px; margin: 4px 0; background: var(--border-color, #3333); }
   .node-ctx-item {
     width: 100%; text-align: left; background: none; color: inherit;
     border: 0; font: inherit;
