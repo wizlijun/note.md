@@ -16,6 +16,6 @@ describe('normalizeDirName', () => {
 
 describe('DEFAULT_DIRS', () => {
   it('matches spec defaults', () => {
-    expect(DEFAULT_DIRS).toEqual({ wikipage: 'wikipage', dailynote: 'dailynote', wikilink: 'wikilink' })
+    expect(DEFAULT_DIRS).toEqual({ wikipage: 'wikipage', dailynote: 'dailynote' })
   })
 })

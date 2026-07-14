@@ -2,7 +2,7 @@
 // 无效 wikilink 黑名单：纯逻辑，模块级 Set（默认空 → 未加载/测试时不拦截）。
 // vault 加载器（blocklist-io）解析清单后调 setBlockedWikilinks 灌入。
 
-/** 随版本发布的默认清单，也是首次播种 vault/wikilink/blocklist.md 的内容源。 */
+/** 随版本发布的默认清单，也是首次播种 vault/{wikipage}/blocklist.md 的内容源。 */
 export const DEFAULT_BLOCKED_WIKILINKS = ['wikilink', '链接', '双链']
 
 /** 剥 |别名 与 #标题（取页名），trim，toLowerCase。 */

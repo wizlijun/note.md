@@ -1,5 +1,5 @@
 // src/lib/wikilink/blocklist-io.svelte.ts
-// vault/wikilink/blocklist.md 的播种 / 读取 / watch 重载。
+// vault/{wikipage}/blocklist.md 的播种 / 读取 / watch 重载。
 // 响应式 wikilinkBlocklistState.version 供显示层订阅（重载后重渲染）。
 import { sotvaultStore } from '../sotvault.svelte'
 import { outlineDirs } from '../outline/dirs.svelte'
@@ -30,7 +30,7 @@ async function loadFrom(path: string): Promise<void> {
 export async function ensureWikilinkBlocklist(): Promise<void> {
   const vault = sotvaultStore.vaultRoot
   if (!vault) { setBlockedWikilinks([]); wikilinkBlocklistState.version++; return }
-  const dir = joinPath(vault, outlineDirs.wikilink)
+  const dir = joinPath(vault, outlineDirs.wikipage)
   const path = joinPath(dir, 'blocklist.md')
   try {
     const { exists, mkdir, writeTextFile } = await import('@tauri-apps/plugin-fs')
