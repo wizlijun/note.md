@@ -400,7 +400,7 @@ export const de: Record<keyof Messages, string> = {
   'folderView.sortBy': 'Sortieren nach',
   'folderView.sortEdited': 'Zuletzt bearbeitet',
   'folderView.sortName': 'Name',
-  'folderView.sortCreated': 'Erstellt (neueste)',
+  'folderView.sortCreated': 'Erstellt',
   'folderView.pin': 'Anheften',
   'folderView.unpin': 'Lösen',
   'folderView.notesOnly': 'Nur Dateien mit Notizen',
