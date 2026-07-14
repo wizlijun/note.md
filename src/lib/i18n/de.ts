@@ -405,6 +405,11 @@ export const de: Record<keyof Messages, string> = {
   'folderView.unpin': 'Lösen',
   'folderView.notesOnly': 'Nur Dateien mit Notizen',
   'folderView.filesOnly': 'Nur Dateien',
+  'folderView.viewAll': 'Alle',
+  'folderView.viewFiles': 'Nur Dateien',
+  'folderView.viewWithNotes': 'Dateien mit Notizen',
+  'folderView.viewMarkdown': 'Nur Markdown',
+  'folderView.viewNotes': 'Nur Notizen',
   'folderView.renameConflict': 'Eine Datei mit diesem Namen existiert bereits',
   'folderView.tabTitle': 'Dateien',
 

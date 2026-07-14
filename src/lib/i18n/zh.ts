@@ -438,6 +438,11 @@ export const zh: Record<keyof Messages, string> = {
   'folderView.unpin': '取消置顶',
   'folderView.notesOnly': '只显示有笔记的文件',
   'folderView.filesOnly': '只显示文件',
+  'folderView.viewAll': '全部',
+  'folderView.viewFiles': '只显示文件',
+  'folderView.viewWithNotes': '只显示有笔记的文件',
+  'folderView.viewMarkdown': '只看 Markdown',
+  'folderView.viewNotes': '只看笔记',
   'folderView.renameConflict': '同名文件已存在',
   'folderView.tabTitle': '文件',
 

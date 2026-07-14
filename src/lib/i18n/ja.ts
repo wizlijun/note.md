@@ -407,6 +407,11 @@ export const ja: Record<keyof Messages, string> = {
   'folderView.unpin': 'ピン留めを解除',
   'folderView.notesOnly': 'ノートのあるファイルのみ',
   'folderView.filesOnly': 'ファイルのみ',
+  'folderView.viewAll': 'すべて',
+  'folderView.viewFiles': 'ファイルのみ',
+  'folderView.viewWithNotes': 'ノートのあるファイル',
+  'folderView.viewMarkdown': 'Markdown のみ',
+  'folderView.viewNotes': 'ノートのみ',
   'folderView.renameConflict': '同名のファイルが既に存在します',
   'folderView.tabTitle': 'ファイル',
 
