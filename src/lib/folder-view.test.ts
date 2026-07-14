@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   parentDir, isWithinDir, sortEntries,
   makeFilterMatcher, computeFilterVisibility, type FolderEntry,
-  pairNoteEntries,
+  pairNoteEntries, parsePinned, applyNotesOnly,
 } from './folder-view.svelte'
 import { vi, beforeEach } from 'vitest'
 import { SvelteMap, SvelteSet } from 'svelte/reactivity'
@@ -255,6 +255,33 @@ describe('sortEntries sort keys + pinning', () => {
     const input = [ent('a.md', { mtime: 1 }), ent('b.md', { mtime: 9 }), ent('c.md', { mtime: 5 })]
     const out = sortEntries(input, 'edited', ['c.md', 'ghost.md', 'a.md']).map((e) => e.name)
     expect(out).toEqual(['c.md', 'a.md', 'b.md'])
+  })
+})
+
+describe('parsePinned', () => {
+  it('parses a valid pinned array of strings', () => {
+    expect(parsePinned('{"pinned":["a.md","dir"]}')).toEqual(['a.md', 'dir'])
+  })
+  it('bad json / missing / non-array / non-strings → []', () => {
+    expect(parsePinned('not json')).toEqual([])
+    expect(parsePinned('{}')).toEqual([])
+    expect(parsePinned('{"pinned":"x"}')).toEqual([])
+    expect(parsePinned('{"pinned":[1,"ok",null]}')).toEqual(['ok'])
+  })
+})
+
+describe('applyNotesOnly', () => {
+  const rows: FolderEntry[] = [
+    { name: 'dir', path: '/d/dir', isDir: true, kind: null },
+    { name: 'has.md', path: '/d/has.md', isDir: false, kind: 'markdown', hasNote: true, notePath: '/d/has.note.md' },
+    { name: 'plain.md', path: '/d/plain.md', isDir: false, kind: 'markdown' },
+    { name: 'solo.note.md', path: '/d/solo.note.md', isDir: false, kind: 'markdown', isOutlineNote: true },
+  ]
+  it('false → unchanged', () => {
+    expect(applyNotesOnly(rows, false)).toHaveLength(4)
+  })
+  it('true → keep folders + hasNote only', () => {
+    expect(applyNotesOnly(rows, true).map((e) => e.name)).toEqual(['dir', 'has.md'])
   })
 })
 

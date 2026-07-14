@@ -150,6 +150,24 @@ export function sortEntries(
   return [...pinnedGroup, ...rest]
 }
 
+export const PINNED_FILE = '.notemd.json'
+
+/** 解析 .notemd.json 文本 → 置顶名字数组；任何异常/非法结构 → []。 */
+export function parsePinned(text: string): string[] {
+  try {
+    const arr = (JSON.parse(text) as { pinned?: unknown })?.pinned
+    return Array.isArray(arr) ? arr.filter((x): x is string => typeof x === 'string') : []
+  } catch {
+    return []
+  }
+}
+
+/** 「只显示有笔记的 md」渲染过滤：保留文件夹 + 有配对笔记(hasNote)的主文档。 */
+export function applyNotesOnly(entries: FolderEntry[], notesOnly: boolean): FolderEntry[] {
+  if (!notesOnly) return entries
+  return entries.filter((e) => e.isDir || e.hasNote === true)
+}
+
 export interface FolderViewState {
   enabled: boolean
   visible: boolean
