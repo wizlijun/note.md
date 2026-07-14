@@ -132,7 +132,8 @@ export function detectNameCollisions(idx: BacklinkIndex): Map<string, string[]> 
 
 const MAX_FILE_BYTES = 1024 * 1024 // spec 性能护栏：仅解析 ≤1MB
 
-/** 扫描 rootDir 下所有 .md 建全量索引（递归、跳过点目录/点文件）。
+/** 扫描 rootDir 下所有 .note.md 建全量索引（递归、跳过点目录/点文件）。
+ *  纯 .md 一律跳过（尺寸不可控）。
  *  副作用:遇到旧后缀 *.notes.md 会就地迁移改名为 *.note.md(冲突时回调上报)。 */
 export async function buildFolderIndex(
   rootDir: string,
@@ -148,7 +149,9 @@ export async function buildFolderIndex(
       if (e.isSymlink) continue // skip symlinks to avoid cycle risk
       let path = joinPath(dir, e.name)
       if (e.isDirectory) { await walk(path); continue }
-      if (!/\.md$/i.test(e.name)) continue
+      // 只索引 .note.md（含旧后缀 .notes.md，会就地迁移）：note 文件由 app 自管、
+      // 尺寸可控；纯 .md（导入稿/转录/摘要等）尺寸不可控，一律不扫也不登记为页面。
+      if (!/\.notes?\.md$/i.test(e.name)) continue
       if (/\.notes\.md$/i.test(e.name)) {
         const { migrateLegacyFile, migratedPathFor } = await import('./migrate')
         const r = await migrateLegacyFile(path)
@@ -165,9 +168,9 @@ export async function buildFolderIndex(
   return idx
 }
 
-/** file-watcher 事件驱动的单文件增量重扫 */
+/** file-watcher 事件驱动的单文件增量重扫（仅 .note.md，纯 .md 不索引） */
 export async function refreshFileInIndex(idx: BacklinkIndex, path: string): Promise<void> {
-  if (!/\.md$/i.test(path)) return
+  if (!/\.notes?\.md$/i.test(path)) return
   const { readTextFile } = await import('@tauri-apps/plugin-fs')
   const content = await readTextFile(path).catch(() => null)
   if (content == null) removeFileFromIndex(idx, path)

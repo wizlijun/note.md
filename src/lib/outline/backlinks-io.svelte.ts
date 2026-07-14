@@ -48,7 +48,7 @@ export async function ensureIndex(mainPath: string): Promise<void> {
   let timer: ReturnType<typeof setTimeout> | null = null
   const pending = new Set<string>()
   watchImmediate(root, (ev) => {
-    for (const p of (ev.paths ?? [])) if (/\.md$/i.test(p)) pending.add(p)
+    for (const p of (ev.paths ?? [])) if (/\.notes?\.md$/i.test(p)) pending.add(p)
     if (timer) clearTimeout(timer)
     timer = setTimeout(async () => {
       const current = outline.backlinkIndex
