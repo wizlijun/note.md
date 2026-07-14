@@ -124,6 +124,7 @@ export function deriveAutoItems(md: string): AutoItem[] {
         emitHeadingPath()
         items.push({ source: 'annotation', content: ANNOTATION_MARK, note: m[3], depth: stack.length, anchorLine })
       } else if (m[6] != null) {
+        if (isBlockedWikilink(m[6])) continue   // 黑名单命中：标题行也不派生
         emitHeadingPath()
         items.push({ source: 'wikilink', content: `[[${m[6]}]]`, depth: stack.length, anchorLine })
       } else {

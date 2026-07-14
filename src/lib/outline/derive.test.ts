@@ -277,4 +277,13 @@ describe('blocklisted wikilinks are not derived', () => {
     expect(items.map(i => i.source)).toEqual(['toc', 'wikilink'])
     expect(items.find(i => i.source === 'wikilink')!.content).toContain('[[Real]]')
   })
+
+  it('skips a blocklisted [[X]] on a heading line too', () => {
+    setBlockedWikilinks(['链接'])
+    const items = deriveAutoItems('## See [[链接]] and [[Real]]\n')
+    const wl = items.filter(i => i.source === 'wikilink')
+    expect(wl).toHaveLength(1)
+    expect(wl[0].content).toContain('[[Real]]')
+    expect(wl.some(i => i.content.includes('[[链接]]'))).toBe(false)
+  })
 })
