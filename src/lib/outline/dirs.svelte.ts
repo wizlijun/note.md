@@ -2,10 +2,10 @@
 import { Store } from '@tauri-apps/plugin-store'
 import { sanitizeFileName } from './slug'
 
-export const DEFAULT_DIRS = { wikipage: 'wikipage', dailynote: 'dailynote' } as const
+export const DEFAULT_DIRS = { wikipage: 'wikipage', dailynote: 'dailynote', wikilink: 'wikilink' } as const
 
-/** vault 内约定目录名(spec §一/§6:全局可配置,默认 wikipage/dailynote) */
-export const outlineDirs = $state<{ wikipage: string; dailynote: string }>({ ...DEFAULT_DIRS })
+/** vault 内约定目录名(spec §一/§6:全局可配置,默认 wikipage/dailynote;wikilink=黑名单目录) */
+export const outlineDirs = $state<{ wikipage: string; dailynote: string; wikilink: string }>({ ...DEFAULT_DIRS })
 
 /** 目录名约束:单段合法文件名;空白回退默认值 */
 export function normalizeDirName(raw: string, fallback: string): string {

@@ -1,7 +1,8 @@
 <script lang="ts">
   import { parseInline, type Inline } from '../../lib/outline/parser'
+  import { wikilinkBlocklistState } from '../../lib/wikilink/blocklist-io.svelte'
   let { content, onPageClick }: { content: string; onPageClick?: (target: string) => void } = $props()
-  let segments = $derived(parseInline(content))
+  let segments = $derived.by(() => { void wikilinkBlocklistState.version; return parseInline(content) })
 </script>
 
 {#snippet render(seg: Inline)}
