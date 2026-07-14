@@ -411,6 +411,7 @@ export const en = {
   'folderView.pin': 'Pin to top',
   'folderView.unpin': 'Unpin',
   'folderView.notesOnly': 'Only files with notes',
+  'folderView.filesOnly': 'Only files',
   'folderView.renameConflict': 'A file with that name already exists',
   'folderView.tabTitle': 'Files',
 

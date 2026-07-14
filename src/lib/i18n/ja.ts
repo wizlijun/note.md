@@ -406,6 +406,7 @@ export const ja: Record<keyof Messages, string> = {
   'folderView.pin': 'ピン留め',
   'folderView.unpin': 'ピン留めを解除',
   'folderView.notesOnly': 'ノートのあるファイルのみ',
+  'folderView.filesOnly': 'ファイルのみ',
   'folderView.renameConflict': '同名のファイルが既に存在します',
   'folderView.tabTitle': 'ファイル',
 

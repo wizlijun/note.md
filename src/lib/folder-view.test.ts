@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   parentDir, isWithinDir, sortEntries,
   makeFilterMatcher, computeFilterVisibility, type FolderEntry,
-  pairNoteEntries, parsePinned, applyNotesOnly,
+  pairNoteEntries, parsePinned, applyNotesOnly, applyFilesOnly,
 } from './folder-view.svelte'
 import { vi, beforeEach } from 'vitest'
 import { SvelteMap, SvelteSet } from 'svelte/reactivity'
@@ -329,6 +329,20 @@ describe('applyNotesOnly', () => {
   })
   it('true → keep folders + hasNote only', () => {
     expect(applyNotesOnly(rows, true).map((e) => e.name)).toEqual(['dir', 'has.md'])
+  })
+})
+
+describe('applyFilesOnly', () => {
+  const rows: FolderEntry[] = [
+    { name: 'dir', path: '/d/dir', isDir: true, kind: null },
+    { name: 'a.md', path: '/d/a.md', isDir: false, kind: 'markdown' },
+    { name: 'b.md', path: '/d/b.md', isDir: false, kind: 'markdown' },
+  ]
+  it('false → unchanged', () => {
+    expect(applyFilesOnly(rows, false)).toHaveLength(3)
+  })
+  it('true → drop folders', () => {
+    expect(applyFilesOnly(rows, true).map((e) => e.name)).toEqual(['a.md', 'b.md'])
   })
 })
 
