@@ -12,6 +12,7 @@
 1. 增加排序方式，**默认按最后编辑时间**；另有文件名顺序、创建时间倒序。
 2. 增加置顶功能；置顶信息存到对应 folder 目录下的 `.notemd.json`，**默认不自动创建**。
 3. **排序是全局一个设置**（存 settings.json），坚决不为排序建 per-folder 文件；尽量少往用户目录写文件。
+4. 排序选择框里加一个复选框：**只显示有笔记(.note.md)的 md**（显示过滤，与排序正交）。
 
 ## 目标
 
@@ -52,6 +53,10 @@ export const DEFAULT_SORT: FolderSortKey = 'edited'
 - `created` → birthtime 倒序（新→旧）
 
 `folderView` state 增 `sort: FolderSortKey`（默认 `DEFAULT_SORT`）。
+
+### 「只显示有笔记的 md」过滤
+
+`folderView` state 增 `notesOnly: boolean`（默认 `false`，存 settings.json `folderView.notesOnly`）。开启时只显示"有配对笔记的主文档"（`hasNote === true`）+ 文件夹（保留导航）；纯文件、独立笔记（`isOutlineNote`）隐藏。与排序、名称过滤正交叠加（AND）。
 
 ### `.notemd.json`（per-folder，仅置顶）
 
@@ -109,15 +114,27 @@ export async function setSort(key: FolderSortKey): Promise<void>
 - 就地重排所有已缓存目录：对 `entriesCache` 每个 dir，用已缓存 entries（含 mtime/birthtime/pinned）重新 `sortEntries` 后回写（无需重读盘）。
 - `loadFolderViewState` 读 `folderView.sort`（默认 `DEFAULT_SORT`）。
 
-### 5. UI
+### 5. 「只显示有笔记的 md」纯过滤 + 全局设置
 
-- **排序菜单**（`FolderView.svelte` 工具栏）：新增排序图标按钮 → 小弹出菜单三项（最后编辑时间 / 名称 / 创建时间），当前项打勾；点选调 `setSort`。复用现有 `node-ctx-menu` 的定位/关闭模式（window mousedown/Esc 关闭）。
+```ts
+// 纯函数：notesOnly 时保留文件夹 + hasNote 的条目；否则原样
+export function applyNotesOnly(entries: FolderEntry[], notesOnly: boolean): FolderEntry[]
+export async function setNotesOnly(v: boolean): Promise<void>   // 写 settings.json，不触发重读(渲染层过滤)
+```
+
+- 渲染层过滤（不改缓存）：`FolderView.svelte` 的 `rootEntries` 与 `FolderTreeNode` 的子项渲染都套 `applyNotesOnly`，并与名称过滤 `filterVisible` 组合。
+- 折叠状态下的文件夹保留（不做子树扫描判空，代价小；空文件夹仍显示，权衡见下）。
+- `loadFolderViewState` 读 `folderView.notesOnly`（默认 false）。
+
+### 6. UI
+
+- **排序菜单**（`FolderView.svelte` 工具栏）：新增排序图标按钮 → 小弹出菜单：三项排序（最后编辑时间 / 名称 / 创建时间，当前项打勾，点选调 `setSort`）+ 分隔 + 一个复选框行「只显示有笔记的 md」（勾选态 = `folderView.notesOnly`，点选调 `setNotesOnly`）。复用现有 `node-ctx-menu` 的定位/关闭模式（window mousedown/Esc 关闭）。
 - **置顶开关**（右键菜单，`FolderView.svelte:65-82,197-208`）：新增一项，文件与文件夹都显示，按 `entry.pinned` 切"置顶"/"取消置顶"，点选调 `togglePin(parentDir(path), name)`。
 - **置顶角标**（`FolderTreeNode.svelte`）：`pinned` 为真时行上显示小图钉图标。
 
-### 6. i18n（`folderView.*`，en/zh/de/ja 四语言）
+### 7. i18n（`folderView.*`，en/zh/de/ja 四语言）
 
-新增键：`folderView.sortBy`、`folderView.sortEdited`、`folderView.sortName`、`folderView.sortCreated`、`folderView.pin`、`folderView.unpin`。
+新增键：`folderView.sortBy`、`folderView.sortEdited`、`folderView.sortName`、`folderView.sortCreated`、`folderView.pin`、`folderView.unpin`、`folderView.notesOnly`。
 
 ## 文件监听/刷新
 
@@ -134,7 +151,8 @@ export async function setSort(key: FolderSortKey): Promise<void>
   - `name` 升序、`edited` mtime 倒序、`created` birthtime 倒序；时间相等回退名字。
   - 非置顶组"文件夹优先"保持。
   - 置顶组按 `pinned` 数组序在最前；`pinned` 含本目录不存在的名字被忽略；置顶组不受 `sort`/文件夹优先影响。
-- `readPinned` 解析容错：缺文件→[]、坏 JSON→[]、非数组→[]、正常→数组（此函数需可注入/mock fs，或拆出纯解析 `parsePinned(text)` 单测）。
+- `parsePinned(text)` 纯解析容错：缺文件/坏 JSON/非数组→[]、正常→string 数组。
+- `applyNotesOnly`：notesOnly=false 原样返回；true 时只留文件夹 + `hasNote`，丢弃纯文件与 `isOutlineNote`。
 
 手动 / GUI（[[feedback_no_ui_automation_user_tests]]）：
 1. 默认排序为最后编辑时间（新→旧）；切"名称""创建时间倒序"即时生效、全局一致。
@@ -150,3 +168,4 @@ export async function setSort(key: FolderSortKey): Promise<void>
 - 置顶组内**按置顶顺序/手动**（用户选择），不套排序键。
 - 时间排序均**倒序**（新→旧），名称升序。
 - `.notemd.json` **仅置顶时存在**，空则删除（贴合"少写盘/默认不自动创建"）。
+- 「只显示有笔记的 md」为**渲染层过滤**（不改缓存、不写盘）；口径 = `hasNote`（有配对笔记的主文档），独立 `.note.md` 与纯文件均隐藏，文件夹保留导航（不做子树判空，空文件夹仍显示——换取零子树扫描）。默认关，状态存 settings.json。
