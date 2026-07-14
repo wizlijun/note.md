@@ -397,6 +397,13 @@ export const de: Record<keyof Messages, string> = {
   'folderView.reveal': 'Im Finder anzeigen',
   'folderView.openNote': 'Notiz öffnen',
   'folderView.rename': 'Umbenennen',
+  'folderView.sortBy': 'Sortieren nach',
+  'folderView.sortEdited': 'Zuletzt bearbeitet',
+  'folderView.sortName': 'Name',
+  'folderView.sortCreated': 'Erstellt (neueste)',
+  'folderView.pin': 'Anheften',
+  'folderView.unpin': 'Lösen',
+  'folderView.notesOnly': 'Nur Dateien mit Notizen',
   'folderView.renameConflict': 'Eine Datei mit diesem Namen existiert bereits',
   'folderView.tabTitle': 'Dateien',
 

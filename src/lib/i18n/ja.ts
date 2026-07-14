@@ -399,6 +399,13 @@ export const ja: Record<keyof Messages, string> = {
   'folderView.reveal': 'Finder で表示',
   'folderView.openNote': 'ノートを開く',
   'folderView.rename': '名前を変更',
+  'folderView.sortBy': '並び替え',
+  'folderView.sortEdited': '最終編集日時',
+  'folderView.sortName': '名前',
+  'folderView.sortCreated': '作成日時（新しい順）',
+  'folderView.pin': 'ピン留め',
+  'folderView.unpin': 'ピン留めを解除',
+  'folderView.notesOnly': 'ノートのあるファイルのみ',
   'folderView.renameConflict': '同名のファイルが既に存在します',
   'folderView.tabTitle': 'ファイル',
 

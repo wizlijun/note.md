@@ -1,4 +1,4 @@
-import { readDir, watchImmediate } from '@tauri-apps/plugin-fs'
+import { readDir, watchImmediate, stat, exists, readTextFile, writeTextFile, remove } from '@tauri-apps/plugin-fs'
 import { Store } from '@tauri-apps/plugin-store'
 import { SvelteMap } from 'svelte/reactivity'
 import { SvelteSet } from 'svelte/reactivity'
@@ -18,6 +18,12 @@ export interface FolderEntry {
   /** 同目录存在配对 xxx.note.md:行尾角标,点击打开笔记 */
   hasNote?: boolean
   notePath?: string
+  /** 最后修改(ms)，stat 失败为 0 */
+  mtime?: number
+  /** 创建(ms)，stat 失败为 0 */
+  birthtime?: number
+  /** 名字 ∈ 本目录 .notemd.json pinned 集 */
+  pinned?: boolean
 }
 
 /** Parent directory of a file or directory path. Returns '/' at the root. */
@@ -115,12 +121,51 @@ export function pairNoteEntries(entries: FolderEntry[]): FolderEntry[] {
   return out
 }
 
-/** Folders first, then files; each group sorted by name, case-insensitive. */
-export function sortEntries(entries: FolderEntry[]): FolderEntry[] {
-  return [...entries].sort((a, b) => {
+export type FolderSortKey = 'edited' | 'name' | 'created'
+export const DEFAULT_SORT: FolderSortKey = 'edited'
+
+/**
+ * 排序：置顶组(按 pinned 数组序)在最前；其余"文件夹优先"，组内按 sort
+ * (name 升序 / edited=mtime 倒序 / created=birthtime 倒序，时间相等回退名字)。
+ */
+export function sortEntries(
+  entries: FolderEntry[],
+  sort: FolderSortKey = DEFAULT_SORT,
+  pinned: string[] = [],
+): FolderEntry[] {
+  const byName = (a: FolderEntry, b: FolderEntry) =>
+    a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
+  const pinnedSet = new Set(pinned)
+  const byNameMap = new Map(entries.map((e) => [e.name, e]))
+  const pinnedGroup = pinned
+    .map((n) => byNameMap.get(n))
+    .filter((e): e is FolderEntry => !!e)
+  const rest = entries.filter((e) => !pinnedSet.has(e.name))
+  rest.sort((a, b) => {
     if (a.isDir !== b.isDir) return a.isDir ? -1 : 1
-    return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
+    if (sort === 'name') return byName(a, b)
+    if (sort === 'edited') return ((b.mtime ?? 0) - (a.mtime ?? 0)) || byName(a, b)
+    return ((b.birthtime ?? 0) - (a.birthtime ?? 0)) || byName(a, b)
   })
+  return [...pinnedGroup, ...rest]
+}
+
+export const PINNED_FILE = '.notemd.json'
+
+/** 解析 .notemd.json 文本 → 置顶名字数组；任何异常/非法结构 → []。 */
+export function parsePinned(text: string): string[] {
+  try {
+    const arr = (JSON.parse(text) as { pinned?: unknown })?.pinned
+    return Array.isArray(arr) ? arr.filter((x): x is string => typeof x === 'string') : []
+  } catch {
+    return []
+  }
+}
+
+/** 「只显示有笔记的 md」渲染过滤：保留文件夹 + 有配对笔记(hasNote)的主文档。 */
+export function applyNotesOnly(entries: FolderEntry[], notesOnly: boolean): FolderEntry[] {
+  if (!notesOnly) return entries
+  return entries.filter((e) => e.isDir || e.hasNote === true)
 }
 
 export interface FolderViewState {
@@ -134,6 +179,10 @@ export interface FolderViewState {
   filterVisible: SvelteSet<string>
   expanded: SvelteSet<string>
   entriesCache: SvelteMap<string, FolderEntry[]>
+  /** 全局排序方式（存 settings.json） */
+  sort: FolderSortKey
+  /** 只显示有配对笔记的 md（渲染过滤，存 settings.json） */
+  notesOnly: boolean
 }
 
 export const DEFAULT_WIDTH = 240
@@ -149,12 +198,34 @@ export const folderView = $state<FolderViewState>({
   filterVisible: new SvelteSet(),
   expanded: new SvelteSet(),
   entriesCache: new SvelteMap(),
+  sort: DEFAULT_SORT,
+  notesOnly: false,
 })
 
-/** Read a directory, classify + sort entries, hide dotfiles, and cache. */
+/** 读本目录 .notemd.json → 置顶名字数组；无文件/异常 → []（绝不创建）。 */
+export async function readPinned(dir: string): Promise<string[]> {
+  const path = joinPath(dir, PINNED_FILE)
+  if (!(await exists(path).catch(() => false))) return []
+  return parsePinned(await readTextFile(path).catch(() => ''))
+}
+
+/** 切换置顶：读→改→写；结果空则删文件；随后重读本目录刷新缓存。 */
+export async function togglePin(dir: string, name: string): Promise<void> {
+  const path = joinPath(dir, PINNED_FILE)
+  const cur = await readPinned(dir)
+  const next = cur.includes(name) ? cur.filter((n) => n !== name) : [...cur, name]
+  if (next.length === 0) {
+    if (await exists(path).catch(() => false)) await remove(path).catch(() => {})
+  } else {
+    await writeTextFile(path, JSON.stringify({ pinned: next }, null, 2) + '\n').catch(() => {})
+  }
+  await readFolder(dir).catch(() => {})
+}
+
+/** Read a directory: classify, stat(time), read pins, mark, sort, cache. */
 export async function readFolder(dir: string): Promise<FolderEntry[]> {
   const raw = await readDir(dir)
-  const entries: FolderEntry[] = raw
+  const base: FolderEntry[] = raw
     .filter((e) => !e.name.startsWith('.'))
     .map((e) => {
       const path = joinPath(dir, e.name)
@@ -165,7 +236,15 @@ export async function readFolder(dir: string): Promise<FolderEntry[]> {
         kind: e.isDirectory ? null : (classifyPath(path)?.kind ?? null),
       }
     })
-  const sorted = sortEntries(pairNoteEntries(entries))
+  await Promise.all(base.map(async (en) => {
+    const st = await stat(en.path).catch(() => null)
+    en.mtime = st?.mtime ? new Date(st.mtime).getTime() : 0
+    en.birthtime = st?.birthtime ? new Date(st.birthtime).getTime() : 0
+  }))
+  const pinned = await readPinned(dir)
+  const pinnedSet = new Set(pinned)
+  const paired = pairNoteEntries(base).map((e) => (pinnedSet.has(e.name) ? { ...e, pinned: true } : e))
+  const sorted = sortEntries(paired, folderView.sort, pinned)
   folderView.entriesCache.set(dir, sorted)
   return sorted
 }
@@ -302,6 +381,29 @@ export async function loadFolderViewState(): Promise<void> {
   const s = await getStore()
   folderView.visible = (await s.get<boolean>('folderView.visible')) ?? false
   folderView.width = (await s.get<number>('folderView.width')) ?? DEFAULT_WIDTH
+  const savedSort = await s.get<string>('folderView.sort')
+  folderView.sort = savedSort === 'name' || savedSort === 'created' || savedSort === 'edited' ? savedSort : DEFAULT_SORT
+  folderView.notesOnly = (await s.get<boolean>('folderView.notesOnly')) ?? false
+}
+
+/** 设置全局排序方式：就地重排所有已缓存目录（时间元数据已在 entry 上，无需重读盘）。 */
+export async function setSort(key: FolderSortKey): Promise<void> {
+  folderView.sort = key
+  for (const [dir, entries] of folderView.entriesCache) {
+    const pinned = entries.filter((e) => e.pinned).map((e) => e.name)
+    folderView.entriesCache.set(dir, sortEntries(entries, key, pinned))
+  }
+  const s = await getStore()
+  await s.set('folderView.sort', key)
+  await s.save()
+}
+
+/** 设置「只显示有笔记的 md」（渲染过滤，不重读盘）。 */
+export async function setNotesOnly(v: boolean): Promise<void> {
+  folderView.notesOnly = v
+  const s = await getStore()
+  await s.set('folderView.notesOnly', v)
+  await s.save()
 }
 
 /** @deprecated visibility/width now live in the side-panel registry (sidePanels.left).

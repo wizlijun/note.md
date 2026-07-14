@@ -2,15 +2,26 @@ import { describe, it, expect } from 'vitest'
 import {
   parentDir, isWithinDir, sortEntries,
   makeFilterMatcher, computeFilterVisibility, type FolderEntry,
-  pairNoteEntries,
+  pairNoteEntries, parsePinned, applyNotesOnly,
 } from './folder-view.svelte'
 import { vi, beforeEach } from 'vitest'
 import { SvelteMap, SvelteSet } from 'svelte/reactivity'
 
 // Mock the Tauri plugins used by the module's side-effects.
 const readDirMock = vi.fn()
+const statMock = vi.fn(async (..._a: unknown[]) => ({ mtime: new Date(0), birthtime: new Date(0) }))
+const existsMock = vi.fn(async (..._a: unknown[]) => false)
+const readTextFileMock = vi.fn(async (..._a: unknown[]) => '')
+const writeTextFileMock = vi.fn(async (..._a: unknown[]) => {})
+const removeMock = vi.fn(async (..._a: unknown[]) => {})
 vi.mock('@tauri-apps/plugin-fs', () => ({
-  readDir: (...args: unknown[]) => readDirMock(...args),
+  readDir: (...a: unknown[]) => readDirMock(...a),
+  stat: (...a: unknown[]) => statMock(...a),
+  exists: (...a: unknown[]) => existsMock(...a),
+  readTextFile: (...a: unknown[]) => readTextFileMock(...a),
+  writeTextFile: (...a: unknown[]) => writeTextFileMock(...a),
+  remove: (...a: unknown[]) => removeMock(...a),
+  watchImmediate: vi.fn(async () => () => {}),
 }))
 const storeGet = vi.fn()
 const storeSet = vi.fn()
@@ -31,11 +42,17 @@ import {
   loadFolderViewState,
   setVisible,
   setWidth,
+  setSort,
+  setNotesOnly,
   PLUGIN_ID,
 } from './folder-view.svelte'
 
 beforeEach(() => {
   readDirMock.mockReset()
+  statMock.mockReset(); statMock.mockResolvedValue({ mtime: new Date(0), birthtime: new Date(0) })
+  existsMock.mockReset(); existsMock.mockResolvedValue(false)
+  readTextFileMock.mockReset(); readTextFileMock.mockResolvedValue('')
+  writeTextFileMock.mockReset(); removeMock.mockReset()
   storeGet.mockReset(); storeSet.mockReset(); storeSave.mockReset()
   isPluginEnabledMock.mockReset(); isPluginEnabledMock.mockReturnValue(true)
   folderView.enabled = true
@@ -60,6 +77,36 @@ describe('readFolder', () => {
     expect(out.map((e) => e.name)).toEqual(['sub', 'note.md', 'pic.png']) // dotfile filtered, folder first
     expect(out.find((e) => e.name === 'note.md')?.kind).toBe('markdown')
     expect(folderView.entriesCache.get('/root')).toEqual(out) // cached
+  })
+})
+
+describe('readFolder pins + sort', () => {
+  it('marks pinned entries and floats them first', async () => {
+    readDirMock.mockResolvedValue([
+      { name: 'a.md', isDirectory: false }, { name: 'b.md', isDirectory: false },
+    ])
+    existsMock.mockResolvedValue(true)
+    readTextFileMock.mockResolvedValue('{"pinned":["b.md"]}')
+    const out = await readFolder('/root')
+    expect(out[0].name).toBe('b.md')
+    expect(out[0].pinned).toBe(true)
+  })
+})
+
+describe('setSort / setNotesOnly', () => {
+  it('setSort re-sorts cached dirs and persists', async () => {
+    folderView.entriesCache.set('/r', [
+      { name: 'a.md', path: '/r/a.md', isDir: false, kind: 'markdown', mtime: 1 },
+      { name: 'b.md', path: '/r/b.md', isDir: false, kind: 'markdown', mtime: 9 },
+    ])
+    await setSort('edited')
+    expect(folderView.entriesCache.get('/r')!.map((e) => e.name)).toEqual(['b.md', 'a.md'])
+    expect(storeSet).toHaveBeenCalledWith('folderView.sort', 'edited')
+  })
+  it('setNotesOnly persists', async () => {
+    await setNotesOnly(true)
+    expect(folderView.notesOnly).toBe(true)
+    expect(storeSet).toHaveBeenCalledWith('folderView.notesOnly', true)
   })
 })
 
@@ -231,6 +278,57 @@ describe('sortEntries', () => {
     ]
     const out = sortEntries(input).map((e) => e.name)
     expect(out).toEqual(['Apple', 'apricot', 'banana.md', 'zebra.md'])
+  })
+})
+
+function ent(name: string, over: Partial<FolderEntry> = {}): FolderEntry {
+  return { name, path: '/d/' + name, isDir: false, kind: 'markdown', ...over }
+}
+
+describe('sortEntries sort keys + pinning', () => {
+  it('name: folders first then name asc', () => {
+    const input = [ent('b.md'), ent('dir', { isDir: true, kind: null }), ent('a.md')]
+    expect(sortEntries(input, 'name', []).map((e) => e.name)).toEqual(['dir', 'a.md', 'b.md'])
+  })
+  it('edited: mtime desc, tie→name', () => {
+    const input = [ent('a.md', { mtime: 10 }), ent('b.md', { mtime: 30 }), ent('c.md', { mtime: 30 })]
+    expect(sortEntries(input, 'edited', []).map((e) => e.name)).toEqual(['b.md', 'c.md', 'a.md'])
+  })
+  it('created: birthtime desc', () => {
+    const input = [ent('a.md', { birthtime: 5 }), ent('b.md', { birthtime: 50 })]
+    expect(sortEntries(input, 'created', []).map((e) => e.name)).toEqual(['b.md', 'a.md'])
+  })
+  it('pinned group first in array order, rest sorted; missing pins ignored', () => {
+    const input = [ent('a.md', { mtime: 1 }), ent('b.md', { mtime: 9 }), ent('c.md', { mtime: 5 })]
+    const out = sortEntries(input, 'edited', ['c.md', 'ghost.md', 'a.md']).map((e) => e.name)
+    expect(out).toEqual(['c.md', 'a.md', 'b.md'])
+  })
+})
+
+describe('parsePinned', () => {
+  it('parses a valid pinned array of strings', () => {
+    expect(parsePinned('{"pinned":["a.md","dir"]}')).toEqual(['a.md', 'dir'])
+  })
+  it('bad json / missing / non-array / non-strings → []', () => {
+    expect(parsePinned('not json')).toEqual([])
+    expect(parsePinned('{}')).toEqual([])
+    expect(parsePinned('{"pinned":"x"}')).toEqual([])
+    expect(parsePinned('{"pinned":[1,"ok",null]}')).toEqual(['ok'])
+  })
+})
+
+describe('applyNotesOnly', () => {
+  const rows: FolderEntry[] = [
+    { name: 'dir', path: '/d/dir', isDir: true, kind: null },
+    { name: 'has.md', path: '/d/has.md', isDir: false, kind: 'markdown', hasNote: true, notePath: '/d/has.note.md' },
+    { name: 'plain.md', path: '/d/plain.md', isDir: false, kind: 'markdown' },
+    { name: 'solo.note.md', path: '/d/solo.note.md', isDir: false, kind: 'markdown', isOutlineNote: true },
+  ]
+  it('false → unchanged', () => {
+    expect(applyNotesOnly(rows, false)).toHaveLength(4)
+  })
+  it('true → keep folders + hasNote only', () => {
+    expect(applyNotesOnly(rows, true).map((e) => e.name)).toEqual(['dir', 'has.md'])
   })
 })
 
