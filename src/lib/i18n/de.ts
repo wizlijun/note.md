@@ -323,6 +323,9 @@ export const de: Record<keyof Messages, string> = {
   // Outline Notes
   'outline.title': 'Begleitnotizen',
   'outline.editNote': 'Notiz bearbeiten',
+  'outline.openMarkdown': 'Als Markdown öffnen',
+  'outline.deleteNote': 'Notiz löschen',
+  'outline.deleteNoteConfirm': 'Diese Begleitnotiz löschen? Kann nicht rückgängig gemacht werden.',
   'outline.save': 'Notiz speichern',
   'outline.regenerate': 'Aus Quelle neu generieren',
   'outline.regenerateConfirm': 'Auto-Elemente aus dem Quelldokument neu aufbauen? Manuelle Notizen bleiben erhalten.',

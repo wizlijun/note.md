@@ -330,6 +330,9 @@ export const en = {
   // Outline Notes
   'outline.title': 'Sidecar Notes',
   'outline.editNote': 'Edit note',
+  'outline.openMarkdown': 'Open as Markdown',
+  'outline.deleteNote': 'Delete note',
+  'outline.deleteNoteConfirm': 'Delete this sidecar note file? This cannot be undone.',
   'outline.save': 'Save note',
   'outline.regenerate': 'Regenerate from source',
   'outline.regenerateConfirm': 'Rebuild auto items from the source document? Manual notes are kept.',
