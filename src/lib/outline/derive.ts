@@ -1,4 +1,5 @@
 // src/lib/outline/derive.ts
+import { isBlockedWikilink } from '../wikilink/blocklist'
 
 /**
  * 插入点批注（无包裹文字）在大纲中的占位符号，与富文本编辑器里的批注徽标
@@ -183,6 +184,7 @@ export function deriveAutoItems(md: string): AutoItem[] {
         continue
       }
       if (m[6] != null) {
+        if (isBlockedWikilink(m[6])) continue   // 黑名单命中：不派生成大纲条目
         // wikilink：整句为内容（保留 [[…]]），同句去重
         const [s, e] = sentenceRangeAt(line, m.index!, m.index! + m[0].length, protectedRanges)
         if (emittedSentences.has(s)) continue
