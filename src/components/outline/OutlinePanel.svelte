@@ -17,18 +17,18 @@
   // 面板重置计数：删除笔记后自增 → OutlineEditor 重挂 → 重读(文件已无) → 空大纲
   let resetTick = $state(0)
 
-  // 铅笔菜单（fixed 定位，锚到按钮左下）
-  let menu = $state<{ open: boolean; x: number; y: number }>({ open: false, x: 0, y: 0 })
+  // 铅笔菜单（fixed 定位，右边缘对齐按钮右边缘 → 向左展开，避免右侧被裁）
+  let menu = $state<{ open: boolean; right: number; y: number }>({ open: false, right: 0, y: 0 })
   let noteExists = $state(false)
   async function toggleMenu(e: MouseEvent) {
-    if (menu.open) { menu = { open: false, x: 0, y: 0 }; return }
+    if (menu.open) { menu = { open: false, right: 0, y: 0 }; return }
     const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
     noteExists = companionPath
       ? await (await import('@tauri-apps/plugin-fs')).exists(companionPath).catch(() => false)
       : false
-    menu = { open: true, x: r.left, y: r.bottom + 2 }
+    menu = { open: true, right: window.innerWidth - r.right, y: r.bottom + 2 }
   }
-  function closeMenu() { menu = { open: false, x: 0, y: 0 } }
+  function closeMenu() { menu = { open: false, right: 0, y: 0 } }
 
   async function openMarkdown() {
     closeMenu()
@@ -108,7 +108,7 @@
 </div>
 
 {#if menu.open}
-  <div class="pencil-menu" role="menu" style="left: {menu.x}px; top: {menu.y}px">
+  <div class="pencil-menu" role="menu" style="right: {menu.right}px; top: {menu.y}px">
     <button type="button" role="menuitem" class="pmenu-row" onclick={() => void openMarkdown()}>{t('outline.openMarkdown')}</button>
     <button type="button" role="menuitem" class="pmenu-row danger" disabled={!noteExists} onclick={() => void deleteNote()}>{t('outline.deleteNote')}</button>
   </div>
