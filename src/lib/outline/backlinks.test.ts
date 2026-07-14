@@ -61,6 +61,7 @@ describe('pageNameOf', () => {
 })
 
 describe('index', () => {
+  afterEach(() => setBlockedWikilinks([]))
   it('collects [[links]] and #tags with node text and line', () => {
     const idx = createIndex()
     indexFileContent(idx, '/d/one.notes.md', '- see [[Target]] here\n- #Target tagged\n- nothing\n')
@@ -102,7 +103,6 @@ describe('index', () => {
     indexFileContent(idx, '/d/a.notes.md', '- [[wikilink]] and [[Real]]\n')
     expect(backlinksFor(idx, 'wikilink')).toEqual([])
     expect(backlinksFor(idx, 'real')).toHaveLength(1)
-    setBlockedWikilinks([])
   })
 })
 
