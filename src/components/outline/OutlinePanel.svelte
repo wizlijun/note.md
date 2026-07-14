@@ -4,7 +4,6 @@
   import { setSideVisible } from '../../lib/side-panel/registry.svelte'
   import { t } from '../../lib/i18n/store.svelte'
   import { companionPathFor } from '../../lib/outline/store.svelte'
-  import { ensureOutlineFile } from '../../lib/outline/create'
   import { openFile } from '../../lib/tabs.svelte'
   import OutlineEditor from './OutlineEditor.svelte'
   import SideViewSwitcher from '../side-panel/SideViewSwitcher.svelte'
@@ -17,8 +16,18 @@
 
   async function openNoteTab() {
     if (!companionPath) return
-    await ensureOutlineFile(companionPath)
-    await openFile(companionPath)
+    const { exists } = await import('@tauri-apps/plugin-fs')
+    if (await exists(companionPath).catch(() => false)) {
+      await openFile(companionPath)
+      return
+    }
+    // 惰性：磁盘上还没笔记 → 打开未保存大纲 tab，首次保存/输入才落盘
+    const [{ openNewOutlineTab }, { pageNameOf }, { newOutlineFileText }] = await Promise.all([
+      import('../../lib/tabs.svelte'),
+      import('../../lib/outline/backlinks'),
+      import('../../lib/outline/create'),
+    ])
+    await openNewOutlineTab(companionPath, newOutlineFileText(pageNameOf(companionPath)))
   }
 
 </script>

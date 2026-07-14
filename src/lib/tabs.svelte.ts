@@ -111,6 +111,35 @@ export function newFile(): void {
 }
 
 /**
+ * 打开一个绑定到 `path`、但磁盘上尚无文件的未保存大纲 tab（惰性创建）。
+ * initialContent='' 故 tab 天然 dirty；首次 ⌘S/保存按钮才 writeMd 落盘。
+ * 文件此刻不存在，startWatchingTab 会静默降级（focus-poll 兜底），保存后补挂。
+ */
+export async function openNewOutlineTab(path: string, content: string): Promise<void> {
+  const existing = tabs.find((t) => t.filePath === path)
+  if (existing) { activeId.value = existing.id; notifyInsights('onActiveDocChanged'); return }
+  const tab: Tab = {
+    id: crypto.randomUUID(),
+    filePath: path,
+    title: basename(path),
+    initialContent: '',
+    currentContent: content,
+    mode: 'rich',
+    kind: 'markdown',
+    language: undefined,
+    externalState: 'fresh',
+    externalBannerDismissed: false,
+    lastKnownMtime: 0,
+    lastKnownHash: '',
+    pendingExternal: undefined,
+  }
+  tabs.push(tab)
+  activeId.value = tab.id
+  notifyInsights('onActiveDocChanged')
+  await startWatchingTab(tab).catch(() => {})
+}
+
+/**
  * Read a file's text, but when the read fails for lack of permission, prompt
  * the user to grant access and retry instead of surfacing a raw error. Loops
  * until the read succeeds or the user cancels (in which case the original error
