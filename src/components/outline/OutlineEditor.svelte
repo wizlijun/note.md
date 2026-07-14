@@ -10,9 +10,11 @@
   import LinkedReferences from './LinkedReferences.svelte'
   import {
     outline, attachDoc, detach, serializeDoc, setChangeSink, regenerate,
-    bump, markDirty, pinnedIds, setSelection, clearSelection, companionPathFor,
+    bump, markDirty, markSynced, markSaved, pinnedIds, setSelection, clearSelection, companionPathFor,
     isEffectivelyEmptyTree, noteTextHasContent,
   } from '../../lib/outline/store.svelte'
+  import { sha256Hex } from '../../lib/hash'
+  import { decideCompanionWrite } from '../../lib/outline/companion-write'
   import { deriveAutoItems } from '../../lib/outline/derive'
   import { syncAutoItems } from '../../lib/outline/sync'
   import { childrenOf, newId, calculateOrderBetween, setNodeContent, type OutlineNode as NodeT } from '../../lib/outline/model'
@@ -47,22 +49,35 @@
   // panel 模式无 tab 时的落盘器（防抖 + 卸载冲刷）。空大纲且文件不存在时不落盘。
   let diskTimer: ReturnType<typeof setTimeout> | null = null
   let diskPending: string | null = null
+  /** 冲突校验基线：我们上次加载/写入 .note.md 时的 sha256（null=当时磁盘无此文件） */
+  let noteDiskHash: string | null = null
   async function flushDisk() {
     if (diskTimer) { clearTimeout(diskTimer); diskTimer = null }
     const text = diskPending
     diskPending = null
     if (text == null) return
+    if (outline.externalConflict) return               // 冲突未解决前不写
     try {
       const fs = await import('@tauri-apps/plugin-fs')
-      if (text.trim() === '' && !(await fs.exists(notePath).catch(() => false))) return
+      const existed = await fs.exists(notePath).catch(() => false)
+      if (text.trim() === '' && !existed) return       // 空大纲 + 无文件 → 不创建
       // Data-loss guard: never clobber an existing note that HAS content with an
-      // empty/blank serialization (the signature of a stale/empty global-tree
-      // race). Only a genuinely empty-on-disk note may be written blank.
-      if (!noteTextHasContent(text)) {
+      // empty/blank serialization (the signature of a stale/empty global-tree race).
+      if (!noteTextHasContent(text) && existed) {
         const existing = await fs.readTextFile(notePath).catch(() => '')
         if (noteTextHasContent(existing)) return
       }
+      const diskText = existed ? await fs.readTextFile(notePath).catch(() => null) : null
+      const diskHash = diskText != null ? await sha256Hex(diskText) : null
+      const ourHash = await sha256Hex(text)
+      const decision = decideCompanionWrite({
+        fileExists: diskText != null, diskHash, lastHash: noteDiskHash, ourHash,
+      })
+      if (decision === 'conflict') { outline.externalConflict = { diskText: diskText ?? '' }; return }
+      if (decision === 'noop') { noteDiskHash = diskHash; markSaved(); return }
       await fs.writeTextFile(notePath, text)
+      noteDiskHash = ourHash
+      markSaved()
     } catch (e) {
       console.warn('[outline] write companion failed:', e)
     }
@@ -125,9 +140,15 @@
             setContent(persistTab.id, serializeDoc())
           })
         } else {
-          if (noteText != null && out !== noteText && !wouldWipe(noteText)) persistToDisk(out)
-          // Panel mode persists to disk; the "would this wipe an existing note?"
-          // check against the real file lives in flushDisk (async, reads exists).
+          // panel-disk：种下冲突校验基线；不在挂载时自动写盘（避免“打开即写”/浏览即生成）。
+          // “would this wipe an existing note?” 的实盘校验在 flushDisk 内（异步读 exists）。
+          const fsMod = await import('@tauri-apps/plugin-fs')
+          const existed0 = await fsMod.exists(path).catch(() => false)
+          if (cancelled) return
+          noteDiskHash = existed0
+            ? await sha256Hex(await fsMod.readTextFile(path).catch(() => '')).catch(() => null)
+            : null
+          if (cancelled) return
           setChangeSink(() => { if (outline.docPath === path) persistToDisk(serializeDoc()) })
         }
       })()
@@ -153,8 +174,8 @@
         lastDerivedMain = mc
         const before = serializeDoc(false)
         syncAutoItems(outline.tree, deriveAutoItems(mc))
-        // 只有大纲真的变了才置脏落盘（主文档大多数编辑不产生新条目）
-        if (serializeDoc(false) !== before) { bump(); markDirty() }
+        // 同步只置脏、进内存；未激活自动保存时不落盘（浏览/主文档编辑不自动生成笔记）
+        if (serializeDoc(false) !== before) { bump(); markSynced() }
       })
     }, 300)
     return () => { if (deriveTimer) clearTimeout(deriveTimer) }
