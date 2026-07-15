@@ -92,9 +92,11 @@ if [[ -z "$VERSION" ]]; then
   git fetch origin --tags --quiet 2>/dev/null || true
   major=$(( $(date +%Y) - 2020 ))
   minor=$(( 10#$(date +%m) * 100 + 10#$(date +%d) ))   # 10# forces base-10 (no octal)
+  # `|| true`: with no matching tag yet (the day's first release), grep exits 1
+  # and set -euo pipefail would abort the whole script. Empty → patch 1.
   last=$(git tag --list "v${major}.${minor}.*" \
     | sed -E "s/^v${major}\.${minor}\.//" \
-    | grep -E '^[0-9]+$' | sort -n | tail -1)
+    | grep -E '^[0-9]+$' | sort -n | tail -1 || true)
   VERSION="${major}.${minor}.$(( ${last:-0} + 1 ))"
   say "auto-derived date-based version $VERSION"
 fi
