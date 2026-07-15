@@ -31,6 +31,8 @@
   import { ensureIndex, openPageOrCreate } from '../../lib/outline/backlinks-io.svelte'
   import { whenWikilinkBlocklistReady } from '../../lib/wikilink/blocklist-io.svelte'
   import { untrack } from 'svelte'
+  import { noteHomeForRead } from '../../lib/outline/note-home'
+  import { sotvaultStore } from '../../lib/sotvault.svelte'
 
   let { tab = null, mainTab = null }: {
     /** tab 模式：单独打开的 .note.md tab —— 纯大纲编辑器 */
@@ -42,7 +44,12 @@
   /** 伴生笔记的主文档路径 */
   let mainPath = $derived(tab ? tab.filePath.replace(/\.notes?\.md$/i, '.md') : mainTab!.filePath)
   /** 大纲 .note.md 路径（panel 模式来自主文档的伴生名） */
-  let notePath = $derived(tab ? tab.filePath : companionPathFor(mainTab!.filePath)!)
+  let notePath = $derived(
+    tab
+      ? tab.filePath
+      : (noteHomeForRead(mainTab!.filePath, { vaultRoot: sotvaultStore.vaultRoot, records: sotvaultStore.records })
+          ?? companionPathFor(mainTab!.filePath)!)
+  )
   /** 大纲文本落点：.note.md tab 开着 → 走 tab（保脏标记/撤销）；否则写盘 */
   let noteTab = $derived(tab ?? tabs.find(x => x.filePath === notePath) ?? null)
   let resolved = $derived(resolveShortcuts(outlineShortcuts.overrides))
