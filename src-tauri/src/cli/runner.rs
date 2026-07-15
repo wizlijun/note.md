@@ -192,6 +192,14 @@ fn launch_tauri_headless(
             crate::plugin_host::get_plugin_manifests,
             crate::plugin_host::invoke_plugin,
             crate::themes::commands::theme_load_compiled,
+            // sotvault: needed by `notemd share` — refreshSotvault + prepareShareSrc
+            // resolve the vault root, and an outside-vault file is homed in first
+            // via sotvault_sync_to_vault. resolve_vault_root falls back to the
+            // shared config, so no VaultSyncManager needs to be managed here.
+            crate::sotvault::sotvault_vault_root,
+            crate::sotvault::sotvault_vault_debug,
+            crate::sotvault::sotvault_records,
+            crate::sotvault::sotvault_sync_to_vault,
         ])
         .setup(move |app| {
             crate::plugin_host::init(&app.handle());
