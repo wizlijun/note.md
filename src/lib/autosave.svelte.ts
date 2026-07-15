@@ -41,6 +41,12 @@ export function startAutoSaveWatcher(): () => void {
               // our own write. Without this, every autosave would surface a
               // spurious external-change banner ~1 s later.
               await recordOurWrite(cur)
+              // 自动保存也要同步到 vault 影子——否则 autosave 的静默写会绕过 save-push,
+              // 且它让 tab 保持非脏,导致关闭/退出走 discard 而永不同步(见 tabs.saveActive)。
+              if (path.endsWith('.md')) {
+                const { pushSourceToVaultIfTracked } = await import('./sotvault.svelte')
+                await pushSourceToVaultIfTracked(path)
+              }
             }
           } catch (e) {
             console.warn('[autosave] failed:', path, e)
