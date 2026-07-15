@@ -106,6 +106,10 @@ export interface RequestContextTab {
   title: string
   is_dirty: boolean
   is_untitled: boolean
+  /** Vault-relative share src, pre-computed by the host share pre-step so the
+   *  plugin forwards it to the worker (audience→vault mapping). Null when the
+   *  doc isn't being shared or lives at an unresolvable path. */
+  src?: string | null
 }
 
 export interface PluginRequest {

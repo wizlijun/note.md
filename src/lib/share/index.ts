@@ -55,6 +55,29 @@ function reportError(e: unknown, action: string) {
   }
 }
 
+/**
+ * THE single share pre-step, shared by every entry point (desktop menu plugin
+ * action, `notemd share` CLI, and the iOS/mobile command). Ensures the file
+ * being shared resolves under the vault and returns its vault-relative `src`.
+ *
+ * A file outside the vault is synced in first — vault-homed exactly like writing
+ * a note against an outside md — so the source stays the edit surface, save-push
+ * keeps the vault copy current on every edit, and other machines resolve the
+ * shared md under their vault. Files already under the vault pass straight
+ * through. Throws ShareError('vault_required') when no vault is configured.
+ *
+ * @param flush optional GUI hook (e.g. saveActive) to persist in-memory edits
+ *   before the sync reads the source from disk. Omit for headless CLI.
+ */
+export async function prepareShareSrc(path: string, flush?: () => Promise<void>): Promise<string> {
+  const root = sotvaultStore.vaultRoot
+  if (root && isUnder(path, root)) return vaultRelativeSrc(path, root)
+  if (!root) throw new ShareError('vault_required')
+  await flush?.()
+  const vaultPath = await ensureVaultCopyForShare(path)
+  return vaultRelativeSrc(vaultPath, root)
+}
+
 export async function sharePublishCurrent(): Promise<void> {
   const tab = activeTab()
   if (!tab) return
@@ -82,19 +105,12 @@ export async function sharePublishCurrent(): Promise<void> {
       return
     }
 
-    // A file outside the vault can't be resolved on other machines — its src is a
-    // device-local absolute path. Sync a copy into the vault exactly the way
-    // writing a note against an outside md does (vault-homed), then publish with
-    // src pointing at that vault copy. The source stays the edit surface; every
-    // save keeps the vault copy current via save-push, so re-shares serve the
-    // latest content and other machines resolve the shared md under the vault.
-    const root = sotvaultStore.vaultRoot
-    let src = vaultRelativeSrc(tab.filePath, root)
-    if (!root || !isUnder(tab.filePath, root)) {
-      if (!root) return reportError(new ShareError('vault_required'), t('share.action.share'))
-      await saveActive() // sync reads the source from disk — flush in-memory edits first
-      const vaultPath = await ensureVaultCopyForShare(tab.filePath)
-      src = vaultRelativeSrc(vaultPath, root)
+    let src: string
+    try {
+      src = await prepareShareSrc(tab.filePath, saveActive)
+    } catch (e) {
+      if (e instanceof ShareError) return reportError(e, t('share.action.share'))
+      throw e
     }
 
     const html = await bakeShareHtml(tab)

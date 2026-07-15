@@ -178,6 +178,20 @@
       outputPath = payload.file!.replace(/\.[^.]+$/, '.pdf')
     }
 
+    // Share via CLI runs the SAME vault-home pre-step as the menu (headless: no
+    // flush — the file on disk is the source of truth). Fails the command with a
+    // clear message when there's no vault to home the outside file into.
+    let shareSrc: string | null = null
+    if (manifest.id === 'share' && virtualTab.filePath) {
+      try {
+        const { prepareShareSrc } = await import('../share')
+        shareSrc = await prepareShareSrc(virtualTab.filePath)
+      } catch (e) {
+        await finish({ exit_code: 1, stderr: [`notemd: ${e instanceof Error ? e.message : String(e)}`] })
+        return
+      }
+    }
+
     const pluginSettings = getPluginScopedAll(manifest.id)
 
     const result = await invokePlugin(
@@ -192,6 +206,7 @@
         isDirty: false,
         isUntitled: false,
         content: virtualTab.currentContent,
+        src: shareSrc,
       },
       {
         htmlBaker: renderedHtml != null ? async () => renderedHtml! : undefined,

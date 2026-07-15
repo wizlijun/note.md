@@ -90,6 +90,9 @@ pub fn run(req: Request) -> Response {
             "metadata": {
                 "original_filename": filename,
                 "source_ext": filename.rsplit('.').next().unwrap_or(""),
+                // Vault-relative src so other machines resolve the shared md
+                // under their vault. The host vault-homes outside files first.
+                "src": tab.src.clone(),
             }
         });
         let url = format!("{base_url}/publish");

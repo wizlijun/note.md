@@ -20,6 +20,9 @@ pub struct Context {
 pub struct TabMeta {
     pub path: Option<String>,
     pub filename: Option<String>,
+    /// Vault-relative share src, pre-computed by the host (audience→vault map).
+    #[serde(default)]
+    pub src: Option<String>,
 }
 
 #[derive(Serialize, Debug)]
