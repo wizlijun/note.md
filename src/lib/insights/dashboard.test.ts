@@ -33,19 +33,16 @@ function deps(over: Partial<AssembleDeps> = {}): AssembleDeps {
 }
 
 describe('assembleRows', () => {
-  it('merges owner data, joins audience for shared docs, sorts by value desc', async () => {
+  it('merges owner data, joins audience, and excludes non-vault (abs:) docs', async () => {
     const rows = await assembleRows(deps(), '2026-07-08', '2026-07-08')
-    expect(rows.map((r) => r.docKey)).toEqual(['rel:a.md', 'abs:/tmp/b.md'])
+    // abs:/tmp/b.md lives outside the vault → dropped; only the rel: doc surfaces.
+    expect(rows.map((r) => r.docKey)).toEqual(['rel:a.md'])
     const a = rows[0]
     expect(a.read_ms).toBe(120_000)
     expect(a.aud_read_ms).toBe(90_000)
     expect(a.unique_readers).toBe(4)
     expect(a.shared).toBe(true)
     expect(a.urls).toEqual(['https://w/2026-07-08-a-x'])
-    expect(a.value).toBeGreaterThan(rows[1].value)
-    expect(rows[1].aud_read_ms).toBe(0)
-    expect(rows[1].shared).toBe(false)
-    expect(rows[1].urls).toEqual([])
   })
 
   it('fetches all audience data in a SINGLE request (no slug list)', async () => {
@@ -89,18 +86,14 @@ describe('assembleRows', () => {
     expect(rows).toHaveLength(0)
   })
 
-  it('falls back to the slug when a legacy share has no local record and no src', async () => {
+  it('excludes legacy slug-only rows with no vault md (vault-only, ignore old data)', async () => {
     const rows = await assembleRows(deps({
       readDevices: async () => [{ deviceId: 'D1', deviceName: 'Mac', docs: {} }],
       listSharedDocKeys: () => [],
       fetchAudienceAll: all({ '2026-07-08-orphan-z': { total_ms: 12_000, unique_readers: 1, days: {} } }),
     }), '2026-07-08', '2026-07-08')
-    expect(rows).toHaveLength(1)
-    expect(rows[0].docKey).toBe('2026-07-08-orphan-z')
-    expect(rows[0].label).toBe('2026-07-08-orphan-z')
-    expect(rows[0].aud_read_ms).toBe(12_000)
-    // Even when we cannot trace back to an md file, attach the reconstructed URL.
-    expect(rows[0].urls).toEqual(['https://w/2026-07-08-orphan-z'])
+    // A legacy share that can't be traced to a vault md is not surfaced.
+    expect(rows).toHaveLength(0)
   })
 
   it('merges multiple slugs for the same md into one row and aggregates urls', async () => {
@@ -120,7 +113,7 @@ describe('assembleRows', () => {
     expect([...rows[0].urls].sort()).toEqual(['https://w/2026-07-08-deep-a', 'https://w/2026-07-08-deep-b'])
   })
 
-  it('resolves an audience-only slug to its md via the server-provided src', async () => {
+  it('surfaces a vault-relative src slug and drops outside-vault (absolute src) ones', async () => {
     const rows = await assembleRows(deps({
       readDevices: async () => [{ deviceId: 'D1', deviceName: 'Mac', docs: {} }],
       listSharedDocKeys: () => [],
@@ -129,12 +122,10 @@ describe('assembleRows', () => {
         '2026-07-08-outside-z': { total_ms: 5_000, unique_readers: 1, days: {}, src: '/elsewhere/x.md' },
       }),
     }), '2026-07-08', '2026-07-08')
-    const byKey = Object.fromEntries(rows.map((r) => [r.docKey, r]))
-    // Vault-relative src → rel: key + absolute path under the vault + basename label.
-    expect(byKey['rel:notes/deep.md'].path).toBe('/v/notes/deep.md')
-    expect(byKey['rel:notes/deep.md'].label).toBe('deep.md')
-    // Absolute src (outside the vault) → abs: key, path as-is.
-    expect(byKey['abs:/elsewhere/x.md'].path).toBe('/elsewhere/x.md')
-    expect(byKey['abs:/elsewhere/x.md'].label).toBe('x.md')
+    // Vault-relative src → rel: key under the vault, surfaced. Absolute src
+    // (outside the vault) → abs: key, dropped.
+    expect(rows.map((r) => r.docKey)).toEqual(['rel:notes/deep.md'])
+    expect(rows[0].path).toBe('/v/notes/deep.md')
+    expect(rows[0].label).toBe('deep.md')
   })
 })

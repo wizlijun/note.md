@@ -123,5 +123,9 @@ export async function assembleRows(deps: AssembleDeps, fromDay: string, toDay: s
   }
   return [...groups.values()]
     .map((cs) => mergeContributions(cs, deps.weights))
+    // Reading Insights only surfaces vault-resident docs. Every shared file is
+    // homed into the vault (rel: key), so drop device-local abs: files and
+    // legacy slug-only rows. Old non-vault data is ignored, never migrated.
+    .filter((r) => r.docKey.startsWith('rel:'))
     .sort((a, b) => b.value - a.value)
 }
