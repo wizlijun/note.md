@@ -37,7 +37,7 @@ describe('analytics store', () => {
     const store = createAnalyticsStore({ fs, vaultRoot: () => '/v', ...CFG })
     store.accrue('rel:a.md', { read_ms: 500 }, NOW)
     await store.flush()
-    const raw = fs.files[`/v/.mdeditor/analytics/${DAY}.DEV1.json`]
+    const raw = fs.files[`/v/.notemd/analytics/${DAY}.DEV1.json`]
     expect(raw).toBeDefined()
     const parsed = JSON.parse(raw) as DayFile
     expect(parsed.day).toBe(DAY)
@@ -48,11 +48,11 @@ describe('analytics store', () => {
   it('flush only rewrites days touched this session', async () => {
     const fs = memoryFs()
     // A stale file for a different, untouched day must survive a flush.
-    fs.files['/v/.mdeditor/analytics/2026-07-01.DEV1.json'] = 'DO NOT TOUCH'
+    fs.files['/v/.notemd/analytics/2026-07-01.DEV1.json'] = 'DO NOT TOUCH'
     const store = createAnalyticsStore({ fs, vaultRoot: () => '/v', ...CFG })
     store.accrue('rel:a.md', { read_ms: 500 }, NOW)
     await store.flush()
-    expect(fs.files['/v/.mdeditor/analytics/2026-07-01.DEV1.json']).toBe('DO NOT TOUCH')
+    expect(fs.files['/v/.notemd/analytics/2026-07-01.DEV1.json']).toBe('DO NOT TOUCH')
   })
 
   it('preloadDay seeds memory so flush MERGES with a prior session (no data loss on restart)', async () => {
@@ -62,14 +62,14 @@ describe('analytics store', () => {
       deviceId: 'DEV1', deviceName: 'Mac', day: DAY,
       docs: { 'rel:a.md': { ...emptyCounters(NOW), read_ms: 1000, open_count: 1 } },
     }
-    fs.files[`/v/.mdeditor/analytics/${DAY}.DEV1.json`] = JSON.stringify(prior)
+    fs.files[`/v/.notemd/analytics/${DAY}.DEV1.json`] = JSON.stringify(prior)
 
     const store = createAnalyticsStore({ fs, vaultRoot: () => '/v', ...CFG })
     await store.preloadDay(DAY)
     store.accrue('rel:a.md', { read_ms: 500, open_count: 1 }, NOW) // this session adds more
     await store.flush()
 
-    const parsed = JSON.parse(fs.files[`/v/.mdeditor/analytics/${DAY}.DEV1.json`]) as DayFile
+    const parsed = JSON.parse(fs.files[`/v/.notemd/analytics/${DAY}.DEV1.json`]) as DayFile
     expect(parsed.docs['rel:a.md'].read_ms).toBe(1500) // 1000 prior + 500 this session
     expect(parsed.docs['rel:a.md'].open_count).toBe(2)
   })
@@ -83,7 +83,7 @@ describe('analytics store', () => {
       deviceId: 'DEV1', deviceName: 'Mac', day: '2026-07-07',
       docs: { 'rel:a.md': { ...emptyCounters(0), read_ms: 100 } },
     }
-    fs.files['/v/.mdeditor/analytics/2026-07-07.DEV1.json'] = JSON.stringify(ownOld)
+    fs.files['/v/.notemd/analytics/2026-07-07.DEV1.json'] = JSON.stringify(ownOld)
     store.accrue('rel:a.md', { read_ms: 500 }, NOW) // today, in memory, not flushed
 
     // Another device's day file on disk.
@@ -91,7 +91,7 @@ describe('analytics store', () => {
       deviceId: 'DEV2', deviceName: 'iPhone', day: DAY,
       docs: { 'rel:a.md': { ...emptyCounters(0), read_ms: 250 } },
     }
-    fs.files[`/v/.mdeditor/analytics/${DAY}.DEV2.json`] = JSON.stringify(other)
+    fs.files[`/v/.notemd/analytics/${DAY}.DEV2.json`] = JSON.stringify(other)
 
     const all = await store.readAllDevices()
     const byId = Object.fromEntries(all.map((d) => [d.deviceId, d]))
@@ -110,7 +110,7 @@ describe('analytics store', () => {
       deviceId: 'DEV1', deviceName: 'Mac', day: DAY,
       docs: { 'rel:a.md': { ...emptyCounters(NOW), read_ms: 1000, open_count: 1 } },
     }
-    fs.files[`/v/.mdeditor/analytics/${DAY}.DEV1.json`] = JSON.stringify(prior)
+    fs.files[`/v/.notemd/analytics/${DAY}.DEV1.json`] = JSON.stringify(prior)
 
     // This session started "yesterday" and crossed midnight: it accrues into DAY
     // without ever having preloaded it.
@@ -118,14 +118,14 @@ describe('analytics store', () => {
     store.accrue('rel:a.md', { read_ms: 500, open_count: 1 }, NOW)
     await store.flush()
 
-    const parsed = JSON.parse(fs.files[`/v/.mdeditor/analytics/${DAY}.DEV1.json`]) as DayFile
+    const parsed = JSON.parse(fs.files[`/v/.notemd/analytics/${DAY}.DEV1.json`]) as DayFile
     expect(parsed.docs['rel:a.md'].read_ms).toBe(1500) // prior 1000 must not be overwritten
     expect(parsed.docs['rel:a.md'].open_count).toBe(2)
 
     // A second flush must not double-absorb the disk data.
     store.accrue('rel:a.md', { read_ms: 1 }, NOW)
     await store.flush()
-    const again = JSON.parse(fs.files[`/v/.mdeditor/analytics/${DAY}.DEV1.json`]) as DayFile
+    const again = JSON.parse(fs.files[`/v/.notemd/analytics/${DAY}.DEV1.json`]) as DayFile
     expect(again.docs['rel:a.md'].read_ms).toBe(1501)
   })
 

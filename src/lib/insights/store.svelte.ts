@@ -31,7 +31,7 @@ export interface DayFile {
   docs: Record<string, DayCounters>
 }
 
-const SUBDIR = '.mdeditor/analytics'
+const SUBDIR = '.notemd/analytics'
 /** `2026-07-08.<device_id>.json` — day (no dots) then deviceId (a UUID, no dots). */
 const FILE_RE = /^(\d{4}-\d{2}-\d{2})\.(.+)\.json$/
 

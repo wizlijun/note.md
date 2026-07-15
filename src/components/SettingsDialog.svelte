@@ -20,6 +20,8 @@
   import { isPluginActive } from '../lib/plugins/registry'
   import { outlineShortcuts, setShortcutOverride } from '../lib/outline/gate.svelte'
   import { outlineDirs, setOutlineDir } from '../lib/outline/dirs.svelte'
+  import { vaultSettings, loadVaultSettings, saveSyncDir, DEFAULT_SYNC_DIR } from '../lib/vault-settings.svelte'
+  import { pushToast } from '../lib/toast.svelte'
   import {
     DEFAULT_SHORTCUTS, resolveShortcuts, displayShortcut, eventToShortcut, findConflict,
     type OutlineCommandId,
@@ -39,6 +41,34 @@
   let pluginTabs = $state<SettingsTab[]>([])
   let selectedTab = $state<'plugins' | 'core' | string>('core')
   let pluginValues = $state<Record<string, Record<string, unknown>>>({})
+
+  // Vault-scoped sync folder (stored in {vault}/.notemd/settings.json). Loaded
+  // whenever the dialog opens; edited into a draft, then saved on demand.
+  let syncDirDraft = $state('')
+  let syncDirBusy = $state(false)
+  $effect(() => {
+    if (!open) return
+    void loadVaultSettings().then(() => { syncDirDraft = vaultSettings.syncDir })
+  })
+  async function onSetOutlineDir(kind: 'wikipage' | 'dailynote', value: string) {
+    try {
+      await setOutlineDir(kind, value)
+    } catch (e) {
+      pushToast({ level: 'error', message: t('vaultSync.saveFailed', { error: String(e) }), detail: String(e) })
+    }
+  }
+  async function onSaveSyncDir() {
+    syncDirBusy = true
+    try {
+      await saveSyncDir(syncDirDraft)
+      syncDirDraft = vaultSettings.syncDir
+      pushToast({ level: 'success', message: t('vaultSync.saved') })
+    } catch (e) {
+      pushToast({ level: 'error', message: t('vaultSync.saveFailed', { error: String(e) }), detail: String(e) })
+    } finally {
+      syncDirBusy = false
+    }
+  }
 
   type CliStatus = { installed: boolean; path: string | null; target_valid: boolean }
   let cliStatus = $state<CliStatus | null>(null)
@@ -457,6 +487,24 @@
           </label>
         </section>
 
+        <section class="block">
+          <h3>{t('vaultSync.title')}</h3>
+          <p class="desc">{t('vaultSync.desc')}</p>
+          <label class="row">
+            <span class="lbl">{t('vaultSync.vaultPath')}</span>
+            <input type="text" readonly
+              value={vaultSettings.vaultPath ?? t('vaultSync.notConfigured')} />
+          </label>
+          <label class="row">
+            <span class="lbl">{t('vaultSync.relPath')}</span>
+            <input type="text" bind:value={syncDirDraft}
+              placeholder={DEFAULT_SYNC_DIR}
+              disabled={!vaultSettings.vaultPath || syncDirBusy} />
+            <button onclick={onSaveSyncDir}
+              disabled={!vaultSettings.vaultPath || syncDirBusy}>{t('vaultSync.save')}</button>
+          </label>
+        </section>
+
         {#if !isIOSPlatform}
           <section class="block">
             <h3>{t('settings.defaultApp.heading')}</h3>
@@ -691,12 +739,12 @@
           <div class="field-row">
             <label for="wikipage-dir">{t('outline.wikipageDir')}</label>
             <input id="wikipage-dir" type="text" value={outlineDirs.wikipage}
-              onchange={(e) => void setOutlineDir('wikipage', (e.currentTarget as HTMLInputElement).value)} />
+              onchange={(e) => void onSetOutlineDir('wikipage', (e.currentTarget as HTMLInputElement).value)} />
           </div>
           <div class="field-row">
             <label for="dailynote-dir">{t('outline.dailynoteDir')}</label>
             <input id="dailynote-dir" type="text" value={outlineDirs.dailynote}
-              onchange={(e) => void setOutlineDir('dailynote', (e.currentTarget as HTMLInputElement).value)} />
+              onchange={(e) => void onSetOutlineDir('dailynote', (e.currentTarget as HTMLInputElement).value)} />
           </div>
         </section>
       {:else}

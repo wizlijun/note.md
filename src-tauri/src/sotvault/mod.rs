@@ -3,6 +3,7 @@
 
 pub mod logic;
 pub mod store;
+pub mod vault_settings;
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -231,9 +232,6 @@ fn resolve_vault_root(app: &AppHandle) -> Option<PathBuf> {
     None
 }
 
-/// Sub-directory inside the vault where synced copies are placed.
-const SYNC_SUBDIR: &str = "Sync";
-
 #[tauri::command]
 pub fn sotvault_vault_root(app: AppHandle) -> Result<Option<String>, String> {
     Ok(resolve_vault_root(&app).map(|p| p.to_string_lossy().to_string()))
@@ -286,6 +284,31 @@ pub fn sotvault_vault_debug(app: AppHandle) -> Result<serde_json::Value, String>
     }))
 }
 
+/// Read the vault-scoped settings (`{vault}/.notemd/settings.json`). Absent
+/// fields come back as `null` so the frontend applies its own defaults.
+#[tauri::command]
+pub fn notemd_vault_settings_get(app: AppHandle) -> Result<vault_settings::VaultSettings, String> {
+    let vault_root = resolve_vault_root(&app).ok_or("Vault not configured")?;
+    Ok(vault_settings::read(&vault_root))
+}
+
+/// Partial update: only the provided (non-null) fields are validated and
+/// written; the rest keep their current on-disk value. Returns the merged
+/// settings actually persisted.
+#[tauri::command]
+pub fn notemd_vault_settings_set(
+    app: AppHandle,
+    sync_dir: Option<String>,
+    wikipage_dir: Option<String>,
+    dailynote_dir: Option<String>,
+) -> Result<vault_settings::VaultSettings, String> {
+    let vault_root = resolve_vault_root(&app).ok_or("Vault not configured")?;
+    let base = vault_settings::read(&vault_root);
+    let merged = vault_settings::merge(base, sync_dir, wikipage_dir, dailynote_dir)?;
+    vault_settings::write(&vault_root, &merged)?;
+    Ok(merged)
+}
+
 #[tauri::command]
 pub fn sotvault_records(app: AppHandle) -> Result<Vec<Record>, String> {
     Ok(load_store(&app)?.records)
@@ -311,7 +334,7 @@ pub fn sotvault_sync_to_vault(
         return Err("source file does not exist".into());
     }
     let vault_root = resolve_vault_root(&app).ok_or("Vault not configured")?;
-    let subdir = vault_root.join(SYNC_SUBDIR);
+    let subdir = vault_root.join(vault_settings::resolve_sync_dir(&vault_root));
     std::fs::create_dir_all(&subdir).map_err(|e| e.to_string())?;
     let basename = source
         .file_name()

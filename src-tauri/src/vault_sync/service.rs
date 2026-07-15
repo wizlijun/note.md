@@ -160,7 +160,7 @@ fn do_sync(app: &AppHandle, repo: &PathBuf, remote: &str, branch: &str) {
             if let (Some(before), Some(after)) = (head_before.as_ref(), head_after.as_ref()) {
                 if before != after {
                     if let Ok(diff) = git_ops::run_git(repo, &["diff", "--name-only", before, after]) {
-                        if diff.lines().any(|l| l.trim().starts_with(".mdeditor/recents/")) {
+                        if diff.lines().any(|l| l.trim().starts_with(".notemd/recents/")) {
                             let _ = app.emit("editor://recents-synced", ());
                         }
                     }

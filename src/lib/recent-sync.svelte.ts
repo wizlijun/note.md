@@ -20,7 +20,7 @@ import {
   type ResolvedRecent,
 } from './recent-merge'
 
-const RECENTS_SUBDIR = '.mdeditor/recents'
+const RECENTS_SUBDIR = '.notemd/recents'
 const PER_DEVICE_CAP = 20
 
 /** Merged recents (this device + every synced device). Read by the menu and DrawerNav. */

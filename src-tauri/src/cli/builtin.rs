@@ -300,7 +300,7 @@ USAGE:
   notemd reading-insights report --vault <path> --from YYYY-MM-DD --to YYYY-MM-DD
 
 FLAGS:
-  --vault <path>   Vault root (or set MDEDITOR_VAULT). Reads <vault>/.mdeditor/analytics/
+  --vault <path>   Vault root (or set MDEDITOR_VAULT). Reads <vault>/.notemd/analytics/
   --date <preset>  today | yesterday (default) | 7d | 30d | month
   --from --to      Explicit YYYY-MM-DD range (overrides --date)
   --stdout         Print to stdout instead of writing <vault>/stat/*.md
