@@ -26,11 +26,11 @@
   </div>
 
   {#if menuOpen}
-    <div class="menu" role="menu">
-      <button role="menuitem" onclick={() => { menuOpen = false; dispatch('save') }}>{t('toolbar.save')}</button>
-      <button role="menuitem" onclick={() => { menuOpen = false; dispatch('save-as') }}>{t('toolbar.saveAs')}</button>
-      <button role="menuitem" onclick={() => { menuOpen = false; dispatch('share') }}>{t('toolbar.share')}</button>
-      <button role="menuitem" onclick={() => { menuOpen = false; dispatch('preferences') }}>{t('toolbar.settings')}</button>
+    <div class="menu menu-panel" role="menu">
+      <button role="menuitem" class="menu-row" onclick={() => { menuOpen = false; dispatch('save') }}>{t('toolbar.save')}</button>
+      <button role="menuitem" class="menu-row" onclick={() => { menuOpen = false; dispatch('save-as') }}>{t('toolbar.saveAs')}</button>
+      <button role="menuitem" class="menu-row" onclick={() => { menuOpen = false; dispatch('share') }}>{t('toolbar.share')}</button>
+      <button role="menuitem" class="menu-row" onclick={() => { menuOpen = false; dispatch('preferences') }}>{t('toolbar.settings')}</button>
     </div>
   {/if}
 </header>
@@ -52,20 +52,17 @@
   .dirty { color: var(--accent, #1a73e8); margin-left: 4px; }
   .actions { display: flex; gap: 4px; }
   .actions button { padding: 6px 10px; font-size: 18px; background: transparent; border: 0; cursor: pointer; }
+  /* Chrome (bg/blur/border/shadow/accent-hover) 来自全局 .menu-panel / .menu-row;
+     这里只保留定位与 button 复位,hover 高亮与其它菜单一致(NSMenu accent 蓝)。 */
   .menu {
     position: absolute; top: 100%; right: 12px;
-    background: white; border: 1px solid rgba(0,0,0,0.1);
-    border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.1);
     display: flex; flex-direction: column; min-width: 180px; z-index: 50;
   }
   .menu button {
-    text-align: left; padding: 10px 14px; background: transparent; border: 0;
+    width: 100%; text-align: left; background: transparent; border: 0;
     font: inherit; cursor: pointer;
   }
-  .menu button:hover { background: rgba(0,0,0,0.04); }
   @media (prefers-color-scheme: dark) {
     .mtb { background: var(--mtb-bg, rgba(28,28,30,0.95)); border-color: rgba(255,255,255,0.08); }
-    .menu { background: #2c2c2e; border-color: rgba(255,255,255,0.1); }
-    .menu button:hover { background: rgba(255,255,255,0.06); }
   }
 </style>

@@ -108,9 +108,9 @@
 </div>
 
 {#if menu.open}
-  <div class="pencil-menu" role="menu" style="right: {menu.right}px; top: {menu.y}px">
-    <button type="button" role="menuitem" class="pmenu-row" onclick={() => void openMarkdown()}>{t('outline.openMarkdown')}</button>
-    <button type="button" role="menuitem" class="pmenu-row danger" disabled={!noteExists} onclick={() => void deleteNote()}>{t('outline.deleteNote')}</button>
+  <div class="pencil-menu menu-panel" role="menu" style="right: {menu.right}px; top: {menu.y}px">
+    <button type="button" role="menuitem" class="pmenu-row menu-row" onclick={() => void openMarkdown()}>{t('outline.openMarkdown')}</button>
+    <button type="button" role="menuitem" class="pmenu-row menu-row danger" disabled={!noteExists} onclick={() => void deleteNote()}>{t('outline.deleteNote')}</button>
   </div>
 {/if}
 
@@ -140,22 +140,16 @@
   .hbtn:disabled { opacity: 0.25; cursor: default; }
   .body { flex: 1; overflow-y: auto; padding: 8px; }
   .empty { opacity: 0.5; font-size: 12px; }
-  .pencil-menu {
-    position: fixed; z-index: 9998; min-width: 168px;
-    background: var(--menu-bg, Canvas); color: CanvasText;
-    border: 1px solid var(--border-color, #3335); border-radius: 6px;
-    padding: 4px; box-shadow: 0 4px 16px rgba(0,0,0,0.18);
-  }
+  /* Chrome (bg/blur/border/shadow/accent-hover) 来自全局 .menu-panel / .menu-row;
+     这里只保留定位与 button 复位,hover 高亮与其它菜单一致(NSMenu accent 蓝)。 */
+  .pencil-menu { position: fixed; z-index: 9998; min-width: 168px; }
   .pmenu-row {
     display: block; width: 100%; text-align: left; border: 0; background: transparent;
-    color: inherit; font: inherit; font-size: 13px; padding: 5px 10px; border-radius: 4px; cursor: pointer;
+    color: inherit; font: inherit; cursor: pointer;
   }
-  .pmenu-row:hover:not(:disabled) { background: rgba(0,0,0,0.08); }
-  .pmenu-row.danger:not(:disabled) { color: #d24b4b; }
-  .pmenu-row:disabled { opacity: 0.35; cursor: default; }
-  @media (prefers-color-scheme: dark) {
-    .pmenu-row:hover:not(:disabled) { background: rgba(255,255,255,0.1); }
-  }
+  .pmenu-row.danger { color: #d24b4b; }
+  .pmenu-row.danger:hover:not(:disabled) { background: #d44a4a; color: #fff; }
+  .pmenu-row:disabled { opacity: 0.35; cursor: default; pointer-events: none; }
   /* 面板窄容器里收紧编辑器的内边距/宽度约束 */
   .outline-content :global(.outline-editor .body) {
     padding: 10px 12px;
