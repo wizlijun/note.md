@@ -367,6 +367,8 @@ export const de: Record<keyof Messages, string> = {
   'outline.dailynoteDir': 'Tagesnotizen-Ordner',
   'outline.nameCollision': '{n} Link-Namenskollision(en) im Tresor. „{name}" wird beansprucht von:\n{files}',
   'outline.dailyNeedsVault': 'Richten Sie zuerst einen Synchronisierungstresor ein (Taskleiste → Tresor), um Tagesnotizen zu verwenden.',
+  'outline.vaultRequiredForNote': 'Vault required',
+  'outline.vaultRequiredForNoteBody': 'Writing a note stores it in your Vault. Configure a Vault in Settings to continue?',
 
   // Git history view
   'history.title': 'Verlauf',

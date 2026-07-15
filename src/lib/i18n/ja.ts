@@ -369,6 +369,8 @@ export const ja: Record<keyof Messages, string> = {
   'outline.dailynoteDir': 'デイリーノートフォルダ',
   'outline.nameCollision': 'vault 内で {n} 件のリンク名衝突。「{name}」は以下のファイルで競合:\n{files}',
   'outline.dailyNeedsVault': 'デイリーノートを使うには、まずトレイメニューで Vault を設定してください。',
+  'outline.vaultRequiredForNote': 'Vault required',
+  'outline.vaultRequiredForNoteBody': 'Writing a note stores it in your Vault. Configure a Vault in Settings to continue?',
 
   // Git history view
   'history.title': '履歴',

@@ -374,6 +374,8 @@ export const en = {
   'outline.dailynoteDir': 'Daily notes folder',
   'outline.nameCollision': '{n} link-name collision(s) in vault. "{name}" is claimed by:\n{files}',
   'outline.dailyNeedsVault': 'Set up a sync vault first (tray → Vault) to use daily notes.',
+  'outline.vaultRequiredForNote': 'Vault required',
+  'outline.vaultRequiredForNoteBody': 'Writing a note stores it in your Vault. Configure a Vault in Settings to continue?',
 
   // Git history view
   'history.title': 'History',
