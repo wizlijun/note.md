@@ -75,6 +75,12 @@
     return sortDir === -1 ? ' ↓' : ' ↑'
   }
 
+  /** Vault-relative path for display. Every insights doc is vault-resident
+   *  (rel: docKey), so show its path under the vault, not just the basename. */
+  function vaultRelLabel(r: InsightRow): string {
+    return r.docKey.startsWith('rel:') ? r.docKey.slice(4) : r.label
+  }
+
   $effect(() => {
     if (!fromDay) applyPreset('7d')
   })
@@ -192,9 +198,9 @@
                     class="doc-label doc-open"
                     title={t('insights.openDoc')}
                     onclick={(e) => { e.stopPropagation(); void openDoc(r) }}
-                  >{r.label}</button>
+                  >{vaultRelLabel(r)}</button>
                 {:else}
-                  <span class="doc-label">{r.label}</span>
+                  <span class="doc-label">{vaultRelLabel(r)}</span>
                 {/if}
                 {#if r.shared}<span class="shared-badge" title="Shared">🔗</span>{/if}
               </td>
