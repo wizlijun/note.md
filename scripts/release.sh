@@ -2,11 +2,19 @@
 #
 # One-shot release helper for note.md.
 #
-#   scripts/release.sh <version> [--draft] [--prerelease]
+#   scripts/release.sh [version] [--draft] [--prerelease]
+#
+# Version numbers are DATE-BASED and auto-derived when omitted:
+#   MAJOR = current year - 2020        (2026 → 6, 2030 → 10; strictly increasing)
+#   MINOR = month*100 + day            (Jul 15 → 715, Jan 5 → 105, Dec 31 → 1231)
+#   PATCH = Nth release today, 1-based (counts existing v<MAJOR>.<MINOR>.* tags)
+# e.g. the 3rd release on 2026-07-15 → 6.715.3. This ordering increases
+# monotonically forever, which the Tauri updater requires.
 #
 # Examples:
-#   scripts/release.sh 0.1.1
-#   scripts/release.sh 0.2.0-rc1 --prerelease    # not supported (semver only)
+#   scripts/release.sh                 # auto: today's date, next patch
+#   scripts/release.sh --draft         # auto version, draft release
+#   scripts/release.sh 6.715.3         # explicit override (must be x.y.z)
 #
 # Builds produce TWO independent per-arch macOS `.dmg`s: aarch64 (Apple Silicon)
 # and x86_64 (Intel). Each architecture has its own .app bundle, dmg, updater
@@ -61,7 +69,7 @@ die() { printf '\033[1;31m✗\033[0m %s\n' "$*" >&2; exit 1; }
 
 # ---------- args ----------
 
-VERSION="${1:-}"; shift || true
+VERSION=""
 DRAFT=0; PRERELEASE=0
 for arg in "$@"; do
   case "$arg" in
@@ -70,14 +78,27 @@ for arg in "$@"; do
       ;;
     --draft)      DRAFT=1      ;;
     --prerelease) PRERELEASE=1 ;;
-    *) echo "unknown flag: $arg" >&2; exit 2 ;;
+    -*) echo "unknown flag: $arg" >&2; exit 2 ;;
+    *)
+      [[ -z "$VERSION" ]] || { echo "unexpected extra argument: $arg" >&2; exit 2; }
+      VERSION="$arg"
+      ;;
   esac
 done
 
+# Date-based auto-derivation when no explicit version was passed. Fetch tags
+# first so today's patch count reflects releases cut on other machines too.
 if [[ -z "$VERSION" ]]; then
-  echo "usage: $0 <version> [--draft] [--prerelease]" >&2
-  exit 2
+  git fetch origin --tags --quiet 2>/dev/null || true
+  major=$(( $(date +%Y) - 2020 ))
+  minor=$(( 10#$(date +%m) * 100 + 10#$(date +%d) ))   # 10# forces base-10 (no octal)
+  last=$(git tag --list "v${major}.${minor}.*" \
+    | sed -E "s/^v${major}\.${minor}\.//" \
+    | grep -E '^[0-9]+$' | sort -n | tail -1)
+  VERSION="${major}.${minor}.$(( ${last:-0} + 1 ))"
+  say "auto-derived date-based version $VERSION"
 fi
+
 if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   echo "version must be x.y.z (got: $VERSION)" >&2
   exit 2
