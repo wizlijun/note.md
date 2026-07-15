@@ -4,6 +4,10 @@ export interface SotRecord {
   synced_at: number
   source_hash: string
   vault_hash: string
+  /** Where the companion note lives: `sidecar` = next to both source & vault
+   *  (legacy bidirectional); `vault` = only next to the vault copy. Optional for
+   *  backward-compat with records serialized before the field existed. */
+  note_home?: 'sidecar' | 'vault'
 }
 
 export function isTracked(path: string | null, records: SotRecord[]): boolean {

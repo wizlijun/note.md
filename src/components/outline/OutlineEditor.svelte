@@ -132,12 +132,10 @@
       await fs.writeTextFile(target, text)
       noteDiskHash = ourHash
       markSaved()
-      if (home.justSynced) {
-        // notePath 即将翻转到 vault 路径,由挂载 effect 从新路径重建 hash 基线;
-        // 先清空,避免用旧路径的 hash 误报冲突。
-        noteDiskHash = null
-        await refreshSotvault()
-      }
+      // 刚建家:笔记已写进 vault 副本旁,刷新 records → 响应式 notePath 翻转到 vault 路径。
+      // noteDiskHash 保持 ourHash——它正是 vault target 的磁盘内容哈希,翻转后依然是有效基线
+      // (挂载 effect 重挂载时也会从该路径读回同一 hash),不清 null 以免 refresh 窗口内误报冲突。
+      if (home.justSynced) await refreshSotvault()
     } catch (e) {
       console.warn('[outline] write companion failed:', e)
     }
