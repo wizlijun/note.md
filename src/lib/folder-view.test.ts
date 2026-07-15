@@ -2,9 +2,10 @@ import { describe, it, expect } from 'vitest'
 import {
   parentDir, isWithinDir, sortEntries,
   makeFilterMatcher, computeFilterVisibility, type FolderEntry,
-  pairNoteEntries, parsePinned,
+  pairNoteEntries, parsePinned, augmentVaultNotes,
   filterByViewMode, applyHideFolders, displayNameFor, parseFirstH1, stripExt, stripNoteSuffix,
 } from './folder-view.svelte'
+import type { SotRecord } from './sotvault-logic'
 import { vi, beforeEach } from 'vitest'
 import { SvelteMap, SvelteSet } from 'svelte/reactivity'
 
@@ -68,6 +69,33 @@ beforeEach(() => {
   folderView.viewMode = 'all'
   folderView.hideFolders = false
   folderView.titleCache = new SvelteMap()
+})
+
+describe('augmentVaultNotes', () => {
+  const entry = (name: string, path: string, extra: Partial<FolderEntry> = {}): FolderEntry =>
+    ({ name, path, isDir: false, kind: 'markdown', ...extra })
+  const rec = (source_path: string, vault_path: string, note_home?: 'sidecar' | 'vault'): SotRecord =>
+    ({ vault_path, source_path, synced_at: 1, source_hash: 'a', vault_hash: 'b', note_home })
+
+  it('marks a source md with a vault-homed record as hasNote → vault companion', () => {
+    const entries = [entry('foo.md', '/dl/foo.md')]
+    const recs = [rec('/dl/foo.md', '/v/Sync/2026-07-15-foo.md', 'vault')]
+    const [e] = augmentVaultNotes(entries, recs)
+    expect(e.hasNote).toBe(true)
+    expect(e.notePath).toBe('/v/Sync/2026-07-15-foo.note.md')
+  })
+  it('ignores sidecar records and files without a vault-homed record', () => {
+    const entries = [entry('foo.md', '/dl/foo.md'), entry('bar.md', '/dl/bar.md')]
+    const recs = [rec('/dl/foo.md', '/v/Sync/foo.md', 'sidecar')]
+    const out = augmentVaultNotes(entries, recs)
+    expect(out.every((e) => !e.hasNote)).toBe(true)
+  })
+  it('leaves already-paired local notes untouched', () => {
+    const entries = [entry('foo.md', '/dl/foo.md', { hasNote: true, notePath: '/dl/foo.note.md' })]
+    const recs = [rec('/dl/foo.md', '/v/Sync/foo.md', 'vault')]
+    const [e] = augmentVaultNotes(entries, recs)
+    expect(e.notePath).toBe('/dl/foo.note.md')   // local pairing wins, not overwritten
+  })
 })
 
 describe('readFolder', () => {

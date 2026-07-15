@@ -4,6 +4,8 @@ import { SvelteMap } from 'svelte/reactivity'
 import { SvelteSet } from 'svelte/reactivity'
 import { classifyPath, joinPath, type FileKind } from './fs'
 import { isPluginEnabled } from './settings.svelte'
+import { companionPathFor } from './outline/store.svelte'
+import type { SotRecord } from './sotvault-logic'
 
 /** Plugin id under which Folder View is enabled/disabled in `plugins.enabled`. */
 export const PLUGIN_ID = 'folder-view'
@@ -119,6 +121,28 @@ export function pairNoteEntries(entries: FolderEntry[]): FolderEntry[] {
     out.push(note ? { ...e, hasNote: true, notePath: note.path } : e)
   }
   return out
+}
+
+/**
+ * 源 md 的"有笔记"标识按 vault 判定:若某源文件有 vault-homed 记录(note_home==='vault'),
+ * 即使源目录本地没有 .note.md,也标 hasNote,且 notePath 指向 vault 副本旁的伴生 note
+ * (点击即打开 vault 里的笔记)。已本地配对(hasNote)或独立笔记的行不动。
+ */
+export function augmentVaultNotes(entries: FolderEntry[], records: SotRecord[]): FolderEntry[] {
+  if (records.length === 0) return entries
+  const vaultNoteBySource = new Map<string, string>()
+  for (const r of records) {
+    if (r.note_home !== 'vault') continue
+    const note = companionPathFor(r.vault_path)
+    if (note) vaultNoteBySource.set(r.source_path, note)
+  }
+  if (vaultNoteBySource.size === 0) return entries
+  return entries.map((e) => {
+    if (e.isDir || e.hasNote || e.isOutlineNote) return e
+    if (!/\.md$/i.test(e.name) || NOTE_SUFFIX_RE.test(e.name)) return e
+    const note = vaultNoteBySource.get(e.path)
+    return note ? { ...e, hasNote: true, notePath: note } : e
+  })
 }
 
 export type FolderSortKey = 'edited' | 'name' | 'created'
@@ -289,7 +313,9 @@ export async function readFolder(dir: string): Promise<FolderEntry[]> {
   }))
   const pinned = await readPinned(dir)
   const pinnedSet = new Set(pinned)
-  const paired = pairNoteEntries(base).map((e) => (pinnedSet.has(e.name) ? { ...e, pinned: true } : e))
+  const { sotvaultStore } = await import('./sotvault.svelte')
+  const withVaultNotes = augmentVaultNotes(pairNoteEntries(base), sotvaultStore.records)
+  const paired = withVaultNotes.map((e) => (pinnedSet.has(e.name) ? { ...e, pinned: true } : e))
   const sorted = sortEntries(paired, folderView.sort, pinned)
   folderView.entriesCache.set(dir, sorted)
   return sorted
