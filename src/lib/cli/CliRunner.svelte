@@ -101,6 +101,10 @@
         add('file under vault? (case-sensitive)', filePath === backendRoot || filePath.startsWith(r))
       }
     } catch (e) { add('resolve error', String(e)) }
+    try {
+      const dbg = await invoke<unknown>('sotvault_vault_debug').catch((e) => ({ error: String(e) }))
+      lines.push(`  backend debug: ${JSON.stringify(dbg)}`)
+    } catch (e) { add('backend debug error', String(e)) }
     return lines
   }
 

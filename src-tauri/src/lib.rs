@@ -872,6 +872,7 @@ pub fn run() {
                 vault_sync::vault_sync_status,
                 vault_sync::vault_sync_logs,
                 sotvault::sotvault_vault_root,
+                sotvault::sotvault_vault_debug,
                 sotvault::sotvault_records,
                 sotvault::sotvault_forget,
                 sotvault::sotvault_sync_to_vault,

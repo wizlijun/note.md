@@ -239,6 +239,53 @@ pub fn sotvault_vault_root(app: AppHandle) -> Result<Option<String>, String> {
     Ok(resolve_vault_root(&app).map(|p| p.to_string_lossy().to_string()))
 }
 
+/// Debug: report exactly how the backend resolves the vault root — the live
+/// manager path, both candidate config paths (Tauri home vs dirs), and for each
+/// whether it exists / reads / parses. Surfaced by `notemd share` on failure so
+/// a mismatch (home dir, permissions, parse) is visible without guessing.
+#[tauri::command]
+pub fn sotvault_vault_debug(app: AppHandle) -> Result<serde_json::Value, String> {
+    use serde_json::json;
+
+    let manager_repo_path = app
+        .try_state::<Arc<crate::vault_sync::VaultSyncManager>>()
+        .and_then(|m| m.repo_path.lock().ok().and_then(|g| g.clone()));
+
+    let tauri_home = app.path().home_dir();
+    let dirs_config = crate::shared_config::config_path();
+
+    let mut candidates: Vec<PathBuf> = Vec::new();
+    if let Ok(ref h) = tauri_home {
+        candidates.push(h.join("Library/Application Support/com.laobu.mdeditor-shared/config.json"));
+    }
+    if let Ok(ref p) = dirs_config {
+        candidates.push(p.clone());
+    }
+
+    let probes: Vec<serde_json::Value> = candidates
+        .iter()
+        .map(|p| {
+            let read = std::fs::read_to_string(p);
+            json!({
+                "path": p.to_string_lossy(),
+                "exists": p.exists(),
+                "read_ok": read.is_ok(),
+                "read_err": read.as_ref().err().map(|e| e.to_string()),
+                "bytes": read.as_ref().ok().map(|s| s.len()),
+                "parsed_sotvault": crate::shared_config::read(p).ok().and_then(|c| c.sotvault),
+            })
+        })
+        .collect();
+
+    Ok(json!({
+        "manager_repo_path": manager_repo_path,
+        "tauri_home_dir": tauri_home.map(|p| p.to_string_lossy().to_string()).map_err(|e| e.to_string()).unwrap_or_else(|e| format!("ERR: {e}")),
+        "dirs_config_path": dirs_config.map(|p| p.to_string_lossy().to_string()).unwrap_or_else(|e| format!("ERR: {e}")),
+        "probes": probes,
+        "resolved": resolve_vault_root(&app).map(|p| p.to_string_lossy().to_string()),
+    }))
+}
+
 #[tauri::command]
 pub fn sotvault_records(app: AppHandle) -> Result<Vec<Record>, String> {
     Ok(load_store(&app)?.records)
