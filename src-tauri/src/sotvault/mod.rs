@@ -194,12 +194,26 @@ fn save_store(app: &AppHandle, s: &RecordStore) -> Result<(), String> {
     store::save_records(&store_path(app)?, s).map_err(|e| e.to_string())
 }
 
-/// Resolve the configured Vault root from the git-sync manager. None when the
-/// vault is not configured (or the manager is absent, e.g. iOS).
+/// Resolve the configured Vault root. Prefers the live VaultSyncManager (the GUI
+/// keeps it current), then falls back to reading the shared config file directly.
+/// The fallback matters for the headless CLI: `vault_sync::init` — which loads
+/// the manager's repo_path from the shared config — does not run there, so
+/// without this the manager is empty and `notemd share` wrongly reported
+/// `vault_required` despite a configured vault. None only when truly unconfigured.
 fn resolve_vault_root(app: &AppHandle) -> Option<PathBuf> {
-    let mgr = app.try_state::<Arc<crate::vault_sync::VaultSyncManager>>()?;
-    let guard = mgr.repo_path.lock().ok()?;
-    guard.clone().map(PathBuf::from)
+    if let Some(mgr) = app.try_state::<Arc<crate::vault_sync::VaultSyncManager>>() {
+        if let Ok(guard) = mgr.repo_path.lock() {
+            if let Some(p) = guard.clone().filter(|s| !s.is_empty()) {
+                return Some(PathBuf::from(p));
+            }
+        }
+    }
+    crate::shared_config::config_path()
+        .ok()
+        .and_then(|p| crate::shared_config::read(&p).ok())
+        .and_then(|cfg| cfg.sotvault)
+        .filter(|s| !s.is_empty())
+        .map(PathBuf::from)
 }
 
 /// Sub-directory inside the vault where synced copies are placed.
