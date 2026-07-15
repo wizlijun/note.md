@@ -52,6 +52,7 @@ export function buildDashboardDeps(vaultOverride?: string | null): AssembleDeps 
         path,
         label: path ? basename(path) : docKey,
         slug: (rec && 'slug' in rec ? rec.slug : null) ?? null,
+        url: (rec && 'url' in rec ? rec.url : null) ?? null,
       }
     },
     fetchAudienceAll: (from, to) => fetchAudienceStatsAll(baseUrl, apiKey, from, to),
@@ -63,6 +64,8 @@ export function buildDashboardDeps(vaultOverride?: string | null): AssembleDeps 
       const path = vaultRoot ? trimSlash(vaultRoot) + '/' + src : null
       return { docKey: `rel:${src}`, path, label: basename(src) }
     },
+    // Audience-only shares carry no local record; the public URL is baseUrl/slug.
+    resolveSlugUrl: (slug) => (baseUrl ? `${trimSlash(baseUrl)}/${slug}` : null),
     weights: DEFAULT_WEIGHTS,
   }
 }

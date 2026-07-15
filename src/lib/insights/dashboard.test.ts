@@ -19,13 +19,14 @@ function deps(over: Partial<AssembleDeps> = {}): AssembleDeps {
       },
     }],
     resolveShare: (docKey) => docKey === 'rel:a.md'
-      ? { path: '/v/a.md', label: 'a.md', slug: '2026-07-08-a-x' }
-      : { path: '/tmp/b.md', label: 'b.md', slug: null },
+      ? { path: '/v/a.md', label: 'a.md', slug: '2026-07-08-a-x', url: 'https://w/2026-07-08-a-x' }
+      : { path: '/tmp/b.md', label: 'b.md', slug: null, url: null },
     fetchAudienceAll: all({ '2026-07-08-a-x': { total_ms: 90_000, unique_readers: 4, days: {} } }),
     listSharedDocKeys: () => ['rel:a.md'],
     resolveSrc: (src) => src.startsWith('/')
       ? { docKey: `abs:${src}`, path: src, label: src.split('/').pop()! }
       : { docKey: `rel:${src}`, path: `/v/${src}`, label: src.split('/').pop()! },
+    resolveSlugUrl: (slug) => `https://w/${slug}`,
     weights: DEFAULT_WEIGHTS,
     ...over,
   }
@@ -40,9 +41,11 @@ describe('assembleRows', () => {
     expect(a.aud_read_ms).toBe(90_000)
     expect(a.unique_readers).toBe(4)
     expect(a.shared).toBe(true)
+    expect(a.urls).toEqual(['https://w/2026-07-08-a-x'])
     expect(a.value).toBeGreaterThan(rows[1].value)
     expect(rows[1].aud_read_ms).toBe(0)
     expect(rows[1].shared).toBe(false)
+    expect(rows[1].urls).toEqual([])
   })
 
   it('fetches all audience data in a SINGLE request (no slug list)', async () => {
@@ -62,8 +65,8 @@ describe('assembleRows', () => {
   it('surfaces a shared doc read online even with no owner activity in range', async () => {
     const rows = await assembleRows(deps({
       resolveShare: (docKey) => docKey === 'rel:c.md'
-        ? { path: '/v/c.md', label: 'c.md', slug: '2026-07-08-c-x' }
-        : { path: null, label: docKey, slug: null },
+        ? { path: '/v/c.md', label: 'c.md', slug: '2026-07-08-c-x', url: 'https://w/2026-07-08-c-x' }
+        : { path: null, label: docKey, slug: null, url: null },
       fetchAudienceAll: all({ '2026-07-08-c-x': { total_ms: 45_000, unique_readers: 2, days: {} } }),
       listSharedDocKeys: () => ['rel:c.md'],
     }), '2026-07-01', '2026-07-02')
@@ -79,7 +82,7 @@ describe('assembleRows', () => {
   it('does not add an audience-only row when the share has no reads', async () => {
     const rows = await assembleRows(deps({
       readDevices: async () => [{ deviceId: 'D1', deviceName: 'Mac', docs: {} }],
-      resolveShare: () => ({ path: '/v/c.md', label: 'c.md', slug: '2026-07-08-c-x' }),
+      resolveShare: () => ({ path: '/v/c.md', label: 'c.md', slug: '2026-07-08-c-x', url: 'https://w/2026-07-08-c-x' }),
       fetchAudienceAll: all({ '2026-07-08-c-x': { total_ms: 0, unique_readers: 0, days: {} } }),
       listSharedDocKeys: () => ['rel:c.md'],
     }), '2026-07-08', '2026-07-08')
@@ -96,6 +99,25 @@ describe('assembleRows', () => {
     expect(rows[0].docKey).toBe('2026-07-08-orphan-z')
     expect(rows[0].label).toBe('2026-07-08-orphan-z')
     expect(rows[0].aud_read_ms).toBe(12_000)
+    // Even when we cannot trace back to an md file, attach the reconstructed URL.
+    expect(rows[0].urls).toEqual(['https://w/2026-07-08-orphan-z'])
+  })
+
+  it('merges multiple slugs for the same md into one row and aggregates urls', async () => {
+    const rows = await assembleRows(deps({
+      readDevices: async () => [{ deviceId: 'D1', deviceName: 'Mac', docs: {} }],
+      listSharedDocKeys: () => [],
+      fetchAudienceAll: all({
+        '2026-07-08-deep-a': { total_ms: 10_000, unique_readers: 2, days: {}, src: 'notes/deep.md' },
+        '2026-07-08-deep-b': { total_ms: 5_000, unique_readers: 1, days: {}, src: 'notes/deep.md' },
+      }),
+    }), '2026-07-08', '2026-07-08')
+    expect(rows).toHaveLength(1)
+    expect(rows[0].docKey).toBe('rel:notes/deep.md')
+    expect(rows[0].label).toBe('deep.md')
+    expect(rows[0].aud_read_ms).toBe(15_000)
+    expect(rows[0].unique_readers).toBe(3)
+    expect([...rows[0].urls].sort()).toEqual(['https://w/2026-07-08-deep-a', 'https://w/2026-07-08-deep-b'])
   })
 
   it('resolves an audience-only slug to its md via the server-provided src', async () => {

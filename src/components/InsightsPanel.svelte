@@ -7,7 +7,6 @@
   import { flushNow } from '../lib/insights/tracker.svelte'
   import { buildDashboardDeps } from '../lib/insights/run'
   import { sotvaultStore } from '../lib/sotvault.svelte'
-  import { getRecord } from '../lib/share/records'
   import { t } from '../lib/i18n/store.svelte'
   import { renderDailyReport } from '../lib/insights/report'
   import { openFile } from '../lib/tabs.svelte'
@@ -214,12 +213,9 @@
                     {#if r.path}
                       <span class="detail-path">{r.path}</span>
                     {/if}
-                    {#if r.path}
-                      {@const rec = getRecord(r.path)}
-                      {#if rec && 'url' in rec && rec.url}
-                        <a class="detail-url" href={rec.url} target="_blank" rel="noopener noreferrer">{rec.url}</a>
-                      {/if}
-                    {/if}
+                    {#each r.urls as u}
+                      <a class="detail-url" href={u} target="_blank" rel="noopener noreferrer">{u}</a>
+                    {/each}
                   </div>
                 </td>
               </tr>

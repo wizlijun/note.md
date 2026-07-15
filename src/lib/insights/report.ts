@@ -41,9 +41,19 @@ export function renderDailyReport(rows: InsightRow[], fromDay: string, toDay: st
   )
   const totals = `| **合计** | ${fmtDuration(rows.reduce((n, r) => n + r.read_ms, 0))} | ${fmtDuration(rows.reduce((n, r) => n + r.edit_ms, 0))} | ${rows.reduce((n, r) => n + r.edit_sessions, 0)} | ${rows.reduce((n, r) => n + r.mark_ops, 0)} | ${fmtDuration(sharedRead)} | ${totalReaders} | |`
 
+  // Share URLs are attached below the table, anchored to their md file — the md
+  // is the primary output, each URL a subordinate line (a doc may have several).
+  const linkRows = rows.filter((r) => r.urls.length > 0)
+  const links = linkRows.length === 0 ? [] : [
+    '## 链接', '',
+    ...linkRows.flatMap((r) => [`- 《${r.label}》`, ...r.urls.map((u) => `  - ${u}`)]),
+    '',
+  ]
+
   const markdown = [
     `# 阅读数据 · ${rangeLabel}`, '', summary, '',
     header, divider, ...body, totals, '',
+    ...links,
     '<sub>由 note.md Reading Insights 生成</sub>', '',
   ].join('\n')
 

@@ -6,7 +6,7 @@ function row(over: Partial<InsightRow>): InsightRow {
   return {
     docKey: 'rel:a.md', label: 'a.md', path: '/v/a.md',
     read_ms: 0, edit_ms: 0, edit_sessions: 0, mark_ops: 0, net_chars: 0,
-    aud_read_ms: 0, unique_readers: 0, shared: false, value: 0, ...over,
+    aud_read_ms: 0, unique_readers: 0, shared: false, urls: [], value: 0, ...over,
   }
 }
 
@@ -48,5 +48,24 @@ describe('renderDailyReport', () => {
   it('renders an empty-state note when no rows', () => {
     const { markdown } = renderDailyReport([], '2026-07-08', '2026-07-08')
     expect(markdown).toContain('没有')
+  })
+
+  it('lists share URLs under a 链接 section, one line per URL, md as the anchor', () => {
+    const withUrls = [
+      row({ label: 'a.md', shared: true, urls: ['https://w/slug-1', 'https://w/slug-2'], value: 5 }),
+      row({ docKey: 'rel:c.md', label: 'c.md', path: '/v/c.md', shared: true, urls: ['https://w/slug-3'], value: 3 }),
+    ]
+    const { markdown } = renderDailyReport(withUrls, '2026-07-08', '2026-07-08')
+    expect(markdown).toContain('## 链接')
+    expect(markdown).toContain('- 《a.md》')
+    expect(markdown).toContain('  - https://w/slug-1')
+    expect(markdown).toContain('  - https://w/slug-2')
+    expect(markdown).toContain('- 《c.md》')
+    expect(markdown).toContain('  - https://w/slug-3')
+  })
+
+  it('omits the 链接 section when no row has a URL', () => {
+    const { markdown } = renderDailyReport(rows.map((r) => ({ ...r, urls: [] })), '2026-07-08', '2026-07-08')
+    expect(markdown).not.toContain('## 链接')
   })
 })
