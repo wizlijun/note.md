@@ -1,9 +1,8 @@
 import { invoke } from '@tauri-apps/api/core'
-import { activeTab, openFile, closeTab, saveActive } from '../tabs.svelte'
+import { activeTab, saveActive } from '../tabs.svelte'
 import { getPluginScopedKey } from '../settings.svelte'
 import { pushToast } from '../toast.svelte'
 import { isIOS } from '../platform.svelte'
-import { basename } from '../fs'
 import { bakeShareHtml } from '../plugins/share-baker'
 import { publishHtml, vaultRelativeSrc } from './publish'
 import { sotvaultStore, ensureVaultCopyForShare } from '../sotvault.svelte'
@@ -84,32 +83,31 @@ export async function sharePublishCurrent(): Promise<void> {
     }
 
     // A file outside the vault can't be resolved on other machines — its src is a
-    // device-local absolute path. Home a copy into the vault and share THAT, so
-    // the shared md lives under the vault everywhere and maps back by rel path.
-    let filePath = tab.filePath
+    // device-local absolute path. Sync a copy into the vault exactly the way
+    // writing a note against an outside md does (vault-homed), then publish with
+    // src pointing at that vault copy. The source stays the edit surface; every
+    // save keeps the vault copy current via save-push, so re-shares serve the
+    // latest content and other machines resolve the shared md under the vault.
     const root = sotvaultStore.vaultRoot
-    if (!root || !isUnder(filePath, root)) {
+    let src = vaultRelativeSrc(tab.filePath, root)
+    if (!root || !isUnder(tab.filePath, root)) {
       if (!root) return reportError(new ShareError('vault_required'), t('share.action.share'))
       await saveActive() // sync reads the source from disk — flush in-memory edits first
-      const sourceId = tab.id
-      filePath = await ensureVaultCopyForShare(filePath)
-      await openFile(filePath)                               // switch tab to the vault copy
-      await closeTab(sourceId, async () => 'discard' as const) // saved above → never prompts
+      const vaultPath = await ensureVaultCopyForShare(tab.filePath)
+      src = vaultRelativeSrc(vaultPath, root)
     }
-    const shareTab = activeTab()
-    if (!shareTab) return
 
-    const html = await bakeShareHtml(shareTab)
+    const html = await bakeShareHtml(tab)
     if (!html) return reportError(new ShareError('empty_content'), t('share.action.share'))
     if (new TextEncoder().encode(html).byteLength > 25 * 1024 * 1024)
       return reportError(new ShareError('too_large'), t('share.action.share'))
 
     const { url, isUpdate } = await publishHtml({
-      path: filePath, filename: basename(filePath), html,
+      path: tab.filePath, filename: tab.title, html,
       baseUrl: cfg.baseUrl,
       defaultExpiry: cfg.defaultExpiry,
       slugRandomSuffix: cfg.slugRandomSuffix,
-      src: vaultRelativeSrc(filePath, root),
+      src,
     })
     const { writeText } = await import('@tauri-apps/plugin-clipboard-manager')
     await writeText(url)

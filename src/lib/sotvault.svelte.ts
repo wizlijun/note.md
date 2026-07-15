@@ -109,15 +109,17 @@ export async function syncSourceToVaultAsHome(srcPath: string): Promise<SotRecor
   return invoke<SotRecord>('sotvault_sync_to_vault', { srcPath, datePrefix, noteHome: 'vault' })
 }
 
-/** Ensure a file living OUTSIDE the vault has a copy inside it, reusing this
- *  source's existing tracked copy (in-place update — no proliferating `-2`
- *  copies). Returns the vault copy's absolute path. Callers guarantee a vault is
- *  configured and the path is outside it. Used by share to re-home outside files
- *  so other machines can resolve the shared md under the vault. */
+/** Ensure a file living OUTSIDE the vault has a vault-homed copy inside it,
+ *  reusing this source's existing tracked copy (in-place update — no
+ *  proliferating `-2` copies). Same mechanism as writing a note against an
+ *  outside md: `noteHome:'vault'` establishes the source→vault relationship so
+ *  every later save pushes the source into the vault copy (save-push). Returns
+ *  the vault copy's absolute path. Callers guarantee a vault is configured and
+ *  the path is outside it. */
 export async function ensureVaultCopyForShare(sourcePath: string): Promise<string> {
   const datePrefix = await sourceCreationYmd(sourcePath)
   const rec = await invoke<SotRecord>('sotvault_sync_to_vault', {
-    srcPath: sourcePath, datePrefix, reuseExisting: true,
+    srcPath: sourcePath, datePrefix, noteHome: 'vault', reuseExisting: true,
   })
   await refreshSotvault()
   return rec.vault_path
