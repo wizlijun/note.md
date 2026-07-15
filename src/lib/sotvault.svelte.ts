@@ -8,7 +8,9 @@ import {
   canSyncToVault as computeCanSync,
   isTracked as computeIsTracked,
   sourceForVault as computeSourceForVault,
+  isSyncedSource as computeIsSyncedSource,
   dialogActionFor,
+  pushActionForOutcome,
   localYmd,
   type SotRecord,
 } from './sotvault-logic'
@@ -97,6 +99,17 @@ export async function syncCurrentToVault(): Promise<void> {
   }
 }
 
+/**
+ * 把源 md 作为「vault-homed」同步进 vault：复制 md + 建/更新映射，标记
+ * note_home=vault（reconcile 永不回写源目录）。返回新 record（含 vault_path）。
+ * 不 refreshSotvault——调用方须在把笔记写到 vault 副本旁 **之后** 再刷新，
+ * 避免响应式 notePath 提前翻转到尚未写入的空 vault 笔记（数据竞态）。
+ */
+export async function syncSourceToVaultAsHome(srcPath: string): Promise<SotRecord> {
+  const datePrefix = await sourceCreationYmd(srcPath)
+  return invoke<SotRecord>('sotvault_sync_to_vault', { srcPath, datePrefix, noteHome: 'vault' })
+}
+
 /** Local yyyy-MM-dd of the source file's creation time (birthtime), falling back
  *  to its mtime, then today, if the OS doesn't report a birthtime. */
 async function sourceCreationYmd(path: string): Promise<string> {
@@ -165,6 +178,35 @@ export async function maybeCheckVaultUpdate(tab: { filePath: string }): Promise<
     }
   }
   // else: cancel — leave the record untouched; it will prompt again next open.
+}
+
+/** 源 md 被保存后，把改动静默推到已存在的 vault 影子副本；两边都改则弹现有冲突框。
+ *  仅对已 tracked 的源生效;legacy/未同步文件 no-op。走 apply_update(非 sync_to_vault,
+ *  后者会 dedup 出第二份副本)。 */
+export async function pushSourceToVaultIfTracked(srcPath: string): Promise<void> {
+  if (!isPluginActive('sotvault')) return
+  if (!computeIsSyncedSource(srcPath, sotvaultStore.records)) return
+  let res: UpdateCheck
+  try {
+    res = await invoke<UpdateCheck>('sotvault_check_update', { openedPath: srcPath })
+  } catch (e) {
+    console.warn('[sotvault] push check:', e)
+    return
+  }
+  const action = pushActionForOutcome(res.outcome)
+  if (action === 'noop' || !res.vaultPath) return
+  if (action === 'apply-silent') {
+    try {
+      await invoke('sotvault_apply_update', { vaultPath: res.vaultPath })
+      await reloadTabFromDisk(res.vaultPath)   // 幂等:vault 副本没开着就是 no-op
+      await refreshSotvault()
+    } catch (e) {
+      console.warn('[sotvault] push apply:', e)
+    }
+    return
+  }
+  // 'prompt-conflict' —— 复用现有冲突对话框
+  await maybeCheckVaultUpdate({ filePath: srcPath })
 }
 
 async function applyVaultUpdate(vaultPath: string): Promise<void> {
