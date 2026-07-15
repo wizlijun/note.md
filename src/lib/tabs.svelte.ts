@@ -322,7 +322,7 @@ export async function saveActive(): Promise<void> {
   if (t.filePath.endsWith('.md')) {
     void maybeAutoRefresh(t.filePath)
     const { pushSourceToVaultIfTracked } = await import('./sotvault.svelte')
-    void pushSourceToVaultIfTracked(t.filePath)
+    await pushSourceToVaultIfTracked(t.filePath)   // await:关闭/退出时保存流程须等 vault 同步完再放行
   }
 }
 
@@ -339,7 +339,7 @@ export async function saveTab(id: string): Promise<void> {
   await startWatchingTab(t)
   if (t.filePath.endsWith('.md')) {
     const { pushSourceToVaultIfTracked } = await import('./sotvault.svelte')
-    void pushSourceToVaultIfTracked(t.filePath)
+    await pushSourceToVaultIfTracked(t.filePath)   // await:关闭/退出时保存流程须等 vault 同步完再放行
   }
 }
 
