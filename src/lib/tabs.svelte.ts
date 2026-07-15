@@ -307,6 +307,8 @@ export async function saveActive(): Promise<void> {
   setRecentMode(modeKeyFor(t.filePath), t.mode).catch((e) => console.warn(e))
   if (t.filePath.endsWith('.md')) {
     void maybeAutoRefresh(t.filePath)
+    const { pushSourceToVaultIfTracked } = await import('./sotvault.svelte')
+    void pushSourceToVaultIfTracked(t.filePath)
   }
 }
 
@@ -321,6 +323,10 @@ export async function saveTab(id: string): Promise<void> {
   t.initialContent = t.currentContent
   await recordOurWrite(t)
   await startWatchingTab(t)
+  if (t.filePath.endsWith('.md')) {
+    const { pushSourceToVaultIfTracked } = await import('./sotvault.svelte')
+    void pushSourceToVaultIfTracked(t.filePath)
+  }
 }
 
 /** 文件被应用内重命名后:更新受影响 tab 的路径/标题并重绑 watcher(spec §7)。
