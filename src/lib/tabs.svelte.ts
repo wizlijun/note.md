@@ -168,6 +168,20 @@ export async function openFile(path: string): Promise<void> {
   if (!cls) {
     throw new Error(`Unsupported file type: ${path}`)
   }
+
+  // 打开 vault 副本 → 改开其原始文件(编辑入口是原件,vault 是同步存储)。
+  // 仅对有映射且原件仍存在的非 note 文件生效;note 文件保持原样。
+  if (!/\.notes?\.md$/i.test(path)) {
+    const { sourceForVaultPath } = await import('./sotvault.svelte')
+    const src = sourceForVaultPath(path)
+    if (src && src !== path) {
+      const { exists } = await import('@tauri-apps/plugin-fs')
+      if (await exists(src).catch(() => false)) {
+        return openFile(src)   // 递归开原件;src 非 vault_path 故不会再次重定向
+      }
+    }
+  }
+
   const existing = tabs.find((t) => t.filePath === path)
   if (existing) {
     activeId.value = existing.id
