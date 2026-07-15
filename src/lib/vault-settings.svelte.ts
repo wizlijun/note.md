@@ -40,4 +40,8 @@ export async function loadVaultSettings(): Promise<void> {
 export async function saveSyncDir(raw: string): Promise<void> {
   const merged = await invoke<VaultSettingsDto>('notemd_vault_settings_set', { syncDir: raw })
   vaultSettings.syncDir = merged?.syncDir ?? DEFAULT_SYNC_DIR
+  // 让改动进程内即时生效:刷新前端 vault 状态(vaultRoot/records)+ 通知依赖 vault 的
+  // 特性(reading-insights 等)重挂载,不必重启 app。
+  const { refreshSotvault } = await import('./sotvault.svelte')
+  await refreshSotvault()
 }

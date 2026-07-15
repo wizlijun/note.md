@@ -37,6 +37,9 @@
     busy = true
     try {
       await configureVault({ remoteUrl, branch, pat, authorName, authorEmail })
+      // 配好 vault 后进程内即时生效:刷新前端 vault 状态,分享/徽标等无需重启 app。
+      const { refreshSotvault } = await import('../lib/sotvault.svelte')
+      await refreshSotvault()
       showPatInput = false
       pat = ''
       pushToast({ level: 'success', message: t('vault.connected') })
