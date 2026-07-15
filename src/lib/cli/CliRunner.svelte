@@ -184,6 +184,10 @@
     let shareSrc: string | null = null
     if (manifest.id === 'share' && virtualTab.filePath) {
       try {
+        // CLI 不走 GUI(App.svelte)的启动 refreshSotvault,故 sotvaultStore.vaultRoot
+        // 一直是 null;prepareShareSrc 用它判 vault → 误报 vault_required。先加载。
+        const { refreshSotvault } = await import('../sotvault.svelte')
+        await refreshSotvault()
         const { prepareShareSrc } = await import('../share')
         shareSrc = await prepareShareSrc(virtualTab.filePath)
       } catch (e) {
