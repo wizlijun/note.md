@@ -10,6 +10,17 @@ export const wikilinkBlocklistState = $state<{ version: number }>({ version: 0 }
 
 let unwatch: (() => void) | null = null
 let watchedPath: string | null = null
+/** 最近一次(每次 vault 变更重置)的加载 promise，供派生路径在首扫前 await。 */
+let ready: Promise<void> | null = null
+
+/**
+ * 首次派生 wikilink → 伴生笔记前必须 await：确保黑名单已从 vault 加载进 Set，
+ * 否则空 Set 会漏过所有拉黑项（黑名单加载是 fire-and-forget，与首扫存在竞态）。
+ * 尚未触发加载时惰性触发一次；无 vault 时 ensure 会即刻以空表 resolve。
+ */
+export function whenWikilinkBlocklistReady(): Promise<void> {
+  return ready ?? ensureWikilinkBlocklist()
+}
 
 function defaultFileText(): string {
   return '# 无效 wikilink 清单（此处列出的不会渲染为链接、不可点、不进关系索引）\n'
@@ -27,7 +38,12 @@ async function loadFrom(path: string): Promise<void> {
  * 依当前 vault 根，确保 blocklist.md 存在（不存在则用默认三条播种）、
  * 加载进纯 Set、并监听变更。无 vault 时 no-op（黑名单保持空）。
  */
-export async function ensureWikilinkBlocklist(): Promise<void> {
+export function ensureWikilinkBlocklist(): Promise<void> {
+  ready = loadAndWatch()
+  return ready
+}
+
+async function loadAndWatch(): Promise<void> {
   const vault = sotvaultStore.vaultRoot
   if (!vault) { setBlockedWikilinks([]); wikilinkBlocklistState.version++; return }
   const dir = joinPath(vault, outlineDirs.wikipage)

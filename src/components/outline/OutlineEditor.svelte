@@ -29,6 +29,7 @@
   import { activeTheme } from '../../lib/active-theme.svelte'
   import { requestReveal } from '../../lib/outline/reveal.svelte'
   import { ensureIndex, openPageOrCreate } from '../../lib/outline/backlinks-io.svelte'
+  import { whenWikilinkBlocklistReady } from '../../lib/wikilink/blocklist-io.svelte'
   import { untrack } from 'svelte'
 
   let { tab = null, mainTab = null }: {
@@ -120,6 +121,9 @@
           }
         }
         if (cancelled) return
+        // 首扫派生 wikilink 前先等黑名单加载完，否则空 Set 会漏过拉黑项并写进伴生笔记。
+        await whenWikilinkBlocklistReady()
+        if (cancelled) return
         await attachDoc(path, noteText ?? '', mainContent)
         if (cancelled) return   // 迟到的挂载不得覆盖新 tab 的树/回写旧 id/装陈旧 sink
         lastDerivedMain = mainContent
@@ -169,14 +173,17 @@
     if (mc == null) return
     if (deriveTimer) clearTimeout(deriveTimer)
     deriveTimer = setTimeout(() => {
-      untrack(() => {
-        if (mc === lastDerivedMain) return
-        lastDerivedMain = mc
-        const before = serializeDoc(false)
-        syncAutoItems(outline.tree, deriveAutoItems(mc))
-        // 同步只置脏、进内存；未激活自动保存时不落盘（浏览/主文档编辑不自动生成笔记）
-        if (serializeDoc(false) !== before) { bump(); markSynced() }
-      })
+      void (async () => {
+        await whenWikilinkBlocklistReady()   // 黑名单未加载完前不派生，避免漏过滤
+        untrack(() => {
+          if (mc === lastDerivedMain) return
+          lastDerivedMain = mc
+          const before = serializeDoc(false)
+          syncAutoItems(outline.tree, deriveAutoItems(mc))
+          // 同步只置脏、进内存；未激活自动保存时不落盘（浏览/主文档编辑不自动生成笔记）
+          if (serializeDoc(false) !== before) { bump(); markSynced() }
+        })
+      })()
     }, 300)
     return () => { if (deriveTimer) clearTimeout(deriveTimer) }
   })
