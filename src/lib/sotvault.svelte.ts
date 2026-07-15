@@ -8,7 +8,6 @@ import {
   canSyncToVault as computeCanSync,
   isTracked as computeIsTracked,
   sourceForVault as computeSourceForVault,
-  isSyncedSource as computeIsSyncedSource,
   dialogActionFor,
   pushActionForOutcome,
   localYmd,
@@ -181,11 +180,11 @@ export async function maybeCheckVaultUpdate(tab: { filePath: string }): Promise<
 }
 
 /** 源 md 被保存后，把改动静默推到已存在的 vault 影子副本；两边都改则弹现有冲突框。
- *  仅对已 tracked 的源生效;legacy/未同步文件 no-op。走 apply_update(非 sync_to_vault,
- *  后者会 dedup 出第二份副本)。 */
+ *  用后端 `sotvault_check_update` 作权威判定(未 tracked → outcome=not_tracked → noop),
+ *  不依赖前端 records 是否已 refresh——避免"首存紧跟 note-sync 时 records 未就绪→漏推"。
+ *  走 apply_update(非 sync_to_vault,后者会 dedup 出第二份副本)。 */
 export async function pushSourceToVaultIfTracked(srcPath: string): Promise<void> {
   if (!isPluginActive('sotvault')) return
-  if (!computeIsSyncedSource(srcPath, sotvaultStore.records)) return
   let res: UpdateCheck
   try {
     res = await invoke<UpdateCheck>('sotvault_check_update', { openedPath: srcPath })
