@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { isTracked, canSyncToVault, dialogActionFor, sourceForVault, localYmd, type SotRecord } from './sotvault-logic'
+import { isTracked, canSyncToVault, dialogActionFor, sourceForVault, localYmd, pushActionForOutcome, type SotRecord } from './sotvault-logic'
 
 const rec = (vault: string, source: string): SotRecord => ({
   vault_path: vault, source_path: source, synced_at: 1, source_hash: 'a', vault_hash: 'a',
@@ -61,6 +61,20 @@ describe('localYmd', () => {
   it('formats a local date as zero-padded yyyy-MM-dd', () => {
     expect(localYmd(new Date(2026, 0, 5))).toBe('2026-01-05')
     expect(localYmd(new Date(2026, 11, 31))).toBe('2026-12-31')
+  })
+})
+
+describe('pushActionForOutcome', () => {
+  it('origin_updated → apply silently', () => {
+    expect(pushActionForOutcome('origin_updated')).toBe('apply-silent')
+  })
+  it('conflict → prompt', () => {
+    expect(pushActionForOutcome('conflict')).toBe('prompt-conflict')
+  })
+  it('up_to_date / not_tracked / source_missing → noop', () => {
+    expect(pushActionForOutcome('up_to_date')).toBe('noop')
+    expect(pushActionForOutcome('not_tracked')).toBe('noop')
+    expect(pushActionForOutcome('source_missing')).toBe('noop')
   })
 })
 

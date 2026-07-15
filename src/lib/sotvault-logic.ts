@@ -59,3 +59,15 @@ export function dialogActionFor(outcome: string): DialogAction {
     default: return 'none'
   }
 }
+
+export type PushAction = 'noop' | 'apply-silent' | 'prompt-conflict'
+
+/** save-push 决策：源刚被保存后，源→vault 影子该怎么走。
+ *  origin_updated(仅源改) → 静默覆盖;conflict(两边都改) → 弹框;其余 → 不动。 */
+export function pushActionForOutcome(outcome: string): PushAction {
+  switch (outcome) {
+    case 'origin_updated': return 'apply-silent'
+    case 'conflict': return 'prompt-conflict'
+    default: return 'noop'
+  }
+}
