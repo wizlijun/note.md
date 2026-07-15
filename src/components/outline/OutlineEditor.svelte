@@ -60,6 +60,10 @@
   let diskPending: string | null = null
   /** 冲突校验基线：我们上次加载/写入 .note.md 时的 sha256（null=当时磁盘无此文件） */
   let noteDiskHash: string | null = null
+  /** In-flight first-write sync, keyed by source path — coalesces concurrent/rapid
+   *  debounced flushes into a SINGLE sotvault sync so we never create a duplicate
+   *  vault copy (the Rust side dedups filenames, so a 2nd sync would make `<stem>-2.md`). */
+  let homeSync: { src: string; promise: Promise<string | null> } | null = null
   /** 写笔记前确定落点。null = 无 vault 且用户未配置 → 本次不写(内存保留)。
    *  panel 模式专用(tab 模式笔记本就是文件,无需 gate)。 */
   async function ensureNoteHome(): Promise<{ notePath: string; justSynced: boolean } | null> {
@@ -80,16 +84,18 @@
       }
       return null
     }
-    // plan.action === 'sync' —— 首次写笔记:把源复制进 vault,笔记落 vault 副本旁
-    try {
-      const rec = await syncSourceToVaultAsHome(src)
-      const home = companionPathFor(rec.vault_path)
-      if (!home) return null
-      return { notePath: home, justSynced: true }
-    } catch (e) {
-      console.warn('[outline] sync source to vault failed:', e)
-      return null
+    // plan.action === 'sync' —— 首次写笔记:把源复制进 vault,笔记落 vault 副本旁。
+    // 按 src 合并在途 sync:并发/refresh 前的重复首写共用同一次,绝不造第二份副本。
+    if (!homeSync || homeSync.src !== src) {
+      homeSync = {
+        src,
+        promise: syncSourceToVaultAsHome(src)
+          .then((rec) => companionPathFor(rec.vault_path))
+          .catch((e) => { console.warn('[outline] sync source to vault failed:', e); return null }),
+      }
     }
+    const home = await homeSync.promise
+    return home ? { notePath: home, justSynced: true } : null
   }
 
   async function flushDisk() {
@@ -126,9 +132,12 @@
       await fs.writeTextFile(target, text)
       noteDiskHash = ourHash
       markSaved()
-      // 刚建家:笔记已写进 vault 副本旁,现在刷新 records → 响应式 notePath 翻转到
-      // vault 路径(此时文件已存在且有内容,重挂载不会读到空 note 覆盖树)
-      if (home.justSynced) await refreshSotvault()
+      if (home.justSynced) {
+        // notePath 即将翻转到 vault 路径,由挂载 effect 从新路径重建 hash 基线;
+        // 先清空,避免用旧路径的 hash 误报冲突。
+        noteDiskHash = null
+        await refreshSotvault()
+      }
     } catch (e) {
       console.warn('[outline] write companion failed:', e)
     }
