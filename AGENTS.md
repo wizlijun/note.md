@@ -128,3 +128,25 @@ agent 交互时，使用中文回复。
 ### 5. 不偷懒
 
 找到根本原因，不做临时修复，保持资深开发者标准。
+
+## UI / 样式规则
+
+### 菜单（弹层菜单 popup menu）必须用全局样式
+
+所有弹层菜单（右键/上下文菜单、slash、下拉、列菜单等）**必须**复用 `src/styles/app.css` 的全局样式，不要各写一套：
+
+- 容器加 `.menu-panel`（毛玻璃/边框/阴影/字体）。
+- 每个可点击行加 `.menu-row`（布局 + hover 高亮）。
+- 行的 hover 高亮（NSMenu accent 蓝 + 白字）由全局 `.menu-panel .menu-row:hover` 提供 —— **不要在组件里再写自己的 hover 背景**。
+- 需要特殊 hover（如 delete 行变红）：用更高特异性的 `.你的类.danger:hover { background:红; color:#fff }` 覆盖，不要动全局。
+
+### 教训：组件复位 class 会压掉全局 hover（特异性坑）
+
+**根因（2026-07-15 修，commit e0b5806）**：给菜单行加 button 复位 class（如 `.node-ctx-item`/`.mrow`/`.pmenu-row`）时若写了 `background: none`，经 Svelte 作用域后特异性是 **0-2-0**，与旧的全局 `.menu-row:hover`（也 0-2-0）相等，且组件样式在 app.css **之后**加载 → 复位的 `background:none` 赢 → hover **没有 accent 背景**（曾坑到 folder-view 右键菜单、base 列菜单、铅笔菜单）。
+
+**明确规则**：
+
+- 全局 hover 规则已提为 `.menu-panel .menu-row:hover`（**0-3-0**），能压过组件里 0-2-0 的复位 class —— 所以复位 class 里放 `background:none` 是安全的，**但菜单行必须包在 `.menu-panel` 容器内**，否则全局规则选不中。
+- button 复位 class 只放 `border/font/width/text-align` 等布局复位；**不写 `:hover` 背景**。
+- 改菜单样式后，**必须实机验证 hover**（CSS 改动走 vite HMR，但整组件 HMR 偶发不触发 —— 若热更没生效，重启 dev 再验，别以为改了就生效）。
+- 别把持久侧栏/工具栏（Finder 风格淡灰 hover，如文件树/DrawerNav）改成 accent 蓝 —— 那不是弹层菜单，淡灰 hover + 选中才 accent 是有意的。
