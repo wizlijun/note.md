@@ -51,14 +51,18 @@ html, body, #app {
    NSMenu. `AccentColorText` is unreliable in WebKit (text stayed black), so
    the text color is explicit white; the macOS menu-blue fallback upgrades to
    the user's accent color where `AccentColor` is actually supported. */
-.menu-row.active,
-.menu-row:hover {
+/* Descendant-of-.menu-panel bumps specificity to (0,3,0) so this reliably wins
+   over components' own item-reset classes like `.node-ctx-item { background: none }`
+   / `.mrow` / `.pmenu-row` (scoped → 0,2,0, injected after app.css). Without the
+   bump those equal-specificity resets clobber the hover highlight. */
+.menu-panel .menu-row.active,
+.menu-panel .menu-row:hover {
   background: #0a63ff;
   color: #fff;
 }
 @supports (background: AccentColor) {
-  .menu-row.active,
-  .menu-row:hover {
+  .menu-panel .menu-row.active,
+  .menu-panel .menu-row:hover {
     background: AccentColor;
     color: #fff;
   }

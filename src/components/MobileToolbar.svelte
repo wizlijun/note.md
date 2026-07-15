@@ -59,7 +59,7 @@
     display: flex; flex-direction: column; min-width: 180px; z-index: 50;
   }
   .menu button {
-    width: 100%; text-align: left; background: transparent; border: 0;
+    width: 100%; text-align: left; background: none; border: 0;
     font: inherit; cursor: pointer;
   }
   @media (prefers-color-scheme: dark) {

@@ -140,11 +140,11 @@
   .hbtn:disabled { opacity: 0.25; cursor: default; }
   .body { flex: 1; overflow-y: auto; padding: 8px; }
   .empty { opacity: 0.5; font-size: 12px; }
-  /* Chrome (bg/blur/border/shadow/accent-hover) 来自全局 .menu-panel / .menu-row;
-     这里只保留定位与 button 复位,hover 高亮与其它菜单一致(NSMenu accent 蓝)。 */
+  /* Chrome + accent hover 来自全局 .menu-panel / .menu-row(见 app.css);
+     这里只保留定位、button 复位、以及 delete 行的红色 hover 覆盖。 */
   .pencil-menu { position: fixed; z-index: 9998; min-width: 168px; }
   .pmenu-row {
-    display: block; width: 100%; text-align: left; border: 0; background: transparent;
+    width: 100%; text-align: left; border: 0; background: none;
     color: inherit; font: inherit; cursor: pointer;
   }
   .pmenu-row.danger { color: #d24b4b; }
