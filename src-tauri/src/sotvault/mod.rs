@@ -133,11 +133,11 @@ fn reconcile_companion_notes(
     // write the source-side note — that is exactly the source-dir pollution the
     // vault-homed mode exists to prevent. Base simply tracks the vault note.
     if vault_homed {
-        let content = match read_note(&vault_note) {
-            Ok(c) => c,
-            Err(()) => return NoteReconcileOutcome { new_base: base.map(str::to_string), conflict: false },
+        return match read_note(&vault_note) {
+            Ok(Some(c)) => NoteReconcileOutcome { new_base: Some(c), conflict: false },
+            // absent or unreadable → never clobber the stored ancestor
+            _ => NoteReconcileOutcome { new_base: base.map(str::to_string), conflict: false },
         };
-        return NoteReconcileOutcome { new_base: content, conflict: false };
     }
 
     // Sidecar (legacy): bidirectional 3-way reconcile of both sides.
@@ -171,6 +171,14 @@ fn reconcile_companion_notes(
         }
     }
     NoteReconcileOutcome { new_base: plan.new_base, conflict: plan.conflict }
+}
+
+/// Parse the optional `note_home` command arg into a `NoteHome` (unknown/None → Sidecar).
+fn parse_note_home(s: Option<&str>) -> NoteHome {
+    match s {
+        Some("vault") => NoteHome::Vault,
+        _ => NoteHome::Sidecar,
+    }
 }
 
 fn store_path(app: &AppHandle) -> Result<PathBuf, String> {
@@ -259,10 +267,7 @@ pub fn sotvault_sync_to_vault(
     let prior_base = s
         .find_by_vault(&target.to_string_lossy())
         .and_then(|r| r.note_merge_base.clone());
-    let home = match note_home.as_deref() {
-        Some("vault") => NoteHome::Vault,
-        _ => NoteHome::Sidecar,
-    };
+    let home = parse_note_home(note_home.as_deref());
     let note = reconcile_companion_notes(&source, &target, prior_base.as_deref(), home == NoteHome::Vault);
 
     let source_hash = logic::sha256_hex(&src_bytes);
@@ -554,13 +559,28 @@ mod tests {
 
     #[test]
     fn parse_note_home_arg() {
-        let f = |s: Option<&str>| match s {
-            Some("vault") => NoteHome::Vault,
-            _ => NoteHome::Sidecar,
-        };
-        assert_eq!(f(Some("vault")), NoteHome::Vault);
-        assert_eq!(f(Some("sidecar")), NoteHome::Sidecar);
-        assert_eq!(f(None), NoteHome::Sidecar);
+        assert_eq!(parse_note_home(Some("vault")), NoteHome::Vault);
+        assert_eq!(parse_note_home(Some("sidecar")), NoteHome::Sidecar);
+        assert_eq!(parse_note_home(None), NoteHome::Sidecar);
+    }
+
+    #[test]
+    fn vault_homed_reconcile_absent_note_preserves_base() {
+        let tmp = TempDir::new().unwrap();
+        let src_dir = tmp.path().join("src");
+        let dest_dir = tmp.path().join("vault");
+        std::fs::create_dir_all(&src_dir).unwrap();
+        std::fs::create_dir_all(&dest_dir).unwrap();
+        // no note on either side
+        let out = reconcile_companion_notes(
+            &src_dir.join("foo.md"),
+            &dest_dir.join("foo.md"),
+            Some("- prior base"),
+            true, // vault_homed
+        );
+        assert!(!src_dir.join("foo.note.md").exists());
+        assert_eq!(out.new_base.as_deref(), Some("- prior base"));
+        assert!(!out.conflict);
     }
 }
 
