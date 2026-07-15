@@ -78,6 +78,8 @@ function saveFilters(ext?: string) {
     return [{ name: 'Subtitles', extensions: SUBTITLE_EXTS }]
   if (IMAGE_EXTS.includes(ext))
     return [{ name: 'Image', extensions: IMAGE_EXTS }]
+  if (ext === 'base')
+    return [{ name: 'Base', extensions: ['base'] }]
   if (ALL_EXTS.includes(ext))
     return [{ name: ext.toUpperCase(), extensions: [ext] }]
   return [{ name: 'All supported', extensions: ALL_EXTS }]

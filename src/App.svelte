@@ -13,6 +13,7 @@
   import EmptyState from './components/EmptyState.svelte'
   import ModeToggle from './components/ModeToggle.svelte'
   import { activeTab, tabs, closeTab, openFile, newFile, isDirty, activate } from './lib/tabs.svelte'
+  import { createNewBase } from './lib/base/create'
   import { loadSettings, settings, removeRecentFile } from './lib/settings.svelte'
   import { loadLocale, t, i18n } from './lib/i18n/store.svelte'
   import { cmdOpen, cmdSave, cmdSaveAs, cmdPrint, cmdCloseActive, cmdToggleMode, dispatch, type CommandId } from './lib/commands'
@@ -352,6 +353,10 @@
         }
         if (pluginId === 'roam-import') {
           if (command === 'open') await invoke('show_roam_import_window')
+          return
+        }
+        if (pluginId === 'base') {
+          if (command === 'create') await createNewBase()
           return
         }
         const m = manifestById[pluginId]

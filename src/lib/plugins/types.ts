@@ -136,7 +136,7 @@ export interface PluginResponse {
   actions: PluginAction[]
 }
 
-export type TabKind = 'markdown' | 'html' | 'code' | 'spreadsheet'
+export type TabKind = 'markdown' | 'html' | 'code' | 'spreadsheet' | 'base'
 
 /** What we evaluate `enabled_when` expressions against. */
 export interface EnabledWhenContext {

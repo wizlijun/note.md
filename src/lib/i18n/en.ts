@@ -626,6 +626,26 @@ export const en = {
   'roamImport.errParse': 'Export not readable: {error}',
   'roamImport.errWrite': 'Write failed for {page}: {error}',
   'roamImport.warnRenamed': 'Renamed "{from}" → "{to}" (filename constraint)',
+
+  'base.loading': 'Scanning folder…',
+  'base.empty': 'No matching files',
+  'base.parseError': 'Cannot parse this .base file. Switch to source mode to edit the YAML.',
+  'base.unsupportedView': 'This view type is not supported yet',
+  'base.colMenu': 'Column options',
+  'base.colRename': 'Rename…',
+  'base.colRenamePlaceholder': 'Display name',
+  'base.colSortAsc': 'Sort ascending (default)',
+  'base.colSortDesc': 'Sort descending (default)',
+  'base.colClearSort': 'Clear default sort',
+  'base.colGroupAsc': 'Group by this (asc)',
+  'base.colGroupDesc': 'Group by this (desc)',
+  'base.colUngroup': 'Remove grouping',
+  'base.colMoveLeft': 'Move left',
+  'base.colMoveRight': 'Move right',
+  'base.colRemove': 'Remove column',
+  'base.addColumn': 'Add column',
+  'base.noAddableProps': 'No more properties to add',
+  'base.writeError': 'Could not write .base — edit skipped',
 } as const
 
 export type Messages = typeof en

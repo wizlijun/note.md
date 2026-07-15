@@ -43,7 +43,7 @@ export function joinPath(dir: string, name: string): string {
   return (dir.endsWith('/') ? dir.slice(0, -1) : dir) + '/' + name
 }
 
-export type FileKind = 'markdown' | 'html' | 'code' | 'image' | 'spreadsheet'
+export type FileKind = 'markdown' | 'html' | 'code' | 'image' | 'spreadsheet' | 'base'
 
 export interface FileClass {
   kind: FileKind
@@ -75,6 +75,7 @@ const EXT_TABLE: Record<string, FileClass> = {
   text:      { kind: 'code', language: '' },
   log:       { kind: 'code', language: '' },
   csv:       { kind: 'spreadsheet' },
+  base:      { kind: 'base' },
   tsv:       { kind: 'code', language: '' },
   env:       { kind: 'code', language: '' },
 
