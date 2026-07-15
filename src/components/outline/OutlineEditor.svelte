@@ -31,8 +31,9 @@
   import { ensureIndex, openPageOrCreate } from '../../lib/outline/backlinks-io.svelte'
   import { whenWikilinkBlocklistReady } from '../../lib/wikilink/blocklist-io.svelte'
   import { untrack } from 'svelte'
-  import { noteHomeForRead } from '../../lib/outline/note-home'
-  import { sotvaultStore } from '../../lib/sotvault.svelte'
+  import { noteHomeForRead, planNoteHome } from '../../lib/outline/note-home'
+  import { sotvaultStore, syncSourceToVaultAsHome, refreshSotvault } from '../../lib/sotvault.svelte'
+  import { openSettings } from '../../lib/ui-state.svelte'
 
   let { tab = null, mainTab = null }: {
     /** tab 模式：单独打开的 .note.md tab —— 纯大纲编辑器 */
@@ -59,6 +60,38 @@
   let diskPending: string | null = null
   /** 冲突校验基线：我们上次加载/写入 .note.md 时的 sha256（null=当时磁盘无此文件） */
   let noteDiskHash: string | null = null
+  /** 写笔记前确定落点。null = 无 vault 且用户未配置 → 本次不写(内存保留)。
+   *  panel 模式专用(tab 模式笔记本就是文件,无需 gate)。 */
+  async function ensureNoteHome(): Promise<{ notePath: string; justSynced: boolean } | null> {
+    const src = mainPath
+    const fs = await import('@tauri-apps/plugin-fs')
+    const companion = companionPathFor(src)
+    const legacyNoteExists = companion ? await fs.exists(companion).catch(() => false) : false
+    const plan = planNoteHome(src, {
+      vaultRoot: sotvaultStore.vaultRoot,
+      records: sotvaultStore.records,
+      legacyNoteExists,
+    })
+    if (plan.action === 'use') return { notePath: plan.notePath, justSynced: false }
+    if (plan.action === 'configure-vault') {
+      const { ask } = await import('@tauri-apps/plugin-dialog')
+      if (await ask(t('outline.vaultRequiredForNoteBody'), { title: t('outline.vaultRequiredForNote') })) {
+        openSettings()
+      }
+      return null
+    }
+    // plan.action === 'sync' —— 首次写笔记:把源复制进 vault,笔记落 vault 副本旁
+    try {
+      const rec = await syncSourceToVaultAsHome(src)
+      const home = companionPathFor(rec.vault_path)
+      if (!home) return null
+      return { notePath: home, justSynced: true }
+    } catch (e) {
+      console.warn('[outline] sync source to vault failed:', e)
+      return null
+    }
+  }
+
   async function flushDisk() {
     if (diskTimer) { clearTimeout(diskTimer); diskTimer = null }
     const text = diskPending
@@ -67,15 +100,22 @@
     if (outline.externalConflict) return               // 冲突未解决前不写
     try {
       const fs = await import('@tauri-apps/plugin-fs')
-      const existed = await fs.exists(notePath).catch(() => false)
-      if (text.trim() === '' && !existed) return       // 空大纲 + 无文件 → 不创建
-      // Data-loss guard: never clobber an existing note that HAS content with an
-      // empty/blank serialization (the signature of a stale/empty global-tree race).
+      // 空大纲不触发建家/同步(浏览/空树不得污染,也不得把源拷进 vault)
+      if (text.trim() === '') {
+        const existed0 = await fs.exists(notePath).catch(() => false)
+        if (!existed0) return
+      }
+      const home = await ensureNoteHome()
+      if (!home) return                                // 无 vault/用户取消 → 内存保留,不落盘
+      const target = home.notePath
+      const existed = await fs.exists(target).catch(() => false)
+      if (text.trim() === '' && !existed) return
+      // Data-loss guard: 不用空/空白序列化覆盖一个本来有内容的落点
       if (!noteTextHasContent(text) && existed) {
-        const existing = await fs.readTextFile(notePath).catch(() => '')
+        const existing = await fs.readTextFile(target).catch(() => '')
         if (noteTextHasContent(existing)) return
       }
-      const diskText = existed ? await fs.readTextFile(notePath).catch(() => null) : null
+      const diskText = existed ? await fs.readTextFile(target).catch(() => null) : null
       const diskHash = diskText != null ? await sha256Hex(diskText) : null
       const ourHash = await sha256Hex(text)
       const decision = decideCompanionWrite({
@@ -83,9 +123,12 @@
       })
       if (decision === 'conflict') { outline.externalConflict = { diskText: diskText ?? '' }; return }
       if (decision === 'noop') { noteDiskHash = diskHash; markSaved(); return }
-      await fs.writeTextFile(notePath, text)
+      await fs.writeTextFile(target, text)
       noteDiskHash = ourHash
       markSaved()
+      // 刚建家:笔记已写进 vault 副本旁,现在刷新 records → 响应式 notePath 翻转到
+      // vault 路径(此时文件已存在且有内容,重挂载不会读到空 note 覆盖树)
+      if (home.justSynced) await refreshSotvault()
     } catch (e) {
       console.warn('[outline] write companion failed:', e)
     }
