@@ -410,6 +410,7 @@ pub fn plan_image_assets(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use super::super::store::NoteHome;
     use tempfile::TempDir;
 
     fn rec(source_hash: &str, vault_hash: &str) -> Record {
@@ -420,6 +421,7 @@ mod tests {
             source_hash: source_hash.into(),
             vault_hash: vault_hash.into(),
             note_merge_base: None,
+            note_home: NoteHome::Sidecar,
         }
     }
 
@@ -474,6 +476,7 @@ mod tests {
             source_hash: sha256_hex(b"OLD"),
             vault_hash: sha256_hex(b"OLD"),
             note_merge_base: None,
+            note_home: NoteHome::Sidecar,
         };
         let out = check_update_io(&r, &source, &vault).unwrap();
         assert_eq!(out, UpdateOutcome::OriginUpdated);
