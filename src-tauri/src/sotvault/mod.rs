@@ -208,12 +208,27 @@ fn resolve_vault_root(app: &AppHandle) -> Option<PathBuf> {
             }
         }
     }
-    crate::shared_config::config_path()
-        .ok()
-        .and_then(|p| crate::shared_config::read(&p).ok())
-        .and_then(|cfg| cfg.sotvault)
-        .filter(|s| !s.is_empty())
-        .map(PathBuf::from)
+    // Fallback: read the shared config file directly (works even when
+    // vault_sync::init didn't run, as in the headless CLI). Resolve the config
+    // path via BOTH Tauri's home dir (same source the frontend uses; reliable in
+    // the CLI's spawn env) AND the dirs-crate path, since `dirs::home_dir()` can
+    // diverge from the app's home in a CLI process — that divergence made the
+    // fallback read the wrong/no file and still report vault_required.
+    let mut candidates: Vec<PathBuf> = Vec::new();
+    if let Ok(home) = app.path().home_dir() {
+        candidates.push(home.join("Library/Application Support/com.laobu.mdeditor-shared/config.json"));
+    }
+    if let Ok(p) = crate::shared_config::config_path() {
+        candidates.push(p);
+    }
+    for cfg_path in candidates {
+        if let Ok(cfg) = crate::shared_config::read(&cfg_path) {
+            if let Some(v) = cfg.sotvault.filter(|s| !s.is_empty()) {
+                return Some(PathBuf::from(v));
+            }
+        }
+    }
+    None
 }
 
 /// Sub-directory inside the vault where synced copies are placed.
