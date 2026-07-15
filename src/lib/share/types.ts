@@ -1,5 +1,6 @@
 export type ShareErrorKind =
   | 'not_configured'   // baseUrl or apiKey missing
+  | 'vault_required'   // sharing an outside-vault file with no vault configured
   | 'no_path'          // tab unsaved
   | 'empty_content'    // no rendered html
   | 'network'          // fetch threw

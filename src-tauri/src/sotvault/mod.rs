@@ -228,6 +228,7 @@ pub fn sotvault_sync_to_vault(
     src_path: String,
     date_prefix: Option<String>,
     note_home: Option<String>,
+    reuse_existing: Option<bool>,
 ) -> Result<Record, String> {
     let source = PathBuf::from(&src_path);
     if !source.is_file() {
@@ -246,7 +247,17 @@ pub fn sotvault_sync_to_vault(
         _ => basename.to_string(),
     };
 
-    let target = logic::dedup_target(&subdir, &basename, &|p| p.exists());
+    let mut s = load_store(&app)?;
+    // Share re-homing reuses this source's existing vault copy (in-place update)
+    // so repeated shares don't proliferate `-2` copies. Manual sync omits the
+    // flag → fresh dedup, preserving its snapshot semantics.
+    let existing = if reuse_existing.unwrap_or(false) {
+        s.find_by_source(&source.to_string_lossy())
+            .map(|r| PathBuf::from(&r.vault_path))
+    } else {
+        None
+    };
+    let target = logic::sync_target(existing, &subdir, &basename, &|p| p.exists());
     let src_bytes = std::fs::read(&source).map_err(|e| e.to_string())?;
 
     let stem = target
@@ -263,7 +274,6 @@ pub fn sotvault_sync_to_vault(
     };
     std::fs::write(&target, &vault_bytes).map_err(|e| e.to_string())?;
 
-    let mut s = load_store(&app)?;
     let prior_base = s
         .find_by_vault(&target.to_string_lossy())
         .and_then(|r| r.note_merge_base.clone());

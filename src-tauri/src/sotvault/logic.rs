@@ -162,6 +162,21 @@ pub fn dedup_target(dir: &Path, basename: &str, exists: &dyn Fn(&Path) -> bool) 
     }
 }
 
+/// Choose where to write a sync copy. When `existing` is a tracked vault copy
+/// that still exists, reuse it (in-place update — no proliferating `-2` copies);
+/// otherwise fall back to a fresh non-colliding `dedup_target`.
+pub fn sync_target(
+    existing: Option<PathBuf>,
+    dir: &Path,
+    basename: &str,
+    exists: &dyn Fn(&Path) -> bool,
+) -> PathBuf {
+    match existing {
+        Some(p) if exists(&p) => p,
+        _ => dedup_target(dir, basename, exists),
+    }
+}
+
 fn split_ext(name: &str) -> (String, Option<String>) {
     match name.rfind('.') {
         Some(i) if i > 0 => (name[..i].to_string(), Some(name[i + 1..].to_string())),
@@ -502,6 +517,37 @@ mod tests {
         let exists = |p: &Path| p.to_string_lossy() == "/v/README";
         let got = dedup_target(Path::new("/v"), "README", &exists);
         assert_eq!(got, PathBuf::from("/v/README-2"));
+    }
+
+    #[test]
+    fn sync_target_reuses_existing_copy_when_present() {
+        // A tracked copy exists → reuse it, even though the basename slot is taken.
+        let existing = PathBuf::from("/v/Sync/a.md");
+        let exists = |p: &Path| p == Path::new("/v/Sync/a.md");
+        let got = sync_target(Some(existing.clone()), Path::new("/v/Sync"), "a.md", &exists);
+        assert_eq!(got, existing);
+    }
+
+    #[test]
+    fn sync_target_dedups_when_no_existing_copy() {
+        // No tracked copy → fresh non-colliding target (basename slot free).
+        let got = sync_target(None, Path::new("/v/Sync"), "a.md", &|_p| false);
+        assert_eq!(got, PathBuf::from("/v/Sync/a.md"));
+    }
+
+    #[test]
+    fn sync_target_dedups_when_tracked_copy_vanished() {
+        // Record points to a copy the user deleted → don't reuse a missing path;
+        // dedup around whatever else occupies the dir.
+        let taken = ["/v/Sync/a.md"];
+        let exists = |p: &Path| taken.contains(&p.to_string_lossy().as_ref());
+        let got = sync_target(
+            Some(PathBuf::from("/v/Sync/gone.md")),
+            Path::new("/v/Sync"),
+            "a.md",
+            &exists,
+        );
+        assert_eq!(got, PathBuf::from("/v/Sync/a-2.md"));
     }
 
     #[test]

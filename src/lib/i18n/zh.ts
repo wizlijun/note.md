@@ -49,6 +49,7 @@ export const zh: Record<keyof Messages, string> = {
   'share.unpublished': '✅ 已撤销分享',
   'share.linkCopied': '✅ 链接已复制',
   'share.err.not_configured': '请先在 Preferences → Share 配置 Service URL 和 API Key',
+  'share.err.vault_required': '分享 vault 外的文件前，请先配置 Vault',
   'share.err.no_path': '请先保存文件',
   'share.err.empty_content': '内容为空',
   'share.err.network': '网络错误，请检查网络',

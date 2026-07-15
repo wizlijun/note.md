@@ -49,6 +49,7 @@ export const ja: Record<keyof Messages, string> = {
   'share.unpublished': '✅ 共有を取り消しました',
   'share.linkCopied': '✅ リンクをコピーしました',
   'share.err.not_configured': '先に Preferences → Share で Service URL と API Key を設定してください',
+  'share.err.vault_required': 'Vault 外のファイルを共有する前に、Vault を設定してください',
   'share.err.no_path': '先にファイルを保存してください',
   'share.err.empty_content': '内容が空です',
   'share.err.network': 'ネットワークエラーです。接続を確認してください',

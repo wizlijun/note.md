@@ -47,6 +47,7 @@ export const de: Record<keyof Messages, string> = {
   'share.unpublished': '✅ Freigabe widerrufen',
   'share.linkCopied': '✅ Link kopiert',
   'share.err.not_configured': 'Konfigurieren Sie zuerst die Dienst-URL und den API-Schlüssel in Einstellungen → Teilen',
+  'share.err.vault_required': 'Richten Sie einen Vault ein, bevor Sie Dateien außerhalb davon teilen',
   'share.err.no_path': 'Speichern Sie die Datei zuerst',
   'share.err.empty_content': 'Inhalt ist leer',
   'share.err.network': 'Netzwerkfehler, bitte überprüfen Sie Ihre Verbindung',

@@ -54,6 +54,7 @@ export const en = {
   'share.unpublished': '✅ Share revoked',
   'share.linkCopied': '✅ Link copied',
   'share.err.not_configured': 'Configure the Service URL and API Key in Preferences → Share first',
+  'share.err.vault_required': 'Configure a Vault before sharing files that live outside it',
   'share.err.no_path': 'Save the file first',
   'share.err.empty_content': 'Content is empty',
   'share.err.network': 'Network error, please check your connection',
