@@ -70,6 +70,40 @@
     }
   }
 
+  /** 分享报错时的 vault 诊断:读了哪个配置文件、sotvault 值、各层解析结果、文件与
+   *  vault 的关系。原样打印(不改大小写),便于发现 Sync/sync 之类不一致。best-effort。 */
+  async function shareVaultDiagnostics(filePath: string): Promise<string[]> {
+    const lines: string[] = []
+    const add = (k: string, v: unknown) =>
+      lines.push(`  ${k}: ${v === undefined ? '(undefined)' : v === null ? 'null' : typeof v === 'string' ? v : JSON.stringify(v)}`)
+    add('file', filePath)
+    try {
+      const { homeDir } = await import('@tauri-apps/api/path')
+      const { exists, readTextFile } = await import('@tauri-apps/plugin-fs')
+      const cfgPath = `${await homeDir()}/Library/Application Support/com.laobu.mdeditor-shared/config.json`
+      add('shared config', cfgPath)
+      const cfgExists = await exists(cfgPath).catch(() => false)
+      add('shared config exists', cfgExists)
+      if (cfgExists) {
+        const raw = await readTextFile(cfgPath).catch(() => '')
+        let sotvault: unknown = '(parse failed)'
+        try { sotvault = JSON.parse(raw).sotvault } catch { /* keep placeholder */ }
+        add('config.sotvault', sotvault)
+      }
+    } catch (e) { add('config read error', String(e)) }
+    try {
+      const backendRoot = await invoke<string | null>('sotvault_vault_root').catch(() => null)
+      add('sotvault_vault_root() → backend', backendRoot)
+      const { sotvaultStore } = await import('../sotvault.svelte')
+      add('store.vaultRoot', sotvaultStore.vaultRoot)
+      if (backendRoot) {
+        const r = backendRoot.endsWith('/') ? backendRoot : `${backendRoot}/`
+        add('file under vault? (case-sensitive)', filePath === backendRoot || filePath.startsWith(r))
+      }
+    } catch (e) { add('resolve error', String(e)) }
+    return lines
+  }
+
   async function run(): Promise<void> {
     let payload: CliPayload
     try {
@@ -191,7 +225,15 @@
         const { prepareShareSrc } = await import('../share')
         shareSrc = await prepareShareSrc(virtualTab.filePath)
       } catch (e) {
-        await finish({ exit_code: 1, stderr: [`notemd: ${e instanceof Error ? e.message : String(e)}`] })
+        // 详细诊断:报错时列出读了哪个配置文件、sotvault 值、各层解析结果、文件路径
+        // (原样打印,便于发现 Sync/sync 之类大小写不一致)。
+        await finish({
+          exit_code: 1,
+          stderr: [
+            `notemd: share failed: ${e instanceof Error ? e.message : String(e)}`,
+            ...(await shareVaultDiagnostics(virtualTab.filePath)),
+          ],
+        })
         return
       }
     }
