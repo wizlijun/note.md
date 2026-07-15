@@ -16,6 +16,12 @@ describe('planNoteHome', () => {
     const p = planNoteHome('/dl/foo.md', { vaultRoot: '/v', records, legacyNoteExists: false })
     expect(p).toEqual({ action: 'use', notePath: '/v/Sync/2026-07-15-foo.note.md' })
   })
+  it('vault record WINS over a stray source-side note (no re-pollution)', () => {
+    const records = [rec('/dl/foo.md', '/v/Sync/2026-07-15-foo.md')]
+    // even if a legacy .note.md lingers next to the source, a synced record routes to vault
+    const p = planNoteHome('/dl/foo.md', { vaultRoot: '/v', records, legacyNoteExists: true })
+    expect(p).toEqual({ action: 'use', notePath: '/v/Sync/2026-07-15-foo.note.md' })
+  })
   it('(c) file already under vault → note beside it', () => {
     const p = planNoteHome('/v/Sync/x.md', { vaultRoot: '/v', records: [], legacyNoteExists: false })
     expect(p).toEqual({ action: 'use', notePath: '/v/Sync/x.note.md' })

@@ -15,9 +15,10 @@ export interface HomeCtx {
 }
 
 /**
- * Vault-homed note resolution (WRITE path). Priority:
- *  (a) legacy sidecar note already next to source → keep in place, never touch vault.
- *  (b) source already synced → note lives next to the vault copy.
+ * Vault-homed note resolution (WRITE path). Priority (vault-authoritative):
+ *  (b) source already synced → note lives next to the vault copy. Checked FIRST so a
+ *      stray source-side `.note.md` can never re-capture routing back into the source dir.
+ *  (a) legacy sidecar note already next to source (and NOT vault-synced) → keep in place.
  *  (c) file itself is under the vault → note beside it (as before).
  *  (d) outside vault, unsynced, no legacy note → sync into vault (or guide to configure).
  */
@@ -25,10 +26,10 @@ export function planNoteHome(mainPath: string, ctx: HomeCtx): HomePlan {
   const companion = companionPathFor(mainPath)
   if (companion == null) return { action: 'use', notePath: mainPath } // non-md guard (callers pass md)
 
-  if (ctx.legacyNoteExists) return { action: 'use', notePath: companion }          // (a)
-
   const mapped = mappedVaultCompanion(mainPath, ctx.records)
-  if (mapped) return { action: 'use', notePath: mapped }                            // (b)
+  if (mapped) return { action: 'use', notePath: mapped }                            // (b) record wins
+
+  if (ctx.legacyNoteExists) return { action: 'use', notePath: companion }          // (a)
 
   if (ctx.vaultRoot && isUnder(mainPath, ctx.vaultRoot)) return { action: 'use', notePath: companion } // (c)
 
