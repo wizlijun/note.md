@@ -84,8 +84,12 @@
     if (!enabled) return
     closeCtxMenu()
     if (item.id.startsWith('core:')) {
-      const { dispatch } = await import('../lib/commands')
-      await dispatch(item.command as CommandId)
+      try {
+        const { dispatch } = await import('../lib/commands')
+        await dispatch(item.command as CommandId)
+      } catch (e) {
+        console.warn('[TabBar] context menu dispatch failed:', e)
+      }
       return
     }
     try {

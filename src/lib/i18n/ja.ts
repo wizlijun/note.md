@@ -197,6 +197,7 @@ export const ja: Record<keyof Messages, string> = {
   'plugins.capabilities': '機能：{caps}',
   'plugins.none': 'プラグインが検出されませんでした。',
   'plugins.needsVault': '有効にするには先に Vault を設定してください',
+  'plugins.internalError': '{name}：プラグインエラー',
 
   // Slash menu (empty state)
   'slashMenu.noMatches': '一致なし',
@@ -578,7 +579,7 @@ export const ja: Record<keyof Messages, string> = {
 
   // Settings → CLI
   'settings.cli.heading': 'CLI',
-  'settings.cli.desc': '<code>notemd</code> コマンドを使うと、ターミナルや他のツールから note.md を操作できます — Share プラグインでファイルを公開したり、利用可能なコマンドを一覧表示したりできます。',
+  'settings.cli.desc': '<code>notemd</code> コマンドを使うと、ターミナルや他のツールから note.md の機能を利用できます — ファイルをウェブページとして公開したり、PDF をエクスポートしたりできます。',
   'settings.cli.loading': '読み込み中…',
   'settings.cli.installedAtLabel': 'インストール先：',
   'settings.cli.symlinkMismatch': 'シンボリックリンクが別のバイナリを指しています — 再インストールで修復してください。',

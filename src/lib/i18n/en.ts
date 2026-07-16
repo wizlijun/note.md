@@ -202,6 +202,7 @@ export const en = {
   'plugins.capabilities': 'Capabilities: {caps}',
   'plugins.none': 'No plugins detected.',
   'plugins.needsVault': 'Set a Vault first to enable this plugin',
+  'plugins.internalError': '{name}: plugin error',
 
   // Slash menu (empty state)
   'slashMenu.noMatches': 'No matches',
@@ -583,7 +584,7 @@ export const en = {
 
   // Settings → CLI
   'settings.cli.heading': 'CLI',
-  'settings.cli.desc': 'The <code>notemd</code> command lets you drive note.md from a terminal or other tools — publish files via the Share plugin, list available commands, and more.',
+  'settings.cli.desc': 'The <code>notemd</code> command lets you run note.md features from a terminal or other tools — publish files as web pages, export PDFs, and more.',
   'settings.cli.loading': 'Loading…',
   'settings.cli.installedAtLabel': 'Installed at:',
   'settings.cli.symlinkMismatch': 'Symlink points to a different binary — reinstall to repair.',

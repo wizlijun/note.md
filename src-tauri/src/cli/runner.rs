@@ -133,6 +133,15 @@ pub fn core_cli_stub_manifests() -> Vec<PluginManifest> {
     vec![share, insights]
 }
 
+/// True when this manifest is one of the injected core CLI stubs (see
+/// [`core_cli_stub_manifests`]) rather than a real on-disk plugin. Stubs are
+/// distinguishable by their sentinel shape: version "core" + empty binary.
+/// builtin.rs uses this to keep core commands out of the PLUGIN COMMANDS help
+/// section even if stubs are ever passed to the renderers.
+pub fn is_core_cli_stub(m: &PluginManifest) -> bool {
+    m.version == "core" && m.binary.as_deref() == Some("")
+}
+
 /// 把 core stub 追加进扫描结果。磁盘上已有同 id manifest（T7 删除前的过渡期）
 /// 则不追加，保持原插件行为；追加时强制 enabled=true —— core 命令不受
 /// plugins.enabled 遗留配置影响。

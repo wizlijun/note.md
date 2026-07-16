@@ -150,8 +150,10 @@ export async function sharePublishCurrent(): Promise<void> {
 
 export async function shareUnpublishCurrent(): Promise<void> {
   const tab = activeTab()
+  if (!tab?.filePath) return
   const cfg = getShareConfig()
-  if (!cfg || !tab?.filePath) return
+  // A deleted config with a lingering record must surface, not silently no-op.
+  if (!cfg) return reportError(new ShareError('not_configured'), t('share.action.unpublish'))
   try {
     await unpublish({ path: tab.filePath, baseUrl: cfg.baseUrl })
     pushToast({ level: 'success', message: t('share.unpublished') })

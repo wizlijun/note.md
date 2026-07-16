@@ -30,7 +30,7 @@ vi.mock('./copy-link', () => ({ copyShareLink: vi.fn() }))
 vi.mock('./upload-image', () => ({ uploadImage: vi.fn() }))
 vi.mock('../i18n/store.svelte', () => ({ t: (k: string) => k }))
 
-import { sharePublishCurrent } from './index'
+import { sharePublishCurrent, shareUnpublishCurrent } from './index'
 import { bakeShareHtml } from '../plugins/share-baker'
 import { activeTab } from '../tabs.svelte'
 import { getPluginScopedKey } from '../settings.svelte'
@@ -67,5 +67,21 @@ describe('sharePublishCurrent', () => {
     expect(themeArg).not.toBe('default')
     // success toast, no error
     expect((pushToast as any).mock.calls.some((c: any[]) => c[0].level === 'error')).toBe(false)
+  })
+})
+
+describe('shareUnpublishCurrent', () => {
+  it('surfaces not_configured when config is missing but a tab is open', async () => {
+    ;(getPluginScopedKey as any).mockReturnValue(undefined)
+    await shareUnpublishCurrent()
+    expect(pushToast).toHaveBeenCalledTimes(1)
+    expect((pushToast as any).mock.calls[0][0].level).toBe('error')
+  })
+
+  it('stays silent when there is no active tab', async () => {
+    ;(activeTab as any).mockReturnValue(undefined)
+    ;(getPluginScopedKey as any).mockReturnValue(undefined)
+    await shareUnpublishCurrent()
+    expect(pushToast).not.toHaveBeenCalled()
   })
 })

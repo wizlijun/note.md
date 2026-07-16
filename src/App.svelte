@@ -402,7 +402,7 @@
         } catch (e) {
           pushToast({
             level: 'error',
-            message: `${m.name}: plugin error`,
+            message: t('plugins.internalError', { name: m.name }),
             detail: e instanceof Error ? e.message : String(e),
           })
           return
@@ -552,8 +552,9 @@
           break
         }
         default:
-          // Fall back to the central command dispatcher so iOS-port commands
-          // (share, copy-share-link, etc.) still work from the menu.
+          // Central command dispatcher: the PRIMARY path for all core menu ids
+          // (share/unshare/copy-share-link, sync-to-vault, the three side-panel
+          // toggles) plus the iOS-port commands.
           await dispatch(id as CommandId)
           break
       }

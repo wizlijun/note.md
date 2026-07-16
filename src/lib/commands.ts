@@ -84,7 +84,12 @@ const handlers: Record<CommandId, () => void | Promise<void>> = {
 }
 
 export function dispatch(id: CommandId): void | Promise<void> {
-  return handlers[id]?.()
+  const handler = handlers[id]
+  if (!handler) {
+    console.warn('[commands] unknown command id:', id)
+    return
+  }
+  return handler()
 }
 
 /** Test-only: replace a handler. Used to wire share entries from share/index.ts. */

@@ -131,6 +131,9 @@ pub fn render_help(
 
     let mut shown_header = false;
     for m in manifests {
+        // Core stubs are hardcoded in CORE COMMANDS above; never re-list them
+        // as plugins, even if a caller passes the injected stub manifests.
+        if crate::cli::runner::is_core_cli_stub(m) { continue }
         let is_on = crate::plugin_host::resolve_enabled(m, enabled);
         if !is_on { continue }
         for entry in &m.cli {
@@ -148,6 +151,7 @@ pub fn render_help(
     if all {
         let mut shown = false;
         for m in manifests {
+            if crate::cli::runner::is_core_cli_stub(m) { continue }
             let is_on = crate::plugin_host::resolve_enabled(m, enabled);
             if is_on { continue }
             for entry in &m.cli {
@@ -412,6 +416,11 @@ pub fn render_plugin_info(
     out
 }
 
+/// Deliberately does NOT inject the core CLI stubs (`runner::
+/// core_cli_stub_manifests()`), unlike runner.rs's current_scan: the stubs
+/// exist only so routing/arg-parsing can match core subcommands. Injecting
+/// them here would double-list `share` in `notemd help` (core row + PLUGIN
+/// COMMANDS row) and pollute `notemd plugin list` with pseudo-plugins.
 fn current_scan(parsed: &Parsed) -> (Vec<(PluginManifest, PathBuf)>, HashMap<String, bool>) {
     let plugins_dir = super::resolve_plugins_dir(parsed.globals.plugin_dir_override.as_deref());
     let config_dir = super::resolve_config_dir();
@@ -491,6 +500,34 @@ mod tests {
             assert!(out.contains("Render and publish"), "topic {topic} missing summary");
             assert!(out.contains("--unshare"), "topic {topic} missing flags");
             assert!(out.contains("EXIT CODES:"), "topic {topic} missing exit codes");
+        }
+    }
+    #[test] fn help_root_with_core_stubs_lists_share_exactly_once() {
+        // builtin 的 current_scan 故意不注入 core stub；这里直接把 stub 传给
+        // render_help，钉死不变量：share 只出现一次（CORE COMMANDS 行），
+        // 绝不在 PLUGIN COMMANDS 里重复。
+        let stubs = crate::cli::runner::core_cli_stub_manifests();
+        let mut enabled = HashMap::new();
+        for m in &stubs { enabled.insert(m.id.clone(), true); }
+        let out = render_help(None, false, &stubs, &enabled);
+        let share_rows = out.lines()
+            .filter(|l| l.trim_start().starts_with("share "))
+            .count();
+        assert_eq!(share_rows, 1, "share must appear exactly once, got:\n{out}");
+        assert!(!out.contains("PLUGIN COMMANDS:"),
+            "core stubs must never render a PLUGIN COMMANDS section:\n{out}");
+    }
+    #[test] fn help_share_topic_documents_every_stub_flag() {
+        // 契约对齐：share stub 的 cli entry 声明的每个 flag 长名，都必须出现在
+        // `notemd help share` 的 core topic 文本里（stub 与 help 文案同步演进）。
+        let stubs = crate::cli::runner::core_cli_stub_manifests();
+        let share = stubs.iter().find(|m| m.id == "share").expect("share stub exists");
+        let topic = render_help(Some("share"), false, &[], &HashMap::new());
+        for entry in &share.cli {
+            for f in &entry.flags {
+                assert!(topic.contains(&f.long),
+                    "help share topic missing flag {}", f.long);
+            }
         }
     }
     #[test] fn help_root_lists_share_as_core_command() {

@@ -197,6 +197,7 @@ export const zh: Record<keyof Messages, string> = {
   'plugins.capabilities': '能力：{caps}',
   'plugins.none': '未检测到插件。',
   'plugins.needsVault': '需先设置 Vault 才能启用此插件',
+  'plugins.internalError': '{name}：插件错误',
 
   // Slash menu (empty state)
   'slashMenu.noMatches': '无匹配项',
@@ -609,7 +610,7 @@ export const zh: Record<keyof Messages, string> = {
 
   // Settings → CLI
   'settings.cli.heading': 'CLI',
-  'settings.cli.desc': '<code>notemd</code> 命令让你从终端或其他工具驱动 note.md — 通过 Share 插件发布文件、列出可用命令等。',
+  'settings.cli.desc': '<code>notemd</code> 命令让你从终端或其他工具使用 note.md 的功能 — 将文件发布为网页、导出 PDF 等。',
   'settings.cli.loading': '加载中…',
   'settings.cli.installedAtLabel': '已安装于：',
   'settings.cli.symlinkMismatch': '符号链接指向了不同的二进制 — 请重新安装修复。',

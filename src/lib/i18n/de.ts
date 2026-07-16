@@ -195,6 +195,7 @@ export const de: Record<keyof Messages, string> = {
   'plugins.capabilities': 'Fähigkeiten: {caps}',
   'plugins.none': 'Keine Plugins gefunden.',
   'plugins.needsVault': 'Legen Sie zuerst einen Tresor fest, um dieses Plugin zu aktivieren',
+  'plugins.internalError': '{name}: Plugin-Fehler',
 
   // Slash menu (empty state)
   'slashMenu.noMatches': 'Keine Treffer',
@@ -576,7 +577,7 @@ export const de: Record<keyof Messages, string> = {
 
   // Settings → CLI
   'settings.cli.heading': 'CLI',
-  'settings.cli.desc': 'Der Befehl <code>notemd</code> ermöglicht es Ihnen, note.md aus einem Terminal oder anderen Tools zu steuern — Dateien über das Share-Plugin veröffentlichen, verfügbare Befehle auflisten und mehr.',
+  'settings.cli.desc': 'Der Befehl <code>notemd</code> ermöglicht es Ihnen, note.md-Funktionen aus einem Terminal oder anderen Tools zu nutzen — Dateien als Webseiten veröffentlichen, PDFs exportieren und mehr.',
   'settings.cli.loading': 'Lädt…',
   'settings.cli.installedAtLabel': 'Installiert in:',
   'settings.cli.symlinkMismatch': 'Symlink zeigt auf eine andere Binärdatei — neu installieren, um zu reparieren.',
