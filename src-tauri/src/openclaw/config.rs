@@ -28,7 +28,7 @@ impl Default for OpenClawConfig {
         let home = dirs::home_dir().expect("home dir");
         Self {
             mode: ConnectMode::Auto,
-            socket_path: home.join(".openclaw").join("mdeditor.sock"),
+            socket_path: home.join(".openclaw").join("notemd.sock"),
             access_token: None,
             relay_url: Some("wss://mdrelay.example.com".into()),
             host_token: None,

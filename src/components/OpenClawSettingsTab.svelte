@@ -56,7 +56,7 @@
     <input
       type="text"
       bind:value={socketPath}
-      placeholder="~/.openclaw/mdeditor.sock"
+      placeholder="~/.openclaw/notemd.sock"
       onchange={persist}
     />
   </label>

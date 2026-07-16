@@ -1,12 +1,12 @@
 // src/config-schema.ts
 import { z } from "zod";
 
-export const MdeditorConfigSchema = z
+export const NotemdConfigSchema = z
   .object({
-    socketPath: z.string().default("~/.openclaw/mdeditor.sock"),
+    socketPath: z.string().default("~/.openclaw/notemd.sock"),
     accessToken: z.string().min(32).optional(),
     maxClients: z.literal(1).default(1),
   })
   .strict();
 
-export type MdeditorConfig = z.infer<typeof MdeditorConfigSchema>;
+export type NotemdConfig = z.infer<typeof NotemdConfigSchema>;

@@ -1,7 +1,7 @@
 {
-  "name": "@openclaw/mdeditor",
+  "name": "@openclaw/notemd",
   "version": "0.1.0",
-  "description": "OpenClaw mdeditor channel plugin (local UDS bridge to note.md host)",
+  "description": "OpenClaw notemd channel plugin (local UDS bridge to note.md host)",
   "type": "module",
   "scripts": {
     "test": "vitest run",
@@ -20,18 +20,18 @@
       "./index.ts"
     ],
     "channel": {
-      "id": "mdeditor",
+      "id": "notemd",
       "label": "note.md Chat",
       "selectionLabel": "note.md Chat (plugin)",
-      "docsPath": "/channels/mdeditor",
-      "docsLabel": "mdeditor",
+      "docsPath": "/channels/notemd",
+      "docsLabel": "notemd",
       "blurb": "Local note.md desktop chat via UDS; remote fan-out via mdrelay.",
       "order": 90,
       "quickstartAllowFrom": false
     },
     "install": {
-      "npmSpec": "@openclaw/mdeditor",
-      "localPath": "extensions/mdeditor",
+      "npmSpec": "@openclaw/notemd",
+      "localPath": "extensions/notemd",
       "defaultChoice": "localPath"
     }
   }

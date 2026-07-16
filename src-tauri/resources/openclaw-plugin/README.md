@@ -1,4 +1,4 @@
-# @openclaw/mdeditor
+# @openclaw/notemd
 
 OpenClaw channel plugin: bridges a local note.md desktop client to OpenClaw via a
 Unix Domain Socket. No TCP/HTTP/WS ports are opened by this plugin.
@@ -11,15 +11,15 @@ In `~/.openclaw/openclaw.json`:
 {
   "plugins": {
     "entries": {
-      "mdeditor": { "type": "localPath", "path": "extensions/mdeditor" }
+      "notemd": { "type": "localPath", "path": "extensions/notemd" }
     }
   },
   "channels": {
-    "mdeditor": {
+    "notemd": {
       "enabled": true,
       "accounts": {
         "default": {
-          "socketPath": "~/.openclaw/mdeditor.sock"
+          "socketPath": "~/.openclaw/notemd.sock"
         }
       }
     }
@@ -32,10 +32,10 @@ via `api.config.write`. To rotate, delete it and restart OpenClaw.
 
 ## Test
 
-    cd ~/git/openclaw/extensions/mdeditor
+    cd ~/git/openclaw/extensions/notemd
     pnpm test
 
 ## Wire protocol
 
-See `mdeditor/docs/superpowers/specs/2026-05-18-openclaw-chat-plugin-design.md`
+See `notemd/docs/superpowers/specs/2026-05-18-openclaw-chat-plugin-design.md`
 sections 2.2-2.3.

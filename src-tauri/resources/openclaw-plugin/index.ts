@@ -1,11 +1,11 @@
 // index.ts
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
-import { mdeditorPlugin, ensureServer, stopServer, startChannel } from "./src/channel.js";
-import { setMdeditorRuntime } from "./src/runtime.js";
-import { MdeditorConfigSchema } from "./src/config-schema.js";
+import { notemdPlugin, ensureServer, stopServer, startChannel } from "./src/channel.js";
+import { setNotemdRuntime } from "./src/runtime.js";
+import { NotemdConfigSchema } from "./src/config-schema.js";
 
 const plugin = {
-  id: "mdeditor",
+  id: "notemd",
   name: "note.md Chat",
   description: "Local note.md desktop chat via UDS.",
   configSchema: { type: "object" as const, additionalProperties: false, properties: {} },
@@ -13,16 +13,16 @@ const plugin = {
   // The UDS server startup is async, so we fire-and-forget it inside the sync
   // body; any error there is logged but does not block plugin registration.
   register(api: OpenClawPluginApi): void {
-    setMdeditorRuntime(api);
-    api.registerChannel({ plugin: mdeditorPlugin });
-    const raw = api.config?.read?.("channels.mdeditor.accounts.default") ?? {};
-    const cfg = MdeditorConfigSchema.parse(raw);
+    setNotemdRuntime(api);
+    api.registerChannel({ plugin: notemdPlugin });
+    const raw = api.config?.read?.("channels.notemd.accounts.default") ?? {};
+    const cfg = NotemdConfigSchema.parse(raw);
     void (async () => {
       try {
         await ensureServer(cfg);
         await startChannel();
       } catch (e) {
-        console.error("[mdeditor] startup failed:", e);
+        console.error("[notemd] startup failed:", e);
       }
     })();
   },

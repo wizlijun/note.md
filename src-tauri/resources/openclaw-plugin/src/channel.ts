@@ -17,7 +17,7 @@
 //     core.channel.reply.withReplyDispatcher + dispatchReplyFromConfig
 //   This is the same pattern used by the matrix channel (see
 //   ~/git/openclaw/extensions/matrix/src/matrix/monitor/handler.ts:658).
-//   Both `core` (api.runtime) and `cfg` (api.config) are accessible via getMdeditorRuntime().
+//   Both `core` (api.runtime) and `cfg` (api.config) are accessible via getNotemdRuntime().
 import type {
   ChannelPlugin,
   ChannelConfigAdapter,
@@ -27,7 +27,7 @@ import type {
   ChannelMessagingAdapter,
 } from "openclaw/plugin-sdk";
 import type { OpenClawConfig } from "openclaw/plugin-sdk";
-import { MdeditorConfigSchema, type MdeditorConfig } from "./config-schema.js";
+import { NotemdConfigSchema, type NotemdConfig } from "./config-schema.js";
 import type { Frame } from "./protocol.js";
 import {
   ensureServer,
@@ -35,18 +35,18 @@ import {
   sendToHost,
   getSessionPool,
   setHostFrameHandler,
-  getMdeditorRuntime,
+  getNotemdRuntime,
 } from "./runtime.js";
 
 interface ResolvedAccount {
   accountId: string;
-  config: MdeditorConfig;
+  config: NotemdConfig;
 }
 
 // ---------------------------------------------------------------------------
 // ChannelConfigAdapter
-// Reads mdeditor config from cfg.channels?.mdeditor?.accounts?.[accountId]
-// (or top-level cfg.channels?.mdeditor for the default account).
+// Reads notemd config from cfg.channels?.notemd?.accounts?.[accountId]
+// (or top-level cfg.channels?.notemd for the default account).
 // ---------------------------------------------------------------------------
 const config: ChannelConfigAdapter<ResolvedAccount> = {
   listAccountIds: (_cfg: OpenClawConfig): string[] => ["default"],
@@ -57,10 +57,10 @@ const config: ChannelConfigAdapter<ResolvedAccount> = {
     const channels = (cfg as Record<string, unknown>).channels as
       | Record<string, unknown>
       | undefined;
-    const channelSection = channels?.["mdeditor"] as Record<string, unknown> | undefined;
+    const channelSection = channels?.["notemd"] as Record<string, unknown> | undefined;
     const accountsSection = channelSection?.["accounts"] as Record<string, unknown> | undefined;
     const raw = (accountsSection?.[id] ?? channelSection ?? {}) as Record<string, unknown>;
-    const parsed = MdeditorConfigSchema.parse(raw);
+    const parsed = NotemdConfigSchema.parse(raw);
     return { accountId: id, config: parsed };
   },
 
@@ -103,14 +103,14 @@ const status: ChannelStatusAdapter<ResolvedAccount> = {};
 // ---------------------------------------------------------------------------
 // ChannelPlugin export
 // ---------------------------------------------------------------------------
-export const mdeditorPlugin: ChannelPlugin<ResolvedAccount> = {
-  id: "mdeditor",
+export const notemdPlugin: ChannelPlugin<ResolvedAccount> = {
+  id: "notemd",
   meta: {
-    id: "mdeditor",
+    id: "notemd",
     label: "note.md Chat",
     selectionLabel: "note.md Chat (plugin)",
-    docsPath: "/channels/mdeditor",
-    docsLabel: "mdeditor",
+    docsPath: "/channels/notemd",
+    docsLabel: "notemd",
     blurb: "Local note.md desktop chat via UDS.",
     order: 90,
     quickstartAllowFrom: false,
@@ -148,13 +148,13 @@ function onHostFrame(f: Frame): void {
         // cfg   = api.config   (OpenClawConfig — full config passed at plugin registration)
         void (async () => {
           try {
-            const api = getMdeditorRuntime();
+            const api = getNotemdRuntime();
             const core = api.runtime;
             const cfg = api.config;
 
             const route = core.channel.routing.resolveAgentRoute({
               cfg,
-              channel: "mdeditor",
+              channel: "notemd",
               accountId: "default",
               peer: { kind: "direct", id: sid },
             });
@@ -164,13 +164,13 @@ function onHostFrame(f: Frame): void {
               BodyForAgent: text,
               RawBody: text,
               CommandBody: text,
-              From: `mdeditor:${sid}`,
+              From: `notemd:${sid}`,
               To: `session:${sid}`,
               SessionKey: route.sessionKey,
               AccountId: route.accountId,
               ChatType: "direct" as const,
-              Provider: "mdeditor" as const,
-              Surface: "mdeditor" as const,
+              Provider: "notemd" as const,
+              Surface: "notemd" as const,
               MessageSid: msgId,
             });
 

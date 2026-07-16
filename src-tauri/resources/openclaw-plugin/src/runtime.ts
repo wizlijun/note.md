@@ -4,7 +4,7 @@ import { homedir } from "node:os";
 import { dirname } from "node:path";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import { generateAccessToken, wrapForWire } from "./auth.js";
-import type { MdeditorConfig } from "./config-schema.js";
+import type { NotemdConfig } from "./config-schema.js";
 import type { Frame } from "./protocol.js";
 import { SessionPool } from "./session.js";
 import { UdsServer } from "./uds-server.js";
@@ -14,12 +14,12 @@ let server: UdsServer | null = null;
 let pool = new SessionPool();
 let token = "";
 
-export function setMdeditorRuntime(a: OpenClawPluginApi): void {
+export function setNotemdRuntime(a: OpenClawPluginApi): void {
   api = a;
 }
 
-export function getMdeditorRuntime(): OpenClawPluginApi {
-  if (!api) throw new Error("mdeditor runtime not initialised");
+export function getNotemdRuntime(): OpenClawPluginApi {
+  if (!api) throw new Error("notemd runtime not initialised");
   return api;
 }
 
@@ -31,7 +31,7 @@ function expandHome(p: string): string {
   return p.startsWith("~/") ? p.replace("~", homedir()) : p;
 }
 
-export async function ensureServer(cfg: MdeditorConfig): Promise<void> {
+export async function ensureServer(cfg: NotemdConfig): Promise<void> {
   if (server) return;
   token = cfg.accessToken ?? generateAccessToken();
   const socketPath = expandHome(cfg.socketPath);

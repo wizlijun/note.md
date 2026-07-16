@@ -68,7 +68,7 @@ const handlers: Record<CommandId, () => void | Promise<void>> = {
   'copy-share-link': shareCopyLinkCurrent,
   'docs': () => {
     import('@tauri-apps/plugin-opener')
-      .then(({ openUrl }) => openUrl('https://github.com/bruce/mdeditor'))
+      .then(({ openUrl }) => openUrl('https://github.com/wizlijun/note.md'))
       .catch(() => {})
   },
 }
