@@ -329,6 +329,8 @@ pub fn sotvault_sync_to_vault(
     date_prefix: Option<String>,
     note_home: Option<String>,
     reuse_existing: Option<bool>,
+    device_id: Option<String>,
+    device_name: Option<String>,
 ) -> Result<Record, String> {
     let source = PathBuf::from(&src_path);
     if !source.is_file() {
@@ -394,6 +396,20 @@ pub fn sotvault_sync_to_vault(
     };
     s.upsert(rec.clone());
     save_store(&app, &s)?;
+    if let (Some(dev_id), Some(dev_name)) = (device_id, device_name) {
+        let mirror_rel = mirror_meta::relative_mirror(&vault_root, &target);
+        let meta = mirror_meta::MirrorMeta {
+            mirror: mirror_rel,
+            device_id: dev_id,
+            device_name: dev_name,
+            source: source.to_string_lossy().to_string(),
+            synced_at: rec.synced_at,
+            checksum: format!("sha256:{}", rec.vault_hash),
+        };
+        if let Err(e) = mirror_meta::write(&vault_root, &meta) {
+            eprintln!("[sotvault] write mirror meta failed: {e}");
+        }
+    }
     if note.conflict {
         let _ = app.emit("sotvault://note-conflict", ());
     }
