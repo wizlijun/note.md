@@ -1,9 +1,10 @@
 import { invoke } from '@tauri-apps/api/core'
 import { activeTab, saveActive } from '../tabs.svelte'
-import { getPluginScopedKey } from '../settings.svelte'
+import { getPluginScopedKey, settings } from '../settings.svelte'
 import { pushToast } from '../toast.svelte'
 import { isIOS } from '../platform.svelte'
 import { bakeShareHtml } from '../plugins/share-baker'
+import { computeActiveThemeId } from '../theme-loader'
 import { publishHtml, vaultRelativeSrc } from './publish'
 import { sotvaultStore, ensureVaultCopyForShare } from '../sotvault.svelte'
 import { isUnder } from '../sotvault-logic'
@@ -113,9 +114,15 @@ export async function sharePublishCurrent(): Promise<void> {
       throw e
     }
 
+    // Bake with the ACTIVE theme, not bakeShareHtml's 'default' fallback —
+    // same resolution as the CLI (settings.theme + prefers-color-scheme).
+    // globalThis.matchMedia exists in both the desktop and iOS webviews; the
+    // optional chain keeps this headless/test safe.
+    const systemDark = globalThis.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false
+    const themeId = computeActiveThemeId(settings.theme, systemDark)
     // bakeShareHtml throws ShareError('too_large') itself when input/output
     // exceeds 25 MB — the catch below localizes it.
-    const html = await bakeShareHtml(tab)
+    const html = await bakeShareHtml(tab, themeId)
     if (!html) return reportError(new ShareError('empty_content'), t('share.action.share'))
 
     const { url, isUpdate } = await publishHtml({
