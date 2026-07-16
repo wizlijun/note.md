@@ -2,14 +2,16 @@
 
 [English](README.md) · [简体中文](README.zh-CN.md) · [notemd.net](https://notemd.net)
 
-> **Read what AI writes. Keep what you think.**
+> **Read what AI writes. Keep what you think. Keep what only *you* can write.**
 
 **note.md** is a markdown reader & editor for the AI-native era — built for the
-moment when most documents are written *by agents* and the human's most
-valuable act shifts from writing to **reading, judging, and annotating**.
-Humans and agents work in the same plain files: agents write documents, you
-read and mark them up, your notes become data your agents read back. No
-database, no cloud, no lock-in — a folder of markdown you own forever.
+moment when your agents write more in a night than you will all year, and the
+bottleneck is no longer writing but **reading, judging, and keeping the few
+lines only you could have written**. That residue — your judgment, intent,
+private facts, and decisions — is the one thing no model can generate. Humans
+and agents work in the same plain files: agents write documents, you read and
+mark them up, your marks become data your agents read back. No database, no
+cloud, no walled garden — a folder of markdown you own forever.
 
 The product name is **note.md** (all lowercase — a note that *is* a plain
 markdown file). The CLI binary and bundle identifier are `notemd` /
@@ -27,17 +29,21 @@ WebView (WKWebView). No bundled browser, unlike Electron.
 
 Four convictions shape everything here:
 
-1. **AI text is infinite; your attention isn't.** The documents you actually
-   read and mark up are the ones that earned your attention — that signal is
-   the most valuable data you own. note.md captures it instead of losing it
-   in the scroll.
+1. **AI text is infinite; your attention isn't — your judgment is the residue.**
+   The documents you actually read and mark up are the ones that earned your
+   attention. What you leave in the margins — judgment, intent, private facts,
+   decisions — is the one thing no model can generate, and the most valuable
+   data you own. note.md captures it instead of losing it in the scroll.
 2. **Files over app.** Every note is a plain `.md` on your disk: git-friendly,
    greppable, openable in any other editor today, readable in fifty years.
    Indexes are derived data; files are the only source of truth.
-3. **Agents are first-class citizens.** The vault's conventions are plain
-   text that any agent can read. `✦` marks what AI writes; `●` marks what you
-   think. The loop — agents write, you annotate, agents learn from your
-   margins — runs entirely through files on your disk.
+3. **Agents are first-class citizens — they suggest, you confirm.** The vault's
+   conventions are plain text that any agent can read. `✦` marks what AI writes;
+   `●` marks what you think. Agents write documents and can *suggest* links, but
+   the graph grows only where **you** confirm it — note.md never auto-connects
+   your notes or fills the vault with agent slop. The loop — agents write, you
+   annotate, agents learn from your margins — runs entirely through files on
+   your disk.
 4. **Your marks belong to the vault, not to a path.** You read files that live
    outside your vault, and paths are fragile across devices and tools. When you
    annotate, note.md mirrors the source into your vault so your marks get a
