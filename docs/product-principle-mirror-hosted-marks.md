@@ -1,17 +1,51 @@
-# Product principle: your marks belong to the vault, not to a path
+# 产品原则:你的批注属于 vault,不属于路径
 
-Reading happens everywhere — Downloads, external drives, other tools' folders.
-The moment you annotate, those marks are the most valuable signal you own, and
-they must not be orphaned when a path changes: a different machine, a moved or
-deleted original, a tool that reorganizes its folders.
+> 状态:产品原则 / 外宣素材
+> 适用:note.md 的 sync 镜像与批注宿主系统(sotvault mirror / `.note.md` / `.notemd/mirrors`)
 
-So note.md **mirrors** the source into your vault at annotation time. The mirror
-is a git-versioned, stable host for your marks; the original stays where it is,
-and note.md keeps the mirror consistent with it. Your notes live in the vault —
-durable, syncable, greppable — attached to a mirror that remembers where the
-original came from, even when the original moves or you switch machines.
+## 一句话
 
-The mirror's mapping (which device, which original path, last sync, checksum)
-is recorded in `{vault}/.notemd/mirrors/`, so it travels with the vault via git
-instead of living on one machine. See
-`docs/superpowers/specs/2026-07-16-mirror-hosted-marks-design.md`.
+> 阅读发生在 vault 之外的任何地方。你一旦落笔批注,note.md 就把源文件镜像进 vault——批注挂在一个被 git 版本化的稳定宿主上,而不是挂在一条随时会变的文件路径上。原文留在原地,镜像与它保持同步,你换设备、原文被移动删除,笔记都不会丢失宿主。
+
+---
+
+## 核心主张:批注的宿主是内容,不是路径
+
+大多数工具默认你在哪读、就把笔记写在哪:笔记贴着原文的路径。可原文常常住在 vault 之外——下载目录、外接盘、别的工具的文件夹;而路径是脆弱的:换台机器、移动一下、某个工具重排了目录结构,笔记就找不到它批注的那份原文了。写进自己的笔记库又走向另一个极端:笔记和原文彻底脱钩,你再也说不清这条心得当初是针对哪份文档的。
+
+我们把这件事拆成两层,刻意错开:
+
+- **原文(source)**——vault 外被阅读的 md,原始、权威、随处可在。它留在原地,note.md 不搬它。
+- **镜像(mirror)**——你落笔批注的那一刻,原文被复制进 vault 成为镜像。镜像被 git 版本化,是批注的稳定宿主;伴生笔记 `.note.md` 挂在镜像旁。note.md 负责让镜像与原文保持一致。
+
+**批注附着于内容的稳定副本,而不是原文那条易变的路径。**
+
+---
+
+## 为什么这样更好
+
+1. **路径会变,宿主不变**
+   换设备、移动原文、别的工具改了目录——这些都动摇不了你的批注。批注挂在 vault 内的镜像上,镜像随 vault 走 git,走到哪都在。
+
+2. **原文保持纯净**
+   note.md 不往原文旁写任何东西。原文可以被任意工具、任意 agent 重新生成、覆盖、删除;你的判断已经安全地落在 vault 里,不受牵连。
+
+3. **跨设备不丢宿主**
+   镜像与源的映射(哪台设备、原始路径、最后同步时间、校验和)记录在 `{vault}/.notemd/mirrors/`,跟随 vault 经 git 同步,而不是躺在某一台机器的本地缓存里。换机器打开,笔记依然找得到它的宿主。
+
+4. **在 vault 里打开,回到源去编辑**
+   镜像是宿主,不是让你误改的替身。当你在 vault 里打开一个镜像,note.md 会带你回到本机的源文件去编辑;源不在(换了设备/被移动删除)时,就地编辑镜像并提示你重新关联源。
+
+5. **仍然 file-over-app**
+   镜像是纯 `.md`,批注是纯 `.note.md`,映射是 `.notemd/mirrors/` 下人类可读的 JSON。没有黑盒数据库——Obsidian、CLI、任何 agent 都能直接解析。你确认过、批注过的东西,永远拿得走。
+
+---
+
+## 可外宣的凝练版
+
+> **Read anywhere. Your marks stay home.**
+> 你在任何地方读,批注永远回家。note.md 在你落笔的一刻把原文镜像进 vault,给你的批注一个稳定、可同步、git 版本化的宿主——原文留在原地,笔记永不丢失它的宿主。
+
+---
+
+设计细节见 `docs/superpowers/specs/2026-07-16-mirror-hosted-marks-design.md`。
