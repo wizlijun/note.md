@@ -878,6 +878,7 @@ pub fn run() {
                 sotvault::notemd_mirror_metas,
                 sotvault::notemd_migrate_mirror_meta,
                 sotvault::notemd_relink_mirror_source,
+                sotvault::notemd_mirror_note_siblings,
                 sotvault::sotvault_records,
                 sotvault::sotvault_forget,
                 sotvault::sotvault_sync_to_vault,

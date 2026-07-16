@@ -397,6 +397,56 @@ pub fn notemd_relink_mirror_source(
     Ok(rec)
 }
 
+/// A sibling mirror's companion note the UI can open.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NoteSibling {
+    /// Absolute path to the sibling mirror's `.note.md`.
+    pub note_path: String,
+    /// The device that created that sibling mirror (display label).
+    pub device_name: String,
+}
+
+/// For the given open document (a mirror OR its source), find sibling mirrors on
+/// other devices (same content = same checksum, different mirror file) and return
+/// those that actually have a companion note, so the UI can offer to open them.
+#[tauri::command]
+pub fn notemd_mirror_note_siblings(app: AppHandle, doc_path: String) -> Result<Vec<NoteSibling>, String> {
+    let vault_root = resolve_vault_root(&app).ok_or("Vault not configured")?;
+    let metas = mirror_meta::read_all(&vault_root);
+    let store = load_store(&app)?;
+
+    // Resolve the open doc to a vault-relative mirror path.
+    let doc = PathBuf::from(&doc_path);
+    let self_rel = mirror_meta::relative_mirror(&vault_root, &doc);
+    let mirror_rel = if metas.iter().any(|m| m.mirror == self_rel) {
+        self_rel // the doc IS a mirror
+    } else if let Some(rec) = store.find_by_source(&doc_path) {
+        mirror_meta::relative_mirror(&vault_root, &PathBuf::from(&rec.vault_path))
+    } else {
+        return Ok(Vec::new()); // not a tracked mirror/source
+    };
+
+    let checksum = match metas.iter().find(|m| m.mirror == mirror_rel) {
+        Some(m) => m.checksum.clone(),
+        None => return Ok(Vec::new()),
+    };
+
+    let mut out = Vec::new();
+    for sib in mirror_meta::sibling_mirrors(&metas, &mirror_rel, &checksum) {
+        let mirror_abs = vault_root.join(&sib.mirror);
+        if let Some(note) = companion_path(&mirror_abs) {
+            if note.is_file() {
+                out.push(NoteSibling {
+                    note_path: note.to_string_lossy().to_string(),
+                    device_name: sib.device_name,
+                });
+            }
+        }
+    }
+    Ok(out)
+}
+
 #[tauri::command]
 pub fn sotvault_records(app: AppHandle) -> Result<Vec<Record>, String> {
     Ok(load_store(&app)?.records)

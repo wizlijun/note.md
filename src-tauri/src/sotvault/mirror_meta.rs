@@ -60,6 +60,20 @@ pub fn write(vault_root: &Path, meta: &MirrorMeta) -> Result<(), String> {
     std::fs::write(path, txt).map_err(|e| e.to_string())
 }
 
+/// Distinct sibling mirrors of `mirror_rel`: metas with the same `checksum` but
+/// a DIFFERENT mirror path (i.e. the same content mirrored as a separate file,
+/// typically on another device). Deduped to one entry per distinct mirror path.
+pub fn sibling_mirrors(metas: &[MirrorMeta], mirror_rel: &str, checksum: &str) -> Vec<MirrorMeta> {
+    let mut seen = std::collections::HashSet::new();
+    let mut out = Vec::new();
+    for m in metas {
+        if m.checksum == checksum && m.mirror != mirror_rel && seen.insert(m.mirror.clone()) {
+            out.push(m.clone());
+        }
+    }
+    out
+}
+
 /// Read every mirror meta in the vault; corrupt/unparseable files are skipped.
 pub fn read_all(vault_root: &Path) -> Vec<MirrorMeta> {
     let dir = meta_dir(vault_root);
@@ -132,6 +146,26 @@ mod tests {
         std::fs::write(meta_dir(dir.path()).join("bad.deadbeef.json"), "{ not json").unwrap();
         write(dir.path(), &meta("sync/a.md", "d", "/s/a.md")).unwrap();
         assert_eq!(read_all(dir.path()).len(), 1);
+    }
+
+    #[test]
+    fn sibling_mirrors_same_checksum_distinct_files() {
+        let metas = vec![
+            meta("sync/a.md", "d1", "/a/x.md"),        // checksum sha256:abc (helper default)
+            meta("sync/b.md", "d2", "/b/x.md"),        // same content, other device/file
+            meta("sync/a.md", "d3", "/c/x.md"),        // same mirror as #1 → not a sibling
+        ];
+        let sibs = sibling_mirrors(&metas, "sync/a.md", "sha256:abc");
+        assert_eq!(sibs.len(), 1);
+        assert_eq!(sibs[0].mirror, "sync/b.md");
+    }
+
+    #[test]
+    fn sibling_mirrors_ignores_other_checksums_and_self() {
+        let mut other = meta("sync/c.md", "d9", "/d/y.md");
+        other.checksum = "sha256:zzz".into();
+        let metas = vec![meta("sync/a.md", "d1", "/a/x.md"), other];
+        assert!(sibling_mirrors(&metas, "sync/a.md", "sha256:abc").is_empty());
     }
 
     #[test]
