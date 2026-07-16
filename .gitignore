@@ -24,3 +24,8 @@ src-tauri/gen/*
 *.block.yaml.broken-*
 *.block.md.tmp
 .dev.vars
+
+# Claude Code local project dir + Python bytecode caches
+.claude/
+__pycache__/
+*.pyc
