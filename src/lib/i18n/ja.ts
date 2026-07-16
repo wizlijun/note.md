@@ -23,7 +23,7 @@ export const ja: Record<keyof Messages, string> = {
   'cli.installPrompt':
     "'notemd' コマンドを PATH にインストールしますか？\n\n" +
     'インストールすると、任意のターミナルやスクリプトから note.md の機能を呼び出せます：\n' +
-    '  • notemd -s draft.md   Share プラグインで公開して URL を表示\n' +
+    '  • notemd share draft.md   Web ページとして公開して URL を表示\n' +
     '  • notemd help          すべてのコマンドを表示\n' +
     '  • notemd plugin list   プラグイン一覧\n\n' +
     "この設定は Help → Install/Uninstall 'notemd' Command からいつでも管理できます。",

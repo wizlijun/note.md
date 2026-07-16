@@ -28,7 +28,7 @@ export const en = {
   'cli.installPrompt':
     "Install the 'notemd' command to your PATH?\n\n" +
     "Once installed you can call note.md's features from any terminal or script:\n" +
-    '  • notemd -s draft.md   Publish via the Share plugin and print the URL\n' +
+    '  • notemd share draft.md   Publish as a web page and print the URL\n' +
     '  • notemd help          Show all commands\n' +
     '  • notemd plugin list   List plugins\n\n' +
     "You can manage this any time from Help → Install/Uninstall 'notemd' Command.",

@@ -21,7 +21,7 @@ export const de: Record<keyof Messages, string> = {
   'cli.installPrompt':
     "Den Befehl 'notemd' zu Ihrem PATH hinzufügen?\n\n" +
     "Nach der Installation können Sie die Funktionen von note.md aus jedem Terminal oder Skript aufrufen:\n" +
-    '  • notemd -s draft.md   Über das Share-Plugin veröffentlichen und URL ausgeben\n' +
+    '  • notemd share draft.md   Als Webseite veröffentlichen und URL ausgeben\n' +
     '  • notemd help          Alle Befehle anzeigen\n' +
     '  • notemd plugin list   Plugins auflisten\n\n' +
     "Sie können dies jederzeit über Hilfe → 'notemd'-Befehl installieren/deinstallieren verwalten.",

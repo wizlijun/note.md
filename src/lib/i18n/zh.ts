@@ -23,7 +23,7 @@ export const zh: Record<keyof Messages, string> = {
   'cli.installPrompt':
     "把 'notemd' 命令安装到 PATH 吗？\n\n" +
     '安装后可以从任何终端或脚本调用 note.md 的功能：\n' +
-    '  • notemd -s draft.md   通过 Share 插件发布并打印 URL\n' +
+    '  • notemd share draft.md   发布为网页并打印 URL\n' +
     '  • notemd help          查看所有命令\n' +
     '  • notemd plugin list   列出插件\n\n' +
     "随时可以从 Help → Install/Uninstall 'notemd' Command 重新管理。",
