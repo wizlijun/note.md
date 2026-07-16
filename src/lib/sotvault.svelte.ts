@@ -3,7 +3,6 @@ import { listen } from '@tauri-apps/api/event'
 import { pushToast } from './toast.svelte'
 import { t } from './i18n/store.svelte'
 import { activeTab, reloadTabFromDisk } from './tabs.svelte'
-import { isPluginActive } from './plugins/registry'
 import { hostname } from '@tauri-apps/plugin-os'
 import { getDeviceId } from './settings.svelte'
 import {
@@ -52,10 +51,8 @@ export async function refreshSotvault(): Promise<void> {
     // reading-insights — rely on it, so always load it; otherwise they wrongly
     // report "no vault configured" whenever sotvault happens to be off.
     const root = await invoke<string | null>('sotvault_vault_root')
-    // Records are sotvault-specific — only meaningful when its plugin is active.
-    const records = isPluginActive('sotvault')
-      ? await invoke<SotRecord[]>('sotvault_records')
-      : []
+    // Core-ized: always load records (sotvault is always active).
+    const records = await invoke<SotRecord[]>('sotvault_records')
     // Git-synced mirror metas make cross-device mirrors recognizable even on a
     // device that never synced them. Best-effort: empty when unavailable.
     const mirrorMetas = root
@@ -211,7 +208,6 @@ interface UpdateCheck {
 }
 
 export async function maybeCheckVaultUpdate(tab: { filePath: string }): Promise<void> {
-  if (!isPluginActive('sotvault')) return
   if (!tab.filePath) return
 
   let res: UpdateCheck
@@ -267,7 +263,6 @@ export async function maybeCheckVaultUpdate(tab: { filePath: string }): Promise<
  *  不依赖前端 records 是否已 refresh——避免"首存紧跟 note-sync 时 records 未就绪→漏推"。
  *  走 apply_update(非 sync_to_vault,后者会 dedup 出第二份副本)。 */
 export async function pushSourceToVaultIfTracked(srcPath: string): Promise<void> {
-  if (!isPluginActive('sotvault')) return
   let res: UpdateCheck
   try {
     res = await invoke<UpdateCheck>('sotvault_check_update', { openedPath: srcPath })

@@ -1,5 +1,4 @@
 import { Store } from '@tauri-apps/plugin-store'
-import { isPluginEnabled } from '../settings.svelte'
 import { DEFAULT_SHORTCUTS, normalizeShortcut, type OutlineCommandId } from './shortcuts'
 import { companionPathFor, OUTLINE_SUFFIX_RE } from './store.svelte'
 import { platform } from '../platform.svelte'
@@ -25,7 +24,8 @@ async function getStore() {
 
 /** Call after settings hydration (same timing as loadFolderViewState). */
 export async function loadOutlineGate(): Promise<void> {
-  outlineGate.enabled = isPluginEnabled(PLUGIN_ID)
+  // Core-ized: always enabled; no plugin gate.
+  outlineGate.enabled = true
   const s = await getStore()
   outlineGate.visible = (await s.get<boolean>('outline.visible')) ?? false
   outlineGate.width = (await s.get<number>('outline.width')) ?? DEFAULT_WIDTH
@@ -73,8 +73,8 @@ export function outlineAppliesTo(tab: { kind: string; filePath: string }): boole
 let isIos = false
 void platform().then((p) => { isIos = p === 'ios' }).catch(() => {})
 
-/** 全屏大纲 tab gate:插件启用 + 桌面端 + .note.md/.notes.md 后缀(spec §3)。
- *  outlineGate.enabled 是 $state,在组件 $derived 中调用可随插件开关即时切换。 */
+/** 全屏大纲 tab gate:桌面端 + .note.md/.notes.md 后缀(spec §3)。
+ *  outlineGate.enabled 是 $state(core-ized 后恒为 true),在组件 $derived 中调用。 */
 export function isOutlineNoteTab(tab: { kind: string; filePath: string }): boolean {
   return !isIos && outlineGate.enabled && tab.kind === 'markdown' && OUTLINE_SUFFIX_RE.test(tab.filePath)
 }

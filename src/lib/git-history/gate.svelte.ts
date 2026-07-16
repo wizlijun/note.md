@@ -1,5 +1,4 @@
 import { Store } from '@tauri-apps/plugin-store'
-import { isPluginEnabled } from '../settings.svelte'
 
 export { historyAppliesTo, formatDateTime } from './applies'
 
@@ -22,7 +21,8 @@ async function getStore() {
 
 /** Call after settings hydration (same timing as loadOutlineGate). */
 export async function loadHistoryGate(): Promise<void> {
-  historyGate.enabled = isPluginEnabled(PLUGIN_ID)
+  // Core-ized: always enabled; no plugin gate.
+  historyGate.enabled = true
   const s = await getStore()
   historyGate.visible = (await s.get<boolean>('history.visible')) ?? false
   historyGate.width = (await s.get<number>('history.width')) ?? DEFAULT_WIDTH

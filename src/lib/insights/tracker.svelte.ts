@@ -4,13 +4,12 @@ import { hostname } from '@tauri-apps/plugin-os'
 import type { MorayaEditorInstance } from '@moraya/core'
 import { activeTab } from '../tabs.svelte'
 import { sotvaultStore } from '../sotvault.svelte'
-import { getDeviceId, isPluginEnabled } from '../settings.svelte'
+import { getDeviceId } from '../settings.svelte'
 import { createAnalyticsStore, type AnalyticsStore, type Fs } from './store.svelte'
 import { initTiming, applyEvent, type TimingState, type TimingEvent, type TimingMode } from './timing'
 import { docKeyFor, localTzOffsetMinutes } from './model'
 import { analyticsObserverPlugin } from './observer'
 
-const PLUGIN_ID = 'reading-insights'
 const TICK_MS = 5_000
 const FLUSH_EVERY_TICKS = 6 // ~30s
 
@@ -91,7 +90,8 @@ export function analyticsPluginForEditor() {
 }
 
 export async function installTracker(): Promise<() => void> {
-  if (!isPluginEnabled(PLUGIN_ID) || sotvaultStore.vaultRoot === null) {
+  // Core-ized: vault gate remains; plugin gate removed.
+  if (sotvaultStore.vaultRoot === null) {
     return () => {}
   }
   const deviceId = getDeviceId()
@@ -181,7 +181,8 @@ export async function maybeInstallTracker(
   install: () => Promise<() => void | Promise<void>> = installTracker,
 ): Promise<void> {
   const root = sotvaultStore.vaultRoot
-  if (!isPluginEnabled(PLUGIN_ID) || root === null) return
+  // Core-ized: vault gate remains; plugin gate removed.
+  if (root === null) return
   if (installed && installed.root === root) return
   if (installed) {
     const prev = installed

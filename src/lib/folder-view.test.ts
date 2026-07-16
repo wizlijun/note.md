@@ -31,11 +31,6 @@ const storeSave = vi.fn()
 vi.mock('@tauri-apps/plugin-store', () => ({
   Store: { load: vi.fn(async () => ({ get: storeGet, set: storeSet, save: storeSave })) },
 }))
-const isPluginEnabledMock = vi.fn((..._args: unknown[]) => true)
-vi.mock('./settings.svelte', () => ({
-  isPluginEnabled: (...args: unknown[]) => isPluginEnabledMock(...args),
-}))
-
 import {
   folderView,
   readFolder,
@@ -47,7 +42,6 @@ import {
   setSort,
   setViewMode,
   setHideFolders,
-  PLUGIN_ID,
 } from './folder-view.svelte'
 
 beforeEach(() => {
@@ -57,7 +51,6 @@ beforeEach(() => {
   readTextFileMock.mockReset(); readTextFileMock.mockResolvedValue('')
   writeTextFileMock.mockReset(); removeMock.mockReset()
   storeGet.mockReset(); storeSet.mockReset(); storeSave.mockReset()
-  isPluginEnabledMock.mockReset(); isPluginEnabledMock.mockReturnValue(true)
   folderView.enabled = true
   folderView.visible = false
   folderView.width = 240
@@ -186,12 +179,11 @@ describe('persistence', () => {
     expect(folderView.visible).toBe(true)
     expect(folderView.width).toBe(300)
   })
-  it('hydrates enabled from isPluginEnabled(folder-view)', async () => {
+  it('loadFolderViewState always sets enabled = true (core-ized)', async () => {
     storeGet.mockResolvedValue(undefined)
-    isPluginEnabledMock.mockReturnValue(false)
+    folderView.enabled = false
     await loadFolderViewState()
-    expect(isPluginEnabledMock).toHaveBeenCalledWith(PLUGIN_ID)
-    expect(folderView.enabled).toBe(false)
+    expect(folderView.enabled).toBe(true)
   })
   it('setVisible writes through to the store', async () => {
     await setVisible(true)
