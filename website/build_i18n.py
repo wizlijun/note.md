@@ -38,16 +38,17 @@ STRINGS = [('<title>note.md — The markdown editor for humans and agents</title
   '<span class="kicker">为无限文本的时代而造</span>',
   '<span class="kicker">Gebaut für das Zeitalter des unendlichen Texts</span>',
   '<span class="kicker">無限のテキストの時代のために</span>'),
- ('<h1>Read what AI writes.<br>Keep what <em>you</em> think.<span class="cursor"></span></h1>',
-  '<h1>读 AI 写的。<br>留下<em>你</em>想的。<span class="cursor"></span></h1>',
-  '<h1>Lies, was die KI schreibt.<br>Behalte, was <em>du</em> denkst.<span class="cursor"></span></h1>',
-  '<h1>読むのは AI の文章。<br>残すのは<em>あなた</em>の考え。<span class="cursor"></span></h1>'),
- ("Your agents now write more than you ever will. The bottleneck isn't writing anymore — <i>it's reading, judging, "
-  'keeping.</i> note.md is where that happens. Plain files. No lock-in. Yours.',
-  '你的 agent 写得比你一辈子都多。瓶颈不再是写作——<i>而是阅读、判断、留存。</i>note.md 就是干这个的。纯文件，无锁定，属于你。',
-  'Deine Agents schreiben längst mehr, als du je wirst. Der Engpass ist nicht mehr das Schreiben — <i>sondern Lesen, '
-  'Urteilen, Behalten.</i> Genau dafür ist note.md. Einfache Dateien. Kein Lock-in. Deins.',
-  'エージェントはもう、あなたが一生で書く量より多くを書いている。ボトルネックは「書くこと」ではない——<i>読むこと、判断すること、残すこと。</i>そのための note.md。プレーンなファイル。ロックインなし。あなたのもの。'),
+ ('<h1>Read what AI writes.<br>Keep what you think.<br>Keep what only <em>you</em> can write.<span class="cursor"></span></h1>',
+  '<h1>读 AI 写的。<br>留下你想的。<br>留下只有<em>你</em>写得出的。<span class="cursor"></span></h1>',
+  '<h1>Lies, was die KI schreibt.<br>Behalte, was du denkst.<br>Behalte, was nur <em>du</em> schreiben kannst.<span class="cursor"></span></h1>',
+  '<h1>読むのは AI の文章。<br>残すのはあなたの考え。<br>残すのは、<em>あなた</em>にしか書けないもの。<span class="cursor"></span></h1>'),
+ ("Your agents write more in a night than you will all year. The bottleneck isn't writing — <i>it's reading, judging, "
+  'and keeping the few lines only you could have written.</i> note.md is where that happens. Plain files. No lock-in. Yours.',
+  '你的 agent 一晚写的，比你一年还多。瓶颈不再是写作——<i>而是阅读、判断，以及留下那几行只有你写得出的话。</i>note.md 就是干这个的。纯文件，无锁定，属于你。',
+  'Deine Agents schreiben in einer Nacht mehr, als du in einem Jahr. Der Engpass ist nicht das Schreiben — <i>sondern '
+  'Lesen, Urteilen und die paar Zeilen zu behalten, die nur du schreiben konntest.</i> Genau dafür ist note.md. '
+  'Einfache Dateien. Kein Lock-in. Deins.',
+  'エージェントが一晩で書く量は、あなたが一年で書く量より多い。ボトルネックは「書くこと」ではない——<i>読むこと、判断すること、そしてあなたにしか書けなかった数行を残すこと。</i>そのための note.md。プレーンなファイル。ロックインなし。あなたのもの。'),
  ('<span class="bl">Download for macOS</span>',
   '<span class="bl">下载 macOS 版</span>',
   '<span class="bl">Für macOS laden</span>',
@@ -73,10 +74,12 @@ STRINGS = [('<title>note.md — The markdown editor for humans and agents</title
   'Ein Reader, ein Outliner und ein Platz für deine Randnotizen — auf einfachen Dateien, ohne dir im Weg zu stehen.',
   'リーダー、アウトライナー、そして書き込みの置き場所——プレーンなファイルの上で、邪魔にならない。'),
  ('<h3>Read like it matters</h3>', '<h3>认真地读</h3>', '<h3>Lesen, als ob es zählt</h3>', '<h3>読むに値する読み方</h3>'),
- ("Your agent wrote 4,000 words overnight. Open them clean, mark what's true, question the rest.",
-  '你睡觉时 agent 写了四千字。干净地打开，标出真的，质疑其余。',
-  'Dein Agent hat über Nacht 4.000 Wörter geschrieben. Öffne sie sauber, markiere, was stimmt, hinterfrage den Rest.',
-  '眠っている間にエージェントが四千語を書いた。クリーンに開き、正しいものに印を、残りに問いを。'),
+ ("The agent's still running. Don't reach for your phone — what it wrote is only worth as much as you are awake to "
+  'judge it.',
+  'agent 还在跑。别去摸手机——它写的东西，值多少全看你读它时有多清醒。',
+  'Der Agent läuft noch. Greif nicht zum Handy — was er schrieb, ist nur so viel wert, wie du wach genug bist, es zu '
+  'beurteilen.',
+  'エージェントはまだ動いている。スマホに手を伸ばすな——書かれたものの価値は、あなたが判断するときにどれだけ冴えているかで決まる。'),
  ('<h3>Marginalia is data</h3>', '<h3>批注即数据</h3>', '<h3>Randnotizen sind Daten</h3>', '<h3>余白のメモはデータだ</h3>'),
  ('Your marks live in a partner file — <span class="mono-s">file.note.md</span>. The AI\'s text stays clean; your '
   'judgment stays yours.',
@@ -85,18 +88,19 @@ STRINGS = [('<title>note.md — The markdown editor for humans and agents</title
   'sauber; dein Urteil bleibt deins.',
   '印は相棒のサイドカーファイル <span class="mono-s">file.note.md</span> に入る。AI のテキストはクリーンなまま、あなたの判断はあなたのもの。'),
  ('<h3>Think in outlines</h3>', '<h3>用大纲思考</h3>', '<h3>In Outlines denken</h3>', '<h3>アウトラインで考える</h3>'),
- ('Daily notes, <span class="mono-s">[[links]]</span> between pages, search that answers as you type. Ideas connect '
-  'themselves.',
-  '每日笔记随手记，<span class="mono-s">[[链接]]</span> 连接页面，搜索边打边答。想法自己会串起来。',
-  'Tagesnotizen, <span class="mono-s">[[Links]]</span> zwischen Seiten, Suche, die schon beim Tippen antwortet. Ideen '
-  'verbinden sich von selbst.',
-  'デイリーノート、ページをつなぐ <span class="mono-s">[[リンク]]</span>、打ちながら答える検索。アイデアは勝手につながる。'),
+ ('Daily notes, <span class="mono-s">[[links]]</span> you draw by hand, search that answers as you type. The graph '
+  'grows only where you confirm it — never filled with agent slop.',
+  '每日笔记随手记，<span class="mono-s">[[链接]]</span> 由你亲手连，搜索边打边答。图谱只在你确认处生长——绝不被 agent 的洪水灌满。',
+  'Tagesnotizen, <span class="mono-s">[[Links]]</span>, die du selbst ziehst, Suche, die schon beim Tippen antwortet. '
+  'Der Graph wächst nur dort, wo du es bestätigst — nie mit Agent-Slop geflutet.',
+  'デイリーノート、あなたが自分で引く <span class="mono-s">[[リンク]]</span>、打ちながら答える検索。グラフはあなたが確認した場所にだけ育つ——エージェントの洪水で埋まることはない。'),
  ("<h3>It's just files</h3>", '<h3>就是文件而已</h3>', '<h3>Es sind nur Dateien</h3>', '<h3>ただのファイル</h3>'),
- ('No database. No cloud. A folder of markdown that outlives every app on your dock — including this one.',
-  '没有数据库，没有云端。一个 markdown 文件夹，比你 Dock 上的每个应用都活得久——包括这一个。',
-  'Keine Datenbank. Keine Cloud. Ein Ordner voller Markdown, der jede App in deinem Dock überlebt — diese hier '
-  'eingeschlossen.',
-  'データベースなし。クラウドなし。Dock のどのアプリより長生きする markdown のフォルダ——このアプリも含めて。'),
+ ('No database. No cloud. No walled garden. A folder of markdown that outlives every app on your dock — including this '
+  'one.',
+  '没有数据库，没有云端，没有围墙花园。一个 markdown 文件夹，比你 Dock 上的每个应用都活得久——包括这一个。',
+  'Keine Datenbank. Keine Cloud. Kein Walled Garden. Ein Ordner voller Markdown, der jede App in deinem Dock überlebt '
+  '— diese hier eingeschlossen.',
+  'データベースなし。クラウドなし。壁に囲われた庭もなし。Dock のどのアプリより長生きする markdown のフォルダ——このアプリも含めて。'),
  ('<div class="sec-k">The trick</div>',
   '<div class="sec-k">戏法</div>',
   '<div class="sec-k">Der Trick</div>',
@@ -157,11 +161,12 @@ STRINGS = [('<title>note.md — The markdown editor for humans and agents</title
   '<h3>写 → 读 → 学</h3>',
   '<h3>Schreiben → Lesen → Lernen</h3>',
   '<h3>書く → 読む → 学ぶ</h3>'),
- ('Agents write. You mark what matters. They read your marks and write better — the whole loop runs on your disk.',
-  'agent 写，你标出重要的，它读你的标记然后写得更好——整个循环都跑在你的磁盘上。',
-  'Agents schreiben. Du markierst, was zählt. Sie lesen deine Markierungen und schreiben besser — die ganze Schleife '
-  'läuft auf deiner Platte.',
-  'エージェントが書く。あなたが大事な箇所に印をつける。エージェントが印を読み、もっとうまく書く——ループ全体があなたのディスクの上で回る。'),
+ ('Agents write and can suggest links. You mark what matters and confirm what connects. They read your marks and '
+  'write better — the whole loop runs on your disk.',
+  'agent 写，还能提议链接。你标出重要的、确认哪些该连起来。它读你的标记然后写得更好——整个循环都跑在你的磁盘上。',
+  'Agents schreiben und können Links vorschlagen. Du markierst, was zählt, und bestätigst, was sich verbindet. Sie '
+  'lesen deine Markierungen und schreiben besser — die ganze Schleife läuft auf deiner Platte.',
+  'エージェントが書き、リンクを提案もする。あなたが大事な箇所に印をつけ、つながるものを確認する。エージェントが印を読み、もっとうまく書く——ループ全体があなたのディスクの上で回る。'),
  ('<span class="star">✦</span> what AI writes',
   '<span class="star">✦</span> AI 写的',
   '<span class="star">✦</span> was die KI schreibt',
@@ -179,10 +184,10 @@ STRINGS = [('<title>note.md — The markdown editor for humans and agents</title
   'macOS 13 或更高 · Apple Silicon 与 <a href="/download?arch=x86_64">Intel</a> · 从 GitHub Releases 获取',
   'macOS 13 oder neuer · Apple Silicon &amp; <a href="/download?arch=x86_64">Intel</a> · von GitHub Releases',
   'macOS 13 以降 · Apple Silicon &amp; <a href="/download?arch=x86_64">Intel</a> · GitHub Releases から'),
- ('Text is forever. So is what you thought about it.',
-  '文字永存。你对它的看法也是。',
-  'Text ist für immer. Was du darüber dachtest, auch.',
-  'テキストは永遠に残る。あなたがそれについて考えたことも。'),
+ ("Text is cheap now. What you thought about it isn't.",
+  '文字如今很廉价。你对它的看法不是。',
+  'Text ist jetzt billig. Was du darüber dachtest, nicht.',
+  'テキストはもう安い。あなたがそれについて考えたことは、そうではない。'),
  ('<b>Compare</b>', '<b>对比</b>', '<b>Vergleich</b>', '<b>比較</b>'),
  ('<b>Integrations</b>', '<b>集成</b>', '<b>Integrationen</b>', '<b>連携</b>'),
  ('<b>Guides</b>', '<b>指南</b>', '<b>Anleitungen</b>', '<b>ガイド</b>'),
