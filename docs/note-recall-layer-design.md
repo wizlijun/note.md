@@ -1,8 +1,8 @@
 # 笔记召回层 设计方案
 
-> 类型：设计规格（Design Spec，候选定稿）
-> 日期：2026-07-13
-> 上游：`docs/note-recall-layer-discussion.md`（方案讨论）
+> 类型：设计规格（Design Spec，候选定稿）  
+> 日期：2026-07-13  
+> 上游：`docs/note-recall-layer-discussion.md`（方案讨论）  
 > 一句话：在 note.md 层次大纲之上，建一个**只读、可再生、位置无关**的召回层——按 `[[wikilink]]` 归堆成主题反链、按日期节点排成时间线，全部从纯文件派生，不污染文件。
 
 ---
@@ -14,7 +14,7 @@
 ### 1.1 五个支柱
 
 | 支柱 | 代表 | 核心主张 | 我们取什么 | 我们舍什么 |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | **File over app** | Steph Ango（Obsidian） | 文件比应用长寿；要长久，就用你能掌控的、易读易取的文件格式。这也是对工具制造者的道德要求 | 全盘接受，作为最高约束：召回层产出的一切都是派生物，文件是唯一真相 | 无（这是我们的地基） |
 | **Local-first** | Ink & Switch（Kleppmann 等） | 本地副本为主副本；所有权、长寿(百年后仍可读)、离线、隐私七理想 | 所有权 + 长寿：索引是本地可弃缓存，删了能从文件重建；离线可用 | CRDT/实时协同不是本期目标；不引入服务端权威 |
 | **Outliner 三巨头** | Roam / Logseq / Tana | 万物皆 block、块级双链、daily notes 入口；结构随链接涌现 | 数据模型：层次=block、行=定位、缩进=父子；daily notes 作为时间线入口 | Roam 的**云端专有存储**；"涌现价值全靠人工手动链接"的**纪律成本** |
@@ -108,7 +108,7 @@ digraph recall {
 ```
 
 | 视图 | 定义 | 呈现 |
-|---|---|---|
+| --- | --- | --- |
 | **① 主题反链** | 页面 X 的所有归属节点 | 按时间排；每条带**面包屑(祖先链)** + 可展开子树；来源文件可跳转 |
 | **② 时间线** | 所有带时间的节点合流，倒序 | = 一个虚拟的、聚合的 daily note；向下滚动重现历史 |
 | **③ 查询** | `link ∧ 时间范围 ∧ 全文` 组合 | 如"近 30 天所有 `[[项目X]]`" |
@@ -171,7 +171,7 @@ digraph recall {
 ## 第四部分 · 演进路径（按价值/风险排序）
 
 | 阶段 | 交付 | 特点 | 依赖 |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | **P1** | 索引 + **主题反链视图** | 纯只读、零文件改动、价值最高、风险最低 | wikilink 解析(已有) |
 | **P2** | **时间线视图** + 日期节点约定 + "记一条"入口 | 恢复 daily-note 滚动重现 | 时间模型 §3.3 |
 | **P3** | **查询视图**（link+时间+全文） | 定向召回 | P1+P2 索引 |
@@ -186,7 +186,7 @@ digraph recall {
 已落地（P1a 落位 + P1b 继承内核）：
 
 | 文件 | 内容 | 验证 |
-|---|---|---|
+| --- | --- | --- |
 | `src/lib/outline/recall.ts` | `recallNodes(tree,page)` 纯函数：承载节点去重（只留最顶层）+ 面包屑（祖先链）+ 子树折叠；复用 `parseOutline`。IO 聚合器 `recallForPage(idx,page)` 跨文件读取→解析→召回 | TDD 7 测试 ✅ |
 | `src/components/outline/BacklinksInline.svelte` | 内联反链区：面包屑 + 承载行 + 可展开子树；`$effect` 随 `outline.version`/页名异步重算（只读 store、只写本地 state，无自失效） | 手动/GUI 待验 |
 | `src/components/RichEditor.svelte` | 新增 `.scroll` 滚动外层包住 `.host` + `BacklinksInline`，使反链**随正文内联滚动**（仅 rich 模式；水平内边距移到 `.scroll` 保证对齐）；`backlinkPage` 派生（受 `outlineGate.enabled` 总开关 + 非 code + 有 filePath 三重 gate）；`$effect` 触发 `ensureIndex`（`untrack` 包裹） | 布局改动，**GUI 待验** |
