@@ -46,10 +46,9 @@ export async function initSotvaultNoteConflictToast(): Promise<void> {
 
 export async function refreshSotvault(): Promise<void> {
   try {
-    // The vault root is a GLOBAL setting (VaultSyncManager.repo_path), independent
-    // of whether the sotvault *plugin* is enabled. Other features — notably
-    // reading-insights — rely on it, so always load it; otherwise they wrongly
-    // report "no vault configured" whenever sotvault happens to be off.
+    // The vault root is a GLOBAL setting (VaultSyncManager.repo_path). sotvault
+    // is core-ized and always active, so this is always loaded. Other features —
+    // notably reading-insights — rely on it to know whether a vault is configured.
     const root = await invoke<string | null>('sotvault_vault_root')
     // Core-ized: always load records (sotvault is always active).
     const records = await invoke<SotRecord[]>('sotvault_records')

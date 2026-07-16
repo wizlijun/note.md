@@ -412,9 +412,7 @@
         {#if isPluginActive('openclaw-chat')}
           <button class:active={selectedTab === 'openclaw'} onclick={() => selectedTab = 'openclaw'}>{t('settings.tab.openclaw')}</button>
         {/if}
-        {#if isPluginActive('outline-notes')}
-          <button class:active={selectedTab === 'outline-notes'} onclick={() => selectedTab = 'outline-notes'}>{t('settings.tab.outline')}</button>
-        {/if}
+        <button class:active={selectedTab === 'outline-notes'} onclick={() => selectedTab = 'outline-notes'}>{t('settings.tab.outline')}</button>
         {#each pluginTabs as ptab (ptab.pluginId)}
           <button class:active={selectedTab === ptab.pluginId} onclick={() => selectedTab = ptab.pluginId}>{pluginTabLabel(ptab.manifest, ptab.label)}</button>
         {/each}
@@ -713,7 +711,7 @@
       {:else if selectedTab === 'openclaw' && isPluginActive('openclaw-chat')}
         <OpenClawSettingsTab />
         <OpenClawDevicesTab />
-      {:else if selectedTab === 'outline-notes' && isPluginActive('outline-notes')}
+      {:else if selectedTab === 'outline-notes'}
         <section class="block">
           <h3>{t('outline.shortcutsTitle')}</h3>
           {#each Object.keys(DEFAULT_SHORTCUTS) as id (id)}

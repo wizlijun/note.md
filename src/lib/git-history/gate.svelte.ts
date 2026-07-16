@@ -2,7 +2,6 @@ import { Store } from '@tauri-apps/plugin-store'
 
 export { historyAppliesTo, formatDateTime } from './applies'
 
-export const PLUGIN_ID = 'git-history'
 export const DEFAULT_WIDTH = 360
 export const MIN_WIDTH = 240
 export const MAX_WIDTH = 640

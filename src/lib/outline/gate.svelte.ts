@@ -3,7 +3,6 @@ import { DEFAULT_SHORTCUTS, normalizeShortcut, type OutlineCommandId } from './s
 import { companionPathFor, OUTLINE_SUFFIX_RE } from './store.svelte'
 import { platform } from '../platform.svelte'
 
-export const PLUGIN_ID = 'outline-notes'
 export const DEFAULT_WIDTH = 360
 export const MIN_WIDTH = 240
 export const MAX_WIDTH = 640

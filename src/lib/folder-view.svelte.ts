@@ -6,9 +6,6 @@ import { classifyPath, joinPath, type FileKind } from './fs'
 import { companionPathFor } from './outline/store.svelte'
 import type { SotRecord } from './sotvault-logic'
 
-/** Plugin id under which Folder View is enabled/disabled in `plugins.enabled`. */
-export const PLUGIN_ID = 'folder-view'
-
 export interface FolderEntry {
   name: string
   path: string

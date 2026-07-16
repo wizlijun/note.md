@@ -8,7 +8,6 @@ const reloadTabFromDisk = vi.fn()
 vi.mock('@tauri-apps/api/core', () => ({ invoke: (...a: unknown[]) => invoke(...a) }))
 vi.mock('@tauri-apps/plugin-dialog', () => ({ ask: (...a: unknown[]) => ask(...a) }))
 vi.mock('./toast.svelte', () => ({ pushToast: (...a: unknown[]) => pushToast(...a) }))
-vi.mock('./plugins/registry', () => ({ isPluginActive: () => true }))
 vi.mock('./tabs.svelte', () => ({
   activeTab: () => ({ filePath: '/src/a.md' }),
   reloadTabFromDisk: (...a: unknown[]) => reloadTabFromDisk(...a),
