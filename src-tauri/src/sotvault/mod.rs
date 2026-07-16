@@ -310,6 +310,49 @@ pub fn notemd_vault_settings_set(
     Ok(merged)
 }
 
+/// All git-synced mirror metas in the current vault (across every device).
+#[tauri::command]
+pub fn notemd_mirror_metas(app: AppHandle) -> Result<Vec<mirror_meta::MirrorMeta>, String> {
+    let vault_root = resolve_vault_root(&app).ok_or("Vault not configured")?;
+    Ok(mirror_meta::read_all(&vault_root))
+}
+
+/// One-time backfill: mirror the app-support `Record`s of THIS device into the
+/// git-synced `.notemd/mirrors/` store, stamping the caller's device id/name.
+/// Idempotent: skips a record whose per-device meta file already exists.
+#[tauri::command]
+pub fn notemd_migrate_mirror_meta(
+    app: AppHandle,
+    device_id: String,
+    device_name: String,
+) -> Result<usize, String> {
+    let vault_root = resolve_vault_root(&app).ok_or("Vault not configured")?;
+    let store = load_store(&app)?;
+    let mut written = 0usize;
+    for rec in &store.records {
+        let vault_path = PathBuf::from(&rec.vault_path);
+        if vault_path.strip_prefix(&vault_root).is_err() {
+            continue; // record belongs to a different vault
+        }
+        let mirror_rel = mirror_meta::relative_mirror(&vault_root, &vault_path);
+        if mirror_meta::meta_path(&vault_root, &mirror_rel, &device_id).exists() {
+            continue; // already migrated
+        }
+        let meta = mirror_meta::MirrorMeta {
+            mirror: mirror_rel,
+            device_id: device_id.clone(),
+            device_name: device_name.clone(),
+            source: rec.source_path.clone(),
+            synced_at: rec.synced_at,
+            checksum: format!("sha256:{}", rec.vault_hash),
+        };
+        if mirror_meta::write(&vault_root, &meta).is_ok() {
+            written += 1;
+        }
+    }
+    Ok(written)
+}
+
 #[tauri::command]
 pub fn sotvault_records(app: AppHandle) -> Result<Vec<Record>, String> {
     Ok(load_store(&app)?.records)

@@ -875,6 +875,8 @@ pub fn run() {
                 sotvault::sotvault_vault_debug,
                 sotvault::notemd_vault_settings_get,
                 sotvault::notemd_vault_settings_set,
+                sotvault::notemd_mirror_metas,
+                sotvault::notemd_migrate_mirror_meta,
                 sotvault::sotvault_records,
                 sotvault::sotvault_forget,
                 sotvault::sotvault_sync_to_vault,
