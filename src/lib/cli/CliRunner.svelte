@@ -293,13 +293,11 @@
 
       const systemDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false
       const themeId = computeActiveThemeId(settings.theme, systemDark)
+      // bakeShareHtml throws ShareError('too_large') itself when input/output
+      // exceeds 25 MB — the outer catch maps it to exit 4 / code 'too_large'.
       const html = await bakeShareHtml(tab, themeId)
       if (!html) {
         await failShare('empty_content', 'empty_content')
-        return
-      }
-      if (new TextEncoder().encode(html).byteLength > 25 * 1024 * 1024) {
-        await failShare('too_large', 'too_large')
         return
       }
 

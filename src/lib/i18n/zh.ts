@@ -35,8 +35,6 @@ export const zh: Record<keyof Messages, string> = {
   'cli.notInstalled': "'notemd' 未安装",
 
   // Share
-  'share.docTooLarge': '❌ {name}：文档过大（{mb} MB / 上限 25 MB）',
-  'share.internalError': '❌ {name}：内部错误',
   'share.errPrefix': '❌ Share：{msg}',
   'share.actionFailed': '❌ Share：{action}失败',
   'share.action.share': '分享',

@@ -33,8 +33,6 @@ export const de: Record<keyof Messages, string> = {
   'cli.notInstalled': "'notemd' ist nicht installiert",
 
   // Share
-  'share.docTooLarge': '❌ {name}: Dokument zu groß ({mb} MB / Limit 25 MB)',
-  'share.internalError': '❌ {name}: Interner Fehler',
   'share.errPrefix': '❌ Teilen: {msg}',
   'share.actionFailed': '❌ Teilen: {action} fehlgeschlagen',
   'share.action.share': 'teilen',

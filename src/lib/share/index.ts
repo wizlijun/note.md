@@ -113,10 +113,10 @@ export async function sharePublishCurrent(): Promise<void> {
       throw e
     }
 
+    // bakeShareHtml throws ShareError('too_large') itself when input/output
+    // exceeds 25 MB — the catch below localizes it.
     const html = await bakeShareHtml(tab)
     if (!html) return reportError(new ShareError('empty_content'), t('share.action.share'))
-    if (new TextEncoder().encode(html).byteLength > 25 * 1024 * 1024)
-      return reportError(new ShareError('too_large'), t('share.action.share'))
 
     const { url, isUpdate } = await publishHtml({
       path: tab.filePath, filename: tab.title, html,

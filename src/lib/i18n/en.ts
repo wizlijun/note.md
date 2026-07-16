@@ -40,8 +40,6 @@ export const en = {
   'cli.notInstalled': "'notemd' is not installed",
 
   // Share
-  'share.docTooLarge': '❌ {name}: document too large ({mb} MB / 25 MB limit)',
-  'share.internalError': '❌ {name}: internal error',
   'share.errPrefix': '❌ Share: {msg}',
   'share.actionFailed': '❌ Share: failed to {action}',
   'share.action.share': 'share',

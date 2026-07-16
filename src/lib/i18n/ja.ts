@@ -35,8 +35,6 @@ export const ja: Record<keyof Messages, string> = {
   'cli.notInstalled': "'notemd' はインストールされていません",
 
   // Share
-  'share.docTooLarge': '❌ {name}：ドキュメントが大きすぎます（{mb} MB / 上限 25 MB）',
-  'share.internalError': '❌ {name}：内部エラー',
   'share.errPrefix': '❌ Share：{msg}',
   'share.actionFailed': '❌ Share：{action}に失敗しました',
   'share.action.share': '共有',

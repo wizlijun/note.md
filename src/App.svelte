@@ -391,31 +391,21 @@
             htmlBaker: async (snapshot) => {
               const t = tabs.find((tab) => tab.filePath === snapshot.path)
               if (!t) throw new Error('renderer.html: no matching open tab')
-              // Image tabs don't get rendered to HTML — the share plugin's Rust
-              // side branches on file extension and uploads bytes directly.
+              // Image tabs have no HTML body to render (defensive — no surviving
+              // renderer.html plugin targets image tabs).
               if (t.kind === 'image') return ''
-              // Other plugins (md2pdf, future) take just the inline body and wrap
+              // Plugins (md2pdf, future) take just the inline body and wrap
               // it themselves.
               return renderTabAsInlineBody(t)
             },
             outputPath,
           })
         } catch (e) {
-          const msg = e instanceof Error ? e.message : String(e)
-          const tooLarge = /^share_too_large:(\d+)$/.exec(msg)
-          if (tooLarge) {
-            const mb = (Number(tooLarge[1]) / 1024 / 1024).toFixed(1)
-            pushToast({
-              level: 'error',
-              message: t('share.docTooLarge', { name: m.name, mb }),
-            })
-          } else {
-            pushToast({
-              level: 'error',
-              message: t('share.internalError', { name: m.name }),
-              detail: msg,
-            })
-          }
+          pushToast({
+            level: 'error',
+            message: `${m.name}: plugin error`,
+            detail: e instanceof Error ? e.message : String(e),
+          })
           return
         }
         if (result.ok && result.response) {

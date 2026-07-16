@@ -17,6 +17,7 @@ import {
   guardSize, MAX_HTML_BYTES,
   extractShareDescription, metadataBlock,
 } from './share-baker'
+import { ShareError } from '../share/types'
 
 describe('shareHeaderLabel', () => {
   it('uses basename for normal paths', () => {
@@ -147,9 +148,13 @@ describe('guardSize', () => {
   it('passes through small payloads', () => {
     expect(() => guardSize('x'.repeat(1000))).not.toThrow()
   })
-  it('throws a tagged error for >25MB payloads', () => {
+  it("throws ShareError('too_large') for >25MB payloads", () => {
     const big = 'x'.repeat(MAX_HTML_BYTES + 1)
-    expect(() => guardSize(big)).toThrow(/^share_too_large:\d+$/)
+    let err: unknown
+    try { guardSize(big) } catch (e) { err = e }
+    expect(err).toBeInstanceOf(ShareError)
+    expect((err as ShareError).kind).toBe('too_large')
+    expect((err as ShareError).detail).toMatch(/^\d+ bytes$/)
   })
 })
 
@@ -340,11 +345,14 @@ describe('bakeShareHtml', () => {
     __setImageReaderForTests(null)
   })
 
-  it('throws share_too_large for >25MB output', async () => {
+  it("throws ShareError('too_large') for >25MB input", async () => {
     __setImageReaderForTests(async () => new Uint8Array([0]))
     const huge = 'x'.repeat(26 * 1024 * 1024)
     const t = fakeTab({ currentContent: huge })
-    await expect(bakeShareHtml(t)).rejects.toThrow(/^share_too_large:/)
+    const err = await bakeShareHtml(t).then(() => null, (e: unknown) => e)
+    expect(err).toBeInstanceOf(ShareError)
+    expect((err as ShareError).kind).toBe('too_large')
+    expect((err as ShareError).detail).toMatch(/^\d+ bytes$/)
     __setImageReaderForTests(null)
   })
 })
