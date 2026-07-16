@@ -311,6 +311,10 @@ export const zh: Record<keyof Messages, string> = {
   'syncOrigin.sourceMissing': '📎 镜像 — 源不在本设备',
   'syncOrigin.relink': '重新关联本地源…',
 
+  // Sibling-mirror notes banner
+  'mirrorSiblings.label': '🔗 这份内容在另外 {n} 台设备上也有笔记：',
+  'mirrorSiblings.openNote': '打开 {device} 的笔记',
+
   // External-change banner
   'externalChange.modified': '“{title}” 已被其他应用修改。',
   'externalChange.deleted': '“{title}” 已在磁盘上被删除。',

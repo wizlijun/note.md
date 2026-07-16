@@ -285,6 +285,10 @@ export const en = {
   'syncOrigin.sourceMissing': '📎 Mirror — source not on this device',
   'syncOrigin.relink': 'Relink local source…',
 
+  // Sibling-mirror notes banner
+  'mirrorSiblings.label': '🔗 Also annotated on {n} other device(s):',
+  'mirrorSiblings.openNote': "Open {device}'s note",
+
   // External-change banner
   'externalChange.modified': '"{title}" was modified by another application.',
   'externalChange.deleted': '"{title}" was deleted on disk.',

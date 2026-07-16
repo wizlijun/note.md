@@ -280,6 +280,10 @@ export const ja: Record<keyof Messages, string> = {
   'syncOrigin.sourceMissing': '📎 ミラー — ソースがこの端末にありません',
   'syncOrigin.relink': 'ローカルソースを再リンク…',
 
+  // Sibling-mirror notes banner
+  'mirrorSiblings.label': '🔗 他の {n} 台の端末にもこの内容の注釈があります：',
+  'mirrorSiblings.openNote': '{device} のノートを開く',
+
   // External-change banner
   'externalChange.modified': '「{title}」は別のアプリケーションによって変更されました。',
   'externalChange.deleted': '「{title}」はディスク上で削除されました。',

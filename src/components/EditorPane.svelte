@@ -11,6 +11,7 @@
   import OutlineEditor from './outline/OutlineEditor.svelte'
   import { isOutlineNoteTab } from '../lib/outline/gate.svelte'
   import SyncOriginBanner from './SyncOriginBanner.svelte'
+  import MirrorSiblingsBanner from './MirrorSiblingsBanner.svelte'
   import SyncToVaultBanner from './SyncToVaultBanner.svelte'
   import { offsetToLineCol, lineColToOffset } from '../lib/cursor-preserve'
   import { convertFileSrc } from '@tauri-apps/api/core'
@@ -78,6 +79,7 @@
 <div class="editor-stack">
   <ExternalChangeBanner {tab} />
   <SyncOriginBanner {tab} />
+  <MirrorSiblingsBanner {tab} />
   <SyncToVaultBanner {tab} />
   {#if tab.kind === 'image'}
     {#key tab.id}

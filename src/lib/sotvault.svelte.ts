@@ -94,6 +94,14 @@ export function deviceSourceForVaultPath(path: string | null): string | null {
   return deviceSourceFor(path, sotvaultStore.mirrorMetas, sotvaultStore.vaultRoot, getDeviceId())
 }
 
+export interface NoteSibling { notePath: string; deviceName: string }
+
+/** Sibling mirrors' notes (other devices, same content) for an open doc path. */
+export async function noteSiblings(path: string | null): Promise<NoteSibling[]> {
+  if (!path || !sotvaultStore.vaultRoot) return []
+  return invoke<NoteSibling[]>('notemd_mirror_note_siblings', { docPath: path }).catch(() => [])
+}
+
 /** Relink a vault mirror to a locally-picked source, then open that source.
  *  Returns true when a relink happened. */
 export async function relinkMirrorSource(vaultPath: string): Promise<boolean> {

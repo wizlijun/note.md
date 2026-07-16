@@ -278,6 +278,10 @@ export const de: Record<keyof Messages, string> = {
   'syncOrigin.sourceMissing': '📎 Spiegel — Quelle nicht auf diesem Gerät',
   'syncOrigin.relink': 'Lokale Quelle neu verknüpfen…',
 
+  // Sibling-mirror notes banner
+  'mirrorSiblings.label': '🔗 Auf {n} weiteren Gerät(en) ebenfalls annotiert:',
+  'mirrorSiblings.openNote': 'Notiz von {device} öffnen',
+
   // External-change banner
   'externalChange.modified': '„{title}" wurde von einer anderen Anwendung geändert.',
   'externalChange.deleted': '„{title}" wurde auf der Festplatte gelöscht.',
