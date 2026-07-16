@@ -94,7 +94,8 @@ pub fn resolve_with(
 
     // reading-insights uses the two-level `notemd reading-insights report` form
     // and is handled through the webview runner (reusing the in-app report logic,
-    // incl. online audience) — not a plugin binary.
+    // incl. online audience). Core-ized: no plugin binary, and the plugins.enabled
+    // map is deliberately ignored — core commands cannot be disabled.
     if first == "reading-insights" {
         let skip = match rest.get(1).map(|s| s.as_str()) {
             Some("report") => 2,
@@ -103,19 +104,11 @@ pub fn resolve_with(
             Some(other) => return Route::Unknown(format!("reading-insights {}", other)),
         };
         let remaining: Vec<String> = rest.iter().skip(skip).cloned().collect();
-        let is_enabled = enabled.get("reading-insights").copied().unwrap_or(true);
-        return if is_enabled {
-            Route::Plugin(PluginRoute {
-                plugin_id: "reading-insights".to_string(),
-                subcommand: "report".to_string(),
-                remaining,
-            })
-        } else {
-            Route::Disabled {
-                plugin_id: "reading-insights".to_string(),
-                subcommand: "report".to_string(),
-            }
-        };
+        return Route::Plugin(PluginRoute {
+            plugin_id: "reading-insights".to_string(),
+            subcommand: "report".to_string(),
+            remaining,
+        });
     }
 
     let resolved = match_against_manifests(manifests, &first, enabled);
@@ -154,7 +147,10 @@ fn match_against_manifests(
 fn current_scan(parsed: &Parsed) -> (Vec<(PluginManifest, PathBuf)>, HashMap<String, bool>) {
     let plugins_dir = super::resolve_plugins_dir(parsed.globals.plugin_dir_override.as_deref());
     let config_dir = super::resolve_config_dir();
-    scan_disk(&plugins_dir, &config_dir)
+    let (mut manifests, mut enabled) = scan_disk(&plugins_dir, &config_dir);
+    // core 化的 share / reading-insights 无磁盘 manifest，注入 stub 参与匹配。
+    super::runner::append_core_cli_stubs(&mut manifests, &mut enabled);
+    (manifests, enabled)
 }
 
 #[cfg(test)]
@@ -265,5 +261,53 @@ mod tests {
         let r = route_with(&["nope"], vec![], Default::default());
         let Route::Unknown(name) = r else { panic!() };
         assert_eq!(name, "nope");
+    }
+
+    #[test]
+    fn share_routes_without_manifest() {
+        // share 是 core：无 manifest 时也必须路由成功（core stub 由 current_scan 注入，
+        // 纯函数层直接喂 stub 验证匹配逻辑）。
+        let stubs = crate::cli::runner::core_cli_stub_manifests();
+        let pairs: Vec<(PluginManifest, PathBuf)> =
+            stubs.into_iter().map(|m| (m, PathBuf::new())).collect();
+        let r = resolve_with(
+            &vec!["share".into(), "/tmp/a.md".into()],
+            &pairs,
+            &HashMap::new(),
+        );
+        match r {
+            Route::Plugin(p) => assert_eq!(p.plugin_id, "share"),
+            other => panic!("expected share plugin route, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn share_alias_routes_via_stub() {
+        // `--share` 别名也必须由 stub 覆盖（原 manifest 声明的 aliases）。
+        let stubs = crate::cli::runner::core_cli_stub_manifests();
+        let pairs: Vec<(PluginManifest, PathBuf)> =
+            stubs.into_iter().map(|m| (m, PathBuf::new())).collect();
+        let r = resolve_with(
+            &vec!["--share".into(), "/tmp/a.md".into()],
+            &pairs,
+            &HashMap::new(),
+        );
+        match r {
+            Route::Plugin(p) => {
+                assert_eq!(p.plugin_id, "share");
+                assert_eq!(p.subcommand, "share");
+            }
+            other => panic!("expected share plugin route, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn reading_insights_never_disabled() {
+        let r = resolve_with(
+            &vec!["reading-insights".into(), "report".into()],
+            &[],
+            &HashMap::from([("reading-insights".to_string(), false)]),
+        );
+        assert!(matches!(r, Route::Plugin(_)), "core-ized: enabled map must be ignored");
     }
 }

@@ -13,6 +13,11 @@
   import { presetRange, type Preset } from '../insights/value'
   import { localTzOffsetMinutes } from '../insights/model'
   import { sha256Hex } from '../hash'
+  import { publishHtml } from '../share/publish'
+  import { unpublish } from '../share/unpublish'
+  import { copyShareLink } from '../share/copy-link'
+  import { uploadImage } from '../share/upload-image'
+  import { ShareError } from '../share/types'
   import {
     basenameOf, extensionOf, inferKind, interpretActions,
     type CliPayload,
@@ -108,6 +113,163 @@
     return lines
   }
 
+  /** stat/read the file and build the virtual Tab shape shared by the share
+   *  path and the generic plugin path. For image files content stays empty —
+   *  downstream consumers (bakeShareHtml, uploadImage) re-read bytes via
+   *  tauri-plugin-fs. On read failure, finishes with exit 2 and returns null. */
+  async function buildVirtualTab(
+    file: string,
+  ): Promise<{ tab: Tab; extension: string | null; fileKind: FileKind } | null> {
+    let fileContent = ''
+    let fileMtime = 0
+    try {
+      const info = await stat(file)
+      fileMtime = info.mtime ? new Date(info.mtime).getTime() : 0
+      if (inferKind(extensionOf(basenameOf(file))) !== 'image') {
+        fileContent = await readTextFile(file)
+      }
+    } catch (e) {
+      await finish({ exit_code: 2, stderr: [`notemd: cannot read '${file}': ${e}`] })
+      return null
+    }
+    const filename = basenameOf(file)
+    const extension = extensionOf(filename)
+    const fileKind = toFileKind(inferKind(extension))
+    // Build a real Tab shape — share-baker reads filePath, currentContent, kind, title.
+    const tab: Tab = {
+      id: 'cli',
+      filePath: file,
+      title: filename,
+      initialContent: fileContent,
+      currentContent: fileContent,
+      mode: 'source',
+      kind: fileKind,
+      externalState: 'fresh',
+      externalBannerDismissed: false,
+      lastKnownMtime: fileMtime,
+      lastKnownHash: fileContent ? await sha256Hex(fileContent) : '',
+    }
+    return { tab, extension, fileKind }
+  }
+
+  /** `notemd share` — share 是 core：走 TS 实现（与桌面菜单同一套
+   *  publish/unpublish/copy-link/upload-image），无插件二进制。复用与菜单
+   *  一致的 vault-home 前置与 bake 流程；结果按 --json/--clipboard 约定输出。 */
+  async function runShareCli(payload: CliPayload): Promise<void> {
+    if (!payload.file) {
+      await finish({ exit_code: 2, stderr: ['notemd: missing file argument'] })
+      return
+    }
+    const file = payload.file
+    try {
+      if (payload.plugin_command === 'copy-link') {
+        const url = await copyShareLink(file)
+        await clipWriteText(url).catch(() => {})
+        await finish({
+          exit_code: 0,
+          stdout: payload.global.json ? JSON.stringify({ url }) : url,
+          stderr: [],
+        })
+        return
+      }
+
+      const { getShareConfig } = await import('../share')
+      const cfg = getShareConfig()
+      if (!cfg) {
+        await finish({ exit_code: 1, stderr: ['notemd: share not configured (baseUrl/apiKey)'] })
+        return
+      }
+
+      if (payload.plugin_command === 'unpublish') {
+        await unpublish({ path: file, baseUrl: cfg.baseUrl })
+        await finish({
+          exit_code: 0,
+          stdout: payload.global.json ? JSON.stringify({ unshared: true, path: file }) : `unshared ${file}`,
+          stderr: [],
+        })
+        return
+      }
+
+      // 'publish' (default; --update maps here too)
+      const built = await buildVirtualTab(file)
+      if (!built) return
+      const { tab, fileKind } = built
+
+      if (fileKind === 'image') {
+        const { url, isUpdate } = await uploadImage({
+          path: file, filename: tab.title,
+          baseUrl: cfg.baseUrl, defaultExpiry: cfg.defaultExpiry,
+        })
+        if (payload.global.clipboard) await clipWriteText(url).catch(() => {})
+        await finish({
+          exit_code: 0,
+          stdout: payload.global.json ? JSON.stringify({ url, isUpdate }) : url,
+          stderr: [],
+        })
+        return
+      }
+
+      // Share via CLI runs the SAME vault-home pre-step as the menu (headless: no
+      // flush — the file on disk is the source of truth). Fails the command with a
+      // clear message when there's no vault to home the outside file into.
+      let src: string
+      try {
+        // CLI 不走 GUI(App.svelte)的启动 refreshSotvault,故 sotvaultStore.vaultRoot
+        // 一直是 null;prepareShareSrc 用它判 vault → 误报 vault_required。先加载。
+        const { refreshSotvault } = await import('../sotvault.svelte')
+        await refreshSotvault()
+        const { prepareShareSrc } = await import('../share')
+        src = await prepareShareSrc(file)
+      } catch (e) {
+        // 详细诊断:报错时列出读了哪个配置文件、sotvault 值、各层解析结果、文件路径
+        // (原样打印,便于发现 Sync/sync 之类大小写不一致)。
+        await finish({
+          exit_code: 1,
+          stderr: [
+            `notemd: share failed: ${e instanceof Error ? e.message : String(e)}`,
+            ...(await shareVaultDiagnostics(file)),
+          ],
+        })
+        return
+      }
+
+      const systemDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false
+      const themeId = computeActiveThemeId(settings.theme, systemDark)
+      const html = await bakeShareHtml(tab, themeId)
+      if (!html) {
+        await finish({ exit_code: 1, stderr: ['notemd: share failed: empty_content'] })
+        return
+      }
+      if (new TextEncoder().encode(html).byteLength > 25 * 1024 * 1024) {
+        await finish({ exit_code: 1, stderr: ['notemd: share failed: too_large'] })
+        return
+      }
+
+      const { url, isUpdate } = await publishHtml({
+        path: file, filename: tab.title, html,
+        baseUrl: cfg.baseUrl,
+        defaultExpiry: cfg.defaultExpiry,
+        slugRandomSuffix: cfg.slugRandomSuffix,
+        src,
+      })
+      if (payload.global.clipboard) await clipWriteText(url).catch(() => {})
+      await finish({
+        exit_code: 0,
+        stdout: payload.global.json ? JSON.stringify({ url, isUpdate }) : url,
+        stderr: [],
+      })
+    } catch (e) {
+      if (e instanceof ShareError) {
+        await finish({
+          exit_code: 1,
+          stderr: [`notemd: share failed: ${e.kind}${e.detail ? ': ' + e.detail : ''}`],
+        })
+      } else {
+        await finish({ exit_code: 1, stderr: [`notemd: share failed: ${String(e)}`] })
+      }
+    }
+  }
+
   async function run(): Promise<void> {
     let payload: CliPayload
     try {
@@ -136,6 +298,13 @@
       return
     }
 
+    // share 是 core：走 TS 实现，无插件二进制。复用与菜单一致的
+    // vault-home 前置与 bake 流程；结果按 --json/--quiet 约定输出。
+    if (payload.plugin_id === 'share') {
+      await runShareCli(payload)
+      return
+    }
+
     const manifests = await invoke<PluginManifest[]>('get_plugin_manifests')
     const manifest = manifests.find(m => m.id === payload.plugin_id)
     if (!manifest) {
@@ -149,57 +318,16 @@
       return
     }
 
-    let fileContent = ''
-    let fileMtime = 0
-    try {
-      const info = await stat(payload.file)
-      fileMtime = info.mtime ? new Date(info.mtime).getTime() : 0
-      // For image files, content stays empty — bakeShareHtml's image branch
-      // re-reads bytes via tauri-plugin-fs. For others, we read text.
-      const ext = (extensionOf(basenameOf(payload.file)) ?? '').toLowerCase()
-      const isImage = ['.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.avif', '.heic', '.heif'].includes(ext)
-      if (!isImage) {
-        fileContent = await readTextFile(payload.file)
-      }
-    } catch (e) {
-      await finish({ exit_code: 2, stderr: [`notemd: cannot read '${payload.file}': ${e}`] })
-      return
-    }
-
-    const filename = basenameOf(payload.file)
-    const extension = extensionOf(filename)
-    const cliKind = inferKind(extension)
-    const fileKind = toFileKind(cliKind)
-
-    // Build a real Tab shape — share-baker reads filePath, currentContent, kind, title.
-    const virtualTab: Tab = {
-      id: 'cli',
-      filePath: payload.file,
-      title: filename,
-      initialContent: fileContent,
-      currentContent: fileContent,
-      mode: 'source',
-      kind: fileKind,
-      externalState: 'fresh',
-      externalBannerDismissed: false,
-      lastKnownMtime: fileMtime,
-      lastKnownHash: fileContent ? await sha256Hex(fileContent) : '',
-    }
+    const built = await buildVirtualTab(payload.file)
+    if (!built) return
+    const { tab: virtualTab, extension, fileKind } = built
 
     // For commands requiring rendered HTML, bake the content.
     const entry = (manifest.cli ?? []).find(c => c.subcommand === payload.subcommand)
     let renderedHtml: string | undefined
     if (entry?.requires_tab_context && manifest.host_capabilities.includes('renderer.html')) {
       try {
-        if (fileKind === 'image') {
-          renderedHtml = ''
-        } else if (manifest.id === 'share') {
-          const systemDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false
-          const themeId = computeActiveThemeId(settings.theme, systemDark)
-          renderedHtml = await bakeShareHtml(virtualTab, themeId)
-        } else {
-          renderedHtml = await renderTabAsInlineBody(virtualTab)
-        }
+        renderedHtml = fileKind === 'image' ? '' : await renderTabAsInlineBody(virtualTab)
       } catch (e) {
         await finish({ exit_code: 1, stderr: [`notemd: render failed: ${e}`] })
         return
@@ -216,32 +344,6 @@
       outputPath = payload.file!.replace(/\.[^.]+$/, '.pdf')
     }
 
-    // Share via CLI runs the SAME vault-home pre-step as the menu (headless: no
-    // flush — the file on disk is the source of truth). Fails the command with a
-    // clear message when there's no vault to home the outside file into.
-    let shareSrc: string | null = null
-    if (manifest.id === 'share' && virtualTab.filePath) {
-      try {
-        // CLI 不走 GUI(App.svelte)的启动 refreshSotvault,故 sotvaultStore.vaultRoot
-        // 一直是 null;prepareShareSrc 用它判 vault → 误报 vault_required。先加载。
-        const { refreshSotvault } = await import('../sotvault.svelte')
-        await refreshSotvault()
-        const { prepareShareSrc } = await import('../share')
-        shareSrc = await prepareShareSrc(virtualTab.filePath)
-      } catch (e) {
-        // 详细诊断:报错时列出读了哪个配置文件、sotvault 值、各层解析结果、文件路径
-        // (原样打印,便于发现 Sync/sync 之类大小写不一致)。
-        await finish({
-          exit_code: 1,
-          stderr: [
-            `notemd: share failed: ${e instanceof Error ? e.message : String(e)}`,
-            ...(await shareVaultDiagnostics(virtualTab.filePath)),
-          ],
-        })
-        return
-      }
-    }
-
     const pluginSettings = getPluginScopedAll(manifest.id)
 
     const result = await invokePlugin(
@@ -256,7 +358,6 @@
         isDirty: false,
         isUntitled: false,
         content: virtualTab.currentContent,
-        src: shareSrc,
       },
       {
         htmlBaker: renderedHtml != null ? async () => renderedHtml! : undefined,

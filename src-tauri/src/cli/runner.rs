@@ -91,7 +91,62 @@ fn current_scan(
 ) {
     let plugins_dir = super::resolve_plugins_dir(parsed.globals.plugin_dir_override.as_deref());
     let config_dir = super::resolve_config_dir();
-    scan_disk(&plugins_dir, &config_dir)
+    let (mut manifests, mut enabled) = scan_disk(&plugins_dir, &config_dir);
+    append_core_cli_stubs(&mut manifests, &mut enabled);
+    (manifests, enabled)
+}
+
+/// Core-ized 功能的 CLI stub：share 与 reading-insights 的子命令属于核心，
+/// 不再有磁盘 manifest；注入扫描结果供 router/runner 统一匹配。
+pub fn core_cli_stub_manifests() -> Vec<PluginManifest> {
+    let share = serde_json::from_value(serde_json::json!({
+        "id": "share", "name": "Share", "version": "core", "binary": "",
+        "host_capabilities": ["renderer.html", "settings.read", "settings.write:share.records", "clipboard.write", "toast", "dialog"],
+        "cli": [{
+            "subcommand": "share", "aliases": ["--share"], "command": "publish",
+            "summary": "Render and publish file as a shareable URL",
+            "args": [{ "name": "file", "type": "path", "required": true, "help": "Markdown or image file to share" }],
+            "flags": [
+                { "long": "--update", "type": "boolean", "help": "Force update existing share (default if already shared)" },
+                { "long": "--copy-link", "type": "boolean", "help": "Print previously-shared URL instead of re-publishing" },
+                { "long": "--unshare", "type": "boolean", "help": "Remove share for this file" }
+            ],
+            "requires_tab_context": true
+        }]
+    })).expect("share cli stub");
+    let insights = serde_json::from_value(serde_json::json!({
+        "id": "reading-insights", "name": "Reading Insights", "version": "core", "binary": "",
+        "host_capabilities": [],
+        "cli": [{
+            "subcommand": "report", "command": "report",
+            "summary": "Generate a reading engagement report (owner + online audience) from the Vault",
+            "args": [],
+            "flags": [
+                { "long": "--vault", "type": "string", "help": "Vault root (defaults to the configured Vault)" },
+                { "long": "--date", "type": "string", "help": "today | yesterday (default) | 7d | 30d | month" },
+                { "long": "--from", "type": "string", "help": "YYYY-MM-DD (with --to, overrides --date)" },
+                { "long": "--to", "type": "string", "help": "YYYY-MM-DD" },
+                { "long": "--stdout", "type": "boolean", "help": "Print to stdout instead of writing <vault>/stat/*.md" }
+            ]
+        }]
+    })).expect("insights cli stub");
+    vec![share, insights]
+}
+
+/// 把 core stub 追加进扫描结果。磁盘上已有同 id manifest（T7 删除前的过渡期）
+/// 则不追加，保持原插件行为；追加时强制 enabled=true —— core 命令不受
+/// plugins.enabled 遗留配置影响。
+pub(crate) fn append_core_cli_stubs(
+    manifests: &mut Vec<(PluginManifest, PathBuf)>,
+    enabled: &mut std::collections::HashMap<String, bool>,
+) {
+    for stub in core_cli_stub_manifests() {
+        if manifests.iter().any(|(m, _)| m.id == stub.id) {
+            continue;
+        }
+        enabled.insert(stub.id.clone(), true);
+        manifests.push((stub, PathBuf::new()));
+    }
 }
 
 fn parse_subcommand_args(

@@ -14,7 +14,7 @@ import { ShareError } from './types'
 import { t } from '../i18n/store.svelte'
 import type { Messages } from '../i18n/en'
 
-function getShareConfig(): { baseUrl: string; defaultExpiry: 'never'|'7d'|'30d'|'90d'; slugRandomSuffix: boolean } | null {
+export function getShareConfig(): { baseUrl: string; defaultExpiry: 'never'|'7d'|'30d'|'90d'; slugRandomSuffix: boolean } | null {
   const baseUrl = getPluginScopedKey('share.baseUrl') as string | undefined
   const apiKey = getPluginScopedKey('share.apiKey') as string | undefined
   if (!baseUrl || !apiKey) return null
