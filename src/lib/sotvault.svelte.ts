@@ -13,12 +13,16 @@ import {
   dialogActionFor,
   pushActionForOutcome,
   localYmd,
+  mirrorMetaFor,
+  deviceSourceFor,
   type SotRecord,
+  type MirrorMeta,
 } from './sotvault-logic'
 
-export const sotvaultStore = $state<{ vaultRoot: string | null; records: SotRecord[]; tick: number }>({
+export const sotvaultStore = $state<{ vaultRoot: string | null; records: SotRecord[]; mirrorMetas: MirrorMeta[]; tick: number }>({
   vaultRoot: null,
   records: [],
+  mirrorMetas: [],
   tick: 0,
 })
 
@@ -52,8 +56,14 @@ export async function refreshSotvault(): Promise<void> {
     const records = isPluginActive('sotvault')
       ? await invoke<SotRecord[]>('sotvault_records')
       : []
+    // Git-synced mirror metas make cross-device mirrors recognizable even on a
+    // device that never synced them. Best-effort: empty when unavailable.
+    const mirrorMetas = root
+      ? await invoke<MirrorMeta[]>('notemd_mirror_metas').catch(() => [] as MirrorMeta[])
+      : []
     sotvaultStore.vaultRoot = root
     sotvaultStore.records = records
+    sotvaultStore.mirrorMetas = mirrorMetas
     sotvaultStore.tick++
     vaultRootChangedHandler?.()
   } catch (e) {
@@ -72,6 +82,31 @@ export function isTrackedVaultFile(path: string | null): boolean {
 /** Source path a tracked vault copy was synced from, or null. */
 export function sourceForVaultPath(path: string | null): string | null {
   return computeSourceForVault(path, sotvaultStore.records)
+}
+
+/** True when the given vault path is a mirror recorded by ANY device. */
+export function isMirrorPath(path: string | null): boolean {
+  return mirrorMetaFor(path, sotvaultStore.mirrorMetas, sotvaultStore.vaultRoot) !== null
+}
+
+/** This device's recorded source for a vault mirror (from git-synced metas). */
+export function deviceSourceForVaultPath(path: string | null): string | null {
+  return deviceSourceFor(path, sotvaultStore.mirrorMetas, sotvaultStore.vaultRoot, getDeviceId())
+}
+
+/** Relink a vault mirror to a locally-picked source, then open that source.
+ *  Returns true when a relink happened. */
+export async function relinkMirrorSource(vaultPath: string): Promise<boolean> {
+  const { open } = await import('@tauri-apps/plugin-dialog')
+  const picked = await open({ multiple: false, directory: false, filters: [{ name: 'Markdown', extensions: ['md', 'markdown'] }] })
+  const newSource = typeof picked === 'string' ? picked : null
+  if (!newSource) return false
+  const { deviceId, deviceName } = await deviceInfo()
+  await invoke('notemd_relink_mirror_source', { vaultPath, newSource, deviceId, deviceName })
+  await refreshSotvault()
+  const { openFile } = await import('./tabs.svelte')
+  await openFile(newSource)
+  return true
 }
 
 /** Device id/name stamped on each mirror meta (same ids recents/analytics use).

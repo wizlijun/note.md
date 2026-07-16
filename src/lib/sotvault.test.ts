@@ -34,6 +34,7 @@ beforeEach(() => {
   sotvaultActive = true
   sotvaultStore.vaultRoot = null
   sotvaultStore.records = []
+  sotvaultStore.mirrorMetas = []
 })
 
 describe('refreshSotvault', () => {
@@ -42,11 +43,13 @@ describe('refreshSotvault', () => {
     // of the sotvault plugin. Features like reading-insights rely on it, so it must
     // load regardless — otherwise they wrongly report "no vault configured".
     sotvaultActive = false
-    invoke.mockResolvedValueOnce('/v') // sotvault_vault_root
+    invoke
+      .mockResolvedValueOnce('/v') // sotvault_vault_root
+      .mockResolvedValueOnce([])   // notemd_mirror_metas (gated on root, not plugin)
     await refreshSotvault()
     expect(sotvaultStore.vaultRoot).toBe('/v')
     // Records are sotvault-specific: skipped (no sotvault_records IPC) when inactive.
-    expect(invoke).toHaveBeenCalledTimes(1)
+    expect(invoke).not.toHaveBeenCalledWith('sotvault_records')
     expect(invoke).toHaveBeenCalledWith('sotvault_vault_root')
     expect(sotvaultStore.records).toEqual([])
   })
@@ -55,9 +58,26 @@ describe('refreshSotvault', () => {
     invoke
       .mockResolvedValueOnce('/v')                          // sotvault_vault_root
       .mockResolvedValueOnce([{ source: '/s', vault: '/v/Sync/s.md' }]) // sotvault_records
+      .mockResolvedValueOnce([])                            // notemd_mirror_metas
     await refreshSotvault()
     expect(sotvaultStore.vaultRoot).toBe('/v')
     expect(sotvaultStore.records).toHaveLength(1)
+  })
+
+  it('loads mirror metas into the store', async () => {
+    // Route by command name so meta loading doesn't depend on the (root, records,
+    // metas) call order — mirrors the store's best-effort meta fetch.
+    invoke.mockImplementation((cmd: string) => {
+      if (cmd === 'sotvault_vault_root') return Promise.resolve('/v')
+      if (cmd === 'sotvault_records') return Promise.resolve([])
+      if (cmd === 'notemd_mirror_metas') return Promise.resolve([
+        { mirror: 'sync/a.md', deviceId: 'd1', deviceName: 'Mac', source: '/s/a.md', syncedAt: 1, checksum: 'sha256:x' },
+      ])
+      return Promise.reject(new Error(`unexpected ${cmd}`))
+    })
+    await refreshSotvault()
+    expect(sotvaultStore.mirrorMetas).toHaveLength(1)
+    expect(sotvaultStore.mirrorMetas[0].mirror).toBe('sync/a.md')
   })
 })
 
