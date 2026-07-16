@@ -23,7 +23,7 @@
 
 /* Begin PBXFileReference section */
 		090959AB7C8C2A54F512598D /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = System/Library/Frameworks/UIKit.framework; sourceTree = SDKROOT; };
-		1E3CF12CD6AA21477E3B836F /* M↓.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "M↓.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		1E3CF12CD6AA21477E3B836F /* note.md.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "note.md.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		280F1E150ACFFF250119C4CE /* plugin_host_ios.rs */ = {isa = PBXFileReference; lastKnownFileType = text; path = plugin_host_ios.rs; sourceTree = "<group>"; };
 		435771CBC2C625F23ECFABDA /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
 		4A9F676F5E90BDD60C12B99C /* WebKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WebKit.framework; path = System/Library/Frameworks/WebKit.framework; sourceTree = SDKROOT; };
@@ -33,7 +33,7 @@
 		90E4929B683AFD3A59043DCB /* bindings.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = bindings.h; sourceTree = "<group>"; };
 		AAC9E0B340A4313FC05C0367 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
 		B3465DE39D561B69261D12C1 /* MetalKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MetalKit.framework; path = System/Library/Frameworks/MetalKit.framework; sourceTree = SDKROOT; };
-		B7D4196F5A66E270319B9A08 /* mdeditor_iOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = mdeditor_iOS.entitlements; sourceTree = "<group>"; };
+		B7D4196F5A66E270319B9A08 /* notemd_iOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = notemd_iOS.entitlements; sourceTree = "<group>"; };
 		DB3E5E841955CBDE3EF3D75D /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
 		DC7EE602E614459619D2ACE6 /* plugin_host.rs */ = {isa = PBXFileReference; lastKnownFileType = text; path = plugin_host.rs; sourceTree = "<group>"; };
 		E6F285733A10B080F7037C0E /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -82,7 +82,7 @@
 				E6F285733A10B080F7037C0E /* Assets.xcassets */,
 				DB3E5E841955CBDE3EF3D75D /* LaunchScreen.storyboard */,
 				76CAADD3AF03C2DCCFAC3D00 /* Externals */,
-				43D38FCC0C40DC5D6A657455 /* mdeditor_iOS */,
+				43D38FCC0C40DC5D6A657455 /* notemd_iOS */,
 				81D327A22539B29569495D50 /* Sources */,
 				27CE2444D5644EF9D2A170D4 /* src */,
 				53AF5B8B211521A57FADE89E /* Frameworks */,
@@ -90,13 +90,13 @@
 			);
 			sourceTree = "<group>";
 		};
-		43D38FCC0C40DC5D6A657455 /* mdeditor_iOS */ = {
+		43D38FCC0C40DC5D6A657455 /* notemd_iOS */ = {
 			isa = PBXGroup;
 			children = (
 				E9B67D02706D4DCF0D84363A /* Info.plist */,
-				B7D4196F5A66E270319B9A08 /* mdeditor_iOS.entitlements */,
+				B7D4196F5A66E270319B9A08 /* notemd_iOS.entitlements */,
 			);
-			path = mdeditor_iOS;
+			path = notemd_iOS;
 			sourceTree = "<group>";
 		};
 		53AF5B8B211521A57FADE89E /* Frameworks */ = {
@@ -125,7 +125,7 @@
 		6A437513D6E389A37B256E3C /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				1E3CF12CD6AA21477E3B836F /* M↓.app */,
+				1E3CF12CD6AA21477E3B836F /* note.md.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -140,26 +140,26 @@
 		81D327A22539B29569495D50 /* Sources */ = {
 			isa = PBXGroup;
 			children = (
-				9010D140B9BBF10EDC876457 /* mdeditor */,
+				9010D140B9BBF10EDC876457 /* notemd */,
 			);
 			path = Sources;
 			sourceTree = "<group>";
 		};
-		9010D140B9BBF10EDC876457 /* mdeditor */ = {
+		9010D140B9BBF10EDC876457 /* notemd */ = {
 			isa = PBXGroup;
 			children = (
 				FF64B3362529988A8EF70A7B /* main.mm */,
 				5D4E7308158F981328B2BCCF /* bindings */,
 			);
-			path = mdeditor;
+			path = notemd;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		7D52ECCA10EB87D36B890AB0 /* mdeditor_iOS */ = {
+		7D52ECCA10EB87D36B890AB0 /* notemd_iOS */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = BC3CFD9D7B06872CC43850E2 /* Build configuration list for PBXNativeTarget "mdeditor_iOS" */;
+			buildConfigurationList = BC3CFD9D7B06872CC43850E2 /* Build configuration list for PBXNativeTarget "notemd_iOS" */;
 			buildPhases = (
 				B48F9DD5F5DF1AE0A14BDB11 /* Build Rust Code */,
 				2F855553639644BA808D3421 /* Sources */,
@@ -170,11 +170,11 @@
 			);
 			dependencies = (
 			);
-			name = mdeditor_iOS;
+			name = notemd_iOS;
 			packageProductDependencies = (
 			);
-			productName = mdeditor_iOS;
-			productReference = 1E3CF12CD6AA21477E3B836F /* M↓.app */;
+			productName = notemd_iOS;
+			productReference = 1E3CF12CD6AA21477E3B836F /* note.md.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -186,7 +186,7 @@
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1430;
 			};
-			buildConfigurationList = 2D569A6E96CFEB64BEBEACF4 /* Build configuration list for PBXProject "mdeditor" */;
+			buildConfigurationList = 2D569A6E96CFEB64BEBEACF4 /* Build configuration list for PBXProject "notemd" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -200,7 +200,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				7D52ECCA10EB87D36B890AB0 /* mdeditor_iOS */,
+				7D52ECCA10EB87D36B890AB0 /* notemd_iOS */,
 			);
 		};
 /* End PBXProject section */
@@ -323,7 +323,7 @@
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				ARCHS = arm64;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_ENTITLEMENTS = mdeditor_iOS/mdeditor_iOS.entitlements;
+				CODE_SIGN_ENTITLEMENTS = notemd_iOS/notemd_iOS.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				DEVELOPMENT_TEAM = "T5G56DH47L";
 				ENABLE_BITCODE = NO;
@@ -332,7 +332,7 @@
 					"$(inherited)",
 					"\".\"",
 				);
-				INFOPLIST_FILE = mdeditor_iOS/Info.plist;
+				INFOPLIST_FILE = notemd_iOS/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -357,7 +357,7 @@
 					"-liconv",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = net.notemd.app;
-				PRODUCT_NAME = "M↓";
+				PRODUCT_NAME = "note.md";
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VALID_ARCHS = arm64;
@@ -370,7 +370,7 @@
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				ARCHS = arm64;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_ENTITLEMENTS = mdeditor_iOS/mdeditor_iOS.entitlements;
+				CODE_SIGN_ENTITLEMENTS = notemd_iOS/notemd_iOS.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				DEVELOPMENT_TEAM = "T5G56DH47L";
 				ENABLE_BITCODE = NO;
@@ -379,7 +379,7 @@
 					"$(inherited)",
 					"\".\"",
 				);
-				INFOPLIST_FILE = mdeditor_iOS/Info.plist;
+				INFOPLIST_FILE = notemd_iOS/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -404,7 +404,7 @@
 					"-liconv",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = net.notemd.app;
-				PRODUCT_NAME = "M↓";
+				PRODUCT_NAME = "note.md";
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VALID_ARCHS = arm64;
@@ -470,7 +470,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		2D569A6E96CFEB64BEBEACF4 /* Build configuration list for PBXProject "mdeditor" */ = {
+		2D569A6E96CFEB64BEBEACF4 /* Build configuration list for PBXProject "notemd" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				17CEFB4D89FF98FCD05FED86 /* debug */,
@@ -479,7 +479,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = debug;
 		};
-		BC3CFD9D7B06872CC43850E2 /* Build configuration list for PBXNativeTarget "mdeditor_iOS" */ = {
+		BC3CFD9D7B06872CC43850E2 /* Build configuration list for PBXNativeTarget "notemd_iOS" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				48E8B464AF8B52C5CC0B5045 /* debug */,

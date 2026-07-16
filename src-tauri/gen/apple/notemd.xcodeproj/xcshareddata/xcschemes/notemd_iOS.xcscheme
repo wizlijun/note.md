@@ -16,8 +16,8 @@
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "7D52ECCA10EB87D36B890AB0"
                BuildableName = "M&#x2193;.app"
-               BlueprintName = "mdeditor_iOS"
-               ReferencedContainer = "container:mdeditor.xcodeproj">
+               BlueprintName = "notemd_iOS"
+               ReferencedContainer = "container:notemd.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -32,8 +32,8 @@
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "7D52ECCA10EB87D36B890AB0"
             BuildableName = "M&#x2193;.app"
-            BlueprintName = "mdeditor_iOS"
-            ReferencedContainer = "container:mdeditor.xcodeproj">
+            BlueprintName = "notemd_iOS"
+            ReferencedContainer = "container:notemd.xcodeproj">
          </BuildableReference>
       </MacroExpansion>
       <EnvironmentVariables>
@@ -67,8 +67,8 @@
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "7D52ECCA10EB87D36B890AB0"
             BuildableName = "M&#x2193;.app"
-            BlueprintName = "mdeditor_iOS"
-            ReferencedContainer = "container:mdeditor.xcodeproj">
+            BlueprintName = "notemd_iOS"
+            ReferencedContainer = "container:notemd.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
       <EnvironmentVariables>
@@ -96,8 +96,8 @@
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "7D52ECCA10EB87D36B890AB0"
             BuildableName = "M&#x2193;.app"
-            BlueprintName = "mdeditor_iOS"
-            ReferencedContainer = "container:mdeditor.xcodeproj">
+            BlueprintName = "notemd_iOS"
+            ReferencedContainer = "container:notemd.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
       <EnvironmentVariables>

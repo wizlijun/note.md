@@ -1,4 +1,4 @@
-name: mdeditor
+name: notemd
 options:
   bundleIdPrefix: net.notemd.app
   deploymentTarget:
@@ -10,7 +10,7 @@ configs:
 settingGroups:
   app:
     base:
-      PRODUCT_NAME: M↓
+      PRODUCT_NAME: note.md
       PRODUCT_BUNDLE_IDENTIFIER: net.notemd.app
 targetTemplates:
   app:
@@ -24,20 +24,20 @@ targetTemplates:
     settings:
       groups: [app]
 targets:
-  mdeditor_iOS:
+  notemd_iOS:
     type: application
     platform: iOS
     sources:
       - path: Sources
       - path: Assets.xcassets
       - path: Externals
-      - path: mdeditor_iOS
+      - path: notemd_iOS
       - path: assets
         buildPhase: resources
         type: folder
       - path: LaunchScreen.storyboard
     info:
-      path: mdeditor_iOS/Info.plist
+      path: notemd_iOS/Info.plist
       properties:
         LSRequiresIPhoneOS: true
         UILaunchStoryboardName: LaunchScreen
@@ -54,7 +54,7 @@ targets:
         CFBundleShortVersionString: 0.5.2
         CFBundleVersion: "0.5.2"
     entitlements:
-      path: mdeditor_iOS/mdeditor_iOS.entitlements
+      path: notemd_iOS/notemd_iOS.entitlements
     scheme:
       environmentVariables:
         RUST_BACKTRACE: full

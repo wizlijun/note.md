@@ -1,13 +1,13 @@
 # Uncomment the next line to define a global platform for your project
 
-target 'mdeditor_iOS' do
+target 'notemd_iOS' do
 platform :ios, '14.0'
-  # Pods for mdeditor_iOS
+  # Pods for notemd_iOS
 end
 
-target 'mdeditor_macOS' do
+target 'notemd_macOS' do
 platform :osx, '11.0'
-  # Pods for mdeditor_macOS
+  # Pods for notemd_macOS
 end
 
 # Delete the deployment target for iOS and macOS, causing it to be inherited from the Podfile
