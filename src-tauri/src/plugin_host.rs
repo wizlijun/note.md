@@ -655,17 +655,19 @@ mod cli_helpers_tests {
     }
 
     #[test]
-    fn share_manifest_parses_with_cli() {
+    fn bundled_md2pdf_manifest_parses_with_cli() {
+        // share 的 manifest 已随 core 化删除；用仍在磁盘上的 md2pdf 验证
+        // 真实 bundled manifest 的 CLI 解析。
         let mp = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("plugins/share/manifest.json");
+            .join("plugins/md2pdf/manifest.json");
         let bytes = std::fs::read(&mp).expect("read manifest");
         let m: PluginManifest = serde_json::from_slice(&bytes).expect("parse");
-        assert_eq!(m.id, "share");
+        assert_eq!(m.id, "md2pdf");
         assert_eq!(m.cli.len(), 1);
-        assert_eq!(m.cli[0].subcommand, "share");
-        assert!(m.cli[0].aliases.contains(&"--share".to_string()));
+        assert_eq!(m.cli[0].subcommand, "pdf");
+        assert!(m.cli[0].aliases.contains(&"--pdf".to_string()));
         assert!(m.cli[0].requires_tab_context);
-        assert_eq!(m.cli[0].flags.len(), 3);
+        assert_eq!(m.cli[0].flags.len(), 1);
         assert_eq!(m.cli[0].args.len(), 1);
         assert_eq!(m.cli[0].args[0].name, "file");
         assert_eq!(m.cli[0].args[0].ty, "path");

@@ -126,6 +126,7 @@ pub fn render_help(
     out.push_str("  version       Print version (aliases: -v, --version)\n");
     out.push_str("  plugin        Manage plugins (list, enable, disable, info)\n");
     out.push_str("  openclaw      Install the note.md chat plugin into OpenClaw (install, uninstall, status)\n");
+    out.push_str("  share         Render and publish file as a shareable URL (alias: --share)\n");
     out.push_str("  reading-insights report   Generate a reading digest from the Vault (--vault, --date, --stdout)\n");
 
     let mut shown_header = false;
@@ -292,6 +293,25 @@ FLAGS:
   --force        Reinstall even if already present
   --keep-files   Leave plugin files on disk when uninstalling
 ",
+        "share" | "--share" => "\
+notemd share — Render and publish file as a shareable URL
+
+USAGE:
+  notemd share <file>
+  notemd --share <file>                  (alias)
+
+ARGUMENTS:
+  <file>           Markdown or image file to share
+
+FLAGS:
+  --update         Force update existing share (default if already shared)
+  --copy-link      Print previously-shared URL instead of re-publishing
+  --unshare        Remove share for this file
+
+Shares are published to the configured share server and the URL is copied to
+the clipboard (disable with --no-clipboard). Files outside the Vault are
+homed into the Vault first.
+",
         "reading-insights" => "\
 notemd reading-insights — Reading Insights (engagement) report
 
@@ -457,18 +477,43 @@ mod tests {
         assert!(out.contains("--plugin-dir"));
     }
     #[test] fn help_topic_resolves_core_commands() {
-        for topic in ["help", "version", "plugin", "openclaw", "reading-insights"] {
+        for topic in ["help", "version", "plugin", "openclaw", "share", "reading-insights"] {
             let out = render_help(Some(topic), false, &[], &HashMap::new());
             assert!(out.contains(&format!("notemd {topic}")), "topic {topic} not documented");
             assert!(!out.contains("unknown topic"), "topic {topic} rendered as unknown");
         }
     }
+    #[test] fn help_topic_share_is_core_no_manifest_needed() {
+        // share 已 core 化：无任何 manifest 时 help share / help --share 都必须解析。
+        for topic in ["share", "--share"] {
+            let out = render_help(Some(topic), false, &[], &HashMap::new());
+            assert!(out.contains("notemd share"), "topic {topic} missing header");
+            assert!(out.contains("Render and publish"), "topic {topic} missing summary");
+            assert!(out.contains("--unshare"), "topic {topic} missing flags");
+            assert!(out.contains("EXIT CODES:"), "topic {topic} missing exit codes");
+        }
+    }
+    #[test] fn help_root_lists_share_as_core_command() {
+        let out = render_help(None, false, &[], &HashMap::new());
+        assert!(out.contains("CORE COMMANDS:"));
+        assert!(out.contains("share"));
+        assert!(out.contains("Render and publish file as a shareable URL"));
+        // core 化后不该出现插件小节（无 manifest 时）。
+        assert!(!out.contains("PLUGIN COMMANDS:"));
+    }
     #[test] fn help_topic_shows_per_subcommand_detail() {
+        // 用非 core 子命令测 manifest 主题路径（share 现在被 core topic 遮蔽）。
+        let mut m = share_manifest();
+        m.id = "demo".to_string();
+        m.name = "Demo".to_string();
+        m.cli[0].subcommand = "demo".to_string();
+        m.cli[0].aliases = vec!["--demo".to_string()];
         let mut enabled = HashMap::new();
-        enabled.insert("share".to_string(), true);
-        let out = render_help(Some("share"), false, &[share_manifest()], &enabled);
-        assert!(out.contains("notemd share"));
+        enabled.insert("demo".to_string(), true);
+        let out = render_help(Some("demo"), false, &[m], &enabled);
+        assert!(out.contains("notemd demo"));
         assert!(out.contains("Render and publish"));
+        assert!(out.contains("Provided by: Demo plugin"));
         assert!(out.contains("EXIT CODES:"));
     }
     #[test] fn version_string_includes_plugin_api() {
