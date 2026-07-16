@@ -12,9 +12,10 @@ read and mark them up, your notes become data your agents read back. No
 database, no cloud, no lock-in — a folder of markdown you own forever.
 
 The product name is **note.md** (all lowercase — a note that *is* a plain
-markdown file); the repo, crate, and bundle identifier remain `mdeditor` /
-`com.laobu.mdeditor`. Versions before v4.8.0 shipped as **M↓**; the legacy
-`mdedit` CLI symlink still works alongside the new `notemd`.
+markdown file). The CLI binary and bundle identifier are `notemd` /
+`net.notemd.app`, and the legacy `mdedit` CLI symlink still works alongside
+`notemd`. You will still see `mdeditor` inside the source tree (the Rust
+library crate is named `mdeditor_lib`). Versions before v4.8.0 shipped as **M↓**.
 
 Built with [Tauri](https://tauri.app) on
 [`@moraya/core`](https://www.npmjs.com/package/@moraya/core): a code-signed,

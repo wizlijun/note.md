@@ -484,7 +484,7 @@ fn show_main_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
             "main",
             tauri::WebviewUrl::default(),
         )
-        .title("M\u{2193}")
+        .title("note.md")
         .inner_size(1000.0, 700.0)
         .min_inner_size(600.0, 400.0)
         .build();

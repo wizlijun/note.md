@@ -11,9 +11,10 @@
 可读的数据。没有数据库、没有云端、没有锁定——只有一个永远属于你的 markdown
 文件夹。
 
-产品名为 **note.md**（全小写——一篇笔记就是一个 markdown 文件）；仓库、crate、
-bundle identifier 仍是 `mdeditor` / `com.laobu.mdeditor`。v4.8.0 之前以
-**M↓** 为名发布，旧的 `mdedit` CLI 软链依然可用（新命令为 `notemd`）。
+产品名为 **note.md**（全小写——一篇笔记就是一个 markdown 文件）；CLI 二进制与
+bundle identifier 为 `notemd` / `net.notemd.app`，旧的 `mdedit` CLI 软链仍与
+`notemd` 并存可用。源码中仍会看到 `mdeditor`（Rust 库 crate 名为 `mdeditor_lib`）。
+v4.8.0 之前以 **M↓** 为名发布。
 
 基于 [Tauri](https://tauri.app) 与
 [`@moraya/core`](https://www.npmjs.com/package/@moraya/core) 构建：签名并公证的

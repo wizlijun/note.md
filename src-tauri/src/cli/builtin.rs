@@ -125,7 +125,7 @@ pub fn render_help(
     out.push_str("  help          Show this help (aliases: -h, --help)\n");
     out.push_str("  version       Print version (aliases: -v, --version)\n");
     out.push_str("  plugin        Manage plugins (list, enable, disable, info)\n");
-    out.push_str("  openclaw      Install the M\u{2193} chat plugin into OpenClaw (install, uninstall, status)\n");
+    out.push_str("  openclaw      Install the note.md chat plugin into OpenClaw (install, uninstall, status)\n");
     out.push_str("  reading-insights report   Generate a reading digest from the Vault (--vault, --date, --stdout)\n");
 
     let mut shown_header = false;
@@ -280,7 +280,7 @@ NOTES:
   the app's settings and affect both the CLI and the desktop app.
 ",
         "openclaw" => "\
-notemd openclaw — Manage the M\u{2193} chat plugin inside OpenClaw
+notemd openclaw — Manage the note.md chat plugin inside OpenClaw
 
 USAGE:
   notemd openclaw status             Show whether the plugin is installed (default)
@@ -300,7 +300,7 @@ USAGE:
   notemd reading-insights report --vault <path> --from YYYY-MM-DD --to YYYY-MM-DD
 
 FLAGS:
-  --vault <path>   Vault root (or set MDEDITOR_VAULT). Reads <vault>/.notemd/analytics/
+  --vault <path>   Vault root. Reads <vault>/.notemd/analytics/
   --date <preset>  today | yesterday (default) | 7d | 30d | month
   --from --to      Explicit YYYY-MM-DD range (overrides --date)
   --stdout         Print to stdout instead of writing <vault>/stat/*.md
