@@ -25,7 +25,7 @@ WebView (WKWebView). No bundled browser, unlike Electron.
 
 ## The idea
 
-Three convictions shape everything here:
+Four convictions shape everything here:
 
 1. **AI text is infinite; your attention isn't.** The documents you actually
    read and mark up are the ones that earned your attention — that signal is
@@ -38,6 +38,11 @@ Three convictions shape everything here:
    text that any agent can read. `✦` marks what AI writes; `●` marks what you
    think. The loop — agents write, you annotate, agents learn from your
    margins — runs entirely through files on your disk.
+4. **Your marks belong to the vault, not to a path.** You read files that live
+   outside your vault, and paths are fragile across devices and tools. When you
+   annotate, note.md mirrors the source into your vault so your marks get a
+   stable, git-versioned host — the original stays put, the mirror stays in
+   sync, and your notes never lose their home.
 
 ## The notes layer
 
