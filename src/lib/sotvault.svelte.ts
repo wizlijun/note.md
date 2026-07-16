@@ -4,6 +4,8 @@ import { pushToast } from './toast.svelte'
 import { t } from './i18n/store.svelte'
 import { activeTab, reloadTabFromDisk } from './tabs.svelte'
 import { isPluginActive } from './plugins/registry'
+import { hostname } from '@tauri-apps/plugin-os'
+import { getDeviceId } from './settings.svelte'
 import {
   canSyncToVault as computeCanSync,
   isTracked as computeIsTracked,
@@ -72,6 +74,15 @@ export function sourceForVaultPath(path: string | null): string | null {
   return computeSourceForVault(path, sotvaultStore.records)
 }
 
+/** Device id/name stamped on each mirror meta (same ids recents/analytics use).
+ *  Falls back to `Device-<id8>` when the OS hostname is unavailable — mirrors
+ *  `recent-sync.svelte.ts`. */
+async function deviceInfo(): Promise<{ deviceId: string; deviceName: string }> {
+  const deviceId = getDeviceId()
+  const deviceName = (await hostname().catch(() => null)) ?? `Device-${deviceId.slice(0, 8)}`
+  return { deviceId, deviceName }
+}
+
 /** Reveal the source file in the OS file browser (opens its folder, highlights it). */
 export async function revealVaultSource(sourcePath: string): Promise<void> {
   try {
@@ -90,7 +101,7 @@ export async function syncCurrentToVault(): Promise<void> {
   }
   try {
     const datePrefix = await sourceCreationYmd(tab.filePath)
-    await invoke('sotvault_sync_to_vault', { srcPath: tab.filePath, datePrefix })
+    await invoke('sotvault_sync_to_vault', { srcPath: tab.filePath, datePrefix, ...(await deviceInfo()) })
     await refreshSotvault()
     pushToast({ level: 'success', message: t('sotvault.synced') })
   } catch (e) {
@@ -106,7 +117,7 @@ export async function syncCurrentToVault(): Promise<void> {
  */
 export async function syncSourceToVaultAsHome(srcPath: string): Promise<SotRecord> {
   const datePrefix = await sourceCreationYmd(srcPath)
-  return invoke<SotRecord>('sotvault_sync_to_vault', { srcPath, datePrefix, noteHome: 'vault' })
+  return invoke<SotRecord>('sotvault_sync_to_vault', { srcPath, datePrefix, noteHome: 'vault', ...(await deviceInfo()) })
 }
 
 /** Ensure a file living OUTSIDE the vault has a vault-homed copy inside it,
@@ -119,7 +130,7 @@ export async function syncSourceToVaultAsHome(srcPath: string): Promise<SotRecor
 export async function ensureVaultCopyForShare(sourcePath: string): Promise<string> {
   const datePrefix = await sourceCreationYmd(sourcePath)
   const rec = await invoke<SotRecord>('sotvault_sync_to_vault', {
-    srcPath: sourcePath, datePrefix, noteHome: 'vault', reuseExisting: true,
+    srcPath: sourcePath, datePrefix, noteHome: 'vault', reuseExisting: true, ...(await deviceInfo()),
   })
   await refreshSotvault()
   return rec.vault_path

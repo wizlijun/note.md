@@ -14,8 +14,13 @@ vi.mock('./tabs.svelte', () => ({
   activeTab: () => ({ filePath: '/src/a.md' }),
   reloadTabFromDisk: (...a: unknown[]) => reloadTabFromDisk(...a),
 }))
+// hostname() feeds deviceName; stat() feeds the sync date prefix. Both are
+// dynamically imported inside sotvault.svelte, so mock the modules.
+vi.mock('@tauri-apps/plugin-os', () => ({ hostname: async () => 'Test-Mac' }))
+vi.mock('@tauri-apps/plugin-fs', () => ({ stat: async () => ({ birthtime: new Date(0) }) }))
 
-import { maybeCheckVaultUpdate, refreshSotvault, sotvaultStore } from './sotvault.svelte'
+import { getDeviceId } from './settings.svelte'
+import { maybeCheckVaultUpdate, refreshSotvault, sotvaultStore, syncCurrentToVault } from './sotvault.svelte'
 
 const VAULT = '/v/Sync/a.md'
 
@@ -128,5 +133,17 @@ describe('maybeCheckVaultUpdate', () => {
     ask.mockResolvedValueOnce(true)     // keep vault & stop prompting? yes
     await maybeCheckVaultUpdate({ filePath: VAULT })
     expect(invoke).toHaveBeenCalledWith('sotvault_accept_current', { vaultPath: VAULT })
+  })
+})
+
+describe('syncCurrentToVault', () => {
+  it('passes deviceId and deviceName to sotvault_sync_to_vault', async () => {
+    invoke
+      .mockResolvedValueOnce(undefined) // sotvault_sync_to_vault
+      .mockResolvedValueOnce('/v')      // refresh root
+      .mockResolvedValueOnce([])        // refresh records
+    await syncCurrentToVault()
+    const call = invoke.mock.calls.find((c) => c[0] === 'sotvault_sync_to_vault')
+    expect(call?.[1]).toMatchObject({ deviceId: getDeviceId(), deviceName: 'Test-Mac' })
   })
 })
