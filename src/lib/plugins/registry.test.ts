@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { validateManifest, buildRegistry, findShortcutConflicts, findCliConflicts } from './registry'
+import { validateManifest, buildRegistry, findCliConflicts } from './registry'
 import type { PluginManifest } from './types'
 
 const valid = (over: Partial<PluginManifest> = {}): PluginManifest => ({
@@ -50,22 +50,6 @@ describe('buildRegistry', () => {
     const b = valid({ name: 'second' })
     const r = buildRegistry([a, b])
     expect(r.byId['share'].name).toBe('first')
-  })
-})
-
-describe('findShortcutConflicts', () => {
-  it('returns empty when no conflicts', () => {
-    const m = valid({ menus: [{ location: 'file', label: 'A', shortcut: 'Cmd+1', command: 'a' }] })
-    expect(findShortcutConflicts([m], ['Cmd+S'])).toEqual([])
-  })
-  it('detects conflict between two plugins', () => {
-    const a = valid({ id: 'p1', menus: [{ location: 'file', label: 'A', shortcut: 'Cmd+L', command: 'a' }] })
-    const b = valid({ id: 'p2', menus: [{ location: 'file', label: 'B', shortcut: 'Cmd+L', command: 'b' }] })
-    expect(findShortcutConflicts([a, b], []).length).toBe(1)
-  })
-  it('detects conflict with reserved core shortcut', () => {
-    const a = valid({ menus: [{ location: 'file', label: 'A', shortcut: 'Cmd+S', command: 'a' }] })
-    expect(findShortcutConflicts([a], ['Cmd+S']).length).toBe(1)
   })
 })
 

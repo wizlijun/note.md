@@ -179,8 +179,9 @@
   onMount(async () => {
     try {
       const manifests = await invoke<PluginManifest[]>('get_plugin_manifests')
-      // share manifest still ships until T7 — filter it out to prevent a duplicate
-      // Share tab; after T7 the filter is a no-op.
+      // Defensive guard: no shipped manifest contributes a share settings tab
+      // anymore (share is core), but filter regardless so a stray external
+      // 'share' plugin can't duplicate the core Share tab.
       pluginTabs = [coreShareSettingsTab(), ...collectSettingsTabs(manifests.filter((m) => m.id !== 'share'))]
     } catch (e) {
       console.warn('[SettingsDialog] manifest load:', e)

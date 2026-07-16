@@ -600,6 +600,7 @@ export const zh: Record<keyof Messages, string> = {
   'insights.generateReport': '生成报告',
   'insights.refresh': '刷新',
   'insights.windowTitle': '阅读洞察数据',
+  'insights.needsVault': '需先设置 Vault 才能使用阅读洞察。',
   'insights.reportSaved': '报告已保存',
   'insights.reportFailed': '生成报告失败',
   'insights.openDoc': '打开此文档',

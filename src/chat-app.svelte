@@ -2,7 +2,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { start, stop } from './lib/openclaw/client.svelte'
-  import { initActivePluginIds } from './lib/plugins/registry'
   import SessionPicker from './components/chat/SessionPicker.svelte'
   import MessageList from './components/chat/MessageList.svelte'
   import Composer from './components/chat/Composer.svelte'
@@ -15,7 +14,6 @@
   async function init() {
     initError = null
     try {
-      await initActivePluginIds()
       const m = await start()
       mode = m === 'host' ? 'host' : 'remote'
     } catch (e) {

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Manual end-to-end smoke test for `notemd -s` against a real Share worker.
+# Manual end-to-end smoke test for `notemd --share` against a real Share worker.
 #
 # Usage:
 #   bash scripts/test-cli-share.sh
@@ -7,7 +7,7 @@
 # Prereqs:
 #   - note.md.app installed at /Applications/note.md.app
 #   - 'notemd' symlink installed (Help → Install 'notemd' Command in PATH)
-#   - Share plugin configured (Preferences → Plugins → Share: baseUrl + apiKey)
+#   - Share configured (Settings → Share: baseUrl + apiKey)
 
 set -euo pipefail
 
@@ -29,15 +29,15 @@ notemd version
 echo "→ notemd plugin list"
 notemd plugin list
 
-echo "→ notemd -s $TMP"
-URL=$(notemd -s "$TMP")
+echo "→ notemd --share $TMP"
+URL=$(notemd --share "$TMP")
 if [[ -z "$URL" ]]; then
   echo "FAIL: empty URL"; exit 1
 fi
 echo "  URL: $URL"
 
-echo "→ notemd -s $TMP --json"
-JSON=$(notemd -s "$TMP" --json)
+echo "→ notemd --share $TMP --json"
+JSON=$(notemd --share "$TMP" --json)
 echo "$JSON" | python3 -m json.tool > /dev/null
 
 echo "→ notemd share $TMP --copy-link (idempotent re-fetch)"

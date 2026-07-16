@@ -35,7 +35,8 @@
 
   /** Map FileKind to the narrower TabKind used in the plugin request context.
    *  Image tabs are reported as 'markdown' (matches App.svelte's snapshot
-   *  builder); the share plugin's Rust side branches on extension anyway. */
+   *  builder); image files never reach a plugin's HTML pipeline — share
+   *  handles them via uploadImage before this mapping matters. */
   function toTabKind(k: FileKind): TabKind {
     if (k === 'image') return 'markdown'
     return k

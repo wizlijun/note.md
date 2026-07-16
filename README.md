@@ -83,7 +83,7 @@ The AI-native notes system, rolling out incrementally:
   humans *and* agents. Ids are edit-resilient (content MinHash + five-pass
   merge); block metadata lives in a central cache, never beside your files.
   Click a gutter marker to copy a citation; `Cmd+Enter` follows one.
-- **Reading Insights (plugin)** — per-document reading / editing engagement
+- **Reading Insights** — per-document reading / editing engagement
   stored in your vault; turn any date range into a markdown digest from the
   CLI or **View → Reading Insights**.
 - **Attachment & video cards** — links to documents, audio, and video render
@@ -120,7 +120,7 @@ The AI-native notes system, rolling out incrementally:
 - **External change detection** — clean tabs reload silently; dirty tabs get
   a conflict banner (reload / overwrite / recreate on delete). Never silent
   data loss.
-- **Sync to Vault (plugin)** — copy any file into your git-synced vault with
+- **Sync to Vault** — copy any file into your git-synced vault with
   date-prefixed naming, source ↔ copy mapping, and conflict-aware refresh.
 - **Tabs** with dirty indicators and drag-to-reorder; **auto-save** (opt-in);
   **recent files**; Finder double-click / drag-to-open.
@@ -130,7 +130,7 @@ The AI-native notes system, rolling out incrementally:
 - **Block citations** — `((file#b-xxxxxx))` gives agents a stable way to
   quote and follow passages across the vault.
 - **`notemd` CLI** — drive plugin features without the GUI:
-  `notemd -s draft.md` publishes a share link; `--json` for structured
+  `notemd share draft.md` publishes a share link; `--json` for structured
   output; `notemd reading-insights report` writes engagement digests.
   Install from **Help → Install 'notemd' Command in PATH…**.
 - **MCP endpoint** — the share Worker exposes MCP so agents can publish
@@ -141,7 +141,7 @@ The AI-native notes system, rolling out incrementally:
 
 ### Share & export
 
-- **Share (plugin)** — `Cmd+Shift+L` publishes the current file as a
+- **Share** — `Cmd+Shift+L` publishes the current file as a
   self-contained page on your own Cloudflare Worker: KaTeX, Mermaid SVG,
   syntax highlighting, light + dark, mobile-ready. Update in place, unshare
   anytime; image-heavy docs spill to R2. See `worker/README.md` for
@@ -206,7 +206,7 @@ GitHub Release (two `.dmg`s, two updater tarballs + signatures, and a
 ## CLI
 
 ```bash
-notemd -s draft.md                         # publish via Share plugin, prints URL
+notemd share draft.md                      # publish a share link, prints URL
 notemd share draft.md --json               # structured output
 notemd share draft.md --copy-link          # re-fetch existing URL
 notemd share draft.md --unshare            # remove the share
@@ -215,7 +215,8 @@ notemd reading-insights report --vault ~/Vault --date 7d   # engagement digest
 notemd help                                # full reference
 ```
 
-The CLI only exposes commands contributed by *enabled* plugins.
+The CLI ships built-in core commands (`share`, `reading-insights report`)
+plus any commands contributed by *enabled* plugins.
 
 ## Testing
 

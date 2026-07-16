@@ -368,7 +368,6 @@
           isDirty: tab ? tab.currentContent !== tab.initialContent : false,
           isUntitled: !tab?.filePath,
           content: tab?.currentContent ?? '',
-          src: null as string | null,
         }
 
         // If the menu item declares a save-dialog prompt, ask the user where

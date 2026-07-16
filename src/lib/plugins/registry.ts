@@ -177,36 +177,6 @@ export function buildRegistry(manifests: PluginManifest[]): Registry {
   return { byId, errors }
 }
 
-export interface ShortcutConflict {
-  shortcut: string
-  owners: { pluginId: string; label: string }[]
-  reservedCore?: boolean
-}
-
-export function findShortcutConflicts(
-  manifests: PluginManifest[],
-  reservedCoreShortcuts: string[],
-): ShortcutConflict[] {
-  const map = new Map<string, ShortcutConflict>()
-  for (const m of manifests) {
-    for (const me of m.menus ?? []) {
-      if (!me.shortcut) continue
-      const cur = map.get(me.shortcut) ?? { shortcut: me.shortcut, owners: [] }
-      cur.owners.push({ pluginId: m.id, label: me.label })
-      map.set(me.shortcut, cur)
-    }
-  }
-  const conflicts: ShortcutConflict[] = []
-  for (const [shortcut, c] of map) {
-    const reserved = reservedCoreShortcuts.includes(shortcut)
-    if (c.owners.length > 1 || reserved) {
-      if (reserved) c.reservedCore = true
-      conflicts.push(c)
-    }
-  }
-  return conflicts
-}
-
 export interface CliConflict {
   kind: 'subcommand' | 'alias'
   key: string

@@ -574,6 +574,7 @@ export const en = {
   'insights.generateReport': 'Generate report',
   'insights.refresh': 'Refresh',
   'insights.windowTitle': 'Reading Insights',
+  'insights.needsVault': 'Configure a Vault to use Reading Insights.',
   'insights.reportSaved': 'Report saved',
   'insights.reportFailed': 'Failed to generate report',
   'insights.openDoc': 'Open this document',

@@ -567,6 +567,7 @@ export const de: Record<keyof Messages, string> = {
   'insights.generateReport': 'Bericht erstellen',
   'insights.refresh': 'Aktualisieren',
   'insights.windowTitle': 'Leseeinblicke',
+  'insights.needsVault': 'Richten Sie einen Tresor ein, um Leseeinblicke zu nutzen.',
   'insights.reportSaved': 'Bericht gespeichert',
   'insights.reportFailed': 'Bericht konnte nicht erstellt werden',
   'insights.openDoc': 'Dieses Dokument öffnen',

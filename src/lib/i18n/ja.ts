@@ -569,6 +569,7 @@ export const ja: Record<keyof Messages, string> = {
   'insights.generateReport': 'レポート生成',
   'insights.refresh': '更新',
   'insights.windowTitle': 'リーディングインサイト',
+  'insights.needsVault': 'リーディングインサイトを使うには先に Vault を設定してください。',
   'insights.reportSaved': 'レポートを保存しました',
   'insights.reportFailed': 'レポート生成に失敗しました',
   'insights.openDoc': 'このドキュメントを開く',
