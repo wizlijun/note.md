@@ -621,7 +621,7 @@ export const zh: Record<keyof Messages, string> = {
   'settings.cli.installing': '安装中…',
   'settings.cli.install': '安装…',
   'settings.cli.error': '错误：{error}',
-  'settings.cli.helpDesc': '安装后，在终端运行 <code>notemd help</code> 查看完整参考。CLI 只暴露<em>已启用</em>插件贡献的命令 — 在上面的 Plugins 中禁用某插件即可从 <code>notemd</code> 移除其子命令。',
+  'settings.cli.helpDesc': '安装后，在终端运行 <code>notemd help</code> 查看完整参考。CLI 内建核心命令（share、reading-insights report），并暴露<em>已启用</em>插件贡献的命令 — 在上面的 Plugins 中禁用某插件即可从 <code>notemd</code> 移除其子命令。',
 
   // Roam 导入窗口
   'roamImport.title': '从 Roam Research 导入',

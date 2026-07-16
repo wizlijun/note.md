@@ -595,7 +595,7 @@ export const en = {
   'settings.cli.installing': 'Installing…',
   'settings.cli.install': 'Install…',
   'settings.cli.error': 'Error: {error}',
-  'settings.cli.helpDesc': 'Once installed, run <code>notemd help</code> in your terminal for the full reference. The CLI only exposes commands contributed by <em>enabled</em> plugins — disable a plugin in Plugins above to remove its subcommand from <code>notemd</code>.',
+  'settings.cli.helpDesc': 'Once installed, run <code>notemd help</code> in your terminal for the full reference. The CLI ships built-in core commands (share, reading-insights report) plus commands contributed by <em>enabled</em> plugins — disable a plugin in Plugins above to remove its subcommand from <code>notemd</code>.',
 
   // ── Editor context menu ──
   'ctxmenu.cut': 'Cut',

@@ -588,7 +588,7 @@ export const de: Record<keyof Messages, string> = {
   'settings.cli.installing': 'Installiert…',
   'settings.cli.install': 'Installieren…',
   'settings.cli.error': 'Fehler: {error}',
-  'settings.cli.helpDesc': 'Nach der Installation führen Sie <code>notemd help</code> in Ihrem Terminal für die vollständige Referenz aus. Das CLI zeigt nur Befehle an, die von <em>aktivierten</em> Plugins bereitgestellt werden — deaktivieren Sie ein Plugin in Plugins oben, um seinen Unterbefehl aus <code>notemd</code> zu entfernen.',
+  'settings.cli.helpDesc': 'Nach der Installation führen Sie <code>notemd help</code> in Ihrem Terminal für die vollständige Referenz aus. Das CLI bringt eingebaute Kernbefehle mit (share, reading-insights report) und zeigt zusätzlich Befehle von <em>aktivierten</em> Plugins an — deaktivieren Sie ein Plugin in Plugins oben, um seinen Unterbefehl aus <code>notemd</code> zu entfernen.',
 
   // ── Editor context menu ──
   'ctxmenu.cut': 'Ausschneiden',

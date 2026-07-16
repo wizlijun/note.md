@@ -590,7 +590,7 @@ export const ja: Record<keyof Messages, string> = {
   'settings.cli.installing': 'インストール中…',
   'settings.cli.install': 'インストール…',
   'settings.cli.error': 'エラー：{error}',
-  'settings.cli.helpDesc': 'インストール後、ターミナルで <code>notemd help</code> を実行すると完全なリファレンスが表示されます。CLI は<em>有効な</em>プラグインが提供するコマンドのみを公開します — 上の Plugins でプラグインを無効にすると、そのサブコマンドが <code>notemd</code> から削除されます。',
+  'settings.cli.helpDesc': 'インストール後、ターミナルで <code>notemd help</code> を実行すると完全なリファレンスが表示されます。CLI には組み込みのコアコマンド（share、reading-insights report）があり、さらに<em>有効な</em>プラグインが提供するコマンドを公開します — 上の Plugins でプラグインを無効にすると、そのサブコマンドが <code>notemd</code> から削除されます。',
 
   // Editor context menu
   'ctxmenu.cut': 'カット',
