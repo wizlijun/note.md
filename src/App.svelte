@@ -34,7 +34,7 @@
   import { renderTabAsInlineBody, buildPdfTitle } from './lib/plugins/host-render-html'
   import { renderFilenameTemplate } from './lib/plugins/prompt'
   import {
-    collectMenuItems, evaluateEnabled, parsePluginMenuId,
+    collectMenuItems, evaluateEnabled, parsePluginMenuId, CORE_MENU_ENABLED_ITEMS,
     type CollectedItem, type CollectedItems,
   } from './lib/plugins/menu-registry'
   import { pluginRuntime, setPluginDispatcher } from './lib/plugins/runtime.svelte'
@@ -55,7 +55,7 @@
   import { loadOutlineDirs } from './lib/outline/dirs.svelte'
   import { platform, isIOS } from './lib/platform.svelte'
   import { vaultStore, refreshStatus, syncNow, attachStatusListener } from './lib/vault.svelte'
-  import { syncCurrentToVault, canSyncActive, isTrackedVaultFile, refreshSotvault, sotvaultStore, setVaultRootChangedHandler, initSotvaultNoteConflictToast } from './lib/sotvault.svelte'
+  import { canSyncActive, isTrackedVaultFile, refreshSotvault, sotvaultStore, setVaultRootChangedHandler, initSotvaultNoteConflictToast } from './lib/sotvault.svelte'
   import { installRecentsSync, refreshRecentMenu, mergedRecents } from './lib/recent-sync.svelte'
   import { maybeInstallTracker, shutdownTracker } from './lib/insights/tracker.svelte'
   import { ensureWikilinkBlocklist } from './lib/wikilink/blocklist-io.svelte'
@@ -347,10 +347,6 @@
         // mutual-exclusion special-casing.
         if (command === 'toggle' && getSideView(pluginId)) {
           await toggleSideView(pluginId)
-          return
-        }
-        if (pluginId === 'sotvault') {
-          if (command === 'sync-to-vault') await syncCurrentToVault()
           return
         }
         if (pluginId === 'roam-import') {
@@ -698,6 +694,7 @@
       ...collectedItems.window,
       ...collectedItems.help,
       ...collectedItems.plugins,
+      ...CORE_MENU_ENABLED_ITEMS,
     ]
 
     for (const item of allItems) {

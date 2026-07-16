@@ -2,6 +2,8 @@ import { activeTab, saveActive, saveAs, openFile, closeTab, toggleMode } from '.
 import { confirmDirtyClose, pickOpenFile, pickSaveFile, showError } from './dialogs'
 import { sharePublishCurrent, shareUnpublishCurrent, shareCopyLinkCurrent } from './share'
 import { printActiveTab } from './print'
+import { syncCurrentToVault } from './sotvault.svelte'
+import { toggleSideView } from './side-panel/registry.svelte'
 
 export async function cmdOpen(): Promise<void> {
   const p = await pickOpenFile()
@@ -54,6 +56,10 @@ export type CommandId =
   | 'unshare'
   | 'copy-share-link'
   | 'docs'
+  | 'sync-to-vault'
+  | 'toggle-folder-view'
+  | 'toggle-sidecar-notes'
+  | 'toggle-git-history'
 
 const handlers: Record<CommandId, () => void | Promise<void>> = {
   'open': cmdOpen,
@@ -71,6 +77,10 @@ const handlers: Record<CommandId, () => void | Promise<void>> = {
       .then(({ openUrl }) => openUrl('https://github.com/wizlijun/note.md'))
       .catch(() => {})
   },
+  'sync-to-vault': syncCurrentToVault,
+  'toggle-folder-view': () => toggleSideView('folder-view'),
+  'toggle-sidecar-notes': () => toggleSideView('outline-notes'),
+  'toggle-git-history': () => toggleSideView('git-history'),
 }
 
 export function dispatch(id: CommandId): void | Promise<void> {
