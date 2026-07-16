@@ -62,6 +62,7 @@ export const ja: Record<keyof Messages, string> = {
   'share.err.http': 'リクエストに失敗しました',
   'share.err.parse': 'サーバー応答の解析に失敗しました',
   'share.err.corrupt_record': 'ローカルの共有記録が壊れています',
+  'share.tabShare': 'このタブを共有…',
 
   // Source-of-truth Vault (sotvault)
   'sotvault.revealFailed': '❌ ソースフォルダを開けませんでした',

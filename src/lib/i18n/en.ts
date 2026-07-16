@@ -67,6 +67,7 @@ export const en = {
   'share.err.http': 'Request failed',
   'share.err.parse': 'Failed to parse server response',
   'share.err.corrupt_record': 'Local share record is corrupt',
+  'share.tabShare': 'Share This Tab…',
 
   // Source-of-truth Vault (sotvault)
   'sotvault.revealFailed': '❌ Failed to open source folder',

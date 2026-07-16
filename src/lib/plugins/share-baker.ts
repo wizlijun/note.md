@@ -14,7 +14,6 @@ import katexCss from 'katex/dist/katex.min.css?raw'
 import hljsLightCss from 'highlight.js/styles/github.css?raw'
 import hljsDarkCss from 'highlight.js/styles/github-dark.css?raw'
 import shareBeaconJs from './share-beacon.js?raw'
-import { isPluginEnabled } from '../settings.svelte'
 
 /// Load the compiled CSS for the requested theme via the `theme_load_compiled`
 /// Tauri command (same routing as theme-loader.ts — avoids needing fs:scope
@@ -313,7 +312,7 @@ ${themedStyleHead(themeCss)}
 <main class="moraya-editor">${inlineBody}</main>
 <footer class="share-footer">Powered by <a href="https://notemd.net">note.md</a></footer>
 </div>
-${isPluginEnabled('reading-insights') ? `<script>${shareBeaconJs}</script>` : ''}
+<script>${shareBeaconJs}</script>
 </body>
 </html>`
   guardSize(html)

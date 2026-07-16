@@ -12,7 +12,7 @@
   import EditorPane from './components/EditorPane.svelte'
   import EmptyState from './components/EmptyState.svelte'
   import ModeToggle from './components/ModeToggle.svelte'
-  import { activeTab, tabs, closeTab, openFile, newFile, isDirty, activate, saveActive } from './lib/tabs.svelte'
+  import { activeTab, tabs, closeTab, openFile, newFile, isDirty, activate } from './lib/tabs.svelte'
   import { createNewBase } from './lib/base/create'
   import { loadSettings, settings, removeRecentFile } from './lib/settings.svelte'
   import { loadLocale, t, i18n } from './lib/i18n/store.svelte'
@@ -29,8 +29,6 @@
   import { openFind, openFindReplace } from './lib/find-replace.svelte'
   import { invokePlugin } from './lib/plugins/host'
   import { applyActions, configureActionHandlers } from './lib/plugins/action-handlers'
-  import { bakeShareHtml } from './lib/plugins/share-baker'
-  import { activeTheme } from './lib/active-theme.svelte'
   import { renderTabAsInlineBody, buildPdfTitle } from './lib/plugins/host-render-html'
   import { renderFilenameTemplate } from './lib/plugins/prompt'
   import {
@@ -373,23 +371,6 @@
           src: null as string | null,
         }
 
-        // Share's publish must vault-home an outside file first — the single
-        // shared pre-step, identical to the CLI and iOS paths — so the plugin
-        // uploads the vault copy's src and other machines resolve it under vault.
-        if (m.id === 'share' && command === 'publish' && snap.path) {
-          try {
-            const { prepareShareSrc } = await import('./lib/share')
-            snap.src = await prepareShareSrc(snap.path, saveActive)
-          } catch (e) {
-            const { ShareError } = await import('./lib/share/types')
-            const msg = e instanceof ShareError && e.kind === 'vault_required'
-              ? t('share.err.vault_required')
-              : t('share.internalError', { name: m.name })
-            pushToast({ level: 'error', message: msg, detail: e instanceof Error ? e.message : String(e) })
-            return
-          }
-        }
-
         // If the menu item declares a save-dialog prompt, ask the user where
         // to write before invoking. Cancel → silent return.
         let outputPath: string | undefined
@@ -413,10 +394,8 @@
               // Image tabs don't get rendered to HTML — the share plugin's Rust
               // side branches on file extension and uploads bytes directly.
               if (t.kind === 'image') return ''
-              // share has its own wrapping (theme CSS, viewport meta, header/footer).
               // Other plugins (md2pdf, future) take just the inline body and wrap
               // it themselves.
-              if (m.id === 'share') return bakeShareHtml(t, activeTheme.id)
               return renderTabAsInlineBody(t)
             },
             outputPath,

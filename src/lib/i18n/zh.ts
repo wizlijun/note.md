@@ -62,6 +62,7 @@ export const zh: Record<keyof Messages, string> = {
   'share.err.http': '请求失败',
   'share.err.parse': '服务器响应解析失败',
   'share.err.corrupt_record': '本地分享记录损坏',
+  'share.tabShare': '分享此标签页…',
 
   // Source-of-truth Vault (sotvault)
   'sotvault.revealFailed': '❌ 打开来源目录失败',

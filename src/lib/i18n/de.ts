@@ -60,6 +60,7 @@ export const de: Record<keyof Messages, string> = {
   'share.err.http': 'Anfrage fehlgeschlagen',
   'share.err.parse': 'Serverantwort konnte nicht analysiert werden',
   'share.err.corrupt_record': 'Lokaler Freigabeeintrag ist beschädigt',
+  'share.tabShare': 'Diesen Tab teilen…',
 
   // Source-of-truth Vault (sotvault)
   'sotvault.revealFailed': '❌ Quellordner konnte nicht geöffnet werden',

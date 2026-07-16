@@ -169,13 +169,12 @@ export async function flushNow(): Promise<void> {
 /**
  * Idempotently (re)install the tracker for the currently-configured vault.
  *
- * Call this whenever the vault root may have changed (it is wired to
- * `refreshSotvault` via `setVaultRootChangedHandler`). Unlike a one-shot
- * `onMount` install, this is driven by STATE, not app-boot ordering — so it
- * installs correctly both when a vault is already configured at launch (once
- * `refreshSotvault` loads the root, post-plugin-init) and when the user
- * configures a vault mid-session. No-ops when the plugin is disabled, no vault
- * is set, or the tracker is already installed for that same vault.
+ * Called at boot (via App.svelte onMount) and on vault-root changes (via
+ * `setVaultRootChangedHandler` → `refreshSotvault`). Unlike a one-shot
+ * `onMount` install, this is STATE-driven so it works correctly both when
+ * a vault is already configured at launch and when the user configures one
+ * mid-session. No-ops when no vault is set or when the tracker is already
+ * installed for that same vault root.
  */
 export async function maybeInstallTracker(
   install: () => Promise<() => void | Promise<void>> = installTracker,
