@@ -18,6 +18,7 @@
   import { copyShareLink } from '../share/copy-link'
   import { uploadImage } from '../share/upload-image'
   import { ShareError } from '../share/types'
+  import { getRecord } from '../share/records'
   import {
     basenameOf, extensionOf, inferKind, interpretActions,
     type CliPayload,
@@ -154,20 +155,48 @@
 
   /** `notemd share` — share 是 core：走 TS 实现（与桌面菜单同一套
    *  publish/unpublish/copy-link/upload-image），无插件二进制。复用与菜单
-   *  一致的 vault-home 前置与 bake 流程；结果按 --json/--clipboard 约定输出。 */
+   *  一致的 vault-home 前置与 bake 流程；结果按 --json/--clipboard 约定输出。
+   *
+   *  Output contract (mirrors old plugin-binary behaviour consumed by md2pdf
+   *  interpretActions and `notemd help` EXIT CODES):
+   *  - success --json: { ok: true, data: { ... } }, exit 0
+   *  - failure --json: { ok: false, error: { code, message } } on stdout + stderr, exit 4
+   *  - failure non-json: stderr only, exit 4
+   *  - exit 2 reserved for file/argument errors (missing file — before dispatch)
+   */
   async function runShareCli(payload: CliPayload): Promise<void> {
     if (!payload.file) {
       await finish({ exit_code: 2, stderr: ['notemd: missing file argument'] })
       return
     }
     const file = payload.file
+
+    /** Emit a share operation failure (exit 4). Writes JSON envelope to stdout
+     *  when --json; always writes human message to stderr. */
+    async function failShare(code: string, message: string): Promise<void> {
+      const stderr = [`notemd: share failed: ${message}`]
+      if (payload.global.json) {
+        await finish({
+          exit_code: 4,
+          stdout: JSON.stringify({ ok: false, error: { code, message } }),
+          stderr,
+        })
+      } else {
+        await finish({ exit_code: 4, stderr })
+      }
+    }
+
     try {
       if (payload.plugin_command === 'copy-link') {
+        // copyShareLink internally writes clipboard; no extra write needed.
+        const rec = getRecord(file)
         const url = await copyShareLink(file)
-        await clipWriteText(url).catch(() => {})
+        const slug = rec?.kind !== 'image' ? (rec as any)?.slug as string | undefined : undefined
+        const data: Record<string, string> = { url }
+        if (slug) data.slug = slug
         await finish({
           exit_code: 0,
-          stdout: payload.global.json ? JSON.stringify({ url }) : url,
+          stdout: payload.global.json ? JSON.stringify({ ok: true, data }) : url,
           stderr: [],
         })
         return
@@ -176,15 +205,33 @@
       const { getShareConfig } = await import('../share')
       const cfg = getShareConfig()
       if (!cfg) {
-        await finish({ exit_code: 1, stderr: ['notemd: share not configured (baseUrl/apiKey)'] })
+        const msg = 'share not configured (baseUrl/apiKey)'
+        if (payload.global.json) {
+          await finish({
+            exit_code: 4,
+            stdout: JSON.stringify({ ok: false, error: { code: 'not_configured', message: msg } }),
+            stderr: [`notemd: ${msg}`],
+          })
+        } else {
+          await finish({ exit_code: 4, stderr: [`notemd: ${msg}`] })
+        }
         return
       }
 
       if (payload.plugin_command === 'unpublish') {
+        // Read record BEFORE unpublish so we capture slug (unpublish deletes it).
+        const recBefore = getRecord(file)
+        const slugBefore = recBefore?.kind !== 'image'
+          ? (recBefore as any)?.slug as string | undefined
+          : undefined
         await unpublish({ path: file, baseUrl: cfg.baseUrl })
+        const data: Record<string, unknown> = { removed: true }
+        if (slugBefore) data.slug = slugBefore
         await finish({
           exit_code: 0,
-          stdout: payload.global.json ? JSON.stringify({ unshared: true, path: file }) : `unshared ${file}`,
+          stdout: payload.global.json
+            ? JSON.stringify({ ok: true, data })
+            : `unshared ${file}`,
           stderr: [],
         })
         return
@@ -200,10 +247,13 @@
           path: file, filename: tab.title,
           baseUrl: cfg.baseUrl, defaultExpiry: cfg.defaultExpiry,
         })
-        if (payload.global.clipboard) await clipWriteText(url).catch(() => {})
+        // slug not applicable for image shares (records use id/ext, not slug)
+        if (payload.global.clipboard && !payload.global.json) await clipWriteText(url).catch(() => {})
         await finish({
           exit_code: 0,
-          stdout: payload.global.json ? JSON.stringify({ url, isUpdate }) : url,
+          stdout: payload.global.json
+            ? JSON.stringify({ ok: true, data: { url, is_update: isUpdate } })
+            : url,
           stderr: [],
         })
         return
@@ -223,13 +273,21 @@
       } catch (e) {
         // 详细诊断:报错时列出读了哪个配置文件、sotvault 值、各层解析结果、文件路径
         // (原样打印,便于发现 Sync/sync 之类大小写不一致)。
-        await finish({
-          exit_code: 1,
-          stderr: [
-            `notemd: share failed: ${e instanceof Error ? e.message : String(e)}`,
-            ...(await shareVaultDiagnostics(file)),
-          ],
-        })
+        const msg = e instanceof Error ? e.message : String(e)
+        const code = e instanceof ShareError ? e.kind : 'share_failed'
+        const diagLines = await shareVaultDiagnostics(file)
+        if (payload.global.json) {
+          await finish({
+            exit_code: 4,
+            stdout: JSON.stringify({ ok: false, error: { code, message: msg } }),
+            stderr: [`notemd: share failed: ${msg}`, ...diagLines],
+          })
+        } else {
+          await finish({
+            exit_code: 4,
+            stderr: [`notemd: share failed: ${msg}`, ...diagLines],
+          })
+        }
         return
       }
 
@@ -237,35 +295,34 @@
       const themeId = computeActiveThemeId(settings.theme, systemDark)
       const html = await bakeShareHtml(tab, themeId)
       if (!html) {
-        await finish({ exit_code: 1, stderr: ['notemd: share failed: empty_content'] })
+        await failShare('empty_content', 'empty_content')
         return
       }
       if (new TextEncoder().encode(html).byteLength > 25 * 1024 * 1024) {
-        await finish({ exit_code: 1, stderr: ['notemd: share failed: too_large'] })
+        await failShare('too_large', 'too_large')
         return
       }
 
-      const { url, isUpdate } = await publishHtml({
+      const { url, slug, isUpdate } = await publishHtml({
         path: file, filename: tab.title, html,
         baseUrl: cfg.baseUrl,
         defaultExpiry: cfg.defaultExpiry,
         slugRandomSuffix: cfg.slugRandomSuffix,
         src,
       })
-      if (payload.global.clipboard) await clipWriteText(url).catch(() => {})
+      if (payload.global.clipboard && !payload.global.json) await clipWriteText(url).catch(() => {})
       await finish({
         exit_code: 0,
-        stdout: payload.global.json ? JSON.stringify({ url, isUpdate }) : url,
+        stdout: payload.global.json
+          ? JSON.stringify({ ok: true, data: { url, slug, is_update: isUpdate } })
+          : url,
         stderr: [],
       })
     } catch (e) {
       if (e instanceof ShareError) {
-        await finish({
-          exit_code: 1,
-          stderr: [`notemd: share failed: ${e.kind}${e.detail ? ': ' + e.detail : ''}`],
-        })
+        await failShare(e.kind, `${e.kind}${e.detail ? ': ' + e.detail : ''}`)
       } else {
-        await finish({ exit_code: 1, stderr: [`notemd: share failed: ${String(e)}`] })
+        await failShare('share_failed', String(e))
       }
     }
   }
