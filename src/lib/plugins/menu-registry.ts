@@ -3,7 +3,7 @@ import { evaluateEnabledWhen } from './enabled-when'
 import { pluginMenuLabel, pluginContextMenuLabel } from './plugin-i18n'
 
 export interface CollectedItem {
-  id: string                    // 'plugin:<pluginId>:<command>'
+  id: string                    // 'plugin:<pluginId>:<command>'；core 化项为裸 id（如 'sync-to-vault'）
   pluginId: string
   command: string
   label: string

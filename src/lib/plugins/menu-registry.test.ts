@@ -42,6 +42,7 @@ describe('collectMenuItems', () => {
 
 describe('CORE_MENU_ENABLED_ITEMS', () => {
   it('covers the five conditional core menu ids with original enabled_when expressions', () => {
+    expect(CORE_MENU_ENABLED_ITEMS).toHaveLength(5)
     const byId = Object.fromEntries(CORE_MENU_ENABLED_ITEMS.map((i) => [i.id, i]))
     expect(byId['sync-to-vault'].enabledWhen).toBe('currentTab.canSyncToVault')
     expect(byId['share'].enabledWhen).toBe('currentTab.hasContent')
