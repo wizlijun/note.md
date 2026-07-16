@@ -240,7 +240,7 @@ window.notemd = {
 |---|---|
 | sotvault | 删 manifest；File 菜单项 + i18n 迁 core（`en.ts` 系扁平键）；`syncCurrentToVault` 路由改 core 菜单直连 |
 | outline-notes / folder-view / git-history | 删 manifest；View 菜单项迁 core；`registerBuiltinSideViews` 改为 core 侧栏的正式注册（不再是"插件的硬编码"，而是 core 的正当代码）；视图开关状态存储不变 |
-| share | 删 manifest + 删 bin；**mdshare crate 编译进 src-tauri**（依赖仅 ureq/serde/time/rand）；菜单/右键/设置页/CLI `share` 全部内化；`share_db.json` 与 vault-homing 前置保持现状（已是 core 语义） |
+| share | 删 manifest + 删 bin；**桌面/CLI 切换到 `src/lib/share` 既有 TS 实现（与 iOS 同源），mdshare crate、二进制与 build:mdshare 发布步骤整体退役**（实施勘查修订，优于原"编译进 src-tauri"方案：消除 Rust/TS 双实现）；菜单/右键/设置页/CLI `share` 全部内化，CLI 保留旧 `ok/data` JSON 信封与 exit-4 失败契约；`share_db.json` 与 vault-homing 前置保持现状（已是 core 语义） |
 | reading-insights | 删 manifest；insights 窗口转正为 core 窗口；CLI `report` 内化；`available_when: vaultConfigured` 语义移入 core 菜单判定 |
 
 统一动作：这 6 个退出 `plugins.enabled` 判定与插件设置页；`get_all_plugin_manifests` 等接口不再返回它们；用户不可停用（菜单项的 enabled_when 继续按上下文置灰）。
