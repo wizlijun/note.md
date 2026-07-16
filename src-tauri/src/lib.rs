@@ -1252,6 +1252,13 @@ fn menu_label(locale: &str, key: &str) -> String {
         "edit.findReplace" => ("Find and Replace…", "查找和替换…", "検索と置換…", "Suchen und Ersetzen…"),
         "view.toggleMode" => ("Toggle Source / Rich", "切换源码 / 富文本", "ソース / リッチを切り替え", "Quelltext / Rich umschalten"),
         "view.insights" => ("Reading Insights…", "阅读洞察数据…", "リーディングインサイト…", "Leseeinblicke…"),
+        "file.syncToVault" => ("Sync to Vault…", "同步到 Vault…", "Vault に同期…", "Mit Vault synchronisieren…"),
+        "file.share" => ("Share Current File…", "分享当前文件…", "現在のファイルを共有…", "Aktuelle Datei teilen…"),
+        "file.unshare" => ("Unshare Current File…", "取消分享当前文件…", "現在のファイルの共有を解除…", "Freigabe der aktuellen Datei aufheben…"),
+        "file.copyShareLink" => ("Copy Share Link", "复制分享链接", "共有リンクをコピー", "Freigabe-Link kopieren"),
+        "view.folderView" => ("Folder View", "文件夹视图", "フォルダビュー", "Ordneransicht"),
+        "view.sidecarNotes" => ("Sidecar Notes View", "伴生笔记视图", "サイドカーノートビュー", "Begleitnotizen-Ansicht"),
+        "view.history" => ("History View", "历史视图", "履歴ビュー", "Verlaufsansicht"),
         "window.zoomIn" => ("Zoom In", "放大", "拡大", "Vergrößern"),
         "window.zoomOut" => ("Zoom Out", "缩小", "縮小", "Verkleinern"),
         "window.actualSize" => ("Actual Size", "实际大小", "実際のサイズ", "Originalgröße"),
@@ -1499,7 +1506,16 @@ fn build_menu<R: tauri::Runtime>(
             &MenuItemBuilder::with_id("print", menu_label(locale, "file.print"))
                 .accelerator("Cmd+P")
                 .build(app)?,
-        );
+        )
+        .separator()
+        .item(&MenuItemBuilder::with_id("sync-to-vault", menu_label(locale, "file.syncToVault")).build(app)?)
+        .item(
+            &MenuItemBuilder::with_id("share", menu_label(locale, "file.share"))
+                .accelerator("Cmd+Shift+L")
+                .build(app)?,
+        )
+        .item(&MenuItemBuilder::with_id("unshare", menu_label(locale, "file.unshare")).build(app)?)
+        .item(&MenuItemBuilder::with_id("copy-share-link", menu_label(locale, "file.copyShareLink")).build(app)?);
     // File plugin items: those tagged `submenu: "import"` are grouped under a
     // nested File ▸ Import submenu; the rest stay flat in the File menu.
     let file_items: Vec<_> = plugin_items.iter().filter(|p| p.location == "file").collect();
@@ -1546,7 +1562,11 @@ fn build_menu<R: tauri::Runtime>(
         )
         .item(&PredefinedMenuItem::fullscreen(app, None)?)
         .separator()
-        .item(&MenuItemBuilder::with_id("open-insights", menu_label(locale, "view.insights")).build(app)?);
+        .item(&MenuItemBuilder::with_id("open-insights", menu_label(locale, "view.insights")).build(app)?)
+        .separator()
+        .item(&MenuItemBuilder::with_id("toggle-folder-view", menu_label(locale, "view.folderView")).accelerator("Cmd+Shift+E").build(app)?)
+        .item(&MenuItemBuilder::with_id("toggle-sidecar-notes", menu_label(locale, "view.sidecarNotes")).accelerator("Cmd+Shift+O").build(app)?)
+        .item(&MenuItemBuilder::with_id("toggle-git-history", menu_label(locale, "view.history")).accelerator("Cmd+Shift+Y").build(app)?);
     for it in plugin_items.iter().filter(|p| p.location == "view") {
         let mut b = MenuItemBuilder::with_id(&it.id, &it.label);
         if let Some(s) = &it.shortcut { b = b.accelerator(s); }
