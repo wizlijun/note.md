@@ -4,35 +4,6 @@
   "version": "0.4.0",
   "description": "Publish current file as a shareable web page",
   "binary": "bin",
-  "menus": [
-    {
-      "location": "file",
-      "label": "Share Current File...",
-      "shortcut": "Cmd+Shift+L",
-      "command": "publish",
-      "enabled_when": "currentTab.hasContent"
-    },
-    {
-      "location": "file",
-      "label": "Unshare Current File...",
-      "command": "unpublish",
-      "enabled_when": "settings[\"share.records\"][currentTab.path]"
-    },
-    {
-      "location": "file",
-      "label": "Copy Share Link",
-      "command": "copy-link",
-      "enabled_when": "settings[\"share.records\"][currentTab.path]"
-    }
-  ],
-  "context_menus": [
-    {
-      "location": "tab",
-      "label": "Share This Tab...",
-      "command": "publish",
-      "enabled_when": "currentTab.hasContent"
-    }
-  ],
   "settings": {
     "tab_label": "Share",
     "schema": [
@@ -117,14 +88,6 @@
     "zh": {
       "name": "分享",
       "description": "将当前文件发布为可分享的网页",
-      "menus": {
-        "publish": "分享当前文件…",
-        "unpublish": "取消分享当前文件…",
-        "copy-link": "复制分享链接"
-      },
-      "context_menus": {
-        "publish": "分享此标签页…"
-      },
       "settings.tab_label": "分享",
       "settings.fields": {
         "share.baseUrl": "服务基础 URL",
@@ -136,14 +99,6 @@
     "ja": {
       "name": "共有",
       "description": "現在のファイルを共有可能な Web ページとして公開",
-      "menus": {
-        "publish": "現在のファイルを共有…",
-        "unpublish": "現在のファイルの共有を解除…",
-        "copy-link": "共有リンクをコピー"
-      },
-      "context_menus": {
-        "publish": "このタブを共有…"
-      },
       "settings.tab_label": "共有",
       "settings.fields": {
         "share.baseUrl": "サービスのベース URL",
@@ -155,14 +110,6 @@
     "de": {
       "name": "Teilen",
       "description": "Aktuelle Datei als teilbare Webseite veröffentlichen",
-      "menus": {
-        "publish": "Aktuelle Datei teilen…",
-        "unpublish": "Freigabe der aktuellen Datei aufheben…",
-        "copy-link": "Freigabe-Link kopieren"
-      },
-      "context_menus": {
-        "publish": "Diesen Tab teilen…"
-      },
       "settings.tab_label": "Teilen",
       "settings.fields": {
         "share.baseUrl": "Dienst-Basis-URL",

@@ -6,35 +6,18 @@
   "kind": "builtin",
   "default_enabled": true,
   "host_capabilities": [],
-  "menus": [
-    {
-      "location": "view",
-      "label": "Folder View",
-      "shortcut": "Cmd+Shift+E",
-      "command": "toggle"
-    }
-  ],
   "i18n": {
     "zh": {
       "name": "文件夹视图",
-      "description": "在左侧以树形显示当前文件所在目录，可浏览并打开文件。",
-      "menus": {
-        "toggle": "文件夹视图"
-      }
+      "description": "在左侧以树形显示当前文件所在目录，可浏览并打开文件。"
     },
     "ja": {
       "name": "フォルダビュー",
-      "description": "現在のファイルのディレクトリを左側にツリー表示し、ファイルを閲覧・開けます。",
-      "menus": {
-        "toggle": "フォルダビュー"
-      }
+      "description": "現在のファイルのディレクトリを左側にツリー表示し、ファイルを閲覧・開けます。"
     },
     "de": {
       "name": "Ordneransicht",
-      "description": "Zeigt das Verzeichnis der aktuellen Datei als Baum auf der linken Seite; Dateien durchsuchen und öffnen.",
-      "menus": {
-        "toggle": "Ordneransicht"
-      }
+      "description": "Zeigt das Verzeichnis der aktuellen Datei als Baum auf der linken Seite; Dateien durchsuchen und öffnen."
     }
   }
 }
