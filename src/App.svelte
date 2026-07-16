@@ -208,6 +208,8 @@
       registerBuiltinSideViews()
       await loadSidePanels()
       await loadOutlineDirs()
+      const { migrateMirrorMeta } = await import('./lib/sotvault.svelte')
+      void migrateMirrorMeta()
       await initActivePluginIds()
 
       // Kick off auto-update check (1.5s delay built in, 20h cache).

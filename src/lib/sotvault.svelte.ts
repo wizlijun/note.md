@@ -83,6 +83,19 @@ async function deviceInfo(): Promise<{ deviceId: string; deviceName: string }> {
   return { deviceId, deviceName }
 }
 
+/** One-time backfill of app-support records into the git-synced .notemd/mirrors/
+ *  store. Idempotent + best-effort; no-op without a configured vault. */
+export async function migrateMirrorMeta(): Promise<void> {
+  if (!sotvaultStore.vaultRoot) return
+  const { deviceId, deviceName } = await deviceInfo()
+  try {
+    const n = await invoke<number>('notemd_migrate_mirror_meta', { deviceId, deviceName })
+    if (n > 0) console.info(`[sotvault] migrated ${n} mirror meta records`)
+  } catch (e) {
+    console.warn('[sotvault] mirror meta migration:', e)
+  }
+}
+
 /** Reveal the source file in the OS file browser (opens its folder, highlights it). */
 export async function revealVaultSource(sourcePath: string): Promise<void> {
   try {
