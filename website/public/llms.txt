@@ -1,6 +1,6 @@
 # note.md
 
-> note.md is a markdown reader & editor for the AI-native era, built for humans and agents working in the same plain files. Agents write documents; humans read, highlight, and annotate them. Annotations are saved to sidecar `.note.md` files — human judgment becomes durable, searchable data that agents read back. No database, no cloud: a folder of markdown, owned by the user.
+> note.md is a markdown reader & editor for the AI-native era, built for humans and agents working in the same plain files. Agents write more than any human can read; the human's job is to read, judge, and keep the few lines only they could have written — the residue no model can generate: judgment, intent, private facts, decisions. Those marks are saved to sidecar `.note.md` files, becoming durable, searchable data that agents read back. The knowledge graph grows only where the human confirms it — agents may suggest connections, never assert them. No database, no cloud, no walled garden: a folder of markdown, owned by the user.
 
 Key facts: macOS app (Tauri, system WebView, signed & notarized). Free. Repo: https://github.com/wizlijun/note.md. The vault is plain files; every convention below is readable and writable by any agent — you do not need this app to work with a note.md vault.
 
@@ -13,6 +13,7 @@ Key facts: macOS app (Tauri, system WebView, signed & notarized). Free. Repo: ht
 ## Core conventions (summary)
 
 - `xxx.note.md` beside `xxx.md` = human annotations of that document. `.note.md` without a sibling source = standalone outline note. Never write into a human's `.note.md` unless asked.
+- Consent-based linking: an agent may *suggest* a `[[link]]`, but only the human confirms what actually connects. Do not auto-link documents or backfill a graph the human didn't ask for.
 - `.note.md` body = nested markdown bullet list (an outline), with YAML frontmatter (`title`, `created`, `updated`).
 - Daily notes: `dailynote/{yyyy}/{yyyy-MM-dd}.note.md`; monthly `{yyyy-MM}.note.md`; yearly `{yyyy}.note.md`. Canonical date link: `[[yyyy-MM-dd]]`.
 - Wiki notes: `wikipage/{title-slug}.note.md`. One global `[[title]]` namespace across the vault.

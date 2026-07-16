@@ -7,10 +7,12 @@ https://notemd.net/. Last updated: 2026-07.
 ## What note.md is
 
 note.md is a markdown reader & editor for the AI-native era, made by an
-independent developer. Its premise: agents now produce most documents, so the
-human's highest-value act is reading, judging, and annotating — and those
-annotations are the rarest data in the loop. note.md captures them as plain
-files that agents can read back.
+independent developer. Its premise: agents now write more than any human can
+read, so the human's highest-value act is reading, judging, and keeping the
+residue no model can generate — judgment, intent, private facts, decisions.
+That residue is the rarest data in the loop. note.md captures it as plain
+files that agents can read back, and grows the knowledge graph only where the
+human confirms a connection — agents suggest links, they never assert them.
 
 - Platform: macOS 13+ (Apple Silicon & Intel), a Tauri app rendering in the
   system WebView. Code-signed and notarized.
@@ -50,6 +52,10 @@ honor it with nothing but file reads and writes.
 - `[[title]]` wikilinks are resolved against frontmatter `title` across the
   entire vault (filename slug as fallback). One global namespace: daily
   notes, wiki pages, and annotations all interlink.
+- Consent-based linking: an agent may *suggest* a `[[link]]`, but only the
+  human confirms what actually connects. Do not auto-link documents or
+  backfill a graph the human didn't ask for — the graph grows only where the
+  human consents.
 - note.md always opens `.note.md` files in an outline view; the extension
   encodes format, not ownership.
 
