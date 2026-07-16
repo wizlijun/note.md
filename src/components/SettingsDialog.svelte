@@ -16,6 +16,7 @@
   import ThemeImportDialog from './ThemeImportDialog.svelte'
   import { platform } from '../lib/platform.svelte'
   import { collectSettingsTabs, type SettingsTab } from '../lib/plugins/settings-registry'
+  import { coreShareSettingsTab } from '../lib/share/settings-tab'
   import type { PluginManifest } from '../lib/plugins/types'
   import { isPluginActive } from '../lib/plugins/registry'
   import { outlineShortcuts, setShortcutOverride } from '../lib/outline/gate.svelte'
@@ -178,9 +179,12 @@
   onMount(async () => {
     try {
       const manifests = await invoke<PluginManifest[]>('get_plugin_manifests')
-      pluginTabs = collectSettingsTabs(manifests)
+      // share manifest still ships until T7 — filter it out to prevent a duplicate
+      // Share tab; after T7 the filter is a no-op.
+      pluginTabs = [coreShareSettingsTab(), ...collectSettingsTabs(manifests.filter((m) => m.id !== 'share'))]
     } catch (e) {
       console.warn('[SettingsDialog] manifest load:', e)
+      pluginTabs = [coreShareSettingsTab()]
     }
     void refreshCliStatus()
   })
