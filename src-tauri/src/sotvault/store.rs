@@ -81,6 +81,29 @@ pub fn load_records(path: &Path) -> RecordStore {
     }
 }
 
+/// Build (or refresh) the app-support Record for relinking a mirror to a new
+/// local source on this device. Preserves the existing note_merge_base when
+/// refreshing; always vault-homed (the note lives only beside the vault mirror,
+/// so a relinked source dir is never written).
+pub fn relink_record(
+    existing: Option<Record>,
+    vault_path: &str,
+    new_source: &str,
+    source_hash: &str,
+    vault_hash: &str,
+    now: u64,
+) -> Record {
+    Record {
+        vault_path: vault_path.to_string(),
+        source_path: new_source.to_string(),
+        synced_at: now,
+        source_hash: source_hash.to_string(),
+        vault_hash: vault_hash.to_string(),
+        note_merge_base: existing.and_then(|r| r.note_merge_base),
+        note_home: NoteHome::Vault,
+    }
+}
+
 pub fn save_records(path: &Path, store: &RecordStore) -> std::io::Result<()> {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
@@ -200,6 +223,28 @@ mod tests {
         std::fs::write(&p, legacy).unwrap();
         let store = load_records(&p);
         assert_eq!(store.records[0].note_home, NoteHome::Sidecar);
+    }
+
+    #[test]
+    fn relink_updates_existing_record_source_and_hashes() {
+        let existing = rec("/v/sync/foo.md", "/old/foo.md");
+        let out = relink_record(Some(existing), "/v/sync/foo.md", "/new/foo.md", "sh", "vh", 999);
+        assert_eq!(out.vault_path, "/v/sync/foo.md");
+        assert_eq!(out.source_path, "/new/foo.md");
+        assert_eq!(out.source_hash, "sh");
+        assert_eq!(out.vault_hash, "vh");
+        assert_eq!(out.synced_at, 999);
+        // Relinked mirrors are vault-homed: never write the source-side note.
+        assert_eq!(out.note_home, NoteHome::Vault);
+    }
+
+    #[test]
+    fn relink_builds_fresh_record_when_none_exists() {
+        let out = relink_record(None, "/v/sync/bar.md", "/new/bar.md", "sh", "vh", 5);
+        assert_eq!(out.source_path, "/new/bar.md");
+        assert_eq!(out.vault_path, "/v/sync/bar.md");
+        assert_eq!(out.note_home, NoteHome::Vault);
+        assert_eq!(out.note_merge_base, None);
     }
 
     #[test]

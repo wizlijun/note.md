@@ -353,6 +353,50 @@ pub fn notemd_migrate_mirror_meta(
     Ok(written)
 }
 
+/// Relink a vault mirror to a newly-chosen local source on THIS device: update
+/// (or create) this device's app-support Record so `openFile` redirects to the
+/// new source, and write this device's git-synced mirror meta. Hashes are
+/// recomputed from disk so the open-time update check has a fresh baseline.
+#[tauri::command]
+pub fn notemd_relink_mirror_source(
+    app: AppHandle,
+    vault_path: String,
+    new_source: String,
+    device_id: String,
+    device_name: String,
+) -> Result<Record, String> {
+    let vault_root = resolve_vault_root(&app).ok_or("Vault not configured")?;
+    let mirror = PathBuf::from(&vault_path);
+    let source = PathBuf::from(&new_source);
+    if !mirror.is_file() {
+        return Err("mirror file does not exist".into());
+    }
+    if !source.is_file() {
+        return Err("source file does not exist".into());
+    }
+    let source_hash = logic::sha256_hex(&std::fs::read(&source).map_err(|e| e.to_string())?);
+    let vault_hash = logic::sha256_hex(&std::fs::read(&mirror).map_err(|e| e.to_string())?);
+
+    let mut s = load_store(&app)?;
+    let existing = s.find_by_vault(&vault_path).cloned();
+    let rec = store::relink_record(existing, &vault_path, &new_source, &source_hash, &vault_hash, now_secs());
+    s.upsert(rec.clone());
+    save_store(&app, &s)?;
+
+    let meta = mirror_meta::MirrorMeta {
+        mirror: mirror_meta::relative_mirror(&vault_root, &mirror),
+        device_id,
+        device_name,
+        source: new_source,
+        synced_at: rec.synced_at,
+        checksum: format!("sha256:{}", rec.vault_hash),
+    };
+    if let Err(e) = mirror_meta::write(&vault_root, &meta) {
+        eprintln!("[sotvault] relink write mirror meta failed: {e}");
+    }
+    Ok(rec)
+}
+
 #[tauri::command]
 pub fn sotvault_records(app: AppHandle) -> Result<Vec<Record>, String> {
     Ok(load_store(&app)?.records)
