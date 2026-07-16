@@ -307,6 +307,9 @@ export const zh: Record<keyof Messages, string> = {
   'syncOrigin.synced': '📎 已从来源同步：',
   'syncOrigin.revealTitle': '打开来源所在目录',
   'syncOrigin.openSourceDir': '打开来源目录',
+  'syncOrigin.editSource': '编辑源文件',
+  'syncOrigin.sourceMissing': '📎 镜像 — 源不在本设备',
+  'syncOrigin.relink': '重新关联本地源…',
 
   // External-change banner
   'externalChange.modified': '“{title}” 已被其他应用修改。',

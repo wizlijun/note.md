@@ -274,6 +274,9 @@ export const de: Record<keyof Messages, string> = {
   'syncOrigin.synced': '📎 Aus Quelle synchronisiert:',
   'syncOrigin.revealTitle': 'Quellort anzeigen',
   'syncOrigin.openSourceDir': 'Quellordner öffnen',
+  'syncOrigin.editSource': 'Quelle bearbeiten',
+  'syncOrigin.sourceMissing': '📎 Spiegel — Quelle nicht auf diesem Gerät',
+  'syncOrigin.relink': 'Lokale Quelle neu verknüpfen…',
 
   // External-change banner
   'externalChange.modified': '„{title}" wurde von einer anderen Anwendung geändert.',

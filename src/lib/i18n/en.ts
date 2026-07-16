@@ -281,6 +281,9 @@ export const en = {
   'syncOrigin.synced': '📎 Synced from source:',
   'syncOrigin.revealTitle': 'Reveal source location',
   'syncOrigin.openSourceDir': 'Open source folder',
+  'syncOrigin.editSource': 'Edit source',
+  'syncOrigin.sourceMissing': '📎 Mirror — source not on this device',
+  'syncOrigin.relink': 'Relink local source…',
 
   // External-change banner
   'externalChange.modified': '"{title}" was modified by another application.',

@@ -276,6 +276,9 @@ export const ja: Record<keyof Messages, string> = {
   'syncOrigin.synced': '📎 ソースから同期済み：',
   'syncOrigin.revealTitle': 'ソースの場所を表示',
   'syncOrigin.openSourceDir': 'ソースフォルダを開く',
+  'syncOrigin.editSource': 'ソースを編集',
+  'syncOrigin.sourceMissing': '📎 ミラー — ソースがこの端末にありません',
+  'syncOrigin.relink': 'ローカルソースを再リンク…',
 
   // External-change banner
   'externalChange.modified': '「{title}」は別のアプリケーションによって変更されました。',

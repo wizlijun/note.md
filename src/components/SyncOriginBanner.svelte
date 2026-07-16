@@ -1,16 +1,34 @@
 <script lang="ts">
   import type { Tab } from '../lib/tabs.svelte'
-  import { sourceForVaultPath, revealVaultSource } from '../lib/sotvault.svelte'
+  import { deviceSourceForVaultPath, isMirrorPath, relinkMirrorSource, revealVaultSource } from '../lib/sotvault.svelte'
+  import { openFile } from '../lib/tabs.svelte'
   import { t } from '../lib/i18n/store.svelte'
 
   let { tab }: { tab: Tab } = $props()
 
-  // sourceForVaultPath reads sotvaultStore.records, so this re-derives whenever
-  // the records refresh or the tab's path changes.
-  const source = $derived(sourceForVaultPath(tab.filePath || null))
+  // This device's recorded source (from git-synced mirror metas), and whether
+  // this vault file is a mirror recorded by ANY device.
+  const source = $derived(deviceSourceForVaultPath(tab.filePath || null))
+  const mirror = $derived(isMirrorPath(tab.filePath || null))
+
+  // Does this device's source still exist on disk? null = unknown/checking.
+  let sourceExists = $state<boolean | null>(null)
+  $effect(() => {
+    const s = source
+    sourceExists = null
+    if (!s) return
+    import('@tauri-apps/plugin-fs').then(({ exists }) => exists(s).catch(() => false)).then((ok) => { sourceExists = ok })
+  })
+
+  let busy = $state(false)
+  async function onRelink() {
+    if (!tab.filePath) return
+    busy = true
+    try { await relinkMirrorSource(tab.filePath) } finally { busy = false }
+  }
 </script>
 
-{#if source}
+{#if source && sourceExists}
   <div class="banner sync-origin" role="status" aria-live="polite">
     <span class="label">{t('syncOrigin.synced')}</span>
     <button
@@ -18,7 +36,12 @@
       title={t('syncOrigin.revealTitle')}
       onclick={() => revealVaultSource(source)}
     >{source}</button>
-    <button class="action" onclick={() => revealVaultSource(source)}>{t('syncOrigin.openSourceDir')}</button>
+    <button class="action" onclick={() => openFile(source)}>{t('syncOrigin.editSource')}</button>
+  </div>
+{:else if mirror || source}
+  <div class="banner sync-origin" role="status" aria-live="polite">
+    <span class="label">{t('syncOrigin.sourceMissing')}</span>
+    <button class="action" onclick={onRelink} disabled={busy}>{t('syncOrigin.relink')}</button>
   </div>
 {/if}
 
