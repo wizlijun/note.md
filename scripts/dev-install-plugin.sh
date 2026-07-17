@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Dev-install a v2 plugin into the local app-data plugins root.
 #
-# Usage: scripts/dev-install-plugin.sh [--release] [md2pdf|roam-import|openclaw|cef|exlibris]
+# Usage: scripts/dev-install-plugin.sh [--release] [md2pdf|roam-import|openclaw|cef|exlibris|pos-log]
 #   default plugin = md2pdf (preserves the original behavior).
 #   --release      = build the native plugin binary in release mode (md2pdf +
 #                    openclaw + exlibris; ignored for the pure-UI plugins).
@@ -20,6 +20,9 @@
 #               / calibre / hashing / shared config) AND the standalone Vite UI
 #               bundle (plugins-src/exlibris → dist/), then installs bin/ + ui/ +
 #               manifest (backend process + request-response UI).
+# pos-log     → builds the CURRENT-arch native backend crate
+#               (plugins-src/pos-log/backend → notemd-pos-log; resident 30-min
+#               location logger, no UI) and installs bin/ + manifest.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -28,8 +31,8 @@ PLUGIN=md2pdf
 for arg in "$@"; do
   case "$arg" in
     --release) PROFILE=release ;;
-    md2pdf|roam-import|openclaw|cef|exlibris) PLUGIN="$arg" ;;
-    *) echo "unknown arg: $arg (expected --release | md2pdf | roam-import | openclaw | cef | exlibris)" >&2; exit 2 ;;
+    md2pdf|roam-import|openclaw|cef|exlibris|pos-log) PLUGIN="$arg" ;;
+    *) echo "unknown arg: $arg (expected --release | md2pdf | roam-import | openclaw | cef | exlibris | pos-log)" >&2; exit 2 ;;
   esac
 done
 
@@ -136,6 +139,23 @@ elif [[ "$PLUGIN" == "exlibris" ]]; then
   echo "✓ installed notemd.exlibris@$VERSION ($PROFILE, $(uname -m), backend + ui) → $DEST"
   echo "  enable the v2 runtime:  \"plugins_v2.enabled\": true in settings.json, or NOTEMD_PLUGINS_V2=1"
   echo "  open it:                Window menu ▸ \"ExLibris (v2)\""
+
+elif [[ "$PLUGIN" == "pos-log" ]]; then
+  SRC="plugins-src/pos-log"
+  # CURRENT-arch native backend (resident background logger; no UI).
+  cargo build $([ "$PROFILE" = release ] && echo --release) \
+    --manifest-path "$SRC/backend/Cargo.toml" --bin notemd-pos-log
+  VERSION=$(node -e "console.log(require('./$SRC/manifest.v2.json').version)")
+  DEST="$ROOT/notemd.pos-log/$VERSION"
+  rm -rf "$DEST"
+  mkdir -p "$DEST/bin"
+  cp "$SRC/backend/target/$PROFILE/notemd-pos-log" "$DEST/bin/notemd-pos-log"
+  cp "$SRC/manifest.v2.json" "$DEST/manifest.json"
+  ln -sfn "$VERSION" "$ROOT/notemd.pos-log/current"
+  mark_installed "notemd.pos-log" "$VERSION"
+  echo "✓ installed notemd.pos-log@$VERSION ($PROFILE, $(uname -m)) → $DEST"
+  echo "  enable the v2 runtime:  \"plugins_v2.enabled\": true in settings.json, or NOTEMD_PLUGINS_V2=1"
+  echo "  it activates on next app startup and logs to <vault>/pos/YYYY-MM-DD-pos.md"
 fi
 
 # ---------------------------------------------------------------------------
