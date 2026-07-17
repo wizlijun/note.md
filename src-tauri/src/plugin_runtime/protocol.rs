@@ -96,54 +96,90 @@ pub trait PluginView {
 
 const RPC_PATH: &str = "/__rpc__";
 
-pub fn handle_parsed(
+/// Outcome of the pure routing layer. `Rpc` means the request passed all the
+/// pure checks (known plugin, POST /__rpc__, matching Origin) and its body
+/// should be dispatched by `ui_rpc::dispatch` in the async shell — a step that
+/// needs the AppHandle-backed `HostServices` and so cannot live in this pure
+/// core. `Response` is a fully-formed reply for every other case (asset serve,
+/// 404/403/405) that the shell returns verbatim.
+pub enum Routed {
+    /// Dispatch RPC: `(plugin_id, capabilities)`. Body comes from the request.
+    Rpc(String, Vec<String>),
+    Response(http::Response<Vec<u8>>),
+}
+
+/// Pure routing decision. Split from `handle_parsed` so the RPC seam is
+/// reachable from the async `handle<R>` shell (which owns the services and the
+/// async dispatch) while asset/routing paths stay synchronously testable.
+pub fn route(
     view: &dyn PluginView,
     method: &str,
     plugin_id: &str,
     path: &str,
     origin: Option<&str>,
-    _body: &[u8], // Task 3: consumed by ui_rpc::dispatch
-) -> http::Response<Vec<u8>> {
-    // `_capabilities` feeds ui_rpc's capability gate in Task 3.
-    let Some((ui_root, _capabilities)) = view.lookup(plugin_id) else {
-        return plain(http::StatusCode::NOT_FOUND, "unknown plugin");
+) -> Routed {
+    let Some((ui_root, capabilities)) = view.lookup(plugin_id) else {
+        return Routed::Response(plain(http::StatusCode::NOT_FOUND, "unknown plugin"));
     };
     match method {
         "POST" if path == RPC_PATH => {
             let expected = format!("plugin://{plugin_id}");
             if origin != Some(expected.as_str()) {
-                return plain(http::StatusCode::FORBIDDEN, "origin mismatch");
+                return Routed::Response(plain(http::StatusCode::FORBIDDEN, "origin mismatch"));
             }
-            // Task 3 replaces this skeleton with ui_rpc::dispatch.
-            http::Response::builder()
-                .status(http::StatusCode::NOT_IMPLEMENTED)
-                .header("content-type", "application/json")
-                .body(
-                    br#"{"jsonrpc":"2.0","id":null,"error":{"code":-32601,"message":"rpc not wired yet"}}"#
-                        .to_vec(),
-                )
-                .unwrap()
+            Routed::Rpc(plugin_id.to_string(), capabilities)
         }
-        "GET" => match resolve_asset(&ui_root, path) {
-            Ok(file) => {
-                let Ok(bytes) = std::fs::read(&file) else {
-                    return plain(http::StatusCode::NOT_FOUND, "not found");
-                };
-                let mime = mime_for(&file);
-                let mut builder = http::Response::builder()
-                    .status(http::StatusCode::OK)
-                    .header("content-type", mime)
-                    .header("cache-control", "no-cache");
-                if mime == "text/html" {
-                    builder = builder.header("content-security-policy", csp_header(plugin_id));
-                }
-                builder.body(bytes).unwrap()
+        "GET" => Routed::Response(serve_asset(&ui_root, plugin_id, path)),
+        "POST" => Routed::Response(plain(http::StatusCode::NOT_FOUND, "not found")),
+        _ => Routed::Response(plain(http::StatusCode::METHOD_NOT_ALLOWED, "method not allowed")),
+    }
+}
+
+/// GET asset serving, extracted so `route` and the RPC-path tests share it.
+fn serve_asset(ui_root: &Path, plugin_id: &str, path: &str) -> http::Response<Vec<u8>> {
+    match resolve_asset(ui_root, path) {
+        Ok(file) => {
+            let Ok(bytes) = std::fs::read(&file) else {
+                return plain(http::StatusCode::NOT_FOUND, "not found");
+            };
+            let mime = mime_for(&file);
+            let mut builder = http::Response::builder()
+                .status(http::StatusCode::OK)
+                .header("content-type", mime)
+                .header("cache-control", "no-cache");
+            if mime == "text/html" {
+                builder = builder.header("content-security-policy", csp_header(plugin_id));
             }
-            Err(AssetError::Traversal) => plain(http::StatusCode::FORBIDDEN, "forbidden"),
-            Err(AssetError::NotFound) => plain(http::StatusCode::NOT_FOUND, "not found"),
-        },
-        "POST" => plain(http::StatusCode::NOT_FOUND, "not found"),
-        _ => plain(http::StatusCode::METHOD_NOT_ALLOWED, "method not allowed"),
+            builder.body(bytes).unwrap()
+        }
+        Err(AssetError::Traversal) => plain(http::StatusCode::FORBIDDEN, "forbidden"),
+        Err(AssetError::NotFound) => plain(http::StatusCode::NOT_FOUND, "not found"),
+    }
+}
+
+/// Test/back-compat wrapper preserving the pre-Task-3 pure signature: routes,
+/// and for the RPC branch renders the same JSON-RPC error skeleton (no live
+/// dispatch here — that requires the async shell's `HostServices`). Production
+/// (`handle<R>`) uses `route` + `ui_rpc::dispatch` instead.
+#[cfg(test)]
+fn handle_parsed(
+    view: &dyn PluginView,
+    method: &str,
+    plugin_id: &str,
+    path: &str,
+    origin: Option<&str>,
+    _body: &[u8],
+) -> http::Response<Vec<u8>> {
+    match route(view, method, plugin_id, path, origin) {
+        Routed::Response(r) => r,
+        Routed::Rpc(..) => http::Response::builder()
+            .status(http::StatusCode::NOT_IMPLEMENTED)
+            .header("content-type", "application/json")
+            .body(
+                br#"{"jsonrpc":"2.0","id":null,"error":{"code":-32601,"message":"rpc not wired yet"}}"#
+                    .to_vec(),
+            )
+            .unwrap(),
     }
 }
 
@@ -174,8 +210,19 @@ impl PluginView for StateView {
 /// Thin shell registered via `register_uri_scheme_protocol`. macOS-only URL
 /// shape: requests arrive as `plugin://<id>/<path>` (id = URL host; other
 /// platforms would nest it in the path, which we don't handle).
+///
+/// # The RPC dispatch seam
+///
+/// `register_uri_scheme_protocol`'s handler is synchronous and must return a
+/// `Response`, but `ui_rpc::dispatch` is `async` (dialogs, clipboard). The pure
+/// [`route`] layer decides *whether* this is an RPC request without touching the
+/// AppHandle; only when it says `Routed::Rpc` do we cross into async, building
+/// the live [`ui_rpc::TauriServices`] from `app` and running the future to
+/// completion with `tauri::async_runtime::block_on`. Asset/routing responses
+/// come straight back from `route`, keeping the pure `route`/`handle_parsed`
+/// tests valid and free of any runtime.
 pub fn handle<R: tauri::Runtime>(
-    _app: &tauri::AppHandle<R>,
+    app: &tauri::AppHandle<R>,
     request: http::Request<Vec<u8>>,
 ) -> http::Response<Vec<u8>> {
     let Ok(url) = url::Url::parse(&request.uri().to_string()) else {
@@ -189,14 +236,70 @@ pub fn handle<R: tauri::Runtime>(
         .get(http::header::ORIGIN)
         .and_then(|v| v.to_str().ok())
         .map(str::to_string);
-    handle_parsed(
+
+    match route(
         &StateView,
         request.method().as_str(),
         &plugin_id,
         url.path(),
         origin.as_deref(),
-        request.body(),
-    )
+    ) {
+        Routed::Response(r) => r,
+        Routed::Rpc(id, capabilities) => dispatch_rpc(app, &id, &capabilities, request.body()),
+    }
+}
+
+/// Async seam: parse the JSON-RPC body, run `ui_rpc::dispatch` on live services,
+/// and serialize the response. Body parse failure → a JSON-RPC parse error.
+fn dispatch_rpc<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    plugin_id: &str,
+    capabilities: &[String],
+    body: &[u8],
+) -> http::Response<Vec<u8>> {
+    let req: plugin_protocol::RpcRequest = match serde_json::from_slice(body) {
+        Ok(r) => r,
+        Err(e) => {
+            let err = serde_json::json!({
+                "jsonrpc": "2.0", "id": null,
+                "error": { "code": -32700, "message": format!("parse error: {e}") }
+            });
+            return json_response(&err);
+        }
+    };
+
+    let log_dir = tauri::Manager::path(app)
+        .app_log_dir()
+        .map(|d| d.join("plugins"))
+        .unwrap_or_else(|_| std::env::temp_dir());
+    let emitter: super::host_api::ToastEmitter = {
+        use tauri::Emitter;
+        let app = app.clone();
+        std::sync::Arc::new(move |payload| {
+            let _ = app.emit("plugin-toast", payload);
+        })
+    };
+    let services = super::ui_rpc::TauriServices::new(app.clone());
+
+    let resp = tauri::async_runtime::block_on(super::ui_rpc::dispatch(
+        &services,
+        plugin_id,
+        capabilities,
+        req,
+        &log_dir,
+        &emitter,
+    ));
+    json_response(&resp)
+}
+
+fn json_response<T: serde::Serialize>(value: &T) -> http::Response<Vec<u8>> {
+    let body = serde_json::to_vec(value)
+        .unwrap_or_else(|_| br#"{"jsonrpc":"2.0","id":null,"error":{"code":-32603,"message":"serialize"}}"#.to_vec());
+    http::Response::builder()
+        .status(http::StatusCode::OK)
+        .header("content-type", "application/json")
+        .body(body)
+        .unwrap()
 }
 
 #[cfg(test)]

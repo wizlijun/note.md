@@ -105,6 +105,9 @@ pub struct RpcError { pub code: i64, pub message: String }
 
 pub const ERR_CAPABILITY_DENIED: i64 = -32001;
 pub const ERR_METHOD_NOT_FOUND: i64 = -32601;
+/// Host-side execution failure (IO / dialog / vault). Message carries a
+/// `"<kind>: <detail>"` prefix (e.g. `"vault_required: …"`).
+pub const ERR_INTERNAL: i64 = -32000;
 
 // ── 宿主→插件方法负载（spec §4.4）───────────────────────────────────────
 

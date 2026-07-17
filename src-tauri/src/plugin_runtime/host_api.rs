@@ -17,11 +17,59 @@ use std::sync::Arc;
 pub type ToastEmitter = Arc<dyn Fn(serde_json::Value) + Send + Sync>;
 
 /// 方法所需 capability；`None` = 免授权（spec §5 表）。
+/// 进程侧（make_sink）与 UI 侧（ui_rpc::dispatch）共用同一张表。
 pub fn method_capability(method: &str) -> Option<&'static str> {
     match method {
         "host.log.info" | "host.log.warn" | "host.log.error" => None,
         "host.toast" => Some("toast"),
+        "host.dialog.open" | "host.dialog.save" => Some("dialog"),
+        "host.vault.info" => Some("vault.read"),
+        "host.vault.read" | "host.vault.exists" | "host.vault.list" => Some("vault.read"),
+        "host.vault.write" | "host.vault.mkdir" => Some("vault.write"),
+        "host.fs.read_text" => Some("fs.read:dialog"),
+        "host.clipboard.write" => Some("clipboard.write"),
         _ => Some("__unknown__"), // 未实现的方法一律拒绝
+    }
+}
+
+/// Shared handling for the methods that the process sink and the UI RPC bridge
+/// implement identically: `host.log.*` and `host.toast`. Returns:
+/// - `Some(Ok(value))` — handled; `value` is the JSON result payload.
+/// - `Some(Err(detail))` — handled but failed (currently unused; kept for symmetry).
+/// - `None` — not one of these methods; the caller handles it (or errors).
+///
+/// The capability gate is the CALLER's responsibility (it precedes this call in
+/// both sinks); `host.log.*` needs no capability and `host.toast` requires the
+/// already-checked `toast`. This function only executes the side effect.
+pub(crate) fn handle_common(
+    method: &str,
+    params: serde_json::Value,
+    plugin_id: &str,
+    log_dir: &std::path::Path,
+    emitter: &ToastEmitter,
+) -> Option<Result<serde_json::Value, String>> {
+    match method {
+        m @ ("host.log.info" | "host.log.warn" | "host.log.error") => {
+            if let Ok(p) = serde_json::from_value::<proto::LogParams>(params) {
+                let level = m.rsplit('.').next().unwrap_or("info");
+                crate::plugin_runtime::process::append_plugin_log(
+                    log_dir, plugin_id, level, &p.message,
+                );
+            }
+            Some(Ok(serde_json::json!({"ok": true})))
+        }
+        "host.toast" => {
+            if let Ok(p) = serde_json::from_value::<proto::ToastParams>(params) {
+                emitter(serde_json::json!({
+                    "plugin_id": plugin_id,
+                    "level": p.level,
+                    "message": p.message,
+                    "detail": p.detail,
+                }));
+            }
+            Some(Ok(serde_json::json!({"ok": true})))
+        }
+        _ => None,
     }
 }
 
@@ -78,31 +126,16 @@ pub fn make_sink(
                     )
                 })
             }
-            _ => match req.method.as_str() {
-                m @ ("host.log.info" | "host.log.warn" | "host.log.error") => {
-                    if let Ok(p) = serde_json::from_value::<proto::LogParams>(req.params) {
-                        let level = m.rsplit('.').next().unwrap_or("info");
-                        crate::plugin_runtime::process::append_plugin_log(
-                            &log_dir,
-                            &plugin_id,
-                            level,
-                            &p.message,
-                        );
-                    }
-                    ok(req.id)
-                }
-                "host.toast" => {
-                    if let Ok(p) = serde_json::from_value::<proto::ToastParams>(req.params) {
-                        emitter(serde_json::json!({
-                            "plugin_id": plugin_id,
-                            "level": p.level,
-                            "message": p.message,
-                            "detail": p.detail,
-                        }));
-                    }
-                    ok(req.id)
-                }
-                _ => unreachable!("filtered above"),
+            _ => match handle_common(&req.method, req.params, &plugin_id, &log_dir, &emitter) {
+                // The process sink only ever shares log/toast with ui_rpc; every
+                // other authorized method is unreachable here (method_capability
+                // maps them to caps this sink's plugins never hold in practice,
+                // and ui-only methods aren't invoked over the process channel).
+                Some(Ok(_)) => ok(req.id),
+                Some(Err(detail)) => req
+                    .id
+                    .and_then(|id| reply_err(id, proto::ERR_INTERNAL, detail)),
+                None => unreachable!("filtered above"),
             },
         }
     })

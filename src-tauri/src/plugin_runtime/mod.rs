@@ -10,6 +10,7 @@ pub mod lifecycle;
 pub mod process;
 pub mod protocol;
 pub mod state;
+pub mod ui_rpc;
 
 use std::collections::HashMap;
 use std::path::Path;
