@@ -2,7 +2,7 @@
 # Package + sign v2 plugins for the marketplace (子项目③ Task 5).
 #
 #   scripts/release-plugins.sh [--release] <plugin...>
-#     plugin ∈ { md2pdf, roam-import, openclaw, exlibris }   (extensible: add a case below)
+#     plugin ∈ { md2pdf, roam-import, openclaw, exlibris, pos-log }   (extensible: add a case below)
 #     --release  currently a no-op flag reserved for build-profile parity with
 #                dev-install-plugin.sh; the release builds below are always
 #                release-profile.
@@ -40,14 +40,14 @@ PLUGINS=()
 for arg in "$@"; do
   case "$arg" in
     --release) : ;; # reserved; release builds are always release-profile
-    md2pdf|roam-import|openclaw|exlibris) PLUGINS+=("$arg") ;;
+    md2pdf|roam-import|openclaw|exlibris|pos-log) PLUGINS+=("$arg") ;;
     -h|--help)
       grep '^#' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
-    *) echo "unknown arg: $arg (expected --release | md2pdf | roam-import | openclaw | exlibris)" >&2; exit 2 ;;
+    *) echo "unknown arg: $arg (expected --release | md2pdf | roam-import | openclaw | exlibris | pos-log)" >&2; exit 2 ;;
   esac
 done
 if [[ ${#PLUGINS[@]} -eq 0 ]]; then
-  echo "usage: scripts/release-plugins.sh [--release] <md2pdf|roam-import|openclaw|exlibris>..." >&2
+  echo "usage: scripts/release-plugins.sh [--release] <md2pdf|roam-import|openclaw|exlibris|pos-log>..." >&2
   exit 2
 fi
 
@@ -229,12 +229,66 @@ release_exlibris() {
     "notemd-exlibris" "exlibris-plugin"
 }
 
+# ── pos-log: native backend only, per-arch packages (no ui/) ─────────────────
+release_native_bin() {
+  local id="$1" src="$2" bin_name="$3"
+  local manifest="$src/manifest.v2.json"
+  local version; version="$(manifest_field "$manifest" version)"
+  echo "== $id @ $version =="
+
+  export PATH="$HOME/.cargo/bin:$PATH"
+  echo "[$id] building dual-arch backend ($bin_name)…"
+  for triple in aarch64-apple-darwin x86_64-apple-darwin; do
+    rustup target add "$triple" >/dev/null
+    cargo build --release --manifest-path "$src/backend/Cargo.toml" \
+      --bin "$bin_name" --target "$triple"
+  done
+
+  local identity
+  identity=$(security find-identity -v -p codesigning \
+    | awk -F\" '/Developer ID Application/ {print $2; exit}') || true
+  if [[ -n "$identity" ]]; then
+    echo "[$id] codesign with: $identity"
+    for triple in aarch64-apple-darwin x86_64-apple-darwin; do
+      codesign --force --options runtime --timestamp --sign "$identity" \
+        "$src/backend/target/$triple/release/$bin_name"
+    done
+  else
+    echo "[$id] WARNING: no Developer ID Application identity — binaries left unsigned"
+  fi
+
+  local out_dir="$OUT_ROOT/$id/$version"
+  mkdir -p "$out_dir"
+  cp "$manifest" "$out_dir/manifest.json"   # for gen-plugin-index.mjs
+
+  for triple in aarch64-apple-darwin x86_64-apple-darwin; do
+    local stage; stage="$(mktemp -d)"
+    trap 'rm -rf "$stage"' RETURN
+    mkdir -p "$stage/bin"
+    cp "$manifest" "$stage/manifest.json"
+    cp "$src/backend/target/$triple/release/$bin_name" "$stage/bin/$bin_name"
+    chmod +x "$stage/bin/$bin_name"
+
+    local pkg="$out_dir/$triple.notemdpkg"
+    zip_pkg "$stage" "$pkg"
+    sign_pkg "$pkg"
+    local sha; sha="$(shasum -a 256 "$pkg" | awk '{print $1}')"
+    echo "[$id] $triple.notemdpkg  sha256=$sha  → $pkg"
+    rm -rf "$stage"; trap - RETURN
+  done
+}
+
+release_pos_log() {
+  release_native_bin "notemd.pos-log" "$REPO_ROOT/plugins-src/pos-log" "notemd-pos-log"
+}
+
 for plugin in "${PLUGINS[@]}"; do
   case "$plugin" in
     md2pdf)      release_md2pdf ;;
     roam-import) release_roam_import ;;
     openclaw)    release_openclaw ;;
     exlibris)    release_exlibris ;;
+    pos-log)     release_pos_log ;;
   esac
 done
 
