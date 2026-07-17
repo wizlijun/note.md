@@ -571,7 +571,6 @@ fn pick_sync_folder_inner(app: &tauri::AppHandle, on_done: impl FnOnce(String) +
 
                 if let Ok(s) = app_clone.store("settings.json") {
                     let _ = s.set("vault_sync.repo_path", serde_json::json!(&path_str));
-                    let _ = s.set("vault_sync.auto_start", serde_json::json!(true));
                     let _ = s.save();
                 }
 
@@ -1309,8 +1308,6 @@ fn menu_label(locale: &str, key: &str) -> String {
         "tray.show" => ("Show note.md", "显示 note.md", "note.md を表示", "note.md anzeigen"),
         "tray.todayNote" => ("Today's Note", "今天的日记", "今日のノート", "Heutige Notiz"),
         "tray.vaultSetFolder" => ("Vault: Set Folder…", "Vault：选择文件夹…", "Vault：フォルダを選択…", "Vault: Ordner wählen…"),
-        "tray.startSync" => ("Start Sync", "开始同步", "同期を開始", "Sync starten"),
-        "tray.stopSync" => ("Stop Sync", "停止同步", "同期を停止", "Sync stoppen"),
         "tray.syncNow" => ("Sync Now", "立即同步", "今すぐ同期", "Jetzt synchronisieren"),
         "tray.largeFiles.title" => ("⚠️ {n} file(s) too large", "⚠️ {n} 个文件过大", "⚠️ {n} 件のファイルが大きすぎます", "⚠️ {n} Datei(en) zu groß"),
         "tray.largeFiles.header" => ("Over the limit — not synced. Move out of the vault:", "超过上限,未同步。请移出 vault:", "上限超過 —— 未同期。vault から移動してください:", "Über dem Limit — nicht synchronisiert. Aus dem Vault verschieben:"),

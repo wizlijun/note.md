@@ -54,7 +54,7 @@ fn unquote(p: &str) -> String {
 /// 返回工作区里 size > 阈值 的待提交文件(相对 repo 根路径)。无法 stat 的条目安全跳过。
 pub fn detect_oversized(repo: &Path) -> GitResult<Vec<String>> {
     let threshold = resolve_threshold_bytes(repo);
-    let status = run_git(repo, &["status", "--porcelain"])?;
+    let status = run_git(repo, &["-c", "core.quotepath=false", "status", "--porcelain"])?;
     let mut out = Vec::new();
     for line in status.lines() {
         let Some(rel) = pending_path(line) else { continue };
@@ -106,6 +106,15 @@ mod tests {
         let mut found = detect_oversized(dir.path()).unwrap();
         found.sort();
         assert_eq!(found, vec!["over.bin".to_string()]);
+    }
+
+    #[test]
+    fn detects_oversized_with_non_ascii_name() {
+        let dir = init_repo();
+        // 中文文件名,11 MB > 10 MB 默认阈值
+        write_bytes(dir.path(), "大文件视频.bin", 11 * 1024 * 1024);
+        let found = detect_oversized(dir.path()).unwrap();
+        assert_eq!(found, vec!["大文件视频.bin".to_string()]);
     }
 
     #[test]
