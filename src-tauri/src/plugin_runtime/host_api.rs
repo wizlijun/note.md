@@ -8,6 +8,12 @@
 //! can inject a recording closure without needing a real Tauri runtime. The
 //! production entry point `make_sink_for_app<R: tauri::Runtime>` wraps
 //! `app.emit` into that emitter. Task 8 calls `make_sink_for_app`.
+//!
+//! `host.ui.post` (子项目②b) follows the same injected-closure shape: a
+//! `UiPoster = Arc<dyn Fn(&str /*window_id*/, &Value /*payload*/) + Send + Sync>`.
+//! `make_sink_for_app` wires it to `windows::push_to_window`; unit tests inject a
+//! recording poster. Only the process sink carries a `UiPoster`; the UI RPC
+//! bridge never needs one (a window doesn't push to itself over the host bridge).
 
 use plugin_protocol as proto;
 use std::sync::Arc;
@@ -16,12 +22,19 @@ use std::sync::Arc;
 /// In production this wraps `AppHandle::emit`; in tests it records payloads.
 pub type ToastEmitter = Arc<dyn Fn(serde_json::Value) + Send + Sync>;
 
+/// Callable that pushes a `payload` into the plugin's window `window_id`
+/// (子项目②b `host.ui.post`). In production this wraps
+/// `windows::push_to_window`; in tests it records `(window_id, payload)`.
+pub type UiPoster = Arc<dyn Fn(&str, &serde_json::Value) + Send + Sync>;
+
 /// 方法所需 capability；`None` = 免授权（spec §5 表）。
 /// 进程侧（make_sink）与 UI 侧（ui_rpc::dispatch）共用同一张表。
 pub fn method_capability(method: &str) -> Option<&'static str> {
     match method {
         "host.log.info" | "host.log.warn" | "host.log.error" => None,
         "host.toast" => Some("toast"),
+        // 子项目②b: plugin process → its own window push.
+        "host.ui.post" => Some("ui"),
         "host.dialog.open" | "host.dialog.save" => Some("dialog"),
         "host.vault.info" | "host.vault.read" | "host.vault.exists" | "host.vault.list" => {
             Some("vault.read")
@@ -76,19 +89,23 @@ pub(crate) fn handle_common(
     }
 }
 
-/// Core sink constructor. Uses an injectable `ToastEmitter` so unit tests can
-/// record emitted payloads without a real Tauri runtime.
+/// Core sink constructor. Uses an injectable `ToastEmitter` / `UiPoster` so unit
+/// tests can record side effects without a real Tauri runtime.
 ///
 /// Behaviour:
 /// - Unknown method (`__unknown__`) → error -32601 for requests; silent no-op for notifications.
 /// - Missing capability → error -32001 for requests; silent no-op for notifications.
 /// - `host.log.*` → `append_plugin_log` (no capability required); returns `{ok:true}` for requests.
 /// - `host.toast` → calls `emitter` with the payload JSON; returns `{ok:true}` for requests.
+/// - `host.ui.post` (needs `ui`) → parses [`proto::UiPostParams`] and calls
+///   `ui_poster(window_id, payload)`; fire-and-forget (returns `{ok:true}` for
+///   requests, but openclaw pushes it as a notification so there is no reply).
 pub fn make_sink(
     plugin_id: String,
     capabilities: Vec<String>,
     log_dir: std::path::PathBuf,
     emitter: ToastEmitter,
+    ui_poster: UiPoster,
 ) -> crate::plugin_runtime::process::HostSink {
     Arc::new(move |req: proto::RpcRequest| {
         let reply_err = |id: u64, code: i64, message: String| {
@@ -129,6 +146,15 @@ pub fn make_sink(
                     )
                 })
             }
+            // 子项目②b: process → its own window push. Only exists on the process
+            // channel (a window never pushes to itself via the host bridge), so
+            // it is handled here rather than in the shared `handle_common`.
+            _ if req.method == "host.ui.post" => {
+                if let Ok(p) = serde_json::from_value::<proto::UiPostParams>(req.params) {
+                    ui_poster(&p.window_id, &p.payload);
+                }
+                ok(req.id)
+            }
             _ => match handle_common(&req.method, req.params, &plugin_id, &log_dir, &emitter) {
                 Some(Ok(_)) => ok(req.id),
                 Some(Err(detail)) => req
@@ -153,8 +179,9 @@ pub fn make_sink(
     })
 }
 
-/// Production entry point (called by Task 8 / lifecycle). Wraps `app.emit`
-/// into a `ToastEmitter` and delegates to `make_sink`.
+/// Production entry point (called by Task 8 / lifecycle). Wraps `app.emit` into a
+/// `ToastEmitter` and `windows::push_to_window` into a `UiPoster`, then delegates
+/// to `make_sink`.
 pub fn make_sink_for_app<R: tauri::Runtime>(
     plugin_id: String,
     capabilities: Vec<String>,
@@ -162,10 +189,20 @@ pub fn make_sink_for_app<R: tauri::Runtime>(
     log_dir: std::path::PathBuf,
 ) -> crate::plugin_runtime::process::HostSink {
     use tauri::Emitter;
-    let emitter: ToastEmitter = Arc::new(move |payload| {
-        let _ = app.emit("plugin-toast", payload);
-    });
-    make_sink(plugin_id, capabilities, log_dir, emitter)
+    let emitter: ToastEmitter = {
+        let app = app.clone();
+        Arc::new(move |payload| {
+            let _ = app.emit("plugin-toast", payload);
+        })
+    };
+    let ui_poster: UiPoster = {
+        let app = app.clone();
+        let pid = plugin_id.clone();
+        Arc::new(move |window_id, payload| {
+            crate::plugin_runtime::windows::push_to_window(&app, &pid, window_id, payload);
+        })
+    };
+    make_sink(plugin_id, capabilities, log_dir, emitter, ui_poster)
 }
 
 // ── Unit tests ────────────────────────────────────────────────────────────────
@@ -184,6 +221,23 @@ mod tests {
             seen_in.lock().unwrap().push(v);
         });
         (emitter, seen)
+    }
+
+    /// A `UiPoster` that ignores everything — used by tests that don't exercise
+    /// `host.ui.post`.
+    fn noop_poster() -> UiPoster {
+        Arc::new(|_, _| {})
+    }
+
+    /// Build a `UiPoster` that records every `(window_id, payload)` it sees.
+    #[allow(clippy::type_complexity)]
+    fn recording_poster() -> (UiPoster, Arc<Mutex<Vec<(String, serde_json::Value)>>>) {
+        let seen: Arc<Mutex<Vec<(String, serde_json::Value)>>> = Arc::new(Mutex::new(Vec::new()));
+        let seen_in = seen.clone();
+        let poster: UiPoster = Arc::new(move |window_id: &str, payload: &serde_json::Value| {
+            seen_in.lock().unwrap().push((window_id.to_string(), payload.clone()));
+        });
+        (poster, seen)
     }
 
     fn req(method: &str, id: Option<u64>, params: serde_json::Value) -> proto::RpcRequest {
@@ -205,7 +259,7 @@ mod tests {
     fn toast_without_capability_request_returns_32001() {
         let dir = tempfile::tempdir().unwrap();
         let (emitter, seen) = recording_emitter();
-        let sink = make_sink("pub.test".into(), vec![], dir.path().to_path_buf(), emitter);
+        let sink = make_sink("pub.test".into(), vec![], dir.path().to_path_buf(), emitter, noop_poster());
 
         let resp = sink(req(
             "host.toast",
@@ -230,7 +284,7 @@ mod tests {
     fn toast_without_capability_notification_is_silent() {
         let dir = tempfile::tempdir().unwrap();
         let (emitter, seen) = recording_emitter();
-        let sink = make_sink("pub.test".into(), vec![], dir.path().to_path_buf(), emitter);
+        let sink = make_sink("pub.test".into(), vec![], dir.path().to_path_buf(), emitter, noop_poster());
 
         let resp = sink(notification(
             "host.toast",
@@ -252,6 +306,7 @@ mod tests {
             vec!["toast".into()],
             dir.path().to_path_buf(),
             emitter,
+            noop_poster(),
         );
 
         let resp = sink(req("host.unknown.method", Some(7), serde_json::json!({}))).unwrap();
@@ -274,6 +329,7 @@ mod tests {
             vec![],
             dir.path().to_path_buf(),
             emitter,
+            noop_poster(),
         );
         let resp = sink(notification("host.doesnt.exist", serde_json::json!({})));
         assert!(resp.is_none());
@@ -286,7 +342,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let (emitter, _) = recording_emitter();
         // No capabilities at all — log is free.
-        let sink = make_sink("pub.myplugin".into(), vec![], dir.path().to_path_buf(), emitter);
+        let sink = make_sink("pub.myplugin".into(), vec![], dir.path().to_path_buf(), emitter, noop_poster());
 
         let resp = sink(req(
             "host.log.info",
@@ -312,7 +368,7 @@ mod tests {
     fn log_warn_and_error_write_correct_level_tags() {
         let dir = tempfile::tempdir().unwrap();
         let (emitter, _) = recording_emitter();
-        let sink = make_sink("pub.myplugin".into(), vec![], dir.path().to_path_buf(), emitter);
+        let sink = make_sink("pub.myplugin".into(), vec![], dir.path().to_path_buf(), emitter, noop_poster());
 
         sink(req(
             "host.log.warn",
@@ -342,6 +398,7 @@ mod tests {
             vec!["toast".into()],
             dir.path().to_path_buf(),
             emitter,
+            noop_poster(),
         );
 
         let resp = sink(req(
@@ -373,6 +430,7 @@ mod tests {
             vec!["toast".into()],
             dir.path().to_path_buf(),
             emitter,
+            noop_poster(),
         );
 
         let resp = sink(notification(
@@ -395,6 +453,7 @@ mod tests {
         assert_eq!(method_capability("host.log.warn"), None);
         assert_eq!(method_capability("host.log.error"), None);
         assert_eq!(method_capability("host.toast"), Some("toast"));
+        assert_eq!(method_capability("host.ui.post"), Some("ui"));
         assert_eq!(method_capability("host.dialog.open"), Some("dialog"));
         assert_eq!(method_capability("host.dialog.save"), Some("dialog"));
         assert_eq!(method_capability("host.vault.info"), Some("vault.read"));
@@ -423,6 +482,7 @@ mod tests {
             vec!["vault.read".into()],
             dir.path().to_path_buf(),
             emitter,
+            noop_poster(),
         );
 
         let resp = sink(req(
@@ -443,5 +503,116 @@ mod tests {
         let resp = sink(notification("host.vault.read", serde_json::json!({"path": "a.md"})));
         assert!(resp.is_none());
         assert!(seen.lock().unwrap().is_empty());
+    }
+
+    // ── 子项目②b host.ui.post ─────────────────────────────────────────────────
+
+    /// WITH the `ui` capability, `host.ui.post` parses `{window_id, payload}` and
+    /// forwards it to the injected `ui_poster`; a request gets `{ok:true}`.
+    #[test]
+    fn ui_post_with_capability_calls_poster_and_returns_ok() {
+        let dir = tempfile::tempdir().unwrap();
+        let (emitter, _) = recording_emitter();
+        let (poster, posted) = recording_poster();
+        let sink = make_sink(
+            "pub.chat".into(),
+            vec!["ui".into()],
+            dir.path().to_path_buf(),
+            emitter,
+            poster,
+        );
+
+        let resp = sink(req(
+            "host.ui.post",
+            Some(7),
+            serde_json::json!({"window_id": "main", "payload": {"kind": "frame", "seq": 3}}),
+        ))
+        .unwrap();
+        assert_eq!(resp.id, 7);
+        assert_eq!(resp.result, Some(serde_json::json!({"ok": true})));
+        assert!(resp.error.is_none());
+
+        let posted = posted.lock().unwrap();
+        assert_eq!(posted.len(), 1);
+        assert_eq!(posted[0].0, "main");
+        assert_eq!(posted[0].1, serde_json::json!({"kind": "frame", "seq": 3}));
+    }
+
+    /// As a notification (openclaw's actual usage: fire-and-forget streaming),
+    /// the poster is still called but there is no reply.
+    #[test]
+    fn ui_post_notification_calls_poster_and_returns_none() {
+        let dir = tempfile::tempdir().unwrap();
+        let (emitter, _) = recording_emitter();
+        let (poster, posted) = recording_poster();
+        let sink = make_sink(
+            "pub.chat".into(),
+            vec!["ui".into()],
+            dir.path().to_path_buf(),
+            emitter,
+            poster,
+        );
+
+        let resp = sink(notification(
+            "host.ui.post",
+            serde_json::json!({"window_id": "main", "payload": {"seq": 1}}),
+        ));
+        assert!(resp.is_none(), "notification must return None");
+
+        let posted = posted.lock().unwrap();
+        assert_eq!(posted.len(), 1);
+        assert_eq!(posted[0].0, "main");
+        assert_eq!(posted[0].1, serde_json::json!({"seq": 1}));
+    }
+
+    /// WITHOUT the `ui` capability, `host.ui.post` is denied (-32001) and the
+    /// poster is NEVER called — the capability gate is the sole guard.
+    #[test]
+    fn ui_post_without_capability_returns_32001_and_does_not_post() {
+        let dir = tempfile::tempdir().unwrap();
+        let (emitter, _) = recording_emitter();
+        let (poster, posted) = recording_poster();
+        let sink = make_sink(
+            "pub.chat".into(),
+            vec![], // no `ui`
+            dir.path().to_path_buf(),
+            emitter,
+            poster,
+        );
+
+        let resp = sink(req(
+            "host.ui.post",
+            Some(9),
+            serde_json::json!({"window_id": "main", "payload": {"seq": 1}}),
+        ))
+        .unwrap();
+        assert_eq!(resp.id, 9);
+        let err = resp.error.unwrap();
+        assert_eq!(err.code, proto::ERR_CAPABILITY_DENIED);
+        assert!(err.message.contains("ui"), "message: {}", err.message);
+
+        // The poster must NOT have been called.
+        assert!(posted.lock().unwrap().is_empty());
+    }
+
+    /// Missing `ui` capability as a notification → silent no-op, poster untouched.
+    #[test]
+    fn ui_post_without_capability_notification_is_silent() {
+        let dir = tempfile::tempdir().unwrap();
+        let (emitter, _) = recording_emitter();
+        let (poster, posted) = recording_poster();
+        let sink = make_sink(
+            "pub.chat".into(),
+            vec![],
+            dir.path().to_path_buf(),
+            emitter,
+            poster,
+        );
+        let resp = sink(notification(
+            "host.ui.post",
+            serde_json::json!({"window_id": "main", "payload": {}}),
+        ));
+        assert!(resp.is_none());
+        assert!(posted.lock().unwrap().is_empty());
     }
 }

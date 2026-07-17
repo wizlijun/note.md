@@ -348,8 +348,9 @@ fn register_lifecycle(plugin_id: &str, lc: Arc<PluginLifecycle>) -> Arc<PluginLi
 }
 
 /// Look up the live lifecycle for `plugin_id`, registering a fresh one from
-/// STATE on first use.
-fn get_or_register<R: tauri::Runtime>(
+/// STATE on first use. `pub(crate)` so `ui_rpc::forward_to_plugin` can reuse the
+/// exact same registration path a menu command uses (子项目②b).
+pub(crate) fn get_or_register<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
     plugin_id: &str,
 ) -> Result<Arc<PluginLifecycle>, String> {

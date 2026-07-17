@@ -434,11 +434,16 @@ async fn host_api_make_sink_dispatches_toast_through_real_process() {
     let (emitter, emitted) = recording_toast_emitter();
 
     // Build a real capability-gated sink for plugin id "test.ok" with "toast" cap.
+    // 子项目②b added a `UiPoster` arg (host.ui.post); this test doesn't exercise
+    // it, so pass a no-op poster.
+    let ui_poster: mdeditor_lib::plugin_runtime::host_api::UiPoster =
+        Arc::new(|_window_id: &str, _payload: &serde_json::Value| {});
     let sink: HostSink = make_sink(
         "test.ok".into(),
         vec!["toast".into()],
         log_dir.path().to_path_buf(),
         emitter,
+        ui_poster,
     );
 
     let proc = PluginProcess::spawn(&fixture("ok.sh"), "test.ok", log_dir.path(), 5, sink)

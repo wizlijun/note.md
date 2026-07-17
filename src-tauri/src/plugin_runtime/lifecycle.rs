@@ -271,6 +271,38 @@ impl PluginLifecycle {
         out
     }
 
+    /// Forward a UI-window RPC to the ACTIVE plugin process (子项目②b).
+    /// The window's `notemd.request(<non-host method>, params)` lands here via
+    /// `ui_rpc::forward_to_plugin`, which `ensure_active`s first — so this can
+    /// assume the process is active, but safe-guards against a race where the
+    /// process was deactivated (idle/crash) in between by returning an error
+    /// rather than silently spawning outside the activation path.
+    ///
+    /// Wire shape: `proc.request("ui.request", { method, params })`; the SDK's
+    /// `serve_io` routes it to the plugin's `on_ui_request(method, params)`.
+    pub async fn ui_request(&self, method: &str, params: Value) -> Result<Value, String> {
+        self.touch();
+        let proc = {
+            let phase = self.phase.lock().await;
+            match &*phase {
+                Phase::Active(p) => p.clone(),
+                Phase::Disabled(reason) => {
+                    return Err(format!("plugin '{}' is disabled: {reason}", self.id));
+                }
+                _ => return Err(format!("plugin '{}' is not active", self.id)),
+            }
+        };
+        let out = proc
+            .request(
+                "ui.request",
+                serde_json::json!({ "method": method, "params": params }),
+            )
+            .await;
+        // The UI is driving the plugin: keep it warm against idle reaping.
+        self.touch();
+        out
+    }
+
     /// Deliberate shutdown (user-initiated / Task 8 teardown): `$deactivate`
     /// with grace, then Inactive. Flagged so the crash watcher ignores the
     /// resulting exit (spec §4.2: deactivate is not a crash).
@@ -650,5 +682,39 @@ mod tests {
         // Cleanup shared globals so we don't leak into other tests.
         RUNNING.write().unwrap().remove(keep);
         STATE.write().unwrap().plugins.remove(keep);
+    }
+
+    // ── 子项目②b ui_request phase guards ──────────────────────────────────
+    //
+    // The happy-path round-trip needs a live process (Task 3 integration test).
+    // Here we pin the phase guards: `ui_request` must NOT silently spawn or
+    // panic when the process is inactive/disabled — it returns a clear error so
+    // a raced-out deactivation surfaces to the UI instead of hanging.
+
+    /// Inactive phase → `ui_request` errors "is not active" (never spawns).
+    #[tokio::test]
+    async fn ui_request_on_inactive_errors_not_active() {
+        let lc = Arc::new(PluginLifecycle::new(
+            reconcile_manifest("test.uireq-inactive"),
+            PathBuf::from("/tmp/uireq-inactive"),
+            reconcile_ctx(),
+        ));
+        let err = lc.ui_request("connect", serde_json::json!({})).await.unwrap_err();
+        assert!(err.contains("is not active"), "got: {err}");
+    }
+
+    /// Disabled phase (crash-loop breaker tripped) → `ui_request` errors with the
+    /// recorded reason, never attempting a request.
+    #[tokio::test]
+    async fn ui_request_on_disabled_errors_with_reason() {
+        let lc = Arc::new(PluginLifecycle::new(
+            reconcile_manifest("test.uireq-disabled"),
+            PathBuf::from("/tmp/uireq-disabled"),
+            reconcile_ctx(),
+        ));
+        *lc.phase.lock().await = Phase::Disabled("crash-loop".into());
+        let err = lc.ui_request("connect", serde_json::json!({})).await.unwrap_err();
+        assert!(err.contains("disabled"), "got: {err}");
+        assert!(err.contains("crash-loop"), "got: {err}");
     }
 }

@@ -175,8 +175,21 @@ fn ok(id: Option<u64>, result: serde_json::Value) -> proto::RpcResponse {
     }
 }
 
-/// Production entry point: builds the live services (dialogs, vault, clipboard,
-/// toast emitter, plugin log dir) from `app` and delegates to [`dispatch_with`].
+/// Method-routing decision (子项目②b). `host.*` methods are HOST APIs, served
+/// locally by [`dispatch_with`] under the capability gate. Every other method is
+/// the PLUGIN's own API surface (convention `plugin.<name>`): it is forwarded to
+/// the plugin process and does NOT go through the host capability gate — the
+/// caller is already Origin-authenticated (protocol.rs proved the request came
+/// from this plugin's own window), and the plugin's `on_ui_request` self-gates.
+pub fn is_host_method(method: &str) -> bool {
+    method.starts_with("host.")
+}
+
+/// Production entry point: for `host.*` methods, builds the live services
+/// (dialogs, vault, clipboard, toast emitter, plugin log dir) from `app` and
+/// delegates to [`dispatch_with`]. For NON-host methods (the plugin's own API,
+/// convention `plugin.<name>`), forwards to the plugin process via
+/// [`forward_to_plugin`] — no host capability gate (子项目②b).
 /// Called by protocol.rs for every authenticated `POST plugin://<id>/__rpc__`.
 pub async fn dispatch<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
@@ -184,6 +197,17 @@ pub async fn dispatch<R: tauri::Runtime>(
     capabilities: &[String],
     req: proto::RpcRequest,
 ) -> proto::RpcResponse {
+    // Non-host method → forward to the plugin's own process (子项目②b). This
+    // bypasses the host capability table on purpose: it is the plugin's API, and
+    // the window's Origin already authenticates it as this plugin's own UI.
+    if !is_host_method(&req.method) {
+        let id = req.id;
+        return match forward_to_plugin(app, plugin_id, &req.method, req.params).await {
+            Ok(v) => ok(id, v),
+            Err(detail) => err(id, proto::ERR_INTERNAL, detail),
+        };
+    }
+
     use tauri::Manager;
     let log_dir = app
         .path()
@@ -199,6 +223,27 @@ pub async fn dispatch<R: tauri::Runtime>(
     };
     let services = TauriServices { app: app.clone() };
     dispatch_with(&services, plugin_id, capabilities, req, &log_dir, &emitter).await
+}
+
+/// Forward a UI-window RPC to the plugin's OWN process (子项目②b). Reuses the
+/// exact lifecycle registration a menu command uses (`commands::get_or_register`),
+/// activates the process if needed, then round-trips `ui.request`.
+///
+/// Prefix convention: a leading `plugin.` is STRIPPED before forwarding, so the
+/// UI's `notemd.request('plugin.connect', …)` reaches the plugin's
+/// `on_ui_request` as the clean method name `connect`. A non-host method without
+/// the `plugin.` prefix is forwarded verbatim (both are supported; `plugin.` is
+/// the documented convention).
+async fn forward_to_plugin<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    plugin_id: &str,
+    method: &str,
+    params: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    let forwarded = method.strip_prefix("plugin.").unwrap_or(method);
+    let lc = super::commands::get_or_register(app, plugin_id)?;
+    lc.ensure_active(&super::lifecycle::Trigger::Startup).await?;
+    lc.ui_request(forwarded, params).await
 }
 
 /// Injectable core (unit tests / Task 5 integration tests). Mirrors the process
@@ -724,6 +769,62 @@ mod tests {
             assert_eq!(e.code, proto::ERR_CAPABILITY_DENIED, "{method}");
             assert!(e.message.contains(cap), "{method}: {}", e.message);
         }
+    }
+
+    // ── 子项目②b method routing (host.* vs plugin.*) ──────────────────────
+    //
+    // `dispatch` needs a live AppHandle to forward non-host methods, so the
+    // full forward round-trip is an integration concern (Task 3). Here we
+    // pin the pure routing DECISION — `is_host_method` — which is exactly the
+    // branch `dispatch` takes: host.* → local `dispatch_with` (capability gate),
+    // everything else → `forward_to_plugin` (no host gate).
+
+    #[test]
+    fn is_host_method_routes_host_methods_locally() {
+        // Every host.* method the UI bridge serves locally.
+        for m in [
+            "host.log.info",
+            "host.toast",
+            "host.dialog.open",
+            "host.vault.read",
+            "host.vault.write",
+            "host.fs.read_text",
+            "host.clipboard.write",
+            "host.ui.post",
+            "host.bogus", // unknown host.* still routes local → -32601 there
+        ] {
+            assert!(is_host_method(m), "{m} must route to the local host bridge");
+        }
+    }
+
+    #[test]
+    fn is_host_method_forwards_plugin_and_bare_methods() {
+        // The plugin's own API surface — forwarded to its process, no host gate.
+        for m in [
+            "plugin.connect",
+            "plugin.send",
+            "plugin.disconnect",
+            "connect",       // bare (no plugin. prefix) still forwards
+            "anything.else", // any non-host method forwards
+            "hosting",       // NOT "host." — must not be mistaken for a host method
+            "",              // empty is not a host method → forwards (plugin errors)
+        ] {
+            assert!(!is_host_method(m), "{m:?} must forward to the plugin process");
+        }
+    }
+
+    /// The documented prefix-strip: a leading `plugin.` is removed before the
+    /// method reaches the plugin's `on_ui_request` (so `plugin.connect` →
+    /// `connect`); a bare method is forwarded verbatim. This mirrors the exact
+    /// transform `forward_to_plugin` applies before `lc.ui_request(..)`.
+    #[test]
+    fn plugin_prefix_is_stripped_before_forwarding() {
+        let strip = |m: &str| m.strip_prefix("plugin.").unwrap_or(m).to_string();
+        assert_eq!(strip("plugin.connect"), "connect");
+        assert_eq!(strip("plugin.pair_create"), "pair_create");
+        assert_eq!(strip("connect"), "connect"); // bare → verbatim
+        // Only a LEADING `plugin.` is stripped; an embedded one is untouched.
+        assert_eq!(strip("do.plugin.thing"), "do.plugin.thing");
     }
 
     // ── shared toast path (handle_common) ────────────────────────────────
