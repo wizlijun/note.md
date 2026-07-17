@@ -325,6 +325,23 @@ window.notemd = {
 
 ## 18. 实施记录（子项目②）
 
+子项目②（插件 UI 机制 + roam-import 迁移）已实现在分支 worktree-core-ize-six-plugins，全程 v2 flag 门控。
+
+**相对 spec §7 的设计偏离（已实现方案更强）：**
+- **桥 = plugin:// 上的 fetch-RPC，而非 §7.1 的"受限桥 + plugin_bridge command"**：plugin 窗口**不加入任何 capability**（Tauri IPC 全拒，比"注入受限 API"隔离更彻底）。UI→宿主调用走 `POST plugin://<id>/__rpc__`，**以请求 Origin 认证插件身份**，按该插件 manifest capabilities 执法——与插件进程共用同一张方法-能力表（host_api::method_capability）。宿主→UI 推送用 `WebviewWindow::eval("window.__notemd_dispatch(...)")`。桥 API：`window.notemd = { pluginId, locale, theme, request(method,params), onMessage(cb) }`，由 `windows::bridge_script` 经 initialization_script 注入。
+- **窗口注册用 `register_asynchronous_uri_scheme_protocol` + 每请求独立线程**：WKWebView 在主线程投递自定义 scheme 请求，主线程上 `block_on(dialog)` 会冻结 run loop 并与需要主线程的原生 dialog 死锁；handler 从 spawned 线程跑，`block_on(ui_rpc::dispatch)` off-main-thread 安全。
+- **窗口 label = `plugin-<id 点转横>-<window_id>`，不进 capabilities**（原 §7.2 设想 plugin-* glob 授 bridge 命令——桥不再是 Tauri 命令，无此需要）。
+
+**机制新增：**
+- **binary 可选**（ui-only 插件）：manifest v2 的 `binary` 与 `ui` 至少其一；discovery 对无 binary 插件跳过架构二进制检查（②T5 修了 ②T1 漏改 discovery 的 bug）。
+- **窗口贡献类型化**：`Contributes.windows: Vec<WindowContribution>`（id/entry/title/尺寸/singleton/open_command）。
+- **open_command 路由**：菜单命令命中某窗口的 open_command → adapter 编成 `open_windows: {command→window_id}` 透传前端 → 前端调 `plugin_v2_open_window` 而非 execute。
+- **host 方法（UI 与进程共用能力门）**：dialog.open/save、vault.info/read/write/exists/list/mkdir、fs.read_text/read_bytes（仅 dialog 返回过的路径可读，按插件精确授权）、clipboard.write、toast、log.*。
+
+**openclaw-chat 拆分为子项目②b**：其 1.26k 行 Rust 异步状态机（UDS + mdrelay + 配对轮询 + 设备持久化，绑定 app 生命周期）体量远超 roam-import，需独立进程化迁移 + 桥新增网络/长连方法，另立计划。②只交付 UI 机制 + roam-import。
+
+**④期退役清单追加**（v1 roam-import）：`src/roam-import-app.svelte`、`src/lib/roam-import/`、`src/roam-import-main.ts`、`roam-import.html`、`show_roam_import_window`(lib.rs)、App.svelte 的 `pluginId==='roam-import'` 分支、vite.config.ts 的 roamImport 入口、capabilities windows 的 "roam-import"、host i18n 的 16 个 roamImport.* 键、`src-tauri/plugins/roam-import/` v1 manifest。
+
 - **桥安全边界（②已实现）**：plugin:// 资产穿越防护(decode→component ..校验→canonicalize→component-wise 包含)、Origin 服务端认证 RPC、能力 deny-by-default 全方法覆盖、vault 路径 canonicalize 包含校验、fs.read:dialog 按插件+精确路径授权、读写各 10MB 上限、CSP(default/script/style/img/connect + object/base/form/frame 全锁)、grant 随窗口关闭清理。flag off 时 handler 全 404。
 - **开放第三方前必做（②未做，非内部flag阻塞）**：① 安装/启用期能力消费同意 UI + 校验 capability 串白名单（③市场窗口承载）；② RPC 加 per-window nonce 防御纵深（多窗口/非 macOS webview 前）；③ vault.write 频率/磁盘配额与每请求线程数上限。
 - **roam-import .zip 支持经 host.fs.read_bytes(base64+fflate) 恢复**，与 v1 一致（④期退役 v1 无功能回退）。
