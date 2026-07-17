@@ -1,4 +1,5 @@
-//! Built-in subcommands: help, version, plugin {list,enable,disable,info}.
+//! Built-in subcommands: help, version, plugin
+//! {list,enable,disable,info,install,update,remove}.
 //!
 //! These run entirely in Rust without spinning up a Tauri webview.
 
@@ -79,6 +80,9 @@ pub fn run(b: Builtin, parsed: &Parsed) -> ExitCode {
             println!("{}", render_plugin_info(m, &enabled));
             ExitCode::from(0)
         }
+        Builtin::PluginInstall(id, version) => market::run_install(&id, version.as_deref(), parsed),
+        Builtin::PluginUpdate(id) => market::run_update(id.as_deref(), parsed),
+        Builtin::PluginRemove(id, keep_data) => market::run_remove(&id, keep_data, parsed),
     }
 }
 
@@ -124,7 +128,7 @@ pub fn render_help(
     out.push_str("\nCORE COMMANDS:\n");
     out.push_str("  help          Show this help (aliases: -h, --help)\n");
     out.push_str("  version       Print version (aliases: -v, --version)\n");
-    out.push_str("  plugin        Manage plugins (list, enable, disable, info)\n");
+    out.push_str("  plugin        Manage plugins (list, enable, disable, info, install, update, remove)\n");
     out.push_str("  openclaw      Install the note.md chat plugin into OpenClaw (install, uninstall, status)\n");
     out.push_str("  share         Render and publish file as a shareable URL (alias: --share)\n");
     out.push_str("  reading-insights report   Generate a reading digest from the Vault (--vault, --date, --stdout)\n");
@@ -179,6 +183,7 @@ pub fn render_help(
     out.push_str("  2    File or argument error\n");
     out.push_str("  3    Plugin disabled\n");
     out.push_str("  4    Network or server error\n");
+    out.push_str("  5    Plugin package failed verification (signature / hash)\n");
     out.push_str("  127  Unknown command\n");
 
     out.push_str("\nRun 'notemd help <command>' for details on a specific command.\n");
@@ -275,14 +280,23 @@ ALIASES:
 notemd plugin — Manage plugins
 
 USAGE:
-  notemd plugin list                 List installed plugins and their state
-  notemd plugin enable  <plugin-id>  Enable a plugin
-  notemd plugin disable <plugin-id>  Disable a plugin
-  notemd plugin info    <plugin-id>  Show details for a single plugin
+  notemd plugin list                      List installed plugins and their state
+  notemd plugin enable  <plugin-id>       Enable a plugin
+  notemd plugin disable <plugin-id>       Disable a plugin
+  notemd plugin info    <plugin-id>       Show details for a single plugin
+  notemd plugin install <id>[@version]    Download, verify, and install a plugin
+  notemd plugin update  [<plugin-id>]     Update one plugin, or all if omitted
+  notemd plugin remove  <plugin-id>       Uninstall a plugin (alias: uninstall)
+
+FLAGS:
+  --keep-data    (remove) Keep the plugin's data dir on disk
 
 NOTES:
   Use 'notemd plugin list' to discover plugin ids. Enable/disable persist to
   the app's settings and affect both the CLI and the desktop app.
+  install/update download from the plugin registry and verify every package's
+  minisign signature + sha256 before it touches disk; a running app picks up the
+  change on its next launch.
 ",
         "openclaw" => "\
 notemd openclaw — Manage the note.md chat plugin inside OpenClaw
@@ -425,6 +439,472 @@ fn current_scan(parsed: &Parsed) -> (Vec<(PluginManifest, PathBuf)>, HashMap<Str
     let plugins_dir = super::resolve_plugins_dir(parsed.globals.plugin_dir_override.as_deref());
     let config_dir = super::resolve_config_dir();
     scan_disk(&plugins_dir, &config_dir)
+}
+
+/// v2 marketplace subcommands driven from the CLI (子项目③ Task 3):
+/// `plugin install/update/remove`. These reuse the same pure installer +
+/// registry-client layers the GUI market commands use (`plugin_runtime::
+/// {installer,market,state,discovery}`), so a package the CLI installs is
+/// byte-identically verified to one installed from the window.
+///
+/// The CLI has no `AppHandle` and no ambient tokio runtime (the plugin builtins
+/// run synchronously from `main`), so each command builds a small current-thread
+/// [`tokio::runtime::Runtime`] and `block_on`s the async network + verify work.
+/// The install tree root is derived from `dirs::data_dir()` + `BUNDLE_ID`,
+/// matching `runner::v2_plugins_root` so GUI and CLI share one install tree.
+mod market {
+    use super::*;
+    use crate::plugin_runtime::market as mkt;
+    use crate::plugin_runtime::{discovery, installer, state};
+
+    /// Exit codes (mirroring the documented CLI scheme, plus a signature-specific
+    /// one so scripts can distinguish an untrusted package from other failures):
+    /// 4 = network/registry/other runtime error, 5 = signature/hash verification
+    /// failure (package rejected as untrusted/corrupt), 2 = argument error.
+    const EXIT_VERIFY: u8 = 5;
+    const EXIT_RUNTIME: u8 = 4;
+
+    /// CLI equivalent of the Tauri app-data plugins root — same derivation as
+    /// `runner::v2_plugins_root`, so both entry points scan/write one tree.
+    fn plugins_root() -> Option<PathBuf> {
+        dirs::data_dir().map(|d| d.join(crate::app_dirs::BUNDLE_ID).join("plugins"))
+    }
+
+    /// App-data dir (parent of `plugins/` and `plugin_data/`), used as the
+    /// `data_root` uninstall passes to `installer::uninstall`.
+    fn app_data_root() -> Option<PathBuf> {
+        dirs::data_dir().map(|d| d.join(crate::app_dirs::BUNDLE_ID))
+    }
+
+    fn registry_base() -> String {
+        mkt::registry_base_url_at(&super::super::resolve_config_dir())
+    }
+
+    /// A short-lived current-thread runtime for a single command's async work.
+    fn runtime() -> Result<tokio::runtime::Runtime, String> {
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .map_err(|e| format!("failed to start async runtime: {e}"))
+    }
+
+    // ── Pure, unit-testable helpers ──────────────────────────────────────────
+
+    /// Resolve which version to install for `id`: an explicitly-requested one if
+    /// present in the index, else the single version the index advertises.
+    /// Returns the matching entry. Kept pure (takes a slice) so tests don't hit
+    /// the network.
+    fn resolve_entry(
+        plugins: &[mkt::RegistryEntry],
+        id: &str,
+        requested: Option<&str>,
+    ) -> Result<mkt::RegistryEntry, String> {
+        match requested {
+            Some(v) => plugins
+                .iter()
+                .find(|e| e.id == id && e.version == v)
+                .cloned()
+                .ok_or_else(|| format!("plugin '{id}' version '{v}' not found in registry")),
+            None => plugins
+                .iter()
+                .find(|e| e.id == id)
+                .cloned()
+                .ok_or_else(|| format!("plugin '{id}' not found in registry")),
+        }
+    }
+
+    /// Pick this host arch's download URL + expected sha256 from an index entry.
+    /// Mirrors `commands::resolve_download`.
+    fn select_download(entry: &mkt::RegistryEntry) -> Result<(String, String), String> {
+        let triple = discovery::current_arch_triple()
+            .ok_or_else(|| format!("unsupported host arch '{}'", std::env::consts::ARCH))?;
+        let url = entry
+            .download
+            .get(triple)
+            .ok_or_else(|| format!("plugin '{}' has no download for arch '{triple}'", entry.id))?;
+        let sha = entry
+            .sha256
+            .get(triple)
+            .ok_or_else(|| format!("plugin '{}' has no sha256 for arch '{triple}'", entry.id))?;
+        Ok((url.clone(), sha.clone()))
+    }
+
+    /// Signature URL convention (shared with `commands.rs` and honored by the
+    /// registry worker in Task 4/5): the detached `.minisig` is served as the
+    /// package URL with `.minisig` appended. There is no separate `sig` field in
+    /// the index — deriving it here keeps the index lean and the convention in
+    /// exactly one place per consumer.
+    fn sig_url_for(pkg_url: &str) -> String {
+        format!("{pkg_url}.minisig")
+    }
+
+    /// True iff `candidate` is a strictly newer semver than `installed`. Both
+    /// must parse; an unparseable version is treated as "not newer" (never
+    /// auto-updates across a version we can't reason about). Used by
+    /// `plugin update`.
+    fn is_newer(candidate: &str, installed: &str) -> bool {
+        match (semver::Version::parse(candidate), semver::Version::parse(installed)) {
+            (Ok(c), Ok(i)) => c > i,
+            _ => false,
+        }
+    }
+
+    // ── Command entry points ─────────────────────────────────────────────────
+
+    pub fn run_install(id: &str, version: Option<&str>, parsed: &Parsed) -> ExitCode {
+        let Some(root) = plugins_root() else {
+            return fail(parsed, EXIT_RUNTIME, "cannot resolve app data dir");
+        };
+        let base = registry_base();
+
+        let rt = match runtime() {
+            Ok(rt) => rt,
+            Err(e) => return fail(parsed, EXIT_RUNTIME, &e),
+        };
+
+        let result: Result<(String, String), (u8, String)> = rt.block_on(async {
+            let index = mkt::fetch_index(&base)
+                .await
+                .map_err(|e| (EXIT_RUNTIME, e))?;
+            let entry = resolve_entry(&index.plugins, id, version)
+                .map_err(|e| (EXIT_RUNTIME, e))?;
+            let (url, sha) = select_download(&entry).map_err(|e| (EXIT_RUNTIME, e))?;
+            let sig_url = sig_url_for(&url);
+
+            let pkg = mkt::download(&url).await.map_err(|e| (EXIT_RUNTIME, e))?;
+            let sig = String::from_utf8(mkt::download(&sig_url).await.map_err(|e| (EXIT_RUNTIME, e))?)
+                .map_err(|e| (EXIT_RUNTIME, format!("signature is not valid utf-8: {e}")))?;
+
+            let host_version = env!("CARGO_PKG_VERSION");
+            let tmp = tempfile::tempdir()
+                .map_err(|e| (EXIT_RUNTIME, format!("tempdir: {e}")))?;
+            // Verification failures (bad sig / hash mismatch) are the untrusted-
+            // package case → EXIT_VERIFY; everything else (unpack, manifest,
+            // id mismatch, io) is a plain runtime failure → EXIT_RUNTIME.
+            installer::verify_and_stage(
+                &pkg,
+                &sig,
+                &sha,
+                mkt::PLUGIN_REGISTRY_PUBKEY,
+                id,
+                host_version,
+                tmp.path(),
+            )
+            .map_err(|e| (exit_for_install_err(&e), e.to_string()))?;
+
+            installer::commit_install(&root, id, &entry.version, tmp.path())
+                .map_err(|e| (EXIT_RUNTIME, e.to_string()))?;
+
+            // Record installed + enabled in state.json.
+            let mut install = state::load(&root);
+            install.installed.insert(
+                id.to_string(),
+                state::InstalledPlugin { version: entry.version.clone(), enabled: true },
+            );
+            state::save(&root, &install).map_err(|e| (EXIT_RUNTIME, e))?;
+
+            // Fire-and-forget telemetry (never affects the exit code).
+            mkt::report_install(&base, id, &entry.version).await;
+
+            Ok((id.to_string(), entry.version.clone()))
+        });
+
+        match result {
+            Ok((id, version)) => {
+                emit_install_ok(parsed, &id, &version);
+                ExitCode::from(0)
+            }
+            Err((code, msg)) => fail(parsed, code, &msg),
+        }
+    }
+
+    pub fn run_update(id: Option<&str>, parsed: &Parsed) -> ExitCode {
+        let Some(root) = plugins_root() else {
+            return fail(parsed, EXIT_RUNTIME, "cannot resolve app data dir");
+        };
+        let base = registry_base();
+
+        let rt = match runtime() {
+            Ok(rt) => rt,
+            Err(e) => return fail(parsed, EXIT_RUNTIME, &e),
+        };
+
+        // Which installed plugins are candidates for update.
+        let installed = state::load(&root).installed;
+        let targets: Vec<(String, String)> = match id {
+            Some(one) => match installed.get(one) {
+                Some(p) => vec![(one.to_string(), p.version.clone())],
+                None => return fail(parsed, EXIT_RUNTIME, &format!("plugin '{one}' is not installed")),
+            },
+            None => installed
+                .iter()
+                .map(|(k, v)| (k.clone(), v.version.clone()))
+                .collect(),
+        };
+
+        if targets.is_empty() {
+            emit_update_summary(parsed, &[]);
+            return ExitCode::from(0);
+        }
+
+        let outcomes: Result<Vec<UpdateOutcome>, (u8, String)> = rt.block_on(async {
+            let index = mkt::fetch_index(&base).await.map_err(|e| (EXIT_RUNTIME, e))?;
+            let mut out = Vec::with_capacity(targets.len());
+            for (id, installed_ver) in &targets {
+                let Some(entry) = index.plugins.iter().find(|e| e.id == *id).cloned() else {
+                    out.push(UpdateOutcome { id: id.clone(), from: installed_ver.clone(), to: None, note: "not in registry".into() });
+                    continue;
+                };
+                if !is_newer(&entry.version, installed_ver) {
+                    out.push(UpdateOutcome { id: id.clone(), from: installed_ver.clone(), to: None, note: "up-to-date".into() });
+                    continue;
+                }
+                // Newer version available → install it (same verify pipeline).
+                let (url, sha) = select_download(&entry).map_err(|e| (EXIT_RUNTIME, e))?;
+                let sig_url = sig_url_for(&url);
+                let pkg = mkt::download(&url).await.map_err(|e| (EXIT_RUNTIME, e))?;
+                let sig = String::from_utf8(mkt::download(&sig_url).await.map_err(|e| (EXIT_RUNTIME, e))?)
+                    .map_err(|e| (EXIT_RUNTIME, format!("signature is not valid utf-8: {e}")))?;
+                let host_version = env!("CARGO_PKG_VERSION");
+                let tmp = tempfile::tempdir().map_err(|e| (EXIT_RUNTIME, format!("tempdir: {e}")))?;
+                installer::verify_and_stage(&pkg, &sig, &sha, mkt::PLUGIN_REGISTRY_PUBKEY, id, host_version, tmp.path())
+                    .map_err(|e| (exit_for_install_err(&e), e.to_string()))?;
+                installer::commit_install(&root, id, &entry.version, tmp.path())
+                    .map_err(|e| (EXIT_RUNTIME, e.to_string()))?;
+                let mut install = state::load(&root);
+                let enabled = install.installed.get(id).map(|p| p.enabled).unwrap_or(true);
+                install.installed.insert(id.clone(), state::InstalledPlugin { version: entry.version.clone(), enabled });
+                state::save(&root, &install).map_err(|e| (EXIT_RUNTIME, e))?;
+                mkt::report_install(&base, id, &entry.version).await;
+                out.push(UpdateOutcome { id: id.clone(), from: installed_ver.clone(), to: Some(entry.version.clone()), note: "updated".into() });
+            }
+            Ok(out)
+        });
+
+        match outcomes {
+            Ok(list) => {
+                emit_update_summary(parsed, &list);
+                ExitCode::from(0)
+            }
+            Err((code, msg)) => fail(parsed, code, &msg),
+        }
+    }
+
+    pub fn run_remove(id: &str, keep_data: bool, parsed: &Parsed) -> ExitCode {
+        let (Some(root), Some(data_root)) = (plugins_root(), app_data_root()) else {
+            return fail(parsed, EXIT_RUNTIME, "cannot resolve app data dir");
+        };
+
+        // Refuse to "remove" something not installed, so the user gets a clear
+        // message instead of a silent success.
+        let mut install = state::load(&root);
+        if !install.installed.contains_key(id) {
+            return fail(parsed, EXIT_RUNTIME, &format!("plugin '{id}' is not installed"));
+        }
+
+        if let Err(e) = installer::uninstall(&root, id, keep_data, &data_root) {
+            return fail(parsed, EXIT_RUNTIME, &e.to_string());
+        }
+        install.installed.remove(id);
+        if let Err(e) = state::save(&root, &install) {
+            return fail(parsed, EXIT_RUNTIME, &e);
+        }
+
+        emit_remove_ok(parsed, id, keep_data);
+        ExitCode::from(0)
+    }
+
+    // ── Output + error plumbing ──────────────────────────────────────────────
+
+    struct UpdateOutcome {
+        id: String,
+        from: String,
+        to: Option<String>,
+        note: String,
+    }
+
+    /// Map an installer error to the CLI exit code: verification failures
+    /// (untrusted/corrupt package) are EXIT_VERIFY; everything else EXIT_RUNTIME.
+    fn exit_for_install_err(e: &installer::InstallError) -> u8 {
+        match e {
+            installer::InstallError::Hash | installer::InstallError::Signature => EXIT_VERIFY,
+            _ => EXIT_RUNTIME,
+        }
+    }
+
+    /// A CLI process cannot reconcile a *running* GUI instance's live runtime;
+    /// the note next to a successful install says so.
+    const RESTART_NOTE: &str =
+        "note.md picks this up on its next launch (a running instance needs a restart).";
+
+    fn emit_install_ok(parsed: &Parsed, id: &str, version: &str) {
+        if parsed.globals.json {
+            println!("{}", json!({ "ok": true, "data": { "id": id, "version": version } }));
+        } else {
+            if !parsed.globals.quiet {
+                eprintln!("✓ installed '{id}' {version}");
+                eprintln!("{RESTART_NOTE}");
+            }
+        }
+    }
+
+    fn emit_remove_ok(parsed: &Parsed, id: &str, keep_data: bool) {
+        if parsed.globals.json {
+            println!("{}", json!({ "ok": true, "data": { "id": id, "removed": true, "kept_data": keep_data } }));
+        } else if !parsed.globals.quiet {
+            eprintln!("✓ removed '{id}'{}", if keep_data { " (kept plugin data)" } else { "" });
+            eprintln!("{RESTART_NOTE}");
+        }
+    }
+
+    fn emit_update_summary(parsed: &Parsed, outcomes: &[UpdateOutcome]) {
+        if parsed.globals.json {
+            let arr: Vec<_> = outcomes
+                .iter()
+                .map(|o| json!({ "id": o.id, "from": o.from, "to": o.to, "status": o.note }))
+                .collect();
+            println!("{}", json!({ "ok": true, "data": arr }));
+            return;
+        }
+        if parsed.globals.quiet {
+            return;
+        }
+        if outcomes.is_empty() {
+            eprintln!("No plugins installed — nothing to update.");
+            return;
+        }
+        let mut any_updated = false;
+        for o in outcomes {
+            match &o.to {
+                Some(to) => {
+                    any_updated = true;
+                    eprintln!("✓ {} {} → {}", o.id, o.from, to);
+                }
+                None => eprintln!("• {} {} ({})", o.id, o.from, o.note),
+            }
+        }
+        if any_updated {
+            eprintln!("{RESTART_NOTE}");
+        }
+    }
+
+    /// Print an error (JSON or text) and return the given exit code.
+    fn fail(parsed: &Parsed, code: u8, msg: &str) -> ExitCode {
+        if parsed.globals.json {
+            println!("{}", json!({ "ok": false, "error": msg }));
+        } else {
+            eprintln!("notemd: {msg}");
+        }
+        ExitCode::from(code)
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+        use crate::plugin_runtime::market::RegistryEntry;
+        use std::collections::BTreeMap;
+
+        fn entry(id: &str, version: &str) -> RegistryEntry {
+            let mut sha = BTreeMap::new();
+            sha.insert("aarch64-apple-darwin".to_string(), "aa".to_string());
+            sha.insert("x86_64-apple-darwin".to_string(), "bb".to_string());
+            let mut dl = BTreeMap::new();
+            dl.insert(
+                "aarch64-apple-darwin".to_string(),
+                format!("https://plugins.notemd.net/api/download/{id}/{version}/aarch64-apple-darwin"),
+            );
+            dl.insert(
+                "x86_64-apple-darwin".to_string(),
+                format!("https://plugins.notemd.net/api/download/{id}/{version}/x86_64-apple-darwin"),
+            );
+            RegistryEntry {
+                id: id.to_string(),
+                version: version.to_string(),
+                min_host: ">=0.0.0".to_string(),
+                archs: vec!["aarch64-apple-darwin".into(), "x86_64-apple-darwin".into()],
+                size: 1,
+                sha256: sha,
+                name: id.to_string(),
+                description: None,
+                i18n: None,
+                icon_url: None,
+                changelog_url: None,
+                download: dl,
+            }
+        }
+
+        #[test]
+        fn resolve_entry_uses_requested_version() {
+            let plugins = vec![entry("x", "1.0.0"), entry("x", "2.0.0"), entry("y", "1.0.0")];
+            let e = resolve_entry(&plugins, "x", Some("2.0.0")).unwrap();
+            assert_eq!(e.version, "2.0.0");
+        }
+
+        #[test]
+        fn resolve_entry_requested_missing_errors() {
+            let plugins = vec![entry("x", "1.0.0")];
+            let err = resolve_entry(&plugins, "x", Some("9.9.9")).unwrap_err();
+            assert!(err.contains("version '9.9.9' not found"), "got {err}");
+        }
+
+        #[test]
+        fn resolve_entry_no_version_picks_advertised() {
+            let plugins = vec![entry("x", "1.4.0")];
+            let e = resolve_entry(&plugins, "x", None).unwrap();
+            assert_eq!(e.version, "1.4.0");
+        }
+
+        #[test]
+        fn resolve_entry_unknown_id_errors() {
+            let plugins = vec![entry("x", "1.0.0")];
+            let err = resolve_entry(&plugins, "nope", None).unwrap_err();
+            assert!(err.contains("not found in registry"), "got {err}");
+        }
+
+        #[test]
+        fn select_download_picks_current_arch() {
+            let triple = discovery::current_arch_triple().expect("supported arch");
+            let (url, sha) = select_download(&entry("x", "1.0.0")).unwrap();
+            assert!(url.ends_with(triple), "url {url} must target host arch {triple}");
+            assert!(!sha.is_empty());
+        }
+
+        #[test]
+        fn sig_url_is_pkg_plus_minisig() {
+            assert_eq!(
+                sig_url_for("https://h/api/download/x/1.0.0/aarch64-apple-darwin"),
+                "https://h/api/download/x/1.0.0/aarch64-apple-darwin.minisig"
+            );
+        }
+
+        #[test]
+        fn is_newer_semver_decision() {
+            assert!(is_newer("2.0.0", "1.9.9"));
+            assert!(is_newer("1.0.1", "1.0.0"));
+            assert!(!is_newer("1.0.0", "1.0.0")); // equal ⇒ not newer
+            assert!(!is_newer("1.0.0", "2.0.0")); // older ⇒ not newer
+            assert!(!is_newer("notsemver", "1.0.0")); // unparseable ⇒ never updates
+            assert!(!is_newer("1.0.0", "alsobad"));
+        }
+
+        #[test]
+        fn install_err_maps_to_exit_code() {
+            assert_eq!(exit_for_install_err(&installer::InstallError::Hash), EXIT_VERIFY);
+            assert_eq!(exit_for_install_err(&installer::InstallError::Signature), EXIT_VERIFY);
+            assert_eq!(exit_for_install_err(&installer::InstallError::IdMismatch), EXIT_RUNTIME);
+            assert_eq!(exit_for_install_err(&installer::InstallError::Unpack("x".into())), EXIT_RUNTIME);
+            assert_eq!(exit_for_install_err(&installer::InstallError::Io("x".into())), EXIT_RUNTIME);
+        }
+
+        /// The CLI plugins root must derive identically to `runner::
+        /// v2_plugins_root` so GUI and CLI operate on the same install tree.
+        #[test]
+        fn plugins_root_matches_runner_derivation() {
+            let expected = dirs::data_dir()
+                .map(|d| d.join(crate::app_dirs::BUNDLE_ID).join("plugins"));
+            assert_eq!(plugins_root(), expected);
+        }
+    }
 }
 
 #[cfg(test)]

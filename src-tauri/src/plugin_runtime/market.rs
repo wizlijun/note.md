@@ -151,15 +151,14 @@ pub async fn report_install(base_url: &str, id: &str, version: &str) {
         .await;
 }
 
-/// Resolve the registry base URL: settings.json `plugins_v2.registry_url`
-/// override, else [`DEFAULT_REGISTRY`]. Read exactly like `read_saved_locale`
-/// (fails closed to the default on any read/parse error).
-pub fn registry_base_url<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> String {
-    use tauri::Manager;
-    let Ok(dir) = app.path().app_config_dir() else {
-        return DEFAULT_REGISTRY.to_string();
-    };
-    let Ok(text) = std::fs::read_to_string(dir.join("settings.json")) else {
+/// Pure resolver for the registry base URL against an explicit config dir:
+/// settings.json `plugins_v2.registry_url` override, else [`DEFAULT_REGISTRY`].
+/// Read exactly like `read_saved_locale` (fails closed to the default on any
+/// read/parse error). The CLI (no AppHandle) calls this with
+/// `cli::resolve_config_dir()`; the AppHandle version wraps it — mirrors the
+/// `v2_flag_enabled_at` / `v2_flag_enabled` split.
+pub fn registry_base_url_at(config_dir: &std::path::Path) -> String {
+    let Ok(text) = std::fs::read_to_string(config_dir.join("settings.json")) else {
         return DEFAULT_REGISTRY.to_string();
     };
     let Ok(json) = serde_json::from_str::<serde_json::Value>(&text) else {
@@ -170,6 +169,16 @@ pub fn registry_base_url<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> String
         .filter(|s| !s.is_empty())
         .map(|s| s.trim_end_matches('/').to_string())
         .unwrap_or_else(|| DEFAULT_REGISTRY.to_string())
+}
+
+/// AppHandle wrapper over [`registry_base_url_at`]: resolves the app config dir,
+/// then delegates. On resolution failure returns [`DEFAULT_REGISTRY`].
+pub fn registry_base_url<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> String {
+    use tauri::Manager;
+    let Ok(dir) = app.path().app_config_dir() else {
+        return DEFAULT_REGISTRY.to_string();
+    };
+    registry_base_url_at(&dir)
 }
 
 #[cfg(test)]
@@ -257,6 +266,30 @@ mod tests {
         )
         .unwrap_err();
         assert!(err.contains("invalid registry index"), "got {err}");
+    }
+
+    #[test]
+    fn registry_base_url_at_reads_override_or_defaults() {
+        let dir = tempfile::tempdir().unwrap();
+        // No settings.json ⇒ default.
+        assert_eq!(registry_base_url_at(dir.path()), DEFAULT_REGISTRY);
+        // Override present (trailing slash trimmed).
+        std::fs::write(
+            dir.path().join("settings.json"),
+            r#"{ "plugins_v2.registry_url": "https://mirror.example.com/" }"#,
+        )
+        .unwrap();
+        assert_eq!(registry_base_url_at(dir.path()), "https://mirror.example.com");
+        // Empty override falls back to the default.
+        std::fs::write(
+            dir.path().join("settings.json"),
+            r#"{ "plugins_v2.registry_url": "" }"#,
+        )
+        .unwrap();
+        assert_eq!(registry_base_url_at(dir.path()), DEFAULT_REGISTRY);
+        // Malformed settings.json ⇒ default (fail closed).
+        std::fs::write(dir.path().join("settings.json"), "{ not json").unwrap();
+        assert_eq!(registry_base_url_at(dir.path()), DEFAULT_REGISTRY);
     }
 
     #[test]
