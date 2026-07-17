@@ -160,8 +160,8 @@ Crashed(3) → Disabled(crash-loop) + 市场窗口徽标提示
 | `host.vault.read/write/list/stat` | `vault.read` / `vault.write` | 路径规范化后限定 vault 根内，越界返回 error；这是 roam-import/exlibris/base 的主通道 |
 | `host.renderer.html { path? }` | `renderer.html` | 宿主按当前主题渲染 tab/文件为 HTML（md2pdf 用；v1 的推模式改为拉模式） |
 | `host.editor.events.subscribe { types }` | `editor.events` | 订阅后经 `editor.event` 推送 |
-| `host.window.open/close/focus { window_id }` | 免授权（限自身 contributes.windows） | |
-| `host.ui.post { surface_id, payload }` | 免授权（限自身 surface） | 向自己的窗口/编辑器 iframe 推消息 |
+| `host.window.open/close/focus { window_id }` | 免授权（限自身 contributes.windows）（②b/未来：host_api 尚未实现该方法组） | |
+| `host.ui.post { surface_id, payload }` | `ui`（限自身 surface；与 §20 一致——实现要求 `ui` capability，未授权返回 `-32001`） | 向自己的窗口/编辑器 iframe 推消息 |
 
 **边界的严谨声明**：native kind 下，capability 对**宿主中转的 API 强执法**；但插件进程自身直连 fs/net 无法被宿主拦截。本期信任模型 = 签名保证来源（仅官方签名可安装）+ capability 约束宿主面。真沙箱（wasm kind 或 OS 级）是第三方开放时的前置项，本期明确不做、不假装有。
 
