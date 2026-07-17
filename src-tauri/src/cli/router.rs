@@ -361,7 +361,13 @@ mod tests {
         assert_eq!(scanned.len(), 1);
         let pairs: Vec<(PluginManifest, PathBuf)> = scanned
             .into_iter()
-            .map(|(_, (m, install_dir))| (adapter::to_v1(&m), install_dir))
+            .filter_map(|(id, (m, install_dir))| match adapter::to_v1(&m) {
+                Ok(v1) => Some((v1, install_dir)),
+                Err(e) => {
+                    eprintln!("[test] {id}: contributes not v1-shaped: {e}");
+                    None
+                }
+            })
             .collect();
         let enabled = HashMap::from([("notemd.fixture".to_string(), true)]);
 

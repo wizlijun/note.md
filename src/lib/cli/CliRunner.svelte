@@ -97,8 +97,11 @@
     const manifests = await invoke<PluginManifest[]>('get_plugin_manifests')
     const manifest = manifests.find(m => m.id === payload.plugin_id)
     if (!manifest) {
+      const isV2 = payload.plugin_id.includes('.')
       await finish({ exit_code: 3, stderr: [
-        `notemd: plugin '${payload.plugin_id}' is not enabled. Run 'notemd plugin enable ${payload.plugin_id}'.`,
+        isV2
+          ? `notemd: v2 plugin '${payload.plugin_id}' is not installed or the v2 runtime flag is off.`
+          : `notemd: plugin '${payload.plugin_id}' is not enabled. Run 'notemd plugin enable ${payload.plugin_id}'.`,
       ]})
       return
     }

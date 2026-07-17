@@ -4,7 +4,7 @@
 
 use crate::plugin_host::PluginManifest;
 
-pub fn to_v1(m: &plugin_protocol::ManifestV2) -> PluginManifest {
+pub fn to_v1(m: &plugin_protocol::ManifestV2) -> Result<PluginManifest, String> {
     // 经 serde_json 转换：v1 PluginManifest 派生 Deserialize，未知字段忽略。
     let mut v = serde_json::json!({
         "id": m.id, "name": m.name, "version": m.version,
@@ -18,18 +18,26 @@ pub fn to_v1(m: &plugin_protocol::ManifestV2) -> PluginManifest {
     if let Some(d) = &m.description { v["description"] = serde_json::json!(d); }
     if let Some(s) = &m.contributes.settings { v["settings"] = s.clone(); }
     if let Some(i) = &m.i18n { v["i18n"] = i.clone(); }
-    serde_json::from_value(v).expect("v1 manifest shape")
+    serde_json::from_value(v).map_err(|e| format!("contributes not v1-shaped: {e}"))
 }
 
 /// Every discovered v2 plugin in v1 shape. Empty when the flag is off (STATE
 /// is never populated then), so v1 callers can merge unconditionally.
+/// Plugins whose contributes block fails v1 shape conversion are skipped with
+/// an eprintln — they do not crash the host.
 pub fn adapted_v2_manifests() -> Vec<PluginManifest> {
     super::STATE
         .read()
         .unwrap()
         .plugins
         .values()
-        .map(|(m, _)| to_v1(m))
+        .filter_map(|(m, _)| match to_v1(m) {
+            Ok(v1) => Some(v1),
+            Err(e) => {
+                eprintln!("[plugin_runtime] {}: contributes not v1-shaped: {e}", m.id);
+                None
+            }
+        })
         .collect()
 }
 
@@ -50,7 +58,7 @@ mod tests {
             "engines": { "notemd": ">=6.716.7" },
             "description": "Export the current tab to PDF",
             "binary": { "aarch64-apple-darwin": "bin/md2pdf-v2", "x86_64-apple-darwin": "bin/md2pdf-v2" },
-            "activation": { "events": ["onCommand:export", "onCli:pdf"] },
+            "activation": { "events": ["onCommand:export", "onCli:pdf2"] },
             "contributes": {
                 "menus": [{ "location": "file", "label": "Export to PDF (v2)…", "command": "export",
                             "enabled_when": "currentTab.kind == 'markdown'",
@@ -76,7 +84,7 @@ mod tests {
 
     #[test]
     fn maps_core_fields_marks_v2_and_external_with_empty_binary() {
-        let v1 = to_v1(&sample());
+        let v1 = to_v1(&sample()).unwrap();
         assert_eq!(v1.id, "notemd.md2pdf");
         assert_eq!(v1.name, "Export to PDF");
         assert_eq!(v1.version, "1.0.0");
@@ -90,7 +98,7 @@ mod tests {
 
     #[test]
     fn passes_menus_context_menus_cli_settings_i18n_through() {
-        let v1 = to_v1(&sample());
+        let v1 = to_v1(&sample()).unwrap();
 
         assert_eq!(v1.menus.len(), 1);
         let me = &v1.menus[0];
@@ -130,6 +138,70 @@ mod tests {
         assert_eq!(zh.menus.get("export").map(String::as_str), Some("导出 PDF（v2）…"));
     }
 
+    /// A ManifestV2 whose contributes.menus entry lacks both label AND command
+    /// should fail v1 shape conversion (MenuEntry requires label + command).
+    #[test]
+    fn to_v1_returns_err_when_menu_entry_lacks_label_and_command() {
+        let m: plugin_protocol::ManifestV2 = serde_json::from_value(serde_json::json!({
+            "manifest_version": 2,
+            "id": "pub.bad",
+            "name": "Bad",
+            "version": "0.1.0",
+            "kind": "native",
+            "engines": { "notemd": ">=0.0.0" },
+            "activation": { "events": ["*"] },
+            "capabilities": [],
+            "contributes": {
+                "menus": [{ "location": "file" }]
+            }
+        }))
+        .unwrap();
+        let result = to_v1(&m);
+        assert!(result.is_err(), "expected Err for menu entry missing label/command");
+    }
+
+    /// adapted_v2_manifests-style skip: a bad manifest is silently dropped,
+    /// while a good sibling still produces a valid v1 manifest.
+    #[test]
+    fn to_v1_bad_skipped_good_survives() {
+        let bad: plugin_protocol::ManifestV2 = serde_json::from_value(serde_json::json!({
+            "manifest_version": 2,
+            "id": "pub.bad2",
+            "name": "Bad2",
+            "version": "0.1.0",
+            "kind": "native",
+            "engines": { "notemd": ">=0.0.0" },
+            "activation": { "events": ["*"] },
+            "capabilities": [],
+            "contributes": { "menus": [{ "location": "file" }] }
+        }))
+        .unwrap();
+        let good: plugin_protocol::ManifestV2 = serde_json::from_value(serde_json::json!({
+            "manifest_version": 2,
+            "id": "pub.good",
+            "name": "Good",
+            "version": "0.1.0",
+            "kind": "native",
+            "engines": { "notemd": ">=0.0.0" },
+            "activation": { "events": ["*"] },
+            "capabilities": []
+        }))
+        .unwrap();
+        // Mirror adapted_v2_manifests skip logic
+        let results: Vec<_> = [&bad, &good]
+            .iter()
+            .filter_map(|m| match to_v1(m) {
+                Ok(v1) => Some(v1),
+                Err(e) => {
+                    eprintln!("[plugin_runtime] {}: contributes not v1-shaped: {e}", m.id);
+                    None
+                }
+            })
+            .collect();
+        assert_eq!(results.len(), 1, "bad manifest should be skipped, good survives");
+        assert_eq!(results[0].id, "pub.good");
+    }
+
     #[test]
     fn minimal_manifest_gets_v1_defaults() {
         let m: plugin_protocol::ManifestV2 = serde_json::from_value(serde_json::json!({
@@ -143,7 +215,7 @@ mod tests {
             "capabilities": []
         }))
         .unwrap();
-        let v1 = to_v1(&m);
+        let v1 = to_v1(&m).unwrap();
         assert_eq!(v1.manifest_version, Some(2));
         assert_eq!(v1.kind, PluginKind::External);
         assert!(v1.description.is_none());

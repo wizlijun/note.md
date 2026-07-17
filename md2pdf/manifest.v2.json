@@ -7,7 +7,7 @@
   "engines": { "notemd": ">=6.716.7" },
   "description": "Export the current Markdown or HTML tab to a typographically-clean A4 PDF",
   "binary": { "aarch64-apple-darwin": "bin/md2pdf-v2", "x86_64-apple-darwin": "bin/md2pdf-v2" },
-  "activation": { "events": ["onCommand:export", "onCli:pdf"] },
+  "activation": { "events": ["onCommand:export", "onCli:pdf2"] },
   "contributes": {
     "menus": [{ "location": "file", "label": "Export to PDF (v2)…", "command": "export",
                 "enabled_when": "currentTab.kind == 'markdown' || currentTab.kind == 'html'",

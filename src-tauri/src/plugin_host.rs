@@ -410,20 +410,35 @@ pub async fn run_plugin_binary(
     }
 }
 
+/// Pure decision helper: classify an unknown plugin_id (i.e. one that was NOT
+/// found in the v1 enabled map) to produce the right error message.
+/// `in_v2` is true when the id appears in `plugin_runtime::STATE`.
+/// Extracted so tests can validate the logic without touching global state.
+pub(crate) fn classify_unknown_plugin(id: &str, in_v2: bool) -> String {
+    if in_v2 {
+        format!("'{id}' is a v2 plugin — invoke it via plugin_v2_execute")
+    } else {
+        format!("unknown plugin: {id}")
+    }
+}
+
 #[tauri::command]
 pub async fn invoke_plugin(plugin_id: String, request_json: String) -> Result<InvokeResult, String> {
-    // v2 ids are `publisher.name`; v1 ids never contain '.'. Reject early so a
-    // v2 manifest merged into the v1 list can't run down the one-shot path.
-    if plugin_id.contains('.') {
-        return Err(format!(
-            "'{plugin_id}' is a v2 plugin — invoke it via plugin_v2_execute"
-        ));
-    }
+    // Look up in v1 enabled map FIRST. Flag-off behavior is byte-identical to
+    // pre-① when v2 STATE is empty. Only when the id is absent from v1 AND
+    // present in v2 do we return the v2-specific hint.
     let (manifest, plugin_dir) = {
         let st = STATE.read().unwrap();
         match st.enabled.get(&plugin_id) {
             Some((m, d)) => (m.clone(), d.clone()),
-            None => return Err(format!("unknown plugin: {plugin_id}")),
+            None => {
+                let in_v2 = crate::plugin_runtime::STATE
+                    .read()
+                    .unwrap()
+                    .plugins
+                    .contains_key(&plugin_id);
+                return Err(classify_unknown_plugin(&plugin_id, in_v2));
+            }
         }
     };
     if matches!(manifest.kind, PluginKind::Builtin) {
@@ -748,15 +763,25 @@ mod cli_helpers_tests {
         assert_eq!(is_plugin_enabled("never-existed-plugin"), false);
     }
 
-    #[tokio::test]
-    async fn invoke_plugin_rejects_v2_dotted_ids() {
-        // v2 ids are always `publisher.name` — the one-shot v1 path must
-        // refuse them before any manifest lookup.
-        let err = invoke_plugin("notemd.md2pdf".into(), "{}".into())
-            .await
-            .expect_err("dotted id must be rejected");
+    /// Tests the pure decision helper: rejection only fires when the id is
+    /// actually in v2 STATE. We avoid mutating the global v2 STATE in tests
+    /// (which would race parallel test threads) by testing through the extracted
+    /// `classify_unknown_plugin` helper instead.
+    #[test]
+    fn invoke_plugin_rejects_v2_dotted_ids_via_classify_helper() {
+        // id present in v2 → v2-specific hint
+        let err = classify_unknown_plugin("notemd.md2pdf", true);
         assert!(err.contains("plugin_v2_execute"), "err: {err}");
         assert!(err.contains("notemd.md2pdf"), "err: {err}");
+
+        // id absent from both v1 and v2 → generic not-found
+        let err2 = classify_unknown_plugin("notemd.md2pdf", false);
+        assert!(err2.contains("unknown plugin"), "err2: {err2}");
+        assert!(!err2.contains("plugin_v2_execute"), "err2: {err2}");
+
+        // plain v1 id absent from v2 → generic not-found
+        let err3 = classify_unknown_plugin("share", false);
+        assert!(err3.contains("unknown plugin"), "err3: {err3}");
     }
 
     #[test]

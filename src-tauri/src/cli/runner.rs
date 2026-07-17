@@ -123,8 +123,15 @@ pub(crate) fn append_v2_manifests(
         if manifests.iter().any(|(existing, _)| existing.id == id) {
             continue;
         }
-        enabled.insert(id, true);
-        manifests.push((crate::plugin_runtime::adapter::to_v1(&m), install_dir));
+        match crate::plugin_runtime::adapter::to_v1(&m) {
+            Ok(v1) => {
+                enabled.insert(id, true);
+                manifests.push((v1, install_dir));
+            }
+            Err(e) => {
+                eprintln!("[plugin_runtime] {id}: contributes not v1-shaped: {e}");
+            }
+        }
     }
 }
 
@@ -306,6 +313,11 @@ fn launch_tauri_headless(
             // Populate plugin_runtime::STATE (no-op when the flag is off) so
             // get_plugin_manifests / plugin_v2_execute see the v2 plugins the
             // Rust-side scan (append_v2_manifests) routed here.
+            // NOTE: startup_activate_all (called inside plugin_runtime::init)
+            // will spawn `*`/onStartupFinished plugins on every CLI invocation;
+            // they die when the headless host exits via stdin EOF. This is
+            // acceptable for ①期. Revisit if a startup plugin lands before ③期
+            // — a persistent daemon would be the right host model then.
             crate::plugin_runtime::init(&app.handle());
             let _ = tauri::WebviewWindowBuilder::new(
                 app,
@@ -434,6 +446,52 @@ mod tests {
         assert!(r.unwrap_err().contains("mutually exclusive"));
     }
 
+    /// When the v2 flag is off (settings.json = `{}`), append_v2_manifests
+    /// must leave both the manifests vec and the enabled map completely
+    /// unchanged — flag-off behavior is byte-identical to pre-① regardless
+    /// of what is on disk in the v2 plugins root.
+    #[test]
+    fn v2_flag_off_leaves_manifests_and_enabled_unchanged() {
+        // If NOTEMD_PLUGINS_V2=1 is set in the test environment the flag check
+        // bypasses settings.json and would give a false positive — skip to avoid
+        // a spurious failure.
+        if std::env::var("NOTEMD_PLUGINS_V2").map_or(false, |v| v == "1") {
+            eprintln!("[test] NOTEMD_PLUGINS_V2=1 is set — skipping flag-off invariant test");
+            return;
+        }
+
+        use crate::plugin_runtime;
+        use crate::plugin_runtime::state::{InstallState, InstalledPlugin};
+
+        // Build a v2 install tree in a tempdir with a valid (but unreachable)
+        // plugin entry so that if the flag were on, it would modify the vecs.
+        let v2_root = tempfile::tempdir().unwrap();
+        let v2_plugins = v2_root.path().join("plugins");
+        let mut state = InstallState::default();
+        state.installed.insert(
+            "notemd.md2pdf".into(),
+            InstalledPlugin { version: "1.0.0".into(), enabled: true },
+        );
+        crate::plugin_runtime::state::save(&v2_plugins, &state).unwrap();
+
+        // Config dir with empty settings.json — v2 flag is off.
+        let config_dir = tempfile::tempdir().unwrap();
+        std::fs::write(config_dir.path().join("settings.json"), "{}").unwrap();
+
+        assert!(
+            !plugin_runtime::v2_flag_enabled_at(config_dir.path()),
+            "v2 flag must be off for this test to be meaningful"
+        );
+
+        let mut manifests: Vec<(crate::plugin_host::PluginManifest, std::path::PathBuf)> = vec![];
+        let mut enabled: std::collections::HashMap<String, bool> = std::collections::HashMap::new();
+
+        append_v2_manifests(&mut manifests, &mut enabled, config_dir.path());
+
+        assert!(manifests.is_empty(), "manifests must stay empty when v2 flag is off");
+        assert!(enabled.is_empty(), "enabled map must stay empty when v2 flag is off");
+    }
+
     /// Documents the v2_plugins_root assumption: the CLI has no AppHandle, so
     /// it derives the v2 plugins root from `dirs::data_dir()` + BUNDLE_ID.
     /// Tauri's app_data_dir() resolves to the same place on macOS
@@ -447,6 +505,29 @@ mod tests {
             root.ends_with("Application Support/net.notemd.app"),
             "unexpected v2 root base: {}",
             root.display()
+        );
+    }
+
+    /// Version equivalence pin: the Cargo crate version (embedded at compile
+    /// time via env!("CARGO_PKG_VERSION")) must equal the "version" field in
+    /// the root package.json. A drift would mean the CLI reports a different
+    /// version than the npm/tauri build system thinks it is.
+    #[test]
+    fn cargo_version_matches_package_json_version() {
+        let pkg_json_path = concat!(env!("CARGO_MANIFEST_DIR"), "/../package.json");
+        let bytes = std::fs::read(pkg_json_path)
+            .expect("root package.json must be readable from src-tauri/");
+        let v: serde_json::Value =
+            serde_json::from_slice(&bytes).expect("root package.json must be valid JSON");
+        let pkg_version = v.get("version")
+            .and_then(|v| v.as_str())
+            .expect("package.json must have a string 'version' field");
+        assert_eq!(
+            env!("CARGO_PKG_VERSION"),
+            pkg_version,
+            "Cargo version ({}) differs from package.json version ({})",
+            env!("CARGO_PKG_VERSION"),
+            pkg_version,
         );
     }
 }
