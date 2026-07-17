@@ -1,0 +1,26 @@
+{
+  "manifest_version": 2,
+  "id": "test.ui-fixture",
+  "name": "UI Fixture",
+  "version": "1.0.0",
+  "kind": "native",
+  "engines": { "notemd": ">=0.0.0" },
+  "ui": "ui/",
+  "activation": { "events": ["onCommand:open"] },
+  "contributes": {
+    "menus": [
+      { "location": "file", "label": "UI Fixture", "command": "open" }
+    ],
+    "windows": [
+      {
+        "id": "main",
+        "entry": "index.html",
+        "title": "UI Fixture",
+        "width": 400.0,
+        "height": 300.0,
+        "open_command": "open"
+      }
+    ]
+  },
+  "capabilities": ["toast", "vault.read"]
+}
