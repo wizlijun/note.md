@@ -61,6 +61,19 @@ impl PluginProcess {
         host_sink: HostSink,
     ) -> Result<Arc<Self>, String> {
         let mut cmd = Command::new(binary);
+        // Sanitize the child environment: native plugins are trusted by
+        // signature, but inheriting the full app environment would needlessly
+        // leak host secrets (API keys etc.) into every plugin subprocess —
+        // pointless exposure, especially ahead of third-party plugins. Clear
+        // everything, then re-add a minimal safe allowlist. openclaw/exlibris
+        // need HOME/PATH to resolve calibre + UDS socket paths; these are
+        // covered. Do NOT add secret-bearing vars here.
+        cmd.env_clear();
+        for key in ["HOME", "PATH", "LANG", "LC_ALL", "TERM", "USER", "TMPDIR"] {
+            if let Ok(v) = std::env::var(key) {
+                cmd.env(key, v);
+            }
+        }
         cmd.stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())

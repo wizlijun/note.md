@@ -89,6 +89,36 @@ async fn ok_round_trip_toast_and_graceful_shutdown() {
     assert_eq!(proc.has_exited().await, Some(0));
 }
 
+// ── ①b echo-env.sh: spawned plugin does NOT inherit host secrets ──
+//
+// The host clears the child environment and re-adds only a safe allowlist
+// before spawning, so a secret-bearing var set in the parent process must not
+// leak into the plugin. The fixture reports whether SECRET_TEST_VAR reached it.
+#[tokio::test]
+async fn spawned_plugin_does_not_inherit_host_secret_env() {
+    // SAFETY: single-threaded test setup before any spawn reads the env.
+    std::env::set_var("SECRET_TEST_VAR", "leaked-api-key");
+    let log_dir = tempfile::tempdir().unwrap();
+    let (sink, _seen) = recording_sink();
+    let proc = PluginProcess::spawn(&fixture("echo-env.sh"), "test.env", log_dir.path(), 5, sink)
+        .await
+        .unwrap();
+    initialize_and_activate(&proc, &init_params(log_dir.path()), "onStartupFinished")
+        .await
+        .unwrap();
+    let out = proc
+        .request("command.execute", json!({ "command": "noop", "context": {} }))
+        .await
+        .unwrap();
+    std::env::remove_var("SECRET_TEST_VAR");
+    assert_eq!(
+        out,
+        json!({ "secret_present": false }),
+        "host must clear the environment: the plugin should NOT see SECRET_TEST_VAR"
+    );
+    proc.shutdown().await;
+}
+
 // ── ② slow.sh: per-request timeout fails the request only (spec §12) ──
 
 #[tokio::test]

@@ -290,14 +290,37 @@ pub fn init<R: Runtime>(app: &AppHandle<R>) {
     }
 }
 
+/// Merge the enabled v1 manifests with the adapted v2 manifests, deduping any
+/// v1 bundled plugin that an installed v2 plugin supersedes.
+///
+/// A v2 plugin `notemd.md2pdf` supersedes the v1 bundled `md2pdf` — hide the v1
+/// one so it doesn't produce duplicate menu / CLI entries (transitional until
+/// v1 retirement ④c). We build a set of suppressed v1 ids from the *name part*
+/// (after the last `.`) of every adapted v2 id, drop matching v1 manifests,
+/// then append the v2 ones. `adapted_v2_manifests()` is empty whenever the
+/// plugins_v2 flag is off, so flag-off behavior is byte-identical to before.
+fn merged_manifests() -> Vec<PluginManifest> {
+    let v1: Vec<PluginManifest> =
+        STATE.read().unwrap().enabled.values().map(|(m, _)| m.clone()).collect();
+    let v2 = crate::plugin_runtime::adapter::adapted_v2_manifests();
+    merge_dedup_v1_v2(v1, v2)
+}
+
+/// Pure merge: drop any v1 manifest whose id equals the *name part* (after the
+/// last `.`) of an installed v2 id, then append the v2 manifests. Extracted so
+/// the dedup logic is unit-testable without touching global STATE.
+fn merge_dedup_v1_v2(v1: Vec<PluginManifest>, v2: Vec<PluginManifest>) -> Vec<PluginManifest> {
+    let suppressed: std::collections::HashSet<&str> =
+        v2.iter().filter_map(|m| m.id.rsplit('.').next()).collect();
+    let mut out: Vec<PluginManifest> =
+        v1.into_iter().filter(|m| !suppressed.contains(m.id.as_str())).collect();
+    out.extend(v2);
+    out
+}
+
 #[tauri::command]
 pub fn get_plugin_manifests() -> Vec<PluginManifest> {
-    let mut out: Vec<PluginManifest> =
-        STATE.read().unwrap().enabled.values().map(|(m, _)| m.clone()).collect();
-    // v2 runtime plugins ride along in v1 shape (marked manifest_version: 2).
-    // The list is empty whenever the plugins_v2 flag is off.
-    out.extend(crate::plugin_runtime::adapter::adapted_v2_manifests());
-    out
+    merged_manifests()
 }
 
 /// Returns *every* manifest discovered on disk, including disabled ones.
@@ -513,9 +536,9 @@ pub struct LocatedMenuItem {
 /// same loop in adapted v1 shape, so per-locale i18n resolution applies to
 /// them identically (their i18n block is passed through by the adapter).
 pub fn collect_top_menu_items(locale: &str) -> Vec<LocatedMenuItem> {
-    let mut manifests: Vec<PluginManifest> =
-        STATE.read().unwrap().enabled.values().map(|(m, _)| m.clone()).collect();
-    manifests.extend(crate::plugin_runtime::adapter::adapted_v2_manifests());
+    // Shares `merged_manifests` so a v2 plugin superseding a v1 bundled one
+    // (e.g. notemd.md2pdf → md2pdf) doesn't produce duplicate menu items.
+    let manifests = merged_manifests();
     let mut out = Vec::new();
     for m in manifests.iter() {
         for me in m.menus.iter() {
@@ -796,6 +819,48 @@ mod cli_helpers_tests {
         // plain v1 id absent from v2 → generic not-found
         let err3 = classify_unknown_plugin("share", false);
         assert!(err3.contains("unknown plugin"), "err3: {err3}");
+    }
+
+    fn bare_manifest(id: &str, manifest_version: Option<u32>) -> PluginManifest {
+        PluginManifest {
+            id: id.into(), name: id.into(), version: "1.0.0".into(),
+            description: None, kind: PluginKind::External, binary: Some("bin".into()),
+            default_enabled: None, menus: vec![], context_menus: vec![],
+            custom_editors: vec![], settings: None, host_capabilities: vec![], timeout_seconds: 30,
+            i18n: HashMap::new(), cli: vec![], manifest_version,
+            open_windows: None,
+        }
+    }
+
+    /// FIX-2: an installed v2 plugin `notemd.md2pdf` supersedes the v1 bundled
+    /// `md2pdf` — the merged list keeps only the v2 one (no duplicate md2pdf).
+    #[test]
+    fn merge_dedup_suppresses_v1_superseded_by_installed_v2() {
+        let v1 = vec![bare_manifest("md2pdf", None), bare_manifest("share", None)];
+        let v2 = vec![bare_manifest("notemd.md2pdf", Some(2))];
+        let merged = merge_dedup_v1_v2(v1, v2);
+        // md2pdf appears exactly once, and it's the v2 one.
+        let md2pdf: Vec<&PluginManifest> = merged
+            .iter()
+            .filter(|m| m.id.rsplit('.').next() == Some("md2pdf"))
+            .collect();
+        assert_eq!(md2pdf.len(), 1, "expected exactly one md2pdf entry, got {:?}",
+            md2pdf.iter().map(|m| &m.id).collect::<Vec<_>>());
+        assert_eq!(md2pdf[0].id, "notemd.md2pdf");
+        assert_eq!(md2pdf[0].manifest_version, Some(2));
+        // Unrelated v1 plugin (share) is untouched.
+        assert!(merged.iter().any(|m| m.id == "share"));
+    }
+
+    /// With the flag off, `adapted_v2_manifests()` is empty → the merge is a
+    /// pass-through of the v1 list (byte-identical to pre-dedup behavior).
+    #[test]
+    fn merge_dedup_is_passthrough_when_no_v2() {
+        let v1 = vec![bare_manifest("md2pdf", None), bare_manifest("share", None)];
+        let merged = merge_dedup_v1_v2(v1.clone(), vec![]);
+        assert_eq!(merged.len(), 2);
+        assert!(merged.iter().any(|m| m.id == "md2pdf"));
+        assert!(merged.iter().any(|m| m.id == "share"));
     }
 
     #[test]

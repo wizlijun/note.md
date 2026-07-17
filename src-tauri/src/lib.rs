@@ -906,7 +906,6 @@ pub fn run() {
                 plugin_host::get_all_plugin_manifests,
                 plugin_host::plugin_is_enabled,
                 plugin_host::invoke_plugin,
-                plugin_runtime::commands::get_plugin_manifests_v2,
                 plugin_runtime::commands::plugin_v2_execute,
                 plugin_runtime::commands::plugin_v2_open_window,
                 plugin_runtime::commands::plugin_market_index,

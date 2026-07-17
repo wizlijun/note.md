@@ -10,21 +10,7 @@ use std::sync::Arc;
 use tauri::Manager;
 
 use super::lifecycle::{self, PluginLifecycle, SpawnCtx, Trigger, RUNNING};
-use super::{adapter, discovery, host_api, installer, market, state, STATE};
-
-/// v2 manifests serialized in v1 `PluginManifest` shape; the frontend spots
-/// them by `manifest_version: 2` and routes execution to `plugin_v2_execute`.
-///
-/// ③期市场窗口 hook 入口（待实现）。①期此命令未被前端直接消费——前端经由
-/// `get_plugin_manifests`（plugin_host）拿到已合流的 v1+v2 列表。③期市场
-/// 窗口将直接调用此命令以区分 v2 插件并驱动安装/升级/启停 UI。
-#[tauri::command]
-pub fn get_plugin_manifests_v2() -> Vec<serde_json::Value> {
-    adapter::adapted_v2_manifests()
-        .iter()
-        .filter_map(|m| serde_json::to_value(m).ok())
-        .collect()
-}
+use super::{discovery, host_api, installer, market, state, STATE};
 
 /// Execute `command` on a v2 plugin: lazy activation (spec §4.2) followed by
 /// `command.execute`. `context` is the same shape v1 plugins receive.
