@@ -205,6 +205,7 @@ fi
 
 say "running tests"
 pnpm -s test
+pnpm -s check:protocol
 
 # ---------- bump versions ----------
 

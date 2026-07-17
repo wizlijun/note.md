@@ -319,3 +319,6 @@ window.notemd = {
 - **CLI**：v2 manifest 经 adapter 合流进 router/runner 扫描（flag 门控）；headless Tauri 注册 `plugin_v2_execute` 并在 setup 跑 `plugin_runtime::init`。v2 安装根 = `dirs::data_dir()/net.notemd.app/plugins`（与 Tauri app_data_dir 等价，有测试钉住）。
 - **内测期命名**：v2 md2pdf 菜单标 "Export to PDF (v2)…"、CLI 子命令 `pdf2`，与 v1 并存不打架；**④期正式切换待办**：改回 `Export to PDF…`/`pdf`、补 manifest i18n、删除 v1 bundled md2pdf 与 one-shot 机制。
 - 运行时测试基建：shell fixture（tests/fixtures/v2/）+ 10 个集成用例覆盖握手/超时/崩溃熔断/空闲关停/capability 拒绝/真实 make_sink 链路。
+- **①期启停边界**：v2 插件不出现在设置页插件列表（get_all_plugin_manifests 未合流）与 notemd plugin list/enable/disable/info、notemd help；启停唯一入口是 state.json + 重启；③期市场窗口接管。
+- **settings 通道递延**：adapter 透传 contributes.settings 会让设置页渲染 v2 设置 tab，但①期无 host.settings 通道、执行上下文不带 settings——v2 插件声明 settings 属②期功能；md2pdf v2 未声明。
+- **onCli/onFileType 触发器①期不生成**（plugin_v2_execute 一律 Trigger::Command；激活匹配仅 startup 生效）——④期使激活事件 load-bearing 时补齐。

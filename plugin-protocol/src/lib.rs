@@ -1,6 +1,7 @@
 //! Plugin system v2 wire contract. THE single source of truth:
 //! `gen-schema` emits JSON Schemas (protocol/schema/), from which the TS
-//! types (src/lib/plugins/v2/protocol.gen.ts) are generated. CI diffs both.
+//! types (src/lib/plugins/v2/protocol.gen.ts) are generated.
+//! Release preflight (pnpm check:protocol) diffs both.
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -108,7 +109,7 @@ pub struct ActivateParams { pub event: String }
 #[serde(deny_unknown_fields)]
 pub struct ExecuteCommandParams {
     pub command: String,
-    pub context: serde_json::Value,         // 形状与 v1 PluginRequest.context 一致（含 tab / rendered_html / output_path / cli args+flags）
+    pub context: serde_json::Value,         // 形状与 v1 PluginRequest.context 一致（含 tab / rendered_html / output_path；宿主在前端解析 CLI flags 后注入，插件无需自行解析命令行参数）
 }
 
 // ── 插件→宿主方法（host.*；capability 映射见 host_api）──────────────────
@@ -169,7 +170,7 @@ mod tests {
             "engines": { "notemd": ">=6.716.7" },
             "description": "Export the current Markdown or HTML tab to a typographically-clean A4 PDF",
             "binary": { "aarch64-apple-darwin": "bin/md2pdf-v2", "x86_64-apple-darwin": "bin/md2pdf-v2" },
-            "activation": { "events": ["onCommand:export", "onCli:pdf"] },
+            "activation": { "events": ["onCommand:export", "onCli:pdf2"] },
             "contributes": {
                 "menus": [{ "location": "file", "label": "Export to PDF (v2)…", "command": "export",
                             "enabled_when": "currentTab.kind == 'markdown' || currentTab.kind == 'html'",
