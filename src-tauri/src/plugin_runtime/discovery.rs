@@ -90,7 +90,7 @@ mod tests {
             "kind": "native",
             "engines": { "notemd": engines },
             "binary": { binary_key: "bin/md2pdf-v2" },
-            "activation": { "events": ["onCommand:export", "onCli:pdf"] },
+            "activation": { "events": ["onCommand:export", "onCli:pdf2"] },
             "capabilities": ["toast"]
         })
     }

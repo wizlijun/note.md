@@ -4,7 +4,7 @@
 //! [`SpawnCtx`] from the AppHandle once; from then on the lifecycle machine
 //! owns (re)spawning without any tauri types (crash restarts included).
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use tauri::Manager;
@@ -63,9 +63,30 @@ pub fn startup_activate_all<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
     });
 }
 
+/// STATE lookup half of registration — AppHandle-free so it is unit-testable.
+fn lookup_v2(plugin_id: &str) -> Result<(plugin_protocol::ManifestV2, PathBuf), String> {
+    STATE
+        .read()
+        .unwrap()
+        .plugins
+        .get(plugin_id)
+        .cloned()
+        .ok_or_else(|| format!("unknown v2 plugin: {plugin_id}"))
+}
+
+/// RUNNING registration half — idempotent: on a lost race the entry that got
+/// in first wins and the freshly built (never-spawned) one is dropped.
+fn register_lifecycle(plugin_id: &str, lc: Arc<PluginLifecycle>) -> Arc<PluginLifecycle> {
+    RUNNING
+        .write()
+        .unwrap()
+        .entry(plugin_id.to_string())
+        .or_insert(lc)
+        .clone()
+}
+
 /// Look up the live lifecycle for `plugin_id`, registering a fresh one from
-/// STATE on first use. Registration is idempotent: on a lost race the entry
-/// that got in first wins and the freshly built (never-spawned) one is dropped.
+/// STATE on first use.
 fn get_or_register<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
     plugin_id: &str,
@@ -73,66 +94,70 @@ fn get_or_register<R: tauri::Runtime>(
     if let Some(lc) = RUNNING.read().unwrap().get(plugin_id) {
         return Ok(lc.clone());
     }
-    let (manifest, install_dir) = STATE
-        .read()
-        .unwrap()
-        .plugins
-        .get(plugin_id)
-        .cloned()
-        .ok_or_else(|| format!("unknown v2 plugin: {plugin_id}"))?;
+    let (manifest, install_dir) = lookup_v2(plugin_id)?;
     let ctx = build_spawn_ctx(app, &manifest, &install_dir)?;
     let lc = Arc::new(PluginLifecycle::new(manifest, install_dir, ctx));
-    Ok(RUNNING
-        .write()
-        .unwrap()
-        .entry(plugin_id.to_string())
-        .or_insert(lc)
-        .clone())
+    Ok(register_lifecycle(plugin_id, lc))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    /// Unknown plugin id → get_or_register returns Err containing "unknown v2 plugin".
-    /// We test this through the STATE lookup path directly (no AppHandle needed).
-    #[test]
-    fn unknown_plugin_id_returns_err() {
-        // STATE is the global v2 RuntimeState; when it doesn't contain our id
-        // get_or_register should propagate the not-found error from the STATE lookup.
-        // We can observe this without an AppHandle by reading what get_or_register
-        // would do: it checks RUNNING first (empty), then reads STATE (doesn't contain
-        // "bogus.id"), and returns Err("unknown v2 plugin: bogus.id").
-        //
-        // Because get_or_register requires a `tauri::AppHandle` we instead test the
-        // pure error-path directly: the Err string is constructed in get_or_register
-        // via the `.ok_or_else` on STATE.plugins.get.
-        let id = "bogus.unknown-plugin";
-        let in_state = STATE.read().unwrap().plugins.contains_key(id);
-        assert!(!in_state, "test assumes id is absent from STATE");
-
-        // Also confirm that RUNNING doesn't accidentally contain it.
-        let in_running = RUNNING.read().unwrap().contains_key(id);
-        assert!(!in_running, "test assumes id is absent from RUNNING");
-
-        // The error message format is the string get_or_register would return.
-        let expected = format!("unknown v2 plugin: {id}");
-        assert!(expected.contains("unknown v2 plugin"), "error format: {expected}");
+    fn fixture_manifest(id: &str) -> plugin_protocol::ManifestV2 {
+        serde_json::from_value(serde_json::json!({
+            "manifest_version": 2, "id": id, "name": "Fixture", "version": "1.0.0",
+            "kind": "native", "engines": { "notemd": ">=0.0.0" },
+            "activation": { "events": ["onCommand:noop"] }, "capabilities": []
+        }))
+        .unwrap()
     }
 
-    /// Double registration is idempotent: two Arc::ptr_eq-equal handles for
-    /// the same id would be returned on a second lookup once the id is in RUNNING.
-    /// We test the idempotency logic: entry.or_insert returns the existing Arc.
+    fn noop_spawn_ctx() -> SpawnCtx {
+        SpawnCtx {
+            binary: PathBuf::from("/nonexistent/fixture-bin"),
+            log_dir: std::env::temp_dir(),
+            host_sink: std::sync::Arc::new(|_req| None),
+            host_version: "0.0.0".into(),
+            locale: "en".into(),
+            app_data: std::env::temp_dir(),
+        }
+    }
+
+    /// The real STATE-lookup half of get_or_register: unknown id → Err;
+    /// present id → the stored (manifest, install_dir) pair.
     #[test]
-    fn double_insert_or_insert_returns_first() {
-        use std::sync::Arc;
-        let mut map = std::collections::HashMap::<String, Arc<u32>>::new();
-        let first = Arc::new(42u32);
-        let second = Arc::new(99u32);
-        map.entry("key".to_string()).or_insert(first.clone());
-        let winner = map.entry("key".to_string()).or_insert(second.clone());
-        assert!(Arc::ptr_eq(winner, &first), "or_insert must preserve first arc");
-        assert_eq!(**winner, 42u32);
+    fn lookup_v2_err_on_unknown_and_ok_on_present() {
+        let missing = lookup_v2("bogus.unknown-plugin");
+        assert_eq!(missing.unwrap_err(), "unknown v2 plugin: bogus.unknown-plugin");
+
+        // Unique id + cleanup keeps the global STATE mutation race-free
+        // against other tests (none of which use this id).
+        let id = "test.commands-lookup-fixture";
+        STATE.write().unwrap().plugins.insert(
+            id.to_string(),
+            (fixture_manifest(id), PathBuf::from("/tmp/fixture-install")),
+        );
+        let found = lookup_v2(id).unwrap();
+        assert_eq!(found.0.id, id);
+        assert_eq!(found.1, PathBuf::from("/tmp/fixture-install"));
+        STATE.write().unwrap().plugins.remove(id);
+    }
+
+    /// The real RUNNING-registration half: double registration returns the
+    /// first Arc (idempotent; the loser is dropped without spawning).
+    #[test]
+    fn register_lifecycle_is_idempotent() {
+        let id = "test.commands-register-fixture";
+        let first = Arc::new(PluginLifecycle::new(
+            fixture_manifest(id), PathBuf::from("/tmp/a"), noop_spawn_ctx()));
+        let second = Arc::new(PluginLifecycle::new(
+            fixture_manifest(id), PathBuf::from("/tmp/b"), noop_spawn_ctx()));
+        let won_first = register_lifecycle(id, first.clone());
+        let won_second = register_lifecycle(id, second);
+        assert!(Arc::ptr_eq(&won_first, &first));
+        assert!(Arc::ptr_eq(&won_second, &first), "second registration must return the first Arc");
+        RUNNING.write().unwrap().remove(id);
     }
 }
 
