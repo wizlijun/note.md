@@ -345,3 +345,11 @@ window.notemd = {
 - **桥安全边界（②已实现）**：plugin:// 资产穿越防护(decode→component ..校验→canonicalize→component-wise 包含)、Origin 服务端认证 RPC、能力 deny-by-default 全方法覆盖、vault 路径 canonicalize 包含校验、fs.read:dialog 按插件+精确路径授权、读写各 10MB 上限、CSP(default/script/style/img/connect + object/base/form/frame 全锁)、grant 随窗口关闭清理。flag off 时 handler 全 404。
 - **开放第三方前必做（②未做，非内部flag阻塞）**：① 安装/启用期能力消费同意 UI + 校验 capability 串白名单（③市场窗口承载）；② RPC 加 per-window nonce 防御纵深（多窗口/非 macOS webview 前）；③ vault.write 频率/磁盘配额与每请求线程数上限。
 - **roam-import .zip 支持经 host.fs.read_bytes(base64+fflate) 恢复**，与 v1 一致（④期退役 v1 无功能回退）。
+
+## 19. 实施记录（子项目③）
+
+- **安装安全（③已实现）**：.notemdpkg=zip；下载 sha256 + minisign 验签（写盘前，硬编码 PLUGIN_REGISTRY_PUBKEY），GUI/CLI 同管线同公钥、无 --force 跳过；zip-slip 双重防护（enclosed_name+containment）；解压总量上限 200MiB 防压缩炸弹；consent 展示的能力 = 已装签名 manifest 的 capabilities = 运行时 host_api 执法源（三者同一）。
+- **无重启**：install/uninstall/set_enabled → reconcile(重扫 STATE + deactivate 移除项) + 原生菜单重建；新插件菜单项/命令/窗口即时可用。
+- **注册表**：CF Worker notemd-plugins（KV index + R2 pkgs），index.json 未签名但包已签名——恶意 index 至多 DoS 或在我方已签制品间替换/降级，无法装入未签名代码。
+- **用户步骤（发布前必做）**：① minisign 生成生产签名密钥对（私钥离线保管）→ 替换 market.rs 的 PLUGIN_REGISTRY_PUBKEY（当前是测试公钥）；② 建 CF KV namespace + R2 bucket notemd-plugins + plugins.notemd.net 自定义域 + repo secret CLOUDFLARE_API_TOKEN；③ 首次 wrangler deploy；④ 发布用 release-plugins.sh + gen-plugin-index.mjs + wrangler r2/kv 上传。
+- **开放第三方前必做（③未做）**：下载降级保护（签名 index 或版本下限）；commit 时断言已装能力==preview 能力；②评审遗留的 per-window nonce / vault.write 配额；symlink zip 条目已加测试。

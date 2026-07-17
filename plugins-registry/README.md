@@ -32,7 +32,7 @@ to protect on read, which is why CORS is `*`.
 ### R2 key layout
 
 ```
-<id>/<version>/<arch>.notemdpkg           # the gzip'd-tar package
+<id>/<version>/<arch>.notemdpkg           # the zip package
 <id>/<version>/<arch>.notemdpkg.minisig   # detached minisign signature
 ```
 
