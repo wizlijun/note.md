@@ -6,6 +6,7 @@ pub mod adapter;
 pub mod commands;
 pub mod discovery;
 pub mod host_api;
+pub mod installer;
 pub mod lifecycle;
 pub mod process;
 pub mod protocol;

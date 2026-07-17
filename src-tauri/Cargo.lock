@@ -2876,6 +2876,7 @@ dependencies = [
  "hmac",
  "include_dir",
  "lightningcss",
+ "minisign-verify",
  "notify",
  "plugin-protocol",
  "qrcode",
