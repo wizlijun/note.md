@@ -17,7 +17,9 @@
     "build:md2pdf": "bash scripts/build-md2pdf.sh",
     "tauri:exlibris:dev": "pnpm --filter exlibris tauri:dev",
     "tauri:exlibris:build": "pnpm --filter exlibris tauri:build",
-    "build:exlibris": "bash scripts/build-exlibris.sh"
+    "build:exlibris": "bash scripts/build-exlibris.sh",
+    "gen:protocol": "bash scripts/gen-plugin-protocol.sh",
+    "check:protocol": "bash scripts/gen-plugin-protocol.sh --check"
   },
   "dependencies": {
     "@moraya/core": "file:../moraya-core",
@@ -48,6 +50,7 @@
     "@sveltejs/vite-plugin-svelte": "^5",
     "@tauri-apps/cli": "^2",
     "happy-dom": "^20.9.0",
+    "json-schema-to-typescript": "^15.0.4",
     "prosemirror-commands": "^1.7.1",
     "prosemirror-model": "1.25.4",
     "prosemirror-schema-basic": "^1.2.4",
