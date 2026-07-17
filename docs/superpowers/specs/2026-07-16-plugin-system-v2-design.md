@@ -371,3 +371,24 @@ window.notemd = {
 - tray 迁移延④(①期 tray 硬编码);v2 用 Window▸OpenClaw (v2) 菜单项开窗。
 
 **④退役清单追加**(openclaw v1):`src/chat-*`、`src/lib/openclaw`、`src/components/chat`、`src-tauri/src/openclaw`、show_chat_window(lib.rs)、tray-openclaw、chat.html、vite chat 入口、capabilities "chat";tokio-tungstenite/qrcode/gethostname/urlencoding 等 deps 若 v1 删净且无他用可从 src-tauri/Cargo.toml 移除(exlibris/其他勿误删)。
+
+## 21. 实施记录（子项目④：自定义编辑器 + exlibris）
+
+子项目④（自定义编辑器机制 + base/exlibris 迁移 + v1 退役）部分实现在分支 worktree-core-ize-six-plugins，flag 门控。**base 本体迁移与 v1 退役门控在用户 GUI 验证之后**（本会话未执行）。
+
+**新增机制——tab 内嵌自定义编辑器（spec §7.3）：**
+- **iframe 桥注入**：iframe 拿不到 initialization_script（那是 per-webview-window,非 per-iframe）。改为宿主 serve `plugin://<id>/*.html` 时**在 HTML 响应注入 `<script>${bridge_script}</script>`**（插入 `<head>` 后/body 首,幂等）。bridge_script 首行加 `if(window.notemd)return` 守卫——窗口经 init script + 注入双次运行无害,iframe 仅经注入获得桥。iframe 内 `window.notemd.request()` 经 `fetch('/__rpc__')` 照常访问 host.* 方法（Origin=plugin://<id> 认证）。
+- **文档通道走 parent↔iframe postMessage**（不经 Rust）：主 app 持有 iframe 元素,读文件后 `iframe.contentWindow.postMessage({type:'custom_editor.open',uri,content,editorId}, 'plugin://<id>')`；iframe 编辑 → `parent.postMessage({type:'change',content},'*')` → 主 app **严格校验 `event.origin===plugin://<id>` 且 `event.source===iframe.contentWindow`** → `setContent(tabId)`（翻转 dirty）；Cmd+S 走既有 saveActive,iframe 不碰磁盘。
+- **CSP**：iframe 被主窗口(tauri://localhost) frame,方向由 `frame-ancestors` 管,而 plugin:// CSP 无此指令 → 允许被 frame;`frame-src 'none'` 只限插件页自身嵌套,不限谁 frame 它。无需改 CSP。
+- **降级（file-over-app）**：未装对应插件时,`.base` 等扩展名经 openFile → classifyPath null 且无 custom editor → **降级 kind='code' 纯文本 tab（不再抛错）**。
+- **TabKind 加 'custom'**;Tab 加 editorId/editorPluginId/editorEntry;custom-editors.ts 从 v2 manifests 的 contributes.custom_editors 建扩展名→编辑器注册表;adapter 透传 custom_editors 进 v1 形状。
+- **穿刺门控**：焦点/Cmd+S/滚动/拖拽只能真机验证。`plugins-src/custom-editor-fixture` + `PROBE.md`（PASS/FAIL 判据）供用户 GUI 穿刺;通过则 base tab 内嵌迁移,不通则 base 降级窗口编辑器。
+
+**exlibris 迁移（v2 窗口插件,类 openclaw,纯请求-响应无流式）：**
+- 后端 1157 行(14 命令 + calibre subprocess/shared_config/fs_ops/hash)整体进插件 crate `plugins-src/exlibris/backend`(binary `notemd-exlibris`),全在进程内(native 全 fs 权限);14 命令经 `on_ui_request` 分派,camelCase 参数名保留;async calibre 命令经 block_in_place+block_on。
+- **共享配置进程内直读**：`~/Library/Application Support/com.laobu.mdeditor-shared/config.json`(sotvault/rawvault/calibre)——v1/v2 同路径共享,无需 host 桥。
+- UI 1656 行整体移进 `plugins-src/exlibris`,invoke→bridge.request;**拖拽改 "Add books…" 按钮(host.dialog.open 多选)**(插件窗口零 Tauri IPC,`listen('tauri://drag-drop')` 不可用;拖拽转发留后续);目录选择器走 host.dialog.open directory。
+- **功能缺口**:MetaPreview "在 mdeditor 打开" 因无 host.open 桥,暂以 host.toast 显示路径(host.open 是后续清爽修法)。
+- 独立 exlibris app 停止发布记入 v1 退役清单(④c)。
+
+**④c v1 退役**：详尽清单见 `docs/superpowers/plans/2026-07-17-v1-retirement-checklist.md`——**破坏性,门控用户全栈 GUI 验证 + 市场部署**。要点:五插件 v1 前后端删除;md2pdf crate 保留(v2 派生兄弟 v1 bin);v1 one-shot 机制方案 A(保留收集机制,只删执行路径);flag 转正方案 C(分两版:先默认开,再删 flag+删 v1);flag 转正强依赖市场部署(真签名密钥 + CF)。
