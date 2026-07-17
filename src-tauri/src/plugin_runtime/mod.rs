@@ -3,6 +3,7 @@
 //! `plugins_v2.enabled` in settings.json or NOTEMD_PLUGINS_V2=1.
 
 pub mod discovery;
+pub mod lifecycle;
 pub mod process;
 pub mod state;
 

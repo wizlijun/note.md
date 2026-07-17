@@ -1,7 +1,13 @@
 //! Integration tests for plugin_runtime::process (plugin-runtime-v2 Task 5):
 //! spawn/handshake, NDJSON RPC round-trip, per-request timeout, fast failure
-//! on process death, stderr logging, graceful shutdown.
+//! on process death, stderr logging, graceful shutdown — and for
+//! plugin_runtime::lifecycle (Task 6): crash backoff circuit breaker, idle
+//! shutdown + lazy re-activation, deactivate-is-not-a-crash, startup
+//! activation.
 
+use mdeditor_lib::plugin_runtime::lifecycle::{
+    startup_activation, PhaseKind, PluginLifecycle, SpawnCtx, Trigger,
+};
 use mdeditor_lib::plugin_runtime::process::{initialize_and_activate, HostSink, PluginProcess};
 use plugin_protocol as proto;
 use serde_json::json;
@@ -211,4 +217,190 @@ async fn shutdown_after_process_death_is_not_graceful_and_returns_promptly() {
         "shutdown of a dead process should not hang, took {:?}",
         t0.elapsed()
     );
+}
+
+// ═══ Task 6: lifecycle state machine ═══
+
+fn v2_manifest(id: &str, events: &[&str], idle_shutdown_seconds: Option<u64>) -> proto::ManifestV2 {
+    let mut m = json!({
+        "manifest_version": 2,
+        "id": id,
+        "name": "Lifecycle Fixture",
+        "version": "1.0.0",
+        "kind": "native",
+        "engines": { "notemd": ">=0.0.0" },
+        "activation": { "events": events },
+        "capabilities": []
+    });
+    if let Some(n) = idle_shutdown_seconds {
+        m["idle_shutdown_seconds"] = json!(n);
+    }
+    serde_json::from_value(m).unwrap()
+}
+
+/// Lifecycle over a fixture script: fast test-friendly poll intervals are set
+/// by each test on the returned (not-yet-Arc'd) value.
+fn make_lifecycle(
+    fixture_name: &str,
+    id: &str,
+    events: &[&str],
+    idle_shutdown_seconds: Option<u64>,
+    dir: &std::path::Path,
+) -> PluginLifecycle {
+    let (sink, _seen) = recording_sink();
+    let ctx = SpawnCtx {
+        binary: fixture(fixture_name),
+        log_dir: dir.to_path_buf(),
+        host_sink: sink,
+        host_version: "6.716.7".into(),
+        locale: "en".into(),
+        app_data: dir.to_path_buf(),
+    };
+    PluginLifecycle::new(
+        v2_manifest(id, events, idle_shutdown_seconds),
+        dir.to_path_buf(),
+        ctx,
+    )
+}
+
+async fn wait_for_phase(lc: &PluginLifecycle, want: impl Fn(&PhaseKind) -> bool) -> PhaseKind {
+    let mut kind = lc.phase_kind().await;
+    for _ in 0..100 {
+        // generous: up to 10s
+        if want(&kind) {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        kind = lc.phase_kind().await;
+    }
+    kind
+}
+
+// ── ② crash-loop.sh: backoff restarts converge to Disabled("crash-loop") ──
+
+#[tokio::test]
+async fn crash_loop_restarts_then_trips_breaker_to_disabled() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut lc = make_lifecycle("crash-loop.sh", "test.crashloop", &["*"], None, dir.path());
+    lc.backoff_secs = vec![0, 0, 0];
+    lc.crash_poll = Duration::from_millis(100);
+    let lc = Arc::new(lc);
+
+    // Activation itself SUCCEEDS (the fixture answers the full handshake
+    // before dying) — the breaker is a supervision concern, not a handshake one.
+    lc.ensure_active(&Trigger::Startup).await.expect("first activation succeeds");
+
+    // Crash #1 → restart, crash #2 → restart, crash #3 → Disabled.
+    let kind = wait_for_phase(&lc, |k| matches!(k, PhaseKind::Disabled(_))).await;
+    assert_eq!(kind, PhaseKind::Disabled("crash-loop".into()));
+    assert_eq!(
+        lc.crash_times.lock().unwrap().len(),
+        3,
+        "exactly 3 crashes recorded in the window"
+    );
+
+    // Disabled rejects further activation with the reason (spec §4.2).
+    let err = match lc.ensure_active(&Trigger::Startup).await {
+        Ok(_) => panic!("ensure_active must fail once disabled"),
+        Err(e) => e,
+    };
+    assert!(err.contains("crash-loop"), "got: {err}");
+
+    // The breaker trip landed in the plugin log.
+    let log = std::fs::read_to_string(dir.path().join("test.crashloop.log")).unwrap_or_default();
+    assert!(log.contains("[crash-loop]"), "log content: {log:?}");
+}
+
+// ── ③ ok.sh + idle_shutdown_seconds=1: idle reap, then lazy re-activation ──
+
+#[tokio::test]
+async fn idle_shutdown_deactivates_then_next_trigger_reactivates() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut lc = make_lifecycle("ok.sh", "test.idle", &["*"], Some(1), dir.path());
+    lc.idle_poll = Duration::from_millis(200);
+    let lc = Arc::new(lc);
+
+    lc.ensure_active(&Trigger::Startup).await.unwrap();
+    assert_eq!(lc.phase_kind().await, PhaseKind::Active);
+
+    // idle_shutdown_seconds(1s) + poll(200ms) with generous margin.
+    tokio::time::sleep(Duration::from_millis(2500)).await;
+    assert_eq!(
+        lc.phase_kind().await,
+        PhaseKind::Inactive,
+        "idle watcher should have deactivated"
+    );
+    assert!(
+        lc.crash_times.lock().unwrap().is_empty(),
+        "idle shutdown must not be recorded as a crash"
+    );
+
+    // Lazy re-activation on the next trigger; execute round-trips.
+    lc.ensure_active(&Trigger::Command("noop".into())).await.unwrap();
+    assert_eq!(lc.phase_kind().await, PhaseKind::Active);
+    let out = lc
+        .execute(proto::ExecuteCommandParams { command: "noop".into(), context: json!({}) })
+        .await
+        .unwrap();
+    assert_eq!(out, json!({ "echo": true }));
+    lc.deactivate().await;
+}
+
+// ── ④ deactivate is not a crash ──
+
+#[tokio::test]
+async fn deactivate_is_not_recorded_as_a_crash() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut lc = make_lifecycle("ok.sh", "test.deact", &["*"], None, dir.path());
+    lc.crash_poll = Duration::from_millis(100);
+    let lc = Arc::new(lc);
+
+    lc.ensure_active(&Trigger::Startup).await.unwrap();
+    lc.deactivate().await;
+    assert_eq!(lc.phase_kind().await, PhaseKind::Inactive);
+
+    // Give the crash watcher several ticks to (wrongly) react.
+    tokio::time::sleep(Duration::from_secs(1)).await;
+    assert_eq!(
+        lc.phase_kind().await,
+        PhaseKind::Inactive,
+        "phase must stay Inactive, not Disabled"
+    );
+    assert!(
+        lc.crash_times.lock().unwrap().is_empty(),
+        "deactivate must not be recorded as a crash"
+    );
+}
+
+// ── startup_activation: only Startup-matching plugins get activated ──
+
+#[tokio::test]
+async fn startup_activation_activates_only_matching_plugins() {
+    let dir_a = tempfile::tempdir().unwrap();
+    let dir_b = tempfile::tempdir().unwrap();
+    let on_startup = Arc::new(make_lifecycle(
+        "ok.sh",
+        "test.startup",
+        &["onStartupFinished"],
+        None,
+        dir_a.path(),
+    ));
+    let on_command = Arc::new(make_lifecycle(
+        "ok.sh",
+        "test.oncommand",
+        &["onCommand:export"],
+        None,
+        dir_b.path(),
+    ));
+
+    startup_activation(vec![on_startup.clone(), on_command.clone()]);
+
+    let kind = wait_for_phase(&on_startup, |k| matches!(k, PhaseKind::Active)).await;
+    assert_eq!(kind, PhaseKind::Active, "onStartupFinished plugin should activate");
+    assert_eq!(
+        on_command.phase_kind().await,
+        PhaseKind::Inactive,
+        "onCommand-only plugin must stay inactive"
+    );
+    on_startup.deactivate().await;
 }
