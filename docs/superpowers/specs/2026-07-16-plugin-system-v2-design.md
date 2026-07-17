@@ -302,3 +302,20 @@ window.notemd = {
 2. **iframe 编辑器的体验风险**（焦点/快捷键/滚动与 tab 系统的协同）——base 迁移前先用 fixture 编辑器做穿刺验证。
 3. **旧 one-shot 与新运行时并存期**——①〜③ 期间 md2pdf 新旧双轨只跑新轨（内部 flag），避免双协议长期共存。
 4. **CLI 与前端 store 的既有坑**——所有插件安装态判断走 `state.json`（Rust 侧），不依赖前端 store 初始化。
+
+## 17. 实施记录（子项目①，2026-07-17）
+
+子项目①（运行时 v2 + protocol + SDK + md2pdf 迁移）已在分支 worktree-core-ize-six-plugins 实现（603f362..baf3e7e），内部 flag：settings.json `"plugins_v2.enabled": true` 或 `NOTEMD_PLUGINS_V2=1`。
+
+**计划内偏离（原因在计划文档头部）：**
+1. §5 `host.renderer.html` 拉模式推迟：①期沿用执行时推模式（前端 `plugin_v2_execute` 的 context 注入 `rendered_html`，与 v1 一致）。拉模式待有会话中重渲染需求的消费者再建（需 Rust→webview 渲染 RPC）。
+2. §5 契约单源调整为 `plugin-protocol` Rust crate（schemars → JSON Schema → 生成 TS），非"TS 为源"；§2 的 Schema 单源校验语义不变，CI 由 `pnpm check:protocol` 把关漂移。
+3. §4.2 内存监控（512MiB 告警）推迟到子项目③（徽标需市场窗口承载）。
+
+**实现中确立的事实：**
+- **md2pdf 派生渲染模式**：WKWebView/PDFKit 管线要求 macOS 主线程 + `NSApplication.run()` 生命周期，长驻进程内反复 run/stop 不可靠。v2 服务二进制（`md2pdf-v2`，SDK 协议循环）对每次导出派生包内兄弟 v1 二进制完成渲染——一次一进程、路径与 v1 逐字节相同（先例：sidex 的 rust-language-extension 包裹 rust-analyzer）。
+- **协议细节**：notification 序列化为 `"id": null`（非严格省略 id 成员）——两端都用 plugin-protocol crate，自洽；第三方接严格 JSON-RPC 库时需注意（②期 SDK 文档标注）。
+- **SDK 限制**：trait 方法同步且运行在读循环任务上，插件在 `execute_command` 内阻塞等待 `Host::request` 会死锁响应路由——①期 host.* 均为通知型无消费者；给 `Host::request` 加消费者的期次必须先解此约束（读循环与执行解耦）。
+- **CLI**：v2 manifest 经 adapter 合流进 router/runner 扫描（flag 门控）；headless Tauri 注册 `plugin_v2_execute` 并在 setup 跑 `plugin_runtime::init`。v2 安装根 = `dirs::data_dir()/net.notemd.app/plugins`（与 Tauri app_data_dir 等价，有测试钉住）。
+- **内测期命名**：v2 md2pdf 菜单标 "Export to PDF (v2)…"、CLI 子命令 `pdf2`，与 v1 并存不打架；**④期正式切换待办**：改回 `Export to PDF…`/`pdf`、补 manifest i18n、删除 v1 bundled md2pdf 与 one-shot 机制。
+- 运行时测试基建：shell fixture（tests/fixtures/v2/）+ 10 个集成用例覆盖握手/超时/崩溃熔断/空闲关停/capability 拒绝/真实 make_sink 链路。
