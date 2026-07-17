@@ -8,6 +8,7 @@ plugin-protocol/target/
 notemd-plugin-sdk/target/
 plugins-src/openclaw/backend/target/
 plugins-src/exlibris/backend/target/
+plugins-src/pos-log/backend/target/
 vaultgitsync/target/
 exlibris/src-tauri/target/
 exlibris/src-tauri/gen/
