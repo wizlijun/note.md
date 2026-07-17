@@ -1,0 +1,31 @@
+name = "notemd-plugins"
+account_id = "9aec351745dbb8adf336b98a0f473761"
+main = "src/index.ts"
+compatibility_date = "2026-05-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Custom domain. The Rust client (src-tauri/src/plugin_runtime/market.rs) and
+# gen-plugin-index.mjs hard-code https://plugins.notemd.net. Point DNS at
+# Cloudflare, then this route binds the worker to that host.
+# (Kept above the [[r2_buckets]] table header so TOML scopes it to the document
+# root, not to r2_buckets.)
+routes = [
+  { pattern = "plugins.notemd.net", custom_domain = true }
+]
+
+# The published index.json lives at KV key `index`; install counters at
+# `stats:<id>`. `id` here is a PLACEHOLDER — create the namespace with
+#   wrangler kv namespace create INDEX
+# and paste the printed id below (see README.md → One-time setup).
+kv_namespaces = [
+  { binding = "INDEX", id = "REPLACE_WITH_KV_NAMESPACE_ID" }
+]
+
+# R2 bucket holding the `.notemdpkg` packages and their `.minisig` signatures,
+# keyed `<id>/<version>/<arch>.notemdpkg[.minisig]`. Create it with
+#   wrangler r2 bucket create notemd-plugins
+# The preview bucket is only used by `wrangler dev` and the vitest harness.
+[[r2_buckets]]
+binding = "PKGS"
+bucket_name = "notemd-plugins"
+preview_bucket_name = "notemd-plugins-preview"
