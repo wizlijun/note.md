@@ -10,24 +10,27 @@ export interface PublishHtmlInput {
   baseUrl: string
   defaultExpiry: 'never' | '7d' | '30d' | '90d'
   slugRandomSuffix: boolean
-  /** Path of the source md relative to the vault root (identifies which local
-   *  document this share represents), or the absolute path if the file lives
-   *  outside the vault. Recorded server-side so audience stats can be attributed
-   *  back to the md — see {@link vaultRelativeSrc}. */
+  /** Path of the source md relative to the vault root (e.g. `notes/foo.md`),
+   *  identifying which local document this share represents. ALWAYS vault-relative
+   *  — outside-vault files are vault-homed before publish — so audience stats
+   *  attribute back to the md identically on every terminal. See
+   *  {@link vaultRelativeSrc}. */
   src: string
 }
 
 /**
  * The `src` recorded for a share: the file's path relative to the vault root
- * (e.g. `notes/foo.md`) when it lives under the vault, else its absolute path
- * (starts with `/`). Consumers tell the two apart by the leading slash.
+ * (e.g. `notes/foo.md`). We only ever write a vault-relative src — every shared
+ * file is vault-homed first (see prepareShareSrc), so a path that can't be made
+ * relative is a bug, and we throw rather than persist an absolute path that other
+ * terminals could never resolve.
  */
 export function vaultRelativeSrc(absPath: string, vaultRoot: string | null): string {
   if (vaultRoot) {
     const root = vaultRoot.replace(/\/+$/, '')
     if (absPath !== root && absPath.startsWith(root + '/')) return absPath.slice(root.length + 1)
   }
-  return absPath
+  throw new ShareError('vault_required', absPath)
 }
 
 export interface PublishHtmlResult {

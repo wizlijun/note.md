@@ -17,12 +17,9 @@ export interface AssembleDeps {
   /** Fetch audience stats for EVERY slug read in the range — no slug list needed
    *  (server queries per-day rollups by date). Fail-soft → {}. */
   fetchAudienceAll: (from: string, to: string) => Promise<Record<string, AudienceStats>>
-  /** docKeys of every shared doc — used to map audience slugs back to local
-   *  paths so online-only reads surface under the right document. */
-  listSharedDocKeys: () => string[]
-  /** Resolve a server-provided `src` (vault-relative or absolute md path) to a
-   *  local docKey/path/label, so audience-only shares surface under the right md
-   *  even when this device has no local share record for them. */
+  /** Resolve a server-provided `src` (a vault-relative md path) to a local
+   *  docKey/path/label, so an online-read share surfaces under the right md on
+   *  EVERY terminal — independent of this device's local share records. */
   resolveSrc: (src: string) => { docKey: string; path: string | null; label: string }
   /** Reconstruct the public share URL for a slug when no local record exists
    *  (audience-only shares). Returns null when the base URL is unknown. */
@@ -77,55 +74,48 @@ export async function assembleRows(deps: AssembleDeps, fromDay: string, toDay: s
   const merged = mergeDeviceAnalytics(devices)
   const owner = aggregateRange(merged, fromDay, toDay)
   const ownerKeys = Object.keys(owner)
-
-  // Resolve shares for owner docs + every known shared doc, so we can map audience
-  // slugs back to their local path. Fetch ALL audience data by date in one request.
-  const knownKeys = [...new Set([...ownerKeys, ...deps.listSharedDocKeys()])]
-  const shareByKey = new Map(knownKeys.map((k) => [k, deps.resolveShare(k)]))
-  const bySlug = new Map<string, { docKey: string; share: ShareResolution }>()
-  for (const [docKey, share] of shareByKey) if (share.slug) bySlug.set(share.slug, { docKey, share })
   const audMap = await deps.fetchAudienceAll(fromDay, toDay)
 
+  // Owner contributions: this device's own reading/editing, keyed by the doc's
+  // vault docKey. We resolve the share only for its label/url/badge — never to
+  // attach audience — so which rows appear never depends on this device's local
+  // share records (`share_db.json` is per-device and not vault-synced).
   const ownerContribs: Contribution[] = ownerKeys.map((docKey) => {
-    const share = shareByKey.get(docKey)!
+    const share = deps.resolveShare(docKey)
     return {
       docKey, label: share.label, path: share.path, counters: owner[docKey],
-      slug: share.slug, url: share.url, aud: share.slug ? audMap[share.slug] ?? null : null,
+      slug: share.slug, url: share.url, aud: null,
     }
   })
 
-  // Every slug read online but with no owner activity in range — surfaced under
-  // its known docKey/path when we have a local record, else resolved from the
-  // server-provided `src`, else (legacy shares) under the slug itself. URLs come
-  // from the local record when present, else reconstructed from the slug.
-  const ownerSlugs = new Set(ownerKeys.map((k) => shareByKey.get(k)!.slug).filter(Boolean))
-  const extraContribs: Contribution[] = Object.entries(audMap).flatMap(([slug, aud]) => {
-    if (ownerSlugs.has(slug)) return []
+  // Audience contributions: EVERY slug the site reported with reads, attributed
+  // IDENTICALLY on every terminal sharing this site's key — via the server-recorded
+  // vault-relative `src` when present (folds into the owner's md), else surfaced as
+  // its own slug row. Never via local records, so all terminals show the same set.
+  const audContribs: Contribution[] = Object.entries(audMap).flatMap(([slug, aud]) => {
     if (!aud || (aud.total_ms <= 0 && aud.unique_readers <= 0)) return []
-    const hit = bySlug.get(slug)?.share
-      ? { docKey: bySlug.get(slug)!.docKey, share: bySlug.get(slug)!.share }
-      : aud.src
-        ? (() => { const r = deps.resolveSrc(aud.src!); return { docKey: r.docKey, share: { path: r.path, label: r.label, slug, url: deps.resolveSlugUrl(slug) } } })()
-        : { docKey: slug, share: { path: null, label: slug, slug, url: deps.resolveSlugUrl(slug) } }
-    return [{
-      docKey: hit.docKey, label: hit.share.label, path: hit.share.path, counters: emptyCounters(0),
-      slug, url: hit.share.url, aud,
-    }]
+    // `src` is always a vault-relative path (enforced at publish time); an absolute
+    // one is legacy/out-of-vault and can't map to a vault md → stands as a slug row.
+    if (aud.src && !aud.src.startsWith('/')) {
+      const r = deps.resolveSrc(aud.src)
+      return [{ docKey: r.docKey, label: r.label, path: r.path, counters: emptyCounters(0), slug, url: deps.resolveSlugUrl(slug), aud }]
+    }
+    return [{ docKey: slug, label: slug, path: null, counters: emptyCounters(0), slug, url: deps.resolveSlugUrl(slug), aud }]
   })
 
   // Group every contribution by docKey so a single md with multiple slugs/URLs
   // collapses to one row instead of duplicating.
   const groups = new Map<string, Contribution[]>()
-  for (const c of [...ownerContribs, ...extraContribs]) {
+  for (const c of [...ownerContribs, ...audContribs]) {
     const arr = groups.get(c.docKey)
     if (arr) arr.push(c)
     else groups.set(c.docKey, [c])
   }
   return [...groups.values()]
     .map((cs) => mergeContributions(cs, deps.weights))
-    // Reading Insights only surfaces vault-resident docs. Every shared file is
-    // homed into the vault (rel: key), so drop device-local abs: files and
-    // legacy slug-only rows. Old non-vault data is ignored, never migrated.
-    .filter((r) => r.docKey.startsWith('rel:'))
+    // Drop only device-local files OUTSIDE the vault (abs:). Vault docs (rel:) and
+    // every audience slug row survive — the site's full share stats, identical on
+    // every terminal.
+    .filter((r) => !r.docKey.startsWith('abs:'))
     .sort((a, b) => b.value - a.value)
 }

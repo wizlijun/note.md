@@ -21,8 +21,8 @@ function deps(over: Partial<AssembleDeps> = {}): AssembleDeps {
     resolveShare: (docKey) => docKey === 'rel:a.md'
       ? { path: '/v/a.md', label: 'a.md', slug: '2026-07-08-a-x', url: 'https://w/2026-07-08-a-x' }
       : { path: '/tmp/b.md', label: 'b.md', slug: null, url: null },
-    fetchAudienceAll: all({ '2026-07-08-a-x': { total_ms: 90_000, unique_readers: 4, days: {} } }),
-    listSharedDocKeys: () => ['rel:a.md'],
+    // Default audience carries a vault-relative `src`, so it joins the owner's md.
+    fetchAudienceAll: all({ '2026-07-08-a-x': { total_ms: 90_000, unique_readers: 4, days: {}, src: 'a.md' } }),
     resolveSrc: (src) => src.startsWith('/')
       ? { docKey: `abs:${src}`, path: src, label: src.split('/').pop()! }
       : { docKey: `rel:${src}`, path: `/v/${src}`, label: src.split('/').pop()! },
@@ -33,9 +33,10 @@ function deps(over: Partial<AssembleDeps> = {}): AssembleDeps {
 }
 
 describe('assembleRows', () => {
-  it('merges owner data, joins audience, and excludes non-vault (abs:) docs', async () => {
+  it('merges owner data, joins audience via src, and excludes non-vault (abs:) docs', async () => {
     const rows = await assembleRows(deps(), '2026-07-08', '2026-07-08')
-    // abs:/tmp/b.md lives outside the vault → dropped; only the rel: doc surfaces.
+    // abs:/tmp/b.md lives outside the vault → dropped; the audience slug carries
+    // src 'a.md' so it folds into the owner's rel:a.md row.
     expect(rows.map((r) => r.docKey)).toEqual(['rel:a.md'])
     const a = rows[0]
     expect(a.read_ms).toBe(120_000)
@@ -59,13 +60,10 @@ describe('assembleRows', () => {
     expect(rows).toHaveLength(0)
   })
 
-  it('surfaces a shared doc read online even with no owner activity in range', async () => {
+  it('surfaces a shared doc read online (via src) even with no owner activity', async () => {
     const rows = await assembleRows(deps({
-      resolveShare: (docKey) => docKey === 'rel:c.md'
-        ? { path: '/v/c.md', label: 'c.md', slug: '2026-07-08-c-x', url: 'https://w/2026-07-08-c-x' }
-        : { path: null, label: docKey, slug: null, url: null },
-      fetchAudienceAll: all({ '2026-07-08-c-x': { total_ms: 45_000, unique_readers: 2, days: {} } }),
-      listSharedDocKeys: () => ['rel:c.md'],
+      readDevices: async () => [{ deviceId: 'D1', deviceName: 'Mac', docs: {} }],
+      fetchAudienceAll: all({ '2026-07-08-c-x': { total_ms: 45_000, unique_readers: 2, days: {}, src: 'c.md' } }),
     }), '2026-07-01', '2026-07-02')
 
     expect(rows).toHaveLength(1)
@@ -79,27 +77,49 @@ describe('assembleRows', () => {
   it('does not add an audience-only row when the share has no reads', async () => {
     const rows = await assembleRows(deps({
       readDevices: async () => [{ deviceId: 'D1', deviceName: 'Mac', docs: {} }],
-      resolveShare: () => ({ path: '/v/c.md', label: 'c.md', slug: '2026-07-08-c-x', url: 'https://w/2026-07-08-c-x' }),
-      fetchAudienceAll: all({ '2026-07-08-c-x': { total_ms: 0, unique_readers: 0, days: {} } }),
-      listSharedDocKeys: () => ['rel:c.md'],
+      fetchAudienceAll: all({ '2026-07-08-c-x': { total_ms: 0, unique_readers: 0, days: {}, src: 'c.md' } }),
     }), '2026-07-08', '2026-07-08')
     expect(rows).toHaveLength(0)
   })
 
-  it('excludes legacy slug-only rows with no vault md (vault-only, ignore old data)', async () => {
+  it('surfaces a slug-only share (no src, no local record) as its own row', async () => {
+    // The site reported reads for this slug; even though nothing maps it to a
+    // vault md, it still shows — identically on every terminal.
     const rows = await assembleRows(deps({
       readDevices: async () => [{ deviceId: 'D1', deviceName: 'Mac', docs: {} }],
-      listSharedDocKeys: () => [],
       fetchAudienceAll: all({ '2026-07-08-orphan-z': { total_ms: 12_000, unique_readers: 1, days: {} } }),
     }), '2026-07-08', '2026-07-08')
-    // A legacy share that can't be traced to a vault md is not surfaced.
-    expect(rows).toHaveLength(0)
+    expect(rows).toHaveLength(1)
+    expect(rows[0].docKey).toBe('2026-07-08-orphan-z')
+    expect(rows[0].label).toBe('2026-07-08-orphan-z')
+    expect(rows[0].path).toBeNull()
+    expect(rows[0].aud_read_ms).toBe(12_000)
+    expect(rows[0].unique_readers).toBe(1)
+    expect(rows[0].shared).toBe(true)
+    expect(rows[0].urls).toEqual(['https://w/2026-07-08-orphan-z'])
   })
 
-  it('merges multiple slugs for the same md into one row and aggregates urls', async () => {
+  it('does not depend on this device\'s local share records (same result with or without them)', async () => {
+    // A no-src audience slug must surface the same way whether or not resolveShare
+    // knows it — this is the fix for "different terminals, different stats".
+    const audience = all({ '2026-07-08-p-x': { total_ms: 7_000, unique_readers: 3, days: {} } })
+    const withRecord = await assembleRows(deps({
+      readDevices: async () => [{ deviceId: 'D1', deviceName: 'Mac', docs: {} }],
+      fetchAudienceAll: audience,
+      resolveShare: () => ({ path: '/v/p.md', label: 'p.md', slug: '2026-07-08-p-x', url: 'https://w/2026-07-08-p-x' }),
+    }), '2026-07-08', '2026-07-08')
+    const withoutRecord = await assembleRows(deps({
+      readDevices: async () => [{ deviceId: 'D1', deviceName: 'Mac', docs: {} }],
+      fetchAudienceAll: audience,
+      resolveShare: () => ({ path: null, label: 'x', slug: null, url: null }),
+    }), '2026-07-08', '2026-07-08')
+    expect(withoutRecord).toEqual(withRecord)
+    expect(withRecord.map((r) => r.docKey)).toEqual(['2026-07-08-p-x'])
+  })
+
+  it('merges multiple slugs for the same md (via src) into one row and aggregates urls', async () => {
     const rows = await assembleRows(deps({
       readDevices: async () => [{ deviceId: 'D1', deviceName: 'Mac', docs: {} }],
-      listSharedDocKeys: () => [],
       fetchAudienceAll: all({
         '2026-07-08-deep-a': { total_ms: 10_000, unique_readers: 2, days: {}, src: 'notes/deep.md' },
         '2026-07-08-deep-b': { total_ms: 5_000, unique_readers: 1, days: {}, src: 'notes/deep.md' },
@@ -113,19 +133,22 @@ describe('assembleRows', () => {
     expect([...rows[0].urls].sort()).toEqual(['https://w/2026-07-08-deep-a', 'https://w/2026-07-08-deep-b'])
   })
 
-  it('surfaces a vault-relative src slug and drops outside-vault (absolute src) ones', async () => {
+  it('folds a vault-relative src into its md, and surfaces an outside-vault (absolute src) share as a slug row', async () => {
     const rows = await assembleRows(deps({
       readDevices: async () => [{ deviceId: 'D1', deviceName: 'Mac', docs: {} }],
-      listSharedDocKeys: () => [],
       fetchAudienceAll: all({
         '2026-07-08-vault-z': { total_ms: 12_000, unique_readers: 1, days: {}, src: 'notes/deep.md' },
         '2026-07-08-outside-z': { total_ms: 5_000, unique_readers: 1, days: {}, src: '/elsewhere/x.md' },
       }),
     }), '2026-07-08', '2026-07-08')
-    // Vault-relative src → rel: key under the vault, surfaced. Absolute src
-    // (outside the vault) → abs: key, dropped.
-    expect(rows.map((r) => r.docKey)).toEqual(['rel:notes/deep.md'])
-    expect(rows[0].path).toBe('/v/notes/deep.md')
-    expect(rows[0].label).toBe('deep.md')
+    // Vault-relative src → rel: key under the vault. Absolute src (outside the
+    // vault) can't map to a vault md, so it still shows as its own slug row.
+    expect(rows.map((r) => r.docKey).sort()).toEqual(['2026-07-08-outside-z', 'rel:notes/deep.md'])
+    const vault = rows.find((r) => r.docKey === 'rel:notes/deep.md')!
+    expect(vault.path).toBe('/v/notes/deep.md')
+    expect(vault.label).toBe('deep.md')
+    const outside = rows.find((r) => r.docKey === '2026-07-08-outside-z')!
+    expect(outside.path).toBeNull()
+    expect(outside.unique_readers).toBe(1)
   })
 })

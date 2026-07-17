@@ -3,11 +3,11 @@ import { createAnalyticsStore, type Fs } from './store.svelte'
 import { assembleRows, type AssembleDeps } from './dashboard.svelte'
 import { DEFAULT_WEIGHTS } from './value'
 import { fetchAudienceStatsAll } from './audience'
-import { localTzOffsetMinutes, docKeyFor } from './model'
+import { localTzOffsetMinutes } from './model'
 import { renderDailyReport } from './report'
 import { getDeviceId, getPluginScopedKey } from '../settings.svelte'
 import { sotvaultStore } from '../sotvault.svelte'
-import { getRecord, allShareRecordPaths } from '../share/records'
+import { getRecord } from '../share/records'
 import { basename } from '../fs'
 
 const fs: Fs = {
@@ -56,7 +56,6 @@ export function buildDashboardDeps(vaultOverride?: string | null): AssembleDeps 
       }
     },
     fetchAudienceAll: (from, to) => fetchAudienceStatsAll(baseUrl, apiKey, from, to),
-    listSharedDocKeys: () => allShareRecordPaths().map((p) => docKeyFor(p, vaultRoot)),
     resolveSrc: (src) => {
       // Absolute path (file outside the vault) → device-local abs: key, as-is.
       if (src.startsWith('/')) return { docKey: `abs:${src}`, path: src, label: basename(src) }

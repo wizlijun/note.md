@@ -18,7 +18,7 @@ vi.mock('./slug', () => ({
 import { publishHtml, vaultRelativeSrc } from './publish'
 import { post } from './client'
 import * as records from './records'
-import type { HtmlShareRecord } from './types'
+import { ShareError, type HtmlShareRecord } from './types'
 
 describe('publishHtml', () => {
   beforeEach(() => {
@@ -54,7 +54,7 @@ describe('publishHtml', () => {
     const r = await publishHtml({
       path: '/foo.md', filename: 'foo.md', html: '<p>v2</p>',
       baseUrl: 'https://w', defaultExpiry: 'never', slugRandomSuffix: true,
-      src: '/foo.md',
+      src: 'foo.md',
     })
     expect((post as any).mock.calls[0][1].slug).toBe('old-slug')
     expect((post as any).mock.calls[0][1].edit_token).toBe('oldtok')
@@ -66,7 +66,7 @@ describe('publishHtml', () => {
     await publishHtml({
       path: '/foo.md', filename: 'foo.md', html: 'h',
       baseUrl: 'https://w', defaultExpiry: '7d', slugRandomSuffix: true,
-      src: '/foo.md',
+      src: 'foo.md',
     })
     expect((post as any).mock.calls[0][1].expires_in_seconds).toBe(604800)
   })
@@ -77,9 +77,10 @@ describe('vaultRelativeSrc', () => {
     expect(vaultRelativeSrc('/vault/notes/foo.md', '/vault')).toBe('notes/foo.md')
     expect(vaultRelativeSrc('/vault/foo.md', '/vault/')).toBe('foo.md')
   })
-  it('returns the absolute path when outside the vault (or no vault)', () => {
-    expect(vaultRelativeSrc('/elsewhere/x.md', '/vault')).toBe('/elsewhere/x.md')
-    expect(vaultRelativeSrc('/vault', '/vault')).toBe('/vault') // the root itself, not a child
-    expect(vaultRelativeSrc('/any/x.md', null)).toBe('/any/x.md')
+  it('throws rather than emit an absolute src (outside the vault, the root itself, or no vault)', () => {
+    // We never persist an absolute src — other terminals could never resolve it.
+    expect(() => vaultRelativeSrc('/elsewhere/x.md', '/vault')).toThrow(ShareError)
+    expect(() => vaultRelativeSrc('/vault', '/vault')).toThrow(ShareError) // the root itself, not a child
+    expect(() => vaultRelativeSrc('/any/x.md', null)).toThrow(ShareError)
   })
 })
