@@ -20,7 +20,7 @@
   import { isPluginActive } from '../lib/plugins/registry'
   import { outlineShortcuts, setShortcutOverride } from '../lib/outline/gate.svelte'
   import { outlineDirs, setOutlineDir } from '../lib/outline/dirs.svelte'
-  import { vaultSettings, loadVaultSettings, saveSyncDir, DEFAULT_SYNC_DIR } from '../lib/vault-settings.svelte'
+  import { vaultSettings, loadVaultSettings, saveSyncDir, DEFAULT_SYNC_DIR, saveLargeFileThreshold, DEFAULT_LARGE_FILE_THRESHOLD_MB } from '../lib/vault-settings.svelte'
   import { pushToast } from '../lib/toast.svelte'
   import {
     DEFAULT_SHORTCUTS, resolveShortcuts, displayShortcut, eventToShortcut, findConflict,
@@ -46,9 +46,14 @@
   // whenever the dialog opens; edited into a draft, then saved on demand.
   let syncDirDraft = $state('')
   let syncDirBusy = $state(false)
+  let thresholdDraft = $state(DEFAULT_LARGE_FILE_THRESHOLD_MB)
+  let thresholdBusy = $state(false)
   $effect(() => {
     if (!open) return
-    void loadVaultSettings().then(() => { syncDirDraft = vaultSettings.syncDir })
+    void loadVaultSettings().then(() => {
+      syncDirDraft = vaultSettings.syncDir
+      thresholdDraft = vaultSettings.largeFileThresholdMb
+    })
   })
   async function onSetOutlineDir(kind: 'wikipage' | 'dailynote', value: string) {
     try {
@@ -67,6 +72,19 @@
       pushToast({ level: 'error', message: t('vaultSync.saveFailed', { error: String(e) }), detail: String(e) })
     } finally {
       syncDirBusy = false
+    }
+  }
+  async function onSaveThreshold() {
+    const mb = Math.max(1, Math.floor(Number(thresholdDraft) || DEFAULT_LARGE_FILE_THRESHOLD_MB))
+    thresholdBusy = true
+    try {
+      await saveLargeFileThreshold(mb)
+      thresholdDraft = vaultSettings.largeFileThresholdMb
+      pushToast({ level: 'success', message: t('vaultSync.saved') })
+    } catch (e) {
+      pushToast({ level: 'error', message: t('vaultSync.saveFailed', { error: String(e) }), detail: String(e) })
+    } finally {
+      thresholdBusy = false
     }
   }
 
@@ -502,6 +520,13 @@
               disabled={!vaultSettings.vaultPath || syncDirBusy} />
             <button onclick={onSaveSyncDir}
               disabled={!vaultSettings.vaultPath || syncDirBusy}>{t('vaultSync.save')}</button>
+          </label>
+          <label class="row">
+            <span class="lbl">{t('vaultSync.largeFileThreshold')}</span>
+            <input type="number" min="1" step="1" bind:value={thresholdDraft}
+              disabled={!vaultSettings.vaultPath || thresholdBusy} />
+            <button onclick={onSaveThreshold}
+              disabled={!vaultSettings.vaultPath || thresholdBusy}>{t('vaultSync.save')}</button>
           </label>
         </section>
 

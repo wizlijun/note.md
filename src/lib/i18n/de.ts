@@ -378,6 +378,7 @@ export const de: Record<keyof Messages, string> = {
   'vaultSync.vaultPath': 'Aktueller Tresor',
   'vaultSync.notConfigured': 'Nicht konfiguriert',
   'vaultSync.relPath': 'Relativer Pfad',
+  'vaultSync.largeFileThreshold': 'Limit für große Dateien (MB)',
   'vaultSync.save': 'Speichern',
   'vaultSync.saved': 'Sync-Ordner gespeichert',
   'vaultSync.saveFailed': 'Speichern fehlgeschlagen: {error}',

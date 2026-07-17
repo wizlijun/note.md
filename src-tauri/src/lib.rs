@@ -1312,6 +1312,8 @@ fn menu_label(locale: &str, key: &str) -> String {
         "tray.startSync" => ("Start Sync", "开始同步", "同期を開始", "Sync starten"),
         "tray.stopSync" => ("Stop Sync", "停止同步", "同期を停止", "Sync stoppen"),
         "tray.syncNow" => ("Sync Now", "立即同步", "今すぐ同期", "Jetzt synchronisieren"),
+        "tray.largeFiles.title" => ("⚠️ {n} file(s) too large", "⚠️ {n} 个文件过大", "⚠️ {n} 件のファイルが大きすぎます", "⚠️ {n} Datei(en) zu groß"),
+        "tray.largeFiles.header" => ("Over the limit — not synced. Move out of the vault:", "超过上限,未同步。请移出 vault:", "上限超過 —— 未同期。vault から移動してください:", "Über dem Limit — nicht synchronisiert. Aus dem Vault verschieben:"),
         "tray.viewLog" => ("View Log…", "查看日志…", "ログを表示…", "Protokoll anzeigen…"),
         "tray.openBooks" => ("Open Books", "打开 Books", "Books を開く", "Books öffnen"),
         "tray.openRawSync" => ("Open Raw Vault Sync", "打开原始 Vault 同步", "Raw Vault Sync を開く", "Raw Vault Sync öffnen"),

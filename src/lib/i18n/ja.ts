@@ -380,6 +380,7 @@ export const ja: Record<keyof Messages, string> = {
   'vaultSync.vaultPath': '現在の Vault',
   'vaultSync.notConfigured': '未設定',
   'vaultSync.relPath': '相対パス',
+  'vaultSync.largeFileThreshold': '大きいファイルの上限 (MB)',
   'vaultSync.save': '保存',
   'vaultSync.saved': 'Sync フォルダを保存しました',
   'vaultSync.saveFailed': '保存に失敗しました: {error}',

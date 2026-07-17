@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 const invoke = vi.fn()
 vi.mock('@tauri-apps/api/core', () => ({ invoke: (...a: unknown[]) => invoke(...a) }))
 
-import { vaultSettings, loadVaultSettings, saveSyncDir, DEFAULT_SYNC_DIR } from './vault-settings.svelte'
+import { vaultSettings, loadVaultSettings, saveSyncDir, DEFAULT_SYNC_DIR, saveLargeFileThreshold, DEFAULT_LARGE_FILE_THRESHOLD_MB } from './vault-settings.svelte'
 
 /** Route invoke by command name so load's two parallel calls resolve. */
 function route(map: Record<string, unknown>) {
@@ -15,6 +15,7 @@ function route(map: Record<string, unknown>) {
 beforeEach(() => {
   invoke.mockReset()
   vaultSettings.syncDir = DEFAULT_SYNC_DIR
+  vaultSettings.largeFileThresholdMb = DEFAULT_LARGE_FILE_THRESHOLD_MB
   vaultSettings.vaultPath = null
   vaultSettings.loaded = false
 })
@@ -57,5 +58,20 @@ describe('saveSyncDir', () => {
     invoke.mockRejectedValue(new Error('directory must stay within the vault'))
     await expect(saveSyncDir('../escape')).rejects.toThrow()
     expect(vaultSettings.syncDir).toBe('sync')
+  })
+})
+
+describe('saveLargeFileThreshold', () => {
+  it('sends largeFileThresholdMb and adopts the merged result', async () => {
+    invoke.mockResolvedValue({ largeFileThresholdMb: 20 })
+    await saveLargeFileThreshold(20)
+    expect(invoke).toHaveBeenCalledWith('notemd_vault_settings_set', { largeFileThresholdMb: 20 })
+    expect(vaultSettings.largeFileThresholdMb).toBe(20)
+  })
+
+  it('falls back to the default when the response omits the field', async () => {
+    invoke.mockResolvedValue({})
+    await saveLargeFileThreshold(5)
+    expect(vaultSettings.largeFileThresholdMb).toBe(DEFAULT_LARGE_FILE_THRESHOLD_MB)
   })
 })

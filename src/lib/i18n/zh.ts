@@ -411,6 +411,7 @@ export const zh: Record<keyof Messages, string> = {
   'vaultSync.vaultPath': '当前 Vault',
   'vaultSync.notConfigured': '未配置',
   'vaultSync.relPath': '相对路径',
+  'vaultSync.largeFileThreshold': '大文件上限 (MB)',
   'vaultSync.save': '保存',
   'vaultSync.saved': 'Sync 目录已保存',
   'vaultSync.saveFailed': '保存失败：{error}',
