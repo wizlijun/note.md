@@ -1,0 +1,14 @@
+[package]
+name = "notemd-plugin-sdk"
+version = "0.1.0"
+edition = "2021"
+description = "SDK for note.md v2 plugins: NDJSON JSON-RPC loop + host client"
+
+[dependencies]
+plugin-protocol = { path = "../plugin-protocol" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["io-std", "io-util", "macros", "rt", "sync", "time"] }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["full"] }
