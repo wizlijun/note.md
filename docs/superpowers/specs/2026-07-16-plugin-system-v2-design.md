@@ -392,3 +392,41 @@ window.notemd = {
 - 独立 exlibris app 停止发布记入 v1 退役清单(④c)。
 
 **④c v1 退役**：详尽清单见 `docs/superpowers/plans/2026-07-17-v1-retirement-checklist.md`——**破坏性,门控用户全栈 GUI 验证 + 市场部署**。要点:五插件 v1 前后端删除;md2pdf crate 保留(v2 派生兄弟 v1 bin);v1 one-shot 机制方案 A(保留收集机制,只删执行路径);flag 转正方案 C(分两版:先默认开,再删 flag+删 v1);flag 转正强依赖市场部署(真签名密钥 + CF)。
+
+## 22. 终审结论（跨全部子项目，2026-07-18）
+
+对整条分支（e4f291c..d7a093a，75 提交、7 个子项目：⓪core 化 / ①运行时 / ②UI / ③市场 / ②b 双向通道 / ④自定义编辑器+exlibris）做**四路交叉终审**（安全 / 集成 / 质量 / 修复验证）。结论：**内部 flag（`plugins_v2.enabled`）首方发布就绪（READY）；无 ship-blocker。**
+
+### 安全边界（端到端成立）
+- **安装信任链无绕过**：下载 → sha256(constant-time) → minisign 验签，**均在写盘前**；GUI/CLI 同 `verify_and_stage` 管线、同硬编码 `PLUGIN_REGISTRY_PUBKEY`、无 `--force`/skip-verify；`plugin_market_preview` 先验签再返回 manifest → consent 展示的能力=已验签字节的能力；verify 用 tempdir，commit 只搬已验证树，无 TOCTOU。
+- **plugin://**：resolve_asset 穿越三重防护（decode→component `..`→canonicalize 包含，含符号链接逃逸）；POST `/__rpc__` 的 Origin 服务端认证（id 取自 URL host，Origin 头 === `plugin://<id>`；WKWebView 自定义 scheme Origin 平台不可伪造）；桥注入的 plugin_id/locale/theme 经 serde_json 转义，无 XSS。
+- **能力门 deny-by-default**：未知 `host.*` 方法 fail-closed（-32601）；ui.request 转发路径只对非 `host.*` 方法放行（`host.vault.write` 因前缀命中被路由到能力门，无法经转发绕过）。
+- **vault 包含**：read/write/list/mkdir canonicalize-then-prefix（拒 `../`+符号链接），写入 10MB 上限；fs.read_text/read_bytes 仅 dialog 授权路径、grant 按插件隔离、随窗口关闭清理。
+- **跨插件隔离**：window label = `plugin-<认证id>-<win>`，plugin_id 恒为认证 id（Origin/进程身份），A 无法开/推/控 B 的窗口。
+- **自定义编辑器 postMessage**：origin + source 双验（tab A 的恶意 iframe 无法注入 tab B）；保留扩展名守卫（md/markdown/txt/html 等，前端 custom-editors.ts）防第三方劫持核心文件类型。
+- **资源上限**：下载 50MB、解压 200MiB（计实际写入字节非声明 size）、请求超时 30/300s、崩溃熔断×3/10min、日志滚动 5MB。
+
+### 本轮终审修复（e1753b5 / d7a093a）
+1. **插件进程 env 隔离**：`PluginProcess::spawn` 加 `env_clear()` + 白名单（HOME/PATH/LANG/LC_ALL/TERM/USER/TMPDIR），插件不再继承 shell 里的 API keys（有 echo-env fixture 测试）。
+2. **双 PDF 菜单去重**：flag 开 + 装了 v2 `notemd.<X>` 时，隐藏对应 v1 bundled `<X>`（`merge_dedup_v1_v2`，按 v2 id 的 name-part 抑制 v1，有测试；过渡态直至④c 退役）。
+3. **删死命令** `get_plugin_manifests_v2`（注册但零前端调用）。
+4. **spec §5 修正**：`host.ui.post` 标注需 `ui` capability（原表格写"免授权"与实现矛盾）。
+
+### 三处审计误报已澄清（非缺陷）
+- 保留扩展名守卫**确实存在**（前端 custom-editors.ts，安全/质量审计在 manifest 校验器里找，找错位置）。
+- plugins-src 构建产物**根 .gitignore 已全局覆盖**（`dist/` + 各 backend `target/`），git index 零提交产物。
+- pair.rs 的 `.unwrap()` **只在 `#[tokio::test]` 里**（测试字面量）；生产 relay 响应解析全 `resp.json::<T>().map_err(...)`——安全审计的"P0 MITM DoS"是误读测试码。
+
+### 第三方开放前必做（内部 flag 首方不阻塞；见 §18/§19 亦有）
+1. 真生产 minisign 签名密钥替换 market.rs 的测试公钥（源码已标 "TEST KEY — replace before shipping"）。
+2. CSP `style-src 'unsafe-inline'` 收紧为 `'self'`/nonce（当前仅样式面，不可执行脚本）。
+3. `plugins-src/sdk/` 共享包消除 roam-import/openclaw/exlibris 三份 bridge.ts 重复（约 75-96 行）。
+4. 插件内嵌 strings.ts 是宿主 catalog 冻结拷贝，加 CI 键集比对防漂移（缺键 fallback 英文，不崩）。
+5. host.secrets 若实现需连同 env 隔离一并做（spec §5 列出但未实现）。
+
+### 测试基线（全绿）
+src-tauri lib 355 + plugin_runtime_integration 12 + plugin_ui 11 + 前端 1296 + protocol 19 + SDK 11 + worker 13 + md2pdf/openclaw(16)/exlibris(24) backend crate 各自绿。唯一 flake=startup_budget/plugin_host_integration 并行负载（隔离全过，与本工程无关）。
+
+### 门控在用户之后（未执行）
+- **base 本体迁移**：门控用户对 custom-editor fixture 跑 `plugins-src/custom-editor-fixture/PROBE.md` 的 GUI 穿刺（焦点/Cmd+S/滚动只能真机验）；穿刺过=tab 内嵌，不过=降级窗口编辑器。
+- **v1 退役（④c）**：破坏性、删回退路径，门控用户全栈 GUI 验证 + 市场部署（真密钥+CF）。清单见 `docs/superpowers/plans/2026-07-17-v1-retirement-checklist.md`。
