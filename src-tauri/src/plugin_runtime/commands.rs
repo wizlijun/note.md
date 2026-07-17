@@ -71,17 +71,21 @@ fn ensure_v2_enabled() -> Result<(), String> {
 }
 
 /// Find `id`@`version` in the registry index and resolve this host's arch
-/// download URL + sha256. Errors if the entry, arch, url, or hash is missing.
+/// download URL + sha256. UI-only plugins (roam-import etc.) publish under the
+/// `universal` key rather than a host triple, so we prefer the host triple then
+/// fall back to `universal`. Errors only if neither is present.
 fn resolve_download(entry: &market::RegistryEntry) -> Result<(String, String), String> {
     let triple = discovery::current_arch_triple()
         .ok_or_else(|| format!("unsupported host arch '{}'", std::env::consts::ARCH))?;
     let url = entry
         .download
         .get(triple)
+        .or_else(|| entry.download.get("universal"))
         .ok_or_else(|| format!("plugin '{}' has no download for arch '{triple}'", entry.id))?;
     let sha = entry
         .sha256
         .get(triple)
+        .or_else(|| entry.sha256.get("universal"))
         .ok_or_else(|| format!("plugin '{}' has no sha256 for arch '{triple}'", entry.id))?;
     Ok((url.clone(), sha.clone()))
 }
@@ -195,8 +199,11 @@ pub async fn plugin_market_install(
         market::report_install(&base, &rid, &rver).await;
     });
 
-    // Bring the live runtime in line with the new tree, then nudge the UI.
+    // Bring the live runtime in line with the new tree, rebuild the native menu
+    // (a brand-new plugin's menu item now appears without a restart), then nudge
+    // the UI.
     lifecycle::reconcile(&app)?;
+    crate::rebuild_menu(&app);
     notify_plugins_changed(&app);
     Ok(())
 }
@@ -223,6 +230,7 @@ pub async fn plugin_market_uninstall(
     state::save(&root, &install)?;
 
     lifecycle::reconcile(&app)?;
+    crate::rebuild_menu(&app);
     notify_plugins_changed(&app);
     Ok(())
 }
@@ -246,6 +254,7 @@ pub async fn plugin_market_set_enabled(
     state::save(&root, &install)?;
 
     lifecycle::reconcile(&app)?;
+    crate::rebuild_menu(&app);
     notify_plugins_changed(&app);
     Ok(())
 }
@@ -285,9 +294,10 @@ pub fn plugin_market_installed(app: tauri::AppHandle) -> Result<Vec<serde_json::
 }
 
 /// Tell the frontend the installed-plugin set changed: it re-fetches
-/// `get_plugin_manifests` and reapplies the plugin menu (Task 6 wires the
-/// listener). The Rust-side native menu rebuild is deferred to Task 6 — see the
-/// task report's "menu-rebuild decision".
+/// `get_plugin_manifests` and reapplies its own in-webview plugin menu. The
+/// *native* menu (macOS menu bar) is rebuilt separately by `crate::rebuild_menu`
+/// right before this fires, so a brand-new plugin's native menu item appears
+/// without a restart.
 fn notify_plugins_changed<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
     use tauri::Emitter;
     let _ = app.emit("plugins-changed", ());
@@ -410,6 +420,54 @@ mod tests {
         assert!(Arc::ptr_eq(&won_first, &first));
         assert!(Arc::ptr_eq(&won_second, &first), "second registration must return the first Arc");
         RUNNING.write().unwrap().remove(id);
+    }
+
+    /// A ui-only plugin publishes only under the `universal` key; resolve_download
+    /// must fall back to it on this host, and error only when neither the host
+    /// triple nor `universal` is present (FIX-1).
+    fn registry_entry(
+        id: &str,
+        download: &[(&str, &str)],
+        sha: &[(&str, &str)],
+    ) -> market::RegistryEntry {
+        use std::collections::BTreeMap;
+        let dl: BTreeMap<String, String> =
+            download.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect();
+        let sh: BTreeMap<String, String> =
+            sha.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect();
+        market::RegistryEntry {
+            id: id.to_string(),
+            version: "1.0.0".to_string(),
+            min_host: ">=0.0.0".to_string(),
+            archs: dl.keys().cloned().collect(),
+            size: 1,
+            sha256: sh,
+            name: id.to_string(),
+            description: None,
+            i18n: None,
+            icon_url: None,
+            changelog_url: None,
+            download: dl,
+        }
+    }
+
+    #[test]
+    fn resolve_download_falls_back_to_universal() {
+        let entry = registry_entry(
+            "roam",
+            &[("universal", "https://plugins.notemd.net/api/download/roam/1.0.0/universal")],
+            &[("universal", "uu")],
+        );
+        let (url, sha) = resolve_download(&entry).unwrap();
+        assert!(url.ends_with("universal"), "url {url} must resolve to the universal package");
+        assert_eq!(sha, "uu");
+    }
+
+    #[test]
+    fn resolve_download_errors_when_neither_triple_nor_universal() {
+        let entry = registry_entry("x", &[], &[]);
+        let err = resolve_download(&entry).unwrap_err();
+        assert!(err.contains("no download for arch"), "got {err}");
     }
 
     /// The shared flag gate every market command runs first: Err with the v2

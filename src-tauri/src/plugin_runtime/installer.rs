@@ -13,14 +13,23 @@
 //!    [`ZipFile::enclosed_name`], which returns `None` for unsafe names.
 //! 4. The staged manifest is validated (engines/id/binary|ui) and its `id`
 //!    must equal the caller's expected id before commit.
+//! 5. Decompression is bounded: no per-entry buffer is pre-reserved to the
+//!    attacker-declared `size()`, and the cumulative unpacked total is capped at
+//!    [`MAX_UNPACKED_BYTES`] via a streaming copy so a compression bomb can't
+//!    exhaust disk/memory (②安全评审 V1+V2).
 //!
 //! Package format: `.notemdpkg` = a zip archive containing `manifest.json`
 //! plus `bin/…` and/or `ui/…`.
 
 use plugin_protocol::{validate_manifest, ManifestV2};
 use sha2::{Digest, Sha256};
-use std::io::Read;
 use std::path::{Component, Path};
+
+/// Hard ceiling on the *decompressed* total across all entries of one package
+/// (200 MiB). Unpacking aborts once the cumulative written bytes would exceed
+/// this, defeating a compression bomb whose declared sizes or deflate ratio are
+/// hostile (②安全评审 V1+V2).
+pub const MAX_UNPACKED_BYTES: u64 = 200 * 1024 * 1024;
 
 /// All the ways installation can fail. Each variant maps to a user-facing
 /// string via [`std::fmt::Display`].
@@ -112,8 +121,8 @@ pub fn verify_and_stage(
         return Err(InstallError::Signature);
     }
 
-    // (3) Unpack with a per-entry traversal guard.
-    unpack_zip(pkg_bytes, stage_dir)?;
+    // (3) Unpack with a per-entry traversal guard and a cumulative size cap.
+    unpack_zip(pkg_bytes, stage_dir, MAX_UNPACKED_BYTES)?;
 
     // (4) Read + validate the staged manifest.
     let manifest_path = stage_dir.join("manifest.json");
@@ -132,11 +141,17 @@ pub fn verify_and_stage(
 }
 
 /// Unzip `pkg_bytes` into `stage_dir`, rejecting any entry whose path is not
-/// safely contained within `stage_dir` (Zip-slip defence).
-fn unpack_zip(pkg_bytes: &[u8], stage_dir: &Path) -> Result<(), InstallError> {
+/// safely contained within `stage_dir` (Zip-slip defence) and aborting if the
+/// cumulative *decompressed* total across all entries would exceed
+/// `max_unpacked` (compression-bomb defence). The declared `entry.size()` is
+/// never trusted for allocation: every entry is streamed in fixed chunks and
+/// the running budget is checked before each chunk is written.
+fn unpack_zip(pkg_bytes: &[u8], stage_dir: &Path, max_unpacked: u64) -> Result<(), InstallError> {
     let reader = std::io::Cursor::new(pkg_bytes);
     let mut archive =
         zip::ZipArchive::new(reader).map_err(|e| InstallError::Unpack(e.to_string()))?;
+
+    let mut total_written: u64 = 0;
 
     for i in 0..archive.len() {
         let mut entry = archive
@@ -174,11 +189,11 @@ fn unpack_zip(pkg_bytes: &[u8], stage_dir: &Path) -> Result<(), InstallError> {
         if let Some(parent) = out_path.parent() {
             std::fs::create_dir_all(parent).map_err(|e| InstallError::Unpack(e.to_string()))?;
         }
-        let mut buf = Vec::with_capacity(entry.size() as usize);
-        entry
-            .read_to_end(&mut buf)
-            .map_err(|e| InstallError::Unpack(e.to_string()))?;
-        std::fs::write(&out_path, &buf).map_err(|e| InstallError::Unpack(e.to_string()))?;
+
+        // Stream the entry into the file in bounded chunks, checking the
+        // cumulative budget before writing each chunk. `entry.size()` (the
+        // attacker-declared size) is deliberately NOT used to pre-reserve.
+        total_written = copy_entry_capped(&mut entry, &out_path, total_written, max_unpacked)?;
 
         // Preserve the executable bit so shipped binaries are runnable.
         #[cfg(unix)]
@@ -193,6 +208,38 @@ fn unpack_zip(pkg_bytes: &[u8], stage_dir: &Path) -> Result<(), InstallError> {
         }
     }
     Ok(())
+}
+
+/// Stream one zip entry into `out_path`, enforcing that `already_written` plus
+/// this entry's decompressed bytes never exceeds `max_unpacked`. Returns the new
+/// running total on success; on overflow returns `InstallError::Unpack` (and
+/// leaves the partial file for the caller's tempdir to discard).
+fn copy_entry_capped(
+    entry: &mut impl std::io::Read,
+    out_path: &Path,
+    already_written: u64,
+    max_unpacked: u64,
+) -> Result<u64, InstallError> {
+    const CHUNK: usize = 64 * 1024;
+    let mut file = std::fs::File::create(out_path).map_err(|e| InstallError::Unpack(e.to_string()))?;
+    let mut buf = [0u8; CHUNK];
+    let mut total = already_written;
+    loop {
+        let n = entry.read(&mut buf).map_err(|e| InstallError::Unpack(e.to_string()))?;
+        if n == 0 {
+            break;
+        }
+        total = total.saturating_add(n as u64);
+        if total > max_unpacked {
+            return Err(InstallError::Unpack(format!(
+                "package expands beyond {} MiB",
+                max_unpacked / (1024 * 1024)
+            )));
+        }
+        std::io::Write::write_all(&mut file, &buf[..n])
+            .map_err(|e| InstallError::Unpack(e.to_string()))?;
+    }
+    Ok(total)
 }
 
 /// True iff `base.join(rel)` normalizes to a path still rooted at `base` and the
@@ -513,7 +560,7 @@ mod tests {
     fn traversal_entry_rejected() {
         let dir = tempfile::tempdir().unwrap();
         let evil = zip_with_entry("../escape.txt", b"pwned");
-        let err = unpack_zip(&evil, dir.path()).unwrap_err();
+        let err = unpack_zip(&evil, dir.path(), MAX_UNPACKED_BYTES).unwrap_err();
         assert!(matches!(err, InstallError::Unpack(_)), "got {err:?}");
         // Nothing escaped.
         assert!(!dir.path().parent().unwrap().join("escape.txt").exists());
@@ -526,8 +573,104 @@ mod tests {
         let evil = zip_with_entry("/etc/pwned", b"x");
         // enclosed_name() strips a leading slash to a relative path on some
         // platforms; either way the guard must not write outside stage_dir.
-        let _ = unpack_zip(&evil, dir.path());
+        let _ = unpack_zip(&evil, dir.path(), MAX_UNPACKED_BYTES);
         assert!(!Path::new("/etc/pwned").exists());
+    }
+
+    // ── unpack_zip: decompression-bomb cumulative cap (②安全评审 V1+V2) ──────
+    //
+    // The declared per-entry size is never trusted; the guard is a running total
+    // checked before each chunk is written. We prove it by unpacking a package
+    // whose *actual* decompressed total exceeds a tiny test-only cap and asserting
+    // the Unpack error fires. `copy_entry_capped` takes the cap as a param so the
+    // test can pass a value far below the 200 MiB production ceiling.
+
+    /// Build a zip with several stored (uncompressed) entries so the decompressed
+    /// total is predictable regardless of the deflate ratio.
+    fn zip_with_entries(entries: &[(&str, &[u8])]) -> Vec<u8> {
+        let mut buf = Vec::new();
+        {
+            let mut w = zip::ZipWriter::new(std::io::Cursor::new(&mut buf));
+            let opts = SimpleFileOptions::default()
+                .compression_method(zip::CompressionMethod::Stored);
+            for (name, body) in entries {
+                w.start_file(*name, opts).unwrap();
+                w.write_all(body).unwrap();
+            }
+            w.finish().unwrap();
+        }
+        buf
+    }
+
+    #[test]
+    fn cumulative_cap_exceeded_rejected() {
+        let dir = tempfile::tempdir().unwrap();
+        // Three 40 KiB entries = 120 KiB decompressed; cap at 100 KiB.
+        let body = vec![b'A'; 40 * 1024];
+        let pkg = zip_with_entries(&[
+            ("a.bin", &body),
+            ("b.bin", &body),
+            ("c.bin", &body),
+        ]);
+        let cap: u64 = 100 * 1024;
+        let err = unpack_zip(&pkg, dir.path(), cap).unwrap_err();
+        match err {
+            InstallError::Unpack(msg) => assert!(msg.contains("expands beyond"), "got {msg}"),
+            other => panic!("expected Unpack, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn under_cap_unpacks_fine() {
+        let dir = tempfile::tempdir().unwrap();
+        let body = vec![b'A'; 40 * 1024];
+        let pkg = zip_with_entries(&[("a.bin", &body), ("b.bin", &body)]);
+        // 80 KiB total, cap at 100 KiB → succeeds.
+        unpack_zip(&pkg, dir.path(), 100 * 1024).expect("under-cap package unpacks");
+        assert!(dir.path().join("a.bin").is_file());
+        assert!(dir.path().join("b.bin").is_file());
+    }
+
+    // ── unpack_zip: symlink entry (S_IFLNK) must not become a live symlink ──
+    //
+    // A malicious package may carry an entry whose unix mode marks it a symlink
+    // (S_IFLNK, 0o120000) with target-path content like `../../etc/evil`. Our
+    // unpacker writes every entry as a regular file (it never calls symlink()),
+    // so the "link" lands as an inert regular file inside the stage dir and its
+    // path (validated by enclosed_name + is_contained) cannot escape. (②安全评审 V4)
+
+    /// Build a zip with one entry carrying an explicit unix mode.
+    fn zip_with_unix_mode(name: &str, body: &[u8], mode: u32) -> Vec<u8> {
+        let mut buf = Vec::new();
+        {
+            let mut w = zip::ZipWriter::new(std::io::Cursor::new(&mut buf));
+            let opts = SimpleFileOptions::default().unix_permissions(mode);
+            w.start_file(name, opts).unwrap();
+            w.write_all(body).unwrap();
+            w.finish().unwrap();
+        }
+        buf
+    }
+
+    #[test]
+    fn symlink_entry_becomes_regular_file_no_escape() {
+        const S_IFLNK: u32 = 0o120000;
+        let dir = tempfile::tempdir().unwrap();
+        // Legal in-tree name; the danger would be treating the *content* as a
+        // symlink target. Content is a classic traversal target string.
+        let pkg = zip_with_unix_mode("evil-link", b"../../etc/evil", S_IFLNK | 0o777);
+        unpack_zip(&pkg, dir.path(), MAX_UNPACKED_BYTES).expect("unpack");
+
+        let out = dir.path().join("evil-link");
+        // The entry materialized as a *regular* file, NOT a symlink.
+        let meta = std::fs::symlink_metadata(&out).expect("entry exists");
+        assert!(!meta.file_type().is_symlink(), "S_IFLNK entry must not become a live symlink");
+        assert!(meta.file_type().is_file(), "S_IFLNK entry must be a regular file");
+        // Its bytes are the literal target string, inert — nothing followed it.
+        assert_eq!(std::fs::read(&out).unwrap(), b"../../etc/evil");
+        // Nothing escaped the stage dir.
+        assert!(!Path::new("/etc/evil").exists());
+        assert!(!dir.path().parent().unwrap().join("etc").join("evil").exists());
     }
 
     #[test]

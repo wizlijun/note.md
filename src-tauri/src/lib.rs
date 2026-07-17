@@ -1496,24 +1496,58 @@ fn build_tray_menu<R: tauri::Runtime>(
 /// to its placeholder; JS re-pushes the list via `refreshRecentMenu()` after.
 #[tauri::command]
 fn set_menu_locale(app: tauri::AppHandle, locale: String) -> Result<(), String> {
-    let plugin_items = plugin_host::collect_top_menu_items(&locale);
+    apply_menu_locale(&app, &locale)
+}
+
+/// The menu/tray rebuild core: rebuild both in `locale`, store the fresh submenu
+/// handles in app state, and apply them. `collect_top_menu_items` includes the
+/// adapted v2 plugin manifests from `plugin_runtime::STATE`, so a plugin that was
+/// just installed/uninstalled/toggled contributes (or stops contributing) its
+/// native menu item without a restart.
+///
+/// **Thread safety**: Tauri 2's menu APIs (`MenuItemBuilder::build`,
+/// `AppHandle::set_menu`) must run on the main thread on macOS. The sync
+/// `set_menu_locale` command already runs there (Tauri dispatches sync commands
+/// on the main thread), but the async market commands do NOT — they call
+/// [`rebuild_menu`], which hops onto the main thread via `run_on_main_thread`.
+fn apply_menu_locale(app: &tauri::AppHandle, locale: &str) -> Result<(), String> {
+    let plugin_items = plugin_host::collect_top_menu_items(locale);
     let (menu, recent_submenu) =
-        build_menu(&app, &plugin_items, &locale).map_err(|e| e.to_string())?;
+        build_menu(app, &plugin_items, locale).map_err(|e| e.to_string())?;
     *app.state::<RecentMenu>().0.lock().unwrap() = Some(recent_submenu);
     app.set_menu(menu).map_err(|e| e.to_string())?;
 
     // Rebuild the tray dropdown too (event handling lives on the TrayIcon).
     if let Some(tray) = app.tray_by_id("main") {
         let (tray_menu, sync_repo_item, status_item) =
-            build_tray_menu(&app, &locale).map_err(|e| e.to_string())?;
+            build_tray_menu(app, locale).map_err(|e| e.to_string())?;
         *app.state::<TrayRepoItem>().0.lock().unwrap() = Some(sync_repo_item);
         *app.state::<TrayStatusItem>().0.lock().unwrap() = Some(status_item);
         tray.set_menu(Some(tray_menu)).map_err(|e| e.to_string())?;
     }
     // Re-apply live status text/icon after the menu handles were replaced.
     #[cfg(not(target_os = "ios"))]
-    refresh_tray_status(&app);
+    refresh_tray_status(app);
     Ok(())
+}
+
+/// Rebuild the native menu after the installed-plugin set changed (install /
+/// uninstall / enable-disable). Reads the saved locale, then rebuilds the menu
+/// on the main thread. Safe to call from an async Tauri command (which runs off
+/// the main thread) — it dispatches the rebuild via `run_on_main_thread`. Any
+/// rebuild error is logged, not propagated, so a menu hiccup never fails the
+/// install the user just completed.
+#[cfg(not(target_os = "ios"))]
+pub(crate) fn rebuild_menu(app: &tauri::AppHandle) {
+    let locale = read_saved_locale(app);
+    let handle = app.clone();
+    if let Err(e) = app.run_on_main_thread(move || {
+        if let Err(err) = apply_menu_locale(&handle, &locale) {
+            eprintln!("[plugin_runtime] menu rebuild failed: {err}");
+        }
+    }) {
+        eprintln!("[plugin_runtime] could not dispatch menu rebuild to main thread: {e}");
+    }
 }
 
 fn build_menu<R: tauri::Runtime>(

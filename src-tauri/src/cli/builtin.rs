@@ -514,17 +514,21 @@ mod market {
     }
 
     /// Pick this host arch's download URL + expected sha256 from an index entry.
-    /// Mirrors `commands::resolve_download`.
+    /// Mirrors `commands::resolve_download`. UI-only plugins publish under the
+    /// `universal` key, so we prefer the host triple then fall back to it;
+    /// errors only when neither is present.
     fn select_download(entry: &mkt::RegistryEntry) -> Result<(String, String), String> {
         let triple = discovery::current_arch_triple()
             .ok_or_else(|| format!("unsupported host arch '{}'", std::env::consts::ARCH))?;
         let url = entry
             .download
             .get(triple)
+            .or_else(|| entry.download.get("universal"))
             .ok_or_else(|| format!("plugin '{}' has no download for arch '{triple}'", entry.id))?;
         let sha = entry
             .sha256
             .get(triple)
+            .or_else(|| entry.sha256.get("universal"))
             .ok_or_else(|| format!("plugin '{}' has no sha256 for arch '{triple}'", entry.id))?;
         Ok((url.clone(), sha.clone()))
     }
@@ -867,6 +871,48 @@ mod market {
             let (url, sha) = select_download(&entry("x", "1.0.0")).unwrap();
             assert!(url.ends_with(triple), "url {url} must target host arch {triple}");
             assert!(!sha.is_empty());
+        }
+
+        /// A ui-only plugin (roam-import) publishes only under `universal`; the
+        /// resolver must fall back to it on any supported host arch (FIX-1).
+        fn universal_entry(id: &str, version: &str) -> RegistryEntry {
+            let mut sha = BTreeMap::new();
+            sha.insert("universal".to_string(), "uu".to_string());
+            let mut dl = BTreeMap::new();
+            dl.insert(
+                "universal".to_string(),
+                format!("https://plugins.notemd.net/api/download/{id}/{version}/universal"),
+            );
+            RegistryEntry {
+                id: id.to_string(),
+                version: version.to_string(),
+                min_host: ">=0.0.0".to_string(),
+                archs: vec!["universal".into()],
+                size: 1,
+                sha256: sha,
+                name: id.to_string(),
+                description: None,
+                i18n: None,
+                icon_url: None,
+                changelog_url: None,
+                download: dl,
+            }
+        }
+
+        #[test]
+        fn select_download_falls_back_to_universal() {
+            let (url, sha) = select_download(&universal_entry("roam", "1.0.0")).unwrap();
+            assert!(url.ends_with("universal"), "url {url} must resolve to the universal package");
+            assert_eq!(sha, "uu");
+        }
+
+        #[test]
+        fn select_download_errors_when_neither_triple_nor_universal() {
+            let mut e = entry("x", "1.0.0");
+            e.download.clear();
+            e.sha256.clear();
+            let err = select_download(&e).unwrap_err();
+            assert!(err.contains("no download for arch"), "got {err}");
         }
 
         #[test]
