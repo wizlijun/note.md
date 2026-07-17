@@ -1,16 +1,20 @@
 #!/usr/bin/env bash
 # Dev-install a v2 plugin into the local app-data plugins root.
 #
-# Usage: scripts/dev-install-plugin.sh [--release] [md2pdf|roam-import]
+# Usage: scripts/dev-install-plugin.sh [--release] [md2pdf|roam-import|openclaw]
 #   default plugin = md2pdf (preserves the original behavior).
-#   --release      = build the native plugin binary in release mode (md2pdf only;
-#                    ignored for the pure-UI roam-import plugin).
+#   --release      = build the native plugin binary in release mode (md2pdf +
+#                    openclaw; ignored for the pure-UI roam-import plugin).
 #
 # md2pdf      → builds the CURRENT-arch native binary (fast dev loop; use
 #               scripts/build-md2pdf-v2.sh for dual-arch release binaries) and
 #               installs bin/ + manifest.
 # roam-import → builds the standalone Vite UI bundle (plugins-src/roam-import →
 #               dist/) and installs it as ui/ + manifest (no binary: pure UI).
+# openclaw    → builds BOTH the CURRENT-arch native backend crate
+#               (plugins-src/openclaw/backend → notemd-openclaw) AND the
+#               standalone Vite UI bundle (plugins-src/openclaw → dist/), then
+#               installs bin/ + ui/ + manifest (backend process + streaming UI).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -19,8 +23,8 @@ PLUGIN=md2pdf
 for arg in "$@"; do
   case "$arg" in
     --release) PROFILE=release ;;
-    md2pdf|roam-import) PLUGIN="$arg" ;;
-    *) echo "unknown arg: $arg (expected --release | md2pdf | roam-import)" >&2; exit 2 ;;
+    md2pdf|roam-import|openclaw) PLUGIN="$arg" ;;
+    *) echo "unknown arg: $arg (expected --release | md2pdf | roam-import | openclaw)" >&2; exit 2 ;;
   esac
 done
 
@@ -67,6 +71,27 @@ elif [[ "$PLUGIN" == "roam-import" ]]; then
   echo "✓ installed notemd.roam-import@$VERSION (ui-only) → $DEST"
   echo "  enable the v2 runtime:  \"plugins_v2.enabled\": true in settings.json, or NOTEMD_PLUGINS_V2=1"
   echo "  disable the v1 plugin:  \"plugins.enabled.roam-import\": false in settings.json (avoids double File▸Import entries)"
+
+elif [[ "$PLUGIN" == "openclaw" ]]; then
+  SRC="plugins-src/openclaw"
+  # 1) Build the CURRENT-arch native backend crate (the whole UDS/relay/pair
+  #    state machine). --manifest-path keeps cargo out of the workspace root.
+  cargo build $([ "$PROFILE" = release ] && echo --release) \
+    --manifest-path "$SRC/backend/Cargo.toml" --bin notemd-openclaw
+  # 2) Build the standalone UI bundle (dist/).
+  pnpm --filter openclaw-plugin build
+  VERSION=$(node -e "console.log(require('./$SRC/manifest.v2.json').version)")
+  DEST="$ROOT/notemd.openclaw-chat/$VERSION"
+  rm -rf "$DEST"
+  mkdir -p "$DEST/bin" "$DEST/ui"
+  cp "$SRC/backend/target/$PROFILE/notemd-openclaw" "$DEST/bin/notemd-openclaw"
+  cp -R "$SRC/dist/." "$DEST/ui/"
+  cp "$SRC/manifest.v2.json" "$DEST/manifest.json"
+  ln -sfn "$VERSION" "$ROOT/notemd.openclaw-chat/current"
+  mark_installed "notemd.openclaw-chat" "$VERSION"
+  echo "✓ installed notemd.openclaw-chat@$VERSION ($PROFILE, $(uname -m), backend + ui) → $DEST"
+  echo "  enable the v2 runtime:  \"plugins_v2.enabled\": true in settings.json, or NOTEMD_PLUGINS_V2=1"
+  echo "  open it:                Window menu ▸ \"OpenClaw (v2)\""
 fi
 
 # ---------------------------------------------------------------------------
@@ -95,4 +120,18 @@ fi
 #      run over the SAME export into a scratch vault: the .note.md text should
 #      be byte-identical (same parse/plan/convert core; only the IO layer moved
 #      to host RPC). Re-run the v2 import → unchanged pages report as skipped.
+# ---------------------------------------------------------------------------
+# Manual E2E walkthrough — openclaw (plugin-openclaw-migration plan ②b, Task 5):
+#   1. scripts/dev-install-plugin.sh openclaw
+#   2. NOTEMD_PLUGINS_V2=1 pnpm tauri dev
+#   3. Window menu ▸ "OpenClaw (v2)" → the OpenClaw chat window opens
+#      (plugin:// bridge; the backend process is pre-activated on open so the
+#      reader can stream frames immediately).
+#   4. If unpaired: the onboarding screen appears → enter the host's pairing
+#      code → pair_claim over the bridge → window reconnects.
+#   5. Type a message → user.message frame goes UI→process→relay/UDS; the
+#      agent's reply streams back token-by-token (agent.message.delta pushed via
+#      host.ui.post, fanned out by onMessage → onFrame).
+#   6. On the host side, approve a new device claim from the pending-claim toast
+#      (pending-claim kind pushed by the 8s poller).
 # ---------------------------------------------------------------------------

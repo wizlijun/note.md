@@ -1,0 +1,33 @@
+{
+  "manifest_version": 2,
+  "id": "notemd.openclaw-chat",
+  "name": "OpenClaw Chat",
+  "version": "1.0.0",
+  "kind": "native",
+  "engines": { "notemd": ">=6.716.7" },
+  "description": "Chat with your OpenClaw agent over UDS/relay — the whole state machine runs in this plugin's own process, streaming frames back to the window.",
+  "binary": {
+    "aarch64-apple-darwin": "bin/notemd-openclaw",
+    "x86_64-apple-darwin": "bin/notemd-openclaw"
+  },
+  "ui": "ui/",
+  "activation": { "events": ["onCommand:open"] },
+  "contributes": {
+    "menus": [
+      { "location": "window", "label": "OpenClaw (v2)", "command": "open" }
+    ],
+    "windows": [
+      {
+        "id": "main",
+        "entry": "index.html",
+        "title": "OpenClaw",
+        "width": 480.0,
+        "height": 720.0,
+        "min_width": 360.0,
+        "min_height": 480.0,
+        "open_command": "open"
+      }
+    ]
+  },
+  "capabilities": ["ui", "toast"]
+}
