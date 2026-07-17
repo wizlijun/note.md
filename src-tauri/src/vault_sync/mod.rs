@@ -131,13 +131,6 @@ pub fn vault_sync_logs(app: AppHandle) -> Vec<log_buffer::LogEntry> {
 }
 
 pub fn init(app: &AppHandle) {
-    use tauri_plugin_store::StoreExt;
-
-    let store = match app.store("settings.json") {
-        Ok(s) => s,
-        Err(_) => return,
-    };
-
     let repo_path = crate::shared_config::config_path()
         .ok()
         .and_then(|p| crate::shared_config::read(&p).ok())
@@ -148,20 +141,12 @@ pub fn init(app: &AppHandle) {
         let mgr = app.state::<Arc<VaultSyncManager>>();
         *mgr.repo_path.lock().unwrap() = Some(path.clone());
 
-        let auto_start = store.get("vault_sync.auto_start")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(true);
-
-        if auto_start {
-            *mgr.state.lock().unwrap() = SyncState::Stopped;
-            let app_clone = app.clone();
-            std::thread::spawn(move || {
-                std::thread::sleep(std::time::Duration::from_secs(2));
-                let _ = service::start(&app_clone);
-                crate::update_tray_icon(&app_clone, true);
-            });
-        } else {
-            *mgr.state.lock().unwrap() = SyncState::Stopped;
-        }
+        *mgr.state.lock().unwrap() = SyncState::Stopped;
+        let app_clone = app.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_secs(2));
+            let _ = service::start(&app_clone);
+            crate::update_tray_icon(&app_clone, true);
+        });
     }
 }
