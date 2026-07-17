@@ -469,3 +469,111 @@ async fn host_api_make_sink_dispatches_toast_through_real_process() {
 
     assert!(proc.shutdown().await, "expected graceful shutdown");
 }
+
+// ═══ 子项目②b Task 3: streaming fixture — bidirectional window channel ═══
+//
+// `stream.sh` is a real plugin process exercising BOTH directions of the v2
+// window channel (子项目②b) end-to-end through `PluginProcess` + `make_sink`:
+//   1. UI → process (`ui.request`): the host sends
+//      `ui.request {method:"echo", params}` → the fixture's on_ui_request echoes
+//      the inner params back as the result (and `ping` → `"pong"`).
+//   2. process → UI (`host.ui.post` streaming push): after `$activate`, the
+//      fixture streams three `host.ui.post` notifications {seq:1,2,3} on window
+//      "main" (~50ms apart) followed by a final {done:true}. `make_sink`'s
+//      capability-gated `host.ui.post` branch routes each to the injected
+//      `UiPoster`, which records `(window_id, payload)` — standing in for
+//      `windows::push_to_window` without a Tauri runtime.
+//
+// This is the integration counterpart to the host_api unit coverage of
+// `host.ui.post` (capability gate, poster invocation) and the SDK duplex unit
+// coverage of `on_ui_request` / `ui_post`: here the two meet across a real pipe.
+
+/// Build a `UiPoster` that records every `(window_id, payload)` it receives.
+#[allow(clippy::type_complexity)]
+fn recording_ui_poster() -> (
+    mdeditor_lib::plugin_runtime::host_api::UiPoster,
+    Arc<Mutex<Vec<(String, serde_json::Value)>>>,
+) {
+    let seen: Arc<Mutex<Vec<(String, serde_json::Value)>>> = Arc::new(Mutex::new(Vec::new()));
+    let seen_in = seen.clone();
+    let poster = Arc::new(move |window_id: &str, payload: &serde_json::Value| {
+        seen_in.lock().unwrap().push((window_id.to_string(), payload.clone()));
+    });
+    (poster, seen)
+}
+
+#[tokio::test]
+async fn stream_fixture_ui_request_round_trip_and_host_ui_post_push() {
+    let log_dir = tempfile::tempdir().unwrap();
+    let (emitter, _emitted) = recording_toast_emitter();
+    let (poster, posted) = recording_ui_poster();
+
+    // A capability-gated sink holding both `ui` (for host.ui.post) and `toast`,
+    // wired to a recording poster (host.ui.post → posted) for "test.stream".
+    let sink: HostSink = make_sink(
+        "test.stream".into(),
+        vec!["ui".into(), "toast".into()],
+        log_dir.path().to_path_buf(),
+        emitter,
+        poster,
+    );
+
+    let proc = PluginProcess::spawn(&fixture("stream.sh"), "test.stream", log_dir.path(), 5, sink)
+        .await
+        .unwrap();
+    // $activate kicks off the background streamer inside the fixture.
+    initialize_and_activate(&proc, &init_params(log_dir.path()), "onCommand:open")
+        .await
+        .unwrap();
+
+    // ── Direction 1: UI → process (ui.request echo round-trip) ─────────────
+    // The host forwards a window RPC as `ui.request {method, params}`; the
+    // fixture's on_ui_request echoes the INNER params back as the result.
+    let echoed = proc
+        .request("ui.request", json!({ "method": "echo", "params": { "x": 1 } }))
+        .await
+        .unwrap();
+    assert_eq!(echoed, json!({ "x": 1 }), "ui.request echo must round-trip params");
+
+    // `ping` → "pong" proves method dispatch (not a blind echo).
+    let pong = proc
+        .request("ui.request", json!({ "method": "ping", "params": {} }))
+        .await
+        .unwrap();
+    assert_eq!(pong, json!("pong"), "ui.request ping must dispatch to pong");
+
+    // ── Direction 2: process → UI (host.ui.post streaming push) ────────────
+    // Poll until the recording poster has captured the 3 seq frames (streamed
+    // ~50ms apart from a background subshell; give a generous margin).
+    let seqs: Vec<i64> = {
+        let mut got = Vec::new();
+        for _ in 0..100 {
+            {
+                let posted = posted.lock().unwrap();
+                got = posted
+                    .iter()
+                    .filter(|(win, _)| win == "main")
+                    .filter_map(|(_, payload)| payload.get("seq").and_then(|s| s.as_i64()))
+                    .collect();
+            }
+            if got.len() >= 3 {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
+        got
+    };
+    assert!(
+        seqs.len() >= 3,
+        "expected ≥3 host.ui.post seq frames, got {seqs:?} (all posts: {:?})",
+        *posted.lock().unwrap()
+    );
+    assert_eq!(&seqs[..3], &[1, 2, 3], "seq frames must arrive in order 1,2,3");
+
+    // Every recorded push targeted the plugin's "main" window.
+    for (win, _) in posted.lock().unwrap().iter() {
+        assert_eq!(win, "main", "host.ui.post must target window 'main'");
+    }
+
+    assert!(proc.shutdown().await, "expected graceful shutdown");
+}
