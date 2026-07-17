@@ -841,6 +841,13 @@ pub fn run() {
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init());
+    // plugin:// scheme — plugin UI static assets + fetch-RPC bridge (spec §7.1).
+    // Registration cannot be flag-conditional; the handler answers 404 for
+    // flag-off/unknown ids, so v2-off behavior is unchanged.
+    #[cfg(not(target_os = "ios"))]
+    let app = app.register_uri_scheme_protocol("plugin", |ctx, request| {
+        crate::plugin_runtime::protocol::handle(ctx.app_handle(), request)
+    });
     let app = app
         .invoke_handler({
             #[cfg(not(target_os = "ios"))]

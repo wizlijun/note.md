@@ -8,6 +8,7 @@ pub mod discovery;
 pub mod host_api;
 pub mod lifecycle;
 pub mod process;
+pub mod protocol;
 pub mod state;
 
 use std::collections::HashMap;
