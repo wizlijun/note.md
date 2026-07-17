@@ -41,7 +41,21 @@ export interface Contributes {
   settings?: {
     [k: string]: unknown;
   };
-  windows?: unknown[];
+  windows?: WindowContribution[];
+}
+export interface WindowContribution {
+  entry: string;
+  height: number;
+  id: string;
+  min_height?: number | null;
+  min_width?: number | null;
+  /**
+   * contributes.menus 中命中此 command 的菜单项 = 打开本窗口（不走 command.execute）。
+   */
+  open_command?: string | null;
+  singleton?: boolean;
+  title?: string | null;
+  width: number;
 }
 export interface Engines {
   notemd: string;

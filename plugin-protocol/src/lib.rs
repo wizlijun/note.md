@@ -55,11 +55,29 @@ pub struct Activation { pub events: Vec<String> }
 pub struct Contributes {
     pub menus: Vec<serde_json::Value>,          // 语义同 v1 MenuEntry；宿主经 adapter 透传
     pub context_menus: Vec<serde_json::Value>,  // 语义同 v1 ContextMenuEntry
-    pub windows: Vec<serde_json::Value>,        // ②期消费；本期校验为数组即可
+    pub windows: Vec<WindowContribution>,       // ②期消费；窗口贡献
     pub custom_editors: Vec<serde_json::Value>, // ④期消费
     pub settings: Option<serde_json::Value>,    // 语义同 v1 settings
     pub cli: Vec<serde_json::Value>,            // 语义同 v1 CliEntry
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct WindowContribution {
+    pub id: String,                 // 窗口 id（label = plugin-<sanitized plugin id>-<id>）
+    pub entry: String,              // ui/ 内相对路径，如 "index.html"
+    #[serde(default)]
+    pub title: Option<String>,      // 缺省用插件 name
+    pub width: f64,
+    pub height: f64,
+    #[serde(default)] pub min_width: Option<f64>,
+    #[serde(default)] pub min_height: Option<f64>,
+    #[serde(default = "default_true")] pub singleton: bool,
+    /// contributes.menus 中命中此 command 的菜单项 = 打开本窗口（不走 command.execute）。
+    #[serde(default)] pub open_command: Option<String>,
+}
+
+fn default_true() -> bool { true }
 
 // ── JSON-RPC 2.0 信封（NDJSON，一行一条）────────────────────────────────
 
@@ -142,6 +160,21 @@ pub fn validate_manifest(m: &ManifestV2, host_version: &str) -> Result<(), Strin
     let host = semver::Version::parse(host_version).map_err(|e| format!("host version: {e}"))?;
     if !req.matches(&host) { return Err(format!("requires notemd {}, host is {host}", m.engines.notemd)); }
     if m.kind == PluginKind::Wasm { return Err("kind 'wasm' is reserved, not yet supported".into()); }
+    if m.binary.is_empty() && m.ui.is_none() {
+        return Err("plugin must provide binary and/or ui".into());
+    }
+    if !m.contributes.windows.is_empty() && m.ui.is_none() {
+        return Err("contributes.windows requires ui to be set".into());
+    }
+    let win_id_ok = |s: &str| !s.is_empty() && s.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-');
+    for w in &m.contributes.windows {
+        if w.entry.contains("..") {
+            return Err(format!("window '{}': entry must not contain '..'", w.id));
+        }
+        if !win_id_ok(&w.id) {
+            return Err(format!("window id '{}' must match [a-z0-9-]+", w.id));
+        }
+    }
     for ev in &m.activation.events {
         let ok = ev == "*" || ev == "onStartupFinished"
             || ev.strip_prefix("onCommand:").map_or(false, |s| !s.is_empty())
@@ -348,5 +381,133 @@ mod tests {
         instance.as_object_mut().unwrap().remove("id");
         let result = compiled.validate(&instance);
         assert!(result.is_err(), "manifest missing 'id' should fail schema validation");
+    }
+
+    // ── binary optional / ui-only rules ───────────────────────────────
+
+    #[test]
+    fn validate_rejects_neither_binary_nor_ui() {
+        let mut m = sample_manifest();
+        m.binary.clear();
+        m.ui = None;
+        let err = validate_manifest(&m, "7.0.0").unwrap_err();
+        assert_eq!(err, "plugin must provide binary and/or ui", "got: {err}");
+    }
+
+    #[test]
+    fn validate_accepts_ui_only_manifest_with_window() {
+        let json = json!({
+            "manifest_version": 2,
+            "id": "notemd.roam-import",
+            "name": "Roam Import",
+            "version": "2.0.0",
+            "kind": "native",
+            "engines": { "notemd": ">=6.716.7" },
+            "ui": "ui/",
+            "activation": { "events": ["onCommand:open"] },
+            "contributes": {
+                "windows": [{
+                    "id": "main",
+                    "entry": "index.html",
+                    "width": 800.0,
+                    "height": 600.0,
+                    "open_command": "open"
+                }]
+            },
+            "capabilities": ["dialog", "vault.read", "vault.write"]
+        });
+        let m: ManifestV2 = serde_json::from_value(json).expect("should deserialize");
+        assert_eq!(validate_manifest(&m, "7.0.0"), Ok(()));
+    }
+
+    #[test]
+    fn validate_rejects_windows_without_ui() {
+        let mut m = sample_manifest();
+        // binary is set, ui is None
+        m.ui = None;
+        m.contributes.windows = vec![WindowContribution {
+            id: "main".to_string(),
+            entry: "index.html".to_string(),
+            title: None,
+            width: 800.0,
+            height: 600.0,
+            min_width: None,
+            min_height: None,
+            singleton: true,
+            open_command: None,
+        }];
+        let err = validate_manifest(&m, "7.0.0").unwrap_err();
+        assert!(err.contains("windows requires ui"), "got: {err}");
+    }
+
+    #[test]
+    fn validate_rejects_window_entry_with_dotdot() {
+        let json = json!({
+            "manifest_version": 2,
+            "id": "notemd.test",
+            "name": "Test",
+            "version": "1.0.0",
+            "kind": "native",
+            "engines": { "notemd": ">=6.716.7" },
+            "ui": "ui/",
+            "activation": { "events": ["*"] },
+            "contributes": {
+                "windows": [{
+                    "id": "main",
+                    "entry": "../../../etc/passwd",
+                    "width": 800.0,
+                    "height": 600.0
+                }]
+            },
+            "capabilities": []
+        });
+        let m: ManifestV2 = serde_json::from_value(json).expect("should deserialize");
+        let err = validate_manifest(&m, "7.0.0").unwrap_err();
+        assert!(err.contains(".."), "got: {err}");
+    }
+
+    #[test]
+    fn validate_rejects_window_id_uppercase() {
+        let json = json!({
+            "manifest_version": 2,
+            "id": "notemd.test",
+            "name": "Test",
+            "version": "1.0.0",
+            "kind": "native",
+            "engines": { "notemd": ">=6.716.7" },
+            "ui": "ui/",
+            "activation": { "events": ["*"] },
+            "contributes": {
+                "windows": [{
+                    "id": "Main",
+                    "entry": "index.html",
+                    "width": 800.0,
+                    "height": 600.0
+                }]
+            },
+            "capabilities": []
+        });
+        let m: ManifestV2 = serde_json::from_value(json).expect("should deserialize");
+        let err = validate_manifest(&m, "7.0.0").unwrap_err();
+        assert!(err.contains("[a-z0-9-]"), "got: {err}");
+    }
+
+    #[test]
+    fn validate_accepts_binary_and_ui_together() {
+        let json = json!({
+            "manifest_version": 2,
+            "id": "notemd.hybrid",
+            "name": "Hybrid",
+            "version": "1.0.0",
+            "kind": "native",
+            "engines": { "notemd": ">=6.716.7" },
+            "binary": { "aarch64-apple-darwin": "bin/hybrid" },
+            "ui": "ui/",
+            "activation": { "events": ["*"] },
+            "contributes": {},
+            "capabilities": []
+        });
+        let m: ManifestV2 = serde_json::from_value(json).expect("should deserialize");
+        assert_eq!(validate_manifest(&m, "7.0.0"), Ok(()));
     }
 }

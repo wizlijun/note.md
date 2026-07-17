@@ -146,7 +146,9 @@
         "windows": {
           "default": [],
           "type": "array",
-          "items": true
+          "items": {
+            "$ref": "#/definitions/WindowContribution"
+          }
         }
       },
       "additionalProperties": false
@@ -169,6 +171,67 @@
         "native",
         "wasm"
       ]
+    },
+    "WindowContribution": {
+      "type": "object",
+      "required": [
+        "entry",
+        "height",
+        "id",
+        "width"
+      ],
+      "properties": {
+        "entry": {
+          "type": "string"
+        },
+        "height": {
+          "type": "number",
+          "format": "double"
+        },
+        "id": {
+          "type": "string"
+        },
+        "min_height": {
+          "default": null,
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "min_width": {
+          "default": null,
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "open_command": {
+          "description": "contributes.menus 中命中此 command 的菜单项 = 打开本窗口（不走 command.execute）。",
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "singleton": {
+          "default": true,
+          "type": "boolean"
+        },
+        "title": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "width": {
+          "type": "number",
+          "format": "double"
+        }
+      },
+      "additionalProperties": false
     }
   }
 }
