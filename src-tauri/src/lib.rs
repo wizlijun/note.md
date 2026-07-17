@@ -26,6 +26,8 @@ pub mod plugin_host;
 #[path = "plugin_host_ios.rs"]
 pub mod plugin_host;
 #[cfg(not(target_os = "ios"))]
+pub mod plugin_runtime;
+#[cfg(not(target_os = "ios"))]
 pub mod themes;
 #[cfg(not(target_os = "ios"))]
 pub mod vault_sync;
@@ -982,6 +984,8 @@ pub fn run() {
 
             // plugin_host MUST run before any code that calls is_plugin_enabled.
             plugin_host::init(&app.handle());
+            #[cfg(not(target_os = "ios"))]
+            plugin_runtime::init(&app.handle());
 
             let openclaw_state = if plugin_host::is_plugin_enabled("openclaw-chat") {
                 crate::openclaw::init_state(&app.handle())

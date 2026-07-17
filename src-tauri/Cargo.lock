@@ -2877,6 +2877,7 @@ dependencies = [
  "include_dir",
  "lightningcss",
  "notify",
+ "plugin-protocol",
  "qrcode",
  "rand 0.8.6",
  "reqwest 0.12.28",
@@ -3550,6 +3551,16 @@ dependencies = [
  "quick-xml",
  "serde",
  "time",
+]
+
+[[package]]
+name = "plugin-protocol"
+version = "0.1.0"
+dependencies = [
+ "schemars 0.8.22",
+ "semver",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
