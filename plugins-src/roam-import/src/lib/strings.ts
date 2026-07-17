@@ -23,7 +23,6 @@ export type MessageKey =
   | 'overwriteSelected'
   | 'errParse'
   | 'errWrite'
-  | 'warnRenamed'
 
 type Catalog = Record<MessageKey, string>
 
@@ -43,7 +42,6 @@ const en: Catalog = {
   overwriteSelected: 'Overwrite selected',
   errParse: 'Export not readable: {error}',
   errWrite: 'Write failed for {page}: {error}',
-  warnRenamed: 'Renamed "{from}" → "{to}" (filename constraint)',
 }
 
 const zh: Catalog = {
@@ -62,7 +60,6 @@ const zh: Catalog = {
   overwriteSelected: '覆盖所选',
   errParse: '导出文件不可读：{error}',
   errWrite: '写入 {page} 失败：{error}',
-  warnRenamed: '“{from}”改名为“{to}”（文件名约束）',
 }
 
 const ja: Catalog = {
@@ -81,7 +78,6 @@ const ja: Catalog = {
   overwriteSelected: '選択を上書き',
   errParse: 'エクスポートを読み込めません：{error}',
   errWrite: '{page} の書き込みに失敗：{error}',
-  warnRenamed: '「{from}」を「{to}」に改名（ファイル名制約）',
 }
 
 const de: Catalog = {
@@ -100,7 +96,6 @@ const de: Catalog = {
   overwriteSelected: 'Ausgewählte überschreiben',
   errParse: 'Export nicht lesbar: {error}',
   errWrite: 'Schreiben fehlgeschlagen für {page}: {error}',
-  warnRenamed: '„{from}“ umbenannt in „{to}“ (Dateinamen-Einschränkung)',
 }
 
 const registry: Record<Locale, Catalog> = { en, zh, ja, de }

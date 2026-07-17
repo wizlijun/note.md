@@ -29,7 +29,7 @@ pub fn method_capability(method: &str) -> Option<&'static str> {
         "host.vault.write" | "host.vault.mkdir" => Some("vault.write"),
         // fs.read:dialog — readable only for paths previously returned by a
         // host.dialog.open/save in this session (spec §5 prompt semantics).
-        "host.fs.read_text" => Some("fs.read:dialog"),
+        "host.fs.read_text" | "host.fs.read_bytes" => Some("fs.read:dialog"),
         "host.clipboard.write" => Some("clipboard.write"),
         _ => Some("__unknown__"), // 未实现的方法一律拒绝
     }
@@ -404,6 +404,7 @@ mod tests {
         assert_eq!(method_capability("host.vault.write"), Some("vault.write"));
         assert_eq!(method_capability("host.vault.mkdir"), Some("vault.write"));
         assert_eq!(method_capability("host.fs.read_text"), Some("fs.read:dialog"));
+        assert_eq!(method_capability("host.fs.read_bytes"), Some("fs.read:dialog"));
         assert_eq!(method_capability("host.clipboard.write"), Some("clipboard.write"));
         assert_eq!(method_capability("host.unknown"), Some("__unknown__"));
         assert_eq!(method_capability("anything.else"), Some("__unknown__"));

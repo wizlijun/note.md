@@ -49,7 +49,9 @@ export async function dialogOpenJson(title?: string): Promise<string | null> {
   const res: { paths: string[] | null } = await bridge().request('host.dialog.open', {
     title,
     multiple: false,
-    filters: [{ name: 'Roam export', extensions: ['json'] }],
+    // Roam's "Export All (JSON)" downloads a .zip; a manually-unzipped .json is
+    // also accepted. io.readRoamExport branches on the picked extension.
+    filters: [{ name: 'Roam export', extensions: ['json', 'zip'] }],
   })
   return res.paths?.[0] ?? null
 }
@@ -61,6 +63,20 @@ export async function dialogOpenJson(title?: string): Promise<string | null> {
 export async function fsReadText(path: string): Promise<string> {
   const res: { content: string } = await bridge().request('host.fs.read_text', { path })
   return res.content
+}
+
+/**
+ * `host.fs.read_bytes` → raw file bytes (base64-decoded here). Only paths a
+ * prior `host.dialog.open` returned this session are readable (fs.read:dialog
+ * grant). Used for binary exports (Roam's `.zip`) the UTF-8 text bridge cannot
+ * carry.
+ */
+export async function fsReadBytes(path: string): Promise<Uint8Array> {
+  const res: { base64: string } = await bridge().request('host.fs.read_bytes', { path })
+  const bin = atob(res.base64)
+  const bytes = new Uint8Array(bin.length)
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
+  return bytes
 }
 
 /** `host.vault.read` → file content (vault-relative path). */

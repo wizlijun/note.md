@@ -9,37 +9,46 @@
 //     so no absolute joinPath is needed anymore.
 import { strFromU8, unzipSync } from 'fflate'
 import { sha256Hex } from '../hash'
-import { fsReadText, vaultExists, vaultRead, vaultWrite } from '../bridge'
+import { fsReadBytes, fsReadText, vaultExists, vaultRead, vaultWrite } from '../bridge'
 import type { ImportManifest } from './types'
+
+/** Local ZIP archives start with the "PK\x03\x04" signature. */
+const ZIP_MAGIC = [0x50, 0x4b, 0x03, 0x04]
+
+/** True when `bytes` begins with the ZIP local-file-header magic. */
+function looksLikeZip(bytes: Uint8Array): boolean {
+  return ZIP_MAGIC.every((b, i) => bytes[i] === b)
+}
+
+/** Unzip a Roam `.zip` export and return the text of its single `.json` entry. */
+function extractJsonFromZip(bytes: Uint8Array): string {
+  const entries = unzipSync(bytes)
+  const jsonName = Object.keys(entries).find(
+    (n) => n.toLowerCase().endsWith('.json') && !n.startsWith('__MACOSX'),
+  )
+  if (!jsonName) throw new Error('no .json entry found inside the zip archive')
+  return strFromU8(entries[jsonName])
+}
 
 /**
  * Read the user-picked export and return the Roam JSON text.
  *
- * The RPC bridge's `host.fs.read_text` returns UTF-8 text, so `.json` exports
- * read directly. `.zip` exports would require a binary read the bridge does not
- * expose; we still detect a zip signature defensively and surface a clear error
- * (the dialog filter offers `.json` only in v2 — see bridge.dialogOpenJson).
+ * Roam's real "Export All (JSON)" downloads as a `.zip`; a manually-unzipped
+ * `.json` is also accepted. `.json` reads directly as UTF-8 text over
+ * `host.fs.read_text`; `.zip` (or any file whose bytes carry the ZIP magic)
+ * is fetched as raw bytes over `host.fs.read_bytes` and unzipped client-side
+ * with fflate (parity with the v1 importer).
  */
 export async function readRoamExport(path: string): Promise<string> {
+  if (path.toLowerCase().endsWith('.zip')) {
+    return extractJsonFromZip(await fsReadBytes(path))
+  }
+  // Non-.zip extension: read as text, but magic-sniff for a mislabelled zip so
+  // we still unzip it rather than feed a binary archive to JSON.parse.
   const text = await fsReadText(path)
-  if (path.toLowerCase().endsWith('.json')) return text
-  // Defensive: a picked .zip (or mislabelled file) arrives as text; a PK
-  // signature means it is a real archive we cannot unzip over the text bridge.
-  if (text.startsWith('PK')) {
-    // Best-effort: try to decode the text back to bytes and unzip. This only
-    // works when the file was UTF-8-clean, which real Roam zips are not — so it
-    // almost always throws, producing an actionable message.
-    try {
-      const bytes = new TextEncoder().encode(text)
-      const entries = unzipSync(bytes)
-      const jsonName = Object.keys(entries).find(
-        (n) => n.toLowerCase().endsWith('.json') && !n.startsWith('__MACOSX'),
-      )
-      if (jsonName) return strFromU8(entries[jsonName])
-    } catch {
-      /* fall through to the guidance error */
-    }
-    throw new Error('zip exports are not supported here — unzip and pick the .json')
+  const head = new TextEncoder().encode(text.slice(0, 4))
+  if (looksLikeZip(head)) {
+    return extractJsonFromZip(await fsReadBytes(path))
   }
   return text
 }

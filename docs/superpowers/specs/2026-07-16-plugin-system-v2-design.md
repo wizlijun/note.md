@@ -322,3 +322,9 @@ window.notemd = {
 - **①期启停边界**：v2 插件不出现在设置页插件列表（get_all_plugin_manifests 未合流）与 notemd plugin list/enable/disable/info、notemd help；启停唯一入口是 state.json + 重启；③期市场窗口接管。
 - **settings 通道递延**：adapter 透传 contributes.settings 会让设置页渲染 v2 设置 tab，但①期无 host.settings 通道、执行上下文不带 settings——v2 插件声明 settings 属②期功能；md2pdf v2 未声明。
 - **onCli/onFileType 触发器①期不生成**（plugin_v2_execute 一律 Trigger::Command；激活匹配仅 startup 生效）——④期使激活事件 load-bearing 时补齐。
+
+## 18. 实施记录（子项目②）
+
+- **桥安全边界（②已实现）**：plugin:// 资产穿越防护(decode→component ..校验→canonicalize→component-wise 包含)、Origin 服务端认证 RPC、能力 deny-by-default 全方法覆盖、vault 路径 canonicalize 包含校验、fs.read:dialog 按插件+精确路径授权、读写各 10MB 上限、CSP(default/script/style/img/connect + object/base/form/frame 全锁)、grant 随窗口关闭清理。flag off 时 handler 全 404。
+- **开放第三方前必做（②未做，非内部flag阻塞）**：① 安装/启用期能力消费同意 UI + 校验 capability 串白名单（③市场窗口承载）；② RPC 加 per-window nonce 防御纵深（多窗口/非 macOS webview 前）；③ vault.write 频率/磁盘配额与每请求线程数上限。
+- **roam-import .zip 支持经 host.fs.read_bytes(base64+fflate) 恢复**，与 v1 一致（④期退役 v1 无功能回退）。

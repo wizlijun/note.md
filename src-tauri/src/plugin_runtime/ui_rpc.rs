@@ -45,8 +45,37 @@ use plugin_protocol as proto;
 
 use super::host_api::{handle_common, method_capability, ToastEmitter};
 
-/// Read cap for `host.vault.read` / `host.fs.read_text` (10 MB).
+/// Read cap for `host.vault.read` / `host.fs.read_text` / `host.fs.read_bytes`
+/// (10 MB).
 const MAX_TEXT_BYTES: u64 = 10 * 1024 * 1024;
+
+/// Standard base64 alphabet (RFC 4648, `+`/`/`, `=` padding).
+const B64_ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+/// Standard base64 encode. Hand-rolled to avoid pulling `base64` in as a direct
+/// dependency — the codebase already hand-rolls the matching decode in lib.rs.
+fn base64_encode(input: &[u8]) -> String {
+    let mut out = String::with_capacity(input.len().div_ceil(3) * 4);
+    for chunk in input.chunks(3) {
+        let b0 = chunk[0] as u32;
+        let b1 = *chunk.get(1).unwrap_or(&0) as u32;
+        let b2 = *chunk.get(2).unwrap_or(&0) as u32;
+        let n = (b0 << 16) | (b1 << 8) | b2;
+        out.push(B64_ALPHABET[((n >> 18) & 0x3f) as usize] as char);
+        out.push(B64_ALPHABET[((n >> 12) & 0x3f) as usize] as char);
+        out.push(if chunk.len() > 1 {
+            B64_ALPHABET[((n >> 6) & 0x3f) as usize] as char
+        } else {
+            '='
+        });
+        out.push(if chunk.len() > 2 {
+            B64_ALPHABET[(n & 0x3f) as usize] as char
+        } else {
+            '='
+        });
+    }
+    out
+}
 
 /// Effective outline dir names when the vault-level settings leave them unset —
 /// mirrors `DEFAULT_DIRS` in `src/lib/outline/dirs.svelte.ts`.
@@ -217,6 +246,7 @@ pub async fn dispatch_with(
         "host.dialog.open" => dialog_open(services, plugin_id, &req.params),
         "host.dialog.save" => dialog_save(services, plugin_id, &req.params),
         "host.fs.read_text" => fs_read_text(plugin_id, &req.params),
+        "host.fs.read_bytes" => fs_read_bytes(plugin_id, &req.params),
         "host.clipboard.write" => clipboard_write(services, &req.params),
         "host.vault.info" => Ok(vault_info(services)),
         "host.vault.read" => vault_read(services, &req.params),
@@ -335,6 +365,22 @@ fn fs_read_text(plugin_id: &str, params: &serde_json::Value) -> Result<serde_jso
         return Err("not_granted: path not granted via dialog".into());
     }
     Ok(serde_json::json!({ "content": read_text_capped(&path)? }))
+}
+
+/// `{ path } → { base64 }` — raw bytes (base64-encoded) of a dialog-granted
+/// path, subject to the same 10 MB cap. Used for binary exports the UTF-8 text
+/// bridge cannot carry (e.g. Roam's `.zip` export, unzipped client-side).
+fn fs_read_bytes(plugin_id: &str, params: &serde_json::Value) -> Result<serde_json::Value, String> {
+    let path = PathBuf::from(req_str(params, "path")?);
+    if !is_granted(plugin_id, &path) {
+        return Err("not_granted: path not granted via dialog".into());
+    }
+    let meta = std::fs::metadata(&path).map_err(|e| format!("io: {e}"))?;
+    if meta.len() > MAX_TEXT_BYTES {
+        return Err(format!("too_large: file exceeds {MAX_TEXT_BYTES} bytes"));
+    }
+    let bytes = std::fs::read(&path).map_err(|e| format!("io: {e}"))?;
+    Ok(serde_json::json!({ "base64": base64_encode(&bytes) }))
 }
 
 /// `{ text } → { ok: true }`.
@@ -670,6 +716,7 @@ mod tests {
             ("host.vault.write", "vault.write"),
             ("host.vault.mkdir", "vault.write"),
             ("host.fs.read_text", "fs.read:dialog"),
+            ("host.fs.read_bytes", "fs.read:dialog"),
             ("host.clipboard.write", "clipboard.write"),
         ] {
             let r = run(&s, &[], method, serde_json::json!({})).await;
@@ -941,6 +988,62 @@ mod tests {
         let r = run_as(&s, "test.grant-thief", &["fs.read:dialog"], "host.fs.read_text", serde_json::json!({"path": f_str})).await;
         let e = r.error.unwrap();
         assert!(e.message.starts_with("not_granted:"), "{}", e.message);
+    }
+
+    // ── fs.read_bytes (base64) ───────────────────────────────────────────
+
+    #[test]
+    fn base64_encode_matches_known_vectors() {
+        assert_eq!(base64_encode(b""), "");
+        assert_eq!(base64_encode(b"f"), "Zg==");
+        assert_eq!(base64_encode(b"fo"), "Zm8=");
+        assert_eq!(base64_encode(b"foo"), "Zm9v");
+        assert_eq!(base64_encode(b"foob"), "Zm9vYg==");
+        assert_eq!(base64_encode(b"fooba"), "Zm9vYmE=");
+        assert_eq!(base64_encode(b"foobar"), "Zm9vYmFy");
+        // Bytes that exercise the +/ characters of the standard alphabet.
+        assert_eq!(base64_encode(&[0xff, 0xef, 0xff]), "/+//");
+    }
+
+    #[tokio::test]
+    async fn fs_read_bytes_denied_then_returns_base64_after_dialog() {
+        let pid = "test.read-bytes-flow"; // unique: global allow-set
+        let outside = tempfile::tempdir().unwrap();
+        let archive = outside.path().join("export.zip");
+        let raw: &[u8] = &[0x50, 0x4b, 0x03, 0x04, 0x00, 0xff, 0xef]; // PK + non-utf8
+        std::fs::write(&archive, raw).unwrap();
+        let archive_str = archive.to_string_lossy().to_string();
+
+        let s = StubServices { dialog_returns: vec![archive.clone()], ..Default::default() };
+
+        // Before any dialog: not granted.
+        let r = run_as(&s, pid, &["fs.read:dialog"], "host.fs.read_bytes", serde_json::json!({"path": archive_str})).await;
+        let e = r.error.unwrap();
+        assert!(e.message.starts_with("not_granted:"), "{}", e.message);
+
+        // dialog.open grants the path.
+        let _ = run_as(&s, pid, &["dialog"], "host.dialog.open", serde_json::json!({})).await;
+
+        // read_bytes returns the correct base64 of the raw bytes.
+        let r = run_as(&s, pid, &["fs.read:dialog"], "host.fs.read_bytes", serde_json::json!({"path": archive_str})).await;
+        assert_eq!(r.result.unwrap()["base64"], base64_encode(raw));
+    }
+
+    #[tokio::test]
+    async fn fs_read_bytes_over_10mb_is_too_large() {
+        let pid = "test.read-bytes-big"; // unique: global allow-set
+        let outside = tempfile::tempdir().unwrap();
+        let big = outside.path().join("big.bin");
+        std::fs::write(&big, vec![b'z'; (MAX_TEXT_BYTES + 1) as usize]).unwrap();
+        let big_str = big.to_string_lossy().to_string();
+
+        let s = StubServices { dialog_returns: vec![big.clone()], ..Default::default() };
+        let _ = run_as(&s, pid, &["dialog"], "host.dialog.open", serde_json::json!({})).await;
+
+        let r = run_as(&s, pid, &["fs.read:dialog"], "host.fs.read_bytes", serde_json::json!({"path": big_str})).await;
+        let e = r.error.unwrap();
+        assert_eq!(e.code, proto::ERR_INTERNAL);
+        assert!(e.message.starts_with("too_large:"), "{}", e.message);
     }
 
     // ── dialogs ──────────────────────────────────────────────────────────
