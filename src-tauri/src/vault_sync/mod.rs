@@ -1,5 +1,6 @@
 pub mod conflict;
 pub mod git_ops;
+pub mod large_files;
 pub mod log_buffer;
 pub mod service;
 pub mod watcher;
