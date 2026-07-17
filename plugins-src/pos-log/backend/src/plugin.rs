@@ -1,0 +1,213 @@
+//! SDK 粘合：activate 起 30 分钟循环 task；每轮 fetch（经主线程服务）→
+//! logbook 决策 → host.vault.exists/read/write。deactivate 撤销循环。
+use crate::location::FetchJob;
+use crate::logbook;
+use notemd_plugin_sdk::{self as sdk, plugin_protocol as proto};
+use serde_json::{json, Value};
+
+const ROUND_SECS: u64 = 30 * 60;
+
+pub struct PosLogPlugin {
+    fetch_tx: std::sync::mpsc::Sender<FetchJob>,
+    stop_tx: Option<tokio::sync::watch::Sender<bool>>,
+}
+
+impl PosLogPlugin {
+    pub fn new(fetch_tx: std::sync::mpsc::Sender<FetchJob>) -> Self {
+        Self { fetch_tx, stop_tx: None }
+    }
+}
+
+impl sdk::NotemdPlugin for PosLogPlugin {
+    fn activate(&mut self, host: &sdk::Host, _params: &proto::ActivateParams) -> Result<(), String> {
+        if self.stop_tx.is_some() {
+            return Ok(()); // 幂等：重复 $activate 不叠循环
+        }
+        let (stop_tx, mut stop_rx) = tokio::sync::watch::channel(false);
+        self.stop_tx = Some(stop_tx);
+        let host = host.clone();
+        let fetch_tx = self.fetch_tx.clone();
+        tokio::spawn(async move {
+            let mut warned_once = false;
+            loop {
+                run_round(&host, &fetch_tx, &mut warned_once).await;
+                tokio::select! {
+                    _ = tokio::time::sleep(std::time::Duration::from_secs(ROUND_SECS)) => {}
+                    _ = stop_rx.changed() => break,
+                }
+            }
+        });
+        Ok(())
+    }
+
+    fn deactivate(&mut self, _host: &sdk::Host) {
+        if let Some(tx) = self.stop_tx.take() {
+            let _ = tx.send(true);
+        }
+    }
+
+    fn execute_command(
+        &mut self,
+        _host: &sdk::Host,
+        params: &proto::ExecuteCommandParams,
+    ) -> Result<Value, String> {
+        Err(format!("pos-log has no commands (got {})", params.command))
+    }
+}
+
+/// 一轮：取位 → 组行 → 决策 → 写盘。所有失败仅告警跳过（spec §8 错误表）。
+async fn run_round(
+    host: &sdk::Host,
+    fetch_tx: &std::sync::mpsc::Sender<FetchJob>,
+    warned_once: &mut bool,
+) {
+    let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
+    if fetch_tx.send(FetchJob { reply: reply_tx }).is_err() {
+        host.log_warn("pos-log: location service gone");
+        return;
+    }
+    let place = match reply_rx.await {
+        Ok(Ok(p)) => p,
+        Ok(Err(e)) => {
+            if !*warned_once {
+                host.toast("warning", "Position Log 无法获取位置", Some(&e));
+                *warned_once = true;
+            }
+            host.log_warn(&format!("pos-log: fetch failed: {e}"));
+            return;
+        }
+        Err(_) => {
+            host.log_warn("pos-log: location service dropped reply");
+            return;
+        }
+    };
+    let addr = logbook::format_address(&place);
+    if addr.is_empty() {
+        host.log_warn("pos-log: empty geocode result, skipping round");
+        return;
+    }
+    let now = chrono::Local::now();
+    let path = logbook::file_rel_path(&now);
+    let line = logbook::format_line(&now, &addr);
+
+    let existing: Option<String> = match host
+        .request("host.vault.exists", json!({"path": path}))
+        .await
+    {
+        Ok(v) if v["exists"] == true => {
+            match host.request("host.vault.read", json!({"path": path})).await {
+                Ok(v) => v["content"].as_str().map(str::to_string),
+                Err(e) => {
+                    host.log_warn(&format!("pos-log: vault.read failed: {e}"));
+                    return;
+                }
+            }
+        }
+        Ok(_) => None,
+        Err(e) => {
+            // vault 未配置等；首次 toast，之后仅日志
+            if !*warned_once {
+                host.toast("warning", "Position Log 需要已配置的 vault", Some(&e));
+                *warned_once = true;
+            }
+            host.log_warn(&format!("pos-log: vault.exists failed: {e}"));
+            return;
+        }
+    };
+    let Some(new_content) = logbook::decide(existing.as_deref(), &line, &addr) else {
+        return; // 地址未变化
+    };
+    if let Err(e) = host
+        .request("host.vault.write", json!({"path": path, "content": new_content}))
+        .await
+    {
+        host.log_error(&format!("pos-log: vault.write failed: {e}"));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::location::{service_loop, LocationProvider};
+    use crate::logbook::Place;
+    use notemd_plugin_sdk as sdk;
+    use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+
+    struct FakeProvider;
+    impl LocationProvider for FakeProvider {
+        fn fetch(&mut self) -> Result<Place, String> {
+            Ok(Place {
+                country: "中国".into(),
+                province: "湖北".into(),
+                city: "武汉".into(),
+                poi: "光谷软件园".into(),
+            })
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn first_round_writes_baseline_line() {
+        // 假主线程服务
+        let (fetch_tx, fetch_rx) = std::sync::mpsc::channel::<FetchJob>();
+        std::thread::spawn(move || service_loop(fetch_rx, &mut FakeProvider));
+
+        // 假宿主管道
+        let (host_side, plugin_side) = tokio::io::duplex(64 * 1024);
+        let (plug_r, plug_w) = tokio::io::split(plugin_side);
+        tokio::spawn(sdk::serve_io(PosLogPlugin::new(fetch_tx), plug_r, plug_w));
+
+        let (host_r, mut host_w) = tokio::io::split(host_side);
+        let mut lines = BufReader::new(host_r).lines();
+
+        // $initialize + $activate（参数形状照 plugin_protocol，deny_unknown_fields）
+        host_w.write_all(br#"{"jsonrpc":"2.0","id":1,"method":"$initialize","params":{"protocol_version":2,"host_version":"6.717.1","locale":"en","theme":"light","plugin_root":"/tmp/plugin","data_dir":"/tmp/data"}}"#).await.unwrap();
+        host_w.write_all(b"\n").await.unwrap();
+        host_w
+            .write_all(br#"{"jsonrpc":"2.0","id":2,"method":"$activate","params":{"event":"onStartupFinished"}}"#)
+            .await
+            .unwrap();
+        host_w.write_all(b"\n").await.unwrap();
+
+        // 读到 host.vault.exists → 回 false；随后必须读到 host.vault.write
+        let mut wrote: Option<serde_json::Value> = None;
+        let deadline = tokio::time::Instant::now() + tokio::time::Duration::from_secs(10);
+        while wrote.is_none() {
+            let line = tokio::time::timeout_at(deadline, lines.next_line())
+                .await
+                .expect("timed out waiting for vault.write")
+                .unwrap()
+                .expect("pipe closed");
+            let v: serde_json::Value = match serde_json::from_str(&line) {
+                Ok(v) => v,
+                Err(_) => continue,
+            };
+            match v["method"].as_str() {
+                Some("host.vault.exists") => {
+                    let id = v["id"].as_u64().unwrap();
+                    let resp = format!(r#"{{"jsonrpc":"2.0","id":{id},"result":{{"exists":false}}}}"#);
+                    host_w.write_all(resp.as_bytes()).await.unwrap();
+                    host_w.write_all(b"\n").await.unwrap();
+                }
+                Some("host.vault.write") => {
+                    wrote = Some(v);
+                }
+                _ => {} // $initialize/$activate 应答、日志通知——忽略
+            }
+        }
+        let w = wrote.unwrap();
+        let path = w["params"]["path"].as_str().unwrap();
+        let content = w["params"]["content"].as_str().unwrap();
+        assert!(path.starts_with("pos/") && path.ends_with("-pos.md"), "path: {path}");
+        assert!(content.starts_with("- "), "content: {content}");
+        assert!(
+            content.trim_end().ends_with("中国-湖北-武汉 光谷软件园"),
+            "content: {content}"
+        );
+        assert!(content.ends_with('\n'));
+        // 回 ok，避免插件侧悬挂
+        let id = w["id"].as_u64().unwrap();
+        let resp = format!(r#"{{"jsonrpc":"2.0","id":{id},"result":{{"ok":true}}}}"#);
+        host_w.write_all(resp.as_bytes()).await.unwrap();
+        host_w.write_all(b"\n").await.unwrap();
+    }
+}
