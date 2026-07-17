@@ -200,6 +200,17 @@ fn quit_app(app: tauri::AppHandle) {
     app.exit(0);
 }
 
+/// Whether an `ExitRequested` with this code should be prevented (i.e. the app
+/// stays alive in the menu-bar tray). Per Tauri, `code` is `None` for a
+/// user-interaction exit (e.g. the last window closing) and `Some` for a
+/// programmatic quit via `app.exit()` / `restart()`. We keep running only for
+/// the former; explicit quits — the tray "Quit" item and the `quit_app` command,
+/// both `app.exit(0)` (`code == Some`) — must actually exit.
+#[cfg(not(target_os = "ios"))]
+fn should_prevent_exit(code: Option<i32>) -> bool {
+    code.is_none()
+}
+
 /// Set the enabled state of a plugin-contributed menu item by id.
 /// IDs follow the `plugin:<plugin-id>:<command>` convention.
 /// Walks the entire menu tree (top-level + submenus) so it finds items
@@ -1160,8 +1171,13 @@ pub fn run() {
                     _ => {}
                 }
             }
-            RunEvent::ExitRequested { api, .. } => {
-                api.prevent_exit();
+            RunEvent::ExitRequested { code, api, .. } => {
+                // Closing the window (user interaction, code None) hides to the
+                // tray and keeps the app running; an explicit quit (tray "Quit" /
+                // quit_app → app.exit(0), code Some) must proceed.
+                if should_prevent_exit(code) {
+                    api.prevent_exit();
+                }
             }
             RunEvent::Exit => dlog("RunEvent::Exit"),
             _ => {}
@@ -1654,4 +1670,22 @@ fn build_menu<R: tauri::Runtime>(
     if let Some(pm) = &plugins_menu { top = top.item(pm); }
     let menu = top.items(&[&window_menu, &help_menu]).build()?;
     Ok((menu, recent_menu))
+}
+
+#[cfg(all(test, not(target_os = "ios")))]
+mod exit_tests {
+    use super::should_prevent_exit;
+
+    #[test]
+    fn explicit_quit_is_not_prevented() {
+        // Tray "Quit" and the quit_app command both call app.exit(0) → code Some.
+        assert!(!should_prevent_exit(Some(0)));
+        assert!(!should_prevent_exit(Some(1)));
+    }
+
+    #[test]
+    fn window_close_keeps_app_in_tray() {
+        // User-interaction exit (last window closing) → code None → stay alive.
+        assert!(should_prevent_exit(None));
+    }
 }
