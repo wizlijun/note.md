@@ -39,7 +39,7 @@
   import { initActivePluginIds } from './lib/plugins/registry'
   import { getPluginScopedAll, pluginScopedVersion } from './lib/settings.svelte'
   import { pushToast } from './lib/toast.svelte'
-  import type { PluginManifest, EnabledWhenContext } from './lib/plugins/types'
+  import type { PluginManifest, EnabledWhenContext, ToastLevel } from './lib/plugins/types'
   import { uiState, openSettings } from './lib/ui-state.svelte'
   import MobileToolbar from './components/MobileToolbar.svelte'
   import DrawerNav from './components/DrawerNav.svelte'
@@ -172,6 +172,12 @@
         pushToast({ level: 'error', message: String(e) })
       }
     })
+
+    // v2 plugin → frontend toast bridge (host_api.rs emits "plugin-toast").
+    const unlistenPluginToast = listen<{ level: ToastLevel; message: string; detail?: string }>(
+      'plugin-toast',
+      (e) => { pushToast(e.payload) },
+    )
 
     invoke<string[]>('drain_pending_files').then(async (paths) => {
       for (const p of paths) {
@@ -590,6 +596,7 @@
       unlistenOpenPath.then((fn) => fn())
       unlistenOpenRemoteBuffer.then((fn) => fn())
       unlistenTodayNote.then((fn) => fn())
+      unlistenPluginToast.then((fn) => fn())
       unlistenDeepLink.then((fn) => fn())
       cleanupRecents?.()
       setVaultRootChangedHandler(null)

@@ -3,8 +3,10 @@
 //! on process death, stderr logging, graceful shutdown — and for
 //! plugin_runtime::lifecycle (Task 6): crash backoff circuit breaker, idle
 //! shutdown + lazy re-activation, deactivate-is-not-a-crash, startup
-//! activation.
+//! activation — and for plugin_runtime::host_api (Task 7): capability-gated
+//! `host.toast` dispatched through `make_sink` wired into a real process.
 
+use mdeditor_lib::plugin_runtime::host_api::make_sink;
 use mdeditor_lib::plugin_runtime::lifecycle::{
     startup_activation, PhaseKind, PluginLifecycle, SpawnCtx, Trigger,
 };
@@ -403,4 +405,62 @@ async fn startup_activation_activates_only_matching_plugins() {
         "onCommand-only plugin must stay inactive"
     );
     on_startup.deactivate().await;
+}
+
+// ═══ Task 7: host_api — make_sink wired through a real process ═══
+
+/// Build a `ToastEmitter` that records every payload it sees.
+fn recording_toast_emitter()
+-> (mdeditor_lib::plugin_runtime::host_api::ToastEmitter, Arc<Mutex<Vec<serde_json::Value>>>)
+{
+    let seen: Arc<Mutex<Vec<serde_json::Value>>> = Arc::new(Mutex::new(Vec::new()));
+    let seen_in = seen.clone();
+    let emitter = Arc::new(move |v: serde_json::Value| {
+        seen_in.lock().unwrap().push(v);
+    });
+    (emitter, seen)
+}
+
+// ── Task 7 integration: make_sink(capability=["toast"]) + ok.sh ──────────────
+//
+// Wires a real `make_sink` (with recording emitter, capability ["toast"])
+// through `PluginProcess::spawn` running ok.sh.  After a `command.execute`
+// the sink should have received a toast notification whose payload contains
+// `plugin_id`, `level`, and `message` fields.
+
+#[tokio::test]
+async fn host_api_make_sink_dispatches_toast_through_real_process() {
+    let log_dir = tempfile::tempdir().unwrap();
+    let (emitter, emitted) = recording_toast_emitter();
+
+    // Build a real capability-gated sink for plugin id "test.ok" with "toast" cap.
+    let sink: HostSink = make_sink(
+        "test.ok".into(),
+        vec!["toast".into()],
+        log_dir.path().to_path_buf(),
+        emitter,
+    );
+
+    let proc = PluginProcess::spawn(&fixture("ok.sh"), "test.ok", log_dir.path(), 5, sink)
+        .await
+        .unwrap();
+    initialize_and_activate(&proc, &init_params(log_dir.path()), "onStartupFinished")
+        .await
+        .unwrap();
+
+    // ok.sh emits a host.toast notification before its execute response.
+    let out = proc
+        .request("command.execute", json!({ "command": "noop", "context": {} }))
+        .await
+        .unwrap();
+    assert_eq!(out, json!({ "echo": true }));
+
+    // The make_sink should have fired the emitter with the toast payload.
+    let payloads = emitted.lock().unwrap();
+    assert_eq!(payloads.len(), 1, "expected exactly one emitted toast");
+    assert_eq!(payloads[0]["plugin_id"], "test.ok");
+    assert_eq!(payloads[0]["level"], "success");
+    assert_eq!(payloads[0]["message"], "hi");
+
+    assert!(proc.shutdown().await, "expected graceful shutdown");
 }
