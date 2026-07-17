@@ -1,32 +1,76 @@
 #!/usr/bin/env bash
-# Dev-install the md2pdf v2 plugin into the local app-data plugins root.
-# Builds for the CURRENT architecture only (fast dev loop); use
-# scripts/build-md2pdf-v2.sh for the dual-arch release binaries.
-# Usage: scripts/dev-install-plugin.sh [--release]
+# Dev-install a v2 plugin into the local app-data plugins root.
+#
+# Usage: scripts/dev-install-plugin.sh [--release] [md2pdf|roam-import]
+#   default plugin = md2pdf (preserves the original behavior).
+#   --release      = build the native plugin binary in release mode (md2pdf only;
+#                    ignored for the pure-UI roam-import plugin).
+#
+# md2pdf      → builds the CURRENT-arch native binary (fast dev loop; use
+#               scripts/build-md2pdf-v2.sh for dual-arch release binaries) and
+#               installs bin/ + manifest.
+# roam-import → builds the standalone Vite UI bundle (plugins-src/roam-import →
+#               dist/) and installs it as ui/ + manifest (no binary: pure UI).
 set -euo pipefail
 cd "$(dirname "$0")/.."
-PROFILE=debug; [[ "${1:-}" == "--release" ]] && PROFILE=release
-( cd md2pdf && cargo build $([ "$PROFILE" = release ] && echo --release) --bins )
-VERSION=$(node -e "console.log(require('./md2pdf/manifest.v2.json').version)")
+
+PROFILE=debug
+PLUGIN=md2pdf
+for arg in "$@"; do
+  case "$arg" in
+    --release) PROFILE=release ;;
+    md2pdf|roam-import) PLUGIN="$arg" ;;
+    *) echo "unknown arg: $arg (expected --release | md2pdf | roam-import)" >&2; exit 2 ;;
+  esac
+done
+
 ROOT="$HOME/Library/Application Support/net.notemd.app/plugins"
-DEST="$ROOT/notemd.md2pdf/$VERSION"
-mkdir -p "$DEST/bin"
-cp md2pdf/target/$PROFILE/md2pdf "$DEST/bin/"
-cp md2pdf/target/$PROFILE/md2pdf-v2 "$DEST/bin/"
-cp md2pdf/manifest.v2.json "$DEST/manifest.json"
-ln -sfn "$VERSION" "$ROOT/notemd.md2pdf/current"
-node -e "
+
+# Update state.json: mark <id>@<version> installed + enabled.
+mark_installed() {
+  local id="$1" version="$2"
+  node -e "
 const fs=require('fs');const p='$ROOT/state.json';
 const s=fs.existsSync(p)?JSON.parse(fs.readFileSync(p,'utf8')):{installed:{}};
-s.installed['notemd.md2pdf']={version:'$VERSION',enabled:true};
+s.installed['$id']={version:'$version',enabled:true};
 fs.writeFileSync(p,JSON.stringify(s,null,2)+'\n');
 "
-echo "✓ installed notemd.md2pdf@$VERSION ($PROFILE, $(uname -m)) → $DEST"
-echo "  enable the v2 runtime:  \"plugins_v2.enabled\": true in settings.json, or NOTEMD_PLUGINS_V2=1"
-echo "  disable the v1 plugin:  \"plugins.enabled.md2pdf\": false in settings.json (avoids double File-menu entries)"
+}
+
+if [[ "$PLUGIN" == "md2pdf" ]]; then
+  ( cd md2pdf && cargo build $([ "$PROFILE" = release ] && echo --release) --bins )
+  VERSION=$(node -e "console.log(require('./md2pdf/manifest.v2.json').version)")
+  DEST="$ROOT/notemd.md2pdf/$VERSION"
+  mkdir -p "$DEST/bin"
+  cp md2pdf/target/$PROFILE/md2pdf "$DEST/bin/"
+  cp md2pdf/target/$PROFILE/md2pdf-v2 "$DEST/bin/"
+  cp md2pdf/manifest.v2.json "$DEST/manifest.json"
+  ln -sfn "$VERSION" "$ROOT/notemd.md2pdf/current"
+  mark_installed "notemd.md2pdf" "$VERSION"
+  echo "✓ installed notemd.md2pdf@$VERSION ($PROFILE, $(uname -m)) → $DEST"
+  echo "  enable the v2 runtime:  \"plugins_v2.enabled\": true in settings.json, or NOTEMD_PLUGINS_V2=1"
+  echo "  disable the v1 plugin:  \"plugins.enabled.md2pdf\": false in settings.json (avoids double File-menu entries)"
+
+elif [[ "$PLUGIN" == "roam-import" ]]; then
+  SRC="plugins-src/roam-import"
+  # Build the standalone UI bundle (dist/). pnpm --filter targets the workspace
+  # member by its package.json name.
+  pnpm --filter roam-import-plugin build
+  VERSION=$(node -e "console.log(require('./$SRC/manifest.v2.json').version)")
+  DEST="$ROOT/notemd.roam-import/$VERSION"
+  rm -rf "$DEST"
+  mkdir -p "$DEST/ui"
+  cp -R "$SRC/dist/." "$DEST/ui/"
+  cp "$SRC/manifest.v2.json" "$DEST/manifest.json"
+  ln -sfn "$VERSION" "$ROOT/notemd.roam-import/current"
+  mark_installed "notemd.roam-import" "$VERSION"
+  echo "✓ installed notemd.roam-import@$VERSION (ui-only) → $DEST"
+  echo "  enable the v2 runtime:  \"plugins_v2.enabled\": true in settings.json, or NOTEMD_PLUGINS_V2=1"
+  echo "  disable the v1 plugin:  \"plugins.enabled.roam-import\": false in settings.json (avoids double File▸Import entries)"
+fi
 
 # ---------------------------------------------------------------------------
-# Manual E2E walkthrough (plugin-runtime-v2 plan, Task 12 Step 3):
+# Manual E2E walkthrough — md2pdf (plugin-runtime-v2 plan, Task 12 Step 3):
 #   1. scripts/dev-install-plugin.sh
 #   2. NOTEMD_PLUGINS_V2=1 pnpm tauri dev
 #   3. File menu shows "Export to PDF (v2)…" → export an .md tab → PDF
@@ -36,4 +80,19 @@ echo "  disable the v1 plugin:  \"plugins.enabled.md2pdf\": false in settings.js
 #   6. Wait 120 s idle (idle_shutdown_seconds) → process exits; export once
 #      more → lazy re-activation works.
 # Automated fallback coverage lives in the Task 5/6/11 integration tests.
+# ---------------------------------------------------------------------------
+# Manual E2E walkthrough — roam-import (plugin-ui-mechanism plan ②, Task 6):
+#   1. scripts/dev-install-plugin.sh roam-import
+#   2. NOTEMD_PLUGINS_V2=1 pnpm tauri dev  (with a Vault configured)
+#   3. File ▸ Import ▸ "Roam Research (v2)" appears → click it.
+#   4. A "Import from Roam Research" plugin window opens (plugin:// bridge).
+#   5. Click the picker → choose a Roam .json export → import runs; progress
+#      bar advances, then a success toast + summary banner (wiki/daily/skipped).
+#   6. Files land in the vault: <vault>/<wikiDir>/*.note.md,
+#      <vault>/<dailyDir>/<yyyy>/<yyyy-MM-dd>.note.md, and the incremental
+#      manifest at <vault>/.notemd/roam-import.json.
+#   7. Spot-diff a page against the v1 output (File ▸ Import ▸ "Roam Research")
+#      run over the SAME export into a scratch vault: the .note.md text should
+#      be byte-identical (same parse/plan/convert core; only the IO layer moved
+#      to host RPC). Re-run the v2 import → unchanged pages report as skipped.
 # ---------------------------------------------------------------------------
