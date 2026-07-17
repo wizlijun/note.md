@@ -10,7 +10,9 @@ use std::path::{Path, PathBuf};
 use super::state;
 
 /// Map the compile-time host arch to the manifest `binary` key (target triple).
-fn current_arch_triple() -> Option<&'static str> {
+/// Shared with commands.rs so SpawnCtx resolves the exact binary discovery
+/// validated at scan time.
+pub(crate) fn current_arch_triple() -> Option<&'static str> {
     match std::env::consts::ARCH {
         "aarch64" => Some("aarch64-apple-darwin"),
         "x86_64" => Some("x86_64-apple-darwin"),

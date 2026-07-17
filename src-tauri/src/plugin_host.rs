@@ -68,6 +68,11 @@ pub struct PluginManifest {
     pub timeout_seconds: u64,
     #[serde(default)]
     pub cli: Vec<CliEntry>,
+    /// `Some(2)` when this manifest was adapted from a v2 manifest
+    /// (`plugin_runtime::adapter`) — the frontend must route execution through
+    /// `plugin_v2_execute`. `None` for genuine v1 manifests.
+    #[serde(default)]
+    pub manifest_version: Option<u32>,
 }
 
 fn default_timeout() -> u64 { 30 }
@@ -275,7 +280,12 @@ pub fn init<R: Runtime>(app: &AppHandle<R>) {
 
 #[tauri::command]
 pub fn get_plugin_manifests() -> Vec<PluginManifest> {
-    STATE.read().unwrap().enabled.values().map(|(m, _)| m.clone()).collect()
+    let mut out: Vec<PluginManifest> =
+        STATE.read().unwrap().enabled.values().map(|(m, _)| m.clone()).collect();
+    // v2 runtime plugins ride along in v1 shape (marked manifest_version: 2).
+    // The list is empty whenever the plugins_v2 flag is off.
+    out.extend(crate::plugin_runtime::adapter::adapted_v2_manifests());
+    out
 }
 
 /// Returns *every* manifest discovered on disk, including disabled ones.
@@ -402,6 +412,13 @@ pub async fn run_plugin_binary(
 
 #[tauri::command]
 pub async fn invoke_plugin(plugin_id: String, request_json: String) -> Result<InvokeResult, String> {
+    // v2 ids are `publisher.name`; v1 ids never contain '.'. Reject early so a
+    // v2 manifest merged into the v1 list can't run down the one-shot path.
+    if plugin_id.contains('.') {
+        return Err(format!(
+            "'{plugin_id}' is a v2 plugin — invoke it via plugin_v2_execute"
+        ));
+    }
     let (manifest, plugin_dir) = {
         let st = STATE.read().unwrap();
         match st.enabled.get(&plugin_id) {
@@ -465,11 +482,15 @@ pub struct LocatedMenuItem {
 
 /// Returns menu entries flattened across all loaded plugins, with ids encoded
 /// as `plugin:<id>:<command>`. Menu labels are resolved for `locale` (falling
-/// back to the manifest's English label per missing key).
+/// back to the manifest's English label per missing key). v2 plugins join the
+/// same loop in adapted v1 shape, so per-locale i18n resolution applies to
+/// them identically (their i18n block is passed through by the adapter).
 pub fn collect_top_menu_items(locale: &str) -> Vec<LocatedMenuItem> {
-    let st = STATE.read().unwrap();
+    let mut manifests: Vec<PluginManifest> =
+        STATE.read().unwrap().enabled.values().map(|(m, _)| m.clone()).collect();
+    manifests.extend(crate::plugin_runtime::adapter::adapted_v2_manifests());
     let mut out = Vec::new();
-    for (_, (m, _)) in st.enabled.iter() {
+    for m in manifests.iter() {
         for me in m.menus.iter() {
             let label = m
                 .i18n
@@ -703,7 +724,7 @@ mod cli_helpers_tests {
             description: None, kind: PluginKind::External, binary: Some("bin".into()),
             default_enabled: None, menus: vec![], context_menus: vec![],
             settings: None, host_capabilities: vec![], timeout_seconds: 30,
-            i18n: HashMap::new(), cli: vec![],
+            i18n: HashMap::new(), cli: vec![], manifest_version: None,
         };
         assert_eq!(resolve_enabled(&manifest, &enabled_map), true);
     }
@@ -716,7 +737,7 @@ mod cli_helpers_tests {
             description: None, kind: PluginKind::Builtin, binary: None,
             default_enabled: Some(false), menus: vec![], context_menus: vec![],
             settings: None, host_capabilities: vec![], timeout_seconds: 30,
-            i18n: HashMap::new(), cli: vec![],
+            i18n: HashMap::new(), cli: vec![], manifest_version: None,
         };
         assert_eq!(resolve_enabled(&manifest, &enabled_map), false);
     }
@@ -725,6 +746,17 @@ mod cli_helpers_tests {
     fn is_plugin_enabled_returns_false_for_unknown_id() {
         // STATE is a global, but tests here run after init returns empty STATE.
         assert_eq!(is_plugin_enabled("never-existed-plugin"), false);
+    }
+
+    #[tokio::test]
+    async fn invoke_plugin_rejects_v2_dotted_ids() {
+        // v2 ids are always `publisher.name` — the one-shot v1 path must
+        // refuse them before any manifest lookup.
+        let err = invoke_plugin("notemd.md2pdf".into(), "{}".into())
+            .await
+            .expect_err("dotted id must be rejected");
+        assert!(err.contains("plugin_v2_execute"), "err: {err}");
+        assert!(err.contains("notemd.md2pdf"), "err: {err}");
     }
 
     #[test]
@@ -736,7 +768,7 @@ mod cli_helpers_tests {
             description: None, kind: PluginKind::Builtin, binary: None,
             default_enabled: Some(false), menus: vec![], context_menus: vec![],
             settings: None, host_capabilities: vec![], timeout_seconds: 30,
-            i18n: HashMap::new(), cli: vec![],
+            i18n: HashMap::new(), cli: vec![], manifest_version: None,
         };
         assert_eq!(resolve_enabled(&manifest, &enabled_map), true);
     }

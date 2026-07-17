@@ -2,6 +2,8 @@
 //! all first-batch plugins migrate (子项目④). Everything is gated behind
 //! `plugins_v2.enabled` in settings.json or NOTEMD_PLUGINS_V2=1.
 
+pub mod adapter;
+pub mod commands;
 pub mod discovery;
 pub mod host_api;
 pub mod lifecycle;
@@ -44,17 +46,20 @@ pub fn v2_flag_enabled<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> bool {
 /// setup 阶段调用（plugin_host::init 之后）。flag 关 ⇒ 空 STATE，零成本。
 pub fn init<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
     let flag = v2_flag_enabled(app);
-    let mut st = STATE.write().unwrap();
-    st.enabled_flag = flag;
-    if !flag {
-        return;
-    }
-    let host_version = app.package_info().version.to_string();
-    match discovery::scan(app, &host_version) {
-        Ok(map) => st.plugins = map,
-        Err(e) => eprintln!("[plugin_runtime] scan failed: {e}"),
-    }
-    eprintln!("[plugin_runtime] v2 enabled, {} plugin(s)", st.plugins.len());
+    {
+        let mut st = STATE.write().unwrap();
+        st.enabled_flag = flag;
+        if !flag {
+            return;
+        }
+        let host_version = app.package_info().version.to_string();
+        match discovery::scan(app, &host_version) {
+            Ok(map) => st.plugins = map,
+            Err(e) => eprintln!("[plugin_runtime] scan failed: {e}"),
+        }
+        eprintln!("[plugin_runtime] v2 enabled, {} plugin(s)", st.plugins.len());
+    } // release the STATE write lock before registration re-reads it
+    commands::startup_activate_all(app);
 }
 
 #[cfg(test)]

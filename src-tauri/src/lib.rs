@@ -853,6 +853,8 @@ pub fn run() {
                 plugin_host::get_all_plugin_manifests,
                 plugin_host::plugin_is_enabled,
                 plugin_host::invoke_plugin,
+                plugin_runtime::commands::get_plugin_manifests_v2,
+                plugin_runtime::commands::plugin_v2_execute,
                 cli::state::cli_payload,
                 cli::state::cli_finish,
                 cli::install::cli_install_status,
@@ -1328,7 +1330,8 @@ fn menu_label(locale: &str, key: &str) -> String {
 /// Best-effort read of the persisted UI locale from the store file so the
 /// native menu can be built in the right language at startup. Falls back to
 /// English if the file is missing/unreadable or the value is unknown.
-fn read_saved_locale<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> String {
+/// pub(crate): plugin_runtime::commands reuses it for v2 InitializeParams.
+pub(crate) fn read_saved_locale<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> String {
     use tauri::Manager;
     let path = match app.path().app_config_dir() {
         Ok(dir) => dir.join("settings.json"),

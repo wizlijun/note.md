@@ -96,6 +96,9 @@ export interface PluginManifest {
    *  When present and false, the plugin is not selectable in settings. */
   available_when?: string
   cli?: CliEntry[]              // new, optional
+  /** `2` when this manifest comes from the v2 runtime (adapter-shaped);
+   *  execution must go through `plugin_v2_execute`, not `invoke_plugin`. */
+  manifest_version?: number
 }
 
 export interface RequestContextTab {

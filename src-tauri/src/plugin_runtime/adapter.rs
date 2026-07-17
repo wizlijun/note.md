@@ -1,0 +1,158 @@
+//! Transitional adapter: expose v2 manifests through the v1 `PluginManifest`
+//! shape so ALL existing menu/CLI/settings collection machinery works
+//! unchanged. The frontend distinguishes v2 via `manifest_version: Some(2)`.
+
+use crate::plugin_host::PluginManifest;
+
+pub fn to_v1(m: &plugin_protocol::ManifestV2) -> PluginManifest {
+    // 经 serde_json 转换：v1 PluginManifest 派生 Deserialize，未知字段忽略。
+    let mut v = serde_json::json!({
+        "id": m.id, "name": m.name, "version": m.version,
+        "kind": "external", "binary": "",
+        "host_capabilities": m.capabilities,
+        "menus": m.contributes.menus,
+        "context_menus": m.contributes.context_menus,
+        "cli": m.contributes.cli,
+        "manifest_version": 2,
+    });
+    if let Some(d) = &m.description { v["description"] = serde_json::json!(d); }
+    if let Some(s) = &m.contributes.settings { v["settings"] = s.clone(); }
+    if let Some(i) = &m.i18n { v["i18n"] = i.clone(); }
+    serde_json::from_value(v).expect("v1 manifest shape")
+}
+
+/// Every discovered v2 plugin in v1 shape. Empty when the flag is off (STATE
+/// is never populated then), so v1 callers can merge unconditionally.
+pub fn adapted_v2_manifests() -> Vec<PluginManifest> {
+    super::STATE
+        .read()
+        .unwrap()
+        .plugins
+        .values()
+        .map(|(m, _)| to_v1(m))
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::plugin_host::PluginKind;
+
+    /// Full-featured sample in the md2pdf shape (plan Task 11 Step 3) plus
+    /// context_menus / settings / i18n to exercise every passthrough.
+    fn sample() -> plugin_protocol::ManifestV2 {
+        serde_json::from_value(serde_json::json!({
+            "manifest_version": 2,
+            "id": "notemd.md2pdf",
+            "name": "Export to PDF",
+            "version": "1.0.0",
+            "kind": "native",
+            "engines": { "notemd": ">=6.716.7" },
+            "description": "Export the current tab to PDF",
+            "binary": { "aarch64-apple-darwin": "bin/md2pdf-v2", "x86_64-apple-darwin": "bin/md2pdf-v2" },
+            "activation": { "events": ["onCommand:export", "onCli:pdf"] },
+            "contributes": {
+                "menus": [{ "location": "file", "label": "Export to PDF (v2)…", "command": "export",
+                            "enabled_when": "currentTab.kind == 'markdown'",
+                            "prompt": { "kind": "save-dialog", "default_filename": "{stem}.pdf",
+                                        "filters": [{ "name": "PDF", "extensions": ["pdf"] }] } }],
+                "context_menus": [{ "location": "tab", "label": "Export tab…", "command": "export" }],
+                "settings": { "tab_label": "PDF Export",
+                              "schema": [{ "key": "paper", "type": "select", "label": "Paper",
+                                            "options": ["A4"], "default": "A4" }] },
+                "cli": [{ "subcommand": "pdf2", "command": "export",
+                          "summary": "Export Markdown or HTML file to PDF (v2 runtime)",
+                          "args": [{ "name": "file", "type": "path", "required": true, "help": "File to export" }],
+                          "flags": [{ "long": "--output", "short": "-o", "type": "string", "help": "Output PDF path" }],
+                          "requires_tab_context": true }]
+            },
+            "capabilities": ["renderer.html", "toast"],
+            "i18n": { "zh": { "menus": { "export": "导出 PDF（v2）…" } } },
+            "request_timeout_seconds": 60,
+            "idle_shutdown_seconds": 120
+        }))
+        .unwrap()
+    }
+
+    #[test]
+    fn maps_core_fields_marks_v2_and_external_with_empty_binary() {
+        let v1 = to_v1(&sample());
+        assert_eq!(v1.id, "notemd.md2pdf");
+        assert_eq!(v1.name, "Export to PDF");
+        assert_eq!(v1.version, "1.0.0");
+        assert_eq!(v1.manifest_version, Some(2));
+        assert_eq!(v1.kind, PluginKind::External);
+        assert_eq!(v1.binary.as_deref(), Some(""));
+        assert_eq!(v1.description.as_deref(), Some("Export the current tab to PDF"));
+        // capabilities → host_capabilities, order preserved.
+        assert_eq!(v1.host_capabilities, vec!["renderer.html".to_string(), "toast".to_string()]);
+    }
+
+    #[test]
+    fn passes_menus_context_menus_cli_settings_i18n_through() {
+        let v1 = to_v1(&sample());
+
+        assert_eq!(v1.menus.len(), 1);
+        let me = &v1.menus[0];
+        assert_eq!(me.location, "file");
+        assert_eq!(me.command, "export");
+        assert_eq!(me.label, "Export to PDF (v2)…");
+        assert_eq!(me.enabled_when.as_deref(), Some("currentTab.kind == 'markdown'"));
+        let prompt = me.prompt.as_ref().expect("prompt passthrough");
+        assert_eq!(prompt.kind, "save-dialog");
+        assert_eq!(prompt.default_filename, "{stem}.pdf");
+        assert_eq!(prompt.filters[0].name, "PDF");
+        assert_eq!(prompt.filters[0].extensions, vec!["pdf"]);
+
+        assert_eq!(v1.context_menus.len(), 1);
+        assert_eq!(v1.context_menus[0].location, "tab");
+        assert_eq!(v1.context_menus[0].command, "export");
+
+        assert_eq!(v1.cli.len(), 1);
+        let cli = &v1.cli[0];
+        assert_eq!(cli.subcommand, "pdf2");
+        assert_eq!(cli.command, "export");
+        assert!(cli.requires_tab_context);
+        assert_eq!(cli.args[0].name, "file");
+        assert_eq!(cli.args[0].ty, "path");
+        assert!(cli.args[0].required);
+        assert_eq!(cli.flags[0].long, "--output");
+        assert_eq!(cli.flags[0].short.as_deref(), Some("-o"));
+
+        let settings = v1.settings.as_ref().expect("settings passthrough");
+        assert_eq!(settings.tab_label, "PDF Export");
+        assert_eq!(settings.schema.len(), 1);
+        assert_eq!(settings.schema[0]["key"], "paper");
+
+        // i18n rides through in the exact v1 PluginI18n shape, so the existing
+        // per-locale menu label resolution works on adapted manifests.
+        let zh = v1.i18n.get("zh").expect("zh i18n passthrough");
+        assert_eq!(zh.menus.get("export").map(String::as_str), Some("导出 PDF（v2）…"));
+    }
+
+    #[test]
+    fn minimal_manifest_gets_v1_defaults() {
+        let m: plugin_protocol::ManifestV2 = serde_json::from_value(serde_json::json!({
+            "manifest_version": 2,
+            "id": "pub.min",
+            "name": "Min",
+            "version": "0.1.0",
+            "kind": "native",
+            "engines": { "notemd": ">=0.0.0" },
+            "activation": { "events": ["*"] },
+            "capabilities": []
+        }))
+        .unwrap();
+        let v1 = to_v1(&m);
+        assert_eq!(v1.manifest_version, Some(2));
+        assert_eq!(v1.kind, PluginKind::External);
+        assert!(v1.description.is_none());
+        assert!(v1.menus.is_empty());
+        assert!(v1.context_menus.is_empty());
+        assert!(v1.cli.is_empty());
+        assert!(v1.settings.is_none());
+        assert!(v1.i18n.is_empty());
+        assert!(v1.host_capabilities.is_empty());
+        assert_eq!(v1.timeout_seconds, 30, "v1 serde default applies");
+    }
+}
