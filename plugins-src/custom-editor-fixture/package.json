@@ -1,0 +1,10 @@
+{
+  "name": "cef-fixture-plugin",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "node build.mjs",
+    "preview": "echo 'No dev server — open editor.html directly'"
+  }
+}

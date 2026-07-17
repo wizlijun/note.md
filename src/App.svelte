@@ -374,6 +374,21 @@
           if (command === 'create') await createNewBase()
           return
         }
+        // Custom-editor fixture: "New .cef fixture" → pick save path → create
+        // empty file → openFile (routes via custom-editor registry → iframe tab).
+        if (pluginId === 'notemd.cef-fixture') {
+          if (command === 'create') {
+            try {
+              const { pickSaveFile } = await import('./lib/dialogs')
+              const { writeTextFile } = await import('@tauri-apps/plugin-fs')
+              const path = await pickSaveFile('untitled.cef')
+              if (!path) return
+              await writeTextFile(path, '')
+              await openFile(path)
+            } catch (e) { showError(String(e)) }
+          }
+          return
+        }
         const m = manifestById[pluginId]
         if (!m) { console.warn('[App] unknown plugin', pluginId); return }
         const menu = m.menus?.find((me) => me.command === command)

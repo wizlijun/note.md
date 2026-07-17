@@ -1,0 +1,28 @@
+{
+  "manifest_version": 2,
+  "id": "notemd.cef-fixture",
+  "name": "Custom Editor Fixture",
+  "version": "1.0.0",
+  "kind": "native",
+  "engines": { "notemd": ">=6.716.7" },
+  "description": "Minimal custom-editor probe plugin: maps .cef files to a textarea iframe editor. Used to validate the custom-editor iframe mechanism (子项目④) before base migrates.",
+  "ui": "ui/",
+  "activation": { "events": ["onCommand:create"] },
+  "contributes": {
+    "custom_editors": [
+      {
+        "id": "cef",
+        "file_extensions": [".cef"],
+        "entry": "editor.html"
+      }
+    ],
+    "menus": [
+      {
+        "location": "file",
+        "label": "New .cef fixture",
+        "command": "create"
+      }
+    ]
+  },
+  "capabilities": ["toast"]
+}

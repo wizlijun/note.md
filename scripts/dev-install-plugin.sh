@@ -23,8 +23,8 @@ PLUGIN=md2pdf
 for arg in "$@"; do
   case "$arg" in
     --release) PROFILE=release ;;
-    md2pdf|roam-import|openclaw) PLUGIN="$arg" ;;
-    *) echo "unknown arg: $arg (expected --release | md2pdf | roam-import | openclaw)" >&2; exit 2 ;;
+    md2pdf|roam-import|openclaw|cef) PLUGIN="$arg" ;;
+    *) echo "unknown arg: $arg (expected --release | md2pdf | roam-import | openclaw | cef)" >&2; exit 2 ;;
   esac
 done
 
@@ -71,6 +71,22 @@ elif [[ "$PLUGIN" == "roam-import" ]]; then
   echo "✓ installed notemd.roam-import@$VERSION (ui-only) → $DEST"
   echo "  enable the v2 runtime:  \"plugins_v2.enabled\": true in settings.json, or NOTEMD_PLUGINS_V2=1"
   echo "  disable the v1 plugin:  \"plugins.enabled.roam-import\": false in settings.json (avoids double File▸Import entries)"
+
+elif [[ "$PLUGIN" == "cef" ]]; then
+  SRC="plugins-src/custom-editor-fixture"
+  # Build the fixture (pure vanilla HTML → dist/editor.html; no framework needed).
+  pnpm --filter cef-fixture-plugin build
+  VERSION=$(node -e "console.log(require('./$SRC/manifest.v2.json').version)")
+  DEST="$ROOT/notemd.cef-fixture/$VERSION"
+  rm -rf "$DEST"
+  mkdir -p "$DEST/ui"
+  cp -R "$SRC/dist/." "$DEST/ui/"
+  cp "$SRC/manifest.v2.json" "$DEST/manifest.json"
+  ln -sfn "$VERSION" "$ROOT/notemd.cef-fixture/current"
+  mark_installed "notemd.cef-fixture" "$VERSION"
+  echo "✓ installed notemd.cef-fixture@$VERSION (ui-only) → $DEST"
+  echo "  enable the v2 runtime:  NOTEMD_PLUGINS_V2=1 pnpm tauri dev"
+  echo "  probe:                  File ▸ 'New .cef fixture' → see plugins-src/custom-editor-fixture/PROBE.md"
 
 elif [[ "$PLUGIN" == "openclaw" ]]; then
   SRC="plugins-src/openclaw"
@@ -134,4 +150,13 @@ fi
 #      host.ui.post, fanned out by onMessage → onFrame).
 #   6. On the host side, approve a new device claim from the pending-claim toast
 #      (pending-claim kind pushed by the 8s poller).
+# ---------------------------------------------------------------------------
+# Manual E2E probe — cef (custom-editor-fixture, 子项目④ Task 2):
+#   1. scripts/dev-install-plugin.sh cef
+#   2. NOTEMD_PLUGINS_V2=1 pnpm tauri dev
+#   3. File ▸ "New .cef fixture" → save dialog → save to ~/Desktop/test.cef
+#      (or open any existing .cef file via File ▸ Open).
+#   4. Follow the full probe checklist in plugins-src/custom-editor-fixture/PROBE.md.
+#   Pass: (a)-(e) all green → base can migrate as a custom-editor tab (Task 4).
+#   Fail: any blocker step fails → investigate iframe mechanism before migration.
 # ---------------------------------------------------------------------------

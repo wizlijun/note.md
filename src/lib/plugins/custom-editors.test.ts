@@ -87,3 +87,37 @@ describe('customEditorFor', () => {
     expect(customEditorFor('', manifests)).toBeNull()
   })
 })
+
+// ── CEF fixture manifest shape ──────────────────────────────────────────────
+// Concrete regression anchor: the EXACT custom_editors shape from
+// plugins-src/custom-editor-fixture/manifest.v2.json is routed correctly.
+describe('cef-fixture manifest shape', () => {
+  const cefManifest: PluginManifest = mf({
+    id: 'notemd.cef-fixture',
+    name: 'Custom Editor Fixture',
+    version: '1.0.0',
+    custom_editors: [
+      { id: 'cef', file_extensions: ['.cef'], entry: 'editor.html' },
+    ],
+  })
+
+  it('registers .cef → editor.html under notemd.cef-fixture', () => {
+    const ref = customEditorFor('.cef', [cefManifest])
+    expect(ref).not.toBeNull()
+    expect(ref!.pluginId).toBe('notemd.cef-fixture')
+    expect(ref!.editorId).toBe('cef')
+    expect(ref!.entry).toBe('editor.html')
+  })
+
+  it('does not register unrelated extensions', () => {
+    expect(customEditorFor('.md', [cefManifest])).toBeNull()
+    expect(customEditorFor('.base', [cefManifest])).toBeNull()
+  })
+
+  it('cef editor does not collide with base when both loaded', () => {
+    const baseManifest = mf({ id: 'notemd.base', custom_editors: [baseEditor] })
+    const reg = buildCustomEditorRegistry([cefManifest, baseManifest])
+    expect(reg.get('cef')!.pluginId).toBe('notemd.cef-fixture')
+    expect(reg.get('base')!.pluginId).toBe('notemd.base')
+  })
+})
