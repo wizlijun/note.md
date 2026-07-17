@@ -140,6 +140,16 @@ pub fn open_plugin_window<R: Runtime>(
     window.on_window_event(move |event| {
         if matches!(event, WindowEvent::Destroyed) {
             super::ui_rpc::clear_grants(&pid);
+            // Tear down the plugin process when its window closes so long-lived
+            // reader tasks / network connections (e.g. openclaw's UDS+relay and
+            // its 8s claim poller) don't outlive the UI. Current plugins are
+            // single-window, so a closed window means "nothing left to serve" —
+            // deactivate() aborts the plugin's tasks; it lazily re-activates on
+            // the next open. (Multi-window plugins would need a
+            // last-window-closed check; none exist yet.)
+            if let Some(lc) = super::lifecycle::RUNNING.read().unwrap().get(&pid).cloned() {
+                tauri::async_runtime::spawn(async move { lc.deactivate().await });
+            }
         }
     });
 
