@@ -27,7 +27,7 @@
   import Toast from './components/Toast.svelte'
   import FindReplace from './components/FindReplace.svelte'
   import { openFind, openFindReplace } from './lib/find-replace.svelte'
-  import { invokePlugin } from './lib/plugins/host'
+  import { invokePlugin, buildContext, type TabSnapshot } from './lib/plugins/host'
   import { applyActions, configureActionHandlers } from './lib/plugins/action-handlers'
   import { renderTabAsInlineBody, buildPdfTitle } from './lib/plugins/host-render-html'
   import { renderFilenameTemplate } from './lib/plugins/prompt'
@@ -389,20 +389,40 @@
             : `${picked}.pdf`
         }
 
+        const htmlBaker = async (snapshot: TabSnapshot) => {
+          const t = tabs.find((tab) => tab.filePath === snapshot.path)
+          if (!t) throw new Error('renderer.html: no matching open tab')
+          // Image tabs have no HTML body to render (defensive — no surviving
+          // renderer.html plugin targets image tabs).
+          if (t.kind === 'image') return ''
+          // Plugins (md2pdf, future) take just the inline body and wrap
+          // it themselves.
+          return renderTabAsInlineBody(t)
+        }
+
+        if (m.manifest_version === 2) {
+          // v2: same context shape v1 plugins see (rendered_html baked in when
+          // the manifest declares renderer.html, plus output_path), but the
+          // command executes on the resident runtime. v2 plugins do not return
+          // actions — toasts arrive through the plugin-toast event listener.
+          try {
+            const { context } = await buildContext(m, snap, { htmlBaker, outputPath })
+            await invoke('plugin_v2_execute', { pluginId: m.id, command, context })
+          } catch (e) {
+            pushToast({
+              level: 'error',
+              message: t('plugins.internalError', { name: m.name }),
+              detail: String(e),
+            })
+          }
+          return
+        }
+
         let result
         try {
           result = await invokePlugin(m, command, snap, {
             settingsReader: (id) => getPluginScopedAll(id),
-            htmlBaker: async (snapshot) => {
-              const t = tabs.find((tab) => tab.filePath === snapshot.path)
-              if (!t) throw new Error('renderer.html: no matching open tab')
-              // Image tabs have no HTML body to render (defensive — no surviving
-              // renderer.html plugin targets image tabs).
-              if (t.kind === 'image') return ''
-              // Plugins (md2pdf, future) take just the inline body and wrap
-              // it themselves.
-              return renderTabAsInlineBody(t)
-            },
+            htmlBaker,
             outputPath,
           })
         } catch (e) {
