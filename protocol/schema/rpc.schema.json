@@ -198,6 +198,41 @@
       ],
       "title": "ToastParams",
       "type": "object"
+    },
+    "plugin_protocol::UiPostParams": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "additionalProperties": false,
+      "description": "插件→宿主 `host.ui.post`：插件进程向自己的窗口推送消息。",
+      "properties": {
+        "payload": true,
+        "window_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "payload",
+        "window_id"
+      ],
+      "title": "UiPostParams",
+      "type": "object"
+    },
+    "plugin_protocol::UiRequestParams": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "additionalProperties": false,
+      "description": "宿主→插件 `ui.request`：UI 窗口请求自己的插件进程执行操作。",
+      "properties": {
+        "method": {
+          "type": "string"
+        },
+        "params": {
+          "default": null
+        }
+      },
+      "required": [
+        "method"
+      ],
+      "title": "UiRequestParams",
+      "type": "object"
     }
   }
 }

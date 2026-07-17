@@ -133,3 +133,25 @@ export interface ToastParams {
   level: string;
   message: string;
 }
+/**
+ * 插件→宿主 `host.ui.post`：插件进程向自己的窗口推送消息。
+ *
+ * This interface was referenced by `RpcCombinedSchema`'s JSON-Schema
+ * via the `definition` "UiPostParams".
+ */
+export interface UiPostParams {
+  payload: unknown;
+  window_id: string;
+}
+/**
+ * 宿主→插件 `ui.request`：UI 窗口请求自己的插件进程执行操作。
+ *
+ * This interface was referenced by `RpcCombinedSchema`'s JSON-Schema
+ * via the `definition` "UiRequestParams".
+ */
+export interface UiRequestParams {
+  method: string;
+  params?: {
+    [k: string]: unknown;
+  };
+}

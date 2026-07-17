@@ -20,6 +20,12 @@ pub trait NotemdPlugin: Send + 'static {
         -> Result<Value, String>;
     /// $initialize 到达时回调（可选覆写；默认记录 host 上下文即可）。
     fn initialize(&mut self, _host: &Host, _params: &proto::InitializeParams) {}
+    /// UI 窗口→插件进程请求（`ui.request`）。默认实现返回错误；覆写以处理窗口 RPC。
+    /// 向后兼容：不覆写的插件（md2pdf/roam）行为不变。
+    fn on_ui_request(&mut self, _host: &Host, _method: &str, _params: Value)
+        -> Result<Value, String> {
+        Err("plugin has no ui handler".into())
+    }
 }
 
 /// 插件→宿主调用句柄。克隆廉价；内部经 channel 写 stdout。
@@ -38,6 +44,11 @@ impl Host {
     pub fn log_error(&self, m: &str) { self.notify("host.log.error", json!({"message": m})); }
     pub fn toast(&self, level: &str, message: &str, detail: Option<&str>) {
         self.notify("host.toast", json!({"level": level, "message": message, "detail": detail}));
+    }
+    /// 插件进程→UI 窗口单向推送（fire-and-forget 通知）。
+    /// 宿主收到后经 `push_to_window` 投递给指定 `window_id` 的 WebView。
+    pub fn ui_post(&self, window_id: &str, payload: Value) {
+        self.notify("host.ui.post", json!({"window_id": window_id, "payload": payload}));
     }
     fn notify(&self, method: &str, params: Value) {
         let req = proto::RpcRequest { jsonrpc: "2.0".into(), id: None, method: method.into(), params };
@@ -116,6 +127,12 @@ where P: NotemdPlugin, R: tokio::io::AsyncRead + Unpin + Send + 'static, W: Asyn
             "command.execute" => {
                 let r = serde_json::from_value(req.params).map_err(|e| e.to_string())
                     .and_then(|p| plugin.execute_command(&host, &p));
+                if let Some(id) = req.id { let _ = host.tx.send(reply(id, r)); }
+            }
+            "ui.request" => {
+                let r = serde_json::from_value::<proto::UiRequestParams>(req.params)
+                    .map_err(|e| e.to_string())
+                    .and_then(|p| plugin.on_ui_request(&host, &p.method, p.params));
                 if let Some(id) = req.id { let _ = host.tx.send(reply(id, r)); }
             }
             other => {
@@ -367,5 +384,108 @@ mod tests {
         assert_eq!(err.code, -32601);
         assert!(err.message.contains("nope.nothing"), "got: {}", err.message);
         assert!(h.rec.calls().is_empty(), "plugin must not be called for unknown methods");
+    }
+
+    // ── ⑦–⑨ ui.request / host.ui.post / on_ui_request error ─────────────
+
+    /// A plugin that echoes ui.request params back as result, and optionally
+    /// calls host.ui_post before returning.
+    struct UiEchoPlugin {
+        /// When Some(window_id), call ui_post before returning the echo.
+        post_to: Option<String>,
+        /// When true, return Err instead of echoing.
+        fail: bool,
+    }
+
+    impl UiEchoPlugin {
+        fn echo() -> Self { Self { post_to: None, fail: false } }
+        fn echo_and_post(window_id: &str) -> Self {
+            Self { post_to: Some(window_id.to_string()), fail: false }
+        }
+        fn failing() -> Self { Self { post_to: None, fail: true } }
+    }
+
+    impl NotemdPlugin for UiEchoPlugin {
+        fn activate(&mut self, _host: &Host, _params: &proto::ActivateParams) -> Result<(), String> { Ok(()) }
+        fn deactivate(&mut self, _host: &Host) {}
+        fn execute_command(&mut self, _host: &Host, _params: &proto::ExecuteCommandParams)
+            -> Result<Value, String> { Ok(json!({})) }
+        fn on_ui_request(&mut self, host: &Host, _method: &str, params: Value)
+            -> Result<Value, String> {
+            if self.fail { return Err("ui handler failed".into()); }
+            if let Some(wid) = &self.post_to.clone() {
+                host.ui_post(wid, json!({"seq": 1}));
+            }
+            Ok(params)
+        }
+    }
+
+    fn spawn_ui_echo(plugin: UiEchoPlugin) -> Harness {
+        let (to_plugin, plugin_stdin) = tokio::io::duplex(64 * 1024);
+        let (plugin_stdout, from_plugin) = tokio::io::duplex(64 * 1024);
+        // UiEchoPlugin doesn't have a Recorder, reuse the Harness struct with a dummy one.
+        let rec = Recorder::default();
+        let serve = tokio::spawn(serve_io(plugin, plugin_stdin, plugin_stdout));
+        Harness { to_plugin, from_plugin: BufReader::new(from_plugin).lines(), serve, rec }
+    }
+
+    /// ⑦ ui.request echo: host sends {method:"echo", params:{x:1}} →
+    ///    on_ui_request echoes params → response.result == {x:1}
+    #[tokio::test]
+    async fn ui_request_echo_returns_params() {
+        let mut h = spawn_ui_echo(UiEchoPlugin::echo());
+        h.send(json!({
+            "jsonrpc": "2.0", "id": 10, "method": "ui.request",
+            "params": { "method": "echo", "params": { "x": 1 } }
+        })).await;
+        let resp = h.recv_response().await;
+        assert_eq!(resp.id, 10);
+        assert_eq!(resp.result, Some(json!({"x": 1})));
+        assert!(resp.error.is_none());
+    }
+
+    /// ⑧ host.ui.post notification: a plugin that calls host.ui_post inside
+    ///    on_ui_request produces a `host.ui.post` notification line (no id,
+    ///    correct method, params.window_id=="main") before the response.
+    #[tokio::test]
+    async fn ui_post_notification_precedes_ui_request_response() {
+        let mut h = spawn_ui_echo(UiEchoPlugin::echo_and_post("main"));
+        h.send(json!({
+            "jsonrpc": "2.0", "id": 11, "method": "ui.request",
+            "params": { "method": "push", "params": {} }
+        })).await;
+
+        // First output line must be the host.ui.post notification.
+        let first = h.recv_line().await;
+        let notif: proto::RpcRequest = serde_json::from_str(&first)
+            .unwrap_or_else(|e| panic!("expected host.ui.post notification, got: {first} ({e})"));
+        assert_eq!(notif.id, None, "host.ui.post must be a notification (no id): {first}");
+        assert_eq!(notif.method, "host.ui.post");
+        assert_eq!(notif.params["window_id"], "main");
+        assert_eq!(notif.params["payload"], json!({"seq": 1}));
+
+        // Second line must be the ui.request response.
+        let second = h.recv_line().await;
+        let resp: proto::RpcResponse = serde_json::from_str(&second)
+            .unwrap_or_else(|e| panic!("expected ui.request response, got: {second} ({e})"));
+        assert_eq!(resp.id, 11);
+        assert!(resp.result.is_some());
+        assert!(resp.error.is_none());
+    }
+
+    /// ⑨ on_ui_request returning Err → RpcError with code -32000.
+    #[tokio::test]
+    async fn ui_request_error_returns_rpc_error() {
+        let mut h = spawn_ui_echo(UiEchoPlugin::failing());
+        h.send(json!({
+            "jsonrpc": "2.0", "id": 12, "method": "ui.request",
+            "params": { "method": "fail", "params": {} }
+        })).await;
+        let resp = h.recv_response().await;
+        assert_eq!(resp.id, 12);
+        assert!(resp.result.is_none());
+        let err = resp.error.expect("expected RpcError");
+        assert_eq!(err.code, -32000);
+        assert_eq!(err.message, "ui handler failed");
     }
 }

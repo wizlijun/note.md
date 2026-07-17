@@ -148,6 +148,23 @@ pub struct ToastParams {
 #[serde(deny_unknown_fields)]
 pub struct LogParams { pub message: String }
 
+/// 宿主→插件 `ui.request`：UI 窗口请求自己的插件进程执行操作。
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct UiRequestParams {
+    pub method: String,
+    #[serde(default)]
+    pub params: serde_json::Value,
+}
+
+/// 插件→宿主 `host.ui.post`：插件进程向自己的窗口推送消息。
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct UiPostParams {
+    pub window_id: String,
+    pub payload: serde_json::Value,
+}
+
 // ── Manifest 校验 ───────────────────────────────────────────────────────
 
 pub fn validate_manifest(m: &ManifestV2, host_version: &str) -> Result<(), String> {
