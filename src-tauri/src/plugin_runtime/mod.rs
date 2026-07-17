@@ -8,6 +8,7 @@ pub mod discovery;
 pub mod host_api;
 pub mod installer;
 pub mod lifecycle;
+pub mod market;
 pub mod process;
 pub mod protocol;
 pub mod state;

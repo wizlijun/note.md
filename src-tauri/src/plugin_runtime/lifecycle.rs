@@ -28,6 +28,7 @@ use std::sync::{Arc, LazyLock, RwLock};
 use std::time::{Duration, Instant};
 
 use super::process::{self, HostSink, PluginProcess};
+use super::STATE;
 
 /// Sliding crash window (spec §4.2): [`CRASH_LIMIT`] crashes within this
 /// window trip the circuit breaker to `Disabled("crash-loop")`.
@@ -421,6 +422,66 @@ pub fn startup_activation(lifecycles: Vec<Arc<PluginLifecycle>>) {
     }
 }
 
+/// Re-scan the install tree and reconcile the live runtime with it — the
+/// "no-restart" pivot for the marketplace (子项目③ Task 2). After an
+/// install/uninstall/enable-disable rewrites state.json, this brings STATE and
+/// RUNNING back in line without restarting the app:
+///
+/// 1. Re-run `discovery::scan` → the fresh id→(manifest, install_dir) map.
+/// 2. For every id in RUNNING that is no longer in the new map (uninstalled or
+///    disabled), `deactivate()` its live process and drop it from RUNNING.
+/// 3. Replace `STATE.plugins` with the new map.
+///
+/// Newly added plugins are NOT eagerly activated — lazy activation (spec §4.2)
+/// stays: the next trigger registers + activates them via `get_or_register`.
+///
+/// Panic-safety: every lock is released before the `block_on(deactivate())`
+/// call (deactivate is async and takes its own `phase` tokio Mutex; holding a
+/// std RwLock across an await/block would risk a deadlock).
+pub fn reconcile<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<(), String> {
+    let host_version = app.package_info().version.to_string();
+    let new_map = super::discovery::scan(app, &host_version)?;
+    reconcile_with_map(new_map);
+    Ok(())
+}
+
+/// AppHandle-free core of [`reconcile`] (unit-testable): given the freshly
+/// scanned id→(manifest, install_dir) map, deactivate + drop every RUNNING
+/// lifecycle that vanished from it, then swap `STATE.plugins` to the new map.
+pub(crate) fn reconcile_with_map(
+    new_map: HashMap<String, (proto::ManifestV2, PathBuf)>,
+) {
+    // Which live lifecycles vanished from the install tree? Collect them under
+    // a read lock, then release it before doing any async teardown.
+    let stale: Vec<(String, Arc<PluginLifecycle>)> = {
+        let running = RUNNING.read().unwrap();
+        running
+            .iter()
+            .filter(|(id, _)| !new_map.contains_key(*id))
+            .map(|(id, lc)| (id.clone(), lc.clone()))
+            .collect()
+    };
+
+    for (id, lc) in &stale {
+        // deactivate() is async ($deactivate handshake + grace kill). We are on
+        // a sync command thread outside any tokio context, so drive it to
+        // completion on the tauri async runtime with no locks held.
+        tauri::async_runtime::block_on(lc.deactivate());
+        eprintln!("[plugin_runtime] reconcile: deactivated removed plugin '{id}'");
+    }
+
+    // Drop the stale entries from RUNNING.
+    if !stale.is_empty() {
+        let mut running = RUNNING.write().unwrap();
+        for (id, _) in &stale {
+            running.remove(id);
+        }
+    }
+
+    // Swap STATE to the freshly scanned map.
+    STATE.write().unwrap().plugins = new_map;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -509,5 +570,85 @@ mod tests {
         assert_eq!(p.plugin_root, "/plugins/test.plugin/current");
         assert_eq!(p.data_dir, "/appdata/plugin_data/test.plugin");
         assert!(!std::path::Path::new(&p.data_dir).exists(), "data_dir must not be created");
+    }
+
+    // ── reconcile ─────────────────────────────────────────────────────────
+
+    fn reconcile_manifest(id: &str) -> proto::ManifestV2 {
+        serde_json::from_value(serde_json::json!({
+            "manifest_version": 2, "id": id, "name": "Fixture", "version": "1.0.0",
+            "kind": "native", "engines": { "notemd": ">=0.0.0" },
+            "activation": { "events": ["onCommand:noop"] }, "capabilities": []
+        }))
+        .unwrap()
+    }
+
+    fn reconcile_ctx() -> SpawnCtx {
+        SpawnCtx {
+            binary: PathBuf::from("/nonexistent/fixture-bin"),
+            log_dir: std::env::temp_dir(),
+            host_sink: Arc::new(|_| None),
+            host_version: "0.0.0".into(),
+            locale: "en".into(),
+            app_data: std::env::temp_dir(),
+        }
+    }
+
+    /// reconcile_with_map: two plugins live in RUNNING + STATE; the new scan
+    /// map drops one → that one is deactivated + removed from RUNNING while the
+    /// survivor stays, and STATE.plugins mirrors the new map exactly.
+    #[test]
+    fn reconcile_drops_removed_from_running_and_state() {
+        // Unique ids keep the global STATE/RUNNING mutation race-free vs other
+        // tests (none of which use these ids).
+        let keep = "test.reconcile-keep";
+        let drop = "test.reconcile-drop";
+
+        // Seed RUNNING with two never-spawned (Inactive) lifecycles. deactivate
+        // on an Inactive phase is an immediate no-op, so block_on is safe.
+        for id in [keep, drop] {
+            let lc = Arc::new(PluginLifecycle::new(
+                reconcile_manifest(id),
+                PathBuf::from("/tmp").join(id),
+                reconcile_ctx(),
+            ));
+            RUNNING.write().unwrap().insert(id.to_string(), lc);
+        }
+        // Seed STATE with both too (start state before reconcile).
+        {
+            let mut st = STATE.write().unwrap();
+            for id in [keep, drop] {
+                st.plugins.insert(
+                    id.to_string(),
+                    (reconcile_manifest(id), PathBuf::from("/tmp").join(id)),
+                );
+            }
+        }
+
+        // New scan map: only `keep` survives (drop was uninstalled/disabled).
+        let mut new_map: HashMap<String, (proto::ManifestV2, PathBuf)> = HashMap::new();
+        new_map.insert(
+            keep.to_string(),
+            (reconcile_manifest(keep), PathBuf::from("/tmp").join(keep)),
+        );
+
+        reconcile_with_map(new_map);
+
+        // RUNNING: survivor present, removed gone.
+        {
+            let running = RUNNING.read().unwrap();
+            assert!(running.contains_key(keep), "survivor stays in RUNNING");
+            assert!(!running.contains_key(drop), "removed plugin dropped from RUNNING");
+        }
+        // STATE mirrors the new map.
+        {
+            let st = STATE.read().unwrap();
+            assert!(st.plugins.contains_key(keep));
+            assert!(!st.plugins.contains_key(drop));
+        }
+
+        // Cleanup shared globals so we don't leak into other tests.
+        RUNNING.write().unwrap().remove(keep);
+        STATE.write().unwrap().plugins.remove(keep);
     }
 }

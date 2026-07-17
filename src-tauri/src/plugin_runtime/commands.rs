@@ -10,7 +10,7 @@ use std::sync::Arc;
 use tauri::Manager;
 
 use super::lifecycle::{self, PluginLifecycle, SpawnCtx, Trigger, RUNNING};
-use super::{adapter, discovery, host_api, STATE};
+use super::{adapter, discovery, host_api, installer, market, state, STATE};
 
 /// v2 manifests serialized in v1 `PluginManifest` shape; the frontend spots
 /// them by `manifest_version: 2` and routes execution to `plugin_v2_execute`.
@@ -51,6 +51,246 @@ pub fn plugin_v2_open_window(
     window_id: String,
 ) -> Result<(), String> {
     super::windows::open_plugin_window(&app, &plugin_id, &window_id)
+}
+
+// ── Marketplace commands (子项目③ Task 2) ────────────────────────────────
+//
+// All six are gated on the v2 flag: with the runtime disabled they refuse
+// rather than touch the network or the install tree. The frontend market
+// window (Task 6) drives these; the capability-consent modal calls
+// `plugin_market_preview` first so the user consents to the *actually
+// verified* package's capabilities before `plugin_market_install`.
+
+/// Reject when the v2 runtime is disabled (flag off). One place so every market
+/// command fails the same way.
+fn ensure_v2_enabled() -> Result<(), String> {
+    if !STATE.read().unwrap().enabled_flag {
+        return Err("plugin runtime v2 is disabled".into());
+    }
+    Ok(())
+}
+
+/// Find `id`@`version` in the registry index and resolve this host's arch
+/// download URL + sha256. Errors if the entry, arch, url, or hash is missing.
+fn resolve_download(entry: &market::RegistryEntry) -> Result<(String, String), String> {
+    let triple = discovery::current_arch_triple()
+        .ok_or_else(|| format!("unsupported host arch '{}'", std::env::consts::ARCH))?;
+    let url = entry
+        .download
+        .get(triple)
+        .ok_or_else(|| format!("plugin '{}' has no download for arch '{triple}'", entry.id))?;
+    let sha = entry
+        .sha256
+        .get(triple)
+        .ok_or_else(|| format!("plugin '{}' has no sha256 for arch '{triple}'", entry.id))?;
+    Ok((url.clone(), sha.clone()))
+}
+
+async fn find_entry(
+    app: &tauri::AppHandle,
+    id: &str,
+    version: &str,
+) -> Result<market::RegistryEntry, String> {
+    let base = market::registry_base_url(app);
+    let index = market::fetch_index(&base).await?;
+    index
+        .plugins
+        .into_iter()
+        .find(|e| e.id == id && e.version == version)
+        .ok_or_else(|| format!("plugin '{id}' version '{version}' not found in registry"))
+}
+
+/// Fetch + return the full registry index as JSON (the "available" list).
+#[tauri::command]
+pub async fn plugin_market_index(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
+    ensure_v2_enabled()?;
+    let base = market::registry_base_url(&app);
+    let index = market::fetch_index(&base).await?;
+    serde_json::to_value(index).map_err(|e| e.to_string())
+}
+
+/// Download + verify `id`@`version` into a throwaway temp dir and return the
+/// *validated* manifest as JSON — WITHOUT installing. The consent UI shows this
+/// manifest's `capabilities`, so what the user consents to is exactly what
+/// passed signature + hash verification (spec §8.2 / ②评审 V1).
+#[tauri::command]
+pub async fn plugin_market_preview(
+    app: tauri::AppHandle,
+    id: String,
+    version: String,
+) -> Result<serde_json::Value, String> {
+    ensure_v2_enabled()?;
+    let entry = find_entry(&app, &id, &version).await?;
+    let (url, sha) = resolve_download(&entry)?;
+    let sig_url = format!("{url}.minisig");
+    let host_version = app.package_info().version.to_string();
+
+    let pkg = market::download(&url).await?;
+    let sig = String::from_utf8(market::download(&sig_url).await?)
+        .map_err(|e| format!("signature is not valid utf-8: {e}"))?;
+
+    // Stage into a temp dir purely to run the full verify pipeline; discard it.
+    let tmp = tempfile::tempdir().map_err(|e| e.to_string())?;
+    let manifest = installer::verify_and_stage(
+        &pkg,
+        &sig,
+        &sha,
+        market::PLUGIN_REGISTRY_PUBKEY,
+        &id,
+        &host_version,
+        tmp.path(),
+    )
+    .map_err(|e| e.to_string())?;
+    // tmp drops here — the staged copy is thrown away; only the manifest survives.
+    serde_json::to_value(manifest).map_err(|e| e.to_string())
+}
+
+/// Download → verify → commit-install `id`@`version`, enable it in state.json,
+/// then reconcile the live runtime (no restart) and tell the frontend to
+/// re-fetch manifests + rebuild its menu via the `plugins-changed` event.
+/// Install telemetry is fire-and-forget.
+#[tauri::command]
+pub async fn plugin_market_install(
+    app: tauri::AppHandle,
+    id: String,
+    version: String,
+) -> Result<(), String> {
+    ensure_v2_enabled()?;
+    let entry = find_entry(&app, &id, &version).await?;
+    let (url, sha) = resolve_download(&entry)?;
+    let sig_url = format!("{url}.minisig");
+    let host_version = app.package_info().version.to_string();
+    let root = state::plugins_root(&app).ok_or("cannot resolve app data dir")?;
+
+    let pkg = market::download(&url).await?;
+    let sig = String::from_utf8(market::download(&sig_url).await?)
+        .map_err(|e| format!("signature is not valid utf-8: {e}"))?;
+
+    // Verify + stage into a temp dir, then atomically commit into the tree.
+    let tmp = tempfile::tempdir().map_err(|e| e.to_string())?;
+    installer::verify_and_stage(
+        &pkg,
+        &sig,
+        &sha,
+        market::PLUGIN_REGISTRY_PUBKEY,
+        &id,
+        &host_version,
+        tmp.path(),
+    )
+    .map_err(|e| e.to_string())?;
+    installer::commit_install(&root, &id, &version, tmp.path()).map_err(|e| e.to_string())?;
+
+    // Record installed + enabled in state.json.
+    let mut install = state::load(&root);
+    install.installed.insert(
+        id.clone(),
+        state::InstalledPlugin { version: version.clone(), enabled: true },
+    );
+    state::save(&root, &install)?;
+
+    // Fire-and-forget install telemetry (never blocks / errors the install).
+    let base = market::registry_base_url(&app);
+    let (rid, rver) = (id.clone(), version.clone());
+    tauri::async_runtime::spawn(async move {
+        market::report_install(&base, &rid, &rver).await;
+    });
+
+    // Bring the live runtime in line with the new tree, then nudge the UI.
+    lifecycle::reconcile(&app)?;
+    notify_plugins_changed(&app);
+    Ok(())
+}
+
+/// Uninstall `id` (optionally keeping its data dir), drop it from state.json,
+/// reconcile the runtime (deactivating it live), and notify the frontend.
+#[tauri::command]
+pub async fn plugin_market_uninstall(
+    app: tauri::AppHandle,
+    id: String,
+    keep_data: bool,
+) -> Result<(), String> {
+    ensure_v2_enabled()?;
+    let root = state::plugins_root(&app).ok_or("cannot resolve app data dir")?;
+    let app_data = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("cannot resolve app data dir: {e}"))?;
+
+    installer::uninstall(&root, &id, keep_data, &app_data).map_err(|e| e.to_string())?;
+
+    let mut install = state::load(&root);
+    install.installed.remove(&id);
+    state::save(&root, &install)?;
+
+    lifecycle::reconcile(&app)?;
+    notify_plugins_changed(&app);
+    Ok(())
+}
+
+/// Flip `id`'s `enabled` flag in state.json, reconcile (disabling deactivates
+/// it live; enabling lets the next trigger activate lazily), and notify.
+#[tauri::command]
+pub async fn plugin_market_set_enabled(
+    app: tauri::AppHandle,
+    id: String,
+    enabled: bool,
+) -> Result<(), String> {
+    ensure_v2_enabled()?;
+    let root = state::plugins_root(&app).ok_or("cannot resolve app data dir")?;
+
+    let mut install = state::load(&root);
+    match install.installed.get_mut(&id) {
+        Some(p) => p.enabled = enabled,
+        None => return Err(format!("plugin '{id}' is not installed")),
+    }
+    state::save(&root, &install)?;
+
+    lifecycle::reconcile(&app)?;
+    notify_plugins_changed(&app);
+    Ok(())
+}
+
+/// List installed plugins from state.json joined with each
+/// `<root>/<id>/current/manifest.json`: `{id, version, enabled, name,
+/// capabilities}`. A plugin whose manifest is unreadable is still listed (with
+/// null name/empty capabilities) so the UI can offer to uninstall it.
+#[tauri::command]
+pub fn plugin_market_installed(app: tauri::AppHandle) -> Result<Vec<serde_json::Value>, String> {
+    ensure_v2_enabled()?;
+    let root = state::plugins_root(&app).ok_or("cannot resolve app data dir")?;
+    let install = state::load(&root);
+
+    let mut out = Vec::with_capacity(install.installed.len());
+    for (id, entry) in &install.installed {
+        let manifest_path = root.join(id).join("current").join("manifest.json");
+        let manifest: Option<plugin_protocol::ManifestV2> = std::fs::read_to_string(&manifest_path)
+            .ok()
+            .and_then(|t| serde_json::from_str(&t).ok());
+        let (name, capabilities) = match &manifest {
+            Some(m) => (
+                serde_json::Value::String(m.name.clone()),
+                serde_json::to_value(&m.capabilities).unwrap_or(serde_json::Value::Array(vec![])),
+            ),
+            None => (serde_json::Value::Null, serde_json::Value::Array(vec![])),
+        };
+        out.push(serde_json::json!({
+            "id": id,
+            "version": entry.version,
+            "enabled": entry.enabled,
+            "name": name,
+            "capabilities": capabilities,
+        }));
+    }
+    Ok(out)
+}
+
+/// Tell the frontend the installed-plugin set changed: it re-fetches
+/// `get_plugin_manifests` and reapplies the plugin menu (Task 6 wires the
+/// listener). The Rust-side native menu rebuild is deferred to Task 6 — see the
+/// task report's "menu-rebuild decision".
+fn notify_plugins_changed<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
+    use tauri::Emitter;
+    let _ = app.emit("plugins-changed", ());
 }
 
 /// Called from `plugin_runtime::init` after discovery populated STATE:
@@ -170,6 +410,23 @@ mod tests {
         assert!(Arc::ptr_eq(&won_first, &first));
         assert!(Arc::ptr_eq(&won_second, &first), "second registration must return the first Arc");
         RUNNING.write().unwrap().remove(id);
+    }
+
+    /// The shared flag gate every market command runs first: Err with the v2
+    /// runtime disabled, Ok with it enabled. Restores the flag so it doesn't
+    /// leak into other tests (none of which read `enabled_flag`).
+    #[test]
+    fn ensure_v2_enabled_gates_on_flag() {
+        let prev = STATE.read().unwrap().enabled_flag;
+
+        STATE.write().unwrap().enabled_flag = false;
+        let err = ensure_v2_enabled().unwrap_err();
+        assert_eq!(err, "plugin runtime v2 is disabled");
+
+        STATE.write().unwrap().enabled_flag = true;
+        assert!(ensure_v2_enabled().is_ok());
+
+        STATE.write().unwrap().enabled_flag = prev;
     }
 }
 
