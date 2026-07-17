@@ -302,10 +302,17 @@ pub fn notemd_vault_settings_set(
     sync_dir: Option<String>,
     wikipage_dir: Option<String>,
     dailynote_dir: Option<String>,
+    large_file_threshold_mb: Option<u32>,
 ) -> Result<vault_settings::VaultSettings, String> {
     let vault_root = resolve_vault_root(&app).ok_or("Vault not configured")?;
     let base = vault_settings::read(&vault_root);
-    let merged = vault_settings::merge(base, sync_dir, wikipage_dir, dailynote_dir)?;
+    let merged = vault_settings::merge(
+        base,
+        sync_dir,
+        wikipage_dir,
+        dailynote_dir,
+        large_file_threshold_mb,
+    )?;
     vault_settings::write(&vault_root, &merged)?;
     Ok(merged)
 }

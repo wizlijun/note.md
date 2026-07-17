@@ -48,6 +48,10 @@ pub struct TrayRepoItem(Mutex<Option<MenuItem<tauri::Wry>>>);
 pub struct TrayStatusItem(Mutex<Option<IconMenuItem<tauri::Wry>>>);
 #[cfg(not(target_os = "ios"))]
 pub struct RecentMenu(pub Mutex<Option<Submenu<tauri::Wry>>>);
+#[cfg(not(target_os = "ios"))]
+pub struct TraySyncNowItem(pub Mutex<Option<MenuItem<tauri::Wry>>>);
+#[cfg(not(target_os = "ios"))]
+pub struct TrayShownLargeFiles(pub Mutex<Vec<String>>);
 
 #[tauri::command]
 fn drain_pending_files(state: tauri::State<'_, PendingFiles>) -> Vec<String> {
@@ -542,28 +546,12 @@ fn open_sync_log_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
 }
 
 #[cfg(not(target_os = "ios"))]
-fn pick_repo_and_start(app: &tauri::AppHandle) {
-    let mgr = app.state::<std::sync::Arc<vault_sync::VaultSyncManager>>();
-    let has_repo = mgr.repo_path.lock().unwrap().is_some();
-
-    if has_repo {
-        let _ = vault_sync::vault_sync_start(app.clone());
-        save_sync_enabled(app, true);
-        update_tray_icon(app, true);
-        return;
-    }
-
-    let app_clone = app.clone();
-    pick_sync_folder_inner(app, move |_path_str| {
-        let _ = vault_sync::vault_sync_start(app_clone.clone());
-        save_sync_enabled(&app_clone, true);
-        update_tray_icon(&app_clone, true);
-    });
-}
-
-#[cfg(not(target_os = "ios"))]
 fn pick_sync_folder(app: &tauri::AppHandle) {
-    pick_sync_folder_inner(app, move |_| {});
+    let app_clone = app.clone();
+    pick_sync_folder_inner(app, move |_path| {
+        let _ = vault_sync::vault_sync_start(app_clone.clone());
+        refresh_tray_status(&app_clone);
+    });
 }
 
 #[cfg(not(target_os = "ios"))]
@@ -583,7 +571,6 @@ fn pick_sync_folder_inner(app: &tauri::AppHandle, on_done: impl FnOnce(String) +
 
                 if let Ok(s) = app_clone.store("settings.json") {
                     let _ = s.set("vault_sync.repo_path", serde_json::json!(&path_str));
-                    let _ = s.set("vault_sync.auto_start", serde_json::json!(true));
                     let _ = s.save();
                 }
 
@@ -617,15 +604,6 @@ fn abbreviate_path(path: &str) -> String {
         format!("~{}", &path[home.len()..])
     } else {
         path.to_string()
-    }
-}
-
-#[cfg(not(target_os = "ios"))]
-fn save_sync_enabled(app: &tauri::AppHandle, enabled: bool) {
-    use tauri_plugin_store::StoreExt;
-    if let Ok(s) = app.store("settings.json") {
-        let _ = s.set("vault_sync.auto_start", serde_json::json!(enabled));
-        let _ = s.save();
     }
 }
 
@@ -714,10 +692,12 @@ fn state_label(locale: &str, state: vault_sync::SyncState) -> String {
 /// status line: green = healthy, red = problem, grey = idle. These are plain
 /// filled circles (no gloss) so they sit cleanly next to the menu text.
 #[cfg(not(target_os = "ios"))]
-fn status_dot_image(state: vault_sync::SyncState) -> Option<Image<'static>> {
+fn status_dot_image(state: vault_sync::SyncState, has_large: bool) -> Option<Image<'static>> {
     use vault_sync::SyncState;
     let bytes: &'static [u8] = if state.is_problem() {
         include_bytes!("../icons/dot-red.png")
+    } else if has_large {
+        include_bytes!("../icons/dot-yellow.png")
     } else if matches!(state, SyncState::Running | SyncState::Syncing) {
         include_bytes!("../icons/dot-green.png")
     } else {
@@ -738,6 +718,8 @@ pub fn refresh_tray_status(app: &tauri::AppHandle) {
     let mgr = app.state::<std::sync::Arc<VaultSyncManager>>();
     let state = *mgr.state.lock().unwrap();
     let last_sync = mgr.last_sync.lock().unwrap().clone();
+    let skipped_large = mgr.skipped_large_files.lock().unwrap().clone();
+    let has_large = !skipped_large.is_empty();
 
     // Dot indicator states mirroring the vault git status.
     let active = matches!(state, SyncState::Running | SyncState::Syncing);
@@ -754,6 +736,8 @@ pub fn refresh_tray_status(app: &tauri::AppHandle) {
     if let Some(tray) = app.tray_by_id("main") {
         let icon = if problem {
             Image::from_bytes(include_bytes!("../icons/tray-icon-error.png"))
+        } else if has_large {
+            Image::from_bytes(include_bytes!("../icons/tray-icon-warning.png"))
         } else if active {
             Image::from_bytes(include_bytes!("../icons/tray-icon-active.png"))
         } else {
@@ -769,8 +753,33 @@ pub fn refresh_tray_status(app: &tauri::AppHandle) {
 
     if let Some(status_state) = app.try_state::<TrayStatusItem>() {
         if let Some(item) = status_state.0.lock().unwrap().as_ref() {
-            let _ = item.set_icon(status_dot_image(state));
+            let _ = item.set_icon(status_dot_image(state, has_large));
             let _ = item.set_text(&status_text);
+        }
+    }
+
+    // Disable "Sync Now" while a sync is in progress.
+    if let Some(sn) = app.try_state::<TraySyncNowItem>() {
+        if let Some(item) = sn.0.lock().unwrap().as_ref() {
+            let _ = item.set_enabled(state != SyncState::Syncing);
+        }
+    }
+
+    // Rebuild tray menu when large-file list changes so the submenu stays accurate.
+    if let Some(shown) = app.try_state::<TrayShownLargeFiles>() {
+        let mut shown = shown.0.lock().unwrap();
+        if *shown != skipped_large {
+            *shown = skipped_large.clone();
+            drop(shown);
+            let locale2 = read_saved_locale(app);
+            if let Some(tray) = app.tray_by_id("main") {
+                if let Ok((menu, repo_item, status_item, sync_now_item)) = build_tray_menu(app, &locale2) {
+                    *app.state::<TrayRepoItem>().0.lock().unwrap() = Some(repo_item);
+                    *app.state::<TrayStatusItem>().0.lock().unwrap() = Some(status_item);
+                    *app.state::<TraySyncNowItem>().0.lock().unwrap() = Some(sync_now_item);
+                    let _ = tray.set_menu(Some(menu));
+                }
+            }
         }
     }
 }
@@ -812,6 +821,10 @@ pub fn run() {
     let builder = builder.manage(TrayStatusItem(Mutex::new(None)));
     #[cfg(not(target_os = "ios"))]
     let builder = builder.manage(RecentMenu(Mutex::new(None)));
+    #[cfg(not(target_os = "ios"))]
+    let builder = builder.manage(TraySyncNowItem(Mutex::new(None)));
+    #[cfg(not(target_os = "ios"))]
+    let builder = builder.manage(TrayShownLargeFiles(Mutex::new(Vec::new())));
     #[cfg(not(target_os = "ios"))]
     let builder = builder.manage(preview_window::PreviewStore::default());
     #[cfg(not(target_os = "ios"))]
@@ -1025,12 +1038,13 @@ pub fn run() {
                 // note.md brand glyph (active state adds a green badge).
                 // Left-click toggles main window visibility; right-click shows menu.
                 let tray_icon = Image::from_bytes(include_bytes!("../icons/tray-icon.png"))?;
-                let (tray_menu, sync_repo_item, status_item) = build_tray_menu(&app.handle(), &menu_locale)?;
+                let (tray_menu, sync_repo_item, status_item, sync_now_item) = build_tray_menu(&app.handle(), &menu_locale)?;
                 {
                     let tray_item_state = app.state::<TrayRepoItem>();
                     *tray_item_state.0.lock().unwrap() = Some(sync_repo_item.clone());
                     let status_item_state = app.state::<TrayStatusItem>();
                     *status_item_state.0.lock().unwrap() = Some(status_item.clone());
+                    *app.state::<TraySyncNowItem>().0.lock().unwrap() = Some(sync_now_item);
                 }
                 let _tray = TrayIconBuilder::with_id("main")
                     .icon(tray_icon)
@@ -1039,7 +1053,8 @@ pub fn run() {
                     .menu(&tray_menu)
                     .show_menu_on_left_click(true)
                     .on_menu_event(|app, event| {
-                        match event.id().0.as_str() {
+                        let id = event.id().0.as_str();
+                        match id {
                             "tray-show" => show_main_window(app),
                             "tray-today-note" => {
                                 show_main_window(app);
@@ -1047,12 +1062,6 @@ pub fn run() {
                             }
                             "tray-openclaw" => show_chat_window(app),
                             "tray-sync-repo" => { pick_sync_folder(app); }
-                            "tray-sync-start" => { pick_repo_and_start(app); }
-                            "tray-sync-stop" => {
-                                let _ = vault_sync::vault_sync_stop(app.clone());
-                                save_sync_enabled(app, false);
-                                update_tray_icon(app, false);
-                            }
                             "tray-sync-now" => { let _ = vault_sync::vault_sync_now(app.clone()); }
                             "tray-sync-log" => { open_sync_log_window(app); }
                             "tray-edit-agents" => agents_sync::edit_agents_md(app),
@@ -1066,6 +1075,19 @@ pub fn run() {
                                 // Disabled in v1; placeholder for upcoming rawvault sync feature
                             }
                             "tray-quit" => app.exit(0),
+                            id if id.starts_with("tray-large-file:") => {
+                                if let Some(idx) = id.strip_prefix("tray-large-file:")
+                                    .and_then(|s| s.parse::<usize>().ok())
+                                {
+                                    let mgr = app.state::<std::sync::Arc<vault_sync::VaultSyncManager>>();
+                                    let files = mgr.skipped_large_files.lock().unwrap().clone();
+                                    let repo = mgr.repo_path.lock().unwrap().clone();
+                                    if let (Some(rel), Some(root)) = (files.get(idx), repo) {
+                                        let abs = std::path::Path::new(&root).join(rel);
+                                        let _ = std::process::Command::new("open").arg("-R").arg(abs).status();
+                                    }
+                                }
+                            }
                             _ => {}
                         }
                     })
@@ -1286,9 +1308,9 @@ fn menu_label(locale: &str, key: &str) -> String {
         "tray.show" => ("Show note.md", "显示 note.md", "note.md を表示", "note.md anzeigen"),
         "tray.todayNote" => ("Today's Note", "今天的日记", "今日のノート", "Heutige Notiz"),
         "tray.vaultSetFolder" => ("Vault: Set Folder…", "Vault：选择文件夹…", "Vault：フォルダを選択…", "Vault: Ordner wählen…"),
-        "tray.startSync" => ("Start Sync", "开始同步", "同期を開始", "Sync starten"),
-        "tray.stopSync" => ("Stop Sync", "停止同步", "同期を停止", "Sync stoppen"),
         "tray.syncNow" => ("Sync Now", "立即同步", "今すぐ同期", "Jetzt synchronisieren"),
+        "tray.largeFiles.title" => ("⚠️ {n} file(s) too large", "⚠️ {n} 个文件过大", "⚠️ {n} 件のファイルが大きすぎます", "⚠️ {n} Datei(en) zu groß"),
+        "tray.largeFiles.header" => ("Over the limit — not synced. Move out of the vault:", "超过上限,未同步。请移出 vault:", "上限超過 —— 未同期。vault から移動してください:", "Über dem Limit — nicht synchronisiert. Aus dem Vault verschieben:"),
         "tray.viewLog" => ("View Log…", "查看日志…", "ログを表示…", "Protokoll anzeigen…"),
         "tray.openBooks" => ("Open Books", "打开 Books", "Books を開く", "Books öffnen"),
         "tray.openRawSync" => ("Open Raw Vault Sync", "打开原始 Vault 同步", "Raw Vault Sync を開く", "Raw Vault Sync öffnen"),
@@ -1337,14 +1359,14 @@ fn read_saved_locale<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> String {
     }
 }
 
-/// Build the menu-bar tray dropdown in the given locale. Returns the menu and
-/// the (dynamic) "Vault:" item so the caller can stash it for later label
-/// updates. Event handling stays on the TrayIcon, so rebuilding just the menu
-/// preserves click behavior.
+/// Build the menu-bar tray dropdown in the given locale. Returns the menu, the
+/// (dynamic) "Vault:" item, status item, and sync-now item so the caller can
+/// stash them for later updates. Event handling stays on the TrayIcon, so
+/// rebuilding just the menu preserves click behavior.
 fn build_tray_menu<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
     locale: &str,
-) -> tauri::Result<(Menu<R>, MenuItem<R>, IconMenuItem<R>)> {
+) -> tauri::Result<(Menu<R>, MenuItem<R>, IconMenuItem<R>, MenuItem<R>)> {
     let show_item = MenuItem::with_id(app, "tray-show", menu_label(locale, "tray.show"), true, None::<&str>)?;
     let today_note_item = MenuItem::with_id(app, "tray-today-note", menu_label(locale, "tray.todayNote"), true, None::<&str>)?;
     let openclaw_item = if plugin_host::is_plugin_enabled("openclaw-chat") {
@@ -1365,12 +1387,13 @@ fn build_tray_menu<R: tauri::Runtime>(
         let mgr = app.state::<std::sync::Arc<vault_sync::VaultSyncManager>>();
         let state = *mgr.state.lock().unwrap();
         let last_sync = mgr.last_sync.lock().unwrap().clone();
+        let has_large = !mgr.skipped_large_files.lock().unwrap().is_empty();
         let label = format!(
             "{} · {}",
             state_label(locale, state),
             last_sync_phrase(locale, last_sync.as_deref()),
         );
-        (label, status_dot_image(state))
+        (label, status_dot_image(state, has_large))
     };
     // Informational (disabled) status line with a flat colored dot icon so the
     // dropdown always shows health in a style that harmonizes with the menu font.
@@ -1382,8 +1405,35 @@ fn build_tray_menu<R: tauri::Runtime>(
         status_dot,
         None::<&str>,
     )?;
-    let sync_start_item = MenuItem::with_id(app, "tray-sync-start", menu_label(locale, "tray.startSync"), true, None::<&str>)?;
-    let sync_stop_item = MenuItem::with_id(app, "tray-sync-stop", menu_label(locale, "tray.stopSync"), true, None::<&str>)?;
+
+    // Large-file warning submenu (only shown when files were skipped).
+    let large_files: Vec<String> = {
+        let mgr = app.state::<std::sync::Arc<vault_sync::VaultSyncManager>>();
+        let x = mgr.skipped_large_files.lock().unwrap().clone();
+        x
+    };
+    let large_submenu = if large_files.is_empty() {
+        None
+    } else {
+        let header = IconMenuItem::with_id(
+            app, "tray-large-header",
+            menu_label(locale, "tray.largeFiles.header"),
+            /*enabled=*/ false, None, None::<&str>,
+        )?;
+        let title = menu_label(locale, "tray.largeFiles.title")
+            .replace("{n}", &large_files.len().to_string());
+        let mut sub = SubmenuBuilder::with_id(app, "tray-large-files", &title).item(&header);
+        for (i, f) in large_files.iter().enumerate() {
+            let name = std::path::Path::new(f)
+                .file_name().and_then(|s| s.to_str()).unwrap_or(f);
+            let it = MenuItem::with_id(
+                app, &format!("tray-large-file:{i}"), name, true, None::<&str>,
+            )?;
+            sub = sub.item(&it);
+        }
+        Some(sub.build()?)
+    };
+
     let sync_now_item = MenuItem::with_id(app, "tray-sync-now", menu_label(locale, "tray.syncNow"), true, None::<&str>)?;
     let sync_log_item = MenuItem::with_id(app, "tray-sync-log", menu_label(locale, "tray.viewLog"), true, None::<&str>)?;
     let edit_agents_item = MenuItem::with_id(app, "tray-edit-agents", menu_label(locale, "tray.editAgents"), true, None::<&str>)?;
@@ -1394,11 +1444,13 @@ fn build_tray_menu<R: tauri::Runtime>(
     if let Some(ref oc) = openclaw_item {
         b = b.item(oc).separator();
     }
-    let menu = b
+    let mut b2 = b
         .item(&sync_repo_item)
-        .item(&status_item)
-        .item(&sync_start_item)
-        .item(&sync_stop_item)
+        .item(&status_item);
+    if let Some(ref sm) = large_submenu {
+        b2 = b2.item(sm);
+    }
+    let menu = b2
         .item(&sync_now_item)
         .item(&sync_log_item)
         .item(&edit_agents_item)
@@ -1408,7 +1460,7 @@ fn build_tray_menu<R: tauri::Runtime>(
         .separator()
         .item(&quit_item)
         .build()?;
-    Ok((menu, sync_repo_item, status_item))
+    Ok((menu, sync_repo_item, status_item, sync_now_item))
 }
 
 /// Rebuild the app menu (and tray) in the given locale and apply them. Called
@@ -1424,10 +1476,11 @@ fn set_menu_locale(app: tauri::AppHandle, locale: String) -> Result<(), String> 
 
     // Rebuild the tray dropdown too (event handling lives on the TrayIcon).
     if let Some(tray) = app.tray_by_id("main") {
-        let (tray_menu, sync_repo_item, status_item) =
+        let (tray_menu, sync_repo_item, status_item, sync_now_item) =
             build_tray_menu(&app, &locale).map_err(|e| e.to_string())?;
         *app.state::<TrayRepoItem>().0.lock().unwrap() = Some(sync_repo_item);
         *app.state::<TrayStatusItem>().0.lock().unwrap() = Some(status_item);
+        *app.state::<TraySyncNowItem>().0.lock().unwrap() = Some(sync_now_item);
         tray.set_menu(Some(tray_menu)).map_err(|e| e.to_string())?;
     }
     // Re-apply live status text/icon after the menu handles were replaced.

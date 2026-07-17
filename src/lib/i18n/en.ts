@@ -385,6 +385,7 @@ export const en = {
   'vaultSync.vaultPath': 'Current vault',
   'vaultSync.notConfigured': 'Not configured',
   'vaultSync.relPath': 'Relative path',
+  'vaultSync.largeFileThreshold': 'Large-file limit (MB)',
   'vaultSync.save': 'Save',
   'vaultSync.saved': 'Sync folder saved',
   'vaultSync.saveFailed': 'Failed to save: {error}',

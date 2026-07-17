@@ -24,6 +24,8 @@ pub struct VaultSettings {
     pub wikipage_dir: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub dailynote_dir: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub large_file_threshold_mb: Option<u32>,
 }
 
 fn settings_path(vault_root: &Path) -> PathBuf {
@@ -82,6 +84,7 @@ pub fn merge(
     sync_dir: Option<String>,
     wikipage_dir: Option<String>,
     dailynote_dir: Option<String>,
+    large_file_threshold_mb: Option<u32>,
 ) -> Result<VaultSettings, String> {
     let mut out = base;
     if let Some(v) = sync_dir {
@@ -92,6 +95,12 @@ pub fn merge(
     }
     if let Some(v) = dailynote_dir {
         out.dailynote_dir = Some(validate_rel_dir(&v)?);
+    }
+    if let Some(mb) = large_file_threshold_mb {
+        if mb == 0 {
+            return Err("large file threshold must be at least 1 MB".into());
+        }
+        out.large_file_threshold_mb = Some(mb);
     }
     Ok(out)
 }
@@ -131,6 +140,7 @@ mod tests {
             sync_dir: Some("sync".into()),
             wikipage_dir: Some("wiki".into()),
             dailynote_dir: None,
+            large_file_threshold_mb: None,
         };
         write(dir.path(), &s).unwrap();
         assert_eq!(read(dir.path()), s);
@@ -166,8 +176,9 @@ mod tests {
             sync_dir: Some("sync".into()),
             wikipage_dir: Some("wiki".into()),
             dailynote_dir: Some("daily".into()),
+            large_file_threshold_mb: None,
         };
-        let out = merge(base, Some("box".into()), None, None).unwrap();
+        let out = merge(base, Some("box".into()), None, None, None).unwrap();
         assert_eq!(out.sync_dir.as_deref(), Some("box"));
         assert_eq!(out.wikipage_dir.as_deref(), Some("wiki"));
         assert_eq!(out.dailynote_dir.as_deref(), Some("daily"));
@@ -175,7 +186,7 @@ mod tests {
 
     #[test]
     fn merge_rejects_invalid_provided_value() {
-        assert!(merge(VaultSettings::default(), Some("../x".into()), None, None).is_err());
+        assert!(merge(VaultSettings::default(), Some("../x".into()), None, None, None).is_err());
     }
 
     #[test]
@@ -204,5 +215,27 @@ mod tests {
         )
         .unwrap();
         assert_eq!(resolve_sync_dir(dir.path()), DEFAULT_SYNC_DIR);
+    }
+
+    #[test]
+    fn merge_sets_and_validates_threshold() {
+        let out = merge(VaultSettings::default(), None, None, None, Some(25)).unwrap();
+        assert_eq!(out.large_file_threshold_mb, Some(25));
+        assert!(merge(VaultSettings::default(), None, None, None, Some(0)).is_err());
+    }
+
+    #[test]
+    fn merge_keeps_threshold_when_none() {
+        let base = VaultSettings { large_file_threshold_mb: Some(50), ..Default::default() };
+        let out = merge(base, Some("box".into()), None, None, None).unwrap();
+        assert_eq!(out.large_file_threshold_mb, Some(50));
+    }
+
+    #[test]
+    fn threshold_round_trips() {
+        let dir = TempDir::new().unwrap();
+        let s = VaultSettings { large_file_threshold_mb: Some(10), ..Default::default() };
+        write(dir.path(), &s).unwrap();
+        assert_eq!(read(dir.path()), s);
     }
 }

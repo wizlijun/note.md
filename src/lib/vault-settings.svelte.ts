@@ -6,19 +6,25 @@ import { invoke } from '@tauri-apps/api/core'
 /** Default sync sub-directory; mirrors `vault_settings::DEFAULT_SYNC_DIR`. */
 export const DEFAULT_SYNC_DIR = 'sync'
 
+/** 大文件阈值默认值(MB);镜像 Rust DEFAULT_LARGE_FILE_THRESHOLD_MB。 */
+export const DEFAULT_LARGE_FILE_THRESHOLD_MB = 10
+
 /** Raw settings DTO as returned by the backend (absent field = null). */
 export interface VaultSettingsDto {
   syncDir?: string | null
   wikipageDir?: string | null
   dailynoteDir?: string | null
+  largeFileThresholdMb?: number | null
 }
 
 export const vaultSettings = $state<{
   syncDir: string
+  largeFileThresholdMb: number
   vaultPath: string | null
   loaded: boolean
 }>({
   syncDir: DEFAULT_SYNC_DIR,
+  largeFileThresholdMb: DEFAULT_LARGE_FILE_THRESHOLD_MB,
   vaultPath: null,
   loaded: false,
 })
@@ -32,6 +38,7 @@ export async function loadVaultSettings(): Promise<void> {
   )
   vaultSettings.vaultPath = root ?? null
   vaultSettings.syncDir = dto?.syncDir ?? DEFAULT_SYNC_DIR
+  vaultSettings.largeFileThresholdMb = dto?.largeFileThresholdMb ?? DEFAULT_LARGE_FILE_THRESHOLD_MB
   vaultSettings.loaded = true
 }
 
@@ -44,4 +51,13 @@ export async function saveSyncDir(raw: string): Promise<void> {
   // 特性(reading-insights 等)重挂载,不必重启 app。
   const { refreshSotvault } = await import('./sotvault.svelte')
   await refreshSotvault()
+}
+
+/** 持久化大文件阈值(MB,>=1)。后端校验;不改 vault 目录结构,故无需 refreshSotvault。 */
+export async function saveLargeFileThreshold(mb: number): Promise<void> {
+  const merged = await invoke<VaultSettingsDto>('notemd_vault_settings_set', {
+    largeFileThresholdMb: mb,
+  })
+  vaultSettings.largeFileThresholdMb =
+    merged?.largeFileThresholdMb ?? DEFAULT_LARGE_FILE_THRESHOLD_MB
 }
