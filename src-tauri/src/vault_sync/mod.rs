@@ -47,6 +47,12 @@ impl SyncState {
     }
 }
 
+/// 一轮同步的结果摘要。目前只带被门禁排除的大文件清单(相对路径)。
+#[derive(Debug, Default, Clone)]
+pub struct SyncReport {
+    pub skipped_large: Vec<String>,
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct VaultSyncStatus {
     pub state: SyncState,
@@ -54,6 +60,7 @@ pub struct VaultSyncStatus {
     pub last_sync: Option<String>,
     pub error_message: Option<String>,
     pub git_available: bool,
+    pub skipped_large_files: Vec<String>,
 }
 
 pub struct VaultSyncManager {
@@ -66,6 +73,10 @@ pub struct VaultSyncManager {
     pub error_msg: Mutex<Option<String>>,
     pub git_available: Mutex<bool>,
     pub stop_flag: Mutex<bool>,
+    /// 串行化 do_sync:后台循环阻塞持有,手动 sync_once 用 try_lock。
+    pub sync_gate: Mutex<()>,
+    /// 最近一轮被门禁排除的大文件(相对 repo 根路径)。正交于 SyncState。
+    pub skipped_large_files: Mutex<Vec<String>>,
 }
 
 impl VaultSyncManager {
@@ -80,6 +91,8 @@ impl VaultSyncManager {
             error_msg: Mutex::new(None),
             git_available: Mutex::new(true),
             stop_flag: Mutex::new(false),
+            sync_gate: Mutex::new(()),
+            skipped_large_files: Mutex::new(Vec::new()),
         }
     }
 }
@@ -107,7 +120,8 @@ pub fn vault_sync_status(app: AppHandle) -> VaultSyncStatus {
     let last_sync = mgr.last_sync.lock().unwrap().clone();
     let error_message = mgr.error_msg.lock().unwrap().clone();
     let git_available = *mgr.git_available.lock().unwrap();
-    VaultSyncStatus { state, repo_path, last_sync, error_message, git_available }
+    let skipped_large_files = mgr.skipped_large_files.lock().unwrap().clone();
+    VaultSyncStatus { state, repo_path, last_sync, error_message, git_available, skipped_large_files }
 }
 
 #[tauri::command]

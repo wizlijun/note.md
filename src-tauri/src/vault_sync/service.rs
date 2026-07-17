@@ -53,7 +53,10 @@ pub fn sync_once(app: &AppHandle) -> Result<(), String> {
     let remote = mgr.remote.clone();
     let branch = mgr.branch.clone();
 
-    do_sync(app, &repo, &remote, &branch);
+    match mgr.sync_gate.try_lock() {
+        Ok(_guard) => do_sync(app, &repo, &remote, &branch),
+        Err(_) => mgr.logs.push("INFO", "sync already in progress, skipped"),
+    }
     Ok(())
 }
 
@@ -71,7 +74,11 @@ fn run_loop(app: AppHandle, repo: PathBuf, remote: String, branch: String) {
     };
 
     // Initial sync immediately on start
-    do_sync(&app, &repo, &remote, &branch);
+    {
+        let mgr = app.state::<Arc<VaultSyncManager>>();
+        let _guard = mgr.sync_gate.lock().unwrap();
+        do_sync(&app, &repo, &remote, &branch);
+    }
 
     let tx_periodic = tx.clone();
     let app_for_periodic = app.clone();
@@ -109,7 +116,11 @@ fn run_loop(app: AppHandle, repo: PathBuf, remote: String, branch: String) {
             break;
         }
 
-        do_sync(&app, &repo, &remote, &branch);
+        {
+            let mgr = app.state::<Arc<VaultSyncManager>>();
+            let _guard = mgr.sync_gate.lock().unwrap();
+            do_sync(&app, &repo, &remote, &branch);
+        }
     }
 }
 
@@ -144,7 +155,16 @@ fn do_sync(app: &AppHandle, repo: &PathBuf, remote: &str, branch: &str) {
         .map(|s| s.trim().to_string());
 
     match git_ops::sync(repo, remote, branch) {
-        Ok(()) => {
+        Ok(report) => {
+            *mgr.skipped_large_files.lock().unwrap() = report.skipped_large.clone();
+            if !report.skipped_large.is_empty() {
+                mgr.logs.push(
+                    "WARN",
+                    &format!("{} file(s) over the size limit were left out of sync: {}",
+                        report.skipped_large.len(),
+                        report.skipped_large.join(", ")),
+                );
+            }
             let ts = format!("{}", std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap_or_default().as_secs());
