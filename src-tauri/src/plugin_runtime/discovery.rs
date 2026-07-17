@@ -58,15 +58,21 @@ fn load_validated(current: &Path, dir_id: &str, host_version: &str) -> Result<Ma
     if m.id != dir_id {
         return Err(format!("manifest id '{}' != install dir '{dir_id}'", m.id));
     }
-    let triple = current_arch_triple()
-        .ok_or_else(|| format!("unsupported host arch '{}'", std::env::consts::ARCH))?;
-    let rel = m
-        .binary
-        .get(triple)
-        .ok_or_else(|| format!("no binary for host arch '{triple}'"))?;
-    let bin = current.join(rel);
-    if !bin.is_file() {
-        return Err(format!("binary '{}' does not exist", bin.display()));
+    // ②T1: `binary` is optional (ui-only plugins have none). Only a plugin that
+    // declares a binary is subject to the arch/presence check; a ui-only
+    // manifest (validated to have `ui`) skips it entirely. A plugin that DOES
+    // declare binaries must still ship one for the host arch.
+    if !m.binary.is_empty() {
+        let triple = current_arch_triple()
+            .ok_or_else(|| format!("unsupported host arch '{}'", std::env::consts::ARCH))?;
+        let rel = m
+            .binary
+            .get(triple)
+            .ok_or_else(|| format!("no binary for host arch '{triple}'"))?;
+        let bin = current.join(rel);
+        if !bin.is_file() {
+            return Err(format!("binary '{}' does not exist", bin.display()));
+        }
     }
     Ok(m)
 }
