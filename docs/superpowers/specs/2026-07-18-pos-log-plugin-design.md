@@ -34,14 +34,18 @@ v2 **native 后台插件**，无 UI、无菜单、无 CLI（`contributes` 为空
 
 ## 4. 取位循环
 
-激活立即执行一轮，此后 `tokio::time::interval` 每 30 分钟一轮（固定值，不做配置——YAGNI）：
+激活立即执行一轮，此后每 30 分钟一轮（固定值，不做配置——YAGNI）：
 
-1. `CLLocationManager.requestLocation()`（一次性定位，非持续订阅）。
+1. 取位（**实现修订**）：`startUpdatingLocation` → 轮询 `.location`（新鲜度 5 分钟内）
+   → `stopUpdatingLocation`，几秒内短启停。原设计的 `requestLocation` 必须实现
+   delegate 类（objc2 `define_class!`）；短启停轮询行为等价、免掉整个 delegate。
 2. `CLGeocoder.reverseGeocodeLocation`（系统 locale——中文系统得中文地名）。
 3. 从 `CLPlacemark` 取：`country` / `administrativeArea`（省）/ `locality`（市）/
    POI = `areasOfInterest[0]` 否则 `name`。
-4. CoreLocation 及其 delegate 回调跑在**专用线程 + CFRunLoop**（objc2 +
-   objc2-core-location + objc2-foundation crate）；与 tokio 侧用 channel 交接。
+4. 线程（**实现修订**）：CoreLocation 服务必须占用**主线程** run loop——
+   `CLGeocoder` 完成块落主 dispatch 队列，只有主线程 run loop（NSRunLoop 泵）会
+   排干它。于是 SDK serve 循环挪到副线程的 tokio runtime；两侧用
+   std mpsc（FetchJob）+ tokio oneshot（应答）交接。
 
 ## 5. 文件格式与写盘协议
 
@@ -54,8 +58,9 @@ v2 **native 后台插件**，无 UI、无菜单、无 CLI（`contributes` 为空
   **任一字符不同即追加**（含 POI 抖动——30 分钟粒度可接受）。
 - 跨天基线：当天文件不存在 → 无条件写第一行（即使与昨天最后一条相同）。
 - 跨重启：状态不落额外文件，从当天文件最后一行恢复；无文件即视为需要基线。
-- 写入通道：`host.vault.mkdir("pos")` → `host.vault.read` → 内存追加 → `host.vault.write`
-  整写（read-modify-write；单写者，无并发竞争）。
+- 写入通道：`host.vault.exists` → `host.vault.read` → 内存追加 → `host.vault.write`
+  整写（read-modify-write；单写者，无并发竞争）。**实现修订**：不调
+  `host.vault.mkdir`——`vault_write` 本就创建父目录。
 - 文件是纯 `.md` 不是 `.note.md`——不进关系图（符合"关系只在人确认处生长"）。
 
 ## 6. manifest（plugins-src/pos-log/manifest.v2.json）
@@ -94,9 +99,21 @@ plugins-src/pos-log/
       logbook.rs          # 纯函数：行格式化 / 变化判定 / 空段省略 / 文件名推导
 ```
 
-- `LocationProvider` trait（`fn fetch() -> Result<Place, LocError>`）隔离 objc 层，测试注入假实现。
+- `LocationProvider` trait（`fn fetch() -> Result<Place, String>`）隔离 objc 层，测试注入假实现。
 - `logbook.rs` 不含 IO，全部可单测。
-- 循环 task 里的 vault IO 走 SDK `Host::request`（serve 循环已支持后台任务发起宿主调用并路由应答）。
+- 循环 task 里的 vault IO 走 SDK `Host::request`（serve 循环路由应答给后台任务）。
+
+## 7b. 运行时前置：host.vault.* 接入进程通道（实现时补齐）
+
+spec 初稿误以为 vault 方法在进程 stdio 通道上已可用；实际此前只在 UI fetch-RPC
+桥实现，进程 sink 一律回 -32601。随本插件落地的运行时扩展：
+
+- `host_api::make_sink` 增加第 6 参 `services: Option<Arc<dyn HostServices>>`；
+  `Some` 时 vault.info/read/write/exists/list/mkdir 直接复用 ui_rpc 的函数体，
+  能力门（`vault.read`/`vault.write`）不变；`None`（测试默认）保持 -32601。
+- `make_sink_for_app` 用 `TauriServices::new(app)` 注入生产实现。
+- dialog / fs.read / clipboard 仍是 UI 桥专属——进程通道继续 -32601（进程插件
+  不得在宿主线程弹对话框）。
 
 ## 8. 错误处理
 
@@ -131,4 +148,4 @@ plugins-src/pos-log/
 - 不做设置界面 / 间隔配置 / 历史回填 / 轨迹可视化。
 - 不写经纬度坐标（只写地名行）。
 - 不做 iOS（vault.svelte.ts 侧无插件运行时）。
-- 不做持续订阅定位（`startUpdatingLocation`）——30 分钟一次 `requestLocation` 足够且省电。
+- 不做**常驻**定位订阅——每轮几秒内的短启停轮询不算；30 分钟一次足够且省电。
