@@ -1,0 +1,174 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ManifestV2",
+  "type": "object",
+  "required": [
+    "activation",
+    "capabilities",
+    "engines",
+    "id",
+    "kind",
+    "manifest_version",
+    "name",
+    "version"
+  ],
+  "properties": {
+    "activation": {
+      "$ref": "#/definitions/Activation"
+    },
+    "binary": {
+      "default": {},
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "contributes": {
+      "default": {
+        "cli": [],
+        "context_menus": [],
+        "custom_editors": [],
+        "menus": [],
+        "settings": null,
+        "windows": []
+      },
+      "allOf": [
+        {
+          "$ref": "#/definitions/Contributes"
+        }
+      ]
+    },
+    "description": {
+      "default": null,
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "engines": {
+      "$ref": "#/definitions/Engines"
+    },
+    "i18n": {
+      "default": null
+    },
+    "id": {
+      "type": "string"
+    },
+    "idle_shutdown_seconds": {
+      "default": null,
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint64",
+      "minimum": 0.0
+    },
+    "kind": {
+      "$ref": "#/definitions/PluginKind"
+    },
+    "manifest_version": {
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0.0
+    },
+    "name": {
+      "type": "string"
+    },
+    "request_timeout_seconds": {
+      "default": null,
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint64",
+      "minimum": 0.0
+    },
+    "ui": {
+      "default": null,
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "version": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "definitions": {
+    "Activation": {
+      "type": "object",
+      "required": [
+        "events"
+      ],
+      "properties": {
+        "events": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "Contributes": {
+      "type": "object",
+      "properties": {
+        "cli": {
+          "default": [],
+          "type": "array",
+          "items": true
+        },
+        "context_menus": {
+          "default": [],
+          "type": "array",
+          "items": true
+        },
+        "custom_editors": {
+          "default": [],
+          "type": "array",
+          "items": true
+        },
+        "menus": {
+          "default": [],
+          "type": "array",
+          "items": true
+        },
+        "settings": {
+          "default": null
+        },
+        "windows": {
+          "default": [],
+          "type": "array",
+          "items": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "Engines": {
+      "type": "object",
+      "required": [
+        "notemd"
+      ],
+      "properties": {
+        "notemd": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "PluginKind": {
+      "type": "string",
+      "enum": [
+        "native",
+        "wasm"
+      ]
+    }
+  }
+}

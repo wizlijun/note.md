@@ -1,0 +1,203 @@
+{
+  "$defs": {
+    "plugin_protocol::ActivateParams": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "additionalProperties": false,
+      "properties": {
+        "event": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "event"
+      ],
+      "title": "ActivateParams",
+      "type": "object"
+    },
+    "plugin_protocol::ExecuteCommandParams": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "additionalProperties": false,
+      "properties": {
+        "command": {
+          "type": "string"
+        },
+        "context": true
+      },
+      "required": [
+        "command",
+        "context"
+      ],
+      "title": "ExecuteCommandParams",
+      "type": "object"
+    },
+    "plugin_protocol::InitializeParams": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "additionalProperties": false,
+      "properties": {
+        "data_dir": {
+          "type": "string"
+        },
+        "host_version": {
+          "type": "string"
+        },
+        "locale": {
+          "type": "string"
+        },
+        "plugin_root": {
+          "type": "string"
+        },
+        "protocol_version": {
+          "format": "uint32",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "theme": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "data_dir",
+        "host_version",
+        "locale",
+        "plugin_root",
+        "protocol_version",
+        "theme"
+      ],
+      "title": "InitializeParams",
+      "type": "object"
+    },
+    "plugin_protocol::LogParams": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "additionalProperties": false,
+      "properties": {
+        "message": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "message"
+      ],
+      "title": "LogParams",
+      "type": "object"
+    },
+    "plugin_protocol::RpcError": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "properties": {
+        "code": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "message": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "message"
+      ],
+      "title": "RpcError",
+      "type": "object"
+    },
+    "plugin_protocol::RpcRequest": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "properties": {
+        "id": {
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "jsonrpc": {
+          "type": "string"
+        },
+        "method": {
+          "type": "string"
+        },
+        "params": {
+          "default": null
+        }
+      },
+      "required": [
+        "jsonrpc",
+        "method"
+      ],
+      "title": "RpcRequest",
+      "type": "object"
+    },
+    "plugin_protocol::RpcResponse": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "definitions": {
+        "RpcError": {
+          "properties": {
+            "code": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "message": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "message"
+          ],
+          "type": "object"
+        }
+      },
+      "properties": {
+        "error": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/RpcError"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "id": {
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "jsonrpc": {
+          "type": "string"
+        },
+        "result": true
+      },
+      "required": [
+        "id",
+        "jsonrpc"
+      ],
+      "title": "RpcResponse",
+      "type": "object"
+    },
+    "plugin_protocol::ToastParams": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "additionalProperties": false,
+      "properties": {
+        "detail": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "level": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "level",
+        "message"
+      ],
+      "title": "ToastParams",
+      "type": "object"
+    }
+  }
+}
