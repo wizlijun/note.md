@@ -12,6 +12,10 @@ exlibris/src-tauri/gen/
 src-tauri/gen/*
 !src-tauri/gen/apple/
 .worktrees/
+
+# Packaged + signed plugin release artifacts (scripts/release-plugins.sh)
+dist-plugins/
+
 *.log
 
 # Local secrets — never commit

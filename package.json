@@ -19,7 +19,9 @@
     "tauri:exlibris:build": "pnpm --filter exlibris tauri:build",
     "build:exlibris": "bash scripts/build-exlibris.sh",
     "gen:protocol": "bash scripts/gen-plugin-protocol.sh",
-    "check:protocol": "bash scripts/gen-plugin-protocol.sh --check"
+    "check:protocol": "bash scripts/gen-plugin-protocol.sh --check",
+    "release:plugins": "bash scripts/release-plugins.sh",
+    "gen:plugin-index": "node scripts/gen-plugin-index.mjs"
   },
   "dependencies": {
     "@moraya/core": "file:../moraya-core",
