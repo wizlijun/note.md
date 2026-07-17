@@ -29,13 +29,13 @@ pub const MAX_PKG_BYTES: u64 = 50 * 1024 * 1024;
 /// Network timeout for both index fetch and package download.
 const NET_TIMEOUT_SECS: u64 = 10;
 
-/// TEST KEY — replace with production plugin-registry pubkey before shipping
-/// (spec §19 user steps). This is the base64 line (no `untrusted comment:`
-/// prefix) of the throwaway keypair that signed the Task 1 test fixtures
-/// (`src-tauri/tests/fixtures/pkg/test.pub.b64`); the matching private key is
-/// NOT in the repo. `installer::verify_and_stage` accepts exactly this form.
+/// Production plugin-registry pubkey (minisign key id 2BAFE555935FE0A9). This
+/// is the base64 line (no `untrusted comment:` prefix) of
+/// `~/.tauri/notemd-plugins.pub`; the matching private key signs every
+/// `.notemdpkg` published by scripts/release-plugins.sh and is NOT in the
+/// repo. `installer::verify_and_stage` accepts exactly this form.
 pub const PLUGIN_REGISTRY_PUBKEY: &str =
-    "RWRE5NvPPTx268vUg+kiQp1L6KA+7O5Jva8DxMCJYzCPbfoCXT/dY8Lo";
+    "RWSp4F+TVeWvKxkXXQIfd9pceHoU1UGBbDCC2BYOtOjeUdtf2X+YG2WT";
 
 /// The full registry index (`GET /api/index.json`).
 #[derive(Debug, Clone, Deserialize, Serialize)]

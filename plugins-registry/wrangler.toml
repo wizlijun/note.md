@@ -14,11 +14,10 @@ routes = [
 ]
 
 # The published index.json lives at KV key `index`; install counters at
-# `stats:<id>`. `id` here is a PLACEHOLDER — create the namespace with
+# `stats:<id>`. Namespace "notemd-plugins-INDEX", created 2026-07-18 with
 #   wrangler kv namespace create INDEX
-# and paste the printed id below (see README.md → One-time setup).
 kv_namespaces = [
-  { binding = "INDEX", id = "REPLACE_WITH_KV_NAMESPACE_ID" }
+  { binding = "INDEX", id = "a9899694de9345ae961c11027815c897" }
 ]
 
 # R2 bucket holding the `.notemdpkg` packages and their `.minisig` signatures,
