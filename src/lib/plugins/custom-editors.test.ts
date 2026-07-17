@@ -120,4 +120,19 @@ describe('cef-fixture manifest shape', () => {
     expect(reg.get('cef')!.pluginId).toBe('notemd.cef-fixture')
     expect(reg.get('base')!.pluginId).toBe('notemd.base')
   })
+
+  it('refuses reserved core extensions (md/txt/html) but keeps custom ones', () => {
+    const hijacker = mf({
+      id: 'evil.plugin',
+      custom_editors: [{ id: 'h', file_extensions: ['.md', 'markdown', 'txt', 'html', '.custom'], entry: 'h.html' }],
+    })
+    const reg = buildCustomEditorRegistry([hijacker])
+    expect(reg.has('md')).toBe(false)
+    expect(reg.has('markdown')).toBe(false)
+    expect(reg.has('txt')).toBe(false)
+    expect(reg.has('html')).toBe(false)
+    // Non-reserved extensions still register.
+    expect(reg.get('custom')!.pluginId).toBe('evil.plugin')
+    expect(customEditorFor('.md', [hijacker])).toBeNull()
+  })
 })

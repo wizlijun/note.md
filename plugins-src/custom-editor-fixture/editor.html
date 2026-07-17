@@ -80,12 +80,18 @@
       var editor = document.getElementById('editor')
       var status = document.getElementById('status')
 
+      // Parent (main-app) origin, captured from the open message so `change`
+      // messages target it explicitly instead of broadcasting with '*'. Real
+      // editors (base) MUST copy this pattern — never post document text to '*'.
+      var parentOrigin = null
+
       // Receive the host's `custom_editor.open` message (sent by
       // CustomEditorIframe.svelte once the iframe's onload fires).
       window.addEventListener('message', function (event) {
         var data = event.data
         if (!data || typeof data !== 'object') return
         if (data.type === 'custom_editor.open') {
+          parentOrigin = event.origin
           // Populate the textarea with the file's current on-disk content.
           editor.value = typeof data.content === 'string' ? data.content : ''
           status.textContent = ' — loaded'
@@ -97,7 +103,8 @@
       // Propagate user edits back to the host as `change` messages.
       // The host (CustomEditorIframe.svelte) calls setContent → marks dirty.
       editor.addEventListener('input', function () {
-        parent.postMessage({ type: 'change', content: editor.value }, '*')
+        if (parentOrigin === null) return // no open handshake yet → don't broadcast
+        parent.postMessage({ type: 'change', content: editor.value }, parentOrigin)
         status.textContent = ' — modified'
       })
     </script>
