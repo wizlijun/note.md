@@ -98,9 +98,9 @@ const RPC_PATH: &str = "/__rpc__";
 
 /// Outcome of the pure routing layer. `Rpc` means the request passed all the
 /// pure checks (known plugin, POST /__rpc__, matching Origin) and its body
-/// should be dispatched by `ui_rpc::dispatch` in the async shell — a step that
-/// needs the AppHandle-backed `HostServices` and so cannot live in this pure
-/// core. `Response` is a fully-formed reply for every other case (asset serve,
+/// should be dispatched by `ui_rpc::dispatch` in the shell — a step that needs
+/// the AppHandle-backed services and so cannot live in this pure core.
+/// `Response` is a fully-formed reply for every other case (asset serve,
 /// 404/403/405) that the shell returns verbatim.
 pub enum Routed {
     /// Dispatch RPC: `(plugin_id, capabilities)`. Body comes from the request.
@@ -108,10 +108,10 @@ pub enum Routed {
     Response(http::Response<Vec<u8>>),
 }
 
-/// Pure routing decision. Split from `handle_parsed` so the RPC seam is
-/// reachable from the async `handle<R>` shell (which owns the services and the
-/// async dispatch) while asset/routing paths stay synchronously testable.
-pub fn route(
+/// Pure routing core (GET/auth/404 logic — no AppHandle, no global STATE).
+/// The authenticated `POST /__rpc__` case is returned as [`Routed::Rpc`] for
+/// the shell to dispatch via `ui_rpc`.
+pub fn handle_parsed(
     view: &dyn PluginView,
     method: &str,
     plugin_id: &str,
@@ -135,7 +135,7 @@ pub fn route(
     }
 }
 
-/// GET asset serving, extracted so `route` and the RPC-path tests share it.
+/// GET asset serving, extracted from `handle_parsed` for readability.
 fn serve_asset(ui_root: &Path, plugin_id: &str, path: &str) -> http::Response<Vec<u8>> {
     match resolve_asset(ui_root, path) {
         Ok(file) => {
@@ -154,32 +154,6 @@ fn serve_asset(ui_root: &Path, plugin_id: &str, path: &str) -> http::Response<Ve
         }
         Err(AssetError::Traversal) => plain(http::StatusCode::FORBIDDEN, "forbidden"),
         Err(AssetError::NotFound) => plain(http::StatusCode::NOT_FOUND, "not found"),
-    }
-}
-
-/// Test/back-compat wrapper preserving the pre-Task-3 pure signature: routes,
-/// and for the RPC branch renders the same JSON-RPC error skeleton (no live
-/// dispatch here — that requires the async shell's `HostServices`). Production
-/// (`handle<R>`) uses `route` + `ui_rpc::dispatch` instead.
-#[cfg(test)]
-fn handle_parsed(
-    view: &dyn PluginView,
-    method: &str,
-    plugin_id: &str,
-    path: &str,
-    origin: Option<&str>,
-    _body: &[u8],
-) -> http::Response<Vec<u8>> {
-    match route(view, method, plugin_id, path, origin) {
-        Routed::Response(r) => r,
-        Routed::Rpc(..) => http::Response::builder()
-            .status(http::StatusCode::NOT_IMPLEMENTED)
-            .header("content-type", "application/json")
-            .body(
-                br#"{"jsonrpc":"2.0","id":null,"error":{"code":-32601,"message":"rpc not wired yet"}}"#
-                    .to_vec(),
-            )
-            .unwrap(),
     }
 }
 
@@ -207,20 +181,20 @@ impl PluginView for StateView {
     }
 }
 
-/// Thin shell registered via `register_uri_scheme_protocol`. macOS-only URL
+/// Shell binding [`handle_parsed`] to the global STATE and, for the
+/// authenticated `POST /__rpc__` case, to `ui_rpc::dispatch`. macOS-only URL
 /// shape: requests arrive as `plugin://<id>/<path>` (id = URL host; other
 /// platforms would nest it in the path, which we don't handle).
 ///
-/// # The RPC dispatch seam
+/// # Threading contract (MUST run off the main thread)
 ///
-/// `register_uri_scheme_protocol`'s handler is synchronous and must return a
-/// `Response`, but `ui_rpc::dispatch` is `async` (dialogs, clipboard). The pure
-/// [`route`] layer decides *whether* this is an RPC request without touching the
-/// AppHandle; only when it says `Routed::Rpc` do we cross into async, building
-/// the live [`ui_rpc::TauriServices`] from `app` and running the future to
-/// completion with `tauri::async_runtime::block_on`. Asset/routing responses
-/// come straight back from `route`, keeping the pure `route`/`handle_parsed`
-/// tests valid and free of any runtime.
+/// WKWebView delivers custom-scheme requests on the main thread, and the RPC
+/// branch can block for minutes (`host.dialog.*` waits for the user) — blocking
+/// there would freeze the run loop AND deadlock the dialog, which itself needs
+/// the main thread. lib.rs therefore registers this via
+/// `register_asynchronous_uri_scheme_protocol` and calls `handle` from a
+/// dedicated spawned thread per request, where `block_on(ui_rpc::dispatch)` is
+/// safe.
 pub fn handle<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
     request: http::Request<Vec<u8>>,
@@ -237,7 +211,7 @@ pub fn handle<R: tauri::Runtime>(
         .and_then(|v| v.to_str().ok())
         .map(str::to_string);
 
-    match route(
+    match handle_parsed(
         &StateView,
         request.method().as_str(),
         &plugin_id,
@@ -249,8 +223,9 @@ pub fn handle<R: tauri::Runtime>(
     }
 }
 
-/// Async seam: parse the JSON-RPC body, run `ui_rpc::dispatch` on live services,
-/// and serialize the response. Body parse failure → a JSON-RPC parse error.
+/// RPC seam: parse the JSON-RPC body, run `ui_rpc::dispatch` (production entry;
+/// builds the live services from `app`), serialize the response. Body parse
+/// failure → JSON-RPC -32700.
 fn dispatch_rpc<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
     plugin_id: &str,
@@ -267,27 +242,11 @@ fn dispatch_rpc<R: tauri::Runtime>(
             return json_response(&err);
         }
     };
-
-    let log_dir = tauri::Manager::path(app)
-        .app_log_dir()
-        .map(|d| d.join("plugins"))
-        .unwrap_or_else(|_| std::env::temp_dir());
-    let emitter: super::host_api::ToastEmitter = {
-        use tauri::Emitter;
-        let app = app.clone();
-        std::sync::Arc::new(move |payload| {
-            let _ = app.emit("plugin-toast", payload);
-        })
-    };
-    let services = super::ui_rpc::TauriServices::new(app.clone());
-
     let resp = tauri::async_runtime::block_on(super::ui_rpc::dispatch(
-        &services,
+        app,
         plugin_id,
         capabilities,
         req,
-        &log_dir,
-        &emitter,
     ));
     json_response(&resp)
 }
@@ -424,11 +383,19 @@ mod tests {
 
     // ── handle_parsed ───────────────────────────────────────────────────
 
+    /// Unwrap the `Routed::Response` branch (panics on `Rpc`).
+    fn resp(r: Routed) -> http::Response<Vec<u8>> {
+        match r {
+            Routed::Response(r) => r,
+            Routed::Rpc(..) => panic!("expected a direct response, got Routed::Rpc"),
+        }
+    }
+
     #[test]
     fn handle_unknown_plugin_404() {
         let dir = ui_fixture();
         let view = view_for(dir.path());
-        let r = handle_parsed(&view, "GET", "other.plugin", "/index.html", None, &[]);
+        let r = resp(handle_parsed(&view, "GET", "other.plugin", "/index.html", None));
         assert_eq!(r.status(), 404);
     }
 
@@ -436,7 +403,7 @@ mod tests {
     fn handle_get_html_has_csp_and_no_cache() {
         let dir = ui_fixture();
         let view = view_for(dir.path());
-        let r = handle_parsed(&view, "GET", "test.plugin", "/index.html", None, &[]);
+        let r = resp(handle_parsed(&view, "GET", "test.plugin", "/index.html", None));
         assert_eq!(r.status(), 200);
         assert_eq!(r.headers()["content-type"], "text/html");
         assert_eq!(r.headers()["cache-control"], "no-cache");
@@ -451,7 +418,7 @@ mod tests {
     fn handle_get_js_has_no_csp() {
         let dir = ui_fixture();
         let view = view_for(dir.path());
-        let r = handle_parsed(&view, "GET", "test.plugin", "/app.js", None, &[]);
+        let r = resp(handle_parsed(&view, "GET", "test.plugin", "/app.js", None));
         assert_eq!(r.status(), 200);
         assert_eq!(r.headers()["content-type"], "text/javascript");
         assert_eq!(r.headers()["cache-control"], "no-cache");
@@ -462,7 +429,7 @@ mod tests {
     fn handle_get_traversal_403() {
         let dir = ui_fixture();
         let view = view_for(dir.path());
-        let r = handle_parsed(&view, "GET", "test.plugin", "/%2e%2e/secret", None, &[]);
+        let r = resp(handle_parsed(&view, "GET", "test.plugin", "/%2e%2e/secret", None));
         assert_eq!(r.status(), 403);
     }
 
@@ -471,36 +438,49 @@ mod tests {
         let dir = ui_fixture();
         let view = view_for(dir.path());
         for origin in [None, Some("plugin://other.plugin"), Some("tauri://localhost")] {
-            let r = handle_parsed(&view, "POST", "test.plugin", "/__rpc__", origin, b"{}");
+            let r = resp(handle_parsed(&view, "POST", "test.plugin", "/__rpc__", origin));
             assert_eq!(r.status(), 403, "origin {origin:?} must be rejected");
         }
     }
 
     #[test]
-    fn handle_rpc_right_origin_501_skeleton() {
+    fn handle_rpc_right_origin_routes_to_dispatch_with_capabilities() {
         let dir = ui_fixture();
         let view = view_for(dir.path());
-        let r = handle_parsed(
+        match handle_parsed(
             &view,
             "POST",
             "test.plugin",
             "/__rpc__",
             Some("plugin://test.plugin"),
-            b"{}",
-        );
-        assert_eq!(r.status(), 501);
-        assert_eq!(r.headers()["content-type"], "application/json");
-        let body: serde_json::Value = serde_json::from_slice(r.body()).unwrap();
-        assert_eq!(body["jsonrpc"], "2.0");
-        assert_eq!(body["error"]["code"], -32601);
-        assert_eq!(body["error"]["message"], "rpc not wired yet");
+        ) {
+            Routed::Rpc(id, capabilities) => {
+                assert_eq!(id, "test.plugin");
+                assert_eq!(capabilities, vec!["toast".to_string()]);
+            }
+            Routed::Response(r) => panic!("expected Routed::Rpc, got status {}", r.status()),
+        }
+    }
+
+    #[test]
+    fn handle_rpc_wrong_path_post_404() {
+        let dir = ui_fixture();
+        let view = view_for(dir.path());
+        let r = resp(handle_parsed(
+            &view,
+            "POST",
+            "test.plugin",
+            "/other",
+            Some("plugin://test.plugin"),
+        ));
+        assert_eq!(r.status(), 404);
     }
 
     #[test]
     fn handle_put_405() {
         let dir = ui_fixture();
         let view = view_for(dir.path());
-        let r = handle_parsed(&view, "PUT", "test.plugin", "/index.html", None, &[]);
+        let r = resp(handle_parsed(&view, "PUT", "test.plugin", "/index.html", None));
         assert_eq!(r.status(), 405);
     }
 }

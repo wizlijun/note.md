@@ -202,7 +202,9 @@ fn save_store(app: &AppHandle, s: &RecordStore) -> Result<(), String> {
 /// the manager's repo_path from the shared config — does not run there, so
 /// without this the manager is empty and `notemd share` wrongly reported
 /// `vault_required` despite a configured vault. None only when truly unconfigured.
-fn resolve_vault_root<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Option<PathBuf> {
+/// pub(crate): `plugin_runtime::ui_rpc`'s `host.vault.*` methods resolve the
+/// same root (generic over `R` so the test runtime works too).
+pub(crate) fn resolve_vault_root<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Option<PathBuf> {
     if let Some(mgr) = app.try_state::<Arc<crate::vault_sync::VaultSyncManager>>() {
         if let Ok(guard) = mgr.repo_path.lock() {
             if let Some(p) = guard.clone().filter(|s| !s.is_empty()) {
@@ -236,13 +238,6 @@ fn resolve_vault_root<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Option<Pa
 #[tauri::command]
 pub fn sotvault_vault_root(app: AppHandle) -> Result<Option<String>, String> {
     Ok(resolve_vault_root(&app).map(|p| p.to_string_lossy().to_string()))
-}
-
-/// Public accessor for the configured vault root, for callers outside this
-/// module (e.g. `plugin_runtime::ui_rpc`'s `host.vault.*`). `None` when
-/// unconfigured. Wraps the private `resolve_vault_root`.
-pub fn resolve_vault_root_public<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Option<PathBuf> {
-    resolve_vault_root(app)
 }
 
 /// Debug: report exactly how the backend resolves the vault root — the live

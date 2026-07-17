@@ -23,9 +23,12 @@ pub fn method_capability(method: &str) -> Option<&'static str> {
         "host.log.info" | "host.log.warn" | "host.log.error" => None,
         "host.toast" => Some("toast"),
         "host.dialog.open" | "host.dialog.save" => Some("dialog"),
-        "host.vault.info" => Some("vault.read"),
-        "host.vault.read" | "host.vault.exists" | "host.vault.list" => Some("vault.read"),
+        "host.vault.info" | "host.vault.read" | "host.vault.exists" | "host.vault.list" => {
+            Some("vault.read")
+        }
         "host.vault.write" | "host.vault.mkdir" => Some("vault.write"),
+        // fs.read:dialog — readable only for paths previously returned by a
+        // host.dialog.open/save in this session (spec §5 prompt semantics).
         "host.fs.read_text" => Some("fs.read:dialog"),
         "host.clipboard.write" => Some("clipboard.write"),
         _ => Some("__unknown__"), // 未实现的方法一律拒绝
@@ -127,15 +130,24 @@ pub fn make_sink(
                 })
             }
             _ => match handle_common(&req.method, req.params, &plugin_id, &log_dir, &emitter) {
-                // The process sink only ever shares log/toast with ui_rpc; every
-                // other authorized method is unreachable here (method_capability
-                // maps them to caps this sink's plugins never hold in practice,
-                // and ui-only methods aren't invoked over the process channel).
                 Some(Ok(_)) => ok(req.id),
                 Some(Err(detail)) => req
                     .id
                     .and_then(|id| reply_err(id, proto::ERR_INTERNAL, detail)),
-                None => unreachable!("filtered above"),
+                // Authorized (capability held) but only implemented on the UI
+                // fetch-RPC bridge — dialog/vault/fs/clipboard. Answering -32601
+                // here matters: a process plugin whose manifest declares e.g.
+                // `vault.read` would otherwise reach a panic on a host thread.
+                None => req.id.and_then(|id| {
+                    reply_err(
+                        id,
+                        proto::ERR_METHOD_NOT_FOUND,
+                        format!(
+                            "method {} is not available on the process channel",
+                            req.method
+                        ),
+                    )
+                }),
             },
         }
     })
@@ -383,7 +395,52 @@ mod tests {
         assert_eq!(method_capability("host.log.warn"), None);
         assert_eq!(method_capability("host.log.error"), None);
         assert_eq!(method_capability("host.toast"), Some("toast"));
+        assert_eq!(method_capability("host.dialog.open"), Some("dialog"));
+        assert_eq!(method_capability("host.dialog.save"), Some("dialog"));
+        assert_eq!(method_capability("host.vault.info"), Some("vault.read"));
+        assert_eq!(method_capability("host.vault.read"), Some("vault.read"));
+        assert_eq!(method_capability("host.vault.exists"), Some("vault.read"));
+        assert_eq!(method_capability("host.vault.list"), Some("vault.read"));
+        assert_eq!(method_capability("host.vault.write"), Some("vault.write"));
+        assert_eq!(method_capability("host.vault.mkdir"), Some("vault.write"));
+        assert_eq!(method_capability("host.fs.read_text"), Some("fs.read:dialog"));
+        assert_eq!(method_capability("host.clipboard.write"), Some("clipboard.write"));
         assert_eq!(method_capability("host.unknown"), Some("__unknown__"));
         assert_eq!(method_capability("anything.else"), Some("__unknown__"));
+    }
+
+    // ── UI-only methods over the process channel → -32601, never a panic ──────
+
+    #[test]
+    fn ui_only_method_on_process_channel_returns_32601_even_when_authorized() {
+        let dir = tempfile::tempdir().unwrap();
+        let (emitter, seen) = recording_emitter();
+        // The plugin legitimately HOLDS vault.read — the gate passes — but the
+        // method is only implemented on the UI fetch-RPC bridge.
+        let sink = make_sink(
+            "pub.test".into(),
+            vec!["vault.read".into()],
+            dir.path().to_path_buf(),
+            emitter,
+        );
+
+        let resp = sink(req(
+            "host.vault.read",
+            Some(5),
+            serde_json::json!({"path": "a.md"}),
+        ))
+        .unwrap();
+        let err = resp.error.unwrap();
+        assert_eq!(err.code, proto::ERR_METHOD_NOT_FOUND);
+        assert!(
+            err.message.contains("process channel"),
+            "message: {}",
+            err.message
+        );
+
+        // Notification variant: silent no-op.
+        let resp = sink(notification("host.vault.read", serde_json::json!({"path": "a.md"})));
+        assert!(resp.is_none());
+        assert!(seen.lock().unwrap().is_empty());
     }
 }
