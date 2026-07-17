@@ -132,7 +132,8 @@ fn mime_and_csp_for_fixture_assets() {
     assert_eq!(
         protocol::csp_header(PLUGIN_ID),
         "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; \
-         img-src 'self' data:; connect-src 'self'"
+         img-src 'self' data:; connect-src 'self'; object-src 'none'; \
+         base-uri 'none'; form-action 'none'; frame-src 'none'"
     );
 }
 

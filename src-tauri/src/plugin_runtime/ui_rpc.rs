@@ -73,6 +73,16 @@ fn is_granted(plugin_id: &str, path: &Path) -> bool {
         .unwrap_or(false)
 }
 
+/// Drop every fs.read:dialog grant held by `plugin_id`. `GRANTED_PATHS` is
+/// process-global and would otherwise leak a plugin's dialog-granted paths for
+/// the whole app lifetime; windows.rs wires this to the plugin window's
+/// `Destroyed` event so a grant lives no longer than the window that earned it.
+pub(crate) fn clear_grants(plugin_id: &str) {
+    if let Ok(mut m) = GRANTED_PATHS.lock() {
+        m.remove(plugin_id);
+    }
+}
+
 // ── Injectable host services ────────────────────────────────────────────
 
 /// A file filter for the native dialogs: a label plus its extensions.
@@ -420,10 +430,14 @@ fn vault_read(services: &dyn HostServices, params: &serde_json::Value) -> Result
     Ok(serde_json::json!({ "content": read_text_capped(&p)? }))
 }
 
-/// `{ path, content } → { ok: true }`; creates parent directories.
+/// `{ path, content } → { ok: true }`; creates parent directories. Content is
+/// capped at the same 10 MB `MAX_TEXT_BYTES` as reads (UTF-8 byte length).
 fn vault_write(services: &dyn HostServices, params: &serde_json::Value) -> Result<serde_json::Value, String> {
     let p = resolve_in_vault(services, params)?;
     let content = req_str(params, "content")?;
+    if content.len() as u64 > MAX_TEXT_BYTES {
+        return Err(format!("too_large: content exceeds {MAX_TEXT_BYTES} bytes"));
+    }
     if let Some(parent) = p.parent() {
         std::fs::create_dir_all(parent).map_err(|e| format!("io: {e}"))?;
     }
@@ -798,6 +812,37 @@ mod tests {
         assert!(e.message.starts_with("too_large:"), "{}", e.message);
     }
 
+    #[tokio::test]
+    async fn write_over_10mb_is_too_large_but_small_write_succeeds() {
+        let dir = tempfile::tempdir().unwrap();
+        let s = StubServices { vault: Some(dir.path().to_path_buf()), ..Default::default() };
+
+        // A write just over the cap is rejected and nothing is written.
+        let big = "x".repeat((MAX_TEXT_BYTES + 1) as usize);
+        let r = run(
+            &s,
+            &["vault.write"],
+            "host.vault.write",
+            serde_json::json!({"path": "big.md", "content": big}),
+        )
+        .await;
+        let e = r.error.unwrap();
+        assert_eq!(e.code, proto::ERR_INTERNAL);
+        assert!(e.message.starts_with("too_large:"), "{}", e.message);
+        assert!(!dir.path().join("big.md").exists(), "rejected write must not create the file");
+
+        // A small write still succeeds.
+        let r = run(
+            &s,
+            &["vault.write"],
+            "host.vault.write",
+            serde_json::json!({"path": "small.md", "content": "ok"}),
+        )
+        .await;
+        assert!(r.error.is_none(), "{:?}", r.error);
+        assert_eq!(std::fs::read_to_string(dir.path().join("small.md")).unwrap(), "ok");
+    }
+
     // ── vault.info ───────────────────────────────────────────────────────
 
     #[tokio::test]
@@ -869,6 +914,16 @@ mod tests {
         // Now read_text succeeds.
         let r = run_as(&s, pid, &["fs.read:dialog"], "host.fs.read_text", serde_json::json!({"path": export_str})).await;
         assert_eq!(r.result.unwrap()["content"], r#"{"k":1}"#);
+    }
+
+    #[test]
+    fn clear_grants_removes_the_plugins_grants() {
+        let pid = "test.clear-grants"; // unique: global allow-set
+        let p = PathBuf::from("/tmp/test-clear-grants/export.json");
+        grant_path(pid, &p);
+        assert!(is_granted(pid, &p), "path should be granted after grant_path");
+        clear_grants(pid);
+        assert!(!is_granted(pid, &p), "path must not be granted after clear_grants");
     }
 
     #[tokio::test]

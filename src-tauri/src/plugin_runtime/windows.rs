@@ -11,7 +11,7 @@
 //! [`push_to_window`] are the AppHandle-backed shells.
 
 use serde_json::Value;
-use tauri::{Manager, Runtime, WebviewUrl, WebviewWindowBuilder};
+use tauri::{Manager, Runtime, WebviewUrl, WebviewWindowBuilder, WindowEvent};
 
 /// Window label: `plugin-<sanitized id>-<window id>`. Dots in the plugin id
 /// become hyphens so the label stays in Tauri's safe label character set.
@@ -130,6 +130,19 @@ pub fn open_plugin_window<R: Runtime>(
     let window = builder
         .build()
         .map_err(|e| format!("window build failed: {e}"))?;
+
+    // Prune this plugin's fs.read:dialog grants when the window is destroyed:
+    // GRANTED_PATHS is process-global, so a dialog-granted path would otherwise
+    // stay readable for the whole app lifetime. Only the freshly-built window
+    // gets the handler (the singleton-focus path above returns early, and its
+    // window already has one). `Destroyed` fires after the webview is gone.
+    let pid = plugin_id.to_string();
+    window.on_window_event(move |event| {
+        if matches!(event, WindowEvent::Destroyed) {
+            super::ui_rpc::clear_grants(&pid);
+        }
+    });
+
     let _ = window.show();
     let _ = window.unminimize();
     let _ = window.set_focus();

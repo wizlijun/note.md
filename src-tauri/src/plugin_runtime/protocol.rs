@@ -78,10 +78,14 @@ pub fn mime_for(path: &Path) -> &'static str {
 }
 
 /// `'self'` under a `plugin://<id>` origin is this plugin only; every remote
-/// load is denied (spec §7.1).
+/// load is denied (spec §7.1). `object-src`/`base-uri`/`form-action`/`frame-src`
+/// are locked explicitly: `base-uri` and `form-action` do NOT inherit
+/// `default-src`, so without them a `<form action="https://…">` (or a `<base>`
+/// hijack) would still be a navigation/exfil channel.
 pub fn csp_header(_plugin_id: &str) -> String {
     "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; \
-     img-src 'self' data:; connect-src 'self'"
+     img-src 'self' data:; connect-src 'self'; object-src 'none'; \
+     base-uri 'none'; form-action 'none'; frame-src 'none'"
         .to_string()
 }
 
@@ -377,7 +381,8 @@ mod tests {
         assert_eq!(
             csp_header("test.plugin"),
             "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; \
-             img-src 'self' data:; connect-src 'self'"
+             img-src 'self' data:; connect-src 'self'; object-src 'none'; \
+             base-uri 'none'; form-action 'none'; frame-src 'none'"
         );
     }
 
