@@ -34,10 +34,11 @@ export default defineConfig({
         insights: 'insights.html',
         roamImport: 'roam-import.html',
         preview: 'preview.html',
+        pluginMarket: 'plugin-market.html',
       },
     },
   },
   optimizeDeps: {
-    entries: ['index.html', 'chat.html', 'insights.html', 'roam-import.html', 'preview.html'],
+    entries: ['index.html', 'chat.html', 'insights.html', 'roam-import.html', 'preview.html', 'plugin-market.html'],
   },
 })

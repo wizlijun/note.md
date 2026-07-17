@@ -27,7 +27,6 @@
     DEFAULT_SHORTCUTS, resolveShortcuts, displayShortcut, eventToShortcut, findConflict,
     type OutlineCommandId,
   } from '../lib/outline/shortcuts'
-  import PluginsSettingsTab from './PluginsSettingsTab.svelte'
   import VaultSettingsTab from './VaultSettingsTab.svelte'
   import OpenClawSettingsTab from './OpenClawSettingsTab.svelte'
   import OpenClawDevicesTab from './OpenClawDevicesTab.svelte'
@@ -51,6 +50,16 @@
     if (!open) return
     void loadVaultSettings().then(() => { syncDirDraft = vaultSettings.syncDir })
   })
+  // Plugins tab is retired to a launcher: install / enable / uninstall now live
+  // in the standalone Plugin Market window (子项目③). Open it via the backend.
+  async function openPluginMarket() {
+    try {
+      await invoke('open_plugin_market_window')
+      open = false
+    } catch (e) {
+      pushToast({ level: 'error', message: String(e) })
+    }
+  }
   async function onSetOutlineDir(kind: 'wikipage' | 'dailynote', value: string) {
     try {
       await setOutlineDir(kind, value)
@@ -424,7 +433,10 @@
       </nav>
 
       {#if !isIOSPlatform && selectedTab === 'plugins'}
-        <PluginsSettingsTab />
+        <section class="block">
+          <p class="plugins-intro">{t('settings.plugins.marketIntro')}</p>
+          <button class="market-btn" onclick={openPluginMarket}>{t('settings.plugins.openMarket')}</button>
+        </section>
       {:else if selectedTab === 'core'}
         <section class="block">
           <label class="row">
@@ -823,6 +835,15 @@
     border-top: 1px solid color-mix(in srgb, CanvasText 10%, transparent);
   }
   .block:first-of-type { border-top: 0; padding-top: 0; }
+  .plugins-intro {
+    margin: 0 0 12px; font-size: 13px; line-height: 1.5;
+    color: color-mix(in srgb, CanvasText 78%, transparent);
+  }
+  .market-btn {
+    font-size: 13px; padding: 7px 16px; border-radius: 8px; cursor: pointer;
+    border: 1px solid transparent; font-weight: 600;
+    background: color-mix(in srgb, #2f7bd6 90%, CanvasText); color: white;
+  }
   .row { display: flex; gap: 8px; align-items: center; font-size: 13px; }
   .row .lbl {
     width: 60px;

@@ -179,6 +179,19 @@
       (e) => { pushToast(e.payload) },
     )
 
+    // Market install/uninstall/enable-toggle (子项目③) reconciles the runtime and
+    // emits `plugins-changed`. Re-fetch manifests so the frontend menu-model +
+    // dispatch data reflect the new installed/enabled set. `collectedItems` is
+    // derived from `pluginRuntime.manifests`, so this reactively updates the app
+    // menu bar, tab context menu, and settings tabs. NOTE: the native macOS menu
+    // is built once at setup — a *newly installed* plugin's menu item may need a
+    // restart to appear; enable/disable of already-present items reflects here.
+    const unlistenPluginsChanged = listen('plugins-changed', async () => {
+      try {
+        pluginRuntime.manifests = await invoke<PluginManifest[]>('get_plugin_manifests')
+      } catch (e) { console.warn('[App] plugins-changed refresh:', e) }
+    })
+
     invoke<string[]>('drain_pending_files').then(async (paths) => {
       for (const p of paths) {
         try { await openFile(p) } catch (err) { console.warn('[App] drain_pending_files:', err); showError(String(err)) }
@@ -632,6 +645,7 @@
       unlistenOpenRemoteBuffer.then((fn) => fn())
       unlistenTodayNote.then((fn) => fn())
       unlistenPluginToast.then((fn) => fn())
+      unlistenPluginsChanged.then((fn) => fn())
       unlistenDeepLink.then((fn) => fn())
       cleanupRecents?.()
       setVaultRootChangedHandler(null)

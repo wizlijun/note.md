@@ -395,6 +395,43 @@ fn show_insights_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
     }
 }
 
+/// View ▸ Plugin Market… (子项目③). Standalone window cloned from the insights
+/// window: it bootstraps its own webview state and drives the market commands
+/// (index / preview / install / uninstall / set_enabled) + capability consent.
+fn show_plugin_market_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
+    use tauri::WebviewUrl;
+    let win = app.get_webview_window("plugin-market").or_else(|| {
+        tauri::WebviewWindowBuilder::new(
+            app,
+            "plugin-market",
+            WebviewUrl::App("plugin-market.html".into()),
+        )
+        .title("Plugin Market")
+        .inner_size(900.0, 640.0)
+        .min_inner_size(520.0, 360.0)
+        .resizable(true)
+        .decorations(true)
+        .visible(false)
+        .build()
+        .map_err(|e| eprintln!("[plugin-market] window build failed: {e}"))
+        .ok()
+    });
+    if let Some(w) = win {
+        let _ = w.show();
+        let _ = w.unminimize();
+        let _ = w.set_focus();
+    }
+}
+
+/// Frontend entry point for the Plugin Market window (the retired Plugins
+/// settings tab's "Open Plugin Market…" button invokes this). Mirrors the
+/// View ▸ Plugin Market menu path.
+#[cfg(not(target_os = "ios"))]
+#[tauri::command]
+fn open_plugin_market_window(app: tauri::AppHandle) {
+    show_plugin_market_window(&app);
+}
+
 /// File ▸ Import from Roam Research… (roam-import builtin plugin). Frontend
 /// dispatches the plugin menu command here; gated on the plugin being enabled.
 #[cfg(not(target_os = "ios"))]
@@ -932,6 +969,7 @@ pub fn run() {
                 crate::openclaw::commands::openclaw_reject_pending,
                 crate::openclaw::commands::openclaw_upload_attachment,
                 show_roam_import_window,
+                open_plugin_market_window,
                 editor_show_and_open_path,
                 editor_open_remote_buffer,
                 update_recent_menu,
@@ -1045,6 +1083,10 @@ pub fn run() {
                     }
                     if event.id().0.as_str() == "open-insights" {
                         show_insights_window(app);
+                        return;
+                    }
+                    if event.id().0.as_str() == "open-plugin-market" {
+                        show_plugin_market_window(app);
                         return;
                     }
                     let _ = app.emit("menu-event", event.id().0.as_str());
@@ -1281,6 +1323,7 @@ fn menu_label(locale: &str, key: &str) -> String {
         "edit.findReplace" => ("Find and Replace…", "查找和替换…", "検索と置換…", "Suchen und Ersetzen…"),
         "view.toggleMode" => ("Toggle Source / Rich", "切换源码 / 富文本", "ソース / リッチを切り替え", "Quelltext / Rich umschalten"),
         "view.insights" => ("Reading Insights…", "阅读洞察数据…", "リーディングインサイト…", "Leseeinblicke…"),
+        "view.pluginMarket" => ("Plugin Market…", "插件市场…", "プラグインマーケット…", "Plugin-Markt…"),
         "file.syncToVault" => ("Sync to Vault…", "同步到 Vault…", "Vault に同期…", "Mit Vault synchronisieren…"),
         "file.share" => ("Share Current File…", "分享当前文件…", "現在のファイルを共有…", "Aktuelle Datei teilen…"),
         "file.unshare" => ("Unshare Current File…", "取消分享当前文件…", "現在のファイルの共有を解除…", "Freigabe der aktuellen Datei aufheben…"),
@@ -1593,6 +1636,7 @@ fn build_menu<R: tauri::Runtime>(
         .item(&PredefinedMenuItem::fullscreen(app, None)?)
         .separator()
         .item(&MenuItemBuilder::with_id("open-insights", menu_label(locale, "view.insights")).build(app)?)
+        .item(&MenuItemBuilder::with_id("open-plugin-market", menu_label(locale, "view.pluginMarket")).build(app)?)
         .separator()
         .item(&MenuItemBuilder::with_id("toggle-folder-view", menu_label(locale, "view.folderView")).accelerator("Cmd+Shift+E").build(app)?)
         .item(&MenuItemBuilder::with_id("toggle-sidecar-notes", menu_label(locale, "view.sidecarNotes")).accelerator("Cmd+Shift+O").build(app)?)
