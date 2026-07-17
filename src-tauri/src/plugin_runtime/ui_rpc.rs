@@ -440,7 +440,7 @@ fn clipboard_write(
 
 /// `{} → { root, wiki_dir, daily_dir }` (all null when no vault is configured;
 /// dir names fall back to the frontend's defaults when unset).
-fn vault_info(services: &dyn HostServices) -> serde_json::Value {
+pub(crate) fn vault_info(services: &dyn HostServices) -> serde_json::Value {
     match services.vault_root() {
         None => serde_json::json!({ "root": null, "wiki_dir": null, "daily_dir": null }),
         Some(root) => {
@@ -516,14 +516,14 @@ fn resolve_in_vault(services: &dyn HostServices, params: &serde_json::Value) -> 
 }
 
 /// `{ path } → { content }` (UTF-8, 10 MB cap).
-fn vault_read(services: &dyn HostServices, params: &serde_json::Value) -> Result<serde_json::Value, String> {
+pub(crate) fn vault_read(services: &dyn HostServices, params: &serde_json::Value) -> Result<serde_json::Value, String> {
     let p = resolve_in_vault(services, params)?;
     Ok(serde_json::json!({ "content": read_text_capped(&p)? }))
 }
 
 /// `{ path, content } → { ok: true }`; creates parent directories. Content is
 /// capped at the same 10 MB `MAX_TEXT_BYTES` as reads (UTF-8 byte length).
-fn vault_write(services: &dyn HostServices, params: &serde_json::Value) -> Result<serde_json::Value, String> {
+pub(crate) fn vault_write(services: &dyn HostServices, params: &serde_json::Value) -> Result<serde_json::Value, String> {
     let p = resolve_in_vault(services, params)?;
     let content = req_str(params, "content")?;
     if content.len() as u64 > MAX_TEXT_BYTES {
@@ -537,13 +537,13 @@ fn vault_write(services: &dyn HostServices, params: &serde_json::Value) -> Resul
 }
 
 /// `{ path } → { exists: bool }`.
-fn vault_exists(services: &dyn HostServices, params: &serde_json::Value) -> Result<serde_json::Value, String> {
+pub(crate) fn vault_exists(services: &dyn HostServices, params: &serde_json::Value) -> Result<serde_json::Value, String> {
     let p = resolve_in_vault(services, params)?;
     Ok(serde_json::json!({ "exists": p.exists() }))
 }
 
 /// `{ path } → { entries: [{ name, is_dir }] }`, sorted by name.
-fn vault_list(services: &dyn HostServices, params: &serde_json::Value) -> Result<serde_json::Value, String> {
+pub(crate) fn vault_list(services: &dyn HostServices, params: &serde_json::Value) -> Result<serde_json::Value, String> {
     let p = resolve_in_vault(services, params)?;
     let mut entries: Vec<(String, bool)> = Vec::new();
     for entry in std::fs::read_dir(&p).map_err(|e| format!("io: {e}"))? {
@@ -562,7 +562,7 @@ fn vault_list(services: &dyn HostServices, params: &serde_json::Value) -> Result
 }
 
 /// `{ path } → { ok: true }` (mkdir -p).
-fn vault_mkdir(services: &dyn HostServices, params: &serde_json::Value) -> Result<serde_json::Value, String> {
+pub(crate) fn vault_mkdir(services: &dyn HostServices, params: &serde_json::Value) -> Result<serde_json::Value, String> {
     let p = resolve_in_vault(services, params)?;
     std::fs::create_dir_all(&p).map_err(|e| format!("io: {e}"))?;
     Ok(serde_json::json!({ "ok": true }))
@@ -576,6 +576,13 @@ fn vault_mkdir(services: &dyn HostServices, params: &serde_json::Value) -> Resul
 /// module doc, "Threading contract").
 pub struct TauriServices<R: tauri::Runtime> {
     app: tauri::AppHandle<R>,
+}
+
+impl<R: tauri::Runtime> TauriServices<R> {
+    /// 供进程 sink（host_api::make_sink_for_app）复用同一套 vault 实现。
+    pub(crate) fn new(app: tauri::AppHandle<R>) -> Self {
+        Self { app }
+    }
 }
 
 impl<R: tauri::Runtime> HostServices for TauriServices<R> {

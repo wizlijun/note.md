@@ -106,6 +106,7 @@ pub fn make_sink(
     log_dir: std::path::PathBuf,
     emitter: ToastEmitter,
     ui_poster: UiPoster,
+    services: Option<Arc<dyn crate::plugin_runtime::ui_rpc::HostServices>>,
 ) -> crate::plugin_runtime::process::HostSink {
     Arc::new(move |req: proto::RpcRequest| {
         let reply_err = |id: u64, code: i64, message: String| {
@@ -155,25 +156,52 @@ pub fn make_sink(
                 }
                 ok(req.id)
             }
-            _ => match handle_common(&req.method, req.params, &plugin_id, &log_dir, &emitter) {
+            _ => match handle_common(&req.method, req.params.clone(), &plugin_id, &log_dir, &emitter) {
                 Some(Ok(_)) => ok(req.id),
                 Some(Err(detail)) => req
                     .id
                     .and_then(|id| reply_err(id, proto::ERR_INTERNAL, detail)),
-                // Authorized (capability held) but only implemented on the UI
-                // fetch-RPC bridge — dialog/vault/fs/clipboard. Answering -32601
-                // here matters: a process plugin whose manifest declares e.g.
-                // `vault.read` would otherwise reach a panic on a host thread.
-                None => req.id.and_then(|id| {
-                    reply_err(
-                        id,
-                        proto::ERR_METHOD_NOT_FOUND,
-                        format!(
-                            "method {} is not available on the process channel",
-                            req.method
-                        ),
-                    )
-                }),
+                // vault.* 在进程通道上可用（pos-log 等后台插件的写盘通道），前提
+                // 是宿主给了 services；dialog/fs/clipboard 仍只在 UI 桥 —— 对它
+                // 们回 -32601 依旧关键：进程插件声明了 `dialog` 也不能在宿主线
+                // 程上弹对话框。
+                None => {
+                    use crate::plugin_runtime::ui_rpc as rpc;
+                    let vault_out: Option<Result<serde_json::Value, String>> =
+                        services.as_ref().and_then(|svc| {
+                            let s: &dyn rpc::HostServices = svc.as_ref();
+                            match req.method.as_str() {
+                                "host.vault.info" => Some(Ok(rpc::vault_info(s))),
+                                "host.vault.read" => Some(rpc::vault_read(s, &req.params)),
+                                "host.vault.write" => Some(rpc::vault_write(s, &req.params)),
+                                "host.vault.exists" => Some(rpc::vault_exists(s, &req.params)),
+                                "host.vault.list" => Some(rpc::vault_list(s, &req.params)),
+                                "host.vault.mkdir" => Some(rpc::vault_mkdir(s, &req.params)),
+                                _ => None,
+                            }
+                        });
+                    match vault_out {
+                        Some(Ok(v)) => req.id.map(|id| proto::RpcResponse {
+                            jsonrpc: "2.0".into(),
+                            id,
+                            result: Some(v),
+                            error: None,
+                        }),
+                        Some(Err(detail)) => req
+                            .id
+                            .and_then(|id| reply_err(id, proto::ERR_INTERNAL, detail)),
+                        None => req.id.and_then(|id| {
+                            reply_err(
+                                id,
+                                proto::ERR_METHOD_NOT_FOUND,
+                                format!(
+                                    "method {} is not available on the process channel",
+                                    req.method
+                                ),
+                            )
+                        }),
+                    }
+                }
             },
         }
     })
@@ -202,7 +230,9 @@ pub fn make_sink_for_app<R: tauri::Runtime>(
             crate::plugin_runtime::windows::push_to_window(&app, &pid, window_id, payload);
         })
     };
-    make_sink(plugin_id, capabilities, log_dir, emitter, ui_poster)
+    let services: Arc<dyn crate::plugin_runtime::ui_rpc::HostServices> =
+        Arc::new(crate::plugin_runtime::ui_rpc::TauriServices::new(app.clone()));
+    make_sink(plugin_id, capabilities, log_dir, emitter, ui_poster, Some(services))
 }
 
 // ── Unit tests ────────────────────────────────────────────────────────────────
@@ -259,7 +289,7 @@ mod tests {
     fn toast_without_capability_request_returns_32001() {
         let dir = tempfile::tempdir().unwrap();
         let (emitter, seen) = recording_emitter();
-        let sink = make_sink("pub.test".into(), vec![], dir.path().to_path_buf(), emitter, noop_poster());
+        let sink = make_sink("pub.test".into(), vec![], dir.path().to_path_buf(), emitter, noop_poster(), None);
 
         let resp = sink(req(
             "host.toast",
@@ -284,7 +314,7 @@ mod tests {
     fn toast_without_capability_notification_is_silent() {
         let dir = tempfile::tempdir().unwrap();
         let (emitter, seen) = recording_emitter();
-        let sink = make_sink("pub.test".into(), vec![], dir.path().to_path_buf(), emitter, noop_poster());
+        let sink = make_sink("pub.test".into(), vec![], dir.path().to_path_buf(), emitter, noop_poster(), None);
 
         let resp = sink(notification(
             "host.toast",
@@ -307,6 +337,7 @@ mod tests {
             dir.path().to_path_buf(),
             emitter,
             noop_poster(),
+            None,
         );
 
         let resp = sink(req("host.unknown.method", Some(7), serde_json::json!({}))).unwrap();
@@ -330,6 +361,7 @@ mod tests {
             dir.path().to_path_buf(),
             emitter,
             noop_poster(),
+            None,
         );
         let resp = sink(notification("host.doesnt.exist", serde_json::json!({})));
         assert!(resp.is_none());
@@ -342,7 +374,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let (emitter, _) = recording_emitter();
         // No capabilities at all — log is free.
-        let sink = make_sink("pub.myplugin".into(), vec![], dir.path().to_path_buf(), emitter, noop_poster());
+        let sink = make_sink("pub.myplugin".into(), vec![], dir.path().to_path_buf(), emitter, noop_poster(), None);
 
         let resp = sink(req(
             "host.log.info",
@@ -368,7 +400,7 @@ mod tests {
     fn log_warn_and_error_write_correct_level_tags() {
         let dir = tempfile::tempdir().unwrap();
         let (emitter, _) = recording_emitter();
-        let sink = make_sink("pub.myplugin".into(), vec![], dir.path().to_path_buf(), emitter, noop_poster());
+        let sink = make_sink("pub.myplugin".into(), vec![], dir.path().to_path_buf(), emitter, noop_poster(), None);
 
         sink(req(
             "host.log.warn",
@@ -399,6 +431,7 @@ mod tests {
             dir.path().to_path_buf(),
             emitter,
             noop_poster(),
+            None,
         );
 
         let resp = sink(req(
@@ -431,6 +464,7 @@ mod tests {
             dir.path().to_path_buf(),
             emitter,
             noop_poster(),
+            None,
         );
 
         let resp = sink(notification(
@@ -472,17 +506,20 @@ mod tests {
     // ── UI-only methods over the process channel → -32601, never a panic ──────
 
     #[test]
-    fn ui_only_method_on_process_channel_returns_32601_even_when_authorized() {
+    fn vault_without_services_on_process_channel_returns_32601_even_when_authorized() {
         let dir = tempfile::tempdir().unwrap();
         let (emitter, seen) = recording_emitter();
         // The plugin legitimately HOLDS vault.read — the gate passes — but the
-        // method is only implemented on the UI fetch-RPC bridge.
+        // sink was built WITHOUT services (services: None), so vault stays
+        // unavailable here. (With Some(services) it works — see
+        // vault_round_trip_on_process_channel_with_services.)
         let sink = make_sink(
             "pub.test".into(),
             vec!["vault.read".into()],
             dir.path().to_path_buf(),
             emitter,
             noop_poster(),
+            None,
         );
 
         let resp = sink(req(
@@ -520,6 +557,7 @@ mod tests {
             dir.path().to_path_buf(),
             emitter,
             poster,
+            None,
         );
 
         let resp = sink(req(
@@ -551,6 +589,7 @@ mod tests {
             dir.path().to_path_buf(),
             emitter,
             poster,
+            None,
         );
 
         let resp = sink(notification(
@@ -578,6 +617,7 @@ mod tests {
             dir.path().to_path_buf(),
             emitter,
             poster,
+            None,
         );
 
         let resp = sink(req(
@@ -607,6 +647,7 @@ mod tests {
             dir.path().to_path_buf(),
             emitter,
             poster,
+            None,
         );
         let resp = sink(notification(
             "host.ui.post",
@@ -614,5 +655,112 @@ mod tests {
         ));
         assert!(resp.is_none());
         assert!(posted.lock().unwrap().is_empty());
+    }
+
+    // ── vault.* on the process channel (pos-log 前置) ─────────────────────────
+
+    /// 最小 HostServices 桩：只有 vault_root 有意义。
+    struct ServicesStub(std::path::PathBuf);
+    impl crate::plugin_runtime::ui_rpc::HostServices for ServicesStub {
+        fn pick_paths(
+            &self,
+            _o: &crate::plugin_runtime::ui_rpc::OpenOptions,
+        ) -> Result<Option<Vec<std::path::PathBuf>>, String> {
+            Err("no dialogs on process channel".into())
+        }
+        fn pick_save(
+            &self,
+            _o: &crate::plugin_runtime::ui_rpc::SaveOptions,
+        ) -> Result<Option<std::path::PathBuf>, String> {
+            Err("no dialogs on process channel".into())
+        }
+        fn vault_root(&self) -> Option<std::path::PathBuf> {
+            Some(self.0.clone())
+        }
+        fn wiki_daily_dirs(&self) -> (Option<String>, Option<String>) {
+            (None, None)
+        }
+        fn clipboard_write(&self, _t: &str) -> Result<(), String> {
+            Err("no clipboard on process channel".into())
+        }
+    }
+
+    #[test]
+    fn vault_round_trip_on_process_channel_with_services() {
+        let log_dir = tempfile::tempdir().unwrap();
+        let vault = tempfile::tempdir().unwrap();
+        let (emitter, _) = recording_emitter();
+        let sink = make_sink(
+            "pub.test".into(),
+            vec!["vault.read".into(), "vault.write".into()],
+            log_dir.path().to_path_buf(),
+            emitter,
+            noop_poster(),
+            Some(Arc::new(ServicesStub(vault.path().to_path_buf()))),
+        );
+        // write → {ok:true}
+        let resp = sink(req(
+            "host.vault.write",
+            Some(1),
+            serde_json::json!({"path": "pos/x.md", "content": "- line\n"}),
+        ))
+        .unwrap();
+        assert!(resp.error.is_none(), "write err: {:?}", resp.error);
+        assert_eq!(resp.result.unwrap()["ok"], true);
+        // exists → true
+        let resp = sink(req(
+            "host.vault.exists",
+            Some(2),
+            serde_json::json!({"path": "pos/x.md"}),
+        ))
+        .unwrap();
+        assert_eq!(resp.result.unwrap()["exists"], true);
+        // read → 原文
+        let resp = sink(req(
+            "host.vault.read",
+            Some(3),
+            serde_json::json!({"path": "pos/x.md"}),
+        ))
+        .unwrap();
+        assert_eq!(resp.result.unwrap()["content"], "- line\n");
+        // 越权：无 capability 的方法仍被拒
+        let resp = sink(req(
+            "host.clipboard.write",
+            Some(4),
+            serde_json::json!({"text": "x"}),
+        ))
+        .unwrap();
+        assert_eq!(resp.error.unwrap().code, proto::ERR_CAPABILITY_DENIED);
+        // dialog 类持 capability 也仍是 -32601（进程通道不做对话框）
+        let sink2 = make_sink(
+            "pub.test".into(),
+            vec!["dialog".into()],
+            log_dir.path().to_path_buf(),
+            recording_emitter().0,
+            noop_poster(),
+            Some(Arc::new(ServicesStub(vault.path().to_path_buf()))),
+        );
+        let resp = sink2(req("host.dialog.open", Some(5), serde_json::json!({}))).unwrap();
+        assert_eq!(resp.error.unwrap().code, proto::ERR_METHOD_NOT_FOUND);
+    }
+
+    #[test]
+    fn vault_on_process_channel_without_services_stays_32601() {
+        let dir = tempfile::tempdir().unwrap();
+        let sink = make_sink(
+            "pub.test".into(),
+            vec!["vault.read".into()],
+            dir.path().to_path_buf(),
+            recording_emitter().0,
+            noop_poster(),
+            None,
+        );
+        let resp = sink(req(
+            "host.vault.read",
+            Some(1),
+            serde_json::json!({"path": "a.md"}),
+        ))
+        .unwrap();
+        assert_eq!(resp.error.unwrap().code, proto::ERR_METHOD_NOT_FOUND);
     }
 }
