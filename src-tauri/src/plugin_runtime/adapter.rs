@@ -18,6 +18,20 @@ pub fn to_v1(m: &plugin_protocol::ManifestV2) -> Result<PluginManifest, String> 
     if let Some(d) = &m.description { v["description"] = serde_json::json!(d); }
     if let Some(s) = &m.contributes.settings { v["settings"] = s.clone(); }
     if let Some(i) = &m.i18n { v["i18n"] = i.clone(); }
+
+    // Windows with an `open_command` become an `open_command → window_id` map so
+    // the frontend can route that command to `plugin_v2_open_window` instead of
+    // `plugin_v2_execute`. Windows without an open_command are not exposed here.
+    let open_windows: std::collections::HashMap<String, String> = m
+        .contributes
+        .windows
+        .iter()
+        .filter_map(|w| w.open_command.clone().map(|cmd| (cmd, w.id.clone())))
+        .collect();
+    if !open_windows.is_empty() {
+        v["open_windows"] = serde_json::json!(open_windows);
+    }
+
     serde_json::from_value(v).map_err(|e| format!("contributes not v1-shaped: {e}"))
 }
 
@@ -202,6 +216,44 @@ mod tests {
         assert_eq!(results[0].id, "pub.good");
     }
 
+    /// Windows carrying an `open_command` become an `open_command → window_id`
+    /// map on the adapted manifest; a window without one is absent.
+    #[test]
+    fn open_windows_maps_only_windows_with_open_command() {
+        let m: plugin_protocol::ManifestV2 = serde_json::from_value(serde_json::json!({
+            "manifest_version": 2,
+            "id": "notemd.roam-import",
+            "name": "Roam Import",
+            "version": "1.0.0",
+            "kind": "native",
+            "engines": { "notemd": ">=0.0.0" },
+            "ui": "ui/",
+            "activation": { "events": ["onCommand:open"] },
+            "capabilities": [],
+            "contributes": {
+                "windows": [
+                    { "id": "main", "entry": "index.html", "width": 680.0, "height": 620.0,
+                      "open_command": "open" },
+                    { "id": "aux", "entry": "aux.html", "width": 400.0, "height": 300.0 }
+                ]
+            }
+        }))
+        .unwrap();
+        let v1 = to_v1(&m).unwrap();
+        let ow = v1.open_windows.as_ref().expect("open_windows present");
+        assert_eq!(ow.get("open").map(String::as_str), Some("main"));
+        // The window with no open_command contributes nothing → single entry.
+        assert_eq!(ow.len(), 1, "only the open-command window is exposed");
+    }
+
+    /// No windows (or none with an open_command) → the field stays None so v1
+    /// manifests are byte-identical to before.
+    #[test]
+    fn open_windows_absent_when_no_open_command() {
+        // sample() has no windows at all.
+        assert!(to_v1(&sample()).unwrap().open_windows.is_none());
+    }
+
     #[test]
     fn minimal_manifest_gets_v1_defaults() {
         let m: plugin_protocol::ManifestV2 = serde_json::from_value(serde_json::json!({
@@ -225,6 +277,7 @@ mod tests {
         assert!(v1.settings.is_none());
         assert!(v1.i18n.is_empty());
         assert!(v1.host_capabilities.is_empty());
+        assert!(v1.open_windows.is_none());
         assert_eq!(v1.timeout_seconds, 30, "v1 serde default applies");
     }
 }

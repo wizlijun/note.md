@@ -844,9 +844,18 @@ pub fn run() {
     // plugin:// scheme — plugin UI static assets + fetch-RPC bridge (spec §7.1).
     // Registration cannot be flag-conditional; the handler answers 404 for
     // flag-off/unknown ids, so v2-off behavior is unchanged.
+    //
+    // Asynchronous registration + a dedicated thread per request is REQUIRED:
+    // WKWebView delivers scheme requests on the main thread, and the RPC branch
+    // blocks on native dialogs (host.dialog.*) that themselves need the main
+    // run loop — answering inline would deadlock. From the spawned thread the
+    // blocking dialog calls are safe (they hop to the then-free main thread).
     #[cfg(not(target_os = "ios"))]
-    let app = app.register_uri_scheme_protocol("plugin", |ctx, request| {
-        crate::plugin_runtime::protocol::handle(ctx.app_handle(), request)
+    let app = app.register_asynchronous_uri_scheme_protocol("plugin", |ctx, request, responder| {
+        let app = ctx.app_handle().clone();
+        std::thread::spawn(move || {
+            responder.respond(crate::plugin_runtime::protocol::handle(&app, request));
+        });
     });
     let app = app
         .invoke_handler({
@@ -862,6 +871,7 @@ pub fn run() {
                 plugin_host::invoke_plugin,
                 plugin_runtime::commands::get_plugin_manifests_v2,
                 plugin_runtime::commands::plugin_v2_execute,
+                plugin_runtime::commands::plugin_v2_open_window,
                 cli::state::cli_payload,
                 cli::state::cli_finish,
                 cli::install::cli_install_status,

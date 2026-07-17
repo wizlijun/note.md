@@ -449,6 +449,7 @@ mod tests {
             timeout_seconds: 30,
             i18n: HashMap::new(),
             manifest_version: None,
+            open_windows: None,
             cli: vec![CliEntry {
                 subcommand: "share".to_string(),
                 aliases: vec!["--share".to_string()],

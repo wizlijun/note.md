@@ -401,6 +401,21 @@
         }
 
         if (m.manifest_version === 2) {
+          // A command that maps to a plugin window opens that window instead of
+          // executing on the process runtime (spec §7.2 — pure-UI plugins).
+          const openWin = m.open_windows?.[command]
+          if (openWin) {
+            try {
+              await invoke('plugin_v2_open_window', { pluginId: m.id, windowId: openWin })
+            } catch (e) {
+              pushToast({
+                level: 'error',
+                message: t('plugins.internalError', { name: m.name }),
+                detail: String(e),
+              })
+            }
+            return
+          }
           // v2: same context shape v1 plugins see (rendered_html baked in when
           // the manifest declares renderer.html, plus output_path), but the
           // command executes on the resident runtime. v2 plugins do not return

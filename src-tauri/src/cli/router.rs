@@ -177,6 +177,7 @@ mod tests {
             timeout_seconds: 30,
             i18n: std::collections::HashMap::new(),
             manifest_version: None,
+            open_windows: None,
             cli: vec![CliEntry {
                 subcommand: sub.to_string(),
                 aliases: aliases.iter().map(|s| s.to_string()).collect(),

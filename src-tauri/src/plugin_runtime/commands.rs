@@ -41,6 +41,18 @@ pub async fn plugin_v2_execute(
         .await
 }
 
+/// Open a plugin-contributed window (spec §7.2). The frontend routes a menu
+/// command to this instead of `plugin_v2_execute` when the command matches a
+/// window's `open_command` (see `open_windows` in the adapted manifest).
+#[tauri::command]
+pub fn plugin_v2_open_window(
+    app: tauri::AppHandle,
+    plugin_id: String,
+    window_id: String,
+) -> Result<(), String> {
+    super::windows::open_plugin_window(&app, &plugin_id, &window_id)
+}
+
 /// Called from `plugin_runtime::init` after discovery populated STATE:
 /// register a lifecycle for every discovered plugin, then eagerly activate
 /// the ones whose events match `Startup` (spec §4.3). The activation itself

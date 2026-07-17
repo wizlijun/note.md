@@ -11,6 +11,7 @@ pub mod process;
 pub mod protocol;
 pub mod state;
 pub mod ui_rpc;
+pub mod windows;
 
 use std::collections::HashMap;
 use std::path::Path;

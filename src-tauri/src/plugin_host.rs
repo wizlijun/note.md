@@ -73,6 +73,12 @@ pub struct PluginManifest {
     /// `plugin_v2_execute`. `None` for genuine v1 manifests.
     #[serde(default)]
     pub manifest_version: Option<u32>,
+    /// `open_command → window_id` for v2 plugins whose window contributions
+    /// declare an `open_command` (`plugin_runtime::adapter`). The frontend routes
+    /// those commands to `plugin_v2_open_window` instead of `plugin_v2_execute`.
+    /// `None` for v1 manifests and v2 plugins with no openable windows.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub open_windows: Option<HashMap<String, String>>,
 }
 
 fn default_timeout() -> u64 { 30 }
@@ -740,6 +746,7 @@ mod cli_helpers_tests {
             default_enabled: None, menus: vec![], context_menus: vec![],
             settings: None, host_capabilities: vec![], timeout_seconds: 30,
             i18n: HashMap::new(), cli: vec![], manifest_version: None,
+            open_windows: None,
         };
         assert_eq!(resolve_enabled(&manifest, &enabled_map), true);
     }
@@ -753,6 +760,7 @@ mod cli_helpers_tests {
             default_enabled: Some(false), menus: vec![], context_menus: vec![],
             settings: None, host_capabilities: vec![], timeout_seconds: 30,
             i18n: HashMap::new(), cli: vec![], manifest_version: None,
+            open_windows: None,
         };
         assert_eq!(resolve_enabled(&manifest, &enabled_map), false);
     }
@@ -794,6 +802,7 @@ mod cli_helpers_tests {
             default_enabled: Some(false), menus: vec![], context_menus: vec![],
             settings: None, host_capabilities: vec![], timeout_seconds: 30,
             i18n: HashMap::new(), cli: vec![], manifest_version: None,
+            open_windows: None,
         };
         assert_eq!(resolve_enabled(&manifest, &enabled_map), true);
     }

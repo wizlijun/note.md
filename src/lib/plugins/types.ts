@@ -99,6 +99,10 @@ export interface PluginManifest {
   /** `2` when this manifest comes from the v2 runtime (adapter-shaped);
    *  execution must go through `plugin_v2_execute`, not `invoke_plugin`. */
   manifest_version?: number
+  /** `open_command → window_id` for v2 plugins whose window contributions
+   *  declare an `open_command`. When a dispatched command is a key here, route
+   *  it to `plugin_v2_open_window` instead of `plugin_v2_execute`. */
+  open_windows?: Record<string, string>
 }
 
 export interface RequestContextTab {
