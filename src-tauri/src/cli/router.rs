@@ -150,6 +150,8 @@ fn current_scan(parsed: &Parsed) -> (Vec<(PluginManifest, PathBuf)>, HashMap<Str
     let (mut manifests, mut enabled) = scan_disk(&plugins_dir, &config_dir);
     // core 化的 share / reading-insights 无磁盘 manifest，注入 stub 参与匹配。
     super::runner::append_core_cli_stubs(&mut manifests, &mut enabled);
+    // flag 开时并入 v2 插件（adapter 转 v1 形状），泛型匹配直接吃 cli 条目。
+    super::runner::append_v2_manifests(&mut manifests, &mut enabled, &config_dir);
     (manifests, enabled)
 }
 
@@ -310,5 +312,63 @@ mod tests {
             &HashMap::from([("reading-insights".to_string(), false)]),
         );
         assert!(matches!(r, Route::Plugin(_)), "core-ized: enabled map must be ignored");
+    }
+
+    /// Composition test for the v2 CLI merge (plan Task 10): a v2 install tree
+    /// scanned by `discovery::scan_root`, adapted via `adapter::to_v1`, must
+    /// route its cli subcommand exactly like a v1 manifest. Uses a fixture id
+    /// so it stays independent of the real md2pdf plugin, and exercises the
+    /// scan→adapt→route pipeline without touching current_scan's real dirs.
+    #[test]
+    fn v2_adapted_manifest_routes_subcommand() {
+        use crate::plugin_runtime::state::{InstallState, InstalledPlugin};
+        use crate::plugin_runtime::{adapter, discovery, state};
+
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+
+        // state.json marking the fixture enabled.
+        let mut st = InstallState::default();
+        st.installed.insert(
+            "notemd.fixture".to_string(),
+            InstalledPlugin { version: "1.0.0".into(), enabled: true },
+        );
+        state::save(root, &st).unwrap();
+
+        // <root>/notemd.fixture/current/: manifest.json + dummy binary.
+        let triple = discovery::current_arch_triple().expect("supported arch");
+        let current = root.join("notemd.fixture").join("current");
+        std::fs::create_dir_all(current.join("bin")).unwrap();
+        std::fs::write(current.join("bin/fixture"), b"#!/bin/sh\nexit 0\n").unwrap();
+        let manifest = serde_json::json!({
+            "manifest_version": 2,
+            "id": "notemd.fixture",
+            "name": "Fixture",
+            "version": "1.0.0",
+            "kind": "native",
+            "engines": { "notemd": ">=0.0.0" },
+            "binary": { triple: "bin/fixture" },
+            "activation": { "events": ["onCli:pdf2"] },
+            "contributes": {
+                "cli": [{ "subcommand": "pdf2", "command": "export",
+                          "summary": "x", "args": [], "flags": [] }]
+            },
+            "capabilities": []
+        });
+        std::fs::write(current.join("manifest.json"), manifest.to_string()).unwrap();
+
+        let scanned = discovery::scan_root(root, "1.0.0");
+        assert_eq!(scanned.len(), 1);
+        let pairs: Vec<(PluginManifest, PathBuf)> = scanned
+            .into_iter()
+            .map(|(_, (m, install_dir))| (adapter::to_v1(&m), install_dir))
+            .collect();
+        let enabled = HashMap::from([("notemd.fixture".to_string(), true)]);
+
+        let r = resolve_with(&vec!["pdf2".into(), "x.md".into()], &pairs, &enabled);
+        let Route::Plugin(p) = r else { panic!("expected v2 plugin route, got {r:?}") };
+        assert_eq!(p.plugin_id, "notemd.fixture");
+        assert_eq!(p.subcommand, "pdf2");
+        assert_eq!(p.remaining, vec!["x.md".to_string()]);
     }
 }

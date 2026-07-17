@@ -93,7 +93,39 @@ fn current_scan(
     let config_dir = super::resolve_config_dir();
     let (mut manifests, mut enabled) = scan_disk(&plugins_dir, &config_dir);
     append_core_cli_stubs(&mut manifests, &mut enabled);
+    append_v2_manifests(&mut manifests, &mut enabled, &config_dir);
     (manifests, enabled)
+}
+
+/// CLI equivalent of Tauri's `app_data_dir()` plugins root: on macOS both
+/// resolve to `~/Library/Application Support/<BUNDLE_ID>`. The equivalence
+/// assumption is documented by `data_dir_matches_tauri_app_data_dir` below.
+fn v2_plugins_root() -> Option<PathBuf> {
+    dirs::data_dir().map(|d| d.join(crate::app_dirs::BUNDLE_ID).join("plugins"))
+}
+
+/// Behind the plugins_v2 flag, merge installed v2 plugins (adapted to the v1
+/// `PluginManifest` shape) into the CLI scan so router/runner matching works
+/// unchanged. Skips ids already present (same de-dup guard as the core stubs);
+/// v2 plugins are always enabled — enable/disable lives in v2's state.json,
+/// which discovery already honors.
+pub(crate) fn append_v2_manifests(
+    manifests: &mut Vec<(PluginManifest, PathBuf)>,
+    enabled: &mut std::collections::HashMap<String, bool>,
+    config_dir: &std::path::Path,
+) {
+    if !crate::plugin_runtime::v2_flag_enabled_at(config_dir) {
+        return;
+    }
+    let Some(root) = v2_plugins_root() else { return };
+    let host_version = env!("CARGO_PKG_VERSION");
+    for (id, (m, install_dir)) in crate::plugin_runtime::discovery::scan_root(&root, host_version) {
+        if manifests.iter().any(|(existing, _)| existing.id == id) {
+            continue;
+        }
+        enabled.insert(id, true);
+        manifests.push((crate::plugin_runtime::adapter::to_v1(&m), install_dir));
+    }
 }
 
 /// Core-ized 功能的 CLI stub：share 与 reading-insights 的子命令属于核心，
@@ -255,6 +287,10 @@ fn launch_tauri_headless(
             crate::cli::state::cli_finish,
             crate::plugin_host::get_plugin_manifests,
             crate::plugin_host::invoke_plugin,
+            // v2 runtime: get_plugin_manifests merges adapted v2 manifests from
+            // plugin_runtime::STATE (populated by plugin_runtime::init below);
+            // CliRunner routes manifest_version==2 through plugin_v2_execute.
+            crate::plugin_runtime::commands::plugin_v2_execute,
             crate::themes::commands::theme_load_compiled,
             // sotvault: needed by `notemd share` — refreshSotvault + prepareShareSrc
             // resolve the vault root, and an outside-vault file is homed in first
@@ -267,6 +303,10 @@ fn launch_tauri_headless(
         ])
         .setup(move |app| {
             crate::plugin_host::init(&app.handle());
+            // Populate plugin_runtime::STATE (no-op when the flag is off) so
+            // get_plugin_manifests / plugin_v2_execute see the v2 plugins the
+            // Rust-side scan (append_v2_manifests) routed here.
+            crate::plugin_runtime::init(&app.handle());
             let _ = tauri::WebviewWindowBuilder::new(
                 app,
                 "cli",
@@ -392,5 +432,21 @@ mod tests {
         let r = decide_plugin_command(&f, "publish");
         assert!(r.is_err());
         assert!(r.unwrap_err().contains("mutually exclusive"));
+    }
+
+    /// Documents the v2_plugins_root assumption: the CLI has no AppHandle, so
+    /// it derives the v2 plugins root from `dirs::data_dir()` + BUNDLE_ID.
+    /// Tauri's app_data_dir() resolves to the same place on macOS
+    /// (`~/Library/Application Support/net.notemd.app`) — if this ever drifts,
+    /// GUI and CLI would scan different v2 install roots.
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn data_dir_matches_tauri_app_data_dir() {
+        let root = dirs::data_dir().unwrap().join(crate::app_dirs::BUNDLE_ID);
+        assert!(
+            root.ends_with("Application Support/net.notemd.app"),
+            "unexpected v2 root base: {}",
+            root.display()
+        );
     }
 }

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { invoke } from '@tauri-apps/api/core'
-  import { invokePlugin } from '../plugins/host'
+  import { invokePlugin, buildContext } from '../plugins/host'
   import { renderTabAsInlineBody } from '../plugins/host-render-html'
   import { mkdir, writeTextFile } from '@tauri-apps/plugin-fs'
   import { writeText as clipWriteText } from '@tauri-apps/plugin-clipboard-manager'
@@ -129,31 +129,66 @@
     if (outputFlag) {
       outputPath = outputFlag.startsWith('/') ? outputFlag
         : `${payload.file!.replace(/\/[^/]+$/, '')}/${outputFlag}`
-    } else if (manifest.id === 'md2pdf') {
+    } else if (manifest.id === 'md2pdf' || manifest.id === 'notemd.md2pdf') {
       outputPath = payload.file!.replace(/\.[^.]+$/, '.pdf')
     }
 
     const pluginSettings = getPluginScopedAll(manifest.id)
 
-    const result = await invokePlugin(
-      manifest,
-      payload.plugin_command,
-      {
-        path: virtualTab.filePath,
-        filename: virtualTab.title,
-        extension,
-        kind: toTabKind(virtualTab.kind),
-        title: virtualTab.title,
-        isDirty: false,
-        isUntitled: false,
-        content: virtualTab.currentContent,
-      },
-      {
-        htmlBaker: renderedHtml != null ? async () => renderedHtml! : undefined,
-        settingsReader: () => pluginSettings,
-        outputPath,
-      },
-    )
+    // One tab snapshot + opts set for both runtimes: v1 feeds them through
+    // invokePlugin, v2 through the same buildContext invokePlugin uses.
+    const snap = {
+      path: virtualTab.filePath,
+      filename: virtualTab.title,
+      extension,
+      kind: toTabKind(virtualTab.kind),
+      title: virtualTab.title,
+      isDirty: false,
+      isUntitled: false,
+      content: virtualTab.currentContent,
+    }
+    const invokeOpts = {
+      htmlBaker: renderedHtml != null ? async () => renderedHtml! : undefined,
+      settingsReader: () => pluginSettings,
+      outputPath,
+    }
+
+    if (manifest.manifest_version === 2) {
+      // v2: same context shape v1 plugins receive, but the command executes
+      // on the resident runtime via plugin_v2_execute, which returns a result
+      // value instead of an actions envelope (toasts are GUI-only events).
+      // Output/error conventions mirror interpretActions: --json wraps the
+      // result as {ok:true,data}, errors exit 4 with a plugin_failed envelope.
+      try {
+        const { context } = await buildContext(manifest, snap, invokeOpts)
+        const data = await invoke<unknown>('plugin_v2_execute', {
+          pluginId: manifest.id,
+          command: payload.plugin_command,
+          context,
+        })
+        const path = data != null && typeof data === 'object'
+          ? (data as Record<string, unknown>).path : undefined
+        await finish({
+          exit_code: 0,
+          stdout: payload.global.json
+            ? JSON.stringify({ ok: true, data: data ?? {} })
+            : typeof path === 'string' ? path : JSON.stringify(data ?? {}),
+          stderr: [],
+        })
+      } catch (e) {
+        const message = String(e)
+        await finish({
+          exit_code: 4,
+          stdout: payload.global.json
+            ? JSON.stringify({ ok: false, error: { code: 'plugin_failed', message } })
+            : undefined,
+          stderr: [`✗ ${manifest.name}: ${message}`],
+        })
+      }
+      return
+    }
+
+    const result = await invokePlugin(manifest, payload.plugin_command, snap, invokeOpts)
 
     if (!result.ok || !result.response) {
       await finish({
