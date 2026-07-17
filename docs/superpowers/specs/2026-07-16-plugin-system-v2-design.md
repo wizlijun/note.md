@@ -353,3 +353,21 @@ window.notemd = {
 - **注册表**：CF Worker notemd-plugins（KV index + R2 pkgs），index.json 未签名但包已签名——恶意 index 至多 DoS 或在我方已签制品间替换/降级，无法装入未签名代码。
 - **用户步骤（发布前必做）**：① minisign 生成生产签名密钥对（私钥离线保管）→ 替换 market.rs 的 PLUGIN_REGISTRY_PUBKEY（当前是测试公钥）；② 建 CF KV namespace + R2 bucket notemd-plugins + plugins.notemd.net 自定义域 + repo secret CLOUDFLARE_API_TOKEN；③ 首次 wrangler deploy；④ 发布用 release-plugins.sh + gen-plugin-index.mjs + wrangler r2/kv 上传。
 - **开放第三方前必做（③未做）**：下载降级保护（签名 index 或版本下限）；commit 时断言已装能力==preview 能力；②评审遗留的 per-window nonce / vault.write 配额；symlink zip 条目已加测试。
+
+## 20. 实施记录（子项目②b：openclaw 迁移）
+
+子项目②b（openclaw-chat 迁移 + 双向流式窗口通道）已实现在分支 worktree-core-ize-six-plugins，flag 门控；v1 openclaw 保留至④退役。
+
+**新增机制——双向插件窗口通道：**
+- **UI→插件进程（ui.request）**：插件窗口 UI 调 `notemd.request('plugin.<name>', params)` → ui_rpc 判定非 `host.*` 方法 → 转发给该插件进程的 `ui.request{method,params}` 入站方法（SDK `NotemdPlugin::on_ui_request`）→ 回传结果。`plugin.` 前缀被 host 剥除,插件见干净方法名。转发类方法**不走 host capability 门**(是插件自身 API,由 Origin=该插件窗口认证);仅 `host.*` 走能力门。
+- **插件进程→UI（host.ui.post）**：插件调 `Host::ui_post(window_id, payload)` → `host.ui.post` 通知(capability `ui`,仅进程侧 make_sink)→ host `push_to_window` eval 推送。可从 spawned reader task 调用(Host 是 Clone,ui_post 走克隆的 mpsc sender)——这是流式的关键。
+- 机制经 streaming fixture(shell)端到端验证:ui.request echo/ping 往返 + $activate 后 ≥3 条 host.ui.post seq 有序推达。
+
+**openclaw 迁移：**
+- 后端 1.26k 行(UDS/relay/relay_bridge/protocol/pair/config/devices)整体移进插件 crate `plugins-src/openclaw/backend`(binary `notemd-openclaw`,SDK 驱动),native 二进制**全 fs/net 权限直连**(tokio-tungstenite/reqwest/qrcode 等移进 crate,不经 host 中转);事件 `app.emit("openclaw://…")` → `host.ui_post("main",{kind,data})`;11 命令 → `on_ui_request` 分派;async 体经 block_in_place+Handle::block_on,connect 只 spawn reader 不阻塞读循环(多线程 runtime)。
+- **config/devices 存 `<data_dir>/{config,devices}.json`,不迁 v1 状态**(用户在 v2 窗口重新配对)——聊天/配对插件可接受。
+- UI 移进 `plugins-src/openclaw`(Vite 独立项目),`invoke('openclaw_X')`→`bridge.request('X')`,3 个 `listen('openclaw://…')`→1 个 `onMessage` 按 kind 分派;13 个 i18n 键内联。
+- **功能 parity 缺口**:`editor_open_remote_buffer` + bound-mode 文件操作(links.ts 的 file_exists/vault_sync_now 等)无独立等价物,已 stub;web 模式下 `isBoundMode` 恒 false 故不可达,`agent.file_content` 记录后丢弃。若要恢复 bound-mode(把远程聊天里的文件打进主编辑器 tab),需新 host 方法(host.editor.open_buffer 之类),留后续。
+- tray 迁移延④(①期 tray 硬编码);v2 用 Window▸OpenClaw (v2) 菜单项开窗。
+
+**④退役清单追加**(openclaw v1):`src/chat-*`、`src/lib/openclaw`、`src/components/chat`、`src-tauri/src/openclaw`、show_chat_window(lib.rs)、tray-openclaw、chat.html、vite chat 入口、capabilities "chat";tokio-tungstenite/qrcode/gethostname/urlencoding 等 deps 若 v1 删净且无他用可从 src-tauri/Cargo.toml 移除(exlibris/其他勿误删)。
