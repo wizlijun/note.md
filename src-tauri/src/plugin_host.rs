@@ -61,6 +61,12 @@ pub struct PluginManifest {
     pub menus: Vec<MenuEntry>,
     #[serde(default)]
     pub context_menus: Vec<ContextMenuEntry>,
+    /// Custom-editor contributions (子项目④), passed through from v2 manifests by
+    /// `plugin_runtime::adapter` so the frontend can build its ext→editor
+    /// registry. Opaque here — the host never interprets it; it rides to the
+    /// frontend via `get_plugin_manifests`. Empty for v1 manifests.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub custom_editors: Vec<serde_json::Value>,
     #[serde(default)]
     pub settings: Option<SettingsBlock>,
     pub host_capabilities: Vec<String>,
@@ -744,7 +750,7 @@ mod cli_helpers_tests {
             id: "share".into(), name: "Share".into(), version: "1.0.0".into(),
             description: None, kind: PluginKind::External, binary: Some("bin".into()),
             default_enabled: None, menus: vec![], context_menus: vec![],
-            settings: None, host_capabilities: vec![], timeout_seconds: 30,
+            custom_editors: vec![], settings: None, host_capabilities: vec![], timeout_seconds: 30,
             i18n: HashMap::new(), cli: vec![], manifest_version: None,
             open_windows: None,
         };
@@ -758,7 +764,7 @@ mod cli_helpers_tests {
             id: "openclaw-chat".into(), name: "OpenClaw Chat".into(), version: "0.1.0".into(),
             description: None, kind: PluginKind::Builtin, binary: None,
             default_enabled: Some(false), menus: vec![], context_menus: vec![],
-            settings: None, host_capabilities: vec![], timeout_seconds: 30,
+            custom_editors: vec![], settings: None, host_capabilities: vec![], timeout_seconds: 30,
             i18n: HashMap::new(), cli: vec![], manifest_version: None,
             open_windows: None,
         };
@@ -800,7 +806,7 @@ mod cli_helpers_tests {
             id: "openclaw-chat".into(), name: "OpenClaw Chat".into(), version: "0.1.0".into(),
             description: None, kind: PluginKind::Builtin, binary: None,
             default_enabled: Some(false), menus: vec![], context_menus: vec![],
-            settings: None, host_capabilities: vec![], timeout_seconds: 30,
+            custom_editors: vec![], settings: None, host_capabilities: vec![], timeout_seconds: 30,
             i18n: HashMap::new(), cli: vec![], manifest_version: None,
             open_windows: None,
         };

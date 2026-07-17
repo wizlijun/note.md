@@ -43,7 +43,7 @@ export function joinPath(dir: string, name: string): string {
   return (dir.endsWith('/') ? dir.slice(0, -1) : dir) + '/' + name
 }
 
-export type FileKind = 'markdown' | 'html' | 'code' | 'image' | 'spreadsheet' | 'base'
+export type FileKind = 'markdown' | 'html' | 'code' | 'image' | 'spreadsheet' | 'base' | 'custom'
 
 export interface FileClass {
   kind: FileKind

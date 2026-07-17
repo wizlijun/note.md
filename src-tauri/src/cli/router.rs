@@ -211,6 +211,7 @@ mod tests {
             default_enabled: None,
             menus: vec![],
             context_menus: vec![],
+            custom_editors: vec![],
             settings: None,
             host_capabilities: vec![],
             timeout_seconds: 30,

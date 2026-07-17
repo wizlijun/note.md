@@ -38,6 +38,18 @@ export interface ContextMenuEntry {
   enabled_when?: string
 }
 
+/** A custom-editor contribution (子项目④): a v2 plugin claims a set of file
+ *  extensions and serves an iframe editor (`entry`) for them. `id` is the
+ *  editor's stable id within the plugin (multiple editors per plugin allowed). */
+export interface CustomEditorContribution {
+  id: string
+  /** File extensions this editor handles, WITH or WITHOUT the leading dot
+   *  (e.g. `'.base'` or `'base'`); the registry normalises both. */
+  file_extensions: string[]
+  /** UI-relative path served under `plugin://<id>/`, e.g. `'editor.html'`. */
+  entry: string
+}
+
 export interface CliArg {
   name: string
   type: 'path' | 'string' | 'integer'
@@ -89,6 +101,11 @@ export interface PluginManifest {
   binary: string
   menus?: MenuEntry[]
   context_menus?: ContextMenuEntry[]
+  /** Custom-editor contributions (子项目④), passed through by the v2 adapter.
+   *  Each entry declares `{ id, file_extensions, entry }`. Absent for v1
+   *  plugins and v2 plugins with no custom editors. Consumed by
+   *  `buildCustomEditorRegistry` to map file extensions → editor iframes. */
+  custom_editors?: CustomEditorContribution[]
   settings?: { tab_label: string; schema: SettingsField[] }
   host_capabilities: Capability[]
   timeout_seconds?: number
@@ -143,7 +160,7 @@ export interface PluginResponse {
   actions: PluginAction[]
 }
 
-export type TabKind = 'markdown' | 'html' | 'code' | 'spreadsheet' | 'base'
+export type TabKind = 'markdown' | 'html' | 'code' | 'spreadsheet' | 'base' | 'custom'
 
 /** What we evaluate `enabled_when` expressions against. */
 export interface EnabledWhenContext {

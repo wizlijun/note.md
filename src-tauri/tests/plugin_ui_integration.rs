@@ -172,6 +172,8 @@ fn handle_parsed_get_index_html_200_with_csp() {
         PLUGIN_ID,
         "/index.html",
         None,
+        "en",
+        "default",
     ));
     assert_eq!(r.status(), 200);
     assert_eq!(r.headers()["content-type"], "text/html");
@@ -193,6 +195,8 @@ fn handle_parsed_get_app_js_200_no_csp() {
         PLUGIN_ID,
         "/app.js",
         None,
+        "en",
+        "default",
     ));
     assert_eq!(r.status(), 200);
     assert_eq!(r.headers()["content-type"], "text/javascript");
@@ -210,6 +214,8 @@ fn handle_parsed_rpc_correct_origin_routes_with_capabilities() {
         PLUGIN_ID,
         "/__rpc__",
         Some(&format!("plugin://{PLUGIN_ID}")),
+        "en",
+        "default",
     ) {
         Routed::Rpc(id, capabilities) => {
             assert_eq!(id, PLUGIN_ID);
@@ -233,6 +239,8 @@ fn handle_parsed_rpc_wrong_origin_403() {
             PLUGIN_ID,
             "/__rpc__",
             origin,
+            "en",
+            "default",
         ));
         assert_eq!(r.status(), 403, "origin {origin:?} must be rejected");
     }
@@ -246,6 +254,8 @@ fn handle_parsed_get_traversal_403() {
         PLUGIN_ID,
         "/../manifest.json",
         None,
+        "en",
+        "default",
     ));
     assert_eq!(r.status(), 403);
 }
@@ -258,6 +268,8 @@ fn handle_parsed_unknown_plugin_404() {
         "other.plugin",
         "/index.html",
         None,
+        "en",
+        "default",
     ));
     assert_eq!(r.status(), 404);
 }

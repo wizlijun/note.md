@@ -2,6 +2,8 @@ import {
   readMd, writeMd, basename, classifyPath, isSupportedPath, looksBinary,
   isPermissionError, modeKeyFor, statFile, type FileKind,
 } from './fs'
+import { customEditorFor } from './plugins/custom-editors'
+import { pluginRuntime } from './plugins/runtime.svelte'
 import { t } from './i18n/store.svelte'
 import { sha256Hex } from './hash'
 import { pushRecentFile, getRecentMode, setRecentMode } from './settings.svelte'
@@ -19,6 +21,12 @@ export interface Tab {
   mode: Mode
   kind: FileKind
   language?: string
+  /** Custom-editor binding (子项目④), set only when `kind === 'custom'`.
+   *  `CustomEditorIframe` loads `plugin://${editorPluginId}/${editorEntry}` and
+   *  tags the doc channel messages with `editorId`. */
+  editorId?: string
+  editorPluginId?: string
+  editorEntry?: string
   /** External-change state (see external-state.ts). */
   externalState: 'fresh' | 'changed' | 'deleted'
   /** True after the user clicks the banner's × until the next external event. */
@@ -163,10 +171,65 @@ async function readTextWithPermissionPrompt(path: string): Promise<string> {
   }
 }
 
+/** Bare, lowercased extension of `path` (`'x/Foo.Base'` → `'base'`, none → ''). */
+function extOf(path: string): string {
+  const base = basename(path).toLowerCase()
+  return base.includes('.') ? base.split('.').pop()! : ''
+}
+
+/**
+ * Open a file whose extension the classifier doesn't recognise AND no plugin
+ * claims, as a plain-text (`kind: 'code'`) tab instead of throwing
+ * (file-over-app: e.g. a `.base` opens as text when the base plugin is absent).
+ * Binary content is still refused. Mirrors the text path of `openFile`.
+ */
+async function openAsPlainText(path: string): Promise<void> {
+  const existing = tabs.find((t) => t.filePath === path)
+  if (existing) {
+    activeId.value = existing.id
+    notifyInsights('onActiveDocChanged')
+    return
+  }
+  const content = await readTextWithPermissionPrompt(path)
+  if (looksBinary(content)) {
+    throw new Error(`Binary file not supported: ${path}`)
+  }
+  const stat = await statFile(path)
+  const hash = await sha256Hex(content)
+  const tab: Tab = {
+    id: crypto.randomUUID(),
+    filePath: path,
+    title: basename(path),
+    initialContent: content,
+    currentContent: content,
+    mode: getRecentMode(modeKeyFor(path)) ?? 'rich',
+    kind: 'code',
+    language: '',
+    externalState: 'fresh',
+    externalBannerDismissed: false,
+    lastKnownMtime: stat?.mtime ?? 0,
+    lastKnownHash: hash,
+    pendingExternal: undefined,
+  }
+  tabs.push(tab)
+  activeId.value = tab.id
+  notifyInsights('onActiveDocChanged')
+  await pushRecentFile(path)
+  await startWatchingTab(tab)
+}
+
 export async function openFile(path: string): Promise<void> {
   const cls = classifyPath(path)
-  if (!cls) {
-    throw new Error(`Unsupported file type: ${path}`)
+  // Custom-editor routing (子项目④): if a v2 plugin claims this extension, the
+  // file opens in that plugin's iframe editor — even when classifyPath already
+  // knows the kind (e.g. a `.base` with the base plugin installed). This takes
+  // precedence over the built-in kind. When classifyPath returns null AND no
+  // custom editor is registered, fall back to plain text (kind 'code') rather
+  // than throwing — a `.base` with no plugin still opens as text (file-over-app).
+  const editor = customEditorFor(extOf(path), pluginRuntime.manifests)
+  if (!cls && !editor) {
+    // Unknown extension, no plugin → open as plain text instead of refusing.
+    return openAsPlainText(path)
   }
 
   // 打开 vault 副本 → 改开其原始文件(编辑入口是原件,vault 是同步存储)。
@@ -189,8 +252,13 @@ export async function openFile(path: string): Promise<void> {
     return
   }
 
+  // A registered custom editor wins over the built-in kind; otherwise use the
+  // classifier's kind (cls is non-null here — the null+no-editor case returned
+  // above via openAsPlainText).
+  const kind: FileKind = editor ? 'custom' : cls!.kind
+
   // 打开主文档时就地迁移其旧后缀伴生文件(读文件之前,语义与一期挂载点一致)
-  if (cls.kind === 'markdown' && !/\.notes?\.md$/i.test(path)) {
+  if (kind === 'markdown' && !/\.notes?\.md$/i.test(path)) {
     const { migrateLegacyCompanion } = await import('./outline/migrate')
     await migrateLegacyCompanion(path).catch(() => {})
   }
@@ -199,11 +267,13 @@ export async function openFile(path: string): Promise<void> {
   let stat = null
   let hash = ''
 
-  if (cls.kind === 'image') {
+  if (kind === 'image') {
     // Image files: do not read text content; render via <img src=convertFileSrc(...)>
     // currentContent stays empty so isDirty() is always false
     stat = await statFile(path)
   } else {
+    // Custom editors read the file as text too (the host owns document I/O and
+    // hands the content to the iframe over the postMessage doc channel).
     content = await readTextWithPermissionPrompt(path)
     if (looksBinary(content)) {
       throw new Error(`Binary file not supported: ${path}`)
@@ -212,7 +282,9 @@ export async function openFile(path: string): Promise<void> {
     hash = await sha256Hex(content)
   }
 
-  const mode = (cls.kind === 'image' || cls.kind === 'spreadsheet' || cls.kind === 'base') ? 'rich' : (getRecentMode(modeKeyFor(path)) ?? 'rich')
+  const mode = (kind === 'image' || kind === 'spreadsheet' || kind === 'base' || kind === 'custom')
+    ? 'rich'
+    : (getRecentMode(modeKeyFor(path)) ?? 'rich')
   const tab: Tab = {
     id: crypto.randomUUID(),
     filePath: path,
@@ -220,8 +292,11 @@ export async function openFile(path: string): Promise<void> {
     initialContent: content,
     currentContent: content,
     mode,
-    kind: cls.kind,
-    language: cls.language,
+    kind,
+    language: editor ? undefined : cls!.language,
+    editorId: editor?.editorId,
+    editorPluginId: editor?.pluginId,
+    editorEntry: editor?.entry,
     externalState: 'fresh',
     externalBannerDismissed: false,
     lastKnownMtime: stat?.mtime ?? 0,

@@ -27,13 +27,23 @@ pub fn window_label(plugin_id: &str, window_id: &str) -> String {
 /// `serde_json::to_string`, so any quoting/escaping is handled safely. The seq
 /// counter and listeners array live inside an IIFE so nothing leaks beyond the
 /// two intended globals.
-pub fn bridge_script(plugin_id: &str, locale: &str, theme: &str) -> String {
+///
+/// **Idempotency guard.** The first line `if (window.notemd) return;` makes
+/// re-running the script a no-op. Plugin *windows* receive it via
+/// `initialization_script` (runs once per webview, before page scripts); the
+/// `plugin://` protocol ALSO injects it into every served `text/html` response
+/// (子项目④) so *iframes* — which never get an initialization_script (that is
+/// per-webview-window, not per-iframe) — pick up the bridge too. A window thus
+/// sees the script twice (init + injected); the guard makes the second run
+/// harmless.
+pub(crate) fn bridge_script(plugin_id: &str, locale: &str, theme: &str) -> String {
     // JSON string literals — safe to embed directly in JS source.
     let pid = serde_json::to_string(plugin_id).unwrap_or_else(|_| "\"\"".into());
     let loc = serde_json::to_string(locale).unwrap_or_else(|_| "\"\"".into());
     let thm = serde_json::to_string(theme).unwrap_or_else(|_| "\"\"".into());
     format!(
         r#"(function () {{
+  if (window.notemd) return;
   let __seq = 0;
   const __listeners = [];
   const pluginId = {pid};
@@ -210,6 +220,18 @@ mod tests {
         assert!(s.contains(r#""notemd.roam-import""#), "pluginId literal: {s}");
         assert!(s.contains(r#""zh""#), "locale literal");
         assert!(s.contains(r#""midnight""#), "theme literal");
+    }
+
+    #[test]
+    fn bridge_script_has_idempotency_guard() {
+        // The guard is the first statement inside the IIFE so a second run
+        // (window init + HTML injection) is a no-op instead of redefining
+        // window.notemd (which is frozen) and re-registering listeners.
+        let s = bridge_script("p.id", "en", "default");
+        assert!(s.contains("if (window.notemd) return;"), "guard present: {s}");
+        let guard = s.find("if (window.notemd) return;").unwrap();
+        let freeze = s.find("Object.freeze").unwrap();
+        assert!(guard < freeze, "guard must precede the bridge definition");
     }
 
     #[test]

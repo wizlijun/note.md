@@ -13,6 +13,9 @@ pub fn to_v1(m: &plugin_protocol::ManifestV2) -> Result<PluginManifest, String> 
         "menus": m.contributes.menus,
         "context_menus": m.contributes.context_menus,
         "cli": m.contributes.cli,
+        // custom_editors (子项目④) rides through untouched so the frontend can
+        // build its ext→editor registry from the adapted (v1-shaped) manifest.
+        "custom_editors": m.contributes.custom_editors,
         "manifest_version": 2,
     });
     if let Some(d) = &m.description { v["description"] = serde_json::json!(d); }
@@ -254,6 +257,34 @@ mod tests {
         assert!(to_v1(&sample()).unwrap().open_windows.is_none());
     }
 
+    /// custom_editors (子项目④) rides through the adapter untouched so the
+    /// frontend can build its ext→editor registry from the adapted manifest.
+    #[test]
+    fn custom_editors_pass_through() {
+        let m: plugin_protocol::ManifestV2 = serde_json::from_value(serde_json::json!({
+            "manifest_version": 2,
+            "id": "notemd.base",
+            "name": "Base",
+            "version": "1.0.0",
+            "kind": "native",
+            "engines": { "notemd": ">=0.0.0" },
+            "ui": "ui/",
+            "activation": { "events": ["onFileType:base"] },
+            "capabilities": [],
+            "contributes": {
+                "custom_editors": [
+                    { "id": "base-table", "file_extensions": [".base"], "entry": "editor.html" }
+                ]
+            }
+        }))
+        .unwrap();
+        let v1 = to_v1(&m).unwrap();
+        assert_eq!(v1.custom_editors.len(), 1);
+        assert_eq!(v1.custom_editors[0]["id"], "base-table");
+        assert_eq!(v1.custom_editors[0]["file_extensions"][0], ".base");
+        assert_eq!(v1.custom_editors[0]["entry"], "editor.html");
+    }
+
     #[test]
     fn minimal_manifest_gets_v1_defaults() {
         let m: plugin_protocol::ManifestV2 = serde_json::from_value(serde_json::json!({
@@ -273,6 +304,7 @@ mod tests {
         assert!(v1.description.is_none());
         assert!(v1.menus.is_empty());
         assert!(v1.context_menus.is_empty());
+        assert!(v1.custom_editors.is_empty());
         assert!(v1.cli.is_empty());
         assert!(v1.settings.is_none());
         assert!(v1.i18n.is_empty());

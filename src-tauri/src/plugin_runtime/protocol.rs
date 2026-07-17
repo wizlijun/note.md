@@ -82,11 +82,55 @@ pub fn mime_for(path: &Path) -> &'static str {
 /// are locked explicitly: `base-uri` and `form-action` do NOT inherit
 /// `default-src`, so without them a `<form action="https://…">` (or a `<base>`
 /// hijack) would still be a navigation/exfil channel.
+///
+/// **Custom-editor framing (子项目④).** A custom-editor page is loaded in an
+/// `<iframe>` BY the main app (origin `tauri://localhost`). That direction is
+/// governed by `frame-ancestors`, which is ABSENT here — so framing is allowed.
+/// (`frame-src 'none'` only restricts what THIS page may itself frame, i.e.
+/// nested iframes, not who may frame it.) The bridge injected into the served
+/// HTML keeps `connect-src 'self'`, so the in-iframe `window.notemd.request()`
+/// fetch to `/__rpc__` still passes.
 pub fn csp_header(_plugin_id: &str) -> String {
     "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; \
      img-src 'self' data:; connect-src 'self'; object-src 'none'; \
      base-uri 'none'; form-action 'none'; frame-src 'none'"
         .to_string()
+}
+
+/// Inject `<script>{bridge}</script>` into a served plugin HTML document so an
+/// iframe (which gets no `initialization_script`) still exposes `window.notemd`.
+/// Insert right after the first `<head...>` open tag; if there is no `<head>`,
+/// fall back to right after `<body...>`; if neither exists, prepend. The
+/// bridge's own `if (window.notemd) return;` guard makes this harmless for
+/// plugin *windows* (which also get it via `initialization_script`).
+///
+/// Case-insensitive tag search; preserves every original byte of `html`.
+pub fn inject_bridge(html: &str, bridge: &str) -> String {
+    let script = format!("<script>{bridge}</script>");
+    // Find the end of the first `<head ...>` (or `<body ...>`) open tag.
+    let lower = html.to_ascii_lowercase();
+    let insert_at = find_tag_end(&lower, "<head")
+        .or_else(|| find_tag_end(&lower, "<body"));
+    match insert_at {
+        Some(pos) => {
+            let mut out = String::with_capacity(html.len() + script.len());
+            out.push_str(&html[..pos]);
+            out.push_str(&script);
+            out.push_str(&html[pos..]);
+            out
+        }
+        // No head/body: prepend so the bridge still runs before page scripts.
+        None => format!("{script}{html}"),
+    }
+}
+
+/// Byte offset just past the `>` of the first `<tag...>` open tag in `lower`
+/// (which must already be lowercased), or `None` if the tag isn't present or
+/// its `>` is missing. `tag` is a lowercase prefix like `"<head"`.
+fn find_tag_end(lower: &str, tag: &str) -> Option<usize> {
+    let start = lower.find(tag)?;
+    let close = lower[start..].find('>')?;
+    Some(start + close + 1)
 }
 
 // ── Request handling (pure core) ────────────────────────────────────────
@@ -121,6 +165,8 @@ pub fn handle_parsed(
     plugin_id: &str,
     path: &str,
     origin: Option<&str>,
+    locale: &str,
+    theme: &str,
 ) -> Routed {
     let Some((ui_root, capabilities)) = view.lookup(plugin_id) else {
         return Routed::Response(plain(http::StatusCode::NOT_FOUND, "unknown plugin"));
@@ -133,14 +179,25 @@ pub fn handle_parsed(
             }
             Routed::Rpc(plugin_id.to_string(), capabilities)
         }
-        "GET" => Routed::Response(serve_asset(&ui_root, plugin_id, path)),
+        "GET" => Routed::Response(serve_asset(&ui_root, plugin_id, path, locale, theme)),
         "POST" => Routed::Response(plain(http::StatusCode::NOT_FOUND, "not found")),
         _ => Routed::Response(plain(http::StatusCode::METHOD_NOT_ALLOWED, "method not allowed")),
     }
 }
 
 /// GET asset serving, extracted from `handle_parsed` for readability.
-fn serve_asset(ui_root: &Path, plugin_id: &str, path: &str) -> http::Response<Vec<u8>> {
+///
+/// For `text/html` assets the fetch-RPC bridge (`super::windows::bridge_script`)
+/// is injected as an inline `<script>` so iframes — which get no
+/// `initialization_script` — still expose `window.notemd`. Other MIME types are
+/// served byte-for-byte.
+fn serve_asset(
+    ui_root: &Path,
+    plugin_id: &str,
+    path: &str,
+    locale: &str,
+    theme: &str,
+) -> http::Response<Vec<u8>> {
     match resolve_asset(ui_root, path) {
         Ok(file) => {
             let Ok(bytes) = std::fs::read(&file) else {
@@ -151,10 +208,21 @@ fn serve_asset(ui_root: &Path, plugin_id: &str, path: &str) -> http::Response<Ve
                 .status(http::StatusCode::OK)
                 .header("content-type", mime)
                 .header("cache-control", "no-cache");
-            if mime == "text/html" {
+            let body = if mime == "text/html" {
                 builder = builder.header("content-security-policy", csp_header(plugin_id));
-            }
-            builder.body(bytes).unwrap()
+                // Inject the bridge into the HTML (iframes have no init script).
+                match String::from_utf8(bytes) {
+                    Ok(html) => {
+                        let bridge = super::windows::bridge_script(plugin_id, locale, theme);
+                        inject_bridge(&html, &bridge).into_bytes()
+                    }
+                    // Non-UTF-8 "html" — serve as-is rather than guess.
+                    Err(e) => e.into_bytes(),
+                }
+            } else {
+                bytes
+            };
+            builder.body(body).unwrap()
         }
         Err(AssetError::Traversal) => plain(http::StatusCode::FORBIDDEN, "forbidden"),
         Err(AssetError::NotFound) => plain(http::StatusCode::NOT_FOUND, "not found"),
@@ -215,16 +283,40 @@ pub fn handle<R: tauri::Runtime>(
         .and_then(|v| v.to_str().ok())
         .map(str::to_string);
 
+    // locale/theme seed the bridge injected into served HTML (mirrors how
+    // windows.rs seeds it into the window initialization_script).
+    let locale = crate::read_saved_locale(app);
+    let theme = read_saved_theme(app);
+
     match handle_parsed(
         &StateView,
         request.method().as_str(),
         &plugin_id,
         url.path(),
         origin.as_deref(),
+        &locale,
+        &theme,
     ) {
         Routed::Response(r) => r,
         Routed::Rpc(id, capabilities) => dispatch_rpc(app, &id, &capabilities, request.body()),
     }
+}
+
+/// Read the persisted UI theme from settings.json (mirrors `read_saved_theme`
+/// in `windows.rs`; kept local so this module stays self-contained). Defaults
+/// to `"default"` when the file is missing/unreadable or the key is absent.
+fn read_saved_theme<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> String {
+    use tauri::Manager;
+    let Ok(dir) = app.path().app_config_dir() else {
+        return "default".to_string();
+    };
+    let Ok(text) = std::fs::read_to_string(dir.join("settings.json")) else {
+        return "default".to_string();
+    };
+    let Ok(json) = serde_json::from_str::<serde_json::Value>(&text) else {
+        return "default".to_string();
+    };
+    json.get("theme").and_then(|v| v.as_str()).unwrap_or("default").to_string()
 }
 
 /// RPC seam: parse the JSON-RPC body, run `ui_rpc::dispatch` (production entry;
@@ -400,7 +492,7 @@ mod tests {
     fn handle_unknown_plugin_404() {
         let dir = ui_fixture();
         let view = view_for(dir.path());
-        let r = resp(handle_parsed(&view, "GET", "other.plugin", "/index.html", None));
+        let r = resp(handle_parsed(&view, "GET", "other.plugin", "/index.html", None, "en", "default"));
         assert_eq!(r.status(), 404);
     }
 
@@ -408,7 +500,7 @@ mod tests {
     fn handle_get_html_has_csp_and_no_cache() {
         let dir = ui_fixture();
         let view = view_for(dir.path());
-        let r = resp(handle_parsed(&view, "GET", "test.plugin", "/index.html", None));
+        let r = resp(handle_parsed(&view, "GET", "test.plugin", "/index.html", None, "en", "default"));
         assert_eq!(r.status(), 200);
         assert_eq!(r.headers()["content-type"], "text/html");
         assert_eq!(r.headers()["cache-control"], "no-cache");
@@ -416,25 +508,46 @@ mod tests {
             r.headers()["content-security-policy"].to_str().unwrap(),
             csp_header("test.plugin")
         );
-        assert_eq!(r.body(), b"<html></html>");
+        // The served HTML now carries the injected bridge (see dedicated tests
+        // below); the original markup is still present.
+        let body = String::from_utf8(r.body().clone()).unwrap();
+        assert!(body.contains("<html></html>"), "original html preserved: {body}");
     }
 
     #[test]
-    fn handle_get_js_has_no_csp() {
+    fn handle_get_html_injects_bridge_with_guard() {
         let dir = ui_fixture();
         let view = view_for(dir.path());
-        let r = resp(handle_parsed(&view, "GET", "test.plugin", "/app.js", None));
+        let r = resp(handle_parsed(&view, "GET", "test.plugin", "/index.html", None, "zh", "midnight"));
+        let body = String::from_utf8(r.body().clone()).unwrap();
+        // Bridge script + idempotency guard are injected into the HTML.
+        assert!(body.contains("<script>"), "script tag injected: {body}");
+        assert!(body.contains("window.notemd"), "bridge defines window.notemd");
+        assert!(body.contains("if (window.notemd) return;"), "idempotency guard present");
+        assert!(body.contains("/__rpc__"), "bridge posts to rpc endpoint");
+        // locale/theme seeded from the request.
+        assert!(body.contains(r#""zh""#), "locale literal seeded");
+        assert!(body.contains(r#""midnight""#), "theme literal seeded");
+    }
+
+    #[test]
+    fn handle_get_js_has_no_csp_and_no_bridge() {
+        let dir = ui_fixture();
+        let view = view_for(dir.path());
+        let r = resp(handle_parsed(&view, "GET", "test.plugin", "/app.js", None, "en", "default"));
         assert_eq!(r.status(), 200);
         assert_eq!(r.headers()["content-type"], "text/javascript");
         assert_eq!(r.headers()["cache-control"], "no-cache");
         assert!(r.headers().get("content-security-policy").is_none());
+        // JS assets are served byte-for-byte — no bridge injection.
+        assert_eq!(r.body(), b"console.log(1)");
     }
 
     #[test]
     fn handle_get_traversal_403() {
         let dir = ui_fixture();
         let view = view_for(dir.path());
-        let r = resp(handle_parsed(&view, "GET", "test.plugin", "/%2e%2e/secret", None));
+        let r = resp(handle_parsed(&view, "GET", "test.plugin", "/%2e%2e/secret", None, "en", "default"));
         assert_eq!(r.status(), 403);
     }
 
@@ -443,7 +556,7 @@ mod tests {
         let dir = ui_fixture();
         let view = view_for(dir.path());
         for origin in [None, Some("plugin://other.plugin"), Some("tauri://localhost")] {
-            let r = resp(handle_parsed(&view, "POST", "test.plugin", "/__rpc__", origin));
+            let r = resp(handle_parsed(&view, "POST", "test.plugin", "/__rpc__", origin, "en", "default"));
             assert_eq!(r.status(), 403, "origin {origin:?} must be rejected");
         }
     }
@@ -458,6 +571,8 @@ mod tests {
             "test.plugin",
             "/__rpc__",
             Some("plugin://test.plugin"),
+            "en",
+            "default",
         ) {
             Routed::Rpc(id, capabilities) => {
                 assert_eq!(id, "test.plugin");
@@ -477,6 +592,8 @@ mod tests {
             "test.plugin",
             "/other",
             Some("plugin://test.plugin"),
+            "en",
+            "default",
         ));
         assert_eq!(r.status(), 404);
     }
@@ -485,7 +602,47 @@ mod tests {
     fn handle_put_405() {
         let dir = ui_fixture();
         let view = view_for(dir.path());
-        let r = resp(handle_parsed(&view, "PUT", "test.plugin", "/index.html", None));
+        let r = resp(handle_parsed(&view, "PUT", "test.plugin", "/index.html", None, "en", "default"));
         assert_eq!(r.status(), 405);
+    }
+
+    // ── inject_bridge (pure) ────────────────────────────────────────────
+
+    #[test]
+    fn inject_bridge_after_head() {
+        let out = inject_bridge("<html><head></head><body>x</body></html>", "B()");
+        assert_eq!(out, "<html><head><script>B()</script></head><body>x</body></html>");
+    }
+
+    #[test]
+    fn inject_bridge_after_head_with_attrs() {
+        let out = inject_bridge("<head lang=\"en\">z</head>", "B()");
+        assert_eq!(out, "<head lang=\"en\"><script>B()</script>z</head>");
+    }
+
+    #[test]
+    fn inject_bridge_falls_back_to_body_when_no_head() {
+        let out = inject_bridge("<html><body>x</body></html>", "B()");
+        assert_eq!(out, "<html><body><script>B()</script>x</body></html>");
+    }
+
+    #[test]
+    fn inject_bridge_prepends_when_no_head_or_body() {
+        let out = inject_bridge("<div>hi</div>", "B()");
+        assert_eq!(out, "<script>B()</script><div>hi</div>");
+    }
+
+    #[test]
+    fn inject_bridge_case_insensitive_head() {
+        let out = inject_bridge("<HTML><HEAD></HEAD></HTML>", "B()");
+        assert_eq!(out, "<HTML><HEAD><script>B()</script></HEAD></HTML>");
+    }
+
+    #[test]
+    fn inject_bridge_preserves_original_bytes() {
+        // Everything except the inserted <script> is byte-identical.
+        let html = "<html><head><title>T</title></head><body><p>café</p></body></html>";
+        let out = inject_bridge(html, "B()");
+        assert_eq!(out.replace("<script>B()</script>", ""), html);
     }
 }
