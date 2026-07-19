@@ -56,6 +56,14 @@ fn ensure_v2_enabled() -> Result<(), String> {
     Ok(())
 }
 
+/// A plugin has a backing process (and thus a lifecycle) iff it declares a
+/// `binary`. UI-only plugins (roam-import, base, custom-editor fixtures) have an
+/// empty binary map — their window opens directly from STATE and their UI talks
+/// to the host over `host.*`, so they never get a process/lifecycle.
+fn is_process_plugin(m: &plugin_protocol::ManifestV2) -> bool {
+    !m.binary.is_empty()
+}
+
 /// Find `id`@`version` in the registry index and resolve this host's arch
 /// download URL + sha256. UI-only plugins (roam-import etc.) publish under the
 /// `universal` key rather than a host triple, so we prefer the host triple then
@@ -295,7 +303,20 @@ fn notify_plugins_changed<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
 /// is pushed onto the tauri async runtime — `init` runs inside `setup`,
 /// outside any tokio context, and `startup_activation` needs `tokio::spawn`.
 pub fn startup_activate_all<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
-    let ids: Vec<String> = STATE.read().unwrap().plugins.keys().cloned().collect();
+    // Only process-backed plugins (those declaring a `binary`) have a lifecycle.
+    // UI-only plugins (roam-import, base, etc.) have no process to activate —
+    // their window opens directly from STATE without a lifecycle, and their UI
+    // reaches the host through `host.*` bridge calls, not the process channel.
+    // Registering them would spawn nothing and just log a spurious
+    // "no binary for host arch" error every startup, so skip them here.
+    let ids: Vec<String> = {
+        let st = STATE.read().unwrap();
+        st.plugins
+            .iter()
+            .filter(|(_, (m, _))| is_process_plugin(m))
+            .map(|(id, _)| id.clone())
+            .collect()
+    };
     let mut lifecycles = Vec::new();
     for id in ids {
         match get_or_register(app, &id) {
@@ -344,6 +365,15 @@ pub(crate) fn get_or_register<R: tauri::Runtime>(
         return Ok(lc.clone());
     }
     let (manifest, install_dir) = lookup_v2(plugin_id)?;
+    if !is_process_plugin(&manifest) {
+        // UI-only plugin: no process. Callers that reach here (e.g. a window UI
+        // forwarding a `plugin.*` call) are misusing the channel — UI-only
+        // plugins talk to the host via `host.*`, and their window opens without
+        // a lifecycle. Fail with a clear message, not "no binary for host arch".
+        return Err(format!(
+            "plugin '{plugin_id}' is UI-only (no process); it has no command/ui.request channel"
+        ));
+    }
     let ctx = build_spawn_ctx(app, &manifest, &install_dir)?;
     let lc = Arc::new(PluginLifecycle::new(manifest, install_dir, ctx));
     Ok(register_lifecycle(plugin_id, lc))
@@ -407,6 +437,21 @@ mod tests {
         assert!(Arc::ptr_eq(&won_first, &first));
         assert!(Arc::ptr_eq(&won_second, &first), "second registration must return the first Arc");
         RUNNING.write().unwrap().remove(id);
+    }
+
+    #[test]
+    fn is_process_plugin_distinguishes_ui_only_from_binary() {
+        // Binary-backed fixture → process plugin.
+        let mut m = fixture_manifest("pub.binary");
+        m.binary
+            .insert("aarch64-apple-darwin".into(), "bin/x".into());
+        assert!(is_process_plugin(&m), "a plugin with a binary is process-backed");
+
+        // UI-only (no binary) → not a process plugin; must be skipped by
+        // startup_activate_all and rejected by get_or_register with a clear msg.
+        let ui = fixture_manifest("pub.ui-only");
+        assert!(ui.binary.is_empty());
+        assert!(!is_process_plugin(&ui), "a binary-less plugin is UI-only");
     }
 
     /// A ui-only plugin publishes only under the `universal` key; resolve_download

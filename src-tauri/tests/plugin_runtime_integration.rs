@@ -474,6 +474,7 @@ async fn host_api_make_sink_dispatches_toast_through_real_process() {
         log_dir.path().to_path_buf(),
         emitter,
         ui_poster,
+        None, // no host.vault.* HostServices needed for this toast round-trip
     );
 
     let proc = PluginProcess::spawn(&fixture("ok.sh"), "test.ok", log_dir.path(), 5, sink)
@@ -546,6 +547,7 @@ async fn stream_fixture_ui_request_round_trip_and_host_ui_post_push() {
         log_dir.path().to_path_buf(),
         emitter,
         poster,
+        None, // no host.vault.* HostServices needed for this streaming round-trip
     );
 
     let proc = PluginProcess::spawn(&fixture("stream.sh"), "test.stream", log_dir.path(), 5, sink)
