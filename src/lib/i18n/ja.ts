@@ -198,8 +198,6 @@ export const ja: Record<keyof Messages, string> = {
   'plugins.none': 'プラグインが検出されませんでした。',
   'plugins.needsVault': '有効にするには先に Vault を設定してください',
   'plugins.internalError': '{name}：プラグインエラー',
-  'settings.plugins.marketIntro': 'プラグインマーケットでプラグインを閲覧・インストール・更新・管理できます。インストール済みプラグインの有効化/無効化もそこに移動しました。',
-  'settings.plugins.openMarket': 'プラグインマーケットを開く…',
 
   // Plugin Market window (子项目③)
   'pluginMarket.windowTitle': 'プラグインマーケット',
@@ -528,7 +526,6 @@ export const ja: Record<keyof Messages, string> = {
   // Settings dialog — header & tabs
   'settings.title': '環境設定',
   'settings.done': '完了',
-  'settings.tab.plugins': 'プラグイン',
   'settings.tab.core': 'コア',
   'settings.tab.block': 'ブロック',
   'settings.tab.cli': 'CLI',

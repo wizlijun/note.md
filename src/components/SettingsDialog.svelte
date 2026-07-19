@@ -39,7 +39,7 @@
   })
 
   let pluginTabs = $state<SettingsTab[]>([])
-  let selectedTab = $state<'plugins' | 'core' | string>('core')
+  let selectedTab = $state<'core' | string>('core')
   let pluginValues = $state<Record<string, Record<string, unknown>>>({})
 
   // Vault-scoped sync folder (stored in {vault}/.notemd/settings.json). Loaded
@@ -50,16 +50,6 @@
     if (!open) return
     void loadVaultSettings().then(() => { syncDirDraft = vaultSettings.syncDir })
   })
-  // Plugins tab is retired to a launcher: install / enable / uninstall now live
-  // in the standalone Plugin Market window (子项目③). Open it via the backend.
-  async function openPluginMarket() {
-    try {
-      await invoke('open_plugin_market_window')
-      open = false
-    } catch (e) {
-      pushToast({ level: 'error', message: String(e) })
-    }
-  }
   async function onSetOutlineDir(kind: 'wikipage' | 'dailynote', value: string) {
     try {
       await setOutlineDir(kind, value)
@@ -411,9 +401,6 @@
       <h2>{t('settings.title')}</h2>
 
       <nav class="tab-strip">
-        {#if !isIOSPlatform}
-          <button class:active={selectedTab === 'plugins'} onclick={() => selectedTab = 'plugins'}>{t('settings.tab.plugins')}</button>
-        {/if}
         <button class:active={selectedTab === 'core'} onclick={() => selectedTab = 'core'}>{t('settings.tab.core')}</button>
         <button class:active={selectedTab === 'block'} onclick={() => selectedTab = 'block'}>{t('settings.tab.block')}</button>
         {#if !isIOSPlatform}
@@ -432,12 +419,7 @@
         {/each}
       </nav>
 
-      {#if !isIOSPlatform && selectedTab === 'plugins'}
-        <section class="block">
-          <p class="plugins-intro">{t('settings.plugins.marketIntro')}</p>
-          <button class="market-btn" onclick={openPluginMarket}>{t('settings.plugins.openMarket')}</button>
-        </section>
-      {:else if selectedTab === 'core'}
+      {#if selectedTab === 'core'}
         <section class="block">
           <label class="row">
             <span class="lbl">{t('settings.language')}</span>
@@ -835,15 +817,6 @@
     border-top: 1px solid color-mix(in srgb, CanvasText 10%, transparent);
   }
   .block:first-of-type { border-top: 0; padding-top: 0; }
-  .plugins-intro {
-    margin: 0 0 12px; font-size: 13px; line-height: 1.5;
-    color: color-mix(in srgb, CanvasText 78%, transparent);
-  }
-  .market-btn {
-    font-size: 13px; padding: 7px 16px; border-radius: 8px; cursor: pointer;
-    border: 1px solid transparent; font-weight: 600;
-    background: color-mix(in srgb, #2f7bd6 90%, CanvasText); color: white;
-  }
   .row { display: flex; gap: 8px; align-items: center; font-size: 13px; }
   .row .lbl {
     width: 60px;

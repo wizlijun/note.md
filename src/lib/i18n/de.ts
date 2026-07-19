@@ -196,8 +196,6 @@ export const de: Record<keyof Messages, string> = {
   'plugins.none': 'Keine Plugins gefunden.',
   'plugins.needsVault': 'Legen Sie zuerst einen Tresor fest, um dieses Plugin zu aktivieren',
   'plugins.internalError': '{name}: Plugin-Fehler',
-  'settings.plugins.marketIntro': 'Durchsuchen, installieren, aktualisieren und verwalten Sie Plugins im Plugin-Markt. Das Aktivieren und Deaktivieren installierter Plugins befindet sich jetzt ebenfalls dort.',
-  'settings.plugins.openMarket': 'Plugin-Markt öffnen…',
 
   // Plugin Market window (子项目③)
   'pluginMarket.windowTitle': 'Plugin-Markt',
@@ -526,7 +524,6 @@ export const de: Record<keyof Messages, string> = {
   // Settings dialog — header & tabs
   'settings.title': 'Einstellungen',
   'settings.done': 'Fertig',
-  'settings.tab.plugins': 'Plugins',
   'settings.tab.core': 'Kern',
   'settings.tab.block': 'Block',
   'settings.tab.cli': 'CLI',

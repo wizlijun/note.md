@@ -203,8 +203,6 @@ export const en = {
   'plugins.none': 'No plugins detected.',
   'plugins.needsVault': 'Set a Vault first to enable this plugin',
   'plugins.internalError': '{name}: plugin error',
-  'settings.plugins.marketIntro': 'Browse, install, update, and manage plugins in the Plugin Market. Enabling and disabling installed plugins now lives there too.',
-  'settings.plugins.openMarket': 'Open Plugin Market…',
 
   // Plugin Market window (子项目③)
   'pluginMarket.windowTitle': 'Plugin Market',
@@ -533,7 +531,6 @@ export const en = {
   // Settings dialog — header & tabs
   'settings.title': 'Preferences',
   'settings.done': 'Done',
-  'settings.tab.plugins': 'Plugins',
   'settings.tab.core': 'Core',
   'settings.tab.block': 'Block',
   'settings.tab.cli': 'CLI',

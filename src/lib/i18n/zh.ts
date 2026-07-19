@@ -198,8 +198,6 @@ export const zh: Record<keyof Messages, string> = {
   'plugins.none': '未检测到插件。',
   'plugins.needsVault': '需先设置 Vault 才能启用此插件',
   'plugins.internalError': '{name}：插件错误',
-  'settings.plugins.marketIntro': '在插件市场中浏览、安装、更新和管理插件。启用/禁用已安装的插件也已迁移到那里。',
-  'settings.plugins.openMarket': '打开插件市场…',
 
   // Plugin Market window (子项目③)
   'pluginMarket.windowTitle': '插件市场',
@@ -559,7 +557,6 @@ export const zh: Record<keyof Messages, string> = {
   // Settings dialog — header & tabs
   'settings.title': '偏好设置',
   'settings.done': '完成',
-  'settings.tab.plugins': '插件',
   'settings.tab.core': '核心',
   'settings.tab.block': '区块',
   'settings.tab.cli': 'CLI',

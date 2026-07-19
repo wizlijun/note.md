@@ -1322,7 +1322,7 @@ fn menu_label(locale: &str, key: &str) -> String {
         "edit.findReplace" => ("Find and Replace…", "查找和替换…", "検索と置換…", "Suchen und Ersetzen…"),
         "view.toggleMode" => ("Toggle Source / Rich", "切换源码 / 富文本", "ソース / リッチを切り替え", "Quelltext / Rich umschalten"),
         "view.insights" => ("Reading Insights…", "阅读洞察数据…", "リーディングインサイト…", "Leseeinblicke…"),
-        "view.pluginMarket" => ("Plugin Market…", "插件市场…", "プラグインマーケット…", "Plugin-Markt…"),
+        "plugins.market" => ("Plugin Market…", "插件市场…", "プラグインマーケット…", "Plugin-Markt…"),
         "file.syncToVault" => ("Sync to Vault…", "同步到 Vault…", "Vault に同期…", "Mit Vault synchronisieren…"),
         "file.share" => ("Share Current File…", "分享当前文件…", "現在のファイルを共有…", "Aktuelle Datei teilen…"),
         "file.unshare" => ("Unshare Current File…", "取消分享当前文件…", "現在のファイルの共有を解除…", "Freigabe der aktuellen Datei aufheben…"),
@@ -1669,7 +1669,6 @@ fn build_menu<R: tauri::Runtime>(
         .item(&PredefinedMenuItem::fullscreen(app, None)?)
         .separator()
         .item(&MenuItemBuilder::with_id("open-insights", menu_label(locale, "view.insights")).build(app)?)
-        .item(&MenuItemBuilder::with_id("open-plugin-market", menu_label(locale, "view.pluginMarket")).build(app)?)
         .separator()
         .item(&MenuItemBuilder::with_id("toggle-folder-view", menu_label(locale, "view.folderView")).accelerator("Cmd+Shift+E").build(app)?)
         .item(&MenuItemBuilder::with_id("toggle-sidecar-notes", menu_label(locale, "view.sidecarNotes")).accelerator("Cmd+Shift+O").build(app)?)
@@ -1707,25 +1706,32 @@ fn build_menu<R: tauri::Runtime>(
     }
     let help_menu: Submenu<R> = help_b.build()?;
 
-    let plugins_in_plugins: Vec<_> = plugin_items.iter().filter(|p| p.location == "plugins").collect();
-    let plugins_menu: Option<Submenu<R>> = if !plugins_in_plugins.is_empty() {
-        let mut b = SubmenuBuilder::new(app, menu_label(locale, "menu.plugins"));
-        for it in plugins_in_plugins {
-            let mut mb = MenuItemBuilder::with_id(&it.id, &it.label);
-            if let Some(s) = &it.shortcut { mb = mb.accelerator(s); }
-            b = b.item(&mb.build(app)?);
+    // The Plugins menu is always present: its first item, "Plugin Market…",
+    // is the entry point to browse / install / update / uninstall plugins
+    // (opens the standalone market window). Plugin-contributed `location:
+    // "plugins"` items follow after a separator.
+    let plugins_menu: Submenu<R> = {
+        let mut b = SubmenuBuilder::new(app, menu_label(locale, "menu.plugins")).item(
+            &MenuItemBuilder::with_id("open-plugin-market", menu_label(locale, "plugins.market"))
+                .build(app)?,
+        );
+        let contributed: Vec<_> = plugin_items.iter().filter(|p| p.location == "plugins").collect();
+        if !contributed.is_empty() {
+            b = b.separator();
+            for it in contributed {
+                let mut mb = MenuItemBuilder::with_id(&it.id, &it.label);
+                if let Some(s) = &it.shortcut { mb = mb.accelerator(s); }
+                b = b.item(&mb.build(app)?);
+            }
         }
-        Some(b.build()?)
-    } else {
-        None
+        b.build()?
     };
 
     // Suppress unused warning when WindowEvent isn't matched in run loop above
     let _ = std::any::type_name::<WindowEvent>();
 
-    let mut top = MenuBuilder::new(app);
-    top = top.items(&[&app_menu, &file_menu, &edit_menu, &view_menu]);
-    if let Some(pm) = &plugins_menu { top = top.item(pm); }
-    let menu = top.items(&[&window_menu, &help_menu]).build()?;
+    let menu = MenuBuilder::new(app)
+        .items(&[&app_menu, &file_menu, &edit_menu, &view_menu, &plugins_menu, &window_menu, &help_menu])
+        .build()?;
     Ok((menu, recent_menu))
 }
