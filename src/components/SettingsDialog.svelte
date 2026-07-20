@@ -28,8 +28,6 @@
     type OutlineCommandId,
   } from '../lib/outline/shortcuts'
   import VaultSettingsTab from './VaultSettingsTab.svelte'
-  import OpenClawSettingsTab from './OpenClawSettingsTab.svelte'
-  import OpenClawDevicesTab from './OpenClawDevicesTab.svelte'
 
   let { open = $bindable(false) }: { open: boolean } = $props()
 
@@ -428,9 +426,6 @@
         {#if isIOSPlatform}
           <button class:active={selectedTab === 'vault'} onclick={() => selectedTab = 'vault'}>{t('settings.tab.vault')}</button>
         {/if}
-        {#if isPluginActive('openclaw-chat')}
-          <button class:active={selectedTab === 'openclaw'} onclick={() => selectedTab = 'openclaw'}>{t('settings.tab.openclaw')}</button>
-        {/if}
         <button class:active={selectedTab === 'outline-notes'} onclick={() => selectedTab = 'outline-notes'}>{t('settings.tab.outline')}</button>
         {#each pluginTabs as ptab (ptab.pluginId)}
           <button class:active={selectedTab === ptab.pluginId} onclick={() => selectedTab = ptab.pluginId}>{pluginTabLabel(ptab.manifest, ptab.label)}</button>
@@ -732,9 +727,6 @@
         </section>
       {:else if selectedTab === 'vault' && isIOSPlatform}
         <VaultSettingsTab />
-      {:else if selectedTab === 'openclaw' && isPluginActive('openclaw-chat')}
-        <OpenClawSettingsTab />
-        <OpenClawDevicesTab />
       {:else if selectedTab === 'outline-notes'}
         <section class="block">
           <h3>{t('outline.shortcutsTitle')}</h3>

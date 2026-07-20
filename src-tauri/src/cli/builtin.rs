@@ -30,7 +30,6 @@ pub fn run(b: Builtin, parsed: &Parsed) -> ExitCode {
             println!("{}", render_plugin_list(parsed.globals.json, &manifests_only, &enabled));
             ExitCode::from(0)
         }
-        Builtin::Openclaw(cmd) => super::openclaw::run(cmd),
         Builtin::PluginEnable(id) => {
             if !manifests_only.iter().any(|m| m.id == id) {
                 eprintln!("notemd: unknown plugin id '{id}'");
@@ -129,7 +128,6 @@ pub fn render_help(
     out.push_str("  help          Show this help (aliases: -h, --help)\n");
     out.push_str("  version       Print version (aliases: -v, --version)\n");
     out.push_str("  plugin        Manage plugins (list, enable, disable, info, install, update, remove)\n");
-    out.push_str("  openclaw      Install the note.md chat plugin into OpenClaw (install, uninstall, status)\n");
     out.push_str("  share         Render and publish file as a shareable URL (alias: --share)\n");
     out.push_str("  reading-insights report   Generate a reading digest from the Vault (--vault, --date, --stdout)\n");
 
@@ -297,19 +295,6 @@ NOTES:
   install/update download from the plugin registry and verify every package's
   minisign signature + sha256 before it touches disk; a running app picks up the
   change on its next launch.
-",
-        "openclaw" => "\
-notemd openclaw — Manage the note.md chat plugin inside OpenClaw
-
-USAGE:
-  notemd openclaw status             Show whether the plugin is installed (default)
-  notemd openclaw install [--force]  Install the plugin into OpenClaw
-  notemd openclaw uninstall [--keep-files]
-                                     Remove the plugin from OpenClaw
-
-FLAGS:
-  --force        Reinstall even if already present
-  --keep-files   Leave plugin files on disk when uninstalling
 ",
         "share" | "--share" => "\
 notemd share — Render and publish file as a shareable URL
@@ -1015,7 +1000,7 @@ mod tests {
         assert!(out.contains("--plugin-dir"));
     }
     #[test] fn help_topic_resolves_core_commands() {
-        for topic in ["help", "version", "plugin", "openclaw", "share", "reading-insights"] {
+        for topic in ["help", "version", "plugin", "share", "reading-insights"] {
             let out = render_help(Some(topic), false, &[], &HashMap::new());
             assert!(out.contains(&format!("notemd {topic}")), "topic {topic} not documented");
             assert!(!out.contains("unknown topic"), "topic {topic} rendered as unknown");

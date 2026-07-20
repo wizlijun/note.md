@@ -242,9 +242,6 @@ grep -q "^version = \"$VERSION\"$"              src-tauri/Cargo.toml      || die
 
 say "building (signed)"
 
-say "building md2pdf plugin binaries"
-pnpm build:md2pdf
-
 rustup target add aarch64-apple-darwin x86_64-apple-darwin >/dev/null 2>&1 || true
 
 # Build each architecture independently. macOS bash 3.2 lacks associative
@@ -348,11 +345,6 @@ build_arch x86_64-apple-darwin  x86_64
 say "committing v$VERSION"
 trap - ERR  # build succeeded — keep version bumps even if a later step fails
 git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock
-# build-md2pdf.sh re-signs the bundled plugin binaries every run (timestamps
-# change), so working tree picks up modifications. Include them in the release
-# commit so HEAD matches what shipped and the next run sees a clean tree.
-git add src-tauri/plugins/md2pdf/bin-aarch64-apple-darwin \
-        src-tauri/plugins/md2pdf/bin-x86_64-apple-darwin 2>/dev/null || true
 git commit -m "chore: release v$VERSION"
 git tag -a "$TAG" -m "note.md $VERSION"
 

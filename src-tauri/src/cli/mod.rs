@@ -13,7 +13,6 @@ pub mod router;
 pub mod builtin;
 pub mod runner;
 pub mod install;
-pub mod openclaw;
 pub mod state;
 
 use crate::app_dirs::BUNDLE_ID as APP_BUNDLE_ID;

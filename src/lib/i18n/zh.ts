@@ -507,28 +507,6 @@ export const zh: Record<keyof Messages, string> = {
   'folderView.tabTitle': '文件',
 
   // OpenClaw settings + devices
-  'openclaw.heading': 'OpenClaw',
-  'openclaw.connectMode': '连接模式',
-  'openclaw.autoDetect': '自动检测',
-  'openclaw.modeHost': '主机（本地 UDS）',
-  'openclaw.modeRemote': '远程（经 mdrelay）',
-  'openclaw.socketPath': 'Socket 路径',
-  'openclaw.accessToken': '访问令牌',
-  'openclaw.runToGenerate': "运行 'notemd openclaw install' 生成",
-  'openclaw.hide': '隐藏',
-  'openclaw.show': '显示',
-  'openclaw.copy': '复制',
-  'openclaw.copied': '✓ 已复制',
-  'openclaw.copyFailed': '复制失败',
-  'openclaw.relayUrl': '中继 URL',
-  'openclaw.autoSync': '解析聊天链接前自动同步',
-  'openclaw.devices': '设备',
-  'openclaw.hostname': '主机名',
-  'openclaw.lastSeen': '最后在线',
-  'openclaw.revoke': '撤销',
-  'openclaw.forget': '忘记',
-  'openclaw.noPairedDevices': '暂无已配对设备。',
-  'openclaw.addDevice': '+ 添加设备',
 
   // Theme import dialog
   'themeImport.title': '导入 Typora 主题',
@@ -542,18 +520,6 @@ export const zh: Record<keyof Messages, string> = {
   'themeImport.import': '导入',
 
   // Chat / pairing
-  'chat.connectTitle': '连接到你的 OpenClaw',
-  'chat.enterPairingCode': '输入你主机上 note.md 设置中显示的配对码。',
-  'chat.pairingCode': '配对码',
-  'chat.deviceNameOptional': '设备名称（可选）',
-  'chat.connecting': '连接中…',
-  'chat.pair': '配对',
-  'chat.addDevice': '添加新设备',
-  'chat.retry': '重试',
-  'chat.generatingCode': '正在生成配对码…',
-  'chat.expiresIn': '{time} 后过期',
-  'chat.typeToOpenClaw': '输入发送给 OpenClaw…',
-  'chat.send': '发送',
 
   // Settings dialog — header & tabs
   'settings.title': '偏好设置',
@@ -563,7 +529,6 @@ export const zh: Record<keyof Messages, string> = {
   'settings.tab.cli': 'CLI',
   'settings.tab.updates': '更新',
   'settings.tab.vault': 'Vault',
-  'settings.tab.openclaw': 'OpenClaw',
   'settings.tab.outline': '伴生笔记',
   'settings.tab.insights': '阅读洞察',
 
@@ -661,22 +626,6 @@ export const zh: Record<keyof Messages, string> = {
   'settings.cli.helpDesc': '安装后，在终端运行 <code>notemd help</code> 查看完整参考。CLI 内建核心命令（share、reading-insights report），并暴露<em>已启用</em>插件贡献的命令 — 在上面的 Plugins 中禁用某插件即可从 <code>notemd</code> 移除其子命令。',
 
   // Roam 导入窗口
-  'roamImport.title': '从 Roam Research 导入',
-  'roamImport.pickFile': '选择 Roam 导出文件（.zip / .json）…',
-  'roamImport.noVault': '请先在 设置 → Vault 配置仓库后再导入。',
-  'roamImport.stage.parse': '正在解析导出文件…',
-  'roamImport.stage.plan': '正在计算导入计划…',
-  'roamImport.stage.write': '正在写入笔记…',
-  'roamImport.progress': '{done} / {total} 页 — {current}',
-  'roamImport.errors': '错误与警告',
-  'roamImport.copyLog': '复制日志',
-  'roamImport.done': '导入完成：{wiki} 个 wiki 页、{daily} 篇日记、跳过 {skipped}。',
-  'roamImport.doneErrors': '完成，但有 {errors} 个问题 — 见下方日志。',
-  'roamImport.conflicts': '{count} 个页面因本地已修改被跳过。',
-  'roamImport.overwriteSelected': '覆盖所选',
-  'roamImport.errParse': '导出文件不可读：{error}',
-  'roamImport.errWrite': '写入 {page} 失败：{error}',
-  'roamImport.warnRenamed': '“{from}”改名为“{to}”（文件名约束）',
 
   'base.loading': '正在扫描目录…',
   'base.empty': '没有匹配的文件',

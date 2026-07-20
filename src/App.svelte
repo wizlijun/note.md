@@ -366,10 +366,6 @@
           await toggleSideView(pluginId)
           return
         }
-        if (pluginId === 'roam-import') {
-          if (command === 'open') await invoke('show_roam_import_window')
-          return
-        }
         if (pluginId === 'base') {
           if (command === 'create') await createNewBase()
           return

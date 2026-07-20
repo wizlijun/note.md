@@ -10,6 +10,18 @@
 
 ---
 
+## 执行状态（2026-07-20，v6.720.x）
+
+**已退役（有 v2 替身的 3 个）**：roam-import / openclaw-chat / md2pdf 的 v1 内置版本、前端、后端、CLI、i18n、capabilities、vite 入口、openclaw 专用 deps（tokio-tungstenite / qrcode / gethostname / include_dir）、release.sh 的 md2pdf bin 构建/提交步骤、`scripts/build-md2pdf.sh` + `package.json` build:md2pdf 全部删除。cargo check + 362 lib test + 1264 vitest + svelte-check 0 error 全绿。**md2pdf crate 保留**（v2 派生 bin，走 `build-md2pdf-v2.sh`）。这三项的功能此后**仅经市场 v2 插件提供**（新装用户需从 Plugins ▸ Plugin Market 安装）。
+
+**未退役（门控保留 v1）**：
+- **base**：`plugins-src/` 无 base，尚未迁 v2 → 删了 `.base` 就打不开。保留 `src-tauri/plugins/base` + `src/components/BaseView.svelte` + `EditorPane` 的 `kind==='base'` 分支 + `createNewBase` + dispatch。**门控在 base 迁 custom-editor v2 + 用户 GUI 穿刺之后**（本清单 A/B 的 base 行、C 节 v1 one-shot 机制评估、D 节 yaml dep 均因此暂缓）。
+- **exlibris**：独立 app 线（E 节），本次未动。
+
+**v1 one-shot 机制（plugin_host.rs run_plugin_binary / merge_dedup / collect_top_menu_items）仍保留**——base 仍是 v1 插件，经此机制注册。C 节评估要等 base 退役后。
+
+---
+
 ## A. 五插件 v1 前端删除
 
 | 插件 | 删除 | 验证 |

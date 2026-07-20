@@ -481,28 +481,6 @@ export const en = {
   'folderView.tabTitle': 'Files',
 
   // OpenClaw settings + devices
-  'openclaw.heading': 'OpenClaw',
-  'openclaw.connectMode': 'Connect mode',
-  'openclaw.autoDetect': 'Auto-detect',
-  'openclaw.modeHost': 'Host (local UDS)',
-  'openclaw.modeRemote': 'Remote (via mdrelay)',
-  'openclaw.socketPath': 'Socket path',
-  'openclaw.accessToken': 'Access token',
-  'openclaw.runToGenerate': "Run 'notemd openclaw install' to generate",
-  'openclaw.hide': 'Hide',
-  'openclaw.show': 'Show',
-  'openclaw.copy': 'Copy',
-  'openclaw.copied': '✓ copied',
-  'openclaw.copyFailed': 'copy failed',
-  'openclaw.relayUrl': 'Relay URL',
-  'openclaw.autoSync': 'Auto-sync before resolving chat links',
-  'openclaw.devices': 'Devices',
-  'openclaw.hostname': 'Hostname',
-  'openclaw.lastSeen': 'Last seen',
-  'openclaw.revoke': 'Revoke',
-  'openclaw.forget': 'Forget',
-  'openclaw.noPairedDevices': 'No paired devices yet.',
-  'openclaw.addDevice': '+ Add device',
 
   // Theme import dialog
   'themeImport.title': 'Import Typora theme',
@@ -516,18 +494,6 @@ export const en = {
   'themeImport.import': 'Import',
 
   // Chat / pairing
-  'chat.connectTitle': 'Connect to your OpenClaw',
-  'chat.enterPairingCode': "Enter the pairing code shown on your host machine's note.md settings.",
-  'chat.pairingCode': 'Pairing code',
-  'chat.deviceNameOptional': 'Device name (optional)',
-  'chat.connecting': 'Connecting…',
-  'chat.pair': 'Pair',
-  'chat.addDevice': 'Add a new device',
-  'chat.retry': 'Retry',
-  'chat.generatingCode': 'Generating pairing code…',
-  'chat.expiresIn': 'Expires in {time}',
-  'chat.typeToOpenClaw': 'Type to OpenClaw…',
-  'chat.send': 'Send',
 
   // Settings dialog — header & tabs
   'settings.title': 'Preferences',
@@ -537,7 +503,6 @@ export const en = {
   'settings.tab.cli': 'CLI',
   'settings.tab.updates': 'Updates',
   'settings.tab.vault': 'Vault',
-  'settings.tab.openclaw': 'OpenClaw',
   'settings.tab.outline': 'Sidecar Notes',
   'settings.tab.insights': 'Insights',
 
@@ -666,22 +631,6 @@ export const en = {
   'ctxmenu.date': 'Current date',
 
   // Roam import window
-  'roamImport.title': 'Import from Roam Research',
-  'roamImport.pickFile': 'Choose Roam export (.zip / .json)…',
-  'roamImport.noVault': 'Configure a Vault first (Settings → Vault) to import.',
-  'roamImport.stage.parse': 'Parsing export…',
-  'roamImport.stage.plan': 'Planning import…',
-  'roamImport.stage.write': 'Writing notes…',
-  'roamImport.progress': '{done} / {total} pages — {current}',
-  'roamImport.errors': 'Errors & warnings',
-  'roamImport.copyLog': 'Copy log',
-  'roamImport.done': 'Import finished: {wiki} wiki pages, {daily} daily notes, {skipped} skipped.',
-  'roamImport.doneErrors': 'Finished with {errors} problem(s) — see log below.',
-  'roamImport.conflicts': '{count} page(s) modified locally were skipped.',
-  'roamImport.overwriteSelected': 'Overwrite selected',
-  'roamImport.errParse': 'Export not readable: {error}',
-  'roamImport.errWrite': 'Write failed for {page}: {error}',
-  'roamImport.warnRenamed': 'Renamed "{from}" → "{to}" (filename constraint)',
 
   'base.loading': 'Scanning folder…',
   'base.empty': 'No matching files',

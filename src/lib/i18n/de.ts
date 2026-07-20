@@ -474,28 +474,6 @@ export const de: Record<keyof Messages, string> = {
   'folderView.tabTitle': 'Dateien',
 
   // OpenClaw settings + devices
-  'openclaw.heading': 'OpenClaw',
-  'openclaw.connectMode': 'Verbindungsmodus',
-  'openclaw.autoDetect': 'Automatisch erkennen',
-  'openclaw.modeHost': 'Host (lokales UDS)',
-  'openclaw.modeRemote': 'Remote (über mdrelay)',
-  'openclaw.socketPath': 'Socket-Pfad',
-  'openclaw.accessToken': 'Zugriffstoken',
-  'openclaw.runToGenerate': "Führen Sie 'notemd openclaw install' aus, um zu generieren",
-  'openclaw.hide': 'Ausblenden',
-  'openclaw.show': 'Anzeigen',
-  'openclaw.copy': 'Kopieren',
-  'openclaw.copied': '✓ Kopiert',
-  'openclaw.copyFailed': 'Kopieren fehlgeschlagen',
-  'openclaw.relayUrl': 'Relay-URL',
-  'openclaw.autoSync': 'Vor dem Auflösen von Chat-Links automatisch synchronisieren',
-  'openclaw.devices': 'Geräte',
-  'openclaw.hostname': 'Hostname',
-  'openclaw.lastSeen': 'Zuletzt gesehen',
-  'openclaw.revoke': 'Widerrufen',
-  'openclaw.forget': 'Vergessen',
-  'openclaw.noPairedDevices': 'Noch keine gekoppelten Geräte.',
-  'openclaw.addDevice': '+ Gerät hinzufügen',
 
   // Theme import dialog
   'themeImport.title': 'Typora-Thema importieren',
@@ -509,18 +487,6 @@ export const de: Record<keyof Messages, string> = {
   'themeImport.import': 'Importieren',
 
   // Chat / pairing
-  'chat.connectTitle': 'Mit Ihrem OpenClaw verbinden',
-  'chat.enterPairingCode': 'Geben Sie den Kopplungscode ein, der in den note.md-Einstellungen Ihres Host-Computers angezeigt wird.',
-  'chat.pairingCode': 'Kopplungscode',
-  'chat.deviceNameOptional': 'Gerätename (optional)',
-  'chat.connecting': 'Verbindet…',
-  'chat.pair': 'Koppeln',
-  'chat.addDevice': 'Neues Gerät hinzufügen',
-  'chat.retry': 'Erneut versuchen',
-  'chat.generatingCode': 'Kopplungscode wird generiert…',
-  'chat.expiresIn': 'Läuft ab in {time}',
-  'chat.typeToOpenClaw': 'An OpenClaw schreiben…',
-  'chat.send': 'Senden',
 
   // Settings dialog — header & tabs
   'settings.title': 'Einstellungen',
@@ -530,7 +496,6 @@ export const de: Record<keyof Messages, string> = {
   'settings.tab.cli': 'CLI',
   'settings.tab.updates': 'Updates',
   'settings.tab.vault': 'Tresor',
-  'settings.tab.openclaw': 'OpenClaw',
   'settings.tab.outline': 'Begleitnotizen',
   'settings.tab.insights': 'Einblicke',
 
@@ -659,22 +624,6 @@ export const de: Record<keyof Messages, string> = {
   'ctxmenu.date': 'Aktuelles Datum',
 
   // Roam import window
-  'roamImport.title': 'Aus Roam Research importieren',
-  'roamImport.pickFile': 'Roam-Export auswählen (.zip / .json)…',
-  'roamImport.noVault': 'Konfigurieren Sie zuerst einen Tresor (Einstellungen → Tresor), um zu importieren.',
-  'roamImport.stage.parse': 'Export wird analysiert…',
-  'roamImport.stage.plan': 'Import wird geplant…',
-  'roamImport.stage.write': 'Notizen werden geschrieben…',
-  'roamImport.progress': '{done} / {total} Seiten — {current}',
-  'roamImport.errors': 'Fehler & Warnungen',
-  'roamImport.copyLog': 'Protokoll kopieren',
-  'roamImport.done': 'Import abgeschlossen: {wiki} Wiki-Seiten, {daily} Tagesnotizen, {skipped} übersprungen.',
-  'roamImport.doneErrors': 'Mit {errors} Problem(en) abgeschlossen — siehe Protokoll unten.',
-  'roamImport.conflicts': '{count} lokal geänderte Seite(n) wurden übersprungen.',
-  'roamImport.overwriteSelected': 'Ausgewählte überschreiben',
-  'roamImport.errParse': 'Export nicht lesbar: {error}',
-  'roamImport.errWrite': 'Schreiben fehlgeschlagen für {page}: {error}',
-  'roamImport.warnRenamed': '„{from}" umbenannt in „{to}" (Dateinamen-Einschränkung)',
 
   'base.loading': 'Ordner wird gescannt…',
   'base.empty': 'Keine passenden Dateien',

@@ -15,7 +15,6 @@ use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent}
 use tauri::{Emitter, Manager, RunEvent, WindowEvent};
 
 pub mod app_dirs;
-pub mod openclaw;
 pub mod shared_config;
 
 #[cfg(not(target_os = "ios"))]
@@ -366,29 +365,6 @@ fn set_default_app_for_extensions(app: tauri::AppHandle, exts: Vec<String>) -> V
     }
 }
 
-#[cfg(not(target_os = "ios"))]
-fn show_chat_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
-    use tauri::WebviewUrl;
-    if !plugin_host::is_plugin_enabled("openclaw-chat") { return; }
-    let win = app.get_webview_window("chat").or_else(|| {
-        tauri::WebviewWindowBuilder::new(app, "chat", WebviewUrl::App("chat.html".into()))
-            .title("OpenClaw")
-            .inner_size(480.0, 720.0)
-            .min_inner_size(360.0, 480.0)
-            .resizable(true)
-            .decorations(true)
-            .visible(false)
-            .build()
-            .map_err(|e| eprintln!("[chat] window build failed: {e}"))
-            .ok()
-    });
-    if let Some(w) = win {
-        let _ = w.show();
-        let _ = w.unminimize();
-        let _ = w.set_focus();
-    }
-}
-
 fn show_insights_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
     use tauri::WebviewUrl;
     let win = app.get_webview_window("insights").or_else(|| {
@@ -445,32 +421,6 @@ fn show_plugin_market_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
 #[tauri::command]
 fn open_plugin_market_window(app: tauri::AppHandle) {
     show_plugin_market_window(&app);
-}
-
-/// File ▸ Import from Roam Research… (roam-import builtin plugin). Frontend
-/// dispatches the plugin menu command here; gated on the plugin being enabled.
-#[cfg(not(target_os = "ios"))]
-#[tauri::command]
-fn show_roam_import_window(app: tauri::AppHandle) {
-    use tauri::WebviewUrl;
-    if !plugin_host::is_plugin_enabled("roam-import") { return; }
-    let win = app.get_webview_window("roam-import").or_else(|| {
-        tauri::WebviewWindowBuilder::new(&app, "roam-import", WebviewUrl::App("roam-import.html".into()))
-            .title("Import from Roam Research")
-            .inner_size(680.0, 620.0)
-            .min_inner_size(520.0, 420.0)
-            .resizable(true)
-            .decorations(true)
-            .visible(false)
-            .build()
-            .map_err(|e| eprintln!("[roam-import] window build failed: {e}"))
-            .ok()
-    });
-    if let Some(w) = win {
-        let _ = w.show();
-        let _ = w.unminimize();
-        let _ = w.set_focus();
-    }
 }
 
 #[tauri::command]
@@ -1011,18 +961,6 @@ pub fn run() {
                 preview_window::drain_preview_tabs,
                 write_file_binary,
                 rename_file,
-                crate::openclaw::commands::openclaw_connect,
-                crate::openclaw::commands::openclaw_send,
-                crate::openclaw::commands::openclaw_disconnect,
-                crate::openclaw::commands::openclaw_pair_create,
-                crate::openclaw::commands::openclaw_pair_claim,
-                crate::openclaw::commands::openclaw_revoke_device,
-                crate::openclaw::commands::openclaw_forget_device,
-                crate::openclaw::commands::openclaw_list_devices,
-                crate::openclaw::commands::openclaw_approve_pending,
-                crate::openclaw::commands::openclaw_reject_pending,
-                crate::openclaw::commands::openclaw_upload_attachment,
-                show_roam_import_window,
                 open_plugin_market_window,
                 editor_show_and_open_path,
                 editor_open_remote_buffer,
@@ -1047,17 +985,6 @@ pub fn run() {
                 vault_ios::vault_disconnect,
                 write_file_binary,
                 rename_file,
-                crate::openclaw::commands::openclaw_connect,
-                crate::openclaw::commands::openclaw_send,
-                crate::openclaw::commands::openclaw_disconnect,
-                crate::openclaw::commands::openclaw_pair_create,
-                crate::openclaw::commands::openclaw_pair_claim,
-                crate::openclaw::commands::openclaw_revoke_device,
-                crate::openclaw::commands::openclaw_forget_device,
-                crate::openclaw::commands::openclaw_list_devices,
-                crate::openclaw::commands::openclaw_approve_pending,
-                crate::openclaw::commands::openclaw_reject_pending,
-                crate::openclaw::commands::openclaw_upload_attachment,
                 editor_show_and_open_path,
                 editor_open_remote_buffer,
                 file_exists,
@@ -1104,12 +1031,6 @@ pub fn run() {
             #[cfg(not(target_os = "ios"))]
             plugin_runtime::init(&app.handle());
 
-            let openclaw_state = if plugin_host::is_plugin_enabled("openclaw-chat") {
-                crate::openclaw::init_state(&app.handle())
-            } else {
-                crate::openclaw::OpenClawState::new_disabled()
-            };
-            app.manage(openclaw_state);
 
             #[cfg(target_os = "ios")]
             vault_ios::init(&app.handle());
@@ -1172,7 +1093,6 @@ pub fn run() {
                                 show_main_window(app);
                                 let _ = app.emit("tray-today-note", ());
                             }
-                            "tray-openclaw" => show_chat_window(app),
                             "tray-sync-repo" => { pick_sync_folder(app); }
                             "tray-sync-now" => { let _ = vault_sync::vault_sync_now(app.clone()); }
                             "tray-sync-log" => { open_sync_log_window(app); }
@@ -1495,11 +1415,6 @@ fn build_tray_menu<R: tauri::Runtime>(
 ) -> tauri::Result<(Menu<R>, MenuItem<R>, IconMenuItem<R>, MenuItem<R>)> {
     let show_item = MenuItem::with_id(app, "tray-show", menu_label(locale, "tray.show"), true, None::<&str>)?;
     let today_note_item = MenuItem::with_id(app, "tray-today-note", menu_label(locale, "tray.todayNote"), true, None::<&str>)?;
-    let openclaw_item = if plugin_host::is_plugin_enabled("openclaw-chat") {
-        Some(MenuItem::with_id(app, "tray-openclaw", "OpenClaw", true, None::<&str>)?)
-    } else {
-        None
-    };
     let sync_repo_label = {
         let mgr = app.state::<std::sync::Arc<vault_sync::VaultSyncManager>>();
         let guard = mgr.repo_path.lock().unwrap();
@@ -1566,10 +1481,7 @@ fn build_tray_menu<R: tauri::Runtime>(
     let open_books_item = MenuItem::with_id(app, "tray-open-books", menu_label(locale, "tray.openBooks"), true, None::<&str>)?;
     let open_raw_sync_item = MenuItem::with_id(app, "tray-open-raw-sync", menu_label(locale, "tray.openRawSync"), /*enabled=*/ false, None::<&str>)?;
     let quit_item = MenuItem::with_id(app, "tray-quit", menu_label(locale, "sys.quit"), true, None::<&str>)?;
-    let mut b = MenuBuilder::new(app).item(&show_item).item(&today_note_item).separator();
-    if let Some(ref oc) = openclaw_item {
-        b = b.item(oc).separator();
-    }
+    let b = MenuBuilder::new(app).item(&show_item).item(&today_note_item).separator();
     let mut b2 = b
         .item(&sync_repo_item)
         .item(&status_item);
