@@ -1045,7 +1045,7 @@ async function handleAudienceHit(req: Request, env: Env): Promise<Response> {
 // Authorization header (API key), not cookies/credentials.
 const CORS_HEADERS: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'authorization, content-type',
   'Access-Control-Max-Age': '86400',
 }
@@ -1072,9 +1072,18 @@ export default {
     const path = url.pathname.slice(1)
     const baseUrl = `${url.protocol}//${url.host}`
     if (path === 'mcp') return handleMcp(req, env, baseUrl)
+    // CORS preflight for every cross-origin (WKWebView) call — publish / upload
+    // / delete and the audience API all send one because they carry an
+    // Authorization header. `*` is safe: access is gated by the API key, not
+    // cookies. The Allow header keeps link-checker/unfurler probes happy too.
+    if (req.method === 'OPTIONS') {
+      return new Response(null, {
+        status: 204,
+        headers: { ...CORS_HEADERS, Allow: 'GET, HEAD, POST, DELETE, OPTIONS' },
+      })
+    }
     // Audience analytics: CORS-enabled (cross-origin from the app webview).
     if (path.startsWith('a/')) {
-      if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS_HEADERS })
       let res: Response
       if (req.method === 'POST' && path === 'a/hit') res = await handleAudienceHit(req, env)
       else if (req.method === 'POST' && path === 'a/stats-batch') res = await handleAudienceStatsBatch(req, env)
@@ -1084,21 +1093,19 @@ export default {
       else res = new Response('Not Found', { status: 404 })
       return withCors(res)
     }
-    if (req.method === 'POST' && path === 'publish') return handlePublish(req, env, baseUrl)
-    if (req.method === 'POST' && path === 'upload') return handleUpload(req, env, baseUrl)
+    // The app API is called cross-origin from the desktop WKWebView, so its
+    // responses must carry CORS headers too (same as the audience API above) —
+    // otherwise the webview blocks the response with "Load failed".
+    if (req.method === 'POST' && path === 'publish') return withCors(await handlePublish(req, env, baseUrl))
+    if (req.method === 'POST' && path === 'upload') return withCors(await handleUpload(req, env, baseUrl))
     // HEAD is served as GET with the body stripped, so public link checkers and
     // chat/social unfurlers that probe with HEAD see the real 200/410 instead of
     // a misleading 404.
     const getLike = req.method === 'GET' || req.method === 'HEAD'
     if (getLike && path.startsWith('f/')) return stripBodyForHead(req, await handleMediaGet(path, req, env))
-    if (req.method === 'DELETE' && path.startsWith('f/')) return handleMediaDelete(path, req, env)
+    if (req.method === 'DELETE' && path.startsWith('f/')) return withCors(await handleMediaDelete(path, req, env))
     if (getLike && path) return stripBodyForHead(req, await handleGet(path, env))
-    if (req.method === 'DELETE' && path) return handleDelete(path, req, env)
-    // A CORS/link-checker preflight (OPTIONS) on a share path must not look like
-    // a missing page — answer it with the allowed methods instead of a 404.
-    if (req.method === 'OPTIONS' && path) {
-      return new Response(null, { status: 204, headers: { Allow: 'GET, HEAD, OPTIONS' } })
-    }
+    if (req.method === 'DELETE' && path) return withCors(await handleDelete(path, req, env))
     return new Response('Not Found', { status: 404 })
   }
 }
