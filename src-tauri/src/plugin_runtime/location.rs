@@ -27,6 +27,18 @@ pub fn fetch_once<R: tauri::Runtime>(_app: &tauri::AppHandle<R>) -> Result<Value
     Err("location is only supported on macOS".into())
 }
 
+/// Request location authorization at app launch (product model: grant at
+/// startup, then the Position Log plugin is usable). The main run loop is
+/// running and the app is frontmost, so the TCC prompt reliably appears — far
+/// more reliable than requesting lazily from a background plugin call.
+#[cfg(target_os = "macos")]
+pub fn init_at_startup<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
+    let _ = app.run_on_main_thread(|| mac::ensure_manager());
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn init_at_startup<R: tauri::Runtime>(_app: &tauri::AppHandle<R>) {}
+
 #[cfg(target_os = "macos")]
 #[allow(unused_unsafe)]
 mod mac {
@@ -41,24 +53,58 @@ mod mac {
     use objc2_foundation::{NSArray, NSError};
     use serde_json::{json, Value};
     use std::cell::RefCell;
-    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
     use std::sync::{Arc, Condvar, LazyLock, Mutex};
     use std::time::{Duration, Instant};
 
     const WAIT_SECS: u64 = 90; // authorization prompt + first fix + geocode
 
+    fn status_code(s: CLAuthorizationStatus) -> i32 {
+        match s {
+            CLAuthorizationStatus::NotDetermined => 0,
+            CLAuthorizationStatus::Restricted => 1,
+            CLAuthorizationStatus::Denied => 2,
+            CLAuthorizationStatus::AuthorizedAlways => 3,
+            CLAuthorizationStatus::AuthorizedWhenInUse => 4,
+            _ => -1,
+        }
+    }
+    fn status_name(code: i32) -> &'static str {
+        match code {
+            0 => "NotDetermined",
+            1 => "Restricted",
+            2 => "Denied",
+            3 => "AuthorizedAlways",
+            4 => "AuthorizedWhenInUse",
+            -9 => "unset",
+            _ => "unknown",
+        }
+    }
+
     /// Cross-thread rendezvous: the delegate/geocode (main thread) stores a
-    /// plain-Send result and wakes the waiting request thread.
+    /// plain-Send result and wakes the waiting request thread. The atomics are
+    /// diagnostics folded into the timeout error so a failing user can report
+    /// exactly which step stalled.
     struct Shared {
         result: Mutex<Option<Result<Value, String>>>,
         cv: Condvar,
-        busy: AtomicBool, // a fix is being reverse-geocoded / already handled
+        busy: AtomicBool,      // a fix is being reverse-geocoded / already handled
+        kicked: AtomicBool,    // the main-thread kickoff closure ran
+        requested: AtomicBool, // requestWhenInUseAuthorization was called
+        auth_cbs: AtomicI32,   // # of didChangeAuthorization callbacks
+        loc_cbs: AtomicI32,    // # of didUpdateLocations callbacks
+        last_status: AtomicI32, // latest auth status code (-9 = unset)
     }
     static SHARED: LazyLock<Arc<Shared>> = LazyLock::new(|| {
         Arc::new(Shared {
             result: Mutex::new(None),
             cv: Condvar::new(),
             busy: AtomicBool::new(false),
+            kicked: AtomicBool::new(false),
+            requested: AtomicBool::new(false),
+            auth_cbs: AtomicI32::new(0),
+            loc_cbs: AtomicI32::new(0),
+            last_status: AtomicI32::new(-9),
         })
     });
 
@@ -83,6 +129,7 @@ mod mac {
             #[unsafe(method(locationManager:didUpdateLocations:))]
             unsafe fn did_update(&self, manager: &CLLocationManager, locations: &NSArray<CLLocation>) {
                 let shared = self.ivars().clone();
+                shared.loc_cbs.fetch_add(1, Ordering::SeqCst);
                 if shared.busy.swap(true, Ordering::SeqCst) {
                     return; // only handle the first fix
                 }
@@ -112,6 +159,8 @@ mod mac {
             #[unsafe(method(locationManagerDidChangeAuthorization:))]
             unsafe fn did_change_auth(&self, manager: &CLLocationManager) {
                 let status = unsafe { manager.authorizationStatus() };
+                self.ivars().auth_cbs.fetch_add(1, Ordering::SeqCst);
+                self.ivars().last_status.store(status_code(status), Ordering::SeqCst);
                 if matches!(
                     status,
                     CLAuthorizationStatus::Denied | CLAuthorizationStatus::Restricted
@@ -149,38 +198,60 @@ mod mac {
         static LOC: RefCell<Option<LocObjs>> = const { RefCell::new(None) };
     }
 
+    /// Create the persistent manager + delegate (once) and request authorization
+    /// if still undetermined. Idempotent; MUST run on the main thread. Called at
+    /// startup (so the prompt appears at launch) and defensively before a fetch.
+    pub(super) fn ensure_manager() {
+        LOC.with(|cell| {
+            let mut slot = cell.borrow_mut();
+            if slot.is_none() {
+                let manager = unsafe { CLLocationManager::new() };
+                let delegate = Delegate::new(SHARED.clone());
+                unsafe { manager.setDelegate(Some(ProtocolObject::from_ref(&*delegate))) };
+                let geocoder = unsafe { CLGeocoder::new() };
+                *slot = Some(LocObjs { manager, _delegate: delegate, geocoder });
+            }
+            let objs = slot.as_ref().unwrap();
+            if unsafe { objs.manager.authorizationStatus() } == CLAuthorizationStatus::NotDetermined {
+                SHARED.requested.store(true, Ordering::SeqCst);
+                unsafe { objs.manager.requestWhenInUseAuthorization() };
+            }
+        });
+    }
+
     pub fn fetch_once<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<Value, String> {
-        // Arm a fresh request.
+        // Arm a fresh request (+ reset diagnostics).
         {
             *SHARED.result.lock().unwrap() = None;
             SHARED.busy.store(false, Ordering::SeqCst);
+            SHARED.kicked.store(false, Ordering::SeqCst);
+            SHARED.requested.store(false, Ordering::SeqCst);
+            SHARED.auth_cbs.store(0, Ordering::SeqCst);
+            SHARED.loc_cbs.store(0, Ordering::SeqCst);
+            SHARED.last_status.store(-9, Ordering::SeqCst);
         }
         // Kick off on the main thread; the NORMAL run loop drives the callbacks.
         app.run_on_main_thread(|| {
+            ensure_manager(); // idempotent — normally already done at startup
             LOC.with(|cell| {
-                let mut slot = cell.borrow_mut();
-                if slot.is_none() {
-                    let manager = unsafe { CLLocationManager::new() };
-                    let delegate = Delegate::new(SHARED.clone());
-                    unsafe { manager.setDelegate(Some(ProtocolObject::from_ref(&*delegate))) };
-                    let geocoder = unsafe { CLGeocoder::new() };
-                    *slot = Some(LocObjs { manager, _delegate: delegate, geocoder });
-                }
-                let objs = slot.as_ref().unwrap();
+                let slot = cell.borrow();
+                let Some(objs) = slot.as_ref() else { return };
                 let status = unsafe { objs.manager.authorizationStatus() };
+                SHARED.kicked.store(true, Ordering::SeqCst);
+                SHARED.last_status.store(status_code(status), Ordering::SeqCst);
                 if matches!(
                     status,
                     CLAuthorizationStatus::Denied | CLAuthorizationStatus::Restricted
                 ) {
                     finish(
                         &SHARED,
-                        Err("location access denied — enable note.md in System Settings ▸ Privacy & Security ▸ Location Services".into()),
+                        Err("Position Log needs location permission — enable note.md in System Settings ▸ Privacy & Security ▸ Location Services".into()),
                     );
                     return;
                 }
-                if status == CLAuthorizationStatus::NotDetermined {
-                    unsafe { objs.manager.requestWhenInUseAuthorization() };
-                }
+                // Authorized → get a fix. NotDetermined → the startup prompt is
+                // still pending; startUpdating anyway so a grant-during-fetch is
+                // picked up (else it falls through to the timeout with diagnostics).
                 unsafe { objs.manager.startUpdatingLocation() };
             });
         })
@@ -195,7 +266,17 @@ mod mac {
             }
             let now = Instant::now();
             if now >= deadline {
-                return Err("timed out waiting for a location fix — if no permission prompt appeared, check System Settings ▸ Privacy & Security ▸ Location Services (note.md)".into());
+                let diag = format!(
+                    "[kicked={} requested={} authCbs={} locCbs={} status={}]",
+                    SHARED.kicked.load(Ordering::SeqCst),
+                    SHARED.requested.load(Ordering::SeqCst),
+                    SHARED.auth_cbs.load(Ordering::SeqCst),
+                    SHARED.loc_cbs.load(Ordering::SeqCst),
+                    status_name(SHARED.last_status.load(Ordering::SeqCst)),
+                );
+                return Err(format!(
+                    "timed out waiting for a location fix — if no prompt appeared, check System Settings ▸ Privacy & Security ▸ Location Services (note.md) {diag}"
+                ));
             }
             let (ng, _timeout) = SHARED.cv.wait_timeout(g, deadline - now).unwrap();
             g = ng;
