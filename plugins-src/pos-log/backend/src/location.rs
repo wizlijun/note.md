@@ -78,7 +78,15 @@ mod mac {
             let t0 = Instant::now();
             loop {
                 let s = self.status();
-                if s == CLAuthorizationStatus::AuthorizedAlways {
+                // `requestWhenInUseAuthorization` grants `AuthorizedWhenInUse`, not
+                // `AuthorizedAlways`; both are valid for foreground location reads.
+                // Accepting only `Always` here rejected every granted user as
+                // "denied", which surfaced as the "无法获取位置" warning.
+                if matches!(
+                    s,
+                    CLAuthorizationStatus::AuthorizedAlways
+                        | CLAuthorizationStatus::AuthorizedWhenInUse
+                ) {
                     return Ok(());
                 }
                 if s == CLAuthorizationStatus::NotDetermined {

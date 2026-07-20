@@ -2,7 +2,7 @@
   "manifest_version": 2,
   "id": "notemd.roam-import",
   "name": "Roam Research Import",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "kind": "native",
   "engines": { "notemd": ">=6.716.7" },
   "description": "Import a Roam Research JSON export into the vault as .note.md outline pages and daily notes",
@@ -10,7 +10,7 @@
   "activation": { "events": ["onCommand:open"] },
   "contributes": {
     "menus": [
-      { "location": "file", "submenu": "import", "label": "Roam Research (v2)", "command": "open" }
+      { "location": "file", "label": "Import from Roam Research…", "command": "open" }
     ],
     "windows": [
       {

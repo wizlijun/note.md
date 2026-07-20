@@ -30,7 +30,7 @@ impl sdk::NotemdPlugin for PosLogPlugin {
         tokio::spawn(async move {
             let mut warned_once = false;
             loop {
-                run_round(&host, &fetch_tx, &mut warned_once).await;
+                run_round(&host, &fetch_tx, &mut warned_once, false).await;
                 tokio::select! {
                     _ = tokio::time::sleep(std::time::Duration::from_secs(ROUND_SECS)) => {}
                     _ = stop_rx.changed() => break,
@@ -48,28 +48,48 @@ impl sdk::NotemdPlugin for PosLogPlugin {
 
     fn execute_command(
         &mut self,
-        _host: &sdk::Host,
+        host: &sdk::Host,
         params: &proto::ExecuteCommandParams,
     ) -> Result<Value, String> {
-        Err(format!("pos-log has no commands (got {})", params.command))
+        match params.command.as_str() {
+            // Plugins ▸ "Save Location Now" — fire a single fetch+write cycle
+            // off the tokio runtime and return immediately (the toast reports
+            // the outcome). Reuses the same round the 30-min loop runs.
+            "save-now" => {
+                let host = host.clone();
+                let fetch_tx = self.fetch_tx.clone();
+                tokio::spawn(async move {
+                    let mut warned = false;
+                    run_round(&host, &fetch_tx, &mut warned, /*announce=*/ true).await;
+                });
+                Ok(json!({ "ok": true }))
+            }
+            other => Err(format!("pos-log: unknown command '{other}'")),
+        }
     }
 }
 
 /// 一轮：取位 → 组行 → 决策 → 写盘。所有失败仅告警跳过（spec §8 错误表）。
+/// `announce`=true（手动「Save Location Now」）总是弹 toast 反馈结果；
+/// =false（30 分钟循环）沿用 `warned_once` 抑制重复告警。
 async fn run_round(
     host: &sdk::Host,
     fetch_tx: &std::sync::mpsc::Sender<FetchJob>,
     warned_once: &mut bool,
+    announce: bool,
 ) {
     let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
     if fetch_tx.send(FetchJob { reply: reply_tx }).is_err() {
         host.log_warn("pos-log: location service gone");
+        if announce {
+            host.toast("warning", "Position Log", Some("location service unavailable"));
+        }
         return;
     }
     let place = match reply_rx.await {
         Ok(Ok(p)) => p,
         Ok(Err(e)) => {
-            if !*warned_once {
+            if announce || !*warned_once {
                 host.toast("warning", "Position Log 无法获取位置", Some(&e));
                 *warned_once = true;
             }
@@ -78,12 +98,18 @@ async fn run_round(
         }
         Err(_) => {
             host.log_warn("pos-log: location service dropped reply");
+            if announce {
+                host.toast("warning", "Position Log", Some("location service dropped reply"));
+            }
             return;
         }
     };
     let addr = logbook::format_address(&place);
     if addr.is_empty() {
         host.log_warn("pos-log: empty geocode result, skipping round");
+        if announce {
+            host.toast("warning", "Position Log", Some("empty geocode result"));
+        }
         return;
     }
     let now = chrono::Local::now();
@@ -99,14 +125,17 @@ async fn run_round(
                 Ok(v) => v["content"].as_str().map(str::to_string),
                 Err(e) => {
                     host.log_warn(&format!("pos-log: vault.read failed: {e}"));
+                    if announce {
+                        host.toast("warning", "Position Log", Some(&e));
+                    }
                     return;
                 }
             }
         }
         Ok(_) => None,
         Err(e) => {
-            // vault 未配置等；首次 toast，之后仅日志
-            if !*warned_once {
+            // vault 未配置等；循环侧首次 toast，手动侧总是 toast
+            if announce || !*warned_once {
                 host.toast("warning", "Position Log 需要已配置的 vault", Some(&e));
                 *warned_once = true;
             }
@@ -114,14 +143,28 @@ async fn run_round(
             return;
         }
     };
-    let Some(new_content) = logbook::decide(existing.as_deref(), &line, &addr) else {
-        return; // 地址未变化
-    };
-    if let Err(e) = host
-        .request("host.vault.write", json!({"path": path, "content": new_content}))
-        .await
-    {
-        host.log_error(&format!("pos-log: vault.write failed: {e}"));
+    match logbook::decide(existing.as_deref(), &line, &addr) {
+        Some(new_content) => {
+            if let Err(e) = host
+                .request("host.vault.write", json!({"path": path, "content": new_content}))
+                .await
+            {
+                host.log_error(&format!("pos-log: vault.write failed: {e}"));
+                if announce {
+                    host.toast("warning", "Position Log", Some(&e));
+                }
+                return;
+            }
+            if announce {
+                host.toast("info", "Position Log", Some(&format!("已记录 {addr}")));
+            }
+        }
+        None => {
+            // 地址未变化：循环侧静默，手动侧仍反馈当前位置
+            if announce {
+                host.toast("info", "Position Log", Some(&format!("位置未变化 {addr}")));
+            }
+        }
     }
 }
 
