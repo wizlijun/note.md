@@ -1,6 +1,6 @@
 import { exists, mkdir, readDir, readTextFile, writeTextFile } from '@tauri-apps/plugin-fs'
 import { createAnalyticsStore, type Fs } from './store.svelte'
-import { assembleRows, type AssembleDeps } from './dashboard.svelte'
+import { assembleRows, type AssembleDeps, type InsightRow } from './dashboard.svelte'
 import { DEFAULT_WEIGHTS } from './value'
 import { fetchAudienceStatsAll, fetchAudienceSessions, type AudienceSession } from './audience'
 import { localTzOffsetMinutes } from './model'
@@ -86,12 +86,31 @@ export async function fetchRowAudienceSessions(
   return lists.flat().sort((a, b) => a.start - b.start)
 }
 
-/** Assemble rows + render the daily report markdown (owner + audience + value). */
+/**
+ * Fetch every shared row's audience reading intervals for the report, keyed by
+ * docKey (a row may map several slugs → merged). Fail-soft per row. Rows with no
+ * slugs are skipped. Used by both the in-app and CLI report generators.
+ */
+export async function buildReportAudienceSessions(
+  rows: InsightRow[],
+  fromDay: string,
+  toDay: string,
+): Promise<Record<string, AudienceSession[]>> {
+  const shared = rows.filter((r) => r.slugs.length > 0)
+  const entries = await Promise.all(
+    shared.map(async (r) => [r.docKey, await fetchRowAudienceSessions(r.slugs, fromDay, toDay)] as const),
+  )
+  return Object.fromEntries(entries.filter(([, s]) => s.length > 0))
+}
+
+/** Assemble rows + render the daily report markdown (owner + audience + value +
+ *  read/edit & audience time intervals). */
 export async function generateInsightsReport(
   fromDay: string,
   toDay: string,
   vaultOverride?: string | null,
 ): Promise<{ filename: string; markdown: string }> {
   const rows = await assembleRows(buildDashboardDeps(vaultOverride), fromDay, toDay)
-  return renderDailyReport(rows, fromDay, toDay)
+  const audSessions = await buildReportAudienceSessions(rows, fromDay, toDay)
+  return renderDailyReport(rows, fromDay, toDay, audSessions)
 }

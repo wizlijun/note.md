@@ -1,4 +1,8 @@
 import type { InsightRow } from './dashboard.svelte'
+import { sessionMode } from './model'
+import type { AudienceSession } from './audience'
+
+const MODE_CN: Record<'read' | 'edit' | 'mixed', string> = { read: '读', edit: '编', mixed: '读+编' }
 
 export function fmtDuration(ms: number): string {
   const s = Math.round(ms / 1000)
@@ -32,8 +36,38 @@ export function reportFilename(fromDay: string, toDay: string): string {
     : `stat/${fromDay}_${toDay}-stat.md`
 }
 
-/** Render a deterministic Chinese reading digest for the range. */
-export function renderDailyReport(rows: InsightRow[], fromDay: string, toDay: string): { filename: string; markdown: string } {
+/**
+ * Build the "## 时间段" section: per doc, your read/edit intervals plus any
+ * audience reading intervals (passed in — fetched by the report generator).
+ * Docs with no intervals are omitted; returns [] when nothing to show.
+ */
+function intervalsSection(
+  rows: InsightRow[],
+  audByDoc: Record<string, AudienceSession[]>,
+): string[] {
+  const blocks = rows.flatMap((r) => {
+    const aud = audByDoc[r.docKey] ?? []
+    if (r.owner_sessions.length === 0 && aud.length === 0) return []
+    const lines = [`- 《${r.label}》`]
+    for (const s of r.owner_sessions) {
+      lines.push(`  - ${fmtInterval(s.start, s.end)} · ${MODE_CN[sessionMode(s)]} · ${fmtDuration(s.read_ms + s.edit_ms)}`)
+    }
+    for (const s of aud) {
+      lines.push(`  - 受众 ${fmtInterval(s.start, s.end)} · ${fmtDuration(s.ms)}`)
+    }
+    return lines
+  })
+  return blocks.length === 0 ? [] : ['## 时间段', '', ...blocks, '']
+}
+
+/** Render a deterministic Chinese reading digest for the range. `audSessionsByDoc`
+ *  maps a row's docKey to its audience reading intervals (empty when unfetched). */
+export function renderDailyReport(
+  rows: InsightRow[],
+  fromDay: string,
+  toDay: string,
+  audSessionsByDoc: Record<string, AudienceSession[]> = {},
+): { filename: string; markdown: string } {
   const filename = reportFilename(fromDay, toDay)
   const rangeLabel = fromDay === toDay ? fromDay : `${fromDay} → ${toDay}`
 
@@ -71,6 +105,7 @@ export function renderDailyReport(rows: InsightRow[], fromDay: string, toDay: st
   const markdown = [
     `# 阅读数据 · ${rangeLabel}`, '', summary, '',
     header, divider, ...body, totals, '',
+    ...intervalsSection(rows, audSessionsByDoc),
     ...links,
     '<sub>由 note.md Reading Insights 生成</sub>', '',
   ].join('\n')

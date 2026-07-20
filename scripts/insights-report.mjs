@@ -2,7 +2,7 @@
 import { readdir, readFile, mkdir, writeFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
-import { mergeFiles, aggregate, renderOwnerDigest, resolvePreset } from './insights-report-core.mjs'
+import { mergeFiles, aggregate, renderOwnerDigest, resolvePreset, collectSessions } from './insights-report-core.mjs'
 
 function arg(name, def) {
   const i = process.argv.indexOf(name)
@@ -25,7 +25,7 @@ if (existsSync(dir)) {
     try { files.push({ name, json: JSON.parse(await readFile(join(dir, name), 'utf8')) }) } catch {}
   }
 }
-const md = renderOwnerDigest(aggregate(mergeFiles(files), from, to), from, to)
+const md = renderOwnerDigest(aggregate(mergeFiles(files), from, to), from, to, collectSessions(files, from, to))
 
 if (has('--stdout')) { process.stdout.write(md) }
 else {

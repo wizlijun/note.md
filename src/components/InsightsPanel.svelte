@@ -5,7 +5,7 @@
   import { presetRange, type Preset } from '../lib/insights/value'
   import { localTzOffsetMinutes, sessionMode } from '../lib/insights/model'
   import { flushNow } from '../lib/insights/tracker.svelte'
-  import { buildDashboardDeps, fetchRowAudienceSessions } from '../lib/insights/run'
+  import { buildDashboardDeps, fetchRowAudienceSessions, buildReportAudienceSessions } from '../lib/insights/run'
   import { fmtInterval } from '../lib/insights/report'
   import type { AudienceSession } from '../lib/insights/audience'
   import { sotvaultStore } from '../lib/sotvault.svelte'
@@ -128,7 +128,8 @@
     const root = sotvaultStore.vaultRoot
     if (!root || rows.length === 0) return
     try {
-      const { filename, markdown } = renderDailyReport(rows, fromDay, toDay)
+      const audSessions = await buildReportAudienceSessions(rows, fromDay, toDay)
+      const { filename, markdown } = renderDailyReport(rows, fromDay, toDay, audSessions)
       const base = root.replace(/\/$/, '')
       await mkdir(`${base}/stat`, { recursive: true }).catch(() => {})
       const abs = `${base}/${filename}`
