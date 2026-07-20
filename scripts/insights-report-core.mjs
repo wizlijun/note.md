@@ -50,9 +50,43 @@ function label(docKey) {
   return i >= 0 ? p.slice(i + 1) : p
 }
 
-export function renderOwnerDigest(agg, fromDay, toDay) {
+const pad2 = (n) => String(n).padStart(2, '0')
+
+/** Format one interval in LOCAL time as `MM-DD HH:mm → HH:mm` (end date added
+ *  when it lands on another day). start/end are epoch ms. */
+export function fmtInterval(start, end) {
+  const a = new Date(start), b = new Date(end)
+  const day = (d) => `${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
+  const clock = (d) => `${pad2(d.getHours())}:${pad2(d.getMinutes())}`
+  const endLabel = day(a) === day(b) ? clock(b) : `${day(b)} ${clock(b)}`
+  return `${day(a)} ${clock(a)} → ${endLabel}`
+}
+
+function modeCn(s) {
+  if (s.read_ms > 0 && s.edit_ms > 0) return '读+编'
+  return s.edit_ms > 0 ? '编' : '读'
+}
+
+/** files → docKey -> in-range attention intervals (merged across devices, sorted). */
+export function collectSessions(files, fromDay, toDay) {
+  const out = {}
+  for (const f of files) {
+    if (!f.json || !f.json.sessions) continue
+    const m = FILE_RE.exec(f.name)
+    if (!m) continue
+    const day = m[1]
+    if (day < fromDay || day > toDay) continue
+    for (const [docKey, list] of Object.entries(f.json.sessions)) {
+      ;(out[docKey] ??= []).push(...list)
+    }
+  }
+  for (const list of Object.values(out)) list.sort((a, b) => a.start - b.start)
+  return out
+}
+
+export function renderOwnerDigest(agg, fromDay, toDay, sessionsByDoc = {}) {
   const rangeLabel = fromDay === toDay ? fromDay : `${fromDay} → ${toDay}`
-  const rows = Object.entries(agg).map(([docKey, c]) => ({ label: label(docKey), ...c }))
+  const rows = Object.entries(agg).map(([docKey, c]) => ({ docKey, label: label(docKey), ...c }))
     .sort((a, b) => (b.read_ms + b.edit_ms) - (a.read_ms + a.edit_ms))
   if (rows.length === 0) return `# 阅读数据 · ${rangeLabel}\n\n此区间没有阅读或编辑记录。\n`
   const totalEngage = rows.reduce((n, r) => n + r.read_ms + r.edit_ms, 0)
@@ -61,7 +95,16 @@ export function renderOwnerDigest(agg, fromDay, toDay) {
   const divider = '|---|---|---|---|---|'
   const body = rows.map((r) => `| ${r.label} | ${fmtDuration(r.read_ms)} | ${fmtDuration(r.edit_ms)} | ${r.edit_sessions} | ${r.mark_ops} |`)
   const totals = `| **合计** | ${fmtDuration(rows.reduce((n, r) => n + r.read_ms, 0))} | ${fmtDuration(rows.reduce((n, r) => n + r.edit_ms, 0))} | ${rows.reduce((n, r) => n + r.edit_sessions, 0)} | ${rows.reduce((n, r) => n + r.mark_ops, 0)} |`
-  return [`# 阅读数据 · ${rangeLabel}`, '', summary, '', header, divider, ...body, totals, '', '<sub>由 note.md Reading Insights CLI 生成</sub>', ''].join('\n')
+
+  // "## 时间段": per doc, your read/edit intervals (owner view — no audience here).
+  const blocks = rows.flatMap((r) => {
+    const list = sessionsByDoc[r.docKey] ?? []
+    if (list.length === 0) return []
+    return [`- 《${r.label}》`, ...list.map((s) => `  - ${fmtInterval(s.start, s.end)} · ${modeCn(s)} · ${fmtDuration(s.read_ms + s.edit_ms)}`)]
+  })
+  const intervals = blocks.length === 0 ? [] : ['## 时间段', '', ...blocks, '']
+
+  return [`# 阅读数据 · ${rangeLabel}`, '', summary, '', header, divider, ...body, totals, '', ...intervals, '<sub>由 note.md Reading Insights CLI 生成</sub>', ''].join('\n')
 }
 
 function dayKey(ms, tz) {

@@ -73,6 +73,26 @@ describe('renderDailyReport', () => {
 
 import { fmtInterval } from './report'
 
+describe('renderDailyReport intervals section', () => {
+  it('lists owner read/edit intervals and passed-in audience intervals per doc', () => {
+    const rows = [row({
+      docKey: 'rel:a.md', label: 'a.md', shared: true, read_ms: 5000,
+      owner_sessions: [{ start: new Date(2026, 6, 21, 9, 0).getTime(), end: new Date(2026, 6, 21, 9, 25).getTime(), read_ms: 1000000, edit_ms: 500000 }],
+    })]
+    const aud = { 'rel:a.md': [{ start: new Date(2026, 6, 21, 20, 0).getTime(), end: new Date(2026, 6, 21, 20, 5).getTime(), ms: 300000 }] }
+    const { markdown } = renderDailyReport(rows, '2026-07-21', '2026-07-21', aud)
+    expect(markdown).toContain('## 时间段')
+    expect(markdown).toContain('《a.md》')
+    expect(markdown).toContain('读+编')
+    expect(markdown).toContain('受众')
+  })
+
+  it('omits the section when no doc has intervals', () => {
+    const { markdown } = renderDailyReport([row({ read_ms: 5000 })], '2026-07-21', '2026-07-21')
+    expect(markdown).not.toContain('## 时间段')
+  })
+})
+
 describe('fmtInterval', () => {
   it('formats a same-day interval as MM-DD HH:mm → HH:mm', () => {
     const start = new Date(2026, 6, 8, 9, 5, 0).getTime()
