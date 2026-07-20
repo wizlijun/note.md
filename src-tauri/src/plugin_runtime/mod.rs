@@ -32,13 +32,19 @@ pub static STATE: LazyLock<RwLock<RuntimeState>> =
 /// then `settings.json` in `config_dir`. The CLI (no AppHandle) calls this
 /// directly with `cli::resolve_config_dir()`; the AppHandle version wraps it.
 pub fn v2_flag_enabled_at(config_dir: &Path) -> bool {
-    if std::env::var("NOTEMD_PLUGINS_V2").map_or(false, |v| v == "1") {
-        return true;
+    // Env override wins (dev/CI): "1" forces on, "0" forces off.
+    match std::env::var("NOTEMD_PLUGINS_V2").as_deref() {
+        Ok("1") => return true,
+        Ok("0") => return false,
+        _ => {}
     }
+    // Default ON (since 6.718.2 — plugin system v2 shipped live). Only an
+    // explicit `"plugins_v2.enabled": false` in settings.json opts out; a
+    // missing file / absent key / unparseable JSON all mean on.
     // 读法仿 read_saved_locale（lib.rs）
-    let Ok(text) = std::fs::read_to_string(config_dir.join("settings.json")) else { return false };
-    let Ok(json) = serde_json::from_str::<serde_json::Value>(&text) else { return false };
-    json.get("plugins_v2.enabled").and_then(|v| v.as_bool()).unwrap_or(false)
+    let Ok(text) = std::fs::read_to_string(config_dir.join("settings.json")) else { return true };
+    let Ok(json) = serde_json::from_str::<serde_json::Value>(&text) else { return true };
+    json.get("plugins_v2.enabled").and_then(|v| v.as_bool()).unwrap_or(true)
 }
 
 pub fn v2_flag_enabled<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> bool {
@@ -84,23 +90,32 @@ mod tests {
     }
 
     #[test]
-    fn flag_false_when_setting_false_or_missing() {
+    fn flag_default_on_unless_explicitly_false() {
+        // Skip if the ambient env forces a value (would mask the settings path).
+        if std::env::var("NOTEMD_PLUGINS_V2").is_ok() {
+            return;
+        }
         let dir = tempfile::tempdir().unwrap();
-        // No settings.json at all
-        assert!(!v2_flag_enabled_at(dir.path()));
-        // Explicit false
+        // No settings.json at all → default ON.
+        assert!(v2_flag_enabled_at(dir.path()));
+        // Key absent → default ON.
+        std::fs::write(dir.path().join("settings.json"), r#"{ "locale": "en" }"#).unwrap();
+        assert!(v2_flag_enabled_at(dir.path()));
+        // Explicit false → opt out.
         std::fs::write(dir.path().join("settings.json"), r#"{ "plugins_v2.enabled": false }"#)
             .unwrap();
-        assert!(!v2_flag_enabled_at(dir.path()));
-        // Key absent
-        std::fs::write(dir.path().join("settings.json"), r#"{ "locale": "en" }"#).unwrap();
         assert!(!v2_flag_enabled_at(dir.path()));
     }
 
     #[test]
-    fn flag_false_on_malformed_settings() {
+    fn flag_default_on_when_settings_malformed() {
+        // Default ON means a corrupt settings.json can't silently disable v2;
+        // only an explicit `false` opts out.
+        if std::env::var("NOTEMD_PLUGINS_V2").is_ok() {
+            return;
+        }
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(dir.path().join("settings.json"), "{ not json").unwrap();
-        assert!(!v2_flag_enabled_at(dir.path()));
+        assert!(v2_flag_enabled_at(dir.path()));
     }
 }

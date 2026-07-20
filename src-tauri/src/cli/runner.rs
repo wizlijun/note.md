@@ -474,9 +474,14 @@ mod tests {
         );
         crate::plugin_runtime::state::save(&v2_plugins, &state).unwrap();
 
-        // Config dir with empty settings.json — v2 flag is off.
+        // Config dir with an explicit opt-out — the only way to turn v2 off now
+        // that the flag defaults ON (6.718.2).
         let config_dir = tempfile::tempdir().unwrap();
-        std::fs::write(config_dir.path().join("settings.json"), "{}").unwrap();
+        std::fs::write(
+            config_dir.path().join("settings.json"),
+            r#"{ "plugins_v2.enabled": false }"#,
+        )
+        .unwrap();
 
         assert!(
             !plugin_runtime::v2_flag_enabled_at(config_dir.path()),
