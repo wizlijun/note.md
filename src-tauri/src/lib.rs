@@ -1030,6 +1030,10 @@ pub fn run() {
             plugin_host::init(&app.handle());
             #[cfg(not(target_os = "ios"))]
             plugin_runtime::init(&app.handle());
+            // Request location authorization at launch (macOS): the prompt then
+            // appears reliably, and the Position Log plugin can use it afterwards.
+            #[cfg(not(target_os = "ios"))]
+            plugin_runtime::location::init_at_startup(&app.handle());
 
 
             #[cfg(target_os = "ios")]
