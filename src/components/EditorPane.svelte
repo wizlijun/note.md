@@ -4,6 +4,7 @@
   import RichEditor from './RichEditor.svelte'
   import CsvEditor from './CsvEditor.svelte'
   import BaseView from './BaseView.svelte'
+  import CustomEditorIframe from './CustomEditorIframe.svelte'
   import { isPluginEnabled } from '../lib/settings.svelte'
   import SourceView from './SourceView.svelte'
   import HtmlPreview from './HtmlPreview.svelte'
@@ -98,6 +99,10 @@
   {:else if tab.kind === 'base' && tab.mode !== 'source' && isPluginEnabled('base')}
     {#key tab.id}
       <BaseView {tab} />
+    {/key}
+  {:else if tab.kind === 'custom'}
+    {#key tab.id}
+      <CustomEditorIframe {tab} />
     {/key}
   {:else if tab.mode === 'source'}
     {#key tab.id}

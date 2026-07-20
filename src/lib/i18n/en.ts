@@ -28,7 +28,7 @@ export const en = {
   'cli.installPrompt':
     "Install the 'notemd' command to your PATH?\n\n" +
     "Once installed you can call note.md's features from any terminal or script:\n" +
-    '  • notemd -s draft.md   Publish via the Share plugin and print the URL\n' +
+    '  • notemd share draft.md   Publish as a web page and print the URL\n' +
     '  • notemd help          Show all commands\n' +
     '  • notemd plugin list   List plugins\n\n' +
     "You can manage this any time from Help → Install/Uninstall 'notemd' Command.",
@@ -40,8 +40,6 @@ export const en = {
   'cli.notInstalled': "'notemd' is not installed",
 
   // Share
-  'share.docTooLarge': '❌ {name}: document too large ({mb} MB / 25 MB limit)',
-  'share.internalError': '❌ {name}: internal error',
   'share.errPrefix': '❌ Share: {msg}',
   'share.actionFailed': '❌ Share: failed to {action}',
   'share.action.share': 'share',
@@ -67,6 +65,7 @@ export const en = {
   'share.err.http': 'Request failed',
   'share.err.parse': 'Failed to parse server response',
   'share.err.corrupt_record': 'Local share record is corrupt',
+  'share.tabShare': 'Share This Tab…',
 
   // Source-of-truth Vault (sotvault)
   'sotvault.revealFailed': '❌ Failed to open source folder',
@@ -203,6 +202,44 @@ export const en = {
   'plugins.capabilities': 'Capabilities: {caps}',
   'plugins.none': 'No plugins detected.',
   'plugins.needsVault': 'Set a Vault first to enable this plugin',
+  'plugins.internalError': '{name}: plugin error',
+
+  // Plugin Market window (子项目③)
+  'pluginMarket.windowTitle': 'Plugin Market',
+  'pluginMarket.refresh': 'Refresh',
+  'pluginMarket.installedHeading': 'Installed',
+  'pluginMarket.availableHeading': 'Available',
+  'pluginMarket.noneInstalled': 'No plugins installed.',
+  'pluginMarket.noneAvailable': 'No additional plugins available.',
+  'pluginMarket.install': 'Install',
+  'pluginMarket.installing': 'Installing…',
+  'pluginMarket.uninstall': 'Uninstall',
+  'pluginMarket.update': 'Update to {version}',
+  'pluginMarket.cancel': 'Cancel',
+  'pluginMarket.installed': 'Installed {name}',
+  'pluginMarket.uninstalled': 'Removed {name}',
+  'pluginMarket.uninstallConfirm': 'Remove {name}? Its data is kept unless removed separately.',
+  'pluginMarket.flagOff': 'The plugin runtime is disabled. Enable it to browse and install plugins.',
+  'pluginMarket.networkError': 'Could not reach the plugin registry: {error}',
+  'pluginMarket.consent.title': 'Install {name}?',
+  'pluginMarket.consent.verifying': 'Verifying package signature…',
+  'pluginMarket.consent.intro': 'This plugin requests the following capabilities:',
+  'pluginMarket.consent.none': 'This plugin requests no host capabilities.',
+  'pluginMarket.consent.sensitive': 'Sensitive',
+  'pluginMarket.consent.trustInstall': 'Trust & Install',
+
+  // Capability labels (human-readable; shown in the consent modal + cards)
+  'capability.renderer.html': 'Render HTML in the editor',
+  'capability.settings': 'Read and write plugin settings',
+  'capability.secrets': 'Store and read secrets (API keys, tokens)',
+  'capability.storage': 'Store plugin data on this device',
+  'capability.vault.read': 'Read files in your Vault',
+  'capability.vault.write': 'Create and modify files in your Vault',
+  'capability.dialog': 'Show open/save file dialogs',
+  'capability.clipboard.write': 'Write to the clipboard',
+  'capability.toast': 'Show notifications',
+  'capability.editor.events': 'Observe editor events (open, edit, save)',
+  'capability.fs.read.dialog': 'Read files you pick in a dialog',
 
   // Slash menu (empty state)
   'slashMenu.noMatches': 'No matches',
@@ -495,7 +532,6 @@ export const en = {
   // Settings dialog — header & tabs
   'settings.title': 'Preferences',
   'settings.done': 'Done',
-  'settings.tab.plugins': 'Plugins',
   'settings.tab.core': 'Core',
   'settings.tab.block': 'Block',
   'settings.tab.cli': 'CLI',
@@ -576,6 +612,7 @@ export const en = {
   'insights.generateReport': 'Generate report',
   'insights.refresh': 'Refresh',
   'insights.windowTitle': 'Reading Insights',
+  'insights.needsVault': 'Configure a Vault to use Reading Insights.',
   'insights.reportSaved': 'Report saved',
   'insights.reportFailed': 'Failed to generate report',
   'insights.openDoc': 'Open this document',
@@ -584,7 +621,7 @@ export const en = {
 
   // Settings → CLI
   'settings.cli.heading': 'CLI',
-  'settings.cli.desc': 'The <code>notemd</code> command lets you drive note.md from a terminal or other tools — publish files via the Share plugin, list available commands, and more.',
+  'settings.cli.desc': 'The <code>notemd</code> command lets you run note.md features from a terminal or other tools — publish files as web pages, export PDFs, and more.',
   'settings.cli.loading': 'Loading…',
   'settings.cli.installedAtLabel': 'Installed at:',
   'settings.cli.symlinkMismatch': 'Symlink points to a different binary — reinstall to repair.',
@@ -595,7 +632,7 @@ export const en = {
   'settings.cli.installing': 'Installing…',
   'settings.cli.install': 'Install…',
   'settings.cli.error': 'Error: {error}',
-  'settings.cli.helpDesc': 'Once installed, run <code>notemd help</code> in your terminal for the full reference. The CLI only exposes commands contributed by <em>enabled</em> plugins — disable a plugin in Plugins above to remove its subcommand from <code>notemd</code>.',
+  'settings.cli.helpDesc': 'Once installed, run <code>notemd help</code> in your terminal for the full reference. The CLI ships built-in core commands (share, reading-insights report) plus commands contributed by <em>enabled</em> plugins — disable a plugin in Plugins above to remove its subcommand from <code>notemd</code>.',
 
   // ── Editor context menu ──
   'ctxmenu.cut': 'Cut',

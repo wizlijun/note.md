@@ -1,0 +1,557 @@
+//! Tauri commands exposing the v2 runtime to the frontend (plan Task 8).
+//!
+//! Lifecycles register lazily in [`RUNNING`]: the first trigger builds a
+//! [`SpawnCtx`] from the AppHandle once; from then on the lifecycle machine
+//! owns (re)spawning without any tauri types (crash restarts included).
+
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
+
+use tauri::Manager;
+
+use super::lifecycle::{self, PluginLifecycle, SpawnCtx, Trigger, RUNNING};
+use super::{discovery, host_api, installer, market, state, STATE};
+
+/// Execute `command` on a v2 plugin: lazy activation (spec §4.2) followed by
+/// `command.execute`. `context` is the same shape v1 plugins receive.
+#[tauri::command]
+pub async fn plugin_v2_execute(
+    app: tauri::AppHandle,
+    plugin_id: String,
+    command: String,
+    context: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    let lc = get_or_register(&app, &plugin_id)?;
+    lc.ensure_active(&Trigger::Command(command.clone())).await?;
+    lc.execute(plugin_protocol::ExecuteCommandParams { command, context })
+        .await
+}
+
+/// Open a plugin-contributed window (spec §7.2). The frontend routes a menu
+/// command to this instead of `plugin_v2_execute` when the command matches a
+/// window's `open_command` (see `open_windows` in the adapted manifest).
+#[tauri::command]
+pub fn plugin_v2_open_window(
+    app: tauri::AppHandle,
+    plugin_id: String,
+    window_id: String,
+) -> Result<(), String> {
+    super::windows::open_plugin_window(&app, &plugin_id, &window_id)
+}
+
+// ── Marketplace commands (子项目③ Task 2) ────────────────────────────────
+//
+// All six are gated on the v2 flag: with the runtime disabled they refuse
+// rather than touch the network or the install tree. The frontend market
+// window (Task 6) drives these; the capability-consent modal calls
+// `plugin_market_preview` first so the user consents to the *actually
+// verified* package's capabilities before `plugin_market_install`.
+
+/// Reject when the v2 runtime is disabled (flag off). One place so every market
+/// command fails the same way.
+fn ensure_v2_enabled() -> Result<(), String> {
+    if !STATE.read().unwrap().enabled_flag {
+        return Err("plugin runtime v2 is disabled".into());
+    }
+    Ok(())
+}
+
+/// A plugin has a backing process (and thus a lifecycle) iff it declares a
+/// `binary`. UI-only plugins (roam-import, base, custom-editor fixtures) have an
+/// empty binary map — their window opens directly from STATE and their UI talks
+/// to the host over `host.*`, so they never get a process/lifecycle.
+fn is_process_plugin(m: &plugin_protocol::ManifestV2) -> bool {
+    !m.binary.is_empty()
+}
+
+/// Find `id`@`version` in the registry index and resolve this host's arch
+/// download URL + sha256. UI-only plugins (roam-import etc.) publish under the
+/// `universal` key rather than a host triple, so we prefer the host triple then
+/// fall back to `universal`. Errors only if neither is present.
+fn resolve_download(entry: &market::RegistryEntry) -> Result<(String, String), String> {
+    let triple = discovery::current_arch_triple()
+        .ok_or_else(|| format!("unsupported host arch '{}'", std::env::consts::ARCH))?;
+    let url = entry
+        .download
+        .get(triple)
+        .or_else(|| entry.download.get("universal"))
+        .ok_or_else(|| format!("plugin '{}' has no download for arch '{triple}'", entry.id))?;
+    let sha = entry
+        .sha256
+        .get(triple)
+        .or_else(|| entry.sha256.get("universal"))
+        .ok_or_else(|| format!("plugin '{}' has no sha256 for arch '{triple}'", entry.id))?;
+    Ok((url.clone(), sha.clone()))
+}
+
+async fn find_entry(
+    app: &tauri::AppHandle,
+    id: &str,
+    version: &str,
+) -> Result<market::RegistryEntry, String> {
+    let base = market::registry_base_url(app);
+    let index = market::fetch_index(&base).await?;
+    index
+        .plugins
+        .into_iter()
+        .find(|e| e.id == id && e.version == version)
+        .ok_or_else(|| format!("plugin '{id}' version '{version}' not found in registry"))
+}
+
+/// Fetch + return the full registry index as JSON (the "available" list).
+#[tauri::command]
+pub async fn plugin_market_index(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
+    ensure_v2_enabled()?;
+    let base = market::registry_base_url(&app);
+    let index = market::fetch_index(&base).await?;
+    serde_json::to_value(index).map_err(|e| e.to_string())
+}
+
+/// Download + verify `id`@`version` into a throwaway temp dir and return the
+/// *validated* manifest as JSON — WITHOUT installing. The consent UI shows this
+/// manifest's `capabilities`, so what the user consents to is exactly what
+/// passed signature + hash verification (spec §8.2 / ②评审 V1).
+#[tauri::command]
+pub async fn plugin_market_preview(
+    app: tauri::AppHandle,
+    id: String,
+    version: String,
+) -> Result<serde_json::Value, String> {
+    ensure_v2_enabled()?;
+    let entry = find_entry(&app, &id, &version).await?;
+    let (url, sha) = resolve_download(&entry)?;
+    let sig_url = format!("{url}.minisig");
+    let host_version = app.package_info().version.to_string();
+
+    let pkg = market::download(&url).await?;
+    let sig = String::from_utf8(market::download(&sig_url).await?)
+        .map_err(|e| format!("signature is not valid utf-8: {e}"))?;
+
+    // Stage into a temp dir purely to run the full verify pipeline; discard it.
+    let tmp = tempfile::tempdir().map_err(|e| e.to_string())?;
+    let manifest = installer::verify_and_stage(
+        &pkg,
+        &sig,
+        &sha,
+        market::PLUGIN_REGISTRY_PUBKEY,
+        &id,
+        &host_version,
+        tmp.path(),
+    )
+    .map_err(|e| e.to_string())?;
+    // tmp drops here — the staged copy is thrown away; only the manifest survives.
+    serde_json::to_value(manifest).map_err(|e| e.to_string())
+}
+
+/// Download → verify → commit-install `id`@`version`, enable it in state.json,
+/// then reconcile the live runtime (no restart) and tell the frontend to
+/// re-fetch manifests + rebuild its menu via the `plugins-changed` event.
+/// Install telemetry is fire-and-forget.
+#[tauri::command]
+pub async fn plugin_market_install(
+    app: tauri::AppHandle,
+    id: String,
+    version: String,
+) -> Result<(), String> {
+    ensure_v2_enabled()?;
+    let entry = find_entry(&app, &id, &version).await?;
+    let (url, sha) = resolve_download(&entry)?;
+    let sig_url = format!("{url}.minisig");
+    let host_version = app.package_info().version.to_string();
+    let root = state::plugins_root(&app).ok_or("cannot resolve app data dir")?;
+
+    let pkg = market::download(&url).await?;
+    let sig = String::from_utf8(market::download(&sig_url).await?)
+        .map_err(|e| format!("signature is not valid utf-8: {e}"))?;
+
+    // Verify + stage into a temp dir, then atomically commit into the tree.
+    let tmp = tempfile::tempdir().map_err(|e| e.to_string())?;
+    installer::verify_and_stage(
+        &pkg,
+        &sig,
+        &sha,
+        market::PLUGIN_REGISTRY_PUBKEY,
+        &id,
+        &host_version,
+        tmp.path(),
+    )
+    .map_err(|e| e.to_string())?;
+    installer::commit_install(&root, &id, &version, tmp.path()).map_err(|e| e.to_string())?;
+
+    // Record installed + enabled in state.json.
+    let mut install = state::load(&root);
+    install.installed.insert(
+        id.clone(),
+        state::InstalledPlugin { version: version.clone(), enabled: true },
+    );
+    state::save(&root, &install)?;
+
+    // Fire-and-forget install telemetry (never blocks / errors the install).
+    let base = market::registry_base_url(&app);
+    let (rid, rver) = (id.clone(), version.clone());
+    tauri::async_runtime::spawn(async move {
+        market::report_install(&base, &rid, &rver).await;
+    });
+
+    // Bring the live runtime in line with the new tree, rebuild the native menu
+    // (a brand-new plugin's menu item now appears without a restart), then nudge
+    // the UI.
+    lifecycle::reconcile(&app)?;
+    crate::rebuild_menu(&app);
+    notify_plugins_changed(&app);
+    Ok(())
+}
+
+/// Uninstall `id` (optionally keeping its data dir), drop it from state.json,
+/// reconcile the runtime (deactivating it live), and notify the frontend.
+#[tauri::command]
+pub async fn plugin_market_uninstall(
+    app: tauri::AppHandle,
+    id: String,
+    keep_data: bool,
+) -> Result<(), String> {
+    ensure_v2_enabled()?;
+    let root = state::plugins_root(&app).ok_or("cannot resolve app data dir")?;
+    let app_data = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("cannot resolve app data dir: {e}"))?;
+
+    installer::uninstall(&root, &id, keep_data, &app_data).map_err(|e| e.to_string())?;
+
+    let mut install = state::load(&root);
+    install.installed.remove(&id);
+    state::save(&root, &install)?;
+
+    lifecycle::reconcile(&app)?;
+    crate::rebuild_menu(&app);
+    notify_plugins_changed(&app);
+    Ok(())
+}
+
+/// Flip `id`'s `enabled` flag in state.json, reconcile (disabling deactivates
+/// it live; enabling lets the next trigger activate lazily), and notify.
+#[tauri::command]
+pub async fn plugin_market_set_enabled(
+    app: tauri::AppHandle,
+    id: String,
+    enabled: bool,
+) -> Result<(), String> {
+    ensure_v2_enabled()?;
+    let root = state::plugins_root(&app).ok_or("cannot resolve app data dir")?;
+
+    let mut install = state::load(&root);
+    match install.installed.get_mut(&id) {
+        Some(p) => p.enabled = enabled,
+        None => return Err(format!("plugin '{id}' is not installed")),
+    }
+    state::save(&root, &install)?;
+
+    lifecycle::reconcile(&app)?;
+    crate::rebuild_menu(&app);
+    notify_plugins_changed(&app);
+    Ok(())
+}
+
+/// List installed plugins from state.json joined with each
+/// `<root>/<id>/current/manifest.json`: `{id, version, enabled, name,
+/// capabilities}`. A plugin whose manifest is unreadable is still listed (with
+/// null name/empty capabilities) so the UI can offer to uninstall it.
+#[tauri::command]
+pub fn plugin_market_installed(app: tauri::AppHandle) -> Result<Vec<serde_json::Value>, String> {
+    ensure_v2_enabled()?;
+    let root = state::plugins_root(&app).ok_or("cannot resolve app data dir")?;
+    let install = state::load(&root);
+
+    let mut out = Vec::with_capacity(install.installed.len());
+    for (id, entry) in &install.installed {
+        let manifest_path = root.join(id).join("current").join("manifest.json");
+        let manifest: Option<plugin_protocol::ManifestV2> = std::fs::read_to_string(&manifest_path)
+            .ok()
+            .and_then(|t| serde_json::from_str(&t).ok());
+        let (name, capabilities) = match &manifest {
+            Some(m) => (
+                serde_json::Value::String(m.name.clone()),
+                serde_json::to_value(&m.capabilities).unwrap_or(serde_json::Value::Array(vec![])),
+            ),
+            None => (serde_json::Value::Null, serde_json::Value::Array(vec![])),
+        };
+        out.push(serde_json::json!({
+            "id": id,
+            "version": entry.version,
+            "enabled": entry.enabled,
+            "name": name,
+            "capabilities": capabilities,
+        }));
+    }
+    Ok(out)
+}
+
+/// Tell the frontend the installed-plugin set changed: it re-fetches
+/// `get_plugin_manifests` and reapplies its own in-webview plugin menu. The
+/// *native* menu (macOS menu bar) is rebuilt separately by `crate::rebuild_menu`
+/// right before this fires, so a brand-new plugin's native menu item appears
+/// without a restart.
+fn notify_plugins_changed<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
+    use tauri::Emitter;
+    let _ = app.emit("plugins-changed", ());
+}
+
+/// Called from `plugin_runtime::init` after discovery populated STATE:
+/// register a lifecycle for every discovered plugin, then eagerly activate
+/// the ones whose events match `Startup` (spec §4.3). The activation itself
+/// is pushed onto the tauri async runtime — `init` runs inside `setup`,
+/// outside any tokio context, and `startup_activation` needs `tokio::spawn`.
+pub fn startup_activate_all<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
+    // Only process-backed plugins (those declaring a `binary`) have a lifecycle.
+    // UI-only plugins (roam-import, base, etc.) have no process to activate —
+    // their window opens directly from STATE without a lifecycle, and their UI
+    // reaches the host through `host.*` bridge calls, not the process channel.
+    // Registering them would spawn nothing and just log a spurious
+    // "no binary for host arch" error every startup, so skip them here.
+    let ids: Vec<String> = {
+        let st = STATE.read().unwrap();
+        st.plugins
+            .iter()
+            .filter(|(_, (m, _))| is_process_plugin(m))
+            .map(|(id, _)| id.clone())
+            .collect()
+    };
+    let mut lifecycles = Vec::new();
+    for id in ids {
+        match get_or_register(app, &id) {
+            Ok(lc) => lifecycles.push(lc),
+            Err(e) => eprintln!("[plugin_runtime] cannot register '{id}': {e}"),
+        }
+    }
+    if lifecycles.is_empty() {
+        return;
+    }
+    tauri::async_runtime::spawn(async move {
+        lifecycle::startup_activation(lifecycles);
+    });
+}
+
+/// STATE lookup half of registration — AppHandle-free so it is unit-testable.
+fn lookup_v2(plugin_id: &str) -> Result<(plugin_protocol::ManifestV2, PathBuf), String> {
+    STATE
+        .read()
+        .unwrap()
+        .plugins
+        .get(plugin_id)
+        .cloned()
+        .ok_or_else(|| format!("unknown v2 plugin: {plugin_id}"))
+}
+
+/// RUNNING registration half — idempotent: on a lost race the entry that got
+/// in first wins and the freshly built (never-spawned) one is dropped.
+fn register_lifecycle(plugin_id: &str, lc: Arc<PluginLifecycle>) -> Arc<PluginLifecycle> {
+    RUNNING
+        .write()
+        .unwrap()
+        .entry(plugin_id.to_string())
+        .or_insert(lc)
+        .clone()
+}
+
+/// Look up the live lifecycle for `plugin_id`, registering a fresh one from
+/// STATE on first use. `pub(crate)` so `ui_rpc::forward_to_plugin` can reuse the
+/// exact same registration path a menu command uses (子项目②b).
+pub(crate) fn get_or_register<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    plugin_id: &str,
+) -> Result<Arc<PluginLifecycle>, String> {
+    if let Some(lc) = RUNNING.read().unwrap().get(plugin_id) {
+        return Ok(lc.clone());
+    }
+    let (manifest, install_dir) = lookup_v2(plugin_id)?;
+    if !is_process_plugin(&manifest) {
+        // UI-only plugin: no process. Callers that reach here (e.g. a window UI
+        // forwarding a `plugin.*` call) are misusing the channel — UI-only
+        // plugins talk to the host via `host.*`, and their window opens without
+        // a lifecycle. Fail with a clear message, not "no binary for host arch".
+        return Err(format!(
+            "plugin '{plugin_id}' is UI-only (no process); it has no command/ui.request channel"
+        ));
+    }
+    let ctx = build_spawn_ctx(app, &manifest, &install_dir)?;
+    let lc = Arc::new(PluginLifecycle::new(manifest, install_dir, ctx));
+    Ok(register_lifecycle(plugin_id, lc))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn fixture_manifest(id: &str) -> plugin_protocol::ManifestV2 {
+        serde_json::from_value(serde_json::json!({
+            "manifest_version": 2, "id": id, "name": "Fixture", "version": "1.0.0",
+            "kind": "native", "engines": { "notemd": ">=0.0.0" },
+            "activation": { "events": ["onCommand:noop"] }, "capabilities": []
+        }))
+        .unwrap()
+    }
+
+    fn noop_spawn_ctx() -> SpawnCtx {
+        SpawnCtx {
+            binary: PathBuf::from("/nonexistent/fixture-bin"),
+            log_dir: std::env::temp_dir(),
+            host_sink: std::sync::Arc::new(|_req| None),
+            host_version: "0.0.0".into(),
+            locale: "en".into(),
+            app_data: std::env::temp_dir(),
+        }
+    }
+
+    /// The real STATE-lookup half of get_or_register: unknown id → Err;
+    /// present id → the stored (manifest, install_dir) pair.
+    #[test]
+    fn lookup_v2_err_on_unknown_and_ok_on_present() {
+        let missing = lookup_v2("bogus.unknown-plugin");
+        assert_eq!(missing.unwrap_err(), "unknown v2 plugin: bogus.unknown-plugin");
+
+        // Unique id + cleanup keeps the global STATE mutation race-free
+        // against other tests (none of which use this id).
+        let id = "test.commands-lookup-fixture";
+        STATE.write().unwrap().plugins.insert(
+            id.to_string(),
+            (fixture_manifest(id), PathBuf::from("/tmp/fixture-install")),
+        );
+        let found = lookup_v2(id).unwrap();
+        assert_eq!(found.0.id, id);
+        assert_eq!(found.1, PathBuf::from("/tmp/fixture-install"));
+        STATE.write().unwrap().plugins.remove(id);
+    }
+
+    /// The real RUNNING-registration half: double registration returns the
+    /// first Arc (idempotent; the loser is dropped without spawning).
+    #[test]
+    fn register_lifecycle_is_idempotent() {
+        let id = "test.commands-register-fixture";
+        let first = Arc::new(PluginLifecycle::new(
+            fixture_manifest(id), PathBuf::from("/tmp/a"), noop_spawn_ctx()));
+        let second = Arc::new(PluginLifecycle::new(
+            fixture_manifest(id), PathBuf::from("/tmp/b"), noop_spawn_ctx()));
+        let won_first = register_lifecycle(id, first.clone());
+        let won_second = register_lifecycle(id, second);
+        assert!(Arc::ptr_eq(&won_first, &first));
+        assert!(Arc::ptr_eq(&won_second, &first), "second registration must return the first Arc");
+        RUNNING.write().unwrap().remove(id);
+    }
+
+    #[test]
+    fn is_process_plugin_distinguishes_ui_only_from_binary() {
+        // Binary-backed fixture → process plugin.
+        let mut m = fixture_manifest("pub.binary");
+        m.binary
+            .insert("aarch64-apple-darwin".into(), "bin/x".into());
+        assert!(is_process_plugin(&m), "a plugin with a binary is process-backed");
+
+        // UI-only (no binary) → not a process plugin; must be skipped by
+        // startup_activate_all and rejected by get_or_register with a clear msg.
+        let ui = fixture_manifest("pub.ui-only");
+        assert!(ui.binary.is_empty());
+        assert!(!is_process_plugin(&ui), "a binary-less plugin is UI-only");
+    }
+
+    /// A ui-only plugin publishes only under the `universal` key; resolve_download
+    /// must fall back to it on this host, and error only when neither the host
+    /// triple nor `universal` is present (FIX-1).
+    fn registry_entry(
+        id: &str,
+        download: &[(&str, &str)],
+        sha: &[(&str, &str)],
+    ) -> market::RegistryEntry {
+        use std::collections::BTreeMap;
+        let dl: BTreeMap<String, String> =
+            download.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect();
+        let sh: BTreeMap<String, String> =
+            sha.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect();
+        market::RegistryEntry {
+            id: id.to_string(),
+            version: "1.0.0".to_string(),
+            min_host: ">=0.0.0".to_string(),
+            archs: dl.keys().cloned().collect(),
+            size: 1,
+            sha256: sh,
+            name: id.to_string(),
+            description: None,
+            i18n: None,
+            icon_url: None,
+            changelog_url: None,
+            download: dl,
+        }
+    }
+
+    #[test]
+    fn resolve_download_falls_back_to_universal() {
+        let entry = registry_entry(
+            "roam",
+            &[("universal", "https://plugins.notemd.net/api/download/roam/1.0.0/universal")],
+            &[("universal", "uu")],
+        );
+        let (url, sha) = resolve_download(&entry).unwrap();
+        assert!(url.ends_with("universal"), "url {url} must resolve to the universal package");
+        assert_eq!(sha, "uu");
+    }
+
+    #[test]
+    fn resolve_download_errors_when_neither_triple_nor_universal() {
+        let entry = registry_entry("x", &[], &[]);
+        let err = resolve_download(&entry).unwrap_err();
+        assert!(err.contains("no download for arch"), "got {err}");
+    }
+
+    /// The shared flag gate every market command runs first: Err with the v2
+    /// runtime disabled, Ok with it enabled. Restores the flag so it doesn't
+    /// leak into other tests (none of which read `enabled_flag`).
+    #[test]
+    fn ensure_v2_enabled_gates_on_flag() {
+        let prev = STATE.read().unwrap().enabled_flag;
+
+        STATE.write().unwrap().enabled_flag = false;
+        let err = ensure_v2_enabled().unwrap_err();
+        assert_eq!(err, "plugin runtime v2 is disabled");
+
+        STATE.write().unwrap().enabled_flag = true;
+        assert!(ensure_v2_enabled().is_ok());
+
+        STATE.write().unwrap().enabled_flag = prev;
+    }
+}
+
+/// Assemble everything the lifecycle needs to (re)spawn without an AppHandle.
+fn build_spawn_ctx<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    manifest: &plugin_protocol::ManifestV2,
+    install_dir: &Path,
+) -> Result<SpawnCtx, String> {
+    // Same arch mapping discovery validated against at scan time.
+    let triple = discovery::current_arch_triple()
+        .ok_or_else(|| format!("unsupported host arch '{}'", std::env::consts::ARCH))?;
+    let rel = manifest.binary.get(triple).ok_or_else(|| {
+        format!("plugin '{}': no binary for host arch '{triple}'", manifest.id)
+    })?;
+    let log_dir = app
+        .path()
+        .app_log_dir()
+        .map_err(|e| format!("cannot resolve app log dir: {e}"))?
+        .join("plugins");
+    let app_data = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("cannot resolve app data dir: {e}"))?;
+    Ok(SpawnCtx {
+        binary: install_dir.join(rel),
+        host_sink: host_api::make_sink_for_app(
+            manifest.id.clone(),
+            manifest.capabilities.clone(),
+            app.clone(),
+            log_dir.clone(),
+        ),
+        log_dir,
+        host_version: app.package_info().version.to_string(),
+        locale: crate::read_saved_locale(app),
+        app_data,
+    })
+}

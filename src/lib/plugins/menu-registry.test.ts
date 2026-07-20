@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   collectMenuItems, evaluateEnabled, mkPluginMenuId, parsePluginMenuId,
+  CORE_MENU_ENABLED_ITEMS,
 } from './menu-registry'
 import type { PluginManifest } from './types'
 
@@ -36,6 +37,19 @@ describe('collectMenuItems', () => {
   it('produces menu ids in plugin:<id>:<command> format', () => {
     const items = collectMenuItems([baseManifest()])
     expect(items.file[0].id).toBe('plugin:share:publish')
+  })
+})
+
+describe('CORE_MENU_ENABLED_ITEMS', () => {
+  it('covers the five conditional core menu ids with original enabled_when expressions', () => {
+    expect(CORE_MENU_ENABLED_ITEMS).toHaveLength(5)
+    const byId = Object.fromEntries(CORE_MENU_ENABLED_ITEMS.map((i) => [i.id, i]))
+    expect(byId['sync-to-vault'].enabledWhen).toBe('currentTab.canSyncToVault')
+    expect(byId['share'].enabledWhen).toBe('currentTab.hasContent')
+    expect(byId['unshare'].enabledWhen).toBe('settings["share.records"][currentTab.path]')
+    expect(byId['copy-share-link'].enabledWhen).toBe('settings["share.records"][currentTab.path]')
+    expect(byId['toggle-git-history'].enabledWhen).toBe('currentTab.isInVault')
+    expect(byId['unshare'].pluginId).toBe('share')
   })
 })
 

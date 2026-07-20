@@ -1,7 +1,7 @@
 const BASE62 = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
 
 /**
- * Slug generator matching the macOS Rust implementation in `mdshare/src/slug.rs`.
+ * Slug generator for share URLs (the sole implementation since the mdshare Rust CLI was retired in the core-ization).
  * Format: YYYY-MM-DD-<filename-slug>[-<3-char base62 suffix>]
  */
 export function generateSlug(filename: string | null, content: string, withSuffix: boolean): string {

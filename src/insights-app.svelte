@@ -4,7 +4,6 @@
   import { onMount } from 'svelte'
   import { loadSettings } from './lib/settings.svelte'
   import { loadLocale, t } from './lib/i18n/store.svelte'
-  import { initActivePluginIds } from './lib/plugins/registry'
   import { refreshSotvault, sotvaultStore } from './lib/sotvault.svelte'
   import { getCurrentWindow } from '@tauri-apps/api/window'
   import InsightsPanel from './components/InsightsPanel.svelte'
@@ -16,7 +15,6 @@
       await loadSettings()
       await loadLocale()
       try { await getCurrentWindow().setTitle(t('insights.windowTitle')) } catch { /* no-op */ }
-      await initActivePluginIds()
       await refreshSotvault()
     } catch (e) {
       console.error('[insights] init failed:', e)
@@ -29,7 +27,7 @@
   {#if !ready}
     <p class="msg">…</p>
   {:else if sotvaultStore.vaultRoot === null}
-    <p class="msg">{t('plugins.needsVault')}</p>
+    <p class="msg">{t('insights.needsVault')}</p>
   {:else}
     <InsightsPanel />
   {/if}

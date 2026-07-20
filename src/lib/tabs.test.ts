@@ -83,10 +83,52 @@ describe('tabs', () => {
     expect(m.activeId.value).toBe(m.tabs[0].id)
   })
 
-  it('openFile rejects unsupported extensions', async () => {
+  it('openFile falls back to plain text (kind=code) for an unknown extension with no plugin', async () => {
+    // file-over-app: an unrecognised extension (and no custom-editor plugin
+    // claiming it) opens as plain text instead of throwing.
     const m = await import('./tabs.svelte')
-    await expect(m.openFile('/tmp/foo.exe')).rejects.toThrow(/unsupported/i)
+    await m.openFile('/tmp/notes.base')
+    expect(m.tabs.length).toBe(1)
+    const t = m.tabs[0]
+    expect(t.kind).toBe('code')
+    expect(t.language).toBe('')
+    expect(t.currentContent).toContain('content of /tmp/notes.base')
+    expect(m.activeId.value).toBe(t.id)
+  })
+
+  it('openFile plain-text fallback still refuses binary content', async () => {
+    const fs = await import('./fs')
+    ;(fs.readMd as ReturnType<typeof vi.fn>).mockResolvedValueOnce('bin\x00ary')
+    const m = await import('./tabs.svelte')
+    await expect(m.openFile('/tmp/foo.weird')).rejects.toThrow(/binary/i)
     expect(m.tabs.length).toBe(0)
+  })
+
+  it('openFile plain-text fallback is idempotent (same path → switch, no dup)', async () => {
+    const m = await import('./tabs.svelte')
+    await m.openFile('/tmp/a.unknownext')
+    await m.openFile('/tmp/a.unknownext')
+    expect(m.tabs.length).toBe(1)
+  })
+
+  it('openFile routes to a custom editor when a v2 plugin claims the extension', async () => {
+    // Register a plugin (in the same fresh module graph) that owns .base, then
+    // open a .base → the tab becomes kind=custom carrying the editor binding.
+    const rt = await import('./plugins/runtime.svelte')
+    rt.pluginRuntime.manifests = [{
+      id: 'notemd.base', name: 'Base', version: '1.0.0', binary: '',
+      host_capabilities: [],
+      custom_editors: [{ id: 'base-table', file_extensions: ['.base'], entry: 'editor.html' }],
+    }]
+    const m = await import('./tabs.svelte')
+    await m.openFile('/tmp/table.base')
+    const t = m.tabs[0]
+    expect(t.kind).toBe('custom')
+    expect(t.editorPluginId).toBe('notemd.base')
+    expect(t.editorId).toBe('base-table')
+    expect(t.editorEntry).toBe('editor.html')
+    // Content is still read as text (host owns document I/O).
+    expect(t.currentContent).toContain('content of /tmp/table.base')
   })
 
   it('setContent toggles dirty correctly', async () => {

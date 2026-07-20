@@ -23,7 +23,7 @@ export const ja: Record<keyof Messages, string> = {
   'cli.installPrompt':
     "'notemd' コマンドを PATH にインストールしますか？\n\n" +
     'インストールすると、任意のターミナルやスクリプトから note.md の機能を呼び出せます：\n' +
-    '  • notemd -s draft.md   Share プラグインで公開して URL を表示\n' +
+    '  • notemd share draft.md   Web ページとして公開して URL を表示\n' +
     '  • notemd help          すべてのコマンドを表示\n' +
     '  • notemd plugin list   プラグイン一覧\n\n' +
     "この設定は Help → Install/Uninstall 'notemd' Command からいつでも管理できます。",
@@ -35,8 +35,6 @@ export const ja: Record<keyof Messages, string> = {
   'cli.notInstalled': "'notemd' はインストールされていません",
 
   // Share
-  'share.docTooLarge': '❌ {name}：ドキュメントが大きすぎます（{mb} MB / 上限 25 MB）',
-  'share.internalError': '❌ {name}：内部エラー',
   'share.errPrefix': '❌ Share：{msg}',
   'share.actionFailed': '❌ Share：{action}に失敗しました',
   'share.action.share': '共有',
@@ -62,6 +60,7 @@ export const ja: Record<keyof Messages, string> = {
   'share.err.http': 'リクエストに失敗しました',
   'share.err.parse': 'サーバー応答の解析に失敗しました',
   'share.err.corrupt_record': 'ローカルの共有記録が壊れています',
+  'share.tabShare': 'このタブを共有…',
 
   // Source-of-truth Vault (sotvault)
   'sotvault.revealFailed': '❌ ソースフォルダを開けませんでした',
@@ -198,6 +197,44 @@ export const ja: Record<keyof Messages, string> = {
   'plugins.capabilities': '機能：{caps}',
   'plugins.none': 'プラグインが検出されませんでした。',
   'plugins.needsVault': '有効にするには先に Vault を設定してください',
+  'plugins.internalError': '{name}：プラグインエラー',
+
+  // Plugin Market window (子项目③)
+  'pluginMarket.windowTitle': 'プラグインマーケット',
+  'pluginMarket.refresh': '更新',
+  'pluginMarket.installedHeading': 'インストール済み',
+  'pluginMarket.availableHeading': '利用可能',
+  'pluginMarket.noneInstalled': 'インストール済みのプラグインはありません。',
+  'pluginMarket.noneAvailable': 'これ以上利用可能なプラグインはありません。',
+  'pluginMarket.install': 'インストール',
+  'pluginMarket.installing': 'インストール中…',
+  'pluginMarket.uninstall': 'アンインストール',
+  'pluginMarket.update': '{version} に更新',
+  'pluginMarket.cancel': 'キャンセル',
+  'pluginMarket.installed': '{name} をインストールしました',
+  'pluginMarket.uninstalled': '{name} を削除しました',
+  'pluginMarket.uninstallConfirm': '{name} を削除しますか？個別に削除しない限りデータは保持されます。',
+  'pluginMarket.flagOff': 'プラグインランタイムが無効です。有効にするとプラグインを閲覧・インストールできます。',
+  'pluginMarket.networkError': 'プラグインレジストリに接続できませんでした：{error}',
+  'pluginMarket.consent.title': '{name} をインストールしますか？',
+  'pluginMarket.consent.verifying': 'パッケージの署名を検証中…',
+  'pluginMarket.consent.intro': 'このプラグインは次の機能を要求しています：',
+  'pluginMarket.consent.none': 'このプラグインはホスト機能を要求していません。',
+  'pluginMarket.consent.sensitive': '重要',
+  'pluginMarket.consent.trustInstall': '信頼してインストール',
+
+  // Capability labels (human-readable; shown in the consent modal + cards)
+  'capability.renderer.html': 'エディタで HTML を描画',
+  'capability.settings': 'プラグイン設定の読み書き',
+  'capability.secrets': 'シークレット（API キー・トークン）の保存と読み取り',
+  'capability.storage': 'このデバイスにプラグインデータを保存',
+  'capability.vault.read': 'Vault 内のファイルを読み取り',
+  'capability.vault.write': 'Vault 内でファイルを作成・変更',
+  'capability.dialog': 'ファイルの開く/保存ダイアログを表示',
+  'capability.clipboard.write': 'クリップボードへ書き込み',
+  'capability.toast': '通知を表示',
+  'capability.editor.events': 'エディタイベント（開く・編集・保存）を監視',
+  'capability.fs.read.dialog': 'ダイアログで選択したファイルを読み取り',
 
   // Slash menu (empty state)
   'slashMenu.noMatches': '一致なし',
@@ -490,7 +527,6 @@ export const ja: Record<keyof Messages, string> = {
   // Settings dialog — header & tabs
   'settings.title': '環境設定',
   'settings.done': '完了',
-  'settings.tab.plugins': 'プラグイン',
   'settings.tab.core': 'コア',
   'settings.tab.block': 'ブロック',
   'settings.tab.cli': 'CLI',
@@ -571,6 +607,7 @@ export const ja: Record<keyof Messages, string> = {
   'insights.generateReport': 'レポート生成',
   'insights.refresh': '更新',
   'insights.windowTitle': 'リーディングインサイト',
+  'insights.needsVault': 'リーディングインサイトを使うには先に Vault を設定してください。',
   'insights.reportSaved': 'レポートを保存しました',
   'insights.reportFailed': 'レポート生成に失敗しました',
   'insights.openDoc': 'このドキュメントを開く',
@@ -579,7 +616,7 @@ export const ja: Record<keyof Messages, string> = {
 
   // Settings → CLI
   'settings.cli.heading': 'CLI',
-  'settings.cli.desc': '<code>notemd</code> コマンドを使うと、ターミナルや他のツールから note.md を操作できます — Share プラグインでファイルを公開したり、利用可能なコマンドを一覧表示したりできます。',
+  'settings.cli.desc': '<code>notemd</code> コマンドを使うと、ターミナルや他のツールから note.md の機能を利用できます — ファイルをウェブページとして公開したり、PDF をエクスポートしたりできます。',
   'settings.cli.loading': '読み込み中…',
   'settings.cli.installedAtLabel': 'インストール先：',
   'settings.cli.symlinkMismatch': 'シンボリックリンクが別のバイナリを指しています — 再インストールで修復してください。',
@@ -590,7 +627,7 @@ export const ja: Record<keyof Messages, string> = {
   'settings.cli.installing': 'インストール中…',
   'settings.cli.install': 'インストール…',
   'settings.cli.error': 'エラー：{error}',
-  'settings.cli.helpDesc': 'インストール後、ターミナルで <code>notemd help</code> を実行すると完全なリファレンスが表示されます。CLI は<em>有効な</em>プラグインが提供するコマンドのみを公開します — 上の Plugins でプラグインを無効にすると、そのサブコマンドが <code>notemd</code> から削除されます。',
+  'settings.cli.helpDesc': 'インストール後、ターミナルで <code>notemd help</code> を実行すると完全なリファレンスが表示されます。CLI には組み込みのコアコマンド（share、reading-insights report）があり、さらに<em>有効な</em>プラグインが提供するコマンドを公開します — 上の Plugins でプラグインを無効にすると、そのサブコマンドが <code>notemd</code> から削除されます。',
 
   // Editor context menu
   'ctxmenu.cut': 'カット',

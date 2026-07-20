@@ -35,4 +35,14 @@ describe('copyShareLink', () => {
     expect(url).toBe('https://w/s')
     expect(writeText).toHaveBeenCalledWith('https://w/s')
   })
+
+  it('skips the clipboard when opts.clipboard is false, still returns the url', async () => {
+    ;(records as any)._put('/x.md', {
+      slug: 's', edit_token: 't', url: 'https://w/s',
+      created_at: 't', expires_at: null, filename: 'x.md',
+    })
+    const url = await copyShareLink('/x.md', { clipboard: false })
+    expect(url).toBe('https://w/s')
+    expect(writeText).not.toHaveBeenCalled()
+  })
 })

@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CEF Fixture Editor</title>
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+
+      html, body {
+        width: 100%;
+        height: 100%;
+        background: Canvas;
+        color: CanvasText;
+        color-scheme: light dark;
+        font-family: system-ui, -apple-system, sans-serif;
+      }
+
+      body {
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+      }
+
+      #toolbar {
+        padding: 6px 10px;
+        font-size: 11px;
+        color: GrayText;
+        background: Canvas;
+        border-bottom: 1px solid ButtonFace;
+        user-select: none;
+        flex-shrink: 0;
+      }
+
+      #editor {
+        flex: 1;
+        width: 100%;
+        padding: 12px;
+        border: none;
+        outline: none;
+        resize: none;
+        background: Canvas;
+        color: CanvasText;
+        font-family: "SF Mono", ui-monospace, "Menlo", "Monaco", monospace;
+        font-size: 14px;
+        line-height: 1.6;
+        caret-color: AccentColor;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="toolbar">
+      CEF Fixture — Custom Editor Probe
+      <span id="status"></span>
+    </div>
+    <textarea id="editor" spellcheck="false" placeholder="(empty .cef file)"></textarea>
+
+    <script>
+      // ── Bridge-RPC sanity check ─────────────────────────────────────────
+      // window.notemd is injected by the host's protocol.rs bridge injection
+      // into every text/html asset served under plugin://. Calling request()
+      // proves the full fetch-RPC path (iframe → plugin:// /__rpc__ → Rust
+      // ui_rpc → host.toast) works when the editor is framed.
+      //
+      // We defer until after the first paint so the toast appears AFTER the
+      // editor renders (a visible ordering artifact helps manual probing).
+      function tryToast() {
+        if (typeof window.notemd !== 'undefined' && typeof window.notemd.request === 'function') {
+          window.notemd
+            .request('host.toast', { level: 'info', message: 'cef editor ready' })
+            .catch(function (e) { console.warn('[cef-fixture] toast failed:', e) })
+        } else {
+          // window.notemd not yet present (should not happen after bridge injection,
+          // but guard anyway so the fixture is harmless in a plain browser preview).
+          console.warn('[cef-fixture] window.notemd not available — bridge not injected?')
+        }
+      }
+
+      // ── Document channel (parent ↔ iframe postMessage) ──────────────────
+      var editor = document.getElementById('editor')
+      var status = document.getElementById('status')
+
+      // Parent (main-app) origin, captured from the open message so `change`
+      // messages target it explicitly instead of broadcasting with '*'. Real
+      // editors (base) MUST copy this pattern — never post document text to '*'.
+      var parentOrigin = null
+
+      // Receive the host's `custom_editor.open` message (sent by
+      // CustomEditorIframe.svelte once the iframe's onload fires).
+      window.addEventListener('message', function (event) {
+        var data = event.data
+        if (!data || typeof data !== 'object') return
+        if (data.type === 'custom_editor.open') {
+          parentOrigin = event.origin
+          // Populate the textarea with the file's current on-disk content.
+          editor.value = typeof data.content === 'string' ? data.content : ''
+          status.textContent = ' — loaded'
+          // Prove the bridge works — show a toast once content is in.
+          setTimeout(tryToast, 0)
+        }
+      })
+
+      // Propagate user edits back to the host as `change` messages.
+      // The host (CustomEditorIframe.svelte) calls setContent → marks dirty.
+      editor.addEventListener('input', function () {
+        if (parentOrigin === null) return // no open handshake yet → don't broadcast
+        parent.postMessage({ type: 'change', content: editor.value }, parentOrigin)
+        status.textContent = ' — modified'
+      })
+    </script>
+  </body>
+</html>

@@ -1,0 +1,9 @@
+# plugins-registry installs ISOLATED from the repo's root pnpm workspace (like
+# worker/): run `pnpm install --ignore-workspace` here so it gets its own
+# node_modules + lockfile. This file marks it as its own workspace root and
+# allowlists the native deps the vitest-pool-workers test harness needs to build
+# (workerd is the local Workers runtime; esbuild bundles the worker).
+allowBuilds:
+  esbuild: true
+  workerd: true
+  sharp: true

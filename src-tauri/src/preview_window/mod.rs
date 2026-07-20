@@ -1,5 +1,5 @@
 //! Backing store + commands for the single tabbed native "preview" window used
-//! by the git-history plugin. The main window computes each view's content
+//! by the git history view. The main window computes each view's content
 //! (a unified diff, or self-contained themed rich HTML) and calls
 //! `open_preview_tab`, which stashes the payload keyed by a tab id and ensures
 //! the one `preview` window exists. That window drains pending tabs via

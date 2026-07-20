@@ -337,7 +337,7 @@ async function persistShareDb(): Promise<void> {
 }
 
 /**
- * Replace the share records map (mdshare publishes/unpublishes the full
+ * Replace the share records map (share publish/unpublish rewrites the full
  * map in one shot). Applies the 200-cap + 30-day eviction policy before
  * persisting.
  */

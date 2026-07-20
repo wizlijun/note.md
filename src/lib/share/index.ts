@@ -1,9 +1,10 @@
 import { invoke } from '@tauri-apps/api/core'
 import { activeTab, saveActive } from '../tabs.svelte'
-import { getPluginScopedKey } from '../settings.svelte'
+import { getPluginScopedKey, settings } from '../settings.svelte'
 import { pushToast } from '../toast.svelte'
 import { isIOS } from '../platform.svelte'
 import { bakeShareHtml } from '../plugins/share-baker'
+import { computeActiveThemeId } from '../theme-loader'
 import { publishHtml, vaultRelativeSrc } from './publish'
 import { sotvaultStore, ensureVaultCopyForShare } from '../sotvault.svelte'
 import { isUnder } from '../sotvault-logic'
@@ -14,7 +15,7 @@ import { ShareError } from './types'
 import { t } from '../i18n/store.svelte'
 import type { Messages } from '../i18n/en'
 
-function getShareConfig(): { baseUrl: string; defaultExpiry: 'never'|'7d'|'30d'|'90d'; slugRandomSuffix: boolean } | null {
+export function getShareConfig(): { baseUrl: string; defaultExpiry: 'never'|'7d'|'30d'|'90d'; slugRandomSuffix: boolean } | null {
   const baseUrl = getPluginScopedKey('share.baseUrl') as string | undefined
   const apiKey = getPluginScopedKey('share.apiKey') as string | undefined
   if (!baseUrl || !apiKey) return null
@@ -113,10 +114,16 @@ export async function sharePublishCurrent(): Promise<void> {
       throw e
     }
 
-    const html = await bakeShareHtml(tab)
+    // Bake with the ACTIVE theme, not bakeShareHtml's 'default' fallback —
+    // same resolution as the CLI (settings.theme + prefers-color-scheme).
+    // globalThis.matchMedia exists in both the desktop and iOS webviews; the
+    // optional chain keeps this headless/test safe.
+    const systemDark = globalThis.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false
+    const themeId = computeActiveThemeId(settings.theme, systemDark)
+    // bakeShareHtml throws ShareError('too_large') itself when input/output
+    // exceeds 25 MB — the catch below localizes it.
+    const html = await bakeShareHtml(tab, themeId)
     if (!html) return reportError(new ShareError('empty_content'), t('share.action.share'))
-    if (new TextEncoder().encode(html).byteLength > 25 * 1024 * 1024)
-      return reportError(new ShareError('too_large'), t('share.action.share'))
 
     const { url, isUpdate } = await publishHtml({
       path: tab.filePath, filename: tab.title, html,
@@ -143,8 +150,10 @@ export async function sharePublishCurrent(): Promise<void> {
 
 export async function shareUnpublishCurrent(): Promise<void> {
   const tab = activeTab()
+  if (!tab?.filePath) return
   const cfg = getShareConfig()
-  if (!cfg || !tab?.filePath) return
+  // A deleted config with a lingering record must surface, not silently no-op.
+  if (!cfg) return reportError(new ShareError('not_configured'), t('share.action.unpublish'))
   try {
     await unpublish({ path: tab.filePath, baseUrl: cfg.baseUrl })
     pushToast({ level: 'success', message: t('share.unpublished') })

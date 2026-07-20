@@ -8,6 +8,7 @@
     collectMenuItems, evaluateEnabled, type CollectedItem,
   } from '../lib/plugins/menu-registry'
   import { pluginRuntime, dispatchPluginCommand } from '../lib/plugins/runtime.svelte'
+  import type { CommandId } from '../lib/commands'
   import { getPluginScopedAll, pluginScopedVersion } from '../lib/settings.svelte'
   import type { EnabledWhenContext } from '../lib/plugins/types'
   import { sotvaultStore } from '../lib/sotvault.svelte'
@@ -28,7 +29,13 @@
   }
   let ctx = $state<CtxState>({ open: false, x: 0, y: 0, items: [] })
 
-  let allTabContextItems = $derived(collectMenuItems(pluginRuntime.manifests).tabContext)
+  let allTabContextItems = $derived([
+    {
+      id: 'core:share-tab', pluginId: 'share', command: 'share',
+      label: t('share.tabShare'), enabledWhen: 'currentTab.hasContent',
+    } as CollectedItem,
+    ...collectMenuItems(pluginRuntime.manifests).tabContext,
+  ])
 
   function buildEwContext(tabId: string): EnabledWhenContext {
     const tab = tabs.find((t) => t.id === tabId)
@@ -76,6 +83,15 @@
   async function onCtxItemClick(item: CollectedItem, enabled: boolean) {
     if (!enabled) return
     closeCtxMenu()
+    if (item.id.startsWith('core:')) {
+      try {
+        const { dispatch } = await import('../lib/commands')
+        await dispatch(item.command as CommandId)
+      } catch (e) {
+        console.warn('[TabBar] context menu dispatch failed:', e)
+      }
+      return
+    }
     try {
       await dispatchPluginCommand(item.pluginId, item.command)
     } catch (e) {

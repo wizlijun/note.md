@@ -202,7 +202,9 @@ fn save_store(app: &AppHandle, s: &RecordStore) -> Result<(), String> {
 /// the manager's repo_path from the shared config — does not run there, so
 /// without this the manager is empty and `notemd share` wrongly reported
 /// `vault_required` despite a configured vault. None only when truly unconfigured.
-fn resolve_vault_root(app: &AppHandle) -> Option<PathBuf> {
+/// pub(crate): `plugin_runtime::ui_rpc`'s `host.vault.*` methods resolve the
+/// same root (generic over `R` so the test runtime works too).
+pub(crate) fn resolve_vault_root<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Option<PathBuf> {
     if let Some(mgr) = app.try_state::<Arc<crate::vault_sync::VaultSyncManager>>() {
         if let Ok(guard) = mgr.repo_path.lock() {
             if let Some(p) = guard.clone().filter(|s| !s.is_empty()) {

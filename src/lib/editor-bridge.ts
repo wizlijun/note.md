@@ -6,7 +6,6 @@ import { rendererRegistry } from './adapters/renderer-registry'
 import { spreadsheetFactory } from './adapters/spreadsheet-factory'
 import { frontmatterFactory } from './frontmatter-view'
 import { activeTab } from './tabs.svelte'
-import { isPluginEnabled } from './settings.svelte'
 import { analyticsPluginForEditor } from './insights/tracker.svelte'
 
 const platform = {
@@ -67,13 +66,11 @@ export async function mountRichEditor(
     onChange,
     changeDebounceMs: 200,
   })
-  if (isPluginEnabled('reading-insights')) {
-    const plugin = analyticsPluginForEditor()
-    instance.view.updateState(
-      instance.view.state.reconfigure({
-        plugins: instance.view.state.plugins.concat(plugin),
-      }),
-    )
-  }
+  const plugin = analyticsPluginForEditor()
+  instance.view.updateState(
+    instance.view.state.reconfigure({
+      plugins: instance.view.state.plugins.concat(plugin),
+    }),
+  )
   return instance
 }

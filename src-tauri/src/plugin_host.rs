@@ -61,6 +61,12 @@ pub struct PluginManifest {
     pub menus: Vec<MenuEntry>,
     #[serde(default)]
     pub context_menus: Vec<ContextMenuEntry>,
+    /// Custom-editor contributions (子项目④), passed through from v2 manifests by
+    /// `plugin_runtime::adapter` so the frontend can build its ext→editor
+    /// registry. Opaque here — the host never interprets it; it rides to the
+    /// frontend via `get_plugin_manifests`. Empty for v1 manifests.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub custom_editors: Vec<serde_json::Value>,
     #[serde(default)]
     pub settings: Option<SettingsBlock>,
     pub host_capabilities: Vec<String>,
@@ -68,6 +74,17 @@ pub struct PluginManifest {
     pub timeout_seconds: u64,
     #[serde(default)]
     pub cli: Vec<CliEntry>,
+    /// `Some(2)` when this manifest was adapted from a v2 manifest
+    /// (`plugin_runtime::adapter`) — the frontend must route execution through
+    /// `plugin_v2_execute`. `None` for genuine v1 manifests.
+    #[serde(default)]
+    pub manifest_version: Option<u32>,
+    /// `open_command → window_id` for v2 plugins whose window contributions
+    /// declare an `open_command` (`plugin_runtime::adapter`). The frontend routes
+    /// those commands to `plugin_v2_open_window` instead of `plugin_v2_execute`.
+    /// `None` for v1 manifests and v2 plugins with no openable windows.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub open_windows: Option<HashMap<String, String>>,
 }
 
 fn default_timeout() -> u64 { 30 }
@@ -273,9 +290,37 @@ pub fn init<R: Runtime>(app: &AppHandle<R>) {
     }
 }
 
+/// Merge the enabled v1 manifests with the adapted v2 manifests, deduping any
+/// v1 bundled plugin that an installed v2 plugin supersedes.
+///
+/// A v2 plugin `notemd.md2pdf` supersedes the v1 bundled `md2pdf` — hide the v1
+/// one so it doesn't produce duplicate menu / CLI entries (transitional until
+/// v1 retirement ④c). We build a set of suppressed v1 ids from the *name part*
+/// (after the last `.`) of every adapted v2 id, drop matching v1 manifests,
+/// then append the v2 ones. `adapted_v2_manifests()` is empty whenever the
+/// plugins_v2 flag is off, so flag-off behavior is byte-identical to before.
+fn merged_manifests() -> Vec<PluginManifest> {
+    let v1: Vec<PluginManifest> =
+        STATE.read().unwrap().enabled.values().map(|(m, _)| m.clone()).collect();
+    let v2 = crate::plugin_runtime::adapter::adapted_v2_manifests();
+    merge_dedup_v1_v2(v1, v2)
+}
+
+/// Pure merge: drop any v1 manifest whose id equals the *name part* (after the
+/// last `.`) of an installed v2 id, then append the v2 manifests. Extracted so
+/// the dedup logic is unit-testable without touching global STATE.
+fn merge_dedup_v1_v2(v1: Vec<PluginManifest>, v2: Vec<PluginManifest>) -> Vec<PluginManifest> {
+    let suppressed: std::collections::HashSet<&str> =
+        v2.iter().filter_map(|m| m.id.rsplit('.').next()).collect();
+    let mut out: Vec<PluginManifest> =
+        v1.into_iter().filter(|m| !suppressed.contains(m.id.as_str())).collect();
+    out.extend(v2);
+    out
+}
+
 #[tauri::command]
 pub fn get_plugin_manifests() -> Vec<PluginManifest> {
-    STATE.read().unwrap().enabled.values().map(|(m, _)| m.clone()).collect()
+    merged_manifests()
 }
 
 /// Returns *every* manifest discovered on disk, including disabled ones.
@@ -400,13 +445,35 @@ pub async fn run_plugin_binary(
     }
 }
 
+/// Pure decision helper: classify an unknown plugin_id (i.e. one that was NOT
+/// found in the v1 enabled map) to produce the right error message.
+/// `in_v2` is true when the id appears in `plugin_runtime::STATE`.
+/// Extracted so tests can validate the logic without touching global state.
+pub(crate) fn classify_unknown_plugin(id: &str, in_v2: bool) -> String {
+    if in_v2 {
+        format!("'{id}' is a v2 plugin — invoke it via plugin_v2_execute")
+    } else {
+        format!("unknown plugin: {id}")
+    }
+}
+
 #[tauri::command]
 pub async fn invoke_plugin(plugin_id: String, request_json: String) -> Result<InvokeResult, String> {
+    // Look up in v1 enabled map FIRST. Flag-off behavior is byte-identical to
+    // pre-① when v2 STATE is empty. Only when the id is absent from v1 AND
+    // present in v2 do we return the v2-specific hint.
     let (manifest, plugin_dir) = {
         let st = STATE.read().unwrap();
         match st.enabled.get(&plugin_id) {
             Some((m, d)) => (m.clone(), d.clone()),
-            None => return Err(format!("unknown plugin: {plugin_id}")),
+            None => {
+                let in_v2 = crate::plugin_runtime::STATE
+                    .read()
+                    .unwrap()
+                    .plugins
+                    .contains_key(&plugin_id);
+                return Err(classify_unknown_plugin(&plugin_id, in_v2));
+            }
         }
     };
     if matches!(manifest.kind, PluginKind::Builtin) {
@@ -465,11 +532,15 @@ pub struct LocatedMenuItem {
 
 /// Returns menu entries flattened across all loaded plugins, with ids encoded
 /// as `plugin:<id>:<command>`. Menu labels are resolved for `locale` (falling
-/// back to the manifest's English label per missing key).
+/// back to the manifest's English label per missing key). v2 plugins join the
+/// same loop in adapted v1 shape, so per-locale i18n resolution applies to
+/// them identically (their i18n block is passed through by the adapter).
 pub fn collect_top_menu_items(locale: &str) -> Vec<LocatedMenuItem> {
-    let st = STATE.read().unwrap();
+    // Shares `merged_manifests` so a v2 plugin superseding a v1 bundled one
+    // (e.g. notemd.md2pdf → md2pdf) doesn't produce duplicate menu items.
+    let manifests = merged_manifests();
     let mut out = Vec::new();
-    for (_, (m, _)) in st.enabled.iter() {
+    for m in manifests.iter() {
         for me in m.menus.iter() {
             let label = m
                 .i18n
@@ -655,17 +726,19 @@ mod cli_helpers_tests {
     }
 
     #[test]
-    fn share_manifest_parses_with_cli() {
+    fn bundled_md2pdf_manifest_parses_with_cli() {
+        // share 的 manifest 已随 core 化删除；用仍在磁盘上的 md2pdf 验证
+        // 真实 bundled manifest 的 CLI 解析。
         let mp = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("plugins/share/manifest.json");
+            .join("plugins/md2pdf/manifest.json");
         let bytes = std::fs::read(&mp).expect("read manifest");
         let m: PluginManifest = serde_json::from_slice(&bytes).expect("parse");
-        assert_eq!(m.id, "share");
+        assert_eq!(m.id, "md2pdf");
         assert_eq!(m.cli.len(), 1);
-        assert_eq!(m.cli[0].subcommand, "share");
-        assert!(m.cli[0].aliases.contains(&"--share".to_string()));
+        assert_eq!(m.cli[0].subcommand, "pdf");
+        assert!(m.cli[0].aliases.contains(&"--pdf".to_string()));
         assert!(m.cli[0].requires_tab_context);
-        assert_eq!(m.cli[0].flags.len(), 3);
+        assert_eq!(m.cli[0].flags.len(), 1);
         assert_eq!(m.cli[0].args.len(), 1);
         assert_eq!(m.cli[0].args[0].name, "file");
         assert_eq!(m.cli[0].args[0].ty, "path");
@@ -700,8 +773,9 @@ mod cli_helpers_tests {
             id: "share".into(), name: "Share".into(), version: "1.0.0".into(),
             description: None, kind: PluginKind::External, binary: Some("bin".into()),
             default_enabled: None, menus: vec![], context_menus: vec![],
-            settings: None, host_capabilities: vec![], timeout_seconds: 30,
-            i18n: HashMap::new(), cli: vec![],
+            custom_editors: vec![], settings: None, host_capabilities: vec![], timeout_seconds: 30,
+            i18n: HashMap::new(), cli: vec![], manifest_version: None,
+            open_windows: None,
         };
         assert_eq!(resolve_enabled(&manifest, &enabled_map), true);
     }
@@ -713,8 +787,9 @@ mod cli_helpers_tests {
             id: "openclaw-chat".into(), name: "OpenClaw Chat".into(), version: "0.1.0".into(),
             description: None, kind: PluginKind::Builtin, binary: None,
             default_enabled: Some(false), menus: vec![], context_menus: vec![],
-            settings: None, host_capabilities: vec![], timeout_seconds: 30,
-            i18n: HashMap::new(), cli: vec![],
+            custom_editors: vec![], settings: None, host_capabilities: vec![], timeout_seconds: 30,
+            i18n: HashMap::new(), cli: vec![], manifest_version: None,
+            open_windows: None,
         };
         assert_eq!(resolve_enabled(&manifest, &enabled_map), false);
     }
@@ -725,6 +800,69 @@ mod cli_helpers_tests {
         assert_eq!(is_plugin_enabled("never-existed-plugin"), false);
     }
 
+    /// Tests the pure decision helper: rejection only fires when the id is
+    /// actually in v2 STATE. We avoid mutating the global v2 STATE in tests
+    /// (which would race parallel test threads) by testing through the extracted
+    /// `classify_unknown_plugin` helper instead.
+    #[test]
+    fn invoke_plugin_rejects_v2_dotted_ids_via_classify_helper() {
+        // id present in v2 → v2-specific hint
+        let err = classify_unknown_plugin("notemd.md2pdf", true);
+        assert!(err.contains("plugin_v2_execute"), "err: {err}");
+        assert!(err.contains("notemd.md2pdf"), "err: {err}");
+
+        // id absent from both v1 and v2 → generic not-found
+        let err2 = classify_unknown_plugin("notemd.md2pdf", false);
+        assert!(err2.contains("unknown plugin"), "err2: {err2}");
+        assert!(!err2.contains("plugin_v2_execute"), "err2: {err2}");
+
+        // plain v1 id absent from v2 → generic not-found
+        let err3 = classify_unknown_plugin("share", false);
+        assert!(err3.contains("unknown plugin"), "err3: {err3}");
+    }
+
+    fn bare_manifest(id: &str, manifest_version: Option<u32>) -> PluginManifest {
+        PluginManifest {
+            id: id.into(), name: id.into(), version: "1.0.0".into(),
+            description: None, kind: PluginKind::External, binary: Some("bin".into()),
+            default_enabled: None, menus: vec![], context_menus: vec![],
+            custom_editors: vec![], settings: None, host_capabilities: vec![], timeout_seconds: 30,
+            i18n: HashMap::new(), cli: vec![], manifest_version,
+            open_windows: None,
+        }
+    }
+
+    /// FIX-2: an installed v2 plugin `notemd.md2pdf` supersedes the v1 bundled
+    /// `md2pdf` — the merged list keeps only the v2 one (no duplicate md2pdf).
+    #[test]
+    fn merge_dedup_suppresses_v1_superseded_by_installed_v2() {
+        let v1 = vec![bare_manifest("md2pdf", None), bare_manifest("share", None)];
+        let v2 = vec![bare_manifest("notemd.md2pdf", Some(2))];
+        let merged = merge_dedup_v1_v2(v1, v2);
+        // md2pdf appears exactly once, and it's the v2 one.
+        let md2pdf: Vec<&PluginManifest> = merged
+            .iter()
+            .filter(|m| m.id.rsplit('.').next() == Some("md2pdf"))
+            .collect();
+        assert_eq!(md2pdf.len(), 1, "expected exactly one md2pdf entry, got {:?}",
+            md2pdf.iter().map(|m| &m.id).collect::<Vec<_>>());
+        assert_eq!(md2pdf[0].id, "notemd.md2pdf");
+        assert_eq!(md2pdf[0].manifest_version, Some(2));
+        // Unrelated v1 plugin (share) is untouched.
+        assert!(merged.iter().any(|m| m.id == "share"));
+    }
+
+    /// With the flag off, `adapted_v2_manifests()` is empty → the merge is a
+    /// pass-through of the v1 list (byte-identical to pre-dedup behavior).
+    #[test]
+    fn merge_dedup_is_passthrough_when_no_v2() {
+        let v1 = vec![bare_manifest("md2pdf", None), bare_manifest("share", None)];
+        let merged = merge_dedup_v1_v2(v1.clone(), vec![]);
+        assert_eq!(merged.len(), 2);
+        assert!(merged.iter().any(|m| m.id == "md2pdf"));
+        assert!(merged.iter().any(|m| m.id == "share"));
+    }
+
     #[test]
     fn resolve_enabled_builtin_explicit_true_wins() {
         let mut enabled_map = HashMap::new();
@@ -733,8 +871,9 @@ mod cli_helpers_tests {
             id: "openclaw-chat".into(), name: "OpenClaw Chat".into(), version: "0.1.0".into(),
             description: None, kind: PluginKind::Builtin, binary: None,
             default_enabled: Some(false), menus: vec![], context_menus: vec![],
-            settings: None, host_capabilities: vec![], timeout_seconds: 30,
-            i18n: HashMap::new(), cli: vec![],
+            custom_editors: vec![], settings: None, host_capabilities: vec![], timeout_seconds: 30,
+            i18n: HashMap::new(), cli: vec![], manifest_version: None,
+            open_windows: None,
         };
         assert_eq!(resolve_enabled(&manifest, &enabled_map), true);
     }

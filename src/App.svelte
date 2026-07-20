@@ -12,7 +12,7 @@
   import EditorPane from './components/EditorPane.svelte'
   import EmptyState from './components/EmptyState.svelte'
   import ModeToggle from './components/ModeToggle.svelte'
-  import { activeTab, tabs, closeTab, openFile, newFile, isDirty, activate, saveActive } from './lib/tabs.svelte'
+  import { activeTab, tabs, closeTab, openFile, newFile, isDirty, activate } from './lib/tabs.svelte'
   import { createNewBase } from './lib/base/create'
   import { loadSettings, settings, removeRecentFile } from './lib/settings.svelte'
   import { loadLocale, t, i18n } from './lib/i18n/store.svelte'
@@ -27,21 +27,19 @@
   import Toast from './components/Toast.svelte'
   import FindReplace from './components/FindReplace.svelte'
   import { openFind, openFindReplace } from './lib/find-replace.svelte'
-  import { invokePlugin } from './lib/plugins/host'
+  import { invokePlugin, buildContext, type TabSnapshot } from './lib/plugins/host'
   import { applyActions, configureActionHandlers } from './lib/plugins/action-handlers'
-  import { bakeShareHtml } from './lib/plugins/share-baker'
-  import { activeTheme } from './lib/active-theme.svelte'
   import { renderTabAsInlineBody, buildPdfTitle } from './lib/plugins/host-render-html'
   import { renderFilenameTemplate } from './lib/plugins/prompt'
   import {
-    collectMenuItems, evaluateEnabled, parsePluginMenuId,
+    collectMenuItems, evaluateEnabled, parsePluginMenuId, CORE_MENU_ENABLED_ITEMS,
     type CollectedItem, type CollectedItems,
   } from './lib/plugins/menu-registry'
   import { pluginRuntime, setPluginDispatcher } from './lib/plugins/runtime.svelte'
   import { initActivePluginIds } from './lib/plugins/registry'
   import { getPluginScopedAll, pluginScopedVersion } from './lib/settings.svelte'
   import { pushToast } from './lib/toast.svelte'
-  import type { PluginManifest, EnabledWhenContext } from './lib/plugins/types'
+  import type { PluginManifest, EnabledWhenContext, ToastLevel } from './lib/plugins/types'
   import { uiState, openSettings } from './lib/ui-state.svelte'
   import MobileToolbar from './components/MobileToolbar.svelte'
   import DrawerNav from './components/DrawerNav.svelte'
@@ -55,7 +53,7 @@
   import { loadOutlineDirs } from './lib/outline/dirs.svelte'
   import { platform, isIOS } from './lib/platform.svelte'
   import { vaultStore, refreshStatus, syncNow, attachStatusListener } from './lib/vault.svelte'
-  import { syncCurrentToVault, canSyncActive, isTrackedVaultFile, refreshSotvault, sotvaultStore, setVaultRootChangedHandler, initSotvaultNoteConflictToast } from './lib/sotvault.svelte'
+  import { canSyncActive, isTrackedVaultFile, refreshSotvault, sotvaultStore, setVaultRootChangedHandler, initSotvaultNoteConflictToast } from './lib/sotvault.svelte'
   import { installRecentsSync, refreshRecentMenu, mergedRecents } from './lib/recent-sync.svelte'
   import { maybeInstallTracker, shutdownTracker } from './lib/insights/tracker.svelte'
   import { ensureWikilinkBlocklist } from './lib/wikilink/blocklist-io.svelte'
@@ -173,6 +171,25 @@
         console.warn('[App] tray-today-note failed:', e)
         pushToast({ level: 'error', message: String(e) })
       }
+    })
+
+    // v2 plugin → frontend toast bridge (host_api.rs emits "plugin-toast").
+    const unlistenPluginToast = listen<{ level: ToastLevel; message: string; detail?: string }>(
+      'plugin-toast',
+      (e) => { pushToast(e.payload) },
+    )
+
+    // Market install/uninstall/enable-toggle (子项目③) reconciles the runtime and
+    // emits `plugins-changed`. Re-fetch manifests so the frontend menu-model +
+    // dispatch data reflect the new installed/enabled set. `collectedItems` is
+    // derived from `pluginRuntime.manifests`, so this reactively updates the app
+    // menu bar, tab context menu, and settings tabs. NOTE: the native macOS menu
+    // is built once at setup — a *newly installed* plugin's menu item may need a
+    // restart to appear; enable/disable of already-present items reflects here.
+    const unlistenPluginsChanged = listen('plugins-changed', async () => {
+      try {
+        pluginRuntime.manifests = await invoke<PluginManifest[]>('get_plugin_manifests')
+      } catch (e) { console.warn('[App] plugins-changed refresh:', e) }
     })
 
     invoke<string[]>('drain_pending_files').then(async (paths) => {
@@ -349,16 +366,27 @@
           await toggleSideView(pluginId)
           return
         }
-        if (pluginId === 'sotvault') {
-          if (command === 'sync-to-vault') await syncCurrentToVault()
-          return
-        }
         if (pluginId === 'roam-import') {
           if (command === 'open') await invoke('show_roam_import_window')
           return
         }
         if (pluginId === 'base') {
           if (command === 'create') await createNewBase()
+          return
+        }
+        // Custom-editor fixture: "New .cef fixture" → pick save path → create
+        // empty file → openFile (routes via custom-editor registry → iframe tab).
+        if (pluginId === 'notemd.cef-fixture') {
+          if (command === 'create') {
+            try {
+              const { pickSaveFile } = await import('./lib/dialogs')
+              const { writeTextFile } = await import('@tauri-apps/plugin-fs')
+              const path = await pickSaveFile('untitled.cef')
+              if (!path) return
+              await writeTextFile(path, '')
+              await openFile(path)
+            } catch (e) { showError(String(e)) }
+          }
           return
         }
         const m = manifestById[pluginId]
@@ -374,24 +402,6 @@
           isDirty: tab ? tab.currentContent !== tab.initialContent : false,
           isUntitled: !tab?.filePath,
           content: tab?.currentContent ?? '',
-          src: null as string | null,
-        }
-
-        // Share's publish must vault-home an outside file first — the single
-        // shared pre-step, identical to the CLI and iOS paths — so the plugin
-        // uploads the vault copy's src and other machines resolve it under vault.
-        if (m.id === 'share' && command === 'publish' && snap.path) {
-          try {
-            const { prepareShareSrc } = await import('./lib/share')
-            snap.src = await prepareShareSrc(snap.path, saveActive)
-          } catch (e) {
-            const { ShareError } = await import('./lib/share/types')
-            const msg = e instanceof ShareError && e.kind === 'vault_required'
-              ? t('share.err.vault_required')
-              : t('share.internalError', { name: m.name })
-            pushToast({ level: 'error', message: msg, detail: e instanceof Error ? e.message : String(e) })
-            return
-          }
         }
 
         // If the menu item declares a save-dialog prompt, ask the user where
@@ -407,40 +417,63 @@
             : `${picked}.pdf`
         }
 
+        const htmlBaker = async (snapshot: TabSnapshot) => {
+          const t = tabs.find((tab) => tab.filePath === snapshot.path)
+          if (!t) throw new Error('renderer.html: no matching open tab')
+          // Image tabs have no HTML body to render (defensive — no surviving
+          // renderer.html plugin targets image tabs).
+          if (t.kind === 'image') return ''
+          // Plugins (md2pdf, future) take just the inline body and wrap
+          // it themselves.
+          return renderTabAsInlineBody(t)
+        }
+
+        if (m.manifest_version === 2) {
+          // A command that maps to a plugin window opens that window instead of
+          // executing on the process runtime (spec §7.2 — pure-UI plugins).
+          const openWin = m.open_windows?.[command]
+          if (openWin) {
+            try {
+              await invoke('plugin_v2_open_window', { pluginId: m.id, windowId: openWin })
+            } catch (e) {
+              pushToast({
+                level: 'error',
+                message: t('plugins.internalError', { name: m.name }),
+                detail: String(e),
+              })
+            }
+            return
+          }
+          // v2: same context shape v1 plugins see (rendered_html baked in when
+          // the manifest declares renderer.html, plus output_path), but the
+          // command executes on the resident runtime. v2 plugins do not return
+          // actions — toasts arrive through the plugin-toast event listener.
+          try {
+            const { context } = await buildContext(m, snap, { htmlBaker, outputPath })
+            await invoke('plugin_v2_execute', { pluginId: m.id, command, context })
+          } catch (e) {
+            pushToast({
+              level: 'error',
+              message: t('plugins.internalError', { name: m.name }),
+              detail: String(e),
+            })
+          }
+          return
+        }
+
         let result
         try {
           result = await invokePlugin(m, command, snap, {
             settingsReader: (id) => getPluginScopedAll(id),
-            htmlBaker: async (snapshot) => {
-              const t = tabs.find((tab) => tab.filePath === snapshot.path)
-              if (!t) throw new Error('renderer.html: no matching open tab')
-              // Image tabs don't get rendered to HTML — the share plugin's Rust
-              // side branches on file extension and uploads bytes directly.
-              if (t.kind === 'image') return ''
-              // share has its own wrapping (theme CSS, viewport meta, header/footer).
-              // Other plugins (md2pdf, future) take just the inline body and wrap
-              // it themselves.
-              if (m.id === 'share') return bakeShareHtml(t, activeTheme.id)
-              return renderTabAsInlineBody(t)
-            },
+            htmlBaker,
             outputPath,
           })
         } catch (e) {
-          const msg = e instanceof Error ? e.message : String(e)
-          const tooLarge = /^share_too_large:(\d+)$/.exec(msg)
-          if (tooLarge) {
-            const mb = (Number(tooLarge[1]) / 1024 / 1024).toFixed(1)
-            pushToast({
-              level: 'error',
-              message: t('share.docTooLarge', { name: m.name, mb }),
-            })
-          } else {
-            pushToast({
-              level: 'error',
-              message: t('share.internalError', { name: m.name }),
-              detail: msg,
-            })
-          }
+          pushToast({
+            level: 'error',
+            message: t('plugins.internalError', { name: m.name }),
+            detail: e instanceof Error ? e.message : String(e),
+          })
           return
         }
         if (result.ok && result.response) {
@@ -588,8 +621,9 @@
           break
         }
         default:
-          // Fall back to the central command dispatcher so iOS-port commands
-          // (share, copy-share-link, etc.) still work from the menu.
+          // Central command dispatcher: the PRIMARY path for all core menu ids
+          // (share/unshare/copy-share-link, sync-to-vault, the three side-panel
+          // toggles) plus the iOS-port commands.
           await dispatch(id as CommandId)
           break
       }
@@ -625,6 +659,8 @@
       unlistenOpenPath.then((fn) => fn())
       unlistenOpenRemoteBuffer.then((fn) => fn())
       unlistenTodayNote.then((fn) => fn())
+      unlistenPluginToast.then((fn) => fn())
+      unlistenPluginsChanged.then((fn) => fn())
       unlistenDeepLink.then((fn) => fn())
       cleanupRecents?.()
       setVaultRootChangedHandler(null)
@@ -698,6 +734,7 @@
       ...collectedItems.window,
       ...collectedItems.help,
       ...collectedItems.plugins,
+      ...CORE_MENU_ENABLED_ITEMS,
     ]
 
     for (const item of allItems) {

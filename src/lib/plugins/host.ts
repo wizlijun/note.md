@@ -10,8 +10,6 @@ export interface TabSnapshot {
   isDirty: boolean
   isUntitled: boolean
   content: string
-  /** Vault-relative share src, pre-computed by the host share pre-step. */
-  src?: string | null
 }
 
 export interface BuildContextOpts {
@@ -40,7 +38,6 @@ export async function buildContext(
       title: tab.title,
       is_dirty: tab.isDirty,
       is_untitled: tab.isUntitled,
-      src: tab.src ?? null,
     },
   }
   if (manifest.host_capabilities.includes('renderer.raw')) {

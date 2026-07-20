@@ -26,6 +26,8 @@ pub mod plugin_host;
 #[path = "plugin_host_ios.rs"]
 pub mod plugin_host;
 #[cfg(not(target_os = "ios"))]
+pub mod plugin_runtime;
+#[cfg(not(target_os = "ios"))]
 pub mod themes;
 #[cfg(not(target_os = "ios"))]
 pub mod vault_sync;
@@ -406,6 +408,43 @@ fn show_insights_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
         let _ = w.unminimize();
         let _ = w.set_focus();
     }
+}
+
+/// View ▸ Plugin Market… (子项目③). Standalone window cloned from the insights
+/// window: it bootstraps its own webview state and drives the market commands
+/// (index / preview / install / uninstall / set_enabled) + capability consent.
+fn show_plugin_market_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
+    use tauri::WebviewUrl;
+    let win = app.get_webview_window("plugin-market").or_else(|| {
+        tauri::WebviewWindowBuilder::new(
+            app,
+            "plugin-market",
+            WebviewUrl::App("plugin-market.html".into()),
+        )
+        .title("Plugin Market")
+        .inner_size(900.0, 640.0)
+        .min_inner_size(520.0, 360.0)
+        .resizable(true)
+        .decorations(true)
+        .visible(false)
+        .build()
+        .map_err(|e| eprintln!("[plugin-market] window build failed: {e}"))
+        .ok()
+    });
+    if let Some(w) = win {
+        let _ = w.show();
+        let _ = w.unminimize();
+        let _ = w.set_focus();
+    }
+}
+
+/// Frontend entry point for the Plugin Market window (the retired Plugins
+/// settings tab's "Open Plugin Market…" button invokes this). Mirrors the
+/// View ▸ Plugin Market menu path.
+#[cfg(not(target_os = "ios"))]
+#[tauri::command]
+fn open_plugin_market_window(app: tauri::AppHandle) {
+    show_plugin_market_window(&app);
 }
 
 /// File ▸ Import from Roam Research… (roam-import builtin plugin). Frontend
@@ -863,6 +902,22 @@ pub fn run() {
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init());
+    // plugin:// scheme — plugin UI static assets + fetch-RPC bridge (spec §7.1).
+    // Registration cannot be flag-conditional; the handler answers 404 for
+    // flag-off/unknown ids, so v2-off behavior is unchanged.
+    //
+    // Asynchronous registration + a dedicated thread per request is REQUIRED:
+    // WKWebView delivers scheme requests on the main thread, and the RPC branch
+    // blocks on native dialogs (host.dialog.*) that themselves need the main
+    // run loop — answering inline would deadlock. From the spawned thread the
+    // blocking dialog calls are safe (they hop to the then-free main thread).
+    #[cfg(not(target_os = "ios"))]
+    let app = app.register_asynchronous_uri_scheme_protocol("plugin", |ctx, request, responder| {
+        let app = ctx.app_handle().clone();
+        std::thread::spawn(move || {
+            responder.respond(crate::plugin_runtime::protocol::handle(&app, request));
+        });
+    });
     let app = app
         .invoke_handler({
             #[cfg(not(target_os = "ios"))]
@@ -875,6 +930,14 @@ pub fn run() {
                 plugin_host::get_all_plugin_manifests,
                 plugin_host::plugin_is_enabled,
                 plugin_host::invoke_plugin,
+                plugin_runtime::commands::plugin_v2_execute,
+                plugin_runtime::commands::plugin_v2_open_window,
+                plugin_runtime::commands::plugin_market_index,
+                plugin_runtime::commands::plugin_market_preview,
+                plugin_runtime::commands::plugin_market_install,
+                plugin_runtime::commands::plugin_market_uninstall,
+                plugin_runtime::commands::plugin_market_set_enabled,
+                plugin_runtime::commands::plugin_market_installed,
                 cli::state::cli_payload,
                 cli::state::cli_finish,
                 cli::install::cli_install_status,
@@ -929,6 +992,7 @@ pub fn run() {
                 crate::openclaw::commands::openclaw_reject_pending,
                 crate::openclaw::commands::openclaw_upload_attachment,
                 show_roam_import_window,
+                open_plugin_market_window,
                 editor_show_and_open_path,
                 editor_open_remote_buffer,
                 update_recent_menu,
@@ -1006,6 +1070,8 @@ pub fn run() {
 
             // plugin_host MUST run before any code that calls is_plugin_enabled.
             plugin_host::init(&app.handle());
+            #[cfg(not(target_os = "ios"))]
+            plugin_runtime::init(&app.handle());
 
             let openclaw_state = if plugin_host::is_plugin_enabled("openclaw-chat") {
                 crate::openclaw::init_state(&app.handle())
@@ -1040,6 +1106,10 @@ pub fn run() {
                     }
                     if event.id().0.as_str() == "open-insights" {
                         show_insights_window(app);
+                        return;
+                    }
+                    if event.id().0.as_str() == "open-plugin-market" {
+                        show_plugin_market_window(app);
                         return;
                     }
                     let _ = app.emit("menu-event", event.id().0.as_str());
@@ -1290,6 +1360,14 @@ fn menu_label(locale: &str, key: &str) -> String {
         "edit.findReplace" => ("Find and Replace…", "查找和替换…", "検索と置換…", "Suchen und Ersetzen…"),
         "view.toggleMode" => ("Toggle Source / Rich", "切换源码 / 富文本", "ソース / リッチを切り替え", "Quelltext / Rich umschalten"),
         "view.insights" => ("Reading Insights…", "阅读洞察数据…", "リーディングインサイト…", "Leseeinblicke…"),
+        "plugins.market" => ("Plugin Market…", "插件市场…", "プラグインマーケット…", "Plugin-Markt…"),
+        "file.syncToVault" => ("Sync to Vault…", "同步到 Vault…", "Vault に同期…", "Mit Vault synchronisieren…"),
+        "file.share" => ("Share Current File…", "分享当前文件…", "現在のファイルを共有…", "Aktuelle Datei teilen…"),
+        "file.unshare" => ("Unshare Current File…", "取消分享当前文件…", "現在のファイルの共有を解除…", "Freigabe der aktuellen Datei aufheben…"),
+        "file.copyShareLink" => ("Copy Share Link", "复制分享链接", "共有リンクをコピー", "Freigabe-Link kopieren"),
+        "view.folderView" => ("Folder View", "文件夹视图", "フォルダビュー", "Ordneransicht"),
+        "view.sidecarNotes" => ("Sidecar Notes View", "伴生笔记视图", "サイドカーノートビュー", "Begleitnotizen-Ansicht"),
+        "view.history" => ("History View", "历史视图", "履歴ビュー", "Verlaufsansicht"),
         "window.zoomIn" => ("Zoom In", "放大", "拡大", "Vergrößern"),
         "window.zoomOut" => ("Zoom Out", "缩小", "縮小", "Verkleinern"),
         "window.actualSize" => ("Actual Size", "实际大小", "実際のサイズ", "Originalgröße"),
@@ -1355,7 +1433,8 @@ fn menu_label(locale: &str, key: &str) -> String {
 /// Best-effort read of the persisted UI locale from the store file so the
 /// native menu can be built in the right language at startup. Falls back to
 /// English if the file is missing/unreadable or the value is unknown.
-fn read_saved_locale<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> String {
+/// pub(crate): plugin_runtime::commands reuses it for v2 InitializeParams.
+pub(crate) fn read_saved_locale<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> String {
     use tauri::Manager;
     let path = match app.path().app_config_dir() {
         Ok(dir) => dir.join("settings.json"),
@@ -1484,16 +1563,31 @@ fn build_tray_menu<R: tauri::Runtime>(
 /// to its placeholder; JS re-pushes the list via `refreshRecentMenu()` after.
 #[tauri::command]
 fn set_menu_locale(app: tauri::AppHandle, locale: String) -> Result<(), String> {
-    let plugin_items = plugin_host::collect_top_menu_items(&locale);
+    apply_menu_locale(&app, &locale)
+}
+
+/// The menu/tray rebuild core: rebuild both in `locale`, store the fresh submenu
+/// handles in app state, and apply them. `collect_top_menu_items` includes the
+/// adapted v2 plugin manifests from `plugin_runtime::STATE`, so a plugin that was
+/// just installed/uninstalled/toggled contributes (or stops contributing) its
+/// native menu item without a restart.
+///
+/// **Thread safety**: Tauri 2's menu APIs (`MenuItemBuilder::build`,
+/// `AppHandle::set_menu`) must run on the main thread on macOS. The sync
+/// `set_menu_locale` command already runs there (Tauri dispatches sync commands
+/// on the main thread), but the async market commands do NOT — they call
+/// [`rebuild_menu`], which hops onto the main thread via `run_on_main_thread`.
+fn apply_menu_locale(app: &tauri::AppHandle, locale: &str) -> Result<(), String> {
+    let plugin_items = plugin_host::collect_top_menu_items(locale);
     let (menu, recent_submenu) =
-        build_menu(&app, &plugin_items, &locale).map_err(|e| e.to_string())?;
+        build_menu(app, &plugin_items, locale).map_err(|e| e.to_string())?;
     *app.state::<RecentMenu>().0.lock().unwrap() = Some(recent_submenu);
     app.set_menu(menu).map_err(|e| e.to_string())?;
 
     // Rebuild the tray dropdown too (event handling lives on the TrayIcon).
     if let Some(tray) = app.tray_by_id("main") {
         let (tray_menu, sync_repo_item, status_item, sync_now_item) =
-            build_tray_menu(&app, &locale).map_err(|e| e.to_string())?;
+            build_tray_menu(app, locale).map_err(|e| e.to_string())?;
         *app.state::<TrayRepoItem>().0.lock().unwrap() = Some(sync_repo_item);
         *app.state::<TrayStatusItem>().0.lock().unwrap() = Some(status_item);
         *app.state::<TraySyncNowItem>().0.lock().unwrap() = Some(sync_now_item);
@@ -1501,8 +1595,27 @@ fn set_menu_locale(app: tauri::AppHandle, locale: String) -> Result<(), String> 
     }
     // Re-apply live status text/icon after the menu handles were replaced.
     #[cfg(not(target_os = "ios"))]
-    refresh_tray_status(&app);
+    refresh_tray_status(app);
     Ok(())
+}
+
+/// Rebuild the native menu after the installed-plugin set changed (install /
+/// uninstall / enable-disable). Reads the saved locale, then rebuilds the menu
+/// on the main thread. Safe to call from an async Tauri command (which runs off
+/// the main thread) — it dispatches the rebuild via `run_on_main_thread`. Any
+/// rebuild error is logged, not propagated, so a menu hiccup never fails the
+/// install the user just completed.
+#[cfg(not(target_os = "ios"))]
+pub(crate) fn rebuild_menu(app: &tauri::AppHandle) {
+    let locale = read_saved_locale(app);
+    let handle = app.clone();
+    if let Err(e) = app.run_on_main_thread(move || {
+        if let Err(err) = apply_menu_locale(&handle, &locale) {
+            eprintln!("[plugin_runtime] menu rebuild failed: {err}");
+        }
+    }) {
+        eprintln!("[plugin_runtime] could not dispatch menu rebuild to main thread: {e}");
+    }
 }
 
 fn build_menu<R: tauri::Runtime>(
@@ -1568,7 +1681,16 @@ fn build_menu<R: tauri::Runtime>(
             &MenuItemBuilder::with_id("print", menu_label(locale, "file.print"))
                 .accelerator("Cmd+P")
                 .build(app)?,
-        );
+        )
+        .separator()
+        .item(&MenuItemBuilder::with_id("sync-to-vault", menu_label(locale, "file.syncToVault")).build(app)?)
+        .item(
+            &MenuItemBuilder::with_id("share", menu_label(locale, "file.share"))
+                .accelerator("Cmd+Shift+L")
+                .build(app)?,
+        )
+        .item(&MenuItemBuilder::with_id("unshare", menu_label(locale, "file.unshare")).build(app)?)
+        .item(&MenuItemBuilder::with_id("copy-share-link", menu_label(locale, "file.copyShareLink")).build(app)?);
     // File plugin items: those tagged `submenu: "import"` are grouped under a
     // nested File ▸ Import submenu; the rest stay flat in the File menu.
     let file_items: Vec<_> = plugin_items.iter().filter(|p| p.location == "file").collect();
@@ -1615,7 +1737,11 @@ fn build_menu<R: tauri::Runtime>(
         )
         .item(&PredefinedMenuItem::fullscreen(app, None)?)
         .separator()
-        .item(&MenuItemBuilder::with_id("open-insights", menu_label(locale, "view.insights")).build(app)?);
+        .item(&MenuItemBuilder::with_id("open-insights", menu_label(locale, "view.insights")).build(app)?)
+        .separator()
+        .item(&MenuItemBuilder::with_id("toggle-folder-view", menu_label(locale, "view.folderView")).accelerator("Cmd+Shift+E").build(app)?)
+        .item(&MenuItemBuilder::with_id("toggle-sidecar-notes", menu_label(locale, "view.sidecarNotes")).accelerator("Cmd+Shift+O").build(app)?)
+        .item(&MenuItemBuilder::with_id("toggle-git-history", menu_label(locale, "view.history")).accelerator("Cmd+Shift+Y").build(app)?);
     for it in plugin_items.iter().filter(|p| p.location == "view") {
         let mut b = MenuItemBuilder::with_id(&it.id, &it.label);
         if let Some(s) = &it.shortcut { b = b.accelerator(s); }
@@ -1649,26 +1775,33 @@ fn build_menu<R: tauri::Runtime>(
     }
     let help_menu: Submenu<R> = help_b.build()?;
 
-    let plugins_in_plugins: Vec<_> = plugin_items.iter().filter(|p| p.location == "plugins").collect();
-    let plugins_menu: Option<Submenu<R>> = if !plugins_in_plugins.is_empty() {
-        let mut b = SubmenuBuilder::new(app, menu_label(locale, "menu.plugins"));
-        for it in plugins_in_plugins {
-            let mut mb = MenuItemBuilder::with_id(&it.id, &it.label);
-            if let Some(s) = &it.shortcut { mb = mb.accelerator(s); }
-            b = b.item(&mb.build(app)?);
+    // The Plugins menu is always present: its first item, "Plugin Market…",
+    // is the entry point to browse / install / update / uninstall plugins
+    // (opens the standalone market window). Plugin-contributed `location:
+    // "plugins"` items follow after a separator.
+    let plugins_menu: Submenu<R> = {
+        let mut b = SubmenuBuilder::new(app, menu_label(locale, "menu.plugins")).item(
+            &MenuItemBuilder::with_id("open-plugin-market", menu_label(locale, "plugins.market"))
+                .build(app)?,
+        );
+        let contributed: Vec<_> = plugin_items.iter().filter(|p| p.location == "plugins").collect();
+        if !contributed.is_empty() {
+            b = b.separator();
+            for it in contributed {
+                let mut mb = MenuItemBuilder::with_id(&it.id, &it.label);
+                if let Some(s) = &it.shortcut { mb = mb.accelerator(s); }
+                b = b.item(&mb.build(app)?);
+            }
         }
-        Some(b.build()?)
-    } else {
-        None
+        b.build()?
     };
 
     // Suppress unused warning when WindowEvent isn't matched in run loop above
     let _ = std::any::type_name::<WindowEvent>();
 
-    let mut top = MenuBuilder::new(app);
-    top = top.items(&[&app_menu, &file_menu, &edit_menu, &view_menu]);
-    if let Some(pm) = &plugins_menu { top = top.item(pm); }
-    let menu = top.items(&[&window_menu, &help_menu]).build()?;
+    let menu = MenuBuilder::new(app)
+        .items(&[&app_menu, &file_menu, &edit_menu, &view_menu, &plugins_menu, &window_menu, &help_menu])
+        .build()?;
     Ok((menu, recent_menu))
 }
 

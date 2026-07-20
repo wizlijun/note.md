@@ -1,0 +1,16 @@
+{
+  "manifest_version": 2,
+  "id": "notemd.pos-log",
+  "name": "Position Log",
+  "version": "1.0.0",
+  "kind": "native",
+  "engines": { "notemd": ">=6.716.7" },
+  "description": "Log your location to the vault: appends country-province-city + POI to pos/YYYY-MM-DD-pos.md whenever the address changes (every 30 min)",
+  "binary": {
+    "aarch64-apple-darwin": "bin/notemd-pos-log",
+    "x86_64-apple-darwin": "bin/notemd-pos-log"
+  },
+  "activation": { "events": ["onStartupFinished"] },
+  "capabilities": ["vault.read", "vault.write", "toast"],
+  "request_timeout_seconds": 30
+}

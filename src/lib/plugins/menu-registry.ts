@@ -3,7 +3,7 @@ import { evaluateEnabledWhen } from './enabled-when'
 import { pluginMenuLabel, pluginContextMenuLabel } from './plugin-i18n'
 
 export interface CollectedItem {
-  id: string                    // 'plugin:<pluginId>:<command>'
+  id: string                    // 'plugin:<pluginId>:<command>'；core 化项为裸 id（如 'sync-to-vault'）
   pluginId: string
   command: string
   label: string
@@ -60,6 +60,17 @@ export function collectMenuItems(manifests: PluginManifest[]): CollectedItems {
   }
   return out
 }
+
+/** Core-ized（原插件）菜单项的 enabled_when 表——App.svelte 的 enabled-sync
+ *  effect 将它们与插件项同样对待（表达式与原 manifest 逐字一致）。
+ *  始终可用的核心项（三个 view toggle 中除 git-history 外）不需要出现在这里。 */
+export const CORE_MENU_ENABLED_ITEMS: CollectedItem[] = [
+  { id: 'sync-to-vault', pluginId: 'sotvault', command: 'sync-to-vault', label: '', enabledWhen: 'currentTab.canSyncToVault' },
+  { id: 'share', pluginId: 'share', command: 'share', label: '', enabledWhen: 'currentTab.hasContent' },
+  { id: 'unshare', pluginId: 'share', command: 'unshare', label: '', enabledWhen: 'settings["share.records"][currentTab.path]' },
+  { id: 'copy-share-link', pluginId: 'share', command: 'copy-share-link', label: '', enabledWhen: 'settings["share.records"][currentTab.path]' },
+  { id: 'toggle-git-history', pluginId: 'git-history', command: 'toggle', label: '', enabledWhen: 'currentTab.isInVault' },
+]
 
 export function evaluateEnabled(item: CollectedItem, ctx: EnabledWhenContext): boolean {
   if (!item.enabledWhen) return true

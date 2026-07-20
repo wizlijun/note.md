@@ -160,8 +160,8 @@ Crashed(3) → Disabled(crash-loop) + 市场窗口徽标提示
 | `host.vault.read/write/list/stat` | `vault.read` / `vault.write` | 路径规范化后限定 vault 根内，越界返回 error；这是 roam-import/exlibris/base 的主通道 |
 | `host.renderer.html { path? }` | `renderer.html` | 宿主按当前主题渲染 tab/文件为 HTML（md2pdf 用；v1 的推模式改为拉模式） |
 | `host.editor.events.subscribe { types }` | `editor.events` | 订阅后经 `editor.event` 推送 |
-| `host.window.open/close/focus { window_id }` | 免授权（限自身 contributes.windows） | |
-| `host.ui.post { surface_id, payload }` | 免授权（限自身 surface） | 向自己的窗口/编辑器 iframe 推消息 |
+| `host.window.open/close/focus { window_id }` | 免授权（限自身 contributes.windows）（②b/未来：host_api 尚未实现该方法组） | |
+| `host.ui.post { surface_id, payload }` | `ui`（限自身 surface；与 §20 一致——实现要求 `ui` capability，未授权返回 `-32001`） | 向自己的窗口/编辑器 iframe 推消息 |
 
 **边界的严谨声明**：native kind 下，capability 对**宿主中转的 API 强执法**；但插件进程自身直连 fs/net 无法被宿主拦截。本期信任模型 = 签名保证来源（仅官方签名可安装）+ capability 约束宿主面。真沙箱（wasm kind 或 OS 级）是第三方开放时的前置项，本期明确不做、不假装有。
 
@@ -240,7 +240,7 @@ window.notemd = {
 |---|---|
 | sotvault | 删 manifest；File 菜单项 + i18n 迁 core（`en.ts` 系扁平键）；`syncCurrentToVault` 路由改 core 菜单直连 |
 | outline-notes / folder-view / git-history | 删 manifest；View 菜单项迁 core；`registerBuiltinSideViews` 改为 core 侧栏的正式注册（不再是"插件的硬编码"，而是 core 的正当代码）；视图开关状态存储不变 |
-| share | 删 manifest + 删 bin；**mdshare crate 编译进 src-tauri**（依赖仅 ureq/serde/time/rand）；菜单/右键/设置页/CLI `share` 全部内化；`share_db.json` 与 vault-homing 前置保持现状（已是 core 语义） |
+| share | 删 manifest + 删 bin；**桌面/CLI 切换到 `src/lib/share` 既有 TS 实现（与 iOS 同源），mdshare crate、二进制与 build:mdshare 发布步骤整体退役**（实施勘查修订，优于原"编译进 src-tauri"方案：消除 Rust/TS 双实现）；菜单/右键/设置页/CLI `share` 全部内化，CLI 保留旧 `ok/data` JSON 信封与 exit-4 失败契约；`share_db.json` 与 vault-homing 前置保持现状（已是 core 语义） |
 | reading-insights | 删 manifest；insights 窗口转正为 core 窗口；CLI `report` 内化；`available_when: vaultConfigured` 语义移入 core 菜单判定 |
 
 统一动作：这 6 个退出 `plugins.enabled` 判定与插件设置页；`get_all_plugin_manifests` 等接口不再返回它们；用户不可停用（菜单项的 enabled_when 继续按上下文置灰）。
@@ -302,3 +302,131 @@ window.notemd = {
 2. **iframe 编辑器的体验风险**（焦点/快捷键/滚动与 tab 系统的协同）——base 迁移前先用 fixture 编辑器做穿刺验证。
 3. **旧 one-shot 与新运行时并存期**——①〜③ 期间 md2pdf 新旧双轨只跑新轨（内部 flag），避免双协议长期共存。
 4. **CLI 与前端 store 的既有坑**——所有插件安装态判断走 `state.json`（Rust 侧），不依赖前端 store 初始化。
+
+## 17. 实施记录（子项目①，2026-07-17）
+
+子项目①（运行时 v2 + protocol + SDK + md2pdf 迁移）已在分支 worktree-core-ize-six-plugins 实现（603f362..baf3e7e），内部 flag：settings.json `"plugins_v2.enabled": true` 或 `NOTEMD_PLUGINS_V2=1`。
+
+**计划内偏离（原因在计划文档头部）：**
+1. §5 `host.renderer.html` 拉模式推迟：①期沿用执行时推模式（前端 `plugin_v2_execute` 的 context 注入 `rendered_html`，与 v1 一致）。拉模式待有会话中重渲染需求的消费者再建（需 Rust→webview 渲染 RPC）。
+2. §5 契约单源调整为 `plugin-protocol` Rust crate（schemars → JSON Schema → 生成 TS），非"TS 为源"；§2 的 Schema 单源校验语义不变，CI 由 `pnpm check:protocol` 把关漂移。
+3. §4.2 内存监控（512MiB 告警）推迟到子项目③（徽标需市场窗口承载）。
+
+**实现中确立的事实：**
+- **md2pdf 派生渲染模式**：WKWebView/PDFKit 管线要求 macOS 主线程 + `NSApplication.run()` 生命周期，长驻进程内反复 run/stop 不可靠。v2 服务二进制（`md2pdf-v2`，SDK 协议循环）对每次导出派生包内兄弟 v1 二进制完成渲染——一次一进程、路径与 v1 逐字节相同（先例：sidex 的 rust-language-extension 包裹 rust-analyzer）。
+- **协议细节**：notification 序列化为 `"id": null`（非严格省略 id 成员）——两端都用 plugin-protocol crate，自洽；第三方接严格 JSON-RPC 库时需注意（②期 SDK 文档标注）。
+- **SDK 限制**：trait 方法同步且运行在读循环任务上，插件在 `execute_command` 内阻塞等待 `Host::request` 会死锁响应路由——①期 host.* 均为通知型无消费者；给 `Host::request` 加消费者的期次必须先解此约束（读循环与执行解耦）。
+- **CLI**：v2 manifest 经 adapter 合流进 router/runner 扫描（flag 门控）；headless Tauri 注册 `plugin_v2_execute` 并在 setup 跑 `plugin_runtime::init`。v2 安装根 = `dirs::data_dir()/net.notemd.app/plugins`（与 Tauri app_data_dir 等价，有测试钉住）。
+- **内测期命名**：v2 md2pdf 菜单标 "Export to PDF (v2)…"、CLI 子命令 `pdf2`，与 v1 并存不打架；**④期正式切换待办**：改回 `Export to PDF…`/`pdf`、补 manifest i18n、删除 v1 bundled md2pdf 与 one-shot 机制。
+- 运行时测试基建：shell fixture（tests/fixtures/v2/）+ 10 个集成用例覆盖握手/超时/崩溃熔断/空闲关停/capability 拒绝/真实 make_sink 链路。
+- **①期启停边界**：v2 插件不出现在设置页插件列表（get_all_plugin_manifests 未合流）与 notemd plugin list/enable/disable/info、notemd help；启停唯一入口是 state.json + 重启；③期市场窗口接管。
+- **settings 通道递延**：adapter 透传 contributes.settings 会让设置页渲染 v2 设置 tab，但①期无 host.settings 通道、执行上下文不带 settings——v2 插件声明 settings 属②期功能；md2pdf v2 未声明。
+- **onCli/onFileType 触发器①期不生成**（plugin_v2_execute 一律 Trigger::Command；激活匹配仅 startup 生效）——④期使激活事件 load-bearing 时补齐。
+
+## 18. 实施记录（子项目②）
+
+子项目②（插件 UI 机制 + roam-import 迁移）已实现在分支 worktree-core-ize-six-plugins，全程 v2 flag 门控。
+
+**相对 spec §7 的设计偏离（已实现方案更强）：**
+- **桥 = plugin:// 上的 fetch-RPC，而非 §7.1 的"受限桥 + plugin_bridge command"**：plugin 窗口**不加入任何 capability**（Tauri IPC 全拒，比"注入受限 API"隔离更彻底）。UI→宿主调用走 `POST plugin://<id>/__rpc__`，**以请求 Origin 认证插件身份**，按该插件 manifest capabilities 执法——与插件进程共用同一张方法-能力表（host_api::method_capability）。宿主→UI 推送用 `WebviewWindow::eval("window.__notemd_dispatch(...)")`。桥 API：`window.notemd = { pluginId, locale, theme, request(method,params), onMessage(cb) }`，由 `windows::bridge_script` 经 initialization_script 注入。
+- **窗口注册用 `register_asynchronous_uri_scheme_protocol` + 每请求独立线程**：WKWebView 在主线程投递自定义 scheme 请求，主线程上 `block_on(dialog)` 会冻结 run loop 并与需要主线程的原生 dialog 死锁；handler 从 spawned 线程跑，`block_on(ui_rpc::dispatch)` off-main-thread 安全。
+- **窗口 label = `plugin-<id 点转横>-<window_id>`，不进 capabilities**（原 §7.2 设想 plugin-* glob 授 bridge 命令——桥不再是 Tauri 命令，无此需要）。
+
+**机制新增：**
+- **binary 可选**（ui-only 插件）：manifest v2 的 `binary` 与 `ui` 至少其一；discovery 对无 binary 插件跳过架构二进制检查（②T5 修了 ②T1 漏改 discovery 的 bug）。
+- **窗口贡献类型化**：`Contributes.windows: Vec<WindowContribution>`（id/entry/title/尺寸/singleton/open_command）。
+- **open_command 路由**：菜单命令命中某窗口的 open_command → adapter 编成 `open_windows: {command→window_id}` 透传前端 → 前端调 `plugin_v2_open_window` 而非 execute。
+- **host 方法（UI 与进程共用能力门）**：dialog.open/save、vault.info/read/write/exists/list/mkdir、fs.read_text/read_bytes（仅 dialog 返回过的路径可读，按插件精确授权）、clipboard.write、toast、log.*。
+
+**openclaw-chat 拆分为子项目②b**：其 1.26k 行 Rust 异步状态机（UDS + mdrelay + 配对轮询 + 设备持久化，绑定 app 生命周期）体量远超 roam-import，需独立进程化迁移 + 桥新增网络/长连方法，另立计划。②只交付 UI 机制 + roam-import。
+
+**④期退役清单追加**（v1 roam-import）：`src/roam-import-app.svelte`、`src/lib/roam-import/`、`src/roam-import-main.ts`、`roam-import.html`、`show_roam_import_window`(lib.rs)、App.svelte 的 `pluginId==='roam-import'` 分支、vite.config.ts 的 roamImport 入口、capabilities windows 的 "roam-import"、host i18n 的 16 个 roamImport.* 键、`src-tauri/plugins/roam-import/` v1 manifest。
+
+- **桥安全边界（②已实现）**：plugin:// 资产穿越防护(decode→component ..校验→canonicalize→component-wise 包含)、Origin 服务端认证 RPC、能力 deny-by-default 全方法覆盖、vault 路径 canonicalize 包含校验、fs.read:dialog 按插件+精确路径授权、读写各 10MB 上限、CSP(default/script/style/img/connect + object/base/form/frame 全锁)、grant 随窗口关闭清理。flag off 时 handler 全 404。
+- **开放第三方前必做（②未做，非内部flag阻塞）**：① 安装/启用期能力消费同意 UI + 校验 capability 串白名单（③市场窗口承载）；② RPC 加 per-window nonce 防御纵深（多窗口/非 macOS webview 前）；③ vault.write 频率/磁盘配额与每请求线程数上限。
+- **roam-import .zip 支持经 host.fs.read_bytes(base64+fflate) 恢复**，与 v1 一致（④期退役 v1 无功能回退）。
+
+## 19. 实施记录（子项目③）
+
+- **安装安全（③已实现）**：.notemdpkg=zip；下载 sha256 + minisign 验签（写盘前，硬编码 PLUGIN_REGISTRY_PUBKEY），GUI/CLI 同管线同公钥、无 --force 跳过；zip-slip 双重防护（enclosed_name+containment）；解压总量上限 200MiB 防压缩炸弹；consent 展示的能力 = 已装签名 manifest 的 capabilities = 运行时 host_api 执法源（三者同一）。
+- **无重启**：install/uninstall/set_enabled → reconcile(重扫 STATE + deactivate 移除项) + 原生菜单重建；新插件菜单项/命令/窗口即时可用。
+- **注册表**：CF Worker notemd-plugins（KV index + R2 pkgs），index.json 未签名但包已签名——恶意 index 至多 DoS 或在我方已签制品间替换/降级，无法装入未签名代码。
+- **用户步骤（发布前必做）**：① minisign 生成生产签名密钥对（私钥离线保管）→ 替换 market.rs 的 PLUGIN_REGISTRY_PUBKEY（当前是测试公钥）；② 建 CF KV namespace + R2 bucket notemd-plugins + plugins.notemd.net 自定义域 + repo secret CLOUDFLARE_API_TOKEN；③ 首次 wrangler deploy；④ 发布用 release-plugins.sh + gen-plugin-index.mjs + wrangler r2/kv 上传。
+- **开放第三方前必做（③未做）**：下载降级保护（签名 index 或版本下限）；commit 时断言已装能力==preview 能力；②评审遗留的 per-window nonce / vault.write 配额；symlink zip 条目已加测试。
+
+## 20. 实施记录（子项目②b：openclaw 迁移）
+
+子项目②b（openclaw-chat 迁移 + 双向流式窗口通道）已实现在分支 worktree-core-ize-six-plugins，flag 门控；v1 openclaw 保留至④退役。
+
+**新增机制——双向插件窗口通道：**
+- **UI→插件进程（ui.request）**：插件窗口 UI 调 `notemd.request('plugin.<name>', params)` → ui_rpc 判定非 `host.*` 方法 → 转发给该插件进程的 `ui.request{method,params}` 入站方法（SDK `NotemdPlugin::on_ui_request`）→ 回传结果。`plugin.` 前缀被 host 剥除,插件见干净方法名。转发类方法**不走 host capability 门**(是插件自身 API,由 Origin=该插件窗口认证);仅 `host.*` 走能力门。
+- **插件进程→UI（host.ui.post）**：插件调 `Host::ui_post(window_id, payload)` → `host.ui.post` 通知(capability `ui`,仅进程侧 make_sink)→ host `push_to_window` eval 推送。可从 spawned reader task 调用(Host 是 Clone,ui_post 走克隆的 mpsc sender)——这是流式的关键。
+- 机制经 streaming fixture(shell)端到端验证:ui.request echo/ping 往返 + $activate 后 ≥3 条 host.ui.post seq 有序推达。
+
+**openclaw 迁移：**
+- 后端 1.26k 行(UDS/relay/relay_bridge/protocol/pair/config/devices)整体移进插件 crate `plugins-src/openclaw/backend`(binary `notemd-openclaw`,SDK 驱动),native 二进制**全 fs/net 权限直连**(tokio-tungstenite/reqwest/qrcode 等移进 crate,不经 host 中转);事件 `app.emit("openclaw://…")` → `host.ui_post("main",{kind,data})`;11 命令 → `on_ui_request` 分派;async 体经 block_in_place+Handle::block_on,connect 只 spawn reader 不阻塞读循环(多线程 runtime)。
+- **config/devices 存 `<data_dir>/{config,devices}.json`,不迁 v1 状态**(用户在 v2 窗口重新配对)——聊天/配对插件可接受。
+- UI 移进 `plugins-src/openclaw`(Vite 独立项目),`invoke('openclaw_X')`→`bridge.request('X')`,3 个 `listen('openclaw://…')`→1 个 `onMessage` 按 kind 分派;13 个 i18n 键内联。
+- **功能 parity 缺口**:`editor_open_remote_buffer` + bound-mode 文件操作(links.ts 的 file_exists/vault_sync_now 等)无独立等价物,已 stub;web 模式下 `isBoundMode` 恒 false 故不可达,`agent.file_content` 记录后丢弃。若要恢复 bound-mode(把远程聊天里的文件打进主编辑器 tab),需新 host 方法(host.editor.open_buffer 之类),留后续。
+- tray 迁移延④(①期 tray 硬编码);v2 用 Window▸OpenClaw (v2) 菜单项开窗。
+
+**④退役清单追加**(openclaw v1):`src/chat-*`、`src/lib/openclaw`、`src/components/chat`、`src-tauri/src/openclaw`、show_chat_window(lib.rs)、tray-openclaw、chat.html、vite chat 入口、capabilities "chat";tokio-tungstenite/qrcode/gethostname/urlencoding 等 deps 若 v1 删净且无他用可从 src-tauri/Cargo.toml 移除(exlibris/其他勿误删)。
+
+## 21. 实施记录（子项目④：自定义编辑器 + exlibris）
+
+子项目④（自定义编辑器机制 + base/exlibris 迁移 + v1 退役）部分实现在分支 worktree-core-ize-six-plugins，flag 门控。**base 本体迁移与 v1 退役门控在用户 GUI 验证之后**（本会话未执行）。
+
+**新增机制——tab 内嵌自定义编辑器（spec §7.3）：**
+- **iframe 桥注入**：iframe 拿不到 initialization_script（那是 per-webview-window,非 per-iframe）。改为宿主 serve `plugin://<id>/*.html` 时**在 HTML 响应注入 `<script>${bridge_script}</script>`**（插入 `<head>` 后/body 首,幂等）。bridge_script 首行加 `if(window.notemd)return` 守卫——窗口经 init script + 注入双次运行无害,iframe 仅经注入获得桥。iframe 内 `window.notemd.request()` 经 `fetch('/__rpc__')` 照常访问 host.* 方法（Origin=plugin://<id> 认证）。
+- **文档通道走 parent↔iframe postMessage**（不经 Rust）：主 app 持有 iframe 元素,读文件后 `iframe.contentWindow.postMessage({type:'custom_editor.open',uri,content,editorId}, 'plugin://<id>')`；iframe 编辑 → `parent.postMessage({type:'change',content},'*')` → 主 app **严格校验 `event.origin===plugin://<id>` 且 `event.source===iframe.contentWindow`** → `setContent(tabId)`（翻转 dirty）；Cmd+S 走既有 saveActive,iframe 不碰磁盘。
+- **CSP**：iframe 被主窗口(tauri://localhost) frame,方向由 `frame-ancestors` 管,而 plugin:// CSP 无此指令 → 允许被 frame;`frame-src 'none'` 只限插件页自身嵌套,不限谁 frame 它。无需改 CSP。
+- **降级（file-over-app）**：未装对应插件时,`.base` 等扩展名经 openFile → classifyPath null 且无 custom editor → **降级 kind='code' 纯文本 tab（不再抛错）**。
+- **TabKind 加 'custom'**;Tab 加 editorId/editorPluginId/editorEntry;custom-editors.ts 从 v2 manifests 的 contributes.custom_editors 建扩展名→编辑器注册表;adapter 透传 custom_editors 进 v1 形状。
+- **穿刺门控**：焦点/Cmd+S/滚动/拖拽只能真机验证。`plugins-src/custom-editor-fixture` + `PROBE.md`（PASS/FAIL 判据）供用户 GUI 穿刺;通过则 base tab 内嵌迁移,不通则 base 降级窗口编辑器。
+
+**exlibris 迁移（v2 窗口插件,类 openclaw,纯请求-响应无流式）：**
+- 后端 1157 行(14 命令 + calibre subprocess/shared_config/fs_ops/hash)整体进插件 crate `plugins-src/exlibris/backend`(binary `notemd-exlibris`),全在进程内(native 全 fs 权限);14 命令经 `on_ui_request` 分派,camelCase 参数名保留;async calibre 命令经 block_in_place+block_on。
+- **共享配置进程内直读**：`~/Library/Application Support/com.laobu.mdeditor-shared/config.json`(sotvault/rawvault/calibre)——v1/v2 同路径共享,无需 host 桥。
+- UI 1656 行整体移进 `plugins-src/exlibris`,invoke→bridge.request;**拖拽改 "Add books…" 按钮(host.dialog.open 多选)**(插件窗口零 Tauri IPC,`listen('tauri://drag-drop')` 不可用;拖拽转发留后续);目录选择器走 host.dialog.open directory。
+- **功能缺口**:MetaPreview "在 mdeditor 打开" 因无 host.open 桥,暂以 host.toast 显示路径(host.open 是后续清爽修法)。
+- 独立 exlibris app 停止发布记入 v1 退役清单(④c)。
+
+**④c v1 退役**：详尽清单见 `docs/superpowers/plans/2026-07-17-v1-retirement-checklist.md`——**破坏性,门控用户全栈 GUI 验证 + 市场部署**。要点:五插件 v1 前后端删除;md2pdf crate 保留(v2 派生兄弟 v1 bin);v1 one-shot 机制方案 A(保留收集机制,只删执行路径);flag 转正方案 C(分两版:先默认开,再删 flag+删 v1);flag 转正强依赖市场部署(真签名密钥 + CF)。
+
+## 22. 终审结论（跨全部子项目，2026-07-18）
+
+对整条分支（e4f291c..d7a093a，75 提交、7 个子项目：⓪core 化 / ①运行时 / ②UI / ③市场 / ②b 双向通道 / ④自定义编辑器+exlibris）做**四路交叉终审**（安全 / 集成 / 质量 / 修复验证）。结论：**内部 flag（`plugins_v2.enabled`）首方发布就绪（READY）；无 ship-blocker。**
+
+### 安全边界（端到端成立）
+- **安装信任链无绕过**：下载 → sha256(constant-time) → minisign 验签，**均在写盘前**；GUI/CLI 同 `verify_and_stage` 管线、同硬编码 `PLUGIN_REGISTRY_PUBKEY`、无 `--force`/skip-verify；`plugin_market_preview` 先验签再返回 manifest → consent 展示的能力=已验签字节的能力；verify 用 tempdir，commit 只搬已验证树，无 TOCTOU。
+- **plugin://**：resolve_asset 穿越三重防护（decode→component `..`→canonicalize 包含，含符号链接逃逸）；POST `/__rpc__` 的 Origin 服务端认证（id 取自 URL host，Origin 头 === `plugin://<id>`；WKWebView 自定义 scheme Origin 平台不可伪造）；桥注入的 plugin_id/locale/theme 经 serde_json 转义，无 XSS。
+- **能力门 deny-by-default**：未知 `host.*` 方法 fail-closed（-32601）；ui.request 转发路径只对非 `host.*` 方法放行（`host.vault.write` 因前缀命中被路由到能力门，无法经转发绕过）。
+- **vault 包含**：read/write/list/mkdir canonicalize-then-prefix（拒 `../`+符号链接），写入 10MB 上限；fs.read_text/read_bytes 仅 dialog 授权路径、grant 按插件隔离、随窗口关闭清理。
+- **跨插件隔离**：window label = `plugin-<认证id>-<win>`，plugin_id 恒为认证 id（Origin/进程身份），A 无法开/推/控 B 的窗口。
+- **自定义编辑器 postMessage**：origin + source 双验（tab A 的恶意 iframe 无法注入 tab B）；保留扩展名守卫（md/markdown/txt/html 等，前端 custom-editors.ts）防第三方劫持核心文件类型。
+- **资源上限**：下载 50MB、解压 200MiB（计实际写入字节非声明 size）、请求超时 30/300s、崩溃熔断×3/10min、日志滚动 5MB。
+
+### 本轮终审修复（e1753b5 / d7a093a）
+1. **插件进程 env 隔离**：`PluginProcess::spawn` 加 `env_clear()` + 白名单（HOME/PATH/LANG/LC_ALL/TERM/USER/TMPDIR），插件不再继承 shell 里的 API keys（有 echo-env fixture 测试）。
+2. **双 PDF 菜单去重**：flag 开 + 装了 v2 `notemd.<X>` 时，隐藏对应 v1 bundled `<X>`（`merge_dedup_v1_v2`，按 v2 id 的 name-part 抑制 v1，有测试；过渡态直至④c 退役）。
+3. **删死命令** `get_plugin_manifests_v2`（注册但零前端调用）。
+4. **spec §5 修正**：`host.ui.post` 标注需 `ui` capability（原表格写"免授权"与实现矛盾）。
+
+### 三处审计误报已澄清（非缺陷）
+- 保留扩展名守卫**确实存在**（前端 custom-editors.ts，安全/质量审计在 manifest 校验器里找，找错位置）。
+- plugins-src 构建产物**根 .gitignore 已全局覆盖**（`dist/` + 各 backend `target/`），git index 零提交产物。
+- pair.rs 的 `.unwrap()` **只在 `#[tokio::test]` 里**（测试字面量）；生产 relay 响应解析全 `resp.json::<T>().map_err(...)`——安全审计的"P0 MITM DoS"是误读测试码。
+
+### 第三方开放前必做（内部 flag 首方不阻塞；见 §18/§19 亦有）
+1. 真生产 minisign 签名密钥替换 market.rs 的测试公钥（源码已标 "TEST KEY — replace before shipping"）。
+2. CSP `style-src 'unsafe-inline'` 收紧为 `'self'`/nonce（当前仅样式面，不可执行脚本）。
+3. `plugins-src/sdk/` 共享包消除 roam-import/openclaw/exlibris 三份 bridge.ts 重复（约 75-96 行）。
+4. 插件内嵌 strings.ts 是宿主 catalog 冻结拷贝，加 CI 键集比对防漂移（缺键 fallback 英文，不崩）。
+5. host.secrets 若实现需连同 env 隔离一并做（spec §5 列出但未实现）。
+
+### 测试基线（全绿）
+src-tauri lib 355 + plugin_runtime_integration 12 + plugin_ui 11 + 前端 1296 + protocol 19 + SDK 11 + worker 13 + md2pdf/openclaw(16)/exlibris(24) backend crate 各自绿。唯一 flake=startup_budget/plugin_host_integration 并行负载（隔离全过，与本工程无关）。
+
+### 门控在用户之后（未执行）
+- **base 本体迁移**：门控用户对 custom-editor fixture 跑 `plugins-src/custom-editor-fixture/PROBE.md` 的 GUI 穿刺（焦点/Cmd+S/滚动只能真机验）；穿刺过=tab 内嵌，不过=降级窗口编辑器。
+- **v1 退役（④c）**：破坏性、删回退路径，门控用户全栈 GUI 验证 + 市场部署（真密钥+CF）。清单见 `docs/superpowers/plans/2026-07-17-v1-retirement-checklist.md`。

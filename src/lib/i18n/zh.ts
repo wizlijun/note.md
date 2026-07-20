@@ -23,7 +23,7 @@ export const zh: Record<keyof Messages, string> = {
   'cli.installPrompt':
     "把 'notemd' 命令安装到 PATH 吗？\n\n" +
     '安装后可以从任何终端或脚本调用 note.md 的功能：\n' +
-    '  • notemd -s draft.md   通过 Share 插件发布并打印 URL\n' +
+    '  • notemd share draft.md   发布为网页并打印 URL\n' +
     '  • notemd help          查看所有命令\n' +
     '  • notemd plugin list   列出插件\n\n' +
     "随时可以从 Help → Install/Uninstall 'notemd' Command 重新管理。",
@@ -35,8 +35,6 @@ export const zh: Record<keyof Messages, string> = {
   'cli.notInstalled': "'notemd' 未安装",
 
   // Share
-  'share.docTooLarge': '❌ {name}：文档过大（{mb} MB / 上限 25 MB）',
-  'share.internalError': '❌ {name}：内部错误',
   'share.errPrefix': '❌ Share：{msg}',
   'share.actionFailed': '❌ Share：{action}失败',
   'share.action.share': '分享',
@@ -62,6 +60,7 @@ export const zh: Record<keyof Messages, string> = {
   'share.err.http': '请求失败',
   'share.err.parse': '服务器响应解析失败',
   'share.err.corrupt_record': '本地分享记录损坏',
+  'share.tabShare': '分享此标签页…',
 
   // Source-of-truth Vault (sotvault)
   'sotvault.revealFailed': '❌ 打开来源目录失败',
@@ -198,6 +197,44 @@ export const zh: Record<keyof Messages, string> = {
   'plugins.capabilities': '能力：{caps}',
   'plugins.none': '未检测到插件。',
   'plugins.needsVault': '需先设置 Vault 才能启用此插件',
+  'plugins.internalError': '{name}：插件错误',
+
+  // Plugin Market window (子项目③)
+  'pluginMarket.windowTitle': '插件市场',
+  'pluginMarket.refresh': '刷新',
+  'pluginMarket.installedHeading': '已安装',
+  'pluginMarket.availableHeading': '可安装',
+  'pluginMarket.noneInstalled': '尚未安装任何插件。',
+  'pluginMarket.noneAvailable': '没有更多可安装的插件。',
+  'pluginMarket.install': '安装',
+  'pluginMarket.installing': '安装中…',
+  'pluginMarket.uninstall': '卸载',
+  'pluginMarket.update': '更新到 {version}',
+  'pluginMarket.cancel': '取消',
+  'pluginMarket.installed': '已安装 {name}',
+  'pluginMarket.uninstalled': '已移除 {name}',
+  'pluginMarket.uninstallConfirm': '移除 {name}？除非另行删除，否则将保留其数据。',
+  'pluginMarket.flagOff': '插件运行时已禁用。启用后才能浏览和安装插件。',
+  'pluginMarket.networkError': '无法连接插件注册表：{error}',
+  'pluginMarket.consent.title': '安装 {name}？',
+  'pluginMarket.consent.verifying': '正在校验安装包签名…',
+  'pluginMarket.consent.intro': '此插件请求以下能力：',
+  'pluginMarket.consent.none': '此插件不请求任何宿主能力。',
+  'pluginMarket.consent.sensitive': '敏感',
+  'pluginMarket.consent.trustInstall': '信任并安装',
+
+  // Capability labels (human-readable; shown in the consent modal + cards)
+  'capability.renderer.html': '在编辑器中渲染 HTML',
+  'capability.settings': '读写插件设置',
+  'capability.secrets': '存储和读取机密（API 密钥、令牌）',
+  'capability.storage': '在本机存储插件数据',
+  'capability.vault.read': '读取你的 Vault 中的文件',
+  'capability.vault.write': '在你的 Vault 中创建和修改文件',
+  'capability.dialog': '显示打开/保存文件对话框',
+  'capability.clipboard.write': '写入剪贴板',
+  'capability.toast': '显示通知',
+  'capability.editor.events': '监听编辑器事件（打开、编辑、保存）',
+  'capability.fs.read.dialog': '读取你在对话框中选择的文件',
 
   // Slash menu (empty state)
   'slashMenu.noMatches': '无匹配项',
@@ -521,7 +558,6 @@ export const zh: Record<keyof Messages, string> = {
   // Settings dialog — header & tabs
   'settings.title': '偏好设置',
   'settings.done': '完成',
-  'settings.tab.plugins': '插件',
   'settings.tab.core': '核心',
   'settings.tab.block': '区块',
   'settings.tab.cli': 'CLI',
@@ -602,6 +638,7 @@ export const zh: Record<keyof Messages, string> = {
   'insights.generateReport': '生成报告',
   'insights.refresh': '刷新',
   'insights.windowTitle': '阅读洞察数据',
+  'insights.needsVault': '需先设置 Vault 才能使用阅读洞察。',
   'insights.reportSaved': '报告已保存',
   'insights.reportFailed': '生成报告失败',
   'insights.openDoc': '打开此文档',
@@ -610,7 +647,7 @@ export const zh: Record<keyof Messages, string> = {
 
   // Settings → CLI
   'settings.cli.heading': 'CLI',
-  'settings.cli.desc': '<code>notemd</code> 命令让你从终端或其他工具驱动 note.md — 通过 Share 插件发布文件、列出可用命令等。',
+  'settings.cli.desc': '<code>notemd</code> 命令让你从终端或其他工具使用 note.md 的功能 — 将文件发布为网页、导出 PDF 等。',
   'settings.cli.loading': '加载中…',
   'settings.cli.installedAtLabel': '已安装于：',
   'settings.cli.symlinkMismatch': '符号链接指向了不同的二进制 — 请重新安装修复。',
@@ -621,7 +658,7 @@ export const zh: Record<keyof Messages, string> = {
   'settings.cli.installing': '安装中…',
   'settings.cli.install': '安装…',
   'settings.cli.error': '错误：{error}',
-  'settings.cli.helpDesc': '安装后，在终端运行 <code>notemd help</code> 查看完整参考。CLI 只暴露<em>已启用</em>插件贡献的命令 — 在上面的 Plugins 中禁用某插件即可从 <code>notemd</code> 移除其子命令。',
+  'settings.cli.helpDesc': '安装后，在终端运行 <code>notemd help</code> 查看完整参考。CLI 内建核心命令（share、reading-insights report），并暴露<em>已启用</em>插件贡献的命令 — 在上面的 Plugins 中禁用某插件即可从 <code>notemd</code> 移除其子命令。',
 
   // Roam 导入窗口
   'roamImport.title': '从 Roam Research 导入',

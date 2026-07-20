@@ -16,6 +16,7 @@
   import ThemeImportDialog from './ThemeImportDialog.svelte'
   import { platform } from '../lib/platform.svelte'
   import { collectSettingsTabs, type SettingsTab } from '../lib/plugins/settings-registry'
+  import { coreShareSettingsTab } from '../lib/share/settings-tab'
   import type { PluginManifest } from '../lib/plugins/types'
   import { isPluginActive } from '../lib/plugins/registry'
   import { outlineShortcuts, setShortcutOverride } from '../lib/outline/gate.svelte'
@@ -26,7 +27,6 @@
     DEFAULT_SHORTCUTS, resolveShortcuts, displayShortcut, eventToShortcut, findConflict,
     type OutlineCommandId,
   } from '../lib/outline/shortcuts'
-  import PluginsSettingsTab from './PluginsSettingsTab.svelte'
   import VaultSettingsTab from './VaultSettingsTab.svelte'
   import OpenClawSettingsTab from './OpenClawSettingsTab.svelte'
   import OpenClawDevicesTab from './OpenClawDevicesTab.svelte'
@@ -39,7 +39,7 @@
   })
 
   let pluginTabs = $state<SettingsTab[]>([])
-  let selectedTab = $state<'plugins' | 'core' | string>('core')
+  let selectedTab = $state<'core' | string>('core')
   let pluginValues = $state<Record<string, Record<string, unknown>>>({})
 
   // Vault-scoped sync folder (stored in {vault}/.notemd/settings.json). Loaded
@@ -196,9 +196,13 @@
   onMount(async () => {
     try {
       const manifests = await invoke<PluginManifest[]>('get_plugin_manifests')
-      pluginTabs = collectSettingsTabs(manifests)
+      // Defensive guard: no shipped manifest contributes a share settings tab
+      // anymore (share is core), but filter regardless so a stray external
+      // 'share' plugin can't duplicate the core Share tab.
+      pluginTabs = [coreShareSettingsTab(), ...collectSettingsTabs(manifests.filter((m) => m.id !== 'share'))]
     } catch (e) {
       console.warn('[SettingsDialog] manifest load:', e)
+      pluginTabs = [coreShareSettingsTab()]
     }
     void refreshCliStatus()
   })
@@ -415,9 +419,6 @@
       <h2>{t('settings.title')}</h2>
 
       <nav class="tab-strip">
-        {#if !isIOSPlatform}
-          <button class:active={selectedTab === 'plugins'} onclick={() => selectedTab = 'plugins'}>{t('settings.tab.plugins')}</button>
-        {/if}
         <button class:active={selectedTab === 'core'} onclick={() => selectedTab = 'core'}>{t('settings.tab.core')}</button>
         <button class:active={selectedTab === 'block'} onclick={() => selectedTab = 'block'}>{t('settings.tab.block')}</button>
         {#if !isIOSPlatform}
@@ -430,17 +431,13 @@
         {#if isPluginActive('openclaw-chat')}
           <button class:active={selectedTab === 'openclaw'} onclick={() => selectedTab = 'openclaw'}>{t('settings.tab.openclaw')}</button>
         {/if}
-        {#if isPluginActive('outline-notes')}
-          <button class:active={selectedTab === 'outline-notes'} onclick={() => selectedTab = 'outline-notes'}>{t('settings.tab.outline')}</button>
-        {/if}
+        <button class:active={selectedTab === 'outline-notes'} onclick={() => selectedTab = 'outline-notes'}>{t('settings.tab.outline')}</button>
         {#each pluginTabs as ptab (ptab.pluginId)}
           <button class:active={selectedTab === ptab.pluginId} onclick={() => selectedTab = ptab.pluginId}>{pluginTabLabel(ptab.manifest, ptab.label)}</button>
         {/each}
       </nav>
 
-      {#if !isIOSPlatform && selectedTab === 'plugins'}
-        <PluginsSettingsTab />
-      {:else if selectedTab === 'core'}
+      {#if selectedTab === 'core'}
         <section class="block">
           <label class="row">
             <span class="lbl">{t('settings.language')}</span>
@@ -738,7 +735,7 @@
       {:else if selectedTab === 'openclaw' && isPluginActive('openclaw-chat')}
         <OpenClawSettingsTab />
         <OpenClawDevicesTab />
-      {:else if selectedTab === 'outline-notes' && isPluginActive('outline-notes')}
+      {:else if selectedTab === 'outline-notes'}
         <section class="block">
           <h3>{t('outline.shortcutsTitle')}</h3>
           {#each Object.keys(DEFAULT_SHORTCUTS) as id (id)}

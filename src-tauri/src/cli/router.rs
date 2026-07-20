@@ -21,7 +21,27 @@ pub enum Builtin {
     PluginEnable(String),
     PluginDisable(String),
     PluginInfo(String),
+    /// `plugin install <id>[@version]` — install (or reinstall) a v2 plugin.
+    /// `None` version ⇒ install the version the registry index advertises.
+    PluginInstall(String, Option<String>),
+    /// `plugin update [<id>]` — update one plugin, or (no id) every installed
+    /// plugin that the registry advertises a newer version for.
+    PluginUpdate(Option<String>),
+    /// `plugin remove <id>` (alias `uninstall`). `keep_data` from `--keep-data`.
+    PluginRemove(String, bool),
     Openclaw(super::openclaw::OpenclawCmd),
+}
+
+/// Split an `id[@version]` token on the LAST `@`, so plugin ids that themselves
+/// contain `@` (scoped-style) keep working. Returns `(id, Some(version))` when
+/// a non-empty version follows a `@`, else `(whole, None)`.
+pub(crate) fn split_id_version(token: &str) -> (String, Option<String>) {
+    match token.rfind('@') {
+        Some(i) if i > 0 && i + 1 < token.len() => {
+            (token[..i].to_string(), Some(token[i + 1..].to_string()))
+        }
+        _ => (token.to_string(), None),
+    }
 }
 
 #[derive(Debug)]
@@ -77,6 +97,25 @@ pub fn resolve_with(
                 Some(id) => Route::Builtin(Builtin::PluginInfo(id.clone())),
                 None => Route::Unknown("plugin info (missing id)".to_string()),
             },
+            Some("install") => match rest.get(2) {
+                Some(spec) => {
+                    let (id, version) = split_id_version(spec);
+                    Route::Builtin(Builtin::PluginInstall(id, version))
+                }
+                None => Route::Unknown("plugin install (missing id)".to_string()),
+            },
+            Some("update") | Some("upgrade") => {
+                // Optional id positional; ignore trailing flags for now.
+                let id = rest.iter().skip(2).find(|a| !a.starts_with('-')).cloned();
+                Route::Builtin(Builtin::PluginUpdate(id))
+            }
+            Some("remove") | Some("uninstall") => {
+                let keep_data = rest.iter().any(|a| a == "--keep-data");
+                match rest.iter().skip(2).find(|a| !a.starts_with('-')) {
+                    Some(id) => Route::Builtin(Builtin::PluginRemove(id.clone(), keep_data)),
+                    None => Route::Unknown("plugin remove (missing id)".to_string()),
+                }
+            }
             _ => Route::Unknown(format!("plugin {}", rest.get(1).cloned().unwrap_or_default())),
         };
     }
@@ -94,7 +133,8 @@ pub fn resolve_with(
 
     // reading-insights uses the two-level `notemd reading-insights report` form
     // and is handled through the webview runner (reusing the in-app report logic,
-    // incl. online audience) — not a plugin binary.
+    // incl. online audience). Core-ized: no plugin binary, and the plugins.enabled
+    // map is deliberately ignored — core commands cannot be disabled.
     if first == "reading-insights" {
         let skip = match rest.get(1).map(|s| s.as_str()) {
             Some("report") => 2,
@@ -103,19 +143,11 @@ pub fn resolve_with(
             Some(other) => return Route::Unknown(format!("reading-insights {}", other)),
         };
         let remaining: Vec<String> = rest.iter().skip(skip).cloned().collect();
-        let is_enabled = enabled.get("reading-insights").copied().unwrap_or(true);
-        return if is_enabled {
-            Route::Plugin(PluginRoute {
-                plugin_id: "reading-insights".to_string(),
-                subcommand: "report".to_string(),
-                remaining,
-            })
-        } else {
-            Route::Disabled {
-                plugin_id: "reading-insights".to_string(),
-                subcommand: "report".to_string(),
-            }
-        };
+        return Route::Plugin(PluginRoute {
+            plugin_id: "reading-insights".to_string(),
+            subcommand: "report".to_string(),
+            remaining,
+        });
     }
 
     let resolved = match_against_manifests(manifests, &first, enabled);
@@ -154,7 +186,12 @@ fn match_against_manifests(
 fn current_scan(parsed: &Parsed) -> (Vec<(PluginManifest, PathBuf)>, HashMap<String, bool>) {
     let plugins_dir = super::resolve_plugins_dir(parsed.globals.plugin_dir_override.as_deref());
     let config_dir = super::resolve_config_dir();
-    scan_disk(&plugins_dir, &config_dir)
+    let (mut manifests, mut enabled) = scan_disk(&plugins_dir, &config_dir);
+    // core 化的 share / reading-insights 无磁盘 manifest，注入 stub 参与匹配。
+    super::runner::append_core_cli_stubs(&mut manifests, &mut enabled);
+    // flag 开时并入 v2 插件（adapter 转 v1 形状），泛型匹配直接吃 cli 条目。
+    super::runner::append_v2_manifests(&mut manifests, &mut enabled, &config_dir);
+    (manifests, enabled)
 }
 
 #[cfg(test)]
@@ -174,10 +211,13 @@ mod tests {
             default_enabled: None,
             menus: vec![],
             context_menus: vec![],
+            custom_editors: vec![],
             settings: None,
             host_capabilities: vec![],
             timeout_seconds: 30,
             i18n: std::collections::HashMap::new(),
+            manifest_version: None,
+            open_windows: None,
             cli: vec![CliEntry {
                 subcommand: sub.to_string(),
                 aliases: aliases.iter().map(|s| s.to_string()).collect(),
@@ -233,6 +273,62 @@ mod tests {
         let Route::Builtin(Builtin::PluginEnable(id)) = r else { panic!() };
         assert_eq!(id, "share");
     }
+
+    #[test] fn plugin_install_with_version_routes() {
+        let r = route_with(&["plugin", "install", "x@1.2.0"], vec![], Default::default());
+        let Route::Builtin(Builtin::PluginInstall(id, ver)) = r else { panic!() };
+        assert_eq!(id, "x");
+        assert_eq!(ver.as_deref(), Some("1.2.0"));
+    }
+    #[test] fn plugin_install_without_version_routes() {
+        let r = route_with(&["plugin", "install", "x"], vec![], Default::default());
+        let Route::Builtin(Builtin::PluginInstall(id, ver)) = r else { panic!() };
+        assert_eq!(id, "x");
+        assert_eq!(ver, None);
+    }
+    #[test] fn plugin_install_id_with_at_splits_on_last() {
+        // A scoped-style id keeps its own '@'; only the last '@version' splits.
+        let r = route_with(&["plugin", "install", "@scope/pkg@2.0.0"], vec![], Default::default());
+        let Route::Builtin(Builtin::PluginInstall(id, ver)) = r else { panic!() };
+        assert_eq!(id, "@scope/pkg");
+        assert_eq!(ver.as_deref(), Some("2.0.0"));
+    }
+    #[test] fn plugin_install_missing_id_is_unknown() {
+        let r = route_with(&["plugin", "install"], vec![], Default::default());
+        assert!(matches!(r, Route::Unknown(_)));
+    }
+    #[test] fn plugin_update_all_and_one() {
+        let r = route_with(&["plugin", "update"], vec![], Default::default());
+        let Route::Builtin(Builtin::PluginUpdate(id)) = r else { panic!() };
+        assert_eq!(id, None);
+        let r = route_with(&["plugin", "update", "x"], vec![], Default::default());
+        let Route::Builtin(Builtin::PluginUpdate(id)) = r else { panic!() };
+        assert_eq!(id.as_deref(), Some("x"));
+    }
+    #[test] fn plugin_remove_and_uninstall_with_keep_data() {
+        let r = route_with(&["plugin", "remove", "x"], vec![], Default::default());
+        let Route::Builtin(Builtin::PluginRemove(id, keep)) = r else { panic!() };
+        assert_eq!(id, "x");
+        assert!(!keep);
+        // `uninstall` alias + --keep-data (flag before id).
+        let r = route_with(&["plugin", "uninstall", "--keep-data", "x"], vec![], Default::default());
+        let Route::Builtin(Builtin::PluginRemove(id, keep)) = r else { panic!() };
+        assert_eq!(id, "x");
+        assert!(keep);
+    }
+    #[test] fn plugin_remove_missing_id_is_unknown() {
+        let r = route_with(&["plugin", "remove", "--keep-data"], vec![], Default::default());
+        assert!(matches!(r, Route::Unknown(_)));
+    }
+    #[test] fn split_id_version_cases() {
+        assert_eq!(split_id_version("x"), ("x".to_string(), None));
+        assert_eq!(split_id_version("x@1.0.0"), ("x".to_string(), Some("1.0.0".to_string())));
+        assert_eq!(split_id_version("a@b@1.0.0"), ("a@b".to_string(), Some("1.0.0".to_string())));
+        // Trailing '@' with no version ⇒ no version.
+        assert_eq!(split_id_version("x@"), ("x@".to_string(), None));
+        // Leading '@' with no later '@' ⇒ whole thing is the id.
+        assert_eq!(split_id_version("@scope/x"), ("@scope/x".to_string(), None));
+    }
     #[test] fn enabled_plugin_subcommand_routes_to_plugin() {
         let m = manifest_with_cli("share", "share", &["-s"]);
         let mut enabled = std::collections::HashMap::new();
@@ -265,5 +361,117 @@ mod tests {
         let r = route_with(&["nope"], vec![], Default::default());
         let Route::Unknown(name) = r else { panic!() };
         assert_eq!(name, "nope");
+    }
+
+    #[test]
+    fn share_routes_without_manifest() {
+        // share 是 core：无 manifest 时也必须路由成功（core stub 由 current_scan 注入，
+        // 纯函数层直接喂 stub 验证匹配逻辑）。
+        let stubs = crate::cli::runner::core_cli_stub_manifests();
+        let pairs: Vec<(PluginManifest, PathBuf)> =
+            stubs.into_iter().map(|m| (m, PathBuf::new())).collect();
+        let r = resolve_with(
+            &vec!["share".into(), "/tmp/a.md".into()],
+            &pairs,
+            &HashMap::new(),
+        );
+        match r {
+            Route::Plugin(p) => assert_eq!(p.plugin_id, "share"),
+            other => panic!("expected share plugin route, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn share_alias_routes_via_stub() {
+        // `--share` 别名也必须由 stub 覆盖（原 manifest 声明的 aliases）。
+        let stubs = crate::cli::runner::core_cli_stub_manifests();
+        let pairs: Vec<(PluginManifest, PathBuf)> =
+            stubs.into_iter().map(|m| (m, PathBuf::new())).collect();
+        let r = resolve_with(
+            &vec!["--share".into(), "/tmp/a.md".into()],
+            &pairs,
+            &HashMap::new(),
+        );
+        match r {
+            Route::Plugin(p) => {
+                assert_eq!(p.plugin_id, "share");
+                assert_eq!(p.subcommand, "share");
+            }
+            other => panic!("expected share plugin route, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn reading_insights_never_disabled() {
+        let r = resolve_with(
+            &vec!["reading-insights".into(), "report".into()],
+            &[],
+            &HashMap::from([("reading-insights".to_string(), false)]),
+        );
+        assert!(matches!(r, Route::Plugin(_)), "core-ized: enabled map must be ignored");
+    }
+
+    /// Composition test for the v2 CLI merge (plan Task 10): a v2 install tree
+    /// scanned by `discovery::scan_root`, adapted via `adapter::to_v1`, must
+    /// route its cli subcommand exactly like a v1 manifest. Uses a fixture id
+    /// so it stays independent of the real md2pdf plugin, and exercises the
+    /// scan→adapt→route pipeline without touching current_scan's real dirs.
+    #[test]
+    fn v2_adapted_manifest_routes_subcommand() {
+        use crate::plugin_runtime::state::{InstallState, InstalledPlugin};
+        use crate::plugin_runtime::{adapter, discovery, state};
+
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+
+        // state.json marking the fixture enabled.
+        let mut st = InstallState::default();
+        st.installed.insert(
+            "notemd.fixture".to_string(),
+            InstalledPlugin { version: "1.0.0".into(), enabled: true },
+        );
+        state::save(root, &st).unwrap();
+
+        // <root>/notemd.fixture/current/: manifest.json + dummy binary.
+        let triple = discovery::current_arch_triple().expect("supported arch");
+        let current = root.join("notemd.fixture").join("current");
+        std::fs::create_dir_all(current.join("bin")).unwrap();
+        std::fs::write(current.join("bin/fixture"), b"#!/bin/sh\nexit 0\n").unwrap();
+        let manifest = serde_json::json!({
+            "manifest_version": 2,
+            "id": "notemd.fixture",
+            "name": "Fixture",
+            "version": "1.0.0",
+            "kind": "native",
+            "engines": { "notemd": ">=0.0.0" },
+            "binary": { triple: "bin/fixture" },
+            "activation": { "events": ["onCli:pdf2"] },
+            "contributes": {
+                "cli": [{ "subcommand": "pdf2", "command": "export",
+                          "summary": "x", "args": [], "flags": [] }]
+            },
+            "capabilities": []
+        });
+        std::fs::write(current.join("manifest.json"), manifest.to_string()).unwrap();
+
+        let scanned = discovery::scan_root(root, "1.0.0");
+        assert_eq!(scanned.len(), 1);
+        let pairs: Vec<(PluginManifest, PathBuf)> = scanned
+            .into_iter()
+            .filter_map(|(id, (m, install_dir))| match adapter::to_v1(&m) {
+                Ok(v1) => Some((v1, install_dir)),
+                Err(e) => {
+                    eprintln!("[test] {id}: contributes not v1-shaped: {e}");
+                    None
+                }
+            })
+            .collect();
+        let enabled = HashMap::from([("notemd.fixture".to_string(), true)]);
+
+        let r = resolve_with(&vec!["pdf2".into(), "x.md".into()], &pairs, &enabled);
+        let Route::Plugin(p) = r else { panic!("expected v2 plugin route, got {r:?}") };
+        assert_eq!(p.plugin_id, "notemd.fixture");
+        assert_eq!(p.subcommand, "pdf2");
+        assert_eq!(p.remaining, vec!["x.md".to_string()]);
     }
 }

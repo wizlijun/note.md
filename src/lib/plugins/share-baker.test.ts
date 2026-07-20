@@ -12,13 +12,12 @@ vi.mock('@tauri-apps/api/core', () => ({
   }),
 }))
 
-vi.mock('../settings.svelte', () => ({ isPluginEnabled: vi.fn(() => true) }))
-import { isPluginEnabled } from '../settings.svelte'
 import {
   shareHeaderLabel, isoDateStamp, viewportMetaTag, themeCssBlock,
   guardSize, MAX_HTML_BYTES,
   extractShareDescription, metadataBlock,
 } from './share-baker'
+import { ShareError } from '../share/types'
 
 describe('shareHeaderLabel', () => {
   it('uses basename for normal paths', () => {
@@ -149,9 +148,13 @@ describe('guardSize', () => {
   it('passes through small payloads', () => {
     expect(() => guardSize('x'.repeat(1000))).not.toThrow()
   })
-  it('throws a tagged error for >25MB payloads', () => {
+  it("throws ShareError('too_large') for >25MB payloads", () => {
     const big = 'x'.repeat(MAX_HTML_BYTES + 1)
-    expect(() => guardSize(big)).toThrow(/^share_too_large:\d+$/)
+    let err: unknown
+    try { guardSize(big) } catch (e) { err = e }
+    expect(err).toBeInstanceOf(ShareError)
+    expect((err as ShareError).kind).toBe('too_large')
+    expect((err as ShareError).detail).toMatch(/^\d+ bytes$/)
   })
 })
 
@@ -342,11 +345,14 @@ describe('bakeShareHtml', () => {
     __setImageReaderForTests(null)
   })
 
-  it('throws share_too_large for >25MB output', async () => {
+  it("throws ShareError('too_large') for >25MB input", async () => {
     __setImageReaderForTests(async () => new Uint8Array([0]))
     const huge = 'x'.repeat(26 * 1024 * 1024)
     const t = fakeTab({ currentContent: huge })
-    await expect(bakeShareHtml(t)).rejects.toThrow(/^share_too_large:/)
+    const err = await bakeShareHtml(t).then(() => null, (e: unknown) => e)
+    expect(err).toBeInstanceOf(ShareError)
+    expect((err as ShareError).kind).toBe('too_large')
+    expect((err as ShareError).detail).toMatch(/^\d+ bytes$/)
     __setImageReaderForTests(null)
   })
 })
@@ -361,16 +367,9 @@ function mdTab(): any {
 }
 
 describe('bakeShareHtml beacon injection', () => {
-  it('injects the beacon when reading-insights is enabled', async () => {
-    ;(isPluginEnabled as any).mockReturnValue(true)
+  it('always injects the beacon (reading-insights is core)', async () => {
     const html = await bakeShareHtml(mdTab(), 'default')
     expect(html).toContain('/a/hit')
     expect(html).toContain('mdi_vid')
-  })
-
-  it('omits the beacon when reading-insights is disabled', async () => {
-    ;(isPluginEnabled as any).mockReturnValue(false)
-    const html = await bakeShareHtml(mdTab(), 'default')
-    expect(html).not.toContain('/a/hit')
   })
 })

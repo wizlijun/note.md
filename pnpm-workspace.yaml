@@ -9,3 +9,4 @@ allowBuilds:
 
 packages:
   - 'exlibris'
+  - 'plugins-src/*'

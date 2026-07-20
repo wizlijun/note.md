@@ -21,7 +21,7 @@ export const de: Record<keyof Messages, string> = {
   'cli.installPrompt':
     "Den Befehl 'notemd' zu Ihrem PATH hinzufügen?\n\n" +
     "Nach der Installation können Sie die Funktionen von note.md aus jedem Terminal oder Skript aufrufen:\n" +
-    '  • notemd -s draft.md   Über das Share-Plugin veröffentlichen und URL ausgeben\n' +
+    '  • notemd share draft.md   Als Webseite veröffentlichen und URL ausgeben\n' +
     '  • notemd help          Alle Befehle anzeigen\n' +
     '  • notemd plugin list   Plugins auflisten\n\n' +
     "Sie können dies jederzeit über Hilfe → 'notemd'-Befehl installieren/deinstallieren verwalten.",
@@ -33,8 +33,6 @@ export const de: Record<keyof Messages, string> = {
   'cli.notInstalled': "'notemd' ist nicht installiert",
 
   // Share
-  'share.docTooLarge': '❌ {name}: Dokument zu groß ({mb} MB / Limit 25 MB)',
-  'share.internalError': '❌ {name}: Interner Fehler',
   'share.errPrefix': '❌ Teilen: {msg}',
   'share.actionFailed': '❌ Teilen: {action} fehlgeschlagen',
   'share.action.share': 'teilen',
@@ -60,6 +58,7 @@ export const de: Record<keyof Messages, string> = {
   'share.err.http': 'Anfrage fehlgeschlagen',
   'share.err.parse': 'Serverantwort konnte nicht analysiert werden',
   'share.err.corrupt_record': 'Lokaler Freigabeeintrag ist beschädigt',
+  'share.tabShare': 'Diesen Tab teilen…',
 
   // Source-of-truth Vault (sotvault)
   'sotvault.revealFailed': '❌ Quellordner konnte nicht geöffnet werden',
@@ -196,6 +195,44 @@ export const de: Record<keyof Messages, string> = {
   'plugins.capabilities': 'Fähigkeiten: {caps}',
   'plugins.none': 'Keine Plugins gefunden.',
   'plugins.needsVault': 'Legen Sie zuerst einen Tresor fest, um dieses Plugin zu aktivieren',
+  'plugins.internalError': '{name}: Plugin-Fehler',
+
+  // Plugin Market window (子项目③)
+  'pluginMarket.windowTitle': 'Plugin-Markt',
+  'pluginMarket.refresh': 'Aktualisieren',
+  'pluginMarket.installedHeading': 'Installiert',
+  'pluginMarket.availableHeading': 'Verfügbar',
+  'pluginMarket.noneInstalled': 'Keine Plugins installiert.',
+  'pluginMarket.noneAvailable': 'Keine weiteren Plugins verfügbar.',
+  'pluginMarket.install': 'Installieren',
+  'pluginMarket.installing': 'Wird installiert…',
+  'pluginMarket.uninstall': 'Deinstallieren',
+  'pluginMarket.update': 'Auf {version} aktualisieren',
+  'pluginMarket.cancel': 'Abbrechen',
+  'pluginMarket.installed': '{name} installiert',
+  'pluginMarket.uninstalled': '{name} entfernt',
+  'pluginMarket.uninstallConfirm': '{name} entfernen? Die Daten bleiben erhalten, sofern sie nicht separat entfernt werden.',
+  'pluginMarket.flagOff': 'Die Plugin-Laufzeit ist deaktiviert. Aktivieren Sie sie, um Plugins zu durchsuchen und zu installieren.',
+  'pluginMarket.networkError': 'Die Plugin-Registry konnte nicht erreicht werden: {error}',
+  'pluginMarket.consent.title': '{name} installieren?',
+  'pluginMarket.consent.verifying': 'Paketsignatur wird überprüft…',
+  'pluginMarket.consent.intro': 'Dieses Plugin fordert die folgenden Fähigkeiten an:',
+  'pluginMarket.consent.none': 'Dieses Plugin fordert keine Host-Fähigkeiten an.',
+  'pluginMarket.consent.sensitive': 'Sensibel',
+  'pluginMarket.consent.trustInstall': 'Vertrauen & Installieren',
+
+  // Capability labels (human-readable; shown in the consent modal + cards)
+  'capability.renderer.html': 'HTML im Editor rendern',
+  'capability.settings': 'Plugin-Einstellungen lesen und schreiben',
+  'capability.secrets': 'Geheimnisse speichern und lesen (API-Schlüssel, Token)',
+  'capability.storage': 'Plugin-Daten auf diesem Gerät speichern',
+  'capability.vault.read': 'Dateien in Ihrem Tresor lesen',
+  'capability.vault.write': 'Dateien in Ihrem Tresor erstellen und ändern',
+  'capability.dialog': 'Datei-Öffnen-/Speichern-Dialoge anzeigen',
+  'capability.clipboard.write': 'In die Zwischenablage schreiben',
+  'capability.toast': 'Benachrichtigungen anzeigen',
+  'capability.editor.events': 'Editor-Ereignisse beobachten (Öffnen, Bearbeiten, Speichern)',
+  'capability.fs.read.dialog': 'Dateien lesen, die Sie in einem Dialog auswählen',
 
   // Slash menu (empty state)
   'slashMenu.noMatches': 'Keine Treffer',
@@ -488,7 +525,6 @@ export const de: Record<keyof Messages, string> = {
   // Settings dialog — header & tabs
   'settings.title': 'Einstellungen',
   'settings.done': 'Fertig',
-  'settings.tab.plugins': 'Plugins',
   'settings.tab.core': 'Kern',
   'settings.tab.block': 'Block',
   'settings.tab.cli': 'CLI',
@@ -569,6 +605,7 @@ export const de: Record<keyof Messages, string> = {
   'insights.generateReport': 'Bericht erstellen',
   'insights.refresh': 'Aktualisieren',
   'insights.windowTitle': 'Leseeinblicke',
+  'insights.needsVault': 'Richten Sie einen Tresor ein, um Leseeinblicke zu nutzen.',
   'insights.reportSaved': 'Bericht gespeichert',
   'insights.reportFailed': 'Bericht konnte nicht erstellt werden',
   'insights.openDoc': 'Dieses Dokument öffnen',
@@ -577,7 +614,7 @@ export const de: Record<keyof Messages, string> = {
 
   // Settings → CLI
   'settings.cli.heading': 'CLI',
-  'settings.cli.desc': 'Der Befehl <code>notemd</code> ermöglicht es Ihnen, note.md aus einem Terminal oder anderen Tools zu steuern — Dateien über das Share-Plugin veröffentlichen, verfügbare Befehle auflisten und mehr.',
+  'settings.cli.desc': 'Der Befehl <code>notemd</code> ermöglicht es Ihnen, note.md-Funktionen aus einem Terminal oder anderen Tools zu nutzen — Dateien als Webseiten veröffentlichen, PDFs exportieren und mehr.',
   'settings.cli.loading': 'Lädt…',
   'settings.cli.installedAtLabel': 'Installiert in:',
   'settings.cli.symlinkMismatch': 'Symlink zeigt auf eine andere Binärdatei — neu installieren, um zu reparieren.',
@@ -588,7 +625,7 @@ export const de: Record<keyof Messages, string> = {
   'settings.cli.installing': 'Installiert…',
   'settings.cli.install': 'Installieren…',
   'settings.cli.error': 'Fehler: {error}',
-  'settings.cli.helpDesc': 'Nach der Installation führen Sie <code>notemd help</code> in Ihrem Terminal für die vollständige Referenz aus. Das CLI zeigt nur Befehle an, die von <em>aktivierten</em> Plugins bereitgestellt werden — deaktivieren Sie ein Plugin in Plugins oben, um seinen Unterbefehl aus <code>notemd</code> zu entfernen.',
+  'settings.cli.helpDesc': 'Nach der Installation führen Sie <code>notemd help</code> in Ihrem Terminal für die vollständige Referenz aus. Das CLI bringt eingebaute Kernbefehle mit (share, reading-insights report) und zeigt zusätzlich Befehle von <em>aktivierten</em> Plugins an — deaktivieren Sie ein Plugin in Plugins oben, um seinen Unterbefehl aus <code>notemd</code> zu entfernen.',
 
   // ── Editor context menu ──
   'ctxmenu.cut': 'Ausschneiden',

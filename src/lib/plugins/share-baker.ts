@@ -14,7 +14,7 @@ import katexCss from 'katex/dist/katex.min.css?raw'
 import hljsLightCss from 'highlight.js/styles/github.css?raw'
 import hljsDarkCss from 'highlight.js/styles/github-dark.css?raw'
 import shareBeaconJs from './share-beacon.js?raw'
-import { isPluginEnabled } from '../settings.svelte'
+import { ShareError } from '../share/types'
 
 /// Load the compiled CSS for the requested theme via the `theme_load_compiled`
 /// Tauri command (same routing as theme-loader.ts — avoids needing fs:scope
@@ -94,7 +94,7 @@ export function mobileOverridesCssBlock(): string {
 
 export function guardSize(html: string): void {
   const bytes = new TextEncoder().encode(html).byteLength
-  if (bytes > MAX_HTML_BYTES) throw new Error(`share_too_large:${bytes}`)
+  if (bytes > MAX_HTML_BYTES) throw new ShareError('too_large', `${bytes} bytes`)
 }
 
 const DEFAULT_DESCRIPTION_MAX = 200
@@ -280,13 +280,14 @@ ${themedStyleHead(themeCss)}
  * `[data-theme="<id>"] .moraya-editor`, matching the in-app preview's
  * selector contract.
  *
- * Throws `share_too_large:<bytes>` if the result exceeds 25 MB.
+ * Throws `ShareError('too_large')` (byte count in `detail`) if the input or
+ * the result exceeds 25 MB.
  */
 export async function bakeShareHtml(tab: Tab, themeId: string = 'default'): Promise<string> {
   // Guard raw content size before running the rendering pipeline to avoid
   // stack overflows in the markdown parser on pathologically large inputs.
   const rawBytes = new TextEncoder().encode(tab.currentContent).byteLength
-  if (rawBytes > MAX_HTML_BYTES) throw new Error(`share_too_large:${rawBytes}`)
+  if (rawBytes > MAX_HTML_BYTES) throw new ShareError('too_large', `${rawBytes} bytes`)
 
   const inlineBody = await renderTabAsInlineBody(tab)
   // Visible header label stays as the filename (small subtitle below the
@@ -313,7 +314,7 @@ ${themedStyleHead(themeCss)}
 <main class="moraya-editor">${inlineBody}</main>
 <footer class="share-footer">Powered by <a href="https://notemd.net">note.md</a></footer>
 </div>
-${isPluginEnabled('reading-insights') ? `<script>${shareBeaconJs}</script>` : ''}
+<script>${shareBeaconJs}</script>
 </body>
 </html>`
   guardSize(html)

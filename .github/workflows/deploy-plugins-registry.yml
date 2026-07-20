@@ -1,0 +1,20 @@
+name: Deploy plugins registry worker
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "plugins-registry/**"
+      - ".github/workflows/deploy-plugins-registry.yml"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy notemd-plugins to Cloudflare Workers
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          workingDirectory: plugins-registry

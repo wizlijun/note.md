@@ -8,8 +8,6 @@ const reloadTabFromDisk = vi.fn()
 vi.mock('@tauri-apps/api/core', () => ({ invoke: (...a: unknown[]) => invoke(...a) }))
 vi.mock('@tauri-apps/plugin-dialog', () => ({ ask: (...a: unknown[]) => ask(...a) }))
 vi.mock('./toast.svelte', () => ({ pushToast: (...a: unknown[]) => pushToast(...a) }))
-let sotvaultActive = true
-vi.mock('./plugins/registry', () => ({ isPluginActive: () => sotvaultActive }))
 vi.mock('./tabs.svelte', () => ({
   activeTab: () => ({ filePath: '/src/a.md' }),
   reloadTabFromDisk: (...a: unknown[]) => reloadTabFromDisk(...a),
@@ -31,36 +29,21 @@ const sourceCheck = (outcome: string) => ({ outcome, vaultPath: VAULT, openedIsS
 
 beforeEach(() => {
   invoke.mockReset(); ask.mockReset(); pushToast.mockReset(); reloadTabFromDisk.mockReset()
-  sotvaultActive = true
   sotvaultStore.vaultRoot = null
   sotvaultStore.records = []
   sotvaultStore.mirrorMetas = []
 })
 
 describe('refreshSotvault', () => {
-  it('loads the vault root even when the sotvault plugin is inactive', async () => {
-    // The vault root is a global setting (VaultSyncManager.repo_path), independent
-    // of the sotvault plugin. Features like reading-insights rely on it, so it must
-    // load regardless — otherwise they wrongly report "no vault configured".
-    sotvaultActive = false
-    invoke
-      .mockResolvedValueOnce('/v') // sotvault_vault_root
-      .mockResolvedValueOnce([])   // notemd_mirror_metas (gated on root, not plugin)
-    await refreshSotvault()
-    expect(sotvaultStore.vaultRoot).toBe('/v')
-    // Records are sotvault-specific: skipped (no sotvault_records IPC) when inactive.
-    expect(invoke).not.toHaveBeenCalledWith('sotvault_records')
-    expect(invoke).toHaveBeenCalledWith('sotvault_vault_root')
-    expect(sotvaultStore.records).toEqual([])
-  })
-
-  it('loads root and records when the plugin is active', async () => {
+  it('loads vault root and records (core-ized: always active)', async () => {
+    // sotvault is core-ized — vault root and records are always loaded.
     invoke
       .mockResolvedValueOnce('/v')                          // sotvault_vault_root
       .mockResolvedValueOnce([{ source: '/s', vault: '/v/Sync/s.md' }]) // sotvault_records
       .mockResolvedValueOnce([])                            // notemd_mirror_metas
     await refreshSotvault()
     expect(sotvaultStore.vaultRoot).toBe('/v')
+    expect(invoke).toHaveBeenCalledWith('sotvault_records')
     expect(sotvaultStore.records).toHaveLength(1)
   })
 

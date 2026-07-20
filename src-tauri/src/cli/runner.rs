@@ -91,7 +91,110 @@ fn current_scan(
 ) {
     let plugins_dir = super::resolve_plugins_dir(parsed.globals.plugin_dir_override.as_deref());
     let config_dir = super::resolve_config_dir();
-    scan_disk(&plugins_dir, &config_dir)
+    let (mut manifests, mut enabled) = scan_disk(&plugins_dir, &config_dir);
+    append_core_cli_stubs(&mut manifests, &mut enabled);
+    append_v2_manifests(&mut manifests, &mut enabled, &config_dir);
+    (manifests, enabled)
+}
+
+/// CLI equivalent of Tauri's `app_data_dir()` plugins root: on macOS both
+/// resolve to `~/Library/Application Support/<BUNDLE_ID>`. The equivalence
+/// assumption is documented by `data_dir_matches_tauri_app_data_dir` below.
+fn v2_plugins_root() -> Option<PathBuf> {
+    dirs::data_dir().map(|d| d.join(crate::app_dirs::BUNDLE_ID).join("plugins"))
+}
+
+/// Behind the plugins_v2 flag, merge installed v2 plugins (adapted to the v1
+/// `PluginManifest` shape) into the CLI scan so router/runner matching works
+/// unchanged. Skips ids already present (same de-dup guard as the core stubs);
+/// v2 plugins are always enabled — enable/disable lives in v2's state.json,
+/// which discovery already honors.
+pub(crate) fn append_v2_manifests(
+    manifests: &mut Vec<(PluginManifest, PathBuf)>,
+    enabled: &mut std::collections::HashMap<String, bool>,
+    config_dir: &std::path::Path,
+) {
+    if !crate::plugin_runtime::v2_flag_enabled_at(config_dir) {
+        return;
+    }
+    let Some(root) = v2_plugins_root() else { return };
+    let host_version = env!("CARGO_PKG_VERSION");
+    for (id, (m, install_dir)) in crate::plugin_runtime::discovery::scan_root(&root, host_version) {
+        if manifests.iter().any(|(existing, _)| existing.id == id) {
+            continue;
+        }
+        match crate::plugin_runtime::adapter::to_v1(&m) {
+            Ok(v1) => {
+                enabled.insert(id, true);
+                manifests.push((v1, install_dir));
+            }
+            Err(e) => {
+                eprintln!("[plugin_runtime] {id}: contributes not v1-shaped: {e}");
+            }
+        }
+    }
+}
+
+/// Core-ized 功能的 CLI stub：share 与 reading-insights 的子命令属于核心，
+/// 不再有磁盘 manifest；注入扫描结果供 router/runner 统一匹配。
+pub fn core_cli_stub_manifests() -> Vec<PluginManifest> {
+    let share = serde_json::from_value(serde_json::json!({
+        "id": "share", "name": "Share", "version": "core", "binary": "",
+        "host_capabilities": ["renderer.html", "settings.read", "settings.write:share.records", "clipboard.write", "toast", "dialog"],
+        "cli": [{
+            "subcommand": "share", "aliases": ["--share"], "command": "publish",
+            "summary": "Render and publish file as a shareable URL",
+            "args": [{ "name": "file", "type": "path", "required": true, "help": "Markdown or image file to share" }],
+            "flags": [
+                { "long": "--update", "type": "boolean", "help": "Force update existing share (default if already shared)" },
+                { "long": "--copy-link", "type": "boolean", "help": "Print previously-shared URL instead of re-publishing" },
+                { "long": "--unshare", "type": "boolean", "help": "Remove share for this file" }
+            ],
+            "requires_tab_context": true
+        }]
+    })).expect("share cli stub");
+    let insights = serde_json::from_value(serde_json::json!({
+        "id": "reading-insights", "name": "Reading Insights", "version": "core", "binary": "",
+        "host_capabilities": [],
+        "cli": [{
+            "subcommand": "report", "command": "report",
+            "summary": "Generate a reading engagement report (owner + online audience) from the Vault",
+            "args": [],
+            "flags": [
+                { "long": "--vault", "type": "string", "help": "Vault root (defaults to the configured Vault)" },
+                { "long": "--date", "type": "string", "help": "today | yesterday (default) | 7d | 30d | month" },
+                { "long": "--from", "type": "string", "help": "YYYY-MM-DD (with --to, overrides --date)" },
+                { "long": "--to", "type": "string", "help": "YYYY-MM-DD" },
+                { "long": "--stdout", "type": "boolean", "help": "Print to stdout instead of writing <vault>/stat/*.md" }
+            ]
+        }]
+    })).expect("insights cli stub");
+    vec![share, insights]
+}
+
+/// True when this manifest is one of the injected core CLI stubs (see
+/// [`core_cli_stub_manifests`]) rather than a real on-disk plugin. Stubs are
+/// distinguishable by their sentinel shape: version "core" + empty binary.
+/// builtin.rs uses this to keep core commands out of the PLUGIN COMMANDS help
+/// section even if stubs are ever passed to the renderers.
+pub fn is_core_cli_stub(m: &PluginManifest) -> bool {
+    m.version == "core" && m.binary.as_deref() == Some("")
+}
+
+/// 把 core stub 追加进扫描结果。磁盘上已有同 id manifest（T7 删除前的过渡期）
+/// 则不追加，保持原插件行为；追加时强制 enabled=true —— core 命令不受
+/// plugins.enabled 遗留配置影响。
+pub(crate) fn append_core_cli_stubs(
+    manifests: &mut Vec<(PluginManifest, PathBuf)>,
+    enabled: &mut std::collections::HashMap<String, bool>,
+) {
+    for stub in core_cli_stub_manifests() {
+        if manifests.iter().any(|(m, _)| m.id == stub.id) {
+            continue;
+        }
+        enabled.insert(stub.id.clone(), true);
+        manifests.push((stub, PathBuf::new()));
+    }
 }
 
 fn parse_subcommand_args(
@@ -191,6 +294,10 @@ fn launch_tauri_headless(
             crate::cli::state::cli_finish,
             crate::plugin_host::get_plugin_manifests,
             crate::plugin_host::invoke_plugin,
+            // v2 runtime: get_plugin_manifests merges adapted v2 manifests from
+            // plugin_runtime::STATE (populated by plugin_runtime::init below);
+            // CliRunner routes manifest_version==2 through plugin_v2_execute.
+            crate::plugin_runtime::commands::plugin_v2_execute,
             crate::themes::commands::theme_load_compiled,
             // sotvault: needed by `notemd share` — refreshSotvault + prepareShareSrc
             // resolve the vault root, and an outside-vault file is homed in first
@@ -203,6 +310,15 @@ fn launch_tauri_headless(
         ])
         .setup(move |app| {
             crate::plugin_host::init(&app.handle());
+            // Populate plugin_runtime::STATE (no-op when the flag is off) so
+            // get_plugin_manifests / plugin_v2_execute see the v2 plugins the
+            // Rust-side scan (append_v2_manifests) routed here.
+            // NOTE: startup_activate_all (called inside plugin_runtime::init)
+            // will spawn `*`/onStartupFinished plugins on every CLI invocation;
+            // they die when the headless host exits via stdin EOF. This is
+            // acceptable for ①期. Revisit if a startup plugin lands before ③期
+            // — a persistent daemon would be the right host model then.
+            crate::plugin_runtime::init(&app.handle());
             let _ = tauri::WebviewWindowBuilder::new(
                 app,
                 "cli",
@@ -328,5 +444,90 @@ mod tests {
         let r = decide_plugin_command(&f, "publish");
         assert!(r.is_err());
         assert!(r.unwrap_err().contains("mutually exclusive"));
+    }
+
+    /// When the v2 flag is off (settings.json = `{}`), append_v2_manifests
+    /// must leave both the manifests vec and the enabled map completely
+    /// unchanged — flag-off behavior is byte-identical to pre-① regardless
+    /// of what is on disk in the v2 plugins root.
+    #[test]
+    fn v2_flag_off_leaves_manifests_and_enabled_unchanged() {
+        // If NOTEMD_PLUGINS_V2=1 is set in the test environment the flag check
+        // bypasses settings.json and would give a false positive — skip to avoid
+        // a spurious failure.
+        if std::env::var("NOTEMD_PLUGINS_V2").map_or(false, |v| v == "1") {
+            eprintln!("[test] NOTEMD_PLUGINS_V2=1 is set — skipping flag-off invariant test");
+            return;
+        }
+
+        use crate::plugin_runtime;
+        use crate::plugin_runtime::state::{InstallState, InstalledPlugin};
+
+        // Build a v2 install tree in a tempdir with a valid (but unreachable)
+        // plugin entry so that if the flag were on, it would modify the vecs.
+        let v2_root = tempfile::tempdir().unwrap();
+        let v2_plugins = v2_root.path().join("plugins");
+        let mut state = InstallState::default();
+        state.installed.insert(
+            "notemd.md2pdf".into(),
+            InstalledPlugin { version: "1.0.0".into(), enabled: true },
+        );
+        crate::plugin_runtime::state::save(&v2_plugins, &state).unwrap();
+
+        // Config dir with empty settings.json — v2 flag is off.
+        let config_dir = tempfile::tempdir().unwrap();
+        std::fs::write(config_dir.path().join("settings.json"), "{}").unwrap();
+
+        assert!(
+            !plugin_runtime::v2_flag_enabled_at(config_dir.path()),
+            "v2 flag must be off for this test to be meaningful"
+        );
+
+        let mut manifests: Vec<(crate::plugin_host::PluginManifest, std::path::PathBuf)> = vec![];
+        let mut enabled: std::collections::HashMap<String, bool> = std::collections::HashMap::new();
+
+        append_v2_manifests(&mut manifests, &mut enabled, config_dir.path());
+
+        assert!(manifests.is_empty(), "manifests must stay empty when v2 flag is off");
+        assert!(enabled.is_empty(), "enabled map must stay empty when v2 flag is off");
+    }
+
+    /// Documents the v2_plugins_root assumption: the CLI has no AppHandle, so
+    /// it derives the v2 plugins root from `dirs::data_dir()` + BUNDLE_ID.
+    /// Tauri's app_data_dir() resolves to the same place on macOS
+    /// (`~/Library/Application Support/net.notemd.app`) — if this ever drifts,
+    /// GUI and CLI would scan different v2 install roots.
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn data_dir_matches_tauri_app_data_dir() {
+        let root = dirs::data_dir().unwrap().join(crate::app_dirs::BUNDLE_ID);
+        assert!(
+            root.ends_with("Application Support/net.notemd.app"),
+            "unexpected v2 root base: {}",
+            root.display()
+        );
+    }
+
+    /// Version equivalence pin: the Cargo crate version (embedded at compile
+    /// time via env!("CARGO_PKG_VERSION")) must equal the "version" field in
+    /// the root package.json. A drift would mean the CLI reports a different
+    /// version than the npm/tauri build system thinks it is.
+    #[test]
+    fn cargo_version_matches_package_json_version() {
+        let pkg_json_path = concat!(env!("CARGO_MANIFEST_DIR"), "/../package.json");
+        let bytes = std::fs::read(pkg_json_path)
+            .expect("root package.json must be readable from src-tauri/");
+        let v: serde_json::Value =
+            serde_json::from_slice(&bytes).expect("root package.json must be valid JSON");
+        let pkg_version = v.get("version")
+            .and_then(|v| v.as_str())
+            .expect("package.json must have a string 'version' field");
+        assert_eq!(
+            env!("CARGO_PKG_VERSION"),
+            pkg_version,
+            "Cargo version ({}) differs from package.json version ({})",
+            env!("CARGO_PKG_VERSION"),
+            pkg_version,
+        );
     }
 }

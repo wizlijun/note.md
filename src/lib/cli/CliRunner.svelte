@@ -1,35 +1,23 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { invoke } from '@tauri-apps/api/core'
-  import { invokePlugin } from '../plugins/host'
-  import { bakeShareHtml } from '../plugins/share-baker'
+  import { invokePlugin, buildContext } from '../plugins/host'
   import { renderTabAsInlineBody } from '../plugins/host-render-html'
-  import { settings } from '../settings.svelte'
-  import { computeActiveThemeId } from '../theme-loader'
-  import { stat, readTextFile, mkdir, writeTextFile } from '@tauri-apps/plugin-fs'
+  import { mkdir, writeTextFile } from '@tauri-apps/plugin-fs'
   import { writeText as clipWriteText } from '@tauri-apps/plugin-clipboard-manager'
   import { mergePluginScoped, getPluginScopedAll, loadSettings } from '../settings.svelte'
   import { generateInsightsReport } from '../insights/run'
   import { presetRange, type Preset } from '../insights/value'
   import { localTzOffsetMinutes } from '../insights/model'
-  import { sha256Hex } from '../hash'
-  import {
-    basenameOf, extensionOf, inferKind, interpretActions,
-    type CliPayload,
-  } from './cli-runner'
+  import { runShareCli, buildVirtualTab } from './share-cli'
+  import { interpretActions, type CliPayload } from './cli-runner'
   import type { PluginManifest, TabKind } from '../plugins/types'
-  import type { Tab } from '../tabs.svelte'
   import type { FileKind } from '../fs'
-
-  /** Map the broader cli-runner kind to the editor's FileKind (no 'plaintext'). */
-  function toFileKind(k: ReturnType<typeof inferKind>): FileKind {
-    if (k === 'plaintext') return 'code'
-    return k
-  }
 
   /** Map FileKind to the narrower TabKind used in the plugin request context.
    *  Image tabs are reported as 'markdown' (matches App.svelte's snapshot
-   *  builder); the share plugin's Rust side branches on extension anyway. */
+   *  builder); image files never reach a plugin's HTML pipeline — share
+   *  handles them via uploadImage before this mapping matters. */
   function toTabKind(k: FileKind): TabKind {
     if (k === 'image') return 'markdown'
     return k
@@ -70,44 +58,6 @@
     }
   }
 
-  /** 分享报错时的 vault 诊断:读了哪个配置文件、sotvault 值、各层解析结果、文件与
-   *  vault 的关系。原样打印(不改大小写),便于发现 Sync/sync 之类不一致。best-effort。 */
-  async function shareVaultDiagnostics(filePath: string): Promise<string[]> {
-    const lines: string[] = []
-    const add = (k: string, v: unknown) =>
-      lines.push(`  ${k}: ${v === undefined ? '(undefined)' : v === null ? 'null' : typeof v === 'string' ? v : JSON.stringify(v)}`)
-    add('file', filePath)
-    try {
-      const { homeDir } = await import('@tauri-apps/api/path')
-      const { exists, readTextFile } = await import('@tauri-apps/plugin-fs')
-      const cfgPath = `${await homeDir()}/Library/Application Support/com.laobu.mdeditor-shared/config.json`
-      add('shared config', cfgPath)
-      const cfgExists = await exists(cfgPath).catch(() => false)
-      add('shared config exists', cfgExists)
-      if (cfgExists) {
-        const raw = await readTextFile(cfgPath).catch(() => '')
-        let sotvault: unknown = '(parse failed)'
-        try { sotvault = JSON.parse(raw).sotvault } catch { /* keep placeholder */ }
-        add('config.sotvault', sotvault)
-      }
-    } catch (e) { add('config read error', String(e)) }
-    try {
-      const backendRoot = await invoke<string | null>('sotvault_vault_root').catch(() => null)
-      add('sotvault_vault_root() → backend', backendRoot)
-      const { sotvaultStore } = await import('../sotvault.svelte')
-      add('store.vaultRoot', sotvaultStore.vaultRoot)
-      if (backendRoot) {
-        const r = backendRoot.endsWith('/') ? backendRoot : `${backendRoot}/`
-        add('file under vault? (case-sensitive)', filePath === backendRoot || filePath.startsWith(r))
-      }
-    } catch (e) { add('resolve error', String(e)) }
-    try {
-      const dbg = await invoke<unknown>('sotvault_vault_debug').catch((e) => ({ error: String(e) }))
-      lines.push(`  backend debug: ${JSON.stringify(dbg)}`)
-    } catch (e) { add('backend debug error', String(e)) }
-    return lines
-  }
-
   async function run(): Promise<void> {
     let payload: CliPayload
     try {
@@ -136,11 +86,22 @@
       return
     }
 
+    // share 是 core：走 TS 实现，无插件二进制。复用与菜单一致的
+    // vault-home 前置与 bake 流程；结果按 --json/--quiet 约定输出。
+    // 契约与实现在 share-cli.ts（可单测），此处只注入真实 finish。
+    if (payload.plugin_id === 'share') {
+      await runShareCli(payload, { finish })
+      return
+    }
+
     const manifests = await invoke<PluginManifest[]>('get_plugin_manifests')
     const manifest = manifests.find(m => m.id === payload.plugin_id)
     if (!manifest) {
+      const isV2 = payload.plugin_id.includes('.')
       await finish({ exit_code: 3, stderr: [
-        `notemd: plugin '${payload.plugin_id}' is not enabled. Run 'notemd plugin enable ${payload.plugin_id}'.`,
+        isV2
+          ? `notemd: v2 plugin '${payload.plugin_id}' is not installed or the v2 runtime flag is off.`
+          : `notemd: plugin '${payload.plugin_id}' is not enabled. Run 'notemd plugin enable ${payload.plugin_id}'.`,
       ]})
       return
     }
@@ -149,57 +110,16 @@
       return
     }
 
-    let fileContent = ''
-    let fileMtime = 0
-    try {
-      const info = await stat(payload.file)
-      fileMtime = info.mtime ? new Date(info.mtime).getTime() : 0
-      // For image files, content stays empty — bakeShareHtml's image branch
-      // re-reads bytes via tauri-plugin-fs. For others, we read text.
-      const ext = (extensionOf(basenameOf(payload.file)) ?? '').toLowerCase()
-      const isImage = ['.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.avif', '.heic', '.heif'].includes(ext)
-      if (!isImage) {
-        fileContent = await readTextFile(payload.file)
-      }
-    } catch (e) {
-      await finish({ exit_code: 2, stderr: [`notemd: cannot read '${payload.file}': ${e}`] })
-      return
-    }
-
-    const filename = basenameOf(payload.file)
-    const extension = extensionOf(filename)
-    const cliKind = inferKind(extension)
-    const fileKind = toFileKind(cliKind)
-
-    // Build a real Tab shape — share-baker reads filePath, currentContent, kind, title.
-    const virtualTab: Tab = {
-      id: 'cli',
-      filePath: payload.file,
-      title: filename,
-      initialContent: fileContent,
-      currentContent: fileContent,
-      mode: 'source',
-      kind: fileKind,
-      externalState: 'fresh',
-      externalBannerDismissed: false,
-      lastKnownMtime: fileMtime,
-      lastKnownHash: fileContent ? await sha256Hex(fileContent) : '',
-    }
+    const built = await buildVirtualTab(payload.file, finish)
+    if (!built) return
+    const { tab: virtualTab, extension, fileKind } = built
 
     // For commands requiring rendered HTML, bake the content.
     const entry = (manifest.cli ?? []).find(c => c.subcommand === payload.subcommand)
     let renderedHtml: string | undefined
     if (entry?.requires_tab_context && manifest.host_capabilities.includes('renderer.html')) {
       try {
-        if (fileKind === 'image') {
-          renderedHtml = ''
-        } else if (manifest.id === 'share') {
-          const systemDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false
-          const themeId = computeActiveThemeId(settings.theme, systemDark)
-          renderedHtml = await bakeShareHtml(virtualTab, themeId)
-        } else {
-          renderedHtml = await renderTabAsInlineBody(virtualTab)
-        }
+        renderedHtml = fileKind === 'image' ? '' : await renderTabAsInlineBody(virtualTab)
       } catch (e) {
         await finish({ exit_code: 1, stderr: [`notemd: render failed: ${e}`] })
         return
@@ -212,58 +132,66 @@
     if (outputFlag) {
       outputPath = outputFlag.startsWith('/') ? outputFlag
         : `${payload.file!.replace(/\/[^/]+$/, '')}/${outputFlag}`
-    } else if (manifest.id === 'md2pdf') {
+    } else if (manifest.id === 'md2pdf' || manifest.id === 'notemd.md2pdf') {
       outputPath = payload.file!.replace(/\.[^.]+$/, '.pdf')
-    }
-
-    // Share via CLI runs the SAME vault-home pre-step as the menu (headless: no
-    // flush — the file on disk is the source of truth). Fails the command with a
-    // clear message when there's no vault to home the outside file into.
-    let shareSrc: string | null = null
-    if (manifest.id === 'share' && virtualTab.filePath) {
-      try {
-        // CLI 不走 GUI(App.svelte)的启动 refreshSotvault,故 sotvaultStore.vaultRoot
-        // 一直是 null;prepareShareSrc 用它判 vault → 误报 vault_required。先加载。
-        const { refreshSotvault } = await import('../sotvault.svelte')
-        await refreshSotvault()
-        const { prepareShareSrc } = await import('../share')
-        shareSrc = await prepareShareSrc(virtualTab.filePath)
-      } catch (e) {
-        // 详细诊断:报错时列出读了哪个配置文件、sotvault 值、各层解析结果、文件路径
-        // (原样打印,便于发现 Sync/sync 之类大小写不一致)。
-        await finish({
-          exit_code: 1,
-          stderr: [
-            `notemd: share failed: ${e instanceof Error ? e.message : String(e)}`,
-            ...(await shareVaultDiagnostics(virtualTab.filePath)),
-          ],
-        })
-        return
-      }
     }
 
     const pluginSettings = getPluginScopedAll(manifest.id)
 
-    const result = await invokePlugin(
-      manifest,
-      payload.plugin_command,
-      {
-        path: virtualTab.filePath,
-        filename: virtualTab.title,
-        extension,
-        kind: toTabKind(virtualTab.kind),
-        title: virtualTab.title,
-        isDirty: false,
-        isUntitled: false,
-        content: virtualTab.currentContent,
-        src: shareSrc,
-      },
-      {
-        htmlBaker: renderedHtml != null ? async () => renderedHtml! : undefined,
-        settingsReader: () => pluginSettings,
-        outputPath,
-      },
-    )
+    // One tab snapshot + opts set for both runtimes: v1 feeds them through
+    // invokePlugin, v2 through the same buildContext invokePlugin uses.
+    const snap = {
+      path: virtualTab.filePath,
+      filename: virtualTab.title,
+      extension,
+      kind: toTabKind(virtualTab.kind),
+      title: virtualTab.title,
+      isDirty: false,
+      isUntitled: false,
+      content: virtualTab.currentContent,
+    }
+    const invokeOpts = {
+      htmlBaker: renderedHtml != null ? async () => renderedHtml! : undefined,
+      settingsReader: () => pluginSettings,
+      outputPath,
+    }
+
+    if (manifest.manifest_version === 2) {
+      // v2: same context shape v1 plugins receive, but the command executes
+      // on the resident runtime via plugin_v2_execute, which returns a result
+      // value instead of an actions envelope (toasts are GUI-only events).
+      // Output/error conventions mirror interpretActions: --json wraps the
+      // result as {ok:true,data}, errors exit 4 with a plugin_failed envelope.
+      try {
+        const { context } = await buildContext(manifest, snap, invokeOpts)
+        const data = await invoke<unknown>('plugin_v2_execute', {
+          pluginId: manifest.id,
+          command: payload.plugin_command,
+          context,
+        })
+        const path = data != null && typeof data === 'object'
+          ? (data as Record<string, unknown>).path : undefined
+        await finish({
+          exit_code: 0,
+          stdout: payload.global.json
+            ? JSON.stringify({ ok: true, data: data ?? {} })
+            : typeof path === 'string' ? path : JSON.stringify(data ?? {}),
+          stderr: [],
+        })
+      } catch (e) {
+        const message = String(e)
+        await finish({
+          exit_code: 4,
+          stdout: payload.global.json
+            ? JSON.stringify({ ok: false, error: { code: 'plugin_failed', message } })
+            : undefined,
+          stderr: [`✗ ${manifest.name}: ${message}`],
+        })
+      }
+      return
+    }
+
+    const result = await invokePlugin(manifest, payload.plugin_command, snap, invokeOpts)
 
     if (!result.ok || !result.response) {
       await finish({
