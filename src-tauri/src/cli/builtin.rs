@@ -30,44 +30,8 @@ pub fn run(b: Builtin, parsed: &Parsed) -> ExitCode {
             println!("{}", render_plugin_list(parsed.globals.json, &manifests_only, &enabled));
             ExitCode::from(0)
         }
-        Builtin::PluginEnable(id) => {
-            if !manifests_only.iter().any(|m| m.id == id) {
-                eprintln!("notemd: unknown plugin id '{id}'");
-                return ExitCode::from(2);
-            }
-            let cfg = super::resolve_config_dir();
-            match write_enabled_flag(&cfg, &id, true) {
-                Ok(()) => {
-                    if !parsed.globals.quiet {
-                        eprintln!("✓ plugin '{id}' enabled");
-                    }
-                    ExitCode::from(0)
-                }
-                Err(e) => {
-                    eprintln!("notemd: failed to enable plugin: {e}");
-                    ExitCode::from(1)
-                }
-            }
-        }
-        Builtin::PluginDisable(id) => {
-            if !manifests_only.iter().any(|m| m.id == id) {
-                eprintln!("notemd: unknown plugin id '{id}'");
-                return ExitCode::from(2);
-            }
-            let cfg = super::resolve_config_dir();
-            match write_enabled_flag(&cfg, &id, false) {
-                Ok(()) => {
-                    if !parsed.globals.quiet {
-                        eprintln!("✓ plugin '{id}' disabled");
-                    }
-                    ExitCode::from(0)
-                }
-                Err(e) => {
-                    eprintln!("notemd: failed to disable plugin: {e}");
-                    ExitCode::from(1)
-                }
-            }
-        }
+        Builtin::PluginEnable(id) => plugin_set_enabled(&id, true, parsed, &manifests_only),
+        Builtin::PluginDisable(id) => plugin_set_enabled(&id, false, parsed, &manifests_only),
         Builtin::PluginInfo(id) => {
             let m = match manifests_only.iter().find(|m| m.id == id) {
                 Some(m) => m,
@@ -82,6 +46,44 @@ pub fn run(b: Builtin, parsed: &Parsed) -> ExitCode {
         Builtin::PluginInstall(id, version) => market::run_install(&id, version.as_deref(), parsed),
         Builtin::PluginUpdate(id) => market::run_update(id.as_deref(), parsed),
         Builtin::PluginRemove(id, keep_data) => market::run_remove(&id, keep_data, parsed),
+    }
+}
+
+/// `plugin enable`/`plugin disable`. v2 plugins persist their enabled flag in
+/// state.json (not settings.json), so they are routed there first — this also
+/// covers re-enabling a *disabled* v2 plugin, which `current_scan` filters out
+/// of `manifests` (scan_root only returns enabled ones). A non-v2 id falls
+/// through to the v1 settings.json path, gated on the manifest scan.
+fn plugin_set_enabled(
+    id: &str,
+    enabled: bool,
+    parsed: &Parsed,
+    manifests: &[PluginManifest],
+) -> ExitCode {
+    if let Some(res) = market::set_v2_enabled(id, enabled) {
+        return report_toggle(id, enabled, res, parsed);
+    }
+    if !manifests.iter().any(|m| m.id == id) {
+        eprintln!("notemd: unknown plugin id '{id}'");
+        return ExitCode::from(2);
+    }
+    let cfg = super::resolve_config_dir();
+    report_toggle(id, enabled, write_enabled_flag(&cfg, id, enabled), parsed)
+}
+
+fn report_toggle(id: &str, enabled: bool, res: Result<(), String>, parsed: &Parsed) -> ExitCode {
+    let (verb, past) = if enabled { ("enable", "enabled") } else { ("disable", "disabled") };
+    match res {
+        Ok(()) => {
+            if !parsed.globals.quiet {
+                eprintln!("✓ plugin '{id}' {past}");
+            }
+            ExitCode::from(0)
+        }
+        Err(e) => {
+            eprintln!("notemd: failed to {verb} plugin: {e}");
+            ExitCode::from(1)
+        }
     }
 }
 
@@ -415,6 +417,10 @@ pub fn render_plugin_info(
     out
 }
 
+/// Merges installed v2 plugins (adapted to the v1 shape) into the scan so they
+/// appear in `plugin list`, `plugin info`, and `help` alongside v1 disk
+/// plugins — the same merge router.rs/runner.rs do for routing.
+///
 /// Deliberately does NOT inject the core CLI stubs (`runner::
 /// core_cli_stub_manifests()`), unlike runner.rs's current_scan: the stubs
 /// exist only so routing/arg-parsing can match core subcommands. Injecting
@@ -423,7 +429,9 @@ pub fn render_plugin_info(
 fn current_scan(parsed: &Parsed) -> (Vec<(PluginManifest, PathBuf)>, HashMap<String, bool>) {
     let plugins_dir = super::resolve_plugins_dir(parsed.globals.plugin_dir_override.as_deref());
     let config_dir = super::resolve_config_dir();
-    scan_disk(&plugins_dir, &config_dir)
+    let (mut manifests, mut enabled) = scan_disk(&plugins_dir, &config_dir);
+    super::runner::append_v2_manifests(&mut manifests, &mut enabled, &config_dir);
+    (manifests, enabled)
 }
 
 /// v2 marketplace subcommands driven from the CLI (子项目③ Task 3):
@@ -459,6 +467,31 @@ mod market {
     /// `data_root` uninstall passes to `installer::uninstall`.
     fn app_data_root() -> Option<PathBuf> {
         dirs::data_dir().map(|d| d.join(crate::app_dirs::BUNDLE_ID))
+    }
+
+    /// `plugin enable`/`disable` for a v2 plugin: flip its `enabled` flag in
+    /// state.json (the single source of truth for v2 — settings.json's
+    /// `plugins.enabled` is v1-only). Returns `None` when the v2 flag is off
+    /// or `id` is not an installed v2 plugin, so the caller falls through to
+    /// the v1 path; `Some(result)` once handled. A running app reconciles on
+    /// its next launch (same as install/update).
+    pub(super) fn set_v2_enabled(id: &str, enabled: bool) -> Option<Result<(), String>> {
+        if !crate::plugin_runtime::v2_flag_enabled_at(&super::super::resolve_config_dir()) {
+            return None;
+        }
+        set_v2_enabled_at(&plugins_root()?, id, enabled)
+    }
+
+    /// Pure core of [`set_v2_enabled`] — testable against an explicit root.
+    fn set_v2_enabled_at(
+        root: &std::path::Path,
+        id: &str,
+        enabled: bool,
+    ) -> Option<Result<(), String>> {
+        let mut install = state::load(root);
+        let entry = install.installed.get_mut(id)?;
+        entry.enabled = enabled;
+        Some(state::save(root, &install))
     }
 
     fn registry_base() -> String {
@@ -934,6 +967,40 @@ mod market {
             let expected = dirs::data_dir()
                 .map(|d| d.join(crate::app_dirs::BUNDLE_ID).join("plugins"));
             assert_eq!(plugins_root(), expected);
+        }
+
+        fn seed_state(root: &std::path::Path, id: &str, enabled: bool) {
+            let mut s = state::InstallState::default();
+            s.installed.insert(
+                id.to_string(),
+                state::InstalledPlugin { version: "1.0.0".into(), enabled },
+            );
+            state::save(root, &s).unwrap();
+        }
+
+        /// Disabling then re-enabling a v2 plugin must flip the state.json flag
+        /// both ways — re-enable especially, since a disabled plugin is absent
+        /// from `current_scan`'s manifest list and can only be found here.
+        #[test]
+        fn set_v2_enabled_at_toggles_state_json_both_ways() {
+            let dir = tempfile::tempdir().unwrap();
+            let root = dir.path();
+            seed_state(root, "notemd.md2pdf", true);
+
+            assert!(set_v2_enabled_at(root, "notemd.md2pdf", false).unwrap().is_ok());
+            assert!(!state::load(root).installed["notemd.md2pdf"].enabled);
+
+            assert!(set_v2_enabled_at(root, "notemd.md2pdf", true).unwrap().is_ok());
+            assert!(state::load(root).installed["notemd.md2pdf"].enabled);
+        }
+
+        /// A non-installed id returns None so the caller falls through to the
+        /// v1 (settings.json) enable/disable path.
+        #[test]
+        fn set_v2_enabled_at_unknown_id_is_none() {
+            let dir = tempfile::tempdir().unwrap();
+            seed_state(dir.path(), "notemd.md2pdf", true);
+            assert!(set_v2_enabled_at(dir.path(), "base", true).is_none());
         }
     }
 }
