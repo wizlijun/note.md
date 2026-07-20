@@ -2,13 +2,20 @@
 //! (capability `location`).
 //!
 //! WHY the host does this instead of the plugin: a plugin's spawned binary is
-//! NOT an app bundle, so `requestWhenInUseAuthorization` never prompts — the
-//! authorization status stays `NotDetermined` and every read times out
-//! ("authorization prompt timed out"). The host IS a signed bundle carrying
-//! `NSLocationUsageDescription`, so macOS attributes TCC to note.md and prompts
-//! correctly. `fetch_once` MUST run on the MAIN thread: CLGeocoder completion
-//! blocks land on the main queue, and a nested run loop drains them — the same
-//! nested-run-loop pattern the native dialogs already rely on.
+//! NOT an app bundle, so it can't be attributed by TCC. The host IS a signed
+//! bundle carrying `NSLocationUsageDescription`, so macOS attributes the
+//! request to note.md and prompts correctly.
+//!
+//! WHY a delegate: on macOS the authorization prompt only appears when a
+//! `CLLocationManager` with a DELEGATE set makes a location request. Polling
+//! `authorizationStatus` without a delegate leaves the status at
+//! `NotDetermined` forever (no prompt). We set a minimal delegate, then
+//! `startUpdatingLocation` (which triggers the prompt), and poll for the
+//! result while pumping the main run loop.
+//!
+//! `fetch_once` MUST run on the MAIN thread (CLGeocoder completion blocks land
+//! on the main queue; a nested run loop drains them — the same pattern the
+//! native dialogs already rely on).
 
 use serde_json::{json, Value};
 
@@ -30,17 +37,37 @@ mod mac {
     use super::*;
     use block2::RcBlock;
     use objc2::rc::Retained;
+    use objc2::runtime::{NSObject, NSObjectProtocol, ProtocolObject};
+    use objc2::{define_class, msg_send, AllocAnyThread};
     use objc2_core_location::{
-        CLAuthorizationStatus, CLGeocoder, CLLocationManager, CLPlacemark,
+        CLAuthorizationStatus, CLGeocoder, CLLocationManager, CLLocationManagerDelegate,
+        CLPlacemark,
     };
     use objc2_foundation::{NSArray, NSDate, NSError, NSRunLoop};
     use std::sync::{Arc, Mutex};
     use std::time::{Duration, Instant};
 
-    const AUTH_WAIT_SECS: u64 = 60; // first-run authorization prompt
-    const FIX_WAIT_SECS: u64 = 30; // waiting for a location fix
+    const WAIT_SECS: u64 = 90; // authorization prompt + first fix, combined
     const GEO_WAIT_SECS: u64 = 15; // waiting for reverse geocode
     const FRESH_SECS: f64 = 300.0; // accept a fix ≤ 5 min old
+
+    // A minimal CLLocationManagerDelegate. Its mere presence is what makes the
+    // authorization prompt appear; all delegate methods are optional so we
+    // implement none and poll the manager instead.
+    define_class!(
+        #[unsafe(super(NSObject))]
+        #[name = "NotemdLocationDelegate"]
+        struct Delegate;
+
+        unsafe impl NSObjectProtocol for Delegate {}
+        unsafe impl CLLocationManagerDelegate for Delegate {}
+    );
+
+    impl Delegate {
+        fn new() -> Retained<Self> {
+            unsafe { msg_send![Self::alloc(), init] }
+        }
+    }
 
     /// Pump the main run loop for `seconds` (also drains GCD blocks on the main
     /// queue). Only valid on the main thread.
@@ -51,52 +78,52 @@ mod mac {
         }
     }
 
-    fn wait_authorized(manager: &CLLocationManager) -> Result<(), String> {
-        let t0 = Instant::now();
-        loop {
-            let s = unsafe { manager.authorizationStatus() };
-            // `requestWhenInUseAuthorization` grants `AuthorizedWhenInUse`, not
-            // `AuthorizedAlways`; both are valid for a foreground read.
-            if matches!(
-                s,
-                CLAuthorizationStatus::AuthorizedAlways
-                    | CLAuthorizationStatus::AuthorizedWhenInUse
-            ) {
-                return Ok(());
-            }
-            if s == CLAuthorizationStatus::NotDetermined {
-                if t0.elapsed() > Duration::from_secs(AUTH_WAIT_SECS) {
-                    return Err("authorization prompt timed out".into());
-                }
-                pump(0.2);
-                continue;
-            }
-            return Err(format!("location authorization denied/restricted ({s:?})"));
-        }
-    }
-
     pub fn fetch_once() -> Result<Value, String> {
         let manager = unsafe { CLLocationManager::new() };
+        // Delegate MUST be set before requesting authorization / updates, or no
+        // prompt appears. Keep it alive for the whole fetch (manager holds a
+        // weak reference).
+        let delegate = Delegate::new();
+        unsafe {
+            manager.setDelegate(Some(ProtocolObject::from_ref(&*delegate)));
+        }
+
         if unsafe { manager.authorizationStatus() } == CLAuthorizationStatus::NotDetermined {
             unsafe { manager.requestWhenInUseAuthorization() };
         }
-        wait_authorized(&manager)?;
-
-        // Short start/stop + poll `.location` (behaviorally equivalent to
-        // requestLocation, without a delegate).
+        // startUpdatingLocation is what actually triggers the prompt on macOS
+        // (with a delegate set); it also begins delivering fixes.
         unsafe { manager.startUpdatingLocation() };
+
+        // Combined wait: authorization prompt resolves, then a fresh fix lands.
         let t0 = Instant::now();
         let loc = loop {
-            let fresh = unsafe { manager.location() }.filter(|l| {
-                let age = unsafe { l.timestamp().timeIntervalSinceNow() };
-                age > -FRESH_SECS
-            });
-            if let Some(l) = fresh {
-                break l;
-            }
-            if t0.elapsed() > Duration::from_secs(FIX_WAIT_SECS) {
+            let s = unsafe { manager.authorizationStatus() };
+            if matches!(
+                s,
+                CLAuthorizationStatus::Denied | CLAuthorizationStatus::Restricted
+            ) {
                 unsafe { manager.stopUpdatingLocation() };
-                return Err("location fix timed out".into());
+                return Err(format!(
+                    "location access denied — enable note.md in System Settings ▸ Privacy & Security ▸ Location Services ({s:?})"
+                ));
+            }
+            if matches!(
+                s,
+                CLAuthorizationStatus::AuthorizedAlways | CLAuthorizationStatus::AuthorizedWhenInUse
+            ) {
+                let fresh = unsafe { manager.location() }.filter(|l| {
+                    let age = unsafe { l.timestamp().timeIntervalSinceNow() };
+                    age > -FRESH_SECS
+                });
+                if let Some(l) = fresh {
+                    break l;
+                }
+            }
+            if t0.elapsed() > Duration::from_secs(WAIT_SECS) {
+                unsafe { manager.stopUpdatingLocation() };
+                let s = unsafe { manager.authorizationStatus() };
+                return Err(format!("timed out waiting for location (auth status: {s:?})"));
             }
             pump(0.2);
         };
@@ -128,15 +155,17 @@ mod mac {
         let block_ptr: *mut GeoBlock = &*block as *const GeoBlock as *mut GeoBlock;
         unsafe { geocoder.reverseGeocodeLocation_completionHandler(&loc, block_ptr) };
         let t1 = Instant::now();
-        loop {
+        let result = loop {
             if let Some(res) = slot.lock().unwrap().take() {
-                return res;
+                break res;
             }
             if t1.elapsed() > Duration::from_secs(GEO_WAIT_SECS) {
-                return Err("reverse geocode timed out".into());
+                break Err("reverse geocode timed out".into());
             }
             pump(0.2);
-        }
+        };
+        drop(delegate); // keep the delegate alive until we're fully done
+        result
     }
 
     fn opt_str(s: Option<Retained<objc2_foundation::NSString>>) -> String {
