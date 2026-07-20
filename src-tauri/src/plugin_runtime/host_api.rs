@@ -44,6 +44,7 @@ pub fn method_capability(method: &str) -> Option<&'static str> {
         // host.dialog.open/save in this session (spec §5 prompt semantics).
         "host.fs.read_text" | "host.fs.read_bytes" => Some("fs.read:dialog"),
         "host.clipboard.write" => Some("clipboard.write"),
+        "host.location.get" => Some("location"),
         _ => Some("__unknown__"), // 未实现的方法一律拒绝
     }
 }
@@ -177,6 +178,7 @@ pub fn make_sink(
                                 "host.vault.exists" => Some(rpc::vault_exists(s, &req.params)),
                                 "host.vault.list" => Some(rpc::vault_list(s, &req.params)),
                                 "host.vault.mkdir" => Some(rpc::vault_mkdir(s, &req.params)),
+                                "host.location.get" => Some(s.location_get()),
                                 _ => None,
                             }
                         });

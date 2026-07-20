@@ -80,7 +80,7 @@ export function capabilityLabel(cap: string): string {
 /** Whether a capability warrants a warning highlight (sensitive host access). */
 export function isSensitiveCapability(cap: string): boolean {
   const norm = normalizeCapability(cap)
-  return norm === 'vault.write' || norm === 'secrets'
+  return norm === 'vault.write' || norm === 'secrets' || norm === 'location'
 }
 
 /** Map a raw capability to its normalized bucket (settings.* → settings). */
@@ -103,6 +103,7 @@ function capabilityKey(cap: string): keyof Messages | null {
     'vault.write': 'capability.vault.write',
     dialog: 'capability.dialog',
     'clipboard.write': 'capability.clipboard.write',
+    location: 'capability.location',
     toast: 'capability.toast',
     'editor.events': 'capability.editor.events',
     'fs.read:dialog': 'capability.fs.read.dialog',

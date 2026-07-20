@@ -63,6 +63,11 @@ tauri-plugin-window-state = "2"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 core-foundation = "0.10"
+# Host-side CoreLocation for the `host.location.get` plugin API (pos-log etc.).
+objc2 = "0.6"
+objc2-foundation = "0.3"
+objc2-core-location = "0.3"
+block2 = "0.6"
 
 [target.'cfg(target_os = "ios")'.dependencies]
 git2 = { version = "0.19", default-features = false, features = ["vendored-libgit2", "vendored-openssl"] }

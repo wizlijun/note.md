@@ -230,6 +230,7 @@ export const de: Record<keyof Messages, string> = {
   'capability.vault.write': 'Dateien in Ihrem Tresor erstellen und ändern',
   'capability.dialog': 'Datei-Öffnen-/Speichern-Dialoge anzeigen',
   'capability.clipboard.write': 'In die Zwischenablage schreiben',
+  'capability.location': 'Deinen Standort lesen',
   'capability.toast': 'Benachrichtigungen anzeigen',
   'capability.editor.events': 'Editor-Ereignisse beobachten (Öffnen, Bearbeiten, Speichern)',
   'capability.fs.read.dialog': 'Dateien lesen, die Sie in einem Dialog auswählen',

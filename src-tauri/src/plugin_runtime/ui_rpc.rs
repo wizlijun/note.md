@@ -153,6 +153,12 @@ pub trait HostServices: Send + Sync {
     fn wiki_daily_dirs(&self) -> (Option<String>, Option<String>);
     /// Write UTF-8 text to the OS clipboard.
     fn clipboard_write(&self, text: &str) -> Result<(), String>;
+    /// One-shot location read → `{country, province, city, poi}`. Blocks until
+    /// a fix + reverse-geocode completes (or times out). Default: unsupported;
+    /// the Tauri impl runs CoreLocation on the main thread (see `location.rs`).
+    fn location_get(&self) -> Result<serde_json::Value, String> {
+        Err("location not supported".into())
+    }
 }
 
 // ── Dispatch ────────────────────────────────────────────────────────────
@@ -293,6 +299,7 @@ pub async fn dispatch_with(
         "host.fs.read_text" => fs_read_text(plugin_id, &req.params),
         "host.fs.read_bytes" => fs_read_bytes(plugin_id, &req.params),
         "host.clipboard.write" => clipboard_write(services, &req.params),
+        "host.location.get" => services.location_get(),
         "host.vault.info" => Ok(vault_info(services)),
         "host.vault.read" => vault_read(services, &req.params),
         "host.vault.write" => vault_write(services, &req.params),
@@ -652,6 +659,20 @@ impl<R: tauri::Runtime> HostServices for TauriServices<R> {
     fn clipboard_write(&self, text: &str) -> Result<(), String> {
         use tauri_plugin_clipboard_manager::ClipboardExt;
         self.app.clipboard().write_text(text).map_err(|e| e.to_string())
+    }
+
+    fn location_get(&self) -> Result<serde_json::Value, String> {
+        // CoreLocation must run on the main thread; hop there, do the blocking
+        // fetch, and hand the result back over a channel. The caller is already
+        // on a dedicated per-request thread, so blocking here is fine.
+        let (tx, rx) = std::sync::mpsc::channel();
+        self.app
+            .run_on_main_thread(move || {
+                let _ = tx.send(super::location::fetch_once());
+            })
+            .map_err(|e| format!("run_on_main_thread: {e}"))?;
+        rx.recv_timeout(std::time::Duration::from_secs(120))
+            .map_err(|_| "location request timed out".to_string())?
     }
 }
 

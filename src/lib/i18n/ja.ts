@@ -232,6 +232,7 @@ export const ja: Record<keyof Messages, string> = {
   'capability.vault.write': 'Vault 内でファイルを作成・変更',
   'capability.dialog': 'ファイルの開く/保存ダイアログを表示',
   'capability.clipboard.write': 'クリップボードへ書き込み',
+  'capability.location': '位置情報を取得',
   'capability.toast': '通知を表示',
   'capability.editor.events': 'エディタイベント（開く・編集・保存）を監視',
   'capability.fs.read.dialog': 'ダイアログで選択したファイルを読み取り',

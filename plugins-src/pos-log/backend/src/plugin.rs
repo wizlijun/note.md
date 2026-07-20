@@ -1,6 +1,6 @@
-//! SDK 粘合：activate 起 30 分钟循环 task；每轮 fetch（经主线程服务）→
-//! logbook 决策 → host.vault.exists/read/write。deactivate 撤销循环。
-use crate::location::FetchJob;
+//! SDK 粘合：activate 起 30 分钟循环 task；每轮经 `host.location.get`（宿主
+//! 主线程 CoreLocation，插件裸二进制拿不到定位授权）取位 → logbook 决策 →
+//! host.vault.exists/read/write。deactivate 撤销循环。
 use crate::logbook;
 use notemd_plugin_sdk::{self as sdk, plugin_protocol as proto};
 use serde_json::{json, Value};
@@ -8,13 +8,18 @@ use serde_json::{json, Value};
 const ROUND_SECS: u64 = 30 * 60;
 
 pub struct PosLogPlugin {
-    fetch_tx: std::sync::mpsc::Sender<FetchJob>,
     stop_tx: Option<tokio::sync::watch::Sender<bool>>,
 }
 
 impl PosLogPlugin {
-    pub fn new(fetch_tx: std::sync::mpsc::Sender<FetchJob>) -> Self {
-        Self { fetch_tx, stop_tx: None }
+    pub fn new() -> Self {
+        Self { stop_tx: None }
+    }
+}
+
+impl Default for PosLogPlugin {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -26,11 +31,10 @@ impl sdk::NotemdPlugin for PosLogPlugin {
         let (stop_tx, mut stop_rx) = tokio::sync::watch::channel(false);
         self.stop_tx = Some(stop_tx);
         let host = host.clone();
-        let fetch_tx = self.fetch_tx.clone();
         tokio::spawn(async move {
             let mut warned_once = false;
             loop {
-                run_round(&host, &fetch_tx, &mut warned_once, false).await;
+                run_round(&host, &mut warned_once, false).await;
                 tokio::select! {
                     _ = tokio::time::sleep(std::time::Duration::from_secs(ROUND_SECS)) => {}
                     _ = stop_rx.changed() => break,
@@ -57,10 +61,9 @@ impl sdk::NotemdPlugin for PosLogPlugin {
             // the outcome). Reuses the same round the 30-min loop runs.
             "save-now" => {
                 let host = host.clone();
-                let fetch_tx = self.fetch_tx.clone();
                 tokio::spawn(async move {
                     let mut warned = false;
-                    run_round(&host, &fetch_tx, &mut warned, /*announce=*/ true).await;
+                    run_round(&host, &mut warned, /*announce=*/ true).await;
                 });
                 Ok(json!({ "ok": true }))
             }
@@ -69,38 +72,23 @@ impl sdk::NotemdPlugin for PosLogPlugin {
     }
 }
 
-/// 一轮：取位 → 组行 → 决策 → 写盘。所有失败仅告警跳过（spec §8 错误表）。
-/// `announce`=true（手动「Save Location Now」）总是弹 toast 反馈结果；
-/// =false（30 分钟循环）沿用 `warned_once` 抑制重复告警。
-async fn run_round(
-    host: &sdk::Host,
-    fetch_tx: &std::sync::mpsc::Sender<FetchJob>,
-    warned_once: &mut bool,
-    announce: bool,
-) {
-    let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
-    if fetch_tx.send(FetchJob { reply: reply_tx }).is_err() {
-        host.log_warn("pos-log: location service gone");
-        if announce {
-            host.toast("warning", "Position Log", Some("location service unavailable"));
-        }
-        return;
-    }
-    let place = match reply_rx.await {
-        Ok(Ok(p)) => p,
-        Ok(Err(e)) => {
+/// 一轮：取位（host.location.get）→ 组行 → 决策 → 写盘。所有失败仅告警跳过
+/// （spec §8 错误表）。`announce`=true（手动「Save Location Now」）总是弹 toast
+/// 反馈结果；=false（30 分钟循环）沿用 `warned_once` 抑制重复告警。
+async fn run_round(host: &sdk::Host, warned_once: &mut bool, announce: bool) {
+    let place = match host.request("host.location.get", json!({})).await {
+        Ok(v) => logbook::Place {
+            country: v["country"].as_str().unwrap_or_default().to_string(),
+            province: v["province"].as_str().unwrap_or_default().to_string(),
+            city: v["city"].as_str().unwrap_or_default().to_string(),
+            poi: v["poi"].as_str().unwrap_or_default().to_string(),
+        },
+        Err(e) => {
             if announce || !*warned_once {
                 host.toast("warning", "Position Log 无法获取位置", Some(&e));
                 *warned_once = true;
             }
-            host.log_warn(&format!("pos-log: fetch failed: {e}"));
-            return;
-        }
-        Err(_) => {
-            host.log_warn("pos-log: location service dropped reply");
-            if announce {
-                host.toast("warning", "Position Log", Some("location service dropped reply"));
-            }
+            host.log_warn(&format!("pos-log: host.location.get failed: {e}"));
             return;
         }
     };
@@ -171,39 +159,21 @@ async fn run_round(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::location::{service_loop, LocationProvider};
-    use crate::logbook::Place;
     use notemd_plugin_sdk as sdk;
     use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 
-    struct FakeProvider;
-    impl LocationProvider for FakeProvider {
-        fn fetch(&mut self) -> Result<Place, String> {
-            Ok(Place {
-                country: "中国".into(),
-                province: "湖北".into(),
-                city: "武汉".into(),
-                poi: "光谷软件园".into(),
-            })
-        }
-    }
-
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn first_round_writes_baseline_line() {
-        // 假主线程服务
-        let (fetch_tx, fetch_rx) = std::sync::mpsc::channel::<FetchJob>();
-        std::thread::spawn(move || service_loop(fetch_rx, &mut FakeProvider));
-
         // 假宿主管道
         let (host_side, plugin_side) = tokio::io::duplex(64 * 1024);
         let (plug_r, plug_w) = tokio::io::split(plugin_side);
-        tokio::spawn(sdk::serve_io(PosLogPlugin::new(fetch_tx), plug_r, plug_w));
+        tokio::spawn(sdk::serve_io(PosLogPlugin::new(), plug_r, plug_w));
 
         let (host_r, mut host_w) = tokio::io::split(host_side);
         let mut lines = BufReader::new(host_r).lines();
 
         // $initialize + $activate（参数形状照 plugin_protocol，deny_unknown_fields）
-        host_w.write_all(br#"{"jsonrpc":"2.0","id":1,"method":"$initialize","params":{"protocol_version":2,"host_version":"6.717.1","locale":"en","theme":"light","plugin_root":"/tmp/plugin","data_dir":"/tmp/data"}}"#).await.unwrap();
+        host_w.write_all(br#"{"jsonrpc":"2.0","id":1,"method":"$initialize","params":{"protocol_version":2,"host_version":"6.720.4","locale":"en","theme":"light","plugin_root":"/tmp/plugin","data_dir":"/tmp/data"}}"#).await.unwrap();
         host_w.write_all(b"\n").await.unwrap();
         host_w
             .write_all(br#"{"jsonrpc":"2.0","id":2,"method":"$activate","params":{"event":"onStartupFinished"}}"#)
@@ -211,7 +181,7 @@ mod tests {
             .unwrap();
         host_w.write_all(b"\n").await.unwrap();
 
-        // 读到 host.vault.exists → 回 false；随后必须读到 host.vault.write
+        // 依次应答 host.location.get → host.vault.exists(false) → 期待 host.vault.write
         let mut wrote: Option<serde_json::Value> = None;
         let deadline = tokio::time::Instant::now() + tokio::time::Duration::from_secs(10);
         while wrote.is_none() {
@@ -225,6 +195,14 @@ mod tests {
                 Err(_) => continue,
             };
             match v["method"].as_str() {
+                Some("host.location.get") => {
+                    let id = v["id"].as_u64().unwrap();
+                    let resp = format!(
+                        r#"{{"jsonrpc":"2.0","id":{id},"result":{{"country":"中国","province":"湖北","city":"武汉","poi":"光谷软件园"}}}}"#
+                    );
+                    host_w.write_all(resp.as_bytes()).await.unwrap();
+                    host_w.write_all(b"\n").await.unwrap();
+                }
                 Some("host.vault.exists") => {
                     let id = v["id"].as_u64().unwrap();
                     let resp = format!(r#"{{"jsonrpc":"2.0","id":{id},"result":{{"exists":false}}}}"#);

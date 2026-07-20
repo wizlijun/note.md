@@ -232,6 +232,7 @@ export const zh: Record<keyof Messages, string> = {
   'capability.vault.write': '在你的 Vault 中创建和修改文件',
   'capability.dialog': '显示打开/保存文件对话框',
   'capability.clipboard.write': '写入剪贴板',
+  'capability.location': '读取你的位置',
   'capability.toast': '显示通知',
   'capability.editor.events': '监听编辑器事件（打开、编辑、保存）',
   'capability.fs.read.dialog': '读取你在对话框中选择的文件',

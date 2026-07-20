@@ -237,6 +237,7 @@ export const en = {
   'capability.vault.write': 'Create and modify files in your Vault',
   'capability.dialog': 'Show open/save file dialogs',
   'capability.clipboard.write': 'Write to the clipboard',
+  'capability.location': 'Read your location',
   'capability.toast': 'Show notifications',
   'capability.editor.events': 'Observe editor events (open, edit, save)',
   'capability.fs.read.dialog': 'Read files you pick in a dialog',
