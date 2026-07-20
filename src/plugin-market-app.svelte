@@ -2,10 +2,9 @@
      View ▸ Plugin Market or the Settings ▸ Plugins entry button). Bootstraps its
      own webview state, then drives the v2 market commands.
 
-     Installed section lists BOTH v1 plugins (get_all_plugin_manifests, toggled
-     via setPluginEnabled) AND v2 plugins (plugin_market_installed, toggled via
-     plugin_market_set_enabled; also uninstall + update). See the task report's
-     "v1/v2 Installed-list decision".
+     Installed section lists v2 plugins only (plugin_market_installed, toggled
+     via plugin_market_set_enabled; also uninstall + update). v1 built-ins (e.g.
+     base) are NOT shown here — the market is the v2 marketplace surface.
 
      ── MANUAL E2E (do not run the GUI in CI) ──────────────────────────────────
      1. Enable the v2 runtime flag (settings.json plugins_v2.enabled=true) and,
@@ -29,10 +28,9 @@
   import { listen } from '@tauri-apps/api/event'
   import { getCurrentWindow } from '@tauri-apps/api/window'
   import { confirm } from '@tauri-apps/plugin-dialog'
-  import { loadSettings, setPluginEnabled, resolvePluginEnabled } from './lib/settings.svelte'
+  import { loadSettings } from './lib/settings.svelte'
   import { loadLocale, t } from './lib/i18n/store.svelte'
   import { pushToast } from './lib/toast.svelte'
-  import type { PluginManifest } from './lib/plugins/types'
   import {
     isNewerVersion,
     capabilityLabel,
@@ -84,51 +82,27 @@
     loading = true
     notice = null
     try {
-      // v2 installed + registry index, plus v1 manifests (never gated on flag).
+      // v2 installed + registry index. v1 built-ins are never listed here.
       const [v2Installed, indexJson] = await Promise.all([
         invoke<InstalledV2[]>('plugin_market_installed'),
         invoke<RegistryIndex>('plugin_market_index'),
       ])
-      const v1Manifests = await loadV1Manifests()
-      buildLists(v1Manifests, v2Installed, indexJson)
+      buildLists(v2Installed, indexJson)
     } catch (e) {
-      // Any market command may Err (flag off, or network). Still show v1 rows so
-      // the window is useful even with the registry unreachable.
+      // Any market command may Err (flag off, or network). Surface the notice;
+      // the window stays usable even with the registry unreachable.
       notice = friendlyError(String(e))
-      const v1Manifests = await loadV1Manifests()
-      buildLists(v1Manifests, [], null)
+      buildLists([], null)
     } finally {
       loading = false
     }
   }
 
-  async function loadV1Manifests(): Promise<PluginManifest[]> {
-    try {
-      const all = await invoke<PluginManifest[]>('get_all_plugin_manifests')
-      // Only genuine v1 manifests (v2 come through plugin_market_installed).
-      return all.filter((m) => (m.manifest_version ?? 1) < 2)
-    } catch (e) {
-      console.warn('[plugin-market] get_all_plugin_manifests:', e)
-      return []
-    }
-  }
-
   function buildLists(
-    v1: PluginManifest[],
     v2: InstalledV2[],
     index: RegistryIndex | null,
   ) {
     const rows: InstalledRow[] = []
-    for (const m of v1) {
-      rows.push({
-        kind: 'v1',
-        id: m.id,
-        name: m.name,
-        version: m.version,
-        enabled: resolvePluginEnabled(m),
-        capabilities: m.host_capabilities ?? [],
-      })
-    }
     const indexById = new Map((index?.plugins ?? []).map((e) => [e.id, e]))
     for (const p of v2) {
       const entry = indexById.get(p.id)
@@ -162,11 +136,7 @@
   async function toggleEnabled(row: InstalledRow, value: boolean) {
     setBusy(row.id, true)
     try {
-      if (row.kind === 'v1') {
-        await setPluginEnabled(row.id, value)
-      } else {
-        await invoke('plugin_market_set_enabled', { id: row.id, enabled: value })
-      }
+      await invoke('plugin_market_set_enabled', { id: row.id, enabled: value })
       await refresh()
     } catch (e) {
       pushToast({ level: 'error', message: friendlyError(String(e)) })
@@ -245,18 +215,16 @@
                 <span class="name">{row.name}</span>
               </label>
               <span class="version">{row.version}</span>
-              <span class="badge">{row.kind === 'v2' ? 'v2' : 'v1'}</span>
+              <span class="badge">v2</span>
               <span class="spacer"></span>
               {#if row.updateTo}
                 <button class="mini primary" disabled={busy[row.id]} onclick={() => update(row)}>
                   {t('pluginMarket.update', { version: row.updateTo })}
                 </button>
               {/if}
-              {#if row.kind === 'v2'}
-                <button class="mini danger" disabled={busy[row.id]} onclick={() => uninstall(row)}>
-                  {t('pluginMarket.uninstall')}
-                </button>
-              {/if}
+              <button class="mini danger" disabled={busy[row.id]} onclick={() => uninstall(row)}>
+                {t('pluginMarket.uninstall')}
+              </button>
             </div>
             {#if row.capabilities.length > 0}
               <div class="caps">
