@@ -1602,7 +1602,7 @@ fn build_menu<R: tauri::Runtime>(
         )
         .build()?;
 
-    let mut file_b = SubmenuBuilder::new(app, menu_label(locale, "menu.file"))
+    let file_b = SubmenuBuilder::new(app, menu_label(locale, "menu.file"))
         .item(&MenuItemBuilder::with_id("new", menu_label(locale, "file.new")).accelerator("Cmd+N").build(app)?)
         .item(&MenuItemBuilder::with_id("open", menu_label(locale, "file.open")).accelerator("Cmd+O").build(app)?)
         .item(&recent_menu)
@@ -1634,27 +1634,13 @@ fn build_menu<R: tauri::Runtime>(
         )
         .item(&MenuItemBuilder::with_id("unshare", menu_label(locale, "file.unshare")).build(app)?)
         .item(&MenuItemBuilder::with_id("copy-share-link", menu_label(locale, "file.copyShareLink")).build(app)?);
-    // File plugin items: those tagged `submenu: "import"` are grouped under a
-    // nested File ▸ Import submenu; the rest stay flat in the File menu.
-    let file_items: Vec<_> = plugin_items.iter().filter(|p| p.location == "file").collect();
-    let has_import = file_items.iter().any(|p| p.submenu.as_deref() == Some("import"));
-    for it in file_items.iter().filter(|p| p.submenu.is_none()) {
-        let mut b = MenuItemBuilder::with_id(&it.id, &it.label);
-        if let Some(s) = &it.shortcut { b = b.accelerator(s); }
-        file_b = file_b.item(&b.build(app)?);
-    }
-    if has_import {
-        let mut import_b = SubmenuBuilder::new(app, menu_label(locale, "file.import"));
-        for it in file_items.iter().filter(|p| p.submenu.as_deref() == Some("import")) {
-            let mut b = MenuItemBuilder::with_id(&it.id, &it.label);
-            if let Some(s) = &it.shortcut { b = b.accelerator(s); }
-            import_b = import_b.item(&b.build(app)?);
-        }
-        file_b = file_b.separator().item(&import_b.build()?);
-    }
+    // Plugin-contributed menu items no longer scatter into File/Edit/View/etc.
+    // — they ALL live under the Plugins menu (built below), so there is one
+    // predictable, discoverable home for every plugin command. Core features
+    // keep their native menu slots.
     let file_menu: Submenu<R> = file_b.build()?;
 
-    let mut edit_b = SubmenuBuilder::new(app, menu_label(locale, "menu.edit"))
+    let edit_b = SubmenuBuilder::new(app, menu_label(locale, "menu.edit"))
         .item(&PredefinedMenuItem::undo(app, Some(&menu_label(locale, "sys.undo")))?)
         .item(&PredefinedMenuItem::redo(app, Some(&menu_label(locale, "sys.redo")))?)
         .separator()
@@ -1665,14 +1651,9 @@ fn build_menu<R: tauri::Runtime>(
         .separator()
         .item(&MenuItemBuilder::with_id("find", menu_label(locale, "edit.find")).accelerator("Cmd+F").build(app)?)
         .item(&MenuItemBuilder::with_id("find-replace", menu_label(locale, "edit.findReplace")).build(app)?);
-    for it in plugin_items.iter().filter(|p| p.location == "edit") {
-        let mut b = MenuItemBuilder::with_id(&it.id, &it.label);
-        if let Some(s) = &it.shortcut { b = b.accelerator(s); }
-        edit_b = edit_b.item(&b.build(app)?);
-    }
     let edit_menu: Submenu<R> = edit_b.build()?;
 
-    let mut view_b = SubmenuBuilder::new(app, menu_label(locale, "menu.view"))
+    let view_b = SubmenuBuilder::new(app, menu_label(locale, "menu.view"))
         .item(
             &MenuItemBuilder::with_id("toggle-mode", menu_label(locale, "view.toggleMode"))
                 .accelerator("Cmd+/")
@@ -1685,49 +1666,35 @@ fn build_menu<R: tauri::Runtime>(
         .item(&MenuItemBuilder::with_id("toggle-folder-view", menu_label(locale, "view.folderView")).accelerator("Cmd+Shift+E").build(app)?)
         .item(&MenuItemBuilder::with_id("toggle-sidecar-notes", menu_label(locale, "view.sidecarNotes")).accelerator("Cmd+Shift+O").build(app)?)
         .item(&MenuItemBuilder::with_id("toggle-git-history", menu_label(locale, "view.history")).accelerator("Cmd+Shift+Y").build(app)?);
-    for it in plugin_items.iter().filter(|p| p.location == "view") {
-        let mut b = MenuItemBuilder::with_id(&it.id, &it.label);
-        if let Some(s) = &it.shortcut { b = b.accelerator(s); }
-        view_b = view_b.item(&b.build(app)?);
-    }
     let view_menu: Submenu<R> = view_b.build()?;
 
-    let mut window_b = SubmenuBuilder::new(app, menu_label(locale, "menu.window"))
+    let window_b = SubmenuBuilder::new(app, menu_label(locale, "menu.window"))
         .item(&PredefinedMenuItem::minimize(app, Some(&menu_label(locale, "sys.minimize")))?)
         .item(&PredefinedMenuItem::maximize(app, Some(&menu_label(locale, "sys.maximize")))?)
         .separator()
         .item(&MenuItemBuilder::with_id("zoom-in", menu_label(locale, "window.zoomIn")).accelerator("Cmd+=").build(app)?)
         .item(&MenuItemBuilder::with_id("zoom-out", menu_label(locale, "window.zoomOut")).accelerator("Cmd+-").build(app)?)
         .item(&MenuItemBuilder::with_id("zoom-reset", menu_label(locale, "window.actualSize")).accelerator("Cmd+0").build(app)?);
-    for it in plugin_items.iter().filter(|p| p.location == "window") {
-        let mut b = MenuItemBuilder::with_id(&it.id, &it.label);
-        if let Some(s) = &it.shortcut { b = b.accelerator(s); }
-        window_b = window_b.item(&b.build(app)?);
-    }
     let window_menu: Submenu<R> = window_b.build()?;
 
-    let mut help_b = SubmenuBuilder::new(app, menu_label(locale, "menu.help"))
+    let help_b = SubmenuBuilder::new(app, menu_label(locale, "menu.help"))
         .item(&MenuItemBuilder::with_id("docs", menu_label(locale, "help.docs")).build(app)?)
         .separator()
         .item(&MenuItemBuilder::with_id("cli-install", menu_label(locale, "help.cliInstall")).build(app)?)
         .item(&MenuItemBuilder::with_id("cli-uninstall", menu_label(locale, "help.cliUninstall")).build(app)?);
-    for it in plugin_items.iter().filter(|p| p.location == "help") {
-        let mut b = MenuItemBuilder::with_id(&it.id, &it.label);
-        if let Some(s) = &it.shortcut { b = b.accelerator(s); }
-        help_b = help_b.item(&b.build(app)?);
-    }
     let help_menu: Submenu<R> = help_b.build()?;
 
     // The Plugins menu is always present: its first item, "Plugin Market…",
     // is the entry point to browse / install / update / uninstall plugins
-    // (opens the standalone market window). Plugin-contributed `location:
-    // "plugins"` items follow after a separator.
+    // (opens the standalone market window). EVERY plugin-contributed menu item
+    // follows after a separator, regardless of its declared `location` — the
+    // Plugins menu is the single home for all plugin commands.
     let plugins_menu: Submenu<R> = {
         let mut b = SubmenuBuilder::new(app, menu_label(locale, "menu.plugins")).item(
             &MenuItemBuilder::with_id("open-plugin-market", menu_label(locale, "plugins.market"))
                 .build(app)?,
         );
-        let contributed: Vec<_> = plugin_items.iter().filter(|p| p.location == "plugins").collect();
+        let contributed: Vec<_> = plugin_items.iter().collect();
         if !contributed.is_empty() {
             b = b.separator();
             for it in contributed {
