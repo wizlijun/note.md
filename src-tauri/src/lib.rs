@@ -852,6 +852,20 @@ pub fn tauri_context() -> tauri::Context {
     tauri::generate_context!()
 }
 
+/// True when this x86_64 process is running under Rosetta 2 on Apple Silicon.
+/// `sysctl.proc_translated` is 1 only for translated processes; absent (Intel
+/// Mac) or 0 means native. Used to override the updater target so a Rosetta
+/// install migrates to the native arm64 build instead of staying on x86 forever.
+#[cfg(all(target_os = "macos", target_arch = "x86_64"))]
+fn running_under_rosetta() -> bool {
+    std::process::Command::new("sysctl")
+        .args(["-n", "sysctl.proc_translated"])
+        .output()
+        .ok()
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim() == "1")
+        .unwrap_or(false)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     dlog("=== note.md start ===");
@@ -900,7 +914,24 @@ pub fn run() {
     #[cfg(not(target_os = "ios"))]
     let app = app
         .plugin(tauri_plugin_window_state::Builder::default().build())
-        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin({
+            // Self-heal Rosetta installs. The updater picks its platform key from
+            // the RUNNING process arch, not the hardware: an x86_64 build running
+            // under Rosetta on Apple Silicon would keep fetching `darwin-x86_64`
+            // forever (the v6.720.1 "ARM upgrade became x86, won't launch"
+            // incident). When we detect translation, request `darwin-aarch64` so
+            // the next update migrates to the native arm64 build; after that
+            // relaunch the process is native and the default target applies.
+            #[cfg(all(target_os = "macos", target_arch = "x86_64"))]
+            let b = if running_under_rosetta() {
+                tauri_plugin_updater::Builder::new().target("darwin-aarch64")
+            } else {
+                tauri_plugin_updater::Builder::new()
+            };
+            #[cfg(not(all(target_os = "macos", target_arch = "x86_64")))]
+            let b = tauri_plugin_updater::Builder::new();
+            b.build()
+        })
         .plugin(tauri_plugin_process::init());
     // plugin:// scheme — plugin UI static assets + fetch-RPC bridge (spec §7.1).
     // Registration cannot be flag-conditional; the handler answers 404 for

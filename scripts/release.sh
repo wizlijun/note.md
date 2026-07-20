@@ -274,6 +274,29 @@ build_arch() {
   cp "$dmg_src" "$dmg_staged"
   cp "$tarball_src" "$tarball_staged"
 
+  # Fail-fast architecture self-check. Unpack the staged tarball and confirm its
+  # inner Mach-O really matches this arch. Guards against a cross-build gone
+  # wrong or a staging mix-up putting x86 bytes in the aarch64 asset — the
+  # v6.720.1 "ARM upgrade became x86, won't launch" incident class. dmg and
+  # tarball wrap the same .app, so checking the tarball covers the update path.
+  local want_arch
+  case "$arch_tag" in
+    aarch64) want_arch="arm64" ;;
+    x86_64)  want_arch="x86_64" ;;
+    *) die "unknown arch_tag '$arch_tag' — cannot arch-check" ;;
+  esac
+  local arch_check_dir="/tmp/note.md-archcheck-${arch_tag}"
+  rm -rf "$arch_check_dir"; mkdir -p "$arch_check_dir"
+  tar xzf "$tarball_staged" -C "$arch_check_dir"
+  local inner_bin got_arch
+  inner_bin=$(find "$arch_check_dir" -path '*/Contents/MacOS/notemd' -type f -print -quit)
+  [[ -n "$inner_bin" ]] || die "arch-check: no Contents/MacOS/notemd in staged $arch_tag tarball"
+  got_arch=$(lipo -archs "$inner_bin" 2>/dev/null || true)
+  [[ "$got_arch" == "$want_arch" ]] \
+    || die "arch-check FAILED for $arch_tag: staged tarball binary is '$got_arch', expected '$want_arch' — refusing to publish a mismatched-arch update"
+  rm -rf "$arch_check_dir"
+  echo "    ${arch_tag} arch verified: binary is $got_arch"
+
   # DO NOT trust Tauri's own .sig ($sig_src). Tauri signs the updater tarball
   # BEFORE notarization staples the .app, so its .sig is for a stale, pre-staple
   # tarball. The tarball we actually distribute differs, so every client rejects
