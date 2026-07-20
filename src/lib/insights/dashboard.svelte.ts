@@ -1,7 +1,7 @@
-import { mergeDeviceAnalytics, aggregateRange } from './merge'
+import { mergeDeviceAnalytics, aggregateRange, collectSessionsRange } from './merge'
 import { valueScore, type ValueWeights } from './value'
 import { type AudienceStats } from './audience'
-import { emptyCounters, sumCounters, type DayCounters, type DeviceAnalytics } from './model'
+import { emptyCounters, sumCounters, type AttentionSession, type DayCounters, type DeviceAnalytics } from './model'
 
 export interface ShareResolution {
   path: string | null
@@ -37,6 +37,12 @@ export interface InsightRow {
   /** Every distinct share URL that maps to this md file; [] when not shared. */
   urls: string[]
   value: number
+  /** This user's own read/edit attention intervals in range, sorted by start.
+   *  Attached from the vault analytics — no network. [] when none. */
+  owner_sessions: AttentionSession[]
+  /** Distinct share slugs mapping to this row, for lazily fetching audience
+   *  intervals on expand. [] when not shared. */
+  slugs: string[]
 }
 
 /** One (docKey, counters, audience, slug/url) datum before same-md merging. */
@@ -52,12 +58,17 @@ interface Contribution {
 
 /** Merge every contribution sharing a docKey into one row: sum counters +
  *  audience, union URLs, recompute value. The md file is the row identity. */
-function mergeContributions(cs: Contribution[], weights: ValueWeights): InsightRow {
+function mergeContributions(
+  cs: Contribution[],
+  weights: ValueWeights,
+  sessionsByDoc: Record<string, AttentionSession[]>,
+): InsightRow {
   const first = cs[0]
   const c = cs.reduce((acc, x) => sumCounters(acc, x.counters), emptyCounters(0))
   const aud_read_ms = cs.reduce((n, x) => n + (x.aud?.total_ms ?? 0), 0)
   const unique_readers = cs.reduce((n, x) => n + (x.aud?.unique_readers ?? 0), 0)
   const urls = [...new Set(cs.map((x) => x.url).filter((u): u is string => !!u))]
+  const slugs = [...new Set(cs.map((x) => x.slug).filter((s): s is string => !!s))]
   const value = valueScore(
     { read_ms: c.read_ms, edit_ms: c.edit_ms, edit_sessions: c.edit_sessions, mark_ops: c.mark_ops, aud_read_ms, unique_readers },
     weights,
@@ -66,6 +77,7 @@ function mergeContributions(cs: Contribution[], weights: ValueWeights): InsightR
     docKey: first.docKey, label: first.label, path: first.path,
     read_ms: c.read_ms, edit_ms: c.edit_ms, edit_sessions: c.edit_sessions, mark_ops: c.mark_ops, net_chars: c.net_chars,
     aud_read_ms, unique_readers, shared: cs.some((x) => !!x.slug), urls, value,
+    owner_sessions: sessionsByDoc[first.docKey] ?? [], slugs,
   }
 }
 
@@ -74,6 +86,7 @@ export async function assembleRows(deps: AssembleDeps, fromDay: string, toDay: s
   const merged = mergeDeviceAnalytics(devices)
   const owner = aggregateRange(merged, fromDay, toDay)
   const ownerKeys = Object.keys(owner)
+  const sessionsByDoc = collectSessionsRange(devices, fromDay, toDay)
   const audMap = await deps.fetchAudienceAll(fromDay, toDay)
 
   // Owner contributions: this device's own reading/editing, keyed by the doc's
@@ -112,7 +125,7 @@ export async function assembleRows(deps: AssembleDeps, fromDay: string, toDay: s
     else groups.set(c.docKey, [c])
   }
   return [...groups.values()]
-    .map((cs) => mergeContributions(cs, deps.weights))
+    .map((cs) => mergeContributions(cs, deps.weights, sessionsByDoc))
     // Drop only device-local files OUTSIDE the vault (abs:). Vault docs (rel:) and
     // every audience slug row survive — the site's full share stats, identical on
     // every terminal.

@@ -584,6 +584,13 @@ export const en = {
   'insights.openDoc': 'Open this document',
   'insights.docMissing': 'File not found',
   'insights.openFailed': 'Failed to open the document',
+  'insights.sessions.mine': 'Your reading time',
+  'insights.sessions.audience': 'Audience reading time',
+  'insights.sessions.none': 'No time intervals',
+  'insights.sessions.loading': 'Loading…',
+  'insights.mode.read': 'read',
+  'insights.mode.edit': 'edit',
+  'insights.mode.mixed': 'read+edit',
 
   // Settings → CLI
   'settings.cli.heading': 'CLI',

@@ -10,6 +10,23 @@ export interface DayCounters {
   last_active_at: number
 }
 
+/**
+ * One continuous attention interval on a single document. A stretch of focused
+ * time; broken (a new session started) by idle timeout, window blur / tab
+ * switch, or switching documents — but NOT by toggling read↔edit within the same
+ * doc. Because there is no credited gap inside a session, `end` always equals
+ * `start + read_ms + edit_ms`; both `start` and `end` are epoch ms.
+ */
+export interface AttentionSession {
+  start: number
+  end: number
+  read_ms: number
+  edit_ms: number
+}
+
+/** docKey -> "YYYY-MM-DD" -> continuous attention intervals recorded that day. */
+export type DocDaySessions = Record<string, Record<string, AttentionSession[]>>
+
 /** docKey -> "YYYY-MM-DD" -> counters. */
 export type DocDays = Record<string, Record<string, DayCounters>>
 
@@ -18,6 +35,15 @@ export interface DeviceAnalytics {
   deviceId: string
   deviceName: string
   docs: DocDays
+  /** docKey -> day -> attention intervals. Absent for files/devices written
+   *  before interval tracking existed (treated as empty). */
+  sessions?: DocDaySessions
+}
+
+/** The mode a session is credited to, for display. `mixed` = both read & edit. */
+export function sessionMode(s: AttentionSession): 'read' | 'edit' | 'mixed' {
+  if (s.read_ms > 0 && s.edit_ms > 0) return 'mixed'
+  return s.edit_ms > 0 ? 'edit' : 'read'
 }
 
 /**

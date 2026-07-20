@@ -577,6 +577,13 @@ export const de: Record<keyof Messages, string> = {
   'insights.openDoc': 'Dieses Dokument öffnen',
   'insights.docMissing': 'Datei nicht gefunden',
   'insights.openFailed': 'Dokument konnte nicht geöffnet werden',
+  'insights.sessions.mine': 'Deine Lesezeiten',
+  'insights.sessions.audience': 'Lesezeiten des Publikums',
+  'insights.sessions.none': 'Keine Zeitintervalle',
+  'insights.sessions.loading': 'Wird geladen…',
+  'insights.mode.read': 'Lesen',
+  'insights.mode.edit': 'Bearbeiten',
+  'insights.mode.mixed': 'Lesen+Bearbeiten',
 
   // Settings → CLI
   'settings.cli.heading': 'CLI',

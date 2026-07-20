@@ -8,6 +8,24 @@ export function fmtDuration(ms: number): string {
   return `${Math.floor(m / 60)}h ${m % 60}m`
 }
 
+function pad2(n: number): string {
+  return String(n).padStart(2, '0')
+}
+
+/**
+ * Format one attention interval in the device's LOCAL time as
+ * `MM-DD HH:mm → HH:mm` (the end date is added only when it differs from the
+ * start's, e.g. a session crossing midnight). `start`/`end` are epoch ms.
+ */
+export function fmtInterval(start: number, end: number): string {
+  const a = new Date(start)
+  const b = new Date(end)
+  const day = (d: Date) => `${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
+  const clock = (d: Date) => `${pad2(d.getHours())}:${pad2(d.getMinutes())}`
+  const endLabel = day(a) === day(b) ? clock(b) : `${day(b)} ${clock(b)}`
+  return `${day(a)} ${clock(a)} → ${endLabel}`
+}
+
 export function reportFilename(fromDay: string, toDay: string): string {
   return fromDay === toDay
     ? `stat/${fromDay}-daily-stat.md`

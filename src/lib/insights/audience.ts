@@ -9,6 +9,13 @@ export interface AudienceStats {
   src?: string
 }
 
+/** One anonymous audience reading interval, as returned by `/a/sessions`. */
+export interface AudienceSession {
+  start: number
+  end: number
+  ms: number
+}
+
 /** Inclusive day range → epoch-ms [start-of-from, end-of-to] in UTC. */
 export function dayRangeToEpoch(fromDay: string, toDay: string): { from: number; to: number } {
   return {
@@ -93,5 +100,30 @@ export async function fetchAudienceStatsAll(
     return (await res.json()) as Record<string, AudienceStats>
   } catch {
     return {}
+  }
+}
+
+/**
+ * Fetch one share's discrete audience reading intervals for a day range. Lazily
+ * called when a dashboard row is expanded (kept out of the aggregate load).
+ * Authenticated with the share API key. Fail-soft: returns `[]` on any error.
+ */
+export async function fetchAudienceSessions(
+  baseUrl: string,
+  apiKey: string,
+  slug: string,
+  fromDay: string,
+  toDay: string,
+): Promise<AudienceSession[]> {
+  try {
+    const base = baseUrl.replace(/\/+$/, '')
+    const { from, to } = dayRangeToEpoch(fromDay, toDay)
+    const url = `${base}/a/sessions?slug=${encodeURIComponent(slug)}&from=${from}&to=${to}`
+    const res = await fetch(url, { cache: 'no-store', headers: { Authorization: `Bearer ${apiKey}` } })
+    if (!res.ok) return []
+    const body = (await res.json()) as { sessions?: AudienceSession[] }
+    return Array.isArray(body.sessions) ? body.sessions : []
+  } catch {
+    return []
   }
 }

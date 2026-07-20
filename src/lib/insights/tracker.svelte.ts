@@ -6,7 +6,7 @@ import { activeTab } from '../tabs.svelte'
 import { sotvaultStore } from '../sotvault.svelte'
 import { getDeviceId } from '../settings.svelte'
 import { createAnalyticsStore, type AnalyticsStore, type Fs } from './store.svelte'
-import { initTiming, applyEvent, type TimingState, type TimingEvent, type TimingMode } from './timing'
+import { initTiming, applyEvent, activeNow, sessionActionFor, type TimingState, type TimingEvent, type TimingMode } from './timing'
 import { docKeyFor, localTzOffsetMinutes } from './model'
 import { analyticsObserverPlugin } from './observer'
 
@@ -50,25 +50,36 @@ function currentMode(): TimingMode {
 function dispatch(ev: TimingEvent): void {
   if (!tracker) return
   const now = Date.now()
+  const wasActive = activeNow(tracker.timing.presence)
   const { state, accrued } = applyEvent(tracker.timing, ev, now)
   tracker.timing = state
-  if (accrued && tracker.currentDocKey) {
+  const docKey = tracker.currentDocKey
+  if (!docKey) return
+  const act = sessionActionFor(wasActive, activeNow(state.presence), accrued)
+  if (act.start) tracker.store.sessionStart(docKey, now)
+  if (act.extend) {
     tracker.store.accrue(
-      tracker.currentDocKey,
-      accrued.mode === 'read' ? { read_ms: accrued.ms } : { edit_ms: accrued.ms },
+      docKey,
+      act.extend.mode === 'read' ? { read_ms: act.extend.ms } : { edit_ms: act.extend.ms },
       now,
     )
+    tracker.store.sessionExtend(docKey, act.extend.mode, act.extend.ms, now)
   }
+  if (act.close) tracker.store.sessionClose(docKey)
 }
 
-/** Switch the tracked document: flush the old one, reset timing for the new. */
+/** Switch the tracked document: credit + close the old doc's interval, reset
+ *  timing for the new, and open its interval (we're switching in the foreground). */
 export function onActiveDocChanged(): void {
   if (!tracker) return
-  dispatch({ type: 'tabInactive' }) // credit remaining time to old doc
+  dispatch({ type: 'tabInactive' }) // credit remaining time + close old doc's session
   tracker.currentDocKey = currentDocKey()
   tracker.timing = initTiming(Date.now(), currentMode())
   if (tracker.currentDocKey) {
     tracker.store.accrue(tracker.currentDocKey, { open_count: 1 }, Date.now())
+    // Assume focused + active tab (a doc switch happens in the foreground), so the
+    // new doc's interval opens immediately — mirrors the install path below.
+    dispatch({ type: 'focus' })
     dispatch({ type: 'tabActive' })
   }
 }

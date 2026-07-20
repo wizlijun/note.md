@@ -2,9 +2,19 @@
 /// `idFromName(slug)`), so heartbeats for different shares never contend.
 
 const MAX_DELTA_MS = 60_000
+/** Longest single audience reading interval we accept (matches the beacon cap). */
+const MAX_SESSION_ACTIVE_MS = 30 * 60_000
+/** Per-day cap on stored discrete intervals (bounds one slug's storage). */
+const MAX_SESSIONS_PER_DAY = 500
+/** Keep discrete intervals for this many days; older ones are pruned (the
+ *  long-term hourly/daily aggregates in `h:`/`vd:` are untouched). */
+const SESSION_RETENTION_DAYS = 30
 
 function epochHour(ts: number): number { return Math.floor(ts / 3_600_000) }
 function utcDay(ts: number): string { return new Date(ts).toISOString().slice(0, 10) }
+
+/** One anonymous audience reading interval (no visitor identity is stored). */
+interface AudienceSession { id: string; start: number; end: number; ms: number }
 
 /** The bindings a SlugAnalytics DO needs (subset of the Worker's Env). */
 interface AudienceBindings {
@@ -85,6 +95,51 @@ export class SlugAnalytics {
         for (const id of ids) uniques.add(id)
       }
       return Response.json({ total_ms: total, unique_readers: uniques.size, days })
+    }
+    if (url.pathname === '/session' && req.method === 'POST') {
+      // Finalize one anonymous reading interval. Upsert by session_id so a
+      // hidden→visible→hidden page finalizes idempotently (latest wins).
+      const body = await req.json() as { session_id?: string; start_ts?: number; end_ts?: number; active_ms?: number }
+      const start = Number(body.start_ts)
+      const end = Number(body.end_ts)
+      const id = typeof body.session_id === 'string' ? body.session_id.slice(0, 64) : ''
+      if (!id || !isFinite(start) || !isFinite(end) || end < start) return new Response(null, { status: 204 })
+      const ms = Math.max(0, Math.min(MAX_SESSION_ACTIVE_MS, Number(body.active_ms) || 0))
+      await this.state.blockConcurrencyWhile(async () => {
+        const day = utcDay(start)
+        const key = `s:${day}`
+        const list = (await this.state.storage.get<AudienceSession[]>(key)) ?? []
+        const entry: AudienceSession = { id, start, end, ms }
+        const idx = list.findIndex((s) => s.id === id)
+        if (idx >= 0) list[idx] = entry
+        else if (list.length < MAX_SESSIONS_PER_DAY) list.push(entry)
+        else {
+          // Day is full: drop this interval but count it so stats can be honest.
+          const dropKey = `s_dropped:${day}`
+          await this.state.storage.put(dropKey, ((await this.state.storage.get<number>(dropKey)) ?? 0) + 1)
+          return
+        }
+        await this.state.storage.put(key, list)
+        // Prune intervals older than the retention window.
+        const cutoff = utcDay(start - SESSION_RETENTION_DAYS * 86_400_000)
+        const all = await this.state.storage.list<AudienceSession[]>({ prefix: 's:' })
+        for (const k of all.keys()) if (k.slice(2) < cutoff) await this.state.storage.delete(k)
+      })
+      return new Response(null, { status: 204 })
+    }
+    if (url.pathname === '/sessions' && req.method === 'GET') {
+      const from = Number(url.searchParams.get('from')) || -Infinity
+      const to = Number(url.searchParams.get('to')) || Infinity
+      const stored = await this.state.storage.list<AudienceSession[]>({ prefix: 's:' })
+      const out: Array<{ start: number; end: number; ms: number }> = []
+      for (const [, list] of stored) {
+        for (const s of list) {
+          if (s.start < from || s.start > to) continue
+          out.push({ start: s.start, end: s.end, ms: s.ms })
+        }
+      }
+      out.sort((a, b) => a.start - b.start)
+      return Response.json({ sessions: out })
     }
     if (url.pathname === '/export' && req.method === 'GET') {
       // Per-day rollup of THIS slug's own storage, for one-time backfill into the

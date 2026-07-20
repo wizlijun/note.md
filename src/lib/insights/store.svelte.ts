@@ -1,4 +1,12 @@
-import { dayKey, emptyCounters, type DayCounters, type DeviceAnalytics, type DocDays } from './model'
+import {
+  dayKey,
+  emptyCounters,
+  type AttentionSession,
+  type DayCounters,
+  type DeviceAnalytics,
+  type DocDays,
+  type DocDaySessions,
+} from './model'
 
 /** Minimal filesystem surface (injectable for tests; bound to plugin-fs in prod). */
 export interface Fs {
@@ -29,6 +37,9 @@ export interface DayFile {
   day: string
   /** docKey -> counters (day is implicit from the filename). */
   docs: Record<string, DayCounters>
+  /** docKey -> continuous attention intervals recorded that day. Optional so
+   *  files written before interval tracking still parse (absent → no intervals). */
+  sessions?: Record<string, AttentionSession[]>
 }
 
 const SUBDIR = '.notemd/analytics'
@@ -46,6 +57,10 @@ function fileNameFor(day: string, deviceId: string): string {
 export function createAnalyticsStore(cfg: AnalyticsStoreConfig) {
   /** In-memory, docKey-major: docKey -> day -> counters. */
   const docs: DocDays = {}
+  /** In-memory attention intervals, docKey-major: docKey -> day -> sessions. */
+  const sessions: DocDaySessions = {}
+  /** docKey -> the currently-open interval (a live reference into `sessions`). */
+  const openSessions = new Map<string, { day: string; s: AttentionSession }>()
   /** Days accrued (or preloaded) this session — only these get (re)written on flush. */
   const dirtyDays = new Set<string>()
   /** Days whose on-disk file has been folded into memory (safe to overwrite on flush). */
@@ -71,6 +86,48 @@ export function createAnalyticsStore(cfg: AnalyticsStoreConfig) {
   }
 
   /**
+   * Open a new attention interval for `docKey` at `now` (no-op if one is already
+   * open). The interval is filed under the LOCAL day of its start, so an interval
+   * that crosses midnight stays in one place (its start day).
+   */
+  function sessionStart(docKey: string, now: number): void {
+    if (openSessions.has(docKey)) return
+    const day = dayKey(now, cfg.tzOffsetMinutes)
+    const s: AttentionSession = { start: now, end: now, read_ms: 0, edit_ms: 0 }
+    ;((sessions[docKey] ??= {})[day] ??= []).push(s)
+    openSessions.set(docKey, { day, s })
+    dirtyDays.add(day)
+  }
+
+  /**
+   * Add `ms` of `mode` time to `docKey`'s open interval (auto-opening one at
+   * `now` if none is open). `end` is kept as `start + read_ms + edit_ms`, so a
+   * session's wall-clock span always equals its credited active time.
+   */
+  function sessionExtend(docKey: string, mode: 'read' | 'edit', ms: number, now: number): void {
+    if (!openSessions.has(docKey)) sessionStart(docKey, now)
+    const open = openSessions.get(docKey)!
+    if (mode === 'read') open.s.read_ms += ms
+    else open.s.edit_ms += ms
+    open.s.end = open.s.start + open.s.read_ms + open.s.edit_ms
+    dirtyDays.add(open.day)
+  }
+
+  /** Finalize `docKey`'s open interval; later time starts a fresh interval. */
+  function sessionClose(docKey: string): void {
+    openSessions.delete(docKey)
+  }
+
+  /** This device's in-memory docKey->sessions for a single day. */
+  function sessionsForDay(day: string): Record<string, AttentionSession[]> {
+    const out: Record<string, AttentionSession[]> = {}
+    for (const [docKey, days] of Object.entries(sessions)) {
+      if (days[day] && days[day].length) out[docKey] = days[day]
+    }
+    return out
+  }
+
+  /**
    * Seed the in-memory buckets for `day` from this device's on-disk file (if any),
    * so a later flush MERGES with — rather than overwrites — data written by an
    * earlier session on the same day. Marks the day clean (not re-flushed unless
@@ -86,6 +143,11 @@ export function createAnalyticsStore(cfg: AnalyticsStoreConfig) {
         if (parsed && parsed.docs) {
           for (const [docKey, counters] of Object.entries(parsed.docs)) {
             ;(docs[docKey] ??= {})[day] = counters
+          }
+        }
+        if (parsed && parsed.sessions) {
+          for (const [docKey, list] of Object.entries(parsed.sessions)) {
+            ;(sessions[docKey] ??= {})[day] = list
           }
         }
       } catch {
@@ -137,6 +199,14 @@ export function createAnalyticsStore(cfg: AnalyticsStoreConfig) {
             bucket.last_active_at = Math.max(bucket.last_active_at, prior.last_active_at)
           }
         }
+        if (parsed && parsed.sessions) {
+          // Prepend the earlier session's intervals once (this session's
+          // in-memory list holds only its own; preloadedDays guards re-absorb).
+          for (const [docKey, prior] of Object.entries(parsed.sessions)) {
+            const perDoc = (sessions[docKey] ??= {})
+            perDoc[day] = perDoc[day] ? [...prior, ...perDoc[day]] : prior
+          }
+        }
       } catch {
         // Skip corrupt / partially-written files.
       }
@@ -161,6 +231,7 @@ export function createAnalyticsStore(cfg: AnalyticsStoreConfig) {
         deviceName: cfg.deviceName,
         day,
         docs: docsForDay(day),
+        sessions: sessionsForDay(day),
       }
       await cfg.fs.writeTextFile(`${dir}/${fileNameFor(day, cfg.deviceId)}`, JSON.stringify(file, null, 2))
     }
@@ -174,7 +245,7 @@ export function createAnalyticsStore(cfg: AnalyticsStoreConfig) {
    * accruals are included and always win.
    */
   async function readAllDevices(): Promise<DeviceAnalytics[]> {
-    const own: DeviceAnalytics = { deviceId: cfg.deviceId, deviceName: cfg.deviceName, docs }
+    const own: DeviceAnalytics = { deviceId: cfg.deviceId, deviceName: cfg.deviceName, docs, sessions }
     const root = cfg.vaultRoot()
     if (!root) return [own]
     const dir = analyticsDir(root)
@@ -193,11 +264,16 @@ export function createAnalyticsStore(cfg: AnalyticsStoreConfig) {
         if (!parsed || !parsed.docs) return
         let dev = byDevice.get(deviceId)
         if (!dev) {
-          dev = { deviceId, deviceName: parsed.deviceName ?? deviceId, docs: {} }
+          dev = { deviceId, deviceName: parsed.deviceName ?? deviceId, docs: {}, sessions: {} }
           byDevice.set(deviceId, dev)
         }
         for (const [docKey, counters] of Object.entries(parsed.docs)) {
           ;(dev.docs[docKey] ??= {})[day] = counters
+        }
+        if (parsed.sessions) {
+          for (const [docKey, list] of Object.entries(parsed.sessions)) {
+            ;((dev.sessions ??= {})[docKey] ??= {})[day] = list
+          }
         }
       } catch {
         // Skip corrupt / partially-written files.
@@ -205,17 +281,32 @@ export function createAnalyticsStore(cfg: AnalyticsStoreConfig) {
     }))
 
     // Overlay this device's live in-memory buckets (freshest — includes unflushed).
-    const ownDev = byDevice.get(cfg.deviceId) ?? { deviceId: cfg.deviceId, deviceName: cfg.deviceName, docs: {} }
+    const ownDev = byDevice.get(cfg.deviceId) ?? { deviceId: cfg.deviceId, deviceName: cfg.deviceName, docs: {}, sessions: {} }
     for (const [docKey, days] of Object.entries(docs)) {
       const target = (ownDev.docs[docKey] ??= {})
       for (const [day, counters] of Object.entries(days)) target[day] = counters
+    }
+    const ownSessions = (ownDev.sessions ??= {})
+    for (const [docKey, days] of Object.entries(sessions)) {
+      const target = (ownSessions[docKey] ??= {})
+      for (const [day, list] of Object.entries(days)) target[day] = list
     }
     byDevice.set(cfg.deviceId, ownDev)
 
     return [...byDevice.values()]
   }
 
-  return { accrue, snapshot, preloadDay, preloadToday, flush, readAllDevices }
+  return {
+    accrue,
+    snapshot,
+    sessionStart,
+    sessionExtend,
+    sessionClose,
+    preloadDay,
+    preloadToday,
+    flush,
+    readAllDevices,
+  }
 }
 
 export type AnalyticsStore = ReturnType<typeof createAnalyticsStore>

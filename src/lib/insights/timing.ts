@@ -37,6 +37,31 @@ export interface ApplyResult {
   accrued: Accrued | null
 }
 
+/** The attention-session side effects implied by one dispatch. */
+export interface SessionAction {
+  /** Became active (inactive→active) → open a new interval. */
+  start: boolean
+  /** Time to credit into the open interval (its mode), or null. */
+  extend: Accrued | null
+  /** Became inactive (active→inactive) → finalize the open interval. */
+  close: boolean
+}
+
+/**
+ * Pure mapping from an active-state transition + accrued time to the session
+ * open/extend/close side effects. A session opens on inactive→active, extends on
+ * any accrued time (read↔edit mode changes stay ONE session), and closes on
+ * active→inactive (idle timeout, blur/tab switch). `extend` and `close` can both
+ * fire in one dispatch (a blur credits the final stretch, then ends the session).
+ */
+export function sessionActionFor(
+  wasActive: boolean,
+  isActive: boolean,
+  accrued: Accrued | null,
+): SessionAction {
+  return { start: !wasActive && isActive, extend: accrued, close: wasActive && !isActive }
+}
+
 export function activeNow(p: Presence): boolean {
   return p.appFocused && p.tabActive && !p.idle
 }

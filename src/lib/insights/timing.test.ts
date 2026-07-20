@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { initTiming, applyEvent, activeNow, IDLE_MS } from './timing'
+import { initTiming, applyEvent, activeNow, sessionActionFor, IDLE_MS } from './timing'
 
 describe('activeNow', () => {
   it('is true only when focused, tab active, and not idle', () => {
@@ -70,5 +70,21 @@ describe('applyEvent', () => {
     s = t.state
     const r = applyEvent(s, { type: 'blur' }, 8000)
     expect(r.accrued).toEqual({ mode: 'read', ms: 3000 }) // only since the checkpoint
+  })
+})
+
+describe('sessionActionFor', () => {
+  it('opens a session on inactive→active', () => {
+    expect(sessionActionFor(false, true, null)).toEqual({ start: true, extend: null, close: false })
+  })
+
+  it('extends without opening/closing while staying active (e.g. mode switch)', () => {
+    const a = sessionActionFor(true, true, { mode: 'edit', ms: 3000 })
+    expect(a).toEqual({ start: false, extend: { mode: 'edit', ms: 3000 }, close: false })
+  })
+
+  it('credits the final stretch AND closes on active→inactive (blur / idle)', () => {
+    const a = sessionActionFor(true, false, { mode: 'read', ms: 2000 })
+    expect(a).toEqual({ start: false, extend: { mode: 'read', ms: 2000 }, close: true })
   })
 })

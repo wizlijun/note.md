@@ -2,7 +2,7 @@ import { exists, mkdir, readDir, readTextFile, writeTextFile } from '@tauri-apps
 import { createAnalyticsStore, type Fs } from './store.svelte'
 import { assembleRows, type AssembleDeps } from './dashboard.svelte'
 import { DEFAULT_WEIGHTS } from './value'
-import { fetchAudienceStatsAll } from './audience'
+import { fetchAudienceStatsAll, fetchAudienceSessions, type AudienceSession } from './audience'
 import { localTzOffsetMinutes } from './model'
 import { renderDailyReport } from './report'
 import { getDeviceId, getPluginScopedKey } from '../settings.svelte'
@@ -67,6 +67,23 @@ export function buildDashboardDeps(vaultOverride?: string | null): AssembleDeps 
     resolveSlugUrl: (slug) => (baseUrl ? `${trimSlash(baseUrl)}/${slug}` : null),
     weights: DEFAULT_WEIGHTS,
   }
+}
+
+/**
+ * Lazily fetch and merge the audience reading intervals for a row's share slugs
+ * (called when a dashboard row is expanded). Uses the loaded share API key.
+ * Fail-soft: slugs that error contribute nothing. Result is sorted by start.
+ */
+export async function fetchRowAudienceSessions(
+  slugs: string[],
+  fromDay: string,
+  toDay: string,
+): Promise<AudienceSession[]> {
+  const baseUrl = (getPluginScopedKey('share.baseUrl') as string | undefined) ?? ''
+  const apiKey = (getPluginScopedKey('share.apiKey') as string | undefined) ?? ''
+  if (!baseUrl || !apiKey || slugs.length === 0) return []
+  const lists = await Promise.all(slugs.map((slug) => fetchAudienceSessions(baseUrl, apiKey, slug, fromDay, toDay)))
+  return lists.flat().sort((a, b) => a.start - b.start)
 }
 
 /** Assemble rows + render the daily report markdown (owner + audience + value). */

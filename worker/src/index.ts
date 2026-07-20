@@ -1039,6 +1039,29 @@ async function handleAudienceHit(req: Request, env: Env): Promise<Response> {
   return stub.fetch('https://do/hit', { method: 'POST', body: JSON.stringify(body) })
 }
 
+/** Finalize one anonymous audience reading interval (from the shared page's
+ *  beacon). Public like /a/hit — no auth (the payload is just timing). */
+async function handleAudienceSession(req: Request, env: Env): Promise<Response> {
+  let body: { slug?: unknown }
+  try { body = await req.json() } catch { return new Response('bad json', { status: 400 }) }
+  const slug = typeof body.slug === 'string' ? body.slug : ''
+  if (!AUDIENCE_SLUG_RE.test(slug)) return new Response('bad slug', { status: 400 })
+  const stub = env.AUDIENCE.get(env.AUDIENCE.idFromName(slug))
+  return stub.fetch('https://do/session', { method: 'POST', body: JSON.stringify(body) })
+}
+
+/** Read a share's discrete audience reading intervals for a date range.
+ *  Authenticated with the author's share API key (same as /a/stats). */
+async function handleAudienceSessions(req: Request, env: Env, url: URL): Promise<Response> {
+  const slug = url.searchParams.get('slug') ?? ''
+  if (!AUDIENCE_SLUG_RE.test(slug)) return new Response('bad slug', { status: 400 })
+  if (unauthorized(req, env)) return new Response('Unauthorized', { status: 401 })
+  const stub = env.AUDIENCE.get(env.AUDIENCE.idFromName(slug))
+  const doUrl = new URL('https://do/sessions')
+  doUrl.search = url.search
+  return stub.fetch(doUrl.toString())
+}
+
 // The audience API is called cross-origin from the app's WKWebView (and from
 // the shared page's beacon), so its responses must carry CORS headers and the
 // endpoints must answer the preflight. `*` is safe: access is gated by the
@@ -1086,6 +1109,8 @@ export default {
     if (path.startsWith('a/')) {
       let res: Response
       if (req.method === 'POST' && path === 'a/hit') res = await handleAudienceHit(req, env)
+      else if (req.method === 'POST' && path === 'a/session') res = await handleAudienceSession(req, env)
+      else if (req.method === 'GET' && path === 'a/sessions') res = await handleAudienceSessions(req, env, url)
       else if (req.method === 'POST' && path === 'a/stats-batch') res = await handleAudienceStatsBatch(req, env)
       else if (req.method === 'GET' && path === 'a/stats-all') res = await handleAudienceStatsAll(req, env, url)
       else if (req.method === 'POST' && path === 'a/backfill') res = await handleAudienceBackfill(req, env)

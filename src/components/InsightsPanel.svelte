@@ -3,9 +3,11 @@
   import { invoke } from '@tauri-apps/api/core'
   import { assembleRows, type InsightRow } from '../lib/insights/dashboard.svelte'
   import { presetRange, type Preset } from '../lib/insights/value'
-  import { localTzOffsetMinutes } from '../lib/insights/model'
+  import { localTzOffsetMinutes, sessionMode } from '../lib/insights/model'
   import { flushNow } from '../lib/insights/tracker.svelte'
-  import { buildDashboardDeps } from '../lib/insights/run'
+  import { buildDashboardDeps, fetchRowAudienceSessions } from '../lib/insights/run'
+  import { fmtInterval } from '../lib/insights/report'
+  import type { AudienceSession } from '../lib/insights/audience'
   import { sotvaultStore } from '../lib/sotvault.svelte'
   import { t } from '../lib/i18n/store.svelte'
   import { renderDailyReport } from '../lib/insights/report'
@@ -20,6 +22,24 @@
   let sortKey = $state<keyof InsightRow>('value')
   let sortDir = $state<1 | -1>(-1)
   let expanded = $state<string | null>(null)
+  // Lazily-fetched audience reading intervals, per row docKey (only when expanded).
+  let audSessions = $state<Record<string, AudienceSession[]>>({})
+  let audLoading = $state<Record<string, boolean>>({})
+
+  /** Toggle a row open/closed; on open, lazily fetch its audience intervals once. */
+  function toggleExpand(r: InsightRow) {
+    if (expanded === r.docKey) { expanded = null; return }
+    expanded = r.docKey
+    if (r.slugs.length === 0 || r.docKey in audSessions || audLoading[r.docKey]) return
+    audLoading = { ...audLoading, [r.docKey]: true }
+    void fetchRowAudienceSessions(r.slugs, fromDay, toDay)
+      .then((s) => { audSessions = { ...audSessions, [r.docKey]: s } })
+      .finally(() => { audLoading = { ...audLoading, [r.docKey]: false } })
+  }
+
+  function modeLabel(s: { read_ms: number; edit_ms: number }): string {
+    return t(`insights.mode.${sessionMode({ start: 0, end: 0, ...s })}`)
+  }
 
   function applyPreset(p: Preset) {
     preset = p
@@ -32,6 +52,11 @@
   async function load() {
     if (!fromDay || !toDay) return
     loading = true
+    // The lazy audience-interval cache is keyed by docKey for the CURRENT range;
+    // drop it so a new range refetches.
+    audSessions = {}
+    audLoading = {}
+    expanded = null
     try {
       await flushNow()
       rows = await assembleRows(buildDashboardDeps(), fromDay, toDay)
@@ -190,7 +215,7 @@
             <tr
               class="data-row"
               class:expanded={expanded === r.docKey}
-              onclick={() => { expanded = expanded === r.docKey ? null : r.docKey }}
+              onclick={() => toggleExpand(r)}
             >
               <td class="col-doc">
                 {#if r.path}
@@ -222,6 +247,41 @@
                     {#each r.urls as u}
                       <a class="detail-url" href={u} target="_blank" rel="noopener noreferrer">{u}</a>
                     {/each}
+
+                    {#if r.owner_sessions.length > 0}
+                      <div class="sessions">
+                        <span class="sessions-title">{t('insights.sessions.mine')}</span>
+                        <ul class="sessions-list">
+                          {#each r.owner_sessions as s}
+                            <li>
+                              <span class="ivl">{fmtInterval(s.start, s.end)}</span>
+                              <span class="ivl-mode">· {modeLabel(s)}</span>
+                              <span class="ivl-dur">· {fmtDuration(s.read_ms + s.edit_ms)}</span>
+                            </li>
+                          {/each}
+                        </ul>
+                      </div>
+                    {/if}
+
+                    {#if r.slugs.length > 0}
+                      <div class="sessions">
+                        <span class="sessions-title">{t('insights.sessions.audience')}</span>
+                        {#if audLoading[r.docKey]}
+                          <span class="sessions-empty">{t('insights.sessions.loading')}</span>
+                        {:else if (audSessions[r.docKey]?.length ?? 0) === 0}
+                          <span class="sessions-empty">{t('insights.sessions.none')}</span>
+                        {:else}
+                          <ul class="sessions-list">
+                            {#each audSessions[r.docKey] as s}
+                              <li>
+                                <span class="ivl">{fmtInterval(s.start, s.end)}</span>
+                                <span class="ivl-dur">· {fmtDuration(s.ms)}</span>
+                              </li>
+                            {/each}
+                          </ul>
+                        {/if}
+                      </div>
+                    {/if}
                   </div>
                 </td>
               </tr>
@@ -451,5 +511,47 @@
 
   .detail-url:hover {
     color: CanvasText;
+  }
+
+  .sessions {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    margin-top: 6px;
+  }
+
+  .sessions-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: color-mix(in srgb, CanvasText 70%, transparent);
+  }
+
+  .sessions-empty {
+    font-size: 11px;
+    color: color-mix(in srgb, CanvasText 45%, transparent);
+  }
+
+  .sessions-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+
+  .sessions-list li {
+    font-size: 11px;
+    color: color-mix(in srgb, CanvasText 60%, transparent);
+  }
+
+  .ivl {
+    font-family: ui-monospace, monospace;
+    color: color-mix(in srgb, CanvasText 75%, transparent);
+  }
+
+  .ivl-mode,
+  .ivl-dur {
+    color: color-mix(in srgb, CanvasText 50%, transparent);
   }
 </style>

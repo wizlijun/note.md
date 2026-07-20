@@ -6,7 +6,8 @@ function row(over: Partial<InsightRow>): InsightRow {
   return {
     docKey: 'rel:a.md', label: 'a.md', path: '/v/a.md',
     read_ms: 0, edit_ms: 0, edit_sessions: 0, mark_ops: 0, net_chars: 0,
-    aud_read_ms: 0, unique_readers: 0, shared: false, urls: [], value: 0, ...over,
+    aud_read_ms: 0, unique_readers: 0, shared: false, urls: [], value: 0,
+    owner_sessions: [], slugs: [], ...over,
   }
 }
 
@@ -67,5 +68,21 @@ describe('renderDailyReport', () => {
   it('omits the 链接 section when no row has a URL', () => {
     const { markdown } = renderDailyReport(rows.map((r) => ({ ...r, urls: [] })), '2026-07-08', '2026-07-08')
     expect(markdown).not.toContain('## 链接')
+  })
+})
+
+import { fmtInterval } from './report'
+
+describe('fmtInterval', () => {
+  it('formats a same-day interval as MM-DD HH:mm → HH:mm', () => {
+    const start = new Date(2026, 6, 8, 9, 5, 0).getTime()
+    const end = start + 25 * 60_000
+    expect(fmtInterval(start, end)).toMatch(/^\d\d-\d\d \d\d:\d\d → \d\d:\d\d$/)
+  })
+
+  it('adds the end date when the interval crosses into another local day', () => {
+    const start = new Date(2026, 6, 8, 9, 0, 0).getTime()
+    const end = start + 25 * 3_600_000 // +25h → a different calendar day
+    expect(fmtInterval(start, end)).toMatch(/ → \d\d-\d\d \d\d:\d\d$/)
   })
 })

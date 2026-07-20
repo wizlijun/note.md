@@ -610,6 +610,13 @@ export const zh: Record<keyof Messages, string> = {
   'insights.openDoc': '打开此文档',
   'insights.docMissing': '文件不存在',
   'insights.openFailed': '打开文档失败',
+  'insights.sessions.mine': '你的阅读时间段',
+  'insights.sessions.audience': '受众阅读时间段',
+  'insights.sessions.none': '暂无时间段',
+  'insights.sessions.loading': '加载中…',
+  'insights.mode.read': '读',
+  'insights.mode.edit': '编',
+  'insights.mode.mixed': '读+编',
 
   // Settings → CLI
   'settings.cli.heading': 'CLI',

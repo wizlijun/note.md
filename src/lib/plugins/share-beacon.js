@@ -5,8 +5,9 @@
   try {
     var slug = location.pathname.replace(/^\//, '')
     if (!/^\d{4}-\d{2}-\d{2}-[a-z0-9-]{1,50}(?:-[a-zA-Z0-9]{2,4})?$/.test(slug)) return
-    var HIT = '/a/hit'
+    var HIT = '/a/hit', SESSION = '/a/session'
     var IDLE = 30000, CAP = 1800000, BEAT = 15000
+    var startTs = Date.now()
 
     var vid
     try {
@@ -42,6 +43,17 @@
       try { fetch(HIT, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload, keepalive: true }) } catch (e) {}
     }
 
+    // Finalize this pageload's reading interval (start→end). Idempotent server-side
+    // by session_id, so re-finalizing on a later hidden/pagehide just updates it.
+    function sendSession(useBeacon) {
+      if (total <= 0) return
+      var payload = JSON.stringify({ slug: slug, session_id: sid, start_ts: startTs, end_ts: Date.now(), active_ms: total })
+      if (useBeacon && navigator.sendBeacon) {
+        try { navigator.sendBeacon(SESSION, new Blob([payload], { type: 'application/json' })); return } catch (e) {}
+      }
+      try { fetch(SESSION, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload, keepalive: true }) } catch (e) {}
+    }
+
     function activity() {
       var now = Date.now()
       if (now - lastAct >= IDLE) cursor = now
@@ -53,10 +65,10 @@
 
     document.addEventListener('visibilitychange', function () {
       var now = Date.now()
-      if (document.visibilityState === 'hidden') { send(take(now), true); visible = false; cursor = now }
+      if (document.visibilityState === 'hidden') { send(take(now), true); sendSession(true); visible = false; cursor = now }
       else { visible = true; cursor = now; lastAct = now }
     })
-    window.addEventListener('pagehide', function () { send(take(Date.now()), true) })
+    window.addEventListener('pagehide', function () { send(take(Date.now()), true); sendSession(true) })
     setInterval(function () { if (visible) send(take(Date.now()), false) }, BEAT)
   } catch (e) { /* never break the page */ }
 })()

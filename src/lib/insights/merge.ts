@@ -1,4 +1,4 @@
-import { sumCounters, type DayCounters, type DeviceAnalytics, type DocDays } from './model'
+import { sumCounters, type AttentionSession, type DayCounters, type DeviceAnalytics, type DocDays } from './model'
 
 /** Merge every device's analytics into one docKey → day → summed counters map. */
 export function mergeDeviceAnalytics(devices: DeviceAnalytics[]): DocDays {
@@ -33,5 +33,29 @@ export function aggregateRange(
     }
     if (acc) out[docKey] = acc
   }
+  return out
+}
+
+/**
+ * Collect every device's attention intervals for each doc within the inclusive
+ * [fromDay, toDay] range into one docKey → sessions array, sorted by start.
+ * Intervals are filed under their start day (see store), so range filtering by
+ * day key is correct. Docs with no in-range intervals are omitted.
+ */
+export function collectSessionsRange(
+  devices: DeviceAnalytics[],
+  fromDay: string,
+  toDay: string,
+): Record<string, AttentionSession[]> {
+  const out: Record<string, AttentionSession[]> = {}
+  for (const dev of devices) {
+    for (const [docKey, days] of Object.entries(dev.sessions ?? {})) {
+      for (const [day, list] of Object.entries(days)) {
+        if (day < fromDay || day > toDay) continue
+        ;(out[docKey] ??= []).push(...list)
+      }
+    }
+  }
+  for (const list of Object.values(out)) list.sort((a, b) => a.start - b.start)
   return out
 }

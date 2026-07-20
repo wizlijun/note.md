@@ -194,3 +194,70 @@ describe('stats carry the source md (src) recorded at publish', () => {
     expect(batch['2026-07-08-src-c'].src).toBe('deep/c.md')
   })
 })
+
+function session(body: Record<string, unknown>) {
+  return SELF.fetch('http://x/a/session', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+}
+
+async function sessions(slug: string, key: string, from?: number, to?: number) {
+  const u = new URL('http://x/a/sessions')
+  u.searchParams.set('slug', slug)
+  if (from != null) u.searchParams.set('from', String(from))
+  if (to != null) u.searchParams.set('to', String(to))
+  return SELF.fetch(u, { headers: { Authorization: `Bearer ${key}` } })
+}
+
+describe('audience reading intervals (/a/session, /a/sessions)', () => {
+  it('records a finalized interval and returns it, anonymised, in range', async () => {
+    const slug = '2026-07-08-sess-a'
+    const start = Date.UTC(2026, 6, 8, 10, 0)
+    expect((await session({ slug, session_id: 's1', start_ts: start, end_ts: start + 5000, active_ms: 5000 })).status).toBe(204)
+    const r = await (await sessions(slug, API_KEY, Date.UTC(2026, 6, 8, 0, 0), Date.UTC(2026, 6, 8, 23, 59))).json() as any
+    expect(r.sessions).toEqual([{ start, end: start + 5000, ms: 5000 }])
+  })
+
+  it('upserts by session_id (hidden→visible→hidden finalizes once, latest wins)', async () => {
+    const slug = '2026-07-08-sess-up'
+    const start = Date.UTC(2026, 6, 8, 11, 0)
+    await session({ slug, session_id: 'u1', start_ts: start, end_ts: start + 3000, active_ms: 3000 })
+    await session({ slug, session_id: 'u1', start_ts: start, end_ts: start + 9000, active_ms: 9000 })
+    const r = await (await sessions(slug, API_KEY)).json() as any
+    expect(r.sessions).toHaveLength(1)
+    expect(r.sessions[0]).toEqual({ start, end: start + 9000, ms: 9000 })
+  })
+
+  it('clamps an absurd active_ms to the 30-minute cap', async () => {
+    const slug = '2026-07-08-sess-cap'
+    const start = Date.UTC(2026, 6, 8, 12, 0)
+    await session({ slug, session_id: 'c1', start_ts: start, end_ts: start + 999_999_999, active_ms: 999_999_999 })
+    const r = await (await sessions(slug, API_KEY)).json() as any
+    expect(r.sessions[0].ms).toBe(30 * 60_000)
+  })
+
+  it('ignores malformed payloads without erroring', async () => {
+    const slug = '2026-07-08-sess-bad'
+    expect((await session({ slug, session_id: '', start_ts: 1, end_ts: 2, active_ms: 1 })).status).toBe(204)
+    expect((await session({ slug, session_id: 'x', start_ts: 10, end_ts: 5, active_ms: 1 })).status).toBe(204) // end<start
+    const r = await (await sessions(slug, API_KEY)).json() as any
+    expect(r.sessions).toEqual([])
+  })
+
+  it('filters intervals outside the requested range', async () => {
+    const slug = '2026-07-08-sess-range'
+    const inRange = Date.UTC(2026, 6, 8, 9, 0)
+    const outRange = Date.UTC(2026, 6, 20, 9, 0)
+    await session({ slug, session_id: 'r1', start_ts: inRange, end_ts: inRange + 1000, active_ms: 1000 })
+    await session({ slug, session_id: 'r2', start_ts: outRange, end_ts: outRange + 1000, active_ms: 1000 })
+    const r = await (await sessions(slug, API_KEY, Date.UTC(2026, 6, 8, 0, 0), Date.UTC(2026, 6, 8, 23, 59))).json() as any
+    expect(r.sessions).toHaveLength(1)
+    expect(r.sessions[0].start).toBe(inRange)
+  })
+
+  it('requires the share API key to read intervals', async () => {
+    expect((await sessions('2026-07-08-sess-a', 'wrong-key')).status).toBe(401)
+  })
+})

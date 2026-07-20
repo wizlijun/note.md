@@ -579,6 +579,13 @@ export const ja: Record<keyof Messages, string> = {
   'insights.openDoc': 'このドキュメントを開く',
   'insights.docMissing': 'ファイルが見つかりません',
   'insights.openFailed': 'ドキュメントを開けませんでした',
+  'insights.sessions.mine': 'あなたの読書時間帯',
+  'insights.sessions.audience': '閲覧者の読書時間帯',
+  'insights.sessions.none': '時間帯なし',
+  'insights.sessions.loading': '読み込み中…',
+  'insights.mode.read': '読む',
+  'insights.mode.edit': '編集',
+  'insights.mode.mixed': '読む+編集',
 
   // Settings → CLI
   'settings.cli.heading': 'CLI',

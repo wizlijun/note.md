@@ -151,4 +151,34 @@ describe('assembleRows', () => {
     expect(outside.path).toBeNull()
     expect(outside.unique_readers).toBe(1)
   })
+
+  it('attaches in-range owner attention intervals (sorted) and the row slugs', async () => {
+    const rows = await assembleRows(deps({
+      readDevices: async (): Promise<DeviceAnalytics[]> => [{
+        deviceId: 'D1', deviceName: 'Mac',
+        docs: { 'rel:a.md': { '2026-07-08': { ...emptyCounters(0), read_ms: 5000 } } },
+        sessions: {
+          'rel:a.md': {
+            '2026-07-08': [
+              { start: 2000, end: 4000, read_ms: 2000, edit_ms: 0 },
+              { start: 100, end: 1100, read_ms: 500, edit_ms: 500 },
+            ],
+            '2026-07-01': [{ start: 1, end: 2, read_ms: 1, edit_ms: 0 }], // out of range
+          },
+        },
+      }],
+    }), '2026-07-08', '2026-07-08')
+    const a = rows.find((r) => r.docKey === 'rel:a.md')!
+    expect(a.owner_sessions.map((s) => s.start)).toEqual([100, 2000]) // sorted, out-of-range dropped
+    expect(a.slugs).toEqual(['2026-07-08-a-x'])
+  })
+
+  it('audience-only rows carry their slug for lazy interval fetch and empty owner intervals', async () => {
+    const rows = await assembleRows(deps({
+      readDevices: async () => [{ deviceId: 'D1', deviceName: 'Mac', docs: {} }],
+      fetchAudienceAll: all({ '2026-07-08-orphan-z': { total_ms: 12_000, unique_readers: 1, days: {} } }),
+    }), '2026-07-08', '2026-07-08')
+    expect(rows[0].owner_sessions).toEqual([])
+    expect(rows[0].slugs).toEqual(['2026-07-08-orphan-z'])
+  })
 })
