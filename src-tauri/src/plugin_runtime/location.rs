@@ -1,171 +1,220 @@
 //! Host-side CoreLocation (macOS), exposed to plugins via `host.location.get`
 //! (capability `location`).
 //!
-//! WHY the host does this instead of the plugin: a plugin's spawned binary is
-//! NOT an app bundle, so it can't be attributed by TCC. The host IS a signed
-//! bundle carrying `NSLocationUsageDescription`, so macOS attributes the
-//! request to note.md and prompts correctly.
+//! WHY the host does this: a plugin's spawned binary is not an app bundle, so
+//! it can't be attributed by TCC. The host IS a signed bundle carrying
+//! `NSLocationUsageDescription`, so macOS attributes the request to note.md.
 //!
-//! WHY a delegate: on macOS the authorization prompt only appears when a
-//! `CLLocationManager` with a DELEGATE set makes a location request. Polling
-//! `authorizationStatus` without a delegate leaves the status at
-//! `NotDetermined` forever (no prompt). We set a minimal delegate, then
-//! `startUpdatingLocation` (which triggers the prompt), and poll for the
-//! result while pumping the main run loop.
-//!
-//! `fetch_once` MUST run on the MAIN thread (CLGeocoder completion blocks land
-//! on the main queue; a nested run loop drains them — the same pattern the
-//! native dialogs already rely on).
+//! ARCHITECTURE: a persistent `CLLocationManager` + delegate is created ONCE on
+//! the main thread; its callbacks are driven by the app's NORMAL run loop (tao's
+//! event loop). We do NOT run a nested run loop — an earlier attempt did, and
+//! the authorization prompt never appeared (status stayed NotDetermined). A
+//! `host.location.get` call kicks off `requestWhenInUseAuthorization` +
+//! `startUpdatingLocation` on the main thread and returns immediately; the
+//! calling (off-main) request thread waits on a condvar that the delegate /
+//! reverse-geocode completion signals.
 
-use serde_json::{json, Value};
+use serde_json::Value;
 
 /// Blocking one-shot location read → `{country, province, city, poi}`.
-/// MUST be called on the main thread (see module note). Non-macOS: unsupported.
 #[cfg(target_os = "macos")]
-pub fn fetch_once() -> Result<Value, String> {
-    mac::fetch_once()
+pub fn fetch_once<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<Value, String> {
+    mac::fetch_once(app)
 }
 
 #[cfg(not(target_os = "macos"))]
-pub fn fetch_once() -> Result<Value, String> {
+pub fn fetch_once<R: tauri::Runtime>(_app: &tauri::AppHandle<R>) -> Result<Value, String> {
     Err("location is only supported on macOS".into())
 }
 
 #[cfg(target_os = "macos")]
 #[allow(unused_unsafe)]
 mod mac {
-    use super::*;
     use block2::RcBlock;
     use objc2::rc::Retained;
     use objc2::runtime::{NSObject, NSObjectProtocol, ProtocolObject};
-    use objc2::{define_class, msg_send, AllocAnyThread};
+    use objc2::{define_class, msg_send, AllocAnyThread, DefinedClass};
     use objc2_core_location::{
-        CLAuthorizationStatus, CLGeocoder, CLLocationManager, CLLocationManagerDelegate,
+        CLAuthorizationStatus, CLGeocoder, CLLocation, CLLocationManager, CLLocationManagerDelegate,
         CLPlacemark,
     };
-    use objc2_foundation::{NSArray, NSDate, NSError, NSRunLoop};
-    use std::sync::{Arc, Mutex};
+    use objc2_foundation::{NSArray, NSError};
+    use serde_json::{json, Value};
+    use std::cell::RefCell;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::{Arc, Condvar, LazyLock, Mutex};
     use std::time::{Duration, Instant};
 
-    const WAIT_SECS: u64 = 90; // authorization prompt + first fix, combined
-    const GEO_WAIT_SECS: u64 = 15; // waiting for reverse geocode
-    const FRESH_SECS: f64 = 300.0; // accept a fix ≤ 5 min old
+    const WAIT_SECS: u64 = 90; // authorization prompt + first fix + geocode
 
-    // A minimal CLLocationManagerDelegate. Its mere presence is what makes the
-    // authorization prompt appear; all delegate methods are optional so we
-    // implement none and poll the manager instead.
+    /// Cross-thread rendezvous: the delegate/geocode (main thread) stores a
+    /// plain-Send result and wakes the waiting request thread.
+    struct Shared {
+        result: Mutex<Option<Result<Value, String>>>,
+        cv: Condvar,
+        busy: AtomicBool, // a fix is being reverse-geocoded / already handled
+    }
+    static SHARED: LazyLock<Arc<Shared>> = LazyLock::new(|| {
+        Arc::new(Shared {
+            result: Mutex::new(None),
+            cv: Condvar::new(),
+            busy: AtomicBool::new(false),
+        })
+    });
+
+    /// First-wins: record the outcome and wake the waiter.
+    fn finish(shared: &Shared, res: Result<Value, String>) {
+        let mut g = shared.result.lock().unwrap();
+        if g.is_none() {
+            *g = Some(res);
+            shared.cv.notify_all();
+        }
+    }
+
     define_class!(
         #[unsafe(super(NSObject))]
         #[name = "NotemdLocationDelegate"]
+        #[ivars = Arc<Shared>]
         struct Delegate;
 
         unsafe impl NSObjectProtocol for Delegate {}
-        unsafe impl CLLocationManagerDelegate for Delegate {}
+
+        unsafe impl CLLocationManagerDelegate for Delegate {
+            #[unsafe(method(locationManager:didUpdateLocations:))]
+            unsafe fn did_update(&self, manager: &CLLocationManager, locations: &NSArray<CLLocation>) {
+                let shared = self.ivars().clone();
+                if shared.busy.swap(true, Ordering::SeqCst) {
+                    return; // only handle the first fix
+                }
+                unsafe { manager.stopUpdatingLocation() };
+                let Some(loc) = locations.lastObject() else {
+                    shared.busy.store(false, Ordering::SeqCst);
+                    return;
+                };
+                // Reverse geocode; completion lands on the main queue (normal run
+                // loop drains it). The geocoder lives in the thread-local so it
+                // outlives this callback.
+                LOC.with(|cell| {
+                    let slot = cell.borrow();
+                    let Some(objs) = slot.as_ref() else { return };
+                    let sh = shared.clone();
+                    let block = RcBlock::new(
+                        move |placemarks: *mut NSArray<CLPlacemark>, error: *mut NSError| {
+                            finish(&sh, placemark_result(placemarks, error));
+                        },
+                    );
+                    type GeoBlock = block2::Block<dyn Fn(*mut NSArray<CLPlacemark>, *mut NSError)>;
+                    let block_ptr: *mut GeoBlock = &*block as *const GeoBlock as *mut GeoBlock;
+                    unsafe { objs.geocoder.reverseGeocodeLocation_completionHandler(&loc, block_ptr) };
+                });
+            }
+
+            #[unsafe(method(locationManagerDidChangeAuthorization:))]
+            unsafe fn did_change_auth(&self, manager: &CLLocationManager) {
+                let status = unsafe { manager.authorizationStatus() };
+                if matches!(
+                    status,
+                    CLAuthorizationStatus::Denied | CLAuthorizationStatus::Restricted
+                ) {
+                    finish(
+                        self.ivars(),
+                        Err("location access denied — enable note.md in System Settings ▸ Privacy & Security ▸ Location Services".into()),
+                    );
+                } else if matches!(
+                    status,
+                    CLAuthorizationStatus::AuthorizedAlways | CLAuthorizationStatus::AuthorizedWhenInUse
+                ) {
+                    unsafe { manager.startUpdatingLocation() };
+                }
+            }
+        }
     );
 
     impl Delegate {
-        fn new() -> Retained<Self> {
-            unsafe { msg_send![Self::alloc(), init] }
+        fn new(shared: Arc<Shared>) -> Retained<Self> {
+            let this = Self::alloc().set_ivars(shared);
+            unsafe { msg_send![super(this), init] }
         }
     }
 
-    /// Pump the main run loop for `seconds` (also drains GCD blocks on the main
-    /// queue). Only valid on the main thread.
-    fn pump(seconds: f64) {
-        unsafe {
-            let until = NSDate::dateWithTimeIntervalSinceNow(seconds);
-            NSRunLoop::currentRunLoop().runUntilDate(&until);
+    struct LocObjs {
+        manager: Retained<CLLocationManager>,
+        _delegate: Retained<Delegate>,
+        geocoder: Retained<CLGeocoder>,
+    }
+    // Main-thread-only: the manager/delegate/geocoder must persist across calls
+    // and live on the main thread (created + used there). objc2 types aren't
+    // Send, so a thread-local (not app state) is the right home.
+    thread_local! {
+        static LOC: RefCell<Option<LocObjs>> = const { RefCell::new(None) };
+    }
+
+    pub fn fetch_once<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<Value, String> {
+        // Arm a fresh request.
+        {
+            *SHARED.result.lock().unwrap() = None;
+            SHARED.busy.store(false, Ordering::SeqCst);
+        }
+        // Kick off on the main thread; the NORMAL run loop drives the callbacks.
+        app.run_on_main_thread(|| {
+            LOC.with(|cell| {
+                let mut slot = cell.borrow_mut();
+                if slot.is_none() {
+                    let manager = unsafe { CLLocationManager::new() };
+                    let delegate = Delegate::new(SHARED.clone());
+                    unsafe { manager.setDelegate(Some(ProtocolObject::from_ref(&*delegate))) };
+                    let geocoder = unsafe { CLGeocoder::new() };
+                    *slot = Some(LocObjs { manager, _delegate: delegate, geocoder });
+                }
+                let objs = slot.as_ref().unwrap();
+                let status = unsafe { objs.manager.authorizationStatus() };
+                if matches!(
+                    status,
+                    CLAuthorizationStatus::Denied | CLAuthorizationStatus::Restricted
+                ) {
+                    finish(
+                        &SHARED,
+                        Err("location access denied — enable note.md in System Settings ▸ Privacy & Security ▸ Location Services".into()),
+                    );
+                    return;
+                }
+                if status == CLAuthorizationStatus::NotDetermined {
+                    unsafe { objs.manager.requestWhenInUseAuthorization() };
+                }
+                unsafe { objs.manager.startUpdatingLocation() };
+            });
+        })
+        .map_err(|e| format!("run_on_main_thread: {e}"))?;
+
+        // Wait (off-main) for the delegate / geocode to produce a result.
+        let mut g = SHARED.result.lock().unwrap();
+        let deadline = Instant::now() + Duration::from_secs(WAIT_SECS);
+        loop {
+            if let Some(res) = g.take() {
+                return res;
+            }
+            let now = Instant::now();
+            if now >= deadline {
+                return Err("timed out waiting for a location fix — if no permission prompt appeared, check System Settings ▸ Privacy & Security ▸ Location Services (note.md)".into());
+            }
+            let (ng, _timeout) = SHARED.cv.wait_timeout(g, deadline - now).unwrap();
+            g = ng;
         }
     }
 
-    pub fn fetch_once() -> Result<Value, String> {
-        let manager = unsafe { CLLocationManager::new() };
-        // Delegate MUST be set before requesting authorization / updates, or no
-        // prompt appears. Keep it alive for the whole fetch (manager holds a
-        // weak reference).
-        let delegate = Delegate::new();
-        unsafe {
-            manager.setDelegate(Some(ProtocolObject::from_ref(&*delegate)));
+    fn placemark_result(placemarks: *mut NSArray<CLPlacemark>, error: *mut NSError) -> Result<Value, String> {
+        if !placemarks.is_null() {
+            let arr = unsafe { &*placemarks };
+            if let Some(pm) = arr.firstObject() {
+                return Ok(place_of(&pm));
+            }
         }
-
-        if unsafe { manager.authorizationStatus() } == CLAuthorizationStatus::NotDetermined {
-            unsafe { manager.requestWhenInUseAuthorization() };
-        }
-        // startUpdatingLocation is what actually triggers the prompt on macOS
-        // (with a delegate set); it also begins delivering fixes.
-        unsafe { manager.startUpdatingLocation() };
-
-        // Combined wait: authorization prompt resolves, then a fresh fix lands.
-        let t0 = Instant::now();
-        let loc = loop {
-            let s = unsafe { manager.authorizationStatus() };
-            if matches!(
-                s,
-                CLAuthorizationStatus::Denied | CLAuthorizationStatus::Restricted
-            ) {
-                unsafe { manager.stopUpdatingLocation() };
-                return Err(format!(
-                    "location access denied — enable note.md in System Settings ▸ Privacy & Security ▸ Location Services ({s:?})"
-                ));
-            }
-            if matches!(
-                s,
-                CLAuthorizationStatus::AuthorizedAlways | CLAuthorizationStatus::AuthorizedWhenInUse
-            ) {
-                let fresh = unsafe { manager.location() }.filter(|l| {
-                    let age = unsafe { l.timestamp().timeIntervalSinceNow() };
-                    age > -FRESH_SECS
-                });
-                if let Some(l) = fresh {
-                    break l;
-                }
-            }
-            if t0.elapsed() > Duration::from_secs(WAIT_SECS) {
-                unsafe { manager.stopUpdatingLocation() };
-                let s = unsafe { manager.authorizationStatus() };
-                return Err(format!("timed out waiting for location (auth status: {s:?})"));
-            }
-            pump(0.2);
+        let msg = if error.is_null() {
+            "no placemark".to_string()
+        } else {
+            unsafe { (*error).localizedDescription() }.to_string()
         };
-        unsafe { manager.stopUpdatingLocation() };
-
-        // Reverse geocode (completion block lands on the main queue; pump drains).
-        let slot: Arc<Mutex<Option<Result<Value, String>>>> = Arc::new(Mutex::new(None));
-        let slot_in = slot.clone();
-        let block = RcBlock::new(
-            move |placemarks: *mut NSArray<CLPlacemark>, error: *mut NSError| {
-                let mut out = slot_in.lock().unwrap();
-                if !placemarks.is_null() {
-                    let arr = unsafe { &*placemarks };
-                    if let Some(pm) = arr.firstObject() {
-                        *out = Some(Ok(place_of(&pm)));
-                        return;
-                    }
-                }
-                let msg = if error.is_null() {
-                    "no placemark".to_string()
-                } else {
-                    unsafe { (*error).localizedDescription() }.to_string()
-                };
-                *out = Some(Err(format!("reverse geocode failed: {msg}")));
-            },
-        );
-        let geocoder = unsafe { CLGeocoder::new() };
-        type GeoBlock = block2::Block<dyn Fn(*mut NSArray<CLPlacemark>, *mut NSError)>;
-        let block_ptr: *mut GeoBlock = &*block as *const GeoBlock as *mut GeoBlock;
-        unsafe { geocoder.reverseGeocodeLocation_completionHandler(&loc, block_ptr) };
-        let t1 = Instant::now();
-        let result = loop {
-            if let Some(res) = slot.lock().unwrap().take() {
-                break res;
-            }
-            if t1.elapsed() > Duration::from_secs(GEO_WAIT_SECS) {
-                break Err("reverse geocode timed out".into());
-            }
-            pump(0.2);
-        };
-        drop(delegate); // keep the delegate alive until we're fully done
-        result
+        Err(format!("reverse geocode failed: {msg}"))
     }
 
     fn opt_str(s: Option<Retained<objc2_foundation::NSString>>) -> String {

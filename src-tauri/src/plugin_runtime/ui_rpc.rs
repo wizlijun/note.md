@@ -662,17 +662,10 @@ impl<R: tauri::Runtime> HostServices for TauriServices<R> {
     }
 
     fn location_get(&self) -> Result<serde_json::Value, String> {
-        // CoreLocation must run on the main thread; hop there, do the blocking
-        // fetch, and hand the result back over a channel. The caller is already
-        // on a dedicated per-request thread, so blocking here is fine.
-        let (tx, rx) = std::sync::mpsc::channel();
-        self.app
-            .run_on_main_thread(move || {
-                let _ = tx.send(super::location::fetch_once());
-            })
-            .map_err(|e| format!("run_on_main_thread: {e}"))?;
-        rx.recv_timeout(std::time::Duration::from_secs(120))
-            .map_err(|_| "location request timed out".to_string())?
+        // fetch_once kicks CoreLocation off on the main thread and blocks this
+        // (off-main, per-request) thread on a condvar until the delegate/geocode
+        // completes. Blocking here is fine.
+        super::location::fetch_once(&self.app)
     }
 }
 
