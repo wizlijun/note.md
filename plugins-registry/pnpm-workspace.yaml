@@ -3,6 +3,13 @@
 # node_modules + lockfile. This file marks it as its own workspace root and
 # allowlists the native deps the vitest-pool-workers test harness needs to build
 # (workerd is the local Workers runtime; esbuild bundles the worker).
+#
+# `packages` must be present (pnpm 9+ errors "packages field missing or empty"
+# on any non-`--ignore-workspace` command otherwise). It's a single-package
+# root, so `.` — this is what lets the CI deploy (cloudflare/wrangler-action
+# runs `pnpm exec wrangler`, which does NOT pass --ignore-workspace) parse it.
+packages:
+  - '.'
 allowBuilds:
   esbuild: true
   workerd: true
