@@ -1,0 +1,30 @@
+{
+  "manifest_version": 2,
+  "id": "notemd.decision-log",
+  "name": "Decision Log",
+  "version": "1.0.0",
+  "kind": "native",
+  "engines": { "notemd": ">=6.717.0" },
+  "description": "Predict before, judge after — a calibrated decision journal stored as .note.md.",
+  "ui": "ui/",
+  "activation": { "events": ["onCommand:open"] },
+  "contributes": {
+    "menus": [
+      { "location": "window", "label": "Decision Log", "command": "open" }
+    ],
+    "windows": [
+      {
+        "id": "main",
+        "entry": "index.html",
+        "title": "Decision Log",
+        "width": 920.0,
+        "height": 680.0,
+        "min_width": 720.0,
+        "min_height": 480.0,
+        "open_command": "open"
+      }
+    ]
+  },
+  "capabilities": ["vault.read", "vault.write", "toast"],
+  "i18n": { "zh": { "name": "决策日志", "menus": { "open": "决策日志" } } }
+}
