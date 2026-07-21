@@ -24,6 +24,12 @@ jobs:
           node-version: 20
           cache: pnpm
           cache-dependency-path: plugins-registry/pnpm-lock.yaml
+      # Install the devDependency wrangler (+ the rest) so wrangler-action finds
+      # it via `pnpm exec wrangler` and doesn't try to `pnpm add` it into the
+      # workspace root (which pnpm refuses without -w).
+      - name: Install deps
+        run: pnpm install --frozen-lockfile
+        working-directory: plugins-registry
       - name: Deploy notemd-plugins to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3
         with:
