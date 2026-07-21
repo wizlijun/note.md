@@ -33,6 +33,9 @@ impl LogBuffer {
             entries.pop_front();
         }
         entries.push_back(entry);
+        // Mirror into the unified log bus (category=git-sync). Existing storage
+        // above is untouched; this is additive so the Logs window can tail it.
+        crate::log_bus::push_cat("git-sync", "backend", &level.to_ascii_lowercase(), message.to_string());
     }
 
     pub fn entries(&self) -> Vec<LogEntry> {

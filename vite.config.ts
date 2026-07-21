@@ -33,10 +33,11 @@ export default defineConfig({
         insights: 'insights.html',
         preview: 'preview.html',
         pluginMarket: 'plugin-market.html',
+        logs: 'logs.html',
       },
     },
   },
   optimizeDeps: {
-    entries: ['index.html', 'insights.html', 'preview.html', 'plugin-market.html'],
+    entries: ['index.html', 'insights.html', 'preview.html', 'plugin-market.html', 'logs.html'],
   },
 })

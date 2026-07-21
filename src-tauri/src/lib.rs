@@ -15,6 +15,7 @@ use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent}
 use tauri::{Emitter, Manager, RunEvent, WindowEvent};
 
 pub mod app_dirs;
+pub mod log_bus;
 pub mod shared_config;
 
 #[cfg(not(target_os = "ios"))]
@@ -60,9 +61,10 @@ fn drain_pending_files(state: tauri::State<'_, PendingFiles>) -> Vec<String> {
 }
 
 /// Append a diagnostic line to /tmp/mdeditor.log in debug builds (best-effort).
-/// Compiled out in release — kept as a no-op so call sites need no `cfg` gates.
+/// Also pushes to the unified log bus in all builds.
 #[allow(unused_variables)]
 fn dlog(msg: &str) {
+    crate::log_bus::push("info", msg.to_string());
     #[cfg(debug_assertions)]
     {
         if let Ok(mut f) = OpenOptions::new()
@@ -386,6 +388,38 @@ fn show_insights_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
     }
 }
 
+#[cfg(not(target_os = "ios"))]
+fn open_logs_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>, filter: Option<&str>) {
+    use tauri::WebviewUrl;
+    let win = app.get_webview_window("logs").or_else(|| {
+        tauri::WebviewWindowBuilder::new(app, "logs", WebviewUrl::App("logs.html".into()))
+            .title("Logs")
+            .inner_size(900.0, 640.0)
+            .min_inner_size(520.0, 360.0)
+            .resizable(true)
+            .decorations(true)
+            .visible(false)
+            .build()
+            .map_err(|e| eprintln!("[logs] window build failed: {e}"))
+            .ok()
+    });
+    if let Some(w) = win {
+        let _ = w.show();
+        let _ = w.unminimize();
+        let _ = w.set_focus();
+        if let Some(f) = filter {
+            // Small delay so the webview has registered its listener before the
+            // preset filter arrives (mirrors emit_open_file_delayed usage).
+            let app2 = app.clone();
+            let f = f.to_string();
+            std::thread::spawn(move || {
+                std::thread::sleep(std::time::Duration::from_millis(400));
+                let _ = app2.emit("nav://logs-filter", f);
+            });
+        }
+    }
+}
+
 /// View ▸ Plugin Market… (子项目③). Standalone window cloned from the insights
 /// window: it bootstraps its own webview state and drives the market commands
 /// (index / preview / install / uninstall / set_enabled) + capability consent.
@@ -492,56 +526,6 @@ fn show_main_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
         .inner_size(1000.0, 700.0)
         .min_inner_size(600.0, 400.0)
         .build();
-    }
-}
-
-#[cfg(not(target_os = "ios"))]
-fn open_sync_log_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
-    use vault_sync::{git_ops, VaultSyncManager};
-
-    let mgr = app.state::<std::sync::Arc<VaultSyncManager>>();
-    let entries = mgr.logs.entries();
-    let state = *mgr.state.lock().unwrap();
-    let repo_path = mgr.repo_path.lock().unwrap().clone();
-    let last_sync = mgr.last_sync.lock().unwrap().clone();
-    let error_msg = mgr.error_msg.lock().unwrap().clone();
-
-    // Probe git live so the header reflects reality even before the first cycle.
-    let git = git_ops::version();
-    let git_line = match &git {
-        Some(v) => format!("✅ available — {v}"),
-        None => "❌ NOT AVAILABLE — `git` was not found on PATH".to_string(),
-    };
-    let last_line = match &last_sync {
-        Some(ts) => format!("{} ({})", relative_time(ts, "en"), ts),
-        None => "never".to_string(),
-    };
-    let state_icon = if state.is_problem() { "🔴" } else { "🟢" };
-
-    let mut header = String::new();
-    header.push_str("# Vault Sync — Version Control Status\n\n");
-    header.push_str(&format!("- **Status:** {state_icon} {}\n", state.label()));
-    header.push_str(&format!("- **Git:** {git_line}\n"));
-    header.push_str(&format!(
-        "- **Repository:** {}\n",
-        repo_path.as_deref().map(abbreviate_path).unwrap_or_else(|| "— (not configured)".into())
-    ));
-    header.push_str(&format!("- **Last successful sync:** {last_line}\n"));
-    if let Some(err) = &error_msg {
-        header.push_str(&format!("- **Last error:** ⚠️ {err}\n"));
-    }
-    header.push_str("\n---\n\n## Log\n\n");
-
-    let body: String = entries.iter().map(|e| {
-        format!("[{} · {}] [{}] {}\n", e.timestamp, relative_time(&e.timestamp, "en"), e.level, e.message)
-    }).collect();
-
-    let log_path = std::env::temp_dir().join("vault-sync.log");
-    let _ = std::fs::write(&log_path, format!("{header}{body}"));
-
-    show_main_window(app);
-    if let Some(path_str) = log_path.to_str() {
-        emit_open_file_delayed(app, path_str);
     }
 }
 
@@ -970,6 +954,9 @@ pub fn run() {
                 dbg_log,
                 shared_config_read,
                 shared_config_write,
+                log_bus::logs_append_frontend,
+                log_bus::logs_get_snapshot,
+                log_bus::logs_clear,
             ] }
             #[cfg(target_os = "ios")]
             { tauri::generate_handler![
@@ -994,6 +981,7 @@ pub fn run() {
             ] }
         })
         .setup(|app| {
+            log_bus::init(app.handle().clone());
             // Dev builds: drop the webview HTTP cache on every launch. Vite's
             // optimized-deps URLs (`?v=<hash>`) are served `immutable`, but the
             // hash only tracks the lockfile — file:-linked @moraya/core content
@@ -1064,6 +1052,10 @@ pub fn run() {
                         show_insights_window(app);
                         return;
                     }
+                    if event.id().0.as_str() == "open-logs" {
+                        open_logs_window(app, None);
+                        return;
+                    }
                     if event.id().0.as_str() == "open-plugin-market" {
                         show_plugin_market_window(app);
                         return;
@@ -1099,7 +1091,7 @@ pub fn run() {
                             }
                             "tray-sync-repo" => { pick_sync_folder(app); }
                             "tray-sync-now" => { let _ = vault_sync::vault_sync_now(app.clone()); }
-                            "tray-sync-log" => { open_sync_log_window(app); }
+                            "tray-sync-log" => { open_logs_window(app, Some("git-sync")); }
                             "tray-edit-agents" => agents_sync::edit_agents_md(app),
                             "tray-open-books" => {
                                 let _ = std::process::Command::new("open")
@@ -1315,6 +1307,7 @@ fn menu_label(locale: &str, key: &str) -> String {
         "edit.findReplace" => ("Find and Replace…", "查找和替换…", "検索と置換…", "Suchen und Ersetzen…"),
         "view.toggleMode" => ("Toggle Source / Rich", "切换源码 / 富文本", "ソース / リッチを切り替え", "Quelltext / Rich umschalten"),
         "view.insights" => ("Reading Insights…", "阅读洞察数据…", "リーディングインサイト…", "Leseeinblicke…"),
+        "view.logs" => ("View Logs…", "查看日志…", "ログを表示…", "Protokolle anzeigen…"),
         "plugins.market" => ("Plugin Market…", "插件市场…", "プラグインマーケット…", "Plugin-Markt…"),
         "file.syncToVault" => ("Sync to Vault…", "同步到 Vault…", "Vault に同期…", "Mit Vault synchronisieren…"),
         "file.share" => ("Share Current File…", "分享当前文件…", "現在のファイルを共有…", "Aktuelle Datei teilen…"),
@@ -1666,6 +1659,7 @@ fn build_menu<R: tauri::Runtime>(
         .item(&PredefinedMenuItem::fullscreen(app, None)?)
         .separator()
         .item(&MenuItemBuilder::with_id("open-insights", menu_label(locale, "view.insights")).build(app)?)
+        .item(&MenuItemBuilder::with_id("open-logs", menu_label(locale, "view.logs")).build(app)?)
         .separator()
         .item(&MenuItemBuilder::with_id("toggle-folder-view", menu_label(locale, "view.folderView")).accelerator("Cmd+Shift+E").build(app)?)
         .item(&MenuItemBuilder::with_id("toggle-sidecar-notes", menu_label(locale, "view.sidecarNotes")).accelerator("Cmd+Shift+O").build(app)?)
