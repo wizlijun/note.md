@@ -215,6 +215,13 @@ impl PluginProcess {
 /// 共享日志 helper（Task 7 的 host.log.* 复用）：向 `<dir>/<plugin_id>.log`
 /// 追加一行 `[{level}] {msg}`。
 pub(crate) fn append_plugin_log(dir: &Path, plugin_id: &str, level: &str, msg: &str) {
+    // Mirror into the unified log bus (category=plugin:<id>). File append below
+    // is untouched. Map raw stderr level to a bus level.
+    let bus_level = match level {
+        "debug" | "info" | "warn" | "error" => level,
+        _ => "info", // e.g. "stderr"
+    };
+    crate::log_bus::push_cat(&format!("plugin:{plugin_id}"), "backend", bus_level, msg.to_string());
     let _ = std::fs::create_dir_all(dir);
     append_log_line(&dir.join(format!("{plugin_id}.log")), &format!("[{level}] {msg}"));
 }
