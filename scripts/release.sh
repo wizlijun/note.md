@@ -251,10 +251,6 @@ STAGED_ASSETS=()
 build_arch() {
   local arch="$1" arch_tag="$2"
   say "building target $arch"
-  # Stage the notemd-location sidecar for THIS arch before tauri build. Tauri's
-  # externalBin needs binaries/notemd-location-<arch> present; the
-  # beforeBuildCommand only builds the host arch, so cross-arch legs need this.
-  scripts/build-location-helper.sh "$arch"
   APPLE_SIGNING_IDENTITY="$APPLE_SIGNING_IDENTITY" pnpm tauri build --target "$arch"
 
   local bundle="src-tauri/target/$arch/release/bundle"
