@@ -530,56 +530,6 @@ fn show_main_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
 }
 
 #[cfg(not(target_os = "ios"))]
-fn open_sync_log_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
-    use vault_sync::{git_ops, VaultSyncManager};
-
-    let mgr = app.state::<std::sync::Arc<VaultSyncManager>>();
-    let entries = mgr.logs.entries();
-    let state = *mgr.state.lock().unwrap();
-    let repo_path = mgr.repo_path.lock().unwrap().clone();
-    let last_sync = mgr.last_sync.lock().unwrap().clone();
-    let error_msg = mgr.error_msg.lock().unwrap().clone();
-
-    // Probe git live so the header reflects reality even before the first cycle.
-    let git = git_ops::version();
-    let git_line = match &git {
-        Some(v) => format!("✅ available — {v}"),
-        None => "❌ NOT AVAILABLE — `git` was not found on PATH".to_string(),
-    };
-    let last_line = match &last_sync {
-        Some(ts) => format!("{} ({})", relative_time(ts, "en"), ts),
-        None => "never".to_string(),
-    };
-    let state_icon = if state.is_problem() { "🔴" } else { "🟢" };
-
-    let mut header = String::new();
-    header.push_str("# Vault Sync — Version Control Status\n\n");
-    header.push_str(&format!("- **Status:** {state_icon} {}\n", state.label()));
-    header.push_str(&format!("- **Git:** {git_line}\n"));
-    header.push_str(&format!(
-        "- **Repository:** {}\n",
-        repo_path.as_deref().map(abbreviate_path).unwrap_or_else(|| "— (not configured)".into())
-    ));
-    header.push_str(&format!("- **Last successful sync:** {last_line}\n"));
-    if let Some(err) = &error_msg {
-        header.push_str(&format!("- **Last error:** ⚠️ {err}\n"));
-    }
-    header.push_str("\n---\n\n## Log\n\n");
-
-    let body: String = entries.iter().map(|e| {
-        format!("[{} · {}] [{}] {}\n", e.timestamp, relative_time(&e.timestamp, "en"), e.level, e.message)
-    }).collect();
-
-    let log_path = std::env::temp_dir().join("vault-sync.log");
-    let _ = std::fs::write(&log_path, format!("{header}{body}"));
-
-    show_main_window(app);
-    if let Some(path_str) = log_path.to_str() {
-        emit_open_file_delayed(app, path_str);
-    }
-}
-
-#[cfg(not(target_os = "ios"))]
 fn pick_sync_folder(app: &tauri::AppHandle) {
     let app_clone = app.clone();
     pick_sync_folder_inner(app, move |_path| {
