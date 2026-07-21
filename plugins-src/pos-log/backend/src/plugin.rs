@@ -76,13 +76,21 @@ impl sdk::NotemdPlugin for PosLogPlugin {
 /// （spec §8 错误表）。`announce`=true（手动「Save Location Now」）总是弹 toast
 /// 反馈结果；=false（30 分钟循环）沿用 `warned_once` 抑制重复告警。
 async fn run_round(host: &sdk::Host, warned_once: &mut bool, announce: bool) {
-    let place = match host.request("host.location.get", json!({})).await {
-        Ok(v) => logbook::Place {
-            country: v["country"].as_str().unwrap_or_default().to_string(),
-            province: v["province"].as_str().unwrap_or_default().to_string(),
-            city: v["city"].as_str().unwrap_or_default().to_string(),
-            poi: v["poi"].as_str().unwrap_or_default().to_string(),
-        },
+    let (place, coords) = match host.request("host.location.get", json!({})).await {
+        Ok(v) => {
+            let place = logbook::Place {
+                country: v["country"].as_str().unwrap_or_default().to_string(),
+                province: v["province"].as_str().unwrap_or_default().to_string(),
+                city: v["city"].as_str().unwrap_or_default().to_string(),
+                poi: v["poi"].as_str().unwrap_or_default().to_string(),
+            };
+            // 坐标随行末记录；两者都在才拼（非 macOS / 老宿主不返回坐标时省略）。
+            let coords = match (v["latitude"].as_f64(), v["longitude"].as_f64()) {
+                (Some(lat), Some(lon)) => Some(logbook::format_coords(lat, lon)),
+                _ => None,
+            };
+            (place, coords)
+        }
         Err(e) => {
             if announce || !*warned_once {
                 host.toast("warning", "Position Log 无法获取位置", Some(&e));
@@ -102,7 +110,7 @@ async fn run_round(host: &sdk::Host, warned_once: &mut bool, announce: bool) {
     }
     let now = chrono::Local::now();
     let path = logbook::file_rel_path(&now);
-    let line = logbook::format_line(&now, &addr);
+    let line = logbook::format_line(&now, &addr, coords.as_deref());
 
     let existing: Option<String> = match host
         .request("host.vault.exists", json!({"path": path}))
@@ -198,7 +206,7 @@ mod tests {
                 Some("host.location.get") => {
                     let id = v["id"].as_u64().unwrap();
                     let resp = format!(
-                        r#"{{"jsonrpc":"2.0","id":{id},"result":{{"country":"中国","province":"湖北","city":"武汉","poi":"光谷软件园"}}}}"#
+                        r#"{{"jsonrpc":"2.0","id":{id},"result":{{"country":"中国","province":"湖北","city":"武汉","poi":"光谷软件园","latitude":30.50762,"longitude":114.41956}}}}"#
                     );
                     host_w.write_all(resp.as_bytes()).await.unwrap();
                     host_w.write_all(b"\n").await.unwrap();
@@ -221,7 +229,7 @@ mod tests {
         assert!(path.starts_with("pos/") && path.ends_with("-pos.md"), "path: {path}");
         assert!(content.starts_with("- "), "content: {content}");
         assert!(
-            content.trim_end().ends_with("中国-湖北-武汉 光谷软件园"),
+            content.trim_end().ends_with("中国-湖北-武汉 光谷软件园 (30.50762, 114.41956)"),
             "content: {content}"
         );
         assert!(content.ends_with('\n'));

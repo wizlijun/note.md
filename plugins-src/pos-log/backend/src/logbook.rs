@@ -24,9 +24,24 @@ pub fn format_address(p: &Place) -> String {
     }
 }
 
-/// `- YYYY-MM-DD HH:mm <addr>`（本地时间由调用方传入，便于测试）。
-pub fn format_line(ts: &chrono::DateTime<chrono::Local>, addr: &str) -> String {
-    format!("- {} {addr}", ts.format("%Y-%m-%d %H:%M"))
+/// `(lat, lon)`，各保留 5 位小数，如 `(30.50762, 114.41956)`。追加到行末，仅作
+/// 展示 / 复制进地图之用；**不进去重 key**（GPS 每轮都抖动）。
+pub fn format_coords(lat: f64, lon: f64) -> String {
+    format!("({lat:.5}, {lon:.5})")
+}
+
+/// `- YYYY-MM-DD HH:mm <addr>`，`coords` 存在时再于行末补 ` <coords>`（本地时间与
+/// 坐标由调用方传入，便于测试；非 macOS / 老宿主不返回坐标时传 `None` 退回原样）。
+pub fn format_line(
+    ts: &chrono::DateTime<chrono::Local>,
+    addr: &str,
+    coords: Option<&str>,
+) -> String {
+    let stamp = ts.format("%Y-%m-%d %H:%M");
+    match coords {
+        Some(c) => format!("- {stamp} {addr} {c}"),
+        None => format!("- {stamp} {addr}"),
+    }
 }
 
 /// 当天文件的 vault 相对路径 `pos/YYYY-MM-DD-pos.md`。
@@ -34,8 +49,32 @@ pub fn file_rel_path(ts: &chrono::DateTime<chrono::Local>) -> String {
     format!("pos/{}-pos.md", ts.format("%Y-%m-%d"))
 }
 
-/// 现有文件内容里最后一条记录的地址部分（剥掉 `- YYYY-MM-DD HH:mm ` 前缀）。
-/// 无行/行不合形 → None（调用方视为需要追加）。
+/// 剥掉地址串行末的 ` (lat, lon)` 坐标段，只保留地址本体。保守：仅当括号内恰是
+/// 两个逗号分隔的十进制数才剥，避免误伤 POI 里本身带的括号（如 `Foo (bar)`）。
+fn strip_coords(addr: &str) -> &str {
+    let t = addr.trim_end();
+    if !t.ends_with(')') {
+        return addr;
+    }
+    let Some(open) = t.rfind(" (") else { return addr };
+    let inner = &t[open + 2..t.len() - 1]; // 括号内部
+    let mut parts = inner.split(", ");
+    match (parts.next(), parts.next(), parts.next()) {
+        (Some(a), Some(b), None) if is_decimal(a) && is_decimal(b) => t[..open].trim_end(),
+        _ => addr,
+    }
+}
+
+/// 十进制数形（可带前导 `-`，至多一个小数点）。
+fn is_decimal(s: &str) -> bool {
+    let body = s.strip_prefix('-').unwrap_or(s);
+    !body.is_empty()
+        && body.chars().all(|c| c.is_ascii_digit() || c == '.')
+        && body.chars().filter(|&c| c == '.').count() <= 1
+}
+
+/// 现有文件内容里最后一条记录的地址部分（剥掉 `- YYYY-MM-DD HH:mm ` 前缀，再剥掉
+/// 行末可能的 ` (lat, lon)` 坐标段）。无行/行不合形 → None（调用方视为需要追加）。
 pub fn last_address(content: &str) -> Option<String> {
     let line = content.lines().rev().find(|l| !l.trim().is_empty())?;
     let rest = line.strip_prefix("- ")?;
@@ -56,6 +95,10 @@ pub fn last_address(content: &str) -> Option<String> {
             _ => c.is_ascii_digit(),
         });
     if !shape_ok || addr.is_empty() {
+        return None;
+    }
+    let addr = strip_coords(addr);
+    if addr.is_empty() {
         return None;
     }
     Some(addr.to_string())
@@ -122,8 +165,51 @@ mod tests {
     #[test]
     fn line_format() {
         assert_eq!(
-            format_line(&ts(), "中国-湖北-武汉 光谷软件园"),
+            format_line(&ts(), "中国-湖北-武汉 光谷软件园", None),
             "- 2026-07-18 14:30 中国-湖北-武汉 光谷软件园"
+        );
+    }
+    #[test]
+    fn coords_format_five_decimals() {
+        assert_eq!(format_coords(30.5076213, 114.4195627), "(30.50762, 114.41956)");
+        assert_eq!(format_coords(-33.8, 151.2), "(-33.80000, 151.20000)");
+    }
+    #[test]
+    fn line_format_with_coords() {
+        assert_eq!(
+            format_line(
+                &ts(),
+                "中国-湖北-武汉 光谷软件园",
+                Some(&format_coords(30.50762, 114.41956))
+            ),
+            "- 2026-07-18 14:30 中国-湖北-武汉 光谷软件园 (30.50762, 114.41956)"
+        );
+    }
+    #[test]
+    fn last_address_strips_trailing_coords() {
+        let c = "- 2026-07-18 09:00 中国-湖北-武汉 光谷软件园 (30.50762, 114.41956)\n";
+        assert_eq!(last_address(c).as_deref(), Some("中国-湖北-武汉 光谷软件园"));
+    }
+    #[test]
+    fn last_address_keeps_poi_parens_when_not_coords() {
+        // POI 自带括号、行末无坐标 → 不误剥
+        let c = "- 2026-07-18 09:00 中国-北京 天安门 (东侧)\n";
+        assert_eq!(last_address(c).as_deref(), Some("中国-北京 天安门 (东侧)"));
+    }
+    #[test]
+    fn dedup_ignores_coord_jitter() {
+        // 上一行带坐标，本轮地址相同但坐标抖动 → 仍跳过（按地址去重）
+        let c = "- 2026-07-18 09:00 中国-湖北-武汉 光谷 (30.50762, 114.41956)\n";
+        let line = format_line(&ts(), "中国-湖北-武汉 光谷", Some("(30.50799, 114.41902)"));
+        assert_eq!(decide(Some(c), &line, "中国-湖北-武汉 光谷"), None);
+    }
+    #[test]
+    fn append_when_address_changes_over_coord_line() {
+        let c = "- 2026-07-18 09:00 中国-湖北-武汉 光谷 (30.50762, 114.41956)\n";
+        let line = format_line(&ts(), "中国-湖北-武汉 街道口", Some("(30.53000, 114.35000)"));
+        assert_eq!(
+            decide(Some(c), &line, "中国-湖北-武汉 街道口").as_deref(),
+            Some("- 2026-07-18 09:00 中国-湖北-武汉 光谷 (30.50762, 114.41956)\n- 2026-07-18 14:30 中国-湖北-武汉 街道口 (30.53000, 114.35000)\n")
         );
     }
     #[test]
