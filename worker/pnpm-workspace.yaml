@@ -1,0 +1,14 @@
+# worker/ installs ISOLATED from the repo's root pnpm workspace (like
+# plugins-registry/): without this file, `pnpm install` here walks up to the
+# repo-root pnpm-workspace.yaml and tries to install all workspace projects
+# (incl. the moraya-core symlink, absent in CI → ENOENT). Declaring the
+# single-package root ('.') stops that upward search so pnpm installs only this
+# dir's own lockfile. `packages` must be present or pnpm 9+ errors "packages
+# field missing or empty". allowBuilds allowlists the native deps the
+# vitest-pool-workers test harness builds (workerd runtime; esbuild bundler).
+packages:
+  - '.'
+allowBuilds:
+  esbuild: true
+  sharp: true
+  workerd: true
