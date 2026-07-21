@@ -457,8 +457,26 @@ pub(crate) fn classify_unknown_plugin(id: &str, in_v2: bool) -> String {
     }
 }
 
+/// Mirror a finished v1 plugin's captured stderr into the unified log bus the
+/// same way v2 plugins stream theirs: one line per non-empty stderr line under
+/// category `plugin:<id>` (+ a per-plugin `<id>.log`), via the shared
+/// [`crate::plugin_runtime::process::append_plugin_log`] helper. This gives
+/// every plugin — v1 or v2 — the same log handling, tagged by plugin id.
+/// Extracted so it can be tested without a Tauri AppHandle or bus init.
+fn log_plugin_stderr(log_dir: &std::path::Path, plugin_id: &str, stderr_tail: &str) {
+    for line in stderr_tail.lines() {
+        if !line.trim().is_empty() {
+            crate::plugin_runtime::process::append_plugin_log(log_dir, plugin_id, "stderr", line);
+        }
+    }
+}
+
 #[tauri::command]
-pub async fn invoke_plugin(plugin_id: String, request_json: String) -> Result<InvokeResult, String> {
+pub async fn invoke_plugin(
+    app: AppHandle,
+    plugin_id: String,
+    request_json: String,
+) -> Result<InvokeResult, String> {
     // Look up in v1 enabled map FIRST. Flag-off behavior is byte-identical to
     // pre-① when v2 STATE is empty. Only when the id is absent from v1 AND
     // present in v2 do we return the v2-specific hint.
@@ -485,7 +503,23 @@ pub async fn invoke_plugin(plugin_id: String, request_json: String) -> Result<In
         Some(p) => p,
         None => return Err(format!("binary not found for plugin {plugin_id}")),
     };
-    run_plugin_binary(&binary, &request_json, manifest.timeout_seconds).await
+    let result = run_plugin_binary(&binary, &request_json, manifest.timeout_seconds).await;
+
+    // Unified plugin logging: route the captured stderr into the same bus +
+    // per-plugin file v2 plugins use, tagged `plugin:<id>`. Best-effort — a log
+    // dir we can't resolve falls back to a temp dir; logging never fails the
+    // invocation. Uses the same `<app_log_dir>/plugins` root as the v2 runtime.
+    if let Ok(r) = &result {
+        if !r.stderr_tail.is_empty() {
+            let log_dir = app
+                .path()
+                .app_log_dir()
+                .map(|d| d.join("plugins"))
+                .unwrap_or_else(|_| std::env::temp_dir());
+            log_plugin_stderr(&log_dir, &plugin_id, &r.stderr_tail);
+        }
+    }
+    result
 }
 
 /// Test-only: initialize STATE from an arbitrary directory rather than the
@@ -799,6 +833,25 @@ mod cli_helpers_tests {
         // plain v1 id absent from v2 → generic not-found
         let err3 = classify_unknown_plugin("share", false);
         assert!(err3.contains("unknown plugin"), "err3: {err3}");
+    }
+
+    /// A v1 plugin's captured stderr is mirrored line-by-line into the shared
+    /// per-plugin log (`<log_dir>/<id>.log`) with the `[stderr]` level, exactly
+    /// like v2 plugins — and blank lines are skipped.
+    #[test]
+    fn log_plugin_stderr_writes_per_plugin_file_skipping_blanks() {
+        let dir = tempfile::tempdir().unwrap();
+        super::log_plugin_stderr(dir.path(), "base", "first line\n\n  \nsecond line\n");
+        let content = std::fs::read_to_string(dir.path().join("base.log")).unwrap();
+        assert_eq!(content, "[stderr] first line\n[stderr] second line\n");
+    }
+
+    /// Empty stderr writes nothing (no stray log file).
+    #[test]
+    fn log_plugin_stderr_empty_is_noop() {
+        let dir = tempfile::tempdir().unwrap();
+        super::log_plugin_stderr(dir.path(), "base", "");
+        assert!(!dir.path().join("base.log").exists());
     }
 
     fn bare_manifest(id: &str, manifest_version: Option<u32>) -> PluginManifest {
