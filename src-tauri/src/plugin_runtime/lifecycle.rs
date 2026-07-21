@@ -470,17 +470,17 @@ pub fn startup_activation(lifecycles: Vec<Arc<PluginLifecycle>>) {
 /// Panic-safety: every lock is released before the `block_on(deactivate())`
 /// call (deactivate is async and takes its own `phase` tokio Mutex; holding a
 /// std RwLock across an await/block would risk a deadlock).
-pub fn reconcile<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<(), String> {
+pub async fn reconcile<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<(), String> {
     let host_version = app.package_info().version.to_string();
     let new_map = super::discovery::scan(app, &host_version)?;
-    reconcile_with_map(new_map);
+    reconcile_with_map(new_map).await;
     Ok(())
 }
 
 /// AppHandle-free core of [`reconcile`] (unit-testable): given the freshly
 /// scanned id→(manifest, install_dir) map, deactivate + drop every RUNNING
 /// lifecycle that vanished from it, then swap `STATE.plugins` to the new map.
-pub(crate) fn reconcile_with_map(
+pub(crate) async fn reconcile_with_map(
     new_map: HashMap<String, (proto::ManifestV2, PathBuf)>,
 ) {
     // Which live lifecycles vanished from the install tree? Collect them under
@@ -495,10 +495,12 @@ pub(crate) fn reconcile_with_map(
     };
 
     for (id, lc) in &stale {
-        // deactivate() is async ($deactivate handshake + grace kill). We are on
-        // a sync command thread outside any tokio context, so drive it to
-        // completion on the tauri async runtime with no locks held.
-        tauri::async_runtime::block_on(lc.deactivate());
+        // deactivate() is async ($deactivate handshake + grace kill). Callers
+        // are async Tauri commands (already inside tokio), so we MUST await —
+        // `block_on` from within the runtime panics ("cannot block from within a
+        // runtime"), which aborts the whole app (panic=abort). All std locks are
+        // released above, so awaiting here holds none.
+        lc.deactivate().await;
         eprintln!("[plugin_runtime] reconcile: deactivated removed plugin '{id}'");
     }
 
@@ -629,8 +631,8 @@ mod tests {
     /// reconcile_with_map: two plugins live in RUNNING + STATE; the new scan
     /// map drops one → that one is deactivated + removed from RUNNING while the
     /// survivor stays, and STATE.plugins mirrors the new map exactly.
-    #[test]
-    fn reconcile_drops_removed_from_running_and_state() {
+    #[tokio::test]
+    async fn reconcile_drops_removed_from_running_and_state() {
         // Unique ids keep the global STATE/RUNNING mutation race-free vs other
         // tests (none of which use these ids).
         let keep = "test.reconcile-keep";
@@ -664,7 +666,7 @@ mod tests {
             (reconcile_manifest(keep), PathBuf::from("/tmp").join(keep)),
         );
 
-        reconcile_with_map(new_map);
+        reconcile_with_map(new_map).await;
 
         // RUNNING: survivor present, removed gone.
         {

@@ -196,7 +196,7 @@ pub async fn plugin_market_install(
     // Bring the live runtime in line with the new tree, rebuild the native menu
     // (a brand-new plugin's menu item now appears without a restart), then nudge
     // the UI.
-    lifecycle::reconcile(&app)?;
+    lifecycle::reconcile(&app).await?;
     crate::rebuild_menu(&app);
     notify_plugins_changed(&app);
     Ok(())
@@ -223,7 +223,7 @@ pub async fn plugin_market_uninstall(
     install.installed.remove(&id);
     state::save(&root, &install)?;
 
-    lifecycle::reconcile(&app)?;
+    lifecycle::reconcile(&app).await?;
     crate::rebuild_menu(&app);
     notify_plugins_changed(&app);
     Ok(())
@@ -247,7 +247,7 @@ pub async fn plugin_market_set_enabled(
     }
     state::save(&root, &install)?;
 
-    lifecycle::reconcile(&app)?;
+    lifecycle::reconcile(&app).await?;
     crate::rebuild_menu(&app);
     notify_plugins_changed(&app);
     Ok(())
