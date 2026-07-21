@@ -76,14 +76,19 @@ impl sdk::NotemdPlugin for PosLogPlugin {
 /// （spec §8 错误表）。`announce`=true（手动「Save Location Now」）总是弹 toast
 /// 反馈结果；=false（30 分钟循环）沿用 `warned_once` 抑制重复告警。
 async fn run_round(host: &sdk::Host, warned_once: &mut bool, announce: bool) {
-    let place = match acquire_place().await {
-        Ok(p) => p,
+    let place = match host.request("host.location.get", json!({})).await {
+        Ok(v) => logbook::Place {
+            country: v["country"].as_str().unwrap_or_default().to_string(),
+            province: v["province"].as_str().unwrap_or_default().to_string(),
+            city: v["city"].as_str().unwrap_or_default().to_string(),
+            poi: v["poi"].as_str().unwrap_or_default().to_string(),
+        },
         Err(e) => {
             if announce || !*warned_once {
                 host.toast("warning", "Position Log 无法获取位置", Some(&e));
                 *warned_once = true;
             }
-            host.log_warn(&format!("pos-log: location lookup failed: {e}"));
+            host.log_warn(&format!("pos-log: host.location.get failed: {e}"));
             return;
         }
     };
@@ -151,43 +156,6 @@ async fn run_round(host: &sdk::Host, warned_once: &mut bool, announce: bool) {
     }
 }
 
-/// Resolve the current place. Production = IP geolocation (no OS location
-/// permission — CoreLocation authorization proved unobtainable in the field
-/// across many attempts). Tests use a fixed place so no network is hit.
-#[cfg(not(test))]
-async fn acquire_place() -> Result<logbook::Place, String> {
-    fetch_ip_location().await
-}
-
-#[cfg(test)]
-async fn acquire_place() -> Result<logbook::Place, String> {
-    Ok(logbook::Place {
-        country: "中国".into(),
-        province: "湖北".into(),
-        city: "武汉".into(),
-        poi: "光谷软件园".into(),
-    })
-}
-
-/// City-level location from the caller's public IP via ip-api.com (free tier,
-/// no key, `lang=zh-CN` returns Chinese country/province/city that match the
-/// log format). No POI at this granularity.
-#[cfg(not(test))]
-async fn fetch_ip_location() -> Result<logbook::Place, String> {
-    let url = "http://ip-api.com/json/?lang=zh-CN&fields=status,message,country,regionName,city";
-    let resp = reqwest::get(url).await.map_err(|e| format!("network: {e}"))?;
-    let v: serde_json::Value = resp.json().await.map_err(|e| format!("parse: {e}"))?;
-    if v["status"].as_str() != Some("success") {
-        return Err(format!("ip-api: {}", v["message"].as_str().unwrap_or("failed")));
-    }
-    Ok(logbook::Place {
-        country: v["country"].as_str().unwrap_or_default().to_string(),
-        province: v["regionName"].as_str().unwrap_or_default().to_string(),
-        city: v["city"].as_str().unwrap_or_default().to_string(),
-        poi: String::new(),
-    })
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -213,8 +181,7 @@ mod tests {
             .unwrap();
         host_w.write_all(b"\n").await.unwrap();
 
-        // 位置走 IP 定位（测试用固定 place，不联网）；应答 host.vault.exists(false)
-        // → 期待 host.vault.write。
+        // 依次应答 host.location.get → host.vault.exists(false) → 期待 host.vault.write
         let mut wrote: Option<serde_json::Value> = None;
         let deadline = tokio::time::Instant::now() + tokio::time::Duration::from_secs(10);
         while wrote.is_none() {
@@ -228,6 +195,14 @@ mod tests {
                 Err(_) => continue,
             };
             match v["method"].as_str() {
+                Some("host.location.get") => {
+                    let id = v["id"].as_u64().unwrap();
+                    let resp = format!(
+                        r#"{{"jsonrpc":"2.0","id":{id},"result":{{"country":"中国","province":"湖北","city":"武汉","poi":"光谷软件园"}}}}"#
+                    );
+                    host_w.write_all(resp.as_bytes()).await.unwrap();
+                    host_w.write_all(b"\n").await.unwrap();
+                }
                 Some("host.vault.exists") => {
                     let id = v["id"].as_u64().unwrap();
                     let resp = format!(r#"{{"jsonrpc":"2.0","id":{id},"result":{{"exists":false}}}}"#);

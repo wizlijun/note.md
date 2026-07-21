@@ -2,11 +2,11 @@
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "note.md",
   "mainBinaryName": "notemd",
-  "version": "6.721.5",
+  "version": "6.720.6",
   "identifier": "net.notemd.app",
   "build": {
-    "beforeDevCommand": "pnpm dev",
-    "beforeBuildCommand": "pnpm build",
+    "beforeDevCommand": "sh -c 'scripts/build-location-helper.sh && pnpm dev'",
+    "beforeBuildCommand": "sh -c 'scripts/build-location-helper.sh && pnpm build'",
     "devUrl": "http://localhost:1420",
     "frontendDist": "../dist"
   },
@@ -44,6 +44,9 @@
     "resources": [
       "plugins/**/*",
       "resources/themes/**/*"
+    ],
+    "externalBin": [
+      "binaries/notemd-location"
     ],
     "category": "DeveloperTool",
     "createUpdaterArtifacts": true,
