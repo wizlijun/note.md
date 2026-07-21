@@ -10,6 +10,12 @@
 // Everything is public: packages are minisign-signed and sha256-pinned in the
 // index, so integrity is verified client-side — there is no secret to protect
 // on read. `*` CORS is therefore safe (no cookies/credentials involved).
+//
+// It also serves a human-facing landing page at `GET /` (and `/index.html`) —
+// the marketplace homepage that renders the plugin list client-side from
+// `/api/index.json`. See src/page.ts.
+
+import { PAGE_HTML } from './page'
 
 export interface Env {
   /** KV: `index` → the published index.json string; `stats:<id>` → install count. */
@@ -54,6 +60,15 @@ function json(body: unknown, init: ResponseInit = {}): Response {
 
 function notFound(): Response {
   return json({ error: 'not_found' }, { status: 404 })
+}
+
+/** GET / (and /index.html) — the marketplace landing page. */
+function handleLanding(head: boolean): Response {
+  const headers = corsHeaders({
+    'content-type': 'text/html; charset=utf-8',
+    'cache-control': 'public, max-age=300',
+  })
+  return new Response(head ? null : PAGE_HTML, { status: 200, headers })
 }
 
 function methodNotAllowed(allow: string): Response {
@@ -142,6 +157,12 @@ export default {
     // CORS preflight for any path.
     if (req.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: corsHeaders() })
+    }
+
+    // Landing page: `/` and `/index.html`.
+    if (segments.length === 0 || (segments.length === 1 && segments[0] === 'index.html')) {
+      if (req.method !== 'GET' && req.method !== 'HEAD') return methodNotAllowed('GET, HEAD, OPTIONS')
+      return handleLanding(req.method === 'HEAD')
     }
 
     if (segments[0] === 'api') {

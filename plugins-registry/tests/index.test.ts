@@ -134,6 +134,36 @@ describe('POST /api/stats/install', () => {
   })
 })
 
+describe('GET / (landing page)', () => {
+  it('serves the HTML marketplace page with html content-type + CORS', async () => {
+    const r = await SELF.fetch('http://x/')
+    expect(r.status).toBe(200)
+    expect(r.headers.get('content-type')).toContain('text/html')
+    expect(r.headers.get('access-control-allow-origin')).toBe('*')
+    const body = await r.text()
+    expect(body).toContain('<!DOCTYPE html>')
+    expect(body).toContain('/api/index.json')
+  })
+
+  it('serves the same page at /index.html', async () => {
+    const r = await SELF.fetch('http://x/index.html')
+    expect(r.status).toBe(200)
+    expect(r.headers.get('content-type')).toContain('text/html')
+  })
+
+  it('HEAD / returns 200 with no body', async () => {
+    const r = await SELF.fetch('http://x/', { method: 'HEAD' })
+    expect(r.status).toBe(200)
+    expect(await r.text()).toBe('')
+  })
+
+  it('405 for POST /', async () => {
+    const r = await SELF.fetch('http://x/', { method: 'POST' })
+    expect(r.status).toBe(405)
+    expect(r.headers.get('allow')).toContain('GET')
+  })
+})
+
 describe('routing', () => {
   it('404 for an unknown path', async () => {
     const r = await SELF.fetch('http://x/api/nope')

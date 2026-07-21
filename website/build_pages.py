@@ -23,6 +23,8 @@ nav{position:sticky;top:0;z-index:50;background:rgba(23,24,28,.9);backdrop-filte
 .logo{display:flex;align-items:center;gap:10px;font-weight:700;font-size:16px;font-family:var(--mono);text-decoration:none}
 .logo .dot{color:var(--amber)}
 .nav-cta{font-family:var(--mono);background:var(--amber);color:var(--ink);font-weight:700;font-size:13px;padding:7px 16px;border-radius:8px;text-decoration:none}
+.npl{font-family:var(--mono);font-size:13px;color:#B9BDC7;text-decoration:none;border-bottom:1px dotted transparent;padding-bottom:2px}
+.npl:hover{color:#fff;border-bottom-color:var(--amber)}
 header.ph{background:var(--ink);color:var(--paper);padding:72px 0 64px}
 .crumb{font-family:var(--mono);font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--amber);margin-bottom:20px}
 h1{font-family:var(--serif);font-size:42px;line-height:1.15;font-weight:700;margin-bottom:18px}
@@ -85,22 +87,22 @@ LANG_ORDER = ["en", "de", "ja", "zh"]
 LANG_LABEL = {"en": "EN", "de": "DE", "ja": "日本語", "zh": "中文"}
 
 CHROME = {
- "en": {"dl": "Download", "cta_h2": "Own your thinking.", "cta_p": "Free. Open. A folder of markdown on your Mac.",
+ "en": {"dl": "Download", "pl": "plugins", "cta_h2": "Own your thinking.", "cta_p": "Free. Open. A folder of markdown on your Mac.",
         "cta_btn": "Download for macOS", "faq": "FAQ",
         "g_cmp": "Compare", "g_int": "Integrations", "g_gui": "Guides",
         "l_cf": "Free sharing on Cloudflare", "l_gh": "Vault on GitHub", "l_llm": "llms.txt (for agents)",
         "sig": "Text is forever. So is what you thought about it."},
- "de": {"dl": "Laden", "cta_h2": "Besitze dein Denken.", "cta_p": "Frei. Offen. Ein Ordner voller Markdown auf deinem Mac.",
+ "de": {"dl": "Laden", "pl": "plugins", "cta_h2": "Besitze dein Denken.", "cta_p": "Frei. Offen. Ein Ordner voller Markdown auf deinem Mac.",
         "cta_btn": "Für macOS laden", "faq": "FAQ",
         "g_cmp": "Vergleich", "g_int": "Integrationen", "g_gui": "Anleitungen",
         "l_cf": "Kostenlos teilen über Cloudflare", "l_gh": "Vault auf GitHub", "l_llm": "llms.txt (für Agents)",
         "sig": "Text ist für immer. Was du darüber dachtest, auch."},
- "ja": {"dl": "ダウンロード", "cta_h2": "思考を所有せよ。", "cta_p": "無料。オープン。あなたの Mac にある markdown フォルダ。",
+ "ja": {"dl": "ダウンロード", "pl": "プラグイン", "cta_h2": "思考を所有せよ。", "cta_p": "無料。オープン。あなたの Mac にある markdown フォルダ。",
         "cta_btn": "macOS 版をダウンロード", "faq": "FAQ",
         "g_cmp": "比較", "g_int": "連携", "g_gui": "ガイド",
         "l_cf": "Cloudflare で無料共有", "l_gh": "GitHub で Vault をホスト", "l_llm": "llms.txt（エージェント向け）",
         "sig": "テキストは永遠に残る。あなたがそれについて考えたことも。"},
- "zh": {"dl": "下载", "cta_h2": "拥有你的思考。", "cta_p": "免费。开源。你 Mac 上的一个 markdown 文件夹。",
+ "zh": {"dl": "下载", "pl": "插件", "cta_h2": "拥有你的思考。", "cta_p": "免费。开源。你 Mac 上的一个 markdown 文件夹。",
         "cta_btn": "下载 macOS 版", "faq": "FAQ",
         "g_cmp": "对比", "g_int": "集成", "g_gui": "指南",
         "l_cf": "Cloudflare 免费分享", "l_gh": "GitHub 托管 vault", "l_llm": "llms.txt（给 agent）",
@@ -184,6 +186,7 @@ def render(p, lang):
 <body>
 <nav><div class="wrap nav-in">
 <a class="logo" href="{lp(lang, '/')}">{LOGO_SVG}<span>note<span class="dot">.</span>md</span></a>
+<a class="npl" href="https://plugins.notemd.net">{c['pl']}</a>
 {switcher(lang, p['path'])}
 <a class="nav-cta" href="/download">{c['dl']}</a>
 </div></nav>
