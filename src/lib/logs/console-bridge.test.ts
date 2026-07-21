@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-const invokeMock = vi.fn(() => Promise.resolve())
+const invokeMock = vi.fn((..._a: unknown[]) => Promise.resolve())
 vi.mock('@tauri-apps/api/core', () => ({ invoke: (...a: unknown[]) => invokeMock(...a) }))
 
 describe('installConsoleBridge', () => {
