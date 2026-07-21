@@ -26,13 +26,22 @@
     return () => stop?.()
   })
 
-  // category filter groups every plugin:<id> under the single "plugin" bucket.
+  const PLUGIN_PREFIX = 'plugin:'
+
+  // 'all' matches everything; 'plugin' matches every plugin:<id> (grouped);
+  // any other value is an exact category match, including a specific plugin:<id>.
   function matchCategory(line: LogLine): boolean {
     const f = store.categoryFilter
     if (f === 'all') return true
-    if (f === 'plugin') return line.category.startsWith('plugin:')
+    if (f === 'plugin') return line.category.startsWith(PLUGIN_PREFIX)
     return line.category === f
   }
+
+  // Distinct plugin categories present in the stream, so each plugin id can be
+  // selected on its own in the filter (sorted for stable ordering).
+  const pluginCategories = $derived(
+    [...new Set(store.lines.map((l) => l.category).filter((c) => c.startsWith(PLUGIN_PREFIX)))].sort()
+  )
 
   const filtered = $derived(
     store.lines.filter((l) =>
@@ -67,8 +76,15 @@
       <option value="all">{t('logs.categories.all')}</option>
       <option value="core">{t('logs.categories.core')}</option>
       <option value="git-sync">{t('logs.categories.gitSync')}</option>
-      <option value="plugin">{t('logs.categories.plugin')}</option>
       <option value="frontend">{t('logs.categories.frontend')}</option>
+      {#if pluginCategories.length > 0}
+        <optgroup label={t('logs.categories.plugin')}>
+          <option value="plugin">{t('logs.categories.pluginAll')}</option>
+          {#each pluginCategories as cat (cat)}
+            <option value={cat}>{cat.slice(PLUGIN_PREFIX.length)}</option>
+          {/each}
+        </optgroup>
+      {/if}
     </select>
     <select bind:value={levelFilter} title={t('logs.level')} aria-label={t('logs.level')}>
       <option value="all">{t('logs.levels.all')}</option>

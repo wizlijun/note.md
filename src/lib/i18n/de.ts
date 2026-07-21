@@ -602,6 +602,7 @@ export const de: Record<keyof Messages, string> = {
   'logs.categories.core': 'Kern',
   'logs.categories.gitSync': 'Git Sync',
   'logs.categories.plugin': 'Plugins',
+  'logs.categories.pluginAll': 'Alle Plugins',
   'logs.categories.frontend': 'Frontend',
   'logs.levels.all': 'Alle Ebenen',
   'logs.levels.debug': 'Debug',

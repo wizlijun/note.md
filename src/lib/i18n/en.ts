@@ -609,6 +609,7 @@ export const en = {
   'logs.categories.core': 'Core',
   'logs.categories.gitSync': 'Git Sync',
   'logs.categories.plugin': 'Plugins',
+  'logs.categories.pluginAll': 'All plugins',
   'logs.categories.frontend': 'Frontend',
   'logs.levels.all': 'All levels',
   'logs.levels.debug': 'Debug',

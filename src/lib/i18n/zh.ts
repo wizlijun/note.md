@@ -635,6 +635,7 @@ export const zh: Record<keyof Messages, string> = {
   'logs.categories.core': '核心',
   'logs.categories.gitSync': 'Git 同步',
   'logs.categories.plugin': '插件',
+  'logs.categories.pluginAll': '全部插件',
   'logs.categories.frontend': '前端',
   'logs.levels.all': '全部级别',
   'logs.levels.debug': '调试',
