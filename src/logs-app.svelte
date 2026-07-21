@@ -58,19 +58,19 @@
 
 <div class="logs-root">
   <header class="bar">
-    <select bind:value={sourceFilter}>
+    <select bind:value={sourceFilter} title={t('logs.source')} aria-label={t('logs.source')}>
       <option value="all">{t('logs.sources.all')}</option>
       <option value="backend">{t('logs.sources.backend')}</option>
       <option value="frontend">{t('logs.sources.frontend')}</option>
     </select>
-    <select bind:value={store.categoryFilter}>
+    <select bind:value={store.categoryFilter} title={t('logs.category')} aria-label={t('logs.category')}>
       <option value="all">{t('logs.categories.all')}</option>
       <option value="core">{t('logs.categories.core')}</option>
       <option value="git-sync">{t('logs.categories.gitSync')}</option>
       <option value="plugin">{t('logs.categories.plugin')}</option>
       <option value="frontend">{t('logs.categories.frontend')}</option>
     </select>
-    <select bind:value={levelFilter}>
+    <select bind:value={levelFilter} title={t('logs.level')} aria-label={t('logs.level')}>
       <option value="all">{t('logs.levels.all')}</option>
       <option value="debug">{t('logs.levels.debug')}</option>
       <option value="info">{t('logs.levels.info')}</option>
@@ -86,7 +86,7 @@
     {#if ready && filtered.length === 0}
       <div class="empty">{t('logs.empty')}</div>
     {/if}
-    {#each filtered as line (line.ts + line.message)}
+    {#each filtered as line, i (i)}
       <div class="row">
         <span class="ts">{line.ts}</span>
         <span class="cat {catClass(line.category)}">[{line.category}]</span>

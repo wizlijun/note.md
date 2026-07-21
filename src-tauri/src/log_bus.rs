@@ -183,8 +183,18 @@ macro_rules! log_cat {
 mod tests {
     use super::*;
 
+    // These tests mutate the process-global singleton bus, so `cargo test`'s
+    // default parallelism would let them bleed into each other. Serialize every
+    // buffer-touching test on one lock (recovering from poison so one panicking
+    // test doesn't cascade-fail the rest).
+    static TEST_LOCK: Mutex<()> = Mutex::new(());
+    fn guard() -> std::sync::MutexGuard<'static, ()> {
+        TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
     #[test]
     fn ring_buffer_drops_oldest_and_keeps_newest() {
+        let _g = guard();
         clear();
         for i in 0..(MAX_LINES + 5) {
             push_cat("core", "backend", "info", format!("line {i}"));
@@ -197,6 +207,7 @@ mod tests {
 
     #[test]
     fn clear_empties_buffer() {
+        let _g = guard();
         clear();
         push_cat("core", "backend", "info", "hi".into());
         clear();
@@ -205,6 +216,7 @@ mod tests {
 
     #[test]
     fn category_and_source_pass_through() {
+        let _g = guard();
         clear();
         push_cat("git-sync", "backend", "warn", "conflict".into());
         let last = snapshot().pop().unwrap();
@@ -216,6 +228,7 @@ mod tests {
 
     #[test]
     fn frontend_command_forces_category_and_defaults_bad_level() {
+        let _g = guard();
         clear();
         logs_append_frontend("bogus".into(), "msg".into());
         let last = snapshot().pop().unwrap();
