@@ -61,9 +61,10 @@ fn drain_pending_files(state: tauri::State<'_, PendingFiles>) -> Vec<String> {
 }
 
 /// Append a diagnostic line to /tmp/mdeditor.log in debug builds (best-effort).
-/// Compiled out in release — kept as a no-op so call sites need no `cfg` gates.
+/// Also pushes to the unified log bus in all builds.
 #[allow(unused_variables)]
 fn dlog(msg: &str) {
+    crate::log_bus::push("info", msg.to_string());
     #[cfg(debug_assertions)]
     {
         if let Ok(mut f) = OpenOptions::new()
@@ -971,6 +972,9 @@ pub fn run() {
                 dbg_log,
                 shared_config_read,
                 shared_config_write,
+                log_bus::logs_append_frontend,
+                log_bus::logs_get_snapshot,
+                log_bus::logs_clear,
             ] }
             #[cfg(target_os = "ios")]
             { tauri::generate_handler![
@@ -995,6 +999,7 @@ pub fn run() {
             ] }
         })
         .setup(|app| {
+            log_bus::init(app.handle().clone());
             // Dev builds: drop the webview HTTP cache on every launch. Vite's
             // optimized-deps URLs (`?v=<hash>`) are served `immutable`, but the
             // hash only tracks the lockfile — file:-linked @moraya/core content
