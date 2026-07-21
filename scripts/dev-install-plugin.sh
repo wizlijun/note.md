@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Dev-install a v2 plugin into the local app-data plugins root.
 #
-# Usage: scripts/dev-install-plugin.sh [--release] [md2pdf|roam-import|openclaw|cef|exlibris|pos-log]
+# Usage: scripts/dev-install-plugin.sh [--release] [md2pdf|roam-import|openclaw|cef|exlibris|pos-log|decision-log]
 #   default plugin = md2pdf (preserves the original behavior).
 #   --release      = build the native plugin binary in release mode (md2pdf +
 #                    openclaw + exlibris; ignored for the pure-UI plugins).
@@ -31,8 +31,8 @@ PLUGIN=md2pdf
 for arg in "$@"; do
   case "$arg" in
     --release) PROFILE=release ;;
-    md2pdf|roam-import|openclaw|cef|exlibris|pos-log) PLUGIN="$arg" ;;
-    *) echo "unknown arg: $arg (expected --release | md2pdf | roam-import | openclaw | cef | exlibris | pos-log)" >&2; exit 2 ;;
+    md2pdf|roam-import|openclaw|cef|exlibris|pos-log|decision-log) PLUGIN="$arg" ;;
+    *) echo "unknown arg: $arg (expected --release | md2pdf | roam-import | openclaw | cef | exlibris | pos-log | decision-log)" >&2; exit 2 ;;
   esac
 done
 
@@ -156,6 +156,21 @@ elif [[ "$PLUGIN" == "pos-log" ]]; then
   echo "✓ installed notemd.pos-log@$VERSION ($PROFILE, $(uname -m)) → $DEST"
   echo "  enable the v2 runtime:  \"plugins_v2.enabled\": true in settings.json, or NOTEMD_PLUGINS_V2=1"
   echo "  it activates on next app startup and logs to <vault>/pos/YYYY-MM-DD-pos.md"
+
+elif [[ "$PLUGIN" == "decision-log" ]]; then
+  SRC="plugins-src/decision-log"
+  # Build the standalone UI bundle (dist/). Pure UI plugin; no native backend.
+  pnpm --filter decision-log build
+  VERSION=$(node -e "console.log(require('./$SRC/manifest.v2.json').version)")
+  DEST="$ROOT/notemd.decision-log/$VERSION"
+  rm -rf "$DEST"
+  mkdir -p "$DEST/ui"
+  cp -R "$SRC/dist/." "$DEST/ui/"
+  cp "$SRC/manifest.v2.json" "$DEST/manifest.json"
+  ln -sfn "$VERSION" "$ROOT/notemd.decision-log/current"
+  mark_installed "notemd.decision-log" "$VERSION"
+  echo "✓ installed notemd.decision-log@$VERSION (ui-only) → $DEST"
+  echo "  enable the v2 runtime:  \"plugins_v2.enabled\": true in settings.json, or NOTEMD_PLUGINS_V2=1"
 fi
 
 # ---------------------------------------------------------------------------
