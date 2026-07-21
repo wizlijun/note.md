@@ -28,7 +28,7 @@
       case 'success': return '✓'
       case 'error': return '✕'
       case 'warn': return '⚠'
-      default: return '🔔'
+      default: return 'ⓘ'
     }
   }
 </script>
