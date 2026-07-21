@@ -388,6 +388,38 @@ fn show_insights_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
     }
 }
 
+#[cfg(not(target_os = "ios"))]
+fn open_logs_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>, filter: Option<&str>) {
+    use tauri::WebviewUrl;
+    let win = app.get_webview_window("logs").or_else(|| {
+        tauri::WebviewWindowBuilder::new(app, "logs", WebviewUrl::App("logs.html".into()))
+            .title("Logs")
+            .inner_size(900.0, 640.0)
+            .min_inner_size(520.0, 360.0)
+            .resizable(true)
+            .decorations(true)
+            .visible(false)
+            .build()
+            .map_err(|e| eprintln!("[logs] window build failed: {e}"))
+            .ok()
+    });
+    if let Some(w) = win {
+        let _ = w.show();
+        let _ = w.unminimize();
+        let _ = w.set_focus();
+        if let Some(f) = filter {
+            // Small delay so the webview has registered its listener before the
+            // preset filter arrives (mirrors emit_open_file_delayed usage).
+            let app2 = app.clone();
+            let f = f.to_string();
+            std::thread::spawn(move || {
+                std::thread::sleep(std::time::Duration::from_millis(400));
+                let _ = app2.emit("nav://logs-filter", f);
+            });
+        }
+    }
+}
+
 /// View ▸ Plugin Market… (子项目③). Standalone window cloned from the insights
 /// window: it bootstraps its own webview state and drives the market commands
 /// (index / preview / install / uninstall / set_enabled) + capability consent.
@@ -1070,6 +1102,10 @@ pub fn run() {
                         show_insights_window(app);
                         return;
                     }
+                    if event.id().0.as_str() == "open-logs" {
+                        open_logs_window(app, None);
+                        return;
+                    }
                     if event.id().0.as_str() == "open-plugin-market" {
                         show_plugin_market_window(app);
                         return;
@@ -1105,7 +1141,7 @@ pub fn run() {
                             }
                             "tray-sync-repo" => { pick_sync_folder(app); }
                             "tray-sync-now" => { let _ = vault_sync::vault_sync_now(app.clone()); }
-                            "tray-sync-log" => { open_sync_log_window(app); }
+                            "tray-sync-log" => { open_logs_window(app, Some("git-sync")); }
                             "tray-edit-agents" => agents_sync::edit_agents_md(app),
                             "tray-open-books" => {
                                 let _ = std::process::Command::new("open")
@@ -1321,6 +1357,7 @@ fn menu_label(locale: &str, key: &str) -> String {
         "edit.findReplace" => ("Find and Replace…", "查找和替换…", "検索と置換…", "Suchen und Ersetzen…"),
         "view.toggleMode" => ("Toggle Source / Rich", "切换源码 / 富文本", "ソース / リッチを切り替え", "Quelltext / Rich umschalten"),
         "view.insights" => ("Reading Insights…", "阅读洞察数据…", "リーディングインサイト…", "Leseeinblicke…"),
+        "view.logs" => ("View Logs…", "查看日志…", "ログを表示…", "Protokolle anzeigen…"),
         "plugins.market" => ("Plugin Market…", "插件市场…", "プラグインマーケット…", "Plugin-Markt…"),
         "file.syncToVault" => ("Sync to Vault…", "同步到 Vault…", "Vault に同期…", "Mit Vault synchronisieren…"),
         "file.share" => ("Share Current File…", "分享当前文件…", "現在のファイルを共有…", "Aktuelle Datei teilen…"),
@@ -1672,6 +1709,7 @@ fn build_menu<R: tauri::Runtime>(
         .item(&PredefinedMenuItem::fullscreen(app, None)?)
         .separator()
         .item(&MenuItemBuilder::with_id("open-insights", menu_label(locale, "view.insights")).build(app)?)
+        .item(&MenuItemBuilder::with_id("open-logs", menu_label(locale, "view.logs")).build(app)?)
         .separator()
         .item(&MenuItemBuilder::with_id("toggle-folder-view", menu_label(locale, "view.folderView")).accelerator("Cmd+Shift+E").build(app)?)
         .item(&MenuItemBuilder::with_id("toggle-sidecar-notes", menu_label(locale, "view.sidecarNotes")).accelerator("Cmd+Shift+O").build(app)?)
