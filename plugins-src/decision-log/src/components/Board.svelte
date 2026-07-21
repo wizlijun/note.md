@@ -12,9 +12,21 @@
   import Card from './Card.svelte'
   import SignSheet from './SignSheet.svelte'
   import VerdictSheet from './VerdictSheet.svelte'
+  import ReviewPass from './ReviewPass.svelte'
   import { t } from '../lib/strings'
 
   type Column = 'candidates' | 'open' | 'archive'
+
+  // ── due check (weekly review) ──
+  // Overdue-and-undecided open decisions: check-date <= today. Verdicts + strike
+  // counting ride inside this review pass, never as a standalone interruption.
+  const today = new Date().toISOString().slice(0, 10)
+  const overdue = $derived(store.open.filter((d) => d['check-date'] <= today))
+  let reviewQueue = $state<OpenDecision[] | null>(null)
+  function startReview() {
+    // snapshot the queue at open time; ReviewPass walks it by index
+    if (overdue.length) reviewQueue = [...overdue]
+  }
 
   // Flattened candidate list across all daily files.
   const candidates = $derived(store.candidates.flatMap((f) => f.new_candidates))
@@ -76,7 +88,17 @@
   )
 </script>
 
-<div class="board">
+<div class="board-wrap">
+  {#if overdue.length}
+    <div class="toolbar">
+      <button type="button" class="review-btn" onclick={startReview}>
+        {t('review.start')}
+        <span class="badge">{overdue.length}</span>
+      </button>
+    </div>
+  {/if}
+
+  <div class="board">
   <!-- Candidates -->
   <section
     class="col"
@@ -146,6 +168,7 @@
       {/if}
     </div>
   </section>
+  </div>
 </div>
 
 {#if invalidNote}
@@ -162,8 +185,49 @@
     onClose={() => (verdictDecision = null)}
   />
 {/if}
+{#if reviewQueue}
+  <ReviewPass queue={reviewQueue} onClose={() => { reviewQueue = null }} />
+{/if}
 
 <style>
+  .board-wrap {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .toolbar {
+    flex: 0 0 auto;
+    display: flex;
+    justify-content: flex-end;
+    padding: 0.75rem 1rem 0;
+  }
+  .review-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.45rem 0.9rem;
+    border: 1px solid var(--accent, #2563eb);
+    border-radius: 999px;
+    background: var(--accent, #2563eb);
+    color: #fff;
+    font: inherit;
+    font-size: 0.85rem;
+    cursor: pointer;
+  }
+  .review-btn:hover { opacity: 0.9; }
+  .review-btn .badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.3rem;
+    height: 1.3rem;
+    padding: 0 0.35rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.25);
+    font-size: 0.78rem;
+    font-weight: 600;
+  }
   .board {
     flex: 1;
     display: grid;

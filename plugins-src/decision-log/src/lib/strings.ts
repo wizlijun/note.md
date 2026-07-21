@@ -14,6 +14,8 @@ export type MessageKey =
   | 'card.daysLeft' | 'card.dueToday' | 'card.overdue' | 'card.stillEndorse'
   | 'badge.quoted' | 'badge.nominated'
   | 'common.cancel' | 'common.loading' | 'drag.invalid'
+  | 'review.start' | 'review.of' | 'review.decide' | 'review.skip'
+  | 'review.title' | 'review.downgraded'
 type Catalog = Record<MessageKey, string>
 const en: Catalog = {
   'panel.title': 'Decision Log', 'col.candidates': 'Candidates', 'col.open': 'Open', 'col.archive': 'Archive',
@@ -37,6 +39,8 @@ const en: Catalog = {
   'card.stillEndorse': 'still endorse',
   'badge.quoted': 'your words', 'badge.nominated': 'AI-nominated',
   'common.cancel': 'Cancel', 'common.loading': 'Loading…', 'drag.invalid': 'Decisions only move forward.',
+  'review.start': 'Due check', 'review.of': 'of', 'review.decide': 'Give a verdict', 'review.skip': 'Skip for now',
+  'review.title': 'Due check', 'review.downgraded': "You didn't come back to this a few times — I've set it aside for you. Reopen anytime.",
 }
 const zh: Partial<Catalog> = {
   'panel.title': '决策日志', 'col.candidates': '候选', 'col.open': '未决', 'col.archive': '归档',
@@ -60,6 +64,8 @@ const zh: Partial<Catalog> = {
   'card.stillEndorse': '仍认同',
   'badge.quoted': '你的原话', 'badge.nominated': 'AI 提名',
   'common.cancel': '取消', 'common.loading': '加载中…', 'drag.invalid': '决策只能向前推进。',
+  'review.start': '到期检查', 'review.of': '/', 'review.decide': '裁决', 'review.skip': '本次跳过',
+  'review.title': '到期检查', 'review.downgraded': '这条你几次没回来看,先帮你放一边了 —— 随时可捞回。',
 }
 const registry: Record<string, Partial<Catalog>> = { en, zh }
 export function t(key: MessageKey): string {
