@@ -1,0 +1,187 @@
+<!-- SignSheet.svelte — one-screen "sign the bet" modal (candidate → open).
+     quoted: shows the quote, one tap to sign. nominated / manual: prediction
+     input REQUIRED. Confidence = three buttons low/medium/high, NEVER a
+     percentage (spec §7.4). check-date picker + optional triggers.
+     On submit calls doSign (agent origin, from a candidate) or doManualCreate
+     (manual origin). created = today ISO. prediction/confidence have NO edit
+     entry after signing — this is the only place they are set. -->
+<script lang="ts">
+  import type { NewCandidate } from '../lib/candidate'
+  import { CONFIDENCE_BUCKETS, type Confidence, type Trigger } from '../lib/model'
+  import { doSign, doManualCreate } from '../lib/store.svelte'
+  import { t } from '../lib/strings'
+
+  let {
+    candidate,
+    onClose,
+  }: {
+    candidate?: NewCandidate | null
+    onClose: () => void
+  } = $props()
+
+  const today = new Date().toISOString().slice(0, 10)
+  function plusDays(iso: string, n: number): string {
+    return new Date(new Date(iso).getTime() + n * 86_400_000).toISOString().slice(0, 10)
+  }
+
+  const isQuoted = $derived(candidate?.prediction_source === 'quoted')
+
+  // Seed fields ONCE from the candidate (a modal is opened fresh per candidate,
+  // so a one-time snapshot is correct). Read via a plain snapshot so we don't
+  // create reactive dependencies on the prop.
+  // svelte-ignore state_referenced_locally
+  const seed = candidate as NewCandidate | null | undefined
+  let title = $state(seed?.title ?? '')
+  let prediction = $state(seed?.prediction ?? (seed?.prediction_source === 'quoted' ? (seed?.quote ?? '') : ''))
+  let confidence = $state<Confidence | null>(seed?.confidence ?? null)
+  let checkDate = $state(seed?.check_date ?? plusDays(today, 14))
+  let triggerText = $state(seed?.triggers?.map((tr) => tr.if).join('\n') ?? '')
+  let submitting = $state(false)
+  let error = $state('')
+
+  const canSubmit = $derived(
+    !!title.trim() && !!prediction.trim() && !!confidence && !!checkDate && !submitting
+  )
+
+  function parseTriggers(): Trigger[] | undefined {
+    const lines = triggerText.split('\n').map((l) => l.trim()).filter(Boolean)
+    return lines.length ? lines.map((l) => ({ if: l })) : undefined
+  }
+
+  async function submit() {
+    if (!canSubmit || !confidence) {
+      if (!prediction.trim()) error = t('sign.predictionRequired')
+      return
+    }
+    submitting = true
+    error = ''
+    const triggers = parseTriggers()
+    try {
+      if (candidate) {
+        await doSign({
+          title: title.trim(),
+          prediction: prediction.trim(),
+          confidence,
+          checkDate,
+          origin: 'agent',
+          created: today,
+          ...(candidate.source?.conv_id ? { source_conv: candidate.source.conv_id } : {}),
+          ...(isQuoted && candidate.quote ? { quote: candidate.quote } : {}),
+          ...(triggers ? { triggers } : {}),
+          ...(candidate.state ? { state: candidate.state } : {}),
+        })
+      } else {
+        await doManualCreate({
+          title: title.trim(),
+          prediction: prediction.trim(),
+          confidence,
+          checkDate,
+          created: today,
+          ...(triggers ? { triggers } : {}),
+        })
+      }
+      onClose()
+    } catch (e) {
+      error = String(e)
+      submitting = false
+    }
+  }
+</script>
+
+<svelte:window onkeydown={(e) => { if (e.key === 'Escape') onClose() }} />
+
+<div class="overlay" onclick={onClose} role="presentation">
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
+  <div class="sheet" onclick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" tabindex="-1">
+    <h2>{candidate ? t('sign.title') : t('sign.title.new')}</h2>
+
+    <label class="field">
+      <span class="lbl">{t('sign.titleLabel')}</span>
+      <input class="title-input" bind:value={title} placeholder={t('sign.title.new')} />
+    </label>
+
+    {#if isQuoted && candidate?.quote}
+      <p class="quoted-lead">{t('sign.quotedLead')}:</p>
+      <blockquote class="quote">{candidate.quote}</blockquote>
+    {/if}
+
+    <label class="field">
+      <span class="lbl">{t('sign.prediction')} <span class="req">*</span></span>
+      <textarea
+        bind:value={prediction}
+        rows="2"
+        placeholder={candidate && !isQuoted ? (candidate.prediction ?? t('sign.nominatedLead')) : t('sign.nominatedLead')}
+      ></textarea>
+    </label>
+
+    <div class="field">
+      <span class="lbl">{t('sign.confidenceLabel')}</span>
+      <div class="conf-buttons">
+        {#each CONFIDENCE_BUCKETS as c (c)}
+          <button
+            type="button"
+            class="conf-btn"
+            class:active={confidence === c}
+            onclick={() => (confidence = c)}
+          >
+            {t(`sign.confidence.${c}` as 'sign.confidence.low')}
+          </button>
+        {/each}
+      </div>
+    </div>
+
+    <label class="field">
+      <span class="lbl">{t('sign.checkDate')}</span>
+      <input type="date" bind:value={checkDate} min={today} />
+    </label>
+
+    <label class="field">
+      <span class="lbl">{t('sign.triggers')}</span>
+      <textarea bind:value={triggerText} rows="2" placeholder={t('sign.triggersHint')}></textarea>
+    </label>
+
+    {#if error}<p class="err">{error}</p>{/if}
+
+    <div class="actions">
+      <button type="button" class="ghost" onclick={onClose}>{t('common.cancel')}</button>
+      <button type="button" class="primary" disabled={!canSubmit} onclick={submit}>
+        {t('sign.submit')}
+      </button>
+    </div>
+  </div>
+</div>
+
+<style>
+  .overlay {
+    position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4);
+    display: flex; align-items: center; justify-content: center; padding: 1rem; z-index: 50;
+  }
+  .sheet {
+    background: var(--sheet-bg, Canvas); color: CanvasText;
+    border-radius: 12px; padding: 1.25rem 1.5rem; width: min(480px, 100%);
+    max-height: 90vh; overflow-y: auto; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
+  }
+  h2 { margin: 0 0 1rem; font-size: 1.1rem; }
+  .field { display: block; margin-bottom: 0.9rem; }
+  .lbl { display: block; font-size: 0.8rem; opacity: 0.7; margin-bottom: 0.35rem; }
+  .req { color: #dc2626; }
+  input, textarea {
+    width: 100%; box-sizing: border-box; padding: 0.5rem; border: 1px solid var(--line, #d1d5db);
+    border-radius: 6px; font: inherit; background: var(--input-bg, Field); color: FieldText;
+  }
+  textarea { resize: vertical; }
+  .quoted-lead { margin: 0 0 0.25rem; font-size: 0.8rem; opacity: 0.7; }
+  .quote { margin: 0 0 0.9rem; padding: 0.5rem 0.75rem; border-left: 3px solid var(--accent, #2563eb);
+    background: color-mix(in srgb, currentColor 5%, transparent); border-radius: 0 6px 6px 0; }
+  .conf-buttons { display: flex; gap: 0.5rem; }
+  .conf-btn {
+    flex: 1; padding: 0.5rem; border: 1px solid var(--line, #d1d5db); border-radius: 6px;
+    background: transparent; color: inherit; font: inherit; cursor: pointer;
+  }
+  .conf-btn.active { background: var(--accent, #2563eb); color: #fff; border-color: var(--accent, #2563eb); }
+  .err { color: #dc2626; font-size: 0.85rem; margin: 0 0 0.5rem; }
+  .actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem; }
+  button.primary { padding: 0.5rem 1rem; border: 0; border-radius: 6px; background: var(--accent, #2563eb); color: #fff; cursor: pointer; }
+  button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  button.ghost { padding: 0.5rem 1rem; border: 1px solid var(--line, #d1d5db); border-radius: 6px; background: transparent; color: inherit; cursor: pointer; }
+</style>

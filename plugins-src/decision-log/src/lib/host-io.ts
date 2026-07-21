@@ -30,6 +30,23 @@ export async function loadScore(): Promise<ScoreEvent[]> {
   if (!(await vaultExists(SCORE)).exists) return []
   return parseLog((await vaultRead(SCORE)).content)
 }
+/** 扫 decision/archive/ 下最近若干归档文件,返回展平后的归档记录(按裁决日期降序,最新在前)。 */
+export async function loadArchives(limit = 5): Promise<ArchivedDecision[]> {
+  const dir = `${DIR}/archive`
+  if (!(await vaultExists(dir)).exists) return []
+  const entries = (await vaultList(dir)).entries
+  const files = entries
+    .filter((e) => !e.is_dir && /-decision\.note\.md$/.test(e.name))
+    .map((e) => e.name)
+    .sort()
+    .reverse()
+    .slice(0, limit)
+  const out: ArchivedDecision[] = []
+  for (const name of files) {
+    try { out.push(...parseArchive((await vaultRead(`${dir}/${name}`)).content)) } catch { /* skip malformed */ }
+  }
+  return out
+}
 /** 扫 diary/ 下所有 *-decision.json,返回按日期排序的候选文件。 */
 export async function loadCandidates(): Promise<CandidateFile[]> {
   if (!(await vaultExists('diary')).exists) return []

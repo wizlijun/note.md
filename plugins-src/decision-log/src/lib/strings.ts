@@ -6,6 +6,14 @@ export type MessageKey =
   | 'verdict.q1' | 'verdict.hit' | 'verdict.partial' | 'verdict.miss'
   | 'verdict.q2' | 'verdict.endorseYes' | 'verdict.endorseNo' | 'verdict.submit'
   | 'score.samples' | 'score.calibration' | 'card.new' | 'downgrade.toast'
+  | 'sign.confidenceLabel' | 'sign.triggers' | 'sign.triggersHint' | 'sign.predictionRequired'
+  | 'sign.quotedLead' | 'sign.nominatedLead' | 'sign.title.new' | 'sign.titleLabel'
+  | 'verdict.locked' | 'verdict.evidence' | 'verdict.noEvidence'
+  | 'score.empty' | 'score.avoidance' | 'score.noVerdicts'
+  | 'col.candidatesEmpty' | 'col.openEmpty' | 'col.archiveEmpty'
+  | 'card.daysLeft' | 'card.dueToday' | 'card.overdue' | 'card.stillEndorse'
+  | 'badge.quoted' | 'badge.nominated'
+  | 'common.cancel' | 'common.loading' | 'drag.invalid'
 type Catalog = Record<MessageKey, string>
 const en: Catalog = {
   'panel.title': 'Decision Log', 'col.candidates': 'Candidates', 'col.open': 'Open', 'col.archive': 'Archive',
@@ -17,6 +25,18 @@ const en: Catalog = {
   'verdict.submit': 'Close & archive',
   'score.samples': 'samples collected', 'score.calibration': 'Calibration', 'card.new': 'New Decision',
   'downgrade.toast': 'Set aside for you — reopen anytime.',
+  'sign.confidenceLabel': 'How sure are you?', 'sign.triggers': 'Reconsider if…', 'sign.triggersHint': 'e.g. a competitor ships first',
+  'sign.predictionRequired': 'Write a falsifiable prediction to sign.',
+  'sign.quotedLead': 'You said', 'sign.nominatedLead': 'A prediction to lock in — your words',
+  'sign.title.new': 'New decision', 'sign.titleLabel': 'Decision',
+  'verdict.locked': 'Locked at signing', 'verdict.evidence': 'Evidence', 'verdict.noEvidence': 'No evidence attached yet.',
+  'score.empty': '0 samples collected so far', 'score.avoidance': 'You keep avoiding', 'score.noVerdicts': 'Verdicts will show your calibration here.',
+  'col.candidatesEmpty': 'AI-nominated candidates land here.', 'col.openEmpty': 'Signed bets waiting for their check date.',
+  'col.archiveEmpty': 'Resolved decisions appear here after a verdict.',
+  'card.daysLeft': 'days left', 'card.dueToday': 'due today', 'card.overdue': 'overdue',
+  'card.stillEndorse': 'still endorse',
+  'badge.quoted': 'your words', 'badge.nominated': 'AI-nominated',
+  'common.cancel': 'Cancel', 'common.loading': 'Loading…', 'drag.invalid': 'Decisions only move forward.',
 }
 const zh: Partial<Catalog> = {
   'panel.title': '决策日志', 'col.candidates': '候选', 'col.open': '未决', 'col.archive': '归档',
@@ -28,6 +48,18 @@ const zh: Partial<Catalog> = {
   'verdict.submit': '关闭并归档',
   'score.samples': '个决策样本', 'score.calibration': '校准', 'card.new': '新建决策',
   'downgrade.toast': '帮你清理了 —— 随时可捞回。',
+  'sign.confidenceLabel': '你有多大把握?', 'sign.triggers': '若发生就复议…', 'sign.triggersHint': '例如:竞品先发布',
+  'sign.predictionRequired': '写下一个可证伪的预测才能签字。',
+  'sign.quotedLead': '你说过', 'sign.nominatedLead': '要锁定的预测 —— 用你自己的话',
+  'sign.title.new': '新建决策', 'sign.titleLabel': '决策',
+  'verdict.locked': '签字时锁定', 'verdict.evidence': '证据', 'verdict.noEvidence': '尚未附上证据。',
+  'score.empty': '已积累 0 个样本', 'score.avoidance': '你一直在回避', 'score.noVerdicts': '裁决后这里会显示你的校准。',
+  'col.candidatesEmpty': 'AI 提名的候选会出现在这里。', 'col.openEmpty': '已签字、等待检查日期的决策。',
+  'col.archiveEmpty': '裁决后此处出现记录。',
+  'card.daysLeft': '天后检查', 'card.dueToday': '今天到期', 'card.overdue': '已过期',
+  'card.stillEndorse': '仍认同',
+  'badge.quoted': '你的原话', 'badge.nominated': 'AI 提名',
+  'common.cancel': '取消', 'common.loading': '加载中…', 'drag.invalid': '决策只能向前推进。',
 }
 const registry: Record<string, Partial<Catalog>> = { en, zh }
 export function t(key: MessageKey): string {
