@@ -13,6 +13,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # plugins-registry has its own pnpm-lock.yaml, so wrangler-action detects
+      # pnpm as the package manager. Make pnpm (and Node) available first, or the
+      # action fails with "Unable to locate executable file: pnpm".
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: plugins-registry/pnpm-lock.yaml
       - name: Deploy notemd-plugins to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3
         with:
