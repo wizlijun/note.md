@@ -31,6 +31,7 @@ export interface OpenDecision {
   strikes: number            // 0..3
   triggers?: Trigger[]
   state?: StateSnapshot      // 🔒
+  progress?: { date: string; text: string }[]  // agent/手动追加的进展笔记(非 🔒)
 }
 
 /** 归档记录(archive front-matter decisions[] 元素)。 */

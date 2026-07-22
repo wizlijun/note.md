@@ -19,6 +19,11 @@ describe('board-io', () => {
     expect(back).toHaveLength(1)
     expect(back[0]).toMatchObject({ id: '2026-07-21-01', prediction: '两周内发出 MVP', strikes: 0 })
   })
+  it('board round-trips optional progress[] notes', () => {
+    const withProgress: OpenDecision = { ...dec, progress: [{ date: '2026-07-25', text: '进度过半' }] }
+    const back = parseBoard(serializeBoard([withProgress]))
+    expect(back[0].progress).toEqual([{ date: '2026-07-25', text: '进度过半' }])
+  })
   it('parseBoard on empty/missing returns []', () => {
     expect(parseBoard('')).toEqual([])
     expect(parseBoard('# no frontmatter')).toEqual([])
