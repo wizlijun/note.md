@@ -173,9 +173,19 @@ pub fn handle_parsed(
     };
     match method {
         "POST" if path == RPC_PATH => {
+            // Origin authenticates the caller as this plugin's own window. WKWebView
+            // does NOT attach an `Origin` header to a same-origin POST fetch from a
+            // custom-scheme (`plugin://`) document, so the legitimate caller arrives
+            // with `origin == None`. That is safe to accept: WebKit only routes a
+            // `plugin://<id>` request to this handler from that same window (cross-
+            // origin fetches to a custom scheme are blocked by WebKit + the per-
+            // plugin CSP), and any request that DOES carry an Origin must match
+            // exactly. Reject only an explicit foreign origin.
             let expected = format!("plugin://{plugin_id}");
-            if origin != Some(expected.as_str()) {
-                return Routed::Response(plain(http::StatusCode::FORBIDDEN, "origin mismatch"));
+            if let Some(o) = origin {
+                if o != expected {
+                    return Routed::Response(plain(http::StatusCode::FORBIDDEN, "origin mismatch"));
+                }
             }
             Routed::Rpc(plugin_id.to_string(), capabilities)
         }
@@ -555,9 +565,25 @@ mod tests {
     fn handle_rpc_wrong_origin_403() {
         let dir = ui_fixture();
         let view = view_for(dir.path());
-        for origin in [None, Some("plugin://other.plugin"), Some("tauri://localhost")] {
+        // An EXPLICIT foreign origin is still rejected. A missing Origin is NOT
+        // here — see handle_rpc_missing_origin_routes (WKWebView strips it).
+        for origin in [Some("plugin://other.plugin"), Some("tauri://localhost")] {
             let r = resp(handle_parsed(&view, "POST", "test.plugin", "/__rpc__", origin, "en", "default"));
             assert_eq!(r.status(), 403, "origin {origin:?} must be rejected");
+        }
+    }
+
+    #[test]
+    fn handle_rpc_missing_origin_routes() {
+        // WKWebView omits the Origin header on same-origin POST fetches from a
+        // custom-scheme (plugin://) document, so the plugin's OWN window arrives
+        // with origin == None. It must route (regression: a strict `!= Some`
+        // check 403'd every ui-plugin RPC, breaking all vault reads/writes).
+        let dir = ui_fixture();
+        let view = view_for(dir.path());
+        match handle_parsed(&view, "POST", "test.plugin", "/__rpc__", None, "en", "default") {
+            Routed::Rpc(id, _) => assert_eq!(id, "test.plugin"),
+            Routed::Response(r) => panic!("missing origin must route, got status {}", r.status()),
         }
     }
 
