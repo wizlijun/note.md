@@ -1,4 +1,4 @@
-import { loadBoard, saveBoard, appendArchive, appendScore, loadScore, loadCandidates, loadArchives, consumeDiaryItem } from './host-io'
+import { loadBoard, saveBoard, appendArchive, appendScore, loadScore, loadCandidates, loadArchives, consumeDiaryItem, removeArchived } from './host-io'
 import { sign, verdict, incStrike, manualCreate, type SignInput, type VerdictInput } from './lifecycle'
 import { applyNote, applyAdjustCheckDate, applyDrop } from './edits'
 import { computeScoreboard, type Scoreboard } from './scoreboard'
@@ -42,6 +42,25 @@ export async function doVerdict(id: string, v: VerdictInput, consume?: { date: s
   state.archived = await loadArchives()
   state.score = computeScoreboard(await loadScore())
   if (consume) { await consumeDiaryItem(consume.date, 'closures', id, 'accepted'); await refresh() }
+}
+/** 重开:把一条归档决策捞回未决列。从归档文件移除该条,重建 OpenDecision(id/prediction/
+ *  confidence/created/origin 沿用;check-date=今天+14 天;strikes=0;title 取 prediction 前 20 字
+ *  或 id 兜底),加回 open 并写盘,记一条 reopen 记分事件。找不到该归档 → no-op。 */
+export async function doReopen(archivedId: string): Promise<void> {
+  const arch = await removeArchived(archivedId)
+  if (!arch) return
+  const checkDate = new Date(Date.now() + 14 * 864e5).toISOString().slice(0, 10)
+  const title = (arch.prediction ?? '').trim().slice(0, 20) || arch.id
+  const dec: OpenDecision = {
+    id: arch.id, title, prediction: arch.prediction, confidence: arch.confidence,
+    'check-date': checkDate, created: arch.created, origin: arch.origin, strikes: 0,
+    ...(arch.state ? { state: arch.state } : {}),
+  }
+  state.open = [...state.open, dec]
+  await saveBoard(state.open)
+  await appendScore({ ts: new Date().toISOString(), event: 'reopen', id: arch.id, confidence: arch.confidence })
+  state.archived = await loadArchives()
+  state.score = computeScoreboard(await loadScore())
 }
 export async function doStrike(id: string, resolved: string): Promise<void> {
   const r = incStrike(state.open, id, resolved)

@@ -48,6 +48,27 @@ export async function loadArchives(limit = 5): Promise<ArchivedDecision[]> {
   }
   return out
 }
+/** 在 decision/archive/ 下找到含指定 id 的归档文件,移除该条并写回,返回被移除的记录。
+ *  找不到 → 返回 null(不写盘)。用于「重开」:把归档决策捞回未决。 */
+export async function removeArchived(id: string): Promise<ArchivedDecision | null> {
+  const dir = `${DIR}/archive`
+  if (!(await vaultExists(dir)).exists) return null
+  const entries = (await vaultList(dir)).entries
+  const files = entries.filter((e) => !e.is_dir && /-decision\.note\.md$/.test(e.name)).map((e) => e.name)
+  for (const name of files) {
+    const p = `${dir}/${name}`
+    let decs: ArchivedDecision[]
+    try { decs = parseArchive((await vaultRead(p)).content) } catch { continue }
+    const found = decs.find((d) => d.id === id)
+    if (!found) continue
+    const remaining = decs.filter((d) => d.id !== id)
+    // 归档文件名形如 <resolved>-decision.note.md;取前缀作 resolved 传给序列化。
+    const resolved = name.replace(/-decision\.note\.md$/, '')
+    await vaultWrite(p, serializeArchive(resolved, remaining))
+    return found
+  }
+  return null
+}
 /** 读 diary/<date>-decision.json,把匹配的首条 pending 项标为 accepted/dismissed,写回。文件不存在则 no-op。 */
 export async function consumeDiaryItem(
   date: string,
