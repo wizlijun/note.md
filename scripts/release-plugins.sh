@@ -40,14 +40,14 @@ PLUGINS=()
 for arg in "$@"; do
   case "$arg" in
     --release) : ;; # reserved; release builds are always release-profile
-    md2pdf|roam-import|openclaw|exlibris|pos-log) PLUGINS+=("$arg") ;;
+    md2pdf|roam-import|openclaw|exlibris|pos-log|decision-log) PLUGINS+=("$arg") ;;
     -h|--help)
       grep '^#' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
-    *) echo "unknown arg: $arg (expected --release | md2pdf | roam-import | openclaw | exlibris | pos-log)" >&2; exit 2 ;;
+    *) echo "unknown arg: $arg (expected --release | md2pdf | roam-import | openclaw | exlibris | pos-log | decision-log)" >&2; exit 2 ;;
   esac
 done
 if [[ ${#PLUGINS[@]} -eq 0 ]]; then
-  echo "usage: scripts/release-plugins.sh [--release] <md2pdf|roam-import|openclaw|exlibris|pos-log>..." >&2
+  echo "usage: scripts/release-plugins.sh [--release] <md2pdf|roam-import|openclaw|exlibris|pos-log|decision-log>..." >&2
   exit 2
 fi
 
@@ -143,6 +143,35 @@ release_roam_import() {
 
   echo "[$id] building UI bundle (pnpm --filter roam-import-plugin build)…"
   pnpm --filter roam-import-plugin build
+
+  local out_dir="$OUT_ROOT/$id/$version"
+  mkdir -p "$out_dir"
+  cp "$manifest" "$out_dir/manifest.json"   # for gen-plugin-index.mjs
+
+  local stage; stage="$(mktemp -d)"
+  trap 'rm -rf "$stage"' RETURN
+  mkdir -p "$stage/ui"
+  cp "$manifest" "$stage/manifest.json"
+  cp -R "$src/dist/." "$stage/ui/"
+
+  local pkg="$out_dir/universal.notemdpkg"
+  zip_pkg "$stage" "$pkg"
+  sign_pkg "$pkg"
+  local sha; sha="$(shasum -a 256 "$pkg" | awk '{print $1}')"
+  echo "[$id] universal.notemdpkg  sha256=$sha  → $pkg"
+  rm -rf "$stage"; trap - RETURN
+}
+
+# ── decision-log: ui-only, single universal package ───────────────────────────
+release_decision_log() {
+  local id="notemd.decision-log"
+  local src="$REPO_ROOT/plugins-src/decision-log"
+  local manifest="$src/manifest.v2.json"
+  local version; version="$(manifest_field "$manifest" version)"
+  echo "== $id @ $version =="
+
+  echo "[$id] building UI bundle (pnpm --filter decision-log build)…"
+  pnpm --filter decision-log build
 
   local out_dir="$OUT_ROOT/$id/$version"
   mkdir -p "$out_dir"
@@ -289,6 +318,7 @@ for plugin in "${PLUGINS[@]}"; do
     openclaw)    release_openclaw ;;
     exlibris)    release_exlibris ;;
     pos-log)     release_pos_log ;;
+    decision-log) release_decision_log ;;
   esac
 done
 
