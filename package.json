@@ -1,6 +1,6 @@
 {
   "name": "mdeditor",
-  "version": "6.722.1",
+  "version": "6.722.2",
   "type": "module",
   "private": true,
   "scripts": {
