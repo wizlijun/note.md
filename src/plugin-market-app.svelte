@@ -27,12 +27,12 @@
   import { invoke } from '@tauri-apps/api/core'
   import { listen } from '@tauri-apps/api/event'
   import { getCurrentWindow } from '@tauri-apps/api/window'
+  import { getVersion } from '@tauri-apps/api/app'
   import { confirm } from '@tauri-apps/plugin-dialog'
   import { loadSettings } from './lib/settings.svelte'
   import { loadLocale, t } from './lib/i18n/store.svelte'
   import { pushToast } from './lib/toast.svelte'
   import {
-    isNewerVersion,
     capabilityLabel,
     isSensitiveCapability,
     type RegistryIndex,
@@ -40,6 +40,7 @@
     type InstalledV2,
     type InstalledRow,
   } from './lib/market/types'
+  import { pickAvailable, pickUpdateTo } from './lib/market/select'
   import ConsentModal from './components/market/ConsentModal.svelte'
 
   let ready = $state(false)
@@ -50,6 +51,8 @@
   let installedRows = $state<InstalledRow[]>([])
   let available = $state<RegistryEntry[]>([])
   let busy = $state<Record<string, boolean>>({})
+  // Running app version for min_host selection; null = unknown (fail open).
+  let hostVersion: string | null = null
 
   // Consent modal target (null = closed).
   let consent = $state<{ id: string; version: string; name: string } | null>(null)
@@ -64,6 +67,7 @@
       } catch (e) {
         console.error('[plugin-market] init failed:', e)
       }
+      try { hostVersion = await getVersion() } catch { hostVersion = null }
       ready = true
       await refresh()
       // The main window emits `plugins-changed` after every mutating op; when it
@@ -102,11 +106,12 @@
     v2: InstalledV2[],
     index: RegistryIndex | null,
   ) {
+    // The index carries one entry per published VERSION (several per id);
+    // pickUpdateTo/pickAvailable collapse that to one row per plugin, choosing
+    // the newest version this host satisfies.
+    const entries = index?.plugins ?? []
     const rows: InstalledRow[] = []
-    const indexById = new Map((index?.plugins ?? []).map((e) => [e.id, e]))
     for (const p of v2) {
-      const entry = indexById.get(p.id)
-      const updateTo = entry && isNewerVersion(entry.version, p.version) ? entry.version : null
       rows.push({
         kind: 'v2',
         id: p.id,
@@ -114,16 +119,14 @@
         version: p.version,
         enabled: p.enabled,
         capabilities: p.capabilities ?? [],
-        updateTo,
+        updateTo: pickUpdateTo(entries, p.id, p.version, hostVersion),
       })
     }
     installedRows = rows.sort((a, b) => a.name.localeCompare(b.name))
 
-    // Available = registry entries not already installed (by id).
+    // Available = not-installed plugins, one row per id.
     const installedIds = new Set(rows.map((r) => r.id))
-    available = (index?.plugins ?? [])
-      .filter((e) => !installedIds.has(e.id))
-      .sort((a, b) => a.name.localeCompare(b.name))
+    available = pickAvailable(entries, installedIds, hostVersion)
   }
 
   function friendlyError(msg: string): string {
