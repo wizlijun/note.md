@@ -1,18 +1,21 @@
 <!-- Board.svelte — three-column kanban (candidates → open → archive), each column
-     renders Card. Drag semantics (spec §7.3): candidate → open drop opens
-     SignSheet; open → archive drop opens VerdictSheet; illegal drags snap back
-     (no write) with a one-line note. Clicking a card is the equivalent
-     accessible path (also opens the matching modal). Candidate column footer
-     "+ New Decision" opens SignSheet (manual create). Archive column is
-     read-only. -->
+     renders Card. Free-lane drag: candidate → open opens SignSheet; open →
+     archive opens VerdictSheet; archive → open reopens (light confirm →
+     doReopen); every other drag (candidate→archive, open→candidate, same-column
+     cross-cell) snaps back with a one-line note (no write). Dragged card dims
+     (opacity .5); the drop-target column highlights. Clicking a card is the
+     equivalent accessible path (opens the matching modal). Each Open card also
+     shows pending agent suggestion strips (closures + edit_decisions) beneath it.
+     Candidate column footer "+ New Decision" opens SignSheet (manual create). -->
 <script lang="ts">
-  import { state as store } from '../lib/store.svelte'
-  import type { OpenDecision } from '../lib/model'
+  import { state as store, doReopen } from '../lib/store.svelte'
+  import type { OpenDecision, Outcome } from '../lib/model'
   import type { NewCandidate, Closure } from '../lib/candidate'
   import Card from './Card.svelte'
   import SignSheet from './SignSheet.svelte'
   import VerdictSheet from './VerdictSheet.svelte'
   import ReviewPass from './ReviewPass.svelte'
+  import SuggestionStrip, { type Suggestion } from './SuggestionStrip.svelte'
   import { t } from '../lib/strings'
 
   type Column = 'candidates' | 'open' | 'archive'
@@ -30,20 +33,56 @@
 
   // Flattened candidate list across all daily files.
   const candidates = $derived(store.candidates.flatMap((f) => f.new_candidates))
-  // All closures, keyed by decision id, so open cards can prefill their verdict.
+  // First closure per decision id (with its source file date), so open cards can
+  // prefill their verdict + consume the closure on submit.
   const closureById = $derived.by(() => {
-    const m = new Map<string, Closure>()
-    for (const f of store.candidates) for (const c of f.closures) m.set(c.decision_id, c)
+    const m = new Map<string, { closure: Closure; date: string }>()
+    for (const f of store.candidates)
+      for (const c of f.closures) if (!m.has(c.decision_id)) m.set(c.decision_id, { closure: c, date: f.date })
+    return m
+  })
+  // Pending agent suggestions grouped by decision id (closures + edit_decisions),
+  // each tagged with its source file date for later consume/dismiss.
+  const suggestionsById = $derived.by(() => {
+    const m = new Map<string, Suggestion[]>()
+    const push = (id: string, s: Suggestion) => {
+      const arr = m.get(id)
+      if (arr) arr.push(s)
+      else m.set(id, [s])
+    }
+    for (const f of store.candidates) {
+      for (const c of f.closures) push(c.decision_id, { kind: 'closure', date: f.date, closure: c })
+      for (const e of f.edit_decisions) push(e.decision_id, { kind: 'edit', date: f.date, edit: e })
+    }
     return m
   })
 
   // ── modal state ──
   let signCandidate = $state<NewCandidate | null | undefined>(undefined) // undefined = closed; null = manual
   let verdictDecision = $state<OpenDecision | null>(null)
+  let verdictPreset = $state<Outcome | null>(null)
+  let verdictConsumeDate = $state<string | null>(null)
   const signOpen = $derived(signCandidate !== undefined)
 
-  // ── drag state (non-reactive is fine; only read on drop) ──
-  let dragging: { column: Column; id: string } | null = null
+  // Open the verdict sheet for a decision, optionally prefilled from a suggestion.
+  function openVerdictWith(decisionId: string, preset: Outcome | null, consumeDate: string | null) {
+    const dec = store.open.find((x) => x.id === decisionId)
+    if (!dec) return
+    verdictPreset = preset
+    verdictConsumeDate = consumeDate
+    verdictDecision = dec
+  }
+  function closeVerdict() {
+    verdictDecision = null
+    verdictPreset = null
+    verdictConsumeDate = null
+  }
+
+  // ── drag state ──
+  // dragging/hoverCol are reactive so the board can dim the dragged card and
+  // highlight the drop target (professional-kanban feel).
+  let dragging = $state<{ column: Column; id: string } | null>(null)
+  let hoverCol = $state<Column | null>(null)
   let invalidNote = $state('')
   let noteTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -58,34 +97,47 @@
     e.dataTransfer?.setData('text/plain', id)
     if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move'
   }
+  function endDrag() {
+    dragging = null
+    hoverCol = null
+  }
 
   function dropOn(target: Column, e: DragEvent) {
     e.preventDefault()
     const d = dragging
-    dragging = null
+    endDrag()
     if (!d) return
-    // legal: candidate → open, open → archive. everything else snaps back.
+    // Free-lane drag: only the four legal transitions act; the rest snap back.
     if (d.column === 'candidates' && target === 'open') {
       openSignFor(d.id)
     } else if (d.column === 'open' && target === 'archive') {
-      openVerdictFor(d.id)
+      openVerdictWith(d.id, null, null)
+    } else if (d.column === 'archive' && target === 'open') {
+      confirmReopen(d.id)
     } else if (d.column !== target) {
+      // candidate→archive, open→candidate, any same-column cross-cell = illegal.
       flashInvalid()
     }
+  }
+
+  async function confirmReopen(archivedId: string) {
+    if (typeof confirm === 'function' && !confirm(t('drag.reopenConfirm'))) return
+    await doReopen(archivedId)
   }
 
   function openSignFor(candidateId: string) {
     const c = candidates.find((x) => x.id === candidateId)
     if (c) signCandidate = c
   }
-  function openVerdictFor(decisionId: string) {
-    const dec = store.open.find((x) => x.id === decisionId)
-    if (dec) verdictDecision = dec
-  }
 
-  const verdictClosure = $derived(
+  // Prefill the verdict sheet from the decision's closure (evidence + outcome +
+  // consume date), if any. Suggestion strips pass their own preset/date directly.
+  const verdictClosureEntry = $derived(
     verdictDecision ? (closureById.get(verdictDecision.id) ?? null) : null
   )
+  const verdictClosure = $derived(verdictClosureEntry?.closure ?? null)
+  // If the sheet wasn't opened from a suggestion strip, fall back to the closure's date.
+  const effectiveConsumeDate = $derived(verdictConsumeDate ?? verdictClosureEntry?.date ?? null)
 </script>
 
 <div class="board-wrap">
@@ -102,8 +154,10 @@
   <!-- Candidates -->
   <section
     class="col"
+    class:drop-target={hoverCol === 'candidates' && dragging && dragging.column !== 'candidates'}
     role="list"
-    ondragover={(e) => e.preventDefault()}
+    ondragover={(e) => { e.preventDefault(); hoverCol = 'candidates' }}
+    ondragleave={() => { if (hoverCol === 'candidates') hoverCol = null }}
     ondrop={(e) => dropOn('candidates', e)}
   >
     <header class="col-head">{t('col.candidates')}</header>
@@ -112,12 +166,15 @@
         <p class="empty">{t('col.candidatesEmpty')}</p>
       {:else}
         {#each candidates as c (c.id)}
-          <Card
-            column="candidates"
-            candidate={c}
-            onclick={() => (signCandidate = c)}
-            ondragstart={(e) => startDrag('candidates', c.id, e)}
-          />
+          <div class="card-slot" class:dragging={dragging?.column === 'candidates' && dragging?.id === c.id}>
+            <Card
+              column="candidates"
+              candidate={c}
+              onclick={() => (signCandidate = c)}
+              ondragstart={(e) => startDrag('candidates', c.id, e)}
+              ondragend={endDrag}
+            />
+          </div>
         {/each}
       {/if}
     </div>
@@ -129,8 +186,10 @@
   <!-- Open -->
   <section
     class="col"
+    class:drop-target={hoverCol === 'open' && dragging && dragging.column !== 'open'}
     role="list"
-    ondragover={(e) => e.preventDefault()}
+    ondragover={(e) => { e.preventDefault(); hoverCol = 'open' }}
+    ondragleave={() => { if (hoverCol === 'open') hoverCol = null }}
     ondrop={(e) => dropOn('open', e)}
   >
     <header class="col-head">{t('col.open')}</header>
@@ -139,22 +198,33 @@
         <p class="empty">{t('col.openEmpty')}</p>
       {:else}
         {#each store.open as d (d.id)}
-          <Card
-            column="open"
-            decision={d}
-            onclick={() => (verdictDecision = d)}
-            ondragstart={(e) => startDrag('open', d.id, e)}
-          />
+          <div class="card-slot" class:dragging={dragging?.column === 'open' && dragging?.id === d.id}>
+            <Card
+              column="open"
+              decision={d}
+              onclick={() => openVerdictWith(d.id, null, null)}
+              ondragstart={(e) => startDrag('open', d.id, e)}
+              ondragend={endDrag}
+            />
+            {#each suggestionsById.get(d.id) ?? [] as s, i (i)}
+              <SuggestionStrip
+                suggestion={s}
+                onVerdict={(preset, date) => openVerdictWith(d.id, preset, date)}
+              />
+            {/each}
+          </div>
         {/each}
       {/if}
     </div>
   </section>
 
-  <!-- Archive (read-only) -->
+  <!-- Archive (drag back to Open to reopen) -->
   <section
     class="col archive-col"
+    class:drop-target={hoverCol === 'archive' && dragging && dragging.column !== 'archive'}
     role="list"
-    ondragover={(e) => e.preventDefault()}
+    ondragover={(e) => { e.preventDefault(); hoverCol = 'archive' }}
+    ondragleave={() => { if (hoverCol === 'archive') hoverCol = null }}
     ondrop={(e) => dropOn('archive', e)}
   >
     <header class="col-head">{t('col.archive')}</header>
@@ -163,7 +233,14 @@
         <p class="empty">{t('col.archiveEmpty')}</p>
       {:else}
         {#each store.archived as a (a.id)}
-          <Card column="archive" decision={a} />
+          <div class="card-slot" class:dragging={dragging?.column === 'archive' && dragging?.id === a.id}>
+            <Card
+              column="archive"
+              decision={a}
+              ondragstart={(e) => startDrag('archive', a.id, e)}
+              ondragend={endDrag}
+            />
+          </div>
         {/each}
       {/if}
     </div>
@@ -182,7 +259,9 @@
   <VerdictSheet
     decision={verdictDecision}
     closure={verdictClosure}
-    onClose={() => (verdictDecision = null)}
+    presetOutcome={verdictPreset}
+    consumeDate={effectiveConsumeDate}
+    onClose={closeVerdict}
   />
 {/if}
 {#if reviewQueue}
@@ -253,6 +332,10 @@
     opacity: 0.65;
     border-bottom: 1px solid var(--line, #e5e7eb);
   }
+  .col.drop-target {
+    border-color: var(--accent, #2563eb);
+    background: color-mix(in srgb, var(--accent, #2563eb) 6%, transparent);
+  }
   .col-body {
     flex: 1;
     overflow-y: auto;
@@ -261,6 +344,8 @@
     flex-direction: column;
     gap: 0.5rem;
   }
+  .card-slot { display: flex; flex-direction: column; gap: 0.35rem; }
+  .card-slot.dragging { opacity: 0.5; }
   .empty { margin: 0.5rem 0; font-size: 0.82rem; opacity: 0.5; line-height: 1.4; }
   .new-btn {
     margin: 0 0.6rem 0.6rem;

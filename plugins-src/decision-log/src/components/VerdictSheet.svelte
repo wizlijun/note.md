@@ -13,17 +13,23 @@
   let {
     decision,
     closure,
+    presetOutcome,
+    consumeDate,
     onClose,
   }: {
     decision: OpenDecision
     closure?: Closure | null
+    /** 预填 Q1 结果(来自到期/关闭建议);closure.suggested_outcome 优先级更高。 */
+    presetOutcome?: Outcome | null
+    /** 若该裁决有来源建议(closure/edit),提交后把对应候选文件里的 closures 项标 accepted。 */
+    consumeDate?: string | null
     onClose: () => void
   } = $props()
 
   const today = new Date().toISOString().slice(0, 10)
 
   // svelte-ignore state_referenced_locally
-  let outcome = $state<Outcome | null>(closure?.suggested_outcome ?? null)
+  let outcome = $state<Outcome | null>(closure?.suggested_outcome ?? presetOutcome ?? null)
   let stillEndorse = $state<boolean | null>(null)
   let submitting = $state(false)
   let error = $state('')
@@ -36,12 +42,16 @@
     submitting = true
     error = ''
     try {
-      await doVerdict(decision.id, {
-        outcome,
-        stillEndorse,
-        resolved: today,
-        ...(evidence.length ? { evidence } : {}),
-      })
+      await doVerdict(
+        decision.id,
+        {
+          outcome,
+          stillEndorse,
+          resolved: today,
+          ...(evidence.length ? { evidence } : {}),
+        },
+        consumeDate ? { date: consumeDate } : undefined,
+      )
       onClose()
     } catch (e) {
       error = String(e)

@@ -16,12 +16,14 @@
     column,
     onclick,
     ondragstart,
+    ondragend,
   }: {
     decision?: OpenDecision | ArchivedDecision
     candidate?: NewCandidate
     column: Column
     onclick?: () => void
     ondragstart?: (e: DragEvent) => void
+    ondragend?: (e: DragEvent) => void
   } = $props()
 
   // Candidate and OpenDecision carry a title; ArchivedDecision does not
@@ -64,10 +66,11 @@
   class:archive={column === 'archive'}
   role="button"
   tabindex="0"
-  draggable={column !== 'archive'}
+  draggable="true"
   onclick={() => onclick?.()}
   onkeydown={keyActivate}
   ondragstart={(e) => ondragstart?.(e)}
+  ondragend={(e) => ondragend?.(e)}
 >
   {#if column === 'candidates' && candidate}
     <div class="row">

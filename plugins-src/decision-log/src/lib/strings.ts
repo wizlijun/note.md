@@ -16,6 +16,11 @@ export type MessageKey =
   | 'common.cancel' | 'common.loading' | 'drag.invalid'
   | 'review.start' | 'review.of' | 'review.decide' | 'review.skip'
   | 'review.title' | 'review.downgraded'
+  | 'sugg.dueVerdict' | 'sugg.due.hit' | 'sugg.due.partial' | 'sugg.due.miss'
+  | 'sugg.progress' | 'sugg.adjustDate' | 'sugg.closeHit' | 'sugg.closePartial'
+  | 'sugg.closeMiss' | 'sugg.drop'
+  | 'sugg.accept' | 'sugg.note' | 'sugg.detail' | 'sugg.dismiss'
+  | 'sugg.evidence' | 'drag.reopenConfirm'
 type Catalog = Record<MessageKey, string>
 const en: Catalog = {
   'panel.title': 'Decision Log', 'col.candidates': 'Candidates', 'col.open': 'Open', 'col.archive': 'Archive',
@@ -41,6 +46,11 @@ const en: Catalog = {
   'common.cancel': 'Cancel', 'common.loading': 'Loading…', 'drag.invalid': 'Decisions only move forward.',
   'review.start': 'Due check', 'review.of': 'of', 'review.decide': 'Give a verdict', 'review.skip': 'Skip for now',
   'review.title': 'Due check', 'review.downgraded': "You didn't come back to this a few times — I've set it aside for you. Reopen anytime.",
+  'sugg.dueVerdict': 'Due for a verdict', 'sugg.due.hit': 'Looks like a hit', 'sugg.due.partial': 'Looks partial', 'sugg.due.miss': 'Looks like a miss',
+  'sugg.progress': 'Progress', 'sugg.adjustDate': 'Suggest new check date →', 'sugg.closeHit': 'Suggest closing — hit', 'sugg.closePartial': 'Suggest closing — partial',
+  'sugg.closeMiss': 'Suggest closing — miss', 'sugg.drop': 'Suggest dropping this',
+  'sugg.accept': 'Accept', 'sugg.note': 'Note it', 'sugg.detail': 'Details', 'sugg.dismiss': 'Dismiss',
+  'sugg.evidence': 'Evidence', 'drag.reopenConfirm': 'Reopen this decision and move it back to Open?',
 }
 const zh: Partial<Catalog> = {
   'panel.title': '决策日志', 'col.candidates': '候选', 'col.open': '未决', 'col.archive': '归档',
@@ -66,6 +76,11 @@ const zh: Partial<Catalog> = {
   'common.cancel': '取消', 'common.loading': '加载中…', 'drag.invalid': '决策只能向前推进。',
   'review.start': '到期检查', 'review.of': '/', 'review.decide': '裁决', 'review.skip': '本次跳过',
   'review.title': '到期检查', 'review.downgraded': '这条你几次没回来看,先帮你放一边了 —— 随时可捞回。',
+  'sugg.dueVerdict': '到期待裁决', 'sugg.due.hit': '看起来命中', 'sugg.due.partial': '看起来部分', 'sugg.due.miss': '看起来未命中',
+  'sugg.progress': '进展', 'sugg.adjustDate': '建议改检查日期 →', 'sugg.closeHit': '建议关闭:命中', 'sugg.closePartial': '建议关闭:部分',
+  'sugg.closeMiss': '建议关闭:未命中', 'sugg.drop': '建议放弃',
+  'sugg.accept': '接受', 'sugg.note': '记一笔', 'sugg.detail': '详情', 'sugg.dismiss': '忽略',
+  'sugg.evidence': '证据', 'drag.reopenConfirm': '重开这条决策,移回未决列?',
 }
 const registry: Record<string, Partial<Catalog>> = { en, zh }
 export function t(key: MessageKey): string {
