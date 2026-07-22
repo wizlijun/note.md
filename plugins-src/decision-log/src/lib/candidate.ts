@@ -17,7 +17,22 @@ export interface Closure {
   suggested_outcome?: 'hit' | 'partial' | 'miss'
   evidence?: Evidence[]
 }
-export interface CandidateFile { date: string; new_candidates: NewCandidate[]; closures: Closure[] }
+export type EditKind = 'progress' | 'breakthrough' | 'resolved' | 'abandoned'
+export type EditAction = 'note' | 'adjust-check-date' | 'close-hit' | 'close-partial' | 'close-miss' | 'drop'
+export interface EditDecision {
+  decision_id: string; kind: EditKind; summary: string
+  suggested_action: EditAction; new_check_date?: string; evidence?: Evidence[]
+}
+
+const EDIT_KINDS: readonly EditKind[] = ['progress', 'breakthrough', 'resolved', 'abandoned']
+const EDIT_ACTIONS: readonly EditAction[] = ['note', 'adjust-check-date', 'close-hit', 'close-partial', 'close-miss', 'drop']
+
+export interface CandidateFile { date: string; new_candidates: NewCandidate[]; closures: Closure[]; edit_decisions: EditDecision[] }
+
+/** 建议已被消费(accepted/dismissed)的项不再返回;只保留 pending 或缺失 status 的。 */
+function isPending(c: any): boolean {
+  return c == null || c.status == null || c.status === 'pending'
+}
 
 function validCandidate(c: any): c is NewCandidate {
   if (!c || typeof c.id !== 'string' || typeof c.title !== 'string') return false
@@ -29,12 +44,19 @@ function validCandidate(c: any): c is NewCandidate {
 function validClosure(c: any): c is Closure {
   return c && typeof c.decision_id === 'string' && (c.reason === 'due' || c.reason === 'trigger')
 }
+function validEdit(c: any): c is EditDecision {
+  if (!c || typeof c.decision_id !== 'string' || c.decision_id.length === 0) return false
+  if (!EDIT_KINDS.includes(c.kind)) return false
+  if (!EDIT_ACTIONS.includes(c.suggested_action)) return false
+  return true
+}
 
-/** 宽容解析:整体 JSON 必须合法(否则 throw);单个不合法的候选/关闭项被静默丢弃。 */
+/** 宽容解析:整体 JSON 必须合法(否则 throw);单个不合法的项被静默丢弃;已消费(非 pending)的项不返回。 */
 export function parseCandidateFile(raw: string): CandidateFile {
   const obj = JSON.parse(raw)
   const date = typeof obj?.date === 'string' ? obj.date : ''
-  const new_candidates = Array.isArray(obj?.new_candidates) ? obj.new_candidates.filter(validCandidate) : []
-  const closures = Array.isArray(obj?.closures) ? obj.closures.filter(validClosure) : []
-  return { date, new_candidates, closures }
+  const new_candidates = Array.isArray(obj?.new_candidates) ? obj.new_candidates.filter(isPending).filter(validCandidate) : []
+  const closures = Array.isArray(obj?.closures) ? obj.closures.filter(isPending).filter(validClosure) : []
+  const edit_decisions = Array.isArray(obj?.edit_decisions) ? obj.edit_decisions.filter(isPending).filter(validEdit) : []
+  return { date, new_candidates, closures, edit_decisions }
 }
