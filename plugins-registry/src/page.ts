@@ -198,12 +198,27 @@ function renderPlugins(list){
    '</div>';
  }).join('');
 }
+function cmpVer(a,b){
+ a=(a||'0').split('.');b=(b||'0').split('.');
+ for(var i=0;i<3;i++){var x=parseInt(a[i]||0,10),y=parseInt(b[i]||0,10);if(x!==y)return x-y;}
+ return 0;
+}
+// The registry index lists one entry per <id>/<version>; collapse to one card
+// per plugin (highest version) so multi-version plugins don't render duplicates.
+function latestById(list){
+ var m={},order=[];
+ (list||[]).forEach(function(p){
+  var id=p.id;if(!(id in m)){order.push(id);m[id]=p;}
+  else if(cmpVer(p.version,m[id].version)>0)m[id]=p;
+ });
+ return order.map(function(id){return m[id];});
+}
 var CACHE=null;
 function load(){
  var grid=document.getElementById('grid');
  grid.innerHTML='<div class="msg">'+esc(I18N[lang].loading)+'</div>';
  fetch('/api/index.json').then(function(r){return r.json();}).then(function(j){
-  CACHE=(j&&j.plugins)||[];renderPlugins(CACHE);
+  CACHE=latestById((j&&j.plugins)||[]);renderPlugins(CACHE);
  }).catch(function(){
   grid.innerHTML='<div class="msg">'+esc(I18N[lang].err)+'</div>';
  });
