@@ -18,7 +18,7 @@
 
 <script lang="ts">
   import type { Outcome, Evidence } from '../lib/model'
-  import { doAcceptEdit, doDismissEdit, doDismissClosure } from '../lib/store.svelte'
+  import { doAcceptEdit, doDismissEdit, doDismissClosure, doRejectClosure, doRejectEdit } from '../lib/store.svelte'
   import { t } from '../lib/strings'
 
   let {
@@ -112,6 +112,23 @@
       busy = false
     }
   }
+
+  // Mark inaccurate: record the suggestion negatively (so the agent avoids the
+  // pattern next time) and hide it. Distinct from a plain dismiss.
+  async function reject() {
+    if (busy) return
+    busy = true
+    try {
+      if (suggestion.kind === 'closure') {
+        await doRejectClosure(suggestion.closure.decision_id, suggestion.date)
+      } else {
+        await doRejectEdit(suggestion.edit, suggestion.date)
+      }
+    } catch (e) {
+      console.error('[decision-log] reject suggestion failed:', e)
+      busy = false
+    }
+  }
 </script>
 
 <div class="strip">
@@ -121,6 +138,7 @@
     <div class="btns">
       <button type="button" class="accept" disabled={busy} onclick={accept}>{acceptLabel}</button>
       <button type="button" class="link" onclick={() => (expanded = !expanded)}>{t('sugg.detail')}</button>
+      <button type="button" class="reject" title={t('reject.hint')} disabled={busy} onclick={reject}>{t('reject')}</button>
       <button type="button" class="x" title={t('sugg.dismiss')} disabled={busy} onclick={dismiss}>×</button>
     </div>
   </div>
@@ -161,6 +179,13 @@
     font: inherit; font-size: 0.76rem; opacity: 0.7; cursor: pointer; text-decoration: underline;
   }
   .link:hover { opacity: 1; }
+  /* Mark inaccurate: quiet by default, warms to red on hover to signal removal. */
+  .reject {
+    padding: 0.2rem 0.3rem; border: 0; background: transparent; color: inherit;
+    font: inherit; font-size: 0.76rem; opacity: 0.55; cursor: pointer;
+  }
+  .reject:hover { opacity: 1; color: #dc2626; }
+  .reject:disabled { opacity: 0.3; cursor: not-allowed; }
   .x {
     padding: 0 0.35rem; border: 0; background: transparent; color: inherit;
     font-size: 1rem; line-height: 1; opacity: 0.55; cursor: pointer;

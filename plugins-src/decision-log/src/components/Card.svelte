@@ -18,6 +18,7 @@
     column,
     onclick,
     onDragStart,
+    onReject,
   }: {
     decision?: OpenDecision | ArchivedDecision
     candidate?: NewCandidate
@@ -26,6 +27,9 @@
     // pointerdown handler for the Board's pointer-based drag controller; the
     // Board decides (past a movement threshold) whether it becomes a drag.
     onDragStart?: (e: PointerEvent) => void
+    // Low-key "mark inaccurate" action (candidate column only). Rejects the
+    // candidate (negative store + hide). Must not trigger drag/click-to-sign.
+    onReject?: () => void
   } = $props()
 
   // Candidate and OpenDecision carry a title; ArchivedDecision does not
@@ -78,6 +82,18 @@
       <span class="badge" title={candidate.prediction_source === 'quoted' ? t('badge.quoted') : t('badge.nominated')}>
         {candidate.prediction_source === 'quoted' ? '🎙' : '💡'}
       </span>
+      {#if onReject}
+        <!-- Low-key reject: hover-revealed, stops propagation so it never
+             starts a drag or opens the sign sheet. -->
+        <button
+          type="button"
+          class="reject"
+          title={t('reject.hint')}
+          aria-label={t('reject')}
+          onpointerdown={(e) => e.stopPropagation()}
+          onclick={(e) => { e.stopPropagation(); onReject?.() }}
+        >×</button>
+      {/if}
     </div>
   {:else if column === 'open' && openDec}
     <div class="title">{title}</div>
@@ -117,6 +133,15 @@
   .row { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.4rem; }
   .title { font-weight: 500; }
   .badge, .icon { flex: 0 0 auto; }
+  /* Low-key "mark inaccurate": hidden until the card is hovered/focused. */
+  .reject {
+    flex: 0 0 auto; margin: -0.15rem -0.15rem 0 0.1rem; padding: 0 0.3rem;
+    border: 0; background: transparent; color: inherit;
+    font-size: 1rem; line-height: 1; cursor: pointer;
+    opacity: 0; transition: opacity 0.12s;
+  }
+  .card:hover .reject, .card:focus-within .reject, .reject:focus-visible { opacity: 0.5; }
+  .reject:hover { opacity: 1; color: #dc2626; }
   .meta { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.35rem; font-size: 0.78rem; opacity: 0.7; }
   .due.overdue { color: #dc2626; opacity: 1; }
   .trig { opacity: 1; }

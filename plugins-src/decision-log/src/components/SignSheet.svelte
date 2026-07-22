@@ -13,9 +13,13 @@
 
   let {
     candidate,
+    consumeDate = null,
     onClose,
   }: {
     candidate?: NewCandidate | null
+    // Source file date of the candidate; when set (agent origin), signing marks
+    // the originating diary item accepted so the candidate stops reappearing.
+    consumeDate?: string | null
     onClose: () => void
   } = $props()
 
@@ -58,18 +62,21 @@
     const triggers = parseTriggers()
     try {
       if (candidate) {
-        await doSign({
-          title: title.trim(),
-          prediction: prediction.trim(),
-          confidence,
-          checkDate,
-          origin: 'agent',
-          created: today,
-          ...(candidate.source?.conv_id ? { source_conv: candidate.source.conv_id } : {}),
-          ...(isQuoted && candidate.quote ? { quote: candidate.quote } : {}),
-          ...(triggers ? { triggers } : {}),
-          ...(candidate.state ? { state: candidate.state } : {}),
-        })
+        await doSign(
+          {
+            title: title.trim(),
+            prediction: prediction.trim(),
+            confidence,
+            checkDate,
+            origin: 'agent',
+            created: today,
+            ...(candidate.source?.conv_id ? { source_conv: candidate.source.conv_id } : {}),
+            ...(isQuoted && candidate.quote ? { quote: candidate.quote } : {}),
+            ...(triggers ? { triggers } : {}),
+            ...(candidate.state ? { state: candidate.state } : {}),
+          },
+          consumeDate ? { date: consumeDate, candidateId: candidate.id } : undefined,
+        )
       } else {
         await doManualCreate({
           title: title.trim(),

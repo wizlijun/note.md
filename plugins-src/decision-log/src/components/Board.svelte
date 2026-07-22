@@ -8,7 +8,7 @@
      shows pending agent suggestion strips (closures + edit_decisions) beneath it.
      Candidate column footer "+ New Decision" opens SignSheet (manual create). -->
 <script lang="ts">
-  import { state as store, doReopen } from '../lib/store.svelte'
+  import { state as store, doReopen, doRejectCandidate } from '../lib/store.svelte'
   import type { OpenDecision, Outcome } from '../lib/model'
   import type { NewCandidate, Closure } from '../lib/candidate'
   import Card from './Card.svelte'
@@ -31,8 +31,11 @@
     if (overdue.length) reviewQueue = [...overdue]
   }
 
-  // Flattened candidate list across all daily files.
-  const candidates = $derived(store.candidates.flatMap((f) => f.new_candidates))
+  // Flattened candidate list across all daily files, each tagged with its source
+  // file date (_fileDate) so signing/rejecting can consume the right diary item.
+  const candidates = $derived(
+    store.candidates.flatMap((f) => f.new_candidates.map((c) => ({ ...c, _fileDate: f.fileDate })))
+  )
   // First closure per decision id (with its source file date), so open cards can
   // prefill their verdict + consume the closure on submit.
   const closureById = $derived.by(() => {
@@ -67,6 +70,7 @@
 
   // ── modal state ──
   let signCandidate = $state<NewCandidate | null | undefined>(undefined) // undefined = closed; null = manual
+  let signConsumeDate = $state<string | null>(null) // source file date of the candidate (consume on sign)
   let verdictDecision = $state<OpenDecision | null>(null)
   let verdictPreset = $state<Outcome | null>(null)
   let verdictConsumeDate = $state<string | null>(null)
@@ -182,9 +186,17 @@
     await doReopen(archivedId)
   }
 
+  // Open the sign sheet for a candidate, carrying its source file date so signing
+  // consumes (marks accepted → hides) the originating diary item.
   function openSignFor(candidateId: string) {
     const c = candidates.find((x) => x.id === candidateId)
-    if (c) signCandidate = c
+    if (c) { signConsumeDate = c._fileDate ?? null; signCandidate = c }
+  }
+
+  // Mark a candidate inaccurate: record it negatively (so the agent avoids it)
+  // and hide it. Uses the candidate's own source file date.
+  async function rejectCandidate(c: NewCandidate & { _fileDate?: string }) {
+    await doRejectCandidate(c, c._fileDate ?? '')
   }
 
   // Prefill the verdict sheet from the decision's closure (evidence + outcome +
@@ -232,8 +244,9 @@
             <Card
               column="candidates"
               candidate={c}
-              onclick={() => (signCandidate = c)}
+              onclick={() => openSignFor(c.id)}
               onDragStart={(e) => onCardPointerDown('candidates', c.id, c.title, e)}
+              onReject={() => rejectCandidate(c)}
             />
           </div>
         {/each}
@@ -312,7 +325,11 @@
 {/if}
 
 {#if signOpen}
-  <SignSheet candidate={signCandidate} onClose={() => (signCandidate = undefined)} />
+  <SignSheet
+    candidate={signCandidate}
+    consumeDate={signConsumeDate}
+    onClose={() => { signCandidate = undefined; signConsumeDate = null }}
+  />
 {/if}
 {#if verdictDecision}
   <VerdictSheet

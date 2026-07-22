@@ -21,6 +21,7 @@ export type MessageKey =
   | 'sugg.closeMiss' | 'sugg.drop'
   | 'sugg.accept' | 'sugg.note' | 'sugg.detail' | 'sugg.dismiss'
   | 'sugg.evidence' | 'drag.reopenConfirm'
+  | 'reject' | 'reject.hint'
 type Catalog = Record<MessageKey, string>
 const en: Catalog = {
   'panel.title': 'Decision Log', 'col.candidates': 'Candidates', 'col.open': 'Open', 'col.archive': 'Archive',
@@ -51,6 +52,7 @@ const en: Catalog = {
   'sugg.closeMiss': 'Suggest closing — miss', 'sugg.drop': 'Suggest dropping this',
   'sugg.accept': 'Accept', 'sugg.note': 'Note it', 'sugg.detail': 'Details', 'sugg.dismiss': 'Dismiss',
   'sugg.evidence': 'Evidence', 'drag.reopenConfirm': 'Reopen this decision and move it back to Open?',
+  'reject': 'Mark inaccurate', 'reject.hint': 'Not accurate — remove and let the AI avoid this next time.',
 }
 const zh: Partial<Catalog> = {
   'panel.title': '决策日志', 'col.candidates': '候选', 'col.open': '未决', 'col.archive': '归档',
@@ -81,6 +83,7 @@ const zh: Partial<Catalog> = {
   'sugg.closeMiss': '建议关闭:未命中', 'sugg.drop': '建议放弃',
   'sugg.accept': '接受', 'sugg.note': '记一笔', 'sugg.detail': '详情', 'sugg.dismiss': '忽略',
   'sugg.evidence': '证据', 'drag.reopenConfirm': '重开这条决策,移回未决列?',
+  'reject': '不准', 'reject.hint': '标为不准 —— 删除并让 AI 以后避免。',
 }
 const registry: Record<string, Partial<Catalog>> = { en, zh }
 export function t(key: MessageKey): string {
