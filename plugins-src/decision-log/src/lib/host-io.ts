@@ -1,13 +1,14 @@
 import { vaultRead, vaultWrite, vaultExists, vaultList } from './bridge'
 import { serializeBoard, parseBoard, serializeArchive, parseArchive } from './board-io'
 import { parseCandidateFile, type CandidateFile } from './candidate'
-import { markConsumed } from './edits'
+import { markConsumed, appendRejectedJson, type RejectedEntry } from './edits'
 import { appendEvent, parseLog } from './scoreboard'
 import type { OpenDecision, ArchivedDecision, ScoreEvent } from './model'
 
 const DIR = 'decision'
 const BOARD = `${DIR}/open.decision.note.md`
 const SCORE = `${DIR}/_scoreboard.jsonl`
+const REJECTED = `${DIR}/_rejected.json`
 const archivePath = (resolved: string) => `${DIR}/archive/${resolved}-decision.note.md`
 const candidatePath = (date: string) => `diary/${date}-decision.json`
 
@@ -26,6 +27,11 @@ export async function appendArchive(resolved: string, dec: ArchivedDecision): Pr
 export async function appendScore(ev: ScoreEvent): Promise<void> {
   const log = (await vaultExists(SCORE)).exists ? (await vaultRead(SCORE)).content : ''
   await vaultWrite(SCORE, appendEvent(log, ev))
+}
+/** 追加一条「不准」记录到 decision/_rejected.json(不存在则新建)。合并追加,供 agent 后续避免重复建议。 */
+export async function appendRejected(entry: RejectedEntry): Promise<void> {
+  const existing = (await vaultExists(REJECTED)).exists ? (await vaultRead(REJECTED)).content : ''
+  await vaultWrite(REJECTED, appendRejectedJson(existing, entry))
 }
 export async function loadScore(): Promise<ScoreEvent[]> {
   if (!(await vaultExists(SCORE)).exists) return []

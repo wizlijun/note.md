@@ -8,9 +8,10 @@ vi.mock('./bridge', () => ({
   vaultList: () => Promise.resolve({ entries: [] }),
 }))
 
-import { consumeDiaryItem } from './host-io'
+import { consumeDiaryItem, appendRejected } from './host-io'
 
 const diary = 'diary/2026-07-21-decision.json'
+const rejected = 'decision/_rejected.json'
 
 beforeEach(() => { fs.clear() })
 
@@ -32,5 +33,20 @@ describe('consumeDiaryItem', () => {
     fs.set(diary, original)
     await consumeDiaryItem('2026-07-21', 'closures', 'zzz', 'accepted')
     expect(fs.get(diary)).toBe(original)
+  })
+})
+
+describe('appendRejected', () => {
+  it('creates decision/_rejected.json when missing', async () => {
+    await appendRejected({ type: 'candidate', title: 'A', rejected_at: '2026-07-22' })
+    const out = JSON.parse(fs.get(rejected)!)
+    expect(out.rejected).toEqual([{ type: 'candidate', title: 'A', rejected_at: '2026-07-22' }])
+  })
+  it('merges onto an existing file', async () => {
+    fs.set(rejected, JSON.stringify({ rejected: [{ type: 'closure', decision_id: 'x', rejected_at: '2026-07-20' }] }))
+    await appendRejected({ type: 'edit', decision_id: 'e', kind: 'progress', summary: 's', rejected_at: '2026-07-22' })
+    const out = JSON.parse(fs.get(rejected)!)
+    expect(out.rejected).toHaveLength(2)
+    expect(out.rejected[1].decision_id).toBe('e')
   })
 })
