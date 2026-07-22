@@ -22,6 +22,7 @@ You are given:
 - `date` — today, `YYYY-MM-DD`.
 - `content` — the day's material (transcripts / diary / chat / meeting / progress notes). Ideally each line carries a speaker, a time, and a conversation id (`conv_id`).
 - `open_decisions` — the user's current undecided decisions (read from `vault/decision/open.decision.note.md` front-matter `decisions[]`). Each entry has: `id`, `title`, `prediction`, `check-date` (YYYY-MM-DD), and optional `triggers` (`[{ if, source }]`). You use these to build `closures` and `edit_decisions`.
+- `rejected` — items the user previously marked **inaccurate** (read from `vault/decision/_rejected.json`, shape `{ "rejected": [{ type: "candidate"|"closure"|"edit", decision_id?, title?, quote?, kind?, summary?, rejected_at }] }`). You must NOT re-surface these (see rule 6). If the file is absent, treat it as empty.
 
 ## Hard rules (violating any = failure)
 
@@ -33,7 +34,8 @@ You are given:
 3. **Unsure → leave empty / omit.** No default-value guessing. `confidence` stays `null` unless the user's own words reveal certainty. `state` is omitted entirely if the content does not reveal it. Optional fields are omitted, not filled with placeholders.
 4. **One open decision → at most one array per day.** If it is due or triggered → `closures`. Otherwise, if the content shows a development → `edit_decisions`. Otherwise leave it alone. The same `decision_id` must never appear in both `closures` and `edit_decisions`.
 5. **Do not over-close.** Only `resolved` / `abandoned` developments get terminal actions (`close-*` / `drop`). Mere progress or a breakthrough → `note`, keep the decision open.
-6. **Output must be `JSON.parse`-able** — a single JSON object, no prose, no markdown code fences, no preamble or trailing text.
+6. **Respect rejections.** Do NOT re-surface anything the user marked inaccurate in `rejected`: skip a `new_candidate` whose decision is the same as a rejected `candidate` (matching title / quote / gist); skip a `closure` or `edit_decision` for a `decision_id` the user rejected for that kind of suggestion. When it's clearly the same thing they rejected, omit it. (A genuinely new, different development on that decision may still be surfaced.)
+7. **Output must be `JSON.parse`-able** — a single JSON object, no prose, no markdown code fences, no preamble or trailing text.
 
 ## Output object
 
@@ -63,7 +65,7 @@ You are given:
 Each item:
 
 | field | rule |
-|---|---|
+| --- | --- |
 | `id` | required. `cand-<date>-<NN>` with a two-digit per-day sequence, e.g. `cand-2026-07-22-01`, `-02`. You assign these in order; no randomness or LLM needed. |
 | `title` | required. One short line, the user's phrasing. |
 | `prediction_source` | required. `"quoted"` or `"nominated"`. |
@@ -83,7 +85,7 @@ What counts: a choice plus a falsifiable expectation = a decision. Reminders/to-
 Generate **only** for an open decision whose `check-date <= today` (`reason: "due"`) or one of whose `triggers` fired in today's content (`reason: "trigger"`). Never nag decisions that are neither due nor triggered.
 
 | field | rule |
-|---|---|
+| --- | --- |
 | `decision_id` | required. The `id` from `open_decisions`. |
 | `reason` | required. `"due"` or `"trigger"`. |
 | `suggested_outcome` | optional. `"hit"` / `"partial"` / `"miss"` — your read from the evidence. Omit if genuinely unsure (the user renders the final verdict). |
@@ -95,7 +97,7 @@ Generate **only** for an open decision whose `check-date <= today` (`reason: "du
 For an open decision that did **not** go into `closures`, but which the content speaks to with a development:
 
 | field | rule |
-|---|---|
+| --- | --- |
 | `decision_id` | required. The `id` from `open_decisions`. |
 | `kind` | required. `"progress"` (advanced, not concluded) / `"breakthrough"` (major step, still in progress) / `"resolved"` (expectation met or clearly not, and it's over) / `"abandoned"` (user decided to stop / shelve it). |
 | `summary` | required. One factual sentence describing what happened (no exaggeration). |
@@ -107,7 +109,7 @@ For an open decision that did **not** go into `closures`, but which the content 
 **`kind` → `suggested_action` (do not over-close):**
 
 | content signal | kind | suggested_action |
-|---|---|---|
+| --- | --- | --- |
 | moved forward, not concluded | `progress` | `note` |
 | timeline clearly shifted (earlier/later) | `progress` | `adjust-check-date` (+ `new_check_date`) |
 | major breakthrough, still ongoing | `breakthrough` | `note` |
@@ -124,11 +126,13 @@ For an open decision that did **not** go into `closures`, but which the content 
 - [ ] Only `resolved`/`abandoned` use terminal actions (`close-*`/`drop`); progress/breakthrough use `note` (or `adjust-check-date`).
 - [ ] `new_check_date` appears only with `adjust-check-date`.
 - [ ] Every `status` is `"pending"`; the three arrays are `[]` when there's nothing.
+- [ ] Nothing in the output re-surfaces something listed in `rejected`.
 - [ ] Output is a single pure JSON object, `JSON.parse`-able, no fences or commentary.
 
 ## Worked example
 
 **Input**
+
 ```
 date: 2026-07-22
 content:
@@ -145,6 +149,7 @@ open_decisions:
 ```
 
 **Output**
+
 ```json
 {
   "date": "2026-07-22",
@@ -205,6 +210,7 @@ open_decisions:
 ```
 
 Reasoning shown by the example:
+
 - "两周内能发" is a voiced expectation → `new_candidates` / `quoted`; `check_date` computed from "两周内"; `confidence: null` (no certainty word).
 - "砍周会" is a new decision with no stated expectation → `nominated`, `prediction` is a question, not an assertion.
 - "给设计发反馈" is a to-do → skipped.
@@ -219,4 +225,4 @@ Reasoning shown by the example:
 - The same `decision_id` in both `closures` and `edit_decisions`.
 - Closing (`close-*` / `drop`) on mere progress — only `resolved` / `abandoned` get terminal actions.
 - Inventing a `state` snapshot — omit it when the content doesn't reveal it.
-- Wrapping the JSON in ```` ```json ```` fences or adding any commentary.
+- Wrapping the JSON in ````json` fences or adding any commentary.

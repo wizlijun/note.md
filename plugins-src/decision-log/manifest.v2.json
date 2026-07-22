@@ -2,7 +2,7 @@
   "manifest_version": 2,
   "id": "notemd.decision-log",
   "name": "Decision Log",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "kind": "native",
   "engines": { "notemd": ">=6.722.1" },
   "description": "Predict before, judge after — a calibrated decision journal stored as .note.md.",

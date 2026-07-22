@@ -19,13 +19,15 @@
 2. **宁缺毋滥。** 只处理真正的决策与真实的进展。闲聊、事实、待办**不是**决策。没有就给空数组,这很正常。
 3. **不确定就留空/省略**,绝不用默认值猜测(见各字段规则)。
 4. **一条未决决策同一天最多进一个数组**:到期/触发 → `closures`;否则内容显示进展/结论 → `edit_decisions`;都不满足 → 不动它。别重复。
-5. **只输出纯 JSON**,能被 `JSON.parse` 解析,无解释、无 markdown 围栏、无前后缀。
+5. **尊重"不准"**:不要再产出用户已在 `rejected` 里标为不准的东西——与被拒 `candidate` 同一决策(标题/原话/大意相同)的 `new_candidate` 跳过;某 `decision_id` 被拒过同类建议的 `closure`/`edit_decision` 跳过(该决策上**确有新的、不同的**进展仍可产出)。
+6. **只输出纯 JSON**,能被 `JSON.parse` 解析,无解释、无 markdown 围栏、无前后缀。
 
 ### 输入
 
 - `date`:`YYYY-MM-DD`。
 - `content`:当天原始材料(转写/日记/聊天/会议/进度),尽量带 `conv_id`、时间、说话人。
 - `open_decisions`:读自 `vault/decision/open.decision.note.md` front-matter `decisions` 数组的当前未决决策,每项含 `id`、`title`、`prediction`、`check-date`、可选 `triggers`。
+- `rejected`:用户标为"不准"的历史项(读自 `vault/decision/_rejected.json`,形如 `{ "rejected": [{ type, decision_id?, title?, quote?, kind?, summary?, rejected_at }] }`)。**不要再产出这些**(见核心原则 5)。文件不存在则视为空。
 
 ### 输出格式
 
