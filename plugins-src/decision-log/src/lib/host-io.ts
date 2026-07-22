@@ -1,6 +1,7 @@
 import { vaultRead, vaultWrite, vaultExists, vaultList } from './bridge'
 import { serializeBoard, parseBoard, serializeArchive, parseArchive } from './board-io'
 import { parseCandidateFile, type CandidateFile } from './candidate'
+import { markConsumed } from './edits'
 import { appendEvent, parseLog } from './scoreboard'
 import type { OpenDecision, ArchivedDecision, ScoreEvent } from './model'
 
@@ -47,6 +48,20 @@ export async function loadArchives(limit = 5): Promise<ArchivedDecision[]> {
   }
   return out
 }
+/** 读 diary/<date>-decision.json,把匹配的首条 pending 项标为 accepted/dismissed,写回。文件不存在则 no-op。 */
+export async function consumeDiaryItem(
+  date: string,
+  array: 'new_candidates' | 'closures' | 'edit_decisions',
+  key: string,
+  status: 'accepted' | 'dismissed',
+): Promise<void> {
+  const p = candidatePath(date)
+  if (!(await vaultExists(p)).exists) return
+  const json = (await vaultRead(p)).content
+  const next = markConsumed(json, array, key, status)
+  if (next !== json) await vaultWrite(p, next)
+}
+
 /** 扫 diary/ 下所有 *-decision.json,返回按日期排序的候选文件。 */
 export async function loadCandidates(): Promise<CandidateFile[]> {
   if (!(await vaultExists('diary')).exists) return []
