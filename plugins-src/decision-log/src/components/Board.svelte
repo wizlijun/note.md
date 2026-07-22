@@ -86,13 +86,23 @@
     verdictConsumeDate = null
   }
 
-  // ── drag state ──
-  // dragging/hoverCol are reactive so the board can dim the dragged card and
-  // highlight the drop target (professional-kanban feel).
+  // ── drag state (pointer-based) ──
+  // HTML5 DnD is unusable inside the Tauri plugin window: the OS-level
+  // drag-drop handler (dragDropEnabled) swallows page dragstart/drop, so the
+  // board runs its own pointer-driven lane drag. dragging/hoverCol stay
+  // reactive so the board can dim the dragged card and highlight the target.
+  const DRAG_THRESHOLD = 5 // px of pointer travel before a press becomes a drag
   let dragging = $state<{ column: Column; id: string } | null>(null)
   let hoverCol = $state<Column | null>(null)
+  let ghostTitle = $state('') // label shown in the follow-cursor ghost
+  let ghostX = $state(0)
+  let ghostY = $state(0)
   let invalidNote = $state('')
   let noteTimer: ReturnType<typeof setTimeout> | null = null
+
+  // pending press (before threshold) — not yet a drag
+  let press: { column: Column; id: string; title: string; startX: number; startY: number; pointerId: number } | null =
+    null
 
   function flashInvalid() {
     invalidNote = t('drag.invalid')
@@ -100,33 +110,72 @@
     noteTimer = setTimeout(() => (invalidNote = ''), 2200)
   }
 
-  function startDrag(column: Column, id: string, e: DragEvent) {
-    dragging = { column, id }
-    e.dataTransfer?.setData('text/plain', id)
-    if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move'
-  }
-  function endDrag() {
-    dragging = null
-    hoverCol = null
+  // Card pointerdown → arm a press. We do NOT preventDefault/capture here so a
+  // plain click (no movement past threshold) still fires the card's onclick.
+  function onCardPointerDown(column: Column, id: string, title: string, e: PointerEvent) {
+    press = { column, id, title, startX: e.clientX, startY: e.clientY, pointerId: e.pointerId }
+    ghostX = e.clientX
+    ghostY = e.clientY
   }
 
-  function dropOn(target: Column, e: DragEvent) {
-    e.preventDefault()
+  // Which column contains the given viewport point (or null if outside all).
+  function colAtPoint(x: number, y: number): Column | null {
+    for (const [col, el] of Object.entries(colEls) as [Column, HTMLElement | undefined][]) {
+      const r = el?.getBoundingClientRect()
+      if (r && x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return col
+    }
+    return null
+  }
+
+  function onWindowPointerMove(e: PointerEvent) {
+    if (press && !dragging) {
+      // promote press → drag once past the movement threshold
+      const dx = e.clientX - press.startX
+      const dy = e.clientY - press.startY
+      if (Math.hypot(dx, dy) >= DRAG_THRESHOLD) {
+        dragging = { column: press.column, id: press.id }
+        ghostTitle = press.title
+      }
+    }
+    if (!dragging) return
+    ghostX = e.clientX
+    ghostY = e.clientY
+    const col = colAtPoint(e.clientX, e.clientY)
+    hoverCol = col && col !== dragging.column ? col : null
+  }
+
+  function onWindowPointerUp() {
     const d = dragging
-    endDrag()
-    if (!d) return
-    // Free-lane drag: only the four legal transitions act; the rest snap back.
+    const target = hoverCol
+    cancelDrag()
+    if (!d || !target || target === d.column) return
+    // Free-lane drag: only the three legal forward/back transitions act.
     if (d.column === 'candidates' && target === 'open') {
       openSignFor(d.id)
     } else if (d.column === 'open' && target === 'archive') {
       openVerdictWith(d.id, null, null)
     } else if (d.column === 'archive' && target === 'open') {
       confirmReopen(d.id)
-    } else if (d.column !== target) {
-      // candidate→archive, open→candidate, any same-column cross-cell = illegal.
+    } else {
+      // candidate→archive, open→candidate = illegal.
       flashInvalid()
     }
   }
+
+  // Abort any in-flight press/drag without running a transition.
+  function cancelDrag() {
+    press = null
+    dragging = null
+    hoverCol = null
+    ghostTitle = ''
+  }
+
+  function onWindowKeyDown(e: KeyboardEvent) {
+    if (e.key === 'Escape' && (dragging || press)) cancelDrag()
+  }
+
+  // column container refs, keyed by column, for hit-testing during pointer drag
+  const colEls: { candidates?: HTMLElement; open?: HTMLElement; archive?: HTMLElement } = {}
 
   async function confirmReopen(archivedId: string) {
     if (typeof confirm === 'function' && !confirm(t('drag.reopenConfirm'))) return
@@ -148,7 +197,14 @@
   const effectiveConsumeDate = $derived(verdictConsumeDate ?? verdictClosureEntry?.date ?? null)
 </script>
 
-<div class="board-wrap">
+<svelte:window
+  onpointermove={onWindowPointerMove}
+  onpointerup={onWindowPointerUp}
+  onpointercancel={cancelDrag}
+  onkeydown={onWindowKeyDown}
+/>
+
+<div class="board-wrap" class:dragging-active={dragging}>
   {#if overdue.length}
     <div class="toolbar">
       <button type="button" class="review-btn" onclick={startReview}>
@@ -161,12 +217,10 @@
   <div class="board">
   <!-- Candidates -->
   <section
+    bind:this={colEls.candidates}
     class="col"
-    class:drop-target={hoverCol === 'candidates' && dragging && dragging.column !== 'candidates'}
+    class:drop-target={hoverCol === 'candidates'}
     role="list"
-    ondragover={(e) => { e.preventDefault(); hoverCol = 'candidates' }}
-    ondragleave={() => { if (hoverCol === 'candidates') hoverCol = null }}
-    ondrop={(e) => dropOn('candidates', e)}
   >
     <header class="col-head">{t('col.candidates')}</header>
     <div class="col-body">
@@ -179,8 +233,7 @@
               column="candidates"
               candidate={c}
               onclick={() => (signCandidate = c)}
-              ondragstart={(e) => startDrag('candidates', c.id, e)}
-              ondragend={endDrag}
+              onDragStart={(e) => onCardPointerDown('candidates', c.id, c.title, e)}
             />
           </div>
         {/each}
@@ -193,12 +246,10 @@
 
   <!-- Open -->
   <section
+    bind:this={colEls.open}
     class="col"
-    class:drop-target={hoverCol === 'open' && dragging && dragging.column !== 'open'}
+    class:drop-target={hoverCol === 'open'}
     role="list"
-    ondragover={(e) => { e.preventDefault(); hoverCol = 'open' }}
-    ondragleave={() => { if (hoverCol === 'open') hoverCol = null }}
-    ondrop={(e) => dropOn('open', e)}
   >
     <header class="col-head">{t('col.open')}</header>
     <div class="col-body">
@@ -211,8 +262,7 @@
               column="open"
               decision={d}
               onclick={() => openVerdictWith(d.id, null, null)}
-              ondragstart={(e) => startDrag('open', d.id, e)}
-              ondragend={endDrag}
+              onDragStart={(e) => onCardPointerDown('open', d.id, d.title, e)}
             />
             {#each suggestionsById.get(d.id) ?? [] as s, i (i)}
               <SuggestionStrip
@@ -228,12 +278,10 @@
 
   <!-- Archive (drag back to Open to reopen) -->
   <section
+    bind:this={colEls.archive}
     class="col archive-col"
-    class:drop-target={hoverCol === 'archive' && dragging && dragging.column !== 'archive'}
+    class:drop-target={hoverCol === 'archive'}
     role="list"
-    ondragover={(e) => { e.preventDefault(); hoverCol = 'archive' }}
-    ondragleave={() => { if (hoverCol === 'archive') hoverCol = null }}
-    ondrop={(e) => dropOn('archive', e)}
   >
     <header class="col-head">{t('col.archive')}</header>
     <div class="col-body">
@@ -245,8 +293,7 @@
             <Card
               column="archive"
               decision={a}
-              ondragstart={(e) => startDrag('archive', a.id, e)}
-              ondragend={endDrag}
+              onDragStart={(e) => onCardPointerDown('archive', a.id, a.id, e)}
             />
           </div>
         {/each}
@@ -255,6 +302,10 @@
   </section>
   </div>
 </div>
+
+{#if dragging}
+  <div class="drag-ghost" style="left:{ghostX}px; top:{ghostY}px">{ghostTitle}</div>
+{/if}
 
 {#if invalidNote}
   <div class="drag-note" role="status">{invalidNote}</div>
@@ -283,6 +334,9 @@
     flex-direction: column;
     min-height: 0;
   }
+  /* While a lane drag is in flight the whole board shows the grabbing cursor. */
+  .board-wrap.dragging-active,
+  .board-wrap.dragging-active :global(.card) { cursor: grabbing; }
   .toolbar {
     flex: 0 0 auto;
     display: flex;
@@ -354,6 +408,26 @@
   }
   .card-slot { display: flex; flex-direction: column; gap: 0.35rem; }
   .card-slot.dragging { opacity: 0.5; }
+  /* Follow-cursor ghost of the dragged card (pointer-based lane drag). */
+  .drag-ghost {
+    position: fixed;
+    transform: translate(0.6rem, 0.6rem);
+    max-width: 16rem;
+    padding: 0.5rem 0.7rem;
+    border: 1px solid var(--accent, #2563eb);
+    border-radius: 8px;
+    background: var(--card-bg, color-mix(in srgb, currentColor 6%, transparent));
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+    font-size: 0.9rem;
+    line-height: 1.35;
+    font-weight: 500;
+    opacity: 0.85;
+    pointer-events: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    z-index: 60;
+  }
   .empty { margin: 0.5rem 0; font-size: 0.82rem; opacity: 0.5; line-height: 1.4; }
   .new-btn {
     margin: 0 0.6rem 0.6rem;

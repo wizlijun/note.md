@@ -2,8 +2,10 @@
      Variant per column: candidate = title + source badge (🎙quoted/💡nominated);
      open = title + confidence + days-to-check (⚡ if triggers); archive =
      title + outcome icon (✅hit/◐partial/❌miss/⊘dropped/⬇downgraded).
-     The card is draggable and emits `click`; opening the action happens in the
-     parent modal, not on the card. -->
+     The card emits `click` and a pointerdown (onDragStart) so the parent Board
+     can run its own pointer-based lane drag (HTML5 DnD is swallowed by the Tauri
+     window drag-drop handler); opening the action happens in the parent modal,
+     not on the card. -->
 <script lang="ts">
   import type { OpenDecision, ArchivedDecision } from '../lib/model'
   import type { NewCandidate } from '../lib/candidate'
@@ -15,15 +17,15 @@
     candidate,
     column,
     onclick,
-    ondragstart,
-    ondragend,
+    onDragStart,
   }: {
     decision?: OpenDecision | ArchivedDecision
     candidate?: NewCandidate
     column: Column
     onclick?: () => void
-    ondragstart?: (e: DragEvent) => void
-    ondragend?: (e: DragEvent) => void
+    // pointerdown handler for the Board's pointer-based drag controller; the
+    // Board decides (past a movement threshold) whether it becomes a drag.
+    onDragStart?: (e: PointerEvent) => void
   } = $props()
 
   // Candidate and OpenDecision carry a title; ArchivedDecision does not
@@ -66,11 +68,9 @@
   class:archive={column === 'archive'}
   role="button"
   tabindex="0"
-  draggable="true"
   onclick={() => onclick?.()}
   onkeydown={keyActivate}
-  ondragstart={(e) => ondragstart?.(e)}
-  ondragend={(e) => ondragend?.(e)}
+  onpointerdown={(e) => { if (e.button === 0) onDragStart?.(e) }}
 >
   {#if column === 'candidates' && candidate}
     <div class="row">
@@ -105,14 +105,15 @@
     border: 1px solid var(--line, #e5e7eb);
     border-radius: 8px;
     background: var(--card-bg, color-mix(in srgb, currentColor 3%, transparent));
-    cursor: pointer;
+    cursor: grab;
     font-size: 0.9rem;
     line-height: 1.35;
     user-select: none;
+    touch-action: none;
   }
   .card:hover { border-color: var(--accent, #2563eb); }
   .card:focus-visible { outline: 2px solid var(--accent, #2563eb); outline-offset: 1px; }
-  .card.archive { cursor: default; opacity: 0.85; }
+  .card.archive { opacity: 0.85; }
   .row { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.4rem; }
   .title { font-weight: 500; }
   .badge, .icon { flex: 0 0 auto; }
