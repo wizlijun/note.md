@@ -27,7 +27,7 @@ export interface EditDecision {
 const EDIT_KINDS: readonly EditKind[] = ['progress', 'breakthrough', 'resolved', 'abandoned']
 const EDIT_ACTIONS: readonly EditAction[] = ['note', 'adjust-check-date', 'close-hit', 'close-partial', 'close-miss', 'drop']
 
-export interface CandidateFile { date: string; new_candidates: NewCandidate[]; closures: Closure[]; edit_decisions: EditDecision[] }
+export interface CandidateFile { date: string; fileDate: string; new_candidates: NewCandidate[]; closures: Closure[]; edit_decisions: EditDecision[] }
 
 /** 建议已被消费(accepted/dismissed)的项不再返回;只保留 pending 或缺失 status 的。 */
 function isPending(c: any): boolean {
@@ -51,12 +51,13 @@ function validEdit(c: any): c is EditDecision {
   return true
 }
 
-/** 宽容解析:整体 JSON 必须合法(否则 throw);单个不合法的项被静默丢弃;已消费(非 pending)的项不返回。 */
+/** 宽容解析:整体 JSON 必须合法(否则 throw);单个不合法的项被静默丢弃;已消费(非 pending)的项不返回。
+ *  注:fileDate 由调用方(loadCandidates)在解析后补上,此处留空串占位。 */
 export function parseCandidateFile(raw: string): CandidateFile {
   const obj = JSON.parse(raw)
   const date = typeof obj?.date === 'string' ? obj.date : ''
   const new_candidates = Array.isArray(obj?.new_candidates) ? obj.new_candidates.filter(isPending).filter(validCandidate) : []
   const closures = Array.isArray(obj?.closures) ? obj.closures.filter(isPending).filter(validClosure) : []
   const edit_decisions = Array.isArray(obj?.edit_decisions) ? obj.edit_decisions.filter(isPending).filter(validEdit) : []
-  return { date, new_candidates, closures, edit_decisions }
+  return { date, fileDate: '', new_candidates, closures, edit_decisions }
 }

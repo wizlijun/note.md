@@ -38,21 +38,29 @@
   const closureById = $derived.by(() => {
     const m = new Map<string, { closure: Closure; date: string }>()
     for (const f of store.candidates)
-      for (const c of f.closures) if (!m.has(c.decision_id)) m.set(c.decision_id, { closure: c, date: f.date })
+      for (const c of f.closures) if (!m.has(c.decision_id)) m.set(c.decision_id, { closure: c, date: f.fileDate })
     return m
   })
   // Pending agent suggestions grouped by decision id (closures + edit_decisions),
-  // each tagged with its source file date for later consume/dismiss.
+  // each tagged with its source file date (from filename) for later consume/dismiss.
+  // Closures are deduplicated: only the first pending closure per decision_id is kept
+  // (consistent with closureById; avoids cross-day duplicate strips becoming orphans).
+  // edit_decisions are not deduplicated: different days may carry distinct progress notes.
   const suggestionsById = $derived.by(() => {
     const m = new Map<string, Suggestion[]>()
+    const seenClosures = new Set<string>()
     const push = (id: string, s: Suggestion) => {
       const arr = m.get(id)
       if (arr) arr.push(s)
       else m.set(id, [s])
     }
     for (const f of store.candidates) {
-      for (const c of f.closures) push(c.decision_id, { kind: 'closure', date: f.date, closure: c })
-      for (const e of f.edit_decisions) push(e.decision_id, { kind: 'edit', date: f.date, edit: e })
+      for (const c of f.closures) {
+        if (seenClosures.has(c.decision_id)) continue
+        seenClosures.add(c.decision_id)
+        push(c.decision_id, { kind: 'closure', date: f.fileDate, closure: c })
+      }
+      for (const e of f.edit_decisions) push(e.decision_id, { kind: 'edit', date: f.fileDate, edit: e })
     }
     return m
   })

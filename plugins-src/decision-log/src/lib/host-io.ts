@@ -83,14 +83,20 @@ export async function consumeDiaryItem(
   if (next !== json) await vaultWrite(p, next)
 }
 
-/** 扫 diary/ 下所有 *-decision.json,返回按日期排序的候选文件。 */
+/** 扫 diary/ 下所有 *-decision.json,返回按日期排序的候选文件。
+ *  fileDate 从文件名中提取(YYYY-MM-DD),与文件内 date 字段无关,确保 consume 定位正确。 */
 export async function loadCandidates(): Promise<CandidateFile[]> {
   if (!(await vaultExists('diary')).exists) return []
   const entries = (await vaultList('diary')).entries
   const files = entries.filter((e) => !e.is_dir && /-decision\.json$/.test(e.name)).map((e) => e.name).sort()
   const out: CandidateFile[] = []
   for (const name of files) {
-    try { out.push(parseCandidateFile((await vaultRead(`diary/${name}`)).content)) } catch { /* skip malformed */ }
+    try {
+      const parsed = parseCandidateFile((await vaultRead(`diary/${name}`)).content)
+      const m = name.match(/^(\d{4}-\d{2}-\d{2})-decision\.json$/)
+      parsed.fileDate = m ? m[1] : name.replace(/-decision\.json$/, '')
+      out.push(parsed)
+    } catch { /* skip malformed */ }
   }
   return out
 }

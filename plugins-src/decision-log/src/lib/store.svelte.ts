@@ -72,21 +72,44 @@ export async function doStrike(id: string, resolved: string): Promise<void> {
 
 // ── agent edit_decisions 建议:接受 / 忽略 ────────────────────────────────────
 
-/** 接受一条 edit 建议。close-* 需要 still-endorse,不在此处理(交给 UI 打开裁决框预填)。 */
+/** 接受一条 edit 建议。close-* 需要 still-endorse,不在此处理(交给 UI 打开裁决框预填)。
+ *  只有真正改动了看板(或 drop 成功)才 consumeDiaryItem + refresh;无效操作直接返回不标 accepted。 */
 export async function doAcceptEdit(edit: EditDecision, date: string): Promise<void> {
   switch (edit.suggested_action) {
-    case 'note':
+    case 'note': {
+      // 目标 decision 不在 open 列表 → 无效,不消费
+      if (!state.open.some((d) => d.id === edit.decision_id)) {
+        console.warn(`[decision-log] doAcceptEdit note: decision ${edit.decision_id} not open, skipping`)
+        return
+      }
       state.open = applyNote(state.open, edit.decision_id, date, edit.summary)
       await saveBoard(state.open)
       break
-    case 'adjust-check-date':
-      if (edit.new_check_date) {
-        state.open = applyAdjustCheckDate(state.open, edit.decision_id, edit.new_check_date)
-        await saveBoard(state.open)
+    }
+    case 'adjust-check-date': {
+      // new_check_date 为空 → 无效,不消费
+      if (!edit.new_check_date) {
+        console.warn(`[decision-log] doAcceptEdit adjust-check-date: new_check_date missing, skipping`)
+        return
       }
+      // 目标 decision 不在 open 列表 → 无效,不消费
+      if (!state.open.some((d) => d.id === edit.decision_id)) {
+        console.warn(`[decision-log] doAcceptEdit adjust-check-date: decision ${edit.decision_id} not open, skipping`)
+        return
+      }
+      state.open = applyAdjustCheckDate(state.open, edit.decision_id, edit.new_check_date)
+      await saveBoard(state.open)
       break
+    }
     case 'drop': {
-      const r = applyDrop(state.open, edit.decision_id, date)
+      // applyDrop 找不到 id 会抛错,catch 后不消费
+      let r: ReturnType<typeof applyDrop>
+      try {
+        r = applyDrop(state.open, edit.decision_id, date)
+      } catch (e) {
+        console.warn(`[decision-log] doAcceptEdit drop failed:`, e)
+        return
+      }
       state.open = r.open
       await saveBoard(state.open)
       await appendArchive(date, r.archived)
