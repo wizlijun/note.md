@@ -34,8 +34,9 @@ dist-plugins/
 *.block.md.tmp
 .dev.vars
 
-# Claude Code local project dir + Python bytecode caches
-.claude/
+# Claude Code local project dir (ignore all except shared project skills)
+.claude/*
+!.claude/skills/
 __pycache__/
 *.pyc
 
