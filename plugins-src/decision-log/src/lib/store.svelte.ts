@@ -1,9 +1,9 @@
-import { loadBoard, saveBoard, appendArchive, appendScore, loadScore, loadCandidates, loadArchives, consumeDiaryItem, removeArchived } from './host-io'
+import { loadBoard, saveBoard, appendArchive, appendScore, loadScore, loadCandidates, loadArchives, consumeDiaryItem, removeArchived, appendRejected } from './host-io'
 import { sign, verdict, incStrike, manualCreate, type SignInput, type VerdictInput } from './lifecycle'
 import { applyNote, applyAdjustCheckDate, applyDrop } from './edits'
 import { computeScoreboard, type Scoreboard } from './scoreboard'
 import type { OpenDecision, ArchivedDecision } from './model'
-import type { CandidateFile, EditDecision } from './candidate'
+import type { CandidateFile, EditDecision, NewCandidate } from './candidate'
 
 export const state = $state<{ open: OpenDecision[]; candidates: CandidateFile[]; archived: ArchivedDecision[]; score: Scoreboard | null; loading: boolean }>({
   open: [], candidates: [], archived: [], score: null, loading: true,
@@ -135,5 +135,38 @@ export async function doDismissClosure(decision_id: string, date: string): Promi
 }
 export async function doDismissCandidate(id: string, date: string): Promise<void> {
   await consumeDiaryItem(date, 'new_candidates', id, 'dismissed')
+  await refresh()
+}
+
+// ── 删除(不准):记入负向存储 decision/_rejected.json + 从来源文件消费(dismissed)隐藏 ──────
+
+/** 删候选:用户认为该新决策候选不准。记负向 + dismiss 来源 + refresh。 */
+export async function doRejectCandidate(candidate: NewCandidate, date: string): Promise<void> {
+  const today = new Date().toISOString().slice(0, 10)
+  await appendRejected({
+    type: 'candidate', title: candidate.title,
+    ...(candidate.quote ? { quote: candidate.quote } : {}),
+    rejected_at: today,
+  })
+  await consumeDiaryItem(date, 'new_candidates', candidate.id, 'dismissed')
+  await refresh()
+}
+
+/** 删裁决建议:用户认为该 closure 建议不准。记负向 + dismiss 来源 + refresh。 */
+export async function doRejectClosure(decision_id: string, date: string): Promise<void> {
+  const today = new Date().toISOString().slice(0, 10)
+  await appendRejected({ type: 'closure', decision_id, rejected_at: today })
+  await consumeDiaryItem(date, 'closures', decision_id, 'dismissed')
+  await refresh()
+}
+
+/** 删 edit 建议:用户认为该进展/编辑建议不准。记负向 + dismiss 来源 + refresh。 */
+export async function doRejectEdit(edit: EditDecision, date: string): Promise<void> {
+  const today = new Date().toISOString().slice(0, 10)
+  await appendRejected({
+    type: 'edit', decision_id: edit.decision_id, kind: edit.kind, summary: edit.summary,
+    rejected_at: today,
+  })
+  await consumeDiaryItem(date, 'edit_decisions', edit.decision_id, 'dismissed')
   await refresh()
 }
