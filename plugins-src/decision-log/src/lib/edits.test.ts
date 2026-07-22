@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { applyNote, applyAdjustCheckDate, applyDrop, markConsumed } from './edits'
+import { applyNote, applyAdjustCheckDate, applyDrop, markConsumed, appendRejectedJson } from './edits'
 import type { OpenDecision } from './model'
 
 const base: OpenDecision = {
@@ -93,5 +93,34 @@ describe('markConsumed', () => {
   })
   it('returns json unchanged on parse failure', () => {
     expect(markConsumed('not json', 'closures', 'x', 'accepted')).toBe('not json')
+  })
+})
+
+describe('appendRejectedJson', () => {
+  it('starts from {rejected:[]} on empty input and pushes entry', () => {
+    const out = JSON.parse(appendRejectedJson('', {
+      type: 'candidate', title: 'A', rejected_at: '2026-07-22',
+    }))
+    expect(out.rejected).toEqual([{ type: 'candidate', title: 'A', rejected_at: '2026-07-22' }])
+  })
+  it('appends onto an existing rejected array', () => {
+    const seed = JSON.stringify({ rejected: [{ type: 'closure', decision_id: 'x', rejected_at: '2026-07-20' }] })
+    const out = JSON.parse(appendRejectedJson(seed, {
+      type: 'edit', decision_id: 'e', kind: 'progress', summary: 's', rejected_at: '2026-07-22',
+    }))
+    expect(out.rejected).toHaveLength(2)
+    expect(out.rejected[1]).toEqual({ type: 'edit', decision_id: 'e', kind: 'progress', summary: 's', rejected_at: '2026-07-22' })
+  })
+  it('starts fresh on malformed JSON', () => {
+    const out = JSON.parse(appendRejectedJson('not json', { type: 'candidate', title: 'B', rejected_at: '2026-07-22' }))
+    expect(out.rejected).toEqual([{ type: 'candidate', title: 'B', rejected_at: '2026-07-22' }])
+  })
+  it('starts fresh when parsed object lacks a rejected array', () => {
+    const out = JSON.parse(appendRejectedJson('{"foo":1}', { type: 'candidate', title: 'C', rejected_at: '2026-07-22' }))
+    expect(out.rejected).toEqual([{ type: 'candidate', title: 'C', rejected_at: '2026-07-22' }])
+  })
+  it('pretty-prints with 2-space indent', () => {
+    const out = appendRejectedJson('', { type: 'candidate', title: 'A', rejected_at: '2026-07-22' })
+    expect(out).toContain('\n  "rejected"')
   })
 })

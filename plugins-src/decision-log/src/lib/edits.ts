@@ -2,6 +2,28 @@
 // All functions are pure (no I/O); callers inject date/now for determinism.
 import type { OpenDecision, ArchivedDecision } from './model'
 
+/** 负向存储的一条「不准」记录:用户拒绝的候选/建议,供 agent 后续避免重复建议。 */
+export interface RejectedEntry {
+  type: 'candidate' | 'closure' | 'edit'
+  decision_id?: string   // closure/edit
+  title?: string         // candidate
+  quote?: string         // candidate(便于 agent 匹配避免)
+  kind?: string          // edit
+  summary?: string       // edit
+  reason?: string        // 用户备注,默认省略
+  rejected_at: string    // date
+}
+
+/** 把一条 RejectedEntry 合并追加进 _rejected.json 字符串,返回新字符串(2 空格缩进)。
+ *  解析失败 / 无 rejected 数组 → 从 { rejected: [] } 起始,再 push。 */
+export function appendRejectedJson(json: string, entry: RejectedEntry): string {
+  let obj: any
+  try { obj = JSON.parse(json) } catch { obj = null }
+  if (!obj || typeof obj !== 'object' || !Array.isArray(obj.rejected)) obj = { rejected: [] }
+  obj.rejected.push(entry)
+  return JSON.stringify(obj, null, 2)
+}
+
 /** 给某未决决策追加一条进展笔记(不存在则原样返回,不改输入)。 */
 export function applyNote(open: OpenDecision[], id: string, date: string, text: string): OpenDecision[] {
   return open.map((d) =>
