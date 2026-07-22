@@ -36,6 +36,7 @@
         "custom_editors": [],
         "menus": [],
         "settings": null,
+        "tray": [],
         "windows": []
       },
       "allOf": [
@@ -143,6 +144,13 @@
         "settings": {
           "default": null
         },
+        "tray": {
+          "default": [],
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/TrayContribution"
+          }
+        },
         "windows": {
           "default": [],
           "type": "array",
@@ -171,6 +179,28 @@
         "native",
         "wasm"
       ]
+    },
+    "TrayContribution": {
+      "description": "一个托盘启动项：宿主在菜单栏 tray 下拉里加一条,点击打开该插件的窗口。",
+      "type": "object",
+      "required": [
+        "window"
+      ],
+      "properties": {
+        "label": {
+          "description": "托盘项文案；缺省用插件本地化名称（manifest `name` + `i18n.<locale>.name`）。",
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "window": {
+          "description": "要打开的窗口 id（须匹配某个 `contributes.windows[].id`）。",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
     },
     "WindowContribution": {
       "type": "object",

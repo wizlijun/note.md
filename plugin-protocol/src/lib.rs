@@ -59,6 +59,18 @@ pub struct Contributes {
     pub custom_editors: Vec<serde_json::Value>, // ④期消费
     pub settings: Option<serde_json::Value>,    // 语义同 v1 settings
     pub cli: Vec<serde_json::Value>,            // 语义同 v1 CliEntry
+    pub tray: Vec<TrayContribution>,            // 菜单栏托盘"插座"：把插件窗口挂到 tray（今天日记下方）
+}
+
+/// 一个托盘启动项：宿主在菜单栏 tray 下拉里加一条,点击打开该插件的窗口。
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct TrayContribution {
+    /// 要打开的窗口 id（须匹配某个 `contributes.windows[].id`）。
+    pub window: String,
+    /// 托盘项文案；缺省用插件本地化名称（manifest `name` + `i18n.<locale>.name`）。
+    #[serde(default)]
+    pub label: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]

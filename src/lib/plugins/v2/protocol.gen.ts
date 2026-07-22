@@ -41,7 +41,21 @@ export interface Contributes {
   settings?: {
     [k: string]: unknown;
   };
+  tray?: TrayContribution[];
   windows?: WindowContribution[];
+}
+/**
+ * 一个托盘启动项：宿主在菜单栏 tray 下拉里加一条,点击打开该插件的窗口。
+ */
+export interface TrayContribution {
+  /**
+   * 托盘项文案；缺省用插件本地化名称（manifest `name` + `i18n.<locale>.name`）。
+   */
+  label?: string | null;
+  /**
+   * 要打开的窗口 id（须匹配某个 `contributes.windows[].id`）。
+   */
+  window: string;
 }
 export interface WindowContribution {
   entry: string;

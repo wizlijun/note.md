@@ -1089,6 +1089,17 @@ pub fn run() {
                                 show_main_window(app);
                                 let _ = app.emit("tray-today-note", ());
                             }
+                            id if id.starts_with("tray-plugin:") => {
+                                // tray-plugin:<plugin_id>:<window> — plugin_id may
+                                // contain dots but neither part contains a colon.
+                                if let Some((plugin_id, window)) =
+                                    id["tray-plugin:".len()..].rsplit_once(':')
+                                {
+                                    let _ = crate::plugin_runtime::windows::open_plugin_window(
+                                        app, plugin_id, window,
+                                    );
+                                }
+                            }
                             "tray-sync-repo" => { pick_sync_folder(app); }
                             "tray-sync-now" => { let _ = vault_sync::vault_sync_now(app.clone()); }
                             "tray-sync-log" => { open_logs_window(app, Some("git-sync")); }
@@ -1406,12 +1417,50 @@ pub(crate) fn read_saved_locale<R: tauri::Runtime>(app: &tauri::AppHandle<R>) ->
 /// (dynamic) "Vault:" item, status item, and sync-now item so the caller can
 /// stash them for later updates. Event handling stays on the TrayIcon, so
 /// rebuilding just the menu preserves click behavior.
+/// A plugin's display name for the current locale: `i18n.<locale>.name` if the
+/// manifest provides it, else the manifest `name`.
+fn plugin_display_name(m: &plugin_protocol::ManifestV2, locale: &str) -> String {
+    m.i18n
+        .as_ref()
+        .and_then(|v| v.get(locale))
+        .and_then(|l| l.get("name"))
+        .and_then(|n| n.as_str())
+        .map(|s| s.to_string())
+        .unwrap_or_else(|| m.name.clone())
+}
+
 fn build_tray_menu<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
     locale: &str,
 ) -> tauri::Result<(Menu<R>, MenuItem<R>, IconMenuItem<R>, MenuItem<R>)> {
     let show_item = MenuItem::with_id(app, "tray-show", menu_label(locale, "tray.show"), true, None::<&str>)?;
     let today_note_item = MenuItem::with_id(app, "tray-today-note", menu_label(locale, "tray.todayNote"), true, None::<&str>)?;
+    // Tray "socket": every enabled plugin that declares `contributes.tray` gets a
+    // launch item here, directly below "Today's Note". The label is the entry's
+    // `label` or the plugin's localized name; clicking opens the plugin window.
+    let plugin_tray_items: Vec<MenuItem<R>> = {
+        let mut entries: Vec<(String, String, String)> = Vec::new(); // (plugin_id, window, label)
+        if let Ok(st) = crate::plugin_runtime::STATE.read() {
+            if st.enabled_flag {
+                for (id, (manifest, _dir)) in st.plugins.iter() {
+                    for tc in &manifest.contributes.tray {
+                        let label = tc
+                            .label
+                            .clone()
+                            .unwrap_or_else(|| plugin_display_name(manifest, locale));
+                        entries.push((id.clone(), tc.window.clone(), label));
+                    }
+                }
+            }
+        }
+        entries.sort_by(|a, b| a.2.cmp(&b.2)); // stable order by label
+        entries
+            .into_iter()
+            .filter_map(|(id, window, label)| {
+                MenuItem::with_id(app, format!("tray-plugin:{id}:{window}"), &label, true, None::<&str>).ok()
+            })
+            .collect()
+    };
     let sync_repo_label = {
         let mgr = app.state::<std::sync::Arc<vault_sync::VaultSyncManager>>();
         let guard = mgr.repo_path.lock().unwrap();
@@ -1478,7 +1527,11 @@ fn build_tray_menu<R: tauri::Runtime>(
     let open_books_item = MenuItem::with_id(app, "tray-open-books", menu_label(locale, "tray.openBooks"), true, None::<&str>)?;
     let open_raw_sync_item = MenuItem::with_id(app, "tray-open-raw-sync", menu_label(locale, "tray.openRawSync"), /*enabled=*/ false, None::<&str>)?;
     let quit_item = MenuItem::with_id(app, "tray-quit", menu_label(locale, "sys.quit"), true, None::<&str>)?;
-    let b = MenuBuilder::new(app).item(&show_item).item(&today_note_item).separator();
+    let mut b0 = MenuBuilder::new(app).item(&show_item).item(&today_note_item);
+    for it in &plugin_tray_items {
+        b0 = b0.item(it);
+    }
+    let b = b0.separator();
     let mut b2 = b
         .item(&sync_repo_item)
         .item(&status_item);
