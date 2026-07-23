@@ -391,9 +391,11 @@ fn show_insights_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
 }
 
 /// The single Daily Notes window's label.
+#[cfg(not(target_os = "ios"))]
 const DAILY_NOTES_LABEL: &str = "daily-notes";
 
 /// Ensure the single Daily Notes window exists; focus if already open.
+#[cfg(not(target_os = "ios"))]
 fn show_daily_notes_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
     use tauri::Manager;
     use tauri::WebviewUrl;
@@ -416,17 +418,18 @@ fn show_daily_notes_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
     }
 }
 
+#[cfg(not(target_os = "ios"))]
 #[tauri::command]
 fn open_daily_notes_window(app: tauri::AppHandle) {
     show_daily_notes_window(&app);
 }
 
+#[cfg(not(target_os = "ios"))]
 #[tauri::command]
 fn set_daily_notes_enabled(app: tauri::AppHandle, enabled: bool) {
     if let Some(st) = app.try_state::<DailyNotesEnabled>() {
         *st.0.lock().unwrap() = enabled;
     }
-    #[cfg(not(target_os = "ios"))]
     rebuild_menu(&app);
 }
 
