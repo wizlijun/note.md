@@ -159,6 +159,47 @@ describe('syncAutoItems — annotation note children', () => {
     expect(nodes.map(n => n.content).sort()).toEqual(['n', '原文'])
   })
 
+  it('editing the annotated ORIGINAL text updates in place — no note-child pile-up', () => {
+    // The wrapped annotation's content IS the 被批注原文, so revising that phrase
+    // changes content on every keystroke. Each debounced re-derive must keep the
+    // SAME synced annotation + its SAME single note child (same comment on the
+    // same line), not demote to manual and spawn a fresh pair each character.
+    const tree = createTree()
+    syncAutoItems(tree, deriveAutoItems('{==foo==}{>>my note<<}\n'))
+    const anno0 = [...tree.nodes.values()].filter(n => n.source === 'annotation')
+    expect(anno0).toHaveLength(1)
+    const annoId = anno0[0].id
+    const noteId = childrenOf(tree, annoId).find(c => c.source === 'note')!.id
+
+    syncAutoItems(tree, deriveAutoItems('{==foox==}{>>my note<<}\n'))
+    syncAutoItems(tree, deriveAutoItems('{==fooxy==}{>>my note<<}\n'))
+
+    const annos = [...tree.nodes.values()].filter(n => n.source === 'annotation')
+    const notes = [...tree.nodes.values()].filter(n => n.source === 'note')
+    const manuals = [...tree.nodes.values()].filter(n => n.source === 'manual')
+    expect(annos).toHaveLength(1)                 // still one synced annotation
+    expect(annos[0].id).toBe(annoId)              // same node, updated in place
+    expect(annos[0].content).toBe('fooxy')
+    expect(notes).toHaveLength(1)                 // single note child, not multiplied
+    expect(notes[0].id).toBe(noteId)
+    expect(notes[0].content).toBe('my note')
+    expect(manuals).toHaveLength(0)               // no residue pile-up
+  })
+
+  it('changing the annotation COMMENT while editing original still re-pairs by line', () => {
+    // Comment text is the re-pair identity; when only the original churns and the
+    // comment is stable, re-pair holds. (Editing the comment alone already matches
+    // via stable content and needs no re-pair.)
+    const tree = createTree()
+    syncAutoItems(tree, deriveAutoItems('{==foo==}{>>c<<}\n'))
+    const id0 = [...tree.nodes.values()].find(n => n.source === 'annotation')!.id
+    syncAutoItems(tree, deriveAutoItems('{==foobar==}{>>c<<}\n'))
+    const annos = [...tree.nodes.values()].filter(n => n.source === 'annotation')
+    expect(annos).toHaveLength(1)
+    expect(annos[0].id).toBe(id0)
+    expect(annos[0].content).toBe('foobar')
+  })
+
   it('keeps manual children of an annotation node alongside the note child', () => {
     const tree = createTree()
     syncAutoItems(tree, [{ source: 'annotation', content: '原文', note: 'n', depth: 0, anchorLine: 1 }])
