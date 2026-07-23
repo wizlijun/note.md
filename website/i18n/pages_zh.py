@@ -286,4 +286,82 @@ gh repo create my-vault --private --source=. --push</code></pre>
    "会一点就够。三条命令覆盖日常（add、commit、push），note.md 的同步功能把大部分都藏了起来。回报——你写下的每个念头的完整历史——大得不成比例。"),
  ],
 },
+{
+ "path": "/integrations/chatgpt-work/",
+ "title": "用 note.md 搭配 ChatGPT（工作模式）—— 生成到一个属于你的 vault 里",
+ "desc": "ChatGPT 的工作模式能连接你的文件夹，擅长起草和生图。把它指向一个 note.md vault，它做出来的一切就都成了你能阅读、批注、留存的 markdown。",
+ "crumb": "集成",
+ "h1": "note.md + ChatGPT（工作模式）",
+ "lead": "ChatGPT 是大多数人手边最强的通才——擅长起草、总结、生成图片。note.md 给它的产物一个永久的家：你的 vault、你的文件，再加上你的判断。",
+ "sections": [
+  ("为什么这对搭档成立", """<p>ChatGPT 的工作模式能连接文件夹和文件，在流水线的生成一端最出彩：把粗略的大纲变成初稿、把一摞文档总结出来，以及——越来越多地——批量生成图片和图表。放任不管，这些产出就住在一条你迟早会弄丢的对话里。把它指向一个 note.md vault，每份成果就作为纯 markdown 落地（图片就在旁边），正好被你的阅读-批注循环接住。</p>
+<p>这正是“一个 vault，多个 agent”开始回本的地方：ChatGPT 很少是你唯一的 agent。它是你伸手去<em>生产</em>时用的那个快通才——而审阅、长跑自动化、以及最终判断，都可以各自交给最擅长的那一位。同一批文件，不同的工人。</p>"""),
+  ("配置", """<ol>
+<li>把 vault 放在 ChatGPT 够得着的文件夹里——一个 OpenAI 连接的文件夹，或一个它能读写的云 / git 同步目录。</li>
+<li>在 vault 根放一个 <code>AGENTS.md</code>（约定摘要见 <a href="/llms-full.txt">llms-full.txt</a>），并把同样的 house rules 贴进 ChatGPT 的项目指令——它不像 CLI agent 那样自动读文件，所以要主动告诉它。</li>
+<li>让它把成果按日期存成 markdown，例如 <code>drafts/2026-07-23-launch-post.md</code>，生成的图片用相对链接放进 <code>{docname}_files/</code>。</li>
+<li>在 note.md 里打开结果；阅读、高亮、发问——你的标记落进伴生的 <code>.note.md</code>，原文保持干净、可再生成。</li>
+</ol>"""),
+  ("循环跑起来是什么样", """<p>你让 ChatGPT 起草一篇发布稿并生成三张主图；它写出 <code>drafts/launch-post.md</code>，填满一个 <code>_files/</code> 文件夹。你在 note.md 里读它，删掉两张图，把一段夸大的话高亮，留一句批注。接着把 <code>launch-post.note.md</code> 交给一个更谨慎的审阅 agent——“照我的批注改”。ChatGPT 生成得快；vault 留住了它；你做了判断。这就是分工。</p>"""),
+ ],
+ "faq": [
+  ("ChatGPT 会自动读 AGENTS.md 吗？",
+   "不像 CLI agent（Codex、Claude Code）那样自动读。把 vault 约定贴进 ChatGPT 的项目或自定义指令，并把它指向 AGENTS.md 文件，它就会遵守同一套 house rules——伴生文件不许碰，新活儿写成带日期的 markdown。"),
+  ("ChatGPT 生成的图片能住进我的 vault 吗？",
+   "能。把它们和文档并排放进 {docname}_files/ 文件夹、用相对链接——和 note.md 处理粘贴截图是同一套约定。它们会在阅读视图里渲染，并随 vault 一起进 git。"),
+  ("我必须只选一个 agent 吗？",
+   "不必——这正是重点。快速生成用 ChatGPT，仔细审阅用另一个 agent，私密工作用本地 agent。它们通过文件协作，你来编排。见编排指南。"),
+ ],
+},
+{
+ "path": "/orchestrate-agents/",
+ "title": "一个 vault，多个 agent —— 编排 Cowork、Codex、OpenClaw 与 ChatGPT（2026）",
+ "desc": "你的 markdown vault 是一个给 agent 用的 git 仓库。Claude Cowork、Claude Code、Codex、ChatGPT、OpenClaw、Hermes 都能读写同一批文件——所以你按谁擅长什么、用哪个模型来派活儿，把判断留给自己。",
+ "crumb": "指南",
+ "h1": "一个 vault，多个 agent。你是编排者。",
+ "lead": "没人提醒你的那种锁定，不是应用——是 agent。把知识放在纯文件里，就没有哪个 AI 拥有它。Cowork 起草，Codex 重构，ChatGPT 生成，本地 agent 看守你的秘密——而握笔的是你。",
+ "sections": [
+  ("vault 是中立地带", """<p>大多数 AI 工具想成为你思考的家：知识进它的数据库，批注进它的格式，agent 是它自带的那一个，模型是它锁定你的那一款。于是“用哪个 AI？”变成了“要不要把一切都搬走？”——你被圈进单一供应商的路线图里。</p>
+<p>note.md 的 vault 把它翻了过来。vault 是一个带公共约定的纯 markdown 文件夹——一个讲 house rules 的 <code>AGENTS.md</code>、用来精确引用的 <code>((file#b-xxxxxx))</code> 块引用、装着<em>你的</em>判断的伴生 <code>.note.md</code>、以及构成单一命名空间的 <code>[[wikilinks]]</code>。这些约定是一套<b>公共协议</b>：任何 agent 都读得懂，不需要适配器。agent 和模型成了可替换的工人；唯一不变的是 vault。它是个 git 仓库，它们都往里 commit。</p>"""),
+  ("谁擅长什么，就派谁", """<p>没有一个 agent 什么都最强。所以别让一个 agent 干所有事——搭一条流水线，把每个工具放到它最强的工位上：</p>
+<table><thead><tr><th>环节</th><th>合适的人选</th><th>为什么</th></tr></thead><tbody>
+<tr><td>夜间自动化</td><td>OpenClaw / Hermes</td><td>长跑、基于文件、自托管记忆</td></tr>
+<tr><td>仔细审阅与修订</td><td>Claude Cowork / Code</td><td>推理强；动笔前先读你的批注</td></tr>
+<tr><td>快速起草与生图</td><td>ChatGPT（工作模式）</td><td>通才式生成，批量出图</td></tr>
+<tr><td>仓库内重构与脚本</td><td>Codex</td><td>原生 <code>AGENTS.md</code>，在工作目录里跑</td></tr>
+<tr><td>最终判断</td><td>你</td><td>唯一没有模型能生成的东西</td></tr>
+</tbody></table>
+<p>你按活儿挑 agent <em>和</em>模型——便宜快模型做分诊，前沿模型做推理，本地模型处理一切私密内容。vault 不在乎用哪个；它只负责保管它们相互传递的文件。</p>"""),
+  ("一个真实的循环", """<p>这是一条真实的流水线，四个工具、三种模型，跑在一个 vault 上：</p>
+<ol>
+<li><b>OpenClaw</b> 夜里长跑，把一批原始笔记处理成 <code>drafts/*.md</code>。</li>
+<li>你把这些初稿交给用谨慎模型的 <b>Claude Cowork</b>——“审阅并修订这些，把不牢靠的地方标出来”。</li>
+<li><b>ChatGPT</b> 批量生成主图，放进每篇文档的 <code>_files/</code> 文件夹。</li>
+<li>成稿落进 note.md，在那里<b>你</b>阅读它们，砍掉夸大的部分，高亮要紧的地方，留下只有你写得出的批注。</li>
+</ol>
+<p>四个工具、三种模型、一个 vault、一个编排者。没人需要共享记忆或说某家的私有协议——它们在磁盘上传递 <code>.md</code> 文件，而你的伴生 <code>.note.md</code> 批注，就是给下一位的转向信号。</p>"""),
+  ("为什么靠文件才行得通", """<ul>
+<li><b>反锁定，再深一层。</b>file-over-app 把你从应用里解放出来；这一条把你从 agent 和模型里解放出来。今天最强的模型下个月就被换掉——你的知识不该跟着它走。</li>
+<li><b>不靠平台的协作。</b>agent 在磁盘上传递 <code>.md</code>——没有共享内存，没有私有 API，没有插件商店。一个 agent 的产出就是下一个的输入。</li>
+<li><b>你始终在环内,守在检查点。</b>它不是一头跑到尾的黑箱;而是一条有人守在质检口的多工位流水线。agent 写、审、配图——拍板发布的是你。</li>
+<li><b>仍然只是文件。</b>没有编排数据库，没有隐藏状态。规则在 <code>AGENTS.md</code>，产出在 <code>.md</code>，判断在 <code>.note.md</code>——Obsidian、CLI、任何 agent 都能读。换掉 note.md，这个 vault 照样是所有人的公共工作区。</li>
+</ul>
+<p>把 vault 放进 <a href="/guides/vault-on-github/">git</a>，每一次 agent 写入都可 diff、可归属、可回滚——agent 的糟糕一天，是一次 <code>git revert</code>，而不是一场事故。</p>"""),
+  ("动手搭起来", """<ol>
+<li>在 vault 根放一个 <code>AGENTS.md</code>——从 <a href="/llms-full.txt">llms-full.txt</a> 取来约定，再加上 house rules（最硬的一条：agent 绝不写进 <code>*.note.md</code> 伴生文件）。</li>
+<li>把每个 agent 都接到同一个文件夹上:<a href="/integrations/openclaw/">OpenClaw</a>、<a href="/integrations/cowork/">Cowork</a>、<a href="/integrations/codex/">Codex</a>、<a href="/integrations/chatgpt-work/">ChatGPT</a>、<a href="/integrations/hermes/">Hermes</a>。</li>
+<li>在 note.md 里阅读并批注结果；让下一个 agent 先读伴生文件。循环在你的磁盘上闭合。</li>
+</ol>"""),
+ ],
+ "faq": [
+  ("不同的 AI agent 真的能共享一个 vault 吗？",
+   "能——这就是设计。vault 是纯 markdown 加一个描述约定的 AGENTS.md。Claude Cowork、Claude Code、Codex、ChatGPT、OpenClaw、Hermes 都读写这些文件，所以你能把每项任务路由给最合适的 agent（和模型）。把 vault 放进 git，每次写入都可 diff、可回滚。"),
+  ("agent 之间怎么把活儿交接给彼此？",
+   "通过文件。一个 agent 把 markdown 写进 vault；下一个把它当输入读。你的批注住在伴生的 .note.md 文件里，充当转向信号——agent 在下一轮之前先读你的批注。不需要共享内存或私有协议。"),
+  ("这需要专门的编排工具或 MCP server 吗？",
+   "不需要。编排者是你，介质是文件系统。没有中枢数据库、没有隐藏状态——规则在 AGENTS.md，产出在 .md，判断在 .note.md。给偏好工具接口的 agent 准备的 Vault MCP server 在路线图上，但纯文件今天就能用。"),
+  ("为什么不干脆用一个 AI 包办一切？",
+   "因为没有一个 agent 什么都最强。夜间自动化、仔细审阅、快速生图、私密的本地工作、最终判断，是各有最佳工具的不同活儿。把它们分给各路专家——在你自己拥有的文件之上——胜过一个通才一把梭，还让你随时能换掉任何一个工人。"),
+ ],
+},
 ]

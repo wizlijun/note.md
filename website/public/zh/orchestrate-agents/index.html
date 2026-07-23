@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<!-- Hello, agent. The plain-text version of this site is at /llms.txt -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>一个 vault，多个 agent —— 编排 Cowork、Codex、OpenClaw 与 ChatGPT（2026）</title>
+<meta name="description" content="你的 markdown vault 是一个给 agent 用的 git 仓库。Claude Cowork、Claude Code、Codex、ChatGPT、OpenClaw、Hermes 都能读写同一批文件——所以你按谁擅长什么、用哪个模型来派活儿，把判断留给自己。">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="canonical" href="https://notemd.net/zh/orchestrate-agents/">
+<link rel="alternate" hreflang="en" href="https://notemd.net/orchestrate-agents/">
+<link rel="alternate" hreflang="de" href="https://notemd.net/de/orchestrate-agents/">
+<link rel="alternate" hreflang="ja" href="https://notemd.net/ja/orchestrate-agents/">
+<link rel="alternate" hreflang="zh" href="https://notemd.net/zh/orchestrate-agents/">
+<link rel="alternate" hreflang="x-default" href="https://notemd.net/orchestrate-agents/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=EB+Garamond:ital,wght@0,400..700;1,400..700&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "不同的 AI agent 真的能共享一个 vault 吗？", "acceptedAnswer": {"@type": "Answer", "text": "能——这就是设计。vault 是纯 markdown 加一个描述约定的 AGENTS.md。Claude Cowork、Claude Code、Codex、ChatGPT、OpenClaw、Hermes 都读写这些文件，所以你能把每项任务路由给最合适的 agent（和模型）。把 vault 放进 git，每次写入都可 diff、可回滚。"}}, {"@type": "Question", "name": "agent 之间怎么把活儿交接给彼此？", "acceptedAnswer": {"@type": "Answer", "text": "通过文件。一个 agent 把 markdown 写进 vault；下一个把它当输入读。你的批注住在伴生的 .note.md 文件里，充当转向信号——agent 在下一轮之前先读你的批注。不需要共享内存或私有协议。"}}, {"@type": "Question", "name": "这需要专门的编排工具或 MCP server 吗？", "acceptedAnswer": {"@type": "Answer", "text": "不需要。编排者是你，介质是文件系统。没有中枢数据库、没有隐藏状态——规则在 AGENTS.md，产出在 .md，判断在 .note.md。给偏好工具接口的 agent 准备的 Vault MCP server 在路线图上，但纯文件今天就能用。"}}, {"@type": "Question", "name": "为什么不干脆用一个 AI 包办一切？", "acceptedAnswer": {"@type": "Answer", "text": "因为没有一个 agent 什么都最强。夜间自动化、仔细审阅、快速生图、私密的本地工作、最终判断，是各有最佳工具的不同活儿。把它们分给各路专家——在你自己拥有的文件之上——胜过一个通才一把梭，还让你随时能换掉任何一个工人。"}}]}</script>
+<style>
+:root{--ink:#17181C;--paper:#FAFAF7;--amber:#F59E0B;--gray:#9CA3AF;--line:#E7E5E0;
+--serif:"Playfair Display",Georgia,serif;--body:"EB Garamond",Georgia,serif;
+--mono:"Courier Prime","Courier New",monospace;}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--body);background:var(--paper);color:var(--ink);line-height:1.7;font-size:17.5px;-webkit-font-smoothing:antialiased}
+a{color:inherit}
+.wrap{max-width:880px;margin:0 auto;padding:0 28px}
+nav{position:sticky;top:0;z-index:50;background:rgba(23,24,28,.9);backdrop-filter:blur(12px);border-bottom:1px solid #26282F}
+.nav-in{display:flex;align-items:center;gap:24px;height:60px;color:var(--paper)}
+.logo{display:flex;align-items:center;gap:10px;font-weight:700;font-size:16px;font-family:var(--mono);text-decoration:none}
+.logo .dot{color:var(--amber)}
+.nav-cta{font-family:var(--mono);background:var(--amber);color:var(--ink);font-weight:700;font-size:13px;padding:7px 16px;border-radius:8px;text-decoration:none}
+.npl{font-family:var(--mono);font-size:13px;color:#B9BDC7;text-decoration:none;border-bottom:1px dotted transparent;padding-bottom:2px}
+.npl:hover{color:#fff;border-bottom-color:var(--amber)}
+header.ph{background:var(--ink);color:var(--paper);padding:72px 0 64px}
+.crumb{font-family:var(--mono);font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--amber);margin-bottom:20px}
+h1{font-family:var(--serif);font-size:42px;line-height:1.15;font-weight:700;margin-bottom:18px}
+.lead{font-size:19px;color:#C3C7CF;font-style:italic;max-width:640px}
+main{padding:56px 0 24px}
+h2{font-family:var(--serif);font-size:28px;margin:44px 0 14px;font-weight:700}
+p{margin:0 0 16px;color:#33363D}
+li{margin:0 0 10px;color:#33363D}
+ul,ol{padding-left:24px;margin:0 0 18px}
+table{width:100%;border-collapse:collapse;margin:26px 0;font-size:16px}
+th,td{border:1px solid var(--line);padding:12px 14px;text-align:left;vertical-align:top}
+th{font-family:var(--mono);font-size:13px;letter-spacing:.04em;background:#fff}
+td:first-child{font-weight:600;width:22%}
+tr td:nth-child(2){background:#FFF9EE}
+code,.mono{font-family:var(--mono);font-size:.92em}
+pre{background:var(--ink);color:#E8E9EB;padding:18px 20px;border-radius:10px;overflow-x:auto;margin:0 0 18px;font-size:14px;line-height:1.6}
+pre code{color:inherit}
+.faq h3{font-family:var(--serif);font-size:19px;margin:22px 0 6px}
+.cta{background:var(--ink);color:var(--paper);text-align:center;padding:64px 0;margin-top:64px}
+.cta h2{margin:0 0 10px;font-style:italic}
+.cta p{color:#C3C7CF}
+.btn{display:inline-block;margin-top:18px;background:var(--amber);color:var(--ink);font-family:var(--mono);font-weight:700;font-size:14.5px;padding:13px 26px;border-radius:10px;text-decoration:none}
+footer{background:var(--ink);color:#7C8290;font-size:13.5px;padding:34px 0 44px}
+.flinks{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-bottom:26px}
+.flinks b{display:block;font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#9CA3AF;margin-bottom:8px}
+.flinks a{display:block;color:#B9BDC7;text-decoration:none;margin-bottom:5px}
+.flinks a:hover{color:#fff}
+.fbase{border-top:1px solid #26282F;padding-top:18px;font-family:var(--mono);font-size:12.5px}
+html[lang="zh"]{--serif:"Playfair Display","Songti SC","Noto Serif SC",STSong,serif;--body:"EB Garamond","Songti SC","Noto Serif SC",STSong,serif}
+html[lang="zh"] .lead{font-style:normal}
+html[lang="ja"]{--serif:"Playfair Display","Hiragino Mincho ProN","Noto Serif JP",serif;--body:"EB Garamond","Hiragino Mincho ProN","Noto Serif JP",serif}
+html[lang="ja"] .lead{font-style:normal}
+.lang-sw{margin-left:auto;display:flex;gap:12px;font-family:var(--mono);font-size:12px;color:#7C8290}
+.lang-sw a{text-decoration:none;padding-bottom:2px;border-bottom:1px dotted transparent}
+.lang-sw a:hover{color:#fff}
+.lang-sw a.on{color:var(--amber);border-bottom-color:var(--amber)}
+@media(max-width:720px){
+h1{font-size:28px}
+h2{font-size:22px}
+.flinks{grid-template-columns:1fr}
+.nav-cta{display:none}
+.nav-in{gap:12px;height:54px}
+.logo{font-size:15px}
+.lang-sw{gap:9px;font-size:11.5px;white-space:nowrap}
+header.ph{padding:48px 0 42px}
+.lead{font-size:17px}
+main{padding:40px 0 16px}
+table{display:block;overflow-x:auto}
+td:first-child{min-width:110px}
+td,th{padding:10px 11px;font-size:14.5px}
+pre{font-size:12.5px;padding:14px 15px}
+.cta{padding:48px 0;margin-top:48px}
+.btn{width:calc(100% - 56px)}
+}
+</style>
+</head>
+<body>
+<nav><div class="wrap nav-in">
+<a class="logo" href="/zh/"><svg width="24" height="24" viewBox="0 0 512 512" aria-hidden="true"><rect width="512" height="512" rx="115" fill="#17181C" stroke="#3A3D46" stroke-width="14"/><path d="M 185.49318,76.468676 C 202.86539,165.0158 220.23759,183.99019 301.30788,202.96457 220.23759,221.93895 202.86539,240.91333 185.49318,329.46046 168.12097,240.91333 150.74877,221.93895 69.67847,202.96457 150.74877,183.99019 168.12097,165.0158 185.49318,76.468676 Z" fill="#F59E0B"/><rect x="260.643" y="239.444" width="186.136" height="48" rx="29.39" fill="#FAFAF7"/><circle cx="289.722" cy="342.122" r="28.414" fill="#9CA3AF"/><rect x="333.7" y="324.65" width="112.797" height="40" rx="26.856" fill="#9CA3AF"/><circle cx="288.251" cy="420.101" r="28.414" fill="#9CA3AF"/><rect x="336.022" y="403.894" width="109.256" height="40" rx="26.013" fill="#9CA3AF"/></svg><span>note<span class="dot">.</span>md</span></a>
+<a class="npl" href="https://plugins.notemd.net">插件</a>
+<div class="lang-sw"><a href="/orchestrate-agents/">EN</a><a href="/de/orchestrate-agents/">DE</a><a href="/ja/orchestrate-agents/">日本語</a><a href="/zh/orchestrate-agents/" class=on>中文</a></div>
+<a class="nav-cta" href="/download">下载</a>
+</div></nav>
+<header class="ph"><div class="wrap">
+<div class="crumb">指南</div>
+<h1>一个 vault，多个 agent。你是编排者。</h1>
+<p class="lead">没人提醒你的那种锁定，不是应用——是 agent。把知识放在纯文件里，就没有哪个 AI 拥有它。Cowork 起草，Codex 重构，ChatGPT 生成，本地 agent 看守你的秘密——而握笔的是你。</p>
+</div></header>
+<main><div class="wrap">
+
+<h2>vault 是中立地带</h2><p>大多数 AI 工具想成为你思考的家：知识进它的数据库，批注进它的格式，agent 是它自带的那一个，模型是它锁定你的那一款。于是“用哪个 AI？”变成了“要不要把一切都搬走？”——你被圈进单一供应商的路线图里。</p>
+<p>note.md 的 vault 把它翻了过来。vault 是一个带公共约定的纯 markdown 文件夹——一个讲 house rules 的 <code>AGENTS.md</code>、用来精确引用的 <code>((file#b-xxxxxx))</code> 块引用、装着<em>你的</em>判断的伴生 <code>.note.md</code>、以及构成单一命名空间的 <code>[[wikilinks]]</code>。这些约定是一套<b>公共协议</b>：任何 agent 都读得懂，不需要适配器。agent 和模型成了可替换的工人；唯一不变的是 vault。它是个 git 仓库，它们都往里 commit。</p><h2>谁擅长什么，就派谁</h2><p>没有一个 agent 什么都最强。所以别让一个 agent 干所有事——搭一条流水线，把每个工具放到它最强的工位上：</p>
+<table><thead><tr><th>环节</th><th>合适的人选</th><th>为什么</th></tr></thead><tbody>
+<tr><td>夜间自动化</td><td>OpenClaw / Hermes</td><td>长跑、基于文件、自托管记忆</td></tr>
+<tr><td>仔细审阅与修订</td><td>Claude Cowork / Code</td><td>推理强；动笔前先读你的批注</td></tr>
+<tr><td>快速起草与生图</td><td>ChatGPT（工作模式）</td><td>通才式生成，批量出图</td></tr>
+<tr><td>仓库内重构与脚本</td><td>Codex</td><td>原生 <code>AGENTS.md</code>，在工作目录里跑</td></tr>
+<tr><td>最终判断</td><td>你</td><td>唯一没有模型能生成的东西</td></tr>
+</tbody></table>
+<p>你按活儿挑 agent <em>和</em>模型——便宜快模型做分诊，前沿模型做推理，本地模型处理一切私密内容。vault 不在乎用哪个；它只负责保管它们相互传递的文件。</p><h2>一个真实的循环</h2><p>这是一条真实的流水线，四个工具、三种模型，跑在一个 vault 上：</p>
+<ol>
+<li><b>OpenClaw</b> 夜里长跑，把一批原始笔记处理成 <code>drafts/*.md</code>。</li>
+<li>你把这些初稿交给用谨慎模型的 <b>Claude Cowork</b>——“审阅并修订这些，把不牢靠的地方标出来”。</li>
+<li><b>ChatGPT</b> 批量生成主图，放进每篇文档的 <code>_files/</code> 文件夹。</li>
+<li>成稿落进 note.md，在那里<b>你</b>阅读它们，砍掉夸大的部分，高亮要紧的地方，留下只有你写得出的批注。</li>
+</ol>
+<p>四个工具、三种模型、一个 vault、一个编排者。没人需要共享记忆或说某家的私有协议——它们在磁盘上传递 <code>.md</code> 文件，而你的伴生 <code>.note.md</code> 批注，就是给下一位的转向信号。</p><h2>为什么靠文件才行得通</h2><ul>
+<li><b>反锁定，再深一层。</b>file-over-app 把你从应用里解放出来；这一条把你从 agent 和模型里解放出来。今天最强的模型下个月就被换掉——你的知识不该跟着它走。</li>
+<li><b>不靠平台的协作。</b>agent 在磁盘上传递 <code>.md</code>——没有共享内存，没有私有 API，没有插件商店。一个 agent 的产出就是下一个的输入。</li>
+<li><b>你始终在环内,守在检查点。</b>它不是一头跑到尾的黑箱;而是一条有人守在质检口的多工位流水线。agent 写、审、配图——拍板发布的是你。</li>
+<li><b>仍然只是文件。</b>没有编排数据库，没有隐藏状态。规则在 <code>AGENTS.md</code>，产出在 <code>.md</code>，判断在 <code>.note.md</code>——Obsidian、CLI、任何 agent 都能读。换掉 note.md，这个 vault 照样是所有人的公共工作区。</li>
+</ul>
+<p>把 vault 放进 <a href="/guides/vault-on-github/">git</a>，每一次 agent 写入都可 diff、可归属、可回滚——agent 的糟糕一天，是一次 <code>git revert</code>，而不是一场事故。</p><h2>动手搭起来</h2><ol>
+<li>在 vault 根放一个 <code>AGENTS.md</code>——从 <a href="/llms-full.txt">llms-full.txt</a> 取来约定，再加上 house rules（最硬的一条：agent 绝不写进 <code>*.note.md</code> 伴生文件）。</li>
+<li>把每个 agent 都接到同一个文件夹上:<a href="/integrations/openclaw/">OpenClaw</a>、<a href="/integrations/cowork/">Cowork</a>、<a href="/integrations/codex/">Codex</a>、<a href="/integrations/chatgpt-work/">ChatGPT</a>、<a href="/integrations/hermes/">Hermes</a>。</li>
+<li>在 note.md 里阅读并批注结果；让下一个 agent 先读伴生文件。循环在你的磁盘上闭合。</li>
+</ol>
+<section class="faq"><h2>FAQ</h2><h3>不同的 AI agent 真的能共享一个 vault 吗？</h3><p>能——这就是设计。vault 是纯 markdown 加一个描述约定的 AGENTS.md。Claude Cowork、Claude Code、Codex、ChatGPT、OpenClaw、Hermes 都读写这些文件，所以你能把每项任务路由给最合适的 agent（和模型）。把 vault 放进 git，每次写入都可 diff、可回滚。</p><h3>agent 之间怎么把活儿交接给彼此？</h3><p>通过文件。一个 agent 把 markdown 写进 vault；下一个把它当输入读。你的批注住在伴生的 .note.md 文件里，充当转向信号——agent 在下一轮之前先读你的批注。不需要共享内存或私有协议。</p><h3>这需要专门的编排工具或 MCP server 吗？</h3><p>不需要。编排者是你，介质是文件系统。没有中枢数据库、没有隐藏状态——规则在 AGENTS.md，产出在 .md，判断在 .note.md。给偏好工具接口的 agent 准备的 Vault MCP server 在路线图上，但纯文件今天就能用。</p><h3>为什么不干脆用一个 AI 包办一切？</h3><p>因为没有一个 agent 什么都最强。夜间自动化、仔细审阅、快速生图、私密的本地工作、最终判断，是各有最佳工具的不同活儿。把它们分给各路专家——在你自己拥有的文件之上——胜过一个通才一把梭，还让你随时能换掉任何一个工人。</p></section>
+</div></main>
+<section class="cta"><div class="wrap">
+<h2>拥有你的思考。</h2>
+<p>免费。开源。你 Mac 上的一个 markdown 文件夹。</p>
+<a class="btn" href="/download">下载 macOS 版</a>
+</div></section>
+<footer><div class="wrap">
+<div class="flinks">
+<div><b>对比</b>
+<a href="/zh/compare/roam-research/">note.md vs Roam Research</a>
+<a href="/zh/compare/obsidian/">note.md vs Obsidian</a>
+<a href="/zh/compare/notion/">note.md vs Notion</a></div>
+<div><b>集成</b>
+<a href="/zh/integrations/openclaw/">OpenClaw</a>
+<a href="/zh/integrations/cowork/">Claude Cowork</a>
+<a href="/zh/integrations/codex/">Codex</a>
+<a href="/zh/integrations/chatgpt-work/">ChatGPT Work</a>
+<a href="/zh/integrations/hermes/">Hermes</a></div>
+<div><b>指南</b>
+<a href="/zh/orchestrate-agents/">一个 vault，多个 agent</a>
+<a href="/zh/guides/share-on-cloudflare/">Cloudflare 免费分享</a>
+<a href="/zh/guides/vault-on-github/">GitHub 托管 vault</a>
+<a href="/llms.txt">llms.txt（给 agent）</a></div>
+</div>
+<div class="fbase">note<span style="color:var(--amber)">.</span>md — <a href="/zh/" style="color:#B9BDC7">notemd.net</a> · 文字永存。你对它的看法也是。</div>
+</div></footer>
+</body>
+</html>

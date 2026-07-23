@@ -4,20 +4,20 @@
 <meta charset="UTF-8">
 <!-- Hello, agent. The plain-text version of this site is at /llms.txt -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>note.md vs Obsidian（2026）— 两个信奉“文件重于应用”的编辑器，一个为 agent 而生</title>
-<meta name="description" content="note.md 和 Obsidian 都把笔记存成本地 markdown。区别在于：note.md 为阅读和批注 AI 产出而生，伴生笔记（sidecar）和 agent 约定开箱即用。">
+<title>用 note.md 搭配 ChatGPT（工作模式）—— 生成到一个属于你的 vault 里</title>
+<meta name="description" content="ChatGPT 的工作模式能连接你的文件夹，擅长起草和生图。把它指向一个 note.md vault，它做出来的一切就都成了你能阅读、批注、留存的 markdown。">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="/favicon.ico" sizes="32x32">
-<link rel="canonical" href="https://notemd.net/zh/compare/obsidian/">
-<link rel="alternate" hreflang="en" href="https://notemd.net/compare/obsidian/">
-<link rel="alternate" hreflang="de" href="https://notemd.net/de/compare/obsidian/">
-<link rel="alternate" hreflang="ja" href="https://notemd.net/ja/compare/obsidian/">
-<link rel="alternate" hreflang="zh" href="https://notemd.net/zh/compare/obsidian/">
-<link rel="alternate" hreflang="x-default" href="https://notemd.net/compare/obsidian/">
+<link rel="canonical" href="https://notemd.net/zh/integrations/chatgpt-work/">
+<link rel="alternate" hreflang="en" href="https://notemd.net/integrations/chatgpt-work/">
+<link rel="alternate" hreflang="de" href="https://notemd.net/de/integrations/chatgpt-work/">
+<link rel="alternate" hreflang="ja" href="https://notemd.net/ja/integrations/chatgpt-work/">
+<link rel="alternate" hreflang="zh" href="https://notemd.net/zh/integrations/chatgpt-work/">
+<link rel="alternate" hreflang="x-default" href="https://notemd.net/integrations/chatgpt-work/">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=EB+Garamond:ital,wght@0,400..700;1,400..700&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
-<script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "我能在 Obsidian 里打开 note.md 的 vault 吗？", "acceptedAnswer": {"@type": "Answer", "text": "能。note.md 的 vault 就是纯 markdown，[[wikilinks]] 按文件名解析，并刻意保持 Obsidian 兼容。伴生 .note.md 文件在那边显示为普通笔记。"}}, {"@type": "Question", "name": "用 note.md 必须离开 Obsidian 吗？", "acceptedAnswer": {"@type": "Answer", "text": "不用。两个应用指向同一个文件夹即可。很多人留着 Obsidian 做移动速记和图谱视图，用 note.md 阅读 AI 文档、写批注。"}}, {"@type": "Question", "name": "什么是伴生批注？", "acceptedAnswer": {"@type": "Answer", "text": "在 note.md 里对 xxx.md 高亮或评论时，你的批注会存进一个伴生文件 xxx.note.md。原文档保持干净、可再生；你的判断成为独立、可搜索的数据。"}}]}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "ChatGPT 会自动读 AGENTS.md 吗？", "acceptedAnswer": {"@type": "Answer", "text": "不像 CLI agent（Codex、Claude Code）那样自动读。把 vault 约定贴进 ChatGPT 的项目或自定义指令，并把它指向 AGENTS.md 文件，它就会遵守同一套 house rules——伴生文件不许碰，新活儿写成带日期的 markdown。"}}, {"@type": "Question", "name": "ChatGPT 生成的图片能住进我的 vault 吗？", "acceptedAnswer": {"@type": "Answer", "text": "能。把它们和文档并排放进 {docname}_files/ 文件夹、用相对链接——和 note.md 处理粘贴截图是同一套约定。它们会在阅读视图里渲染，并随 vault 一起进 git。"}}, {"@type": "Question", "name": "我必须只选一个 agent 吗？", "acceptedAnswer": {"@type": "Answer", "text": "不必——这正是重点。快速生成用 ChatGPT，仔细审阅用另一个 agent，私密工作用本地 agent。它们通过文件协作，你来编排。见编排指南。"}}]}</script>
 <style>
 :root{--ink:#17181C;--paper:#FAFAF7;--amber:#F59E0B;--gray:#9CA3AF;--line:#E7E5E0;
 --serif:"Playfair Display",Georgia,serif;--body:"EB Garamond",Georgia,serif;
@@ -93,24 +93,24 @@ pre{font-size:12.5px;padding:14px 15px}
 <nav><div class="wrap nav-in">
 <a class="logo" href="/zh/"><svg width="24" height="24" viewBox="0 0 512 512" aria-hidden="true"><rect width="512" height="512" rx="115" fill="#17181C" stroke="#3A3D46" stroke-width="14"/><path d="M 185.49318,76.468676 C 202.86539,165.0158 220.23759,183.99019 301.30788,202.96457 220.23759,221.93895 202.86539,240.91333 185.49318,329.46046 168.12097,240.91333 150.74877,221.93895 69.67847,202.96457 150.74877,183.99019 168.12097,165.0158 185.49318,76.468676 Z" fill="#F59E0B"/><rect x="260.643" y="239.444" width="186.136" height="48" rx="29.39" fill="#FAFAF7"/><circle cx="289.722" cy="342.122" r="28.414" fill="#9CA3AF"/><rect x="333.7" y="324.65" width="112.797" height="40" rx="26.856" fill="#9CA3AF"/><circle cx="288.251" cy="420.101" r="28.414" fill="#9CA3AF"/><rect x="336.022" y="403.894" width="109.256" height="40" rx="26.013" fill="#9CA3AF"/></svg><span>note<span class="dot">.</span>md</span></a>
 <a class="npl" href="https://plugins.notemd.net">插件</a>
-<div class="lang-sw"><a href="/compare/obsidian/">EN</a><a href="/de/compare/obsidian/">DE</a><a href="/ja/compare/obsidian/">日本語</a><a href="/zh/compare/obsidian/" class=on>中文</a></div>
+<div class="lang-sw"><a href="/integrations/chatgpt-work/">EN</a><a href="/de/integrations/chatgpt-work/">DE</a><a href="/ja/integrations/chatgpt-work/">日本語</a><a href="/zh/integrations/chatgpt-work/" class=on>中文</a></div>
 <a class="nav-cta" href="/download">下载</a>
 </div></nav>
 <header class="ph"><div class="wrap">
-<div class="crumb">对比</div>
-<h1>note.md vs Obsidian</h1>
-<p class="lead">最近的表亲。都信“文件重于应用”。Obsidian 是万能工具箱；note.md 是为 AI 阅读循环磨快的一把刀。你的 vault 在两边都能打开——这是故意的。</p>
+<div class="crumb">集成</div>
+<h1>note.md + ChatGPT（工作模式）</h1>
+<p class="lead">ChatGPT 是大多数人手边最强的通才——擅长起草、总结、生成图片。note.md 给它的产物一个永久的家：你的 vault、你的文件，再加上你的判断。</p>
 </div></header>
 <main><div class="wrap">
-<table><thead><tr><th></th><th>note.md</th><th>Obsidian</th></tr></thead><tbody><tr><td>存储</td><td>纯 markdown 文件，本地</td><td>纯 markdown 文件，本地</td></tr><tr><td>价格</td><td>免费，开源</td><td>免费（闭源）；Sync/Publish 付费</td></tr><tr><td>阅读 AI 文档</td><td>核心工作流：干净的阅读视图，批注保留</td><td>通用编辑器；折腾一番也能做到</td></tr><tr><td>批注</td><td>伴生文件（sidecar）<code>.note.md</code> —— 原文保持干净</td><td>直接改原文，或装社区插件</td></tr><tr><td>agent 支持</td><td>内置：<code>AGENTS.md</code> 约定、块级引用、批注即 agent 输入</td><td>靠插件和自己动手（一个流行玩法）</td></tr><tr><td>大纲编辑</td><td>原生 <code>.note.md</code> 大纲视图</td><td>靠插件；Obsidian 以页面为中心</td></tr><tr><td>插件生态</td><td>小而克制，进程外，按能力授权</td><td>庞大 —— 数千个社区插件</td></tr><tr><td>移动端</td><td>还没有（macOS 优先）</td><td>优秀的 iOS/Android 应用</td></tr><tr><td>互操作</td><td>vault 可在 Obsidian 打开</td><td>vault 可在 note.md 打开</td></tr></tbody></table>
-<h2>实话实说</h2><p>如果你爱 Obsidian，留着它——认真的。它是史上最成功的“文件重于应用”编辑器，插件生态无人能敌，把 Claude Code 指向一个 Obsidian vault 是这十年最棒的 DIY 玩法之一。note.md 的 vault 格式刻意保持 Obsidian 兼容，因为我们信的是同一件事：你的文件应该在任何地方都打得开。</p>
-<p>区别在于开箱之后发生什么。Obsidian 是一个要自己组装的通用工具箱：想跑通 AI 阅读循环，你得接插件、定约定、配 agent，然后祈祷这些零件一直兼容。note.md 把这个循环当产品交付：agent 写文档，你在一个为判断而造的视图里读，你的高亮落进伴生 <code>.note.md</code>，永远不污染原文，而每个造访你 vault 的 agent 都会先读你的页边批注。不用组装。</p>
-<p>伴生文件才是真正的岔路口。Obsidian 的批注住在文档内部——你自己写的笔记没问题，agent 生成、还可能重新生成的文档就尴尬了。note.md 把可再生的（AI 的文本）和不可替代的（你的判断）分开，一个文件一个文件地分。</p><h2>两个都用</h2><p>这不是离婚。note.md 的 vault 就是一个 markdown 文件夹：用 Obsidian 打开它看图谱、在手机上速记；用 note.md 打开它跑阅读-批注循环和 agent 工作流。两个客户端，一个事实来源。这就是文件的全部意义。</p><h2>怎么选（或者不选）</h2><ul>
-<li><b>选 Obsidian</b>：如果你要最多的插件、移动应用和图谱视图——而且享受亲手组装自己的 AI 工作流。</li>
-<li><b>选 note.md</b>：如果你的日常越来越多是在读 agent 写的东西，想要批注即数据、agent 约定开箱即用，一步都不用装。</li>
-<li><b>两个都用</b>，同一个 vault。文件不逼你二选一。</li>
-</ul>
-<section class="faq"><h2>FAQ</h2><h3>我能在 Obsidian 里打开 note.md 的 vault 吗？</h3><p>能。note.md 的 vault 就是纯 markdown，[[wikilinks]] 按文件名解析，并刻意保持 Obsidian 兼容。伴生 .note.md 文件在那边显示为普通笔记。</p><h3>用 note.md 必须离开 Obsidian 吗？</h3><p>不用。两个应用指向同一个文件夹即可。很多人留着 Obsidian 做移动速记和图谱视图，用 note.md 阅读 AI 文档、写批注。</p><h3>什么是伴生批注？</h3><p>在 note.md 里对 xxx.md 高亮或评论时，你的批注会存进一个伴生文件 xxx.note.md。原文档保持干净、可再生；你的判断成为独立、可搜索的数据。</p></section>
+
+<h2>为什么这对搭档成立</h2><p>ChatGPT 的工作模式能连接文件夹和文件，在流水线的生成一端最出彩：把粗略的大纲变成初稿、把一摞文档总结出来，以及——越来越多地——批量生成图片和图表。放任不管，这些产出就住在一条你迟早会弄丢的对话里。把它指向一个 note.md vault，每份成果就作为纯 markdown 落地（图片就在旁边），正好被你的阅读-批注循环接住。</p>
+<p>这正是“一个 vault，多个 agent”开始回本的地方：ChatGPT 很少是你唯一的 agent。它是你伸手去<em>生产</em>时用的那个快通才——而审阅、长跑自动化、以及最终判断，都可以各自交给最擅长的那一位。同一批文件，不同的工人。</p><h2>配置</h2><ol>
+<li>把 vault 放在 ChatGPT 够得着的文件夹里——一个 OpenAI 连接的文件夹，或一个它能读写的云 / git 同步目录。</li>
+<li>在 vault 根放一个 <code>AGENTS.md</code>（约定摘要见 <a href="/llms-full.txt">llms-full.txt</a>），并把同样的 house rules 贴进 ChatGPT 的项目指令——它不像 CLI agent 那样自动读文件，所以要主动告诉它。</li>
+<li>让它把成果按日期存成 markdown，例如 <code>drafts/2026-07-23-launch-post.md</code>，生成的图片用相对链接放进 <code>{docname}_files/</code>。</li>
+<li>在 note.md 里打开结果；阅读、高亮、发问——你的标记落进伴生的 <code>.note.md</code>，原文保持干净、可再生成。</li>
+</ol><h2>循环跑起来是什么样</h2><p>你让 ChatGPT 起草一篇发布稿并生成三张主图；它写出 <code>drafts/launch-post.md</code>，填满一个 <code>_files/</code> 文件夹。你在 note.md 里读它，删掉两张图，把一段夸大的话高亮，留一句批注。接着把 <code>launch-post.note.md</code> 交给一个更谨慎的审阅 agent——“照我的批注改”。ChatGPT 生成得快；vault 留住了它；你做了判断。这就是分工。</p>
+<section class="faq"><h2>FAQ</h2><h3>ChatGPT 会自动读 AGENTS.md 吗？</h3><p>不像 CLI agent（Codex、Claude Code）那样自动读。把 vault 约定贴进 ChatGPT 的项目或自定义指令，并把它指向 AGENTS.md 文件，它就会遵守同一套 house rules——伴生文件不许碰，新活儿写成带日期的 markdown。</p><h3>ChatGPT 生成的图片能住进我的 vault 吗？</h3><p>能。把它们和文档并排放进 {docname}_files/ 文件夹、用相对链接——和 note.md 处理粘贴截图是同一套约定。它们会在阅读视图里渲染，并随 vault 一起进 git。</p><h3>我必须只选一个 agent 吗？</h3><p>不必——这正是重点。快速生成用 ChatGPT，仔细审阅用另一个 agent，私密工作用本地 agent。它们通过文件协作，你来编排。见编排指南。</p></section>
 </div></main>
 <section class="cta"><div class="wrap">
 <h2>拥有你的思考。</h2>

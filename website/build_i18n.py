@@ -143,12 +143,12 @@ STRINGS = [('<title>note.md — The markdown editor for humans and agents</title
   '<h2>欢迎 agent 光临</h2>',
   '<h2>Agents sind hier willkommen</h2>',
   '<h2>エージェント、歓迎。</h2>'),
- ('Plain files, simple rules. Claude Code, Codex, OpenClaw, Hermes — or whatever ships next week. They all speak '
-  'markdown.',
-  '纯文件，简单规则。Claude Code、Codex、OpenClaw、Hermes——或者下周才发布的那个。它们都说 markdown。',
-  'Einfache Dateien, einfache Regeln. Claude Code, Codex, OpenClaw, Hermes — oder was nächste Woche erscheint. Sie '
-  'alle sprechen Markdown.',
-  'プレーンなファイル、シンプルなルール。Claude Code、Codex、OpenClaw、Hermes——来週出る何かでも。みんな markdown を話す。'),
+ ('Plain files, simple rules. Cowork, Claude Code, Codex, ChatGPT, OpenClaw, Hermes — one vault they all work, and '
+  'you decide who does what.',
+  '纯文件，简单规则。Cowork、Claude Code、Codex、ChatGPT、OpenClaw、Hermes——同一个 vault 上它们都能干活，谁做什么由你定。',
+  'Einfache Dateien, einfache Regeln. Cowork, Claude Code, Codex, ChatGPT, OpenClaw, Hermes — ein Vault, an dem sie '
+  'alle arbeiten, und du entscheidest, wer was macht.',
+  'プレーンなファイル、シンプルなルール。Cowork、Claude Code、Codex、ChatGPT、OpenClaw、Hermes——ひとつの Vault で全員が働き、誰が何をやるかはあなたが決める。'),
  ("The rules live in the folder, in a file any agent reads. Point Claude Code — or next year's agent — at it. No "
   'plugins, no adapters.',
   '规则就住在文件夹里，写成任何 agent 都能读的文件。把 Claude Code——或者明年的新 agent——指过来就行。不要插件，不要适配器。',
@@ -171,6 +171,20 @@ STRINGS = [('<title>note.md — The markdown editor for humans and agents</title
   'Agents schreiben und können Links vorschlagen. Du markierst, was zählt, und bestätigst, was sich verbindet. Sie '
   'lesen deine Markierungen und schreiben besser — die ganze Schleife läuft auf deiner Platte.',
   'エージェントが書き、リンクを提案もする。あなたが大事な箇所に印をつけ、つながるものを確認する。エージェントが印を読み、もっとうまく書く——ループ全体があなたのディスクの上で回る。'),
+ ('<h3>One vault, you orchestrate</h3>',
+  '<h3>一个 vault，你来编排</h3>',
+  '<h3>Ein Vault, du orchestrierst</h3>',
+  '<h3>ひとつの Vault、指揮するのはあなた</h3>'),
+ ('No agent owns your knowledge. Route each job to whoever\'s best — Cowork drafts, Codex refactors, ChatGPT '
+  'generates — on whatever model. They hand off through files; you hold the pen. '
+  '<a href="/orchestrate-agents/" style="border-bottom:1px dotted currentColor">See how</a>.',
+  '没有 agent 拥有你的知识。谁擅长就派谁——Cowork 起草、Codex 重构、ChatGPT 生成——用哪个模型都行。它们通过文件交接，握笔的是你。'
+  '<a href="/orchestrate-agents/" style="border-bottom:1px dotted currentColor">看怎么做</a>。',
+  'Kein Agent besitzt dein Wissen. Route jeden Job an den, der ihn am besten kann — Cowork entwirft, Codex '
+  'refactored, ChatGPT generiert — auf welchem Modell auch immer. Sie reichen über Dateien weiter; du hältst den '
+  'Stift. <a href="/orchestrate-agents/" style="border-bottom:1px dotted currentColor">So geht\'s</a>.',
+  'どの agent もあなたの知識を所有しない。各仕事をいちばん得意な相手に振る——Cowork が下書き、Codex がリファクタ、ChatGPT が生成——モデルは何でもいい。彼らはファイルで受け渡し、ペンを握るのはあなた。'
+  '<a href="/orchestrate-agents/" style="border-bottom:1px dotted currentColor">やり方を見る</a>。'),
  ('<span class="star">✦</span> what AI writes',
   '<span class="star">✦</span> AI 写的',
   '<span class="star">✦</span> was die KI schreibt',
@@ -227,7 +241,7 @@ def build(lang):
         if old not in src:
             missing.append(old[:60]); continue
         src = src.replace(old, new)
-    for seg in ("compare", "integrations", "guides"):
+    for seg in ("compare", "integrations", "guides", "orchestrate-agents"):
         src = src.replace(f'href="/{seg}/', f'href="/{lang}/{seg}/')
     os.makedirs(f"public/{lang}", exist_ok=True)
     open(f"public/{lang}/index.html", "w", encoding="utf-8").write(src)

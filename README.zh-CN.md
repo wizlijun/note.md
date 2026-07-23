@@ -25,7 +25,7 @@ v4.8.0 之前以 **M↓** 为名发布。
 
 ## 产品理念
 
-四个信念贯穿所有设计：
+五个信念贯穿所有设计：
 
 1. **AI 的文字是无限的，你的注意力不是——你的判断才是残余。** 你真正读过、
    标注过的文档，才是赢得了你注意力的那部分。你留在字里行间的东西——判断、
@@ -43,6 +43,12 @@ v4.8.0 之前以 **M↓** 为名发布。
    在不同设备、不同工具之间是脆弱的。你一落笔批注，note.md 就把源文件镜像进
    vault：批注获得一个稳定的、git 版本化的宿主——原文留在原地，镜像与它保持
    同步，你的笔记永不丢失宿主。
+5. **一个 vault，多个 agent——你是编排者。** 你的 vault 是一个给 agent 用的
+   git 仓库：Claude Cowork、Claude Code、Codex、ChatGPT Work、OpenClaw、
+   Hermes——它们通过公共约定（`AGENTS.md`、块引用、伴生笔记）读写同一批
+   markdown 文件。谁擅长什么、用哪个模型，你按活儿来派：一个 agent 夜里起草，
+   另一个审阅修订，第三个批量配图，而你阅读、判断、下笔定稿。没有哪个 agent
+   拥有这个 vault，note.md 也不拥有——工人可替换，握笔的是你。
 
 ## 笔记层
 
@@ -54,18 +60,19 @@ AI-native 笔记系统，逐步落地中：
 - [x] **大纲编辑器** —— 所有 `.note.md` 一律以 Roam 风格的大纲视图打开
       （绝不用普通 markdown 编辑器）；大纲持久化为嵌套的 markdown 列表，
       文件在任何编辑器里都可读。
-- [ ] **每日笔记** —— `dailynote/yyyy/yyyy-MM-dd.note.md` 一键直达；
-      `yyyy-MM.note.md` / `yyyy.note.md` 作为月度/年度总结；
-      `[[yyyy-MM-dd]]` 为日期链接的规范形式。
+- [x] **每日笔记** —— 独立的「每日笔记」窗口，无限懒加载信息流串起
+      `dailynote/yyyy/yyyy-MM-dd.note.md`，一键或托盘直达；`[[yyyy-MM-dd]]`
+      为日期链接的规范形式，`[[页面]]` 链接就地打开。
+- [x] **Roam 导入** —— 从 Roam Research JSON 导出一次性转换（内置插件），
+      日期页改写为 `[[yyyy-MM-dd]]` 并给出断链报告。
 - [ ] **Wiki 页面** —— `wikipage/` 下的独立大纲笔记，全 vault 共用一个
       `[[title]]` 命名空间。
 - [ ] **全局索引** —— 全库即时搜索、反向链接、链接自动补全，可随时从
-      文件全量重建。
-- [ ] **Roam 导入** —— 从 Roam Research JSON 导出一次性转换（含日期页
-      改写与断链报告）。
+      文件全量重建。（反向链接与 linked references 已在 `.note.md` 间生效。）
 - [ ] **Vault MCP server** —— 暴露 `vault_search` / `vault_read` /
-      `vault_annotate`，任何 agent（Claude Code、Codex、OpenClaw、Hermes …）
-      都能操作你的 vault，note.md 只是众多客户端之一。
+      `vault_annotate`，任何 agent（Claude Cowork、Claude Code、Codex、
+      ChatGPT Work、OpenClaw、Hermes …）都能操作你的 vault，note.md 只是
+      众多客户端之一。
 
 ## 功能
 
@@ -108,7 +115,9 @@ AI-native 笔记系统，逐步落地中：
 
 ### 文件与 Vault
 
-- **文件夹视图** —— 实时目录树侧栏，递归正则过滤，右键在访达中显示。
+- **文件夹视图** —— 实时目录树侧栏，递归正则过滤，右键在访达中显示；
+  全局排序、按文件夹置顶、视图模式（全部 / 文件 / 有笔记 / markdown[H1名] /
+  笔记）。
 - **外部修改检测** —— 干净标签页静默重载；脏标签页出现冲突提示条
   （重载 / 覆盖 / 删除后可恢复）。绝不静默丢数据。
 - **Sync to Vault** —— 把任意文件复制进 git 同步的 vault，日期前缀
@@ -124,8 +133,12 @@ AI-native 笔记系统，逐步落地中：
   分享链接；`--json` 结构化输出；`notemd reading-insights report` 生成投入度
   摘要。从 **Help → Install 'notemd' Command in PATH…** 安装。
 - **MCP 端点** —— 分享 Worker 暴露 MCP，agent 可代你发布文档。
-- **插件系统** —— 跨进程插件（stdin/stdout JSON），manifest 声明式注册菜单、
-  上下文菜单、设置面板，宿主能力按声明授权。未触发时不运行。
+- **插件系统（v2）** —— 跨进程插件（stdin/stdout JSON）*外加*隔离 webview 的
+  UI 插件；manifest 声明式注册菜单、上下文菜单、设置面板、侧栏、托盘项、CLI
+  子命令，宿主能力按声明授权，未触发时不运行。可在应用内市场
+  （[plugins.notemd.net](https://plugins.notemd.net)）浏览安装：**Roam 导入**、
+  **Base**（Obsidian `.base` 表格）、**周检视**（年历式回顾）、**决策日志**、
+  md→PDF 等。
 
 ### 分享与导出
 

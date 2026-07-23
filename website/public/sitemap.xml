@@ -258,6 +258,38 @@
     <xhtml:link rel="alternate" hreflang="x-default" href="https://notemd.net/integrations/hermes/"/>
   </url>
   <url>
+    <loc>https://notemd.net/integrations/chatgpt-work/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://notemd.net/integrations/chatgpt-work/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://notemd.net/de/integrations/chatgpt-work/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://notemd.net/ja/integrations/chatgpt-work/"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://notemd.net/zh/integrations/chatgpt-work/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://notemd.net/integrations/chatgpt-work/"/>
+  </url>
+  <url>
+    <loc>https://notemd.net/de/integrations/chatgpt-work/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://notemd.net/integrations/chatgpt-work/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://notemd.net/de/integrations/chatgpt-work/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://notemd.net/ja/integrations/chatgpt-work/"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://notemd.net/zh/integrations/chatgpt-work/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://notemd.net/integrations/chatgpt-work/"/>
+  </url>
+  <url>
+    <loc>https://notemd.net/ja/integrations/chatgpt-work/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://notemd.net/integrations/chatgpt-work/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://notemd.net/de/integrations/chatgpt-work/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://notemd.net/ja/integrations/chatgpt-work/"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://notemd.net/zh/integrations/chatgpt-work/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://notemd.net/integrations/chatgpt-work/"/>
+  </url>
+  <url>
+    <loc>https://notemd.net/zh/integrations/chatgpt-work/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://notemd.net/integrations/chatgpt-work/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://notemd.net/de/integrations/chatgpt-work/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://notemd.net/ja/integrations/chatgpt-work/"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://notemd.net/zh/integrations/chatgpt-work/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://notemd.net/integrations/chatgpt-work/"/>
+  </url>
+  <url>
     <loc>https://notemd.net/guides/share-on-cloudflare/</loc>
     <xhtml:link rel="alternate" hreflang="en" href="https://notemd.net/guides/share-on-cloudflare/"/>
     <xhtml:link rel="alternate" hreflang="de" href="https://notemd.net/de/guides/share-on-cloudflare/"/>
@@ -320,5 +352,37 @@
     <xhtml:link rel="alternate" hreflang="ja" href="https://notemd.net/ja/guides/vault-on-github/"/>
     <xhtml:link rel="alternate" hreflang="zh" href="https://notemd.net/zh/guides/vault-on-github/"/>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://notemd.net/guides/vault-on-github/"/>
+  </url>
+  <url>
+    <loc>https://notemd.net/orchestrate-agents/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://notemd.net/orchestrate-agents/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://notemd.net/de/orchestrate-agents/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://notemd.net/ja/orchestrate-agents/"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://notemd.net/zh/orchestrate-agents/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://notemd.net/orchestrate-agents/"/>
+  </url>
+  <url>
+    <loc>https://notemd.net/de/orchestrate-agents/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://notemd.net/orchestrate-agents/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://notemd.net/de/orchestrate-agents/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://notemd.net/ja/orchestrate-agents/"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://notemd.net/zh/orchestrate-agents/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://notemd.net/orchestrate-agents/"/>
+  </url>
+  <url>
+    <loc>https://notemd.net/ja/orchestrate-agents/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://notemd.net/orchestrate-agents/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://notemd.net/de/orchestrate-agents/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://notemd.net/ja/orchestrate-agents/"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://notemd.net/zh/orchestrate-agents/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://notemd.net/orchestrate-agents/"/>
+  </url>
+  <url>
+    <loc>https://notemd.net/zh/orchestrate-agents/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://notemd.net/orchestrate-agents/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://notemd.net/de/orchestrate-agents/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://notemd.net/ja/orchestrate-agents/"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://notemd.net/zh/orchestrate-agents/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://notemd.net/orchestrate-agents/"/>
   </url>
 </urlset>

@@ -4,20 +4,20 @@
 <meta charset="UTF-8">
 <!-- Hello, agent. The plain-text version of this site is at /llms.txt -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Hermes で note.md を使う — 永続メモリと、永久のノートブックの出会い</title>
-<meta name="description" content="Hermes（Nous Research）は永続メモリと AGENTS.md 規約を持つオープンなエージェント。note.md の Vault を与えれば、その記憶は読めて、注釈できて、所有できるものになる。">
+<title>ChatGPT（ワークモード）で note.md を使う — 自分が所有する Vault に生成させる</title>
+<meta name="description" content="ChatGPT のワークモードはあなたのフォルダに接続し、下書きと画像生成に強い。それを note.md の Vault に向ければ、作られたものはすべて、読めて、注釈できて、手元に残る markdown になる。">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="/favicon.ico" sizes="32x32">
-<link rel="canonical" href="https://notemd.net/ja/integrations/hermes/">
-<link rel="alternate" hreflang="en" href="https://notemd.net/integrations/hermes/">
-<link rel="alternate" hreflang="de" href="https://notemd.net/de/integrations/hermes/">
-<link rel="alternate" hreflang="ja" href="https://notemd.net/ja/integrations/hermes/">
-<link rel="alternate" hreflang="zh" href="https://notemd.net/zh/integrations/hermes/">
-<link rel="alternate" hreflang="x-default" href="https://notemd.net/integrations/hermes/">
+<link rel="canonical" href="https://notemd.net/ja/integrations/chatgpt-work/">
+<link rel="alternate" hreflang="en" href="https://notemd.net/integrations/chatgpt-work/">
+<link rel="alternate" hreflang="de" href="https://notemd.net/de/integrations/chatgpt-work/">
+<link rel="alternate" hreflang="ja" href="https://notemd.net/ja/integrations/chatgpt-work/">
+<link rel="alternate" hreflang="zh" href="https://notemd.net/zh/integrations/chatgpt-work/">
+<link rel="alternate" hreflang="x-default" href="https://notemd.net/integrations/chatgpt-work/">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=EB+Garamond:ital,wght@0,400..700;1,400..700&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
-<script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Hermes は OpenClaw と同じものか？", "acceptedAnswer": {"@type": "Answer", "text": "違う — Hermes は永続メモリとセルフホスト運用に焦点を当てた Nous Research のオープンエージェント。OpenClaw は別系統の、バイラルなオープンソース・パーソナルエージェントだ。どちらも markdown と AGENTS.md を話すので、note.md との組み合わせ方は同じ。"}}, {"@type": "Question", "name": "複数のエージェントでひとつの Vault を共有できるか？", "acceptedAnswer": {"@type": "Answer", "text": "できる — それが設計だ。プレーンファイルに、ひとつの AGENTS.md。OpenClaw も Codex も Hermes も Claude も、同じ Vault で働ける。git に入れておけば、すべての書き込みは誰の仕業か追えて、巻き戻せる。"}}]}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "ChatGPT は AGENTS.md を自動で読むか？", "acceptedAnswer": {"@type": "Answer", "text": "CLI エージェント（Codex、Claude Code）のようには読まない。Vault の規約を ChatGPT のプロジェクトやカスタム指示に貼り付け、AGENTS.md ファイルを指し示せば、同じハウスルールに従う — サイドカーファイルは立入禁止、新しい仕事は日付付き markdown。"}}, {"@type": "Question", "name": "ChatGPT が生成した画像を Vault に置けるか？", "acceptedAnswer": {"@type": "Answer", "text": "置ける。文書の隣の {docname}_files/ フォルダに相対リンクで保存する — note.md が貼り付けたスクリーンショットに使うのと同じ規約だ。読書ビューでレンダリングされ、git で Vault と一緒に旅する。"}}, {"@type": "Question", "name": "エージェントをひとつに絞る必要があるか？", "acceptedAnswer": {"@type": "Answer", "text": "ない — それこそが核心だ。速い生成には ChatGPT、慎重なレビューには別のエージェント、プライベートな作業にはローカルエージェント。彼らはファイルを通じて協働し、あなたが指揮する。オーケストレーションのガイドを参照。"}}]}</script>
 <style>
 :root{--ink:#17181C;--paper:#FAFAF7;--amber:#F59E0B;--gray:#9CA3AF;--line:#E7E5E0;
 --serif:"Playfair Display",Georgia,serif;--body:"EB Garamond",Georgia,serif;
@@ -93,24 +93,24 @@ pre{font-size:12.5px;padding:14px 15px}
 <nav><div class="wrap nav-in">
 <a class="logo" href="/ja/"><svg width="24" height="24" viewBox="0 0 512 512" aria-hidden="true"><rect width="512" height="512" rx="115" fill="#17181C" stroke="#3A3D46" stroke-width="14"/><path d="M 185.49318,76.468676 C 202.86539,165.0158 220.23759,183.99019 301.30788,202.96457 220.23759,221.93895 202.86539,240.91333 185.49318,329.46046 168.12097,240.91333 150.74877,221.93895 69.67847,202.96457 150.74877,183.99019 168.12097,165.0158 185.49318,76.468676 Z" fill="#F59E0B"/><rect x="260.643" y="239.444" width="186.136" height="48" rx="29.39" fill="#FAFAF7"/><circle cx="289.722" cy="342.122" r="28.414" fill="#9CA3AF"/><rect x="333.7" y="324.65" width="112.797" height="40" rx="26.856" fill="#9CA3AF"/><circle cx="288.251" cy="420.101" r="28.414" fill="#9CA3AF"/><rect x="336.022" y="403.894" width="109.256" height="40" rx="26.013" fill="#9CA3AF"/></svg><span>note<span class="dot">.</span>md</span></a>
 <a class="npl" href="https://plugins.notemd.net">プラグイン</a>
-<div class="lang-sw"><a href="/integrations/hermes/">EN</a><a href="/de/integrations/hermes/">DE</a><a href="/ja/integrations/hermes/" class=on>日本語</a><a href="/zh/integrations/hermes/">中文</a></div>
+<div class="lang-sw"><a href="/integrations/chatgpt-work/">EN</a><a href="/de/integrations/chatgpt-work/">DE</a><a href="/ja/integrations/chatgpt-work/" class=on>日本語</a><a href="/zh/integrations/chatgpt-work/">中文</a></div>
 <a class="nav-cta" href="/download">ダウンロード</a>
 </div></nav>
 <header class="ph"><div class="wrap">
 <div class="crumb">連携</div>
-<h1>note.md + Hermes</h1>
-<p class="lead">Hermes はあなたと共に育つ — 記憶するオープンなエージェント。note.md は人間が判断を保管する場所。同じフォルダで、両方の仕事を。</p>
+<h1>note.md + ChatGPT（ワーク）</h1>
+<p class="lead">ChatGPT は、たいていの人がすでに持っている最強の万能選手だ — 下書き、要約、画像生成に長けている。note.md は、その生産物に永久の住所を与える。あなたの Vault、あなたのファイル、その上に載るあなたの判断。</p>
 </div></header>
 <main><div class="wrap">
 
-<h2>なぜこの組み合わせが効くのか</h2><p>Hermes（Nous Research 製）は永続的なファイルベースの記憶を核に据え、<code>AGENTS.md</code> の規約を読む — OpenClaw と同じオープンエージェントの系譜で、セルフホストの主権に重心がある。その世界観は note.md の世界観そのものだ。隠れた状態なし、ファイルが真実、すべてが検査可能。</p>
-<p>note.md の Vault の上で Hermes を走らせれば、蓄積された記憶は不透明なエージェントの生成物であることをやめ、あなたの知識ベースの一部になる。アウトラインビューで読め、<code>[[wikilinks]]</code> でリンクでき、そして — 決定的なことに — 注釈できる。エージェントの記憶に、文字どおり欄外メモを残せる。</p><h2>セットアップ</h2><ol>
-<li>いつもどおり Vault ルートに <code>AGENTS.md</code> — <a href="/llms-full.txt">llms-full.txt</a> の規約に、あなたのハウスルールを足す。</li>
-<li>Hermes のメモリ／ワークスペースディレクトリを Vault 内に置くか（例：<code>agents/hermes/</code>）、出力を Vault のフォルダに書かせる。</li>
-<li>働かせる。書いたものを note.md で読み、注釈する。</li>
-<li>トピックを再訪する前に <code>*.note.md</code> サイドカーを参照するよう Hermes に指示する。あなたの訂正がエージェントの補助輪になる。</li>
-</ol>
-<section class="faq"><h2>FAQ</h2><h3>Hermes は OpenClaw と同じものか？</h3><p>違う — Hermes は永続メモリとセルフホスト運用に焦点を当てた Nous Research のオープンエージェント。OpenClaw は別系統の、バイラルなオープンソース・パーソナルエージェントだ。どちらも markdown と AGENTS.md を話すので、note.md との組み合わせ方は同じ。</p><h3>複数のエージェントでひとつの Vault を共有できるか？</h3><p>できる — それが設計だ。プレーンファイルに、ひとつの AGENTS.md。OpenClaw も Codex も Hermes も Claude も、同じ Vault で働ける。git に入れておけば、すべての書き込みは誰の仕業か追えて、巻き戻せる。</p></section>
+<h2>なぜこの組み合わせが効くのか</h2><p>ChatGPT のワークモードはフォルダとファイルに接続し、パイプラインの生成側で輝く。粗いアウトラインを下書きに変え、山積みの文書を要約し、そして — ますます — 画像や図を一括生成する。放っておけば、その出力はいずれ失うチャットスレッドの中に住む。代わりに note.md の Vault に向ければ、すべての納品物はプレーンな markdown として（画像はその隣に）着地し、あなたのリーディング・注釈ループがそれを捕まえられる。</p>
+<p>ここで「ひとつの Vault、多くのエージェント」という発想が元を取る。ChatGPT があなたの唯一のエージェントであることは稀だ。ChatGPT は<em>生産</em>のために手を伸ばす速い万能選手 — レビューも、長時間走る自動化も、最終判断も、それぞれ最も得意な相手に任せられる。同じファイル、違う働き手。</p><h2>セットアップ</h2><ol>
+<li>Vault を ChatGPT が届くフォルダに置く — OpenAI 接続フォルダか、読み書きできるクラウド／git 同期ディレクトリに。</li>
+<li>Vault のルートに <code>AGENTS.md</code> を置き（規約の要約：<a href="/llms-full.txt">llms-full.txt</a>）、同じハウスルールを ChatGPT のプロジェクト指示にも貼る — CLI エージェントのようにファイルを自動では読まないので、こちらから伝える。</li>
+<li>納品物を日付付きの markdown として Vault に保存させる。例：<code>drafts/2026-07-23-launch-post.md</code>。生成画像は相対リンクで <code>{docname}_files/</code> に落とさせる。</li>
+<li>結果を note.md で開く。読み、ハイライトし、疑問を書く — マークはサイドカーの <code>.note.md</code> に落ち、原文はクリーンで再生成可能なまま。</li>
+</ol><h2>実際のループ</h2><p>ChatGPT に launch post の下書きと3枚のヒーロー画像の生成を頼む。ChatGPT は <code>drafts/launch-post.md</code> を書き、<code>_files/</code> フォルダを埋める。あなたは note.md でそれを読み、画像を2枚切り、言い過ぎている段落をハイライトし、メモを残す。次に <code>launch-post.note.md</code> を、もっと慎重なレビューアエージェントに渡す — 「余白に応えて」。ChatGPT は速く生成した。Vault はそれを保持した。あなたはそれを判断した。それが分業だ。</p>
+<section class="faq"><h2>FAQ</h2><h3>ChatGPT は AGENTS.md を自動で読むか？</h3><p>CLI エージェント（Codex、Claude Code）のようには読まない。Vault の規約を ChatGPT のプロジェクトやカスタム指示に貼り付け、AGENTS.md ファイルを指し示せば、同じハウスルールに従う — サイドカーファイルは立入禁止、新しい仕事は日付付き markdown。</p><h3>ChatGPT が生成した画像を Vault に置けるか？</h3><p>置ける。文書の隣の {docname}_files/ フォルダに相対リンクで保存する — note.md が貼り付けたスクリーンショットに使うのと同じ規約だ。読書ビューでレンダリングされ、git で Vault と一緒に旅する。</p><h3>エージェントをひとつに絞る必要があるか？</h3><p>ない — それこそが核心だ。速い生成には ChatGPT、慎重なレビューには別のエージェント、プライベートな作業にはローカルエージェント。彼らはファイルを通じて協働し、あなたが指揮する。オーケストレーションのガイドを参照。</p></section>
 </div></main>
 <section class="cta"><div class="wrap">
 <h2>思考を所有せよ。</h2>

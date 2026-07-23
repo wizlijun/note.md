@@ -1,6 +1,6 @@
 # note.md
 
-> note.md is a markdown reader & editor for the AI-native era, built for humans and agents working in the same plain files. Agents write more than any human can read; the human's job is to read, judge, and keep the few lines only they could have written — the residue no model can generate: judgment, intent, private facts, decisions. Those marks are saved to sidecar `.note.md` files, becoming durable, searchable data that agents read back. The knowledge graph grows only where the human confirms it — agents may suggest connections, never assert them. No database, no cloud, no walled garden: a folder of markdown, owned by the user.
+> note.md is a markdown reader & editor for the AI-native era, built for humans and agents working in the same plain files. Agents write more than any human can read; the human's job is to read, judge, and keep the few lines only they could have written — the residue no model can generate: judgment, intent, private facts, decisions. Those marks are saved to sidecar `.note.md` files, becoming durable, searchable data that agents read back. The knowledge graph grows only where the human confirms it — agents may suggest connections, never assert them. Because the vault is plain files with shared conventions, it is neutral ground for *many* agents — Cowork, Claude Code, Codex, ChatGPT, OpenClaw, Hermes — so the human assigns each job to whoever is best and orchestrates them through files; note.md is one client among many. No database, no cloud, no walled garden: a folder of markdown, owned by the user.
 
 Key facts: macOS app (Tauri, system WebView, signed & notarized). Free. Repo: https://github.com/wizlijun/note.md. The vault is plain files; every convention below is readable and writable by any agent — you do not need this app to work with a note.md vault.
 
@@ -8,6 +8,7 @@ Key facts: macOS app (Tauri, system WebView, signed & notarized). Free. Repo: ht
 
 - [Full product & vault conventions](https://notemd.net/llms-full.txt): everything an agent needs to read or write a note.md vault — sidecar pairing rules, outline format, daily-note paths, wikilink namespace, block citations, CLI.
 - [Product homepage](https://notemd.net/): human-facing overview (also in [German](https://notemd.net/de/), [Japanese](https://notemd.net/ja/), and [Chinese](https://notemd.net/zh/)).
+- [One vault, many agents](https://notemd.net/orchestrate-agents/): how a human orchestrates Cowork, Codex, ChatGPT, OpenClaw, and Hermes over a single vault, routing each job to the best-fit agent and model.
 - [GitHub repository](https://github.com/wizlijun/note.md): source, releases, README.
 
 ## Core conventions (summary)
@@ -18,6 +19,7 @@ Key facts: macOS app (Tauri, system WebView, signed & notarized). Free. Repo: ht
 - Daily notes: `dailynote/{yyyy}/{yyyy-MM-dd}.note.md`; monthly `{yyyy-MM}.note.md`; yearly `{yyyy}.note.md`. Canonical date link: `[[yyyy-MM-dd]]`.
 - Wiki notes: `wikipage/{title-slug}.note.md`. One global `[[title]]` namespace across the vault.
 - Block citation: `((path/to/file.md#b-xxxxxx))` cites one block of a document.
+- Multi-agent handoff: several agents may share one vault. They collaborate by passing `.md` files on disk (one agent's output is the next one's input); the human's `.note.md` annotations are the steering signal. Keep the vault in git so every agent write is diffable and revertible.
 - Files are the single source of truth; indexes are derived and rebuildable.
 
 ## Optional

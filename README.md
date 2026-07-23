@@ -27,7 +27,7 @@ WebView (WKWebView). No bundled browser, unlike Electron.
 
 ## The idea
 
-Four convictions shape everything here:
+Five convictions shape everything here:
 
 1. **AI text is infinite; your attention isn't — your judgment is the residue.**
    The documents you actually read and mark up are the ones that earned your
@@ -49,6 +49,14 @@ Four convictions shape everything here:
    annotate, note.md mirrors the source into your vault so your marks get a
    stable, git-versioned host — the original stays put, the mirror stays in
    sync, and your notes never lose their home.
+5. **One vault, many agents — you orchestrate.** Your vault is a git repo for
+   agents: Claude Cowork, Claude Code, Codex, ChatGPT Work, OpenClaw, Hermes —
+   they all read and write the same markdown files through shared conventions
+   (`AGENTS.md`, block citations, sidecar notes). You assign each job to
+   whoever's best at it, on whatever model — one agent drafts overnight, another
+   reviews and revises, a third batch-generates images — and you read, judge,
+   and edit the result. No agent owns the vault, and neither does note.md: the
+   workers are interchangeable, and you're the one holding the pen.
 
 ## The notes layer
 
@@ -61,18 +69,22 @@ The AI-native notes system, rolling out incrementally:
 - [x] **Outline editor** — every `.note.md` opens in a Roam-style outline
       view (never the plain markdown editor); outlines persist as nested
       markdown lists, so the files stay readable everywhere.
-- [ ] **Daily notes** — `dailynote/yyyy/yyyy-MM-dd.note.md`, one keystroke
-      away, with `yyyy-MM.note.md` / `yyyy.note.md` as monthly / yearly
-      summaries and `[[yyyy-MM-dd]]` as the canonical date link.
+- [x] **Daily notes** — a dedicated Daily Notes window with an infinite
+      lazy-loading feed of `dailynote/yyyy/yyyy-MM-dd.note.md`, one keystroke
+      or tray click away; `[[yyyy-MM-dd]]` is the canonical date link and
+      `[[page]]` links open inline.
+- [x] **Roam import** — one-shot converter (a built-in plugin) from a Roam
+      Research JSON export, with date-page rewriting to `[[yyyy-MM-dd]]` and a
+      broken-link report.
 - [ ] **Wiki pages** — standalone outline notes under `wikipage/`, one
       `[[title]]` namespace across the whole vault.
 - [ ] **Global index** — full-vault instant search, backlinks, and link
-      autocomplete, rebuilt from files at any time.
-- [ ] **Roam import** — one-shot converter from a Roam Research JSON export
-      (date-page rewriting + broken-link report included).
+      autocomplete, rebuilt from files at any time. (Backlinks and linked
+      references already work across `.note.md`.)
 - [ ] **Vault MCP server** — expose `vault_search` / `vault_read` /
-      `vault_annotate` so any agent (Claude Code, Codex, OpenClaw, Hermes, …)
-      can work your vault, with note.md as one client among many.
+      `vault_annotate` so any agent (Claude Cowork, Claude Code, Codex,
+      ChatGPT Work, OpenClaw, Hermes, …) can work your vault, with note.md as
+      one client among many.
 
 ## Features
 
@@ -122,7 +134,8 @@ The AI-native notes system, rolling out incrementally:
 ### Your files & vault
 
 - **Folder View** — a live directory tree sidebar with recursive regex
-  filtering and *Reveal in Finder*.
+  filtering and *Reveal in Finder*; global sort, per-folder pinning, and view
+  modes (all / files / with-notes / markdown-by-H1 / notes).
 - **External change detection** — clean tabs reload silently; dirty tabs get
   a conflict banner (reload / overwrite / recreate on delete). Never silent
   data loss.
@@ -141,9 +154,13 @@ The AI-native notes system, rolling out incrementally:
   Install from **Help → Install 'notemd' Command in PATH…**.
 - **MCP endpoint** — the share Worker exposes MCP so agents can publish
   documents on your behalf.
-- **Plugin system** — out-of-process plugins over stdin/stdout JSON with
-  declarative manifests (menus, context menus, settings panels) and
-  capability-gated host actions. Dormant until invoked.
+- **Plugin system (v2)** — out-of-process plugins over stdin/stdout JSON *plus*
+  isolated-webview UI plugins, with declarative manifests (menus, context
+  menus, settings panels, sidebars, tray items, CLI subcommands) and
+  capability-gated host actions; dormant until invoked. Browse and install from
+  the in-app marketplace ([plugins.notemd.net](https://plugins.notemd.net)):
+  **Roam Import**, **Base** (Obsidian `.base` tables), **Weekly Review**
+  (year-calendar review), **Decision Log**, md→PDF, and more.
 
 ### Share & export
 

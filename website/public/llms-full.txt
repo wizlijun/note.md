@@ -25,8 +25,8 @@ human confirms a connection — agents suggest links, they never assert them.
 A vault is an ordinary folder of markdown. There is no database and no hidden
 state: **files are the single source of truth; every index is derived and can
 be rebuilt from the files at any time.** Everything below is a file-layout
-convention — any agent (Claude Code, Codex, OpenClaw, Hermes, or you) can
-honor it with nothing but file reads and writes.
+convention — any agent (Claude Cowork, Claude Code, Codex, ChatGPT, OpenClaw,
+Hermes, or you) can honor it with nothing but file reads and writes.
 
 ### Sidecar annotation files
 
@@ -91,6 +91,23 @@ honor it with nothing but file reads and writes.
 A vault may carry an `AGENTS.md` (or similar) at its root describing these
 conventions plus vault-specific rules. Read it first; it is the contract.
 
+### Multi-agent orchestration
+
+- The vault is neutral ground: no agent owns it, and neither does note.md.
+  The conventions above are a public protocol, so several agents can share one
+  vault at once — the human routes each job to whichever agent (and model) is
+  best for it.
+- Typical division of labor: overnight automation (OpenClaw / Hermes),
+  careful review and revision (Claude Cowork / Code), fast drafting and image
+  generation (ChatGPT), in-repo refactors and scripts (Codex), and final
+  judgment (the human, always).
+- Agents hand work off through files: one agent writes `.md` into the vault,
+  the next reads it as input. The human's `.note.md` annotations are the
+  steering signal — read them before your next pass.
+- Keep the vault in git so every agent write is diffable, attributable, and
+  revertible. No shared memory or private protocol is needed; the filesystem
+  is the medium and the human is the orchestrator.
+
 ## Working with note.md as a tool
 
 ### CLI
@@ -120,10 +137,11 @@ Shares can be updated in place or revoked (410 after unshare).
 
 ## Roadmap (agent-relevant)
 
-Daily-note quick entry, vault-wide index (search / backlinks / autocomplete),
-one-shot Roam Research import with date-page rewriting and a broken-link
-report, and the vault MCP server. Sidecar annotations and the outline editor
-are shipped.
+Shipped: sidecar annotations, the outline editor, a dedicated Daily Notes
+window, and one-shot Roam Research import (a plugin, with date-page rewriting
+and a broken-link report). On the roadmap: a vault-wide index (full-text
+search / backlinks / autocomplete, rebuildable from files) and the vault MCP
+server (`vault_search` / `vault_read` / `vault_annotate`).
 
 ## Contact
 

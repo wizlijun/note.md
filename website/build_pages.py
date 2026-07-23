@@ -90,22 +90,22 @@ CHROME = {
  "en": {"dl": "Download", "pl": "plugins", "cta_h2": "Own your thinking.", "cta_p": "Free. Open. A folder of markdown on your Mac.",
         "cta_btn": "Download for macOS", "faq": "FAQ",
         "g_cmp": "Compare", "g_int": "Integrations", "g_gui": "Guides",
-        "l_cf": "Free sharing on Cloudflare", "l_gh": "Vault on GitHub", "l_llm": "llms.txt (for agents)",
+        "l_orch": "One vault, many agents", "l_cf": "Free sharing on Cloudflare", "l_gh": "Vault on GitHub", "l_llm": "llms.txt (for agents)",
         "sig": "Text is forever. So is what you thought about it."},
  "de": {"dl": "Laden", "pl": "plugins", "cta_h2": "Besitze dein Denken.", "cta_p": "Frei. Offen. Ein Ordner voller Markdown auf deinem Mac.",
         "cta_btn": "Für macOS laden", "faq": "FAQ",
         "g_cmp": "Vergleich", "g_int": "Integrationen", "g_gui": "Anleitungen",
-        "l_cf": "Kostenlos teilen über Cloudflare", "l_gh": "Vault auf GitHub", "l_llm": "llms.txt (für Agents)",
+        "l_orch": "Ein Vault, viele Agents", "l_cf": "Kostenlos teilen über Cloudflare", "l_gh": "Vault auf GitHub", "l_llm": "llms.txt (für Agents)",
         "sig": "Text ist für immer. Was du darüber dachtest, auch."},
  "ja": {"dl": "ダウンロード", "pl": "プラグイン", "cta_h2": "思考を所有せよ。", "cta_p": "無料。オープン。あなたの Mac にある markdown フォルダ。",
         "cta_btn": "macOS 版をダウンロード", "faq": "FAQ",
         "g_cmp": "比較", "g_int": "連携", "g_gui": "ガイド",
-        "l_cf": "Cloudflare で無料共有", "l_gh": "GitHub で Vault をホスト", "l_llm": "llms.txt（エージェント向け）",
+        "l_orch": "ひとつの Vault、多くのエージェント", "l_cf": "Cloudflare で無料共有", "l_gh": "GitHub で Vault をホスト", "l_llm": "llms.txt（エージェント向け）",
         "sig": "テキストは永遠に残る。あなたがそれについて考えたことも。"},
  "zh": {"dl": "下载", "pl": "插件", "cta_h2": "拥有你的思考。", "cta_p": "免费。开源。你 Mac 上的一个 markdown 文件夹。",
         "cta_btn": "下载 macOS 版", "faq": "FAQ",
         "g_cmp": "对比", "g_int": "集成", "g_gui": "指南",
-        "l_cf": "Cloudflare 免费分享", "l_gh": "GitHub 托管 vault", "l_llm": "llms.txt（给 agent）",
+        "l_orch": "一个 vault，多个 agent", "l_cf": "Cloudflare 免费分享", "l_gh": "GitHub 托管 vault", "l_llm": "llms.txt（给 agent）",
         "sig": "文字永存。你对它的看法也是。"},
 }
 
@@ -136,8 +136,10 @@ def foot_links(lang):
 {a('/integrations/openclaw/', 'OpenClaw')}
 {a('/integrations/cowork/', 'Claude Cowork')}
 {a('/integrations/codex/', 'Codex')}
+{a('/integrations/chatgpt-work/', 'ChatGPT Work')}
 {a('/integrations/hermes/', 'Hermes')}</div>
 <div><b>{c['g_gui']}</b>
+{a('/orchestrate-agents/', c['l_orch'])}
 {a('/guides/share-on-cloudflare/', c['l_cf'])}
 {a('/guides/vault-on-github/', c['l_gh'])}
 <a href="/llms.txt">{c['l_llm']}</a></div>
@@ -436,6 +438,33 @@ PAGES = [
    "Yes — that's the design. Plain files plus one AGENTS.md means OpenClaw, Codex, Hermes, and Claude can all work the same vault. Keep it in git so every write is attributable and revertible."),
  ],
 },
+{
+ "path": "/integrations/chatgpt-work/",
+ "title": "Using note.md with ChatGPT (work mode) — generate into a vault you own",
+ "desc": "ChatGPT's work mode connects to your folders and is strong at drafting and image generation. Point it at a note.md vault and everything it makes becomes markdown you can read, annotate, and keep.",
+ "crumb": "Integrations",
+ "h1": "note.md + ChatGPT (work)",
+ "lead": "ChatGPT is the strongest generalist most people already have — great at drafting, summarizing, and generating images. note.md gives what it produces a permanent home: your vault, your files, your judgment on top.",
+ "sections": [
+  ("Why this pairing works", """<p>ChatGPT's work mode connects to folders and files and shines at the generative end of the pipeline: turning a rough outline into a draft, summarizing a stack of documents, and — increasingly — batch-generating images and diagrams. Left to itself, that output lives in a chat thread you'll lose. Aim it at a note.md vault instead and every deliverable lands as plain markdown (with images beside it), where your reading-annotation loop can catch it.</p>
+<p>This is where the "one vault, many agents" idea earns its keep: ChatGPT is rarely your only agent. It's the fast generalist you reach for to <em>produce</em> — and the review, the long-running automation, and the final judgment can each go to whoever's best at that. Same files, different workers.</p>"""),
+  ("Setup", """<ol>
+<li>Keep your vault in a folder ChatGPT can reach — an OpenAI-connected folder, or a cloud/git-synced directory it can read and write.</li>
+<li>Add an <code>AGENTS.md</code> at the vault root (conventions summary: <a href="/llms-full.txt">llms-full.txt</a>) and paste the same house rules into your ChatGPT project instructions — it won't auto-read the file the way a CLI agent does, so tell it.</li>
+<li>Ask it to save deliverables into the vault as dated markdown, e.g. <code>drafts/2026-07-23-launch-post.md</code>, and to drop generated images into <code>{docname}_files/</code> with relative links.</li>
+<li>Open the result in note.md; read, highlight, question — your marks land in sidecar <code>.note.md</code> files, the source stays clean and regenerable.</li>
+</ol>"""),
+  ("The loop in practice", """<p>You ask ChatGPT to draft a launch post and generate three hero images; it writes <code>drafts/launch-post.md</code> and fills a <code>_files/</code> folder. You read it in note.md, cut two images, highlight a paragraph that overclaims, and leave a note. Next you hand <code>launch-post.note.md</code> to a more careful reviewer agent — "address the margins." ChatGPT generated fast; the vault kept it; you judged it. That's the division of labor.</p>"""),
+ ],
+ "faq": [
+  ("Does ChatGPT read AGENTS.md automatically?",
+   "Not the way a CLI agent (Codex, Claude Code) does. Paste your vault conventions into the ChatGPT project or custom instructions, and point it at the AGENTS.md file so it follows the same house rules — sidecar files are off-limits, new work is dated markdown."),
+  ("Can ChatGPT-generated images live in my vault?",
+   "Yes. Save them beside the document in a {docname}_files/ folder with relative links — the same convention note.md uses for pasted screenshots. They render in the reading view and travel with the vault in git."),
+  ("Do I have to pick one agent?",
+   "No — that's the whole point. Use ChatGPT for fast generation, another agent for careful review, a local agent for private work. They collaborate through the files; you orchestrate. See the orchestration guide."),
+ ],
+},
 # ----------------------------------------------------------------- guides
 {
  "path": "/guides/share-on-cloudflare/",
@@ -496,6 +525,58 @@ gh repo create my-vault --private --source=. --push</code></pre>
    "The vault is yours: choose a private repo, a self-hosted Gitea, or no remote at all — git works locally. For extra caution, git-crypt or age can encrypt selected paths."),
   ("Do I need to know git?",
    "Barely. Three commands cover daily life (add, commit, push), and note.md's sync features hide most of it. The payoff — total history of every thought you ever wrote — is disproportionate."),
+ ],
+},
+# ----------------------------------------------------------------- essays
+{
+ "path": "/orchestrate-agents/",
+ "title": "One vault, many agents — orchestrate Cowork, Codex, OpenClaw & ChatGPT (2026)",
+ "desc": "Your markdown vault is a git repo for agents. Claude Cowork, Claude Code, Codex, ChatGPT, OpenClaw and Hermes can all read and write the same files — so you assign each job to whoever's best at it, on whatever model, and keep the judgment for yourself.",
+ "crumb": "Guide",
+ "h1": "One vault, many agents. You orchestrate.",
+ "lead": "The lock-in nobody warns you about isn't the app — it's the agent. Keep your knowledge in plain files, and no single AI owns it. Cowork drafts, Codex refactors, ChatGPT generates, a local agent guards your secrets — and you hold the pen.",
+ "sections": [
+  ("The vault is neutral ground", """<p>Most AI tools want to be the home for your thinking: your knowledge in their database, your annotations in their format, your agent the one they ship, your model the one they lock you to. Then "which AI do I use?" becomes "do I migrate everything?" — and you're fenced inside one vendor's roadmap.</p>
+<p>A note.md vault flips it. The vault is a folder of plain markdown with shared conventions — an <code>AGENTS.md</code> that states the house rules, <code>((file#b-xxxxxx))</code> block citations for precise references, sidecar <code>.note.md</code> files that hold <em>your</em> judgment, and <code>[[wikilinks]]</code> for a single namespace. Those conventions are a <b>public protocol</b>: any agent can read them, no adapter required. The agents and models become interchangeable workers; the vault is the one thing that doesn't change. It's a git repo, and they're all committing to it.</p>"""),
+  ("Assign each job to whoever's best at it", """<p>No single agent is best at everything. So don't make one do everything — build a line and put each tool at the station it's strongest at:</p>
+<table><thead><tr><th>Stage</th><th>A good fit</th><th>Why</th></tr></thead><tbody>
+<tr><td>Overnight automation</td><td>OpenClaw / Hermes</td><td>Long-running, file-based, self-hosted memory</td></tr>
+<tr><td>Careful review &amp; revision</td><td>Claude Cowork / Code</td><td>Strong reasoning; reads your margins before editing</td></tr>
+<tr><td>Fast drafting &amp; images</td><td>ChatGPT (work mode)</td><td>Generalist generation, batch image creation</td></tr>
+<tr><td>In-repo refactors &amp; scripts</td><td>Codex</td><td>Native <code>AGENTS.md</code>, runs in the working dir</td></tr>
+<tr><td>Final judgment</td><td>You</td><td>The one thing no model can generate</td></tr>
+</tbody></table>
+<p>You pick the agent <em>and</em> the model per job — a cheap fast model to triage, a frontier model to reason, a local model for anything private. The vault doesn't care which; it just holds the files they pass between them.</p>"""),
+  ("A loop in practice", """<p>Here's a real pipeline, four tools and three models over one vault:</p>
+<ol>
+<li><b>OpenClaw</b> runs overnight, processing a batch of raw notes into <code>drafts/*.md</code>.</li>
+<li>You hand the drafts to <b>Claude Cowork</b> on a careful model — "review and revise these, flag anything shaky."</li>
+<li><b>ChatGPT</b> batch-generates the hero images into each doc's <code>_files/</code> folder.</li>
+<li>The finished documents land in note.md, where <b>you</b> read them, cut what overclaims, highlight what matters, and leave the notes only you could write.</li>
+</ol>
+<p>Four tools, three models, one vault, one orchestrator. Nobody had to share memory or speak a private protocol — they handed off <code>.md</code> files on disk, and your sidecar <code>.note.md</code> annotations were the steering signal for the next one.</p>"""),
+  ("Why files make it work", """<ul>
+<li><b>Anti-lock-in, one layer deeper.</b> Files-over-app frees you from the app; this frees you from the agent and the model. Today's best model is replaced next month — your knowledge shouldn't move with it.</li>
+<li><b>Collaboration without a platform.</b> Agents hand off <code>.md</code> on disk — no shared memory, no private API, no plugin store. One agent's output is the next one's input.</li>
+<li><b>You stay in the loop, at the checkpoint.</b> It's not a black box that runs end to end; it's a line of stations with a human at quality control. Agents write, review, and illustrate — you decide what ships.</li>
+<li><b>Still just files.</b> No orchestration database, no hidden state. Rules in <code>AGENTS.md</code>, output in <code>.md</code>, judgment in <code>.note.md</code> — all readable by Obsidian, a CLI, or any agent. Swap out note.md and the vault is still everyone's shared workspace.</li>
+</ul>
+<p>Keep the vault in <a href="/guides/vault-on-github/">git</a> and every agent write is diffable, attributable, and revertible — an agent's bad day is a <code>git revert</code>, not a tragedy.</p>"""),
+  ("Set it up", """<ol>
+<li>Put an <code>AGENTS.md</code> at your vault root — grab the conventions from <a href="/llms-full.txt">llms-full.txt</a> and add house rules (the hard one: agents never write into <code>*.note.md</code> sidecars).</li>
+<li>Wire up each agent on the same folder: <a href="/integrations/openclaw/">OpenClaw</a>, <a href="/integrations/cowork/">Cowork</a>, <a href="/integrations/codex/">Codex</a>, <a href="/integrations/chatgpt-work/">ChatGPT</a>, <a href="/integrations/hermes/">Hermes</a>.</li>
+<li>Read and annotate the results in note.md; tell the next agent to read the sidecars first. The loop closes on your disk.</li>
+</ol>"""),
+ ],
+ "faq": [
+  ("Can different AI agents really share one vault?",
+   "Yes — that's the design. A vault is plain markdown plus one AGENTS.md describing the conventions. Claude Cowork, Claude Code, Codex, ChatGPT, OpenClaw and Hermes all read and write those files, so you can route each task to whichever agent (and model) is best for it. Keep the vault in git so every write is diffable and revertible."),
+  ("How do agents hand work off to each other?",
+   "Through files. One agent writes markdown into the vault; the next reads it as input. Your annotations live in sidecar .note.md files and act as the steering signal — an agent reads your margins before its next pass. No shared memory or private protocol is needed."),
+  ("Does this need a special orchestration tool or MCP server?",
+   "No. The orchestration is you, and the medium is the filesystem. There's no central database or hidden state — rules in AGENTS.md, output in .md, judgment in .note.md. A Vault MCP server is on the roadmap for agents that prefer a tool interface, but plain files already work today."),
+  ("Why not just use one AI for everything?",
+   "Because no single agent is best at everything. Overnight automation, careful review, fast image generation, private local work, and final judgment are different jobs with different best-fit tools. Splitting them across specialists — over files you own — beats one generalist doing all of it, and keeps you free to swap any worker out."),
  ],
 },
 ]

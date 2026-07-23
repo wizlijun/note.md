@@ -4,20 +4,20 @@
 <meta charset="UTF-8">
 <!-- Hello, agent. The plain-text version of this site is at /llms.txt -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>note.md mit Hermes nutzen — persistentes Gedächtnis trifft permanentes Notizbuch</title>
-<meta name="description" content="Hermes (Nous Research) ist ein offener Agent mit persistentem Gedächtnis und AGENTS.md-Konventionen. Gib ihm einen note.md-Vault, und sein Gedächtnis wird etwas, das du lesen, annotieren und besitzen kannst.">
+<title>note.md mit ChatGPT (Work-Modus) nutzen — generiere in einen Vault, der dir gehört</title>
+<meta name="description" content="ChatGPTs Work-Modus verbindet sich mit deinen Ordnern und ist stark beim Entwerfen und bei der Bildgenerierung. Richte ihn auf einen note.md-Vault, und alles, was er macht, wird Markdown, das du lesen, annotieren und behalten kannst.">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="/favicon.ico" sizes="32x32">
-<link rel="canonical" href="https://notemd.net/de/integrations/hermes/">
-<link rel="alternate" hreflang="en" href="https://notemd.net/integrations/hermes/">
-<link rel="alternate" hreflang="de" href="https://notemd.net/de/integrations/hermes/">
-<link rel="alternate" hreflang="ja" href="https://notemd.net/ja/integrations/hermes/">
-<link rel="alternate" hreflang="zh" href="https://notemd.net/zh/integrations/hermes/">
-<link rel="alternate" hreflang="x-default" href="https://notemd.net/integrations/hermes/">
+<link rel="canonical" href="https://notemd.net/de/integrations/chatgpt-work/">
+<link rel="alternate" hreflang="en" href="https://notemd.net/integrations/chatgpt-work/">
+<link rel="alternate" hreflang="de" href="https://notemd.net/de/integrations/chatgpt-work/">
+<link rel="alternate" hreflang="ja" href="https://notemd.net/ja/integrations/chatgpt-work/">
+<link rel="alternate" hreflang="zh" href="https://notemd.net/zh/integrations/chatgpt-work/">
+<link rel="alternate" hreflang="x-default" href="https://notemd.net/integrations/chatgpt-work/">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=EB+Garamond:ital,wght@0,400..700;1,400..700&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
-<script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Ist Hermes dasselbe wie OpenClaw?", "acceptedAnswer": {"@type": "Answer", "text": "Nein — Hermes ist der offene Agent von Nous Research mit Fokus auf persistentem Gedächtnis und Self-Hosting; OpenClaw ist ein separater, viraler Open-Source-Personal-Agent. Beide sprechen Markdown und AGENTS.md, also passen beide auf dieselbe Weise zu note.md."}}, {"@type": "Question", "name": "Können sich mehrere Agents einen Vault teilen?", "acceptedAnswer": {"@type": "Answer", "text": "Ja — das ist das Design. Reine Dateien plus eine AGENTS.md heißt: OpenClaw, Codex, Hermes und Claude können alle denselben Vault bearbeiten. Halte ihn in Git, damit jeder Write zuordenbar und rückgängig zu machen ist."}}]}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Liest ChatGPT AGENTS.md automatisch?", "acceptedAnswer": {"@type": "Answer", "text": "Nicht so wie ein CLI-Agent (Codex, Claude Code). Füge deine Vault-Konventionen in das ChatGPT-Projekt oder die Custom Instructions ein und weise es auf die AGENTS.md-Datei hin, damit es sich an dieselben Hausregeln hält — Sidecar-Dateien sind tabu, neue Arbeit ist datiertes Markdown."}}, {"@type": "Question", "name": "Können von ChatGPT generierte Bilder in meinem Vault leben?", "acceptedAnswer": {"@type": "Answer", "text": "Ja. Speichere sie neben dem Dokument in einem {docname}_files/-Ordner mit relativen Links — dieselbe Konvention, die note.md für eingefügte Screenshots nutzt. Sie rendern in der Leseansicht und reisen mit dem Vault in Git mit."}}, {"@type": "Question", "name": "Muss ich mich für einen Agent entscheiden?", "acceptedAnswer": {"@type": "Answer", "text": "Nein — genau das ist der Punkt. Nutz ChatGPT für schnelle Generierung, einen anderen Agent für sorgfältiges Review, einen lokalen Agent für private Arbeit. Sie kollaborieren über die Dateien; du orchestrierst. Siehe die Orchestrierungs-Anleitung."}}]}</script>
 <style>
 :root{--ink:#17181C;--paper:#FAFAF7;--amber:#F59E0B;--gray:#9CA3AF;--line:#E7E5E0;
 --serif:"Playfair Display",Georgia,serif;--body:"EB Garamond",Georgia,serif;
@@ -93,24 +93,24 @@ pre{font-size:12.5px;padding:14px 15px}
 <nav><div class="wrap nav-in">
 <a class="logo" href="/de/"><svg width="24" height="24" viewBox="0 0 512 512" aria-hidden="true"><rect width="512" height="512" rx="115" fill="#17181C" stroke="#3A3D46" stroke-width="14"/><path d="M 185.49318,76.468676 C 202.86539,165.0158 220.23759,183.99019 301.30788,202.96457 220.23759,221.93895 202.86539,240.91333 185.49318,329.46046 168.12097,240.91333 150.74877,221.93895 69.67847,202.96457 150.74877,183.99019 168.12097,165.0158 185.49318,76.468676 Z" fill="#F59E0B"/><rect x="260.643" y="239.444" width="186.136" height="48" rx="29.39" fill="#FAFAF7"/><circle cx="289.722" cy="342.122" r="28.414" fill="#9CA3AF"/><rect x="333.7" y="324.65" width="112.797" height="40" rx="26.856" fill="#9CA3AF"/><circle cx="288.251" cy="420.101" r="28.414" fill="#9CA3AF"/><rect x="336.022" y="403.894" width="109.256" height="40" rx="26.013" fill="#9CA3AF"/></svg><span>note<span class="dot">.</span>md</span></a>
 <a class="npl" href="https://plugins.notemd.net">plugins</a>
-<div class="lang-sw"><a href="/integrations/hermes/">EN</a><a href="/de/integrations/hermes/" class=on>DE</a><a href="/ja/integrations/hermes/">日本語</a><a href="/zh/integrations/hermes/">中文</a></div>
+<div class="lang-sw"><a href="/integrations/chatgpt-work/">EN</a><a href="/de/integrations/chatgpt-work/" class=on>DE</a><a href="/ja/integrations/chatgpt-work/">日本語</a><a href="/zh/integrations/chatgpt-work/">中文</a></div>
 <a class="nav-cta" href="/download">Laden</a>
 </div></nav>
 <header class="ph"><div class="wrap">
 <div class="crumb">Integrationen</div>
-<h1>note.md + Hermes</h1>
-<p class="lead">Hermes wächst mit dir — ein offener Agent, der sich erinnert. note.md ist der Ort, an dem ein Mensch sein Urteil aufbewahrt. Ein Ordner, beide Jobs.</p>
+<h1>note.md + ChatGPT (Work)</h1>
+<p class="lead">ChatGPT ist der stärkste Generalist, den die meisten schon haben — großartig beim Entwerfen, Zusammenfassen und Generieren von Bildern. note.md gibt dem, was er produziert, ein dauerhaftes Zuhause: dein Vault, deine Dateien, dein Urteil obendrauf.</p>
 </div></header>
 <main><div class="wrap">
 
-<h2>Warum das Paar funktioniert</h2><p>Hermes (von Nous Research) ist um persistentes, dateibasiertes Gedächtnis herum gebaut und liest <code>AGENTS.md</code>-Konventionen — dieselbe Open-Agent-Linie wie OpenClaw, mit Betonung auf selbst gehosteter Souveränität. Diese Weltsicht ist note.mds Weltsicht: kein versteckter Zustand, Dateien als Wahrheit, alles inspizierbar.</p>
-<p>Lass Hermes über einen note.md-Vault laufen, und sein angesammeltes Gedächtnis hört auf, ein undurchsichtiges Agent-Artefakt zu sein, und wird Teil deiner Wissensbasis: lesbar in der Outline-Ansicht, verlinkbar mit <code>[[wikilinks]]</code> und — entscheidend — annotierbar. Du kannst buchstäblich Randnotizen an den Erinnerungen deines Agents hinterlassen.</p><h2>Setup</h2><ol>
-<li><code>AGENTS.md</code> in die Vault-Wurzel, wie immer — Konventionen aus <a href="/llms-full.txt">llms-full.txt</a> plus deine Hausregeln.</li>
-<li>Konfiguriere Hermes' Memory-/Workspace-Verzeichnis so, dass es im Vault liegt (z. B. <code>agents/hermes/</code>), oder lass es seine Outputs in deine Vault-Ordner schreiben.</li>
-<li>Lass es arbeiten. Lies in note.md, was es geschrieben hat; annotiere.</li>
-<li>Weise Hermes an, <code>*.note.md</code>-Sidecar-Dateien zu konsultieren, bevor es ein Thema wieder aufgreift — deine Korrekturen werden seine Stützräder.</li>
-</ol>
-<section class="faq"><h2>FAQ</h2><h3>Ist Hermes dasselbe wie OpenClaw?</h3><p>Nein — Hermes ist der offene Agent von Nous Research mit Fokus auf persistentem Gedächtnis und Self-Hosting; OpenClaw ist ein separater, viraler Open-Source-Personal-Agent. Beide sprechen Markdown und AGENTS.md, also passen beide auf dieselbe Weise zu note.md.</p><h3>Können sich mehrere Agents einen Vault teilen?</h3><p>Ja — das ist das Design. Reine Dateien plus eine AGENTS.md heißt: OpenClaw, Codex, Hermes und Claude können alle denselben Vault bearbeiten. Halte ihn in Git, damit jeder Write zuordenbar und rückgängig zu machen ist.</p></section>
+<h2>Warum das Paar funktioniert</h2><p>ChatGPTs Work-Modus verbindet sich mit Ordnern und Dateien und glänzt am generativen Ende der Pipeline: eine grobe Outline in einen Entwurf verwandeln, einen Stapel Dokumente zusammenfassen und — zunehmend — Bilder und Diagramme im Batch generieren. Sich selbst überlassen, lebt dieser Output in einem Chat-Thread, den du verlieren wirst. Richte ihn stattdessen auf einen note.md-Vault, und jedes Deliverable landet als reines Markdown (mit den Bildern daneben), wo dein Lese-Annotations-Loop es auffangen kann.</p>
+<p>Hier verdient die Idee "ein Vault, viele Agents" ihr Geld: ChatGPT ist selten dein einziger Agent. Es ist der schnelle Generalist, zu dem du greifst, um zu <em>produzieren</em> — und das Review, die langlaufende Automatisierung und das finale Urteil können jeweils zu dem gehen, der darin am besten ist. Dieselben Dateien, andere Arbeiter.</p><h2>Setup</h2><ol>
+<li>Halte deinen Vault in einem Ordner, den ChatGPT erreichen kann — einem OpenAI-verbundenen Ordner oder einem cloud-/git-synchronisierten Verzeichnis, das er lesen und schreiben kann.</li>
+<li>Leg eine <code>AGENTS.md</code> in die Vault-Wurzel (Konventions-Zusammenfassung: <a href="/llms-full.txt">llms-full.txt</a>) und füge dieselben Hausregeln in deine ChatGPT-Projektinstruktionen ein — er liest die Datei nicht automatisch wie ein CLI-Agent, also sag es ihm.</li>
+<li>Bitte ihn, Deliverables als datiertes Markdown in den Vault zu speichern, z. B. <code>drafts/2026-07-23-launch-post.md</code>, und generierte Bilder mit relativen Links in <code>{docname}_files/</code> abzulegen.</li>
+<li>Öffne das Ergebnis in note.md; lies, markiere, hinterfrage — deine Markierungen landen in Sidecar-Dateien (<code>.note.md</code>), die Quelle bleibt sauber und regenerierbar.</li>
+</ol><h2>Der Loop in der Praxis</h2><p>Du bittest ChatGPT, einen Launch-Post zu entwerfen und drei Hero-Bilder zu generieren; er schreibt <code>drafts/launch-post.md</code> und füllt einen <code>_files/</code>-Ordner. Du liest es in note.md, streichst zwei Bilder, markierst einen Absatz, der übertreibt, und hinterlässt eine Notiz. Als Nächstes gibst du <code>launch-post.note.md</code> an einen sorgfältigeren Reviewer-Agent — "geh auf die Randnotizen ein". ChatGPT hat schnell generiert; der Vault hat es behalten; du hast es beurteilt. Das ist die Arbeitsteilung.</p>
+<section class="faq"><h2>FAQ</h2><h3>Liest ChatGPT AGENTS.md automatisch?</h3><p>Nicht so wie ein CLI-Agent (Codex, Claude Code). Füge deine Vault-Konventionen in das ChatGPT-Projekt oder die Custom Instructions ein und weise es auf die AGENTS.md-Datei hin, damit es sich an dieselben Hausregeln hält — Sidecar-Dateien sind tabu, neue Arbeit ist datiertes Markdown.</p><h3>Können von ChatGPT generierte Bilder in meinem Vault leben?</h3><p>Ja. Speichere sie neben dem Dokument in einem {docname}_files/-Ordner mit relativen Links — dieselbe Konvention, die note.md für eingefügte Screenshots nutzt. Sie rendern in der Leseansicht und reisen mit dem Vault in Git mit.</p><h3>Muss ich mich für einen Agent entscheiden?</h3><p>Nein — genau das ist der Punkt. Nutz ChatGPT für schnelle Generierung, einen anderen Agent für sorgfältiges Review, einen lokalen Agent für private Arbeit. Sie kollaborieren über die Dateien; du orchestrierst. Siehe die Orchestrierungs-Anleitung.</p></section>
 </div></main>
 <section class="cta"><div class="wrap">
 <h2>Besitze dein Denken.</h2>
