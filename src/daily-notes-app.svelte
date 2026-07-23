@@ -242,7 +242,7 @@
 
 <style>
   :global(:root) { color-scheme: light dark; }
-  :global(body) { margin: 0; font-family: -apple-system, system-ui, sans-serif; background: Canvas; color: CanvasText; }
+  :global(body) { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif; background: Canvas; color: CanvasText; }
   main { height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
   .view { flex: 1 1 auto; min-height: 0; overflow: hidden; }
   .hidden { display: none; }

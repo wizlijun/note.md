@@ -274,7 +274,7 @@
 <style>
   /* Opt both windows into light/dark so Canvas/CanvasText follow the OS. */
   :global(:root) { color-scheme: light dark; }
-  :global(body) { margin: 0; font-family: -apple-system, system-ui, sans-serif; background: Canvas; color: CanvasText; }
+  :global(body) { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif; background: Canvas; color: CanvasText; }
   main { height: 100vh; overflow: auto; padding: 16px 20px; box-sizing: border-box; }
   header { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
   h1 { font-size: 16px; margin: 0; flex: 1; }

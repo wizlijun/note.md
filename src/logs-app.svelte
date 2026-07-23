@@ -116,25 +116,29 @@
 </div>
 
 <style>
-  .logs-root { display: flex; flex-direction: column; height: 100vh; background: #1e1e1e; color: #ddd; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
-  .bar { display: flex; gap: 8px; align-items: center; padding: 6px 8px; background: #252526; border-bottom: 1px solid #333; flex-wrap: wrap; }
-  .bar select, .bar input, .bar button { background: #333; color: #ddd; border: 1px solid #444; border-radius: 4px; padding: 2px 6px; font: inherit; }
+  /* Theme parity with the main window: Canvas/CanvasText system colors so the
+     window follows light/dark like every other surface; accent colors use
+     light-dark() pairs (the old values were dark-only VSCode hex codes). The
+     monospace stack is intentional — this is a log stream viewer. */
+  .logs-root { display: flex; flex-direction: column; height: 100vh; background: Canvas; color: CanvasText; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+  .bar { display: flex; gap: 8px; align-items: center; padding: 6px 8px; background: color-mix(in srgb, CanvasText 6%, Canvas); border-bottom: 1px solid color-mix(in srgb, CanvasText 16%, transparent); flex-wrap: wrap; }
+  .bar select, .bar input, .bar button { background: color-mix(in srgb, CanvasText 9%, Canvas); color: CanvasText; border: 1px solid color-mix(in srgb, CanvasText 22%, transparent); border-radius: 4px; padding: 2px 6px; font: inherit; }
   .search { flex: 1; min-width: 120px; }
   .auto { display: flex; align-items: center; gap: 4px; white-space: nowrap; }
   .stream { flex: 1; overflow-y: auto; padding: 6px 8px; }
   .empty { opacity: 0.5; padding: 16px; text-align: center; }
   .row { display: flex; gap: 8px; padding: 1px 0; align-items: baseline; }
-  .ts { color: #777; white-space: nowrap; }
-  .src { color: #6a9955; white-space: nowrap; }
+  .ts { color: color-mix(in srgb, CanvasText 52%, transparent); white-space: nowrap; }
+  .src { color: light-dark(#3f7d2d, #6a9955); white-space: nowrap; }
   .cat { white-space: nowrap; }
-  .cat-git { color: #4fc1ff; }
-  .cat-plugin { color: #c586c0; }
-  .cat-frontend { color: #4ec9b0; }
-  .cat-core { color: #6a9955; }
+  .cat-git { color: light-dark(#0b7bd0, #4fc1ff); }
+  .cat-plugin { color: light-dark(#8e44ad, #c586c0); }
+  .cat-frontend { color: light-dark(#0e8574, #4ec9b0); }
+  .cat-core { color: light-dark(#3f7d2d, #6a9955); }
   .lvl { white-space: nowrap; text-transform: uppercase; }
-  .lvl-error { color: #f14c4c; }
-  .lvl-warn { color: #cca700; }
-  .lvl-debug { color: #888; }
-  .lvl-info { color: #ddd; }
+  .lvl-error { color: light-dark(#c62f2f, #f14c4c); }
+  .lvl-warn { color: light-dark(#9a6700, #cca700); }
+  .lvl-debug { color: light-dark(#6e6e6e, #888); }
+  .lvl-info { color: CanvasText; }
   .msg { white-space: pre-wrap; word-break: break-all; }
 </style>
