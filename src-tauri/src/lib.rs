@@ -388,6 +388,37 @@ fn show_insights_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
     }
 }
 
+/// The single Daily Notes window's label.
+const DAILY_NOTES_LABEL: &str = "daily-notes";
+
+/// Ensure the single Daily Notes window exists; focus if already open.
+fn show_daily_notes_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
+    use tauri::Manager;
+    use tauri::WebviewUrl;
+    let win = app.get_webview_window(DAILY_NOTES_LABEL).or_else(|| {
+        tauri::WebviewWindowBuilder::new(app, DAILY_NOTES_LABEL, WebviewUrl::App("daily-notes.html".into()))
+            .title("Daily Notes")
+            .inner_size(720.0, 900.0)
+            .min_inner_size(480.0, 480.0)
+            .resizable(true)
+            .decorations(true)
+            .visible(false)
+            .build()
+            .map_err(|e| eprintln!("[daily-notes] window build failed: {e}"))
+            .ok()
+    });
+    if let Some(w) = win {
+        let _ = w.show();
+        let _ = w.set_focus();
+        let _ = w.unminimize();
+    }
+}
+
+#[tauri::command]
+fn open_daily_notes_window(app: tauri::AppHandle) {
+    show_daily_notes_window(&app);
+}
+
 #[cfg(not(target_os = "ios"))]
 fn open_logs_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>, filter: Option<&str>) {
     use tauri::WebviewUrl;
@@ -946,6 +977,7 @@ pub fn run() {
                 write_file_binary,
                 rename_file,
                 open_plugin_market_window,
+                open_daily_notes_window,
                 editor_show_and_open_path,
                 editor_open_remote_buffer,
                 update_recent_menu,
