@@ -159,6 +159,12 @@ pub trait HostServices: Send + Sync {
     fn location_get(&self) -> Result<serde_json::Value, String> {
         Err("location not supported".into())
     }
+    /// Open a vault file in the main editor window. Default: unavailable
+    /// (the process sink has no main-window context). `abs_path` is the
+    /// vault-resolved absolute path from `resolve_in_vault`.
+    fn open_in_editor(&self, _abs_path: &Path) -> Result<(), String> {
+        Err("io: editor.open is only available from a plugin UI window".into())
+    }
 }
 
 // ── Dispatch ────────────────────────────────────────────────────────────
@@ -306,6 +312,7 @@ pub async fn dispatch_with(
         "host.vault.exists" => vault_exists(services, &req.params),
         "host.vault.list" => vault_list(services, &req.params),
         "host.vault.mkdir" => vault_mkdir(services, &req.params),
+        "host.editor.open" => editor_open(services, &req.params),
         // handle_common took log/toast; the gate rejected everything unknown.
         other => Err(format!("io: unhandled method {other}")),
     };
@@ -575,6 +582,15 @@ pub(crate) fn vault_mkdir(services: &dyn HostServices, params: &serde_json::Valu
     Ok(serde_json::json!({ "ok": true }))
 }
 
+/// `{ path } → { ok: true }`. Resolves a vault-relative path and opens it in
+/// the main editor (focuses the main window). UI-bridge only — the process
+/// sink's default `open_in_editor` returns an error.
+pub(crate) fn editor_open(services: &dyn HostServices, params: &serde_json::Value) -> Result<serde_json::Value, String> {
+    let p = resolve_in_vault(services, params)?;
+    services.open_in_editor(&p)?;
+    Ok(serde_json::json!({ "ok": true }))
+}
+
 // ── Production HostServices (live AppHandle) ──────────────────────────────
 
 /// Live implementation wired to a Tauri `AppHandle`. Constructed per-dispatch
@@ -667,6 +683,15 @@ impl<R: tauri::Runtime> HostServices for TauriServices<R> {
         // completes. Blocking here is fine.
         super::location::fetch_once(&self.app)
     }
+
+    fn open_in_editor(&self, abs_path: &Path) -> Result<(), String> {
+        let s = abs_path
+            .to_str()
+            .ok_or_else(|| "io: path is not valid UTF-8".to_string())?;
+        crate::emit_open_file_delayed(&self.app, s);
+        crate::show_main_window(&self.app);
+        Ok(())
+    }
 }
 
 // ── Unit tests ────────────────────────────────────────────────────────────
@@ -691,6 +716,8 @@ mod tests {
         last_open: Mutex<Option<OpenOptions>>,
         /// recorded clipboard writes
         clipboard: Arc<Mutex<Vec<String>>>,
+        /// recorded editor.open paths
+        opened: Arc<Mutex<Vec<PathBuf>>>,
     }
 
     impl HostServices for StubServices {
@@ -712,6 +739,10 @@ mod tests {
         }
         fn clipboard_write(&self, text: &str) -> Result<(), String> {
             self.clipboard.lock().unwrap().push(text.to_string());
+            Ok(())
+        }
+        fn open_in_editor(&self, abs_path: &Path) -> Result<(), String> {
+            self.opened.lock().unwrap().push(abs_path.to_path_buf());
             Ok(())
         }
     }
@@ -784,6 +815,7 @@ mod tests {
             ("host.fs.read_text", "fs.read:dialog"),
             ("host.fs.read_bytes", "fs.read:dialog"),
             ("host.clipboard.write", "clipboard.write"),
+            ("host.editor.open", "editor.open"),
         ] {
             let r = run(&s, &[], method, serde_json::json!({})).await;
             let e = r.error.unwrap();
@@ -1236,5 +1268,38 @@ mod tests {
         let e = r.error.unwrap();
         assert_eq!(e.code, proto::ERR_INTERNAL);
         assert!(e.message.starts_with("io:"), "{}", e.message);
+    }
+
+    // ── editor.open ──────────────────────────────────────────────────────
+
+    #[tokio::test]
+    async fn editor_open_resolves_vault_path_and_records_call() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("note.md");
+        std::fs::write(&file, "# hello").unwrap();
+        let s = StubServices {
+            vault: Some(dir.path().to_path_buf()),
+            ..Default::default()
+        };
+        let opened = s.opened.clone();
+        let r = run(&s, &["editor.open"], "host.editor.open", serde_json::json!({"path": "note.md"})).await;
+        assert!(r.error.is_none(), "{:?}", r.error);
+        assert_eq!(r.result.unwrap(), serde_json::json!({"ok": true}));
+        let calls = opened.lock().unwrap();
+        assert_eq!(calls.len(), 1);
+        assert!(calls[0].ends_with("note.md"), "expected path ending in note.md, got {:?}", calls[0]);
+    }
+
+    #[tokio::test]
+    async fn editor_open_rejects_path_traversal() {
+        let dir = tempfile::tempdir().unwrap();
+        let s = StubServices {
+            vault: Some(dir.path().to_path_buf()),
+            ..Default::default()
+        };
+        let r = run(&s, &["editor.open"], "host.editor.open", serde_json::json!({"path": "../secret.md"})).await;
+        let e = r.error.unwrap();
+        assert_eq!(e.code, proto::ERR_INTERNAL);
+        assert!(e.message.contains("escapes the vault"), "expected 'escapes the vault' in: {}", e.message);
     }
 }

@@ -44,6 +44,7 @@ pub fn method_capability(method: &str) -> Option<&'static str> {
         // host.dialog.open/save in this session (spec §5 prompt semantics).
         "host.fs.read_text" | "host.fs.read_bytes" => Some("fs.read:dialog"),
         "host.clipboard.write" => Some("clipboard.write"),
+        "host.editor.open" => Some("editor.open"),
         "host.location.get" => Some("location"),
         _ => Some("__unknown__"), // 未实现的方法一律拒绝
     }
@@ -501,6 +502,7 @@ mod tests {
         assert_eq!(method_capability("host.fs.read_text"), Some("fs.read:dialog"));
         assert_eq!(method_capability("host.fs.read_bytes"), Some("fs.read:dialog"));
         assert_eq!(method_capability("host.clipboard.write"), Some("clipboard.write"));
+        assert_eq!(method_capability("host.editor.open"), Some("editor.open"));
         assert_eq!(method_capability("host.unknown"), Some("__unknown__"));
         assert_eq!(method_capability("anything.else"), Some("__unknown__"));
     }
