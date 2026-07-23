@@ -1,9 +1,11 @@
 // src/lib/strings.ts — self-contained i18n for the roam-import plugin.
 //
-// The 16 `roamImport.*` strings are copied verbatim (2026-07) from the host
-// catalogs src/lib/i18n/{en,zh,ja,de}.ts. The keys here drop the `roamImport.`
-// prefix (the plugin has no other namespace). Language is chosen by
-// `notemd.locale` at startup; English is the fallback for any missing key.
+// Originally seeded (2026-07) from the host `roamImport.*` catalog entries,
+// which were removed from src/lib/i18n/{en,zh,ja,de}.ts when the plugin moved
+// to the v2 isolated webview — this file is now the sole source of truth.
+// The keys here drop the `roamImport.` prefix (the plugin has no other
+// namespace). Language is chosen by `notemd.locale` at startup; English is
+// the fallback for any missing key.
 
 export type Locale = 'en' | 'zh' | 'ja' | 'de'
 

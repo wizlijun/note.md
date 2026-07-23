@@ -449,6 +449,8 @@ export const en = {
   'history.diffCurrentTitle': '{short} ↔ current · {name}.diff',
   'history.preview': 'Preview',
   'history.previewTitle': '{short} · {name}',
+  'previewWindow.closeTab': 'Close tab',
+  'previewWindow.empty': 'No preview to show. Reopen it from the history panel.',
   'history.noDiff': 'No differences from the current document',
 
   // Folder view
