@@ -26,7 +26,7 @@
   async function loadFromCache() {
     const { loadCache } = await import('./lib/cache')
     if (!vaultRoot) return
-    const names = loadCache(vaultRoot)
+    const names = loadCache(vaultRoot, 'weekly-review')
     if (names) {
       index = buildIndex(names.map((name) => ({ name, is_dir: false })))
       selectedYear = pickDefaultYear(index)
@@ -48,7 +48,7 @@
       index = buildIndex(entries)
       if (!index.byYear.has(selectedYear)) selectedYear = pickDefaultYear(index)
       const { saveCache } = await import('./lib/cache')
-      saveCache(vaultRoot, entries.map((e) => e.name))
+      saveCache(vaultRoot, 'weekly-review', entries.map((e) => e.name))
       if (selectedYear === currentYear) scrollToToday()
     } catch (e) {
       await toast('error', t('title'), String(e))

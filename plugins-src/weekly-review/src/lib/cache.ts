@@ -1,11 +1,16 @@
-// Instant-repaint cache: the raw weekly-review directory filenames, keyed by
-// vault root. buildIndex() reconstructs the ReviewIndex from these on load.
+// Instant-repaint cache: raw directory filenames, namespaced by (kind, vault
+// root). buildIndex()/buildDayIndex() reconstruct indices from these on load.
+// kinds: 'weekly-review', 'diary', 'dailynote:<year>'.
 
 const PREFIX = 'weekly-review:cache:'
 
-export function loadCache(vaultRoot: string): string[] | null {
+function keyFor(vaultRoot: string, kind: string): string {
+  return `${PREFIX}${kind}:${vaultRoot}`
+}
+
+export function loadCache(vaultRoot: string, kind: string): string[] | null {
   try {
-    const raw = localStorage.getItem(PREFIX + vaultRoot)
+    const raw = localStorage.getItem(keyFor(vaultRoot, kind))
     if (!raw) return null
     const parsed = JSON.parse(raw)
     if (!Array.isArray(parsed) || !parsed.every((x) => typeof x === 'string')) return null
@@ -15,9 +20,9 @@ export function loadCache(vaultRoot: string): string[] | null {
   }
 }
 
-export function saveCache(vaultRoot: string, entries: string[]): void {
+export function saveCache(vaultRoot: string, kind: string, entries: string[]): void {
   try {
-    localStorage.setItem(PREFIX + vaultRoot, JSON.stringify(entries))
+    localStorage.setItem(keyFor(vaultRoot, kind), JSON.stringify(entries))
   } catch {
     /* best-effort */
   }
