@@ -157,22 +157,6 @@
       },
     )
 
-    // Tray "Today's Note": create (if missing) and open today's daily note.
-    const unlistenDailyNote = listen('tray-daily-note', async () => {
-      try {
-        const { ensureDailyNote, todayStr } = await import('./lib/outline/daily')
-        const p = await ensureDailyNote(todayStr())
-        if (p) {
-          await openFile(p)
-        } else {
-          pushToast({ level: 'info', message: t('outline.dailyNeedsVault') })
-        }
-      } catch (e) {
-        console.warn('[App] tray-daily-note failed:', e)
-        pushToast({ level: 'error', message: String(e) })
-      }
-    })
-
     // v2 plugin → frontend toast bridge (host_api.rs emits "plugin-toast").
     const unlistenPluginToast = listen<{ level: ToastLevel; message: string; detail?: string }>(
       'plugin-toast',
@@ -654,7 +638,6 @@
       unlistenOpenFile.then((fn) => fn())
       unlistenOpenPath.then((fn) => fn())
       unlistenOpenRemoteBuffer.then((fn) => fn())
-      unlistenDailyNote.then((fn) => fn())
       unlistenPluginToast.then((fn) => fn())
       unlistenPluginsChanged.then((fn) => fn())
       unlistenDeepLink.then((fn) => fn())

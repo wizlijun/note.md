@@ -698,7 +698,6 @@ export const en = {
   'daily.emptyDay': '(empty)',
 
   // Tray menu
-  'tray.dailyNote': "Today's Note",
   'tray.dailyNotes': 'Daily Notes',
 } as const
 

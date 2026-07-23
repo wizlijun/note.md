@@ -68,7 +68,25 @@
     if (el) el.scrollTop += el.scrollHeight - prevScrollHeight
   }
 
+  /** Keep appending older days on open until the content overflows the viewport
+   *  (so there is something to scroll), or a safety cap is hit. Without this, a
+   *  short initial window (or a run of empty days) leaves a half-blank page whose
+   *  bottom sentinel stays in view but never re-fires the observer. Guarded by
+   *  isExtending so the observer doesn't also fire mid-fill. */
+  async function fillViewport(): Promise<void> {
+    const el = container
+    if (!el) return
+    isExtending = true
+    let guard = 0
+    while (guard++ < 40 && el.scrollHeight <= el.clientHeight + 8) {
+      extendOlder()
+      await tick()
+    }
+    isExtending = false
+  }
+
   onMount(() => {
+    void fillViewport()
     const obs = new IntersectionObserver(
       (entries) => {
         // untrack: this callback both reads `dates`/`container` and writes
@@ -181,8 +199,10 @@
   .feed {
     height: 100%;
     overflow-y: auto;
-    background: Canvas;
-    color: CanvasText;
+    /* Inherit the themed background/color from <main> (set via the typo probe) so
+       the whole feed — and the editor mounted inside it — follows the theme. */
+    background: transparent;
+    color: inherit;
   }
   .sentinel { height: 1px; }
   /* Real block (not display:contents) so jumpTo()'s scrollIntoView has a box to

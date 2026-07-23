@@ -204,6 +204,9 @@ export async function saveSettings(): Promise<void> {
   await s.set('mdblock', settings.mdblock)
   await s.set('dailyNotes', { enabled: settings.dailyNotes.enabled })
   await s.save()
+  // Notify other webviews (e.g. the standalone Daily Notes window) so they can
+  // re-read settings and re-apply theme/locale live. Fire-and-forget.
+  import('@tauri-apps/api/event').then((m) => m.emit('settings://changed')).catch(() => {})
 }
 
 export function getRecentFiles(): readonly string[] {

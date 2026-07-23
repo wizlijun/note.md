@@ -74,7 +74,8 @@
   {#if hasChildren && !collapsed}
     <div class="children">
       {#each node.children as c, i (i)}
-        <RefTreeNode node={c} {editable} {onCommit} {onPageClick} />
+        <!-- Nested ref children also start collapsed so Linked References stays compact. -->
+        <RefTreeNode node={c} {editable} {onCommit} {onPageClick} defaultCollapsed={true} />
       {/each}
     </div>
   {/if}
@@ -88,12 +89,13 @@
     font-size: var(--outline-font-size, 13px);
     line-height: var(--outline-line-height, 1.5);
   }
+  /* Match OutlineNode's .tri / .bullet so references read as one outline. */
   .twist {
     background: none; border: none; cursor: pointer; color: inherit;
-    font-size: 0.7em; opacity: 0.55; width: 1.1em; flex: none; padding: 0; line-height: inherit;
+    font-size: 0.7em; opacity: 0.6; width: 1.1em; flex: none; padding: 0; line-height: inherit;
   }
   .twist:hover { opacity: 1; }
-  .dot { opacity: 0.35; width: 1.1em; flex: none; text-align: center; font-size: 0.7em; }
+  .dot { opacity: 0.7; width: 1.1em; flex: none; text-align: center; font-size: 1em; }
   .text { flex: 1; min-width: 0; }
   .text.editable { cursor: text; border-radius: 3px; }
   .text.editable:hover { background: var(--hover-bg, #8881); }

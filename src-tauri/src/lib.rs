@@ -1136,10 +1136,6 @@ pub fn run() {
                         match id {
                             "tray-show" => show_main_window(app),
                             "tray-daily-notes-open" => show_daily_notes_window(app),
-                            "tray-daily-note" => {
-                                show_main_window(app);
-                                let _ = app.emit("tray-daily-note", ());
-                            }
                             id if id.starts_with("tray-plugin:") => {
                                 // tray-plugin:<plugin_id>:<window> — plugin_id may
                                 // contain dots but neither part contains a colon.
@@ -1410,7 +1406,6 @@ fn menu_label(locale: &str, key: &str) -> String {
         "sys.maximize" => ("Zoom", "缩放", "拡大／縮小", "Größe anpassen"),
         // Menu-bar tray dropdown
         "tray.show" => ("Show note.md", "显示 note.md", "note.md を表示", "note.md anzeigen"),
-        "tray.dailyNote" => ("Today's Note", "今天的日记", "今日のノート", "Heutige Notiz"),
         "tray.dailyNotes" => ("Daily Notes", "每日笔记", "デイリーノート", "Tagesnotizen"),
         "tray.vaultSetFolder" => ("Vault: Set Folder…", "Vault：选择文件夹…", "Vault：フォルダを選択…", "Vault: Ordner wählen…"),
         "tray.syncNow" => ("Sync Now", "立即同步", "今すぐ同期", "Jetzt synchronisieren"),
@@ -1495,10 +1490,10 @@ fn build_tray_menu<R: tauri::Runtime>(
     locale: &str,
 ) -> tauri::Result<(Menu<R>, MenuItem<R>, IconMenuItem<R>, MenuItem<R>)> {
     let show_item = MenuItem::with_id(app, "tray-show", menu_label(locale, "tray.show"), true, None::<&str>)?;
-    let daily_note_item = MenuItem::with_id(app, "tray-daily-note", menu_label(locale, "tray.dailyNote"), true, None::<&str>)?;
     // Tray "socket": every enabled plugin that declares `contributes.tray` gets a
-    // launch item here, directly below "Today's Note". The label is the entry's
-    // `label` or the plugin's localized name; clicking opens the plugin window.
+    // launch item here, directly below the "Daily Notes" item (when enabled). The
+    // label is the entry's `label` or the plugin's localized name; clicking opens
+    // the plugin window.
     let plugin_tray_items: Vec<MenuItem<R>> = {
         let mut entries: Vec<(String, String, String)> = Vec::new(); // (plugin_id, window, label)
         if let Ok(st) = crate::plugin_runtime::STATE.read() {
@@ -1593,10 +1588,10 @@ fn build_tray_menu<R: tauri::Runtime>(
         .unwrap_or(false);
     let daily_notes_item = MenuItem::with_id(app, "tray-daily-notes-open", menu_label(locale, "tray.dailyNotes"), true, None::<&str>)?;
     let mut b0 = MenuBuilder::new(app).item(&show_item);
+    // Daily Notes window item only when the feature is enabled; there is no
+    // built-in "today's note" tray item anymore (removed by product decision).
     if daily_enabled {
         b0 = b0.item(&daily_notes_item);
-    } else {
-        b0 = b0.item(&daily_note_item);
     }
     for it in &plugin_tray_items {
         b0 = b0.item(it);

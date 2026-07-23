@@ -83,6 +83,10 @@
 </div>
 
 <style>
+  /* The toolbar is chrome, independent of the document theme: it uses the SYSTEM
+     appearance (Canvas/CanvasText + system UI font), NOT the outline theme colors
+     inherited from <main>. So it stays a consistent native-style toolbar whatever
+     theme the outline uses. */
   .toolbar {
     display: flex;
     align-items: center;
@@ -90,11 +94,12 @@
     padding: 6px 10px;
     background: Canvas;
     color: CanvasText;
+    font-family: -apple-system, BlinkMacSystemFont, system-ui, 'Helvetica Neue', sans-serif;
     border-bottom: 1px solid color-mix(in srgb, CanvasText 12%, transparent);
     flex: 0 0 auto;
   }
   .btn {
-    font: inherit;
+    font-family: inherit;
     font-size: 15px;
     line-height: 1;
     min-width: 26px;
@@ -108,7 +113,7 @@
   .btn:hover:not(:disabled) { background: color-mix(in srgb, CanvasText 10%, transparent); }
   .btn:disabled { opacity: 0.4; cursor: default; }
   .date, .search {
-    font: inherit;
+    font-family: inherit;
     height: 26px;
     border: 1px solid color-mix(in srgb, CanvasText 15%, transparent);
     border-radius: 5px;

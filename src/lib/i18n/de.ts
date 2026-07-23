@@ -691,6 +691,5 @@ export const de: Record<keyof Messages, string> = {
   'daily.emptyDay': '(empty)',
 
   // Tray menu
-  'tray.dailyNote': 'Heutige Notiz',
   'tray.dailyNotes': 'Tagesnotizen',
 } as const

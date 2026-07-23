@@ -35,12 +35,28 @@
   import { sotvaultStore, syncSourceToVaultAsHome, refreshSotvault } from '../../lib/sotvault.svelte'
   import { openSettings } from '../../lib/ui-state.svelte'
 
-  let { tab = null, mainTab = null }: {
+  let { tab = null, mainTab = null, embedded = false, onWikilink = null, onCollapse = null, linkedRefs = null }: {
     /** tab 模式：单独打开的 .note.md tab —— 纯大纲编辑器 */
     tab?: Tab | null
     /** panel 模式：正在编辑的主文档 tab —— 全功能大纲，随主文档实时同步 */
     mainTab?: Tab | null
+    /** embedded 模式（如每日笔记窗口）：隐藏标题+工具栏，只显示大纲区域，
+     *  与只读渲染保持一致。默认 false，主窗口行为不变。 */
+    embedded?: boolean
+    /** 双链点击处理器覆盖（每日笔记窗口用它做窗口内导航，而非默认的
+     *  openPageOrCreate 打开主窗口）。null = 默认行为。 */
+    onWikilink?: ((target: string) => void) | null
+    /** 折叠切换处理器覆盖（每日笔记窗口用它把折叠存进 KV 而非 .note.md，
+     *  避免 markDirty 触发文件写）。null = 默认（bump+markDirty，写文件）。 */
+    onCollapse?: ((n: NodeT) => void) | null
+    /** 是否显示底部 Linked References 区。null=跟随 embedded(嵌入时默认不显示);
+     *  每日笔记的单页视图显式传 true 以与主大纲视图一致。 */
+    linkedRefs?: boolean | null
   } = $props()
+
+  // Embedded (Daily Notes feed) hides Linked References; a single-page view opts
+  // back in via linkedRefs=true so it matches the main 大纲笔记 view.
+  const showLinkedRefs = $derived(linkedRefs ?? !embedded)
 
   /** 伴生笔记的主文档路径 */
   let mainPath = $derived(tab ? tab.filePath.replace(/\.notes?\.md$/i, '.md') : mainTab!.filePath)
@@ -191,7 +207,7 @@
         //   2) 不用"实质为空的树"覆盖一个本来有内容的落点。
         const wouldWipe = (existing: string): boolean =>
           outline.docPath !== path ||
-          (isEffectivelyEmptyTree(outline.tree) && noteTextHasContent(existing))
+          (!outline.allowEmptyWrite && isEffectivelyEmptyTree(outline.tree) && noteTextHasContent(existing))
         if (persistTab) {
           if (out !== persistTab.currentContent && !wouldWipe(persistTab.currentContent)) {
             setContent(persistTab.id, out)
@@ -266,7 +282,10 @@
     await openFile(mainPath).catch(() => {})
     requestReveal(n.anchorLine, n.content)
   }
-  function onPageClick(target: string) { void openPageOrCreate(target) }
+  function onPageClick(target: string) {
+    if (onWikilink) onWikilink(target)
+    else void openPageOrCreate(target)
+  }
 
   // Theme-driven typography: measured from an offscreen probe (see effect below).
   let activeThemeId = $derived(activeTheme.id)
@@ -689,11 +708,12 @@
   }
 </script>
 
-<div class="outline-editor" oncontextmenu={(e) => e.preventDefault()}
-  style="--outline-font-family: {typo.family}; --outline-font-size: {typo.size}; --outline-line-height: {typo.line};{typo.fg ? ` color: ${typo.fg};` : ''}{typo.bg ? ` background: ${typo.bg};` : ''}">
+<div class="outline-editor" class:embedded oncontextmenu={(e) => { if (!embedded) e.preventDefault() }}
+  style={embedded ? '' : `--outline-font-family: ${typo.family}; --outline-font-size: ${typo.size}; --outline-line-height: ${typo.line};${typo.fg ? ` color: ${typo.fg};` : ''}${typo.bg ? ` background: ${typo.bg};` : ''}`}>
   <div class="typo-probe" data-theme={activeThemeId} aria-hidden="true" bind:this={probeEl}>
     <div class="moraya-editor"></div>
   </div>
+  {#if !embedded}
   <div class="toolbar">
     <span class="doc-title">{pageNameOf(notePath)}</span>
     <button class="hbtn" class:on={searchOpen} title={t('outline.search')} aria-label={t('outline.search')} onclick={toggleSearch}>
@@ -717,6 +737,7 @@
       </svg>
     </button>
   </div>
+  {/if}
   {#if outline.externalConflict}
     <div class="conflict-banner" role="alert">
       <span class="conflict-msg">{t('outline.externalChanged')}</span>
@@ -748,14 +769,15 @@
   <div class="body" role="tree" bind:this={bodyEl} onclick={onBodyClick}
     onpointerdown={onBandDown} onpointermove={onBandMove} onpointerup={onBandUp}>
     {#each visibleRoots as node (node.id)}
-      <OutlineNode {node} depth={0} {resolved} {onJump} {onPageClick} {onEditorInput} {onContextMenu} {onDragOp} {visibleIds} />
+      <OutlineNode {node} depth={0} {resolved} {onJump} {onPageClick} {onEditorInput} {onContextMenu} {onDragOp} {visibleIds} {onCollapse} />
     {/each}
     {#if visibleRoots.length === 0}
       <p class="empty">{visibleIds ? t('outline.noSearchResults') : t('outline.empty')}</p>
     {/if}
-    {#if !visibleIds}
+    {#if !visibleIds && showLinkedRefs}
       <!-- Rendered inside the scroll body so it reads as one continuous outline.
-           Stop pointer/click from bubbling to the outline's band-select / body-click. -->
+           Stop pointer/click from bubbling to the outline's band-select / body-click.
+           Hidden in the Daily Notes feed; shown in the single-page view. -->
       <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
       <div class="lr-wrap" onpointerdown={(e) => e.stopPropagation()} onclick={(e) => e.stopPropagation()}>
         <LinkedReferences page={pageNameOf(notePath)} excludeFile={notePath} />
@@ -824,6 +846,9 @@
     flex: 1; overflow-y: auto; padding: 16px 24px; max-width: 860px; width: 100%;
     margin: 0 auto; box-sizing: border-box; font-family: var(--outline-font-family);
   }
+  /* Embedded (Daily Notes): no outer padding so the outline aligns with the
+     read-only view and days flow continuously. */
+  .outline-editor.embedded .body { padding: 0; }
   /* 低调的中性框选矩形（Finder 风格），跟随主题前景色 */
   .band {
     position: fixed; z-index: 30; pointer-events: none;

@@ -3,7 +3,7 @@
   import InlineRender from './InlineRender.svelte'
   import { outline, bump, markDirty, setSelection, clearSelection } from '../../lib/outline/store.svelte'
   import { rangeBetween, selectionRoots } from '../../lib/outline/select'
-  import { childrenOf, setNodeContent, type OutlineNode as NodeT } from '../../lib/outline/model'
+  import { childrenOf, setNodeContent, type OutlineNode as NodeT, type OutlineTree } from '../../lib/outline/model'
   import {
     createSiblingBelow, createSiblingAbove, mergeWithPrevious,
     indentNode, outdentNode, moveNodeUp, moveNodeDown, applyInlineWrap,
@@ -15,41 +15,59 @@
   import { writeBackNoteEdit } from '../../lib/outline/note-writeback-io'
 
   let {
-    node, depth, resolved, onJump, onPageClick, onEditorInput, onContextMenu, onDragOp,
+    node, depth, resolved = {} as Record<OutlineCommandId, string>,
+    onJump = () => {}, onPageClick,
+    onEditorInput = () => false, onContextMenu = () => {}, onDragOp = () => {},
     visibleIds = null,
+    readonly = false, tree = null, onActivate = null, onCollapse = null, foldVersion = 0,
   }: {
     node: NodeT
     depth: number
-    resolved: Record<OutlineCommandId, string>
-    onJump: (n: NodeT) => void
+    resolved?: Record<OutlineCommandId, string>
+    onJump?: (n: NodeT) => void
     onPageClick: (target: string) => void
     /** 编辑态每次 input：内容、光标、textarea 元素（菜单锚定用，Task 13） */
-    onEditorInput: (node: NodeT, value: string, cursor: number, el: HTMLTextAreaElement, e?: KeyboardEvent) => boolean
-    onContextMenu: (e: MouseEvent, n: NodeT) => void
-    onDragOp: (drag: string, target: string, mode: 'sibling' | 'child') => void
+    onEditorInput?: (node: NodeT, value: string, cursor: number, el: HTMLTextAreaElement, e?: KeyboardEvent) => boolean
+    onContextMenu?: (e: MouseEvent, n: NodeT) => void
+    onDragOp?: (drag: string, target: string, mode: 'sibling' | 'child') => void
     /** 搜索过滤：非 null 时仅渲染集合内的子节点（保住匹配节点的祖先路径），并无视折叠展开命中项 */
     visibleIds?: Set<string> | null
+    /** 只读模式（每日笔记非激活天）：不编辑/不拖拽/不选择，仅渲染 + 折叠 + 双链 +
+     *  点击请求激活。从传入的 `tree` 读子节点，不依赖全局 outline 单例。 */
+    readonly?: boolean
+    /** 只读模式下用于读取子节点的树（$state，深响应）；null=用全局 outline.tree。 */
+    tree?: OutlineTree | null
+    /** 只读模式：点击节点内容请求把该天切成可编辑并定位到此节点。 */
+    onActivate?: ((n: NodeT) => void) | null
+    /** 只读模式：折叠状态变更后回调（持久化折叠记忆；参数为被切换的节点）。 */
+    onCollapse?: ((n: NodeT) => void) | null
+    /** 只读模式重渲染信号：折叠切换时父级 bump 它，强制折叠相关 derive 重算
+     *  （只读树在 outline 单例之外，node.collapsed 变异经 Map 代理不一定响应）。 */
+    foldVersion?: number
   } = $props()
 
+  const srcTree = $derived(tree ?? outline.tree)
   let kids = $derived.by(() => {
-    void outline.version
-    const all = childrenOf(outline.tree, node.id)
+    if (!readonly) void outline.version
+    const all = childrenOf(srcTree, node.id)
     return visibleIds ? all.filter((k) => visibleIds.has(k.id)) : all
   })
-  let editing = $derived(outline.editingId === node.id)
+  let editing = $derived(!readonly && outline.editingId === node.id)
   // Route collapse state through outline.version so bump() re-renders it —
   // `node.collapsed` is a plain (non-proxied) property Svelte doesn't track.
-  let isCollapsed = $derived.by(() => { void outline.version; return node.collapsed })
+  // In readonly mode the tree is a $state proxy, so node.collapsed is reactive
+  // on its own (no version needed).
+  let isCollapsed = $derived.by(() => { if (readonly) void foldVersion; else void outline.version; return node.collapsed })
   // Same for content: sync/note-writeback mutate `node.content` in place on
   // the same plain object, so a bump() must re-read it or the row keeps
   // showing stale text until something else re-renders it (e.g. a click).
-  let content = $derived.by(() => { void outline.version; return node.content })
+  let content = $derived.by(() => { if (!readonly) void outline.version; return node.content })
   let showChildren = $derived.by(() => {
-    void outline.version
+    if (readonly) void foldVersion; else void outline.version
     return visibleIds ? kids.length > 0 : !node.collapsed
   })
   let textareaEl: HTMLTextAreaElement | undefined = $state()
-  let selected = $derived(outline.selectedIds.has(node.id))
+  let selected = $derived(!readonly && outline.selectedIds.has(node.id))
   // note 子节点可编辑（其余 auto 只读）；编辑起点内容留作回写定位的"旧批注"
   let editable = $derived(node.source === 'manual' || node.source === 'note')
   // 批注行（被批注的原文/※ 占位符）：样式如高亮（金色下划线）
@@ -239,11 +257,15 @@
     ondragover={onDragOver}
     ondragleave={() => (dropMode = null)}
     ondrop={onDrop}
-    oncontextmenu={(e) => { e.preventDefault(); onContextMenu(e, node) }}
+    oncontextmenu={(e) => { if (readonly) return; e.preventDefault(); onContextMenu(e, node) }}
   >
     {#if kids.length > 0}
       <button class="tri" class:closed={isCollapsed}
-        onclick={() => { node.collapsed = !node.collapsed; bump(); markDirty() }}>▾</button>
+        onclick={() => {
+          node.collapsed = !node.collapsed
+          if (onCollapse) { if (!readonly) bump(); onCollapse(node) }
+          else { bump(); markDirty() }
+        }}>▾</button>
     {:else}<span class="tri-spacer"></span>{/if}
     <span
       class="bullet"
@@ -253,7 +275,7 @@
       class:src-anno={node.source === 'annotation'}
       class:src-note={node.source === 'note'}
       class:jumpable={node.anchorLine != null}
-      draggable={node.source === 'manual'}
+      draggable={!readonly && node.source === 'manual'}
       ondragstart={onDragStart}
       onclick={onBulletClick}
     >•</span>
@@ -277,8 +299,9 @@
         }}
       ></textarea>
     {:else}
-      <span class="content" class:hl={node.source === 'highlight' || markLike} class:src-toc={node.source === 'toc'} onclick={onContentClick} role="button" tabindex="0"
-        onkeydown={(e) => { if (e.key === 'Enter') startEdit() }}>
+      <span class="content" class:hl={node.source === 'highlight' || markLike} class:src-toc={node.source === 'toc'}
+        onclick={readonly ? () => onActivate?.(node) : onContentClick} role="button" tabindex="0"
+        onkeydown={(e) => { if (e.key === 'Enter') { if (readonly) onActivate?.(node); else startEdit() } }}>
         <!-- 空内容：塞零宽空格保证有行盒，鼠标可命中进入编辑 -->
         {#if content === ''}{'​'}{:else}<InlineRender {content} onPageClick={onPageClick} />{/if}
       </span>
@@ -286,7 +309,7 @@
   </div>
   {#if showChildren}
     {#each kids as child (child.id)}
-      <OutlineNode node={child} depth={depth + 1} {resolved} {onJump} {onPageClick} {onEditorInput} {onContextMenu} {onDragOp} {visibleIds} />
+      <OutlineNode node={child} depth={depth + 1} {resolved} {onJump} {onPageClick} {onEditorInput} {onContextMenu} {onDragOp} {visibleIds} {readonly} {tree} {onActivate} {onCollapse} {foldVersion} />
     {/each}
   {/if}
 </div>
@@ -309,11 +332,20 @@
     border-radius: 0;
   }
   .row.auto .content { opacity: 0.92; }
+  /* Fold caret. The glyph is 0.7em (scales with the theme font), but its COLUMN
+     width must equal the leaf spacer's (1.1em of the ROW font) so children align
+     whether or not a node has kids. Since `width:em` is relative to THIS element's
+     own (shrunk 0.7em) font, we scale it up by 1/0.7 → 1.1em of the parent. This
+     also gives a comfortably-wide click target. */
   .tri {
     background: none; border: none; padding: 0;
-    width: 1.1em; font-size: 0.7em;
+    /* Buttons don't inherit font-family — force it so the ▾ glyph renders in the
+       theme font (and re-renders on theme change), matching the bullet/text. */
+    font-family: inherit;
+    width: 1.571em; font-size: 0.7em;
     line-height: var(--outline-line-height, 1.5);
-    cursor: pointer; opacity: 0.6; transition: transform 0.1s;
+    cursor: pointer; opacity: 0.6; transition: transform 0.1s; text-align: center;
+    flex-shrink: 0;
   }
   .tri.closed { transform: rotate(-90deg); }
   .tri-spacer { width: 1.1em; flex-shrink: 0; }

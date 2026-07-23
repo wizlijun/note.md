@@ -20,11 +20,14 @@
   import { joinPath } from '../../lib/fs'
   import { sanitizeFileName } from '../../lib/outline/slug'
   import { tabs, openNewOutlineTab, saveTab, closeTab, isDirty, type Tab } from '../../lib/tabs.svelte'
-  import { untrack, onMount } from 'svelte'
-  import { isEffectivelyEmptyTree } from '../../lib/outline/store.svelte'
+  import { untrack, onMount, createEventDispatcher } from 'svelte'
+  import { isEffectivelyEmptyTree, outline, bump } from '../../lib/outline/store.svelte'
+  import { applyFolds, setPathExpanded, noteKey, pathOfNodeIn } from '../../lib/daily/folds'
+  import type { OutlineNode as NodeT } from '../../lib/outline/model'
   import OutlineEditor from '../outline/OutlineEditor.svelte'
 
   let { page }: { page: string } = $props()
+  const dispatch = createEventDispatcher<{ linkclick: { raw: string } }>()
 
   /** vault/{wikipage}/{page}.note.md — pages are NOT date-nested (unlike daily
    *  notes). Matches the unresolved-wikilink target in backlinks-io
@@ -64,8 +67,13 @@
     if (isEffectivelyEmptyTree(parseOutline(tab.currentContent))) {
       const { exists } = await import('@tauri-apps/plugin-fs')
       const existed = await exists(path).catch(() => false)
-      console.debug(`[daily] skip empty write for page ${page}: ${existed ? 'wipe-guard' : 'intent-save'}`)
-      return
+      if (!existed) {
+        console.debug(`[daily] skip empty write for page ${page}: intent-save (no file)`)
+        return
+      }
+      // File existed and the user emptied it — persist (isDirty above proves it's a
+      // real edit); skipping would restore the old content on reload.
+      console.debug(`[daily] persisting emptied page ${page}`)
     }
     await saveTab(tab.id).catch(() => {})
   }
@@ -84,6 +92,7 @@
     // (initialContent '' ≠ currentContent) so closeTab must DISCARD, not re-save.
     await closeTab(tab.id, async () => 'discard').catch(() => {})
     editorTab = null
+    foldsAppliedTo = null
   }
 
   // Load/rebind the editor tab whenever the resolved path changes. The parent
@@ -105,16 +114,50 @@
     })
   })
 
+  // Once the editor has attached this page's doc, overlay the KV fold memory so the
+  // page shows the same default-collapsed + remembered-expanded state as the feed.
+  // One-shot per attach (guard) so in-session toggles are not reset.
+  let foldsAppliedTo: string | null = null
+  $effect(() => {
+    void outline.version
+    const docPath = outline.docPath
+    if (!editorTab || !notePath || docPath !== notePath) return
+    if (foldsAppliedTo === notePath) return
+    untrack(() => {
+      applyFolds(outline.tree, noteKey(sotvaultStore.vaultRoot, notePath))
+      foldsAppliedTo = notePath
+      bump()
+    })
+  })
+
+  /** A fold toggled in the page editor → remember EXPANDED state in the KV (folds
+   *  stay out of the .note.md via outline.omitCollapsed set by the window). */
+  function persistFold(n: NodeT): void {
+    if (!notePath) return
+    void setPathExpanded(
+      sotvaultStore.vaultRoot ?? '',
+      noteKey(sotvaultStore.vaultRoot, notePath),
+      pathOfNodeIn(outline.tree, n.id),
+      !n.collapsed,
+    )
+  }
+
   // Unmount: flush pending edits AND close the tab so nothing is lost and no tab
   // or watcher leaks when the page view is replaced or the window closes.
-  onMount(() => () => { void deactivate() })
+  onMount(() => () => { foldsAppliedTo = null; void deactivate() })
 </script>
 
 <section class="page">
   <header class="title">{page}</header>
   {#if editorTab}
     {#key editorTab.id}
-      <OutlineEditor tab={editorTab} />
+      <OutlineEditor
+        tab={editorTab}
+        embedded={true}
+        linkedRefs={true}
+        onWikilink={(target) => dispatch('linkclick', { raw: `[[${target}]]` })}
+        onCollapse={persistFold}
+      />
     {/key}
   {/if}
 </section>

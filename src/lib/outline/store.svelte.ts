@@ -26,6 +26,13 @@ export interface OutlineState {
   armed: boolean
   /** panel 模式写盘前发现远端已改动的冲突态；非 null 时禁止自动写盘 */
   externalConflict: { diskText: string } | null
+  /** 折叠状态外置(每日笔记窗口):serializeDoc 省略 collapsed::,折叠只存 KV,
+   *  不写进 .note.md。默认 false,主窗口行为不变。 */
+  omitCollapsed: boolean
+  /** 允许把非空 note 主动删空并写回(每日笔记窗口):关闭 change-sink 的
+   *  "空树不覆盖非空"守卫的空树分支(仍保留 docPath!==path 竞态保护)。
+   *  默认 false,主窗口保留原防误抹行为。 */
+  allowEmptyWrite: boolean
 }
 
 export const outline = $state<OutlineState>({
@@ -39,6 +46,8 @@ export const outline = $state<OutlineState>({
   dirty: false,
   armed: false,
   externalConflict: null,
+  omitCollapsed: false,
+  allowEmptyWrite: false,
 })
 
 export function bump(): void { outline.version++ }
@@ -142,7 +151,7 @@ export function serializeDoc(touch = true): string {
       title: pageNameOf(outline.docPath),
     })
   }
-  return serializeOutline(outline.tree, new Set([...persistIdsFor(outline.tree), ...pinnedIds]))
+  return serializeOutline(outline.tree, new Set([...persistIdsFor(outline.tree), ...pinnedIds]), outline.omitCollapsed)
 }
 
 /** 卸载当前文档:清 docPath/树/选区。全屏大纲 tab 关闭时由编辑器调用。 */

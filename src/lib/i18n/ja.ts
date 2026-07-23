@@ -693,6 +693,5 @@ export const ja: Record<keyof Messages, string> = {
   'daily.emptyDay': '(empty)',
 
   // Tray menu
-  'tray.dailyNote': '今日のノート',
   'tray.dailyNotes': 'デイリーノート',
 }

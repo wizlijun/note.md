@@ -1,7 +1,7 @@
 <!-- src/components/daily/DailyDay.svelte — one day in the Daily Notes feed.
-     Inactive: renders a lightweight read-only outline (DailyOutlineView) and asks
-     the parent to activate on click. Active: mounts the real OutlineEditor bound
-     to this day's .note.md so the user edits inline.
+     Inactive: renders read-only via the SAME OutlineNode component (readonly +
+     our own tree) and asks the parent to activate on click. Active: mounts the
+     real OutlineEditor bound to this day's .note.md so the user edits inline.
 
      Persistence (this is a SEPARATE webview with its own `tabs`/`outline`
      singletons): the active editor runs in OutlineEditor's `tab` mode. We register
@@ -18,11 +18,12 @@
   import { outlineDirs } from '../../lib/outline/dirs.svelte'
   import { sotvaultStore } from '../../lib/sotvault.svelte'
   import { tabs, openNewOutlineTab, saveTab, closeTab, isDirty, type Tab } from '../../lib/tabs.svelte'
-  import { isEffectivelyEmptyTree } from '../../lib/outline/store.svelte'
-  import DailyOutlineView from './DailyOutlineView.svelte'
+  import { isEffectivelyEmptyTree, outline, bump } from '../../lib/outline/store.svelte'
+  import OutlineNode from '../outline/OutlineNode.svelte'
   import OutlineEditor from '../outline/OutlineEditor.svelte'
-  import { createTree, type OutlineTree } from '../../lib/outline/model'
+  import { childrenOf, createTree, addNode, newId, type OutlineNode as NodeT, type OutlineTree } from '../../lib/outline/model'
   import { dayMatches } from '../../lib/daily/filter'
+  import { applyFolds, setPathExpanded, noteKey, pathOfNodeIn } from '../../lib/daily/folds'
 
   let { date, active = false, filterQuery = '' }: { date: string; active?: boolean; filterQuery?: string } = $props()
   const dispatch = createEventDispatcher<{ requestActivate: { date: string }; linkclick: { raw: string } }>()
@@ -30,6 +31,10 @@
   let tree = $state<OutlineTree>(createTree())
   /** The tab backing the active editor (created lazily when this day activates). */
   let editorTab = $state<Tab | null>(null)
+  /** When a read-only click activates this day, the clicked node's index path so we
+   *  can drop straight into editing THAT node (single click = edit here). Applied
+   *  once the editor has attached this day's doc to the outline singleton. */
+  let pendingEditPath = $state<number[] | null>(null)
 
   const notePath = $derived(
     sotvaultStore.vaultRoot ? dailyNotePath(sotvaultStore.vaultRoot, outlineDirs.dailynote, date) : null,
@@ -47,7 +52,17 @@
     if (!notePath) { tree = createTree(); return }
     const { readTextFile } = await import('@tauri-apps/plugin-fs')
     const text = await readTextFile(notePath).catch(() => '')
-    tree = parseOutline(text)
+    const parsed = parseOutline(text)
+    if (parsed.nodes.size === 0) {
+      // No .note.md yet (or empty): show ONE virtual empty node that looks like a
+      // real outline bullet instead of an "(empty)" placeholder. Clicking it
+      // activates editing; if the user types nothing, intent-save skips creating
+      // the file. This virtual node is display-only (the editor builds its own).
+      addNode(parsed, { id: newId(), parentId: null, order: 0, content: '', collapsed: false, source: 'manual' })
+    }
+    // First level expanded, deeper folds from .notemd/outliner-folds.json.
+    applyFolds(parsed, noteKey(sotvaultStore.vaultRoot, notePath))
+    tree = parsed
   }
   onMount(reload)
 
@@ -82,14 +97,18 @@
     if (!editorTab) return
     if (!isDirty(editorTab.id)) return
     if (isEffectivelyEmptyTree(parseOutline(editorTab.currentContent))) {
-      // Effectively-empty content: skip the write in BOTH cases, so we never
-      // create nor blank a file. We still probe prior existence to log which rule
-      // fired — did-NOT-exist → intent-save (don't create an empty .note.md);
-      // DID-exist → wipe-guard (don't blank an existing note from here).
+      // Effectively-empty AND dirty = the user deliberately emptied the note.
       const { exists } = await import('@tauri-apps/plugin-fs')
       const existed = notePath ? await exists(notePath).catch(() => false) : false
-      console.debug(`[daily] skip empty write for ${date}: ${existed ? 'wipe-guard' : 'intent-save'}`)
-      return
+      if (!existed) {
+        // Never created → intent-save: don't create an empty .note.md.
+        console.debug(`[daily] skip empty write for ${date}: intent-save (no file)`)
+        return
+      }
+      // File existed → persist the emptying (fall through to save). Skipping here
+      // would restore the old content on reload — the bug this fixes. `isDirty`
+      // above guarantees this is a real user edit, not a singleton wipe.
+      console.debug(`[daily] persisting emptied note for ${date}`)
     }
     await saveTab(editorTab.id).catch(() => {})
   }
@@ -111,6 +130,7 @@
     // re-prompt/re-save. flush() already persisted anything worth keeping.
     await closeTab(tab.id, async () => 'discard').catch(() => {})
     editorTab = null
+    foldsAppliedTo = null
     await reload()
   }
 
@@ -131,31 +151,148 @@
     })
   })
 
+  /** Resolve an index path (from the read-only tree) against the now-attached
+   *  editor tree (`outline.tree`), which has different node ids but the same
+   *  structure, and return the node id at that path (null if out of range). */
+  function nodeIdAtPath(path: number[]): string | null {
+    let parentId: string | null = null
+    let id: string | null = null
+    for (const idx of path) {
+      const node: NodeT | undefined = childrenOf(outline.tree, parentId)[idx]
+      if (!node) return null
+      id = node.id
+      parentId = node.id
+    }
+    return id
+  }
+
+  // Single-click-to-edit: once the editor has attached THIS day's doc to the
+  // outline singleton, drop straight into editing the clicked node (empty path or
+  // an unresolved path → the first node). This makes one click on a read-only day
+  // both activate AND enter edit, with the caret in the node you clicked.
+  $effect(() => {
+    void outline.version
+    const docPath = outline.docPath
+    if (!active || !editorTab || pendingEditPath === null || docPath !== notePath) return
+    untrack(() => {
+      const path = pendingEditPath
+      pendingEditPath = null
+      if (!path) return
+      const id = (path.length ? nodeIdAtPath(path) : null) ?? childrenOf(outline.tree, null)[0]?.id ?? null
+      if (id) outline.editingId = id
+    })
+  })
+
+  // Roots of the read-only tree (reactive via the $state `tree`).
+  const roots = $derived(childrenOf(tree, null))
+
+  /** Read-only click on a node → activate this day and drop into editing THAT node. */
+  function handleActivate(n: NodeT): void {
+    pendingEditPath = pathOfNodeIn(tree, n.id)
+    dispatch('requestActivate', { date })
+  }
+
+  /** A fold was toggled (read-only OR active editor). Remember the EXPANDED state in
+   *  .notemd/outliner-folds.json (default is collapsed). Fold state stays OUT of the
+   *  .note.md (this window sets outline.omitCollapsed) and syncs via git .notemd/.
+   *  The node belongs to outline.tree when active, else our read-only `tree`. */
+  function persistFold(n: NodeT): void {
+    if (!notePath) return
+    const t = active ? outline.tree : tree
+    void setPathExpanded(
+      sotvaultStore.vaultRoot ?? '',
+      noteKey(sotvaultStore.vaultRoot, notePath),
+      pathOfNodeIn(t, n.id),
+      !n.collapsed,
+    )
+  }
+
+  // Read-only fold re-render trigger: the read-only tree lives outside the outline
+  // store, so a fold toggle must bump this $state to force OutlineNode to re-derive
+  // (mutating node.collapsed alone isn't reliably reactive through the tree Map).
+  let foldVersion = $state(0)
+  function roCollapse(n: NodeT): void {
+    foldVersion++
+    persistFold(n)
+  }
+
+  // Once the editor has attached THIS day's doc, overlay the KV fold memory onto the
+  // editor tree so the active view shows the SAME folds as the read-only view
+  // (unified). One-shot per attach (guard) so it never resets in-session toggles.
+  let foldsAppliedTo: string | null = null
+  $effect(() => {
+    void outline.version
+    const docPath = outline.docPath
+    if (!active || !editorTab || !notePath || docPath !== notePath) return
+    if (foldsAppliedTo === notePath) return
+    const np = notePath
+    untrack(() => {
+      applyFolds(outline.tree, noteKey(sotvaultStore.vaultRoot, np))
+      foldsAppliedTo = np
+      bump()
+    })
+  })
+
   // Unmount: if this day still owns a live editor (e.g. its block scrolled out of
   // the lazy feed while active, or the window closed), tear it down so no tab or
   // watcher leaks. deactivate() is idempotent/no-op without an editor.
-  onMount(() => () => { void deactivate() })
+  onMount(() => () => { foldsAppliedTo = null; void deactivate() })
 </script>
 
-<section class="day" class:active hidden={!matchesFilter}>
+<section class="day" hidden={!matchesFilter}>
   <header class="date">{date}</header>
   {#if active}
     {#if editorTab}
       {#key editorTab.id}
-        <OutlineEditor tab={editorTab} />
+        <OutlineEditor
+          tab={editorTab}
+          embedded={true}
+          onWikilink={(target) => dispatch('linkclick', { raw: `[[${target}]]` })}
+          onCollapse={persistFold}
+        />
       {/key}
     {/if}
   {:else}
-    <DailyOutlineView
-      {tree}
-      on:activate={() => dispatch('requestActivate', { date })}
-      on:linkclick={(e) => dispatch('linkclick', e.detail)}
-    />
+    <!-- Read-only day: renders through the SAME OutlineNode component as the active
+         editor (readonly + our own `tree`), so style/indicator/indent/padding are
+         identical and collapse reuses node.collapsed. .ro-body mirrors the editor's
+         `.body` width so content sits at the exact same offset. -->
+    <div class="ro-body">
+      {#each roots as root (root.id)}
+        <OutlineNode
+          node={root}
+          depth={0}
+          readonly
+          {tree}
+          {foldVersion}
+          onActivate={handleActivate}
+          onCollapse={roCollapse}
+          onPageClick={(target) => dispatch('linkclick', { raw: `[[${target}]]` })}
+        />
+      {/each}
+    </div>
   {/if}
 </section>
 
 <style>
-  .day { border-bottom: 1px solid color-mix(in srgb, CanvasText 10%, transparent); padding: 8px 12px; }
-  .date { font-weight: 600; font-size: 12px; opacity: 0.7; margin-bottom: 4px; }
-  .active { background: color-mix(in srgb, CanvasText 3%, transparent); }
+  /* Continuous feed: no border/background around a day; the greyed date is the
+     only separator. No background tint on the active day so read-only and edit
+     look identical. Only a small horizontal window inset — no extra padding/margin
+     around each outline itself. */
+  .day { padding: 0 12px; }
+  .date {
+    font-weight: 400;
+    font-size: 11px;
+    color: color-mix(in srgb, CanvasText 32%, transparent);
+    margin: 8px 0 0;
+  }
+  .ro-body { padding: 0; max-width: 860px; width: 100%; margin: 0 auto; box-sizing: border-box; }
+  .empty-day {
+    opacity: 0.45;
+    cursor: text;
+    padding: 1px 4px;
+    font-family: var(--outline-font-family);
+    font-size: var(--outline-font-size, 13px);
+    line-height: var(--outline-line-height, 1.5);
+  }
 </style>

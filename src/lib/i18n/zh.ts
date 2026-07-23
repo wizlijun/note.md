@@ -693,6 +693,5 @@ export const zh: Record<keyof Messages, string> = {
   'daily.emptyDay': '（空）',
 
   // Tray menu
-  'tray.dailyNote': '今天的日记',
   'tray.dailyNotes': '每日笔记',
 }

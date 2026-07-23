@@ -7,8 +7,8 @@
 
 {#snippet render(seg: Inline)}
   {#if seg.t === 'text'}{seg.text}
-  {:else if seg.t === 'page-link'}<button class="pl" onclick={() => onPageClick?.(seg.target)}>[[{seg.target}]]</button>
-  {:else if seg.t === 'hashtag'}<button class="pl tag" onclick={() => onPageClick?.(seg.tag)}>#{seg.tag}</button>
+  {:else if seg.t === 'page-link'}<button class="pl" onclick={(e) => { e.stopPropagation(); onPageClick?.(seg.target) }}>[[{seg.target}]]</button>
+  {:else if seg.t === 'hashtag'}<button class="pl tag" onclick={(e) => { e.stopPropagation(); onPageClick?.(seg.tag) }}>#{seg.tag}</button>
   {:else if seg.t === 'block-ref'}<span class="block-ref" title={seg.refId}>(({seg.refId}))</span>
   {:else if seg.t === 'bold'}<strong>{#each seg.children as c}{@render render(c)}{/each}</strong>
   {:else if seg.t === 'italics'}<em>{#each seg.children as c}{@render render(c)}{/each}</em>
