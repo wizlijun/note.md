@@ -11,11 +11,9 @@
 
      Wikilink clicks inside the LIVE editor are handled by OutlineEditor itself
      (onPageClick → openPageOrCreate, which opens in the MAIN editor window); this
-     component therefore does not receive/forward editor link clicks. The
-     `linkclick` dispatcher is declared to satisfy the parent's `on:linkclick`
-     wiring and for future header/breadcrumb links. -->
+     component therefore does not receive/forward editor link clicks, so it emits
+     no events. -->
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte'
   import { parseOutline } from '../../lib/outline/markdown'
   import { outlineDirs } from '../../lib/outline/dirs.svelte'
   import { sotvaultStore } from '../../lib/sotvault.svelte'
@@ -26,10 +24,6 @@
   import OutlineEditor from '../outline/OutlineEditor.svelte'
 
   let { page }: { page: string } = $props()
-  // Declared so the parent may bind `on:linkclick`; live-editor link clicks are
-  // handled internally by OutlineEditor (see file header), so nothing is emitted
-  // from here today.
-  createEventDispatcher<{ linkclick: { raw: string } }>()
 
   /** vault/{wikipage}/{page}.note.md — pages are NOT date-nested (unlike daily
    *  notes). Matches the unresolved-wikilink target in backlinks-io

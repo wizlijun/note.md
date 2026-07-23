@@ -689,6 +689,12 @@ export const en = {
   // Daily Notes window
   'daily.windowTitle': 'Daily Notes',
   'daily.needsVault': 'Open a vault to use Daily Notes.',
+  'daily.pageTitle': 'Page',
+  'daily.toolbar.prev': 'Back',
+  'daily.toolbar.next': 'Forward',
+  'daily.toolbar.refresh': 'Refresh',
+  'daily.toolbar.calendar': 'Jump to date',
+  'daily.toolbar.find': 'Find',
 
   // Tray menu
   'tray.dailyNote': "Today's Note",

@@ -684,6 +684,12 @@ export const zh: Record<keyof Messages, string> = {
   // Daily Notes window
   'daily.windowTitle': '每日笔记',
   'daily.needsVault': '请先打开一个 vault 再使用每日笔记。',
+  'daily.pageTitle': '页面',
+  'daily.toolbar.prev': '上一个',
+  'daily.toolbar.next': '下一个',
+  'daily.toolbar.refresh': '刷新',
+  'daily.toolbar.calendar': '跳转日期',
+  'daily.toolbar.find': '查找',
 
   // Tray menu
   'tray.dailyNote': '今天的日记',
