@@ -1085,9 +1085,9 @@ pub fn run() {
                         let id = event.id().0.as_str();
                         match id {
                             "tray-show" => show_main_window(app),
-                            "tray-today-note" => {
+                            "tray-daily-note" => {
                                 show_main_window(app);
-                                let _ = app.emit("tray-today-note", ());
+                                let _ = app.emit("tray-daily-note", ());
                             }
                             id if id.starts_with("tray-plugin:") => {
                                 // tray-plugin:<plugin_id>:<window> — plugin_id may
@@ -1359,7 +1359,8 @@ fn menu_label(locale: &str, key: &str) -> String {
         "sys.maximize" => ("Zoom", "缩放", "拡大／縮小", "Größe anpassen"),
         // Menu-bar tray dropdown
         "tray.show" => ("Show note.md", "显示 note.md", "note.md を表示", "note.md anzeigen"),
-        "tray.todayNote" => ("Today's Note", "今天的日记", "今日のノート", "Heutige Notiz"),
+        "tray.dailyNote" => ("Today's Note", "今天的日记", "今日のノート", "Heutige Notiz"),
+        "tray.dailyNotes" => ("Daily Notes", "每日笔记", "デイリーノート", "Tagesnotizen"),
         "tray.vaultSetFolder" => ("Vault: Set Folder…", "Vault：选择文件夹…", "Vault：フォルダを選択…", "Vault: Ordner wählen…"),
         "tray.syncNow" => ("Sync Now", "立即同步", "今すぐ同期", "Jetzt synchronisieren"),
         "tray.largeFiles.title" => ("⚠️ {n} file(s) too large", "⚠️ {n} 个文件过大", "⚠️ {n} 件のファイルが大きすぎます", "⚠️ {n} Datei(en) zu groß"),
@@ -1434,7 +1435,7 @@ fn build_tray_menu<R: tauri::Runtime>(
     locale: &str,
 ) -> tauri::Result<(Menu<R>, MenuItem<R>, IconMenuItem<R>, MenuItem<R>)> {
     let show_item = MenuItem::with_id(app, "tray-show", menu_label(locale, "tray.show"), true, None::<&str>)?;
-    let today_note_item = MenuItem::with_id(app, "tray-today-note", menu_label(locale, "tray.todayNote"), true, None::<&str>)?;
+    let daily_note_item = MenuItem::with_id(app, "tray-daily-note", menu_label(locale, "tray.dailyNote"), true, None::<&str>)?;
     // Tray "socket": every enabled plugin that declares `contributes.tray` gets a
     // launch item here, directly below "Today's Note". The label is the entry's
     // `label` or the plugin's localized name; clicking opens the plugin window.
@@ -1527,7 +1528,7 @@ fn build_tray_menu<R: tauri::Runtime>(
     let open_books_item = MenuItem::with_id(app, "tray-open-books", menu_label(locale, "tray.openBooks"), true, None::<&str>)?;
     let open_raw_sync_item = MenuItem::with_id(app, "tray-open-raw-sync", menu_label(locale, "tray.openRawSync"), /*enabled=*/ false, None::<&str>)?;
     let quit_item = MenuItem::with_id(app, "tray-quit", menu_label(locale, "sys.quit"), true, None::<&str>)?;
-    let mut b0 = MenuBuilder::new(app).item(&show_item).item(&today_note_item);
+    let mut b0 = MenuBuilder::new(app).item(&show_item).item(&daily_note_item);
     for it in &plugin_tray_items {
         b0 = b0.item(it);
     }
