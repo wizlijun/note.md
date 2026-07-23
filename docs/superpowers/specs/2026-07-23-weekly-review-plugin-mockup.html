@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8" />
+<style>
+  :root { color-scheme: light dark; }
+  * { box-sizing: border-box; }
+  body{margin:0;padding:20px;background:#eceef1;
+    font:12px/1.35 -apple-system,"SF Pro Text","PingFang SC",system-ui,sans-serif;
+    display:flex;gap:22px;align-items:flex-start}
+  .win{width:960px;border-radius:12px;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,.18);
+    --bg:#fff;--fg:#22252a;--muted:#9aa0a8;--line:#e6e8ec;--wm:#f0f1f4;
+    --chip-bg:#f2f3f5;--chip-active:#2f6feb;
+    --accent:#2f6feb;--accent-fg:#fff;--accent-soft:#e8f0ff;
+    --wk-line:#eef0f3;
+    --past:#f1f2f4;--past-day:#aeb4bc;
+    --future-line:#eaecef;--future-day:#c6ccd4;
+    --today-ring:#ff9500;--weekend:#e0605a;
+    --yearart:#d21f2b;
+    background:var(--bg);color:var(--fg)}
+  .win.dark{--bg:#191b1f;--fg:#e7e9ec;--muted:#7b8189;--line:#2a2d33;--wm:#212429;
+    --chip-bg:#2a2d33;--chip-active:#3b82f6;
+    --accent:#4b8bff;--accent-fg:#fff;--accent-soft:#22314e;
+    --wk-line:#25282d;
+    --past:#212429;--past-day:#6b717a;
+    --future-line:#282b31;--future-day:#565c65;
+    --today-ring:#ffa726;--weekend:#e0736d;
+    --yearart:#ff5a63;
+    box-shadow:0 8px 30px rgba(0,0,0,.5)}
+
+  .tbar{height:38px;display:flex;align-items:center;gap:8px;padding:0 14px;border-bottom:1px solid var(--line)}
+  .dot{width:11px;height:11px;border-radius:50%}
+  .dot.r{background:#ff5f57}.dot.y{background:#febc2e}.dot.g{background:#28c840}
+  .tbar .title{margin-left:8px;font-weight:600;font-size:13px}
+
+  /* header band: artistic year + toolbar */
+  .head{display:flex;align-items:center;gap:18px;padding:14px 22px 6px}
+  .yearart{font-family:"Snell Roundhand","Zapfino",cursive;font-weight:700;font-style:italic;
+    font-size:58px;line-height:1;color:var(--yearart);letter-spacing:1px;
+    text-shadow:0 1px 0 rgba(0,0,0,.06)}
+  .subtitle{font-size:13px;color:var(--muted);font-weight:600;letter-spacing:3px}
+  .spacer{flex:1}
+  .toolbar{display:flex;align-items:center;gap:8px}
+  .arrow{width:26px;height:26px;border-radius:7px;border:1px solid var(--line);background:var(--chip-bg);
+    color:var(--fg);display:grid;place-items:center;font-size:14px;cursor:pointer}
+  .years{display:flex;gap:5px}
+  .ychip{padding:4px 11px;border-radius:20px;background:var(--chip-bg);color:var(--fg);
+    font-weight:600;font-size:12px;cursor:pointer}
+  .ychip.active{background:var(--chip-active);color:#fff}
+  .tbtn{display:flex;align-items:center;gap:5px;padding:5px 11px;border-radius:8px;
+    border:1px solid var(--line);background:var(--chip-bg);color:var(--fg);
+    font-weight:600;font-size:12px;cursor:pointer}
+  .tbtn.accent{border-color:var(--accent);color:var(--accent);background:transparent}
+
+  .cal{display:grid;grid-template-columns:repeat(4,1fr);gap:16px 18px;padding:8px 22px 16px}
+  .month{position:relative}
+  .month .wm{position:absolute;right:2px;top:12px;font-size:52px;font-weight:800;
+    color:var(--wm);z-index:0;pointer-events:none;letter-spacing:-2px}
+  .mtitle{font-weight:700;font-size:13px;margin:0 0 4px 2px;position:relative;z-index:1}
+  .dow{display:grid;grid-template-columns:repeat(7,1fr);position:relative;z-index:1}
+  .dow span{text-align:center;font-size:10px;color:var(--muted);font-weight:600;padding-bottom:2px}
+  .dow span.we{color:var(--weekend)}
+  .weeks{position:relative;z-index:1;display:flex;flex-direction:column;gap:2px}
+  .wk{display:grid;grid-template-columns:repeat(7,1fr);border-radius:7px;
+    border:1px solid transparent;cursor:default}
+  .wk.past{background:var(--past)}
+  .wk.future{border-color:var(--future-line)}
+  .wk.review{background:var(--accent);cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,.13)}
+  .wk.today{outline:2.5px solid var(--today-ring);outline-offset:1px}
+  .day{height:22px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600}
+  .wk.past .day{color:var(--past-day)}
+  .wk.future .day{color:var(--future-day)}
+  .day.we{color:var(--weekend)}
+  .day.empty{color:transparent}
+  .wk.review .day{color:var(--accent-fg)}
+  .wk.review .day.we{color:#ffe0dd}
+
+  .legend{display:flex;gap:16px;margin:2px 22px 16px;padding-top:12px;border-top:1px solid var(--line);
+    font-size:11.5px;color:var(--muted);flex-wrap:wrap}
+  .legend .it{display:flex;align-items:center;gap:6px}
+  .sw{width:22px;height:15px;border-radius:5px}
+  .sw.review{background:var(--accent)}
+  .sw.today{background:var(--past);outline:2.5px solid var(--today-ring);outline-offset:-2px}
+  .sw.past{background:var(--past)}
+  .sw.future{background:transparent;border:1px solid var(--future-line)}
+</style>
+</head>
+<body>
+  <div class="win" id="win-light"></div>
+  <div class="win dark" id="win-dark"></div>
+<script>
+  const YEAR = 2026;
+  const REVIEWS = new Set([2,5,9,13,18,24,27,30]); // ISO week numbers w/ a weekly-review
+  const TODAY = new Date(2026,6,23);               // 2026-07-23 = W30
+  const DOW = ["一","二","三","四","五","六","日"];
+
+  function isoWeek(d){
+    const t=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));
+    const day=(t.getUTCDay()+6)%7; t.setUTCDate(t.getUTCDate()-day+3);
+    const firstTh=new Date(Date.UTC(t.getUTCFullYear(),0,4));
+    const fday=(firstTh.getUTCDay()+6)%7; firstTh.setUTCDate(firstTh.getUTCDate()-fday+3);
+    return 1+Math.round((t-firstTh)/(7*864e5));
+  }
+  function mondayOf(d){const x=new Date(d);const day=(x.getDay()+6)%7;x.setDate(x.getDate()-day);x.setHours(0,0,0,0);return x;}
+  const todayMon=mondayOf(TODAY).getTime();
+
+  function monthEl(m){
+    const first=new Date(YEAR,m,1), last=new Date(YEAR,m+1,0).getDate();
+    // build week rows keyed by monday
+    const rows=[]; let map={};
+    for(let dnum=1;dnum<=last;dnum++){
+      const d=new Date(YEAR,m,dnum);
+      const mon=mondayOf(d).getTime();
+      if(!(mon in map)){ map[mon]={mon,wk:isoWeek(d),cells:[null,null,null,null,null,null,null]}; rows.push(map[mon]); }
+      const col=(d.getDay()+6)%7;
+      map[mon].cells[col]=dnum;
+    }
+    let html=`<div class="wm">${m+1}</div><div class="mtitle">${m+1}月</div>`
+      +`<div class="dow">${DOW.map((x,i)=>`<span class="${i>=5?'we':''}">${x}</span>`).join('')}</div>`
+      +`<div class="weeks">`;
+    for(const r of rows){
+      let cls='wk';
+      const reviewed=REVIEWS.has(r.wk);
+      if(reviewed) cls+=' review';
+      else if(r.mon>todayMon) cls+=' future';
+      else cls+=' past';
+      if(r.mon===todayMon) cls+=' today';
+      const title=`2026-W${String(r.wk).padStart(2,'0')} · ${reviewed?'有周报(点击打开)':(r.mon>todayMon?'未来':'无')}`;
+      const cells=r.cells.map((v,i)=>{
+        const we=i>=5?' we':'';
+        return v==null?`<div class="day empty${we}">·</div>`:`<div class="day${we}">${v}</div>`;
+      }).join('');
+      html+=`<div class="${cls}" title="${title}">${cells}</div>`;
+    }
+    html+=`</div>`;
+    const el=document.createElement('div'); el.className='month'; el.innerHTML=html; return el;
+  }
+
+  function build(root){
+    root.innerHTML=`
+      <div class="tbar"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div>
+        <div class="title">周检视 · Weekly Review</div></div>
+      <div class="head">
+        <div class="yearart">2026</div>
+        <div class="subtitle">周 检 视</div>
+        <div class="spacer"></div>
+        <div class="toolbar">
+          <div class="arrow">‹</div>
+          <div class="years"><div class="ychip">2024</div><div class="ychip">2025</div><div class="ychip active">2026</div></div>
+          <div class="arrow">›</div>
+          <div class="tbtn accent">◎ 本周</div>
+          <div class="tbtn">↻ 重构</div>
+        </div>
+      </div>
+      <div class="cal" id="cal"></div>
+      <div class="legend">
+        <div class="it"><span class="sw review"></span>有周报(整周框选·点击→主编辑器打开)</div>
+        <div class="it"><span class="sw today"></span>本周</div>
+        <div class="it"><span class="sw past"></span>已过去</div>
+        <div class="it"><span class="sw future"></span>未来</div>
+      </div>`;
+    const cal=root.querySelector('#cal');
+    for(let m=0;m<12;m++) cal.appendChild(monthEl(m));
+  }
+  build(document.getElementById('win-light'));
+  build(document.getElementById('win-dark'));
+</script>
+</body>
+</html>
