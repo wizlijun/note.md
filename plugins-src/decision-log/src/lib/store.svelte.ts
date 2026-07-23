@@ -9,13 +9,45 @@ export const state = $state<{ open: OpenDecision[]; candidates: CandidateFile[];
   open: [], candidates: [], archived: [], score: null, loading: true,
 })
 
+// Signature of the last committed board snapshot. refreshIfChanged() compares
+// against it so background polling only reassigns state (→ re-render) when the
+// underlying vault data actually changed — avoids flicker on unchanged polls.
+let lastSig = ''
+
+type Snapshot = { open: OpenDecision[]; candidates: CandidateFile[]; archived: ArchivedDecision[]; score: Scoreboard | null }
+
+// Read every board source once. Pure I/O — no state mutation, so callers decide
+// whether/when to commit the snapshot.
+async function loadAll(): Promise<Snapshot> {
+  const [open, candidates, archived, rawScore] = await Promise.all([
+    loadBoard(), loadCandidates(), loadArchives(), loadScore(),
+  ])
+  return { open, candidates, archived, score: computeScoreboard(rawScore) }
+}
+
+function commit(s: Snapshot): void {
+  state.open = s.open
+  state.candidates = s.candidates
+  state.archived = s.archived
+  state.score = s.score
+  lastSig = JSON.stringify(s)
+}
+
+/** Force refresh: always reload and reassign state (manual button / first mount).
+ *  Toggles state.loading. */
 export async function refresh(): Promise<void> {
   state.loading = true
-  state.open = await loadBoard()
-  state.candidates = await loadCandidates()
-  state.archived = await loadArchives()
-  state.score = computeScoreboard(await loadScore())
+  const s = await loadAll()
+  commit(s)
   state.loading = false
+}
+
+/** Background refresh: reload and only reassign state when the snapshot differs
+ *  from the last committed one. Never touches state.loading (silent). */
+export async function refreshIfChanged(): Promise<void> {
+  const s = await loadAll()
+  const sig = JSON.stringify(s)
+  if (sig !== lastSig) commit(s)
 }
 /** consume?: 成功后把来源候选文件里对应 pending 项标 accepted(向后兼容:不传则不消费)。 */
 export async function doSign(input: SignInput, consume?: { date: string; candidateId: string }): Promise<void> {

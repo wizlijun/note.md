@@ -8,7 +8,8 @@
      shows pending agent suggestion strips (closures + edit_decisions) beneath it.
      Candidate column footer "+ New Decision" opens SignSheet (manual create). -->
 <script lang="ts">
-  import { state as store, doReopen, doRejectCandidate } from '../lib/store.svelte'
+  import { onMount, onDestroy } from 'svelte'
+  import { state as store, doReopen, doRejectCandidate, refresh, refreshIfChanged } from '../lib/store.svelte'
   import type { OpenDecision, Outcome } from '../lib/model'
   import type { NewCandidate, Closure } from '../lib/candidate'
   import Card from './Card.svelte'
@@ -199,6 +200,60 @@
     await doRejectCandidate(c, c._fileDate ?? '')
   }
 
+  // ── refresh (manual + auto) ──
+  // The host has no file-watch push API, so the board polls the vault and also
+  // refreshes on window focus / tab visibility. Background refreshes only
+  // reassign state when data actually changed (refreshIfChanged) → no flicker.
+  let refreshing = $state(false)
+  let autoInFlight = false // reentrancy guard for the background path
+
+  async function doManualRefresh() {
+    if (refreshing) return
+    refreshing = true
+    try {
+      await refresh()
+    } catch (e) {
+      console.error('[decision-log] manual refresh failed:', e)
+    } finally {
+      refreshing = false
+    }
+  }
+
+  // Background tick. Skips when hidden (no point polling an unfocused window),
+  // when any modal is open or a lane drag is in flight (never interrupt the
+  // user mid-action), while a manual refresh runs, or if a prior auto refresh
+  // hasn't returned yet (reentrancy).
+  async function maybeAuto() {
+    if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return
+    if (signOpen || verdictDecision || reviewQueue) return
+    if (dragging || refreshing || autoInFlight) return
+    autoInFlight = true
+    try {
+      await refreshIfChanged()
+    } catch (e) {
+      console.error('[decision-log] auto refresh failed:', e)
+    } finally {
+      autoInFlight = false
+    }
+  }
+
+  function onVis() {
+    if (typeof document !== 'undefined' && document.visibilityState === 'visible') void maybeAuto()
+  }
+  function onFocus() { void maybeAuto() }
+
+  let autoTimer: ReturnType<typeof setInterval> | null = null
+  onMount(() => {
+    autoTimer = setInterval(() => void maybeAuto(), 4000)
+    window.addEventListener('focus', onFocus)
+    document.addEventListener('visibilitychange', onVis)
+  })
+  onDestroy(() => {
+    if (autoTimer) clearInterval(autoTimer)
+    window.removeEventListener('focus', onFocus)
+    document.removeEventListener('visibilitychange', onVis)
+  })
+
   // Prefill the verdict sheet from the decision's closure (evidence + outcome +
   // consume date), if any. Suggestion strips pass their own preset/date directly.
   const verdictClosureEntry = $derived(
@@ -217,14 +272,25 @@
 />
 
 <div class="board-wrap" class:dragging-active={dragging}>
-  {#if overdue.length}
-    <div class="toolbar">
+  <div class="toolbar">
+    {#if overdue.length}
       <button type="button" class="review-btn" onclick={startReview}>
         {t('review.start')}
         <span class="badge">{overdue.length}</span>
       </button>
-    </div>
-  {/if}
+    {/if}
+    <button
+      type="button"
+      class="refresh-btn"
+      class:spinning={refreshing}
+      title={t('refresh.hint')}
+      disabled={refreshing}
+      onclick={doManualRefresh}
+    >
+      <span class="refresh-icon" aria-hidden="true">⟳</span>
+      {t('refresh')}
+    </button>
+  </div>
 
   <div class="board">
   <!-- Candidates -->
@@ -358,8 +424,29 @@
     flex: 0 0 auto;
     display: flex;
     justify-content: flex-end;
+    align-items: center;
+    gap: 0.5rem;
     padding: 0.75rem 1rem 0;
   }
+  .refresh-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.4rem 0.8rem;
+    border: 1px solid var(--line, #d1d5db);
+    border-radius: 999px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: 0.85rem;
+    cursor: pointer;
+    opacity: 0.85;
+  }
+  .refresh-btn:hover:not(:disabled) { opacity: 1; border-color: var(--accent, #2563eb); }
+  .refresh-btn:disabled { cursor: default; opacity: 0.55; }
+  .refresh-icon { display: inline-block; line-height: 1; }
+  .refresh-btn.spinning .refresh-icon { animation: dl-spin 0.8s linear infinite; }
+  @keyframes dl-spin { to { transform: rotate(360deg); } }
   .review-btn {
     display: inline-flex;
     align-items: center;
