@@ -54,7 +54,7 @@ In `host_api.rs`, find the test that lists `(method, capability)` pairs (around 
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run: `cargo test -p notemd --lib plugin_runtime::host_api 2>&1 | tail -20` (crate name per `src-tauri/Cargo.toml` — if different, use that; the test module is `plugin_runtime::host_api`).
+Run: `(cd src-tauri && cargo test --lib plugin_runtime::host_api 2>&1 | tail -20)` (crate name per `src-tauri/Cargo.toml` — if different, use that; the test module is `plugin_runtime::host_api`).
 Expected: FAIL — `method_capability("host.editor.open")` returns `Some("__unknown__")`, not `Some("editor.open")`.
 
 - [ ] **Step 3: Add the mapping**
@@ -67,7 +67,7 @@ In `method_capability` (the `match method {` block, after the `"host.clipboard.w
 
 - [ ] **Step 4: Run the test to verify it passes**
 
-Run: `cargo test -p notemd --lib plugin_runtime::host_api 2>&1 | tail -20`
+Run: `(cd src-tauri && cargo test --lib plugin_runtime::host_api 2>&1 | tail -20)`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
@@ -131,7 +131,7 @@ In `impl HostServices for StubServices` (~line 696) add:
 
 - [ ] **Step 3: Run the test to verify it fails**
 
-Run: `cargo test -p notemd --lib plugin_runtime::ui_rpc::tests::editor_open 2>&1 | tail -30`
+Run: `(cd src-tauri && cargo test --lib plugin_runtime::ui_rpc::tests::editor_open 2>&1 | tail -30)`
 Expected: FAIL — `host.editor.open` routes to the unknown-method arm (or `open_in_editor` default), so no `{ok:true}` / no recorded path.
 
 - [ ] **Step 4: Add the trait default, TauriServices impl, handler, and dispatch arm**
@@ -181,7 +181,7 @@ Add the dispatch arm in the `match method` block (after `"host.vault.mkdir" => v
 
 - [ ] **Step 5: Run the tests to verify they pass**
 
-Run: `cargo test -p notemd --lib plugin_runtime::ui_rpc 2>&1 | tail -30`
+Run: `(cd src-tauri && cargo test --lib plugin_runtime::ui_rpc 2>&1 | tail -30)`
 Expected: PASS (both new tests + existing ui_rpc tests).
 
 - [ ] **Step 6: Update the dev-doc capability + method tables**
@@ -1303,10 +1303,10 @@ fi
 
 Run:
 ```bash
-cargo test -p notemd --lib plugin_runtime 2>&1 | tail -20
+(cd src-tauri && cargo test --lib plugin_runtime 2>&1 | tail -20)
 pnpm --filter weekly-review test 2>&1 | tail -20
 pnpm --filter weekly-review check 2>&1 | tail -20
-cargo test -p plugin-protocol 2>&1 | tail -10
+(cd plugin-protocol && cargo test 2>&1 | tail -10)
 ```
 Expected: all PASS.
 
