@@ -46,8 +46,11 @@ use plugin_protocol as proto;
 use super::host_api::{handle_common, method_capability, ToastEmitter};
 
 /// Read cap for `host.vault.read` / `host.fs.read_text` / `host.fs.read_bytes`
-/// (10 MB).
-const MAX_TEXT_BYTES: u64 = 10 * 1024 * 1024;
+/// (200 MB). NOTE: `read_bytes` base64-encodes the whole file into one RPC
+/// string (~1.33× the file), so a read near this cap materializes ~266 MB of
+/// String plus the JS-side decode — raised from 10 MB to admit large Roam
+/// exports, at that memory cost.
+const MAX_TEXT_BYTES: u64 = 200 * 1024 * 1024;
 
 /// Standard base64 alphabet (RFC 4648, `+`/`/`, `=` padding).
 const B64_ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -408,7 +411,7 @@ fn dialog_save(
     })
 }
 
-/// UTF-8 read with the 10 MB cap; shared by vault.read and fs.read_text.
+/// UTF-8 read with the `MAX_TEXT_BYTES` cap; shared by vault.read and fs.read_text.
 fn read_text_capped(path: &Path) -> Result<String, String> {
     let meta = std::fs::metadata(path).map_err(|e| format!("io: {e}"))?;
     if meta.len() > MAX_TEXT_BYTES {
@@ -427,7 +430,7 @@ fn fs_read_text(plugin_id: &str, params: &serde_json::Value) -> Result<serde_jso
 }
 
 /// `{ path } → { base64 }` — raw bytes (base64-encoded) of a dialog-granted
-/// path, subject to the same 10 MB cap. Used for binary exports the UTF-8 text
+/// path, subject to the same `MAX_TEXT_BYTES` cap. Used for binary exports the UTF-8 text
 /// bridge cannot carry (e.g. Roam's `.zip` export, unzipped client-side).
 fn fs_read_bytes(plugin_id: &str, params: &serde_json::Value) -> Result<serde_json::Value, String> {
     let path = PathBuf::from(req_str(params, "path")?);
@@ -529,14 +532,14 @@ fn resolve_in_vault(services: &dyn HostServices, params: &serde_json::Value) -> 
     Ok(out)
 }
 
-/// `{ path } → { content }` (UTF-8, 10 MB cap).
+/// `{ path } → { content }` (UTF-8, `MAX_TEXT_BYTES` cap).
 pub(crate) fn vault_read(services: &dyn HostServices, params: &serde_json::Value) -> Result<serde_json::Value, String> {
     let p = resolve_in_vault(services, params)?;
     Ok(serde_json::json!({ "content": read_text_capped(&p)? }))
 }
 
 /// `{ path, content } → { ok: true }`; creates parent directories. Content is
-/// capped at the same 10 MB `MAX_TEXT_BYTES` as reads (UTF-8 byte length).
+/// capped at the same `MAX_TEXT_BYTES` as reads (UTF-8 byte length).
 pub(crate) fn vault_write(services: &dyn HostServices, params: &serde_json::Value) -> Result<serde_json::Value, String> {
     let p = resolve_in_vault(services, params)?;
     let content = req_str(params, "content")?;
@@ -1002,7 +1005,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn read_over_10mb_is_too_large() {
+    async fn read_over_cap_is_too_large() {
         let dir = tempfile::tempdir().unwrap();
         let big = vec![b'x'; (MAX_TEXT_BYTES + 1) as usize];
         std::fs::write(dir.path().join("big.txt"), &big).unwrap();
@@ -1014,7 +1017,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn write_over_10mb_is_too_large_but_small_write_succeeds() {
+    async fn write_over_cap_is_too_large_but_small_write_succeeds() {
         let dir = tempfile::tempdir().unwrap();
         let s = StubServices { vault: Some(dir.path().to_path_buf()), ..Default::default() };
 
@@ -1184,7 +1187,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn fs_read_bytes_over_10mb_is_too_large() {
+    async fn fs_read_bytes_over_cap_is_too_large() {
         let pid = "test.read-bytes-big"; // unique: global allow-set
         let outside = tempfile::tempdir().unwrap();
         let big = outside.path().join("big.bin");

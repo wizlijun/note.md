@@ -9,6 +9,9 @@ export type Locale = 'en' | 'zh' | 'ja' | 'de'
 
 export type MessageKey =
   | 'title'
+  | 'hint.title'
+  | 'hint.step1'
+  | 'hint.step2'
   | 'pickFile'
   | 'noVault'
   | 'stage.parse'
@@ -28,6 +31,9 @@ type Catalog = Record<MessageKey, string>
 
 const en: Catalog = {
   title: 'Import from Roam Research',
+  'hint.title': 'Before importing',
+  'hint.step1': 'In Roam, use “Export All” and choose the JSON format, or compress the export into a .zip.',
+  'hint.step2': 'Keep the export file under 200 MB.',
   pickFile: 'Choose Roam export (.zip / .json)…',
   noVault: 'Configure a Vault first (Settings → Vault) to import.',
   'stage.parse': 'Parsing export…',
@@ -46,6 +52,9 @@ const en: Catalog = {
 
 const zh: Catalog = {
   title: '从 Roam Research 导入',
+  'hint.title': '导入前请注意',
+  'hint.step1': '在 Roam 中使用「Export All」并选择 JSON 格式，或将导出文件压缩为 .zip。',
+  'hint.step2': '导出文件需小于 200 MB。',
   pickFile: '选择 Roam 导出文件（.zip / .json）…',
   noVault: '请先在 设置 → Vault 配置仓库后再导入。',
   'stage.parse': '正在解析导出文件…',
@@ -64,6 +73,9 @@ const zh: Catalog = {
 
 const ja: Catalog = {
   title: 'Roam Research からインポート',
+  'hint.title': 'インポート前に',
+  'hint.step1': 'Roam で「Export All」を使い JSON 形式を選択するか、エクスポートを .zip に圧縮してください。',
+  'hint.step2': 'エクスポートファイルは 200 MB 未満にしてください。',
   pickFile: 'Roam エクスポートを選択（.zip / .json）…',
   noVault: '先に 設定 → Vault でボールトを設定してください。',
   'stage.parse': 'エクスポートを解析中…',
@@ -82,6 +94,9 @@ const ja: Catalog = {
 
 const de: Catalog = {
   title: 'Aus Roam Research importieren',
+  'hint.title': 'Vor dem Import',
+  'hint.step1': 'Nutzen Sie in Roam „Export All“ und wählen Sie das JSON-Format, oder komprimieren Sie den Export als .zip.',
+  'hint.step2': 'Die Export-Datei muss kleiner als 200 MB sein.',
   pickFile: 'Roam-Export auswählen (.zip / .json)…',
   noVault: 'Konfigurieren Sie zuerst einen Tresor (Einstellungen → Tresor), um zu importieren.',
   'stage.parse': 'Export wird analysiert…',

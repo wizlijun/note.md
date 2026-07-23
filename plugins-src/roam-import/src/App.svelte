@@ -156,6 +156,14 @@
     {#if vaultRoot === null}
       <p class="msg">{t('noVault')}</p>
     {:else}
+      <section class="hint">
+        <p class="hint-title">{t('hint.title')}</p>
+        <ol>
+          <li>{t('hint.step1')}</li>
+          <li>{t('hint.step2')}</li>
+        </ol>
+      </section>
+
       <button class="pick" onclick={pickAndImport} disabled={busy}>
         {t('pickFile')}
       </button>
@@ -217,6 +225,16 @@
   main { height: 100vh; overflow: auto; padding: 14px 18px; box-sizing: border-box; max-width: 640px; margin: 0 auto; }
   h1 { font-size: 16px; margin: 0 0 12px; }
   .msg { color: color-mix(in srgb, CanvasText 55%, transparent); font-size: 13px; padding: 20px; }
+  .hint {
+    margin: 0 0 14px;
+    padding: 10px 14px;
+    border-radius: 6px;
+    background: color-mix(in srgb, CanvasText 6%, transparent);
+    font-size: 13px;
+  }
+  .hint-title { margin: 0 0 6px; font-weight: 600; }
+  .hint ol { margin: 0; padding-left: 20px; }
+  .hint li { margin: 2px 0; line-height: 1.45; }
   .pick { font-size: 14px; padding: 6px 14px; }
   .progress { margin-top: 14px; font-size: 13px; }
   progress { width: 100%; }
