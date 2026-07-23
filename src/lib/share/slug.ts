@@ -76,9 +76,15 @@ function isoDate(d: Date): string {
 }
 
 function _randomBase62(n: number): string {
+  // CSPRNG with rejection sampling (248 = 62*4 is the largest multiple of 62
+  // below 256) so every character is uniformly distributed.
   let s = ''
-  for (let i = 0; i < n; i++) {
-    s += BASE62[Math.floor(Math.random() * BASE62.length)]
+  const buf = new Uint8Array(n * 2)
+  while (s.length < n) {
+    crypto.getRandomValues(buf)
+    for (const b of buf) {
+      if (b < 248 && s.length < n) s += BASE62[b % 62]
+    }
   }
   return s
 }
