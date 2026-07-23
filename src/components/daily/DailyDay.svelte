@@ -17,7 +17,8 @@
   import { parseOutline } from '../../lib/outline/markdown'
   import { outlineDirs } from '../../lib/outline/dirs.svelte'
   import { sotvaultStore } from '../../lib/sotvault.svelte'
-  import { tabs, openNewOutlineTab, saveTab, type Tab } from '../../lib/tabs.svelte'
+  import { tabs, openNewOutlineTab, saveTab, isDirty, type Tab } from '../../lib/tabs.svelte'
+  import { isEffectivelyEmptyTree } from '../../lib/outline/store.svelte'
   import DailyOutlineView from './DailyOutlineView.svelte'
   import OutlineEditor from '../outline/OutlineEditor.svelte'
   import { createTree, type OutlineTree } from '../../lib/outline/model'
@@ -56,9 +57,33 @@
     editorTab = tab
   }
 
-  /** Flush the active tab's buffer to disk (best-effort). */
+  /** Flush the active tab's buffer to disk (best-effort), honoring intent-save:
+   *  a merely-focused-but-untouched blank day must NOT create a .note.md, and we
+   *  never blank a non-empty file from this window (wipe-guard).
+   *
+   *  Guards, in order:
+   *  1. Not dirty (`currentContent === initialContent`, via `isDirty`) → no edits
+   *     since activation, nothing to flush. This alone spares an untouched blank
+   *     day whose file never existed (currentContent === initialContent === '').
+   *  2. Effectively-empty resulting content (parse → `isEffectivelyEmptyTree`):
+   *     skip the write regardless of prior existence — if the file did not exist
+   *     we honor intent-save (don't create an empty file); if it DID exist we
+   *     honor wipe-guard (don't blank an existing note from here).
+   *  Otherwise (dirty + has content) → `saveTab` writes to disk as before. */
   async function flush(): Promise<void> {
-    if (editorTab) await saveTab(editorTab.id).catch(() => {})
+    if (!editorTab) return
+    if (!isDirty(editorTab.id)) return
+    if (isEffectivelyEmptyTree(parseOutline(editorTab.currentContent))) {
+      // Effectively-empty content: skip the write in BOTH cases, so we never
+      // create nor blank a file. We still probe prior existence to log which rule
+      // fired — did-NOT-exist → intent-save (don't create an empty .note.md);
+      // DID-exist → wipe-guard (don't blank an existing note from here).
+      const { exists } = await import('@tauri-apps/plugin-fs')
+      const existed = notePath ? await exists(notePath).catch(() => false) : false
+      console.debug(`[daily] skip empty write for ${date}: ${existed ? 'wipe-guard' : 'intent-save'}`)
+      return
+    }
+    await saveTab(editorTab.id).catch(() => {})
   }
 
   // React to activation flips: on activate → make sure the editor tab is ready;
