@@ -679,4 +679,8 @@ export const zh: Record<keyof Messages, string> = {
   'base.addColumn': '加列',
   'base.noAddableProps': '没有可加的属性了',
   'base.writeError': '无法写入 .base — 已跳过本次修改',
+
+  // Tray menu
+  'tray.dailyNote': '今天的日记',
+  'tray.dailyNotes': '每日笔记',
 }

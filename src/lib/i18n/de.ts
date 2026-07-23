@@ -677,4 +677,8 @@ export const de: Record<keyof Messages, string> = {
   'base.addColumn': 'Spalte hinzufügen',
   'base.noAddableProps': 'Keine weiteren Eigenschaften',
   'base.writeError': '.base konnte nicht geschrieben werden — übersprungen',
+
+  // Tray menu
+  'tray.dailyNote': 'Heutige Notiz',
+  'tray.dailyNotes': 'Tagesnotizen',
 } as const

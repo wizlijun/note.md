@@ -679,4 +679,8 @@ export const ja: Record<keyof Messages, string> = {
   'base.addColumn': '列を追加',
   'base.noAddableProps': '追加できるプロパティがありません',
   'base.writeError': '.base に書き込めませんでした — 変更をスキップ',
+
+  // Tray menu
+  'tray.dailyNote': '今日のノート',
+  'tray.dailyNotes': 'デイリーノート',
 }

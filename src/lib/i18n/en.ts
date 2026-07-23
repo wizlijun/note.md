@@ -684,6 +684,10 @@ export const en = {
   'base.addColumn': 'Add column',
   'base.noAddableProps': 'No more properties to add',
   'base.writeError': 'Could not write .base — edit skipped',
+
+  // Tray menu
+  'tray.dailyNote': "Today's Note",
+  'tray.dailyNotes': 'Daily Notes',
 } as const
 
 export type Messages = typeof en
