@@ -22,8 +22,9 @@
   import DailyOutlineView from './DailyOutlineView.svelte'
   import OutlineEditor from '../outline/OutlineEditor.svelte'
   import { createTree, type OutlineTree } from '../../lib/outline/model'
+  import { dayMatches } from '../../lib/daily/filter'
 
-  let { date, active = false }: { date: string; active?: boolean } = $props()
+  let { date, active = false, filterQuery = '' }: { date: string; active?: boolean; filterQuery?: string } = $props()
   const dispatch = createEventDispatcher<{ requestActivate: { date: string }; linkclick: { raw: string } }>()
 
   let tree = $state<OutlineTree>(createTree())
@@ -32,6 +33,13 @@
 
   const notePath = $derived(
     sotvaultStore.vaultRoot ? dailyNotePath(sotvaultStore.vaultRoot, outlineDirs.dailynote, date) : null,
+  )
+
+  // Feed-driven filtering: hide this day when a non-empty query doesn't match any
+  // of its node texts. The active day is never hidden (the user is editing it);
+  // an empty query matches everything (dayMatches short-circuits).
+  const matchesFilter = $derived(
+    active || dayMatches([...tree.nodes.values()].map((n) => n.content), filterQuery),
   )
 
   /** Read this day's .note.md from disk into `tree` for the read-only view. */
@@ -110,7 +118,7 @@
   onMount(() => () => { void flush() })
 </script>
 
-<section class="day" class:active>
+<section class="day" class:active hidden={!matchesFilter}>
   <header class="date">{date}</header>
   {#if active}
     {#if editorTab}
