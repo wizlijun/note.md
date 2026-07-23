@@ -54,6 +54,8 @@ pub struct RecentMenu(pub Mutex<Option<Submenu<tauri::Wry>>>);
 pub struct TraySyncNowItem(pub Mutex<Option<MenuItem<tauri::Wry>>>);
 #[cfg(not(target_os = "ios"))]
 pub struct TrayShownLargeFiles(pub Mutex<Vec<String>>);
+#[cfg(not(target_os = "ios"))]
+pub struct DailyNotesEnabled(pub std::sync::Mutex<bool>);
 
 #[tauri::command]
 fn drain_pending_files(state: tauri::State<'_, PendingFiles>) -> Vec<String> {
@@ -417,6 +419,15 @@ fn show_daily_notes_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
 #[tauri::command]
 fn open_daily_notes_window(app: tauri::AppHandle) {
     show_daily_notes_window(&app);
+}
+
+#[tauri::command]
+fn set_daily_notes_enabled(app: tauri::AppHandle, enabled: bool) {
+    if let Some(st) = app.try_state::<DailyNotesEnabled>() {
+        *st.0.lock().unwrap() = enabled;
+    }
+    #[cfg(not(target_os = "ios"))]
+    rebuild_menu(&app);
 }
 
 #[cfg(not(target_os = "ios"))]
@@ -855,6 +866,8 @@ pub fn run() {
     #[cfg(not(target_os = "ios"))]
     let builder = builder.manage(TrayShownLargeFiles(Mutex::new(Vec::new())));
     #[cfg(not(target_os = "ios"))]
+    let builder = builder.manage(DailyNotesEnabled(std::sync::Mutex::new(false)));
+    #[cfg(not(target_os = "ios"))]
     let builder = builder.manage(preview_window::PreviewStore::default());
     #[cfg(not(target_os = "ios"))]
     let builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
@@ -978,6 +991,7 @@ pub fn run() {
                 rename_file,
                 open_plugin_market_window,
                 open_daily_notes_window,
+                set_daily_notes_enabled,
                 editor_show_and_open_path,
                 editor_open_remote_buffer,
                 update_recent_menu,
@@ -1068,6 +1082,7 @@ pub fn run() {
                     eprintln!("[themes] bootstrap failed: {e}");
                 }
 
+                *app.state::<DailyNotesEnabled>().0.lock().unwrap() = read_daily_notes_enabled(&app.handle());
                 let menu_locale = read_saved_locale(&app.handle());
                 let plugin_items = plugin_host::collect_top_menu_items(&menu_locale);
                 let (menu, recent_submenu) = build_menu(&app.handle(), &plugin_items, &menu_locale)?;
@@ -1117,6 +1132,7 @@ pub fn run() {
                         let id = event.id().0.as_str();
                         match id {
                             "tray-show" => show_main_window(app),
+                            "tray-daily-notes-open" => show_daily_notes_window(app),
                             "tray-daily-note" => {
                                 show_main_window(app);
                                 let _ = app.emit("tray-daily-note", ());
@@ -1446,6 +1462,15 @@ pub(crate) fn read_saved_locale<R: tauri::Runtime>(app: &tauri::AppHandle<R>) ->
     }
 }
 
+#[cfg(not(target_os = "ios"))]
+pub(crate) fn read_daily_notes_enabled<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> bool {
+    use tauri::Manager;
+    let Ok(dir) = app.path().app_config_dir() else { return false };
+    let Ok(text) = std::fs::read_to_string(dir.join("settings.json")) else { return false };
+    let Ok(json) = serde_json::from_str::<serde_json::Value>(&text) else { return false };
+    json.get("dailyNotes").and_then(|v| v.get("enabled")).and_then(|v| v.as_bool()).unwrap_or(false)
+}
+
 /// Build the menu-bar tray dropdown in the given locale. Returns the menu, the
 /// (dynamic) "Vault:" item, status item, and sync-now item so the caller can
 /// stash them for later updates. Event handling stays on the TrayIcon, so
@@ -1560,7 +1585,16 @@ fn build_tray_menu<R: tauri::Runtime>(
     let open_books_item = MenuItem::with_id(app, "tray-open-books", menu_label(locale, "tray.openBooks"), true, None::<&str>)?;
     let open_raw_sync_item = MenuItem::with_id(app, "tray-open-raw-sync", menu_label(locale, "tray.openRawSync"), /*enabled=*/ false, None::<&str>)?;
     let quit_item = MenuItem::with_id(app, "tray-quit", menu_label(locale, "sys.quit"), true, None::<&str>)?;
-    let mut b0 = MenuBuilder::new(app).item(&show_item).item(&daily_note_item);
+    let daily_enabled = app.try_state::<DailyNotesEnabled>()
+        .map(|st| *st.0.lock().unwrap())
+        .unwrap_or(false);
+    let daily_notes_item = MenuItem::with_id(app, "tray-daily-notes-open", menu_label(locale, "tray.dailyNotes"), true, None::<&str>)?;
+    let mut b0 = MenuBuilder::new(app).item(&show_item);
+    if daily_enabled {
+        b0 = b0.item(&daily_notes_item);
+    } else {
+        b0 = b0.item(&daily_note_item);
+    }
     for it in &plugin_tray_items {
         b0 = b0.item(it);
     }
