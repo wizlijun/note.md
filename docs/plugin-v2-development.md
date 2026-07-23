@@ -168,6 +168,7 @@ plugins-src/<name>/
 | `fs.read:dialog` | `host.fs.read_text` / `host.fs.read_bytes`(仅限本会话内经 dialog 选中的路径) |
 | `clipboard.write` | `host.clipboard.write` |
 | `location` | `host.location.get` |
+| `editor.open` | `host.editor.open` |
 | `renderer.html` | 渲染类(md2pdf 用) |
 
 **通道差异(重要)**:`dialog.*` / `fs.*` / `clipboard.*` **只在 UI 桥可用**;后台进程通道(纯后端插件)即使声明了 `dialog` 也拿不到,会回 `-32601`(`host_api.rs:165-168`)。`vault.*` 和 `location.get` 两个通道都可用。
@@ -210,6 +211,7 @@ plugins-src/<name>/
 | `host.fs.read_text` | `fs.read:dialog` | `{ path }` → `{ content }`(仅 dialog 授权过的路径) |
 | `host.clipboard.write` | `clipboard.write` | `{ text }` → `{ok}` |
 | `host.location.get` | `location` | — → 位置对象 |
+| `host.editor.open` | `editor.open` | `{ path }`(vault 相对)→ `{ ok: true }`;在主编辑器打开文件并聚焦主窗口。仅 UI 桥可用。 |
 
 错误码(`lib.rs:106-110`):`-32001` 能力被拒 / `-32601` 方法不存在 / `-32000` 宿主执行失败(消息带 `"<kind>: <detail>"` 前缀)。
 
