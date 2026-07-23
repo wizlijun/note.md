@@ -685,6 +685,10 @@ export const en = {
   'base.noAddableProps': 'No more properties to add',
   'base.writeError': 'Could not write .base — edit skipped',
 
+  // Daily Notes window
+  'daily.windowTitle': 'Daily Notes',
+  'daily.needsVault': 'Open a vault to use Daily Notes.',
+
   // Tray menu
   'tray.dailyNote': "Today's Note",
   'tray.dailyNotes': 'Daily Notes',

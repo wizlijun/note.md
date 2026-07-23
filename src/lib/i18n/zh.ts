@@ -680,6 +680,10 @@ export const zh: Record<keyof Messages, string> = {
   'base.noAddableProps': '没有可加的属性了',
   'base.writeError': '无法写入 .base — 已跳过本次修改',
 
+  // Daily Notes window
+  'daily.windowTitle': '每日笔记',
+  'daily.needsVault': '请先打开一个 vault 再使用每日笔记。',
+
   // Tray menu
   'tray.dailyNote': '今天的日记',
   'tray.dailyNotes': '每日笔记',

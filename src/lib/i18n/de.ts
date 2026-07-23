@@ -678,6 +678,10 @@ export const de: Record<keyof Messages, string> = {
   'base.noAddableProps': 'Keine weiteren Eigenschaften',
   'base.writeError': '.base konnte nicht geschrieben werden — übersprungen',
 
+  // Daily Notes window
+  'daily.windowTitle': 'Daily Notes',
+  'daily.needsVault': 'Open a vault to use Daily Notes.',
+
   // Tray menu
   'tray.dailyNote': 'Heutige Notiz',
   'tray.dailyNotes': 'Tagesnotizen',

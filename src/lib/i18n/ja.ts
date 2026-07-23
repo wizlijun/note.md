@@ -680,6 +680,10 @@ export const ja: Record<keyof Messages, string> = {
   'base.noAddableProps': '追加できるプロパティがありません',
   'base.writeError': '.base に書き込めませんでした — 変更をスキップ',
 
+  // Daily Notes window
+  'daily.windowTitle': 'Daily Notes',
+  'daily.needsVault': 'Open a vault to use Daily Notes.',
+
   // Tray menu
   'tray.dailyNote': '今日のノート',
   'tray.dailyNotes': 'デイリーノート',
