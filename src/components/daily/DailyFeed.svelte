@@ -53,11 +53,17 @@
   }
 
   /** Prepend newer dates (top sentinel entered view), compensating scrollTop so
-   *  the viewport stays anchored on the day the user was looking at. */
+   *  the viewport stays anchored on the day the user was looking at. Clamp to
+   *  today: never surface a date AFTER today. If the head is already today there
+   *  is nothing newer to add. */
   async function extendNewer(): Promise<void> {
+    const today = todayStr()
+    if (dates[0] === today) return
+    const newer = extendLater(dates, PAGE).filter((d) => d <= today)
+    if (newer.length === 0) return
     const el = container
     const prevScrollHeight = el ? el.scrollHeight : 0
-    dates = [...extendLater(dates, PAGE), ...dates]
+    dates = [...newer, ...dates]
     await tick()
     if (el) el.scrollTop += el.scrollHeight - prevScrollHeight
   }
@@ -88,10 +94,22 @@
     return () => obs.disconnect()
   })
 
+  /** Single-active handshake: fully deactivate the outgoing day (flush → detach →
+   *  closeTab, awaited) BEFORE the incoming day mounts its editor. Because we set
+   *  `activeDate` only after `prev.deactivate()` resolves, exactly one DailyDay
+   *  ever has `active === true` at a time and the outline singleton is free when
+   *  the incoming editor attaches. Pass `null` to just deactivate. */
+  async function activate(date: string | null): Promise<void> {
+    if (activeDate === date) return
+    const prev = activeDate ? dayRefs.get(activeDate) : null
+    if (prev) await prev.deactivate()
+    activeDate = date
+    await tick()
+    // Incoming DailyDay (if any) now mounts its editor via its `active` prop.
+  }
+
   function onRequestActivate(e: CustomEvent<{ date: string }>): void {
-    // Single-active invariant: setting one activeDate flips the previously-active
-    // DailyDay's `active` prop to false, and that day flushes itself on the flip.
-    activeDate = e.detail.date
+    void activate(e.detail.date)
   }
 
   function onLinkclick(e: CustomEvent<{ raw: string }>): void {
@@ -113,10 +131,23 @@
     el?.scrollIntoView({ block: 'start' })
   }
 
-  /** Refresh from disk: re-read the vault, then reload every mounted day. */
+  /** Deactivate the active day (flush → detach → closeTab), tearing down the live
+   *  editor so the outline singleton is free. Consumers (app-level page nav) call
+   *  this before showing a page view so the feed never holds a second editor. */
+  export async function deactivateActive(): Promise<void> {
+    await activate(null)
+  }
+
+  /** Refresh from disk. First flush+deactivate the live day so unsaved edits are
+   *  persisted BEFORE we re-read every day's tree (otherwise a blind reload would
+   *  drop the active day's in-flight edits and re-read stale disk under it). Then
+   *  re-read the vault, reload all trees, and re-activate the day that was live. */
   export async function refresh(): Promise<void> {
+    const wasActive = activeDate
+    await deactivateActive()
     await refreshSotvault()
     await Promise.all([...dayRefs.values()].map((d) => d?.reload?.().catch(() => {})))
+    if (wasActive) await activate(wasActive)
   }
 
   /** Set the active filter query; empty string clears it. Days self-hide when

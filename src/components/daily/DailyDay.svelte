@@ -12,12 +12,12 @@
      persistence self-contained here — it does not depend on an app-level autosave
      watcher being wired in this window. -->
 <script lang="ts">
-  import { createEventDispatcher, onMount } from 'svelte'
+  import { createEventDispatcher, onMount, untrack } from 'svelte'
   import { dailyNotePath } from '../../lib/outline/daily'
   import { parseOutline } from '../../lib/outline/markdown'
   import { outlineDirs } from '../../lib/outline/dirs.svelte'
   import { sotvaultStore } from '../../lib/sotvault.svelte'
-  import { tabs, openNewOutlineTab, saveTab, isDirty, type Tab } from '../../lib/tabs.svelte'
+  import { tabs, openNewOutlineTab, saveTab, closeTab, isDirty, type Tab } from '../../lib/tabs.svelte'
   import { isEffectivelyEmptyTree } from '../../lib/outline/store.svelte'
   import DailyOutlineView from './DailyOutlineView.svelte'
   import OutlineEditor from '../outline/OutlineEditor.svelte'
@@ -94,28 +94,47 @@
     await saveTab(editorTab.id).catch(() => {})
   }
 
-  // React to activation flips: on activate → make sure the editor tab is ready;
-  // on deactivate → flush edits to disk and refresh the read-only tree so it
-  // shows what was just saved. untrack the async work: it reads+writes $state
-  // (editorTab/tree) and we don't want it re-triggering on those writes.
+  /** Tear down this day's live editor: flush edits to disk (intent-save/wipe-guard
+   *  aware) → close the backing tab (so no tab/watcher outlives the editor) →
+   *  clear local editor state so the `{#if}` unmounts OutlineEditor, freeing the
+   *  outline singleton → refresh the read-only tree to reflect what was saved.
+   *
+   *  This is the single-active handshake: the feed AWAITS this before mounting the
+   *  incoming day's editor, guaranteeing exactly one live editor at a time. Safe to
+   *  call when this day owns no editor (no-op then). */
+  export async function deactivate(): Promise<void> {
+    const tab = editorTab
+    if (!tab) return
+    await flush()
+    // Flush honored intent-save/wipe-guard: an untouched/empty day stays dirty
+    // (initialContent '' ≠ currentContent), so closeTab must DISCARD rather than
+    // re-prompt/re-save. flush() already persisted anything worth keeping.
+    await closeTab(tab.id, async () => 'discard').catch(() => {})
+    editorTab = null
+    await reload()
+  }
+
+  // Mount the editor only when this day becomes active. The feed awaits the
+  // previous day's deactivate() (flush+detach+closeTab) BEFORE flipping our
+  // `active` to true, so the outline singleton is already free when we attach.
+  // We only react to the activate direction here; deactivation is method-driven
+  // via deactivate(). untrack the async work (reads+writes editorTab).
   let wasActive = false
   $effect(() => {
     const isActive = active
-    if (isActive === wasActive) return
-    wasActive = isActive
-    void (async () => {
-      if (isActive) {
-        await ensureEditorTab()
-      } else {
-        await flush()
-        await reload()
-      }
-    })()
+    untrack(() => {
+      if (isActive === wasActive) return
+      wasActive = isActive
+      if (isActive) void ensureEditorTab()
+      // isActive === false is handled by deactivate() (called by the feed before
+      // this flip), which already cleared editorTab; nothing to do here.
+    })
   })
 
-  // Unmount: flush any pending edits so nothing is lost when the day scrolls out
-  // of the lazy feed or the window closes while this day is the active one.
-  onMount(() => () => { void flush() })
+  // Unmount: if this day still owns a live editor (e.g. its block scrolled out of
+  // the lazy feed while active, or the window closed), tear it down so no tab or
+  // watcher leaks. deactivate() is idempotent/no-op without an editor.
+  onMount(() => () => { void deactivate() })
 </script>
 
 <section class="day" class:active hidden={!matchesFilter}>

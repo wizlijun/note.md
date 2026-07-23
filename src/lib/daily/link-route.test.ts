@@ -12,6 +12,9 @@ describe('daily/link-route', () => {
   it('wikilink non-date → page', () => {
     expect(classifyLink('[[Some Page]]')).toEqual({ kind: 'page', page: 'Some Page' })
   })
+  it('wikilink ending in .md → md', () => {
+    expect(classifyLink('[[notes/foo.md]]')).toEqual({ kind: 'md', path: 'notes/foo.md' })
+  })
   it('.md path → md', () => {
     expect(classifyLink('notes/foo.md')).toEqual({ kind: 'md', path: 'notes/foo.md' })
   })

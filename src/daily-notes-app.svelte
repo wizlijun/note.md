@@ -39,9 +39,14 @@
   let feed = $state<DailyFeed | null>(null)
 
   /** Mirror NavHistory into $state after any nav mutation; scroll the feed when
-   *  landing on a dated feed view. */
+   *  landing on a dated feed view. When landing on a PAGE, first tear down the
+   *  feed's live editor (flush → detach → closeTab) BEFORE flipping `view` so the
+   *  page's editor never coexists with the feed's active-day editor — the outline
+   *  singleton stays owned by at most one editor across the transition. */
   async function syncView(): Promise<void> {
-    view = nav.current()
+    const next = nav.current()
+    if (next.kind === 'page') await feed?.deactivateActive()
+    view = next
     canBack = nav.canBack()
     canForward = nav.canForward()
     if (view.kind === 'feed' && view.date) {

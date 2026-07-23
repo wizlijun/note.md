@@ -24,6 +24,11 @@
     onFilter: (query: string) => void
   } = $props()
 
+  // The date input reflects the last-jumped date so the picker doesn't reset to
+  // blank after a jump (and shows where the feed is anchored).
+  let dateValue = $state('')
+  function jump(date: string): void { dateValue = date; onJump(date) }
+
   // Debounce the search box so we don't re-filter the whole feed on every keystroke.
   let filterTimer: ReturnType<typeof setTimeout> | null = null
   function onSearchInput(e: Event): void {
@@ -35,7 +40,7 @@
 
   function onDateChange(e: Event): void {
     const value = (e.currentTarget as HTMLInputElement).value
-    if (value) onJump(value)
+    if (value) jump(value)
   }
 </script>
 
@@ -65,6 +70,7 @@
     type="date"
     aria-label={t('daily.toolbar.calendar')}
     title={t('daily.toolbar.calendar')}
+    bind:value={dateValue}
     onchange={onDateChange}
   />
   <input

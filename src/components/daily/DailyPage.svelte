@@ -19,7 +19,8 @@
   import { sotvaultStore } from '../../lib/sotvault.svelte'
   import { joinPath } from '../../lib/fs'
   import { sanitizeFileName } from '../../lib/outline/slug'
-  import { tabs, openNewOutlineTab, saveTab, isDirty, type Tab } from '../../lib/tabs.svelte'
+  import { tabs, openNewOutlineTab, saveTab, closeTab, isDirty, type Tab } from '../../lib/tabs.svelte'
+  import { untrack, onMount } from 'svelte'
   import { isEffectivelyEmptyTree } from '../../lib/outline/store.svelte'
   import OutlineEditor from '../outline/OutlineEditor.svelte'
 
@@ -69,25 +70,44 @@
     await saveTab(tab.id).catch(() => {})
   }
 
-  // Load/rebind the editor tab whenever the resolved path changes (the parent
-  // remounts DailyPage per page via {#if}, but guard against prop changes too).
+  /** Tear down the current page's live editor: flush → close its backing tab (so
+   *  no tab/watcher outlives the editor) → clear editorTab so OutlineEditor
+   *  unmounts and the outline singleton is freed. Awaitable so navigation can
+   *  fully release the singleton before the next page (or feed) attaches. Safe to
+   *  call when no editor is owned (no-op). */
+  export async function deactivate(): Promise<void> {
+    const tab = editorTab
+    const path = boundPath
+    if (!tab || !path) { editorTab = null; return }
+    await flush(tab, path)
+    // flush honored intent-save/wipe-guard: an untouched/empty page stays dirty
+    // (initialContent '' ≠ currentContent) so closeTab must DISCARD, not re-save.
+    await closeTab(tab.id, async () => 'discard').catch(() => {})
+    editorTab = null
+  }
+
+  // Load/rebind the editor tab whenever the resolved path changes. The parent
+  // reuses ONE DailyPage instance across page→page navigation (the {#if page}
+  // block stays mounted, only `page` changes), so on a path change we must tear
+  // down the OLD tab (flush+close) BEFORE binding the new one — otherwise two
+  // editors would briefly both hold the outline singleton and the old tab leaks.
   // untrack the async work: it reads+writes editorTab and must not self-retrigger.
   let boundPath: string | null = null
   $effect(() => {
     const path = notePath
-    if (path === boundPath) return
-    boundPath = path
-    if (!path) { editorTab = null; return }
-    void ensureEditorTab(path)
+    untrack(() => {
+      if (path === boundPath) return
+      void (async () => {
+        await deactivate()        // release the previous page's editor+tab first
+        boundPath = path
+        if (path) await ensureEditorTab(path)
+      })()
+    })
   })
 
-  // Unmount: flush pending edits so nothing is lost when the page view is
-  // replaced or the window closes.
-  $effect(() => {
-    const tab = editorTab
-    const path = notePath
-    return () => { if (tab && path) void flush(tab, path) }
-  })
+  // Unmount: flush pending edits AND close the tab so nothing is lost and no tab
+  // or watcher leaks when the page view is replaced or the window closes.
+  onMount(() => () => { void deactivate() })
 </script>
 
 <section class="page">
