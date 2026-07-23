@@ -511,6 +511,7 @@ export const de: Record<keyof Messages, string> = {
   'settings.restoreBuiltins': 'Integrierte Themen wiederherstellen',
   'settings.themesLoadFailed': 'Themen konnten nicht geladen werden: {error}',
   'settings.autoSaveLabel': 'Automatisches Speichern aktivieren (speichert nach 800 ms Inaktivität)',
+  'settings.dailyNotes.label': 'Daily Notes window',
 
   // Settings → Default app
   'settings.defaultApp.heading': 'Standard-App für Text- und Codedateien',

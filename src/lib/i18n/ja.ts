@@ -513,6 +513,7 @@ export const ja: Record<keyof Messages, string> = {
   'settings.restoreBuiltins': '組み込みテーマを復元',
   'settings.themesLoadFailed': 'テーマの読み込みに失敗：{error}',
   'settings.autoSaveLabel': '自動保存を有効化（800ms アイドル後に書き込み）',
+  'settings.dailyNotes.label': 'Daily Notes window',
 
   // Settings → Default app
   'settings.defaultApp.heading': 'テキスト・コードファイルの既定アプリ',

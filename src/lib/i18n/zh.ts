@@ -544,6 +544,7 @@ export const zh: Record<keyof Messages, string> = {
   'settings.restoreBuiltins': '恢复内置主题',
   'settings.themesLoadFailed': '加载主题失败：{error}',
   'settings.autoSaveLabel': '启用自动保存（空闲 800 毫秒后写入）',
+  'settings.dailyNotes.label': '每日笔记窗口',
 
   // Settings → Default app
   'settings.defaultApp.heading': '文本与代码文件的默认应用',

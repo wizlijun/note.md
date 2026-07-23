@@ -518,6 +518,7 @@ export const en = {
   'settings.restoreBuiltins': 'Restore built-in themes',
   'settings.themesLoadFailed': 'Failed to load themes: {error}',
   'settings.autoSaveLabel': 'Enable auto-save (writes after 800 ms idle)',
+  'settings.dailyNotes.label': 'Daily Notes window',
 
   // Settings → Default app
   'settings.defaultApp.heading': 'Default app for text & code files',
