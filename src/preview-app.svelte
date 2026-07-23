@@ -2,6 +2,7 @@
   import { invoke } from '@tauri-apps/api/core'
   import { getCurrentWindow } from '@tauri-apps/api/window'
   import DiffView from './components/history/DiffView.svelte'
+  import { loadLocale, t } from './lib/i18n/store.svelte'
   import { upsertTab, type PreviewTab } from './lib/git-history/preview-tabs'
 
   let tabs = $state<PreviewTab[]>([])
@@ -42,6 +43,7 @@
   }
 
   $effect(() => {
+    void loadLocale()
     void drainTabs()
     const un = getCurrentWindow().listen('preview-add-tab', () => { void drainTabs() })
     // Re-drain once the listener is ready: the backend may emit before it
@@ -57,7 +59,7 @@
       {#each tabs as tt (tt.id)}
         <div class="tab" class:active={tt.id === activeId}>
           <button class="tab-label" title={tt.title} onclick={() => selectTab(tt.id)}>{tt.title}</button>
-          <button class="tab-close" aria-label="Close tab" onclick={() => closeTab(tt.id)}>×</button>
+          <button class="tab-close" aria-label={t('previewWindow.closeTab')} onclick={() => closeTab(tt.id)}>×</button>
         </div>
       {/each}
     </div>
@@ -70,7 +72,7 @@
       {/if}
     </div>
   {:else}
-    <div class="empty">No preview to show. Reopen it from the history panel.</div>
+    <div class="empty">{t('previewWindow.empty')}</div>
   {/if}
 </main>
 
@@ -85,6 +87,9 @@
     height: 100vh;
     background: Canvas;
     color: CanvasText;
+    /* Same UI font stack as the main window (app.css) — without it the window
+       chrome falls back to the WebKit default serif. */
+    font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
     overflow: hidden;
   }
   .tabbar {

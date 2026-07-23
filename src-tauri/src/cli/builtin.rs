@@ -131,7 +131,7 @@ pub fn render_help(
     out.push_str("  version       Print version (aliases: -v, --version)\n");
     out.push_str("  plugin        Manage plugins (list, enable, disable, info, install, update, remove)\n");
     out.push_str("  share         Render and publish file as a shareable URL (alias: --share)\n");
-    out.push_str("  reading-insights report   Generate a reading digest from the Vault (--vault, --date, --stdout)\n");
+    out.push_str("  reading-insights [report]   Generate a reading digest from the Vault (--vault, --date, --stdout)\n");
 
     let mut shown_header = false;
     for m in manifests {
@@ -321,8 +321,10 @@ homed into the Vault first.
 notemd reading-insights — Reading Insights (engagement) report
 
 USAGE:
-  notemd reading-insights report --vault <path> [--date <preset>] [--stdout]
-  notemd reading-insights report --vault <path> --from YYYY-MM-DD --to YYYY-MM-DD
+  notemd reading-insights [report] --vault <path> [--date <preset>] [--stdout]
+  notemd reading-insights [report] --vault <path> --from YYYY-MM-DD --to YYYY-MM-DD
+
+  The `report` subcommand is the default and may be omitted.
 
 FLAGS:
   --vault <path>   Vault root. Reads <vault>/.notemd/analytics/

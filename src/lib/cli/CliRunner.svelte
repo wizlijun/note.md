@@ -38,7 +38,11 @@
       if (!from || !to) {
         const valid = ['today', 'yesterday', '7d', '30d', 'month']
         const dateFlag = payload.flags['date'] as string | undefined
-        const preset = (dateFlag && valid.includes(dateFlag) ? dateFlag : 'yesterday') as Preset
+        if (dateFlag && !valid.includes(dateFlag)) {
+          await finish({ exit_code: 2, stderr: [`notemd: invalid --date preset '${dateFlag}'. Valid: ${valid.join(', ')}`] })
+          return
+        }
+        const preset = (dateFlag ?? 'yesterday') as Preset
         const r = presetRange(preset, Date.now(), localTzOffsetMinutes())
         from = r.from
         to = r.to

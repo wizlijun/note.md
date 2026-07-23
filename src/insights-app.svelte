@@ -38,7 +38,7 @@
      built on follow the OS appearance — WKWebView keeps them light-only without
      this. Mirrors the main window's src/styles/app.css. */
   :global(:root) { color-scheme: light dark; }
-  :global(body) { margin: 0; font-family: -apple-system, system-ui, sans-serif; background: Canvas; color: CanvasText; }
+  :global(body) { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif; background: Canvas; color: CanvasText; }
   main { height: 100vh; overflow: auto; padding: 12px 16px; box-sizing: border-box; }
   .msg { color: color-mix(in srgb, CanvasText 55%, transparent); font-size: 13px; padding: 20px; }
 </style>

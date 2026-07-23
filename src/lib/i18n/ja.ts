@@ -444,6 +444,8 @@ export const ja: Record<keyof Messages, string> = {
   'history.diffCurrentTitle': '{short} ↔ 現在 · {name}.diff',
   'history.preview': 'プレビュー',
   'history.previewTitle': '{short} · {name}',
+  'previewWindow.closeTab': 'タブを閉じる',
+  'previewWindow.empty': '表示するプレビューがありません。履歴パネルから開き直してください。',
   'history.noDiff': '現在の文書と差分なし',
 
   // Folder view

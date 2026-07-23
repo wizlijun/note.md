@@ -442,6 +442,8 @@ export const de: Record<keyof Messages, string> = {
   'history.diffCurrentTitle': '{short} ↔ aktuell · {name}.diff',
   'history.preview': 'Vorschau',
   'history.previewTitle': '{short} · {name}',
+  'previewWindow.closeTab': 'Tab schließen',
+  'previewWindow.empty': 'Keine Vorschau vorhanden. Öffnen Sie sie erneut über das Verlaufspanel.',
   'history.noDiff': 'Keine Unterschiede zum aktuellen Dokument',
 
   // Folder view

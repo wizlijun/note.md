@@ -475,6 +475,8 @@ export const zh: Record<keyof Messages, string> = {
   'history.diffCurrentTitle': '{short} ↔ 当前 · {name}.diff',
   'history.preview': '预览',
   'history.previewTitle': '{short} · {name}',
+  'previewWindow.closeTab': '关闭标签页',
+  'previewWindow.empty': '没有可显示的预览。请从历史面板重新打开。',
   'history.noDiff': '与当前文档无差异',
 
   // Folder view
