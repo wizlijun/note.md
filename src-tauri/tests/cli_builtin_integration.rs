@@ -1,6 +1,6 @@
 //! End-to-end test for built-in CLI subcommands.
 //!
-//! Spawns the real `mdeditor` binary with argv[0] forced to "notemd" so the
+//! Spawns the real `notemd` binary (mainBinaryName) with argv[0] forced to "notemd" so the
 //! CLI mode path triggers. Asserts stdout / stderr / exit code for the
 //! happy paths. Plugin discovery uses --plugin-dir to point at fixtures.
 

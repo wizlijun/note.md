@@ -5,6 +5,8 @@ export interface CliPayload {
   plugin_id: string
   plugin_command: string
   file: string | null
+  /** Rust側 serde_json::Map,但 parse_subcommand_args 只写入 Bool(true) 与
+   *  String 两种值(见 src-tauri/src/cli/runner.rs),故此窄类型是准确契约。 */
   flags: Record<string, string | boolean>
   global: GlobalFlags
 }
