@@ -55,6 +55,19 @@ fn has_staged(repo: &Path) -> bool {
     run_git(repo, &["diff", "--cached", "--quiet"]).is_err()
 }
 
+/// 本地 HEAD 是否领先 {remote}/{branch}(存在已 commit 未 push 的提交)。
+/// 远端跟踪引用缺失(首推或从未 fetch 成功)按领先处理,交给 push 判定;
+/// 空仓库(HEAD 未诞生)无可推,按不领先处理。
+fn is_ahead(repo: &Path, remote: &str, branch: &str) -> bool {
+    if run_git(repo, &["rev-parse", "--verify", "HEAD"]).is_err() {
+        return false;
+    }
+    match run_git(repo, &["rev-list", "--count", &format!("{remote}/{branch}..HEAD")]) {
+        Ok(n) => n.trim().parse::<u64>().map(|c| c > 0).unwrap_or(true),
+        Err(_) => true,
+    }
+}
+
 pub fn sync(repo: &Path, remote: &str, branch: &str) -> GitResult<SyncReport> {
     let has_remote = run_git(repo, &["remote", "get-url", remote]).is_ok();
     let mut skipped_large: Vec<String> = Vec::new();
@@ -66,8 +79,17 @@ pub fn sync(repo: &Path, remote: &str, branch: &str) -> GitResult<SyncReport> {
             if fetch_ok {
                 let ff = run_git(repo, &["pull", "--ff-only", remote, branch]);
                 if ff.is_err() {
-                    let _ = run_git(repo, &["pull", "--rebase", remote, branch]);
+                    if let Err(e) = run_git(repo, &["pull", "--rebase", remote, branch]) {
+                        let _ = run_git(repo, &["rebase", "--abort"]);
+                        return Err(format!("pull --rebase failed, skipping cycle: {e}"));
+                    }
                 }
+            }
+            // 树干净≠已同步:上轮 commit 成功但 push 失败会留下滞留提交,
+            // 不补推就 return Ok 会把失败盖成"Sync completed"且永不重试。
+            if is_ahead(repo, remote, branch) {
+                run_git(repo, &["push", remote, branch])
+                    .map_err(|e| format!("push failed (will retry): {e}"))?;
             }
             return Ok(SyncReport { skipped_large });
         }
@@ -168,6 +190,73 @@ mod gate_tests {
         let tree = run_git(dir.path(), &["ls-tree", "-r", "--name-only", "HEAD"]).unwrap();
         assert!(tree.contains("note.md"));
         assert!(!tree.contains("huge.bin"));
+    }
+
+    /// bare 远端 + 已推首个提交的工作仓库,返回 (work, bare)。
+    fn init_remote_pair(root: &std::path::Path) -> (std::path::PathBuf, std::path::PathBuf) {
+        let bare = root.join("remote.git");
+        git(root, &["init", "--bare", "-q", "remote.git"]);
+        let work = root.join("work");
+        std::fs::create_dir(&work).unwrap();
+        git(&work, &["init", "-q", "-b", "main"]);
+        git(&work, &["config", "user.email", "t@t"]);
+        git(&work, &["config", "user.name", "t"]);
+        git(&work, &["remote", "add", "origin", bare.to_str().unwrap()]);
+        std::fs::write(work.join("note.md"), "base\n").unwrap();
+        git(&work, &["add", "note.md"]);
+        git(&work, &["commit", "-q", "-m", "seed"]);
+        git(&work, &["push", "-q", "origin", "main"]);
+        (work, bare)
+    }
+
+    #[test]
+    fn push_failure_then_clean_cycle_retries_push() {
+        let root = TempDir::new().unwrap();
+        let (work, bare) = init_remote_pair(root.path());
+
+        // 远端不可达的一轮:commit 落盘、push 失败
+        let missing = root.path().join("missing.git");
+        git(&work, &["remote", "set-url", "origin", missing.to_str().unwrap()]);
+        std::fs::write(work.join("note.md"), "stranded\n").unwrap();
+        let err = sync(&work, "origin", "main").unwrap_err();
+        assert!(err.contains("push failed"), "unexpected error: {err}");
+
+        // 远端恢复后的下一轮:工作区已干净,必须补推滞留提交
+        git(&work, &["remote", "set-url", "origin", bare.to_str().unwrap()]);
+        sync(&work, "origin", "main").unwrap();
+
+        let local = run_git(&work, &["rev-parse", "HEAD"]).unwrap();
+        let remote_head = run_git(&bare, &["rev-parse", "main"]).unwrap();
+        assert_eq!(local.trim(), remote_head.trim(), "干净树周期应补推滞留提交");
+
+        // 已同步的干净树再跑一轮仍应成功
+        sync(&work, "origin", "main").unwrap();
+    }
+
+    #[test]
+    fn clean_tree_diverged_conflict_surfaces_error() {
+        let root = TempDir::new().unwrap();
+        let (work, _bare) = init_remote_pair(root.path());
+
+        // 另一设备对同一文件推进冲突提交
+        let other = root.path().join("other");
+        git(root.path(), &["clone", "-q", "remote.git", "other"]);
+        git(&other, &["config", "user.email", "o@o"]);
+        git(&other, &["config", "user.name", "o"]);
+        std::fs::write(other.join("note.md"), "theirs\n").unwrap();
+        git(&other, &["commit", "-q", "-am", "theirs"]);
+        git(&other, &["push", "-q", "origin", "main"]);
+
+        // 本地滞留一个冲突提交,工作区干净
+        std::fs::write(work.join("note.md"), "ours\n").unwrap();
+        git(&work, &["commit", "-q", "-am", "ours"]);
+
+        let err = sync(&work, "origin", "main").unwrap_err();
+        assert!(err.contains("pull --rebase failed"), "unexpected error: {err}");
+        assert!(
+            !work.join(".git/rebase-merge").exists() && !work.join(".git/rebase-apply").exists(),
+            "不应停留在 rebase 中间态"
+        );
     }
 
     #[test]
