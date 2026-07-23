@@ -19,8 +19,10 @@
   )
 </script>
 
+<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 <div
   class="wk {state}"
+  id={isToday ? 'wr-today' : undefined}
   class:today={isToday}
   class:clickable={!!reviewPath}
   title={tip}

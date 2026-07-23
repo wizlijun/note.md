@@ -49,6 +49,7 @@
       if (!index.byYear.has(selectedYear)) selectedYear = pickDefaultYear(index)
       const { saveCache } = await import('./lib/cache')
       saveCache(vaultRoot, entries.map((e) => e.name))
+      if (selectedYear === currentYear) scrollToToday()
     } catch (e) {
       await toast('error', t('title'), String(e))
     } finally {
@@ -56,8 +57,15 @@
     }
   }
 
+  function scrollToToday() {
+    requestAnimationFrame(() =>
+      document.getElementById('wr-today')?.scrollIntoView({ block: 'center', behavior: 'smooth' }),
+    )
+  }
+
   function goThisWeek() {
     selectedYear = currentYear
+    scrollToToday()
   }
 
   async function onOpen(path: string) {
