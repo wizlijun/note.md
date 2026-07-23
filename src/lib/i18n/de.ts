@@ -511,6 +511,7 @@ export const de: Record<keyof Messages, string> = {
   'settings.restoreBuiltins': 'Integrierte Themen wiederherstellen',
   'settings.themesLoadFailed': 'Themen konnten nicht geladen werden: {error}',
   'settings.autoSaveLabel': 'Automatisches Speichern aktivieren (speichert nach 800 ms Inaktivität)',
+  'settings.dailyNotes.label': 'Daily Notes window',
 
   // Settings → Default app
   'settings.defaultApp.heading': 'Standard-App für Text- und Codedateien',
@@ -677,4 +678,19 @@ export const de: Record<keyof Messages, string> = {
   'base.addColumn': 'Spalte hinzufügen',
   'base.noAddableProps': 'Keine weiteren Eigenschaften',
   'base.writeError': '.base konnte nicht geschrieben werden — übersprungen',
+
+  // Daily Notes window
+  'daily.windowTitle': 'Daily Notes',
+  'daily.needsVault': 'Open a vault to use Daily Notes.',
+  'daily.pageTitle': 'Page',
+  'daily.toolbar.prev': 'Back',
+  'daily.toolbar.next': 'Forward',
+  'daily.toolbar.refresh': 'Refresh',
+  'daily.toolbar.calendar': 'Jump to date',
+  'daily.toolbar.find': 'Find',
+  'daily.emptyDay': '(empty)',
+
+  // Tray menu
+  'tray.dailyNote': 'Heutige Notiz',
+  'tray.dailyNotes': 'Tagesnotizen',
 } as const

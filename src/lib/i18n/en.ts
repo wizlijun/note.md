@@ -518,6 +518,7 @@ export const en = {
   'settings.restoreBuiltins': 'Restore built-in themes',
   'settings.themesLoadFailed': 'Failed to load themes: {error}',
   'settings.autoSaveLabel': 'Enable auto-save (writes after 800 ms idle)',
+  'settings.dailyNotes.label': 'Daily Notes window',
 
   // Settings → Default app
   'settings.defaultApp.heading': 'Default app for text & code files',
@@ -684,6 +685,21 @@ export const en = {
   'base.addColumn': 'Add column',
   'base.noAddableProps': 'No more properties to add',
   'base.writeError': 'Could not write .base — edit skipped',
+
+  // Daily Notes window
+  'daily.windowTitle': 'Daily Notes',
+  'daily.needsVault': 'Open a vault to use Daily Notes.',
+  'daily.pageTitle': 'Page',
+  'daily.toolbar.prev': 'Back',
+  'daily.toolbar.next': 'Forward',
+  'daily.toolbar.refresh': 'Refresh',
+  'daily.toolbar.calendar': 'Jump to date',
+  'daily.toolbar.find': 'Find',
+  'daily.emptyDay': '(empty)',
+
+  // Tray menu
+  'tray.dailyNote': "Today's Note",
+  'tray.dailyNotes': 'Daily Notes',
 } as const
 
 export type Messages = typeof en

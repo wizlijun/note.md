@@ -513,6 +513,7 @@ export const ja: Record<keyof Messages, string> = {
   'settings.restoreBuiltins': '組み込みテーマを復元',
   'settings.themesLoadFailed': 'テーマの読み込みに失敗：{error}',
   'settings.autoSaveLabel': '自動保存を有効化（800ms アイドル後に書き込み）',
+  'settings.dailyNotes.label': 'Daily Notes window',
 
   // Settings → Default app
   'settings.defaultApp.heading': 'テキスト・コードファイルの既定アプリ',
@@ -679,4 +680,19 @@ export const ja: Record<keyof Messages, string> = {
   'base.addColumn': '列を追加',
   'base.noAddableProps': '追加できるプロパティがありません',
   'base.writeError': '.base に書き込めませんでした — 変更をスキップ',
+
+  // Daily Notes window
+  'daily.windowTitle': 'Daily Notes',
+  'daily.needsVault': 'Open a vault to use Daily Notes.',
+  'daily.pageTitle': 'Page',
+  'daily.toolbar.prev': 'Back',
+  'daily.toolbar.next': 'Forward',
+  'daily.toolbar.refresh': 'Refresh',
+  'daily.toolbar.calendar': 'Jump to date',
+  'daily.toolbar.find': 'Find',
+  'daily.emptyDay': '(empty)',
+
+  // Tray menu
+  'tray.dailyNote': '今日のノート',
+  'tray.dailyNotes': 'デイリーノート',
 }

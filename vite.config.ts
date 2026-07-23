@@ -34,10 +34,11 @@ export default defineConfig({
         preview: 'preview.html',
         pluginMarket: 'plugin-market.html',
         logs: 'logs.html',
+        dailyNotes: 'daily-notes.html',
       },
     },
   },
   optimizeDeps: {
-    entries: ['index.html', 'insights.html', 'preview.html', 'plugin-market.html', 'logs.html'],
+    entries: ['index.html', 'insights.html', 'preview.html', 'plugin-market.html', 'logs.html', 'daily-notes.html'],
   },
 })

@@ -495,6 +495,22 @@
             <input type="checkbox" checked={settings.autoSave} onchange={onToggle} />
             {t('settings.autoSaveLabel')}
           </label>
+          {#if !isIOSPlatform}
+            <label class="row">
+              <input
+                type="checkbox"
+                bind:checked={settings.dailyNotes.enabled}
+                onchange={async () => {
+                  await saveSettings()
+                  try {
+                    const { invoke } = await import('@tauri-apps/api/core')
+                    await invoke('set_daily_notes_enabled', { enabled: settings.dailyNotes.enabled })
+                  } catch (e) { console.warn('[settings] set_daily_notes_enabled:', e) }
+                }}
+              />
+              {t('settings.dailyNotes.label')}
+            </label>
+          {/if}
         </section>
 
         <section class="block">

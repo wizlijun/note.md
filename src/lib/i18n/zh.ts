@@ -544,6 +544,7 @@ export const zh: Record<keyof Messages, string> = {
   'settings.restoreBuiltins': '恢复内置主题',
   'settings.themesLoadFailed': '加载主题失败：{error}',
   'settings.autoSaveLabel': '启用自动保存（空闲 800 毫秒后写入）',
+  'settings.dailyNotes.label': '每日笔记窗口',
 
   // Settings → Default app
   'settings.defaultApp.heading': '文本与代码文件的默认应用',
@@ -679,4 +680,19 @@ export const zh: Record<keyof Messages, string> = {
   'base.addColumn': '加列',
   'base.noAddableProps': '没有可加的属性了',
   'base.writeError': '无法写入 .base — 已跳过本次修改',
+
+  // Daily Notes window
+  'daily.windowTitle': '每日笔记',
+  'daily.needsVault': '请先打开一个 vault 再使用每日笔记。',
+  'daily.pageTitle': '页面',
+  'daily.toolbar.prev': '上一个',
+  'daily.toolbar.next': '下一个',
+  'daily.toolbar.refresh': '刷新',
+  'daily.toolbar.calendar': '跳转日期',
+  'daily.toolbar.find': '查找',
+  'daily.emptyDay': '（空）',
+
+  // Tray menu
+  'tray.dailyNote': '今天的日记',
+  'tray.dailyNotes': '每日笔记',
 }

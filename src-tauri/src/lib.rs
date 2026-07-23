@@ -54,6 +54,8 @@ pub struct RecentMenu(pub Mutex<Option<Submenu<tauri::Wry>>>);
 pub struct TraySyncNowItem(pub Mutex<Option<MenuItem<tauri::Wry>>>);
 #[cfg(not(target_os = "ios"))]
 pub struct TrayShownLargeFiles(pub Mutex<Vec<String>>);
+#[cfg(not(target_os = "ios"))]
+pub struct DailyNotesEnabled(pub std::sync::Mutex<bool>);
 
 #[tauri::command]
 fn drain_pending_files(state: tauri::State<'_, PendingFiles>) -> Vec<String> {
@@ -386,6 +388,49 @@ fn show_insights_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
         let _ = w.unminimize();
         let _ = w.set_focus();
     }
+}
+
+/// The single Daily Notes window's label.
+#[cfg(not(target_os = "ios"))]
+const DAILY_NOTES_LABEL: &str = "daily-notes";
+
+/// Ensure the single Daily Notes window exists; focus if already open.
+#[cfg(not(target_os = "ios"))]
+fn show_daily_notes_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
+    use tauri::Manager;
+    use tauri::WebviewUrl;
+    let win = app.get_webview_window(DAILY_NOTES_LABEL).or_else(|| {
+        tauri::WebviewWindowBuilder::new(app, DAILY_NOTES_LABEL, WebviewUrl::App("daily-notes.html".into()))
+            .title("Daily Notes")
+            .inner_size(720.0, 900.0)
+            .min_inner_size(480.0, 480.0)
+            .resizable(true)
+            .decorations(true)
+            .visible(false)
+            .build()
+            .map_err(|e| eprintln!("[daily-notes] window build failed: {e}"))
+            .ok()
+    });
+    if let Some(w) = win {
+        let _ = w.show();
+        let _ = w.set_focus();
+        let _ = w.unminimize();
+    }
+}
+
+#[cfg(not(target_os = "ios"))]
+#[tauri::command]
+fn open_daily_notes_window(app: tauri::AppHandle) {
+    show_daily_notes_window(&app);
+}
+
+#[cfg(not(target_os = "ios"))]
+#[tauri::command]
+fn set_daily_notes_enabled(app: tauri::AppHandle, enabled: bool) {
+    if let Some(st) = app.try_state::<DailyNotesEnabled>() {
+        *st.0.lock().unwrap() = enabled;
+    }
+    rebuild_menu(&app);
 }
 
 #[cfg(not(target_os = "ios"))]
@@ -824,6 +869,8 @@ pub fn run() {
     #[cfg(not(target_os = "ios"))]
     let builder = builder.manage(TrayShownLargeFiles(Mutex::new(Vec::new())));
     #[cfg(not(target_os = "ios"))]
+    let builder = builder.manage(DailyNotesEnabled(std::sync::Mutex::new(false)));
+    #[cfg(not(target_os = "ios"))]
     let builder = builder.manage(preview_window::PreviewStore::default());
     #[cfg(not(target_os = "ios"))]
     let builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
@@ -946,6 +993,8 @@ pub fn run() {
                 write_file_binary,
                 rename_file,
                 open_plugin_market_window,
+                open_daily_notes_window,
+                set_daily_notes_enabled,
                 editor_show_and_open_path,
                 editor_open_remote_buffer,
                 update_recent_menu,
@@ -1036,6 +1085,7 @@ pub fn run() {
                     eprintln!("[themes] bootstrap failed: {e}");
                 }
 
+                *app.state::<DailyNotesEnabled>().0.lock().unwrap() = read_daily_notes_enabled(&app.handle());
                 let menu_locale = read_saved_locale(&app.handle());
                 let plugin_items = plugin_host::collect_top_menu_items(&menu_locale);
                 let (menu, recent_submenu) = build_menu(&app.handle(), &plugin_items, &menu_locale)?;
@@ -1085,9 +1135,10 @@ pub fn run() {
                         let id = event.id().0.as_str();
                         match id {
                             "tray-show" => show_main_window(app),
-                            "tray-today-note" => {
+                            "tray-daily-notes-open" => show_daily_notes_window(app),
+                            "tray-daily-note" => {
                                 show_main_window(app);
-                                let _ = app.emit("tray-today-note", ());
+                                let _ = app.emit("tray-daily-note", ());
                             }
                             id if id.starts_with("tray-plugin:") => {
                                 // tray-plugin:<plugin_id>:<window> — plugin_id may
@@ -1359,7 +1410,8 @@ fn menu_label(locale: &str, key: &str) -> String {
         "sys.maximize" => ("Zoom", "缩放", "拡大／縮小", "Größe anpassen"),
         // Menu-bar tray dropdown
         "tray.show" => ("Show note.md", "显示 note.md", "note.md を表示", "note.md anzeigen"),
-        "tray.todayNote" => ("Today's Note", "今天的日记", "今日のノート", "Heutige Notiz"),
+        "tray.dailyNote" => ("Today's Note", "今天的日记", "今日のノート", "Heutige Notiz"),
+        "tray.dailyNotes" => ("Daily Notes", "每日笔记", "デイリーノート", "Tagesnotizen"),
         "tray.vaultSetFolder" => ("Vault: Set Folder…", "Vault：选择文件夹…", "Vault：フォルダを選択…", "Vault: Ordner wählen…"),
         "tray.syncNow" => ("Sync Now", "立即同步", "今すぐ同期", "Jetzt synchronisieren"),
         "tray.largeFiles.title" => ("⚠️ {n} file(s) too large", "⚠️ {n} 个文件过大", "⚠️ {n} 件のファイルが大きすぎます", "⚠️ {n} Datei(en) zu groß"),
@@ -1413,6 +1465,15 @@ pub(crate) fn read_saved_locale<R: tauri::Runtime>(app: &tauri::AppHandle<R>) ->
     }
 }
 
+#[cfg(not(target_os = "ios"))]
+pub(crate) fn read_daily_notes_enabled<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> bool {
+    use tauri::Manager;
+    let Ok(dir) = app.path().app_config_dir() else { return false };
+    let Ok(text) = std::fs::read_to_string(dir.join("settings.json")) else { return false };
+    let Ok(json) = serde_json::from_str::<serde_json::Value>(&text) else { return false };
+    json.get("dailyNotes").and_then(|v| v.get("enabled")).and_then(|v| v.as_bool()).unwrap_or(false)
+}
+
 /// Build the menu-bar tray dropdown in the given locale. Returns the menu, the
 /// (dynamic) "Vault:" item, status item, and sync-now item so the caller can
 /// stash them for later updates. Event handling stays on the TrayIcon, so
@@ -1434,7 +1495,7 @@ fn build_tray_menu<R: tauri::Runtime>(
     locale: &str,
 ) -> tauri::Result<(Menu<R>, MenuItem<R>, IconMenuItem<R>, MenuItem<R>)> {
     let show_item = MenuItem::with_id(app, "tray-show", menu_label(locale, "tray.show"), true, None::<&str>)?;
-    let today_note_item = MenuItem::with_id(app, "tray-today-note", menu_label(locale, "tray.todayNote"), true, None::<&str>)?;
+    let daily_note_item = MenuItem::with_id(app, "tray-daily-note", menu_label(locale, "tray.dailyNote"), true, None::<&str>)?;
     // Tray "socket": every enabled plugin that declares `contributes.tray` gets a
     // launch item here, directly below "Today's Note". The label is the entry's
     // `label` or the plugin's localized name; clicking opens the plugin window.
@@ -1527,7 +1588,16 @@ fn build_tray_menu<R: tauri::Runtime>(
     let open_books_item = MenuItem::with_id(app, "tray-open-books", menu_label(locale, "tray.openBooks"), true, None::<&str>)?;
     let open_raw_sync_item = MenuItem::with_id(app, "tray-open-raw-sync", menu_label(locale, "tray.openRawSync"), /*enabled=*/ false, None::<&str>)?;
     let quit_item = MenuItem::with_id(app, "tray-quit", menu_label(locale, "sys.quit"), true, None::<&str>)?;
-    let mut b0 = MenuBuilder::new(app).item(&show_item).item(&today_note_item);
+    let daily_enabled = app.try_state::<DailyNotesEnabled>()
+        .map(|st| *st.0.lock().unwrap())
+        .unwrap_or(false);
+    let daily_notes_item = MenuItem::with_id(app, "tray-daily-notes-open", menu_label(locale, "tray.dailyNotes"), true, None::<&str>)?;
+    let mut b0 = MenuBuilder::new(app).item(&show_item);
+    if daily_enabled {
+        b0 = b0.item(&daily_notes_item);
+    } else {
+        b0 = b0.item(&daily_note_item);
+    }
     for it in &plugin_tray_items {
         b0 = b0.item(it);
     }
