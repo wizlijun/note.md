@@ -51,11 +51,13 @@ export const settings = $state<{
   toastAutoClose: boolean
   theme: ThemeSettings
   mdblock: MdblockSettings
+  dailyNotes: { enabled: boolean }
 }>({
   autoSave: false,
   toastAutoClose: false,
   theme: { ...DEFAULT_THEME },
   mdblock: structuredClone(DEFAULT_MDBLOCK_SETTINGS),
+  dailyNotes: { enabled: false },
 })
 
 let store: Awaited<ReturnType<typeof Store.load>> | null = null
@@ -180,6 +182,8 @@ export async function loadSettings(): Promise<void> {
         hover: { ...DEFAULT_MDBLOCK_SETTINGS.hover, ...(storedMdblock.hover ?? {}) },
       }
     : structuredClone(DEFAULT_MDBLOCK_SETTINGS)
+  const storedDaily = await s.get<{ enabled: boolean }>('dailyNotes')
+  settings.dailyNotes.enabled = storedDaily?.enabled ?? false
   settingsHydrated = true
   pluginScopedVersion.value++
   await loadShareDb()
@@ -198,6 +202,7 @@ export async function saveSettings(): Promise<void> {
   await s.set('plugins', pluginScoped)
   await s.set('plugins.enabled', pluginsEnabled)
   await s.set('mdblock', settings.mdblock)
+  await s.set('dailyNotes', { enabled: settings.dailyNotes.enabled })
   await s.save()
 }
 
