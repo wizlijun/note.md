@@ -695,6 +695,7 @@ export const en = {
   'daily.toolbar.refresh': 'Refresh',
   'daily.toolbar.calendar': 'Jump to date',
   'daily.toolbar.find': 'Find',
+  'daily.emptyDay': '(empty)',
 
   // Tray menu
   'tray.dailyNote': "Today's Note",

@@ -690,6 +690,7 @@ export const zh: Record<keyof Messages, string> = {
   'daily.toolbar.refresh': '刷新',
   'daily.toolbar.calendar': '跳转日期',
   'daily.toolbar.find': '查找',
+  'daily.emptyDay': '（空）',
 
   // Tray menu
   'tray.dailyNote': '今天的日记',

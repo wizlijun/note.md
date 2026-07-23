@@ -688,6 +688,7 @@ export const de: Record<keyof Messages, string> = {
   'daily.toolbar.refresh': 'Refresh',
   'daily.toolbar.calendar': 'Jump to date',
   'daily.toolbar.find': 'Find',
+  'daily.emptyDay': '(empty)',
 
   // Tray menu
   'tray.dailyNote': 'Heutige Notiz',

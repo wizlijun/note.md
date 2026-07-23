@@ -5,6 +5,7 @@
      <svelte:self> for child nodes, forwarding both events upward. -->
 <script lang="ts">
   import { childrenOf, type OutlineTree } from '../../lib/outline/model'
+  import { t } from '../../lib/i18n/store.svelte'
   import { createEventDispatcher } from 'svelte'
 
   let { tree, parentId = null }: { tree: OutlineTree; parentId?: string | null } = $props()
@@ -53,7 +54,7 @@
       tabindex="0"
       onclick={() => dispatch('activate')}
       onkeydown={(e) => { if (e.key === 'Enter') dispatch('activate') }}
-    >（空）</li>
+    >{t('daily.emptyDay')}</li>
   {/if}
 </ul>
 
