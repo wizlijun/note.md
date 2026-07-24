@@ -3,7 +3,7 @@ import { applyNote, applyAdjustCheckDate, applyDrop, markConsumed, appendRejecte
 import type { OpenDecision } from './model'
 
 const base: OpenDecision = {
-  id: '2026-07-07-01', title: 'MVP', prediction: '两周内发出', confidence: 'medium',
+  id: '2026-07-07-01', title: 'MVP', prediction: '两周内发出', confidence: 0.75,
   'check-date': '2026-08-04', created: '2026-07-07', origin: 'agent', strikes: 0,
 }
 const other: OpenDecision = { ...base, id: '2026-07-07-02', title: 'CDN' }
@@ -44,7 +44,7 @@ describe('applyDrop', () => {
     expect(r.open.map((d) => d.id)).toEqual(['2026-07-07-02'])
     expect(r.archived).toMatchObject({
       id: '2026-07-07-01', created: '2026-07-07', status: 'dropped',
-      prediction: '两周内发出', confidence: 'medium', origin: 'agent',
+      prediction: '两周内发出', confidence: 0.75, origin: 'agent',
     })
     // dropped 不进命中统计:不带 outcome/still-endorse
     expect(r.archived.outcome).toBeUndefined()

@@ -1,8 +1,8 @@
 import { loadBoard, saveBoard, appendArchive, appendScore, loadScore, loadCandidates, loadArchives, consumeDiaryItem, removeArchived, appendRejected } from './host-io'
-import { sign, verdict, incStrike, manualCreate, type SignInput, type VerdictInput } from './lifecycle'
+import { sign, verdict, skip, manualCreate, type SignInput, type VerdictInput } from './lifecycle'
 import { applyNote, applyAdjustCheckDate, applyDrop } from './edits'
 import { computeScoreboard, type Scoreboard } from './scoreboard'
-import type { OpenDecision, ArchivedDecision } from './model'
+import type { OpenDecision, ArchivedDecision, SkipReason } from './model'
 import type { CandidateFile, EditDecision, NewCandidate } from './candidate'
 
 export const state = $state<{ open: OpenDecision[]; candidates: CandidateFile[]; archived: ArchivedDecision[]; score: Scoreboard | null; loading: boolean }>({
@@ -94,12 +94,21 @@ export async function doReopen(archivedId: string): Promise<void> {
   state.archived = await loadArchives()
   state.score = computeScoreboard(await loadScore())
 }
-export async function doStrike(id: string, resolved: string): Promise<void> {
-  const r = incStrike(state.open, id, resolved)
+/** 到期检查里的"跳过":带原因(v1.1)。not-yet 改期、irrelevant 直接 drop、
+ *  avoid 计 strike(第 3 次降级)。返回是否触发了降级(供 UI 显示教练文案)。 */
+export async function doSkip(id: string, reason: SkipReason, today: string): Promise<boolean> {
+  const r = skip(state.open, id, reason, today)
   state.open = r.open
   await saveBoard(state.open)
-  if (r.archived) { await appendArchive(resolved, r.archived); state.archived = await loadArchives() }
-  if (r.event) { await appendScore(r.event); state.score = computeScoreboard(await loadScore()) }
+  let downgraded = false
+  if (r.archived) {
+    await appendArchive(today, r.archived)
+    state.archived = await loadArchives()
+    downgraded = r.archived.status === 'downgraded'
+  }
+  for (const ev of r.events) await appendScore(ev)
+  state.score = computeScoreboard(await loadScore())
+  return downgraded
 }
 
 // ── agent edit_decisions 建议:接受 / 忽略 ────────────────────────────────────

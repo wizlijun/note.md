@@ -1,14 +1,15 @@
 <!-- ReviewPass.svelte — the "due check" (weekly-review) focused overlay.
-     Verdicts + strike counting ride inside this review pass, never as a
+     Verdicts + skip handling ride inside this review pass, never as a
      standalone interruption (spec §4/§7/§S7/§S8). Overdue-and-undecided
-     decisions are surfaced one at a time; each offers exactly two low-cognitive
-     actions: give a verdict (opens VerdictSheet → doVerdict) or skip for now
-     (doStrike → strikes+1; 3rd strike auto-downgrades & archives). Skipping is
-     passive self-cleanup, never punishment: a downgrade shows a coach-tone line,
-     not a red failure. Walking the queue closes the pass and refreshes. -->
+     decisions are surfaced one at a time: give a verdict (VerdictSheet →
+     doVerdict) or skip WITH a reason (v1.1 R4): not-yet → check-date +14d,
+     no strike; irrelevant → drop, no guilt; avoid → strike (3rd downgrades).
+     Closing the whole pass (Esc) counts nothing — a lapse is not avoidance
+     (design review §1.5). A downgrade shows a coach-tone line, never a red
+     failure. The done screen gently mentions sunk (downgraded) items. -->
 <script lang="ts">
-  import type { OpenDecision } from '../lib/model'
-  import { doStrike, refresh } from '../lib/store.svelte'
+  import type { OpenDecision, SkipReason } from '../lib/model'
+  import { state as store, doSkip, refresh } from '../lib/store.svelte'
   import VerdictSheet from './VerdictSheet.svelte'
   import Card from './Card.svelte'
   import { t } from '../lib/strings'
@@ -27,14 +28,17 @@
 
   let index = $state(0)
   let showVerdict = $state(false)
-  let downgradedNote = $state('') // coach-tone line shown after a skip triggers a downgrade
+  let askReason = $state(false) // skip pressed → show the three reasons
+  let downgradedNote = $state('') // coach-tone line shown after an avoid-skip triggers a downgrade
   let busy = $state(false)
 
   const current = $derived(queue[index] ?? null)
+  const sunkCount = $derived(store.archived.filter((a) => a.status === 'downgraded').length)
 
   async function advance() {
     downgradedNote = ''
     showVerdict = false
+    askReason = false
     if (index + 1 >= queue.length) {
       // queue done → close & refresh the board + scoreboard
       await refresh()
@@ -51,20 +55,20 @@
     await advance()
   }
 
-  async function skip() {
+  async function skipWith(reason: SkipReason) {
     if (!current || busy) return
     busy = true
-    const wasThirdStrike = current.strikes >= 2 // this skip makes it strike 3 → downgrade
     try {
-      await doStrike(current.id, today)
-      if (wasThirdStrike) {
+      const downgraded = await doSkip(current.id, reason, today)
+      if (downgraded) {
         // passive self-cleanup, coach tone — pause on the line before advancing
         downgradedNote = t('review.downgraded')
+        askReason = false
         busy = false
         return
       }
     } catch (e) {
-      console.error('[decision-log] skip/strike failed:', e)
+      console.error('[decision-log] skip failed:', e)
     }
     busy = false
     await advance()
@@ -90,9 +94,22 @@
         <div class="actions">
           <button type="button" class="primary" onclick={advance} aria-label={t('review.continue')}>→</button>
         </div>
-      {:else}
+      {:else if askReason}
+        <p class="skip-q">{t('skip.q')}</p>
+        <div class="reasons">
+          <button type="button" class="reason" disabled={busy} onclick={() => skipWith('not-yet')}>{t('skip.notYet')}</button>
+          <button type="button" class="reason" disabled={busy} onclick={() => skipWith('irrelevant')}>{t('skip.irrelevant')}</button>
+          <button type="button" class="reason" disabled={busy} onclick={() => skipWith('avoid')}>{t('skip.avoid')}</button>
+        </div>
         <div class="actions">
-          <button type="button" class="ghost" disabled={busy} onclick={skip}>{t('review.skip')}</button>
+          <button type="button" class="ghost" disabled={busy} onclick={() => (askReason = false)}>{t('common.cancel')}</button>
+        </div>
+      {:else}
+        {#if index + 1 >= queue.length && sunkCount > 0}
+          <p class="sunk">⬇ {sunkCount} {t('review.sunk')}</p>
+        {/if}
+        <div class="actions">
+          <button type="button" class="ghost" disabled={busy} onclick={() => (askReason = true)}>{t('review.skip')}</button>
           <button type="button" class="primary" disabled={busy} onclick={() => (showVerdict = true)}>{t('review.decide')}</button>
         </div>
       {/if}
@@ -125,6 +142,16 @@
     margin: 0; padding: 0.7rem 0.85rem; border-radius: 8px; font-size: 0.9rem; line-height: 1.5;
     background: color-mix(in srgb, currentColor 6%, transparent);
   }
+  .skip-q { margin: 0; font-size: 0.9rem; opacity: 0.8; }
+  .reasons { display: flex; flex-direction: column; gap: 0.4rem; }
+  .reason {
+    padding: 0.55rem 0.8rem; border: 1px solid var(--line, #d1d5db); border-radius: 8px;
+    background: transparent; color: inherit; font: inherit; font-size: 0.9rem; cursor: pointer;
+    text-align: left;
+  }
+  .reason:hover:not(:disabled) { border-color: var(--accent, #2563eb); }
+  .reason:disabled { opacity: 0.5; cursor: default; }
+  .sunk { margin: 0; font-size: 0.82rem; opacity: 0.6; }
   .actions { display: flex; justify-content: flex-end; gap: 0.5rem; }
   button.primary { padding: 0.5rem 1rem; border: 0; border-radius: 6px; background: var(--accent, #2563eb); color: #fff; cursor: pointer; }
   button.primary:disabled { opacity: 0.5; cursor: not-allowed; }

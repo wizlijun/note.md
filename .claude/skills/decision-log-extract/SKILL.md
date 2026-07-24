@@ -56,7 +56,7 @@ You are given:
 ### Shared value types
 
 - **Evidence**: `{ "conv_id"?: string, "quote": string, "time"?: string }` — `quote` is verbatim source text.
-- **Confidence**: `"low" | "medium" | "high" | null` — three buckets, never a percentage. Map the user's wording: e.g. "有点/大概" → low, "挺有把握" → medium, "非常确定/一定" → high. No wording of certainty → `null`.
+- **Confidence**: a probability number `0-1` or `null` — five anchors 0.55/0.65/0.75/0.85/0.95 (legacy `"low"|"medium"|"high"` still accepted, mapped to 0.6/0.75/0.9). Map the user's wording to the nearest anchor: e.g. "大概/勉强" → 0.55, "六成" → 0.65, "挺有把握" → 0.75, "很有把握" → 0.85, "几乎确定/一定" → 0.95. No wording of certainty → `null`.
 - **Trigger**: `{ "if": string, "source"?: string }` — a natural-language re-open condition ("if X happens, reconsider"). `source` is the signal channel (e.g. `"openclaw"`).
 - **State**: `{ "time"?: "HH:MM", "speech_rate"?: "slow"|"normal"|"fast", "calendar_density"?: "low"|"medium"|"high" }` — a passive snapshot of the user's state when deciding. Omit the whole object if not revealed.
 
@@ -71,8 +71,10 @@ Each item:
 | `prediction_source` | required. `"quoted"` or `"nominated"`. |
 | `quote` | **required iff `quoted`.** The user's exact words that voiced the expectation. Never rewritten. Omit for `nominated`. |
 | `prediction` | `quoted`: the expectation structured into one falsifiable statement (what + expected evidence). `nominated`: a **question** (e.g. "你是预期 X 吗?") or `null`. **Never** an invented assertion for `nominated`. |
-| `confidence` | `low`/`medium`/`high`/`null`. Only non-null when the user's own words reveal how sure they are. This is a suggestion the user overwrites when signing. |
+| `confidence` | a probability number `0-1` (five-star anchors: 0.55/0.65/0.75/0.85/0.95; legacy `low`/`medium`/`high` still accepted, mapped to 0.6/0.75/0.9) or `null`. Only non-null when the user's own words reveal how sure they are. This is a suggestion the user overwrites when signing. |
 | `check_date` | `YYYY-MM-DD` or `null`. Fill only if the user mentioned a timeframe (compute the date from it); else `null`. |
+| `premortem_hint` | optional string. Only when the user themselves voiced a failure risk for this decision; phrase it as the likely reason it failed. Never invent one. |
+| `alternatives` | optional string array. Only options the user actually mentioned weighing and not choosing. Never invent. |
 | `triggers` | optional array of Trigger. Add only if the user mentioned a re-open condition. Omit if none. |
 | `state` | optional State snapshot. Omit entirely if the content doesn't reveal it. |
 | `source` | optional Evidence pointing back to the origin (with `conv_id` if present) so the user can verify. |

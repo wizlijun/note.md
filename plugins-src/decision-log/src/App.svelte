@@ -24,6 +24,7 @@
 <main class="app">
   <header class="topbar">
     <h1>{t('panel.title')}</h1>
+    <p class="value-line">{t('value.line')}</p>
   </header>
 
   {#if store.loading}
@@ -54,10 +55,18 @@
   }
   .topbar {
     flex: 0 0 auto;
+    display: flex;
+    align-items: baseline;
+    gap: 0.9rem;
     padding: 0.75rem 1rem;
     border-bottom: 1px solid var(--line, #e5e7eb);
   }
-  .topbar h1 { margin: 0; font-size: 1.05rem; }
+  .topbar h1 { margin: 0; font-size: 1.05rem; flex: 0 0 auto; }
+  /* R1: one-line value proposition — always visible, quiet styling. */
+  .value-line {
+    margin: 0; font-size: 0.82rem; opacity: 0.6; line-height: 1.4;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
+  }
   .content {
     flex: 1;
     display: flex;

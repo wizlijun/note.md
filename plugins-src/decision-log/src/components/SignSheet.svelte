@@ -1,13 +1,14 @@
 <!-- SignSheet.svelte — one-screen "sign the bet" modal (candidate → open).
      quoted: shows the quote, one tap to sign. nominated / manual: prediction
-     input REQUIRED. Confidence = three buttons low/medium/high, NEVER a
-     percentage (spec §7.4). check-date picker + optional triggers.
+     input REQUIRED. Confidence = five stars, each anchored to a probability
+     (v1.1 R2). Optional premortem (certainty wording, Klein) + alternatives.
      On submit calls doSign (agent origin, from a candidate) or doManualCreate
-     (manual origin). created = today ISO. prediction/confidence have NO edit
-     entry after signing — this is the only place they are set. -->
+     (manual origin). created = today ISO. prediction/confidence/premortem/
+     alternatives have NO edit entry after signing — set only here. -->
 <script lang="ts">
   import type { NewCandidate } from '../lib/candidate'
-  import { CONFIDENCE_BUCKETS, type Confidence, type Trigger } from '../lib/model'
+  import type { Confidence, Trigger } from '../lib/model'
+  import ConfidenceBar from './ConfidenceBar.svelte'
   import { doSign, doManualCreate } from '../lib/store.svelte'
   import { t } from '../lib/strings'
 
@@ -39,6 +40,8 @@
   let prediction = $state(seed?.prediction ?? (seed?.prediction_source === 'quoted' ? (seed?.quote ?? '') : ''))
   let confidence = $state<Confidence | null>(seed?.confidence ?? null)
   let checkDate = $state(seed?.check_date ?? plusDays(today, 14))
+  let premortem = $state(seed?.premortem_hint ?? '')
+  let alternativesText = $state(seed?.alternatives?.join('\n') ?? '')
   let triggerText = $state(seed?.triggers?.map((tr) => tr.if).join('\n') ?? '')
   let submitting = $state(false)
   let error = $state('')
@@ -51,6 +54,10 @@
     const lines = triggerText.split('\n').map((l) => l.trim()).filter(Boolean)
     return lines.length ? lines.map((l) => ({ if: l })) : undefined
   }
+  function parseAlternatives(): string[] | undefined {
+    const lines = alternativesText.split('\n').map((l) => l.trim()).filter(Boolean)
+    return lines.length ? lines : undefined
+  }
 
   async function submit() {
     if (!canSubmit || !confidence) {
@@ -60,6 +67,8 @@
     submitting = true
     error = ''
     const triggers = parseTriggers()
+    const alternatives = parseAlternatives()
+    const pm = premortem.trim()
     try {
       if (candidate) {
         await doSign(
@@ -72,6 +81,8 @@
             created: today,
             ...(candidate.source?.conv_id ? { source_conv: candidate.source.conv_id } : {}),
             ...(isQuoted && candidate.quote ? { quote: candidate.quote } : {}),
+            ...(pm ? { premortem: pm } : {}),
+            ...(alternatives ? { alternatives } : {}),
             ...(triggers ? { triggers } : {}),
             ...(candidate.state ? { state: candidate.state } : {}),
           },
@@ -84,6 +95,8 @@
           confidence,
           checkDate,
           created: today,
+          ...(pm ? { premortem: pm } : {}),
+          ...(alternatives ? { alternatives } : {}),
           ...(triggers ? { triggers } : {}),
         })
       }
@@ -122,24 +135,27 @@
     </label>
 
     <div class="field">
-      <span class="lbl">{t('sign.confidenceLabel')}</span>
-      <div class="conf-buttons">
-        {#each CONFIDENCE_BUCKETS as c (c)}
-          <button
-            type="button"
-            class="conf-btn"
-            class:active={confidence === c}
-            onclick={() => (confidence = c)}
-          >
-            {t(`sign.confidence.${c}` as 'sign.confidence.low')}
-          </button>
-        {/each}
-      </div>
+      <ConfidenceBar
+        label={t('sign.confidenceLabel')}
+        required
+        value={confidence}
+        onChange={(c) => (confidence = c)}
+      />
     </div>
 
     <label class="field">
       <span class="lbl">{t('sign.checkDate')}</span>
       <input type="date" bind:value={checkDate} min={today} />
+    </label>
+
+    <label class="field">
+      <span class="lbl">{t('sign.premortem')}</span>
+      <textarea bind:value={premortem} rows="2" placeholder={t('sign.premortemHint')}></textarea>
+    </label>
+
+    <label class="field">
+      <span class="lbl">{t('sign.alternatives')}</span>
+      <textarea bind:value={alternativesText} rows="2" placeholder={t('sign.alternativesHint')}></textarea>
     </label>
 
     <label class="field">
@@ -180,12 +196,6 @@
   .quoted-lead { margin: 0 0 0.25rem; font-size: 0.8rem; opacity: 0.7; }
   .quote { margin: 0 0 0.9rem; padding: 0.5rem 0.75rem; border-left: 3px solid var(--accent, #2563eb);
     background: color-mix(in srgb, currentColor 5%, transparent); border-radius: 0 6px 6px 0; }
-  .conf-buttons { display: flex; gap: 0.5rem; }
-  .conf-btn {
-    flex: 1; padding: 0.5rem; border: 1px solid var(--line, #d1d5db); border-radius: 6px;
-    background: transparent; color: inherit; font: inherit; cursor: pointer;
-  }
-  .conf-btn.active { background: var(--accent, #2563eb); color: #fff; border-color: var(--accent, #2563eb); }
   .err { color: #dc2626; font-size: 0.85rem; margin: 0 0 0.5rem; }
   .actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem; }
   button.primary { padding: 0.5rem 1rem; border: 0; border-radius: 6px; background: var(--accent, #2563eb); color: #fff; cursor: pointer; }

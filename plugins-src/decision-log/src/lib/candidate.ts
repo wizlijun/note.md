@@ -1,12 +1,14 @@
-import { isConfidence, type Confidence, type Trigger, type Evidence, type StateSnapshot } from './model'
+import { normalizeConfidence, type Confidence, type Trigger, type Evidence, type StateSnapshot } from './model'
 
 export interface NewCandidate {
   id: string; title: string
   prediction_source: 'quoted' | 'nominated'
   quote?: string
   prediction: string | null
-  confidence: Confidence | null
+  confidence: Confidence | null   // normalized numeric (accepts number or legacy enum in JSON)
   check_date?: string | null
+  premortem_hint?: string         // agent-nominated premortem draft(可选)
+  alternatives?: string[]         // agent-nominated落选备选项(可选)
   triggers?: Trigger[]
   state?: StateSnapshot
   source?: Evidence
@@ -38,8 +40,25 @@ function validCandidate(c: any): c is NewCandidate {
   if (!c || typeof c.id !== 'string' || typeof c.title !== 'string') return false
   if (c.prediction_source !== 'quoted' && c.prediction_source !== 'nominated') return false
   if (c.prediction_source === 'quoted' && typeof c.quote !== 'string') return false // quoted 必带原话
-  if (c.confidence != null && !isConfidence(c.confidence)) return false
+  if (c.confidence != null && normalizeConfidence(c.confidence) === null) return false
   return true
+}
+
+/** Coerce lenient candidate fields to canonical form (numeric confidence,
+ *  string[] alternatives, string premortem_hint) — drops malformed extras. */
+function canonCandidate(c: NewCandidate & { confidence: unknown }): NewCandidate {
+  const conf = normalizeConfidence(c.confidence)
+  const alts = Array.isArray((c as any).alternatives)
+    ? (c as any).alternatives.filter((a: unknown) => typeof a === 'string' && a.trim()).map((a: string) => a.trim())
+    : undefined
+  const pm = typeof (c as any).premortem_hint === 'string' && (c as any).premortem_hint.trim()
+    ? (c as any).premortem_hint.trim() : undefined
+  return {
+    ...c,
+    confidence: conf,
+    ...(alts?.length ? { alternatives: alts } : { alternatives: undefined }),
+    ...(pm ? { premortem_hint: pm } : { premortem_hint: undefined }),
+  }
 }
 function validClosure(c: any): c is Closure {
   return c && typeof c.decision_id === 'string' && (c.reason === 'due' || c.reason === 'trigger')
@@ -56,7 +75,9 @@ function validEdit(c: any): c is EditDecision {
 export function parseCandidateFile(raw: string): CandidateFile {
   const obj = JSON.parse(raw)
   const date = typeof obj?.date === 'string' ? obj.date : ''
-  const new_candidates = Array.isArray(obj?.new_candidates) ? obj.new_candidates.filter(isPending).filter(validCandidate) : []
+  const new_candidates = Array.isArray(obj?.new_candidates)
+    ? obj.new_candidates.filter(isPending).filter(validCandidate).map(canonCandidate)
+    : []
   const closures = Array.isArray(obj?.closures) ? obj.closures.filter(isPending).filter(validClosure) : []
   const edit_decisions = Array.isArray(obj?.edit_decisions) ? obj.edit_decisions.filter(isPending).filter(validEdit) : []
   return { date, fileDate: '', new_candidates, closures, edit_decisions }

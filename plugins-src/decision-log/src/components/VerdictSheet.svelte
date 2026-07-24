@@ -1,12 +1,16 @@
-<!-- VerdictSheet.svelte — one-screen, two-question verdict modal (open → archive).
+<!-- VerdictSheet.svelte — one-screen verdict modal (open → archive).
      Q1 t('verdict.q1') → hit/partial/miss; Q2 t('verdict.q2') → yes/no
-     (stillEndorse). Top shows read-only prediction (🔒) + any attached evidence.
+     (stillEndorse); Q3 (optional, only when Q2=No): weakest of the SDG six
+     elements (v1.1 R5). Top shows read-only prediction (🔒) + evidence.
+     Anti-anchoring (v1.1 R7): the AI's suggested_outcome NEVER pre-selects a
+     button — only an explicit user click on a suggestion strip passes a preset.
      On submit calls doVerdict, resolved = today. Coach tone: a miss is NOT
      rendered as failure (spec §3 S5 / §7.4). -->
 <script lang="ts">
-  import type { OpenDecision, Outcome } from '../lib/model'
+  import type { OpenDecision, Outcome, WeakestElement } from '../lib/model'
   import type { Closure } from '../lib/candidate'
-  import { OUTCOMES } from '../lib/model'
+  import { OUTCOMES, WEAKEST_ELEMENTS } from '../lib/model'
+  import ConfidenceBar from './ConfidenceBar.svelte'
   import { doVerdict } from '../lib/store.svelte'
   import { t } from '../lib/strings'
 
@@ -28,9 +32,12 @@
 
   const today = new Date().toISOString().slice(0, 10)
 
+  // Anti-anchoring: only an explicit user action (suggestion-strip click) may
+  // preset Q1; the closure's suggested_outcome is deliberately NOT used here.
   // svelte-ignore state_referenced_locally
-  let outcome = $state<Outcome | null>(closure?.suggested_outcome ?? presetOutcome ?? null)
+  let outcome = $state<Outcome | null>(presetOutcome ?? null)
   let stillEndorse = $state<boolean | null>(null)
+  let weakest = $state<WeakestElement | null>(null)
   let submitting = $state(false)
   let error = $state('')
 
@@ -51,6 +58,7 @@
           outcome,
           stillEndorse,
           resolved: today,
+          ...(stillEndorse === false && weakest ? { weakestElement: weakest } : {}),
           ...(evidence.length ? { evidence } : {}),
         },
         consumeDate ? { date: consumeDate } : undefined,
@@ -73,7 +81,7 @@
       <span class="lock" title={t('verdict.locked')}>🔒</span>
       <div>
         <div class="pred">{decision.prediction}</div>
-        <div class="conf">{t(`sign.confidence.${decision.confidence}` as 'sign.confidence.low')}</div>
+        <div class="conf"><ConfidenceBar value={decision.confidence} readonly /></div>
       </div>
     </div>
 
@@ -132,6 +140,25 @@
       </div>
     </div>
 
+    <!-- Q3 (optional, only when Q2 = No): weakest link, SDG six elements -->
+    {#if stillEndorse === false}
+      <div class="question">
+        <p class="q">{t('verdict.q3')} <span class="q3-hint">{t('verdict.q3Hint')}</span></p>
+        <div class="elements">
+          {#each WEAKEST_ELEMENTS as el (el)}
+            <button
+              type="button"
+              class="el-chip"
+              class:active={weakest === el}
+              onclick={() => (weakest = weakest === el ? null : el)}
+            >
+              {t(`el.${el}` as 'el.frame')}
+            </button>
+          {/each}
+        </div>
+      </div>
+    {/if}
+
     {#if error}<p class="err">{error}</p>{/if}
 
     <div class="actions">
@@ -178,6 +205,13 @@
     background: transparent; color: inherit; font: inherit; cursor: pointer;
   }
   .choice.active { background: var(--accent, #2563eb); color: #fff; border-color: var(--accent, #2563eb); }
+  .q3-hint { font-size: 0.78rem; opacity: 0.55; font-weight: 400; margin-left: 0.35rem; }
+  .elements { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+  .el-chip {
+    padding: 0.35rem 0.6rem; border: 1px solid var(--line, #d1d5db); border-radius: 999px;
+    background: transparent; color: inherit; font: inherit; font-size: 0.82rem; cursor: pointer;
+  }
+  .el-chip.active { background: var(--accent, #2563eb); color: #fff; border-color: var(--accent, #2563eb); }
   .err { color: #dc2626; font-size: 0.85rem; margin: 0 0 0.5rem; }
   .actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem; }
   button.primary { padding: 0.5rem 1rem; border: 0; border-radius: 6px; background: var(--accent, #2563eb); color: #fff; cursor: pointer; }

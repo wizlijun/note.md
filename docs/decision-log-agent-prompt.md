@@ -52,8 +52,10 @@
   "prediction_source": "quoted",        // quoted | nominated
   "quote": "…",                         // quoted 必填,原样引用不改写
   "prediction": "…",                    // quoted:可证伪的预期。nominated:写成问句或 null,严禁替用户下断言
-  "confidence": null,                   // low|medium|high|null,仅当用户原话透露把握才非 null
+  "confidence": null,                   // 0-1 概率数值(五星锚点 0.55/0.65/0.75/0.85/0.95;旧 low|medium|high 仍接受,映射 0.6/0.75/0.9)或 null;仅当用户原话透露把握才非 null
   "check_date": "2026-08-05",           // 或 null
+  "premortem_hint": "…",                // 可选,仅当用户自己说出失败风险时填(写成"失败的最可能原因"),严禁编造
+  "alternatives": ["…"],                // 可选,仅当用户提到权衡过但落选的选项,严禁编造
   "triggers": [{ "if": "…", "source": "openclaw" }],   // 可选,"若 X 则重新考虑"
   "state": { "time": "08:12", "speech_rate": "normal", "calendar_density": "low" }, // 挖不到整个省略
   "source": { "conv_id": "…", "quote": "…", "time": "…" },
@@ -106,7 +108,7 @@
 ### 硬规则清单(自检)
 
 - [ ] 每个 `quoted` 都带未改写的 `quote`;每个 `nominated` 的 prediction 是问句或 null。
-- [ ] `confidence` 只在用户原话有据时非 null;`state` 挖不到就省略。
+- [ ] `confidence` 只在用户原话有据时非 null;`premortem_hint`/`alternatives` 只在用户自己说过时填;`state` 挖不到就省略。
 - [ ] `closures` 只含到期/触发的;`edit_decisions` 只含未到期但有真实进展的。
 - [ ] **同一 `decision_id` 不同时出现在 closures 和 edit_decisions。**
 - [ ] `resolved`/`abandoned` 才用终止动作(close-*/drop);仅有进展一律 `note`,保持开放。

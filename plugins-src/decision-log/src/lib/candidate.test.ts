@@ -17,10 +17,22 @@ const good = JSON.stringify({
 })
 
 describe('parseCandidateFile', () => {
-  it('parses valid file', () => {
+  it('parses valid file, normalizing legacy enum confidence to numeric', () => {
     const r = parseCandidateFile(good)
     expect(r.new_candidates).toHaveLength(2)
     expect(r.closures).toHaveLength(1)
+    expect(r.new_candidates[0].confidence).toBe(0.75) // 'medium' → numeric
+    expect(r.new_candidates[1].confidence).toBeNull()
+  })
+  it('accepts numeric confidence and optional premortem_hint/alternatives', () => {
+    const raw = JSON.stringify({ date: '2026-07-21',
+      new_candidates: [{ id: 'a', title: 'A', prediction_source: 'nominated', prediction: null,
+        confidence: 0.85, premortem_hint: '范围太大', alternatives: ['先做插件', '  ', 42], status: 'pending' }],
+      closures: [] })
+    const c = parseCandidateFile(raw).new_candidates[0]
+    expect(c.confidence).toBe(0.85)
+    expect(c.premortem_hint).toBe('范围太大')
+    expect(c.alternatives).toEqual(['先做插件']) // blanks/non-strings dropped
   })
   it('drops quoted candidate missing quote (invalid), keeps rest', () => {
     const bad = JSON.stringify({ date: '2026-07-21', generated_by: 'x',

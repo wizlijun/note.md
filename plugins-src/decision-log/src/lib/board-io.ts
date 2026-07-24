@@ -1,5 +1,10 @@
 import YAML from 'yaml'
-import type { OpenDecision, ArchivedDecision } from './model'
+import { normalizeRecordConfidence, starOf, type OpenDecision, type ArchivedDecision } from './model'
+
+/** Human-readable confidence for note bodies: stars + anchor percent. */
+function confLabel(c: number): string {
+  return `${'★'.repeat(starOf(c))} ≈${Math.round(c * 100)}%`
+}
 
 const FM = /^---\n([\s\S]*?)\n---\n?/
 
@@ -17,26 +22,28 @@ export function serializeBoard(decisions: OpenDecision[]): string {
   const body = ['# 未决决策', '']
   for (const d of decisions) {
     body.push(`## ${d.title}`)
-    body.push(`- 预测:${d.prediction}(信心 ${d.confidence})· 检查 ${d['check-date']}`)
+    body.push(`- 预测:${d.prediction}(信心 ${confLabel(d.confidence)})· 检查 ${d['check-date']}`)
     body.push('')
   }
   return buildNote({ type: 'decision-board', decisions }, body)
 }
 export function parseBoard(md: string): OpenDecision[] {
   const fm = readFrontmatter(md)
-  return Array.isArray(fm?.decisions) ? (fm.decisions as OpenDecision[]) : []
+  const arr = Array.isArray(fm?.decisions) ? (fm.decisions as OpenDecision[]) : []
+  return arr.map((d) => normalizeRecordConfidence(d))
 }
 export function serializeArchive(resolved: string, decisions: ArchivedDecision[]): string {
   const lines = [`# ${resolved} 裁决`, '']
   for (const d of decisions) {
     const mark = d.status === 'closed' ? (d.outcome === 'hit' ? '✅' : d.outcome === 'miss' ? '❌' : '◐') : d.status === 'dropped' ? '⊘' : '⬇'
     lines.push(`## ${d.id} — ${d.status} ${mark}`)
-    lines.push(`- 预测:${d.prediction}(信心 ${d.confidence})`)
+    lines.push(`- 预测:${d.prediction}(信心 ${confLabel(d.confidence)})`)
     lines.push('')
   }
   return buildNote({ type: 'decision-archive', resolved, decisions }, lines)
 }
 export function parseArchive(md: string): ArchivedDecision[] {
   const fm = readFrontmatter(md)
-  return Array.isArray(fm?.decisions) ? (fm.decisions as ArchivedDecision[]) : []
+  const arr = Array.isArray(fm?.decisions) ? (fm.decisions as ArchivedDecision[]) : []
+  return arr.map((d) => normalizeRecordConfidence(d))
 }

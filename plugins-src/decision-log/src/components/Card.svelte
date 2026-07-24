@@ -9,6 +9,7 @@
 <script lang="ts">
   import type { OpenDecision, ArchivedDecision } from '../lib/model'
   import type { NewCandidate } from '../lib/candidate'
+  import ConfidenceBar from './ConfidenceBar.svelte'
   import { t } from '../lib/strings'
 
   type Column = 'candidates' | 'open' | 'archive'
@@ -98,7 +99,9 @@
   {:else if column === 'open' && openDec}
     <div class="title">{title}</div>
     <div class="meta">
-      <span class="conf">{t(`sign.confidence.${openDec.confidence}` as 'sign.confidence.low')}</span>
+      {#if typeof openDec.confidence === 'number'}
+        <ConfidenceBar value={openDec.confidence} readonly compact />
+      {/if}
       <span class="due" class:overdue={days < 0}>{dueLabel}</span>
       {#if hasTriggers}<span class="trig" title={t('sign.triggers')}>⚡</span>{/if}
     </div>

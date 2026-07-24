@@ -1,11 +1,14 @@
-<!-- Scoreboard.svelte — always-on calibration rail.
-     Shows calibration buckets (hits/total per confidence), sample count, and
-     avoidance categories. Records CALIBRATION, never accuracy rate (spec §3 S3 /
-     §7.6). Empty state shows "0 samples collected so far". -->
+<!-- Scoreboard.svelte — always-on rail (v1.1 R3): decision points (net-positive
+     proper score — participation is rewarded, never negative), calibration
+     buckets per star level, sample count, avoidance categories. Records
+     CALIBRATION, never accuracy rate (spec §3 S3). Learning frame only: no
+     red warnings, no "error rate" wording (design review §1.3). -->
 <script lang="ts">
   import { state as store } from '../lib/store.svelte'
-  import { CONFIDENCE_BUCKETS, type Confidence } from '../lib/model'
-  import { t } from '../lib/strings'
+  import { STAR_ANCHORS } from '../lib/model'
+  import { t, starLabel } from '../lib/strings'
+  // Buckets are keyed by the same 1..5 confidence level as the sign-sheet bar
+  // (renders as "≈NN% label" here, high → low top-to-bottom).
 
   const score = $derived(store.score)
   const hasSamples = $derived((score?.sampleCount ?? 0) > 0)
@@ -17,14 +20,21 @@
 </script>
 
 <aside class="rail">
-  <h2 class="rail-title">{t('score.calibration')}</h2>
-
   {#if score}
+    <div class="points">
+      <span class="points-num">{score.totalScore}</span>
+      <span class="points-lbl">{t('score.points')}</span>
+    </div>
+
+    <h2 class="rail-title">{t('score.calibration')}</h2>
     <div class="buckets">
-      {#each CONFIDENCE_BUCKETS as c (c)}
-        {@const b = score.buckets[c as Confidence]}
+      {#each [5, 4, 3, 2, 1] as s (s)}
+        {@const b = score.buckets[s]}
         <div class="bucket">
-          <span class="bucket-label">{t(`sign.confidence.${c}` as 'sign.confidence.low')}</span>
+          <span class="bucket-label">
+            <span class="bucket-anchor">≈{Math.round(STAR_ANCHORS[s - 1] * 100)}%</span>
+            <span class="bucket-verbal">{starLabel(s)}</span>
+          </span>
           <div class="bar" aria-hidden="true">
             <div class="bar-fill" style="width:{pct(b)}%"></div>
           </div>
@@ -66,10 +76,15 @@
     box-sizing: border-box;
     overflow-y: auto;
   }
+  .points { display: flex; align-items: baseline; gap: 0.4rem; margin-bottom: 1rem; }
+  .points-num { font-size: 1.8rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .points-lbl { font-size: 0.8rem; opacity: 0.6; }
   .rail-title { margin: 0 0 0.75rem; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; opacity: 0.6; }
   .buckets { display: flex; flex-direction: column; gap: 0.5rem; }
   .bucket { display: grid; grid-template-columns: 1fr auto; grid-template-rows: auto auto; gap: 2px 6px; align-items: center; }
-  .bucket-label { font-size: 0.8rem; }
+  .bucket-label { font-size: 0.78rem; display: flex; align-items: baseline; gap: 0.35rem; }
+  .bucket-anchor { font-weight: 600; font-variant-numeric: tabular-nums; }
+  .bucket-verbal { opacity: 0.6; }
   .bucket-count { font-size: 0.75rem; opacity: 0.7; font-variant-numeric: tabular-nums; }
   .bar { grid-column: 1 / -1; height: 6px; border-radius: 3px; background: color-mix(in srgb, currentColor 12%, transparent); overflow: hidden; }
   .bar-fill { height: 100%; background: var(--accent, #2563eb); border-radius: 3px; transition: width 0.2s; }
