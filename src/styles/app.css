@@ -2,6 +2,14 @@
   font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
   font-size: 14px;
   color-scheme: light dark;
+  /* Outline left gutter, as a UNITLESS multiplier of the outline body font-size.
+     Single source of truth for how far every outline row (and the daily-notes
+     date header / separator that align to it) is inset. It equals the depth-0
+     row's left padding in em; the hovering tri sits 0.95 to its left, so at this
+     value the ROOT node's tri lands flush at the outline's left edge — no dead
+     whitespace before the top-level items. Consumed by OutlineNode.svelte and
+     DailyDay.svelte; adjust here to reflow ALL outline surfaces at once. */
+  --outline-indent: 0.95;
 }
 
 html, body, #app {

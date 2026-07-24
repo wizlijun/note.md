@@ -111,9 +111,10 @@
     // 行内刚拖选了一段文字：保留文字选区（供复制），不进入编辑
     const sel = window.getSelection()
     if (sel && !sel.isCollapsed) return
-    // 只读(auto)节点：内容不可编辑,点击文字 = 跳转到源 md 对应位置
-    // (伴生笔记阅读态:点 TOC/高亮/wikilink/批注节点的文字即定位主文档)。
-    if (!editable && node.anchorLine != null) { onJump(node); return }
+    // 只读(auto)节点:内容不可编辑。绝不进入编辑态(否则只读节点会退化成手写节点)。
+    // 有源位置 → 跳转定位(rich 按锚文本、source 按行号,见 onJump);
+    // 无源位置(如从 .note.md 重载丢了 anchorLine)→ 不做特别处理。
+    if (!editable) { if (node.anchorLine != null) onJump(node); return }
     clearSelection()
     startEdit()
   }
@@ -318,7 +319,7 @@
       <span class="content" class:hl={node.source === 'highlight' || markLike} class:src-toc={node.source === 'toc'}
         class:jump-src={!readonly && !editable && node.anchorLine != null}
         onclick={readonly ? () => onActivate?.(node) : onContentClick} role="button" tabindex="0"
-        onkeydown={(e) => { if (e.key === 'Enter') { if (readonly) onActivate?.(node); else if (!editable && node.anchorLine != null) onJump(node); else startEdit() } }}>
+        onkeydown={(e) => { if (e.key === 'Enter') { if (readonly) onActivate?.(node); else if (!editable) { if (node.anchorLine != null) onJump(node) } else startEdit() } }}>
         <!-- 空内容：塞零宽空格保证有行盒，鼠标可命中进入编辑 -->
         {#if content === ''}{'​'}{:else}<InlineRender {content} onPageClick={onPageClick} />{/if}
       </span>
@@ -335,14 +336,14 @@
   /* font-size 挂到主题字号,使 .node 内的 em(缩进/沟槽/引导线)都随 theme 缩放 */
   .node { position: relative; font-size: var(--outline-font-size, 13px); }
   /* Roam 风格:展开且有子节点时,自 bullet 下方引一根竖直缩进导引线贯穿子节点。
-     left = 该节点 bullet 中心 = 行左内边距(depth*1.5em+1.7em) + 半个 bullet(0.5em);
+     left = 该节点 bullet 中心 = 行左内边距(depth*1.5em+--outline-indent) + 半个 bullet(0.5em);
      子节点 bullet 中心在其右一级(+1.5em),故引导线恰在子节点左侧沟槽。 */
   .node.has-guide::before {
     content: '';
     position: absolute;
     top: var(--outline-line-height, 1.5em);
     bottom: 0.15em;
-    left: calc(var(--depth) * 1.5em + 2.2em);
+    left: calc(var(--depth) * 1.5em + (var(--outline-indent, 0.95) + 0.5) * 1em);
     width: 1px;
     background: color-mix(in srgb, currentColor 18%, transparent);
     pointer-events: none;
@@ -350,8 +351,8 @@
   .row {
     display: flex; align-items: flex-start; gap: 4px;
     position: relative;
-    /* bullet 是行首元素;每级固定缩进 1.5em;左侧留 1.7em 沟槽给悬浮的 tri 与引导线 */
-    padding: 1px 4px 1px calc(var(--depth) * 1.5em + 1.7em);
+    /* bullet 是行首元素;每级固定缩进 1.5em;左侧留 --outline-indent 沟槽给悬浮的 tri 与引导线 */
+    padding: 1px 4px 1px calc(var(--depth) * 1.5em + var(--outline-indent, 0.95) * 1em);
     border-radius: 4px;
     font-family: var(--outline-font-family);
     font-size: var(--outline-font-size, 13px);
@@ -373,9 +374,11 @@
        e.g. in Daily Notes). ▾ visual size is then reined in via scale(). */
     font-family: inherit;
     font-size: var(--outline-font-size, 13px);
-    /* 绝对悬浮在 bullet 左侧沟槽,不占行宽 → 不挤压 bullet、不破坏逐级缩进。 */
+    /* 绝对悬浮在 bullet 左侧沟槽,不占行宽 → 不挤压 bullet、不破坏逐级缩进。
+       tri 恒在 bullet 左侧 0.95em(= --outline-indent 沟槽内);根节点(depth 0)
+       此时 left=0,tri 正好贴齐大纲左缘,消除顶层项前的多余留白。 */
     position: absolute;
-    left: calc(var(--depth) * 1.5em + 0.75em);
+    left: calc(var(--depth) * 1.5em + (var(--outline-indent, 0.95) - 0.95) * 1em);
     top: 1px; /* = 行 padding-top,使盒顶与首行行盒顶对齐 */
     display: inline-flex; align-items: center; justify-content: center;
     width: 1em;

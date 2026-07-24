@@ -332,9 +332,9 @@
     font-weight: var(--outline-h1-font-weight, 700);
     line-height: 3;
     /* Indent the date so its left edge lines up with a node's bullet: the outline
-       row's left padding is 1.7em (of the OUTLINE body font). Express it in the
-       row's font (--outline-font-size), NOT the larger H1 size, so it matches. */
-    padding-left: calc(1.7 * var(--outline-font-size, 13px));
+       row's left padding is --outline-indent (of the OUTLINE body font). Express it
+       in the row's font (--outline-font-size), NOT the larger H1 size, so it matches. */
+    padding-left: calc(var(--outline-indent, 0.95) * var(--outline-font-size, 13px));
     margin: 8px 0 0.1em;
   }
   .ro-body { padding: 0; max-width: 860px; width: 100%; margin: 0 auto; box-sizing: border-box; }
@@ -344,7 +344,7 @@
      calc as .date) so the rule starts under the date, not the column edge. */
   .sep-wrap {
     max-width: 860px; width: 100%; margin: 3em auto 0; box-sizing: border-box;
-    padding-left: calc(1.7 * var(--outline-font-size, 13px));
+    padding-left: calc(var(--outline-indent, 0.95) * var(--outline-font-size, 13px));
   }
   .day-sep {
     border: 0;
