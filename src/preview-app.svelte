@@ -2,7 +2,7 @@
   import { invoke } from '@tauri-apps/api/core'
   import { getCurrentWindow } from '@tauri-apps/api/window'
   import DiffView from './components/history/DiffView.svelte'
-  import { loadLocale, t } from './lib/i18n/store.svelte'
+  import { loadLocale, watchLocaleChanges, t } from './lib/i18n/store.svelte'
   import { upsertTab, type PreviewTab } from './lib/git-history/preview-tabs'
 
   let tabs = $state<PreviewTab[]>([])
@@ -49,7 +49,9 @@
     // Re-drain once the listener is ready: the backend may emit before it
     // resolves. drain is idempotent (payloads cleared on take; upsert dedupes).
     void un.then(() => drainTabs())
-    return () => { void un.then((f) => f()) }
+    // Follow live language switches from the main window's Settings.
+    const unLocale = watchLocaleChanges()
+    return () => { void un.then((f) => f()); void unLocale.then((f) => f()) }
   })
 </script>
 

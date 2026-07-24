@@ -1,5 +1,6 @@
 <script lang="ts">
   import { buildMonthRows } from '../isoweek'
+  import { t } from '../strings'
   import WeekRow from './WeekRow.svelte'
 
   interface Props {
@@ -19,7 +20,7 @@
 
 <div class="month">
   <div class="wm">{month0 + 1}</div>
-  <div class="mtitle">{month0 + 1}月</div>
+  <div class="mtitle">{month0 + 1}{t('month.suffix')}</div>
   <div class="dow">
     {#each DOW as d, i}<span class:we={i >= 5}>{d}</span>{/each}
   </div>

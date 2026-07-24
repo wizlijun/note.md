@@ -1,6 +1,7 @@
 <script lang="ts">
   import { listSotvaultMeta, type SotvaultEntry } from "$lib/sotvault-fs";
   import MetaPreview from "./MetaPreview.svelte";
+  import { t } from "$lib/strings";
 
   let { sotvault }: { sotvault: string } = $props();
 
@@ -33,12 +34,12 @@
 
 <section class="browser">
   <nav>
-    <h4>Library</h4>
-    <button onclick={refresh}>↻</button>
-    <input bind:value={query} placeholder="Search…" />
+    <h4>{t("library.title")}</h4>
+    <button onclick={refresh} aria-label={t("library.refresh")}>↻</button>
+    <input bind:value={query} placeholder={t("library.searchPlaceholder")} />
     <ul>
       <li class:active={selectedRule === null}>
-        <button onclick={() => selectedRule = null}>All ({entries.length})</button>
+        <button onclick={() => selectedRule = null}>{t("library.all", { count: entries.length })}</button>
       </li>
       {#each ruleDirs as d}
         {@const count = entries.filter((e) => e.rule_dir === d).length}
@@ -50,7 +51,7 @@
   </nav>
   <main class="list">
     <table>
-      <thead><tr><th>Title</th><th>Authors</th><th>Rule</th></tr></thead>
+      <thead><tr><th>{t("library.col.title")}</th><th>{t("library.col.authors")}</th><th>{t("library.col.rule")}</th></tr></thead>
       <tbody>
         {#each filtered as e}
           <tr class:active={selected === e} onclick={() => selected = e}>

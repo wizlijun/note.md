@@ -5,11 +5,14 @@
   import SettingsDialog from "./components/SettingsDialog.svelte";
   import LibraryBrowser from "./components/LibraryBrowser.svelte";
   import { extractMeta } from "$lib/calibre";
-  import { request } from "$lib/bridge";
+  import { request, bridge } from "$lib/bridge";
+  import { setLocale, t } from "$lib/strings";
   import { buildPendingEntry, commitEntry, CancelledError } from "$lib/import-pipeline";
   import { loadLibrary } from "$lib/library";
   import { readRules } from "$lib/rules-io";
   import type { SharedConfig, PendingEntry, Rule } from "$lib/types";
+
+  try { setLocale(bridge().locale); } catch { /* not in a plugin window */ }
 
   let ready = $state(false);
   let config = $state<SharedConfig | null>(null);
@@ -102,13 +105,13 @@
 
 <main>
   <header class="top">
-    <h1>ExLibris</h1>
+    <h1>{t("app.title")}</h1>
     {#if ready}
       <nav class="tabs">
-        <button class:active={tab === "import"} onclick={() => tab = "import"}>Import</button>
-        <button class:active={tab === "library"} onclick={() => tab = "library"}>Library</button>
+        <button class:active={tab === "import"} onclick={() => tab = "import"}>{t("app.tab.import")}</button>
+        <button class:active={tab === "library"} onclick={() => tab = "library"}>{t("app.tab.library")}</button>
       </nav>
-      <button onclick={() => settingsOpen = true}>⚙ Settings</button>
+      <button onclick={() => settingsOpen = true}>{t("app.settings")}</button>
     {/if}
   </header>
   {#if !ready}
@@ -118,7 +121,7 @@
     {#if pending.length > 0}
       <PendingList bind:entries={pending} {onImport} {onRemove} />
       {#if importing}
-        <button onclick={onCancel}>Cancel All</button>
+        <button onclick={onCancel}>{t("app.cancelAll")}</button>
       {/if}
     {/if}
   {:else if tab === "library" && config?.sotvault}

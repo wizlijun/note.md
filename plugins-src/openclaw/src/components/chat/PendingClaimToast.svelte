@@ -1,6 +1,7 @@
 <!-- src/components/chat/PendingClaimToast.svelte -->
 <script lang="ts">
   import { onMount } from 'svelte'
+  import { t } from '../../lib/strings'
   import { onPendingClaim, approveClaim, rejectClaim, type PendingClaim } from '../../lib/openclaw/pair'
   import { refresh } from '../../lib/openclaw/devices.svelte'
 
@@ -27,10 +28,10 @@
 
 {#each pending as c (c.device_id)}
   <div class="toast">
-    <div>New device wants to connect: <b>{c.hostname}</b></div>
+    <div>{t('chat.newDeviceWantsToConnect')} <b>{c.hostname}</b></div>
     <div class="actions">
-      <button onclick={() => allow(c)}>Allow</button>
-      <button onclick={() => reject(c)}>Reject</button>
+      <button onclick={() => allow(c)}>{t('chat.allow')}</button>
+      <button onclick={() => reject(c)}>{t('chat.reject')}</button>
     </div>
   </div>
 {/each}

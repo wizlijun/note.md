@@ -128,6 +128,13 @@
     if (changed) markDirty()
   }
   function onBulletClick() {
+    // Roam 风格：bullet 点击切换 focus（折叠/展开该子树）；叶子节点保留跳转。
+    if (kids.length > 0) {
+      node.collapsed = !node.collapsed
+      if (onCollapse) { if (!readonly) bump(); onCollapse(node) }
+      else { bump(); markDirty() }
+      return
+    }
     if (node.anchorLine != null) onJump(node)
   }
 
@@ -244,7 +251,7 @@
   }
 </script>
 
-<div class="node" style="--depth: {depth}">
+<div class="node" class:has-guide={showChildren && kids.length > 0} style="--depth: {depth}">
   <div
     class="row"
     class:auto={node.source !== 'manual'}
@@ -266,9 +273,11 @@
           if (onCollapse) { if (!readonly) bump(); onCollapse(node) }
           else { bump(); markDirty() }
         }}>▾</button>
-    {:else}<span class="tri-spacer"></span>{/if}
+    {/if}
     <span
       class="bullet"
+      class:has-kids={kids.length > 0}
+      class:closed={kids.length > 0 && isCollapsed}
       class:src-toc={node.source === 'toc'}
       class:src-hl={node.source === 'highlight'}
       class:src-wl={node.source === 'wikilink'}
@@ -278,7 +287,7 @@
       draggable={!readonly && node.source === 'manual'}
       ondragstart={onDragStart}
       onclick={onBulletClick}
-    >•</span>
+    ></span>
     {#if editing}
       <textarea
         bind:this={textareaEl}
@@ -315,10 +324,26 @@
 </div>
 
 <style>
-  .node { margin-left: calc(var(--depth) * 0px); }
+  /* font-size 挂到主题字号,使 .node 内的 em(缩进/沟槽/引导线)都随 theme 缩放 */
+  .node { position: relative; font-size: var(--outline-font-size, 13px); }
+  /* Roam 风格:展开且有子节点时,自 bullet 下方引一根竖直缩进导引线贯穿子节点。
+     left = 该节点 bullet 中心 = 行左内边距(depth*1.5em+1.7em) + 半个 bullet(0.5em);
+     子节点 bullet 中心在其右一级(+1.5em),故引导线恰在子节点左侧沟槽。 */
+  .node.has-guide::before {
+    content: '';
+    position: absolute;
+    top: var(--outline-line-height, 1.5em);
+    bottom: 0.15em;
+    left: calc(var(--depth) * 1.5em + 2.2em);
+    width: 1px;
+    background: color-mix(in srgb, currentColor 18%, transparent);
+    pointer-events: none;
+  }
   .row {
     display: flex; align-items: flex-start; gap: 4px;
-    padding: 1px 4px 1px calc(var(--depth) * 16px + 4px);
+    position: relative;
+    /* bullet 是行首元素;每级固定缩进 1.5em;左侧留 1.7em 沟槽给悬浮的 tri 与引导线 */
+    padding: 1px 4px 1px calc(var(--depth) * 1.5em + 1.7em);
     border-radius: 4px;
     font-family: var(--outline-font-family);
     font-size: var(--outline-font-size, 13px);
@@ -332,29 +357,60 @@
     border-radius: 0;
   }
   .row.auto .content { opacity: 0.92; }
-  /* Fold caret. The glyph is 0.7em (scales with the theme font), but its COLUMN
-     width must equal the leaf spacer's (1.1em of the ROW font) so children align
-     whether or not a node has kids. Since `width:em` is relative to THIS element's
-     own (shrunk 0.7em) font, we scale it up by 1/0.7 → 1.1em of the parent. This
-     also gives a comfortably-wide click target. */
   .tri {
     background: none; border: none; padding: 0;
-    /* Buttons don't inherit font-family — force it so the ▾ glyph renders in the
-       theme font (and re-renders on theme change), matching the bullet/text. */
+    /* Buttons inherit NEITHER font-family NOR font-size — force BOTH to the outline
+       font so the ▾ renders in the theme font AND so the em used by left/width/height
+       equals the row's (else tri drifts whenever the theme size ≠ the UA button size,
+       e.g. in Daily Notes). ▾ visual size is then reined in via scale(). */
     font-family: inherit;
-    width: 1.571em; font-size: 0.7em;
-    line-height: var(--outline-line-height, 1.5);
-    cursor: pointer; opacity: 0.6; transition: transform 0.1s; text-align: center;
-    flex-shrink: 0;
+    font-size: var(--outline-font-size, 13px);
+    /* 绝对悬浮在 bullet 左侧沟槽,不占行宽 → 不挤压 bullet、不破坏逐级缩进。 */
+    position: absolute;
+    left: calc(var(--depth) * 1.5em + 0.75em);
+    top: 1px; /* = 行 padding-top,使盒顶与首行行盒顶对齐 */
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 1em;
+    /* 盒高 = 第一行行高,▾ 居中即落在首行垂直中点 */
+    height: var(--outline-line-height, 1.5em);
+    line-height: 1;
+    cursor: pointer; opacity: 0;
+    transform: scale(0.7);
+    transition: transform 0.1s, opacity 0.1s;
   }
-  .tri.closed { transform: rotate(-90deg); }
-  .tri-spacer { width: 1.1em; flex-shrink: 0; }
+  /* Roam 风格：折叠三角默认隐藏,鼠标浮到行上才显示 */
+  .row:hover .tri { opacity: 0.6; }
+  .tri.closed { transform: rotate(-90deg) scale(0.7); }
   .bullet {
-    font-size: 1em;
-    line-height: var(--outline-line-height, 1.5);
+    position: relative;
+    display: inline-block;
+    width: 1em;
+    /* 盒高 = 第一行行高(见 .tri 注释,变量是像素值) */
+    height: var(--outline-line-height, 1.5em);
     cursor: default; opacity: 0.7;
   }
-  .bullet.jumpable { cursor: pointer; }
+  /* 圆点：CSS 绘制,绝对居中于 bullet 盒 → 落在首行垂直中点 */
+  .bullet::after {
+    content: '';
+    position: absolute;
+    left: 50%; top: 50%;
+    width: 0.32em; height: 0.32em;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    background: currentColor;
+  }
+  .bullet.jumpable, .bullet.has-kids { cursor: pointer; }
+  /* Roam 风格：折叠(有隐藏子节点)时,bullet 外套灰色同心圆环 */
+  .bullet.closed::before {
+    content: '';
+    position: absolute;
+    left: 50%; top: 50%;
+    width: 0.75em; height: 0.75em;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    background: color-mix(in srgb, currentColor 20%, transparent);
+    z-index: -1;
+  }
   .bullet.src-toc { color: var(--accent-color, #4a80d4); }
   .bullet.src-hl { color: #d4a94a; }
   .bullet.src-wl { color: #3aa99f; }

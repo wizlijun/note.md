@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Rule } from "$lib/types";
+  import { t } from "$lib/strings";
 
   let { rules = $bindable<Rule[]>(), onSave }: {
     rules: Rule[];
@@ -8,7 +9,7 @@
 
   function addRule() {
     rules = [...rules, {
-      id: `r-${Date.now()}`, name: "New Rule",
+      id: `r-${Date.now()}`, name: t("rules.newRule"),
       when: {}, target: "uncategorized",
     }];
   }
@@ -31,38 +32,38 @@
 </script>
 
 <header>
-  <h3>Rules</h3>
-  <button onclick={addRule}>+ Add Rule</button>
-  <button onclick={onSave}>Save</button>
+  <h3>{t("rules.title")}</h3>
+  <button onclick={addRule}>{t("rules.add")}</button>
+  <button onclick={onSave}>{t("rules.save")}</button>
 </header>
 
 {#each rules as rule, i (rule.id)}
   <fieldset>
     <legend>
       <input bind:value={rule.name} />
-      <button onclick={() => move(i, -1)}>↑</button>
-      <button onclick={() => move(i, 1)}>↓</button>
-      <button onclick={() => removeRule(i)}>×</button>
+      <button onclick={() => move(i, -1)} aria-label={t("rules.moveUp")}>↑</button>
+      <button onclick={() => move(i, 1)} aria-label={t("rules.moveDown")}>↓</button>
+      <button onclick={() => removeRule(i)} aria-label={t("rules.remove")}>×</button>
     </legend>
-    <label>ext (comma-sep):
+    <label>{t("rules.ext")}
       <input value={csvGet(rule, "ext")} oninput={(e) => csvSet(rule, "ext", e.currentTarget.value)} />
     </label>
-    <label>tag_contains:
+    <label>{t("rules.tagContains")}
       <input value={csvGet(rule, "tag_contains")} oninput={(e) => csvSet(rule, "tag_contains", e.currentTarget.value)} />
     </label>
-    <label>author_contains:
+    <label>{t("rules.authorContains")}
       <input value={csvGet(rule, "author_contains")} oninput={(e) => csvSet(rule, "author_contains", e.currentTarget.value)} />
     </label>
-    <label>language:
+    <label>{t("rules.language")}
       <input value={csvGet(rule, "language")} oninput={(e) => csvSet(rule, "language", e.currentTarget.value)} />
     </label>
-    <label>target dir:
+    <label>{t("rules.targetDir")}
       <input bind:value={rule.target} />
     </label>
   </fieldset>
 {/each}
 
-<p class="hint">Default rule (always matches): all unmatched books go to <code>uncategorized/</code></p>
+<p class="hint">{t("rules.defaultHint")} <code>uncategorized/</code></p>
 
 <style>
   fieldset { border: 1px solid #ccc; margin: 0.75rem 0; padding: 0.5rem; }

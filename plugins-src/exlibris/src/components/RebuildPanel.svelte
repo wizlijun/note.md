@@ -3,6 +3,7 @@
   import { verify, type VerifyReport } from "$lib/verify";
   import type { Rule } from "$lib/types";
   import type { DiffRow } from "$lib/rules";
+  import { t } from "$lib/strings";
 
   let { sotvault, rawvault, rules }: {
     sotvault: string; rawvault: string; rules: Rule[];
@@ -22,7 +23,7 @@
     try {
       await applyRebuildDiff(sotvault, diff);
       diff = [];
-      alert("Rebuild complete.");
+      alert(t("rebuild.complete"));
     } finally { busy = false; }
   }
   async function runVerify() {
@@ -33,29 +34,29 @@
 </script>
 
 <section>
-  <h3>Rebuild Sotvault</h3>
-  <button onclick={loadDiff} disabled={busy}>Compute Diff</button>
+  <h3>{t("rebuild.title")}</h3>
+  <button onclick={loadDiff} disabled={busy}>{t("rebuild.computeDiff")}</button>
   {#if diff.length > 0}
-    <p>{diff.length} books will move:</p>
+    <p>{t("rebuild.willMove", { count: diff.length })}</p>
     <ul>
       {#each diff as d}
         <li>{d.book_name}: {d.from} → {d.to}</li>
       {/each}
     </ul>
-    <button onclick={apply} disabled={busy}>Apply</button>
+    <button onclick={apply} disabled={busy}>{t("rebuild.apply")}</button>
   {:else}
-    <p>No changes.</p>
+    <p>{t("rebuild.noChanges")}</p>
   {/if}
 </section>
 
 <section>
-  <h3>Verify</h3>
-  <button onclick={runVerify} disabled={busy}>Run Verify</button>
+  <h3>{t("rebuild.verify")}</h3>
+  <button onclick={runVerify} disabled={busy}>{t("rebuild.runVerify")}</button>
   {#if report}
-    <p>Orphan raw: {report.orphan_raw.length}</p>
-    <p>Missing raw: {report.missing_raw.length}</p>
-    <p>Duplicate ISBN: {report.duplicate_isbn.length}</p>
-    <details><summary>Details</summary>
+    <p>{t("rebuild.orphanRaw", { count: report.orphan_raw.length })}</p>
+    <p>{t("rebuild.missingRaw", { count: report.missing_raw.length })}</p>
+    <p>{t("rebuild.duplicateIsbn", { count: report.duplicate_isbn.length })}</p>
+    <details><summary>{t("rebuild.details")}</summary>
       <pre>{JSON.stringify(report, null, 2)}</pre>
     </details>
   {/if}

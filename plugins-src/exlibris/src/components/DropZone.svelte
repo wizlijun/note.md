@@ -1,5 +1,6 @@
 <script lang="ts">
   import { pickPaths } from "$lib/bridge";
+  import { t } from "$lib/strings";
 
   let { onDropFiles }: { onDropFiles: (paths: string[]) => void } = $props();
 
@@ -14,9 +15,9 @@
 
   async function addBooks() {
     const paths = await pickPaths({
-      title: "Add books",
+      title: t("drop.pickTitle"),
       multiple: true,
-      filters: [{ name: "Ebooks", extensions: SUPPORTED }],
+      filters: [{ name: t("drop.filterEbooks"), extensions: SUPPORTED }],
     });
     const accepted = paths.filter((p) => {
       const ext = p.split(".").pop()?.toLowerCase() ?? "";
@@ -27,9 +28,9 @@
 </script>
 
 <section class="drop">
-  <p>Add ebook files to import</p>
-  <p class="sub">Supports {SUPPORTED.join(", ")}</p>
-  <button class="add" onclick={addBooks}>Add books…</button>
+  <p>{t("drop.prompt")}</p>
+  <p class="sub">{t("drop.supports", { formats: SUPPORTED.join(", ") })}</p>
+  <button class="add" onclick={addBooks}>{t("drop.addBooks")}</button>
 </section>
 
 <style>

@@ -35,6 +35,9 @@
   let error = $state('')
 
   const evidence = $derived(closure?.evidence ?? [])
+  // Progress notes appended over the decision's life (accepted "note"/progress
+  // suggestions). Shown read-only in the detail sheet, newest last.
+  const progress = $derived(decision.progress ?? [])
   const canSubmit = $derived(!!outcome && stillEndorse !== null && !submitting)
 
   async function submit() {
@@ -86,6 +89,17 @@
         <p class="muted">{t('verdict.noEvidence')}</p>
       {/if}
     </div>
+
+    {#if progress.length}
+      <div class="progress">
+        <span class="lbl">{t('sugg.progress')}</span>
+        <ul>
+          {#each progress as p, i (i)}
+            <li><span class="date">{p.date}</span>{p.text}</li>
+          {/each}
+        </ul>
+      </div>
+    {/if}
 
     <!-- Q1 -->
     <div class="question">
@@ -152,6 +166,10 @@
   .evidence ul { margin: 0; padding-left: 1.1rem; font-size: 0.88rem; }
   .evidence li { margin: 0.15rem 0; }
   .muted { margin: 0; font-size: 0.85rem; opacity: 0.55; }
+  .progress { margin-bottom: 1.1rem; }
+  .progress ul { margin: 0; padding-left: 1.1rem; font-size: 0.88rem; list-style: none; }
+  .progress li { margin: 0.25rem 0; line-height: 1.4; overflow-wrap: anywhere; }
+  .progress .date { display: inline-block; margin-right: 0.5rem; font-size: 0.78rem; opacity: 0.55; font-variant-numeric: tabular-nums; }
   .question { margin-bottom: 1.1rem; }
   .q { margin: 0 0 0.5rem; font-size: 0.95rem; }
   .choices { display: flex; gap: 0.5rem; }

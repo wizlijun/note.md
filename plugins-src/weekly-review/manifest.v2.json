@@ -2,30 +2,67 @@
   "manifest_version": 2,
   "id": "notemd.weekly-review",
   "name": "Weekly Review",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "kind": "native",
-  "engines": { "notemd": ">=6.723.3" },
+  "engines": {
+    "notemd": ">=6.723.3"
+  },
   "description": "A year-at-a-glance calendar of your weekly reviews.",
   "ui": "ui/",
-  "activation": { "events": ["onCommand:open"] },
+  "activation": {
+    "events": [
+      "onCommand:open"
+    ]
+  },
   "contributes": {
     "menus": [
-      { "location": "window", "label": "Weekly Review", "command": "open" }
+      {
+        "location": "window",
+        "label": "Weekly Review",
+        "command": "open"
+      }
     ],
     "windows": [
       {
         "id": "main",
         "entry": "index.html",
         "title": "Weekly Review",
-        "width": 1000.0,
-        "height": 720.0,
-        "min_width": 820.0,
-        "min_height": 560.0,
+        "width": 1000,
+        "height": 720,
+        "min_width": 820,
+        "min_height": 560,
         "open_command": "open"
       }
     ],
-    "tray": [ { "window": "main" } ]
+    "tray": [
+      {
+        "window": "main"
+      }
+    ]
   },
-  "capabilities": ["vault.read", "editor.open", "toast"],
-  "i18n": { "zh": { "name": "周检视", "menus": { "open": "周检视" } } }
+  "capabilities": [
+    "vault.read",
+    "editor.open",
+    "toast"
+  ],
+  "i18n": {
+    "zh": {
+      "name": "周检视",
+      "menus": {
+        "open": "周检视"
+      }
+    },
+    "ja": {
+      "name": "ウィークリーレビュー",
+      "menus": {
+        "open": "ウィークリーレビュー"
+      }
+    },
+    "de": {
+      "name": "Wochenrückblick",
+      "menus": {
+        "open": "Wochenrückblick"
+      }
+    }
+  }
 }

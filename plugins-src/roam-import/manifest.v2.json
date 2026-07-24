@@ -2,28 +2,65 @@
   "manifest_version": 2,
   "id": "notemd.roam-import",
   "name": "Roam Research Import",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "kind": "native",
-  "engines": { "notemd": ">=6.716.7" },
+  "engines": {
+    "notemd": ">=6.716.7"
+  },
   "description": "Import a Roam Research JSON export into the vault as .note.md outline pages and daily notes",
   "ui": "ui/",
-  "activation": { "events": ["onCommand:open"] },
+  "activation": {
+    "events": [
+      "onCommand:open"
+    ]
+  },
   "contributes": {
     "menus": [
-      { "location": "file", "label": "Import from Roam Research…", "command": "open" }
+      {
+        "location": "file",
+        "label": "Import from Roam Research…",
+        "command": "open"
+      }
     ],
     "windows": [
       {
         "id": "main",
         "entry": "index.html",
         "title": "Import from Roam Research",
-        "width": 680.0,
-        "height": 620.0,
-        "min_width": 520.0,
-        "min_height": 420.0,
+        "width": 680,
+        "height": 620,
+        "min_width": 520,
+        "min_height": 420,
         "open_command": "open"
       }
     ]
   },
-  "capabilities": ["dialog", "vault.read", "vault.write", "fs.read:dialog", "clipboard.write", "toast"]
+  "capabilities": [
+    "dialog",
+    "vault.read",
+    "vault.write",
+    "fs.read:dialog",
+    "clipboard.write",
+    "toast"
+  ],
+  "i18n": {
+    "zh": {
+      "name": "Roam Research 导入",
+      "menus": {
+        "open": "从 Roam Research 导入…"
+      }
+    },
+    "ja": {
+      "name": "Roam Research インポート",
+      "menus": {
+        "open": "Roam Research からインポート…"
+      }
+    },
+    "de": {
+      "name": "Roam-Research-Import",
+      "menus": {
+        "open": "Aus Roam Research importieren…"
+      }
+    }
+  }
 }

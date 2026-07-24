@@ -88,7 +88,7 @@
       {#if downgradedNote}
         <p class="coach" role="status">{downgradedNote}</p>
         <div class="actions">
-          <button type="button" class="primary" onclick={advance} aria-label="continue">→</button>
+          <button type="button" class="primary" onclick={advance} aria-label={t('review.continue')}>→</button>
         </div>
       {:else}
         <div class="actions">

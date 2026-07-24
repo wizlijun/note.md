@@ -1,6 +1,7 @@
 <!-- src/App.svelte — openclaw v2 chat window root (ported from v1 chat-app.svelte). -->
 <script lang="ts">
   import { onMount } from 'svelte'
+  import { t } from './lib/strings'
   import { start, stop } from './lib/openclaw/client.svelte'
   import SessionPicker from './components/chat/SessionPicker.svelte'
   import MessageList from './components/chat/MessageList.svelte'
@@ -32,12 +33,12 @@
 </script>
 
 {#if mode === 'detecting'}
-  <p>Detecting…</p>
+  <p>{t('chat.detecting')}</p>
 {:else if mode === 'needs-pairing'}
   <RemoteOnboarding onComplete={() => init()} />
 {:else}
   {#if initError}
-    <div class="init-error">⚠️ init error: {initError}</div>
+    <div class="init-error">⚠️ {t('chat.initError')}: {initError}</div>
   {/if}
   <main>
     <SessionPicker />

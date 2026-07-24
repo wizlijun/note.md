@@ -15,7 +15,7 @@ export type MessageKey =
   | 'badge.quoted' | 'badge.nominated'
   | 'common.cancel' | 'common.loading' | 'drag.invalid'
   | 'review.start' | 'review.of' | 'review.decide' | 'review.skip'
-  | 'review.title' | 'review.downgraded'
+  | 'review.title' | 'review.downgraded' | 'review.continue'
   | 'sugg.dueVerdict' | 'sugg.due.hit' | 'sugg.due.partial' | 'sugg.due.miss'
   | 'sugg.progress' | 'sugg.adjustDate' | 'sugg.closeHit' | 'sugg.closePartial'
   | 'sugg.closeMiss' | 'sugg.drop'
@@ -47,7 +47,7 @@ const en: Catalog = {
   'badge.quoted': 'your words', 'badge.nominated': 'AI-nominated',
   'common.cancel': 'Cancel', 'common.loading': 'Loading…', 'drag.invalid': 'Decisions only move forward.',
   'review.start': 'Due check', 'review.of': 'of', 'review.decide': 'Give a verdict', 'review.skip': 'Skip for now',
-  'review.title': 'Due check', 'review.downgraded': "You didn't come back to this a few times — I've set it aside for you. Reopen anytime.",
+  'review.title': 'Due check', 'review.downgraded': "You didn't come back to this a few times — I've set it aside for you. Reopen anytime.", 'review.continue': 'Continue',
   'sugg.dueVerdict': 'Due for a verdict', 'sugg.due.hit': 'Looks like a hit', 'sugg.due.partial': 'Looks partial', 'sugg.due.miss': 'Looks like a miss',
   'sugg.progress': 'Progress', 'sugg.adjustDate': 'Suggest new check date →', 'sugg.closeHit': 'Suggest closing — hit', 'sugg.closePartial': 'Suggest closing — partial',
   'sugg.closeMiss': 'Suggest closing — miss', 'sugg.drop': 'Suggest dropping this',
@@ -79,7 +79,7 @@ const zh: Partial<Catalog> = {
   'badge.quoted': '你的原话', 'badge.nominated': 'AI 提名',
   'common.cancel': '取消', 'common.loading': '加载中…', 'drag.invalid': '决策只能向前推进。',
   'review.start': '到期检查', 'review.of': '/', 'review.decide': '裁决', 'review.skip': '本次跳过',
-  'review.title': '到期检查', 'review.downgraded': '这条你几次没回来看,先帮你放一边了 —— 随时可捞回。',
+  'review.title': '到期检查', 'review.downgraded': '这条你几次没回来看,先帮你放一边了 —— 随时可捞回。', 'review.continue': '继续',
   'sugg.dueVerdict': '到期待裁决', 'sugg.due.hit': '看起来命中', 'sugg.due.partial': '看起来部分', 'sugg.due.miss': '看起来未命中',
   'sugg.progress': '进展', 'sugg.adjustDate': '建议改检查日期 →', 'sugg.closeHit': '建议关闭:命中', 'sugg.closePartial': '建议关闭:部分',
   'sugg.closeMiss': '建议关闭:未命中', 'sugg.drop': '建议放弃',
@@ -88,7 +88,71 @@ const zh: Partial<Catalog> = {
   'reject': '不准', 'reject.hint': '标为不准 —— 删除并让 AI 以后避免。',
   'refresh': '刷新', 'refresh.hint': '强制刷新',
 }
-const registry: Record<string, Partial<Catalog>> = { en, zh }
+const ja: Partial<Catalog> = {
+  'panel.title': '意思決定ログ', 'col.candidates': '候補', 'col.open': '未決', 'col.archive': 'アーカイブ',
+  'sign.title': 'この賭けにサインする', 'sign.prediction': '予測',
+  'sign.confidence.low': 'まあ確か', 'sign.confidence.medium': 'かなり確か', 'sign.confidence.high': '非常に確か',
+  'sign.checkDate': '確認日', 'sign.submit': '賭けにサインする',
+  'verdict.q1': '起きましたか?', 'verdict.hit': '的中', 'verdict.partial': '一部', 'verdict.miss': '外れ',
+  'verdict.q2': '結果は抜きにして —— また同じ決定をしますか?', 'verdict.endorseYes': 'する', 'verdict.endorseNo': 'しない',
+  'verdict.submit': '確定してアーカイブ',
+  'score.samples': '件のサンプルを収集', 'score.calibration': 'キャリブレーション', 'card.new': '新しい決定',
+  'downgrade.toast': '脇に片付けておきました —— いつでも戻せます。',
+  'sign.confidenceLabel': 'どのくらい確かですか?', 'sign.triggers': '次の場合は再検討…', 'sign.triggersHint': '例:競合が先にリリースしたら',
+  'sign.predictionRequired': 'サインするには反証可能な予測を書いてください。',
+  'sign.quotedLead': 'あなたの言葉', 'sign.nominatedLead': '固定する予測 —— あなた自身の言葉で',
+  'sign.title.new': '新しい決定', 'sign.titleLabel': '決定',
+  'verdict.locked': 'サイン時に固定', 'verdict.evidence': '根拠', 'verdict.noEvidence': 'まだ根拠が添付されていません。',
+  'score.empty': 'これまで 0 件のサンプルを収集', 'score.avoidance': 'あなたは避け続けています', 'score.noVerdicts': '判定するとここにキャリブレーションが表示されます。',
+  'col.candidatesEmpty': 'AI が提案した候補がここに届きます。', 'col.openEmpty': 'サイン済みで確認日を待つ賭け。',
+  'col.archiveEmpty': '判定後、解決済みの決定がここに表示されます。',
+  'card.daysLeft': '日後に確認', 'card.dueToday': '今日が期日', 'card.overdue': '期限超過',
+  'card.stillEndorse': 'なお支持',
+  'badge.quoted': 'あなたの言葉', 'badge.nominated': 'AI 提案',
+  'common.cancel': 'キャンセル', 'common.loading': '読み込み中…', 'drag.invalid': '決定は前にしか進めません。',
+  'review.start': '期日の確認', 'review.of': '/', 'review.decide': '判定する', 'review.skip': '今回はスキップ',
+  'review.title': '期日の確認', 'review.downgraded': '何度か見に来なかったので、脇に片付けておきました —— いつでも戻せます。', 'review.continue': '続ける',
+  'sugg.dueVerdict': '判定の期日', 'sugg.due.hit': '的中のようです', 'sugg.due.partial': '一部のようです', 'sugg.due.miss': '外れのようです',
+  'sugg.progress': '進捗', 'sugg.adjustDate': '新しい確認日を提案 →', 'sugg.closeHit': '確定を提案 —— 的中', 'sugg.closePartial': '確定を提案 —— 一部',
+  'sugg.closeMiss': '確定を提案 —— 外れ', 'sugg.drop': '取り下げを提案',
+  'sugg.accept': '受け入れる', 'sugg.note': 'メモする', 'sugg.detail': '詳細', 'sugg.dismiss': '却下',
+  'sugg.evidence': '根拠', 'drag.reopenConfirm': 'この決定を再開して未決に戻しますか?',
+  'reject': '不正確とマーク', 'reject.hint': '不正確 —— 削除し、次回 AI が避けるようにします。',
+  'refresh': '更新', 'refresh.hint': '強制更新',
+}
+const de: Partial<Catalog> = {
+  'panel.title': 'Entscheidungsprotokoll', 'col.candidates': 'Kandidaten', 'col.open': 'Offen', 'col.archive': 'Archiv',
+  'sign.title': 'Diese Wette unterschreiben', 'sign.prediction': 'Vorhersage',
+  'sign.confidence.low': 'Etwas sicher', 'sign.confidence.medium': 'Ziemlich sicher', 'sign.confidence.high': 'Sehr sicher',
+  'sign.checkDate': 'Prüfen am', 'sign.submit': 'Wette unterschreiben',
+  'verdict.q1': 'Ist es eingetreten?', 'verdict.hit': 'Treffer', 'verdict.partial': 'Teilweise', 'verdict.miss': 'Verfehlt',
+  'verdict.q2': 'Unabhängig vom Ergebnis — würdest du wieder so entscheiden?', 'verdict.endorseYes': 'Ja', 'verdict.endorseNo': 'Nein',
+  'verdict.submit': 'Schließen & archivieren',
+  'score.samples': 'Stichproben gesammelt', 'score.calibration': 'Kalibrierung', 'card.new': 'Neue Entscheidung',
+  'downgrade.toast': 'Für dich beiseitegelegt — jederzeit wieder öffnen.',
+  'sign.confidenceLabel': 'Wie sicher bist du?', 'sign.triggers': 'Überdenken, wenn…', 'sign.triggersHint': 'z. B. ein Wettbewerber liefert zuerst',
+  'sign.predictionRequired': 'Schreibe eine widerlegbare Vorhersage, um zu unterschreiben.',
+  'sign.quotedLead': 'Du sagtest', 'sign.nominatedLead': 'Eine Vorhersage zum Festhalten — in deinen Worten',
+  'sign.title.new': 'Neue Entscheidung', 'sign.titleLabel': 'Entscheidung',
+  'verdict.locked': 'Beim Unterschreiben festgelegt', 'verdict.evidence': 'Belege', 'verdict.noEvidence': 'Noch keine Belege angehängt.',
+  'score.empty': 'Bisher 0 Stichproben gesammelt', 'score.avoidance': 'Du weichst immer wieder aus', 'score.noVerdicts': 'Urteile zeigen hier deine Kalibrierung.',
+  'col.candidatesEmpty': 'KI-vorgeschlagene Kandidaten landen hier.', 'col.openEmpty': 'Unterschriebene Wetten, die auf ihr Prüfdatum warten.',
+  'col.archiveEmpty': 'Nach einem Urteil erscheinen erledigte Entscheidungen hier.',
+  'card.daysLeft': 'Tage übrig', 'card.dueToday': 'heute fällig', 'card.overdue': 'überfällig',
+  'card.stillEndorse': 'immer noch dafür',
+  'badge.quoted': 'deine Worte', 'badge.nominated': 'KI-vorgeschlagen',
+  'common.cancel': 'Abbrechen', 'common.loading': 'Wird geladen…', 'drag.invalid': 'Entscheidungen gehen nur vorwärts.',
+  'review.start': 'Fällige Prüfung', 'review.of': 'von', 'review.decide': 'Ein Urteil fällen', 'review.skip': 'Vorerst überspringen',
+  'review.title': 'Fällige Prüfung', 'review.downgraded': 'Du bist ein paar Mal nicht darauf zurückgekommen — ich habe es für dich beiseitegelegt. Jederzeit wieder öffnen.', 'review.continue': 'Weiter',
+  'sugg.dueVerdict': 'Urteil fällig', 'sugg.due.hit': 'Sieht nach Treffer aus', 'sugg.due.partial': 'Sieht teilweise aus', 'sugg.due.miss': 'Sieht nach Verfehlung aus',
+  'sugg.progress': 'Fortschritt', 'sugg.adjustDate': 'Neues Prüfdatum vorschlagen →', 'sugg.closeHit': 'Schließen vorschlagen — Treffer', 'sugg.closePartial': 'Schließen vorschlagen — teilweise',
+  'sugg.closeMiss': 'Schließen vorschlagen — verfehlt', 'sugg.drop': 'Verwerfen vorschlagen',
+  'sugg.accept': 'Annehmen', 'sugg.note': 'Notieren', 'sugg.detail': 'Details', 'sugg.dismiss': 'Verwerfen',
+  'sugg.evidence': 'Belege', 'drag.reopenConfirm': 'Diese Entscheidung wieder öffnen und zurück zu Offen verschieben?',
+  'reject': 'Als ungenau markieren', 'reject.hint': 'Nicht genau — entfernen und die KI dies künftig meiden lassen.',
+  'refresh': 'Aktualisieren', 'refresh.hint': 'Aktualisierung erzwingen',
+}
+const registry: Record<string, Partial<Catalog>> = { en, zh, ja, de }
 export function t(key: MessageKey): string {
   let locale = 'en'
   try { locale = bridge().locale } catch { /* dev */ }

@@ -1,5 +1,6 @@
 <!-- src/components/chat/SessionPicker.svelte -->
 <script lang="ts">
+  import { t } from '../../lib/strings'
   import { state, newSession, openSession } from '../../lib/openclaw/client.svelte'
 </script>
 
@@ -12,7 +13,7 @@
       <option value={s.id}>{s.title ?? s.id}</option>
     {/each}
   </select>
-  <button onclick={() => newSession()}>+ New</button>
+  <button onclick={() => newSession()}>{t('chat.newSession')}</button>
   <span class="status" data-status={state.status}>{state.status}</span>
 </header>
 

@@ -1,9 +1,9 @@
 <!-- src/insights-app.svelte — standalone Reading Insights window (opened from
      the View ▸ Reading Insights menu). Bootstraps its own webview state. -->
 <script lang="ts">
-  import { onMount } from 'svelte'
+  import { onMount, onDestroy } from 'svelte'
   import { loadSettings } from './lib/settings.svelte'
-  import { loadLocale, t } from './lib/i18n/store.svelte'
+  import { loadLocale, watchLocaleChanges, t } from './lib/i18n/store.svelte'
   import { refreshSotvault, sotvaultStore } from './lib/sotvault.svelte'
   import { getCurrentWindow } from '@tauri-apps/api/window'
   import InsightsPanel from './components/InsightsPanel.svelte'
@@ -21,6 +21,11 @@
     }
     ready = true
   })
+
+  // Follow live language switches from the main window's Settings.
+  let unlistenLocale: (() => void) | null = null
+  onMount(async () => { unlistenLocale = await watchLocaleChanges() })
+  onDestroy(() => unlistenLocale?.())
 </script>
 
 <main>

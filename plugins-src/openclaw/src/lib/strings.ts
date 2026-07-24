@@ -21,6 +21,13 @@ export type MessageKey =
   | 'chat.expiresIn'
   | 'chat.typeToOpenClaw'
   | 'chat.send'
+  | 'chat.detecting'
+  | 'chat.initError'
+  | 'chat.newSession'
+  | 'chat.noMessages'
+  | 'chat.newDeviceWantsToConnect'
+  | 'chat.allow'
+  | 'chat.reject'
 
 type Catalog = Record<MessageKey, string>
 
@@ -38,6 +45,13 @@ const en: Catalog = {
   'chat.expiresIn': 'Expires in {time}',
   'chat.typeToOpenClaw': 'Type to OpenClaw…',
   'chat.send': 'Send',
+  'chat.detecting': 'Detecting…',
+  'chat.initError': 'init error',
+  'chat.newSession': '+ New',
+  'chat.noMessages': 'No messages yet. Say hi.',
+  'chat.newDeviceWantsToConnect': 'New device wants to connect:',
+  'chat.allow': 'Allow',
+  'chat.reject': 'Reject',
 }
 
 const zh: Catalog = {
@@ -54,6 +68,13 @@ const zh: Catalog = {
   'chat.expiresIn': '{time} 后过期',
   'chat.typeToOpenClaw': '输入发送给 OpenClaw…',
   'chat.send': '发送',
+  'chat.detecting': '检测中…',
+  'chat.initError': '初始化错误',
+  'chat.newSession': '+ 新建',
+  'chat.noMessages': '还没有消息，打个招呼吧。',
+  'chat.newDeviceWantsToConnect': '有新设备请求连接：',
+  'chat.allow': '允许',
+  'chat.reject': '拒绝',
 }
 
 const ja: Catalog = {
@@ -70,6 +91,13 @@ const ja: Catalog = {
   'chat.expiresIn': '{time} で期限切れ',
   'chat.typeToOpenClaw': 'OpenClaw に入力…',
   'chat.send': '送信',
+  'chat.detecting': '検出中…',
+  'chat.initError': '初期化エラー',
+  'chat.newSession': '+ 新規',
+  'chat.noMessages': 'まだメッセージがありません。挨拶してみましょう。',
+  'chat.newDeviceWantsToConnect': '新しいデバイスが接続を求めています：',
+  'chat.allow': '許可',
+  'chat.reject': '拒否',
 }
 
 const de: Catalog = {
@@ -86,6 +114,13 @@ const de: Catalog = {
   'chat.expiresIn': 'Läuft ab in {time}',
   'chat.typeToOpenClaw': 'An OpenClaw schreiben…',
   'chat.send': 'Senden',
+  'chat.detecting': 'Wird erkannt…',
+  'chat.initError': 'Initialisierungsfehler',
+  'chat.newSession': '+ Neu',
+  'chat.noMessages': 'Noch keine Nachrichten. Sag Hallo.',
+  'chat.newDeviceWantsToConnect': 'Neues Gerät möchte sich verbinden:',
+  'chat.allow': 'Zulassen',
+  'chat.reject': 'Ablehnen',
 }
 
 const registry: Record<Locale, Catalog> = { en, zh, ja, de }

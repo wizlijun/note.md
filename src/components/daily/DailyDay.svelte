@@ -13,7 +13,7 @@
      watcher being wired in this window. -->
 <script lang="ts">
   import { createEventDispatcher, onMount, untrack } from 'svelte'
-  import { dailyNotePath } from '../../lib/outline/daily'
+  import { dailyNotePath, todayStr } from '../../lib/outline/daily'
   import { parseOutline } from '../../lib/outline/markdown'
   import { outlineDirs } from '../../lib/outline/dirs.svelte'
   import { sotvaultStore } from '../../lib/sotvault.svelte'
@@ -23,6 +23,7 @@
   import OutlineEditor from '../outline/OutlineEditor.svelte'
   import { childrenOf, createTree, addNode, newId, type OutlineNode as NodeT, type OutlineTree } from '../../lib/outline/model'
   import { dayMatches } from '../../lib/daily/filter'
+  import { i18n, type Locale } from '../../lib/i18n/store.svelte'
   import { applyFolds, setPathExpanded, noteKey, pathOfNodeIn } from '../../lib/daily/folds'
 
   let { date, active = false, filterQuery = '' }: { date: string; active?: boolean; filterQuery?: string } = $props()
@@ -186,6 +187,46 @@
   // Roots of the read-only tree (reactive via the $state `tree`).
   const roots = $derived(childrenOf(tree, null))
 
+  /** Today's block gets extra reserved whitespace + auto-focus on first open. */
+  const isToday = $derived(date === todayStr())
+
+  // Localized date header: format the YYYY-MM-DD key in the UI locale's regional
+  // convention (weekday + full date). Reactive to `i18n.locale` so switching the
+  // app language relabels every day live. Parse as local midnight (append T00:00)
+  // so the calendar day never shifts across time zones.
+  const BCP47: Record<Locale, string> = { en: 'en-US', zh: 'zh-CN', ja: 'ja-JP', de: 'de-DE' }
+  const displayDate = $derived.by(() => {
+    const d = new Date(`${date}T00:00:00`)
+    if (Number.isNaN(d.getTime())) return date
+    try {
+      return new Intl.DateTimeFormat(BCP47[i18n.locale] ?? 'en-US', { dateStyle: 'full' }).format(d)
+    } catch {
+      return date
+    }
+  })
+
+  /** Index path (against the read-only tree) of the LAST node in document order —
+   *  descend into the last child at each level. Empty tree → [0] (the sole node). */
+  function lastNodePath(): number[] {
+    const path: number[] = []
+    let parentId: string | null = null
+    for (;;) {
+      const kids = childrenOf(tree, parentId)
+      if (kids.length === 0) break
+      const idx = kids.length - 1
+      path.push(idx)
+      parentId = kids[idx].id
+    }
+    return path.length ? path : [0]
+  }
+
+  /** Prime this day to drop into editing its LAST node once its editor attaches.
+   *  Called by the feed when auto-activating today on first open. The existing
+   *  "single-click-to-edit" effect consumes `pendingEditPath` after attach. */
+  export function focusLast(): void {
+    pendingEditPath = lastNodePath()
+  }
+
   /** Read-only click on a node → activate this day and drop into editing THAT node. */
   function handleActivate(n: NodeT): void {
     pendingEditPath = pathOfNodeIn(tree, n.id)
@@ -239,8 +280,10 @@
   onMount(() => () => { foldsAppliedTo = null; void deactivate() })
 </script>
 
-<section class="day" hidden={!matchesFilter}>
-  <header class="date">{date}</header>
+<section class="day" class:today={isToday} hidden={!matchesFilter}>
+  <div class="date-wrap">
+    <header class="date">{displayDate}</header>
+  </div>
   {#if active}
     {#if editorTab}
       {#key editorTab.id}
@@ -272,6 +315,9 @@
       {/each}
     </div>
   {/if}
+  <!-- Per-day separator, styled from the theme's <hr> (probed into --outline-hr-*)
+       and aligned to the same content column as the outline. -->
+  <div class="sep-wrap"><hr class="day-sep" /></div>
 </section>
 
 <style>
@@ -280,13 +326,45 @@
      look identical. Only a small horizontal window inset — no extra padding/margin
      around each outline itself. */
   .day { padding: 0 12px; }
+  /* Today reserves three-quarters of the viewport so it opens with plenty of
+     blank space to write into. As a flex column, the divider is pushed
+     (margin-top:auto) to the BOTTOM of that reserved space — i.e. below the
+     blank area. */
+  .day.today { min-height: 75vh; display: flex; flex-direction: column; }
+  .day.today .sep-wrap { margin-top: auto; }
+  /* Center the date on the SAME column as the outline body (max-width/margin
+     mirror .ro-body and the editor's .body) so the date left-aligns with the
+     day's outline instead of the day's full-width padding edge. */
+  .date-wrap { max-width: 860px; width: 100%; margin: 0 auto; box-sizing: border-box; }
+  /* The date is the day's title — render it in the theme's first-level-heading
+     style (font/size/weight/line-height probed from `.moraya-editor h1`). */
   .date {
-    font-weight: 400;
-    font-size: 11px;
-    color: color-mix(in srgb, CanvasText 32%, transparent);
-    margin: 8px 0 0;
+    font-family: var(--outline-font-family);
+    font-size: var(--outline-h1-font-size, 2em);
+    font-weight: var(--outline-h1-font-weight, 700);
+    line-height: 3;
+    /* Indent the date so its left edge lines up with a node's bullet: the outline
+       row's left padding is 1.7em (of the OUTLINE body font). Express it in the
+       row's font (--outline-font-size), NOT the larger H1 size, so it matches. */
+    padding-left: calc(1.7 * var(--outline-font-size, 13px));
+    margin: 8px 0 0.1em;
   }
   .ro-body { padding: 0; max-width: 860px; width: 100%; margin: 0 auto; box-sizing: border-box; }
+  /* Divider column mirrors the outline body width; it sits at the VERY bottom of
+     the day block, after two blank lines of breathing room (margin-top: 3em).
+     Its left edge is indented to the root bullet / date position (same
+     calc as .date) so the rule starts under the date, not the column edge. */
+  .sep-wrap {
+    max-width: 860px; width: 100%; margin: 3em auto 0; box-sizing: border-box;
+    padding-left: calc(1.7 * var(--outline-font-size, 13px));
+  }
+  .day-sep {
+    border: 0;
+    border-top: var(--outline-hr-border-top);
+    height: var(--outline-hr-height, 1px);
+    background: var(--outline-hr-bg, transparent);
+    margin: 0;
+  }
   .empty-day {
     opacity: 0.45;
     cursor: text;

@@ -17,6 +17,9 @@ export type MessageKey =
   | 'tip.future'
   | 'tip.diary'
   | 'tip.note'
+  | 'month.suffix'
+  | 'nav.prevYear'
+  | 'nav.nextYear'
 
 type Catalog = Record<MessageKey, string>
 
@@ -37,6 +40,9 @@ const en: Catalog = {
   'tip.future': 'upcoming',
   'tip.diary': 'open diary',
   'tip.note': 'open note outline',
+  'month.suffix': '',
+  'nav.prevYear': 'previous year',
+  'nav.nextYear': 'next year',
 }
 
 const zh: Catalog = {
@@ -56,6 +62,9 @@ const zh: Catalog = {
   'tip.future': '未来',
   'tip.diary': '打开日记',
   'tip.note': '打开笔记大纲',
+  'month.suffix': '月',
+  'nav.prevYear': '上一年',
+  'nav.nextYear': '下一年',
 }
 
 const ja: Catalog = {
@@ -75,6 +84,9 @@ const ja: Catalog = {
   'tip.future': '今後',
   'tip.diary': '日記を開く',
   'tip.note': 'ノートの概要を開く',
+  'month.suffix': '月',
+  'nav.prevYear': '前年',
+  'nav.nextYear': '翌年',
 }
 
 const de: Catalog = {
@@ -94,6 +106,9 @@ const de: Catalog = {
   'tip.future': 'bevorstehend',
   'tip.diary': 'Tagebuch öffnen',
   'tip.note': 'Notiz-Gliederung öffnen',
+  'month.suffix': '',
+  'nav.prevYear': 'Vorheriges Jahr',
+  'nav.nextYear': 'Nächstes Jahr',
 }
 
 const catalogs: Record<string, Catalog> = { en, zh, ja, de }

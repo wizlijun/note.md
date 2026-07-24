@@ -47,7 +47,12 @@ pub(crate) fn bridge_script(plugin_id: &str, locale: &str, theme: &str) -> Strin
   let __seq = 0;
   const __listeners = [];
   const pluginId = {pid};
-  const locale = {loc};
+  // Locale is embedded at build time, but a live language switch can't rebuild
+  // this init script — so the host writes the new code into localStorage and
+  // reloads the window; on reload we prefer that override. This makes language
+  // changes propagate to every plugin uniformly, with no per-plugin code.
+  let locale = {loc};
+  try {{ const __l = localStorage.getItem('__notemd_locale'); if (__l) locale = __l; }} catch (e) {{}}
   const theme = {thm};
   window.notemd = Object.freeze({{
     pluginId,
@@ -180,6 +185,41 @@ pub fn push_to_window<R: Runtime>(
     let label = window_label(plugin_id, window_id);
     if let Some(win) = app.get_webview_window(&label) {
         let _ = win.eval(dispatch_eval(payload));
+    }
+}
+
+/// Live-refresh every open plugin window to `locale`. Plugin windows are
+/// isolated webviews whose locale is injected into a build-time init script, so
+/// a language switch can't reach them by re-eval alone. Uniform mechanism: write
+/// the new locale into each window's `localStorage` (which the bridge prefers on
+/// next load) and reload it — the plugin re-bootstraps in the new language with
+/// zero per-plugin code. Passing the locale explicitly (not via a disk read)
+/// keeps this race-free with the frontend's async settings persist.
+pub fn refresh_plugin_windows_locale<R: Runtime>(app: &tauri::AppHandle<R>, locale: &str) {
+    // Exact labels of contributed plugin windows, so we never touch app windows
+    // that merely share a "plugin-" label prefix (e.g. the plugin market).
+    let labels: Vec<String> = match super::STATE.read() {
+        Ok(state) => state
+            .plugins
+            .iter()
+            .flat_map(|(pid, (manifest, _))| {
+                manifest
+                    .contributes
+                    .windows
+                    .iter()
+                    .map(move |w| window_label(pid, &w.id))
+            })
+            .collect(),
+        Err(_) => return,
+    };
+    let loc = serde_json::to_string(locale).unwrap_or_else(|_| "\"en\"".into());
+    let js = format!(
+        "try{{localStorage.setItem('__notemd_locale',{loc});}}catch(e){{}}location.reload();"
+    );
+    for label in labels {
+        if let Some(win) = app.get_webview_window(&label) {
+            let _ = win.eval(&js);
+        }
     }
 }
 

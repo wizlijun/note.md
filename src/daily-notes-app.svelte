@@ -59,12 +59,29 @@
     void themeCssTick
     const probe = probeEl?.querySelector('.moraya-editor') as HTMLElement | null
     if (!probe) return
+    const h1 = probeEl?.querySelector('.moraya-editor h1') as HTMLElement | null
+    const hr = probeEl?.querySelector('.moraya-editor hr') as HTMLElement | null
     const raf = requestAnimationFrame(() => {
       const cs = getComputedStyle(probe)
       const bg = cs.backgroundColor
+      // Theme's H1 metrics (compiled from `#write h1` → `.moraya-editor h1`) so a
+      // day's date header can render in the exact first-level-heading style.
+      const h1s = h1 ? getComputedStyle(h1) : null
+      const h1Vars = h1s
+        ? `--outline-h1-font-size:${h1s.fontSize};--outline-h1-font-weight:${h1s.fontWeight};` +
+          `--outline-h1-line-height:${h1s.lineHeight};`
+        : ''
+      // Theme's <hr> look (compiled from `#write hr` → `.moraya-editor hr`). Themes
+      // draw the rule either as a border-top OR as a background bar of some height,
+      // so replicate BOTH channels and let each day's divider apply them verbatim.
+      const hrs = hr ? getComputedStyle(hr) : null
+      const hrVars = hrs
+        ? `--outline-hr-border-top:${hrs.borderTopWidth} ${hrs.borderTopStyle} ${hrs.borderTopColor};` +
+          `--outline-hr-height:${hrs.height};--outline-hr-bg:${hrs.backgroundColor};`
+        : ''
       outlineTypo =
         `--outline-font-family:${cs.fontFamily};--outline-font-size:${cs.fontSize};` +
-        `--outline-line-height:${cs.lineHeight};color:${cs.color};` +
+        `--outline-line-height:${cs.lineHeight};color:${cs.color};` + h1Vars + hrVars +
         (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent' ? `background:${bg};` : '')
     })
     return () => cancelAnimationFrame(raf)
@@ -209,7 +226,7 @@
   <!-- Hidden probe: theme CSS styles `.moraya-editor` per `data-theme`; we read
        its computed font/color to drive the read-only outline typography above. -->
   <div class="typo-probe" data-theme={activeThemeId} aria-hidden="true" bind:this={probeEl}>
-    <div class="moraya-editor"></div>
+    <div class="moraya-editor"><h1></h1><hr /></div>
   </div>
   {#if !ready}
     <p class="msg">…</p>

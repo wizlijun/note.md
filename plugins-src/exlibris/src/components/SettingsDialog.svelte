@@ -4,6 +4,7 @@
   import RebuildPanel from "./RebuildPanel.svelte";
   import { readRules, writeRules } from "$lib/rules-io";
   import { writeSharedConfig } from "$lib/shared-config";
+  import { t } from "$lib/strings";
   import type { SharedConfig, Rule } from "$lib/types";
 
   let { config = $bindable<SharedConfig>(), open: isOpen = $bindable<boolean>() }: {
@@ -31,18 +32,18 @@
 {#if isOpen}
 <div class="overlay" onclick={() => isOpen = false} onkeydown={(e) => e.key === "Escape" && (isOpen = false)} role="presentation">
   <div class="dialog" onclick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
-    <h2>Settings</h2>
+    <h2>{t("settings.title")}</h2>
     <section>
-      <h3>Paths</h3>
-      <div>Sotvault: {config.sotvault ?? "—"} <button onclick={() => pickDir("sotvault")}>Choose</button></div>
-      <div>Rawvault: {config.rawvault ?? "—"} <button onclick={() => pickDir("rawvault")}>Choose</button></div>
-      <div>calibre: {config.calibre_path ?? "—"} <button onclick={() => pickDir("calibre_path")}>Choose</button></div>
+      <h3>{t("settings.paths")}</h3>
+      <div>{t("settings.sotvault")} {config.sotvault ?? "—"} <button onclick={() => pickDir("sotvault")}>{t("settings.choose")}</button></div>
+      <div>{t("settings.rawvault")} {config.rawvault ?? "—"} <button onclick={() => pickDir("rawvault")}>{t("settings.choose")}</button></div>
+      <div>{t("settings.calibre")} {config.calibre_path ?? "—"} <button onclick={() => pickDir("calibre_path")}>{t("settings.choose")}</button></div>
     </section>
     <RulesEditor bind:rules onSave={saveRules} />
     {#if config.sotvault && config.rawvault}
       <RebuildPanel sotvault={config.sotvault} rawvault={config.rawvault} {rules} />
     {/if}
-    <button onclick={() => isOpen = false}>Close</button>
+    <button onclick={() => isOpen = false}>{t("settings.close")}</button>
   </div>
 </div>
 {/if}

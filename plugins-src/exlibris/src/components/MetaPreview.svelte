@@ -1,5 +1,6 @@
 <script lang="ts">
   import { hostRequest } from "$lib/bridge";
+  import { t } from "$lib/strings";
   import type { BookMeta } from "$lib/types";
 
   let { meta, sotvault, ruleDir }: {
@@ -15,7 +16,7 @@
     try {
       await hostRequest("host.toast", {
         level: "info",
-        message: "Book note",
+        message: t("meta.toastTitle"),
         detail: path,
       });
     } catch (e) {
@@ -26,19 +27,19 @@
 
 <aside>
   <h3>{meta.title}</h3>
-  <p><strong>Authors:</strong> {meta.authors.join(", ")}</p>
-  <p><strong>Publisher:</strong> {meta.publisher ?? "—"}</p>
-  <p><strong>Language:</strong> {meta.language ?? "—"}</p>
-  <p><strong>ISBN:</strong> {meta.isbn ?? "—"}</p>
-  <p><strong>Tags:</strong> {meta.tags.join(", ")}</p>
-  <p><strong>Source:</strong> {meta.source_filename} ({meta.source_format})</p>
-  <p><strong>Raw path:</strong> <code>{meta.raw_path}</code></p>
-  <p><strong>Imported:</strong> {meta.import_time}</p>
+  <p><strong>{t("meta.authors")}</strong> {meta.authors.join(", ")}</p>
+  <p><strong>{t("meta.publisher")}</strong> {meta.publisher ?? "—"}</p>
+  <p><strong>{t("meta.language")}</strong> {meta.language ?? "—"}</p>
+  <p><strong>{t("meta.isbn")}</strong> {meta.isbn ?? "—"}</p>
+  <p><strong>{t("meta.tags")}</strong> {meta.tags.join(", ")}</p>
+  <p><strong>{t("meta.source")}</strong> {meta.source_filename} ({meta.source_format})</p>
+  <p><strong>{t("meta.rawPath")}</strong> <code>{meta.raw_path}</code></p>
+  <p><strong>{t("meta.imported")}</strong> {meta.import_time}</p>
   {#if meta.description}
-    <p><strong>Description:</strong></p>
+    <p><strong>{t("meta.description")}</strong></p>
     <p>{meta.description}</p>
   {/if}
-  <button onclick={openInMdeditor}>Open in mdeditor</button>
+  <button onclick={openInMdeditor}>{t("meta.openInMdeditor")}</button>
 </aside>
 
 <style>

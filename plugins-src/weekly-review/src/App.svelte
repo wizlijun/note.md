@@ -124,13 +124,13 @@
     <div class="subtitle">{t('title')}</div>
     <div class="spacer"></div>
     <div class="toolbar">
-      <button class="arrow" onclick={() => stepYear(-1)} aria-label="previous year">‹</button>
+      <button class="arrow" onclick={() => stepYear(-1)} aria-label={t('nav.prevYear')}>‹</button>
       <div class="years">
         {#each years as y}
           <button class="ychip" class:active={y === selectedYear} onclick={() => selectYear(y)}>{y}</button>
         {/each}
       </div>
-      <button class="arrow" onclick={() => stepYear(1)} aria-label="next year">›</button>
+      <button class="arrow" onclick={() => stepYear(1)} aria-label={t('nav.nextYear')}>›</button>
       <button class="tbtn accent" onclick={goThisWeek}>◎ {t('thisWeek')}</button>
       <button class="tbtn" onclick={() => scan(true)}>↻ {t('rebuild')}</button>
     </div>

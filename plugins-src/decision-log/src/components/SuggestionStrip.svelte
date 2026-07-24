@@ -135,12 +135,12 @@
   <div class="head">
     <span class="bulb">💡</span>
     <span class="label">{label}</span>
-    <div class="btns">
-      <button type="button" class="accept" disabled={busy} onclick={accept}>{acceptLabel}</button>
-      <button type="button" class="link" onclick={() => (expanded = !expanded)}>{t('sugg.detail')}</button>
-      <button type="button" class="reject" title={t('reject.hint')} disabled={busy} onclick={reject}>{t('reject')}</button>
-      <button type="button" class="x" title={t('sugg.dismiss')} disabled={busy} onclick={dismiss}>×</button>
-    </div>
+  </div>
+  <div class="btns">
+    <button type="button" class="accept" disabled={busy} onclick={accept}>{acceptLabel}</button>
+    <button type="button" class="link" onclick={() => (expanded = !expanded)}>{t('sugg.detail')}</button>
+    <button type="button" class="reject" title={t('reject.hint')} disabled={busy} onclick={reject}>{t('reject')}</button>
+    <button type="button" class="x" title={t('sugg.dismiss')} disabled={busy} onclick={dismiss}>×</button>
   </div>
   {#if expanded}
     <div class="detail">
@@ -165,10 +165,15 @@
     padding: 0.4rem 0.5rem;
     font-size: 0.82rem;
   }
-  .head { display: flex; align-items: center; gap: 0.4rem; }
-  .bulb { flex: 0 0 auto; }
-  .label { flex: 1; min-width: 0; line-height: 1.3; }
-  .btns { display: flex; align-items: center; gap: 0.3rem; flex: 0 0 auto; }
+  .head { display: flex; align-items: flex-start; gap: 0.4rem; }
+  .bulb { flex: 0 0 auto; line-height: 1.3; }
+  .label { flex: 1; min-width: 0; line-height: 1.3; overflow-wrap: anywhere; }
+  /* Actions sit on their own row beneath the label so a long localized label
+     never collides with / squeezes the four buttons (zh strings are wider). */
+  .btns {
+    display: flex; align-items: center; justify-content: flex-end;
+    flex-wrap: wrap; gap: 0.3rem; margin-top: 0.35rem;
+  }
   .accept {
     padding: 0.2rem 0.5rem; border: 0; border-radius: 5px;
     background: var(--accent, #2563eb); color: #fff; font: inherit; font-size: 0.78rem; cursor: pointer;

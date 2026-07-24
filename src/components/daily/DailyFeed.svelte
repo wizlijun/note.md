@@ -85,8 +85,18 @@
     isExtending = false
   }
 
+  /** First open: activate today and drop the caret into its last node so the user
+   *  can start writing immediately. Runs after the viewport fill so today's block
+   *  (top of the feed) is mounted and its ref registered. */
+  async function autoFocusToday(): Promise<void> {
+    const today = todayStr()
+    if (!dates.includes(today)) return
+    dayRefs.get(today)?.focusLast()
+    await activate(today)
+  }
+
   onMount(() => {
-    void fillViewport()
+    void fillViewport().then(autoFocusToday)
     const obs = new IntersectionObserver(
       (entries) => {
         // untrack: this callback both reads `dates`/`container` and writes

@@ -1,5 +1,6 @@
 <!-- src/components/chat/MessageList.svelte -->
 <script lang="ts">
+  import { t } from '../../lib/strings'
   import { state } from '../../lib/openclaw/client.svelte'
   import MessageBubble from './MessageBubble.svelte'
 
@@ -11,7 +12,7 @@
     <MessageBubble message={m} />
   {/each}
   {#if messages.length === 0}
-    <p class="empty">No messages yet. Say hi.</p>
+    <p class="empty">{t('chat.noMessages')}</p>
   {/if}
 </div>
 

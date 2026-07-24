@@ -2,7 +2,7 @@
      git-sync entry which presets the category filter to git-sync). -->
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { loadLocale, t } from './lib/i18n/store.svelte'
+  import { loadLocale, watchLocaleChanges, t } from './lib/i18n/store.svelte'
   import { getCurrentWindow } from '@tauri-apps/api/window'
   import { createLogsStore } from './lib/logs/logs-store.svelte'
   import type { LogLine } from './lib/logs/console-bridge'
@@ -17,13 +17,16 @@
 
   onMount(() => {
     let stop: (() => void) | undefined
+    let unlistenLocale: (() => void) | undefined
     ;(async () => {
       await loadLocale()
       try { await getCurrentWindow().setTitle(t('logs.title')) } catch { /* no-op */ }
+      // Follow live language switches from the main window's Settings.
+      unlistenLocale = await watchLocaleChanges()
       stop = await store.start()
       ready = true
     })()
-    return () => stop?.()
+    return () => { stop?.(); unlistenLocale?.() }
   })
 
   const PLUGIN_PREFIX = 'plugin:'

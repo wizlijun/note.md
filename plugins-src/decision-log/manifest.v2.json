@@ -2,32 +2,67 @@
   "manifest_version": 2,
   "id": "notemd.decision-log",
   "name": "Decision Log",
-  "version": "1.0.4",
+  "version": "1.0.6",
   "kind": "native",
-  "engines": { "notemd": ">=6.722.1" },
+  "engines": {
+    "notemd": ">=6.722.1"
+  },
   "description": "Predict before, judge after — a calibrated decision journal stored as .note.md.",
   "ui": "ui/",
-  "activation": { "events": ["onCommand:open"] },
+  "activation": {
+    "events": [
+      "onCommand:open"
+    ]
+  },
   "contributes": {
     "menus": [
-      { "location": "window", "label": "Decision Log", "command": "open" }
+      {
+        "location": "window",
+        "label": "Decision Log",
+        "command": "open"
+      }
     ],
     "windows": [
       {
         "id": "main",
         "entry": "index.html",
         "title": "Decision Log",
-        "width": 920.0,
-        "height": 680.0,
-        "min_width": 720.0,
-        "min_height": 480.0,
+        "width": 920,
+        "height": 680,
+        "min_width": 720,
+        "min_height": 480,
         "open_command": "open"
       }
     ],
     "tray": [
-      { "window": "main" }
+      {
+        "window": "main"
+      }
     ]
   },
-  "capabilities": ["vault.read", "vault.write", "toast"],
-  "i18n": { "zh": { "name": "决策日志", "menus": { "open": "决策日志" } } }
+  "capabilities": [
+    "vault.read",
+    "vault.write",
+    "toast"
+  ],
+  "i18n": {
+    "zh": {
+      "name": "决策日志",
+      "menus": {
+        "open": "决策日志"
+      }
+    },
+    "ja": {
+      "name": "意思決定ログ",
+      "menus": {
+        "open": "意思決定ログ"
+      }
+    },
+    "de": {
+      "name": "Entscheidungsprotokoll",
+      "menus": {
+        "open": "Entscheidungsprotokoll"
+      }
+    }
+  }
 }

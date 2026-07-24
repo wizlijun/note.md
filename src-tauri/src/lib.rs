@@ -1621,6 +1621,10 @@ fn build_tray_menu<R: tauri::Runtime>(
 /// to its placeholder; JS re-pushes the list via `refreshRecentMenu()` after.
 #[tauri::command]
 fn set_menu_locale(app: tauri::AppHandle, locale: String) -> Result<(), String> {
+    // Propagate the language switch to every open plugin window (isolated
+    // webviews with a build-time-injected locale). Done at the base so no plugin
+    // needs its own locale-refresh code.
+    plugin_runtime::windows::refresh_plugin_windows_locale(&app, &locale);
     apply_menu_locale(&app, &locale)
 }
 

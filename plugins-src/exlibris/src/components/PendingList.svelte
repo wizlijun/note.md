@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { PendingEntry } from "$lib/types";
+  import { t } from "$lib/strings";
   let { entries = $bindable<PendingEntry[]>(), onImport, onRemove }: {
     entries: PendingEntry[];
     onImport: () => void;
@@ -19,28 +20,28 @@
 <header>
   <label>
     <input type="checkbox" checked={allSelected} onchange={(e) => setAll(e.currentTarget.checked)} />
-    Select all
+    {t("pending.selectAll")}
   </label>
-  <button onclick={onImport} disabled={!hasSelection}>Import {entries.filter((e) => e.selected).length}</button>
+  <button onclick={onImport} disabled={!hasSelection}>{t("pending.import", { count: entries.filter((e) => e.selected).length })}</button>
 </header>
 
 <table>
   <thead><tr>
-    <th></th><th>Status</th><th>Book Name</th><th>Target</th><th>Source</th><th></th>
+    <th></th><th>{t("pending.col.status")}</th><th>{t("pending.col.bookName")}</th><th>{t("pending.col.target")}</th><th>{t("pending.col.source")}</th><th></th>
   </tr></thead>
   <tbody>
     {#each entries as e (e.id)}
       <tr class:exists={e.dedup === "exists"} class:attn={e.status === "needs_attention"}>
         <td><input type="checkbox" bind:checked={e.selected} /></td>
         <td>
-          {#if e.dedup === "exists"}🔁 exists
+          {#if e.dedup === "exists"}{t("pending.exists")}
           {:else if e.status === "needs_attention"}⚠️ {e.status}
           {:else}{e.status}{/if}
         </td>
         <td><input bind:value={e.book_name} /></td>
         <td><input bind:value={e.target_dir} list="rule-targets" /></td>
         <td title={e.source_path}>{e.source_filename}</td>
-        <td><button onclick={() => onRemove(e.id)}>×</button></td>
+        <td><button onclick={() => onRemove(e.id)} aria-label={t("pending.remove")}>×</button></td>
       </tr>
     {/each}
   </tbody>

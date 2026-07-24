@@ -1,6 +1,7 @@
 <script lang="ts">
   import { request, pickPaths } from "$lib/bridge";
   import { readSharedConfig, writeSharedConfig } from "$lib/shared-config";
+  import { t } from "$lib/strings";
   import type { SharedConfig } from "$lib/types";
 
   let { onReady }: { onReady: (cfg: SharedConfig) => void } = $props();
@@ -44,25 +45,25 @@
 </script>
 
 <section class="onboarding">
-  <h2>Get Started</h2>
+  <h2>{t("onboard.getStarted")}</h2>
   <ol>
     <li class:done={!!cfg.sotvault}>
-      <span>Sotvault: {cfg.sotvault ?? "Not configured"}</span>
-      <button onclick={() => pickDir("sotvault")}>Choose…</button>
+      <span>{t("onboard.sotvault")} {cfg.sotvault ?? t("onboard.notConfigured")}</span>
+      <button onclick={() => pickDir("sotvault")}>{t("onboard.choose")}</button>
     </li>
     <li class:done={!!cfg.rawvault}>
-      <span>Rawvault: {cfg.rawvault ?? "Not configured"}</span>
-      <button onclick={() => pickDir("rawvault")}>Choose…</button>
+      <span>{t("onboard.rawvault")} {cfg.rawvault ?? t("onboard.notConfigured")}</span>
+      <button onclick={() => pickDir("rawvault")}>{t("onboard.choose")}</button>
     </li>
     <li class:done={!!calibreDetected}>
-      <span>calibre: {calibreDetected ?? "Not detected"}</span>
-      <button onclick={() => pickDir("calibre_path")}>Choose…</button>
+      <span>{t("onboard.calibre")} {calibreDetected ?? t("onboard.notDetected")}</span>
+      <button onclick={() => pickDir("calibre_path")}>{t("onboard.choose")}</button>
       {#if !calibreDetected}
-        <a href="https://calibre-ebook.com" target="_blank">Install calibre</a>
+        <a href="https://calibre-ebook.com" target="_blank">{t("onboard.installCalibre")}</a>
       {/if}
     </li>
   </ol>
-  <button disabled={!ready} onclick={() => onReady(cfg)}>Get Started</button>
+  <button disabled={!ready} onclick={() => onReady(cfg)}>{t("onboard.getStarted")}</button>
 </section>
 
 <style>

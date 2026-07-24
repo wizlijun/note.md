@@ -30,7 +30,7 @@
   import { getVersion } from '@tauri-apps/api/app'
   import { confirm } from '@tauri-apps/plugin-dialog'
   import { loadSettings } from './lib/settings.svelte'
-  import { loadLocale, t } from './lib/i18n/store.svelte'
+  import { loadLocale, watchLocaleChanges, t } from './lib/i18n/store.svelte'
   import { pushToast } from './lib/toast.svelte'
   import {
     capabilityLabel,
@@ -59,6 +59,7 @@
 
   onMount(() => {
     let unlisten: (() => void) | null = null
+    let unlistenLocale: (() => void) | null = null
     void (async () => {
       try {
         await loadSettings()
@@ -73,8 +74,10 @@
       // The main window emits `plugins-changed` after every mutating op; when it
       // fires from elsewhere (e.g. a CLI install) keep our lists fresh too.
       unlisten = await listen('plugins-changed', () => { void refresh() })
+      // Follow live language switches from the main window's Settings.
+      unlistenLocale = await watchLocaleChanges()
     })()
-    return () => { unlisten?.() }
+    return () => { unlisten?.(); unlistenLocale?.() }
   })
 
   function setBusy(id: string, v: boolean) {
