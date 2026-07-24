@@ -51,13 +51,20 @@
   }
 </script>
 
-<div class="ref-node">
+<div class="ref-node" class:has-guide={hasChildren && !collapsed}>
   <div class="ref-row">
     {#if hasChildren}
-      <button class="twist" onclick={() => (collapsed = !collapsed)} aria-label="toggle">{collapsed ? '▸' : '▾'}</button>
-    {:else}
-      <span class="dot">•</span>
+      <!-- Fold caret: hidden in the gutter until the row is hovered (Roam style),
+           mirrors OutlineNode's .tri. -->
+      <button class="twist" class:closed={collapsed} onclick={() => (collapsed = !collapsed)} aria-label="toggle">▾</button>
     {/if}
+    <!-- CSS-drawn bullet (mirrors OutlineNode's .bullet); a collapsed parent gets
+         the grey ring. Clicking a parent bullet toggles its fold. -->
+    <span
+      class="bullet" class:has-kids={hasChildren} class:closed={hasChildren && collapsed}
+      onclick={() => { if (hasChildren) collapsed = !collapsed }}
+      role="presentation"
+    ></span>
     {#if editing}
       <textarea class="edit" rows="1" bind:value={draft} onkeydown={onKeydown} onblur={commit} use:autofocusGrow></textarea>
     {:else}
@@ -82,20 +89,69 @@
 </div>
 
 <style>
-  /* Inherit the main outline's typography so references read as one outline. */
+  /* Inherit the main outline's typography + Roam-style bullet/fold/guide so the
+     references read as one outline with the SAME base style as OutlineNode.
+     font-size on .ref-node so its em (children indent, guide offset) scale with
+     the theme size, exactly like OutlineNode's .node. */
+  .ref-node { position: relative; font-size: var(--outline-font-size, 13px); }
+  /* Vertical guide line under an expanded parent (mirrors .node.has-guide::before).
+     left = bullet center = row gutter (1.7em) + half bullet (0.5em) = 2.2em. */
+  .ref-node.has-guide::before {
+    content: '';
+    position: absolute;
+    top: var(--outline-line-height, 1.5em);
+    bottom: 0.15em;
+    left: 2.2em;
+    width: 1px;
+    background: color-mix(in srgb, currentColor 18%, transparent);
+    pointer-events: none;
+  }
   .ref-row {
-    display: flex; align-items: baseline; gap: 4px; padding: 1px 0;
+    display: flex; align-items: flex-start; gap: 4px;
+    position: relative;
+    /* 1.7em left gutter holds the hover-revealed caret; bullet sits at the edge. */
+    padding: 1px 0 1px 1.7em;
     font-family: var(--outline-font-family);
     font-size: var(--outline-font-size, 13px);
     line-height: var(--outline-line-height, 1.5);
   }
-  /* Match OutlineNode's .tri / .bullet so references read as one outline. */
+  /* Fold caret — absolutely floated in the gutter, hidden until row hover, ▾ reined
+     in with scale() so its em box matches the outline size (mirrors .tri). */
   .twist {
-    background: none; border: none; cursor: pointer; color: inherit;
-    font-size: 0.7em; opacity: 0.6; width: 1.1em; flex: none; padding: 0; line-height: inherit;
+    background: none; border: none; padding: 0; color: inherit; font-family: inherit;
+    font-size: var(--outline-font-size, 13px);
+    position: absolute; left: 0.75em; top: 1px;
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 1em; height: var(--outline-line-height, 1.5em); line-height: 1;
+    cursor: pointer; opacity: 0; transform: scale(0.7);
+    transition: transform 0.1s, opacity 0.1s;
   }
-  .twist:hover { opacity: 1; }
-  .dot { opacity: 0.7; width: 1.1em; flex: none; text-align: center; font-size: 1em; }
+  .ref-row:hover .twist { opacity: 0.6; }
+  .twist.closed { transform: rotate(-90deg) scale(0.7); }
+  /* Bullet — CSS-drawn dot centered in a line-height-tall box (mirrors .bullet). */
+  .bullet {
+    position: relative; display: inline-block; flex: none;
+    width: 1em; height: var(--outline-line-height, 1.5em); opacity: 0.7;
+  }
+  .bullet.has-kids { cursor: pointer; }
+  .bullet::after {
+    content: '';
+    position: absolute; left: 50%; top: 50%;
+    width: 0.32em; height: 0.32em;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    background: currentColor;
+  }
+  /* Collapsed parent: grey ring around the dot (mirrors .bullet.closed::before). */
+  .bullet.closed::before {
+    content: '';
+    position: absolute; left: 50%; top: 50%;
+    width: 0.75em; height: 0.75em;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    background: color-mix(in srgb, currentColor 20%, transparent);
+    z-index: -1;
+  }
   .text { flex: 1; min-width: 0; }
   .text.editable { cursor: text; border-radius: 3px; }
   .text.editable:hover { background: var(--hover-bg, #8881); }
@@ -107,5 +163,6 @@
     white-space: pre-wrap; word-break: break-word;
     line-height: var(--outline-line-height, 1.5);
   }
-  .children { padding-left: 1.1em; }
+  /* Per-level indent matches OutlineNode's 1.5em step so nesting lines up. */
+  .children { padding-left: 1.5em; }
 </style>
