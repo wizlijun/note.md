@@ -18,6 +18,7 @@
   import { deriveAutoItems } from '../../lib/outline/derive'
   import { syncAutoItems } from '../../lib/outline/sync'
   import { childrenOf, newId, calculateOrderBetween, setNodeContent, type OutlineNode as NodeT } from '../../lib/outline/model'
+  import OutlineBreadcrumb from './OutlineBreadcrumb.svelte'
   import {
     moveNodeAfter, moveNodeToChild, deleteNode, subtreeToMarkdown,
     deleteNodes, indentNodes, outdentNodes, moveNodesAfter, moveNodesToChild, nodesToMarkdown,
@@ -35,7 +36,7 @@
   import { sotvaultStore, syncSourceToVaultAsHome, refreshSotvault } from '../../lib/sotvault.svelte'
   import { openSettings } from '../../lib/ui-state.svelte'
 
-  let { tab = null, mainTab = null, embedded = false, onWikilink = null, onCollapse = null, linkedRefs = null }: {
+  let { tab = null, mainTab = null, embedded = false, onWikilink = null, onCollapse = null, linkedRefs = null, focusRootId = undefined, onFocusChange = null }: {
     /** tab 模式：单独打开的 .note.md tab —— 纯大纲编辑器 */
     tab?: Tab | null
     /** panel 模式：正在编辑的主文档 tab —— 全功能大纲，随主文档实时同步 */
@@ -52,7 +53,22 @@
     /** 是否显示底部 Linked References 区。null=跟随 embedded(嵌入时默认不显示);
      *  每日笔记的单页视图显式传 true 以与主大纲视图一致。 */
     linkedRefs?: boolean | null
+    /** zoom 聚焦根节点 id。**省略(undefined)=非受控**:编辑器自管聚焦(主大纲/单页
+     *  就地 zoom,自带面包屑)。**传入(string|null)=受控**:按此值渲染聚焦子树,自身
+     *  不改状态、不渲染面包屑(由宿主管,如每日日志聚焦视图),仅通过 onFocusChange 通知。 */
+    focusRootId?: string | null | undefined
+    /** 聚焦变更(bullet 点击 zoom-in / 面包屑 zoom-out)时回调;受控模式下宿主据此更新 focusRootId。 */
+    onFocusChange?: ((id: string | null) => void) | null
   } = $props()
+
+  // 聚焦状态:受控(prop 非 undefined)用外部值;非受控用内部 $state。
+  const focusControlled = $derived(focusRootId !== undefined)
+  let internalFocus = $state<string | null>(null)
+  const effectiveFocus = $derived(focusControlled ? (focusRootId ?? null) : internalFocus)
+  function focusNode(id: string | null) {
+    if (!focusControlled) internalFocus = id
+    onFocusChange?.(id)
+  }
 
   // Embedded (Daily Notes feed) hides Linked References; a single-page view opts
   // back in via linkedRefs=true so it matches the main 大纲笔记 view.
@@ -352,7 +368,22 @@
     }
     return set
   })
-  let visibleRoots = $derived(visibleIds ? roots.filter((r) => visibleIds!.has(r.id)) : roots)
+  // 聚焦(zoom)优先于搜索:聚焦时只渲染 focus 根这一棵子树(含根本身)。
+  let visibleRoots = $derived.by(() => {
+    void outline.version
+    const f = effectiveFocus
+    if (f) {
+      const n = outline.tree.nodes.get(f)
+      return n ? [n] : []            // 失效 id → 空,由下方 effect 回退到全文
+    }
+    return visibleIds ? roots.filter((r) => visibleIds!.has(r.id)) : roots
+  })
+  // 失效保护:聚焦节点被删/不存在 → 回退全文(受控则通知宿主清空)。
+  $effect(() => {
+    void outline.version
+    const f = effectiveFocus
+    if (f && !outline.tree.nodes.get(f)) untrack(() => focusNode(null))
+  })
 
   function toggleSearch() {
     searchOpen = !searchOpen
@@ -765,11 +796,15 @@
       {/if}
     </div>
   {/if}
+  {#if effectiveFocus && !focusControlled && outline.tree.nodes.get(effectiveFocus)}
+    <!-- 非受控就地 zoom 自带面包屑;受控(daily 聚焦视图)由宿主渲染带日期的面包屑。 -->
+    <OutlineBreadcrumb tree={outline.tree} focusRootId={effectiveFocus} rootLabel={pageNameOf(notePath)} onCrumb={focusNode} />
+  {/if}
   <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
   <div class="body" role="tree" bind:this={bodyEl} onclick={onBodyClick}
     onpointerdown={onBandDown} onpointermove={onBandMove} onpointerup={onBandUp}>
     {#each visibleRoots as node (node.id)}
-      <OutlineNode {node} depth={0} {resolved} {onJump} {onPageClick} {onEditorInput} {onContextMenu} {onDragOp} {visibleIds} {onCollapse} />
+      <OutlineNode {node} depth={0} {resolved} {onJump} {onPageClick} {onEditorInput} {onContextMenu} {onDragOp} {visibleIds} {onCollapse} onFocus={(n) => focusNode(n.id)} forceExpand={effectiveFocus === node.id} />
     {/each}
     {#if visibleRoots.length === 0}
       <p class="empty">{visibleIds ? t('outline.noSearchResults') : t('outline.empty')}</p>

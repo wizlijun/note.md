@@ -32,9 +32,13 @@
   import { classifyLink } from './lib/daily/link-route'
   import DailyFeed from './components/daily/DailyFeed.svelte'
   import DailyPage from './components/daily/DailyPage.svelte'
+  import DailyFocus from './components/daily/DailyFocus.svelte'
   import DailyToolbar from './components/daily/DailyToolbar.svelte'
 
-  type View = { kind: 'feed'; date?: string } | { kind: 'page'; page: string }
+  type View =
+    | { kind: 'feed'; date?: string }
+    | { kind: 'page'; page: string }
+    | { kind: 'focus'; date: string; path: number[] }
 
   let ready = $state(false)
   let activeThemeId = $derived(activeTheme.id)
@@ -101,7 +105,9 @@
    *  singleton stays owned by at most one editor across the transition. */
   async function syncView(): Promise<void> {
     const next = nav.current()
-    if (next.kind === 'page') await feed?.deactivateActive()
+    // page / focus 视图各自挂一个编辑器 → 先拆掉 feed 的活动日编辑器,
+    // 保证 outline 单例任一时刻只被一个编辑器持有。
+    if (next.kind === 'page' || next.kind === 'focus') await feed?.deactivateActive()
     view = next
     canBack = nav.canBack()
     canForward = nav.canForward()
@@ -133,6 +139,23 @@
       nav.push({ kind: 'page', page: r.page })
       void syncView()
     }
+  }
+
+  /** feed 里点 bullet(zoom-in)→ 进该天的聚焦视图。用 index-path(而非 node id)寻址:
+   *  聚焦视图重开 tab 会重解析出不同 id,只有结构性 path 能跨解析对齐(同 DailyDay)。 */
+  function handleFocus(date: string, path: number[]): void {
+    nav.push({ kind: 'focus', date, path })
+    void syncView()
+  }
+
+  /** 聚焦视图内变更:bullet 深钻(path=子)或面包屑回退(path=祖先 / null=回该天 feed)。 */
+  function handleFocusChange(path: number[] | null): void {
+    const cur = nav.current()
+    const date = cur.kind === 'focus' ? cur.date : undefined
+    if (!date) return
+    if (path == null) nav.push({ kind: 'feed', date })
+    else nav.push({ kind: 'focus', date, path })
+    void syncView()
   }
 
   // Theme state at component scope so a cross-window settings change can re-run
@@ -245,13 +268,23 @@
     <!-- Feed stays mounted (hidden when a page is shown) to preserve scroll and
          the lazy date window across navigations. -->
     <div class="view" class:hidden={view.kind !== 'feed'}>
-      <DailyFeed bind:this={feed} on:linkclick={(e) => void handleLink(e.detail.raw)} />
+      <DailyFeed bind:this={feed}
+        on:linkclick={(e) => void handleLink(e.detail.raw)}
+        on:focus={(e) => handleFocus(e.detail.date, e.detail.path)} />
     </div>
     {#if view.kind === 'page'}
       <div class="view">
         <!-- Wikilink clicks inside the page editor route back through handleLink
              (onWikilink → linkclick), so navigation stays in-window. -->
         <DailyPage page={view.page} on:linkclick={(e) => void handleLink(e.detail.raw)} />
+      </div>
+    {:else if view.kind === 'focus'}
+      <div class="view">
+        <!-- zoom 聚焦视图:只显示该节点子树,顶部日期面包屑 zoom-out。深钻/回退经
+             focuschange 更新视图;path=null → 回该天 feed。 -->
+        <DailyFocus date={view.date} path={view.path} rootLabel={view.date}
+          on:linkclick={(e) => void handleLink(e.detail.raw)}
+          on:focuschange={(e) => handleFocusChange(e.detail.path)} />
       </div>
     {/if}
   {/if}

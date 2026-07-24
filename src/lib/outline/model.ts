@@ -55,6 +55,23 @@ export function normalizeSiblingOrders(tree: OutlineTree, parentId: string | nul
   childrenOf(tree, parentId).forEach((n, idx) => { n.order = idx * 100 })
 }
 
+/** 从 id 沿 parentId 上溯到根,返回祖先链(根在前、直接父在后;**不含 id 本身**)。
+ *  用于 zoom 面包屑(hulunote get-nav-breadcrumbs + butlast)。带环保护:遇到已访问
+ *  的 id 立即停止,防坏树死循环。id 不存在 → 空数组。 */
+export function ancestorsOf(tree: OutlineTree, id: string): OutlineNode[] {
+  const chain: OutlineNode[] = []
+  const seen = new Set<string>([id])
+  let pid = tree.nodes.get(id)?.parentId ?? null
+  while (pid != null && !seen.has(pid)) {
+    const p = tree.nodes.get(pid)
+    if (!p) break
+    seen.add(pid)
+    chain.push(p)
+    pid = p.parentId
+  }
+  return chain.reverse()
+}
+
 /** hulunote render.cljs:639 collect-descendant-ids */
 export function collectDescendantIds(tree: OutlineTree, id: string): Set<string> {
   const acc = new Set<string>()

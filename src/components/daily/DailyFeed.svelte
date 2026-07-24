@@ -25,7 +25,7 @@
   import { todayStr } from '../../lib/outline/daily'
   import { refreshSotvault } from '../../lib/sotvault.svelte'
 
-  const dispatch = createEventDispatcher<{ linkclick: { raw: string } }>()
+  const dispatch = createEventDispatcher<{ linkclick: { raw: string }; focus: { date: string; path: number[] } }>()
 
   let dates = $state<string[]>(dateRange(todayStr(), 7))
   let activeDate = $state<string | null>(null)
@@ -144,6 +144,10 @@
     dispatch('linkclick', e.detail)
   }
 
+  function onFocus(e: CustomEvent<{ date: string; path: number[] }>): void {
+    dispatch('focus', e.detail)
+  }
+
   // ── Exposed API (consumed by the toolbar/routing task) ──────────────────────
 
   /** Scroll a date into view, rebuilding the window around it if it's not loaded.
@@ -199,6 +203,7 @@
         {filterQuery}
         on:requestActivate={onRequestActivate}
         on:linkclick={onLinkclick}
+        on:focus={onFocus}
       />
     </div>
   {/each}

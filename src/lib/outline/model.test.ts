@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest'
 import {
   createTree, addNode, childrenOf, calculateOrderBetween,
   normalizeSiblingOrders, collectDescendantIds, isValidDropTarget,
-  visibleNodes, removeSubtree, setNodeContent, type OutlineTree,
+  visibleNodes, removeSubtree, setNodeContent, ancestorsOf, type OutlineTree,
 } from './model'
 
 function sampleTree(): OutlineTree {
@@ -22,6 +22,31 @@ describe('calculateOrderBetween (hulunote render.cljs:612)', () => {
   it('prev+100 when next null', () => expect(calculateOrderBetween(200, null)).toBe(300))
   it('next/2 when prev null', () => expect(calculateOrderBetween(null, 100)).toBe(50))
   it('0 when both null', () => expect(calculateOrderBetween(null, null)).toBe(0))
+})
+
+describe('ancestorsOf (zoom breadcrumb)', () => {
+  it('root-first ancestor chain, excludes the node itself', () => {
+    const t = sampleTree()
+    expect(ancestorsOf(t, 'b1').map(n => n.id)).toEqual(['b'])
+  })
+  it('deeper chain is root-first', () => {
+    const t = sampleTree()
+    addNode(t, { id: 'b1a', parentId: 'b1', order: 0, content: 'B1A', collapsed: false, source: 'manual' })
+    expect(ancestorsOf(t, 'b1a').map(n => n.id)).toEqual(['b', 'b1'])
+  })
+  it('top-level node has no ancestors', () => {
+    expect(ancestorsOf(sampleTree(), 'a')).toEqual([])
+  })
+  it('unknown id → empty', () => {
+    expect(ancestorsOf(sampleTree(), 'nope')).toEqual([])
+  })
+  it('cycle-safe: broken parent loop terminates', () => {
+    const t = createTree()
+    addNode(t, { id: 'x', parentId: 'y', order: 0, content: 'X', collapsed: false, source: 'manual' })
+    addNode(t, { id: 'y', parentId: 'x', order: 0, content: 'Y', collapsed: false, source: 'manual' })
+    // must not hang; returns the one reachable ancestor before the cycle closes
+    expect(ancestorsOf(t, 'x').map(n => n.id)).toEqual(['y'])
+  })
 })
 
 describe('tree basics', () => {

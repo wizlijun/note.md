@@ -20,6 +20,7 @@
     onEditorInput = () => false, onContextMenu = () => {}, onDragOp = () => {},
     visibleIds = null,
     readonly = false, tree = null, onActivate = null, onCollapse = null, foldVersion = 0,
+    onFocus = null, forceExpand = false,
   }: {
     node: NodeT
     depth: number
@@ -44,6 +45,12 @@
     /** 只读模式重渲染信号：折叠切换时父级 bump 它，强制折叠相关 derive 重算
      *  （只读树在 outline 单例之外，node.collapsed 变异经 Map 代理不一定响应）。 */
     foldVersion?: number
+    /** bullet 点击 = zoom-in 到该节点(Roam/hulunote 语义);null=不支持聚焦。
+     *  折叠交给 tri 三角,bullet 只发聚焦事件,由宿主决定就地/切视图。 */
+    onFocus?: ((n: NodeT) => void) | null
+    /** 该行是聚焦视图的顶行(focus 根):忽略自身 collapsed,始终展开其直接子节点,
+     *  这样聚焦一个折叠节点也能看到内容。仅作用于顶行,子节点各自遵守 collapsed。 */
+    forceExpand?: boolean
   } = $props()
 
   const srcTree = $derived(tree ?? outline.tree)
@@ -64,6 +71,7 @@
   let content = $derived.by(() => { if (!readonly) void outline.version; return node.content })
   let showChildren = $derived.by(() => {
     if (readonly) void foldVersion; else void outline.version
+    if (forceExpand) return kids.length > 0            // 聚焦顶行:无视 collapsed
     return visibleIds ? kids.length > 0 : !node.collapsed
   })
   let textareaEl: HTMLTextAreaElement | undefined = $state()
@@ -128,13 +136,9 @@
     if (changed) markDirty()
   }
   function onBulletClick() {
-    // Roam 风格：bullet 点击切换 focus（折叠/展开该子树）；叶子节点保留跳转。
-    if (kids.length > 0) {
-      node.collapsed = !node.collapsed
-      if (onCollapse) { if (!readonly) bump(); onCollapse(node) }
-      else { bump(); markDirty() }
-      return
-    }
+    // Roam/hulunote 语义：bullet 点击 = zoom-in 到该节点(折叠归 tri 三角)。
+    // 宿主未接聚焦(onFocus=null)时,退回旧行为:可跳转的叶子跳到源。
+    if (onFocus) { onFocus(node); return }
     if (node.anchorLine != null) onJump(node)
   }
 
@@ -318,7 +322,7 @@
   </div>
   {#if showChildren}
     {#each kids as child (child.id)}
-      <OutlineNode node={child} depth={depth + 1} {resolved} {onJump} {onPageClick} {onEditorInput} {onContextMenu} {onDragOp} {visibleIds} {readonly} {tree} {onActivate} {onCollapse} {foldVersion} />
+      <OutlineNode node={child} depth={depth + 1} {resolved} {onJump} {onPageClick} {onEditorInput} {onContextMenu} {onDragOp} {visibleIds} {readonly} {tree} {onActivate} {onCollapse} {foldVersion} {onFocus} />
     {/each}
   {/if}
 </div>

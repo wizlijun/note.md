@@ -24,10 +24,10 @@
   import { childrenOf, createTree, addNode, newId, type OutlineNode as NodeT, type OutlineTree } from '../../lib/outline/model'
   import { dayMatches } from '../../lib/daily/filter'
   import { i18n, type Locale } from '../../lib/i18n/store.svelte'
-  import { applyFolds, setPathExpanded, noteKey, pathOfNodeIn } from '../../lib/daily/folds'
+  import { applyFolds, setPathExpanded, noteKey, pathOfNodeIn, nodeIdAtPath } from '../../lib/daily/folds'
 
   let { date, active = false, filterQuery = '' }: { date: string; active?: boolean; filterQuery?: string } = $props()
-  const dispatch = createEventDispatcher<{ requestActivate: { date: string }; linkclick: { raw: string } }>()
+  const dispatch = createEventDispatcher<{ requestActivate: { date: string }; linkclick: { raw: string }; focus: { date: string; path: number[] } }>()
 
   let tree = $state<OutlineTree>(createTree())
   /** The tab backing the active editor (created lazily when this day activates). */
@@ -152,21 +152,6 @@
     })
   })
 
-  /** Resolve an index path (from the read-only tree) against the now-attached
-   *  editor tree (`outline.tree`), which has different node ids but the same
-   *  structure, and return the node id at that path (null if out of range). */
-  function nodeIdAtPath(path: number[]): string | null {
-    let parentId: string | null = null
-    let id: string | null = null
-    for (const idx of path) {
-      const node: NodeT | undefined = childrenOf(outline.tree, parentId)[idx]
-      if (!node) return null
-      id = node.id
-      parentId = node.id
-    }
-    return id
-  }
-
   // Single-click-to-edit: once the editor has attached THIS day's doc to the
   // outline singleton, drop straight into editing the clicked node (empty path or
   // an unresolved path → the first node). This makes one click on a read-only day
@@ -179,7 +164,7 @@
       const path = pendingEditPath
       pendingEditPath = null
       if (!path) return
-      const id = (path.length ? nodeIdAtPath(path) : null) ?? childrenOf(outline.tree, null)[0]?.id ?? null
+      const id = (path.length ? nodeIdAtPath(outline.tree, path) : null) ?? childrenOf(outline.tree, null)[0]?.id ?? null
       if (id) outline.editingId = id
     })
   })
@@ -290,6 +275,8 @@
         <OutlineEditor
           tab={editorTab}
           embedded={true}
+          focusRootId={null}
+          onFocusChange={(id) => { if (id) dispatch('focus', { date, path: pathOfNodeIn(outline.tree, id) }) }}
           onWikilink={(target) => dispatch('linkclick', { raw: `[[${target}]]` })}
           onCollapse={persistFold}
         />
@@ -310,6 +297,7 @@
           {foldVersion}
           onActivate={handleActivate}
           onCollapse={roCollapse}
+          onFocus={(n) => dispatch('focus', { date, path: pathOfNodeIn(tree, n.id) })}
           onPageClick={(target) => dispatch('linkclick', { raw: `[[${target}]]` })}
         />
       {/each}

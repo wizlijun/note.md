@@ -54,6 +54,22 @@ export function pathOfNodeIn(tree: OutlineTree, id: string): number[] {
   return path
 }
 
+/** Resolve an index path against a tree, returning the node id at that structural
+ *  position (null if out of range). Inverse of pathOfNodeIn — bridges a read-only
+ *  parse's path to the editor's freshly-parsed tree (which has different node ids
+ *  but the same structure). */
+export function nodeIdAtPath(tree: OutlineTree, path: number[]): string | null {
+  let parentId: string | null = null
+  let id: string | null = null
+  for (const idx of path) {
+    const node: OutlineNode | undefined = childrenOf(tree, parentId)[idx]
+    if (!node) return null
+    id = node.id
+    parentId = node.id
+  }
+  return id
+}
+
 /** Dated daily-note keys look like `.../2026-07-23.note.md`; capture the date. */
 const DATE_IN_KEY = /(\d{4}-\d{2}-\d{2})\.note\.md$/
 
