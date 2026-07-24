@@ -1,7 +1,7 @@
 # note.md 产品对象字典 / UI Object Glossary
 
-面向大纲(outliner)+ markdown 阅读/编辑器的关键 UI 对象命名表。每条给出**英文常用名**、
-**中文**、**说明**、**在本项目中的落点**(组件/类名,便于对齐代码与设计讨论)。英文名尽量采用
+面向大纲(outliner)+ markdown 阅读/编辑器的关键 UI 对象命名表。每条给出**英文常用名**、  
+**中文**、**说明**、**在本项目中的落点**(组件/类名,便于对齐代码与设计讨论)。英文名尽量采用  
 Roam / Workflowy / Obsidian / Logseq 等成熟产品的通行叫法。
 
 > 约定:`code` = 代码里的实际类名/标识符;斜体 = 同义词/别名。
@@ -11,7 +11,7 @@ Roam / Workflowy / Obsidian / Logseq 等成熟产品的通行叫法。
 ## 1. 大纲结构 Outline structure
 
 | 英文名 | 中文 | 说明 | 落点 |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | **node** / *item* / *block* | 节点 / 条目 | 大纲里的一行,可含子节点。Roam 叫 block,Workflowy 叫 item,Logseq 叫 block。 | `OutlineNode.svelte`, `.node` |
 | **row** | 行 | 单个节点的一行容器(bullet+内容),不含其子树。 | `.row` |
 | **bullet** / *dot* | 项目符号 / 圆点 | 每个节点左侧的小圆点。可点击 = zoom-in。 | `.bullet`(CSS 圆点 `::after`) |
@@ -31,7 +31,7 @@ Roam / Workflowy / Obsidian / Logseq 等成熟产品的通行叫法。
 ## 2. 缩放导航 Zoom / focus navigation
 
 | 英文名 | 中文 | 说明 | 落点 |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | **zoom-in** / **focus** / **hoist** | 聚焦深钻 | 点 bullet 把某节点当作新根,只显示其子树。Roam=zoom,Workflowy=focus/hoist。 | `focusRootId`, `onFocus` |
 | **zoom-out** | 退出聚焦 | 回到上一级或全文。 | `onFocusChange(null)` |
 | **breadcrumb** / *breadcrumbs* | 面包屑 | 聚焦时顶部显示祖先路径的导航条。 | `OutlineBreadcrumb.svelte`, `.crumbs` |
@@ -45,7 +45,7 @@ Roam / Workflowy / Obsidian / Logseq 等成熟产品的通行叫法。
 ## 3. 编辑器外壳 Editor chrome
 
 | 英文名 | 中文 | 说明 | 落点 |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | **toolbar** | 工具栏 | 编辑器顶部操作条(搜索/重生成/保存)。 | `.toolbar` |
 | **doc title** | 文档标题 | 工具栏左侧的当前笔记名。 | `.doc-title` |
 | **search bar** / *filter* | 搜索栏 | 大纲内文本过滤输入。 | `.search-row`, `.search-input` |
@@ -60,7 +60,7 @@ Roam / Workflowy / Obsidian / Logseq 等成熟产品的通行叫法。
 ## 4. 行内内容 Inline content & menus
 
 | 英文名 | 中文 | 说明 | 落点 |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | **wikilink** / *page link* / *internal link* | 双链 / 内部链接 | `[[页面名]]` 形式的链接。 | `InlineRender`, `onPageClick` |
 | **backlink** | 反向链接 | 指向当前页的其他页链接。 | `backlinks.ts` |
 | **linked references** | 链接引用 | 页面底部聚合所有反链的区块。 | `LinkedReferences.svelte`, `RefTreeNode.svelte` |
@@ -79,7 +79,7 @@ Roam / Workflowy / Obsidian / Logseq 等成熟产品的通行叫法。
 ## 5. 每日日志 Daily Notes
 
 | 英文名 | 中文 | 说明 | 落点 |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | **feed** | 信息流 | 连续滚动、按日期排列的多天流。 | `DailyFeed.svelte`, `.feed` |
 | **day block** | 日块 | feed 中单独一天的区块。 | `DailyDay.svelte`, `.day` |
 | **date header** | 日期标题 | 日块顶部的本地化日期(作 H1 显示)。 | `.date`, `displayDate` |
@@ -95,7 +95,7 @@ Roam / Workflowy / Obsidian / Logseq 等成熟产品的通行叫法。
 ## 6. 文件与 vault File / vault model
 
 | 英文名 | 中文 | 说明 | 落点 |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | **vault** | 库 | 一批 `.md` 的中立公共仓库(类 git repo)。 | `sotvaultStore.vaultRoot` |
 | **companion note / sidecar note** | 伴生笔记 | 与源文件配对的批注/大纲 `.note.md`。用户可见名"伴生笔记"。 | `.note.md`, `companionPathFor` |
 | **mirror-hosted marks** | 镜像宿主批注 | 批注属于 vault、不属于路径:源文件镜像进 vault 作批注宿主。 | `note-home`, `.notemd/mirrors` |
@@ -109,7 +109,7 @@ Roam / Workflowy / Obsidian / Logseq 等成熟产品的通行叫法。
 ## 7. 节点来源标记 Node source markers
 
 | 英文名 | 中文 | 说明 | 落点 |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | **AI mark ✦ vs human mark ●** | AI 标记 / 人类标记 | `✦`=AI 所写,`●`=你所想(判断/意图)。 | 产品约定 |
 | **source: toc / highlight / wikilink / annotation / note / manual** | 节点来源类型 | 决定 bullet 颜色与可编辑性。 | `NodeSource` |
 | **auto node vs manual node** | 自动节点 / 手动节点 | 派生只读节点 vs 用户手写节点。 | `source!=='manual'` |
@@ -119,7 +119,7 @@ Roam / Workflowy / Obsidian / Logseq 等成熟产品的通行叫法。
 ## 8. 面板与窗口 Panels & windows
 
 | 英文名 | 中文 | 说明 | 落点 |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | **side panel** | 侧栏 | 注册表驱动的可切换左右侧栏。 | `OutlinePanel.svelte` |
 | **panel switcher** | 侧栏切换器 | 标题栏下拉切换侧栏内容。 | 标题栏下拉 |
 | **editor pane** | 编辑器面板 | 主编辑区。 | `EditorPane.svelte` |
@@ -131,7 +131,7 @@ Roam / Workflowy / Obsidian / Logseq 等成熟产品的通行叫法。
 ## 9. 插件与市场 Plugins & market
 
 | 英文名 | 中文 | 说明 | 落点 |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | **plugin (v2)** | 插件 | 进程内隔离 webview,经 `window.notemd` 桥通信。 | `plugins-src/*` |
 | **plugin market** | 插件市场 | 在线插件商店。 | `plugin-market-app.svelte` |
 | **manifest** | 清单 | 插件元数据 `manifest.v2.json`。 | `manifest.v2.json` |
@@ -141,7 +141,4 @@ Roam / Workflowy / Obsidian / Logseq 等成熟产品的通行叫法。
 
 ## 附:命名速查(高频)
 
-`node · row · bullet · tri(caret) · collapsed ring(halo) · guide line · gutter ·
-indent · zoom-in(focus/hoist) · zoom-out · breadcrumb · crumb · toolbar ·
-wikilink · backlink · linked references · slash menu · feed · day block ·
-date header · day divider · companion/sidecar note · vault · anchor line · tab`
+`node · row · bullet · tri(caret) · collapsed ring(halo) · guide line · gutter · indent · zoom-in(focus/hoist) · zoom-out · breadcrumb · crumb · toolbar · wikilink · backlink · linked references · slash menu · feed · day block · date header · day divider · companion/sidecar note · vault · anchor line · tab`
