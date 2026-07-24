@@ -37,10 +37,13 @@
 </nav>
 
 <style>
+  /* 面包屑是导航 chrome,不是正文 —— 用系统 UI 字体 + 固定 13px 对齐工具栏
+     (.doc-title),而非跟随主题阅读字体/字号(--outline-*),保证与主 UI 一致。 */
   .crumbs {
     display: flex; align-items: center; flex-wrap: wrap; gap: 4px;
-    padding: 6px 8px;
-    font-size: var(--outline-font-size, 13px);
+    padding: 6px 16px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+    font-size: 13px;
     line-height: 1.4;
     border-bottom: 1px solid color-mix(in srgb, CanvasText 10%, transparent);
   }
