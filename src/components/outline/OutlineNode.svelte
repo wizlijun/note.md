@@ -111,6 +111,9 @@
     // 行内刚拖选了一段文字：保留文字选区（供复制），不进入编辑
     const sel = window.getSelection()
     if (sel && !sel.isCollapsed) return
+    // 只读(auto)节点：内容不可编辑,点击文字 = 跳转到源 md 对应位置
+    // (伴生笔记阅读态:点 TOC/高亮/wikilink/批注节点的文字即定位主文档)。
+    if (!editable && node.anchorLine != null) { onJump(node); return }
     clearSelection()
     startEdit()
   }
@@ -313,8 +316,9 @@
       ></textarea>
     {:else}
       <span class="content" class:hl={node.source === 'highlight' || markLike} class:src-toc={node.source === 'toc'}
+        class:jump-src={!readonly && !editable && node.anchorLine != null}
         onclick={readonly ? () => onActivate?.(node) : onContentClick} role="button" tabindex="0"
-        onkeydown={(e) => { if (e.key === 'Enter') { if (readonly) onActivate?.(node); else startEdit() } }}>
+        onkeydown={(e) => { if (e.key === 'Enter') { if (readonly) onActivate?.(node); else if (!editable && node.anchorLine != null) onJump(node); else startEdit() } }}>
         <!-- 空内容：塞零宽空格保证有行盒，鼠标可命中进入编辑 -->
         {#if content === ''}{'​'}{:else}<InlineRender {content} onPageClick={onPageClick} />{/if}
       </span>
@@ -429,6 +433,9 @@
   }
   /* toc 灰色跟随主题前景色（GrayText 是系统色,不随 theme 变化） */
   .content.src-toc, textarea.src-toc { color: color-mix(in srgb, currentColor 45%, transparent); }
+  /* 只读(auto)可跳转节点:点击文字定位到源 md → 指针光标 + hover 下线提示。 */
+  .content.jump-src { cursor: pointer; }
+  .content.jump-src:hover { text-decoration: underline; text-underline-offset: 2px; }
   .content.hl,
   textarea.hl {
     text-decoration: underline;
