@@ -21,6 +21,7 @@
   import { isPluginActive } from '../lib/plugins/registry'
   import { outlineShortcuts, setShortcutOverride } from '../lib/outline/gate.svelte'
   import { outlineDirs, setOutlineDir } from '../lib/outline/dirs.svelte'
+  import { inboxDir, setInboxDir } from '../lib/quick-note.svelte'
   import { vaultSettings, loadVaultSettings, saveSyncDir, DEFAULT_SYNC_DIR, saveLargeFileThreshold, DEFAULT_LARGE_FILE_THRESHOLD_MB } from '../lib/vault-settings.svelte'
   import { pushToast } from '../lib/toast.svelte'
   import {
@@ -56,6 +57,13 @@
   async function onSetOutlineDir(kind: 'wikipage' | 'dailynote', value: string) {
     try {
       await setOutlineDir(kind, value)
+    } catch (e) {
+      pushToast({ level: 'error', message: t('vaultSync.saveFailed', { error: String(e) }), detail: String(e) })
+    }
+  }
+  async function onSetInboxDir(value: string) {
+    try {
+      await setInboxDir(value)
     } catch (e) {
       pushToast({ level: 'error', message: t('vaultSync.saveFailed', { error: String(e) }), detail: String(e) })
     }
@@ -775,6 +783,11 @@
             <label for="dailynote-dir">{t('outline.dailynoteDir')}</label>
             <input id="dailynote-dir" type="text" value={outlineDirs.dailynote}
               onchange={(e) => void onSetOutlineDir('dailynote', (e.currentTarget as HTMLInputElement).value)} />
+          </div>
+          <div class="field-row">
+            <label for="inbox-dir">{t('quickNote.inboxDir')}</label>
+            <input id="inbox-dir" type="text" value={inboxDir.value}
+              onchange={(e) => void onSetInboxDir((e.currentTarget as HTMLInputElement).value)} />
           </div>
         </section>
       {:else}

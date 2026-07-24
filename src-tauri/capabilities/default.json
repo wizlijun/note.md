@@ -74,6 +74,9 @@
     },
     "updater:default",
     "process:default",
-    "process:allow-restart"
+    "process:allow-restart",
+    "global-shortcut:allow-register",
+    "global-shortcut:allow-unregister",
+    "global-shortcut:allow-is-registered"
   ]
 }

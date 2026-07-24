@@ -13,6 +13,9 @@ const SETTINGS_FILE: &str = "settings.json";
 /// Default sync sub-directory when unset/invalid.
 pub const DEFAULT_SYNC_DIR: &str = "sync";
 
+/// Default quick-note inbox sub-directory when unset/invalid.
+pub const DEFAULT_INBOX_DIR: &str = "inbox";
+
 /// Raw parsed settings. Every field is optional: absent = "not configured",
 /// so callers apply their own defaults (never persisted implicitly).
 #[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
@@ -24,6 +27,8 @@ pub struct VaultSettings {
     pub wikipage_dir: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub dailynote_dir: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub inbox_dir: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub large_file_threshold_mb: Option<u32>,
 }
@@ -85,6 +90,7 @@ pub fn merge(
     wikipage_dir: Option<String>,
     dailynote_dir: Option<String>,
     large_file_threshold_mb: Option<u32>,
+    inbox_dir: Option<String>,
 ) -> Result<VaultSettings, String> {
     let mut out = base;
     if let Some(v) = sync_dir {
@@ -95,6 +101,9 @@ pub fn merge(
     }
     if let Some(v) = dailynote_dir {
         out.dailynote_dir = Some(validate_rel_dir(&v)?);
+    }
+    if let Some(v) = inbox_dir {
+        out.inbox_dir = Some(validate_rel_dir(&v)?);
     }
     if let Some(mb) = large_file_threshold_mb {
         if mb == 0 {
@@ -112,6 +121,15 @@ pub fn resolve_sync_dir(vault_root: &Path) -> String {
         .sync_dir
         .and_then(|v| validate_rel_dir(&v).ok())
         .unwrap_or_else(|| DEFAULT_SYNC_DIR.to_string())
+}
+
+/// The effective quick-note inbox sub-directory: the configured value when
+/// present and valid, otherwise [`DEFAULT_INBOX_DIR`].
+pub fn resolve_inbox_dir(vault_root: &Path) -> String {
+    read(vault_root)
+        .inbox_dir
+        .and_then(|v| validate_rel_dir(&v).ok())
+        .unwrap_or_else(|| DEFAULT_INBOX_DIR.to_string())
 }
 
 #[cfg(test)]
@@ -140,6 +158,7 @@ mod tests {
             sync_dir: Some("sync".into()),
             wikipage_dir: Some("wiki".into()),
             dailynote_dir: None,
+            inbox_dir: Some("inbox".into()),
             large_file_threshold_mb: None,
         };
         write(dir.path(), &s).unwrap();
@@ -176,17 +195,38 @@ mod tests {
             sync_dir: Some("sync".into()),
             wikipage_dir: Some("wiki".into()),
             dailynote_dir: Some("daily".into()),
+            inbox_dir: Some("inbox".into()),
             large_file_threshold_mb: None,
         };
-        let out = merge(base, Some("box".into()), None, None, None).unwrap();
+        let out = merge(base, Some("box".into()), None, None, None, None).unwrap();
         assert_eq!(out.sync_dir.as_deref(), Some("box"));
         assert_eq!(out.wikipage_dir.as_deref(), Some("wiki"));
         assert_eq!(out.dailynote_dir.as_deref(), Some("daily"));
+        assert_eq!(out.inbox_dir.as_deref(), Some("inbox"));
     }
 
     #[test]
     fn merge_rejects_invalid_provided_value() {
-        assert!(merge(VaultSettings::default(), Some("../x".into()), None, None, None).is_err());
+        assert!(merge(VaultSettings::default(), Some("../x".into()), None, None, None, None).is_err());
+        assert!(merge(VaultSettings::default(), None, None, None, None, Some("../x".into())).is_err());
+    }
+
+    #[test]
+    fn merge_sets_inbox_dir() {
+        let out = merge(VaultSettings::default(), None, None, None, None, Some("box".into())).unwrap();
+        assert_eq!(out.inbox_dir.as_deref(), Some("box"));
+    }
+
+    #[test]
+    fn resolve_inbox_dir_defaults_and_uses_configured() {
+        let dir = TempDir::new().unwrap();
+        assert_eq!(resolve_inbox_dir(dir.path()), DEFAULT_INBOX_DIR);
+        write(
+            dir.path(),
+            &VaultSettings { inbox_dir: Some("box".into()), ..Default::default() },
+        )
+        .unwrap();
+        assert_eq!(resolve_inbox_dir(dir.path()), "box");
     }
 
     #[test]
@@ -219,15 +259,15 @@ mod tests {
 
     #[test]
     fn merge_sets_and_validates_threshold() {
-        let out = merge(VaultSettings::default(), None, None, None, Some(25)).unwrap();
+        let out = merge(VaultSettings::default(), None, None, None, Some(25), None).unwrap();
         assert_eq!(out.large_file_threshold_mb, Some(25));
-        assert!(merge(VaultSettings::default(), None, None, None, Some(0)).is_err());
+        assert!(merge(VaultSettings::default(), None, None, None, Some(0), None).is_err());
     }
 
     #[test]
     fn merge_keeps_threshold_when_none() {
         let base = VaultSettings { large_file_threshold_mb: Some(50), ..Default::default() };
-        let out = merge(base, Some("box".into()), None, None, None).unwrap();
+        let out = merge(base, Some("box".into()), None, None, None, None).unwrap();
         assert_eq!(out.large_file_threshold_mb, Some(50));
     }
 

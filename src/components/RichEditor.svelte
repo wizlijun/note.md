@@ -743,6 +743,7 @@
 
   import { findState } from '../lib/find-replace.svelte'
   import { reveal } from '../lib/outline/reveal.svelte'
+  import { consumeEditorFocus } from '../lib/editor-focus.svelte'
 
   let lastRevealSeq = reveal.req?.seq ?? 0
   $effect(() => {
@@ -932,6 +933,22 @@
         editor = inst
         status = 'mounted'
         _pmEl = host!.querySelector('.ProseMirror') as HTMLElement | null
+
+        // Create-then-focus flows (e.g. quick note): if this file was flagged
+        // for focus, grab it now that the view exists — cursor at the doc end,
+        // in edit state.
+        if (consumeEditorFocus(tab.filePath)) {
+          const view = inst.view as any
+          void getPmState().then(({ TextSelection }) => {
+            setTimeout(() => {
+              try {
+                const doc = view.state.doc
+                view.dispatch(view.state.tr.setSelection(TextSelection.create(doc, doc.content.size)))
+                view.focus()
+              } catch { /* ignore */ }
+            }, 60)
+          })
+        }
 
         // Append the wikilink decoration plugin. moraya's setContent only
         // dispatches transactions (never reconfigures), so this survives

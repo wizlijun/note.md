@@ -305,6 +305,7 @@ pub fn notemd_vault_settings_set(
     wikipage_dir: Option<String>,
     dailynote_dir: Option<String>,
     large_file_threshold_mb: Option<u32>,
+    inbox_dir: Option<String>,
 ) -> Result<vault_settings::VaultSettings, String> {
     let vault_root = resolve_vault_root(&app).ok_or("Vault not configured")?;
     let base = vault_settings::read(&vault_root);
@@ -314,9 +315,20 @@ pub fn notemd_vault_settings_set(
         wikipage_dir,
         dailynote_dir,
         large_file_threshold_mb,
+        inbox_dir,
     )?;
     vault_settings::write(&vault_root, &merged)?;
     Ok(merged)
+}
+
+/// Absolute path to the quick-note inbox directory for the current vault
+/// (`{vault}/{inboxDir}`, inboxDir defaulting to `inbox`). Errors when no vault
+/// is configured so the frontend can prompt the user to set one up first.
+#[tauri::command]
+pub fn notemd_quick_note_dir(app: AppHandle) -> Result<String, String> {
+    let vault_root = resolve_vault_root(&app).ok_or("Vault not configured")?;
+    let sub = vault_settings::resolve_inbox_dir(&vault_root);
+    Ok(vault_root.join(sub).to_string_lossy().to_string())
 }
 
 /// All git-synced mirror metas in the current vault (across every device).

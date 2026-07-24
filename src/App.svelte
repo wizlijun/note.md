@@ -136,6 +136,15 @@
       } catch (err) { console.warn('[App] open-file:', err); showError(String(err)) }
     })
 
+    // Quick note: tray "New Markdown" item + system-wide Cmd+Ctrl+N both emit
+    // `quick-note`. Create + open + focus a timestamped inbox file.
+    const unlistenQuickNote = listen('quick-note', async () => {
+      try {
+        const { createQuickNote } = await import('./lib/quick-note.svelte')
+        await createQuickNote()
+      } catch (err) { console.warn('[App] quick-note:', err); showError(String(err)) }
+    })
+
     // Vault-link resolution: chat window requests editor to focus + open a file.
     const unlistenOpenPath = listen<string>('editor://open-path', async (e) => {
       try {
@@ -209,6 +218,7 @@
       registerBuiltinSideViews()
       await loadSidePanels()
       await loadOutlineDirs()
+      await (await import('./lib/quick-note.svelte')).loadInboxDir()
       const { migrateMirrorMeta } = await import('./lib/sotvault.svelte')
       void migrateMirrorMeta()
       await initActivePluginIds()
@@ -636,6 +646,7 @@
       unlistenMenu.then((fn) => fn())
       unlistenDrop.then((fn) => fn())
       unlistenOpenFile.then((fn) => fn())
+      unlistenQuickNote.then((fn) => fn())
       unlistenOpenPath.then((fn) => fn())
       unlistenOpenRemoteBuffer.then((fn) => fn())
       unlistenPluginToast.then((fn) => fn())

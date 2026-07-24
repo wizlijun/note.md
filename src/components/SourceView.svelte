@@ -8,7 +8,8 @@
     isHoverActive,
   } from '../lib/mdblock-hover/hover-store.svelte'
   import { settings } from '../lib/settings.svelte'
-  import { activeTab } from '../lib/tabs.svelte'
+  import { activeTab, tabs } from '../lib/tabs.svelte'
+  import { consumeEditorFocus } from '../lib/editor-focus.svelte'
   import { cmdMdblockFollowCitationAtCursor } from '../lib/mdblock/commands'
   import { saveClipboardResource, isAttachmentUrl, basenameOf } from '../lib/paste-resources'
   import { isVideoUrl, fetchVideoInfo } from '../lib/video-links'
@@ -490,6 +491,23 @@
       window.removeEventListener('mdeditor:find-replace-all', onFindReplaceAll)
       window.removeEventListener('mdeditor:find-clear', onFindClear)
       window.removeEventListener('mdeditor:new-file-select', onNewFileSelect)
+    }
+  })
+
+  // Create-then-focus flows (e.g. quick note): grab focus once the textarea is
+  // mounted for a file flagged via requestEditorFocus, cursor at end.
+  $effect(() => {
+    const el = textareaEl
+    if (!el) return
+    const path = tabs.find((tb) => tb.id === tabId)?.filePath
+    if (path && consumeEditorFocus(path)) {
+      setTimeout(() => {
+        try {
+          const end = el.value.length
+          el.focus()
+          el.setSelectionRange(end, end)
+        } catch { /* ignore */ }
+      }, 60)
     }
   })
 

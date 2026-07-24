@@ -574,6 +574,16 @@ fn show_main_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
     }
 }
 
+/// Quick-note entry point shared by the tray item and the global hotkey: bring
+/// the main window forward, then hand off to the frontend (which owns vault
+/// resolution, filename/timestamp, disk write, open + focus) via the
+/// `quick-note` event. Kept side-effect-light here so both triggers behave
+/// identically regardless of which surface fired.
+fn trigger_quick_note<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
+    show_main_window(app);
+    let _ = app.emit("quick-note", ());
+}
+
 #[cfg(not(target_os = "ios"))]
 fn pick_sync_folder(app: &tauri::AppHandle) {
     let app_clone = app.clone();
@@ -914,6 +924,19 @@ pub fn run() {
             b.build()
         })
         .plugin(tauri_plugin_process::init());
+    // System-wide quick-note hotkey. Only one shortcut is registered (in
+    // `.setup()`), so the handler fires quick-note on any Pressed event without
+    // needing to match which accelerator it was.
+    #[cfg(not(target_os = "ios"))]
+    let app = app.plugin(
+        tauri_plugin_global_shortcut::Builder::new()
+            .with_handler(|app, _shortcut, event| {
+                if event.state() == tauri_plugin_global_shortcut::ShortcutState::Pressed {
+                    trigger_quick_note(app);
+                }
+            })
+            .build(),
+    );
     // plugin:// scheme — plugin UI static assets + fetch-RPC bridge (spec §7.1).
     // Registration cannot be flag-conditional; the handler answers 404 for
     // flag-off/unknown ids, so v2-off behavior is unchanged.
@@ -974,6 +997,7 @@ pub fn run() {
                 sotvault::sotvault_vault_debug,
                 sotvault::notemd_vault_settings_get,
                 sotvault::notemd_vault_settings_set,
+                sotvault::notemd_quick_note_dir,
                 sotvault::notemd_mirror_metas,
                 sotvault::notemd_migrate_mirror_meta,
                 sotvault::notemd_relink_mirror_source,
@@ -1031,6 +1055,17 @@ pub fn run() {
         })
         .setup(|app| {
             log_bus::init(app.handle().clone());
+
+            // Register the system-wide quick-note hotkey (Cmd+Ctrl+N). A failure
+            // (e.g. the combo is already claimed by another app) is non-fatal:
+            // the tray "New Markdown" item still works.
+            #[cfg(not(target_os = "ios"))]
+            {
+                use tauri_plugin_global_shortcut::GlobalShortcutExt;
+                if let Err(e) = app.global_shortcut().register("Cmd+Ctrl+N") {
+                    dlog(&format!("global-shortcut register Cmd+Ctrl+N failed: {e}"));
+                }
+            }
             // Dev builds: drop the webview HTTP cache on every launch. Vite's
             // optimized-deps URLs (`?v=<hash>`) are served `immutable`, but the
             // hash only tracks the lockfile — file:-linked @moraya/core content
@@ -1134,6 +1169,7 @@ pub fn run() {
                     .on_menu_event(|app, event| {
                         let id = event.id().0.as_str();
                         match id {
+                            "tray-new-quick" => trigger_quick_note(app),
                             "tray-show" => show_main_window(app),
                             "tray-daily-notes-open" => show_daily_notes_window(app),
                             id if id.starts_with("tray-plugin:") => {
@@ -1405,6 +1441,7 @@ fn menu_label(locale: &str, key: &str) -> String {
         "sys.minimize" => ("Minimize", "最小化", "しまう", "Im Dock ablegen"),
         "sys.maximize" => ("Zoom", "缩放", "拡大／縮小", "Größe anpassen"),
         // Menu-bar tray dropdown
+        "tray.newQuick" => ("New Markdown", "新建 Markdown", "新規 Markdown", "Neues Markdown"),
         "tray.show" => ("Show note.md", "显示 note.md", "note.md を表示", "note.md anzeigen"),
         "tray.dailyNotes" => ("Daily Notes", "每日笔记", "デイリーノート", "Tagesnotizen"),
         "tray.vaultSetFolder" => ("Vault: Set Folder…", "Vault：选择文件夹…", "Vault：フォルダを選択…", "Vault: Ordner wählen…"),
@@ -1489,6 +1526,11 @@ fn build_tray_menu<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
     locale: &str,
 ) -> tauri::Result<(Menu<R>, MenuItem<R>, IconMenuItem<R>, MenuItem<R>)> {
+    // Quick-note action pinned to the very top of the tray dropdown. The
+    // accelerator string is display-only here (the real system-wide hotkey is
+    // registered via tauri-plugin-global-shortcut in `run()`); both funnel into
+    // the same `quick-note` event on the frontend.
+    let new_quick_item = MenuItem::with_id(app, "tray-new-quick", menu_label(locale, "tray.newQuick"), true, Some("Cmd+Ctrl+N"))?;
     let show_item = MenuItem::with_id(app, "tray-show", menu_label(locale, "tray.show"), true, None::<&str>)?;
     // Tray "socket": every enabled plugin that declares `contributes.tray` gets a
     // launch item here, directly below the "Daily Notes" item (when enabled). The
@@ -1587,7 +1629,7 @@ fn build_tray_menu<R: tauri::Runtime>(
         .map(|st| *st.0.lock().unwrap())
         .unwrap_or(false);
     let daily_notes_item = MenuItem::with_id(app, "tray-daily-notes-open", menu_label(locale, "tray.dailyNotes"), true, None::<&str>)?;
-    let mut b0 = MenuBuilder::new(app).item(&show_item);
+    let mut b0 = MenuBuilder::new(app).item(&new_quick_item).separator().item(&show_item);
     // Daily Notes window item only when the feature is enabled; there is no
     // built-in "today's note" tray item anymore (removed by product decision).
     if daily_enabled {
