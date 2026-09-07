@@ -98,6 +98,8 @@
   import CanvasCardNode from './CanvasCardNode.svelte'
   import CanvasEdgeView from './CanvasEdge.svelte'
   import CanvasIcon from './CanvasIcon.svelte'
+  import CanvasInputDialog from './CanvasInputDialog.svelte'
+  import { canvasPopover } from './canvas-popover'
   import CanvasInteractionOverlay from './CanvasInteractionOverlay.svelte'
   import CanvasSelectionResizer from './CanvasSelectionResizer.svelte'
   import { loadCanvasViewport, saveCanvasViewport } from './canvas-view-state'
@@ -185,6 +187,7 @@
   let historyVersion = $state(0)
   let surface: HTMLDivElement | undefined = $state()
   let surfaceSize = $state.raw({ width: 900, height: 600 })
+  let contextToolbarSize = $state.raw({ width: 328, height: 46 })
   let toolbarEdgeLabelInput: HTMLInputElement | undefined = $state()
   let toolbarGroupLabelInput: HTMLInputElement | undefined = $state()
   let viewport = $state.raw<Viewport>({ x: 0, y: 0, zoom: 1 })
@@ -206,6 +209,7 @@
     hasGroup: boolean
     originsById: Map<string, CanvasPoint>
   } | null = null
+  let inputRequest = $state.raw<{ title: string; initialValue: string; link: boolean; resolve: (value: string | null) => void } | null>(null)
   let pasteCount = 0
   let resourceSession: CanvasResourceSession | null = null
   let resourceSessionRoot = ''
@@ -331,6 +335,8 @@
 
   function setTool(tool: CanvasTool): void {
     if (interactionLocked) return
+    cancelSingleResize()
+    cancelMultiResize()
     cancelLasso(true)
     cancelGroupDraw()
     connectionDraft = null
@@ -342,6 +348,8 @@
 
   function setPlacement(kind: KnownCanvasNode['type']): void {
     if (interactionLocked) return
+    cancelSingleResize()
+    cancelMultiResize()
     cancelLasso(true)
     cancelGroupDraw()
     connectionDraft = null
@@ -383,6 +391,15 @@
     commitDocument('散开重叠节点', commitNodePositions(canvasDoc, changes))
   }
 
+  function measureContextToolbar(element: HTMLDivElement): { destroy: () => void } {
+    const observer = new ResizeObserver(() => {
+      const bounds = element.getBoundingClientRect()
+      if (bounds.width > 0 && bounds.height > 0) contextToolbarSize = { width: bounds.width, height: bounds.height }
+    })
+    observer.observe(element)
+    return { destroy: () => observer.disconnect() }
+  }
+
   function contextToolbarStyle(): string {
     const { width: surfaceWidth, height: surfaceHeight } = surfaceSize
     if (!selectionToolbarBounds) {
@@ -390,9 +407,10 @@
     }
     const screenCenter = (selectionToolbarBounds.x + selectionToolbarBounds.width / 2) * viewport.zoom + viewport.x
     const screenTop = selectionToolbarBounds.y * viewport.zoom + viewport.y - 12
-    const horizontalInset = Math.min(176, surfaceWidth / 2)
+    const horizontalInset = Math.min(contextToolbarSize.width / 2 + 12, surfaceWidth / 2)
     const left = Math.min(Math.max(screenCenter, horizontalInset), Math.max(horizontalInset, surfaceWidth - horizontalInset))
-    const top = Math.min(Math.max(54, screenTop), Math.max(54, surfaceHeight - 12))
+    const minimumTop = contextToolbarSize.height + 8
+    const top = Math.min(Math.max(minimumTop, screenTop), Math.max(minimumTop, surfaceHeight - 12))
     return `left:${left}px;top:${top}px`
   }
 
@@ -550,6 +568,7 @@
 
   function addNode(kind: KnownCanvasNode['type'], at = lastPointerFlow ?? viewportCenter(), value?: string): void {
     if (!canvasDoc || !finishTextBeforeStructure()) return
+    setTool('select')
     const node = createNode(kind, at, value)
     const index = kind === 'group' ? 0 : canvasDoc.nodes.length
     const next = insertCanvasNode(canvasDoc, node, index)
@@ -558,6 +577,7 @@
   }
 
   async function chooseFileNode(at = lastPointerFlow ?? viewportCenter()): Promise<void> {
+    if (!canvasDoc || !finishTextBeforeStructure()) return
     try {
       const { open } = await import('@tauri-apps/plugin-dialog')
       const picked = await open({ multiple: false })
@@ -604,22 +624,29 @@
     }
   }
 
-  function addLinkNode(at = lastPointerFlow ?? viewportCenter()): void {
-    const value = window.prompt('输入 http 或 https 链接')?.trim()
-    if (!value) return
-    try {
-      const url = new URL(value)
-      if (url.protocol !== 'http:' && url.protocol !== 'https:') throw new Error('unsupported protocol')
-      addNode('link', at, url.href)
-    } catch {
-      showError('只支持 http:// 或 https:// 链接。')
-    }
+  function requestInput(title: string, initialValue = '', link = false): Promise<string | null> {
+    if (inputRequest) return Promise.resolve(null)
+    return new Promise((resolve) => { inputRequest = { title, initialValue, link, resolve } })
   }
 
-  function addGroupNode(): void {
-    const label = window.prompt('分组名称', '分组')
-    if (label === null) return
+  function closeInput(value: string | null): void {
+    const request = inputRequest
+    if (!request) return
+    inputRequest = null
+    queueMicrotask(() => surface?.focus())
+    request.resolve(value)
+  }
+
+  async function addLinkNode(at = lastPointerFlow ?? viewportCenter()): Promise<void> {
     if (!canvasDoc || !finishTextBeforeStructure()) return
+    const value = await requestInput('输入 http 或 https 链接', '', true)
+    if (value) addNode('link', at, value)
+  }
+
+  async function addGroupNode(): Promise<void> {
+    if (!canvasDoc || !finishTextBeforeStructure()) return
+    const label = await requestInput('分组名称', '分组')
+    if (label === null || !canvasDoc || !finishTextBeforeStructure()) return
     const selected = canvasDoc.nodes.filter((entry) =>
       isKnownCanvasNode(entry) && selectedNodeIds.has(entry.id),
     ).filter(isKnownCanvasNode)
@@ -662,7 +689,7 @@
   }
 
   function activateTextNode(id: string): void {
-    if (!canvasDoc || composing || activeTextId === id) return
+    if (!canvasDoc || interactionLocked || effectiveTool !== 'select' || composing || activeTextId === id) return
     finalizeTextSession()
     const node = canvasDoc.nodes.find((entry) => isKnownCanvasNode(entry) && entry.id === id)
     if (!node || !isKnownCanvasNode(node) || node.type !== 'text') return
@@ -695,13 +722,13 @@
   }
 
   function finishTextBeforeStructure(): boolean {
-    if (composing) return false
+    if (composing || interactionLocked) return false
     finalizeTextSession()
     return true
   }
 
   async function openNode(id: string): Promise<void> {
-    if (!canvasDoc) return
+    if (!canvasDoc || effectiveTool !== 'select') return
     const node = canvasDoc.nodes.find((entry) => isKnownCanvasNode(entry) && entry.id === id)
     if (!node || !isKnownCanvasNode(node)) return
     if (node.type === 'file') {
@@ -958,15 +985,8 @@
       return
     }
     if (kind === 'link') {
-      const value = window.prompt('输入 http 或 https 链接')?.trim()
-      if (!value) return
-      try {
-        const url = new URL(value)
-        if (url.protocol !== 'http:' && url.protocol !== 'https:') throw new Error('unsupported protocol')
-        addConnectedNode(draft.sourceId, draft.sourceHandle, kind, draft.at, url.href)
-      } catch {
-        showError('只支持 http:// 或 https:// 链接。')
-      }
+      const value = await requestInput('输入 http 或 https 链接', '', true)
+      if (value) addConnectedNode(draft.sourceId, draft.sourceHandle, kind, draft.at, value)
       return
     }
     addConnectedNode(draft.sourceId, draft.sourceHandle, kind, draft.at)
@@ -1078,10 +1098,10 @@
     flowEdges = flowEdges.map((edge) => ({ ...edge, selected: nextEdges.has(edge.id) }))
   }
 
-  async function copySelection(): Promise<boolean> {
-    if (!canvasDoc || selectedNodeIds.size === 0) return false
+  function selectionClipboard(): string | null {
+    if (!canvasDoc || selectedNodeIds.size === 0) return null
     const payload = { ...copyCanvasSelection(canvasDoc, selectedNodeIds), sourceRoot: resourceRoot() }
-    if (payload.nodes.length === 0) return false
+    if (payload.nodes.length === 0) return null
     const text = encodeJsonCanvas({
       nodes: payload.nodes,
       edges: payload.edges,
@@ -1089,6 +1109,31 @@
       presence: { nodes: true, edges: true },
     })
     rememberCanvasClipboard(payload, text)
+    return text
+  }
+
+  function handleCopy(event: ClipboardEvent, cut = false): void {
+    if (inputRequest || isTextInput(event.target) || !event.clipboardData || (cut && interactionLocked)) return
+    const text = selectionClipboard()
+    if (!text) return
+    event.preventDefault()
+    event.stopPropagation()
+    event.clipboardData.setData('text/plain', text)
+    if (cut) deleteSelection()
+  }
+
+  function handleHistoryInput(event: InputEvent): void {
+    if (inputRequest || isTextInput(event.target)) return
+    if (event.inputType !== 'historyUndo' && event.inputType !== 'historyRedo') return
+    event.preventDefault()
+    event.stopPropagation()
+    if (event.inputType === 'historyUndo') undo()
+    else redo()
+  }
+
+  async function copySelection(): Promise<boolean> {
+    const text = selectionClipboard()
+    if (!text) return false
     let wroteSystemClipboard = false
     try {
       if (navigator.clipboard?.writeText) {
@@ -1106,7 +1151,10 @@
   }
 
   async function cutSelection(): Promise<void> {
-    if (await copySelection()) deleteSelection()
+    if (interactionLocked) return
+    const nodes = flowNodes.filter((node) => selectedNodeIds.has(node.id))
+    const edges = flowEdges.filter((edge) => selectedEdgeIds.has(edge.id))
+    if (await copySelection()) handleDelete({ nodes, edges })
   }
 
   async function pasteFromClipboard(): Promise<void> {
@@ -1166,7 +1214,7 @@
   }
 
   function handlePaste(event: ClipboardEvent): void {
-    if (isTextInput(event.target)) return
+    if (inputRequest || isTextInput(event.target)) return
     event.preventDefault()
     event.stopPropagation()
     const text = event.clipboardData?.getData('text/plain') ?? ''
@@ -1185,7 +1233,7 @@
   }
 
   function undo(): void {
-    if (composing) return
+    if (composing || interactionLocked) return
     finalizeTextSession()
     const previous = history.undo()
     if (!previous) return
@@ -1196,7 +1244,7 @@
   }
 
   function redo(): void {
-    if (composing) return
+    if (composing || interactionLocked) return
     finalizeTextSession()
     const next = history.redo()
     if (!next) return
@@ -1208,7 +1256,7 @@
 
   function isTextInput(target: EventTarget | null): boolean {
     return target instanceof HTMLElement
-      && !!target.closest('input,textarea,select,button,summary,[contenteditable="true"],.embedded-markdown,.ProseMirror')
+      && !!target.closest('input,textarea,select,[contenteditable="true"],.embedded-markdown,.ProseMirror')
   }
 
   function localPointer(event: { clientX: number; clientY: number }): CanvasPoint {
@@ -1629,7 +1677,17 @@
 
   function handleKeydown(event: KeyboardEvent): void {
     if (event.isComposing || composing) return
-    if (event.target instanceof Element && event.target.closest('.connection-create-menu')) return
+    if (inputRequest || (event.target instanceof Element && event.target.closest('.connection-create-menu'))) return
+    if (event.key === 'Escape' && (singleResize || multiResize || groupDrawSession || lassoSession)) {
+      event.preventDefault()
+      event.stopPropagation()
+      cancelSingleResize()
+      cancelMultiResize()
+      cancelGroupDraw()
+      cancelLasso(true)
+      return
+    }
+    if (!event.metaKey && !event.ctrlKey && event.target instanceof Element && event.target.closest('.toolbar-popover,button,summary,a[href]')) return
     if (isTextInput(event.target)) {
       if (event.key === 'Escape' && activeTextId) {
         event.preventDefault()
@@ -1642,6 +1700,8 @@
     const key = event.key.toLowerCase()
     if (!mod && !event.altKey && event.key === ' ') {
       event.preventDefault()
+      cancelSingleResize()
+      cancelMultiResize()
       spacePan = true
       return
     }
@@ -1854,19 +1914,13 @@
     commitDocument('分组适配内容', fitCanvasGroupToContents(canvasDoc, selectedKnownNode.id))
   }
 
-  function editSelectedLink(): void {
-    if (!canvasDoc || selectedKnownNode?.type !== 'link') return
-    const current = selectedKnownNode
-    const value = window.prompt('输入 http 或 https 链接', current.url)?.trim()
-    if (!value || !finishTextBeforeStructure()) return
-    try {
-      const url = new URL(value)
-      if (url.protocol !== 'http:' && url.protocol !== 'https:') throw new Error('unsupported protocol')
-      const next = updateCanvasNode(canvasDoc, current.id, (node) => node.type === 'link' ? { ...node, url: url.href } : node)
-      commitDocument('编辑链接', next)
-    } catch {
-      showError('只支持 http:// 或 https:// 链接。')
-    }
+  async function editSelectedLink(): Promise<void> {
+    if (!canvasDoc || selectedKnownNode?.type !== 'link' || !finishTextBeforeStructure()) return
+    const id = selectedKnownNode.id
+    const value = await requestInput('编辑链接地址', selectedKnownNode.url, true)
+    if (!value || !canvasDoc || !finishTextBeforeStructure()) return
+    const next = updateCanvasNode(canvasDoc, id, (node) => node.type === 'link' ? { ...node, url: value } : node)
+    commitDocument('编辑链接', next)
   }
 
   function setNodeColor(color: string | undefined): void {
@@ -1997,6 +2051,7 @@
   }
 
   function cancelTransientDocumentInteractions(): void {
+    closeInput(null)
     nodeDrag = null
     snapGuides = []
     cancelLasso(false)
@@ -2041,10 +2096,11 @@
     window.addEventListener('notemd:flush-doc', handleFlushRequest)
     window.addEventListener('keyup', handleKeyup)
     window.addEventListener('blur', handleWindowBlur)
-    window.addEventListener('pointerup', finishTouchPointer)
-    window.addEventListener('pointercancel', finishTouchPointer)
+    window.addEventListener('pointerup', finishTouchPointer, true)
+    window.addEventListener('pointercancel', finishTouchPointer, true)
     return () => {
       cancelled = true
+      closeInput(null)
       surfaceObserver?.disconnect()
       nodeDrag = null
       snapGuides = []
@@ -2066,8 +2122,8 @@
       window.removeEventListener('notemd:flush-doc', handleFlushRequest)
       window.removeEventListener('keyup', handleKeyup)
       window.removeEventListener('blur', handleWindowBlur)
-      window.removeEventListener('pointerup', finishTouchPointer)
-      window.removeEventListener('pointercancel', finishTouchPointer)
+      window.removeEventListener('pointerup', finishTouchPointer, true)
+      window.removeEventListener('pointercancel', finishTouchPointer, true)
     }
   })
 
@@ -2135,6 +2191,9 @@
   onclickcapture={handleSurfaceClickCapture}
   ondblclick={handleSurfaceDoubleClick}
   onpaste={handlePaste}
+  oncopy={(event) => handleCopy(event)}
+  oncut={(event) => handleCopy(event, true)}
+  onbeforeinput={handleHistoryInput}
 >
   {#if parseFailure}
     <div class="canvas-error" role="alert">
@@ -2151,20 +2210,21 @@
       <button class="dock-button" data-shortcut="L" class:tool-active={activeTool === 'lasso' && !interactionLocked} onclick={() => setTool('lasso')} disabled={interactionLocked} title="自由套索工具 (L)" aria-label="自由套索工具"><CanvasIcon name="lasso" /><span class="sr-only">套索</span></button>
       <button class="dock-button" class:tool-active={interactionLocked} aria-pressed={interactionLocked} aria-label={interactionLocked ? '解锁画布交互' : '锁定画布交互'} onclick={toggleInteractionLock} title="临时锁定或解锁当前画布交互"><CanvasIcon name={interactionLocked ? 'unlock' : 'lock'} /><span class="sr-only">{interactionLocked ? '解锁' : '锁定'}</span></button>
       <span class="toolbar-separator"></span>
-      <button class="dock-button" data-shortcut="1" onclick={() => addNode('text')} title="新建文本卡片" aria-label="新建文本卡片"><CanvasIcon name="text" /><span class="sr-only">＋ 文本</span></button>
-      <button class="dock-button" data-shortcut="3" onclick={() => void chooseFileNode()} title="添加当前 Vault 中的文件或图片" aria-label="添加文件或图片"><CanvasIcon name="file" /><span class="sr-only">＋ 文件</span></button>
-      <button class="dock-button" data-shortcut="4" onclick={() => addLinkNode()} title="新建链接卡片" aria-label="新建链接卡片"><CanvasIcon name="link" /><span class="sr-only">＋ 链接</span></button>
-      <button class="dock-button" onclick={addGroupNode} title="新建分组或围绕选中节点创建分组" aria-label="围绕选中节点创建分组"><CanvasIcon name="group" /><span class="sr-only">＋ 分组</span></button>
-      <button class="dock-button" data-shortcut="2" class:tool-active={pendingPlacement === 'group'} onclick={() => setPlacement('group')} title="拖拽绘制分组（快捷键 2）" aria-label="拖拽绘制分组"><CanvasIcon name="frame" /><span class="sr-only">框组</span></button>
-      <button class="dock-button" onclick={() => void pasteFromClipboard()} title="粘贴" aria-label="粘贴"><CanvasIcon name="paste" /><span class="sr-only">粘贴</span></button>
+      <button class="dock-button" data-shortcut="1" onclick={() => addNode('text')} title="新建文本卡片" aria-label="新建文本卡片" disabled={interactionLocked}><CanvasIcon name="text" /><span class="sr-only">＋ 文本</span></button>
+      <button class="dock-button" data-shortcut="3" onclick={() => void chooseFileNode()} title="添加当前 Vault 中的文件或图片" aria-label="添加文件或图片" disabled={interactionLocked}><CanvasIcon name="file" /><span class="sr-only">＋ 文件</span></button>
+      <button class="dock-button" data-shortcut="4" onclick={() => addLinkNode()} title="新建链接卡片" aria-label="新建链接卡片" disabled={interactionLocked}><CanvasIcon name="link" /><span class="sr-only">＋ 链接</span></button>
+      <button class="dock-button" onclick={addGroupNode} title="新建分组或围绕选中节点创建分组" aria-label="围绕选中节点创建分组" disabled={interactionLocked}><CanvasIcon name="group" /><span class="sr-only">＋ 分组</span></button>
+      <button class="dock-button" data-shortcut="2" class:tool-active={pendingPlacement === 'group'} onclick={() => setPlacement('group')} title="拖拽绘制分组（快捷键 2）" aria-label="拖拽绘制分组" disabled={interactionLocked}><CanvasIcon name="frame" /><span class="sr-only">框组</span></button>
+      <button class="dock-button" onclick={() => void pasteFromClipboard()} title="粘贴" aria-label="粘贴" disabled={interactionLocked}><CanvasIcon name="paste" /><span class="sr-only">粘贴</span></button>
       <span class="toolbar-separator"></span>
-      <button class="dock-button" onclick={undo} disabled={!canUndo} title={undoTitle} aria-label={undoTitle}><CanvasIcon name="undo" /></button>
-      <button class="dock-button" onclick={redo} disabled={!canRedo} title={redoTitle} aria-label={redoTitle}><CanvasIcon name="redo" /></button>
+      <button class="dock-button" onclick={undo} disabled={interactionLocked || !canUndo} title={undoTitle} aria-label={undoTitle}><CanvasIcon name="undo" /></button>
+      <button class="dock-button" onclick={redo} disabled={interactionLocked || !canRedo} title={redoTitle} aria-label={redoTitle}><CanvasIcon name="redo" /></button>
     </div>
 
-    {#if selectedNodeIds.size > 0 || selectedEdgeIds.size > 0}
+    {#if !interactionLocked && (selectedNodeIds.size > 0 || selectedEdgeIds.size > 0)}
         <div
           class="canvas-context-toolbar"
+          use:measureContextToolbar
           class:edge-context={selectedNodeIds.size === 0 && selectedEdgeIds.size > 0}
           style={contextToolbarStyle()}
           role="toolbar"
@@ -2181,7 +2241,7 @@
           {/if}
 
           {#if selectionRoots.length > 1}
-            <details class="toolbar-popover">
+            <details class="toolbar-popover" use:canvasPopover>
               <summary class="context-button" title="对齐与分布" aria-label="对齐与分布"><CanvasIcon name="align-left" /></summary>
               <div class="toolbar-popover-panel align-panel menu-panel">
                 <button class="context-button menu-row" onclick={() => arrangeSelection('left')} title="左对齐" aria-label="左对齐"><CanvasIcon name="align-left" /></button>
@@ -2214,7 +2274,7 @@
             {#if selectedKnownNode.background || selectedKnownNode.preservedInvalid.has('background')}
               <button class="context-button" onclick={clearGroupBackground} title="移除分组背景图片" aria-label="移除分组背景"><CanvasIcon name="trash" /></button>
             {/if}
-            <details class="toolbar-popover">
+            <details class="toolbar-popover" use:canvasPopover>
               <summary class="context-button" title="编辑分组" aria-label="编辑分组"><CanvasIcon name="edit" /></summary>
               <div class="toolbar-popover-panel group-editor-panel menu-panel">
                 <label class="group-name-label">分组名称<input bind:this={toolbarGroupLabelInput} value={selectedKnownNode.label ?? ''} placeholder="分组" onchange={(event) => updateGroupLabel(event.currentTarget.value)} onkeydown={(event) => event.stopPropagation()} /></label>
@@ -2227,7 +2287,7 @@
           {/if}
 
           {#if contextualEdge || selectedKnownNode || selectedNodeIds.size > 1}
-            <details class="toolbar-popover">
+            <details class="toolbar-popover" use:canvasPopover>
               <summary class="context-button" title="颜色" aria-label="颜色"><CanvasIcon name="palette" /></summary>
               <div class="toolbar-popover-panel color-picker-panel menu-panel" aria-label={contextualEdge ? '连线颜色' : '节点颜色'}>
                 {#each [undefined, '1', '2', '3', '4', '5', '6'] as color}
@@ -2347,6 +2407,9 @@
         ⚠ {diagnostics.length} 项兼容性提示
       </div>
     {/if}
+  {/if}
+  {#if inputRequest}
+    <CanvasInputDialog title={inputRequest.title} initialValue={inputRequest.initialValue} link={inputRequest.link} onClose={closeInput} />
   {/if}
 </div>
 
@@ -2468,6 +2531,7 @@
     position: absolute;
     z-index: 30;
     display: flex;
+    flex-wrap: wrap;
     max-width: min(680px, calc(100% - 24px));
     align-items: center;
     gap: 4px;
@@ -2503,11 +2567,9 @@
   .toolbar-popover-panel {
     position: absolute;
     z-index: 36;
-    bottom: calc(100% + 9px);
-    left: 50%;
-    transform: translateX(-50%);
+    top: calc(100% + 8px);
+    left: 0;
   }
-  .edge-context .toolbar-popover-panel { top: calc(100% + 9px); bottom: auto; }
   .align-panel {
     display: grid;
     grid-template-columns: repeat(3, 34px);

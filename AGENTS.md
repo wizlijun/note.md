@@ -129,6 +129,18 @@ agent 交互时，使用中文回复。
 
 找到根本原因，不做临时修复，保持资深开发者标准。
 
+### 6. 工程设计原则
+
+- **YAGNI — You Aren’t Gonna Need It**：不要提前实现尚未明确需要的功能。
+- **KISS — Keep It Simple, Stupid**：保持设计和实现简单。
+- **DRY — Don’t Repeat Yourself**：避免重复知识与逻辑，建立单一维护点。
+- **SOLID**：面向对象设计的五项原则。
+  - **SRP — Single Responsibility Principle**：单一职责原则。
+  - **OCP — Open/Closed Principle**：开闭原则。
+  - **LSP — Liskov Substitution Principle**：里氏替换原则。
+  - **ISP — Interface Segregation Principle**：接口隔离原则。
+  - **DIP — Dependency Inversion Principle**：依赖倒置原则。
+
 ## UI / 样式规则
 
 ### 菜单（弹层菜单 popup menu）必须用全局样式

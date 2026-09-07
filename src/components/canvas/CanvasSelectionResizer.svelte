@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onDestroy } from 'svelte'
   import type { CanvasPoint, CanvasRect, ResizeCorner } from '../../lib/canvas'
 
   interface CanvasViewport {
@@ -32,27 +33,42 @@
     { corner: 'br', cursor: 'nwse-resize' },
   ]
 
+  let activePointer: { pointerId: number; handle: HTMLElement; lastEvent: PointerEvent } | null = null
+
   function start(corner: ResizeCorner, event: PointerEvent): void {
-    if (event.pointerType === 'mouse' && event.button !== 0) return
+    if (activePointer || !event.isPrimary || event.button !== 0) return
+    const handle = event.currentTarget
+    if (!(handle instanceof HTMLElement)) return
     event.preventDefault()
     event.stopPropagation()
-    try { (event.currentTarget as HTMLElement | null)?.setPointerCapture(event.pointerId) } catch { /* detached handle */ }
+    activePointer = { pointerId: event.pointerId, handle, lastEvent: event }
+    try { handle.setPointerCapture(event.pointerId) } catch { /* detached handle */ }
     onStart(corner, event)
   }
 
   function move(event: PointerEvent): void {
+    if (!activePointer || activePointer.pointerId !== event.pointerId) return
     event.preventDefault()
     event.stopPropagation()
+    activePointer.lastEvent = event
     onMove(event)
   }
 
   function finish(event: PointerEvent, cancelled: boolean): void {
+    const session = activePointer
+    if (!session || session.pointerId !== event.pointerId) return
     event.preventDefault()
     event.stopPropagation()
-    try { (event.currentTarget as HTMLElement | null)?.releasePointerCapture(event.pointerId) } catch { /* already released */ }
+    // Releasing capture may synchronously dispatch lostpointercapture.
+    activePointer = null
+    try { session.handle.releasePointerCapture(event.pointerId) } catch { /* already released */ }
     if (cancelled) onCancel(event)
     else onEnd(event)
   }
+
+  onDestroy(() => {
+    if (activePointer) finish(activePointer.lastEvent, true)
+  })
 
   function keydown(corner: ResizeCorner, event: KeyboardEvent): void {
     if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) return
@@ -96,6 +112,7 @@
       onpointermove={move}
       onpointerup={(event) => finish(event, false)}
       onpointercancel={(event) => finish(event, true)}
+      onlostpointercapture={(event) => finish(event, true)}
       onkeydown={(event) => keydown(corner, event)}
     ></button>
   {/each}

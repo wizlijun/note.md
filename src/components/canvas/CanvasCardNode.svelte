@@ -95,6 +95,7 @@
 
   function activate(event: MouseEvent): void {
     event.stopPropagation()
+    if (data.interactionLocked) return
     if (data.kind === 'text') data.onActivate?.(id)
     else if (data.kind === 'file' || data.kind === 'link') data.onOpen?.(id)
   }

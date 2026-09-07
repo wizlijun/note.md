@@ -20,6 +20,7 @@ const h = vi.hoisted(() => ({
   storeSet: vi.fn(async () => {}),
   storeSave: vi.fn(async () => {}),
   invoke: vi.fn(),
+  openDialog: vi.fn(),
   clipboardRead: vi.fn(async () => ''),
   clipboardWrite: vi.fn(async (_text: string) => {}),
   showError: vi.fn(),
@@ -44,6 +45,7 @@ vi.mock('../../lib/plugins/host-render-html', () => ({
   renderMarkdownInline: (markdown: string) => `<p>${markdown.replaceAll('&', '&amp;').replaceAll('<', '&lt;')}</p>`,
 }))
 vi.mock('@tauri-apps/api/core', () => ({ invoke: h.invoke }))
+vi.mock('@tauri-apps/plugin-dialog', () => ({ open: h.openDialog }))
 vi.mock('@tauri-apps/plugin-clipboard-manager', () => ({
   readText: h.clipboardRead,
   writeText: h.clipboardWrite,
@@ -164,6 +166,14 @@ function tab(): Tab {
   }
 }
 
+async function submitCanvasInput(value: string): Promise<void> {
+  await vi.waitFor(() => expect(document.querySelector('.canvas-input-dialog[open]')).toBeTruthy())
+  const dialog = document.querySelector('.canvas-input-dialog') as HTMLDialogElement
+  ;(dialog.querySelector('input') as HTMLInputElement).value = value
+  dialog.querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+  await tick()
+}
+
 describe('CanvasView', () => {
   let component: ReturnType<typeof mount> | null = null
 
@@ -171,6 +181,7 @@ describe('CanvasView', () => {
     document.body.innerHTML = ''
     h.setContent.mockClear()
     h.invoke.mockReset()
+    h.openDialog.mockReset()
     h.clipboardRead.mockReset()
     h.clipboardRead.mockResolvedValue('')
     h.clipboardWrite.mockReset()
@@ -223,7 +234,6 @@ describe('CanvasView', () => {
   })
 
   it('reactively enables undo and redo toolbar actions', async () => {
-    vi.stubGlobal('prompt', vi.fn(() => '空分组'))
     component = mount(CanvasView as unknown as Parameters<typeof mount>[0], {
       target: document.body,
       props: { tab: tab() },
@@ -237,6 +247,7 @@ describe('CanvasView', () => {
 
     ;(Array.from(document.querySelectorAll('.canvas-toolbar > button'))
       .find((button) => button.textContent?.includes('分组')) as HTMLButtonElement).click()
+    await submitCanvasInput('空分组')
     await tick()
     flushSync()
 
@@ -293,7 +304,6 @@ describe('CanvasView', () => {
   })
 
   it('creates a geometric group around the selected node', async () => {
-    vi.stubGlobal('prompt', vi.fn(() => '重点'))
     component = mount(CanvasView as unknown as Parameters<typeof mount>[0], {
       target: document.body,
       props: { tab: tab() },
@@ -305,6 +315,7 @@ describe('CanvasView', () => {
     const addGroup = Array.from(document.querySelectorAll('.canvas-toolbar > button'))
       .find((button) => button.textContent?.includes('分组')) as HTMLButtonElement
     addGroup.click()
+    await submitCanvasInput('重点')
     flushSync()
 
     const serialized = h.setContent.mock.calls.at(-1)?.[1] as string
@@ -881,12 +892,15 @@ describe('CanvasView', () => {
     nodes = JSON.parse(h.setContent.mock.calls.at(-1)?.[1] as string).nodes as Array<Record<string, unknown>>
     expect(nodes.find((node) => node.id === 'b')?.x).toBe(290)
 
+    const anchorBefore = { x: nodes[0].x, y: nodes[0].y, width: nodes[0].width }
     const rightBefore = Math.max(...nodes.map((node) => Number(node.x) + Number(node.width)))
     ;(document.querySelector('button[aria-label="缩放选区右下角"]') as HTMLButtonElement)
       .dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', shiftKey: true, bubbles: true }))
     await tick()
     nodes = JSON.parse(h.setContent.mock.calls.at(-1)?.[1] as string).nodes as Array<Record<string, unknown>>
     expect(Math.max(...nodes.map((node) => Number(node.x) + Number(node.width)))).toBeGreaterThan(rightBefore)
+    expect(nodes[0]).toMatchObject({ x: anchorBefore.x, y: anchorBefore.y })
+    expect(Number(nodes[0].width)).toBeGreaterThan(Number(anchorBefore.width))
   })
 
   it('moves the multi-selection frame with its preview and rolls back pointer cancellation', async () => {
@@ -968,16 +982,18 @@ describe('CanvasView', () => {
     await tick()
 
     ResizeObserverStub.resize(surface, 800, 400)
+    ResizeObserverStub.resize(document.querySelector('.canvas-context-toolbar')!, 328, 46)
     await tick()
     let context = document.querySelector('.canvas-context-toolbar') as HTMLElement
     expect(context.style.left).toBe('624px')
     expect(context.style.top).toBe('68px')
 
     ResizeObserverStub.resize(surface, 240, 120)
+    ResizeObserverStub.resize(document.querySelector('.canvas-context-toolbar')!, 216, 92)
     await tick()
     context = document.querySelector('.canvas-context-toolbar') as HTMLElement
     expect(context.style.left).toBe('120px')
-    expect(context.style.top).toBe('68px')
+    expect(context.style.top).toBe('100px')
   })
 
   it('draws a freeform lasso and selects only intersecting nodes', async () => {
@@ -1074,7 +1090,6 @@ describe('CanvasView', () => {
   })
 
   it('places shortcut, toolbar and pasted nodes at the last pointer position', async () => {
-    vi.stubGlobal('prompt', vi.fn(() => 'https://example.org/toolbar'))
     h.storeGet.mockResolvedValue({ x: 0, y: 0, zoom: 1, updatedAt: 1 })
     component = mount(CanvasView as unknown as Parameters<typeof mount>[0], {
       target: document.body,
@@ -1103,6 +1118,7 @@ describe('CanvasView', () => {
     expect(nodes.at(-1)).toMatchObject({ type: 'text', x: 560, y: 410 })
 
     ;(document.querySelector('button[title="新建链接卡片"]') as HTMLButtonElement).click()
+    await submitCanvasInput('https://example.org/toolbar')
     await tick()
     nodes = JSON.parse(h.setContent.mock.calls.at(-1)?.[1] as string).nodes as Array<Record<string, unknown>>
     expect(nodes.at(-1)).toMatchObject({
@@ -1142,6 +1158,180 @@ describe('CanvasView', () => {
 
     const nodes = JSON.parse(h.setContent.mock.calls.at(-1)?.[1] as string).nodes as Array<Record<string, unknown>>
     expect(nodes.at(-1)).toMatchObject({ type: 'text', x: 560, y: 410 })
+  })
+
+  it('creates and edits links through a visible dialog, validates input and cancels without writes', async () => {
+    const nativePrompt = vi.fn(() => { throw new Error('unavailable in WebView') })
+    vi.stubGlobal('prompt', nativePrompt)
+    component = mount(CanvasView, { target: document.body, props: { tab: tab() } })
+    await vi.waitFor(() => expect(document.querySelector('.canvas-dock')).toBeTruthy())
+    ;(document.querySelector('button[aria-label="新建链接卡片"]') as HTMLButtonElement).click()
+    await submitCanvasInput('javascript:alert(1)')
+    expect(document.querySelector('[role="alert"]')?.textContent).toContain('http://')
+    expect(h.setContent).not.toHaveBeenCalled()
+    await submitCanvasInput('https://example.org/new')
+    expect(document.querySelector('dialog')).toBeNull()
+    expect(JSON.parse(h.setContent.mock.calls.at(-1)![1]).nodes.at(-1).url).toBe('https://example.org/new')
+
+    ;(document.querySelector('button[aria-label="编辑链接"]') as HTMLButtonElement).click()
+    await submitCanvasInput('https://example.org/edited')
+    expect(JSON.parse(h.setContent.mock.calls.at(-1)![1]).nodes.at(-1).url).toBe('https://example.org/edited')
+    h.setContent.mockClear()
+    ;(document.querySelector('button[aria-label="围绕选中节点创建分组"]') as HTMLButtonElement).click()
+    await tick()
+    document.querySelector('dialog')!.dispatchEvent(new Event('cancel', { cancelable: true }))
+    await tick()
+    expect(document.querySelector('dialog')).toBeNull()
+    expect(h.setContent).not.toHaveBeenCalled()
+    expect(nativePrompt).not.toHaveBeenCalled()
+  })
+
+  it('cleans up touch resize before a subsequent one-finger lasso', async () => {
+    h.storeGet.mockResolvedValue({ x: 0, y: 0, zoom: 1, updatedAt: 1 })
+    component = mount(CanvasView, { target: document.body, props: { tab: tab() } })
+    await vi.waitFor(() => expect(document.querySelector('.svelte-flow__pane')).toBeTruthy())
+    const surface = document.querySelector('.canvas-surface') as HTMLElement
+    surface.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', metaKey: true, bubbles: true }))
+    await tick()
+    const handle = document.querySelector('.resize-handle.br') as HTMLElement
+    for (const type of ['pointerdown', 'pointerup']) {
+      handle.dispatchEvent(new PointerEvent(type, { bubbles: true, pointerId: 101, pointerType: 'touch', isPrimary: true, clientX: 600, clientY: 160 }))
+    }
+    surface.dispatchEvent(new KeyboardEvent('keydown', { key: 'l', bubbles: true }))
+    await tick()
+    const pane = document.querySelector('.svelte-flow__pane') as HTMLElement
+    pane.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 102, pointerType: 'touch', isPrimary: true, clientX: 5, clientY: 5 }))
+    await tick()
+    expect(pane.classList.contains('draggable')).toBe(false)
+    for (const [clientX, clientY] of [[280, 5], [280, 180], [5, 180]]) {
+      surface.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, pointerId: 102, pointerType: 'touch', isPrimary: true, clientX, clientY }))
+    }
+    surface.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 102, pointerType: 'touch', isPrimary: true, clientX: 5, clientY: 5 }))
+    await tick()
+    expect(document.querySelector('[data-id="text-1"]')?.classList.contains('selected')).toBe(true)
+    expect(document.querySelector('[data-id="link-1"]')?.classList.contains('selected')).toBe(false)
+  })
+
+  it('cancels a focused resize with Escape and leaves node dragging enabled', async () => {
+    component = mount(CanvasView, { target: document.body, props: { tab: tab() } })
+    await vi.waitFor(() => expect(document.querySelector('.svelte-flow__pane')).toBeTruthy())
+    const surface = document.querySelector('.canvas-surface') as HTMLElement
+    surface.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', metaKey: true, bubbles: true }))
+    await tick()
+    const handle = document.querySelector('.resize-handle.br') as HTMLElement
+    handle.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 111, pointerType: 'mouse', isPrimary: true, clientX: 600, clientY: 160 }))
+    handle.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, pointerId: 111, pointerType: 'mouse', isPrimary: true, clientX: 900, clientY: 300 }))
+    handle.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'Escape' }))
+    await tick()
+    handle.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 111, pointerType: 'mouse', isPrimary: true, clientX: 900, clientY: 300 }))
+    await tick()
+    expect(h.setContent).not.toHaveBeenCalled()
+    expect(document.querySelector('[data-id="text-1"]')?.classList.contains('draggable')).toBe(true)
+  })
+
+  it('prevents document mutations while locked and resumes editing after unlocking', async () => {
+    component = mount(CanvasView, { target: document.body, props: { tab: tab() } })
+    await vi.waitFor(() => expect(document.querySelector('.canvas-dock')).toBeTruthy())
+    const surface = document.querySelector('.canvas-surface') as HTMLElement
+    surface.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', metaKey: true, bubbles: true }))
+    ;(document.querySelector('button[aria-label="锁定画布交互"]') as HTMLButtonElement).click()
+    await tick()
+    for (const key of ['ArrowRight', 'Delete', 'Enter']) surface.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }))
+    ;(document.querySelector('[data-id="text-1"] .canvas-card') as HTMLElement).dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))
+    await tick()
+    expect(h.setContent).not.toHaveBeenCalled()
+    expect(document.querySelector('.embedded-markdown')).toBeNull()
+    expect((document.querySelector('button[aria-label="新建文本卡片"]') as HTMLButtonElement).disabled).toBe(true)
+    ;(document.querySelector('button[aria-label="解锁画布交互"]') as HTMLButtonElement).click()
+    await tick()
+    ;(document.querySelector('button[aria-label="新建文本卡片"]') as HTMLButtonElement).click()
+    await tick()
+    expect(JSON.parse(h.setContent.mock.calls.at(-1)![1]).nodes).toHaveLength(3)
+  })
+
+  it('handles native copy, cut and history events without intercepting input fields', async () => {
+    component = mount(CanvasView, { target: document.body, props: { tab: tab() } })
+    await vi.waitFor(() => expect(document.querySelector('[data-id="text-1"]')).toBeTruthy())
+    const surface = document.querySelector('.canvas-surface') as HTMLElement
+    surface.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', metaKey: true, bubbles: true }))
+    await tick()
+    const setData = vi.fn()
+    const copy = new ClipboardEvent('copy', { bubbles: true, cancelable: true })
+    Object.defineProperty(copy, 'clipboardData', { value: { setData } })
+    surface.dispatchEvent(copy)
+    expect(copy.defaultPrevented).toBe(true)
+    expect(JSON.parse(setData.mock.calls[0][1]).nodes).toHaveLength(2)
+    expect(h.setContent).not.toHaveBeenCalled()
+    const cut = new ClipboardEvent('cut', { bubbles: true, cancelable: true })
+    Object.defineProperty(cut, 'clipboardData', { value: { setData } })
+    surface.dispatchEvent(cut)
+    await tick()
+    expect(JSON.parse(h.setContent.mock.calls.at(-1)![1]).nodes).toEqual([])
+    surface.dispatchEvent(new InputEvent('beforeinput', { inputType: 'historyUndo', bubbles: true, cancelable: true }))
+    await tick()
+    expect(JSON.parse(h.setContent.mock.calls.at(-1)![1]).nodes).toHaveLength(2)
+    surface.dispatchEvent(new InputEvent('beforeinput', { inputType: 'historyRedo', bubbles: true, cancelable: true }))
+    await tick()
+    expect(JSON.parse(h.setContent.mock.calls.at(-1)![1]).nodes).toEqual([])
+
+    ;(document.querySelector('button[aria-label="新建链接卡片"]') as HTMLButtonElement).click()
+    await tick()
+    const input = document.querySelector('dialog input') as HTMLInputElement
+    const native = new InputEvent('beforeinput', { inputType: 'historyUndo', bubbles: true, cancelable: true })
+    input.dispatchEvent(native)
+    expect(native.defaultPrevented).toBe(false)
+  })
+
+  it('opens a popover with the keyboard and Escape returns focus without changing the selection', async () => {
+    component = mount(CanvasView, { target: document.body, props: { tab: tab() } })
+    await vi.waitFor(() => expect(document.querySelector('[data-id="text-1"]')).toBeTruthy())
+    ;(document.querySelector('[data-id="text-1"]') as HTMLElement).click()
+    await tick()
+    const summary = document.querySelector('summary[aria-label="颜色"]') as HTMLElement
+    const details = summary.parentElement as HTMLDetailsElement
+    summary.focus()
+    summary.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }))
+    expect(details.open).toBe(true)
+    expect(document.activeElement).toBe(details.querySelector('button'))
+    ;(document.activeElement as HTMLElement).dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+    expect(details.open).toBe(false)
+    expect(document.activeElement).toBe(summary)
+    expect(h.setContent).not.toHaveBeenCalled()
+  })
+
+  it('places a toolbar-imported file at the remembered flow coordinate', async () => {
+    h.storeGet.mockResolvedValue({ x: 100, y: 50, zoom: 2, updatedAt: 1 })
+    h.openDialog.mockResolvedValue('/tmp/import.png')
+    h.invoke.mockImplementation(async (command: string) => command === 'canvas_resource_import'
+      ? { relativePath: 'assets/import.png', canonicalPath: '/vault/assets/import.png', size: 12 }
+      : null)
+    component = mount(CanvasView, { target: document.body, props: { tab: tab() } })
+    await vi.waitFor(() => expect(document.querySelector('.canvas-dock')).toBeTruthy())
+    const surface = document.querySelector('.canvas-surface') as HTMLElement
+    surface.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, pointerId: 31, pointerType: 'mouse', isPrimary: true, clientX: 700, clientY: 500 }))
+    const button = document.querySelector('button[aria-label="添加文件或图片"]') as HTMLButtonElement
+    button.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 32, pointerType: 'mouse', isPrimary: true, clientX: 40, clientY: 30 }))
+    button.focus()
+    button.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: 40, clientY: 30 }))
+    await vi.waitFor(() => expect(h.setContent).toHaveBeenCalled())
+    expect(JSON.parse(h.setContent.mock.calls.at(-1)![1]).nodes.at(-1)).toMatchObject({
+      type: 'file', file: 'assets/import.png', x: 160, y: 135,
+    })
+  })
+
+  it('cuts the copied selection even if focus changes while the clipboard is pending', async () => {
+    let copied!: () => void
+    vi.spyOn(navigator.clipboard, 'writeText').mockImplementation(() => new Promise<void>((resolve) => { copied = resolve }))
+    component = mount(CanvasView, { target: document.body, props: { tab: tab() } })
+    await vi.waitFor(() => expect(document.querySelector('[data-id="text-1"]')).toBeTruthy())
+    ;(document.querySelector('[data-id="text-1"]') as HTMLElement).click()
+    await tick()
+    ;(document.querySelector('button[aria-label="剪切选中内容"]') as HTMLButtonElement).click()
+    ;(document.querySelector('[data-id="link-1"]') as HTMLElement).click()
+    await tick()
+    copied()
+    await vi.waitFor(() => expect(h.setContent).toHaveBeenCalled())
+    expect(JSON.parse(h.setContent.mock.calls.at(-1)![1]).nodes.map((node: { id: string }) => node.id)).toEqual(['link-1'])
   })
 
   it('fails closed for malformed JSON and never rewrites the tab', async () => {

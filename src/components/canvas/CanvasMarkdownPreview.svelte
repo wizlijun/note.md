@@ -48,6 +48,7 @@
         if (href) {
           el.setAttribute('href', href)
           el.setAttribute('rel', 'noopener noreferrer')
+          el.classList.add('nodrag', 'nopan')
         } else {
           el.removeAttribute('href')
         }

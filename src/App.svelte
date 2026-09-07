@@ -733,7 +733,7 @@
         }
         default:
           // Central command dispatcher: the PRIMARY path for all core menu ids
-          // (share/unshare/copy-share-link, sync-to-vault, the three side-panel
+          // (share/unshare/copy-share-link, sync-to-vault and side-panel
           // toggles) plus the iOS-port commands.
           await dispatch(id as CommandId)
           break
