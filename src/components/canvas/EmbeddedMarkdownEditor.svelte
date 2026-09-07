@@ -26,7 +26,7 @@
   let host: HTMLDivElement | undefined = $state()
   let status: 'loading' | 'ready' | 'error' = $state('loading')
   let errorMessage = $state('')
-  let editor: Awaited<ReturnType<typeof import('../../lib/editor-bridge')['mountRichEditor']>> | null = null
+  let editor = $state.raw<Awaited<ReturnType<typeof import('../../lib/editor-bridge')['mountRichEditor']>> | null>(null)
   const resourceGuard = new CanvasMarkdownResourceGuard()
   function initialMarkdown(): string { return markdown }
   let lastMarkdown = initialMarkdown()

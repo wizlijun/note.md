@@ -1,11 +1,13 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { mount, unmount } from 'svelte'
+import { mount, tick, unmount } from 'svelte'
+import { fromStore, writable } from 'svelte/store'
 import EmbeddedMarkdownEditor from './EmbeddedMarkdownEditor.svelte'
 
 const h = vi.hoisted(() => ({
   initialContent: '',
   emitChange: null as ((value: string) => void) | null,
+  mountBarrier: null as Promise<void> | null,
 }))
 
 vi.mock('../../lib/editor-bridge', () => ({
@@ -20,19 +22,19 @@ vi.mock('../../lib/editor-bridge', () => ({
     let content = initialContent
     const editor = document.createElement('div')
     editor.className = 'ProseMirror'
+    editor.textContent = initialContent
     const src = /!\[[^\]]*\]\(([^)]+)\)/.exec(initialContent)?.[1]
     if (src) {
       const img = document.createElement('img')
       img.setAttribute('src', src)
       editor.appendChild(img)
     }
-    // Keep the probe outside Svelte's managed loading placeholder so its
-    // conditional removal cannot also remove this simulated Core DOM.
-    document.body.appendChild(editor)
+    root.appendChild(editor)
+    await h.mountBarrier
     return {
       view: { focus: vi.fn() },
       getMarkdown: () => content,
-      setContent: (value: string) => { content = value },
+      setContent: (value: string) => { content = value; editor.textContent = value },
       destroy: vi.fn(),
     }
   }),
@@ -47,8 +49,61 @@ describe('EmbeddedMarkdownEditor Canvas resource profile', () => {
     document.body.innerHTML = ''
     h.initialContent = ''
     h.emitChange = null
+    h.mountBarrier = null
     vi.restoreAllMocks()
     Reflect.deleteProperty(document, 'execCommand')
+  })
+
+  it('keeps the mounted editor inside its card after the loading status disappears', async () => {
+    component = mount(EmbeddedMarkdownEditor, {
+      target: document.body,
+      props: {
+        markdown: 'editable card',
+        filePath: '/vault/board.canvas',
+        mediaResolver: {
+          loadLocalImage: async () => '',
+          loadLocalMedia: async () => '',
+          loadRemoteMedia: async () => '',
+        },
+        onChange: vi.fn(),
+        onFlush: vi.fn(),
+      },
+    })
+
+    await vi.waitFor(() => expect(document.querySelector('.embedded-markdown')?.getAttribute('aria-busy')).toBe('false'))
+    expect(document.querySelector('.editor-status')).toBeNull()
+    expect(document.querySelector('.embedded-markdown .ProseMirror')).toBeTruthy()
+  })
+
+  it('applies Markdown updates that arrive while the editor is mounting', async () => {
+    let completeMount!: () => void
+    h.mountBarrier = new Promise<void>((resolve) => { completeMount = resolve })
+    const markdownStore = writable('before mount')
+    const markdown = fromStore(markdownStore)
+    const onFlush = vi.fn()
+    component = mount(EmbeddedMarkdownEditor, {
+      target: document.body,
+      props: {
+        get markdown() { return markdown.current },
+        filePath: '/vault/board.canvas',
+        mediaResolver: {
+          loadLocalImage: async () => '',
+          loadLocalMedia: async () => '',
+          loadRemoteMedia: async () => '',
+        },
+        onChange: vi.fn(),
+        onFlush,
+      },
+    })
+    await vi.waitFor(() => expect(h.initialContent).toBe('before mount'))
+    markdownStore.set('updated while loading')
+    await tick()
+    completeMount()
+    await vi.waitFor(() => expect(document.querySelector('.embedded-markdown')?.getAttribute('aria-busy')).toBe('false'))
+
+    expect(document.querySelector('.ProseMirror')?.textContent).toBe('updated while loading')
+    window.dispatchEvent(new CustomEvent('notemd:flush-doc'))
+    expect(onFlush).toHaveBeenCalledWith('updated while loading')
   })
 
   it('never mounts a remote image src and restores the original Markdown in callbacks', async () => {
