@@ -111,10 +111,7 @@ pub fn run(b: Builtin, parsed: &Parsed) -> ExitCode {
                 }
             };
             if parsed.globals.json {
-                println!(
-                    "{}",
-                    render_plugin_info_json(m, &enabled, &cli_conflicts)
-                );
+                println!("{}", render_plugin_info_json(m, &enabled, &cli_conflicts));
             } else {
                 let mut output = render_plugin_info(m, &enabled);
                 append_cli_conflicts_text(&mut output, &id, &cli_conflicts);
@@ -411,7 +408,10 @@ fn render_help_output(
 
     let text = render_help(topic, all, manifests, enabled);
     if as_json {
-        (json!({ "ok": true, "data": { "text": text } }).to_string(), 0)
+        (
+            json!({ "ok": true, "data": { "text": text } }).to_string(),
+            0,
+        )
     } else {
         (text, 0)
     }
@@ -1061,10 +1061,12 @@ fn render_plugin_info_json(
     let rejected_cli: Vec<_> = conflicts
         .iter()
         .filter(|conflict| conflict.plugin_id == m.id)
-        .map(|conflict| json!({
-            "entry": conflict.entry,
-            "reasons": conflict.reasons,
-        }))
+        .map(|conflict| {
+            json!({
+                "entry": conflict.entry,
+                "reasons": conflict.reasons,
+            })
+        })
         .collect();
     json!({
         "ok": true,
@@ -1749,10 +1751,13 @@ mod market {
                 EXIT_RUNTIME => "plugin_operation_failed",
                 _ => "plugin_error",
             };
-            println!("{}", json!({
-                "ok": false,
-                "error": { "code": kind, "message": msg },
-            }));
+            println!(
+                "{}",
+                json!({
+                    "ok": false,
+                    "error": { "code": kind, "message": msg },
+                })
+            );
         } else {
             eprintln!("notemd: {msg}");
         }
@@ -2621,25 +2626,17 @@ mod tests {
     }
     #[test]
     fn help_json_wraps_text_and_unknown_topics_as_stable_envelopes() {
-        let (output, code) = render_help_output(
-            Some("mcp"),
-            false,
-            true,
-            &[],
-            &HashMap::new(),
-        );
+        let (output, code) = render_help_output(Some("mcp"), false, true, &[], &HashMap::new());
         let value: serde_json::Value = serde_json::from_str(&output).unwrap();
         assert_eq!(code, 0);
         assert_eq!(value["ok"], true);
-        assert!(value["data"]["text"].as_str().unwrap().contains("notemd mcp"));
+        assert!(value["data"]["text"]
+            .as_str()
+            .unwrap()
+            .contains("notemd mcp"));
 
-        let (output, code) = render_help_output(
-            Some("does-not-exist"),
-            false,
-            true,
-            &[],
-            &HashMap::new(),
-        );
+        let (output, code) =
+            render_help_output(Some("does-not-exist"), false, true, &[], &HashMap::new());
         let value: serde_json::Value = serde_json::from_str(&output).unwrap();
         assert_eq!(code, 2);
         assert_eq!(value["ok"], false);
@@ -2701,15 +2698,19 @@ mod tests {
             &HashMap::new(),
             &[],
             &conflicts,
-        )).unwrap();
+        ))
+        .unwrap();
         assert_eq!(value["data"][0]["rejected_cli"][0]["entry"], "search");
 
         let mut info = render_plugin_info(&manifest, &HashMap::new());
         append_cli_conflicts_text(&mut info, "demo", &conflicts);
         assert!(info.contains("Rejected CLI entries"));
-        let value: serde_json::Value = serde_json::from_str(
-            &render_plugin_info_json(&manifest, &HashMap::new(), &conflicts),
-        ).unwrap();
+        let value: serde_json::Value = serde_json::from_str(&render_plugin_info_json(
+            &manifest,
+            &HashMap::new(),
+            &conflicts,
+        ))
+        .unwrap();
         assert_eq!(value["data"]["rejected_cli"][0]["entry"], "search");
     }
 }

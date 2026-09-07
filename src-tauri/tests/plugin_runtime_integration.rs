@@ -19,7 +19,9 @@ use std::time::{Duration, Instant};
 
 fn fixture_script(name: &str) -> PathBuf {
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
-    PathBuf::from(manifest_dir).join("tests/fixtures/v2").join(name)
+    PathBuf::from(manifest_dir)
+        .join("tests/fixtures/v2")
+        .join(name)
 }
 
 /// Path to a fixture, ready to hand to `PluginProcess::spawn`.
@@ -52,7 +54,11 @@ fn fixture(name: &str) -> PathBuf {
             )
         });
         // CRLF: cmd.exe is the one consumer and it is the least surprising form.
-        let body = format!("@echo off\r\n\"{}\" \"{}\"\r\n", sh.display(), script.display());
+        let body = format!(
+            "@echo off\r\n\"{}\" \"{}\"\r\n",
+            sh.display(),
+            script.display()
+        );
         std::fs::write(&shim, body).expect("write fixture shim");
     }
     shim
@@ -173,7 +179,10 @@ async fn ok_round_trip_toast_and_graceful_shutdown() {
         .unwrap();
 
     let out = proc
-        .request("command.execute", json!({ "command": "noop", "context": {} }))
+        .request(
+            "command.execute",
+            json!({ "command": "noop", "context": {} }),
+        )
         .await
         .unwrap();
     assert_eq!(out, json!({ "echo": true }));
@@ -189,7 +198,10 @@ async fn ok_round_trip_toast_and_graceful_shutdown() {
         assert_eq!(seen.len(), 1, "expected exactly one host.* message");
         assert_eq!(seen[0].method, "host.toast");
         assert_eq!(seen[0].id, None, "toast is a notification");
-        assert_eq!(seen[0].params, json!({ "level": "success", "message": "hi" }));
+        assert_eq!(
+            seen[0].params,
+            json!({ "level": "success", "message": "hi" })
+        );
     }
 
     assert!(proc.shutdown().await, "expected graceful shutdown");
@@ -214,7 +226,10 @@ async fn spawned_plugin_does_not_inherit_host_secret_env() {
         .await
         .unwrap();
     let out = proc
-        .request("command.execute", json!({ "command": "noop", "context": {} }))
+        .request(
+            "command.execute",
+            json!({ "command": "noop", "context": {} }),
+        )
         .await
         .unwrap();
     std::env::remove_var("SECRET_TEST_VAR");
@@ -240,20 +255,31 @@ async fn slow_execute_times_out_without_killing_process() {
     // nothing, and a late response to a timed-out id is discarded by the host.
     let mut handshake = Err(String::new());
     for _ in 0..3 {
-        handshake = initialize_and_activate(&proc, &init_params(log_dir.path()), "onCommand:x").await;
+        handshake =
+            initialize_and_activate(&proc, &init_params(log_dir.path()), "onCommand:x").await;
         if handshake.is_ok() {
             break;
         }
     }
     handshake.expect("handshake should succeed within retries");
 
-    let err = proc.request("command.execute", json!({})).await.unwrap_err();
+    let err = proc
+        .request("command.execute", json!({}))
+        .await
+        .unwrap_err();
     assert!(err.contains("timeout:1"), "got: {err}");
 
     // Process must survive a per-request timeout…
-    assert_eq!(proc.has_exited().await, None, "process should still be alive");
+    assert_eq!(
+        proc.has_exited().await,
+        None,
+        "process should still be alive"
+    );
     // …and still serve later requests: $deactivate succeeds → graceful.
-    assert!(proc.shutdown().await, "expected graceful shutdown after timeout");
+    assert!(
+        proc.shutdown().await,
+        "expected graceful shutdown after timeout"
+    );
 }
 
 // ── ②b chatty.sh: the timeout is silence, not elapsed time ──
@@ -267,15 +293,24 @@ async fn a_chatty_plugin_is_not_timed_out_while_it_keeps_talking() {
     let log_dir = tempfile::tempdir().unwrap();
     let (sink, seen) = recording_sink();
     // 1s silence budget vs ~2s of chatter: an elapsed-time timeout fails at 1s.
-    let proc = PluginProcess::spawn(&fixture("chatty.sh"), "test.chatty", log_dir.path(), 1, sink)
-        .await
-        .unwrap();
+    let proc = PluginProcess::spawn(
+        &fixture("chatty.sh"),
+        "test.chatty",
+        log_dir.path(),
+        1,
+        sink,
+    )
+    .await
+    .unwrap();
     initialize_and_activate(&proc, &init_params(log_dir.path()), "onCommand:x")
         .await
         .unwrap();
 
     let started = Instant::now();
-    let err = proc.request("command.execute", json!({})).await.unwrap_err();
+    let err = proc
+        .request("command.execute", json!({}))
+        .await
+        .unwrap_err();
     let waited = started.elapsed();
 
     // It DID eventually time out — the fixture never answers, and silence after
@@ -290,7 +325,11 @@ async fn a_chatty_plugin_is_not_timed_out_while_it_keeps_talking() {
         seen.lock().unwrap().len() >= 5,
         "expected the chatter to have been routed to the sink meanwhile"
     );
-    assert_eq!(proc.has_exited().await, None, "process should still be alive");
+    assert_eq!(
+        proc.has_exited().await,
+        None,
+        "process should still be alive"
+    );
 }
 
 // ── ②c a blocking host_sink must not stall response routing ──
@@ -318,7 +357,10 @@ async fn a_blocking_host_sink_does_not_delay_the_plugins_response() {
     // ok.sh emits a host.toast notification and THEN the execute response.
     let started = Instant::now();
     let out = proc
-        .request("command.execute", json!({ "command": "noop", "context": {} }))
+        .request(
+            "command.execute",
+            json!({ "command": "noop", "context": {} }),
+        )
         .await
         .unwrap();
     assert_eq!(out, json!({ "echo": true }));
@@ -374,7 +416,10 @@ async fn process_death_mid_request_fails_pending_fast_and_logs_stderr() {
         .unwrap();
 
     let t0 = Instant::now();
-    let err = proc.request("command.execute", json!({})).await.unwrap_err();
+    let err = proc
+        .request("command.execute", json!({}))
+        .await
+        .unwrap_err();
     assert!(
         t0.elapsed() < Duration::from_secs(5),
         "request should fail fast, took {:?}",
@@ -423,7 +468,10 @@ async fn shutdown_after_process_death_is_not_graceful_and_returns_promptly() {
 
     let t0 = Instant::now();
     let graceful = proc.shutdown().await;
-    assert!(!graceful, "dead process must not report a graceful shutdown");
+    assert!(
+        !graceful,
+        "dead process must not report a graceful shutdown"
+    );
     assert!(
         t0.elapsed() < Duration::from_secs(5),
         "shutdown of a dead process should not hang, took {:?}",
@@ -500,7 +548,9 @@ async fn crash_loop_restarts_then_trips_breaker_to_disabled() {
 
     // Activation itself SUCCEEDS (the fixture answers the full handshake
     // before dying) — the breaker is a supervision concern, not a handshake one.
-    lc.ensure_active(&Trigger::Startup).await.expect("first activation succeeds");
+    lc.ensure_active(&Trigger::Startup)
+        .await
+        .expect("first activation succeeds");
 
     // Crash #1 → restart, crash #2 → restart, crash #3 → Disabled.
     let kind = wait_for_phase(&lc, |k| matches!(k, PhaseKind::Disabled(_))).await;
@@ -548,10 +598,15 @@ async fn idle_shutdown_deactivates_then_next_trigger_reactivates() {
     );
 
     // Lazy re-activation on the next trigger; execute round-trips.
-    lc.ensure_active(&Trigger::Command("noop".into())).await.unwrap();
+    lc.ensure_active(&Trigger::Command("noop".into()))
+        .await
+        .unwrap();
     assert_eq!(lc.phase_kind().await, PhaseKind::Active);
     let out = lc
-        .execute(proto::ExecuteCommandParams { command: "noop".into(), context: json!({}) })
+        .execute(proto::ExecuteCommandParams {
+            command: "noop".into(),
+            context: json!({}),
+        })
         .await
         .unwrap();
     assert_eq!(out, json!({ "echo": true }));
@@ -608,7 +663,11 @@ async fn startup_activation_activates_only_matching_plugins() {
     startup_activation(vec![on_startup.clone(), on_command.clone()]);
 
     let kind = wait_for_phase(&on_startup, |k| matches!(k, PhaseKind::Active)).await;
-    assert_eq!(kind, PhaseKind::Active, "onStartupFinished plugin should activate");
+    assert_eq!(
+        kind,
+        PhaseKind::Active,
+        "onStartupFinished plugin should activate"
+    );
     assert_eq!(
         on_command.phase_kind().await,
         PhaseKind::Inactive,
@@ -620,9 +679,10 @@ async fn startup_activation_activates_only_matching_plugins() {
 // ═══ Task 7: host_api — make_sink wired through a real process ═══
 
 /// Build a `ToastEmitter` that records every payload it sees.
-fn recording_toast_emitter()
--> (notemd_lib::plugin_runtime::host_api::ToastEmitter, Arc<Mutex<Vec<serde_json::Value>>>)
-{
+fn recording_toast_emitter() -> (
+    notemd_lib::plugin_runtime::host_api::ToastEmitter,
+    Arc<Mutex<Vec<serde_json::Value>>>,
+) {
     let seen: Arc<Mutex<Vec<serde_json::Value>>> = Arc::new(Mutex::new(Vec::new()));
     let seen_in = seen.clone();
     let emitter = Arc::new(move |v: serde_json::Value| {
@@ -666,7 +726,10 @@ async fn host_api_make_sink_dispatches_toast_through_real_process() {
 
     // ok.sh emits a host.toast notification before its execute response.
     let out = proc
-        .request("command.execute", json!({ "command": "noop", "context": {} }))
+        .request(
+            "command.execute",
+            json!({ "command": "noop", "context": {} }),
+        )
         .await
         .unwrap();
     assert_eq!(out, json!({ "echo": true }));
@@ -713,7 +776,10 @@ fn recording_ui_poster() -> (
     let seen: Arc<Mutex<Vec<(String, serde_json::Value)>>> = Arc::new(Mutex::new(Vec::new()));
     let seen_in = seen.clone();
     let poster = Arc::new(move |window_id: &str, payload: &serde_json::Value| {
-        seen_in.lock().unwrap().push((window_id.to_string(), payload.clone()));
+        seen_in
+            .lock()
+            .unwrap()
+            .push((window_id.to_string(), payload.clone()));
     });
     (poster, seen)
 }
@@ -735,9 +801,15 @@ async fn stream_fixture_ui_request_round_trip_and_host_ui_post_push() {
         None, // no host.vault.* HostServices needed for this streaming round-trip
     );
 
-    let proc = PluginProcess::spawn(&fixture("stream.sh"), "test.stream", log_dir.path(), 5, sink)
-        .await
-        .unwrap();
+    let proc = PluginProcess::spawn(
+        &fixture("stream.sh"),
+        "test.stream",
+        log_dir.path(),
+        5,
+        sink,
+    )
+    .await
+    .unwrap();
     // $activate kicks off the background streamer inside the fixture.
     initialize_and_activate(&proc, &init_params(log_dir.path()), "onCommand:open")
         .await
@@ -747,10 +819,17 @@ async fn stream_fixture_ui_request_round_trip_and_host_ui_post_push() {
     // The host forwards a window RPC as `ui.request {method, params}`; the
     // fixture's on_ui_request echoes the INNER params back as the result.
     let echoed = proc
-        .request("ui.request", json!({ "method": "echo", "params": { "x": 1 } }))
+        .request(
+            "ui.request",
+            json!({ "method": "echo", "params": { "x": 1 } }),
+        )
         .await
         .unwrap();
-    assert_eq!(echoed, json!({ "x": 1 }), "ui.request echo must round-trip params");
+    assert_eq!(
+        echoed,
+        json!({ "x": 1 }),
+        "ui.request echo must round-trip params"
+    );
 
     // `ping` → "pong" proves method dispatch (not a blind echo).
     let pong = proc
@@ -785,7 +864,11 @@ async fn stream_fixture_ui_request_round_trip_and_host_ui_post_push() {
         "expected ≥3 host.ui.post seq frames, got {seqs:?} (all posts: {:?})",
         *posted.lock().unwrap()
     );
-    assert_eq!(&seqs[..3], &[1, 2, 3], "seq frames must arrive in order 1,2,3");
+    assert_eq!(
+        &seqs[..3],
+        &[1, 2, 3],
+        "seq frames must arrive in order 1,2,3"
+    );
 
     // Every recorded push targeted the plugin's "main" window.
     for (win, _) in posted.lock().unwrap().iter() {

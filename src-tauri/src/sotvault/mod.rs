@@ -2,11 +2,11 @@
 //! record mapping each vault copy back to its source for conflict-aware refresh.
 
 pub mod logic;
-pub mod store;
-pub mod vault_settings;
 pub mod mirror_meta;
 pub mod root_guard;
+pub mod store;
 pub mod vault_id;
+pub mod vault_settings;
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -35,8 +35,7 @@ fn bundle_referenced_images(
     dest_dir: &Path,
     stem: &str,
 ) -> Result<String, String> {
-    let (refs, copies) =
-        logic::plan_image_assets(src_md, source_dir, stem, &|p| p.exists());
+    let (refs, copies) = logic::plan_image_assets(src_md, source_dir, stem, &|p| p.exists());
     if copies.is_empty() {
         return Ok(src_md.to_string());
     }
@@ -64,7 +63,6 @@ fn bundle_referenced_images(
     }
     Ok(md)
 }
-
 
 /// The companion-note path for an md path (`foo.md` → `foo.note.md`), or None
 /// when `md` is itself a note / non-md.
@@ -332,7 +330,11 @@ pub fn notemd_vault_settings_set(
     // directly any more: the gate reads whatever `syncDir` already fed into
     // that resolved value, for free, the same as every other input to it.
     if reopen_index {
-        crate::log_cat!("search", "info", "searchSourceGlobs changed — reopening the index");
+        crate::log_cat!(
+            "search",
+            "info",
+            "searchSourceGlobs changed — reopening the index"
+        );
         crate::search::open_vault(&app, &vault_root);
     }
     Ok(merged)
@@ -417,7 +419,14 @@ pub fn notemd_relink_mirror_source(
 
     let mut s = load_store(&app)?;
     let existing = s.find_by_vault(&vault_path).cloned();
-    let rec = store::relink_record(existing, &vault_path, &new_source, &source_hash, &vault_hash, now_secs());
+    let rec = store::relink_record(
+        existing,
+        &vault_path,
+        &new_source,
+        &source_hash,
+        &vault_hash,
+        now_secs(),
+    );
     s.upsert(rec.clone());
     save_store(&app, &s)?;
 
@@ -449,7 +458,10 @@ pub struct NoteSibling {
 /// other devices (same content = same checksum, different mirror file) and return
 /// those that actually have a companion note, so the UI can offer to open them.
 #[tauri::command]
-pub fn notemd_mirror_note_siblings(app: AppHandle, doc_path: String) -> Result<Vec<NoteSibling>, String> {
+pub fn notemd_mirror_note_siblings(
+    app: AppHandle,
+    doc_path: String,
+) -> Result<Vec<NoteSibling>, String> {
     let vault_root = resolve_vault_root(&app).ok_or("Vault not configured")?;
     let metas = mirror_meta::read_all(&vault_root);
     let store = load_store(&app)?;
@@ -653,8 +665,11 @@ pub fn sotvault_apply_update(app: AppHandle, vault_path: String) -> Result<Strin
     let vault_bytes = vault_string.clone().into_bytes();
     std::fs::write(&rec.vault_path, &vault_bytes).map_err(|e| e.to_string())?;
     let prior = rec.note_merge_base.clone();
-    let note_base =
-        reconcile_companion_notes(Path::new(&rec.source_path), &vault_pathbuf, prior.as_deref());
+    let note_base = reconcile_companion_notes(
+        Path::new(&rec.source_path),
+        &vault_pathbuf,
+        prior.as_deref(),
+    );
 
     let updated = Record {
         synced_at: now_secs(),
@@ -733,12 +748,26 @@ mod tests {
         let root = tmp.path();
 
         let (merged, reopen) = persist_vault_settings(
-            root, None, None, None, None, None, None, None,
-            Some(vec!["ebook/**".to_string()]), None,
+            root,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            Some(vec!["ebook/**".to_string()]),
+            None,
         )
         .unwrap();
-        assert_eq!(merged.search_source_globs, Some(vec!["ebook/**".to_string()]));
-        assert!(reopen, "changing searchSourceGlobs invalidates every stored origin/index row");
+        assert_eq!(
+            merged.search_source_globs,
+            Some(vec!["ebook/**".to_string()])
+        );
+        assert!(
+            reopen,
+            "changing searchSourceGlobs invalidates every stored origin/index row"
+        );
         assert_eq!(
             vault_settings::read(root).search_source_globs,
             Some(vec!["ebook/**".to_string()]),
@@ -747,11 +776,22 @@ mod tests {
 
         // Re-saving the same value changes nothing the index reads.
         let (_, reopen) = persist_vault_settings(
-            root, None, None, None, None, None, None, None,
-            Some(vec!["ebook/**".to_string()]), None,
+            root,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            Some(vec!["ebook/**".to_string()]),
+            None,
         )
         .unwrap();
-        assert!(!reopen, "an unchanged pattern list must not cost a full rebuild");
+        assert!(
+            !reopen,
+            "an unchanged pattern list must not cost a full rebuild"
+        );
 
         // Nor does any of the other seven fields — each of them alone,
         // `sync_dir` included: with `searchSourceGlobs` already explicit
@@ -759,16 +799,70 @@ mod tests {
         // resolved value. The mirror case (globs unconfigured, where it
         // DOES) is pinned separately below.
         for (i, args) in [
-            (Some("box".to_string()), None, None, None, None, None, None, None),
-            (None, Some("wiki".to_string()), None, None, None, None, None, None),
-            (None, None, Some("daily".to_string()), None, None, None, None, None),
+            (
+                Some("box".to_string()),
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+            ),
+            (
+                None,
+                Some("wiki".to_string()),
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+            ),
+            (
+                None,
+                None,
+                Some("daily".to_string()),
+                None,
+                None,
+                None,
+                None,
+                None,
+            ),
             (None, None, None, Some(3u32), None, None, None, None),
-            (None, None, None, None, Some("in".to_string()), None, None, None),
-            (None, None, None, None, None, Some(vec!["node_modules".to_string()]), None, None),
+            (
+                None,
+                None,
+                None,
+                None,
+                Some("in".to_string()),
+                None,
+                None,
+                None,
+            ),
+            (
+                None,
+                None,
+                None,
+                None,
+                None,
+                Some(vec!["node_modules".to_string()]),
+                None,
+                None,
+            ),
             (None, None, None, None, None, None, Some(9u32), None),
             (
-                None, None, None, None, None, None, None,
-                Some(vault_settings::SearchWeights { human: Some(2.0), ..Default::default() }),
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                Some(vault_settings::SearchWeights {
+                    human: Some(2.0),
+                    ..Default::default()
+                }),
             ),
         ]
         .into_iter()
@@ -778,7 +872,10 @@ mod tests {
                 root, args.0, args.1, args.2, args.3, args.4, args.5, args.6, None, args.7,
             )
             .unwrap();
-            assert!(!reopen, "settings field #{i} must not trigger an index rebuild");
+            assert!(
+                !reopen,
+                "settings field #{i} must not trigger an index rebuild"
+            );
         }
     }
 
@@ -797,14 +894,28 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         let root = tmp.path();
         assert_eq!(
-            vault_settings::read(root).search_source_globs, None,
+            vault_settings::read(root).search_source_globs,
+            None,
             "测试前提:模式必须是缺省状态,种子规则才会生效"
         );
 
-        let (_, reopen) =
-            persist_vault_settings(root, Some("box".to_string()), None, None, None, None, None, None, None, None)
-                .unwrap();
-        assert!(reopen, "缺省模式下移动 syncDir 改变了实际解析出的 source_globs,必须重开索引");
+        let (_, reopen) = persist_vault_settings(
+            root,
+            Some("box".to_string()),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        assert!(
+            reopen,
+            "缺省模式下移动 syncDir 改变了实际解析出的 source_globs,必须重开索引"
+        );
     }
 
     /// Review round 1, Important 4 (spec §8: "权重非法 → 保存时拒绝,保留
@@ -818,22 +929,51 @@ mod tests {
         let root = tmp.path();
 
         let (merged, _) = persist_vault_settings(
-            root, None, None, None, None, None, None, None, None,
-            Some(vault_settings::SearchWeights { human: Some(1.5), ..Default::default() }),
+            root,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            Some(vault_settings::SearchWeights {
+                human: Some(1.5),
+                ..Default::default()
+            }),
         )
         .unwrap();
         assert_eq!(merged.search_weights.unwrap().human, Some(1.5));
         let before = std::fs::read_to_string(root.join(".notemd/settings.json")).unwrap();
 
         let err = persist_vault_settings(
-            root, None, None, None, None, None, None, None, None,
-            Some(vault_settings::SearchWeights { human: Some(-1.0), ..Default::default() }),
+            root,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            Some(vault_settings::SearchWeights {
+                human: Some(-1.0),
+                ..Default::default()
+            }),
         );
         assert!(err.is_err(), "非法权重必须拒绝整次保存");
 
         let after = std::fs::read_to_string(root.join(".notemd/settings.json")).unwrap();
-        assert_eq!(before, after, "拒绝的写入不该改动磁盘上的原值,一个字节都不该变");
-        assert_eq!(vault_settings::read(root).search_weights.unwrap().human, Some(1.5), "原值必须原样保留");
+        assert_eq!(
+            before, after,
+            "拒绝的写入不该改动磁盘上的原值,一个字节都不该变"
+        );
+        assert_eq!(
+            vault_settings::read(root).search_weights.unwrap().human,
+            Some(1.5),
+            "原值必须原样保留"
+        );
     }
 
     #[test]
@@ -880,9 +1020,15 @@ mod tests {
 
         let out = reconcile_companion_notes(&src_dir.join("foo.md"), &target, None);
 
-        assert_eq!(std::fs::read(dest_dir.join("2026-07-10-foo.note.md")).unwrap(), b"- outline note");
+        assert_eq!(
+            std::fs::read(dest_dir.join("2026-07-10-foo.note.md")).unwrap(),
+            b"- outline note"
+        );
         // 收养是复制:源侧遗留笔记原样保留,不改写
-        assert_eq!(std::fs::read(src_dir.join("foo.note.md")).unwrap(), b"- outline note");
+        assert_eq!(
+            std::fs::read(src_dir.join("foo.note.md")).unwrap(),
+            b"- outline note"
+        );
         assert_eq!(out.as_deref(), Some("- outline note"));
     }
 
@@ -895,7 +1041,8 @@ mod tests {
         let dest_dir = tmp.path().join("vault");
         std::fs::create_dir_all(&dest_dir).unwrap();
 
-        let out = reconcile_companion_notes(&src_dir.join("foo.md"), &dest_dir.join("foo.md"), None);
+        let out =
+            reconcile_companion_notes(&src_dir.join("foo.md"), &dest_dir.join("foo.md"), None);
 
         // no note on either side → nothing written, no base
         assert!(std::fs::read_dir(&dest_dir).unwrap().next().is_none());
@@ -915,13 +1062,17 @@ mod tests {
         std::fs::write(dest_dir.join("foo.md"), b"# main").unwrap();
         std::fs::write(dest_dir.join("foo.note.md"), b"- vault only note").unwrap();
 
-        let out = reconcile_companion_notes(&src_dir.join("foo.md"), &dest_dir.join("foo.md"), None);
+        let out =
+            reconcile_companion_notes(&src_dir.join("foo.md"), &dest_dir.join("foo.md"), None);
 
         assert!(
             !src_dir.join("foo.note.md").exists(),
             "source-side note must never be created"
         );
-        assert_eq!(std::fs::read(dest_dir.join("foo.note.md")).unwrap(), b"- vault only note");
+        assert_eq!(
+            std::fs::read(dest_dir.join("foo.note.md")).unwrap(),
+            b"- vault only note"
+        );
         assert_eq!(out.as_deref(), Some("- vault only note"));
     }
 
@@ -943,8 +1094,14 @@ mod tests {
             Some("base\n"),
         );
 
-        assert_eq!(std::fs::read_to_string(src_dir.join("foo.note.md")).unwrap(), "base\n");
-        assert_eq!(std::fs::read_to_string(dest_dir.join("foo.note.md")).unwrap(), "vault edit\n");
+        assert_eq!(
+            std::fs::read_to_string(src_dir.join("foo.note.md")).unwrap(),
+            "base\n"
+        );
+        assert_eq!(
+            std::fs::read_to_string(dest_dir.join("foo.note.md")).unwrap(),
+            "vault edit\n"
+        );
         assert_eq!(out.as_deref(), Some("vault edit\n"));
     }
 
@@ -965,4 +1122,3 @@ mod tests {
         assert_eq!(out.as_deref(), Some("- prior base"));
     }
 }
-

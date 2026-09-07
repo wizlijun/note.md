@@ -244,6 +244,12 @@ encouragement, and for showing what a distraction-free writing tool and an
 open-source bidirectional-linking outliner can be. The bundled **effie** theme
 is a nod to the former.
 
+Thanks also to [**Huabu**](https://github.com/microsoft/Huabu), an infinite
+workspace for people and agents to think together. note.md's canvas visual
+design and editing interactions draw on Huabu, including lasso selection,
+smart snapping, alignment and distribution, multi-selection resizing, and
+contextual toolbars.
+
 ## License
 
 Apache-2.0 (consistent with `@moraya/core`).

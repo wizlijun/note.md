@@ -65,19 +65,33 @@ fn resolved(p: &Path) -> PathBuf {
 fn system_roots() -> Vec<PathBuf> {
     #[cfg(windows)]
     {
-        ["SystemRoot", "ProgramFiles", "ProgramFiles(x86)", "ProgramData"]
-            .into_iter()
-            .filter_map(std::env::var_os)
-            .map(PathBuf::from)
-            .collect()
+        [
+            "SystemRoot",
+            "ProgramFiles",
+            "ProgramFiles(x86)",
+            "ProgramData",
+        ]
+        .into_iter()
+        .filter_map(std::env::var_os)
+        .map(PathBuf::from)
+        .collect()
     }
     #[cfg(not(windows))]
     {
-        ["/System", "/Library", "/usr", "/bin", "/sbin", "/etc", "/var", "/Applications"]
-            .into_iter()
-            .map(PathBuf::from)
-            .filter(|p| p.exists())
-            .collect()
+        [
+            "/System",
+            "/Library",
+            "/usr",
+            "/bin",
+            "/sbin",
+            "/etc",
+            "/var",
+            "/Applications",
+        ]
+        .into_iter()
+        .map(PathBuf::from)
+        .filter(|p| p.exists())
+        .collect()
     }
 }
 
@@ -148,7 +162,11 @@ mod tests {
     #[test]
     fn rejects_every_windows_spelling_of_a_filesystem_root() {
         for p in ["C:\\", "C:", "D:/", "\\\\server\\share"] {
-            assert_eq!(no_env(p, true), Err(Reject::FilesystemRoot), "{p} should be rejected");
+            assert_eq!(
+                no_env(p, true),
+                Err(Reject::FilesystemRoot),
+                "{p} should be rejected"
+            );
         }
     }
 
@@ -208,7 +226,10 @@ mod tests {
     #[test]
     fn prefix_match_is_by_component_not_by_string() {
         let roots = [PathBuf::from("/usr")];
-        assert_eq!(check_with(Path::new("/usr-local/vault"), true, None, &roots), Ok(()));
+        assert_eq!(
+            check_with(Path::new("/usr-local/vault"), true, None, &roots),
+            Ok(())
+        );
     }
 
     /// The live check must accept a directory where a vault actually lives —

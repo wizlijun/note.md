@@ -50,7 +50,9 @@ fn run_loop(rx: &mpsc::Receiver<Line>, stdout: &mut impl Write) -> ExitCode {
             // 针对**旧**挂载点——agent 可能因此把返回路径解析到新目录里一个
             // 同名但不同的文件,恰是握手本身要防的事。清掉缓存,下一次
             // `tools/call` 会照常触发 `request_roots` 重新问一遍。
-            if msg.get("method").and_then(|v| v.as_str()) == Some("notifications/roots/list_changed") {
+            if msg.get("method").and_then(|v| v.as_str())
+                == Some("notifications/roots/list_changed")
+            {
                 roots = None;
             }
             continue;
@@ -134,7 +136,9 @@ fn next_msg(reader: &mut impl BufRead) -> Option<Line> {
             Ok(_) => {}
         }
         let t = line.trim();
-        if t.is_empty() { continue; }
+        if t.is_empty() {
+            continue;
+        }
         return Some(match serde_json::from_str::<serde_json::Value>(t) {
             Ok(v) => Line::Msg(v),
             Err(_) => Line::ParseError,
@@ -154,7 +158,9 @@ fn spawn_reader() -> mpsc::Receiver<Line> {
         let stdin = std::io::stdin();
         let mut reader = stdin.lock();
         while let Some(line) = next_msg(&mut reader) {
-            if tx.send(line).is_err() { break; } // 主循环已经退出,别再读了
+            if tx.send(line).is_err() {
+                break;
+            } // 主循环已经退出,别再读了
         }
     });
     rx
@@ -163,7 +169,11 @@ fn spawn_reader() -> mpsc::Receiver<Line> {
 /// `reply_parse_error` 的语义就是它自己的名字——JSON-RPC 的约定答法:
 /// 解析失败连 `id` 都取不出来,答 `null`。
 fn reply_parse_error(stdout: &mut impl Write) {
-    let reply = protocol::error(&serde_json::Value::Null, -32700, "parse error: invalid JSON");
+    let reply = protocol::error(
+        &serde_json::Value::Null,
+        -32700,
+        "parse error: invalid JSON",
+    );
     let _ = writeln!(stdout, "{reply}");
     let _ = stdout.flush();
 }
@@ -201,7 +211,10 @@ fn request_roots(
     deadline: Duration,
 ) -> RootsOutcome {
     const ID: &str = "notemd-roots";
-    let _ = writeln!(stdout, r#"{{"jsonrpc":"2.0","id":"{ID}","method":"roots/list"}}"#);
+    let _ = writeln!(
+        stdout,
+        r#"{{"jsonrpc":"2.0","id":"{ID}","method":"roots/list"}}"#
+    );
     let _ = stdout.flush();
 
     let mut queued_tool_calls = Vec::new();
@@ -209,12 +222,20 @@ fn request_roots(
     loop {
         let remaining = deadline_at.saturating_duration_since(std::time::Instant::now());
         if remaining.is_zero() {
-            return RootsOutcome { roots: Vec::new(), queued_tool_calls };
+            return RootsOutcome {
+                roots: Vec::new(),
+                queued_tool_calls,
+            };
         }
         let line = match rx.recv_timeout(remaining) {
             Ok(l) => l,
             // 超时或对端断开(client 退出/EOF):两种情况都一样,放弃 roots。
-            Err(_) => return RootsOutcome { roots: Vec::new(), queued_tool_calls },
+            Err(_) => {
+                return RootsOutcome {
+                    roots: Vec::new(),
+                    queued_tool_calls,
+                }
+            }
         };
         let msg = match line {
             Line::Msg(v) => v,
@@ -234,12 +255,19 @@ fn request_roots(
                         .collect()
                 })
                 .unwrap_or_default();
-            return RootsOutcome { roots, queued_tool_calls };
+            return RootsOutcome {
+                roots,
+                queued_tool_calls,
+            };
         }
-        if msg.get("id").is_none() { continue; } // 通知,不回也不需要处理
-        // 有 id 没 method = 响应,不是发给我们的请求(见 `run_shim` 里同一条
-        // 判断的注释——两处必须一致,都不能把响应当成请求答复一个 -32601)。
-        let Some(method) = msg.get("method").and_then(|v| v.as_str()) else { continue };
+        if msg.get("id").is_none() {
+            continue;
+        } // 通知,不回也不需要处理
+          // 有 id 没 method = 响应,不是发给我们的请求(见 `run_shim` 里同一条
+          // 判断的注释——两处必须一致,都不能把响应当成请求答复一个 -32601)。
+        let Some(method) = msg.get("method").and_then(|v| v.as_str()) else {
+            continue;
+        };
         if method == "tools/call" {
             queued_tool_calls.push(msg);
         } else if let Some(reply) = dispatch::handle(None, &msg) {
@@ -258,22 +286,35 @@ fn request_roots(
 /// (例如陈旧 socket 文件);不设上限,agent 的这一次工具调用就会无限期挂起。
 fn forward(msg: &serde_json::Value, roots: Option<&[String]>) -> Result<serde_json::Value, String> {
     let rt = tokio::runtime::Builder::new_current_thread()
-        .enable_all().build().map_err(|e| e.to_string())?;
-    let preface = roots.map(|r| serde_json::json!({
-        "jsonrpc": "2.0", "method": "notemd/roots", "params": { "roots": r }
-    }));
+        .enable_all()
+        .build()
+        .map_err(|e| e.to_string())?;
+    let preface = roots.map(|r| {
+        serde_json::json!({
+            "jsonrpc": "2.0", "method": "notemd/roots", "params": { "roots": r }
+        })
+    });
     rt.block_on(async {
         tokio::time::timeout(std::time::Duration::from_secs(5), async {
             use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-            let stream = crate::platform::ipc::connect().await.map_err(|e| e.to_string())?;
+            let stream = crate::platform::ipc::connect()
+                .await
+                .map_err(|e| e.to_string())?;
             let (r, mut w) = tokio::io::split(stream);
             if let Some(p) = preface {
-                w.write_all(format!("{p}\n").as_bytes()).await.map_err(|e| e.to_string())?;
+                w.write_all(format!("{p}\n").as_bytes())
+                    .await
+                    .map_err(|e| e.to_string())?;
             }
-            w.write_all(format!("{msg}\n").as_bytes()).await.map_err(|e| e.to_string())?;
+            w.write_all(format!("{msg}\n").as_bytes())
+                .await
+                .map_err(|e| e.to_string())?;
             w.flush().await.map_err(|e| e.to_string())?;
             let mut lines = BufReader::new(r).lines();
-            let line = lines.next_line().await.map_err(|e| e.to_string())?
+            let line = lines
+                .next_line()
+                .await
+                .map_err(|e| e.to_string())?
                 .ok_or_else(|| "主程序未回应".to_string())?;
             serde_json::from_str::<serde_json::Value>(&line).map_err(|e| e.to_string())
         })
@@ -329,7 +370,10 @@ mod tests {
         // Nothing must have been written for id 42 yet — in particular, no
         // premature "note.md not running" tool_error.
         let written = String::from_utf8(out).unwrap();
-        assert!(!written.contains("42"), "must not answer the queued call inline: {written}");
+        assert!(
+            !written.contains("42"),
+            "must not answer the queued call inline: {written}"
+        );
     }
 
     /// A non-`tools/call` request seen while waiting (e.g. the client's next
@@ -338,13 +382,18 @@ mod tests {
     #[test]
     fn non_tool_call_request_seen_while_waiting_is_still_answered_inline() {
         let (tx, rx) = mpsc::channel::<Line>();
-        tx.send(Line::Msg(serde_json::json!({ "jsonrpc": "2.0", "id": 7, "method": "tools/list" })))
-            .unwrap();
+        tx.send(Line::Msg(
+            serde_json::json!({ "jsonrpc": "2.0", "id": 7, "method": "tools/list" }),
+        ))
+        .unwrap();
         let mut out: Vec<u8> = Vec::new();
         let _ = request_roots(&rx, &mut out, Duration::from_millis(50));
 
         let written = String::from_utf8(out).unwrap();
-        assert!(written.contains("\"id\":7"), "expected an inline reply to id 7: {written}");
+        assert!(
+            written.contains("\"id\":7"),
+            "expected an inline reply to id 7: {written}"
+        );
     }
 
     /// The happy path still works: a matching `id: "notemd-roots"` response
@@ -390,7 +439,10 @@ mod tests {
         // anything. What must never appear is a reply keyed on id `99`,
         // which the client itself owns.
         let written = String::from_utf8(out).unwrap();
-        assert!(!written.contains("99"), "a stray response must draw no reply at all: {written}");
+        assert!(
+            !written.contains("99"),
+            "a stray response must draw no reply at all: {written}"
+        );
     }
 
     /// A garbage line arriving while waiting still gets the conventional

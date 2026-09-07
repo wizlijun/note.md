@@ -1,5 +1,5 @@
-use git2::Signature;
 use super::{VaultError, VaultIosManager};
+use git2::Signature;
 
 pub fn author_sig<'a>(mgr: &VaultIosManager) -> Result<Signature<'a>, VaultError> {
     let name = mgr.author_name.lock().unwrap().clone();
@@ -24,18 +24,30 @@ pub fn timestamp_compact() -> String {
     let mut y = 1970u64;
     let mut rem = days;
     loop {
-        let dy = if (y % 4 == 0 && y % 100 != 0) || y % 400 == 0 { 366 } else { 365 };
-        if rem < dy { break; }
+        let dy = if (y % 4 == 0 && y % 100 != 0) || y % 400 == 0 {
+            366
+        } else {
+            365
+        };
+        if rem < dy {
+            break;
+        }
         rem -= dy;
         y += 1;
     }
     let mt: [u64; 12] = if (y % 4 == 0 && y % 100 != 0) || y % 400 == 0 {
-        [31,29,31,30,31,30,31,31,30,31,30,31]
+        [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
     } else {
-        [31,28,31,30,31,30,31,31,30,31,30,31]
+        [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
     };
     let mut mo = 1u64;
-    for &d in &mt { if rem < d { break; } rem -= d; mo += 1; }
+    for &d in &mt {
+        if rem < d {
+            break;
+        }
+        rem -= d;
+        mo += 1;
+    }
     let day = rem + 1;
     format!("{y:04}{mo:02}{day:02}-{h:02}{m:02}{s:02}")
 }

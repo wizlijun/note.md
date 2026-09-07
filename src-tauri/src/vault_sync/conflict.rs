@@ -1,5 +1,5 @@
-use std::path::Path;
 use super::git_ops::{run_git, GitResult};
+use std::path::Path;
 
 /// 自动化解冲突:每个冲突文件先原样另存一份 `<名>.conflict.<ts>.<ext>` 副本
 /// (此刻文件里带着冲突标记,双方内容都在,什么都不会丢),再把工作区版本定为
@@ -34,9 +34,15 @@ pub fn handle_conflicts(repo: &Path, prefer: &str) -> GitResult<()> {
 fn make_conflict_name(file: &str, timestamp: &str) -> String {
     let path = Path::new(file);
     let stem = path.file_stem().unwrap_or_default().to_string_lossy();
-    let ext = path.extension().map(|e| format!(".{}", e.to_string_lossy())).unwrap_or_default();
+    let ext = path
+        .extension()
+        .map(|e| format!(".{}", e.to_string_lossy()))
+        .unwrap_or_default();
     let parent = path.parent().unwrap_or(Path::new(""));
-    parent.join(format!("{stem}.conflict.{timestamp}{ext}")).to_string_lossy().to_string()
+    parent
+        .join(format!("{stem}.conflict.{timestamp}{ext}"))
+        .to_string_lossy()
+        .to_string()
 }
 
 fn ts_now() -> String {

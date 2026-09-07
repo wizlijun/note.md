@@ -54,9 +54,15 @@ pub fn human_actor_for_vault(vault: Option<&Path>) -> String {
 
 /// 裸 id(不带前缀)。`notemd_okf_human_id` 的实现主体。
 pub fn human_id_for_vault(vault: Option<&Path>) -> String {
-    let os_user = std::env::var("USER").or_else(|_| std::env::var("USERNAME")).unwrap_or_default();
+    let os_user = std::env::var("USER")
+        .or_else(|_| std::env::var("USERNAME"))
+        .unwrap_or_default();
     match vault.filter(|p| p.is_dir()) {
-        Some(d) => human_id_from(&git_config(d, "user.name"), &git_config(d, "user.email"), &os_user),
+        Some(d) => human_id_from(
+            &git_config(d, "user.name"),
+            &git_config(d, "user.email"),
+            &os_user,
+        ),
         None => human_id_from("", "", &os_user),
     }
 }
@@ -90,7 +96,10 @@ mod tests {
 
     #[test]
     fn prefers_the_git_email_local_part() {
-        assert_eq!(human_id_from("Bruce Li", "bruce@runningbruce.com", "brucel"), "bruce");
+        assert_eq!(
+            human_id_from("Bruce Li", "bruce@runningbruce.com", "brucel"),
+            "bruce"
+        );
     }
 
     #[test]

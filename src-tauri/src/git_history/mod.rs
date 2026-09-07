@@ -39,7 +39,13 @@ pub fn parse_log(stdout: &str) -> Vec<GitCommit> {
             let author = parts.next()?.trim().to_string();
             let timestamp = parts.next()?.trim().parse::<i64>().ok()?;
             let subject = parts.next().unwrap_or("").trim().to_string();
-            Some(GitCommit { hash, short, author, timestamp, subject })
+            Some(GitCommit {
+                hash,
+                short,
+                author,
+                timestamp,
+                subject,
+            })
         })
         .collect()
 }
@@ -63,10 +69,7 @@ pub fn git_file_log(repo: String, abs_path: String) -> Result<Vec<GitCommit>, St
     }
     let repo_path = Path::new(&repo);
     let rel = rel_path(repo_path, Path::new(&abs_path))?;
-    let out = git_ops::run_git(
-        repo_path,
-        &["log", "--follow", LOG_FORMAT, "--", &rel],
-    )?;
+    let out = git_ops::run_git(repo_path, &["log", "--follow", LOG_FORMAT, "--", &rel])?;
     Ok(parse_log(&out))
 }
 
@@ -143,7 +146,10 @@ pub fn git_diff_current(
         .replace(&old_abs, &format!("{name}@{short}"))
         .replace(old_abs.trim_start_matches('/'), &format!("{name}@{short}"))
         .replace(&new_abs, &format!("{name} (current)"))
-        .replace(new_abs.trim_start_matches('/'), &format!("{name} (current)"));
+        .replace(
+            new_abs.trim_start_matches('/'),
+            &format!("{name} (current)"),
+        );
     Ok(diff)
 }
 
@@ -250,7 +256,9 @@ mod tests {
 
         let repo = dir.to_string_lossy().to_string();
         let abs = file.to_string_lossy().to_string();
-        let rev = git_file_log(repo.clone(), abs.clone()).unwrap()[0].hash.clone();
+        let rev = git_file_log(repo.clone(), abs.clone()).unwrap()[0]
+            .hash
+            .clone();
 
         // committed "v1\n" vs an edited buffer "v2\n" → shows the change
         let diff = git_diff_current(repo.clone(), rev.clone(), abs.clone(), "v2\n".into()).unwrap();
@@ -259,7 +267,10 @@ mod tests {
 
         // identical buffer → no differences → empty
         let same = git_diff_current(repo, rev, abs, "v1\n".into()).unwrap();
-        assert!(same.trim().is_empty(), "identical buffer should yield empty diff: {same}");
+        assert!(
+            same.trim().is_empty(),
+            "identical buffer should yield empty diff: {same}"
+        );
 
         let _ = std::fs::remove_dir_all(&dir);
     }

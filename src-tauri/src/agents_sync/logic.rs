@@ -199,7 +199,10 @@ mod tests {
 
     #[test]
     fn backup_name_no_collision() {
-        assert_eq!(pick_backup_name("20260725", |_| false), "CLAUDE.20260725.md");
+        assert_eq!(
+            pick_backup_name("20260725", |_| false),
+            "CLAUDE.20260725.md"
+        );
     }
 
     #[test]
@@ -220,7 +223,10 @@ mod tests {
     fn appending_leaves_existing_content_byte_identical() {
         let before = "# Vault\n\nMy own conventions.\n";
         let after = append_search_section(before);
-        assert!(after.starts_with(before), "existing content must be untouched");
+        assert!(
+            after.starts_with(before),
+            "existing content must be untouched"
+        );
         assert!(after.contains("## Searching this vault"));
     }
 
@@ -234,7 +240,10 @@ mod tests {
     #[test]
     fn appending_normalizes_a_missing_trailing_newline() {
         let after = append_search_section("# Vault");
-        assert!(after.contains("# Vault\n\n## Searching this vault"), "{after}");
+        assert!(
+            after.contains("# Vault\n\n## Searching this vault"),
+            "{after}"
+        );
     }
 
     /// A regression a same-content-check test would miss: appending must not
@@ -245,7 +254,10 @@ mod tests {
         let before = "# Vault\n\nfirst\nsecond\n";
         let after = append_search_section(before);
         let suffix = &after[before.len()..];
-        assert!(suffix.starts_with('\n'), "expected exactly one blank-line separator, got {suffix:?}");
+        assert!(
+            suffix.starts_with('\n'),
+            "expected exactly one blank-line separator, got {suffix:?}"
+        );
         assert!(suffix[1..].starts_with(SEARCH_SECTION));
     }
 }

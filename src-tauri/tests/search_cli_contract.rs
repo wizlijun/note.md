@@ -23,7 +23,10 @@ fn temp_home() -> PathBuf {
     let d = std::env::temp_dir().join(format!(
         "notemd-search-cli-{}-{}",
         std::process::id(),
-        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos(),
     ));
     std::fs::create_dir_all(&d).unwrap();
     d
@@ -59,7 +62,9 @@ static PROCESS_HOME_ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 /// — under `PROCESS_HOME_ENV_LOCK` so no other test in this file observes
 /// the override.
 fn with_process_home<T>(home: &std::path::Path, f: impl FnOnce() -> T) -> T {
-    let _guard = PROCESS_HOME_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _guard = PROCESS_HOME_ENV_LOCK
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
     let saved_home = std::env::var_os("HOME");
     #[cfg(windows)]
     let saved_appdata = std::env::var_os("LOCALAPPDATA");
@@ -154,7 +159,16 @@ fn json_output_carries_the_full_contract() {
     assert!(v["route"].as_str().unwrap().starts_with("t1-"));
     assert!(v["took_ms"].is_number());
     let hit = &v["hits"][0];
-    for key in ["path", "line", "text", "score", "breadcrumb", "doc_date", "source_ref", "attention_minutes"] {
+    for key in [
+        "path",
+        "line",
+        "text",
+        "score",
+        "breadcrumb",
+        "doc_date",
+        "source_ref",
+        "attention_minutes",
+    ] {
         assert!(!hit[key].is_null(), "missing {key} in {hit}");
     }
     assert_eq!(hit["source_ref"].as_str().unwrap(), "2026-01-01-a.md#L1");
@@ -163,7 +177,11 @@ fn json_output_carries_the_full_contract() {
     // source-glob match is `unlabeled` (rule 6′), not `source` (the retired
     // rule 6) — `ScanOptions` doesn't carry real source globs yet (C-T3),
     // so this CLI's default vault never matches rule 5′ either.
-    assert_eq!(hit["origin"].as_str(), Some("unlabeled"), "no frontmatter, no glob match → rule 6′");
+    assert_eq!(
+        hit["origin"].as_str(),
+        Some("unlabeled"),
+        "no frontmatter, no glob match → rule 6′"
+    );
 }
 
 /// `json_output_carries_the_full_contract` only proves the key is present —
@@ -189,7 +207,10 @@ fn attention_minutes_reflects_real_ingested_data_not_a_hardcoded_stand_in() {
     let home = temp_home();
 
     let today = searchidx::chunk::ymd_from_unix_public(
-        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs() as i64,
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as i64,
     );
     let analytics_dir = v.path().join(".notemd/analytics");
     std::fs::create_dir_all(&analytics_dir).unwrap();
@@ -220,14 +241,27 @@ fn attention_minutes_reflects_real_ingested_data_not_a_hardcoded_stand_in() {
     });
 
     let mut cmd = Command::new(PathBuf::from(env!("CARGO_BIN_EXE_notemd")));
-    cmd.arg("--cli").arg("search").arg("brownfox").arg("--json").arg("--no-sweep").arg("--vault").arg(v.path());
+    cmd.arg("--cli")
+        .arg("search")
+        .arg("brownfox")
+        .arg("--json")
+        .arg("--no-sweep")
+        .arg("--vault")
+        .arg(v.path());
     isolate(&mut cmd, &home);
     let out = cmd.output().expect("spawn");
     let _ = std::fs::remove_dir_all(&home);
 
-    assert_eq!(out.status.code(), Some(0), "stderr: {}", String::from_utf8_lossy(&out.stderr));
+    assert_eq!(
+        out.status.code(),
+        Some(0),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
     let j: serde_json::Value = serde_json::from_slice(&out.stdout).expect("valid json");
-    let minutes = j["hits"][0]["attention_minutes"].as_f64().expect("attention_minutes must be a number");
+    let minutes = j["hits"][0]["attention_minutes"]
+        .as_f64()
+        .expect("attention_minutes must be a number");
     assert!(
         (minutes - 10.0).abs() < 1e-6,
         "seeded 600_000 read_ms (10 minutes) at zero age (decay ×1.0) must come through as 10.0, got {minutes} in {j}"
@@ -255,7 +289,11 @@ fn paths_are_vault_relative_with_forward_slashes() {
 fn an_unusable_index_degrades_to_a_direct_scan_and_still_exits_zero() {
     let v = vault(&[("a.md", "brownfox\n")]);
     let mut cmd = Command::new(PathBuf::from(env!("CARGO_BIN_EXE_notemd")));
-    cmd.arg("--cli").arg("search").arg("brownfox").arg("--vault").arg(v.path());
+    cmd.arg("--cli")
+        .arg("search")
+        .arg("brownfox")
+        .arg("--vault")
+        .arg(v.path());
     let blocker = v.path().join("blocker");
     std::fs::write(&blocker, b"x").unwrap();
     // HOME drives `dirs::data_local_dir()` on macOS and most other unix
@@ -266,9 +304,17 @@ fn an_unusable_index_degrades_to_a_direct_scan_and_still_exits_zero() {
     #[cfg(windows)]
     cmd.env("LOCALAPPDATA", &blocker);
     let out = cmd.output().unwrap();
-    assert_eq!(out.status.code(), Some(0), "stderr: {}", String::from_utf8_lossy(&out.stderr));
+    assert_eq!(
+        out.status.code(),
+        Some(0),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
     assert!(String::from_utf8_lossy(&out.stdout).contains("a.md:1:"));
-    assert!(!out.stderr.is_empty(), "a degradation must be announced on stderr");
+    assert!(
+        !out.stderr.is_empty(),
+        "a degradation must be announced on stderr"
+    );
 }
 
 /// Task 6 made `origin` observable in `--json` output for the first time —
@@ -313,18 +359,34 @@ fn the_no_index_fallback_reports_the_same_origin_tier_the_index_would() {
         // and `derived` on this one, because the pseudo-frontmatter's
         // `type: Book Summary` reached rule 4 here and nowhere else.
         ("raw/c.txt", "---\ntype: Book Summary\n---\nbrownfox\n"),
-        (".notemd/settings.json", r#"{"searchSourceGlobs":["raw/**"]}"#),
+        (
+            ".notemd/settings.json",
+            r#"{"searchSourceGlobs":["raw/**"]}"#,
+        ),
     ]);
     let mut cmd = Command::new(PathBuf::from(env!("CARGO_BIN_EXE_notemd")));
-    cmd.arg("--cli").arg("search").arg("brownfox").arg("--vault").arg(v.path()).arg("--json");
+    cmd.arg("--cli")
+        .arg("search")
+        .arg("brownfox")
+        .arg("--vault")
+        .arg(v.path())
+        .arg("--json");
     let blocker = v.path().join("blocker");
     std::fs::write(&blocker, b"x").unwrap();
     cmd.env("HOME", &blocker);
     #[cfg(windows)]
     cmd.env("LOCALAPPDATA", &blocker);
     let out = cmd.output().unwrap();
-    assert_eq!(out.status.code(), Some(0), "stderr: {}", String::from_utf8_lossy(&out.stderr));
-    assert!(!out.stderr.is_empty(), "a degradation must be announced on stderr (same precedent as the sibling test above)");
+    assert_eq!(
+        out.status.code(),
+        Some(0),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert!(
+        !out.stderr.is_empty(),
+        "a degradation must be announced on stderr (same precedent as the sibling test above)"
+    );
     let j: serde_json::Value = serde_json::from_slice(&out.stdout).expect("valid json");
     // Both paths classify a bare `a.md` as `unlabeled` (rule 6′, 2026-08-12
     // design — retired rule 6's `source` default), so the origin assertion
@@ -340,7 +402,9 @@ fn the_no_index_fallback_reports_the_same_origin_tier_the_index_would() {
     );
     let hits = j["hits"].as_array().expect("hits array");
     let origin_of = |path: &str| {
-        hits.iter().find(|h| h["path"].as_str() == Some(path)).unwrap_or_else(|| panic!("{path} missing: {j}"))["origin"]
+        hits.iter()
+            .find(|h| h["path"].as_str() == Some(path))
+            .unwrap_or_else(|| panic!("{path} missing: {j}"))["origin"]
             .as_str()
             .map(str::to_string)
     };
@@ -392,8 +456,14 @@ fn the_no_index_fallback_searches_the_same_corpus_as_the_index() {
 
     let v = vault(files);
     let indexed = String::from_utf8_lossy(&search(v.path(), &["brownfox"]).stdout).to_string();
-    assert!(indexed.contains("gitignored.md:1:"), "index path: {indexed}");
-    assert!(indexed.contains("plainignored.md:1:"), "index path: {indexed}");
+    assert!(
+        indexed.contains("gitignored.md:1:"),
+        "index path: {indexed}"
+    );
+    assert!(
+        indexed.contains("plainignored.md:1:"),
+        "index path: {indexed}"
+    );
 
     // Same query, index forced to be unusable (see the test above for why
     // pointing the app-data root at a plain file does that).
@@ -401,20 +471,34 @@ fn the_no_index_fallback_searches_the_same_corpus_as_the_index() {
     let blocker = v2.path().join("blocker");
     std::fs::write(&blocker, b"x").unwrap();
     let mut cmd = Command::new(PathBuf::from(env!("CARGO_BIN_EXE_notemd")));
-    cmd.arg("--cli").arg("search").arg("brownfox").arg("--vault").arg(v2.path());
+    cmd.arg("--cli")
+        .arg("search")
+        .arg("brownfox")
+        .arg("--vault")
+        .arg(v2.path());
     cmd.env("HOME", &blocker);
     #[cfg(windows)]
     cmd.env("LOCALAPPDATA", &blocker);
     let out = cmd.output().unwrap();
     let scanned = String::from_utf8_lossy(&out.stdout);
-    assert!(scanned.contains("gitignored.md:1:"), "fallback path: {scanned}");
-    assert!(scanned.contains("plainignored.md:1:"), "fallback path: {scanned}");
+    assert!(
+        scanned.contains("gitignored.md:1:"),
+        "fallback path: {scanned}"
+    );
+    assert!(
+        scanned.contains("plainignored.md:1:"),
+        "fallback path: {scanned}"
+    );
 }
 
 #[test]
 fn missing_vault_is_the_only_hard_error() {
     let mut cmd = Command::new(PathBuf::from(env!("CARGO_BIN_EXE_notemd")));
-    cmd.arg("--cli").arg("search").arg("x").arg("--vault").arg("/definitely/not/here");
+    cmd.arg("--cli")
+        .arg("search")
+        .arg("x")
+        .arg("--vault")
+        .arg("/definitely/not/here");
     assert_eq!(cmd.output().unwrap().status.code(), Some(2));
 }
 
@@ -436,11 +520,14 @@ fn stats_reports_the_index_without_searching() {
 #[test]
 fn stats_json_reports_the_provenance_distribution() {
     let v = vault(&[
-        ("mine.note.md", "- brownfox\n"),                                   // rule 1 -> human
-        ("book.md", "---\ntype: Book\n---\nbrownfox\n"),                    // rule 4 -> source
-        ("s.md", "---\ntype: Book Summary\n---\nbrownfox\n"),               // rule 4 -> derived
-        ("a.md", "---\ngenerated: { by: claude/1 }\n---\nbrownfox\n"),      // rule 2 -> derived
-        ("raw.md", "brownfox, no frontmatter, no matching source glob\n"),  // rule 6' -> unlabeled
+        ("mine.note.md", "- brownfox\n"),                // rule 1 -> human
+        ("book.md", "---\ntype: Book\n---\nbrownfox\n"), // rule 4 -> source
+        ("s.md", "---\ntype: Book Summary\n---\nbrownfox\n"), // rule 4 -> derived
+        ("a.md", "---\ngenerated: { by: claude/1 }\n---\nbrownfox\n"), // rule 2 -> derived
+        (
+            "raw.md",
+            "brownfox, no frontmatter, no matching source glob\n",
+        ), // rule 6' -> unlabeled
     ]);
     let out = search(v.path(), &["--stats", "--json"]);
     let j: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
@@ -477,15 +564,26 @@ fn filters_and_limit_flags_work_as_flags_too() {
 /// 否则「放开」与「默认」无法区分。
 #[test]
 fn all_flag_and_limit_zero_return_every_hit() {
-    let files: Vec<(String, String)> =
-        (0..25).map(|i| (format!("f{i:02}.md"), "brownfox\n".to_string())).collect();
-    let refs: Vec<(&str, &str)> = files.iter().map(|(p, b)| (p.as_str(), b.as_str())).collect();
+    let files: Vec<(String, String)> = (0..25)
+        .map(|i| (format!("f{i:02}.md"), "brownfox\n".to_string()))
+        .collect();
+    let refs: Vec<(&str, &str)> = files
+        .iter()
+        .map(|(p, b)| (p.as_str(), b.as_str()))
+        .collect();
     let v = vault(&refs);
 
     let out = search(v.path(), &["brownfox"]);
-    assert_eq!(String::from_utf8_lossy(&out.stdout).lines().count(), 20, "默认仍是 20 条");
+    assert_eq!(
+        String::from_utf8_lossy(&out.stdout).lines().count(),
+        20,
+        "默认仍是 20 条"
+    );
 
-    for flags in [&["brownfox", "--all"][..], &["brownfox", "--limit", "0"][..]] {
+    for flags in [
+        &["brownfox", "--all"][..],
+        &["brownfox", "--limit", "0"][..],
+    ] {
         let out = search(v.path(), flags);
         assert_eq!(
             String::from_utf8_lossy(&out.stdout).lines().count(),
@@ -519,11 +617,17 @@ fn query_against_a_stale_index(
     let home = temp_home();
 
     let mut build = Command::new(PathBuf::from(env!("CARGO_BIN_EXE_notemd")));
-    build.arg("--cli").arg("search").arg("brownfox").arg("--vault").arg(v);
+    build
+        .arg("--cli")
+        .arg("search")
+        .arg("brownfox")
+        .arg("--vault")
+        .arg(v);
     isolate(&mut build, &home);
     let built = build.output().unwrap();
     assert_eq!(
-        built.status.code(), Some(0),
+        built.status.code(),
+        Some(0),
         "sanity: the index must find the term before truncation; stderr: {}",
         String::from_utf8_lossy(&built.stderr),
     );
@@ -531,7 +635,14 @@ fn query_against_a_stale_index(
     std::fs::write(v.join("a.md"), shrink_to).unwrap();
 
     let mut query = Command::new(PathBuf::from(env!("CARGO_BIN_EXE_notemd")));
-    query.arg("--cli").arg("search").arg("brownfox").args(extra_query_args).arg("--no-sweep").arg("--vault").arg(v);
+    query
+        .arg("--cli")
+        .arg("search")
+        .arg("brownfox")
+        .args(extra_query_args)
+        .arg("--no-sweep")
+        .arg("--vault")
+        .arg(v);
     isolate(&mut query, &home);
     let out = query.output().unwrap();
     let _ = std::fs::remove_dir_all(&home);
@@ -559,7 +670,10 @@ fn a_stale_context_hit_is_dropped_and_the_exit_code_follows_what_was_actually_pr
     let out = query_against_a_stale_index(v.path(), "only one line now\n", &["--context", "1"]);
 
     let stdout = String::from_utf8_lossy(&out.stdout);
-    assert!(stdout.is_empty(), "a hit whose lines no longer exist must print nothing, not a stale citation: {stdout}");
+    assert!(
+        stdout.is_empty(),
+        "a hit whose lines no longer exist must print nothing, not a stale citation: {stdout}"
+    );
     assert_eq!(
         out.status.code(), Some(1),
         "exit code must agree with stdout being empty (no output was printed), not with what the stale index believed; stderr: {}",
@@ -589,7 +703,8 @@ fn a_context_larger_than_the_shrinkage_still_drops_the_stale_hit_not_unrelated_l
          file are not this hit's context once its line is gone: {stdout}"
     );
     assert_eq!(
-        out.status.code(), Some(1),
+        out.status.code(),
+        Some(1),
         "exit code must agree with stdout being empty; stderr: {}",
         String::from_utf8_lossy(&out.stderr),
     );
@@ -700,12 +815,23 @@ fn cli_glob_stamp_matches_independently_computed_scan_options_source_globs() {
     std::fs::remove_file(v.path().join("a.md")).unwrap();
 
     let mut query = Command::new(PathBuf::from(env!("CARGO_BIN_EXE_notemd")));
-    query.arg("--cli").arg("search").arg("brownfox").arg("--no-sweep").arg("--vault").arg(v.path());
+    query
+        .arg("--cli")
+        .arg("search")
+        .arg("brownfox")
+        .arg("--no-sweep")
+        .arg("--vault")
+        .arg(v.path());
     isolate(&mut query, &home);
     let out = query.output().unwrap();
     let _ = std::fs::remove_dir_all(&home);
 
-    assert_eq!(out.status.code(), Some(0), "stderr: {}", String::from_utf8_lossy(&out.stderr));
+    assert_eq!(
+        out.status.code(),
+        Some(0),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
     assert!(
         String::from_utf8_lossy(&out.stdout).contains("a.md:1:"),
         "the CLI's own glob stamp must match the independently-computed \
@@ -734,13 +860,22 @@ fn a_configured_weight_changes_the_clis_own_result_order() {
         ("raw/source.md", "widget\n"),
     ]);
     std::fs::create_dir_all(v.path().join(".notemd")).unwrap();
-    std::fs::write(v.path().join(".notemd/settings.json"), r#"{"searchSourceGlobs": ["raw/**"]}"#).unwrap();
+    std::fs::write(
+        v.path().join(".notemd/settings.json"),
+        r#"{"searchSourceGlobs": ["raw/**"]}"#,
+    )
+    .unwrap();
 
     // Default weights: `derived.md` (Origin::Derived, x1.0) outranks
     // `raw/source.md` (Origin::Source, x0.9).
     let default_out = search(v.path(), &["widget", "--json"]);
     let default_json: serde_json::Value = serde_json::from_slice(&default_out.stdout)
-        .unwrap_or_else(|e| panic!("invalid json ({e}): {}", String::from_utf8_lossy(&default_out.stdout)));
+        .unwrap_or_else(|e| {
+            panic!(
+                "invalid json ({e}): {}",
+                String::from_utf8_lossy(&default_out.stdout)
+            )
+        });
     assert_eq!(
         default_json["hits"][0]["path"].as_str(),
         Some("derived.md"),
@@ -755,7 +890,12 @@ fn a_configured_weight_changes_the_clis_own_result_order() {
     .unwrap();
     let inverted_out = search(v.path(), &["widget", "--json"]);
     let inverted_json: serde_json::Value = serde_json::from_slice(&inverted_out.stdout)
-        .unwrap_or_else(|e| panic!("invalid json ({e}): {}", String::from_utf8_lossy(&inverted_out.stdout)));
+        .unwrap_or_else(|e| {
+            panic!(
+                "invalid json ({e}): {}",
+                String::from_utf8_lossy(&inverted_out.stdout)
+            )
+        });
     assert_eq!(
         inverted_json["hits"][0]["path"].as_str(),
         Some("raw/source.md"),
@@ -799,9 +939,18 @@ fn a_configured_weight_changes_the_clis_own_result_order() {
 /// with however fast or slow the machine is.
 #[test]
 fn json_took_ms_reflects_the_whole_pipeline_not_just_the_query() {
-    let files: Vec<(String, String)> =
-        (0..300).map(|i| (format!("f{i:04}.md"), format!("# Note {i}\n\nwidget content number {i}\n"))).collect();
-    let refs: Vec<(&str, &str)> = files.iter().map(|(p, b)| (p.as_str(), b.as_str())).collect();
+    let files: Vec<(String, String)> = (0..300)
+        .map(|i| {
+            (
+                format!("f{i:04}.md"),
+                format!("# Note {i}\n\nwidget content number {i}\n"),
+            )
+        })
+        .collect();
+    let refs: Vec<(&str, &str)> = files
+        .iter()
+        .map(|(p, b)| (p.as_str(), b.as_str()))
+        .collect();
 
     // Best-of-N rather than a single sample. The bound below is a *ratio* between
     // two wall-clock measurements, and `cargo test` runs test binaries in
@@ -830,25 +979,50 @@ fn json_took_ms_reflects_the_whole_pipeline_not_just_the_query() {
         isolate(&mut rebuild_cmd, &home);
         let rebuild_out = rebuild_cmd.output().unwrap();
         assert_eq!(
-            rebuild_out.status.code(), Some(0),
-            "sanity: --rebuild must succeed; stderr: {}", String::from_utf8_lossy(&rebuild_out.stderr),
+            rebuild_out.status.code(),
+            Some(0),
+            "sanity: --rebuild must succeed; stderr: {}",
+            String::from_utf8_lossy(&rebuild_out.stderr),
         );
         let rebuild_json: serde_json::Value = serde_json::from_slice(&rebuild_out.stdout)
-            .unwrap_or_else(|e| panic!("invalid json ({e}): {}", String::from_utf8_lossy(&rebuild_out.stdout)));
-        let rebuild_took = rebuild_json["took_ms"].as_u64().expect("took_ms must be a number");
+            .unwrap_or_else(|e| {
+                panic!(
+                    "invalid json ({e}): {}",
+                    String::from_utf8_lossy(&rebuild_out.stdout)
+                )
+            });
+        let rebuild_took = rebuild_json["took_ms"]
+            .as_u64()
+            .expect("took_ms must be a number");
 
         let mut warm_cmd = Command::new(PathBuf::from(env!("CARGO_BIN_EXE_notemd")));
-        warm_cmd.arg("--cli").arg("search").arg("widget").arg("--no-sweep").arg("--json").arg("--vault").arg(v.path());
+        warm_cmd
+            .arg("--cli")
+            .arg("search")
+            .arg("widget")
+            .arg("--no-sweep")
+            .arg("--json")
+            .arg("--vault")
+            .arg(v.path());
         isolate(&mut warm_cmd, &home);
         let warm_out = warm_cmd.output().unwrap();
         let _ = std::fs::remove_dir_all(&home);
         assert_eq!(
-            warm_out.status.code(), Some(0),
-            "sanity: the warm --no-sweep query must succeed; stderr: {}", String::from_utf8_lossy(&warm_out.stderr),
+            warm_out.status.code(),
+            Some(0),
+            "sanity: the warm --no-sweep query must succeed; stderr: {}",
+            String::from_utf8_lossy(&warm_out.stderr),
         );
-        let warm_json: serde_json::Value = serde_json::from_slice(&warm_out.stdout)
-            .unwrap_or_else(|e| panic!("invalid json ({e}): {}", String::from_utf8_lossy(&warm_out.stdout)));
-        let warm_took = warm_json["took_ms"].as_u64().expect("took_ms must be a number");
+        let warm_json: serde_json::Value =
+            serde_json::from_slice(&warm_out.stdout).unwrap_or_else(|e| {
+                panic!(
+                    "invalid json ({e}): {}",
+                    String::from_utf8_lossy(&warm_out.stdout)
+                )
+            });
+        let warm_took = warm_json["took_ms"]
+            .as_u64()
+            .expect("took_ms must be a number");
 
         // `.max(1)`: a genuinely-zero warm_took must not make the ratio bound
         // vacuous (anything would clear `> 3 * 0`); floor it at 1ms instead.

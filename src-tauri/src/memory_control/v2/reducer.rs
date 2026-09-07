@@ -2886,8 +2886,7 @@ mod tests {
                         payload_sha256: R_HASH.into(),
                     },
                     preview_sha256:
-                        "6666666666666666666666666666666666666666666666666666666666666666"
-                            .into(),
+                        "6666666666666666666666666666666666666666666666666666666666666666".into(),
                     changes: vec![ContextReassignment {
                         claim_id: base.value.claim_id.clone(),
                         base_head: RevisionRef {

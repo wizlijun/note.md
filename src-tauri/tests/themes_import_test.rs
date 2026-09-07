@@ -19,11 +19,23 @@ fn make_zip(dir: &std::path::Path, entries: &[(&str, &[u8])]) -> std::path::Path
 #[test]
 fn detects_three_themes_from_typora_zip() {
     let scratch = tempdir().unwrap();
-    let zip = make_zip(scratch.path(), &[
-        ("claude-like.css",      b"/*\n * Theme Name: Claude-Like\n * Appearance: light\n */\n:root {}"),
-        ("claude-like-grey.css", b"/*\n * Theme Name: Claude-Like Grey\n */\n:root {}"),
-        ("claude-like-dark.css", b"/*\n * Theme Name: Claude-Like Dark\n * Appearance: dark\n */\n:root {}"),
-    ]);
+    let zip = make_zip(
+        scratch.path(),
+        &[
+            (
+                "claude-like.css",
+                b"/*\n * Theme Name: Claude-Like\n * Appearance: light\n */\n:root {}",
+            ),
+            (
+                "claude-like-grey.css",
+                b"/*\n * Theme Name: Claude-Like Grey\n */\n:root {}",
+            ),
+            (
+                "claude-like-dark.css",
+                b"/*\n * Theme Name: Claude-Like Dark\n * Appearance: dark\n */\n:root {}",
+            ),
+        ],
+    );
     let existing_ids = vec!["default".to_string(), "effie".to_string()];
     let report: ImportReport = prepare_import(&zip, &existing_ids).unwrap();
     assert_eq!(report.themes.len(), 3);
@@ -39,10 +51,16 @@ fn detects_three_themes_from_typora_zip() {
 #[test]
 fn flags_conflicts_with_existing_ids() {
     let scratch = tempdir().unwrap();
-    let zip = make_zip(scratch.path(), &[
-        ("default.css", b"/*\n * Theme Name: Default Replacement\n */\n:root {}"),
-        ("brand-new.css", b":root {}"),
-    ]);
+    let zip = make_zip(
+        scratch.path(),
+        &[
+            (
+                "default.css",
+                b"/*\n * Theme Name: Default Replacement\n */\n:root {}",
+            ),
+            ("brand-new.css", b":root {}"),
+        ],
+    );
     let existing = vec!["default".to_string()];
     let report = prepare_import(&zip, &existing).unwrap();
     let by_id = |id: &str| report.themes.iter().find(|t| t.id == id).unwrap();
@@ -53,10 +71,13 @@ fn flags_conflicts_with_existing_ids() {
 #[test]
 fn detects_same_name_asset_directories() {
     let scratch = tempdir().unwrap();
-    let zip = make_zip(scratch.path(), &[
-        ("claude-like.css", b":root {}"),
-        ("claude-like/fonts/x.woff2", b"font-bytes"),
-    ]);
+    let zip = make_zip(
+        scratch.path(),
+        &[
+            ("claude-like.css", b":root {}"),
+            ("claude-like/fonts/x.woff2", b"font-bytes"),
+        ],
+    );
     let report = prepare_import(&zip, &[]).unwrap();
     assert_eq!(report.themes.len(), 1);
     assert_eq!(report.asset_dirs, vec!["claude-like".to_string()]);
@@ -65,11 +86,14 @@ fn detects_same_name_asset_directories() {
 #[test]
 fn ignores_non_css_root_files_silently() {
     let scratch = tempdir().unwrap();
-    let zip = make_zip(scratch.path(), &[
-        ("ok.css", b":root {}"),
-        ("README.md", b"# readme"),
-        ("screenshot.png", b""),
-    ]);
+    let zip = make_zip(
+        scratch.path(),
+        &[
+            ("ok.css", b":root {}"),
+            ("README.md", b"# readme"),
+            ("screenshot.png", b""),
+        ],
+    );
     let report = prepare_import(&zip, &[]).unwrap();
     assert_eq!(report.themes.len(), 1);
     assert_eq!(report.themes[0].id, "ok");
@@ -78,10 +102,13 @@ fn ignores_non_css_root_files_silently() {
 #[test]
 fn invalid_css_is_reported_and_excluded() {
     let scratch = tempdir().unwrap();
-    let zip = make_zip(scratch.path(), &[
-        ("ok.css", b":root {}"),
-        ("broken.css", b":root { color:"),  // unterminated
-    ]);
+    let zip = make_zip(
+        scratch.path(),
+        &[
+            ("ok.css", b":root {}"),
+            ("broken.css", b":root { color:"), // unterminated
+        ],
+    );
     let report = prepare_import(&zip, &[]).unwrap();
     let ids: Vec<&str> = report.themes.iter().map(|t| t.id.as_str()).collect();
     assert_eq!(ids, vec!["ok"]);
@@ -92,9 +119,7 @@ fn invalid_css_is_reported_and_excluded() {
 #[test]
 fn empty_zip_returns_empty_report_no_error() {
     let scratch = tempdir().unwrap();
-    let zip = make_zip(scratch.path(), &[
-        ("README.md", b"hi"),
-    ]);
+    let zip = make_zip(scratch.path(), &[("README.md", b"hi")]);
     let report = prepare_import(&zip, &[]).unwrap();
     assert!(report.themes.is_empty());
     assert!(report.errors.is_empty());

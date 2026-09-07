@@ -52,8 +52,7 @@ const DOWNLOAD_IDLE_TIMEOUT_SECS: u64 = 60;
 /// `~/.tauri/notemd-plugins.pub`; the matching private key signs every
 /// `.notemdpkg` published by scripts/release-plugins.sh and is NOT in the
 /// repo. `installer::verify_and_stage` accepts exactly this form.
-pub const PLUGIN_REGISTRY_PUBKEY: &str =
-    "RWSp4F+TVeWvKxkXXQIfd9pceHoU1UGBbDCC2BYOtOjeUdtf2X+YG2WT";
+pub const PLUGIN_REGISTRY_PUBKEY: &str = "RWSp4F+TVeWvKxkXXQIfd9pceHoU1UGBbDCC2BYOtOjeUdtf2X+YG2WT";
 
 /// The full registry index (`GET /api/index.json`).
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -120,9 +119,18 @@ fn error_chain(e: &(dyn std::error::Error + 'static)) -> String {
 /// fix. Naming the variable and its value turns a bug report into a one-line
 /// correction. Checked in reqwest's own precedence order for an https URL.
 fn proxy_hint() -> String {
-    for key in ["HTTPS_PROXY", "https_proxy", "ALL_PROXY", "all_proxy", "HTTP_PROXY", "http_proxy"] {
+    for key in [
+        "HTTPS_PROXY",
+        "https_proxy",
+        "ALL_PROXY",
+        "all_proxy",
+        "HTTP_PROXY",
+        "http_proxy",
+    ] {
         match std::env::var(key) {
-            Ok(value) if !value.trim().is_empty() => return format!(" (proxied via {key}={value})"),
+            Ok(value) if !value.trim().is_empty() => {
+                return format!(" (proxied via {key}={value})")
+            }
             _ => continue,
         }
     }
@@ -365,7 +373,9 @@ mod tests {
     }
     impl std::error::Error for Layered {
         fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-            self.1.as_deref().map(|e| e as &(dyn std::error::Error + 'static))
+            self.1
+                .as_deref()
+                .map(|e| e as &(dyn std::error::Error + 'static))
         }
     }
 
@@ -375,7 +385,10 @@ mod tests {
             "error sending request for url (https://plugins.notemd.net/api/index.json)",
             Some(Box::new(Layered(
                 "tcp connect error",
-                Some(Box::new(Layered("connection refused (os error 10061)", None))),
+                Some(Box::new(Layered(
+                    "connection refused (os error 10061)",
+                    None,
+                ))),
             ))),
         );
         let s = error_chain(&e);
@@ -400,7 +413,14 @@ mod tests {
     /// splitting them would let a parallel run observe the other's mutation.
     #[test]
     fn proxy_hint_names_the_variable_when_set() {
-        let keys = ["HTTPS_PROXY", "https_proxy", "ALL_PROXY", "all_proxy", "HTTP_PROXY", "http_proxy"];
+        let keys = [
+            "HTTPS_PROXY",
+            "https_proxy",
+            "ALL_PROXY",
+            "all_proxy",
+            "HTTP_PROXY",
+            "http_proxy",
+        ];
         let saved: Vec<_> = keys.iter().map(|k| (*k, std::env::var(k).ok())).collect();
         for k in keys {
             std::env::remove_var(k);
@@ -522,7 +542,10 @@ mod tests {
             r#"{ "plugins_v2.registry_url": "https://mirror.example.com/" }"#,
         )
         .unwrap();
-        assert_eq!(registry_base_url_at(dir.path()), "https://mirror.example.com");
+        assert_eq!(
+            registry_base_url_at(dir.path()),
+            "https://mirror.example.com"
+        );
         // Empty override falls back to the default.
         std::fs::write(
             dir.path().join("settings.json"),
@@ -578,7 +601,10 @@ mod tests {
         let idx = parse_index(valid_index_json().as_bytes()).unwrap();
         let v = serde_json::to_value(&idx).unwrap();
         assert_eq!(v["plugins"][0]["id"], "notemd.md2pdf");
-        assert_eq!(v["plugins"][0]["download"]["aarch64-apple-darwin"].is_string(), true);
+        assert_eq!(
+            v["plugins"][0]["download"]["aarch64-apple-darwin"].is_string(),
+            true
+        );
     }
 
     /// Serves one chunked response, sleeping `gap` before each chunk, then
@@ -650,17 +676,29 @@ mod tests {
         let client = loopback_client(std::time::Duration::from_secs(2));
         let seen = std::sync::Arc::new(std::sync::Mutex::new(Vec::<(u64, Option<u64>)>::new()));
         let sink = seen.clone();
-        let out = download_via(&client, &format!("http://127.0.0.1:{port}/pkg"), move |r, t| {
-            sink.lock().unwrap().push((r, t));
-        })
+        let out = download_via(
+            &client,
+            &format!("http://127.0.0.1:{port}/pkg"),
+            move |r, t| {
+                sink.lock().unwrap().push((r, t));
+            },
+        )
         .await
         .expect("download");
         assert_eq!(out.len(), 4 * 64);
 
         let seen = seen.lock().unwrap();
         // One priming call at 0 plus one per chunk.
-        assert_eq!(seen.first().map(|(r, _)| *r), Some(0), "primes at zero: {seen:?}");
-        assert_eq!(seen.last().map(|(r, _)| *r), Some(256), "ends at the full size: {seen:?}");
+        assert_eq!(
+            seen.first().map(|(r, _)| *r),
+            Some(0),
+            "primes at zero: {seen:?}"
+        );
+        assert_eq!(
+            seen.last().map(|(r, _)| *r),
+            Some(256),
+            "ends at the full size: {seen:?}"
+        );
         assert!(seen.len() >= 3, "advances during the transfer: {seen:?}");
         assert!(
             seen.windows(2).all(|w| w[0].0 <= w[1].0),

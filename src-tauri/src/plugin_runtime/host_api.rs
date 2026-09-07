@@ -36,7 +36,10 @@ pub fn method_capability(method: &str) -> Option<&'static str> {
         // 子项目②b: plugin process → its own window push.
         "host.ui.post" => Some("ui"),
         "host.dialog.open" | "host.dialog.save" => Some("dialog"),
-        "host.vault.info" | "host.vault.read" | "host.vault.read_bytes" | "host.vault.exists"
+        "host.vault.info"
+        | "host.vault.read"
+        | "host.vault.read_bytes"
+        | "host.vault.exists"
         | "host.vault.list" => Some("vault.read"),
         "host.vault.write" | "host.vault.mkdir" | "host.vault.remove" | "host.vault.rename" => {
             Some("vault.write")
@@ -80,14 +83,25 @@ pub fn method_capability(method: &str) -> Option<&'static str> {
         // Controlled Memory service. UI dispatch additionally restricts
         // these methods to the official `notemd.memory` plugin id; native
         // plugin processes never receive this surface.
-        "host.memory.v2.snapshot" | "host.memory.v2.initialize" | "host.memory.v2.context"
-        | "host.memory.v2.contextManifest" | "host.memory.v2.check" | "host.memory.v2.add"
+        "host.memory.v2.snapshot"
+        | "host.memory.v2.initialize"
+        | "host.memory.v2.context"
+        | "host.memory.v2.contextManifest"
+        | "host.memory.v2.check"
+        | "host.memory.v2.add"
         | "host.memory.v2.replace"
-        | "host.memory.v2.approve" | "host.memory.v2.reject" | "host.memory.v2.ignore"
-        | "host.memory.v2.delete" | "host.memory.v2.resetAll" | "host.memory.v2.resolve"
-        | "host.memory.v2.setSalience" | "host.memory.v2.contextRegistry"
-        | "host.memory.v2.contextRegistryValidate" | "host.memory.v2.contextRegistryReplace"
-        | "host.memory.v2.reassignPreview" | "host.memory.v2.reassignApply"
+        | "host.memory.v2.approve"
+        | "host.memory.v2.reject"
+        | "host.memory.v2.ignore"
+        | "host.memory.v2.delete"
+        | "host.memory.v2.resetAll"
+        | "host.memory.v2.resolve"
+        | "host.memory.v2.setSalience"
+        | "host.memory.v2.contextRegistry"
+        | "host.memory.v2.contextRegistryValidate"
+        | "host.memory.v2.contextRegistryReplace"
+        | "host.memory.v2.reassignPreview"
+        | "host.memory.v2.reassignApply"
         | "host.memory.v2.reassignPropose" => Some("memory.control"),
         _ => Some("__unknown__"), // 未实现的方法一律拒绝
     }
@@ -200,7 +214,13 @@ pub fn make_sink(
                 }
                 ok(req.id)
             }
-            _ => match handle_common(&req.method, req.params.clone(), &plugin_id, &log_dir, &emitter) {
+            _ => match handle_common(
+                &req.method,
+                req.params.clone(),
+                &plugin_id,
+                &log_dir,
+                &emitter,
+            ) {
                 Some(Ok(_)) => ok(req.id),
                 Some(Err(detail)) => req
                     .id
@@ -217,7 +237,9 @@ pub fn make_sink(
                             match req.method.as_str() {
                                 "host.vault.info" => Some(Ok(rpc::vault_info(s))),
                                 "host.vault.read" => Some(rpc::vault_read(s, &req.params)),
-                                "host.vault.read_bytes" => Some(rpc::vault_read_bytes(s, &req.params)),
+                                "host.vault.read_bytes" => {
+                                    Some(rpc::vault_read_bytes(s, &req.params))
+                                }
                                 "host.vault.write" => Some(rpc::vault_write(s, &req.params)),
                                 "host.vault.exists" => Some(rpc::vault_exists(s, &req.params)),
                                 "host.vault.list" => Some(rpc::vault_list(s, &req.params)),
@@ -225,15 +247,21 @@ pub fn make_sink(
                                 "host.vault.remove" => Some(rpc::vault_remove(s, &req.params)),
                                 "host.vault.rename" => Some(rpc::vault_rename(s, &req.params)),
                                 "host.location.get" => Some(s.location_get()),
-                                "host.agent.run" => Some(s.agent_execute("run-task", req.params.clone())),
-                                "host.agent.status" => Some(s.agent_execute("run-status", req.params.clone())),
+                                "host.agent.run" => {
+                                    Some(s.agent_execute("run-task", req.params.clone()))
+                                }
+                                "host.agent.status" => {
+                                    Some(s.agent_execute("run-status", req.params.clone()))
+                                }
                                 "host.agent.providers" => Some(s.agent_providers()),
                                 "host.agent.limits" => Some(s.agent_limits()),
                                 // notify_push, not notify_user: the OpenPath
                                 // action has to clear the same vault fence
                                 // `editor.open` does.
                                 "host.notify" => Some(rpc::notify_push(s, &req.params)),
-                                "host.dismissNotification" => Some(s.dismiss_notification(&req.params)),
+                                "host.dismissNotification" => {
+                                    Some(s.dismiss_notification(&req.params))
+                                }
                                 _ => None,
                             }
                         });
@@ -287,9 +315,17 @@ pub fn make_sink_for_app<R: tauri::Runtime>(
             crate::plugin_runtime::windows::push_to_window(&app, &pid, window_id, payload);
         })
     };
-    let services: Arc<dyn crate::plugin_runtime::ui_rpc::HostServices> =
-        Arc::new(crate::plugin_runtime::ui_rpc::TauriServices::new(app.clone()));
-    make_sink(plugin_id, capabilities, log_dir, emitter, ui_poster, Some(services))
+    let services: Arc<dyn crate::plugin_runtime::ui_rpc::HostServices> = Arc::new(
+        crate::plugin_runtime::ui_rpc::TauriServices::new(app.clone()),
+    );
+    make_sink(
+        plugin_id,
+        capabilities,
+        log_dir,
+        emitter,
+        ui_poster,
+        Some(services),
+    )
 }
 
 // ── Unit tests ────────────────────────────────────────────────────────────────
@@ -322,7 +358,10 @@ mod tests {
         let seen: Arc<Mutex<Vec<(String, serde_json::Value)>>> = Arc::new(Mutex::new(Vec::new()));
         let seen_in = seen.clone();
         let poster: UiPoster = Arc::new(move |window_id: &str, payload: &serde_json::Value| {
-            seen_in.lock().unwrap().push((window_id.to_string(), payload.clone()));
+            seen_in
+                .lock()
+                .unwrap()
+                .push((window_id.to_string(), payload.clone()));
         });
         (poster, seen)
     }
@@ -346,7 +385,14 @@ mod tests {
     fn toast_without_capability_request_returns_32001() {
         let dir = tempfile::tempdir().unwrap();
         let (emitter, seen) = recording_emitter();
-        let sink = make_sink("pub.test".into(), vec![], dir.path().to_path_buf(), emitter, noop_poster(), None);
+        let sink = make_sink(
+            "pub.test".into(),
+            vec![],
+            dir.path().to_path_buf(),
+            emitter,
+            noop_poster(),
+            None,
+        );
 
         let resp = sink(req(
             "host.toast",
@@ -371,7 +417,14 @@ mod tests {
     fn toast_without_capability_notification_is_silent() {
         let dir = tempfile::tempdir().unwrap();
         let (emitter, seen) = recording_emitter();
-        let sink = make_sink("pub.test".into(), vec![], dir.path().to_path_buf(), emitter, noop_poster(), None);
+        let sink = make_sink(
+            "pub.test".into(),
+            vec![],
+            dir.path().to_path_buf(),
+            emitter,
+            noop_poster(),
+            None,
+        );
 
         let resp = sink(notification(
             "host.toast",
@@ -431,7 +484,14 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let (emitter, _) = recording_emitter();
         // No capabilities at all — log is free.
-        let sink = make_sink("pub.myplugin".into(), vec![], dir.path().to_path_buf(), emitter, noop_poster(), None);
+        let sink = make_sink(
+            "pub.myplugin".into(),
+            vec![],
+            dir.path().to_path_buf(),
+            emitter,
+            noop_poster(),
+            None,
+        );
 
         let resp = sink(req(
             "host.log.info",
@@ -445,8 +505,8 @@ mod tests {
         assert!(resp.error.is_none());
 
         let log_path = dir.path().join("pub.myplugin.log");
-        let content = std::fs::read_to_string(&log_path)
-            .expect("log file should have been created");
+        let content =
+            std::fs::read_to_string(&log_path).expect("log file should have been created");
         assert!(
             content.contains("[info] hello from plugin"),
             "log content: {content:?}"
@@ -457,7 +517,14 @@ mod tests {
     fn log_warn_and_error_write_correct_level_tags() {
         let dir = tempfile::tempdir().unwrap();
         let (emitter, _) = recording_emitter();
-        let sink = make_sink("pub.myplugin".into(), vec![], dir.path().to_path_buf(), emitter, noop_poster(), None);
+        let sink = make_sink(
+            "pub.myplugin".into(),
+            vec![],
+            dir.path().to_path_buf(),
+            emitter,
+            noop_poster(),
+            None,
+        );
 
         sink(req(
             "host.log.warn",
@@ -549,16 +616,28 @@ mod tests {
         assert_eq!(method_capability("host.dialog.save"), Some("dialog"));
         assert_eq!(method_capability("host.vault.info"), Some("vault.read"));
         assert_eq!(method_capability("host.vault.read"), Some("vault.read"));
-        assert_eq!(method_capability("host.vault.read_bytes"), Some("vault.read"));
+        assert_eq!(
+            method_capability("host.vault.read_bytes"),
+            Some("vault.read")
+        );
         assert_eq!(method_capability("host.vault.exists"), Some("vault.read"));
         assert_eq!(method_capability("host.vault.list"), Some("vault.read"));
         assert_eq!(method_capability("host.vault.write"), Some("vault.write"));
         assert_eq!(method_capability("host.vault.mkdir"), Some("vault.write"));
         assert_eq!(method_capability("host.vault.remove"), Some("vault.write"));
         assert_eq!(method_capability("host.vault.rename"), Some("vault.write"));
-        assert_eq!(method_capability("host.fs.read_text"), Some("fs.read:dialog"));
-        assert_eq!(method_capability("host.fs.read_bytes"), Some("fs.read:dialog"));
-        assert_eq!(method_capability("host.clipboard.write"), Some("clipboard.write"));
+        assert_eq!(
+            method_capability("host.fs.read_text"),
+            Some("fs.read:dialog")
+        );
+        assert_eq!(
+            method_capability("host.fs.read_bytes"),
+            Some("fs.read:dialog")
+        );
+        assert_eq!(
+            method_capability("host.clipboard.write"),
+            Some("clipboard.write")
+        );
         assert_eq!(method_capability("host.editor.open"), Some("editor.open"));
         assert_eq!(method_capability("host.agent.run"), Some("agent"));
         assert_eq!(method_capability("host.agent.status"), Some("agent"));
@@ -582,7 +661,10 @@ mod tests {
             assert_eq!(method_capability(method), Some("cdr.repository"));
         }
         assert_eq!(method_capability("host.notify"), Some("notify"));
-        assert_eq!(method_capability("host.dismissNotification"), Some("notify"));
+        assert_eq!(
+            method_capability("host.dismissNotification"),
+            Some("notify")
+        );
         assert_eq!(method_capability("host.theme.css"), Some("editor.kit"));
         for method in [
             "host.memory.v2.snapshot",
@@ -601,7 +683,11 @@ mod tests {
             "host.memory.v2.reassignApply",
             "host.memory.v2.reassignPropose",
         ] {
-            assert_eq!(method_capability(method), Some("memory.control"), "{method}");
+            assert_eq!(
+                method_capability(method),
+                Some("memory.control"),
+                "{method}"
+            );
         }
         assert_eq!(method_capability("host.unknown"), Some("__unknown__"));
         assert_eq!(method_capability("anything.else"), Some("__unknown__"));
@@ -641,7 +727,10 @@ mod tests {
         );
 
         // Notification variant: silent no-op.
-        let resp = sink(notification("host.vault.read", serde_json::json!({"path": "a.md"})));
+        let resp = sink(notification(
+            "host.vault.read",
+            serde_json::json!({"path": "a.md"}),
+        ));
         assert!(resp.is_none());
         assert!(seen.lock().unwrap().is_empty());
     }
@@ -813,7 +902,10 @@ mod tests {
 
     /// 最小 HostServices 桩：vault_root 之外，第二个字段记录
     /// `agent_execute`/`notify_user` 调用，供 host.agent.*/host.notify 测试断言。
-    struct ServicesStub(std::path::PathBuf, Arc<Mutex<Vec<(String, serde_json::Value)>>>);
+    struct ServicesStub(
+        std::path::PathBuf,
+        Arc<Mutex<Vec<(String, serde_json::Value)>>>,
+    );
     impl crate::plugin_runtime::ui_rpc::HostServices for ServicesStub {
         fn pick_paths(
             &self,
@@ -836,7 +928,11 @@ mod tests {
         fn clipboard_write(&self, _t: &str) -> Result<(), String> {
             Err("no clipboard on process channel".into())
         }
-        fn agent_execute(&self, command: &str, context: serde_json::Value) -> Result<serde_json::Value, String> {
+        fn agent_execute(
+            &self,
+            command: &str,
+            context: serde_json::Value,
+        ) -> Result<serde_json::Value, String> {
             self.1.lock().unwrap().push((command.to_string(), context));
             Ok(serde_json::json!({ "run_id": "r-test" }))
         }
@@ -861,11 +957,20 @@ mod tests {
             }))
         }
         fn notify_user(&self, params: &serde_json::Value) -> Result<serde_json::Value, String> {
-            self.1.lock().unwrap().push(("notify".into(), params.clone()));
+            self.1
+                .lock()
+                .unwrap()
+                .push(("notify".into(), params.clone()));
             Ok(serde_json::json!({ "ok": true, "id": 1 }))
         }
-        fn dismiss_notification(&self, params: &serde_json::Value) -> Result<serde_json::Value, String> {
-            self.1.lock().unwrap().push(("dismiss".into(), params.clone()));
+        fn dismiss_notification(
+            &self,
+            params: &serde_json::Value,
+        ) -> Result<serde_json::Value, String> {
+            self.1
+                .lock()
+                .unwrap()
+                .push(("dismiss".into(), params.clone()));
             Ok(serde_json::json!({ "ok": true }))
         }
     }
@@ -881,7 +986,10 @@ mod tests {
             log_dir.path().to_path_buf(),
             emitter,
             noop_poster(),
-            Some(Arc::new(ServicesStub(vault.path().to_path_buf(), Arc::new(Mutex::new(Vec::new()))))),
+            Some(Arc::new(ServicesStub(
+                vault.path().to_path_buf(),
+                Arc::new(Mutex::new(Vec::new())),
+            ))),
         );
         // write → {ok:true}
         let resp = sink(req(
@@ -923,7 +1031,10 @@ mod tests {
             log_dir.path().to_path_buf(),
             recording_emitter().0,
             noop_poster(),
-            Some(Arc::new(ServicesStub(vault.path().to_path_buf(), Arc::new(Mutex::new(Vec::new()))))),
+            Some(Arc::new(ServicesStub(
+                vault.path().to_path_buf(),
+                Arc::new(Mutex::new(Vec::new())),
+            ))),
         );
         let resp = sink2(req("host.dialog.open", Some(5), serde_json::json!({}))).unwrap();
         assert_eq!(resp.error.unwrap().code, proto::ERR_METHOD_NOT_FOUND);
@@ -1012,7 +1123,10 @@ mod tests {
             resp.result.as_ref().unwrap()["providers"][0]["max_concurrency"],
             3
         );
-        assert_eq!(resp.result.as_ref().unwrap()["default"], "notemd.claude-agent");
+        assert_eq!(
+            resp.result.as_ref().unwrap()["default"],
+            "notemd.claude-agent"
+        );
         assert_eq!(seen.lock().unwrap()[0].0, "limits");
     }
 
@@ -1072,9 +1186,16 @@ mod tests {
             log_dir.path().to_path_buf(),
             recording_emitter().0,
             noop_poster(),
-            Some(Arc::new(ServicesStub(vault.path().to_path_buf(), seen.clone()))),
+            Some(Arc::new(ServicesStub(
+                vault.path().to_path_buf(),
+                seen.clone(),
+            ))),
         );
-        sink(req("host.agent.status", Some(1), serde_json::json!({"task": "ai-read-ebook", "run_id": "r1"})));
+        sink(req(
+            "host.agent.status",
+            Some(1),
+            serde_json::json!({"task": "ai-read-ebook", "run_id": "r1"}),
+        ));
         sink(req(
             "host.notify",
             Some(2),
@@ -1102,7 +1223,10 @@ mod tests {
             log_dir.path().to_path_buf(),
             recording_emitter().0,
             noop_poster(),
-            Some(Arc::new(ServicesStub(vault.path().to_path_buf(), seen.clone()))),
+            Some(Arc::new(ServicesStub(
+                vault.path().to_path_buf(),
+                seen.clone(),
+            ))),
         );
         let resp = sink(req(
             "host.notify",

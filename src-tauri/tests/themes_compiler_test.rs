@@ -1,5 +1,5 @@
-use notemd_lib::themes::compiler::strip_include_when_export;
 use notemd_lib::themes::compiler::rewrite_selector_text;
+use notemd_lib::themes::compiler::strip_include_when_export;
 
 #[test]
 fn strips_basic_form() {
@@ -66,13 +66,22 @@ fn rewrites_html_and_body() {
 
 #[test]
 fn write_child_combinator_becomes_descendant() {
-    assert_eq!(rewrite_selector_text("#write > h1", "x"), format!("{SCOPE} h1"));
-    assert_eq!(rewrite_selector_text("#write>h1", "x"), format!("{SCOPE} h1"));
+    assert_eq!(
+        rewrite_selector_text("#write > h1", "x"),
+        format!("{SCOPE} h1")
+    );
+    assert_eq!(
+        rewrite_selector_text("#write>h1", "x"),
+        format!("{SCOPE} h1")
+    );
 }
 
 #[test]
 fn write_descendant_unchanged_in_form() {
-    assert_eq!(rewrite_selector_text("#write h1", "x"), format!("{SCOPE} h1"));
+    assert_eq!(
+        rewrite_selector_text("#write h1", "x"),
+        format!("{SCOPE} h1")
+    );
 }
 
 #[test]
@@ -163,7 +172,7 @@ fn end_to_end_rewrites_font_face_url() {
 
 #[test]
 fn malformed_css_returns_err() {
-    let src = ":root { color: ";  // unterminated
+    let src = ":root { color: "; // unterminated
     let result = compile_theme_css(src, "x", "/tmp/x");
     assert!(result.is_err());
 }
@@ -223,7 +232,10 @@ fn ancestor_qualified_write_collapses_to_one_scope() {
 
 #[test]
 fn ancestor_qualified_write_keeps_its_descendants() {
-    assert_eq!(rewrite_selector_text(".mac-os #write p", "x"), format!("{SCOPE} p"));
+    assert_eq!(
+        rewrite_selector_text(".mac-os #write p", "x"),
+        format!("{SCOPE} p")
+    );
     assert_eq!(
         rewrite_selector_text(".mac-os #write > h1", "x"),
         format!("{SCOPE} h1"),
@@ -239,7 +251,12 @@ fn compound_body_ancestor_is_dropped_too() {
 
 #[test]
 fn rewritten_selectors_never_repeat_the_scope() {
-    for sel in [".mac-os #write", "body.mac-os #write p", "html body #write", "#write"] {
+    for sel in [
+        ".mac-os #write",
+        "body.mac-os #write p",
+        "html body #write",
+        "#write",
+    ] {
         let out = rewrite_selector_text(sel, "x");
         assert_eq!(out.matches(".moraya-editor").count(), 1, "{sel} → {out}");
     }

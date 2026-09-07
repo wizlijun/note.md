@@ -104,10 +104,7 @@ impl OpenState {
         }
     }
     pub fn get(&self) -> OpenPhase {
-        self.0
-            .lock()
-            .map(|g| g.clone())
-            .unwrap_or(OpenPhase::Idle)
+        self.0.lock().map(|g| g.clone()).unwrap_or(OpenPhase::Idle)
     }
 }
 
@@ -172,7 +169,9 @@ pub struct RebuildFlag(Arc<AtomicBool>);
 
 impl RebuildFlag {
     pub fn try_begin(&self) -> bool {
-        self.0.compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst).is_ok()
+        self.0
+            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+            .is_ok()
     }
     pub fn end(&self) {
         self.0.store(false, Ordering::SeqCst)
@@ -210,7 +209,14 @@ impl Drop for RebuildGuard {
 /// from a unit test — calling this same function `init` calls is the closest
 /// a test can get to "the real wiring" without adding that dependency for
 /// one assertion.
-fn managed_state() -> (IndexHandle, ProgressState, RebuildFlag, SkippedState, OpenState, OpenLock) {
+fn managed_state() -> (
+    IndexHandle,
+    ProgressState,
+    RebuildFlag,
+    SkippedState,
+    OpenState,
+    OpenLock,
+) {
     (
         Arc::new(Mutex::new(None)),
         ProgressState::default(),
@@ -295,7 +301,9 @@ pub fn skipped_state(app: &AppHandle) -> SkippedState {
 /// search feature down with it (global constraint — a broken index must never
 /// stop the app).
 pub fn lock(handle: &IndexHandle) -> MutexGuard<'_, Option<SearchIndex>> {
-    handle.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+    handle
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
 /// Pure decision logic for `open_vault`'s `SkippedState` write: given whether
@@ -686,7 +694,10 @@ pub struct SkippedDto {
 }
 
 fn skipped_dto(s: &searchidx::SkippedFile) -> SkippedDto {
-    SkippedDto { path: s.path.clone(), size_bytes: s.size }
+    SkippedDto {
+        path: s.path.clone(),
+        size_bytes: s.size,
+    }
 }
 
 /// Wire shape for `SearchStatsDto.origin_counts` — mirrors
@@ -704,7 +715,12 @@ pub struct OriginCountsDto {
 }
 
 fn origin_counts_dto(o: searchidx::OriginCounts) -> OriginCountsDto {
-    OriginCountsDto { human: o.human, derived: o.derived, source: o.source, unlabeled: o.unlabeled }
+    OriginCountsDto {
+        human: o.human,
+        derived: o.derived,
+        source: o.source,
+        unlabeled: o.unlabeled,
+    }
 }
 
 #[derive(Serialize)]
@@ -845,7 +861,13 @@ pub(crate) fn log_rebuild_with(
     // settings page actually renders.
     const SKIP_LOG_CAP: usize = 50;
     for f in stats.files_skipped_large.iter().take(SKIP_LOG_CAP) {
-        crate::log_cat!("search", "warn", "skipped (over threshold): {} ({} bytes)", f.path, f.size);
+        crate::log_cat!(
+            "search",
+            "warn",
+            "skipped (over threshold): {} ({} bytes)",
+            f.path,
+            f.size
+        );
     }
     if skipped > SKIP_LOG_CAP {
         crate::log_cat!(
@@ -954,7 +976,9 @@ pub fn notemd_smart_search(
 /// planner and re-applied after it responds. This parses only the supplied
 /// string and never opens the Vault or the index.
 #[tauri::command]
-pub fn notemd_search_plan_context(original_query: String) -> Result<plan::SearchPlanContext, String> {
+pub fn notemd_search_plan_context(
+    original_query: String,
+) -> Result<plan::SearchPlanContext, String> {
     plan::search_plan_context(&original_query)
 }
 
@@ -1037,7 +1061,16 @@ pub fn notemd_search(
     let started = Instant::now();
     let (ticket, counter) = app.state::<SearchGen>().next(window.label());
     let idx_handle = handle(&app);
-    search_locked(&idx_handle, started, &query, limit, deep, timeout_ms, &counter, ticket)
+    search_locked(
+        &idx_handle,
+        started,
+        &query,
+        limit,
+        deep,
+        timeout_ms,
+        &counter,
+        ticket,
+    )
 }
 
 /// Everything `notemd_search` does once its ticket is drawn — split out with
@@ -1091,8 +1124,7 @@ fn search_locked(
         // only the panel's live typing opts into the fast-path-only tier.
         deep: deep.unwrap_or(true),
         abort: Some(Arc::new(move || {
-            superseded(&abort_counter, ticket)
-                || deadline.is_some_and(|d| Instant::now() >= d)
+            superseded(&abort_counter, ticket) || deadline.is_some_and(|d| Instant::now() >= d)
         })),
     };
     // Read off `limits` *before* the search, because `limits` is moved-from
@@ -1151,7 +1183,11 @@ fn search_locked(
         total: answer.hits.len(),
         truncated: answer.truncated,
         deep_available: answer.deep_available,
-        hits: answer.hits.into_iter().map(|h| hit_to_dto(h, &root)).collect(),
+        hits: answer
+            .hits
+            .into_iter()
+            .map(|h| hit_to_dto(h, &root))
+            .collect(),
     })
 }
 
@@ -1195,10 +1231,22 @@ pub fn notemd_search_index_state(app: AppHandle) -> IndexStateDto {
 /// `AppHandle` (this codebase has never enabled `tauri::test`).
 fn index_state_dto(p: OpenPhase) -> IndexStateDto {
     match p {
-        OpenPhase::Idle => IndexStateDto { state: "idle".into(), error: None },
-        OpenPhase::Opening => IndexStateDto { state: "opening".into(), error: None },
-        OpenPhase::Ready => IndexStateDto { state: "ready".into(), error: None },
-        OpenPhase::Failed(e) => IndexStateDto { state: "failed".into(), error: Some(e) },
+        OpenPhase::Idle => IndexStateDto {
+            state: "idle".into(),
+            error: None,
+        },
+        OpenPhase::Opening => IndexStateDto {
+            state: "opening".into(),
+            error: None,
+        },
+        OpenPhase::Ready => IndexStateDto {
+            state: "ready".into(),
+            error: None,
+        },
+        OpenPhase::Failed(e) => IndexStateDto {
+            state: "failed".into(),
+            error: Some(e),
+        },
     }
 }
 
@@ -1273,7 +1321,10 @@ pub fn notemd_search_rebuild(app: AppHandle) -> Result<(), String> {
         // `RebuildGuard::drop`, not by statement order below — see its doc
         // comment. That covers both the ordinary return path and a panic
         // unwinding out of the closure this guards.
-        let cleanup = RebuildGuard { progress: progress.clone(), flag: flag.clone() };
+        let cleanup = RebuildGuard {
+            progress: progress.clone(),
+            flag: flag.clone(),
+        };
         let result = (|| -> Result<(), String> {
             let mut guard = lock(&idx_handle);
             let idx = require_index_mut(&mut guard)?;
@@ -1318,7 +1369,10 @@ pub fn notemd_search_rebuild(app: AppHandle) -> Result<(), String> {
 /// event).
 #[tauri::command]
 pub fn notemd_search_progress(app: AppHandle) -> Option<ProgressDto> {
-    app.state::<ProgressState>().get().as_ref().map(progress_dto)
+    app.state::<ProgressState>()
+        .get()
+        .as_ref()
+        .map(progress_dto)
 }
 
 /// How many files in the vault, *right now on disk*, `patterns` would
@@ -1385,7 +1439,9 @@ fn count_glob_matches(vault_root: &Path, patterns: &[String]) -> usize {
         if !entry.file_type().is_some_and(|t| t.is_file()) {
             continue;
         }
-        let Some(rel) = searchidx::norm::rel_path(vault_root, entry.path()) else { continue };
+        let Some(rel) = searchidx::norm::rel_path(vault_root, entry.path()) else {
+            continue;
+        };
         // Designation AND acceptance — see this function's caller's doc
         // comment (review round 1, Critical 1) for why `is_indexable` alone
         // is not enough: its `.md` branch ignores `source_globs` entirely.
@@ -1424,7 +1480,10 @@ mod command_tests {
     #[test]
     fn hit_to_dto_builds_abs_path_from_index_vault_root_not_the_relative_path() {
         let dto = hit_to_dto(sample_hit(), Path::new("/Users/x/Vault"));
-        assert_eq!(dto.abs_path, Path::new("/Users/x/Vault/notes/a.md").to_string_lossy());
+        assert_eq!(
+            dto.abs_path,
+            Path::new("/Users/x/Vault/notes/a.md").to_string_lossy()
+        );
         assert_eq!(dto.path, "notes/a.md");
     }
 
@@ -1464,12 +1523,20 @@ mod command_tests {
             db_bytes: 12345,
             built_at: Some("2026-08-10T00:00:00Z".to_string()),
             tokenizer_id: "jieba/1".to_string(),
-            origin_counts: searchidx::OriginCounts { human: 1, derived: 3, source: 2, unlabeled: 4 },
+            origin_counts: searchidx::OriginCounts {
+                human: 1,
+                derived: 3,
+                source: 2,
+                unlabeled: 4,
+            },
             type_counts,
             attention_files: 2,
             attention_as_of: Some("2026-08-12".to_string()),
         };
-        let skipped = vec![SkippedDto { path: "big.md".to_string(), size_bytes: 999 }];
+        let skipped = vec![SkippedDto {
+            path: "big.md".to_string(),
+            size_bytes: 999,
+        }];
         let dto = stats_to_dto(s, skipped);
         assert_eq!(dto.files, 3);
         assert_eq!(dto.blocks, 40);
@@ -1533,11 +1600,29 @@ mod command_tests {
     #[test]
     fn skipped_state_round_trips_the_most_recent_set() {
         let s = SkippedState::default();
-        s.set(vec![searchidx::SkippedFile { path: "a.md".into(), size: 10 }]);
-        assert_eq!(s.get(), vec![searchidx::SkippedFile { path: "a.md".into(), size: 10 }]);
+        s.set(vec![searchidx::SkippedFile {
+            path: "a.md".into(),
+            size: 10,
+        }]);
+        assert_eq!(
+            s.get(),
+            vec![searchidx::SkippedFile {
+                path: "a.md".into(),
+                size: 10
+            }]
+        );
         // A later `set` (a second scan) must replace, not accumulate.
-        s.set(vec![searchidx::SkippedFile { path: "b.md".into(), size: 20 }]);
-        assert_eq!(s.get(), vec![searchidx::SkippedFile { path: "b.md".into(), size: 20 }]);
+        s.set(vec![searchidx::SkippedFile {
+            path: "b.md".into(),
+            size: 20,
+        }]);
+        assert_eq!(
+            s.get(),
+            vec![searchidx::SkippedFile {
+                path: "b.md".into(),
+                size: 20
+            }]
+        );
     }
 
     /// Review round 1, finding 1: `open_vault`'s `SkippedState` write used to
@@ -1551,7 +1636,10 @@ mod command_tests {
     #[test]
     fn a_stale_generation_suppresses_the_skipped_write_even_on_a_successful_sweep() {
         let stats = searchidx::ScanStats {
-            files_skipped_large: vec![searchidx::SkippedFile { path: "big.md".into(), size: 999 }],
+            files_skipped_large: vec![searchidx::SkippedFile {
+                path: "big.md".into(),
+                size: 999,
+            }],
             ..Default::default()
         };
         assert_eq!(skipped_write_if_current(false, Ok(stats)), None);
@@ -1563,12 +1651,18 @@ mod command_tests {
     #[test]
     fn a_current_generation_installs_the_sweeps_own_skipped_list() {
         let stats = searchidx::ScanStats {
-            files_skipped_large: vec![searchidx::SkippedFile { path: "big.md".into(), size: 999 }],
+            files_skipped_large: vec![searchidx::SkippedFile {
+                path: "big.md".into(),
+                size: 999,
+            }],
             ..Default::default()
         };
         assert_eq!(
             skipped_write_if_current(true, Ok(stats)),
-            Some(vec![searchidx::SkippedFile { path: "big.md".into(), size: 999 }])
+            Some(vec![searchidx::SkippedFile {
+                path: "big.md".into(),
+                size: 999
+            }])
         );
     }
 
@@ -1579,8 +1673,14 @@ mod command_tests {
     /// doesn't invent something to write in that case.
     #[test]
     fn a_failed_sweep_writes_nothing_even_when_current() {
-        assert_eq!(skipped_write_if_current(true, Err("boom".to_string())), None);
-        assert_eq!(skipped_write_if_current(false, Err("boom".to_string())), None);
+        assert_eq!(
+            skipped_write_if_current(true, Err("boom".to_string())),
+            None
+        );
+        assert_eq!(
+            skipped_write_if_current(false, Err("boom".to_string())),
+            None
+        );
     }
 
     /// 一个只在测试里用的索引:db 落在 `tempdir` 里(`open_at`,不是 `open`
@@ -1598,7 +1698,11 @@ mod command_tests {
         let d = tempfile::tempdir().unwrap();
         let handle: IndexHandle = Arc::new(Mutex::new(None));
         // `false` = 摄取期间用户切了 vault(更新一代 open 已预定代际)。
-        assert!(!install_if_current(&handle, scratch_index(d.path()), || false));
+        assert!(!install_if_current(
+            &handle,
+            scratch_index(d.path()),
+            || false
+        ));
         assert!(lock(&handle).is_none(), "被取代的线程把索引装了回去");
     }
 
@@ -1608,7 +1712,9 @@ mod command_tests {
     fn a_still_current_generation_installs_the_index() {
         let d = tempfile::tempdir().unwrap();
         let handle: IndexHandle = Arc::new(Mutex::new(None));
-        assert!(install_if_current(&handle, scratch_index(d.path()), || true));
+        assert!(install_if_current(&handle, scratch_index(d.path()), || {
+            true
+        }));
         let guard = lock(&handle);
         let idx = guard.as_ref().expect("索引没装进 IndexHandle");
         assert_eq!(
@@ -1641,7 +1747,10 @@ mod command_tests {
             assert!(installed);
         }
         assert!(checked.load(Ordering::SeqCst), "代际检查压根没跑");
-        assert!(seen_locked.load(Ordering::SeqCst), "检查发生在取锁之前,窗口没收窄");
+        assert!(
+            seen_locked.load(Ordering::SeqCst),
+            "检查发生在取锁之前,窗口没收窄"
+        );
     }
 
     #[test]
@@ -1717,7 +1826,14 @@ mod command_tests {
             deep_available: true,
         };
         let v = serde_json::to_value(&resp).unwrap();
-        for key in ["route", "tookMs", "total", "hits", "truncated", "deepAvailable"] {
+        for key in [
+            "route",
+            "tookMs",
+            "total",
+            "hits",
+            "truncated",
+            "deepAvailable",
+        ] {
             assert!(v.get(key).is_some(), "missing key {key} in {v}");
         }
     }
@@ -1760,7 +1876,11 @@ mod command_tests {
 
         let v = tempfile::tempdir().unwrap();
         for i in 0..600 {
-            std::fs::write(v.path().join(format!("f{i}.md")), format!("alpha body {i}\n")).unwrap();
+            std::fs::write(
+                v.path().join(format!("f{i}.md")),
+                format!("alpha body {i}\n"),
+            )
+            .unwrap();
         }
         let d = tempfile::tempdir().unwrap();
         let mut idx =
@@ -1812,10 +1932,7 @@ mod command_tests {
             !resp.truncated,
             "查询在预算内跑完却被标成 truncated —— 面板会显示「已达时间上限」"
         );
-        assert!(
-            !resp.deep_available,
-            "FTS 已经命中,不该再提示深搜"
-        );
+        assert!(!resp.deep_available, "FTS 已经命中,不该再提示深搜");
     }
 
     /// `limit: Some(0)` 是「显示全部」的线上拼写:必须映射成
@@ -1825,7 +1942,11 @@ mod command_tests {
     fn a_zero_limit_means_every_hit_not_zero_hits() {
         let v = tempfile::tempdir().unwrap();
         for i in 0..100 {
-            std::fs::write(v.path().join(format!("f{i}.md")), format!("alpha body {i}\n")).unwrap();
+            std::fs::write(
+                v.path().join(format!("f{i}.md")),
+                format!("alpha body {i}\n"),
+            )
+            .unwrap();
         }
         let d = tempfile::tempdir().unwrap();
         let mut idx =
@@ -1834,14 +1955,30 @@ mod command_tests {
         let handle: IndexHandle = Arc::new(Mutex::new(Some(idx)));
         let counter: Arc<AtomicU64> = Arc::new(AtomicU64::new(1));
 
-        let capped =
-            search_locked(&handle, Instant::now(), "alpha", None, Some(true), None, &counter, 1)
-                .expect("默认查询不该失败");
+        let capped = search_locked(
+            &handle,
+            Instant::now(),
+            "alpha",
+            None,
+            Some(true),
+            None,
+            &counter,
+            1,
+        )
+        .expect("默认查询不该失败");
         assert_eq!(capped.hits.len(), 50, "不传 limit 的默认仍是 50 条");
 
-        let all =
-            search_locked(&handle, Instant::now(), "alpha", Some(0), Some(true), None, &counter, 1)
-                .expect("limit=0 查询不该失败");
+        let all = search_locked(
+            &handle,
+            Instant::now(),
+            "alpha",
+            Some(0),
+            Some(true),
+            None,
+            &counter,
+            1,
+        )
+        .expect("limit=0 查询不该失败");
         assert_eq!(all.hits.len(), 100, "limit=0 必须返回全部命中");
     }
 
@@ -1909,13 +2046,24 @@ mod command_tests {
             ),
         )
         .unwrap();
-        assert_eq!(idx.refresh_attention(&[]).unwrap(), 1, "摄取必须写进 1 条,否则后面验的是空气");
+        assert_eq!(
+            idx.refresh_attention(&[]).unwrap(),
+            1,
+            "摄取必须写进 1 条,否则后面验的是空气"
+        );
 
         let handle: IndexHandle = Arc::new(Mutex::new(Some(idx)));
         let counter: Arc<AtomicU64> = Arc::new(AtomicU64::new(1));
 
         let off = search_locked(
-            &handle, Instant::now(), "widget", Some(10), Some(true), None, &counter, 1,
+            &handle,
+            Instant::now(),
+            "widget",
+            Some(10),
+            Some(true),
+            None,
+            &counter,
+            1,
         )
         .unwrap();
         assert_eq!(
@@ -1928,7 +2076,14 @@ mod command_tests {
         std::fs::write(&settings, r#"{"searchWeights": {"attention": 0.4}}"#).unwrap();
 
         let on = search_locked(
-            &handle, Instant::now(), "widget", Some(10), Some(true), None, &counter, 1,
+            &handle,
+            Instant::now(),
+            "widget",
+            Some(10),
+            Some(true),
+            None,
+            &counter,
+            1,
         )
         .unwrap();
         assert_eq!(
@@ -1957,7 +2112,11 @@ mod command_tests {
         // location differs) so the two hits tie on everything BUT the
         // origin weight multiplier — the only thing that should be able to
         // separate them.
-        std::fs::write(v.path().join("derived.md"), "---\ntype: Answer\n---\n\nwidget\n").unwrap();
+        std::fs::write(
+            v.path().join("derived.md"),
+            "---\ntype: Answer\n---\n\nwidget\n",
+        )
+        .unwrap();
         std::fs::create_dir_all(v.path().join("raw")).unwrap();
         std::fs::write(v.path().join("raw/source.md"), "widget\n").unwrap();
         std::fs::create_dir_all(v.path().join(".notemd")).unwrap();
@@ -1969,16 +2128,29 @@ mod command_tests {
 
         let opts = crate::search::options::for_vault(v.path());
         let d = tempfile::tempdir().unwrap();
-        let mut idx =
-            searchidx::SearchIndex::open_at(v.path(), &d.path().join("i.db"), &opts.source_globs.stamp()).unwrap();
+        let mut idx = searchidx::SearchIndex::open_at(
+            v.path(),
+            &d.path().join("i.db"),
+            &opts.source_globs.stamp(),
+        )
+        .unwrap();
         idx.ensure_built(&opts).unwrap();
         let handle: IndexHandle = Arc::new(Mutex::new(Some(idx)));
         let counter: Arc<AtomicU64> = Arc::new(AtomicU64::new(1));
 
         // Default weights: `derived.md` (Origin::Derived, ×1.0) outranks
         // `raw/source.md` (Origin::Source, ×0.9).
-        let default_resp =
-            search_locked(&handle, Instant::now(), "widget", Some(10), Some(true), None, &counter, 1).unwrap();
+        let default_resp = search_locked(
+            &handle,
+            Instant::now(),
+            "widget",
+            Some(10),
+            Some(true),
+            None,
+            &counter,
+            1,
+        )
+        .unwrap();
         assert_eq!(
             default_resp.hits.first().map(|h| h.path.as_str()),
             Some("derived.md"),
@@ -1991,8 +2163,17 @@ mod command_tests {
             r#"{"searchSourceGlobs": ["raw/**"], "searchWeights": {"source": 5.0, "derived": 0.1}}"#,
         )
         .unwrap();
-        let inverted_resp =
-            search_locked(&handle, Instant::now(), "widget", Some(10), Some(true), None, &counter, 1).unwrap();
+        let inverted_resp = search_locked(
+            &handle,
+            Instant::now(),
+            "widget",
+            Some(10),
+            Some(true),
+            None,
+            &counter,
+            1,
+        )
+        .unwrap();
         assert_eq!(
             inverted_resp.hits.first().map(|h| h.path.as_str()),
             Some("raw/source.md"),
@@ -2013,7 +2194,11 @@ mod command_tests {
     fn a_configured_wikipage_dir_actually_pins_through_the_command_path() {
         let v = tempfile::tempdir().unwrap();
         std::fs::create_dir_all(v.path().join("wikipage")).unwrap();
-        std::fs::write(v.path().join("wikipage/张三.md"), "---\ntitle: 张三\n---\n- \n").unwrap();
+        std::fs::write(
+            v.path().join("wikipage/张三.md"),
+            "---\ntitle: 张三\n---\n- \n",
+        )
+        .unwrap();
         // 逐字同形、只多一条 `verified` 的诱饵:没有置顶时它靠 human_verified
         // 稳赢,所以第一条断言不是空断言。
         std::fs::write(
@@ -2026,14 +2211,28 @@ mod command_tests {
 
         let opts = crate::search::options::for_vault(v.path());
         let d = tempfile::tempdir().unwrap();
-        let mut idx =
-            searchidx::SearchIndex::open_at(v.path(), &d.path().join("i.db"), &opts.source_globs.stamp()).unwrap();
+        let mut idx = searchidx::SearchIndex::open_at(
+            v.path(),
+            &d.path().join("i.db"),
+            &opts.source_globs.stamp(),
+        )
+        .unwrap();
         idx.ensure_built(&opts).unwrap();
         let handle: IndexHandle = Arc::new(Mutex::new(Some(idx)));
         let counter: Arc<AtomicU64> = Arc::new(AtomicU64::new(1));
 
         let q = |c: &Arc<AtomicU64>| {
-            search_locked(&handle, Instant::now(), "张三", Some(10), Some(true), None, c, 1).unwrap()
+            search_locked(
+                &handle,
+                Instant::now(),
+                "张三",
+                Some(10),
+                Some(true),
+                None,
+                c,
+                1,
+            )
+            .unwrap()
         };
 
         // 默认目录名(未配置)下,wikipage 下的那篇被置顶。
@@ -2046,7 +2245,11 @@ mod command_tests {
         assert!(default_resp.hits[0].pinned, "置顶标记必须一路传到 DTO");
 
         // 把目录名改到别处 —— 同一个索引,不重建。
-        std::fs::write(v.path().join(".notemd/settings.json"), r#"{"wikipageDir": "概念"}"#).unwrap();
+        std::fs::write(
+            v.path().join(".notemd/settings.json"),
+            r#"{"wikipageDir": "概念"}"#,
+        )
+        .unwrap();
         let renamed = q(&counter);
         assert_eq!(
             renamed.hits.first().map(|h| h.path.as_str()),
@@ -2069,7 +2272,8 @@ mod command_tests {
             std::fs::write(v.path().join(format!("f{i}.md")), format!("body {i}\n")).unwrap();
         }
         let d = tempfile::tempdir().unwrap();
-        let mut idx = searchidx::SearchIndex::open_at(v.path(), &d.path().join("i.db"), "sync").unwrap();
+        let mut idx =
+            searchidx::SearchIndex::open_at(v.path(), &d.path().join("i.db"), "sync").unwrap();
         log_rebuild_with(&mut idx, &searchidx::ScanOptions::default(), None).unwrap();
 
         let lines: Vec<_> = crate::log_bus::snapshot()
@@ -2077,8 +2281,15 @@ mod command_tests {
             .filter(|l| l.category == "search")
             .collect();
         assert!(!lines.is_empty(), "一条都没记");
-        assert!(lines.len() < 30, "300 个文件产生了 {} 行 search 日志,粒度太细", lines.len());
-        assert!(lines.iter().any(|l| l.message.contains("300")), "汇总行应含文件总数: {lines:?}");
+        assert!(
+            lines.len() < 30,
+            "300 个文件产生了 {} 行 search 日志,粒度太细",
+            lines.len()
+        );
+        assert!(
+            lines.iter().any(|l| l.message.contains("300")),
+            "汇总行应含文件总数: {lines:?}"
+        );
         // 300 < 500,门槛必须一次都不触发。光看总行数不够:核心 crate 自己的
         // 节流(每 25 文件一次回调)已经把 300 文件的回调次数压到个位数,
         // 单凭 `lines.len() < 30` 分辨不出"宿主按 500 门槛节流"和"宿主完全
@@ -2105,14 +2316,18 @@ mod command_tests {
             std::fs::write(v.path().join(format!("f{i}.md")), format!("body {i}\n")).unwrap();
         }
         let d = tempfile::tempdir().unwrap();
-        let mut idx = searchidx::SearchIndex::open_at(v.path(), &d.path().join("i.db"), "sync").unwrap();
+        let mut idx =
+            searchidx::SearchIndex::open_at(v.path(), &d.path().join("i.db"), "sync").unwrap();
         log_rebuild_with(&mut idx, &searchidx::ScanOptions::default(), None).unwrap();
 
         let lines: Vec<_> = crate::log_bus::snapshot()
             .into_iter()
             .filter(|l| l.category == "search")
             .collect();
-        let milestones: Vec<_> = lines.iter().filter(|l| l.message.starts_with("indexing")).collect();
+        let milestones: Vec<_> = lines
+            .iter()
+            .filter(|l| l.message.starts_with("indexing"))
+            .collect();
         assert_eq!(
             milestones.len(),
             1,
@@ -2130,8 +2345,17 @@ mod command_tests {
             .strip_prefix("indexing ")
             .and_then(|rest| rest.split_once('/'))
             .and_then(|(done, total)| Some((done.parse::<usize>().ok()?, total)))
-            .unwrap_or_else(|| panic!("里程碑行的格式必须是 `indexing <done>/<total>`: {:?}", milestones[0]));
-        assert_eq!(caps.1, "600", "里程碑行的 total 必须是文件总数: {:?}", milestones[0]);
+            .unwrap_or_else(|| {
+                panic!(
+                    "里程碑行的格式必须是 `indexing <done>/<total>`: {:?}",
+                    milestones[0]
+                )
+            });
+        assert_eq!(
+            caps.1, "600",
+            "里程碑行的 total 必须是文件总数: {:?}",
+            milestones[0]
+        );
         assert!(
             (500..=525).contains(&caps.0),
             "第一条里程碑必须紧跟在越过 500 门槛之后(允许一次时间节流的错相): {:?}",
@@ -2153,11 +2377,16 @@ mod command_tests {
             std::fs::write(v.path().join(format!("big{i:02}.md")), "x").unwrap();
         }
         let d = tempfile::tempdir().unwrap();
-        let mut idx = searchidx::SearchIndex::open_at(v.path(), &d.path().join("i.db"), "sync").unwrap();
+        let mut idx =
+            searchidx::SearchIndex::open_at(v.path(), &d.path().join("i.db"), "sync").unwrap();
         // 阈值 0 = 任何非空文件都算超标。这里只是让 60 个 1 字节文件全部进
         // skipped 列表,免得为了测日志上限真去写 60 个 10MB 文件;设置层不
         // 允许 0(见 vault_settings::merge 的零值拒绝),这是测试专用取值。
-        let opts = searchidx::ScanOptions { large_file_threshold_mb: 0, exclude_dirs: Vec::new(), ..Default::default() };
+        let opts = searchidx::ScanOptions {
+            large_file_threshold_mb: 0,
+            exclude_dirs: Vec::new(),
+            ..Default::default()
+        };
         let stats = log_rebuild_with(&mut idx, &opts, None).unwrap();
         assert_eq!(stats.files_skipped_large.len(), 60, "60 个文件都该被跳过");
 
@@ -2171,10 +2400,15 @@ mod command_tests {
             .into_iter()
             .filter(|l| l.category == "search" && l.message.contains("more skipped for size"))
             .collect();
-        assert_eq!(summary.len(), 1, "余下的必须有且只有一条汇总行: {summary:?}");
+        assert_eq!(
+            summary.len(),
+            1,
+            "余下的必须有且只有一条汇总行: {summary:?}"
+        );
         assert!(
             summary[0].message.contains("10"),
-            "汇总行要说清还剩多少条(60 - 50 = 10): {:?}", summary[0]
+            "汇总行要说清还剩多少条(60 - 50 = 10): {:?}",
+            summary[0]
         );
     }
 
@@ -2194,8 +2428,17 @@ mod command_tests {
         let handle: IndexHandle = Arc::new(Mutex::new(Some(idx)));
 
         let counter: Arc<AtomicU64> = Arc::new(AtomicU64::new(1));
-        search_locked(&handle, Instant::now(), "alpha", Some(50), Some(false), None, &counter, 1)
-            .expect("查询本身不该失败");
+        search_locked(
+            &handle,
+            Instant::now(),
+            "alpha",
+            Some(50),
+            Some(false),
+            None,
+            &counter,
+            1,
+        )
+        .expect("查询本身不该失败");
 
         let lines: Vec<_> = crate::log_bus::snapshot()
             .into_iter()
@@ -2206,7 +2449,13 @@ mod command_tests {
         // 产生,默认可见会把 git sync / 插件的日志顶出去。
         assert_eq!(lines[0].level, "debug");
         let m = &lines[0].message;
-        for expected in ["query=\"alpha\"", "route=t1-fts", "hits=1", "deep=false", "truncated=false"] {
+        for expected in [
+            "query=\"alpha\"",
+            "route=t1-fts",
+            "hits=1",
+            "deep=false",
+            "truncated=false",
+        ] {
             assert!(m.contains(expected), "日志行缺 {expected}: {m}");
         }
     }
@@ -2221,14 +2470,28 @@ mod command_tests {
         let v = tempfile::tempdir().unwrap();
         std::fs::write(v.path().join("a.md"), "alpha body\n").unwrap();
         let d = tempfile::tempdir().unwrap();
-        let idx = searchidx::SearchIndex::open_at(v.path(), &d.path().join("i.db"), "sync").unwrap();
+        let idx =
+            searchidx::SearchIndex::open_at(v.path(), &d.path().join("i.db"), "sync").unwrap();
         let handle: IndexHandle = Arc::new(Mutex::new(Some(idx)));
 
         // ticket 1 出发时计数器已经走到 2 —— 正是用户又敲了一个键的情形。
         let counter: Arc<AtomicU64> = Arc::new(AtomicU64::new(2));
         // `SearchResponse` 没有 Debug(它是 serde DTO),所以不能用 expect_err。
-        let got = search_locked(&handle, Instant::now(), "alpha", Some(50), Some(false), None, &counter, 1);
-        assert_eq!(got.err().as_deref(), Some(CANCELLED), "被抢占的查询必须报 CANCELLED");
+        let got = search_locked(
+            &handle,
+            Instant::now(),
+            "alpha",
+            Some(50),
+            Some(false),
+            None,
+            &counter,
+            1,
+        );
+        assert_eq!(
+            got.err().as_deref(),
+            Some(CANCELLED),
+            "被抢占的查询必须报 CANCELLED"
+        );
 
         let lines: Vec<_> = crate::log_bus::snapshot()
             .into_iter()
@@ -2249,17 +2512,27 @@ mod command_tests {
             std::fs::write(v.path().join(format!("big{i}.md")), "x").unwrap();
         }
         let d = tempfile::tempdir().unwrap();
-        let mut idx = searchidx::SearchIndex::open_at(v.path(), &d.path().join("i.db"), "sync").unwrap();
-        let opts = searchidx::ScanOptions { large_file_threshold_mb: 0, exclude_dirs: Vec::new(), ..Default::default() };
+        let mut idx =
+            searchidx::SearchIndex::open_at(v.path(), &d.path().join("i.db"), "sync").unwrap();
+        let opts = searchidx::ScanOptions {
+            large_file_threshold_mb: 0,
+            exclude_dirs: Vec::new(),
+            ..Default::default()
+        };
         log_rebuild_with(&mut idx, &opts, None).unwrap();
 
         let lines = crate::log_bus::snapshot();
         assert_eq!(
-            lines.iter().filter(|l| l.message.starts_with("skipped (over threshold)")).count(),
+            lines
+                .iter()
+                .filter(|l| l.message.starts_with("skipped (over threshold)"))
+                .count(),
             3
         );
         assert!(
-            !lines.iter().any(|l| l.message.contains("more skipped for size")),
+            !lines
+                .iter()
+                .any(|l| l.message.contains("more skipped for size")),
             "3 < 50,不该有汇总行: {lines:?}"
         );
     }
@@ -2318,7 +2591,10 @@ mod command_tests {
         let flag_for_thread = flag.clone();
         let progress_for_thread = progress.clone();
         let joined = std::thread::spawn(move || {
-            let _cleanup = RebuildGuard { progress: progress_for_thread, flag: flag_for_thread };
+            let _cleanup = RebuildGuard {
+                progress: progress_for_thread,
+                flag: flag_for_thread,
+            };
             panic!("simulated rebuild_with_progress panic (e.g. an unwrap inside searchidx)");
         })
         .join();
@@ -2328,7 +2604,10 @@ mod command_tests {
             flag.try_begin(),
             "guard 的 Drop 必须在 panic 展开时也释放 flag,而不是永久卡住"
         );
-        assert!(progress.get().is_none(), "guard 的 Drop 也必须在 panic 时清空进度");
+        assert!(
+            progress.get().is_none(),
+            "guard 的 Drop 也必须在 panic 时清空进度"
+        );
     }
 
     /// review round 1, finding 1: 之前 `progress_is_readable_while_the_index_lock_is_held`
@@ -2421,7 +2700,10 @@ mod command_tests {
         }));
         assert!(unwound.is_err(), "这条测试的前提就是真的 panic 了");
         assert_eq!(state.get(), OpenPhase::Failed("open interrupted".into()));
-        assert!(progress.get().is_none(), "进度必须清空,否则设置页停在一个不动的进度条上");
+        assert!(
+            progress.get().is_none(),
+            "进度必须清空,否则设置页停在一个不动的进度条上"
+        );
     }
 
     /// 被更新一代 `open_vault` 取代的线程,对「当前 vault」的看法是无效的:
@@ -2431,8 +2713,16 @@ mod command_tests {
     fn a_superseded_open_writes_no_phase() {
         let state = OpenState::default();
         state.set(OpenPhase::Opening); // 新一代 open 刚设的
-        drop(OpenGuard { progress: ProgressState::default(), state: state.clone(), phase: None });
-        assert_eq!(state.get(), OpenPhase::Opening, "过期线程不得覆盖当前一代的状态");
+        drop(OpenGuard {
+            progress: ProgressState::default(),
+            state: state.clone(),
+            phase: None,
+        });
+        assert_eq!(
+            state.get(),
+            OpenPhase::Opening,
+            "过期线程不得覆盖当前一代的状态"
+        );
     }
 
     /// 完成后进度必须清空,否则设置页会一直显示一个停在 100% 的旧进度。
@@ -2479,12 +2769,20 @@ mod command_tests {
                 db_bytes: 1,
                 built_at: None,
                 tokenizer_id: "jieba/1".to_string(),
-                origin_counts: searchidx::OriginCounts { human: 1, derived: 2, source: 3, unlabeled: 4 },
+                origin_counts: searchidx::OriginCounts {
+                    human: 1,
+                    derived: 2,
+                    source: 3,
+                    unlabeled: 4,
+                },
                 type_counts,
                 attention_files: 5,
                 attention_as_of: Some("2026-08-13".to_string()),
             },
-            vec![SkippedDto { path: "big.md".to_string(), size_bytes: 42 }],
+            vec![SkippedDto {
+                path: "big.md".to_string(),
+                size_bytes: 42,
+            }],
         );
         let v = serde_json::to_value(&dto).unwrap();
         for key in [
@@ -2507,9 +2805,19 @@ mod command_tests {
         assert!(skipped[0].get("sizeBytes").is_some(), "{skipped:?}");
         let origin_counts = v.get("originCounts").unwrap();
         for key in ["human", "derived", "source", "unlabeled"] {
-            assert!(origin_counts.get(key).is_some(), "missing key {key} in {origin_counts}");
+            assert!(
+                origin_counts.get(key).is_some(),
+                "missing key {key} in {origin_counts}"
+            );
         }
-        assert_eq!(v.get("typeCounts").unwrap().get("Book Summary").unwrap().as_i64(), Some(2));
+        assert_eq!(
+            v.get("typeCounts")
+                .unwrap()
+                .get("Book Summary")
+                .unwrap()
+                .as_i64(),
+            Some(2)
+        );
     }
 
     /// A candidate pattern only unlocks the `.srt`/`.vtt`/`.txt` files under
@@ -2525,13 +2833,25 @@ mod command_tests {
         let v = tempfile::tempdir().unwrap();
         std::fs::create_dir_all(v.path().join("media")).unwrap();
         std::fs::create_dir_all(v.path().join("elsewhere")).unwrap();
-        std::fs::write(v.path().join("media/talk.srt"), "1\n00:00:00,000 --> 00:00:01,000\nhi\n").unwrap();
+        std::fs::write(
+            v.path().join("media/talk.srt"),
+            "1\n00:00:00,000 --> 00:00:01,000\nhi\n",
+        )
+        .unwrap();
         std::fs::write(v.path().join("media/note.md"), "hi\n").unwrap();
-        std::fs::write(v.path().join("elsewhere/other.srt"), "1\n00:00:00,000 --> 00:00:01,000\nhi\n").unwrap();
+        std::fs::write(
+            v.path().join("elsewhere/other.srt"),
+            "1\n00:00:00,000 --> 00:00:01,000\nhi\n",
+        )
+        .unwrap();
         std::fs::write(v.path().join("elsewhere/other.md"), "hi\n").unwrap();
 
         let patterns = vec!["media/**".to_string()];
-        assert_eq!(count_glob_matches(v.path(), &patterns), 2, "只有落在模式内的文件（.md 和转写皆是）该被计入");
+        assert_eq!(
+            count_glob_matches(v.path(), &patterns),
+            2,
+            "只有落在模式内的文件（.md 和转写皆是）该被计入"
+        );
     }
 
     /// Corrected meaning (review round 1, Critical 1): a file counts only
@@ -2554,7 +2874,11 @@ mod command_tests {
         std::fs::write(v.path().join("elsewhere.md"), "x\n").unwrap();
 
         let patterns = vec!["ebook/**".to_string()];
-        assert_eq!(count_glob_matches(v.path(), &patterns), 1, "只有落在模式内的 .md 才该计入,不是全库基线");
+        assert_eq!(
+            count_glob_matches(v.path(), &patterns),
+            1,
+            "只有落在模式内的 .md 才该计入,不是全库基线"
+        );
     }
 
     /// spec §7.1's own worked example (narrow → wide candidates around one
@@ -2586,8 +2910,11 @@ mod command_tests {
             std::fs::write(v.path().join(format!("ebook/e{i}.md")), "x").unwrap();
         }
         for i in 0..8 {
-            std::fs::write(v.path().join(format!("ebook/t{i}.srt")), "1\n00:00:00,000 --> 00:00:01,000\nhi\n")
-                .unwrap();
+            std::fs::write(
+                v.path().join(format!("ebook/t{i}.srt")),
+                "1\n00:00:00,000 --> 00:00:01,000\nhi\n",
+            )
+            .unwrap();
         }
         std::fs::write(v.path().join("ebook/三体/s.md"), "x").unwrap();
         for i in 0..2 {
@@ -2603,7 +2930,10 @@ mod command_tests {
         let wide = count_glob_matches(v.path(), &["ebook/**".to_string()]);
 
         assert_eq!(narrow, 3, "ebook/三体/** = 1 md + 2 srt");
-        assert_eq!(mid, 5, "ebook/**/*.md 命中 ebook 下全部 5 个 .md,不含任何 srt");
+        assert_eq!(
+            mid, 5,
+            "ebook/**/*.md 命中 ebook 下全部 5 个 .md,不含任何 srt"
+        );
         assert_eq!(wide, 15, "ebook/** = 5 md + 10 srt");
         assert!(
             narrow <= mid && mid <= wide,
@@ -2625,7 +2955,11 @@ mod command_tests {
 
         // Case-literal by design (spec §4.1) — "sync" must not match "Sync".
         let patterns = vec!["sync/**".to_string()];
-        assert_eq!(count_glob_matches(v.path(), &patterns), 0, "大小写不匹配的模式必须命中 0,警示才打得出来");
+        assert_eq!(
+            count_glob_matches(v.path(), &patterns),
+            0,
+            "大小写不匹配的模式必须命中 0,警示才打得出来"
+        );
     }
 
     /// Excluded directories (a saved, real setting — distinct from the
@@ -2645,9 +2979,17 @@ mod command_tests {
         )
         .unwrap();
         std::fs::create_dir_all(v.path().join("media/raw")).unwrap();
-        std::fs::write(v.path().join("media/raw/a.srt"), "1\n00:00:00,000 --> 00:00:01,000\nhi\n").unwrap();
+        std::fs::write(
+            v.path().join("media/raw/a.srt"),
+            "1\n00:00:00,000 --> 00:00:01,000\nhi\n",
+        )
+        .unwrap();
         std::fs::write(v.path().join("media/raw/a.md"), "x\n").unwrap();
-        std::fs::write(v.path().join("media/b.srt"), "1\n00:00:00,000 --> 00:00:01,000\nhi\n").unwrap();
+        std::fs::write(
+            v.path().join("media/b.srt"),
+            "1\n00:00:00,000 --> 00:00:01,000\nhi\n",
+        )
+        .unwrap();
         std::fs::write(v.path().join("media/b.md"), "x\n").unwrap();
         // Review round 2, item 3: an ordinary `.md` entirely OUTSIDE the
         // candidate pattern too — without this, the fixture cannot tell

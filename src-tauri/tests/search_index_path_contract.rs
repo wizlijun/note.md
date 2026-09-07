@@ -32,6 +32,9 @@ fn the_cli_config_dir_is_the_platform_config_dir_for_this_bundle() {
 fn the_index_is_local_while_the_config_is_not() {
     let idx = searchidx::paths::index_db_path(Path::new(r"C:\vault")).unwrap();
     let cfg = notemd_lib::cli::resolve_config_dir();
-    assert_ne!(idx.parent().unwrap().parent().unwrap().parent(), cfg.parent());
+    assert_ne!(
+        idx.parent().unwrap().parent().unwrap().parent(),
+        cfg.parent()
+    );
     assert!(idx.to_string_lossy().to_lowercase().contains(r"\local\"));
 }

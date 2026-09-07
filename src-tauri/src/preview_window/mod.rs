@@ -45,7 +45,12 @@ pub fn stash(map: &mut HashMap<String, PreviewPayload>, id: String, payload: Pre
 pub fn drain(map: &mut HashMap<String, PreviewPayload>) -> Vec<PreviewTab> {
     let mut out: Vec<PreviewTab> = map
         .drain()
-        .map(|(id, p)| PreviewTab { id, title: p.title, kind: p.kind, content: p.content })
+        .map(|(id, p)| PreviewTab {
+            id,
+            title: p.title,
+            kind: p.kind,
+            content: p.content,
+        })
         .collect();
     // Deterministic order (HashMap drain order is arbitrary): sort by id.
     out.sort_by(|a, b| a.id.cmp(&b.id));
@@ -69,7 +74,15 @@ pub fn open_preview_tab(
     {
         let store = app.state::<PreviewStore>();
         let mut map = store.0.lock().map_err(|e| e.to_string())?;
-        stash(&mut map, tab_id, PreviewPayload { title, kind, content });
+        stash(
+            &mut map,
+            tab_id,
+            PreviewPayload {
+                title,
+                kind,
+                content,
+            },
+        );
     }
 
     if let Some(w) = app.get_webview_window(PREVIEW_LABEL) {
@@ -80,15 +93,16 @@ pub fn open_preview_tab(
         return Ok(());
     }
 
-    let win = WebviewWindowBuilder::new(&app, PREVIEW_LABEL, WebviewUrl::App("preview.html".into()))
-        .title("Preview")
-        .inner_size(760.0, 680.0)
-        .min_inner_size(420.0, 320.0)
-        .resizable(true)
-        .decorations(true)
-        .visible(false)
-        .build()
-        .map_err(|e| format!("preview window build: {e}"))?;
+    let win =
+        WebviewWindowBuilder::new(&app, PREVIEW_LABEL, WebviewUrl::App("preview.html".into()))
+            .title("Preview")
+            .inner_size(760.0, 680.0)
+            .min_inner_size(420.0, 320.0)
+            .resizable(true)
+            .decorations(true)
+            .visible(false)
+            .build()
+            .map_err(|e| format!("preview window build: {e}"))?;
     let _ = win.show();
     let _ = win.set_focus();
     Ok(())
@@ -108,7 +122,11 @@ mod tests {
     use super::*;
 
     fn payload(c: &str) -> PreviewPayload {
-        PreviewPayload { title: "t".into(), kind: "diff".into(), content: c.into() }
+        PreviewPayload {
+            title: "t".into(),
+            kind: "diff".into(),
+            content: c.into(),
+        }
     }
 
     #[test]

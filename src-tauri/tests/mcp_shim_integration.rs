@@ -33,7 +33,10 @@ fn temp_home() -> PathBuf {
     std::env::temp_dir().join(format!(
         "notemd-mcp-int-{}-{}",
         std::process::id(),
-        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos(),
     ))
 }
 
@@ -73,8 +76,11 @@ fn run_mcp_session(lines: &[&str], home: &PathBuf) -> (i32, Vec<String>, String)
     let out = child.wait_with_output().expect("wait for child");
     let stdout = String::from_utf8_lossy(&out.stdout).to_string();
     let stderr = String::from_utf8_lossy(&out.stderr).to_string();
-    let reply_lines: Vec<String> =
-        stdout.lines().map(|s| s.to_string()).filter(|s| !s.trim().is_empty()).collect();
+    let reply_lines: Vec<String> = stdout
+        .lines()
+        .map(|s| s.to_string())
+        .filter(|s| !s.trim().is_empty())
+        .collect();
     (out.status.code().unwrap_or(-1), reply_lines, stderr)
 }
 
@@ -103,8 +109,10 @@ fn session_answers_without_gui_and_survives_garbage_input() {
     // (including the garbage line) produces exactly one each.
     assert_eq!(replies.len(), 4, "replies were: {replies:?}");
 
-    let msgs: Vec<serde_json::Value> =
-        replies.iter().map(|l| serde_json::from_str(l).expect(l)).collect();
+    let msgs: Vec<serde_json::Value> = replies
+        .iter()
+        .map(|l| serde_json::from_str(l).expect(l))
+        .collect();
 
     // 1) initialize — answered without a GUI.
     assert_eq!(msgs[0]["id"], 1);
@@ -159,8 +167,10 @@ fn tools_list_alone_returns_two_tools_with_no_gui() {
 #[test]
 fn mcp_is_reached_through_real_cli_routing() {
     let home = temp_home();
-    let (code, replies, stderr) =
-        run_mcp_session(&[r#"{"jsonrpc":"2.0","id":1,"method":"initialize"}"#], &home);
+    let (code, replies, stderr) = run_mcp_session(
+        &[r#"{"jsonrpc":"2.0","id":1,"method":"initialize"}"#],
+        &home,
+    );
     let _ = std::fs::remove_dir_all(&home);
 
     assert_eq!(code, 0, "stderr was: {stderr}");
@@ -208,8 +218,10 @@ fn roots_round_trip_completes_without_hanging_when_client_answers() {
     // tools/call reply once the round trip resolves.
     assert_eq!(replies.len(), 3, "replies were: {replies:?}");
 
-    let msgs: Vec<serde_json::Value> =
-        replies.iter().map(|l| serde_json::from_str(l).expect(l)).collect();
+    let msgs: Vec<serde_json::Value> = replies
+        .iter()
+        .map(|l| serde_json::from_str(l).expect(l))
+        .collect();
 
     assert_eq!(msgs[0]["id"], 1);
     assert!(msgs[0].get("error").is_none(), "{}", msgs[0]);

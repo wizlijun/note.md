@@ -39,7 +39,11 @@ pub fn decide_update(record: &Record, source_now: &str, vault_now: &str) -> Upda
 }
 
 /// Read source + vault files and decide. Missing source -> SourceMissing.
-pub fn check_update_io(record: &Record, source: &Path, vault: &Path) -> Result<UpdateOutcome, String> {
+pub fn check_update_io(
+    record: &Record,
+    source: &Path,
+    vault: &Path,
+) -> Result<UpdateOutcome, String> {
     if !source.exists() {
         return Ok(UpdateOutcome::SourceMissing);
     }
@@ -115,11 +119,15 @@ fn has_date_prefix(name: &str) -> bool {
         return false;
     }
     let d = |i: usize| b[i].is_ascii_digit();
-    d(0) && d(1) && d(2) && d(3)
+    d(0) && d(1)
+        && d(2)
+        && d(3)
         && b[4] == b'-'
-        && d(5) && d(6)
+        && d(5)
+        && d(6)
         && b[7] == b'-'
-        && d(8) && d(9)
+        && d(8)
+        && d(9)
         && b[10] == b'-'
 }
 
@@ -323,12 +331,22 @@ pub fn plan_image_assets(
                 let name = dedup_name(basename, &used_names);
                 used_names.insert(name.clone());
                 abs_to_dest.insert(abs.clone(), name.clone());
-                copies.push(CopyOp { src_abs: abs.clone(), dest_filename: name.clone() });
+                copies.push(CopyOp {
+                    src_abs: abs.clone(),
+                    dest_filename: name.clone(),
+                });
                 name
             }
         };
-        let rewritten = format!("({})", rewrite_link_target(&raw, &format!("{stem}.assets/{dest}")));
-        refs.push(PlannedRef { original, rewritten, dest_filename: dest });
+        let rewritten = format!(
+            "({})",
+            rewrite_link_target(&raw, &format!("{stem}.assets/{dest}"))
+        );
+        refs.push(PlannedRef {
+            original,
+            rewritten,
+            dest_filename: dest,
+        });
     }
     (refs, copies)
 }
@@ -351,7 +369,10 @@ mod tests {
 
     #[test]
     fn sha256_is_stable() {
-        assert_eq!(sha256_hex(b""), "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
+        assert_eq!(
+            sha256_hex(b""),
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        );
     }
 
     #[test]
@@ -434,7 +455,12 @@ mod tests {
         // A tracked copy exists → reuse it, even though the basename slot is taken.
         let existing = PathBuf::from("/v/Sync/a.md");
         let exists = |p: &Path| p == Path::new("/v/Sync/a.md");
-        let got = sync_target(Some(existing.clone()), Path::new("/v/Sync"), "a.md", &exists);
+        let got = sync_target(
+            Some(existing.clone()),
+            Path::new("/v/Sync"),
+            "a.md",
+            &exists,
+        );
         assert_eq!(got, existing);
     }
 
@@ -462,26 +488,44 @@ mod tests {
 
     #[test]
     fn is_under_vault_prefix() {
-        assert!(is_under_vault(Path::new("/Users/b/Vault"), Path::new("/Users/b/Vault/Imported/a.md")));
-        assert!(!is_under_vault(Path::new("/Users/b/Vault"), Path::new("/Users/b/work/a.md")));
+        assert!(is_under_vault(
+            Path::new("/Users/b/Vault"),
+            Path::new("/Users/b/Vault/Imported/a.md")
+        ));
+        assert!(!is_under_vault(
+            Path::new("/Users/b/Vault"),
+            Path::new("/Users/b/work/a.md")
+        ));
     }
 
     #[test]
     fn dated_basename_prefixes_undated_md() {
-        assert_eq!(dated_basename("notes.md", "2026-06-18"), "2026-06-18-notes.md");
-        assert_eq!(dated_basename("NOTES.MD", "2026-06-18"), "2026-06-18-NOTES.MD");
+        assert_eq!(
+            dated_basename("notes.md", "2026-06-18"),
+            "2026-06-18-notes.md"
+        );
+        assert_eq!(
+            dated_basename("NOTES.MD", "2026-06-18"),
+            "2026-06-18-NOTES.MD"
+        );
     }
 
     #[test]
     fn dated_basename_prefixes_mdx_like_md() {
         // mdx is a document too — syncing foo.md and foo.mdx into the vault
         // should not produce inconsistent naming.
-        assert_eq!(dated_basename("guide.mdx", "2026-06-18"), "2026-06-18-guide.mdx");
+        assert_eq!(
+            dated_basename("guide.mdx", "2026-06-18"),
+            "2026-06-18-guide.mdx"
+        );
     }
 
     #[test]
     fn dated_basename_leaves_already_dated_md() {
-        assert_eq!(dated_basename("2026-01-02-notes.md", "2026-06-18"), "2026-01-02-notes.md");
+        assert_eq!(
+            dated_basename("2026-01-02-notes.md", "2026-06-18"),
+            "2026-01-02-notes.md"
+        );
     }
 
     #[test]
@@ -493,7 +537,10 @@ mod tests {
     #[test]
     fn dated_basename_prefixes_when_existing_prefix_is_not_strict_format() {
         // single-digit month/day is not a yyyy-MM-dd- prefix
-        assert_eq!(dated_basename("2026-1-2-notes.md", "2026-06-18"), "2026-06-18-2026-1-2-notes.md");
+        assert_eq!(
+            dated_basename("2026-1-2-notes.md", "2026-06-18"),
+            "2026-06-18-2026-1-2-notes.md"
+        );
     }
 
     #[test]
@@ -508,7 +555,10 @@ mod tests {
 
     #[test]
     fn assets_dir_name_appends_suffix() {
-        assert_eq!(assets_dir_name("2026-07-03-notes"), "2026-07-03-notes.assets");
+        assert_eq!(
+            assets_dir_name("2026-07-03-notes"),
+            "2026-07-03-notes.assets"
+        );
     }
 
     #[test]
@@ -521,8 +571,14 @@ mod tests {
     #[test]
     fn extract_link_path_handles_title_and_angles() {
         assert_eq!(extract_link_path("assets/x.png"), "assets/x.png");
-        assert_eq!(extract_link_path("  assets/x.png  \"a title\""), "assets/x.png");
-        assert_eq!(extract_link_path("<assets/my file.png>"), "assets/my file.png");
+        assert_eq!(
+            extract_link_path("  assets/x.png  \"a title\""),
+            "assets/x.png"
+        );
+        assert_eq!(
+            extract_link_path("<assets/my file.png>"),
+            "assets/my file.png"
+        );
     }
 
     #[test]
@@ -539,7 +595,10 @@ mod tests {
 
     #[test]
     fn rewrite_link_target_preserves_title_and_angles() {
-        assert_eq!(rewrite_link_target("assets/x.png", "d.assets/x.png"), "d.assets/x.png");
+        assert_eq!(
+            rewrite_link_target("assets/x.png", "d.assets/x.png"),
+            "d.assets/x.png"
+        );
         assert_eq!(
             rewrite_link_target("assets/x.png \"t\"", "d.assets/x.png"),
             "d.assets/x.png \"t\""
@@ -550,7 +609,9 @@ mod tests {
         );
     }
 
-    fn always(_p: &std::path::Path) -> bool { true }
+    fn always(_p: &std::path::Path) -> bool {
+        true
+    }
 
     #[test]
     fn plan_no_images_returns_empty() {
@@ -619,13 +680,22 @@ mod tests {
 
     #[test]
     fn companion_note_name_for_md_files() {
-        assert_eq!(companion_note_name("foo.md").as_deref(), Some("foo.note.md"));
+        assert_eq!(
+            companion_note_name("foo.md").as_deref(),
+            Some("foo.note.md")
+        );
         assert_eq!(
             companion_note_name("2026-07-10-foo.md").as_deref(),
             Some("2026-07-10-foo.note.md")
         );
-        assert_eq!(companion_note_name("Foo.MD").as_deref(), Some("Foo.note.md"));
-        assert_eq!(companion_note_name("a.markdown").as_deref(), Some("a.note.md"));
+        assert_eq!(
+            companion_note_name("Foo.MD").as_deref(),
+            Some("Foo.note.md")
+        );
+        assert_eq!(
+            companion_note_name("a.markdown").as_deref(),
+            Some("a.note.md")
+        );
     }
 
     #[test]
@@ -635,6 +705,4 @@ mod tests {
         assert_eq!(companion_note_name("foo.txt"), None);
         assert_eq!(companion_note_name("foo"), None);
     }
-
 }
-

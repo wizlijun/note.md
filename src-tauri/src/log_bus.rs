@@ -178,7 +178,9 @@ fn prune_old_logs(dir: &Path, cutoff_day: &str) {
     for entry in entries.flatten() {
         let name = entry.file_name();
         let Some(name) = name.to_str() else { continue };
-        let Some(day) = log_file_day(name) else { continue };
+        let Some(day) = log_file_day(name) else {
+            continue;
+        };
         if day < cutoff_day {
             let _ = std::fs::remove_file(entry.path());
         }
@@ -274,7 +276,9 @@ fn local_day(_secs: i64) -> Option<String> {
 /// RFC3339 millis UTC without pulling in `chrono` (src-tauri has no such dep).
 /// Uses Howard Hinnant's days->civil algorithm.
 fn now_rfc3339() -> String {
-    let dur = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default();
+    let dur = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default();
     format_rfc3339(dur.as_secs() as i64, dur.subsec_millis())
 }
 
@@ -282,7 +286,11 @@ fn format_rfc3339(epoch_secs: i64, millis: u32) -> String {
     let days = epoch_secs.div_euclid(86_400);
     let secs_of_day = epoch_secs.rem_euclid(86_400);
     let (y, m, d) = civil_from_days(days);
-    let (hh, mm, ss) = (secs_of_day / 3600, (secs_of_day % 3600) / 60, secs_of_day % 60);
+    let (hh, mm, ss) = (
+        secs_of_day / 3600,
+        (secs_of_day % 3600) / 60,
+        secs_of_day % 60,
+    );
     format!(
         "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}.{:03}Z",
         y, m, d, hh, mm, ss, millis
@@ -340,7 +348,11 @@ pub fn push_cat_quiet(category: &str, source: &str, level: &str, message: String
 }
 
 pub fn snapshot() -> Vec<LogLine> {
-    bus().buffer.lock().map(|b| b.iter().cloned().collect()).unwrap_or_default()
+    bus()
+        .buffer
+        .lock()
+        .map(|b| b.iter().cloned().collect())
+        .unwrap_or_default()
 }
 
 pub fn clear() {
@@ -457,7 +469,10 @@ mod tests {
         }
         let snap = snapshot();
         assert_eq!(snap.len(), MAX_LINES);
-        assert_eq!(snap.last().unwrap().message, format!("line {}", MAX_LINES + 4));
+        assert_eq!(
+            snap.last().unwrap().message,
+            format!("line {}", MAX_LINES + 4)
+        );
         clear();
     }
 
@@ -491,7 +506,12 @@ mod tests {
     fn push_cat_quiet_records_without_the_stderr_mirror() {
         let _g = guard();
         clear();
-        push_cat_quiet("search", "backend", "warn", "query failed (boom); scanning files directly".into());
+        push_cat_quiet(
+            "search",
+            "backend",
+            "warn",
+            "query failed (boom); scanning files directly".into(),
+        );
         let last = snapshot().pop().unwrap();
         assert_eq!(last.category, "search");
         assert_eq!(last.source, "backend");
@@ -516,7 +536,10 @@ mod tests {
     fn rfc3339_matches_known_epoch() {
         // 2021-01-01T00:00:00.000Z == 1609459200 s
         assert_eq!(format_rfc3339(1_609_459_200, 0), "2021-01-01T00:00:00.000Z");
-        assert_eq!(format_rfc3339(1_609_459_200, 456), "2021-01-01T00:00:00.456Z");
+        assert_eq!(
+            format_rfc3339(1_609_459_200, 456),
+            "2021-01-01T00:00:00.456Z"
+        );
     }
 
     // ── daily rotation ────────────────────────────────────────────────────
@@ -527,7 +550,10 @@ mod tests {
     #[test]
     fn only_dated_app_logs_are_recognized_for_retention() {
         assert_eq!(log_file_day("app-2026-08-13.log"), Some("2026-08-13"));
-        assert_eq!(log_file_day("app-2026-08-13.legacy.log"), Some("2026-08-13"));
+        assert_eq!(
+            log_file_day("app-2026-08-13.legacy.log"),
+            Some("2026-08-13")
+        );
         // The pre-rotation file itself: managed by `archive_legacy`, never by
         // date comparison — it has no date to compare.
         assert_eq!(log_file_day("app.log"), None);
@@ -542,12 +568,12 @@ mod tests {
     fn prune_deletes_only_files_older_than_the_cutoff() {
         let dir = tempfile::tempdir().unwrap();
         let names = [
-            "app-2026-08-01.log",       // older  → gone
+            "app-2026-08-01.log",        // older  → gone
             "app-2026-08-05.legacy.log", // older  → gone
-            "app-2026-08-06.log",       // == cutoff → kept (strictly older only)
-            "app-2026-08-13.log",       // newer  → kept
-            "app.log",                  // unrecognized → kept
-            "notes.txt",                // user's own → kept
+            "app-2026-08-06.log",        // == cutoff → kept (strictly older only)
+            "app-2026-08-13.log",        // newer  → kept
+            "app.log",                   // unrecognized → kept
+            "notes.txt",                 // user's own → kept
         ];
         for n in names {
             std::fs::write(dir.path().join(n), b"x").unwrap();
@@ -559,11 +585,15 @@ mod tests {
             .flatten()
             .map(|e| e.file_name().to_string_lossy().into_owned())
             .collect();
-        let expected: std::collections::BTreeSet<String> =
-            ["app-2026-08-06.log", "app-2026-08-13.log", "app.log", "notes.txt"]
-                .into_iter()
-                .map(String::from)
-                .collect();
+        let expected: std::collections::BTreeSet<String> = [
+            "app-2026-08-06.log",
+            "app-2026-08-13.log",
+            "app.log",
+            "notes.txt",
+        ]
+        .into_iter()
+        .map(String::from)
+        .collect();
         assert_eq!(left, expected);
     }
 
@@ -593,8 +623,14 @@ mod tests {
             .collect();
         assert_eq!(archived.len(), 1);
         assert!(archived[0].ends_with(".legacy.log"), "{archived:?}");
-        assert!(log_file_day(&archived[0]).is_some(), "must be prunable: {archived:?}");
-        assert_eq!(std::fs::read(dir.path().join(&archived[0])).unwrap(), b"old lines");
+        assert!(
+            log_file_day(&archived[0]).is_some(),
+            "must be prunable: {archived:?}"
+        );
+        assert_eq!(
+            std::fs::read(dir.path().join(&archived[0])).unwrap(),
+            b"old lines"
+        );
     }
 
     /// Same day, second run: the archive already exists. Overwriting it would
@@ -603,7 +639,9 @@ mod tests {
     fn legacy_archive_never_overwrites_an_existing_one() {
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(dir.path().join("app.log"), b"new").unwrap();
-        let taken = dir.path().join(format!("app-{}.legacy.log", day_string(now_secs())));
+        let taken = dir
+            .path()
+            .join(format!("app-{}.legacy.log", day_string(now_secs())));
         std::fs::write(&taken, b"already archived").unwrap();
 
         archive_legacy(dir.path());

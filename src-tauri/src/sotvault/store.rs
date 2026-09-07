@@ -24,7 +24,10 @@ pub struct RecordStore {
 
 impl Default for RecordStore {
     fn default() -> Self {
-        Self { version: 1, records: Vec::new() }
+        Self {
+            version: 1,
+            records: Vec::new(),
+        }
     }
 }
 
@@ -38,7 +41,11 @@ impl RecordStore {
     }
 
     pub fn upsert(&mut self, rec: Record) {
-        if let Some(existing) = self.records.iter_mut().find(|r| r.vault_path == rec.vault_path) {
+        if let Some(existing) = self
+            .records
+            .iter_mut()
+            .find(|r| r.vault_path == rec.vault_path)
+        {
             *existing = rec;
         } else {
             self.records.push(rec);
@@ -140,7 +147,10 @@ mod tests {
         store.upsert(rec("/vault/a.md", "/src/old.md"));
         store.upsert(rec("/vault/a.md", "/src/new.md"));
         assert_eq!(store.records.len(), 1);
-        assert_eq!(store.find_by_vault("/vault/a.md").unwrap().source_path, "/src/new.md");
+        assert_eq!(
+            store.find_by_vault("/vault/a.md").unwrap().source_path,
+            "/src/new.md"
+        );
     }
 
     #[test]
@@ -155,7 +165,10 @@ mod tests {
     fn find_by_source_matches_source_path() {
         let mut store = RecordStore::default();
         store.upsert(rec("/vault/a.md", "/src/a.md"));
-        assert_eq!(store.find_by_source("/src/a.md").unwrap().vault_path, "/vault/a.md");
+        assert_eq!(
+            store.find_by_source("/src/a.md").unwrap().vault_path,
+            "/vault/a.md"
+        );
         assert!(store.find_by_source("/vault/a.md").is_none());
         assert!(store.find_by_source("/src/missing.md").is_none());
     }
@@ -194,7 +207,10 @@ mod tests {
         store.upsert(r);
         save_records(&p, &store).unwrap();
         let loaded = load_records(&p);
-        assert_eq!(loaded.records[0].note_merge_base.as_deref(), Some("- base line"));
+        assert_eq!(
+            loaded.records[0].note_merge_base.as_deref(),
+            Some("- base line")
+        );
     }
 
     #[test]
@@ -215,7 +231,14 @@ mod tests {
     #[test]
     fn relink_updates_existing_record_source_and_hashes() {
         let existing = rec("/v/sync/foo.md", "/old/foo.md");
-        let out = relink_record(Some(existing), "/v/sync/foo.md", "/new/foo.md", "sh", "vh", 999);
+        let out = relink_record(
+            Some(existing),
+            "/v/sync/foo.md",
+            "/new/foo.md",
+            "sh",
+            "vh",
+            999,
+        );
         assert_eq!(out.vault_path, "/v/sync/foo.md");
         assert_eq!(out.source_path, "/new/foo.md");
         assert_eq!(out.source_hash, "sh");

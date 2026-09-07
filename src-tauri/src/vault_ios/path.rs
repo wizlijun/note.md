@@ -15,7 +15,9 @@ pub fn resolve_vault_path(base: &Path) -> PathBuf {
 #[cfg(any(target_os = "ios", target_os = "macos", test))]
 pub fn vault_path(app: &tauri::AppHandle) -> Result<PathBuf, super::VaultError> {
     use tauri::Manager;
-    let doc = app.path().document_dir()
+    let doc = app
+        .path()
+        .document_dir()
         .map_err(|e| super::VaultError::FsError(format!("document_dir: {e}")))?;
     Ok(resolve_vault_path(&doc))
 }

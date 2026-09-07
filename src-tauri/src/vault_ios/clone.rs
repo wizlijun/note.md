@@ -1,5 +1,5 @@
+use git2::{build::RepoBuilder, Cred, FetchOptions, Progress, RemoteCallbacks};
 use std::path::Path;
-use git2::{build::RepoBuilder, FetchOptions, RemoteCallbacks, Cred, Progress};
 
 use super::VaultError;
 

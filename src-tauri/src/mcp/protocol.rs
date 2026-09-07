@@ -97,12 +97,18 @@ mod tests {
     fn search_schema_exposes_only_query_limit_context() {
         let v = tool_definitions();
         let search = &v["tools"][0];
-        let mut props: Vec<&str> =
-            search["inputSchema"]["properties"].as_object().unwrap()
-                .keys().map(|s| s.as_str()).collect();
+        let mut props: Vec<&str> = search["inputSchema"]["properties"]
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(|s| s.as_str())
+            .collect();
         props.sort();
         assert_eq!(props, vec!["context", "limit", "query"]);
-        assert_eq!(search["inputSchema"]["required"], serde_json::json!(["query"]));
+        assert_eq!(
+            search["inputSchema"]["required"],
+            serde_json::json!(["query"])
+        );
     }
 
     #[test]
@@ -120,6 +126,9 @@ mod tests {
         let v = tool_error(&serde_json::json!(1), "note.md 未运行");
         assert!(v.get("error").is_none());
         assert_eq!(v["result"]["isError"], true);
-        assert!(v["result"]["content"][0]["text"].as_str().unwrap().contains("note.md"));
+        assert!(v["result"]["content"][0]["text"]
+            .as_str()
+            .unwrap()
+            .contains("note.md"));
     }
 }

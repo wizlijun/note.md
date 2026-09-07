@@ -20,7 +20,9 @@ pub fn enabled_from_value(v: &serde_json::Value) -> bool {
 
 pub fn enabled_from_settings(app: &AppHandle) -> bool {
     use tauri_plugin_store::StoreExt;
-    let Ok(store) = app.store("settings.json") else { return true };
+    let Ok(store) = app.store("settings.json") else {
+        return true;
+    };
     let v = store.get("mcpServer").unwrap_or(serde_json::Value::Null);
     enabled_from_value(&serde_json::json!({ "mcpServer": v }))
 }
@@ -142,7 +144,9 @@ mod tests {
     /// failure waiting to happen under `cargo test`'s default parallelism.
     static TASK_TEST_LOCK: Mutex<()> = Mutex::new(());
     fn task_test_guard() -> std::sync::MutexGuard<'static, ()> {
-        TASK_TEST_LOCK.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+        TASK_TEST_LOCK
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
     }
 
     /// **键缺失即视为开** —— 老用户升级上来不需要做任何事。
@@ -155,18 +159,24 @@ mod tests {
 
     #[test]
     fn explicit_false_disables() {
-        assert!(!enabled_from_value(&json!({ "mcpServer": { "enabled": false } })));
+        assert!(!enabled_from_value(
+            &json!({ "mcpServer": { "enabled": false } })
+        ));
     }
 
     #[test]
     fn explicit_true_enables() {
-        assert!(enabled_from_value(&json!({ "mcpServer": { "enabled": true } })));
+        assert!(enabled_from_value(
+            &json!({ "mcpServer": { "enabled": true } })
+        ));
     }
 
     /// 损坏的值不能把功能意外关掉:非布尔一律回落默认(开)。
     #[test]
     fn malformed_value_falls_back_to_enabled() {
-        assert!(enabled_from_value(&json!({ "mcpServer": { "enabled": "no" } })));
+        assert!(enabled_from_value(
+            &json!({ "mcpServer": { "enabled": "no" } })
+        ));
         assert!(enabled_from_value(&json!({ "mcpServer": 42 })));
     }
 
@@ -258,8 +268,8 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn removes_the_file_it_is_given() {
-        let path = std::env::temp_dir()
-            .join(format!("notemd-gate-test-{}.sock", std::process::id()));
+        let path =
+            std::env::temp_dir().join(format!("notemd-gate-test-{}.sock", std::process::id()));
         std::fs::write(&path, b"").unwrap();
         assert!(path.exists());
         remove_socket_file(&path);
@@ -271,8 +281,10 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn tolerates_a_missing_file() {
-        let path = std::env::temp_dir()
-            .join(format!("notemd-gate-test-missing-{}.sock", std::process::id()));
+        let path = std::env::temp_dir().join(format!(
+            "notemd-gate-test-missing-{}.sock",
+            std::process::id()
+        ));
         let _ = std::fs::remove_file(&path);
         assert!(!path.exists());
         remove_socket_file(&path); // must not panic

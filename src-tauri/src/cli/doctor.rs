@@ -39,16 +39,36 @@ pub struct Check {
 
 impl Check {
     pub fn pass(id: &str, detail: impl Into<String>) -> Self {
-        Self { id: id.into(), status: Status::Pass, detail: detail.into(), hint: None }
+        Self {
+            id: id.into(),
+            status: Status::Pass,
+            detail: detail.into(),
+            hint: None,
+        }
     }
     pub fn warn(id: &str, detail: impl Into<String>, hint: impl Into<String>) -> Self {
-        Self { id: id.into(), status: Status::Warn, detail: detail.into(), hint: Some(hint.into()) }
+        Self {
+            id: id.into(),
+            status: Status::Warn,
+            detail: detail.into(),
+            hint: Some(hint.into()),
+        }
     }
     pub fn fail(id: &str, detail: impl Into<String>, hint: impl Into<String>) -> Self {
-        Self { id: id.into(), status: Status::Fail, detail: detail.into(), hint: Some(hint.into()) }
+        Self {
+            id: id.into(),
+            status: Status::Fail,
+            detail: detail.into(),
+            hint: Some(hint.into()),
+        }
     }
     pub fn skip(id: &str, detail: impl Into<String>) -> Self {
-        Self { id: id.into(), status: Status::Skip, detail: detail.into(), hint: None }
+        Self {
+            id: id.into(),
+            status: Status::Skip,
+            detail: detail.into(),
+            hint: None,
+        }
     }
 }
 
@@ -86,7 +106,10 @@ impl DoctorArgs {
 }
 
 pub fn parse_args(rest: &[String], json_global: bool) -> DoctorArgs {
-    let mut a = DoctorArgs { json: json_global, ..Default::default() };
+    let mut a = DoctorArgs {
+        json: json_global,
+        ..Default::default()
+    };
     let mut i = 0usize;
     while i < rest.len() {
         match rest[i].as_str() {
@@ -109,7 +132,11 @@ pub fn parse_args(rest: &[String], json_global: bool) -> DoctorArgs {
 /// warn / skip 不影响退出码 —— 未装软链、vault 非 git 仓库、断网都是合法运行
 /// 态,doctor 返回 0 才能安全地写进 `notemd doctor && …`(设计文档 §5)。
 pub fn exit_code_for(checks: &[Check]) -> u8 {
-    if checks.iter().any(|c| c.status == Status::Fail) { 1 } else { 0 }
+    if checks.iter().any(|c| c.status == Status::Fail) {
+        1
+    } else {
+        0
+    }
 }
 
 fn count(checks: &[Check], s: Status) -> usize {
@@ -141,7 +168,12 @@ pub fn render_plain(checks: &[Check]) -> String {
     for g in ordered_groups(checks) {
         out.push_str(&format!("{}\n", g.to_uppercase()));
         for c in checks.iter().filter(|c| group_of(&c.id) == g) {
-            out.push_str(&format!("  {} {:<24} {}\n", c.status.symbol(), c.id, c.detail));
+            out.push_str(&format!(
+                "  {} {:<24} {}\n",
+                c.status.symbol(),
+                c.id,
+                c.detail
+            ));
             if c.status != Status::Pass {
                 if let Some(h) = &c.hint {
                     out.push_str(&format!("      → {h}\n"));
@@ -330,20 +362,31 @@ fn resolve_cli_link(installed: bool, path: Option<&str>, current_build: &Path) -
     // "points at another build" 的展示,不参与判断。
     let link_path = path.map(Path::new);
     let target_exists = link_path.and_then(symlink_target_exists);
-    let target_display =
-        link_path.and_then(|p| std::fs::read_link(p).ok()).map(|t| t.display().to_string());
+    let target_display = link_path
+        .and_then(|p| std::fs::read_link(p).ok())
+        .map(|t| t.display().to_string());
     // NOT `install::status`'s `target_valid` — see `check_cli_link`'s doc
     // comment for why that raw-string comparison flags every normal install
     // as "another build".
     let points_at_current_build = target_exists == Some(true)
         && link_path.is_some_and(|p| link_targets_current_build(p, current_build));
-    check_cli_link(installed, path, target_exists, points_at_current_build, target_display.as_deref())
+    check_cli_link(
+        installed,
+        path,
+        target_exists,
+        points_at_current_build,
+        target_display.as_deref(),
+    )
 }
 
 fn env_checks(cfg: Option<&crate::shared_config::SharedConfig>) -> Vec<Check> {
     let st = super::install::status(None);
     vec![
-        resolve_cli_link(st.installed, st.path.as_deref(), &super::install::current_app_binary()),
+        resolve_cli_link(
+            st.installed,
+            st.path.as_deref(),
+            &super::install::current_app_binary(),
+        ),
         check_git(crate::vault_sync::git_ops::version().as_deref()),
         check_git_proxy(cfg.and_then(|c| c.git_proxy.as_deref())),
     ]
@@ -379,7 +422,10 @@ fn check_shared_config(path: &Path) -> (Check, Option<crate::shared_config::Shar
         }
     };
     match serde_json::from_str::<crate::shared_config::SharedConfig>(&text) {
-        Ok(cfg) => (Check::pass("vault.shared_config", path.display().to_string()), Some(cfg)),
+        Ok(cfg) => (
+            Check::pass("vault.shared_config", path.display().to_string()),
+            Some(cfg),
+        ),
         Err(e) => (
             Check::fail(
                 "vault.shared_config",
@@ -397,7 +443,10 @@ fn check_vault_root(
 ) -> (Check, Option<PathBuf>) {
     let (raw, source) = match explicit {
         Some(v) => (v.to_string(), "--vault"),
-        None => match cfg.and_then(|c| c.sotvault.as_deref()).filter(|s| !s.is_empty()) {
+        None => match cfg
+            .and_then(|c| c.sotvault.as_deref())
+            .filter(|s| !s.is_empty())
+        {
             Some(v) => (v.to_string(), "configured"),
             None => {
                 return (
@@ -413,7 +462,10 @@ fn check_vault_root(
     };
     let root = PathBuf::from(&raw);
     if root.is_dir() {
-        (Check::pass("vault.sotvault", format!("{raw} ({source})")), Some(root))
+        (
+            Check::pass("vault.sotvault", format!("{raw} ({source})")),
+            Some(root),
+        )
     } else {
         (
             Check::fail(
@@ -446,7 +498,10 @@ fn check_vault_settings(root: &Path) -> Check {
     let text = match std::fs::read_to_string(&path) {
         Ok(t) => t,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-            return Check::pass("vault.settings", "using defaults (no .notemd/settings.json)")
+            return Check::pass(
+                "vault.settings",
+                "using defaults (no .notemd/settings.json)",
+            )
         }
         Err(e) => {
             return Check::fail(
@@ -456,17 +511,17 @@ fn check_vault_settings(root: &Path) -> Check {
             )
         }
     };
-    let settings: crate::sotvault::vault_settings::VaultSettings =
-        match serde_json::from_str(&text) {
-            Ok(s) => s,
-            Err(e) => {
-                return Check::fail(
-                    "vault.settings",
-                    format!("{} is not valid JSON: {e}", path.display()),
-                    "Fix the JSON, or delete the file to fall back to defaults",
-                )
-            }
-        };
+    let settings: crate::sotvault::vault_settings::VaultSettings = match serde_json::from_str(&text)
+    {
+        Ok(s) => s,
+        Err(e) => {
+            return Check::fail(
+                "vault.settings",
+                format!("{} is not valid JSON: {e}", path.display()),
+                "Fix the JSON, or delete the file to fall back to defaults",
+            )
+        }
+    };
     // `search_weights` 是 Option —— 没设过就没什么可校验的。
     match settings.search_weights.as_ref().map(crate::sotvault::vault_settings::validate_search_weights) {
         None | Some(Ok(())) => Check::pass("vault.settings", path.display().to_string()),
@@ -478,7 +533,13 @@ fn check_vault_settings(root: &Path) -> Check {
     }
 }
 
-fn vault_checks(args: &DoctorArgs) -> (Vec<Check>, Option<crate::shared_config::SharedConfig>, Option<PathBuf>) {
+fn vault_checks(
+    args: &DoctorArgs,
+) -> (
+    Vec<Check>,
+    Option<crate::shared_config::SharedConfig>,
+    Option<PathBuf>,
+) {
     let path = crate::shared_config::config_path().ok();
     vault_checks_from(args, path.as_deref())
 }
@@ -488,7 +549,11 @@ fn vault_checks(args: &DoctorArgs) -> (Vec<Check>, Option<crate::shared_config::
 fn vault_checks_from(
     args: &DoctorArgs,
     config_path: Option<&Path>,
-) -> (Vec<Check>, Option<crate::shared_config::SharedConfig>, Option<PathBuf>) {
+) -> (
+    Vec<Check>,
+    Option<crate::shared_config::SharedConfig>,
+    Option<PathBuf>,
+) {
     let mut out = Vec::new();
     let cfg = match config_path {
         Some(p) => {
@@ -645,7 +710,10 @@ fn search_checks_at_with_deadline(
                 if s.blocks == 1 { "" } else { "s" },
                 s.db_bytes as f64 / 1_048_576.0,
                 s.tokenizer_id,
-                s.built_at.as_deref().map(|b| format!(", built {b}")).unwrap_or_default(),
+                s.built_at
+                    .as_deref()
+                    .map(|b| format!(", built {b}"))
+                    .unwrap_or_default(),
             );
             // M1(终审): `files == 0` alone is not evidence of a problem — a
             // freshly built index over a genuinely empty (of indexable
@@ -660,7 +728,10 @@ fn search_checks_at_with_deadline(
                 Check::warn(
                     "search.stats",
                     detail,
-                    format!("Nothing is indexed — run: {}", search_rebuild_hint(vault_flag)),
+                    format!(
+                        "Nothing is indexed — run: {}",
+                        search_rebuild_hint(vault_flag)
+                    ),
                 )
             } else if s.files == 0 {
                 Check::pass("search.stats", format!("{detail}, no indexable files"))
@@ -668,7 +739,11 @@ fn search_checks_at_with_deadline(
                 Check::pass("search.stats", detail)
             }
         }
-        Err(e) => Check::warn("search.stats", e, format!("Rebuild with: {}", search_rebuild_hint(vault_flag))),
+        Err(e) => Check::warn(
+            "search.stats",
+            e,
+            format!("Rebuild with: {}", search_rebuild_hint(vault_flag)),
+        ),
     });
 
     out.push(match &swept {
@@ -737,7 +812,8 @@ fn plugin_checks(root: Option<&Path>, host_version: &str) -> Vec<Check> {
             ));
             return out;
         }
-        Ok(text) => match serde_json::from_str::<crate::plugin_runtime::state::InstallState>(&text) {
+        Ok(text) => match serde_json::from_str::<crate::plugin_runtime::state::InstallState>(&text)
+        {
             Err(e) => {
                 out.push(Check::fail(
                     "plugin.state",
@@ -754,13 +830,20 @@ fn plugin_checks(root: Option<&Path>, host_version: &str) -> Vec<Check> {
                 for (id, entry) in &state.installed {
                     let check_id = format!("plugin.{id}");
                     if !entry.enabled {
-                        out.push(Check::skip(&check_id, format!("{} (disabled)", entry.version)));
+                        out.push(Check::skip(
+                            &check_id,
+                            format!("{} (disabled)", entry.version),
+                        ));
                         continue;
                     }
                     let current = root.join(id).join("current");
                     // 同一个实现,不复刻:manifest 解析 + validate_manifest +
                     // id 一致 + 本机架构二进制存在,全在这一个函数里。
-                    match crate::plugin_runtime::discovery::validate_installed(&current, id, host_version) {
+                    match crate::plugin_runtime::discovery::validate_installed(
+                        &current,
+                        id,
+                        host_version,
+                    ) {
                         Ok(m) => out.push(Check::pass(&check_id, m.version)),
                         Err(e) => out.push(Check::fail(
                             &check_id,
@@ -798,25 +881,38 @@ fn net_checks(offline: bool) -> Vec<Check> {
         Err(e) => {
             let msg = format!("http client: {e}");
             return vec![
-                Check::warn("net.registry", msg.clone(), "Retry; report this if it persists"),
+                Check::warn(
+                    "net.registry",
+                    msg.clone(),
+                    "Retry; report this if it persists",
+                ),
                 Check::warn("net.updater", msg, "Retry; report this if it persists"),
             ];
         }
     };
     // 两项并发发起,所以整组的耗时上界是单项超时(10s),不是两者相加。
-    let rt = match tokio::runtime::Builder::new_current_thread().enable_all().build() {
+    let rt = match tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+    {
         Ok(rt) => rt,
         Err(e) => {
             let msg = format!("cannot start an async runtime: {e}");
             return vec![
-                Check::warn("net.registry", msg.clone(), "Retry; report this if it persists"),
+                Check::warn(
+                    "net.registry",
+                    msg.clone(),
+                    "Retry; report this if it persists",
+                ),
                 Check::warn("net.updater", msg, "Retry; report this if it persists"),
             ];
         }
     };
     rt.block_on(async {
-        let (registry, updater) =
-            tokio::join!(registry_probe(&client, &base), updater_probe(&client, UPDATER_ENDPOINT));
+        let (registry, updater) = tokio::join!(
+            registry_probe(&client, &base),
+            updater_probe(&client, UPDATER_ENDPOINT)
+        );
         vec![registry, updater]
     })
 }
@@ -863,7 +959,11 @@ async fn updater_probe(client: &reqwest::Client, url: &str) -> Check {
 /// 真正连接失败,不能被系统代理接住。
 #[cfg(test)]
 fn test_client() -> reqwest::Client {
-    reqwest::Client::builder().timeout(NET_TIMEOUT).no_proxy().build().unwrap()
+    reqwest::Client::builder()
+        .timeout(NET_TIMEOUT)
+        .no_proxy()
+        .build()
+        .unwrap()
 }
 
 #[cfg(test)]
@@ -906,18 +1006,23 @@ pub fn run(args: DoctorArgs) -> ExitCode {
     // silently fall through to "checked everything, made two requests,
     // exited 0" (see the `unknown` field's doc comment).
     if !args.unknown.is_empty() {
-        let message = args.unknown.iter()
+        let message = args
+            .unknown
+            .iter()
             .map(|x| format!("unknown option '{x}'"))
             .collect::<Vec<_>>()
             .join("; ");
         if args.json {
-            println!("{}", serde_json::json!({
-                "ok": false,
-                "error": {
-                    "code": "invalid_arguments",
-                    "message": format!("{message} — see: notemd help doctor")
-                }
-            }));
+            println!(
+                "{}",
+                serde_json::json!({
+                    "ok": false,
+                    "error": {
+                        "code": "invalid_arguments",
+                        "message": format!("{message} — see: notemd help doctor")
+                    }
+                })
+            );
         } else {
             eprintln!("notemd: {message} — see: notemd help doctor");
         }
@@ -937,7 +1042,12 @@ mod tests {
     use super::*;
 
     fn c(id: &str, status: Status) -> Check {
-        Check { id: id.to_string(), status, detail: "d".into(), hint: None }
+        Check {
+            id: id.to_string(),
+            status,
+            detail: "d".into(),
+            hint: None,
+        }
     }
 
     #[test]
@@ -950,20 +1060,31 @@ mod tests {
 
     #[test]
     fn exit_code_is_zero_when_all_pass() {
-        assert_eq!(exit_code_for(&[c("a.x", Status::Pass), c("a.y", Status::Pass)]), 0);
+        assert_eq!(
+            exit_code_for(&[c("a.x", Status::Pass), c("a.y", Status::Pass)]),
+            0
+        );
     }
 
     #[test]
     fn warnings_and_skips_do_not_change_the_exit_code() {
         // 未装软链 / vault 非 git 仓库 / 断网都是合法运行态，doctor 必须仍返回 0，
         // 否则它无法安全地进脚本（spec §5）。
-        let checks = [c("a.x", Status::Pass), c("a.y", Status::Warn), c("a.z", Status::Skip)];
+        let checks = [
+            c("a.x", Status::Pass),
+            c("a.y", Status::Warn),
+            c("a.z", Status::Skip),
+        ];
         assert_eq!(exit_code_for(&checks), 0);
     }
 
     #[test]
     fn any_failure_yields_one() {
-        let checks = [c("a.x", Status::Pass), c("a.y", Status::Fail), c("a.z", Status::Warn)];
+        let checks = [
+            c("a.x", Status::Pass),
+            c("a.y", Status::Fail),
+            c("a.z", Status::Warn),
+        ];
         assert_eq!(exit_code_for(&checks), 1);
     }
 
@@ -997,7 +1118,11 @@ mod tests {
     fn plain_output_groups_and_summarizes() {
         let checks = vec![
             Check::pass("env.git", "git version 2.39.3"),
-            Check::fail("vault.sotvault", "vault not found: /nope", "Set it in Preferences"),
+            Check::fail(
+                "vault.sotvault",
+                "vault not found: /nope",
+                "Set it in Preferences",
+            ),
         ];
         let out = render_plain(&checks);
         assert!(out.contains("ENV"), "{out}");
@@ -1007,12 +1132,18 @@ mod tests {
         // hint 只在非 pass 项出现，并且缩进成续行。
         assert!(out.contains("→ Set it in Preferences"), "{out}");
         assert!(!out.contains("→ git version"), "{out}");
-        assert!(out.contains("1 passed, 0 warnings, 1 failure, 0 skipped"), "{out}");
+        assert!(
+            out.contains("1 passed, 0 warnings, 1 failure, 0 skipped"),
+            "{out}"
+        );
     }
 
     #[test]
     fn parse_args_reads_offline_and_vault() {
-        let rest: Vec<String> = ["--offline", "--vault", "/tmp/v"].iter().map(|s| s.to_string()).collect();
+        let rest: Vec<String> = ["--offline", "--vault", "/tmp/v"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
         let a = parse_args(&rest, false);
         assert!(a.offline);
         assert_eq!(a.vault.as_deref(), Some("/tmp/v"));
@@ -1025,11 +1156,19 @@ mod tests {
     /// 发两次网络请求、退出 0,脚本据此误判"离线自检通过"。
     #[test]
     fn parse_args_collects_unrecognized_tokens() {
-        let rest: Vec<String> =
-            ["--ofline", "--json", "--nope"].iter().map(|s| s.to_string()).collect();
+        let rest: Vec<String> = ["--ofline", "--json", "--nope"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
         let a = parse_args(&rest, false);
-        assert_eq!(a.unknown, vec!["--ofline".to_string(), "--nope".to_string()]);
-        assert!(a.json, "recognized flags between the unknown ones must still be parsed");
+        assert_eq!(
+            a.unknown,
+            vec!["--ofline".to_string(), "--nope".to_string()]
+        );
+        assert!(
+            a.json,
+            "recognized flags between the unknown ones must still be parsed"
+        );
     }
 
     /// `--vault` with no following value must not silently fall back to the
@@ -1067,7 +1206,13 @@ mod tests {
     #[test]
     fn cli_link_pointing_at_a_missing_target_fails() {
         // dangling 软链 = 命令存在但一跑就报 "no such file"，必须是 fail。
-        let c = check_cli_link(true, Some("/usr/local/bin/notemd"), Some(false), false, None);
+        let c = check_cli_link(
+            true,
+            Some("/usr/local/bin/notemd"),
+            Some(false),
+            false,
+            None,
+        );
         assert_eq!(c.status, Status::Fail);
     }
 
@@ -1169,7 +1314,11 @@ mod tests {
 
         let c = resolve_cli_link(true, Some(link.to_str().unwrap()), &app_binary);
         assert_eq!(c.status, Status::Warn, "{c:?}");
-        assert!(c.detail.contains(other_binary.to_str().unwrap()), "{}", c.detail);
+        assert!(
+            c.detail.contains(other_binary.to_str().unwrap()),
+            "{}",
+            c.detail
+        );
     }
 
     /// `canonicalize()` returns `Err` for a dangling symlink — branch order
@@ -1226,7 +1375,11 @@ mod tests {
 
         let ok_link = link_dir.join("notemd");
         std::os::unix::fs::symlink("../bin/notemd-real", &ok_link).unwrap();
-        assert_eq!(symlink_target_exists(&ok_link), Some(true), "a working relative symlink must not read as dangling");
+        assert_eq!(
+            symlink_target_exists(&ok_link),
+            Some(true),
+            "a working relative symlink must not read as dangling"
+        );
 
         let dangling_link = link_dir.join("dangling");
         std::os::unix::fs::symlink("../bin/does-not-exist", &dangling_link).unwrap();
@@ -1255,11 +1408,18 @@ mod tests {
 
     #[test]
     fn valid_proxy_passes_and_invalid_one_fails() {
-        assert_eq!(check_git_proxy(Some("socks5://127.0.0.1:1080")).status, Status::Pass);
+        assert_eq!(
+            check_git_proxy(Some("socks5://127.0.0.1:1080")).status,
+            Status::Pass
+        );
         let c = check_git_proxy(Some("ftp://nope"));
         assert_eq!(c.status, Status::Fail);
         // 复用 git_ops::validate_proxy_url 的原话，不另写一套错误文案。
-        assert!(c.detail.contains("unsupported proxy scheme"), "{}", c.detail);
+        assert!(
+            c.detail.contains("unsupported proxy scheme"),
+            "{}",
+            c.detail
+        );
     }
 
     /// 缺失和损坏必须分开报 —— 这条测试同时钉住「不许改用 shared_config::read()」:
@@ -1352,8 +1512,15 @@ mod tests {
             ..Default::default()
         };
         let (_, doctor_root2) = check_vault_root(None, Some(&configured));
-        let expected = configured.sotvault.clone().filter(|s| !s.is_empty()).map(PathBuf::from);
-        assert_eq!(doctor_root2, expected, "配置分支的过滤规则必须与 search::resolve_vault_root 相同");
+        let expected = configured
+            .sotvault
+            .clone()
+            .filter(|s| !s.is_empty())
+            .map(PathBuf::from);
+        assert_eq!(
+            doctor_root2, expected,
+            "配置分支的过滤规则必须与 search::resolve_vault_root 相同"
+        );
     }
 
     #[test]
@@ -1392,14 +1559,21 @@ mod tests {
     #[test]
     fn unconfigured_vault_skips_the_dependent_checks_instead_of_failing_them() {
         // 没配 vault 时,git_repo / settings 记 skip,不连坐报 fail(设计文档 §4.2)。
-        let args = DoctorArgs { offline: true, vault: None, ..Default::default() };
+        let args = DoctorArgs {
+            offline: true,
+            vault: None,
+            ..Default::default()
+        };
         let checks = vault_checks_from(&args, None).0;
         let dependent: Vec<&Check> = checks
             .iter()
             .filter(|c| c.id == "vault.git_repo" || c.id == "vault.settings")
             .collect();
         assert_eq!(dependent.len(), 2);
-        assert!(dependent.iter().all(|c| c.status == Status::Skip), "{dependent:?}");
+        assert!(
+            dependent.iter().all(|c| c.status == Status::Skip),
+            "{dependent:?}"
+        );
     }
 
     /// M2(终审):config dir / data dir(search 组)/ data dir(plugin 组)—— 同
@@ -1408,11 +1582,18 @@ mod tests {
     /// 修的东西,不该让 doctor 因此退出 1。
     #[test]
     fn no_config_directory_on_this_platform_is_a_warning_not_a_failure() {
-        let args = DoctorArgs { offline: true, vault: None, ..Default::default() };
+        let args = DoctorArgs {
+            offline: true,
+            vault: None,
+            ..Default::default()
+        };
         let (checks, cfg, root) = vault_checks_from(&args, None);
         assert!(cfg.is_none());
         assert!(root.is_none());
-        let c = checks.iter().find(|c| c.id == "vault.shared_config").unwrap();
+        let c = checks
+            .iter()
+            .find(|c| c.id == "vault.shared_config")
+            .unwrap();
         assert_eq!(c.status, Status::Warn, "{c:?}");
     }
 
@@ -1420,7 +1601,10 @@ mod tests {
     fn no_vault_skips_the_whole_search_group() {
         let checks = search_checks(None, None);
         assert!(!checks.is_empty());
-        assert!(checks.iter().all(|c| c.status == Status::Skip), "{checks:?}");
+        assert!(
+            checks.iter().all(|c| c.status == Status::Skip),
+            "{checks:?}"
+        );
     }
 
     /// 索引还没建过 ⇒ warn + 提示怎么建,而**不是**就地建一个:
@@ -1436,9 +1620,14 @@ mod tests {
         assert!(!db.exists(), "doctor 绝不能建库");
         let open = checks.iter().find(|c| c.id == "search.index_open").unwrap();
         assert_eq!(open.status, Status::Warn);
-        assert!(open.hint.as_deref().unwrap().contains("notemd search"), "{open:?}");
+        assert!(
+            open.hint.as_deref().unwrap().contains("notemd search"),
+            "{open:?}"
+        );
         // 打不开就没有统计可言 —— 后两项记 skip。
-        assert!(checks.iter().any(|c| c.id == "search.stats" && c.status == Status::Skip));
+        assert!(checks
+            .iter()
+            .any(|c| c.id == "search.stats" && c.status == Status::Skip));
     }
 
     /// M7(终审):vault 根若来自 `--vault` 参数,hint 里建议的 `notemd
@@ -1453,13 +1642,22 @@ mod tests {
         let checks = search_checks_at(vault.path(), Some(&db), Some("/explicit/vault"));
         let open = checks.iter().find(|c| c.id == "search.index_open").unwrap();
         assert!(
-            open.hint.as_deref().unwrap().contains("--vault '/explicit/vault'"),
+            open.hint
+                .as_deref()
+                .unwrap()
+                .contains("--vault '/explicit/vault'"),
             "{open:?}"
         );
         // 没有显式 --vault 时不该凭空出现。
         let checks_no_flag = search_checks_at(vault.path(), Some(&db), None);
-        let open_no_flag = checks_no_flag.iter().find(|c| c.id == "search.index_open").unwrap();
-        assert!(!open_no_flag.hint.as_deref().unwrap().contains("--vault"), "{open_no_flag:?}");
+        let open_no_flag = checks_no_flag
+            .iter()
+            .find(|c| c.id == "search.index_open")
+            .unwrap();
+        assert!(
+            !open_no_flag.hint.as_deref().unwrap().contains("--vault"),
+            "{open_no_flag:?}"
+        );
     }
 
     /// M7(终审):`<any query>` 逼用户凭空编一个查询词;`--stats` 同样有效
@@ -1528,7 +1726,11 @@ mod tests {
         let checks = search_checks_at(vault.path(), Some(&db), None);
         let stats = checks.iter().find(|c| c.id == "search.stats").unwrap();
         assert_eq!(stats.status, Status::Pass, "{stats:?}");
-        assert!(stats.detail.contains("no indexable files"), "{}", stats.detail);
+        assert!(
+            stats.detail.contains("no indexable files"),
+            "{}",
+            stats.detail
+        );
     }
 
     /// M1(终审)的对照面:sweep 因为超时而没能确认 vault 是真的空 —— 这时
@@ -1548,8 +1750,12 @@ mod tests {
             let _ = searchidx::SearchIndex::open_at(vault.path(), &db, &stamp).unwrap();
         }
 
-        let checks =
-            search_checks_at_with_deadline(vault.path(), Some(&db), None, std::time::Duration::from_secs(0));
+        let checks = search_checks_at_with_deadline(
+            vault.path(),
+            Some(&db),
+            None,
+            std::time::Duration::from_secs(0),
+        );
         let stats = checks.iter().find(|c| c.id == "search.stats").unwrap();
         assert_eq!(stats.status, Status::Warn, "{stats:?}");
     }
@@ -1582,9 +1788,16 @@ mod tests {
             let _ = searchidx::SearchIndex::open_at(vault.path(), &db, &stamp).unwrap();
         }
 
-        let checks =
-            search_checks_at_with_deadline(vault.path(), Some(&db), None, std::time::Duration::from_secs(0));
-        let skipped = checks.iter().find(|c| c.id == "search.skipped_large").unwrap();
+        let checks = search_checks_at_with_deadline(
+            vault.path(),
+            Some(&db),
+            None,
+            std::time::Duration::from_secs(0),
+        );
+        let skipped = checks
+            .iter()
+            .find(|c| c.id == "search.skipped_large")
+            .unwrap();
         assert_eq!(skipped.status, Status::Warn, "{skipped:?}");
         assert!(skipped.detail.contains("big.md"), "{}", skipped.detail);
         assert!(
@@ -1601,7 +1814,10 @@ mod tests {
         for (id, enabled) in entries {
             s.installed.insert(
                 (*id).to_string(),
-                InstalledPlugin { version: "1.0.0".into(), enabled: *enabled },
+                InstalledPlugin {
+                    version: "1.0.0".into(),
+                    enabled: *enabled,
+                },
             );
         }
         crate::plugin_runtime::state::save(root, &s).unwrap();
@@ -1640,7 +1856,10 @@ mod tests {
     fn no_plugins_installed_is_not_a_problem() {
         let dir = tempfile::tempdir().unwrap();
         let checks = plugin_checks(Some(&dir.path().join("plugins")), "1.0.0");
-        assert!(checks.iter().all(|c| c.status == Status::Pass), "{checks:?}");
+        assert!(
+            checks.iter().all(|c| c.status == Status::Pass),
+            "{checks:?}"
+        );
         // M3(终审):`plugin.state` must not vanish just because the plugins
         // root doesn't exist yet — a JSON consumer diffing two runs needs a
         // stable check-id set regardless of whether anything is installed.
@@ -1668,7 +1887,12 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let root = dir.path();
         write_plugin_state(root, &[("notemd.fixture", true)]);
-        install_fixture(root, "notemd.fixture", &fixture_manifest("notemd.fixture", triple()), true);
+        install_fixture(
+            root,
+            "notemd.fixture",
+            &fixture_manifest("notemd.fixture", triple()),
+            true,
+        );
 
         let c = plugin_checks(Some(root), "1.0.0")
             .into_iter()
@@ -1705,7 +1929,12 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let root = dir.path();
         write_plugin_state(root, &[("notemd.fixture", false)]);
-        install_fixture(root, "notemd.fixture", &fixture_manifest("notemd.fixture", triple()), true);
+        install_fixture(
+            root,
+            "notemd.fixture",
+            &fixture_manifest("notemd.fixture", triple()),
+            true,
+        );
 
         let c = plugin_checks(Some(root), "1.0.0")
             .into_iter()
@@ -1719,7 +1948,10 @@ mod tests {
     fn offline_skips_both_network_probes_without_touching_the_network() {
         let checks = net_checks(true);
         assert_eq!(checks.len(), 2);
-        assert!(checks.iter().all(|c| c.status == Status::Skip), "{checks:?}");
+        assert!(
+            checks.iter().all(|c| c.status == Status::Skip),
+            "{checks:?}"
+        );
         assert!(checks.iter().any(|c| c.id == "net.registry"));
         assert!(checks.iter().any(|c| c.id == "net.updater"));
     }

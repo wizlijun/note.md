@@ -4,15 +4,19 @@
 //! agent 忘了比对,错配就静默发生。探针实测 Cowork 声明 `roots.listChanged`
 //! 并主动推送变更 —— 于是 server 能反过来问「你挂载了哪些目录」,自己比对。
 
+use crate::sotvault::vault_id;
 use serde_json::{json, Value};
 use std::path::PathBuf;
-use crate::sotvault::vault_id;
 
 #[cfg(unix)]
 use std::os::unix::ffi::OsStrExt;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum MountStatus { Matched, Mismatched, Unknown }
+pub enum MountStatus {
+    Matched,
+    Mismatched,
+    Unknown,
+}
 
 impl MountStatus {
     pub fn as_str(self) -> &'static str {
@@ -110,12 +114,18 @@ fn uri_to_path(uri: &str) -> Option<PathBuf> {
 /// `None` 表示 client 未声明 roots 能力 ⇒ `Unknown`,回落 agent 自查协议。
 /// 空切片表示「声明了,但没挂任何目录」⇒ 同样无从判断,也是 `Unknown`。
 pub fn classify(roots: Option<&[String]>, our_id: &str) -> (MountStatus, Option<String>) {
-    let Some(roots) = roots else { return (MountStatus::Unknown, None) };
-    if roots.is_empty() { return (MountStatus::Unknown, None) }
+    let Some(roots) = roots else {
+        return (MountStatus::Unknown, None);
+    };
+    if roots.is_empty() {
+        return (MountStatus::Unknown, None);
+    }
     for uri in roots {
         let Some(p) = uri_to_path(uri) else { continue };
         let vault_id_file = vault_id::vault_id_path(&p);
-        let Ok(raw) = std::fs::read_to_string(vault_id_file) else { continue };
+        let Ok(raw) = std::fs::read_to_string(vault_id_file) else {
+            continue;
+        };
         if raw.trim() == our_id {
             return (MountStatus::Matched, Some(uri.clone()));
         }
@@ -130,15 +140,16 @@ pub fn classify(roots: Option<&[String]>, our_id: &str) -> (MountStatus, Option<
 /// 拒绝服务会误伤一类正当用法:agent 只想知道你笔记里有什么,并不打算读原文。
 pub fn to_json(status: MountStatus, matched_root: Option<String>) -> Value {
     let advice = match status {
-        MountStatus::Matched =>
-            "Paths in this response resolve against your mounted vault.",
-        MountStatus::Mismatched =>
+        MountStatus::Matched => "Paths in this response resolve against your mounted vault.",
+        MountStatus::Mismatched => {
             "Your mounted folders are NOT this vault — do not resolve these paths against them; \
              a same-named file there is a different file. Use the returned text and breadcrumb, \
-             or ask the user to mount the vault.",
-        MountStatus::Unknown =>
+             or ask the user to mount the vault."
+        }
+        MountStatus::Unknown => {
             "Mount could not be determined. Before resolving paths, read .notemd/vault-id in \
-             your mounted folder and compare it with vault_id above.",
+             your mounted folder and compare it with vault_id above."
+        }
     };
     json!({ "status": status.as_str(), "matched_root": matched_root, "advice": advice })
 }
@@ -228,10 +239,20 @@ mod tests {
     #[test]
     fn windows_drive_letter_uri_is_matched() {
         let d = vault_with(ID);
-        let uri = format!("file:///{}", d.path().display().to_string().replace('\\', "/"));
-        assert!(uri.starts_with("file:///") && uri[8..].as_bytes()[1] == b':', "fixture must actually look like file:///C:/...: {uri}");
+        let uri = format!(
+            "file:///{}",
+            d.path().display().to_string().replace('\\', "/")
+        );
+        assert!(
+            uri.starts_with("file:///") && uri[8..].as_bytes()[1] == b':',
+            "fixture must actually look like file:///C:/...: {uri}"
+        );
         let (st, matched) = classify(Some(&[uri.clone()]), ID);
-        assert_eq!(st, MountStatus::Matched, "a correctly mounted Windows vault must not be Mismatched");
+        assert_eq!(
+            st,
+            MountStatus::Matched,
+            "a correctly mounted Windows vault must not be Mismatched"
+        );
         assert_eq!(matched.as_deref(), Some(uri.as_str()));
     }
 
@@ -265,7 +286,11 @@ mod tests {
         // file:// URI 中空格编码为 %20
         let uri_with_encoded_space = format!("file://{}", uri_path(&space_dir).replace(' ', "%20"));
         let (st, matched) = classify(Some(&[uri_with_encoded_space.clone()]), ID);
-        assert_eq!(st, MountStatus::Matched, "percent-encoded path 应该能正确解析并匹配");
+        assert_eq!(
+            st,
+            MountStatus::Matched,
+            "percent-encoded path 应该能正确解析并匹配"
+        );
         assert_eq!(matched.as_deref(), Some(uri_with_encoded_space.as_str()));
     }
 
@@ -301,7 +326,11 @@ mod tests {
 
         let (st, matched) = classify(Some(&[bad_uri, good_uri.clone()]), ID);
         assert_eq!(st, MountStatus::Matched, "第二个可用的根应该被找到");
-        assert_eq!(matched.as_deref(), Some(good_uri.as_str()), "matched_root 应该指向匹配的那个");
+        assert_eq!(
+            matched.as_deref(),
+            Some(good_uri.as_str()),
+            "matched_root 应该指向匹配的那个"
+        );
     }
 
     /// 非 file: scheme 的根也应该被跳过,不导致整体失败。
@@ -314,7 +343,11 @@ mod tests {
         let http_uri = "https://example.com/vault".to_string();
 
         let (st, matched) = classify(Some(&[http_uri, good_uri.clone()]), ID);
-        assert_eq!(st, MountStatus::Matched, "非 file: scheme 应该被跳过,继续检查后续根");
+        assert_eq!(
+            st,
+            MountStatus::Matched,
+            "非 file: scheme 应该被跳过,继续检查后续根"
+        );
         assert_eq!(matched.as_deref(), Some(good_uri.as_str()));
     }
 }

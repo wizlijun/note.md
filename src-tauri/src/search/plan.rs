@@ -1258,8 +1258,7 @@ mod tests {
             "appliesTo": "activity_time", "sourceText": "最近修改",
             "expression": { "kind": "rolling_window", "value": 7, "unit": "days" }
         });
-        let resolved =
-            parse_and_resolve(&activity, "发布", "2026-09-03T00:00:00Z", "UTC").unwrap();
+        let resolved = parse_and_resolve(&activity, "发布", "2026-09-03T00:00:00Z", "UTC").unwrap();
         assert_eq!(resolved.queries[0].filters.after, None);
         assert!(resolved
             .unsupported_constraints

@@ -14,6 +14,7 @@ export const en = {
   'common.close': 'Close',
   'common.dismiss': 'Dismiss',
   'common.saveAs': 'Save as…',
+  'frontmatter.metadata': 'Metadata',
   'dialog.saveChanges.message': 'Do you want to save the changes you made to "{name}"?',
   'dialog.saveChanges.info': "Your changes will be lost if you don't save them.",
   'dialog.save': 'Save',
@@ -349,6 +350,7 @@ export const en = {
   // Empty state
   'emptyState.hint': 'Drop a .md file, or',
   'emptyState.new': 'New (⌘N)',
+  'canvas.new': 'New Canvas',
   'emptyState.open': 'Open… (⌘O)',
 
   // Toast
@@ -453,6 +455,12 @@ export const en = {
   'agentPicker.notInstalled': 'not installed',
   'agentPicker.broken': 'found, but it will not start',
   'agent.model': 'model {model}',
+  'toc.title': 'Table of Contents',
+  'toc.hide': 'Hide table of contents',
+  'toc.noDocument': 'Open a Markdown article to see its table of contents',
+  'toc.notApplicable': 'This file has no table of contents',
+  'toc.empty': 'This article has no headings',
+  'toc.jumpTo': 'Jump to line {line}: {title}',
   'outline.title': 'Sidecar Notes',
   'outline.editNote': 'Edit note',
   'outline.openMarkdown': 'Open as Markdown',

@@ -33,21 +33,35 @@ pub fn scan_themes_dir(dir: &Path, built_in_ids: &[&str]) -> Result<Vec<ThemeMet
     };
     for entry in entries.flatten() {
         let path = entry.path();
-        if !path.is_file() { continue }
-        let Some(stem) = path.file_stem().and_then(|s| s.to_str()) else { continue };
-        let Some(ext) = path.extension().and_then(|s| s.to_str()) else { continue };
-        if ext.to_ascii_lowercase() != "css" { continue }
+        if !path.is_file() {
+            continue;
+        }
+        let Some(stem) = path.file_stem().and_then(|s| s.to_str()) else {
+            continue;
+        };
+        let Some(ext) = path.extension().and_then(|s| s.to_str()) else {
+            continue;
+        };
+        if ext.to_ascii_lowercase() != "css" {
+            continue;
+        }
         if is_valid_theme_id(stem).is_err() {
             eprintln!("[theme] skip invalid id: {:?}", path);
-            continue
+            continue;
         }
         let css = match std::fs::read_to_string(&path) {
             Ok(s) => s,
-            Err(e) => { eprintln!("[theme] read {:?}: {e}", path); continue }
+            Err(e) => {
+                eprintln!("[theme] read {:?}: {e}", path);
+                continue;
+            }
         };
         let header = parse_header(&css);
         let stem_string = stem.to_string();
-        let name = header.name.clone().unwrap_or_else(|| title_case_from_stem(stem));
+        let name = header
+            .name
+            .clone()
+            .unwrap_or_else(|| title_case_from_stem(stem));
         let appearance = resolve_appearance(header.appearance.as_deref(), stem);
         let compiled = dir.join(".compiled").join(format!("{stem}.css"));
         let is_built_in = built_in_ids.iter().any(|b| *b == stem);

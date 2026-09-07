@@ -21,20 +21,41 @@ fn rejects_empty() {
 
 #[test]
 fn rejects_uppercase() {
-    assert_eq!(is_valid_theme_id("Default"), Err(ThemeIdError::BadLeadingChar('D')));
-    assert_eq!(is_valid_theme_id("clauDe"), Err(ThemeIdError::InvalidChar('D')));
+    assert_eq!(
+        is_valid_theme_id("Default"),
+        Err(ThemeIdError::BadLeadingChar('D'))
+    );
+    assert_eq!(
+        is_valid_theme_id("clauDe"),
+        Err(ThemeIdError::InvalidChar('D'))
+    );
 }
 
 #[test]
 fn rejects_leading_punctuation() {
-    assert_eq!(is_valid_theme_id("-foo"), Err(ThemeIdError::BadLeadingChar('-')));
-    assert_eq!(is_valid_theme_id(".hidden"), Err(ThemeIdError::BadLeadingChar('.')));
-    assert_eq!(is_valid_theme_id("_x"), Err(ThemeIdError::BadLeadingChar('_')));
+    assert_eq!(
+        is_valid_theme_id("-foo"),
+        Err(ThemeIdError::BadLeadingChar('-'))
+    );
+    assert_eq!(
+        is_valid_theme_id(".hidden"),
+        Err(ThemeIdError::BadLeadingChar('.'))
+    );
+    assert_eq!(
+        is_valid_theme_id("_x"),
+        Err(ThemeIdError::BadLeadingChar('_'))
+    );
 }
 
 #[test]
 fn rejects_spaces_and_slashes() {
-    assert_eq!(is_valid_theme_id("my theme"), Err(ThemeIdError::InvalidChar(' ')));
-    assert_eq!(is_valid_theme_id("a/b"), Err(ThemeIdError::InvalidChar('/')));
+    assert_eq!(
+        is_valid_theme_id("my theme"),
+        Err(ThemeIdError::InvalidChar(' '))
+    );
+    assert_eq!(
+        is_valid_theme_id("a/b"),
+        Err(ThemeIdError::InvalidChar('/'))
+    );
     assert_eq!(is_valid_theme_id("..").is_err(), true);
 }

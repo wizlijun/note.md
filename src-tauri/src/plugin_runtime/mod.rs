@@ -33,8 +33,11 @@ pub struct RuntimeState {
     pub plugins: BTreeMap<String, (plugin_protocol::ManifestV2, std::path::PathBuf)>,
 }
 
-pub static STATE: LazyLock<RwLock<RuntimeState>> =
-    LazyLock::new(|| RwLock::new(RuntimeState { plugins: BTreeMap::new() }));
+pub static STATE: LazyLock<RwLock<RuntimeState>> = LazyLock::new(|| {
+    RwLock::new(RuntimeState {
+        plugins: BTreeMap::new(),
+    })
+});
 
 /// Called once during `setup`, before anything reads the active plugin set
 /// (menu building, `plugin_host::get_plugin_manifests`). Scans the install

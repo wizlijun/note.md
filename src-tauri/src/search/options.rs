@@ -150,7 +150,9 @@ pub(crate) fn conventions_from(vs: &VaultSettings) -> Conventions {
         .as_deref()
         .and_then(|s| vault_settings::validate_rel_dir(s).ok())
         .unwrap_or_else(|| vault_settings::DEFAULT_WIKIPAGE_DIR.to_string());
-    Conventions { wikipage_dir: Some(dir) }
+    Conventions {
+        wikipage_dir: Some(dir),
+    }
 }
 
 #[cfg(test)]
@@ -171,8 +173,14 @@ mod tests {
         let d = tempfile::tempdir().unwrap();
         write_settings(d.path(), r#"{"syncDir": "box"}"#);
         let opts = for_vault(d.path());
-        assert!(opts.source_globs.matches("box/x.md"), "必须匹配已解析出的 syncDir");
-        assert!(!opts.source_globs.matches("sync/x.md"), "不得回落到字面量 sync/**");
+        assert!(
+            opts.source_globs.matches("box/x.md"),
+            "必须匹配已解析出的 syncDir"
+        );
+        assert!(
+            !opts.source_globs.matches("sync/x.md"),
+            "不得回落到字面量 sync/**"
+        );
     }
 
     #[test]
@@ -198,17 +206,27 @@ mod tests {
     #[test]
     fn an_explicit_glob_list_is_used_verbatim() {
         let d = tempfile::tempdir().unwrap();
-        write_settings(d.path(), r#"{"syncDir": "box", "searchSourceGlobs": ["ebook/**"]}"#);
+        write_settings(
+            d.path(),
+            r#"{"syncDir": "box", "searchSourceGlobs": ["ebook/**"]}"#,
+        );
         let opts = for_vault(d.path());
         assert!(opts.source_globs.matches("ebook/a.md"));
-        assert!(!opts.source_globs.matches("box/a.md"), "显式列表不应再隐式包含 syncDir");
+        assert!(
+            !opts.source_globs.matches("box/a.md"),
+            "显式列表不应再隐式包含 syncDir"
+        );
     }
 
     #[test]
     fn weights_fall_back_to_defaults_when_unset_or_invalid() {
         let d = tempfile::tempdir().unwrap();
         write_settings(d.path(), r#"{}"#);
-        assert_eq!(weights_for_vault(d.path()), Weights::default(), "缺字段 → 全部回落默认");
+        assert_eq!(
+            weights_for_vault(d.path()),
+            Weights::default(),
+            "缺字段 → 全部回落默认"
+        );
 
         write_settings(d.path(), r#"{"searchWeights": {"human": 0}}"#);
         let w = weights_for_vault(d.path());
@@ -264,7 +282,11 @@ mod tests {
     #[test]
     fn weights_from_a_directly_built_vault_settings_falls_back_per_component() {
         let vs = VaultSettings {
-            search_weights: Some(SearchWeights { human: Some(-1.0), source: Some(1.7), ..Default::default() }),
+            search_weights: Some(SearchWeights {
+                human: Some(-1.0),
+                source: Some(1.7),
+                ..Default::default()
+            }),
             ..Default::default()
         };
         let w = weights_from(&vs);
@@ -280,7 +302,11 @@ mod tests {
     fn attention_weight_round_trips_from_settings() {
         let d = tempfile::tempdir().unwrap();
         write_settings(d.path(), r#"{"searchWeights": {"attention": 0}}"#);
-        assert_eq!(weights_for_vault(d.path()).attention, 0.0, "用户关掉它就得关掉");
+        assert_eq!(
+            weights_for_vault(d.path()).attention,
+            0.0,
+            "用户关掉它就得关掉"
+        );
 
         write_settings(d.path(), r#"{"searchWeights": {"attention": 0.8}}"#);
         assert_eq!(weights_for_vault(d.path()).attention, 0.8);

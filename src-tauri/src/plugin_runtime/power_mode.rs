@@ -24,7 +24,11 @@ pub struct PluginBrief {
 
 /// 从 settings.json 的整份 JSON 里取出 `plugins.<PLUGIN_ID>.config`。
 pub fn config_from_settings(settings: &Value) -> Option<Value> {
-    settings.get("plugins")?.get(PLUGIN_ID)?.get("config").cloned()
+    settings
+        .get("plugins")?
+        .get(PLUGIN_ID)?
+        .get("config")
+        .cloned()
 }
 
 /// 生效后的配置。
@@ -59,7 +63,12 @@ pub fn surfaces(plugins: &[PluginBrief]) -> Vec<Value> {
             json!({ "id": p.id, "name": p.name, "names": Value::Object(names) })
         })
         .collect();
-    out.sort_by(|a, b| a["id"].as_str().unwrap_or("").cmp(b["id"].as_str().unwrap_or("")));
+    out.sort_by(|a, b| {
+        a["id"]
+            .as_str()
+            .unwrap_or("")
+            .cmp(b["id"].as_str().unwrap_or(""))
+    });
     out
 }
 
@@ -78,7 +87,8 @@ mod tests {
 
     #[test]
     fn effective_is_null_when_the_plugin_is_not_loaded() {
-        let settings = json!({ "plugins": { PLUGIN_ID: { "config": { "surfaces": { "main": true } } } } });
+        let settings =
+            json!({ "plugins": { PLUGIN_ID: { "config": { "surfaces": { "main": true } } } } });
         assert_eq!(effective(false, &settings), Value::Null);
     }
 
@@ -90,8 +100,12 @@ mod tests {
 
     #[test]
     fn effective_returns_the_stored_config_verbatim() {
-        let settings = json!({ "plugins": { PLUGIN_ID: { "config": { "surfaces": { "main": true } } } } });
-        assert_eq!(effective(true, &settings), json!({ "surfaces": { "main": true } }));
+        let settings =
+            json!({ "plugins": { PLUGIN_ID: { "config": { "surfaces": { "main": true } } } } });
+        assert_eq!(
+            effective(true, &settings),
+            json!({ "surfaces": { "main": true } })
+        );
     }
 
     #[test]

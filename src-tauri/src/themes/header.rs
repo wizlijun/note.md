@@ -11,19 +11,25 @@ pub struct ParsedHeader {
 
 pub fn parse_header(css: &str) -> ParsedHeader {
     let mut out = ParsedHeader::default();
-    let Some(block) = first_comment_block(css) else { return out };
+    let Some(block) = first_comment_block(css) else {
+        return out;
+    };
     for line in block.lines() {
         // Strip leading whitespace and the optional leading `*` Typora uses.
         let mut line = line.trim_start();
         line = line.trim_start_matches('*').trim_start();
-        let Some((key_raw, val_raw)) = line.split_once(':') else { continue };
+        let Some((key_raw, val_raw)) = line.split_once(':') else {
+            continue;
+        };
         let key = key_raw.trim().to_ascii_lowercase();
         let val = val_raw.trim().to_string();
-        if val.is_empty() { continue }
+        if val.is_empty() {
+            continue;
+        }
         match key.as_str() {
             "theme name" => out.name = Some(val),
-            "author"     => out.author = Some(val),
-            "version"    => out.version = Some(val),
+            "author" => out.author = Some(val),
+            "version" => out.version = Some(val),
             "appearance" => out.appearance = Some(val),
             "description" => out.description = Some(val),
             _ => {}
@@ -42,7 +48,9 @@ fn first_comment_block(css: &str) -> Option<&str> {
             rest = rest[end + 1..].trim_start();
         }
     }
-    if !rest.starts_with("/*") { return None }
+    if !rest.starts_with("/*") {
+        return None;
+    }
     let after_open = &rest[2..];
     let close = after_open.find("*/")?;
     Some(&after_open[..close])

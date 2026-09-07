@@ -64,19 +64,27 @@ async fn serve_one(app: AppHandle, stream: crate::platform::ipc::Stream) {
     let mut roots: Option<Vec<String>> = None;
 
     while let Ok(Some(line)) = lines.next_line().await {
-        let Ok(msg) = serde_json::from_str::<serde_json::Value>(&line) else { continue };
+        let Ok(msg) = serde_json::from_str::<serde_json::Value>(&line) else {
+            continue;
+        };
 
         if msg.get("method").and_then(|v| v.as_str()) == Some("notemd/roots") {
             roots = msg
                 .get("params")
                 .and_then(|p| p.get("roots"))
                 .and_then(|r| r.as_array())
-                .map(|a| a.iter().filter_map(|v| v.as_str().map(String::from)).collect());
+                .map(|a| {
+                    a.iter()
+                        .filter_map(|v| v.as_str().map(String::from))
+                        .collect()
+                });
             continue;
         }
 
         let mut env = build_env(&app);
-        if let Some(e) = env.as_mut() { e.roots = roots.clone(); }
+        if let Some(e) = env.as_mut() {
+            e.roots = roots.clone();
+        }
         // `dispatch::handle` for `tools/call` ultimately runs `tools::search`
         // (or `vault_info`) inline under a blocking `std::sync::Mutex` on the
         // shared index handle — while the GUI's own watcher is mid-rebuild
@@ -92,7 +100,9 @@ async fn serve_one(app: AppHandle, stream: crate::platform::ipc::Stream) {
             .await
             .unwrap_or(None);
         if let Some(reply) = reply {
-            if w.write_all(format!("{reply}\n").as_bytes()).await.is_err() { break; }
+            if w.write_all(format!("{reply}\n").as_bytes()).await.is_err() {
+                break;
+            }
             let _ = w.flush().await;
         }
     }

@@ -46,7 +46,10 @@ pub fn resolve_asset(ui_root: &Path, url_path: &str) -> Result<PathBuf, AssetErr
         return Err(AssetError::Traversal);
     }
     let root = ui_root.canonicalize().map_err(|_| AssetError::NotFound)?;
-    let resolved = root.join(&rel).canonicalize().map_err(|_| AssetError::NotFound)?;
+    let resolved = root
+        .join(&rel)
+        .canonicalize()
+        .map_err(|_| AssetError::NotFound)?;
     if !resolved.starts_with(&root) {
         return Err(AssetError::Traversal);
     }
@@ -57,7 +60,10 @@ pub fn resolve_asset(ui_root: &Path, url_path: &str) -> Result<PathBuf, AssetErr
 }
 
 pub fn mime_for(path: &Path) -> &'static str {
-    let ext = path.extension().and_then(|e| e.to_str()).map(|e| e.to_ascii_lowercase());
+    let ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|e| e.to_ascii_lowercase());
     match ext.as_deref() {
         Some("html") => "text/html",
         Some("js") | Some("mjs") => "text/javascript",
@@ -123,8 +129,7 @@ pub fn inject_bridge(html: &str, bridge: &str) -> String {
     let script = format!("<script>{bridge}</script>");
     // Find the end of the first `<head ...>` (or `<body ...>`) open tag.
     let lower = html.to_ascii_lowercase();
-    let insert_at = find_tag_end(&lower, "<head")
-        .or_else(|| find_tag_end(&lower, "<body"));
+    let insert_at = find_tag_end(&lower, "<head").or_else(|| find_tag_end(&lower, "<body"));
     match insert_at {
         Some(pos) => {
             let mut out = String::with_capacity(html.len() + script.len());
@@ -236,7 +241,10 @@ pub fn handle_parsed(
             None => Routed::Response(serve_asset(&ui_root, plugin_id, path, locale, theme)),
         },
         "POST" => Routed::Response(plain(http::StatusCode::NOT_FOUND, "not found")),
-        _ => Routed::Response(plain(http::StatusCode::METHOD_NOT_ALLOWED, "method not allowed")),
+        _ => Routed::Response(plain(
+            http::StatusCode::METHOD_NOT_ALLOWED,
+            "method not allowed",
+        )),
     }
 }
 
@@ -297,9 +305,13 @@ fn route_host_asset(capabilities: &[String], rest: &str) -> Routed {
 /// This is defence in depth, not the boundary: the app's HTML entry points live
 /// at the dist root and are already out of reach via [`HOST_ASSET_DIR`].
 pub fn is_html_document(bytes: &[u8]) -> bool {
-    let body = bytes.strip_prefix(b"\xef\xbb\xbf".as_slice()).unwrap_or(bytes);
+    let body = bytes
+        .strip_prefix(b"\xef\xbb\xbf".as_slice())
+        .unwrap_or(bytes);
     let head = &body[..body.len().min(64)];
-    let head = String::from_utf8_lossy(head).trim_start().to_ascii_lowercase();
+    let head = String::from_utf8_lossy(head)
+        .trim_start()
+        .to_ascii_lowercase();
     head.starts_with("<!doctype") || head.starts_with("<html")
 }
 
@@ -491,18 +503,15 @@ fn dispatch_rpc<R: tauri::Runtime>(
             return json_response(&err);
         }
     };
-    let resp = tauri::async_runtime::block_on(super::ui_rpc::dispatch(
-        app,
-        plugin_id,
-        capabilities,
-        req,
-    ));
+    let resp =
+        tauri::async_runtime::block_on(super::ui_rpc::dispatch(app, plugin_id, capabilities, req));
     json_response(&resp)
 }
 
 fn json_response<T: serde::Serialize>(value: &T) -> http::Response<Vec<u8>> {
-    let body = serde_json::to_vec(value)
-        .unwrap_or_else(|_| br#"{"jsonrpc":"2.0","id":null,"error":{"code":-32603,"message":"serialize"}}"#.to_vec());
+    let body = serde_json::to_vec(value).unwrap_or_else(|_| {
+        br#"{"jsonrpc":"2.0","id":null,"error":{"code":-32603,"message":"serialize"}}"#.to_vec()
+    });
     http::Response::builder()
         .status(http::StatusCode::OK)
         .header("content-type", "application/json")
@@ -563,14 +572,23 @@ mod tests {
     #[test]
     fn resolve_root_is_not_implicit_index() {
         let dir = ui_fixture();
-        assert_eq!(resolve_asset(dir.path(), "").unwrap_err(), AssetError::NotFound);
-        assert_eq!(resolve_asset(dir.path(), "/").unwrap_err(), AssetError::NotFound);
+        assert_eq!(
+            resolve_asset(dir.path(), "").unwrap_err(),
+            AssetError::NotFound
+        );
+        assert_eq!(
+            resolve_asset(dir.path(), "/").unwrap_err(),
+            AssetError::NotFound
+        );
     }
 
     #[test]
     fn resolve_rejects_plain_dotdot() {
         let dir = ui_fixture();
-        assert_eq!(resolve_asset(dir.path(), "/../secret").unwrap_err(), AssetError::Traversal);
+        assert_eq!(
+            resolve_asset(dir.path(), "/../secret").unwrap_err(),
+            AssetError::Traversal
+        );
         assert_eq!(
             resolve_asset(dir.path(), "/sub/../../secret").unwrap_err(),
             AssetError::Traversal
@@ -604,7 +622,10 @@ mod tests {
     #[test]
     fn resolve_missing_file_not_found() {
         let dir = ui_fixture();
-        assert_eq!(resolve_asset(dir.path(), "/nope.js").unwrap_err(), AssetError::NotFound);
+        assert_eq!(
+            resolve_asset(dir.path(), "/nope.js").unwrap_err(),
+            AssetError::NotFound
+        );
     }
 
     // ── mime_for / csp_header ───────────────────────────────────────────
@@ -652,9 +673,15 @@ mod tests {
     fn csp_allows_only_the_bundled_effie_webfont_remote() {
         let csp = csp_header("test.plugin");
         let exact = "https://cdn.jsdelivr.net/npm/lxgw-wenkai-lite-webfont@1.7.0/";
-        assert!(csp.contains(&format!("style-src 'self' 'unsafe-inline' {exact};")), "{csp}");
+        assert!(
+            csp.contains(&format!("style-src 'self' 'unsafe-inline' {exact};")),
+            "{csp}"
+        );
         assert!(csp.contains(&format!("font-src 'self' {exact};")), "{csp}");
-        assert!(!csp.contains("style-src 'self' 'unsafe-inline' https:;"), "{csp}");
+        assert!(
+            !csp.contains("style-src 'self' 'unsafe-inline' https:;"),
+            "{csp}"
+        );
         assert!(!csp.contains("font-src 'self' https:;"), "{csp}");
     }
 
@@ -665,7 +692,9 @@ mod tests {
         match r {
             Routed::Response(r) => r,
             Routed::Rpc(..) => panic!("expected a direct response, got Routed::Rpc"),
-            Routed::HostAsset(p) => panic!("expected a direct response, got Routed::HostAsset({p})"),
+            Routed::HostAsset(p) => {
+                panic!("expected a direct response, got Routed::HostAsset({p})")
+            }
         }
     }
 
@@ -673,7 +702,15 @@ mod tests {
     fn handle_unknown_plugin_404() {
         let dir = ui_fixture();
         let view = view_for(dir.path());
-        let r = resp(handle_parsed(&view, "GET", "other.plugin", "/index.html", None, "en", "default"));
+        let r = resp(handle_parsed(
+            &view,
+            "GET",
+            "other.plugin",
+            "/index.html",
+            None,
+            "en",
+            "default",
+        ));
         assert_eq!(r.status(), 404);
     }
 
@@ -681,7 +718,15 @@ mod tests {
     fn handle_get_html_has_csp_and_no_cache() {
         let dir = ui_fixture();
         let view = view_for(dir.path());
-        let r = resp(handle_parsed(&view, "GET", "test.plugin", "/index.html", None, "en", "default"));
+        let r = resp(handle_parsed(
+            &view,
+            "GET",
+            "test.plugin",
+            "/index.html",
+            None,
+            "en",
+            "default",
+        ));
         assert_eq!(r.status(), 200);
         assert_eq!(r.headers()["content-type"], "text/html");
         assert_eq!(r.headers()["cache-control"], "no-cache");
@@ -692,19 +737,36 @@ mod tests {
         // The served HTML now carries the injected bridge (see dedicated tests
         // below); the original markup is still present.
         let body = String::from_utf8(r.body().clone()).unwrap();
-        assert!(body.contains("<html></html>"), "original html preserved: {body}");
+        assert!(
+            body.contains("<html></html>"),
+            "original html preserved: {body}"
+        );
     }
 
     #[test]
     fn handle_get_html_injects_bridge_with_guard() {
         let dir = ui_fixture();
         let view = view_for(dir.path());
-        let r = resp(handle_parsed(&view, "GET", "test.plugin", "/index.html", None, "zh", "midnight"));
+        let r = resp(handle_parsed(
+            &view,
+            "GET",
+            "test.plugin",
+            "/index.html",
+            None,
+            "zh",
+            "midnight",
+        ));
         let body = String::from_utf8(r.body().clone()).unwrap();
         // Bridge script + idempotency guard are injected into the HTML.
         assert!(body.contains("<script>"), "script tag injected: {body}");
-        assert!(body.contains("window.notemd"), "bridge defines window.notemd");
-        assert!(body.contains("if (window.notemd) return;"), "idempotency guard present");
+        assert!(
+            body.contains("window.notemd"),
+            "bridge defines window.notemd"
+        );
+        assert!(
+            body.contains("if (window.notemd) return;"),
+            "idempotency guard present"
+        );
         assert!(body.contains("/__rpc__"), "bridge posts to rpc endpoint");
         // locale/theme seeded from the request.
         assert!(body.contains(r#""zh""#), "locale literal seeded");
@@ -715,7 +777,15 @@ mod tests {
     fn handle_get_js_has_no_csp_and_no_bridge() {
         let dir = ui_fixture();
         let view = view_for(dir.path());
-        let r = resp(handle_parsed(&view, "GET", "test.plugin", "/app.js", None, "en", "default"));
+        let r = resp(handle_parsed(
+            &view,
+            "GET",
+            "test.plugin",
+            "/app.js",
+            None,
+            "en",
+            "default",
+        ));
         assert_eq!(r.status(), 200);
         assert_eq!(r.headers()["content-type"], "text/javascript");
         assert_eq!(r.headers()["cache-control"], "no-cache");
@@ -728,7 +798,15 @@ mod tests {
     fn handle_get_traversal_403() {
         let dir = ui_fixture();
         let view = view_for(dir.path());
-        let r = resp(handle_parsed(&view, "GET", "test.plugin", "/%2e%2e/secret", None, "en", "default"));
+        let r = resp(handle_parsed(
+            &view,
+            "GET",
+            "test.plugin",
+            "/%2e%2e/secret",
+            None,
+            "en",
+            "default",
+        ));
         assert_eq!(r.status(), 403);
     }
 
@@ -739,7 +817,15 @@ mod tests {
         // An EXPLICIT foreign origin is still rejected. A missing Origin is NOT
         // here — see handle_rpc_missing_origin_routes (WKWebView strips it).
         for origin in [Some("plugin://other.plugin"), Some("tauri://localhost")] {
-            let r = resp(handle_parsed(&view, "POST", "test.plugin", "/__rpc__", origin, "en", "default"));
+            let r = resp(handle_parsed(
+                &view,
+                "POST",
+                "test.plugin",
+                "/__rpc__",
+                origin,
+                "en",
+                "default",
+            ));
             assert_eq!(r.status(), 403, "origin {origin:?} must be rejected");
         }
     }
@@ -752,9 +838,20 @@ mod tests {
         // check 403'd every ui-plugin RPC, breaking all vault reads/writes).
         let dir = ui_fixture();
         let view = view_for(dir.path());
-        match handle_parsed(&view, "POST", "test.plugin", "/__rpc__", None, "en", "default") {
+        match handle_parsed(
+            &view,
+            "POST",
+            "test.plugin",
+            "/__rpc__",
+            None,
+            "en",
+            "default",
+        ) {
             Routed::Rpc(id, _) => assert_eq!(id, "test.plugin"),
-            other => panic!("missing origin must route, got status {}", resp(other).status()),
+            other => panic!(
+                "missing origin must route, got status {}",
+                resp(other).status()
+            ),
         }
     }
 
@@ -799,7 +896,15 @@ mod tests {
     fn handle_put_405() {
         let dir = ui_fixture();
         let view = view_for(dir.path());
-        let r = resp(handle_parsed(&view, "PUT", "test.plugin", "/index.html", None, "en", "default"));
+        let r = resp(handle_parsed(
+            &view,
+            "PUT",
+            "test.plugin",
+            "/index.html",
+            None,
+            "en",
+            "default",
+        ));
         assert_eq!(r.status(), 405);
     }
 
@@ -811,14 +916,26 @@ mod tests {
         // 无 editor.kit → 404
         let view = view_with_caps(dir.path(), vec!["vault.read".into()]);
         let r = resp(handle_parsed(
-            &view, "GET", "test.plugin", "/__host__/assets/editor-kit-v1.js", None, "en", "default",
+            &view,
+            "GET",
+            "test.plugin",
+            "/__host__/assets/editor-kit-v1.js",
+            None,
+            "en",
+            "default",
         ));
         assert_eq!(r.status(), http::StatusCode::NOT_FOUND);
 
         // 有 editor.kit → HostAsset,且 __host__ 前缀被剥掉
         let view = view_with_caps(dir.path(), vec!["editor.kit".into()]);
         match handle_parsed(
-            &view, "GET", "test.plugin", "/__host__/assets/chunk-abc.js", None, "en", "default",
+            &view,
+            "GET",
+            "test.plugin",
+            "/__host__/assets/chunk-abc.js",
+            None,
+            "en",
+            "default",
         ) {
             Routed::HostAsset(p) => assert_eq!(p, "/assets/chunk-abc.js"),
             other => panic!("expected HostAsset, got status {}", resp(other).status()),
@@ -826,7 +943,13 @@ mod tests {
 
         // 路径穿越照旧拒绝
         let r = resp(handle_parsed(
-            &view, "GET", "test.plugin", "/__host__/../secret", None, "en", "default",
+            &view,
+            "GET",
+            "test.plugin",
+            "/__host__/../secret",
+            None,
+            "en",
+            "default",
         ));
         assert_eq!(r.status(), http::StatusCode::FORBIDDEN);
     }
@@ -839,12 +962,30 @@ mod tests {
         let dir = ui_fixture();
         let view = view_with_caps(dir.path(), vec!["editor.kit".into()]);
         for (url, expected) in [
-            ("/__host__/assets/editor-kit-v1.js", "/assets/editor-kit-v1.js"),
-            ("/__host__/assets/editor-kit-v2.js", "/assets/editor-kit-v2.js"),
-            ("/__host__/assets/editor-kit-v1.css", "/assets/editor-kit-v1.css"),
-            ("/__host__/assets/index-D3adB33f.js", "/assets/index-D3adB33f.js"),
-            ("/__host__/assets/KaTeX_Main-Regular-x1.woff2", "/assets/KaTeX_Main-Regular-x1.woff2"),
-            ("/__host__/assets/nested/deep/a.js", "/assets/nested/deep/a.js"),
+            (
+                "/__host__/assets/editor-kit-v1.js",
+                "/assets/editor-kit-v1.js",
+            ),
+            (
+                "/__host__/assets/editor-kit-v2.js",
+                "/assets/editor-kit-v2.js",
+            ),
+            (
+                "/__host__/assets/editor-kit-v1.css",
+                "/assets/editor-kit-v1.css",
+            ),
+            (
+                "/__host__/assets/index-D3adB33f.js",
+                "/assets/index-D3adB33f.js",
+            ),
+            (
+                "/__host__/assets/KaTeX_Main-Regular-x1.woff2",
+                "/assets/KaTeX_Main-Regular-x1.woff2",
+            ),
+            (
+                "/__host__/assets/nested/deep/a.js",
+                "/assets/nested/deep/a.js",
+            ),
         ] {
             match handle_parsed(&view, "GET", "test.plugin", url, None, "en", "default") {
                 Routed::HostAsset(p) => assert_eq!(p, expected, "for {url}"),
@@ -870,7 +1011,15 @@ mod tests {
             "/__host__/assets/..%2fsecret",
             "/__host__/assets/x\\..\\secret",
         ] {
-            let r = resp(handle_parsed(&view, "GET", "test.plugin", url, None, "en", "default"));
+            let r = resp(handle_parsed(
+                &view,
+                "GET",
+                "test.plugin",
+                url,
+                None,
+                "en",
+                "default",
+            ));
             assert_eq!(r.status(), http::StatusCode::FORBIDDEN, "{url} must be 403");
         }
     }
@@ -891,7 +1040,15 @@ mod tests {
             "/__host__/assets",       // the directory itself is not an asset
             "/__host__/other/a.js",
         ] {
-            let r = resp(handle_parsed(&view, "GET", "test.plugin", url, None, "en", "default"));
+            let r = resp(handle_parsed(
+                &view,
+                "GET",
+                "test.plugin",
+                url,
+                None,
+                "en",
+                "default",
+            ));
             assert_eq!(r.status(), http::StatusCode::NOT_FOUND, "{url} must be 404");
         }
     }
@@ -905,8 +1062,15 @@ mod tests {
     fn host_asset_gate_precedes_validation_for_ungranted_plugins() {
         let dir = ui_fixture();
         let view = view_with_caps(dir.path(), vec![]);
-        let baseline =
-            resp(handle_parsed(&view, "GET", "test.plugin", "/nope.js", None, "en", "default"));
+        let baseline = resp(handle_parsed(
+            &view,
+            "GET",
+            "test.plugin",
+            "/nope.js",
+            None,
+            "en",
+            "default",
+        ));
         for url in [
             "/__host__/assets/a.js",
             "/__host__/./x",
@@ -915,7 +1079,15 @@ mod tests {
             "/__host__/../secret",
             "/__host__/index.html",
         ] {
-            let r = resp(handle_parsed(&view, "GET", "test.plugin", url, None, "en", "default"));
+            let r = resp(handle_parsed(
+                &view,
+                "GET",
+                "test.plugin",
+                url,
+                None,
+                "en",
+                "default",
+            ));
             assert_eq!(r.status(), baseline.status(), "{url}");
             assert_eq!(r.body(), baseline.body(), "{url}");
         }
@@ -929,11 +1101,25 @@ mod tests {
         let view = view_with_caps(dir.path(), vec!["editor.kit".into()]);
         // Not the reserved prefix → normal (missing) plugin asset → 404, not HostAsset.
         let r = resp(handle_parsed(
-            &view, "GET", "test.plugin", "/__host__evil.js", None, "en", "default",
+            &view,
+            "GET",
+            "test.plugin",
+            "/__host__evil.js",
+            None,
+            "en",
+            "default",
         ));
         assert_eq!(r.status(), http::StatusCode::NOT_FOUND);
         // A real plugin asset still resolves normally for an editor.kit plugin.
-        let r = resp(handle_parsed(&view, "GET", "test.plugin", "/app.js", None, "en", "default"));
+        let r = resp(handle_parsed(
+            &view,
+            "GET",
+            "test.plugin",
+            "/app.js",
+            None,
+            "en",
+            "default",
+        ));
         assert_eq!(r.status(), 200);
         assert_eq!(r.body(), b"console.log(1)");
     }
@@ -944,12 +1130,23 @@ mod tests {
         let dir = ui_fixture();
         let view = view_with_caps(dir.path(), vec!["editor.kit".into()]);
         let r = resp(handle_parsed(
-            &view, "POST", "test.plugin", "/__host__/assets/a.js",
-            Some("plugin://test.plugin"), "en", "default",
+            &view,
+            "POST",
+            "test.plugin",
+            "/__host__/assets/a.js",
+            Some("plugin://test.plugin"),
+            "en",
+            "default",
         ));
         assert_eq!(r.status(), http::StatusCode::NOT_FOUND);
         let r = resp(handle_parsed(
-            &view, "PUT", "test.plugin", "/__host__/assets/a.js", None, "en", "default",
+            &view,
+            "PUT",
+            "test.plugin",
+            "/__host__/assets/a.js",
+            None,
+            "en",
+            "default",
         ));
         assert_eq!(r.status(), http::StatusCode::METHOD_NOT_ALLOWED);
     }
@@ -960,7 +1157,13 @@ mod tests {
         let dir = ui_fixture();
         let view = view_with_caps(dir.path(), vec!["editor.kit".into()]);
         let r = resp(handle_parsed(
-            &view, "GET", "other.plugin", "/__host__/assets/a.js", None, "en", "default",
+            &view,
+            "GET",
+            "other.plugin",
+            "/__host__/assets/a.js",
+            None,
+            "en",
+            "default",
         ));
         assert_eq!(r.status(), http::StatusCode::NOT_FOUND);
     }
@@ -972,7 +1175,10 @@ mod tests {
         assert!(is_html_document(b"<!doctype html>\n<html>"));
         assert!(is_html_document(b"  \n<!DOCTYPE HTML>"));
         assert!(is_html_document(b"<html lang=\"en\">"));
-        assert!(is_html_document(b"\xef\xbb\xbf<!doctype html>"), "BOM-prefixed");
+        assert!(
+            is_html_document(b"\xef\xbb\xbf<!doctype html>"),
+            "BOM-prefixed"
+        );
         assert!(!is_html_document(b"import x from './y.js';"));
         assert!(!is_html_document(b".a{color:red}"));
         assert!(!is_html_document(b""));
@@ -983,7 +1189,10 @@ mod tests {
     #[test]
     fn inject_bridge_after_head() {
         let out = inject_bridge("<html><head></head><body>x</body></html>", "B()");
-        assert_eq!(out, "<html><head><script>B()</script></head><body>x</body></html>");
+        assert_eq!(
+            out,
+            "<html><head><script>B()</script></head><body>x</body></html>"
+        );
     }
 
     #[test]

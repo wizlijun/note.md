@@ -83,7 +83,10 @@ pub fn install(dir: &Path) -> Result<bool, String> {
     let legacy_link = dir.join(LEGACY_LINK_NAME);
     let refresh_legacy = legacy_link.symlink_metadata().is_ok();
 
-    let need_sudo = matches!(dir.to_str(), Some("/usr/local/bin") | Some("/opt/homebrew/bin"));
+    let need_sudo = matches!(
+        dir.to_str(),
+        Some("/usr/local/bin") | Some("/opt/homebrew/bin")
+    );
 
     if !need_sudo {
         std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
@@ -110,8 +113,13 @@ pub fn install(dir: &Path) -> Result<bool, String> {
         ));
     }
     let status = Command::new("osascript")
-        .args(["-e", &format!("do shell script \"{}\" with administrator privileges",
-            script.replace('"', "\\\""))])
+        .args([
+            "-e",
+            &format!(
+                "do shell script \"{}\" with administrator privileges",
+                script.replace('"', "\\\"")
+            ),
+        ])
         .status()
         .map_err(|e| format!("osascript failed: {e}"))?;
     if !status.success() {
@@ -129,7 +137,10 @@ pub fn uninstall(dir: &Path) -> Result<(), String> {
     if links.is_empty() {
         return Ok(());
     }
-    let need_sudo = matches!(dir.to_str(), Some("/usr/local/bin") | Some("/opt/homebrew/bin"));
+    let need_sudo = matches!(
+        dir.to_str(),
+        Some("/usr/local/bin") | Some("/opt/homebrew/bin")
+    );
     if !need_sudo {
         for link in &links {
             std::fs::remove_file(link).map_err(|e| e.to_string())?;
@@ -138,12 +149,22 @@ pub fn uninstall(dir: &Path) -> Result<(), String> {
     }
     let script = links
         .iter()
-        .map(|l| format!("rm -f '{}'", sh_single_quote_escape(&l.display().to_string())))
+        .map(|l| {
+            format!(
+                "rm -f '{}'",
+                sh_single_quote_escape(&l.display().to_string())
+            )
+        })
         .collect::<Vec<_>>()
         .join(" && ");
     let status = Command::new("osascript")
-        .args(["-e", &format!("do shell script \"{}\" with administrator privileges",
-            script.replace('"', "\\\""))])
+        .args([
+            "-e",
+            &format!(
+                "do shell script \"{}\" with administrator privileges",
+                script.replace('"', "\\\"")
+            ),
+        ])
         .status()
         .map_err(|e| format!("osascript failed: {e}"))?;
     if !status.success() {
@@ -182,7 +203,11 @@ pub fn status(installed_path: Option<&Path>) -> InstallStatus {
             }
         }
     }
-    InstallStatus { installed: false, path: None, target_valid: false }
+    InstallStatus {
+        installed: false,
+        path: None,
+        target_valid: false,
+    }
 }
 
 #[tauri::command]
@@ -204,7 +229,10 @@ pub fn cli_uninstall(dir: String) -> Result<(), String> {
 
 #[tauri::command]
 pub fn cli_install_candidates() -> Vec<String> {
-    candidate_dirs().into_iter().map(|p| p.display().to_string()).collect()
+    candidate_dirs()
+        .into_iter()
+        .map(|p| p.display().to_string())
+        .collect()
 }
 
 // The suite below exercises the unix install path end to end: real symlinks,
@@ -219,7 +247,14 @@ mod tests {
 
     #[test]
     fn status_reports_installed_when_link_present() {
-        let dir = std::env::temp_dir().join(format!("notemd-status-{}-{}", std::process::id(), std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
+        let dir = std::env::temp_dir().join(format!(
+            "notemd-status-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
         std::fs::create_dir_all(&dir).unwrap();
         let link = dir.join("notemd");
         let target = std::env::current_exe().unwrap();
@@ -227,7 +262,10 @@ mod tests {
 
         let st = status(Some(&link));
         assert!(st.installed);
-        assert_eq!(st.path.as_deref(), Some(link.display().to_string().as_str()));
+        assert_eq!(
+            st.path.as_deref(),
+            Some(link.display().to_string().as_str())
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -239,7 +277,14 @@ mod tests {
 
     #[test]
     fn install_creates_symlink_in_writable_dir() {
-        let dir = std::env::temp_dir().join(format!("notemd-install-{}-{}", std::process::id(), std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
+        let dir = std::env::temp_dir().join(format!(
+            "notemd-install-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
         std::fs::create_dir_all(&dir).unwrap();
         let ok = install(&dir).unwrap();
         assert!(ok);
@@ -250,20 +295,37 @@ mod tests {
 
     #[test]
     fn install_refreshes_dangling_legacy_mdedit_link() {
-        let dir = std::env::temp_dir().join(format!("notemd-legacy-{}-{}", std::process::id(), std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
+        let dir = std::env::temp_dir().join(format!(
+            "notemd-legacy-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
         std::fs::create_dir_all(&dir).unwrap();
         let legacy = dir.join("mdedit");
         unix_symlink(&dir.join("no-such-binary"), &legacy).unwrap();
 
         install(&dir).unwrap();
         assert_eq!(std::fs::read_link(&legacy).unwrap(), current_app_binary());
-        assert_eq!(std::fs::read_link(dir.join("notemd")).unwrap(), current_app_binary());
+        assert_eq!(
+            std::fs::read_link(dir.join("notemd")).unwrap(),
+            current_app_binary()
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
     fn uninstall_removes_legacy_link_too() {
-        let dir = std::env::temp_dir().join(format!("notemd-uninst-legacy-{}-{}", std::process::id(), std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
+        let dir = std::env::temp_dir().join(format!(
+            "notemd-uninst-legacy-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
         std::fs::create_dir_all(&dir).unwrap();
         unix_symlink(&std::env::current_exe().unwrap(), &dir.join("mdedit")).unwrap();
         install(&dir).unwrap();
@@ -275,7 +337,14 @@ mod tests {
 
     #[test]
     fn uninstall_removes_existing_symlink() {
-        let dir = std::env::temp_dir().join(format!("notemd-uninst-{}-{}", std::process::id(), std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
+        let dir = std::env::temp_dir().join(format!(
+            "notemd-uninst-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
         std::fs::create_dir_all(&dir).unwrap();
         install(&dir).unwrap();
         uninstall(&dir).unwrap();

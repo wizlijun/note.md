@@ -1964,7 +1964,10 @@ pub fn run(args: MemoryArgs) -> ExitCode {
                     .map(|(prefix, _)| prefix)
                     .filter(|prefix| prefix.starts_with("MEMORY_"))
                     .unwrap_or("invalid_arguments");
-                println!("{}", json!({"ok":false,"error":{"code":code,"message":error}}));
+                println!(
+                    "{}",
+                    json!({"ok":false,"error":{"code":code,"message":error}})
+                );
             } else {
                 eprintln!("notemd memory: {error}");
             }

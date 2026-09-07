@@ -21,7 +21,9 @@ pub fn copy_built_ins_if_missing(
     for id in ids {
         let src = res_dir.join(format!("{id}.css"));
         let dst = themes_dir.join(format!("{id}.css"));
-        if dst.exists() { continue }
+        if dst.exists() {
+            continue;
+        }
         if !src.exists() {
             eprintln!("[theme] built-in source missing: {:?}", src);
             continue;

@@ -187,11 +187,24 @@ pub fn parse_args(rest: &[String], json_global: bool) -> SearchArgs {
         }
         if matches!(
             rest[i].as_str(),
-            "--json" | "--no-sweep" | "--rebuild" | "--stats" | "--vault" | "--all"
-                | "--limit" | "--context" | "--tag" | "--type" | "--path" | "--ext"
-                | "--after" | "--before"
-        ) && !seen_flags.insert(rest[i].clone()) {
-            a.errors.push(format!("{} may only be specified once", rest[i]));
+            "--json"
+                | "--no-sweep"
+                | "--rebuild"
+                | "--stats"
+                | "--vault"
+                | "--all"
+                | "--limit"
+                | "--context"
+                | "--tag"
+                | "--type"
+                | "--path"
+                | "--ext"
+                | "--after"
+                | "--before"
+        ) && !seen_flags.insert(rest[i].clone())
+        {
+            a.errors
+                .push(format!("{} may only be specified once", rest[i]));
         }
         match rest[i].as_str() {
             "--" => positional_only = true,
@@ -224,7 +237,7 @@ pub fn parse_args(rest: &[String], json_global: bool) -> SearchArgs {
                 }
             }
             "--context" => match rest.get(i + 1) {
-                    Some(v) if !v.starts_with("--") => {
+                Some(v) if !v.starts_with("--") => {
                     match v.parse::<usize>() {
                         Ok(n) => a.context = n,
                         Err(_) => a.errors.push(format!(
@@ -233,7 +246,7 @@ pub fn parse_args(rest: &[String], json_global: bool) -> SearchArgs {
                     }
                     i += 1;
                 }
-                    _ => a.errors.push("--context requires a value".to_string()),
+                _ => a.errors.push("--context requires a value".to_string()),
             },
             "--tag" => {
                 take_query_value(rest, &mut i, "--tag", "tag", &mut a.query, &mut a.errors);
@@ -837,13 +850,16 @@ mod tests {
 
     #[test]
     fn parse_args_rejects_duplicate_flags_and_does_not_consume_the_next_flag_as_a_value() {
-        let args = parse_args(
-            &strings(&["needle", "--limit", "--all", "--all"]),
-            false,
-        );
-        assert!(args.errors.contains(&"--limit requires a value".to_string()));
-        assert!(args.errors.contains(&"--all may only be specified once".to_string()));
-        assert!(args.errors.contains(&"--all conflicts with --limit".to_string()));
+        let args = parse_args(&strings(&["needle", "--limit", "--all", "--all"]), false);
+        assert!(args
+            .errors
+            .contains(&"--limit requires a value".to_string()));
+        assert!(args
+            .errors
+            .contains(&"--all may only be specified once".to_string()));
+        assert!(args
+            .errors
+            .contains(&"--all conflicts with --limit".to_string()));
     }
 
     /// `execute()` 产出的每条命中,序列化后必须与 `--json` 里那条逐字段相等。

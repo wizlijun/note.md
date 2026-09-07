@@ -260,7 +260,11 @@ pub(super) fn planned_search_locked(
             }
         })
         .collect();
-    let plan = SmartPlan { extracted, arms, sort };
+    let plan = SmartPlan {
+        extracted,
+        arms,
+        sort,
+    };
     execute_smart_plan_locked(
         idx_handle,
         started,
@@ -425,8 +429,17 @@ fn search_arm(
 }
 
 fn render_typed_query(query: &Query) -> String {
-    let mut parts = query.terms.iter().map(|value| json_string(value)).collect::<Vec<_>>();
-    parts.extend(query.phrases.iter().map(|value| format!("phrase={}", json_string(value))));
+    let mut parts = query
+        .terms
+        .iter()
+        .map(|value| json_string(value))
+        .collect::<Vec<_>>();
+    parts.extend(
+        query
+            .phrases
+            .iter()
+            .map(|value| format!("phrase={}", json_string(value))),
+    );
     for (name, values) in [
         ("tag", &query.tags),
         ("type", &query.types),
@@ -435,7 +448,11 @@ fn render_typed_query(query: &Query) -> String {
         ("ext", &query.exts),
         ("origin", &query.origins),
     ] {
-        parts.extend(values.iter().map(|value| format!("{name}={}", json_string(value))));
+        parts.extend(
+            values
+                .iter()
+                .map(|value| format!("{name}={}", json_string(value))),
+        );
     }
     if let Some(value) = &query.after {
         parts.push(format!("after={}", json_string(value)));
@@ -516,7 +533,9 @@ fn finish_fusion(
     let mut values: Vec<FusedHit> = fused.into_values().collect();
     values.sort_by(|a, b| {
         let common_ties = || {
-            b.hit.pinned.cmp(&a.hit.pinned)
+            b.hit
+                .pinned
+                .cmp(&a.hit.pinned)
                 .then_with(|| b.fused_score.total_cmp(&a.fused_score))
                 .then_with(|| b.hit.score.total_cmp(&a.hit.score))
                 .then_with(|| a.hit.path.cmp(&b.hit.path))
@@ -1183,7 +1202,10 @@ mod tests {
 
         let result = finish_fusion(fused, &plan, std::path::Path::new("/vault"));
         assert_eq!(
-            result.iter().map(|item| item.hit.path.as_str()).collect::<Vec<_>>(),
+            result
+                .iter()
+                .map(|item| item.hit.path.as_str())
+                .collect::<Vec<_>>(),
             ["recent.md", "old.md", "missing.md"]
         );
     }
@@ -1202,7 +1224,8 @@ mod tests {
         )
         .unwrap();
         let data = tempfile::tempdir().unwrap();
-        let mut idx = SearchIndex::open_at(vault.path(), &data.path().join("i.db"), "sync").unwrap();
+        let mut idx =
+            SearchIndex::open_at(vault.path(), &data.path().join("i.db"), "sync").unwrap();
         idx.sweep(&searchidx::ScanOptions::default(), None).unwrap();
         let handle: IndexHandle = Arc::new(std::sync::Mutex::new(Some(idx)));
         let counter = Arc::new(AtomicU64::new(1));
@@ -1212,7 +1235,10 @@ mod tests {
             vec![PlannedQueryArm {
                 id: "q1".into(),
                 kind: "precision",
-                query: Query { types: vec!["Book Summary".into()], ..Default::default() },
+                query: Query {
+                    types: vec!["Book Summary".into()],
+                    ..Default::default()
+                },
                 terms: vec![],
                 weight: 1.0,
             }],
@@ -1227,7 +1253,9 @@ mod tests {
 
         assert!(!response.hits.is_empty());
         assert!(response.hits.iter().all(|hit| hit.hit.path == "book.md"));
-        assert!(response.subqueries[0].query.contains("type=\"Book Summary\""));
+        assert!(response.subqueries[0]
+            .query
+            .contains("type=\"Book Summary\""));
     }
 
     #[test]

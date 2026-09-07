@@ -54,10 +54,15 @@ fn unquote(p: &str) -> String {
 /// 返回工作区里 size > 阈值 的待提交文件(相对 repo 根路径)。无法 stat 的条目安全跳过。
 pub fn detect_oversized(repo: &Path) -> GitResult<Vec<String>> {
     let threshold = resolve_threshold_bytes(repo);
-    let status = run_git(repo, &["-c", "core.quotepath=false", "status", "--porcelain"])?;
+    let status = run_git(
+        repo,
+        &["-c", "core.quotepath=false", "status", "--porcelain"],
+    )?;
     let mut out = Vec::new();
     for line in status.lines() {
-        let Some(rel) = pending_path(line) else { continue };
+        let Some(rel) = pending_path(line) else {
+            continue;
+        };
         let abs = repo.join(&rel);
         if let Ok(meta) = std::fs::metadata(&abs) {
             if meta.is_file() && meta.len() > threshold {
@@ -75,7 +80,11 @@ mod tests {
     use tempfile::TempDir;
 
     fn git(dir: &Path, args: &[&str]) {
-        let ok = Command::new("git").args(args).current_dir(dir).status().unwrap();
+        let ok = Command::new("git")
+            .args(args)
+            .current_dir(dir)
+            .status()
+            .unwrap();
         assert!(ok.success(), "git {:?} failed", args);
     }
 

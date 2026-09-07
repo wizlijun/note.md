@@ -177,7 +177,10 @@ fn start(app: &tauri::AppHandle, root: &Path) {
         run_check(&app, &root);
         loop {
             let stale = || {
-                app.state::<AgentsSyncState>().generation.load(Ordering::SeqCst) != my_gen
+                app.state::<AgentsSyncState>()
+                    .generation
+                    .load(Ordering::SeqCst)
+                    != my_gen
             };
             match rx.recv_timeout(Duration::from_secs(1)) {
                 Ok(()) => {
@@ -347,7 +350,10 @@ mod fs_tests {
         let d = vault();
         reconcile(d.path());
         let link = d.path().join("CLAUDE.md");
-        assert!(fs::symlink_metadata(&link).unwrap().file_type().is_symlink());
+        assert!(fs::symlink_metadata(&link)
+            .unwrap()
+            .file_type()
+            .is_symlink());
         assert_eq!(fs::read_link(&link).unwrap(), Path::new("AGENTS.md"));
         assert_eq!(fs::read_to_string(&link).unwrap(), "hello\n");
     }
@@ -369,7 +375,10 @@ mod fs_tests {
         fs::write(d.path().join("CLAUDE.md"), "old-real\n").unwrap();
         reconcile(d.path());
         let link = d.path().join("CLAUDE.md");
-        assert!(fs::symlink_metadata(&link).unwrap().file_type().is_symlink());
+        assert!(fs::symlink_metadata(&link)
+            .unwrap()
+            .file_type()
+            .is_symlink());
         let stamp = super::date_stamp();
         let backup = d.path().join(format!("CLAUDE.{stamp}.md"));
         assert_eq!(fs::read_to_string(&backup).unwrap(), "old-real\n");
@@ -579,7 +588,11 @@ mod fs_tests {
     #[test]
     fn missing_status_true_for_real_content_without_the_section() {
         let d = tempfile::tempdir().unwrap();
-        fs::write(d.path().join("AGENTS.md"), "# Vault\n\nMy own conventions.\n").unwrap();
+        fs::write(
+            d.path().join("AGENTS.md"),
+            "# Vault\n\nMy own conventions.\n",
+        )
+        .unwrap();
         assert_eq!(agents_search_section_missing_at(d.path()), Ok(true));
     }
 
@@ -587,7 +600,10 @@ mod fs_tests {
     fn append_writes_nothing_when_agents_md_does_not_exist() {
         let d = tempfile::tempdir().unwrap();
         assert_eq!(agents_append_search_section_at(d.path()), Ok(false));
-        assert!(!d.path().join("AGENTS.md").exists(), "must not create the file");
+        assert!(
+            !d.path().join("AGENTS.md").exists(),
+            "must not create the file"
+        );
     }
 
     /// The regression this whole guard exists for: a 0-byte AGENTS.md must
@@ -599,7 +615,11 @@ mod fs_tests {
         let path = d.path().join("AGENTS.md");
         fs::write(&path, "").unwrap();
         assert_eq!(agents_append_search_section_at(d.path()), Ok(false));
-        assert_eq!(fs::read_to_string(&path).unwrap(), "", "0-byte file must stay 0-byte");
+        assert_eq!(
+            fs::read_to_string(&path).unwrap(),
+            "",
+            "0-byte file must stay 0-byte"
+        );
     }
 
     /// Same guarantee, whitespace-only case — a file with just a newline is
@@ -610,7 +630,11 @@ mod fs_tests {
         let path = d.path().join("AGENTS.md");
         fs::write(&path, "  \n\n\t\n  ").unwrap();
         assert_eq!(agents_append_search_section_at(d.path()), Ok(false));
-        assert_eq!(fs::read_to_string(&path).unwrap(), "  \n\n\t\n  ", "whitespace-only file must be untouched");
+        assert_eq!(
+            fs::read_to_string(&path).unwrap(),
+            "  \n\n\t\n  ",
+            "whitespace-only file must be untouched"
+        );
     }
 
     #[test]
@@ -658,14 +682,31 @@ mod fs_tests {
             "/.notemd/meetings/hemory-import-v1.json",
             "plugin-managed meeting source artifacts",
         ] {
-            assert!(TEMPLATE.contains(required), "AGENTS.md meeting contract is missing: {required}");
+            assert!(
+                TEMPLATE.contains(required),
+                "AGENTS.md meeting contract is missing: {required}"
+            );
         }
         for field in [
-            "conversation_id", "created_at", "end_at", "title", "category", "key_topics",
-            "language", "source", "duration_ms", "speaker_count", "transcript_file",
-            "summary_file", "imported_from", "updated_at",
+            "conversation_id",
+            "created_at",
+            "end_at",
+            "title",
+            "category",
+            "key_topics",
+            "language",
+            "source",
+            "duration_ms",
+            "speaker_count",
+            "transcript_file",
+            "summary_file",
+            "imported_from",
+            "updated_at",
         ] {
-            assert!(TEMPLATE.contains(field), "meeting schema is missing {field}");
+            assert!(
+                TEMPLATE.contains(field),
+                "meeting schema is missing {field}"
+            );
         }
     }
 
@@ -692,7 +733,8 @@ mod fs_tests {
     #[test]
     fn llms_txt_names_every_field_search_section_teaches() {
         let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../website/public/llms.txt");
-        let body = std::fs::read_to_string(path).expect("website/public/llms.txt must be readable from src-tauri/");
+        let body = std::fs::read_to_string(path)
+            .expect("website/public/llms.txt must be readable from src-tauri/");
         for field in ["source_ref", "origin", "provenance", "attention_minutes"] {
             assert!(
                 logic::SEARCH_SECTION.contains(field),

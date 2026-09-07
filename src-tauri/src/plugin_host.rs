@@ -99,7 +99,9 @@ pub struct PluginManifest {
     pub open_windows: Option<HashMap<String, String>>,
 }
 
-fn default_timeout() -> u64 { 30 }
+fn default_timeout() -> u64 {
+    30
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PromptFilter {
@@ -109,7 +111,7 @@ pub struct PromptFilter {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PromptSpec {
-    pub kind: String,                           // "save-dialog" is the only kind
+    pub kind: String, // "save-dialog" is the only kind
     pub default_filename: String,
     pub filters: Vec<PromptFilter>,
 }
@@ -144,7 +146,7 @@ pub struct ContextMenuEntry {
 pub struct CliArg {
     pub name: String,
     #[serde(rename = "type")]
-    pub ty: String,             // "path" | "string" | "integer"
+    pub ty: String, // "path" | "string" | "integer"
     pub required: bool,
     #[serde(default)]
     pub help: Option<String>,
@@ -156,7 +158,7 @@ pub struct CliFlag {
     #[serde(default)]
     pub short: Option<String>,
     #[serde(rename = "type")]
-    pub ty: String,             // "boolean" | "string"
+    pub ty: String, // "boolean" | "string"
     #[serde(default)]
     pub help: Option<String>,
 }
@@ -244,8 +246,7 @@ pub fn plugin_menu_group_for_plugin(plugin_id: &str, group: Option<&str>) -> &'s
         "notemd.pos-log" => "record",
         "notemd.ebook-import" | "notemd.trace-source" => "reading",
         "notemd.idea-spark" => "inspiration",
-        "notemd.next"
-        | "notemd.openclaw-chat" => "advance",
+        "notemd.next" | "notemd.openclaw-chat" => "advance",
         "notemd.claude-agent"
         | "notemd.codex-agent"
         | "notemd.deepseek-agent"
@@ -258,7 +259,9 @@ pub fn plugin_menu_group_for_plugin(plugin_id: &str, group: Option<&str>) -> &'s
 }
 
 fn plugin_id_from_menu_item_id(id: &str) -> Option<&str> {
-    id.strip_prefix("plugin:")?.split_once(':').map(|(plugin_id, _)| plugin_id)
+    id.strip_prefix("plugin:")?
+        .split_once(':')
+        .map(|(plugin_id, _)| plugin_id)
 }
 
 pub struct PluginMenuGroup<'a> {
@@ -271,7 +274,10 @@ pub struct PluginMenuGroup<'a> {
 pub fn group_plugin_menu_items(items: &[LocatedMenuItem]) -> Vec<PluginMenuGroup<'_>> {
     let mut groups: Vec<PluginMenuGroup<'_>> = PLUGIN_MENU_GROUP_ORDER
         .iter()
-        .map(|key| PluginMenuGroup { key, items: Vec::new() })
+        .map(|key| PluginMenuGroup {
+            key,
+            items: Vec::new(),
+        })
         .collect();
     for item in items {
         let key = plugin_id_from_menu_item_id(&item.id)
@@ -387,18 +393,21 @@ mod tests {
 
     #[test]
     fn plugin_menu_group_order_matches_the_documented_taxonomy() {
-        assert_eq!(PLUGIN_MENU_GROUP_ORDER, [
-            "ai",
-            "record",
-            "reading",
-            "inspiration",
-            "advance",
-            "reflect",
-            "create",
-            "import-export",
-            "experience",
-            "other",
-        ]);
+        assert_eq!(
+            PLUGIN_MENU_GROUP_ORDER,
+            [
+                "ai",
+                "record",
+                "reading",
+                "inspiration",
+                "advance",
+                "reflect",
+                "create",
+                "import-export",
+                "experience",
+                "other",
+            ]
+        );
     }
 
     #[test]
@@ -411,12 +420,18 @@ mod tests {
             menu_item("create-1", Some("create")),
         ];
         let groups = group_plugin_menu_items(&items);
-        assert_eq!(groups.iter().map(|g| g.key).collect::<Vec<_>>(), vec![
-            "record", "reading", "advance", "create",
-        ]);
-        assert_eq!(groups[2].items.iter().map(|i| i.id.as_str()).collect::<Vec<_>>(), vec![
-            "advance-1", "advance-2",
-        ]);
+        assert_eq!(
+            groups.iter().map(|g| g.key).collect::<Vec<_>>(),
+            vec!["record", "reading", "advance", "create",]
+        );
+        assert_eq!(
+            groups[2]
+                .items
+                .iter()
+                .map(|i| i.id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["advance-1", "advance-2",]
+        );
     }
 
     #[test]
@@ -427,33 +442,75 @@ mod tests {
             menu_item("missing", None),
         ];
         let groups = group_plugin_menu_items(&items);
-        assert_eq!(groups.iter().map(|g| g.key).collect::<Vec<_>>(), vec![
-            "reflect", "other",
-        ]);
-        assert_eq!(groups[1].items.iter().map(|i| i.id.as_str()).collect::<Vec<_>>(), vec![
-            "unknown", "missing",
-        ]);
+        assert_eq!(
+            groups.iter().map(|g| g.key).collect::<Vec<_>>(),
+            vec!["reflect", "other",]
+        );
+        assert_eq!(
+            groups[1]
+                .items
+                .iter()
+                .map(|i| i.id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["unknown", "missing",]
+        );
     }
 
     #[test]
     fn previous_plugin_menu_group_keys_map_to_current_groups() {
         assert_eq!(normalize_plugin_menu_group(Some("agents")), "ai");
-        assert_eq!(normalize_plugin_menu_group(Some("capture-import")), "record");
-        assert_eq!(normalize_plugin_menu_group(Some("thinking-review")), "reflect");
-        assert_eq!(normalize_plugin_menu_group(Some("publish-export")), "import-export");
-        assert_eq!(normalize_plugin_menu_group(Some("editor-extensions")), "experience");
+        assert_eq!(
+            normalize_plugin_menu_group(Some("capture-import")),
+            "record"
+        );
+        assert_eq!(
+            normalize_plugin_menu_group(Some("thinking-review")),
+            "reflect"
+        );
+        assert_eq!(
+            normalize_plugin_menu_group(Some("publish-export")),
+            "import-export"
+        );
+        assert_eq!(
+            normalize_plugin_menu_group(Some("editor-extensions")),
+            "experience"
+        );
     }
 
     #[test]
     fn first_party_plugins_override_ambiguous_legacy_groups() {
-        assert_eq!(plugin_menu_group_for_plugin("notemd.claude-agent", Some("advance")), "ai");
-        assert_eq!(plugin_menu_group_for_plugin("notemd.memory", Some("reflect")), "ai");
-        assert_eq!(plugin_menu_group_for_plugin("notemd.openclaw-chat", Some("agents")), "advance");
-        assert_eq!(plugin_menu_group_for_plugin("notemd.idea-spark", Some("thinking")), "inspiration");
-        assert_eq!(plugin_menu_group_for_plugin("notemd.trace-source", Some("capture")), "reading");
-        assert_eq!(plugin_menu_group_for_plugin("notemd.power-mode", Some("editing")), "experience");
-        assert_eq!(plugin_menu_group_for_plugin("notemd.roam-import", Some("record")), "import-export");
-        assert_eq!(plugin_menu_group_for_plugin("third.party", Some("thinking")), "reflect");
+        assert_eq!(
+            plugin_menu_group_for_plugin("notemd.claude-agent", Some("advance")),
+            "ai"
+        );
+        assert_eq!(
+            plugin_menu_group_for_plugin("notemd.memory", Some("reflect")),
+            "ai"
+        );
+        assert_eq!(
+            plugin_menu_group_for_plugin("notemd.openclaw-chat", Some("agents")),
+            "advance"
+        );
+        assert_eq!(
+            plugin_menu_group_for_plugin("notemd.idea-spark", Some("thinking")),
+            "inspiration"
+        );
+        assert_eq!(
+            plugin_menu_group_for_plugin("notemd.trace-source", Some("capture")),
+            "reading"
+        );
+        assert_eq!(
+            plugin_menu_group_for_plugin("notemd.power-mode", Some("editing")),
+            "experience"
+        );
+        assert_eq!(
+            plugin_menu_group_for_plugin("notemd.roam-import", Some("record")),
+            "import-export"
+        );
+        assert_eq!(
+            plugin_menu_group_for_plugin("third.party", Some("thinking")),
+            "reflect"
+        );
     }
 
     #[test]
@@ -466,16 +523,31 @@ mod tests {
         ];
         let groups = group_plugin_menu_items(&items);
 
-        assert_eq!(groups.iter().map(|group| group.key).collect::<Vec<_>>(), vec![
-            "ai", "advance",
-        ]);
-        assert_eq!(groups[0].items.iter().map(|item| item.id.as_str()).collect::<Vec<_>>(), vec![
-            "plugin:notemd.memory:open",
-            "plugin:notemd.claude-agent:run",
-        ]);
-        assert_eq!(groups[1].items.iter().map(|item| item.id.as_str()).collect::<Vec<_>>(), vec![
-            "plugin:notemd.next:open",
-            "plugin:notemd.openclaw-chat:open",
-        ]);
+        assert_eq!(
+            groups.iter().map(|group| group.key).collect::<Vec<_>>(),
+            vec!["ai", "advance",]
+        );
+        assert_eq!(
+            groups[0]
+                .items
+                .iter()
+                .map(|item| item.id.as_str())
+                .collect::<Vec<_>>(),
+            vec![
+                "plugin:notemd.memory:open",
+                "plugin:notemd.claude-agent:run",
+            ]
+        );
+        assert_eq!(
+            groups[1]
+                .items
+                .iter()
+                .map(|item| item.id.as_str())
+                .collect::<Vec<_>>(),
+            vec![
+                "plugin:notemd.next:open",
+                "plugin:notemd.openclaw-chat:open",
+            ]
+        );
     }
 }

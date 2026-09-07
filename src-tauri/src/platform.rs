@@ -62,10 +62,25 @@ pub fn plugin_env_allowlist() -> &'static [&'static str] {
     #[cfg(windows)]
     {
         &[
-            "SystemRoot", "windir", "SystemDrive", "COMSPEC", "PATHEXT", "PATH",
-            "USERPROFILE", "HOMEDRIVE", "HOMEPATH", "APPDATA", "LOCALAPPDATA",
-            "PROGRAMDATA", "TEMP", "TMP", "NUMBER_OF_PROCESSORS",
-            "PROCESSOR_ARCHITECTURE", "LANG", "LC_ALL", "USERNAME",
+            "SystemRoot",
+            "windir",
+            "SystemDrive",
+            "COMSPEC",
+            "PATHEXT",
+            "PATH",
+            "USERPROFILE",
+            "HOMEDRIVE",
+            "HOMEPATH",
+            "APPDATA",
+            "LOCALAPPDATA",
+            "PROGRAMDATA",
+            "TEMP",
+            "TMP",
+            "NUMBER_OF_PROCESSORS",
+            "PROCESSOR_ARCHITECTURE",
+            "LANG",
+            "LC_ALL",
+            "USERNAME",
         ]
     }
     #[cfg(not(windows))]
@@ -208,11 +223,15 @@ pub mod ipc {
         use std::os::unix::fs::PermissionsExt;
         if path.exists() {
             match tokio::net::UnixStream::connect(path).await {
-                Ok(_) => return Err(io::Error::new(
-                    io::ErrorKind::AddrInUse,
-                    "another note.md instance is already serving MCP",
-                )),
-                Err(_) => { let _ = std::fs::remove_file(path); }
+                Ok(_) => {
+                    return Err(io::Error::new(
+                        io::ErrorKind::AddrInUse,
+                        "another note.md instance is already serving MCP",
+                    ))
+                }
+                Err(_) => {
+                    let _ = std::fs::remove_file(path);
+                }
             }
         }
         let l = tokio::net::UnixListener::bind(path)?;
@@ -353,7 +372,10 @@ pub mod ipc {
     #[cfg(windows)]
     async fn listen_at(name: &str) -> io::Result<Listener> {
         let first = create_owner_only_pipe(name, true)?;
-        Ok(Listener { name: name.to_string(), next: Some(first) })
+        Ok(Listener {
+            name: name.to_string(),
+            next: Some(first),
+        })
     }
 
     #[cfg(windows)]
@@ -364,7 +386,9 @@ pub mod ipc {
     /// `connect()`'s actual logic, name parameterized for the same reason as
     /// `listen_at`.
     #[cfg(windows)]
-    async fn connect_at(name: &str) -> io::Result<tokio::net::windows::named_pipe::NamedPipeClient> {
+    async fn connect_at(
+        name: &str,
+    ) -> io::Result<tokio::net::windows::named_pipe::NamedPipeClient> {
         use tokio::net::windows::named_pipe::ClientOptions;
         ClientOptions::new().open(name)
     }
@@ -396,13 +420,18 @@ pub mod ipc {
         /// 序列化它们的 `IPC_TEST_LOCK`。
         #[cfg(unix)]
         fn scratch_path(tag: &str) -> std::path::PathBuf {
-            std::env::temp_dir()
-                .join(format!("notemd-platform-ipc-test-{}-{tag}.sock", std::process::id()))
+            std::env::temp_dir().join(format!(
+                "notemd-platform-ipc-test-{}-{tag}.sock",
+                std::process::id()
+            ))
         }
 
         #[cfg(windows)]
         fn scratch_name(tag: &str) -> String {
-            format!(r"\\.\pipe\notemd-platform-ipc-test-{}-{tag}", std::process::id())
+            format!(
+                r"\\.\pipe\notemd-platform-ipc-test-{}-{tag}",
+                std::process::id()
+            )
         }
 
         /// 一个往返:listen → connect → 写一帧 → 读回来。
@@ -418,7 +447,9 @@ pub mod ipc {
                 let (r, mut w) = tokio::io::split(stream);
                 let mut lines = BufReader::new(r).lines();
                 let line = lines.next_line().await.unwrap().unwrap();
-                w.write_all(format!("echo:{line}\n").as_bytes()).await.unwrap();
+                w.write_all(format!("echo:{line}\n").as_bytes())
+                    .await
+                    .unwrap();
             });
             let stream = connect_at(&path).await.expect("connect");
             let (r, mut w) = tokio::io::split(stream);
@@ -443,7 +474,9 @@ pub mod ipc {
                 let (r, mut w) = tokio::io::split(stream);
                 let mut lines = BufReader::new(r).lines();
                 let line = lines.next_line().await.unwrap().unwrap();
-                w.write_all(format!("echo:{line}\n").as_bytes()).await.unwrap();
+                w.write_all(format!("echo:{line}\n").as_bytes())
+                    .await
+                    .unwrap();
             });
             let stream = connect_at(&name).await.expect("connect");
             let (r, mut w) = tokio::io::split(stream);
@@ -494,10 +527,15 @@ pub mod ipc {
             let path = scratch_path("owner-only-perms");
             let _ = std::fs::remove_file(&path);
             let _l = listen_at(&path).await.expect("listen");
-            let mode = std::fs::metadata(&path).expect("socket file must exist").permissions().mode();
+            let mode = std::fs::metadata(&path)
+                .expect("socket file must exist")
+                .permissions()
+                .mode();
             assert_eq!(
-                mode & 0o777, 0o600,
-                "socket file must be 0600 (owner read/write only), got {:o}", mode & 0o777
+                mode & 0o777,
+                0o600,
+                "socket file must be 0600 (owner read/write only), got {:o}",
+                mode & 0o777
             );
             let _ = std::fs::remove_file(&path);
         }
@@ -538,5 +576,4 @@ mod tests {
         let c = command("git");
         assert_eq!(c.get_program(), std::ffi::OsStr::new("git"));
     }
-
 }

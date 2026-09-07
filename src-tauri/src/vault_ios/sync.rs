@@ -1,10 +1,14 @@
-use std::path::Path;
 use git2::{
-    Repository, FetchOptions, PushOptions, RemoteCallbacks, Cred,
-    IndexAddOption, build::CheckoutBuilder,
+    build::CheckoutBuilder, Cred, FetchOptions, IndexAddOption, PushOptions, RemoteCallbacks,
+    Repository,
 };
+use std::path::Path;
 
-use super::{VaultError, VaultIosManager, conflict, sig::{author_sig, timestamp_compact}};
+use super::{
+    conflict,
+    sig::{author_sig, timestamp_compact},
+    VaultError, VaultIosManager,
+};
 
 #[derive(Debug)]
 pub enum SyncOutcome {
@@ -53,7 +57,8 @@ pub fn sync_once(
     {
         let mut fo = FetchOptions::new();
         fo.remote_callbacks(make_credentials_cb(pat));
-        repo.find_remote("origin")?.fetch(&[branch], Some(&mut fo), None)?;
+        repo.find_remote("origin")?
+            .fetch(&[branch], Some(&mut fo), None)?;
     }
 
     let dirty = has_workdir_changes(&repo)?;
@@ -160,8 +165,11 @@ pub fn sync_once(
         let mut po = PushOptions::new();
         po.remote_callbacks(make_credentials_cb(pat));
         let refspec = format!("refs/heads/{0}:refs/heads/{0}", branch);
-        repo.find_remote("origin")?.push(&[&refspec], Some(&mut po))?;
+        repo.find_remote("origin")?
+            .push(&[&refspec], Some(&mut po))?;
     }
 
-    Ok(SyncOutcome::Pushed { conflicts: conflicts_log })
+    Ok(SyncOutcome::Pushed {
+        conflicts: conflicts_log,
+    })
 }

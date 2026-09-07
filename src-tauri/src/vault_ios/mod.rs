@@ -9,13 +9,13 @@ use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Manager};
 
-pub mod path;
-pub mod list_dir;
-pub mod keychain;
-pub mod sig;
 pub mod clone;
-pub mod sync;
 pub mod conflict;
+pub mod keychain;
+pub mod list_dir;
+pub mod path;
+pub mod sig;
+pub mod sync;
 
 #[cfg(test)]
 mod tests;
@@ -34,7 +34,7 @@ pub enum SyncState {
 #[derive(Debug, Clone, Serialize)]
 pub struct VaultStatus {
     pub state: SyncState,
-    pub last_sync: Option<u64>,         // epoch ms
+    pub last_sync: Option<u64>, // epoch ms
     pub error_message: Option<String>,
     pub has_conflicts: bool,
     pub configured: bool,
@@ -90,7 +90,9 @@ impl From<git2::Error> for VaultError {
 }
 
 impl From<std::io::Error> for VaultError {
-    fn from(e: std::io::Error) -> Self { Self::FsError(e.to_string()) }
+    fn from(e: std::io::Error) -> Self {
+        Self::FsError(e.to_string())
+    }
 }
 
 pub struct VaultIosManager {
@@ -139,10 +141,7 @@ pub fn vault_status(app: AppHandle) -> VaultStatus {
 use tauri::Emitter;
 
 #[tauri::command]
-pub async fn vault_configure(
-    app: AppHandle,
-    cfg: VaultConfigure,
-) -> Result<(), String> {
+pub async fn vault_configure(app: AppHandle, cfg: VaultConfigure) -> Result<(), String> {
     use tauri_plugin_store::StoreExt;
     let mgr_state = app.state::<Arc<VaultIosManager>>();
     let mgr: Arc<VaultIosManager> = mgr_state.inner().clone();
@@ -152,7 +151,10 @@ pub async fn vault_configure(
         let _ = store.set("vault_ios.remote_url", serde_json::json!(&cfg.remote_url));
         let _ = store.set("vault_ios.branch", serde_json::json!(&cfg.branch));
         let _ = store.set("vault_ios.author_name", serde_json::json!(&cfg.author_name));
-        let _ = store.set("vault_ios.author_email", serde_json::json!(&cfg.author_email));
+        let _ = store.set(
+            "vault_ios.author_email",
+            serde_json::json!(&cfg.author_email),
+        );
         let _ = store.save();
     }
 
@@ -165,20 +167,17 @@ pub async fn vault_configure(
 
     let dest = path::vault_path(&app).map_err(|e| e.to_string())?;
     let app_for_progress = app.clone();
-    let clone_result = clone::clone_repo(
-        &cfg.remote_url,
-        &cfg.branch,
-        &cfg.pat,
-        &dest,
-        move |p| {
-            let _ = app_for_progress.emit("vault-clone-progress", serde_json::json!({
+    let clone_result = clone::clone_repo(&cfg.remote_url, &cfg.branch, &cfg.pat, &dest, move |p| {
+        let _ = app_for_progress.emit(
+            "vault-clone-progress",
+            serde_json::json!({
                 "stage": p.stage,
                 "received_objects": p.received_objects,
                 "total_objects": p.total_objects,
                 "bytes": p.bytes,
-            }));
-        },
-    );
+            }),
+        );
+    });
 
     match clone_result {
         Ok(()) => {
@@ -226,7 +225,9 @@ pub async fn vault_sync_now(app: AppHandle, pat: String) -> Result<VaultStatus, 
     let mgr_clone = Arc::clone(&mgr);
     let result = tokio::task::spawn_blocking(move || {
         sync::sync_once(&mgr_clone, &vault_dir, &branch, &remote_url, &pat)
-    }).await.map_err(|e| e.to_string())?;
+    })
+    .await
+    .map_err(|e| e.to_string())?;
 
     match result {
         Ok(_outcome) => {
@@ -284,17 +285,29 @@ pub fn init(app: &AppHandle) {
     let mgr = Arc::new(VaultIosManager::new());
 
     if let Ok(store) = app.store("settings.json") {
-        if let Some(url) = store.get("vault_ios.remote_url").and_then(|v| v.as_str().map(String::from)) {
+        if let Some(url) = store
+            .get("vault_ios.remote_url")
+            .and_then(|v| v.as_str().map(String::from))
+        {
             *mgr.remote_url.lock().unwrap() = Some(url);
             *mgr.state.lock().unwrap() = SyncState::Idle;
         }
-        if let Some(b) = store.get("vault_ios.branch").and_then(|v| v.as_str().map(String::from)) {
+        if let Some(b) = store
+            .get("vault_ios.branch")
+            .and_then(|v| v.as_str().map(String::from))
+        {
             *mgr.branch.lock().unwrap() = b;
         }
-        if let Some(n) = store.get("vault_ios.author_name").and_then(|v| v.as_str().map(String::from)) {
+        if let Some(n) = store
+            .get("vault_ios.author_name")
+            .and_then(|v| v.as_str().map(String::from))
+        {
             *mgr.author_name.lock().unwrap() = n;
         }
-        if let Some(e) = store.get("vault_ios.author_email").and_then(|v| v.as_str().map(String::from)) {
+        if let Some(e) = store
+            .get("vault_ios.author_email")
+            .and_then(|v| v.as_str().map(String::from))
+        {
             *mgr.author_email.lock().unwrap() = e;
         }
     }

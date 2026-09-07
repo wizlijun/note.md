@@ -265,7 +265,10 @@ fn broken_plugins_are_reported_by_management_without_polluting_other_json_comman
     install_invalid_cli_fixture(&home);
 
     let (version_code, version_stdout, version_stderr) = run_cli(&["--json", "version"], &home);
-    assert_eq!(version_code, 0, "stdout={version_stdout} stderr={version_stderr}");
+    assert_eq!(
+        version_code, 0,
+        "stdout={version_stdout} stderr={version_stderr}"
+    );
     assert!(version_stderr.trim().is_empty(), "stderr={version_stderr}");
     let version: serde_json::Value = serde_json::from_str(version_stdout.trim()).unwrap();
     assert_eq!(version["ok"], true);

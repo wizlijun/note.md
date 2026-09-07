@@ -246,7 +246,10 @@ fn parse_subcommand_args(
         } {
             let key = flag.long.trim_start_matches('-').to_string();
             if flags.contains_key(&key) {
-                return Err(format!("notemd: flag {} may only be specified once", flag.long));
+                return Err(format!(
+                    "notemd: flag {} may only be specified once",
+                    flag.long
+                ));
             }
             match flag.ty.as_str() {
                 "boolean" => {
@@ -259,7 +262,8 @@ fn parse_subcommand_args(
                     if remaining[i + 1].starts_with('-') {
                         return Err(format!(
                             "notemd: flag {} requires a value before '{}'",
-                            flag.long, remaining[i + 1]
+                            flag.long,
+                            remaining[i + 1]
                         ));
                     }
                     flags.insert(key, serde_json::Value::String(remaining[i + 1].clone()));
@@ -463,7 +467,11 @@ fn launch_tauri_headless(
         Ok(app) => app,
         Err(error) => {
             finished.store(true, Ordering::Release);
-            emit_cli_error(json, "startup_failed", &format!("CLI runtime failed to start: {error}"));
+            emit_cli_error(
+                json,
+                "startup_failed",
+                &format!("CLI runtime failed to start: {error}"),
+            );
             return 1;
         }
     };
@@ -624,18 +632,13 @@ mod tests {
             ty: "string".into(),
             help: None,
         });
-        let duplicate = parse_subcommand_args(
-            &s(&["draft.md", "--output", "a", "-o", "b"]),
-            &entry,
-        )
-        .unwrap_err();
+        let duplicate =
+            parse_subcommand_args(&s(&["draft.md", "--output", "a", "-o", "b"]), &entry)
+                .unwrap_err();
         assert!(duplicate.contains("may only be specified once"));
 
-        let missing = parse_subcommand_args(
-            &s(&["draft.md", "--output", "--update"]),
-            &entry,
-        )
-        .unwrap_err();
+        let missing =
+            parse_subcommand_args(&s(&["draft.md", "--output", "--update"]), &entry).unwrap_err();
         assert!(missing.contains("requires a value"));
     }
 

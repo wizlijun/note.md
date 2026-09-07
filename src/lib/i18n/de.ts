@@ -7,6 +7,7 @@ export const de: Record<keyof Messages, string> = {
   'common.close': 'Schließen',
   'common.dismiss': 'Verwerfen',
   'common.saveAs': 'Speichern unter…',
+  'frontmatter.metadata': 'Metadaten',
   'dialog.saveChanges.message': 'Möchten Sie die Änderungen an „{name}" speichern?',
   'dialog.saveChanges.info': 'Ihre Änderungen gehen verloren, wenn Sie nicht speichern.',
   'dialog.save': 'Speichern',
@@ -342,6 +343,7 @@ export const de: Record<keyof Messages, string> = {
   // Empty state
   'emptyState.hint': '.md-Datei ablegen oder',
   'emptyState.new': 'Neu (⌘N)',
+  'canvas.new': 'Neue Leinwand',
   'emptyState.open': 'Öffnen… (⌘O)',
 
   // Toast
@@ -446,6 +448,12 @@ export const de: Record<keyof Messages, string> = {
   'agentPicker.notInstalled': 'nicht installiert',
   'agentPicker.broken': 'vorhanden, startet aber nicht',
   'agent.model': 'Modell {model}',
+  'toc.title': 'Inhaltsverzeichnis',
+  'toc.hide': 'Inhaltsverzeichnis ausblenden',
+  'toc.noDocument': 'Öffnen Sie einen Markdown-Artikel, um das Inhaltsverzeichnis anzuzeigen',
+  'toc.notApplicable': 'Diese Datei hat kein Inhaltsverzeichnis',
+  'toc.empty': 'Dieser Artikel hat keine Überschriften',
+  'toc.jumpTo': 'Zu Zeile {line} springen: {title}',
   'outline.title': 'Randnotizen',
   'outline.editNote': 'Notiz bearbeiten',
   'outline.openMarkdown': 'Als Markdown öffnen',

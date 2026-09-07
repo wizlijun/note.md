@@ -22,7 +22,9 @@ pub(crate) fn vault_id_path(vault_root: &Path) -> PathBuf {
 /// 让一次误写永久污染 vault 身份。
 fn is_uuid_v4(s: &str) -> bool {
     let b = s.as_bytes();
-    if b.len() != 36 { return false; }
+    if b.len() != 36 {
+        return false;
+    }
     for (i, c) in b.iter().enumerate() {
         let ok = match i {
             8 | 13 | 18 | 23 => *c == b'-',
@@ -30,7 +32,9 @@ fn is_uuid_v4(s: &str) -> bool {
             19 => matches!(*c, b'8' | b'9' | b'a' | b'b' | b'A' | b'B'),
             _ => c.is_ascii_hexdigit(),
         };
-        if !ok { return false; }
+        if !ok {
+            return false;
+        }
     }
     true
 }
@@ -42,7 +46,14 @@ fn generate() -> String {
     bytes[6] = (bytes[6] & 0x0f) | 0x40; // version 4
     bytes[8] = (bytes[8] & 0x3f) | 0x80; // variant 10
     let h: String = bytes.iter().map(|b| format!("{b:02x}")).collect();
-    format!("{}-{}-{}-{}-{}", &h[0..8], &h[8..12], &h[12..16], &h[16..20], &h[20..32])
+    format!(
+        "{}-{}-{}-{}-{}",
+        &h[0..8],
+        &h[8..12],
+        &h[12..16],
+        &h[16..20],
+        &h[20..32]
+    )
 }
 
 /// 读取,不存在或不合法则创建。幂等。

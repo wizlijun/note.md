@@ -69,7 +69,13 @@ impl Registry {
         }
         self.next_id += 1;
         let id = self.next_id;
-        self.items.push(Notification { id, title, action, source, severity });
+        self.items.push(Notification {
+            id,
+            title,
+            action,
+            source,
+            severity,
+        });
         (id, true)
     }
     pub fn take(&mut self, id: u64) -> Option<Notification> {
@@ -78,7 +84,11 @@ impl Registry {
     }
     /// 按 `source` key 移除持续告警。返回是否移除了某项。
     pub fn dismiss_source(&mut self, key: &str) -> bool {
-        if let Some(i) = self.items.iter().position(|x| x.source.as_deref() == Some(key)) {
+        if let Some(i) = self
+            .items
+            .iter()
+            .position(|x| x.source.as_deref() == Some(key))
+        {
             self.items.remove(i);
             true
         } else {
@@ -119,7 +129,10 @@ pub fn push(
     source: Option<String>,
     severity: Severity,
 ) -> u64 {
-    let (id, changed) = REGISTRY.lock().unwrap().push(title.clone(), action, source, severity);
+    let (id, changed) = REGISTRY
+        .lock()
+        .unwrap()
+        .push(title.clone(), action, source, severity);
     if changed {
         let level = match severity {
             Severity::Warn => "warn",
@@ -176,8 +189,12 @@ pub fn parse_notify_params(
         .and_then(|t| t.as_str())
         .filter(|s| !s.trim().is_empty())
         .ok_or("host.notify needs a non-empty 'title'")?;
-    let action = v.get("action").cloned().ok_or("host.notify needs an 'action'")?;
-    let action: NotificationAction = serde_json::from_value(action).map_err(|e| format!("bad action: {e}"))?;
+    let action = v
+        .get("action")
+        .cloned()
+        .ok_or("host.notify needs an 'action'")?;
+    let action: NotificationAction =
+        serde_json::from_value(action).map_err(|e| format!("bad action: {e}"))?;
     let source = v
         .get("source")
         .and_then(|s| s.as_str())
@@ -264,7 +281,12 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(title, "《书》AI 摘要已生成");
-        assert_eq!(action, NotificationAction::OpenPath { path: "/v/ssot/ebooks/2026-08/书/2026-08-04-summary.md".into() });
+        assert_eq!(
+            action,
+            NotificationAction::OpenPath {
+                path: "/v/ssot/ebooks/2026-08/书/2026-08-04-summary.md".into()
+            }
+        );
         assert_eq!(source, None);
         assert_eq!(severity, Severity::Info);
     }
@@ -276,7 +298,13 @@ mod tests {
             "action": { "kind": "open_plugin_window", "plugin_id": "notemd.claude-agent", "window": "main" }
         }))
         .unwrap();
-        assert_eq!(action, NotificationAction::OpenPluginWindow { plugin_id: "notemd.claude-agent".into(), window: "main".into() });
+        assert_eq!(
+            action,
+            NotificationAction::OpenPluginWindow {
+                plugin_id: "notemd.claude-agent".into(),
+                window: "main".into()
+            }
+        );
     }
 
     #[test]
@@ -299,14 +327,25 @@ mod tests {
             "action": { "kind": "open_logs", "filter": "git-sync" }
         }))
         .unwrap();
-        assert_eq!(action, NotificationAction::OpenLogs { filter: Some("git-sync".into()) });
+        assert_eq!(
+            action,
+            NotificationAction::OpenLogs {
+                filter: Some("git-sync".into())
+            }
+        );
     }
 
     #[test]
     fn parse_rejects_missing_title_or_bad_action() {
-        assert!(parse_notify_params(&serde_json::json!({ "action": { "kind": "open_path", "path": "/x" } })).is_err());
+        assert!(parse_notify_params(
+            &serde_json::json!({ "action": { "kind": "open_path", "path": "/x" } })
+        )
+        .is_err());
         assert!(parse_notify_params(&serde_json::json!({ "title": "t" })).is_err());
-        assert!(parse_notify_params(&serde_json::json!({ "title": "t", "action": { "kind": "nope" } })).is_err());
+        assert!(parse_notify_params(
+            &serde_json::json!({ "title": "t", "action": { "kind": "nope" } })
+        )
+        .is_err());
     }
 
     #[test]
@@ -316,7 +355,12 @@ mod tests {
         let _g = crate::log_bus::test_guard();
         clear_all();
         crate::log_bus::clear();
-        push("《书》摘要已生成".into(), oc("/v/s.md"), None, Severity::Info);
+        push(
+            "《书》摘要已生成".into(),
+            oc("/v/s.md"),
+            None,
+            Severity::Info,
+        );
         let last = crate::log_bus::snapshot()
             .into_iter()
             .rev()

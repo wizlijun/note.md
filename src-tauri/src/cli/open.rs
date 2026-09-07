@@ -37,7 +37,9 @@ pub fn looks_like_path(token: &str) -> bool {
     if token == "." || token == ".." || token.starts_with('~') {
         return true;
     }
-    token.chars().any(|c| std::path::is_separator(c) || c == '.')
+    token
+        .chars()
+        .any(|c| std::path::is_separator(c) || c == '.')
 }
 
 /// Last routing step: turn tokens that matched no command into an open request.
@@ -66,7 +68,11 @@ pub fn route_unmatched(rest: &[String]) -> Option<Route> {
 fn expand_tilde(token: &str) -> PathBuf {
     if token == "~" || token.starts_with("~/") {
         if let Some(home) = dirs::home_dir() {
-            return if token == "~" { home } else { home.join(&token[2..]) };
+            return if token == "~" {
+                home
+            } else {
+                home.join(&token[2..])
+            };
         }
     }
     PathBuf::from(token)
@@ -100,10 +106,13 @@ pub fn run(tokens: &[String], parsed: &Parsed) -> ExitCode {
         Ok(t) => t,
         Err(msg) => {
             if parsed.globals.json {
-                println!("{}", json!({
-                    "ok": false,
-                    "error": { "code": "invalid_path", "message": msg.strip_prefix("notemd: ").unwrap_or(&msg) }
-                }));
+                println!(
+                    "{}",
+                    json!({
+                        "ok": false,
+                        "error": { "code": "invalid_path", "message": msg.strip_prefix("notemd: ").unwrap_or(&msg) }
+                    })
+                );
             } else {
                 eprintln!("{msg}");
             }
@@ -113,10 +122,13 @@ pub fn run(tokens: &[String], parsed: &Parsed) -> ExitCode {
 
     if let Err(msg) = launch(&targets) {
         if parsed.globals.json {
-            println!("{}", json!({
-                "ok": false,
-                "error": { "code": "launch_failed", "message": msg }
-            }));
+            println!(
+                "{}",
+                json!({
+                    "ok": false,
+                    "error": { "code": "launch_failed", "message": msg }
+                })
+            );
         } else {
             eprintln!("notemd: {msg}");
         }
@@ -141,14 +153,16 @@ pub fn run(tokens: &[String], parsed: &Parsed) -> ExitCode {
 /// running, which is the common case here. A direct launch works in both
 /// states because single-instance forwarding handles the running one.
 fn launch(targets: &[PathBuf]) -> Result<(), String> {
-    let exe = std::env::current_exe()
-        .map_err(|e| format!("cannot locate the note.md binary: {e}"))?;
+    let exe =
+        std::env::current_exe().map_err(|e| format!("cannot locate the note.md binary: {e}"))?;
     let mut cmd = Command::new(&exe);
     cmd.arg(GUI_FLAG);
     cmd.args(targets);
     // The GUI's stdio is not this terminal's business — and inheriting it would
     // dribble app logs into the user's shell long after `notemd .` returned.
-    cmd.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
+    cmd.stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
     // Its own process group, so a Ctrl-C in the launching terminal doesn't
     // reach the window we just opened.
     #[cfg(unix)]
@@ -197,14 +211,18 @@ mod tests {
     #[test]
     fn route_unmatched_takes_dot() {
         let r = route_unmatched(&s(&["."])).expect("`.` must route to open");
-        let Route::Builtin(Builtin::Open(t)) = r else { panic!("expected Open") };
+        let Route::Builtin(Builtin::Open(t)) = r else {
+            panic!("expected Open")
+        };
         assert_eq!(t, s(&["."]));
     }
 
     #[test]
     fn route_unmatched_takes_several_files() {
         let r = route_unmatched(&s(&["a.md", "b.md"])).expect("both are paths");
-        let Route::Builtin(Builtin::Open(t)) = r else { panic!("expected Open") };
+        let Route::Builtin(Builtin::Open(t)) = r else {
+            panic!("expected Open")
+        };
         assert_eq!(t, s(&["a.md", "b.md"]));
     }
 

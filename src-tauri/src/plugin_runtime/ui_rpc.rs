@@ -122,7 +122,9 @@ static PLUGIN_SETTINGS_WRITE_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex:
 
 fn grant_path(plugin_id: &str, path: &Path) {
     if let Ok(mut m) = GRANTED_PATHS.lock() {
-        m.entry(plugin_id.to_string()).or_default().insert(path.to_path_buf());
+        m.entry(plugin_id.to_string())
+            .or_default()
+            .insert(path.to_path_buf());
     }
 }
 
@@ -199,7 +201,11 @@ pub trait HostServices: Send + Sync {
     /// AI agent 中转：`command` 为 `"run-task"`/`"run-status"`,`context`/结果原样
     /// 透传给 `notemd.claude-agent` 插件。默认不可用；生产实现只在
     /// `TauriServices`(Task 4),经其对内部插件的直调完成中转。
-    fn agent_execute(&self, _command: &str, _context: serde_json::Value) -> Result<serde_json::Value, String> {
+    fn agent_execute(
+        &self,
+        _command: &str,
+        _context: serde_json::Value,
+    ) -> Result<serde_json::Value, String> {
         Err("agent_unavailable: no relay on this channel".into())
     }
     /// Every installed agent, with the harness behind it. Powers the "by X ▾"
@@ -221,7 +227,10 @@ pub trait HostServices: Send + Sync {
     /// 按 `source` key 撤下自己此前推入的 sticky 通知(`{ source }`)。默认 no-op;
     /// 生产实现在 `TauriServices`,落到 `notifications::dismiss_source`。归入 `notify`
     /// capability,无需新增权限。
-    fn dismiss_notification(&self, _params: &serde_json::Value) -> Result<serde_json::Value, String> {
+    fn dismiss_notification(
+        &self,
+        _params: &serde_json::Value,
+    ) -> Result<serde_json::Value, String> {
         Ok(serde_json::json!({ "ok": true }))
     }
 }
@@ -361,8 +370,7 @@ pub async fn dispatch<R: tauri::Runtime>(
     // The CDR repository is a UI-only, host-owned durable store. Its root and
     // plugin scope come from the live AppHandle and authenticated plugin://
     // Origin respectively; neither can be supplied or spoofed in params.
-    if req.method == "host.cdr.repository.v1.load"
-        || req.method == "host.cdr.repository.v1.commit"
+    if req.method == "host.cdr.repository.v1.load" || req.method == "host.cdr.repository.v1.commit"
     {
         if let Some(denial) = capability_denial(&req.method, capabilities, req.id) {
             return denial;
@@ -482,7 +490,8 @@ async fn forward_to_plugin<R: tauri::Runtime>(
 ) -> Result<serde_json::Value, String> {
     let forwarded = method.strip_prefix("plugin.").unwrap_or(method);
     let lc = super::commands::get_or_register(app, plugin_id)?;
-    lc.ensure_active(&super::lifecycle::Trigger::Startup).await?;
+    lc.ensure_active(&super::lifecycle::Trigger::Startup)
+        .await?;
     lc.ui_request(forwarded, params).await
 }
 
@@ -544,11 +553,11 @@ pub async fn dispatch_with(
         "host.vault.remove" => vault_remove(services, &req.params),
         "host.vault.rename" => vault_rename(services, &req.params),
         "host.editor.open" => editor_open(services, &req.params),
-        "host.agent.run"    => services.agent_execute("run-task", req.params.clone()),
+        "host.agent.run" => services.agent_execute("run-task", req.params.clone()),
         "host.agent.status" => services.agent_execute("run-status", req.params.clone()),
         "host.agent.providers" => services.agent_providers(),
         "host.agent.limits" => services.agent_limits(),
-        "host.notify"       => notify_push(services, &req.params),
+        "host.notify" => notify_push(services, &req.params),
         "host.dismissNotification" => services.dismiss_notification(&req.params),
         method if method.starts_with("host.memory.v2.") => {
             if plugin_id != "notemd.memory" {
@@ -620,14 +629,19 @@ fn dialog_open(
         directory: opt_bool(params, "directory"),
         multiple: opt_bool(params, "multiple"),
     };
-    let picked = services.pick_paths(&opts).map_err(|e| format!("io: dialog: {e}"))?;
+    let picked = services
+        .pick_paths(&opts)
+        .map_err(|e| format!("io: dialog: {e}"))?;
     Ok(match picked {
         None => serde_json::json!({ "paths": null }),
         Some(paths) => {
             for p in &paths {
                 grant_path(plugin_id, p);
             }
-            let strs: Vec<String> = paths.iter().map(|p| p.to_string_lossy().into_owned()).collect();
+            let strs: Vec<String> = paths
+                .iter()
+                .map(|p| p.to_string_lossy().into_owned())
+                .collect();
             serde_json::json!({ "paths": strs })
         }
     })
@@ -645,7 +659,9 @@ fn dialog_save(
         default_filename: opt_str(params, "default_filename"),
         filters: parse_filters(params),
     };
-    let picked = services.pick_save(&opts).map_err(|e| format!("io: dialog: {e}"))?;
+    let picked = services
+        .pick_save(&opts)
+        .map_err(|e| format!("io: dialog: {e}"))?;
     Ok(match picked {
         None => serde_json::json!({ "path": null }),
         Some(path) => {
@@ -695,7 +711,9 @@ fn clipboard_write(
     params: &serde_json::Value,
 ) -> Result<serde_json::Value, String> {
     let text = req_str(params, "text")?;
-    services.clipboard_write(text).map_err(|e| format!("io: clipboard: {e}"))?;
+    services
+        .clipboard_write(text)
+        .map_err(|e| format!("io: clipboard: {e}"))?;
     Ok(serde_json::json!({ "ok": true }))
 }
 
@@ -757,7 +775,10 @@ fn sanitize_rel(rel_raw: &str) -> Result<PathBuf, String> {
 /// (follow the link, act on its content) but wrong for an operation that must
 /// act on the directory ENTRY itself (delete/rename a link without touching
 /// whatever it points to) — those callers must use [`vault_leaf_path`] instead.
-fn resolve_in_vault(services: &dyn HostServices, params: &serde_json::Value) -> Result<PathBuf, String> {
+fn resolve_in_vault(
+    services: &dyn HostServices,
+    params: &serde_json::Value,
+) -> Result<PathBuf, String> {
     let root = services
         .vault_root()
         .ok_or_else(|| "vault_required: configure a Vault first".to_string())?;
@@ -785,7 +806,10 @@ fn resolve_in_vault(services: &dyn HostServices, params: &serde_json::Value) -> 
 /// re-join the same sanitized relative path onto the (uncanonicalized) vault
 /// root, so the final component is never resolved: `symlink_metadata` /
 /// `remove_file` / `rename` on the result see the entry itself.
-fn vault_leaf_path(services: &dyn HostServices, params: &serde_json::Value) -> Result<PathBuf, String> {
+fn vault_leaf_path(
+    services: &dyn HostServices,
+    params: &serde_json::Value,
+) -> Result<PathBuf, String> {
     resolve_in_vault(services, params)?;
     let root = services
         .vault_root()
@@ -844,7 +868,9 @@ fn resolve_reminder_path(services: &dyn HostServices, raw: &str) -> Result<PathB
     if p.as_os_str().is_empty() {
         return Err("io: path must not be empty".into());
     }
-    if p.components().any(|c| matches!(c, std::path::Component::ParentDir)) {
+    if p.components()
+        .any(|c| matches!(c, std::path::Component::ParentDir))
+    {
         return Err("io: path escapes the vault".into());
     }
     let target = if p.is_absolute() {
@@ -877,7 +903,10 @@ pub(crate) fn notify_push(
 }
 
 /// `{ path } → { content }` (UTF-8, `MAX_TEXT_BYTES` cap).
-pub(crate) fn vault_read(services: &dyn HostServices, params: &serde_json::Value) -> Result<serde_json::Value, String> {
+pub(crate) fn vault_read(
+    services: &dyn HostServices,
+    params: &serde_json::Value,
+) -> Result<serde_json::Value, String> {
     let p = resolve_in_vault(services, params)?;
     Ok(serde_json::json!({ "content": read_text_capped(&p)? }))
 }
@@ -886,7 +915,10 @@ pub(crate) fn vault_read(services: &dyn HostServices, params: &serde_json::Value
 /// capped at `MAX_VAULT_BYTES` (10 MB, spec §3.3 — deliberately far below the
 /// `MAX_TEXT_BYTES` import cap; see that constant). Used by isolated plugin
 /// webviews (zero Tauri IPC) to render vault-hosted images.
-pub(crate) fn vault_read_bytes(services: &dyn HostServices, params: &serde_json::Value) -> Result<serde_json::Value, String> {
+pub(crate) fn vault_read_bytes(
+    services: &dyn HostServices,
+    params: &serde_json::Value,
+) -> Result<serde_json::Value, String> {
     let p = resolve_in_vault(services, params)?;
     let meta = std::fs::metadata(&p).map_err(|e| format!("io: {e}"))?;
     if meta.len() > MAX_VAULT_BYTES {
@@ -898,7 +930,10 @@ pub(crate) fn vault_read_bytes(services: &dyn HostServices, params: &serde_json:
 
 /// `{ path, content } → { ok: true }`; creates parent directories. Content is
 /// capped at the same `MAX_TEXT_BYTES` as reads (UTF-8 byte length).
-pub(crate) fn vault_write(services: &dyn HostServices, params: &serde_json::Value) -> Result<serde_json::Value, String> {
+pub(crate) fn vault_write(
+    services: &dyn HostServices,
+    params: &serde_json::Value,
+) -> Result<serde_json::Value, String> {
     let p = resolve_in_vault(services, params)?;
     let content = req_str(params, "content")?;
     if content.len() as u64 > MAX_TEXT_BYTES {
@@ -924,13 +959,19 @@ pub(crate) fn vault_write(services: &dyn HostServices, params: &serde_json::Valu
 }
 
 /// `{ path } → { exists: bool }`.
-pub(crate) fn vault_exists(services: &dyn HostServices, params: &serde_json::Value) -> Result<serde_json::Value, String> {
+pub(crate) fn vault_exists(
+    services: &dyn HostServices,
+    params: &serde_json::Value,
+) -> Result<serde_json::Value, String> {
     let p = resolve_in_vault(services, params)?;
     Ok(serde_json::json!({ "exists": p.exists() }))
 }
 
 /// `{ path } → { entries: [{ name, is_dir }] }`, sorted by name.
-pub(crate) fn vault_list(services: &dyn HostServices, params: &serde_json::Value) -> Result<serde_json::Value, String> {
+pub(crate) fn vault_list(
+    services: &dyn HostServices,
+    params: &serde_json::Value,
+) -> Result<serde_json::Value, String> {
     let p = resolve_in_vault(services, params)?;
     let mut entries: Vec<(String, bool)> = Vec::new();
     for entry in std::fs::read_dir(&p).map_err(|e| format!("io: {e}"))? {
@@ -949,7 +990,10 @@ pub(crate) fn vault_list(services: &dyn HostServices, params: &serde_json::Value
 }
 
 /// `{ path } → { ok: true }` (mkdir -p).
-pub(crate) fn vault_mkdir(services: &dyn HostServices, params: &serde_json::Value) -> Result<serde_json::Value, String> {
+pub(crate) fn vault_mkdir(
+    services: &dyn HostServices,
+    params: &serde_json::Value,
+) -> Result<serde_json::Value, String> {
     let p = resolve_in_vault(services, params)?;
     std::fs::create_dir_all(&p).map_err(|e| format!("io: {e}"))?;
     Ok(serde_json::json!({ "ok": true }))
@@ -965,7 +1009,10 @@ pub(crate) fn vault_mkdir(services: &dyn HostServices, params: &serde_json::Valu
 /// instead of following it, so a symlink is caught by neither the "already
 /// gone" nor the "is a directory" arm below and falls straight to
 /// `remove_file`, which likewise removes the link entry, not its target.
-pub(crate) fn vault_remove(services: &dyn HostServices, params: &serde_json::Value) -> Result<serde_json::Value, String> {
+pub(crate) fn vault_remove(
+    services: &dyn HostServices,
+    params: &serde_json::Value,
+) -> Result<serde_json::Value, String> {
     let p = vault_leaf_path(services, params)?;
     match std::fs::symlink_metadata(&p) {
         Err(_) => return Ok(serde_json::json!({ "ok": true })), // 已不存在
@@ -1001,9 +1048,18 @@ pub(crate) fn vault_remove(services: &dyn HostServices, params: &serde_json::Val
 /// commonly: `from` doesn't exist), the placeholder is explicitly removed
 /// before the error is returned, so a failed rename never leaves behind a
 /// 0-byte file the user never created.
-pub(crate) fn vault_rename(services: &dyn HostServices, params: &serde_json::Value) -> Result<serde_json::Value, String> {
-    let from = vault_leaf_path(services, &serde_json::json!({ "path": req_str(params, "from")? }))?;
-    let to = vault_leaf_path(services, &serde_json::json!({ "path": req_str(params, "to")? }))?;
+pub(crate) fn vault_rename(
+    services: &dyn HostServices,
+    params: &serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    let from = vault_leaf_path(
+        services,
+        &serde_json::json!({ "path": req_str(params, "from")? }),
+    )?;
+    let to = vault_leaf_path(
+        services,
+        &serde_json::json!({ "path": req_str(params, "to")? }),
+    )?;
     if let Some(parent) = to.parent() {
         std::fs::create_dir_all(parent).map_err(|e| format!("io: {e}"))?;
     }
@@ -1175,7 +1231,10 @@ fn plugin_settings_set<R: tauri::Runtime>(
     Ok(serde_json::json!({ "ok": true }))
 }
 
-pub(crate) fn editor_open(services: &dyn HostServices, params: &serde_json::Value) -> Result<serde_json::Value, String> {
+pub(crate) fn editor_open(
+    services: &dyn HostServices,
+    params: &serde_json::Value,
+) -> Result<serde_json::Value, String> {
     let p = resolve_in_vault(services, params)?;
     services.open_in_editor(&p)?;
     Ok(serde_json::json!({ "ok": true }))
@@ -1278,7 +1337,10 @@ impl<R: tauri::Runtime> HostServices for TauriServices<R> {
 
     fn clipboard_write(&self, text: &str) -> Result<(), String> {
         use tauri_plugin_clipboard_manager::ClipboardExt;
-        self.app.clipboard().write_text(text).map_err(|e| e.to_string())
+        self.app
+            .clipboard()
+            .write_text(text)
+            .map_err(|e| e.to_string())
     }
 
     fn location_get(&self) -> Result<serde_json::Value, String> {
@@ -1318,7 +1380,11 @@ impl<R: tauri::Runtime> HostServices for TauriServices<R> {
     /// 超时(见 `process::PluginProcess::request`,只有插件彻底不出声才触发)、
     /// 插件进程死亡时的 pending drain、以及 future panic 时的 tx 落地(下面的
     /// Disconnected 分支)兜住了全部出口。
-    fn agent_execute(&self, command: &str, context: serde_json::Value) -> Result<serde_json::Value, String> {
+    fn agent_execute(
+        &self,
+        command: &str,
+        context: serde_json::Value,
+    ) -> Result<serde_json::Value, String> {
         // Which plugin serves this call is a CHOICE now, not a constant: an
         // explicit `harness` parameter wins, else the vault's
         // `agentDefaultProvider`, else claude-agent (see agent_provider).
@@ -1328,14 +1394,10 @@ impl<R: tauri::Runtime> HostServices for TauriServices<R> {
             .get("harness")
             .and_then(|v| v.as_str())
             .map(str::to_string);
-        let installed =
-            super::agent_provider::providers(&super::commands::installed_manifests());
+        let installed = super::agent_provider::providers(&super::commands::installed_manifests());
         let configured = super::agent_provider::configured_default(self.vault_root().as_deref());
-        let agent_plugin = super::agent_provider::resolve(
-            requested.as_deref(),
-            configured.as_deref(),
-            &installed,
-        );
+        let agent_plugin =
+            super::agent_provider::resolve(requested.as_deref(), configured.as_deref(), &installed);
         agent_execute_on(&self.app, &agent_plugin, command, context)
     }
 
@@ -1422,8 +1484,15 @@ impl<R: tauri::Runtime> HostServices for TauriServices<R> {
         Ok(serde_json::json!({ "ok": true, "id": id }))
     }
 
-    fn dismiss_notification(&self, params: &serde_json::Value) -> Result<serde_json::Value, String> {
-        if let Some(s) = params.get("source").and_then(|v| v.as_str()).filter(|s| !s.trim().is_empty()) {
+    fn dismiss_notification(
+        &self,
+        params: &serde_json::Value,
+    ) -> Result<serde_json::Value, String> {
+        if let Some(s) = params
+            .get("source")
+            .and_then(|v| v.as_str())
+            .filter(|s| !s.trim().is_empty())
+        {
             crate::notifications::dismiss_source(s);
         }
         Ok(serde_json::json!({ "ok": true }))
@@ -1524,8 +1593,15 @@ mod tests {
             self.opened.lock().unwrap().push(abs_path.to_path_buf());
             Ok(())
         }
-        fn agent_execute(&self, command: &str, context: serde_json::Value) -> Result<serde_json::Value, String> {
-            self.agent_calls.lock().unwrap().push((command.to_string(), context));
+        fn agent_execute(
+            &self,
+            command: &str,
+            context: serde_json::Value,
+        ) -> Result<serde_json::Value, String> {
+            self.agent_calls
+                .lock()
+                .unwrap()
+                .push((command.to_string(), context));
             Ok(serde_json::json!({ "run_id": "r-test" }))
         }
         fn agent_limits(&self) -> Result<serde_json::Value, String> {
@@ -1535,7 +1611,10 @@ mod tests {
             }))
         }
         fn notify_user(&self, params: &serde_json::Value) -> Result<serde_json::Value, String> {
-            self.agent_calls.lock().unwrap().push(("notify".into(), params.clone()));
+            self.agent_calls
+                .lock()
+                .unwrap()
+                .push(("notify".into(), params.clone()));
             Ok(serde_json::json!({ "ok": true, "id": 1 }))
         }
     }
@@ -1564,8 +1643,15 @@ mod tests {
     ) -> proto::RpcResponse {
         let dir = tempfile::tempdir().unwrap();
         let caps: Vec<String> = caps.iter().map(|s| s.to_string()).collect();
-        dispatch_with(services, plugin_id, &caps, req(method, params), dir.path(), &noop_emitter())
-            .await
+        dispatch_with(
+            services,
+            plugin_id,
+            &caps,
+            req(method, params),
+            dir.path(),
+            &noop_emitter(),
+        )
+        .await
     }
 
     async fn run(
@@ -1582,7 +1668,13 @@ mod tests {
     #[tokio::test]
     async fn unauthorized_method_returns_32001() {
         let s = StubServices::default();
-        let r = run(&s, &[], "host.vault.read", serde_json::json!({"path": "a.md"})).await;
+        let r = run(
+            &s,
+            &[],
+            "host.vault.read",
+            serde_json::json!({"path": "a.md"}),
+        )
+        .await;
         let e = r.error.unwrap();
         assert_eq!(e.code, proto::ERR_CAPABILITY_DENIED);
         assert!(e.message.contains("vault.read"), "{}", e.message);
@@ -1796,7 +1888,10 @@ mod tests {
             "hosting",       // NOT "host." — must not be mistaken for a host method
             "",              // empty is not a host method → forwards (plugin errors)
         ] {
-            assert!(!is_host_method(m), "{m:?} must forward to the plugin process");
+            assert!(
+                !is_host_method(m),
+                "{m:?} must forward to the plugin process"
+            );
         }
     }
 
@@ -1810,7 +1905,7 @@ mod tests {
         assert_eq!(strip("plugin.connect"), "connect");
         assert_eq!(strip("plugin.pair_create"), "pair_create");
         assert_eq!(strip("connect"), "connect"); // bare → verbatim
-        // Only a LEADING `plugin.` is stripped; an embedded one is untouched.
+                                                 // Only a LEADING `plugin.` is stripped; an embedded one is untouched.
         assert_eq!(strip("do.plugin.thing"), "do.plugin.thing");
     }
 
@@ -1827,7 +1922,10 @@ mod tests {
             &s,
             "test.plugin",
             &["toast".to_string()],
-            req("host.toast", serde_json::json!({"level": "info", "message": "hi"})),
+            req(
+                "host.toast",
+                serde_json::json!({"level": "info", "message": "hi"}),
+            ),
             dir.path(),
             &emitter,
         )
@@ -1844,10 +1942,19 @@ mod tests {
     #[tokio::test]
     async fn vault_write_read_exists_list_mkdir_round_trip() {
         let dir = tempfile::tempdir().unwrap();
-        let s = StubServices { vault: Some(dir.path().to_path_buf()), ..Default::default() };
+        let s = StubServices {
+            vault: Some(dir.path().to_path_buf()),
+            ..Default::default()
+        };
 
         // mkdir sub/
-        let r = run(&s, &["vault.write"], "host.vault.mkdir", serde_json::json!({"path": "sub"})).await;
+        let r = run(
+            &s,
+            &["vault.write"],
+            "host.vault.mkdir",
+            serde_json::json!({"path": "sub"}),
+        )
+        .await;
         assert!(r.error.is_none(), "{:?}", r.error);
         assert!(dir.path().join("sub").is_dir());
 
@@ -1866,22 +1973,58 @@ mod tests {
         );
 
         // read it back
-        let r = run(&s, &["vault.read"], "host.vault.read", serde_json::json!({"path": "sub/deep/a.md"})).await;
+        let r = run(
+            &s,
+            &["vault.read"],
+            "host.vault.read",
+            serde_json::json!({"path": "sub/deep/a.md"}),
+        )
+        .await;
         assert_eq!(r.result.unwrap()["content"], "hello");
 
         // exists true / false
-        let r = run(&s, &["vault.read"], "host.vault.exists", serde_json::json!({"path": "sub/deep/a.md"})).await;
+        let r = run(
+            &s,
+            &["vault.read"],
+            "host.vault.exists",
+            serde_json::json!({"path": "sub/deep/a.md"}),
+        )
+        .await;
         assert_eq!(r.result.unwrap()["exists"], true);
-        let r = run(&s, &["vault.read"], "host.vault.exists", serde_json::json!({"path": "nope.md"})).await;
+        let r = run(
+            &s,
+            &["vault.read"],
+            "host.vault.exists",
+            serde_json::json!({"path": "nope.md"}),
+        )
+        .await;
         assert_eq!(r.result.unwrap()["exists"], false);
 
         // list sub → entries with is_dir flags
-        let r = run(&s, &["vault.read"], "host.vault.list", serde_json::json!({"path": "sub"})).await;
+        let r = run(
+            &s,
+            &["vault.read"],
+            "host.vault.list",
+            serde_json::json!({"path": "sub"}),
+        )
+        .await;
         let entries = r.result.unwrap()["entries"].clone();
-        assert_eq!(entries, serde_json::json!([{"name": "deep", "is_dir": true}]));
-        let r = run(&s, &["vault.read"], "host.vault.list", serde_json::json!({"path": "sub/deep"})).await;
+        assert_eq!(
+            entries,
+            serde_json::json!([{"name": "deep", "is_dir": true}])
+        );
+        let r = run(
+            &s,
+            &["vault.read"],
+            "host.vault.list",
+            serde_json::json!({"path": "sub/deep"}),
+        )
+        .await;
         let entries = r.result.unwrap()["entries"].clone();
-        assert_eq!(entries, serde_json::json!([{"name": "a.md", "is_dir": false}]));
+        assert_eq!(
+            entries,
+            serde_json::json!([{"name": "a.md", "is_dir": false}])
+        );
     }
 
     #[tokio::test]
@@ -1890,16 +2033,40 @@ mod tests {
         std::fs::write(vault.path().join("img.png"), b"\x89PNG").unwrap();
 
         // 有 vault.read → base64(b"\x89PNG") == "iVBORw=="
-        let s = StubServices { vault: Some(vault.path().to_path_buf()), ..Default::default() };
-        let r = run_as(&s, "p.id", &["vault.read"], "host.vault.read_bytes", serde_json::json!({"path": "img.png"})).await;
+        let s = StubServices {
+            vault: Some(vault.path().to_path_buf()),
+            ..Default::default()
+        };
+        let r = run_as(
+            &s,
+            "p.id",
+            &["vault.read"],
+            "host.vault.read_bytes",
+            serde_json::json!({"path": "img.png"}),
+        )
+        .await;
         assert_eq!(r.result.unwrap()["base64"], "iVBORw==");
 
         // 无 capability → -32001
-        let r = run_as(&s, "p.id", &[], "host.vault.read_bytes", serde_json::json!({"path": "img.png"})).await;
+        let r = run_as(
+            &s,
+            "p.id",
+            &[],
+            "host.vault.read_bytes",
+            serde_json::json!({"path": "img.png"}),
+        )
+        .await;
         assert_eq!(r.error.unwrap().code, proto::ERR_CAPABILITY_DENIED);
 
         // 越界路径 → Err(resolve_in_vault 拒绝)
-        let r = run_as(&s, "p.id", &["vault.read"], "host.vault.read_bytes", serde_json::json!({"path": "../x"})).await;
+        let r = run_as(
+            &s,
+            "p.id",
+            &["vault.read"],
+            "host.vault.read_bytes",
+            serde_json::json!({"path": "../x"}),
+        )
+        .await;
         assert!(r.error.is_some());
     }
 
@@ -1908,17 +2075,45 @@ mod tests {
     /// must NOT inherit the 200 MB dialog-import cap.
     #[tokio::test]
     async fn vault_read_bytes_over_its_own_cap_is_too_large() {
-        assert!(MAX_VAULT_BYTES < MAX_TEXT_BYTES, "the vault byte cap must stay the tighter one");
+        assert!(
+            MAX_VAULT_BYTES < MAX_TEXT_BYTES,
+            "the vault byte cap must stay the tighter one"
+        );
         let vault = tempfile::tempdir().unwrap();
-        let s = StubServices { vault: Some(vault.path().to_path_buf()), ..Default::default() };
+        let s = StubServices {
+            vault: Some(vault.path().to_path_buf()),
+            ..Default::default()
+        };
 
         // Exactly at the cap is fine; one byte over is not.
-        std::fs::write(vault.path().join("ok.bin"), vec![b'x'; MAX_VAULT_BYTES as usize]).unwrap();
-        let r = run_as(&s, "p.id", &["vault.read"], "host.vault.read_bytes", serde_json::json!({"path": "ok.bin"})).await;
+        std::fs::write(
+            vault.path().join("ok.bin"),
+            vec![b'x'; MAX_VAULT_BYTES as usize],
+        )
+        .unwrap();
+        let r = run_as(
+            &s,
+            "p.id",
+            &["vault.read"],
+            "host.vault.read_bytes",
+            serde_json::json!({"path": "ok.bin"}),
+        )
+        .await;
         assert!(r.error.is_none(), "{:?}", r.error);
 
-        std::fs::write(vault.path().join("big.bin"), vec![b'x'; MAX_VAULT_BYTES as usize + 1]).unwrap();
-        let r = run_as(&s, "p.id", &["vault.read"], "host.vault.read_bytes", serde_json::json!({"path": "big.bin"})).await;
+        std::fs::write(
+            vault.path().join("big.bin"),
+            vec![b'x'; MAX_VAULT_BYTES as usize + 1],
+        )
+        .unwrap();
+        let r = run_as(
+            &s,
+            "p.id",
+            &["vault.read"],
+            "host.vault.read_bytes",
+            serde_json::json!({"path": "big.bin"}),
+        )
+        .await;
         let e = r.error.unwrap();
         assert_eq!(e.code, proto::ERR_INTERNAL);
         assert!(e.message.starts_with("too_large:"), "{}", e.message);
@@ -1932,7 +2127,10 @@ mod tests {
     async fn vault_write_marks_shell_scripts_executable() {
         use std::os::unix::fs::PermissionsExt;
         let dir = tempfile::tempdir().unwrap();
-        let s = StubServices { vault: Some(dir.path().to_path_buf()), ..Default::default() };
+        let s = StubServices {
+            vault: Some(dir.path().to_path_buf()),
+            ..Default::default()
+        };
 
         let r = run(
             &s,
@@ -1946,7 +2144,11 @@ mod tests {
             .unwrap()
             .permissions()
             .mode();
-        assert_eq!(mode & 0o777, 0o755, "precheck.sh must be executable, got {mode:o}");
+        assert_eq!(
+            mode & 0o777,
+            0o755,
+            "precheck.sh must be executable, got {mode:o}"
+        );
 
         let r = run(
             &s,
@@ -1956,8 +2158,15 @@ mod tests {
         )
         .await;
         assert!(r.error.is_none(), "{:?}", r.error);
-        let mode = std::fs::metadata(dir.path().join("note.md")).unwrap().permissions().mode();
-        assert_eq!(mode & 0o111, 0, "a plain .md must not become executable, got {mode:o}");
+        let mode = std::fs::metadata(dir.path().join("note.md"))
+            .unwrap()
+            .permissions()
+            .mode();
+        assert_eq!(
+            mode & 0o111,
+            0,
+            "a plain .md must not become executable, got {mode:o}"
+        );
     }
 
     #[tokio::test]
@@ -1965,22 +2174,60 @@ mod tests {
         let vault = tempfile::tempdir().unwrap();
         std::fs::write(vault.path().join("a.md"), "x").unwrap();
         std::fs::create_dir(vault.path().join("sub")).unwrap();
-        let s = StubServices { vault: Some(vault.path().to_path_buf()), ..Default::default() };
+        let s = StubServices {
+            vault: Some(vault.path().to_path_buf()),
+            ..Default::default()
+        };
         // 有 capability → 删除成功
-        let r = run_as(&s, "p.id", &["vault.write"], "host.vault.remove", serde_json::json!({"path": "a.md"})).await;
+        let r = run_as(
+            &s,
+            "p.id",
+            &["vault.write"],
+            "host.vault.remove",
+            serde_json::json!({"path": "a.md"}),
+        )
+        .await;
         assert_eq!(r.result.unwrap()["ok"], true);
         assert!(!vault.path().join("a.md").exists());
         // 幂等:再删一次仍然 ok
-        let r = run_as(&s, "p.id", &["vault.write"], "host.vault.remove", serde_json::json!({"path": "a.md"})).await;
+        let r = run_as(
+            &s,
+            "p.id",
+            &["vault.write"],
+            "host.vault.remove",
+            serde_json::json!({"path": "a.md"}),
+        )
+        .await;
         assert_eq!(r.result.unwrap()["ok"], true);
         // 目录 → 拒绝
-        let r = run_as(&s, "p.id", &["vault.write"], "host.vault.remove", serde_json::json!({"path": "sub"})).await;
+        let r = run_as(
+            &s,
+            "p.id",
+            &["vault.write"],
+            "host.vault.remove",
+            serde_json::json!({"path": "sub"}),
+        )
+        .await;
         assert!(r.error.unwrap().message.contains("directory"));
         // 无 capability → -32001
-        let r = run_as(&s, "p.id", &[], "host.vault.remove", serde_json::json!({"path": "b.md"})).await;
+        let r = run_as(
+            &s,
+            "p.id",
+            &[],
+            "host.vault.remove",
+            serde_json::json!({"path": "b.md"}),
+        )
+        .await;
         assert_eq!(r.error.unwrap().code, proto::ERR_CAPABILITY_DENIED);
         // 越界 → 错误
-        let r = run_as(&s, "p.id", &["vault.write"], "host.vault.remove", serde_json::json!({"path": "../x"})).await;
+        let r = run_as(
+            &s,
+            "p.id",
+            &["vault.write"],
+            "host.vault.remove",
+            serde_json::json!({"path": "../x"}),
+        )
+        .await;
         assert!(r.error.is_some());
     }
 
@@ -1989,7 +2236,10 @@ mod tests {
         let vault = tempfile::tempdir().unwrap();
         std::fs::write(vault.path().join("a.md"), "x").unwrap();
         std::fs::write(vault.path().join("taken.md"), "y").unwrap();
-        let s = StubServices { vault: Some(vault.path().to_path_buf()), ..Default::default() };
+        let s = StubServices {
+            vault: Some(vault.path().to_path_buf()),
+            ..Default::default()
+        };
         let r = run_as(
             &s,
             "p.id",
@@ -2011,7 +2261,10 @@ mod tests {
         )
         .await;
         assert!(r.error.unwrap().message.contains("exists"));
-        assert_eq!(std::fs::read_to_string(vault.path().join("taken.md")).unwrap(), "y");
+        assert_eq!(
+            std::fs::read_to_string(vault.path().join("taken.md")).unwrap(),
+            "y"
+        );
         // 两端都过校验
         let r = run_as(
             &s,
@@ -2039,10 +2292,20 @@ mod tests {
             eprintln!("skipping: symlink creation not supported here");
             return;
         }
-        let s = StubServices { vault: Some(vault.path().to_path_buf()), ..Default::default() };
+        let s = StubServices {
+            vault: Some(vault.path().to_path_buf()),
+            ..Default::default()
+        };
 
         // remove the link → the link entry is gone, real.md is untouched.
-        let r = run_as(&s, "p.id", &["vault.write"], "host.vault.remove", serde_json::json!({"path": "link.md"})).await;
+        let r = run_as(
+            &s,
+            "p.id",
+            &["vault.write"],
+            "host.vault.remove",
+            serde_json::json!({"path": "link.md"}),
+        )
+        .await;
         assert!(r.error.is_none(), "{:?}", r.error);
         assert_eq!(r.result.unwrap()["ok"], true);
         assert!(
@@ -2069,7 +2332,10 @@ mod tests {
         assert_eq!(r.result.unwrap()["ok"], true);
         assert!(std::fs::symlink_metadata(vault.path().join("link2.md")).is_err());
         let moved_meta = std::fs::symlink_metadata(vault.path().join("moved-link.md")).unwrap();
-        assert!(moved_meta.file_type().is_symlink(), "the moved entry must still be a symlink");
+        assert!(
+            moved_meta.file_type().is_symlink(),
+            "the moved entry must still be a symlink"
+        );
         assert_eq!(
             std::fs::read_to_string(vault.path().join("real.md")).unwrap(),
             "real content",
@@ -2087,13 +2353,21 @@ mod tests {
     async fn vault_rename_refuses_to_clobber_a_dangling_symlink_destination() {
         let vault = tempfile::tempdir().unwrap();
         std::fs::write(vault.path().join("a.md"), "x").unwrap();
-        if std::os::unix::fs::symlink("nonexistent-target.md", vault.path().join("dead.md")).is_err() {
+        if std::os::unix::fs::symlink("nonexistent-target.md", vault.path().join("dead.md"))
+            .is_err()
+        {
             eprintln!("skipping: symlink creation not supported here");
             return;
         }
-        assert!(!vault.path().join("dead.md").exists(), "sanity: exists() must read a dangling link as absent");
+        assert!(
+            !vault.path().join("dead.md").exists(),
+            "sanity: exists() must read a dangling link as absent"
+        );
 
-        let s = StubServices { vault: Some(vault.path().to_path_buf()), ..Default::default() };
+        let s = StubServices {
+            vault: Some(vault.path().to_path_buf()),
+            ..Default::default()
+        };
         let r = run_as(
             &s,
             "p.id",
@@ -2103,9 +2377,16 @@ mod tests {
         )
         .await;
         assert!(r.error.unwrap().message.contains("exists"));
-        assert_eq!(std::fs::read_to_string(vault.path().join("a.md")).unwrap(), "x", "source must be untouched");
+        assert_eq!(
+            std::fs::read_to_string(vault.path().join("a.md")).unwrap(),
+            "x",
+            "source must be untouched"
+        );
         assert!(
-            std::fs::symlink_metadata(vault.path().join("dead.md")).unwrap().file_type().is_symlink(),
+            std::fs::symlink_metadata(vault.path().join("dead.md"))
+                .unwrap()
+                .file_type()
+                .is_symlink(),
             "the dangling symlink at `to` must survive, unclobbered"
         );
     }
@@ -2118,7 +2399,10 @@ mod tests {
     #[tokio::test]
     async fn vault_rename_cleans_up_the_placeholder_when_from_is_missing() {
         let vault = tempfile::tempdir().unwrap();
-        let s = StubServices { vault: Some(vault.path().to_path_buf()), ..Default::default() };
+        let s = StubServices {
+            vault: Some(vault.path().to_path_buf()),
+            ..Default::default()
+        };
 
         let r = run_as(
             &s,
@@ -2138,9 +2422,18 @@ mod tests {
     #[tokio::test]
     async fn path_traversal_is_rejected() {
         let dir = tempfile::tempdir().unwrap();
-        let s = StubServices { vault: Some(dir.path().to_path_buf()), ..Default::default() };
+        let s = StubServices {
+            vault: Some(dir.path().to_path_buf()),
+            ..Default::default()
+        };
         for bad in ["../escape.md", "sub/../../escape.md", "/etc/passwd"] {
-            let r = run(&s, &["vault.read"], "host.vault.read", serde_json::json!({"path": bad})).await;
+            let r = run(
+                &s,
+                &["vault.read"],
+                "host.vault.read",
+                serde_json::json!({"path": bad}),
+            )
+            .await;
             let e = r.error.unwrap();
             assert_eq!(e.code, proto::ERR_INTERNAL, "path {bad}");
             assert!(e.message.starts_with("io:"), "path {bad}: {}", e.message);
@@ -2156,10 +2449,19 @@ mod tests {
             eprintln!("skipping: symlink creation not supported here");
             return;
         }
-        let s = StubServices { vault: Some(dir.path().to_path_buf()), ..Default::default() };
+        let s = StubServices {
+            vault: Some(dir.path().to_path_buf()),
+            ..Default::default()
+        };
 
         // read through the symlink
-        let r = run(&s, &["vault.read"], "host.vault.read", serde_json::json!({"path": "link/secret.txt"})).await;
+        let r = run(
+            &s,
+            &["vault.read"],
+            "host.vault.read",
+            serde_json::json!({"path": "link/secret.txt"}),
+        )
+        .await;
         let e = r.error.unwrap();
         assert!(e.message.contains("escapes the vault"), "{}", e.message);
 
@@ -2179,8 +2481,17 @@ mod tests {
 
     #[tokio::test]
     async fn vault_required_when_root_none() {
-        let s = StubServices { vault: None, ..Default::default() };
-        let r = run(&s, &["vault.read"], "host.vault.read", serde_json::json!({"path": "a.md"})).await;
+        let s = StubServices {
+            vault: None,
+            ..Default::default()
+        };
+        let r = run(
+            &s,
+            &["vault.read"],
+            "host.vault.read",
+            serde_json::json!({"path": "a.md"}),
+        )
+        .await;
         let e = r.error.unwrap();
         assert_eq!(e.code, proto::ERR_INTERNAL);
         assert!(e.message.starts_with("vault_required:"), "{}", e.message);
@@ -2191,8 +2502,17 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let big = vec![b'x'; (MAX_TEXT_BYTES + 1) as usize];
         std::fs::write(dir.path().join("big.txt"), &big).unwrap();
-        let s = StubServices { vault: Some(dir.path().to_path_buf()), ..Default::default() };
-        let r = run(&s, &["vault.read"], "host.vault.read", serde_json::json!({"path": "big.txt"})).await;
+        let s = StubServices {
+            vault: Some(dir.path().to_path_buf()),
+            ..Default::default()
+        };
+        let r = run(
+            &s,
+            &["vault.read"],
+            "host.vault.read",
+            serde_json::json!({"path": "big.txt"}),
+        )
+        .await;
         let e = r.error.unwrap();
         assert_eq!(e.code, proto::ERR_INTERNAL);
         assert!(e.message.starts_with("too_large:"), "{}", e.message);
@@ -2201,7 +2521,10 @@ mod tests {
     #[tokio::test]
     async fn write_over_cap_is_too_large_but_small_write_succeeds() {
         let dir = tempfile::tempdir().unwrap();
-        let s = StubServices { vault: Some(dir.path().to_path_buf()), ..Default::default() };
+        let s = StubServices {
+            vault: Some(dir.path().to_path_buf()),
+            ..Default::default()
+        };
 
         // A write just over the cap is rejected and nothing is written.
         let big = "x".repeat((MAX_TEXT_BYTES + 1) as usize);
@@ -2215,7 +2538,10 @@ mod tests {
         let e = r.error.unwrap();
         assert_eq!(e.code, proto::ERR_INTERNAL);
         assert!(e.message.starts_with("too_large:"), "{}", e.message);
-        assert!(!dir.path().join("big.md").exists(), "rejected write must not create the file");
+        assert!(
+            !dir.path().join("big.md").exists(),
+            "rejected write must not create the file"
+        );
 
         // A small write still succeeds.
         let r = run(
@@ -2226,7 +2552,10 @@ mod tests {
         )
         .await;
         assert!(r.error.is_none(), "{:?}", r.error);
-        assert_eq!(std::fs::read_to_string(dir.path().join("small.md")).unwrap(), "ok");
+        assert_eq!(
+            std::fs::read_to_string(dir.path().join("small.md")).unwrap(),
+            "ok"
+        );
     }
 
     // ── vault.info ───────────────────────────────────────────────────────
@@ -2240,7 +2569,13 @@ mod tests {
             daily: Some("journal".into()),
             ..Default::default()
         };
-        let r = run(&s, &["vault.read"], "host.vault.info", serde_json::json!({})).await;
+        let r = run(
+            &s,
+            &["vault.read"],
+            "host.vault.info",
+            serde_json::json!({}),
+        )
+        .await;
         let res = r.result.unwrap();
         assert_eq!(res["root"], dir.path().to_string_lossy().to_string());
         assert_eq!(res["wiki_dir"], "wiki");
@@ -2250,8 +2585,17 @@ mod tests {
     #[tokio::test]
     async fn vault_info_applies_frontend_defaults_when_dirs_unset() {
         let dir = tempfile::tempdir().unwrap();
-        let s = StubServices { vault: Some(dir.path().to_path_buf()), ..Default::default() };
-        let r = run(&s, &["vault.read"], "host.vault.info", serde_json::json!({})).await;
+        let s = StubServices {
+            vault: Some(dir.path().to_path_buf()),
+            ..Default::default()
+        };
+        let r = run(
+            &s,
+            &["vault.read"],
+            "host.vault.info",
+            serde_json::json!({}),
+        )
+        .await;
         let res = r.result.unwrap();
         assert_eq!(res["wiki_dir"], "wikipage");
         assert_eq!(res["daily_dir"], "dailynote");
@@ -2260,7 +2604,13 @@ mod tests {
     #[tokio::test]
     async fn vault_info_all_null_without_root() {
         let s = StubServices::default();
-        let r = run(&s, &["vault.read"], "host.vault.info", serde_json::json!({})).await;
+        let r = run(
+            &s,
+            &["vault.read"],
+            "host.vault.info",
+            serde_json::json!({}),
+        )
+        .await;
         let res = r.result.unwrap();
         assert!(res["root"].is_null());
         assert!(res["wiki_dir"].is_null());
@@ -2272,7 +2622,13 @@ mod tests {
     #[tokio::test]
     async fn vault_info_carries_the_human_author() {
         let s = StubServices::default();
-        let r = run(&s, &["vault.read"], "host.vault.info", serde_json::json!({})).await;
+        let r = run(
+            &s,
+            &["vault.read"],
+            "host.vault.info",
+            serde_json::json!({}),
+        )
+        .await;
         let author = r.result.expect("vault.info must answer")["author"].clone();
         assert!(
             author.as_str().is_some_and(|a| a.starts_with("human:")),
@@ -2290,10 +2646,20 @@ mod tests {
         std::fs::write(&export, r#"{"k":1}"#).unwrap();
         let export_str = export.to_string_lossy().to_string();
 
-        let s = StubServices { dialog_returns: vec![export.clone()], ..Default::default() };
+        let s = StubServices {
+            dialog_returns: vec![export.clone()],
+            ..Default::default()
+        };
 
         // Before any dialog: not granted.
-        let r = run_as(&s, pid, &["fs.read:dialog"], "host.fs.read_text", serde_json::json!({"path": export_str})).await;
+        let r = run_as(
+            &s,
+            pid,
+            &["fs.read:dialog"],
+            "host.fs.read_text",
+            serde_json::json!({"path": export_str}),
+        )
+        .await;
         let e = r.error.unwrap();
         assert_eq!(e.code, proto::ERR_INTERNAL);
         assert!(e.message.starts_with("not_granted:"), "{}", e.message);
@@ -2311,7 +2677,14 @@ mod tests {
         assert_eq!(paths, serde_json::json!([export_str]));
 
         // Now read_text succeeds.
-        let r = run_as(&s, pid, &["fs.read:dialog"], "host.fs.read_text", serde_json::json!({"path": export_str})).await;
+        let r = run_as(
+            &s,
+            pid,
+            &["fs.read:dialog"],
+            "host.fs.read_text",
+            serde_json::json!({"path": export_str}),
+        )
+        .await;
         assert_eq!(r.result.unwrap()["content"], r#"{"k":1}"#);
     }
 
@@ -2320,9 +2693,15 @@ mod tests {
         let pid = "test.clear-grants"; // unique: global allow-set
         let p = PathBuf::from("/tmp/test-clear-grants/export.json");
         grant_path(pid, &p);
-        assert!(is_granted(pid, &p), "path should be granted after grant_path");
+        assert!(
+            is_granted(pid, &p),
+            "path should be granted after grant_path"
+        );
         clear_grants(pid);
-        assert!(!is_granted(pid, &p), "path must not be granted after clear_grants");
+        assert!(
+            !is_granted(pid, &p),
+            "path must not be granted after clear_grants"
+        );
     }
 
     #[tokio::test]
@@ -2332,12 +2711,29 @@ mod tests {
         std::fs::write(&f, "mine").unwrap();
         let f_str = f.to_string_lossy().to_string();
 
-        let s = StubServices { dialog_returns: vec![f.clone()], ..Default::default() };
-        let r = run_as(&s, "test.grant-owner", &["dialog"], "host.dialog.open", serde_json::json!({})).await;
+        let s = StubServices {
+            dialog_returns: vec![f.clone()],
+            ..Default::default()
+        };
+        let r = run_as(
+            &s,
+            "test.grant-owner",
+            &["dialog"],
+            "host.dialog.open",
+            serde_json::json!({}),
+        )
+        .await;
         assert!(r.error.is_none());
 
         // A DIFFERENT plugin cannot read the path granted to the first one.
-        let r = run_as(&s, "test.grant-thief", &["fs.read:dialog"], "host.fs.read_text", serde_json::json!({"path": f_str})).await;
+        let r = run_as(
+            &s,
+            "test.grant-thief",
+            &["fs.read:dialog"],
+            "host.fs.read_text",
+            serde_json::json!({"path": f_str}),
+        )
+        .await;
         let e = r.error.unwrap();
         assert!(e.message.starts_with("not_granted:"), "{}", e.message);
     }
@@ -2366,18 +2762,42 @@ mod tests {
         std::fs::write(&archive, raw).unwrap();
         let archive_str = archive.to_string_lossy().to_string();
 
-        let s = StubServices { dialog_returns: vec![archive.clone()], ..Default::default() };
+        let s = StubServices {
+            dialog_returns: vec![archive.clone()],
+            ..Default::default()
+        };
 
         // Before any dialog: not granted.
-        let r = run_as(&s, pid, &["fs.read:dialog"], "host.fs.read_bytes", serde_json::json!({"path": archive_str})).await;
+        let r = run_as(
+            &s,
+            pid,
+            &["fs.read:dialog"],
+            "host.fs.read_bytes",
+            serde_json::json!({"path": archive_str}),
+        )
+        .await;
         let e = r.error.unwrap();
         assert!(e.message.starts_with("not_granted:"), "{}", e.message);
 
         // dialog.open grants the path.
-        let _ = run_as(&s, pid, &["dialog"], "host.dialog.open", serde_json::json!({})).await;
+        let _ = run_as(
+            &s,
+            pid,
+            &["dialog"],
+            "host.dialog.open",
+            serde_json::json!({}),
+        )
+        .await;
 
         // read_bytes returns the correct base64 of the raw bytes.
-        let r = run_as(&s, pid, &["fs.read:dialog"], "host.fs.read_bytes", serde_json::json!({"path": archive_str})).await;
+        let r = run_as(
+            &s,
+            pid,
+            &["fs.read:dialog"],
+            "host.fs.read_bytes",
+            serde_json::json!({"path": archive_str}),
+        )
+        .await;
         assert_eq!(r.result.unwrap()["base64"], base64_encode(raw));
     }
 
@@ -2389,10 +2809,27 @@ mod tests {
         std::fs::write(&big, vec![b'z'; (MAX_TEXT_BYTES + 1) as usize]).unwrap();
         let big_str = big.to_string_lossy().to_string();
 
-        let s = StubServices { dialog_returns: vec![big.clone()], ..Default::default() };
-        let _ = run_as(&s, pid, &["dialog"], "host.dialog.open", serde_json::json!({})).await;
+        let s = StubServices {
+            dialog_returns: vec![big.clone()],
+            ..Default::default()
+        };
+        let _ = run_as(
+            &s,
+            pid,
+            &["dialog"],
+            "host.dialog.open",
+            serde_json::json!({}),
+        )
+        .await;
 
-        let r = run_as(&s, pid, &["fs.read:dialog"], "host.fs.read_bytes", serde_json::json!({"path": big_str})).await;
+        let r = run_as(
+            &s,
+            pid,
+            &["fs.read:dialog"],
+            "host.fs.read_bytes",
+            serde_json::json!({"path": big_str}),
+        )
+        .await;
         let e = r.error.unwrap();
         assert_eq!(e.code, proto::ERR_INTERNAL);
         assert!(e.message.starts_with("too_large:"), "{}", e.message);
@@ -2438,13 +2875,30 @@ mod tests {
         let target = dir.path().join("out.txt");
         std::fs::write(&target, "saved").unwrap();
         let target_str = target.to_string_lossy().to_string();
-        let s = StubServices { save_returns: Some(target.clone()), ..Default::default() };
+        let s = StubServices {
+            save_returns: Some(target.clone()),
+            ..Default::default()
+        };
 
-        let r = run_as(&s, pid, &["dialog"], "host.dialog.save", serde_json::json!({"default_filename": "out.txt"})).await;
+        let r = run_as(
+            &s,
+            pid,
+            &["dialog"],
+            "host.dialog.save",
+            serde_json::json!({"default_filename": "out.txt"}),
+        )
+        .await;
         assert_eq!(r.result.unwrap()["path"], target_str);
 
         // The saved path is readable via fs.read_text (it was dialog-granted).
-        let r = run_as(&s, pid, &["fs.read:dialog"], "host.fs.read_text", serde_json::json!({"path": target_str})).await;
+        let r = run_as(
+            &s,
+            pid,
+            &["fs.read:dialog"],
+            "host.fs.read_text",
+            serde_json::json!({"path": target_str}),
+        )
+        .await;
         assert_eq!(r.result.unwrap()["content"], "saved");
     }
 
@@ -2454,15 +2908,30 @@ mod tests {
     async fn clipboard_write_calls_service() {
         let s = StubServices::default();
         let clip = s.clipboard.clone();
-        let r = run(&s, &["clipboard.write"], "host.clipboard.write", serde_json::json!({"text": "copied"})).await;
+        let r = run(
+            &s,
+            &["clipboard.write"],
+            "host.clipboard.write",
+            serde_json::json!({"text": "copied"}),
+        )
+        .await;
         assert_eq!(r.result.unwrap(), serde_json::json!({"ok": true}));
         assert_eq!(*clip.lock().unwrap(), vec!["copied".to_string()]);
     }
 
     #[tokio::test]
     async fn missing_params_error_with_io_kind() {
-        let s = StubServices { vault: Some(std::env::temp_dir()), ..Default::default() };
-        let r = run(&s, &["clipboard.write"], "host.clipboard.write", serde_json::json!({})).await;
+        let s = StubServices {
+            vault: Some(std::env::temp_dir()),
+            ..Default::default()
+        };
+        let r = run(
+            &s,
+            &["clipboard.write"],
+            "host.clipboard.write",
+            serde_json::json!({}),
+        )
+        .await;
         let e = r.error.unwrap();
         assert_eq!(e.code, proto::ERR_INTERNAL);
         assert!(e.message.starts_with("io:"), "{}", e.message);
@@ -2480,19 +2949,35 @@ mod tests {
             ..Default::default()
         };
         let opened = s.opened.clone();
-        let r = run(&s, &["editor.open"], "host.editor.open", serde_json::json!({"path": "note.md"})).await;
+        let r = run(
+            &s,
+            &["editor.open"],
+            "host.editor.open",
+            serde_json::json!({"path": "note.md"}),
+        )
+        .await;
         assert!(r.error.is_none(), "{:?}", r.error);
         assert_eq!(r.result.unwrap(), serde_json::json!({"ok": true}));
         let calls = opened.lock().unwrap();
         assert_eq!(calls.len(), 1);
-        assert!(calls[0].ends_with("note.md"), "expected path ending in note.md, got {:?}", calls[0]);
+        assert!(
+            calls[0].ends_with("note.md"),
+            "expected path ending in note.md, got {:?}",
+            calls[0]
+        );
     }
 
     /// 读侧挂 editor.kit:需要它的正是内嵌 Editor Kit 的插件窗口。
     #[tokio::test]
     async fn power_mode_config_requires_editor_kit() {
         let s = StubServices::default();
-        let r = run(&s, &["vault.read"], "host.power_mode.config", serde_json::json!({})).await;
+        let r = run(
+            &s,
+            &["vault.read"],
+            "host.power_mode.config",
+            serde_json::json!({}),
+        )
+        .await;
         let e = r.error.expect("expected a denial");
         assert_eq!(e.code, proto::ERR_CAPABILITY_DENIED);
         assert!(e.message.contains("editor.kit"), "{}", e.message);
@@ -2502,7 +2987,13 @@ mod tests {
     #[tokio::test]
     async fn power_mode_update_requires_its_own_token() {
         let s = StubServices::default();
-        let r = run(&s, &["editor.kit"], "host.power_mode.update", serde_json::json!({})).await;
+        let r = run(
+            &s,
+            &["editor.kit"],
+            "host.power_mode.update",
+            serde_json::json!({}),
+        )
+        .await;
         let e = r.error.expect("expected a denial");
         assert_eq!(e.code, proto::ERR_CAPABILITY_DENIED);
         assert!(e.message.contains("power-mode"), "{}", e.message);
@@ -2515,10 +3006,20 @@ mod tests {
             vault: Some(dir.path().to_path_buf()),
             ..Default::default()
         };
-        let r = run(&s, &["editor.open"], "host.editor.open", serde_json::json!({"path": "../secret.md"})).await;
+        let r = run(
+            &s,
+            &["editor.open"],
+            "host.editor.open",
+            serde_json::json!({"path": "../secret.md"}),
+        )
+        .await;
         let e = r.error.unwrap();
         assert_eq!(e.code, proto::ERR_INTERNAL);
-        assert!(e.message.contains("escapes the vault"), "expected 'escapes the vault' in: {}", e.message);
+        assert!(
+            e.message.contains("escapes the vault"),
+            "expected 'escapes the vault' in: {}",
+            e.message
+        );
     }
 
     // ── host.agent.*/host.notify on the UI RPC bridge ──────────────────────
@@ -2544,7 +3045,13 @@ mod tests {
 
         // The stub has no relay, so this exercises the gate and the dispatch
         // arm; the production shape is pinned by `agent_provider`'s own tests.
-        let allowed = run(&s, &["agent"], "host.agent.providers", serde_json::json!({})).await;
+        let allowed = run(
+            &s,
+            &["agent"],
+            "host.agent.providers",
+            serde_json::json!({}),
+        )
+        .await;
         assert!(
             allowed.error.is_some() && allowed.error.unwrap().message.contains("agent_unavailable"),
             "with the capability it must reach the relay rather than the gate"
@@ -2580,7 +3087,10 @@ mod tests {
         let calls = calls.lock().unwrap();
         assert_eq!(calls.len(), 1);
         assert_eq!(calls[0].0, "run-task");
-        assert_eq!(calls[0].1, serde_json::json!({"task": "ai-read-ebook", "prompt": "p"}));
+        assert_eq!(
+            calls[0].1,
+            serde_json::json!({"task": "ai-read-ebook", "prompt": "p"})
+        );
     }
 
     #[tokio::test]
@@ -2598,7 +3108,10 @@ mod tests {
         let calls = calls.lock().unwrap();
         assert_eq!(calls.len(), 1);
         assert_eq!(calls[0].0, "run-status");
-        assert_eq!(calls[0].1, serde_json::json!({"task": "ai-read-ebook", "run_id": "r1"}));
+        assert_eq!(
+            calls[0].1,
+            serde_json::json!({"task": "ai-read-ebook", "run_id": "r1"})
+        );
     }
 
     #[tokio::test]
@@ -2660,7 +3173,11 @@ mod tests {
             )
             .await;
             let e = r.error.unwrap_or_else(|| panic!("{path} was accepted"));
-            assert!(e.message.contains("escapes the vault"), "{path}: {}", e.message);
+            assert!(
+                e.message.contains("escapes the vault"),
+                "{path}: {}",
+                e.message
+            );
         }
         assert!(
             calls.lock().unwrap().is_empty(),
@@ -2720,6 +3237,9 @@ mod tests {
         let r = run(&s, &[], "host.notify", serde_json::json!({})).await;
         assert_eq!(r.error.unwrap().code, proto::ERR_CAPABILITY_DENIED);
 
-        assert!(calls.lock().unwrap().is_empty(), "stub must not be called when capability is denied");
+        assert!(
+            calls.lock().unwrap().is_empty(),
+            "stub must not be called when capability is denied"
+        );
     }
 }

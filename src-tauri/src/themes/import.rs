@@ -7,7 +7,7 @@ use crate::themes::compiler::compile_theme_css;
 use crate::themes::header::parse_header;
 use crate::themes::id::is_valid_theme_id;
 use crate::themes::zip_safety::{extract_zip_safely, ExtractError, ExtractLimits};
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -15,7 +15,7 @@ pub struct ImportTheme {
     pub id: String,
     pub name: String,
     pub appearance: Appearance,
-    pub source_file: String,    // basename inside the staging dir
+    pub source_file: String, // basename inside the staging dir
     pub conflict: bool,
 }
 
@@ -47,10 +47,18 @@ pub fn prepare_import(zip_path: &Path, existing_ids: &[String]) -> Result<Import
     let entries = std::fs::read_dir(&staging_path).map_err(|e| e.to_string())?;
     for entry in entries.flatten() {
         let path = entry.path();
-        if path.is_dir() { continue }
-        let Some(stem) = path.file_stem().and_then(|s| s.to_str()) else { continue };
-        let Some(ext) = path.extension().and_then(|s| s.to_str()) else { continue };
-        if ext.to_ascii_lowercase() != "css" { continue }
+        if path.is_dir() {
+            continue;
+        }
+        let Some(stem) = path.file_stem().and_then(|s| s.to_str()) else {
+            continue;
+        };
+        let Some(ext) = path.extension().and_then(|s| s.to_str()) else {
+            continue;
+        };
+        if ext.to_ascii_lowercase() != "css" {
+            continue;
+        }
         if is_valid_theme_id(stem).is_err() {
             errors.push(ImportError {
                 file: format!("{stem}.css"),
@@ -60,10 +68,19 @@ pub fn prepare_import(zip_path: &Path, existing_ids: &[String]) -> Result<Import
         }
         let css = match std::fs::read_to_string(&path) {
             Ok(s) => s,
-            Err(e) => { errors.push(ImportError { file: format!("{stem}.css"), message: e.to_string() }); continue }
+            Err(e) => {
+                errors.push(ImportError {
+                    file: format!("{stem}.css"),
+                    message: e.to_string(),
+                });
+                continue;
+            }
         };
         if let Err(e) = compile_theme_css(&css, stem, &staging_path.join(stem).to_string_lossy()) {
-            errors.push(ImportError { file: format!("{stem}.css"), message: e });
+            errors.push(ImportError {
+                file: format!("{stem}.css"),
+                message: e,
+            });
             continue;
         }
         let header = parse_header(&css);
@@ -80,19 +97,29 @@ pub fn prepare_import(zip_path: &Path, existing_ids: &[String]) -> Result<Import
 
     themes.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
 
-    let theme_id_set: std::collections::HashSet<&str> = themes.iter().map(|t| t.id.as_str()).collect();
+    let theme_id_set: std::collections::HashSet<&str> =
+        themes.iter().map(|t| t.id.as_str()).collect();
     let entries = std::fs::read_dir(&staging_path).map_err(|e| e.to_string())?;
     for entry in entries.flatten() {
         let path = entry.path();
-        if !path.is_dir() { continue }
-        let Some(name) = path.file_name().and_then(|s| s.to_str()) else { continue };
+        if !path.is_dir() {
+            continue;
+        }
+        let Some(name) = path.file_name().and_then(|s| s.to_str()) else {
+            continue;
+        };
         if theme_id_set.contains(name) {
             asset_dirs.push(name.to_string());
         }
     }
     asset_dirs.sort();
 
-    Ok(ImportReport { themes, asset_dirs, errors, staging_dir: staging_path })
+    Ok(ImportReport {
+        themes,
+        asset_dirs,
+        errors,
+        staging_dir: staging_path,
+    })
 }
 
 /// Copy staged files into `themes_dir`, then compile each. Returns the
@@ -109,7 +136,9 @@ pub fn install_prepared(
     let mut installed = 0usize;
     for theme in &report.themes {
         let dst = themes_dir.join(&theme.source_file);
-        if dst.exists() && !overwrite { continue }
+        if dst.exists() && !overwrite {
+            continue;
+        }
         let src = report.staging_dir.join(&theme.source_file);
         std::fs::copy(&src, &dst).map_err(|e| e.to_string())?;
         let asset_src = report.staging_dir.join(&theme.id);

@@ -1,6 +1,6 @@
 use crate::themes::compiler::compile_theme_css;
-use crate::themes::import::{prepare_import, install_prepared, cleanup_staging, ImportReport};
-use crate::themes::paths::{compiled_path, ensure_dirs, source_path, themes_dir, asset_dir};
+use crate::themes::import::{cleanup_staging, install_prepared, prepare_import, ImportReport};
+use crate::themes::paths::{asset_dir, compiled_path, ensure_dirs, source_path, themes_dir};
 use crate::themes::registry::{scan_themes_dir, ThemeMeta};
 use tauri::{Emitter, Manager};
 
@@ -66,7 +66,12 @@ pub fn theme_recompile_all(app: tauri::AppHandle) -> Result<Vec<String>, String>
 pub fn theme_restore_builtins(app: tauri::AppHandle) -> Result<usize, String> {
     use crate::themes::migration::force_copy_built_ins;
     ensure_dirs(&app)?;
-    let res_dir = app.path().resource_dir().map_err(|e| e.to_string())?.join("resources").join("themes");
+    let res_dir = app
+        .path()
+        .resource_dir()
+        .map_err(|e| e.to_string())?
+        .join("resources")
+        .join("themes");
     let themes = themes_dir(&app)?;
     let n = force_copy_built_ins(&res_dir, &themes, BUILT_IN_THEME_IDS)?;
     // Recompile so the .compiled/ cache reflects the restored sources.
@@ -81,7 +86,11 @@ pub fn theme_import(app: tauri::AppHandle, zip_path: String) -> Result<ImportRep
 }
 
 #[tauri::command]
-pub fn theme_install(app: tauri::AppHandle, report: ImportReport, overwrite: bool) -> Result<usize, String> {
+pub fn theme_install(
+    app: tauri::AppHandle,
+    report: ImportReport,
+    overwrite: bool,
+) -> Result<usize, String> {
     let dir = themes_dir(&app)?;
     let n = install_prepared(&report, &dir, overwrite)?;
     let _ = app.emit("themes-updated", ());
@@ -331,7 +340,11 @@ mod tests {
             ("default".to_string(), "onedark".to_string(), true)
         );
         // An unusable `skin` is ignored rather than trusted.
-        for v in [json!({"skin": 42}), json!({"skin": ""}), json!({"skin": "../x"})] {
+        for v in [
+            json!({"skin": 42}),
+            json!({"skin": ""}),
+            json!({"skin": "../x"}),
+        ] {
             assert_eq!(
                 parse_theme_settings(&v),
                 ("default".to_string(), "default".to_string(), true),
@@ -359,7 +372,10 @@ mod tests {
 
         // Unrelated CSS is untouched, and a mismatched id is left alone (the
         // bundle always unscopes with the id it just read the file for).
-        assert_eq!(unscope_theme_css("@font-face { src: url(x); }", "effie"), "@font-face { src: url(x); }");
+        assert_eq!(
+            unscope_theme_css("@font-face { src: url(x); }", "effie"),
+            "@font-face { src: url(x); }"
+        );
         assert_eq!(unscope_theme_css(scoped, "onedark"), scoped);
         assert_eq!(unscope_theme_css("", "effie"), "");
     }
@@ -374,11 +390,20 @@ mod tests {
             "/tmp/themes/effie",
         )
         .expect("compile ok");
-        assert!(compiled.contains("[data-theme="), "precondition: compiled CSS is scoped");
+        assert!(
+            compiled.contains("[data-theme="),
+            "precondition: compiled CSS is scoped"
+        );
         let out = unscope_theme_css(&compiled, "effie");
         assert!(!out.contains("[data-theme="), "scope survived: {out}");
-        assert!(out.contains(".moraya-editor h1"), "host selector lost: {out}");
-        assert!(out.contains("--c: red"), "declarations must be untouched: {out}");
+        assert!(
+            out.contains(".moraya-editor h1"),
+            "host selector lost: {out}"
+        );
+        assert!(
+            out.contains("--c: red"),
+            "declarations must be untouched: {out}"
+        );
     }
 
     /// C1 (bundle level) + I3: the wire shape of `host.theme.css`. The key
@@ -409,7 +434,10 @@ mod tests {
         for key in ["light_css", "dark_css"] {
             let css = shipped[key].as_str().unwrap();
             assert!(!css.contains("[data-theme="), "{key} still scoped: {css}");
-            assert!(css.contains(".moraya-editor h1"), "{key} lost its host: {css}");
+            assert!(
+                css.contains(".moraya-editor h1"),
+                "{key} lost its host: {css}"
+            );
         }
     }
 

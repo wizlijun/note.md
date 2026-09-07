@@ -125,7 +125,10 @@ impl PluginProcess {
         std::thread::spawn(move || {
             while let Ok(req) = sink_rx.recv() {
                 if let Some(resp) = host_sink(req) {
-                    if reply_tx.send(serde_json::to_string(&resp).unwrap()).is_err() {
+                    if reply_tx
+                        .send(serde_json::to_string(&resp).unwrap())
+                        .is_err()
+                    {
                         break;
                     }
                 }
@@ -283,18 +286,33 @@ pub(crate) fn append_plugin_log(dir: &Path, plugin_id: &str, level: &str, msg: &
         "debug" | "info" | "warn" | "error" => level,
         _ => "info", // e.g. "stderr"
     };
-    crate::log_bus::push_cat(&format!("plugin:{plugin_id}"), "backend", bus_level, msg.to_string());
+    crate::log_bus::push_cat(
+        &format!("plugin:{plugin_id}"),
+        "backend",
+        bus_level,
+        msg.to_string(),
+    );
     let _ = std::fs::create_dir_all(dir);
-    append_log_line(&dir.join(format!("{plugin_id}.log")), &format!("[{level}] {msg}"));
+    append_log_line(
+        &dir.join(format!("{plugin_id}.log")),
+        &format!("[{level}] {msg}"),
+    );
 }
 
 fn append_log_line(path: &Path, line: &str) {
     use std::io::Write;
     const MAX: u64 = 5 * 1024 * 1024;
-    if std::fs::metadata(path).map(|m| m.len() > MAX).unwrap_or(false) {
+    if std::fs::metadata(path)
+        .map(|m| m.len() > MAX)
+        .unwrap_or(false)
+    {
         let _ = std::fs::rename(path, path.with_extension("log.1"));
     }
-    if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(path) {
+    if let Ok(mut f) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)
+    {
         let _ = writeln!(f, "{line}");
     }
 }
@@ -330,11 +348,20 @@ mod tests {
         // Inflate past 5MB → next append rolls to .log.1 and starts fresh.
         {
             use std::io::Write;
-            let mut f = std::fs::OpenOptions::new().append(true).open(&path).unwrap();
+            let mut f = std::fs::OpenOptions::new()
+                .append(true)
+                .open(&path)
+                .unwrap();
             f.write_all(&vec![b'x'; 5 * 1024 * 1024 + 1]).unwrap();
         }
         append_plugin_log(dir.path(), "pub.name", "info", "after-roll");
-        assert_eq!(std::fs::read_to_string(&path).unwrap(), "[info] after-roll\n");
-        assert!(dir.path().join("pub.name.log.1").exists(), "rolled file missing");
+        assert_eq!(
+            std::fs::read_to_string(&path).unwrap(),
+            "[info] after-roll\n"
+        );
+        assert!(
+            dir.path().join("pub.name.log.1").exists(),
+            "rolled file missing"
+        );
     }
 }

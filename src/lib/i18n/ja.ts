@@ -9,6 +9,7 @@ export const ja: Record<keyof Messages, string> = {
   'common.close': '閉じる',
   'common.dismiss': '閉じる',
   'common.saveAs': '名前を付けて保存…',
+  'frontmatter.metadata': 'メタデータ',
   'dialog.saveChanges.message': '"{name}"に加えた変更を保存しますか？',
   'dialog.saveChanges.info': '保存しない場合、変更は失われます。',
   'dialog.save': '保存',
@@ -344,6 +345,7 @@ export const ja: Record<keyof Messages, string> = {
   // Empty state
   'emptyState.hint': '.md ファイルをドロップ、または',
   'emptyState.new': '新規（⌘N）',
+  'canvas.new': '新規キャンバス',
   'emptyState.open': '開く…（⌘O）',
 
   // Toast
@@ -448,6 +450,12 @@ export const ja: Record<keyof Messages, string> = {
   'agentPicker.notInstalled': '未インストール',
   'agentPicker.broken': 'インストール済みですが起動できません',
   'agent.model': 'モデル {model}',
+  'toc.title': '目次',
+  'toc.hide': '目次を隠す',
+  'toc.noDocument': 'Markdown 記事を開くと目次が表示されます',
+  'toc.notApplicable': 'このファイルには目次がありません',
+  'toc.empty': 'この記事には見出しがありません',
+  'toc.jumpTo': '{line} 行目へ移動：{title}',
   'outline.title': 'サイドノート',
   'outline.editNote': 'ノートを編集',
   'outline.openMarkdown': 'Markdown で開く',

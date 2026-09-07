@@ -128,8 +128,8 @@ pub fn verify_and_stage(
     let manifest_path = stage_dir.join("manifest.json");
     let text = std::fs::read_to_string(&manifest_path)
         .map_err(|e| InstallError::Manifest(format!("manifest.json: {e}")))?;
-    let manifest: ManifestV2 =
-        serde_json::from_str(&text).map_err(|e| InstallError::Manifest(format!("manifest.json: {e}")))?;
+    let manifest: ManifestV2 = serde_json::from_str(&text)
+        .map_err(|e| InstallError::Manifest(format!("manifest.json: {e}")))?;
     validate_manifest(&manifest, host_version).map_err(InstallError::Manifest)?;
 
     // (5) The staged id must be exactly what the caller intended.
@@ -182,8 +182,7 @@ fn unpack_zip(pkg_bytes: &[u8], stage_dir: &Path, max_unpacked: u64) -> Result<(
 
         let out_path = stage_dir.join(&rel);
         if entry.is_dir() {
-            std::fs::create_dir_all(&out_path)
-                .map_err(|e| InstallError::Unpack(e.to_string()))?;
+            std::fs::create_dir_all(&out_path).map_err(|e| InstallError::Unpack(e.to_string()))?;
             continue;
         }
         if let Some(parent) = out_path.parent() {
@@ -200,10 +199,7 @@ fn unpack_zip(pkg_bytes: &[u8], stage_dir: &Path, max_unpacked: u64) -> Result<(
         {
             use std::os::unix::fs::PermissionsExt;
             if let Some(mode) = entry.unix_mode() {
-                let _ = std::fs::set_permissions(
-                    &out_path,
-                    std::fs::Permissions::from_mode(mode),
-                );
+                let _ = std::fs::set_permissions(&out_path, std::fs::Permissions::from_mode(mode));
             }
         }
     }
@@ -221,11 +217,14 @@ fn copy_entry_capped(
     max_unpacked: u64,
 ) -> Result<u64, InstallError> {
     const CHUNK: usize = 64 * 1024;
-    let mut file = std::fs::File::create(out_path).map_err(|e| InstallError::Unpack(e.to_string()))?;
+    let mut file =
+        std::fs::File::create(out_path).map_err(|e| InstallError::Unpack(e.to_string()))?;
     let mut buf = [0u8; CHUNK];
     let mut total = already_written;
     loop {
-        let n = entry.read(&mut buf).map_err(|e| InstallError::Unpack(e.to_string()))?;
+        let n = entry
+            .read(&mut buf)
+            .map_err(|e| InstallError::Unpack(e.to_string()))?;
         if n == 0 {
             break;
         }
@@ -675,8 +674,8 @@ mod tests {
         let mut buf = Vec::new();
         {
             let mut w = zip::ZipWriter::new(std::io::Cursor::new(&mut buf));
-            let opts = SimpleFileOptions::default()
-                .compression_method(zip::CompressionMethod::Stored);
+            let opts =
+                SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
             for (name, body) in entries {
                 w.start_file(*name, opts).unwrap();
                 w.write_all(body).unwrap();
@@ -691,11 +690,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         // Three 40 KiB entries = 120 KiB decompressed; cap at 100 KiB.
         let body = vec![b'A'; 40 * 1024];
-        let pkg = zip_with_entries(&[
-            ("a.bin", &body),
-            ("b.bin", &body),
-            ("c.bin", &body),
-        ]);
+        let pkg = zip_with_entries(&[("a.bin", &body), ("b.bin", &body), ("c.bin", &body)]);
         let cap: u64 = 100 * 1024;
         let err = unpack_zip(&pkg, dir.path(), cap).unwrap_err();
         match err {
@@ -748,13 +743,25 @@ mod tests {
         let out = dir.path().join("evil-link");
         // The entry materialized as a *regular* file, NOT a symlink.
         let meta = std::fs::symlink_metadata(&out).expect("entry exists");
-        assert!(!meta.file_type().is_symlink(), "S_IFLNK entry must not become a live symlink");
-        assert!(meta.file_type().is_file(), "S_IFLNK entry must be a regular file");
+        assert!(
+            !meta.file_type().is_symlink(),
+            "S_IFLNK entry must not become a live symlink"
+        );
+        assert!(
+            meta.file_type().is_file(),
+            "S_IFLNK entry must be a regular file"
+        );
         // Its bytes are the literal target string, inert — nothing followed it.
         assert_eq!(std::fs::read(&out).unwrap(), b"../../etc/evil");
         // Nothing escaped the stage dir.
         assert!(!Path::new("/etc/evil").exists());
-        assert!(!dir.path().parent().unwrap().join("etc").join("evil").exists());
+        assert!(!dir
+            .path()
+            .parent()
+            .unwrap()
+            .join("etc")
+            .join("evil")
+            .exists());
     }
 
     #[test]
@@ -793,7 +800,11 @@ mod tests {
     fn assert_current_points_at(id_dir: &Path, version: &str) {
         let current = id_dir.join("current");
         let target = std::fs::read_link(&current).unwrap();
-        let resolved = if target.is_absolute() { target } else { id_dir.join(target) };
+        let resolved = if target.is_absolute() {
+            target
+        } else {
+            id_dir.join(target)
+        };
         assert_eq!(
             std::fs::canonicalize(&resolved).unwrap(),
             std::fs::canonicalize(id_dir.join(version)).unwrap(),
@@ -869,7 +880,10 @@ mod tests {
 
         assert_eq!(left, expect(["1.0.2", "1.0.3"]));
         assert_current_points_at(&root.join(FIXTURE_ID), "1.0.3");
-        assert!(root.join(FIXTURE_ID).join("current/manifest.json").is_file());
+        assert!(root
+            .join(FIXTURE_ID)
+            .join("current/manifest.json")
+            .is_file());
     }
 
     /// The kept previous version must remain a *usable* install, not just a
@@ -883,7 +897,10 @@ mod tests {
         rollback(root, FIXTURE_ID, "1.0.1").expect("previous version survived the prune");
 
         assert_current_points_at(&root.join(FIXTURE_ID), "1.0.1");
-        assert!(root.join(FIXTURE_ID).join("current/manifest.json").is_file());
+        assert!(root
+            .join(FIXTURE_ID)
+            .join("current/manifest.json")
+            .is_file());
     }
 
     /// A reinstall of the version already live must not prune the version it
@@ -897,7 +914,10 @@ mod tests {
         let left = install_chain(root, &["1.0.0", "1.0.1", "1.0.1"]);
 
         assert_eq!(left, expect(["1.0.0", "1.0.1"]));
-        assert!(root.join(FIXTURE_ID).join("current/manifest.json").is_file());
+        assert!(root
+            .join(FIXTURE_ID)
+            .join("current/manifest.json")
+            .is_file());
     }
 
     /// `prune_versions` walks a directory and calls `remove_dir_all`, so what
@@ -916,9 +936,15 @@ mod tests {
         prune_versions(&id_dir, "1.0.1", Some("1.0.0"));
 
         assert!(id_dir.join("notes.txt").is_file(), "stray file kept");
-        assert!(!id_dir.join("0.9.0").exists(), "unreferenced version pruned");
+        assert!(
+            !id_dir.join("0.9.0").exists(),
+            "unreferenced version pruned"
+        );
         assert_current_points_at(&id_dir, "1.0.1");
-        assert!(id_dir.join("current/manifest.json").is_file(), "live install intact");
+        assert!(
+            id_dir.join("current/manifest.json").is_file(),
+            "live install intact"
+        );
     }
 
     /// With no prior `current` to name a fallback (a reinstall of the live
@@ -941,7 +967,10 @@ mod tests {
 
         prune_versions(&id_dir, "1.0.1", None);
 
-        assert!(id_dir.join("1.0.0").exists(), "newest other version kept as fallback");
+        assert!(
+            id_dir.join("1.0.0").exists(),
+            "newest other version kept as fallback"
+        );
         assert!(!id_dir.join("0.9.0").exists(), "older version still pruned");
     }
 
@@ -954,8 +983,14 @@ mod tests {
         let old = std::time::SystemTime::now() - std::time::Duration::from_secs(86_400);
         let ts = old.duration_since(std::time::UNIX_EPOCH).unwrap();
         let times = [
-            libc::timeval { tv_sec: ts.as_secs() as _, tv_usec: 0 },
-            libc::timeval { tv_sec: ts.as_secs() as _, tv_usec: 0 },
+            libc::timeval {
+                tv_sec: ts.as_secs() as _,
+                tv_usec: 0,
+            },
+            libc::timeval {
+                tv_sec: ts.as_secs() as _,
+                tv_usec: 0,
+            },
         ];
         let path = std::ffi::CString::new(dir.to_string_lossy().as_bytes()).unwrap();
         assert_eq!(unsafe { libc::utimes(path.as_ptr(), times.as_ptr()) }, 0);
@@ -967,7 +1002,10 @@ mod tests {
         let root = root_dir.path();
         install_chain(root, &["1.0.0", "2.3.4"]);
 
-        assert_eq!(current_version(&root.join(FIXTURE_ID)).as_deref(), Some("2.3.4"));
+        assert_eq!(
+            current_version(&root.join(FIXTURE_ID)).as_deref(),
+            Some("2.3.4")
+        );
         // No install at all → nothing to roll back to.
         assert_eq!(current_version(&root.join("notemd.absent")), None);
     }
@@ -1012,7 +1050,10 @@ mod tests {
 
         uninstall(root, FIXTURE_ID, true, data_root).unwrap();
         assert!(!root.join(FIXTURE_ID).exists());
-        assert!(plugin_data.join("db").is_file(), "keep_data must preserve data");
+        assert!(
+            plugin_data.join("db").is_file(),
+            "keep_data must preserve data"
+        );
     }
 
     // ── rollback ──────────────────────────────────────────────────────────

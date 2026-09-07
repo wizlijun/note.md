@@ -14,11 +14,7 @@ pub fn is_valid_theme_id(id: &str) -> Result<(), ThemeIdError> {
         return Err(ThemeIdError::BadLeadingChar(first));
     }
     for c in chars {
-        let ok = c.is_ascii_lowercase()
-            || c.is_ascii_digit()
-            || c == '-'
-            || c == '_'
-            || c == '.';
+        let ok = c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-' || c == '_' || c == '.';
         if !ok {
             return Err(ThemeIdError::InvalidChar(c));
         }

@@ -467,14 +467,8 @@ mod tests {
 
     #[test]
     fn action_sensitive_conflict_emits_only_a_generic_safety_notice() {
-        let rendered = render_projection(
-            "MEMORY",
-            ProjectionTarget::Memory,
-            vec![],
-            &[],
-            None,
-            true,
-        );
+        let rendered =
+            render_projection("MEMORY", ProjectionTarget::Memory, vec![], &[], None, true);
         assert!(rendered.contains("存在未解决的权限或边界冲突，相关行动已暂停"));
         assert!(!rendered.contains("允许发送"));
         assert!(!rendered.contains("禁止发送"));

@@ -46,7 +46,10 @@ pub struct WatchState {
 /// finishes indexing), the winner is decided by *call order*, not by which
 /// thread's open/build/sweep happens to finish first.
 pub fn reserve_generation(app: &AppHandle) -> u64 {
-    app.state::<WatchState>().generation.fetch_add(1, Ordering::SeqCst) + 1
+    app.state::<WatchState>()
+        .generation
+        .fetch_add(1, Ordering::SeqCst)
+        + 1
 }
 
 /// Whether `gen` is still the most recently reserved generation.
@@ -79,9 +82,7 @@ pub const ATTENTION_DEBOUNCE_SECS: u64 = 60;
 /// 不放行 —— 包括 `.notemd/analytics-backup/`,前缀里的那个 `/` 就是拦
 /// 它的。
 fn is_analytics(rel: &str) -> bool {
-    rel.starts_with(".notemd/analytics/")
-        && rel.ends_with(".json")
-        && rel.matches('/').count() == 2
+    rel.starts_with(".notemd/analytics/") && rel.ends_with(".json") && rel.matches('/').count() == 2
 }
 
 /// 距上次摄取够久了吗。到点只是**允许**摄取,不是命令它摄取:真正干活
@@ -171,7 +172,11 @@ fn relevant_paths(event: &Event, vault_root: &Path) -> Relevant {
         return Relevant::default();
     }
     let mut out = Relevant::default();
-    for rel in event.paths.iter().filter_map(|p| searchidx::norm::rel_path(vault_root, p)) {
+    for rel in event
+        .paths
+        .iter()
+        .filter_map(|p| searchidx::norm::rel_path(vault_root, p))
+    {
         if should_forward(&rel) {
             out.index.push(rel);
         } else if is_analytics(&rel) {
@@ -365,7 +370,11 @@ fn drain_attention(app: &AppHandle, root: &Path, my_gen: u64) {
         // 静默**:这一轮的脏标记已经被 `take_attention_turn` 消费掉了(见那
         // 个函数与 M-6),一行日志都没有的话,「摄取为什么没跑」就完全无从查起。
         Ingest::NotReady => {
-            crate::log_cat!("search", "info", "attention ingest skipped: index not ready");
+            crate::log_cat!(
+                "search",
+                "info",
+                "attention ingest skipped: index not ready"
+            );
             false
         }
     };
@@ -411,7 +420,12 @@ fn drain(app: &AppHandle, root: &Path, batch: Batch) {
                 true
             }
             Err(e) => {
-                crate::log_cat!("search", "error", "batch of {} paths failed: {e}", paths.len());
+                crate::log_cat!(
+                    "search",
+                    "error",
+                    "batch of {} paths failed: {e}",
+                    paths.len()
+                );
                 false
             }
         },
@@ -471,7 +485,11 @@ fn log_outcome(rel: &str, outcome: IndexOutcome) {
             crate::log_cat!("search", "warn", "{rel} left the index (now oversized)")
         }
         IndexOutcome::RemovedNotIndexable => {
-            crate::log_cat!("search", "info", "{rel} left the index (excluded/not indexable)")
+            crate::log_cat!(
+                "search",
+                "info",
+                "{rel} left the index (excluded/not indexable)"
+            )
         }
     }
 }
@@ -517,13 +535,20 @@ mod tests {
     fn relevant_paths_resolves_and_filters_relative_to_root() {
         let root = Path::new("/vault");
         let event = modify_event("/vault/notes/a.md");
-        assert_eq!(relevant_paths(&event, root).index, vec!["notes/a.md".to_string()]);
+        assert_eq!(
+            relevant_paths(&event, root).index,
+            vec!["notes/a.md".to_string()]
+        );
     }
 
     #[test]
     fn relevant_paths_drops_non_markdown_and_dot_dirs() {
         let root = Path::new("/vault");
-        for p in ["/vault/notes/a.txt", "/vault/.git/HEAD.md", "/vault/.notemd/settings.md"] {
+        for p in [
+            "/vault/notes/a.txt",
+            "/vault/.git/HEAD.md",
+            "/vault/.notemd/settings.md",
+        ] {
             let r = relevant_paths(&modify_event(p), root);
             assert_eq!(r, Relevant::default(), "{p} 不该产生任何通道的活儿");
         }
@@ -536,8 +561,9 @@ mod tests {
             .add_path(PathBuf::from("/vault/notes/a.md"));
         assert!(relevant_paths(&access, root).index.is_empty());
         // 读取事件也不该触发摄取:analytics 文件被**读**不代表它变了。
-        let read = Event::new(EventKind::Access(AccessKind::Any))
-            .add_path(PathBuf::from("/vault/.notemd/analytics/2026-08-13.DEV-1.json"));
+        let read = Event::new(EventKind::Access(AccessKind::Any)).add_path(PathBuf::from(
+            "/vault/.notemd/analytics/2026-08-13.DEV-1.json",
+        ));
         assert!(!relevant_paths(&read, root).attention);
     }
 
@@ -589,8 +615,8 @@ mod tests {
     fn plain_file_events_do_not_need_a_sweep() {
         let tmp = tempfile::tempdir().unwrap();
         std::fs::write(tmp.path().join("cover.png"), b"x").unwrap();
-        let png = Event::new(EventKind::Create(CreateKind::File))
-            .add_path(tmp.path().join("cover.png"));
+        let png =
+            Event::new(EventKind::Create(CreateKind::File)).add_path(tmp.path().join("cover.png"));
         assert!(!needs_sweep(&png, tmp.path()));
         let md = Event::new(EventKind::Modify(ModifyKind::Name(RenameMode::Any)))
             .add_path(tmp.path().join("a.md"));
@@ -768,7 +794,10 @@ mod tests {
     fn a_closed_window_does_not_consume_the_dirty_flag() {
         let f = dirty(true);
         assert!(!take_attention_turn(&f, Duration::from_secs(59)));
-        assert!(f.load(Ordering::SeqCst), "窗口没开就把标志吃了,这次 flush 丢了");
+        assert!(
+            f.load(Ordering::SeqCst),
+            "窗口没开就把标志吃了,这次 flush 丢了"
+        );
         // 窗口一开,刚才那次 flush 必须还在,照常触发摄取。
         assert!(take_attention_turn(&f, Duration::from_secs(60)));
     }
@@ -809,7 +838,10 @@ mod tests {
         let d = tempfile::tempdir().unwrap();
         let handle = scratch_handle(d.path());
         // `false` = 读 analytics 的这段时间里,更新一代 open 已经预定了代际。
-        assert_eq!(refresh_attention_if_current(&handle, &[], || false), Ingest::Superseded);
+        assert_eq!(
+            refresh_attention_if_current(&handle, &[], || false),
+            Ingest::Superseded
+        );
         assert!(!ingested(&handle), "被取代的线程把注意力写进了索引");
     }
 
@@ -819,7 +851,10 @@ mod tests {
     fn a_still_current_generation_ingests() {
         let d = tempfile::tempdir().unwrap();
         let handle = scratch_handle(d.path());
-        assert_eq!(refresh_attention_if_current(&handle, &[], || true), Ingest::Done(Ok(0)));
+        assert_eq!(
+            refresh_attention_if_current(&handle, &[], || true),
+            Ingest::Done(Ok(0))
+        );
         assert!(ingested(&handle), "代际成立却没摄取");
     }
 
@@ -847,7 +882,10 @@ mod tests {
             assert_eq!(out, Ingest::Done(Ok(0)));
         }
         assert!(checked.load(Ordering::SeqCst), "代际检查压根没跑");
-        assert!(seen_locked.load(Ordering::SeqCst), "检查发生在取锁之前,窗口没收窄");
+        assert!(
+            seen_locked.load(Ordering::SeqCst),
+            "检查发生在取锁之前,窗口没收窄"
+        );
     }
 
     /// 索引还没装进 `IndexHandle`(`open_vault` 清空之后、装回之前的那个
@@ -855,7 +893,10 @@ mod tests {
     #[test]
     fn an_absent_index_is_skipped_not_panicked_on() {
         let handle: crate::search::IndexHandle = std::sync::Arc::new(std::sync::Mutex::new(None));
-        assert_eq!(refresh_attention_if_current(&handle, &[], || true), Ingest::NotReady);
+        assert_eq!(
+            refresh_attention_if_current(&handle, &[], || true),
+            Ingest::NotReady
+        );
     }
 
     #[test]
@@ -863,9 +904,15 @@ mod tests {
         let root = Path::new("/vault");
         let create =
             Event::new(EventKind::Create(CreateKind::File)).add_path(PathBuf::from("/vault/a.md"));
-        assert_eq!(relevant_paths(&create, root).index, vec!["a.md".to_string()]);
-        let remove = Event::new(EventKind::Remove(RemoveKind::File))
-            .add_path(PathBuf::from("/vault/a.md"));
-        assert_eq!(relevant_paths(&remove, root).index, vec!["a.md".to_string()]);
+        assert_eq!(
+            relevant_paths(&create, root).index,
+            vec!["a.md".to_string()]
+        );
+        let remove =
+            Event::new(EventKind::Remove(RemoveKind::File)).add_path(PathBuf::from("/vault/a.md"));
+        assert_eq!(
+            relevant_paths(&remove, root).index,
+            vec!["a.md".to_string()]
+        );
     }
 }

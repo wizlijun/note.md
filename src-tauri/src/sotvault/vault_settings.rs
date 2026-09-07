@@ -282,14 +282,23 @@ pub(crate) fn validate_search_weights(w: &SearchWeights) -> Result<(), String> {
     // rejection (so `low` itself, typically `0.0`, is refused); `true` is
     // for `attention`, where the low bound itself is the one legal value a
     // "turn it off" caller needs to hit.
-    fn check(name: &str, v: Option<f64>, low: f64, low_inclusive: bool, high: f64) -> Result<(), String> {
-        let out_of_range = |x: f64| {
-            !x.is_finite() || if low_inclusive { x < low } else { x <= low } || x > high
-        };
+    fn check(
+        name: &str,
+        v: Option<f64>,
+        low: f64,
+        low_inclusive: bool,
+        high: f64,
+    ) -> Result<(), String> {
+        let out_of_range =
+            |x: f64| !x.is_finite() || if low_inclusive { x < low } else { x <= low } || x > high;
         match v {
             Some(x) if out_of_range(x) => Err(format!(
                 "{name} weight must be a finite number {} {low} and at most {high}",
-                if low_inclusive { "at least" } else { "greater than" }
+                if low_inclusive {
+                    "at least"
+                } else {
+                    "greater than"
+                }
             )),
             _ => Ok(()),
         }
@@ -395,7 +404,10 @@ mod tests {
     fn validate_accepts_relative_and_nested() {
         assert_eq!(validate_rel_dir("sync").unwrap(), "sync");
         assert_eq!(validate_rel_dir("  Sync  ").unwrap(), "Sync");
-        assert_eq!(validate_rel_dir("Attachments/sync").unwrap(), "Attachments/sync");
+        assert_eq!(
+            validate_rel_dir("Attachments/sync").unwrap(),
+            "Attachments/sync"
+        );
         assert_eq!(validate_rel_dir("a//b/").unwrap(), "a/b");
     }
 
@@ -445,7 +457,19 @@ mod tests {
             search_source_globs: None,
             search_weights: None,
         };
-        let out = merge(base, Some("box".into()), None, None, None, None, None, None, None, None).unwrap();
+        let out = merge(
+            base,
+            Some("box".into()),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
         assert_eq!(out.sync_dir.as_deref(), Some("box"));
         assert_eq!(out.wikipage_dir.as_deref(), Some("wiki"));
         assert_eq!(out.dailynote_dir.as_deref(), Some("daily"));
@@ -454,13 +478,49 @@ mod tests {
 
     #[test]
     fn merge_rejects_invalid_provided_value() {
-        assert!(merge(VaultSettings::default(), Some("../x".into()), None, None, None, None, None, None, None, None).is_err());
-        assert!(merge(VaultSettings::default(), None, None, None, None, Some("../x".into()), None, None, None, None).is_err());
+        assert!(merge(
+            VaultSettings::default(),
+            Some("../x".into()),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None
+        )
+        .is_err());
+        assert!(merge(
+            VaultSettings::default(),
+            None,
+            None,
+            None,
+            None,
+            Some("../x".into()),
+            None,
+            None,
+            None,
+            None
+        )
+        .is_err());
     }
 
     #[test]
     fn merge_sets_inbox_dir() {
-        let out = merge(VaultSettings::default(), None, None, None, None, Some("box".into()), None, None, None, None).unwrap();
+        let out = merge(
+            VaultSettings::default(),
+            None,
+            None,
+            None,
+            None,
+            Some("box".into()),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
         assert_eq!(out.inbox_dir.as_deref(), Some("box"));
     }
 
@@ -470,7 +530,10 @@ mod tests {
         assert_eq!(resolve_inbox_dir(dir.path()), DEFAULT_INBOX_DIR);
         write(
             dir.path(),
-            &VaultSettings { inbox_dir: Some("box".into()), ..Default::default() },
+            &VaultSettings {
+                inbox_dir: Some("box".into()),
+                ..Default::default()
+            },
         )
         .unwrap();
         assert_eq!(resolve_inbox_dir(dir.path()), "box");
@@ -487,7 +550,10 @@ mod tests {
         let dir = TempDir::new().unwrap();
         write(
             dir.path(),
-            &VaultSettings { sync_dir: Some("box".into()), ..Default::default() },
+            &VaultSettings {
+                sync_dir: Some("box".into()),
+                ..Default::default()
+            },
         )
         .unwrap();
         assert_eq!(resolve_sync_dir(dir.path()), "box");
@@ -498,7 +564,10 @@ mod tests {
         let dir = TempDir::new().unwrap();
         write(
             dir.path(),
-            &VaultSettings { sync_dir: Some("../nope".into()), ..Default::default() },
+            &VaultSettings {
+                sync_dir: Some("../nope".into()),
+                ..Default::default()
+            },
         )
         .unwrap();
         assert_eq!(resolve_sync_dir(dir.path()), DEFAULT_SYNC_DIR);
@@ -510,35 +579,86 @@ mod tests {
     /// does not read `.notemd/settings.json` twice per call.
     #[test]
     fn resolve_sync_dir_from_agrees_with_resolve_sync_dir_on_every_case() {
-        assert_eq!(resolve_sync_dir_from(&VaultSettings::default()), DEFAULT_SYNC_DIR);
         assert_eq!(
-            resolve_sync_dir_from(&VaultSettings { sync_dir: Some("box".into()), ..Default::default() }),
+            resolve_sync_dir_from(&VaultSettings::default()),
+            DEFAULT_SYNC_DIR
+        );
+        assert_eq!(
+            resolve_sync_dir_from(&VaultSettings {
+                sync_dir: Some("box".into()),
+                ..Default::default()
+            }),
             "box"
         );
         assert_eq!(
-            resolve_sync_dir_from(&VaultSettings { sync_dir: Some("../nope".into()), ..Default::default() }),
+            resolve_sync_dir_from(&VaultSettings {
+                sync_dir: Some("../nope".into()),
+                ..Default::default()
+            }),
             DEFAULT_SYNC_DIR
         );
     }
 
     #[test]
     fn merge_sets_and_validates_threshold() {
-        let out = merge(VaultSettings::default(), None, None, None, Some(25), None, None, None, None, None).unwrap();
+        let out = merge(
+            VaultSettings::default(),
+            None,
+            None,
+            None,
+            Some(25),
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
         assert_eq!(out.large_file_threshold_mb, Some(25));
-        assert!(merge(VaultSettings::default(), None, None, None, Some(0), None, None, None, None, None).is_err());
+        assert!(merge(
+            VaultSettings::default(),
+            None,
+            None,
+            None,
+            Some(0),
+            None,
+            None,
+            None,
+            None,
+            None
+        )
+        .is_err());
     }
 
     #[test]
     fn merge_keeps_threshold_when_none() {
-        let base = VaultSettings { large_file_threshold_mb: Some(50), ..Default::default() };
-        let out = merge(base, Some("box".into()), None, None, None, None, None, None, None, None).unwrap();
+        let base = VaultSettings {
+            large_file_threshold_mb: Some(50),
+            ..Default::default()
+        };
+        let out = merge(
+            base,
+            Some("box".into()),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
         assert_eq!(out.large_file_threshold_mb, Some(50));
     }
 
     #[test]
     fn threshold_round_trips() {
         let dir = TempDir::new().unwrap();
-        let s = VaultSettings { large_file_threshold_mb: Some(10), ..Default::default() };
+        let s = VaultSettings {
+            large_file_threshold_mb: Some(10),
+            ..Default::default()
+        };
         write(dir.path(), &s).unwrap();
         assert_eq!(read(dir.path()), s);
     }
@@ -546,9 +666,15 @@ mod tests {
     #[test]
     fn search_exclude_dirs_round_trips_and_defaults_to_absent() {
         let tmp = tempfile::tempdir().unwrap();
-        let s = VaultSettings { search_exclude_dirs: Some(vec!["sessions".into()]), ..Default::default() };
+        let s = VaultSettings {
+            search_exclude_dirs: Some(vec!["sessions".into()]),
+            ..Default::default()
+        };
         write(tmp.path(), &s).unwrap();
-        assert_eq!(read(tmp.path()).search_exclude_dirs, Some(vec!["sessions".to_string()]));
+        assert_eq!(
+            read(tmp.path()).search_exclude_dirs,
+            Some(vec!["sessions".to_string()])
+        );
 
         // 未设置时不写进文件:没碰过这个设置的用户,settings.json 必须逐字节不变。
         write(tmp.path(), &VaultSettings::default()).unwrap();
@@ -561,31 +687,55 @@ mod tests {
     fn merge_validates_every_exclude_entry() {
         let ok = merge(
             VaultSettings::default(),
-            None, None, None, None, None,
+            None,
+            None,
+            None,
+            None,
+            None,
             Some(vec!["a/b".into()]),
-            None, None, None,
+            None,
+            None,
+            None,
         )
         .unwrap();
         assert_eq!(ok.search_exclude_dirs, Some(vec!["a/b".to_string()]));
         assert!(merge(
             VaultSettings::default(),
-            None, None, None, None, None,
+            None,
+            None,
+            None,
+            None,
+            None,
             Some(vec!["../x".into()]),
-            None, None, None,
+            None,
+            None,
+            None,
         )
         .is_err());
         assert!(merge(
             VaultSettings::default(),
-            None, None, None, None, None,
+            None,
+            None,
+            None,
+            None,
+            None,
             Some(vec!["/abs".into()]),
-            None, None, None,
+            None,
+            None,
+            None,
         )
         .is_err());
         assert!(merge(
             VaultSettings::default(),
-            None, None, None, None, None,
+            None,
+            None,
+            None,
+            None,
+            None,
             Some(vec!["C:\\x".into()]),
-            None, None, None,
+            None,
+            None,
+            None,
         )
         .is_err());
     }
@@ -597,24 +747,102 @@ mod tests {
     fn merge_rejects_a_drive_letter_in_every_directory_field() {
         let drive = || Some("C:\\Users\\x".to_string());
         let base = VaultSettings::default;
-        assert!(merge(base(), drive(), None, None, None, None, None, None, None, None).is_err(), "sync_dir");
-        assert!(merge(base(), None, drive(), None, None, None, None, None, None, None).is_err(), "wikipage_dir");
-        assert!(merge(base(), None, None, drive(), None, None, None, None, None, None).is_err(), "dailynote_dir");
-        assert!(merge(base(), None, None, None, None, drive(), None, None, None, None).is_err(), "inbox_dir");
+        assert!(
+            merge(
+                base(),
+                drive(),
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None
+            )
+            .is_err(),
+            "sync_dir"
+        );
+        assert!(
+            merge(
+                base(),
+                None,
+                drive(),
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None
+            )
+            .is_err(),
+            "wikipage_dir"
+        );
+        assert!(
+            merge(
+                base(),
+                None,
+                None,
+                drive(),
+                None,
+                None,
+                None,
+                None,
+                None,
+                None
+            )
+            .is_err(),
+            "dailynote_dir"
+        );
+        assert!(
+            merge(
+                base(),
+                None,
+                None,
+                None,
+                None,
+                drive(),
+                None,
+                None,
+                None,
+                None
+            )
+            .is_err(),
+            "inbox_dir"
+        );
     }
 
     /// 空数组是有意义的输入(= 清空排除),不能被当成"没提供"。
     #[test]
     fn an_empty_list_clears_the_exclusions() {
-        let base = VaultSettings { search_exclude_dirs: Some(vec!["x".into()]), ..Default::default() };
-        let out = merge(base, None, None, None, None, None, Some(vec![]), None, None, None).unwrap();
+        let base = VaultSettings {
+            search_exclude_dirs: Some(vec!["x".into()]),
+            ..Default::default()
+        };
+        let out = merge(
+            base,
+            None,
+            None,
+            None,
+            None,
+            None,
+            Some(vec![]),
+            None,
+            None,
+            None,
+        )
+        .unwrap();
         assert_eq!(out.search_exclude_dirs, Some(vec![]));
     }
 
     #[test]
     fn search_threshold_round_trips_and_is_absent_when_unset() {
         let tmp = tempfile::tempdir().unwrap();
-        let s = VaultSettings { search_large_file_threshold_mb: Some(50), ..Default::default() };
+        let s = VaultSettings {
+            search_large_file_threshold_mb: Some(50),
+            ..Default::default()
+        };
         write(tmp.path(), &s).unwrap();
         assert_eq!(read(tmp.path()).search_large_file_threshold_mb, Some(50));
 
@@ -626,7 +854,19 @@ mod tests {
     #[test]
     fn merge_rejects_a_zero_search_threshold() {
         let base = VaultSettings::default();
-        assert!(merge(base, None, None, None, None, None, None, Some(0), None, None).is_err());
+        assert!(merge(
+            base,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            Some(0),
+            None,
+            None
+        )
+        .is_err());
     }
 
     /// Review round 1, Important 4 (spec §8: "权重非法 → 保存时拒绝,保留
@@ -636,22 +876,93 @@ mod tests {
     #[test]
     fn merge_rejects_an_out_of_range_weight() {
         let bad = |w: SearchWeights| {
-            merge(VaultSettings::default(), None, None, None, None, None, None, None, None, Some(w))
+            merge(
+                VaultSettings::default(),
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                Some(w),
+            )
         };
-        assert!(bad(SearchWeights { human: Some(0.0), ..Default::default() }).is_err(), "0 不合法");
-        assert!(bad(SearchWeights { human: Some(-1.0), ..Default::default() }).is_err(), "负数不合法");
-        assert!(bad(SearchWeights { source: Some(5.000_001), ..Default::default() }).is_err(), "超过 5.0 不合法");
-        assert!(bad(SearchWeights { derived: Some(f64::NAN), ..Default::default() }).is_err(), "NaN 不合法");
-        assert!(bad(SearchWeights { unlabeled: Some(f64::INFINITY), ..Default::default() }).is_err(), "无穷不合法");
+        assert!(
+            bad(SearchWeights {
+                human: Some(0.0),
+                ..Default::default()
+            })
+            .is_err(),
+            "0 不合法"
+        );
+        assert!(
+            bad(SearchWeights {
+                human: Some(-1.0),
+                ..Default::default()
+            })
+            .is_err(),
+            "负数不合法"
+        );
+        assert!(
+            bad(SearchWeights {
+                source: Some(5.000_001),
+                ..Default::default()
+            })
+            .is_err(),
+            "超过 5.0 不合法"
+        );
+        assert!(
+            bad(SearchWeights {
+                derived: Some(f64::NAN),
+                ..Default::default()
+            })
+            .is_err(),
+            "NaN 不合法"
+        );
+        assert!(
+            bad(SearchWeights {
+                unlabeled: Some(f64::INFINITY),
+                ..Default::default()
+            })
+            .is_err(),
+            "无穷不合法"
+        );
     }
 
     #[test]
     fn merge_accepts_boundary_and_ordinary_weights() {
         let ok = |w: SearchWeights| {
-            merge(VaultSettings::default(), None, None, None, None, None, None, None, None, Some(w))
+            merge(
+                VaultSettings::default(),
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                Some(w),
+            )
         };
-        assert!(ok(SearchWeights { human: Some(5.0), ..Default::default() }).is_ok(), "5.0 是合法上界");
-        assert!(ok(SearchWeights { source: Some(0.000_1), ..Default::default() }).is_ok(), "接近 0 但仍为正的合法值");
+        assert!(
+            ok(SearchWeights {
+                human: Some(5.0),
+                ..Default::default()
+            })
+            .is_ok(),
+            "5.0 是合法上界"
+        );
+        assert!(
+            ok(SearchWeights {
+                source: Some(0.000_1),
+                ..Default::default()
+            })
+            .is_ok(),
+            "接近 0 但仍为正的合法值"
+        );
         assert!(ok(SearchWeights::default()).is_ok(), "全部缺省仍合法");
     }
 
@@ -664,25 +975,52 @@ mod tests {
     #[test]
     fn attention_weight_allows_zero_at_save_time_but_the_origin_tiers_still_reject_it() {
         let save = |w: SearchWeights| {
-            merge(VaultSettings::default(), None, None, None, None, None, None, None, None, Some(w))
+            merge(
+                VaultSettings::default(),
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                Some(w),
+            )
         };
         assert!(
-            save(SearchWeights { attention: Some(0.0), ..Default::default() }).is_ok(),
+            save(SearchWeights {
+                attention: Some(0.0),
+                ..Default::default()
+            })
+            .is_ok(),
             "attention: 0 是关闭开关,保存时必须放行"
         );
         for bad in [-1.0, f64::NAN, f64::INFINITY, 2.5] {
             assert!(
-                save(SearchWeights { attention: Some(bad), ..Default::default() }).is_err(),
+                save(SearchWeights {
+                    attention: Some(bad),
+                    ..Default::default()
+                })
+                .is_err(),
                 "attention: {bad} 越界,保存时必须拒绝"
             );
         }
         assert!(
-            save(SearchWeights { attention: Some(2.0), ..Default::default() }).is_ok(),
+            save(SearchWeights {
+                attention: Some(2.0),
+                ..Default::default()
+            })
+            .is_ok(),
             "2.0 是 attention 的合法上界"
         );
         // 四档不受这次改动影响:0 仍然是非法值,保存时仍被拒。
         assert!(
-            save(SearchWeights { human: Some(0.0), ..Default::default() }).is_err(),
+            save(SearchWeights {
+                human: Some(0.0),
+                ..Default::default()
+            })
+            .is_err(),
             "四档的 0 仍必须被拒 —— attention 的放行规则不能外溢"
         );
     }
@@ -693,8 +1031,18 @@ mod tests {
     fn merge_does_not_reject_an_absent_component() {
         let out = merge(
             VaultSettings::default(),
-            None, None, None, None, None, None, None, None,
-            Some(SearchWeights { human: Some(2.0), ..Default::default() }),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            Some(SearchWeights {
+                human: Some(2.0),
+                ..Default::default()
+            }),
         )
         .unwrap();
         assert_eq!(out.search_weights.unwrap().human, Some(2.0));
@@ -708,13 +1056,26 @@ mod tests {
     #[test]
     fn a_rejected_weight_does_not_disturb_the_existing_value() {
         let base = VaultSettings {
-            search_weights: Some(SearchWeights { human: Some(1.5), ..Default::default() }),
+            search_weights: Some(SearchWeights {
+                human: Some(1.5),
+                ..Default::default()
+            }),
             ..Default::default()
         };
         let err = merge(
             base,
-            None, None, None, None, None, None, None, None,
-            Some(SearchWeights { human: Some(-1.0), ..Default::default() }),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            Some(SearchWeights {
+                human: Some(-1.0),
+                ..Default::default()
+            }),
         );
         assert!(err.is_err(), "非法权重必须拒绝整次保存");
     }

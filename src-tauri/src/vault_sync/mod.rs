@@ -121,7 +121,14 @@ pub fn vault_sync_status(app: AppHandle) -> VaultSyncStatus {
     let error_message = mgr.error_msg.lock().unwrap().clone();
     let git_available = *mgr.git_available.lock().unwrap();
     let skipped_large_files = mgr.skipped_large_files.lock().unwrap().clone();
-    VaultSyncStatus { state, repo_path, last_sync, error_message, git_available, skipped_large_files }
+    VaultSyncStatus {
+        state,
+        repo_path,
+        last_sync,
+        error_message,
+        git_available,
+        skipped_large_files,
+    }
 }
 
 #[tauri::command]
@@ -147,7 +154,9 @@ pub fn init(app: &AppHandle) {
         if let Err(reason) = crate::sotvault::root_guard::check(std::path::Path::new(path)) {
             crate::log_bus::push(
                 "warn",
-                format!("vault sync not started — configured root is rejected ({reason:?}): {path}"),
+                format!(
+                    "vault sync not started — configured root is rejected ({reason:?}): {path}"
+                ),
             );
             return;
         }

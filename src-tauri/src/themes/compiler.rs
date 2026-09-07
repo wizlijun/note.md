@@ -13,7 +13,10 @@ pub fn strip_include_when_export(css: &str) -> String {
     let mut rest = css;
     loop {
         match rest.find("@include-when-export") {
-            None => { out.push_str(rest); break }
+            None => {
+                out.push_str(rest);
+                break;
+            }
             Some(idx) => {
                 // Check that the keyword is not followed by identifier characters.
                 let keyword_end = idx + "@include-when-export".len();
@@ -49,7 +52,10 @@ pub fn strip_include_when_export(css: &str) -> String {
                     match b {
                         b'(' => depth_paren += 1,
                         b')' => depth_paren -= 1,
-                        b';' if depth_paren == 0 => { terminator = Some(i); break }
+                        b';' if depth_paren == 0 => {
+                            terminator = Some(i);
+                            break;
+                        }
                         _ => {}
                     }
                 }
@@ -57,7 +63,7 @@ pub fn strip_include_when_export(css: &str) -> String {
                     None => {
                         // Malformed — bail and keep the rest verbatim.
                         out.push_str(after);
-                        break
+                        break;
                     }
                     Some(semi_rel) => {
                         rest = &after[semi_rel + 1..];
@@ -95,7 +101,9 @@ pub fn rewrite_selector_text(input: &str, theme_id: &str) -> String {
     // Deduplicate while preserving order.
     let mut seen: Vec<String> = Vec::new();
     for p in parts {
-        if !seen.iter().any(|s| s == &p) { seen.push(p) }
+        if !seen.iter().any(|s| s == &p) {
+            seen.push(p)
+        }
     }
     seen.join(", ")
 }
@@ -120,7 +128,10 @@ fn rewrite_one(sel: &str, scope: &str) -> String {
     // never match, so those rules were dropped silently (600+ per theme in the
     // vlook family, and the `caret-color` that left the caret invisible).
     // Anchor on the last scope and discard whatever qualified it.
-    if let Some(last) = rebuilt.iter().rposition(|t| matches!(t, SelToken::ScopeMarker)) {
+    if let Some(last) = rebuilt
+        .iter()
+        .rposition(|t| matches!(t, SelToken::ScopeMarker))
+    {
         rebuilt.drain(..last);
     }
     // Convert child combinators following a ScopeMarker into descendant.
@@ -145,14 +156,18 @@ fn rewrite_one(sel: &str, scope: &str) -> String {
             SelToken::Compound(s) => out.push_str(&s),
             SelToken::Combinator(' ') => out.push(' '),
             SelToken::Combinator(c) => {
-                if !out.ends_with(' ') { out.push(' ') }
+                if !out.ends_with(' ') {
+                    out.push(' ')
+                }
                 out.push(c);
                 out.push(' ');
             }
         }
     }
     // Collapse any double spaces.
-    while out.contains("  ") { out = out.replace("  ", " ") }
+    while out.contains("  ") {
+        out = out.replace("  ", " ")
+    }
     out.trim().to_string()
 }
 
@@ -175,10 +190,26 @@ fn tokenize_selector(sel: &str) -> Vec<SelToken> {
     let mut depth_bracket = 0usize;
     while let Some(c) = chars.next() {
         match c {
-            '(' => { depth_paren += 1; current.push(c) }
-            ')' => { if depth_paren > 0 { depth_paren -= 1 } current.push(c) }
-            '[' => { depth_bracket += 1; current.push(c) }
-            ']' => { if depth_bracket > 0 { depth_bracket -= 1 } current.push(c) }
+            '(' => {
+                depth_paren += 1;
+                current.push(c)
+            }
+            ')' => {
+                if depth_paren > 0 {
+                    depth_paren -= 1
+                }
+                current.push(c)
+            }
+            '[' => {
+                depth_bracket += 1;
+                current.push(c)
+            }
+            ']' => {
+                if depth_bracket > 0 {
+                    depth_bracket -= 1
+                }
+                current.push(c)
+            }
             ' ' | '\t' | '\n' if depth_paren == 0 && depth_bracket == 0 => {
                 if !current.is_empty() {
                     out.push(SelToken::Compound(std::mem::take(&mut current)));
@@ -186,7 +217,10 @@ fn tokenize_selector(sel: &str) -> Vec<SelToken> {
                 // Peek next non-whitespace; if it's a structural combinator,
                 // emit that; else emit descendant.
                 while let Some(&p) = chars.peek() {
-                    if p == ' ' || p == '\t' || p == '\n' { chars.next(); continue }
+                    if p == ' ' || p == '\t' || p == '\n' {
+                        chars.next();
+                        continue;
+                    }
                     break;
                 }
                 match chars.peek() {
@@ -194,7 +228,10 @@ fn tokenize_selector(sel: &str) -> Vec<SelToken> {
                         let c2 = chars.next().unwrap();
                         // Skip trailing whitespace.
                         while let Some(&p) = chars.peek() {
-                            if p == ' ' || p == '\t' || p == '\n' { chars.next(); continue }
+                            if p == ' ' || p == '\t' || p == '\n' {
+                                chars.next();
+                                continue;
+                            }
                             break;
                         }
                         out.push(SelToken::Combinator(c2));
@@ -210,7 +247,10 @@ fn tokenize_selector(sel: &str) -> Vec<SelToken> {
                 out.push(SelToken::Combinator(c));
                 // Skip whitespace after combinator.
                 while let Some(&p) = chars.peek() {
-                    if p == ' ' || p == '\t' || p == '\n' { chars.next(); continue }
+                    if p == ' ' || p == '\t' || p == '\n' {
+                        chars.next();
+                        continue;
+                    }
                     break;
                 }
             }
@@ -245,7 +285,9 @@ fn split_top_level_comma(s: &str) -> Vec<&str> {
         }
         i += 1;
     }
-    if start < bytes.len() { out.push(&s[start..]) }
+    if start < bytes.len() {
+        out.push(&s[start..])
+    }
     out
 }
 
@@ -260,10 +302,14 @@ use std::path::{Component, Path, PathBuf};
 ///   theme's same-named asset folder). If the resolved path tries to escape
 ///   `asset_dir` via `..`, return `about:blank` to neuter the reference.
 pub fn rewrite_url_value(value: &str, asset_dir: &str) -> String {
-    if value.is_empty() { return String::new() }
+    if value.is_empty() {
+        return String::new();
+    }
     let lower = value.to_ascii_lowercase();
     for scheme in ["http://", "https://", "data:", "file://", "about:"] {
-        if lower.starts_with(scheme) { return value.to_string() }
+        if lower.starts_with(scheme) {
+            return value.to_string();
+        }
     }
     let base = Path::new(asset_dir);
     let candidate = base.join(value);
@@ -297,7 +343,9 @@ fn normalize(p: &Path) -> PathBuf {
     let mut out = PathBuf::new();
     for comp in p.components() {
         match comp {
-            Component::ParentDir => { out.pop(); }
+            Component::ParentDir => {
+                out.pop();
+            }
             Component::CurDir => {}
             other => out.push(other.as_os_str()),
         }
@@ -327,14 +375,20 @@ pub fn compile_theme_css(src: &str, theme_id: &str, asset_dir: &str) -> Result<S
     check_structural_validity(&stripped)?;
     // Box::leak gives us a 'static str so the stylesheet can outlive this fn's local.
     let static_src: &'static str = Box::leak(stripped.into_boxed_str());
-    let mut ss = StyleSheet::parse(static_src, ParserOptions {
-        error_recovery: true,
-        ..ParserOptions::default()
-    })
-        .map_err(|e| format!("parse error: {e}"))?;
+    let mut ss = StyleSheet::parse(
+        static_src,
+        ParserOptions {
+            error_recovery: true,
+            ..ParserOptions::default()
+        },
+    )
+    .map_err(|e| format!("parse error: {e}"))?;
     rewrite_rules(&mut ss.rules.0, theme_id, asset_dir);
     let printed = ss
-        .to_css(PrinterOptions { minify: false, ..PrinterOptions::default() })
+        .to_css(PrinterOptions {
+            minify: false,
+            ..PrinterOptions::default()
+        })
         .map_err(|e| format!("print error: {e}"))?;
     Ok(printed.code)
 }
@@ -354,8 +408,14 @@ fn check_structural_validity(css: &str) -> Result<(), String> {
                 let quote = c;
                 let mut closed = false;
                 while let Some(sc) = chars.next() {
-                    if sc == '\\' { chars.next(); continue; }
-                    if sc == quote { closed = true; break; }
+                    if sc == '\\' {
+                        chars.next();
+                        continue;
+                    }
+                    if sc == quote {
+                        closed = true;
+                        break;
+                    }
                 }
                 if !closed {
                     return Err(format!("parse error: unterminated string literal"));
@@ -387,7 +447,9 @@ fn check_structural_validity(css: &str) -> Result<(), String> {
         }
     }
     if depth != 0 {
-        return Err(format!("parse error: unclosed block (`{{` without matching `}}`), depth={depth}"));
+        return Err(format!(
+            "parse error: unclosed block (`{{` without matching `}}`), depth={depth}"
+        ));
     }
     Ok(())
 }

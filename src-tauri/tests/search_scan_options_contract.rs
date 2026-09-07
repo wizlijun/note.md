@@ -15,13 +15,19 @@ fn the_index_threshold_falls_back_to_the_git_gate_when_unset() {
     let d = tempfile::tempdir().unwrap();
     write_settings(d.path(), r#"{"largeFileThresholdMb": 25}"#);
     let opts = notemd_lib::search::options::for_vault(d.path());
-    assert_eq!(opts.large_file_threshold_mb, 25, "未设索引阈值时应跟随 git 门禁");
+    assert_eq!(
+        opts.large_file_threshold_mb, 25,
+        "未设索引阈值时应跟随 git 门禁"
+    );
 }
 
 #[test]
 fn an_explicit_index_threshold_decouples_from_the_git_gate() {
     let d = tempfile::tempdir().unwrap();
-    write_settings(d.path(), r#"{"largeFileThresholdMb": 10, "searchLargeFileThresholdMb": 50}"#);
+    write_settings(
+        d.path(),
+        r#"{"largeFileThresholdMb": 10, "searchLargeFileThresholdMb": 50}"#,
+    );
     let opts = notemd_lib::search::options::for_vault(d.path());
     assert_eq!(opts.large_file_threshold_mb, 50, "显式设过就不再跟随");
 }
@@ -30,14 +36,20 @@ fn an_explicit_index_threshold_decouples_from_the_git_gate() {
 fn both_unset_falls_back_to_the_default() {
     let d = tempfile::tempdir().unwrap();
     write_settings(d.path(), r#"{}"#);
-    assert_eq!(notemd_lib::search::options::for_vault(d.path()).large_file_threshold_mb, 10);
+    assert_eq!(
+        notemd_lib::search::options::for_vault(d.path()).large_file_threshold_mb,
+        10
+    );
 }
 
 /// 两个 adapter 的构造必须是同一个函数,不是两份「碰巧一致」的实现。
 #[test]
 fn the_cli_and_the_gui_build_options_through_one_function() {
     let d = tempfile::tempdir().unwrap();
-    write_settings(d.path(), r#"{"searchLargeFileThresholdMb": 33, "searchExcludeDirs": ["a"], "syncDir": "box"}"#);
+    write_settings(
+        d.path(),
+        r#"{"searchLargeFileThresholdMb": 33, "searchExcludeDirs": ["a"], "syncDir": "box"}"#,
+    );
     let gui = notemd_lib::search::options::for_vault(d.path());
     let cli = notemd_lib::cli::search::scan_options_for(d.path());
     assert_eq!(gui.large_file_threshold_mb, cli.large_file_threshold_mb);
@@ -53,7 +65,10 @@ fn the_cli_and_the_gui_build_options_through_one_function() {
 #[test]
 fn the_cli_and_the_gui_resolve_the_same_weights() {
     let d = tempfile::tempdir().unwrap();
-    write_settings(d.path(), r#"{"searchWeights": {"human": 2.0, "source": 0.5}}"#);
+    write_settings(
+        d.path(),
+        r#"{"searchWeights": {"human": 2.0, "source": 0.5}}"#,
+    );
     let gui = notemd_lib::search::options::weights_for_vault(d.path());
     let cli = notemd_lib::cli::search::weights_for(d.path());
     assert_eq!(gui, cli);

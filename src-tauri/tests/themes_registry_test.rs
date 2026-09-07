@@ -16,8 +16,11 @@ fn empty_dir_returns_empty_vec() {
 #[test]
 fn picks_up_css_with_header() {
     let d = tempdir().unwrap();
-    write(d.path(), "claude-like.css",
-        "/*\n * Theme Name: Claude-Like\n * Appearance: light\n */\n:root {}");
+    write(
+        d.path(),
+        "claude-like.css",
+        "/*\n * Theme Name: Claude-Like\n * Appearance: light\n */\n:root {}",
+    );
     let list = scan_themes_dir(d.path(), &["default"]).unwrap();
     assert_eq!(list.len(), 1);
     let m: &ThemeMeta = &list[0];

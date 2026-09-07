@@ -16,8 +16,8 @@ fn main() {
     // and every `cargo test` binary dies at load with STATUS_ENTRYPOINT_NOT_FOUND
     // (0xc0000139) before running a single test.
     if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows") {
-        let manifest = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("windows-tests.manifest");
+        let manifest =
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("windows-tests.manifest");
         println!("cargo:rerun-if-changed={}", manifest.display());
         // Scope note: `rustc-link-arg-tests` covers only `tests/*.rs`
         // integration targets. The `--lib` unit-test harness — where nearly all

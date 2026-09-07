@@ -2,19 +2,31 @@ use notemd_lib::themes::appearance::{resolve_appearance, title_case_from_stem, A
 
 #[test]
 fn explicit_header_wins() {
-    assert_eq!(resolve_appearance(Some("dark"), "anything-light"), Appearance::Dark);
-    assert_eq!(resolve_appearance(Some("LIGHT"), "anything-dark"), Appearance::Light);
+    assert_eq!(
+        resolve_appearance(Some("dark"), "anything-light"),
+        Appearance::Dark
+    );
+    assert_eq!(
+        resolve_appearance(Some("LIGHT"), "anything-dark"),
+        Appearance::Light
+    );
 }
 
 #[test]
 fn unknown_header_falls_through_to_stem() {
-    assert_eq!(resolve_appearance(Some("amber"), "warm-dark"), Appearance::Dark);
+    assert_eq!(
+        resolve_appearance(Some("amber"), "warm-dark"),
+        Appearance::Dark
+    );
     assert_eq!(resolve_appearance(Some(""), "default"), Appearance::Light);
 }
 
 #[test]
 fn stem_dark_keyword_at_end() {
-    assert_eq!(resolve_appearance(None, "claude-like-dark"), Appearance::Dark);
+    assert_eq!(
+        resolve_appearance(None, "claude-like-dark"),
+        Appearance::Dark
+    );
     assert_eq!(resolve_appearance(None, "claude_dark"), Appearance::Dark);
 }
 
@@ -26,7 +38,10 @@ fn stem_dark_keyword_at_start() {
 
 #[test]
 fn stem_dark_keyword_in_middle() {
-    assert_eq!(resolve_appearance(None, "claude-dark-pro"), Appearance::Dark);
+    assert_eq!(
+        resolve_appearance(None, "claude-dark-pro"),
+        Appearance::Dark
+    );
     assert_eq!(resolve_appearance(None, "a_night_b"), Appearance::Dark);
 }
 
@@ -40,7 +55,10 @@ fn substring_does_not_match() {
 fn unrelated_stems_are_light() {
     assert_eq!(resolve_appearance(None, "default"), Appearance::Light);
     assert_eq!(resolve_appearance(None, "claude-like"), Appearance::Light);
-    assert_eq!(resolve_appearance(None, "claude-like-grey"), Appearance::Light);
+    assert_eq!(
+        resolve_appearance(None, "claude-like-grey"),
+        Appearance::Light
+    );
 }
 
 #[test]

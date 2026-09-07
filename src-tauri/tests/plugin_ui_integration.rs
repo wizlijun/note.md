@@ -21,13 +21,9 @@ use std::path::{Path, PathBuf};
 
 use notemd_lib::plugin_runtime::discovery::scan_root;
 use notemd_lib::plugin_runtime::host_api::ToastEmitter;
-use notemd_lib::plugin_runtime::protocol::{
-    self, AssetError, PluginView, Routed,
-};
+use notemd_lib::plugin_runtime::protocol::{self, AssetError, PluginView, Routed};
 use notemd_lib::plugin_runtime::state::{self, InstallState, InstalledPlugin};
-use notemd_lib::plugin_runtime::ui_rpc::{
-    dispatch_with, HostServices, OpenOptions, SaveOptions,
-};
+use notemd_lib::plugin_runtime::ui_rpc::{dispatch_with, HostServices, OpenOptions, SaveOptions};
 use plugin_protocol as proto;
 use serde_json::json;
 
@@ -76,7 +72,10 @@ fn discovery_loads_ui_only_plugin_without_binary() {
     let mut st = InstallState::default();
     st.installed.insert(
         PLUGIN_ID.to_string(),
-        InstalledPlugin { version: "1.0.0".into(), enabled: true },
+        InstalledPlugin {
+            version: "1.0.0".into(),
+            enabled: true,
+        },
     );
     state::save(root, &st).unwrap();
 
@@ -115,7 +114,9 @@ fn resolve_asset_serves_fixture_and_blocks_traversal() {
 
     let app = protocol::resolve_asset(&ui, "/app.js").unwrap();
     assert!(app.ends_with("app.js"));
-    assert!(std::fs::read_to_string(&app).unwrap().contains("host.vault.info"));
+    assert!(std::fs::read_to_string(&app)
+        .unwrap()
+        .contains("host.vault.info"));
 
     // `../manifest.json` escapes ui/ into current/ — must be rejected.
     assert_eq!(
@@ -264,7 +265,15 @@ fn handle_parsed_rpc_wrong_origin_403() {
 
 #[test]
 fn handle_parsed_rpc_missing_origin_is_same_origin() {
-    let r = protocol::handle_parsed(&FixtureView, "POST", PLUGIN_ID, "/__rpc__", None, "en", "default");
+    let r = protocol::handle_parsed(
+        &FixtureView,
+        "POST",
+        PLUGIN_ID,
+        "/__rpc__",
+        None,
+        "en",
+        "default",
+    );
     assert!(
         matches!(r, Routed::Rpc(..)),
         "a missing Origin is WebKit's same-origin POST and must route as RPC",
@@ -344,7 +353,9 @@ fn rpc_req(method: &str, params: serde_json::Value) -> proto::RpcRequest {
 #[tokio::test]
 async fn ui_rpc_vault_info_granted_returns_result() {
     let vault = tempfile::tempdir().unwrap();
-    let services = StubServices { vault: Some(vault.path().to_path_buf()) };
+    let services = StubServices {
+        vault: Some(vault.path().to_path_buf()),
+    };
     let log_dir = tempfile::tempdir().unwrap();
 
     // Capabilities exactly as the fixture manifest declares them.

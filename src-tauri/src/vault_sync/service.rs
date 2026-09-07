@@ -13,7 +13,11 @@ const MAX_DEFER: Duration = Duration::from_secs(120);
 
 pub fn start(app: &AppHandle) -> Result<(), String> {
     let mgr = app.state::<Arc<VaultSyncManager>>();
-    let repo_path = mgr.repo_path.lock().unwrap().clone()
+    let repo_path = mgr
+        .repo_path
+        .lock()
+        .unwrap()
+        .clone()
         .ok_or("Vault sync not configured: no repo_path")?;
     let repo = PathBuf::from(&repo_path);
 
@@ -52,7 +56,11 @@ pub fn stop(app: &AppHandle) -> Result<(), String> {
 
 pub fn sync_once(app: &AppHandle) -> Result<(), String> {
     let mgr = app.state::<Arc<VaultSyncManager>>();
-    let repo_path = mgr.repo_path.lock().unwrap().clone()
+    let repo_path = mgr
+        .repo_path
+        .lock()
+        .unwrap()
+        .clone()
         .ok_or("Not configured")?;
     let repo = PathBuf::from(&repo_path);
     let remote = mgr.remote.clone();
@@ -87,15 +95,13 @@ fn run_loop(app: AppHandle, repo: PathBuf, remote: String, branch: String) {
 
     let tx_periodic = tx.clone();
     let app_for_periodic = app.clone();
-    std::thread::spawn(move || {
-        loop {
-            std::thread::sleep(Duration::from_secs(30));
-            let mgr = app_for_periodic.state::<Arc<VaultSyncManager>>();
-            if *mgr.stop_flag.lock().unwrap() {
-                break;
-            }
-            let _ = tx_periodic.send(());
+    std::thread::spawn(move || loop {
+        std::thread::sleep(Duration::from_secs(30));
+        let mgr = app_for_periodic.state::<Arc<VaultSyncManager>>();
+        if *mgr.stop_flag.lock().unwrap() {
+            break;
         }
+        let _ = tx_periodic.send(());
     });
 
     loop {
@@ -146,7 +152,8 @@ fn do_sync(app: &AppHandle, repo: &PathBuf, remote: &str, branch: &str) {
             let was_unavailable = !*mgr.git_available.lock().unwrap();
             *mgr.git_available.lock().unwrap() = true;
             if was_unavailable {
-                mgr.logs.push("INFO", &format!("git is available again: {ver}"));
+                mgr.logs
+                    .push("INFO", &format!("git is available again: {ver}"));
             }
         }
         None => {
@@ -173,14 +180,20 @@ fn do_sync(app: &AppHandle, repo: &PathBuf, remote: &str, branch: &str) {
             if !report.skipped_large.is_empty() {
                 mgr.logs.push(
                     "WARN",
-                    &format!("{} file(s) over the size limit were left out of sync: {}",
+                    &format!(
+                        "{} file(s) over the size limit were left out of sync: {}",
                         report.skipped_large.len(),
-                        report.skipped_large.join(", ")),
+                        report.skipped_large.join(", ")
+                    ),
                 );
             }
-            let ts = format!("{}", std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default().as_secs());
+            let ts = format!(
+                "{}",
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs()
+            );
             *mgr.last_sync.lock().unwrap() = Some(ts);
             *mgr.error_msg.lock().unwrap() = None;
             set_state(app, SyncState::Running);
@@ -192,8 +205,13 @@ fn do_sync(app: &AppHandle, repo: &PathBuf, remote: &str, branch: &str) {
                 .map(|s| s.trim().to_string());
             if let (Some(before), Some(after)) = (head_before.as_ref(), head_after.as_ref()) {
                 if before != after {
-                    if let Ok(diff) = git_ops::run_git(repo, &["diff", "--name-only", before, after]) {
-                        if diff.lines().any(|l| l.trim().starts_with(".notemd/recents/")) {
+                    if let Ok(diff) =
+                        git_ops::run_git(repo, &["diff", "--name-only", before, after])
+                    {
+                        if diff
+                            .lines()
+                            .any(|l| l.trim().starts_with(".notemd/recents/"))
+                        {
                             let _ = app.emit("editor://recents-synced", ());
                         }
                     }

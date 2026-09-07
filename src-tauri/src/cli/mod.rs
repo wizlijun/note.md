@@ -9,15 +9,15 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 
 pub mod args;
-pub mod router;
 pub mod builtin;
-pub mod runner;
-pub mod install;
 pub mod doctor;
+pub mod install;
+pub mod memory;
+pub mod open;
+pub mod router;
+pub mod runner;
 pub mod search;
 pub mod state;
-pub mod open;
-pub mod memory;
 
 use crate::app_dirs::BUNDLE_ID as APP_BUNDLE_ID;
 
@@ -62,14 +62,20 @@ pub fn is_cli_mode(argv: &[String]) -> bool {
     // `notemd <path>` re-launches this same binary to show the window; the
     // marker it passes has to win over every heuristic below, or a `notemd`
     // that lives outside a bundle would relaunch itself forever.
-    if argv.iter().any(|a| a == open::GUI_FLAG) { return false; }
-    if argv.iter().any(|a| a == "--cli") { return true; }
+    if argv.iter().any(|a| a == open::GUI_FLAG) {
+        return false;
+    }
+    if argv.iter().any(|a| a == "--cli") {
+        return true;
+    }
     if let Some(arg0) = argv.first() {
         // `cargo run` (tauri dev) launches with a *relative* arg0
         // (`target/debug/notemd`), so match "target/" without a leading
         // slash too — otherwise dev GUI drops into CLI help and exits.
-        if arg0.contains(".app/Contents/MacOS/") || arg0.contains("/target/")
-            || arg0.starts_with("target/") {
+        if arg0.contains(".app/Contents/MacOS/")
+            || arg0.contains("/target/")
+            || arg0.starts_with("target/")
+        {
             return false;
         }
         let name = std::path::Path::new(arg0)
@@ -77,7 +83,9 @@ pub fn is_cli_mode(argv: &[String]) -> bool {
             .and_then(|s| s.to_str())
             .unwrap_or("");
         // `mdedit` is the pre-rename command name; old symlinks keep working.
-        if name == "notemd" || name == "mdedit" { return true; }
+        if name == "notemd" || name == "mdedit" {
+            return true;
+        }
     }
     false
 }
@@ -88,7 +96,10 @@ pub fn run_cli(argv: Vec<String>) -> ExitCode {
     match route {
         router::Route::Builtin(b) => builtin::run(b, &parsed),
         router::Route::Plugin(p) => runner::run(p, parsed),
-        router::Route::Disabled { plugin_id, subcommand } => {
+        router::Route::Disabled {
+            plugin_id,
+            subcommand,
+        } => {
             if parsed.globals.json {
                 println!(
                     "{}",

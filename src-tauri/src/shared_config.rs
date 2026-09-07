@@ -22,7 +22,9 @@ pub struct SharedConfig {
     pub git_proxy: Option<String>,
 }
 
-fn default_version() -> u32 { 1 }
+fn default_version() -> u32 {
+    1
+}
 
 /// 共享配置的位置:`<config_dir>/net.notemd.app/shared.json`。
 ///
@@ -43,10 +45,12 @@ pub fn config_path() -> std::io::Result<PathBuf> {
 pub fn read(path: &Path) -> std::io::Result<SharedConfig> {
     match std::fs::read_to_string(path) {
         Ok(s) => Ok(serde_json::from_str(&s).unwrap_or_else(|_| SharedConfig {
-            version: 1, ..Default::default()
+            version: 1,
+            ..Default::default()
         })),
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(SharedConfig {
-            version: 1, ..Default::default()
+            version: 1,
+            ..Default::default()
         }),
         Err(e) => Err(e),
     }
@@ -112,7 +116,15 @@ mod tests {
     fn an_unset_proxy_is_not_serialized() {
         let tmp = tempfile::tempdir().unwrap();
         let p = tmp.path().join("config.json");
-        write(&p, &SharedConfig { version: 1, sotvault: Some("/v".into()), ..Default::default() }).unwrap();
+        write(
+            &p,
+            &SharedConfig {
+                version: 1,
+                sotvault: Some("/v".into()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
         let text = std::fs::read_to_string(&p).unwrap();
         assert!(!text.contains("git_proxy"), "{text}");
     }

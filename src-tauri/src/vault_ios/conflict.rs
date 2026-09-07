@@ -1,8 +1,8 @@
+use git2::{build::CheckoutBuilder, Repository};
 use std::path::Path;
-use git2::{Repository, build::CheckoutBuilder};
 
-use super::VaultError;
 use super::sig::timestamp_compact;
+use super::VaultError;
 
 /// Walk conflicted index entries. For each:
 ///   1. Copy the working-tree file (which holds OUR version after stash-pop) to
@@ -24,8 +24,8 @@ pub fn handle(repo: &Repository, log: &mut Vec<String>) -> Result<(), VaultError
             Some(e) => e,
             None => continue,
         };
-        let path_str = std::str::from_utf8(&our_entry.path)
-            .map_err(|e| VaultError::FsError(e.to_string()))?;
+        let path_str =
+            std::str::from_utf8(&our_entry.path).map_err(|e| VaultError::FsError(e.to_string()))?;
         let file_path = workdir.join(path_str);
 
         if file_path.exists() {
@@ -122,14 +122,10 @@ pub fn handle_marker_files(repo: &Repository, log: &mut Vec<String>) -> Result<(
         // Replace the file with the verbatim HEAD blob (theirs, the rebased
         // remote version). This avoids relying on whitespace produced by
         // libgit2's marker block.
-        let head_blob_oid = head_tree
-            .get_path(Path::new(&rel))
-            .ok()
-            .map(|e| e.id());
+        let head_blob_oid = head_tree.get_path(Path::new(&rel)).ok().map(|e| e.id());
         if let Some(oid) = head_blob_oid {
             let blob = repo.find_blob(oid)?;
-            std::fs::write(&abs, blob.content())
-                .map_err(|e| VaultError::FsError(e.to_string()))?;
+            std::fs::write(&abs, blob.content()).map_err(|e| VaultError::FsError(e.to_string()))?;
         } else {
             // No HEAD blob (new file in stash) — remove the marker file; the
             // .conflict backup retains our content.
@@ -155,7 +151,11 @@ fn extract_ours_from_markers(text: &str) -> Option<String> {
         return None;
     }
     let mut out = String::with_capacity(text.len());
-    enum Mode { Pass, Theirs, Ours }
+    enum Mode {
+        Pass,
+        Theirs,
+        Ours,
+    }
     let mut mode = Mode::Pass;
     let mut seen_any_block = false;
     for line in text.split_inclusive('\n') {
@@ -179,6 +179,8 @@ fn extract_ours_from_markers(text: &str) -> Option<String> {
             Mode::Ours => out.push_str(line),
         }
     }
-    if !seen_any_block { return None; }
+    if !seen_any_block {
+        return None;
+    }
     Some(out)
 }

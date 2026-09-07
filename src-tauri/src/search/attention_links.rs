@@ -17,7 +17,11 @@ pub fn links_for_vault(vault_root: &Path) -> Vec<MirrorLink> {
 fn to_links(metas: Vec<MirrorMeta>) -> Vec<MirrorLink> {
     metas
         .into_iter()
-        .map(|m| MirrorLink { device_id: m.device_id, source: m.source, mirror: m.mirror })
+        .map(|m| MirrorLink {
+            device_id: m.device_id,
+            source: m.source,
+            mirror: m.mirror,
+        })
         .collect()
 }
 

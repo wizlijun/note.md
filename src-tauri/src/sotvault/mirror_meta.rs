@@ -115,24 +115,41 @@ mod tests {
     #[test]
     fn relative_mirror_strips_vault_root() {
         let root = Path::new("/v");
-        assert_eq!(relative_mirror(root, Path::new("/v/sync/2026-07-16-foo.md")), "sync/2026-07-16-foo.md");
+        assert_eq!(
+            relative_mirror(root, Path::new("/v/sync/2026-07-16-foo.md")),
+            "sync/2026-07-16-foo.md"
+        );
     }
 
     #[test]
     fn relative_mirror_passthrough_when_outside() {
-        assert_eq!(relative_mirror(Path::new("/v"), Path::new("/other/x.md")), "/other/x.md");
+        assert_eq!(
+            relative_mirror(Path::new("/v"), Path::new("/other/x.md")),
+            "/other/x.md"
+        );
     }
 
     #[test]
     fn meta_path_uses_stem_and_device8() {
-        let p = meta_path(Path::new("/v"), "sync/2026-07-16-foo.md", "550e8400-e29b-41d4");
-        assert_eq!(p, Path::new("/v/.notemd/mirrors/2026-07-16-foo.550e8400.json"));
+        let p = meta_path(
+            Path::new("/v"),
+            "sync/2026-07-16-foo.md",
+            "550e8400-e29b-41d4",
+        );
+        assert_eq!(
+            p,
+            Path::new("/v/.notemd/mirrors/2026-07-16-foo.550e8400.json")
+        );
     }
 
     #[test]
     fn write_then_read_all_round_trips() {
         let dir = TempDir::new().unwrap();
-        let m = meta("sync/2026-07-16-foo.md", "550e8400-e29b", "/Users/bruce/Downloads/foo.md");
+        let m = meta(
+            "sync/2026-07-16-foo.md",
+            "550e8400-e29b",
+            "/Users/bruce/Downloads/foo.md",
+        );
         write(dir.path(), &m).unwrap();
         let all = read_all(dir.path());
         assert_eq!(all, vec![m]);
@@ -151,9 +168,9 @@ mod tests {
     #[test]
     fn sibling_mirrors_same_checksum_distinct_files() {
         let metas = vec![
-            meta("sync/a.md", "d1", "/a/x.md"),        // checksum sha256:abc (helper default)
-            meta("sync/b.md", "d2", "/b/x.md"),        // same content, other device/file
-            meta("sync/a.md", "d3", "/c/x.md"),        // same mirror as #1 → not a sibling
+            meta("sync/a.md", "d1", "/a/x.md"), // checksum sha256:abc (helper default)
+            meta("sync/b.md", "d2", "/b/x.md"), // same content, other device/file
+            meta("sync/a.md", "d3", "/c/x.md"), // same mirror as #1 → not a sibling
         ];
         let sibs = sibling_mirrors(&metas, "sync/a.md", "sha256:abc");
         assert_eq!(sibs.len(), 1);

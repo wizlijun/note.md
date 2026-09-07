@@ -7,10 +7,14 @@ use super::VaultError;
 /// `$MDEDITOR_KEYCHAIN_STUB_DIR`, so unit tests work without real Keychain.
 pub fn get_pat() -> Result<String, VaultError> {
     #[cfg(target_os = "ios")]
-    { return ios::get("pat")?.ok_or(VaultError::NotConfigured); }
+    {
+        return ios::get("pat")?.ok_or(VaultError::NotConfigured);
+    }
 
     #[cfg(not(target_os = "ios"))]
-    { return stub::get("pat")?.ok_or(VaultError::NotConfigured); }
+    {
+        return stub::get("pat")?.ok_or(VaultError::NotConfigured);
+    }
 }
 
 #[cfg(target_os = "ios")]
@@ -18,7 +22,9 @@ pub mod ios {
     use super::VaultError;
 
     pub fn set(_account: &str, _value: &str) -> Result<(), VaultError> {
-        Err(VaultError::FsError("keychain set must go via plugin:keychain|set from JS".into()))
+        Err(VaultError::FsError(
+            "keychain set must go via plugin:keychain|set from JS".into(),
+        ))
     }
 
     pub fn get(_account: &str) -> Result<Option<String>, VaultError> {
@@ -26,7 +32,9 @@ pub mod ios {
     }
 
     pub fn delete(_account: &str) -> Result<(), VaultError> {
-        Err(VaultError::FsError("keychain delete must go via plugin:keychain|delete from JS".into()))
+        Err(VaultError::FsError(
+            "keychain delete must go via plugin:keychain|delete from JS".into(),
+        ))
     }
 }
 
@@ -53,13 +61,17 @@ pub mod stub {
 
     pub fn get(account: &str) -> Result<Option<String>, VaultError> {
         let p = path(account);
-        if !p.exists() { return Ok(None); }
+        if !p.exists() {
+            return Ok(None);
+        }
         Ok(Some(std::fs::read_to_string(p)?))
     }
 
     pub fn delete(account: &str) -> Result<(), VaultError> {
         let p = path(account);
-        if p.exists() { std::fs::remove_file(p)?; }
+        if p.exists() {
+            std::fs::remove_file(p)?;
+        }
         Ok(())
     }
 }

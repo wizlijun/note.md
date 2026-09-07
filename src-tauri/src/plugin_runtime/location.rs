@@ -66,8 +66,8 @@ mod mac {
     use objc2::runtime::{NSObject, NSObjectProtocol, ProtocolObject};
     use objc2::{define_class, msg_send, AllocAnyThread, DefinedClass};
     use objc2_core_location::{
-        CLAuthorizationStatus, CLGeocoder, CLLocation, CLLocationManager, CLLocationManagerDelegate,
-        CLPlacemark,
+        CLAuthorizationStatus, CLGeocoder, CLLocation, CLLocationManager,
+        CLLocationManagerDelegate, CLPlacemark,
     };
     use objc2_foundation::{NSArray, NSError, NSString};
     use serde_json::{json, Value};
@@ -103,12 +103,18 @@ mod mac {
 
         unsafe impl CLLocationManagerDelegate for Delegate {
             #[unsafe(method(locationManager:didUpdateLocations:))]
-            unsafe fn did_update(&self, manager: &CLLocationManager, locations: &NSArray<CLLocation>) {
+            unsafe fn did_update(
+                &self,
+                manager: &CLLocationManager,
+                locations: &NSArray<CLLocation>,
+            ) {
                 if self.ivars().slot.lock().unwrap().is_some() {
                     return;
                 }
                 unsafe { manager.stopUpdatingLocation() };
-                let Some(loc) = locations.lastObject() else { return };
+                let Some(loc) = locations.lastObject() else {
+                    return;
+                };
                 let coord = loc.coordinate();
                 let (lat, lon) = (coord.latitude, coord.longitude);
                 // Reverse geocode; the completion runs on the main queue (drained
@@ -121,7 +127,11 @@ mod mac {
                 );
                 type GeoBlock = block2::Block<dyn Fn(*mut NSArray<CLPlacemark>, *mut NSError)>;
                 let block_ptr: *mut GeoBlock = &*block as *const GeoBlock as *mut GeoBlock;
-                unsafe { self.ivars().geocoder.reverseGeocodeLocation_completionHandler(&loc, block_ptr) };
+                unsafe {
+                    self.ivars()
+                        .geocoder
+                        .reverseGeocodeLocation_completionHandler(&loc, block_ptr)
+                };
                 std::mem::forget(block); // released after the completion fires
             }
 
@@ -138,10 +148,9 @@ mod mac {
             unsafe fn did_change_auth(&self, manager: &CLLocationManager) {
                 let status = unsafe { manager.authorizationStatus() };
                 match status {
-                    CLAuthorizationStatus::Denied | CLAuthorizationStatus::Restricted => set_result(
-                        &self.ivars().slot,
-                        Err(super::LOCATION_DENIED_ERROR.into()),
-                    ),
+                    CLAuthorizationStatus::Denied | CLAuthorizationStatus::Restricted => {
+                        set_result(&self.ivars().slot, Err(super::LOCATION_DENIED_ERROR.into()))
+                    }
                     CLAuthorizationStatus::AuthorizedAlways
                     | CLAuthorizationStatus::AuthorizedWhenInUse => unsafe {
                         manager.startUpdatingLocation()
@@ -164,14 +173,16 @@ mod mac {
         let slot: Slot = Arc::new(Mutex::new(None));
         let geocoder = unsafe { CLGeocoder::new() };
         let manager = unsafe { CLLocationManager::new() };
-        let delegate = Delegate::new(Ivars { slot: slot.clone(), geocoder });
+        let delegate = Delegate::new(Ivars {
+            slot: slot.clone(),
+            geocoder,
+        });
         unsafe {
             manager.setDelegate(Some(ProtocolObject::from_ref(&*delegate)));
             match manager.authorizationStatus() {
-                CLAuthorizationStatus::Denied | CLAuthorizationStatus::Restricted => set_result(
-                    &slot,
-                    Err(super::LOCATION_DENIED_ERROR.into()),
-                ),
+                CLAuthorizationStatus::Denied | CLAuthorizationStatus::Restricted => {
+                    set_result(&slot, Err(super::LOCATION_DENIED_ERROR.into()))
+                }
                 CLAuthorizationStatus::NotDetermined => {
                     // Fresh user: request (best effort) AND start — an authorized
                     // grant during the wait is picked up by didChangeAuthorization.

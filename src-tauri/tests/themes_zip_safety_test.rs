@@ -17,17 +17,23 @@ fn make_zip(dir: &std::path::Path, entries: &[(&str, &[u8])]) -> std::path::Path
 }
 
 fn small_limits() -> ExtractLimits {
-    ExtractLimits { max_entry_bytes: 5 * 1024 * 1024, max_total_bytes: 20 * 1024 * 1024 }
+    ExtractLimits {
+        max_entry_bytes: 5 * 1024 * 1024,
+        max_total_bytes: 20 * 1024 * 1024,
+    }
 }
 
 #[test]
 fn extracts_valid_zip() {
     let scratch = tempdir().unwrap();
     let target = tempdir().unwrap();
-    let zip = make_zip(scratch.path(), &[
-        ("claude-like.css", b":root {}"),
-        ("claude-like/fonts/x.txt", b"font-data"),
-    ]);
+    let zip = make_zip(
+        scratch.path(),
+        &[
+            ("claude-like.css", b":root {}"),
+            ("claude-like/fonts/x.txt", b"font-data"),
+        ],
+    );
     let report = extract_zip_safely(&zip, target.path(), small_limits()).unwrap();
     assert_eq!(report.entries_extracted, 2);
     assert!(target.path().join("claude-like.css").exists());
@@ -38,9 +44,7 @@ fn extracts_valid_zip() {
 fn rejects_path_traversal() {
     let scratch = tempdir().unwrap();
     let target = tempdir().unwrap();
-    let zip = make_zip(scratch.path(), &[
-        ("../escape.css", b"bad"),
-    ]);
+    let zip = make_zip(scratch.path(), &[("../escape.css", b"bad")]);
     let err = extract_zip_safely(&zip, target.path(), small_limits()).unwrap_err();
     assert!(matches!(err, ExtractError::PathTraversal(_)));
 }
@@ -49,9 +53,7 @@ fn rejects_path_traversal() {
 fn rejects_absolute_paths() {
     let scratch = tempdir().unwrap();
     let target = tempdir().unwrap();
-    let zip = make_zip(scratch.path(), &[
-        ("/etc/passwd", b"bad"),
-    ]);
+    let zip = make_zip(scratch.path(), &[("/etc/passwd", b"bad")]);
     let err = extract_zip_safely(&zip, target.path(), small_limits()).unwrap_err();
     assert!(matches!(err, ExtractError::PathTraversal(_)));
 }
@@ -71,14 +73,17 @@ fn rejects_total_overflow() {
     let scratch = tempdir().unwrap();
     let target = tempdir().unwrap();
     let chunk: Vec<u8> = vec![b'x'; 4 * 1024 * 1024];
-    let zip = make_zip(scratch.path(), &[
-        ("a.css", &chunk),
-        ("b.css", &chunk),
-        ("c.css", &chunk),
-        ("d.css", &chunk),
-        ("e.css", &chunk),
-        ("f.css", &chunk),  // total 24 MB > 20 MB cap
-    ]);
+    let zip = make_zip(
+        scratch.path(),
+        &[
+            ("a.css", &chunk),
+            ("b.css", &chunk),
+            ("c.css", &chunk),
+            ("d.css", &chunk),
+            ("e.css", &chunk),
+            ("f.css", &chunk), // total 24 MB > 20 MB cap
+        ],
+    );
     let err = extract_zip_safely(&zip, target.path(), small_limits()).unwrap_err();
     assert!(matches!(err, ExtractError::TotalTooLarge { .. }));
 }

@@ -15,12 +15,16 @@ use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent}
 use tauri::{Emitter, Manager, RunEvent, WindowEvent};
 
 pub mod app_dirs;
+pub mod canvas_document;
+pub mod canvas_resource;
 pub mod log_bus;
 pub mod platform;
 pub mod shared_config;
 
 #[cfg(not(target_os = "ios"))]
 pub mod cli;
+#[cfg(not(target_os = "ios"))]
+pub mod git_history;
 #[cfg(not(target_os = "ios"))]
 pub mod plugin_host;
 #[cfg(not(target_os = "ios"))]
@@ -29,28 +33,26 @@ pub mod plugin_runtime;
 pub mod themes;
 #[cfg(not(target_os = "ios"))]
 pub mod vault_sync;
-#[cfg(not(target_os = "ios"))]
-pub mod git_history;
 
-pub mod okf;
-#[cfg(not(target_os = "ios"))]
-pub mod preview_window;
 #[cfg(not(target_os = "ios"))]
 pub mod agents_sync;
-#[cfg(not(target_os = "ios"))]
-pub mod notifications;
-#[cfg(not(target_os = "ios"))]
-pub mod sotvault;
-#[cfg(not(target_os = "ios"))]
-pub mod search;
-#[cfg(not(target_os = "ios"))]
-pub mod smart_search;
-#[cfg(not(target_os = "ios"))]
-pub mod smart_lookup;
 #[cfg(not(target_os = "ios"))]
 pub mod mcp;
 #[cfg(not(target_os = "ios"))]
 pub mod memory_control;
+#[cfg(not(target_os = "ios"))]
+pub mod notifications;
+pub mod okf;
+#[cfg(not(target_os = "ios"))]
+pub mod preview_window;
+#[cfg(not(target_os = "ios"))]
+pub mod search;
+#[cfg(not(target_os = "ios"))]
+pub mod smart_lookup;
+#[cfg(not(target_os = "ios"))]
+pub mod smart_search;
+#[cfg(not(target_os = "ios"))]
+pub mod sotvault;
 
 #[cfg(any(target_os = "ios", test))]
 pub mod vault_ios;
@@ -204,10 +206,10 @@ fn dlog(msg: &str) {
 
 fn sanitize_io_err(e: std::io::Error) -> String {
     match e.kind() {
-        std::io::ErrorKind::NotFound         => "File not found".to_string(),
+        std::io::ErrorKind::NotFound => "File not found".to_string(),
         std::io::ErrorKind::PermissionDenied => "Permission denied".to_string(),
-        std::io::ErrorKind::AlreadyExists    => "File already exists".to_string(),
-        _                                    => "Operation failed".to_string(),
+        std::io::ErrorKind::AlreadyExists => "File already exists".to_string(),
+        _ => "Operation failed".to_string(),
     }
 }
 
@@ -229,23 +231,31 @@ fn safe_path(path: &str) -> Result<std::path::PathBuf, String> {
     let p = Path::new(path);
     let canonical = std::fs::canonicalize(p).or_else(|_| {
         let mut parts: Vec<std::ffi::OsString> = Vec::new();
-        if let Some(fname) = p.file_name() { parts.push(fname.to_owned()); }
+        if let Some(fname) = p.file_name() {
+            parts.push(fname.to_owned());
+        }
         let mut ancestor = p.parent();
         loop {
             match ancestor {
                 Some(dir) if dir.as_os_str().is_empty() => break,
                 Some(dir) if dir.exists() => {
-                    let mut base = std::fs::canonicalize(dir)
-                        .map_err(|e| e.to_string())?;
-                    for part in parts.iter().rev() { base.push(part); }
+                    let mut base = std::fs::canonicalize(dir).map_err(|e| e.to_string())?;
+                    for part in parts.iter().rev() {
+                        base.push(part);
+                    }
                     // Guard against ".." components in the reconstructed path
-                    if base.components().any(|c| c == std::path::Component::ParentDir) {
+                    if base
+                        .components()
+                        .any(|c| c == std::path::Component::ParentDir)
+                    {
                         return Err("Path traversal detected".to_string());
                     }
                     return Ok(base);
                 }
                 Some(dir) => {
-                    if let Some(n) = dir.file_name() { parts.push(n.to_owned()); }
+                    if let Some(n) = dir.file_name() {
+                        parts.push(n.to_owned());
+                    }
                     ancestor = dir.parent();
                 }
                 None => break,
@@ -263,11 +273,15 @@ fn safe_path(path: &str) -> Result<std::path::PathBuf, String> {
 /// unix: home + /tmp + /var + /private — unchanged from the original inline list.
 #[cfg(not(windows))]
 fn is_allowed_root(canonical: &std::path::Path) -> bool {
-    let Some(home) = dirs::home_dir() else { return false };
+    let Some(home) = dirs::home_dir() else {
+        return false;
+    };
     if canonical.starts_with(&home) {
         return true;
     }
-    ["/tmp", "/var", "/private"].iter().any(|p| canonical.starts_with(p))
+    ["/tmp", "/var", "/private"]
+        .iter()
+        .any(|p| canonical.starts_with(p))
 }
 
 /// Windows: the unix list above encodes "places a user document plausibly
@@ -280,10 +294,16 @@ fn is_allowed_root(canonical: &std::path::Path) -> bool {
 /// `C:\Windows` would never match and the guard would silently pass everything.
 #[cfg(windows)]
 fn is_allowed_root(canonical: &std::path::Path) -> bool {
-    for var in ["SystemRoot", "ProgramFiles", "ProgramFiles(x86)", "ProgramData"] {
-        let Some(raw) = std::env::var_os(var) else { continue };
-        let root = std::fs::canonicalize(&raw)
-            .unwrap_or_else(|_| std::path::PathBuf::from(raw));
+    for var in [
+        "SystemRoot",
+        "ProgramFiles",
+        "ProgramFiles(x86)",
+        "ProgramData",
+    ] {
+        let Some(raw) = std::env::var_os(var) else {
+            continue;
+        };
+        let root = std::fs::canonicalize(&raw).unwrap_or_else(|_| std::path::PathBuf::from(raw));
         if canonical.starts_with(&root) {
             return false;
         }
@@ -292,16 +312,21 @@ fn is_allowed_root(canonical: &std::path::Path) -> bool {
 }
 
 fn base64_decode(input: &str) -> Result<Vec<u8>, String> {
-    const TABLE: &[u8; 64] =
-        b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    const TABLE: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     let input = input.as_bytes();
     let mut buf: Vec<u8> = Vec::with_capacity(input.len() * 3 / 4);
     let mut acc: u32 = 0;
     let mut bits: u32 = 0;
     for &b in input {
-        if matches!(b, b'\n' | b'\r' | b' ') { continue; }
-        if b == b'=' { break; }
-        let val = TABLE.iter().position(|&c| c == b)
+        if matches!(b, b'\n' | b'\r' | b' ') {
+            continue;
+        }
+        if b == b'=' {
+            break;
+        }
+        let val = TABLE
+            .iter()
+            .position(|&c| c == b)
             .ok_or_else(|| "Invalid base64".to_string())? as u32;
         acc = (acc << 6) | val;
         bits += 6;
@@ -338,7 +363,9 @@ fn write_file_binary(path: String, base64_data: String) -> Result<(), String> {
 #[tauri::command]
 fn rename_file(old_path: String, new_path: String) -> Result<(), String> {
     let src = safe_path(&old_path)?;
-    if !src.exists() { return Ok(()); }
+    if !src.exists() {
+        return Ok(());
+    }
     let dst = safe_path(&new_path)?;
     if let Some(parent) = dst.parent() {
         std::fs::create_dir_all(parent).map_err(sanitize_io_err)?;
@@ -373,7 +400,11 @@ fn should_prevent_exit(code: Option<i32>) -> bool {
 /// regardless of which submenu they were appended to.
 #[cfg(not(target_os = "ios"))]
 #[tauri::command]
-fn set_plugin_menu_item_enabled(app: tauri::AppHandle, id: String, enabled: bool) -> Result<(), String> {
+fn set_plugin_menu_item_enabled(
+    app: tauri::AppHandle,
+    id: String,
+    enabled: bool,
+) -> Result<(), String> {
     fn walk<R: tauri::Runtime>(items: Vec<MenuItemKind<R>>, id: &str, enabled: bool) -> bool {
         for item in items {
             match item {
@@ -495,7 +526,12 @@ fn set_default_app_for_extensions(app: tauri::AppHandle, exts: Vec<String>) -> V
                     error: Some("no UTI registered for this extension".into()),
                 },
                 Some(uti) => match macos_defaults::set_handler(&uti, &bundle_id) {
-                    Ok(()) => ExtResult { ext, uti: Some(uti), ok: true, error: None },
+                    Ok(()) => ExtResult {
+                        ext,
+                        uti: Some(uti),
+                        ok: true,
+                        error: None,
+                    },
                     Err(status) => ExtResult {
                         ext,
                         uti: Some(uti),
@@ -520,6 +556,7 @@ fn set_default_app_for_extensions(app: tauri::AppHandle, exts: Vec<String>) -> V
     }
 }
 
+#[cfg(not(target_os = "ios"))]
 fn show_insights_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
     use tauri::WebviewUrl;
     let win = app.get_webview_window("insights").or_else(|| {
@@ -551,16 +588,20 @@ fn show_daily_notes_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
     use tauri::Manager;
     use tauri::WebviewUrl;
     let win = app.get_webview_window(DAILY_NOTES_LABEL).or_else(|| {
-        tauri::WebviewWindowBuilder::new(app, DAILY_NOTES_LABEL, WebviewUrl::App("daily-notes.html".into()))
-            .title("Daily Notes")
-            .inner_size(720.0, 900.0)
-            .min_inner_size(480.0, 480.0)
-            .resizable(true)
-            .decorations(true)
-            .visible(false)
-            .build()
-            .map_err(|e| eprintln!("[daily-notes] window build failed: {e}"))
-            .ok()
+        tauri::WebviewWindowBuilder::new(
+            app,
+            DAILY_NOTES_LABEL,
+            WebviewUrl::App("daily-notes.html".into()),
+        )
+        .title("Daily Notes")
+        .inner_size(720.0, 900.0)
+        .min_inner_size(480.0, 480.0)
+        .resizable(true)
+        .decorations(true)
+        .visible(false)
+        .build()
+        .map_err(|e| eprintln!("[daily-notes] window build failed: {e}"))
+        .ok()
     });
     if let Some(w) = win {
         let _ = w.show();
@@ -631,6 +672,7 @@ fn open_search_logs_window(app: tauri::AppHandle) {
 /// View ▸ Plugin Market… (子项目③). Standalone window cloned from the insights
 /// window: it bootstraps its own webview state and drives the market commands
 /// (index / preview / install / uninstall / set_enabled) + capability consent.
+#[cfg(not(target_os = "ios"))]
 fn show_plugin_market_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
     use tauri::WebviewUrl;
     let win = app.get_webview_window("plugin-market").or_else(|| {
@@ -851,6 +893,7 @@ async fn editor_show_and_open_path(app: tauri::AppHandle, path: String) -> Resul
     if let Some(win) = app.get_webview_window("main") {
         let _ = win.show();
         let _ = win.set_focus();
+        #[cfg(not(target_os = "ios"))]
         let _ = win.unminimize();
         // Defer to existing frontend "open file" event so the editor can decide tabs.
         let _ = win.emit("editor://open-path", &path);
@@ -862,15 +905,22 @@ async fn editor_show_and_open_path(app: tauri::AppHandle, path: String) -> Resul
 }
 
 #[tauri::command]
-async fn editor_open_remote_buffer(app: tauri::AppHandle, remote_path: String, content: String) -> Result<(), String> {
+async fn editor_open_remote_buffer(
+    app: tauri::AppHandle,
+    remote_path: String,
+    content: String,
+) -> Result<(), String> {
     use tauri::Manager;
     if let Some(win) = app.get_webview_window("main") {
         let _ = win.show();
         let _ = win.set_focus();
-        let _ = win.emit("editor://open-remote-buffer", &serde_json::json!({
-            "remote_path": remote_path,
-            "content": content
-        }));
+        let _ = win.emit(
+            "editor://open-remote-buffer",
+            &serde_json::json!({
+                "remote_path": remote_path,
+                "content": content
+            }),
+        );
     }
     Ok(())
 }
@@ -923,11 +973,15 @@ fn git_proxy_set(value: String) -> Result<String, String> {
     crate::shared_config::write(&path, &cfg).map_err(|e| e.to_string())?;
     dlog(&format!(
         "git proxy {}",
-        normalized.as_deref().map(|p| format!("set to {p}")).unwrap_or_else(|| "cleared".into())
+        normalized
+            .as_deref()
+            .map(|p| format!("set to {p}"))
+            .unwrap_or_else(|| "cleared".into())
     ));
     Ok(normalized.unwrap_or_default())
 }
 
+#[cfg(not(target_os = "ios"))]
 fn show_main_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
     let win = app.get_webview_window("main").or_else(|| {
         // Window might have been destroyed, recreate it.
@@ -951,6 +1005,7 @@ fn show_main_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
 /// resolution, filename/timestamp, disk write, open + focus) via the
 /// `quick-note` event. Kept side-effect-light here so both triggers behave
 /// identically regardless of which surface fired.
+#[cfg(not(target_os = "ios"))]
 fn trigger_quick_note<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
     show_main_window(app);
     let _ = app.emit("quick-note", ());
@@ -1075,7 +1130,9 @@ fn local_parts(unix_secs: i64) -> Option<(i32, i32, i32, i32)> {
     };
 
     // 1601-01-01 → 1970-01-01 是 11644473600 秒;1601 年前的时刻直接放弃。
-    let ticks = unix_secs.checked_add(11_644_473_600)?.checked_mul(10_000_000)?;
+    let ticks = unix_secs
+        .checked_add(11_644_473_600)?
+        .checked_mul(10_000_000)?;
     if ticks < 0 {
         return None;
     }
@@ -1232,7 +1289,9 @@ pub fn refresh_tray_status(app: &tauri::AppHandle) {
             .replace("{n}", &skipped_large.len().to_string());
         crate::notifications::push(
             title,
-            crate::notifications::NotificationAction::OpenLogs { filter: Some("git-sync".into()) },
+            crate::notifications::NotificationAction::OpenLogs {
+                filter: Some("git-sync".into()),
+            },
             Some("vault.large_files".into()),
             crate::notifications::Severity::Warn,
         );
@@ -1242,7 +1301,9 @@ pub fn refresh_tray_status(app: &tauri::AppHandle) {
     if problem {
         crate::notifications::push(
             menu_label(&locale, "notif.syncError"),
-            crate::notifications::NotificationAction::OpenLogs { filter: Some("git-sync".into()) },
+            crate::notifications::NotificationAction::OpenLogs {
+                filter: Some("git-sync".into()),
+            },
             Some("vault.sync".into()),
             crate::notifications::Severity::Warn,
         );
@@ -1292,7 +1353,9 @@ pub(crate) fn refresh_tray_notifications(app: &tauri::AppHandle) {
     let _ = app.run_on_main_thread(move || {
         let locale = read_saved_locale(&handle);
         if let Some(tray) = handle.tray_by_id("main") {
-            if let Ok((menu, repo_item, status_item, sync_now_item)) = build_tray_menu(&handle, &locale) {
+            if let Ok((menu, repo_item, status_item, sync_now_item)) =
+                build_tray_menu(&handle, &locale)
+            {
                 *handle.state::<TrayRepoItem>().0.lock().unwrap() = Some(repo_item);
                 *handle.state::<TrayStatusItem>().0.lock().unwrap() = Some(status_item);
                 *handle.state::<TraySyncNowItem>().0.lock().unwrap() = Some(sync_now_item);
@@ -1339,8 +1402,7 @@ pub fn run() {
     // Safe to ignore Err: it only fires if already installed (e.g. in tests).
     let _ = rustls::crypto::ring::default_provider().install_default();
 
-    let builder = tauri::Builder::default()
-        .manage(PendingFiles(Mutex::new(Vec::new())));
+    let builder = tauri::Builder::default().manage(PendingFiles(Mutex::new(Vec::new())));
     #[cfg(not(target_os = "ios"))]
     let builder = builder.manage(PendingSearchReveals(Mutex::new(Vec::new())));
     #[cfg(not(target_os = "ios"))]
@@ -1356,7 +1418,9 @@ pub fn run() {
     #[cfg(not(target_os = "ios"))]
     let builder = builder.manage(DailyNotesEnabled(std::sync::Mutex::new(false)));
     #[cfg(not(target_os = "ios"))]
-    let builder = builder.manage(GlobalShortcuts(Mutex::new(std::collections::HashMap::new())));
+    let builder = builder.manage(GlobalShortcuts(
+        Mutex::new(std::collections::HashMap::new()),
+    ));
     #[cfg(not(target_os = "ios"))]
     let builder = builder.manage(preview_window::PreviewStore::default());
     #[cfg(not(target_os = "ios"))]
@@ -1372,8 +1436,13 @@ pub fn run() {
             let _ = w.set_focus();
         }
     }));
+    // On iOS the deep-link plugin republishes every RunEvent::Opened URL,
+    // including security-scoped file URLs, directly to the frontend. Canvas
+    // files must instead be copied while this callback still owns access, so
+    // iOS routes Opened events below and emits only durable app-owned paths.
+    #[cfg(not(target_os = "ios"))]
+    let builder = builder.plugin(tauri_plugin_deep_link::init());
     let app = builder
-        .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_dialog::init())
@@ -1410,9 +1479,11 @@ pub fn run() {
         tauri_plugin_global_shortcut::Builder::new()
             .with_handler(|app, shortcut, event| {
                 if event.state() == tauri_plugin_global_shortcut::ShortcutState::Pressed {
-                    let action = app
-                        .try_state::<GlobalShortcuts>()
-                        .and_then(|st| st.0.lock().ok().and_then(|m| m.get(&shortcut.id()).cloned()));
+                    let action = app.try_state::<GlobalShortcuts>().and_then(|st| {
+                        st.0.lock()
+                            .ok()
+                            .and_then(|m| m.get(&shortcut.id()).cloned())
+                    });
                     match action {
                         Some(GlobalShortcutAction::SmartSearch) => {
                             if let Err(e) = toggle_smart_search_window_inner(app) {
@@ -1450,6 +1521,13 @@ pub fn run() {
             { tauri::generate_handler![
                 quit_app,
                 drain_pending_files,
+                canvas_document::canvas_document_open,
+                canvas_document::canvas_document_probe,
+                canvas_document::canvas_document_create,
+                canvas_document::canvas_document_save,
+                canvas_resource::canvas_resource_read,
+                canvas_resource::canvas_resource_import,
+                canvas_resource::canvas_resource_resolve,
                 set_default_app_for_extensions,
                 set_plugin_menu_item_enabled,
                 plugin_host::get_plugin_manifests,
@@ -1554,6 +1632,13 @@ pub fn run() {
             #[cfg(target_os = "ios")]
             { tauri::generate_handler![
                 drain_pending_files,
+                canvas_document::canvas_document_open,
+                canvas_document::canvas_document_probe,
+                canvas_document::canvas_document_create,
+                canvas_document::canvas_document_save,
+                canvas_resource::canvas_resource_read,
+                canvas_resource::canvas_resource_import,
+                canvas_resource::canvas_resource_resolve,
                 vault_ios::vault_status,
                 vault_ios::list_dir::vault_list_dir,
                 vault_ios::vault_configure,
@@ -1810,10 +1895,45 @@ pub fn run() {
                     urls.len(),
                     urls.iter().map(|u| u.to_string()).collect::<Vec<_>>()));
                 for url in urls {
-                    if let Ok(path) = url.to_file_path() {
-                        if let Some(p) = path.to_str() {
-                            dlog(&format!("  emit open-file: {}", p));
-                            emit_open_file_delayed(app_handle, p);
+                    match url.to_file_path() {
+                        Ok(path) => {
+                            #[cfg(target_os = "ios")]
+                            let path = if canvas_document::is_canvas_path(&path) {
+                                let documents = match app_handle.path().document_dir() {
+                                    Ok(path) => path,
+                                    Err(error) => {
+                                        dlog(&format!(
+                                            "  reject opened canvas: resolve Documents failed: {error}"
+                                        ));
+                                        continue;
+                                    }
+                                };
+                                match canvas_document::prepare_ios_opened_canvas(&path, &documents) {
+                                    Ok(imported) => imported,
+                                    Err(error) => {
+                                        // Never enqueue or emit the original provider path on
+                                        // failure: its security-scoped access ends with this
+                                        // callback, so the frontend could not safely reopen it.
+                                        dlog(&format!("  reject opened canvas import: {error:?}"));
+                                        continue;
+                                    }
+                                }
+                            } else {
+                                path
+                            };
+                            if let Some(p) = path.to_str() {
+                                dlog(&format!("  emit open-file: {}", p));
+                                emit_open_file_delayed(app_handle, p);
+                            }
+                        }
+                        #[cfg(target_os = "ios")]
+                        Err(_) if url.scheme() != "file" => {
+                            // Preserve custom-scheme deep links without restoring the
+                            // plugin's unsafe raw forwarding of provider-backed files.
+                            let _ = app_handle.emit("deep-link://new-url", vec![url]);
+                        }
+                        Err(_) => {
+                            dlog("  reject opened file URL that could not become a path");
                         }
                     }
                 }
@@ -1843,6 +1963,7 @@ pub fn run() {
                     _ => {}
                 }
             }
+            #[cfg(not(target_os = "ios"))]
             RunEvent::ExitRequested { code, api, .. } => {
                 // Closing the window (user interaction, code None) hides to the
                 // tray and keeps the app running; an explicit quit (tray "Quit" /
@@ -1859,11 +1980,16 @@ pub fn run() {
 
 #[cfg(not(target_os = "ios"))]
 fn bootstrap_themes(app: &tauri::AppHandle) -> Result<(), String> {
-    use themes::paths::{themes_dir, ensure_dirs};
     use themes::commands::BUILT_IN_THEME_IDS;
+    use themes::paths::{ensure_dirs, themes_dir};
 
     ensure_dirs(app)?;
-    let res_dir = app.path().resource_dir().map_err(|e| e.to_string())?.join("resources").join("themes");
+    let res_dir = app
+        .path()
+        .resource_dir()
+        .map_err(|e| e.to_string())?
+        .join("resources")
+        .join("themes");
     let themes = themes_dir(app)?;
     themes::migration::copy_built_ins_if_missing(&res_dir, &themes, BUILT_IN_THEME_IDS)?;
     let _ = themes::commands::theme_recompile_all(app.clone());
@@ -1938,10 +2064,11 @@ fn update_recent_menu(app: tauri::AppHandle, items: Vec<RecentMenuItem>) -> Resu
 
     if items.is_empty() {
         let locale = read_saved_locale(&app);
-        let placeholder = MenuItemBuilder::with_id("recent-none", menu_label(&locale, "file.noRecent"))
-            .enabled(false)
-            .build(&app)
-            .map_err(|e| e.to_string())?;
+        let placeholder =
+            MenuItemBuilder::with_id("recent-none", menu_label(&locale, "file.noRecent"))
+                .enabled(false)
+                .build(&app)
+                .map_err(|e| e.to_string())?;
         submenu.append(&placeholder).map_err(|e| e.to_string())?;
     } else {
         for it in items {
@@ -1987,6 +2114,7 @@ fn menu_label(locale: &str, key: &str) -> String {
         "file.openRecent" => ("Open Recent", "打开最近", "最近使ったファイルを開く", "Zuletzt geöffnet"),
         "file.noRecent" => ("No Recent Files", "无最近文件", "最近のファイルなし", "Keine letzten Dateien"),
         "file.new" => ("New", "新建", "新規", "Neu"),
+        "file.newCanvas" => ("New Canvas", "新建画布", "新規キャンバス", "Neue Leinwand"),
         // Core feature, formerly carried by the bundled `base` plugin manifest —
         // wording preserved from its i18n block.
         "file.newBase" => ("New Base", "新建 Base", "新規 Base", "Neue Base"),
@@ -2022,6 +2150,7 @@ fn menu_label(locale: &str, key: &str) -> String {
         "view.folderView" => ("Folder View", "文件夹视图", "フォルダビュー", "Ordneransicht"),
         "view.vaultSearch" => ("Search View", "搜索视图", "検索ビュー", "Suchansicht"),
         "view.sidecarNotes" => ("Sidecar Notes View", "手记视图", "サイドノートビュー", "Randnotizen-Ansicht"),
+        "view.tableOfContents" => ("Table of Contents View", "目录视图", "目次ビュー", "Inhaltsverzeichnis-Ansicht"),
         "view.history" => ("History View", "历史视图", "履歴ビュー", "Verlaufsansicht"),
         "window.zoomIn" => ("Zoom In", "放大", "拡大", "Vergrößern"),
         "window.zoomOut" => ("Zoom Out", "缩小", "縮小", "Verkleinern"),
@@ -2158,10 +2287,19 @@ pub(crate) fn read_saved_locale<R: tauri::Runtime>(app: &tauri::AppHandle<R>) ->
 #[cfg(not(target_os = "ios"))]
 pub(crate) fn read_daily_notes_enabled<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> bool {
     use tauri::Manager;
-    let Ok(dir) = app.path().app_config_dir() else { return false };
-    let Ok(text) = std::fs::read_to_string(dir.join("settings.json")) else { return false };
-    let Ok(json) = serde_json::from_str::<serde_json::Value>(&text) else { return false };
-    json.get("dailyNotes").and_then(|v| v.get("enabled")).and_then(|v| v.as_bool()).unwrap_or(false)
+    let Ok(dir) = app.path().app_config_dir() else {
+        return false;
+    };
+    let Ok(text) = std::fs::read_to_string(dir.join("settings.json")) else {
+        return false;
+    };
+    let Ok(json) = serde_json::from_str::<serde_json::Value>(&text) else {
+        return false;
+    };
+    json.get("dailyNotes")
+        .and_then(|v| v.get("enabled"))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false)
 }
 
 /// Open (or focus) a plugin's tray-contributed window, then tell it the user
@@ -2185,7 +2323,9 @@ fn activate_plugin_tray_target<R: tauri::Runtime>(
     window: &str,
 ) {
     use crate::plugin_runtime::windows;
-    let existed = app.get_webview_window(&windows::window_label(plugin_id, window)).is_some();
+    let existed = app
+        .get_webview_window(&windows::window_label(plugin_id, window))
+        .is_some();
     if let Err(e) = windows::open_plugin_window(app, plugin_id, window, None) {
         dlog(&format!("tray activate {plugin_id}:{window} failed: {e}"));
         return;
@@ -2204,6 +2344,7 @@ fn activate_plugin_tray_target<R: tauri::Runtime>(
 /// (dynamic) "Vault:" item, status item, and sync-now item so the caller can
 /// stash them for later updates. Event handling stays on the TrayIcon, so
 /// rebuilding just the menu preserves click behavior.
+#[cfg(not(target_os = "ios"))]
 fn build_tray_menu<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
     locale: &str,
@@ -2218,7 +2359,13 @@ fn build_tray_menu<R: tauri::Runtime>(
         true,
         None::<&str>,
     )?;
-    let show_item = MenuItem::with_id(app, "tray-show", menu_label(locale, "tray.show"), true, None::<&str>)?;
+    let show_item = MenuItem::with_id(
+        app,
+        "tray-show",
+        menu_label(locale, "tray.show"),
+        true,
+        None::<&str>,
+    )?;
     // Tray "socket": every enabled plugin that declares `contributes.tray` gets a
     // launch item here. Where it lands is the plugin's call
     // (`contributes.tray[].section`): `"capture"` joins the top block, right
@@ -2247,7 +2394,8 @@ fn build_tray_menu<R: tauri::Runtime>(
             None => menu_label(locale, "tray.vaultSetFolder"),
         }
     };
-    let sync_repo_item = MenuItem::with_id(app, "tray-sync-repo", &sync_repo_label, true, None::<&str>)?;
+    let sync_repo_item =
+        MenuItem::with_id(app, "tray-sync-repo", &sync_repo_label, true, None::<&str>)?;
     let (status_label, status_dot) = {
         let mgr = app.state::<std::sync::Arc<vault_sync::VaultSyncManager>>();
         let state = *mgr.state.lock().unwrap();
@@ -2287,21 +2435,34 @@ fn build_tray_menu<R: tauri::Runtime>(
             menu_label(locale, "tray.notifications.titleN")
                 .replace("{n}", &notif_items.len().to_string())
         };
-        let sub = Submenu::with_id_and_icon(app, "tray-notifications", &title, true, flat_dot(dot))?;
+        let sub =
+            Submenu::with_id_and_icon(app, "tray-notifications", &title, true, flat_dot(dot))?;
         for n in &notif_items {
-            let it = MenuItem::with_id(app, format!("tray-notification:{}", n.id), &n.title, true, None::<&str>)?;
+            let it = MenuItem::with_id(
+                app,
+                format!("tray-notification:{}", n.id),
+                &n.title,
+                true,
+                None::<&str>,
+            )?;
             sub.append(&it)?;
         }
         // 「全部清除」只在有瞬时项时可用(不能一键抹掉仍成立的持续告警)。
         let has_transient = notif_items.iter().any(|n| n.source.is_none());
         let clear = MenuItem::with_id(
-            app, "tray-notification-clear",
-            menu_label(locale, "tray.notifications.clear"), has_transient, None::<&str>,
+            app,
+            "tray-notification-clear",
+            menu_label(locale, "tray.notifications.clear"),
+            has_transient,
+            None::<&str>,
         )?;
         // 「通知历史…」永远在:打开日志窗口并预设到 notification 分类。
         let history = MenuItem::with_id(
-            app, "tray-notification-history",
-            menu_label(locale, "tray.notifications.history"), true, None::<&str>,
+            app,
+            "tray-notification-history",
+            menu_label(locale, "tray.notifications.history"),
+            true,
+            None::<&str>,
         )?;
         if !notif_items.is_empty() {
             sub.append(&PredefinedMenuItem::separator(app)?)?;
@@ -2312,11 +2473,36 @@ fn build_tray_menu<R: tauri::Runtime>(
         sub
     };
 
-    let sync_now_item = MenuItem::with_id(app, "tray-sync-now", menu_label(locale, "tray.syncNow"), true, None::<&str>)?;
-    let sync_log_item = MenuItem::with_id(app, "tray-sync-log", menu_label(locale, "tray.viewLog"), true, None::<&str>)?;
-    let edit_agents_item = MenuItem::with_id(app, "tray-edit-agents", menu_label(locale, "tray.editAgents"), true, None::<&str>)?;
-    let quit_item = MenuItem::with_id(app, "tray-quit", menu_label(locale, "sys.quit"), true, None::<&str>)?;
-    let daily_enabled = app.try_state::<DailyNotesEnabled>()
+    let sync_now_item = MenuItem::with_id(
+        app,
+        "tray-sync-now",
+        menu_label(locale, "tray.syncNow"),
+        true,
+        None::<&str>,
+    )?;
+    let sync_log_item = MenuItem::with_id(
+        app,
+        "tray-sync-log",
+        menu_label(locale, "tray.viewLog"),
+        true,
+        None::<&str>,
+    )?;
+    let edit_agents_item = MenuItem::with_id(
+        app,
+        "tray-edit-agents",
+        menu_label(locale, "tray.editAgents"),
+        true,
+        None::<&str>,
+    )?;
+    let quit_item = MenuItem::with_id(
+        app,
+        "tray-quit",
+        menu_label(locale, "sys.quit"),
+        true,
+        None::<&str>,
+    )?;
+    let daily_enabled = app
+        .try_state::<DailyNotesEnabled>()
         .map(|st| *st.0.lock().unwrap())
         .unwrap_or(false);
     let daily_notes_item = MenuItem::with_id(
@@ -2348,7 +2534,7 @@ fn build_tray_menu<R: tauri::Runtime>(
         .item(&status_item)
         .item(&sync_now_item);
     let menu = b2
-        .item(&notif_submenu)     // 常驻:立即同步下、查看日志上
+        .item(&notif_submenu) // 常驻:立即同步下、查看日志上
         .item(&sync_log_item)
         .item(&edit_agents_item)
         .separator()
@@ -2360,6 +2546,7 @@ fn build_tray_menu<R: tauri::Runtime>(
 /// Rebuild the app menu (and tray) in the given locale and apply them. Called
 /// from JS when the user changes the language. The recent-files submenu resets
 /// to its placeholder; JS re-pushes the list via `refreshRecentMenu()` after.
+#[cfg(not(target_os = "ios"))]
 #[tauri::command]
 fn set_menu_locale(app: tauri::AppHandle, locale: String) -> Result<(), String> {
     // Propagate the language switch to every open plugin window (isolated
@@ -2383,6 +2570,7 @@ fn set_menu_locale(app: tauri::AppHandle, locale: String) -> Result<(), String> 
 /// `set_menu_locale` command already runs there (Tauri dispatches sync commands
 /// on the main thread), but the async market commands do NOT — they call
 /// [`rebuild_menu`], which hops onto the main thread via `run_on_main_thread`.
+#[cfg(not(target_os = "ios"))]
 fn apply_menu_locale(app: &tauri::AppHandle, locale: &str) -> Result<(), String> {
     let plugin_items = plugin_host::collect_top_menu_items(locale);
     let (menu, recent_submenu) =
@@ -2430,6 +2618,7 @@ pub(crate) fn rebuild_menu(app: &tauri::AppHandle) {
     }
 }
 
+#[cfg(not(target_os = "ios"))]
 fn build_menu<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
     plugin_items: &[plugin_host::LocatedMenuItem],
@@ -2442,7 +2631,11 @@ fn build_menu<R: tauri::Runtime>(
     };
 
     let app_menu: Submenu<R> = SubmenuBuilder::new(app, "note.md")
-        .item(&PredefinedMenuItem::about(app, Some(&menu_label(locale, "app.about")), Some(app_meta))?)
+        .item(&PredefinedMenuItem::about(
+            app,
+            Some(&menu_label(locale, "app.about")),
+            Some(app_meta),
+        )?)
         .item(
             &MenuItemBuilder::with_id("check-for-updates", menu_label(locale, "app.checkUpdates"))
                 .build(app)?,
@@ -2454,13 +2647,29 @@ fn build_menu<R: tauri::Runtime>(
                 .build(app)?,
         )
         .separator()
-        .item(&PredefinedMenuItem::services(app, Some(&menu_label(locale, "sys.services")))?)
+        .item(&PredefinedMenuItem::services(
+            app,
+            Some(&menu_label(locale, "sys.services")),
+        )?)
         .separator()
-        .item(&MenuItemBuilder::with_id("hide-app", menu_label(locale, "app.hide")).accelerator("CmdOrCtrl+Shift+H").build(app)?)
-        .item(&PredefinedMenuItem::hide_others(app, Some(&menu_label(locale, "sys.hideOthers")))?)
-        .item(&PredefinedMenuItem::show_all(app, Some(&menu_label(locale, "sys.showAll")))?)
+        .item(
+            &MenuItemBuilder::with_id("hide-app", menu_label(locale, "app.hide"))
+                .accelerator("CmdOrCtrl+Shift+H")
+                .build(app)?,
+        )
+        .item(&PredefinedMenuItem::hide_others(
+            app,
+            Some(&menu_label(locale, "sys.hideOthers")),
+        )?)
+        .item(&PredefinedMenuItem::show_all(
+            app,
+            Some(&menu_label(locale, "sys.showAll")),
+        )?)
         .separator()
-        .item(&PredefinedMenuItem::quit(app, Some(&menu_label(locale, "sys.quit")))?)
+        .item(&PredefinedMenuItem::quit(
+            app,
+            Some(&menu_label(locale, "sys.quit")),
+        )?)
         .build()?;
 
     let recent_menu: Submenu<R> = SubmenuBuilder::new(app, menu_label(locale, "file.openRecent"))
@@ -2472,14 +2681,26 @@ fn build_menu<R: tauri::Runtime>(
         .build()?;
 
     let file_b = SubmenuBuilder::new(app, menu_label(locale, "menu.file"))
-        .item(&MenuItemBuilder::with_id("new", menu_label(locale, "file.new")).accelerator("CmdOrCtrl+N").build(app)?)
+        .item(
+            &MenuItemBuilder::with_id("new", menu_label(locale, "file.new"))
+                .accelerator("CmdOrCtrl+N")
+                .build(app)?,
+        )
         // "New Base" creates a .base table file. It used to ride in on the
         // bundled `base` plugin manifest; the feature (BaseView, .base parsing,
         // lib/base/create.ts) has always been core, so the menu item is core now
         // too — next to New, rather than under Plugins where plugin-contributed
         // items land.
         .item(&MenuItemBuilder::with_id("new-base", menu_label(locale, "file.newBase")).build(app)?)
-        .item(&MenuItemBuilder::with_id("open", menu_label(locale, "file.open")).accelerator("CmdOrCtrl+O").build(app)?)
+        .item(
+            &MenuItemBuilder::with_id("new-canvas", menu_label(locale, "file.newCanvas"))
+                .build(app)?,
+        )
+        .item(
+            &MenuItemBuilder::with_id("open", menu_label(locale, "file.open"))
+                .accelerator("CmdOrCtrl+O")
+                .build(app)?,
+        )
         .item(&recent_menu)
         .separator()
         .item(
@@ -2488,7 +2709,11 @@ fn build_menu<R: tauri::Runtime>(
                 .build(app)?,
         )
         .separator()
-        .item(&MenuItemBuilder::with_id("save", menu_label(locale, "file.save")).accelerator("CmdOrCtrl+S").build(app)?)
+        .item(
+            &MenuItemBuilder::with_id("save", menu_label(locale, "file.save"))
+                .accelerator("CmdOrCtrl+S")
+                .build(app)?,
+        )
         .item(
             &MenuItemBuilder::with_id("save-as", menu_label(locale, "file.saveAs"))
                 .accelerator("CmdOrCtrl+Shift+S")
@@ -2501,15 +2726,27 @@ fn build_menu<R: tauri::Runtime>(
                 .build(app)?,
         )
         .separator()
-        .item(&MenuItemBuilder::with_id("sync-to-vault", menu_label(locale, "file.syncToVault")).build(app)?)
-        .item(&MenuItemBuilder::with_id("view-sync-source", menu_label(locale, "file.viewSyncSource")).build(app)?)
+        .item(
+            &MenuItemBuilder::with_id("sync-to-vault", menu_label(locale, "file.syncToVault"))
+                .build(app)?,
+        )
+        .item(
+            &MenuItemBuilder::with_id(
+                "view-sync-source",
+                menu_label(locale, "file.viewSyncSource"),
+            )
+            .build(app)?,
+        )
         .item(
             &MenuItemBuilder::with_id("share", menu_label(locale, "file.share"))
                 .accelerator("CmdOrCtrl+Shift+L")
                 .build(app)?,
         )
         .item(&MenuItemBuilder::with_id("unshare", menu_label(locale, "file.unshare")).build(app)?)
-        .item(&MenuItemBuilder::with_id("copy-share-link", menu_label(locale, "file.copyShareLink")).build(app)?);
+        .item(
+            &MenuItemBuilder::with_id("copy-share-link", menu_label(locale, "file.copyShareLink"))
+                .build(app)?,
+        );
     // Plugin-contributed menu items no longer scatter into File/Edit/View/etc.
     // — they ALL live under the Plugins menu (built below), so there is one
     // predictable, discoverable home for every plugin command. Core features
@@ -2517,12 +2754,27 @@ fn build_menu<R: tauri::Runtime>(
     let file_menu: Submenu<R> = file_b.build()?;
 
     let edit_b = SubmenuBuilder::new(app, menu_label(locale, "menu.edit"))
-        .item(&PredefinedMenuItem::undo(app, Some(&menu_label(locale, "sys.undo")))?)
-        .item(&PredefinedMenuItem::redo(app, Some(&menu_label(locale, "sys.redo")))?)
+        .item(&PredefinedMenuItem::undo(
+            app,
+            Some(&menu_label(locale, "sys.undo")),
+        )?)
+        .item(&PredefinedMenuItem::redo(
+            app,
+            Some(&menu_label(locale, "sys.redo")),
+        )?)
         .separator()
-        .item(&PredefinedMenuItem::cut(app, Some(&menu_label(locale, "sys.cut")))?)
-        .item(&PredefinedMenuItem::copy(app, Some(&menu_label(locale, "sys.copy")))?)
-        .item(&PredefinedMenuItem::paste(app, Some(&menu_label(locale, "sys.paste")))?)
+        .item(&PredefinedMenuItem::cut(
+            app,
+            Some(&menu_label(locale, "sys.cut")),
+        )?)
+        .item(&PredefinedMenuItem::copy(
+            app,
+            Some(&menu_label(locale, "sys.copy")),
+        )?)
+        .item(&PredefinedMenuItem::paste(
+            app,
+            Some(&menu_label(locale, "sys.paste")),
+        )?)
         // Custom item, not PredefinedMenuItem::select_all: the native macOS
         // `selectAll:` responder action no-ops on the rich editor's ProseMirror
         // DOM (a contenteditable root mixed with non-editable atom nodes
@@ -2539,10 +2791,20 @@ fn build_menu<R: tauri::Runtime>(
         // is handled there (RichEditor's handleRichKeydown / the textarea's
         // native select-all), which also stops Cmd+A being hijacked away from
         // whatever input actually has focus.
-        .item(&MenuItemBuilder::with_id("select-all", menu_label(locale, "sys.selectAll")).build(app)?)
+        .item(
+            &MenuItemBuilder::with_id("select-all", menu_label(locale, "sys.selectAll"))
+                .build(app)?,
+        )
         .separator()
-        .item(&MenuItemBuilder::with_id("find", menu_label(locale, "edit.find")).accelerator("CmdOrCtrl+F").build(app)?)
-        .item(&MenuItemBuilder::with_id("find-replace", menu_label(locale, "edit.findReplace")).build(app)?);
+        .item(
+            &MenuItemBuilder::with_id("find", menu_label(locale, "edit.find"))
+                .accelerator("CmdOrCtrl+F")
+                .build(app)?,
+        )
+        .item(
+            &MenuItemBuilder::with_id("find-replace", menu_label(locale, "edit.findReplace"))
+                .build(app)?,
+        );
     let edit_menu: Submenu<R> = edit_b.build()?;
 
     let view_b = SubmenuBuilder::new(app, menu_label(locale, "menu.view"))
@@ -2562,29 +2824,85 @@ fn build_menu<R: tauri::Runtime>(
         )
         .item(&PredefinedMenuItem::fullscreen(app, None)?)
         .separator()
-        .item(&MenuItemBuilder::with_id("open-insights", menu_label(locale, "view.insights")).build(app)?)
+        .item(
+            &MenuItemBuilder::with_id("open-insights", menu_label(locale, "view.insights"))
+                .build(app)?,
+        )
         .item(&MenuItemBuilder::with_id("open-logs", menu_label(locale, "view.logs")).build(app)?)
         .separator()
-        .item(&MenuItemBuilder::with_id("toggle-folder-view", menu_label(locale, "view.folderView")).accelerator("CmdOrCtrl+Shift+E").build(app)?)
-        .item(&MenuItemBuilder::with_id("toggle-vault-search", menu_label(locale, "view.vaultSearch")).accelerator("CmdOrCtrl+Shift+F").build(app)?)
-        .item(&MenuItemBuilder::with_id("toggle-sidecar-notes", menu_label(locale, "view.sidecarNotes")).accelerator("CmdOrCtrl+Shift+O").build(app)?)
-        .item(&MenuItemBuilder::with_id("toggle-git-history", menu_label(locale, "view.history")).accelerator("CmdOrCtrl+Shift+Y").build(app)?);
+        .item(
+            &MenuItemBuilder::with_id("toggle-folder-view", menu_label(locale, "view.folderView"))
+                .accelerator("CmdOrCtrl+Shift+E")
+                .build(app)?,
+        )
+        .item(
+            &MenuItemBuilder::with_id(
+                "toggle-vault-search",
+                menu_label(locale, "view.vaultSearch"),
+            )
+            .accelerator("CmdOrCtrl+Shift+F")
+            .build(app)?,
+        )
+        .item(
+            &MenuItemBuilder::with_id(
+                "toggle-sidecar-notes",
+                menu_label(locale, "view.sidecarNotes"),
+            )
+            .accelerator("CmdOrCtrl+Shift+O")
+            .build(app)?,
+        )
+        .item(
+            &MenuItemBuilder::with_id(
+                "toggle-table-of-contents",
+                menu_label(locale, "view.tableOfContents"),
+            )
+            .build(app)?,
+        )
+        .item(
+            &MenuItemBuilder::with_id("toggle-git-history", menu_label(locale, "view.history"))
+                .accelerator("CmdOrCtrl+Shift+Y")
+                .build(app)?,
+        );
     let view_menu: Submenu<R> = view_b.build()?;
 
     let window_b = SubmenuBuilder::new(app, menu_label(locale, "menu.window"))
-        .item(&PredefinedMenuItem::minimize(app, Some(&menu_label(locale, "sys.minimize")))?)
-        .item(&PredefinedMenuItem::maximize(app, Some(&menu_label(locale, "sys.maximize")))?)
+        .item(&PredefinedMenuItem::minimize(
+            app,
+            Some(&menu_label(locale, "sys.minimize")),
+        )?)
+        .item(&PredefinedMenuItem::maximize(
+            app,
+            Some(&menu_label(locale, "sys.maximize")),
+        )?)
         .separator()
-        .item(&MenuItemBuilder::with_id("zoom-in", menu_label(locale, "window.zoomIn")).accelerator("CmdOrCtrl+=").build(app)?)
-        .item(&MenuItemBuilder::with_id("zoom-out", menu_label(locale, "window.zoomOut")).accelerator("CmdOrCtrl+-").build(app)?)
-        .item(&MenuItemBuilder::with_id("zoom-reset", menu_label(locale, "window.actualSize")).accelerator("CmdOrCtrl+0").build(app)?);
+        .item(
+            &MenuItemBuilder::with_id("zoom-in", menu_label(locale, "window.zoomIn"))
+                .accelerator("CmdOrCtrl+=")
+                .build(app)?,
+        )
+        .item(
+            &MenuItemBuilder::with_id("zoom-out", menu_label(locale, "window.zoomOut"))
+                .accelerator("CmdOrCtrl+-")
+                .build(app)?,
+        )
+        .item(
+            &MenuItemBuilder::with_id("zoom-reset", menu_label(locale, "window.actualSize"))
+                .accelerator("CmdOrCtrl+0")
+                .build(app)?,
+        );
     let window_menu: Submenu<R> = window_b.build()?;
 
     let help_b = SubmenuBuilder::new(app, menu_label(locale, "menu.help"))
         .item(&MenuItemBuilder::with_id("docs", menu_label(locale, "help.docs")).build(app)?)
         .separator()
-        .item(&MenuItemBuilder::with_id("cli-install", menu_label(locale, "help.cliInstall")).build(app)?)
-        .item(&MenuItemBuilder::with_id("cli-uninstall", menu_label(locale, "help.cliUninstall")).build(app)?);
+        .item(
+            &MenuItemBuilder::with_id("cli-install", menu_label(locale, "help.cliInstall"))
+                .build(app)?,
+        )
+        .item(
+            &MenuItemBuilder::with_id("cli-uninstall", menu_label(locale, "help.cliUninstall"))
+                .build(app)?,
+        );
     let help_menu: Submenu<R> = help_b.build()?;
 
     // The Plugins menu is always present: its first item, "Plugin Market…",
@@ -2617,7 +2935,9 @@ fn build_menu<R: tauri::Runtime>(
                 let mut gb = SubmenuBuilder::new(app, group_label);
                 for it in group.items {
                     let mut mb = MenuItemBuilder::with_id(&it.id, &it.label);
-                    if let Some(s) = &it.shortcut { mb = mb.accelerator(s); }
+                    if let Some(s) = &it.shortcut {
+                        mb = mb.accelerator(s);
+                    }
                     gb = gb.item(&mb.build(app)?);
                 }
                 b = b.item(&gb.build()?);
@@ -2630,7 +2950,15 @@ fn build_menu<R: tauri::Runtime>(
     let _ = std::any::type_name::<WindowEvent>();
 
     let menu = MenuBuilder::new(app)
-        .items(&[&app_menu, &file_menu, &edit_menu, &view_menu, &plugins_menu, &window_menu, &help_menu])
+        .items(&[
+            &app_menu,
+            &file_menu,
+            &edit_menu,
+            &view_menu,
+            &plugins_menu,
+            &window_menu,
+            &help_menu,
+        ])
         .build()?;
     Ok((menu, recent_menu))
 }
@@ -2648,11 +2976,16 @@ mod menu_label_tests {
         assert_eq!(menu_label("zh", "file.newBase"), "新建 Base");
         assert_eq!(menu_label("ja", "file.newBase"), "新規 Base");
         assert_eq!(menu_label("de", "file.newBase"), "Neue Base");
+        assert_eq!(menu_label("en", "file.newCanvas"), "New Canvas");
+        assert_eq!(menu_label("zh", "file.newCanvas"), "新建画布");
     }
 
     #[test]
     fn smart_search_is_localized_in_every_locale() {
-        assert_eq!(menu_label("en", "view.smartSearch"), "Smart Search & Answers…");
+        assert_eq!(
+            menu_label("en", "view.smartSearch"),
+            "Smart Search & Answers…"
+        );
         assert_eq!(menu_label("zh", "view.smartSearch"), "智能搜索与问答…");
         assert_eq!(menu_label("ja", "view.smartSearch"), "スマート検索と回答…");
         assert_eq!(
@@ -2675,13 +3008,19 @@ mod menu_label_tests {
         assert_eq!(menu_label("zh", "plugins.group.experience"), "体验增强");
         assert_eq!(menu_label("ja", "plugins.group.experience"), "体験向上");
         assert_eq!(menu_label("de", "plugins.group.experience"), "Erlebnis");
-        assert_eq!(menu_label("en", "plugins.group.importExport"), "Import & Export");
+        assert_eq!(
+            menu_label("en", "plugins.group.importExport"),
+            "Import & Export"
+        );
         assert_eq!(menu_label("zh", "plugins.group.importExport"), "导入与导出");
     }
 
     #[test]
     fn native_menu_literals_escape_ampersands_from_mnemonic_parsing() {
-        assert_eq!(super::native_menu_literal("Import & Export"), "Import && Export");
+        assert_eq!(
+            super::native_menu_literal("Import & Export"),
+            "Import && Export"
+        );
         assert_eq!(super::native_menu_literal("Reading"), "Reading");
     }
 
@@ -2715,7 +3054,11 @@ mod pending_search_reveal_tests {
         mailbox.enqueue(request("two"));
 
         assert_eq!(mailbox.snapshot(), vec![request("one"), request("two")]);
-        assert_eq!(mailbox.snapshot().len(), 2, "replay must not consume before openFile succeeds");
+        assert_eq!(
+            mailbox.snapshot().len(),
+            2,
+            "replay must not consume before openFile succeeds"
+        );
         assert!(mailbox.acknowledge("one"));
         assert_eq!(mailbox.snapshot(), vec![request("two")]);
         assert!(!mailbox.acknowledge("missing"));
@@ -2740,7 +3083,8 @@ mod pending_search_reveal_tests {
         use std::str::FromStr;
         use tauri_plugin_global_shortcut::Shortcut;
 
-        let shortcut = Shortcut::from_str("Option+Space").expect("Option+Space must stay parseable");
+        let shortcut =
+            Shortcut::from_str("Option+Space").expect("Option+Space must stay parseable");
         assert_eq!(shortcut.to_string(), "alt+Space");
     }
 }

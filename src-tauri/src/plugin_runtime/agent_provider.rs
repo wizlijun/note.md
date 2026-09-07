@@ -130,11 +130,7 @@ pub fn configured_default(vault: Option<&std::path::Path>) -> Option<String> {
 /// A configured provider that is not installed falls back rather than failing:
 /// uninstalling a plugin should not break the agent slot, and the fallback is
 /// visible (the run record names the plugin that served it).
-pub fn resolve(
-    requested: Option<&str>,
-    configured: Option<&str>,
-    installed: &[String],
-) -> String {
+pub fn resolve(requested: Option<&str>, configured: Option<&str>, installed: &[String]) -> String {
     let known = |id: &str| installed.iter().any(|p| p == id);
     if let Some(r) = requested.map(str::trim).filter(|s| !s.is_empty()) {
         return r.to_string();
@@ -321,9 +317,15 @@ mod tests {
             let body = std::fs::read_to_string(path).unwrap_or_else(|e| panic!("{path}: {e}"));
             let m: ManifestV2 =
                 serde_json::from_str(&body).unwrap_or_else(|e| panic!("{path}: {e}"));
-            assert!(m.contributes.settings.is_none(), "{path} must not create a global Settings tab");
+            assert!(
+                m.contributes.settings.is_none(),
+                "{path} must not create a global Settings tab"
+            );
             assert!(m.capabilities.iter().any(|cap| cap == "settings"), "{path}");
-            assert!(!m.capabilities.iter().any(|cap| cap == "agent"), "{path} must not gain cross-agent authority");
+            assert!(
+                !m.capabilities.iter().any(|cap| cap == "agent"),
+                "{path} must not gain cross-agent authority"
+            );
 
             let raw: serde_json::Value = serde_json::from_str(&body).unwrap();
             for catalog in raw["i18n"].as_object().unwrap().values() {

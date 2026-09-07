@@ -1723,9 +1723,10 @@ fn context_value(
         {
             "visibility-or-consent"
         } else if (request.role.is_none() && !revision.value.context.roles.is_empty())
-            || request.role.as_ref().is_some_and(|role| {
-                !revision.value.context.roles.contains(role)
-            })
+            || request
+                .role
+                .as_ref()
+                .is_some_and(|role| !revision.value.context.roles.contains(role))
             || !revision.value.context.spaces.contains(&request.space)
             || !revision
                 .value
@@ -2143,9 +2144,10 @@ fn validate_context_registry_candidate(
             &mut errors,
         );
         if let Some(target) = role.redirect_to.as_deref() {
-            if !role_ids.get(target).is_some_and(|entry| {
-                entry.status == ContextRegistryEntryStatus::Active
-            }) {
+            if !role_ids
+                .get(target)
+                .is_some_and(|entry| entry.status == ContextRegistryEntryStatus::Active)
+            {
                 errors.push(format!(
                     "archived role {} must redirect to an active role",
                     role.id
@@ -2226,10 +2228,7 @@ fn validate_registry_entry<'a>(
     {
         errors.push(format!("invalid {kind} id: {id}"));
     }
-    if label.trim().is_empty()
-        || label.len() > 128
-        || label.chars().any(char::is_control)
-    {
+    if label.trim().is_empty() || label.len() > 128 || label.chars().any(char::is_control) {
         errors.push(format!("{kind} {id} requires a label of at most 128 bytes"));
     }
     for name in std::iter::once(label).chain(aliases.iter().map(String::as_str)) {
@@ -2825,11 +2824,19 @@ fn prepare_reassignments(
         .map(|item| {
             let batch_eligible = !item.requires_isolated_review || isolated_batch;
             let reasons = if item.risk_bucket == "cross-realm" {
-                vec!["selector-match", "unique-current-head", "cross-security-domain"]
+                vec![
+                    "selector-match",
+                    "unique-current-head",
+                    "cross-security-domain",
+                ]
             } else if item.risk_bucket == "high" {
                 vec!["selector-match", "unique-current-head", "action-sensitive"]
             } else {
-                vec!["selector-match", "unique-current-head", "same-security-domain"]
+                vec![
+                    "selector-match",
+                    "unique-current-head",
+                    "same-security-domain",
+                ]
             };
             json!({
                 "claim_id": item.parent.claim_id,
@@ -2924,11 +2931,7 @@ fn reassign_apply(root: &Path, input: ReassignmentApplyInput) -> Result<Value, S
     if prepared.is_empty() {
         return Err("MEMORY_NO_CHANGE: reassignment does not change any current claim".into());
     }
-    if prepared.len() > 1
-        && prepared
-            .iter()
-            .any(|item| item.requires_isolated_review)
-    {
+    if prepared.len() > 1 && prepared.iter().any(|item| item.requires_isolated_review) {
         return Err(
             "MEMORY_APPROVAL_REQUIRED: cross-Realm and action-sensitive changes must be applied as isolated one-Claim batches"
                 .into(),
@@ -3013,8 +3016,7 @@ fn reassign_apply(root: &Path, input: ReassignmentApplyInput) -> Result<Value, S
                     || child.workflow.state != WorkflowState::Approved
                     || child.lifecycle.state != LifecycleState::Active
                     || child.transition.operation != ClaimOperation::ChangeContextConsent
-                    || child.lineage.produced_by_operation.as_deref()
-                        != Some(operation_id.as_str())
+                    || child.lineage.produced_by_operation.as_deref() != Some(operation_id.as_str())
                     || child.lineage.produced_by_run.as_deref() != Some(run_id.as_str())
                 {
                     return Err(
@@ -4103,12 +4105,8 @@ mod tests {
             "replacement": {"role_ids": ["role:developer"]},
             "as_of_valid_time": now(),
         });
-        let preview = dispatch(
-            dir.path(),
-            "host.memory.v2.reassignPreview",
-            &preview_input,
-        )
-        .unwrap();
+        let preview =
+            dispatch(dir.path(), "host.memory.v2.reassignPreview", &preview_input).unwrap();
         assert_eq!(preview["summary"]["matched_count"], 1);
         let mut apply = preview_input;
         apply["request_id"] = json!("memory-ui/reassign/test");
@@ -4120,12 +4118,8 @@ mod tests {
         assert_eq!(retried["operation_id"], receipt["operation_id"]);
         let mut reused_request = apply.clone();
         reused_request["preview_sha256"] = json!("different-plan");
-        let error = dispatch(
-            dir.path(),
-            "host.memory.v2.reassignApply",
-            &reused_request,
-        )
-        .unwrap_err();
+        let error =
+            dispatch(dir.path(), "host.memory.v2.reassignApply", &reused_request).unwrap_err();
         assert!(error.contains("MEMORY_IDEMPOTENCY_CONFLICT"));
 
         let interrupted = V2Repository::new(dir.path()).load().unwrap();
@@ -4160,27 +4154,36 @@ mod tests {
         assert!(projection.contains("### Role · 开发"));
         assert!(projection.contains("- 回答先给出结论。"));
 
-        let error = dispatch(dir.path(), "host.memory.v2.reassignApply", &json!({
-            "request_id": "memory-ui/reassign/stale",
-            "expected_protocol": protocol,
-            "expected_registry_heads": registry["registry_heads"],
-            "selector": {"claim_ids": [created["claim_id"]]},
-            "replacement": {"role_ids": ["role:unclassified"]},
-            "as_of_valid_time": now(),
-            "preview_sha256": "stale",
-            "gesture_intent": "apply-reassignment"
-        })).unwrap_err();
+        let error = dispatch(
+            dir.path(),
+            "host.memory.v2.reassignApply",
+            &json!({
+                "request_id": "memory-ui/reassign/stale",
+                "expected_protocol": protocol,
+                "expected_registry_heads": registry["registry_heads"],
+                "selector": {"claim_ids": [created["claim_id"]]},
+                "replacement": {"role_ids": ["role:unclassified"]},
+                "as_of_valid_time": now(),
+                "preview_sha256": "stale",
+                "gesture_intent": "apply-reassignment"
+            }),
+        )
+        .unwrap_err();
         assert!(error.contains("MEMORY_STALE_BASE"));
 
-        let proposal = dispatch(dir.path(), "host.memory.v2.reassignPropose", &json!({
-            "request_id": "codex/reassign/proposal",
-            "expected_protocol": protocol,
-            "expected_registry_heads": registry["registry_heads"],
-            "selector": {"claim_ids": [created["claim_id"]]},
-            "replacement": {"role_ids": ["role:unclassified"]},
-            "as_of_valid_time": now(),
-            "recorded_by": "codex/gpt-5"
-        }))
+        let proposal = dispatch(
+            dir.path(),
+            "host.memory.v2.reassignPropose",
+            &json!({
+                "request_id": "codex/reassign/proposal",
+                "expected_protocol": protocol,
+                "expected_registry_heads": registry["registry_heads"],
+                "selector": {"claim_ids": [created["claim_id"]]},
+                "replacement": {"role_ids": ["role:unclassified"]},
+                "as_of_valid_time": now(),
+                "recorded_by": "codex/gpt-5"
+            }),
+        )
         .unwrap();
         assert_eq!(proposal["proposed_claims"], 1);
         let repository = V2Repository::new(dir.path()).load().unwrap();
@@ -4260,10 +4263,13 @@ mod tests {
         let dir = tempfile::TempDir::new().unwrap();
         let protocol = initialize(dir.path());
         let mut registry_input = registry_params(&protocol, "memory-ui/registry/realms");
-        registry_input["scopes"].as_array_mut().unwrap().push(json!({
-            "id": "realm:client/acme", "label": "Acme", "description": "客户隔离域",
-            "aliases": [], "status": "active", "kind": "realm", "security_domain": "client/acme"
-        }));
+        registry_input["scopes"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!({
+                "id": "realm:client/acme", "label": "Acme", "description": "客户隔离域",
+                "aliases": [], "status": "active", "kind": "realm", "security_domain": "client/acme"
+            }));
         let registry = dispatch(
             dir.path(),
             "host.memory.v2.contextRegistryReplace",
@@ -4282,12 +4288,8 @@ mod tests {
             "replacement": {"scope_ids": ["realm:client/acme"]},
             "as_of_valid_time": now(),
         });
-        let preview = dispatch(
-            dir.path(),
-            "host.memory.v2.reassignPreview",
-            &preview_input,
-        )
-        .unwrap();
+        let preview =
+            dispatch(dir.path(), "host.memory.v2.reassignPreview", &preview_input).unwrap();
         assert_eq!(preview["summary"]["high_risk_count"], 2);
         assert!(preview["matched"].as_array().unwrap().iter().all(|item| {
             item["risk_bucket"] == "cross-realm" && item["batch_eligible"] == false

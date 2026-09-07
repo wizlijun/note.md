@@ -134,7 +134,11 @@ mod tests {
     use serde_json::json;
 
     /// A minimal ui-only manifest with the given tray block.
-    fn manifest(name: &str, tray: serde_json::Value, i18n: Option<serde_json::Value>) -> ManifestV2 {
+    fn manifest(
+        name: &str,
+        tray: serde_json::Value,
+        i18n: Option<serde_json::Value>,
+    ) -> ManifestV2 {
         let mut v = json!({
             "manifest_version": 2,
             "id": "notemd.sample",
@@ -158,19 +162,38 @@ mod tests {
 
     #[test]
     fn capture_section_is_split_out_from_the_default_group() {
-        let spark = manifest("Idea Spark", json!([{ "window": "main", "section": "capture" }]), None);
+        let spark = manifest(
+            "Idea Spark",
+            json!([{ "window": "main", "section": "capture" }]),
+            None,
+        );
         let chat = manifest("OpenClaw Chat", json!([{ "window": "main" }]), None);
-        let (capture, rest) =
-            collect_entries([("notemd.idea-spark", &spark), ("notemd.openclaw-chat", &chat)], "en");
-        assert_eq!(capture.iter().map(|e| e.label.as_str()).collect::<Vec<_>>(), ["Idea Spark"]);
-        assert_eq!(rest.iter().map(|e| e.label.as_str()).collect::<Vec<_>>(), ["OpenClaw Chat"]);
+        let (capture, rest) = collect_entries(
+            [
+                ("notemd.idea-spark", &spark),
+                ("notemd.openclaw-chat", &chat),
+            ],
+            "en",
+        );
+        assert_eq!(
+            capture.iter().map(|e| e.label.as_str()).collect::<Vec<_>>(),
+            ["Idea Spark"]
+        );
+        assert_eq!(
+            rest.iter().map(|e| e.label.as_str()).collect::<Vec<_>>(),
+            ["OpenClaw Chat"]
+        );
     }
 
     /// An open vocabulary has to degrade, not drop: a `section` from a newer
     /// spec must still produce a clickable item, just in the default group.
     #[test]
     fn an_unknown_section_falls_back_to_the_default_group() {
-        let m = manifest("Future", json!([{ "window": "main", "section": "sync" }]), None);
+        let m = manifest(
+            "Future",
+            json!([{ "window": "main", "section": "sync" }]),
+            None,
+        );
         let (capture, rest) = collect_entries([("notemd.future", &m)], "en");
         assert!(capture.is_empty());
         assert_eq!(rest.len(), 1);
@@ -178,17 +201,29 @@ mod tests {
 
     #[test]
     fn each_group_is_sorted_by_base_label_independently() {
-        let z = manifest("Zebra", json!([{ "window": "main", "section": "capture" }]), None);
-        let a = manifest("Apple", json!([{ "window": "main", "section": "capture" }]), None);
+        let z = manifest(
+            "Zebra",
+            json!([{ "window": "main", "section": "capture" }]),
+            None,
+        );
+        let a = manifest(
+            "Apple",
+            json!([{ "window": "main", "section": "capture" }]),
+            None,
+        );
         let y = manifest("Yak", json!([{ "window": "main" }]), None);
         let b = manifest("Bee", json!([{ "window": "main" }]), None);
         // Fed in deliberately unsorted order.
-        let (capture, rest) = collect_entries(
-            [("p.z", &z), ("p.y", &y), ("p.a", &a), ("p.b", &b)],
-            "en",
+        let (capture, rest) =
+            collect_entries([("p.z", &z), ("p.y", &y), ("p.a", &a), ("p.b", &b)], "en");
+        assert_eq!(
+            capture.iter().map(|e| e.label.as_str()).collect::<Vec<_>>(),
+            ["Apple", "Zebra"]
         );
-        assert_eq!(capture.iter().map(|e| e.label.as_str()).collect::<Vec<_>>(), ["Apple", "Zebra"]);
-        assert_eq!(rest.iter().map(|e| e.label.as_str()).collect::<Vec<_>>(), ["Bee", "Yak"]);
+        assert_eq!(
+            rest.iter().map(|e| e.label.as_str()).collect::<Vec<_>>(),
+            ["Bee", "Yak"]
+        );
     }
 
     #[test]

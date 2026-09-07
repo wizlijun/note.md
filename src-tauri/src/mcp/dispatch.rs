@@ -26,7 +26,9 @@ pub fn handle(env: Option<&ToolEnv>, msg: &Value) -> Option<Value> {
             let v = params.get("protocolVersion").and_then(|v| v.as_str());
             json!({ "jsonrpc": "2.0", "id": id, "result": protocol::initialize_result(v) })
         }
-        "tools/list" => json!({ "jsonrpc": "2.0", "id": id, "result": protocol::tool_definitions() }),
+        "tools/list" => {
+            json!({ "jsonrpc": "2.0", "id": id, "result": protocol::tool_definitions() })
+        }
         "ping" => json!({ "jsonrpc": "2.0", "id": id, "result": {} }),
         "resources/list" => json!({ "jsonrpc": "2.0", "id": id, "result": { "resources": [] } }),
         "prompts/list" => json!({ "jsonrpc": "2.0", "id": id, "result": { "prompts": [] } }),
@@ -45,7 +47,9 @@ pub fn handle(env: Option<&ToolEnv>, msg: &Value) -> Option<Value> {
             let out = match name {
                 "search" => tools::search(env, &args),
                 "vault_info" => tools::vault_info(env),
-                other => Err(format!("未知工具 '{other}';本 server 只提供 search 与 vault_info")),
+                other => Err(format!(
+                    "未知工具 '{other}';本 server 只提供 search 与 vault_info"
+                )),
             };
             match out {
                 Ok(v) => protocol::tool_ok(&id, &v),
@@ -100,8 +104,14 @@ mod tests {
         assert_eq!(r["result"]["isError"], true);
         assert!(r.get("error").is_none());
         let text = r["result"]["content"][0]["text"].as_str().unwrap();
-        assert!(text.contains("Preferences"), "必须指向 Preferences,而不是让 agent 反复启动一个已经在跑的 note.md: {text}");
-        assert!(!text.contains("未运行"), "note.md 明明在跑,不能说它没运行: {text}");
+        assert!(
+            text.contains("Preferences"),
+            "必须指向 Preferences,而不是让 agent 反复启动一个已经在跑的 note.md: {text}"
+        );
+        assert!(
+            !text.contains("未运行"),
+            "note.md 明明在跑,不能说它没运行: {text}"
+        );
     }
 
     #[test]
@@ -127,8 +137,7 @@ mod tests {
         std::fs::create_dir_all(d.path().join("notes")).unwrap();
         std::fs::write(d.path().join("notes/a.md"), "# T\n\nzebraquux 在这里\n").unwrap();
         let opts = crate::cli::search::scan_options_for(d.path());
-        let mut idx =
-            searchidx::SearchIndex::open(d.path(), &opts.source_globs.stamp()).unwrap();
+        let mut idx = searchidx::SearchIndex::open(d.path(), &opts.source_globs.stamp()).unwrap();
         idx.ensure_built(&opts).unwrap();
         let env = ToolEnv {
             vault_root: d.path().to_path_buf(),

@@ -9,6 +9,7 @@ export const zh: Record<keyof Messages, string> = {
   'common.close': '关闭',
   'common.dismiss': '关闭',
   'common.saveAs': '另存为…',
+  'frontmatter.metadata': '元数据',
   'dialog.saveChanges.message': '是否将更改保存到"{name}"？',
   'dialog.saveChanges.info': '如果不保存，更改将丢失。',
   'dialog.save': '保存',
@@ -378,6 +379,7 @@ export const zh: Record<keyof Messages, string> = {
   // Empty state
   'emptyState.hint': '拖入 .md 文件 或',
   'emptyState.new': '新建（⌘N）',
+  'canvas.new': '新建画布',
   'emptyState.open': '打开…（⌘O）',
 
   // Toast
@@ -482,6 +484,12 @@ export const zh: Record<keyof Messages, string> = {
   'agentPicker.notInstalled': '未安装',
   'agentPicker.broken': '装了,但起不来',
   'agent.model': '模型 {model}',
+  'toc.title': '目录',
+  'toc.hide': '隐藏目录',
+  'toc.noDocument': '打开一篇 Markdown 文章以查看目录',
+  'toc.notApplicable': '此文件没有可用的目录',
+  'toc.empty': '当前文章没有标题',
+  'toc.jumpTo': '跳转到第 {line} 行：{title}',
   'outline.title': '手记',
   'outline.editNote': '编辑笔记',
   'outline.openMarkdown': '使用 Markdown 打开',

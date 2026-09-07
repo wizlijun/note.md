@@ -114,10 +114,14 @@ pub fn resolve_with(
         let mut topic: Option<String> = None;
         let mut all = false;
         for a in rest.iter().skip(1) {
-            let known_alias = matches!(a.as_str(), "-h" | "--help" | "-v" | "--version" | "--share")
-                || manifests.iter().any(|(manifest, _)| {
-                    manifest.cli.iter().any(|entry| entry.aliases.iter().any(|alias| alias == a))
-                });
+            let known_alias =
+                matches!(a.as_str(), "-h" | "--help" | "-v" | "--version" | "--share")
+                    || manifests.iter().any(|(manifest, _)| {
+                        manifest
+                            .cli
+                            .iter()
+                            .any(|entry| entry.aliases.iter().any(|alias| alias == a))
+                    });
             if a == "--all" && !all {
                 all = true;
             } else if a == "--all" {
@@ -213,9 +217,7 @@ pub fn resolve_with(
             Some(s) if s.starts_with('-') => 1, // flags → implicit `report`
             None => 1,
             Some(other) => {
-                return argument_error(format!(
-                    "unknown reading-insights subcommand '{other}'"
-                ));
+                return argument_error(format!("unknown reading-insights subcommand '{other}'"));
             }
         };
         let remaining: Vec<String> = rest.iter().skip(skip).cloned().collect();
@@ -403,9 +405,28 @@ pub(crate) fn reject_cli_name_conflicts(
     use std::collections::{BTreeMap, BTreeSet};
 
     const RESERVED: &[&str] = &[
-        "help", "-h", "--help", "version", "-v", "--version", "plugin", "search",
-        "doctor", "mcp", "memory", "open", "reading-insights", "share", "--share",
-        "--json", "-q", "--quiet", "--no-clipboard", "--cli", "-y", "--yes",
+        "help",
+        "-h",
+        "--help",
+        "version",
+        "-v",
+        "--version",
+        "plugin",
+        "search",
+        "doctor",
+        "mcp",
+        "memory",
+        "open",
+        "reading-insights",
+        "share",
+        "--share",
+        "--json",
+        "-q",
+        "--quiet",
+        "--no-clipboard",
+        "--cli",
+        "-y",
+        "--yes",
     ];
     let mut owners: BTreeMap<String, BTreeSet<(usize, usize)>> = BTreeMap::new();
     let mut rejected: BTreeMap<(usize, usize), BTreeSet<String>> = BTreeMap::new();
@@ -572,13 +593,17 @@ mod tests {
         ));
         for alias in ["-h", "--help", "-v", "--version"] {
             let route = route_with(&["help", alias], vec![], Default::default());
-            assert!(matches!(
-                route,
-                Route::Builtin(Builtin::Help { topic: Some(_), .. })
-            ), "help topic alias {alias} must remain reachable");
+            assert!(
+                matches!(route, Route::Builtin(Builtin::Help { topic: Some(_), .. })),
+                "help topic alias {alias} must remain reachable"
+            );
         }
         let plugin = manifest_with_cli("demo.plugin", "demo", &["-d"]);
-        let route = route_with(&["help", "-d"], vec![(plugin, PathBuf::new())], Default::default());
+        let route = route_with(
+            &["help", "-d"],
+            vec![(plugin, PathBuf::new())],
+            Default::default(),
+        );
         assert!(matches!(
             route,
             Route::Builtin(Builtin::Help { topic: Some(_), .. })
@@ -723,12 +748,12 @@ mod tests {
     }
     #[test]
     fn recognized_command_with_unknown_subcommand_is_an_argument_error() {
-        for args in [
-            vec!["plugin", "wat"],
-            vec!["reading-insights", "wat"],
-        ] {
+        for args in [vec!["plugin", "wat"], vec!["reading-insights", "wat"]] {
             let route = route_with(&args, vec![], Default::default());
-            assert!(matches!(route, Route::Builtin(Builtin::ArgumentError(_))), "got {route:?}");
+            assert!(
+                matches!(route, Route::Builtin(Builtin::ArgumentError(_))),
+                "got {route:?}"
+            );
         }
     }
     #[test]
@@ -835,7 +860,10 @@ mod tests {
             let plugin = manifest_with_cli("evil", reserved, &[]);
             let mut manifests = vec![(plugin, PathBuf::from("/evil"))];
             let conflicts = reject_cli_name_conflicts(&mut manifests);
-            assert!(manifests[0].0.cli.is_empty(), "reserved token survived: {reserved}");
+            assert!(
+                manifests[0].0.cli.is_empty(),
+                "reserved token survived: {reserved}"
+            );
             assert_eq!(conflicts.len(), 1);
             assert!(conflicts[0].reasons[0].contains(reserved));
         }

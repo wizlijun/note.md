@@ -85,7 +85,11 @@ pub fn search(env: &ToolEnv, args: &Value) -> Result<Value, String> {
 
     let opts = crate::cli::search::scan_options_for(&env.vault_root);
     let guard = env.index.lock().map_err(|_| "索引锁中毒".to_string())?;
-    let ctx = SearchContext { root: &env.vault_root, index: guard.as_ref(), opts: &opts };
+    let ctx = SearchContext {
+        root: &env.vault_root,
+        index: guard.as_ref(),
+        opts: &opts,
+    };
     let outcome = execute(&ctx, query, limit);
     drop(guard);
 
@@ -125,7 +129,8 @@ pub fn search(env: &ToolEnv, args: &Value) -> Result<Value, String> {
     // `truncated`/`vault_id_error`) are layered on top, not folded into the
     // shared function, since the CLI has no business knowing about any of
     // them.
-    let envelope = crate::cli::search::envelope_json(&outcome.query, outcome.route, outcome.took_ms, hits);
+    let envelope =
+        crate::cli::search::envelope_json(&outcome.query, outcome.route, outcome.took_ms, hits);
     let mut obj = match envelope {
         Value::Object(m) => m,
         _ => unreachable!("envelope_json always returns a JSON object"),
@@ -332,15 +337,23 @@ mod tests {
 
         let opts = crate::cli::search::scan_options_for(&env.vault_root);
         let guard = env.index.lock().unwrap();
-        let ctx = SearchContext { root: &env.vault_root, index: guard.as_ref(), opts: &opts };
+        let ctx = SearchContext {
+            root: &env.vault_root,
+            index: guard.as_ref(),
+            opts: &opts,
+        };
         let outcome = execute(&ctx, "zebraquux", 20);
         let hits: Vec<Value> = outcome.hits.iter().map(hit_to_json).collect();
-        let expected = crate::cli::search::envelope_json(&outcome.query, outcome.route, outcome.took_ms, hits);
+        let expected =
+            crate::cli::search::envelope_json(&outcome.query, outcome.route, outcome.took_ms, hits);
 
         assert_eq!(out["query"], expected["query"]);
         assert_eq!(out["route"], expected["route"]);
         assert_eq!(out["total"], expected["total"]);
-        assert_eq!(out["hits"], expected["hits"], "hits must be byte-for-byte the same shape as the CLI's --json output");
+        assert_eq!(
+            out["hits"], expected["hits"],
+            "hits must be byte-for-byte the same shape as the CLI's --json output"
+        );
     }
 
     /// finding 9: a `vault_id` write failure must be legible, not disguised
@@ -367,9 +380,18 @@ mod tests {
         };
 
         let out = search(&env, &json!({ "query": "zebraquux" })).unwrap();
-        assert_eq!(out["vault_id"], "", "no legitimate id exists to report — must not invent one");
-        assert_eq!(out["mount"]["status"], "unknown", "a write failure is not a mount problem");
-        assert!(out["vault_id_error"].as_str().is_some(), "the failure must be visible in the response: {out}");
+        assert_eq!(
+            out["vault_id"], "",
+            "no legitimate id exists to report — must not invent one"
+        );
+        assert_eq!(
+            out["mount"]["status"], "unknown",
+            "a write failure is not a mount problem"
+        );
+        assert!(
+            out["vault_id_error"].as_str().is_some(),
+            "the failure must be visible in the response: {out}"
+        );
 
         let info = vault_info(&env).unwrap();
         assert_eq!(info["vault_id"], "");
@@ -410,12 +432,30 @@ mod tests {
         // `limit: 0` (no cap on count) + generous context (each hit carries
         // the padded neighbour lines) so the byte budget, not the count cap,
         // is what stops this.
-        let out = search(&env, &json!({ "query": "zebraquux", "limit": 0, "context": 4 })).unwrap();
+        let out = search(
+            &env,
+            &json!({ "query": "zebraquux", "limit": 0, "context": 4 }),
+        )
+        .unwrap();
         let hits = out["hits"].as_array().unwrap();
-        assert!(hits.len() < 80, "the byte budget must have stopped this short of every match: got {}", hits.len());
-        assert!(!hits.is_empty(), "must return at least what fits, not nothing");
-        assert_eq!(out["truncated"], true, "truncation must be a visible field, not a silent trim");
-        assert_eq!(out["total"], json!(hits.len()), "total must agree with what was actually returned");
+        assert!(
+            hits.len() < 80,
+            "the byte budget must have stopped this short of every match: got {}",
+            hits.len()
+        );
+        assert!(
+            !hits.is_empty(),
+            "must return at least what fits, not nothing"
+        );
+        assert_eq!(
+            out["truncated"], true,
+            "truncation must be a visible field, not a silent trim"
+        );
+        assert_eq!(
+            out["total"],
+            json!(hits.len()),
+            "total must agree with what was actually returned"
+        );
 
         let serialized_hits_bytes = serde_json::to_vec(&out["hits"]).unwrap().len();
         assert!(

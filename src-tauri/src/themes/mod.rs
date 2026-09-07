@@ -6,13 +6,13 @@
 //! CSS is written to `themes/.compiled/`. See
 //! `docs/superpowers/specs/2026-05-11-typora-theme-import-design.md`.
 
-pub mod paths;
-pub mod id;
-pub mod header;
 pub mod appearance;
-pub mod registry;
-pub mod compiler;
 pub mod commands;
-pub mod migration;
-pub mod zip_safety;
+pub mod compiler;
+pub mod header;
+pub mod id;
 pub mod import;
+pub mod migration;
+pub mod paths;
+pub mod registry;
+pub mod zip_safety;

@@ -23,6 +23,7 @@ fn list_dir_filters_by_whitelist_and_hides_dotgit() {
     let root = dir.path();
 
     fs::write(root.join("readme.md"), "x").unwrap();
+    fs::write(root.join("board.canvas"), r#"{"nodes":[],"edges":[]}"#).unwrap();
     fs::write(root.join("a.txt"), "y").unwrap();
     fs::write(root.join("photo.png"), &[0u8; 8]).unwrap();
     fs::create_dir(root.join("subdir")).unwrap();
@@ -34,6 +35,7 @@ fn list_dir_filters_by_whitelist_and_hides_dotgit() {
     let names: Vec<&str> = entries.iter().map(|e| e.name.as_str()).collect();
 
     assert!(names.contains(&"readme.md"));
+    assert!(names.contains(&"board.canvas"));
     assert!(names.contains(&"a.txt"));
     assert!(names.contains(&"photo.png"));
     assert!(names.contains(&"subdir"));
@@ -138,13 +140,37 @@ fn make_bare_remote() -> (tempfile::TempDir, std::path::PathBuf) {
         .unwrap();
 
     let work = dir.path().join("work");
-    Command::new("git").args(["clone", remote.to_str().unwrap(), work.to_str().unwrap()]).output().unwrap();
+    Command::new("git")
+        .args(["clone", remote.to_str().unwrap(), work.to_str().unwrap()])
+        .output()
+        .unwrap();
     std::fs::write(work.join("README.md"), "hello").unwrap();
-    Command::new("git").args(["-C", work.to_str().unwrap(), "config", "user.email", "t@t.test"]).output().unwrap();
-    Command::new("git").args(["-C", work.to_str().unwrap(), "config", "user.name", "t"]).output().unwrap();
-    Command::new("git").args(["-C", work.to_str().unwrap(), "add", "."]).output().unwrap();
-    Command::new("git").args(["-C", work.to_str().unwrap(), "commit", "-m", "init"]).output().unwrap();
-    Command::new("git").args(["-C", work.to_str().unwrap(), "push", "origin", "HEAD:main"]).output().unwrap();
+    Command::new("git")
+        .args([
+            "-C",
+            work.to_str().unwrap(),
+            "config",
+            "user.email",
+            "t@t.test",
+        ])
+        .output()
+        .unwrap();
+    Command::new("git")
+        .args(["-C", work.to_str().unwrap(), "config", "user.name", "t"])
+        .output()
+        .unwrap();
+    Command::new("git")
+        .args(["-C", work.to_str().unwrap(), "add", "."])
+        .output()
+        .unwrap();
+    Command::new("git")
+        .args(["-C", work.to_str().unwrap(), "commit", "-m", "init"])
+        .output()
+        .unwrap();
+    Command::new("git")
+        .args(["-C", work.to_str().unwrap(), "push", "origin", "HEAD:main"])
+        .output()
+        .unwrap();
 
     (dir, remote)
 }
@@ -170,13 +196,8 @@ fn clone_local_bare_repo_succeeds() {
 fn clone_with_local_path(remote: &std::path::Path) -> tempfile::TempDir {
     let dest = tempdir().unwrap();
     let vault = dest.path().join("Vault");
-    crate::vault_ios::clone::clone_repo(
-        remote.to_str().unwrap(),
-        "main",
-        "n/a",
-        &vault,
-        |_| {},
-    ).unwrap();
+    crate::vault_ios::clone::clone_repo(remote.to_str().unwrap(), "main", "n/a", &vault, |_| {})
+        .unwrap();
     dest
 }
 
@@ -188,20 +209,70 @@ fn sync_clean_workdir_fast_forwards() {
 
     // Make a remote commit through a separate working clone.
     let work = tempdir().unwrap();
-    Command::new("git").args(["clone", remote.to_str().unwrap(), work.path().to_str().unwrap()]).output().unwrap();
+    Command::new("git")
+        .args([
+            "clone",
+            remote.to_str().unwrap(),
+            work.path().to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
     std::fs::write(work.path().join("new.md"), "hi").unwrap();
-    Command::new("git").args(["-C", work.path().to_str().unwrap(), "add", "."]).output().unwrap();
-    Command::new("git").args(["-C", work.path().to_str().unwrap(), "config", "user.email", "t@t"]).output().unwrap();
-    Command::new("git").args(["-C", work.path().to_str().unwrap(), "config", "user.name", "t"]).output().unwrap();
-    Command::new("git").args(["-C", work.path().to_str().unwrap(), "commit", "-m", "remote"]).output().unwrap();
-    Command::new("git").args(["-C", work.path().to_str().unwrap(), "push"]).output().unwrap();
+    Command::new("git")
+        .args(["-C", work.path().to_str().unwrap(), "add", "."])
+        .output()
+        .unwrap();
+    Command::new("git")
+        .args([
+            "-C",
+            work.path().to_str().unwrap(),
+            "config",
+            "user.email",
+            "t@t",
+        ])
+        .output()
+        .unwrap();
+    Command::new("git")
+        .args([
+            "-C",
+            work.path().to_str().unwrap(),
+            "config",
+            "user.name",
+            "t",
+        ])
+        .output()
+        .unwrap();
+    Command::new("git")
+        .args([
+            "-C",
+            work.path().to_str().unwrap(),
+            "commit",
+            "-m",
+            "remote",
+        ])
+        .output()
+        .unwrap();
+    Command::new("git")
+        .args(["-C", work.path().to_str().unwrap(), "push"])
+        .output()
+        .unwrap();
 
     let mgr = crate::vault_ios::VaultIosManager::new();
     *mgr.author_name.lock().unwrap() = "T".into();
     *mgr.author_email.lock().unwrap() = "t@t".into();
 
-    let outcome = crate::vault_ios::sync::sync_once(&mgr, &vault, "main", remote.to_str().unwrap(), "fake-pat").unwrap();
-    assert!(matches!(outcome, crate::vault_ios::sync::SyncOutcome::PullOnly));
+    let outcome = crate::vault_ios::sync::sync_once(
+        &mgr,
+        &vault,
+        "main",
+        remote.to_str().unwrap(),
+        "fake-pat",
+    )
+    .unwrap();
+    assert!(matches!(
+        outcome,
+        crate::vault_ios::sync::SyncOutcome::PullOnly
+    ));
     assert!(vault.join("new.md").exists());
 }
 
@@ -217,13 +288,33 @@ fn sync_dirty_workdir_commits_and_pushes() {
     *mgr.author_name.lock().unwrap() = "T".into();
     *mgr.author_email.lock().unwrap() = "t@t".into();
 
-    let outcome = crate::vault_ios::sync::sync_once(&mgr, &vault, "main", remote.to_str().unwrap(), "fake-pat").unwrap();
-    assert!(matches!(outcome, crate::vault_ios::sync::SyncOutcome::Pushed { .. }));
+    let outcome = crate::vault_ios::sync::sync_once(
+        &mgr,
+        &vault,
+        "main",
+        remote.to_str().unwrap(),
+        "fake-pat",
+    )
+    .unwrap();
+    assert!(matches!(
+        outcome,
+        crate::vault_ios::sync::SyncOutcome::Pushed { .. }
+    ));
 
     // Verify remote received the push.
     let verify = tempdir().unwrap();
-    Command::new("git").args(["clone", remote.to_str().unwrap(), verify.path().to_str().unwrap()]).output().unwrap();
-    assert_eq!(std::fs::read_to_string(verify.path().join("README.md")).unwrap(), "edited");
+    Command::new("git")
+        .args([
+            "clone",
+            remote.to_str().unwrap(),
+            verify.path().to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(
+        std::fs::read_to_string(verify.path().join("README.md")).unwrap(),
+        "edited"
+    );
 }
 
 #[test]
@@ -234,13 +325,53 @@ fn sync_conflict_keeps_local_as_conflict_file() {
 
     // Remote changes README.md
     let work = tempdir().unwrap();
-    Command::new("git").args(["clone", remote.to_str().unwrap(), work.path().to_str().unwrap()]).output().unwrap();
+    Command::new("git")
+        .args([
+            "clone",
+            remote.to_str().unwrap(),
+            work.path().to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
     std::fs::write(work.path().join("README.md"), "remote-version").unwrap();
-    Command::new("git").args(["-C", work.path().to_str().unwrap(), "add", "."]).output().unwrap();
-    Command::new("git").args(["-C", work.path().to_str().unwrap(), "config", "user.email", "t@t"]).output().unwrap();
-    Command::new("git").args(["-C", work.path().to_str().unwrap(), "config", "user.name", "t"]).output().unwrap();
-    Command::new("git").args(["-C", work.path().to_str().unwrap(), "commit", "-m", "remote edit"]).output().unwrap();
-    Command::new("git").args(["-C", work.path().to_str().unwrap(), "push"]).output().unwrap();
+    Command::new("git")
+        .args(["-C", work.path().to_str().unwrap(), "add", "."])
+        .output()
+        .unwrap();
+    Command::new("git")
+        .args([
+            "-C",
+            work.path().to_str().unwrap(),
+            "config",
+            "user.email",
+            "t@t",
+        ])
+        .output()
+        .unwrap();
+    Command::new("git")
+        .args([
+            "-C",
+            work.path().to_str().unwrap(),
+            "config",
+            "user.name",
+            "t",
+        ])
+        .output()
+        .unwrap();
+    Command::new("git")
+        .args([
+            "-C",
+            work.path().to_str().unwrap(),
+            "commit",
+            "-m",
+            "remote edit",
+        ])
+        .output()
+        .unwrap();
+    Command::new("git")
+        .args(["-C", work.path().to_str().unwrap(), "push"])
+        .output()
+        .unwrap();
 
     // Local also changes README.md (different content)
     std::fs::write(vault.join("README.md"), "local-version").unwrap();
@@ -249,7 +380,14 @@ fn sync_conflict_keeps_local_as_conflict_file() {
     *mgr.author_name.lock().unwrap() = "T".into();
     *mgr.author_email.lock().unwrap() = "t@t".into();
 
-    let outcome = crate::vault_ios::sync::sync_once(&mgr, &vault, "main", remote.to_str().unwrap(), "fake-pat").unwrap();
+    let outcome = crate::vault_ios::sync::sync_once(
+        &mgr,
+        &vault,
+        "main",
+        remote.to_str().unwrap(),
+        "fake-pat",
+    )
+    .unwrap();
     match outcome {
         crate::vault_ios::sync::SyncOutcome::Pushed { conflicts } => {
             assert!(!conflicts.is_empty(), "expected conflict log entries");
@@ -258,13 +396,21 @@ fn sync_conflict_keeps_local_as_conflict_file() {
     }
 
     // The .conflict.<ts>.md file should exist alongside README.md
-    let entries: Vec<_> = std::fs::read_dir(&vault).unwrap()
+    let entries: Vec<_> = std::fs::read_dir(&vault)
+        .unwrap()
         .filter_map(|e| e.ok())
         .map(|e| e.file_name().to_string_lossy().to_string())
         .collect();
-    assert!(entries.iter().any(|n| n.starts_with("README.conflict.") && n.ends_with(".md")),
-        "no conflict backup file found in {entries:?}");
+    assert!(
+        entries
+            .iter()
+            .any(|n| n.starts_with("README.conflict.") && n.ends_with(".md")),
+        "no conflict backup file found in {entries:?}"
+    );
 
     // The README.md itself should be the remote version (theirs).
-    assert_eq!(std::fs::read_to_string(vault.join("README.md")).unwrap(), "remote-version");
+    assert_eq!(
+        std::fs::read_to_string(vault.join("README.md")).unwrap(),
+        "remote-version"
+    );
 }

@@ -26,9 +26,15 @@ pub fn to_v1(m: &plugin_protocol::ManifestV2) -> Result<PluginManifest, String> 
         // the view model carries conclusions, not raw manifest internals.
         "agent_provider": super::agent_provider::is_provider(m),
     });
-    if let Some(d) = &m.description { v["description"] = serde_json::json!(d); }
-    if let Some(s) = &m.contributes.settings { v["settings"] = s.clone(); }
-    if let Some(i) = &m.i18n { v["i18n"] = i.clone(); }
+    if let Some(d) = &m.description {
+        v["description"] = serde_json::json!(d);
+    }
+    if let Some(s) = &m.contributes.settings {
+        v["settings"] = s.clone();
+    }
+    if let Some(i) = &m.i18n {
+        v["i18n"] = i.clone();
+    }
 
     // Windows with an `open_command` become an `open_command → window_id` map so
     // the frontend can route that command to `plugin_v2_open_window` instead of
@@ -58,7 +64,10 @@ pub fn adapted_v2_manifests() -> Vec<PluginManifest> {
         .filter_map(|(m, _)| match to_v1(m) {
             Ok(v1) => Some(v1),
             Err(e) => {
-                eprintln!("[plugin_runtime] {}: contributes could not be adapted: {e}", m.id);
+                eprintln!(
+                    "[plugin_runtime] {}: contributes could not be adapted: {e}",
+                    m.id
+                );
                 None
             }
         })
@@ -85,12 +94,16 @@ mod tests {
                 continue;
             }
             let body = std::fs::read_to_string(&path).unwrap();
-            let m: plugin_protocol::ManifestV2 = serde_json::from_str(&body)
-                .unwrap_or_else(|e| panic!("{}: does not parse as a v2 manifest: {e}", path.display()));
+            let m: plugin_protocol::ManifestV2 = serde_json::from_str(&body).unwrap_or_else(|e| {
+                panic!("{}: does not parse as a v2 manifest: {e}", path.display())
+            });
             to_v1(&m).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
             checked += 1;
         }
-        assert!(checked >= 4, "expected several plugin manifests, found {checked}");
+        assert!(
+            checked >= 4,
+            "expected several plugin manifests, found {checked}"
+        );
     }
 
     /// Two menu entries sharing a command collapse to ONE native menu id
@@ -164,9 +177,15 @@ mod tests {
         assert_eq!(v1.manifest_version, Some(2));
         assert_eq!(v1.kind, PluginKind::External);
         assert_eq!(v1.binary.as_deref(), Some(""));
-        assert_eq!(v1.description.as_deref(), Some("Export the current tab to PDF"));
+        assert_eq!(
+            v1.description.as_deref(),
+            Some("Export the current tab to PDF")
+        );
         // capabilities → host_capabilities, order preserved.
-        assert_eq!(v1.host_capabilities, vec!["renderer.html".to_string(), "toast".to_string()]);
+        assert_eq!(
+            v1.host_capabilities,
+            vec!["renderer.html".to_string(), "toast".to_string()]
+        );
     }
 
     #[test]
@@ -179,7 +198,10 @@ mod tests {
         assert_eq!(me.command, "export");
         assert_eq!(me.submenu.as_deref(), Some("import-export"));
         assert_eq!(me.label, "Export to PDF (v2)…");
-        assert_eq!(me.enabled_when.as_deref(), Some("currentTab.kind == 'markdown'"));
+        assert_eq!(
+            me.enabled_when.as_deref(),
+            Some("currentTab.kind == 'markdown'")
+        );
         let prompt = me.prompt.as_ref().expect("prompt passthrough");
         assert_eq!(prompt.kind, "save-dialog");
         assert_eq!(prompt.default_filename, "{stem}.pdf");
@@ -209,7 +231,10 @@ mod tests {
         // i18n rides through in the exact PluginI18n shape, so the existing
         // per-locale menu label resolution works on adapted manifests.
         let zh = v1.i18n.get("zh").expect("zh i18n passthrough");
-        assert_eq!(zh.menus.get("export").map(String::as_str), Some("导出 PDF（v2）…"));
+        assert_eq!(
+            zh.menus.get("export").map(String::as_str),
+            Some("导出 PDF（v2）…")
+        );
     }
 
     /// A ManifestV2 whose contributes.menus entry lacks both label AND command
@@ -231,7 +256,10 @@ mod tests {
         }))
         .unwrap();
         let result = to_v1(&m);
-        assert!(result.is_err(), "expected Err for menu entry missing label/command");
+        assert!(
+            result.is_err(),
+            "expected Err for menu entry missing label/command"
+        );
     }
 
     /// adapted_v2_manifests-style skip: a bad manifest is silently dropped,
@@ -267,12 +295,19 @@ mod tests {
             .filter_map(|m| match to_v1(m) {
                 Ok(v1) => Some(v1),
                 Err(e) => {
-                    eprintln!("[plugin_runtime] {}: contributes could not be adapted: {e}", m.id);
+                    eprintln!(
+                        "[plugin_runtime] {}: contributes could not be adapted: {e}",
+                        m.id
+                    );
                     None
                 }
             })
             .collect();
-        assert_eq!(results.len(), 1, "bad manifest should be skipped, good survives");
+        assert_eq!(
+            results.len(),
+            1,
+            "bad manifest should be skipped, good survives"
+        );
         assert_eq!(results[0].id, "pub.good");
     }
 
