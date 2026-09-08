@@ -645,7 +645,7 @@
         return
       }
       switch (id) {
-        case 'new':         newFile(); break
+        case 'new':         await newFile(); break
         case 'new-base':    await createNewBase(); break
         case 'new-canvas':  await dispatch('new-canvas'); break
         case 'open':        cmdOpen(); break

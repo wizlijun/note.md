@@ -1,4 +1,4 @@
-// Quick-note: create a timestamped markdown file in the vault's inbox and open
+// Quick-note: create a unique untitled markdown file in the vault's inbox and open
 // it for editing. Triggered from the tray "New Markdown" item and the
 // system-wide Cmd+Ctrl+M hotkey (both emit the `quick-note` event, wired in
 // App.svelte). The inbox sub-directory is a vault-scoped setting
@@ -6,7 +6,8 @@
 
 import { invoke } from '@tauri-apps/api/core'
 import { mkdir, exists } from '@tauri-apps/plugin-fs'
-import { openFile, openPathBackedMarkdownDraft } from './tabs.svelte'
+import { openFile } from './tabs.svelte'
+import { writeMd } from './fs'
 import { requestEditorFocus } from './editor-focus.svelte'
 import { newFileText } from './new-file'
 import { pushToast } from './toast.svelte'
@@ -42,13 +43,18 @@ export async function setInboxDir(raw: string): Promise<void> {
   inboxDir.value = merged?.inboxDir || DEFAULT_INBOX_DIR
 }
 
-/**
- * Open a path-backed quick note for "now", focusing the editor in edit state.
- * The file is created lazily on first non-empty save/autosave, so dismissing an
- * untouched quick note never leaves a 0-byte file. Once the note grows an H1
- * title, the first save renames it after that title (see `quick-note-name`).
- */
-export async function createQuickNote(now: Date = new Date()): Promise<void> {
+// Serialize allocation and persistence so simultaneous new-note triggers cannot
+// choose the same free filename before either write has completed.
+let creationQueue: Promise<void> = Promise.resolve()
+
+/** Create an empty OKF note on disk, then open it in the remembered editor mode. */
+export function createQuickNote(now: Date = new Date()): Promise<void> {
+  const creation = creationQueue.then(() => createQuickNoteFile(now))
+  creationQueue = creation.catch(() => {})
+  return creation
+}
+
+async function createQuickNoteFile(now: Date): Promise<void> {
   let dir: string
   try {
     dir = await invoke<string>('notemd_quick_note_dir')
@@ -56,24 +62,19 @@ export async function createQuickNote(now: Date = new Date()): Promise<void> {
     pushToast({ level: 'warn', message: t('quickNote.noVault') })
     return
   }
-  const fullPath = `${dir.replace(/\/+$/, '')}/${quickNoteFileName(now)}`
   try {
     await mkdir(dir, { recursive: true })
+    const prefix = `${dir.replace(/\/+$/, '')}/untitled`
+    let fullPath = `${prefix}.md`
+    for (let suffix = 2; await exists(fullPath); suffix++) {
+      if (suffix > 999) throw new Error('Unable to allocate a unique note filename')
+      fullPath = `${prefix}-${suffix}.md`
+    }
+    const by = (await import('./okf/identity')).humanActorNow()
+    await writeMd(fullPath, newFileText('', by ? { by, at: now.toISOString() } : undefined))
     // Set the focus request BEFORE openFile so the editor consumes it on mount.
     requestEditorFocus(fullPath)
-    if (await exists(fullPath).catch(() => false)) {
-      await openFile(fullPath)
-    } else {
-      // No explicit mode: the draft opens in the editor's remembered mode for
-      // `.md`, the same one openFile uses and the mode toggle persists.
-      // 草稿预置 OKF 概念头:落盘的就是合规文档,不必事后补写(§4.1)。
-      const by = (await import('./okf/identity')).humanActorNow()
-      await openPathBackedMarkdownDraft(
-        fullPath,
-        newFileText('', by ? { by, at: new Date().toISOString() } : undefined),
-        { skipEmptySave: true },
-      )
-    }
+    await openFile(fullPath)
   } catch (e) {
     pushToast({ level: 'error', message: t('quickNote.createFailed'), detail: String(e) })
   }

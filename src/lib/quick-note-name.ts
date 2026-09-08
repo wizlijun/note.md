@@ -5,21 +5,27 @@ import { sanitizeFileName } from './outline/slug'
 
 /** Auto-generated quick-note basename, capturing its `YYYY-MM-DD` date. */
 const AUTO_QUICK_RE = /^(\d{4}-\d{2}-\d{2})-\d{6}-quick\.md$/i
+const UNTITLED_RE = /^untitled(?:-(?:[2-9]|[1-9]\d+))?\.md$/i
 
 /** Longest slug kept from a title, in characters. */
 const MAX_SLUG_LEN = 50
 
-/** `YYYY-MM-DD-HHmmss-quick.md` for the given moment. */
-export function quickNoteFileName(d: Date): string {
+/** Local `YYYY-MM-DD-HHmmss` for automatic document filenames. */
+export function fileNameTimestamp(d: Date): string {
   const p = (n: number) => String(n).padStart(2, '0')
   const date = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
   const time = `${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`
-  return `${date}-${time}-quick.md`
+  return `${date}-${time}`
+}
+
+/** Legacy `YYYY-MM-DD-HHmmss-quick.md` name. */
+export function quickNoteFileName(d: Date): string {
+  return `${fileNameTimestamp(d)}-quick.md`
 }
 
 /** True while `basename` is still the untouched auto-generated quick-note name. */
 export function isAutoQuickNoteName(basename: string): boolean {
-  return AUTO_QUICK_RE.test(basename)
+  return AUTO_QUICK_RE.test(basename) || UNTITLED_RE.test(basename)
 }
 
 /**
@@ -29,6 +35,7 @@ export function isAutoQuickNoteName(basename: string): boolean {
  * rename rather than produce a `…-untitled.md`.
  */
 export function titleSlug(title: string): string | null {
+  if (!/[\p{L}\p{N}]/u.test(title)) return null
   const collapsed = title.replace(/\s+/g, '-')
   const safe = sanitizeFileName(collapsed)
   if (safe === 'untitled') return null
@@ -44,7 +51,7 @@ const FM_BLOCK = /^---\r?\n(?:[\s\S]*?\r?\n)?---(\r?\n|$)/
 
 /** First ATX H1 in `text`, or null. Mirrors folder-view's `parseFirstH1`. */
 export function firstH1(text: string): string | null {
-  const m = text.replace(FM_BLOCK, '').match(/^#\s+(.+?)\s*$/m)
+  const m = text.replace(FM_BLOCK, '').match(/^#[ \t]+(.+?)[ \t]*$/m)
   return m ? m[1] : null
 }
 
@@ -57,34 +64,30 @@ export function firstH1(text: string): string | null {
  * and the rename-once rule would make that stick.
  */
 export function isTitleFinished(text: string): boolean {
-  return /^#\s+.+?[^\S\n]*\n/m.test(text)
+  return /^#[ \t]+.+?[^\S\n]*\n/m.test(text.replace(FM_BLOCK, ''))
 }
 
 /**
- * The basename an auto-named quick note should take once it has an H1 title:
- * its date plus the title (`2026-07-25-产品思考.md`). The creation-time `HHmmss`
- * only exists to keep untitled notes apart — once a title names the note, the
- * date alone reads better, and same-day duplicates are resolved by the caller.
+ * Name a temporary note once. Untitled notes use the current date plus an H1
+ * slug; an explicit save without a usable title falls back to HHmmss. Legacy
+ * timestamped quick notes retain their creation date and title-only rename.
  *
- * Returns null when the note was already renamed (the name no longer matches
- * the auto pattern), has no H1, or the title yields no usable slug — renaming
- * happens once, so later title edits leave the path (and any links to it) alone.
- *
- * `requireFinishedTitle` (auto-save) additionally waits for the title line to be
- * terminated, so a half-typed heading never names the file. An explicit save
- * passes false: the user asked to save, so the title is taken as it stands.
+ * Auto-save requires a completed title line so a half-typed heading never
+ * becomes the permanent filename. Already-named files are left alone.
  */
 export function quickNoteRenameTarget(
   basename: string,
   content: string,
   requireFinishedTitle = false,
+  now: Date = new Date(),
 ): string | null {
   const stamped = AUTO_QUICK_RE.exec(basename)
-  if (!stamped) return null
+  const untitled = UNTITLED_RE.test(basename)
+  if (!stamped && !untitled) return null
   if (requireFinishedTitle && !isTitleFinished(content)) return null
   const title = firstH1(content)
-  if (!title) return null
-  const slug = titleSlug(title)
-  if (!slug) return null
-  return `${stamped[1]}-${slug}.md`
+  const slug = title ? titleSlug(title) : null
+  const timestamp = fileNameTimestamp(now)
+  if (slug) return `${stamped?.[1] ?? timestamp.slice(0, 10)}-${slug}.md`
+  return untitled && !requireFinishedTitle ? `${timestamp}.md` : null
 }

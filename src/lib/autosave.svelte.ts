@@ -1,8 +1,7 @@
 import {
-  tabs, isDirty, isManagedMemoryTab, recordOurWrite, shouldSkipEmptySave,
-  renameAutoQuickNoteIfTitled, persistCanvasSnapshot,
+  tabs, isDirty, isManagedMemoryTab, shouldSkipEmptySave,
+  persistMarkdownSnapshot, persistCanvasSnapshot,
 } from './tabs.svelte'
-import { writeMd } from './fs'
 import { settings } from './settings.svelte'
 
 const DEBOUNCE_MS = 800
@@ -48,20 +47,12 @@ export function startAutoSaveWatcher(): () => void {
               await persistCanvasSnapshot(cur, content, false, path)
               return
             }
-            await writeMd(path, content)
-            if (cur.currentContent === content) {
-              cur.initialContent = content
-              // Suppress the imminent watcher echo: capture post-write
-              // mtime+hash so the change-detection state machine can ignore
-              // our own write. Without this, every autosave would surface a
-              // spurious external-change banner ~1 s later.
-              await recordOurWrite(cur)
-              // 首次出现 H1 标题时给速记改名(可能改写 cur.filePath),须在推送前。
-              // true = 等标题行敲完回车再改名,否则 800ms 的 autosave 会拿半截标题定名。
-              await renameAutoQuickNoteIfTitled(cur, true)
+            // Naming shares the save queue; obsolete temporary paths must not
+            // be recreated by a debounce that was waiting behind the rename.
+            const savedPath = await persistMarkdownSnapshot(cur, content, true, path)
+            if (savedPath && cur.currentContent === content) {
               // 自动保存也要同步到 vault 影子——否则 autosave 的静默写会绕过 save-push,
               // 且它让 tab 保持非脏,导致关闭/退出走 discard 而永不同步(见 tabs.saveActive)。
-              const savedPath = cur.filePath
               if (savedPath.endsWith('.md')) {
                 const { pushSourceToVaultIfTracked } = await import('./sotvault.svelte')
                 await pushSourceToVaultIfTracked(savedPath)

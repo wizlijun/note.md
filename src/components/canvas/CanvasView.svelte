@@ -202,6 +202,7 @@
   let suppressNextPaneClick = false
   let nodeDrag: {
     frozen: FrozenCanvasMove
+    anchorId: string
     origin: { x: number; y: number }
     bounds: CanvasRect
     snapIndex: SnapIndex
@@ -457,6 +458,9 @@
       const kind = node.data.kind === 'diagnostic' ? 'opaque' : node.data.kind
       return {
         ...node,
+        // Editable nodes inherit the active tool; diagnostics stay read-only.
+        draggable: node.draggable ? undefined : false,
+        selectable: node.selectable ? undefined : false,
         selected: selectedNodeIds.has(node.id),
         class: kind === 'group' ? 'canvas-group-shell' : undefined,
         dragHandle: kind === 'group' ? '.group-label' : undefined,
@@ -831,8 +835,9 @@
   }
 
   function handleNodeDragStart({ targetNode, nodes }: { targetNode: UiNode | null; nodes: UiNode[] }): void {
-    if (!canvasDoc || !targetNode) return
-    const target = canvasDoc.nodes.find((entry) => isKnownCanvasNode(entry) && entry.id === targetNode.id)
+    const anchor = targetNode ?? nodes[0]
+    if (!canvasDoc || !anchor || effectiveTool !== 'select' || interactionLocked) { nodeDrag = null; return }
+    const target = canvasDoc.nodes.find((entry) => isKnownCanvasNode(entry) && entry.id === anchor.id)
     if (!target || !isKnownCanvasNode(target)) { nodeDrag = null; return }
     const draggedIds = nodes.map((node) => (node.data.canonicalId as string | undefined) ?? node.id)
     const draggedIdSet = new Set(draggedIds)
@@ -844,6 +849,7 @@
     if (!bounds) { nodeDrag = null; return }
     nodeDrag = {
       frozen,
+      anchorId: anchor.id,
       origin: { x: target.x, y: target.y },
       bounds,
       snapIndex: buildCanvasSnapIndex(canvasDoc, frozen.nodeIds),
@@ -854,11 +860,14 @@
     snapGuides = []
   }
 
-  function dragDelta(targetNode: UiNode, event: MouseEvent | TouchEvent): CanvasPoint {
+  function dragDelta(targetNode: UiNode | null, nodes: UiNode[], event: MouseEvent | TouchEvent): CanvasPoint {
     if (!nodeDrag) return { x: 0, y: 0 }
+    // Dragging the selection rectangle has no targetNode; keep one stable anchor for the gesture.
+    const anchor = targetNode ?? nodes.find((node) => node.id === nodeDrag?.anchorId)
+    if (!anchor) return nodeDrag.delta
     const raw = {
-      x: targetNode.position.x - nodeDrag.origin.x,
-      y: targetNode.position.y - nodeDrag.origin.y,
+      x: anchor.position.x - nodeDrag.origin.x,
+      y: anchor.position.y - nodeDrag.origin.y,
     }
     const snapped = computeCanvasSnap({
       x: nodeDrag.bounds.x + raw.x,
@@ -873,12 +882,13 @@
     return { x: raw.x + snapped.deltaX, y: raw.y + snapped.deltaY }
   }
 
-  function handleNodeDrag({ targetNode, event }: {
+  function handleNodeDrag({ targetNode, nodes, event }: {
     targetNode: UiNode | null
+    nodes: UiNode[]
     event: MouseEvent | TouchEvent
   }): void {
-    if (!canvasDoc || !targetNode || !nodeDrag) return
-    const delta = dragDelta(targetNode, event)
+    if (!canvasDoc || !nodeDrag) return
+    const delta = dragDelta(targetNode, nodes, event)
     nodeDrag.delta = delta
     const moving = new Set(nodeDrag.frozen.nodeIds)
     flowNodes = flowNodes.map((flowNode) => {
@@ -896,14 +906,14 @@
   }): void {
     if (!canvasDoc) return
     if (!finishTextBeforeStructure()) { nodeDrag = null; snapGuides = []; rebuildFlow(); return }
-    if (!targetNode || !nodeDrag) {
+    if (!nodeDrag) {
       nodeDrag = null
       snapGuides = []
       rebuildFlow()
       return
     }
     const drag = nodeDrag
-    const delta = dragDelta(targetNode, event)
+    const delta = dragDelta(targetNode, nodes, event)
     const next = moveFrozenNodes(canvasDoc, drag.frozen, delta)
     nodeDrag = null
     snapGuides = []
@@ -2433,6 +2443,8 @@
   .canvas-surface.placing :global(.svelte-flow__pane) { cursor: crosshair; }
   .canvas-surface.tool-pan :global(.svelte-flow__resize-control),
   .canvas-surface.tool-lasso :global(.svelte-flow__resize-control) { display: none; }
+  .canvas-surface.tool-pan :global(.svelte-flow__selection-wrapper),
+  .canvas-surface.tool-lasso :global(.svelte-flow__selection-wrapper) { pointer-events: none; }
   .canvas-surface :global(.svelte-flow__node) {
     border: 0;
     background: transparent;

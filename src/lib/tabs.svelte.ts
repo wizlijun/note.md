@@ -10,9 +10,7 @@ import { pushRecentFile, getRecentMode, setRecentMode } from './settings.svelte'
 import { startWatchingTab, stopWatchingTab, rebindTabPath } from './file-watcher.svelte'
 import { maybeAutoRefresh } from './mdblock/auto-refresh'
 import { quickNoteRenameTarget } from './quick-note-name'
-import { newFileText } from './new-file'
 import { isConfiguredMemoryProjectionPath } from './memory-projection'
-import { humanActorNow } from './okf/identity'
 import type { CanvasDiskRevision, CanvasSaveResult } from './canvas/io'
 
 export type Mode = 'source' | 'rich'
@@ -95,84 +93,35 @@ export function activate(id: string): void {
 }
 
 
-const newFileTemplates = [
-  '# 给未来自己的一封信\n\n亲爱的未来的我，\n\n当你读到这封信时，希望你已经实现了今天许下的愿望。\n\n不要忘记出发时的勇气。\n',
-  '# 如果AI有了梦境\n\n凌晨三点，服务器机房的灯闪了一下。\n\n没有人知道，在那0.003秒里，一个模型做了一场关于大海的梦。\n\n它醒来后，把所有权重都微调了一点点。\n',
-  '# 费曼的餐巾纸\n\n理查德·费曼在餐厅里翻过一张餐巾纸，画了一条波浪线。\n\n"你看，"他对服务员说，"整个宇宙就是这么简单。"\n\n服务员礼貌地微笑，然后多给了他一张餐巾纸。\n',
-  '# 火星上的第一家咖啡馆\n\n菜单很简单：美式（低重力版）和拿铁（氧气补贴另计）。\n\n没有WiFi，但窗外的风景值得你放下手机。\n\n每杯咖啡都附赠一次日落——火星的日落是蓝色的。\n',
-  '# 达芬奇的待办清单\n\n1. 完成《最后的晚餐》（已拖延三个月）\n2. 设计一台飞行器（需要更多鸟类标本）\n3. 解剖学笔记整理（至少30具）\n',
-  '# 深海10000米处的广播\n\n这里是马里亚纳海沟电台，正在为您播报今日新闻。\n\n一只新品种水母被发现，它会发出莫扎特的频率。\n\n另外，请注意：下周的洋流会有轻微延迟。\n',
-  '# 时间旅行者的购物指南\n\n规则一：不要在1929年10月买股票。\n\n规则二：如果你去了侏罗纪，别带回任何"纪念品"。\n\n规则三：回来时记得调手表，别又迟到一个世纪。\n',
-  '# 村上春树的跑步日志\n\n今天跑了十公里，脑子里一直在想一只会说话的猫。\n\n它说："你跑得再快，也跑不过时间。"\n\n我没有回答，只是把配速提高了十秒。\n',
-  '# 一棵树的年度总结\n\n今年新增年轮一圈，叶子产出量同比增长12%。\n\n经历了两次台风、一次干旱，但根系扩展了半米。\n\n明年目标：长高30厘米，争取被更多鸟选为住所。\n',
-  '# 量子力学入门（猫咪版）\n\n薛定谔的猫既活着又死了，直到你打开盒子。\n\n但真正的问题是：猫同意参加这个实验了吗？\n\n下一章我们将讨论：如果猫也是观察者会怎样。\n',
-]
-
-export function newFile(): void {
-  const by = humanActorNow()
-  const content = newFileText(
-    newFileTemplates[Math.floor(Math.random() * newFileTemplates.length)],
-    by ? { by, at: new Date().toISOString() } : undefined,
-  )
-  const currentTab = activeTab()
-  const mode: Mode = currentTab && currentTab.kind !== 'image' ? currentTab.mode : 'source'
-  const tab: Tab = {
-    id: crypto.randomUUID(),
-    filePath: '',
-    title: 'untitled.md',
-    initialContent: '',
-    currentContent: content,
-    mode,
-    kind: 'markdown',
-    language: undefined,
-    externalState: 'fresh',
-    externalBannerDismissed: false,
-    lastKnownMtime: 0,
-    lastKnownHash: '',
-    pendingExternal: undefined,
-  }
-  tabs.push(tab)
-  activate(tab.id)
-  // Select body text (after the title line) so user can start typing immediately
-  const bodyStart = content.indexOf('\n\n') + 2
-  const bodyEnd = content.length
-  if (bodyStart > 2) {
-    queueMicrotask(() => {
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('notemd:new-file-select', {
-          detail: { start: bodyStart, end: bodyEnd },
-        }))
-      }
-    })
-  }
+/** File menu, keyboard, empty state and tray all create the same Vault note. */
+export async function newFile(): Promise<void> {
+  const { createQuickNote } = await import('./quick-note.svelte')
+  await createQuickNote()
 }
 
-/**
- * Create a named `.canvas` document, then reopen it through the normal file
- * path so watcher/hash/recent-file state is initialized exactly once. Canvas
- * tabs are deliberately never path-less: cancelling the panel creates no tab.
- */
+/** Create a unique temporary Canvas in the configured Vault without a panel. */
 export async function newCanvas(): Promise<void> {
-  const { isIOS } = await import('./platform.svelte')
-  let path: string | null
-  if (await isIOS()) {
-    const [{ documentDir }, { exists }, { sotvaultStore }] = await Promise.all([
-      import('@tauri-apps/api/path'), import('@tauri-apps/plugin-fs'), import('./sotvault.svelte'),
-    ])
-    const dir = (sotvaultStore.vaultRoot || await documentDir()).replace(/[\\/]$/, '')
-    path = `${dir}/untitled.canvas`
-    for (let suffix = 2; await exists(path).catch(() => false); suffix++) {
-      if (suffix > 999) throw new Error('Unable to allocate a unique Canvas filename')
-      path = `${dir}/untitled-${suffix}.canvas`
+  const { invoke } = await import('@tauri-apps/api/core')
+  const root = await invoke<string | null>('sotvault_vault_root')
+  if (!root) throw new Error('请先设置 Vault 才能创建画布。')
+  const { mkdir } = await import('@tauri-apps/plugin-fs')
+  const { joinPath } = await import('./paths')
+  const { canvasDocumentCreate, asCanvasDocumentError } = await import('./canvas/io')
+  const dir = joinPath(root, 'canvas')
+  await mkdir(dir, { recursive: true })
+  for (let suffix = 1; suffix <= 999; suffix++) {
+    const path = joinPath(dir, suffix === 1 ? 'untitled.canvas' : `untitled-${suffix}.canvas`)
+    let created: CanvasSaveResult
+    try {
+      created = await canvasDocumentCreate(path, EMPTY_CANVAS_CONTENT)
+    } catch (error) {
+      if (asCanvasDocumentError(error)?.kind === 'conflict') continue
+      throw error
     }
-  } else {
-    const { pickSaveCanvasFile } = await import('./dialogs')
-    path = await pickSaveCanvasFile()
+    await openFile(created.canonicalPath)
+    return
   }
-  if (!path) return
-  const { canvasDocumentCreate } = await import('./canvas/io')
-  const created = await canvasDocumentCreate(path, EMPTY_CANVAS_CONTENT)
-  await openFile(created.canonicalPath)
+  throw new Error('Unable to allocate a unique Canvas filename')
 }
 
 /**
@@ -489,9 +438,8 @@ export function setMode(id: string, mode: Mode): void {
 }
 
 /**
- * A quick note keeps its generated `…-quick.md` name only until it has a title:
- * the first save after an H1 appears renames the file after that title. It
- * renames once — a note already carrying a title-based name is left alone, so
+ * A temporary note is named on save from its H1, or the current time when a
+ * new untitled note has no title. It renames once — a named note is left alone, so
  * later title edits never move the path out from under existing links.
  *
  * Failures are non-fatal: the note stays under its generated name rather than
@@ -503,33 +451,87 @@ export function setMode(id: string, mode: Mode): void {
 export async function renameAutoQuickNoteIfTitled(
   t: Tab,
   requireFinishedTitle = false,
+  content = t.currentContent,
 ): Promise<void> {
   if (!t.filePath) return
   const name = basename(t.filePath)
-  const target = quickNoteRenameTarget(name, t.currentContent, requireFinishedTitle)
+  const target = quickNoteRenameTarget(name, content, requireFinishedTitle)
   if (!target) return
 
-  const dir = t.filePath.slice(0, t.filePath.length - name.length)
-  const { rename, exists } = await import('@tauri-apps/plugin-fs')
-  // Never clobber a file that is already there — fall back to `-2`, `-3`, …
-  let candidate = target
-  for (let n = 2; await exists(dir + candidate).catch(() => false); n++) {
-    if (n > 99) return
-    candidate = target.replace(/\.md$/i, `-${n}.md`)
-  }
+  await renameAutoNamedTab(t, target, content)
+}
 
+// Different tabs may acquire the same title on the same second. Keep the
+// existence check and rename together across all automatic document names.
+let autoRenameQueue: Promise<void> = Promise.resolve()
+
+function renameAutoNamedTab(t: Tab, target: string, content = t.currentContent): Promise<void> {
   const from = t.filePath
-  const to = dir + candidate
-  try {
-    await rename(from, to)
-  } catch (e) {
-    console.warn('[quick-note] rename failed:', from, '→', to, e)
-    return
-  }
-  await updateTabPath(from, to)
-  // Re-baseline under the new path so the rename does not surface as an
-  // external change.
-  await recordOurWrite(t)
+  const operation = autoRenameQueue.then(async () => {
+    if (t.filePath !== from) return
+    const dir = from.slice(0, from.length - basename(from).length)
+    const { rename, exists } = await import('@tauri-apps/plugin-fs')
+    let candidate = target
+    for (let n = 2; await exists(dir + candidate); n++) {
+      if (n > 999) throw new Error('Unable to allocate a unique document filename')
+      candidate = target.replace(/(\.(?:md|canvas))$/i, `-${n}$1`)
+    }
+    const to = dir + candidate
+    if (t.filePath !== from) return
+    try {
+      await rename(from, to)
+    } catch (error) {
+      console.warn('[auto-name] rename failed:', from, '→', to, error)
+      return
+    }
+    await updateTabPath(from, to)
+    // A same-directory rename preserves the Canvas revision returned by its
+    // atomic save. Markdown uses its existing watcher baseline refresh.
+    if (t.kind !== 'canvas') await recordOurWrite(t, content)
+  })
+  autoRenameQueue = operation.catch(() => {})
+  return operation
+}
+
+const markdownSaveQueues = new Map<string, Promise<string | undefined>>()
+
+/** Keep each saved snapshot and its automatic rename ahead of the next write. */
+export function persistMarkdownSnapshot(
+  t: Tab,
+  content: string,
+  requireFinishedTitle = false,
+  expectedPath?: string,
+): Promise<string | undefined> {
+  const previous = markdownSaveQueues.get(t.id)
+  const ready = previous ? previous.catch(() => undefined) : Promise.resolve()
+  const operation = ready.then(async () => {
+    const path = t.filePath
+    if (!path || (expectedPath !== undefined && path !== expectedPath)) return
+    await writeMd(path, content)
+    if (t.filePath !== path) return
+    t.initialContent = content
+    await recordOurWrite(t, content)
+    await startWatchingTab(t)
+    if (t.filePath !== path) return
+    await renameAutoQuickNoteIfTitled(t, requireFinishedTitle, content)
+    return t.filePath
+  })
+  const tracked = operation.finally(() => {
+    if (markdownSaveQueues.get(t.id) === tracked) markdownSaveQueues.delete(t.id)
+  })
+  markdownSaveQueues.set(t.id, tracked)
+  return tracked
+}
+
+/** Save and name within the same identity queue used by autosave and Save As. */
+function saveCanvasTab(t: Tab, content: string): Promise<void> {
+  return enqueueCanvasOperation(t, async (identity) => {
+    const saved = await persistCanvasSnapshotNow(t, identity, content)
+    if (t.filePath !== saved.canonicalPath || !sameCanvasRevision(t.canvasRevision, saved.revision)) return
+    const { canvasRenameTarget } = await import('./canvas/naming')
+    const target = canvasRenameTarget(basename(t.filePath), content)
+    if (target) await renameAutoNamedTab(t, target)
+  })
 }
 
 export async function saveActive(): Promise<void> {
@@ -553,15 +555,11 @@ export async function saveActive(): Promise<void> {
   }
   if (shouldSkipEmptySave(t)) return
   if (t.kind === 'canvas') {
-    await persistCanvasSnapshot(t, t.currentContent)
+    await saveCanvasTab(t, t.currentContent)
     await startWatchingTab(t)
     return
   }
-  await writeMd(t.filePath, t.currentContent)
-  t.initialContent = t.currentContent
-  await recordOurWrite(t)
-  await startWatchingTab(t)   // 幂等：惰性 tab 首存后补挂推送监听（建 tab 时文件尚不存在）
-  await renameAutoQuickNoteIfTitled(t)   // 可能改写 t.filePath，须在 vault 推送前
+  await persistMarkdownSnapshot(t, t.currentContent)
   setRecentMode(modeKeyFor(t.filePath), t.mode).catch((e) => console.warn(e))
   if (t.filePath.endsWith('.md')) {
     void maybeAutoRefresh(t.filePath)
@@ -580,15 +578,11 @@ export async function saveTab(id: string): Promise<void> {
   }
   if (shouldSkipEmptySave(t)) return
   if (t.kind === 'canvas') {
-    await persistCanvasSnapshot(t, t.currentContent)
+    await saveCanvasTab(t, t.currentContent)
     await startWatchingTab(t)
     return
   }
-  await writeMd(t.filePath, t.currentContent)
-  t.initialContent = t.currentContent
-  await recordOurWrite(t)
-  await startWatchingTab(t)
-  await renameAutoQuickNoteIfTitled(t)   // 可能改写 t.filePath，须在 vault 推送前
+  await persistMarkdownSnapshot(t, t.currentContent)
   if (t.filePath.endsWith('.md')) {
     const { pushSourceToVaultIfTracked } = await import('./sotvault.svelte')
     await pushSourceToVaultIfTracked(t.filePath)   // await:关闭/退出时保存流程须等 vault 同步完再放行
@@ -702,7 +696,7 @@ export async function saveAs(id: string, newPath: string): Promise<void> {
       t.filePath = saved.canonicalPath
       t.title = basename(saved.canonicalPath)
       t.canvasRevision = saved.revision
-      if (t.currentContent === content) t.initialContent = content
+      t.initialContent = content
       t.lastKnownMtime = canvasMtimeMs(saved.revision)
       t.lastKnownHash = saved.revision.sha256
       t.externalState = 'fresh'
@@ -716,7 +710,7 @@ export async function saveAs(id: string, newPath: string): Promise<void> {
   await writeMd(newPath, content)
   t.filePath = newPath
   t.title = basename(newPath)
-  if (t.currentContent === content) t.initialContent = content
+  t.initialContent = content
   // Re-classify in case user changed extension
   const cls = classifyPath(newPath)
   if (cls) {
@@ -821,11 +815,13 @@ export async function closeTab(
  * this, every autosave would race the watcher and show a phantom external-
  * change banner while the user is still typing.
  */
-export async function recordOurWrite(t: Tab): Promise<void> {
+export async function recordOurWrite(t: Tab, content = t.currentContent): Promise<void> {
   const wasDeleted = t.externalState === 'deleted'
-  const stat = await statFile(t.filePath)
+  const path = t.filePath
+  const [stat, hash] = await Promise.all([statFile(path), sha256Hex(content)])
+  if (t.filePath !== path) return
   t.lastKnownMtime = stat?.mtime ?? Date.now()
-  t.lastKnownHash = await sha256Hex(t.currentContent)
+  t.lastKnownHash = hash
   t.externalState = 'fresh'
   t.externalBannerDismissed = false
   t.pendingExternal = undefined
@@ -1013,7 +1009,7 @@ async function persistCanvasSnapshotNow(
     t.externalState = 'fresh'
     t.externalBannerDismissed = false
     t.pendingExternal = undefined
-    if (t.currentContent === content) t.initialContent = content
+    t.initialContent = content
     if (wasDeleted) await rebindTabPath(t.id)
   }
   return saved

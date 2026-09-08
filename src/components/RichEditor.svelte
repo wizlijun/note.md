@@ -1060,7 +1060,6 @@
     window.addEventListener('notemd:find-replace', onFindReplace)
     window.addEventListener('notemd:find-replace-all', onFindReplaceAll)
     window.addEventListener('notemd:find-clear', onFindClear)
-    window.addEventListener('notemd:new-file-select', onNewFileSelect)
     window.addEventListener('notemd:select-all', onSelectAll)
     return () => {
       window.removeEventListener('notemd:find-search', onFindSearch)
@@ -1069,7 +1068,6 @@
       window.removeEventListener('notemd:find-replace', onFindReplace)
       window.removeEventListener('notemd:find-replace-all', onFindReplaceAll)
       window.removeEventListener('notemd:find-clear', onFindClear)
-      window.removeEventListener('notemd:new-file-select', onNewFileSelect)
       window.removeEventListener('notemd:select-all', onSelectAll)
     }
   })
@@ -1100,26 +1098,6 @@
     const resync = () => { if (editor && status === 'mounted') view.focus() }
     requestAnimationFrame(resync)
     setTimeout(resync, 60)
-  }
-
-  async function onNewFileSelect(_e: Event) {
-    if (!editor || status !== 'mounted') return
-    const view = editor.view as any
-    const { TextSelection, AllSelection } = await getPmState()
-    setTimeout(() => {
-      try {
-        const doc = view.state.doc
-        // Select everything after the first block (heading)
-        const firstBlock = doc.firstChild
-        if (!firstBlock) return
-        const from = firstBlock.nodeSize
-        const to = doc.content.size
-        if (from >= to) return
-        const tr = view.state.tr.setSelection(TextSelection.create(doc, from, to))
-        view.dispatch(tr)
-        view.focus()
-      } catch { /* ignore */ }
-    }, 100)
   }
 
   onMount(() => {

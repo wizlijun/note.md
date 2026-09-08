@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { CanvasProbeResult } from './canvas/io'
 
 vi.mock('./fs', () => ({
@@ -70,16 +70,6 @@ const canvasSave = vi.fn(async (
   _revision?: typeof canvasRevision,
   _force?: boolean,
 ) => ({ revision: canvasRevision, canonicalPath: path }))
-vi.mock('./canvas/io', () => ({
-  canvasDocumentOpen: (path: string) => canvasOpen(path),
-  canvasDocumentProbe: (path: string) => canvasProbe(path),
-  canvasDocumentCreate: (path: string, text: string) => canvasCreate(path, text),
-  canvasDocumentSave: (path: string, text: string, revision: typeof canvasRevision, force?: boolean) =>
-    canvasSave(path, text, revision, force),
-  canvasMtimeMs: () => 1_700_000_000_000,
-  asCanvasDocumentError: (error: unknown) => error && typeof error === 'object' ? error : null,
-}))
-
 vi.mock('./i18n/store.svelte', () => ({
   t: (k: string) => k,
 }))
@@ -88,9 +78,15 @@ vi.mock('./platform.svelte', () => ({ isIOS: vi.fn(async () => false) }))
 
 const fsRename = vi.fn(async (_from: string, _to: string) => {})
 const fsExists = vi.fn(async (_path: string) => false)
+const fsMkdir = vi.fn(async (_path: string, _options: { recursive: boolean }) => {})
+const tauriInvoke = vi.fn(async (_command: string, ..._args: unknown[]): Promise<unknown> => null)
+vi.mock('@tauri-apps/api/core', () => ({
+  invoke: (command: string, ...args: unknown[]) => tauriInvoke(command, ...args),
+}))
 vi.mock('@tauri-apps/plugin-fs', () => ({
   rename: (from: string, to: string) => fsRename(from, to),
   exists: (path: string) => fsExists(path),
+  mkdir: (path: string, options: { recursive: boolean }) => fsMkdir(path, options),
 }))
 
 vi.mock('@tauri-apps/plugin-store', () => ({
@@ -117,9 +113,33 @@ beforeEach(async () => {
   await new Promise<void>((resolve) => setTimeout(resolve, 0))
   vi.clearAllMocks()
   vi.resetModules()
+  tauriInvoke.mockReset().mockImplementation(async (command, rawArgs) => {
+    const args = rawArgs as { path: string; text: string; expected: { revision: typeof canvasRevision }; force: boolean }
+    if (command === 'canvas_document_open') return canvasOpen(args.path)
+    if (command === 'canvas_document_probe') return canvasProbe(args.path)
+    if (command === 'canvas_document_create') return canvasCreate(args.path, args.text)
+    if (command === 'canvas_document_save') return canvasSave(args.path, args.text, args.expected.revision, args.force)
+    if (command === 'sotvault_vault_root') return '/vault'
+    if (command === 'notemd_quick_note_dir') return '/vault/inbox'
+    if (command === 'sotvault_check_update') return { outcome: 'untracked' }
+    return null
+  })
+  fsMkdir.mockReset().mockResolvedValue(undefined)
+  fsRename.mockReset().mockResolvedValue(undefined)
   fsExists.mockResolvedValue(false)
   humanActorNowMock.mockReturnValue(null)
+  const fs = await import('./fs')
+  vi.mocked(fs.readMd).mockReset().mockImplementation(async (path) => `# content of ${path}`)
+  vi.mocked(fs.writeMd).mockReset().mockResolvedValue(undefined)
 })
+
+afterEach(() => { vi.useRealTimers() })
+
+async function readPersistedMarkdown(): Promise<void> {
+  const fs = await import('./fs')
+  vi.mocked(fs.readMd).mockImplementation(async (path) =>
+    [...vi.mocked(fs.writeMd).mock.calls].reverse().find(([writtenPath]) => writtenPath === path)?.[1] ?? `# content of ${path}`)
+}
 
 describe('tabs', () => {
   it('openFile reads file and creates a tab', async () => {
@@ -275,14 +295,141 @@ describe('tabs', () => {
     expect(canvas.externalState).toBe('fresh')
   })
 
-  it('does not mark a newer canvas edit clean when an older save finishes later', async () => {
+  it.each(['saveActive', 'saveTab'] as const)('%s names an untitled canvas from its first usable text card exactly once', async (saveMethod) => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 8, 8, 9, 7, 5))
+    const m = await import('./tabs.svelte')
+    await m.openFile('/vault/canvas/untitled-2.canvas')
+    const canvas = m.tabs[0]
+    const snapshot = JSON.stringify({ nodes: [
+      { id: 'link', type: 'link', url: 'https://example.com', x: 0, y: 0, width: 100, height: 100 },
+      { id: 'empty', type: 'text', text: ' \n ', x: 100, y: 0, width: 100, height: 100 },
+      { id: 'placeholder', type: 'text', text: '# 新卡片\n\n双击开始编辑', x: 200, y: 0, width: 100, height: 100 },
+      { id: 'title', type: 'text', text: '\n\n## 产品 思考\n\n正文', x: 300, y: 0, width: 100, height: 100 },
+      { id: 'later', type: 'text', text: '# Later title', x: 400, y: 0, width: 100, height: 100 },
+    ], edges: [] })
+    m.setContent(canvas.id, snapshot)
+
+    if (saveMethod === 'saveActive') await m.saveActive()
+    else await m.saveTab(canvas.id)
+
+    expect(canvasSave).toHaveBeenCalledWith('/vault/canvas/untitled-2.canvas', snapshot, canvasRevision, false)
+    expect(fsRename).toHaveBeenCalledWith('/vault/canvas/untitled-2.canvas', '/vault/canvas/2026-09-08-产品-思考.canvas')
+    expect(canvasSave.mock.invocationCallOrder[0]).toBeLessThan(fsRename.mock.invocationCallOrder[0])
+    expect(canvas.filePath).toBe('/vault/canvas/2026-09-08-产品-思考.canvas')
+    expect(canvas.title).toBe('2026-09-08-产品-思考.canvas')
+    expect(canvas.initialContent).toBe(snapshot)
+    expect(m.isDirty(canvas.id)).toBe(false)
+
+    m.setContent(canvas.id, snapshot.replace('产品 思考', '新的名字'))
+    if (saveMethod === 'saveActive') await m.saveActive()
+    else await m.saveTab(canvas.id)
+    expect(fsRename).toHaveBeenCalledOnce()
+    expect(canvasSave.mock.calls.at(-1)?.[0]).toBe('/vault/canvas/2026-09-08-产品-思考.canvas')
+  })
+
+  it('explicitly saving a canvas without a usable title names it with the local date and time', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 8, 8, 9, 7, 5))
+    const m = await import('./tabs.svelte')
+    await m.openFile('/vault/canvas/untitled.canvas')
+    await m.saveActive()
+    expect(fsRename).toHaveBeenCalledWith('/vault/canvas/untitled.canvas', '/vault/canvas/2026-09-08-090705.canvas')
+  })
+
+  it('canvas autosave persists the temporary path without naming a partially typed title', async () => {
+    const m = await import('./tabs.svelte')
+    await m.openFile('/vault/canvas/untitled.canvas')
+    const canvas = m.tabs[0]
+    const snapshot = JSON.stringify({ nodes: [{ id: 't', type: 'text', text: '# 产品', x: 0, y: 0, width: 100, height: 100 }], edges: [] })
+    m.setContent(canvas.id, snapshot)
+    await m.persistCanvasSnapshot(canvas, snapshot)
+    expect(canvasSave).toHaveBeenCalledWith('/vault/canvas/untitled.canvas', snapshot, canvasRevision, false)
+    expect(fsRename).not.toHaveBeenCalled()
+    expect(canvas.filePath).toBe('/vault/canvas/untitled.canvas')
+    expect(canvas.initialContent).toBe(snapshot)
+  })
+
+  it('canvas naming skips an existing date-title filename', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 8, 8, 9, 7, 5))
+    fsExists.mockImplementation(async (path) => path === '/vault/canvas/2026-09-08-090705.canvas')
+    const m = await import('./tabs.svelte')
+    await m.openFile('/vault/canvas/untitled.canvas')
+    await m.saveActive()
+    expect(fsRename).toHaveBeenCalledWith('/vault/canvas/untitled.canvas', '/vault/canvas/2026-09-08-090705-2.canvas')
+  })
+
+  it('a failed canvas rename keeps the saved temporary document and its clean baseline', async () => {
+    fsRename.mockRejectedValueOnce(new Error('EPERM'))
+    const m = await import('./tabs.svelte')
+    await m.openFile('/vault/canvas/untitled.canvas')
+    const canvas = m.tabs[0]
+    m.setContent(canvas.id, '{"nodes":[],"edges":[],"saved":true}')
+    await expect(m.saveActive()).resolves.toBeUndefined()
+    expect(canvasSave).toHaveBeenCalledOnce()
+    expect(fsRename).toHaveBeenCalledOnce()
+    expect(canvas.filePath).toBe('/vault/canvas/untitled.canvas')
+    expect(canvas.initialContent).toBe(canvas.currentContent)
+    expect(m.isDirty(canvas.id)).toBe(false)
+  })
+
+  it('queues canvas autosave behind an in-flight rename and persists to the new identity', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 8, 8, 9, 7, 5))
+    let finishRename: (() => void) | undefined
+    fsRename.mockImplementationOnce(() => new Promise<void>((resolve) => { finishRename = resolve }))
+    const m = await import('./tabs.svelte')
+    await m.openFile('/vault/canvas/untitled.canvas')
+    const canvas = m.tabs[0]
+    const manualSave = m.saveActive()
+    await vi.waitFor(() => expect(fsRename).toHaveBeenCalledOnce())
+    const newer = '{"nodes":[],"edges":[],"newer":true}'
+    m.setContent(canvas.id, newer)
+    const autosave = m.persistCanvasSnapshot(canvas, newer)
+    await new Promise<void>((resolve) => setTimeout(resolve, 0))
+    expect(canvasSave).toHaveBeenCalledOnce()
+    finishRename?.()
+    await Promise.all([manualSave, autosave])
+    expect(canvasSave).toHaveBeenNthCalledWith(2, '/vault/canvas/2026-09-08-090705.canvas', newer, canvasRevision, false)
+    expect(canvas.initialContent).toBe(newer)
+    expect(canvas.currentContent).toBe(newer)
+  })
+
+  it('serializes automatic naming across canvas tabs so simultaneous saves choose distinct names', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 8, 8, 9, 7, 5))
+    const files = new Set<string>()
+    fsExists.mockImplementation(async (path) => files.has(path))
+    let finishFirstRename: (() => void) | undefined
+    fsRename.mockImplementation(async (_from, to) => {
+      if (fsRename.mock.calls.length === 1) await new Promise<void>((resolve) => { finishFirstRename = resolve })
+      files.add(to)
+    })
+    const m = await import('./tabs.svelte')
+    await m.openFile('/vault/canvas/untitled.canvas')
+    await m.openFile('/vault/canvas/untitled-2.canvas')
+    const saves = m.tabs.map((canvas) => m.saveTab(canvas.id))
+    await vi.waitFor(() => expect(fsRename).toHaveBeenCalledOnce())
+    await new Promise<void>((resolve) => setTimeout(resolve, 0))
+    expect(fsRename).toHaveBeenCalledOnce()
+    finishFirstRename?.()
+    await Promise.all(saves)
+    expect(fsRename.mock.calls.map(([, to]) => to)).toEqual([
+      '/vault/canvas/2026-09-08-090705.canvas', '/vault/canvas/2026-09-08-090705-2.canvas',
+    ])
+    expect(new Set(m.tabs.map((canvas) => canvas.filePath)).size).toBe(2)
+  })
+
+  it.each(['newer edit', 'original baseline'] as const)('keeps a canvas dirty when its buffer becomes the %s during an older save', async (bufferState) => {
     let finishSave: ((value: { revision: typeof canvasRevision; canonicalPath: string }) => void) | undefined
     canvasSave.mockImplementationOnce(() => new Promise((resolve) => { finishSave = resolve }))
     const m = await import('./tabs.svelte')
     await m.openFile('/tmp/board.canvas')
     const canvas = m.tabs[0]
+    const originalSnapshot = canvas.currentContent
     const savedSnapshot = '{"nodes":[],"edges":[],"snapshot":1}'
-    const newerSnapshot = '{"nodes":[],"edges":[],"snapshot":2}'
+    const newerSnapshot = bufferState === 'original baseline' ? originalSnapshot : '{"nodes":[],"edges":[],"snapshot":2}'
     m.setContent(canvas.id, savedSnapshot)
 
     const saving = m.saveActive()
@@ -291,7 +438,7 @@ describe('tabs', () => {
     finishSave?.({ revision: canvasRevision, canonicalPath: '/tmp/board.canvas' })
     await saving
 
-    expect(canvas.initialContent).not.toBe(newerSnapshot)
+    expect(canvas.initialContent).toBe(savedSnapshot)
     expect(canvas.currentContent).toBe(newerSnapshot)
     expect(m.isDirty(canvas.id)).toBe(true)
   })
@@ -324,7 +471,7 @@ describe('tabs', () => {
     await savingAs
 
     expect(canvasSave).toHaveBeenNthCalledWith(1, '/tmp/board.canvas', expect.any(String), canvasRevision, false)
-    expect(canvasSave).toHaveBeenNthCalledWith(2, '/tmp/copy.canvas', expect.any(String), targetRevision, undefined)
+    expect(canvasSave).toHaveBeenNthCalledWith(2, '/tmp/copy.canvas', expect.any(String), targetRevision, false)
     expect(canvas.filePath).toBe('/tmp/copy.canvas')
     expect(canvas.title).toBe('copy.canvas')
     expect(canvas.canvasRevision).toEqual(targetSavedRevision)
@@ -565,7 +712,8 @@ describe('tabs', () => {
     const fs = await import('./fs')
     const m = await import('./tabs.svelte')
     vi.mocked(dialogs.pickSaveFile).mockResolvedValueOnce('/tmp/saved.md')
-    m.newFile()
+    await m.openPathBackedMarkdownDraft('/tmp/untitled.md', '')
+    m.tabs[0].filePath = ''
     const id = m.tabs[0].id
     m.setContent(id, 'new content')
     const ok = await m.closeTab(id, async () => 'cancel')
@@ -580,7 +728,8 @@ describe('tabs', () => {
     const m = await import('./tabs.svelte')
     vi.mocked(dialogs.pickSaveFile).mockResolvedValueOnce(null)
     vi.mocked(tauri.ask).mockResolvedValueOnce(false)  // Cancel (keep editing)
-    m.newFile()
+    await m.openPathBackedMarkdownDraft('/tmp/untitled.md', '')
+    m.tabs[0].filePath = ''
     const id = m.tabs[0].id
     m.setContent(id, 'new content')
     const ok = await m.closeTab(id, async () => 'cancel')
@@ -595,7 +744,8 @@ describe('tabs', () => {
     const m = await import('./tabs.svelte')
     vi.mocked(dialogs.pickSaveFile).mockResolvedValueOnce(null)
     vi.mocked(tauri.ask).mockResolvedValueOnce(true)  // Don't Save (close)
-    m.newFile()
+    await m.openPathBackedMarkdownDraft('/tmp/untitled.md', '')
+    m.tabs[0].filePath = ''
     const id = m.tabs[0].id
     m.setContent(id, 'new content')
     const ok = await m.closeTab(id, async () => 'cancel')
@@ -699,6 +849,105 @@ describe('tabs', () => {
     } finally {
       stored.mockReturnValue(null)
     }
+  })
+
+  it.each(['saveActive', 'saveTab'] as const)('%s keeps a newer markdown edit dirty and names only the saved snapshot', async (saveMethod) => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 8, 8, 9, 7, 5))
+    const fs = await import('./fs')
+    const { sha256Hex } = await import('./hash')
+    const m = await import('./tabs.svelte')
+    await m.openFile('/vault/inbox/untitled.md')
+    const note = m.tabs[0]
+    const saved = '# Saved title\n\nSaved body'
+    const newer = '# Newer title\n\nNot on disk yet'
+    let finishWrite!: () => void
+    vi.mocked(fs.writeMd).mockImplementationOnce(() => new Promise<void>((resolve) => { finishWrite = resolve }))
+    m.setContent(note.id, saved)
+    const saving = m[saveMethod](note.id)
+    await vi.waitFor(() => expect(fs.writeMd).toHaveBeenCalledOnce())
+    m.setContent(note.id, newer)
+    finishWrite()
+    await saving
+
+    expect(fs.writeMd).toHaveBeenCalledWith('/vault/inbox/untitled.md', saved)
+    expect(note.currentContent).toBe(newer)
+    expect(note.initialContent).toBe(saved)
+    expect(m.isDirty(note.id)).toBe(true)
+    expect(note.lastKnownHash).toBe(await sha256Hex(saved))
+    expect(fsRename).toHaveBeenCalledWith('/vault/inbox/untitled.md', '/vault/inbox/2026-09-08-Saved-title.md')
+  })
+
+  it('keeps markdown dirty when editing returns to the old baseline during a pending save', async () => {
+    const fs = await import('./fs')
+    const m = await import('./tabs.svelte')
+    await m.openFile('/tmp/note.md')
+    const note = m.tabs[0]
+    const baseline = note.initialContent
+    let finishWrite!: () => void
+    vi.mocked(fs.writeMd).mockImplementationOnce(() => new Promise<void>((resolve) => { finishWrite = resolve }))
+    m.setContent(note.id, '# Saved replacement\n')
+    const saving = m.saveActive()
+    await vi.waitFor(() => expect(fs.writeMd).toHaveBeenCalledOnce())
+    m.setContent(note.id, baseline)
+    finishWrite()
+    await saving
+
+    expect(note.currentContent).toBe(baseline)
+    expect(m.isDirty(note.id)).toBe(true)
+    expect(note.initialContent).toBe('# Saved replacement\n')
+  })
+
+  it('queues a markdown save behind naming and writes the new path without recreating untitled', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 8, 8, 9, 7, 5))
+    const fs = await import('./fs')
+    const m = await import('./tabs.svelte')
+    await m.openFile('/vault/inbox/untitled.md')
+    const note = m.tabs[0]
+    let finishRename!: () => void
+    fsRename.mockImplementationOnce(() => new Promise<void>((resolve) => { finishRename = resolve }))
+    m.setContent(note.id, '# First title\n')
+    const first = m.saveActive()
+    await vi.waitFor(() => expect(fsRename).toHaveBeenCalledOnce())
+    m.setContent(note.id, '# Updated title\n')
+    const second = m.saveTab(note.id)
+    await new Promise<void>((resolve) => setTimeout(resolve, 0))
+    const writesWhileNaming = vi.mocked(fs.writeMd).mock.calls.length
+    finishRename()
+    await Promise.all([first, second])
+
+    expect(writesWhileNaming).toBe(1)
+    expect(fs.writeMd).toHaveBeenNthCalledWith(2, '/vault/inbox/2026-09-08-First-title.md', '# Updated title\n')
+    expect(fsRename).toHaveBeenCalledOnce()
+    expect(m.isDirty(note.id)).toBe(false)
+  })
+
+  it('drops a stale markdown autosave path queued behind naming and accepts the next snapshot at its new path', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 8, 8, 9, 7, 5))
+    const fs = await import('./fs')
+    const m = await import('./tabs.svelte')
+    await m.openFile('/vault/inbox/untitled.md')
+    const note = m.tabs[0]
+    const temporaryPath = note.filePath
+    let finishRename!: () => void
+    fsRename.mockImplementationOnce(() => new Promise<void>((resolve) => { finishRename = resolve }))
+    m.setContent(note.id, '# First title\n')
+    const saving = m.saveActive()
+    await vi.waitFor(() => expect(fsRename).toHaveBeenCalledOnce())
+    m.setContent(note.id, '# Newer content\n')
+    const staleAutosave = m.persistMarkdownSnapshot(note, note.currentContent, true, temporaryPath)
+    finishRename()
+    await saving
+
+    expect(await staleAutosave).toBeUndefined()
+    expect(fs.writeMd).toHaveBeenCalledOnce()
+    expect(m.isDirty(note.id)).toBe(true)
+    expect(note.filePath).toBe('/vault/inbox/2026-09-08-First-title.md')
+    await m.persistMarkdownSnapshot(note, note.currentContent, true, note.filePath)
+    expect(fs.writeMd).toHaveBeenNthCalledWith(2, note.filePath, '# Newer content\n')
+    expect(m.isDirty(note.id)).toBe(false)
   })
 
   it('saveActive renames a titled quick note after its H1', async () => {
@@ -927,72 +1176,132 @@ describe('tabs', () => {
   })
 
   // ── newFile ─────────────────────────────────────────────────────────────────
-  it('newCanvas creates a named Obsidian-compatible .canvas document', async () => {
-    canvasCreate.mockClear()
+  it('newCanvas creates an empty path-backed document in vault/canvas without a save panel', async () => {
     const dialogs = await import('./dialogs')
     const m = await import('./tabs.svelte')
-    ;(dialogs.pickSaveCanvasFile as ReturnType<typeof vi.fn>).mockResolvedValueOnce('/tmp/board.canvas')
     await m.newCanvas()
-    expect(canvasCreate).toHaveBeenCalledWith('/tmp/board.canvas', m.EMPTY_CANVAS_CONTENT)
+    expect(tauriInvoke).toHaveBeenCalledWith('sotvault_vault_root')
+    expect(fsMkdir).toHaveBeenCalledWith('/vault/canvas', { recursive: true })
+    expect(canvasCreate).toHaveBeenCalledWith('/vault/canvas/untitled.canvas', m.EMPTY_CANVAS_CONTENT)
     expect(m.tabs[0]).toMatchObject({
-      filePath: '/tmp/board.canvas', title: 'board.canvas', kind: 'canvas', mode: 'rich',
+      filePath: '/vault/canvas/untitled.canvas', title: 'untitled.canvas', kind: 'canvas', mode: 'rich',
     })
+    expect(JSON.parse(m.tabs[0].currentContent)).toEqual({ nodes: [], edges: [] })
+    expect(dialogs.pickSaveCanvasFile).not.toHaveBeenCalled()
+    expect(dialogs.pickSaveFile).not.toHaveBeenCalled()
   })
 
-  it('newCanvas creates no tab and writes nothing when save is cancelled', async () => {
-    const fs = await import('./fs')
-    const dialogs = await import('./dialogs')
-    ;(dialogs.pickSaveCanvasFile as ReturnType<typeof vi.fn>).mockResolvedValueOnce(null)
+  it('newCanvas retries atomic creation conflicts instead of replacing an existing document', async () => {
+    canvasCreate.mockRejectedValueOnce({ kind: 'conflict', message: 'already exists' })
     const m = await import('./tabs.svelte')
     await m.newCanvas()
+    expect(canvasCreate).toHaveBeenNthCalledWith(1, '/vault/canvas/untitled.canvas', m.EMPTY_CANVAS_CONTENT)
+    expect(canvasCreate).toHaveBeenNthCalledWith(2, '/vault/canvas/untitled-2.canvas', m.EMPTY_CANVAS_CONTENT)
+    expect(m.tabs[0].filePath).toBe('/vault/canvas/untitled-2.canvas')
+    expect(canvasSave).not.toHaveBeenCalled()
+  })
+
+  it('newCanvas creates distinct documents when two requests race for the same temporary filename', async () => {
+    const createdPaths = new Set<string>()
+    const createUnique = async (path: string) => {
+      if (createdPaths.has(path)) throw { kind: 'conflict', message: 'already exists' }
+      createdPaths.add(path)
+      return { revision: canvasRevision, canonicalPath: path }
+    }
+    canvasCreate.mockImplementationOnce(createUnique).mockImplementationOnce(createUnique).mockImplementationOnce(createUnique)
+    const m = await import('./tabs.svelte')
+    // Concurrent dynamic imports can resolve the SDK directly in Vitest, so
+    // its native transport uses the same backend fixture as the module mock.
+    vi.stubGlobal('window', { __TAURI_INTERNALS__: { invoke: tauriInvoke }, dispatchEvent: () => true })
+    try {
+      await Promise.all([m.newCanvas(), m.newCanvas()])
+    } finally {
+      vi.unstubAllGlobals()
+    }
+
+    expect(canvasCreate).toHaveBeenCalledTimes(3)
+    expect([...createdPaths].sort()).toEqual(['/vault/canvas/untitled-2.canvas', '/vault/canvas/untitled.canvas'])
+    expect(m.tabs.map((canvas) => canvas.filePath).sort()).toEqual([...createdPaths].sort())
+    expect(canvasSave).not.toHaveBeenCalled()
+  })
+
+  it('newCanvas fails without a configured vault and writes nothing', async () => {
+    const fs = await import('./fs')
+    const dialogs = await import('./dialogs')
+    tauriInvoke.mockResolvedValue(null)
+    const m = await import('./tabs.svelte')
+    await expect(m.newCanvas()).rejects.toThrow()
+    expect(canvasCreate).not.toHaveBeenCalled()
+    expect(fsMkdir).not.toHaveBeenCalled()
     expect(fs.writeMd).not.toHaveBeenCalled()
+    expect(dialogs.pickSaveCanvasFile).not.toHaveBeenCalled()
     expect(m.tabs).toHaveLength(0)
   })
 
-  it('newFile creates an untitled markdown tab, dirty from the start', async () => {
+  it('newFile persists an empty OKF quick note before opening its clean path-backed tab', async () => {
+    await readPersistedMarkdown()
+    const fs = await import('./fs')
+    const dialogs = await import('./dialogs')
     const m = await import('./tabs.svelte')
-    m.newFile()
+    await m.newFile()
     expect(m.tabs.length).toBe(1)
     const t = m.tabs[0]
-    expect(t.filePath).toBe('')
+    expect(t.filePath).toBe('/vault/inbox/untitled.md')
     expect(t.title).toBe('untitled.md')
     expect(t.kind).toBe('markdown')
-    expect(t.initialContent).toBe('')
-    expect(t.currentContent).not.toBe('')  // random template
-    expect(m.isDirty(t.id)).toBe(true)
+    expect(t.currentContent).toBe('---\ntype: Note\n---\n')
+    expect(t.initialContent).toBe(t.currentContent)
+    expect(m.isDirty(t.id)).toBe(false)
     expect(m.activeId.value).toBe(t.id)
+    expect(tauriInvoke).toHaveBeenCalledWith('notemd_quick_note_dir')
+    expect(fs.writeMd).toHaveBeenCalledWith(t.filePath, t.currentContent)
+    expect(vi.mocked(fs.writeMd).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(fs.readMd).mock.invocationCallOrder[0])
+    expect(dialogs.pickSaveFile).not.toHaveBeenCalled()
   })
 
-  it('newFile inherits mode from the currently active non-image tab', async () => {
+  it('newFile uses the remembered markdown mode instead of the active code tab mode', async () => {
+    await readPersistedMarkdown()
+    const settings = await import('./settings.svelte')
     const m = await import('./tabs.svelte')
-    await m.openFile('/tmp/foo.md')
-    m.toggleMode(m.tabs[0].id)   // rich (default) → source
-    m.newFile()
-    expect(m.tabs[1].mode).toBe('source')
-  })
-
-  it('newFile falls back to source mode when no tab is open', async () => {
-    const m = await import('./tabs.svelte')
-    m.newFile()
+    await m.openFile('/tmp/code.py')
+    m.setMode(m.tabs[0].id, 'source')
     expect(m.tabs[0].mode).toBe('source')
+    vi.mocked(settings.getRecentMode).mockReturnValueOnce('rich')
+    await m.newFile()
+    expect(m.tabs[1].mode).toBe('rich')
+    expect(settings.getRecentMode).toHaveBeenLastCalledWith('md')
+  })
+
+  it('newFile uses the normal markdown rich mode when no mode was remembered', async () => {
+    await readPersistedMarkdown()
+    const m = await import('./tabs.svelte')
+    await m.newFile()
+    expect(m.tabs[0].mode).toBe('rich')
+  })
+
+  it('newFile allocates another inbox filename without replacing an existing note', async () => {
+    await readPersistedMarkdown()
+    fsExists.mockImplementation(async (path) => path === '/vault/inbox/untitled.md')
+    const fs = await import('./fs')
+    const m = await import('./tabs.svelte')
+    await m.newFile()
+    expect(m.tabs[0].filePath).toBe('/vault/inbox/untitled-2.md')
+    expect(fs.writeMd).toHaveBeenCalledOnce()
+    expect(fs.writeMd).toHaveBeenCalledWith('/vault/inbox/untitled-2.md', '---\ntype: Note\n---\n')
   })
 
   it('newFile signs the doc via humanActorNow() when the identity cache is warm', async () => {
-    // Wiring test (not a newFileText unit test): drives the real newFile()
-    // call site with a warm identity cache and asserts the signature reached
-    // the tab content through it — catches a renamed { by, at } shape or a
-    // dropped conditional that a hand-built-author unit test cannot.
+    await readPersistedMarkdown()
     humanActorNowMock.mockReturnValue('human:testuser')
     const m = await import('./tabs.svelte')
-    m.newFile()
+    await m.newFile()
     expect(m.tabs[0].currentContent).toContain('generated:\n  by: human:testuser\n  at:')
   })
 
   it('newFile writes no generated key when the identity cache is cold', async () => {
-    // humanActorNowMock defaults to null (see beforeEach) — a cold cache must
-    // not produce a guessed signature.
+    await readPersistedMarkdown()
     const m = await import('./tabs.svelte')
-    m.newFile()
+    await m.newFile()
     expect(m.tabs[0].currentContent).not.toContain('generated:')
   })
 
@@ -1029,22 +1338,13 @@ describe('tabs', () => {
     expect(m.isDirty(t.id)).toBe(true)
   })
 
-  it('newFile dispatches notemd:new-file-select when window is available', async () => {
-    const dispatched: CustomEvent[] = []
-    ;(globalThis as Record<string, unknown>).window = {
-      dispatchEvent: (e: CustomEvent) => dispatched.push(e),
-    }
-    try {
-      const m = await import('./tabs.svelte')
-      m.newFile()
-      await new Promise((r) => setTimeout(r, 0))  // flush queueMicrotask
-      expect(dispatched.length).toBe(1)
-      expect(dispatched[0].type).toBe('notemd:new-file-select')
-      expect(dispatched[0].detail.start).toBeGreaterThan(0)
-      expect(dispatched[0].detail.end).toBeGreaterThan(dispatched[0].detail.start)
-    } finally {
-      delete (globalThis as Record<string, unknown>).window
-    }
+  it('newFile requests editor focus for its persisted path', async () => {
+    await readPersistedMarkdown()
+    const m = await import('./tabs.svelte')
+    await m.newFile()
+    const { consumeEditorFocus } = await import('./editor-focus.svelte')
+    expect(consumeEditorFocus('/vault/inbox/untitled.md')).toBe(true)
+    expect(consumeEditorFocus('/vault/inbox/untitled.md')).toBe(false)
   })
 
   it('openFile image: isDirty always false even after setContent', async () => {
@@ -1147,7 +1447,8 @@ describe('tabs', () => {
   it('restoreVersion is a no-op for an untitled (path-less) tab', async () => {
     const fs = await import('./fs')
     const m = await import('./tabs.svelte')
-    m.newFile()
+    await m.openPathBackedMarkdownDraft('/tmp/untitled.md', '')
+    m.tabs[0].filePath = ''
     const t = m.tabs[0]
     await m.restoreVersion(t.id, 'X')
     expect(fs.writeMd).not.toHaveBeenCalled()

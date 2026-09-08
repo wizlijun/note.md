@@ -584,7 +584,6 @@
     window.addEventListener('notemd:find-replace', onFindReplace)
     window.addEventListener('notemd:find-replace-all', onFindReplaceAll)
     window.addEventListener('notemd:find-clear', onFindClear)
-    window.addEventListener('notemd:new-file-select', onNewFileSelect)
     window.addEventListener('notemd:select-all', onSelectAll)
     return () => {
       window.removeEventListener('notemd:find-search', onFindSearch)
@@ -593,7 +592,6 @@
       window.removeEventListener('notemd:find-replace', onFindReplace)
       window.removeEventListener('notemd:find-replace-all', onFindReplaceAll)
       window.removeEventListener('notemd:find-clear', onFindClear)
-      window.removeEventListener('notemd:new-file-select', onNewFileSelect)
       window.removeEventListener('notemd:select-all', onSelectAll)
     }
   })
@@ -640,15 +638,6 @@
     ctxActions = createSourceActions({ el, tabId, value: () => el.value })
     ctxMenuPos = { x: event.clientX, y: event.clientY }
     showCtxMenu = true
-  }
-
-  function onNewFileSelect(e: Event) {
-    const { start, end } = (e as CustomEvent).detail
-    if (!textareaEl) return
-    setTimeout(() => {
-      textareaEl!.focus()
-      textareaEl!.setSelectionRange(start, end)
-    }, 50)
   }
 
   // Clicking Edit ▸ Select All arrives through this custom event because the

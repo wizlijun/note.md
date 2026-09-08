@@ -146,3 +146,40 @@ describe('quickNoteRenameTarget — 预置 frontmatter 的草稿', () => {
     expect(quickNoteRenameTarget('2026-07-25-090800-quick.md', '---\ntype: Note\n---\n')).toBeNull()
   })
 })
+
+
+describe('quickNoteRenameTarget — persisted untitled notes', () => {
+  const now = new Date(2026, 8, 8, 9, 4, 5)
+
+  it('recognizes untitled filenames allocated by new document and quick note', () => {
+    for (const name of ['untitled.md', 'untitled-2.md', 'untitled-10.md']) {
+      expect(isAutoQuickNoteName(name)).toBe(true)
+      expect(quickNoteRenameTarget(name, '# 新的思考', false, now)).toBe('2026-09-08-新的思考.md')
+    }
+  })
+
+  it('uses HHmmss on explicit save when no title can produce a slug', () => {
+    for (const content of ['', '---\ntype: Note\n---\n', 'just text', '# ///', '# \n正文']) {
+      expect(quickNoteRenameTarget('untitled.md', content, false, now)).toBe('2026-09-08-090405.md')
+    }
+  })
+
+  it('waits for a completed usable title during autosave', () => {
+    for (const content of ['', '# 产品', 'plain text', '# ///\n']) {
+      expect(quickNoteRenameTarget('untitled.md', content, true, now)).toBeNull()
+    }
+    expect(quickNoteRenameTarget('untitled-2.md', '# 产品思考\n', true, now))
+      .toBe('2026-09-08-产品思考.md')
+  })
+
+  it('does not mistake a YAML comment for a completed body title', () => {
+    const content = '---\n# Metadata\ntype: Note\n---\n# 产品'
+    expect(quickNoteRenameTarget('untitled.md', content, true, now)).toBeNull()
+  })
+
+  it('keeps title and fallback filenames stable after the first explicit save', () => {
+    for (const name of ['2026-09-08-产品思考.md', '2026-09-08-090405.md', 'notes.md', 'untitled-draft.md']) {
+      expect(quickNoteRenameTarget(name, '# 新标题', false, now)).toBeNull()
+    }
+  })
+})

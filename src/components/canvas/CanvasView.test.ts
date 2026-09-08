@@ -431,6 +431,96 @@ describe('CanvasView', () => {
     }
   })
 
+  it.each(['selection', 'group-selection', 'single'] as const)(
+    'persists a %s drag as one undoable move, including unselected group contents', async (mode) => {
+      h.storeGet.mockResolvedValue({ x: 0, y: 0, zoom: 1, updatedAt: 1 })
+      const initialNodes = [
+        ...(mode === 'group-selection' ? [
+          { id: 'first', type: 'group', label: 'outer', x: 100, y: 100, width: 300, height: 240 },
+          { id: 'nested', type: 'group', label: 'nested', x: 130, y: 170, width: 200, height: 130 },
+          { id: 'inside', type: 'text', text: 'inside', x: 160, y: 210, width: 80, height: 50 },
+        ] : [
+          { id: 'first', type: 'text', text: 'first', x: 100, y: 100, width: 200, height: 120 },
+        ]),
+        { id: 'second', type: 'text', text: 'second', x: 500, y: 100, width: 160, height: 110 },
+        { id: 'outside', type: 'text', text: 'outside', x: 900, y: 500, width: 160, height: 110 },
+      ]
+      const initial = tab()
+      initial.currentContent = initial.initialContent = JSON.stringify({ nodes: initialNodes, edges: [] })
+      component = mount(CanvasView, { target: document.body, props: { tab: initial } })
+      await vi.waitFor(() => expect(document.querySelector('[data-id="first"]')).toBeTruthy())
+      const flow = document.querySelector('.svelte-flow') as HTMLElement
+      const pane = document.querySelector('.svelte-flow__pane') as HTMLElement
+      await tick()
+      flow.style.width = '1200px'
+      flow.style.height = '800px'
+      ResizeObserverStub.resize(flow, 1200, 800)
+      flow.getBoundingClientRect = () => ({
+        x: 0, y: 0, top: 0, left: 0, right: 1200, bottom: 800,
+        width: 1200, height: 800, toJSON: () => ({}),
+      }) as DOMRect
+      pane.getBoundingClientRect = flow.getBoundingClientRect
+      await tick()
+
+      let dragTarget: HTMLElement
+      if (mode === 'single') {
+        dragTarget = document.querySelector('[data-id="first"]') as HTMLElement
+        dragTarget.click()
+        await tick()
+      } else {
+        // Select the top strip: it intersects the outer group and sibling, but not the descendants.
+        const pointer = { bubbles: true, pointerId: 81, pointerType: 'mouse', button: 0, isPrimary: true }
+        pane.dispatchEvent(new PointerEvent('pointerdown', { ...pointer, clientX: 90, clientY: 90 }))
+        pane.dispatchEvent(new PointerEvent('pointermove', { ...pointer, clientX: 700, clientY: 150 }))
+        await tick()
+        await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+        pane.dispatchEvent(new PointerEvent('pointerup', { ...pointer, clientX: 700, clientY: 150 }))
+        await vi.waitFor(() => expect(document.querySelector('.svelte-flow__selection-wrapper')).toBeTruthy())
+        expect(Array.from(document.querySelectorAll('.svelte-flow__node.selected')).map((node) => node.getAttribute('data-id')))
+          .toEqual(['first', 'second'])
+        dragTarget = document.querySelector('.svelte-flow__selection-wrapper') as HTMLElement
+      }
+
+      const mouse = { bubbles: true, cancelable: true, view: window, button: 0, buttons: 1, altKey: true }
+      dragTarget.dispatchEvent(new MouseEvent('mousedown', { ...mouse, clientX: 196, clientY: 127 }))
+      window.dispatchEvent(new MouseEvent('mousemove', { ...mouse, clientX: 200, clientY: 130 }))
+      await tick()
+      window.dispatchEvent(new MouseEvent('mousemove', { ...mouse, clientX: 235, clientY: 155 }))
+      await tick()
+      window.dispatchEvent(new MouseEvent('mousemove', { ...mouse, clientX: 273, clientY: 179 }))
+      await tick()
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+      const movedIds = new Set(mode === 'single' ? ['first'] : mode === 'selection'
+        ? ['first', 'second'] : ['first', 'nested', 'inside', 'second'])
+      const previewPositions = initialNodes.map((node) => (document.querySelector(`[data-id="${node.id}"]`) as HTMLElement).style.transform)
+      const savesDuringDrag = h.setContent.mock.calls.length
+      window.dispatchEvent(new MouseEvent('mouseup', { ...mouse, buttons: 0, clientX: 273, clientY: 179 }))
+      await tick()
+
+      for (const node of initialNodes) {
+        const dx = movedIds.has(node.id) ? 73 : 0
+        const dy = movedIds.has(node.id) ? 49 : 0
+        expect(previewPositions[initialNodes.indexOf(node)])
+          .toBe(`translate(${node.x + dx}px, ${node.y + dy}px)`)
+      }
+      expect(savesDuringDrag).toBe(0)
+
+      expect(h.setContent).toHaveBeenCalledOnce()
+      expect(JSON.parse(h.setContent.mock.calls.at(-1)![1]).nodes).toEqual(initialNodes.map((node) => ({
+        ...node,
+        x: node.x + (movedIds.has(node.id) ? 73 : 0),
+        y: node.y + (movedIds.has(node.id) ? 49 : 0),
+      })))
+      const undo = document.querySelector('button[aria-label^="撤销"]') as HTMLButtonElement
+      expect(undo.title).toContain(mode === 'single' ? '移动节点' : mode === 'selection' ? '移动多个节点' : '移动分组与选区')
+      await new Promise((resolve) => setTimeout(resolve, 0))
+      undo.click()
+      await tick()
+      expect(JSON.parse(h.setContent.mock.calls.at(-1)![1]).nodes).toEqual(initialNodes)
+      expect(undo.disabled).toBe(true)
+    },
+  )
+
   it('persists keyboard movement and applies group closure semantics', async () => {
     const grouped = tab()
     grouped.currentContent = grouped.initialContent = JSON.stringify({
@@ -751,6 +841,71 @@ describe('CanvasView', () => {
     await vi.waitFor(() => expect(viewport.style.transform).not.toBe(before))
     zoomOut.click()
     fitView.click()
+  })
+
+  it.each([
+    { mode: 'pan', preselected: false }, { mode: 'pan', preselected: true },
+    { mode: 'space', preselected: false }, { mode: 'space', preselected: true },
+    { mode: 'lock', preselected: false }, { mode: 'lock', preselected: true },
+  ])('disables node interaction during $mode navigation with preselection $preselected', async ({ mode, preselected }) => {
+    h.storeGet.mockResolvedValue({ x: 0, y: 0, zoom: 1, updatedAt: 1 })
+    const target = tab()
+    const source = JSON.parse(SAMPLE)
+    source.nodes.push({ id: 'unknown', type: 'future-node', x: 700, y: 0, width: 100, height: 100 })
+    target.currentContent = target.initialContent = JSON.stringify(source)
+    component = mount(CanvasView, { target: document.body, props: { tab: target } })
+    await vi.waitFor(() => expect(document.querySelector('[data-id="unknown"]')).toBeTruthy())
+    const surface = document.querySelector('.canvas-surface') as HTMLElement
+    const node = document.querySelector('[data-id="text-1"]') as HTMLElement
+    const diagnostic = document.querySelector('[data-id="unknown"]') as HTMLElement
+    const interactiveClasses = ['draggable', 'selectable', 'nopan']
+    for (const className of interactiveClasses) {
+      expect(node.classList.contains(className)).toBe(true)
+      expect(diagnostic.classList.contains(className)).toBe(false)
+    }
+    if (preselected) {
+      const flow = document.querySelector('.svelte-flow') as HTMLElement
+      const pane = document.querySelector('.svelte-flow__pane') as HTMLElement
+      ResizeObserverStub.resize(flow, 1200, 800)
+      pane.getBoundingClientRect = flow.getBoundingClientRect
+      const pointer = { bubbles: true, pointerId: 87, pointerType: 'mouse', button: 0, isPrimary: true }
+      pane.dispatchEvent(new PointerEvent('pointerdown', { ...pointer, clientX: 10, clientY: 10 }))
+      pane.dispatchEvent(new PointerEvent('pointermove', { ...pointer, clientX: 650, clientY: 180 }))
+      pane.dispatchEvent(new PointerEvent('pointerup', { ...pointer, clientX: 650, clientY: 180 }))
+      await vi.waitFor(() => expect(document.querySelector('.svelte-flow__selection-wrapper')).toBeTruthy())
+      expect(document.querySelectorAll('.svelte-flow__node.selected')).toHaveLength(2)
+    }
+
+    if (mode === 'lock') (document.querySelector('button[aria-label="锁定画布交互"]') as HTMLButtonElement).click()
+    else surface.dispatchEvent(new KeyboardEvent('keydown', { key: mode === 'pan' ? 'p' : ' ', bubbles: true }))
+    await tick()
+    for (const className of interactiveClasses) {
+      expect(node.classList.contains(className)).toBe(false)
+      expect(diagnostic.classList.contains(className)).toBe(false)
+    }
+
+    node.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, view: window, button: 0, clientX: 50, clientY: 50 }))
+    window.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, view: window, buttons: 1, clientX: 110, clientY: 90 }))
+    await tick()
+    window.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, view: window, buttons: 1, clientX: 170, clientY: 130 }))
+    window.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, view: window, button: 0, clientX: 170, clientY: 130 }))
+    await tick()
+    // Flow suppresses the click immediately following a navigation drag.
+    await new Promise<void>((resolve) => setTimeout(resolve, 0))
+    expect(h.setContent).not.toHaveBeenCalled()
+    expect(node.classList.contains('selected')).toBe(preselected)
+
+    if (mode === 'lock') (document.querySelector('button[aria-label="解锁画布交互"]') as HTMLButtonElement).click()
+    else if (mode === 'space') window.dispatchEvent(new KeyboardEvent('keyup', { key: ' ' }))
+    else surface.dispatchEvent(new KeyboardEvent('keydown', { key: 's', bubbles: true }))
+    await tick()
+    for (const className of interactiveClasses) {
+      expect(node.classList.contains(className)).toBe(true)
+      expect(diagnostic.classList.contains(className)).toBe(false)
+    }
+    node.click()
+    await tick()
+    expect(node.classList.contains('selected')).toBe(true)
   })
 
   it('exposes select/pan/lasso tools, Space pan and a view-only interaction lock', async () => {

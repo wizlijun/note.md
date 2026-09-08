@@ -7,6 +7,16 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+### Changed
+
+- **Start writing without choosing a filename.** New Document, the keyboard shortcut and tray Quick Note now create an empty temporary note directly in the Vault's configured inbox. New Canvas creates `untitled.canvas` in `Vault/canvas`, with a numbered suffix when needed, and opens immediately without a save dialog.
+- **Saving names temporary files for you.** A Canvas uses the first text card's title to form `YYYY-MM-DD-slug.canvas`; if no usable title is available, it uses `YYYY-MM-DD-HHmmss.canvas`. New notes use the same date-and-title convention with `.md`. Existing names are kept, name collisions receive a numbered suffix, and Canvas autosave preserves the temporary name until an explicit save.
+
+### Fixed
+
+- **Canvas navigation and selection behave consistently.** Pan, Space-pan and interaction lock no longer accidentally drag cards. Moving a multi-node selection by its empty area now persists correctly and can be undone once, including grouped contents. Canvas dialogs and popovers support keyboard focus, and contextual controls stay within the canvas.
+- **Saving while typing preserves unsaved changes.** File writes and automatic naming are coordinated so autosave cannot recreate an old temporary filename. Continuing to edit or undoing to earlier text while a save is running keeps the correct unsaved state.
+
 ## v6.906.2 — 2026-09-06
 
 ### Added

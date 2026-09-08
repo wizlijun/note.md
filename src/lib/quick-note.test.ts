@@ -4,7 +4,8 @@ const invoke = vi.fn()
 const mkdir = vi.fn()
 const exists = vi.fn()
 const openFile = vi.fn()
-const openPathBackedMarkdownDraft = vi.fn()
+const writeMd = vi.fn()
+const files = new Map<string, string>()
 const requestEditorFocus = vi.fn()
 const pushToast = vi.fn()
 
@@ -15,8 +16,8 @@ vi.mock('@tauri-apps/plugin-fs', () => ({
 }))
 vi.mock('./tabs.svelte', () => ({
   openFile: (...a: unknown[]) => openFile(...a),
-  openPathBackedMarkdownDraft: (...a: unknown[]) => openPathBackedMarkdownDraft(...a),
 }))
+vi.mock('./fs', () => ({ writeMd: (...a: unknown[]) => writeMd(...a) }))
 vi.mock('./editor-focus.svelte', () => ({
   requestEditorFocus: (...a: unknown[]) => requestEditorFocus(...a),
 }))
@@ -38,55 +39,84 @@ beforeEach(() => {
   vi.clearAllMocks()
   invoke.mockResolvedValue('/vault/inbox')
   mkdir.mockResolvedValue(undefined)
-  exists.mockResolvedValue(false)
+  files.clear()
+  exists.mockImplementation(async (path: string) => files.has(path))
   openFile.mockResolvedValue(undefined)
-  openPathBackedMarkdownDraft.mockResolvedValue(undefined)
+  writeMd.mockImplementation(async (path: string, content: string) => { files.set(path, content) })
   humanActorNow.mockReturnValue(null)
 })
 
 describe('createQuickNote', () => {
-  it('opens a lazy path-backed draft when the target file does not exist', async () => {
+  it('creates an OKF note on disk before opening and focusing its editor', async () => {
     const { createQuickNote } = await import('./quick-note.svelte')
     await createQuickNote(new Date(2026, 6, 25, 9, 8))
 
-    const path = '/vault/inbox/2026-07-25-090800-quick.md'
+    const path = '/vault/inbox/untitled.md'
     expect(invoke).toHaveBeenCalledWith('notemd_quick_note_dir')
     expect(mkdir).toHaveBeenCalledWith('/vault/inbox', { recursive: true })
+    expect(writeMd).toHaveBeenCalledWith(path, '---\ntype: Note\n---\n')
     expect(requestEditorFocus).toHaveBeenCalledWith(path)
-    // No `mode`: the draft inherits the editor's remembered mode for `.md`.
-    // 草稿预置 OKF 概念头(§4.1 必填 type),这样保存下来的就是合规文档;
-    // 光标落在文末(Selection.atEnd),不会掉进 frontmatter 里。
-    expect(openPathBackedMarkdownDraft).toHaveBeenCalledWith(path, '---\ntype: Note\n---\n', {
-      skipEmptySave: true,
-    })
-    expect(openFile).not.toHaveBeenCalled()
+    expect(openFile).toHaveBeenCalledWith(path)
+    expect(writeMd.mock.invocationCallOrder[0]).toBeLessThan(requestEditorFocus.mock.invocationCallOrder[0])
+    expect(requestEditorFocus.mock.invocationCallOrder[0]).toBeLessThan(openFile.mock.invocationCallOrder[0])
   })
 
-  it('signs the draft via humanActorNow() when the identity cache is warm', async () => {
-    // Wiring test: drives the real createQuickNote() call site with a warm
-    // identity cache and asserts the signature reached the text handed to
-    // the draft opener — catches a renamed { by, at } shape or a dropped
-    // conditional that a hand-built-author unit test on newFileText cannot.
+  it('signs the persisted note when the identity cache is warm', async () => {
     humanActorNow.mockReturnValue('human:testuser')
     const { createQuickNote } = await import('./quick-note.svelte')
     await createQuickNote(new Date(2026, 6, 25, 9, 8))
 
-    const path = '/vault/inbox/2026-07-25-090800-quick.md'
-    expect(openPathBackedMarkdownDraft).toHaveBeenCalledWith(
-      path,
+    expect(writeMd).toHaveBeenCalledWith(
+      '/vault/inbox/untitled.md',
       expect.stringContaining('generated:\n  by: human:testuser\n  at:'),
-      { skipEmptySave: true },
     )
   })
 
-  it('opens an existing same-minute quick note normally', async () => {
-    exists.mockResolvedValue(true)
+  it('preserves existing notes and chooses the next free untitled filename', async () => {
+    files.set('/vault/inbox/untitled.md', 'keep first')
+    files.set('/vault/inbox/untitled-2.md', 'keep second')
     const { createQuickNote } = await import('./quick-note.svelte')
     await createQuickNote(new Date(2026, 6, 25, 9, 8))
 
-    const path = '/vault/inbox/2026-07-25-090800-quick.md'
-    expect(openFile).toHaveBeenCalledWith(path)
-    expect(openPathBackedMarkdownDraft).not.toHaveBeenCalled()
+    expect(openFile).toHaveBeenCalledWith('/vault/inbox/untitled-3.md')
+    expect(files.get('/vault/inbox/untitled.md')).toBe('keep first')
+    expect(files.get('/vault/inbox/untitled-2.md')).toBe('keep second')
+    expect(writeMd).toHaveBeenCalledTimes(1)
+  })
+
+  it('creates distinct files when triggered twice concurrently in the same second', async () => {
+    const { createQuickNote } = await import('./quick-note.svelte')
+    const now = new Date(2026, 6, 25, 9, 8)
+    await Promise.all([createQuickNote(now), createQuickNote(now)])
+
+    expect(openFile.mock.calls.map(([path]) => path)).toEqual([
+      '/vault/inbox/untitled.md', '/vault/inbox/untitled-2.md',
+    ])
+    expect(files.size).toBe(2)
+  })
+
+  it('does not open an unwritten note when persistence fails', async () => {
+    writeMd.mockRejectedValueOnce(new Error('disk full'))
+    const { createQuickNote } = await import('./quick-note.svelte')
+    await createQuickNote()
+
+    expect(openFile).not.toHaveBeenCalled()
+    expect(requestEditorFocus).not.toHaveBeenCalled()
+    expect(pushToast).toHaveBeenCalledWith({
+      level: 'error', message: 'quickNote.createFailed', detail: 'Error: disk full',
+    })
+    await createQuickNote()
+    expect(openFile).toHaveBeenCalledWith('/vault/inbox/untitled.md')
+  })
+
+  it('does not overwrite a candidate when checking its existence fails', async () => {
+    exists.mockRejectedValueOnce(new Error('permission denied'))
+    const { createQuickNote } = await import('./quick-note.svelte')
+    await createQuickNote()
+
+    expect(writeMd).not.toHaveBeenCalled()
+    expect(openFile).not.toHaveBeenCalled()
+    expect(pushToast).toHaveBeenCalledWith(expect.objectContaining({ level: 'error' }))
   })
 
   it('shows the no-vault toast when the backend has no quick-note dir', async () => {
