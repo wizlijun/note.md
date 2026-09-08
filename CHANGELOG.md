@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.908.1 — 2026-09-08
+
 ### Changed
 
 - **Start writing without choosing a filename.** New Document, the keyboard shortcut and tray Quick Note now create an empty temporary note directly in the Vault's configured inbox. New Canvas creates `untitled.canvas` in `Vault/canvas`, with a numbered suffix when needed, and opens immediately without a save dialog.
