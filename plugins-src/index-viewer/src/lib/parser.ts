@@ -1,4 +1,4 @@
-import { Lexer, type Token, type Tokens } from 'marked'
+import { Lexer, type Token } from 'marked'
 import { parseDocument } from 'yaml'
 import type { IndexCell, IndexDocument, IndexView } from './model'
 
@@ -36,19 +36,6 @@ function cell(tokens: Token[]): IndexCell {
   return result
 }
 
-/** GFM escapes pipes even inside code spans; count before Marked truncates/pads cells. */
-function columnCount(line: string): number {
-  const text = line.trim()
-  const pipes: number[] = []
-  for (let index = 0; index < text.length; index++) {
-    if (text[index] !== '|') continue
-    let slashes = 0
-    for (let before = index - 1; before >= 0 && text[before] === '\\'; before--) slashes++
-    if (slashes % 2 === 0) pipes.push(index)
-  }
-  return pipes.length + 1 - Number(pipes[0] === 0) - Number(pipes.at(-1) === text.length - 1)
-}
-
 function isFileLink(href: string): boolean {
   // Traversal and URI decoding are validated against the Vault by the host bridge.
   return !!href.trim() && !/^(?:[a-z][a-z\d+.-]*:|\/\/|#|\?)/i.test(href.trim())
@@ -77,55 +64,68 @@ export function parseIndex(content: string, uri: string): IndexDocument | null {
     if (typeof groupBy !== 'string' || typeof laneBy !== 'string') return null
     const doc: IndexDocument = {
       uri, title: uri.split('/').at(-1)?.replace(/\.index\.md$/i, '') || 'Index',
-      description: [], columns: [], rows: [], view: view as IndexView, groupBy, laneBy,
+      description: [], columns: ['文件'], rows: [], view: view as IndexView, groupBy, laneBy,
     }
-    let section = '', sawTitle = false, sawTable = false
-    const description = (tokens: Token[]): void => {
-      for (const token of tokens) {
-        if (token.type === 'space') continue
-        if (token.type === 'blockquote') { description(token.tokens ?? []); continue }
-        if (token.type !== 'paragraph' && token.type !== 'text') throw new Error('Unsupported description')
-        // A table fragment must not be quietly turned into an explanatory paragraph.
-        if (token.raw.split('\n').some(line => /^\s*\|/.test(line) || /^\s*:?-{3,}:?\s*\|/.test(line))) {
-          throw new Error('Malformed table')
-        }
-        const text = cell('tokens' in token && token.tokens ? token.tokens : Lexer.lexInline(token.text)).text
-        if (text) doc.description.push(text)
-      }
-    }
-    for (const token of Lexer.lex(source, { gfm: true })) {
-      if (token.type === 'space' || token.type === 'def') continue
-      if (token.type === 'heading') {
-        const text = cell(token.tokens ?? Lexer.lexInline(token.text)).text
-        if (!text || token.depth > 2) return null
-        if (token.depth === 1) {
-          if (sawTitle || sawTable) return null
+    // List indentation is presentation only. A standalone file-link item starts a
+    // record; named fields belong to the nearest record until another item/H2.
+    const lexer = new Lexer({ gfm: true })
+    const blocks = lexer.lex(source)
+    const definitions = new Set(blocks.filter(token => token.type === 'def').flatMap(token => token.raw.trimEnd().split('\n')))
+    const inline = (text: string) => lexer.inlineTokens(text)
+    const records: Map<string, IndexCell>[] = []
+    let current: Map<string, IndexCell> | undefined
+    let section = '', sawTitle = false
+    for (const raw of source.split('\n')) {
+      const line = raw.trim()
+      if (!line || definitions.has(raw)) continue
+      const heading = /^(#{1,6})\s+(.+?)(?:\s+#+)?$/.exec(line)
+      if (heading) {
+        const text = cell(inline(heading[2])).text
+        if (!text || heading[1].length > 2) return null
+        if (heading[1].length === 1) {
+          if (sawTitle || doc.rows.length) return null
           doc.title = text
           sawTitle = true
         } else section = text
+        current = undefined
         continue
       }
-      if (token.type !== 'table') { description([token]); continue }
-      const table = token as Tokens.Table
-      const columns = table.header.map(header => cell(header.tokens).text)
-      if (columns.some(column => !column) || new Set(columns).size !== columns.length) return null
-      if (sawTable && (columns.length !== doc.columns.length || columns.some((column, i) => column !== doc.columns[i]))) return null
-      if (token.raw.trimEnd().split('\n').some(line => columnCount(line) !== columns.length)) return null
-      doc.columns = columns
-      sawTable = true
-      for (const row of table.rows) {
-        const firstTokens = row[0].tokens.filter(part => !(part.type === 'text' && !part.text.trim()))
-        const first = firstTokens[0]
-        if (firstTokens.length !== 1 || first?.type !== 'link' || !first.raw.startsWith('[') || !isFileLink(first.href)) return null
-        const cells = row.map(value => cell(value.tokens))
-        if (!cells[0].text || cells[0].images.length || cells[0].links.length !== 1) return null
-        doc.rows.push({
-          id: `row-${doc.rows.length + 1}`, title: cells[0].text, href: first.href, cells, section,
-          cover: cells.flatMap(value => value.images)[0],
-        })
+      const item = /^(?:[-+*]|\d+[.)])\s+(.+)$/.exec(line)
+      const body = item ? item[1].trim() : line
+      const tokens = inline(body)
+      const first = tokens[0]
+      if (item && tokens.length === 1 && first?.type === 'link' && first.raw.startsWith('[')) {
+        const primary = cell(tokens)
+        if (!isFileLink(first.href) || !primary.text || primary.images.length || primary.links.length !== 1) return null
+        current = new Map([['文件', primary]])
+        records.push(current)
+        doc.rows.push({ id: `row-${doc.rows.length + 1}`, title: primary.text, href: first.href, cells: [], section })
+        continue
       }
+      const field = /^([^:：]+)[:：]\s*(.*)$/.exec(body)
+      if (field && current) {
+        const name = cell(inline(field[1]))
+        // Names are explicit text, never a second file link or nested structure.
+        if (!name.text || /^!?\[/.test(name.text) || name.links.length || name.images.length || current.has(name.text)) return null
+        current.set(name.text, cell(inline(field[2])))
+        if (!doc.columns.includes(name.text)) doc.columns.push(name.text)
+        continue
+      }
+      if (item || current) return null
+      // Only prose before records (or immediately after H2) is page description.
+      // Never reinterpret tables, fences or other blocks as hidden index data.
+      const description = Lexer.lex(line, { gfm: true })
+      const token = description[0]
+      if (description.length !== 1 || !['paragraph', 'blockquote'].includes(token?.type)
+        || /^\|/.test(line) || /^[-:| ]+\|[-:| ]*$/.test(line)) return null
+      const text = cell(inline(line.replace(/^>\s?/, ''))).text
+      if (text) doc.description.push(text)
     }
-    if (!sawTable || (groupBy && !doc.columns.includes(groupBy)) || (laneBy && !doc.columns.includes(laneBy))) return null
+    if (!doc.rows.length || (groupBy && !doc.columns.includes(groupBy)) || (laneBy && !doc.columns.includes(laneBy))) return null
+    doc.rows.forEach((row, index) => {
+      row.cells = doc.columns.map(name => records[index].get(name) ?? { text: '', links: [], images: [] })
+      row.cover = [...records[index].values()].flatMap(value => value.images)[0]
+    })
     return doc
   } catch { return null }
 }

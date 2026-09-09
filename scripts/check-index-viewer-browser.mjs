@@ -116,6 +116,22 @@ try {
       await page.screenshot({ path: join(output, `${view}-light.png`) })
     }
   })
+  await check('uneven list indentation preserves record ownership and all layouts', async () => {
+    const source = await readFile(join(root, 'skills/file-index/assets/board.index.md'), 'utf8')
+    let index = 0
+    const content = source.split('\n').map(line => /^\s*- /.test(line) ? ['', ' ', '\t', '       '][index++ % 4] + line.trimStart() : line).join('\n')
+    await page.evaluate(content => window.__indexBrowser.reload(content), content)
+    await ready()
+    await plugin().locator('[data-view="board"]').waitFor()
+    assert.equal(await plugin().locator('.board-cell').count(), 8)
+    assert.equal(await plugin().locator('.card').count(), 4)
+    assert.equal(await plugin().locator('.lane-title').count(), 2)
+    assert.equal(await page.evaluate(() => window.__indexBrowser.content), content)
+    for (const name of ['表格', '分组列表', '封面画廊', '泳道看板']) {
+      await plugin().getByRole('button', { name, exact: true }).click()
+      await plugin().getByRole('button', { name: '需求清单（演示）', exact: true }).waitFor()
+    }
+  })
   await check('layout switch, search, grouping and file navigation', async () => {
     await plugin().getByRole('button', { name: '表格', exact: true }).click()
     await plugin().locator('tbody tr').first().waitFor()
@@ -149,7 +165,7 @@ try {
     await plugin().getByText('封面无法加载', { exact: true }).waitFor()
   })
   await check('invalid format falls back; Source and plugin mode preserve editable Markdown', async () => {
-    const malformed = '# 索引\n\n| 文件 |\n| --- |\n| missing link |\n'
+    const malformed = '# 索引\n\n- [文件](file.md)\n- 状态：已读\n- 状态：冲突值\n'
     await page.evaluate(content => window.__indexBrowser.reload(content), malformed)
     assert.equal(await page.getByRole('textbox', { name: 'Markdown 编辑器', exact: true }).inputValue(), malformed)
     await page.evaluate(content => window.__indexBrowser.reload(content), await readFile(join(root, 'skills/file-index/assets/table.index.md'), 'utf8'))

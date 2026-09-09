@@ -9,7 +9,7 @@ For the full commit history, see the git log.
 
 ### Added
 
-- **Browse file indexes in four layouts.** The Index Viewer plugin opens `*.index.md` as a searchable table, grouped list, swimlane board or cover gallery. Ordinary Markdown tables hold the file links and fields, with optional layout settings; bundled templates and an Agent skill help create indexes from real files. Unsupported content falls back to Markdown editing.
+- **Browse file indexes in four layouts.** The Index Viewer plugin opens `*.index.md` as a searchable table, grouped list, swimlane board or cover gallery. Ordinary Markdown lists hold the file links and optional fields, tolerate indentation changes, and support optional layout settings; bundled templates and an Agent skill help create indexes from real files. Unsupported content falls back to Markdown editing.
 
 ### Fixed
 

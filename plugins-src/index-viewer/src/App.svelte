@@ -73,7 +73,7 @@
     </header>
     {#if error}<div class="error" role="alert">{error}</div>{/if}
     <div class="content" data-view={view}>
-      {#if !filtered.length}<div class="empty"><h2>{query ? (zh ? '没有匹配的文件' : 'No matching files') : (zh ? '索引还没有文件' : 'No files in this index')}</h2><p>{query ? (zh ? '试试其他关键词。' : 'Try another search term.') : (zh ? '在 Markdown 表格中添加文件链接后，即可在此查看。' : 'Add file links to the Markdown table to see them here.')}</p></div>
+      {#if !filtered.length}<div class="empty"><h2>{query ? (zh ? '没有匹配的文件' : 'No matching files') : (zh ? '索引还没有文件' : 'No files in this index')}</h2><p>{query ? (zh ? '试试其他关键词。' : 'Try another search term.') : (zh ? '在 Markdown 列表中添加文件链接后，即可在此查看。' : 'Add file links to the Markdown list to see them here.')}</p></div>
       {:else if view === 'table'}
         <div class="table-scroll"><table><thead><tr>{#each doc.columns as column}<th scope="col">{column}</th>{/each}</tr></thead><tbody>{#each filtered as row (row.id)}<tr>{#each row.cells as cell, index}<td class:primary={index === 0}><CellContent {cell} {open}/></td>{/each}</tr>{/each}</tbody></table></div>
       {:else if view === 'list'}
