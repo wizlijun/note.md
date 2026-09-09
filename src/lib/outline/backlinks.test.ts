@@ -104,6 +104,58 @@ describe('index', () => {
     expect(backlinksFor(idx, 'wikilink')).toEqual([])
     expect(backlinksFor(idx, 'real')).toHaveLength(1)
   })
+  it('indexes index tags and aliased page links as the same page with original line numbers', () => {
+    const idx = createIndex({ root: '/v', dirs: ['wikipage'] })
+    const file = '/v/wikipage/资料.index.md'
+    indexFileContent(idx, file, '---\nview: list\n---\n# 资料\n\n## 工作\n### 项目\n   - [方案](./方案.md) #设计\n - [清单](./清单.md) [[设计|设计工作]] [状态:: 待处理]\n')
+    indexFileContent(idx, '/v/wikipage/设计.note.md', '- 页面')
+    expect(backlinksFor(idx, '设计')).toEqual([
+      { file, text: '[方案](./方案.md) #设计', line: 8, breadcrumb: ['工作', '项目'] },
+      { file, text: '[清单](./清单.md) [[设计|设计工作]] [状态:: 待处理]', line: 9, breadcrumb: ['工作', '项目'] },
+    ])
+    expect(resolveTarget(idx, '设计')).toBe('/v/wikipage/设计.note.md')
+    expect(pageCandidates(idx)).toEqual(['设计'])
+    expect(backlinksFor(idx, '设计|设计工作')).toEqual([])
+    expect(idx.fileTrees.has(file)).toBe(false)
+  })
+  it('deduplicates equivalent tags and wiki references on a row and removes stale/invalid index data', () => {
+    const idx = createIndex()
+    const file = '/v/资料.index.md'
+    indexFileContent(idx, file, '# 资料\n- [方案](./方案.md) #设计 [[设计]]')
+    expect(backlinksFor(idx, '设计')).toHaveLength(1)
+    indexFileContent(idx, file, '# 资料\n- [方案](./方案.md) #开发')
+    expect(backlinksFor(idx, '设计')).toEqual([])
+    expect(backlinksFor(idx, '开发')).toHaveLength(1)
+    indexFileContent(idx, file, 'bad format #开发 [[设计]]')
+    expect(backlinksFor(idx, '开发')).toEqual([])
+    expect(backlinksFor(idx, '设计')).toEqual([])
+  })
+  it('recalls index references by both logical page name and the sanitized on-disk page name', () => {
+    const idx = createIndex({ root: '/v', dirs: ['wikipage'] })
+    const file = '/v/资料.index.md'
+    indexFileContent(idx, file, '# 资料\n- [方案](./方案.md) #主题/设计 [[主题/设计]]\n- [清单](./清单.md) [[主题/设计|设计类]]')
+    indexFileContent(idx, '/v/wikipage/主题-设计.note.md', '- 页面')
+    const original = backlinksFor(idx, '主题/设计')
+    expect(original.map(hit => hit.line)).toEqual([2, 3])
+    expect(backlinksFor(idx, pageNameOf('/v/wikipage/主题-设计.note.md'))).toEqual(original)
+    expect(resolveTarget(idx, '主题-设计')).toBe('/v/wikipage/主题-设计.note.md')
+    indexFileContent(idx, file, '# 资料\n- [方案](./方案.md) #设计')
+    expect(backlinksFor(idx, '主题/设计')).toEqual([])
+    expect(backlinksFor(idx, '主题-设计')).toEqual([])
+    expect(backlinksFor(idx, '设计')).toHaveLength(1)
+  })
+  it('preserves raw-only target semantics for existing outline sources', () => {
+    const idx = createIndex()
+    indexFileContent(idx, '/v/笔记.note.md', '- #主题/设计 [[主题/设计]]')
+    expect(backlinksFor(idx, '主题/设计')).toHaveLength(2)
+    expect(backlinksFor(idx, '主题-设计')).toEqual([])
+  })
+  it('does not treat code, escaped markers, Markdown fragments or blocklisted index pages as relationships', () => {
+    setBlockedWikilinks(['blocked'])
+    const idx = createIndex()
+    indexFileContent(idx, '/v/资料.index.md', '# 资料\n- [方案](./方案.md#章节) `#代码 [[代码页]]` \\#转义 #blocked [[blocked]] [补充:: 普通文字]')
+    expect([...idx.byTarget.keys()]).toEqual([])
+  })
 })
 
 describe('scoped index (wikipage/dailynote only)', () => {
@@ -188,6 +240,10 @@ describe('isWikiPagePath', () => {
     expect(isWikiPagePath(null, '/anywhere/x.md')).toBe(true)
     expect(isWikiPagePath(null, '/anywhere/x.txt')).toBe(false)
   })
+  it('index sources never become page candidates, including inside the wiki directory or without scope', () => {
+    expect(isWikiPagePath(scope, '/v/wikipage/x.index.md')).toBe(false)
+    expect(isWikiPagePath(null, '/anywhere/x.INDEX.MD')).toBe(false)
+  })
   it('tolerates trailing slash on root', () => {
     expect(isWikiPagePath({ root: '/v/', dirs: ['wikipage'] }, '/v/wikipage/x.md')).toBe(true)
   })
@@ -215,5 +271,10 @@ describe('classifyWatchPaths', () => {
 
   it('a dotted directory name is missed by design, not crashed on', () => {
     expect(classifyWatchPaths(['/v/notes.v2']).dirChange).toBe(false)
+  })
+  it('includes both sides of index renames and rebuilds for directory moves', () => {
+    expect(classifyWatchPaths(['/v/old.index.md', '/v/books/new.INDEX.MD', '/v/books', '/v/.git/a.index.md'])).toEqual({
+      notes: ['/v/old.index.md', '/v/books/new.INDEX.MD'], dirChange: true,
+    })
   })
 })

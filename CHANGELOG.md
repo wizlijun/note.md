@@ -9,7 +9,7 @@ For the full commit history, see the git log.
 
 ### Added
 
-- **Browse file indexes in four layouts.** The Index Viewer plugin opens `*.index.md` as a searchable table, grouped list, swimlane board or cover gallery. Markdown headings define category hierarchies; each file occupies one list line with inline fields, tags and a description. List indentation can vary without changing category membership, and the default view follows the headings; bundled templates and an Agent skill help create indexes from real files. Unsupported content falls back to Markdown editing.
+- **Browse file indexes in four layouts.** The Index Viewer plugin opens `*.index.md` as a searchable table, grouped list, swimlane board or cover gallery. Markdown headings define category hierarchies; each file occupies one list line with inline fields, tags and a description. List indentation can vary without changing category membership, and the default view follows the headings; bundled templates and an Agent skill help create indexes from real files. Tags and WikiLinks open the same knowledge pages through the host, including creating a missing page on click; both appear in backlinks to their index entries. Relative file links remain supported. Requires note.md 6.910.1 or newer. Unsupported content falls back to Markdown editing.
 
 ### Fixed
 

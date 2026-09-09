@@ -206,9 +206,15 @@ manifest 不写 `Agents`、`智能体` 等显示文本。插件市场索引也�
 { type: 'file_view.ready', requestId: number }
 // 不支持内容或用户选择编辑原文时发送；reason 仅在主动编辑时为 'edit'。
 { type: 'file_view.fallback', requestId: number, reason?: 'edit' }
+// iframe → 宿主，仅在用户点击页面链接时请求；需 editor.open 权限和已 ready 的快照。
+{ type: 'file_view.open_page', requestId: number, operationId: number, target: string }
+// 宿主 → iframe，页面操作结果；两侧均忽略已过期的快照/操作。
+{ type: 'file_view.page_result', requestId: number, operationId: number, ok: boolean, error?: string }
 ```
 
 回复必须使用收到的宿主 origin 作为 `postMessage` 的 `targetOrigin`。宿主同时校验插件 origin、iframe source 与当前 `requestId`，忽略旧请求、伪造消息及写入消息。资源加载或解析在 8 秒内未完成时回退，回退保留同一份文档及原内置视图；编辑期间不反复抢占。显式重试、切换源码/预览或外部文件重载可重新尝试视图。代码参考 `FilePluginView.svelte`、`file-view-msg.ts` 与 `plugins-src/timeline/src/lib/bridge.ts`。
+
+页面导航的 `target` 是页面名（不是文件路径或 URL），使用与编辑器 `[[wikilink]]` 相同的 Vault 页面索引、黑名单、日期页及缺失页面创建规则。只有索引来源文件位于当前已打开的 Vault 内时才能导航；宿主等待黑名单和索引加载，异步期间切换 Vault 或文件快照会取消尚未执行的导航。`operationId` 是递增的正安全整数，宿主在同一快照内去重；`target` 必须非空、最多 1024 个 UTF-16 字符且不含控制字符。权限从发起插件当前实际 manifest 的 `host_capabilities` 读取，消息不能自行声明授权。导航由宿主执行，插件无需 `vault.write`，且不会更改来源索引内容。插件应仅在用户点击时发送请求，不得在载入、解析或渲染时自动发送；操作失败通过 `page_result.error` 展示，勿回退或改写原文。`#标签` 与 `[[页面]]` 可发送同一个页面名，以获得完全相同的导航结果。
 
 **TrayContribution**(`plugin-protocol/src/lib.rs` 的 `TrayContribution`):
 ```jsonc

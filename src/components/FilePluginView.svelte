@@ -3,7 +3,8 @@
   import type { Tab } from '../lib/tabs.svelte'
   import type { FileViewRef } from '../lib/plugins/file-views'
   import { t } from '../lib/i18n/store.svelte'
-  import { handleFileViewMessage, type FileViewOpen } from '../lib/plugins/v2/file-view-msg'
+  import { handleFileViewMessage, type FileViewOpen, type FileViewOpenPage, type FileViewPageResult } from '../lib/plugins/v2/file-view-msg'
+  import { pluginRuntime } from '../lib/plugins/runtime.svelte'
 
   type FallbackReason = 'edit' | 'unsupported' | 'unavailable'
   let { tab, view, fallback, onFallback }: {
@@ -23,6 +24,8 @@
   let snapshot: FileViewOpen | undefined
   let activeSrc = ''
   let timer: ReturnType<typeof setTimeout> | undefined
+  let pageOperations = new Set<number>()
+  let mounted = true
 
   function clearTimer() {
     clearTimeout(timer)
@@ -51,6 +54,7 @@
     if (activeSrc !== nextSrc) loaded = false
     activeSrc = nextSrc
     snapshot = { type: 'file_view.open', uri, content, viewId, requestId: ++requestId }
+    pageOperations = new Set()
     status = 'loading'
     const pendingRequest = requestId
     // Includes asset loading and parsing; onload never extends this deadline.
@@ -63,6 +67,33 @@
   function retry() {
     begin(tab.currentContent, tab.filePath, view.viewId, src)
   }
+
+  async function openPage(request: FileViewOpenPage) {
+    if (status !== 'ready' || pageOperations.has(request.operationId)) return
+    pageOperations.add(request.operationId)
+    const frame = iframeEl?.contentWindow
+    const origin = pluginOrigin
+    const sourcePath = tab.filePath
+    const current = () => mounted && status === 'ready' && requestId === request.requestId
+      && iframeEl?.contentWindow === frame && pluginOrigin === origin && tab.filePath === sourcePath
+      && snapshot?.uri === sourcePath && snapshot.content === tab.currentContent
+    let result: FileViewPageResult = { type: 'file_view.page_result', requestId: request.requestId, operationId: request.operationId, ok: true }
+    try {
+      const manifest = pluginRuntime.manifests.find((item) => item.id === view.pluginId)
+      if (!manifest?.host_capabilities.includes('editor.open')) throw new Error('Plugin requires editor.open permission')
+      const { openFileViewPage } = await import('../lib/plugins/file-view-pages')
+      if (!current()) return
+      await openFileViewPage(sourcePath, request.target, current)
+    } catch (error) {
+      result = { ...result, ok: false, error: error instanceof Error ? error.message : String(error) }
+    }
+    if (current()) frame?.postMessage(result, origin)
+  }
+
+  $effect(() => {
+    mounted = true
+    return () => { mounted = false }
+  })
 
   $effect(() => {
     const content = tab.currentContent
@@ -89,6 +120,7 @@
         requestId,
         onReady: () => { clearTimer(); status = 'ready' },
         onFallback: (reason) => useDefaultEditor(reason === 'edit' ? 'edit' : 'unsupported'),
+        onOpenPage: (request) => { void openPage(request) },
       })
     }
     const onReload = (event: Event) => {

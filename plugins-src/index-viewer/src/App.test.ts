@@ -2,11 +2,13 @@ import { mount, tick, unmount } from 'svelte'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App.svelte'
 import type { IndexCell, IndexDocument } from './lib/model'
+import { parseIndex } from './lib/parser'
 
 const bridge = vi.hoisted(() => ({
   receive: null as null | ((value: IndexDocument) => void),
   unsubscribe: vi.fn(),
   open: vi.fn<(...args: string[]) => Promise<void>>(),
+  page: vi.fn<(...args: string[]) => Promise<void>>(),
   cover: vi.fn<(...args: string[]) => Promise<string>>(),
   language: 'zh',
 }))
@@ -14,6 +16,7 @@ vi.mock('./lib/bridge', () => ({
   locale: () => bridge.language,
   onDocument: (callback: (value: IndexDocument) => void) => { bridge.receive = callback; return bridge.unsubscribe },
   openLink: bridge.open,
+  openPage: bridge.page,
   loadCover: bridge.cover,
 }))
 function cell(text: string, href?: string): IndexCell { return { text, links: href ? [{ text, href, start: 0, end: text.length }] : [], images: [] } }
@@ -22,9 +25,9 @@ function fixture(overrides: Partial<IndexDocument> = {}): IndexDocument {
     { id: 'docs', parentId: '', title: '文档', level: 2, path: ['文档'], description: [] },
     { id: 'reading', parentId: '', title: '阅读', level: 2, path: ['阅读'], description: [] },
   ], rows: [
-    { id: 'a', title: '设计笔记', href: './design.md', section: '文档', sectionId: 'docs', cells: [cell('设计笔记', './design.md'), cell('进行中'), cell('甲'), { text: '参见说明，保留备注', links: [{ text: '说明', href: './guide.md', start: 2, end: 4 }], images: [] }], cover: { alt: '设计封面', href: './cover.png' } },
-    { id: 'b', title: '开发指南', href: './guide.md', section: '文档', sectionId: 'docs', cells: [cell('开发指南', './guide.md'), cell('完成'), cell('乙'), cell('工程')] },
-    { id: 'c', title: '阅读清单', href: './reading.md', section: '阅读', sectionId: 'reading', cells: [cell('阅读清单', './reading.md'), cell('完成'), cell('甲'), cell('书籍')] },
+    { id: 'a', line: 1, title: '设计笔记', href: './design.md', section: '文档', sectionId: 'docs', cells: [cell('设计笔记', './design.md'), cell('进行中'), cell('甲'), { text: '参见说明，保留备注', links: [{ text: '说明', href: './guide.md', start: 2, end: 4 }], images: [] }], cover: { alt: '设计封面', href: './cover.png' } },
+    { id: 'b', line: 2, title: '开发指南', href: './guide.md', section: '文档', sectionId: 'docs', cells: [cell('开发指南', './guide.md'), cell('完成'), cell('乙'), cell('工程')] },
+    { id: 'c', line: 3, title: '阅读清单', href: './reading.md', section: '阅读', sectionId: 'reading', cells: [cell('阅读清单', './reading.md'), cell('完成'), cell('甲'), cell('书籍')] },
   ], ...overrides }
 }
 function control<T extends HTMLElement>(label: string): T {
@@ -58,6 +61,7 @@ describe('Index viewer', () => {
     bridge.receive = null
     bridge.unsubscribe.mockReset()
     bridge.open.mockReset().mockResolvedValue(undefined)
+    bridge.page.mockReset().mockResolvedValue(undefined)
     bridge.cover.mockReset().mockResolvedValue('blob:cover')
     revoke = vi.fn()
     vi.stubGlobal('URL', Object.assign(URL, { revokeObjectURL: revoke }))
@@ -91,6 +95,24 @@ describe('Index viewer', () => {
     expect(bridge.open).toHaveBeenCalledWith('/vault/library.index.md', './guide.md')
     await view('表格')
     expect(document.querySelectorAll('tbody tr')).toHaveLength(3)
+  })
+
+  it('opens primary wikilinks and hashtag badges through the same page route in every layout', async () => {
+    const source = '# 索引\n## 工作\n- [[设计]] #设计 [相关:: [[设计|方案]]]\n- [文件](file.md)'
+    await start(parseIndex(source, '/vault/library.index.md')!)
+    for (const label of ['分组列表', '表格', '泳道看板', '封面画廊']) {
+      await view(label)
+      for (const name of ['设计', '#设计', '方案']) {
+        button(name).click()
+        expect(bridge.page).toHaveBeenLastCalledWith('/vault/library.index.md', '设计')
+      }
+    }
+    expect(bridge.page).toHaveBeenCalledTimes(12)
+    button('文件').click()
+    expect(bridge.open).toHaveBeenCalledWith('/vault/library.index.md', 'file.md')
+    bridge.page.mockRejectedValueOnce(new Error('页面被禁止'))
+    button('#设计').click()
+    await vi.waitFor(() => expect(document.querySelector('[role="alert"]')?.textContent).toContain('页面被禁止'))
   })
 
   it('keeps a repeated plain label separate from its actual link', async () => {

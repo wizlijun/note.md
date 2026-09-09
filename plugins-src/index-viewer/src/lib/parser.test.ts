@@ -9,6 +9,33 @@ function values(source: string) {
 }
 
 describe('heading categories and single-line records', () => {
+  it('makes hashtags, delimited tags and wikilinks target the same logical page', () => {
+    const doc = parseIndex('- [[主题/设计|设计页]] #主题/设计 #[[多词页面]] [相关:: [[主题/设计|方案]] #主题/设计] 另见 [[多词页面]]', uri)!
+    expect(doc.rows[0]).toMatchObject({ title: '设计页', href: '主题/设计', linkKind: 'page' })
+    const links = doc.rows[0].cells.flatMap(value => value.links)
+    expect(links.every(link => link.kind === 'page')).toBe(true)
+    expect(links.filter(link => link.href === '主题/设计')).toHaveLength(4)
+    expect(links.filter(link => link.href === '多词页面')).toHaveLength(2)
+    expect(doc.rows[0].cells.find(value => value.text.includes('#[['))?.text).toBe('#主题/设计 #[[多词页面]]')
+  })
+
+  it('supports a tag as the primary page item and keeps source line numbers with frontmatter', () => {
+    const doc = parseIndex('---\nview: list\n---\n## 工作\n  - #设计\n- [[设计]]', uri)!
+    expect(doc.rows.map(row => [row.href, row.linkKind, row.line])).toEqual([['设计', 'page', 5], ['设计', 'page', 6]])
+  })
+
+  it('does not reinterpret knowledge markers inside code, escapes, Markdown labels or URLs', () => {
+    const doc = parseIndex('- [文件](file.md) `[[代码]] #code` \\[[转义]] \\#escaped [#标签 \\[\\[文字\\]\\]](path.md) [详情:: [[真实]]]', uri)!
+    const links = doc.rows[0].cells.flatMap(value => value.links)
+    expect(links.filter(link => link.kind === 'page').map(link => link.href)).toEqual(['真实'])
+    expect(links.filter(link => !link.kind).map(link => link.href)).toEqual(['file.md', 'path.md'])
+  })
+
+  it('keeps wiki tokens intact even when a matching Markdown reference is defined', () => {
+    const doc = parseIndex('- [[设计]] [关联:: [[设计|方案]]]\n\n[设计]: wrong.md', uri)!
+    expect(doc.rows[0].href).toBe('设计')
+    expect(doc.rows[0].cells[1].links[0]).toMatchObject({ href: '设计', kind: 'page', text: '方案' })
+  })
   it('defaults to the category list and reads named inline fields without metadata', () => {
     const doc = parseIndex('# **书籍**\n\n阅读清单。\n\n> 来自本地收藏。\n\n' + list, uri)!
     expect(doc).toMatchObject({ uri, title: '书籍', description: ['阅读清单。', '来自本地收藏。'], columns: ['文件', '状态'], view: 'list', groupBy: '', laneBy: '', sections: [] })
@@ -108,7 +135,7 @@ describe('heading categories and single-line records', () => {
   it.each([
     '前缀 [书籍](book.md)', '![书籍](book.png)', '[![书籍](book.png)](book.md)', '**[书籍](book.md)**',
     '[书籍][missing]', '普通文件名', '[书籍](https://example.com/book.md)', '[书籍](javascript:alert)',
-    '[书籍](//example.com/book.md)', '[书籍](#chapter)', '[](book.md)', '[会议：设计](meeting.md', '[[book]]',
+    '[书籍](//example.com/book.md)', '[书籍](#chapter)', '[](book.md)', '[会议：设计](meeting.md',
   ])('rejects invalid primary file item: %s', first => expect(parseIndex(`- ${first}`, uri)).toBeNull())
 
   it.each([

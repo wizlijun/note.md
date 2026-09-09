@@ -10,6 +10,7 @@ export type Capability =
   | 'clipboard.write'
   | 'toast'
   | 'dialog'
+  | 'editor.open'
 
 export type SettingsField =
   | { key: string; type: 'string'; label: string; default?: string; placeholder?: string }

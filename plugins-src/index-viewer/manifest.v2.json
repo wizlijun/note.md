@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "kind": "native",
   "engines": {
-    "notemd": ">=6.909.4"
+    "notemd": ">=6.910.1"
   },
   "description": "Browse Markdown file indexes as tables, grouped lists, swimlane boards and cover galleries.",
   "ui": "ui/",

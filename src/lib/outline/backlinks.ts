@@ -3,8 +3,11 @@ import { parseInline, eachInline } from './parser'
 import { parseOutline } from './markdown'
 import type { OutlineTree } from './model'
 import { basename, joinPath, relative } from '../paths'
+import { parseIndex } from '../index-format/parser'
+import { isBlockedWikilink } from '../wikilink/blocklist'
+import { sanitizeFileName } from './slug'
 
-export interface BacklinkHit { file: string; text: string; line: number }
+export interface BacklinkHit { file: string; text: string; line: number; breadcrumb?: string[] }
 
 /** 页面命名空间：root 下第一段目录 ∈ dirs 的 .md 才算 wiki 页（递归）。 */
 export interface PageScope { root: string; dirs: string[] }
@@ -16,9 +19,9 @@ export interface BacklinkIndex {
   fileTargets: Map<string, Set<string>>
   /** 已索引「wiki 页」的页面名（[[ 补全候选 / 解析目标） */
   filePages: Map<string, string>
-  /** 页面命名空间；null = 所有 .md 都是页面（向后兼容） */
+  /** 页面命名空间；null = 除 .index.md 外的 .md 都是页面（向后兼容） */
   scope: PageScope | null
-  /** file → 解析后的大纲树（仅含 ≥1 个链接的文件）。Linked References 层次
+  /** file → 解析后的大纲树（含 ≥1 个链接，文件索引另用行命中）。Linked References 层次
    *  召回复用此缓存，避免视图时重复读盘 + 重新 parseOutline。watcher 增量维护。 */
   fileTrees: Map<string, OutlineTree>
 }
@@ -29,10 +32,12 @@ export function createIndex(scope: PageScope | null = null): BacklinkIndex {
 
 /**
  * path 是否为「wiki 页」：相对 scope.root 的第一段 ∈ scope.dirs 且以 .md 结尾（递归子目录都算）。
- * scope 为 null → 所有 .md 都是页面（纯逻辑调用 / 向后兼容）。
+ * scope 为 null → 除 .index.md 外的 .md 都是页面（纯逻辑调用 / 向后兼容）。
  */
 export function isWikiPagePath(scope: PageScope | null, path: string): boolean {
   if (!/\.md$/i.test(path)) return false
+  // 索引是引用来源，不是可供 [[补全]] / 新建页面解析的 wiki 页。
+  if (/\.index\.md$/i.test(path)) return false
   if (!scope) return true
   const rel = relative(scope.root, path)
   if (rel === null) return false
@@ -58,9 +63,35 @@ export function removeFileFromIndex(idx: BacklinkIndex, file: string): void {
   idx.fileTrees.delete(file)
 }
 
-/** 单文件（重新）索引：逐行提取 [[..]] 与 #tag */
+/** 单文件（重新）索引：笔记逐行提取 [[..]] 与 #tag，文件索引复用查看器解析器。 */
 export function indexFileContent(idx: BacklinkIndex, file: string, content: string): void {
   removeFileFromIndex(idx, file)
+  if (/\.index\.md$/i.test(file)) {
+    // 与查看器共用语法；解析失败不猜测关系，也不把属性值/代码误当页面。
+    const doc = parseIndex(content, file)
+    if (!doc) return
+    const lines = content.replace(/\r\n?/g, '\n').split('\n')
+    const sections = new Map(doc.sections.map(section => [section.id, section.path]))
+    const targets = new Set<string>()
+    for (const row of doc.rows) {
+      const rowTargets = new Set(row.cells.flatMap(cell => cell.links
+        .filter(link => link.kind === 'page' && !isBlockedWikilink(link.href))
+        // 新建 wiki 页以安全文件名落盘，页面回链查询使用 pageNameOf(path)。
+        // 同时保留原逻辑名称与落盘名称，#主题/设计 仍能在主题-设计页召回。
+        .flatMap(link => [link.href.toLowerCase(), sanitizeFileName(link.href).toLowerCase()])))
+      for (const key of rowTargets) {
+        targets.add(key)
+        const hits = idx.byTarget.get(key) ?? []
+        hits.push({
+          file, text: lines[row.line - 1].replace(/^\s*[-+*]\s+/, '').trim(), line: row.line,
+          breadcrumb: sections.get(row.sectionId) ?? [],
+        })
+        idx.byTarget.set(key, hits)
+      }
+    }
+    idx.fileTargets.set(file, targets)
+    return
+  }
   if (isWikiPagePath(idx.scope, file)) idx.filePages.set(file, pageNameOf(file))
   const targets = new Set<string>()
   content.split('\n').forEach((rawLine, i) => {
@@ -132,7 +163,11 @@ export function detectNameCollisions(idx: BacklinkIndex): Map<string, string[]> 
 
 const MAX_FILE_BYTES = 1024 * 1024 // spec 性能护栏：仅解析 ≤1MB
 
-/** 扫描 rootDir 下所有 .note.md 建全量索引（递归、跳过点目录/点文件）。
+function isReferenceSource(path: string): boolean {
+  return /\.(?:notes?|index)\.md$/i.test(path)
+}
+
+/** 扫描 rootDir 下所有 .note.md / .index.md 建全量索引（递归、跳过点目录/点文件）。
  *  纯 .md 一律跳过（尺寸不可控）。
  *  副作用:遇到旧后缀 *.notes.md 会就地迁移改名为 *.note.md(冲突时回调上报)。 */
 export async function buildFolderIndex(
@@ -149,9 +184,8 @@ export async function buildFolderIndex(
       if (e.isSymlink) continue // skip symlinks to avoid cycle risk
       let path = joinPath(dir, e.name)
       if (e.isDirectory) { await walk(path); continue }
-      // 只索引 .note.md（含旧后缀 .notes.md，会就地迁移）：note 文件由 app 自管、
-      // 尺寸可控；纯 .md（导入稿/转录/摘要等）尺寸不可控，一律不扫也不登记为页面。
-      if (!/\.notes?\.md$/i.test(e.name)) continue
+      // 只扫描笔记与文件索引；纯 .md（导入稿/转录/摘要等）仍不扫。
+      if (!isReferenceSource(e.name)) continue
       if (/\.notes\.md$/i.test(e.name)) {
         const { migrateLegacyFile, migratedPathFor } = await import('./migrate')
         const r = await migrateLegacyFile(path)
@@ -159,7 +193,7 @@ export async function buildFolderIndex(
         else if (r === 'conflict') onMigrateConflict?.(path)
       }
       const info = await stat(path).catch(() => null)
-      if (info && info.size > MAX_FILE_BYTES) continue
+      if (!info || info.size > MAX_FILE_BYTES) continue
       const content = await readTextFile(path).catch(() => null)
       if (content != null) indexFileContent(idx, path, content)
     }
@@ -175,22 +209,28 @@ export async function buildFolderIndex(
  * 代价只是等下一次全量重建,不做 stat 换精度)。
  */
 export function classifyWatchPaths(paths: string[]): { notes: string[]; dirChange: boolean } {
+  // 保留 notes 字段以兼容 watcher；这里也包含文件索引引用源。
   const notes: string[] = []
   let dirChange = false
   for (const p of paths) {
-    if (/\.notes?\.md$/i.test(p)) { notes.push(p); continue }
     const norm = p.replace(/[\\/]+$/, '')
     if (norm.split(/[\\/]/).some((s) => s.startsWith('.'))) continue
+    if (isReferenceSource(p)) { notes.push(p); continue }
     const seg = norm.split(/[\\/]/).pop() ?? ''
     if (seg && !seg.includes('.')) dirChange = true
   }
   return { notes, dirChange }
 }
 
-/** file-watcher 事件驱动的单文件增量重扫（仅 .note.md，纯 .md 不索引） */
+/** file-watcher 事件驱动的单文件增量重扫，沿用全量扫描的 1MB 护栏。 */
 export async function refreshFileInIndex(idx: BacklinkIndex, path: string): Promise<void> {
-  if (!/\.notes?\.md$/i.test(path)) return
-  const { readTextFile } = await import('@tauri-apps/plugin-fs')
+  if (!isReferenceSource(path)) return
+  const { readTextFile, stat } = await import('@tauri-apps/plugin-fs')
+  const info = await stat(path).catch(() => null)
+  if (!info || info.size > MAX_FILE_BYTES) {
+    removeFileFromIndex(idx, path)
+    return
+  }
   const content = await readTextFile(path).catch(() => null)
   if (content == null) removeFileFromIndex(idx, path)
   else indexFileContent(idx, path, content)

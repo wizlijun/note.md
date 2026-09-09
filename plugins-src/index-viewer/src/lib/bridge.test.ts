@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { isHostOrigin, loadCover, onDocument, openLink, sourcePath } from './bridge'
+import { isHostOrigin, loadCover, onDocument, openLink, openPage, sourcePath } from './bridge'
 
 const request = vi.fn()
 const uri = '/vault/indexes/library.index.md'
@@ -14,7 +14,66 @@ beforeEach(() => {
   request.mockReset()
   Object.assign(window, { notemd: { locale: 'zh', request } })
 })
-afterEach(() => { stop?.(); stop = undefined; vi.restoreAllMocks(); vi.unstubAllGlobals() })
+afterEach(() => { stop?.(); stop = undefined; vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers() })
+
+describe('shared page navigation channel', () => {
+  it('rejects control characters before sending a page request', async () => {
+    const post = vi.spyOn(window, 'postMessage').mockImplementation(() => {})
+    stop = onDocument(() => {})
+    send()
+    post.mockClear()
+    await expect(openPage(uri, '设\u0080计')).rejects.toThrow('无效')
+    expect(post).not.toHaveBeenCalled()
+  })
+
+  it('requests the logical page through the current parent channel and waits for its result', async () => {
+    const post = vi.spyOn(window, 'postMessage').mockImplementation(() => {})
+    stop = onDocument(() => {})
+    send()
+    const promise = openPage(uri, '主题/设计')
+    const message = post.mock.calls.at(-1)![0]
+    expect(message).toMatchObject({ type: 'file_view.open_page', requestId: 7, target: '主题/设计' })
+    expect(post.mock.calls.at(-1)![1]).toBe('tauri://localhost')
+    send({ ...message, type: 'file_view.page_result', ok: true })
+    await expect(promise).resolves.toBeUndefined()
+    expect(request).not.toHaveBeenCalled()
+  })
+
+  it('ignores forged or stale results and surfaces host navigation errors', async () => {
+    const post = vi.spyOn(window, 'postMessage').mockImplementation(() => {})
+    stop = onDocument(() => {})
+    send()
+    const promise = openPage(uri, '设计')
+    const outcome = expect(promise).rejects.toThrow('blocked')
+    const response = { ...post.mock.calls.at(-1)![0], type: 'file_view.page_result', ok: false, error: 'blocked' }
+    send(response, 'https://evil.test')
+    send({ ...response, requestId: 6 })
+    send(response, 'tauri://localhost', {} as Window)
+    send(response)
+    await outcome
+  })
+
+  it('cancels requests on a changed snapshot and rejects calls from an old document', async () => {
+    vi.spyOn(window, 'postMessage').mockImplementation(() => {})
+    stop = onDocument(() => {})
+    send()
+    const old = expect(openPage(uri, '设计')).rejects.toThrow('切换')
+    send({ requestId: 8, uri: '/vault/other.index.md' })
+    await old
+    await expect(openPage(uri, '设计')).rejects.toThrow('尚未就绪')
+  })
+
+  it('times out without inventing a file path or writing to the Vault', async () => {
+    vi.useFakeTimers()
+    vi.spyOn(window, 'postMessage').mockImplementation(() => {})
+    stop = onDocument(() => {})
+    send()
+    const result = expect(openPage(uri, '设计')).rejects.toThrow('超时')
+    await vi.advanceTimersByTimeAsync(30_000)
+    await result
+    expect(request).not.toHaveBeenCalled()
+  })
+})
 
 describe('file view handshake', () => {
   it('acknowledges a supported file without reading or writing Vault contents', () => {

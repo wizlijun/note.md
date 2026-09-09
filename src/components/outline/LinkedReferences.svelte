@@ -1,6 +1,6 @@
 <script lang="ts">
   import { outline } from '../../lib/outline/store.svelte'
-  import { recallCandidateFiles, recallGroupForFile, type RecallGroup } from '../../lib/outline/recall'
+  import { recallCandidateFiles, recallGroupForFile, referencePageTarget, type RecallGroup } from '../../lib/outline/recall'
   import { openFile } from '../../lib/tabs.svelte'
   import { openPageOrCreate } from '../../lib/outline/backlinks-io.svelte'
   import { commitReferenceEdit } from '../../lib/outline/recall-writeback-io'
@@ -99,7 +99,7 @@
               node={carrier.node}
               defaultCollapsed={true}
               {editable}
-              {onPageClick}
+              onPageClick={(target) => onPageClick(referencePageTarget(g.file, target))}
               onCommit={(path, oldText, newText) => commitReferenceEdit(g.file, path, oldText, newText)}
             />
           </div>

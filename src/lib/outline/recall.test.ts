@@ -4,7 +4,7 @@ import { parseOutline } from './markdown'
 import { createIndex, indexFileContent } from './backlinks'
 import {
   recallNodes, recallTree, editNodeInOutline, recallGrouped,
-  recallCandidateFiles, recallGroupForFile,
+  recallCandidateFiles, recallGroupForFile, referencePageTarget,
 } from './recall'
 
 /** parse outline text and recall carrier nodes for `page` */
@@ -164,5 +164,33 @@ describe('recallGrouped (from cached index trees)', () => {
     expect(g.carriers[0].node.text).toBe('[[X]]')
     expect(recallGroupForFile(idx, 'x', '/v/missing.note.md')).toBeNull()
     expect(recallGroupForFile(idx, 'nope', '/v/a.note.md')).toBeNull()
+  })
+  it('recalls index references with heading breadcrumbs and source lines without reparsing as an outline', () => {
+    const file = '/v/catalog.index.md'
+    const idx = idxWith({ [file]: '# 索引\n## 工作\n### 项目\n - [方案](./方案.md) [[设计|别名]]\n   - [清单](./清单.md) #设计\n' })
+    expect(idx.fileTrees.has(file)).toBe(false)
+    expect(recallGroupForFile(idx, '设计', file)).toEqual({
+      file,
+      carriers: [
+        { breadcrumb: ['工作', '项目'], node: { text: '[方案](./方案.md) [[设计|别名]]', path: [], line: 4, children: [] } },
+        { breadcrumb: ['工作', '项目'], node: { text: '[清单](./清单.md) #设计', path: [], line: 5, children: [] } },
+      ],
+    })
+    expect(recallGrouped(idx, '设计', file)).toEqual([])
+    expect(recallGroupForFile(idx, '不存在', file)).toBeNull()
+  })
+  it('opens alias targets from index references while preserving existing note page names', () => {
+    expect(referencePageTarget('/v/catalog.index.md', '设计|设计工作')).toBe('设计')
+    expect(referencePageTarget('/v/catalog.INDEX.MD', ' 设计 | 设计工作 ')).toBe('设计')
+    expect(referencePageTarget('/v/catalog.index.md', '设计')).toBe('设计')
+    expect(referencePageTarget('/v/catalog.note.md', '设计|设计工作')).toBe('设计|设计工作')
+    expect(referencePageTarget('/v/catalog.md', '设计|设计工作')).toBe('设计|设计工作')
+  })
+  it('shows index references on the sanitized wiki page with original source text', () => {
+    const file = '/v/catalog.index.md'
+    const idx = idxWith({ [file]: '# 索引\n## 工作\n- [方案](./方案.md) #主题/设计 [[主题/设计|别名]]' })
+    expect(recallGroupForFile(idx, '主题-设计', file)).toEqual(recallGroupForFile(idx, '主题/设计', file))
+    expect(recallGroupForFile(idx, '主题-设计', file)?.carriers[0].node.text).toBe('[方案](./方案.md) #主题/设计 [[主题/设计|别名]]')
+    expect(recallGroupForFile(idx, '主题-设计', file)?.carriers).toHaveLength(1)
   })
 })

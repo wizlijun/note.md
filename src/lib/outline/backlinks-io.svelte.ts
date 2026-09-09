@@ -88,7 +88,7 @@ export function teardownIndex(): void {
 
 /** 点击 [[页面]]:全局解析(resolveTarget);未解析 → vault 内建 wikipage
  *  大纲页,vault 外维持旧行为(同目录建 .md)。 */
-export async function openPageOrCreate(target: string): Promise<void> {
+export async function openPageOrCreate(target: string, options: { throwErrors?: boolean } = {}): Promise<void> {
   // 日期链接规范形式(spec §6):先于索引匹配,按路径规则直达 dailynote
   {
     const { parseDateLink, ensureDailyNote } = await import('./daily')
@@ -98,6 +98,7 @@ export async function openPageOrCreate(target: string): Promise<void> {
         if (p) { await openFile(p); return }
         // vault 未配置:落回普通解析/建页逻辑
       } catch (e) {
+        if (options.throwErrors) throw e
         console.warn('[outline] open daily note failed:', e)
         pushToast({ level: 'error', message: String(e) })
         return
@@ -123,6 +124,7 @@ export async function openPageOrCreate(target: string): Promise<void> {
       await ensureOutlineFile(path, target, CONCEPT_TYPE.wikiPage)
       await openFile(path)
     } catch (e) {
+      if (options.throwErrors) throw e
       console.warn('[outline] create wiki page failed:', e)
       pushToast({ level: 'error', message: String(e) })
     }
@@ -141,6 +143,7 @@ export async function openPageOrCreate(target: string): Promise<void> {
     }
     await openFile(path)
   } catch (e) {
+    if (options.throwErrors) throw e
     console.warn('[outline] create page failed:', e)
     pushToast({ level: 'error', message: String(e) })
   }

@@ -18,6 +18,8 @@ export interface RecallTreeNode {
   text: string
   path: number[]
   children: RecallTreeNode[]
+  /** 只读文件索引条目的真实源行号，不用 outline 子节点路径定位。 */
+  line?: number
 }
 
 /** A carrier node with its ancestor breadcrumb and nested subtree. */
@@ -142,6 +144,11 @@ export interface RecallGroup {
   carriers: RecallCarrier[]
 }
 
+/** 索引采用 [[目标|别名]]；旧 outline 的页面名语义保持原样。 */
+export function referencePageTarget(file: string, target: string): string {
+  return /\.index\.md$/i.test(file) ? target.split('|')[0].trim() : target
+}
+
 /**
  * Grouped, nested recall for the Linked References outline: one {@link RecallGroup}
  * per source file, each carrying its topmost carrier nodes as nested subtrees.
@@ -181,6 +188,14 @@ export function recallCandidateFiles(
  * no cached tree or contributes no carriers. Used for progressive/chunked load.
  */
 export function recallGroupForFile(idx: BacklinkIndex, page: string, file: string): RecallGroup | null {
+  if (/\.index\.md$/i.test(file)) {
+    // 文件索引使用标题分类与宽松列表缩进，不能 parse↔serialize 为 outline。
+    const carriers = backlinksFor(idx, page).filter(hit => hit.file === file).map(hit => ({
+      breadcrumb: hit.breadcrumb ?? [],
+      node: { text: hit.text, path: [], line: hit.line, children: [] },
+    }))
+    return carriers.length ? { file, carriers } : null
+  }
   const tree = idx.fileTrees.get(file)
   if (!tree) return null
   const carriers = recallTree(tree, page)

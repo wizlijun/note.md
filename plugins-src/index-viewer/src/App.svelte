@@ -1,7 +1,7 @@
 <script lang="ts">
   import '../../../src/styles/ui-foundation.css'
   import { onDestroy } from 'svelte'
-  import { locale, onDocument, openLink } from './lib/bridge'
+  import { locale, onDocument, openLink, openPage } from './lib/bridge'
   import type { IndexDocument, IndexRow, IndexSection, IndexView } from './lib/model'
   import CellContent from './lib/components/CellContent.svelte'
   import Cover from './lib/components/Cover.svelte'
@@ -33,7 +33,11 @@
   const filtered = $derived(doc?.rows.filter((row) => `${row.section} ${row.cells.map((cell) => cell.text).join(' ')}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())) ?? [])
   const ungrouped = zh ? '未分类' : 'Uncategorized'
   function groupValue(row: IndexRow, column: string): string {
-    const text = row.cells[doc!.columns.indexOf(column)]?.text.trim()
+    const value = row.cells[doc!.columns.indexOf(column)]
+    const text = value?.text.trim()
+    if (column === '标签' && value?.links.length) {
+      return value.links.map(link => link.href.toLocaleLowerCase()).sort().map(target => /\s/.test(target) ? `#[[${target}]]` : `#${target}`).join(' ')
+    }
     return (column === '标签' ? text?.split(/\s+/).map(tag => tag.toLocaleLowerCase()).sort().join(' ') : text) || ungrouped
   }
   function groupKey(row: IndexRow): string { return groupBy ? groupValue(row, groupBy) : row.sectionId }
@@ -60,11 +64,11 @@
   })
   const rootRows = $derived(filtered.filter((row) => !row.sectionId))
   const usesCategories = $derived(view === 'table' || ((view === 'list' || view === 'gallery') && !groupBy))
-  async function open(href: string) {
+  async function open(href: string, kind?: 'page') {
     if (!doc) return
     const version = documentVersion
     error = ''
-    try { await openLink(doc.uri, href) }
+    try { await (kind === 'page' ? openPage(doc.uri, href) : openLink(doc.uri, href)) }
     catch (cause) { if (version === documentVersion) error = `${zh ? '无法打开文件：' : 'Could not open file: '}${cause instanceof Error ? cause.message : String(cause)}` }
   }
 </script>
@@ -77,14 +81,14 @@
   </dl>
 {/snippet}
 {#snippet card(row: IndexRow)}
-  <article class="card"><button class="file-name" type="button" onclick={() => open(row.href)}>{row.title}</button>{@render fields(row)}</article>
+  <article class="card"><button class="file-name" type="button" onclick={() => open(row.href, row.linkKind)}>{row.title}</button>{@render fields(row)}</article>
 {/snippet}
 
 {#snippet rowsContent(rows: IndexRow[])}
   {#if view === 'table'}
     {#if rows.length}<div class="table-scroll"><table><thead><tr>{#each doc!.columns as column}<th scope="col">{column}</th>{/each}</tr></thead><tbody>{#each rows as row (row.id)}<tr>{#each row.cells as cell, index}<td class:primary={index === 0}><CellContent {cell} {open}/></td>{/each}</tr>{/each}</tbody></table></div>{/if}
   {:else if view === 'gallery'}
-    <div class="gallery">{#each rows as row (row.id)}<article class="gallery-card"><Cover uri={doc!.uri} cover={row.cover} {zh}/><div class="gallery-details"><button class="file-name" type="button" onclick={() => open(row.href)}>{row.title}</button>{@render fields(row)}</div></article>{/each}</div>
+    <div class="gallery">{#each rows as row (row.id)}<article class="gallery-card"><Cover uri={doc!.uri} cover={row.cover} {zh}/><div class="gallery-details"><button class="file-name" type="button" onclick={() => open(row.href, row.linkKind)}>{row.title}</button>{@render fields(row)}</div></article>{/each}</div>
   {:else}
     <div class="list-rows">{#each rows as row (row.id)}{@render card(row)}{/each}</div>
   {/if}

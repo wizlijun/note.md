@@ -19,6 +19,7 @@
   $effect(() => { pluginRuntime.manifests = [manifest] })
   Object.assign(window, { __indexBrowser: {
     get content() { return tab.currentContent },
+    pagePermission(allowed: boolean) { pluginRuntime.manifests = [{ ...manifest, host_capabilities: allowed ? manifest.host_capabilities : manifest.host_capabilities.filter(value => value !== 'editor.open') }] },
     reload(content: string) {
       tab.currentContent = content
       retryFileViewAfterReload(tab)

@@ -28,19 +28,33 @@ const { chromium } = await import(process.env.PLAYWRIGHT_MODULE ? pathToFileURL(
 const calls = [], results = [], errors = [], servers = []
 let pluginOrigin = '', browser
 const coverPaths = new Set(['assets/covers/blue-book.png', 'assets/covers/green-book.png'])
-let missingFiles = false
+let missingFiles = false, pageFailure = false
+const pageCalls = []
 async function serve(kind) {
   const server = await createServer({ root, configFile: false, cacheDir: join(output, `vite-${kind}`),
     resolve: { dedupe: ['svelte'] }, optimizeDeps: { noDiscovery: true, include: [] },
     server: { host: '127.0.0.1', port: 0, hmr: false, watch: null },
     plugins: [{ name: `index-fixture-${kind}`, enforce: 'pre',
       transform(code, id) {
+        if (kind === 'host' && id.endsWith('/src/lib/plugins/file-view-pages.ts')) {
+          return `export async function openFileViewPage(sourcePath, target, isCurrent) {
+            if (!isCurrent()) throw new Error('File view changed');
+            const result = await fetch('/__page__', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({sourcePath,target})});
+            if (!result.ok) throw new Error(await result.text());
+          }`;
+        }
         if (kind === 'host' && id.endsWith('/src/components/FilePluginView.svelte')) {
           assert.ok(code.includes('`plugin://${view.pluginId}`'))
           return code.replace('`plugin://${view.pluginId}`', JSON.stringify(pluginOrigin))
         }
       },
       configureServer(vite) {
+        if (kind === 'host') vite.middlewares.use('/__page__', async (req, res) => {
+          let body = ''; for await (const chunk of req) body += chunk;
+          pageCalls.push(JSON.parse(body));
+          res.statusCode = pageFailure ? 500 : 204;
+          res.end(pageFailure ? 'Knowledge page unavailable' : '');
+        });
         vite.middlewares.use('/__rpc__', async (req, res) => {
           let id = null
           try {
@@ -195,6 +209,32 @@ try {
     await page.evaluate(content => window.__indexBrowser.reload(content), content)
     await plugin().getByText('封面无法加载', { exact: true }).waitFor()
   })
+  await check('hashtags and wikilinks use the same host page navigation in all layouts', async () => {
+    const content = '# 知识索引\n## 工作\n- [[设计]] #设计 [相关:: [[设计|方案]]]\n';
+    await page.evaluate(content => window.__indexBrowser.reload(content), content);
+    await ready();
+    await plugin().getByRole('button', {name:'#设计',exact:true}).waitFor();
+    for (const layout of ['分组列表','表格','泳道看板','封面画廊']) {
+      await plugin().getByRole('button', {name:layout,exact:true}).click();
+      for (const name of ['设计','#设计','方案']) {
+        const request = page.waitForResponse(response => response.url().endsWith('/__page__'));
+        await plugin().getByRole('button', {name,exact:true}).click();
+        await request;
+        assert.deepEqual(pageCalls.at(-1), {sourcePath:'/fixture-vault/assets/demo.index.md',target:'设计'});
+      }
+    }
+    assert.equal(pageCalls.length, 12);
+    assert.equal(await page.evaluate(() => window.__indexBrowser.content), content);
+    pageFailure = true;
+    await plugin().getByRole('button', {name:'#设计',exact:true}).click();
+    await plugin().getByRole('alert').filter({hasText:'Knowledge page unavailable'}).waitFor();
+    pageFailure = false;
+    await page.evaluate(() => window.__indexBrowser.pagePermission(false));
+    await plugin().getByRole('button', {name:'#设计',exact:true}).click();
+    await plugin().getByRole('alert').filter({hasText:'editor.open'}).waitFor();
+    assert.equal(pageCalls.length, 13);
+    await page.evaluate(() => window.__indexBrowser.pagePermission(true));
+  });
   await check('invalid format falls back; Source and plugin mode preserve editable Markdown', async () => {
     const malformed = '# 索引\n\n- [文件](file.md) [状态:: 已读] [状态:: 冲突值]\n'
     await page.evaluate(content => window.__indexBrowser.reload(content), malformed)
@@ -208,7 +248,7 @@ try {
   })
   assert.deepEqual(errors, [])
   assert.ok(calls.every(call => ['host.vault.info', 'host.vault.read_bytes', 'host.editor.open'].includes(call.method)))
-  const report = { output, browser: browser.version(), results, boundaries: 'Real host FilePluginView + ModeToggle; production index bundle and Rust bridge/CSP; isolated read-only fixture RPC' }
+  const report = { output, browser: browser.version(), results, boundaries: 'Real host FilePluginView + ModeToggle; production index bundle and Rust bridge/CSP; isolated fixture RPC and page effects (real page resolver separately integration-tested)' }
   await writeFile(join(output, 'report.json'), JSON.stringify(report, null, 2))
   console.log(JSON.stringify(report, null, 2))
 } catch (error) {

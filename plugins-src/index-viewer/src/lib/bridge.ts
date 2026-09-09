@@ -20,21 +20,65 @@ export function isHostOrigin(origin: string): boolean {
     || /^https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/.test(origin)
 }
 
+let pageContext: { uri: string; requestId: number; origin: string } | undefined
+let operationId = 0
+const pageRequests = new Map<number, { resolve: () => void; reject: (error: Error) => void; timer: ReturnType<typeof setTimeout> }>()
+function cancelPageRequests() {
+  for (const pending of pageRequests.values()) {
+    clearTimeout(pending.timer)
+    pending.reject(new Error(message('索引视图已切换。', 'The index view changed.')))
+  }
+  pageRequests.clear()
+  pageContext = undefined
+}
+
 export function onDocument(callback: (document: IndexDocument) => void): () => void {
   const receive = (event: MessageEvent) => {
     const data = event.data
-    if (event.source !== window.parent || !isHostOrigin(event.origin) || !data || data.type !== 'file_view.open'
+    if (event.source !== window.parent || !isHostOrigin(event.origin) || !data) return
+    if (data.type === 'file_view.page_result') {
+      if (!pageContext || event.origin !== pageContext.origin || data.requestId !== pageContext.requestId
+        || !Number.isSafeInteger(data.operationId) || typeof data.ok !== 'boolean') return
+      const pending = pageRequests.get(data.operationId)
+      if (!pending) return
+      clearTimeout(pending.timer)
+      pageRequests.delete(data.operationId)
+      if (data.ok) pending.resolve()
+      else pending.reject(new Error(typeof data.error === 'string' ? data.error : message('无法打开知识页面。', 'Could not open the knowledge page.')))
+      return
+    }
+    if (data.type !== 'file_view.open'
       || data.viewId !== 'index' || !Number.isSafeInteger(data.requestId)
       || typeof data.content !== 'string' || typeof data.uri !== 'string') return
+    cancelPageRequests()
     let ready = false
     try {
       const document = parseIndex(data.content, data.uri)
-      if (document) { callback(document); ready = true }
+      if (document) { callback(document); pageContext = { uri: data.uri, requestId: data.requestId, origin: event.origin }; ready = true }
     } catch { /* The host retains the source and restores Markdown on failure. */ }
     window.parent.postMessage({ type: ready ? 'file_view.ready' : 'file_view.fallback', requestId: data.requestId }, event.origin)
   }
   window.addEventListener('message', receive)
-  return () => window.removeEventListener('message', receive)
+  return () => { window.removeEventListener('message', receive); cancelPageRequests() }
+}
+
+/** Both #tags and [[wikilinks]] request the host's existing page navigation. */
+export async function openPage(uri: string, target: string): Promise<void> {
+  const context = pageContext
+  const name = target.trim()
+  if (!context || context.uri !== uri) throw new Error(message('索引视图尚未就绪。', 'The index view is not ready.'))
+  if (!name || name.length > 1024 || /[\u0000-\u001f\u007f-\u009f]/.test(name)) throw new Error(message('知识页面名称无效。', 'Invalid knowledge page name.'))
+  const id = ++operationId
+  return new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      pageRequests.delete(id)
+      reject(new Error(message('打开知识页面超时，请重试。', 'Opening the knowledge page timed out. Please retry.')))
+    }, 30_000)
+    pageRequests.set(id, { resolve, reject, timer })
+    try {
+      window.parent.postMessage({ type: 'file_view.open_page', requestId: context.requestId, operationId: id, target: name }, context.origin)
+    } catch (error) { clearTimeout(timer); pageRequests.delete(id); reject(error) }
+  })
 }
 
 /** Resolve Markdown URLs relative to the index, then check the Vault boundary. */
