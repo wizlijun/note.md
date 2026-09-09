@@ -101,7 +101,7 @@ describe('EditorPane file view routing', () => {
 
   it('keeps Timeline a Markdown document and lets source mode take priority', async () => {
     const store = await setup()
-    expect(document.querySelector('iframe')?.getAttribute('src')).toBe('plugin://notemd.timeline/index.html')
+    expect(document.querySelector('iframe')?.getAttribute('src')).toBe('plugin://notemd.timeline/index.html?notemdReload=0')
     store.update((tab) => {
       expect(tab.kind).toBe('markdown')
       expect(tab.currentContent).toBe(content)
@@ -173,7 +173,7 @@ describe('EditorPane file view routing', () => {
       return tab
     })
     await tick()
-    expect(document.querySelector('iframe')?.getAttribute('src')).toBe('plugin://notemd.timeline/index.html')
+    expect(document.querySelector('iframe')?.getAttribute('src')).toBe('plugin://notemd.timeline/index.html?notemdReload=0')
   })
 
   it('retains the default editor across plugin removal and retries matching after external reload', async () => {
@@ -198,14 +198,14 @@ describe('EditorPane file view routing', () => {
       { id: 'automatic', entry: 'automatic.html', priority: 999, selectors: [{ file_extensions: ['md'] }] },
       { id: 'timeline', entry: 'index.html', open_command: 'open-timeline', selectors: [{ file_extensions: ['md'], frontmatter: { type: ['timeline'] } }] },
     ])
-    expect(document.querySelector('iframe')?.getAttribute('src')).toBe('plugin://notemd.timeline/automatic.html')
+    expect(document.querySelector('iframe')?.getAttribute('src')).toBe('plugin://notemd.timeline/automatic.html?notemdReload=0')
 
     store.update((tab) => {
       selectFileView(tab, { pluginId: 'notemd.timeline', viewId: 'timeline', entry: 'index.html', icon: 'generic' })
       return tab
     })
     await tick()
-    expect(document.querySelector('iframe')?.getAttribute('src')).toBe('plugin://notemd.timeline/index.html')
+    expect(document.querySelector('iframe')?.getAttribute('src')).toBe('plugin://notemd.timeline/index.html?notemdReload=0')
 
     const frame = document.querySelector('iframe')!
     window.dispatchEvent(new MessageEvent('message', {
@@ -223,7 +223,7 @@ describe('EditorPane file view routing', () => {
       return tab
     })
     await tick()
-    expect(document.querySelector('iframe')?.getAttribute('src')).toBe('plugin://notemd.timeline/index.html')
+    expect(document.querySelector('iframe')?.getAttribute('src')).toBe('plugin://notemd.timeline/index.html?notemdReload=0')
   })
 
   it.each(['# ordinary Markdown', '---\ntype: [Timeline]\n---', '---\ntype: Timeline\ntype: Other\n---'])('leaves unmatched or invalid metadata in Markdown', async (currentContent) => {
@@ -249,7 +249,7 @@ describe('EditorPane file view routing', () => {
       { id: 'generic-preview', entry: 'generic.html', selectors: [{ file_extensions: [sample.extension] }] },
     ], 'example.file-preview')
     const frame = document.querySelector('iframe')!
-    expect(frame.getAttribute('src')).toBe('plugin://example.file-preview/generic.html')
+    expect(frame.getAttribute('src')).toBe('plugin://example.file-preview/generic.html?notemdReload=0')
     const sent = vi.spyOn(frame.contentWindow!, 'postMessage').mockImplementation(() => {})
     frame.dispatchEvent(new Event('load'))
     expect(sent).toHaveBeenCalledWith(expect.objectContaining({ type: 'file_view.open', viewId: 'generic-preview', content: sample.currentContent }), 'plugin://example.file-preview')
