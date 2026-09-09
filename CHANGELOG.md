@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.909.4 — 2026-09-09
+
 ### Added
 
 - **Note files use the same format-driven view switch as plugins.** `.note.md` and `.notes.md` now expose their built-in outline beside Rich and Source through the shared file-view routing. The orange sparkle continues to identify Note, while Timeline uses a circular clock icon.
