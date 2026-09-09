@@ -184,6 +184,7 @@ var ENTRY_MAP={
  'notemd.trace-source':{en:'<b>Plugins</b> → <b>Read</b> → Trace Source',zh:'「<b>插件</b>」→「<b>阅读</b>」→ 溯源'},
  'notemd.decision-log':{en:'<b>Plugins</b> → <b>Reflect</b> → Decision',zh:'「<b>插件</b>」→「<b>回顾</b>」→ 决策'},
  'notemd.weekly-review':{en:'<b>Plugins</b> → <b>Reflect</b> → Weekly Review',zh:'「<b>插件</b>」→「<b>回顾</b>」→ 周检视'},
+ 'notemd.timeline':{en:'Install, then open a Markdown file with <code>type: timeline</code> in its frontmatter to see the timeline automatically. Edit category rules within the view.',zh:'安装后，打开 frontmatter 中设有 <code>type: timeline</code> 的 Markdown 文件即可自动显示时间轴；分类规则可在视图内设置。'},
  'notemd.md2pdf':{en:'<b>Plugins</b> → <b>Import & Export</b> → Export to PDF… (also CLI <code>notemd pdf</code>)',zh:'「<b>插件</b>」→「<b>导入与导出</b>」→ 导出为 PDF…（也支持 CLI <code>notemd pdf</code>）'},
  'notemd.power-mode':{en:'<b>Plugins</b> → <b>Experience</b> → Power Mode',zh:'「<b>插件</b>」→「<b>体验增强</b>」→ 狂暴模式'}
 };
