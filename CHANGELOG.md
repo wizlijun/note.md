@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.909.1 — 2026-09-09
+
 ### Added
 
 - **Open files in purpose-built plugin views.** Plugins can declare rules for extensions, file names, paths and frontmatter properties. note.md selects a matching view consistently, keeps source editing available and restores the file’s built-in editor if loading or parsing fails.
