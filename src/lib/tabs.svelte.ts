@@ -950,6 +950,19 @@ export async function closeTab(
   return true
 }
 
+/** Close a stable tab-id snapshot in order, preserving closeTab's dirty-file
+ * prompts. Cancelling any one close leaves that tab and every later tab open. */
+export async function closeTabs(
+  ids: readonly string[],
+  confirm: (name: string) => Promise<DirtyChoice>,
+): Promise<boolean> {
+  for (const id of [...ids]) {
+    if (!tabs.some((tab) => tab.id === id)) continue
+    if (!await closeTab(id, confirm)) return false
+  }
+  return true
+}
+
 /**
  * After a write that we initiated, capture the post-write mtime and hash so
  * the imminent watcher echo (or focus-poll re-stat) can be recognised as our

@@ -212,6 +212,8 @@ export const en = {
   // Drawer / tab bar
   'drawer.closeMenu': 'Close menu',
   'tabBar.modified': 'modified',
+  'tabBar.closeLeft': 'Close Tabs to the Left',
+  'tabBar.closeAll': 'Close All Tabs',
   'syncMark.tooltip': '↔ Always editing the source file · synced to the vault',
 
   // Plugins settings

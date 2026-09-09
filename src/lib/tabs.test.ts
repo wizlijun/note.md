@@ -834,6 +834,34 @@ describe('tabs', () => {
     expect(m.activeId.value).toBe(m.tabs[1].id)  // C (originally idx 2, now idx 1 after splice)
   })
 
+  it('closeTabs closes a stable id snapshot in order', async () => {
+    const m = await import('./tabs.svelte')
+    await m.openFile('/tmp/a.md')
+    await m.openFile('/tmp/b.md')
+    await m.openFile('/tmp/c.md')
+    const ids = m.tabs.slice(0, 2).map((tab) => tab.id)
+
+    const ok = await m.closeTabs(ids, async () => 'discard')
+
+    expect(ok).toBe(true)
+    expect(m.tabs.map((tab) => tab.title)).toEqual(['c.md'])
+  })
+
+  it('closeTabs stops at the first cancelled dirty tab', async () => {
+    const m = await import('./tabs.svelte')
+    await m.openFile('/tmp/a.md')
+    await m.openFile('/tmp/b.md')
+    await m.openFile('/tmp/c.md')
+    m.setContent(m.tabs[1].id, 'edited')
+    const confirm = vi.fn(async () => 'cancel' as const)
+
+    const ok = await m.closeTabs(m.tabs.map((tab) => tab.id), confirm)
+
+    expect(ok).toBe(false)
+    expect(confirm).toHaveBeenCalledWith('b.md')
+    expect(m.tabs.map((tab) => tab.title)).toEqual(['b.md', 'c.md'])
+  })
+
   it('toggleMode flips source ⇄ rich', async () => {
     const m = await import('./tabs.svelte')
     await m.openFile('/tmp/foo.md')

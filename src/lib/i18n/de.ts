@@ -205,6 +205,8 @@ export const de: Record<keyof Messages, string> = {
   // Drawer / tab bar
   'drawer.closeMenu': 'Menü schließen',
   'tabBar.modified': 'geändert',
+  'tabBar.closeLeft': 'Tabs links schließen',
+  'tabBar.closeAll': 'Alle Tabs schließen',
   'syncMark.tooltip': '↔ Es wird immer die Quelldatei bearbeitet · mit dem Vault synchronisiert',
 
   // Plugins settings

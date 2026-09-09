@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { tabs, activeId, activeTab, isDirty, activate, closeTab } from '../lib/tabs.svelte'
+  import { tabs, activeId, activeTab, isDirty, activate, closeTab, closeTabs } from '../lib/tabs.svelte'
   import { formFactor } from '../lib/platform.svelte'
   import { confirmDirtyClose } from '../lib/dialogs'
   import { t } from '../lib/i18n/store.svelte'
@@ -29,13 +29,20 @@
   }
 
   // Right-click context menu state.
+  type CloseAction = 'close' | 'close-left' | 'close-all'
   type CtxState = {
     open: boolean
     x: number
     y: number
+    tabId: string | null
     items: { item: CollectedItem; enabled: boolean }[]
   }
-  let ctx = $state<CtxState>({ open: false, x: 0, y: 0, items: [] })
+  let ctx = $state<CtxState>({ open: false, x: 0, y: 0, tabId: null, items: [] })
+  const closeActions = [
+    { id: 'close', label: 'common.close' },
+    { id: 'close-left', label: 'tabBar.closeLeft' },
+    { id: 'close-all', label: 'tabBar.closeAll' },
+  ] as const
 
   let allTabContextItems = $derived([
     {
@@ -68,7 +75,6 @@
   }
 
   function openTabContextMenu(e: MouseEvent, tabId: string) {
-    if (allTabContextItems.length === 0) return
     e.preventDefault()
     // Pre-compute enabled state per item with each item's own plugin scoped
     // settings (mirrors App.svelte's top-level menu evaluation).
@@ -81,11 +87,28 @@
     // First, switch the active tab so dispatch builds the snapshot from the
     // right tab. (Plugin commands use activeTab() inside dispatch.)
     activate(tabId)
-    ctx = { open: true, x: e.clientX, y: e.clientY, items }
+    ctx = { open: true, x: e.clientX, y: e.clientY, tabId, items }
   }
 
   function closeCtxMenu() {
-    ctx = { open: false, x: 0, y: 0, items: [] }
+    ctx = { open: false, x: 0, y: 0, tabId: null, items: [] }
+  }
+
+  function canCloseLeft(tabId: string | null): boolean {
+    return tabId !== null && tabs.findIndex((tab) => tab.id === tabId) > 0
+  }
+
+  async function onCloseAction(action: CloseAction) {
+    const tabId = ctx.tabId
+    const index = tabId === null ? -1 : tabs.findIndex((tab) => tab.id === tabId)
+    if (tabId === null || index < 0) return
+    const ids = action === 'close'
+      ? [tabId]
+      : action === 'close-left'
+        ? tabs.slice(0, index).map((tab) => tab.id)
+        : tabs.map((tab) => tab.id)
+    closeCtxMenu()
+    await closeTabs(ids, confirmDirtyClose)
   }
 
   async function onCtxItemClick(item: CollectedItem, enabled: boolean) {
@@ -168,6 +191,20 @@
       role="menu"
       style="left: {ctx.x}px; top: {ctx.y}px"
     >
+      {#each closeActions as action (action.id)}
+        <button
+          type="button"
+          role="menuitem"
+          data-tab-close-action={action.id}
+          class="tab-ctx-item menu-row"
+          class:disabled={action.id === 'close-left' && !canCloseLeft(ctx.tabId)}
+          disabled={action.id === 'close-left' && !canCloseLeft(ctx.tabId)}
+          onclick={() => onCloseAction(action.id)}
+        >
+          {t(action.label)}
+        </button>
+      {/each}
+      {#if ctx.items.length > 0}<div class="menu-sep" role="separator"></div>{/if}
       {#each ctx.items as { item, enabled } (item.id)}
         <button
           type="button"
