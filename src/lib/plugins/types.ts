@@ -1,5 +1,5 @@
 import type { FileViewContribution } from './v2/protocol.gen'
-export type { FileViewContribution, FileViewSelector, FileViewScalar } from './v2/protocol.gen'
+export type { FileViewContribution, FileViewIcon, FileViewSelector, FileViewScalar } from './v2/protocol.gen'
 
 export type Capability =
   | 'renderer.html'

@@ -2,6 +2,7 @@ import { mount, tick, unmount } from 'svelte'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import App from './App.svelte'
 import type { ClassificationRule } from './lib/classification'
+import type { TimelineSettings } from './lib/bridge'
 
 const fixture = `---
 type: timeline
@@ -45,9 +46,9 @@ function openDocument(content = fixture, requestId = 1, uri = '/vault/diary/2026
   } }))
 }
 
-function host(options: { save?: (rules: ClassificationRule[]) => Promise<void>; load?: () => Promise<unknown>; language?: string; exists?: boolean } = {}) {
+function host(options: { save?: (settings: TimelineSettings) => Promise<void>; load?: () => Promise<unknown>; language?: string; exists?: boolean } = {}) {
   const request = vi.fn(async (method: string, params?: any) => {
-    if (method === 'host.settings.get') return options.load ? options.load() : { settings: { classification: structuredClone(initialRules) } }
+    if (method === 'host.settings.get') return options.load ? options.load() : { settings: { timeline: { classification: structuredClone(initialRules), startTime: '09:00' } } }
     if (method === 'host.settings.set') { await options.save?.(params.value); return {} }
     if (method === 'host.vault.info') return { root: '/vault' }
     if (method === 'host.vault.exists') return { exists: options.exists ?? true }
@@ -103,11 +104,12 @@ describe('Timeline application', () => {
     let rejectSave!: (cause: Error) => void
     const save = vi.fn().mockImplementationOnce(() => new Promise((_resolve, reject) => { rejectSave = reject })).mockResolvedValue(undefined)
     const mocked = await start({ save })
-    button('☷分类设置').click(); await tick()
+    button('☷时间线设置').click(); await tick()
+    await setField('打开时定位时间', '13:45')
     await setField('规则名称 1', '自定义审阅')
     await setField('关键词 1', '审阅、评审')
     await setField('大类 1', 'interest')
-    button('保存分类').click(); await tick()
+    button('保存设置').click(); await tick()
     expect(button('取消').disabled).toBe(true)
     expect(field<HTMLButtonElement>('下一天').disabled).toBe(true)
     expect(field<HTMLInputElement>('规则名称 1').matches(':disabled')).toBe(true)
@@ -118,24 +120,26 @@ describe('Timeline application', () => {
     expect(mocked.request.mock.calls.some(([method]) => method === 'host.editor.open')).toBe(false)
     rejectSave(new Error('模拟磁盘写入失败'))
     await vi.waitFor(() => expect(document.querySelector('[role="alert"]')?.textContent).toContain('模拟磁盘写入失败'))
+    expect(field<HTMLInputElement>('打开时定位时间').value).toBe('13:45')
     expect(field<HTMLInputElement>('规则名称 1').value).toBe('自定义审阅')
     expect(field<HTMLSelectElement>('大类 1').value).toBe('interest')
-    expect(button('保存分类').disabled).toBe(false)
-    button('保存分类').click()
+    expect(button('保存设置').disabled).toBe(false)
+    button('保存设置').click()
     await vi.waitFor(() => expect(document.querySelector('.settings')).toBeNull())
     expect(save).toHaveBeenCalledTimes(2)
-    expect(save.mock.calls[1][0][0]).toEqual({ id: 'review', name: '自定义审阅', keywords: ['审阅', '评审'], category: 'interest' })
+    expect(save.mock.calls[1][0].startTime).toBe('13:45')
+    expect(save.mock.calls[1][0].classification[0]).toEqual({ id: 'review', name: '自定义审阅', keywords: ['审阅', '评审'], category: 'interest' })
     expect(document.querySelector<HTMLButtonElement>('.event')?.dataset.category).toBe('interest')
   })
 
   it('discards cancelled changes and persists add, remove and rule order from the settings panel', async () => {
     const mocked = await start()
-    button('☷分类设置').click(); await tick()
+    button('☷时间线设置').click(); await tick()
     await setField('大类 1', 'leisure')
     button('取消').click(); await tick()
     expect(document.querySelector<HTMLButtonElement>('.event')?.dataset.category).toBe('work')
     expect(mocked.request.mock.calls.some(([method]) => method === 'host.settings.set')).toBe(false)
-    button('☷分类设置').click(); await tick()
+    button('☷时间线设置').click(); await tick()
     expect(field<HTMLSelectElement>('大类 1').value).toBe('work')
     button('+ 添加规则').click(); await tick()
     await setField('规则名称 3', '研究兴趣')
@@ -144,22 +148,22 @@ describe('Timeline application', () => {
     field<HTMLButtonElement>('上移规则 3').click(); await tick()
     field<HTMLButtonElement>('上移规则 2').click(); await tick()
     field<HTMLButtonElement>('删除规则 3').click(); await tick()
-    button('保存分类').click()
+    button('保存设置').click()
     await vi.waitFor(() => expect(document.querySelector('.settings')).toBeNull())
     expect(document.querySelector<HTMLButtonElement>('.event')?.dataset.category).toBe('interest')
-    expect(mocked.request).toHaveBeenCalledWith('host.settings.set', { key: 'classification', value: [
+    expect(mocked.request).toHaveBeenCalledWith('host.settings.set', { key: 'timeline', value: { classification: [
       expect.objectContaining({ name: '研究兴趣', keywords: ['研发'], category: 'interest' }), initialRules[0],
-    ] })
+    ], startTime: '09:00' } })
   })
 
   it('blocks settings after a load failure and allows retry without overwriting unread rules', async () => {
     const load = vi.fn().mockRejectedValueOnce(new Error('读取失败')).mockResolvedValue({ settings: { classification: initialRules } })
     await start({ load })
     await vi.waitFor(() => expect(document.querySelector('[role="alert"]')?.textContent).toContain('读取失败'))
-    expect(button('☷分类设置').disabled).toBe(true)
+    expect(button('☷时间线设置').disabled).toBe(true)
     button('重试').click()
-    await vi.waitFor(() => expect(button('☷分类设置').disabled).toBe(false))
-    button('☷分类设置').click(); await tick()
+    await vi.waitFor(() => expect(button('☷时间线设置').disabled).toBe(false))
+    button('☷时间线设置').click(); await tick()
     expect(field<HTMLInputElement>('规则名称 1').value).toBe('审阅')
   })
 
@@ -176,44 +180,58 @@ describe('Timeline application', () => {
 
   it('offers an explicit repair draft for damaged rules and only replaces them after saving', async () => {
     const mocked = await start({ load: async () => ({ settings: { classification: [{ bad: true }] } }) })
-    await vi.waitFor(() => expect(document.querySelector('[role="alert"]')?.textContent).toContain('替换损坏的分类规则'))
-    expect(button('☷分类设置').disabled).toBe(true)
-    button('重新设置分类').click(); await tick()
+    await vi.waitFor(() => expect(document.querySelector('[role="alert"]')?.textContent).toContain('替换损坏的时间线设置'))
+    expect(button('☷时间线设置').disabled).toBe(true)
+    button('重新设置').click(); await tick()
     expect(document.querySelectorAll('.rule').length).toBeGreaterThan(0)
-    expect(button('重新设置分类').disabled).toBe(true)
+    expect(button('重新设置').disabled).toBe(true)
     button('取消').click()
-    await vi.waitFor(() => expect(document.activeElement).toBe(button('重新设置分类')))
+    await vi.waitFor(() => expect(document.activeElement).toBe(button('重新设置')))
     expect(mocked.request.mock.calls.some(([method]) => method === 'host.settings.set')).toBe(false)
-    button('重新设置分类').click(); await tick()
-    button('保存分类').click()
+    button('重新设置').click(); await tick()
+    button('保存设置').click()
     await vi.waitFor(() => expect(document.querySelector('.settings')).toBeNull())
     expect(document.querySelector('[role="alert"]')).toBeNull()
-    expect(mocked.request).toHaveBeenCalledWith('host.settings.set', expect.objectContaining({ key: 'classification' }))
-    await vi.waitFor(() => expect(document.activeElement).toBe(button('☷分类设置')))
+    expect(mocked.request).toHaveBeenCalledWith('host.settings.set', expect.objectContaining({ key: 'timeline' }))
+    await vi.waitFor(() => expect(document.activeElement).toBe(button('☷时间线设置')))
   })
 
   it('uses the host language on its first frame', async () => {
     await start({ language: 'en' })
     expect(document.querySelector('.legend')?.textContent).toContain('Interests')
-    expect(button('☷Categories')).toBeTruthy()
+    expect(button('☷Settings')).toBeTruthy()
     expect(document.querySelector('h1')?.textContent).toContain('September 9')
+  })
+
+  it('loads the opening time and reapplies it after each new document', async () => {
+    await start({ load: async () => ({ settings: { timeline: { classification: initialRules, startTime: '10:00' } } }) })
+    const scroller = field<HTMLDivElement>('日程时间轴')
+    const schedule = document.querySelector<HTMLDivElement>('.schedule')!
+    Object.defineProperties(scroller, { scrollHeight: { value: 1200, configurable: true }, clientHeight: { value: 400, configurable: true } })
+    Object.defineProperty(schedule, 'offsetTop', { value: 15, configurable: true })
+    scroller.scrollTop = 0
+    openDocument(fixture, 2, '/vault/diary/2026-09-10.timeline.md')
+    await vi.waitFor(() => expect(scroller.scrollTop).toBe(127))
+    scroller.scrollTop = 0
+    openDocument(fixture, 3, '/vault/diary/2026-09-11.timeline.md')
+    await vi.waitFor(() => expect(scroller.scrollTop).toBe(127))
   })
 
   it('navigates adjacent days and a chosen archive date through the actual host bridge', async () => {
     const mocked = await start()
     field<HTMLButtonElement>('上一天').click()
-    await vi.waitFor(() => expect(mocked.request).toHaveBeenCalledWith('host.editor.open', { path: 'diary/2026-09-08.timeline.md', fileView: 'timeline' }))
+    await vi.waitFor(() => expect(mocked.request).toHaveBeenCalledWith('host.editor.open', { path: 'diary/2026-09-08.timeline.md', fileView: 'timeline', replaceCurrent: true, currentPath: 'diary/2026-09-09.timeline.md' }))
     field<HTMLButtonElement>('下一天').click()
-    await vi.waitFor(() => expect(mocked.request).toHaveBeenCalledWith('host.editor.open', { path: 'diary/2026-09-10.timeline.md', fileView: 'timeline' }))
+    await vi.waitFor(() => expect(mocked.request).toHaveBeenCalledWith('host.editor.open', { path: 'diary/2026-09-10.timeline.md', fileView: 'timeline', replaceCurrent: true, currentPath: 'diary/2026-09-09.timeline.md' }))
     openDocument(fixture, 2, '/vault/diary/2026/2026-12-31.timeline.md'); await tick()
     const picker = field<HTMLInputElement>('选择日期')
     expect(picker.type).toBe('date')
     expect(picker.value).toBe('2026-12-31')
     picker.value = '2027-01-02'
     picker.dispatchEvent(new Event('change', { bubbles: true }))
-    await vi.waitFor(() => expect(mocked.request).toHaveBeenCalledWith('host.editor.open', { path: 'diary/2027/2027-01-02.timeline.md', fileView: 'timeline' }))
+    await vi.waitFor(() => expect(mocked.request).toHaveBeenCalledWith('host.editor.open', { path: 'diary/2027/2027-01-02.timeline.md', fileView: 'timeline', replaceCurrent: true, currentPath: 'diary/2026/2026-12-31.timeline.md' }))
     expect(picker.value).toBe('2026-12-31')
-    button('☷分类设置').click(); await tick()
+    button('☷时间线设置').click(); await tick()
     expect(field<HTMLButtonElement>('上一天').disabled).toBe(true)
     expect(field<HTMLButtonElement>('下一天').disabled).toBe(true)
     expect(field<HTMLInputElement>('选择日期').disabled).toBe(true)

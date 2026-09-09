@@ -31,6 +31,11 @@ describe('platform()', () => {
     expect(await platform()).toBe('unknown')
   })
 
+  it('returns "unknown" when the native platform API is unavailable', async () => {
+    ;(tauriPlatform as any).mockImplementation(() => { throw new TypeError('missing Tauri runtime') })
+    expect(await platform()).toBe('unknown')
+  })
+
   it('caches the first result', async () => {
     ;(tauriPlatform as any).mockResolvedValue('ios')
     await platform()

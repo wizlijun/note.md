@@ -7,6 +7,11 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+### Added
+
+- **Note files use the same format-driven view switch as plugins.** `.note.md` and `.notes.md` now expose their built-in outline beside Rich and Source through the shared file-view routing. The orange sparkle continues to identify Note, while Timeline uses a circular clock icon.
+- **Timeline 1.0.3 opens at the time you choose.** The Timeline settings page adds an opening position, defaulting to 09:00, and keeps the entire classification and time configuration together. Moving to the previous, next or selected date replaces the document in the current tab instead of adding another tab.
+
 ## v6.909.3 — 2026-09-09
 
 ### Added

@@ -352,6 +352,136 @@ export async function openFile(path: string): Promise<void> {
   }
 }
 
+/**
+ * Replace a named source Markdown tab with another Markdown document while
+ * keeping the same tab identity. File-view plugins use this for in-view navigation
+ * (for example, moving between adjacent daily timelines) so navigation does
+ * not grow the tab bar.
+ *
+ * The source editor is flushed before the dirty check. A dirty buffer is
+ * never discarded implicitly. The destination is fully read and validated
+ * before the current tab or its watcher is changed.
+ */
+export async function replaceCurrentFile(path: string, currentPath: string): Promise<void> {
+  const current = tabs.find((tab) => tab.filePath === currentPath)
+  if (!current) throw new Error('发起导航的标签页已关闭或路径已经变化，请重试。')
+  if (current.kind !== 'markdown') throw new Error('当前标签页不是 Markdown 文件，无法在原标签页中替换。')
+
+  const originalId = current.id
+  const originalPath = current.filePath
+  flushMountedDocument(originalId)
+  if (isDirty(originalId)) {
+    throw new Error('当前标签页有未保存的修改，无法替换打开的文件。请先保存或放弃修改。')
+  }
+  await waitForMarkdownSaves(originalId)
+  const settledSource = tabs.find((tab) => tab.id === originalId)
+  if (!settledSource || settledSource.filePath !== originalPath || isDirty(originalId)) {
+    throw new Error('当前标签页在导航期间发生了变化，请重试。')
+  }
+  if (path === originalPath) {
+    activate(originalId)
+    return
+  }
+
+  const cls = classifyPath(path)
+  const editor = customEditorFor(extOf(path), pluginRuntime.manifests)
+  if (cls?.kind !== 'markdown' || editor) {
+    throw new Error('原标签页替换仅支持由宿主打开的 Markdown 文件。')
+  }
+
+  // Keep the same Vault-mirror semantics as openFile. Canonical Note files
+  // remain in the Vault; other mirrored Markdown files follow their source.
+  if (!/\.notes?\.md$/i.test(path)) {
+    const { sourceForVaultPath } = await import('./sotvault.svelte')
+    const source = sourceForVaultPath(path)
+    if (source && source !== path) {
+      const { exists } = await import('@tauri-apps/plugin-fs')
+      if (await exists(source).catch(() => false)) {
+        const stillCurrent = tabs.find((tab) => tab.id === originalId)
+        if (!stillCurrent || stillCurrent.id !== originalId || stillCurrent.filePath !== originalPath || isDirty(originalId)) {
+          throw new Error('当前标签页在导航期间发生了变化，请重试。')
+        }
+        return replaceCurrentFile(source, originalPath)
+      }
+    }
+  }
+
+  const alreadyOpen = tabs.find((tab) => tab.filePath === path)
+  if (alreadyOpen) {
+    await waitForMarkdownSaves(originalId)
+    const readySource = tabs.find((tab) => tab.id === originalId)
+    if (!readySource || readySource.filePath !== originalPath || isDirty(originalId)) {
+      throw new Error('当前标签页在导航期间发生了变化，请重试。')
+    }
+    const closed = await closeTab(originalId, async () => 'cancel')
+    if (!closed) throw new Error('当前标签页在导航期间产生了未保存修改，请先保存或放弃修改。')
+    activate(alreadyOpen.id)
+    return
+  }
+
+  // Match openFile's Markdown preparation and snapshot fields.
+  await import('./outline/migrate').then(({ migrateLegacyCompanion }) => (
+    migrateLegacyCompanion(path).catch(() => {})
+  ))
+  const content = await readTextWithPermissionPrompt(path)
+  if (looksBinary(content)) throw new Error(`Binary file not supported: ${path}`)
+  const [stat, hash] = await Promise.all([statFile(path), sha256Hex(content)])
+
+  // Reading and hashing cross async boundaries. Refuse to overwrite a tab that
+  // the user switched, edited, or rebound while the destination was loading.
+  const latest = tabs.find((tab) => tab.id === originalId)
+  if (!latest || latest.id !== originalId || latest.filePath !== originalPath || isDirty(originalId)) {
+    throw new Error('当前标签页在导航期间发生了变化，请重试。')
+  }
+  await waitForMarkdownSaves(originalId)
+  const readySource = tabs.find((tab) => tab.id === originalId)
+  if (!readySource || readySource.filePath !== originalPath || isDirty(originalId)) {
+    throw new Error('当前标签页在导航期间发生了变化，请重试。')
+  }
+  const duplicate = tabs.find((tab) => tab.id !== originalId && tab.filePath === path)
+  if (duplicate) {
+    const closed = await closeTab(originalId, async () => 'cancel')
+    if (!closed) throw new Error('当前标签页在导航期间产生了未保存修改，请先保存或放弃修改。')
+    activate(duplicate.id)
+    return
+  }
+
+  const replacement: Tab = {
+    id: originalId,
+    filePath: path,
+    title: basename(path),
+    initialContent: content,
+    currentContent: content,
+    mode: getRecentMode(modeKeyFor(path)) ?? 'rich',
+    kind: 'markdown',
+    language: cls.language,
+    editorId: undefined,
+    editorPluginId: undefined,
+    editorEntry: undefined,
+    externalState: 'fresh',
+    externalBannerDismissed: false,
+    lastKnownMtime: stat?.mtime ?? 0,
+    lastKnownHash: hash,
+    pendingExternal: undefined,
+    skipEmptySave: undefined,
+    canvasRevision: undefined,
+  }
+  const index = tabs.findIndex((tab) => tab.id === originalId)
+  if (index < 0) throw new Error('当前标签页在导航期间已关闭，请重试。')
+  await stopWatchingTab(originalId)
+  resetFileViewSelection(originalId)
+  tabs[index] = replacement
+  activate(originalId)
+  await pushRecentFile(path)
+  await startWatchingTab(replacement)
+  try {
+    const { maybeCheckVaultUpdate } = await import('./sotvault.svelte')
+    await maybeCheckVaultUpdate(replacement)
+  } catch (error) {
+    console.warn('[tabs] sotvault check:', error)
+  }
+}
+
 /** Re-read `path` from disk into its open tab (used after a vault apply-update). */
 export async function reloadTabFromDisk(path: string): Promise<void> {
   const t = tabs.find((x) => x.filePath === path)
@@ -495,6 +625,18 @@ function renameAutoNamedTab(t: Tab, target: string, content = t.currentContent):
 }
 
 const markdownSaveQueues = new Map<string, Promise<string | undefined>>()
+
+async function waitForMarkdownSaves(tabId: string): Promise<void> {
+  // A save can enqueue its successor before settling. Follow the current tail
+  // until the queue is empty so it cannot re-install the old path's watcher
+  // after a file-view navigation has rebound this tab identity.
+  for (;;) {
+    const pending = markdownSaveQueues.get(tabId)
+    if (!pending) return
+    await pending.catch(() => undefined)
+    if (markdownSaveQueues.get(tabId) === pending) return
+  }
+}
 
 /** Keep each saved snapshot and its automatic rename ahead of the next write. */
 export function persistMarkdownSnapshot(

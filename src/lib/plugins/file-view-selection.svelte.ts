@@ -3,7 +3,7 @@ import type { FileViewRef } from './file-views'
 export type FileViewFallbackReason = 'edit' | 'unsupported' | 'unavailable'
 
 export interface FileViewSelection {
-  /** undefined = automatic; null = built-in Rich; FileViewRef = explicit plugin view. */
+  /** undefined = automatic; null = Rich; FileViewRef = an explicit file view. */
   choice?: FileViewRef | null
   fallback?: { view: FileViewRef; reason: FileViewFallbackReason }
   attempt: number

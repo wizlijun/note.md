@@ -7,7 +7,12 @@ import { pluginRuntime } from '../lib/plugins/runtime.svelte'
 import type { Tab } from '../lib/tabs.svelte'
 import { setContent } from '../lib/tabs.svelte'
 import type { PluginManifest } from '../lib/plugins/types'
-import { resetFileViewPresentation, selectPluginFileView } from '../lib/plugins/file-view-presentation.svelte'
+import {
+  fileViewPresentation,
+  resetFileViewPresentation,
+  selectFileView,
+  selectRichFileView,
+} from '../lib/plugins/file-view-presentation.svelte'
 
 vi.mock('../lib/tabs.svelte', () => ({
   isManagedMemoryTab: (tab: { filePath: string }) => tab.filePath === '/vault/MEMORY.md',
@@ -128,7 +133,7 @@ describe('EditorPane file view routing', () => {
     await tick()
     expect(document.querySelector('iframe')).toBeNull()
     store.update((tab) => {
-      selectPluginFileView(tab, { pluginId: 'notemd.timeline', viewId: 'timeline', entry: 'index.html' })
+      selectFileView(tab, { pluginId: 'notemd.timeline', viewId: 'timeline', entry: 'index.html', icon: 'generic' })
       return tab
     })
     await tick()
@@ -164,7 +169,7 @@ describe('EditorPane file view routing', () => {
       expect(vi.mocked(setContent)).toHaveBeenLastCalledWith('timeline-tab', value)
     }
     store.update((tab) => {
-      selectPluginFileView(tab, { pluginId: 'notemd.timeline', viewId: 'timeline', entry: 'index.html' })
+      selectFileView(tab, { pluginId: 'notemd.timeline', viewId: 'timeline', entry: 'index.html', icon: 'generic' })
       return tab
     })
     await tick()
@@ -196,7 +201,7 @@ describe('EditorPane file view routing', () => {
     expect(document.querySelector('iframe')?.getAttribute('src')).toBe('plugin://notemd.timeline/automatic.html')
 
     store.update((tab) => {
-      selectPluginFileView(tab, { pluginId: 'notemd.timeline', viewId: 'timeline', entry: 'index.html' })
+      selectFileView(tab, { pluginId: 'notemd.timeline', viewId: 'timeline', entry: 'index.html', icon: 'generic' })
       return tab
     })
     await tick()
@@ -214,7 +219,7 @@ describe('EditorPane file view routing', () => {
     store.update((tab) => ({ ...tab, mode: 'source' })); await tick()
     store.update((tab) => ({ ...tab, mode: 'rich' }))
     store.update((tab) => {
-      selectPluginFileView(tab, { pluginId: 'notemd.timeline', viewId: 'timeline', entry: 'index.html' })
+      selectFileView(tab, { pluginId: 'notemd.timeline', viewId: 'timeline', entry: 'index.html', icon: 'generic' })
       return tab
     })
     await tick()
@@ -260,18 +265,33 @@ describe('EditorPane file view routing', () => {
     store.update((tab) => ({ ...tab, mode: 'rich' })); await tick()
     expect(document.querySelector('iframe')).toBeNull()
     store.update((tab) => {
-      selectPluginFileView(tab, { pluginId: 'example.file-preview', viewId: 'generic-preview', entry: 'generic.html' })
+      selectFileView(tab, { pluginId: 'example.file-preview', viewId: 'generic-preview', entry: 'generic.html', icon: 'generic' })
       return tab
     }); await tick()
     expect(document.querySelector('iframe')).toBeTruthy()
   })
 
-  it('preserves Outline fallback and never replaces extension-owned custom editors', async () => {
-    await setup({ filePath: '/vault/day.note.md' })
-    const frame = document.querySelector('iframe')!
-    window.dispatchEvent(new MessageEvent('message', { origin: 'plugin://notemd.timeline', source: frame.contentWindow, data: { type: 'file_view.fallback', requestId: 1 } }))
-    await tick()
+  it('routes Outline notes through the shared view selection and never replaces extension-owned custom editors', async () => {
+    const store = await setup({ filePath: '/vault/day.note.md' })
+    expect(document.querySelector('iframe')).toBeNull()
     expect(document.querySelector('.outline-editor-probe')).toBeTruthy()
+
+    store.update((tab) => { selectRichFileView(tab); return tab }); await tick()
+    expect(document.querySelector('.outline-editor-probe')).toBeNull()
+    expect(document.querySelector('.rich-editor-probe')).toBeTruthy()
+
+    store.update((tab) => {
+      const candidate = fileViewPresentation(tab, pluginRuntime.manifests).candidate
+      expect(candidate).toMatchObject({ pluginId: 'notemd.core', viewId: 'outline-note' })
+      selectFileView(tab, candidate!)
+      return tab
+    }); await tick()
+    expect(document.querySelector('.outline-editor-probe')).toBeTruthy()
+
+    store.update((tab) => ({ ...tab, mode: 'source' })); await tick()
+    expect(document.querySelector('.outline-editor-probe')).toBeNull()
+    expect(document.querySelector('.source-editor-probe')).toBeTruthy()
+
     await unmount(component!); component = undefined
     await setup({ kind: 'custom', filePath: '/vault/day.widget' }, [{ id: 'generic', entry: 'index.html', selectors: [{ file_extensions: ['widget'] }] }])
     expect(document.querySelector('iframe')).toBeNull()

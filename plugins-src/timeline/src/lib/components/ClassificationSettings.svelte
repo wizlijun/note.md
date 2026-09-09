@@ -1,15 +1,18 @@
 <script lang="ts">
   import { untrack } from 'svelte'
   import { CATEGORIES, normalizeRules, type ClassificationRule } from '../classification'
+  import { normalizeStartTime, type TimelineSettings } from '../bridge'
 
-  let { rules, zh, onsave, oncancel }: {
+  let { rules, startTime, zh, onsave, oncancel }: {
     rules: ClassificationRule[]
+    startTime: string
     zh: boolean
-    onsave: (rules: ClassificationRule[]) => Promise<void>
+    onsave: (settings: TimelineSettings) => Promise<void>
     oncancel: () => void
   } = $props()
 
   let draft = $state(untrack(() => rules.map((rule) => ({ ...rule, keywords: rule.keywords.join('、') }))))
+  let draftStartTime = $state(untrack(() => startTime))
   let saving = $state(false)
   let error = $state('')
   const categoryNames: Record<string, string> = { work: 'Work', interest: 'Interests', life: 'Life', leisure: 'Leisure', other: 'Other' }
@@ -36,9 +39,14 @@
       error = zh ? '请为每条规则填写规则名称和至少一个关键词。' : 'Give each rule a name and at least one keyword.'
       return
     }
+    const normalizedStartTime = normalizeStartTime(draftStartTime)
+    if (!normalizedStartTime) {
+      error = zh ? '打开时定位时间必须使用 HH:mm 格式。' : 'Opening position must use the HH:mm format.'
+      return
+    }
     saving = true
     error = ''
-    try { await onsave(normalized) }
+    try { await onsave({ classification: normalized, startTime: normalizedStartTime }) }
     catch (cause) { error = `${zh ? '保存失败，草稿已保留。' : 'Could not save. Your draft is kept.'} ${cause instanceof Error ? cause.message : String(cause)}` }
     finally { saving = false }
   }
@@ -47,12 +55,18 @@
 <section class="settings" aria-labelledby="settings-title">
   <div class="settings-heading">
     <div>
-      <h2 id="settings-title">{zh ? '分类设置' : 'Classification settings'}</h2>
-      <p>{zh ? '活动类别包含任一关键词即归入对应大类；按从上到下首条匹配，未命中归为「其他」。规则名称仅用于管理。' : 'Match when the activity category contains any keyword. The first rule wins; unmatched activities use Other. Rule names are for organization only.'}</p>
+      <h2 id="settings-title">{zh ? '时间线设置' : 'Timeline settings'}</h2>
+      <p>{zh ? '设置打开时的定位时间，并配置活动类别的匹配规则。' : 'Choose the opening position and configure activity category matching.'}</p>
     </div>
   </div>
   <form onsubmit={save}>
     <fieldset disabled={saving}>
+      <div class="opening-position">
+        <div><strong>{zh ? '打开时定位' : 'Opening position'}</strong><p>{zh ? '每次打开或切换日期后，将这个时间对齐到日程可视区域顶部。' : 'Align this time with the top of the schedule after opening or changing dates.'}</p></div>
+        <label>{zh ? '时间' : 'Time'}<input type="time" step="60" aria-label={zh ? '打开时定位时间' : 'Opening position time'} bind:value={draftStartTime} required /></label>
+      </div>
+      <h3>{zh ? '活动分类' : 'Activity categories'}</h3>
+      <p class="classification-help">{zh ? '活动类别包含任一关键词即归入对应大类；按从上到下首条匹配，未命中归为「其他」。规则名称仅用于管理。' : 'Match when the activity category contains any keyword. The first rule wins; unmatched activities use Other. Rule names are for organization only.'}</p>
       <div class="rule-list">
         {#each draft as rule, index (rule.id)}
           <div class="rule" data-rule-id={rule.id}>
@@ -76,7 +90,7 @@
       <p class="hint">{zh ? '保存后应用于所有时间线，不修改 Markdown 原文。' : 'Applies to all timelines after saving. Markdown stays unchanged.'}</p>
       <div class="footer-actions">
         <button type="button" disabled={saving} onclick={() => { if (!saving) oncancel() }}>{zh ? '取消' : 'Cancel'}</button>
-        <button type="submit" class="primary" disabled={saving}>{saving ? (zh ? '正在保存…' : 'Saving…') : (zh ? '保存分类' : 'Save rules')}</button>
+        <button type="submit" class="primary" disabled={saving}>{saving ? (zh ? '正在保存…' : 'Saving…') : (zh ? '保存设置' : 'Save settings')}</button>
       </div>
     </div>
   </form>
@@ -88,6 +102,12 @@
   h2 { font-size: 20px; letter-spacing: -.4px; margin: 0 0 8px; }
   p { margin: 0; color: var(--ui-secondary); }
   fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+  .opening-position { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 24px; padding: 14px; border: 1px solid var(--ui-separator); background: var(--ui-surface); border-radius: 10px; }
+  .opening-position strong, h3 { font-size: 12px; }
+  .opening-position p { margin-top: 5px; font-size: 11px; }
+  .opening-position label { flex: 0 0 118px; }
+  h3 { margin: 0 0 5px; }
+  .classification-help { margin-bottom: 12px; font-size: 11px; }
   .rule-list { display: flex; flex-direction: column; gap: 10px; }
   .rule { display: grid; grid-template-columns: 24px minmax(100px, 1fr) minmax(150px, 2fr) 100px auto; gap: 12px; align-items: end; border: 1px solid var(--ui-separator); background: var(--ui-surface); border-radius: 10px; padding: 14px; }
   .rule-number { font: 11px/32px ui-monospace, monospace; color: var(--ui-tertiary); }
@@ -108,5 +128,5 @@
   .error { margin-bottom: 12px; color: var(--ui-danger); overflow-wrap: anywhere; }
   .no-rules { padding: 24px 0; }
   @media (max-width: 780px) { .rule { grid-template-columns: 22px minmax(110px, 1fr) 100px auto; } .keyword-field { grid-column: 2 / -1; grid-row: 2; } }
-  @media (max-width: 480px) { .settings { padding: 20px 12px; } .rule { grid-template-columns: 20px minmax(100px, 1fr) 84px; gap: 8px; padding: 10px; } .rule-actions { grid-row: 3; grid-column: 2 / -1; justify-content: flex-end; } }
+  @media (max-width: 480px) { .settings { padding: 20px 12px; } .opening-position { align-items: stretch; flex-direction: column; gap: 12px; } .opening-position label { flex-basis: auto; } .rule { grid-template-columns: 20px minmax(100px, 1fr) 84px; gap: 8px; padding: 10px; } .rule-actions { grid-row: 3; grid-column: 2 / -1; justify-content: flex-end; } }
 </style>

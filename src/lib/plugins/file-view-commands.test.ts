@@ -63,7 +63,7 @@ describe('dispatchFileViewCommand', () => {
     expect(await dispatchFileViewCommand(manifest(), 'open-timeline', h.deps)).toBe(true)
     expect(h.deps.flush).toHaveBeenCalledWith('day')
     expect(h.deps.setRichMode).toHaveBeenCalledWith('day')
-    expect(h.opened).toEqual([{ tabId: 'day', pluginId: 'notemd.timeline', viewId: 'timeline', entry: 'index.html' }])
+    expect(h.opened).toEqual([{ tabId: 'day', pluginId: 'notemd.timeline', viewId: 'timeline', entry: 'index.html', icon: 'generic' }])
     expect(h.deps.pickOpenFile).not.toHaveBeenCalled()
   })
 

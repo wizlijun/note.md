@@ -11,6 +11,9 @@ use crate::ManifestV2;
 pub struct FileViewContribution {
     pub id: String,
     pub entry: String,
+    /// Icon shown in the host's compact file-view switcher.
+    #[serde(default, skip_serializing_if = "FileViewIcon::is_generic")]
+    pub icon: FileViewIcon,
     /// Host-handled menu command that opens this view for the active file.
     /// ASCII [a-z0-9][a-z0-9._-]*, at most 128 characters; no process activation.
     #[serde(
@@ -29,6 +32,21 @@ pub struct FileViewContribution {
     pub priority: i32,
     #[schemars(length(min = 1, max = 32))]
     pub selectors: Vec<FileViewSelector>,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum FileViewIcon {
+    #[default]
+    Generic,
+    Sparkle,
+    Clock,
+}
+
+impl FileViewIcon {
+    fn is_generic(&self) -> bool {
+        *self == Self::Generic
+    }
 }
 
 /// Selectors are ORed; fields within one selector are ANDed. Each value list
@@ -362,7 +380,32 @@ mod tests {
         let serialized = serde_json::to_value(&m.contributes.file_views[0]).unwrap();
         assert!(serialized["selectors"][0].get("frontmatter").is_none());
         assert!(serialized.get("open_command").is_none());
+        assert!(serialized.get("icon").is_none());
         assert_eq!(serialized["priority"], json!(0));
+    }
+
+    #[test]
+    fn file_view_icon_accepts_known_values_and_defaults_to_generic() {
+        let raw = manifest(
+            json!([{"id":"report", "entry":"index.html", "selectors":[{"file_extensions":["json"]}]}]),
+        );
+        let m: ManifestV2 = serde_json::from_value(raw.clone()).unwrap();
+        assert_eq!(m.contributes.file_views[0].icon, FileViewIcon::Generic);
+
+        for icon in ["generic", "sparkle", "clock"] {
+            let mut with_icon = raw.clone();
+            with_icon["contributes"]["file_views"][0]["icon"] = json!(icon);
+            let parsed: ManifestV2 = serde_json::from_value(with_icon).unwrap();
+            assert_eq!(
+                serde_json::to_value(parsed.contributes.file_views[0].icon).unwrap(),
+                json!(icon)
+            );
+        }
+        for icon in [Value::Null, json!("calendar"), json!(1)] {
+            let mut with_icon = raw.clone();
+            with_icon["contributes"]["file_views"][0]["icon"] = icon;
+            assert!(serde_json::from_value::<ManifestV2>(with_icon).is_err());
+        }
     }
 
     #[test]

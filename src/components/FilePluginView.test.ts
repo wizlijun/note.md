@@ -9,7 +9,7 @@ import type { Tab } from '../lib/tabs.svelte'
 describe('FilePluginView', () => {
   let component: ReturnType<typeof mount> | undefined
   const initialContent = '---\ntype: Timeline\n---\n## 09:00–10:00 开发'
-  const view = { pluginId: 'notemd.timeline', viewId: 'timeline', entry: 'index.html' }
+  const view = { pluginId: 'notemd.timeline', viewId: 'timeline', entry: 'index.html', icon: 'clock' as const }
 
   afterEach(async () => {
     if (component) await unmount(component)

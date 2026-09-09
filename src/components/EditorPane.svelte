@@ -13,12 +13,12 @@
     isFileViewAvailable,
     retryFileViewAfterReload,
   } from '../lib/plugins/file-view-presentation.svelte'
+  import { isBuiltinOutlineFileView } from '../lib/plugins/builtin-file-views'
   import { pluginRuntime } from '../lib/plugins/runtime.svelte'
   import SourceView from './SourceView.svelte'
   import HtmlPreview from './HtmlPreview.svelte'
   import ExternalChangeBanner from './ExternalChangeBanner.svelte'
   import OutlineEditor from './outline/OutlineEditor.svelte'
-  import { isOutlineNoteTab } from '../lib/outline/gate.svelte'
   import SyncOriginBanner from './SyncOriginBanner.svelte'
   import MirrorSiblingsBanner from './MirrorSiblingsBanner.svelte'
   import SyncToVaultBanner from './SyncToVaultBanner.svelte'
@@ -33,11 +33,11 @@
   let presentation = $derived(fileViewPresentation(tab, pluginRuntime.manifests))
   let fileView = $derived(memoryReadOnly || tab.mode === 'source' ? null : presentation.active)
 
-  // A selected plugin that was disabled or removed falls back to Rich and does
+  // A selected file view that became unavailable falls back to Rich and does
   // not silently jump to a different matching plugin.
   $effect(() => {
     const selected = presentation.explicit
-    if (selected && !isFileViewAvailable(selected, pluginRuntime.manifests)) {
+    if (selected && !isFileViewAvailable(selected, pluginRuntime.manifests, tab)) {
       fallbackFileView(tab, selected, 'unavailable')
     }
   })
@@ -131,8 +131,6 @@
     {#key tab.id}<CsvEditor {tab} />{/key}
   {:else if tab.kind === 'base'}
     {#key tab.id}<BaseView {tab} />{/key}
-  {:else if isOutlineNoteTab(tab)}
-    {#key tab.id}<OutlineEditor {tab} />{/key}
   {:else if tab.kind === 'html'}
     {#key tab.id}<HtmlPreview html={tab.currentContent} />{/key}
   {:else if tab.kind === 'mdx'}
@@ -204,14 +202,18 @@
       />
     {/key}
   {:else if fileView}
-    {#key `${tab.id}:${fileView.pluginId}:${fileView.viewId}:${fileView.entry}:${presentation.attempt}`}
-      <FilePluginView
-        {tab}
-        view={fileView}
-        fallback={builtin}
-        onFallback={(reason) => { if (fileView) fallbackFileView(tab, fileView, reason) }}
-      />
-    {/key}
+    {#if isBuiltinOutlineFileView(fileView)}
+      {#key tab.id}<OutlineEditor {tab} />{/key}
+    {:else}
+      {#key `${tab.id}:${fileView.pluginId}:${fileView.viewId}:${fileView.entry}:${presentation.attempt}`}
+        <FilePluginView
+          {tab}
+          view={fileView}
+          fallback={builtin}
+          onFallback={(reason) => { if (fileView) fallbackFileView(tab, fileView, reason) }}
+        />
+      {/key}
+    {/if}
   {:else}
     {@render builtin()}
   {/if}

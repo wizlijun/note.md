@@ -163,6 +163,74 @@ describe('tabs', () => {
     expect(m.activeId.value).toBe(m.tabs[0].id)
   })
 
+  it('replaceCurrentFile reuses the source tab identity and watcher', async () => {
+    const watcher = await import('./file-watcher.svelte')
+    const settings = await import('./settings.svelte')
+    const m = await import('./tabs.svelte')
+    await m.openFile('/tmp/2026-09-09.timeline.md')
+    const id = m.tabs[0].id
+    vi.clearAllMocks()
+
+    await m.replaceCurrentFile('/tmp/2026-09-10.timeline.md', '/tmp/2026-09-09.timeline.md')
+
+    expect(m.tabs).toHaveLength(1)
+    expect(m.tabs[0].id).toBe(id)
+    expect(m.tabs[0].filePath).toBe('/tmp/2026-09-10.timeline.md')
+    expect(m.tabs[0].currentContent).toContain('/tmp/2026-09-10.timeline.md')
+    expect(m.activeId.value).toBe(id)
+    expect(watcher.stopWatchingTab).toHaveBeenCalledWith(id)
+    expect(watcher.startWatchingTab).toHaveBeenCalledWith(m.tabs[0])
+    expect(settings.pushRecentFile).toHaveBeenCalledWith('/tmp/2026-09-10.timeline.md')
+  })
+
+  it('replaceCurrentFile binds to the named source tab instead of whichever tab is active', async () => {
+    const m = await import('./tabs.svelte')
+    await m.openFile('/tmp/2026-09-09.timeline.md')
+    const sourceId = m.tabs[0].id
+    await m.openFile('/tmp/other.md')
+    expect(m.activeTab()?.filePath).toBe('/tmp/other.md')
+
+    await m.replaceCurrentFile('/tmp/2026-09-10.timeline.md', '/tmp/2026-09-09.timeline.md')
+
+    expect(m.tabs).toHaveLength(2)
+    expect(m.tabs.find((tab) => tab.id === sourceId)?.filePath).toBe('/tmp/2026-09-10.timeline.md')
+    expect(m.activeId.value).toBe(sourceId)
+    expect(m.tabs.some((tab) => tab.filePath === '/tmp/other.md')).toBe(true)
+  })
+
+  it('replaceCurrentFile refuses to discard source edits', async () => {
+    const watcher = await import('./file-watcher.svelte')
+    const m = await import('./tabs.svelte')
+    await m.openFile('/tmp/2026-09-09.timeline.md')
+    const id = m.tabs[0].id
+    m.setContent(id, '# edited')
+    vi.clearAllMocks()
+
+    await expect(m.replaceCurrentFile(
+      '/tmp/2026-09-10.timeline.md',
+      '/tmp/2026-09-09.timeline.md',
+    )).rejects.toThrow('未保存')
+
+    expect(m.tabs).toHaveLength(1)
+    expect(m.tabs[0].filePath).toBe('/tmp/2026-09-09.timeline.md')
+    expect(watcher.stopWatchingTab).not.toHaveBeenCalled()
+  })
+
+  it('replaceCurrentFile activates an existing destination and closes the clean source tab', async () => {
+    const m = await import('./tabs.svelte')
+    await m.openFile('/tmp/2026-09-09.timeline.md')
+    const sourceId = m.tabs[0].id
+    await m.openFile('/tmp/2026-09-10.timeline.md')
+    const destinationId = m.tabs[1].id
+
+    await m.replaceCurrentFile('/tmp/2026-09-10.timeline.md', '/tmp/2026-09-09.timeline.md')
+
+    expect(m.tabs).toHaveLength(1)
+    expect(m.tabs[0].id).toBe(destinationId)
+    expect(m.tabs.some((tab) => tab.id === sourceId)).toBe(false)
+    expect(m.activeId.value).toBe(destinationId)
+  })
+
   it('keeps a controlled memory projection read-only across edit and save paths', async () => {
     const fs = await import('./fs')
     ;(fs.readMd as ReturnType<typeof vi.fn>).mockResolvedValueOnce('# MEMORY\n')

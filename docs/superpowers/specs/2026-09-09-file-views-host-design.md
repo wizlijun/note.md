@@ -13,6 +13,7 @@
   "file_views": [{
     "id": "timeline",
     "entry": "index.html",
+    "icon": "clock",
     "open_command": "view-timeline",
     "priority": 100,
     "selectors": [{
@@ -24,6 +25,8 @@
 ```
 
 selector 可含 `file_extensions`、`file_name_patterns`、`path_patterns`、`frontmatter`。多个 selector 为 OR，单个 selector 内字段为 AND，单个条件的候选数组为 OR，frontmatter 的不同属性为 AND。空 selector、空数组、空属性集合、null、未知字段均无效，不解释为匹配全部。
+
+视图可用 `icon` 声明宿主切换按钮图标，受控取值为 `generic`、`sparkle`、`clock`；旧清单省略时兼容为 `generic`。
 
 - 扩展名忽略大小写，去掉前导点；只匹配最后一个扩展名。复合后缀通过文件名规则表达。
 - 文件名和路径采用大小写敏感的 `*`、`?`、`**`；`*`、`?` 不跨 `/`，`**` 可跨层，完整 `**/` 段可匹配零层目录。其他字符是普通字面量，不执行正则、函数、脚本或表达式。

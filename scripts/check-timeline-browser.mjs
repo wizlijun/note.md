@@ -28,7 +28,7 @@ runFixtureCommand('cargo', ['test', '--lib', 'plugin_runtime::protocol::tests::e
 const productionCsp = await readFile(join(productionRoot, 'plugin-csp.txt'), 'utf8')
 const { chromium } = process.env.PLAYWRIGHT_MODULE
   ? await import(pathToFileURL(resolve(process.env.PLAYWRIGHT_MODULE)).href) : await import('playwright')
-const state = { classification: undefined, failSave: false, failLoad: false, noPlugin: false, timelineExists: true, opened: [], openRequests: [], saves: 0 }
+const state = { timelineSettings: undefined, failSave: false, failLoad: false, noPlugin: false, timelineExists: true, opened: [], openRequests: [], saves: 0 }
 const results = []
 const servers = []
 const errors = []
@@ -60,11 +60,11 @@ function fixtureServer(kind) {
             let value
             if (method === 'host.settings.get') {
               if (state.failLoad) throw new Error('Synthetic settings read failure')
-              value = { settings: state.classification === undefined ? {} : { classification: state.classification } }
+              value = { settings: state.timelineSettings === undefined ? {} : { timeline: state.timelineSettings } }
             } else if (method === 'host.settings.set') {
               if (state.failSave) throw new Error('Synthetic settings write failure')
-              assert.equal(params.key, 'classification')
-              state.classification = structuredClone(params.value)
+              assert.equal(params.key, 'timeline')
+              state.timelineSettings = structuredClone(params.value)
               state.saves++
               value = { ok: true }
             } else if (method === 'host.vault.info') value = { root: '/fixture-vault' }
@@ -141,6 +141,7 @@ try {
   await check('cross-origin handshake renders all five categories and seven activity blocks', async () => {
     await waitReady()
     assert.equal(await plugin().locator('.event').count(), 7)
+    assert.equal(await page.locator('[data-file-view-icon="clock"] circle').count(), 1)
     assert.deepEqual(await plugin().locator('body').evaluate(() => ({ bridge: Object.isFrozen(window.notemd), id: window.notemd?.pluginId, external: !!document.querySelector('script[src="/__notemd_bridge__.js"]') })), { bridge: true, id: 'notemd.timeline', external: true })
     const categories = await plugin().locator('.event').evaluateAll((nodes) => [...new Set(nodes.map((node) => node.dataset.category))].sort())
     assert.deepEqual(categories, ['interest', 'leisure', 'life', 'other', 'work'])
@@ -175,7 +176,12 @@ try {
     const before = state.openRequests.length
     await plugin().getByRole('button', { name: '下一天', exact: true }).click()
     await assertEventually(() => state.openRequests.length === before + 1)
-    assert.deepEqual(state.openRequests.at(-1), { path: 'diary/2026-09-09.timeline.md', fileView: 'timeline' })
+    assert.deepEqual(state.openRequests.at(-1), {
+      path: 'diary/2026-09-09.timeline.md',
+      fileView: 'timeline',
+      replaceCurrent: true,
+      currentPath: 'diary/2026-09-08.timeline.md',
+    })
     state.timelineExists = false
     await plugin().getByRole('button', { name: '上一天', exact: true }).click()
     await plugin().getByRole('alert').waitFor()
@@ -183,26 +189,33 @@ try {
     state.timelineExists = true
   })
 
-  await check('classification write failure keeps the draft; retry persists and recolors', async () => {
-    await plugin().getByRole('button', { name: '分类设置', exact: false }).click()
+  await check('settings write failure keeps the draft; retry persists, repositions and recolors', async () => {
+    await page.setViewportSize({ width: 1100, height: 420 })
+    const initialScrollTop = await plugin().locator('.schedule-scroll').evaluate((node) => node.scrollTop)
+    await plugin().getByRole('button', { name: '时间线设置', exact: false }).click()
     const rule = plugin().locator('[data-rule-id="development"]')
     await rule.locator('input').first().fill('编码与实现')
     await rule.locator('select').selectOption('interest')
+    await plugin().locator('input[aria-label="打开时定位时间"]').fill('10:00')
     state.failSave = true
-    await plugin().getByRole('button', { name: '保存分类', exact: true }).click()
+    await plugin().getByRole('button', { name: '保存设置', exact: true }).click()
     await plugin().getByRole('alert').waitFor()
     assert.equal(await rule.locator('input').first().inputValue(), '编码与实现')
     assert.equal(await rule.locator('select').inputValue(), 'interest')
     assert.equal(state.saves, 0)
     await page.screenshot({ path: join(output, 'timeline-settings-failure.png') })
     state.failSave = false
-    await plugin().getByRole('button', { name: '保存分类', exact: true }).click()
+    await plugin().getByRole('button', { name: '保存设置', exact: true }).click()
     await plugin().locator('.settings').waitFor({ state: 'detached' })
     assert.equal(state.saves, 1)
-    assert.equal(state.classification.find((entry) => entry.id === 'development').name, '编码与实现')
+    assert.equal(state.timelineSettings.classification.find((entry) => entry.id === 'development').name, '编码与实现')
+    assert.equal(state.timelineSettings.startTime, '10:00')
+    await plugin().locator('.schedule-scroll').evaluate((node) => new Promise((resolve) => requestAnimationFrame(() => resolve(node.scrollTop))))
+    const updatedScrollTop = await plugin().locator('.schedule-scroll').evaluate((node) => node.scrollTop)
+    assert.ok(updatedScrollTop >= initialScrollTop + 90, `10:00 is aligned below the former 09:00 position (${initialScrollTop} -> ${updatedScrollTop})`)
     assert.equal(await plugin().getByRole('button', { name: /09:00.*开发/ }).getAttribute('data-category'), 'interest')
     assert.equal(await page.evaluate(() => window.__timelineBrowser.content === window.__timelineBrowser.initial), true)
-    await plugin().getByRole('button', { name: '分类设置', exact: false }).click()
+    await plugin().getByRole('button', { name: '时间线设置', exact: false }).click()
     await page.setViewportSize({ width: 390, height: 740 })
     const overflow = await plugin().locator('body').evaluate((body) => Math.max(body.scrollWidth, document.documentElement.scrollWidth) - innerWidth)
     assert.ok(overflow <= 1, 'narrow classification settings fit')
@@ -270,7 +283,7 @@ try {
     await page.getByRole('textbox', { name: 'Markdown 源码', exact: true }).waitFor()
     await page.evaluate(() => window.__timelineBrowser.setMode('rich')); await waitReady()
     await plugin().getByRole('alert').waitFor()
-    assert.equal(await plugin().getByRole('button', { name: '分类设置', exact: false }).isDisabled(), true)
+    assert.equal(await plugin().getByRole('button', { name: '时间线设置', exact: false }).isDisabled(), true)
     assert.equal(state.saves, 1)
     state.failLoad = false
     await plugin().getByRole('button', { name: '重试', exact: true }).click()
@@ -280,21 +293,22 @@ try {
   })
 
   await check('corrupt stored classification opens a repair draft and never writes on cancel', async () => {
-    state.classification = { invalid: true }
+    state.timelineSettings = { classification: { invalid: true }, startTime: '10:00' }
     await page.evaluate(() => window.__timelineBrowser.setMode('source'))
     await page.getByRole('textbox', { name: 'Markdown 源码', exact: true }).waitFor()
     await page.evaluate(() => window.__timelineBrowser.setMode('rich')); await waitReady()
-    await plugin().getByRole('button', { name: '重新设置分类', exact: true }).click()
+    await plugin().getByRole('button', { name: '重新设置', exact: true }).click()
     await plugin().locator('.settings').waitFor()
     assert.equal(await plugin().locator('.rule').count(), 7)
     await plugin().getByRole('button', { name: '取消', exact: true }).click()
     assert.equal(state.saves, 1)
-    assert.deepEqual(state.classification, { invalid: true })
-    await plugin().getByRole('button', { name: '重新设置分类', exact: true }).click()
-    await plugin().getByRole('button', { name: '保存分类', exact: true }).click()
+    assert.deepEqual(state.timelineSettings, { classification: { invalid: true }, startTime: '10:00' })
+    await plugin().getByRole('button', { name: '重新设置', exact: true }).click()
+    await plugin().getByRole('button', { name: '保存设置', exact: true }).click()
     await plugin().locator('.settings').waitFor({ state: 'detached' })
     assert.equal(state.saves, 2)
-    assert.equal(state.classification.length, 7)
+    assert.equal(state.timelineSettings.classification.length, 7)
+    assert.equal(state.timelineSettings.startTime, '09:00')
   })
 
   await check('an unresponsive real iframe reaches the host loading deadline', async () => {

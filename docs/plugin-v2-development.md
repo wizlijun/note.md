@@ -172,6 +172,7 @@ manifest 不写 `Agents`、`智能体` 等显示文本。插件市场索引也�
     "file_views": [{
       "id": "report",
       "entry": "report.html",
+      "icon": "generic",
       "open_command": "view-report",
       "priority": 100,
       "selectors": [
@@ -189,6 +190,7 @@ manifest 不写 `Agents`、`智能体` 等显示文本。插件市场索引也�
 - 扩展名去除首尾 Unicode 空白及开头的点后忽略大小写。文件名和路径模式去除首尾 Unicode 空白、区分大小写，只支持 `*`、`?`、`**`：前两者不跨 `/`，`**` 可跨目录，完整 `**/` 段也可匹配零层目录，其余字符按字面匹配。路径以规范化 `/` 的完整绝对路径为基准；未保存的相对路径不匹配路径条件。
 - frontmatter 仅匹配文件开头 YAML 的顶层字符串、数字或布尔值。字符串去除首尾 Unicode 空白并忽略大小写；数字和布尔值按类型精确匹配。无效 YAML、重复键和 aliases 不参与匹配；解析范围最多为文件开头 128 KiB UTF-16 字符。
 - `priority` 为 -1000 到 1000 的整数，默认 0；高值优先，同分按插件 ID、视图 ID 字典序稳定选择。每次只尝试所选视图，失败后使用内置视图。
+- `icon` 可选，控制宿主紧凑视图切换按钮，支持 `generic`、`sparkle`、`clock`；省略时使用 `generic`。
 - `open_command` 可选，用于把 `contributes.menus[].command` 直接绑定到这个文件视图。宿主不启动插件进程；有匹配的当前文件时显式查看该视图，没有活动文件时先打开文件选择器，当前文件不匹配时提示选择受支持文件。命令在同一插件的文件视图和窗口之间必须唯一。
 - 支持 Markdown、MDX、HTML、代码、CSV/TSV 表格与 Base 等文本类型。源码模式、受管理的 USER/MEMORY 文档以及已有 custom editor 保持优先；图片和 Canvas 不参与匹配。
 - 不接受空 selector、空条件数组、显式 null 或未知字段。视图、selector、候选值与 frontmatter 键各最多 32 个；字符串规则最多 256 个 Unicode 码点，视图 ID 和 metadata 键最多 128 个。`entry` 必须是 `ui/` 内安全的相对 `.html` 路径。类型及校验源见 `plugin-protocol/src/file_views.rs`，匹配源见 `src/lib/plugins/file-views.ts`。
@@ -354,7 +356,7 @@ load 的 `representation.status` 为 `in-sync`、`external-drift` 或 `missing`�
 | `host.fs.read_text` | `fs.read:dialog` | `{ path }` → `{ content }`(仅 dialog 授权过的路径) |
 | `host.clipboard.write` | `clipboard.write` | `{ text }` → `{ok}` |
 | `host.location.get` | `location` | — → 位置对象 |
-| `host.editor.open` | `editor.open` | `{ path, fileView? }`（vault 相对路径；`fileView` 为调用插件声明的视图 ID）→ `{ ok: true }`；在主编辑器打开文件并聚焦主窗口。指定视图时，宿主会重新校验目标文件规则后选中该视图。仅 UI 桥可用。 |
+| `host.editor.open` | `editor.open` | `{ path, fileView?, replaceCurrent?, currentPath? }`（路径均为 vault 相对路径；`fileView` 为调用插件声明的视图 ID）→ `{ ok: true }`；在主编辑器打开文件并聚焦主窗口。指定视图时，宿主会重新校验目标文件规则后选中该视图。文件视图内导航可同时传 `replaceCurrent: true` 和发起导航的 `currentPath`，宿主只会在该来源标签仍使用调用插件的同一视图且没有未保存修改时原位替换；两项必须配对，且不能用于普通打开。仅 UI 桥可用。 |
 | `host.theme.css` | `editor.kit` | — → `{ light_css, dark_css, follow_system }`;隔离插件窗口没有主程序的 `<style>` 插槽,靠这个方法要到编译好的主题 CSS(已去掉 `[data-theme="…"]` 限定前缀,直接对 `.moraya-editor` 生效)。仅 UI 桥可用(`ui_rpc.rs` 里在 `dispatch_with` 之外单独处理,因为要活的 `AppHandle` 读 app 配置目录 + 已编译主题产物;进程通道回 `-32601`)。 |
 | `host.power_mode.config` | `editor.kit` | — → `{ config: object\|null, surfaces: [{id, name, names}] }`;`config: null` = power-mode 插件没装/停用(整体关闭),`{}` = 装了但没配过(用默认值)。`surfaces` 是已加载且声明了 `editor.kit` 的插件清单(不含 power-mode 自己),`names` 是 manifest `i18n.<locale>.name` 映射。仅 UI 桥可用。 |
 | `host.power_mode.update` | `power-mode` | `{ config }` → `{ ok: true }`;宿主 emit `power-mode://update` 给主窗口前端,由它落进 settings.json 的插件域(store 是前端独家持有的,Rust 不直接写)。仅 UI 桥可用。 |

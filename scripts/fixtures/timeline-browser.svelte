@@ -31,7 +31,7 @@ description: "合成日程，用于验证时间轴查看与来源跳转。"
 - 12:45:00–12:45:00 — 沟通：确认收到项目计划的即时记录。
 `
   let tab = $state({ id: 'timeline-browser', filePath: '/fixture-vault/diary/2026-09-08.timeline.md', title: '2026-09-08.timeline.md', kind: 'markdown', mode: 'rich', initialContent: initial, currentContent: initial } as Tab)
-  const manifest: PluginManifest = { id: 'notemd.timeline', name: 'Timeline', version: '1.0.0', binary: '', host_capabilities: [], file_views: [{ id: 'timeline', selectors: [{ file_extensions: ['md'], frontmatter: { type: ['timeline'] } }], entry: 'timeline-plugin.html' }] }
+  const manifest: PluginManifest = { id: 'notemd.timeline', name: 'Timeline', version: '1.0.0', binary: '', host_capabilities: [], file_views: [{ id: 'timeline', selectors: [{ file_extensions: ['md'], frontmatter: { type: ['timeline'] } }], entry: 'timeline-plugin.html', icon: 'clock' }] }
   let enabled = $state(true)
   let manifests = $derived(enabled ? [manifest] : [])
   let presentation = $derived(fileViewPresentation(tab, manifests))

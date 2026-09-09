@@ -7,7 +7,13 @@ let cached: Promise<Platform> | null = null
 
 export function platform(): Promise<Platform> {
   if (cached !== null) return cached
-  const result = Promise.resolve(tauriPlatform() as unknown as string).then(
+  let nativeResult: string | Promise<string>
+  try {
+    nativeResult = tauriPlatform() as unknown as string | Promise<string>
+  } catch {
+    nativeResult = 'unknown'
+  }
+  const result = Promise.resolve(nativeResult).then(
     (raw: string): Platform => (raw === 'macos' || raw === 'ios' ? raw : 'unknown'),
   )
   cached = result

@@ -3,23 +3,26 @@
   import { t } from '../lib/i18n/store.svelte'
   import { pluginRuntime } from '../lib/plugins/runtime.svelte'
   import { pluginName } from '../lib/plugins/plugin-i18n'
+  import { SPARKLE_PATH } from '../lib/context-menu/icons'
   import {
     fileViewPresentation,
-    selectBuiltinFileView,
-    selectPluginFileView,
+    fileViewManifest,
+    selectFileView,
+    selectRichFileView,
     selectSourceFileView,
   } from '../lib/plugins/file-view-presentation.svelte'
 
   let { tab }: { tab: Tab } = $props()
   let presentation = $derived(fileViewPresentation(tab, pluginRuntime.manifests))
-  let pluginLabel = $derived.by(() => {
-    const id = presentation.candidate?.pluginId
-    const manifest = id ? pluginRuntime.manifests.find((item) => item.id === id) : undefined
+  let viewLabel = $derived.by(() => {
+    const view = presentation.candidate
+    const id = view?.pluginId
+    const manifest = view ? fileViewManifest(tab, view, pluginRuntime.manifests) : undefined
     return manifest ? pluginName(manifest) : id ?? ''
   })
-  let pluginTitle = $derived(t('fileView.openView', { name: pluginLabel }))
+  let viewTitle = $derived(t('fileView.openView', { name: viewLabel }))
   let richActive = $derived(tab.mode === 'rich' && !presentation.active)
-  let pluginActive = $derived(tab.mode === 'rich' && !!presentation.active)
+  let viewActive = $derived(tab.mode === 'rich' && !!presentation.active)
 
   function moveTab(event: KeyboardEvent) {
     if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
@@ -46,7 +49,7 @@
     aria-label={t('mode.previewRich')}
     tabindex={richActive ? 0 : -1}
     class:active={richActive}
-    onclick={() => selectBuiltinFileView(tab)}
+    onclick={() => selectRichFileView(tab)}
     title={t('mode.previewRich')}
   >
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -73,17 +76,29 @@
     <button
       type="button"
       role="tab"
-      aria-selected={pluginActive}
-      aria-label={pluginTitle}
-      tabindex={pluginActive ? 0 : -1}
-      class:active={pluginActive}
-      onclick={() => presentation.candidate && selectPluginFileView(tab, presentation.candidate)}
-      title={pluginTitle}
+      data-file-view-icon={presentation.candidate.icon}
+      aria-selected={viewActive}
+      aria-label={viewTitle}
+      tabindex={viewActive ? 0 : -1}
+      class:active={viewActive}
+      onclick={() => presentation.candidate && selectFileView(tab, presentation.candidate)}
+      title={viewTitle}
     >
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <rect x="3" y="3" width="18" height="18" rx="2"/>
-        <path d="M9 3v18M9 9h12"/>
-      </svg>
+      {#if presentation.candidate.icon === 'sparkle'}
+        <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+          {@html SPARKLE_PATH}
+        </svg>
+      {:else if presentation.candidate.icon === 'clock'}
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="9"/>
+          <path d="M12 7v5l3 2"/>
+        </svg>
+      {:else}
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="3" y="3" width="18" height="18" rx="2"/>
+          <path d="M9 3v18M9 9h12"/>
+        </svg>
+      {/if}
     </button>
   {/if}
 </div>

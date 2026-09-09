@@ -198,7 +198,13 @@ pub trait HostServices: Send + Sync {
     }
     /// Open a file and request one of the calling plugin's declared file views.
     /// Implementations without a main-window view channel retain editor.open behavior.
-    fn open_in_file_view(&self, abs_path: &Path, _plugin_id: &str, _view_id: &str) -> Result<(), String> {
+    fn open_in_file_view(
+        &self,
+        abs_path: &Path,
+        _plugin_id: &str,
+        _view_id: &str,
+        _replace_current_path: Option<&Path>,
+    ) -> Result<(), String> {
         self.open_in_editor(abs_path)
     }
     /// AI agent 中转：`command` 为 `"run-task"`/`"run-status"`,`context`/结果原样
@@ -763,10 +769,18 @@ fn sanitize_rel(rel_raw: &str) -> Result<PathBuf, String> {
 /// act on the directory ENTRY itself (delete/rename a link without touching
 /// whatever it points to) — those callers must use [`vault_leaf_path`] instead.
 fn resolve_in_vault(services: &dyn HostServices, params: &serde_json::Value) -> Result<PathBuf, String> {
+    resolve_named_in_vault(services, params, "path")
+}
+
+fn resolve_named_in_vault(
+    services: &dyn HostServices,
+    params: &serde_json::Value,
+    key: &str,
+) -> Result<PathBuf, String> {
     let root = services
         .vault_root()
         .ok_or_else(|| "vault_required: configure a Vault first".to_string())?;
-    let rel = sanitize_rel(req_str(params, "path")?)?;
+    let rel = sanitize_rel(req_str(params, key)?)?;
     let root_c = root
         .canonicalize()
         .map_err(|e| format!("io: vault root unavailable: {e}"))?;
@@ -1186,15 +1200,36 @@ pub(crate) fn editor_open(
     params: &serde_json::Value,
 ) -> Result<serde_json::Value, String> {
     let p = resolve_in_vault(services, params)?;
+    let replace_current = match params.get("replaceCurrent") {
+        None => false,
+        Some(serde_json::Value::Bool(value)) => *value,
+        Some(_) => return Err("io: replaceCurrent must be a boolean".into()),
+    };
+    let replace_current_path = if replace_current {
+        if params.get("currentPath").is_none() {
+            return Err("io: replaceCurrent requires currentPath".into());
+        }
+        Some(resolve_named_in_vault(services, params, "currentPath")?)
+    } else {
+        if params.get("currentPath").is_some() {
+            return Err("io: currentPath requires replaceCurrent: true".into());
+        }
+        None
+    };
     match params.get("fileView") {
-        None => services.open_in_editor(&p)?,
+        None => {
+            if params.get("replaceCurrent").is_some() || replace_current_path.is_some() {
+                return Err("io: replaceCurrent requires fileView".into());
+            }
+            services.open_in_editor(&p)?
+        }
         Some(serde_json::Value::String(view_id))
             if !view_id.is_empty()
                 && view_id.len() <= 128
                 && view_id.as_bytes().first().is_some_and(|c| c.is_ascii_lowercase() || c.is_ascii_digit())
                 && view_id.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-') =>
         {
-            services.open_in_file_view(&p, plugin_id, view_id)?
+            services.open_in_file_view(&p, plugin_id, view_id, replace_current_path.as_deref())?
         }
         Some(_) => return Err("io: fileView must be a valid file-view id".into()),
     }
@@ -1317,15 +1352,29 @@ impl<R: tauri::Runtime> HostServices for TauriServices<R> {
         Ok(())
     }
 
-    fn open_in_file_view(&self, abs_path: &Path, plugin_id: &str, view_id: &str) -> Result<(), String> {
+    fn open_in_file_view(
+        &self,
+        abs_path: &Path,
+        plugin_id: &str,
+        view_id: &str,
+        replace_current_path: Option<&Path>,
+    ) -> Result<(), String> {
         use tauri::{Emitter, Manager};
         let path = abs_path
             .to_str()
             .ok_or_else(|| "io: path is not valid UTF-8".to_string())?;
+        let replace_current_path = replace_current_path
+            .map(|value| {
+                value
+                    .to_str()
+                    .ok_or_else(|| "io: current path is not valid UTF-8".to_string())
+            })
+            .transpose()?;
         let payload = serde_json::json!({
             "path": path,
             "pluginId": plugin_id,
             "viewId": view_id,
+            "replaceCurrentPath": replace_current_path,
         });
         crate::show_main_window(&self.app);
         let win = self.app
@@ -1533,7 +1582,7 @@ mod tests {
         /// recorded editor.open paths
         opened: Arc<Mutex<Vec<PathBuf>>>,
         /// recorded editor.open requests that select a declared file view
-        opened_views: Arc<Mutex<Vec<(PathBuf, String, String)>>>,
+        opened_views: Arc<Mutex<Vec<(PathBuf, String, String, Option<PathBuf>)>>>,
         /// recorded `agent_execute`/`notify_user` calls: (kind, arg) where kind
         /// is the relayed command ("run-task"/"run-status") or "notify".
         agent_calls: Arc<Mutex<Vec<(String, serde_json::Value)>>>,
@@ -1564,11 +1613,18 @@ mod tests {
             self.opened.lock().unwrap().push(abs_path.to_path_buf());
             Ok(())
         }
-        fn open_in_file_view(&self, abs_path: &Path, plugin_id: &str, view_id: &str) -> Result<(), String> {
+        fn open_in_file_view(
+            &self,
+            abs_path: &Path,
+            plugin_id: &str,
+            view_id: &str,
+            replace_current_path: Option<&Path>,
+        ) -> Result<(), String> {
             self.opened_views.lock().unwrap().push((
                 abs_path.to_path_buf(),
                 plugin_id.to_string(),
                 view_id.to_string(),
+                replace_current_path.map(Path::to_path_buf),
             ));
             Ok(())
         }
@@ -2552,13 +2608,98 @@ mod tests {
             &["editor.open"],
             "host.editor.open",
             serde_json::json!({"path": "diary/2026-09-10.timeline.md", "fileView": "timeline"}),
-        ).await;
+        )
+        .await;
         assert!(r.error.is_none(), "{:?}", r.error);
         let calls = opened_views.lock().unwrap();
         assert_eq!(calls.len(), 1);
         assert!(calls[0].0.ends_with("diary/2026-09-10.timeline.md"));
         assert_eq!(calls[0].1, "test.plugin");
         assert_eq!(calls[0].2, "timeline");
+        assert!(calls[0].3.is_none());
+    }
+
+    #[tokio::test]
+    async fn editor_open_file_view_can_replace_current_tab() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("diary/2026-09-10.timeline.md");
+        std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+        std::fs::write(&file, "---\ntype: timeline\n---").unwrap();
+        let s = StubServices {
+            vault: Some(dir.path().to_path_buf()),
+            ..Default::default()
+        };
+        let opened_views = s.opened_views.clone();
+        let r = run(
+            &s,
+            &["editor.open"],
+            "host.editor.open",
+            serde_json::json!({
+                "path": "diary/2026-09-10.timeline.md",
+                "fileView": "timeline",
+                "replaceCurrent": true,
+                "currentPath": "diary/2026-09-09.timeline.md",
+            }),
+        ).await;
+        assert!(r.error.is_none(), "{:?}", r.error);
+        let calls = opened_views.lock().unwrap();
+        assert_eq!(calls.len(), 1);
+        assert!(calls[0].0.ends_with("diary/2026-09-10.timeline.md"));
+        assert_eq!(&calls[0].1, "test.plugin");
+        assert_eq!(&calls[0].2, "timeline");
+        assert!(calls[0]
+            .3
+            .as_ref()
+            .is_some_and(|path| path.ends_with("diary/2026-09-09.timeline.md")));
+    }
+
+    #[tokio::test]
+    async fn editor_open_rejects_invalid_or_unscoped_replace_current() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("note.md");
+        std::fs::write(&file, "# hello").unwrap();
+        let s = StubServices {
+            vault: Some(dir.path().to_path_buf()),
+            ..Default::default()
+        };
+
+        for params in [
+            serde_json::json!({"path": "note.md", "fileView": "timeline", "replaceCurrent": "true", "currentPath": "note.md"}),
+            serde_json::json!({"path": "note.md", "fileView": "timeline", "replaceCurrent": true}),
+            serde_json::json!({"path": "note.md", "fileView": "timeline", "currentPath": "note.md"}),
+            serde_json::json!({"path": "note.md", "replaceCurrent": true}),
+            serde_json::json!({"path": "note.md", "replaceCurrent": false}),
+        ] {
+            let r = run(&s, &["editor.open"], "host.editor.open", params).await;
+            assert!(r.error.unwrap().message.contains("replaceCurrent"));
+        }
+        assert!(s.opened.lock().unwrap().is_empty());
+        assert!(s.opened_views.lock().unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn editor_open_rejects_replace_current_path_traversal() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("note.md");
+        std::fs::write(&file, "# hello").unwrap();
+        let s = StubServices {
+            vault: Some(dir.path().to_path_buf()),
+            ..Default::default()
+        };
+        let r = run(
+            &s,
+            &["editor.open"],
+            "host.editor.open",
+            serde_json::json!({
+                "path": "note.md",
+                "fileView": "timeline",
+                "replaceCurrent": true,
+                "currentPath": "../secret.md",
+            }),
+        )
+        .await;
+        assert!(r.error.unwrap().message.contains("escapes the vault"));
+        assert!(s.opened_views.lock().unwrap().is_empty());
     }
 
     #[tokio::test]

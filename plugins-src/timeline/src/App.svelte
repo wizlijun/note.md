@@ -1,11 +1,12 @@
 <script lang="ts">
   import '../../../src/styles/ui-foundation.css'
   import { onDestroy, onMount, tick } from 'svelte'
-  import { InvalidRulesError, loadRules, locale, onDocument, openLink, openTimelineDate, saveRules } from './lib/bridge'
+  import { DEFAULT_START_TIME, InvalidSettingsError, loadSettings, locale, onDocument, openLink, openTimelineDate, saveSettings, startTimeMinute, type TimelineSettings } from './lib/bridge'
   import { CATEGORIES, classifyItem, DEFAULT_RULES, type ClassificationRule } from './lib/classification'
   import type { TimelineDocument, TimelineItem } from './lib/parser'
   import { formatDuration, formatTime, layoutTimeline, PIXELS_PER_MINUTE } from './lib/layout'
   import { shiftTimelineDate } from './lib/date-navigation'
+  import { scrollTimelineToMinute } from './lib/scroll-position'
   import ClassificationSettings from './lib/components/ClassificationSettings.svelte'
   import TimelineDetail from './lib/components/TimelineDetail.svelte'
 
@@ -13,6 +14,7 @@
   const categoryNames: Record<string, string> = { work: 'Work', interest: 'Interests', life: 'Life', leisure: 'Leisure', other: 'Other' }
   let doc = $state<TimelineDocument | null>(null)
   let rules = $state<ClassificationRule[]>(DEFAULT_RULES)
+  let startTime = $state(DEFAULT_START_TIME)
   let loadingRules = $state(true)
   let ruleError = $state('')
   let invalidRules = $state(false)
@@ -24,6 +26,9 @@
   let trigger: HTMLButtonElement | null = null
   let settingsOpener: HTMLButtonElement | null = null
   let settingsTrigger: HTMLButtonElement
+  let scheduleScroll = $state<HTMLDivElement | null>(null)
+  let scheduleElement = $state<HTMLDivElement | null>(null)
+  let positionVersion = 0
   const layout = $derived(layoutTimeline(doc?.items ?? []))
   const previousDate = $derived(doc ? shiftTimelineDate(doc.date, -1) : null)
   const nextDate = $derived(doc ? shiftTimelineDate(doc.date, 1) : null)
@@ -34,28 +39,44 @@
     return Number.isNaN(date.getTime()) ? doc.date : new Intl.DateTimeFormat(zh ? 'zh-CN' : 'en-US', { month: 'long', day: 'numeric', weekday: 'long' }).format(date)
   })
 
-  async function fetchRules() {
+  async function fetchSettings() {
     loadingRules = true
     ruleError = ''
     invalidRules = false
-    try { rules = await loadRules() }
-    catch (cause) {
-      invalidRules = cause instanceof InvalidRulesError
-      ruleError = `${zh ? '无法读取分类设置。' : 'Could not load classification settings.'} ${cause instanceof Error ? cause.message : String(cause)}`
+    try {
+      const loaded = await loadSettings()
+      rules = loaded.classification
+      startTime = loaded.startTime
     }
-    finally { loadingRules = false }
+    catch (cause) {
+      invalidRules = cause instanceof InvalidSettingsError
+      ruleError = `${zh ? '无法读取时间线设置。' : 'Could not load timeline settings.'} ${cause instanceof Error ? cause.message : String(cause)}`
+    }
+    finally {
+      loadingRules = false
+      if (doc) void positionSchedule()
+    }
+  }
+
+  async function positionSchedule() {
+    const version = ++positionVersion
+    if (loadingRules) return
+    await tick()
+    if (typeof requestAnimationFrame === 'function') await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+    if (version !== positionVersion || !scheduleScroll || !scheduleElement || !layout.ticks.length) return
+    scrollTimelineToMinute(scheduleScroll, scheduleElement, startTimeMinute(startTime), layout.ticks[0])
   }
 
   // Receive the document before deferred mount effects, including a fast
   // parent onload snapshot. Settings do not gate the display handshake.
-  const unsubscribe = onDocument((value) => { doc = value; selected = null; navigationError = '' })
+  const unsubscribe = onDocument((value) => { doc = value; selected = null; navigationError = ''; void positionSchedule() })
   onDestroy(unsubscribe)
-  onMount(() => { void fetchRules() })
+  onMount(() => { void fetchSettings() })
 
   function showSettings(reset = false, event?: MouseEvent) {
     if (loadingRules || (ruleError && !(reset && invalidRules)) || saving || navigating || settings) return
     settingsOpener = event?.currentTarget as HTMLButtonElement | null
-    if (reset) rules = structuredClone(DEFAULT_RULES)
+    if (reset) { rules = structuredClone(DEFAULT_RULES); startTime = DEFAULT_START_TIME }
     selected = null
     settings = true
     void tick().then(() => document.querySelector<HTMLInputElement>('.settings input')?.focus())
@@ -68,17 +89,19 @@
     ;(settingsOpener?.isConnected ? settingsOpener : settingsTrigger)?.focus()
   }
 
-  async function persistRules(value: ClassificationRule[]) {
+  async function persistSettings(value: TimelineSettings) {
     if (saving) return
     saving = true
     try {
-      await saveRules(value)
-      rules = value
+      await saveSettings(value)
+      rules = value.classification
+      startTime = value.startTime
       ruleError = ''
       invalidRules = false
       settings = false
     } finally { saving = false }
     await tick()
+    if (doc) void positionSchedule()
     settingsTrigger?.focus()
   }
 
@@ -121,16 +144,16 @@
       {#if doc}<div class="subheading">{doc.items.length} {zh ? '段活动' : 'activities'}{#if layout.ticks.length}<span>·</span>{formatTime(Math.min(...doc.items.map((item) => item.start)))} — {formatTime(Math.max(...doc.items.map((item) => item.end)))}{/if}</div>{/if}
     </div>
     <div class="toolbar-actions">
-      <button class="toolbar-button" class:active={settings} bind:this={settingsTrigger} aria-expanded={settings} disabled={loadingRules || !!ruleError || saving || navigating || settings} onclick={(event) => showSettings(false, event)}><span aria-hidden="true">☷</span>{zh ? '分类设置' : 'Categories'}</button>
+      <button class="toolbar-button" class:active={settings} bind:this={settingsTrigger} aria-expanded={settings} disabled={loadingRules || !!ruleError || saving || navigating || settings} onclick={(event) => showSettings(false, event)}><span aria-hidden="true">☷</span>{zh ? '时间线设置' : 'Settings'}</button>
     </div>
   </header>
 
   {#if navigationError}<div class="navigation-error" role="alert">{navigationError}</div>{/if}
 
-  {#if ruleError}<div class="load-error" role="alert"><span>{ruleError}{#if invalidRules} {zh ? '重新设置并保存后，将替换损坏的分类规则。' : 'Resetting and saving will replace the damaged rules.'}{/if}</span><button disabled={loadingRules || saving || settings} onclick={() => { if (!saving && !settings) void fetchRules() }}>{zh ? '重试' : 'Retry'}</button>{#if invalidRules}<button disabled={loadingRules || saving || settings} onclick={(event) => showSettings(true, event)}>{zh ? '重新设置分类' : 'Reset categories'}</button>{/if}</div>{/if}
+  {#if ruleError}<div class="load-error" role="alert"><span>{ruleError}{#if invalidRules} {zh ? '重新设置并保存后，将替换损坏的时间线设置。' : 'Resetting and saving will replace the damaged timeline settings.'}{/if}</span><button disabled={loadingRules || saving || settings} onclick={() => { if (!saving && !settings) void fetchSettings() }}>{zh ? '重试' : 'Retry'}</button>{#if invalidRules}<button disabled={loadingRules || saving || settings} onclick={(event) => showSettings(true, event)}>{zh ? '重新设置' : 'Reset settings'}</button>{/if}</div>{/if}
 
   {#if settings}
-    <main class="settings-scroll"><ClassificationSettings {rules} {zh} onsave={persistRules} oncancel={closeSettings} /></main>
+    <main class="settings-scroll"><ClassificationSettings {rules} {startTime} {zh} onsave={persistSettings} oncancel={closeSettings} /></main>
   {:else if !doc}
     <main class="empty" aria-live="polite">{zh ? '正在加载时间线…' : 'Loading timeline…'}</main>
   {:else}
@@ -142,10 +165,10 @@
       <details class="document-notes"><summary>{zh ? '时间线说明' : 'Timeline notes'}</summary><div>{#if doc.title}<p class="original-title">{doc.title}</p>{/if}{#if doc.description}<p>{doc.description}</p>{/if}{#each doc.notes as note}<p>{note}</p>{/each}</div></details>
     {/if}
     <main class="workspace" class:has-detail={!!selected}>
-      <div class="schedule-scroll" role="region" aria-label={zh ? '日程时间轴' : 'Daily schedule'}>
+      <div class="schedule-scroll" bind:this={scheduleScroll} role="region" aria-label={zh ? '日程时间轴' : 'Daily schedule'}>
         {#if !doc.items.length}<div class="empty">{zh ? '暂无带时间的活动记录。可编辑 Markdown 添加日程。' : 'No timed activities yet. Edit Markdown to add a schedule.'}</div>
         {:else}
-          <div class="schedule" style:height={`${layout.height + 30}px`} style:min-width={`${Math.max(290, layout.columns * 140 + 80)}px`}>
+          <div class="schedule" bind:this={scheduleElement} style:height={`${layout.height + 30}px`} style:min-width={`${Math.max(290, layout.columns * 140 + 80)}px`}>
             {#each layout.ticks as minute}<div class="hour" style:top={`${(minute - layout.ticks[0]) * PIXELS_PER_MINUTE + 16}px`}><time>{formatTime(minute)}</time><span></span></div>{/each}
             <div class="events">
               {#each layout.blocks as block (block.item.id)}

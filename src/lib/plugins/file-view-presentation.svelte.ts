@@ -7,6 +7,7 @@ import {
   type FileViewFallbackReason,
 } from './file-view-selection.svelte'
 import type { PluginManifest } from './types'
+import { builtinFileViewFor, builtinFileViewManifests, isBuiltinOutlineFileView } from './builtin-file-views'
 
 export type { FileViewFallbackReason } from './file-view-selection.svelte'
 
@@ -22,7 +23,17 @@ function sameView(a: FileViewRef | null | undefined, b: FileViewRef): boolean {
   return !!a && a.pluginId === b.pluginId && a.viewId === b.viewId && a.entry === b.entry
 }
 
-export function isFileViewAvailable(view: FileViewRef, manifests: PluginManifest[]): boolean {
+export function fileViewManifest(
+  tab: Tab,
+  view: FileViewRef,
+  manifests: PluginManifest[],
+): PluginManifest | undefined {
+  return [...builtinFileViewManifests(tab), ...manifests].find((manifest) => manifest.id === view.pluginId
+    && manifest.file_views?.some((item) => item.id === view.viewId && item.entry === view.entry))
+}
+
+export function isFileViewAvailable(view: FileViewRef, manifests: PluginManifest[], tab?: Tab): boolean {
+  if (isBuiltinOutlineFileView(view)) return !!tab && !!fileViewManifest(tab, view, manifests)
   return manifests.some((manifest) => manifest.id === view.pluginId
     && manifest.file_views?.some((item) => item.id === view.viewId && item.entry === view.entry))
 }
@@ -46,10 +57,12 @@ export function matchingDeclaredFileView(
 
 function automaticView(tab: Tab, manifests: PluginManifest[]): FileViewRef | null {
   if (isManagedMemoryTab(tab)) return null
-  return fileViewFor(
-    { path: tab.filePath, kind: tab.kind, content: tab.currentContent },
-    manifests,
-  )
+  // Canonical Note suffixes belong to the built-in outline surface even when
+  // an external view also matches their Markdown/frontmatter. Both paths use
+  // the same declarative matcher; the separate pass makes core precedence
+  // explicit instead of relying on a public priority tie-break.
+  return builtinFileViewFor(tab)
+    ?? fileViewFor({ path: tab.filePath, kind: tab.kind, content: tab.currentContent }, manifests)
 }
 
 /** Resolve the toolbar slot and actual rich-mode surface from one shared state. */
@@ -62,14 +75,14 @@ export function fileViewPresentation(tab: Tab, manifests: PluginManifest[]): Fil
   if (choice === undefined) return { ...base, active: automatic, candidate: automatic }
   if (choice === null) {
     const fallback = current?.fallback?.view
-    const candidate = fallback && isFileViewAvailable(fallback, manifests) ? fallback : automatic
+    const candidate = fallback && isFileViewAvailable(fallback, manifests, tab) ? fallback : automatic
     return { ...base, active: null, candidate }
   }
-  const available = isFileViewAvailable(choice, manifests)
+  const available = isFileViewAvailable(choice, manifests, tab)
   return { ...base, active: available ? choice : null, candidate: available ? choice : null }
 }
 
-export function selectBuiltinFileView(tab: Tab): void {
+export function selectRichFileView(tab: Tab): void {
   setMode(tab.id, 'rich')
   setFileViewSelection(tab.id, { choice: null, attempt: selection(tab.id)?.attempt ?? 0 })
 }
@@ -78,7 +91,7 @@ export function selectSourceFileView(tab: Tab): void {
   setMode(tab.id, 'source')
 }
 
-export function selectPluginFileView(tab: Tab, view: FileViewRef): void {
+export function selectFileView(tab: Tab, view: FileViewRef): void {
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('notemd:flush-doc', { detail: { tabId: tab.id } }))
   }

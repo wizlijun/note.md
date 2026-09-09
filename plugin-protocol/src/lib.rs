@@ -7,7 +7,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 mod file_views;
-pub use file_views::{FileViewContribution, FileViewScalar, FileViewSelector};
+pub use file_views::{FileViewContribution, FileViewIcon, FileViewScalar, FileViewSelector};
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]

@@ -1,12 +1,13 @@
 /** Declarative, read-only plugin views. The host keeps the underlying document. */
 import { isMap, isScalar, parseDocument } from 'yaml'
 import { basename, isAbsolute, normalize } from '../paths'
-import type { FileViewContribution, FileViewScalar, FileViewSelector, PluginManifest } from './types'
+import type { FileViewContribution, FileViewIcon, FileViewScalar, FileViewSelector, PluginManifest } from './types'
 
 export interface FileViewRef {
   pluginId: string
   viewId: string
   entry: string
+  icon: FileViewIcon
 }
 
 interface ViewDocument {
@@ -19,7 +20,8 @@ const TEXT_KINDS = new Set(['markdown', 'mdx', 'html', 'code', 'spreadsheet', 'b
 const MAX_ITEMS = 32
 const MAX_PATH = 16_384
 const MAX_FRONTMATTER = 128 * 1024
-const VIEW_KEYS = new Set(['id', 'entry', 'open_command', 'priority', 'selectors'])
+const VIEW_KEYS = new Set(['id', 'entry', 'icon', 'open_command', 'priority', 'selectors'])
+const VIEW_ICONS = new Set<FileViewIcon>(['generic', 'sparkle', 'clock'])
 const SELECTOR_KEYS = new Set(['file_extensions', 'file_name_patterns', 'path_patterns', 'frontmatter'])
 
 function record(value: unknown): value is Record<string, unknown> {
@@ -78,6 +80,7 @@ export function isValidFileView(value: unknown): value is FileViewContribution {
   if ('open_command' in value && (!boundedString(value.open_command, 128) || !/^[a-z0-9]/.test(value.open_command) || /[^a-z0-9._-]/.test(value.open_command))) return false
   if (!boundedString(value.entry) || !value.entry.endsWith('.html') || /[\\%:?#]/.test(value.entry)) return false
   if (value.entry.split('/').some((part) => !part || part === '.' || part === '..')) return false
+  if ('icon' in value && (typeof value.icon !== 'string' || !VIEW_ICONS.has(value.icon as FileViewIcon))) return false
   if ('priority' in value && (typeof value.priority !== 'number' || !Number.isInteger(value.priority) || value.priority < -1000 || value.priority > 1000)) return false
   return list(value.selectors, validSelector)
 }
@@ -203,7 +206,7 @@ export function fileViewFor(document: ViewDocument, manifests: PluginManifest[])
       }
       return true
     })
-    if (matches) return { pluginId: manifest.id, viewId: view.id, entry: view.entry }
+    if (matches) return { pluginId: manifest.id, viewId: view.id, entry: view.entry, icon: view.icon ?? 'generic' }
   }
   return null
 }

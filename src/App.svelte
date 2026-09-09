@@ -12,7 +12,7 @@
   import EditorPane from './components/EditorPane.svelte'
   import EmptyState from './components/EmptyState.svelte'
   import ModeToggle from './components/ModeToggle.svelte'
-  import { activeTab, tabs, closeTab, openFile, newFile, isDirty, activate, setMode } from './lib/tabs.svelte'
+  import { activeTab, tabs, closeTab, openFile, replaceCurrentFile, newFile, isDirty, activate, setMode } from './lib/tabs.svelte'
   import { openPath } from './lib/open-path'
   import { createNewBase } from './lib/base/create'
   import { basename } from './lib/paths'
@@ -42,7 +42,7 @@
   import { getPluginScopedAll, pluginScopedVersion } from './lib/settings.svelte'
   import { pushToast } from './lib/toast.svelte'
   import { dispatchFileViewCommand } from './lib/plugins/file-view-commands'
-  import { matchingDeclaredFileView, selectPluginFileView } from './lib/plugins/file-view-presentation.svelte'
+  import { fileViewPresentation, matchingDeclaredFileView, selectFileView } from './lib/plugins/file-view-presentation.svelte'
   import { pluginMenuLabel, pluginName } from './lib/plugins/plugin-i18n'
   import type { PluginManifest, EnabledWhenContext, ToastLevel } from './lib/plugins/types'
   import { uiState, openSettings } from './lib/ui-state.svelte'
@@ -194,14 +194,27 @@
       path: string
       pluginId: string
       viewId: string
+      replaceCurrentPath: string | null
     }>('editor://open-file-view', async (e) => {
       try {
-        await openFile(e.payload.path)
+        if (e.payload.replaceCurrentPath) {
+          const source = tabs.find((tab) => tab.filePath === e.payload.replaceCurrentPath)
+          const activeView = source ? fileViewPresentation(source, pluginRuntime.manifests).active : null
+          const declaredView = source
+            ? matchingDeclaredFileView(source, e.payload.pluginId, e.payload.viewId, pluginRuntime.manifests)
+            : null
+          if (!activeView || !declaredView
+            || activeView.pluginId !== e.payload.pluginId || activeView.viewId !== e.payload.viewId
+            || activeView.entry !== declaredView.entry) {
+            throw new Error('发起导航的文件视图已经关闭或切换，未替换标签页。')
+          }
+          await replaceCurrentFile(e.payload.path, e.payload.replaceCurrentPath)
+        } else await openFile(e.payload.path)
         const tab = activeTab()
         const view = tab
           ? matchingDeclaredFileView(tab, e.payload.pluginId, e.payload.viewId, pluginRuntime.manifests)
           : null
-        if (tab && view) selectPluginFileView(tab, view)
+        if (tab && view) selectFileView(tab, view)
         else {
           const manifest = pluginRuntime.manifests.find((item) => item.id === e.payload.pluginId)
           pushToast({
@@ -548,7 +561,7 @@
             setRichMode: (tabId) => setMode(tabId, 'rich'),
             openView: (detail) => {
               const tab = tabs.find((item) => item.id === detail.tabId)
-              if (tab) selectPluginFileView(tab, detail)
+              if (tab) selectFileView(tab, detail)
             },
             unsupported: () => pushToast({
               level: 'info',

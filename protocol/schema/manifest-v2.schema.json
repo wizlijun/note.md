@@ -192,6 +192,14 @@
         "entry": {
           "type": "string"
         },
+        "icon": {
+          "description": "Icon shown in the host's compact file-view switcher.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/FileViewIcon"
+            }
+          ]
+        },
         "id": {
           "type": "string"
         },
@@ -219,6 +227,14 @@
         }
       },
       "additionalProperties": false
+    },
+    "FileViewIcon": {
+      "type": "string",
+      "enum": [
+        "generic",
+        "sparkle",
+        "clock"
+      ]
     },
     "FileViewScalar": {
       "anyOf": [

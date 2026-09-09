@@ -7,6 +7,7 @@
  * and run json-schema-to-typescript to regenerate this file.
  */
 
+export type FileViewIcon = "generic" | "sparkle" | "clock";
 export type FileViewScalar = string | number | boolean;
 export type PluginKind = "native" | "wasm";
 
@@ -53,6 +54,10 @@ export interface Contributes {
 }
 export interface FileViewContribution {
   entry: string;
+  /**
+   * Icon shown in the host's compact file-view switcher.
+   */
+  icon?: FileViewIcon;
   id: string;
   /**
    * Host-handled menu command that opens this view for the active file. ASCII [a-z0-9][a-z0-9._-]*, at most 128 characters; no process activation.

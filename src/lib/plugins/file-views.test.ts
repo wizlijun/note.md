@@ -14,7 +14,7 @@ const manifest = (views: FileViewContribution[] = [view()], id = 'notemd.timelin
 const doc = (over: Partial<{ path: string; kind: string; content: string }> = {}) => ({
   path: '/vault/diary/2026-09-09.timeline.md', kind: 'markdown', content: '---\ntype: timeline\n---\n# Day', ...over,
 })
-const expected = { pluginId: 'notemd.timeline', viewId: 'timeline', entry: 'index.html' }
+const expected = { pluginId: 'notemd.timeline', viewId: 'timeline', entry: 'index.html', icon: 'generic' }
 const matchSelector = (selector: FileViewSelector, document = doc()) => fileViewFor(document, [manifest([view({ selectors: [selector] })])])
 
 describe('fileViewFor matching', () => {
@@ -145,6 +145,13 @@ describe('fileViewFor matching', () => {
     const withCommand = manifest([view({ open_command: 'open-timeline' })])
     expect(fileViewFor(doc(), [withCommand])).toEqual(expected)
     expect(fileViewFor(doc({ content: '# ordinary Markdown' }), [withCommand])).toBeNull()
+  })
+
+  it('carries a declared switcher icon and defaults old declarations to generic', () => {
+    expect(fileViewFor(doc(), [manifest([view({ icon: 'clock' })])])).toEqual({ ...expected, icon: 'clock' })
+    expect(fileViewFor(doc(), [manifest()])).toEqual(expected)
+    expect(fileViewFor(doc(), [manifest([view({ icon: 'calendar' as never })])])).toBeNull()
+    expect(fileViewFor(doc(), [manifest([view({ icon: null as never })])])).toBeNull()
   })
 })
 
