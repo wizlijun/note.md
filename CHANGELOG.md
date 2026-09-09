@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.909.3 — 2026-09-09
+
 ### Added
 
 - **File views now share the Rich/Source switch.** Matching plugins receive one compact host-owned segment beside Rich and Source, including a retry path after loading or parsing falls back to the built-in editor. The host reserves this toolbar space instead of covering plugin content, and plugin navigation can reopen a matching file directly in its declared view.
