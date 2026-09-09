@@ -125,7 +125,7 @@ try {
   const hostOrigin = `http://127.0.0.1:${hostServer.httpServer.address().port}`
   assert.notEqual(hostOrigin, pluginOrigin)
   browser = await chromium.launch({ headless: process.env.TIMELINE_REVIEW_HEADED !== '1', ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE } : {}) })
-  const context = await browser.newContext({ viewport: { width: 1100, height: 760 }, colorScheme: 'light', reducedMotion: 'reduce' })
+  const context = await browser.newContext({ viewport: { width: 1100, height: 420 }, colorScheme: 'light', reducedMotion: 'reduce' })
   const page = await context.newPage()
   page.on('pageerror', (error) => errors.push(String(error)))
   page.on('console', (message) => { if (message.type() === 'error') diagnostics.push(message.text()) })
@@ -145,6 +145,12 @@ try {
     assert.deepEqual(await plugin().locator('body').evaluate(() => ({ bridge: Object.isFrozen(window.notemd), id: window.notemd?.pluginId, external: !!document.querySelector('script[src="/__notemd_bridge__.js"]') })), { bridge: true, id: 'notemd.timeline', external: true })
     const categories = await plugin().locator('.event').evaluateAll((nodes) => [...new Set(nodes.map((node) => node.dataset.category))].sort())
     assert.deepEqual(categories, ['interest', 'leisure', 'life', 'other', 'work'])
+    const openingAlignment = await plugin().locator('.schedule-scroll').evaluate((scroller) => {
+      const hour = [...scroller.querySelectorAll('.hour')].find((node) => node.querySelector('time')?.textContent === '09:00')
+      if (!hour) throw new Error('Missing 09:00 hour marker')
+      return hour.getBoundingClientRect().top - scroller.getBoundingClientRect().top
+    })
+    assert.ok(Math.abs(openingAlignment) <= 1, `09:00 aligns with the visible top (${openingAlignment}px)`)
     assert.equal(await page.evaluate(() => window.__timelineBrowser.content === window.__timelineBrowser.initial), true)
     const instant = plugin().getByRole('button', { name: /12:45.*沟通/ })
     assert.ok((await instant.boundingBox()).height >= 38, 'zero-duration records keep a usable hit target')

@@ -8,5 +8,6 @@ export function timelineScrollTop(targetMinute: number, timelineStart: number, c
 /** Align the requested wall-clock time with the visible top of the schedule. */
 export function scrollTimelineToMinute(scroller: HTMLElement, schedule: HTMLElement, targetMinute: number, timelineStart: number): void {
   const maximum = scroller.scrollHeight - scroller.clientHeight
-  scroller.scrollTop = timelineScrollTop(targetMinute, timelineStart, schedule.offsetTop + 16, maximum)
+  const contentTop = schedule.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop
+  scroller.scrollTop = timelineScrollTop(targetMinute, timelineStart, contentTop + 16, maximum)
 }

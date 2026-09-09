@@ -33,6 +33,10 @@ function field<T extends HTMLElement>(label: string): T {
   return match
 }
 
+function rectAt(top: number): DOMRect {
+  return { x: 0, y: top, top, right: 0, bottom: top, left: 0, width: 0, height: 0, toJSON: () => ({}) }
+}
+
 async function setField(label: string, value: string) {
   const input = field<HTMLInputElement | HTMLSelectElement>(label)
   input.value = value
@@ -208,7 +212,8 @@ describe('Timeline application', () => {
     const scroller = field<HTMLDivElement>('日程时间轴')
     const schedule = document.querySelector<HTMLDivElement>('.schedule')!
     Object.defineProperties(scroller, { scrollHeight: { value: 1200, configurable: true }, clientHeight: { value: 400, configurable: true } })
-    Object.defineProperty(schedule, 'offsetTop', { value: 15, configurable: true })
+    Object.defineProperty(scroller, 'getBoundingClientRect', { value: () => rectAt(192), configurable: true })
+    Object.defineProperty(schedule, 'getBoundingClientRect', { value: () => rectAt(207 - scroller.scrollTop), configurable: true })
     scroller.scrollTop = 0
     openDocument(fixture, 2, '/vault/diary/2026-09-10.timeline.md')
     await vi.waitFor(() => expect(scroller.scrollTop).toBe(127))
