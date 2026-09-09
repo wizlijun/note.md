@@ -5,6 +5,9 @@
   import CsvEditor from './CsvEditor.svelte'
   import BaseView from './BaseView.svelte'
   import CustomEditorIframe from './CustomEditorIframe.svelte'
+  import MarkdownPluginView from './MarkdownPluginView.svelte'
+  import { markdownViewerFor } from '../lib/plugins/custom-editors'
+  import { pluginRuntime } from '../lib/plugins/runtime.svelte'
   import SourceView from './SourceView.svelte'
   import HtmlPreview from './HtmlPreview.svelte'
   import ExternalChangeBanner from './ExternalChangeBanner.svelte'
@@ -21,6 +24,9 @@
 
   let { tab }: { tab: Tab } = $props()
   let memoryReadOnly = $derived(isManagedMemoryTab(tab))
+  let markdownViewer = $derived(tab.kind === 'markdown' && !memoryReadOnly
+    ? markdownViewerFor(tab.currentContent, pluginRuntime.manifests)
+    : null)
   let CanvasView = $state<typeof import('./canvas/CanvasView.svelte').default | null>(null)
   let canvasLoadError = $state('')
 
@@ -155,6 +161,14 @@
         filePath={tab.filePath}
         readOnly={memoryReadOnly}
       />
+    {/key}
+  {:else if markdownViewer}
+    {#key `${tab.id}:${markdownViewer.pluginId}:${markdownViewer.editorId}:${markdownViewer.entry}`}
+      <MarkdownPluginView {tab} editor={markdownViewer}>
+        {#snippet fallback()}
+          <RichEditor {tab} onFlush={onRichFlush} />
+        {/snippet}
+      </MarkdownPluginView>
     {/key}
   {:else if isOutlineNoteTab(tab)}
     {#key tab.id}

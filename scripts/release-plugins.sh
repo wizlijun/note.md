@@ -4,7 +4,7 @@
 #   scripts/release-plugins.sh [--release] <plugin...>
 #     plugin ∈ { md2pdf, roam-import, meetings, openclaw, pos-log,
 #                decision-log, weekly-review, memory, claude-agent, codex-agent, deepseek-agent, ebook-import,
-#                idea-spark, next, power-mode, trace-source }   (add a case below)
+#                idea-spark, next, power-mode, trace-source, timeline }   (add a case below)
 #     --release  currently a no-op flag reserved for build-profile parity with
 #                dev-install-plugin.sh; the release builds below are always
 #                release-profile.
@@ -43,14 +43,14 @@ PLUGINS=()
 for arg in "$@"; do
   case "$arg" in
     --release) : ;; # reserved; release builds are always release-profile
-    md2pdf|roam-import|meetings|openclaw|pos-log|decision-log|weekly-review|memory|claude-agent|codex-agent|deepseek-agent|ebook-import|idea-spark|next|power-mode|trace-source) PLUGINS+=("$arg") ;;
+    md2pdf|roam-import|meetings|openclaw|pos-log|decision-log|weekly-review|memory|claude-agent|codex-agent|deepseek-agent|ebook-import|idea-spark|next|power-mode|trace-source|timeline) PLUGINS+=("$arg") ;;
     -h|--help)
       grep '^#' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
-    *) echo "unknown arg: $arg (expected --release | md2pdf | roam-import | meetings | openclaw | pos-log | decision-log | weekly-review | memory | claude-agent | codex-agent | deepseek-agent | ebook-import | idea-spark | next | power-mode | trace-source)" >&2; exit 2 ;;
+    *) echo "unknown arg: $arg (expected --release | md2pdf | roam-import | meetings | openclaw | pos-log | decision-log | weekly-review | memory | claude-agent | codex-agent | deepseek-agent | ebook-import | idea-spark | next | power-mode | trace-source | timeline)" >&2; exit 2 ;;
   esac
 done
 if [[ ${#PLUGINS[@]} -eq 0 ]]; then
-  echo "usage: scripts/release-plugins.sh [--release] <md2pdf|roam-import|meetings|openclaw|pos-log|decision-log|weekly-review|memory|claude-agent|codex-agent|deepseek-agent|ebook-import|idea-spark|next|power-mode|trace-source>..." >&2
+  echo "usage: scripts/release-plugins.sh [--release] <md2pdf|roam-import|meetings|openclaw|pos-log|decision-log|weekly-review|memory|claude-agent|codex-agent|deepseek-agent|ebook-import|idea-spark|next|power-mode|trace-source|timeline>..." >&2
   exit 2
 fi
 
@@ -349,6 +349,35 @@ release_weekly_review() {
   rm -rf "$stage"; trap - RETURN
 }
 
+# ── timeline: ui-only, single universal package (same shape as decision-log)
+release_timeline() {
+  local id="notemd.timeline"
+  local src="$REPO_ROOT/plugins-src/timeline"
+  local manifest="$src/manifest.v2.json"
+  local version; version="$(manifest_field "$manifest" version)"
+  echo "== $id @ $version =="
+
+  echo "[$id] building UI bundle (pnpm --filter timeline build)…"
+  pnpm --filter timeline build
+
+  local out_dir="$OUT_ROOT/$id/$version"
+  mkdir -p "$out_dir"
+  cp "$manifest" "$out_dir/manifest.json"   # for gen-plugin-index.mjs
+
+  local stage; stage="$(mktemp -d)"
+  trap 'rm -rf "$stage"' RETURN
+  mkdir -p "$stage/ui"
+  cp "$manifest" "$stage/manifest.json"
+  cp -R "$src/dist/." "$stage/ui/"
+
+  local pkg="$out_dir/universal.notemdpkg"
+  zip_pkg "$stage" "$pkg"
+  sign_pkg "$pkg"
+  local sha; sha="$(shasum -a 256 "$pkg" | awk '{print $1}')"
+  echo "[$id] universal.notemdpkg  sha256=$sha  → $pkg"
+  rm -rf "$stage"; trap - RETURN
+}
+
 # Memory: controlled USER/MEMORY review window; state transitions live in the
 # host core so the CLI and window share one implementation.
 release_memory() {
@@ -526,6 +555,7 @@ for plugin in "${PLUGINS[@]}"; do
     pos-log)     release_pos_log ;;
     decision-log) release_decision_log ;;
     weekly-review) release_weekly_review ;;
+    timeline) release_timeline ;;
     memory)      release_memory ;;
     claude-agent) release_claude_agent ;;
     codex-agent) release_codex_agent ;;

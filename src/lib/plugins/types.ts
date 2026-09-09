@@ -40,14 +40,16 @@ export interface ContextMenuEntry {
   enabled_when?: string
 }
 
-/** A custom-editor contribution (子项目④): a v2 plugin claims a set of file
- *  extensions and serves an iframe editor (`entry`) for them. `id` is the
- *  editor's stable id within the plugin (multiple editors per plugin allowed). */
+/** A v2 plugin serves an iframe editor for extensions or an optional read-only
+ * Markdown view for frontmatter types. `id` is stable within the plugin. */
 export interface CustomEditorContribution {
   id: string
   /** File extensions this editor handles, WITH or WITHOUT the leading dot
    *  (e.g. `'.base'` or `'base'`); the registry normalises both. */
-  file_extensions: string[]
+  file_extensions?: string[]
+  /** Opt-in read-only views for Markdown with a matching frontmatter `type`.
+   *  Markdown remains a core document and always retains its editor fallback. */
+  markdown_types?: string[]
   /** UI-relative path served under `plugin://<id>/`, e.g. `'editor.html'`. */
   entry: string
 }
@@ -116,10 +118,9 @@ export interface PluginManifest {
   agent_provider?: boolean
   menus?: MenuEntry[]
   context_menus?: ContextMenuEntry[]
-  /** Custom-editor contributions (子项目④), passed through by the adapter.
-   *  Each entry declares `{ id, file_extensions, entry }`. Absent for plugins
-   *  with no custom editors. Consumed by `buildCustomEditorRegistry` to map
-   *  file extensions → editor iframes. */
+  /** Custom-editor contributions, passed through by the adapter. Extensions
+   * become custom documents; `markdown_types` opt into read-only displays with
+   * an ordinary Markdown editor fallback. */
   custom_editors?: CustomEditorContribution[]
   settings?: { tab_label: string; schema: SettingsField[] }
   host_capabilities: Capability[]
