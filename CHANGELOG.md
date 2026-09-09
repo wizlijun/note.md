@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.909.5 — 2026-09-09
+
 ### Fixed
 
 - **The Note view icon now matches its neighboring mode controls.** The sparkle keeps its shape while inheriting the same color and active-state treatment as Rich, Source and other file views.
