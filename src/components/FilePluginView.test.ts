@@ -2,13 +2,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createRawSnippet, mount, tick, unmount } from 'svelte'
 import { fromStore, writable } from 'svelte/store'
-import MarkdownPluginView from './MarkdownPluginView.svelte'
+import FilePluginView from './FilePluginView.svelte'
+import { i18n } from '../lib/i18n/store.svelte'
 import type { Tab } from '../lib/tabs.svelte'
 
-describe('MarkdownPluginView', () => {
+describe('FilePluginView', () => {
   let component: ReturnType<typeof mount> | undefined
   const initialContent = '---\ntype: Timeline\n---\n## 09:00–10:00 开发'
-  const editor = { pluginId: 'notemd.timeline', editorId: 'timeline', entry: 'index.html' }
+  const view = { pluginId: 'notemd.timeline', viewId: 'timeline', entry: 'index.html' }
 
   afterEach(async () => {
     if (component) await unmount(component)
@@ -19,13 +20,14 @@ describe('MarkdownPluginView', () => {
   })
 
   async function setup() {
+    i18n.locale = 'zh'
     const store = writable({ id: 'tab-1', title: 'day.timeline.md', filePath: '/diary/day.timeline.md', currentContent: initialContent } as Tab)
     const tab = fromStore(store)
-    component = mount(MarkdownPluginView, {
+    component = mount(FilePluginView, {
       target: document.body,
       props: {
         get tab() { return tab.current },
-        editor,
+        view,
         fallback: createRawSnippet(() => ({ render: () => '<div class="fallback-editor">Markdown editor</div>' })),
       },
     })
@@ -45,10 +47,10 @@ describe('MarkdownPluginView', () => {
 
   it('hands the current document to the frame and reveals only an acknowledged snapshot', async () => {
     const { frame, postMessage, reply } = await setup()
-    expect(postMessage).toHaveBeenCalledWith({ type: 'custom_editor.open', uri: '/diary/day.timeline.md', content: initialContent, editorId: 'timeline', requestId: 1 }, 'plugin://notemd.timeline')
+    expect(postMessage).toHaveBeenCalledWith({ type: 'file_view.open', uri: '/diary/day.timeline.md', content: initialContent, viewId: 'timeline', requestId: 1 }, 'plugin://notemd.timeline')
     expect(frame.getAttribute('sandbox')?.split(' ')).toContain('allow-forms')
     expect(frame.classList.contains('pending')).toBe(true)
-    reply('custom_editor.ready', 1)
+    reply('file_view.ready', 1)
     await tick()
     expect(frame.classList.contains('pending')).toBe(false)
     expect(document.querySelector('.fallback-editor')).toBeNull()
@@ -56,30 +58,30 @@ describe('MarkdownPluginView', () => {
 
   it('hides stale content during an update and ignores the previous snapshot acknowledgement', async () => {
     const { store, frame, postMessage, reply } = await setup()
-    reply('custom_editor.ready', 1)
+    reply('file_view.ready', 1)
     await tick()
     store.update((tab) => ({ ...tab, currentContent: initialContent + '\nnew item' }))
     await tick()
     expect(frame.classList.contains('pending')).toBe(true)
     expect(postMessage.mock.lastCall?.[0].requestId).toBe(2)
-    reply('custom_editor.ready', 1)
+    reply('file_view.ready', 1)
     await tick()
     expect(frame.classList.contains('pending')).toBe(true)
-    reply('custom_editor.ready', 2)
+    reply('file_view.ready', 2)
     await tick()
     expect(frame.classList.contains('pending')).toBe(false)
   })
 
   it('falls back on parse failure, keeps typing in Markdown, and offers an explicit retry', async () => {
     const { store, reply } = await setup()
-    reply('custom_editor.fallback', 1)
+    reply('file_view.fallback', 1)
     await tick()
     expect(document.querySelector('.fallback-editor')).toBeTruthy()
     expect(document.querySelector('iframe')).toBeNull()
     store.update((tab) => ({ ...tab, currentContent: initialContent + '\ncorrected item' }))
     await tick()
     expect(document.querySelector('.fallback-editor')).toBeTruthy()
-    ;(document.querySelector('.markdown-plugin-fallback button') as HTMLButtonElement).click()
+    ;(document.querySelector('.file-plugin-fallback button') as HTMLButtonElement).click()
     await tick()
     expect(document.querySelector('iframe')).toBeTruthy()
     expect(document.querySelector('.fallback-editor')).toBeNull()
@@ -87,9 +89,9 @@ describe('MarkdownPluginView', () => {
 
   it('keeps an explicit edit request in Markdown and retries after external reload', async () => {
     const { reply } = await setup()
-    reply('custom_editor.fallback', 1, 'edit')
+    reply('file_view.fallback', 1, 'edit')
     await tick()
-    expect(document.querySelector('.markdown-plugin-fallback')?.textContent).toContain('正在编辑 Markdown')
+    expect(document.querySelector('.file-plugin-fallback')?.textContent).toContain('正在使用默认编辑器')
     window.dispatchEvent(new CustomEvent('notemd:auto-reloaded', { detail: { tabId: 'another-tab' } }))
     await tick()
     expect(document.querySelector('iframe')).toBeNull()
@@ -114,7 +116,7 @@ describe('MarkdownPluginView', () => {
     await tick()
     expect(document.querySelector('.fallback-editor')).toBeTruthy()
     // A stale success after timeout cannot replace the mounted Markdown editor.
-    reply('custom_editor.ready', 1)
+    reply('file_view.ready', 1)
     await tick()
     expect(document.querySelector('.fallback-editor')).toBeTruthy()
   })
@@ -122,7 +124,7 @@ describe('MarkdownPluginView', () => {
   it('clears the loading deadline after a successful parse', async () => {
     vi.useFakeTimers()
     const { frame, reply } = await setup()
-    reply('custom_editor.ready', 1)
+    reply('file_view.ready', 1)
     await tick()
     await vi.advanceTimersByTimeAsync(8_000)
     expect(document.querySelector('.fallback-editor')).toBeNull()

@@ -18,6 +18,7 @@ pub fn to_v1(m: &plugin_protocol::ManifestV2) -> Result<PluginManifest, String> 
         // custom_editors (子项目④) rides through untouched so the frontend can
         // build its ext→editor registry from the adapted manifest.
         "custom_editors": m.contributes.custom_editors,
+        "file_views": m.contributes.file_views,
         "manifest_version": 2,
         // Whether this plugin can serve the agent slot. COMPUTED here, not
         // re-derived by the frontend: the rule (declares the three agent
@@ -390,6 +391,21 @@ mod tests {
     }
 
     #[test]
+    fn file_views_reach_the_frontend_without_losing_rule_types() {
+        let m: plugin_protocol::ManifestV2 = serde_json::from_value(serde_json::json!({
+            "manifest_version": 2, "id": "example.report", "name": "Report", "version": "1.0.0",
+            "kind": "native", "engines": { "notemd": ">=6.909.1" }, "ui": "ui/",
+            "activation": { "events": [] }, "capabilities": [],
+            "contributes": { "file_views": [{"id":"report", "entry":"report.html", "priority":12,
+                "selectors":[{"file_extensions":["json"]}, {"frontmatter":{"published":[true],"revision":[2]}}]}] }
+        })).unwrap();
+        plugin_protocol::validate_manifest(&m, "6.909.1").unwrap();
+        let projected = to_v1(&m).unwrap();
+        assert_eq!(serde_json::to_value(projected.file_views).unwrap(), serde_json::to_value(m.contributes.file_views).unwrap());
+        assert!(projected.custom_editors.is_empty());
+    }
+
+    #[test]
     fn minimal_manifest_gets_view_model_defaults() {
         let m: plugin_protocol::ManifestV2 = serde_json::from_value(serde_json::json!({
             "manifest_version": 2,
@@ -409,6 +425,7 @@ mod tests {
         assert!(v1.menus.is_empty());
         assert!(v1.context_menus.is_empty());
         assert!(v1.custom_editors.is_empty());
+        assert!(v1.file_views.is_empty());
         assert!(v1.cli.is_empty());
         assert!(v1.settings.is_none());
         assert!(v1.i18n.is_empty());

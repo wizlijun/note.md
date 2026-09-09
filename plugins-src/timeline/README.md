@@ -32,4 +32,4 @@ pnpm --filter timeline build
 PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs node scripts/check-timeline-browser.mjs
 ```
 
-`scripts/dev-install-plugin.sh timeline` 安装本机开发包；`scripts/release-plugins.sh timeline` 构建并签名 universal 包，不自动上传。本插件需要包含 `custom_editors.markdown_types` 接口的宿主，minimum host 预留为 `6.909.0`；已发布的旧宿主不会显示此插件。
+`scripts/dev-install-plugin.sh timeline` 安装本机开发包；`scripts/release-plugins.sh timeline` 构建并签名 universal 包，不自动上传。本插件需要包含 `contributes.file_views` 通用文件规则接口的宿主，最低宿主版本为 `6.909.1`；旧宿主仍可在市场发现插件，但需要先升级宿主才能安装和加载。

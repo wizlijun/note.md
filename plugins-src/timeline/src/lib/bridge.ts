@@ -44,8 +44,8 @@ export function isHostOrigin(origin: string): boolean {
 export function onDocument(callback: (document: TimelineDocument) => void): () => void {
   const receive = (event: MessageEvent) => {
     const data = event.data
-    if (event.source !== window.parent || !isHostOrigin(event.origin) || !data || data.type !== 'custom_editor.open'
-      || data.editorId !== 'timeline' || !Number.isSafeInteger(data.requestId)
+    if (event.source !== window.parent || !isHostOrigin(event.origin) || !data || data.type !== 'file_view.open'
+      || data.viewId !== 'timeline' || !Number.isSafeInteger(data.requestId)
       || typeof data.content !== 'string' || typeof data.uri !== 'string') return
     opened = { origin: event.origin, requestId: data.requestId, uri: data.uri }
     let ready = false
@@ -53,7 +53,7 @@ export function onDocument(callback: (document: TimelineDocument) => void): () =
       const document = parseTimeline(data.content, data.uri)
       if (document) { callback(document); ready = true }
     } catch { /* A failed view is handled by the host's Markdown fallback. */ }
-    window.parent.postMessage({ type: ready ? 'custom_editor.ready' : 'custom_editor.fallback', requestId: data.requestId }, event.origin)
+    window.parent.postMessage({ type: ready ? 'file_view.ready' : 'file_view.fallback', requestId: data.requestId }, event.origin)
   }
   window.addEventListener('message', receive)
   return () => { window.removeEventListener('message', receive); opened = null }
@@ -61,7 +61,7 @@ export function onDocument(callback: (document: TimelineDocument) => void): () =
 
 export function editMarkdown(): void {
   if (!opened) return
-  window.parent.postMessage({ type: 'custom_editor.fallback', requestId: opened.requestId, reason: 'edit' }, opened.origin)
+  window.parent.postMessage({ type: 'file_view.fallback', requestId: opened.requestId, reason: 'edit' }, opened.origin)
 }
 
 /** Resolve a source relative to the timeline; the host enforces the Vault fence again. */

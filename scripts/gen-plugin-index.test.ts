@@ -68,6 +68,10 @@ describe('pluginCategoryFromManifest', () => {
       contributes: { menus: [{ command: 'open', submenu: 'future-category' }] },
     })).toBe('other')
   })
+
+  it('places a file-only Timeline view in Reflect without requiring a menu', () => {
+    expect(pluginCategoryFromManifest({ id: 'notemd.timeline', contributes: { file_views: [] } })).toBe('reflect')
+  })
 })
 
 describe('applySourceMetadata', () => {

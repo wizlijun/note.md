@@ -1,3 +1,6 @@
+import type { FileViewContribution } from './v2/protocol.gen'
+export type { FileViewContribution, FileViewSelector, FileViewScalar } from './v2/protocol.gen'
+
 export type Capability =
   | 'renderer.html'
   | 'renderer.raw'
@@ -40,16 +43,13 @@ export interface ContextMenuEntry {
   enabled_when?: string
 }
 
-/** A v2 plugin serves an iframe editor for extensions or an optional read-only
- * Markdown view for frontmatter types. `id` is stable within the plugin. */
+/** Legacy editable file-extension contributions. Rule-based read-only views
+ * use the typed `file_views` host contract instead. */
 export interface CustomEditorContribution {
   id: string
   /** File extensions this editor handles, WITH or WITHOUT the leading dot
    *  (e.g. `'.base'` or `'base'`); the registry normalises both. */
-  file_extensions?: string[]
-  /** Opt-in read-only views for Markdown with a matching frontmatter `type`.
-   *  Markdown remains a core document and always retains its editor fallback. */
-  markdown_types?: string[]
+  file_extensions: string[]
   /** UI-relative path served under `plugin://<id>/`, e.g. `'editor.html'`. */
   entry: string
 }
@@ -118,10 +118,10 @@ export interface PluginManifest {
   agent_provider?: boolean
   menus?: MenuEntry[]
   context_menus?: ContextMenuEntry[]
-  /** Custom-editor contributions, passed through by the adapter. Extensions
-   * become custom documents; `markdown_types` opt into read-only displays with
-   * an ordinary Markdown editor fallback. */
+  /** Legacy extension ownership, passed through by the adapter. */
   custom_editors?: CustomEditorContribution[]
+  /** Declarative read-only file views. The host preserves each built-in editor. */
+  file_views?: FileViewContribution[]
   settings?: { tab_label: string; schema: SettingsField[] }
   host_capabilities: Capability[]
   timeout_seconds?: number

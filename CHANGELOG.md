@@ -7,6 +7,11 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+### Added
+
+- **Open files in purpose-built plugin views.** Plugins can declare rules for extensions, file names, paths and frontmatter properties. note.md selects a matching view consistently, keeps source editing available and restores the file’s built-in editor if loading or parsing fails.
+- **View daily timelines as a vertical schedule.** Timeline 1.0.0 displays overlapping activities, short moments and nested topics with five soft category colors. Edit keyword rules in the view; classification only checks whether the activity category contains a keyword. Update note.md first, then install Timeline from the plugin marketplace and restart.
+
 ## v6.908.1 — 2026-09-08
 
 ### Changed

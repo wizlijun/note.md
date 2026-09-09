@@ -22,9 +22,9 @@
 
 ## 宿主契约
 
-复用 `custom_editors`，增加 `markdown_types?: string[]`，扩展名注册继续禁止劫持 `.md`。type 显示插件只用于普通 Markdown，源码模式和受管 USER/MEMORY 不受影响。独立 iframe 与宿主交换 `custom_editor.open`（含 `requestId`）、`custom_editor.ready` 和 `custom_editor.fallback`；宿主同时验证 origin、source 与当前 requestId，显示通道不接受文档 `change`。加载/内容更新期间不显示上一份内容；8 秒无响应回退。旧 custom editor 协议保持兼容。显示 iframe 开启 `allow-forms` 以允许设置表单的提交事件；表单 `preventDefault` 后仅调用 settings RPC，插件原有 CSP `form-action 'none'` 保持禁止页面表单导航。
+正式版本使用 [文件规则视图宿主能力](2026-09-09-file-views-host-design.md)：Timeline 在 `contributes.file_views` 中声明 Markdown 扩展名与 frontmatter `type: timeline` 条件，宿主负责选择、`file_view.*` 握手、失败回退和源码优先。文件文档保持 Markdown，插件没有文档改写权限。上一轮未发布的 `markdown_types` 草案已被正式通用接口取代。
 
-当前公开宿主尚无此 type 入口，插件 minimum host 预留 `>=6.909.0`，须随包含该入口的宿主发布后才能安装使用。本任务只实现、构建、验证及本地提交，不上架发布。
+Timeline `1.0.0` 与宿主 `6.909.1` 配套发布，最低宿主为 `>=6.909.1`。
 
 ## 验证
 

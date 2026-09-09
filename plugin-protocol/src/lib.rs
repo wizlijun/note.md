@@ -6,6 +6,9 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+mod file_views;
+pub use file_views::{FileViewContribution, FileViewScalar, FileViewSelector};
+
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct CliContributionForValidation {
@@ -103,6 +106,10 @@ pub struct Contributes {
     pub context_menus: Vec<serde_json::Value>, // 语义同 v1 ContextMenuEntry
     pub windows: Vec<WindowContribution>, // ②期消费；窗口贡献
     pub custom_editors: Vec<serde_json::Value>, // ④期消费
+    /// Read-only views selected by declarative file rules; independent of file ownership.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[schemars(length(max = 32))]
+    pub file_views: Vec<FileViewContribution>,
     pub settings: Option<serde_json::Value>, // 语义同 v1 settings
     pub cli: Vec<serde_json::Value>,   // 语义同 v1 CliEntry
     pub tray: Vec<TrayContribution>,   // 菜单栏托盘"插座"：把插件窗口挂到 tray（今天日记下方）
@@ -322,6 +329,7 @@ pub fn validate_manifest(m: &ManifestV2, host_version: &str) -> Result<(), Strin
         }
     }
     validate_cli_contributions(m)?;
+    file_views::validate_file_views(m)?;
     Ok(())
 }
 

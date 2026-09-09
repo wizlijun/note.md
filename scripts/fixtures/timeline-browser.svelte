@@ -1,6 +1,8 @@
 <script lang="ts">
-  import MarkdownPluginView from '../../src/components/MarkdownPluginView.svelte'
-  import { markdownViewerFor } from '../../src/lib/plugins/custom-editors'
+  import FilePluginView from '../../src/components/FilePluginView.svelte'
+  import { fileViewFor } from '../../src/lib/plugins/file-views'
+  import { i18n } from '../../src/lib/i18n/store.svelte'
+  i18n.locale = 'zh'
   import type { Tab } from '../../src/lib/tabs.svelte'
   import type { PluginManifest } from '../../src/lib/plugins/types'
 
@@ -23,9 +25,9 @@ description: "合成日程，用于验证时间轴查看与来源跳转。"
 - 12:45:00–12:45:00 — 沟通：确认收到项目计划的即时记录。
 `
   let tab = $state({ id: 'timeline-browser', filePath: '/fixture-vault/diary/2026-09-08.timeline.md', title: '2026-09-08.timeline.md', kind: 'markdown', mode: 'rich', initialContent: initial, currentContent: initial } as Tab)
-  const manifest: PluginManifest = { id: 'notemd.timeline', name: 'Timeline', version: '1.0.0', binary: '', host_capabilities: [], custom_editors: [{ id: 'timeline', markdown_types: ['Timeline'], entry: 'timeline-plugin' }] }
+  const manifest: PluginManifest = { id: 'notemd.timeline', name: 'Timeline', version: '1.0.0', binary: '', host_capabilities: [], file_views: [{ id: 'timeline', selectors: [{ file_extensions: ['md'], frontmatter: { type: ['timeline'] } }], entry: 'timeline-plugin.html' }] }
   let enabled = $state(true)
-  const editor = $derived(enabled ? markdownViewerFor(tab.currentContent, [manifest]) : null)
+  const view = $derived(enabled ? fileViewFor({ path: tab.filePath, kind: tab.kind, content: tab.currentContent }, [manifest]) : null)
 
   Object.assign(window, { __timelineBrowser: {
     initial,
@@ -41,19 +43,19 @@ description: "合成日程，用于验证时间轴查看与来源跳转。"
   } })
   window.addEventListener('message', (event) => {
     const state = (window as any).__timelineBrowser
-    if (event.data?.type?.startsWith('custom_editor.')) state.events.push({ origin: event.origin, ...event.data })
+    if (event.data?.type?.startsWith('file_view.')) state.events.push({ origin: event.origin, ...event.data })
   })
 </script>
 
 <main class="fixture">
   {#if tab.mode === 'source'}
     <textarea class="source-editor" aria-label="Markdown 源码" bind:value={tab.currentContent}></textarea>
-  {:else if editor}
-    <MarkdownPluginView {tab} {editor}>
+  {:else if view}
+    <FilePluginView {tab} {view}>
       {#snippet fallback()}
         <textarea class="fallback-editor" aria-label="Markdown 编辑器" bind:value={tab.currentContent}></textarea>
       {/snippet}
-    </MarkdownPluginView>
+    </FilePluginView>
   {:else}
     <textarea class="fallback-editor" aria-label="Markdown 编辑器" bind:value={tab.currentContent}></textarea>
   {/if}

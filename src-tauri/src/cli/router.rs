@@ -497,6 +497,7 @@ mod tests {
             menus: vec![],
             context_menus: vec![],
             custom_editors: vec![],
+            file_views: vec![],
             settings: None,
             host_capabilities: vec![],
             timeout_seconds: 30,

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { buildCustomEditorRegistry, customEditorFor, markdownViewerFor } from './custom-editors'
+import { buildCustomEditorRegistry, customEditorFor } from './custom-editors'
 import type { PluginManifest } from './types'
 
 const mf = (over: Partial<PluginManifest> = {}): PluginManifest => ({
@@ -85,40 +85,6 @@ describe('customEditorFor', () => {
   it('returns null for an unregistered extension', () => {
     expect(customEditorFor('.md', manifests)).toBeNull()
     expect(customEditorFor('', manifests)).toBeNull()
-  })
-})
-
-describe('markdownViewerFor', () => {
-  const timeline = mf({ id: 'notemd.timeline', custom_editors: [{ id: 'timeline', markdown_types: ['Timeline'], entry: 'index.html' }] })
-  const expected = { pluginId: 'notemd.timeline', editorId: 'timeline', entry: 'index.html' }
-
-  it('selects a string frontmatter type independently from the Markdown extension', () => {
-    expect(markdownViewerFor('---\ntype: timeline\n---\n# Day', [timeline])).toEqual(expected)
-    expect(markdownViewerFor('\uFEFF---\r\ntype: " TIMELINE "\r\n---\r\n# Day', [timeline])).toEqual(expected)
-    expect(customEditorFor('md', [timeline])).toBeNull()
-    expect(buildCustomEditorRegistry([timeline]).size).toBe(0)
-  })
-
-  it.each([
-    '# Timeline\n---\ntype: timeline\n---',
-    '---\ntype: timeline\n# Missing closing fence',
-    '---\ntype: timeline\n---oops\nbody',
-    '---\ntype: timeline\ntype: Other\n---',
-    '---\ntype: [timeline]\n---',
-    '---\ntype: { timeline: true }\n---',
-    '---\ntype: 123\n---',
-    '---\n- type: timeline\n---',
-    '---\ntype: [broken\n---',
-    '---\nother: timeline\n---',
-    '---\ntype: task\n---',
-  ])('retains the Markdown editor for unsupported metadata: %s', (content) => {
-    expect(markdownViewerFor(content, [timeline])).toBeNull()
-  })
-
-  it('keeps the first matching plugin and ignores malformed contributions', () => {
-    const malformed = mf({ custom_editors: [{ markdown_types: ['Timeline'] } as never] })
-    expect(markdownViewerFor('---\ntype: Timeline\n---', [malformed, timeline, { ...timeline, id: 'other.timeline' }])).toEqual(expected)
-    expect(markdownViewerFor('---\ntype: Timeline\n---', [])).toBeNull()
   })
 })
 

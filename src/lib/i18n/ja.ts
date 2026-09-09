@@ -3,6 +3,14 @@ import type { Messages } from './en'
 // Japanese catalog. Typed as a full record so a missing key is a compile
 // error — keep it complete and in sync with `en.ts`.
 export const ja: Record<keyof Messages, string> = {
+  // Read-only file views
+  'fileView.editing': '標準エディターを使用中',
+  'fileView.unsupported': 'ファイルビューで解析できないため、標準エディターを開きました。',
+  'fileView.unavailable': 'ファイルビューを読み込めないため、標準エディターを開きました。',
+  'fileView.retry': 'ファイルビューに戻る',
+  'fileView.loading': 'ファイルビューを読み込み中…',
+  'fileView.useDefault': '標準エディターを使用',
+
   // Generic / shared
   'common.cancel': 'キャンセル',
   'common.ok': 'OK',

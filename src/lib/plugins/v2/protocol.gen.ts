@@ -7,6 +7,7 @@
  * and run json-schema-to-typescript to regenerate this file.
  */
 
+export type FileViewScalar = string | number | boolean;
 export type PluginKind = "native" | "wasm";
 
 export interface ManifestV2 {
@@ -37,12 +38,51 @@ export interface Contributes {
   cli?: unknown[];
   context_menus?: unknown[];
   custom_editors?: unknown[];
+  /**
+   * Read-only views selected by declarative file rules; independent of file ownership.
+   *
+   * @maxItems 32
+   */
+  file_views?: FileViewContribution[];
   menus?: unknown[];
   settings?: {
     [k: string]: unknown;
   };
   tray?: TrayContribution[];
   windows?: WindowContribution[];
+}
+export interface FileViewContribution {
+  entry: string;
+  id: string;
+  priority?: number;
+  /**
+   * @minItems 1
+   * @maxItems 32
+   */
+  selectors: [FileViewSelector, ...FileViewSelector[]];
+}
+/**
+ * Selectors are ORed; fields within one selector are ANDed. Each value list is ORed; distinct frontmatter keys are ANDed.
+ */
+export interface FileViewSelector {
+  /**
+   * @minItems 1
+   * @maxItems 32
+   */
+  file_extensions?: [string, ...string[]];
+  /**
+   * @minItems 1
+   * @maxItems 32
+   */
+  file_name_patterns?: [string, ...string[]];
+  frontmatter?: {
+    [k: string]: FileViewScalar[];
+  };
+  /**
+   * @minItems 1
+   * @maxItems 32
+   */
+  path_patterns?: [string, ...string[]];
 }
 /**
  * 一个托盘启动项：宿主在菜单栏 tray 下拉里加一条,点击打开该插件的窗口。

@@ -4,17 +4,47 @@
   "name": "Timeline",
   "version": "1.0.0",
   "kind": "native",
-  "engines": { "notemd": ">=6.909.0" },
+  "engines": {
+    "notemd": ">=6.909.1"
+  },
   "description": "View daily timelines as a vertical schedule with configurable activity categories.",
   "ui": "ui/",
-  "activation": { "events": [] },
+  "activation": {
+    "events": []
+  },
   "contributes": {
-    "custom_editors": [
-      { "id": "timeline", "markdown_types": ["timeline"], "entry": "index.html" }
+    "file_views": [
+      {
+        "id": "timeline",
+        "entry": "index.html",
+        "priority": 100,
+        "selectors": [
+          {
+            "file_extensions": [
+              "md",
+              "markdown",
+              "mdown",
+              "mkd"
+            ],
+            "frontmatter": {
+              "type": [
+                "timeline"
+              ]
+            }
+          }
+        ]
+      }
     ]
   },
-  "capabilities": ["settings", "vault.read", "editor.open"],
+  "capabilities": [
+    "settings",
+    "vault.read",
+    "editor.open"
+  ],
   "i18n": {
-    "zh": { "name": "时间轴", "description": "以竖向日程查看每日时间线，自定义动作分类与浅色时间块。" }
+    "zh": {
+      "name": "时间轴",
+      "description": "以竖向日程查看每日时间线，自定义动作分类与浅色时间块。"
+    }
   }
 }

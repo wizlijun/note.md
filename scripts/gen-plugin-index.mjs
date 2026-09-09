@@ -62,6 +62,7 @@ const OFFICIAL_PLUGIN_CATEGORIES = new Map([
   ['notemd.openclaw-chat', 'advance'],
   ['notemd.decision-log', 'reflect'],
   ['notemd.weekly-review', 'reflect'],
+  ['notemd.timeline', 'reflect'],
   ['notemd.md2pdf', 'import-export'],
   ['notemd.power-mode', 'experience'],
   ['notemd.memory', 'ai'],

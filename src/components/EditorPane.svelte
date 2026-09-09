@@ -1,12 +1,13 @@
 <script lang="ts">
+  import { untrack } from 'svelte'
   import type { Tab } from '../lib/tabs.svelte'
   import { isManagedMemoryTab, setContent } from '../lib/tabs.svelte'
   import RichEditor from './RichEditor.svelte'
   import CsvEditor from './CsvEditor.svelte'
   import BaseView from './BaseView.svelte'
   import CustomEditorIframe from './CustomEditorIframe.svelte'
-  import MarkdownPluginView from './MarkdownPluginView.svelte'
-  import { markdownViewerFor } from '../lib/plugins/custom-editors'
+  import FilePluginView from './FilePluginView.svelte'
+  import { fileViewFor, type FileViewRef } from '../lib/plugins/file-views'
   import { pluginRuntime } from '../lib/plugins/runtime.svelte'
   import SourceView from './SourceView.svelte'
   import HtmlPreview from './HtmlPreview.svelte'
@@ -24,9 +25,27 @@
 
   let { tab }: { tab: Tab } = $props()
   let memoryReadOnly = $derived(isManagedMemoryTab(tab))
-  let markdownViewer = $derived(tab.kind === 'markdown' && !memoryReadOnly
-    ? markdownViewerFor(tab.currentContent, pluginRuntime.manifests)
-    : null)
+  let fallbackChoice = $state<{ view: FileViewRef; reason: 'edit' | 'unsupported' | 'unavailable' } | null>(null)
+  // Keep the user's default-editor choice while edits change matching metadata.
+  // A removed/disabled view stays unavailable even when another rule matches.
+  let fileView = $derived.by(() => {
+    if (memoryReadOnly || tab.mode === 'source') return null
+    if (!fallbackChoice) return fileViewFor({ path: tab.filePath, kind: tab.kind, content: tab.currentContent }, pluginRuntime.manifests)
+    const selected = fallbackChoice.view
+    const available = pluginRuntime.manifests.some((manifest) => manifest.id === selected.pluginId
+      && manifest.file_views?.some((view) => view.id === selected.viewId && view.entry === selected.entry))
+    return available ? selected : null
+  })
+  let previousMode = untrack(() => tab.mode)
+  let previousTabId = untrack(() => tab.id)
+  $effect(() => {
+    const mode = tab.mode, id = tab.id
+    untrack(() => {
+      if (mode !== previousMode || id !== previousTabId) fallbackChoice = null
+      previousMode = mode
+      previousTabId = id
+    })
+  })
   let CanvasView = $state<typeof import('./canvas/CanvasView.svelte').default | null>(null)
   let canvasLoadError = $state('')
 
@@ -87,6 +106,7 @@
         | { tabId: string; oldContent: string; newContent: string }
         | undefined
       if (!detail || detail.tabId !== tab.id) return
+      fallbackChoice = null
       const ta = document.querySelector<HTMLTextAreaElement>(
         `textarea.src-textarea[data-tab-id="${tab.id}"]`,
       )
@@ -109,6 +129,30 @@
     return () => window.removeEventListener('notemd:auto-reloaded', handler)
   })
 </script>
+
+{#snippet builtin()}
+  {#if tab.kind === 'spreadsheet'}
+    {#key tab.id}<CsvEditor {tab} />{/key}
+  {:else if tab.kind === 'base'}
+    {#key tab.id}<BaseView {tab} />{/key}
+  {:else if isOutlineNoteTab(tab)}
+    {#key tab.id}<OutlineEditor {tab} />{/key}
+  {:else if tab.kind === 'html'}
+    {#key tab.id}<HtmlPreview html={tab.currentContent} />{/key}
+  {:else if tab.kind === 'mdx'}
+    <!-- MDX rich mode remains read-only; source mode preserves JSX byte-for-byte. -->
+    {#key tab.id}<RichEditor {tab} readOnly />{/key}
+  {:else}
+    {#key `${tab.id}:${memoryReadOnly}`}
+      <RichEditor
+        {tab}
+        onFlush={onRichFlush}
+        readOnly={memoryReadOnly}
+        wrapAsCodeBlock={tab.kind === 'code' ? (tab.language ?? '') : undefined}
+      />
+    {/key}
+  {/if}
+{/snippet}
 
 <div class="editor-stack" bind:this={stackEl}>
   {#if memoryReadOnly}
@@ -140,14 +184,6 @@
         />
       </div>
     {/key}
-  {:else if tab.kind === 'spreadsheet' && tab.mode !== 'source'}
-    {#key tab.id}
-      <CsvEditor {tab} />
-    {/key}
-  {:else if tab.kind === 'base' && tab.mode !== 'source'}
-    {#key tab.id}
-      <BaseView {tab} />
-    {/key}
   {:else if tab.kind === 'custom'}
     {#key tab.id}
       <CustomEditorIframe {tab} />
@@ -162,42 +198,19 @@
         readOnly={memoryReadOnly}
       />
     {/key}
-  {:else if markdownViewer}
-    {#key `${tab.id}:${markdownViewer.pluginId}:${markdownViewer.editorId}:${markdownViewer.entry}`}
-      <MarkdownPluginView {tab} editor={markdownViewer}>
-        {#snippet fallback()}
-          <RichEditor {tab} onFlush={onRichFlush} />
-        {/snippet}
-      </MarkdownPluginView>
-    {/key}
-  {:else if isOutlineNoteTab(tab)}
-    {#key tab.id}
-      <OutlineEditor {tab} />
-    {/key}
-  {:else if tab.kind === 'html'}
-    {#key tab.id}
-      <HtmlPreview html={tab.currentContent} />
-    {/key}
-  {:else if tab.kind === 'mdx'}
-    <!--
-      mdx rich mode = read-only reading view. MDX is markdown + JSX, needs its
-      own build pipeline, and is usually somebody's build source; a ProseMirror
-      round-trip would mangle its `import` lines and JSX blocks. Editing goes
-      through source mode (Cmd+/), which saves byte-for-byte. No annotation and
-      no sidecar note — read-only rendering is the whole support surface.
-    -->
-    {#key tab.id}
-      <RichEditor {tab} readOnly />
-    {/key}
-  {:else}
-    {#key `${tab.id}:${memoryReadOnly}`}
-      <RichEditor
+  {:else if fileView}
+    {#key `${tab.id}:${fileView.pluginId}:${fileView.viewId}:${fileView.entry}`}
+      <FilePluginView
         {tab}
-        onFlush={onRichFlush}
-        readOnly={memoryReadOnly}
-        wrapAsCodeBlock={tab.kind === 'code' ? (tab.language ?? '') : undefined}
+        view={fileView}
+        fallback={builtin}
+        initialFallback={fallbackChoice?.reason}
+        onFallback={(reason) => { if (fileView) fallbackChoice = { view: fileView, reason } }}
+        onRetry={() => { fallbackChoice = null }}
       />
     {/key}
+  {:else}
+    {@render builtin()}
   {/if}
 </div>
 

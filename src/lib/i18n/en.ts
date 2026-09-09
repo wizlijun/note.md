@@ -8,6 +8,14 @@
 // To add another language, create a sibling catalog (e.g. `zh.ts`) typed as
 // `Partial<Messages>` and register it in `store.svelte.ts`.
 export const en = {
+  // Read-only file views
+  'fileView.editing': 'Using the default editor',
+  'fileView.unsupported': 'The file view cannot parse this document. Opened the default editor.',
+  'fileView.unavailable': 'The file view could not load. Opened the default editor.',
+  'fileView.retry': 'Return to file view',
+  'fileView.loading': 'Loading file view…',
+  'fileView.useDefault': 'Use default editor',
+
   // Generic / shared
   'common.cancel': 'Cancel',
   'common.ok': 'OK',

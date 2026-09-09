@@ -1,0 +1,13 @@
+# File views：隔离原生 WebKit 验收
+
+在 macOS 仓库根目录运行：
+
+```sh
+node scripts/check-file-views-webkit.mjs
+```
+
+脚本重新构建 Timeline 生产包，以生产模式编译真实 `FilePluginView.svelte`，再编译独立 Swift AppKit helper。`WKURLSchemeHandler` 分别提供 `tauri://localhost` 和 `plugin://notemd.timeline`；插件 HTML 使用从生产 `protocol.rs` 提取的原始 CSP，无私有 WebKit scheme 注册和额外 CORS 放宽。
+
+两个场景检查原生 MessageEvent 双向 origin/source、ready 握手、真实分类表单保存、保存后变色和重开设置、CSP 阻止原生表单导航、显式编辑回退、非法时间解析回退，以及回退保留原文字节。截图、JSON 结果、bundle SHA-256 和编译结果保存在输出提示的临时目录。
+
+隔离边界：使用 `WKWebsiteDataStore.nonPersistent()`，阻止 HTTP/HTTPS 请求；仅加载生产插件包、编译后的测试宿主页及内存文档。插件 `host.settings.get/set` 为内存 RPC fixture。不会启动 note.md 主应用、读取或写入用户 Vault/设置，不访问真实 Tauri RPC。本验收不代表完整安装的宿主进程、真实设置落盘、系统 IME 或 VoiceOver 验收。

@@ -63,6 +63,7 @@ describe('plugin capability categories', () => {
     expect(normalizePluginCategory('capture', 'notemd.trace-source')).toBe('reading')
     expect(normalizePluginCategory('thinking', 'notemd.next')).toBe('advance')
     expect(normalizePluginCategory('thinking', 'notemd.weekly-review')).toBe('reflect')
+    expect(normalizePluginCategory(undefined, 'notemd.timeline')).toBe('reflect')
     expect(normalizePluginCategory('record', 'notemd.roam-import')).toBe('import-export')
     expect(normalizePluginCategory('create', 'notemd.md2pdf')).toBe('import-export')
     expect(normalizePluginCategory('editing', 'notemd.power-mode')).toBe('experience')

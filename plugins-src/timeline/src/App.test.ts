@@ -41,7 +41,7 @@ async function setField(label: string, value: string) {
 
 function openDocument(content = fixture, requestId = 1) {
   window.dispatchEvent(new MessageEvent('message', { origin: 'http://localhost:1420', source: window, data: {
-    type: 'custom_editor.open', editorId: 'timeline', requestId, uri: '/vault/diary/2026-09-09.timeline.md', content,
+    type: 'file_view.open', viewId: 'timeline', requestId, uri: '/vault/diary/2026-09-09.timeline.md', content,
   } }))
 }
 
@@ -84,7 +84,7 @@ describe('Timeline application', () => {
     expect(cards[0].style.left).not.toBe(cards[1].style.left)
     expect(document.querySelector('.document-notes')?.textContent).toContain('记录仅用于演示。')
     expect(document.querySelector('.original-title')?.textContent).toBe('示例时间线')
-    expect(mocked.posted).toHaveBeenCalledWith({ type: 'custom_editor.ready', requestId: 1 }, 'http://localhost:1420')
+    expect(mocked.posted).toHaveBeenCalledWith({ type: 'file_view.ready', requestId: 1 }, 'http://localhost:1420')
     cards[0].click()
     await tick()
     expect(document.querySelector('.detail')?.textContent).toContain('核对交互')
@@ -96,7 +96,7 @@ describe('Timeline application', () => {
     expect(document.querySelector('.detail')).toBeNull()
     await vi.waitFor(() => expect(document.activeElement).toBe(cards[0]))
     button('‹/›编辑 Markdown').click()
-    expect(mocked.posted).toHaveBeenCalledWith(expect.objectContaining({ type: 'custom_editor.fallback', reason: 'edit' }), 'http://localhost:1420')
+    expect(mocked.posted).toHaveBeenCalledWith(expect.objectContaining({ type: 'file_view.fallback', reason: 'edit' }), 'http://localhost:1420')
   })
 
   it('retains failed drafts, prevents concurrent exits and applies classification only after a successful retry', async () => {
@@ -166,7 +166,7 @@ describe('Timeline application', () => {
   it('handles unsupported documents via fallback and notes-only timelines without fake events', async () => {
     const mocked = await start()
     openDocument('---\ntype: timeline\n---\n- 25:00–26:00 — 开发：无效时间', 2)
-    expect(mocked.posted).toHaveBeenCalledWith({ type: 'custom_editor.fallback', requestId: 2 }, 'http://localhost:1420')
+    expect(mocked.posted).toHaveBeenCalledWith({ type: 'file_view.fallback', requestId: 2 }, 'http://localhost:1420')
     openDocument('---\ntype: timeline\n---\n# 安静的一天\n暂无活动。', 3)
     await tick()
     expect(document.querySelectorAll('.event')).toHaveLength(0)

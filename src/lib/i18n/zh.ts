@@ -3,6 +3,14 @@ import type { Messages } from './en'
 // Simplified Chinese catalog. Typed as a full record so a missing key is a
 // compile error — keep it complete and in sync with `en.ts`.
 export const zh: Record<keyof Messages, string> = {
+  // Read-only file views
+  'fileView.editing': '正在使用默认编辑器',
+  'fileView.unsupported': '文件视图无法解析此文档，已打开默认编辑器。',
+  'fileView.unavailable': '文件视图未能载入，已打开默认编辑器。',
+  'fileView.retry': '返回文件视图',
+  'fileView.loading': '正在载入文件视图…',
+  'fileView.useDefault': '使用默认编辑器',
+
   // Generic / shared
   'common.cancel': '取消',
   'common.ok': '确定',

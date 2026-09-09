@@ -12,7 +12,6 @@
  */
 
 import type { PluginManifest } from './types'
-import { isMap, isScalar, parseDocument } from 'yaml'
 
 /** What a registered custom editor needs to render its iframe. */
 export interface CustomEditorRef {
@@ -90,36 +89,4 @@ export function customEditorFor(
   manifests: PluginManifest[],
 ): CustomEditorRef | null {
   return buildCustomEditorRegistry(manifests).get(normExt(ext)) ?? null
-}
-
-/** Select an opt-in Markdown display without handing ownership of `.md` to a
- * plugin. Invalid/non-mapping YAML, duplicate keys and non-string types leave
- * the ordinary Markdown editor in charge. Matching ignores case and padding. */
-export function markdownViewerFor(
-  content: string,
-  manifests: PluginManifest[],
-): CustomEditorRef | null {
-  if (!manifests.some((m) => m.custom_editors?.some((ed) => Array.isArray(ed?.markdown_types)))) return null
-  const frontmatter = /^\uFEFF?---[ \t]*\r?\n([\s\S]*?)^---[ \t]*\r?$/m.exec(content)
-  if (!frontmatter || frontmatter.index !== 0) return null
-  let type: string
-  try {
-    const document = parseDocument(frontmatter[1])
-    if (document.errors.length || !isMap(document.contents)) return null
-    const value = document.get('type', true)
-    if (!isScalar(value) || typeof value.value !== 'string') return null
-    type = value.value.trim().toLowerCase()
-  } catch {
-    return null
-  }
-  if (!type) return null
-  for (const manifest of manifests) {
-    for (const editor of manifest.custom_editors ?? []) {
-      if (!editor?.id || !editor.entry || !Array.isArray(editor.markdown_types)) continue
-      if (editor.markdown_types.some((candidate) => typeof candidate === 'string' && candidate.trim().toLowerCase() === type)) {
-        return { pluginId: manifest.id, editorId: editor.id, entry: editor.entry }
-      }
-    }
-  }
-  return null
 }

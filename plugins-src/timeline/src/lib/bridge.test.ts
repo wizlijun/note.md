@@ -6,7 +6,7 @@ const request = vi.fn()
 let stop: (() => void) | undefined
 const content = '---\ntype: Timeline\n---\n- 09:00–10:00 — 开发：构建页面。'
 function send(data: Record<string, unknown>, origin = 'tauri://localhost', source: MessageEventSource = window) {
-  window.dispatchEvent(new MessageEvent('message', { origin, source, data: { type: 'custom_editor.open', editorId: 'timeline', requestId: 3, uri: '/vault/diary/day.md', content, ...data } }))
+  window.dispatchEvent(new MessageEvent('message', { origin, source, data: { type: 'file_view.open', viewId: 'timeline', requestId: 3, uri: '/vault/diary/day.md', content, ...data } }))
 }
 beforeEach(() => {
   request.mockReset()
@@ -20,25 +20,25 @@ describe('document handshake', () => {
     stop = onDocument(render)
     send({})
     expect(render).toHaveBeenCalledOnce()
-    expect(post).toHaveBeenLastCalledWith({ type: 'custom_editor.ready', requestId: 3 }, 'tauri://localhost')
+    expect(post).toHaveBeenLastCalledWith({ type: 'file_view.ready', requestId: 3 }, 'tauri://localhost')
     editMarkdown()
-    expect(post).toHaveBeenLastCalledWith({ type: 'custom_editor.fallback', requestId: 3, reason: 'edit' }, 'tauri://localhost')
+    expect(post).toHaveBeenLastCalledWith({ type: 'file_view.fallback', requestId: 3, reason: 'edit' }, 'tauri://localhost')
     expect(request).not.toHaveBeenCalled()
   })
   it('falls back on malformed content or rendering failure', () => {
     const post = vi.spyOn(window.parent, 'postMessage').mockImplementation(() => {})
     stop = onDocument(() => { throw new Error('render failed') })
     send({ content: 'broken' })
-    expect(post).toHaveBeenLastCalledWith({ type: 'custom_editor.fallback', requestId: 3 }, 'tauri://localhost')
+    expect(post).toHaveBeenLastCalledWith({ type: 'file_view.fallback', requestId: 3 }, 'tauri://localhost')
     send({ requestId: 4 })
-    expect(post).toHaveBeenLastCalledWith({ type: 'custom_editor.fallback', requestId: 4 }, 'tauri://localhost')
+    expect(post).toHaveBeenLastCalledWith({ type: 'file_view.fallback', requestId: 4 }, 'tauri://localhost')
   })
   it('rejects foreign origins, other frames and malformed envelopes', () => {
     const render = vi.fn(), post = vi.spyOn(window.parent, 'postMessage').mockImplementation(() => {})
     stop = onDocument(render)
     send({}, 'https://attacker.example')
     send({}, 'tauri://localhost', {} as Window)
-    for (const data of [{ requestId: '3' }, { editorId: 'wrong' }, { uri: null }]) send(data)
+    for (const data of [{ requestId: '3' }, { viewId: 'wrong' }, { uri: null }]) send(data)
     expect(render).not.toHaveBeenCalled()
     expect(post).not.toHaveBeenCalled()
     expect(isHostOrigin('http://localhost.attacker.test:1420')).toBe(false)

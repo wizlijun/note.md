@@ -1,0 +1,849 @@
+[
+  {
+    "name": "extension",
+    "valid": true,
+    "view": {
+      "id": "sample",
+      "entry": "index.html",
+      "selectors": [
+        {
+          "file_extensions": [
+            "md"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "compound normalization",
+    "valid": true,
+    "view": {
+      "id": "sample",
+      "entry": "index.html",
+      "selectors": [
+        {
+          "file_extensions": [
+            " .Md",
+            "...JSON",
+            "my_ext-1"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "multiple selectors and typed metadata",
+    "valid": true,
+    "view": {
+      "id": "sample",
+      "entry": "index.html",
+      "selectors": [
+        {
+          "file_extensions": [
+            "md"
+          ],
+          "frontmatter": {
+            "type": [
+              "Timeline"
+            ],
+            "revision": [
+              2
+            ],
+            "published": [
+              true
+            ]
+          }
+        },
+        {
+          "file_name_patterns": [
+            "Dockerfile",
+            "report-?.json"
+          ]
+        }
+      ],
+      "priority": 100
+    }
+  },
+  {
+    "name": "absolute path wildcard",
+    "valid": true,
+    "view": {
+      "id": "sample",
+      "entry": "index.html",
+      "selectors": [
+        {
+          "path_patterns": [
+            "**/diary/*.md"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "literal pattern metacharacters",
+    "valid": true,
+    "view": {
+      "id": "sample",
+      "entry": "index.html",
+      "selectors": [
+        {
+          "file_name_patterns": [
+            "report[1].{draft}.md"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "html in subdirectory",
+    "valid": true,
+    "view": {
+      "id": "sample",
+      "entry": "views/file view.html",
+      "selectors": [
+        {
+          "file_extensions": [
+            "md"
+          ]
+        }
+      ],
+      "priority": -1000
+    }
+  },
+  {
+    "name": "empty id",
+    "valid": false,
+    "view": {
+      "id": "",
+      "entry": "index.html",
+      "selectors": [
+        {
+          "file_extensions": [
+            "md"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "uppercase id",
+    "valid": false,
+    "view": {
+      "id": "Bad",
+      "entry": "index.html",
+      "selectors": [
+        {
+          "file_extensions": [
+            "md"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "duplicate path slash",
+    "valid": false,
+    "view": {
+      "id": "sample",
+      "entry": "views//index.html",
+      "selectors": [
+        {
+          "file_extensions": [
+            "md"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "dot path",
+    "valid": false,
+    "view": {
+      "id": "sample",
+      "entry": "./index.html",
+      "selectors": [
+        {
+          "file_extensions": [
+            "md"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "traversal entry",
+    "valid": false,
+    "view": {
+      "id": "sample",
+      "entry": "../index.html",
+      "selectors": [
+        {
+          "file_extensions": [
+            "md"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "absolute entry",
+    "valid": false,
+    "view": {
+      "id": "sample",
+      "entry": "/index.html",
+      "selectors": [
+        {
+          "file_extensions": [
+            "md"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "encoded entry",
+    "valid": false,
+    "view": {
+      "id": "sample",
+      "entry": "%2e%2e/index.html",
+      "selectors": [
+        {
+          "file_extensions": [
+            "md"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "remote entry",
+    "valid": false,
+    "view": {
+      "id": "sample",
+      "entry": "https://example.com/index.html",
+      "selectors": [
+        {
+          "file_extensions": [
+            "md"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "entry fragment",
+    "valid": false,
+    "view": {
+      "id": "sample",
+      "entry": "index.html#x",
+      "selectors": [
+        {
+          "file_extensions": [
+            "md"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "non html entry",
+    "valid": false,
+    "view": {
+      "id": "sample",
+      "entry": "index.js",
+      "selectors": [
+        {
+          "file_extensions": [
+            "md"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "entry nul",
+    "valid": false,
+    "view": {
+      "id": "sample",
+      "entry": "file\u0000.html",
+      "selectors": [
+        {
+          "file_extensions": [
+            "md"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "empty selectors",
+    "valid": false,
+    "view": {
+      "id": "sample",
+      "entry": "index.html",
+      "selectors": []
+    }
+  },
+  {
+    "name": "empty selector",
+    "valid": false,
+    "view": {
+      "id": "sample",
+      "entry": "index.html",
+      "selectors": [
+        {}
+      ]
+    }
+  },
+  {
+    "name": "null selector",
+    "valid": false,
+    "view": {
+      "id": "sample",
+      "entry": "index.html",
+      "selectors": [
+        null
+      ]
+    }
+  },
+  {
+    "name": "too many selectors",
+    "valid": false,
+    "view": {
+      "id": "sample",
+      "entry": "index.html",
+      "selectors": [
+        {
+          "file_extensions": [
+            "md"
+          ]
+        },
+        {
+          "file_extensions": [
+            "md"
+          ]
+        },
+        {
+          "file_extensions": [
+            "md"
+          ]
+        },
+        {
+          "file_extensions": [
+            "md"
+          ]
+        },
+        {
+          "file_extensions": [
+            "md"
+          ]
+        },
+        {
+          "file_extensions": [
+            "md"
+          ]
+        },
+        {
+          "file_extensions": [
+            "md"
+          ]
+        },
+        {
+          "file_extensions": [
+            "md"
+          ]
+        },
+        {
+          "file_extensions": [
+            "md"
+          ]
+        },
+        {
+          "file_extensions": [
+            "md"
+          ]
+        },
+        {
+          "file_extensions": [
+            "md"
+          ]
+        },
+        {
+          "file_extensions": [
+            "md"
+          ]
+        },
+        {
+          "file_extensions": [
+            "md"
+          ]
+        },
+        {
+          "file_extensions": [
+            "md"
+          ]
+        },
+        {
+          "file_extensions": [
+            "md"
+          ]
+        },
+        {
+          "file_extensions": [
+            "md"
+          ]
+        },
+        {
+          "file_extensions": [
+            "md"
+          ]
+        },
+        {
+          "file_extensions": [
+            "md"
+          ]
+        },
+        {
+          "file_extensions": [
+            "md"
+          ]
+        },
+        {
+          "file_extensions": [
+            "md"
+          ]
+        },
+        {
+          "file_extensions": [
+            "md"
+          ]
+        },
+        {
+          "file_extensions": [
+            "md"
+          ]
+        },
+        {
+          "file_extensions": [
+            "md"
+          ]
+        },
+        {
+          "file_extensions": [
+            "md"
+          ]
+        },
+        {
+          "file_extensions": [
+            "md"
+          ]
+        },
+        {
+          "file_extensions": [
+            "md"
+          ]
+        },
+        {
+          "file_extensions": [
+            "md"
+          ]
+        },
+        {
+          "file_extensions": [
+            "md"
+          ]
+        },
+        {
+          "file_extensions": [
+            "md"
+          ]
+        },
+        {
+          "file_extensions": [
+            "md"
+          ]
+        },
+        {
+          "file_extensions": [
+            "md"
+          ]
+        },
+        {
+          "file_extensions": [
+            "md"
+          ]
+        },
+        {
+          "file_extensions": [
+            "md"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "empty field among valid fields",
+    "valid": false,
+    "view": {
+      "id": "sample",
+      "entry": "index.html",
+      "selectors": [
+        {
+          "file_extensions": [],
+          "frontmatter": {
+            "type": [
+              "timeline"
+            ]
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "null optional field",
+    "valid": false,
+    "view": {
+      "id": "sample",
+      "entry": "index.html",
+      "selectors": [
+        {
+          "file_extensions": null,
+          "frontmatter": {
+            "type": [
+              "timeline"
+            ]
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "bad extension",
+    "valid": false,
+    "view": {
+      "id": "sample",
+      "entry": "index.html",
+      "selectors": [
+        {
+          "file_extensions": [
+            "../md"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "empty normalized extension",
+    "valid": false,
+    "view": {
+      "id": "sample",
+      "entry": "index.html",
+      "selectors": [
+        {
+          "file_extensions": [
+            "..."
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "file name with separator",
+    "valid": false,
+    "view": {
+      "id": "sample",
+      "entry": "index.html",
+      "selectors": [
+        {
+          "file_name_patterns": [
+            "a/b.md"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "path backslash",
+    "valid": false,
+    "view": {
+      "id": "sample",
+      "entry": "index.html",
+      "selectors": [
+        {
+          "path_patterns": [
+            "C:\\vault\\*.md"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "empty metadata",
+    "valid": false,
+    "view": {
+      "id": "sample",
+      "entry": "index.html",
+      "selectors": [
+        {
+          "frontmatter": {}
+        }
+      ]
+    }
+  },
+  {
+    "name": "null metadata",
+    "valid": false,
+    "view": {
+      "id": "sample",
+      "entry": "index.html",
+      "selectors": [
+        {
+          "frontmatter": null
+        }
+      ]
+    }
+  },
+  {
+    "name": "empty metadata values",
+    "valid": false,
+    "view": {
+      "id": "sample",
+      "entry": "index.html",
+      "selectors": [
+        {
+          "frontmatter": {
+            "type": []
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "metadata nested value",
+    "valid": false,
+    "view": {
+      "id": "sample",
+      "entry": "index.html",
+      "selectors": [
+        {
+          "frontmatter": {
+            "type": [
+              {
+                "a": "b"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "metadata null value",
+    "valid": false,
+    "view": {
+      "id": "sample",
+      "entry": "index.html",
+      "selectors": [
+        {
+          "frontmatter": {
+            "type": [
+              null
+            ]
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "empty metadata key",
+    "valid": false,
+    "view": {
+      "id": "sample",
+      "entry": "index.html",
+      "selectors": [
+        {
+          "frontmatter": {
+            " ": [
+              "timeline"
+            ]
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "blank metadata value",
+    "valid": false,
+    "view": {
+      "id": "sample",
+      "entry": "index.html",
+      "selectors": [
+        {
+          "frontmatter": {
+            "type": [
+              "  "
+            ]
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "nul metadata value",
+    "valid": false,
+    "view": {
+      "id": "sample",
+      "entry": "index.html",
+      "selectors": [
+        {
+          "frontmatter": {
+            "type": [
+              "x\u0000y"
+            ]
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "fractional priority",
+    "valid": false,
+    "view": {
+      "id": "sample",
+      "entry": "index.html",
+      "selectors": [
+        {
+          "file_extensions": [
+            "md"
+          ]
+        }
+      ],
+      "priority": 0.5
+    }
+  },
+  {
+    "name": "high priority",
+    "valid": false,
+    "view": {
+      "id": "sample",
+      "entry": "index.html",
+      "selectors": [
+        {
+          "file_extensions": [
+            "md"
+          ]
+        }
+      ],
+      "priority": 1001
+    }
+  },
+  {
+    "name": "unknown view field",
+    "valid": false,
+    "view": {
+      "id": "sample",
+      "entry": "index.html",
+      "selectors": [
+        {
+          "file_extensions": [
+            "md"
+          ]
+        }
+      ],
+      "condition": "true"
+    }
+  },
+  {
+    "name": "unknown selector field",
+    "valid": false,
+    "view": {
+      "id": "sample",
+      "entry": "index.html",
+      "selectors": [
+        {
+          "expression": "true"
+        }
+      ]
+    }
+  },
+  {
+    "name": "long pattern",
+    "valid": false,
+    "view": {
+      "id": "sample",
+      "entry": "index.html",
+      "selectors": [
+        {
+          "file_name_patterns": [
+            "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "unicode count boundary",
+    "valid": false,
+    "view": {
+      "id": "sample",
+      "entry": "index.html",
+      "selectors": [
+        {
+          "file_name_patterns": [
+            "日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日日"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "integer priority as JSON decimal",
+    "valid": true,
+    "view": {
+      "id": "report",
+      "entry": "index.html",
+      "priority": 1.0,
+      "selectors": [
+        {
+          "file_extensions": [
+            "json"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "unicode_nel_is_whitespace",
+    "valid": false,
+    "view": {
+      "id": "view",
+      "entry": "index.html",
+      "selectors": [
+        {
+          "frontmatter": {
+            "type": [
+              ""
+            ]
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "unicode_bom_is_literal",
+    "valid": true,
+    "view": {
+      "id": "view",
+      "entry": "index.html",
+      "selectors": [
+        {
+          "frontmatter": {
+            "type": [
+              "﻿"
+            ]
+          }
+        }
+      ]
+    }
+  }
+]

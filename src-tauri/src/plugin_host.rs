@@ -80,6 +80,9 @@ pub struct PluginManifest {
     /// rides to the frontend via `get_plugin_manifests`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub custom_editors: Vec<serde_json::Value>,
+    /// Validated file rules are interpreted by the frontend's shared matcher.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub file_views: Vec<plugin_protocol::FileViewContribution>,
     #[serde(default)]
     pub settings: Option<SettingsBlock>,
     pub host_capabilities: Vec<String>,
@@ -250,7 +253,7 @@ pub fn plugin_menu_group_for_plugin(plugin_id: &str, group: Option<&str>) -> &'s
         | "notemd.codex-agent"
         | "notemd.deepseek-agent"
         | "notemd.memory" => "ai",
-        "notemd.decision-log" | "notemd.weekly-review" => "reflect",
+        "notemd.decision-log" | "notemd.weekly-review" | "notemd.timeline" => "reflect",
         "notemd.roam-import" | "notemd.md2pdf" => "import-export",
         "notemd.power-mode" => "experience",
         _ => normalize_plugin_menu_group(group),

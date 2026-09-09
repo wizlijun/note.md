@@ -19,17 +19,19 @@ const state = { classification: undefined, failSave: false, failLoad: false, noP
 const results = []
 const servers = []
 const errors = []
+const diagnostics = []
 let pluginOrigin = ''
 let browser
 
 function fixtureServer(kind) {
-  return createServer({ root, configFile: false, resolve: { dedupe: ['svelte'] },
+  return createServer({ root, configFile: false, cacheDir: join(output, `vite-${kind}`), resolve: { dedupe: ['svelte'] },
+    optimizeDeps: { entries: kind === 'host' ? ['scripts/fixtures/timeline-browser.svelte'] : ['plugins-src/timeline/src/App.svelte'] },
     server: { host: '127.0.0.1', port: 0, strictPort: false, hmr: false, watch: null },
     plugins: [{ name: `timeline-browser-${kind}`, enforce: 'pre',
       transform(code, id) {
-        if (kind === 'host' && id.endsWith('/src/components/MarkdownPluginView.svelte')) {
-          assert.ok(code.includes('`plugin://${editor.pluginId}`'), 'host fixture must replace only the plugin origin')
-          return code.replace('`plugin://${editor.pluginId}`', JSON.stringify(pluginOrigin))
+        if (kind === 'host' && id.endsWith('/src/components/FilePluginView.svelte')) {
+          assert.ok(code.includes('`plugin://${view.pluginId}`'), 'host fixture must replace only the plugin origin')
+          return code.replace('`plugin://${view.pluginId}`', JSON.stringify(pluginOrigin))
         }
         return null
       },
@@ -60,9 +62,9 @@ function fixtureServer(kind) {
         vite.middlewares.use('/timeline-rogue', (req, res) => {
           const url = new URL(req.url, 'http://fixture')
           res.setHeader('Content-Type', 'text/html')
-          res.end(`<script>parent.postMessage({type:'custom_editor.fallback',requestId:${Number(url.searchParams.get('requestId'))}}, ${JSON.stringify(url.searchParams.get('target'))})</script>`)
+          res.end(`<script>parent.postMessage({type:'file_view.fallback',requestId:${Number(url.searchParams.get('requestId'))}}, ${JSON.stringify(url.searchParams.get('target'))})</script>`)
         })
-        vite.middlewares.use(kind === 'host' ? '/timeline-host' : '/timeline-plugin', async (req, res, next) => {
+        vite.middlewares.use(kind === 'host' ? '/timeline-host' : '/timeline-plugin.html', async (req, res, next) => {
           if (req.url?.includes('html-proxy')) { next(); return }
           res.setHeader('Content-Type', 'text/html; charset=utf-8')
           if (kind === 'plugin') res.setHeader('Content-Security-Policy', "form-action 'none'")
@@ -96,10 +98,12 @@ try {
   const context = await browser.newContext({ viewport: { width: 1100, height: 760 }, colorScheme: 'light', reducedMotion: 'reduce' })
   const page = await context.newPage()
   page.on('pageerror', (error) => errors.push(String(error)))
+  page.on('console', (message) => { if (message.type() === 'error') diagnostics.push(message.text()) })
+  page.on('requestfailed', (request) => diagnostics.push(`${request.url()}: ${request.failure()?.errorText}`))
   const plugin = () => page.frameLocator('iframe[title="2026-09-08.timeline.md"]')
   const iframe = () => page.locator('iframe[title="2026-09-08.timeline.md"]')
   const waitReady = async () => {
-    await page.locator('.markdown-plugin-view[aria-busy="false"]').waitFor({ timeout: 12_000 })
+    await page.locator('.file-plugin-view[aria-busy="false"]').waitFor({ timeout: 12_000 })
     await plugin().locator('.event').first().waitFor()
   }
   await page.goto(`${hostOrigin}/timeline-host`)
@@ -171,7 +175,7 @@ try {
     assert.equal(await page.getByRole('textbox', { name: 'Markdown 编辑器', exact: true }).inputValue(), source)
     await page.getByRole('textbox', { name: 'Markdown 编辑器', exact: true }).fill(source.replace('木工与设计基础', '木工、绘画与设计基础'))
     assert.equal(await iframe().count(), 0, 'typing never kicks the user out of Markdown')
-    await page.getByRole('button', { name: '返回插件视图', exact: true }).click()
+    await page.getByRole('button', { name: '返回文件视图', exact: true }).click()
     await waitReady()
     assert.ok(await plugin().getByRole('button', { name: /绘画与设计基础/ }).count())
     assert.equal(await plugin().getByRole('button', { name: /09:00.*开发/ }).getAttribute('data-category'), 'interest')
@@ -183,23 +187,23 @@ try {
     await plugin().getByRole('button', { name: /外部重载后的阅读内容/ }).waitFor()
     await page.evaluate(() => window.__timelineBrowser.reload('---\ntype: Timeline\n---\n- 25:00–26:00 — 开发：无效时间。'))
     await page.getByRole('textbox', { name: 'Markdown 编辑器', exact: true }).waitFor()
-    assert.ok((await page.locator('.markdown-plugin-fallback').innerText()).includes('无法解析'))
+    assert.ok((await page.locator('.file-plugin-fallback').innerText()).includes('无法解析'))
     await page.screenshot({ path: join(output, 'timeline-parse-fallback.png') })
     await page.evaluate(() => window.__timelineBrowser.reload(window.__timelineBrowser.initial))
     await waitReady()
   })
 
   await check('same-origin rogue iframe and wrong-origin parent cannot forge a fallback', async () => {
-    const requestId = await page.evaluate(() => window.__timelineBrowser.events.filter((event) => event.type === 'custom_editor.ready').at(-1).requestId)
+    const requestId = await page.evaluate(() => window.__timelineBrowser.events.filter((event) => event.type === 'file_view.ready').at(-1).requestId)
     const count = await page.evaluate(() => window.__timelineBrowser.events.length)
     await page.evaluate(({ origin, host, id }) => {
       const rogue = document.createElement('iframe'); rogue.id = 'rogue'; rogue.hidden = true
       rogue.src = `${origin}/timeline-rogue?requestId=${id}&target=${encodeURIComponent(host)}`
       document.body.append(rogue)
-      window.postMessage({ type: 'custom_editor.fallback', requestId: id }, location.origin)
+      window.postMessage({ type: 'file_view.fallback', requestId: id }, location.origin)
     }, { origin: pluginOrigin, host: hostOrigin, id: requestId })
     await page.waitForFunction((count) => window.__timelineBrowser.events.length >= count + 2, count)
-    assert.equal(await page.locator('.markdown-plugin-view').getAttribute('aria-busy'), 'false')
+    assert.equal(await page.locator('.file-plugin-view').getAttribute('aria-busy'), 'false')
     assert.equal(await page.getByRole('textbox', { name: 'Markdown 编辑器', exact: true }).count(), 0)
     await page.locator('#rogue').evaluate((node) => node.remove())
   })
@@ -255,9 +259,9 @@ try {
     await page.getByRole('textbox', { name: 'Markdown 源码', exact: true }).waitFor()
     await page.evaluate(() => window.__timelineBrowser.setMode('rich'))
     await page.getByRole('textbox', { name: 'Markdown 编辑器', exact: true }).waitFor({ timeout: 10_000 })
-    assert.ok((await page.locator('.markdown-plugin-fallback').innerText()).includes('未能载入'))
+    assert.ok((await page.locator('.file-plugin-fallback').innerText()).includes('未能载入'))
     state.noPlugin = false
-    await page.getByRole('button', { name: '返回插件视图', exact: true }).click(); await waitReady()
+    await page.getByRole('button', { name: '返回文件视图', exact: true }).click(); await waitReady()
   })
 
   assert.deepEqual(errors, [], 'no uncaught browser errors')
@@ -268,6 +272,7 @@ try {
 } catch (error) {
   console.error(error.stack ?? String(error))
   console.error('Browser errors:', errors)
+  console.error('Browser diagnostics:', diagnostics)
   console.error('Artifacts:', output)
   const page = browser?.contexts()[0]?.pages()[0]
   if (page) await page.screenshot({ path: join(output, 'timeline-failure.png') }).catch(() => {})

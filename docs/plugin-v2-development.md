@@ -101,6 +101,7 @@ plugins-src/<name>/
   "context_menus": [ /* ContextMenuEntry */ ],
   "windows":       [ WindowContribution ],   // 见下
   "custom_editors":[ /* 自定义编辑器 */ ],
+  "file_views":    [ /* 按文件规则选择只读视图，见下；>=6.909.1 */ ],
   "settings":      { /* 设置面板,语义同 v1 */ },
   "cli":           [ /* CliEntry */ ],
   "tray":          [ TrayContribution ]      // 见下;托盘"插座"
@@ -158,6 +159,52 @@ manifest 不写 `Agents`、`智能体` 等显示文本。插件市场索引也�
 ```
 
 `open_command` 是打开窗口的关键:菜单项的 `command` 与某窗口的 `open_command` 相等时,点菜单即开窗,无需插件进程参与。
+
+### 按文件规则打开视图（宿主 >=6.909.1）
+
+`contributes.file_views` 是宿主统一提供的只读文件视图入口。插件声明规则和 UI，宿主负责匹配、加载、发送当前文档及失败回退。它不改变文件类型，也不接管保存。已有 `custom_editors.file_extensions` 和 `custom_editor.*` 编辑协议保持兼容。
+
+```json
+{
+  "engines": { "notemd": ">=6.909.1" },
+  "ui": "ui/",
+  "contributes": {
+    "file_views": [{
+      "id": "report",
+      "entry": "report.html",
+      "priority": 100,
+      "selectors": [
+        { "file_extensions": ["json"], "path_patterns": ["**/reports/**"] },
+        { "file_name_patterns": ["*.report.md"], "frontmatter": { "type": ["report"], "published": [true] } }
+      ]
+    }]
+  }
+}
+```
+
+这是 manifest 片段；完整声明还需要顶层必填字段。无需创建窗口或虚设菜单；Timeline 是纯文件视图插件的实例。
+
+- `selectors` 之间为 OR；一个 selector 内不同条件为 AND；每个条件的候选数组为 OR；不同 frontmatter 键为 AND。
+- 扩展名去除首尾 Unicode 空白及开头的点后忽略大小写。文件名和路径模式去除首尾 Unicode 空白、区分大小写，只支持 `*`、`?`、`**`：前两者不跨 `/`，`**` 可跨目录，完整 `**/` 段也可匹配零层目录，其余字符按字面匹配。路径以规范化 `/` 的完整绝对路径为基准；未保存的相对路径不匹配路径条件。
+- frontmatter 仅匹配文件开头 YAML 的顶层字符串、数字或布尔值。字符串去除首尾 Unicode 空白并忽略大小写；数字和布尔值按类型精确匹配。无效 YAML、重复键和 aliases 不参与匹配；解析范围最多为文件开头 128 KiB UTF-16 字符。
+- `priority` 为 -1000 到 1000 的整数，默认 0；高值优先，同分按插件 ID、视图 ID 字典序稳定选择。每次只尝试所选视图，失败后使用内置视图。
+- 支持 Markdown、MDX、HTML、代码、CSV/TSV 表格与 Base 等文本类型。源码模式、受管理的 USER/MEMORY 文档以及已有 custom editor 保持优先；图片和 Canvas 不参与匹配。
+- 不接受空 selector、空条件数组、显式 null 或未知字段。视图、selector、候选值与 frontmatter 键各最多 32 个；字符串规则最多 256 个 Unicode 码点，视图 ID 和 metadata 键最多 128 个。`entry` 必须是 `ui/` 内安全的相对 `.html` 路径。类型及校验源见 `plugin-protocol/src/file_views.rs`，匹配源见 `src/lib/plugins/file-views.ts`。
+
+视图 iframe 使用 `plugin://<plugin-id>/<entry>`，保留插件 CSP 与能力鉴权。iframe 沙箱开放脚本、同源和表单事件；CSP 的 `form-action 'none'` 仍禁止表单导航。配置表单必须 `preventDefault()` 后通过设置 RPC 保存。
+
+打开协议独立于编辑器协议：
+
+```ts
+// 宿主 → iframe，必须验证 event.source === window.parent 和可信宿主 origin。
+{ type: 'file_view.open', uri: string, content: string, viewId: string, requestId: number }
+// iframe → 宿主，解析和渲染成功后发送。
+{ type: 'file_view.ready', requestId: number }
+// 不支持内容或用户选择编辑原文时发送；reason 仅在主动编辑时为 'edit'。
+{ type: 'file_view.fallback', requestId: number, reason?: 'edit' }
+```
+
+回复必须使用收到的宿主 origin 作为 `postMessage` 的 `targetOrigin`。宿主同时校验插件 origin、iframe source 与当前 `requestId`，忽略旧请求、伪造消息及写入消息。资源加载或解析在 8 秒内未完成时回退，回退保留同一份文档及原内置视图；编辑期间不反复抢占。显式重试、切换源码/预览或外部文件重载可重新尝试视图。代码参考 `FilePluginView.svelte`、`file-view-msg.ts` 与 `plugins-src/timeline/src/lib/bridge.ts`。
 
 **TrayContribution**(`plugin-protocol/src/lib.rs` 的 `TrayContribution`):
 ```jsonc

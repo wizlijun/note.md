@@ -1,6 +1,14 @@
 import type { Messages } from './en'
 
 export const de: Record<keyof Messages, string> = {
+  // Read-only file views
+  'fileView.editing': 'Standardeditor wird verwendet',
+  'fileView.unsupported': 'Die Dateiansicht kann dieses Dokument nicht lesen. Der Standardeditor wurde geöffnet.',
+  'fileView.unavailable': 'Die Dateiansicht konnte nicht geladen werden. Der Standardeditor wurde geöffnet.',
+  'fileView.retry': 'Zur Dateiansicht zurück',
+  'fileView.loading': 'Dateiansicht wird geladen…',
+  'fileView.useDefault': 'Standardeditor verwenden',
+
   // Generic / shared
   'common.cancel': 'Abbrechen',
   'common.ok': 'OK',

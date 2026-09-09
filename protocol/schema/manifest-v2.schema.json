@@ -136,6 +136,14 @@
           "type": "array",
           "items": true
         },
+        "file_views": {
+          "description": "Read-only views selected by declarative file rules; independent of file ownership.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/FileViewContribution"
+          },
+          "maxItems": 32
+        },
         "menus": {
           "default": [],
           "type": "array",
@@ -169,6 +177,92 @@
       "properties": {
         "notemd": {
           "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "FileViewContribution": {
+      "type": "object",
+      "required": [
+        "entry",
+        "id",
+        "selectors"
+      ],
+      "properties": {
+        "entry": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "priority": {
+          "default": 0,
+          "type": "integer",
+          "format": "int32",
+          "maximum": 1000.0,
+          "minimum": -1000.0
+        },
+        "selectors": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/FileViewSelector"
+          },
+          "maxItems": 32,
+          "minItems": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "FileViewScalar": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "number",
+          "format": "double"
+        },
+        {
+          "type": "boolean"
+        }
+      ]
+    },
+    "FileViewSelector": {
+      "description": "Selectors are ORed; fields within one selector are ANDed. Each value list is ORed; distinct frontmatter keys are ANDed.",
+      "type": "object",
+      "properties": {
+        "file_extensions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 32,
+          "minItems": 1
+        },
+        "file_name_patterns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 32,
+          "minItems": 1
+        },
+        "frontmatter": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/FileViewScalar"
+            }
+          }
+        },
+        "path_patterns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 32,
+          "minItems": 1
         }
       },
       "additionalProperties": false
