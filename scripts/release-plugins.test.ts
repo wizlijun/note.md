@@ -136,6 +136,10 @@ describe('release.sh transient Apple failures', () => {
     expect(HOST_RELEASE).toContain('cargo test --manifest-path src-tauri/Cargo.toml canvas_')
     expect(HOST_RELEASE).toContain('cargo test --manifest-path src-tauri/Cargo.toml --test mobile_project_config')
   })
+
+  it('separates the install preamble from the changelog heading', () => {
+    expect(HOST_RELEASE).toContain("NOTES=\"${PREAMBLE}\"$'\\n\\n'\"## What's Changed")
+  })
 })
 
 describe('dev-install-plugin.sh codex-agent dispatch', () => {

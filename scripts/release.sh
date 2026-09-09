@@ -500,7 +500,9 @@ CHANGELOG_SECTION=$(node scripts/changelog.mjs notes "$VERSION") \
   || die "cannot extract CHANGELOG section for $VERSION"
 [[ -n "$CHANGELOG_SECTION" ]] || die "CHANGELOG section for $VERSION is empty"
 
-NOTES="${PREAMBLE}## What's Changed
+# Command substitution strips trailing newlines from PREAMBLE, so add the
+# separator explicitly or the changelog heading joins the final quote line.
+NOTES="${PREAMBLE}"$'\n\n'"## What's Changed
 
 ${CHANGELOG_SECTION}"
 
