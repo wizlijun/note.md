@@ -1,6 +1,6 @@
 {
   "name": "notemd",
-  "version": "6.909.5",
+  "version": "6.909.6",
   "type": "module",
   "private": true,
   "scripts": {

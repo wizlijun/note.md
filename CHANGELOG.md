@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.909.6 — 2026-09-09
+
 ### Added
 
 - **Tabs can now be closed in groups from their context menu.** Right-click a tab to close that file, close every tab to its left, or close all tabs. Existing save and discard prompts still protect modified files, and cancelling stops the remaining batch.
