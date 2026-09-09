@@ -7,6 +7,10 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+### Fixed
+
+- **Timeline 1.0.4 now opens at the configured time.** The timeline calculates the schedule position inside its own scroll area, so the title, toolbar and legend no longer shift the visible time by about two hours.
+
 ## v6.909.6 — 2026-09-09
 
 ### Added
