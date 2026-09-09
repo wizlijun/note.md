@@ -86,7 +86,7 @@ describe('ModeToggle file-view slot', () => {
     expect(buttons.map((button) => button.tabIndex)).toEqual([-1, -1, 0])
   })
 
-  it('uses the declared orange sparkle for a note file view', async () => {
+  it('uses the same current color as adjacent modes for a note sparkle', async () => {
     const tab = timelineTab()
     tab.filePath = '/vault/ideas.note.md'
     tab.title = 'ideas.note.md'
@@ -110,7 +110,8 @@ describe('ModeToggle file-view slot', () => {
 
     const button = document.querySelector<HTMLButtonElement>('[data-file-view-icon="sparkle"]')
     expect(button).not.toBeNull()
-    expect(button?.querySelector('path[fill="#f59e0b"]')).not.toBeNull()
+    expect(button?.querySelector('path[fill="currentColor"]')).not.toBeNull()
+    expect(button?.querySelector('path[fill="#f59e0b"]')).toBeNull()
   })
 
   it('keeps the original two compact modes when no plugin view matches', async () => {
