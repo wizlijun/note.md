@@ -1,10 +1,11 @@
 <script lang="ts">
   import '../../../src/styles/ui-foundation.css'
   import { onDestroy, onMount, tick } from 'svelte'
-  import { editMarkdown, InvalidRulesError, loadRules, locale, onDocument, openLink, saveRules } from './lib/bridge'
+  import { InvalidRulesError, loadRules, locale, onDocument, openLink, openTimelineDate, saveRules } from './lib/bridge'
   import { CATEGORIES, classifyItem, DEFAULT_RULES, type ClassificationRule } from './lib/classification'
   import type { TimelineDocument, TimelineItem } from './lib/parser'
   import { formatDuration, formatTime, layoutTimeline, PIXELS_PER_MINUTE } from './lib/layout'
+  import { shiftTimelineDate } from './lib/date-navigation'
   import ClassificationSettings from './lib/components/ClassificationSettings.svelte'
   import TimelineDetail from './lib/components/TimelineDetail.svelte'
 
@@ -17,11 +18,16 @@
   let invalidRules = $state(false)
   let settings = $state(false)
   let saving = $state(false)
+  let navigating = $state(false)
+  let navigationError = $state('')
   let selected = $state<TimelineItem | null>(null)
   let trigger: HTMLButtonElement | null = null
   let settingsOpener: HTMLButtonElement | null = null
   let settingsTrigger: HTMLButtonElement
   const layout = $derived(layoutTimeline(doc?.items ?? []))
+  const previousDate = $derived(doc ? shiftTimelineDate(doc.date, -1) : null)
+  const nextDate = $derived(doc ? shiftTimelineDate(doc.date, 1) : null)
+  const dateNavigationDisabled = $derived(navigating || settings || saving)
   const dateLabel = $derived.by(() => {
     if (!doc?.date) return doc?.title || (zh ? '时间线' : 'Timeline')
     const date = new Date(`${doc.date}T12:00:00`)
@@ -42,12 +48,12 @@
 
   // Receive the document before deferred mount effects, including a fast
   // parent onload snapshot. Settings do not gate the display handshake.
-  const unsubscribe = onDocument((value) => { doc = value; selected = null })
+  const unsubscribe = onDocument((value) => { doc = value; selected = null; navigationError = '' })
   onDestroy(unsubscribe)
   onMount(() => { void fetchRules() })
 
   function showSettings(reset = false, event?: MouseEvent) {
-    if (loadingRules || (ruleError && !(reset && invalidRules)) || saving || settings) return
+    if (loadingRules || (ruleError && !(reset && invalidRules)) || saving || navigating || settings) return
     settingsOpener = event?.currentTarget as HTMLButtonElement | null
     if (reset) rules = structuredClone(DEFAULT_RULES)
     selected = null
@@ -87,20 +93,39 @@
     await tick()
     trigger?.focus({ preventScroll: true })
   }
+
+  async function navigateDate(date: string | null) {
+    if (!date || date === doc?.date || dateNavigationDisabled) return
+    navigating = true
+    navigationError = ''
+    try { await openTimelineDate(date) }
+    catch (cause) { navigationError = cause instanceof Error ? cause.message : String(cause) }
+    finally { navigating = false }
+  }
 </script>
 
 <div class="app ui-surface">
   <header class="toolbar">
     <div class="heading">
       <div class="eyebrow">{zh ? '日程时间线' : 'DAILY TIMELINE'}{#if doc?.date}<span>{doc.date.slice(0, 4)}</span>{/if}</div>
-      <h1>{dateLabel}</h1>
+      <div class="date-navigation" aria-label={zh ? '时间线日期' : 'Timeline date'}>
+        {#if previousDate || nextDate}<button class="day-button" aria-label={zh ? '上一天' : 'Previous day'} disabled={dateNavigationDisabled || !previousDate} onclick={() => navigateDate(previousDate)}>‹</button>{/if}
+        <div class="date-title">
+          <h1>{dateLabel}</h1>
+          {#if previousDate || nextDate}
+            <input class="date-picker" type="date" aria-label={zh ? '选择日期' : 'Choose date'} title={zh ? '选择日期' : 'Choose date'} value={doc?.date} min="0001-01-01" max="9999-12-31" disabled={dateNavigationDisabled} onchange={(event) => { const date = event.currentTarget.value; event.currentTarget.value = doc?.date ?? ''; void navigateDate(date) }} />
+          {/if}
+        </div>
+        {#if previousDate || nextDate}<button class="day-button" aria-label={zh ? '下一天' : 'Next day'} disabled={dateNavigationDisabled || !nextDate} onclick={() => navigateDate(nextDate)}>›</button>{/if}
+      </div>
       {#if doc}<div class="subheading">{doc.items.length} {zh ? '段活动' : 'activities'}{#if layout.ticks.length}<span>·</span>{formatTime(Math.min(...doc.items.map((item) => item.start)))} — {formatTime(Math.max(...doc.items.map((item) => item.end)))}{/if}</div>{/if}
     </div>
     <div class="toolbar-actions">
-      <button class="toolbar-button" disabled={saving} onclick={() => { if (!saving) editMarkdown() }}><span class="code-icon" aria-hidden="true">‹/›</span>{zh ? '编辑 Markdown' : 'Edit Markdown'}</button>
-      <button class="toolbar-button" class:active={settings} bind:this={settingsTrigger} aria-expanded={settings} disabled={loadingRules || !!ruleError || saving || settings} onclick={(event) => showSettings(false, event)}><span aria-hidden="true">☷</span>{zh ? '分类设置' : 'Categories'}</button>
+      <button class="toolbar-button" class:active={settings} bind:this={settingsTrigger} aria-expanded={settings} disabled={loadingRules || !!ruleError || saving || navigating || settings} onclick={(event) => showSettings(false, event)}><span aria-hidden="true">☷</span>{zh ? '分类设置' : 'Categories'}</button>
     </div>
   </header>
+
+  {#if navigationError}<div class="navigation-error" role="alert">{navigationError}</div>{/if}
 
   {#if ruleError}<div class="load-error" role="alert"><span>{ruleError}{#if invalidRules} {zh ? '重新设置并保存后，将替换损坏的分类规则。' : 'Resetting and saving will replace the damaged rules.'}{/if}</span><button disabled={loadingRules || saving || settings} onclick={() => { if (!saving && !settings) void fetchRules() }}>{zh ? '重试' : 'Retry'}</button>{#if invalidRules}<button disabled={loadingRules || saving || settings} onclick={(event) => showSettings(true, event)}>{zh ? '重新设置分类' : 'Reset categories'}</button>{/if}</div>{/if}
 
@@ -152,17 +177,26 @@
   :global([data-category='other']) { --category-bg: #fff; --category-border: #d8dbe0; }
   .app { height: 100%; display: flex; flex-direction: column; overflow: hidden; }
   .toolbar { display: flex; justify-content: space-between; gap: 20px; align-items: center; padding: 22px 26px 18px; flex-shrink: 0; }
-  .heading { min-width: 0; }
+  .heading { min-width: 0; max-width: 100%; }
   .eyebrow { font-size: 10px; font-weight: 650; letter-spacing: 1.5px; color: var(--ui-secondary); display: flex; align-items: center; gap: 10px; }
   .eyebrow span { letter-spacing: .4px; font-weight: 400; padding-left: 10px; border-left: 1px solid var(--ui-separator); }
   h1 { margin: 5px 0 6px; font-size: 24px; font-weight: 650; line-height: 1.3; letter-spacing: -.7px; overflow-wrap: anywhere; }
+  .date-navigation { display: flex; align-items: center; gap: 5px; min-width: 0; }
+  .date-title { position: relative; min-width: 0; border-radius: 5px; }
+  .date-title h1 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .date-title:focus-within { outline: 3px solid var(--ui-focus); outline-offset: 2px; }
+  .date-picker { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; opacity: 0; cursor: pointer; }
+  .date-picker::-webkit-calendar-picker-indicator { position: absolute; inset: 0; width: 100%; height: 100%; padding: 0; margin: 0; cursor: pointer; }
+  .day-button { display: grid; place-items: center; flex-shrink: 0; width: 24px; height: 26px; padding: 0; border: 0; border-radius: 5px; background: transparent; color: var(--ui-secondary); font: 22px/1 var(--ui-font); cursor: pointer; }
+  .day-button:hover:enabled { background: var(--ui-hover); color: CanvasText; }
+  .day-button:disabled { opacity: .35; }
+  .navigation-error { padding: 0 26px 12px; color: var(--ui-danger); font-size: 11px; overflow-wrap: anywhere; }
   .subheading { display: flex; gap: 8px; font-size: 11px; color: var(--ui-secondary); font-variant-numeric: tabular-nums; flex-wrap: wrap; }
   .toolbar-actions { display: flex; gap: 6px; flex-shrink: 0; }
   .toolbar-button { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 7px 10px; color: var(--ui-secondary); border: 1px solid var(--ui-separator); border-radius: 7px; background: var(--ui-surface); cursor: pointer; font-size: 11px; white-space: nowrap; }
   .toolbar-button:hover:enabled { background: var(--ui-hover); color: CanvasText; }
   .toolbar-button.active { background: var(--ui-selection); color: var(--ui-accent-text); }
   .toolbar-button:disabled:not(.active) { opacity: .5; }
-  .code-icon { font-family: ui-monospace, monospace; }
   .legend { display: flex; align-items: center; gap: 17px; flex-wrap: wrap; padding: 11px 26px; border-top: 1px solid var(--ui-separator); border-bottom: 1px solid var(--ui-separator); flex-shrink: 0; background: var(--ui-bg); }
   .legend-item { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--ui-secondary); }
   .legend-item i { width: 10px; height: 10px; border-radius: 3px; border: 1px solid var(--category-border); background: var(--category-bg); }

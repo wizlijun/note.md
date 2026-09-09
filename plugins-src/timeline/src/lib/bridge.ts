@@ -1,5 +1,6 @@
 import { DEFAULT_RULES, normalizeRules, type ClassificationRule } from './classification'
 import { parseTimeline, type TimelineDocument } from './parser'
+import { timelineDateTarget } from './date-navigation'
 
 interface HostBridge {
   locale: string
@@ -34,7 +35,7 @@ export async function saveRules(value: ClassificationRule[]): Promise<void> {
   await host().request('host.settings.set', { key: 'classification', value: rules })
 }
 
-let opened: { origin: string; requestId: number; uri: string } | null = null
+let opened: { uri: string } | null = null
 
 export function isHostOrigin(origin: string): boolean {
   return origin === 'tauri://localhost' || /^https?:\/\/tauri\.localhost$/.test(origin)
@@ -47,7 +48,7 @@ export function onDocument(callback: (document: TimelineDocument) => void): () =
     if (event.source !== window.parent || !isHostOrigin(event.origin) || !data || data.type !== 'file_view.open'
       || data.viewId !== 'timeline' || !Number.isSafeInteger(data.requestId)
       || typeof data.content !== 'string' || typeof data.uri !== 'string') return
-    opened = { origin: event.origin, requestId: data.requestId, uri: data.uri }
+    opened = { uri: data.uri }
     let ready = false
     try {
       const document = parseTimeline(data.content, data.uri)
@@ -57,11 +58,6 @@ export function onDocument(callback: (document: TimelineDocument) => void): () =
   }
   window.addEventListener('message', receive)
   return () => { window.removeEventListener('message', receive); opened = null }
-}
-
-export function editMarkdown(): void {
-  if (!opened) return
-  window.parent.postMessage({ type: 'file_view.fallback', requestId: opened.requestId, reason: 'edit' }, opened.origin)
 }
 
 /** Resolve a source relative to the timeline; the host enforces the Vault fence again. */
@@ -85,4 +81,18 @@ export async function openLink(target: string): Promise<void> {
   if (!vault?.root) throw new Error('请先打开知识库。')
   const path = sourcePath(uri, target, vault.root)
   await host().request('host.editor.open', { path })
+}
+
+export async function openTimelineDate(date: string): Promise<void> {
+  if (!opened) return
+  const uri = opened.uri
+  const target = timelineDateTarget(uri, date)
+  const zh = locale().startsWith('zh')
+  if (!target) throw new Error(zh ? '请使用 YYYY-MM-DD.timeline.md 格式的时间线文件和有效日期。' : 'Use a valid date and a YYYY-MM-DD.timeline.md file.')
+  const vault = await host().request('host.vault.info')
+  if (!vault?.root) throw new Error(zh ? '请先打开知识库。' : 'Open a Vault first.')
+  const path = sourcePath(uri, target, vault.root)
+  const result = await host().request('host.vault.exists', { path })
+  if (result?.exists !== true) throw new Error(zh ? `${date} 暂无时间线。` : `No timeline for ${date}.`)
+  await host().request('host.editor.open', { path, fileView: 'timeline' })
 }

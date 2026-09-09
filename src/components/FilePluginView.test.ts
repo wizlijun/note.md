@@ -72,7 +72,7 @@ describe('FilePluginView', () => {
     expect(frame.classList.contains('pending')).toBe(false)
   })
 
-  it('falls back on parse failure, keeps typing in Markdown, and offers an explicit retry', async () => {
+  it('falls back on parse failure and leaves retry to the shared host switcher', async () => {
     const { store, reply } = await setup()
     reply('file_view.fallback', 1)
     await tick()
@@ -81,10 +81,8 @@ describe('FilePluginView', () => {
     store.update((tab) => ({ ...tab, currentContent: initialContent + '\ncorrected item' }))
     await tick()
     expect(document.querySelector('.fallback-editor')).toBeTruthy()
-    ;(document.querySelector('.file-plugin-fallback button') as HTMLButtonElement).click()
-    await tick()
-    expect(document.querySelector('iframe')).toBeTruthy()
-    expect(document.querySelector('.fallback-editor')).toBeNull()
+    expect(document.querySelector('.file-plugin-fallback button')).toBeNull()
+    expect(document.querySelector('iframe')).toBeNull()
   })
 
   it('keeps an explicit edit request in Markdown and retries after external reload', async () => {

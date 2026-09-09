@@ -12,6 +12,7 @@ import { maybeAutoRefresh } from './mdblock/auto-refresh'
 import { quickNoteRenameTarget } from './quick-note-name'
 import { isConfiguredMemoryProjectionPath } from './memory-projection'
 import type { CanvasDiskRevision, CanvasSaveResult } from './canvas/io'
+import { resetFileViewSelection } from './plugins/file-view-selection.svelte'
 
 export type Mode = 'source' | 'rich'
 
@@ -795,6 +796,7 @@ export async function closeTab(
     }
   }
   tabs.splice(idx, 1)
+  resetFileViewSelection(id)
   await stopWatchingTab(id)
   if (tab.kind === 'canvas') {
     const { releaseCanvasUiSession } = await import('./canvas/session')

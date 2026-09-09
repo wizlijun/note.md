@@ -9,6 +9,7 @@ export const de: Record<keyof Messages, string> = {
   'fileView.loading': 'Dateiansicht wird geladen…',
   'fileView.useDefault': 'Standardeditor verwenden',
   'fileView.openMatchingFile': 'Die aktuelle Datei kann nicht mit „{name}“ angezeigt werden. Öffnen Sie zuerst eine Datei, die den Ansichtsregeln entspricht.',
+  'fileView.openView': 'Mit „{name}“ anzeigen',
 
   // Generic / shared
   'common.cancel': 'Abbrechen',

@@ -196,6 +196,11 @@ pub trait HostServices: Send + Sync {
     fn open_in_editor(&self, _abs_path: &Path) -> Result<(), String> {
         Err("io: editor.open is only available from a plugin UI window".into())
     }
+    /// Open a file and request one of the calling plugin's declared file views.
+    /// Implementations without a main-window view channel retain editor.open behavior.
+    fn open_in_file_view(&self, abs_path: &Path, _plugin_id: &str, _view_id: &str) -> Result<(), String> {
+        self.open_in_editor(abs_path)
+    }
     /// AI agent 中转：`command` 为 `"run-task"`/`"run-status"`,`context`/结果原样
     /// 透传给 `notemd.claude-agent` 插件。默认不可用；生产实现只在
     /// `TauriServices`(Task 4),经其对内部插件的直调完成中转。
@@ -543,7 +548,7 @@ pub async fn dispatch_with(
         "host.vault.mkdir" => vault_mkdir(services, &req.params),
         "host.vault.remove" => vault_remove(services, &req.params),
         "host.vault.rename" => vault_rename(services, &req.params),
-        "host.editor.open" => editor_open(services, &req.params),
+        "host.editor.open" => editor_open(services, plugin_id, &req.params),
         "host.agent.run"    => services.agent_execute("run-task", req.params.clone()),
         "host.agent.status" => services.agent_execute("run-status", req.params.clone()),
         "host.agent.providers" => services.agent_providers(),
@@ -1175,9 +1180,24 @@ fn plugin_settings_set<R: tauri::Runtime>(
     Ok(serde_json::json!({ "ok": true }))
 }
 
-pub(crate) fn editor_open(services: &dyn HostServices, params: &serde_json::Value) -> Result<serde_json::Value, String> {
+pub(crate) fn editor_open(
+    services: &dyn HostServices,
+    plugin_id: &str,
+    params: &serde_json::Value,
+) -> Result<serde_json::Value, String> {
     let p = resolve_in_vault(services, params)?;
-    services.open_in_editor(&p)?;
+    match params.get("fileView") {
+        None => services.open_in_editor(&p)?,
+        Some(serde_json::Value::String(view_id))
+            if !view_id.is_empty()
+                && view_id.len() <= 128
+                && view_id.as_bytes().first().is_some_and(|c| c.is_ascii_lowercase() || c.is_ascii_digit())
+                && view_id.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-') =>
+        {
+            services.open_in_file_view(&p, plugin_id, view_id)?
+        }
+        Some(_) => return Err("io: fileView must be a valid file-view id".into()),
+    }
     Ok(serde_json::json!({ "ok": true }))
 }
 
@@ -1295,6 +1315,24 @@ impl<R: tauri::Runtime> HostServices for TauriServices<R> {
         crate::emit_open_file_delayed(&self.app, s);
         crate::show_main_window(&self.app);
         Ok(())
+    }
+
+    fn open_in_file_view(&self, abs_path: &Path, plugin_id: &str, view_id: &str) -> Result<(), String> {
+        use tauri::{Emitter, Manager};
+        let path = abs_path
+            .to_str()
+            .ok_or_else(|| "io: path is not valid UTF-8".to_string())?;
+        let payload = serde_json::json!({
+            "path": path,
+            "pluginId": plugin_id,
+            "viewId": view_id,
+        });
+        crate::show_main_window(&self.app);
+        let win = self.app
+            .get_webview_window("main")
+            .ok_or_else(|| "io: main editor window is unavailable".to_string())?;
+        win.emit("editor://open-file-view", payload)
+            .map_err(|error| format!("io: open file view failed: {error}"))
     }
 
     /// host.agent.* 中转:同步 trait 方法,但 lifecycle 是 async——spawn 到
@@ -1494,6 +1532,8 @@ mod tests {
         clipboard: Arc<Mutex<Vec<String>>>,
         /// recorded editor.open paths
         opened: Arc<Mutex<Vec<PathBuf>>>,
+        /// recorded editor.open requests that select a declared file view
+        opened_views: Arc<Mutex<Vec<(PathBuf, String, String)>>>,
         /// recorded `agent_execute`/`notify_user` calls: (kind, arg) where kind
         /// is the relayed command ("run-task"/"run-status") or "notify".
         agent_calls: Arc<Mutex<Vec<(String, serde_json::Value)>>>,
@@ -1522,6 +1562,14 @@ mod tests {
         }
         fn open_in_editor(&self, abs_path: &Path) -> Result<(), String> {
             self.opened.lock().unwrap().push(abs_path.to_path_buf());
+            Ok(())
+        }
+        fn open_in_file_view(&self, abs_path: &Path, plugin_id: &str, view_id: &str) -> Result<(), String> {
+            self.opened_views.lock().unwrap().push((
+                abs_path.to_path_buf(),
+                plugin_id.to_string(),
+                view_id.to_string(),
+            ));
             Ok(())
         }
         fn agent_execute(&self, command: &str, context: serde_json::Value) -> Result<serde_json::Value, String> {
@@ -2486,6 +2534,47 @@ mod tests {
         let calls = opened.lock().unwrap();
         assert_eq!(calls.len(), 1);
         assert!(calls[0].ends_with("note.md"), "expected path ending in note.md, got {:?}", calls[0]);
+    }
+
+    #[tokio::test]
+    async fn editor_open_can_select_calling_plugins_declared_file_view() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("diary/2026-09-10.timeline.md");
+        std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+        std::fs::write(&file, "---\ntype: timeline\n---").unwrap();
+        let s = StubServices {
+            vault: Some(dir.path().to_path_buf()),
+            ..Default::default()
+        };
+        let opened_views = s.opened_views.clone();
+        let r = run(
+            &s,
+            &["editor.open"],
+            "host.editor.open",
+            serde_json::json!({"path": "diary/2026-09-10.timeline.md", "fileView": "timeline"}),
+        ).await;
+        assert!(r.error.is_none(), "{:?}", r.error);
+        let calls = opened_views.lock().unwrap();
+        assert_eq!(calls.len(), 1);
+        assert!(calls[0].0.ends_with("diary/2026-09-10.timeline.md"));
+        assert_eq!(calls[0].1, "test.plugin");
+        assert_eq!(calls[0].2, "timeline");
+    }
+
+    #[tokio::test]
+    async fn editor_open_rejects_invalid_file_view_ids() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("note.md");
+        std::fs::write(&file, "# hello").unwrap();
+        let s = StubServices { vault: Some(dir.path().to_path_buf()), ..Default::default() };
+        let r = run(
+            &s,
+            &["editor.open"],
+            "host.editor.open",
+            serde_json::json!({"path": "note.md", "fileView": "../timeline"}),
+        ).await;
+        assert!(r.error.unwrap().message.contains("fileView"));
+        assert!(s.opened_views.lock().unwrap().is_empty());
     }
 
     /// 读侧挂 editor.kit:需要它的正是内嵌 Editor Kit 的插件窗口。

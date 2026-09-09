@@ -28,7 +28,7 @@ runFixtureCommand('cargo', ['test', '--lib', 'plugin_runtime::protocol::tests::e
 const productionCsp = await readFile(join(productionRoot, 'plugin-csp.txt'), 'utf8')
 const { chromium } = process.env.PLAYWRIGHT_MODULE
   ? await import(pathToFileURL(resolve(process.env.PLAYWRIGHT_MODULE)).href) : await import('playwright')
-const state = { classification: undefined, failSave: false, failLoad: false, noPlugin: false, opened: [], saves: 0 }
+const state = { classification: undefined, failSave: false, failLoad: false, noPlugin: false, timelineExists: true, opened: [], openRequests: [], saves: 0 }
 const results = []
 const servers = []
 const errors = []
@@ -68,7 +68,8 @@ function fixtureServer(kind) {
               state.saves++
               value = { ok: true }
             } else if (method === 'host.vault.info') value = { root: '/fixture-vault' }
-            else if (method === 'host.editor.open') { state.opened.push(params.path); value = { ok: true } }
+            else if (method === 'host.vault.exists') value = { exists: state.timelineExists }
+            else if (method === 'host.editor.open') { state.opened.push(params.path); state.openRequests.push(structuredClone(params)); value = { ok: true } }
             else throw new Error(`Unimplemented fixture RPC: ${method}`)
             res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ jsonrpc: '2.0', id, result: value }))
           } catch (error) {
@@ -170,6 +171,18 @@ try {
     await plugin().getByRole('button', { name: '关闭详情', exact: true }).click()
   })
 
+  await check('date navigation keeps the Timeline view and leaves missing days unopened', async () => {
+    const before = state.openRequests.length
+    await plugin().getByRole('button', { name: '下一天', exact: true }).click()
+    await assertEventually(() => state.openRequests.length === before + 1)
+    assert.deepEqual(state.openRequests.at(-1), { path: 'diary/2026-09-09.timeline.md', fileView: 'timeline' })
+    state.timelineExists = false
+    await plugin().getByRole('button', { name: '上一天', exact: true }).click()
+    await plugin().getByRole('alert').waitFor()
+    assert.equal(state.openRequests.length, before + 1)
+    state.timelineExists = true
+  })
+
   await check('classification write failure keeps the draft; retry persists and recolors', async () => {
     await plugin().getByRole('button', { name: '分类设置', exact: false }).click()
     const rule = plugin().locator('[data-rule-id="development"]')
@@ -199,13 +212,13 @@ try {
   })
 
   await check('manual edit fallback preserves bytes and returns to the persisted classification', async () => {
-    await plugin().getByRole('button', { name: '编辑 Markdown', exact: false }).click()
+    await page.getByRole('tab', { name: '预览（富文本）', exact: true }).click()
     await page.getByRole('textbox', { name: 'Markdown 编辑器', exact: true }).waitFor()
     const source = await page.evaluate(() => window.__timelineBrowser.initial)
     assert.equal(await page.getByRole('textbox', { name: 'Markdown 编辑器', exact: true }).inputValue(), source)
     await page.getByRole('textbox', { name: 'Markdown 编辑器', exact: true }).fill(source.replace('木工与设计基础', '木工、绘画与设计基础'))
     assert.equal(await iframe().count(), 0, 'typing never kicks the user out of Markdown')
-    await page.getByRole('button', { name: '返回文件视图', exact: true }).click()
+    await page.getByRole('tab', { name: '使用“Timeline”查看', exact: true }).click()
     await waitReady()
     assert.ok(await plugin().getByRole('button', { name: /绘画与设计基础/ }).count())
     assert.equal(await plugin().getByRole('button', { name: /09:00.*开发/ }).getAttribute('data-category'), 'interest')
@@ -246,6 +259,7 @@ try {
     await page.evaluate(() => window.__timelineBrowser.setEnabled(false))
     await page.getByRole('textbox', { name: 'Markdown 编辑器', exact: true }).waitFor()
     await page.evaluate(() => { window.__timelineBrowser.setContent('# 普通 Markdown'); window.__timelineBrowser.setEnabled(true) })
+    await iframe().waitFor({ state: 'detached' })
     assert.equal(await iframe().count(), 0)
     await page.evaluate(() => window.__timelineBrowser.reload(window.__timelineBrowser.initial)); await waitReady()
   })
@@ -291,7 +305,7 @@ try {
     await page.getByRole('textbox', { name: 'Markdown 编辑器', exact: true }).waitFor({ timeout: 10_000 })
     assert.ok((await page.locator('.file-plugin-fallback').innerText()).includes('未能载入'))
     state.noPlugin = false
-    await page.getByRole('button', { name: '返回文件视图', exact: true }).click(); await waitReady()
+    await page.getByRole('tab', { name: '使用“Timeline”查看', exact: true }).click(); await waitReady()
   })
 
   assert.deepEqual(errors, [], 'no uncaught browser errors')

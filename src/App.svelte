@@ -42,6 +42,7 @@
   import { getPluginScopedAll, pluginScopedVersion } from './lib/settings.svelte'
   import { pushToast } from './lib/toast.svelte'
   import { dispatchFileViewCommand } from './lib/plugins/file-view-commands'
+  import { matchingDeclaredFileView, selectPluginFileView } from './lib/plugins/file-view-presentation.svelte'
   import { pluginMenuLabel, pluginName } from './lib/plugins/plugin-i18n'
   import type { PluginManifest, EnabledWhenContext, ToastLevel } from './lib/plugins/types'
   import { uiState, openSettings } from './lib/ui-state.svelte'
@@ -49,7 +50,7 @@
   import DrawerNav from './components/DrawerNav.svelte'
   import SidePanel from './components/side-panel/SidePanel.svelte'
   import {
-    sidePanels, isSideVisible, loadSidePanels, registerBuiltinSideViews, toggleSideView, getSideView,
+    loadSidePanels, registerBuiltinSideViews, toggleSideView, getSideView,
   } from './lib/side-panel/registry.svelte'
   import { loadFolderViewState, defaultRootToVault } from './lib/folder-view.svelte'
   import { loadOutlineGate } from './lib/outline/gate.svelte'
@@ -184,6 +185,33 @@
         win.show()
         win.setFocus()
       } catch (err) { console.warn('[App] editor://open-path:', err); showError(String(err)) }
+    })
+
+    // File-view plugins can navigate to another matching file and retain their
+    // declared view. The bridge supplies its authenticated plugin id; the host
+    // still validates the target document against that view's selectors.
+    const unlistenOpenFileView = listen<{
+      path: string
+      pluginId: string
+      viewId: string
+    }>('editor://open-file-view', async (e) => {
+      try {
+        await openFile(e.payload.path)
+        const tab = activeTab()
+        const view = tab
+          ? matchingDeclaredFileView(tab, e.payload.pluginId, e.payload.viewId, pluginRuntime.manifests)
+          : null
+        if (tab && view) selectPluginFileView(tab, view)
+        else {
+          const manifest = pluginRuntime.manifests.find((item) => item.id === e.payload.pluginId)
+          pushToast({
+            level: 'info',
+            message: t('fileView.openMatchingFile', { name: manifest ? pluginName(manifest) : e.payload.viewId }),
+          })
+        }
+        win.show()
+        win.setFocus()
+      } catch (err) { console.warn('[App] editor://open-file-view:', err); showError(String(err)) }
     })
 
     // Standalone smart-search window → main editor. Rust keeps every request
@@ -518,7 +546,10 @@
             openFile,
             flush: (tabId) => window.dispatchEvent(new CustomEvent('notemd:flush-doc', { detail: { tabId } })),
             setRichMode: (tabId) => setMode(tabId, 'rich'),
-            openView: (detail) => window.dispatchEvent(new CustomEvent('notemd:open-file-view', { detail })),
+            openView: (detail) => {
+              const tab = tabs.find((item) => item.id === detail.tabId)
+              if (tab) selectPluginFileView(tab, detail)
+            },
             unsupported: () => pushToast({
               level: 'info',
               message: t('fileView.openMatchingFile', {
@@ -823,6 +854,7 @@
       unlistenOpenFile.then((fn) => fn())
       unlistenQuickNote.then((fn) => fn())
       unlistenOpenPath.then((fn) => fn())
+      unlistenOpenFileView.then((fn) => fn())
       unlistenSearchReveal.then((fn) => fn())
       unlistenOpenRemoteBuffer.then((fn) => fn())
       unlistenPluginToast.then((fn) => fn())
@@ -881,10 +913,6 @@
       .then((ok) => { if (!cancelled) syncSourceExists = ok })
     return () => { cancelled = true }
   })
-
-  // Right-edge inset for the floating mode toggle: push it left by the right
-  // panel width whenever that side is showing, so it stays over the editor.
-  let rightPanelOffset = $derived(isSideVisible('right', current) ? sidePanels.right.width : 0)
 
   // Window title: filename when single tab, plain "note.md" otherwise. A
   // vault-mirrored source gets the `↔` marker — with one tab there's no tab bar,
@@ -971,10 +999,12 @@
       <SidePanel side="left" tab={current ?? null} />
     {/if}
     {#if current}
-      {#if tabs.length === 1 && platformName !== 'ios'}
-        <div class="float-toggle" style="right: {rightPanelOffset + 28}px"><ModeToggle tab={current} /></div>
-      {/if}
-      <EditorPane tab={current} />
+      <div class="document-column">
+        {#if tabs.length === 1 && platformName !== 'ios'}
+          <div class="single-tab-viewbar"><ModeToggle tab={current} /></div>
+        {/if}
+        <EditorPane tab={current} />
+      </div>
     {:else}
       <EmptyState />
     {/if}
@@ -1010,10 +1040,20 @@
     flex: 1;
     min-width: 0;
   }
-  .float-toggle {
-    position: absolute;
-    top: 0;
-    right: 28px;
-    z-index: 10;
+  .document-column {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+  }
+  .single-tab-viewbar {
+    display: flex;
+    flex: 0 0 34px;
+    align-items: center;
+    justify-content: flex-end;
+    padding: 0 28px;
+    border-bottom: 1px solid color-mix(in srgb, CanvasText 10%, transparent);
+    background: Canvas;
   }
 </style>

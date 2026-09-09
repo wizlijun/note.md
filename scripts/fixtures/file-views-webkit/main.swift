@@ -126,14 +126,6 @@ final class Harness: NSObject, NSApplicationDelegate, WKURLSchemeHandler, WKScri
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
         guard let body = message.body as? [String: Any], !finishing else { return }
         events.append(body)
-        if body["kind"] as? String == "plugin-complete" && cases[index] == "supported" {
-            webView.takeSnapshot(with: nil) { image, error in
-                if let image = image, let tiff = image.tiffRepresentation, let rep = NSBitmapImageRep(data: tiff), let png = rep.representation(using: .png, properties: [:]) {
-                    try? png.write(to: URL(fileURLWithPath: "\(self.output)/supported-timeline.png"))
-                }
-                self.webView.evaluateJavaScript("window.qaSnapshotDone = true", in: message.frameInfo, in: .page) { _ in }
-            }
-        }
         if body["kind"] as? String == "failed" { finish(ok: false, reason: body["error"] as? String ?? "JavaScript failure") }
         if body["kind"] as? String == "complete" {
             let pluginComplete = events.contains { $0["kind"] as? String == "plugin-complete" }

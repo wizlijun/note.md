@@ -6,19 +6,17 @@
   import { handleFileViewMessage, type FileViewOpen } from '../lib/plugins/v2/file-view-msg'
 
   type FallbackReason = 'edit' | 'unsupported' | 'unavailable'
-  let { tab, view, fallback, initialFallback, onFallback, onRetry }: {
+  let { tab, view, fallback, onFallback }: {
     tab: Tab
     view: FileViewRef
     fallback: Snippet
-    initialFallback?: FallbackReason
     onFallback?: (reason: FallbackReason) => void
-    onRetry?: () => void
   } = $props()
   let pluginOrigin = $derived(`plugin://${view.pluginId}`)
   let src = $derived(`${pluginOrigin}/${view.entry}`)
   let iframeEl: HTMLIFrameElement | undefined = $state()
-  let status = $state<'loading' | 'ready' | 'fallback'>(untrack(() => initialFallback ? 'fallback' : 'loading'))
-  let fallbackReason = $state<FallbackReason>(untrack(() => initialFallback ?? 'unsupported'))
+  let status = $state<'loading' | 'ready' | 'fallback'>('loading')
+  let fallbackReason = $state<FallbackReason>('unsupported')
   let loaded = false
   let requestId = 0
   let snapshot: FileViewOpen | undefined
@@ -62,7 +60,6 @@
   }
 
   function retry() {
-    onRetry?.()
     begin(tab.currentContent, tab.filePath, view.viewId, src)
   }
 
@@ -109,7 +106,6 @@
 {#if status === 'fallback'}
   <div class="file-plugin-fallback" role="status">
     <span>{t(fallbackReason === 'edit' ? 'fileView.editing' : fallbackReason === 'unsupported' ? 'fileView.unsupported' : 'fileView.unavailable')}</span>
-    <button type="button" onclick={retry}>{t('fileView.retry')}</button>
   </div>
   {@render fallback()}
 {:else}
@@ -117,7 +113,6 @@
     {#if status === 'loading'}
       <div class="file-plugin-loading" role="status">
         <span>{t('fileView.loading')}</span>
-        <button type="button" onclick={() => useDefaultEditor('edit')}>{t('fileView.useDefault')}</button>
       </div>
     {/if}
     {#key src}
@@ -138,8 +133,6 @@
   .file-plugin-view { position: relative; display: flex; flex: 1; min-height: 0; min-width: 0; }
   iframe { flex: 1; width: 100%; height: 100%; min-height: 0; border: 0; background: Canvas; }
   iframe.pending { visibility: hidden; }
-  .file-plugin-loading { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: GrayText; font-size: 13px; }
-  .file-plugin-fallback { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 7px 12px; border-bottom: 1px solid color-mix(in srgb, CanvasText 12%, transparent); color: GrayText; font-size: 12px; }
-  button { flex-shrink: 0; border: 0; border-radius: 5px; padding: 5px 8px; font: inherit; color: AccentColor; background: color-mix(in srgb, AccentColor 10%, Canvas); cursor: pointer; }
-  button:focus-visible { outline: 2px solid AccentColor; outline-offset: 2px; }
+  .file-plugin-loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: GrayText; font-size: 13px; }
+  .file-plugin-fallback { display: flex; align-items: center; padding: 7px 12px; border-bottom: 1px solid color-mix(in srgb, CanvasText 12%, transparent); color: GrayText; font-size: 12px; }
 </style>

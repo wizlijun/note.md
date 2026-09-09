@@ -11,6 +11,7 @@ export const zh: Record<keyof Messages, string> = {
   'fileView.loading': '正在载入文件视图…',
   'fileView.useDefault': '使用默认编辑器',
   'fileView.openMatchingFile': '当前文件不能使用“{name}”查看，请先打开符合该视图规则的文件。',
+  'fileView.openView': '使用“{name}”查看',
 
   // Generic / shared
   'common.cancel': '取消',

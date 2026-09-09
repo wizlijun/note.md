@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { editMarkdown, isHostOrigin, loadRules, onDocument, openLink, saveRules, sourcePath } from './bridge'
+import { isHostOrigin, loadRules, onDocument, openLink, openTimelineDate, saveRules, sourcePath } from './bridge'
 import { DEFAULT_RULES } from './classification'
 
 const request = vi.fn()
@@ -15,14 +15,12 @@ beforeEach(() => {
 afterEach(() => { stop?.(); stop = undefined; vi.restoreAllMocks() })
 
 describe('document handshake', () => {
-  it('renders valid input and acknowledges the exact request, edits only request Markdown', () => {
+  it('renders valid input and acknowledges the exact request', () => {
     const render = vi.fn(), post = vi.spyOn(window.parent, 'postMessage').mockImplementation(() => {})
     stop = onDocument(render)
     send({})
     expect(render).toHaveBeenCalledOnce()
     expect(post).toHaveBeenLastCalledWith({ type: 'file_view.ready', requestId: 3 }, 'tauri://localhost')
-    editMarkdown()
-    expect(post).toHaveBeenLastCalledWith({ type: 'file_view.fallback', requestId: 3, reason: 'edit' }, 'tauri://localhost')
     expect(request).not.toHaveBeenCalled()
   })
   it('falls back on malformed content or rendering failure', () => {
@@ -50,6 +48,32 @@ describe('document handshake', () => {
 })
 
 describe('settings and sources', () => {
+  it('opens an existing timeline in the corresponding archive year without writing files', async () => {
+    vi.spyOn(window.parent, 'postMessage').mockImplementation(() => {})
+    stop = onDocument(() => {})
+    send({ uri: '/vault/diary/2026/2026-12-31.timeline.md' })
+    request.mockImplementation(async (method) => method === 'host.vault.info' ? { root: '/vault' } : method === 'host.vault.exists' ? { exists: true } : {})
+    await openTimelineDate('2027-01-01')
+    expect(request.mock.calls).toEqual([
+      ['host.vault.info'],
+      ['host.vault.exists', { path: 'diary/2027/2027-01-01.timeline.md' }],
+      ['host.editor.open', { path: 'diary/2027/2027-01-01.timeline.md', fileView: 'timeline' }],
+    ])
+  })
+
+  it('does not open or create a missing date and rejects unsupported filenames', async () => {
+    vi.spyOn(window.parent, 'postMessage').mockImplementation(() => {})
+    stop = onDocument(() => {})
+    send({ uri: '/vault/diary/2026-09-09.timeline.md' })
+    request.mockImplementation(async (method) => method === 'host.vault.info' ? { root: '/vault' } : { exists: false })
+    await expect(openTimelineDate('2026-09-10')).rejects.toThrow('2026-09-10 暂无时间线')
+    expect(request.mock.calls.map(([method]) => method)).toEqual(['host.vault.info', 'host.vault.exists'])
+    request.mockClear()
+    send({ uri: '/vault/diary/undated.md' })
+    await expect(openTimelineDate('2026-09-10')).rejects.toThrow('YYYY-MM-DD.timeline.md')
+    expect(request).not.toHaveBeenCalled()
+  })
+
   it('persists a single validated configuration and propagates read/write failures', async () => {
     request.mockResolvedValue({ settings: {} })
     expect(await loadRules()).toEqual(DEFAULT_RULES)

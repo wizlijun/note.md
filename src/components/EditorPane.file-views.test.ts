@@ -7,10 +7,12 @@ import { pluginRuntime } from '../lib/plugins/runtime.svelte'
 import type { Tab } from '../lib/tabs.svelte'
 import { setContent } from '../lib/tabs.svelte'
 import type { PluginManifest } from '../lib/plugins/types'
+import { resetFileViewPresentation, selectPluginFileView } from '../lib/plugins/file-view-presentation.svelte'
 
 vi.mock('../lib/tabs.svelte', () => ({
   isManagedMemoryTab: (tab: { filePath: string }) => tab.filePath === '/vault/MEMORY.md',
   setContent: vi.fn(),
+  setMode: vi.fn(),
 }))
 vi.mock('../lib/outline/gate.svelte', () => ({ isOutlineNoteTab: (tab: Tab) => tab.filePath.endsWith('.note.md') }))
 vi.mock('../lib/i18n/store.svelte', () => ({ t: (key: string) => key }))
@@ -70,6 +72,7 @@ describe('EditorPane file view routing', () => {
     if (component) await unmount(component)
     component = undefined
     pluginRuntime.manifests = []
+    resetFileViewPresentation('timeline-tab')
     document.body.innerHTML = ''
     vi.restoreAllMocks()
     vi.mocked(setContent).mockReset()
@@ -123,6 +126,12 @@ describe('EditorPane file view routing', () => {
     await tick()
     store.update((tab) => ({ ...tab, mode: 'rich' }))
     await tick()
+    expect(document.querySelector('iframe')).toBeNull()
+    store.update((tab) => {
+      selectPluginFileView(tab, { pluginId: 'notemd.timeline', viewId: 'timeline', entry: 'index.html' })
+      return tab
+    })
+    await tick()
     expect(document.querySelector('iframe')).toBeTruthy()
   })
 
@@ -154,7 +163,10 @@ describe('EditorPane file view routing', () => {
       expect(document.activeElement).toBe(editor)
       expect(vi.mocked(setContent)).toHaveBeenLastCalledWith('timeline-tab', value)
     }
-    document.querySelector<HTMLButtonElement>('.file-plugin-fallback button')!.click()
+    store.update((tab) => {
+      selectPluginFileView(tab, { pluginId: 'notemd.timeline', viewId: 'timeline', entry: 'index.html' })
+      return tab
+    })
     await tick()
     expect(document.querySelector('iframe')?.getAttribute('src')).toBe('plugin://notemd.timeline/index.html')
   })
@@ -183,9 +195,10 @@ describe('EditorPane file view routing', () => {
     ])
     expect(document.querySelector('iframe')?.getAttribute('src')).toBe('plugin://notemd.timeline/automatic.html')
 
-    window.dispatchEvent(new CustomEvent('notemd:open-file-view', { detail: {
-      tabId: 'timeline-tab', pluginId: 'notemd.timeline', viewId: 'timeline', entry: 'index.html',
-    } }))
+    store.update((tab) => {
+      selectPluginFileView(tab, { pluginId: 'notemd.timeline', viewId: 'timeline', entry: 'index.html' })
+      return tab
+    })
     await tick()
     expect(document.querySelector('iframe')?.getAttribute('src')).toBe('plugin://notemd.timeline/index.html')
 
@@ -200,9 +213,10 @@ describe('EditorPane file view routing', () => {
     // App switches source mode back to rich before dispatching the menu event.
     store.update((tab) => ({ ...tab, mode: 'source' })); await tick()
     store.update((tab) => ({ ...tab, mode: 'rich' }))
-    window.dispatchEvent(new CustomEvent('notemd:open-file-view', { detail: {
-      tabId: 'timeline-tab', pluginId: 'notemd.timeline', viewId: 'timeline', entry: 'index.html',
-    } }))
+    store.update((tab) => {
+      selectPluginFileView(tab, { pluginId: 'notemd.timeline', viewId: 'timeline', entry: 'index.html' })
+      return tab
+    })
     await tick()
     expect(document.querySelector('iframe')?.getAttribute('src')).toBe('plugin://notemd.timeline/index.html')
   })
@@ -244,6 +258,11 @@ describe('EditorPane file view routing', () => {
     expect(document.querySelector('iframe')).toBeNull()
     expect(document.querySelector<HTMLTextAreaElement>('.source-editor-probe')?.value).toBe(sample.currentContent)
     store.update((tab) => ({ ...tab, mode: 'rich' })); await tick()
+    expect(document.querySelector('iframe')).toBeNull()
+    store.update((tab) => {
+      selectPluginFileView(tab, { pluginId: 'example.file-preview', viewId: 'generic-preview', entry: 'generic.html' })
+      return tab
+    }); await tick()
     expect(document.querySelector('iframe')).toBeTruthy()
   })
 

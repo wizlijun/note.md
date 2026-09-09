@@ -1,6 +1,6 @@
 # Timeline / 时间轴
 
-将 `type: Timeline` 的 Markdown 显示为可查看的竖向日程。点击活动查看描述、子议题与来源；点击“编辑 Markdown”修改原文。插件不可用或格式不支持时，宿主自动使用 Markdown 编辑器。
+将 `type: Timeline` 的 Markdown 显示为可查看的竖向日程。点击活动查看描述、子议题与来源；通过宿主顶部的视图分段控件切换 Timeline、Rich 与 Source。插件不可用或格式不支持时，宿主自动使用 Markdown 编辑器。
 
 ```markdown
 ---
@@ -32,4 +32,4 @@ pnpm --filter timeline build
 PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs node scripts/check-timeline-browser.mjs
 ```
 
-`scripts/dev-install-plugin.sh timeline` 安装本机开发包；`scripts/release-plugins.sh timeline` 构建并签名 universal 包，不自动上传。除自动匹配外，也可从「插件 → 回顾 → 查看时间轴」查看当前文件；没有打开文件时，宿主会先打开文件选择器。本插件最低宿主版本为 `6.909.2`；旧宿主仍可在市场发现插件，但需要先升级宿主才能安装和加载。
+`scripts/dev-install-plugin.sh timeline` 安装本机开发包；`scripts/release-plugins.sh timeline` 构建并签名 universal 包，不自动上传。除自动匹配外，也可从「插件 → 回顾 → 查看时间轴」查看当前文件；没有打开文件时，宿主会先打开文件选择器。本插件最低宿主版本为 `6.909.3`；旧宿主仍可在市场发现插件，但需要先升级宿主才能安装和加载。

@@ -7,6 +7,11 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+### Added
+
+- **File views now share the Rich/Source switch.** Matching plugins receive one compact host-owned segment beside Rich and Source, including a retry path after loading or parsing falls back to the built-in editor. The host reserves this toolbar space instead of covering plugin content, and plugin navigation can reopen a matching file directly in its declared view.
+- **Timeline 1.0.2 adds compact date navigation.** Move exactly one day backward or forward, or click the date to choose another day. Flat diary folders and year archives are supported across year boundaries; a missing date stays on the current timeline and never creates a file.
+
 ## v6.909.2 — 2026-09-09
 
 ### Fixed

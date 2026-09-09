@@ -7,7 +7,12 @@
   import BaseView from './BaseView.svelte'
   import CustomEditorIframe from './CustomEditorIframe.svelte'
   import FilePluginView from './FilePluginView.svelte'
-  import { fileViewFor, type FileViewRef } from '../lib/plugins/file-views'
+  import {
+    fallbackFileView,
+    fileViewPresentation,
+    isFileViewAvailable,
+    retryFileViewAfterReload,
+  } from '../lib/plugins/file-view-presentation.svelte'
   import { pluginRuntime } from '../lib/plugins/runtime.svelte'
   import SourceView from './SourceView.svelte'
   import HtmlPreview from './HtmlPreview.svelte'
@@ -22,37 +27,19 @@
   import { convertFileSrc } from '@tauri-apps/api/core'
   import { migrateTempResources, getTempDir } from '../lib/paste-resources'
   import { t } from '../lib/i18n/store.svelte'
-  import type { OpenFileViewDetail } from '../lib/plugins/file-view-commands'
 
   let { tab }: { tab: Tab } = $props()
   let memoryReadOnly = $derived(isManagedMemoryTab(tab))
-  let fallbackChoice = $state<{ view: FileViewRef; reason: 'edit' | 'unsupported' | 'unavailable' } | null>(null)
-  let explicitChoice = $state<FileViewRef | null>(null)
-  let viewAttempt = $state(0)
-  function viewAvailable(selected: FileViewRef): boolean {
-    return pluginRuntime.manifests.some((manifest) => manifest.id === selected.pluginId
-      && manifest.file_views?.some((view) => view.id === selected.viewId && view.entry === selected.entry))
-  }
-  // Keep the user's default-editor choice while edits change matching metadata.
-  // A removed/disabled view stays unavailable even when another rule matches.
-  let fileView = $derived.by(() => {
-    if (memoryReadOnly || tab.mode === 'source') return null
-    if (fallbackChoice) return viewAvailable(fallbackChoice.view) ? fallbackChoice.view : null
-    if (explicitChoice) return viewAvailable(explicitChoice) ? explicitChoice : null
-    return fileViewFor({ path: tab.filePath, kind: tab.kind, content: tab.currentContent }, pluginRuntime.manifests)
-  })
-  let previousMode = untrack(() => tab.mode)
-  let previousTabId = untrack(() => tab.id)
+  let presentation = $derived(fileViewPresentation(tab, pluginRuntime.manifests))
+  let fileView = $derived(memoryReadOnly || tab.mode === 'source' ? null : presentation.active)
+
+  // A selected plugin that was disabled or removed falls back to Rich and does
+  // not silently jump to a different matching plugin.
   $effect(() => {
-    const mode = tab.mode, id = tab.id
-    untrack(() => {
-      if (mode !== previousMode || id !== previousTabId) {
-        fallbackChoice = null
-        explicitChoice = null
-      }
-      previousMode = mode
-      previousTabId = id
-    })
+    const selected = presentation.explicit
+    if (selected && !isFileViewAvailable(selected, pluginRuntime.manifests)) {
+      fallbackFileView(tab, selected, 'unavailable')
+    }
   })
   let CanvasView = $state<typeof import('./canvas/CanvasView.svelte').default | null>(null)
   let canvasLoadError = $state('')
@@ -76,7 +63,7 @@
   // When an untitled doc is first saved, move pasted temp resources to
   // {docBasename}_files/ and update markdown refs. Runs in the shared
   // parent so it fires regardless of which editor mode is active.
-  const _mountedWithPath = !!tab.filePath
+  const _mountedWithPath = untrack(() => !!tab.filePath)
   let _didMigrate = false
 
   $effect(() => {
@@ -114,8 +101,7 @@
         | { tabId: string; oldContent: string; newContent: string }
         | undefined
       if (!detail || detail.tabId !== tab.id) return
-      fallbackChoice = null
-      explicitChoice = null
+      retryFileViewAfterReload(tab)
       const ta = document.querySelector<HTMLTextAreaElement>(
         `textarea.src-textarea[data-tab-id="${tab.id}"]`,
       )
@@ -138,22 +124,6 @@
     return () => window.removeEventListener('notemd:auto-reloaded', handler)
   })
 
-  $effect(() => {
-    const handler = (event: Event) => {
-      const detail = (event as CustomEvent<OpenFileViewDetail>).detail
-      if (!detail || detail.tabId !== tab.id) return
-      const selected = { pluginId: detail.pluginId, viewId: detail.viewId, entry: detail.entry }
-      if (!viewAvailable(selected)) return
-      // setMode() runs before this event. Recording the current mode prevents
-      // the mode-change effect from clearing the explicit menu selection.
-      previousMode = tab.mode
-      fallbackChoice = null
-      explicitChoice = selected
-      viewAttempt++
-    }
-    window.addEventListener('notemd:open-file-view', handler)
-    return () => window.removeEventListener('notemd:open-file-view', handler)
-  })
 </script>
 
 {#snippet builtin()}
@@ -190,6 +160,15 @@
     <MirrorSiblingsBanner {tab} />
     <SyncToVaultBanner {tab} />
   {/if}
+  {#if tab.mode === 'rich' && presentation.fallback}
+    <div class="file-view-fallback" role="status">
+      {t(presentation.fallback.reason === 'edit'
+        ? 'fileView.editing'
+        : presentation.fallback.reason === 'unsupported'
+          ? 'fileView.unsupported'
+          : 'fileView.unavailable')}
+    </div>
+  {/if}
   {#if tab.kind === 'canvas'}
     {#key tab.id}
       {#if CanvasView}
@@ -225,14 +204,12 @@
       />
     {/key}
   {:else if fileView}
-    {#key `${tab.id}:${fileView.pluginId}:${fileView.viewId}:${fileView.entry}:${viewAttempt}`}
+    {#key `${tab.id}:${fileView.pluginId}:${fileView.viewId}:${fileView.entry}:${presentation.attempt}`}
       <FilePluginView
         {tab}
         view={fileView}
         fallback={builtin}
-        initialFallback={fallbackChoice?.reason}
-        onFallback={(reason) => { if (fileView) fallbackChoice = { view: fileView, reason } }}
-        onRetry={() => { fallbackChoice = null }}
+        onFallback={(reason) => { if (fileView) fallbackFileView(tab, fileView, reason) }}
       />
     {/key}
   {:else}
@@ -256,6 +233,13 @@
     color: color-mix(in srgb, CanvasText 82%, #8b5a12 18%);
     font-size: 12px;
     line-height: 1.35;
+  }
+  .file-view-fallback {
+    flex: 0 0 auto;
+    padding: 7px 12px;
+    border-bottom: 1px solid color-mix(in srgb, CanvasText 12%, transparent);
+    color: GrayText;
+    font-size: 12px;
   }
   .canvas-load-state {
     flex: 1;

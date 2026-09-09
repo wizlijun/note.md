@@ -2,10 +2,10 @@
   "manifest_version": 2,
   "id": "notemd.timeline",
   "name": "Timeline",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "kind": "native",
   "engines": {
-    "notemd": ">=6.909.2"
+    "notemd": ">=6.909.3"
   },
   "description": "View daily timelines as a vertical schedule with configurable activity categories.",
   "ui": "ui/",

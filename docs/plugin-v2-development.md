@@ -354,7 +354,7 @@ load 的 `representation.status` 为 `in-sync`、`external-drift` 或 `missing`�
 | `host.fs.read_text` | `fs.read:dialog` | `{ path }` → `{ content }`(仅 dialog 授权过的路径) |
 | `host.clipboard.write` | `clipboard.write` | `{ text }` → `{ok}` |
 | `host.location.get` | `location` | — → 位置对象 |
-| `host.editor.open` | `editor.open` | `{ path }`(vault 相对)→ `{ ok: true }`;在主编辑器打开文件并聚焦主窗口。仅 UI 桥可用。 |
+| `host.editor.open` | `editor.open` | `{ path, fileView? }`（vault 相对路径；`fileView` 为调用插件声明的视图 ID）→ `{ ok: true }`；在主编辑器打开文件并聚焦主窗口。指定视图时，宿主会重新校验目标文件规则后选中该视图。仅 UI 桥可用。 |
 | `host.theme.css` | `editor.kit` | — → `{ light_css, dark_css, follow_system }`;隔离插件窗口没有主程序的 `<style>` 插槽,靠这个方法要到编译好的主题 CSS(已去掉 `[data-theme="…"]` 限定前缀,直接对 `.moraya-editor` 生效)。仅 UI 桥可用(`ui_rpc.rs` 里在 `dispatch_with` 之外单独处理,因为要活的 `AppHandle` 读 app 配置目录 + 已编译主题产物;进程通道回 `-32601`)。 |
 | `host.power_mode.config` | `editor.kit` | — → `{ config: object\|null, surfaces: [{id, name, names}] }`;`config: null` = power-mode 插件没装/停用(整体关闭),`{}` = 装了但没配过(用默认值)。`surfaces` 是已加载且声明了 `editor.kit` 的插件清单(不含 power-mode 自己),`names` 是 manifest `i18n.<locale>.name` 映射。仅 UI 桥可用。 |
 | `host.power_mode.update` | `power-mode` | `{ config }` → `{ ok: true }`;宿主 emit `power-mode://update` 给主窗口前端,由它落进 settings.json 的插件域(store 是前端独家持有的,Rust 不直接写)。仅 UI 桥可用。 |

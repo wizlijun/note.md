@@ -39,17 +39,18 @@ async function setField(label: string, value: string) {
   await tick()
 }
 
-function openDocument(content = fixture, requestId = 1) {
+function openDocument(content = fixture, requestId = 1, uri = '/vault/diary/2026-09-09.timeline.md') {
   window.dispatchEvent(new MessageEvent('message', { origin: 'http://localhost:1420', source: window, data: {
-    type: 'file_view.open', viewId: 'timeline', requestId, uri: '/vault/diary/2026-09-09.timeline.md', content,
+    type: 'file_view.open', viewId: 'timeline', requestId, uri, content,
   } }))
 }
 
-function host(options: { save?: (rules: ClassificationRule[]) => Promise<void>; load?: () => Promise<unknown>; language?: string } = {}) {
+function host(options: { save?: (rules: ClassificationRule[]) => Promise<void>; load?: () => Promise<unknown>; language?: string; exists?: boolean } = {}) {
   const request = vi.fn(async (method: string, params?: any) => {
     if (method === 'host.settings.get') return options.load ? options.load() : { settings: { classification: structuredClone(initialRules) } }
     if (method === 'host.settings.set') { await options.save?.(params.value); return {} }
     if (method === 'host.vault.info') return { root: '/vault' }
+    if (method === 'host.vault.exists') return { exists: options.exists ?? true }
     if (method === 'host.editor.open') return {}
     throw new Error(`Unexpected request: ${method}`)
   })
@@ -76,7 +77,7 @@ describe('Timeline application', () => {
     return mocked
   }
 
-  it('renders timed blocks, nested detail, notes, sources and the Markdown escape hatch through the real bridge', async () => {
+  it('renders timed blocks, nested detail, notes and sources through the real bridge', async () => {
     const mocked = await start()
     const cards = [...document.querySelectorAll<HTMLButtonElement>('.event')]
     expect(cards.map((card) => card.dataset.category)).toEqual(['work', 'life'])
@@ -95,8 +96,7 @@ describe('Timeline application', () => {
     await tick()
     expect(document.querySelector('.detail')).toBeNull()
     await vi.waitFor(() => expect(document.activeElement).toBe(cards[0]))
-    button('‹/›编辑 Markdown').click()
-    expect(mocked.posted).toHaveBeenCalledWith(expect.objectContaining({ type: 'file_view.fallback', reason: 'edit' }), 'http://localhost:1420')
+    expect(document.querySelector('.toolbar-actions')?.textContent).not.toContain('编辑 Markdown')
   })
 
   it('retains failed drafts, prevents concurrent exits and applies classification only after a successful retry', async () => {
@@ -109,13 +109,13 @@ describe('Timeline application', () => {
     await setField('大类 1', 'interest')
     button('保存分类').click(); await tick()
     expect(button('取消').disabled).toBe(true)
-    expect(button('‹/›编辑 Markdown').disabled).toBe(true)
+    expect(field<HTMLButtonElement>('下一天').disabled).toBe(true)
     expect(field<HTMLInputElement>('规则名称 1').matches(':disabled')).toBe(true)
     button('取消').dispatchEvent(new MouseEvent('click', { bubbles: true }))
-    button('‹/›编辑 Markdown').dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    field<HTMLButtonElement>('下一天').dispatchEvent(new MouseEvent('click', { bubbles: true }))
     await tick()
     expect(document.querySelector('.settings')).not.toBeNull()
-    expect(mocked.posted).not.toHaveBeenCalledWith(expect.objectContaining({ reason: 'edit' }), expect.anything())
+    expect(mocked.request.mock.calls.some(([method]) => method === 'host.editor.open')).toBe(false)
     rejectSave(new Error('模拟磁盘写入失败'))
     await vi.waitFor(() => expect(document.querySelector('[role="alert"]')?.textContent).toContain('模拟磁盘写入失败'))
     expect(field<HTMLInputElement>('规则名称 1').value).toBe('自定义审阅')
@@ -197,6 +197,35 @@ describe('Timeline application', () => {
     expect(document.querySelector('.legend')?.textContent).toContain('Interests')
     expect(button('☷Categories')).toBeTruthy()
     expect(document.querySelector('h1')?.textContent).toContain('September 9')
+  })
+
+  it('navigates adjacent days and a chosen archive date through the actual host bridge', async () => {
+    const mocked = await start()
+    field<HTMLButtonElement>('上一天').click()
+    await vi.waitFor(() => expect(mocked.request).toHaveBeenCalledWith('host.editor.open', { path: 'diary/2026-09-08.timeline.md', fileView: 'timeline' }))
+    field<HTMLButtonElement>('下一天').click()
+    await vi.waitFor(() => expect(mocked.request).toHaveBeenCalledWith('host.editor.open', { path: 'diary/2026-09-10.timeline.md', fileView: 'timeline' }))
+    openDocument(fixture, 2, '/vault/diary/2026/2026-12-31.timeline.md'); await tick()
+    const picker = field<HTMLInputElement>('选择日期')
+    expect(picker.type).toBe('date')
+    expect(picker.value).toBe('2026-12-31')
+    picker.value = '2027-01-02'
+    picker.dispatchEvent(new Event('change', { bubbles: true }))
+    await vi.waitFor(() => expect(mocked.request).toHaveBeenCalledWith('host.editor.open', { path: 'diary/2027/2027-01-02.timeline.md', fileView: 'timeline' }))
+    expect(picker.value).toBe('2026-12-31')
+    button('☷分类设置').click(); await tick()
+    expect(field<HTMLButtonElement>('上一天').disabled).toBe(true)
+    expect(field<HTMLButtonElement>('下一天').disabled).toBe(true)
+    expect(field<HTMLInputElement>('选择日期').disabled).toBe(true)
+  })
+
+  it('keeps the current day visible when the selected timeline is missing', async () => {
+    const mocked = await start({ exists: false })
+    field<HTMLButtonElement>('下一天').click()
+    await vi.waitFor(() => expect(document.querySelector('.navigation-error')?.textContent).toContain('2026-09-10 暂无时间线'))
+    expect(document.querySelector('h1')?.textContent).toContain('9月9日')
+    expect(mocked.request.mock.calls.some(([method]) => method === 'host.editor.open')).toBe(false)
+    expect(field<HTMLButtonElement>('下一天').disabled).toBe(false)
   })
 
   it('receives an open immediately after mount, before deferred mount effects run', async () => {
