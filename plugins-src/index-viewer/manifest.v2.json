@@ -1,0 +1,54 @@
+{
+  "manifest_version": 2,
+  "id": "notemd.index-viewer",
+  "name": "Index Viewer",
+  "version": "1.0.0",
+  "kind": "native",
+  "engines": {
+    "notemd": ">=6.909.4"
+  },
+  "description": "Browse Markdown file indexes as tables, grouped lists, swimlane boards and cover galleries.",
+  "ui": "ui/",
+  "activation": {
+    "events": []
+  },
+  "contributes": {
+    "menus": [
+      {
+        "location": "plugins",
+        "submenu": "reading",
+        "label": "View File Index",
+        "command": "view-index"
+      }
+    ],
+    "file_views": [
+      {
+        "id": "index",
+        "entry": "index.html",
+        "icon": "generic",
+        "open_command": "view-index",
+        "priority": 100,
+        "selectors": [
+          {
+            "file_name_patterns": [
+              "*.index.md"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "capabilities": [
+    "vault.read",
+    "editor.open"
+  ],
+  "i18n": {
+    "zh": {
+      "name": "文件索引",
+      "description": "以多列表格、分组列表、泳道看板或封面网格查看 Markdown 文件索引。",
+      "menus": {
+        "view-index": "查看文件索引"
+      }
+    }
+  }
+}

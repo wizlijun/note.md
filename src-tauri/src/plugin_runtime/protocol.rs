@@ -749,13 +749,14 @@ mod tests {
     fn export_webkit_protocol_fixture() {
         let Some(output) = std::env::var_os("NOTEMD_WEBKIT_PROTOCOL_FIXTURE") else { return };
         let plugin_root = std::env::var_os("NOTEMD_WEBKIT_PLUGIN_ROOT").expect("plugin build root");
+        let plugin_id = std::env::var("NOTEMD_WEBKIT_PLUGIN_ID").unwrap_or_else(|_| "notemd.timeline".to_string());
         let output = PathBuf::from(output);
         std::fs::create_dir_all(&output).unwrap();
         let mut entries = HashMap::new();
-        entries.insert("notemd.timeline".to_string(), (PathBuf::from(plugin_root), vec!["settings".to_string()]));
+        entries.insert(plugin_id.clone(), (PathBuf::from(plugin_root), vec!["settings".to_string()]));
         let view = MapView(entries);
         for path in ["/index.html", BRIDGE_PATH] {
-            let response = resp(handle_parsed(&view, "GET", "notemd.timeline", path, None, "zh", "light"));
+            let response = resp(handle_parsed(&view, "GET", &plugin_id, path, None, "zh", "light"));
             assert_eq!(response.status(), 200);
             std::fs::write(output.join(path.trim_start_matches('/')), response.body()).unwrap();
             if path == "/index.html" {

@@ -7,6 +7,10 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+### Added
+
+- **Browse file indexes in four layouts.** The Index Viewer plugin opens `*.index.md` as a searchable table, grouped list, swimlane board or cover gallery. Ordinary Markdown tables hold the file links and fields, with optional layout settings; bundled templates and an Agent skill help create indexes from real files. Unsupported content falls back to Markdown editing.
+
 ### Fixed
 
 - **Timeline 1.0.4 now opens at the configured time.** The timeline calculates the schedule position inside its own scroll area, so the title, toolbar and legend no longer shift the visible time by about two hours.

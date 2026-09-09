@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Dev-install a v2 plugin into the local app-data plugins root.
 #
-# Usage: scripts/dev-install-plugin.sh [--release] [md2pdf|roam-import|meetings|openclaw|cef|pos-log|decision-log|weekly-review|memory|claude-agent|codex-agent|deepseek-agent|ebook-import|idea-spark|next|power-mode|trace-source|timeline]
+# Usage: scripts/dev-install-plugin.sh [--release] [md2pdf|roam-import|meetings|openclaw|cef|pos-log|decision-log|weekly-review|memory|claude-agent|codex-agent|deepseek-agent|ebook-import|idea-spark|next|power-mode|trace-source|timeline|index-viewer]
 #   default plugin = md2pdf (preserves the original behavior).
 #   --release      = build the native plugin binary in release mode (md2pdf +
 #                    openclaw; ignored for the pure-UI plugins).
@@ -44,8 +44,8 @@ PLUGIN=md2pdf
 for arg in "$@"; do
   case "$arg" in
     --release) PROFILE=release ;;
-    md2pdf|roam-import|meetings|openclaw|cef|pos-log|decision-log|weekly-review|memory|claude-agent|codex-agent|deepseek-agent|ebook-import|idea-spark|next|power-mode|trace-source|timeline) PLUGIN="$arg" ;;
-    *) echo "unknown arg: $arg (expected --release | md2pdf | roam-import | meetings | openclaw | cef | pos-log | decision-log | weekly-review | memory | claude-agent | codex-agent | deepseek-agent | ebook-import | idea-spark | next | power-mode | trace-source | timeline)" >&2; exit 2 ;;
+    md2pdf|roam-import|meetings|openclaw|cef|pos-log|decision-log|weekly-review|memory|claude-agent|codex-agent|deepseek-agent|ebook-import|idea-spark|next|power-mode|trace-source|timeline|index-viewer) PLUGIN="$arg" ;;
+    *) echo "unknown arg: $arg (expected --release | md2pdf | roam-import | meetings | openclaw | cef | pos-log | decision-log | weekly-review | memory | claude-agent | codex-agent | deepseek-agent | ebook-import | idea-spark | next | power-mode | trace-source | timeline | index-viewer)" >&2; exit 2 ;;
   esac
 done
 
@@ -180,6 +180,18 @@ elif [[ "$PLUGIN" == "timeline" ]]; then
   ln -sfn "$VERSION" "$ROOT/notemd.timeline/current"
   mark_installed "notemd.timeline" "$VERSION"
   echo "✓ installed notemd.timeline@$VERSION (ui-only) → $DEST"
+
+elif [[ "$PLUGIN" == "index-viewer" ]]; then
+  SRC="plugins-src/index-viewer"
+  pnpm --filter index-viewer build
+  VERSION=$(node -e "console.log(require('./$SRC/manifest.v2.json').version)")
+  DEST="$ROOT/notemd.index-viewer/$VERSION"
+  mkdir -p "$DEST/ui"
+  cp -R "$SRC/dist/." "$DEST/ui/"
+  cp "$SRC/manifest.v2.json" "$DEST/manifest.json"
+  ln -sfn "$VERSION" "$ROOT/notemd.index-viewer/current"
+  mark_installed "notemd.index-viewer" "$VERSION"
+  echo "✓ installed notemd.index-viewer@$VERSION (ui-only) → $DEST"
 
 elif [[ "$PLUGIN" == "weekly-review" ]]; then
   SRC="plugins-src/weekly-review"
