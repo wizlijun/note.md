@@ -15,6 +15,7 @@ export const en = {
   'fileView.retry': 'Return to file view',
   'fileView.loading': 'Loading file view…',
   'fileView.useDefault': 'Use default editor',
+  'fileView.openMatchingFile': 'The current file cannot be viewed with “{name}”. Open a file that matches this view first.',
 
   // Generic / shared
   'common.cancel': 'Cancel',

@@ -111,16 +111,16 @@ pub fn csp_header(_plugin_id: &str) -> String {
         .to_string()
 }
 
-/// Inject `<script>{bridge}</script>` into a served plugin HTML document so an
-/// iframe (which gets no `initialization_script`) still exposes `window.notemd`.
+/// Inject a synchronous same-origin bridge script into a served plugin HTML
+/// document. Unlike inline JavaScript, this is allowed by `script-src 'self'`.
 /// Insert right after the first `<head...>` open tag; if there is no `<head>`,
 /// fall back to right after `<body...>`; if neither exists, prepend. The
 /// bridge's own `if (window.notemd) return;` guard makes this harmless for
 /// plugin *windows* (which also get it via `initialization_script`).
 ///
 /// Case-insensitive tag search; preserves every original byte of `html`.
-pub fn inject_bridge(html: &str, bridge: &str) -> String {
-    let script = format!("<script>{bridge}</script>");
+pub fn inject_bridge(html: &str) -> String {
+    let script = format!(r#"<script src="{BRIDGE_PATH}"></script>"#);
     // Find the end of the first `<head ...>` (or `<body ...>`) open tag.
     let lower = html.to_ascii_lowercase();
     let insert_at = find_tag_end(&lower, "<head")
@@ -157,6 +157,7 @@ pub trait PluginView {
 }
 
 const RPC_PATH: &str = "/__rpc__";
+const BRIDGE_PATH: &str = "/__notemd_bridge__.js";
 
 /// Reserved URL prefix under every `plugin://<id>` origin that mirrors the
 /// host's own bundled frontend assets read-only (spec §3.4, Editor Kit).
@@ -231,9 +232,17 @@ pub fn handle_parsed(
             }
             Routed::Rpc(plugin_id.to_string(), capabilities)
         }
+        "GET" if path == BRIDGE_PATH => Routed::Response(
+            http::Response::builder()
+                .status(http::StatusCode::OK)
+                .header("content-type", "text/javascript")
+                .header("cache-control", "no-cache")
+                .body(super::windows::bridge_script(plugin_id, locale, theme).into_bytes())
+                .unwrap(),
+        ),
         "GET" => match path.strip_prefix(HOST_PREFIX) {
             Some(rest) => route_host_asset(&capabilities, rest),
-            None => Routed::Response(serve_asset(&ui_root, plugin_id, path, locale, theme)),
+            None => Routed::Response(serve_asset(&ui_root, plugin_id, path)),
         },
         "POST" => Routed::Response(plain(http::StatusCode::NOT_FOUND, "not found")),
         _ => Routed::Response(plain(http::StatusCode::METHOD_NOT_ALLOWED, "method not allowed")),
@@ -305,16 +314,13 @@ pub fn is_html_document(bytes: &[u8]) -> bool {
 
 /// GET asset serving, extracted from `handle_parsed` for readability.
 ///
-/// For `text/html` assets the fetch-RPC bridge (`super::windows::bridge_script`)
-/// is injected as an inline `<script>` so iframes — which get no
-/// `initialization_script` — still expose `window.notemd`. Other MIME types are
-/// served byte-for-byte.
+/// HTML loads the reserved same-origin bridge before plugin scripts. Iframes
+/// get no `initialization_script`; external loading keeps the existing strict
+/// CSP while exposing `window.notemd`. Other MIME types are served byte-for-byte.
 fn serve_asset(
     ui_root: &Path,
     plugin_id: &str,
     path: &str,
-    locale: &str,
-    theme: &str,
 ) -> http::Response<Vec<u8>> {
     match resolve_asset(ui_root, path) {
         Ok(file) => {
@@ -328,12 +334,9 @@ fn serve_asset(
                 .header("cache-control", "no-cache");
             let body = if mime == "text/html" {
                 builder = builder.header("content-security-policy", csp_header(plugin_id));
-                // Inject the bridge into the HTML (iframes have no init script).
+                // A parser-blocking external script is permitted by the CSP.
                 match String::from_utf8(bytes) {
-                    Ok(html) => {
-                        let bridge = super::windows::bridge_script(plugin_id, locale, theme);
-                        inject_bridge(&html, &bridge).into_bytes()
-                    }
+                    Ok(html) => inject_bridge(&html).into_bytes(),
                     // Non-UTF-8 "html" — serve as-is rather than guess.
                     Err(e) => e.into_bytes(),
                 }
@@ -696,19 +699,69 @@ mod tests {
     }
 
     #[test]
-    fn handle_get_html_injects_bridge_with_guard() {
+    fn handle_get_html_loads_external_bridge_without_inline_javascript() {
         let dir = ui_fixture();
         let view = view_for(dir.path());
         let r = resp(handle_parsed(&view, "GET", "test.plugin", "/index.html", None, "zh", "midnight"));
         let body = String::from_utf8(r.body().clone()).unwrap();
-        // Bridge script + idempotency guard are injected into the HTML.
-        assert!(body.contains("<script>"), "script tag injected: {body}");
-        assert!(body.contains("window.notemd"), "bridge defines window.notemd");
-        assert!(body.contains("if (window.notemd) return;"), "idempotency guard present");
-        assert!(body.contains("/__rpc__"), "bridge posts to rpc endpoint");
-        // locale/theme seeded from the request.
-        assert!(body.contains(r#""zh""#), "locale literal seeded");
-        assert!(body.contains(r#""midnight""#), "theme literal seeded");
+        assert!(body.contains(r#"<script src="/__notemd_bridge__.js"></script>"#), "synchronous script tag injected: {body}");
+        assert!(!body.contains("<script>"), "no inline script violates the CSP");
+        assert!(!body.contains("window.notemd"), "bridge implementation is served separately");
+        assert_eq!(r.headers()["content-security-policy"], csp_header("test.plugin"));
+        assert!(csp_header("test.plugin").contains("script-src 'self';"));
+    }
+
+    #[test]
+    fn handle_bridge_script_is_reserved_uncached_and_carries_live_identity() {
+        let dir = ui_fixture();
+        // A plugin-owned file cannot replace the host's initialization script.
+        std::fs::write(dir.path().join("__notemd_bridge__.js"), "throw new Error('shadowed')").unwrap();
+        let view = view_for(dir.path());
+        let r = resp(handle_parsed(&view, "GET", "test.plugin", BRIDGE_PATH, None, "zh", "midnight"));
+        assert_eq!(r.status(), 200);
+        assert_eq!(r.headers()["content-type"], "text/javascript");
+        assert_eq!(r.headers()["cache-control"], "no-cache");
+        let body = String::from_utf8(r.body().clone()).unwrap();
+        assert_eq!(body, super::super::windows::bridge_script("test.plugin", "zh", "midnight"));
+        assert!(body.contains("if (window.notemd) return;"));
+        assert!(body.contains(r#"const pluginId = "test.plugin""#));
+        assert!(body.contains(r#"let locale = "zh""#));
+        assert!(body.contains(r#"const theme = "midnight""#));
+        assert!(body.contains("fetch('/__rpc__'"));
+        assert!(!body.contains("shadowed"));
+        let updated = resp(handle_parsed(&view, "GET", "test.plugin", BRIDGE_PATH, None, "ja", "default"));
+        assert_ne!(r.body(), updated.body(), "identity is generated for the current request");
+    }
+
+    #[test]
+    fn handle_bridge_script_requires_a_known_plugin_and_get() {
+        let dir = ui_fixture();
+        let view = view_for(dir.path());
+        for (method, id, status) in [("GET", "missing.plugin", 404), ("POST", "test.plugin", 404), ("PUT", "test.plugin", 405)] {
+            let r = resp(handle_parsed(&view, method, id, BRIDGE_PATH, None, "en", "default"));
+            assert_eq!(r.status(), status);
+        }
+    }
+
+    /// The native browser runner uses these actual protocol outputs instead of
+    /// preinstalling window.notemd through WebKit's privileged user-script API.
+    #[test]
+    fn export_webkit_protocol_fixture() {
+        let Some(output) = std::env::var_os("NOTEMD_WEBKIT_PROTOCOL_FIXTURE") else { return };
+        let plugin_root = std::env::var_os("NOTEMD_WEBKIT_PLUGIN_ROOT").expect("plugin build root");
+        let output = PathBuf::from(output);
+        std::fs::create_dir_all(&output).unwrap();
+        let mut entries = HashMap::new();
+        entries.insert("notemd.timeline".to_string(), (PathBuf::from(plugin_root), vec!["settings".to_string()]));
+        let view = MapView(entries);
+        for path in ["/index.html", BRIDGE_PATH] {
+            let response = resp(handle_parsed(&view, "GET", "notemd.timeline", path, None, "zh", "light"));
+            assert_eq!(response.status(), 200);
+            std::fs::write(output.join(path.trim_start_matches('/')), response.body()).unwrap();
+            if path == "/index.html" {
+                std::fs::write(output.join("plugin-csp.txt"), response.headers()["content-security-policy"].as_bytes()).unwrap();
+            }
+        }
     }
 
     #[test]
@@ -982,39 +1035,39 @@ mod tests {
 
     #[test]
     fn inject_bridge_after_head() {
-        let out = inject_bridge("<html><head></head><body>x</body></html>", "B()");
-        assert_eq!(out, "<html><head><script>B()</script></head><body>x</body></html>");
+        let out = inject_bridge("<html><head></head><body>x</body></html>");
+        assert_eq!(out, "<html><head><script src=\"/__notemd_bridge__.js\"></script></head><body>x</body></html>");
     }
 
     #[test]
     fn inject_bridge_after_head_with_attrs() {
-        let out = inject_bridge("<head lang=\"en\">z</head>", "B()");
-        assert_eq!(out, "<head lang=\"en\"><script>B()</script>z</head>");
+        let out = inject_bridge("<head lang=\"en\">z</head>");
+        assert_eq!(out, "<head lang=\"en\"><script src=\"/__notemd_bridge__.js\"></script>z</head>");
     }
 
     #[test]
     fn inject_bridge_falls_back_to_body_when_no_head() {
-        let out = inject_bridge("<html><body>x</body></html>", "B()");
-        assert_eq!(out, "<html><body><script>B()</script>x</body></html>");
+        let out = inject_bridge("<html><body>x</body></html>");
+        assert_eq!(out, "<html><body><script src=\"/__notemd_bridge__.js\"></script>x</body></html>");
     }
 
     #[test]
     fn inject_bridge_prepends_when_no_head_or_body() {
-        let out = inject_bridge("<div>hi</div>", "B()");
-        assert_eq!(out, "<script>B()</script><div>hi</div>");
+        let out = inject_bridge("<div>hi</div>");
+        assert_eq!(out, "<script src=\"/__notemd_bridge__.js\"></script><div>hi</div>");
     }
 
     #[test]
     fn inject_bridge_case_insensitive_head() {
-        let out = inject_bridge("<HTML><HEAD></HEAD></HTML>", "B()");
-        assert_eq!(out, "<HTML><HEAD><script>B()</script></HEAD></HTML>");
+        let out = inject_bridge("<HTML><HEAD></HEAD></HTML>");
+        assert_eq!(out, "<HTML><HEAD><script src=\"/__notemd_bridge__.js\"></script></HEAD></HTML>");
     }
 
     #[test]
     fn inject_bridge_preserves_original_bytes() {
         // Everything except the inserted <script> is byte-identical.
         let html = "<html><head><title>T</title></head><body><p>café</p></body></html>";
-        let out = inject_bridge(html, "B()");
-        assert_eq!(out.replace("<script>B()</script>", ""), html);
+        let out = inject_bridge(html);
+        assert_eq!(out.replace("<script src=\"/__notemd_bridge__.js\"></script>", ""), html);
     }
 }

@@ -13,6 +13,8 @@ final class Harness: NSObject, NSApplicationDelegate, WKURLSchemeHandler, WKScri
     var events: [[String: Any]] = []
     var failed = false
     var finishing = false
+    var settings: [String: Any] = [:]
+    var writes = 0
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         window = NSWindow(contentRect: NSRect(x: 60, y: 60, width: 1000, height: 760), styleMask: [.titled, .closable], backing: .buffered, defer: false)
@@ -26,6 +28,8 @@ final class Harness: NSObject, NSApplicationDelegate, WKURLSchemeHandler, WKScri
         if index == cases.count { print("WK_FILE_VIEWS_COMPLETE failed=\(failed)"); exit(failed ? 1 : 0) }
         finishing = false
         events = []
+        settings = [:]
+        writes = 0
         let config = WKWebViewConfiguration()
         config.websiteDataStore = .nonPersistent()
         config.setURLSchemeHandler(self, forURLScheme: "tauri")
@@ -52,6 +56,23 @@ final class Harness: NSObject, NSApplicationDelegate, WKURLSchemeHandler, WKScri
         let isPlugin = url.scheme == "plugin" && url.host == "notemd.timeline"
         let isHost = url.scheme == "tauri" && url.host == "localhost"
         guard isPlugin || isHost else { urlSchemeTask.didFailWithError(NSError(domain: "fixture", code: 403)); return }
+        if isPlugin && url.path == "/__rpc__" && urlSchemeTask.request.httpMethod == "POST" {
+            let request = (try? JSONSerialization.jsonObject(with: requestBody(urlSchemeTask.request))) as? [String: Any] ?? [:]
+            let method = request["method"] as? String ?? ""
+            let params = request["params"] as? [String: Any] ?? [:]
+            var result: [String: Any] = [:]
+            if method == "host.settings.get" { result = ["settings": settings] }
+            else if method == "host.settings.set", params["key"] as? String == "classification", let value = params["value"] {
+                settings["classification"] = value
+                writes += 1
+            } else {
+                respond(urlSchemeTask, url: url, object: ["jsonrpc": "2.0", "id": request["id"] ?? NSNull(), "error": ["code": -32601, "message": "Unexpected fixture RPC: \(method)"]]); return
+            }
+            respond(urlSchemeTask, url: url, object: ["jsonrpc": "2.0", "id": request["id"] ?? NSNull(), "result": result]); return
+        }
+        if isPlugin && url.path == "/__qa_state__" {
+            respond(urlSchemeTask, url: url, object: ["settings": settings, "writes": writes]); return
+        }
         let root = URL(fileURLWithPath: isPlugin ? pluginRoot : "\(output)/host").standardizedFileURL
         let path = root.appendingPathComponent(url.path == "/" ? "index.html" : String(url.path.dropFirst())).standardizedFileURL
         guard path.path.hasPrefix(root.path + "/"), let bytes = try? Data(contentsOf: path) else {
@@ -60,7 +81,7 @@ final class Harness: NSObject, NSApplicationDelegate, WKURLSchemeHandler, WKScri
         }
         let mime: String
         switch path.pathExtension { case "html": mime = "text/html"; case "js": mime = "text/javascript"; case "css": mime = "text/css"; default: mime = "application/octet-stream" }
-        var headers = ["Content-Type": mime + "; charset=utf-8"]
+        var headers = ["Content-Type": mime + "; charset=utf-8", "Cache-Control": "no-cache"]
         if isPlugin && path.pathExtension == "html" { headers["Content-Security-Policy"] = try! String(contentsOfFile: "\(output)/plugin-csp.txt", encoding: .utf8) }
         let response = HTTPURLResponse(url: url, statusCode: 200, httpVersion: "HTTP/1.1", headerFields: headers)!
         urlSchemeTask.didReceive(response)
@@ -69,6 +90,28 @@ final class Harness: NSObject, NSApplicationDelegate, WKURLSchemeHandler, WKScri
     }
 
     func webView(_ webView: WKWebView, stop urlSchemeTask: WKURLSchemeTask) {}
+
+    func requestBody(_ request: URLRequest) -> Data {
+        if let body = request.httpBody { return body }
+        guard let stream = request.httpBodyStream else { return Data() }
+        stream.open()
+        defer { stream.close() }
+        var data = Data()
+        var buffer = [UInt8](repeating: 0, count: 4096)
+        while stream.hasBytesAvailable {
+            let count = stream.read(&buffer, maxLength: buffer.count)
+            if count <= 0 { break }
+            data.append(buffer, count: count)
+        }
+        return data
+    }
+
+    func respond(_ task: WKURLSchemeTask, url: URL, object: [String: Any]) {
+        let bytes = try! JSONSerialization.data(withJSONObject: object)
+        task.didReceive(HTTPURLResponse(url: url, statusCode: 200, httpVersion: "HTTP/1.1", headerFields: ["Content-Type": "application/json", "Cache-Control": "no-cache"])!)
+        task.didReceive(bytes)
+        task.didFinish()
+    }
 
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
         let url = navigationAction.request.url!

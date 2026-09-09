@@ -7,6 +7,10 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+### Fixed
+
+- **Timeline views now finish loading.** The host serves its plugin bridge as a CSP-approved same-origin script, so file views can acknowledge the document instead of remaining on “Loading file view…”. Timeline 1.0.1 also adds **Plugins → Reflect → View Timeline**; it uses the current matching file and opens the file picker when no document is open. Update note.md to 6.909.2 before installing the plugin update.
+
 ## v6.909.1 — 2026-09-09
 
 ### Added

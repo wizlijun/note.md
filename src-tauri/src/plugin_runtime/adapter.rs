@@ -396,7 +396,7 @@ mod tests {
             "manifest_version": 2, "id": "example.report", "name": "Report", "version": "1.0.0",
             "kind": "native", "engines": { "notemd": ">=6.909.1" }, "ui": "ui/",
             "activation": { "events": [] }, "capabilities": [],
-            "contributes": { "file_views": [{"id":"report", "entry":"report.html", "priority":12,
+            "contributes": { "file_views": [{"id":"report", "entry":"report.html", "open_command":"view-report", "priority":12,
                 "selectors":[{"file_extensions":["json"]}, {"frontmatter":{"published":[true],"revision":[2]}}]}] }
         })).unwrap();
         plugin_protocol::validate_manifest(&m, "6.909.1").unwrap();

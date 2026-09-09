@@ -172,6 +172,7 @@ manifest 不写 `Agents`、`智能体` 等显示文本。插件市场索引也�
     "file_views": [{
       "id": "report",
       "entry": "report.html",
+      "open_command": "view-report",
       "priority": 100,
       "selectors": [
         { "file_extensions": ["json"], "path_patterns": ["**/reports/**"] },
@@ -188,10 +189,11 @@ manifest 不写 `Agents`、`智能体` 等显示文本。插件市场索引也�
 - 扩展名去除首尾 Unicode 空白及开头的点后忽略大小写。文件名和路径模式去除首尾 Unicode 空白、区分大小写，只支持 `*`、`?`、`**`：前两者不跨 `/`，`**` 可跨目录，完整 `**/` 段也可匹配零层目录，其余字符按字面匹配。路径以规范化 `/` 的完整绝对路径为基准；未保存的相对路径不匹配路径条件。
 - frontmatter 仅匹配文件开头 YAML 的顶层字符串、数字或布尔值。字符串去除首尾 Unicode 空白并忽略大小写；数字和布尔值按类型精确匹配。无效 YAML、重复键和 aliases 不参与匹配；解析范围最多为文件开头 128 KiB UTF-16 字符。
 - `priority` 为 -1000 到 1000 的整数，默认 0；高值优先，同分按插件 ID、视图 ID 字典序稳定选择。每次只尝试所选视图，失败后使用内置视图。
+- `open_command` 可选，用于把 `contributes.menus[].command` 直接绑定到这个文件视图。宿主不启动插件进程；有匹配的当前文件时显式查看该视图，没有活动文件时先打开文件选择器，当前文件不匹配时提示选择受支持文件。命令在同一插件的文件视图和窗口之间必须唯一。
 - 支持 Markdown、MDX、HTML、代码、CSV/TSV 表格与 Base 等文本类型。源码模式、受管理的 USER/MEMORY 文档以及已有 custom editor 保持优先；图片和 Canvas 不参与匹配。
 - 不接受空 selector、空条件数组、显式 null 或未知字段。视图、selector、候选值与 frontmatter 键各最多 32 个；字符串规则最多 256 个 Unicode 码点，视图 ID 和 metadata 键最多 128 个。`entry` 必须是 `ui/` 内安全的相对 `.html` 路径。类型及校验源见 `plugin-protocol/src/file_views.rs`，匹配源见 `src/lib/plugins/file-views.ts`。
 
-视图 iframe 使用 `plugin://<plugin-id>/<entry>`，保留插件 CSP 与能力鉴权。iframe 沙箱开放脚本、同源和表单事件；CSP 的 `form-action 'none'` 仍禁止表单导航。配置表单必须 `preventDefault()` 后通过设置 RPC 保存。
+视图 iframe 使用 `plugin://<plugin-id>/<entry>`，保留插件 CSP 与能力鉴权。宿主桥通过 `plugin://<plugin-id>/__notemd_bridge__.js` 同源保留脚本加载，满足 `script-src 'self'`，不放开任意内联脚本。iframe 沙箱开放脚本、同源和表单事件；CSP 的 `form-action 'none'` 仍禁止表单导航。配置表单必须 `preventDefault()` 后通过设置 RPC 保存。
 
 打开协议独立于编辑器协议：
 

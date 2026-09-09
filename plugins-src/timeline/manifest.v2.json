@@ -2,10 +2,10 @@
   "manifest_version": 2,
   "id": "notemd.timeline",
   "name": "Timeline",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "kind": "native",
   "engines": {
-    "notemd": ">=6.909.1"
+    "notemd": ">=6.909.2"
   },
   "description": "View daily timelines as a vertical schedule with configurable activity categories.",
   "ui": "ui/",
@@ -13,10 +13,19 @@
     "events": []
   },
   "contributes": {
+    "menus": [
+      {
+        "location": "plugins",
+        "submenu": "reflect",
+        "label": "View Timeline",
+        "command": "view-timeline"
+      }
+    ],
     "file_views": [
       {
         "id": "timeline",
         "entry": "index.html",
+        "open_command": "view-timeline",
         "priority": 100,
         "selectors": [
           {
@@ -44,7 +53,10 @@
   "i18n": {
     "zh": {
       "name": "时间轴",
-      "description": "以竖向日程查看每日时间线，自定义动作分类与浅色时间块。"
+      "description": "以竖向日程查看每日时间线，自定义动作分类与浅色时间块。",
+      "menus": {
+        "view-timeline": "查看时间轴"
+      }
     }
   }
 }

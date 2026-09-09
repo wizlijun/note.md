@@ -845,5 +845,310 @@
         }
       ]
     }
+  },
+  {
+    "name": "open command simple",
+    "valid": true,
+    "view": {
+      "id": "view",
+      "entry": "index.html",
+      "open_command": "open-timeline",
+      "selectors": [
+        {
+          "file_extensions": [
+            "md"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "open command dotted",
+    "valid": true,
+    "view": {
+      "id": "view",
+      "entry": "index.html",
+      "open_command": "file_view.open-1",
+      "selectors": [
+        {
+          "file_extensions": [
+            "md"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "open command numeric-leading",
+    "valid": true,
+    "view": {
+      "id": "view",
+      "entry": "index.html",
+      "open_command": "1.open",
+      "selectors": [
+        {
+          "file_extensions": [
+            "md"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "open command max-length",
+    "valid": true,
+    "view": {
+      "id": "view",
+      "entry": "index.html",
+      "open_command": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "selectors": [
+        {
+          "file_extensions": [
+            "md"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "open command null",
+    "valid": false,
+    "view": {
+      "id": "view",
+      "entry": "index.html",
+      "open_command": null,
+      "selectors": [
+        {
+          "file_extensions": [
+            "md"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "open command number",
+    "valid": false,
+    "view": {
+      "id": "view",
+      "entry": "index.html",
+      "open_command": 1,
+      "selectors": [
+        {
+          "file_extensions": [
+            "md"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "open command boolean",
+    "valid": false,
+    "view": {
+      "id": "view",
+      "entry": "index.html",
+      "open_command": false,
+      "selectors": [
+        {
+          "file_extensions": [
+            "md"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "open command array",
+    "valid": false,
+    "view": {
+      "id": "view",
+      "entry": "index.html",
+      "open_command": [
+        "open"
+      ],
+      "selectors": [
+        {
+          "file_extensions": [
+            "md"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "open command empty",
+    "valid": false,
+    "view": {
+      "id": "view",
+      "entry": "index.html",
+      "open_command": "",
+      "selectors": [
+        {
+          "file_extensions": [
+            "md"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "open command leading-punctuation",
+    "valid": false,
+    "view": {
+      "id": "view",
+      "entry": "index.html",
+      "open_command": "-open",
+      "selectors": [
+        {
+          "file_extensions": [
+            "md"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "open command uppercase",
+    "valid": false,
+    "view": {
+      "id": "view",
+      "entry": "index.html",
+      "open_command": "Open",
+      "selectors": [
+        {
+          "file_extensions": [
+            "md"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "open command whitespace",
+    "valid": false,
+    "view": {
+      "id": "view",
+      "entry": "index.html",
+      "open_command": "open view",
+      "selectors": [
+        {
+          "file_extensions": [
+            "md"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "open command padding",
+    "valid": false,
+    "view": {
+      "id": "view",
+      "entry": "index.html",
+      "open_command": " open",
+      "selectors": [
+        {
+          "file_extensions": [
+            "md"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "open command trailing-newline",
+    "valid": false,
+    "view": {
+      "id": "view",
+      "entry": "index.html",
+      "open_command": "open\n",
+      "selectors": [
+        {
+          "file_extensions": [
+            "md"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "open command colon",
+    "valid": false,
+    "view": {
+      "id": "view",
+      "entry": "index.html",
+      "open_command": "view:open",
+      "selectors": [
+        {
+          "file_extensions": [
+            "md"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "open command unicode",
+    "valid": false,
+    "view": {
+      "id": "view",
+      "entry": "index.html",
+      "open_command": "打开",
+      "selectors": [
+        {
+          "file_extensions": [
+            "md"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "open command nul",
+    "valid": false,
+    "view": {
+      "id": "view",
+      "entry": "index.html",
+      "open_command": "open\u0000",
+      "selectors": [
+        {
+          "file_extensions": [
+            "md"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "open command too-long",
+    "valid": false,
+    "view": {
+      "id": "view",
+      "entry": "index.html",
+      "open_command": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "selectors": [
+        {
+          "file_extensions": [
+            "md"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "view id trailing newline",
+    "valid": false,
+    "view": {
+      "id": "view\n",
+      "entry": "index.html",
+      "selectors": [
+        {
+          "file_extensions": [
+            "md"
+          ]
+        }
+      ]
+    }
   }
 ]

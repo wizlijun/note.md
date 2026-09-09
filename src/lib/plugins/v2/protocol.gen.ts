@@ -54,6 +54,10 @@ export interface Contributes {
 export interface FileViewContribution {
   entry: string;
   id: string;
+  /**
+   * Host-handled menu command that opens this view for the active file. ASCII [a-z0-9][a-z0-9._-]*, at most 128 characters; no process activation.
+   */
+  open_command?: string;
   priority?: number;
   /**
    * @minItems 1

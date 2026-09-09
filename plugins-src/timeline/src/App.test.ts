@@ -198,4 +198,17 @@ describe('Timeline application', () => {
     expect(button('☷Categories')).toBeTruthy()
     expect(document.querySelector('h1')?.textContent).toContain('September 9')
   })
+
+  it('receives an open immediately after mount, before deferred mount effects run', async () => {
+    const mocked = host()
+    app = mount(App, { target: document.body })
+    openDocument()
+    await tick()
+    expect(document.querySelectorAll('.event')).toHaveLength(2)
+    expect(mocked.posted).toHaveBeenCalledWith({ type: 'file_view.ready', requestId: 1 }, 'http://localhost:1420')
+    await unmount(app); app = undefined
+    mocked.posted.mockClear()
+    openDocument(fixture, 2)
+    expect(mocked.posted).not.toHaveBeenCalled()
+  })
 })

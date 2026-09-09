@@ -19,7 +19,7 @@ const TEXT_KINDS = new Set(['markdown', 'mdx', 'html', 'code', 'spreadsheet', 'b
 const MAX_ITEMS = 32
 const MAX_PATH = 16_384
 const MAX_FRONTMATTER = 128 * 1024
-const VIEW_KEYS = new Set(['id', 'entry', 'priority', 'selectors'])
+const VIEW_KEYS = new Set(['id', 'entry', 'open_command', 'priority', 'selectors'])
 const SELECTOR_KEYS = new Set(['file_extensions', 'file_name_patterns', 'path_patterns', 'frontmatter'])
 
 function record(value: unknown): value is Record<string, unknown> {
@@ -74,7 +74,8 @@ function validSelector(value: unknown): value is FileViewSelector {
 /** Mirrors manifest validation in plugin-protocol; malformed views never claim files. */
 export function isValidFileView(value: unknown): value is FileViewContribution {
   if (!record(value) || Object.keys(value).some((key) => !VIEW_KEYS.has(key))) return false
-  if (!boundedString(value.id, 128) || !/^[a-z0-9-]+$/.test(value.id)) return false
+  if (!boundedString(value.id, 128) || /[^a-z0-9-]/.test(value.id)) return false
+  if ('open_command' in value && (!boundedString(value.open_command, 128) || !/^[a-z0-9]/.test(value.open_command) || /[^a-z0-9._-]/.test(value.open_command))) return false
   if (!boundedString(value.entry) || !value.entry.endsWith('.html') || /[\\%:?#]/.test(value.entry)) return false
   if (value.entry.split('/').some((part) => !part || part === '.' || part === '..')) return false
   if ('priority' in value && (typeof value.priority !== 'number' || !Number.isInteger(value.priority) || value.priority < -1000 || value.priority > 1000)) return false
@@ -173,10 +174,15 @@ export function fileViewFor(document: ViewDocument, manifests: PluginManifest[])
     const views = manifest.file_views
     if (!Array.isArray(views) || views.length > MAX_ITEMS) return []
     const ids = new Set<string>()
+    const openCommands = new Set(Object.keys(manifest.open_windows ?? {}))
     for (const view of views) {
       if (!record(view) || typeof view.id !== 'string') continue
       if (ids.has(view.id)) return []
       ids.add(view.id)
+      if (typeof view.open_command === 'string') {
+        if (openCommands.has(view.open_command)) return []
+        openCommands.add(view.open_command)
+      }
     }
     return views.filter(isValidFileView).map((view) => ({ manifest, view }))
   }).sort((a, b) => {

@@ -1,6 +1,6 @@
 <script lang="ts">
   import '../../../src/styles/ui-foundation.css'
-  import { onMount, tick } from 'svelte'
+  import { onDestroy, onMount, tick } from 'svelte'
   import { editMarkdown, InvalidRulesError, loadRules, locale, onDocument, openLink, saveRules } from './lib/bridge'
   import { CATEGORIES, classifyItem, DEFAULT_RULES, type ClassificationRule } from './lib/classification'
   import type { TimelineDocument, TimelineItem } from './lib/parser'
@@ -40,11 +40,11 @@
     finally { loadingRules = false }
   }
 
-  onMount(() => {
-    const unsubscribe = onDocument((value) => { doc = value; selected = null })
-    void fetchRules()
-    return unsubscribe
-  })
+  // Receive the document before deferred mount effects, including a fast
+  // parent onload snapshot. Settings do not gate the display handshake.
+  const unsubscribe = onDocument((value) => { doc = value; selected = null })
+  onDestroy(unsubscribe)
+  onMount(() => { void fetchRules() })
 
   function showSettings(reset = false, event?: MouseEvent) {
     if (loadingRules || (ruleError && !(reset && invalidRules)) || saving || settings) return

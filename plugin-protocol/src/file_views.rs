@@ -11,6 +11,19 @@ use crate::ManifestV2;
 pub struct FileViewContribution {
     pub id: String,
     pub entry: String,
+    /// Host-handled menu command that opens this view for the active file.
+    /// ASCII [a-z0-9][a-z0-9._-]*, at most 128 characters; no process activation.
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "present_value"
+    )]
+    #[schemars(
+        with = "String",
+        length(min = 1, max = 128),
+        regex(pattern = "^[a-z0-9][a-z0-9._-]*$")
+    )]
+    pub open_command: Option<String>,
     #[serde(default, deserialize_with = "view_priority")]
     #[schemars(range(min = -1000, max = 1000))]
     pub priority: i32,
@@ -106,6 +119,12 @@ pub fn validate_file_views(manifest: &ManifestV2) -> Result<(), String> {
         return Err("contributes.file_views supports at most 32 views".into());
     }
     let mut ids = BTreeSet::new();
+    let mut open_commands: BTreeSet<&str> = manifest
+        .contributes
+        .windows
+        .iter()
+        .filter_map(|window| window.open_command.as_deref())
+        .collect();
     for view in views {
         let error = || {
             format!(
@@ -122,6 +141,28 @@ pub fn validate_file_views(manifest: &ManifestV2) -> Result<(), String> {
             || !(-1000..=1000).contains(&view.priority)
         {
             return Err(error());
+        }
+        if let Some(command) = &view.open_command {
+            if !nonempty(command, 128)
+                || !command
+                    .chars()
+                    .next()
+                    .is_some_and(|c| c.is_ascii_lowercase() || c.is_ascii_digit())
+                || !command.chars().all(|c| {
+                    c.is_ascii_lowercase() || c.is_ascii_digit() || matches!(c, '.' | '_' | '-')
+                })
+            {
+                return Err(format!(
+                    "file view '{}': open_command must match [a-z0-9][a-z0-9._-]* (1-128 characters)",
+                    view.id
+                ));
+            }
+            if !open_commands.insert(command) {
+                return Err(format!(
+                    "file view '{}': open_command '{}' is already used by another view or window",
+                    view.id, command
+                ));
+            }
         }
         if !nonempty(&view.entry, 256)
             || !view.entry.ends_with(".html")
@@ -250,6 +291,56 @@ mod tests {
     }
 
     #[test]
+    fn file_view_commands_need_no_menu_or_activation_but_must_be_unambiguous() {
+        let view = json!({"id":"report", "entry":"index.html", "open_command":"open-report", "selectors":[{"file_extensions":["json"]}]});
+        // A host-handled menu command does not require a process or activation event.
+        assert!(valid(manifest(json!([view.clone()]))));
+        let mut second = view.clone();
+        second["id"] = json!("other");
+        assert!(!valid(manifest(json!([view.clone(), second.clone()]))));
+        second["open_command"] = json!("open-other");
+        assert!(valid(manifest(json!([view.clone(), second]))));
+
+        let mut raw = manifest(json!([view]));
+        raw["contributes"]["windows"] = json!([{
+            "id":"settings", "entry":"settings.html", "width":500, "height":400,
+            "open_command":"open-report"
+        }]);
+        assert!(!valid(raw.clone()));
+        raw["contributes"]["windows"][0]["open_command"] = json!("settings");
+        assert!(valid(raw));
+    }
+
+    #[test]
+    fn file_view_command_schema_enforces_type_and_bounds() {
+        let schema = serde_json::to_value(schemars::schema_for!(crate::ManifestV2)).unwrap();
+        let validator = jsonschema::JSONSchema::compile(&schema).unwrap();
+        let mut raw = manifest(
+            json!([{"id":"report", "entry":"index.html", "selectors":[{"file_extensions":["json"]}]}]),
+        );
+        assert!(validator.is_valid(&raw));
+        for command in [json!("open-report"), json!("a".repeat(128))] {
+            raw["contributes"]["file_views"][0]["open_command"] = command;
+            assert!(validator.is_valid(&raw));
+        }
+        for command in [
+            Value::Null,
+            json!(1),
+            json!(""),
+            json!("Open"),
+            json!("open report"),
+            json!("open\n"),
+            json!("a".repeat(129)),
+        ] {
+            raw["contributes"]["file_views"][0]["open_command"] = command.clone();
+            assert!(
+                !validator.is_valid(&raw),
+                "schema accepted invalid command {command}"
+            );
+        }
+    }
+
+    #[test]
     fn file_view_generated_schema_is_typed_and_rejects_null_conditions() {
         let schema = serde_json::to_value(schemars::schema_for!(crate::ManifestV2)).unwrap();
         let validator = jsonschema::JSONSchema::compile(&schema).unwrap();
@@ -270,6 +361,21 @@ mod tests {
         let m: ManifestV2 = serde_json::from_value(raw).unwrap();
         let serialized = serde_json::to_value(&m.contributes.file_views[0]).unwrap();
         assert!(serialized["selectors"][0].get("frontmatter").is_none());
+        assert!(serialized.get("open_command").is_none());
         assert_eq!(serialized["priority"], json!(0));
+    }
+
+    #[test]
+    fn file_view_command_survives_serialization() {
+        let raw = manifest(
+            json!([{"id":"report", "entry":"index.html", "open_command":"open-report", "selectors":[{"file_extensions":["json"]}]}]),
+        );
+        let m: ManifestV2 = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            m.contributes.file_views[0].open_command.as_deref(),
+            Some("open-report")
+        );
+        let serialized = serde_json::to_value(&m.contributes.file_views[0]).unwrap();
+        assert_eq!(serialized["open_command"], json!("open-report"));
     }
 }

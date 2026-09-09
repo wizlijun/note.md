@@ -31,24 +31,11 @@
   window.addEventListener('error', event => report({ kind: 'failed', error: event.message }))
   window.addEventListener('unhandledrejection', event => report({ kind: 'failed', error: String(event.reason) }))
 
-  if (plugin) {
-    window.notemd = {
-      locale: 'zh', theme: 'light',
-      request: async (method, params) => {
-        if (method === 'host.settings.get') return { settings: structuredClone(settings) }
-        if (method === 'host.settings.set') {
-          check(params.key === 'classification', 'only classification settings are written')
-          settings[params.key] = structuredClone(params.value)
-          writes += 1
-          return {}
-        }
-        throw new Error(`Unexpected fixture RPC: ${method}`)
-      },
-    }
-  }
-
   const run = async () => {
     if (plugin) {
+      check(!!window.notemd && Object.isFrozen(window.notemd), 'production external bridge initializes under the unchanged CSP')
+      check(window.notemd.pluginId === 'notemd.timeline', 'external bridge carries the actual plugin identity')
+      check(document.querySelector('script[src="/__notemd_bridge__.js"]') !== null, 'HTML loads the same-origin bridge synchronously')
       if (scenario === 'unsupported') return
       await wait(() => traffic.find(item => item.type === 'file_view.open'), 'plugin did not receive file_view.open')
       check(traffic[0].origin === 'tauri://localhost' && traffic[0].sourceMatches, 'plugin receives the exact tauri://localhost parent origin/source')
@@ -61,6 +48,9 @@
       category.dispatchEvent(new Event('change', { bubbles: true }))
       button('保存分类').click()
       await wait(() => !document.querySelector('.settings'), 'form save did not close the settings panel')
+      const state = await (await fetch('/__qa_state__')).json()
+      writes = state.writes
+      settings = state.settings
       check(writes === 1, 'sandbox allow-forms and production CSP permit one prevented form save')
       check(settings.classification.find(rule => rule.id === 'development').category === 'interest', 'classification is persisted to isolated memory fixture')
       check(document.querySelector('.event').dataset.category === 'interest', 'saved rule immediately changes the block to green Interests')

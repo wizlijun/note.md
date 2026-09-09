@@ -3,7 +3,7 @@
 // never starts the actual note.md app or accesses its settings or Vault.
 import { build } from 'vite'
 import { svelte } from '@sveltejs/vite-plugin-svelte'
-import { mkdtemp, readFile, writeFile } from 'node:fs/promises'
+import { cp, copyFile, mkdtemp, readFile, writeFile } from 'node:fs/promises'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
@@ -13,30 +13,35 @@ import { createHash } from 'node:crypto'
 if (process.platform !== 'darwin') throw new Error('Native WebKit QA requires macOS')
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const fixture = path.join(repo, 'scripts/fixtures/file-views-webkit')
-const plugin = path.join(repo, 'plugins-src/timeline/dist')
+const pluginBuildRoot = path.join(repo, 'plugins-src/timeline/dist')
 const output = await mkdtemp(path.join(os.tmpdir(), 'notemd-file-views-webkit.'))
+const plugin = path.join(output, 'plugin')
 console.log(`Native WebKit artifacts: ${output}`)
 
 const pluginBuild = spawnSync('pnpm', ['--filter', 'timeline', 'build'], { cwd: repo, stdio: 'inherit' })
 if (pluginBuild.status !== 0) process.exit(pluginBuild.status ?? 1)
+await cp(pluginBuildRoot, plugin, { recursive: true })
 
 await build({
   configFile: false, root: fixture, base: './', plugins: [svelte()],
   build: { target: 'safari15', outDir: path.join(output, 'host'), emptyOutDir: true },
 })
-// Read the production CSP literally, so changing it cannot silently leave the
-// native test on a weaker policy. No private WebKit scheme registration is used.
-const protocol = await readFile(path.join(repo, 'src-tauri/src/plugin_runtime/protocol.rs'), 'utf8')
-const cspMatch = protocol.match(/pub fn csp_header\([^]*?\{\s*"([^]*?)"\s*\.to_string\(\)/)
-if (!cspMatch) throw new Error('Could not extract production plugin CSP')
-const csp = cspMatch[1].replace(/\\\n\s*/g, '')
-await writeFile(path.join(output, 'plugin-csp.txt'), csp)
+// Export HTML, the same-origin bridge, and CSP from the real Rust handler.
+// Do not initialize window.notemd through privileged WKUserScript injection.
+const fixtureExport = spawnSync('cargo', ['test', '--lib', 'plugin_runtime::protocol::tests::export_webkit_protocol_fixture', '--', '--exact'], {
+  cwd: path.join(repo, 'src-tauri'), stdio: 'inherit',
+  env: { ...process.env, NOTEMD_WEBKIT_PROTOCOL_FIXTURE: plugin, NOTEMD_WEBKIT_PLUGIN_ROOT: pluginBuildRoot },
+})
+if (fixtureExport.status !== 0) process.exit(fixtureExport.status ?? 1)
+await copyFile(path.join(plugin, 'plugin-csp.txt'), path.join(output, 'plugin-csp.txt'))
+const csp = await readFile(path.join(output, 'plugin-csp.txt'), 'utf8')
 const html = await readFile(path.join(plugin, 'index.html'), 'utf8')
 const jsPath = html.match(/src="\.\/(assets\/[^\"]+\.js)"/)?.[1]
 if (!jsPath) throw new Error('Build Timeline before running native WebKit QA')
 const identity = {
   pluginJS: jsPath,
   pluginSHA256: createHash('sha256').update(await readFile(path.join(plugin, jsPath))).digest('hex'),
+  bridgeSHA256: createHash('sha256').update(await readFile(path.join(plugin, '__notemd_bridge__.js'))).digest('hex'),
   csp,
 }
 await writeFile(path.join(output, 'identity.json'), JSON.stringify(identity, null, 2))

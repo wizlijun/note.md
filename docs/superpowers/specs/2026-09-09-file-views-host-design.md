@@ -13,6 +13,7 @@
   "file_views": [{
     "id": "timeline",
     "entry": "index.html",
+    "open_command": "view-timeline",
     "priority": 100,
     "selectors": [{
       "file_extensions": ["md", "markdown", "mdown", "mkd"],
@@ -48,11 +49,15 @@ selector 可含 `file_extensions`、`file_name_patterns`、`path_patterns`、`fr
 
 双向消息限定 parent/iframe source 和已知 origin，宿主还验证当前 requestId。只读通道不接受任何 `change`。加载或更新时隐藏旧内容，8 秒没有当前快照 ready 即回退；错误、解析拒绝和用户“编辑”可立即回退。进入编辑后不因每次输入重新切换，用户明确返回视图或外部重载才重试。沙箱允许脚本、同源与表单事件，原生插件 CSP `form-action 'none'` 继续禁止表单导航；设置仅使用受权限限制的 `host.settings` RPC。
 
+可选的 `open_command` 把插件菜单命令绑定到指定文件视图，由宿主直接处理，不启动插件进程。当前文件符合该视图规则时切到 rich 模式并显式重试；没有活动文件时打开文件选择器；当前文件不匹配时提示选择受支持文件。同一插件的文件视图与窗口不得复用同一个打开命令。
+
+iframe 所需的 `window.notemd` 桥通过 `plugin://<id>/__notemd_bridge__.js` 同源保留地址同步加载，继续满足 `script-src 'self'`，不允许任意内联脚本。HTML 响应、桥脚本和完整 CSP 必须作为同一生产路径验收。
+
 ## 兼容与发布
 
 已发布 `custom_editors.file_extensions` 及其 `custom_editor.*` 可写编辑器协议保持不变。上一轮仅 Git 推送、从未公开发布的 `markdown_types` 和 Markdown 专用视图通道整体替换为正式 `file_views`，不保留两套规则。
 
-宿主发布 `6.909.1`，Timeline 首次上架 `1.0.0`，要求 `>=6.909.1`，归现有“回顾”类别。先发布并回读宿主签名、公证、更新资产，再上传签名插件包、验证后追加市场索引；历史条目不改写。不自动安装用户本机插件。
+宿主首次发布 `6.909.1`，Timeline 首次上架 `1.0.0`。载入桥与菜单入口修复发布为宿主 `6.909.2`、Timeline `1.0.1`，插件要求 `>=6.909.2`，归现有“回顾”类别。先发布并回读宿主签名、公证、更新资产，再上传签名插件包、验证后追加市场索引；历史条目不改写。不自动安装用户本机插件。
 
 ## 验收
 

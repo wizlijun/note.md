@@ -176,6 +176,37 @@ describe('EditorPane file view routing', () => {
     expect(document.querySelector('iframe')).toBeTruthy()
   })
 
+  it('lets a menu explicitly select and retry its view over the automatic priority winner', async () => {
+    const store = await setup({}, [
+      { id: 'automatic', entry: 'automatic.html', priority: 999, selectors: [{ file_extensions: ['md'] }] },
+      { id: 'timeline', entry: 'index.html', open_command: 'open-timeline', selectors: [{ file_extensions: ['md'], frontmatter: { type: ['timeline'] } }] },
+    ])
+    expect(document.querySelector('iframe')?.getAttribute('src')).toBe('plugin://notemd.timeline/automatic.html')
+
+    window.dispatchEvent(new CustomEvent('notemd:open-file-view', { detail: {
+      tabId: 'timeline-tab', pluginId: 'notemd.timeline', viewId: 'timeline', entry: 'index.html',
+    } }))
+    await tick()
+    expect(document.querySelector('iframe')?.getAttribute('src')).toBe('plugin://notemd.timeline/index.html')
+
+    const frame = document.querySelector('iframe')!
+    window.dispatchEvent(new MessageEvent('message', {
+      origin: 'plugin://notemd.timeline', source: frame.contentWindow,
+      data: { type: 'file_view.fallback', requestId: 1 },
+    }))
+    await tick()
+    expect(document.querySelector('iframe')).toBeNull()
+
+    // App switches source mode back to rich before dispatching the menu event.
+    store.update((tab) => ({ ...tab, mode: 'source' })); await tick()
+    store.update((tab) => ({ ...tab, mode: 'rich' }))
+    window.dispatchEvent(new CustomEvent('notemd:open-file-view', { detail: {
+      tabId: 'timeline-tab', pluginId: 'notemd.timeline', viewId: 'timeline', entry: 'index.html',
+    } }))
+    await tick()
+    expect(document.querySelector('iframe')?.getAttribute('src')).toBe('plugin://notemd.timeline/index.html')
+  })
+
   it.each(['# ordinary Markdown', '---\ntype: [Timeline]\n---', '---\ntype: Timeline\ntype: Other\n---'])('leaves unmatched or invalid metadata in Markdown', async (currentContent) => {
     await setup({ currentContent })
     expect(document.querySelector('iframe')).toBeNull()

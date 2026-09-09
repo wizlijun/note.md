@@ -3,7 +3,8 @@
 // Native settings/navigation boundaries use an in-memory fixture, never a Vault.
 // PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs node scripts/check-timeline-browser.mjs
 import assert from 'node:assert/strict'
-import { mkdtemp, mkdir, writeFile } from 'node:fs/promises'
+import { cp, mkdtemp, mkdir, readFile, writeFile } from 'node:fs/promises'
+import { spawnSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -13,6 +14,18 @@ import { svelte } from '@sveltejs/vite-plugin-svelte'
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const output = process.env.TIMELINE_REVIEW_OUTPUT ?? await mkdtemp(join(tmpdir(), 'notemd-timeline-browser-'))
 await mkdir(output, { recursive: true })
+const productionRoot = join(output, 'plugin')
+const buildRoot = join(root, 'plugins-src/timeline/dist')
+function runFixtureCommand(command, args, cwd, extraEnv = {}) {
+  const result = spawnSync(command, args, { cwd, env: { ...process.env, ...extraEnv }, encoding: 'utf8' })
+  if (result.status !== 0) throw new Error(`${command} failed:\n${result.stdout}\n${result.stderr}`)
+}
+runFixtureCommand('pnpm', ['--filter', 'timeline', 'build'], root)
+await cp(buildRoot, productionRoot, { recursive: true })
+runFixtureCommand('cargo', ['test', '--lib', 'plugin_runtime::protocol::tests::export_webkit_protocol_fixture', '--', '--exact'], join(root, 'src-tauri'), {
+  NOTEMD_WEBKIT_PROTOCOL_FIXTURE: productionRoot, NOTEMD_WEBKIT_PLUGIN_ROOT: buildRoot,
+})
+const productionCsp = await readFile(join(productionRoot, 'plugin-csp.txt'), 'utf8')
 const { chromium } = process.env.PLAYWRIGHT_MODULE
   ? await import(pathToFileURL(resolve(process.env.PLAYWRIGHT_MODULE)).href) : await import('playwright')
 const state = { classification: undefined, failSave: false, failLoad: false, noPlugin: false, opened: [], saves: 0 }
@@ -36,11 +49,14 @@ function fixtureServer(kind) {
         return null
       },
       configureServer(vite) {
-        vite.middlewares.use('/timeline-rpc', async (req, res) => {
+        vite.middlewares.use('/__rpc__', async (req, res) => {
+          let id = null
           try {
             let body = ''
             for await (const chunk of req) body += chunk
-            const { method, params } = JSON.parse(body)
+            const request = JSON.parse(body)
+            const { method, params } = request
+            id = request.id
             let value
             if (method === 'host.settings.get') {
               if (state.failLoad) throw new Error('Synthetic settings read failure')
@@ -54,11 +70,24 @@ function fixtureServer(kind) {
             } else if (method === 'host.vault.info') value = { root: '/fixture-vault' }
             else if (method === 'host.editor.open') { state.opened.push(params.path); value = { ok: true } }
             else throw new Error(`Unimplemented fixture RPC: ${method}`)
-            res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ value }))
+            res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ jsonrpc: '2.0', id, result: value }))
           } catch (error) {
-            res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ error: String(error) }))
+            res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ jsonrpc: '2.0', id, error: { code: -32000, message: String(error) } }))
           }
         })
+        if (kind === 'plugin') {
+          vite.middlewares.use('/__notemd_bridge__.js', async (_req, res) => {
+            res.setHeader('Content-Type', 'text/javascript'); res.setHeader('Cache-Control', 'no-cache')
+            res.end(await readFile(join(productionRoot, '__notemd_bridge__.js')))
+          })
+          vite.middlewares.use('/assets', async (req, res, next) => {
+            const asset = (req.url ?? '').split('?')[0]
+            if (!/^\/[\w.-]+\.(?:js|css)$/.test(asset)) { next(); return }
+            res.setHeader('Content-Type', asset.endsWith('.css') ? 'text/css' : 'text/javascript')
+            res.setHeader('Cache-Control', 'no-cache')
+            res.end(await readFile(join(productionRoot, 'assets', asset.slice(1))))
+          })
+        }
         vite.middlewares.use('/timeline-rogue', (req, res) => {
           const url = new URL(req.url, 'http://fixture')
           res.setHeader('Content-Type', 'text/html')
@@ -67,13 +96,13 @@ function fixtureServer(kind) {
         vite.middlewares.use(kind === 'host' ? '/timeline-host' : '/timeline-plugin.html', async (req, res, next) => {
           if (req.url?.includes('html-proxy')) { next(); return }
           res.setHeader('Content-Type', 'text/html; charset=utf-8')
-          if (kind === 'plugin') res.setHeader('Content-Security-Policy', "form-action 'none'")
+          if (kind === 'plugin') res.setHeader('Content-Security-Policy', productionCsp)
           if (kind === 'plugin' && state.noPlugin) { res.end('<!doctype html><title>Unresponsive plugin fixture</title>'); return }
-          const module = kind === 'host' ? '/scripts/fixtures/timeline-browser.svelte' : '/plugins-src/timeline/src/App.svelte'
+          if (kind === 'plugin') { res.end(await readFile(join(productionRoot, 'index.html'))); return }
+          const module = '/scripts/fixtures/timeline-browser.svelte'
           res.end(await vite.transformIndexHtml(`/timeline-${kind}`, `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><div id="${kind === 'host' ? 'fixture' : 'app'}"></div><script type="module">
             import { mount } from 'svelte';
             import App from ${JSON.stringify(module)};
-            ${kind === 'plugin' ? `window.notemd = { locale:'zh-CN', theme:matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light', async request(method,params) { const response=await fetch('/timeline-rpc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({method,params})});const result=await response.json();if(result.error)throw new Error(result.error);return result.value; } };` : ''}
             mount(App,{target:document.getElementById(${JSON.stringify(kind === 'host' ? 'fixture' : 'app')})});
           </script></body></html>`))
         })
@@ -111,6 +140,7 @@ try {
   await check('cross-origin handshake renders all five categories and seven activity blocks', async () => {
     await waitReady()
     assert.equal(await plugin().locator('.event').count(), 7)
+    assert.deepEqual(await plugin().locator('body').evaluate(() => ({ bridge: Object.isFrozen(window.notemd), id: window.notemd?.pluginId, external: !!document.querySelector('script[src="/__notemd_bridge__.js"]') })), { bridge: true, id: 'notemd.timeline', external: true })
     const categories = await plugin().locator('.event').evaluateAll((nodes) => [...new Set(nodes.map((node) => node.dataset.category))].sort())
     assert.deepEqual(categories, ['interest', 'leisure', 'life', 'other', 'work'])
     assert.equal(await page.evaluate(() => window.__timelineBrowser.content === window.__timelineBrowser.initial), true)
@@ -266,7 +296,7 @@ try {
 
   assert.deepEqual(errors, [], 'no uncaught browser errors')
   await context.close()
-  const report = { browser: browser.version(), output, nativeBoundary: 'In-memory fixture RPC; real cross-origin host and plugin Svelte components', results }
+  const report = { browser: browser.version(), output, nativeBoundary: 'In-memory JSON-RPC; production Timeline bundle and real Rust-generated external bridge, HTML and complete CSP', results }
   await writeFile(join(output, 'report.json'), JSON.stringify(report, null, 2))
   console.log(JSON.stringify(report, null, 2))
 } catch (error) {

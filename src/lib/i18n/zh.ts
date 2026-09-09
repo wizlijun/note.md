@@ -10,6 +10,7 @@ export const zh: Record<keyof Messages, string> = {
   'fileView.retry': '返回文件视图',
   'fileView.loading': '正在载入文件视图…',
   'fileView.useDefault': '使用默认编辑器',
+  'fileView.openMatchingFile': '当前文件不能使用“{name}”查看，请先打开符合该视图规则的文件。',
 
   // Generic / shared
   'common.cancel': '取消',

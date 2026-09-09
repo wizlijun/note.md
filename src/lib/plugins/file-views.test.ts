@@ -140,6 +140,12 @@ describe('fileViewFor matching', () => {
   it('keeps legacy extension editors outside the read-only route', () => {
     expect(fileViewFor(doc(), [{ ...manifest([]), custom_editors: [{ id: 'base', entry: 'index.html', file_extensions: ['md'] }] }])).toBeNull()
   })
+
+  it('allows a host-handled open command without changing automatic file selection', () => {
+    const withCommand = manifest([view({ open_command: 'open-timeline' })])
+    expect(fileViewFor(doc(), [withCommand])).toEqual(expected)
+    expect(fileViewFor(doc({ content: '# ordinary Markdown' }), [withCommand])).toBeNull()
+  })
 })
 
 describe('fileViewFor invalid rules and work limits', () => {
@@ -185,6 +191,15 @@ describe('fileViewFor invalid rules and work limits', () => {
   it('rejects ambiguous duplicate view IDs within a plugin', () => {
     expect(fileViewFor(doc(), [manifest([view(), view()])])).toBeNull()
     expect(fileViewFor(doc(), [manifest([view(), view()]), manifest([view()], 'valid.plugin')])?.pluginId).toBe('valid.plugin')
+  })
+
+  it('rejects commands shared by views or a view and a window in the same plugin', () => {
+    const declared = view({ open_command: 'open-timeline' })
+    expect(fileViewFor(doc(), [manifest([declared, view({ id: 'other', open_command: 'open-timeline' })])])).toBeNull()
+    const conflict = { ...manifest([declared]), open_windows: { 'open-timeline': 'settings' } }
+    expect(fileViewFor(doc(), [conflict])).toBeNull()
+    expect(fileViewFor(doc(), [{ ...manifest([declared]), open_windows: { 'open-settings': 'settings' } }])).toEqual(expected)
+    expect(fileViewFor(doc(), [manifest([declared]), manifest([declared], 'another.plugin')])?.pluginId).toBe('another.plugin')
   })
 
   it('counts Unicode code points consistently with manifest validation', () => {

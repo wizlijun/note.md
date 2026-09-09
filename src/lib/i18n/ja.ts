@@ -10,6 +10,7 @@ export const ja: Record<keyof Messages, string> = {
   'fileView.retry': 'ファイルビューに戻る',
   'fileView.loading': 'ファイルビューを読み込み中…',
   'fileView.useDefault': '標準エディターを使用',
+  'fileView.openMatchingFile': '現在のファイルは「{name}」で表示できません。このビューの規則に一致するファイルを開いてください。',
 
   // Generic / shared
   'common.cancel': 'キャンセル',

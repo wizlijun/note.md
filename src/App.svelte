@@ -12,7 +12,7 @@
   import EditorPane from './components/EditorPane.svelte'
   import EmptyState from './components/EmptyState.svelte'
   import ModeToggle from './components/ModeToggle.svelte'
-  import { activeTab, tabs, closeTab, openFile, newFile, isDirty, activate } from './lib/tabs.svelte'
+  import { activeTab, tabs, closeTab, openFile, newFile, isDirty, activate, setMode } from './lib/tabs.svelte'
   import { openPath } from './lib/open-path'
   import { createNewBase } from './lib/base/create'
   import { basename } from './lib/paths'
@@ -41,6 +41,8 @@
   import { initActivePluginIds } from './lib/plugins/registry'
   import { getPluginScopedAll, pluginScopedVersion } from './lib/settings.svelte'
   import { pushToast } from './lib/toast.svelte'
+  import { dispatchFileViewCommand } from './lib/plugins/file-view-commands'
+  import { pluginMenuLabel, pluginName } from './lib/plugins/plugin-i18n'
   import type { PluginManifest, EnabledWhenContext, ToastLevel } from './lib/plugins/types'
   import { uiState, openSettings } from './lib/ui-state.svelte'
   import MobileToolbar from './components/MobileToolbar.svelte'
@@ -433,9 +435,6 @@
         try { pluginRuntime.manifests = await invoke<PluginManifest[]>('get_plugin_manifests') }
         catch (e) { console.warn('[App] get_plugin_manifests:', e) }
       }
-      const manifestById: Record<string, PluginManifest> = Object.fromEntries(
-        pluginRuntime.manifests.map((m) => [m.id, m]))
-
       // First-launch nudge: offer to install the `notemd` shell command.
       // Fire-and-forget so a slow dialog doesn't block the rest of startup.
       void (async () => {
@@ -499,9 +498,40 @@
           }
           return
         }
-        const m = manifestById[pluginId]
+        // Resolve from the live registry: installing or updating a plugin
+        // rebuilds the native menu without recreating this dispatcher.
+        const m = pluginRuntime.manifests.find((manifest) => manifest.id === pluginId)
         if (!m) { console.warn('[App] unknown plugin', pluginId); return }
         const menu = m.menus?.find((me) => me.command === command)
+
+        // File-view menu commands are implemented by the host. A display-only
+        // plugin has no process to execute; the command selects its declared
+        // view for the current file, or opens the ordinary file picker when no
+        // document is active.
+        try {
+          const handled = await dispatchFileViewCommand(m, command, {
+            activeTab,
+            pickOpenFile: async () => {
+              const { pickOpenFile } = await import('./lib/dialogs')
+              return pickOpenFile()
+            },
+            openFile,
+            flush: (tabId) => window.dispatchEvent(new CustomEvent('notemd:flush-doc', { detail: { tabId } })),
+            setRichMode: (tabId) => setMode(tabId, 'rich'),
+            openView: (detail) => window.dispatchEvent(new CustomEvent('notemd:open-file-view', { detail })),
+            unsupported: () => pushToast({
+              level: 'info',
+              message: t('fileView.openMatchingFile', {
+                name: menu ? pluginMenuLabel(m, command, menu.label) : pluginName(m),
+              }),
+            }),
+          })
+          if (handled) return
+        } catch (e) {
+          showError(String(e))
+          return
+        }
+
         const tab = activeTab()
         const snap = {
           path: tab?.filePath ?? null,

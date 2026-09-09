@@ -195,6 +195,13 @@
         "id": {
           "type": "string"
         },
+        "open_command": {
+          "description": "Host-handled menu command that opens this view for the active file. ASCII [a-z0-9][a-z0-9._-]*, at most 128 characters; no process activation.",
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[a-z0-9][a-z0-9._-]*$"
+        },
         "priority": {
           "default": 0,
           "type": "integer",

@@ -22,26 +22,34 @@
   import { convertFileSrc } from '@tauri-apps/api/core'
   import { migrateTempResources, getTempDir } from '../lib/paste-resources'
   import { t } from '../lib/i18n/store.svelte'
+  import type { OpenFileViewDetail } from '../lib/plugins/file-view-commands'
 
   let { tab }: { tab: Tab } = $props()
   let memoryReadOnly = $derived(isManagedMemoryTab(tab))
   let fallbackChoice = $state<{ view: FileViewRef; reason: 'edit' | 'unsupported' | 'unavailable' } | null>(null)
+  let explicitChoice = $state<FileViewRef | null>(null)
+  let viewAttempt = $state(0)
+  function viewAvailable(selected: FileViewRef): boolean {
+    return pluginRuntime.manifests.some((manifest) => manifest.id === selected.pluginId
+      && manifest.file_views?.some((view) => view.id === selected.viewId && view.entry === selected.entry))
+  }
   // Keep the user's default-editor choice while edits change matching metadata.
   // A removed/disabled view stays unavailable even when another rule matches.
   let fileView = $derived.by(() => {
     if (memoryReadOnly || tab.mode === 'source') return null
-    if (!fallbackChoice) return fileViewFor({ path: tab.filePath, kind: tab.kind, content: tab.currentContent }, pluginRuntime.manifests)
-    const selected = fallbackChoice.view
-    const available = pluginRuntime.manifests.some((manifest) => manifest.id === selected.pluginId
-      && manifest.file_views?.some((view) => view.id === selected.viewId && view.entry === selected.entry))
-    return available ? selected : null
+    if (fallbackChoice) return viewAvailable(fallbackChoice.view) ? fallbackChoice.view : null
+    if (explicitChoice) return viewAvailable(explicitChoice) ? explicitChoice : null
+    return fileViewFor({ path: tab.filePath, kind: tab.kind, content: tab.currentContent }, pluginRuntime.manifests)
   })
   let previousMode = untrack(() => tab.mode)
   let previousTabId = untrack(() => tab.id)
   $effect(() => {
     const mode = tab.mode, id = tab.id
     untrack(() => {
-      if (mode !== previousMode || id !== previousTabId) fallbackChoice = null
+      if (mode !== previousMode || id !== previousTabId) {
+        fallbackChoice = null
+        explicitChoice = null
+      }
       previousMode = mode
       previousTabId = id
     })
@@ -107,6 +115,7 @@
         | undefined
       if (!detail || detail.tabId !== tab.id) return
       fallbackChoice = null
+      explicitChoice = null
       const ta = document.querySelector<HTMLTextAreaElement>(
         `textarea.src-textarea[data-tab-id="${tab.id}"]`,
       )
@@ -127,6 +136,23 @@
     }
     window.addEventListener('notemd:auto-reloaded', handler)
     return () => window.removeEventListener('notemd:auto-reloaded', handler)
+  })
+
+  $effect(() => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<OpenFileViewDetail>).detail
+      if (!detail || detail.tabId !== tab.id) return
+      const selected = { pluginId: detail.pluginId, viewId: detail.viewId, entry: detail.entry }
+      if (!viewAvailable(selected)) return
+      // setMode() runs before this event. Recording the current mode prevents
+      // the mode-change effect from clearing the explicit menu selection.
+      previousMode = tab.mode
+      fallbackChoice = null
+      explicitChoice = selected
+      viewAttempt++
+    }
+    window.addEventListener('notemd:open-file-view', handler)
+    return () => window.removeEventListener('notemd:open-file-view', handler)
   })
 </script>
 
@@ -199,7 +225,7 @@
       />
     {/key}
   {:else if fileView}
-    {#key `${tab.id}:${fileView.pluginId}:${fileView.viewId}:${fileView.entry}`}
+    {#key `${tab.id}:${fileView.pluginId}:${fileView.viewId}:${fileView.entry}:${viewAttempt}`}
       <FilePluginView
         {tab}
         view={fileView}
