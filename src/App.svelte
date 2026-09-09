@@ -287,16 +287,31 @@
       (e) => { pushToast(e.payload) },
     )
 
-    // Market install/uninstall/enable-toggle (子项目③) reconciles the runtime and
-    // emits `plugins-changed`. Re-fetch manifests so the frontend menu-model +
-    // dispatch data reflect the new installed/enabled set. `collectedItems` is
-    // derived from `pluginRuntime.manifests`, so this reactively updates the app
-    // menu bar, tab context menu, and settings tabs. NOTE: the native macOS menu
-    // is built once at setup — a *newly installed* plugin's menu item may need a
-    // restart to appear; enable/disable of already-present items reflects here.
-    const unlistenPluginsChanged = listen('plugins-changed', async () => {
+    // Marketplace mutations reconcile the backend, native menu, tray, and
+    // shortcuts before `plugins-changed` fires. Refresh frontend contributions,
+    // then reload any mounted iframe owned by the replaced plugin.
+    const unlistenPluginsChanged = listen<{
+      pluginId?: string
+      reloaded?: boolean
+    }>('plugins-changed', async (event) => {
+      const pluginId = event.payload?.pluginId
+      const hadOpenView = !!pluginId && [...document.querySelectorAll<HTMLElement>('[data-plugin-view-id]')]
+        .some((element) => element.dataset.pluginViewId === pluginId)
       try {
         pluginRuntime.manifests = await invoke<PluginManifest[]>('get_plugin_manifests')
+        if (pluginId && event.payload?.reloaded) {
+          window.dispatchEvent(new CustomEvent('notemd:plugin-reloaded', {
+            detail: { pluginId },
+          }))
+          if (hadOpenView) {
+            const manifest = pluginRuntime.manifests.find((item) => item.id === pluginId)
+            const name = manifest ? pluginName(manifest) : pluginId
+            pushToast({
+              level: 'info',
+              message: t('pluginMarket.openViewReloaded', { name }),
+            })
+          }
+        }
       } catch (e) { console.warn('[App] plugins-changed refresh:', e) }
     })
 

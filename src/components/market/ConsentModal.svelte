@@ -12,7 +12,12 @@
   import { listen } from '@tauri-apps/api/event'
   import { i18n, t } from '../../lib/i18n/store.svelte'
   import { localizedPluginDescription, localizedPluginName } from '../../lib/market/plugin-text'
-  import { capabilityLabel, isSensitiveCapability, type PluginMarketI18n } from '../../lib/market/types'
+  import {
+    capabilityLabel,
+    isSensitiveCapability,
+    type PluginInstallResult,
+    type PluginMarketI18n,
+  } from '../../lib/market/types'
 
   interface Props {
     id: string
@@ -21,7 +26,7 @@
     description?: string | null
     i18n?: PluginMarketI18n | null
     /** Resolves after a successful install so the parent can re-fetch lists. */
-    onInstalled: () => void
+    onInstalled: (result: PluginInstallResult) => void
     onClose: () => void
   }
   let { id, version, name, description, i18n: registryI18n, onInstalled, onClose }: Props = $props()
@@ -115,8 +120,8 @@
     installing = true
     error = null
     try {
-      await invoke('plugin_market_install', { id, version })
-      onInstalled()
+      const result = await invoke<PluginInstallResult>('plugin_market_install', { id, version })
+      onInstalled(result)
     } catch (e) {
       error = String(e)
       installing = false

@@ -13,7 +13,8 @@
     onFallback?: (reason: FallbackReason) => void
   } = $props()
   let pluginOrigin = $derived(`plugin://${view.pluginId}`)
-  let src = $derived(`${pluginOrigin}/${view.entry}`)
+  let reloadGeneration = $state(0)
+  let src = $derived(`${pluginOrigin}/${view.entry}?notemdReload=${reloadGeneration}`)
   let iframeEl: HTMLIFrameElement | undefined = $state()
   let status = $state<'loading' | 'ready' | 'fallback'>('loading')
   let fallbackReason = $state<FallbackReason>('unsupported')
@@ -93,12 +94,19 @@
     const onReload = (event: Event) => {
       if ((event as CustomEvent<{ tabId: string }>).detail?.tabId === tab.id) retry()
     }
+    const onPluginReload = (event: Event) => {
+      if ((event as CustomEvent<{ pluginId: string }>).detail?.pluginId === view.pluginId) {
+        reloadGeneration += 1
+      }
+    }
     window.addEventListener('message', onMessage)
     window.addEventListener('notemd:auto-reloaded', onReload)
+    window.addEventListener('notemd:plugin-reloaded', onPluginReload)
     return () => {
       clearTimer()
       window.removeEventListener('message', onMessage)
       window.removeEventListener('notemd:auto-reloaded', onReload)
+      window.removeEventListener('notemd:plugin-reloaded', onPluginReload)
     }
   })
 </script>
@@ -118,6 +126,7 @@
     {#key src}
       <iframe
         bind:this={iframeEl}
+        data-plugin-view-id={view.pluginId}
         class:pending={status === 'loading'}
         title={tab.title}
         {src}

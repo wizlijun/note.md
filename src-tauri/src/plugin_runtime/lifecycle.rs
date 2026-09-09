@@ -597,7 +597,7 @@ pub async fn reconcile<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<(
         .clone();
     let replaced = replaced_plugin_ids(&old_map, &new_map);
     let _window_replacement = super::windows::begin_plugin_window_replacement(&replaced)?;
-    super::windows::destroy_replaced_plugin_windows(app, &old_map, &replaced).await?;
+    let _ = super::windows::destroy_replaced_plugin_windows(app, &old_map, &replaced).await?;
     reconcile_with_map(new_map).await;
     Ok(())
 }
@@ -609,10 +609,11 @@ pub async fn reconcile<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<(
 /// post-install scan begins.
 pub(crate) async fn reconcile_pre_fenced<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
+    force_replace: &[String],
 ) -> Result<(), String> {
     let host_version = app.package_info().version.to_string();
     let new_map = super::discovery::scan(app, &host_version)?;
-    reconcile_with_map(new_map).await;
+    reconcile_with_map_forced(new_map, force_replace).await;
     Ok(())
 }
 
@@ -621,6 +622,16 @@ pub(crate) async fn reconcile_pre_fenced<R: tauri::Runtime>(
 /// RUNNING lifecycle that no longer exactly describes it, then swap
 /// `STATE.plugins` to the new map.
 pub(crate) async fn reconcile_with_map(new_map: BTreeMap<String, (proto::ManifestV2, PathBuf)>) {
+    reconcile_with_map_forced(new_map, &[]).await;
+}
+
+/// Reconcile while retiring selected ids even when their manifest and install
+/// path compare equal. Marketplace installs use this for same-version
+/// reinstalls, where the package contents changed in place.
+async fn reconcile_with_map_forced(
+    new_map: BTreeMap<String, (proto::ManifestV2, PathBuf)>,
+    force_replace: &[String],
+) {
     // Which live lifecycles vanished from or no longer describe the install
     // tree? Collect them under a read lock, then release it before async teardown.
     let stale: Vec<(String, Arc<PluginLifecycle>)> = {
@@ -628,9 +639,10 @@ pub(crate) async fn reconcile_with_map(new_map: BTreeMap<String, (proto::Manifes
         running
             .iter()
             .filter(|(id, lc)| {
-                new_map.get(*id).is_none_or(|(manifest, install_dir)| {
-                    !lc.matches_install(manifest, install_dir)
-                })
+                force_replace.contains(*id)
+                    || new_map.get(*id).is_none_or(|(manifest, install_dir)| {
+                        !lc.matches_install(manifest, install_dir)
+                    })
             })
             .map(|(id, lc)| (id.clone(), lc.clone()))
             .collect()
@@ -662,9 +674,10 @@ pub(crate) async fn reconcile_with_map(new_map: BTreeMap<String, (proto::Manifes
         let stale_now: Vec<(String, Arc<PluginLifecycle>)> = running
             .iter()
             .filter(|(id, lc)| {
-                new_map.get(*id).is_none_or(|(manifest, install_dir)| {
-                    !lc.matches_install(manifest, install_dir)
-                })
+                force_replace.contains(*id)
+                    || new_map.get(*id).is_none_or(|(manifest, install_dir)| {
+                        !lc.matches_install(manifest, install_dir)
+                    })
             })
             .map(|(id, lc)| (id.clone(), lc.clone()))
             .collect();
@@ -1072,6 +1085,40 @@ mod tests {
             RUNNING.write().unwrap().remove(id);
             STATE.write().unwrap().plugins.remove(id);
         }
+    }
+
+    #[tokio::test]
+    async fn forced_reconcile_retires_an_exact_same_version_reinstall() {
+        let _registry_guard = REGISTRY_TEST_LOCK
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let id = "test.reconcile-forced-reinstall";
+        let manifest = reconcile_manifest_version(id, "1.0.0");
+        let install_dir = PathBuf::from("/tmp/runtime-same-version").join(id);
+        let old = Arc::new(PluginLifecycle::new(
+            manifest.clone(),
+            install_dir.clone(),
+            reconcile_ctx(),
+        ));
+        RUNNING.write().unwrap().insert(id.to_string(), old.clone());
+        STATE
+            .write()
+            .unwrap()
+            .plugins
+            .insert(id.to_string(), (manifest.clone(), install_dir.clone()));
+
+        let mut unchanged_map = BTreeMap::new();
+        unchanged_map.insert(id.to_string(), (manifest, install_dir));
+        reconcile_with_map_forced(unchanged_map, &[id.to_string()]).await;
+
+        assert!(
+            old.is_retired(),
+            "same-version package contents were replaced"
+        );
+        assert!(!RUNNING.read().unwrap().contains_key(id));
+        assert!(STATE.read().unwrap().plugins.contains_key(id));
+
+        STATE.write().unwrap().plugins.remove(id);
     }
 
     // ── 子项目②b ui_request phase guards ──────────────────────────────────

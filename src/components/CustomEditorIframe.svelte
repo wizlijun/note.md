@@ -8,8 +8,9 @@
 
   // The plugin origin this iframe loads under. All doc-channel traffic is
   // authenticated against it (targetOrigin on send; event.origin on receive).
-  const pluginOrigin = `plugin://${tab.editorPluginId}`
-  const src = `plugin://${tab.editorPluginId}/${tab.editorEntry}`
+  let pluginOrigin = $derived(`plugin://${tab.editorPluginId}`)
+  let reloadGeneration = $state(0)
+  let src = $derived(`plugin://${tab.editorPluginId}/${tab.editorEntry}?notemdReload=${reloadGeneration}`)
 
   let iframeEl: HTMLIFrameElement | undefined = $state()
 
@@ -42,16 +43,29 @@
     window.addEventListener('message', onMessage)
     return () => window.removeEventListener('message', onMessage)
   })
+
+  $effect(() => {
+    const onPluginReload = (event: Event) => {
+      if ((event as CustomEvent<{ pluginId: string }>).detail?.pluginId === tab.editorPluginId) {
+        reloadGeneration += 1
+      }
+    }
+    window.addEventListener('notemd:plugin-reloaded', onPluginReload)
+    return () => window.removeEventListener('notemd:plugin-reloaded', onPluginReload)
+  })
 </script>
 
-<iframe
-  bind:this={iframeEl}
-  class="custom-editor-frame"
-  title={tab.title}
-  {src}
-  sandbox="allow-scripts allow-same-origin"
-  onload={onLoad}
-></iframe>
+{#key src}
+  <iframe
+    bind:this={iframeEl}
+    class="custom-editor-frame"
+    data-plugin-view-id={tab.editorPluginId}
+    title={tab.title}
+    {src}
+    sandbox="allow-scripts allow-same-origin"
+    onload={onLoad}
+  ></iframe>
+{/key}
 
 <style>
   .custom-editor-frame {
