@@ -48,6 +48,7 @@
     type QueueItem,
   } from './lib/queue'
   import type { TopicCounts, TopicDefinition } from './lib/topics'
+  import type { BookAssetsPush, BookAssetsState } from './lib/book-assets'
   import {
     cloneClassificationProposal,
     updateClassificationAssignment,
@@ -77,6 +78,7 @@
     event: 'started' | 'done' | 'failed'
     started_at?: string
     summary_rel?: string
+    index_warning?: string | null
     error?: string
   }
   type TopicProposal = {
@@ -99,7 +101,7 @@
     proposal?: TopicClassificationProposal
     error?: string
   }
-  type HostPush = JobPush | DragPush | AiPush | TopicAgentPush | TopicClassificationPush | { type: string }
+  type HostPush = JobPush | DragPush | AiPush | TopicAgentPush | TopicClassificationPush | BookAssetsPush | { type: string }
 
   const message = (e: unknown) => (e instanceof Error ? e.message : String(e))
 
@@ -124,6 +126,7 @@
   let dragActive = $state(false)
   let expanded: Record<number, boolean> = $state({})
   let globalError = $state('')
+  let indexWarning = $state('')
   let topics: TopicDefinition[] = $state([])
   let topicCatalogExtra: Record<string, unknown> = {}
   let topicRevision = 'absent'
@@ -287,7 +290,16 @@
       library = result.list
       pendingLibraryAi = result.pending
       // A finished read wrote a summary file the last listing can't know about.
-      if (a.event === 'done') void loadLibrary()
+      if (a.event === 'done') {
+        indexWarning = a.index_warning ?? ''
+        void loadLibrary()
+      }
+    } else if (m.type === 'book_assets') {
+      const event = m as BookAssetsPush
+      const state = bookAssets[event.book]
+      if (state?.status !== 'running') return
+      if (state.jobId == null) pendingBookAssets.push(event)
+      else finishBookAssets(event)
     } else if (m.type === 'topic_agent') {
       const event = m as TopicAgentPush
       if (event.event === 'done' && event.proposal) {
@@ -474,7 +486,42 @@
 
   // ── the library: every book in the vault, not just this session's ────────
   let library: LibraryBook[] = $state([])
+  let pendingTopicAssignments = $state<Record<string, string>>({})
+  let bookAssets = $state<Record<string, BookAssetsState>>({})
+  let pendingBookAssets: BookAssetsPush[] = []
   let pendingLibraryAi: PendingLibraryAiEvent[] = []
+
+  function finishBookAssets(event: BookAssetsPush) {
+    const state = bookAssets[event.book]
+    if (state?.status !== 'running' || state.jobId !== event.job_id) return
+    bookAssets = { ...bookAssets, [event.book]: {
+      status: event.status,
+      jobId: event.job_id,
+      matched: event.matched,
+      cover: event.cover,
+      error: event.error,
+      indexWarning: event.index_warning,
+      assetWarning: event.asset_warning,
+    } }
+    if (event.status === 'done') void Promise.all([loadLibrary(), loadTopics()])
+  }
+
+  async function completeBookAssets(book: LibraryBook) {
+    if (bookAssets[book.rel]?.status === 'running') return
+    bookAssets = { ...bookAssets, [book.rel]: { status: 'running' } }
+    try {
+      const response = await bridge().request('plugin.book_assets_start', { book: book.rel })
+      if (typeof response?.job_id !== 'number') throw new Error(t('assets.failed'))
+      bookAssets = { ...bookAssets, [book.rel]: { status: 'running', jobId: response.job_id } }
+      for (const event of pendingBookAssets.filter((event) => event.book === book.rel)) {
+        finishBookAssets(event)
+      }
+    } catch (error) {
+      bookAssets = { ...bookAssets, [book.rel]: { status: 'failed', error: message(error) } }
+    } finally {
+      pendingBookAssets = pendingBookAssets.filter((event) => event.book !== book.rel)
+    }
+  }
 
   async function loadLibrary() {
     try {
@@ -533,11 +580,17 @@
   }
 
   async function assignLibraryTopic(book: LibraryBook, topicId: string) {
+    if (pendingTopicAssignments[book.rel] || topicId === book.topic_id) return
+    pendingTopicAssignments = { ...pendingTopicAssignments, [book.rel]: topicId }
+    globalError = ''
     try {
       await bridge().request('plugin.topic_assign', { book: book.rel, topic_id: topicId })
       await Promise.all([loadTopics(), loadLibrary()])
     } catch (e) {
       globalError = message(e)
+    } finally {
+      const { [book.rel]: _pending, ...remaining } = pendingTopicAssignments
+      pendingTopicAssignments = remaining
     }
   }
 
@@ -724,7 +777,7 @@
   function stageLabel(item: QueueItem): string {
     if (!item.stage) return ''
     const key = `stage.${item.stage}` as MessageKey
-    const known = ['stage.convert', 'stage.extract', 'stage.markdown', 'stage.ocr', 'stage.finalize']
+    const known = ['stage.convert', 'stage.extract', 'stage.markdown', 'stage.ocr', 'stage.book_assets', 'stage.finalize']
     return known.includes(key) ? t(key) : ''
   }
 
@@ -752,6 +805,9 @@
       {desc.text}
       {#if desc.detail}<span class="detail">{desc.detail}</span>{/if}
     </p>
+  {/if}
+  {#if indexWarning}
+    <p class="index-warning" role="status">{t('ai.indexWarning')} <span class="detail">{indexWarning}</span></p>
   {/if}
 
   {#if settingsOpen}
@@ -1006,6 +1062,8 @@
 
   <LibraryPanel
     books={library}
+    {pendingTopicAssignments}
+    {bookAssets}
     {topics}
     {agents}
     agentId={agentId ?? null}
@@ -1019,6 +1077,7 @@
     onpickagent={pickAgent}
     onrefresh={loadLibrary}
     onassigntopic={assignLibraryTopic}
+    oncompleteassets={completeBookAssets}
   />
 
   <TopicManager
@@ -1358,6 +1417,13 @@
     font-size: 12px;
     color: var(--ui-danger);
     overflow-wrap: anywhere;
+  }
+  .index-warning {
+    padding: 8px 10px;
+    border-radius: 6px;
+    color: inherit;
+    overflow-wrap: anywhere;
+    background: color-mix(in srgb, #d99000 16%, transparent);
   }
   p.error.banner {
     margin: 0;

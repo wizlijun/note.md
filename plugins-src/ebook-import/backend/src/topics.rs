@@ -383,7 +383,10 @@ pub fn scan_books(ebooks_root: &Path) -> Result<Vec<ScannedBook>, String> {
     };
     let mut months: Vec<_> = months
         .flatten()
-        .filter(|entry| entry.file_type().is_ok_and(|kind| kind.is_dir()))
+        .filter(|entry| {
+            !entry.file_name().to_string_lossy().starts_with('.')
+                && entry.file_type().is_ok_and(|kind| kind.is_dir())
+        })
         .collect();
     months.sort_by_key(|e| e.file_name());
     for month in months {
@@ -393,7 +396,10 @@ pub fn scan_books(ebooks_root: &Path) -> Result<Vec<ScannedBook>, String> {
         };
         let mut entries: Vec<_> = entries
             .flatten()
-            .filter(|entry| entry.file_type().is_ok_and(|kind| kind.is_dir()))
+            .filter(|entry| {
+                !entry.file_name().to_string_lossy().starts_with('.')
+                    && entry.file_type().is_ok_and(|kind| kind.is_dir())
+            })
             .collect();
         entries.sort_by_key(|e| e.file_name());
         for entry in entries {
@@ -407,7 +413,7 @@ pub fn scan_books(ebooks_root: &Path) -> Result<Vec<ScannedBook>, String> {
             }
             let dir_name = entry.file_name().to_string_lossy().to_string();
             let frontmatter = read_book_frontmatter(&book_path);
-            let (title, creator, publisher, language) = frontmatter
+            let (mut title, mut creator, mut publisher, mut language) = frontmatter
                 .map(|frontmatter| {
                     (
                         frontmatter.title,
@@ -416,8 +422,57 @@ pub fn scan_books(ebooks_root: &Path) -> Result<Vec<ScannedBook>, String> {
                         frontmatter.language,
                     )
                 })
-                .unwrap_or_else(|| (dir_name.clone(), None, None, None));
+                .unwrap_or_else(|| (String::new(), None, None, None));
+            if let Some(source) = crate::bookconf::read_config_metadata(&dir.join("config.txt")) {
+                if title.trim().is_empty() {
+                    title = source.title
+                        .map(|value| trim_utf8(&value, 512))
+                        .unwrap_or_default();
+                }
+                fill_missing(&mut creator, source.creator, 256);
+                fill_missing(&mut publisher, source.publisher, 256);
+                fill_missing(&mut language, source.language, 64);
+            }
             let meta = read_yaml_mapping(&meta_path)?;
+            if let Some(cached) = meta.get(Value::String("book_metadata".into())) {
+                if title.trim().is_empty() {
+                    if let Some(value) = cached
+                        .get("title")
+                        .and_then(Value::as_str)
+                        .filter(|value| !value.trim().is_empty())
+                    {
+                        title = value.to_string();
+                    }
+                }
+                if creator
+                    .as_deref()
+                    .is_none_or(|value| value.trim().is_empty())
+                {
+                    creator = cached
+                        .get("authors")
+                        .and_then(Value::as_sequence)
+                        .map(|authors| {
+                            authors
+                                .iter()
+                                .filter_map(Value::as_str)
+                                .collect::<Vec<_>>()
+                                .join("; ")
+                        })
+                        .filter(|value| !value.is_empty());
+                }
+                if publisher
+                    .as_deref()
+                    .is_none_or(|value| value.trim().is_empty())
+                {
+                    publisher = cached
+                        .get("publisher")
+                        .and_then(Value::as_str)
+                        .map(str::to_string);
+                }
+            }
+            if title.trim().is_empty() {
+                title = dir_name.clone();
+            }
             let added_at = optional_string(&meta, "added_at", &meta_path)?;
             let topic_id = optional_string(&meta, "topic_id", &meta_path)?;
             books.push(ScannedBook {
@@ -433,6 +488,14 @@ pub fn scan_books(ebooks_root: &Path) -> Result<Vec<ScannedBook>, String> {
     }
     books.sort_by(compare_books);
     Ok(books)
+}
+
+fn fill_missing(field: &mut Option<String>, fallback: Option<String>, limit: usize) {
+    if field.as_deref().is_none_or(|value| value.trim().is_empty()) {
+        *field = fallback
+            .filter(|value| !value.trim().is_empty())
+            .map(|value| trim_utf8(&value, limit));
+    }
 }
 
 fn optional_string(mapping: &Mapping, key: &str, path: &Path) -> Result<Option<String>, String> {
@@ -480,7 +543,8 @@ fn read_book_frontmatter(path: &Path) -> Option<BookFrontmatter> {
     let map = value.as_mapping()?;
     let title = map
         .get(Value::String("title".to_string()))
-        .and_then(Value::as_str)?
+        .and_then(Value::as_str)
+        .unwrap_or_default()
         .to_string();
     let creator = map
         .get(Value::String("creator".to_string()))
@@ -649,72 +713,29 @@ fn compare_books(a: &ScannedBook, b: &ScannedBook) -> Ordering {
         .then_with(|| a.rel.cmp(&b.rel))
 }
 
-pub fn render_index(topic: &Topic, books: &[ScannedBook]) -> String {
-    let mut books: Vec<_> = books
-        .iter()
-        .filter(|book| book.topic_id.as_deref() == Some(topic.id.as_str()))
-        .collect();
-    books.sort_by(|a, b| compare_books(a, b));
-
-    let mut out = String::new();
-    out.push_str("---\n");
-    out.push_str("type: Book Topic Index\n");
-    out.push_str(&format!("title: {}\n", yaml_quote(&topic.label)));
-    out.push_str(&format!(
-        "description: {}\n",
-        yaml_quote(&topic.description)
-    ));
-    out.push_str(&format!("tags: [ebooks, topic, {}]\n", topic.id));
-    out.push_str("---\n");
-    out.push_str(GENERATED_MARKER);
-    out.push_str("\n\n# ");
-    out.push_str(&topic.label);
-    out.push_str("\n\n");
-    out.push_str(&topic.description);
-    out.push_str("\n\n## 相关词汇\n\n");
-    for item in &topic.vocabulary {
-        out.push_str("- **");
-        out.push_str(&escape_markdown(&item.term));
-        out.push_str("** — ");
-        out.push_str(&item.description);
-        out.push('\n');
-    }
-    out.push_str("\n## 书籍\n");
-    for book in books {
-        out.push_str("\n- [");
-        out.push_str(&escape_markdown(&book.title));
-        out.push_str("](<");
-        out.push_str(&book.rel);
-        out.push_str("/book.md>)");
-        if book.creator.is_some() || book.added_at.is_some() {
-            out.push_str(" — ");
-            let mut details = Vec::new();
-            if let Some(creator) = &book.creator {
-                details.push(creator.clone());
-            }
-            if let Some(added_at) = &book.added_at {
-                details.push(added_at.get(..10).unwrap_or(added_at).to_string());
-            }
-            out.push_str(&details.join(" · "));
-        }
-        out.push('\n');
-    }
-    out
-}
-
-fn yaml_quote(value: &str) -> String {
-    serde_json::to_string(value).expect("serializing a string cannot fail")
-}
-
-fn escape_markdown(value: &str) -> String {
-    value
-        .replace('\\', "\\\\")
-        .replace('[', "\\[")
-        .replace(']', "\\]")
-}
+mod index;
+pub use index::render_index;
 
 pub fn is_generated_index(text: &str) -> bool {
-    text.lines().take(16).any(|line| line == GENERATED_MARKER)
+    if text.lines().take(16).any(|line| line == GENERATED_MARKER) {
+        return true;
+    }
+    let text = text.trim_start_matches('\u{feff}').replace("\r\n", "\n");
+    let Some(body) = text.strip_prefix("---\n") else {
+        return false;
+    };
+    let Some(end) = body.find("\n---\n") else {
+        return false;
+    };
+    serde_yaml::from_str::<Value>(&body[..end])
+        .ok()
+        .and_then(|value| {
+            value
+                .get("notemd_generated")
+                .and_then(Value::as_str)
+                .map(str::to_owned)
+        })
+        .is_some_and(|marker| marker == "ebook-topic-index/v2")
 }
 
 /// Validate every desired destination before a canonical mutation. This is
@@ -780,10 +801,15 @@ pub fn rebuild_indexes(
 
     std::fs::create_dir_all(ebooks_root)
         .map_err(|e| format!("create {}: {e}", ebooks_root.display()))?;
+    let rendered = catalog
+        .topics
+        .iter()
+        .map(|topic| render_index(ebooks_root, topic, &books))
+        .collect::<Result<Vec<_>, _>>()?;
     let mut index_paths = Vec::new();
-    for topic in &catalog.topics {
+    for (topic, content) in catalog.topics.iter().zip(rendered) {
         let path = ebooks_root.join(&topic.index_file);
-        atomic_write(&path, render_index(topic, &books).as_bytes())?;
+        atomic_write(&path, content.as_bytes())?;
         index_paths.push(PathBuf::from(&topic.index_file));
     }
 
@@ -1156,6 +1182,81 @@ mod tests {
     }
 
     #[test]
+    fn scan_recovers_legacy_config_metadata_and_keeps_frontmatter_authoritative() {
+        for (body, expected_title, expected_author, expected_publisher) in [
+            ("# Old import without frontmatter", "Source Title", "Source Author", "Source Press"),
+            ("---\ntitle: Folder\ncreator: FM Author\npublisher: FM Press\n---\n", "Folder", "FM Author", "FM Press"),
+            ("---\ncreator: FM Author\npublisher: FM Press\n---\n", "Source Title", "FM Author", "FM Press"),
+            ("---\ntitle: ' '\ncreator: ''\npublisher: ' '\n---\n", "Source Title", "Source Author", "Source Press"),
+        ] {
+            let tmp = tempfile::tempdir().unwrap();
+            let dir = tmp.path().join("2026-09/Folder");
+            std::fs::create_dir_all(&dir).unwrap();
+            let config = "# Book Metadata\noriginal_title=Source Title\ncreator=Source Author\npublisher=Source Press\nsource_language=en\nunknown=ignored\n";
+            let cache = "added_at: 2026-09-01\nbook_metadata:\n  title: Cached Title\n  authors: [Cached Author]\n  publisher: Cached Press\n";
+            std::fs::write(dir.join("book.md"), body).unwrap();
+            std::fs::write(dir.join("config.txt"), config).unwrap();
+            std::fs::write(dir.join("meta.yml"), cache).unwrap();
+            let books = scan_books(tmp.path()).unwrap();
+            assert_eq!(books.len(), 1);
+            assert_eq!(books[0].title, expected_title);
+            assert_eq!(books[0].creator.as_deref(), Some(expected_author));
+            assert_eq!(books[0].publisher.as_deref(), Some(expected_publisher));
+            assert_eq!(books[0].language.as_deref(), Some("en"));
+            assert_eq!(std::fs::read_to_string(dir.join("book.md")).unwrap(), body);
+            assert_eq!(std::fs::read_to_string(dir.join("config.txt")).unwrap(), config);
+            assert_eq!(std::fs::read_to_string(dir.join("meta.yml")).unwrap(), cache);
+        }
+    }
+
+    #[test]
+    fn scan_falls_back_to_cached_metadata_and_delimits_multiple_authors_unambiguously() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("2026-09/Folder");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("book.md"), "Legacy body").unwrap();
+        std::fs::write(dir.join("config.txt"), "# Book Metadata\noriginal_title=\ncreator=\nunknown=not metadata\n").unwrap();
+        std::fs::write(dir.join("meta.yml"), "book_metadata:\n  title: Cached Title\n  authors: [Daniel Kahneman, Olivier Sibony, Cass R. Sunstein]\n  publisher: Cached Press\n").unwrap();
+        let books = scan_books(tmp.path()).unwrap();
+        assert_eq!(books[0].title, "Cached Title");
+        assert_eq!(books[0].creator.as_deref(), Some("Daniel Kahneman; Olivier Sibony; Cass R. Sunstein"));
+        assert_eq!(books[0].publisher.as_deref(), Some("Cached Press"));
+        std::fs::write(dir.join("meta.yml"), "added_at: 2026-09-01\n").unwrap();
+        assert_eq!(scan_books(tmp.path()).unwrap()[0].title, "Folder");
+    }
+
+    #[test]
+    fn scan_ignores_hidden_book_and_month_directories() {
+        let tmp = tempfile::tempdir().unwrap();
+        for rel in [".hidden/Book", "2026-09/.Book", "2026-09/Visible"] {
+            let dir = tmp.path().join(rel);
+            std::fs::create_dir_all(&dir).unwrap();
+            std::fs::write(dir.join("book.md"), "Legacy body").unwrap();
+            std::fs::write(dir.join("meta.yml"), "added_at: 2026-09-01\n").unwrap();
+            std::fs::write(dir.join("config.txt"), "# Book Metadata\ncreator=Source Author\n").unwrap();
+        }
+        let books = scan_books(tmp.path()).unwrap();
+        assert_eq!(books.len(), 1);
+        assert_eq!(books[0].rel, "2026-09/Visible");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn scan_does_not_follow_a_symlinked_source_config() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("2026-09/Visible");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("book.md"), "Legacy body").unwrap();
+        std::fs::write(dir.join("meta.yml"), "added_at: 2026-09-01\n").unwrap();
+        let outside = tmp.path().join("outside.txt");
+        std::fs::write(&outside, "# Book Metadata\noriginal_title=Secret\ncreator=Outside\n").unwrap();
+        std::os::unix::fs::symlink(&outside, dir.join("config.txt")).unwrap();
+        let books = scan_books(tmp.path()).unwrap();
+        assert_eq!(books[0].title, "Visible");
+        assert_eq!(books[0].creator, None);
+    }
+
+    #[test]
     fn index_is_deterministic_and_sorts_newest_then_title_then_path() {
         let tmp = tempfile::tempdir().unwrap();
         let root = tmp.path();
@@ -1178,15 +1279,19 @@ mod tests {
             Some("topic-0"),
         );
         let books = scan_books(root).unwrap();
-        let rendered = render_index(&one_topic().topics[0], &books);
-        assert_eq!(rendered, render_index(&one_topic().topics[0], &books));
+        let rendered = render_index(root, &one_topic().topics[0], &books).unwrap();
+        assert_eq!(
+            rendered,
+            render_index(root, &one_topic().topics[0], &books).unwrap()
+        );
         assert!(rendered.starts_with("---\ntype: Book Topic Index\n"));
-        assert!(rendered.contains(GENERATED_MARKER));
-        assert!(rendered.contains("- **词0甲** — 词甲描述"));
+        assert!(is_generated_index(&rendered));
+        assert!(rendered.contains("**词0甲**：词甲描述"));
         let newest = rendered.find("A \\[Newest\\]").unwrap();
-        let older = rendered.find("[Older]").unwrap();
+        let older = rendered.find("**Older**").unwrap();
         assert!(newest < older);
-        assert!(rendered.contains("](<2026-07/Newest/book.md>) — Author B · 2026-08-02"));
+        assert!(rendered.contains("Author B · 入库日期 2026\\-08\\-02"));
+        assert!(!rendered.contains("/book.md>)"));
     }
 
     #[test]

@@ -16,9 +16,12 @@
   import { filterBooks, latestSummary, type LibraryBook } from '../lib/library'
   import { t } from '../lib/strings'
   import type { TopicDefinition } from '../lib/topics'
+  import type { BookAssetsState } from '../lib/book-assets'
 
   const {
     books,
+    pendingTopicAssignments = {},
+    bookAssets = {},
     topics,
     agents,
     agentId,
@@ -29,8 +32,11 @@
     onpickagent,
     onrefresh,
     onassigntopic,
+    oncompleteassets,
   }: {
     books: LibraryBook[]
+    pendingTopicAssignments?: Record<string, string>
+    bookAssets?: Record<string, BookAssetsState>
     topics: TopicDefinition[]
     agents: AgentOption[]
     agentId: string | null
@@ -41,6 +47,7 @@
     onpickagent: (id: string) => void
     onrefresh: () => void
     onassigntopic: (book: LibraryBook, topicId: string) => void
+    oncompleteassets: (book: LibraryBook) => void
   } = $props()
 
   let query = $state('')
@@ -88,7 +95,10 @@
             <span class="month">{b.month}</span>
             <select
               class:unclassified={!b.topic_id}
-              value={b.topic_id ?? ''}
+              value={pendingTopicAssignments[b.rel] ?? b.topic_id ?? ''}
+              disabled={!!pendingTopicAssignments[b.rel]}
+              aria-busy={!!pendingTopicAssignments[b.rel]}
+              title={pendingTopicAssignments[b.rel] ? t('topic.manager.saving') : undefined}
               aria-label={t('topic.chooseForBook', { name: b.name })}
               onchange={(event) => onassigntopic(b, event.currentTarget.value)}
             >
@@ -97,6 +107,12 @@
                 <option value={topic.id}>{topic.label}</option>
               {/each}
             </select>
+            <button
+              class="link"
+              disabled={bookAssets[b.rel]?.status === 'running'}
+              aria-busy={bookAssets[b.rel]?.status === 'running'}
+              onclick={() => oncompleteassets(b)}
+            >{t(bookAssets[b.rel]?.status === 'running' ? 'assets.running' : 'assets.complete')}</button>
 
             {#if b.aiStatus === 'queued'}
               <span class="stage">{t('ai.queued')}</span>
@@ -127,6 +143,19 @@
               {/if}
             {/if}
           </div>
+          {#if bookAssets[b.rel]?.status === 'done'}
+            <p class="assets-result" role="status">{t(bookAssets[b.rel].matched
+              ? (bookAssets[b.rel].cover ? 'assets.done' : 'assets.metadataOnly')
+              : 'assets.noMatch')}</p>
+            {#if bookAssets[b.rel].indexWarning}
+              <p class="assets-result" role="status">{t('assets.indexWarning')} {bookAssets[b.rel].indexWarning}</p>
+            {/if}
+            {#if bookAssets[b.rel].assetWarning}
+              <p class="assets-result" role="status">{t('assets.coverWarning')} {bookAssets[b.rel].assetWarning}</p>
+            {/if}
+          {:else if bookAssets[b.rel]?.status === 'failed'}
+            <p class="error" role="alert">{t('assets.failed')} <span class="detail">{bookAssets[b.rel].error}</span></p>
+          {/if}
           {#if b.aiStatus === 'failed' && b.aiError}
             <p class="error">{t('ai.failed')} <span class="detail">{b.aiError}</span></p>
           {/if}
@@ -137,6 +166,12 @@
 </section>
 
 <style>
+  .assets-result {
+    margin: 3px 0 0;
+    font-size: 12px;
+    color: var(--ui-secondary);
+    overflow-wrap: anywhere;
+  }
   /* Takes whatever height the queue above doesn't, and scrolls its rows
      independently so the search box and count stay put. */
   .library {

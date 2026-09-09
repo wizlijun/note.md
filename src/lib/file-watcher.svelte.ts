@@ -5,10 +5,9 @@ import { sha256Hex } from './hash'
 import { decide, type ExternalEvent } from './external-state'
 import * as self from './file-watcher.svelte'
 import { isIOS } from './platform.svelte'
-
-/** `.note.md` / `.notes.md` —— 与 outline gate 同一套后缀判定。刻意不 import
- *  gate 模块:它在模块加载期就读平台信息,会把这个纯逻辑文件拖进 DOM 依赖。 */
-const OUTLINE_SUFFIX_RE = /\.notes?\.md$/i
+import { fileViewPresentation } from './plugins/file-view-presentation.svelte'
+import { isBuiltinOutlineFileView } from './plugins/builtin-file-views'
+import { pluginRuntime } from './plugins/runtime.svelte'
 
 /**
  * Visit every open tab, compare its known state to disk, and apply the
@@ -58,12 +57,15 @@ async function checkTab(tab: Tab): Promise<void> {
     const hash = await sha256Hex(content)
     event = { type: 'modified', snapshot: { mtime: stat.mtime, hash, content } }
   }
-  // 大纲笔记 tab 由 OutlineEditor 渲染,树可随时从文本重建 → 干净时可静默重载。
-  // iOS 上没有大纲编辑器,.note.md 就是普通 rich tab,必须仍走横幅。
-  const isOutlineNote = tab.kind === 'markdown'
-    && OUTLINE_SUFFIX_RE.test(tab.filePath)
-    && !(await isIOS().catch(() => false))
-  const decision = decide({ ...tab, isOutlineNote }, event)
+  // Use the same active surface as EditorPane, including explicit Rich choices
+  // and parse-failure fallbacks. A matching filename alone does not mean the
+  // tab is currently showing a safely replaceable file-view snapshot.
+  const activeView = tab.mode === 'rich'
+    ? fileViewPresentation(tab, pluginRuntime.manifests).active
+    : null
+  const isOutlineNote = isBuiltinOutlineFileView(activeView)
+  const isReadOnlyFileView = !!activeView && !isOutlineNote
+  const decision = decide({ ...tab, isOutlineNote, isReadOnlyFileView }, event)
   applyDecision(tab, decision)
 }
 

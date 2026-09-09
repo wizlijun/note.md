@@ -60,6 +60,16 @@ export type MessageKey =
   | 'ai.queued'
   | 'ai.running'
   | 'ai.failed'
+  | 'ai.indexWarning'
+  | 'assets.complete'
+  | 'assets.running'
+  | 'assets.done'
+  | 'assets.metadataOnly'
+  | 'assets.noMatch'
+  | 'assets.failed'
+  | 'assets.indexWarning'
+  | 'assets.coverWarning'
+  | 'stage.book_assets'
   | 'log.toggle'
   | 'stage.convert'
   | 'stage.extract'
@@ -222,6 +232,16 @@ const en: Catalog = {
   'ai.queued': 'Waiting for AI…',
   'ai.running': 'AI reading… {elapsed}',
   'ai.failed': 'AI reading failed',
+  'ai.indexWarning': 'Summary created, but the book index could not be updated.',
+  'assets.complete': 'Find details & cover',
+  'assets.running': 'Finding details & cover…',
+  'assets.done': 'Book details and cover updated.',
+  'assets.metadataOnly': 'Book details updated; the cover is currently unavailable.',
+  'assets.noMatch': 'No matching book found. Existing files were kept.',
+  'assets.failed': 'Could not update book details and cover.',
+  'assets.indexWarning': 'The book index could not be refreshed:',
+  'assets.coverWarning': 'Book details updated, but the cover could not be downloaded:',
+  'stage.book_assets': 'Finding book details and cover',
   'log.toggle': 'Log',
   'stage.convert': 'Converting',
   'stage.extract': 'Extracting',
@@ -380,6 +400,16 @@ const zh: Catalog = {
   'ai.queued': '排队等待 AI 阅读…',
   'ai.running': 'AI 阅读中… {elapsed}',
   'ai.failed': 'AI 阅读失败',
+  'ai.indexWarning': '摘要已生成，但书籍索引更新失败。',
+  'assets.complete': '补全书目与封面',
+  'assets.running': '正在查找书目与封面…',
+  'assets.done': '书目信息与封面已更新。',
+  'assets.metadataOnly': '书目信息已更新，封面暂不可用。',
+  'assets.noMatch': '未找到匹配书籍，已保留现有文件。',
+  'assets.failed': '补全书目与封面失败。',
+  'assets.indexWarning': '书籍索引刷新失败：',
+  'assets.coverWarning': '书目信息已更新，但封面下载失败：',
+  'stage.book_assets': '查找书目与封面中',
   'log.toggle': '日志',
   'stage.convert': '转换中',
   'stage.extract': '解包中',
@@ -540,6 +570,16 @@ const ja: Catalog = {
   'ai.queued': 'AI リーディング待機中…',
   'ai.running': 'AI リーディング中… {elapsed}',
   'ai.failed': 'AI リーディングに失敗しました',
+  'ai.indexWarning': '要約は生成されましたが、書籍索引を更新できませんでした。',
+  'assets.complete': '書誌と表紙を補完',
+  'assets.running': '書誌と表紙を検索中…',
+  'assets.done': '書誌情報と表紙を更新しました。',
+  'assets.metadataOnly': '書誌情報を更新しました。表紙は現在利用できません。',
+  'assets.noMatch': '一致する書籍が見つかりませんでした。既存のファイルは保持されています。',
+  'assets.failed': '書誌情報と表紙を更新できませんでした。',
+  'assets.indexWarning': '書籍索引を更新できませんでした：',
+  'assets.coverWarning': '書誌情報を更新しましたが、表紙をダウンロードできませんでした：',
+  'stage.book_assets': '書誌と表紙を検索中',
   'log.toggle': 'ログ',
   'stage.convert': '変換中',
   'stage.extract': '展開中',
@@ -700,6 +740,16 @@ const de: Catalog = {
   'ai.queued': 'Wartet auf KI…',
   'ai.running': 'KI liest… {elapsed}',
   'ai.failed': 'KI-Lektüre fehlgeschlagen',
+  'ai.indexWarning': 'Zusammenfassung erstellt, aber der Buchindex konnte nicht aktualisiert werden.',
+  'assets.complete': 'Buchdaten & Cover ergänzen',
+  'assets.running': 'Buchdaten & Cover werden gesucht…',
+  'assets.done': 'Buchdaten und Cover aktualisiert.',
+  'assets.metadataOnly': 'Buchdaten aktualisiert; das Cover ist derzeit nicht verfügbar.',
+  'assets.noMatch': 'Kein passendes Buch gefunden. Vorhandene Dateien bleiben erhalten.',
+  'assets.failed': 'Buchdaten und Cover konnten nicht aktualisiert werden.',
+  'assets.indexWarning': 'Der Buchindex konnte nicht erneuert werden:',
+  'assets.coverWarning': 'Buchdaten aktualisiert, aber das Cover konnte nicht heruntergeladen werden:',
+  'stage.book_assets': 'Buchdaten und Cover werden gesucht',
   'log.toggle': 'Protokoll',
   'stage.convert': 'Wird konvertiert',
   'stage.extract': 'Wird entpackt',

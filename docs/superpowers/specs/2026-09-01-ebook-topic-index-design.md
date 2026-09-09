@@ -144,39 +144,46 @@ proposal 额外要求：
 
 ## 5. `<关键词>.index.md` 投影
 
-索引由 `topics.yml + 所有 meta.yml + book.md frontmatter` 确定性生成。例如：
+索引由 `topics.yml + 所有 meta.yml + book.md frontmatter + 同目录可读 Markdown 与封面` 确定性生成，遵守文件索引 V1。例如：
 
 ```markdown
 ---
 type: Book Topic Index
-title: "商业战略"
-description: "研究企业如何建立、维持和更新竞争优势。"
+title: 商业战略
+description: 研究企业如何建立、维持和更新竞争优势。
 tags: [ebooks, topic, business-strategy]
+view: gallery
+notemd_generated: ebook-topic-index/v2
 ---
-<!-- notemd:generated ebook-topic-index/v1; edit topics.yml or book meta.yml -->
 
 # 商业战略
 
 研究企业如何建立、维持和更新竞争优势。
 
-## 相关词汇
+**竞争优势**：企业相对竞争者持续创造超额价值的能力。
 
-- **竞争优势** — 企业相对竞争者持续创造超额价值的能力。
-- **护城河** — 阻止竞争者复制价值获取方式的结构性屏障。
+## 可读摘要与笔记
 
-## 书籍
+- [Seven Powers](<./2026-08/Seven%20Powers/2026-08-27-summary.md>) [作者:: Hamilton Helmer] [入库日期:: 2026-08-27] [封面:: ![封面](<./2026-08/Seven%20Powers/cover.jpg>)] 阅读：[全书摘要](<./2026-08/Seven%20Powers/2026-08-27-summary.md>)。
 
-- [Seven Powers](<2026-08/Seven Powers/book.md>) — Hamilton Helmer · 2026-08-27
+## 待整理
+
+**尚未整理的书**。本目录暂无摘要或整理笔记。
 ```
 
 投影规则：
 
-- 新增 `Book Topic Index` 到项目 OKF 类型表，并在 search origin 映射为 `derived`。
-- 主题顺序与 `topics.yml` 一致；词汇顺序与 YAML 一致。
-- 书籍按 `added_at` 新到旧排序；同时间按标题、相对路径稳定排序。
-- 链接相对于 ebooks 根，含空格的路径用 `<...>` 包裹。
-- 不写生成时钟，避免无内容变化时产生 Git diff。
-- 文件开头必须有生成标记。插件只覆盖或清理带同版本生成标记的文件；遇到同名手写文件即停止并报冲突。
+- 使用 `Book Topic Index`，默认 `view: gallery`；正文分类使用标题，一本可读书只占一行列表，作者、入库日期和封面使用 `[字段:: 值]`。
+- 词汇说明使用段落，不使用无主链接的列表、HTML 标记或 Markdown 表格。
+- 书籍按 `added_at` 新到旧排序；同时间按标题、相对路径稳定排序。不写生成时钟，避免无内容变化时产生 Git diff。
+- 主入口优先最新 `YYYY-MM-DD-summary.md`，再 `summary.md`，再同目录其他 Markdown；说明包含全部可读入口。排除原始 `book.md` 及其大纲、隐藏文件、索引文件、符号链接；同名 `.md` 存在时省略 `.note.md` 伴随文件。
+- 没有可读笔记的书保留在“待整理”段落，不虚构摘要，也不以原文回退。
+- 封面按 `cover.jpg`、`cover.png`、`cover.jpeg` 顺序选取本地常规文件。索引重建本身不联网、不引用 symlink，无封面时省略。导入及显式补全操作优先通过 Open Library 获取确定匹配结果；缺书目、缺封面或服务失败时按原题名及完整作者使用 Apple Books 补查，写入本地 `cover.jpg/png` 与 `meta.yml.book_metadata`；已有封面和元数据值保留。
+- 链接相对于 ebooks 根，路径编码以保留空格、中文、方括号、百分号等真实文件名。正文元数据转义为普通文本，不把书名/作者中的标签、双链或属性标记当成语法。
+- 新生成标记位于 YAML `notemd_generated: ebook-topic-index/v2`。仍识别旧版 v1 HTML 标记，首次重建迁移为新格式；同名手写文件保持冲突保护。仅带受支持标记的过期索引可被清理。
+- 导入、分类保存/改名/删除、单书或批量改类成功返回前完成重建；摘要生成完成后立即重建。摘要已生成但索引失败时保留摘要，并显式提示警告。
+- 宿主当前活动文件查看器在内容未修改时随外部重建自动刷新；Source/Rich 编辑的未保存内容仍受保护，显式 Rich 编辑和解析回退不冒充只读查看器。
+
 - 索引是投影。用户手改索引会在下次重建时丢失，因此 UI 的“编辑”入口打开  
   `topics.yml` 或主题管理页，不把 index 当编辑入口。
 

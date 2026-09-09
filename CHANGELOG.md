@@ -9,6 +9,8 @@ For the full commit history, see the git log.
 
 ### Added
 
+- **Book indexes now default to cover galleries.** Ebook Import generates heading-based, single-line indexes that open the latest summary or other reading notes, list additional reading links, and use local `cover.jpg/png` images. Books without notes remain listed as pending. Category changes and completed summaries rebuild indexes immediately; clean active file viewers refresh automatically. Imports retrieve metadata and covers from Open Library with an Apple Books fallback; existing books offer explicit enrichment, with ISBN or exact title/author matching and preservation of existing covers.
+
 - **Browse file indexes in four layouts.** The Index Viewer plugin opens `*.index.md` as a searchable table, grouped list, swimlane board or cover gallery. Markdown headings define category hierarchies; each file occupies one list line with inline fields, tags and a description. List indentation can vary without changing category membership, and the default view follows the headings; bundled templates and an Agent skill help create indexes from real files. Tags and WikiLinks open the same knowledge pages through the host, including creating a missing page on click; both appear in backlinks to their index entries. Relative file links remain supported. Requires note.md 6.910.1 or newer. Unsupported content falls back to Markdown editing.
 
 ### Fixed

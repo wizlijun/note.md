@@ -35,7 +35,10 @@ vi.mock('@tauri-apps/plugin-fs', () => ({
   watchImmediate: vi.fn(async () => () => {}),
 }))
 
-vi.mock('./platform.svelte', () => ({ isIOS: vi.fn(async () => false) }))
+vi.mock('./platform.svelte', () => ({
+  isIOS: vi.fn(async () => false),
+  platform: vi.fn(async () => 'macos'),
+}))
 
 beforeEach(async () => {
   await new Promise<void>((resolve) => setTimeout(resolve, 0))
@@ -44,6 +47,76 @@ beforeEach(async () => {
 })
 
 describe('verifyAllOpen', () => {
+  it.each([true, false])('reloads clean outline content only while the outline view is active (%s)', async (outlineActive) => {
+    const fs = await import('./fs')
+    vi.mocked(fs.readMd).mockResolvedValueOnce('- Before').mockResolvedValueOnce('- After')
+    vi.mocked(fs.statFile)
+      .mockResolvedValueOnce({ mtime: 1000, size: 8 })
+      .mockResolvedValueOnce({ mtime: 2000, size: 7 })
+    const tabs = await import('./tabs.svelte')
+    const { outlineGate } = await import('./outline/gate.svelte')
+    const { selectRichFileView } = await import('./plugins/file-view-presentation.svelte')
+    const watcher = await import('./file-watcher.svelte')
+    outlineGate.enabled = true
+    await tabs.openFile('/tmp/reading.note.md')
+    const tab = tabs.tabs[0]
+    tabs.setMode(tab.id, 'rich')
+    if (!outlineActive) selectRichFileView(tab)
+    await watcher.verifyAllOpen()
+    expect(tab.currentContent).toBe(outlineActive ? '- After' : '- Before')
+    expect(tab.externalState).toBe(outlineActive ? 'fresh' : 'changed')
+  })
+
+  it.each(['active', 'dirty', 'rich', 'fallback', 'unavailable'] as const)(
+    'uses the actual plugin file view when processing an external update (%s)',
+    async (surface) => {
+      const before = '---\ntype: collection\n---\n# Before'
+      const after = '---\ntype: collection\n---\n# After'
+      const fs = await import('./fs')
+      vi.mocked(fs.readMd).mockResolvedValueOnce(before).mockResolvedValueOnce(after)
+      vi.mocked(fs.statFile)
+        .mockResolvedValueOnce({ mtime: 1000, size: before.length })
+        .mockResolvedValueOnce({ mtime: 2000, size: after.length })
+      const tabs = await import('./tabs.svelte')
+      const { pluginRuntime } = await import('./plugins/runtime.svelte')
+      const presentation = await import('./plugins/file-view-presentation.svelte')
+      const watcher = await import('./file-watcher.svelte')
+      pluginRuntime.manifests = [{
+        id: 'test.collection', name: 'Collection', version: '1', kind: 'process',
+        binary: 'plugin', host_capabilities: [],
+        file_views: [{
+          id: 'collection', entry: 'index.html',
+          selectors: [{ frontmatter: { type: ['collection'] } }],
+        }],
+      }]
+      // The extension is ordinary .md: automatic reload follows the selected
+      // view declaration, never a hard-coded index/timeline filename rule.
+      await tabs.openFile('/tmp/collection.md')
+      const tab = tabs.tabs[0]
+      tabs.setMode(tab.id, 'rich')
+      const view = presentation.fileViewPresentation(tab, pluginRuntime.manifests).active!
+      expect(view).not.toBeNull()
+      if (surface === 'dirty') tabs.setContent(tab.id, `${before}\nLocal draft`)
+      if (surface === 'rich') presentation.selectRichFileView(tab)
+      if (surface === 'fallback') presentation.fallbackFileView(tab, view, 'unsupported')
+      if (surface === 'unavailable') {
+        presentation.selectFileView(tab, view)
+        pluginRuntime.manifests = []
+      }
+      await watcher.verifyAllOpen()
+      if (surface === 'active') {
+        expect(tab.currentContent).toBe(after)
+        expect(tab.initialContent).toBe(after)
+        expect(tab.externalState).toBe('fresh')
+      } else {
+        expect(tab.currentContent).toBe(surface === 'dirty' ? `${before}\nLocal draft` : before)
+        expect(tab.initialContent).toBe(before)
+        expect(tab.pendingExternal?.content).toBe(after)
+        expect(tab.externalState).toBe('changed')
+      }
+    },
+  )
+
   it('auto-reloads a clean Canvas from one bounded snapshot and adopts its exact revision', async () => {
     canvasOpen
       .mockResolvedValueOnce({

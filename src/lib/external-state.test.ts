@@ -109,3 +109,15 @@ describe('decide — outline note tabs (.note.md)', () => {
     expect(d.kind).toBe('ignore')
   })
 })
+
+describe('decide — read-only plugin file views', () => {
+  it('reloads a clean active file view even when the mode is rich', () => {
+    expect(decide(fresh({ mode: 'rich', isReadOnlyFileView: true }), modifiedEvent(2000, 'h-B', 'B')).kind)
+      .toBe('autoReload')
+  })
+
+  it('preserves unsaved source changes while a file view is active', () => {
+    expect(decide(fresh({ mode: 'rich', isReadOnlyFileView: true, currentContent: 'draft' }), modifiedEvent(2000, 'h-B', 'B')).kind)
+      .toBe('showChanged')
+  })
+})

@@ -15,7 +15,9 @@ use crate::htmlz;
 use crate::ocr::{OcrEngine, OcrProgress};
 use crate::settings::validate_ebooks_root;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+
+static COVER_TEMP_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
 /// Extensions [`run_import`] accepts as input, case-insensitively. OCR
 /// narrows this further to `pdf` only (checked separately).
@@ -197,6 +199,42 @@ pub fn run_import(
         return Err("could not derive a directory name for this book".to_string());
     }
 
+    // Remote lookup is optional and happens outside the topic transaction/lock.
+    (ctx.progress)("book_assets", None);
+    let evidence = format!(
+        "ISBN: {}\n{}",
+        meta.isbn.as_deref().unwrap_or(""),
+        read_asset_evidence(&ctx.work.join("input.md"))?
+    );
+    let assets = match crate::book_assets::fetch_assets(
+        meta.title.as_deref().unwrap_or(stem_fallback),
+        meta.creator.as_deref(),
+        &evidence,
+        ctx.cancelled,
+    ) {
+        Ok(value) => {
+            (ctx.log)(
+                if value.is_some() {
+                    "Book metadata matched through a book catalogue."
+                } else {
+                    "No unambiguous book metadata match; import continues without remote assets."
+                }
+                .into(),
+            );
+            if let Some(assets) = &value {
+                for warning in &assets.warnings {
+                    (ctx.log)(format!("WARNING: {warning}"));
+                }
+            }
+            value
+        }
+        Err(error) => {
+            (ctx.log)(format!("WARNING: book metadata/cover unavailable: {error}"));
+            None
+        }
+    };
+    check_cancelled(ctx.cancelled)?;
+
     // One clock read drives both the month bucket and the durable import time.
     // Reading twice around midnight could otherwise put a book under one month
     // while recording a timestamp from the following day in its metadata.
@@ -233,13 +271,14 @@ pub fn run_import(
                 ));
             }
         }
-        finalize(
+        finalize_with_assets(
             ctx.work,
             &dest,
             &input.to_string_lossy(),
             &meta,
             ctx.topic_id,
             added_at.with_timezone(&chrono::Utc),
+            assets.as_ref(),
         )?;
 
         // Indexes are projections of the committed metadata. Rebuild from the
@@ -292,6 +331,7 @@ pub fn month_dir(d: chrono::NaiveDate) -> String {
 /// see bookconf::book_frontmatter), and `images/` (if the run produced one
 /// -- Calibre HTMLZ extraction and Baidu's remote-image localization both
 /// write to `work/images/`) recursively.
+#[cfg(test)]
 pub fn finalize(
     work: &Path,
     dest: &Path,
@@ -299,6 +339,18 @@ pub fn finalize(
     meta: &bookconf::BookMeta,
     topic_id: &str,
     added_at: chrono::DateTime<chrono::Utc>,
+) -> Result<(), String> {
+    finalize_with_assets(work, dest, input_file, meta, topic_id, added_at, None)
+}
+
+fn finalize_with_assets(
+    work: &Path,
+    dest: &Path,
+    input_file: &str,
+    meta: &bookconf::BookMeta,
+    topic_id: &str,
+    added_at: chrono::DateTime<chrono::Utc>,
+    assets: Option<&crate::book_assets::BookAssets>,
 ) -> Result<(), String> {
     std::fs::create_dir_all(dest).map_err(|e| format!("create {}: {e}", dest.display()))?;
 
@@ -329,11 +381,24 @@ pub fn finalize(
     let meta_tmp = dest.join(".meta.yml.tmp");
     let meta_yml = dest.join("meta.yml");
     let timestamp = added_at.to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
-    std::fs::write(
-        &meta_tmp,
-        format!("added_at: {timestamp}\ntopic_id: {topic_id}\n"),
-    )
-    .map_err(|e| format!("write {}: {e}", meta_tmp.display()))?;
+    let mut metadata = format!("added_at: {timestamp}\ntopic_id: {topic_id}\n");
+    if let Some(assets) = assets {
+        let cover_saved = persist_cover(dest, assets.cover.as_ref())?;
+        let mut downloaded = serde_yaml::to_value(&assets.metadata).map_err(|e| e.to_string())?;
+        if !cover_saved {
+            if let Some(mapping) = downloaded.as_mapping_mut() {
+                mapping.remove("cover_source_url");
+            }
+        }
+        let mut extra = serde_yaml::Mapping::new();
+        extra.insert(
+            serde_yaml::Value::String("book_metadata".into()),
+            downloaded,
+        );
+        metadata.push_str(&serde_yaml::to_string(&extra).map_err(|e| e.to_string())?);
+    }
+    std::fs::write(&meta_tmp, metadata)
+        .map_err(|e| format!("write {}: {e}", meta_tmp.display()))?;
     std::fs::rename(&meta_tmp, &meta_yml).map_err(|e| {
         format!(
             "rename {} -> {}: {e}",
@@ -343,6 +408,132 @@ pub fn finalize(
     })?;
 
     Ok(())
+}
+
+/// Bounded metadata evidence; never send the source document to a service.
+pub(crate) fn read_asset_evidence(path: &Path) -> Result<String, String> {
+    use std::io::Read;
+    if !crate::library::is_regular_file(path) {
+        return Err("Book evidence must be a regular file".into());
+    }
+    let file = std::fs::File::open(path).map_err(|e| e.to_string())?;
+    let mut bytes = Vec::new();
+    file.take(64 * 1024)
+        .read_to_end(&mut bytes)
+        .map_err(|e| e.to_string())?;
+    Ok(String::from_utf8_lossy(&bytes).into_owned())
+}
+
+fn cover_entry_exists(dir: &Path) -> bool {
+    ["cover.jpg", "cover.png", "cover.jpeg"]
+        .iter()
+        .any(|name| std::fs::symlink_metadata(dir.join(name)).is_ok())
+}
+
+fn publish_cover(staged: &Path, dir: &Path, extension: &str) -> Result<bool, String> {
+    if cover_entry_exists(dir) {
+        return Ok(false);
+    }
+    // A hard link atomically publishes a fully synced same-filesystem file and
+    // fails if the destination appeared meanwhile; rename would overwrite it.
+    match std::fs::hard_link(staged, dir.join(format!("cover.{extension}"))) {
+        Ok(()) => Ok(true),
+        Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => Ok(false),
+        Err(error) => Err(format!(
+            "publish cover without replacing existing files: {error}"
+        )),
+    }
+}
+
+fn persist_cover(dir: &Path, cover: Option<&(String, Vec<u8>)>) -> Result<bool, String> {
+    use std::io::Write;
+    let Some((extension, bytes)) = cover else {
+        return Ok(false);
+    };
+    if !matches!(extension.as_str(), "jpg" | "png") {
+        return Err("Unsupported cover format".into());
+    }
+    // Existing user covers win, including when a different extension is used.
+    if cover_entry_exists(dir) {
+        return Ok(false);
+    }
+    let (staged, mut file) = loop {
+        let sequence = COVER_TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+        let staged = dir.join(format!(
+            ".cover.{extension}.{}.{sequence}.tmp",
+            std::process::id()
+        ));
+        match std::fs::OpenOptions::new()
+            .create_new(true)
+            .write(true)
+            .open(&staged)
+        {
+            Ok(file) => break (staged, file),
+            // A previous interrupted process can leave a hidden stage behind.
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(error) => return Err(format!("stage cover: {error}")),
+        }
+    };
+    let result = file
+        .write_all(bytes)
+        .and_then(|_| file.sync_all())
+        .map_err(|error| format!("write staged cover: {error}"))
+        .and_then(|_| publish_cover(&staged, dir, extension));
+    drop(file);
+    let _ = std::fs::remove_file(&staged);
+    result
+}
+
+/// Caller holds the topic lock; preserve classifications and every user key.
+pub(crate) fn store_book_assets(
+    dir: &Path,
+    assets: &crate::book_assets::BookAssets,
+) -> Result<bool, String> {
+    let path = dir.join("meta.yml");
+    if !crate::library::is_regular_file(&path) {
+        return Err("Book metadata must be a regular file".into());
+    }
+    let source = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
+    let mut value: serde_yaml::Value = serde_yaml::from_str(&source).map_err(|e| e.to_string())?;
+    let mapping = value
+        .as_mapping_mut()
+        .ok_or("Book metadata must be a YAML mapping")?;
+    let incoming = serde_yaml::to_value(&assets.metadata).map_err(|e| e.to_string())?;
+    let entry = mapping
+        .entry(serde_yaml::Value::String("book_metadata".into()))
+        .or_insert_with(|| serde_yaml::Value::Mapping(Default::default()));
+    let cached = entry
+        .as_mapping_mut()
+        .ok_or("Existing book_metadata must be a YAML mapping")?;
+    let cover = persist_cover(dir, assets.cover.as_ref())?;
+    for (key, value) in incoming
+        .as_mapping()
+        .ok_or("Downloaded metadata must be a mapping")?
+    {
+        if key.as_str() == Some("cover_source_url") {
+            // Only a newly installed cover may acquire this download's source.
+            // Keeping the user's existing image also keeps its provenance.
+            if cover {
+                cached.insert(key.clone(), value.clone());
+            }
+            continue;
+        }
+        let missing = cached.get(key).is_none_or(|old| {
+            old.is_null()
+                || old.as_str().is_some_and(|v| v.trim().is_empty())
+                || old.as_sequence().is_some_and(Vec::is_empty)
+        });
+        if missing {
+            cached.insert(key.clone(), value.clone());
+        }
+    }
+    crate::topics::atomic_write(
+        &path,
+        serde_yaml::to_string(&value)
+            .map_err(|e| e.to_string())?
+            .as_bytes(),
+    )?;
+    Ok(cover)
 }
 
 /// Recursively copies `src`'s contents into `dst` (creating `dst` and any
@@ -641,6 +832,155 @@ mod tests {
         assert!(err.contains("input.md"), "got: {err}");
         assert!(!dest.join("meta.yml").exists());
         assert!(!dest.join(".meta.yml.tmp").exists());
+    }
+
+    fn sample_assets() -> crate::book_assets::BookAssets {
+        crate::book_assets::BookAssets {
+            metadata: serde_json::from_value(serde_json::json!({"provider":"openlibrary","source_url":"https://openlibrary.org/isbn/9780735214491","fetched_at":"2026-09-10T00:00:00Z","matched_by":"isbn","isbn":["9780735214491"],"title":"Range","authors":["David Epstein"],"cover_source_url":"https://covers.openlibrary.org/b/id/8782615-L.jpg?default=false"})).unwrap(),
+            cover:Some(("jpg".into(),b"downloaded validated image".to_vec())),warnings:vec![],
+        }
+    }
+
+    #[test]
+    fn downloaded_metadata_preserves_classification_user_keys_and_existing_cover() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path();
+        std::fs::write(
+            dir.join("meta.yml"),
+            "added_at: 2026-09-01T00:00:00Z\ntopic_id: my-topic\ncustom: keep\nbook_metadata:\n  title: My title\n  custom_note: keep too\n",
+        )
+        .unwrap();
+        std::fs::write(dir.join("cover.png"), "user cover").unwrap();
+        assert!(!store_book_assets(dir, &sample_assets()).unwrap());
+        let saved: serde_yaml::Value =
+            serde_yaml::from_str(&std::fs::read_to_string(dir.join("meta.yml")).unwrap()).unwrap();
+        assert_eq!(saved["topic_id"].as_str(), Some("my-topic"));
+        assert_eq!(saved["custom"].as_str(), Some("keep"));
+        assert_eq!(saved["book_metadata"]["title"].as_str(), Some("My title"));
+        assert_eq!(
+            saved["book_metadata"]["custom_note"].as_str(),
+            Some("keep too")
+        );
+        assert_eq!(
+            saved["book_metadata"]["provider"].as_str(),
+            Some("openlibrary")
+        );
+        assert_eq!(
+            std::fs::read_to_string(dir.join("cover.png")).unwrap(),
+            "user cover"
+        );
+        assert!(!dir.join("cover.jpg").exists());
+        assert!(
+            saved["book_metadata"].get("cover_source_url").is_none(),
+            "an unused download cannot become the source of the user's cover"
+        );
+    }
+
+    #[test]
+    fn cover_staging_keeps_interrupted_bytes_out_of_the_final_path_and_retries_cleanly() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path();
+        let interrupted = dir.join(".cover.jpg.interrupted.tmp");
+        std::fs::write(&interrupted, b"partial image").unwrap();
+        assert!(
+            !cover_entry_exists(dir),
+            "an interrupted stage must not be cached as a cover"
+        );
+        let assets = sample_assets();
+        assert!(persist_cover(dir, assets.cover.as_ref()).unwrap());
+        assert_eq!(
+            std::fs::read(dir.join("cover.jpg")).unwrap(),
+            assets.cover.unwrap().1
+        );
+        let files: Vec<_> = std::fs::read_dir(dir)
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name())
+            .collect();
+        assert_eq!(
+            files.len(),
+            2,
+            "only the simulated old stage and complete cover remain"
+        );
+        assert_eq!(std::fs::read(interrupted).unwrap(), b"partial image");
+    }
+
+    #[test]
+    fn publishing_a_staged_cover_never_replaces_a_late_user_cover() {
+        for filename in ["cover.jpg", "cover.png", "cover.jpeg"] {
+            let tmp = tempfile::tempdir().unwrap();
+            let staged = tmp.path().join(".downloaded-cover.tmp");
+            std::fs::write(&staged, b"complete download").unwrap();
+            // The user adds their cover after download/staging, before publish.
+            let user_cover = tmp.path().join(filename);
+            std::fs::write(&user_cover, b"user image").unwrap();
+            assert!(!publish_cover(&staged, tmp.path(), "jpg").unwrap());
+            assert_eq!(std::fs::read(user_cover).unwrap(), b"user image");
+            if filename != "cover.jpg" {
+                assert!(!tmp.path().join("cover.jpg").exists());
+            }
+        }
+    }
+
+    #[test]
+    fn existing_cover_keeps_its_provenance_and_a_new_cover_gets_its_actual_source() {
+        for existing_cover in [true, false] {
+            let tmp = tempfile::tempdir().unwrap();
+            std::fs::write(tmp.path().join("meta.yml"), "topic_id: reading\nbook_metadata:\n  title: My title\n  cover_source_url: https://publisher.example/user-cover.jpg\n").unwrap();
+            if existing_cover {
+                std::fs::write(tmp.path().join("cover.png"), b"user cover").unwrap();
+            }
+            let assets = sample_assets();
+            assert_eq!(
+                store_book_assets(tmp.path(), &assets).unwrap(),
+                !existing_cover
+            );
+            let saved: serde_yaml::Value = serde_yaml::from_str(
+                &std::fs::read_to_string(tmp.path().join("meta.yml")).unwrap(),
+            )
+            .unwrap();
+            let expected = if existing_cover {
+                "https://publisher.example/user-cover.jpg"
+            } else {
+                assets.metadata.cover_source_url.as_deref().unwrap()
+            };
+            assert_eq!(
+                saved["book_metadata"]["cover_source_url"].as_str(),
+                Some(expected)
+            );
+        }
+    }
+
+    #[test]
+    fn import_commits_cover_and_remote_metadata_before_becoming_visible() {
+        let tmp = tempfile::tempdir().unwrap();
+        let work = tmp.path().join("work");
+        let dest = tmp.path().join("dest");
+        std::fs::create_dir(&work).unwrap();
+        std::fs::write(work.join("input.md"), "Original text").unwrap();
+        finalize_with_assets(
+            &work,
+            &dest,
+            "source.epub",
+            &BookMeta::default(),
+            TOPIC_ID,
+            chrono::Utc::now(),
+            Some(&sample_assets()),
+        )
+        .unwrap();
+        let meta: serde_yaml::Value =
+            serde_yaml::from_str(&std::fs::read_to_string(dest.join("meta.yml")).unwrap()).unwrap();
+        assert_eq!(meta["book_metadata"]["title"].as_str(), Some("Range"));
+        assert_eq!(
+            meta["book_metadata"]["cover_source_url"].as_str(),
+            sample_assets().metadata.cover_source_url.as_deref()
+        );
+        assert_eq!(
+            std::fs::read(dest.join("cover.jpg")).unwrap(),
+            b"downloaded validated image"
+        );
+        assert!(std::fs::read_to_string(dest.join("book.md"))
+            .unwrap()
+            .ends_with("Original text"));
     }
 
     #[test]

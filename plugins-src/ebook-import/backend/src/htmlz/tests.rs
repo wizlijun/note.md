@@ -49,6 +49,7 @@ fn extract_reads_opf_metadata() {
     <dc:title>七力</dc:title>
     <dc:creator>H</dc:creator>
     <dc:language>zh</dc:language>
+    <dc:identifier opf:scheme="ISBN">9780735214491</dc:identifier>
   </metadata>
 </package>"#;
     write_htmlz(
@@ -67,6 +68,7 @@ fn extract_reads_opf_metadata() {
     assert_eq!(extracted.meta.title.as_deref(), Some("七力"));
     assert_eq!(extracted.meta.creator.as_deref(), Some("H"));
     assert_eq!(extracted.meta.language.as_deref(), Some("zh"));
+    assert_eq!(extracted.meta.isbn.as_deref(), Some("9780735214491"));
     let images_dir = extracted.images_dir.expect("images dir should be found");
     assert_eq!(images_dir.file_name().unwrap(), "images");
     assert!(images_dir.join("a.png").is_file());
@@ -90,6 +92,57 @@ fn extract_falls_back_without_opf_or_images_dir() {
     assert!(extracted.meta.creator.is_none());
     assert!(extracted.meta.publisher.is_none());
     assert!(extracted.meta.language.is_none());
+    assert!(extracted.meta.isbn.is_none());
+}
+
+#[test]
+fn opf_reads_only_explicit_isbn_identifiers_and_keeps_first() {
+    for identifier in [
+        r#"<dc:identifier opf:scheme="ISBN">978-0-7352-1449-1</dc:identifier>"#,
+        r#"<identifier scheme="isbn-13">978-0-7352-1449-1</identifier>"#,
+        r#"<dc:identifier id="isbn">978-0-7352-1449-1</dc:identifier>"#,
+        r#"<dc:identifier id="ISBN13">978-0-7352-1449-1</dc:identifier>"#,
+        "<dc:identifier> urn:isbn:978-0-7352-1449-1 </dc:identifier>",
+        "<dc:identifier>URN:ISBN:978-0-7352-1449-1</dc:identifier>",
+        "<dc:identifier>isbn:978-0-7352-1449-1</dc:identifier>",
+    ] {
+        let xml = format!(
+            r#"<package><metadata>
+            <dc:identifier id="uuid_id">urn:uuid:8b98a58b-bf5f-62fe-3692-a7a20b375c3e</dc:identifier>
+            <dc:identifier>9780735214491</dc:identifier>
+            {identifier}
+            <dc:identifier scheme="ISBN">0735214492</dc:identifier>
+            <dc:title>First &amp; title</dc:title><dc:title>Second title</dc:title>
+            <dc:creator>First author</dc:creator><dc:creator>Second author</dc:creator>
+            <dc:publisher>Publisher</dc:publisher><dc:language>en</dc:language>
+            </metadata></package>"#
+        );
+        let meta = parse_opf(&xml);
+        assert_eq!(
+            meta.isbn.as_deref(),
+            Some("978-0-7352-1449-1"),
+            "{identifier}"
+        );
+        assert_eq!(meta.title.as_deref(), Some("First & title"));
+        assert_eq!(meta.creator.as_deref(), Some("First author"));
+        assert_eq!(meta.publisher.as_deref(), Some("Publisher"));
+        assert_eq!(meta.language.as_deref(), Some("en"));
+    }
+}
+
+#[test]
+fn opf_does_not_guess_isbn_from_other_identifiers_or_empty_values() {
+    for identifier in [
+        r#"<identifier scheme="UUID">8b98a58b-bf5f-62fe-3692-a7a20b375c3e</identifier>"#,
+        r#"<identifier id="BookId">9780735214491</identifier>"#,
+        "<identifier>9780735214491</identifier>",
+        "<identifier>urn:isbn: </identifier>",
+        "<identifier>isbn:</identifier>",
+        r#"<identifier scheme="ISBN"> </identifier>"#,
+        "<identifier>非ISBN编号</identifier>",
+    ] {
+        assert!(parse_opf(identifier).isbn.is_none(), "{identifier}");
+    }
 }
 
 /// Recursively checks whether any file under `root` has the given file

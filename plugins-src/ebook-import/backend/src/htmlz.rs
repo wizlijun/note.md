@@ -71,8 +71,8 @@ pub fn extract(htmlz: &Path, work: &Path) -> Result<Extracted, String> {
             .map_err(|e| format!("write {}: {e}", out_path.display()))?;
     }
 
-    let html =
-        find_html(&dest).ok_or_else(|| format!("no .html/.htm file found in {}", htmlz.display()))?;
+    let html = find_html(&dest)
+        .ok_or_else(|| format!("no .html/.htm file found in {}", htmlz.display()))?;
     let images_dir = find_images_dir(&dest);
     let meta = find_opf(&dest)
         .and_then(|opf| fs::read_to_string(opf).ok())
@@ -160,13 +160,15 @@ fn find_opf(root: &Path) -> Option<PathBuf> {
         .find(|p| eq_ignore_case(p.file_name(), "metadata.opf"))
 }
 
-/// The four `BookMeta` fields an OPF's `dc:` elements can populate.
+/// Metadata fields read from OPF elements. An identifier must explicitly
+/// identify itself as ISBN; arbitrary identifiers (such as UUIDs) are skipped.
 #[derive(Clone, Copy)]
 enum Field {
     Title,
     Creator,
     Publisher,
     Language,
+    Identifier { explicit_isbn: bool },
 }
 
 fn field_for(local_name: &[u8]) -> Option<Field> {
@@ -179,10 +181,34 @@ fn field_for(local_name: &[u8]) -> Option<Field> {
     }
 }
 
+fn isbn_label(value: &str) -> bool {
+    matches!(
+        value.trim().to_ascii_lowercase().as_str(),
+        "isbn" | "isbn10" | "isbn13" | "isbn-10" | "isbn-13" | "isbn_10" | "isbn_13"
+    )
+}
+
+/// Preserve the supplied identifier for downstream checksum validation. A
+/// numeric-looking value alone is not evidence that its identifier is ISBN.
+fn isbn_value(text: &str, explicit_isbn: bool) -> Option<&str> {
+    for prefix in ["urn:isbn:", "isbn:"] {
+        if text
+            .get(..prefix.len())
+            .is_some_and(|start| start.eq_ignore_ascii_case(prefix))
+        {
+            let value = text[prefix.len()..].trim();
+            return (!value.is_empty()).then_some(value);
+        }
+    }
+    explicit_isbn.then_some(text)
+}
+
 /// Parses `metadata.opf` with a quick-xml event stream, reading only the
 /// first text found under each `dc:title`/`dc:creator`/`dc:publisher`/
 /// `dc:language` element (matched on *local* name, so any namespace prefix
-/// or default namespace works). An unparsable or absent OPF simply yields
+/// or default namespace works), plus explicitly marked ISBN identifiers.
+/// Identifier scheme/id attributes or urn:isbn:/isbn: text prefixes mark ISBNs.
+/// An unparsable or absent OPF simply yields
 /// an all-`None` `BookMeta` -- metadata recovery is always best-effort.
 fn parse_opf(xml: &str) -> BookMeta {
     let mut meta = BookMeta::default();
@@ -193,7 +219,15 @@ fn parse_opf(xml: &str) -> BookMeta {
         match reader.read_event() {
             Ok(Event::Eof) | Err(_) => break,
             Ok(Event::Start(e)) => {
-                current = field_for(e.local_name().as_ref());
+                current = if e.local_name().as_ref() == b"identifier" {
+                    let explicit_isbn = e.attributes().flatten().any(|attr| {
+                        matches!(attr.key.local_name().as_ref(), b"scheme" | b"id")
+                            && attr.unescape_value().is_ok_and(|value| isbn_label(&value))
+                    });
+                    Some(Field::Identifier { explicit_isbn })
+                } else {
+                    field_for(e.local_name().as_ref())
+                };
             }
             Ok(Event::End(_)) => {
                 current = None;
@@ -205,11 +239,18 @@ fn parse_opf(xml: &str) -> BookMeta {
                 if text.is_empty() {
                     continue;
                 }
+                if let Field::Identifier { explicit_isbn } = field {
+                    if meta.isbn.is_none() {
+                        meta.isbn = isbn_value(text, explicit_isbn).map(str::to_string);
+                    }
+                    continue;
+                }
                 let slot = match field {
                     Field::Title => &mut meta.title,
                     Field::Creator => &mut meta.creator,
                     Field::Publisher => &mut meta.publisher,
                     Field::Language => &mut meta.language,
+                    Field::Identifier { .. } => unreachable!(),
                 };
                 // Only the *first* text under each field name is kept, so
                 // a repeated element (e.g. multiple `dc:creator`s) doesn't

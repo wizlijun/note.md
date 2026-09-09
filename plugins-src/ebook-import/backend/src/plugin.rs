@@ -1452,6 +1452,27 @@ fn spawn_ai_scheduler(host: sdk::Host, inner: Arc<Mutex<Inner>>, vault: PathBuf)
     });
 }
 
+/// A completed reading note changes the gallery's primary link. Use the root
+/// captured by the validated book path: settings may change during a long run.
+fn rebuild_indexes_after_reading(vault: &Path, book: &Path) -> Result<(), String> {
+    let root = book
+        .ancestors()
+        .nth(3)
+        .and_then(|root| root.strip_prefix(vault).ok())
+        .and_then(Path::to_str)
+        .ok_or("AI read book must be inside its original ebook library")?;
+    let root = settings::checked_vault_dir(vault, root)?;
+    crate::topics::with_topic_lock(&root, || {
+        // Older libraries can be read before their taxonomy is configured.
+        if !root.join(crate::topics::TOPICS_FILE).is_file() {
+            return Ok(());
+        }
+        let catalog = crate::topics::read_catalog(&root)?;
+        crate::topics::rebuild_indexes(&root, &catalog)?;
+        Ok(())
+    })
+}
+
 async fn run_ai_job(host: &sdk::Host, vault: &Path, locale: &str, job: crate::airead::AiJob) {
     use crate::airead::{self, RunPoll};
     let summary_rel = format!(
@@ -1575,10 +1596,18 @@ async fn run_ai_job(host: &sdk::Host, vault: &Path, locale: &str, job: crate::ai
                 if !vault.join(&summary_rel).is_file() {
                     return fail(format!("run succeeded but {summary_rel} is missing")).await;
                 }
+                // The summary is already committed. A projection failure must
+                // not relaunch the agent; library reconciliation can retry it.
+                let index_warning = rebuild_indexes_after_reading(vault, &book_abs).err();
+                if let Some(error) = &index_warning {
+                    host.log_warn(&format!(
+                        "summary saved at {summary_rel} but topic index rebuild needs retry: {error}"
+                    ));
+                }
                 host.ui_post(
                     WINDOW,
                     json!({ "type": "ai_read", "job_id": job.job_id, "event": "done",
-                            "summary_rel": summary_rel }),
+                            "summary_rel": summary_rel, "index_warning": index_warning }),
                 );
                 return;
             }
@@ -1689,6 +1718,7 @@ impl sdk::NotemdPlugin for EbookImportPlugin {
             "detect_env" => self.detect_env(),
             "save_settings" => self.save_settings(&params),
             "import_start" => self.import_start(host, &params),
+            "book_assets_start" => self.book_assets_start(host, &params),
             "import_cancel" => self.import_cancel(&params),
             "ai_read_start" => self.ai_read_start(host, &params),
             "library_list" => self.library_list(),
@@ -1804,6 +1834,95 @@ impl EbookImportPlugin {
         });
 
         Ok(json!({ "job_id": job_id }))
+    }
+
+    fn book_assets_start(&self, host: &sdk::Host, params: &Value) -> Result<Value, String> {
+        let vault = self.vault()?;
+        let book = params
+            .get("book")
+            .and_then(Value::as_str)
+            .ok_or("book_assets_start needs a book")?
+            .to_string();
+        let book_path = resolve_ai_book(&vault, &book)?;
+        let dir = book_path
+            .parent()
+            .ok_or("Missing book directory")?
+            .to_path_buf();
+        let root = dir
+            .parent()
+            .and_then(Path::parent)
+            .ok_or("Missing library directory")?
+            .to_path_buf();
+        let rel = dir
+            .strip_prefix(&root)
+            .map_err(|e| e.to_string())?
+            .to_string_lossy()
+            .to_string();
+        crate::topics::existing_book_meta(&root, &rel)?;
+        let identity = crate::topics::scan_books(&root)?
+            .into_iter()
+            .find(|item| item.rel == rel)
+            .ok_or("Book is not committed")?;
+        let cancelled = Arc::new(AtomicBool::new(false));
+        let job_id = {
+            let mut inner = self.inner.lock().unwrap();
+            let id = inner.next_job;
+            inner.next_job += 1;
+            inner.jobs.insert(id, cancelled.clone());
+            id
+        };
+        let host = host.clone();
+        let inner = self.inner.clone();
+        std::thread::spawn(move || {
+            let result = (|| -> Result<Value, String> {
+                let evidence = format!(
+                    "{}\n{}",
+                    crate::pipeline::read_asset_evidence(&dir.join("meta.yml"))?,
+                    crate::pipeline::read_asset_evidence(&book_path)?
+                );
+                let assets = crate::book_assets::fetch_assets(
+                    &identity.title,
+                    identity.creator.as_deref(),
+                    &evidence,
+                    &cancelled,
+                )?;
+                if cancelled.load(Ordering::Relaxed) {
+                    return Err("cancelled".into());
+                }
+                let Some(assets) = assets else {
+                    return Ok(json!({"matched":false,"cover":false}));
+                };
+                crate::topics::with_topic_lock(&root, || {
+                    if cancelled.load(Ordering::Relaxed) {
+                        return Err("cancelled".into());
+                    }
+                    // Revalidate after the network wait; classification may have changed.
+                    crate::topics::existing_book_meta(&root, &rel)?;
+                    let cover = crate::pipeline::store_book_assets(&dir, &assets)?;
+                    let index_warning = crate::topics::read_catalog(&root)
+                        .and_then(|catalog| crate::topics::rebuild_indexes(&root, &catalog))
+                        .err();
+                    Ok(
+                        json!({"matched":true,"cover":cover,"index_warning":index_warning,"asset_warning":assets.warnings.join("; ")}),
+                    )
+                })
+            })();
+            let payload = match result {
+                Ok(mut value) => {
+                    value["type"] = json!("book_assets");
+                    value["job_id"] = json!(job_id);
+                    value["book"] = json!(book);
+                    value["status"] = json!("done");
+                    value
+                }
+                Err(error) => {
+                    json!({"type":"book_assets","job_id":job_id,"book":book,"status":"failed","error":error})
+                }
+            };
+            host.ui_post(WINDOW, payload);
+            inner.lock().unwrap().jobs.remove(&job_id);
+        });
+        Ok(json!({"job_id":job_id}))
     }
 
     /// Unknown job ids are still `{ok:true}` — cancelling a job that already
@@ -2642,6 +2761,147 @@ mod tests {
             std::fs::read(root.join(crate::topics::TOPICS_FILE)).unwrap(),
             before
         );
+    }
+
+    fn seed_gallery_library(vault: &Path) -> (EbookImportPlugin, PathBuf, PathBuf) {
+        let (_, _, proposal) = seed_recovery_case(vault);
+        let root = vault.join("ebooks");
+        let book = root.join("2026-09/DDIA");
+        std::fs::write(book.join("2026-09-10-summary.md"), "# Reading notes\n").unwrap();
+        apply_validated_topic_proposal(&root, &proposal).unwrap();
+        settings::save_vault(
+            vault,
+            &VaultSettings {
+                ebooks_root: "ebooks".into(),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let plugin = EbookImportPlugin::new();
+        plugin.inner.lock().unwrap().vault = Some(vault.to_path_buf());
+        (plugin, root, book)
+    }
+
+    #[test]
+    fn assigning_a_book_updates_both_gallery_indexes_before_returning() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (plugin, root, book) = seed_gallery_library(tmp.path());
+        let catalog_before = std::fs::read(root.join(crate::topics::TOPICS_FILE)).unwrap();
+        let original_before = std::fs::read(book.join("book.md")).unwrap();
+        let result = plugin
+            .topic_assign(&json!({ "book": "ebooks/2026-09/DDIA", "topic_id": "business" }))
+            .unwrap();
+        assert_eq!(result["ok"], true);
+        assert!(!std::fs::read_to_string(root.join("软件工程.index.md"))
+            .unwrap()
+            .contains("[DDIA]"));
+        let destination = std::fs::read_to_string(root.join("商业.index.md")).unwrap();
+        assert!(destination.contains("[DDIA]"), "{destination}");
+        assert!(
+            destination.contains("2026-09-10-summary.md"),
+            "{destination}"
+        );
+        assert!(!destination.contains("/book.md"), "{destination}");
+        assert_eq!(
+            crate::topics::read_book_topic(&book.join("meta.yml"))
+                .unwrap()
+                .as_deref(),
+            Some("business")
+        );
+        assert_eq!(
+            std::fs::read(root.join(crate::topics::TOPICS_FILE)).unwrap(),
+            catalog_before
+        );
+        assert_eq!(
+            std::fs::read(book.join("book.md")).unwrap(),
+            original_before
+        );
+    }
+
+    #[test]
+    fn renaming_then_deleting_a_category_replaces_stale_indexes_immediately() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (plugin, root, book) = seed_gallery_library(tmp.path());
+        let mut catalog = crate::topics::read_catalog(&root).unwrap();
+        catalog.topics[0].label = "工程实践".into();
+        catalog.topics[0].index_file = "工程实践.index.md".into();
+        plugin.topic_save(&json!({ "catalog": catalog })).unwrap();
+        assert!(!root.join("软件工程.index.md").exists());
+        let renamed = std::fs::read_to_string(root.join("工程实践.index.md")).unwrap();
+        assert!(
+            renamed.contains("工程实践") && renamed.contains("[DDIA]"),
+            "{renamed}"
+        );
+
+        plugin
+            .topic_delete(&json!({ "topic_id": "software-engineering", "migrate_to": "business" }))
+            .unwrap();
+        assert!(!root.join("工程实践.index.md").exists());
+        assert!(std::fs::read_to_string(root.join("商业.index.md"))
+            .unwrap()
+            .contains("[DDIA]"));
+        assert_eq!(
+            crate::topics::read_book_topic(&book.join("meta.yml"))
+                .unwrap()
+                .as_deref(),
+            Some("business")
+        );
+        assert!(!crate::topics::read_catalog(&root)
+            .unwrap()
+            .contains_topic("software-engineering"));
+    }
+
+    #[test]
+    fn assignment_conflict_preserves_metadata_and_both_previous_indexes() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (plugin, root, book) = seed_gallery_library(tmp.path());
+        std::fs::write(root.join("商业.index.md"), "Hand-written index\n").unwrap();
+        let paths = [
+            root.join(crate::topics::TOPICS_FILE),
+            root.join("软件工程.index.md"),
+            root.join("商业.index.md"),
+            book.join("meta.yml"),
+        ];
+        let before: Vec<_> = paths
+            .iter()
+            .map(|path| std::fs::read(path).unwrap())
+            .collect();
+        let error = plugin
+            .topic_assign(&json!({ "book": "2026-09/DDIA", "topic_id": "business" }))
+            .unwrap_err();
+        assert!(error.contains("hand-written"), "{error}");
+        for (path, bytes) in paths.iter().zip(before) {
+            assert_eq!(std::fs::read(path).unwrap(), bytes, "{}", path.display());
+        }
+    }
+
+    #[test]
+    fn completed_summary_rebuilds_its_original_library_even_if_settings_change() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (_, root, book) = seed_gallery_library(tmp.path());
+        let before = std::fs::read_to_string(root.join("软件工程.index.md")).unwrap();
+        assert!(before.contains("2026-09-10-summary.md"), "{before}");
+        std::fs::write(book.join("2026-09-11-summary.md"), "# New notes\n").unwrap();
+        settings::save_vault(
+            tmp.path(),
+            &VaultSettings {
+                ebooks_root: "other-books".into(),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+
+        rebuild_indexes_after_reading(tmp.path(), &book.join("book.md")).unwrap();
+        let refreshed = std::fs::read_to_string(root.join("软件工程.index.md")).unwrap();
+        assert!(
+            refreshed.contains("- [DDIA](<./2026-09/DDIA/2026-09-11-summary.md>)"),
+            "{refreshed}"
+        );
+        assert!(
+            refreshed.contains("2026-09-10-summary.md"),
+            "older notes remain secondary reading links"
+        );
+        assert!(!tmp.path().join("other-books").exists());
     }
 
     #[test]
