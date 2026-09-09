@@ -1,6 +1,6 @@
 // Instant-repaint cache: raw directory filenames, namespaced by (kind, vault
 // root). buildIndex()/buildDayIndex() reconstruct indices from these on load.
-// kinds: 'weekly-review', 'diary', 'dailynote:<year>'.
+// kinds: 'weekly-review', 'diary', 'dailynote:<year>', 'timeline:<year>'.
 
 const PREFIX = 'weekly-review:cache:'
 

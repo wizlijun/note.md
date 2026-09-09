@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { MonthWeek } from '../isoweek'
   import { t } from '../strings'
+  import TimelineIcon from './TimelineIcon.svelte'
 
   interface Props {
     row: MonthWeek
@@ -9,11 +10,12 @@
     reviewPath: string | null
     diaryIndex: Map<string, string>
     noteIndex: Map<string, string>
+    timelineIndex: Map<string, string>
     isToday: boolean
     isFuture: boolean
     onOpen: (path: string) => void
   }
-  let { row, year, month0, reviewPath, diaryIndex, noteIndex, isToday, isFuture, onOpen }: Props = $props()
+  let { row, year, month0, reviewPath, diaryIndex, noteIndex, timelineIndex, isToday, isFuture, onOpen }: Props = $props()
 
   const WE = [false, false, false, false, false, true, true]
   const state = $derived(reviewPath ? 'review' : isFuture ? 'future' : 'past')
@@ -46,6 +48,7 @@
       {@const dk = keyFor(d)}
       {@const dp = diaryIndex.get(dk) ?? null}
       {@const np = noteIndex.get(dk) ?? null}
+      {@const tp = timelineIndex.get(dk) ?? null}
       <div class="day" class:we={WE[i]} class:diary={!!dp}>
         {#if dp}
           <button class="num link" title={t('tip.diary')} onclick={(e) => openStop(e, dp)}>{d}</button>
@@ -53,8 +56,13 @@
           <span class="num">{d}</span>
         {/if}
         {#if np}
-          <button class="note" title={t('tip.note')} aria-label={t('tip.note')} onclick={(e) => openStop(e, np)}>
+          <button class="day-icon note" title={t('tip.note')} aria-label={t('tip.note')} onclick={(e) => openStop(e, np)}>
             <svg class="star" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .5 C12.8 7.2 16.8 11.2 23.5 12 C16.8 12.8 12.8 16.8 12 23.5 C11.2 16.8 7.2 12.8 .5 12 C7.2 11.2 11.2 7.2 12 .5Z"/></svg>
+          </button>
+        {/if}
+        {#if tp}
+          <button class="day-icon timeline" title={t('tip.timeline')} aria-label={t('tip.timeline')} onclick={(e) => openStop(e, tp)}>
+            <TimelineIcon />
           </button>
         {/if}
       </div>
@@ -63,7 +71,7 @@
 </div>
 
 <style>
-  .wk { display: grid; grid-template-columns: repeat(7, 1fr); border-radius: 6px; border: 1px solid transparent; flex: 1 1 0; min-height: 0; }
+  .wk { display: grid; grid-template-columns: repeat(7, 1fr); border-radius: 6px; border: 1px solid transparent; flex: 1 1 0; min-height: 22px; }
   .wk.past { background: var(--past); }
   .wk.future { border-color: var(--future-line); }
   .wk.review { background: var(--accent); }
@@ -76,10 +84,12 @@
   .day.empty { color: transparent; }
   .wk.review .day { color: var(--accent-fg); }
   .num { font: inherit; color: inherit; }
-  button.num, button.note { background: none; border: none; padding: 0; margin: 0; cursor: pointer; line-height: 1; }
+  button.num, button.day-icon { background: none; border: none; padding: 0; margin: 0; cursor: pointer; line-height: 1; }
   .num.link { color: var(--link); text-decoration: underline; text-underline-offset: 2px; font-weight: 800; }
   .wk.review .num.link { color: #fff; text-decoration-color: #cfe0ff; }
-  .note { position: absolute; top: 0; right: 0; display: block; }
-  .star { width: 11px; height: 11px; display: block; fill: var(--note); }
-  .wk.review .star { fill: #ffe08a; }
+  .day-icon { position: absolute; right: 0; display: block; width: 11px; height: 11px; color: var(--note); }
+  .note { top: 0; }
+  .timeline { bottom: 0; }
+  .star { width: 100%; height: 100%; display: block; fill: currentColor; }
+  .wk.review .day-icon { color: #ffe08a; }
 </style>

@@ -2,7 +2,7 @@
   import '../../../src/styles/ui-foundation.css'
   import { bridge, vaultInfo, vaultList, vaultExists, openInEditor, toast } from './lib/bridge'
   import {
-    buildIndex, buildDayIndex, parseDiaryName, parseDailyNoteName,
+    buildIndex, buildDayIndex, parseDiaryName, parseDailyNoteName, parseTimelineName,
     WEEKLY_DIR, DIARY_DIR, DAILYNOTE_DIR, type ReviewIndex,
   } from './lib/scan'
   import { mondayOf } from './lib/isoweek'
@@ -16,6 +16,9 @@
   let diaryYears = $state<Set<number>>(new Set())
   let noteYears = $state<Set<number>>(new Set())
   let noteByYear = $state<Map<number, Map<string, string>>>(new Map())
+  let rootTimelineIndex = $state<Map<string, string>>(new Map())
+  let timelineYears = $state<Set<number>>(new Set())
+  let timelineByYear = $state<Map<number, Map<string, string>>>(new Map())
   let selectedYear = $state<number>(new Date().getFullYear())
   let loading = $state(true)
   let scanError = $state('')
@@ -28,15 +31,20 @@
 
   const reviewWeeks = $derived(reviewIndex.byYear.get(selectedYear))
   const noteIndex = $derived(noteByYear.get(selectedYear) ?? new Map<string, string>())
+  const timelineIndex = $derived(new Map([
+    ...(timelineByYear.get(selectedYear) ?? []),
+    ...rootTimelineIndex,
+  ]))
   const years = $derived.by(() => {
     const s = new Set<number>(reviewIndex.years)
     for (const y of diaryYears) s.add(y)
     for (const y of noteYears) s.add(y)
+    for (const y of timelineYears) s.add(y)
     return [...s].sort((a, b) => a - b)
   })
 
   function hasYear(y: number): boolean {
-    return reviewIndex.byYear.has(y) || diaryYears.has(y) || noteYears.has(y)
+    return reviewIndex.byYear.has(y) || diaryYears.has(y) || noteYears.has(y) || timelineYears.has(y)
   }
   function pickDefaultYear(): number {
     if (hasYear(currentYear)) return currentYear
@@ -54,11 +62,11 @@
     )
   }
 
-  async function ensureYear(year: number) {
-    if (!vaultRoot || noteByYear.has(year)) return
+  async function ensureYear(year: number, force = false) {
+    if (!vaultRoot || (!force && noteByYear.has(year) && timelineByYear.has(year))) return
     const { loadCache, saveCache } = await import('./lib/cache')
     const dir = `${DAILYNOTE_DIR}/${year}`
-    const cached = loadCache(vaultRoot, `dailynote:${year}`)
+    const cached = force ? null : loadCache(vaultRoot, `dailynote:${year}`)
     if (cached) {
       const m = new Map(noteByYear)
       m.set(year, buildDayIndex(cached.map((name) => ({ name, is_dir: false })), dir, parseDailyNoteName))
@@ -69,7 +77,21 @@
     const m2 = new Map(noteByYear)
     m2.set(year, buildDayIndex(entries, dir, parseDailyNoteName))
     noteByYear = m2
-    saveCache(vaultRoot, `dailynote:${year}`, entries.map((e) => e.name))
+    saveCache(vaultRoot, `dailynote:${year}`, entries.filter((e) => !e.is_dir).map((e) => e.name))
+
+    const timelineDir = `${DIARY_DIR}/${year}`
+    const timelineCached = force ? null : loadCache(vaultRoot, `timeline:${year}`)
+    if (timelineCached) {
+      const m = new Map(timelineByYear)
+      m.set(year, buildDayIndex(timelineCached.map((name) => ({ name, is_dir: false })), timelineDir, parseTimelineName))
+      timelineByYear = m
+    }
+    const timelineExists = await vaultExists(timelineDir)
+    const timelineEntries = timelineExists ? await vaultList(timelineDir) : []
+    const tm = new Map(timelineByYear)
+    tm.set(year, buildDayIndex(timelineEntries, timelineDir, parseTimelineName))
+    timelineByYear = tm
+    saveCache(vaultRoot, `timeline:${year}`, timelineEntries.filter((e) => !e.is_dir).map((e) => e.name))
   }
 
   async function scan(force = false) {
@@ -84,7 +106,13 @@
         const rc = loadCache(vaultRoot, 'weekly-review')
         if (rc) reviewIndex = buildIndex(rc.map((name) => ({ name, is_dir: false })))
         const dc = loadCache(vaultRoot, 'diary')
-        if (dc) { diaryIndex = buildDayIndex(dc.map((name) => ({ name, is_dir: false })), DIARY_DIR, parseDiaryName); diaryYears = yearsOf(diaryIndex) }
+        if (dc) {
+          const entries = dc.map((name) => ({ name, is_dir: false }))
+          diaryIndex = buildDayIndex(entries, DIARY_DIR, parseDiaryName)
+          diaryYears = yearsOf(diaryIndex)
+          rootTimelineIndex = buildDayIndex(entries, DIARY_DIR, parseTimelineName)
+          timelineYears = yearsOf(rootTimelineIndex)
+        }
         selectedYear = pickDefaultYear()
       }
 
@@ -97,14 +125,20 @@
       const dEntries = dExists ? await vaultList(DIARY_DIR) : []
       diaryIndex = buildDayIndex(dEntries, DIARY_DIR, parseDiaryName)
       diaryYears = yearsOf(diaryIndex)
-      saveCache(vaultRoot, 'diary', dEntries.map((e) => e.name))
+      rootTimelineIndex = buildDayIndex(dEntries, DIARY_DIR, parseTimelineName)
+      timelineYears = new Set([
+        ...yearsOf(rootTimelineIndex),
+        ...dEntries.filter((e) => e.is_dir && /^\d{4}$/.test(e.name)).map((e) => Number(e.name)),
+      ])
+      saveCache(vaultRoot, 'diary', dEntries.filter((e) => !e.is_dir).map((e) => e.name))
 
       const nExists = await vaultExists(DAILYNOTE_DIR)
       const nDirs = nExists ? await vaultList(DAILYNOTE_DIR) : []
       noteYears = new Set(nDirs.filter((e) => e.is_dir && /^\d{4}$/.test(e.name)).map((e) => Number(e.name)))
 
       if (!hasYear(selectedYear)) selectedYear = pickDefaultYear()
-      await ensureYear(selectedYear)
+      if (force) { noteByYear = new Map(); timelineByYear = new Map() }
+      await ensureYear(selectedYear, force)
       if (selectedYear === currentYear) scrollToToday()
     } catch (e) {
       scanError = String(e)
@@ -148,7 +182,7 @@
   {:else if !loading && years.length === 0}
     <div class="empty">{t('empty.noData')}</div>
   {:else}
-    <YearCalendar year={selectedYear} weeks={reviewWeeks} {diaryIndex} {noteIndex} {todayMondayMs} {onOpen} />
+    <YearCalendar year={selectedYear} weeks={reviewWeeks} {diaryIndex} {noteIndex} {timelineIndex} {todayMondayMs} {onOpen} />
   {/if}
 </div>
 

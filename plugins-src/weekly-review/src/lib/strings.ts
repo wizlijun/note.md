@@ -17,6 +17,7 @@ export type MessageKey =
   | 'legend.future'
   | 'legend.diary'
   | 'legend.note'
+  | 'legend.timeline'
   | 'empty.noVault'
   | 'empty.noData'
   | 'tip.review'
@@ -24,6 +25,7 @@ export type MessageKey =
   | 'tip.future'
   | 'tip.diary'
   | 'tip.note'
+  | 'tip.timeline'
   | 'month.suffix'
   | 'nav.prevYear'
   | 'nav.nextYear'
@@ -47,6 +49,7 @@ const en: Catalog = {
   'legend.future': 'Upcoming',
   'legend.diary': 'Has diary (click the number)',
   'legend.note': 'Has note (click the star)',
+  'legend.timeline': 'Has timeline (click the clock)',
   'empty.noVault': 'Configure a Vault to see your weekly reviews.',
   'empty.noData': 'No weekly reviews yet. Add files to the weekly-review/ folder.',
   'tip.review': 'has review — click to open',
@@ -54,6 +57,7 @@ const en: Catalog = {
   'tip.future': 'upcoming',
   'tip.diary': 'open diary',
   'tip.note': 'open note outline',
+  'tip.timeline': 'open timeline',
   'month.suffix': '',
   'nav.prevYear': 'previous year',
   'nav.nextYear': 'next year',
@@ -76,6 +80,7 @@ const zh: Catalog = {
   'legend.future': '未来',
   'legend.diary': '有日记(点数字)',
   'legend.note': '有笔记(点图标)',
+  'legend.timeline': '有时间线(点时钟)',
   'empty.noVault': '请先配置 Vault,才能查看每周检视。',
   'empty.noData': '还没有周报。把文件放进 weekly-review/ 目录。',
   'tip.review': '有周报 · 点击打开',
@@ -83,6 +88,7 @@ const zh: Catalog = {
   'tip.future': '未来',
   'tip.diary': '打开日记',
   'tip.note': '打开笔记大纲',
+  'tip.timeline': '打开时间线',
   'month.suffix': '月',
   'nav.prevYear': '上一年',
   'nav.nextYear': '下一年',
@@ -105,6 +111,7 @@ const ja: Catalog = {
   'legend.future': '今後',
   'legend.diary': '日記あり(数字をクリック)',
   'legend.note': 'ノートあり(星をクリック)',
+  'legend.timeline': 'タイムラインあり(時計をクリック)',
   'empty.noVault': 'Vault を設定するとレビューが表示されます。',
   'empty.noData': 'まだレビューがありません。weekly-review/ に追加してください。',
   'tip.review': 'レビューあり · クリックで開く',
@@ -112,6 +119,7 @@ const ja: Catalog = {
   'tip.future': '今後',
   'tip.diary': '日記を開く',
   'tip.note': 'ノートの概要を開く',
+  'tip.timeline': 'タイムラインを開く',
   'month.suffix': '月',
   'nav.prevYear': '前年',
   'nav.nextYear': '翌年',
@@ -134,6 +142,7 @@ const de: Catalog = {
   'legend.future': 'Bevorstehend',
   'legend.diary': 'Tagebuch (Zahl anklicken)',
   'legend.note': 'Notiz (Stern anklicken)',
+  'legend.timeline': 'Zeitleiste (Uhr anklicken)',
   'empty.noVault': 'Konfiguriere ein Vault, um deine Rückblicke zu sehen.',
   'empty.noData': 'Noch keine Rückblicke. Lege Dateien im Ordner weekly-review/ ab.',
   'tip.review': 'Rückblick vorhanden · zum Öffnen klicken',
@@ -141,6 +150,7 @@ const de: Catalog = {
   'tip.future': 'bevorstehend',
   'tip.diary': 'Tagebuch öffnen',
   'tip.note': 'Notiz-Gliederung öffnen',
+  'tip.timeline': 'Zeitleiste öffnen',
   'month.suffix': '',
   'nav.prevYear': 'Vorheriges Jahr',
   'nav.nextYear': 'Nächstes Jahr',

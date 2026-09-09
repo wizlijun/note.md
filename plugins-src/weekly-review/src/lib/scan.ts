@@ -44,6 +44,7 @@ export const DAILYNOTE_DIR = 'dailynote'
 
 const DIARY_RE = /^(\d{4})-(\d{2})-(\d{2})-diary.*\.md$/
 const DAILYNOTE_RE = /^(\d{4})-(\d{2})-(\d{2})\.note\.md$/
+const TIMELINE_RE = /^(\d{4})-(\d{2})-(\d{2})\.timeline\.md$/
 
 /** `YYYY-MM-DD-diary<...>.md` → `YYYY-MM-DD` date key (or null). */
 export function parseDiaryName(name: string): string | null {
@@ -54,6 +55,12 @@ export function parseDiaryName(name: string): string | null {
 /** `YYYY-MM-DD.note.md` → `YYYY-MM-DD` date key (or null). */
 export function parseDailyNoteName(name: string): string | null {
   const m = DAILYNOTE_RE.exec(name)
+  return m ? `${m[1]}-${m[2]}-${m[3]}` : null
+}
+
+/** `YYYY-MM-DD.timeline.md` → `YYYY-MM-DD` date key (or null). */
+export function parseTimelineName(name: string): string | null {
+  const m = TIMELINE_RE.exec(name)
   return m ? `${m[1]}-${m[2]}-${m[3]}` : null
 }
 

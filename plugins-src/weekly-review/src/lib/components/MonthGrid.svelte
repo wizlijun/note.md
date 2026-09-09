@@ -9,10 +9,11 @@
     weeks: Map<number, string> | undefined
     diaryIndex: Map<string, string>
     noteIndex: Map<string, string>
+    timelineIndex: Map<string, string>
     todayMondayMs: number
     onOpen: (path: string) => void
   }
-  let { year, month0, weeks, diaryIndex, noteIndex, todayMondayMs, onOpen }: Props = $props()
+  let { year, month0, weeks, diaryIndex, noteIndex, timelineIndex, todayMondayMs, onOpen }: Props = $props()
 
   const DOW = [t('dow.mon'), t('dow.tue'), t('dow.wed'), t('dow.thu'), t('dow.fri'), t('dow.sat'), t('dow.sun')]
   const rows = $derived(buildMonthRows(year, month0))
@@ -33,6 +34,7 @@
         reviewPath={weeks?.get(row.week) ?? null}
         {diaryIndex}
         {noteIndex}
+        {timelineIndex}
         isToday={row.monday.getTime() === todayMondayMs}
         isFuture={row.monday.getTime() > todayMondayMs}
         {onOpen}
