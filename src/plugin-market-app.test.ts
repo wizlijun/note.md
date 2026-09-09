@@ -21,13 +21,19 @@ vi.mock('@tauri-apps/api/window', () => ({
 vi.mock('@tauri-apps/api/app', () => ({ getVersion: vi.fn(async () => '6.829.2') }))
 vi.mock('@tauri-apps/plugin-dialog', () => ({ confirm: mocks.confirm }))
 vi.mock('./lib/settings.svelte', () => ({ loadSettings: vi.fn(async () => {}) }))
-vi.mock('./lib/toast.svelte', () => ({ pushToast: mocks.pushToast }))
+vi.mock('./lib/toast.svelte', () => ({
+  pushToast: mocks.pushToast,
+  toasts: { list: [] },
+  dismissToast: vi.fn(),
+  scheduleAutoDismiss: vi.fn(),
+  TOAST_AUTO_DISMISS_MS: 4000,
+}))
 vi.mock('./lib/i18n/store.svelte', () => {
   const labels: Record<string, string> = {
     'pluginMarket.windowTitle': 'Plugin Market',
     'pluginMarket.subtitle': 'Browse plugins',
     'pluginMarket.hostVersion': 'note.md {version}',
-    'pluginMarket.restartHint': 'After installing or updating plugins, quit and reopen note.md.',
+    'pluginMarket.restartHint': 'Plugins reload automatically after installation or update. You don’t need to restart note.md.',
     'pluginMarket.refresh': 'Refresh',
     'pluginMarket.pluginsUnit': 'plugins',
     'pluginMarket.loadingCatalog': 'Checking for more plugins…',
@@ -40,8 +46,14 @@ vi.mock('./lib/i18n/store.svelte', () => {
     'pluginMarket.updateAll': 'Update All ({count})',
     'pluginMarket.updatingAll': 'Updating {done}/{total}…',
     'pluginMarket.updateAllConfirm': 'Update all {count} plugins?',
-    'pluginMarket.updateAllComplete': 'Updated all {count} plugins',
+    'pluginMarket.updateAllComplete': 'Updated and reloaded all {count} plugins',
     'pluginMarket.updateAllPartial': 'Updated {succeeded}; {failed} failed',
+    'pluginMarket.installed': 'Installed and loaded {name}',
+    'pluginMarket.updated': 'Updated and reloaded {name}',
+    'pluginMarket.closedWindowReminder': 'Open windows for {name} were closed. Reopen the plugin to continue.',
+    'pluginMarket.closedWindowsSummary': 'Open plugin windows were closed; reopen them to continue.',
+    'pluginMarket.closedWindowsBatch': 'Open windows were closed for: {names}. Reopen those plugins to continue.',
+    'pluginMarket.reloadFailed': '{name}’s background service could not reload: {error}',
     'pluginMarket.onDevice': 'Installed on this device.',
     'pluginMarket.noneAvailable': 'No plugins available.',
     'pluginMarket.noneInstalled': 'No plugins installed.',
@@ -134,7 +146,7 @@ afterEach(async () => {
 })
 
 describe('plugin market staged loading', () => {
-  it('shows the current note.md version and plugin restart guidance below the subtitle', async () => {
+  it('shows the current note.md version and automatic reload guidance below the subtitle', async () => {
     mocks.invoke.mockImplementation((command: string) => {
       if (command === 'plugin_market_installed') return Promise.resolve([])
       if (command === 'plugin_market_index') return Promise.resolve({ plugins: [] })
@@ -145,7 +157,7 @@ describe('plugin market staged loading', () => {
 
     await vi.waitFor(() => expect(document.querySelector('.host-version')?.textContent).toBe('note.md 6.829.2'))
     expect(document.querySelector('.restart-hint')?.textContent)
-      .toBe('After installing or updating plugins, quit and reopen note.md.')
+      .toBe('Plugins reload automatically after installation or update. You don’t need to restart note.md.')
   })
 
   it('uses a normal online request on startup and forces a fresh online request after clicking Refresh', async () => {
@@ -352,6 +364,60 @@ describe('plugin market staged loading', () => {
     expect(document.querySelector('[data-category="create"]')).toBeNull()
   })
 
+  it('loads a newly installed plugin immediately without a window reminder', async () => {
+    let localPlugins: InstalledV2[] = []
+    const listing = entry('notemd.next', 'Next')
+    mocks.invoke.mockImplementation((command: string) => {
+      if (command === 'plugin_market_installed') return Promise.resolve(localPlugins)
+      if (command === 'plugin_market_index') return Promise.resolve({ plugins: [listing] })
+      if (command === 'plugin_market_preview') return Promise.resolve({ ...listing, capabilities: [] })
+      if (command === 'plugin_market_install') {
+        localPlugins = [installed('Next')]
+        return Promise.resolve({ closedWindows: 0, reloadError: null })
+      }
+      return Promise.resolve()
+    })
+
+    component = mount(PluginMarketApp, { target: document.body })
+    await vi.waitFor(() => expect(document.querySelector('.available-footer .primary')).not.toBeNull())
+    ;(document.querySelector('.available-footer .primary') as HTMLButtonElement).click()
+    await vi.waitFor(() => expect(document.querySelector<HTMLButtonElement>('.modal .primary')?.disabled).toBe(false))
+    document.querySelector<HTMLButtonElement>('.modal .primary')!.click()
+
+    await vi.waitFor(() => expect(mocks.pushToast).toHaveBeenCalledWith({
+      level: 'success',
+      message: 'Installed and loaded Next',
+      detail: undefined,
+    }))
+  })
+
+  it('reports that an updated plugin was reloaded and its open window was closed', async () => {
+    let localPlugins = [installed('Next')]
+    const listing = entry('notemd.next', 'Next', '1.1.0')
+    mocks.invoke.mockImplementation((command: string) => {
+      if (command === 'plugin_market_installed') return Promise.resolve(localPlugins)
+      if (command === 'plugin_market_index') return Promise.resolve({ plugins: [listing] })
+      if (command === 'plugin_market_preview') return Promise.resolve({ ...listing, capabilities: [] })
+      if (command === 'plugin_market_install') {
+        localPlugins = [{ ...localPlugins[0], version: '1.1.0' }]
+        return Promise.resolve({ closedWindows: 1, reloadError: null })
+      }
+      return Promise.resolve()
+    })
+
+    component = mount(PluginMarketApp, { target: document.body })
+    await vi.waitFor(() => expect(document.querySelector('.update-action')).not.toBeNull())
+    ;(document.querySelector('.update-action') as HTMLButtonElement).click()
+    await vi.waitFor(() => expect(document.querySelector<HTMLButtonElement>('.modal .primary')?.disabled).toBe(false))
+    document.querySelector<HTMLButtonElement>('.modal .primary')!.click()
+
+    await vi.waitFor(() => expect(mocks.pushToast).toHaveBeenCalledWith({
+      level: 'warn',
+      message: 'Updated and reloaded Next · Open windows for Next were closed. Reopen the plugin to continue.',
+      detail: undefined,
+    }))
+  })
+
   it('confirms once and updates every changed plugin without opening individual consent modals', async () => {
     let localPlugins: InstalledV2[] = [
       { ...installed('Next'), id: 'notemd.next' },
@@ -370,7 +436,7 @@ describe('plugin market staged loading', () => {
         localPlugins = localPlugins.map((plugin) => plugin.id === args?.id
           ? { ...plugin, version: args.version ?? plugin.version }
           : plugin)
-        return Promise.resolve()
+        return Promise.resolve({ closedWindows: args?.id === 'notemd.next' ? 1 : 0, reloadError: null })
       }
       return Promise.resolve()
     })
@@ -386,8 +452,9 @@ describe('plugin market staged loading', () => {
     expect(mocks.confirm).toHaveBeenCalledOnce()
     expect(document.querySelector('[role="dialog"]')).toBeNull()
     expect(mocks.pushToast).toHaveBeenCalledWith(expect.objectContaining({
-      level: 'success',
-      message: 'Updated all 2 plugins',
+      level: 'warn',
+      message: 'Updated and reloaded all 2 plugins · Open plugin windows were closed; reopen them to continue.',
+      detail: 'Open windows were closed for: Next. Reopen those plugins to continue.',
     }))
   })
 
@@ -408,6 +475,9 @@ describe('plugin market staged loading', () => {
       if (command === 'plugin_market_install' && args?.id === 'notemd.next') {
         return Promise.reject(new Error('signature mismatch'))
       }
+      if (command === 'plugin_market_install') {
+        return Promise.resolve({ closedWindows: 1, reloadError: null })
+      }
       return Promise.resolve()
     })
 
@@ -420,8 +490,8 @@ describe('plugin market staged loading', () => {
     ).toHaveLength(2))
     await vi.waitFor(() => expect(mocks.pushToast).toHaveBeenCalledWith(expect.objectContaining({
       level: 'error',
-      message: 'Updated 1; 1 failed',
-      detail: expect.stringContaining('signature mismatch'),
+      message: 'Updated 1; 1 failed · Open plugin windows were closed; reopen them to continue.',
+      detail: expect.stringMatching(/Idea Spark[\s\S]*signature mismatch/),
     })))
   })
 })

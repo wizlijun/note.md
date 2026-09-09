@@ -44,6 +44,12 @@ export interface InstalledV2 {
   capabilities: string[]
 }
 
+/** Result of an install/update after the host has reconciled the live runtime. */
+export interface PluginInstallResult {
+  closedWindows: number
+  reloadError?: string | null
+}
+
 /** Unified installed-list row: a v1 builtin/external plugin or a v2 plugin. */
 export interface InstalledRow {
   kind: 'v1' | 'v2'

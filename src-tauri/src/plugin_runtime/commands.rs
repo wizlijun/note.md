@@ -290,12 +290,19 @@ pub async fn plugin_market_preview(
 /// then reconcile the live runtime (no restart) and tell the frontend to
 /// re-fetch manifests + rebuild its menu via the `plugins-changed` event.
 /// Install telemetry is fire-and-forget.
+#[derive(Debug, Clone, serde::Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct PluginInstallResult {
+    pub closed_windows: usize,
+    pub reload_error: Option<String>,
+}
+
 #[tauri::command]
 pub async fn plugin_market_install(
     app: tauri::AppHandle,
     id: String,
     version: String,
-) -> Result<(), String> {
+) -> Result<PluginInstallResult, String> {
     let entry = find_entry(&app, &id, &version).await?;
     let (url, sha) = resolve_download(&entry)?;
     let sig_url = format!("{url}.minisig");
@@ -328,7 +335,7 @@ pub async fn plugin_market_install(
     // Fence + destroy the old UI before `current` is repointed. Doing this only
     // in the post-install reconcile leaves a gap where old JavaScript can issue
     // an RPC while the install symlink already names the new package.
-    let window_replacement = prepare_plugin_window_replacement(&app, &id).await?;
+    let (window_replacement, closed_windows) = prepare_plugin_window_replacement(&app, &id).await?;
     installer::commit_install(&root, &id, &version, tmp.path()).map_err(|e| e.to_string())?;
 
     // Record installed + enabled in state.json.
@@ -352,12 +359,19 @@ pub async fn plugin_market_install(
     // Bring the live runtime in line with the new tree, rebuild the native menu
     // (a brand-new plugin's menu item now appears without a restart), then nudge
     // the UI.
-    lifecycle::reconcile_pre_fenced(&app).await?;
+    lifecycle::reconcile_pre_fenced(&app, std::slice::from_ref(&id)).await?;
     drop(window_replacement);
+    let reload_error = activate_installed_startup_plugin(&app, &id).await.err();
+    if let Some(error) = &reload_error {
+        eprintln!("[plugin_runtime] startup reload of '{id}' failed: {error}");
+    }
     crate::reconcile_global_shortcuts(&app);
     crate::rebuild_menu(&app);
-    notify_plugins_changed(&app);
-    Ok(())
+    notify_plugins_changed(&app, Some(&id), true);
+    Ok(PluginInstallResult {
+        closed_windows,
+        reload_error,
+    })
 }
 
 /// Uninstall `id` (optionally keeping its data dir), drop it from state.json,
@@ -374,23 +388,23 @@ pub async fn plugin_market_uninstall(
         .app_data_dir()
         .map_err(|e| format!("cannot resolve app data dir: {e}"))?;
 
-    let window_replacement = prepare_plugin_window_replacement(&app, &id).await?;
+    let (window_replacement, _) = prepare_plugin_window_replacement(&app, &id).await?;
     installer::uninstall(&root, &id, keep_data, &app_data).map_err(|e| e.to_string())?;
 
     let mut install = state::load(&root);
     install.installed.remove(&id);
     state::save(&root, &install)?;
 
-    lifecycle::reconcile_pre_fenced(&app).await?;
+    lifecycle::reconcile_pre_fenced(&app, std::slice::from_ref(&id)).await?;
     drop(window_replacement);
     crate::reconcile_global_shortcuts(&app);
     crate::rebuild_menu(&app);
-    notify_plugins_changed(&app);
+    notify_plugins_changed(&app, Some(&id), false);
     Ok(())
 }
 
 /// Flip `id`'s `enabled` flag in state.json, reconcile (disabling deactivates
-/// it live; enabling lets the next trigger activate lazily), and notify.
+/// it live; enabling resumes startup plugins and leaves others lazy), and notify.
 #[tauri::command]
 pub async fn plugin_market_set_enabled(
     app: tauri::AppHandle,
@@ -404,14 +418,19 @@ pub async fn plugin_market_set_enabled(
         Some(p) => p.enabled = enabled,
         None => return Err(format!("plugin '{id}' is not installed")),
     }
-    let window_replacement = prepare_plugin_window_replacement(&app, &id).await?;
+    let (window_replacement, _) = prepare_plugin_window_replacement(&app, &id).await?;
     state::save(&root, &install)?;
 
-    lifecycle::reconcile_pre_fenced(&app).await?;
+    lifecycle::reconcile_pre_fenced(&app, std::slice::from_ref(&id)).await?;
     drop(window_replacement);
+    if enabled {
+        if let Err(error) = activate_installed_startup_plugin(&app, &id).await {
+            eprintln!("[plugin_runtime] startup activation of enabled '{id}' failed: {error}");
+        }
+    }
     crate::reconcile_global_shortcuts(&app);
     crate::rebuild_menu(&app);
-    notify_plugins_changed(&app);
+    notify_plugins_changed(&app, Some(&id), enabled);
     Ok(())
 }
 
@@ -421,7 +440,7 @@ pub async fn plugin_market_set_enabled(
 async fn prepare_plugin_window_replacement(
     app: &tauri::AppHandle,
     plugin_id: &str,
-) -> Result<super::windows::PluginWindowReplacement, String> {
+) -> Result<(super::windows::PluginWindowReplacement, usize), String> {
     let old_plugins = super::STATE
         .read()
         .map_err(|_| "plugin state lock poisoned".to_string())?
@@ -429,8 +448,9 @@ async fn prepare_plugin_window_replacement(
         .clone();
     let plugin_ids = vec![plugin_id.to_string()];
     let replacement = super::windows::begin_plugin_window_replacement(&plugin_ids)?;
-    super::windows::destroy_replaced_plugin_windows(app, &old_plugins, &plugin_ids).await?;
-    Ok(replacement)
+    let closed_windows =
+        super::windows::destroy_replaced_plugin_windows(app, &old_plugins, &plugin_ids).await?;
+    Ok((replacement, closed_windows))
 }
 
 /// List installed plugins from state.json joined with each
@@ -488,14 +508,49 @@ pub fn plugin_market_installed(app: tauri::AppHandle) -> Result<Vec<serde_json::
     Ok(out)
 }
 
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct PluginsChanged {
+    plugin_id: Option<String>,
+    reloaded: bool,
+}
+
 /// Tell the frontend the installed-plugin set changed: it re-fetches
 /// `get_plugin_manifests` and reapplies its own in-webview plugin menu. The
 /// *native* menu (macOS menu bar) is rebuilt separately by `crate::rebuild_menu`
 /// right before this fires, so a brand-new plugin's native menu item appears
 /// without a restart.
-fn notify_plugins_changed<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
+fn notify_plugins_changed<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    plugin_id: Option<&str>,
+    reloaded: bool,
+) {
     use tauri::Emitter;
-    let _ = app.emit("plugins-changed", ());
+    let _ = app.emit(
+        "plugins-changed",
+        PluginsChanged {
+            plugin_id: plugin_id.map(str::to_owned),
+            reloaded,
+        },
+    );
+}
+
+/// A startup-activated process plugin must resume immediately after its old
+/// lifecycle is retired. Other plugins remain lazy and will activate on their
+/// next declared trigger; UI-only plugins need no process activation.
+async fn activate_installed_startup_plugin<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    plugin_id: &str,
+) -> Result<(), String> {
+    let (manifest, _) = lookup_v2(plugin_id)?;
+    if !is_process_plugin(&manifest)
+        || !lifecycle::matches_activation(&manifest.activation.events, &Trigger::Startup)
+    {
+        return Ok(());
+    }
+    let lifecycle = get_or_register(app, plugin_id)?;
+    lifecycle.ensure_active(&Trigger::Startup).await?;
+    Ok(())
 }
 
 /// Called from `plugin_runtime::init` after discovery populated STATE:
@@ -644,6 +699,21 @@ pub(crate) fn get_or_register<R: tauri::Runtime>(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn install_result_uses_frontend_field_names() {
+        assert_eq!(
+            serde_json::to_value(PluginInstallResult {
+                closed_windows: 2,
+                reload_error: Some("startup failed".into()),
+            })
+            .unwrap(),
+            serde_json::json!({
+                "closedWindows": 2,
+                "reloadError": "startup failed",
+            })
+        );
+    }
 
     fn fixture_manifest(id: &str) -> plugin_protocol::ManifestV2 {
         serde_json::from_value(serde_json::json!({

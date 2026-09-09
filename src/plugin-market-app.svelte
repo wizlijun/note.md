@@ -16,10 +16,9 @@
      3. Click Install on an available plugin → the consent modal runs
         plugin_market_preview (verifies the real package) and lists its
         capabilities (vault.write / secrets highlighted). Click Trust & Install.
-     4. Install succeeds → both lists re-fetch; reconcile activates it with no
-        restart. The main window receives `plugins-changed` and re-fetches
-        manifests (enable/disable of existing menu items reflects immediately;
-        a brand-new native menu item may still need a restart — known gap).
+     4. Install succeeds → both lists re-fetch; the host reconciles the runtime,
+        startup activation, menus, shortcuts, and open plugin views immediately.
+        The main window receives `plugins-changed` and re-fetches manifests.
      5. Toggle enabled on an installed plugin → plugin_market_set_enabled;
         Uninstall → confirm → plugin_market_uninstall; both re-fetch. -->
 <script lang="ts">
@@ -36,6 +35,7 @@
   import {
     capabilityLabel,
     isSensitiveCapability,
+    type PluginInstallResult,
     type RegistryIndex,
     type RegistryEntry,
     type InstalledV2,
@@ -53,6 +53,7 @@
     type PluginCategory,
   } from './lib/plugins/categories'
   import ConsentModal from './components/market/ConsentModal.svelte'
+  import Toast from './components/Toast.svelte'
 
   type InstalledMarketItem = {
     kind: 'installed'
@@ -116,6 +117,7 @@
 
   // Consent modal target (null = closed).
   let consent = $state<{
+    action: 'install' | 'update'
     id: string
     version: string
     name: string
@@ -287,6 +289,7 @@
   function update(item: InstalledMarketItem) {
     if (!item.row.updateTo) return
     consent = {
+      action: 'update',
       id: item.id,
       version: item.row.updateTo,
       name: item.listing?.name ?? item.row.name,
@@ -313,14 +316,26 @@
       ...Object.fromEntries(items.map((item) => [item.id, true])),
     }
     const failures: string[] = []
+    const closedPluginNames: string[] = []
+    const reloadWarnings: string[] = []
     let succeeded = 0
     try {
       // The one confirmation above authorizes every listed update. Each install
       // still performs the host's download, hash, signature and manifest checks.
       for (const item of items) {
         try {
-          await invoke('plugin_market_install', { id: item.id, version: item.row.updateTo })
+          const result = await invoke<PluginInstallResult>('plugin_market_install', {
+            id: item.id,
+            version: item.row.updateTo,
+          })
           succeeded += 1
+          if (result.closedWindows > 0) closedPluginNames.push(itemName(item))
+          if (result.reloadError) {
+            reloadWarnings.push(t('pluginMarket.reloadFailed', {
+              name: itemName(item),
+              error: result.reloadError,
+            }))
+          }
         } catch (e) {
           failures.push(`${itemName(item)}: ${String(e)}`)
         } finally {
@@ -328,19 +343,32 @@
         }
       }
       await refresh()
+      const resultDetails = [
+        closedPluginNames.length > 0
+          ? t('pluginMarket.closedWindowsBatch', { names: closedPluginNames.join(', ') })
+          : '',
+        ...reloadWarnings,
+      ].filter(Boolean)
       if (failures.length === 0) {
+        const message = t('pluginMarket.updateAllComplete', { count: succeeded })
         pushToast({
-          level: 'success',
-          message: t('pluginMarket.updateAllComplete', { count: succeeded }),
+          level: reloadWarnings.length > 0 || closedPluginNames.length > 0 ? 'warn' : 'success',
+          message: closedPluginNames.length > 0
+            ? `${message} · ${t('pluginMarket.closedWindowsSummary')}`
+            : message,
+          detail: resultDetails.length > 0 ? resultDetails.join('\n') : undefined,
         })
       } else {
+        const message = t('pluginMarket.updateAllPartial', {
+          succeeded,
+          failed: failures.length,
+        })
         pushToast({
           level: 'error',
-          message: t('pluginMarket.updateAllPartial', {
-            succeeded,
-            failed: failures.length,
-          }),
-          detail: failures.join('\n'),
+          message: closedPluginNames.length > 0
+            ? `${message} · ${t('pluginMarket.closedWindowsSummary')}`
+            : message,
+          detail: [...resultDetails, ...failures].join('\n'),
         })
       }
     } finally {
@@ -357,6 +385,7 @@
 
   function beginInstall(entry: RegistryEntry) {
     consent = {
+      action: 'install',
       id: entry.id,
       version: entry.version,
       name: entry.name,
@@ -365,10 +394,23 @@
     }
   }
 
-  function onInstalled() {
-    const name = consent ? localizedPluginName(consent, i18n.locale) : ''
+  function onInstalled(result: PluginInstallResult) {
+    const target = consent
+    const name = target ? localizedPluginName(target, i18n.locale) : ''
     consent = null
-    pushToast({ level: 'success', message: t('pluginMarket.installed', { name }) })
+    const message = t(
+      target?.action === 'update' ? 'pluginMarket.updated' : 'pluginMarket.installed',
+      { name },
+    )
+    pushToast({
+      level: result.reloadError || result.closedWindows > 0 ? 'warn' : 'success',
+      message: result.closedWindows > 0
+        ? `${message} · ${t('pluginMarket.closedWindowReminder', { name })}`
+        : message,
+      detail: result.reloadError
+        ? t('pluginMarket.reloadFailed', { name, error: result.reloadError })
+        : undefined,
+    })
     void refresh()
   }
 
@@ -431,6 +473,7 @@
 </script>
 
 <main class="ui-surface" aria-busy={loading}>
+  <Toast />
   {#if !ready}
     <div class="boot"><span class="spinner"></span></div>
   {:else}

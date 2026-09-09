@@ -83,6 +83,14 @@ fn contributed_window_labels(
         .collect()
 }
 
+fn open_window_labels(labels: &[String], mut is_open: impl FnMut(&str) -> bool) -> Vec<String> {
+    labels
+        .iter()
+        .filter(|label| is_open(label))
+        .cloned()
+        .collect()
+}
+
 /// Destroy every webview contributed by the old package and wait until Tauri no
 /// longer exposes any of their exact labels. The app-wide `CloseRequested`
 /// handler intentionally turns a normal `close()` into `hide()`, which would
@@ -94,12 +102,13 @@ pub(crate) async fn destroy_replaced_plugin_windows<R: Runtime>(
     app: &tauri::AppHandle<R>,
     old_plugins: &BTreeMap<String, (proto::ManifestV2, PathBuf)>,
     plugin_ids: &[String],
-) -> Result<(), String> {
+) -> Result<usize, String> {
     let labels = contributed_window_labels(old_plugins, plugin_ids);
+    let open_labels = open_window_labels(&labels, |label| app.get_webview_window(label).is_some());
     for plugin_id in plugin_ids {
         super::ui_rpc::clear_grants(plugin_id);
     }
-    for label in &labels {
+    for label in &open_labels {
         if let Some(window) = app.get_webview_window(label) {
             window.destroy().map_err(|error| {
                 format!("failed to destroy replaced plugin window '{label}': {error}")
@@ -114,7 +123,7 @@ pub(crate) async fn destroy_replaced_plugin_windows<R: Runtime>(
             .filter(|label| app.get_webview_window(label).is_some())
             .collect();
         if still_open.is_empty() {
-            return Ok(());
+            return Ok(open_labels.len());
         }
         if Instant::now() >= deadline {
             return Err(format!(
@@ -771,6 +780,21 @@ mod tests {
                 "plugin-test-window-a-main".to_string(),
                 "plugin-test-window-a-settings".to_string(),
             ]
+        );
+    }
+
+    #[test]
+    fn replacement_reports_only_contributed_windows_that_are_open() {
+        let labels = vec![
+            window_label("test.window-open", "main"),
+            window_label("test.window-open", "settings"),
+        ];
+        let similar_label = window_label("test.window-open-extra", "main");
+        let open = std::collections::HashSet::from([labels[0].clone(), similar_label]);
+
+        assert_eq!(
+            open_window_labels(&labels, |label| open.contains(label)),
+            vec![labels[0].clone()],
         );
     }
 

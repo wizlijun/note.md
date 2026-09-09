@@ -10,6 +10,11 @@ function rule(selector: string): string {
 }
 
 describe('plugin market standard window colors', () => {
+  it('mounts the shared toast surface so mutation feedback is visible', () => {
+    expect(source).toContain("import Toast from './components/Toast.svelte'")
+    expect(source).toContain('<Toast />')
+  })
+
   it('keeps window, category, and card surfaces neutral', () => {
     expect(rule('main')).toContain('background: var(--window-background)')
     expect(rule('.category-block')).toContain('background: var(--window-surface)')

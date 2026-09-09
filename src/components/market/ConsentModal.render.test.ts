@@ -43,4 +43,27 @@ describe('plugin permission sheet', () => {
     expect(close).not.toHaveBeenCalled()
     expect(document.querySelector<HTMLButtonElement>('.primary')!.disabled).toBe(true)
   })
+
+  it('returns the host reload outcome after installation', async () => {
+    const installed = vi.fn()
+    mocks.invoke.mockImplementation((method: string) => method === 'plugin_market_preview'
+      ? Promise.resolve({ capabilities: [] })
+      : Promise.resolve({ closedWindows: 1, reloadError: null }))
+    component = mount(ConsentModal, {
+      target: document.body,
+      props: {
+        id: 'test',
+        version: '1.0.0',
+        name: 'Test',
+        onClose: vi.fn(),
+        onInstalled: installed,
+      },
+    })
+    await vi.waitFor(() => expect(document.querySelector<HTMLButtonElement>('.primary')?.disabled).toBe(false))
+    document.querySelector<HTMLButtonElement>('.primary')!.click()
+    await vi.waitFor(() => expect(installed).toHaveBeenCalledWith({
+      closedWindows: 1,
+      reloadError: null,
+    }))
+  })
 })
