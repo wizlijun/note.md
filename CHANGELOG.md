@@ -11,6 +11,10 @@ For the full commit history, see the git log.
 
 - **Tabs can now be closed in groups from their context menu.** Right-click a tab to close that file, close every tab to its left, or close all tabs. Existing save and discard prompts still protect modified files, and cancelling stops the remaining batch.
 
+### Fixed
+
+- **Plugin changes now take effect without restarting note.md.** Installing, updating, reinstalling, enabling, disabling or removing a plugin refreshes its runtime, menus, shortcuts and open plugin views immediately. The marketplace also reports views it closed and any reload failure.
+
 ## v6.909.5 — 2026-09-09
 
 ### Fixed
