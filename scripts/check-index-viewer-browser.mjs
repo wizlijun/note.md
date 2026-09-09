@@ -150,6 +150,37 @@ try {
     await plugin().getByRole('alert').waitFor()
     missingFiles = false
   })
+  await check('heading hierarchy and inline markers survive search, duplicate titles and narrow screens', async () => {
+    const content = await load('list')
+    assert.equal(await plugin().locator('h2.section-title').count(), 2)
+    assert.equal(await plugin().locator('h3.section-title').count(), 2)
+    assert.equal(await plugin().locator('.card').count(), 4)
+    await plugin().getByRole('searchbox').fill('主题/设计')
+    assert.equal(await plugin().locator('.card').count(), 1)
+    assert.equal(await plugin().locator('.category-section').count(), 2)
+    assert.match(await plugin().locator('h2.section-title').textContent(), /工作/)
+    assert.match(await plugin().locator('h3.section-title').textContent(), /查看器/)
+    await plugin().getByRole('searchbox').fill('')
+    for (const variant of ['dark', 'narrow']) {
+      await page.emulateMedia({ colorScheme: variant === 'dark' ? 'dark' : 'light' })
+      await page.setViewportSize(variant === 'narrow' ? { width: 390, height: 844 } : { width: 1280, height: 850 })
+      const overflow = await plugin().locator('body').evaluate(body => Math.max(body.scrollWidth, document.documentElement.scrollWidth) - innerWidth)
+      assert.ok(overflow <= 1, `Heading list outer overflow: ${overflow}`)
+      await page.screenshot({ path: join(output, `headings-${variant}.png`) })
+    }
+    const repeated = content + '\n## 工作\n### 查看器\n- [再次收录](./examples/design.md) [状态:: 进行中] #主题/设计\n'
+    await page.evaluate(content => window.__indexBrowser.reload(content), repeated)
+    await ready()
+    await plugin().getByRole('button', { name: '再次收录', exact: true }).waitFor()
+    assert.equal(await plugin().locator('h3.section-title').count(), 3)
+    for (const name of ['表格', '封面画廊', '泳道看板']) {
+      await plugin().getByRole('button', { name, exact: true }).click()
+      await plugin().getByRole('button', { name: '再次收录', exact: true }).waitFor()
+    }
+    assert.equal(await plugin().locator('.column-title').count(), 3)
+    assert.equal(await plugin().locator('.card').count(), 5)
+    assert.equal(await page.evaluate(() => window.__indexBrowser.content), repeated)
+  })
   await check('dark and narrow galleries remain readable and covers recover to placeholders', async () => {
     await load('gallery')
     for (const variant of ['dark', 'narrow']) {
@@ -165,7 +196,7 @@ try {
     await plugin().getByText('封面无法加载', { exact: true }).waitFor()
   })
   await check('invalid format falls back; Source and plugin mode preserve editable Markdown', async () => {
-    const malformed = '# 索引\n\n- [文件](file.md)\n- 状态：已读\n- 状态：冲突值\n'
+    const malformed = '# 索引\n\n- [文件](file.md) [状态:: 已读] [状态:: 冲突值]\n'
     await page.evaluate(content => window.__indexBrowser.reload(content), malformed)
     assert.equal(await page.getByRole('textbox', { name: 'Markdown 编辑器', exact: true }).inputValue(), malformed)
     await page.evaluate(content => window.__indexBrowser.reload(content), await readFile(join(root, 'skills/file-index/assets/table.index.md'), 'utf8'))

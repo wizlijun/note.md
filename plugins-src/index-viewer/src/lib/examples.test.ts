@@ -18,7 +18,7 @@ describe('bundled index templates', () => {
     expect(doc).not.toBeNull()
     expect(doc).toMatchObject({ view, groupBy, laneBy })
     expect(doc!.rows).toHaveLength(rows)
-    if (view === 'list') expect(new Set(doc!.rows.map(row => row.section))).toEqual(new Set(['查看器', '个人阅读']))
+    if (view === 'list') expect(new Set(doc!.rows.map(row => row.section))).toEqual(new Set(['工作 / 查看器', '兴趣 / 个人阅读']))
     for (const row of doc!.rows) {
       const targets = [row.href, ...row.cells.flatMap(cell => [...cell.links.map(link => link.href), ...cell.images.map(image => image.href)])]
       for (const target of new Set(targets)) {

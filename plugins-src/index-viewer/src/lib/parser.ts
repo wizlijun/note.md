@@ -1,6 +1,6 @@
 import { Lexer, type Token } from 'marked'
 import { parseDocument } from 'yaml'
-import type { IndexCell, IndexDocument, IndexView } from './model'
+import type { IndexCell, IndexDocument, IndexSection, IndexView } from './model'
 
 const views = new Set<IndexView>(['table', 'list', 'board', 'gallery'])
 
@@ -41,6 +41,67 @@ function isFileLink(href: string): boolean {
   return !!href.trim() && !/^(?:[a-z][a-z\d+.-]*:|\/\/|#|\?)/i.test(href.trim())
 }
 
+type InlineLexer = (text: string) => Token[]
+
+/** Protect Markdown links, images, escapes and code before reading inline markers. */
+function markdownAtom(text: string, inline: InlineLexer): string {
+  if (!/^(?:[`[!\\<]|https?:\/\/|www\.)/i.test(text)) return ''
+  const first = inline(text)[0]
+  return first && ['link', 'image', 'codespan', 'escape', 'autolink'].includes(first.type) ? first.raw : ''
+}
+
+function annotations(source: string, inline: InlineLexer) {
+  const fields = new Map<string, IndexCell>()
+  const tags: string[] = []
+  const seenTags = new Set<string>()
+  let note = '', cover: IndexCell['images'][number] | undefined
+  for (let i = 0; i < source.length;) {
+    const rest = source.slice(i)
+    const atom = markdownAtom(rest, inline)
+    if (atom) {
+      note += atom
+      cover ??= cell(inline(atom)).images[0]
+      i += atom.length
+      continue
+    }
+    const field = /^\[([^\[\]:\r\n]+)::\s*/.exec(rest)
+    if (field) {
+      const name = field[1].trim()
+      if (!name || /[!*`<>\\]/.test(name) || ['文件', '标签', '说明'].includes(name) || fields.has(name)) throw new Error('Ambiguous field')
+      let end = i + field[0].length
+      let depth = 1
+      for (; end < source.length;) {
+        const protectedAtom = markdownAtom(source.slice(end), inline)
+        if (protectedAtom) { end += protectedAtom.length; continue }
+        if (source[end] === '[') depth++
+        if (source[end] === ']' && --depth === 0) break
+        end++
+      }
+      if (depth !== 0) throw new Error('Unclosed inline field')
+      const value = cell(inline(source.slice(i + field[0].length, end)))
+      fields.set(name, value)
+      cover ??= value.images[0]
+      note += ' '
+      i = end + 1
+      continue
+    }
+    // Empty names and other malformed field openers are never ordinary prose.
+    if (/^\[[^\[\]]*::/.test(rest)) throw new Error('Invalid inline field')
+    const tag = /(?:^|\s)$/.test(source.slice(0, i)) ? /^#([\p{L}\p{M}\p{N}_/\-\p{Extended_Pictographic}\u200d\ufe0f]+)/u.exec(rest) : null
+    if (tag && !/^\p{N}+$/u.test(tag[1]) && tag[1].split('/').every(Boolean)) {
+      const key = tag[1].toLocaleLowerCase()
+      if (!seenTags.has(key)) { tags.push(tag[0]); seenTags.add(key) }
+      i += tag[0].length
+      continue
+    }
+    note += source[i++]
+  }
+  const description = cell(inline(note))
+  if (tags.length) fields.set('标签', { text: tags.join(' '), links: [], images: [] })
+  if (description.text || description.images.length) fields.set('说明', description)
+  return { fields, cover }
+}
+
 /** Reject an unsupported document as a whole so the Markdown fallback loses no rows. */
 export function parseIndex(content: string, uri: string): IndexDocument | null {
   try {
@@ -57,74 +118,73 @@ export function parseIndex(content: string, uri: string): IndexDocument | null {
       meta = (value ?? {}) as Record<string, unknown>
       source = lines.slice(close + 1).join('\n')
     }
-    const view = meta.view === undefined ? 'table' : meta.view
+    const view = meta.view === undefined ? 'list' : meta.view
     if (typeof view !== 'string' || !views.has(view as IndexView)) return null
     const groupBy = meta.group_by === undefined ? '' : meta.group_by
     const laneBy = meta.lane_by === undefined ? '' : meta.lane_by
     if (typeof groupBy !== 'string' || typeof laneBy !== 'string') return null
     const doc: IndexDocument = {
       uri, title: uri.split('/').at(-1)?.replace(/\.index\.md$/i, '') || 'Index',
-      description: [], columns: ['文件'], rows: [], view: view as IndexView, groupBy, laneBy,
+      description: [], columns: ['文件'], rows: [], sections: [], view: view as IndexView, groupBy, laneBy,
     }
-    // List indentation is presentation only. A standalone file-link item starts a
-    // record; named fields belong to the nearest record until another item/H2.
+    // Headings own the hierarchy. Every physical list line owns all its metadata.
     const lexer = new Lexer({ gfm: true })
     const blocks = lexer.lex(source)
     const definitions = new Set(blocks.filter(token => token.type === 'def').flatMap(token => token.raw.trimEnd().split('\n')))
     const inline = (text: string) => lexer.inlineTokens(text)
     const records: Map<string, IndexCell>[] = []
-    let current: Map<string, IndexCell> | undefined
-    let section = '', sawTitle = false
+    const headings: IndexSection[] = []
+    let sawTitle = false
     for (const raw of source.split('\n')) {
       const line = raw.trim()
       if (!line || definitions.has(raw)) continue
       const heading = /^(#{1,6})\s+(.+?)(?:\s+#+)?$/.exec(line)
       if (heading) {
         const text = cell(inline(heading[2])).text
-        if (!text || heading[1].length > 2) return null
-        if (heading[1].length === 1) {
-          if (sawTitle || doc.rows.length) return null
+        const level = heading[1].length
+        if (!text) return null
+        if (level === 1) {
+          if (sawTitle || doc.rows.length || doc.sections.length) return null
           doc.title = text
           sawTitle = true
-        } else section = text
-        current = undefined
+        } else {
+          while (headings.length && headings.at(-1)!.level >= level) headings.pop()
+          const parent = headings.at(-1)
+          const section: IndexSection = { id: `section-${doc.sections.length + 1}`, parentId: parent?.id ?? '', title: text, level, path: [...(parent?.path ?? []), text], description: [] }
+          headings.push(section)
+          doc.sections.push(section)
+        }
         continue
       }
       const item = /^(?:[-+*]|\d+[.)])\s+(.+)$/.exec(line)
-      const body = item ? item[1].trim() : line
-      const tokens = inline(body)
-      const first = tokens[0]
-      if (item && tokens.length === 1 && first?.type === 'link' && first.raw.startsWith('[')) {
-        const primary = cell(tokens)
-        if (!isFileLink(first.href) || !primary.text || primary.images.length || primary.links.length !== 1) return null
-        current = new Map([['文件', primary]])
-        records.push(current)
-        doc.rows.push({ id: `row-${doc.rows.length + 1}`, title: primary.text, href: first.href, cells: [], section })
+      if (item) {
+        const body = item[1].trim()
+        const first = inline(body)[0]
+        if (first?.type !== 'link' || !first.raw.startsWith('[') || !isFileLink(first.href)) return null
+        const primary = cell([first])
+        if (!primary.text || primary.images.length || primary.links.length !== 1) return null
+        const tail = body.slice(first.raw.length)
+        if (tail && !/^\s/.test(tail)) return null
+        const { fields, cover } = annotations(tail, inline)
+        const record = new Map([['文件', primary], ...fields])
+        for (const name of fields.keys()) if (!doc.columns.includes(name)) doc.columns.push(name)
+        records.push(record)
+        const section = headings.at(-1)
+        doc.rows.push({ id: `row-${doc.rows.length + 1}`, title: primary.text, href: first.href, cells: [], section: section?.path.join(' / ') ?? '', sectionId: section?.id ?? '', cover })
         continue
       }
-      const field = /^([^:：]+)[:：]\s*(.*)$/.exec(body)
-      if (field && current) {
-        const name = cell(inline(field[1]))
-        // Names are explicit text, never a second file link or nested structure.
-        if (!name.text || /^!?\[/.test(name.text) || name.links.length || name.images.length || current.has(name.text)) return null
-        current.set(name.text, cell(inline(field[2])))
-        if (!doc.columns.includes(name.text)) doc.columns.push(name.text)
-        continue
-      }
-      if (item || current) return null
-      // Only prose before records (or immediately after H2) is page description.
-      // Never reinterpret tables, fences or other blocks as hidden index data.
+      // Keep prose with its heading, while unsupported structures trigger fallback.
+      if (/^\[[^\[\]]*::/.test(line)) return null
       const description = Lexer.lex(line, { gfm: true })
       const token = description[0]
       if (description.length !== 1 || !['paragraph', 'blockquote'].includes(token?.type)
-        || /^\|/.test(line) || /^[-:| ]+\|[-:| ]*$/.test(line)) return null
+        || /^\|/.test(line) || /^[-:| ]+\|[-:| ]*$/.test(line) || /^#{7,}\s/.test(line)) return null
       const text = cell(inline(line.replace(/^>\s?/, ''))).text
-      if (text) doc.description.push(text)
+      if (text) (headings.at(-1)?.description ?? doc.description).push(text)
     }
-    if (!doc.rows.length || (groupBy && !doc.columns.includes(groupBy)) || (laneBy && !doc.columns.includes(laneBy))) return null
+    if ((!doc.rows.length && !doc.sections.length) || (groupBy && !doc.columns.includes(groupBy)) || (laneBy && !doc.columns.includes(laneBy))) return null
     doc.rows.forEach((row, index) => {
       row.cells = doc.columns.map(name => records[index].get(name) ?? { text: '', links: [], images: [] })
-      row.cover = [...records[index].values()].flatMap(value => value.images)[0]
     })
     return doc
   } catch { return null }

@@ -18,10 +18,13 @@ vi.mock('./lib/bridge', () => ({
 }))
 function cell(text: string, href?: string): IndexCell { return { text, links: href ? [{ text, href, start: 0, end: text.length }] : [], images: [] } }
 function fixture(overrides: Partial<IndexDocument> = {}): IndexDocument {
-  return { uri: '/vault/library.index.md', title: '项目资料', description: ['项目的阅读与开发资料。'], columns: ['文件', '状态', '项目', '补充'], view: 'table', groupBy: '状态', laneBy: '项目', rows: [
-    { id: 'a', title: '设计笔记', href: './design.md', section: '文档', cells: [cell('设计笔记', './design.md'), cell('进行中'), cell('甲'), { text: '参见说明，保留备注', links: [{ text: '说明', href: './guide.md', start: 2, end: 4 }], images: [] }], cover: { alt: '设计封面', href: './cover.png' } },
-    { id: 'b', title: '开发指南', href: './guide.md', section: '文档', cells: [cell('开发指南', './guide.md'), cell('完成'), cell('乙'), cell('工程')] },
-    { id: 'c', title: '阅读清单', href: './reading.md', section: '阅读', cells: [cell('阅读清单', './reading.md'), cell('完成'), cell('甲'), cell('书籍')] },
+  return { uri: '/vault/library.index.md', title: '项目资料', description: ['项目的阅读与开发资料。'], columns: ['文件', '状态', '项目', '补充'], view: 'table', groupBy: '状态', laneBy: '项目', sections: [
+    { id: 'docs', parentId: '', title: '文档', level: 2, path: ['文档'], description: [] },
+    { id: 'reading', parentId: '', title: '阅读', level: 2, path: ['阅读'], description: [] },
+  ], rows: [
+    { id: 'a', title: '设计笔记', href: './design.md', section: '文档', sectionId: 'docs', cells: [cell('设计笔记', './design.md'), cell('进行中'), cell('甲'), { text: '参见说明，保留备注', links: [{ text: '说明', href: './guide.md', start: 2, end: 4 }], images: [] }], cover: { alt: '设计封面', href: './cover.png' } },
+    { id: 'b', title: '开发指南', href: './guide.md', section: '文档', sectionId: 'docs', cells: [cell('开发指南', './guide.md'), cell('完成'), cell('乙'), cell('工程')] },
+    { id: 'c', title: '阅读清单', href: './reading.md', section: '阅读', sectionId: 'reading', cells: [cell('阅读清单', './reading.md'), cell('完成'), cell('甲'), cell('书籍')] },
   ], ...overrides }
 }
 function control<T extends HTMLElement>(label: string): T {
@@ -121,6 +124,69 @@ describe('Index viewer', () => {
     expect(document.body.textContent).toContain('没有匹配的文件')
   })
 
+  it('renders heading ancestry and section descriptions in list, gallery, and table without merging equal titles', async () => {
+    const original = fixture()
+    const sections = [
+      { id: 'work', parentId: '', title: '工作', level: 2, path: ['工作'], description: ['工作资料说明。'] },
+      { id: 'work-ref-1', parentId: 'work', title: '参考', level: 3, path: ['工作', '参考'], description: ['第一批参考。'] },
+      { id: 'work-ref-2', parentId: 'work', title: '参考', level: 3, path: ['工作', '参考'], description: [] },
+      { id: 'life', parentId: '', title: '生活', level: 2, path: ['生活'], description: [] },
+      { id: 'life-ref', parentId: 'life', title: '参考', level: 3, path: ['生活', '参考'], description: [] },
+    ]
+    const rows = original.rows.map((row, index) => ({ ...row, sectionId: ['work-ref-1', 'work-ref-2', 'life-ref'][index], section: index < 2 ? '工作 / 参考' : '生活 / 参考' }))
+    await start(fixture({ view: 'list', groupBy: '', laneBy: '', sections, rows }))
+    for (const label of ['分组列表', '封面画廊', '表格']) {
+      await view(label)
+      expect(document.querySelectorAll('.category-tree > .category-section')).toHaveLength(2)
+      expect(document.querySelectorAll('.section-children .category-section')).toHaveLength(3)
+      const work = document.querySelector('[data-section-id="work"]')!
+      expect(work.querySelector(':scope > h2')?.textContent).toBe('工作2')
+      expect(work.querySelector(':scope > .section-description')?.textContent).toBe('工作资料说明。')
+      const first = document.querySelector('[data-section-id="work-ref-1"]')!
+      expect(first.querySelector(':scope > h3')?.textContent).toBe('参考1')
+      expect(first.textContent).toContain('第一批参考。')
+      expect(first.textContent).toContain('设计笔记')
+      expect(first.textContent).not.toContain('开发指南')
+      expect(document.querySelector('[data-section-id="work-ref-2"]')?.textContent).toContain('开发指南')
+      expect(document.querySelectorAll(label === '表格' ? 'tbody tr' : 'article')).toHaveLength(3)
+    }
+    await view('泳道看板')
+    expect(document.querySelectorAll('.column-title')).toHaveLength(3)
+    expect([...document.querySelectorAll('.column-title')].map((node) => node.textContent)).toEqual(['工作 / 参考1', '工作 / 参考1', '生活 / 参考1'])
+    expect([...document.querySelectorAll('.board-cell')].map((node) => node.querySelectorAll('article').length)).toEqual([1, 1, 1])
+    await view('分组列表')
+    await field('搜索索引', '设计笔记')
+    expect([...document.querySelectorAll('.category-section')].map((node) => node.getAttribute('data-section-id'))).toEqual(['work', 'work-ref-1'])
+    expect(document.querySelector('[data-section-id="work"] > h2')?.textContent).toBe('工作1')
+    expect(document.querySelectorAll('article')).toHaveLength(1)
+    await field('搜索索引', '工作')
+    expect(document.querySelectorAll('article')).toHaveLength(2)
+    expect(document.querySelector('[data-section-id="life"]')).toBeNull()
+  })
+
+  it('preserves empty category headings and descriptions until a search filters them out', async () => {
+    await start(fixture({ view: 'list', groupBy: '', rows: [], sections: [
+      { id: 'drafts', parentId: '', title: '待整理', level: 2, path: ['待整理'], description: ['稍后补充资料。'] },
+    ] }))
+    expect(document.querySelector('[data-section-id="drafts"] > h2')?.textContent).toBe('待整理0')
+    expect(document.body.textContent).toContain('稍后补充资料。')
+    await field('搜索索引', 'missing')
+    expect(document.querySelector('.category-section')).toBeNull()
+    expect(document.body.textContent).toContain('没有匹配的文件')
+  })
+
+  it('keeps unclassified files as plain rows without inventing category headings', async () => {
+    const original = fixture()
+    await start(fixture({ view: 'list', groupBy: '', laneBy: '', sections: [], rows: original.rows.map((row) => ({ ...row, section: '', sectionId: '' })) }))
+    expect(document.querySelector('.category-section')).toBeNull()
+    expect(document.querySelector('.content h2')).toBeNull()
+    expect(document.querySelectorAll('.list-rows > .card')).toHaveLength(3)
+    expect(control<HTMLSelectElement>('分组字段').selectedOptions[0].textContent).toBe('分类标题')
+    expect(document.querySelector('.list-rows .fields')?.textContent).toContain('参见说明，保留备注')
+    button('说明').click()
+    expect(bridge.open).toHaveBeenCalledWith('/vault/library.index.md', './guide.md')
+  })
+
   it('hides table grouping controls while preserving the chosen group in other layouts', async () => {
     await start()
     expect(document.querySelector('[aria-label="分组字段"]')).toBeNull()
@@ -130,6 +196,21 @@ describe('Index viewer', () => {
     expect(document.querySelector('[aria-label="分组字段"]')).toBeNull()
     await view('泳道看板')
     expect(control<HTMLSelectElement>('分组字段').value).toBe('项目')
+  })
+
+  it('groups the same tag set regardless of case or order without duplicating files', async () => {
+    const doc = fixture({ view: 'list', groupBy: '标签', laneBy: '' })
+    doc.columns[3] = '标签'
+    doc.rows[0].cells[3] = cell('#Design #产品')
+    doc.rows[1].cells[3] = cell('#产品 #design')
+    doc.rows[2].cells[3] = cell('#阅读')
+    await start(doc)
+    expect(document.querySelectorAll('.list-group')).toHaveLength(2)
+    expect(document.querySelectorAll('article')).toHaveLength(3)
+    expect(document.querySelector('.list-group .fields')?.textContent).toContain('#Design #产品')
+    await view('泳道看板')
+    expect(document.querySelectorAll('.column-title')).toHaveLength(2)
+    expect(document.querySelectorAll('.card')).toHaveLength(3)
   })
 
   it('keeps oversized board data accessible without rendering hundreds of empty intersections', async () => {
@@ -188,7 +269,7 @@ describe('Index viewer', () => {
 
   it('shows English controls and an empty table without inventing data', async () => {
     bridge.language = 'en'
-    await start(fixture({ rows: [] }))
+    await start(fixture({ rows: [], sections: [] }))
     expect(control('Search index')).toBeTruthy()
     expect(document.body.textContent).toContain('No files in this index')
   })

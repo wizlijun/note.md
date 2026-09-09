@@ -3,7 +3,7 @@ import { isHostOrigin, loadCover, onDocument, openLink, sourcePath } from './bri
 
 const request = vi.fn()
 const uri = '/vault/indexes/library.index.md'
-const content = '# Library\n\n- [Book](../books/a.md)\n  - Status: Read\n'
+const content = '# Library\n\n- [Book](../books/a.md) [Status:: Read]\n'
 let stop: (() => void) | undefined
 function send(overrides = {}, origin = 'tauri://localhost', source: MessageEventSource = window) {
   window.dispatchEvent(new MessageEvent('message', { origin, source, data: {

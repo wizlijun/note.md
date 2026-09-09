@@ -6,34 +6,39 @@
 
 ## Markdown 格式 V1
 
-唯一数据形式为 Markdown 文件列表，不引入 GFM 表格、JSON、指令围栏、块 ID 或逐条 YAML。每个文件写为 `- [标题](相对路径)`，主链接独占一行。属性推荐 `  - 字段：值`，支持中英文冒号，可省略属性列表符号。文件条目的符号支持 `-`、`*`、`+` 和有序数字。缩进无层级语义：空格与 tab 增减均不改变归属；属性总是归最近的前一个文件条目，新文件条目或二级标题结束旧条目，空行不结束条目。字段按所有条目首次出现顺序取并集，缺失补空；同一条目重复属性视为歧义，整体回退而不猜测覆盖。四种显示布局使用同一份列表数据。
+数据形式为 Markdown 标题与单行文件列表，不引入 GFM 表格、JSON、指令围栏、块 ID 或逐条 YAML。`#` 是页面标题，H2–H6 是分类树；跳级标题挂在最近更浅标题下，回到浅层时结束旧子分类。普通段落、引用是当前标题的说明，空行不改变归属。文件列表的空格和 tab 缩进不表达分类层级。
+
+每文件一行，主链接位于列表符号后第一个位置，后面可写 `[字段:: 值]`、`#标签` 和自由说明。支持 `-`、`*`、`+` 和数字列表符号，推荐顶格 `-`。字段值可含空格、强调、行内代码、链接与图片；字段按首次出现顺序取并集，缺失补空，重复字段整体回退。`文件`、`标签`、`说明` 是查看器自动生成的保留字段；标签不推断状态等其他字段，多标签按完整组合分组，不复制条目。
 
 ```markdown
-- [需求清单](./需求清单.md)
-  - 状态：待处理
-  - 项目：查看器
+# 项目文件
 
-- [设计方案](./设计方案.md)
-  - 项目：查看器
-  - 状态：进行中
+## 工作
+
+### 查看器
+
+- [需求清单](./需求清单.md) [状态:: 待处理] [项目:: 查看器] #主题/需求
+- [设计方案](./设计方案.md) [状态:: 进行中] [项目:: 查看器] #主题/设计 演示布局方案
 ```
 
-图片以 `![说明](相对路径)` 写在属性值中，每条首次遇到的图片作为封面。支持强调、行内代码、普通链接的文本显示，链接仍可点击；原始 HTML 不执行。Markdown 链接目标相对索引文件，允许在 Vault 内使用 `../`；禁止越出 Vault、网络或脚本 URL。封面通过宿主 `host.vault.read_bytes` 读取 Vault 内 PNG/JPEG/WebP/GIF，失败显示书籍占位及提示。V1 不自动下载远程封面。
+采用标准 Markdown 相对文件链接，允许在 Vault 内使用 `../`；不解析 WikiLinks、Notion @mentions，不允许越出 Vault、网络或脚本 URL。封面推荐 `[封面:: ![说明](相对路径)]`，按整行书写顺序的第一张图片作为封面（也支持尾文图片）。通过宿主 `host.vault.read_bytes` 读取 Vault 内 PNG/JPEG/WebP/GIF，失败显示占位及提示，不自动下载远程图片。原始 HTML 不执行。
 
-可选 YAML frontmatter（无 frontmatter 默认 table；普通元数据允许共存）：
+可选 YAML frontmatter（无 frontmatter 默认 list；普通元数据允许共存）：
 
 ```yaml
-view: table # table | list | board | gallery
-group_by: 状态 # 按属性名分组；默认按二级标题分组，无标题为未分组
+view: board # list | table | board | gallery
+group_by: 状态 # 精确字段名；默认按标题分类，看板无标题为未分类
 lane_by: 项目 # 仅 board：纵向泳道字段；横向列仍为 group_by
 ```
 
-一级标题为页面标题，缺省使用文件名；段落/引用说明只出现在首个条目前或分节开头（此处无列表符号的冒号文本仍是说明）。二级标题为分节，所有条目合并为同一数据集，保留 section。配置字段必须存在，未知 view、重复属性、带列表符号的属性无所属条目、主链接混有其他内容、条目内游离说明或不支持的结构整体回退，不能静默丢条目。不兼容先前未发布的 GFM 表格原型。无需 `type: index`，文件名已表明格式。
+所有分类下的条目合并为同一数据集，保留标题层级与分类说明。配置字段必须存在，未知 view、重复或保留属性、损坏的行内字段、没有主链接的列表条目及不支持的结构整体回退，不能静默丢条目。不兼容此前未发布原型的表格源码或多行子属性列表。无需 `type: index`，文件名已表明格式。
+
+标题、列表与多视图思路参考 Notion、Obsidian；`[字段:: 值]` 来自社区 Dataview 的行内元数据习惯，并非 Obsidian 核心 Properties。仅借用可阅读的字段形式，不实现查询、表达式或完整类型语义。官方来源与取舍记录在 [格式设计参考](../../../skills/file-index/references/design-notes.md)，对外格式以 [格式说明](../../../skills/file-index/references/format.md) 为准。
 
 ## 四种布局
 
 - table：把属性并集显示为多列、水平滚动、文件列醒目、保留全部字段。
-- list：按所选属性或二级标题分组，文件名称与元数据紧凑排列，组计数。
+- list：默认按标题分类层级展示，也可按所选属性分组，文件名称与元数据紧凑排列，组计数。
 - board：分组值为横向看板列；可选 lane_by 为纵向泳道，交叉单元格显示卡片及数量。明确只读、不提供拖动。
 - gallery：封面网格，书名及全部元数据可读，缺图与坏图有占位。窄屏自适应。
 
@@ -41,21 +46,12 @@ lane_by: 项目 # 仅 board：纵向泳道字段；横向列仍为 group_by
 
 ## 模块契约
 
-`plugins-src/index-viewer/src/lib/model.ts` 定义：
+数据模型以 `plugins-src/index-viewer/src/lib/model.ts` 为准，保存页面标题与说明、标题分类、字段并集、条目单元格、链接及封面。条目保留分类身份，避免不同父级下的同名标题混为一组。`groupBy`、`laneBy` 为字段名或空串；空 groupBy 按标题分类，空 laneBy 单泳道。
 
-```ts
-type IndexView = 'table' | 'list' | 'board' | 'gallery'
-interface IndexLink { text: string; href: string; start: number; end: number }
-interface IndexImage { alt: string; href: string }
-interface IndexCell { text: string; links: IndexLink[]; images: IndexImage[] }
-interface IndexRow { id: string; title: string; href: string; cells: IndexCell[]; section: string; cover?: IndexImage }
-interface IndexDocument { uri: string; title: string; description: string[]; columns: string[]; rows: IndexRow[]; view: IndexView; groupBy: string; laneBy: string }
-```
-
-`groupBy`/`laneBy` 为列名或空串（空 groupBy 按 section，空 laneBy 单泳道）。`parseIndex(content, uri): IndexDocument | null` 纯解析；`onDocument(callback)` 验证父窗口来源并回 ready/fallback；`openLink(uri, href)` 通过宿主打开；`loadCover(uri, href): Promise<string>` 返回 Blob URL，由消费组件释放；`locale()` 返回宿主语言，主界面中英。
+`parseIndex(content, uri): IndexDocument | null` 纯解析；`onDocument(callback)` 验证父窗口来源并回 ready/fallback；`openLink(uri, href)` 通过宿主打开；`loadCover(uri, href): Promise<string>` 返回 Blob URL，由消费组件释放；`locale()` 返回宿主语言，主界面中英。
 
 ## 交付与验收
 
 提供可直接打开的四份 `.index.md` 示例及其真实相对链接目标和本地封面；skill 位于仓库 `skills/file-index/`，可独立复制到 Agent skills 目录，含自包含格式参考、四种模板和四类 prompt。生成原则为先盘点真实文件、输出相对链接、未知字段留空，不虚构封面/状态、不改源文件。
 
-测试覆盖列表格式、缩进容错、缺失属性与非法输入、路径边界、文档桥接与回退、四布局切换、列分组/二维泳道、搜索、封面失败和过期加载释放、示例全部可解析。运行插件 test/check/build、打包集成测试与生产 bundle 浏览器交互/视觉验收。
+测试覆盖标题层级与跳级、分类说明、单行属性和标签、缩进容错、缺失属性与非法输入、路径边界、文档桥接与回退、四布局切换、列分组/二维泳道、搜索、封面失败和过期加载释放、示例全部可解析。运行插件 test/check/build、打包集成测试与生产 bundle 浏览器交互/视觉验收。

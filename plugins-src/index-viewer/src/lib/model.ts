@@ -9,12 +9,21 @@ export interface IndexLink {
 }
 export interface IndexImage { alt: string; href: string }
 export interface IndexCell { text: string; links: IndexLink[]; images: IndexImage[] }
+export interface IndexSection {
+  id: string
+  parentId: string
+  title: string
+  level: number
+  path: string[]
+  description: string[]
+}
 export interface IndexRow {
   id: string
   title: string
   href: string
   cells: IndexCell[]
   section: string
+  sectionId: string
   cover?: IndexImage
 }
 export interface IndexDocument {
@@ -23,6 +32,7 @@ export interface IndexDocument {
   description: string[]
   columns: string[]
   rows: IndexRow[]
+  sections: IndexSection[]
   view: IndexView
   groupBy: string
   laneBy: string
