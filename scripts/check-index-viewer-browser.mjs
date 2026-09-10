@@ -243,7 +243,7 @@ try {
     await ready()
     await page.getByRole('tab', { name: '源码（Cmd+/）', exact: true }).click()
     await page.getByRole('textbox', { name: 'Markdown 源码', exact: true }).waitFor()
-    await page.getByRole('tab', { name: '使用“文件索引”查看', exact: true }).click()
+    await page.getByRole('tab', { name: '使用“索引查看器”查看', exact: true }).click()
     await ready()
   })
   assert.deepEqual(errors, [])
