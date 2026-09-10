@@ -51,14 +51,16 @@ export function classifyLink(href: string, basePath: string | undefined): LinkAc
 
   let target = raw
   if (/^file:\/\//i.test(target)) {
-    target = decodeURIComponent(target.replace(/^file:\/\//i, ''))
+    target = target.replace(/^file:\/\//i, '')
   } else if (SCHEME_RE.test(target)) {
     // Any other scheme (http, https, mailto, tel, ftp, …) → system handler.
     return { kind: 'browser', url: raw }
   }
 
-  // Local path (absolute or relative). Drop query string and fragment.
-  const clean = target.split('#')[0].split('?')[0]
+  // Markdown hrefs are URLs; decode their path exactly once at this boundary.
+  // Strip URL suffixes first so encoded # / ? remain part of the filename.
+  let clean = target.split('#')[0].split('?')[0]
+  try { clean = decodeURIComponent(clean) } catch { /* Keep literal/malformed % names usable. */ }
   const abs = resolveRelative(clean, basePath)
   if (!abs) return { kind: 'ignore' }
 

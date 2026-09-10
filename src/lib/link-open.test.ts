@@ -36,6 +36,40 @@ describe('classifyLink', () => {
     expect(classifyLink('sibling.md?v=2', BASE)).toEqual({ kind: 'edit', path: '/Users/me/notes/sibling.md' })
   })
 
+  it.each(['./', '/Users/me/notes/', 'file:///Users/me/notes/'])(
+    'decodes Markdown URL paths from %s exactly once', (prefix) => {
+      expect(classifyLink(`${prefix}The%20Simple%20Beauty/%E9%A3%9E%E9%92%93.md`, BASE))
+        .toEqual({ kind: 'edit', path: '/Users/me/notes/The Simple Beauty/飞钓.md' })
+      expect(classifyLink(`${prefix}literal%2520/100%25.md`, BASE))
+        .toEqual({ kind: 'edit', path: '/Users/me/notes/literal%20/100%.md' })
+      expect(classifyLink(`${prefix}part%23one%3F.md?view=1#section`, BASE))
+        .toEqual({ kind: 'edit', path: '/Users/me/notes/part#one?.md' })
+    },
+  )
+
+  it('decodes the link without decoding the current document filesystem path', () => {
+    expect(classifyLink('./summary%20notes.md', '/vault/literal%20/index.md'))
+      .toEqual({ kind: 'edit', path: '/vault/literal%20/summary notes.md' })
+  })
+
+  it('decodes image and PDF paths before handing them to the system', () => {
+    expect(classifyLink('images/book%20cover.png', BASE))
+      .toEqual({ kind: 'system', path: '/Users/me/notes/images/book cover.png' })
+    expect(classifyLink('book%20sample.pdf', BASE))
+      .toEqual({ kind: 'system', path: '/Users/me/notes/book sample.pdf' })
+  })
+
+  it.each(['100%.md', 'bad%2.md', 'bad%E4.md'])('keeps malformed escapes literal: %s', (name) => {
+    expect(classifyLink(name, BASE)).toEqual({ kind: 'edit', path: `/Users/me/notes/${name}` })
+    expect(classifyLink(`file:///tmp/${name}`, BASE)).toEqual({ kind: 'edit', path: `/tmp/${name}` })
+  })
+
+  it('leaves external URL encodings and wikilink names unchanged', () => {
+    const url = 'https://example.com/book%20title?q=%23chapter#section'
+    expect(classifyLink(url, BASE)).toEqual({ kind: 'browser', url })
+    expect(resolveWikilinkPath('literal%20', BASE)).toBe('/Users/me/notes/literal%20.md')
+  })
+
   it('routes images and unknown local files to the system default app', () => {
     expect(classifyLink('pic.png', BASE)).toEqual({ kind: 'system', path: '/Users/me/notes/pic.png' })
     expect(classifyLink('doc.pdf', BASE)).toEqual({ kind: 'system', path: '/Users/me/notes/doc.pdf' })

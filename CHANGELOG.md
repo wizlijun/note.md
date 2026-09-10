@@ -7,6 +7,10 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+### Fixed
+
+- **Rich view opens encoded local links correctly.** Markdown links with spaces or Chinese characters now resolve to the actual file path. Encoded filename characters such as `%`, `#`, and `?` are preserved without double decoding, including links from book indexes.
+
 ## v6.910.1 — 2026-09-10
 
 ### Added
