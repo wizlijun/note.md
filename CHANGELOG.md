@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.910.2 — 2026-09-10
+
 ### Fixed
 
 - **Index Viewer now uses the consistent Chinese name “索引查看器”.** Its marketplace name, view label, and menu copy are aligned; the Chinese menu entry is “打开索引查看器”.
