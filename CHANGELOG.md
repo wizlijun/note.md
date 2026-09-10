@@ -9,6 +9,7 @@ For the full commit history, see the git log.
 
 ### Fixed
 
+- **Index Viewer now uses the consistent Chinese name “索引查看器”.** Its marketplace name, view label, and menu copy are aligned; the Chinese menu entry is “打开索引查看器”.
 - **Rich view opens encoded local links correctly.** Markdown links with spaces or Chinese characters now resolve to the actual file path. Encoded filename characters such as `%`, `#`, and `?` are preserved without double decoding, including links from book indexes.
 
 ## v6.910.1 — 2026-09-10

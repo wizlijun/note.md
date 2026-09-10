@@ -178,7 +178,7 @@ var ENTRY_MAP={
  'notemd.openclaw-chat':{en:'<b>Plugins</b> → <b>Move Forward</b> → OpenClaw',zh:'「<b>插件</b>」→「<b>推进</b>」→ OpenClaw'},
  'notemd.next':{en:'<b>Plugins</b> → <b>Move Forward</b> → Next',zh:'「<b>插件</b>」→「<b>推进</b>」→ 下一步'},
  'notemd.idea-spark':{en:'<b>Plugins</b> → <b>Ideas</b> → Idea Spark',zh:'「<b>插件</b>」→「<b>灵感</b>」→ 奇思妙想'},
- 'notemd.index-viewer':{en:'Open a <code>*.index.md</code> file to view it automatically, or choose <b>Plugins → Read → View File Index</b>. Switch between cover gallery, table, grouped list and board layouts within the view.',zh:'打开 <code>*.index.md</code> 文件可自动显示，或选择「<b>插件 → 阅读 → 查看文件索引</b>」。可在视图内切换封面画廊、多列表格、分组列表和看板。'},
+ 'notemd.index-viewer':{en:'Open a <code>*.index.md</code> file to view it automatically, or choose <b>Plugins → Read → View File Index</b>. Switch between cover gallery, table, grouped list and board layouts within the view.',zh:'打开 <code>*.index.md</code> 文件可自动显示，或选择「<b>插件 → 阅读 → 打开索引查看器</b>」。可在视图内切换封面画廊、多列表格、分组列表和看板。'},
  'notemd.ebook-import':{en:'<b>Plugins</b> → <b>Read</b> → Import Ebooks… (also CLI <code>notemd ebook</code>)',zh:'「<b>插件</b>」→「<b>阅读</b>」→ 导入电子书…（也支持 CLI <code>notemd ebook</code>）'},
  'notemd.roam-import':{en:'<b>Plugins</b> → <b>Import & Export</b> → Import from Roam Research…',zh:'「<b>插件</b>」→「<b>导入与导出</b>」→ 从 Roam Research 导入…'},
  'notemd.pos-log':{en:'<b>Plugins</b> → <b>Capture</b> → Location Log',zh:'「<b>插件</b>」→「<b>记录</b>」→ 位置记录'},

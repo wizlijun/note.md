@@ -1,4 +1,4 @@
-# Index Viewer：Markdown 文件索引查看器
+# 索引查看器（Index Viewer）：Markdown 文件索引
 
 ## 目标与范围
 

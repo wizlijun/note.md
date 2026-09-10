@@ -107,7 +107,7 @@
 <main class="ui-surface">
   {#if doc}
     <header>
-      <div class="heading"><div><div class="eyebrow">{zh ? '文件索引' : 'FILE INDEX'}</div><h1>{doc.title}</h1></div><span class="total">{doc.rows.length} {zh ? '个文件' : 'files'}</span></div>
+      <div class="heading"><div><div class="eyebrow">{zh ? '索引查看器' : 'FILE INDEX'}</div><h1>{doc.title}</h1></div><span class="total">{doc.rows.length} {zh ? '个文件' : 'files'}</span></div>
       {#if doc.description.length}<div class="description">{#each doc.description as paragraph}<p>{paragraph}</p>{/each}</div>{/if}
       <div class="toolbar">
         <div class="view-switch" role="group" aria-label={zh ? '布局' : 'Layout'}>

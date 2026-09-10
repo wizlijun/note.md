@@ -1,4 +1,4 @@
-# Index Viewer
+# 索引查看器（Index Viewer）
 
 将 `*.index.md` 显示为可搜索的文件索引，支持多列表格、分组列表、泳道看板和封面网格。索引仍是普通 Markdown：层级标题、一段说明、一组单行文件列表；只用少量可选 frontmatter 指定初始布局。
 
