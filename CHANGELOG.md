@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.910.1 — 2026-09-10
+
 ### Added
 
 - **Book indexes now default to cover galleries.** Ebook Import generates heading-based, single-line indexes that open the latest summary or other reading notes, list additional reading links, and use local `cover.jpg/png` images. Books without notes remain listed as pending. Category changes and completed summaries rebuild indexes immediately; clean active file viewers refresh automatically. Imports retrieve metadata and covers from Open Library with an Apple Books fallback; existing books offer explicit enrichment, with ISBN or exact title/author matching and preservation of existing covers.
