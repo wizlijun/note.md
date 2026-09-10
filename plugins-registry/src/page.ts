@@ -228,11 +228,12 @@ function groupPlugins(list){
 function renderCard(p,d){
  var host=p.min_host?'<div class="host">'+esc(d.host)+esc(p.min_host)+'</div>':'';
  var ai=AI_ROLES[p.id];
+ var localized=p.i18n&&p.i18n[lang]||{};
  return '<div class="card'+(ai?' ai-card':'')+'">'+
-  '<div class="card-top"><h3>'+esc(p.name||p.id)+'</h3>'+
+  '<div class="card-top"><h3>'+esc(localized.name||p.name||p.id)+'</h3>'+
   (ai?'<span class="ai">'+esc(ai[lang])+'</span>':'')+
   (p.version?'<span class="ver">v'+esc(p.version)+'</span>':'')+'</div>'+
-  '<p class="desc">'+esc(p.description||'')+'</p>'+
+  '<p class="desc">'+esc(localized.description||p.description||'')+'</p>'+
   '<div class="entry"><span class="lbl">'+esc(d.entry_lbl)+'</span>'+entryFor(p.id)+host+'</div>'+
   '</div>';
 }
