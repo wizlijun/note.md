@@ -102,6 +102,14 @@ describe('heading categories and single-line records', () => {
     expect(doc.rows[0].cells[2].text).toBe('10:30：讨论')
   })
 
+  it('accepts angle-delimited file and cover destinations containing spaces', () => {
+    const doc = parseIndex('- [Life in Three Dimensions](<./Life in Three Dimensions/summary.md>) [封面:: ![封面](<./Life in Three Dimensions/cover.jpg>)]', uri)!
+    expect(doc.rows[0]).toMatchObject({
+      href: './Life in Three Dimensions/summary.md',
+      cover: { alt: '封面', href: './Life in Three Dimensions/cover.jpg' },
+    })
+  })
+
   it('extracts case-insensitive and nested tags without treating them as status fields', () => {
     expect(values('- [书籍](book.md) #主题/设计 #Tag #tag #中文 #📚 [状态:: 已读]')).toEqual([{ 文件: '书籍', 状态: '已读', 标签: '#主题/设计 #Tag #中文 #📚' }])
   })
