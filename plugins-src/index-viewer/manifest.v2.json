@@ -7,7 +7,7 @@
   "engines": {
     "notemd": ">=6.910.1"
   },
-  "description": "Browse Markdown file indexes as tables, grouped lists, swimlane boards and cover galleries.",
+  "description": "Browse Markdown file indexes as cover galleries, tables, grouped lists and swimlane boards. Organize entries with headings and single-line list attributes, and navigate tags like wiki links.",
   "ui": "ui/",
   "activation": {
     "events": []
@@ -45,7 +45,7 @@
   "i18n": {
     "zh": {
       "name": "文件索引",
-      "description": "以多列表格、分组列表、泳道看板或封面网格查看 Markdown 文件索引。",
+      "description": "以封面画廊、多列表格、分组列表或泳道看板查看 Markdown 文件索引；使用标题分类和单行列表属性，标签与双链均可打开知识页面。",
       "menus": {
         "view-index": "查看文件索引"
       }

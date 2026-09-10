@@ -2,12 +2,12 @@
   "manifest_version": 2,
   "id": "notemd.ebook-import",
   "name": "Ebook Import",
-  "version": "1.3.6",
+  "version": "1.4.0",
   "kind": "native",
   "engines": {
-    "notemd": ">=6.901.10"
+    "notemd": ">=6.910.1"
   },
-  "description": "Import ebooks into the vault as Markdown, classify books into up to eight managed topics, and maintain generated topic indexes. Includes Calibre conversion, scanned-PDF OCR, AI-assisted topic design, and reviewable batch classification of legacy books.",
+  "description": "Import ebooks as Markdown, enrich book metadata and covers from Open Library and Apple Books, and maintain readable cover-gallery indexes that refresh when book categories change. Includes Calibre conversion, scanned-PDF OCR, and AI-assisted reading and classification.",
   "binary": {
     "aarch64-apple-darwin": "bin/notemd-ebook-import",
     "x86_64-apple-darwin": "bin/notemd-ebook-import"
@@ -91,7 +91,7 @@
   "i18n": {
     "zh": {
       "name": "导入电子书",
-      "description": "将 EPUB、PDF 和 DOCX 电子书导入知识库并转换为 Markdown。书籍可归入最多八个可管理主题，自动维护主题索引，并支持 AI 设计主题及批量建议旧书分类后人工确认。",
+      "description": "将电子书导入为 Markdown，从 Open Library 与 Apple Books 补全书目和封面，自动生成便于阅读的封面画廊索引，并在书籍分类变更后即时更新。支持 Calibre 转换、扫描 PDF OCR、AI 阅读与分类。",
       "menus": {
         "open": "导入电子书(epub、pdf、docx)…"
       }
