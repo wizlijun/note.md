@@ -2,7 +2,7 @@
   "manifest_version": 2,
   "id": "notemd.index-viewer",
   "name": "Index Viewer",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "kind": "native",
   "engines": {
     "notemd": ">=6.910.1"
