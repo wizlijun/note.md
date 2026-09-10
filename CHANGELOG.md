@@ -7,6 +7,10 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+### Fixed
+
+- **Rich editing preserves image paths that contain spaces.** Encoded Markdown image destinations such as `%20`, `%23`, and `%25` remain reversible when a document is saved or reopened, so book-index covers no longer turn into invalid plain-text image syntax.
+
 ## v6.910.2 — 2026-09-10
 
 ### Fixed
