@@ -153,6 +153,30 @@ describe('Editor Kit v2', () => {
     mocks.mountRich.mockImplementation(async (...args: Parameters<typeof makeRich>) => makeRich(...args))
   })
 
+  it('keeps an encoded image destination valid through Rich save and reopen', () => {
+    const source = '- [Life](<./Life%20in%20Three%20Dimensions/summary.md>) [封面:: ![封面](<./Life%20in%20Three%20Dimensions/cover.jpg>)]'
+    const firstHost = document.createElement('div')
+    const secondHost = document.createElement('div')
+    document.body.append(firstHost, secondHost)
+
+    const first = makeRich(firstHost, source)
+    const saved = first.getMarkdown()
+    expect(saved).toContain('![封面](<./Life%20in%20Three%20Dimensions/cover.jpg>)')
+    expect(saved).not.toContain('![封面](./Life in Three Dimensions/cover.jpg)')
+
+    const reopened = makeRich(secondHost, saved)
+    let imageCount = 0
+    reopened.view.state.doc.descendants((node) => {
+      if (node.type.name === 'image') imageCount += 1
+      return undefined
+    })
+    expect(imageCount).toBe(1)
+    expect(reopened.getMarkdown()).toBe(saved)
+
+    first.destroy()
+    reopened.destroy()
+  })
+
   it('emits one block replace, treats ack as metadata-only, and applies another block remotely', async () => {
     let sequence = 0
     const mounted = await mountDocumentEditor(document.body, {
