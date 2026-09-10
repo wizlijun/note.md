@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { readdirSync, readFileSync, existsSync } from 'node:fs'
+import { readdirSync, readFileSync, existsSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 /**
@@ -114,15 +116,88 @@ describe('release-plugins.sh packaging shape', () => {
 })
 
 describe('release.sh transient Apple failures', () => {
+  const submissionId = 'afa3e0f4-54ec-4ca3-bdcf-63f3298089a2'
+  const receivedId = `Submission ID received\n  id: ${submissionId}\n`
+  const connectTimeout = 'Error: HTTPClientError.connectTimeout\n'
+  const uploaded = `${receivedId}Successfully uploaded file\n`
+
+  function runNotarization(steps: Array<{ output: string; status: number }>) {
+    const fixture = mkdtempSync(join(tmpdir(), 'notemd-notary-retry-test-'))
+    try {
+      const bin = join(fixture, 'bin')
+      mkdirSync(bin)
+      for (const [i, step] of steps.entries()) {
+        writeFileSync(join(fixture, `${i + 1}.log`), step.output)
+        writeFileSync(join(fixture, `${i + 1}.status`), String(step.status))
+      }
+      writeFileSync(join(bin, 'xcrun'), `#!/bin/bash
+set -eu
+step=1
+if [[ -f "$NOTARY_FIXTURE/step" ]]; then step=$(( $(cat "$NOTARY_FIXTURE/step") + 1 )); fi
+printf '%s' "$step" > "$NOTARY_FIXTURE/step"
+printf '%s %s\\n' "$2" "$3" >> "$NOTARY_FIXTURE/calls"
+cat "$NOTARY_FIXTURE/$step.log"
+exit "$(cat "$NOTARY_FIXTURE/$step.status")"
+`, { mode: 0o755 })
+      writeFileSync(join(bin, 'sleep'), '#!/bin/bash\nexit 0\n', { mode: 0o755 })
+      // Execute only the real retry helpers, never the release/versioning steps.
+      const helpers = HOST_RELEASE.slice(
+        HOST_RELEASE.indexOf('is_transient_apple_service_failure() {'),
+        HOST_RELEASE.indexOf('build_arch() {'),
+      )
+      const result = spawnSync('/bin/bash', ['-c', `set -euo pipefail
+say() { printf '%s\\n' "$*"; }
+${helpers}
+notarize_dmg_with_apple_retries /fixture.dmg aarch64
+`], {
+        env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, NOTARY_FIXTURE: fixture,
+          APPLE_ID: 'fixture', APPLE_PASSWORD: 'fixture', APPLE_TEAM_ID: 'fixture' },
+        encoding: 'utf8', timeout: 10_000,
+      })
+      expect(result.error).toBeUndefined()
+      return { status: result.status, output: result.stdout + result.stderr,
+        calls: readFileSync(join(fixture, 'calls'), 'utf8').trim().split('\n') }
+    } finally {
+      rmSync(fixture, { recursive: true, force: true })
+    }
+  }
+
   it('retries TLS failures from the notarization service', () => {
     expect(HOST_RELEASE).toContain('NSURLErrorDomain Code=-1200')
     expect(HOST_RELEASE).toContain('A TLS error caused the secure connection to fail')
   })
 
-  it('resumes a DMG notarization submission after a transient wait failure', () => {
-    expect(HOST_RELEASE).toContain('notarize_dmg_with_apple_retries "$dmg_staged" "$arch_tag"')
-    expect(HOST_RELEASE).toContain('notarytool wait "$submission_id"')
-    expect(HOST_RELEASE).toContain('submission_id=$(sed -nE')
+  it('resubmits when Apple allocated an ID but the upload failed', () => {
+    const result = runNotarization([
+      { output: receivedId + connectTimeout, status: 1 },
+      { output: uploaded + 'status: Accepted\n', status: 0 },
+    ])
+    expect(result.status, result.output).toBe(0)
+    expect(result.calls).toEqual(['submit /fixture.dmg', 'submit /fixture.dmg'])
+  })
+
+  it('resumes the same ID after a completed upload and repeated transient wait failures', () => {
+    const result = runNotarization([
+      { output: uploaded + connectTimeout, status: 1 },
+      { output: 'Waiting for processing to complete.\n' + connectTimeout, status: 1 },
+      { output: 'status: Accepted\n', status: 0 },
+    ])
+    expect(result.status, result.output).toBe(0)
+    expect(result.calls).toEqual(['submit /fixture.dmg', `wait ${submissionId}`, `wait ${submissionId}`])
+  })
+
+  it('stops after three incomplete uploads instead of waiting on an orphaned ID', () => {
+    const result = runNotarization(Array.from({ length: 3 }, () => ({
+      output: receivedId + connectTimeout, status: 7,
+    })))
+    expect(result.status, result.output).toBe(7)
+    expect(result.calls).toEqual(Array(3).fill('submit /fixture.dmg'))
+  })
+
+  it('does not retry a permanent rejection after upload', () => {
+    const result = runNotarization([{ output: uploaded + 'status: Invalid\n', status: 65 }])
+    expect(result.status, result.output).toBe(65)
+    expect(result.calls).toEqual(['submit /fixture.dmg'])
   })
 
   it('rejects untracked files as well as tracked and staged changes', () => {

@@ -323,7 +323,9 @@ notarize_dmg_with_apple_retries() {
       rm -f "$log"
       return 0
     fi
-    if [[ -z "$submission_id" ]]; then
+    # Apple allocates an ID before uploading. Only resume an upload that
+    # completed; waiting on an interrupted upload can stay In Progress forever.
+    if [[ -z "$submission_id" ]] && grep -q '^Successfully uploaded file' "$log"; then
       submission_id=$(sed -nE 's/^[[:space:]]*id:[[:space:]]*([0-9a-fA-F-]+)[[:space:]]*$/\1/p' "$log" | head -1)
     fi
     if (( attempt >= max_attempts )) || ! is_transient_apple_service_failure "$log"; then
