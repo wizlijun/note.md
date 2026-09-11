@@ -11,7 +11,7 @@ export default defineConfig({
       miniflare: {
         bindings: {
           ASSISTANT_MAIL_ACCESS_KEY: 'test-access-key',
-          ALLOWED_FORWARDER: 'owner@gmail.com',
+          ALLOWED_FORWARDER: 'newbruce@gmail.com',
           ASSISTANT_MAIL_ADDRESS: 'assistant@example.com',
           TEST_MIGRATIONS: migrations,
         },

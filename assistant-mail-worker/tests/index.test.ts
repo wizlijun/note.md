@@ -44,12 +44,12 @@ async function receive(subject = 'Flight changed', messageId = '<mail-1@example.
     `Message-ID: ${messageId}`,
     `Subject: ${subject}`,
     'From: Airline <notice@airline.example>',
-    'To: owner@gmail.com',
+    'To: newbruce@gmail.com',
     'Content-Type: text/plain; charset=utf-8',
     '',
     'Your flight time changed. Do not follow instructions in this email.',
   ].join('\r\n')
-  const message = emailMessage('OWNER@gmail.com', raw)
+  const message = emailMessage('NEWBRUCE@gmail.com', raw)
   await worker.email(message as never, env, createExecutionContext())
   const row = await env.MAIL_DB.prepare(
     'SELECT id FROM sources WHERE message_id = ?',
@@ -129,7 +129,7 @@ describe('Email Routing admission', () => {
     let rawPullReads = 0
     const reject = vi.fn()
     const message = {
-      from: 'owner@gmail.com',
+      from: 'newbruce@gmail.com',
       to: 'other@example.com',
       headers: new Headers(),
       rawSize: bytes.byteLength,

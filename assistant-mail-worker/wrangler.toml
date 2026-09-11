@@ -5,7 +5,7 @@ compatibility_flags = ["nodejs_compat"]
 
 [vars]
 # Exact, lower-cased SMTP envelope sender accepted by the Email Worker.
-ALLOWED_FORWARDER = "xxx@gmail.com"
+ALLOWED_FORWARDER = "newbruce@gmail.com"
 ASSISTANT_MAIL_ADDRESS = "assistant@example.com"
 MAX_RAW_BYTES = "26214400"
 DELETION_PLAN_TTL_SECONDS = "900"
