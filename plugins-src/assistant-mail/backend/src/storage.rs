@@ -1,15 +1,17 @@
 use chrono::{DateTime, NaiveDate};
 use chrono_tz::Tz;
-use mailparse::{parse_mail, MailHeaderMap, ParsedMail};
+use mailparse::{parse_mail, DispositionType, MailHeaderMap, ParsedMail};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
 
 const MAX_LOCAL_RAW_BYTES: u64 = 32 * 1024 * 1024;
 const MAX_PREVIEW_CHARS: usize = 200_000;
+const MAX_PREVIEW_HTML_CHARS: usize = 200_000;
 const MAX_MIME_DEPTH: usize = 32;
 const MAX_MIME_PARTS: usize = 256;
 
@@ -307,25 +309,30 @@ impl Storage {
         }
         let parsed =
             parse_mail(&bytes).map_err(|_| "raw mail could not be parsed safely".to_string())?;
-        let plain = first_body(&parsed, "text/plain");
-        let (body, body_kind, mut links) = if let Some(body) = plain {
-            (
+        let mut visited = 0usize;
+        let selected = select_preview_body(&parsed, 0, &mut visited);
+        let (body, body_html, body_kind, mut links) = match selected {
+            Some(PreviewBody::Html(html)) => {
+                let bounded_html = bounded_chars(&html, MAX_PREVIEW_HTML_CHARS);
+                (
+                    bounded_chars(&html_to_text(&bounded_html), MAX_PREVIEW_CHARS),
+                    Some(sanitize_email_html(&bounded_html)),
+                    "text/html",
+                    extract_html_links(&bounded_html),
+                )
+            }
+            Some(PreviewBody::Plain(body)) => (
                 bounded_chars(&sanitize_untrusted_text(&body), MAX_PREVIEW_CHARS),
+                None,
                 "text/plain",
                 Vec::new(),
-            )
-        } else if let Some(html) = first_body(&parsed, "text/html") {
-            (
-                bounded_chars(&html_to_text(&html), MAX_PREVIEW_CHARS),
-                "text/html-as-text",
-                extract_html_links(&html),
-            )
-        } else {
-            (
+            ),
+            None => (
                 "[No readable text body]".to_string(),
+                None,
                 "unavailable",
                 Vec::new(),
-            )
+            ),
         };
         for link in extract_http_links(&body) {
             push_http_link(&mut links, &link);
@@ -339,43 +346,66 @@ impl Storage {
             "date": safe_header(&parsed, "Date"),
             "message_id": safe_header(&parsed, "Message-ID"),
             "body_text": body,
+            "body_html": body_html,
             "body_kind": body_kind,
             "links": links,
-            "notice": "Email content is untrusted. No HTML or remote resource was rendered.",
+            "notice": "Email content is untrusted. HTML is sanitized and rendered in a network-blocked sandbox.",
         }))
     }
 }
 
-fn first_body(part: &ParsedMail<'_>, mime: &str) -> Option<String> {
-    let mut visited = 0usize;
-    first_body_bounded(part, mime, 0, &mut visited)
+enum PreviewBody {
+    Html(String),
+    Plain(String),
 }
 
-fn first_body_bounded(
+fn select_preview_body(
     part: &ParsedMail<'_>,
-    mime: &str,
     depth: usize,
     visited: &mut usize,
-) -> Option<String> {
+) -> Option<PreviewBody> {
     if depth > MAX_MIME_DEPTH || *visited >= MAX_MIME_PARTS {
         return None;
     }
     *visited += 1;
-    let attachment = part
-        .headers
-        .get_first_value("Content-Disposition")
-        .is_some_and(|value| {
-            value
-                .trim_start()
-                .to_ascii_lowercase()
-                .starts_with("attachment")
-        });
-    if !attachment && part.ctype.mimetype.eq_ignore_ascii_case(mime) {
-        return part.get_body().ok();
+
+    let disposition = part.get_content_disposition();
+    if disposition.disposition != DispositionType::Inline
+        || has_named_file_parameter(disposition.params.keys(), "filename")
+        || has_named_file_parameter(part.ctype.params.keys(), "name")
+    {
+        return None;
     }
-    part.subparts
-        .iter()
-        .find_map(|child| first_body_bounded(child, mime, depth + 1, visited))
+
+    let mime = part.ctype.mimetype.to_ascii_lowercase();
+    match mime.as_str() {
+        "text/html" => return part.get_body().ok().map(PreviewBody::Html),
+        "text/plain" => return part.get_body().ok().map(PreviewBody::Plain),
+        // Forwarded/attached messages have their own body semantics and must
+        // never replace the containing message's preview body.
+        "message/rfc822" => return None,
+        _ => {}
+    }
+
+    if mime == "multipart/alternative" {
+        part.subparts
+            .iter()
+            .rev()
+            .find_map(|child| select_preview_body(child, depth + 1, visited))
+    } else {
+        part.subparts
+            .iter()
+            .find_map(|child| select_preview_body(child, depth + 1, visited))
+    }
+}
+
+fn has_named_file_parameter<'a>(mut keys: impl Iterator<Item = &'a String>, name: &str) -> bool {
+    keys.any(|key| {
+        key == name
+            || key
+                .strip_prefix(name)
+                .is_some_and(|suffix| suffix.starts_with('*'))
+    })
 }
 
 fn safe_header(parsed: &ParsedMail<'_>, name: &str) -> Option<String> {
@@ -420,6 +450,63 @@ fn html_to_text(value: &str) -> String {
     sanitize_untrusted_text(&decode_html_entities(&output))
         .trim()
         .to_string()
+}
+
+fn sanitize_email_html(value: &str) -> String {
+    let mut builder = ammonia::Builder::default();
+    builder
+        .url_relative(ammonia::UrlRelative::Deny)
+        .link_rel(None)
+        .add_generic_attributes(&["style"])
+        .filter_style_properties(
+            [
+                "background-color",
+                "border",
+                "border-bottom",
+                "border-collapse",
+                "border-color",
+                "border-left",
+                "border-right",
+                "border-style",
+                "border-top",
+                "border-width",
+                "color",
+                "display",
+                "font-family",
+                "font-size",
+                "font-style",
+                "font-weight",
+                "height",
+                "line-height",
+                "margin",
+                "margin-bottom",
+                "margin-left",
+                "margin-right",
+                "margin-top",
+                "max-height",
+                "max-width",
+                "padding",
+                "padding-bottom",
+                "padding-left",
+                "padding-right",
+                "padding-top",
+                "text-align",
+                "text-decoration",
+                "vertical-align",
+                "white-space",
+                "width",
+            ]
+            .into(),
+        )
+        .attribute_filter(|_, attribute, value| match attribute {
+            // Navigation remains an explicit user decision in the trusted
+            // window's separately extracted link list. Removing every URL-
+            // bearing attribute also prevents tracking pixels independent of
+            // the iframe's CSP network boundary.
+            "href" | "src" | "cite" => None,
+            _ => Some(value.into()),
+        });
+    builder.clean(value).to_string()
 }
 
 fn strip_html_element(value: &str, element: &str) -> String {
@@ -473,53 +560,24 @@ fn decode_html_entities(value: &str) -> String {
 }
 
 fn extract_html_links(value: &str) -> Vec<String> {
-    let lower = value.to_ascii_lowercase();
-    let bytes = value.as_bytes();
-    let mut links = Vec::new();
-    let mut offset = 0usize;
-    while let Some(relative) = lower[offset..].find("href") {
-        let mut cursor = offset + relative + 4;
-        while bytes.get(cursor).is_some_and(u8::is_ascii_whitespace) {
-            cursor += 1;
-        }
-        if bytes.get(cursor) != Some(&b'=') {
-            offset = cursor;
-            continue;
-        }
-        cursor += 1;
-        while bytes.get(cursor).is_some_and(u8::is_ascii_whitespace) {
-            cursor += 1;
-        }
-        let quote = bytes
-            .get(cursor)
-            .copied()
-            .filter(|byte| matches!(*byte, b'\"' | b'\''));
-        if quote.is_some() {
-            cursor += 1;
-        }
-        let start = cursor;
-        while let Some(byte) = bytes.get(cursor) {
-            let finished = quote.map_or_else(
-                || byte.is_ascii_whitespace() || *byte == b'>',
-                |expected| *byte == expected,
-            );
-            if finished {
-                break;
+    let links = Arc::new(Mutex::new(Vec::new()));
+    let captured = Arc::clone(&links);
+    let mut builder = ammonia::Builder::default();
+    builder
+        .url_relative(ammonia::UrlRelative::Deny)
+        .attribute_filter(move |element, attribute, value| {
+            if element == "a" && attribute == "href" {
+                let sanitized = sanitize_untrusted_text(value);
+                if sanitized == value {
+                    if let Ok(mut links) = captured.lock() {
+                        push_http_link(&mut links, value);
+                    }
+                }
             }
-            cursor += 1;
-        }
-        if let Some(candidate) = value.get(start..cursor) {
-            push_http_link(&mut links, &decode_html_entities(candidate));
-        }
-        if links.len() == 50 {
-            break;
-        }
-        offset = cursor.saturating_add(1);
-        if offset >= value.len() {
-            break;
-        }
-    }
-    links
+            Some(value.into())
+        });
+    let _ = builder.clean(value);
+    links.lock().map(|links| links.clone()).unwrap_or_default()
 }
 
 fn extract_http_links(value: &str) -> Vec<String> {
@@ -831,6 +889,9 @@ mod tests {
             "from_address":"private.person@gmail.com",
             "from_name":"Private Person",
             "body":"password reset secret",
+            "body_text":"private preview text",
+            "body_html":"<strong>private preview html</strong>",
+            "links":["https://private.example.test/confirm"],
             "headers":{"authorization":"x"}
         });
         let out = safe_query_projection(&source);
@@ -845,10 +906,16 @@ mod tests {
             "gmail.com",
             "Private Person",
             "password reset secret",
+            "private preview text",
+            "private preview html",
+            "private.example.test",
         ] {
             assert!(!serialized.contains(leaked), "leaked: {leaked}");
         }
         assert!(out.get("body").is_none());
+        assert!(out.get("body_text").is_none());
+        assert!(out.get("body_html").is_none());
+        assert!(out.get("links").is_none());
         assert!(out.get("headers").is_none());
     }
 
@@ -907,7 +974,7 @@ mod tests {
     }
 
     #[test]
-    fn trusted_ui_can_list_and_preview_plain_text_without_rendering_html() {
+    fn trusted_ui_sanitizes_html_for_sandboxed_rendering() {
         let tmp = tempfile::tempdir().unwrap();
         let storage = Storage::new(tmp.path().to_path_buf());
         let raw = concat!(
@@ -917,7 +984,16 @@ mod tests {
             "To: xiaobu@5000g.com\r\n",
             "Content-Type: text/html; charset=utf-8\r\n\r\n",
             "<style>body{display:none}</style><script>steal()</script>",
-            "<p>Confirm at <a href=\"https://example.test/confirm?a=1&amp;b=2\">this button</a></p>",
+            "<form action=\"https://evil.test/post\"><input name=\"secret\"></form>",
+            "<iframe src=\"https://evil.test/frame\"></iframe>",
+            "<meta http-equiv=\"refresh\" content=\"0;url=https://evil.test/refresh\">",
+            "<base href=\"https://evil.test/base\"><object data=\"https://evil.test/object\"></object>",
+            "<embed src=\"https://evil.test/embed\"><svg><foreignObject>svg</foreignObject></svg>",
+            "<img src=\"https://evil.test/track.gif\" srcset=\"https://evil.test/2x 2x\" onerror=\"steal()\" alt=\"logo\">",
+            "<!-- href=\"https://evil.test/comment\" -->",
+            "<span title=\"href=https://evil.test/title\">label</span>",
+            "<a href=\"https://evil.test/\u{202e}confusing\">confusing</a>",
+            "<p style=\"color:red;position:fixed;background-image:url(https://evil.test/css)\" onclick=\"steal()\">Confirm at <a href=\"https://example.test/confirm?a=1&amp;b=2\">this button</a></p>",
         );
         storage
             .archive_source(
@@ -944,14 +1020,35 @@ mod tests {
             preview["claimed_from"],
             "Gmail Team <forwarding-noreply@google.com>"
         );
-        assert_eq!(preview["body_kind"], "text/html-as-text");
+        assert_eq!(preview["body_kind"], "text/html");
         assert!(preview["body_text"]
             .as_str()
             .unwrap()
             .contains("Confirm at"));
-        assert!(!preview["body_text"].as_str().unwrap().contains("<a"));
-        assert!(!preview["body_text"].as_str().unwrap().contains("steal"));
-        assert!(!preview["body_text"].as_str().unwrap().contains("display"));
+        let html = preview["body_html"].as_str().unwrap();
+        assert!(html.contains("<p style=\"color:red\">Confirm at <a>this button</a></p>"));
+        assert!(html.contains("<img alt=\"logo\">"));
+        assert!(!html.contains("script"));
+        assert!(!html.contains("<style"));
+        assert!(!html.contains("form"));
+        assert!(!html.contains("iframe"));
+        assert!(!html.contains("<meta"));
+        assert!(!html.contains("<base"));
+        assert!(!html.contains("<object"));
+        assert!(!html.contains("<embed"));
+        assert!(!html.contains("<svg"));
+        assert!(!html.contains("onclick"));
+        assert!(!html.contains("onerror"));
+        assert!(!html.contains("srcset"));
+        assert!(!html.contains("<a href="));
+        assert!(!html.contains("src="));
+        assert!(!html.contains("background-image"));
+        assert_eq!(
+            preview["links"].as_array().unwrap().len(),
+            1,
+            "unexpected links: {}",
+            preview["links"]
+        );
         assert_eq!(preview["links"][0], "https://example.test/confirm?a=1&b=2");
 
         let raw_path = tmp
@@ -979,5 +1076,89 @@ mod tests {
             .unwrap();
         assert!(!raw_path.exists());
         assert_eq!(storage.list_messages().unwrap()[0]["raw_available"], false);
+    }
+
+    #[test]
+    fn html_is_preferred_in_multipart_alternative_and_plain_text_remains_a_fallback() {
+        let tmp = tempfile::tempdir().unwrap();
+        let storage = Storage::new(tmp.path().to_path_buf());
+        let alternative = concat!(
+            "Subject: Alternative\r\n",
+            "Content-Type: multipart/alternative; boundary=preview\r\n\r\n",
+            "--preview\r\nContent-Type: text/plain; charset=utf-8\r\n\r\nPlain version\r\n",
+            "--preview\r\nContent-Type: text/html; charset=utf-8\r\n\r\n",
+            "<p><strong>HTML version</strong></p>\r\n--preview--\r\n",
+        );
+        storage
+            .archive_source(
+                "alternative",
+                &json!({"id":"alternative", "status":"ready"}),
+                Some(alternative.as_bytes()),
+            )
+            .unwrap();
+        let preview = storage.message_preview("alternative").unwrap();
+        assert_eq!(preview["body_kind"], "text/html");
+        assert!(preview["body_html"]
+            .as_str()
+            .unwrap()
+            .contains("<strong>HTML version</strong>"));
+
+        let plain = "Subject: Plain\r\nContent-Type: text/plain; charset=utf-8\r\n\r\nPlain only";
+        storage
+            .archive_source(
+                "plain",
+                &json!({"id":"plain", "status":"ready"}),
+                Some(plain.as_bytes()),
+            )
+            .unwrap();
+        let preview = storage.message_preview("plain").unwrap();
+        assert_eq!(preview["body_kind"], "text/plain");
+        assert!(preview["body_html"].is_null());
+        assert_eq!(preview["body_text"], "Plain only");
+    }
+
+    #[test]
+    fn attachments_and_forwarded_messages_cannot_replace_the_preview_body() {
+        let tmp = tempfile::tempdir().unwrap();
+        let storage = Storage::new(tmp.path().to_path_buf());
+        let raw = concat!(
+            "Subject: Mixed\r\n",
+            "Content-Type: multipart/mixed; boundary=outer\r\n\r\n",
+            "--outer\r\n",
+            "Content-Type: multipart/alternative; boundary=attached\r\n",
+            "Content-Disposition: attachment; filename=page.html\r\n\r\n",
+            "--attached\r\nContent-Type: text/html\r\n\r\n<p>Nested attachment</p>\r\n",
+            "--attached--\r\n",
+            "--outer\r\n",
+            "Content-Type: message/rfc822\r\n",
+            "Content-Disposition: inline\r\n\r\n",
+            "Subject: Forwarded\r\nContent-Type: text/html\r\n\r\n<p>Forwarded HTML</p>\r\n",
+            "--outer\r\n",
+            "Content-Type: text/html; charset=utf-8\r\n",
+            "Content-Disposition: attachment; filename=other.html\r\n\r\n",
+            "<p>Direct attachment</p>\r\n",
+            "--outer\r\n",
+            "Content-Type: text/html; charset=utf-8\r\n",
+            "Content-Disposition: inline; filename*1=continued.html\r\n\r\n",
+            "<p>Orphan filename continuation</p>\r\n",
+            "--outer\r\n",
+            "Content-Type: text/html; charset=utf-8; name*1=continued.html\r\n",
+            "Content-Disposition: inline\r\n\r\n",
+            "<p>Orphan name continuation</p>\r\n",
+            "--outer\r\n",
+            "Content-Type: text/plain; charset=utf-8\r\n\r\nActual message body\r\n",
+            "--outer--\r\n",
+        );
+        storage
+            .archive_source(
+                "mixed",
+                &json!({"id":"mixed", "status":"ready"}),
+                Some(raw.as_bytes()),
+            )
+            .unwrap();
+        let preview = storage.message_preview("mixed").unwrap();
+        assert_eq!(preview["body_kind"], "text/plain");
+        assert!(preview["body_html"].is_null());
+        assert_eq!(preview["body_text"], "Actual message body");
     }
 }

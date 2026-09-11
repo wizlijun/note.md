@@ -246,7 +246,7 @@ API 不提供发送、回复、链接打开、附件执行、付款、签署、�
 
 文件名只使用内部 ID；写入采用同目录临时文件、fsync 和原子 rename。原件、结构化归档和 cursor 不进入 Vault、Git、全文索引或系统搜索。插件不得自动显示远程图片、打开链接或执行附件。
 
-可信插件窗口提供本地归档的完整邮件列表和按需预览 RPC。列表可显示主题、完整发件人和时间；预览只解析 `text/plain`，缺少纯文本时把 HTML 转成转义后的普通文本，绝不使用 `{@html}`、WebView 导航或远程资源。此用户可见契约与 Agent CLI 的 metadata-only 投影严格分离。
+可信插件窗口提供本地归档的完整邮件列表和按需预览 RPC。列表可显示主题、完整发件人和时间；预览优先读取有大小上限的 `text/html`，由后端净化脚本、事件属性、表单、嵌套页面和全部 URL 属性，再放入空权限 `sandbox` iframe。iframe 自身使用 deny-by-default CSP，禁止脚本、联网、表单提交、嵌套页面、对象、媒体与自动导航；纯文本邮件使用 Svelte 转义的 `<pre>` 回退。主文档不使用 `{@html}`，邮件链接只在隔离预览外以显式清单显示。此用户可见契约与 Agent CLI 的 metadata-only 投影严格分离。
 
 ### 10.2 CLI
 
@@ -295,7 +295,7 @@ EventProjection
 
 解析器按以下顺序工作：MIME 结构限制 → 解码上限 → 禁止内容检测 → 安全文本提取 → 语言/地区解析 → 分类和事件抽取 → 去重/版本/冲突 → 脱敏投影。
 
-- HTML 只离线解析文本；不发网络请求，移除脚本、表单、remote URL 和 active content；
+- HTML 只从已校验的本机 MIME 原件读取；净化后可在可信插件窗口的空权限 iframe 中离线渲染，移除脚本、事件属性、表单、嵌套页面和 URL 属性，并用 CSP 再次禁止网络与 active content；Agent 投影仍不包含 HTML；
 - 附件默认只列 metadata。受支持的无主动内容格式可离线提取；损坏、加密或未知格式标 `partially_parsed`；
 - OTP、密码重置、Magic Link、恢复码、完整身份材料、高敏人事/病历/机密通信进入隔离或拒绝；
 - 禁止秘密在错误、日志、审计、索引、摘要或 sidecar 中出现；
@@ -402,7 +402,7 @@ Skill 位于 `skills/assistant-mail-daily/SKILL.md`，它只接收 `mail-query` 
 | 4 | §7.2、§11 | 八种处理结果状态机与失败注入测试 |
 | 5 | §11 | OTP/恢复/凭证样本零事件、零可搜片段 |
 | 6 | §10.2–§11 | 合法通知夹敏感字段的字段 allowlist 与泄漏测试 |
-| 7 | §11 | 网络封锁下 HTML/附件解析；active content 永不执行 |
+| 7 | §10.1、§11 | 恶意 HTML 净化回归、空权限 iframe 与 CSP 检查、网络封锁下预览/附件解析；active content 永不执行 |
 | 8 | §7.3 | 重复 SMTP、重复 change、崩溃重放的 source/event 幂等与 delivery 审计 |
 | 9 | §6.2、§10.3 | 四级来源可信度样本，验证转发认证不继承 |
 | 10 | §10.3 | 单事件唯一 primary category；跨领域邮件多事件 |
@@ -463,7 +463,7 @@ M0 可用合成邮件做本地/测试环境演示，**不得宣称已满足需�
 ## 18. 验证策略
 
 - Worker：Vitest/miniflare 单元测试，加 preview 环境 Email Routing、D1、R2、Queue 集成测试；
-- 插件：Rust 单元/集成测试覆盖 Vault key 路径、权限、符号链接拒绝、Git ignore、断点续传、原子落盘、字段 allowlist、CLI 输出和 UI 删除确认；
+- 插件：Rust 单元/集成测试覆盖 Vault key 路径、权限、符号链接拒绝、Git ignore、断点续传、原子落盘、字段 allowlist、CLI 输出、HTML 净化/纯文本回退、iframe sandbox/CSP 和 UI 删除确认；
 - 安全：真实/合成 prompt injection、OTP、Magic Link、完整编号、HTML tracking、脚本附件回归集；
 - 数据：14 类批准语料及中英繁混合矩阵，golden event 只比较结构语义，不保存真实秘密；
 - 删除：stale plan、重复 execute、每个阶段故障、R2 不存在、D1 恢复与离线客户端 tombstone 重放；

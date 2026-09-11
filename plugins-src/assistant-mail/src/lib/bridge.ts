@@ -63,7 +63,8 @@ export type MailPreview = {
   date: string | null
   message_id: string | null
   body_text: string
-  body_kind: 'text/plain' | 'text/html-as-text' | 'unavailable'
+  body_html: string | null
+  body_kind: 'text/plain' | 'text/html' | 'unavailable'
   links: string[]
   notice: string
 }

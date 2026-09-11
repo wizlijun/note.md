@@ -19,9 +19,11 @@ private plugin `data_dir`; it never writes those records into the Vault.
   `<vault>/.notemd/assistant-mail/.gitignore` with `.local/`.
 - CLI commands never accept or return the key and never return raw MIME,
   subjects, bodies, headers or unmasked sender addresses.
-- The trusted plugin window separately lists every locally archived message and
-  renders only decoded plain text. HTML and remote resources are never rendered;
-  Agent CLI projections remain metadata-only.
+- The trusted plugin window separately lists every locally archived message.
+  HTML MIME parts are bounded, sanitized and rendered inside an empty-permission
+  sandbox iframe with a deny-by-default CSP; scripts, forms, frames, navigation
+  attributes and remote resources are removed or blocked. Plain-text messages
+  use an escaped text fallback. Agent CLI projections remain metadata-only.
 - Sender filtering is a user-controlled Worker policy. Opening setup mode allows
   provider forwarding confirmation mail for one hour, after which strict mode
   returns automatically. Save the exact SMTP envelope sender and enable strict

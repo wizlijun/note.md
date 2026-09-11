@@ -7,6 +7,10 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+### Added
+
+- **Assistant Mail 0.1.2 renders HTML email previews safely.** The trusted plugin window now preserves sanitized HTML structure and formatting inside an empty-permission sandbox iframe. Scripts, event handlers, forms, nested pages, navigation attributes and remote resources are removed or blocked by a deny-by-default CSP; plain-text messages keep an escaped fallback, while Agent CLI output remains metadata-only.
+
 ### Fixed
 
 - **Assistant Mail no longer invokes macOS Keychain when its settings open or save.** Plugin 0.1.1 keeps the Worker key in the active Vault at `.notemd/assistant-mail/.local/access-key`, with atomic writes, private file permissions and a colocated Git ignore rule. The settings page shows the exact location and explains that a plaintext Vault key remains readable to processes running as the same OS user.

@@ -35,6 +35,10 @@
     return value instanceof Error ? value.message : String(value)
   }
 
+  function htmlPreviewDocument(bodyHtml: string) {
+    return `<!doctype html><html><head><meta charset="utf-8"><meta name="color-scheme" content="light dark"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; object-src 'none'; script-src 'none'; connect-src 'none'; media-src 'none'; font-src 'none'; img-src 'none'; style-src 'unsafe-inline'; navigate-to 'none'; sandbox"><style>html{color-scheme:light dark}body{box-sizing:border-box;margin:0;padding:16px;background:Canvas;color:CanvasText;font:14px/1.55 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;overflow-wrap:anywhere}table{max-width:100%;border-collapse:collapse}th,td{padding:4px 6px;border:1px solid color-mix(in srgb,CanvasText 18%,transparent)}pre{white-space:pre-wrap}img{max-width:100%;height:auto}a{color:LinkText;text-decoration:underline;cursor:not-allowed}</style></head><body>${bodyHtml}</body></html>`
+  }
+
   async function run<T>(work: () => Promise<T>): Promise<T | undefined> {
     if (busy) return
     busy = true
@@ -275,7 +279,7 @@
       <div class="section-heading">
         <div>
           <h2>所有邮件</h2>
-          <p class="muted">显示已同步到本机私有目录的邮件；内容按纯文本预览，不执行 HTML、图片或邮件内指令。</p>
+          <p class="muted">显示已同步到本机私有目录的邮件；HTML 会净化后隔离渲染，不执行脚本、表单、远程资源或邮件内指令。</p>
         </div>
         <button onclick={() => run(refreshInbox)} disabled={busy}>刷新列表</button>
       </div>
@@ -303,8 +307,18 @@
                 <div><dt>收件人</dt><dd>{preview.to || '未知'}</dd></div>
                 <div><dt>日期</dt><dd>{preview.date || '未知'}</dd></div>
               </dl>
-              <div class="banner warning">邮件内容不可信；以下仅为转义后的纯文本。</div>
-              <pre class="body-preview">{preview.body_text}</pre>
+              <div class="banner warning">邮件内容不可信；HTML 已净化并在无权限、禁止联网的沙箱中渲染。</div>
+              {#if preview.body_kind === 'text/html' && preview.body_html !== null}
+                <iframe
+                  class="body-html-preview"
+                  title="邮件 HTML 预览"
+                  sandbox=""
+                  referrerpolicy="no-referrer"
+                  srcdoc={htmlPreviewDocument(preview.body_html)}
+                ></iframe>
+              {:else}
+                <pre class="body-preview">{preview.body_text}</pre>
+              {/if}
               {#if preview.links.length > 0}
                 <h3>邮件中的链接</h3>
                 <ul class="links">
@@ -312,7 +326,7 @@
                 </ul>
               {/if}
             {:else}
-              <p class="empty">选择一封邮件查看纯文本内容。</p>
+              <p class="empty">选择一封邮件查看内容。</p>
             {/if}
           </article>
         </div>
@@ -401,6 +415,7 @@
   .mail-preview { min-width: 0; padding: 16px; }
   .mail-meta { margin-bottom: 14px; }
   .body-preview { max-height: 360px; background: Canvas; font-size: 12px; }
+  .body-html-preview { display: block; width: 100%; height: 360px; border: 1px solid color-mix(in srgb, CanvasText 12%, transparent); border-radius: 7px; background: Canvas; }
   .links { margin: 8px 0 0; padding-left: 20px; }
   .links li { margin: 5px 0; overflow-wrap: anywhere; }
   @media (max-width: 720px) {

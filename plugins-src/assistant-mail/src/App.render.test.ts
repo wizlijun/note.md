@@ -16,7 +16,7 @@ async function settle() {
   flushSync()
 }
 
-function installBridge(vaultConfigured = true) {
+function installBridge(vaultConfigured = true, previewOverride: Record<string, unknown> = {}) {
   const request = vi.fn(async (method: string, params?: any) => {
     if (method === 'plugin.settings.get') return {
       worker_url: 'https://mail.example.test', key_configured: vaultConfigured,
@@ -56,8 +56,10 @@ function installBridge(vaultConfigured = true) {
       envelope_from: 'forwarding-noreply@google.com', to: 'xiaobu@5000g.com',
       date: '2026-09-11T10:00:00Z', message_id: '<verify@google.com>',
       body_text: 'Confirm forwarding at https://example.test/confirm',
-      body_kind: 'text/plain', links: ['https://example.test/confirm'],
+      body_html: '<p><strong>Confirm forwarding</strong> with this button.</p>',
+      body_kind: 'text/html', links: ['https://example.test/confirm'],
       notice: 'Email content is untrusted.',
+      ...previewOverride,
     }
     if (method === 'plugin.delete.plan.create') return {
       id: 'plan-1', plan_hash: 'hash-1', source_ids: params.source_ids,
@@ -156,15 +158,33 @@ describe('Assistant Mail settings window', () => {
     }))
   })
 
-  it('shows every local mail and previews content as text', async () => {
+  it('renders sanitized HTML in a network-blocked sandbox', async () => {
     const request = installBridge()
     component = mount(App, { target: document.body })
     await vi.waitFor(() => expect(document.body.textContent).toContain('Gmail Forwarding Confirmation'))
     const row = document.querySelector<HTMLButtonElement>('.mail-row')!
     row.click()
-    await vi.waitFor(() => expect(document.body.textContent).toContain('Confirm forwarding at'))
+    await vi.waitFor(() => expect(document.querySelector('.body-html-preview')).not.toBeNull())
     expect(document.body.textContent).toContain('https://example.test/confirm')
     expect(request).toHaveBeenCalledWith('plugin.messages.preview', { source_id: 'mail-1' })
-    expect(document.querySelector('.mail-preview')?.innerHTML).not.toContain('<script')
+    const frame = document.querySelector<HTMLIFrameElement>('.body-html-preview')!
+    expect(frame.getAttribute('sandbox')).toBe('')
+    expect(frame.getAttribute('referrerpolicy')).toBe('no-referrer')
+    expect(frame.srcdoc).toContain("default-src 'none'")
+    expect(frame.srcdoc).toContain("form-action 'none'")
+    expect(frame.srcdoc).toContain('<strong>Confirm forwarding</strong>')
+  })
+
+  it('keeps a text preview fallback when the message has no HTML part', async () => {
+    installBridge(true, {
+      body_html: null,
+      body_kind: 'text/plain',
+      body_text: 'Plain fallback body',
+    })
+    component = mount(App, { target: document.body })
+    await vi.waitFor(() => expect(document.body.textContent).toContain('Gmail Forwarding Confirmation'))
+    document.querySelector<HTMLButtonElement>('.mail-row')!.click()
+    await vi.waitFor(() => expect(document.body.textContent).toContain('Plain fallback body'))
+    expect(document.querySelector('.body-html-preview')).toBeNull()
   })
 })

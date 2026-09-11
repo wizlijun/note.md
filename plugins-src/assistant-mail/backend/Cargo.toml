@@ -1,6 +1,6 @@
 [package]
 name = "notemd-assistant-mail"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 
 [[bin]]
@@ -21,6 +21,7 @@ chrono-tz = "0.10"
 tokio = { version = "1", features = ["rt-multi-thread"] }
 mailparse = "0.16"
 dirs = "5"
+ammonia = "4"
 
 [dev-dependencies]
 tempfile = "3"
