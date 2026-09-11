@@ -2,6 +2,11 @@ name = "notemd-assistant-mail"
 main = "src/index.ts"
 compatibility_date = "2026-05-01"
 compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+
+routes = [
+  { pattern = "mail.5000g.com", custom_domain = true }
+]
 
 [vars]
 # Exact, lower-cased SMTP envelope sender accepted by the Email Worker.

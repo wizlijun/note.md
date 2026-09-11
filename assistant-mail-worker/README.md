@@ -7,9 +7,13 @@ separate storage, credentials, routes, and rollback boundaries.
 ## Current production deployment
 
 As of 2026-09-11, the independent service is deployed at
-`https://notemd-assistant-mail.oldbruce.workers.dev` with:
+`https://mail.5000g.com` (with
+`https://notemd-assistant-mail.oldbruce.workers.dev` retained as a deployment
+fallback) with:
 
 - Email Routing: `xiaobu@5000g.com` → `notemd-assistant-mail` (active);
+- custom domain: `mail.5000g.com`, under the same `5000g.com` zone as the
+  Share Worker;
 - exact allowed SMTP envelope sender: `newbruce@gmail.com`;
 - D1: `notemd-assistant-mail` in APAC;
 - R2: `notemd-assistant-mail-raw` and its preview bucket;
