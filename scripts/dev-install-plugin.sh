@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Dev-install a v2 plugin into the local app-data plugins root.
 #
-# Usage: scripts/dev-install-plugin.sh [--release] [md2pdf|roam-import|meetings|openclaw|cef|pos-log|decision-log|weekly-review|memory|claude-agent|codex-agent|deepseek-agent|ebook-import|idea-spark|next|power-mode|trace-source|timeline|index-viewer]
+# Usage: scripts/dev-install-plugin.sh [--release] [md2pdf|roam-import|meetings|openclaw|assistant-mail|cef|pos-log|decision-log|weekly-review|memory|claude-agent|codex-agent|deepseek-agent|ebook-import|idea-spark|next|power-mode|trace-source|timeline|index-viewer]
 #   default plugin = md2pdf (preserves the original behavior).
 #   --release      = build the native plugin binary in release mode (md2pdf +
 #                    openclaw; ignored for the pure-UI plugins).
@@ -44,8 +44,8 @@ PLUGIN=md2pdf
 for arg in "$@"; do
   case "$arg" in
     --release) PROFILE=release ;;
-    md2pdf|roam-import|meetings|openclaw|cef|pos-log|decision-log|weekly-review|memory|claude-agent|codex-agent|deepseek-agent|ebook-import|idea-spark|next|power-mode|trace-source|timeline|index-viewer) PLUGIN="$arg" ;;
-    *) echo "unknown arg: $arg (expected --release | md2pdf | roam-import | meetings | openclaw | cef | pos-log | decision-log | weekly-review | memory | claude-agent | codex-agent | deepseek-agent | ebook-import | idea-spark | next | power-mode | trace-source | timeline | index-viewer)" >&2; exit 2 ;;
+    md2pdf|roam-import|meetings|openclaw|assistant-mail|cef|pos-log|decision-log|weekly-review|memory|claude-agent|codex-agent|deepseek-agent|ebook-import|idea-spark|next|power-mode|trace-source|timeline|index-viewer) PLUGIN="$arg" ;;
+    *) echo "unknown arg: $arg (expected --release | md2pdf | roam-import | meetings | openclaw | assistant-mail | cef | pos-log | decision-log | weekly-review | memory | claude-agent | codex-agent | deepseek-agent | ebook-import | idea-spark | next | power-mode | trace-source | timeline | index-viewer)" >&2; exit 2 ;;
   esac
 done
 
@@ -138,6 +138,22 @@ elif [[ "$PLUGIN" == "openclaw" ]]; then
   mark_installed "notemd.openclaw-chat" "$VERSION"
   echo "✓ installed notemd.openclaw-chat@$VERSION ($PROFILE, $(uname -m), backend + ui) → $DEST"
   echo "  open it:                Window menu ▸ \"OpenClaw (v2)\""
+
+elif [[ "$PLUGIN" == "assistant-mail" ]]; then
+  SRC="plugins-src/assistant-mail"
+  cargo build $([ "$PROFILE" = release ] && echo --release) \
+    --manifest-path "$SRC/backend/Cargo.toml" --bin notemd-assistant-mail
+  pnpm --filter assistant-mail-plugin build
+  VERSION=$(node -e "console.log(require('./$SRC/manifest.v2.json').version)")
+  DEST="$ROOT/notemd.assistant-mail/$VERSION"
+  rm -rf "$DEST"
+  mkdir -p "$DEST/bin" "$DEST/ui"
+  cp "$SRC/backend/target/$PROFILE/notemd-assistant-mail" "$DEST/bin/notemd-assistant-mail"
+  cp -R "$SRC/dist/." "$DEST/ui/"
+  cp "$SRC/manifest.v2.json" "$DEST/manifest.json"
+  ln -sfn "$VERSION" "$ROOT/notemd.assistant-mail/current"
+  mark_installed "notemd.assistant-mail" "$VERSION"
+  echo "✓ installed notemd.assistant-mail@$VERSION ($PROFILE, $(uname -m), backend + ui) → $DEST"
 
 elif [[ "$PLUGIN" == "pos-log" ]]; then
   SRC="plugins-src/pos-log"

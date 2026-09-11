@@ -1,0 +1,40 @@
+name = "notemd-assistant-mail"
+main = "src/index.ts"
+compatibility_date = "2026-05-01"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+# Exact, lower-cased SMTP envelope sender accepted by the Email Worker.
+ALLOWED_FORWARDER = "xxx@gmail.com"
+ASSISTANT_MAIL_ADDRESS = "assistant@example.com"
+MAX_RAW_BYTES = "26214400"
+DELETION_PLAN_TTL_SECONDS = "900"
+
+[[d1_databases]]
+binding = "MAIL_DB"
+database_name = "notemd-assistant-mail"
+database_id = "00000000-0000-0000-0000-000000000000" # replace before deploy
+migrations_dir = "migrations"
+
+[[r2_buckets]]
+binding = "MAIL_RAW"
+bucket_name = "notemd-assistant-mail-raw"
+preview_bucket_name = "notemd-assistant-mail-raw-preview"
+
+[[queues.producers]]
+binding = "MAIL_QUEUE"
+queue = "notemd-assistant-mail-processing"
+
+[[queues.consumers]]
+queue = "notemd-assistant-mail-processing"
+max_batch_size = 10
+max_batch_timeout = 5
+max_retries = 5
+dead_letter_queue = "notemd-assistant-mail-processing-dlq"
+
+[triggers]
+crons = ["*/10 * * * *"]
+
+# Configure Email Routing in the Cloudflare dashboard so exactly one custom
+# address invokes this Worker. Never commit ASSISTANT_MAIL_ACCESS_KEY; provision
+# it with `wrangler secret put ASSISTANT_MAIL_ACCESS_KEY`.

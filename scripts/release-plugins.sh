@@ -2,7 +2,7 @@
 # Package + sign v2 plugins for the marketplace (子项目③ Task 5).
 #
 #   scripts/release-plugins.sh [--release] <plugin...>
-#     plugin ∈ { md2pdf, roam-import, meetings, openclaw, pos-log,
+#     plugin ∈ { md2pdf, roam-import, meetings, openclaw, assistant-mail, pos-log,
 #                decision-log, weekly-review, memory, claude-agent, codex-agent, deepseek-agent, ebook-import,
 #                idea-spark, next, power-mode, trace-source, timeline, index-viewer }   (add a case below)
 #     --release  currently a no-op flag reserved for build-profile parity with
@@ -43,14 +43,14 @@ PLUGINS=()
 for arg in "$@"; do
   case "$arg" in
     --release) : ;; # reserved; release builds are always release-profile
-    md2pdf|roam-import|meetings|openclaw|pos-log|decision-log|weekly-review|memory|claude-agent|codex-agent|deepseek-agent|ebook-import|idea-spark|next|power-mode|trace-source|timeline|index-viewer) PLUGINS+=("$arg") ;;
+    md2pdf|roam-import|meetings|openclaw|assistant-mail|pos-log|decision-log|weekly-review|memory|claude-agent|codex-agent|deepseek-agent|ebook-import|idea-spark|next|power-mode|trace-source|timeline|index-viewer) PLUGINS+=("$arg") ;;
     -h|--help)
       grep '^#' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
-    *) echo "unknown arg: $arg (expected --release | md2pdf | roam-import | meetings | openclaw | pos-log | decision-log | weekly-review | memory | claude-agent | codex-agent | deepseek-agent | ebook-import | idea-spark | next | power-mode | trace-source | timeline | index-viewer)" >&2; exit 2 ;;
+    *) echo "unknown arg: $arg (expected --release | md2pdf | roam-import | meetings | openclaw | assistant-mail | pos-log | decision-log | weekly-review | memory | claude-agent | codex-agent | deepseek-agent | ebook-import | idea-spark | next | power-mode | trace-source | timeline | index-viewer)" >&2; exit 2 ;;
   esac
 done
 if [[ ${#PLUGINS[@]} -eq 0 ]]; then
-  echo "usage: scripts/release-plugins.sh [--release] <md2pdf|roam-import|meetings|openclaw|pos-log|decision-log|weekly-review|memory|claude-agent|codex-agent|deepseek-agent|ebook-import|idea-spark|next|power-mode|trace-source|timeline|index-viewer>..." >&2
+  echo "usage: scripts/release-plugins.sh [--release] <md2pdf|roam-import|meetings|openclaw|assistant-mail|pos-log|decision-log|weekly-review|memory|claude-agent|codex-agent|deepseek-agent|ebook-import|idea-spark|next|power-mode|trace-source|timeline|index-viewer>..." >&2
   exit 2
 fi
 
@@ -496,6 +496,11 @@ release_openclaw() {
     "notemd-openclaw" "openclaw-plugin"
 }
 
+release_assistant_mail() {
+  release_native_ui "notemd.assistant-mail" "$REPO_ROOT/plugins-src/assistant-mail" \
+    "notemd-assistant-mail" "assistant-mail-plugin"
+}
+
 release_claude_agent() {
   release_native_ui "notemd.claude-agent" "$REPO_ROOT/plugins-src/claude-agent" \
     "notemd-claude-agent" "claude-agent"
@@ -581,6 +586,7 @@ for plugin in "${PLUGINS[@]}"; do
     roam-import) release_roam_import ;;
     meetings)    release_meetings ;;
     openclaw)    release_openclaw ;;
+    assistant-mail) release_assistant_mail ;;
     pos-log)     release_pos_log ;;
     decision-log) release_decision_log ;;
     weekly-review) release_weekly_review ;;

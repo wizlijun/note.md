@@ -1,0 +1,118 @@
+{
+  "manifest_version": 2,
+  "id": "notemd.assistant-mail",
+  "name": "Assistant Mail",
+  "version": "0.1.0",
+  "kind": "native",
+  "engines": {
+    "notemd": ">=6.910.3"
+  },
+  "description": "Securely pull approved assistant email from a dedicated Worker into private local storage.",
+  "binary": {
+    "aarch64-apple-darwin": "bin/notemd-assistant-mail",
+    "x86_64-apple-darwin": "bin/notemd-assistant-mail"
+  },
+  "ui": "ui/",
+  "activation": {
+    "events": [
+      "onCommand:open",
+      "onCli:mail-status",
+      "onCli:mail-sync",
+      "onCli:mail-query",
+      "onCli:mail-delete-plan",
+      "onCli:mail-delete-status"
+    ]
+  },
+  "contributes": {
+    "menus": [
+      {
+        "location": "plugins",
+        "submenu": "manage",
+        "label": "Assistant Mail…",
+        "command": "open"
+      }
+    ],
+    "windows": [
+      {
+        "id": "main",
+        "entry": "index.html",
+        "title": "Assistant Mail",
+        "width": 620,
+        "height": 720,
+        "min_width": 480,
+        "min_height": 560,
+        "open_command": "open"
+      }
+    ],
+    "cli": [
+      {
+        "subcommand": "mail-status",
+        "command": "status",
+        "summary": "Show Assistant Mail configuration, coverage and local sync state",
+        "args": [],
+        "flags": [],
+        "requires_tab_context": false
+      },
+      {
+        "subcommand": "mail-sync",
+        "command": "sync",
+        "summary": "Pull all Assistant Mail changes after the local cursor",
+        "args": [],
+        "flags": [],
+        "requires_tab_context": false
+      },
+      {
+        "subcommand": "mail-query",
+        "command": "query",
+        "summary": "Query locally archived safe mail metadata (never raw MIME)",
+        "args": [],
+        "flags": [
+          { "long": "--text", "type": "string", "help": "Case-insensitive masked sender text (subjects are withheld in M0)" },
+          { "long": "--status", "type": "string", "help": "Exact processing status" },
+          { "long": "--date", "type": "string", "help": "Calendar date to disclose (YYYY-MM-DD; requires --timezone)" },
+          { "long": "--timezone", "type": "string", "help": "IANA timezone used to evaluate --date; never inferred" },
+          { "long": "--limit", "type": "string", "help": "Maximum results, 1-100 (default 20)" }
+        ],
+        "requires_tab_context": false
+      },
+      {
+        "subcommand": "mail-delete-plan",
+        "command": "delete-plan",
+        "summary": "Create a non-destructive deletion plan for exact source IDs",
+        "args": [],
+        "flags": [
+          { "long": "--source-ids", "type": "string", "help": "Comma-separated exact source IDs" }
+        ],
+        "requires_tab_context": false
+      },
+      {
+        "subcommand": "mail-delete-status",
+        "command": "delete-status",
+        "summary": "Read a deletion plan or deletion job without executing it",
+        "args": [],
+        "flags": [
+          { "long": "--plan", "type": "string", "help": "Deletion plan ID" },
+          { "long": "--job", "type": "string", "help": "Deletion job ID" }
+        ],
+        "requires_tab_context": false
+      }
+    ]
+  },
+  "capabilities": [
+    "ui",
+    "toast"
+  ],
+  "request_timeout_seconds": 120,
+  "i18n": {
+    "zh": {
+      "name": "助理邮箱",
+      "description": "从独立 Worker 安全拉取已准入的助理邮件，并保存到本机私有插件目录。",
+      "menus": {
+        "open": "助理邮箱…"
+      },
+      "windows": {
+        "main": "助理邮箱"
+      }
+    }
+  }
+}
