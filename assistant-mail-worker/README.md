@@ -4,6 +4,23 @@ Cloudflare Email Worker for note.md's assistant-mail intake. It is kept in the
 same repository as `mdeditor-share`, but deploys as a separate Worker with
 separate storage, credentials, routes, and rollback boundaries.
 
+## Current production deployment
+
+As of 2026-09-11, the independent service is deployed at
+`https://notemd-assistant-mail.oldbruce.workers.dev` with:
+
+- Email Routing: `xiaobu@5000g.com` → `notemd-assistant-mail` (active);
+- exact allowed SMTP envelope sender: `newbruce@gmail.com`;
+- D1: `notemd-assistant-mail` in APAC;
+- R2: `notemd-assistant-mail-raw` and its preview bucket;
+- Queue: `notemd-assistant-mail-processing` with a separate dead-letter queue;
+- `ASSISTANT_MAIL_ACCESS_KEY` provisioned as a hidden Worker secret and stored
+  locally in the plugin's macOS Keychain entry.
+
+This status confirms infrastructure and routing only. No live email was sent as
+part of deployment, and the M0 content-processing limitations documented in the
+design spec still apply.
+
 ## Security boundary
 
 - Email Routing must route exactly one assistant address to this Worker.
@@ -95,13 +112,14 @@ documentation.
 
 1. Install dependencies with `pnpm install`.
 2. Run `pnpm test` and `pnpm typecheck`.
-3. Create separate production D1, R2, processing Queue, and dead-letter Queue.
-4. Replace the placeholder `database_id` in `wrangler.toml`.
-5. Set `ALLOWED_FORWARDER` and `ASSISTANT_MAIL_ADDRESS` for the deployment.
+3. For a new environment, create separate production D1, R2, processing Queue,
+   and dead-letter Queue.
+4. Set that environment's D1 `database_id`, `ALLOWED_FORWARDER`, and
+   `ASSISTANT_MAIL_ADDRESS` in `wrangler.toml`.
 6. Generate a random 256-bit key locally and provide it interactively with
    `pnpm wrangler secret put ASSISTANT_MAIL_ACCESS_KEY`. Do not commit the value.
 7. Configure Cloudflare Email Routing for the single assistant address.
 8. Deploy with `pnpm deploy` only after verifying the production bindings.
 
-`wrangler.toml` intentionally contains no account ID or real secret. This task
-does not create Cloudflare resources or deploy the Worker.
+`wrangler.toml` intentionally contains no account ID or real secret. Resource
+names and the non-secret D1 identifier are committed; the access key is not.

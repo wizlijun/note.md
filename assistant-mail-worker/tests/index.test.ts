@@ -23,7 +23,7 @@ function emailMessage(from: string, rawText: string) {
   const reject = vi.fn()
   return {
     from,
-    to: 'assistant@example.com',
+    to: 'xiaobu@5000g.com',
     headers: new Headers(),
     rawSize: bytes.byteLength,
     raw: new ReadableStream({
@@ -85,7 +85,7 @@ describe('authentication and status', () => {
     expect(response.status).toBe(200)
     const body = await response.json() as { data: Record<string, string> }
     expect(body.data.service).toBe('notemd-assistant-mail')
-    expect(body.data.mailbox).toBe('assistant@example.com')
+    expect(body.data.mailbox).toBe('xiaobu@5000g.com')
     expect(body.data.key_fingerprint).toMatch(/^[a-f0-9]{12}$/)
     expect(JSON.stringify(body)).not.toContain('test-access-key')
   })
@@ -99,7 +99,7 @@ describe('Email Routing admission', () => {
     const reject = vi.fn()
     const message = {
       from: 'attacker@example.com',
-      to: 'assistant@example.com',
+      to: 'xiaobu@5000g.com',
       headers: new Headers(),
       rawSize: bytes.byteLength,
       get raw() {

@@ -12,7 +12,7 @@ export default defineConfig({
         bindings: {
           ASSISTANT_MAIL_ACCESS_KEY: 'test-access-key',
           ALLOWED_FORWARDER: 'newbruce@gmail.com',
-          ASSISTANT_MAIL_ADDRESS: 'assistant@example.com',
+          ASSISTANT_MAIL_ADDRESS: 'xiaobu@5000g.com',
           TEST_MIGRATIONS: migrations,
         },
       },

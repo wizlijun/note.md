@@ -6,14 +6,14 @@ compatibility_flags = ["nodejs_compat"]
 [vars]
 # Exact, lower-cased SMTP envelope sender accepted by the Email Worker.
 ALLOWED_FORWARDER = "newbruce@gmail.com"
-ASSISTANT_MAIL_ADDRESS = "assistant@example.com"
+ASSISTANT_MAIL_ADDRESS = "xiaobu@5000g.com"
 MAX_RAW_BYTES = "26214400"
 DELETION_PLAN_TTL_SECONDS = "900"
 
 [[d1_databases]]
 binding = "MAIL_DB"
 database_name = "notemd-assistant-mail"
-database_id = "00000000-0000-0000-0000-000000000000" # replace before deploy
+database_id = "6af9b1bf-279f-4af8-804b-33e9d142cf9e"
 migrations_dir = "migrations"
 
 [[r2_buckets]]
