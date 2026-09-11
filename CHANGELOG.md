@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.911.1 — 2026-09-11
+
 ### Added
 
 - **Assistant Mail securely brings a dedicated inbox into note.md.** The new marketplace plugin pulls mail admitted by the configured Cloudflare Email Worker into private local storage, lists every synchronized message and shows a plain-text-only preview without rendering untrusted HTML or remote resources. A one-hour setup window can receive Gmail's forwarding confirmation message before sender filtering automatically returns to strict mode; afterward users can save one exact envelope sender. Agent commands remain metadata-only, the access key stays in macOS Keychain, and permanent deletion still requires reviewing and confirming an exact frozen plan in the trusted plugin window. The deployed mailbox is `xiaobu@5000g.com` and its service endpoint is `https://mail.5000g.com`.
