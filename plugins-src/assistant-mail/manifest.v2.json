@@ -27,7 +27,7 @@
     "menus": [
       {
         "location": "plugins",
-        "submenu": "manage",
+        "submenu": "record",
         "label": "Assistant Mail…",
         "command": "open"
       }
