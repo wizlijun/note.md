@@ -350,6 +350,12 @@ impl sdk::NotemdPlugin for AssistantMailPlugin {
                         .and_then(Value::as_str)
                         .unwrap_or(""),
                 )?;
+                if !matches!(
+                    worker_url.as_str(),
+                    "https://mail.5000g.com" | "https://notemd-assistant-mail.oldbruce.workers.dev"
+                ) {
+                    return Err("Assistant Mail Worker URL is not an approved deployment".into());
+                }
                 if let Some(key) = params
                     .get("access_key")
                     .and_then(Value::as_str)
@@ -373,9 +379,33 @@ impl sdk::NotemdPlugin for AssistantMailPlugin {
                 let whoami = self.with_client(|client| client.whoami())?;
                 Ok(json!({"ok": true, "whoami": whoami}))
             }
+            "intake.policy.get" => self.with_client(|client| client.intake_policy()),
+            "intake.policy.save" => {
+                let enabled = params
+                    .get("sender_filter_enabled")
+                    .and_then(Value::as_bool)
+                    .ok_or("sender_filter_enabled must be a boolean")?;
+                let sender = params
+                    .get("allowed_sender")
+                    .and_then(Value::as_str)
+                    .map(str::trim)
+                    .filter(|value| !value.is_empty());
+                self.with_client(|client| client.save_intake_policy(enabled, sender))
+            }
             "status" => self.status(),
             "sync" => self.sync(),
             "query" => self.query(&params),
+            "messages.list" => Ok(json!({"messages": self.storage.list_messages()?})),
+            "messages.preview" => {
+                let source_id = validate_id(
+                    "source",
+                    params
+                        .get("source_id")
+                        .and_then(Value::as_str)
+                        .unwrap_or(""),
+                )?;
+                self.storage.message_preview(&source_id)
+            }
             "delete.plan.create" => {
                 let plan = self.create_delete_plan(&params)?;
                 self.remember_visible_plan(&plan)?;

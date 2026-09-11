@@ -34,3 +34,34 @@ export type DeletePlan = {
   source_ids?: string[]
   [key: string]: unknown
 }
+
+export type IntakePolicy = {
+  sender_filter_enabled: boolean
+  allowed_sender: string | null
+  setup_expires_at: string | null
+  updated_at: string
+}
+
+export type MailListItem = {
+  source_id: string
+  subject: string | null
+  claimed_from: string | null
+  envelope_from: string | null
+  received_at: string | null
+  status: string | null
+  raw_available: boolean
+}
+
+export type MailPreview = {
+  source_id: string
+  subject: string | null
+  claimed_from: string | null
+  envelope_from: string | null
+  to: string | null
+  date: string | null
+  message_id: string | null
+  body_text: string
+  body_kind: 'text/plain' | 'text/html-as-text' | 'unavailable'
+  links: string[]
+  notice: string
+}

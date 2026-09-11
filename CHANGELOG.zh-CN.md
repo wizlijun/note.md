@@ -8,7 +8,7 @@
 
 ### 新增
 
-- **助理邮箱可将专用收件箱安全接入 note.md。** 新的市场插件只拉取经 Cloudflare Email Worker 准入的邮件，存入本机私有插件目录，并提供安全的状态、同步、元数据查询和删除计划命令；访问密钥保存在 macOS Keychain，永久删除仍须在可信插件窗口核对冻结计划并明确确认。当前部署的收件地址为 `xiaobu@5000g.com`，只接受 SMTP envelope sender 为 `newbruce@gmail.com` 的转发，服务地址为 `https://mail.5000g.com`。
+- **助理邮箱可将专用收件箱安全接入 note.md。** 新的市场插件将 Cloudflare Email Worker 准入的邮件同步到本机私有目录，列出全部已同步邮件，并只用纯文本预览内容，不渲染不可信 HTML 或远程资源。配置转发时可打开一小时的验证窗口来接收 Gmail 确认邮件，到期自动恢复严格过滤；确认后保存唯一 envelope sender。Agent 命令仍只返回脱敏元数据，访问密钥保存在 macOS Keychain，永久删除仍须在可信插件窗口核对并确认精确冻结计划。当前收件地址为 `xiaobu@5000g.com`，服务地址为 `https://mail.5000g.com`。
 
 ## v6.910.3 — 2026-09-10
 

@@ -1,11 +1,17 @@
 use chrono::{DateTime, NaiveDate};
 use chrono_tz::Tz;
+use mailparse::{parse_mail, MailHeaderMap, ParsedMail};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
+
+const MAX_LOCAL_RAW_BYTES: u64 = 32 * 1024 * 1024;
+const MAX_PREVIEW_CHARS: usize = 200_000;
+const MAX_MIME_DEPTH: usize = 32;
+const MAX_MIME_PARTS: usize = 256;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Config {
@@ -84,16 +90,15 @@ impl Storage {
     ) -> Result<(), String> {
         self.ensure_layout()?;
         let file = safe_name(source_id);
+        let raw_path = self.root.join("archive/raw").join(format!("{file}.eml"));
         let raw_meta = if let Some(bytes) = raw {
-            atomic_bytes(
-                &self.root.join("archive/raw").join(format!("{file}.eml")),
-                bytes,
-            )?;
+            atomic_bytes(&raw_path, bytes)?;
             Some(json!({
                 "sha256": hex::encode(Sha256::digest(bytes)),
                 "bytes": bytes.len(),
             }))
         } else {
+            remove_if_exists(&raw_path)?;
             None
         };
         let envelope = json!({
@@ -201,6 +206,346 @@ impl Storage {
             count_ext(&self.root.join("archive/sources"), "json")?,
             count_ext(&self.root.join("archive/raw"), "eml")?,
         ))
+    }
+
+    pub fn list_messages(&self) -> Result<Vec<Value>, String> {
+        self.ensure_layout()?;
+        let mut rows = Vec::new();
+        for entry in fs::read_dir(self.root.join("archive/sources")).map_err(io_err)? {
+            let path = entry.map_err(io_err)?.path();
+            if path.extension().and_then(|value| value.to_str()) != Some("json") {
+                continue;
+            }
+            let envelope: Value = match read_json(&path) {
+                Ok(value) => value,
+                Err(_) => continue,
+            };
+            let source = envelope.get("source").unwrap_or(&envelope);
+            let Some(source_id) = envelope
+                .get("source_id")
+                .or_else(|| source.get("id"))
+                .and_then(Value::as_str)
+            else {
+                continue;
+            };
+            rows.push(json!({
+                "source_id": source_id,
+                "subject": source.get("subject").and_then(Value::as_str),
+                "claimed_from": source.get("header_from").and_then(Value::as_str),
+                "envelope_from": source.get("envelope_from").and_then(Value::as_str),
+                "received_at": source.get("created_at").and_then(Value::as_str)
+                    .or_else(|| source.get("received_at").and_then(Value::as_str)),
+                "status": source.get("status").and_then(Value::as_str),
+                "raw_available": !envelope.get("raw").is_none_or(Value::is_null)
+                    && self.root.join("archive/raw")
+                    .join(format!("{}.eml", safe_name(source_id))).is_file(),
+            }));
+        }
+        rows.sort_by(|left, right| {
+            right
+                .get("received_at")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .cmp(
+                    left.get("received_at")
+                        .and_then(Value::as_str)
+                        .unwrap_or(""),
+                )
+        });
+        Ok(rows)
+    }
+
+    pub fn message_preview(&self, source_id: &str) -> Result<Value, String> {
+        self.ensure_layout()?;
+        let file = safe_name(source_id);
+        let source_path = self
+            .root
+            .join("archive/sources")
+            .join(format!("{file}.json"));
+        let envelope: Value = read_json(&source_path)
+            .map_err(|_| "mail source is not available in the private archive".to_string())?;
+        if envelope.get("source_id").and_then(Value::as_str) != Some(source_id) {
+            return Err("mail source identity does not match its archive entry".into());
+        }
+        let source = envelope.get("source").unwrap_or(&envelope);
+        let raw_meta = envelope
+            .get("raw")
+            .and_then(Value::as_object)
+            .ok_or("mail source does not declare a local raw message")?;
+        let expected_bytes = raw_meta
+            .get("bytes")
+            .and_then(Value::as_u64)
+            .ok_or("mail source has invalid raw size metadata")?;
+        let expected_sha256 = raw_meta
+            .get("sha256")
+            .and_then(Value::as_str)
+            .filter(|value| value.len() == 64)
+            .ok_or("mail source has invalid raw hash metadata")?;
+        let raw_path = self.root.join("archive/raw").join(format!("{file}.eml"));
+        let actual_bytes = fs::metadata(&raw_path)
+            .map_err(|error| {
+                if error.kind() == std::io::ErrorKind::NotFound {
+                    "raw mail is not available locally; sync again after Worker processing"
+                        .to_string()
+                } else {
+                    io_err(error)
+                }
+            })?
+            .len();
+        if actual_bytes > MAX_LOCAL_RAW_BYTES || actual_bytes != expected_bytes {
+            return Err("local raw mail size does not match its archive metadata".into());
+        }
+        let bytes = fs::read(raw_path).map_err(|error| {
+            if error.kind() == std::io::ErrorKind::NotFound {
+                "raw mail is not available locally; sync again after Worker processing".to_string()
+            } else {
+                io_err(error)
+            }
+        })?;
+        if hex::encode(Sha256::digest(&bytes)) != expected_sha256 {
+            return Err("local raw mail hash does not match its archive metadata".into());
+        }
+        let parsed =
+            parse_mail(&bytes).map_err(|_| "raw mail could not be parsed safely".to_string())?;
+        let plain = first_body(&parsed, "text/plain");
+        let (body, body_kind, mut links) = if let Some(body) = plain {
+            (
+                bounded_chars(&sanitize_untrusted_text(&body), MAX_PREVIEW_CHARS),
+                "text/plain",
+                Vec::new(),
+            )
+        } else if let Some(html) = first_body(&parsed, "text/html") {
+            (
+                bounded_chars(&html_to_text(&html), MAX_PREVIEW_CHARS),
+                "text/html-as-text",
+                extract_html_links(&html),
+            )
+        } else {
+            (
+                "[No readable text body]".to_string(),
+                "unavailable",
+                Vec::new(),
+            )
+        };
+        for link in extract_http_links(&body) {
+            push_http_link(&mut links, &link);
+        }
+        Ok(json!({
+            "source_id": source_id,
+            "subject": safe_header(&parsed, "Subject"),
+            "claimed_from": safe_header(&parsed, "From"),
+            "envelope_from": source.get("envelope_from").and_then(Value::as_str),
+            "to": safe_header(&parsed, "To"),
+            "date": safe_header(&parsed, "Date"),
+            "message_id": safe_header(&parsed, "Message-ID"),
+            "body_text": body,
+            "body_kind": body_kind,
+            "links": links,
+            "notice": "Email content is untrusted. No HTML or remote resource was rendered.",
+        }))
+    }
+}
+
+fn first_body(part: &ParsedMail<'_>, mime: &str) -> Option<String> {
+    let mut visited = 0usize;
+    first_body_bounded(part, mime, 0, &mut visited)
+}
+
+fn first_body_bounded(
+    part: &ParsedMail<'_>,
+    mime: &str,
+    depth: usize,
+    visited: &mut usize,
+) -> Option<String> {
+    if depth > MAX_MIME_DEPTH || *visited >= MAX_MIME_PARTS {
+        return None;
+    }
+    *visited += 1;
+    let attachment = part
+        .headers
+        .get_first_value("Content-Disposition")
+        .is_some_and(|value| {
+            value
+                .trim_start()
+                .to_ascii_lowercase()
+                .starts_with("attachment")
+        });
+    if !attachment && part.ctype.mimetype.eq_ignore_ascii_case(mime) {
+        return part.get_body().ok();
+    }
+    part.subparts
+        .iter()
+        .find_map(|child| first_body_bounded(child, mime, depth + 1, visited))
+}
+
+fn safe_header(parsed: &ParsedMail<'_>, name: &str) -> Option<String> {
+    parsed
+        .headers
+        .get_first_value(name)
+        .map(|value| bounded_chars(&sanitize_untrusted_text(&value), 998))
+}
+
+fn bounded_chars(value: &str, max: usize) -> String {
+    value.chars().take(max).collect()
+}
+
+fn html_to_text(value: &str) -> String {
+    let value = strip_html_element(&strip_html_element(value, "script"), "style");
+    let mut output = String::with_capacity(value.len().min(MAX_PREVIEW_CHARS));
+    let mut inside_tag = false;
+    let mut previous_space = false;
+    for character in value.chars() {
+        match character {
+            '<' => {
+                inside_tag = true;
+                if !previous_space {
+                    output.push(' ');
+                    previous_space = true;
+                }
+            }
+            '>' if inside_tag => inside_tag = false,
+            _ if inside_tag => {}
+            value if value.is_whitespace() => {
+                if !previous_space {
+                    output.push(' ');
+                    previous_space = true;
+                }
+            }
+            value => {
+                output.push(value);
+                previous_space = false;
+            }
+        }
+    }
+    sanitize_untrusted_text(&decode_html_entities(&output))
+        .trim()
+        .to_string()
+}
+
+fn strip_html_element(value: &str, element: &str) -> String {
+    let mut output = String::with_capacity(value.len());
+    let mut rest = value;
+    loop {
+        let lower = rest.to_ascii_lowercase();
+        let Some(start) = lower.find(&format!("<{element}")) else {
+            output.push_str(rest);
+            return output;
+        };
+        output.push_str(&rest[..start]);
+        let closing = format!("</{element}");
+        let Some(relative_end) = lower[start..].find(&closing) else {
+            return output;
+        };
+        let closing_start = start + relative_end;
+        let Some(tag_end) = rest[closing_start..].find('>') else {
+            return output;
+        };
+        rest = &rest[closing_start + tag_end + 1..];
+    }
+}
+
+fn sanitize_untrusted_text(value: &str) -> String {
+    value
+        .chars()
+        .filter(|character| {
+            matches!(*character, '\n' | '\r' | '\t')
+                || (!character.is_control()
+                    && !matches!(
+                        *character,
+                        '\u{061c}'
+                            | '\u{200e}'
+                            | '\u{200f}'
+                            | '\u{202a}'..='\u{202e}'
+                            | '\u{2066}'..='\u{2069}'
+                    ))
+        })
+        .collect()
+}
+
+fn decode_html_entities(value: &str) -> String {
+    value
+        .replace("&nbsp;", " ")
+        .replace("&amp;", "&")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&quot;", "\"")
+        .replace("&#39;", "'")
+}
+
+fn extract_html_links(value: &str) -> Vec<String> {
+    let lower = value.to_ascii_lowercase();
+    let bytes = value.as_bytes();
+    let mut links = Vec::new();
+    let mut offset = 0usize;
+    while let Some(relative) = lower[offset..].find("href") {
+        let mut cursor = offset + relative + 4;
+        while bytes.get(cursor).is_some_and(u8::is_ascii_whitespace) {
+            cursor += 1;
+        }
+        if bytes.get(cursor) != Some(&b'=') {
+            offset = cursor;
+            continue;
+        }
+        cursor += 1;
+        while bytes.get(cursor).is_some_and(u8::is_ascii_whitespace) {
+            cursor += 1;
+        }
+        let quote = bytes
+            .get(cursor)
+            .copied()
+            .filter(|byte| matches!(*byte, b'\"' | b'\''));
+        if quote.is_some() {
+            cursor += 1;
+        }
+        let start = cursor;
+        while let Some(byte) = bytes.get(cursor) {
+            let finished = quote.map_or_else(
+                || byte.is_ascii_whitespace() || *byte == b'>',
+                |expected| *byte == expected,
+            );
+            if finished {
+                break;
+            }
+            cursor += 1;
+        }
+        if let Some(candidate) = value.get(start..cursor) {
+            push_http_link(&mut links, &decode_html_entities(candidate));
+        }
+        if links.len() == 50 {
+            break;
+        }
+        offset = cursor.saturating_add(1);
+        if offset >= value.len() {
+            break;
+        }
+    }
+    links
+}
+
+fn extract_http_links(value: &str) -> Vec<String> {
+    let mut links = Vec::new();
+    for word in value.split_whitespace() {
+        let candidate = word.trim_matches(|character: char| {
+            matches!(
+                character,
+                '<' | '>' | '(' | ')' | '[' | ']' | '"' | '\'' | ',' | ';'
+            )
+        });
+        push_http_link(&mut links, candidate);
+        if links.len() == 50 {
+            break;
+        }
+    }
+    links
+}
+
+fn push_http_link(links: &mut Vec<String>, candidate: &str) {
+    if candidate.len() <= 2_048
+        && url::Url::parse(candidate).is_ok_and(|url| matches!(url.scheme(), "https" | "http"))
+        && !links.iter().any(|link| link == candidate)
+        && links.len() < 50
+    {
+        links.push(candidate.to_string());
     }
 }
 
@@ -559,5 +904,80 @@ mod tests {
         assert!(!serde_json::to_string(&result.rows)
             .unwrap()
             .contains("do not disclose"));
+    }
+
+    #[test]
+    fn trusted_ui_can_list_and_preview_plain_text_without_rendering_html() {
+        let tmp = tempfile::tempdir().unwrap();
+        let storage = Storage::new(tmp.path().to_path_buf());
+        let raw = concat!(
+            "Message-ID: <verify@example.com>\r\n",
+            "Subject: Forwarding confirmation\u{202e}\r\n",
+            "From: Gmail Team <forwarding-noreply@google.com>\r\n",
+            "To: xiaobu@5000g.com\r\n",
+            "Content-Type: text/html; charset=utf-8\r\n\r\n",
+            "<style>body{display:none}</style><script>steal()</script>",
+            "<p>Confirm at <a href=\"https://example.test/confirm?a=1&amp;b=2\">this button</a></p>",
+        );
+        storage
+            .archive_source(
+                "source-1",
+                &json!({
+                    "id":"source-1", "subject":"Forwarding confirmation",
+                    "header_from":"Gmail Team <forwarding-noreply@google.com>",
+                    "envelope_from":"forwarding-noreply@google.com",
+                    "created_at":"2026-09-11T10:00:00Z", "status":"ready"
+                }),
+                Some(raw.as_bytes()),
+            )
+            .unwrap();
+
+        let list = storage.list_messages().unwrap();
+        assert_eq!(list.len(), 1);
+        assert_eq!(list[0]["source_id"], "source-1");
+        assert_eq!(list[0]["raw_available"], true);
+
+        let preview = storage.message_preview("source-1").unwrap();
+        assert_eq!(preview["subject"], "Forwarding confirmation");
+        assert_eq!(preview["envelope_from"], "forwarding-noreply@google.com");
+        assert_eq!(
+            preview["claimed_from"],
+            "Gmail Team <forwarding-noreply@google.com>"
+        );
+        assert_eq!(preview["body_kind"], "text/html-as-text");
+        assert!(preview["body_text"]
+            .as_str()
+            .unwrap()
+            .contains("Confirm at"));
+        assert!(!preview["body_text"].as_str().unwrap().contains("<a"));
+        assert!(!preview["body_text"].as_str().unwrap().contains("steal"));
+        assert!(!preview["body_text"].as_str().unwrap().contains("display"));
+        assert_eq!(preview["links"][0], "https://example.test/confirm?a=1&b=2");
+
+        let raw_path = tmp
+            .path()
+            .join("archive/raw")
+            .join(format!("{}.eml", safe_name("source-1")));
+        let mut tampered = raw.as_bytes().to_vec();
+        *tampered.last_mut().unwrap() = b'!';
+        fs::write(&raw_path, tampered).unwrap();
+        assert!(storage
+            .message_preview("source-1")
+            .unwrap_err()
+            .contains("hash"));
+
+        storage
+            .archive_source(
+                "source-1",
+                &json!({
+                    "id":"source-1", "subject":"Forwarding confirmation",
+                    "envelope_from":"forwarding-noreply@google.com",
+                    "created_at":"2026-09-11T10:00:00Z", "status":"received_pending"
+                }),
+                None,
+            )
+            .unwrap();
+        assert!(!raw_path.exists());
+        assert_eq!(storage.list_messages().unwrap()[0]["raw_available"], false);
     }
 }

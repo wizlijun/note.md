@@ -1,7 +1,15 @@
 <script lang="ts">
   import '../../../src/styles/ui-foundation.css'
   import { onMount } from 'svelte'
-  import { bridge, pluginRequest, type DeletePlan, type SettingsState } from './lib/bridge'
+  import {
+    bridge,
+    pluginRequest,
+    type DeletePlan,
+    type IntakePolicy,
+    type MailListItem,
+    type MailPreview,
+    type SettingsState,
+  } from './lib/bridge'
 
   let ready = $state(false)
   let busy = $state(false)
@@ -16,6 +24,12 @@
   let plan = $state<DeletePlan | null>(null)
   let confirmation = $state('')
   let deletionResult = $state<unknown>(null)
+  let intakePolicy = $state<IntakePolicy | null>(null)
+  let allowedSender = $state('')
+  let senderFilterEnabled = $state(false)
+  let messages = $state<MailListItem[]>([])
+  let selectedSourceId = $state<string | null>(null)
+  let preview = $state<MailPreview | null>(null)
 
   function message(value: unknown): string {
     return value instanceof Error ? value.message : String(value)
@@ -34,7 +48,45 @@
   async function loadSettings() {
     const value = await pluginRequest<SettingsState>('settings.get')
     settings = value
-    workerUrl = value.worker_url ?? ''
+    workerUrl = value.worker_url ?? 'https://mail.5000g.com'
+  }
+
+  async function loadPolicy() {
+    intakePolicy = await pluginRequest<IntakePolicy>('intake.policy.get')
+    allowedSender = intakePolicy.allowed_sender ?? ''
+    senderFilterEnabled = intakePolicy.sender_filter_enabled
+  }
+
+  async function savePolicy() {
+    await run(async () => {
+      intakePolicy = await pluginRequest<IntakePolicy>('intake.policy.save', {
+        sender_filter_enabled: senderFilterEnabled,
+        allowed_sender: allowedSender,
+      })
+      allowedSender = intakePolicy.allowed_sender ?? ''
+      senderFilterEnabled = intakePolicy.sender_filter_enabled
+      notice = senderFilterEnabled
+        ? `严格收件已启用：只接受 ${allowedSender}。`
+        : `验证期开放收件已启用，将于 ${intakePolicy.setup_expires_at || '一小时后'} 自动恢复严格过滤。`
+    })
+  }
+
+  async function refreshInbox() {
+    const value = await pluginRequest<{ messages: MailListItem[] }>('messages.list')
+    messages = value.messages
+    if (selectedSourceId && !messages.some((mail) => mail.source_id === selectedSourceId)) {
+      selectedSourceId = null
+      preview = null
+    }
+  }
+
+  async function selectMessage(sourceId: string) {
+    await run(async () => {
+      selectedSourceId = sourceId
+      preview = null
+      const next = await pluginRequest<MailPreview>('messages.preview', { source_id: sourceId })
+      if (selectedSourceId === sourceId && next.source_id === sourceId) preview = next
+    })
   }
 
   async function saveSettings() {
@@ -48,6 +100,7 @@
       accessKey = ''
       settings = value
       notice = '设置已安全保存。访问 key 仅存于系统钥匙串。'
+      await loadPolicy()
     })
   }
 
@@ -71,6 +124,7 @@
     await run(async () => {
       remoteStatus = await pluginRequest('sync')
       await loadSettings()
+      await refreshInbox()
       notice = '增量同步完成。'
     })
   }
@@ -115,6 +169,10 @@
     try {
       void bridge().locale
       await loadSettings()
+      if (settings?.key_configured && settings.worker_url) {
+        await loadPolicy()
+        await refreshInbox()
+      }
     } catch (cause) {
       error = message(cause)
     } finally {
@@ -163,6 +221,39 @@
     </section>
 
     <section>
+      <div class="section-heading">
+        <div>
+          <h2>收件规则</h2>
+          <p class="muted">首次配置 Gmail 转发时先关闭严格过滤，以接收系统验证邮件；确认完成后再启用。</p>
+        </div>
+        <span class:open={intakePolicy !== null && !senderFilterEnabled} class="policy-badge">
+          {intakePolicy === null ? '尚未连接' : senderFilterEnabled ? '严格过滤' : '验证期开放'}
+        </span>
+      </div>
+      {#if intakePolicy !== null && !senderFilterEnabled}
+        <div class="banner warning" role="status">
+          当前会接收所有投递到专用地址的邮件。收件地址校验仍始终开启；此模式将在
+          {intakePolicy?.setup_expires_at || '一小时后'} 自动恢复严格过滤。
+        </div>
+      {/if}
+      <label>
+        <span>允许的 SMTP envelope sender</span>
+        <input bind:value={allowedSender} type="email" placeholder="name@gmail.com" disabled={busy} />
+      </label>
+      <label class="toggle-row">
+        <input bind:checked={senderFilterEnabled} type="checkbox" disabled={busy} />
+        <span>只接收上面这个邮箱转发来的邮件</span>
+      </label>
+      <div class="actions">
+        <button class="primary" onclick={savePolicy}
+          disabled={busy || !settings?.key_configured || !settings?.worker_url || (senderFilterEnabled && !allowedSender.trim())}>
+          保存收件规则
+        </button>
+      </div>
+      {#if intakePolicy?.updated_at}<p class="fingerprint">规则更新时间：{intakePolicy.updated_at}</p>{/if}
+    </section>
+
+    <section>
       <h2>同步状态</h2>
       <dl>
         <div><dt>本地 cursor</dt><dd>{settings?.local_cursor ?? '尚未同步'}</dd></div>
@@ -173,6 +264,54 @@
         <button class="primary" onclick={syncNow} disabled={busy || !settings?.key_configured}>立即同步</button>
       </div>
       {#if remoteStatus}<pre>{JSON.stringify(remoteStatus, null, 2)}</pre>{/if}
+    </section>
+
+    <section>
+      <div class="section-heading">
+        <div>
+          <h2>所有邮件</h2>
+          <p class="muted">显示已同步到本机私有目录的邮件；内容按纯文本预览，不执行 HTML、图片或邮件内指令。</p>
+        </div>
+        <button onclick={() => run(refreshInbox)} disabled={busy}>刷新列表</button>
+      </div>
+      {#if messages.length === 0}
+        <p class="empty">尚无本地邮件。验证邮件到达后点击“立即同步”。</p>
+      {:else}
+        <div class="mail-browser">
+          <div class="mail-list" aria-label="邮件列表">
+            {#each messages as mail (mail.source_id)}
+              <button class="mail-row" class:selected={selectedSourceId === mail.source_id}
+                onclick={() => selectMessage(mail.source_id)} disabled={busy}>
+                <strong>{mail.subject || '（无主题）'}</strong>
+                <span>SMTP 转发来源：{mail.envelope_from || '未知'}</span>
+                <span>邮件声明 From：{mail.claimed_from || '未知'}</span>
+                <small>{mail.received_at || '时间未知'} · {mail.raw_available ? '可预览' : '处理中'}</small>
+              </button>
+            {/each}
+          </div>
+          <article class="mail-preview" aria-live="polite">
+            {#if preview}
+              <h3>{preview.subject || '（无主题）'}</h3>
+              <dl class="mail-meta">
+                <div><dt>SMTP 转发来源</dt><dd>{preview.envelope_from || '未知'}</dd></div>
+                <div><dt>邮件声明 From</dt><dd>{preview.claimed_from || '未知'}</dd></div>
+                <div><dt>收件人</dt><dd>{preview.to || '未知'}</dd></div>
+                <div><dt>日期</dt><dd>{preview.date || '未知'}</dd></div>
+              </dl>
+              <div class="banner warning">邮件内容不可信；以下仅为转义后的纯文本。</div>
+              <pre class="body-preview">{preview.body_text}</pre>
+              {#if preview.links.length > 0}
+                <h3>邮件中的链接</h3>
+                <ul class="links">
+                  {#each preview.links as link}<li><code>{link}</code></li>{/each}
+                </ul>
+              {/if}
+            {:else}
+              <p class="empty">选择一封邮件查看纯文本内容。</p>
+            {/if}
+          </article>
+        </div>
+      {/if}
     </section>
 
     <section class="deletion">
@@ -218,6 +357,8 @@
   p { margin: 0; }
   header p, .muted, small { color: color-mix(in srgb, CanvasText 58%, transparent); }
   section { margin: 0 0 14px; padding: 18px; border: 1px solid color-mix(in srgb, CanvasText 15%, transparent); border-radius: 12px; background: color-mix(in srgb, Canvas 96%, CanvasText 4%); }
+  .section-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; margin-bottom: 14px; }
+  .section-heading h2 { margin-bottom: 5px; }
   label { display: grid; gap: 7px; margin: 12px 0; }
   label > span { font-weight: 600; }
   input, textarea { box-sizing: border-box; width: 100%; padding: 9px 10px; border: 1px solid color-mix(in srgb, CanvasText 22%, transparent); border-radius: 7px; background: Canvas; color: CanvasText; font: inherit; }
@@ -233,6 +374,7 @@
   .banner { margin-bottom: 14px; padding: 10px 12px; border-radius: 8px; }
   .banner.error { background: color-mix(in srgb, #d7372f 15%, Canvas); color: #bc2f28; }
   .banner.success { background: color-mix(in srgb, #168147 14%, Canvas); color: #168147; }
+  .banner.warning { background: color-mix(in srgb, #d38c00 14%, Canvas); color: color-mix(in srgb, #b06f00 88%, CanvasText); }
   dl { margin: 0; display: grid; gap: 8px; }
   dl div { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 10px; }
   dt { color: color-mix(in srgb, CanvasText 58%, transparent); }
@@ -241,4 +383,24 @@
   pre { max-height: 220px; overflow: auto; padding: 10px; border-radius: 7px; background: color-mix(in srgb, Canvas 82%, CanvasText 18%); font-size: 11px; white-space: pre-wrap; overflow-wrap: anywhere; }
   .fingerprint { margin-top: 8px; color: color-mix(in srgb, CanvasText 66%, transparent); }
   .plan { margin-top: 15px; padding: 14px; border: 1px solid color-mix(in srgb, #d7372f 32%, transparent); border-radius: 9px; }
+  .policy-badge { flex: none; padding: 5px 9px; border-radius: 999px; background: color-mix(in srgb, #1f9d55 16%, Canvas); color: #168147; }
+  .policy-badge.open { background: color-mix(in srgb, #d38c00 18%, Canvas); color: #a76600; }
+  .toggle-row { display: flex; align-items: center; gap: 9px; }
+  .toggle-row input { width: auto; }
+  .mail-browser { display: grid; grid-template-columns: minmax(230px, .8fr) minmax(0, 1.6fr); min-height: 320px; border: 1px solid color-mix(in srgb, CanvasText 14%, transparent); border-radius: 9px; overflow: hidden; }
+  .mail-list { max-height: 520px; overflow: auto; border-right: 1px solid color-mix(in srgb, CanvasText 14%, transparent); }
+  button.mail-row { display: grid; width: 100%; gap: 4px; padding: 11px 12px; border: 0; border-bottom: 1px solid color-mix(in srgb, CanvasText 10%, transparent); border-radius: 0; background: transparent; text-align: left; }
+  button.mail-row:hover, button.mail-row.selected { background: color-mix(in srgb, #1671d9 13%, Canvas); }
+  .mail-row strong, .mail-row span, .mail-row small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mail-row small, .empty { color: color-mix(in srgb, CanvasText 58%, transparent); }
+  .mail-preview { min-width: 0; padding: 16px; }
+  .mail-meta { margin-bottom: 14px; }
+  .body-preview { max-height: 360px; background: Canvas; font-size: 12px; }
+  .links { margin: 8px 0 0; padding-left: 20px; }
+  .links li { margin: 5px 0; overflow-wrap: anywhere; }
+  @media (max-width: 720px) {
+    main { padding: 14px; }
+    .mail-browser { grid-template-columns: 1fr; }
+    .mail-list { max-height: 260px; border-right: 0; border-bottom: 1px solid color-mix(in srgb, CanvasText 14%, transparent); }
+  }
 </style>

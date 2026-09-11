@@ -40,6 +40,24 @@ impl WorkerClient {
         self.get_json("/v1/status")
     }
 
+    pub fn intake_policy(&self) -> Result<Value, String> {
+        self.get_json("/v1/intake-policy")
+    }
+
+    pub fn save_intake_policy(
+        &self,
+        sender_filter_enabled: bool,
+        allowed_sender: Option<&str>,
+    ) -> Result<Value, String> {
+        self.put_json(
+            "/v1/intake-policy",
+            &json!({
+                "sender_filter_enabled": sender_filter_enabled,
+                "allowed_sender": allowed_sender,
+            }),
+        )
+    }
+
     pub fn changes(&self, after: Option<&str>, limit: usize) -> Result<ChangesPage, String> {
         let mut url = url::Url::parse(&format!("{}/v1/changes", self.base))
             .map_err(|_| "invalid Worker URL".to_string())?;
@@ -84,7 +102,10 @@ impl WorkerClient {
         if response.status().as_u16() == 410 {
             return Ok(None);
         }
-        parse_json_response(response).map(Some)
+        let mut value =
+            parse_json_response(response).map_err(|error| redact_text(&error, &self.key))?;
+        redact_value(&mut value, &self.key);
+        Ok(Some(value))
     }
 
     pub fn raw(&self, source_id: &str) -> Result<Option<Vec<u8>>, String> {
@@ -106,7 +127,7 @@ impl WorkerClient {
             );
         }
         if !response.status().is_success() {
-            return Err(response_error(response));
+            return Err(redact_text(&response_error(response), &self.key));
         }
         if response.content_length().is_some_and(|n| n > MAX_RAW_BYTES) {
             return Err("Worker raw message exceeds the 32 MiB local safety limit".into());
@@ -118,6 +139,9 @@ impl WorkerClient {
             .map_err(network_error)?;
         if bytes.len() as u64 > MAX_RAW_BYTES {
             return Err("Worker raw message exceeds the 32 MiB local safety limit".into());
+        }
+        if contains_secret(&bytes, self.key.as_bytes()) {
+            return Err("Worker raw response contained protected credential material".into());
         }
         Ok(Some(bytes))
     }
@@ -158,6 +182,10 @@ impl WorkerClient {
         self.send_json(self.http.post(format!("{}{}", self.base, path)).json(body))
     }
 
+    fn put_json(&self, path: &str, body: &Value) -> Result<Value, String> {
+        self.send_json(self.http.put(format!("{}{}", self.base, path)).json(body))
+    }
+
     fn authorize(
         &self,
         builder: reqwest::blocking::RequestBuilder,
@@ -170,7 +198,10 @@ impl WorkerClient {
             .authorize(builder.header(ACCEPT, "application/json"))
             .send()
             .map_err(network_error)?;
-        parse_json_response(response)
+        let mut value =
+            parse_json_response(response).map_err(|error| redact_text(&error, &self.key))?;
+        redact_value(&mut value, &self.key);
+        Ok(value)
     }
 }
 
@@ -251,6 +282,35 @@ fn bounded(value: &str, max: usize) -> String {
     value.chars().take(max).collect()
 }
 
+fn contains_secret(value: &[u8], secret: &[u8]) -> bool {
+    !secret.is_empty() && value.windows(secret.len()).any(|window| window == secret)
+}
+
+fn redact_text(value: &str, secret: &str) -> String {
+    if secret.is_empty() {
+        value.to_string()
+    } else {
+        value.replace(secret, "[redacted]")
+    }
+}
+
+fn redact_value(value: &mut Value, secret: &str) {
+    match value {
+        Value::String(text) => *text = redact_text(text, secret),
+        Value::Array(items) => {
+            for item in items {
+                redact_value(item, secret);
+            }
+        }
+        Value::Object(fields) => {
+            for item in fields.values_mut() {
+                redact_value(item, secret);
+            }
+        }
+        _ => {}
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -282,7 +342,7 @@ mod tests {
             assert!(request
                 .to_ascii_lowercase()
                 .contains("authorization: bearer test-key-abcdefghijklmnopqrstuvwxyz"));
-            let body = r#"{"data":{"actor":"plugin-instance"}}"#;
+            let body = r#"{"data":{"actor":"plugin-instance","echo":"test-key-abcdefghijklmnopqrstuvwxyz"}}"#;
             write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}", body.len(), body).unwrap();
         });
         tokio::task::block_in_place(|| {
@@ -291,7 +351,9 @@ mod tests {
                 "test-key-abcdefghijklmnopqrstuvwxyz".into(),
             )
             .unwrap();
-            assert_eq!(client.whoami().unwrap()["actor"], "plugin-instance");
+            let response = client.whoami().unwrap();
+            assert_eq!(response["actor"], "plugin-instance");
+            assert_eq!(response["echo"], "[redacted]");
         });
         server.join().unwrap();
     }

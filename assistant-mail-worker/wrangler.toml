@@ -9,7 +9,8 @@ routes = [
 ]
 
 [vars]
-# Exact, lower-cased SMTP envelope sender accepted by the Email Worker.
+# Initial sender suggestion shown while the persistent intake policy is unset.
+# The plugin controls whether exact sender filtering is enabled.
 ALLOWED_FORWARDER = "newbruce@gmail.com"
 ASSISTANT_MAIL_ADDRESS = "xiaobu@5000g.com"
 MAX_RAW_BYTES = "26214400"

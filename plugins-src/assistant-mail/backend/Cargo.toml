@@ -19,6 +19,7 @@ hex = "0.4"
 chrono = { version = "0.4", default-features = false, features = ["clock", "serde"] }
 chrono-tz = "0.10"
 tokio = { version = "1", features = ["rt-multi-thread"] }
+mailparse = "0.16"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 security-framework = "3"

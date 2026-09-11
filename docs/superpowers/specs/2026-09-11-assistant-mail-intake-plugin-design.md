@@ -24,14 +24,17 @@ Assistant Mail 与现有 Share 放在同一个代码仓库，但部署为两个�
 
 ### 2.1 来源范围修订
 
-本版只准入一个配置的 Gmail 地址转发来的邮件：
+本版保留不可关闭的收件地址门禁，并由用户控制 sender filter：
 
 ```text
-envelope.from == ALLOWED_FORWARDER
 envelope.to   == ASSISTANT_MAIL_ADDRESS
+AND (
+  policy.sender_filter_enabled == false
+  OR envelope.from == policy.allowed_sender
+)
 ```
 
-比较的是规范化后的 SMTP envelope 地址，不是可伪造的 `From` 显示名或内层转发正文。该 Gmail 可以人工转发，也可以按 Gmail 白名单规则自动转发；业务发送方直接寄给助理地址一律拒绝。部署前必须用真实转发样本确认 Gmail 实际产生的 envelope sender；如果实际 envelope 不是稳定的配置地址，必须停止上线而不是退化为校验 Header `From`。
+首次配置转发时，用户可在可信插件窗口打开最长一小时的 setup window，使 Gmail 等供应商的系统验证邮件能够进入；界面必须显著标识此时所有 envelope sender 都可投递，服务端到期自动恢复严格过滤。验证完成后，用户设置唯一 sender 并主动开启严格过滤。严格模式比较规范化后的 SMTP envelope sender，不使用可伪造的 `From` 显示名或内层转发正文；此比较只是收件范围过滤，不单独构成发送方身份的密码学证明。
 
 ### 2.2 Agent 删除权限修订
 
@@ -114,18 +117,20 @@ Email Routing 只把一个专用地址路由给 Mail Worker。Worker 配置：
 | 名称 | 类型 | 用途 |
 | --- | --- | --- |
 | `ASSISTANT_MAIL_ADDRESS` | var | 唯一助理收件地址 |
-| `ALLOWED_FORWARDER` | var | 唯一允许的 Gmail envelope sender |
+| `ALLOWED_FORWARDER` | var | 尚未持久化 policy 时显示的 sender 建议值 |
 | `ASSISTANT_MAIL_ACCESS_KEY` | secret | HTTPS API 的唯一长期 key |
 | `MAIL_RAW` | private R2 | 原始 MIME |
 | `MAIL_DB` | D1 | 元数据与权威状态 |
 | `MAIL_QUEUE` | Queue | 晋级与可重试后台工作 |
 
+`intake_policy` 以 D1 singleton 保存 `sender_filter_enabled`、`allowed_sender`、`setup_expires_at` 与更新时间；插件通过鉴权 API 读写。迁移默认保持严格过滤，并从 Worker 配置取得初始 sender；用户显式关闭时仅开放一小时，收件地址门禁不受该开关影响。开启严格模式时必须同时提交合法的唯一 sender。
+
 ### 6.2 拒绝必须先于持久化
 
 `email(message)` 的顺序固定：
 
-1. 规范化并精确比较 `message.from` 和 `message.to`；
-2. 任一不匹配时立即 `setReject`，不得读取 `message.raw`、写 R2、写可搜索 D1、发 Queue 或生成事件；
+1. 规范化并精确比较不可关闭的 `message.to`，再读取 D1 intake policy；
+2. recipient 不匹配，或严格模式下 `message.from` 不匹配时立即 `setReject`，不得读取 `message.raw`、写 R2、写可搜索 D1、发 Queue 或生成事件；
 3. 只允许记录不含地址、主题、正文和 Message-ID 的聚合拒绝计数；
 4. 匹配后才在 `MAX_RAW_BYTES` 上限内有界读取并保存原始 MIME，禁止加载远程资源或执行附件；
 5. 写入 D1 `received_pending` 记录并投递内部 Queue。
@@ -195,24 +200,28 @@ account = worker-access-key
 
 `config.json` 只保存 URL 和非秘密偏好；界面只显示“已配置”和可选末四位指纹。key 不得出现在普通 settings、Vault、CLI 参数、环境变量、stdout/stderr、崩溃报告或 Agent 对话。
 
+正式插件只接受 `https://mail.5000g.com` 和同一部署的命名 Worker fallback，禁止把已保留的 key 随设置变更发送到任意 origin。Worker 回包进入 CLI、UI 或本地归档前必须扫描并遮蔽或拒绝与当前 key 完全相同的凭证材料。
+
 Agent 调用宿主 CLI 时由插件后端代为请求 Worker。唯一 key 认证的是插件实例，不代表 Agent 获得任意删除权；本地命令面再实施读取/计划/执行能力分离。
 
-已知边界：同一用户下的原生进程不是强多租户沙箱。MVP 防止凭证进入正常 Agent 接口和文件，而不声称能够抵御已经控制用户账户或调试宿主进程的恶意程序。更强边界需后续使用宿主 secret broker/硬件绑定签名。
+已知边界：同一用户下的原生进程不是强多租户沙箱。MVP 防止凭证和正文进入受支持的 Agent CLI，但不声称能够抵御已经取得同一 macOS 用户文件访问权、直接启动插件协议或调试宿主进程的恶意程序；本机 raw 归档同样不能对这类进程构成机密性边界。更强边界需后续使用宿主持有的 secret/decryption broker、不可伪造的窗口授权和硬件绑定签名。
 
 ## 9. Worker HTTP API
 
-所有成功响应包含 `request_id` 和 `schema_version`；所有列表有上限和 cursor；未知字段向前兼容，未知 schema major 必须停止。
+M0 成功响应统一为 `{ "data": ... }`，失败响应为 `{ "error": { "code", "message" } }`。增量变化列表使用有上限的 opaque cursor；来源列表有固定上限但尚无分页 cursor。客户端忽略未知字段，协议发生不兼容变更时必须提升 API 路径版本。
 
 | 方法与路径 | 用途 | 备注 |
 | --- | --- | --- |
 | `GET /v1/whoami` | 验证部署和 key | 不返回 key |
 | `GET /v1/status` | high-watermark、最新收信、积压、失败数 | 不包含正文 |
+| `GET /v1/intake-policy` | 读取验证期/严格 sender 状态 | 不返回 key |
+| `PUT /v1/intake-policy` | 保存唯一 sender 并切换过滤 | 开启时 sender 必填且合法 |
 | `GET /v1/changes?after=&limit=` | 增量拉取 metadata/tombstone | opaque cursor |
 | `GET /v1/sources` | 按 ID/时间查询来源元数据 | 分页、最小字段 |
 | `GET /v1/sources/:id/raw` | 插件同步原始 MIME | Agent 面不得暴露；兼容 `/v1/messages/:id/raw` |
 | `POST /v1/deletion-plans` | 按精确 `source_ids` 冻结计划 | 禁止模糊 query 删除 |
 | `GET /v1/deletion-plans/:id` | 查看影响、hash、过期时间 | 不返回已删除秘密 |
-| `POST /v1/deletion-plans/:id/execute` | 执行已确认计划 | body 必须含相同 hash 与 `confirm: "DELETE"` |
+| `POST /v1/deletion-plans/:id/execute` | 执行已确认计划 | body 必须含相同 hash 与 `confirmation: "DELETE"` |
 | `GET /v1/deletion-jobs/:id` | 查询进度和失败 | 可重试、不恢复可读 |
 
 API 不提供发送、回复、链接打开、附件执行、付款、签署、改签或取消端点。
@@ -234,6 +243,8 @@ API 不提供发送、回复、链接打开、附件执行、付款、签署、�
 ```
 
 文件名只使用内部 ID；写入采用同目录临时文件、fsync 和原子 rename。原件、结构化归档和 cursor 不进入 Vault、Git、全文索引或系统搜索。插件不得自动显示远程图片、打开链接或执行附件。
+
+可信插件窗口提供本地归档的完整邮件列表和按需预览 RPC。列表可显示主题、完整发件人和时间；预览只解析 `text/plain`，缺少纯文本时把 HTML 转成转义后的普通文本，绝不使用 `{@html}`、WebView 导航或远程资源。此用户可见契约与 Agent CLI 的 metadata-only 投影严格分离。
 
 ### 10.2 CLI
 

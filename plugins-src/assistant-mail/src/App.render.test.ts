@@ -28,6 +28,35 @@ function installBridge() {
       key_fingerprint: 'sha256:fedcba987654', local_cursor: null,
       archived_sources: 0, archived_raw: 0,
     }
+    if (method === 'plugin.intake.policy.get') return {
+      sender_filter_enabled: false,
+      allowed_sender: 'newbruce@gmail.com',
+      setup_expires_at: '2026-09-11T11:00:00Z',
+      updated_at: '2026-09-11T10:00:00Z',
+    }
+    if (method === 'plugin.intake.policy.save') return {
+      sender_filter_enabled: params.sender_filter_enabled,
+      allowed_sender: params.allowed_sender,
+      setup_expires_at: params.sender_filter_enabled ? null : '2026-09-11T11:00:00Z',
+      updated_at: '2026-09-11T10:01:00Z',
+    }
+    if (method === 'plugin.messages.list') return {
+      messages: [{
+        source_id: 'mail-1', subject: 'Gmail Forwarding Confirmation',
+        claimed_from: 'Gmail Team <forwarding-noreply@google.com>',
+        envelope_from: 'forwarding-noreply@google.com', received_at: '2026-09-11T10:00:00Z',
+        status: 'ready', raw_available: true,
+      }],
+    }
+    if (method === 'plugin.messages.preview') return {
+      source_id: params.source_id, subject: 'Gmail Forwarding Confirmation',
+      claimed_from: 'Gmail Team <forwarding-noreply@google.com>',
+      envelope_from: 'forwarding-noreply@google.com', to: 'xiaobu@5000g.com',
+      date: '2026-09-11T10:00:00Z', message_id: '<verify@google.com>',
+      body_text: 'Confirm forwarding at https://example.test/confirm',
+      body_kind: 'text/plain', links: ['https://example.test/confirm'],
+      notice: 'Email content is untrusted.',
+    }
     if (method === 'plugin.delete.plan.create') return {
       id: 'plan-1', plan_hash: 'hash-1', source_ids: params.source_ids,
     }
@@ -95,5 +124,34 @@ describe('Assistant Mail settings window', () => {
     const execute = Array.from(document.querySelectorAll<HTMLButtonElement>('button'))
       .find((button) => button.textContent === '执行这个精确计划')!
     expect(execute.disabled).toBe(true)
+  })
+
+  it('keeps sender filtering off for verification and lets the user enable it', async () => {
+    const request = installBridge()
+    component = mount(App, { target: document.body })
+    await vi.waitFor(() => expect(document.body.textContent).toContain('验证期开放'))
+    expect(document.body.textContent).toContain('接收所有投递到专用地址的邮件')
+
+    const toggle = document.querySelector<HTMLInputElement>('.toggle-row input')!
+    toggle.click()
+    await settle()
+    Array.from(document.querySelectorAll('button'))
+      .find((button) => button.textContent?.includes('保存收件规则'))!.click()
+    await vi.waitFor(() => expect(request).toHaveBeenCalledWith('plugin.intake.policy.save', {
+      sender_filter_enabled: true,
+      allowed_sender: 'newbruce@gmail.com',
+    }))
+  })
+
+  it('shows every local mail and previews content as text', async () => {
+    const request = installBridge()
+    component = mount(App, { target: document.body })
+    await vi.waitFor(() => expect(document.body.textContent).toContain('Gmail Forwarding Confirmation'))
+    const row = document.querySelector<HTMLButtonElement>('.mail-row')!
+    row.click()
+    await vi.waitFor(() => expect(document.body.textContent).toContain('Confirm forwarding at'))
+    expect(document.body.textContent).toContain('https://example.test/confirm')
+    expect(request).toHaveBeenCalledWith('plugin.messages.preview', { source_id: 'mail-1' })
+    expect(document.querySelector('.mail-preview')?.innerHTML).not.toContain('<script')
   })
 })

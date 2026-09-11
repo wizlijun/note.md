@@ -14,6 +14,13 @@ interface MailQueueMessage {
   source_id: string
 }
 
+interface IntakePolicyRow {
+  sender_filter_enabled: number
+  allowed_sender: string | null
+  setup_expires_at: string | null
+  updated_at: string
+}
+
 interface SourceRow {
   id: string
   message_id: string | null
@@ -62,6 +69,8 @@ const JSON_HEADERS = {
   'X-Content-Type-Options': 'nosniff',
 }
 
+const SETUP_WINDOW_MS = 60 * 60 * 1000
+
 class HttpError extends Error {
   constructor(
     readonly status: number,
@@ -92,6 +101,37 @@ function errorResponse(error: unknown): Response {
 
 function normalizeAddress(value: string): string {
   return value.trim().toLowerCase()
+}
+
+function validEmailAddress(value: string): boolean {
+  return value.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+}
+
+async function intakePolicy(env: Env): Promise<{
+  sender_filter_enabled: boolean
+  allowed_sender: string | null
+  setup_expires_at: string | null
+  updated_at: string
+}> {
+  const row = await env.MAIL_DB.prepare(
+    `SELECT sender_filter_enabled, allowed_sender, setup_expires_at, updated_at
+     FROM intake_policy WHERE singleton = 1`,
+  ).first<IntakePolicyRow>()
+  if (!row) throw new Error('intake policy is not initialized')
+  const stored = row.allowed_sender ? normalizeAddress(row.allowed_sender) : ''
+  const configured = normalizeAddress(env.ALLOWED_FORWARDER || '')
+  const setupExpiresAt = row.setup_expires_at && Number.isFinite(Date.parse(row.setup_expires_at))
+    ? row.setup_expires_at
+    : null
+  const setupOpen = row.sender_filter_enabled === 0
+    && setupExpiresAt !== null
+    && Date.parse(setupExpiresAt) > Date.now()
+  return {
+    sender_filter_enabled: !setupOpen,
+    allowed_sender: stored || configured || null,
+    setup_expires_at: setupOpen ? setupExpiresAt : null,
+    updated_at: row.updated_at,
+  }
 }
 
 function actorFrom(request: Request): string {
@@ -279,15 +319,24 @@ async function promoteSource(env: Env, sourceId: string): Promise<void> {
 }
 
 async function handleEmail(message: ForwardableEmailMessage, env: Env): Promise<void> {
-  const allowedForwarder = normalizeAddress(env.ALLOWED_FORWARDER || '')
   const assistantAddress = normalizeAddress(env.ASSISTANT_MAIL_ADDRESS || '')
+  if (!assistantAddress || normalizeAddress(message.to) !== assistantAddress) {
+    message.setReject('Envelope recipient is not allowed')
+    return
+  }
+
+  let policy: Awaited<ReturnType<typeof intakePolicy>>
+  try {
+    policy = await intakePolicy(env)
+  } catch {
+    message.setReject('Intake policy is unavailable')
+    return
+  }
   if (
-    !allowedForwarder ||
-    !assistantAddress ||
-    normalizeAddress(message.from) !== allowedForwarder ||
-    normalizeAddress(message.to) !== assistantAddress
+    policy.sender_filter_enabled &&
+    (!policy.allowed_sender || normalizeAddress(message.from) !== policy.allowed_sender)
   ) {
-    message.setReject('Envelope sender or recipient is not allowed')
+    message.setReject('Envelope sender is not allowed')
     return
   }
 
@@ -372,11 +421,13 @@ async function handleEmail(message: ForwardableEmailMessage, env: Env): Promise<
 
 async function handleWhoAmI(request: Request, env: Env): Promise<Response> {
   const fingerprint = (await sha256(env.ASSISTANT_MAIL_ACCESS_KEY)).slice(0, 12)
+  const policy = await intakePolicy(env)
   return json({
     service: 'notemd-assistant-mail',
     api_version: 'v1',
     mailbox: env.ASSISTANT_MAIL_ADDRESS,
-    allowed_forwarder: env.ALLOWED_FORWARDER,
+    allowed_forwarder: policy.allowed_sender,
+    intake_policy: policy,
     key_fingerprint: fingerprint,
     actor: actorFrom(request),
     reported_agent: reportedAgentFrom(request),
@@ -398,10 +449,55 @@ async function handleStatus(env: Env): Promise<Response> {
   const watermark = await env.MAIL_DB.prepare('SELECT COALESCE(MAX(seq), 0) AS seq FROM changes').first<{ seq: number }>()
   const toMap = (rows: Array<{ status: string; count: number }>) => Object.fromEntries(rows.map((row) => [row.status, row.count]))
   return json({
+    intake_policy: await intakePolicy(env),
     coverage: coverage || { latest_received_at: null, latest_ready_at: null },
     counts: { sources: toMap(sourceCounts.results), deliveries: toMap(deliveryCounts.results) },
     high_watermark: encodeCursor(watermark?.seq || 0),
   })
+}
+
+async function handleGetIntakePolicy(env: Env): Promise<Response> {
+  return json(await intakePolicy(env))
+}
+
+async function handlePutIntakePolicy(request: Request, env: Env): Promise<Response> {
+  const body = await readJsonBody(request)
+  if (typeof body.sender_filter_enabled !== 'boolean') {
+    throw new HttpError(400, 'invalid_policy', 'sender_filter_enabled must be a boolean')
+  }
+  const rawSender = typeof body.allowed_sender === 'string' ? body.allowed_sender : ''
+  const allowedSender = normalizeAddress(rawSender)
+  if (allowedSender && !validEmailAddress(allowedSender)) {
+    throw new HttpError(400, 'invalid_policy', 'allowed_sender must be a valid email address')
+  }
+  if (body.sender_filter_enabled && !allowedSender) {
+    throw new HttpError(400, 'invalid_policy', 'allowed_sender is required when sender filtering is enabled')
+  }
+  const now = new Date().toISOString()
+  const setupExpiresAt = body.sender_filter_enabled
+    ? null
+    : new Date(Date.now() + SETUP_WINDOW_MS).toISOString()
+  await env.MAIL_DB.batch([
+    env.MAIL_DB.prepare(
+      `UPDATE intake_policy
+       SET sender_filter_enabled = ?, allowed_sender = ?, setup_expires_at = ?, updated_at = ?
+       WHERE singleton = 1`,
+    ).bind(body.sender_filter_enabled ? 1 : 0, allowedSender || null, setupExpiresAt, now),
+    env.MAIL_DB.prepare(
+      `INSERT INTO audit_events
+         (id, actor, action, resource_type, resource_id, detail_json, created_at)
+       VALUES (?, ?, 'intake.policy.updated', 'mailbox', NULL, ?, ?)`,
+    ).bind(
+      crypto.randomUUID(), actorFrom(request),
+      JSON.stringify({
+        sender_filter_enabled: body.sender_filter_enabled,
+        allowed_sender: allowedSender || null,
+        setup_expires_at: setupExpiresAt,
+      }),
+      now,
+    ),
+  ])
+  return json(await intakePolicy(env))
 }
 
 async function handleChanges(request: Request, env: Env): Promise<Response> {
@@ -758,6 +854,8 @@ async function handleFetch(request: Request, env: Env, context: ExecutionContext
     const actor = actorFrom(request)
 
     if (request.method === 'GET' && path === '/v1/whoami') return await handleWhoAmI(request, env)
+    if (request.method === 'GET' && path === '/v1/intake-policy') return await handleGetIntakePolicy(env)
+    if (request.method === 'PUT' && path === '/v1/intake-policy') return await handlePutIntakePolicy(request, env)
     if (request.method === 'GET' && path === '/v1/status') {
       context.waitUntil(audit(env, actor, 'status.read', 'mailbox', null, { reported_agent: reportedAgentFrom(request) }))
       return await handleStatus(env)

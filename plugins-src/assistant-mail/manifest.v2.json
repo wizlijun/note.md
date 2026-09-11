@@ -37,9 +37,9 @@
         "id": "main",
         "entry": "index.html",
         "title": "Assistant Mail",
-        "width": 620,
-        "height": 720,
-        "min_width": 480,
+        "width": 980,
+        "height": 760,
+        "min_width": 680,
         "min_height": 560,
         "open_command": "open"
       }

@@ -14,7 +14,8 @@ fallback) with:
 - Email Routing: `xiaobu@5000g.com` → `notemd-assistant-mail` (active);
 - custom domain: `mail.5000g.com`, under the same `5000g.com` zone as the
   Share Worker;
-- exact allowed SMTP envelope sender: `newbruce@gmail.com`;
+- sender filtering controlled by the persistent intake policy, with
+  `newbruce@gmail.com` as the configured sender suggestion;
 - D1: `notemd-assistant-mail` in APAC;
 - R2: `notemd-assistant-mail-raw` and its preview bucket;
 - Queue: `notemd-assistant-mail-processing` with a separate dead-letter queue;
@@ -27,12 +28,16 @@ design spec still apply.
 
 ## Security boundary
 
-- Email Routing must route exactly one assistant address to this Worker.
-- `ALLOWED_FORWARDER` and `ASSISTANT_MAIL_ADDRESS` are matched
-  case-insensitively and exactly against the SMTP **envelope sender and
-  recipient** (`message.from` / `message.to`). A mismatch calls `setReject()`
-  before reading the raw stream or persisting anything. Display names and inner
-  `From:` / `To:` headers are not used for admission.
+- Email Routing must route exactly one assistant address to this Worker. The
+  SMTP envelope recipient (`message.to`) is always matched exactly and cannot
+  be disabled.
+- The persistent intake policy has a visible setup mode and a strict mode.
+  Setup mode accepts every envelope sender for one hour so Gmail forwarding
+  confirmation messages can arrive, then automatically restores strict mode.
+  Strict mode accepts only the exact, case-insensitive
+  envelope sender saved by the user in the trusted plugin window. Rejected
+  messages are rejected before reading raw bytes or persisting content.
+  Display names and inner `From:` / `To:` headers never grant admission.
 - HTTP endpoints require the single deployment credential in
   `Authorization: Bearer <ASSISTANT_MAIL_ACCESS_KEY>`.
 - The access key must be stored by the note.md plugin in the operating-system
@@ -73,6 +78,8 @@ All JSON responses use `{ "data": ... }`; errors use
 | --- | --- | --- |
 | `GET` | `/v1/whoami` | Validate the service, mailbox, forwarder, and key fingerprint |
 | `GET` | `/v1/status` | Coverage, source/delivery counts, and change high-watermark |
+| `GET` | `/v1/intake-policy` | Read setup/strict sender-filter state |
+| `PUT` | `/v1/intake-policy` | Set the exact sender and enable/disable strict filtering |
 | `GET` | `/v1/changes?after=&limit=` | Monotonic upsert/tombstone feed; cursor is opaque |
 | `GET` | `/v1/sources?limit=` | List non-deleted source metadata |
 | `GET` | `/v1/sources/:id` | Get non-deleted source metadata |
@@ -118,11 +125,14 @@ documentation.
 2. Run `pnpm test` and `pnpm typecheck`.
 3. For a new environment, create separate production D1, R2, processing Queue,
    and dead-letter Queue.
-4. Set that environment's D1 `database_id`, `ALLOWED_FORWARDER`, and
-   `ASSISTANT_MAIL_ADDRESS` in `wrangler.toml`.
-6. Generate a random 256-bit key locally and provide it interactively with
+4. Set that environment's D1 `database_id`, sender suggestion
+   `ALLOWED_FORWARDER`, and fixed `ASSISTANT_MAIL_ADDRESS` in `wrangler.toml`.
+5. Generate a random 256-bit key locally and provide it interactively with
    `pnpm wrangler secret put ASSISTANT_MAIL_ACCESS_KEY`. Do not commit the value.
-7. Configure Cloudflare Email Routing for the single assistant address.
+6. Configure Cloudflare Email Routing for the single assistant address.
+7. Open the one-hour setup window while completing Gmail forwarding
+   confirmation, then set the sender and enable strict mode from the plugin
+   window. If the window expires, explicitly open it again.
 8. Deploy with `pnpm deploy` only after verifying the production bindings.
 
 `wrangler.toml` intentionally contains no account ID or real secret. Resource
