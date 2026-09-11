@@ -13,7 +13,7 @@ Assistant Mail 与现有 Share 放在同一个代码仓库，但部署为两个�
 - `mdeditor-share` 继续承载公开分享；
 - `notemd-assistant-mail` 独立接收邮件并提供私有读取、清理和删除 API；
 - 两者不共享路由、访问 key、Cloudflare bindings、数据、发布或回滚单元；
-- note.md 的 `notemd.assistant-mail` 原生插件像 CLI 同步器一样拉取邮件，在插件私有目录保存原件与结构化归档；
+- note.md 的 `notemd.assistant-mail` 原生插件像 CLI 同步器一样拉取邮件，在 Vault 可配置的 SSOT 目录保存原件与结构化 sidecar；
 - 受支持的 Agent 只通过插件的脱敏查询面读取事件，该接口不返回原始 MIME 或 access key；同用户直接文件访问属于后述已知降级边界；
 - `assistant-mail-daily` Skill 可以由用户另行配置的每日任务调用，向 `diary/` 写独立 sidecar，但本项目不擅自注册任务；
 - 删除使用 `plan → 用户确认 → execute`，Agent 可以发起精确计划，不能直接执行删除。
@@ -45,7 +45,7 @@ Agent 默认只读，可以创建精确删除计划；只有用户在可信插�
 ### 3.1 本系统负责
 
 - Cloudflare Email Routing 收信、envelope 准入、原始 MIME 持久化及变更游标；
-- 插件增量同步、安全解析、脱敏、事件化、本地私有归档和查询；
+- 插件增量同步、安全解析、脱敏、事件化、Vault SSOT 归档和查询；
 - 唯一 Worker access key 的设置、验证、轮换和撤销；
 - 可预演、可审计、失败时保持不可读的删除流程；
 - 每天 0–3 条决定或行程要点的 sidecar 生成契约。
@@ -75,8 +75,8 @@ notemd-assistant-mail Worker
             │ HTTPS + 唯一 Bearer key
             ▼
 notemd.assistant-mail 原生插件
-   ├── Vault `.notemd/assistant-mail/.local/`：access key
-   ├── 私有 raw/source/cursor/tombstone 归档
+   ├── Vault `.notemd/assistant-mail/`：配置、cursor、change、tombstone 与 `.local/access-key`
+   ├── Vault `ssot/mails/`（可配置）：成对 raw MIME / source sidecar
    ├── 安全解析、事件化、脱敏
    └── mail-query：Agent 最小披露面
             │ 脱敏 JSON
@@ -232,21 +232,30 @@ API 不提供发送、回复、链接打开、附件执行、付款、签署、�
 
 ### 10.1 插件身份与归档
 
-插件 ID 为 `notemd.assistant-mail`。私有数据根由宿主 `InitializeParams.data_dir` 提供，典型布局：
+插件 ID 为 `notemd.assistant-mail`。邮件 SSOT 与控制状态均以当前 Vault 为边界，典型布局：
 
 ```text
-<app_data>/plugin_data/notemd.assistant-mail/
-├── config.json                 # 仅 URL/非秘密设置
-├── state/cursor.json           # 游标、high-watermark、最后成功时间
-├── archive/changes/<sha256(seq)>.json
-├── archive/sources/<sha256(source_id)>.json
-├── archive/raw/<sha256(source_id)>.eml
-└── archive/tombstones/<sha256(source_id)>.json
+<vault>/
+├── .notemd/assistant-mail/
+│   ├── config.json             # Worker URL 与 Vault 相对 archive_dir
+│   ├── .local/access-key       # 明文 key；Git ignore
+│   └── state/
+│       ├── cursor.json
+│       ├── changes/<sha256(seq)>.json
+│       └── tombstones/<sha256(source_id)>.json
+└── ssot/mails/                 # 默认值；设置页可修改
+    └── YYYYMM/
+        ├── YYYY-MM-DD-HHMMSS-<slug>.eml
+        └── YYYY-MM-DD-HHMMSS-<slug>.json
 ```
 
-文件名只使用内部 ID；写入采用同目录临时文件、fsync 和原子 rename。原件、结构化归档和 cursor 不进入 Vault、Git、全文索引或系统搜索。插件不得自动显示远程图片、打开链接或执行附件。
+时间采用 Worker 接收时间并规范化为 UTC；主题无法形成安全 slug 时使用 `email`，同秒同名以 source ID 摘要形成稳定冲突后缀。`.eml` 先完成原子写入与 hash 校验，`.json` sidecar 最后提交；cursor 只在整页成功后推进。归档目录必须是无 `.`/`..` 的 Vault 相对路径，不能指向 `.notemd`/`.git`，且任一路径分量不得为符号链接。修改目录时先复制并逐字节校验全部受管文件，配置最后提交，再按 hash 清理旧副本；陌生文件永不删除。
 
-可信插件窗口提供本地归档的完整邮件列表和按需预览 RPC。列表可显示主题、完整发件人和时间；预览优先读取有大小上限的 `text/html`，由后端净化脚本、事件属性、表单、嵌套页面和全部 URL 属性，再放入空权限 `sandbox` iframe。iframe 自身使用 deny-by-default CSP，禁止脚本、联网、表单提交、嵌套页面、对象、媒体与自动导航；纯文本邮件使用 Svelte 转义的 `<pre>` 回退。主文档不使用 `{@html}`，邮件链接只在隔离预览外以显式清单显示。此用户可见契约与 Agent CLI 的 metadata-only 投影严格分离。
+从 `InitializeParams.data_dir` 的旧版私有归档升级时，插件逐封验证 envelope、raw 大小与 SHA-256，再复制到新 SSOT；config、cursor、changes 和 tombstones 迁入 `.notemd/assistant-mail`。只有目标文件写入并回读匹配、且旧文件仍与已验证内容相同时才删除旧受管文件；重跑必须幂等，损坏或冲突时停止并保留旧数据。
+
+邮件原件与 sidecar 现在是 Vault 内容，可能被具有 Vault 文件权限的 Agent、Git、备份或同步工具读取；metadata-only CLI 是受支持的助理读取契约，但不再构成文件系统强隔离。插件不得自动显示远程图片、自动打开链接或执行附件；用户可显式点击净化后保留在正文原位置的绝对 HTTP(S) 链接，由插件同源静态 iframe relay 经父窗口来源校验和后端二次协议校验后交给系统浏览器。
+
+可信插件窗口提供本地归档的完整邮件列表和按需预览 RPC。列表可显示主题、完整发件人和时间；预览优先读取有大小上限的 `text/html`，由后端净化脚本、事件属性、表单、嵌套页面、远程资源 URL 和危险协议，保留绝对 HTTP(S) 锚点并强制 `target="_blank" rel="noopener noreferrer"`，再放入仅开放脚本的 opaque-origin sandbox iframe。iframe 自身使用 deny-by-default CSP，只允许加载插件包内固定的同源 `preview-relay.js`；该脚本只接受真实用户 click 并通过 `postMessage` 转给父窗口。父窗口核对 `event.source`、长度、控制字符和协议，插件后端再次校验 host、userinfo 与协议后调用系统浏览器。纯文本邮件使用 Svelte 转义的 `<pre>` 回退。主文档不使用 `{@html}`，也不在正文外重复生成链接清单。此用户可见契约与 Agent CLI 的 metadata-only 投影严格分离。
 
 ### 10.2 CLI
 
@@ -255,7 +264,7 @@ API 不提供发送、回复、链接打开、附件执行、付款、签署、�
 | 子命令 | 能力 |
 | --- | --- |
 | `mail-status` | 无 flags；返回覆盖、积压、失败和 key 配置状态 |
-| `mail-sync` | 无 flags；增量拉取、hash/size 校验、私有归档、原子推进 cursor；M0 不做事件解析 |
+| `mail-sync` | 无 flags；增量拉取、hash/size 校验、Vault SSOT 归档、原子推进 cursor；M0 不做事件解析 |
 | `mail-query [--text <text>] [--status <status>] [--date <YYYY-MM-DD> --timezone <IANA>] [--limit <n>]` | 只查询本地安全投影；日期与时区必须同时提供；不返回 raw/body/headers/HTML/附件 |
 | `mail-delete-plan --source-ids <id,id,...>` | 只接受逗号分隔的精确 source ID，返回影响和 `plan_hash` |
 | `mail-delete-status --plan <id>` | 查询计划；与 `--job` 二选一，不执行 |
@@ -447,7 +456,7 @@ Skill 位于 `skills/assistant-mail-daily/SKILL.md`，它只接收 `mail-query` 
 
 - Mail Worker 的 envelope 门禁、R2+D1+Queue、读取/状态/变更 API；
 - 单一 key 认证、插件设置和 Vault `.notemd/assistant-mail/.local/access-key` 保存；
-- CLI 增量同步、私有 raw/source/tombstone 归档和基础脱敏查询；
+- CLI 增量同步、Vault 邮件主档、`.notemd/assistant-mail` 控制状态和基础脱敏查询；
 - 精确删除计划、设置页确认、410 tombstone 和失败重试；
 - 每日 Skill、独立 sidecar 格式和调度调用契约；
 - 与 Share 同仓库但完全独立部署。

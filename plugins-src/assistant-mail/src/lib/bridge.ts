@@ -21,6 +21,7 @@ export function pluginRequest<T>(method: string, params?: unknown): Promise<T> {
 
 export type SettingsState = {
   worker_url: string | null
+  archive_dir: string
   vault_configured: boolean
   credential_path: string
   key_configured: boolean
@@ -65,6 +66,5 @@ export type MailPreview = {
   body_text: string
   body_html: string | null
   body_kind: 'text/plain' | 'text/html' | 'unavailable'
-  links: string[]
   notice: string
 }

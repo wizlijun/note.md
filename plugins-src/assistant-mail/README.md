@@ -1,12 +1,15 @@
 # Assistant Mail Plugin
 
 Plugin v2 client for the independent `assistant-mail-worker/` deployment. It
-stores raw MIME and structured source records only under the host-provided
-private plugin `data_dir`; it never writes those records into the Vault.
+stores each raw MIME message and its structured sidecar in the current Vault.
+The default archive is `ssot/mails`, grouped by UTC receive month, and can be
+changed in the trusted settings window.
 
 ## Security boundary
 
-- `config.json` contains only the Worker origin.
+- `<vault>/.notemd/assistant-mail/config.json` contains the Worker origin and
+  Vault-relative archive directory. Cursor, change, tombstone and migration
+  state live under the adjacent `state/` directory.
 - The manifest declares `vault.read` and `vault.write` so installation consent
   accurately discloses the Vault-local credential access.
 - Release builds accept only `https://mail.5000g.com` and its named Worker
@@ -19,11 +22,12 @@ private plugin `data_dir`; it never writes those records into the Vault.
   `<vault>/.notemd/assistant-mail/.gitignore` with `.local/`.
 - CLI commands never accept or return the key and never return raw MIME,
   subjects, bodies, headers or unmasked sender addresses.
-- The trusted plugin window separately lists every locally archived message.
-  HTML MIME parts are bounded, sanitized and rendered inside an empty-permission
-  sandbox iframe with a deny-by-default CSP; scripts, forms, frames, navigation
-  attributes and remote resources are removed or blocked. Plain-text messages
-  use an escaped text fallback. Agent CLI projections remain metadata-only.
+- The trusted plugin window lists every archived message. HTML MIME parts are
+  bounded and sanitized, with safe HTTP(S) anchors kept in their original body
+  positions. A same-origin static relay opens a link in the system browser only
+  after an explicit click. Scripts, forms, frames, dangerous protocols and remote
+  resources remain removed or blocked. Plain-text messages use an escaped text
+  fallback. Agent CLI projections remain metadata-only.
 - Sender filtering is a user-controlled Worker policy. Opening setup mode allows
   provider forwarding confirmation mail for one hour, after which strict mode
   returns automatically. Save the exact SMTP envelope sender and enable strict
@@ -31,6 +35,12 @@ private plugin `data_dir`; it never writes those records into the Vault.
 - Deletion has no CLI execute command. The trusted plugin window can load the
   exact plan ID produced by an Agent's CLI call, display that plan/hash, require
   the user to type `DELETE`, and re-fetch the plan before committing it.
+
+Mail is written as matching
+`<archive>/YYYYMM/YYYY-MM-DD-HHMMSS-<slug>.eml` and `.json` files. These files
+are Vault content and may be visible to Vault-aware Agents, Git, backup and sync
+tools. The supported daily Skill still consumes only the metadata-only plugin
+CLI projection and must not read the raw archive directly.
 
 The key file is plaintext inside the Vault. `.gitignore` prevents note.md's Git
 sync from committing it, but does not protect it from another process or Agent

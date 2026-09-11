@@ -17,6 +17,7 @@
   let notice = $state<string | null>(null)
   let settings = $state<SettingsState | null>(null)
   let workerUrl = $state('')
+  let archiveDir = $state('ssot/mails')
   let accessKey = $state('')
   let remoteStatus = $state<unknown>(null)
   let sourceIds = $state('')
@@ -30,13 +31,28 @@
   let messages = $state<MailListItem[]>([])
   let selectedSourceId = $state<string | null>(null)
   let preview = $state<MailPreview | null>(null)
+  let previewFrame = $state<HTMLIFrameElement | null>(null)
+
+  const previewLinkMessage = 'notemd.assistant-mail.preview-link'
+  const closeScriptTag = '</scr' + 'ipt>'
 
   function message(value: unknown): string {
     return value instanceof Error ? value.message : String(value)
   }
 
   function htmlPreviewDocument(bodyHtml: string) {
-    return `<!doctype html><html><head><meta charset="utf-8"><meta name="color-scheme" content="light dark"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; object-src 'none'; script-src 'none'; connect-src 'none'; media-src 'none'; font-src 'none'; img-src 'none'; style-src 'unsafe-inline'; navigate-to 'none'; sandbox"><style>html{color-scheme:light dark}body{box-sizing:border-box;margin:0;padding:16px;background:Canvas;color:CanvasText;font:14px/1.55 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;overflow-wrap:anywhere}table{max-width:100%;border-collapse:collapse}th,td{padding:4px 6px;border:1px solid color-mix(in srgb,CanvasText 18%,transparent)}pre{white-space:pre-wrap}img{max-width:100%;height:auto}a{color:LinkText;text-decoration:underline;cursor:not-allowed}</style></head><body>${bodyHtml}</body></html>`
+    return `<!doctype html><html><head><meta charset="utf-8"><meta name="color-scheme" content="light dark"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; object-src 'none'; script-src 'self'; connect-src 'none'; media-src 'none'; font-src 'none'; img-src 'none'; style-src 'unsafe-inline'; navigate-to 'none'; sandbox allow-scripts"><style>html{color-scheme:light dark}body{box-sizing:border-box;margin:0;padding:16px;background:Canvas;color:CanvasText;font:14px/1.55 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;overflow-wrap:anywhere}table{max-width:100%;border-collapse:collapse}th,td{padding:4px 6px;border:1px solid color-mix(in srgb,CanvasText 18%,transparent)}pre{white-space:pre-wrap}img{max-width:100%;height:auto}a{color:LinkText;text-decoration:underline;cursor:pointer}</style><script src="preview-relay.js">${closeScriptTag}</head><body>${bodyHtml}</body></html>`
+  }
+
+  function handlePreviewMessage(event: MessageEvent) {
+    if (!previewFrame || event.source !== previewFrame.contentWindow) return
+    const value = event.data
+    if (!value || value.type !== previewLinkMessage || typeof value.url !== 'string') return
+    if (value.url.length > 2048 || /[\u0000-\u001f\u007f\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]/u.test(value.url)) return
+    let url: URL
+    try { url = new URL(value.url) } catch { return }
+    if ((url.protocol !== 'https:' && url.protocol !== 'http:') || !url.hostname || url.username || url.password) return
+    void pluginRequest('link.open', { url: url.href }).catch((cause) => { error = message(cause) })
   }
 
   async function run<T>(work: () => Promise<T>): Promise<T | undefined> {
@@ -53,6 +69,7 @@
     const value = await pluginRequest<SettingsState>('settings.get')
     settings = value
     workerUrl = value.worker_url ?? 'https://mail.5000g.com'
+    archiveDir = value.archive_dir || 'ssot/mails'
   }
 
   async function loadPolicy() {
@@ -97,13 +114,15 @@
     await run(async () => {
       const value = await pluginRequest<SettingsState>('settings.save', {
         worker_url: workerUrl,
+        archive_dir: archiveDir,
         // Empty means "keep the existing Vault key file". The backend never
         // echoes this value and this field is cleared as soon as the call ends.
         access_key: accessKey,
       })
       accessKey = ''
       settings = value
-      notice = `设置已保存。访问 key 位于 Vault 的 ${value.credential_path}。`
+      archiveDir = value.archive_dir
+      notice = `设置已保存。邮件同步到 Vault 的 ${value.archive_dir}，访问 key 位于 Vault 的 ${value.credential_path}。`
       await loadPolicy()
     })
   }
@@ -186,12 +205,13 @@
 </script>
 
 <svelte:head><title>助理邮箱</title></svelte:head>
+<svelte:window onmessage={handlePreviewMessage} />
 
 <main>
   <header>
     <div>
       <h1>助理邮箱</h1>
-      <p>连接独立的收信 Worker，并把邮件同步到 note.md 的私有插件数据目录。</p>
+      <p>连接独立的收信 Worker，并把邮件原件与元数据同步到当前 Vault。</p>
     </div>
     <span class:connected={settings?.key_configured} class="badge">
       {settings?.key_configured ? '凭证已配置' : '尚未配置'}
@@ -211,6 +231,12 @@
         <input bind:value={workerUrl} type="url" placeholder="https://assistant-mail.example.workers.dev" disabled={busy} />
       </label>
       <label>
+        <span>邮件归档目录（Vault 相对路径）</span>
+        <input bind:value={archiveDir} autocomplete="off" placeholder="ssot/mails" disabled={busy} />
+        <small>按 <code>YYYYMM/YYYY-MM-DD-HHMMSS-slug.eml/.json</code> 成对保存；修改目录时会迁移既有受管邮件。</small>
+        <small>该目录是 Vault 内容，可能被有 Vault 权限的 Agent、Git、备份或同步工具读取。</small>
+      </label>
+      <label>
         <span>唯一访问 key</span>
         <input bind:value={accessKey} type="password" autocomplete="new-password"
           placeholder={settings?.key_configured ? '留空以保留现有 key' : '粘贴至少 32 字节的访问 key'} disabled={busy} />
@@ -223,7 +249,7 @@
       {/if}
       {#if settings?.key_fingerprint}<p class="fingerprint">凭证指纹：<code>{settings.key_fingerprint}</code></p>{/if}
       <div class="actions">
-        <button class="primary" onclick={saveSettings} disabled={busy || !settings?.vault_configured || !workerUrl || (!settings?.key_configured && !accessKey)}>保存设置</button>
+        <button class="primary" onclick={saveSettings} disabled={busy || !settings?.vault_configured || !workerUrl || !archiveDir.trim() || (!settings?.key_configured && !accessKey)}>保存设置</button>
         <button onclick={testConnection} disabled={busy || !settings?.key_configured || !settings?.worker_url}>测试连接</button>
         <button class="danger" onclick={deleteKey} disabled={busy || !settings?.key_configured}>删除当前 Vault 的 key</button>
       </div>
@@ -267,7 +293,7 @@
       <dl>
         <div><dt>本地 cursor</dt><dd>{settings?.local_cursor ?? '尚未同步'}</dd></div>
         <div><dt>结构化来源</dt><dd>{settings?.archived_sources ?? 0}</dd></div>
-        <div><dt>私有 MIME 原件</dt><dd>{settings?.archived_raw ?? 0}</dd></div>
+        <div><dt>MIME 原件</dt><dd>{settings?.archived_raw ?? 0}</dd></div>
       </dl>
       <div class="actions">
         <button class="primary" onclick={syncNow} disabled={busy || !settings?.key_configured}>立即同步</button>
@@ -279,7 +305,7 @@
       <div class="section-heading">
         <div>
           <h2>所有邮件</h2>
-          <p class="muted">显示已同步到本机私有目录的邮件；HTML 会净化后隔离渲染，不执行脚本、表单、远程资源或邮件内指令。</p>
+          <p class="muted">显示已同步到当前 Vault 归档目录的邮件；HTML 会净化后隔离渲染，不执行脚本、表单、远程资源或邮件内指令。</p>
         </div>
         <button onclick={() => run(refreshInbox)} disabled={busy}>刷新列表</button>
       </div>
@@ -307,23 +333,18 @@
                 <div><dt>收件人</dt><dd>{preview.to || '未知'}</dd></div>
                 <div><dt>日期</dt><dd>{preview.date || '未知'}</dd></div>
               </dl>
-              <div class="banner warning">邮件内容不可信；HTML 已净化并在无权限、禁止联网的沙箱中渲染。</div>
+              <div class="banner warning">邮件内容不可信；HTML 已净化并在禁止联网的沙箱中渲染，只有点击正文中的安全链接才会打开外部页面。</div>
               {#if preview.body_kind === 'text/html' && preview.body_html !== null}
                 <iframe
+                  bind:this={previewFrame}
                   class="body-html-preview"
                   title="邮件 HTML 预览"
-                  sandbox=""
+                  sandbox="allow-scripts"
                   referrerpolicy="no-referrer"
                   srcdoc={htmlPreviewDocument(preview.body_html)}
                 ></iframe>
               {:else}
                 <pre class="body-preview">{preview.body_text}</pre>
-              {/if}
-              {#if preview.links.length > 0}
-                <h3>邮件中的链接</h3>
-                <ul class="links">
-                  {#each preview.links as link}<li><code>{link}</code></li>{/each}
-                </ul>
               {/if}
             {:else}
               <p class="empty">选择一封邮件查看内容。</p>
@@ -416,8 +437,6 @@
   .mail-meta { margin-bottom: 14px; }
   .body-preview { max-height: 360px; background: Canvas; font-size: 12px; }
   .body-html-preview { display: block; width: 100%; height: 360px; border: 1px solid color-mix(in srgb, CanvasText 12%, transparent); border-radius: 7px; background: Canvas; }
-  .links { margin: 8px 0 0; padding-left: 20px; }
-  .links li { margin: 5px 0; overflow-wrap: anywhere; }
   @media (max-width: 720px) {
     main { padding: 14px; }
     .mail-browser { grid-template-columns: 1fr; }

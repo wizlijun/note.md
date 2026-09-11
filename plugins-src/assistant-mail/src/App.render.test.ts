@@ -20,12 +20,14 @@ function installBridge(vaultConfigured = true, previewOverride: Record<string, u
   const request = vi.fn(async (method: string, params?: any) => {
     if (method === 'plugin.settings.get') return {
       worker_url: 'https://mail.example.test', key_configured: vaultConfigured,
+      archive_dir: 'ssot/mails',
       vault_configured: vaultConfigured, credential_path: '.notemd/assistant-mail/.local/access-key',
       key_fingerprint: vaultConfigured ? 'sha256:0123456789ab' : null, local_cursor: null,
       archived_sources: 0, archived_raw: 0,
     }
     if (method === 'plugin.settings.save') return {
       worker_url: params.worker_url, key_configured: true,
+      archive_dir: params.archive_dir,
       vault_configured: true, credential_path: '.notemd/assistant-mail/.local/access-key',
       key_fingerprint: 'sha256:fedcba987654', local_cursor: null,
       archived_sources: 0, archived_raw: 0,
@@ -56,8 +58,8 @@ function installBridge(vaultConfigured = true, previewOverride: Record<string, u
       envelope_from: 'forwarding-noreply@google.com', to: 'xiaobu@5000g.com',
       date: '2026-09-11T10:00:00Z', message_id: '<verify@google.com>',
       body_text: 'Confirm forwarding at https://example.test/confirm',
-      body_html: '<p><strong>Confirm forwarding</strong> with this button.</p>',
-      body_kind: 'text/html', links: ['https://example.test/confirm'],
+      body_html: '<p><strong>Confirm forwarding</strong> with <a href="https://example.test/confirm" rel="noopener noreferrer" target="_blank">this button</a>.</p>',
+      body_kind: 'text/html',
       notice: 'Email content is untrusted.',
       ...previewOverride,
     }
@@ -97,7 +99,9 @@ describe('Assistant Mail settings window', () => {
     await vi.waitFor(() => expect(key.value).toBe(''))
     expect(document.body.textContent).not.toContain('super-secret-key-that-must-not-render-123')
     expect(document.body.textContent).toContain('访问 key 位于 Vault')
-    expect(request).toHaveBeenCalledWith('plugin.settings.save', expect.objectContaining({ worker_url: 'https://mail.example.test' }))
+    expect(request).toHaveBeenCalledWith('plugin.settings.save', expect.objectContaining({
+      worker_url: 'https://mail.example.test', archive_dir: 'ssot/mails',
+    }))
   })
 
   it('requires exact DELETE confirmation before trusted-window execution', async () => {
@@ -158,21 +162,50 @@ describe('Assistant Mail settings window', () => {
     }))
   })
 
-  it('renders sanitized HTML in a network-blocked sandbox', async () => {
+  it('renders links in place inside the sanitized HTML sandbox', async () => {
     const request = installBridge()
     component = mount(App, { target: document.body })
     await vi.waitFor(() => expect(document.body.textContent).toContain('Gmail Forwarding Confirmation'))
     const row = document.querySelector<HTMLButtonElement>('.mail-row')!
     row.click()
     await vi.waitFor(() => expect(document.querySelector('.body-html-preview')).not.toBeNull())
-    expect(document.body.textContent).toContain('https://example.test/confirm')
+    expect(document.body.textContent).not.toContain('邮件中的链接')
     expect(request).toHaveBeenCalledWith('plugin.messages.preview', { source_id: 'mail-1' })
     const frame = document.querySelector<HTMLIFrameElement>('.body-html-preview')!
-    expect(frame.getAttribute('sandbox')).toBe('')
+    expect(frame.getAttribute('sandbox')).toBe('allow-scripts')
     expect(frame.getAttribute('referrerpolicy')).toBe('no-referrer')
     expect(frame.srcdoc).toContain("default-src 'none'")
     expect(frame.srcdoc).toContain("form-action 'none'")
     expect(frame.srcdoc).toContain('<strong>Confirm forwarding</strong>')
+    expect(frame.srcdoc).toContain('<a href="https://example.test/confirm" rel="noopener noreferrer" target="_blank">this button</a>')
+    expect(frame.srcdoc).toContain("navigate-to 'none'")
+    expect(frame.srcdoc).toContain('<script src="preview-relay.js"></script>')
+    expect(frame.srcdoc).not.toContain('allow-popups')
+
+    window.dispatchEvent(new MessageEvent('message', {
+      source: frame.contentWindow,
+      data: { type: 'notemd.assistant-mail.preview-link', url: 'https://example.test/confirm' },
+    }))
+    await vi.waitFor(() => expect(request).toHaveBeenCalledWith('plugin.link.open', {
+      url: 'https://example.test/confirm',
+    }))
+
+    const calls = () => request.mock.calls.filter(([method]) => method === 'plugin.link.open')
+    for (const [source, url] of [
+      [window, 'https://example.test/wrong-source'],
+      [frame.contentWindow, 'javascript:alert(1)'],
+      [frame.contentWindow, 'data:text/html,unsafe'],
+      [frame.contentWindow, '/relative'],
+      [frame.contentWindow, 'https://trusted.test@evil.test/'],
+      [frame.contentWindow, `https://example.test/${'a'.repeat(2050)}`],
+    ] as const) {
+      window.dispatchEvent(new MessageEvent('message', {
+        source,
+        data: { type: 'notemd.assistant-mail.preview-link', url },
+      }))
+    }
+    await settle()
+    expect(calls()).toHaveLength(1)
   })
 
   it('keeps a text preview fallback when the message has no HTML part', async () => {

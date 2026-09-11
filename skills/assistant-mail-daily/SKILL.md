@@ -49,9 +49,10 @@ assistant-mail-daily(date, timezone, status_result, archive_cutoff, query_result
 - 专为当前判断返回的短脱敏片段与稳定来源定位；
 - 已明确标注的人工确认。
 
-不得读取或请求：
+邮件 SSOT 默认位于 `<vault>/ssot/mails/YYYYMM/*.eml|*.json`，但它在 Vault
+中可见不等于本 Skill 获得读取正文的授权。不得读取或请求：
 
-- `archive/raw/`、`.eml`、完整正文、HTML、附件、二维码或远程图片；
+- 配置的邮件 SSOT 目录、其中的 `.eml`/`.json` sidecar、完整正文、HTML、附件、二维码或远程图片；
 - 隔离内容、凭证、验证码、Magic Link、完整账号/卡号/证件号/票号/订单号；
 - 私人或工作主邮箱、其他 Vault、浏览器会话或外部账户；
 - Worker access key、`.notemd/assistant-mail/.local/`、插件配置或删除接口。
