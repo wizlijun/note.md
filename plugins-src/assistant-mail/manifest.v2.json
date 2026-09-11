@@ -2,7 +2,7 @@
   "manifest_version": 2,
   "id": "notemd.assistant-mail",
   "name": "Assistant Mail",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "kind": "native",
   "engines": {
     "notemd": ">=6.910.3"
@@ -100,7 +100,9 @@
   },
   "capabilities": [
     "ui",
-    "toast"
+    "toast",
+    "vault.read",
+    "vault.write"
   ],
   "request_timeout_seconds": 120,
   "i18n": {

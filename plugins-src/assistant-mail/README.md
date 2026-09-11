@@ -7,11 +7,16 @@ private plugin `data_dir`; it never writes those records into the Vault.
 ## Security boundary
 
 - `config.json` contains only the Worker origin.
+- The manifest declares `vault.read` and `vault.write` so installation consent
+  accurately discloses the Vault-local credential access.
 - Release builds accept only `https://mail.5000g.com` and its named Worker
   fallback, preventing a settings change from forwarding the retained key to
   an arbitrary origin.
-- The single Worker access key is stored in macOS Keychain under service
-  `net.notemd.assistant-mail`, account `worker-access-key`.
+- The single Worker access key is stored as
+  `<vault>/.notemd/assistant-mail/.local/access-key`. The plugin creates the
+  plugin and `.local` directories with mode `0700`, writes the key atomically
+  with mode `0600`, rejects symlinked internal paths, and maintains
+  `<vault>/.notemd/assistant-mail/.gitignore` with `.local/`.
 - CLI commands never accept or return the key and never return raw MIME,
   subjects, bodies, headers or unmasked sender addresses.
 - The trusted plugin window separately lists every locally archived message and
@@ -25,10 +30,10 @@ private plugin `data_dir`; it never writes those records into the Vault.
   exact plan ID produced by an Agent's CLI call, display that plan/hash, require
   the user to type `DELETE`, and re-fetch the plan before committing it.
 
-The supported Agent contract is the plugin CLI above. The current native plugin
-runtime is not an operating-system security boundary against another process
-already running as the same macOS user: such a process may be able to inspect
-the private archive or invoke the plugin protocol directly. Strong isolation
+The key file is plaintext inside the Vault. `.gitignore` prevents note.md's Git
+sync from committing it, but does not protect it from another process or Agent
+already running as the same OS user, nor from non-Git backup/sync software. The
+supported Agent contract is the metadata-only plugin CLI; strong isolation
 would require a host-owned secret/decryption broker in a later host version.
 
 ## CLI

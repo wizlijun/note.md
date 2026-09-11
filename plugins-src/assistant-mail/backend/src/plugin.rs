@@ -1,5 +1,8 @@
 use crate::client::{validate_worker_url, WorkerClient};
-use crate::credentials::{validate_access_key, CredentialStore, SystemCredentialStore};
+use crate::credentials::{
+    configured_vault_root, validate_access_key, CredentialStore, VaultCredentialStore,
+    RELATIVE_KEY_PATH,
+};
 use crate::storage::{Config, Storage};
 use chrono::NaiveDate;
 use chrono_tz::Tz;
@@ -12,7 +15,6 @@ use std::path::PathBuf;
 
 pub struct AssistantMailPlugin {
     storage: Storage,
-    credentials: SystemCredentialStore,
     /// Plans enter this map only after the trusted plugin window has received
     /// their full body. CLI-created plans deliberately do not enter it.
     visible_plans: HashMap<String, String>,
@@ -22,9 +24,14 @@ impl AssistantMailPlugin {
     pub fn new() -> Self {
         Self {
             storage: Storage::new(std::env::temp_dir().join("notemd-assistant-mail-uninitialized")),
-            credentials: SystemCredentialStore,
             visible_plans: HashMap::new(),
         }
+    }
+
+    fn credential_store(&self) -> Result<VaultCredentialStore, String> {
+        let vault = configured_vault_root()?
+            .ok_or("Vault is not configured; Assistant Mail cannot access its Vault key")?;
+        Ok(VaultCredentialStore::new(vault))
     }
 
     fn with_client<T>(
@@ -38,7 +45,7 @@ impl AssistantMailPlugin {
                 .as_deref()
                 .ok_or("Assistant Mail Worker URL is not configured")?;
             let key = self
-                .credentials
+                .credential_store()?
                 .get()?
                 .ok_or("Assistant Mail access key is not configured")?;
             let client = WorkerClient::new(url, key)?;
@@ -55,11 +62,17 @@ impl AssistantMailPlugin {
 
     fn local_status(&self) -> Result<Value, String> {
         let config = self.storage.load_config()?;
-        let key = self.credentials.get()?;
+        let vault = configured_vault_root()?;
+        let key = match &vault {
+            Some(root) => VaultCredentialStore::new(root.clone()).get()?,
+            None => None,
+        };
         let cursor = self.storage.load_cursor()?.cursor;
         let (archived_sources, archived_raw) = self.storage.counts()?;
         Ok(json!({
             "worker_url": config.worker_url,
+            "vault_configured": vault.is_some(),
+            "credential_path": RELATIVE_KEY_PATH,
             "key_configured": key.is_some(),
             "key_fingerprint": key.as_deref().map(key_fingerprint),
             "local_cursor": cursor,
@@ -362,7 +375,7 @@ impl sdk::NotemdPlugin for AssistantMailPlugin {
                     .filter(|v| !v.is_empty())
                 {
                     validate_access_key(key)?;
-                    self.credentials.set(key)?;
+                    self.credential_store()?.set(key)?;
                 }
                 self.storage.save_config(&Config {
                     worker_url: Some(worker_url),
@@ -371,7 +384,7 @@ impl sdk::NotemdPlugin for AssistantMailPlugin {
                 self.local_status()
             }
             "settings.delete_key" => {
-                self.credentials.delete()?;
+                self.credential_store()?.delete()?;
                 self.visible_plans.clear();
                 self.local_status()
             }
@@ -572,7 +585,6 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let plugin = AssistantMailPlugin {
             storage: Storage::new(tmp.path().to_path_buf()),
-            credentials: SystemCredentialStore,
             visible_plans: HashMap::new(),
         };
         assert!(plugin

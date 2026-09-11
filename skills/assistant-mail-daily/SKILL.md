@@ -54,7 +54,7 @@ assistant-mail-daily(date, timezone, status_result, archive_cutoff, query_result
 - `archive/raw/`、`.eml`、完整正文、HTML、附件、二维码或远程图片；
 - 隔离内容、凭证、验证码、Magic Link、完整账号/卡号/证件号/票号/订单号；
 - 私人或工作主邮箱、其他 Vault、浏览器会话或外部账户；
-- Worker access key、Keychain、插件配置或删除接口。
+- Worker access key、`.notemd/assistant-mail/.local/`、插件配置或删除接口。
 
 发现查询结果混入上述内容时，不复述、不转码、不尝试修复；跳过受影响候选，并在覆盖区写“检测到不应披露的数据，已忽略，需在插件中复核”。
 

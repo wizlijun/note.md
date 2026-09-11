@@ -16,15 +16,17 @@ async function settle() {
   flushSync()
 }
 
-function installBridge() {
+function installBridge(vaultConfigured = true) {
   const request = vi.fn(async (method: string, params?: any) => {
     if (method === 'plugin.settings.get') return {
-      worker_url: 'https://mail.example.test', key_configured: true,
-      key_fingerprint: 'sha256:0123456789ab', local_cursor: null,
+      worker_url: 'https://mail.example.test', key_configured: vaultConfigured,
+      vault_configured: vaultConfigured, credential_path: '.notemd/assistant-mail/.local/access-key',
+      key_fingerprint: vaultConfigured ? 'sha256:0123456789ab' : null, local_cursor: null,
       archived_sources: 0, archived_raw: 0,
     }
     if (method === 'plugin.settings.save') return {
       worker_url: params.worker_url, key_configured: true,
+      vault_configured: true, credential_path: '.notemd/assistant-mail/.local/access-key',
       key_fingerprint: 'sha256:fedcba987654', local_cursor: null,
       archived_sources: 0, archived_raw: 0,
     }
@@ -71,6 +73,16 @@ function installBridge() {
 }
 
 describe('Assistant Mail settings window', () => {
+  it('blocks key setup until a Vault is configured and shows the exact location', async () => {
+    installBridge(false)
+    component = mount(App, { target: document.body })
+    await vi.waitFor(() => expect(document.body.textContent).toContain('尚未配置 Vault'))
+    expect(document.body.textContent).toContain('.notemd/assistant-mail/.local/access-key')
+    const save = Array.from(document.querySelectorAll<HTMLButtonElement>('button'))
+      .find((button) => button.textContent === '保存设置')!
+    expect(save.disabled).toBe(true)
+  })
+
   it('never renders or retains the entered access key after save', async () => {
     const request = installBridge()
     component = mount(App, { target: document.body })
@@ -82,6 +94,7 @@ describe('Assistant Mail settings window', () => {
     Array.from(document.querySelectorAll('button')).find((b) => b.textContent === '保存设置')!.click()
     await vi.waitFor(() => expect(key.value).toBe(''))
     expect(document.body.textContent).not.toContain('super-secret-key-that-must-not-render-123')
+    expect(document.body.textContent).toContain('访问 key 位于 Vault')
     expect(request).toHaveBeenCalledWith('plugin.settings.save', expect.objectContaining({ worker_url: 'https://mail.example.test' }))
   })
 

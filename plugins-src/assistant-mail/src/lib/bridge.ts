@@ -21,6 +21,8 @@ export function pluginRequest<T>(method: string, params?: unknown): Promise<T> {
 
 export type SettingsState = {
   worker_url: string | null
+  vault_configured: boolean
+  credential_path: string
   key_configured: boolean
   key_fingerprint: string | null
   local_cursor: string | null

@@ -20,7 +20,7 @@ fallback) with:
 - R2: `notemd-assistant-mail-raw` and its preview bucket;
 - Queue: `notemd-assistant-mail-processing` with a separate dead-letter queue;
 - `ASSISTANT_MAIL_ACCESS_KEY` provisioned as a hidden Worker secret and stored
-  locally in the plugin's macOS Keychain entry.
+  locally at `<vault>/.notemd/assistant-mail/.local/access-key` by plugin 0.1.1+.
 
 This status confirms infrastructure and routing only. No live email was sent as
 part of deployment, and the M0 content-processing limitations documented in the
@@ -40,17 +40,23 @@ design spec still apply.
   Display names and inner `From:` / `To:` headers never grant admission.
 - HTTP endpoints require the single deployment credential in
   `Authorization: Bearer <ASSISTANT_MAIL_ACCESS_KEY>`.
-- The access key must be stored by the note.md plugin in the operating-system
-  keychain. Never put it in a Vault file, ordinary plugin settings, command-line
-  argument, log, or Agent prompt.
+- The access key is a plaintext, device-local Vault file at
+  `.notemd/assistant-mail/.local/access-key`. The plugin restricts its Unix
+  permissions and keeps `.local/` ignored by Git, but this does not isolate it
+  from other processes running as the same user or from non-Git sync software.
+  Never put it in ordinary plugin settings, a command-line argument, log, Agent
+  prompt, or Git history.
 - Raw mail is always returned as a download with `message/rfc822`, `nosniff`,
   and `no-store`; the Worker never renders HTML or loads remote resources.
 - The Worker authenticates the plugin deployment, not an individual Agent.
-  The plugin keeps the key out of Agent-visible interfaces and requires a
+  The supported plugin CLI keeps the key out of its output and requires a
   trusted user gesture before it calls the deletion execute endpoint. If a
   client supplies `X-Agent-Id`, it is recorded only as a sanitized
   `unverified:` hint; the M0 plugin does not claim per-Agent identity or local
   query audit, and the single Bearer key cannot provide either cryptographically.
+  An Agent with direct filesystem access as the same OS user can read the Vault
+  key and bypass those UI controls; plugin 0.1.1 therefore assumes cooperative
+  Agents until a host-owned credential and confirmation broker is available.
 
 ## Storage and recovery model
 

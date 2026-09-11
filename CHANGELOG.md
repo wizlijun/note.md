@@ -7,6 +7,10 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+### Fixed
+
+- **Assistant Mail no longer invokes macOS Keychain when its settings open or save.** Plugin 0.1.1 keeps the Worker key in the active Vault at `.notemd/assistant-mail/.local/access-key`, with atomic writes, private file permissions and a colocated Git ignore rule. The settings page shows the exact location and explains that a plaintext Vault key remains readable to processes running as the same OS user.
+
 ## v6.911.1 — 2026-09-11
 
 ### Added

@@ -14,7 +14,7 @@ Assistant Mail 与现有 Share 放在同一个代码仓库，但部署为两个�
 - `notemd-assistant-mail` 独立接收邮件并提供私有读取、清理和删除 API；
 - 两者不共享路由、访问 key、Cloudflare bindings、数据、发布或回滚单元；
 - note.md 的 `notemd.assistant-mail` 原生插件像 CLI 同步器一样拉取邮件，在插件私有目录保存原件与结构化归档；
-- Agent 只通过插件的脱敏查询面读取事件，不取得原始 MIME 或 access key；
+- 受支持的 Agent 只通过插件的脱敏查询面读取事件，该接口不返回原始 MIME 或 access key；同用户直接文件访问属于后述已知降级边界；
 - `assistant-mail-daily` Skill 可以由用户另行配置的每日任务调用，向 `diary/` 写独立 sidecar，但本项目不擅自注册任务；
 - 删除使用 `plan → 用户确认 → execute`，Agent 可以发起精确计划，不能直接执行删除。
 
@@ -75,7 +75,7 @@ notemd-assistant-mail Worker
             │ HTTPS + 唯一 Bearer key
             ▼
 notemd.assistant-mail 原生插件
-   ├── Keychain：access key
+   ├── Vault `.notemd/assistant-mail/.local/`：access key
    ├── 私有 raw/source/cursor/tombstone 归档
    ├── 安全解析、事件化、脱敏
    └── mail-query：Agent 最小披露面
@@ -190,21 +190,23 @@ deleting → deletion_failed → deleting（重试）
 
 ### 8.2 插件侧
 
-设置窗口提供 Worker URL、设置/替换 key、测试连接、撤销本地 key、删除计划与状态。保存位置：
+设置窗口提供 Worker URL、设置/替换 key、测试连接、撤销本地 key、删除计划与状态。用户明确选择不使用 macOS Keychain，保存位置改为：
 
 ```text
-macOS Keychain
-service = net.notemd.assistant-mail
-account = worker-access-key
+<vault>/.notemd/assistant-mail/
+├── .gitignore                 # 精确忽略 `.local/`
+└── .local/access-key          # 明文；目录 0700，文件 0600
 ```
 
-`config.json` 只保存 URL 和非秘密偏好；界面只显示“已配置”和可选末四位指纹。key 不得出现在普通 settings、Vault、CLI 参数、环境变量、stdout/stderr、崩溃报告或 Agent 对话。
+`config.json` 只保存 URL 和非秘密偏好；界面只显示“已配置”、Vault 相对路径和不可逆指纹。key 不得出现在普通 settings、CLI 参数、环境变量、stdout/stderr、崩溃报告或 Agent 对话。插件每次操作都从 note.md 的共享配置解析当前 Vault，因此切换 Vault 后不会沿用前一个 Vault 的 key；无 Vault 时 fail-closed。
+
+写 key 前必须先创建同目录 `.gitignore`，然后在 `.local/` 内用同目录临时文件、fsync 和原子 rename 保存；拒绝内部目录或 key leaf 的符号链接。`.gitignore` 只能避免 Git 误提交，不阻止同用户 Agent、本机搜索、备份或非 Git 同步工具读取；隐藏目录与 0600 也不是同用户进程隔离边界。若 key 曾经被 Git 跟踪，新增 ignore 不会清除历史，必须停止使用并轮换 Worker key。
 
 正式插件只接受 `https://mail.5000g.com` 和同一部署的命名 Worker fallback，禁止把已保留的 key 随设置变更发送到任意 origin。Worker 回包进入 CLI、UI 或本地归档前必须扫描并遮蔽或拒绝与当前 key 完全相同的凭证材料。
 
 Agent 调用宿主 CLI 时由插件后端代为请求 Worker。唯一 key 认证的是插件实例，不代表 Agent 获得任意删除权；本地命令面再实施读取/计划/执行能力分离。
 
-已知边界：同一用户下的原生进程不是强多租户沙箱。MVP 防止凭证和正文进入受支持的 Agent CLI，但不声称能够抵御已经取得同一 macOS 用户文件访问权、直接启动插件协议或调试宿主进程的恶意程序；本机 raw 归档同样不能对这类进程构成机密性边界。更强边界需后续使用宿主持有的 secret/decryption broker、不可伪造的窗口授权和硬件绑定签名。
+已知边界：同一用户下的原生进程不是强多租户沙箱。MVP 防止凭证和正文进入受支持的 Agent CLI，但 Vault 内 `.local/access-key` 对已经取得同一用户文件访问权的 Agent 或进程可读；这类调用方能够绕过插件窗口，直接持 key 调用 Worker，包括删除执行 API。本版因此只适用于合作型 Agent 的行为约束，不再声称 key 与同用户 Agent 强隔离。本机 raw 归档同样不能对这类进程构成机密性边界。更强边界需后续使用宿主持有的 secret/decryption broker、不可伪造的窗口授权和硬件绑定签名。
 
 ## 9. Worker HTTP API
 
@@ -444,7 +446,7 @@ Skill 位于 `skills/assistant-mail-daily/SKILL.md`，它只接收 `mail-query` 
 本轮实现目标：
 
 - Mail Worker 的 envelope 门禁、R2+D1+Queue、读取/状态/变更 API；
-- 单一 key 认证、插件设置和 Keychain 保存；
+- 单一 key 认证、插件设置和 Vault `.notemd/assistant-mail/.local/access-key` 保存；
 - CLI 增量同步、私有 raw/source/tombstone 归档和基础脱敏查询；
 - 精确删除计划、设置页确认、410 tombstone 和失败重试；
 - 每日 Skill、独立 sidecar 格式和调度调用契约；
@@ -461,7 +463,7 @@ M0 可用合成邮件做本地/测试环境演示，**不得宣称已满足需�
 ## 18. 验证策略
 
 - Worker：Vitest/miniflare 单元测试，加 preview 环境 Email Routing、D1、R2、Queue 集成测试；
-- 插件：Rust 单元/集成测试覆盖 Keychain adapter、断点续传、原子落盘、字段 allowlist、CLI 输出和 UI 删除确认；
+- 插件：Rust 单元/集成测试覆盖 Vault key 路径、权限、符号链接拒绝、Git ignore、断点续传、原子落盘、字段 allowlist、CLI 输出和 UI 删除确认；
 - 安全：真实/合成 prompt injection、OTP、Magic Link、完整编号、HTML tracking、脚本附件回归集；
 - 数据：14 类批准语料及中英繁混合矩阵，golden event 只比较结构语义，不保存真实秘密；
 - 删除：stale plan、重复 execute、每个阶段故障、R2 不存在、D1 恢复与离线客户端 tombstone 重放；

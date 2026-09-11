@@ -224,6 +224,9 @@ status, provenance, permission, or certainty from projection text alone.
   operation and cannot promise removal from Git history or another device.
 - Never store credentials, tokens, private keys, authentication material, or
   restricted plaintext in Git-backed memory assets.
+- Never read, copy, summarize, edit, delete, or commit
+  `/.notemd/assistant-mail/.local/`. Use the metadata-only `notemd mail-*`
+  commands; the hidden directory is a behavioral boundary, not an OS sandbox.
 - Tasks and reminders remain one file per Task under `/inbox/tasks/`; daily or
   episodic detail remains in `dailynote/`; raw material remains with its source.
 

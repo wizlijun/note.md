@@ -93,13 +93,13 @@
     await run(async () => {
       const value = await pluginRequest<SettingsState>('settings.save', {
         worker_url: workerUrl,
-        // Empty means "keep the existing Keychain item". The backend never
+        // Empty means "keep the existing Vault key file". The backend never
         // echoes this value and this field is cleared as soon as the call ends.
         access_key: accessKey,
       })
       accessKey = ''
       settings = value
-      notice = '设置已安全保存。访问 key 仅存于系统钥匙串。'
+      notice = `设置已保存。访问 key 位于 Vault 的 ${value.credential_path}。`
       await loadPolicy()
     })
   }
@@ -108,7 +108,7 @@
     await run(async () => {
       settings = await pluginRequest<SettingsState>('settings.delete_key')
       accessKey = ''
-      notice = '访问 key 已从系统钥匙串删除。'
+      notice = '访问 key 已从当前 Vault 删除。'
     })
   }
 
@@ -210,13 +210,18 @@
         <span>唯一访问 key</span>
         <input bind:value={accessKey} type="password" autocomplete="new-password"
           placeholder={settings?.key_configured ? '留空以保留现有 key' : '粘贴至少 32 字节的访问 key'} disabled={busy} />
-        <small>不会写入普通 settings、Vault、CLI 参数或日志；后端保存到 macOS 钥匙串。</small>
+        <small>保存在当前 Vault 的 <code>{settings?.credential_path || '.notemd/assistant-mail/.local/access-key'}</code>，不会进入普通 settings、CLI 参数或日志。</small>
       </label>
+      {#if settings && !settings.vault_configured}
+        <div class="banner warning" role="alert">尚未配置 Vault，无法保存或读取访问 key。</div>
+      {:else}
+        <p class="muted">该文件为明文；插件会设置 0600 权限，并用同目录 .gitignore 防止 Git 误提交，但同一系统用户下的 Agent 或进程仍可能读取。</p>
+      {/if}
       {#if settings?.key_fingerprint}<p class="fingerprint">凭证指纹：<code>{settings.key_fingerprint}</code></p>{/if}
       <div class="actions">
-        <button class="primary" onclick={saveSettings} disabled={busy || !workerUrl || (!settings?.key_configured && !accessKey)}>保存设置</button>
+        <button class="primary" onclick={saveSettings} disabled={busy || !settings?.vault_configured || !workerUrl || (!settings?.key_configured && !accessKey)}>保存设置</button>
         <button onclick={testConnection} disabled={busy || !settings?.key_configured || !settings?.worker_url}>测试连接</button>
-        <button class="danger" onclick={deleteKey} disabled={busy || !settings?.key_configured}>撤销本机 key</button>
+        <button class="danger" onclick={deleteKey} disabled={busy || !settings?.key_configured}>删除当前 Vault 的 key</button>
       </div>
     </section>
 
