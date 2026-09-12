@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.912.1 — 2026-09-12
+
 ### Added
 
 - **Assistant Mail 0.1.4 uses the Vault as its portable mail archive and has an
