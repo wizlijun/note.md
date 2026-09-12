@@ -177,7 +177,7 @@ fn validate_existing_layout(vault_root: &Path, local_dir: &Path) -> Result<bool,
             return Err("Assistant Mail Vault path is not a directory".into());
         }
         if private {
-            require_private_permissions(&meta, "Assistant Mail Vault directory")?;
+            ensure_private_directory_permissions(&path, &meta, "Assistant Mail Vault directory")?;
         }
     }
     let ignore = vault_root.join(RELATIVE_DIR).join(".gitignore");
@@ -361,6 +361,42 @@ fn require_private_permissions(meta: &fs::Metadata, label: &str) -> Result<(), S
     }
 }
 
+#[cfg(unix)]
+fn ensure_private_directory_permissions(
+    path: &Path,
+    meta: &fs::Metadata,
+    label: &str,
+) -> Result<(), String> {
+    let mode = meta.permissions().mode();
+    if mode & 0o022 != 0 {
+        return Err(format!(
+            "{label} permissions must not allow group or other write access"
+        ));
+    }
+    if mode & 0o077 == 0 {
+        return Ok(());
+    }
+
+    fs::set_permissions(path, fs::Permissions::from_mode(0o700))
+        .map_err(|_| format!("could not restrict {label}"))?;
+    let repaired = fs::symlink_metadata(path)
+        .map_err(|_| format!("could not inspect {label} after restricting permissions"))?;
+    reject_symlink(&repaired, label)?;
+    if !repaired.is_dir() {
+        return Err(format!("{label} path is not a directory"));
+    }
+    require_private_permissions(&repaired, label)
+}
+
+#[cfg(not(unix))]
+fn ensure_private_directory_permissions(
+    _path: &Path,
+    _meta: &fs::Metadata,
+    _label: &str,
+) -> Result<(), String> {
+    Ok(())
+}
+
 #[cfg(not(unix))]
 fn require_private_permissions(_meta: &fs::Metadata, _label: &str) -> Result<(), String> {
     Ok(())
@@ -438,6 +474,47 @@ mod tests {
         assert_eq!(plugin_mode & 0o777, 0o700);
         assert_eq!(dir_mode & 0o777, 0o700);
         assert_eq!(file_mode & 0o777, 0o600);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn get_repairs_read_only_directory_permission_drift() {
+        let vault = tempfile::tempdir().unwrap();
+        let store = VaultCredentialStore::new(vault.path().to_path_buf());
+        store.set(&"a".repeat(32)).unwrap();
+        for path in [
+            vault.path().join(RELATIVE_DIR),
+            vault.path().join(RELATIVE_LOCAL_DIR),
+        ] {
+            fs::set_permissions(&path, fs::Permissions::from_mode(0o755)).unwrap();
+        }
+
+        assert_eq!(store.get().unwrap(), Some("a".repeat(32)));
+        for path in [
+            vault.path().join(RELATIVE_DIR),
+            vault.path().join(RELATIVE_LOCAL_DIR),
+        ] {
+            assert_eq!(
+                fs::metadata(path).unwrap().permissions().mode() & 0o777,
+                0o700
+            );
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn get_refuses_group_writable_private_directory() {
+        let vault = tempfile::tempdir().unwrap();
+        let store = VaultCredentialStore::new(vault.path().to_path_buf());
+        store.set(&"a".repeat(32)).unwrap();
+        let plugin_dir = vault.path().join(RELATIVE_DIR);
+        fs::set_permissions(&plugin_dir, fs::Permissions::from_mode(0o770)).unwrap();
+
+        assert!(store.get().unwrap_err().contains("write access"));
+        assert_eq!(
+            fs::metadata(plugin_dir).unwrap().permissions().mode() & 0o777,
+            0o770
+        );
     }
 
     #[cfg(unix)]

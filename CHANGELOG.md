@@ -7,6 +7,14 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+### Fixed
+
+- **Assistant Mail 0.1.5 no longer reports a successful settings write as a
+  Vault directory permission failure.** If a Git, backup or sync tool recreates
+  the plugin-owned directories with read-only `0755`-style permissions, the
+  plugin safely restores `0700` before reading the existing key. Writable
+  directories, symbolic links and exposed key files remain blocked.
+
 ## v6.912.1 — 2026-09-12
 
 ### Added
