@@ -718,7 +718,8 @@ mod tests {
     fn manifest_is_valid_for_the_declared_host_baseline() {
         let manifest: proto::ManifestV2 =
             serde_json::from_str(include_str!("../../manifest.v2.json")).unwrap();
-        proto::validate_manifest(&manifest, "6.910.3").unwrap();
+        proto::validate_manifest(&manifest, "6.912.1").unwrap();
+        assert!(proto::validate_manifest(&manifest, "6.911.1").is_err());
     }
 
     #[test]

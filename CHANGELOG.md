@@ -9,10 +9,16 @@ For the full commit history, see the git log.
 
 ### Added
 
+- **Assistant Mail 0.1.4 uses the Vault as its portable mail archive and has an
+  explicit Agent contract.** Messages are stored under the configurable
+  `ssot/mails` archive as paired raw `.eml` and integrity `.json` files. New
+  Vaults document that layout, plugin control state, metadata-only query flow,
+  trusted HTML preview and human-confirmed deletion boundary in `AGENTS.md`.
 - **Assistant Mail 0.1.2 renders HTML email previews safely.** The trusted plugin window now preserves sanitized HTML structure and formatting inside an empty-permission sandbox iframe. Scripts, event handlers, forms, nested pages, navigation attributes and remote resources are removed or blocked by a deny-by-default CSP; plain-text messages keep an escaped fallback, while Agent CLI output remains metadata-only.
 
 ### Fixed
 
+- **Operational CLI commands keep note.md available without revealing its main window.** If the desktop process is not running, commands such as Assistant Mail sync start it in the background. A hidden window stays hidden and does not take focus, while an already visible window remains visible. Help, version, invalid commands and explicit file opening retain their prior behavior.
 - **Assistant Mail no longer invokes macOS Keychain when its settings open or save.** Plugin 0.1.1 keeps the Worker key in the active Vault at `.notemd/assistant-mail/.local/access-key`, with atomic writes, private file permissions and a colocated Git ignore rule. The settings page shows the exact location and explains that a plaintext Vault key remains readable to processes running as the same OS user.
 
 ## v6.911.1 — 2026-09-11

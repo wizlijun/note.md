@@ -5,6 +5,11 @@ stores each raw MIME message and its structured sidecar in the current Vault.
 The default archive is `ssot/mails`, grouped by UTC receive month, and can be
 changed in the trusted settings window.
 
+Assistant Mail 0.1.4 requires note.md 6.912.1 or newer. Operational plugin
+CLI commands keep the desktop process running for tray services and scheduled
+work: a newly started main window is hidden, an already hidden window is not
+revealed or focused, and a visible window remains visible.
+
 ## Security boundary
 
 - `<vault>/.notemd/assistant-mail/config.json` contains the Worker origin and

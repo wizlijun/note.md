@@ -85,7 +85,13 @@ pub fn is_cli_mode(argv: &[String]) -> bool {
 pub fn run_cli(argv: Vec<String>) -> ExitCode {
     let parsed = args::parse(&argv);
     let route = router::resolve(&parsed);
-    match route {
+    let keep_desktop_running = should_keep_desktop_running(&route);
+    let launch_before_command = matches!(&route, router::Route::Builtin(router::Builtin::Mcp));
+    if launch_before_command {
+        launch_desktop_in_background();
+    }
+
+    let exit = match route {
         router::Route::Builtin(b) => builtin::run(b, &parsed),
         router::Route::Plugin(p) => runner::run(p, parsed),
         router::Route::Disabled { plugin_id, subcommand } => {
@@ -129,12 +135,48 @@ pub fn run_cli(argv: Vec<String>) -> ExitCode {
             }
             ExitCode::from(127)
         }
+    };
+
+    // Finite commands finish first. In particular, plugin management must not
+    // race a newly started GUI while both are reading or replacing plugin
+    // state. MCP is long-running, so it launches before entering its server.
+    if keep_desktop_running && !launch_before_command {
+        launch_desktop_in_background();
+    }
+    exit
+}
+
+fn launch_desktop_in_background() {
+    if let Err(error) = open::launch_background() {
+        eprintln!("notemd: warning: could not keep the desktop app running in the background: {error}");
+    }
+}
+
+fn should_keep_desktop_running(route: &router::Route) -> bool {
+    match route {
+        router::Route::Plugin(_) => true,
+        router::Route::Builtin(builtin) => matches!(
+            builtin,
+            router::Builtin::PluginList
+                | router::Builtin::PluginEnable(_)
+                | router::Builtin::PluginDisable(_)
+                | router::Builtin::PluginInfo(_)
+                | router::Builtin::PluginInstall(_, _)
+                | router::Builtin::PluginUpdate(_)
+                | router::Builtin::PluginRemove(_, _)
+                | router::Builtin::Search(_)
+                | router::Builtin::Doctor(_)
+                | router::Builtin::Mcp
+                | router::Builtin::Memory(_)
+        ),
+        router::Route::Disabled { .. } | router::Route::Unknown(_) => false,
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::is_cli_mode;
+    use super::{is_cli_mode, should_keep_desktop_running};
+    use super::router::{Builtin, PluginRoute, Route};
 
     fn argv(a0: &str) -> Vec<String> {
         vec![a0.to_string(), "help".to_string()]
@@ -196,5 +238,34 @@ mod tests {
     #[test]
     fn unrelated_name_is_not_cli() {
         assert!(!is_cli_mode(&argv("/usr/local/bin/something-else")));
+    }
+
+    #[test]
+    fn operational_routes_keep_the_desktop_running() {
+        assert!(should_keep_desktop_running(&Route::Builtin(Builtin::PluginList)));
+        assert!(should_keep_desktop_running(&Route::Builtin(Builtin::Mcp)));
+        assert!(should_keep_desktop_running(&Route::Plugin(PluginRoute {
+            plugin_id: "assistant-mail".to_string(),
+            subcommand: "mail-sync".to_string(),
+            remaining: Vec::new(),
+        })));
+    }
+
+    #[test]
+    fn informational_invalid_and_open_routes_do_not_start_the_desktop() {
+        assert!(!should_keep_desktop_running(&Route::Builtin(Builtin::Help {
+            topic: None,
+            all: false,
+        })));
+        assert!(!should_keep_desktop_running(&Route::Builtin(Builtin::Version)));
+        assert!(!should_keep_desktop_running(&Route::Builtin(Builtin::ArgumentError(
+            "bad input".to_string(),
+        ))));
+        assert!(!should_keep_desktop_running(&Route::Builtin(Builtin::Open(vec![
+            ".".to_string(),
+        ]))));
+        assert!(!should_keep_desktop_running(&Route::Unknown(
+            "not-a-command".to_string(),
+        )));
     }
 }

@@ -1335,6 +1335,10 @@ fn running_under_rosetta() -> bool {
         .unwrap_or(false)
 }
 
+fn argv_requests_cli_background(argv: &[String]) -> bool {
+    argv.iter().any(|arg| arg == cli::open::BACKGROUND_FLAG)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     dlog("=== note.md start ===");
@@ -1369,6 +1373,10 @@ pub fn run() {
     #[cfg(not(target_os = "ios"))]
     let builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
         dlog(&format!("single_instance argv: {:?}", argv));
+        if argv_requests_cli_background(&argv) {
+            dlog("single_instance background wake: preserving main-window visibility");
+            return;
+        }
         for arg in argv.iter().skip(1) {
             if let Some(path) = argv_open_target(arg) {
                 emit_open_file_delayed(app, &path);
@@ -1597,6 +1605,14 @@ pub fn run() {
         })
         .setup(|app| {
             log_bus::init(app.handle().clone());
+
+            #[cfg(not(target_os = "ios"))]
+            if argv_requests_cli_background(&std::env::args().collect::<Vec<_>>()) {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.hide();
+                }
+                dlog("CLI background launch: main window hidden");
+            }
 
             // Dev builds: drop the webview HTTP cache on every launch. Vite's
             // optimized-deps URLs (`?v=<hash>`) are served `immutable`, but the
@@ -2819,14 +2835,28 @@ mod pending_search_reveal_tests {
 
 #[cfg(test)]
 mod argv_open_target_tests {
-    use super::argv_open_target;
+    use super::{argv_open_target, argv_requests_cli_background};
 
     /// The GUI relaunch marker (and any other flag) is not a file to open.
     #[test]
     fn flags_are_not_open_targets() {
         assert_eq!(argv_open_target("--gui"), None);
+        assert_eq!(argv_open_target("--cli-background"), None);
         assert_eq!(argv_open_target("--cli"), None);
         assert_eq!(argv_open_target("-q"), None);
+    }
+
+    #[test]
+    fn cli_background_marker_requires_an_exact_argv_match() {
+        assert!(argv_requests_cli_background(&[
+            "notemd".to_string(),
+            "--gui".to_string(),
+            "--cli-background".to_string(),
+        ]));
+        assert!(!argv_requests_cli_background(&[
+            "notemd".to_string(),
+            "/tmp/--cli-background.md".to_string(),
+        ]));
     }
 
     /// Resolved against the process cwd — which under `cargo test` is the crate

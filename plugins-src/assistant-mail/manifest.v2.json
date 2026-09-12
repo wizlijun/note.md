@@ -2,10 +2,10 @@
   "manifest_version": 2,
   "id": "notemd.assistant-mail",
   "name": "Assistant Mail",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "kind": "native",
   "engines": {
-    "notemd": ">=6.910.3"
+    "notemd": ">=6.912.1"
   },
   "description": "Securely pull approved assistant email from a dedicated Worker into a configurable Vault archive.",
   "binary": {

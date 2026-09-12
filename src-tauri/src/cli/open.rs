@@ -14,6 +14,7 @@
 use super::args::Parsed;
 use super::router::{Builtin, Route};
 use serde_json::json;
+use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode, Stdio};
 
@@ -24,6 +25,10 @@ use std::process::{Command, ExitCode, Stdio};
 /// invocation and re-launch itself forever. The GUI's argv scan skips it for
 /// free — it starts with `-`, and flags are never paths to open.
 pub const GUI_FLAG: &str = "--gui";
+
+/// Marker used when an operational CLI command keeps the desktop app alive
+/// without revealing or focusing its main window.
+pub const BACKGROUND_FLAG: &str = "--cli-background";
 
 /// Whether a token can only have been meant as a filesystem path, judged on
 /// shape alone (no disk access, so this stays testable and cheap).
@@ -141,11 +146,33 @@ pub fn run(tokens: &[String], parsed: &Parsed) -> ExitCode {
 /// running, which is the common case here. A direct launch works in both
 /// states because single-instance forwarding handles the running one.
 fn launch(targets: &[PathBuf]) -> Result<(), String> {
+    spawn_gui(gui_args(targets, false))
+}
+
+/// Ensure the desktop process exists without changing main-window visibility.
+///
+/// A live instance receives this argv through the single-instance callback and
+/// deliberately does nothing: visible stays visible, hidden stays hidden. A
+/// new instance sees the marker during setup and hides its configured main
+/// window before the event loop starts.
+pub fn launch_background() -> Result<(), String> {
+    spawn_gui(gui_args(&[], true))
+}
+
+fn gui_args(targets: &[PathBuf], background: bool) -> Vec<OsString> {
+    let mut args = vec![OsString::from(GUI_FLAG)];
+    if background {
+        args.push(OsString::from(BACKGROUND_FLAG));
+    }
+    args.extend(targets.iter().map(|target| target.as_os_str().to_owned()));
+    args
+}
+
+fn spawn_gui(args: Vec<OsString>) -> Result<(), String> {
     let exe = std::env::current_exe()
         .map_err(|e| format!("cannot locate the note.md binary: {e}"))?;
     let mut cmd = Command::new(&exe);
-    cmd.arg(GUI_FLAG);
-    cmd.args(targets);
+    cmd.args(args);
     // The GUI's stdio is not this terminal's business — and inheriting it would
     // dribble app logs into the user's shell long after `notemd .` returned.
     cmd.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
@@ -192,6 +219,22 @@ mod tests {
         assert!(!looks_like_path("share"));
         assert!(!looks_like_path("--json"));
         assert!(!looks_like_path("-s"));
+    }
+
+    #[test]
+    fn background_launch_has_no_path_or_reveal_argument() {
+        assert_eq!(
+            gui_args(&[], true),
+            vec![OsString::from(GUI_FLAG), OsString::from(BACKGROUND_FLAG)]
+        );
+    }
+
+    #[test]
+    fn explicit_open_launch_does_not_carry_the_background_marker() {
+        assert_eq!(
+            gui_args(&[PathBuf::from("/tmp/example.md")], false),
+            vec![OsString::from(GUI_FLAG), OsString::from("/tmp/example.md")]
+        );
     }
 
     #[test]

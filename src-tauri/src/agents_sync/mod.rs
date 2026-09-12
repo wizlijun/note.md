@@ -669,6 +669,38 @@ mod fs_tests {
         }
     }
 
+    #[test]
+    fn template_documents_the_assistant_mail_archive_and_agent_contract() {
+        for required in [
+            "### Assistant Mail archive",
+            "notemd mail-status",
+            "archive_dir",
+            "/ssot/mails/",
+            "YYYYMM/YYYY-MM-DD-HHMMSS-<slug>.{eml,json}",
+            "notemd.assistant-mail.archive.v1",
+            "source_id",
+            "archived_at",
+            "sha256",
+            "bytes",
+            "/.notemd/assistant-mail/",
+            "state/cursor.json",
+            "state/changes/",
+            "state/tombstones/",
+            "/.notemd/assistant-mail/.local/",
+            "notemd mail-sync",
+            "notemd mail-query",
+            "--timezone <IANA>",
+            "metadata-only",
+            "notemd mail-delete-plan",
+            "notemd mail-delete-status",
+            "trusted plugin window",
+            "Operational `notemd` CLI commands ensure",
+            "must remain hidden and must not",
+        ] {
+            assert!(TEMPLATE.contains(required), "AGENTS.md Assistant Mail contract is missing: {required}");
+        }
+    }
+
     /// Task 11 review: 6 public docs enumerate `--json`'s extra fields in
     /// their own prose (README ×2, docs/FEATURES ×2, website/public/llms.txt,
     /// llms-full.txt) and none of them had a drift tripwire — adding
