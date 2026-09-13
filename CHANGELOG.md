@@ -9,6 +9,10 @@ For the full commit history, see the git log.
 
 ### Fixed
 
+- **Assistant Mail 0.1.6 keeps sender filtering disabled until the user turns it
+  on again.** The Worker no longer treats the unfiltered setting as a one-hour
+  setup window, and the settings window now describes the persistent behavior.
+  Exact recipient validation remains enabled.
 - **Assistant Mail 0.1.5 no longer reports a successful settings write as a
   Vault directory permission failure.** If a Git, backup or sync tool recreates
   the plugin-owned directories with read-only `0755`-style permissions, the

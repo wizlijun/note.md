@@ -41,7 +41,6 @@ export type DeletePlan = {
 export type IntakePolicy = {
   sender_filter_enabled: boolean
   allowed_sender: string | null
-  setup_expires_at: string | null
   updated_at: string
 }
 

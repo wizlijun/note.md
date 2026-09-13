@@ -98,8 +98,8 @@ describe('authentication and status', () => {
     expect(body.data.intake_policy).toMatchObject({
       sender_filter_enabled: true,
       allowed_sender: 'newbruce@gmail.com',
-      setup_expires_at: null,
     })
+    expect(body.data.intake_policy).not.toHaveProperty('setup_expires_at')
     expect(body.data.key_fingerprint).toMatch(/^[a-f0-9]{12}$/)
     expect(JSON.stringify(body)).not.toContain('test-access-key')
   })
@@ -166,15 +166,23 @@ describe('Email Routing admission', () => {
     expect(row?.count).toBe(0)
   })
 
-  it('accepts provider verification mail while sender filtering is disabled', async () => {
+  it('accepts mail from any envelope sender while sender filtering is disabled', async () => {
     const update = await SELF.fetch('https://mail.example/v1/intake-policy', {
       method: 'PUT',
       headers: AUTH,
       body: JSON.stringify({ sender_filter_enabled: false, allowed_sender: 'newbruce@gmail.com' }),
     })
     expect(update.status).toBe(200)
-    const policy = await update.json() as { data: { setup_expires_at: string | null } }
-    expect(Date.parse(policy.data.setup_expires_at || '')).toBeGreaterThan(Date.now())
+    const policy = await update.json() as { data: Record<string, unknown> }
+    expect(policy.data).toMatchObject({
+      sender_filter_enabled: false,
+      allowed_sender: 'newbruce@gmail.com',
+    })
+    expect(policy.data).not.toHaveProperty('setup_expires_at')
+    const storedPolicy = await env.MAIL_DB.prepare(
+      'SELECT sender_filter_enabled, setup_expires_at FROM intake_policy WHERE singleton = 1',
+    ).first<{ sender_filter_enabled: number; setup_expires_at: string | null }>()
+    expect(storedPolicy).toEqual({ sender_filter_enabled: 0, setup_expires_at: null })
 
     const raw = 'Message-ID: <verify@google.com>\r\nSubject: Gmail Forwarding Confirmation\r\n\r\nConfirm forwarding.'
     const message = emailMessage('forwarding-noreply@google.com', raw)
@@ -196,7 +204,7 @@ describe('Email Routing admission', () => {
     expect(rejected.reject).toHaveBeenCalledWith('Envelope sender is not allowed')
   })
 
-  it('automatically restores strict filtering after setup mode expires', async () => {
+  it('keeps sender filtering disabled until the user explicitly enables it', async () => {
     await env.MAIL_DB.prepare(
       `UPDATE intake_policy SET sender_filter_enabled = 0,
        allowed_sender = 'newbruce@gmail.com', setup_expires_at = '2000-01-01T00:00:00.000Z'
@@ -207,7 +215,23 @@ describe('Email Routing admission', () => {
       'Message-ID: <expired-setup@example.com>\r\n\r\nConfirm forwarding.',
     )
     await worker.email(verification as never, env, createExecutionContext())
-    expect(verification.reject).toHaveBeenCalledWith('Envelope sender is not allowed')
+    expect(verification.reject).not.toHaveBeenCalled()
+
+    const policy = await SELF.fetch('https://mail.example/v1/intake-policy', { headers: AUTH })
+    expect(await policy.json()).toMatchObject({ data: { sender_filter_enabled: false } })
+
+    const enable = await SELF.fetch('https://mail.example/v1/intake-policy', {
+      method: 'PUT',
+      headers: AUTH,
+      body: JSON.stringify({ sender_filter_enabled: true, allowed_sender: 'newbruce@gmail.com' }),
+    })
+    expect(enable.status).toBe(200)
+    const rejected = emailMessage(
+      'forwarding-noreply@google.com',
+      'Message-ID: <explicitly-enabled@example.com>\r\n\r\nRejected after explicit enable.',
+    )
+    await worker.email(rejected as never, env, createExecutionContext())
+    expect(rejected.reject).toHaveBeenCalledWith('Envelope sender is not allowed')
   })
 
   it('requires a valid sender before strict filtering can be enabled', async () => {

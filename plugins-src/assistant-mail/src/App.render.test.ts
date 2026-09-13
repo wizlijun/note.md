@@ -35,13 +35,11 @@ function installBridge(vaultConfigured = true, previewOverride: Record<string, u
     if (method === 'plugin.intake.policy.get') return {
       sender_filter_enabled: false,
       allowed_sender: 'newbruce@gmail.com',
-      setup_expires_at: '2026-09-11T11:00:00Z',
       updated_at: '2026-09-11T10:00:00Z',
     }
     if (method === 'plugin.intake.policy.save') return {
       sender_filter_enabled: params.sender_filter_enabled,
       allowed_sender: params.allowed_sender,
-      setup_expires_at: params.sender_filter_enabled ? null : '2026-09-11T11:00:00Z',
       updated_at: '2026-09-11T10:01:00Z',
     }
     if (method === 'plugin.messages.list') return {
@@ -145,11 +143,14 @@ describe('Assistant Mail settings window', () => {
     expect(execute.disabled).toBe(true)
   })
 
-  it('keeps sender filtering off for verification and lets the user enable it', async () => {
+  it('shows that sender filtering stays off until the user enables it', async () => {
     const request = installBridge()
     component = mount(App, { target: document.body })
-    await vi.waitFor(() => expect(document.body.textContent).toContain('验证期开放'))
+    await vi.waitFor(() => expect(document.body.textContent).toContain('不筛选发件人'))
     expect(document.body.textContent).toContain('接收所有投递到专用地址的邮件')
+    expect(document.body.textContent).toContain('直到你手动开启')
+    expect(document.body.textContent).not.toContain('一小时')
+    expect(document.body.textContent).not.toContain('自动恢复')
 
     const toggle = document.querySelector<HTMLInputElement>('.toggle-row input')!
     toggle.click()

@@ -38,10 +38,9 @@ key files, and exposed key-file permissions still fail closed.
   after an explicit click. Scripts, forms, frames, dangerous protocols and remote
   resources remain removed or blocked. Plain-text messages use an escaped text
   fallback. Agent CLI projections remain metadata-only.
-- Sender filtering is a user-controlled Worker policy. Opening setup mode allows
-  provider forwarding confirmation mail for one hour, after which strict mode
-  returns automatically. Save the exact SMTP envelope sender and enable strict
-  filtering after confirmation. Recipient validation cannot be turned off.
+- Sender filtering is a persistent user-controlled Worker policy. When disabled,
+  every envelope sender remains allowed until the user explicitly enables strict
+  filtering. Recipient validation cannot be turned off.
 - Deletion has no CLI execute command. The trusted plugin window can load the
   exact plan ID produced by an Agent's CLI call, display that plan/hash, require
   the user to type `DELETE`, and re-fetch the plan before committing it.

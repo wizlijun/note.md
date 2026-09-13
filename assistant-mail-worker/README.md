@@ -31,10 +31,9 @@ design spec still apply.
 - Email Routing must route exactly one assistant address to this Worker. The
   SMTP envelope recipient (`message.to`) is always matched exactly and cannot
   be disabled.
-- The persistent intake policy has a visible setup mode and a strict mode.
-  Setup mode accepts every envelope sender for one hour so Gmail forwarding
-  confirmation messages can arrive, then automatically restores strict mode.
-  Strict mode accepts only the exact, case-insensitive
+- The persistent intake policy has an unfiltered mode and a strict mode.
+  Unfiltered mode accepts every envelope sender until the user explicitly
+  enables strict filtering. Strict mode accepts only the exact, case-insensitive
   envelope sender saved by the user in the trusted plugin window. Rejected
   messages are rejected before reading raw bytes or persisting content.
   Display names and inner `From:` / `To:` headers never grant admission.
@@ -136,9 +135,8 @@ documentation.
 5. Generate a random 256-bit key locally and provide it interactively with
    `pnpm wrangler secret put ASSISTANT_MAIL_ACCESS_KEY`. Do not commit the value.
 6. Configure Cloudflare Email Routing for the single assistant address.
-7. Open the one-hour setup window while completing Gmail forwarding
-   confirmation, then set the sender and enable strict mode from the plugin
-   window. If the window expires, explicitly open it again.
+7. Disable sender filtering if Gmail forwarding confirmation mail must arrive,
+   then explicitly enable strict filtering from the plugin window when wanted.
 8. Deploy with `pnpm deploy` only after verifying the production bindings.
 
 `wrangler.toml` intentionally contains no account ID or real secret. Resource

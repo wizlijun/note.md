@@ -88,7 +88,7 @@
       senderFilterEnabled = intakePolicy.sender_filter_enabled
       notice = senderFilterEnabled
         ? `严格收件已启用：只接受 ${allowedSender}。`
-        : `验证期开放收件已启用，将于 ${intakePolicy.setup_expires_at || '一小时后'} 自动恢复严格过滤。`
+        : '发件人筛选已关闭，将持续接收所有投递到专用地址的邮件，直到你手动开启。'
     })
   }
 
@@ -259,16 +259,15 @@
       <div class="section-heading">
         <div>
           <h2>收件规则</h2>
-          <p class="muted">首次配置 Gmail 转发时先关闭严格过滤，以接收系统验证邮件；确认完成后再启用。</p>
+          <p class="muted">关闭后会接收所有投递到专用地址的邮件，并保持此状态，直到你手动开启。</p>
         </div>
         <span class:open={intakePolicy !== null && !senderFilterEnabled} class="policy-badge">
-          {intakePolicy === null ? '尚未连接' : senderFilterEnabled ? '严格过滤' : '验证期开放'}
+          {intakePolicy === null ? '尚未连接' : senderFilterEnabled ? '严格过滤' : '不筛选发件人'}
         </span>
       </div>
       {#if intakePolicy !== null && !senderFilterEnabled}
         <div class="banner warning" role="status">
-          当前会接收所有投递到专用地址的邮件。收件地址校验仍始终开启；此模式将在
-          {intakePolicy?.setup_expires_at || '一小时后'} 自动恢复严格过滤。
+          当前会持续接收所有投递到专用地址的邮件，直到你手动开启发件人筛选。收件地址校验仍始终开启。
         </div>
       {/if}
       <label>
