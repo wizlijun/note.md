@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.914.1 — 2026-09-14
+
 ### Fixed
 
 - **CLI output no longer crashes when an Agent closes its subprocess pipe.**
