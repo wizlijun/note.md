@@ -9,6 +9,12 @@ For the full commit history, see the git log.
 
 ### Fixed
 
+- **CLI output no longer crashes when an Agent closes its subprocess pipe.**
+  Closed stdout or stderr is now handled without a Rust panic, so commands keep
+  their intended exit code instead of producing `SIGABRT` / exit 134 crash
+  reports. On macOS, follow-up desktop launches go through LaunchServices to
+  avoid inheriting an Agent sandbox; completed plugin commands now reliably
+  keep the desktop process running without revealing a hidden window.
 - **Assistant Mail 0.1.6 keeps sender filtering disabled until the user turns it
   on again.** The Worker no longer treats the unfiltered setting as a one-hour
   setup window, and the settings window now describes the persistent behavior.

@@ -17,8 +17,9 @@
 #![cfg(unix)]
 
 use std::os::unix::fs::PermissionsExt;
+use std::os::unix::io::FromRawFd;
 use std::path::PathBuf;
-use std::process::Command;
+use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicU64, Ordering};
 
 static TEMP_HOME_SEQUENCE: AtomicU64 = AtomicU64::new(0);
@@ -63,6 +64,44 @@ fn run_cli(args: &[&str], home: &PathBuf) -> (i32, String, String) {
         String::from_utf8_lossy(&out.stdout).to_string(),
         String::from_utf8_lossy(&out.stderr).to_string(),
     )
+}
+
+/// Run the real CLI with one output pipe whose read end is already closed.
+/// Agent hosts routinely cancel or stop reading a subprocess after obtaining
+/// enough data; that must behave like an ordinary Unix broken pipe, never a
+/// Rust panic / macOS SIGABRT crash report.
+fn run_cli_with_closed_output(args: &[&str], home: &PathBuf, stdout: bool) -> i32 {
+    use std::os::unix::process::CommandExt;
+
+    std::fs::create_dir_all(home).unwrap();
+    let mut fds = [-1; 2];
+    // SAFETY: pipe initializes both descriptors on success. The read end is
+    // closed immediately; ownership of the write end is transferred exactly
+    // once to File and then to the child Stdio.
+    assert_eq!(unsafe { libc::pipe(fds.as_mut_ptr()) }, 0);
+    assert_eq!(unsafe { libc::close(fds[0]) }, 0);
+    let writer = unsafe { std::fs::File::from_raw_fd(fds[1]) };
+
+    let mut cmd = Command::new(binary_path());
+    cmd.arg0("notemd");
+    cmd.args(args);
+    cmd.env_remove("HOME");
+    cmd.env("HOME", home.to_str().unwrap());
+    cmd.env("XDG_CONFIG_HOME", home.join(".config"));
+    cmd.env("XDG_DATA_HOME", home.join(".local/share"));
+    cmd.stdin(Stdio::null());
+    if stdout {
+        cmd.stdout(Stdio::from(writer));
+        cmd.stderr(Stdio::null());
+    } else {
+        cmd.stdout(Stdio::null());
+        cmd.stderr(Stdio::from(writer));
+    }
+
+    cmd.status()
+        .expect("spawn binary with closed output")
+        .code()
+        .unwrap_or(-1)
 }
 
 fn plugins_root(home: &std::path::Path) -> PathBuf {
@@ -169,6 +208,22 @@ fn version_prints_and_exits_zero() {
     assert_eq!(code, 0);
     assert!(stdout.contains("notemd"));
     assert!(stdout.contains("plugin API v1"));
+}
+
+#[test]
+fn closed_stdout_does_not_turn_success_into_sigabrt() {
+    let home = temp_home();
+    let code = run_cli_with_closed_output(&["version"], &home, true);
+    let _ = std::fs::remove_dir_all(&home);
+    assert_eq!(code, 0);
+}
+
+#[test]
+fn closed_stderr_preserves_the_business_exit_code() {
+    let home = temp_home();
+    let code = run_cli_with_closed_output(&["nope"], &home, false);
+    let _ = std::fs::remove_dir_all(&home);
+    assert_eq!(code, 127);
 }
 
 #[test]

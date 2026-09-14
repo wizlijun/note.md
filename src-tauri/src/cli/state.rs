@@ -104,6 +104,18 @@ pub fn cli_finish(result: CliResult, state: tauri::State<'_, CliState>) -> Resul
         // Kept for the (currently unreachable on macOS) fallback path in
         // launch_tauri_headless, in case app.run() ever does return.
         let _ = tx.send(result);
+        // Plugin routes run inside a dedicated hidden Tauri process and end
+        // here via process::exit, so run_cli's normal post-command launcher is
+        // unreachable on their completed path. Start the durable desktop app
+        // only after plugin work and output are finished. On macOS this goes
+        // through LaunchServices, keeping an Agent's inherited sandbox off the
+        // GUI process and preserving hidden/visible window state.
+        if let Err(error) = super::open::launch_background() {
+            eprintln!(
+                "notemd: warning: could not keep the desktop app running in the background: {error}"
+            );
+            let _ = std::io::stderr().flush();
+        }
         // Do NOT route this through `AppHandle::exit` / `app.exit(code)`.
         // That funnels through tao's event loop: tauri-runtime-wry's
         // `Message::RequestExit(code)` handler unconditionally sets

@@ -8,6 +8,21 @@
 use std::path::PathBuf;
 use std::process::ExitCode;
 
+// Rust's standard print macros panic when stdout/stderr has already been
+// closed (for example when an Agent cancels a subprocess pipe). Release builds
+// use panic=abort, so that ordinary EPIPE used to become a macOS SIGABRT crash
+// report. Keep every CLI descendant on the non-panicking output path by
+// shadowing the standard macros before declaring the child modules.
+macro_rules! print {
+    ($($arg:tt)*) => {{ $crate::cli::output::write_stdout(format_args!($($arg)*)); }};
+}
+macro_rules! println {
+    ($($arg:tt)*) => {{ $crate::cli::output::write_stdout_line(format_args!($($arg)*)); }};
+}
+macro_rules! eprintln {
+    ($($arg:tt)*) => {{ $crate::cli::output::write_stderr_line(format_args!($($arg)*)); }};
+}
+
 pub mod args;
 pub mod router;
 pub mod builtin;
@@ -18,6 +33,7 @@ pub mod search;
 pub mod state;
 pub mod open;
 pub mod memory;
+pub mod output;
 
 use crate::app_dirs::BUNDLE_ID as APP_BUNDLE_ID;
 

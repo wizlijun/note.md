@@ -5,11 +5,12 @@
 //! (open the current directory in the folder view) and `notemd xxx.md` (open
 //! that file in a tab).
 //!
-//! Execution re-launches the GUI binary with the resolved *absolute* paths.
-//! When the app is already running, `tauri-plugin-single-instance` hands that
-//! argv to the live instance and the second process exits — so no second
-//! window ever appears, and the CLI returns to the prompt immediately either
-//! way.
+//! Execution re-launches the app with the resolved *absolute* paths. Installed
+//! macOS builds go through LaunchServices so Agent sandbox restrictions are
+//! not inherited by the GUI; development and other platforms launch the
+//! executable directly. When the app is already running,
+//! `tauri-plugin-single-instance` hands argv to the live instance and the
+//! second process exits — so no second window ever appears.
 
 use super::args::Parsed;
 use super::router::{Builtin, Route};
@@ -139,14 +140,14 @@ pub fn run(tokens: &[String], parsed: &Parsed) -> ExitCode {
     ExitCode::from(0)
 }
 
-/// Spawn the GUI with the targets on its argv and return without waiting.
+/// Launch the GUI with the targets on its argv.
 ///
-/// Deliberately a plain spawn of our own executable rather than macOS `open
-/// -a`: `open --args` silently drops the arguments when the app is *already*
-/// running, which is the common case here. A direct launch works in both
-/// states because single-instance forwarding handles the running one.
+/// The macOS path uses `open -n`: without `-n`, `open --args` silently drops
+/// arguments when the app is already running. A forced short-lived second
+/// instance receives argv in both states, and single-instance forwarding hands
+/// it to the live app when necessary.
 fn launch(targets: &[PathBuf]) -> Result<(), String> {
-    spawn_gui(gui_args(targets, false))
+    spawn_gui(gui_args(targets, false), false)
 }
 
 /// Ensure the desktop process exists without changing main-window visibility.
@@ -156,7 +157,7 @@ fn launch(targets: &[PathBuf]) -> Result<(), String> {
 /// new instance sees the marker during setup and hides its configured main
 /// window before the event loop starts.
 pub fn launch_background() -> Result<(), String> {
-    spawn_gui(gui_args(&[], true))
+    spawn_gui(gui_args(&[], true), true)
 }
 
 fn gui_args(targets: &[PathBuf], background: bool) -> Vec<OsString> {
@@ -168,9 +169,71 @@ fn gui_args(targets: &[PathBuf], background: bool) -> Vec<OsString> {
     args
 }
 
-fn spawn_gui(args: Vec<OsString>) -> Result<(), String> {
+fn spawn_gui(args: Vec<OsString>, background: bool) -> Result<(), String> {
     let exe = std::env::current_exe()
         .map_err(|e| format!("cannot locate the note.md binary: {e}"))?;
+
+    // A CLI launched by an Agent may carry a restrictive inherited sandbox.
+    // Executing the app binary directly keeps that sandbox on the GUI, which
+    // can then be denied WindowServer, pasteboard and single-instance access.
+    // LaunchServices starts the registered .app in the proper application
+    // context. `-n` matters even when note.md is already running: it guarantees
+    // that our argv reaches a short-lived second instance, whose Tauri
+    // single-instance plugin forwards it to the live process.
+    #[cfg(target_os = "macos")]
+    if let Some(app_bundle) = enclosing_app_bundle(&exe) {
+        return launch_via_launch_services(&app_bundle, &args, background);
+    }
+
+    spawn_executable(&exe, &args)
+}
+
+#[cfg(target_os = "macos")]
+fn enclosing_app_bundle(exe: &Path) -> Option<PathBuf> {
+    let resolved = exe.canonicalize().unwrap_or_else(|_| exe.to_path_buf());
+    resolved.ancestors()
+        .find(|path| path.extension().and_then(|ext| ext.to_str()) == Some("app"))
+        .map(Path::to_path_buf)
+}
+
+#[cfg(target_os = "macos")]
+fn launchservices_args(app_bundle: &Path, args: &[OsString], background: bool) -> Vec<OsString> {
+    let mut open_args = Vec::new();
+    if background {
+        open_args.push(OsString::from("-g"));
+        open_args.push(OsString::from("-j"));
+    }
+    open_args.push(OsString::from("-n"));
+    open_args.push(app_bundle.as_os_str().to_owned());
+    open_args.push(OsString::from("--args"));
+    open_args.extend(args.iter().cloned());
+    open_args
+}
+
+#[cfg(target_os = "macos")]
+fn launch_via_launch_services(
+    app_bundle: &Path,
+    args: &[OsString],
+    background: bool,
+) -> Result<(), String> {
+    let mut cmd = Command::new("/usr/bin/open");
+    cmd.args(launchservices_args(app_bundle, args, background));
+    cmd.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
+    let status = cmd
+        .status()
+        .map_err(|e| format!("failed to ask macOS to launch {}: {e}", app_bundle.display()))?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(format!(
+            "macOS could not launch {} (open exited {})",
+            app_bundle.display(),
+            status.code().map_or_else(|| "by signal".to_string(), |code| code.to_string())
+        ))
+    }
+}
+
+fn spawn_executable(exe: &Path, args: &[OsString]) -> Result<(), String> {
     let mut cmd = Command::new(&exe);
     cmd.args(args);
     // The GUI's stdio is not this terminal's business — and inheriting it would
@@ -234,6 +297,56 @@ mod tests {
         assert_eq!(
             gui_args(&[PathBuf::from("/tmp/example.md")], false),
             vec![OsString::from(GUI_FLAG), OsString::from("/tmp/example.md")]
+        );
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn installed_binary_resolves_to_its_app_bundle() {
+        assert_eq!(
+            enclosing_app_bundle(Path::new(
+                "/Applications/note.md.app/Contents/MacOS/notemd"
+            )),
+            Some(PathBuf::from("/Applications/note.md.app"))
+        );
+        assert_eq!(enclosing_app_bundle(Path::new("target/debug/notemd")), None);
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn cli_symlink_resolves_back_to_its_app_bundle() {
+        use std::os::unix::fs::symlink;
+
+        let dir = tempfile::tempdir().unwrap();
+        let bundle = dir.path().join("note.md.app");
+        let binary = bundle.join("Contents/MacOS/notemd");
+        std::fs::create_dir_all(binary.parent().unwrap()).unwrap();
+        std::fs::write(&binary, b"").unwrap();
+        let link = dir.path().join("bin/notemd");
+        std::fs::create_dir_all(link.parent().unwrap()).unwrap();
+        symlink(&binary, &link).unwrap();
+
+        assert_eq!(
+            enclosing_app_bundle(&link),
+            Some(bundle.canonicalize().unwrap())
+        );
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn background_launchservices_request_is_hidden_and_forces_argv_delivery() {
+        let bundle = Path::new("/Applications/note.md.app");
+        assert_eq!(
+            launchservices_args(bundle, &gui_args(&[], true), true),
+            vec![
+                OsString::from("-g"),
+                OsString::from("-j"),
+                OsString::from("-n"),
+                bundle.as_os_str().to_owned(),
+                OsString::from("--args"),
+                OsString::from(GUI_FLAG),
+                OsString::from(BACKGROUND_FLAG),
+            ]
         );
     }
 
