@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.915.4 — 2026-09-15
+
 ### Changed
 
 - **Knowledge datasets now open directly in the main editor's Knowledge Viewer.**
