@@ -371,12 +371,12 @@ describe('Roam Research Sync product identity', () => {
     expect(manifest.id).toBe('notemd.roam-import')
     expect(packageJson.name).toBe('roam-import-plugin')
     expect(packageJson.version).toBe(manifest.version)
-    expect(manifest.version).toBe('1.2.5')
+    expect(manifest.version).toBe('1.2.6')
     expect(manifest.name).toBe('Roam Research Sync')
     expect(manifest.description).toContain('Keep using Roam Research')
     expect(manifest.description).toContain('agents')
     expect(manifest.contributes.menus).toContainEqual(
-      expect.objectContaining({ command: 'open', label: 'Roam Research Sync…' }),
+      expect.objectContaining({ command: 'open', label: 'Sync Roam Research…' }),
     )
     expect(manifest.contributes.windows).toContainEqual(
       expect.objectContaining({ id: 'main', title: 'Roam Research Sync' }),
@@ -384,16 +384,36 @@ describe('Roam Research Sync product identity', () => {
   })
 
   it.each([
-    ['zh', 'Roam Research 同步'],
-    ['ja', 'Roam Research 同期'],
-    ['de', 'Roam-Research-Synchronisierung'],
-  ])('keeps the %s name, menu and window title aligned', (locale, name) => {
+    ['zh', 'Roam Research 同步', '同步 Roam Research…'],
+    ['ja', 'Roam Research 同期', 'Roam Research を同期…'],
+    ['de', 'Roam-Research-Synchronisierung', 'Roam Research synchronisieren…'],
+  ])('keeps the %s product name while using an action-style menu label', (locale, name, menu) => {
     expect(manifest.i18n[locale]).toMatchObject({
       name,
-      menus: { open: `${name}…` },
+      menus: { open: menu },
       windows: { main: name },
     })
     expect(manifest.i18n[locale].description).toMatch(/Agent/)
+  })
+})
+
+describe('sync plugin menu naming convention', () => {
+  it.each([
+    ['apple-notes', 'Sync Apple Notes…', '同步 Apple Notes…', 'Apple Notes を同期…', 'Apple Notes synchronisieren…'],
+    ['roam-import', 'Sync Roam Research…', '同步 Roam Research…', 'Roam Research を同期…', 'Roam Research synchronisieren…'],
+  ])('uses action-first Apple-style labels for %s', (dir, en, zh, ja, de) => {
+    const manifest = JSON.parse(
+      readFileSync(join(ROOT, 'plugins-src', dir, 'manifest.v2.json'), 'utf8'),
+    ) as {
+      contributes: { menus: Array<{ command: string; label: string }> }
+      i18n: Record<string, { menus: Record<string, string> }>
+    }
+    expect(manifest.contributes.menus).toContainEqual(
+      expect.objectContaining({ command: 'open', label: en }),
+    )
+    expect(manifest.i18n.zh.menus.open).toBe(zh)
+    expect(manifest.i18n.ja.menus.open).toBe(ja)
+    expect(manifest.i18n.de.menus.open).toBe(de)
   })
 })
 

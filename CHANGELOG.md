@@ -7,6 +7,12 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+### Changed
+
+- **Sync plugin menus now use consistent Apple-style action labels.** Product
+  names remain Apple Notes Sync and Roam Research Sync, while their menu
+  commands read “Sync Apple Notes…” and “Sync Roam Research…”.
+
 ## v6.915.2 — 2026-09-15
 
 ### Changed

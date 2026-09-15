@@ -112,7 +112,7 @@ plugins-src/<name>/
 ```jsonc
 {
   "location": "file|window|plugins|tab",   // 菜单归属
-  "label": "Import from Roam Research…",    // 可被 i18n 覆盖
+  "label": "Sync Apple Notes…",             // 可被 i18n 覆盖
   "command": "open",                         // 触发的命令 id
   "submenu": "agents",                       // 一级分类 key，见下；每个插件只归属一类
   "enabled_when": "currentTab.kind == 'markdown'",  // 条件表达式(可选)
@@ -124,6 +124,12 @@ plugins-src/<name>/
               "filters": [{ "name": "PDF", "extensions": ["pdf"] }] }  // 可选
 }
 ```
+
+菜单标签表达用户将要执行的动作，不能直接复制插件产品名。同步类插件的产品名
+统一采用“来源 + Sync/同步”（如 `Roam Research Sync`、`Apple Notes 同步`），
+菜单则采用 Apple 风格的动作式“Sync/同步 + 来源…”（如 `Sync Roam Research…`、
+`同步 Apple Notes…`）；日文和德文也使用各自自然的动词表达，省略号表示会打开
+后续窗口。
 
 所有插件命令统一收在顶部「插件」菜单中，`submenu` 用稳定、非本地化的一级
 分类 key 建立一层子菜单。分类采用 Apple 式的简短、熟悉、任务导向表述；每个

@@ -6,6 +6,12 @@
 
 ## 未发布
 
+### 变更
+
+- **同步类插件菜单统一采用 Apple 风格的动作式命名。** 产品名仍为“Apple Notes
+  同步”和“Roam Research 同步”，菜单命令统一为“同步 Apple Notes…”和
+  “同步 Roam Research…”。
+
 ## v6.915.2 — 2026-09-15
 
 ### 变更

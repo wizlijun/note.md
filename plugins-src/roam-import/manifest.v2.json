@@ -2,7 +2,7 @@
   "manifest_version": 2,
   "id": "notemd.roam-import",
   "name": "Roam Research Sync",
-  "version": "1.2.5",
+  "version": "1.2.6",
   "kind": "native",
   "binary": {
     "aarch64-apple-darwin": "bin/notemd-roam-import",
@@ -25,7 +25,7 @@
       {
         "location": "file",
         "submenu": "import-export",
-        "label": "Roam Research Sync…",
+        "label": "Sync Roam Research…",
         "command": "open"
       }
     ],
@@ -82,7 +82,7 @@
       "name": "Roam Research 同步",
       "description": "无需离开 Roam Research；将其中的页面和每日笔记同步为 Vault 内的 `.note.md` 文件，汇集数据供 Agent 统一检索和计算。",
       "menus": {
-        "open": "Roam Research 同步…"
+        "open": "同步 Roam Research…"
       },
       "windows": {
         "main": "Roam Research 同步"
@@ -92,7 +92,7 @@
       "name": "Roam Research 同期",
       "description": "Roam Research を使い続けながら、ページとデイリーノートを Vault の `.note.md` ファイルへ同期し、Agent が横断的に検索・処理できるようにします。",
       "menus": {
-        "open": "Roam Research 同期…"
+        "open": "Roam Research を同期…"
       },
       "windows": {
         "main": "Roam Research 同期"
@@ -102,7 +102,7 @@
       "name": "Roam-Research-Synchronisierung",
       "description": "Roam Research weiter nutzen und Seiten sowie tägliche Notizen als `.note.md`-Dateien ins Vault synchronisieren, damit Agents die gesammelten Daten durchsuchen und verarbeiten können.",
       "menus": {
-        "open": "Roam-Research-Synchronisierung…"
+        "open": "Roam Research synchronisieren…"
       },
       "windows": {
         "main": "Roam-Research-Synchronisierung"
