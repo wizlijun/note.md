@@ -1,0 +1,674 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://notemd.local/schemas/knowledge-representation-dataset-3.0.0.json",
+  "title": "Compact Structured Knowledge Dataset",
+  "description": "Token-efficient entities, concepts, claims, events, narratives, and P0-P3 relations.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "id",
+    "generated",
+    "scope",
+    "sources",
+    "evidence",
+    "entities",
+    "concepts",
+    "claims",
+    "events",
+    "narratives",
+    "relations"
+  ],
+  "properties": {
+    "schema": {
+      "const": "knowledge-representation-dataset/3.0.0"
+    },
+    "id": {
+      "$ref": "#/$defs/datasetId"
+    },
+    "generated": {
+      "$ref": "#/$defs/generated"
+    },
+    "scope": {
+      "$ref": "#/$defs/datasetScope"
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/source"
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/evidence"
+      }
+    },
+    "entities": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/entity"
+      }
+    },
+    "concepts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/concept"
+      }
+    },
+    "claims": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/claim"
+      }
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/event"
+      }
+    },
+    "narratives": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/narrative"
+      }
+    },
+    "relations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/relation"
+      }
+    },
+    "type_defs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/typeDefinition"
+      }
+    },
+    "coverage": {
+      "$ref": "#/$defs/coverage"
+    }
+  },
+  "$defs": {
+    "nonEmptyString": {
+      "type": "string",
+      "pattern": ".*\\S.*"
+    },
+    "datasetId": {
+      "type": "string",
+      "pattern": "^ks_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "sourceId": {
+      "type": "string",
+      "pattern": "^s[1-9][0-9]*$"
+    },
+    "evidenceId": {
+      "type": "string",
+      "pattern": "^x[1-9][0-9]*$"
+    },
+    "entityId": {
+      "type": "string",
+      "pattern": "^e[1-9][0-9]*$"
+    },
+    "conceptId": {
+      "type": "string",
+      "pattern": "^c[1-9][0-9]*$"
+    },
+    "claimId": {
+      "type": "string",
+      "pattern": "^q[1-9][0-9]*$"
+    },
+    "eventId": {
+      "type": "string",
+      "pattern": "^v[1-9][0-9]*$"
+    },
+    "narrativeId": {
+      "type": "string",
+      "pattern": "^n[1-9][0-9]*$"
+    },
+    "relationId": {
+      "type": "string",
+      "pattern": "^r[1-9][0-9]*$"
+    },
+    "objectId": {
+      "type": "string",
+      "pattern": "^(?:e|c|q|v|n|r)[1-9][0-9]*$"
+    },
+    "nodeRef": {
+      "type": "string",
+      "pattern": "^(?:s|e|c|q|v|n|r)[1-9][0-9]*$"
+    },
+    "generated": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["by", "at", "rule", "types"],
+      "properties": {
+        "by": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "rule": {
+          "const": "relation-schema-extractor/3.0.0"
+        },
+        "types": {
+          "const": "1.0.0"
+        }
+      }
+    },
+    "datasetScope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["purpose", "questions"],
+      "properties": {
+        "purpose": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "questions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/nonEmptyString"
+          }
+        }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "uri", "v"],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/sourceId"
+        },
+        "uri": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "v": {
+          "type": ["string", "null"],
+          "minLength": 1
+        },
+        "title": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "origin": {
+          "enum": ["derived", "unknown"]
+        },
+        "group": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "retrieved": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "knownTime": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        {
+          "type": "array",
+          "prefixItems": [
+            {"type": ["string", "null"]},
+            {"type": ["string", "null"]}
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2,
+          "not": {
+            "const": [null, null]
+          }
+        }
+      ]
+    },
+    "timeValue": {
+      "oneOf": [
+        {"type": "null"},
+        {"$ref": "#/$defs/knownTime"}
+      ]
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "s", "loc"],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/evidenceId"
+        },
+        "s": {
+          "$ref": "#/$defs/sourceId"
+        },
+        "loc": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "quote": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "at": {
+          "$ref": "#/$defs/knownTime"
+        },
+        "speaker": {
+          "$ref": "#/$defs/entityId"
+        },
+        "role": {
+          "enum": ["mentions", "defines", "reports", "supports", "contradicts", "describes", "sequences", "context", "identity"]
+        }
+      }
+    },
+    "scopeValue": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {
+            "type": ["string", "number", "boolean", "null"]
+          }
+        }
+      ]
+    },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reviewed_by", "basis"],
+      "properties": {
+        "reviewed_by": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/nonEmptyString"
+          }
+        },
+        "basis": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "uses": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/nonEmptyString"
+          }
+        }
+      }
+    },
+    "commonRecord": {
+      "type": "object",
+      "required": ["id", "i", "why", "ev"],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/objectId"
+        },
+        "i": {
+          "enum": [0, 1]
+        },
+        "why": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "ev": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/evidenceId"
+          }
+        },
+        "scope": {
+          "$ref": "#/$defs/scopeValue"
+        },
+        "event": {
+          "$ref": "#/$defs/timeValue"
+        },
+        "valid": {
+          "$ref": "#/$defs/timeValue"
+        },
+        "status": {
+          "enum": ["contested", "supported", "confirmed", "superseded", "retracted"]
+        },
+        "score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "score_type": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "rev": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "op": {
+          "enum": ["update", "supersede", "correct", "retract"]
+        },
+        "parents": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^(?:e|c|q|v|n|r)[1-9][0-9]*@[1-9][0-9]*$"
+          }
+        },
+        "authority": {
+          "$ref": "#/$defs/authority"
+        },
+        "limits": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/nonEmptyString"
+          }
+        }
+      },
+      "dependentRequired": {
+        "score": ["score_type"],
+        "score_type": ["score"],
+        "rev": ["op", "parents"],
+        "op": ["rev", "parents"],
+        "parents": ["rev", "op"]
+      }
+    },
+    "entity": {
+      "allOf": [
+        {"$ref": "#/$defs/commonRecord"},
+        {
+          "type": "object",
+          "required": ["type", "name"],
+          "properties": {
+            "id": {"$ref": "#/$defs/entityId"},
+            "type": {
+              "enum": ["person", "organization", "team", "project", "document", "place", "system", "artifact", "other"]
+            },
+            "name": {"$ref": "#/$defs/nonEmptyString"},
+            "aliases": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {"$ref": "#/$defs/nonEmptyString"}
+            },
+            "desc": {"$ref": "#/$defs/nonEmptyString"},
+            "identity": {"enum": ["resolved", "ambiguous"]}
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "concept": {
+      "allOf": [
+        {"$ref": "#/$defs/commonRecord"},
+        {
+          "type": "object",
+          "required": ["term", "definition"],
+          "properties": {
+            "id": {"$ref": "#/$defs/conceptId"},
+            "term": {"$ref": "#/$defs/nonEmptyString"},
+            "aliases": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {"$ref": "#/$defs/nonEmptyString"}
+            },
+            "definition": {"$ref": "#/$defs/nonEmptyString"},
+            "criteria": {
+              "type": "array",
+              "minItems": 1,
+              "items": {"$ref": "#/$defs/nonEmptyString"}
+            },
+            "excludes": {
+              "type": "array",
+              "minItems": 1,
+              "items": {"$ref": "#/$defs/nonEmptyString"}
+            }
+          },
+          "anyOf": [
+            {"required": ["criteria"]},
+            {"required": ["excludes"]}
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "claim": {
+      "allOf": [
+        {"$ref": "#/$defs/commonRecord"},
+        {
+          "type": "object",
+          "required": ["text", "kind", "about", "by"],
+          "properties": {
+            "id": {"$ref": "#/$defs/claimId"},
+            "text": {"$ref": "#/$defs/nonEmptyString"},
+            "kind": {
+              "enum": ["fact", "definition", "decision", "commitment", "rule", "evaluation", "prediction", "hypothesis", "question", "other"]
+            },
+            "about": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {"$ref": "#/$defs/nodeRef"}
+            },
+            "by": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {"$ref": "#/$defs/nonEmptyString"}
+            },
+            "if": {
+              "type": "array",
+              "minItems": 1,
+              "items": {"$ref": "#/$defs/nonEmptyString"}
+            },
+            "unless": {
+              "type": "array",
+              "minItems": 1,
+              "items": {"$ref": "#/$defs/nonEmptyString"}
+            },
+            "reason": {"$ref": "#/$defs/nonEmptyString"}
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "roleMap": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+      },
+      "additionalProperties": {
+        "oneOf": [
+          {"$ref": "#/$defs/nodeRef"},
+          {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {"$ref": "#/$defs/nodeRef"}
+          }
+        ]
+      }
+    },
+    "event": {
+      "allOf": [
+        {"$ref": "#/$defs/commonRecord"},
+        {
+          "type": "object",
+          "required": ["type", "title", "state", "args", "event"],
+          "properties": {
+            "id": {"$ref": "#/$defs/eventId"},
+            "type": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+            },
+            "title": {"$ref": "#/$defs/nonEmptyString"},
+            "desc": {"$ref": "#/$defs/nonEmptyString"},
+            "state": {"enum": ["planned", "ongoing", "completed", "cancelled", "unknown"]},
+            "args": {"$ref": "#/$defs/roleMap"},
+            "place": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {"$ref": "#/$defs/entityId"}
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "narrativeMember": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ref", "role"],
+      "properties": {
+        "ref": {"$ref": "#/$defs/objectId"},
+        "role": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+        }
+      }
+    },
+    "narrative": {
+      "allOf": [
+        {"$ref": "#/$defs/commonRecord"},
+        {
+          "type": "object",
+          "required": ["type", "title", "thesis", "mode", "members"],
+          "properties": {
+            "id": {"$ref": "#/$defs/narrativeId"},
+            "type": {"enum": ["chronology", "causal", "explanatory", "argumentative", "decision_rationale", "other"]},
+            "title": {"$ref": "#/$defs/nonEmptyString"},
+            "thesis": {"$ref": "#/$defs/nonEmptyString"},
+            "mode": {"enum": ["source", "agent", "mixed"]},
+            "members": {
+              "type": "array",
+              "minItems": 2,
+              "items": {"$ref": "#/$defs/narrativeMember"}
+            },
+            "reason": {"$ref": "#/$defs/nonEmptyString"},
+            "alternatives": {
+              "type": "array",
+              "minItems": 1,
+              "items": {"$ref": "#/$defs/nonEmptyString"}
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {"mode": {"enum": ["agent", "mixed"]}},
+                "required": ["mode"]
+              },
+              "then": {
+                "required": ["reason", "alternatives"]
+              }
+            }
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "typeDefinition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "p", "v", "roles", "definition", "not"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+        },
+        "p": {"type": "integer", "minimum": 0, "maximum": 3},
+        "v": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+        },
+        "roles": {
+          "type": "array",
+          "minItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+          }
+        },
+        "definition": {"$ref": "#/$defs/nonEmptyString"},
+        "not": {"$ref": "#/$defs/nonEmptyString"}
+      }
+    },
+    "relation": {
+      "allOf": [
+        {"$ref": "#/$defs/commonRecord"},
+        {
+          "type": "object",
+          "required": ["p", "type", "args"],
+          "properties": {
+            "id": {"$ref": "#/$defs/relationId"},
+            "p": {"type": "integer", "minimum": 0, "maximum": 3},
+            "type": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+            },
+            "text": {"$ref": "#/$defs/nonEmptyString"},
+            "args": {
+              "allOf": [
+                {"$ref": "#/$defs/roleMap"},
+                {"minProperties": 2}
+              ]
+            },
+            "claim": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {"$ref": "#/$defs/claimId"}
+            },
+            "if": {
+              "type": "array",
+              "minItems": 1,
+              "items": {"$ref": "#/$defs/nonEmptyString"}
+            },
+            "unless": {
+              "type": "array",
+              "minItems": 1,
+              "items": {"$ref": "#/$defs/nonEmptyString"}
+            },
+            "reason": {"$ref": "#/$defs/nonEmptyString"},
+            "single_source_reason": {"$ref": "#/$defs/nonEmptyString"}
+          },
+          "anyOf": [
+            {"required": ["claim"]},
+            {"required": ["text"]}
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "unprocessed": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["uri", "why"],
+            "properties": {
+              "uri": {"$ref": "#/$defs/nonEmptyString"},
+              "why": {"$ref": "#/$defs/nonEmptyString"}
+            }
+          }
+        },
+        "limits": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/nonEmptyString"}
+        }
+      }
+    }
+  }
+}
