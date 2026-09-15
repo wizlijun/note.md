@@ -170,6 +170,7 @@ try {
   await check('valid fixture completes the real file_view.ready handshake without changing source bytes', async () => {
     await ready()
     await plugin().getByRole('heading', { name: '提取知识浏览器', exact: true }).waitFor()
+    assert.equal(await plugin().locator('.topbar > .dataset-actions').count(), 1)
     assert.equal(await plugin().getByRole('button', { name: '编辑 JSON 原文', exact: true }).count(), 0)
     assert.equal(await page.evaluate(() => window.__knowledgeBrowser.content), valid)
     assert.equal(await page.evaluate(() => window.__knowledgeBrowser.initial), valid)

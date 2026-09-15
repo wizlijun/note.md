@@ -293,8 +293,8 @@
       <span class="eyebrow">{text(entry === 'viewer' ? 'entry.viewer' : 'entry.browser')}</span>
       <h1>{text('product')}</h1>
     </div>
-    {#if entry === 'browser'}
-      <div class="dataset-actions">
+    <div class="dataset-actions">
+      {#if entry === 'browser'}
         <select aria-label={zh ? '数据集' : 'Dataset'} value={datasetPath} onchange={(event) => { const path = event.currentTarget.value; if (path) void openDataset(path) }}>
           <option value="">{scanning ? (zh ? '正在扫描 research…' : 'Scanning research…') : (zh ? '选择数据集' : 'Choose a dataset')}</option>
           {#each datasetItems as item}<option value={item.path} disabled={item.status !== 'available'}>{item.name}{item.copyState === 'different-snapshot' ? (zh ? ' · 同 ID 不同快照' : ' · same ID, different snapshot') : ''}</option>{/each}
@@ -302,9 +302,9 @@
         <button type="button" onclick={chooseDataset}>{text('choose')}</button>
         <button type="button" onclick={() => referenceOpen = !referenceOpen}>{text('action.locateReference')}</button>
         <button type="button" onclick={scanning ? () => scanController?.abort() : scan}>{text(scanning ? 'cancel' : 'refresh')}</button>
-        {#if result?.dataset}<button type="button" onclick={openCurrentInEditor}>{text('action.openEditor')}</button>{/if}
-      </div>
-    {/if}
+      {/if}
+      {#if result?.dataset && entry === 'browser'}<button type="button" onclick={openCurrentInEditor}>{text('action.openEditor')}</button>{/if}
+    </div>
   </header>
 
   {#if referenceOpen}

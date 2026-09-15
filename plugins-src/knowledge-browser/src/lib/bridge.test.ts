@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
-  chooseJsonFile, copyText, isHostOrigin, onFileViewOpen,
+  chooseJsonFile, copyText, editFileViewSource, isHostOrigin, onFileViewOpen,
   openEditor, readDialogText, settingsGet, settingsSet, vaultList, vaultRead,
 } from './bridge'
 
@@ -67,6 +67,17 @@ describe('file-view bridge', () => {
     expect(post).toHaveBeenCalledWith({ type: 'file_view.ready', requestId: 2 }, 'tauri://localhost')
   })
 
+  it('requests source editing for the current snapshot only', async () => {
+    const post = vi.spyOn(window, 'postMessage').mockImplementation(() => {})
+    expect(editFileViewSource()).toBe(false)
+    stop = onFileViewOpen(() => true)
+    send({ requestId: 9 })
+    await vi.waitFor(() => expect(post).toHaveBeenCalledWith({ type: 'file_view.ready', requestId: 9 }, 'tauri://localhost'))
+    post.mockClear()
+    expect(editFileViewSource()).toBe(true)
+    expect(post).toHaveBeenLastCalledWith({ type: 'file_view.fallback', requestId: 9, reason: 'edit' }, 'tauri://localhost')
+    expect(editFileViewSource()).toBe(false)
+  })
 })
 
 describe('host RPC wrappers', () => {

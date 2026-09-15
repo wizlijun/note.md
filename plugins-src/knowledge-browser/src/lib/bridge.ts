@@ -47,6 +47,8 @@ export function isHostOrigin(origin: string): boolean {
     || /^https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/.test(origin)
 }
 
+let activeFileView: Pick<FileViewSnapshot, 'requestId' | 'origin'> | null = null
+
 /**
  * Subscribe to the host-owned, read-only file-view channel. A new snapshot
  * aborts all work owned by the previous one. The consumer returns `false` for
@@ -73,10 +75,12 @@ export function onFileViewOpen(consumer: FileViewConsumer): () => void {
       requestId: data.requestId,
       origin: event.origin,
     }
+    activeFileView = { requestId: snapshot.requestId, origin: snapshot.origin }
     void Promise.resolve()
       .then(() => consumer(snapshot, snapshotController.signal))
       .then((supported) => {
         if (currentGeneration !== generation || snapshotController.signal.aborted) return
+        if (supported === false) activeFileView = null
         window.parent.postMessage({
           type: supported === false ? 'file_view.fallback' : 'file_view.ready',
           requestId: snapshot.requestId,
@@ -84,6 +88,7 @@ export function onFileViewOpen(consumer: FileViewConsumer): () => void {
       })
       .catch(() => {
         if (currentGeneration !== generation || snapshotController.signal.aborted) return
+        activeFileView = null
         window.parent.postMessage({ type: 'file_view.fallback', requestId: snapshot.requestId }, snapshot.origin)
       })
   }
@@ -92,8 +97,22 @@ export function onFileViewOpen(consumer: FileViewConsumer): () => void {
     generation++
     controller?.abort()
     controller = null
+    activeFileView = null
     window.removeEventListener('message', receive)
   }
+}
+
+/** Ask the host to preserve the current snapshot and reveal its editor. */
+export function editFileViewSource(): boolean {
+  if (!activeFileView) return false
+  const current = activeFileView
+  activeFileView = null
+  window.parent.postMessage({
+    type: 'file_view.fallback',
+    requestId: current.requestId,
+    reason: 'edit',
+  }, current.origin)
+  return true
 }
 
 export async function vaultInfo(): Promise<VaultInfo> {
