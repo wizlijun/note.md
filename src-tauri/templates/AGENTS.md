@@ -33,6 +33,18 @@ files in this vault carry it except for the generated `/USER.md` and
 - `sync/` — markdown documents copied in from outside the vault (the
   editor's sync-to-vault feature). Each file is a snapshot of an external
   original; edits here do not flow back to the source file.
+- `applenotes/` — read-only Apple Notes mirrors, grouped by account and original
+  folder hierarchy. Filenames are `YYYY-MM-DD-HHMMSSZ-<id-hash>-<title-slug>.md`
+  (UTC creation time); assets are in the matching `<stem>.attachments/` folder.
+  YAML `source: apple-notes`, `apple_notes_id`, and `readonly: true` identify the
+  source and write boundary. Do not edit these mirrors or their metadata; make
+  derived notes elsewhere. On macOS, request synchronization with
+  `notemd --json apple-notes-sync` (optional `--vault PATH` and `--dry-run`).
+  `/.notemd/apple-notes/` contains plugin-owned state, lock, recovery journal,
+  staging, and recoverable old/deleted copies under `trash/`; do not modify it.
+  A partial sync can retain old or placeholder content for locked notes and
+  unavailable attachments; use the CLI report and source metadata to identify
+  these limitations before relying on the mirror.
 - `inbox/tasks/` — executable tasks for Next. Each task is one
   `YYYY-MM-DD-HHmm-<slug>-task.md` file; see "Inbox tasks" below.
 - Meeting transcripts live under the Vault-relative directory configured by

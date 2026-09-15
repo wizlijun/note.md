@@ -1,5 +1,5 @@
 import {
-  tabs, isDirty, isManagedMemoryTab, shouldSkipEmptySave,
+  tabs, isDirty, isReadOnlyTab, shouldSkipEmptySave,
   persistMarkdownSnapshot, persistCanvasSnapshot,
 } from './tabs.svelte'
 import { settings } from './settings.svelte'
@@ -18,8 +18,8 @@ export function startAutoSaveWatcher(): () => void {
       for (const tab of tabs) {
         // Image files have no text content and are never dirty; skip entirely.
         if (tab.kind === 'image') continue
-        // USER/MEMORY are projections. Only the Memory workflow may persist them.
-        if (isManagedMemoryTab(tab)) continue
+        // Managed projections and YAML mirrors are persisted by their source workflow.
+        if (isReadOnlyTab(tab)) continue
         // Auto-save is on hold while the user reconciles an external change;
         // resuming would silently overwrite either the disk or the buffer.
         if (tab.externalState !== 'fresh') {
@@ -38,7 +38,7 @@ export function startAutoSaveWatcher(): () => void {
         const timer = setTimeout(async () => {
           try {
             const cur = tabs.find((x) => x.id === id)
-            if (!cur || isManagedMemoryTab(cur) || shouldSkipEmptySave(cur)) return
+            if (!cur || isReadOnlyTab(cur) || shouldSkipEmptySave(cur)) return
             if (cur.kind === 'canvas') {
               // The debounce captured both bytes and document identity. A Save
               // As completed before this timer fired means this is an obsolete

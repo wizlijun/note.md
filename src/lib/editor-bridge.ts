@@ -9,7 +9,7 @@ import { tauriMediaResolver } from './adapters/tauri-media-resolver'
 import { tauriLinkOpener } from './adapters/tauri-link-opener'
 import { rendererRegistry } from './adapters/renderer-registry'
 import { spreadsheetFactory } from './adapters/spreadsheet-factory'
-import { frontmatterFactory } from './frontmatter-view'
+import { frontmatterFactory, readonlyFrontmatterFactory } from './frontmatter-view'
 import { activeTab } from './tabs.svelte'
 import { analyticsPluginForEditor } from './insights/tracker.svelte'
 import { isApplePlatformSync } from './platform-sync'
@@ -72,6 +72,7 @@ export async function mountRichEditor(
   onChange: (md: string) => void,
   imeGuard?: ImeGuard,
   mediaResolver: MediaResolver = tauriMediaResolver,
+  readOnly = false,
 ): Promise<MorayaEditorInstance> {
   const capturedBaseDir = requestedDocumentBaseDir
   const previousMount = mountQueue
@@ -91,7 +92,7 @@ export async function mountRichEditor(
       linkOpener: tauriLinkOpener,
       platform,
       spreadsheetViewFactory: spreadsheetFactory,
-      frontmatterViewFactory: frontmatterFactory,
+      frontmatterViewFactory: readOnly ? readonlyFrontmatterFactory : frontmatterFactory,
       enableMath: true,
       enableMermaid: true,
       enableTableResize: true,

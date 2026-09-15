@@ -1,0 +1,34 @@
+:root {
+  font: 14px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color-scheme: light dark;
+  color: light-dark(#242424, #eeeeee);
+  background: light-dark(#fafafa, #1c1c1e);
+}
+* { box-sizing: border-box; }
+body { margin: 0; }
+main { max-width: 700px; margin: 0 auto; padding: 30px; }
+header { margin-bottom: 24px; }
+.eyebrow { font-size: 11px; letter-spacing: .11em; color: light-dark(#75620d, #e9cd61); }
+h1 { margin: 6px 0; font-size: 27px; letter-spacing: -.5px; }
+h2 { margin: 0; font-size: 15px; }
+p { margin: 6px 0; }
+header p, .muted, footer, .controls p, .destination p { color: light-dark(#666, #aaa); }
+section { margin: 20px 0; }
+.destination { padding: 14px 16px; border: 1px solid light-dark(#dfdfdf, #3d3d40); border-radius: 10px; }
+.destination span { display: block; font-size: 12px; color: light-dark(#666, #aaa); }
+code { display: block; overflow-wrap: anywhere; margin-top: 3px; font-size: 12px; }
+.destination p { font-size: 12px; }
+label { display: flex; align-items: center; gap: 9px; font-weight: 500; }
+input { accent-color: #1673dd; width: 16px; height: 16px; margin: 0; }
+.controls p { font-size: 12px; margin: 8px 0 14px; }
+button { font: inherit; padding: 7px 17px; background: #176ed1; color: white; border: 0; border-radius: 7px; cursor: pointer; }
+button:hover:not(:disabled) { background: #105cb4; }
+button:disabled { opacity: .5; cursor: default; }
+button:focus-visible, input:focus-visible { outline: 3px solid #75b1f4; outline-offset: 3px; }
+dl { display: grid; grid-template-columns: repeat(6, 1fr); margin: 18px 0; gap: 8px; }
+dt { font-size: 11px; color: light-dark(#666, #aaa); }
+dd { margin: 1px 0 0; font-size: 21px; font-variant-numeric: tabular-nums; }
+.error, #warnings { overflow-wrap: anywhere; font-size: 12px; color: light-dark(#a83818, #f5a08a); }
+#warnings { padding-left: 20px; max-height: 180px; overflow: auto; }
+footer { border-top: 1px solid light-dark(#e3e3e3, #37373a); padding-top: 16px; font-size: 12px; }
+@media (max-width: 520px) { main { padding: 22px; } dl { grid-template-columns: repeat(3, 1fr); } }

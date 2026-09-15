@@ -2,7 +2,7 @@
 # Package + sign v2 plugins for the marketplace (子项目③ Task 5).
 #
 #   scripts/release-plugins.sh [--release] <plugin...>
-#     plugin ∈ { md2pdf, roam-import, meetings, openclaw, assistant-mail, pos-log,
+#     plugin ∈ { md2pdf, roam-import, apple-notes, meetings, openclaw, assistant-mail, pos-log,
 #                decision-log, weekly-review, memory, claude-agent, codex-agent, deepseek-agent, ebook-import,
 #                idea-spark, next, power-mode, trace-source, timeline, index-viewer }   (add a case below)
 #     --release  currently a no-op flag reserved for build-profile parity with
@@ -43,14 +43,14 @@ PLUGINS=()
 for arg in "$@"; do
   case "$arg" in
     --release) : ;; # reserved; release builds are always release-profile
-    md2pdf|roam-import|meetings|openclaw|assistant-mail|pos-log|decision-log|weekly-review|memory|claude-agent|codex-agent|deepseek-agent|ebook-import|idea-spark|next|power-mode|trace-source|timeline|index-viewer) PLUGINS+=("$arg") ;;
+    md2pdf|roam-import|apple-notes|meetings|openclaw|assistant-mail|pos-log|decision-log|weekly-review|memory|claude-agent|codex-agent|deepseek-agent|ebook-import|idea-spark|next|power-mode|trace-source|timeline|index-viewer) PLUGINS+=("$arg") ;;
     -h|--help)
       grep '^#' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
-    *) echo "unknown arg: $arg (expected --release | md2pdf | roam-import | meetings | openclaw | assistant-mail | pos-log | decision-log | weekly-review | memory | claude-agent | codex-agent | deepseek-agent | ebook-import | idea-spark | next | power-mode | trace-source | timeline | index-viewer)" >&2; exit 2 ;;
+    *) echo "unknown arg: $arg (expected --release | md2pdf | roam-import | apple-notes | meetings | openclaw | assistant-mail | pos-log | decision-log | weekly-review | memory | claude-agent | codex-agent | deepseek-agent | ebook-import | idea-spark | next | power-mode | trace-source | timeline | index-viewer)" >&2; exit 2 ;;
   esac
 done
 if [[ ${#PLUGINS[@]} -eq 0 ]]; then
-  echo "usage: scripts/release-plugins.sh [--release] <md2pdf|roam-import|meetings|openclaw|assistant-mail|pos-log|decision-log|weekly-review|memory|claude-agent|codex-agent|deepseek-agent|ebook-import|idea-spark|next|power-mode|trace-source|timeline|index-viewer>..." >&2
+  echo "usage: scripts/release-plugins.sh [--release] <md2pdf|roam-import|apple-notes|meetings|openclaw|assistant-mail|pos-log|decision-log|weekly-review|memory|claude-agent|codex-agent|deepseek-agent|ebook-import|idea-spark|next|power-mode|trace-source|timeline|index-viewer>..." >&2
   exit 2
 fi
 
@@ -173,6 +173,11 @@ release_roam_import() {
 release_meetings() {
   release_native_ui "notemd.meetings" "$REPO_ROOT/plugins-src/meetings" \
     "notemd-meetings" "meetings-plugin"
+}
+
+release_apple_notes() {
+  release_native_ui "notemd.apple-notes" "$REPO_ROOT/plugins-src/apple-notes" \
+    "notemd-apple-notes" "apple-notes-plugin"
 }
 
 # ── decision-log: ui-only, single universal package ───────────────────────────
@@ -454,12 +459,16 @@ release_native_ui() {
   done
 
   local identity
+  local signing_args=(--force --options runtime --timestamp)
+  if [[ -f "$src/Entitlements.plist" ]]; then
+    signing_args+=(--entitlements "$src/Entitlements.plist")
+  fi
   identity=$(security find-identity -v -p codesigning \
     | awk -F\" '/Developer ID Application/ {print $2; exit}') || true
   if [[ -n "$identity" ]]; then
     echo "[$id] codesign with: $identity"
     for triple in aarch64-apple-darwin x86_64-apple-darwin; do
-      codesign --force --options runtime --timestamp --sign "$identity" \
+      codesign "${signing_args[@]}" --sign "$identity" \
         "$src/backend/target/$triple/release/$bin_name"
     done
   else
@@ -584,6 +593,7 @@ for plugin in "${PLUGINS[@]}"; do
   case "$plugin" in
     md2pdf)      release_md2pdf ;;
     roam-import) release_roam_import ;;
+    apple-notes) release_apple_notes ;;
     meetings)    release_meetings ;;
     openclaw)    release_openclaw ;;
     assistant-mail) release_assistant_mail ;;

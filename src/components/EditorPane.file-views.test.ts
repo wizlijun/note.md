@@ -6,6 +6,7 @@ import EditorPane from './EditorPane.svelte'
 import { pluginRuntime } from '../lib/plugins/runtime.svelte'
 import type { Tab } from '../lib/tabs.svelte'
 import { setContent } from '../lib/tabs.svelte'
+import { isReadonlyMarkdownTab } from '../lib/readonly-document'
 import type { PluginManifest } from '../lib/plugins/types'
 import {
   fileViewPresentation,
@@ -16,6 +17,7 @@ import {
 
 vi.mock('../lib/tabs.svelte', () => ({
   isManagedMemoryTab: (tab: { filePath: string }) => tab.filePath === '/vault/MEMORY.md',
+  isReadOnlyTab: (tab: Tab) => tab.filePath === '/vault/MEMORY.md' || isReadonlyMarkdownTab(tab),
   setContent: vi.fn(),
   setMode: vi.fn(),
 }))
@@ -59,10 +61,11 @@ vi.mock('./RichEditor.svelte', async () => {
 })
 vi.mock('./SourceView.svelte', async () => {
   const { onDestroy } = await import('svelte')
-  return { default: (anchor: Comment, props: { value: string }) => {
+  return { default: (anchor: Comment, props: { value: string; readOnly?: boolean }) => {
     const node = document.createElement('textarea')
     node.className = 'source-editor-probe'
     node.value = props.value
+    node.readOnly = props.readOnly === true
     anchor.before(node)
     onDestroy(() => node.remove())
     return {}
@@ -236,6 +239,21 @@ describe('EditorPane file view routing', () => {
     await setup({ filePath: '/vault/MEMORY.md' })
     expect(document.querySelector('iframe')).toBeNull()
     expect(document.querySelector<HTMLElement>('.rich-editor-probe')?.dataset.readOnly).toBe('true')
+  })
+
+  it('keeps YAML mirrors read-only in Rich and Source while retaining view switching', async () => {
+    const readonlyContent = '---\nreadonly: true\ntype: Timeline\n---\n# Apple Notes'
+    const store = await setup({ currentContent: readonlyContent, initialContent: readonlyContent })
+    expect(document.querySelector('iframe')).toBeNull()
+    expect(document.querySelector<HTMLElement>('.rich-editor-probe')?.contentEditable).toBe('false')
+    expect(document.querySelector('[role="status"]')?.textContent).toBe('document.frontmatterReadOnly')
+    store.update((tab) => ({ ...tab, mode: 'source' }))
+    await tick()
+    expect(document.querySelector<HTMLTextAreaElement>('.source-editor-probe')?.readOnly).toBe(true)
+    // An upstream update can remove the flag; normal routing resumes on reload.
+    store.update((tab) => ({ ...tab, initialContent: content, currentContent: content, mode: 'rich' }))
+    await tick()
+    expect(document.querySelector('iframe')).not.toBeNull()
   })
 
   it.each([

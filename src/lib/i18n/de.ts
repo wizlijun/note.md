@@ -442,6 +442,7 @@ export const de: Record<keyof Messages, string> = {
   'agent.steps': '{n} Schritte',
   'agent.locked': 'Während der Agent arbeitet, ist die Randnotiz schreibgeschützt.',
   'memory.projectionReadOnly': 'Die kontrollierte Erinnerungsprojektion ist schreibgeschützt. Einträge werden im Memory-Plugin geprüft oder geändert.',
+  'document.frontmatterReadOnly': 'Dieses Dokument ist in YAML als schreibgeschützt markiert. Bearbeiten Sie es in der Quellanwendung.',
   'agent.doneSkipped': 'Nichts zu tun',
   'agent.doneSuccess': 'Fertig',
   'agent.doneError': 'Fehlgeschlagen',

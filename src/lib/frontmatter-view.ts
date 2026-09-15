@@ -17,12 +17,13 @@ import { t } from './i18n/store.svelte'
 export function renderFrontmatter(
   raw: string,
   onChange?: (newRaw: string) => void,
+  readOnly = false,
 ): HTMLElement {
   const root = document.createElement('div')
   root.className = 'frontmatter-segments'
   for (const seg of segmentFrontmatter(raw)) {
     if (seg.kind === 'kv') {
-      root.appendChild(renderKvProperties(seg.text, seg.start, seg.end, raw, onChange))
+      root.appendChild(renderKvProperties(seg.text, seg.start, seg.end, raw, onChange, readOnly))
     } else if (seg.text.trim() !== '') {
       root.appendChild(renderMdBlock(seg.text))
     }
@@ -48,6 +49,7 @@ function renderKvProperties(
   segEnd: number,
   fullRaw: string,
   onChange?: (newRaw: string) => void,
+  readOnly = false,
 ): HTMLElement {
   let doc
   try {
@@ -76,7 +78,7 @@ function renderKvProperties(
     const valEl = document.createElement('div')
     valEl.className = 'fm-val'
 
-    if (isEditableScalar(valueNode)) {
+    if (!readOnly && isEditableScalar(valueNode)) {
       const originalValue = (valueNode as { value: unknown }).value
       const original = scalarText(valueNode)
       valEl.classList.add('fm-editable')
@@ -278,6 +280,7 @@ export function buildFrontmatterView(
   container: HTMLElement,
   raw: string,
   onChange?: (newRaw: string) => void,
+  readOnly = false,
 ): HTMLElement {
   const details = document.createElement('details')
   details.className = 'frontmatter-details'
@@ -295,7 +298,7 @@ export function buildFrontmatterView(
   summary.append(title, label)
   details.appendChild(summary)
 
-  details.appendChild(renderFrontmatter(raw, onChange))
+  details.appendChild(renderFrontmatter(raw, onChange, readOnly))
 
   details.addEventListener('toggle', () => {
     container.dataset.fmOpen = details.open ? '1' : '0'
@@ -307,6 +310,13 @@ export function buildFrontmatterView(
 export const frontmatterFactory: FrontmatterViewFactory = {
   render(container: HTMLElement, raw: string, onChange?: (newRaw: string) => void) {
     container.appendChild(buildFrontmatterView(container, raw, onChange))
+    return { destroy() { /* DOM owned by container; nothing to release */ } }
+  },
+}
+
+export const readonlyFrontmatterFactory: FrontmatterViewFactory = {
+  render(container: HTMLElement, raw: string) {
+    container.appendChild(buildFrontmatterView(container, raw, undefined, true))
     return { destroy() { /* DOM owned by container; nothing to release */ } }
   },
 }

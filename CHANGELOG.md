@@ -7,6 +7,25 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+### Added
+
+- **Apple Notes Sync 1.0.0 mirrors Apple Notes into a read-only Vault archive
+  on macOS.** Accounts and nested folders keep their original organization
+  under `applenotes/`; filenames combine UTC creation time, a stable source ID
+  hash, and a readable title slug. The plugin follows additions, edits, moves,
+  renames, and deletions through manual or five-minute automatic sync, exports
+  supported attachments, and includes `apple-notes-sync` plus a standalone CLI
+  for cron. Interrupted updates recover from a journal, replaced and deleted
+  copies remain in plugin trash, and incomplete Notes reads never cascade into
+  deletion.
+
+### Changed
+
+- **Markdown with top-level YAML `readonly: true` is now actually read-only.**
+  Rich view, Source view, metadata properties, manual and automatic saves,
+  Save As, overwrite, and history restore all respect the source-controlled
+  boundary while external synchronization can still refresh the open document.
+
 ## v6.914.1 — 2026-09-14
 
 ### Fixed

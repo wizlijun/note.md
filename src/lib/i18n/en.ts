@@ -449,6 +449,7 @@ export const en = {
   'agent.steps': '{n} steps',
   'agent.locked': 'The note is read-only while the agent works.',
   'memory.projectionReadOnly': 'Controlled memory projection — review or change entries in the Memory plugin.',
+  'document.frontmatterReadOnly': 'This document is marked read-only in YAML. Edit it in the source application.',
   'agent.doneSkipped': 'Nothing to do',
   'agent.doneSuccess': 'Done',
   'agent.doneError': 'Failed',

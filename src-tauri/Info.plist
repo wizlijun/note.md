@@ -48,6 +48,8 @@
   </array>
   <key>NSHighResolutionCapable</key>
   <true/>
+  <key>NSAppleEventsUsageDescription</key>
+  <string>note.md reads Apple Notes to sync notes and attachments into your vault when you use the Apple Notes plugin.</string>
   <!-- pos-log 插件：定位权限归因到宿主 app（插件进程 = 责任进程 note.md）。
        两个 key 都放以覆盖 macOS 版本差异。 -->
   <key>NSLocationUsageDescription</key>

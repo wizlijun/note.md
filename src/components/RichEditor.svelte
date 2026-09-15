@@ -75,6 +75,9 @@
     wrapAsCodeBlock?: string
   } = $props()
 
+  // Source reloads may replace a read-only view; user transactions remain blocked.
+  let applyingExternalContent = false
+
   // Wiki page name for the inline backlink recall section (rendered below the
   // document body). Gated on the outline-notes feature; skipped for code-kind
   // tabs and untitled docs.
@@ -1119,7 +1122,7 @@
           const unwrapped = unwrapIfNeeded(md)
           lastSync = unwrapped
           setContent(tabId, unwrapped)
-        }, ime)
+        }, ime, undefined, readOnly)
         if (readOnly) {
           const v = inst.view as unknown as EditorView
           // `editable: false` only stops DOM-level input. Menu commands,
@@ -1131,7 +1134,7 @@
           v.setProps({
             editable: () => false,
             dispatchTransaction: (tr) => {
-              if (tr.docChanged) return
+              if (tr.docChanged && !applyingExternalContent) return
               v.updateState(v.state.apply(tr))
             },
           })
@@ -1232,7 +1235,12 @@
     const target = tab.currentContent
     if (status !== 'mounted' || !editor) return
     if (target === lastSync) return
-    editor.setContent(wrapIfNeeded(target))
+    applyingExternalContent = true
+    try {
+      editor.setContent(wrapIfNeeded(target))
+    } finally {
+      applyingExternalContent = false
+    }
     lastSync = target
   })
 

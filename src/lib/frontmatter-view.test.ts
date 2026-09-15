@@ -2,9 +2,18 @@
  * @vitest-environment happy-dom
  */
 import { describe, it, expect, vi } from 'vitest'
-import { renderFrontmatter, buildFrontmatterDom, buildFrontmatterView } from './frontmatter-view'
+import { renderFrontmatter, buildFrontmatterDom, buildFrontmatterView, readonlyFrontmatterFactory } from './frontmatter-view'
 
 describe('renderFrontmatter — rendering', () => {
+  it('never creates editable metadata fields for a read-only document', () => {
+    const container = document.createElement('div')
+    readonlyFrontmatterFactory.render(container, 'readonly: true\ntitle: "[[Source]]"')
+    expect(container.querySelector('[contenteditable="true"]')).toBeNull()
+    expect(container.querySelector('.fm-editable')).toBeNull()
+    expect(container.querySelector('details > summary')).not.toBeNull()
+    expect(container.querySelectorAll('.fm-property')).toHaveLength(2)
+  })
+
   it('renders key: value pairs as borderless properties with editable scalar values', () => {
     const el = buildFrontmatterDom('title: Hello\nauthor: Bruce')
     const rows = el.querySelectorAll('.frontmatter-properties .fm-property')

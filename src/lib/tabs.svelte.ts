@@ -11,6 +11,7 @@ import { startWatchingTab, stopWatchingTab, rebindTabPath } from './file-watcher
 import { maybeAutoRefresh } from './mdblock/auto-refresh'
 import { quickNoteRenameTarget } from './quick-note-name'
 import { isConfiguredMemoryProjectionPath } from './memory-projection'
+import { isReadonlyMarkdownTab } from './readonly-document'
 import type { CanvasDiskRevision, CanvasSaveResult } from './canvas/io'
 import { resetFileViewSelection } from './plugins/file-view-selection.svelte'
 
@@ -71,6 +72,10 @@ export function isManagedMemoryTab(
   tab: Pick<Tab, 'filePath'>,
 ): boolean {
   return isConfiguredMemoryProjectionPath(tab.filePath)
+}
+
+export function isReadOnlyTab(tab: Pick<Tab, 'filePath' | 'kind' | 'initialContent'>): boolean {
+  return isManagedMemoryTab(tab) || isReadonlyMarkdownTab(tab)
 }
 
 /**
@@ -523,7 +528,7 @@ let questionCapture: typeof import('./outline/question-capture') | null = null
 
 export function setContent(id: string, md: string): void {
   const t = tabs.find((x) => x.id === id)
-  if (!t || isManagedMemoryTab(t)) return
+  if (!t || isReadOnlyTab(t)) return
   t.currentContent = md
   if (!t.filePath || t.kind === 'canvas') return
   // 提问捕获:模块加载后无条件调用(schedule 自带在途取消,批注整体删除也能撤回);
@@ -548,7 +553,7 @@ export function setContent(id: string, md: string): void {
  */
 export async function restoreVersion(id: string, content: string): Promise<void> {
   const t = tabs.find((x) => x.id === id)
-  if (!t || !t.filePath || isManagedMemoryTab(t)) return
+  if (!t || !t.filePath || isReadOnlyTab(t)) return
   if (t.kind === 'canvas') await persistCanvasSnapshot(t, content)
   else await writeMd(t.filePath, content)
   await reloadTabFromDisk(t.filePath)
@@ -649,7 +654,7 @@ export function persistMarkdownSnapshot(
   const ready = previous ? previous.catch(() => undefined) : Promise.resolve()
   const operation = ready.then(async () => {
     const path = t.filePath
-    if (!path || (expectedPath !== undefined && path !== expectedPath)) return
+    if (!path || isReadOnlyTab(t) || (expectedPath !== undefined && path !== expectedPath)) return
     await writeMd(path, content)
     if (t.filePath !== path) return
     t.initialContent = content
@@ -690,7 +695,7 @@ export async function saveActive(): Promise<void> {
     await saveAs(t.id, p)
     return
   }
-  if (isManagedMemoryTab(t)) return
+  if (isReadOnlyTab(t)) return
   if (t.externalState === 'changed') {
     throw new Error(
       `"${t.title}" was modified externally. Use the banner to Reload, Overwrite, or Save as…`,
@@ -714,7 +719,7 @@ export async function saveActive(): Promise<void> {
 /** 按 id 保存指定 tab（不改变 active）；供大纲工具栏保存按钮在笔记以 tab 打开时调用。 */
 export async function saveTab(id: string): Promise<void> {
   const t = tabs.find((x) => x.id === id)
-  if (!t || !t.filePath || isManagedMemoryTab(t)) return
+  if (!t || !t.filePath || isReadOnlyTab(t)) return
   if (activeId.value === id) flushMountedDocument(id)
   if (t.externalState === 'changed') {
     throw new Error(`"${t.title}" was modified externally. Use the banner to Reload, Overwrite, or Save as…`)
@@ -803,7 +808,7 @@ async function rewriteOpenCanvasReferences(oldPath: string, newPath: string): Pr
 
 export async function saveAs(id: string, newPath: string): Promise<void> {
   const t = tabs.find((x) => x.id === id)
-  if (!t || isManagedMemoryTab(t)) return
+  if (!t || isReadOnlyTab(t)) return
   if (activeId.value === id) flushMountedDocument(id)
   if (shouldSkipEmptySave(t)) return
   const targetIsCanvas = /\.canvas$/i.test(newPath)
@@ -1033,7 +1038,7 @@ export async function reloadFromDisk(id: string): Promise<void> {
  */
 export async function overwriteOnDisk(id: string): Promise<void> {
   const t = tabs.find((x) => x.id === id)
-  if (!t || isManagedMemoryTab(t)) return
+  if (!t || isReadOnlyTab(t)) return
   if (shouldSkipEmptySave(t)) return
   if (t.kind === 'canvas') {
     await persistCanvasSnapshot(t, t.currentContent, true)

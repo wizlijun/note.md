@@ -391,7 +391,7 @@ build_arch() {
   local arch_check_dir="/tmp/note.md-archcheck-${arch_tag}"
   rm -rf "$arch_check_dir"; mkdir -p "$arch_check_dir"
   tar xzf "$tarball_staged" -C "$arch_check_dir"
-  local inner_app inner_bin got_arch entitlement_plist location_entitlement
+  local inner_app inner_bin got_arch entitlement_plist location_entitlement automation_entitlement
   inner_app=$(find "$arch_check_dir" -name "*.app" -type d -print -quit)
   [[ -n "$inner_app" ]] || die "arch-check: no .app in staged $arch_tag tarball"
   inner_bin=$(find "$arch_check_dir" -path '*/Contents/MacOS/notemd' -type f -print -quit)
@@ -408,9 +408,17 @@ build_arch() {
   )
   [[ "$location_entitlement" == "true" ]] \
     || die "entitlement-check FAILED for $arch_tag: signed app lacks com.apple.security.personal-information.location=true"
+  automation_entitlement=$(
+    /usr/libexec/PlistBuddy \
+      -c 'Print :com.apple.security.automation.apple-events' \
+      "$entitlement_plist" 2>/dev/null || true
+  )
+  [[ "$automation_entitlement" == "true" ]] \
+    || die "entitlement-check FAILED for $arch_tag: signed app lacks com.apple.security.automation.apple-events=true"
   rm -rf "$arch_check_dir"
   echo "    ${arch_tag} arch verified: binary is $got_arch"
   echo "    ${arch_tag} location entitlement verified"
+  echo "    ${arch_tag} Apple Events entitlement verified"
 
   # DO NOT trust Tauri's own .sig ($sig_src). Tauri signs the updater tarball
   # BEFORE notarization staples the .app, so its .sig is for a stale, pre-staple

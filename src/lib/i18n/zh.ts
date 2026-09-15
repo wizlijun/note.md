@@ -478,6 +478,7 @@ export const zh: Record<keyof Messages, string> = {
   'agent.steps': '{n} 步',
   'agent.locked': 'agent 工作期间,手记暂不可编辑。',
   'memory.projectionReadOnly': '受控记忆投影为只读；请在 Memory 插件中审阅或变更条目。',
+  'document.frontmatterReadOnly': '此文档的 YAML 标记为只读；请在来源应用中修改。',
   'agent.doneSkipped': '无需运行',
   'agent.doneSuccess': '完成',
   'agent.doneError': '失败',

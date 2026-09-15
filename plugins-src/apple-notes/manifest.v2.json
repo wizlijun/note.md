@@ -1,0 +1,44 @@
+{
+  "manifest_version": 2,
+  "id": "notemd.apple-notes",
+  "name": "Apple Notes Sync",
+  "version": "1.0.0",
+  "kind": "native",
+  "binary": {
+    "aarch64-apple-darwin": "bin/notemd-apple-notes",
+    "x86_64-apple-darwin": "bin/notemd-apple-notes"
+  },
+  "engines": { "notemd": ">=6.915.1" },
+  "description": "Mirror Apple Notes accounts and folders into read-only Markdown notes in applenotes. macOS only.",
+  "ui": "ui/",
+  "activation": {
+    "events": ["onStartupFinished", "onCommand:open", "onCli:apple-notes-sync"]
+  },
+  "contributes": {
+    "menus": [{ "location": "plugins", "submenu": "import-export", "label": "Sync Apple Notes…", "command": "open" }],
+    "windows": [{
+      "id": "main", "entry": "index.html", "title": "Apple Notes Sync",
+      "width": 660, "height": 620, "min_width": 480, "min_height": 420,
+      "open_command": "open"
+    }],
+    "cli": [{
+      "subcommand": "apple-notes-sync", "command": "sync",
+      "summary": "Sync Apple Notes into the Vault (macOS only)",
+      "args": [],
+      "flags": [
+        { "long": "--vault", "type": "string", "help": "Vault root (default: configured Vault)" },
+        { "long": "--dry-run", "type": "boolean", "help": "Preview changes without modifying the Vault" }
+      ],
+      "requires_tab_context": false
+    }]
+  },
+  "capabilities": ["vault.read", "vault.write", "ui"],
+  "request_timeout_seconds": 300,
+  "i18n": {
+    "zh": {
+      "name": "Apple Notes 同步",
+      "description": "按 Apple Notes 的账户和文件夹组织方式，将笔记同步到 applenotes 目录，生成只读 Markdown 副本。仅 macOS 可用。",
+      "menus": { "open": "同步 Apple Notes…" }
+    }
+  }
+}

@@ -259,6 +259,32 @@ describe('tabs', () => {
     expect(tab.initialContent).toBe(original)
   })
 
+  it('protects YAML readonly mirrors from all tab writes and accepts source reloads', async () => {
+    const fs = await import('./fs')
+    const content = '---\nreadonly: true\n---\n# Apple Notes\n'
+    vi.mocked(fs.readMd).mockResolvedValueOnce(content)
+    const m = await import('./tabs.svelte')
+    await m.openFile('/vault/applenotes/iCloud/Notes/example/notes.md')
+    const tab = m.tabs[0]
+    expect(m.isManagedMemoryTab(tab)).toBe(false)
+    expect(m.isReadOnlyTab(tab)).toBe(true)
+    m.setContent(tab.id, '# direct edit')
+    expect(tab.currentContent).toBe(content)
+    tab.currentContent = '# removed readonly through direct mutation'
+    await m.saveActive()
+    await m.saveTab(tab.id)
+    await m.overwriteOnDisk(tab.id)
+    await m.restoreVersion(tab.id, '# previous version')
+    await m.saveAs(tab.id, '/tmp/copy.md')
+    await m.persistMarkdownSnapshot(tab, '# autosave bypass')
+    expect(fs.writeMd).not.toHaveBeenCalled()
+    expect(tab.filePath).toContain('/applenotes/')
+    vi.mocked(fs.readMd).mockResolvedValueOnce(content + 'Source update\n')
+    await m.reloadTabFromDisk(tab.filePath)
+    expect(tab.currentContent).toBe(content + 'Source update\n')
+    expect(m.isReadOnlyTab(tab)).toBe(true)
+  })
+
   it('openFile falls back to plain text (kind=code) for an unknown extension with no plugin', async () => {
     // file-over-app: an unrecognised extension (and no custom-editor plugin
     // claiming it) opens as plain text instead of throwing.

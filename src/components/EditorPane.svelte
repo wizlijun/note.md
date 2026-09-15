@@ -1,7 +1,7 @@
 <script lang="ts">
   import { untrack } from 'svelte'
   import type { Tab } from '../lib/tabs.svelte'
-  import { isManagedMemoryTab, setContent } from '../lib/tabs.svelte'
+  import { isManagedMemoryTab, isReadOnlyTab, setContent } from '../lib/tabs.svelte'
   import RichEditor from './RichEditor.svelte'
   import CsvEditor from './CsvEditor.svelte'
   import BaseView from './BaseView.svelte'
@@ -30,8 +30,9 @@
 
   let { tab }: { tab: Tab } = $props()
   let memoryReadOnly = $derived(isManagedMemoryTab(tab))
+  let documentReadOnly = $derived(isReadOnlyTab(tab))
   let presentation = $derived(fileViewPresentation(tab, pluginRuntime.manifests))
-  let fileView = $derived(memoryReadOnly || tab.mode === 'source' ? null : presentation.active)
+  let fileView = $derived(documentReadOnly || tab.mode === 'source' ? null : presentation.active)
 
   // A selected file view that became unavailable falls back to Rich and does
   // not silently jump to a different matching plugin.
@@ -137,11 +138,11 @@
     <!-- MDX rich mode remains read-only; source mode preserves JSX byte-for-byte. -->
     {#key tab.id}<RichEditor {tab} readOnly />{/key}
   {:else}
-    {#key `${tab.id}:${memoryReadOnly}`}
+    {#key `${tab.id}:${documentReadOnly}`}
       <RichEditor
         {tab}
         onFlush={onRichFlush}
-        readOnly={memoryReadOnly}
+        readOnly={documentReadOnly}
         wrapAsCodeBlock={tab.kind === 'code' ? (tab.language ?? '') : undefined}
       />
     {/key}
@@ -151,6 +152,8 @@
 <div class="editor-stack" bind:this={stackEl}>
   {#if memoryReadOnly}
     <div class="memory-readonly" role="status">{t('memory.projectionReadOnly')}</div>
+  {:else if documentReadOnly}
+    <div class="memory-readonly" role="status">{t('document.frontmatterReadOnly')}</div>
   {/if}
   <ExternalChangeBanner {tab} />
   {#if tab.kind !== 'canvas'}
@@ -192,13 +195,13 @@
       <CustomEditorIframe {tab} />
     {/key}
   {:else if tab.mode === 'source'}
-    {#key `${tab.id}:${memoryReadOnly}`}
+    {#key `${tab.id}:${documentReadOnly}`}
       <SourceView
         value={tab.currentContent}
         oninput={onSourceInput}
         tabId={tab.id}
         filePath={tab.filePath}
-        readOnly={memoryReadOnly}
+        readOnly={documentReadOnly}
       />
     {/key}
   {:else if fileView}

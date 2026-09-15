@@ -444,6 +444,7 @@ export const ja: Record<keyof Messages, string> = {
   'agent.steps': '{n} ステップ',
   'agent.locked': 'エージェントの作業中、サイドノートは編集できません。',
   'memory.projectionReadOnly': '管理対象の記憶プロジェクションは読み取り専用です。Memory プラグインで項目を確認・変更してください。',
+  'document.frontmatterReadOnly': 'YAML で読み取り専用に指定された文書です。元のアプリで編集してください。',
   'agent.doneSkipped': '実行の必要なし',
   'agent.doneSuccess': '完了',
   'agent.doneError': '失敗',

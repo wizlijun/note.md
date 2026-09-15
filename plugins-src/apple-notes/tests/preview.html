@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Apple Notes Sync — visual fixture</title>
+  </head>
+  <body>
+    <main id="app"></main>
+    <script>
+      // Visual review fixture only; Vite's production entry excludes this page.
+      const state = { auto_sync: false, running: false, last_finished: 1789441200,
+        vault: '/Users/example/Documents/My Vault', error: null,
+        report: { created: 8, updated: 2, moved: 1, deleted: 0, unchanged: 40,
+          locked: 1, complete: false, warnings: ['一篇锁定笔记暂未导出，已保留之前的同步副本。'] } };
+      window.notemd = { locale: 'zh-CN', request: async (method, params) => {
+        if (method === 'plugin.settings') state.auto_sync = params.auto_sync;
+        return structuredClone(state);
+      } };
+    </script>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
