@@ -63,7 +63,8 @@
       "name": "提取知识浏览器",
       "description": "只读浏览提取的知识对象、多方关系、时间线与原文证据。",
       "menus": {
-        "open-browser": "打开提取知识浏览器…"
+        "open-browser": "打开提取知识浏览器…",
+        "view-knowledge": "查看提取知识"
       }
     }
   }
