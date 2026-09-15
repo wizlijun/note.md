@@ -185,6 +185,16 @@ fn sync_directory_chain(path: &Path, root: &Path) -> Result<()> {
     }
     Ok(())
 }
+fn sync_existing_directory_chain(path: &Path, root: &Path) -> Result<()> {
+    let mut directory = path;
+    while !directory.exists() {
+        if directory == root {
+            return Err("vault disappeared during sync recovery".into());
+        }
+        directory = directory.parent().ok_or("missing directory ancestor")?;
+    }
+    sync_directory_chain(directory, root)
+}
 fn rename_durable(source: &Path, target: &Path) -> Result<()> {
     let source_parent = source.parent().ok_or("missing source parent")?;
     let target_parent = target.parent().ok_or("missing target parent")?;
@@ -1206,15 +1216,17 @@ fn render(
             .filter(|u| u.starts_with("https://") || u.starts_with("http://"))
         {
             links.push(format!("- <{}>", url.replace(['<', '>', '\n', '\r'], "")));
-            entry.attachments.insert(
-                candidate.key,
-                Asset {
-                    name: candidate.name,
-                    path: None,
-                    hash: None,
-                    url: Some(url),
-                },
-            );
+            let asset = Asset {
+                name: candidate.name,
+                path: None,
+                hash: None,
+                url: Some(url),
+            };
+            if candidate.legacy {
+                entry.legacy_attachments.insert(candidate.key, asset);
+            } else {
+                entry.attachments.insert(candidate.key, asset);
+            }
         } else {
             report.complete = false;
             let label = candidate.name.replace(['[', ']', '\n', '\r'], "_");
@@ -1223,15 +1235,17 @@ fn render(
                 filename(path)?
             ));
             links.push(format!("- {label} — unavailable through the Apple Notes export interface; open the original note to view it."));
-            entry.attachments.insert(
-                candidate.key,
-                Asset {
-                    name: candidate.name,
-                    path: None,
-                    hash: None,
-                    url: None,
-                },
-            );
+            let asset = Asset {
+                name: candidate.name,
+                path: None,
+                hash: None,
+                url: None,
+            };
+            if candidate.legacy {
+                entry.legacy_attachments.insert(candidate.key, asset);
+            } else {
+                entry.attachments.insert(candidate.key, asset);
+            }
         }
     }
     let metadata = serde_json::json!({"type":"Note","readonly":true,"source":"apple-notes","title":note.title,
@@ -1272,7 +1286,11 @@ fn all_files(ledger: &Ledger) -> BTreeMap<String, String> {
         })
         .collect()
 }
-fn cleanup_empty(root: &Path, paths: impl IntoIterator<Item = String>, boundary: &str) {
+fn cleanup_empty(
+    root: &Path,
+    paths: impl IntoIterator<Item = String>,
+    boundary: &str,
+) -> Result<()> {
     let boundary = root.join(boundary);
     let mut directories = BTreeSet::new();
     for path in paths {
@@ -1289,8 +1307,14 @@ fn cleanup_empty(root: &Path, paths: impl IntoIterator<Item = String>, boundary:
     let mut ordered: Vec<_> = directories.into_iter().collect();
     ordered.sort_by_key(|p| std::cmp::Reverse(p.components().count()));
     for dir in ordered {
-        let _ = fs::remove_dir(dir);
+        let parent = dir.parent().map(Path::to_path_buf);
+        if fs::remove_dir(&dir).is_ok() {
+            if let Some(parent) = parent {
+                sync_existing_directory_chain(&parent, root)?;
+            }
+        }
     }
+    Ok(())
 }
 fn validate_pending(root: &Path, ledger: &Ledger, pending: &Pending) -> Result<()> {
     if pending.transaction.is_empty()
@@ -1355,6 +1379,15 @@ fn validate_pending(root: &Path, ledger: &Ledger, pending: &Pending) -> Result<(
     if !required_installs.is_subset(&destinations) {
         return Err("incomplete pending install operations".into());
     }
+    for (path, digest) in &next {
+        if destinations.contains(&fold(path)) {
+            continue;
+        }
+        let target = safe(root, path)?;
+        if !target.exists() || hash(&fs::read(target).map_err(|e| e.to_string())?) != *digest {
+            return Err("pending transaction leaves a mapped file unavailable".into());
+        }
+    }
     Ok(())
 }
 fn recover(root: &Path) -> Result<()> {
@@ -1409,13 +1442,16 @@ fn recover(root: &Path) -> Result<()> {
                 fs::create_dir_all(saved.parent().unwrap()).map_err(|e| e.to_string())?;
                 sync_directory_chain(saved.parent().unwrap(), root)?;
                 rename_durable(&source, &saved)?;
+            } else {
+                sync_directory_chain(saved.parent().unwrap(), root)?;
+                sync_existing_directory_chain(safe(root, &backup.path)?.parent().unwrap(), root)?;
             }
         }
         cleanup_empty(
             root,
             pending.backups.iter().map(|b| b.path.clone()),
             "applenotes",
-        );
+        )?;
         pending.phase = Phase::Install;
         ledger.pending = Some(pending.clone());
         atomic_json(root, MAPPING, &ledger)?;
@@ -1435,9 +1471,14 @@ fn recover(root: &Path) -> Result<()> {
             sync_directory_chain(target.parent().unwrap(), root)?;
             rename_durable(&staged, &target)?;
         } else if !target.exists()
-            || hash(&fs::read(target).map_err(|e| e.to_string())?) != install.hash
+            || hash(&fs::read(&target).map_err(|e| e.to_string())?) != install.hash
         {
             return Err("installed sync file is missing or changed".into());
+        } else {
+            sync_directory_chain(target.parent().unwrap(), root)?;
+            if let Some(parent) = staged.parent().filter(|parent| parent.exists()) {
+                sync_directory_chain(parent, root)?;
+            }
         }
     }
     atomic_json(root, MAPPING, pending.next.as_ref())?;
@@ -1445,7 +1486,7 @@ fn recover(root: &Path) -> Result<()> {
         root,
         pending.installs.iter().map(|i| i.staged.clone()),
         &format!("{CONTROL}/staging"),
-    );
+    )?;
     let _ = fs::remove_dir(root.join(format!("{CONTROL}/staging/{}", pending.transaction)));
     Ok(())
 }
@@ -1774,6 +1815,9 @@ fn recover_legacy(root: &Path) -> Result<()> {
                 fs::create_dir_all(backup.parent().unwrap()).map_err(|e| e.to_string())?;
                 sync_directory_chain(backup.parent().unwrap(), root)?;
                 rename_durable(&source, &backup)?;
+            } else if backup.exists() && !source.exists() {
+                sync_directory_chain(backup.parent().unwrap(), root)?;
+                sync_existing_directory_chain(source.parent().unwrap(), root)?;
             }
         }
     }
@@ -1793,9 +1837,14 @@ fn recover_legacy(root: &Path) -> Result<()> {
                 sync_directory_chain(target.parent().unwrap(), root)?;
                 rename_durable(&source, &target)?;
             } else if !target.exists()
-                || hash(&fs::read(target).map_err(|e| e.to_string())?) != *expected
+                || hash(&fs::read(&target).map_err(|e| e.to_string())?) != *expected
             {
                 return Err("legacy recovery is missing its installed file".into());
+            } else {
+                sync_directory_chain(target.parent().unwrap(), root)?;
+                if let Some(parent) = source.parent().filter(|parent| parent.exists()) {
+                    sync_directory_chain(parent, root)?;
+                }
             }
         }
     }
@@ -1806,12 +1855,12 @@ fn recover_legacy(root: &Path) -> Result<()> {
         root,
         journal.operations.iter().filter_map(|op| op.staged.clone()),
         &format!("{CONTROL}/staging"),
-    );
+    )?;
     cleanup_empty(
         root,
         journal.operations.iter().filter_map(|op| op.old.clone()),
         "applenotes",
-    );
+    )?;
     fs::remove_file(path).map_err(|e| e.to_string())
 }
 

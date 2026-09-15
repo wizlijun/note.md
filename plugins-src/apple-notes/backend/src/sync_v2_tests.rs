@@ -352,6 +352,37 @@ fn legacy_mapping_migrates_locked_notes_assets_and_tombstones_old_binary() {
 }
 
 #[test]
+fn missing_locked_legacy_asset_stays_a_fingerprint_until_full_id_is_visible() {
+    let vault = tempfile::tempdir().unwrap();
+    let root = vault.path();
+    let mut s = snapshot();
+    write_legacy(root, &s, true);
+    let legacy: Ledger =
+        serde_json::from_slice(&fs::read(root.join(format!("{CONTROL}/state.json"))).unwrap())
+            .unwrap();
+    let asset = legacy.notes["note-id"]
+        .files
+        .keys()
+        .find(|path| path.contains('/'))
+        .unwrap();
+    fs::remove_file(root.join(entry_file(&legacy.notes["note-id"], asset))).unwrap();
+    s.notes[0].locked = true;
+    apply(root, &s).unwrap();
+    let migrated = ledger(root);
+    assert_eq!(migrated.notes["note-id"].legacy_attachments.len(), 1);
+    assert!(migrated.notes["note-id"].attachments.is_empty());
+
+    s.notes[0].locked = false;
+    attach(&mut s, "asset-id", "photo.png", None);
+    apply(root, &s).unwrap();
+    let completed = ledger(root);
+    assert!(completed.notes["note-id"].legacy_attachments.is_empty());
+    assert!(completed.notes["note-id"]
+        .attachments
+        .contains_key("asset-id"));
+}
+
+#[test]
 fn unavailable_and_url_attachment_ids_are_kept_only_in_the_mapping() {
     let vault = tempfile::tempdir().unwrap();
     let root = vault.path();
@@ -526,7 +557,7 @@ fn pending_fixture(root: &Path) -> (Ledger, Pending, String, Vec<u8>, Vec<u8>) {
 
 #[test]
 fn v2_pending_recovers_before_during_and_after_install() {
-    for stage in 0..4 {
+    for stage in 0..5 {
         let vault = tempfile::tempdir().unwrap();
         let root = vault.path();
         let (old, mut pending, path, old_bytes, new_bytes) = pending_fixture(root);
@@ -537,10 +568,14 @@ fn v2_pending_recovers_before_during_and_after_install() {
             fs::create_dir_all(backup.parent().unwrap()).unwrap();
             fs::rename(&source, &backup).unwrap();
         }
-        if stage >= 2 {
+        if stage == 4 {
+            cleanup_empty(root, [path.clone()], "applenotes").unwrap();
+            assert!(!source.parent().unwrap().exists());
+        }
+        if stage == 2 || stage == 3 {
             pending.phase = Phase::Install;
         }
-        if stage >= 3 {
+        if stage == 3 {
             fs::create_dir_all(source.parent().unwrap()).unwrap();
             fs::rename(&staged, &source).unwrap();
         }
@@ -577,6 +612,48 @@ fn incomplete_or_corrupt_v2_pending_never_changes_the_mirror() {
 }
 
 #[test]
+fn same_hash_missing_file_requires_its_reinstall_operation() {
+    for remove_operation in [false, true] {
+        let vault = tempfile::tempdir().unwrap();
+        let root = vault.path();
+        apply(root, &snapshot()).unwrap();
+        let old = ledger(root);
+        let path = old.notes["note-id"].path.clone();
+        let bytes = fs::read(root.join(&path)).unwrap();
+        fs::remove_file(root.join(&path)).unwrap();
+        let staged = format!("{CONTROL}/staging/same-hash/0");
+        fs::create_dir_all(root.join(&staged).parent().unwrap()).unwrap();
+        fs::write(root.join(&staged), &bytes).unwrap();
+        let mut installs = vec![Install {
+            path: path.clone(),
+            hash: hash(&bytes),
+            staged,
+        }];
+        if remove_operation {
+            installs.clear();
+        }
+        let pending = Pending {
+            transaction: "same-hash".into(),
+            phase: Phase::Backup,
+            backups: vec![],
+            missing_backups: vec![],
+            installs,
+            next: Box::new(old.clone()),
+        };
+        let mut record = old;
+        record.pending = Some(pending);
+        atomic_json(root, MAPPING, &record).unwrap();
+        if remove_operation {
+            assert!(recover(root).is_err());
+            assert!(!root.join(path).exists());
+        } else {
+            recover(root).unwrap();
+            assert_eq!(fs::read(root.join(path)).unwrap(), bytes);
+        }
+    }
+}
+
+#[test]
 fn legacy_pending_is_replayed_before_v2_migration() {
     let vault = tempfile::tempdir().unwrap();
     let root = vault.path();
@@ -596,6 +673,58 @@ fn legacy_pending_is_replayed_before_v2_migration() {
     .unwrap();
     recover(root).unwrap();
     assert!(!root.join(format!("{CONTROL}/pending.json")).exists());
+    apply(root, &s).unwrap();
+    assert_eq!(ledger(root).version, 2);
+}
+
+#[test]
+fn legacy_pending_partially_backed_up_file_is_installed_then_migrated() {
+    let vault = tempfile::tempdir().unwrap();
+    let root = vault.path();
+    let s = snapshot();
+    write_legacy(root, &s, false);
+    let mut legacy: Ledger =
+        serde_json::from_slice(&fs::read(root.join(format!("{CONTROL}/state.json"))).unwrap())
+            .unwrap();
+    let path = legacy.notes["note-id"].path.clone();
+    let old_bytes = fs::read(root.join(&path)).unwrap();
+    let mut new_bytes = old_bytes.clone();
+    new_bytes.extend_from_slice(b"\nlegacy recovery\n");
+    legacy
+        .notes
+        .get_mut("note-id")
+        .unwrap()
+        .files
+        .insert(filename(&path).unwrap().into(), hash(&new_bytes));
+    let staged = format!("{CONTROL}/staging/legacy-partial/0");
+    let backup = format!("{CONTROL}/trash/legacy-partial/0");
+    fs::create_dir_all(root.join(&staged).parent().unwrap()).unwrap();
+    fs::write(root.join(&staged), &new_bytes).unwrap();
+    let journal = LegacyJournal {
+        operations: vec![
+            LegacyOperation {
+                old: Some(path.clone()),
+                old_hash: Some(hash(&old_bytes)),
+                new: None,
+                staged: None,
+                backup: backup.clone(),
+            },
+            LegacyOperation {
+                old: None,
+                old_hash: None,
+                new: Some(path.clone()),
+                staged: Some(staged),
+                backup: backup.clone(),
+            },
+        ],
+        ledger: legacy,
+    };
+    atomic_json(root, &format!("{CONTROL}/pending.json"), &journal).unwrap();
+    fs::create_dir_all(root.join(&backup).parent().unwrap()).unwrap();
+    fs::rename(root.join(&path), root.join(&backup)).unwrap();
+    recover(root).unwrap();
+    assert_eq!(fs::read(root.join(&path)).unwrap(), new_bytes);
+    assert_eq!(fs::read(root.join(&backup)).unwrap(), old_bytes);
     apply(root, &s).unwrap();
     assert_eq!(ledger(root).version, 2);
 }
