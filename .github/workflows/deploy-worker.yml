@@ -18,8 +18,6 @@ jobs:
       # first, or the action fails with "Unable to locate executable file: pnpm"
       # and then falls back to `pnpm add wrangler`.
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9
       - uses: actions/setup-node@v4
         with:
           node-version: 20

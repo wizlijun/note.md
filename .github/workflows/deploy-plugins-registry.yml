@@ -17,8 +17,6 @@ jobs:
       # pnpm as the package manager. Make pnpm (and Node) available first, or the
       # action fails with "Unable to locate executable file: pnpm".
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9
       - uses: actions/setup-node@v4
         with:
           node-version: 20
