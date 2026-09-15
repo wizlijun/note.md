@@ -20,9 +20,11 @@ The agent-ready notes system, rolling out incrementally:
       lazy-loading feed of `dailynote/yyyy/yyyy-MM-dd.note.md`, one keystroke
       or tray click away; `[[yyyy-MM-dd]]` is the canonical date link and
       `[[page]]` links open inline.
-- [x] **Roam import** — one-shot converter (a built-in plugin) from a Roam
-      Research JSON export, with date-page rewriting to `[[yyyy-MM-dd]]` and a
-      broken-link report.
+- [x] **Roam Research Sync** — keep using Roam while gathering pages and daily
+      notes into the vault for agent search and computation. The built-in
+      plugin supports ongoing CLI synchronization plus a whole-graph JSON
+      import, with date-page rewriting to `[[yyyy-MM-dd]]` and a broken-link
+      report.
 - [x] **Annotation Q&A loop** — an annotation containing `?` becomes a question
       for your agents; the `.note.md` carries the state machine, an external
       agent sweeps it, and answers come back as `type:: answer` nodes you can
@@ -148,7 +150,7 @@ The agent-ready notes system, rolling out incrementally:
   menus, settings panels, sidebars, tray items, CLI subcommands) and
   capability-gated host actions; dormant until invoked. Browse and install from
   the in-app marketplace ([plugins.notemd.net](https://plugins.notemd.net)):
-  **Roam Import**, **Base** (Obsidian `.base` tables), **Weekly Review**
+  **Roam Research Sync**, **Base** (Obsidian `.base` tables), **Weekly Review**
   (year-calendar review), **Decision**, **OpenClaw Chat**, md→PDF, and more.
   Writing your own: [`plugin-v2-development.md`](plugin-v2-development.md).
 

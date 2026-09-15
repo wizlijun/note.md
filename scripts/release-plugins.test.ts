@@ -344,6 +344,59 @@ describe('plugin market metadata localization', () => {
   })
 })
 
+describe('Roam Research Sync product identity', () => {
+  const manifest = JSON.parse(
+    readFileSync(join(ROOT, 'plugins-src', 'roam-import', 'manifest.v2.json'), 'utf8'),
+  ) as {
+    id: string
+    name: string
+    version: string
+    description: string
+    contributes: {
+      menus: Array<{ command: string; label: string }>
+      windows: Array<{ id: string; title: string }>
+    }
+    i18n: Record<string, {
+      name: string
+      description: string
+      menus: Record<string, string>
+      windows: Record<string, string>
+    }>
+  }
+  const packageJson = JSON.parse(
+    readFileSync(join(ROOT, 'plugins-src', 'roam-import', 'package.json'), 'utf8'),
+  ) as { name: string; version: string }
+
+  it('renames only the product surface and keeps the installed identity stable', () => {
+    expect(manifest.id).toBe('notemd.roam-import')
+    expect(packageJson.name).toBe('roam-import-plugin')
+    expect(packageJson.version).toBe(manifest.version)
+    expect(manifest.version).toBe('1.2.5')
+    expect(manifest.name).toBe('Roam Research Sync')
+    expect(manifest.description).toContain('Keep using Roam Research')
+    expect(manifest.description).toContain('agents')
+    expect(manifest.contributes.menus).toContainEqual(
+      expect.objectContaining({ command: 'open', label: 'Roam Research Sync…' }),
+    )
+    expect(manifest.contributes.windows).toContainEqual(
+      expect.objectContaining({ id: 'main', title: 'Roam Research Sync' }),
+    )
+  })
+
+  it.each([
+    ['zh', 'Roam Research 同步'],
+    ['ja', 'Roam Research 同期'],
+    ['de', 'Roam-Research-Synchronisierung'],
+  ])('keeps the %s name, menu and window title aligned', (locale, name) => {
+    expect(manifest.i18n[locale]).toMatchObject({
+      name,
+      menus: { open: `${name}…` },
+      windows: { main: name },
+    })
+    expect(manifest.i18n[locale].description).toMatch(/Agent/)
+  })
+})
+
 describe('Location Log product identity', () => {
   const manifest = JSON.parse(
     readFileSync(join(ROOT, 'plugins-src', 'pos-log', 'manifest.v2.json'), 'utf8'),

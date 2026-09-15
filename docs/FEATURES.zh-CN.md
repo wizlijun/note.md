@@ -17,8 +17,9 @@ note.md 今天能做的每一件事。README 讲主张，这里放细节。
 - [x] **每日笔记** —— 独立的「每日笔记」窗口，无限懒加载信息流串起
       `dailynote/yyyy/yyyy-MM-dd.note.md`，一键或托盘直达；`[[yyyy-MM-dd]]`
       为日期链接的规范形式，`[[页面]]` 链接就地打开。
-- [x] **Roam 导入** —— 从 Roam Research JSON 导出一次性转换（内置插件），
-      日期页改写为 `[[yyyy-MM-dd]]` 并给出断链报告。
+- [x] **Roam Research 同步** —— 继续使用 Roam，同时把页面和每日笔记汇集到
+      Vault，供 Agent 统一检索和计算。内置插件支持持续 CLI 同步和全图 JSON
+      导入，并将日期页改写为 `[[yyyy-MM-dd]]`、给出断链报告。
 - [x] **批注问答闭环** —— 批注里带 `?` 就是向 agent 提的问题；`.note.md`
       承载状态机，外部 agent 扫描处理，答复以 `type:: answer` 节点回来，
       由你决定是否采纳进正文。agent 永远不写源 `.md`。
@@ -120,7 +121,7 @@ note.md 今天能做的每一件事。README 讲主张，这里放细节。
 - **插件系统（v2）** —— 跨进程插件（stdin/stdout JSON）*外加*隔离 webview 的
   UI 插件；manifest 声明式注册菜单、上下文菜单、设置面板、侧栏、托盘项、CLI
   子命令，宿主能力按声明授权，未触发时不运行。可在应用内市场
-  （[plugins.notemd.net](https://plugins.notemd.net)）浏览安装：**Roam 导入**、
+  （[plugins.notemd.net](https://plugins.notemd.net)）浏览安装：**Roam Research 同步**、
   **Base**（Obsidian `.base` 表格）、**周检视**（年历式回顾）、**决策**、
   **OpenClaw Chat**、md→PDF 等。自己写插件见
   [`plugin-v2-development.md`](plugin-v2-development.md)。

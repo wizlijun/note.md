@@ -6,6 +6,17 @@ const enKeys = Object.keys(en)
 const placeholders = (s: string) => (s.match(/\{(\w+)\}/g) ?? []).sort()
 
 describe('t', () => {
+  it('uses sync as the product identity while keeping JSON import action wording', () => {
+    expect(CATALOGS.en.title).toBe('Roam Research Sync')
+    expect(CATALOGS.zh.title).toBe('Roam Research 同步')
+    expect(CATALOGS.ja.title).toBe('Roam Research 同期')
+    expect(CATALOGS.de.title).toBe('Roam-Research-Synchronisierung')
+    expect(CATALOGS.en.purpose).toContain('Keep working in Roam')
+    expect(CATALOGS.zh.purpose).toContain('继续按你的习惯使用 Roam')
+    expect(CATALOGS.en['hint.title']).toBe('Before importing')
+    expect(CATALOGS.zh.pickFile).toContain('导出文件')
+  })
+
   it('returns the English string for a known key by default', () => {
     expect(t('pickFile')).toBe('Choose Roam export (.zip / .json)…')
   })

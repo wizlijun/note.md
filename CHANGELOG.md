@@ -15,6 +15,11 @@ For the full commit history, see the git log.
   moved out of paths and note YAML into `applenotes/id-sync.json`, which also
   keeps stable numeric suffixes for genuine name collisions. Existing mirrors
   migrate in place with the same conflict, recovery and deletion protections.
+- **Roam Research Import is now Roam Research Sync.** The new name and
+  description reflect its actual role: keep using Roam while gathering pages
+  and daily notes into the Vault for agents to search and compute across. The
+  JSON export remains available as a full-graph initialization path, and all
+  existing plugin IDs, CLI commands and sync ledgers remain compatible.
 
 ## v6.915.1 — 2026-09-15
 

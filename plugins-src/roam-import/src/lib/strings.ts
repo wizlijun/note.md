@@ -11,6 +11,7 @@ export type Locale = 'en' | 'zh' | 'ja' | 'de'
 
 export type MessageKey =
   | 'title'
+  | 'purpose'
   | 'hint.title'
   | 'hint.step1'
   | 'hint.step2'
@@ -61,13 +62,14 @@ export type MessageKey =
 type Catalog = Record<MessageKey, string>
 
 const en: Catalog = {
-  title: 'Import from Roam Research',
+  title: 'Roam Research Sync',
+  purpose: 'Keep working in Roam. This plugin gathers a local Vault copy so agents can search and compute across your notes.',
   'hint.title': 'Before importing',
   'hint.step1': 'In Roam, use “Export All” and choose the JSON format, or compress the export into a .zip.',
   'hint.step2': 'Keep the export file under 200 MB.',
   pickFile: 'Choose Roam export (.zip / .json)…',
   'dialog.filter': 'Roam export',
-  noVault: 'Configure a Vault first (Settings → Vault) to import.',
+  noVault: 'Configure a Vault first (Settings → Vault) to sync or import.',
   'stage.parse': 'Parsing export…',
   'stage.plan': 'Planning import…',
   'stage.write': 'Writing notes…',
@@ -111,13 +113,14 @@ const en: Catalog = {
 }
 
 const zh: Catalog = {
-  title: '从 Roam Research 导入',
+  title: 'Roam Research 同步',
+  purpose: '继续按你的习惯使用 Roam。插件把数据副本汇集到 Vault，方便 Agent 统一检索和计算。',
   'hint.title': '导入前请注意',
   'hint.step1': '在 Roam 中使用「Export All」并选择 JSON 格式，或将导出文件压缩为 .zip。',
   'hint.step2': '导出文件需小于 200 MB。',
   pickFile: '选择 Roam 导出文件（.zip / .json）…',
   'dialog.filter': 'Roam 导出文件',
-  noVault: '请先在 设置 → Vault 配置仓库后再导入。',
+  noVault: '请先在 设置 → Vault 配置仓库后再同步或导入。',
   'stage.parse': '正在解析导出文件…',
   'stage.plan': '正在计算导入计划…',
   'stage.write': '正在写入笔记…',
@@ -161,7 +164,8 @@ const zh: Catalog = {
 }
 
 const ja: Catalog = {
-  title: 'Roam Research からインポート',
+  title: 'Roam Research 同期',
+  purpose: 'Roam をいつもどおり使い続けながら、ローカルの Vault にデータを集約し、Agent がノートを横断して検索・処理できるようにします。',
   'hint.title': 'インポート前に',
   'hint.step1': 'Roam で「Export All」を使い JSON 形式を選択するか、エクスポートを .zip に圧縮してください。',
   'hint.step2': 'エクスポートファイルは 200 MB 未満にしてください。',
@@ -211,13 +215,14 @@ const ja: Catalog = {
 }
 
 const de: Catalog = {
-  title: 'Aus Roam Research importieren',
+  title: 'Roam-Research-Synchronisierung',
+  purpose: 'Roam wie gewohnt weiterverwenden: Das Plugin sammelt eine lokale Kopie im Vault, damit Agents Ihre Notizen übergreifend durchsuchen und verarbeiten können.',
   'hint.title': 'Vor dem Import',
   'hint.step1': 'Nutzen Sie in Roam „Export All“ und wählen Sie das JSON-Format, oder komprimieren Sie den Export als .zip.',
   'hint.step2': 'Die Export-Datei muss kleiner als 200 MB sein.',
   pickFile: 'Roam-Export auswählen (.zip / .json)…',
   'dialog.filter': 'Roam-Export',
-  noVault: 'Konfigurieren Sie zuerst einen Tresor (Einstellungen → Tresor), um zu importieren.',
+  noVault: 'Konfigurieren Sie zuerst einen Tresor (Einstellungen → Tresor), um zu synchronisieren oder zu importieren.',
   'stage.parse': 'Export wird analysiert…',
   'stage.plan': 'Import wird geplant…',
   'stage.write': 'Notizen werden geschrieben…',

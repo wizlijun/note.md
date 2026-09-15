@@ -1,7 +1,10 @@
-# Roam Research Import
+# Roam Research Sync
 
-Bring [Roam Research](https://roamresearch.com) content into a note.md vault as
-plain `.note.md` outline pages. There are two independent paths:
+Keep using [Roam Research](https://roamresearch.com) in the way that already
+works for you. This plugin gathers its pages and daily notes into a note.md
+vault as plain `.note.md` files, so agents can search and compute across that
+knowledge alongside your other sources. It is a synchronization bridge, not a
+request to migrate away from Roam. There are three independent paths:
 
 1. **Whole-graph JSON import** — parse a Roam JSON export and write every page
    as a `.note.md` file (wiki pages + daily notes), with a manifest that

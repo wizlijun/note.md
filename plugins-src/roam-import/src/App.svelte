@@ -1,4 +1,4 @@
-<!-- App.svelte — Roam Research import UI, v2 plugin port of the host's
+<!-- App.svelte — Roam Research sync UI, v2 plugin port of the host's
      src/roam-import-app.svelte. Runs inside a host plugin window with ZERO
      Tauri IPC: all host effects go through the window.notemd fetch-RPC bridge
      (see src/lib/bridge.ts). The parse/plan/convert core is unchanged. -->
@@ -316,6 +316,7 @@
     <p class="msg">…</p>
   {:else}
     <h1>{t('title')}</h1>
+    <p class="purpose">{t('purpose')}</p>
     {#if vaultRoot === null}
       <p class="msg">{t('noVault')}</p>
     {:else}
@@ -525,6 +526,7 @@
   :global(body) { margin: 0; font-family: -apple-system, system-ui, sans-serif; background: Canvas; color: CanvasText; }
   main { height: 100vh; overflow: auto; padding: 14px 18px; box-sizing: border-box; max-width: 640px; margin: 0 auto; }
   h1 { font-size: 16px; margin: 0 0 12px; }
+  .purpose { margin: -4px 0 14px; color: var(--ui-secondary); font-size: 13px; line-height: 1.45; }
   .msg { color: color-mix(in srgb, CanvasText 55%, transparent); font-size: 13px; padding: 20px; }
   .hint {
     margin: 0 0 14px;
