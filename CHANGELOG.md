@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.915.1 — 2026-09-15
+
 ### Added
 
 - **Apple Notes Sync 1.0.0 mirrors Apple Notes into a read-only Vault archive
