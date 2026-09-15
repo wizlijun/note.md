@@ -122,7 +122,7 @@ function run(argv) {
                             // inventory incomplete. Keep its identity so the sync
                             // engine can preserve an earlier export or a placeholder.
                             var code = typeof error.errorNumber === "number" ? " (Notes error " + error.errorNumber + ")" : "";
-                            var message = "Attachment " + attachment.id + " in note " + note.id + " could not be exported by the Notes interface" + code + "; any existing copy will be preserved";
+                            var message = "Attachment #" + (j + 1) + " (" + attachment.name + ") in note \"" + note.title + "\" could not be exported by the Notes interface" + code + "; any existing copy will be preserved; see applenotes/id-sync.json for its source identity";
                             if (warnings.indexOf(message) < 0) warnings.push(message);
                         }
                     }

@@ -34,14 +34,15 @@ files in this vault carry it except for the generated `/USER.md` and
   editor's sync-to-vault feature). Each file is a snapshot of an external
   original; edits here do not flow back to the source file.
 - `applenotes/` — read-only Apple Notes mirrors, grouped by account and original
-  folder hierarchy. Filenames are `YYYY-MM-DD-HHMMSSZ-<id-hash>-<title-slug>.md`
-  (UTC creation time); assets are in the matching `<stem>.attachments/` folder.
-  YAML `source: apple-notes`, `apple_notes_id`, and `readonly: true` identify the
-  source and write boundary. Do not edit these mirrors or their metadata; make
-  derived notes elsewhere. On macOS, request synchronization with
+  folder hierarchy. Filenames are `YYYY-MM-DD-<title-slug>.md` (UTC creation
+  date); same-name paths use stable numeric suffixes, and assets are in the
+  matching `<stem>.attachments/` folder. YAML `source: apple-notes` and
+  `readonly: true` identify the source and write boundary. The active source-ID
+  mapping lives only in `/applenotes/id-sync.json`; do not edit the mapping,
+  mirrors or their metadata. Make derived notes elsewhere. On macOS, request synchronization with
   `notemd --json apple-notes-sync` (optional `--vault PATH` and `--dry-run`).
-  `/.notemd/apple-notes/` contains plugin-owned state, lock, recovery journal,
-  staging, and recoverable old/deleted copies under `trash/`; do not modify it.
+  `/.notemd/apple-notes/` contains the lock, staging, migration marker and
+  recoverable old/deleted copies under `trash/`; do not modify it.
   A partial sync can retain old or placeholder content for locked notes and
   unavailable attachments; use the CLI report and source metadata to identify
   these limitations before relying on the mirror.

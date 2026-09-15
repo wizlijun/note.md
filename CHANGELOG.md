@@ -7,6 +7,15 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+### Changed
+
+- **Apple Notes Sync now keeps readable paths and one central identity map.**
+  Accounts and folders no longer carry ID suffixes, notes use
+  `YYYY-MM-DD-title-slug.md`, and attachment names are readable. Source IDs have
+  moved out of paths and note YAML into `applenotes/id-sync.json`, which also
+  keeps stable numeric suffixes for genuine name collisions. Existing mirrors
+  migrate in place with the same conflict, recovery and deletion protections.
+
 ## v6.915.1 — 2026-09-15
 
 ### Added

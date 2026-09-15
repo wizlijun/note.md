@@ -37,7 +37,7 @@ app.innerHTML = `
     <p>${t('Keep a read-only copy of your notes in your Vault.', '在 Vault 中保存 Apple Notes 的只读副本。')}</p>
   </header>
   <section class="destination"><span>${t('Destination', '同步位置')}</span><code id="destination">Vault/applenotes/</code>
-    <p>${t('Account → folders → date-time-ID-title.md', '账户 → 文件夹 → 日期时间-ID-标题.md')}</p></section>
+    <p>${t('Account → folders → YYYY-MM-DD-title.md · IDs: id-sync.json', '账户 → 文件夹 → YYYY-MM-DD-标题.md · ID：id-sync.json')}</p></section>
   <section class="controls">
     <label><input id="auto" type="checkbox" disabled />${t('Sync automatically every 5 minutes', '每 5 分钟自动同步')}</label>
     <p>${t('Runs while note.md is open. New notes, edits, moves and deletions follow Apple Notes.', '在 note.md 运行时生效，跟随 Apple Notes 的新增、修改、移动和删除。')}</p>

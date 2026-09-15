@@ -222,6 +222,13 @@ mod tests {
     }
 
     #[test]
+    fn export_warnings_do_not_repeat_source_ids() {
+        let script = include_str!("export.js");
+        assert!(!script.contains("attachment.id + \" in note \" + note.id"));
+        assert!(script.contains("see applenotes/id-sync.json for its source identity"));
+    }
+
+    #[test]
     fn validates_exported_files_and_rejects_unsafe_paths() {
         let staging = tempfile::tempdir().unwrap();
         let staging = staging.path().canonicalize().unwrap();

@@ -34,6 +34,8 @@ describe('Apple Notes window bridge', () => {
     expect(request).toHaveBeenCalledWith('plugin.sync', undefined)
     expect(button.disabled).toBe(true)
     expect(document.querySelector('#status')?.textContent).toBe('正在读取 Apple Notes…')
+    expect(document.querySelector('.destination p')?.textContent)
+      .toBe('账户 → 文件夹 → YYYY-MM-DD-标题.md · ID：id-sync.json')
   })
 
   it('persists user opt-in through settings and rolls the checkbox back on failure', async () => {

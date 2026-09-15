@@ -2,14 +2,14 @@
   "manifest_version": 2,
   "id": "notemd.apple-notes",
   "name": "Apple Notes Sync",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "kind": "native",
   "binary": {
     "aarch64-apple-darwin": "bin/notemd-apple-notes",
     "x86_64-apple-darwin": "bin/notemd-apple-notes"
   },
   "engines": { "notemd": ">=6.915.1" },
-  "description": "Mirror Apple Notes accounts and folders into read-only Markdown notes in applenotes. macOS only.",
+  "description": "Mirror Apple Notes into readable, read-only Markdown paths, with source IDs kept centrally in applenotes/id-sync.json. macOS only.",
   "ui": "ui/",
   "activation": {
     "events": ["onStartupFinished", "onCommand:open", "onCli:apple-notes-sync"]
@@ -37,17 +37,17 @@
   "i18n": {
     "zh": {
       "name": "Apple Notes 同步",
-      "description": "按 Apple Notes 的账户和文件夹组织方式，将笔记同步到 applenotes 目录，生成只读 Markdown 副本。仅 macOS 可用。",
+      "description": "按 Apple Notes 的账户和文件夹组织方式生成可读的只读 Markdown 路径，来源 ID 统一保存在 applenotes/id-sync.json。仅 macOS 可用。",
       "menus": { "open": "同步 Apple Notes…" }
     },
     "ja": {
       "name": "Apple Notes 同期",
-      "description": "Apple Notes のアカウントとフォルダ構成を保ち、読み取り専用の Markdown コピーを applenotes に同期します。macOS 専用です。",
+      "description": "Apple Notes の構成を読みやすい Markdown パスへ同期し、ソース ID は applenotes/id-sync.json で一元管理します。macOS 専用です。",
       "menus": { "open": "Apple Notes を同期…" }
     },
     "de": {
       "name": "Apple Notes-Synchronisierung",
-      "description": "Spiegelt Apple Notes mit seiner Konto- und Ordnerstruktur als schreibgeschützte Markdown-Dateien nach applenotes. Nur für macOS.",
+      "description": "Spiegelt Apple Notes in lesbare, schreibgeschützte Markdown-Pfade; Quell-IDs werden zentral in applenotes/id-sync.json verwaltet. Nur für macOS.",
       "menus": { "open": "Apple Notes synchronisieren…" }
     }
   }
