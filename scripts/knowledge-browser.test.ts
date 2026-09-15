@@ -25,12 +25,12 @@ describe('Knowledge Browser host integration', () => {
     }
   })
 
-  it('keeps the window and file-view commands distinct and host-owned', () => {
+  it('exposes only the browser window in the global menu while keeping the file-view command host-owned', () => {
     const commands = manifest.contributes.menus.map(item => item.command)
-    expect(commands).toEqual(['open-browser', 'view-knowledge'])
-    expect(new Set(commands).size).toBe(commands.length)
+    expect(commands).toEqual(['open-browser'])
     expect(manifest.contributes.windows[0].open_command).toBe('open-browser')
     expect(manifest.contributes.file_views[0].open_command).toBe('view-knowledge')
+    expect(commands).not.toContain(manifest.contributes.file_views[0].open_command)
     expect(hostManifest.open_windows?.['open-browser']).toBe('main')
   })
 
