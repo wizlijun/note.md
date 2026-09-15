@@ -7,6 +7,21 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+### Changed
+
+- **Knowledge datasets now open directly in the main editor's Knowledge Viewer.**
+  JSON files identified as `knowledge-representation-dataset/3.0.0` default to
+  the read-only knowledge browser while keeping Rich, Source, and Knowledge
+  Viewer in the existing mode switcher. Ordinary JSON continues to use the
+  standard editor, and the Reading menu contains a single knowledge-browser
+  entry without a duplicate source-edit action.
+- **JSON Source view now expands compact documents into readable, editable lines.**
+  Entering Source for a valid `.json` file applies two-space indentation while
+  preserving number spellings, string escapes, duplicate keys, and key order.
+  Invalid JSON and JSONC remain untouched; formatting appears as an unsaved
+  edit so it can be saved or discarded, and knowledge JSON can still switch
+  back to Knowledge Viewer.
+
 ## v6.915.3 — 2026-09-15
 
 ### Changed
