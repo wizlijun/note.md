@@ -524,6 +524,65 @@ fn mapping_loss_corruption_and_symlinks_never_reimport_or_overwrite() {
 }
 
 #[test]
+fn finder_metadata_is_not_mirror_data_but_unknown_files_still_fail_closed() {
+    let vault = tempfile::tempdir().unwrap();
+    let root = vault.path();
+    fs::create_dir(root.join("applenotes")).unwrap();
+    fs::write(root.join("applenotes/.DS_Store"), b"finder").unwrap();
+    assert!(load_for_sync(root, &snapshot()).is_ok());
+
+    fs::remove_file(root.join("applenotes/.DS_Store")).unwrap();
+    fs::create_dir(root.join("applenotes/.DS_Store")).unwrap();
+    assert!(load_for_sync(root, &snapshot()).is_err());
+    fs::remove_dir(root.join("applenotes/.DS_Store")).unwrap();
+    fs::write(root.join("applenotes/keep.md"), b"mine").unwrap();
+    assert!(load_for_sync(root, &snapshot())
+        .unwrap_err()
+        .contains("mapping is missing"));
+    assert!(write_persisted_state(root, &PersistedState::default())
+        .unwrap_err()
+        .contains("mapping is missing"));
+    assert!(!root.join(MAPPING).exists());
+}
+
+#[test]
+fn a_failure_without_an_existing_mapping_does_not_create_one() {
+    let vault = tempfile::tempdir().unwrap();
+    let root = vault.path();
+    fs::create_dir(root.join("applenotes")).unwrap();
+    fs::write(root.join("applenotes/.DS_Store"), b"finder").unwrap();
+    let failed: Result<SyncReport> = Err(MISSING_MAPPING.into());
+
+    record_sync_result(root, &failed).unwrap();
+    assert!(!root.join(MAPPING).exists());
+}
+
+#[test]
+fn the_old_empty_error_ledger_cannot_bypass_mapping_loss_protection() {
+    let vault = tempfile::tempdir().unwrap();
+    let root = vault.path();
+    fs::create_dir(root.join("applenotes")).unwrap();
+    fs::write(root.join("applenotes/keep.md"), b"mine").unwrap();
+    let ledger = Ledger {
+        sync_state: PersistedState {
+            last_finished: Some(42),
+            error: Some(MISSING_MAPPING.into()),
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    atomic_json(root, MAPPING, &ledger).unwrap();
+
+    assert!(load_for_sync(root, &snapshot())
+        .unwrap_err()
+        .contains("mapping is missing"));
+    assert_eq!(
+        fs::read_to_string(root.join("applenotes/keep.md")).unwrap(),
+        "mine"
+    );
+}
+
+#[test]
 fn missing_account_and_locked_content_stay_intact() {
     let vault = tempfile::tempdir().unwrap();
     let root = vault.path();

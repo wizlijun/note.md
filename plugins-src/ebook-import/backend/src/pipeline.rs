@@ -187,12 +187,12 @@ pub fn run_import(
         let from_title = meta
             .title
             .as_deref()
-            .map(bookconf::sanitize_dirname)
+            .map(bookconf::book_dirname)
             .unwrap_or_default();
         if !from_title.is_empty() {
             from_title
         } else {
-            bookconf::sanitize_dirname(stem_fallback)
+            bookconf::book_dirname(stem_fallback)
         }
     };
     if dirname.is_empty() {
@@ -610,7 +610,7 @@ mod tests {
         let vault = tmp.path().join("vault");
         std::fs::create_dir_all(&vault).unwrap();
         seed_topics(&vault);
-        let input = tmp.path().join("My Book.pdf");
+        let input = tmp.path().join("My Book_Author.pdf");
         std::fs::write(&input, b"%PDF-1.4 fake").unwrap();
 
         let mut log_lines: Vec<String> = Vec::new();
@@ -645,13 +645,13 @@ mod tests {
         );
         let book_md = std::fs::read_to_string(dest.join("book.md")).unwrap();
         assert!(
-            book_md.starts_with("---\ntype: Book\ntitle: \"My Book\"\n"),
+            book_md.starts_with("---\ntype: Book\ntitle: \"My Book_Author\"\n"),
             "book.md must open with an OKF concept head, got: {book_md}"
         );
         assert!(book_md.ends_with("---\n# Stub Content"), "got: {book_md}");
         let cfg = std::fs::read_to_string(dest.join("config.txt")).unwrap();
         assert!(cfg.contains("conversion_method=ocr"), "got: {cfg}");
-        assert!(cfg.contains("original_title=My Book"), "got: {cfg}");
+        assert!(cfg.contains("original_title=My Book_Author"), "got: {cfg}");
         let meta_yml = std::fs::read_to_string(dest.join("meta.yml")).unwrap();
         let timestamp = meta_yml
             .lines()

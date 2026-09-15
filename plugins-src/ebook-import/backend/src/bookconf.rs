@@ -114,6 +114,16 @@ pub fn sanitize_dirname(input: &str) -> String {
     trimmed.chars().take(MAX_DIRNAME_CHARS).collect()
 }
 
+/// Builds the imported book's directory name from its title. Import suffixes
+/// beginning with `_` or `-` are not part of the book name.
+pub fn book_dirname(input: &str) -> String {
+    let title = input
+        .find(['_', '-'])
+        .map(|index| &input[..index])
+        .unwrap_or(input);
+    sanitize_dirname(title)
+}
+
 /// OKF v0.2 概念文档头(docs/okf-v0.2-format-constraints.md):`type` 是唯一
 /// 必填字段(§4.1),来源书文件按 §5.1 记进 `sources[].resource`。元数据缺失时
 /// 只降级为 type + sources —— 缺可选字段绝不影响合规(§11)。
@@ -256,6 +266,14 @@ mod tests {
         assert_eq!(sanitize_dirname("x\u{0007}y"), "xy");
         assert_eq!(sanitize_dirname(&"字".repeat(300)).chars().count(), 200);
         assert_eq!(sanitize_dirname("   "), "");
+    }
+
+    #[test]
+    fn book_dirname_discards_title_suffix_after_underscore_or_hyphen() {
+        assert_eq!(book_dirname("Book_Name"), "Book");
+        assert_eq!(book_dirname("Book - Author"), "Book");
+        assert_eq!(book_dirname("Book_Name-Edition"), "Book");
+        assert_eq!(book_dirname("A/B"), "A_B");
     }
 
     /// 与宿主校验器共用的 golden:同一份 `book.md` 头,这里断言字节,

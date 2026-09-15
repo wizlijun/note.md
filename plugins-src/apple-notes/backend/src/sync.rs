@@ -14,6 +14,7 @@ use unicode_normalization::UnicodeNormalization;
 
 const CONTROL: &str = ".notemd/apple-notes";
 const MAPPING: &str = "applenotes/id-sync.json";
+const MISSING_MAPPING: &str = "Apple Notes mapping is missing but applenotes contains files; restore id-sync.json before syncing";
 type Result<T> = std::result::Result<T, String>;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -416,6 +417,33 @@ fn canonical_vault(vault: &Path) -> Result<PathBuf> {
     Ok(root)
 }
 
+fn mirror_contains_user_data(root: &Path) -> Result<bool> {
+    let mirror = safe(root, "applenotes")?;
+    if !mirror.exists() {
+        return Ok(false);
+    }
+    for entry in fs::read_dir(mirror).map_err(|e| e.to_string())? {
+        let entry = entry.map_err(|e| e.to_string())?;
+        if entry.file_name() == ".DS_Store"
+            && entry.file_type().map_err(|e| e.to_string())?.is_file()
+        {
+            continue;
+        }
+        return Ok(true);
+    }
+    Ok(false)
+}
+
+fn is_failed_bootstrap_ledger(ledger: &Ledger) -> bool {
+    ledger.accounts.is_empty()
+        && ledger.folders.is_empty()
+        && ledger.notes.is_empty()
+        && ledger.trash.is_empty()
+        && ledger.pending.is_none()
+        && ledger.sync_state.report.is_none()
+        && ledger.sync_state.error.as_deref() == Some(MISSING_MAPPING)
+}
+
 /// Read the UI/automatic-sync state from the Vault-owned ledger. A missing
 /// ledger means the user cleared `applenotes/`, so callers must reset their
 /// in-memory state instead of resurrecting it from global app data.
@@ -455,6 +483,9 @@ pub fn write_persisted_state(vault: &Path, state: &PersistedState) -> Result<()>
             ledger.sync_state = state.clone();
             return atomic_json(&root, &legacy_path, &ledger);
         }
+    }
+    if mirror_contains_user_data(&root)? {
+        return Err(MISSING_MAPPING.into());
     }
     let ledger = Ledger {
         sync_state: state.clone(),
@@ -507,6 +538,9 @@ fn yaml_strings(yaml: &serde_yaml::Value, key: &str) -> Result<Vec<String>> {
 
 fn load_for_sync(root: &Path, snapshot: &Snapshot) -> Result<(Ledger, bool)> {
     if let Some(ledger) = read_mapping(root)? {
+        if is_failed_bootstrap_ledger(&ledger) && mirror_contains_user_data(root)? {
+            return Err(MISSING_MAPPING.into());
+        }
         if ledger.pending.is_some() {
             return Err("an interrupted sync must be recovered before planning".into());
         }
@@ -514,14 +548,8 @@ fn load_for_sync(root: &Path, snapshot: &Snapshot) -> Result<(Ledger, bool)> {
     }
     let legacy = safe(root, &format!("{CONTROL}/state.json"))?;
     if !legacy.exists() {
-        let mirror = safe(root, "applenotes")?;
-        if mirror.exists()
-            && fs::read_dir(mirror)
-                .map_err(|e| e.to_string())?
-                .next()
-                .is_some()
-        {
-            return Err("Apple Notes mapping is missing but applenotes contains files; restore id-sync.json before syncing".into());
+        if mirror_contains_user_data(root)? {
+            return Err(MISSING_MAPPING.into());
         }
         return Ok((Ledger::default(), false));
     }
@@ -1699,9 +1727,19 @@ pub fn sync_recorded(vault: &Path, dry_run: bool) -> Result<SyncReport> {
     if dry_run {
         return result;
     }
-    let mut state = read_persisted_state(vault)
-        .unwrap_or_default()
-        .unwrap_or_default();
+    if let Err(save_error) = record_sync_result(vault, &result) {
+        return match result {
+            Ok(_) => Err(format!("Could not save sync status: {save_error}")),
+            Err(error) => Err(format!("{error}; could not save sync status: {save_error}")),
+        };
+    }
+    result
+}
+
+fn record_sync_result(vault: &Path, result: &Result<SyncReport>) -> Result<()> {
+    let Some(mut state) = read_persisted_state(vault)? else {
+        return Ok(());
+    };
     state.last_finished = Some(
         SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -1718,13 +1756,7 @@ pub fn sync_recorded(vault: &Path, dry_run: bool) -> Result<SyncReport> {
             state.error = Some(error.clone());
         }
     }
-    if let Err(save_error) = write_persisted_state(vault, &state) {
-        return match result {
-            Ok(_) => Err(format!("Could not save sync status: {save_error}")),
-            Err(error) => Err(format!("{error}; could not save sync status: {save_error}")),
-        };
-    }
-    result
+    write_persisted_state(vault, &state)
 }
 fn apply_snapshot(
     root: &Path,

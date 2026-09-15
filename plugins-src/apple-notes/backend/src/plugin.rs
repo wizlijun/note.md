@@ -21,6 +21,8 @@ struct State {
     running: bool,
     #[serde(skip)]
     ready: bool,
+    #[serde(skip)]
+    volatile_error: bool,
 }
 
 impl State {
@@ -38,6 +40,7 @@ impl State {
         self.last_finished = saved.last_finished;
         self.report = saved.report;
         self.error = saved.error;
+        self.volatile_error = false;
     }
 }
 
@@ -78,6 +81,7 @@ impl AppleNotesPlugin {
         }
         state.running = true;
         state.error = None;
+        state.volatile_error = false;
         drop(state);
         self.jobs
             .push(tokio::spawn(run_sync(host.clone(), self.state.clone())));
@@ -107,10 +111,14 @@ fn refresh_from_vault(state: &Arc<Mutex<State>>) -> Result<(), String> {
     if running {
         return Ok(());
     }
-    let saved = read_persisted_state(Path::new(&vault))?.unwrap_or_default();
+    let saved = read_persisted_state(Path::new(&vault))?;
     let mut state = state.lock().map_err(|e| e.to_string())?;
     if !state.running {
-        state.apply(saved);
+        if let Some(saved) = saved {
+            state.apply(saved);
+        } else if !state.volatile_error {
+            state.apply(PersistedState::default());
+        }
     }
     Ok(())
 }
@@ -207,12 +215,14 @@ async fn run_sync(host: sdk::Host, state: Arc<Mutex<State>>) {
                 host.log_warn(&format!("apple-notes: {error}"));
                 state.report = None;
                 state.error = Some(error);
+                state.volatile_error = true;
             }
         }
         Err(error) => {
             host.log_warn(&format!("apple-notes: {error}"));
             state.report = None;
             state.error = Some(error);
+            state.volatile_error = true;
         }
     }
 }
@@ -486,6 +496,24 @@ mod tests {
         assert_eq!(current.last_finished, None);
         assert!(current.report.is_none());
         assert!(current.error.is_none());
+    }
+
+    #[test]
+    fn status_refresh_keeps_a_nonpersisted_error_from_the_current_run() {
+        let vault = tempfile::tempdir().unwrap();
+        let state = Arc::new(Mutex::new(State {
+            error: Some("current failure".into()),
+            vault: Some(vault.path().to_string_lossy().into()),
+            ready: true,
+            volatile_error: true,
+            ..Default::default()
+        }));
+
+        refresh_from_vault(&state).unwrap();
+        assert_eq!(
+            state.lock().unwrap().error.as_deref(),
+            Some("current failure")
+        );
     }
 
     #[test]

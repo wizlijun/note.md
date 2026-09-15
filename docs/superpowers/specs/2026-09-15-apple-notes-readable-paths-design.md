@@ -97,6 +97,7 @@ version 2 descriptor 是唯一长期 ID 映射，采用确定性、格式化 JSO
 - URL、正文占位或暂时无法导出的附件仍以完整 attachment ID 建项，`path` / `sha256` 可为空。
 - version 1 只保存过附件 ID 的 16 位哈希。当前快照能提供完整 ID 时立即补齐；锁定笔记或不可见账户无法补齐时，暂存在 `legacy_attachment_fingerprints`，后续可见时再收敛。该过渡身份也只能存在于 `id-sync.json`。
 - descriptor 损坏、缺失必需映射或与旧状态冲突时 fail closed；不能从无 ID 文件名猜测来源身份。
+- descriptor 缺失时，同步根目录内单独的 macOS `.DS_Store` 可忽略；其他任何未知项均视为可能的用户数据并 fail closed。预检失败时不得为记录错误而创建空 descriptor；只有已存在的可验证 descriptor 才能接收持久化报告。
 - `sync_state` 与身份映射共存，是自动同步开关、上次完成时间、最近报告和错误的唯一持久来源。缺省值可省略。
 
 ## 路径分配

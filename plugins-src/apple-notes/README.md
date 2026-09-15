@@ -20,7 +20,7 @@ applenotes/
 
 同步器使用的完整账户、文件夹、笔记和附件 ID 只保存在 `applenotes/id-sync.json`。该文件同时记录目标路径、内容摘要、自动同步开关、上次完成时间和最近结果。插件不再把这些状态写入 macOS Application Support。升级时，已有的 `plugin_data/notemd.apple-notes/state.json` 仅在 Vault 映射仍存在时迁移一次，然后删除。
 
-`applenotes/id-sync.json` 供同步器识别改名、移动、删除、本地冲突及暂时无法重新导出的旧附件；不要手动修改。如果删除整个 `applenotes/` 目录，插件会将其视为明确重置：界面历史和自动同步开关一并清空，不会从旧的全局文件恢复。
+`applenotes/id-sync.json` 供同步器识别改名、移动、删除、本地冲突及暂时无法重新导出的旧附件；不要手动修改。如果删除整个 `applenotes/` 目录，插件会将其视为明确重置：界面历史和自动同步开关一并清空，不会从旧的全局文件恢复。Finder 在空目录内重建的 `.DS_Store` 不算镜像数据；其他未知文件仍会触发映射丢失保护。
 
 ```yaml
 type: Note

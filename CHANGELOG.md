@@ -9,6 +9,13 @@ For the full commit history, see the git log.
 
 ### Changed
 
+- **Ebook Import 1.4.1 uses a cleaner directory name for suffixed titles.**
+  Text after the first `_` or `-` is omitted from a newly imported book's
+  folder name, while the complete original title remains in the book metadata.
+- **Apple Notes Sync 1.0.4 can restart from a Finder-touched empty mirror.**
+  A lone `.DS_Store` no longer looks like user data after `applenotes/` is
+  cleared. Genuine unknown files still fail closed, and a failed preflight no
+  longer creates an empty identity map that could bypass that protection.
 - **Apple Notes Sync 1.0.3 keeps all persistent sync state in the Vault.**
   Automatic-sync settings, the latest result and source identity map now share
   `applenotes/id-sync.json`; the plugin no longer recreates a separate state
