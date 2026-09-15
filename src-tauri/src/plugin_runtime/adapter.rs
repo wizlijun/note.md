@@ -30,6 +30,9 @@ pub fn to_v1(m: &plugin_protocol::ManifestV2) -> Result<PluginManifest, String> 
     if let Some(d) = &m.description { v["description"] = serde_json::json!(d); }
     if let Some(s) = &m.contributes.settings { v["settings"] = s.clone(); }
     if let Some(i) = &m.i18n { v["i18n"] = i.clone(); }
+    if let Some(timeout) = m.request_timeout_seconds {
+        v["timeout_seconds"] = serde_json::json!(timeout);
+    }
 
     // Windows with an `open_command` become an `open_command → window_id` map so
     // the frontend can route that command to `plugin_v2_open_window` instead of
@@ -173,6 +176,11 @@ mod tests {
     #[test]
     fn passes_menus_context_menus_cli_settings_i18n_through() {
         let v1 = to_v1(&sample()).unwrap();
+
+        assert_eq!(
+            v1.timeout_seconds, 60,
+            "request_timeout_seconds must survive the v2 view-model projection"
+        );
 
         assert_eq!(v1.menus.len(), 1);
         let me = &v1.menus[0];

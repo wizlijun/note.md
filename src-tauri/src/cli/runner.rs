@@ -81,6 +81,15 @@ pub fn run(p: PluginRoute, parsed: Parsed) -> ExitCode {
             clipboard: parsed.globals.clipboard,
         },
     };
+    // A v2 CLI contribution that does not need an editor tab can run directly
+    // on the native plugin runtime. In particular, sync commands such as Apple
+    // Notes must not pay for (or be kept alive by) a WKWebView merely to build
+    // an empty context object.
+    if should_execute_v2_cli_without_webview(&manifest, &cli_entry) {
+        let exit_code =
+            launch_v2_cli_without_webview(payload, manifest, timeout, parsed.globals.json);
+        return ExitCode::from(exit_code as u8);
+    }
     let (tx, rx) = oneshot::channel();
     let state = CliState::new(payload, tx);
 
@@ -363,6 +372,199 @@ fn watchdog_timeout(
     }
 }
 
+fn should_execute_v2_cli_without_webview(
+    manifest: &PluginManifest,
+    cli_entry: &crate::plugin_host::CliEntry,
+) -> bool {
+    manifest.manifest_version == Some(2) && !cli_entry.requires_tab_context
+}
+
+fn plugin_cli_context(payload: &CliPayload, manifest: &PluginManifest) -> serde_json::Value {
+    let mut context = serde_json::json!({
+        "tab": {
+            "path": "",
+            "filename": null,
+            "extension": null,
+            "kind": "markdown",
+            "title": "",
+            "is_dirty": false,
+            "is_untitled": true
+        },
+        "cli": {
+            "args": payload.args.clone(),
+            "flags": payload.flags.clone()
+        }
+    });
+    if manifest
+        .host_capabilities
+        .iter()
+        .any(|capability| capability == "renderer.raw")
+    {
+        context["raw_content"] = serde_json::Value::String(String::new());
+    }
+    context
+}
+
+fn plugin_cli_result(
+    value: serde_json::Value,
+    json: bool,
+    quiet: bool,
+    plugin_name: &str,
+) -> crate::cli::state::CliResult {
+    const RESULT_KEY: &str = "__notemd_cli_result";
+    let structured = value
+        .get(RESULT_KEY)
+        .and_then(serde_json::Value::as_object)
+        .and_then(|envelope| {
+            let exit_code = envelope.get("exit_code")?.as_u64()?;
+            if exit_code > u8::MAX as u64
+                || envelope
+                    .get("message")
+                    .is_some_and(|message| !message.is_null() && !message.is_string())
+            {
+                return None;
+            }
+            Some((
+                exit_code as i32,
+                envelope
+                    .get("data")
+                    .filter(|data| !data.is_null())
+                    .cloned()
+                    .unwrap_or_else(|| serde_json::json!({})),
+                envelope
+                    .get("message")
+                    .and_then(serde_json::Value::as_str)
+                    .filter(|message| !message.is_empty())
+                    .map(str::to_string),
+            ))
+        });
+    let (exit_code, data, message) = structured.unwrap_or((0, value, None));
+    let stdout = if json {
+        Some(serde_json::json!({ "ok": exit_code == 0, "data": data }).to_string())
+    } else if quiet && exit_code == 0 {
+        None
+    } else if let Some(path) = data.get("path").and_then(serde_json::Value::as_str) {
+        Some(path.to_string())
+    } else {
+        Some(data.to_string())
+    };
+    let stderr = if exit_code == 0 || json {
+        Vec::new()
+    } else {
+        vec![format!(
+            "✗ {plugin_name}: {}",
+            message.unwrap_or_else(|| format!("plugin requested exit code {exit_code}"))
+        )]
+    };
+    crate::cli::state::CliResult {
+        exit_code,
+        stdout,
+        stderr,
+    }
+}
+
+fn plugin_cli_error(error: String, json: bool, plugin_name: &str) -> crate::cli::state::CliResult {
+    crate::cli::state::CliResult {
+        exit_code: 4,
+        stdout: json.then(|| {
+            serde_json::json!({
+                "ok": false,
+                "error": { "code": "plugin_failed", "message": error }
+            })
+            .to_string()
+        }),
+        stderr: if json {
+            Vec::new()
+        } else {
+            vec![format!("✗ {plugin_name}: {error}")]
+        },
+    }
+}
+
+/// Run a file-less v2 plugin command on the native runtime with no WebView and
+/// no configured Tauri window. The event loop still owns the AppHandle used by
+/// plugin lifecycle/host APIs; completion exits through the same output path as
+/// the legacy WebView runner.
+fn launch_v2_cli_without_webview(
+    payload: CliPayload,
+    manifest: PluginManifest,
+    startup_watchdog_after: Duration,
+    json: bool,
+) -> i32 {
+    let finished = std::sync::Arc::new(AtomicBool::new(false));
+    let execution_started = std::sync::Arc::new(AtomicBool::new(false));
+    let watchdog_finished = finished.clone();
+    let watchdog_started = execution_started.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(startup_watchdog_after);
+        if !watchdog_finished.load(Ordering::Acquire) && !watchdog_started.load(Ordering::Acquire) {
+            emit_cli_error(
+                json,
+                "timeout",
+                &format!(
+                    "CLI runtime did not start within {} seconds",
+                    startup_watchdog_after.as_secs()
+                ),
+            );
+            std::process::exit(1);
+        }
+    });
+
+    let context_value = plugin_cli_context(&payload, &manifest);
+    let plugin_name = manifest.name;
+    let plugin_id = payload.plugin_id;
+    let subcommand = payload.subcommand;
+    let command = payload.plugin_command;
+    let quiet = payload.global.quiet;
+    let task_finished = finished.clone();
+    let task_started = execution_started.clone();
+
+    let app = match tauri::Builder::default()
+        .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_store::Builder::new().build())
+        .setup(move |app| {
+            crate::plugin_runtime::init_for_cli(app.handle());
+            let app = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                task_started.store(true, Ordering::Release);
+                let result = crate::plugin_runtime::commands::plugin_v2_execute_cli(
+                    app,
+                    plugin_id,
+                    subcommand,
+                    command,
+                    context_value,
+                )
+                .await
+                .map(|value| plugin_cli_result(value, json, quiet, &plugin_name))
+                .unwrap_or_else(|error| plugin_cli_error(error, json, &plugin_name));
+                task_finished.store(true, Ordering::Release);
+                crate::cli::state::terminate_process(crate::cli::state::finish_effects(&result));
+            });
+            Ok(())
+        })
+        .build(cli_tauri_context())
+    {
+        Ok(app) => app,
+        Err(error) => {
+            finished.store(true, Ordering::Release);
+            emit_cli_error(json, "startup_failed", &format!("CLI runtime failed to start: {error}"));
+            return 1;
+        }
+    };
+
+    #[cfg(target_os = "macos")]
+    let app = {
+        let mut app = app;
+        app.set_activation_policy(tauri::ActivationPolicy::Prohibited);
+        app
+    };
+
+    app.run(|_app, _event| {});
+    finished.store(true, Ordering::Release);
+    1
+}
+
 /// Mutually-exclusive flag fan-out: --update, --copy-link, --unshare map to
 /// the right plugin command. Default is the manifest entry's declared command.
 fn decide_plugin_command(
@@ -397,7 +599,6 @@ fn launch_tauri_headless(
 ) -> i32 {
     let result_arc = std::sync::Arc::new(std::sync::Mutex::new(None::<i32>));
     let result_arc_clone = result_arc.clone();
-
     // Start the guard before Tauri is built: a WebView/runtime startup hang is
     // exactly as harmful to a shell caller as a command that never finishes.
     let finished = std::sync::Arc::new(AtomicBool::new(false));
@@ -418,6 +619,7 @@ fn launch_tauri_headless(
     });
 
     let init_script = "window.__M_CLI_MODE__ = true;";
+    let context = cli_tauri_context();
 
     let app = match tauri::Builder::default()
         .plugin(tauri_plugin_fs::init())
@@ -458,14 +660,27 @@ fn launch_tauri_headless(
             Ok(())
         })
         .manage(state)
-        .build(crate::tauri_context())
+        .build(context)
     {
         Ok(app) => app,
         Err(error) => {
             finished.store(true, Ordering::Release);
-            emit_cli_error(json, "startup_failed", &format!("CLI runtime failed to start: {error}"));
+            emit_cli_error(
+                json,
+                "startup_failed",
+                &format!("CLI runtime failed to start: {error}"),
+            );
             return 1;
         }
+    };
+
+    // Set the policy before the first macOS event-loop turn. The CLI window is
+    // a private execution surface and must never activate the application.
+    #[cfg(target_os = "macos")]
+    let app = {
+        let mut app = app;
+        app.set_activation_policy(tauri::ActivationPolicy::Prohibited);
+        app
     };
 
     tauri::async_runtime::spawn(async move {
@@ -481,10 +696,48 @@ fn launch_tauri_headless(
     code
 }
 
+/// The shared app context declares the normal visible `main` window. Tauri
+/// creates configured windows before running Builder::setup, so merely making
+/// the manually-created CLI window invisible is too late: every plugin CLI
+/// command would briefly create a second visible note.md window. Native
+/// file-less plugin commands own no window; the legacy frontend runner creates
+/// only its explicit hidden window in setup.
+fn cli_tauri_context() -> tauri::Context {
+    let mut context = crate::tauri_context();
+    context.config_mut().app.windows.clear();
+    context
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::plugin_host::{CliArg, CliEntry, CliFlag};
+
+    fn v2_manifest() -> PluginManifest {
+        serde_json::from_value(serde_json::json!({
+            "id": "notemd.fixture",
+            "name": "Fixture Sync",
+            "version": "1.0.0",
+            "host_capabilities": [],
+            "manifest_version": 2
+        }))
+        .unwrap()
+    }
+
+    fn fileless_payload() -> CliPayload {
+        CliPayload {
+            subcommand: "fixture-sync".into(),
+            plugin_id: "notemd.fixture".into(),
+            plugin_command: "sync".into(),
+            args: serde_json::Map::new(),
+            flags: serde_json::Map::from_iter([("dry-run".into(), serde_json::Value::Bool(true))]),
+            global: GlobalFlags {
+                json: true,
+                quiet: false,
+                clipboard: false,
+            },
+        }
+    }
 
     fn entry_with_file_and_flags() -> CliEntry {
         CliEntry {
@@ -667,16 +920,93 @@ mod tests {
 
     #[test]
     fn watchdog_is_bounded_and_wait_gets_long_window() {
-        let manifest = core_cli_stub_manifests().remove(0);
+        let mut manifest = core_cli_stub_manifests().remove(0);
         assert_eq!(
             watchdog_timeout(&manifest, &serde_json::Map::new()),
             Duration::from_secs(60)
+        );
+        manifest.timeout_seconds = 300;
+        assert_eq!(
+            watchdog_timeout(&manifest, &serde_json::Map::new()),
+            Duration::from_secs(330)
         );
         let flags = serde_json::Map::from_iter([("wait".into(), serde_json::Value::Bool(true))]);
         assert_eq!(
             watchdog_timeout(&manifest, &flags),
             Duration::from_secs(330)
         );
+    }
+
+    #[test]
+    fn fileless_v2_cli_uses_native_runner_but_core_and_tab_commands_do_not() {
+        let manifest = v2_manifest();
+        let mut entry = CliEntry {
+            subcommand: "fixture-sync".into(),
+            aliases: Vec::new(),
+            command: "sync".into(),
+            summary: "Sync".into(),
+            args: Vec::new(),
+            flags: Vec::new(),
+            requires_tab_context: false,
+        };
+        assert!(should_execute_v2_cli_without_webview(&manifest, &entry));
+        entry.requires_tab_context = true;
+        assert!(!should_execute_v2_cli_without_webview(&manifest, &entry));
+        entry.requires_tab_context = false;
+        let core = core_cli_stub_manifests().remove(0);
+        assert!(!should_execute_v2_cli_without_webview(&core, &entry));
+    }
+
+    #[test]
+    fn native_plugin_context_matches_the_frontend_fileless_shape() {
+        let mut manifest = v2_manifest();
+        manifest.host_capabilities.push("renderer.raw".into());
+        let context = plugin_cli_context(&fileless_payload(), &manifest);
+        assert_eq!(context["tab"]["path"], "");
+        assert_eq!(context["tab"]["is_untitled"], true);
+        assert_eq!(context["cli"]["flags"]["dry-run"], true);
+        assert_eq!(context["raw_content"], "");
+    }
+
+    #[test]
+    fn native_plugin_result_preserves_structured_exit_and_json_contract() {
+        let result = plugin_cli_result(
+            serde_json::json!({
+                "__notemd_cli_result": {
+                    "exit_code": 4,
+                    "message": "incomplete",
+                    "data": { "complete": false, "created": 2 }
+                }
+            }),
+            true,
+            false,
+            "Apple Notes Sync",
+        );
+        assert_eq!(result.exit_code, 4);
+        assert!(result.stderr.is_empty());
+        let stdout: serde_json::Value =
+            serde_json::from_str(result.stdout.as_deref().unwrap()).unwrap();
+        assert_eq!(stdout["ok"], false);
+        assert_eq!(stdout["data"]["created"], 2);
+    }
+
+    #[test]
+    fn native_plugin_error_matches_the_frontend_contract() {
+        let human = plugin_cli_error("boom".into(), false, "Fixture Sync");
+        assert_eq!(human.exit_code, 4);
+        assert_eq!(human.stdout, None);
+        assert_eq!(human.stderr, vec!["✗ Fixture Sync: boom"]);
+
+        let json = plugin_cli_error("boom".into(), true, "Fixture Sync");
+        assert!(json.stderr.is_empty());
+        let stdout: serde_json::Value =
+            serde_json::from_str(json.stdout.as_deref().unwrap()).unwrap();
+        assert_eq!(stdout["error"]["code"], "plugin_failed");
+    }
+
+    #[test]
+    fn cli_context_has_no_configured_visible_windows() {
+        assert!(cli_tauri_context().config().app.windows.is_empty());
     }
 
     #[test]

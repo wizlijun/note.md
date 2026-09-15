@@ -9,6 +9,11 @@ For the full commit history, see the git log.
 
 ### Changed
 
+- **Plugin CLI commands now run without opening a note.md window.** File-less
+  v2 commands such as `apple-notes-sync` execute directly on the native plugin
+  runtime, so macOS no longer creates or focuses a second app window. Plugin
+  request timeouts also retain the value declared by the plugin instead of
+  falling back to the host's 60-second startup guard.
 - **Ebook Import 1.4.1 uses a cleaner directory name for suffixed titles.**
   Text after the first `_` or `-` is omitted from a newly imported book's
   folder name, while the complete original title remains in the book metadata.

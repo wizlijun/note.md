@@ -85,22 +85,35 @@ pub fn finish_effects(result: &CliResult) -> FinishEffects {
     }
 }
 
+/// Print one completed CLI result, preserve its exit status, then restore the
+/// desktop app's background lifecycle. Both the WebView runner and the native
+/// no-WebView plugin runner terminate through this function so their shell
+/// behavior cannot drift.
+pub(crate) fn terminate_process(effects: FinishEffects) -> ! {
+    if let Some(s) = &effects.stdout_line {
+        println!("{s}");
+    }
+    for line in &effects.stderr_lines {
+        eprintln!("{line}");
+    }
+    // `process::exit` does not run destructors. Flush explicitly so JSON
+    // envelopes and human diagnostics are never lost when stdout/stderr are
+    // redirected rather than attached to a terminal.
+    let _ = std::io::stdout().flush();
+    let _ = std::io::stderr().flush();
+    if let Err(error) = super::open::launch_background() {
+        eprintln!(
+            "notemd: warning: could not keep the desktop app running in the background: {error}"
+        );
+        let _ = std::io::stderr().flush();
+    }
+    std::process::exit(effects.exit_code);
+}
+
 #[tauri::command]
 pub fn cli_finish(result: CliResult, state: tauri::State<'_, CliState>) -> Result<(), String> {
     if let Some(tx) = state.result_tx.lock().unwrap().take() {
         let effects = finish_effects(&result);
-        if let Some(s) = &effects.stdout_line {
-            println!("{s}");
-        }
-        for line in &effects.stderr_lines {
-            eprintln!("{line}");
-        }
-        // `process::exit` does not run destructors. Flush explicitly so JSON
-        // envelopes and human diagnostics are never lost when stdout/stderr
-        // are redirected rather than attached to a terminal.
-        let _ = std::io::stdout().flush();
-        let _ = std::io::stderr().flush();
-        let exit_code = effects.exit_code;
         // Kept for the (currently unreachable on macOS) fallback path in
         // launch_tauri_headless, in case app.run() ever does return.
         let _ = tx.send(result);
@@ -110,12 +123,6 @@ pub fn cli_finish(result: CliResult, state: tauri::State<'_, CliState>) -> Resul
         // only after plugin work and output are finished. On macOS this goes
         // through LaunchServices, keeping an Agent's inherited sandbox off the
         // GUI process and preserving hidden/visible window state.
-        if let Err(error) = super::open::launch_background() {
-            eprintln!(
-                "notemd: warning: could not keep the desktop app running in the background: {error}"
-            );
-            let _ = std::io::stderr().flush();
-        }
         // Do NOT route this through `AppHandle::exit` / `app.exit(code)`.
         // That funnels through tao's event loop: tauri-runtime-wry's
         // `Message::RequestExit(code)` handler unconditionally sets
@@ -127,7 +134,7 @@ pub fn cli_finish(result: CliResult, state: tauri::State<'_, CliState>) -> Resul
         // never gets a chance to matter. This is why every `notemd
         // <plugin-subcommand>` invocation used to exit 0 regardless of
         // outcome. Exit directly with the real code instead.
-        std::process::exit(exit_code);
+        terminate_process(effects);
     } else {
         Err("cli_finish called twice or without state".to_string())
     }
