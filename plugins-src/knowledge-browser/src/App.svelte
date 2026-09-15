@@ -7,7 +7,7 @@
   import RelationGraph from './components/RelationGraph.svelte'
   import TimelineView, { type TimelineEntry } from './components/TimelineView.svelte'
   import {
-    chooseJsonFile, copyText, editFileViewSource, onFileViewOpen, openEditor, readDialogText,
+    chooseJsonFile, copyText, onFileViewOpen, openEditor, readDialogText,
     vaultInfo, vaultList, vaultRead, vaultReadBytes,
   } from './lib/bridge'
   import { scanDatasetDirectory, type DatasetDirectoryItem } from './lib/directory'
@@ -35,7 +35,7 @@
     'empty.dataset': ['选择一个 v3 知识 JSON，或从当前 Vault 的 research 目录打开数据集。', 'Choose a v3 knowledge JSON or open one from the current Vault research directory.'],
     'entry.viewer': ['知识文件视图', 'Knowledge file view'], 'entry.browser': ['数据集浏览窗口', 'Dataset browser'],
     'scope': ['研究范围', 'Research scope'], 'questions': ['研究问题', 'Research questions'],
-    'action.editSource': ['编辑 JSON 原文', 'Edit JSON source'], 'action.openEditor': ['在编辑器打开', 'Open in editor'],
+    'action.openEditor': ['在编辑器打开', 'Open in editor'],
     'action.copyReference': ['复制知识引用', 'Copy knowledge reference'], 'action.copyRaw': ['复制原始对象', 'Copy raw object'],
     'action.readSource': ['读取原文片段', 'Read source excerpt'], 'action.openRecord': ['打开对象', 'Open record'],
     'action.retry': ['重试', 'Retry'], 'action.close': ['关闭', 'Close'], 'action.back': ['返回上一对象', 'Back to previous record'],
@@ -293,8 +293,8 @@
       <span class="eyebrow">{text(entry === 'viewer' ? 'entry.viewer' : 'entry.browser')}</span>
       <h1>{text('product')}</h1>
     </div>
-    <div class="dataset-actions">
-      {#if entry === 'browser'}
+    {#if entry === 'browser'}
+      <div class="dataset-actions">
         <select aria-label={zh ? '数据集' : 'Dataset'} value={datasetPath} onchange={(event) => { const path = event.currentTarget.value; if (path) void openDataset(path) }}>
           <option value="">{scanning ? (zh ? '正在扫描 research…' : 'Scanning research…') : (zh ? '选择数据集' : 'Choose a dataset')}</option>
           {#each datasetItems as item}<option value={item.path} disabled={item.status !== 'available'}>{item.name}{item.copyState === 'different-snapshot' ? (zh ? ' · 同 ID 不同快照' : ' · same ID, different snapshot') : ''}</option>{/each}
@@ -302,11 +302,9 @@
         <button type="button" onclick={chooseDataset}>{text('choose')}</button>
         <button type="button" onclick={() => referenceOpen = !referenceOpen}>{text('action.locateReference')}</button>
         <button type="button" onclick={scanning ? () => scanController?.abort() : scan}>{text(scanning ? 'cancel' : 'refresh')}</button>
-      {:else}
-        <button type="button" onclick={() => editFileViewSource()}>{text('action.editSource')}</button>
-      {/if}
-      {#if result?.dataset && entry === 'browser'}<button type="button" onclick={openCurrentInEditor}>{text('action.openEditor')}</button>{/if}
-    </div>
+        {#if result?.dataset}<button type="button" onclick={openCurrentInEditor}>{text('action.openEditor')}</button>{/if}
+      </div>
+    {/if}
   </header>
 
   {#if referenceOpen}
