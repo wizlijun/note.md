@@ -170,9 +170,21 @@ try {
   await check('valid fixture completes the real file_view.ready handshake without changing source bytes', async () => {
     await ready()
     await plugin().getByRole('heading', { name: '提取知识浏览器', exact: true }).waitFor()
+    const viewTabs = page.getByRole('tab')
+    assert.equal(await viewTabs.count(), 3)
+    assert.deepEqual(await viewTabs.evaluateAll(tabs => tabs.map(tab => tab.getAttribute('aria-selected'))), ['false', 'false', 'true'])
+    assert.equal(await plugin().locator('.topbar > .dataset-actions').count(), 1)
+    assert.equal(await plugin().getByRole('button', { name: '编辑 JSON 原文', exact: true }).count(), 0)
     assert.equal(await page.evaluate(() => window.__knowledgeBrowser.content), valid)
     assert.equal(await page.evaluate(() => window.__knowledgeBrowser.initial), valid)
     assert.match(await plugin().locator('.statusbar').textContent(), /ready/)
+    await viewTabs.nth(1).click()
+    const source = page.getByRole('textbox', { name: 'JSON 源码', exact: true })
+    await source.waitFor()
+    assert.equal(await source.inputValue(), valid)
+    await viewTabs.nth(2).click()
+    await ready()
+    await plugin().getByRole('heading', { name: '提取知识浏览器', exact: true }).waitFor()
   })
 
   await check('forged origin and stale requestId cannot complete a pending host view; the production Worker does', async () => {
@@ -198,6 +210,10 @@ try {
     await fallback.waitFor()
     assert.equal(await fallback.inputValue(), broken)
     assert.equal(await page.evaluate(() => window.__knowledgeBrowser.content), broken)
+    const ordinary = '{"name":"ordinary"}'
+    await page.evaluate(content => window.__knowledgeBrowser.reload(content), ordinary)
+    await fallback.waitFor()
+    assert.equal(await fallback.inputValue(), ordinary)
     await page.evaluate(content => window.__knowledgeBrowser.reload(content), valid)
     await ready()
   })

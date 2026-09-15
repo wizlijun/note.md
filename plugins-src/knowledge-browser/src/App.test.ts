@@ -9,7 +9,7 @@ let app: ReturnType<typeof mount> | undefined
 function send(content = fixture, requestId = 1): void {
   window.dispatchEvent(new MessageEvent('message', {
     origin: 'tauri://localhost', source: window,
-    data: { type: 'file_view.open', viewId: 'knowledge', requestId, uri: '/vault/research/fixture.knowledge.json', content },
+    data: { type: 'file_view.open', viewId: 'knowledge', requestId, uri: '/vault/inbox/result.json', content },
   }))
 }
 
@@ -39,6 +39,8 @@ describe('Knowledge Browser application', () => {
     flushSync(); send()
     await vi.waitFor(() => expect(post).toHaveBeenCalledWith({ type: 'file_view.ready', requestId: 1 }, 'tauri://localhost'))
     expect(document.body.textContent).toContain('发布执行人须在获得工程负责人批准后执行发布')
+    expect(document.querySelector('.topbar > .dataset-actions')).not.toBeNull()
+    expect(document.body.textContent).not.toContain('编辑 JSON 原文')
     expect(request).not.toHaveBeenCalledWith('host.vault.write', expect.anything())
   })
 
@@ -47,6 +49,14 @@ describe('Knowledge Browser application', () => {
     app = mount(App, { target: document.body, props: { entry: 'viewer' } })
     flushSync(); send('{"schema":', 2)
     await vi.waitFor(() => expect(post).toHaveBeenCalledWith({ type: 'file_view.fallback', requestId: 2 }, 'tauri://localhost'))
+    expect(request).not.toHaveBeenCalledWith('host.vault.write', expect.anything())
+  })
+
+  it('falls back when an ordinary JSON object has no knowledge schema marker', async () => {
+    const post = vi.spyOn(window, 'postMessage').mockImplementation(() => {})
+    app = mount(App, { target: document.body, props: { entry: 'viewer' } })
+    flushSync(); send('{"name":"ordinary"}', 3)
+    await vi.waitFor(() => expect(post).toHaveBeenCalledWith({ type: 'file_view.fallback', requestId: 3 }, 'tauri://localhost'))
     expect(request).not.toHaveBeenCalledWith('host.vault.write', expect.anything())
   })
 

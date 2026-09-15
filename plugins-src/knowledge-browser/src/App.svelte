@@ -7,7 +7,7 @@
   import RelationGraph from './components/RelationGraph.svelte'
   import TimelineView, { type TimelineEntry } from './components/TimelineView.svelte'
   import {
-    chooseJsonFile, copyText, editFileViewSource, onFileViewOpen, openEditor, readDialogText,
+    chooseJsonFile, copyText, onFileViewOpen, openEditor, readDialogText,
     vaultInfo, vaultList, vaultRead, vaultReadBytes,
   } from './lib/bridge'
   import { scanDatasetDirectory, type DatasetDirectoryItem } from './lib/directory'
@@ -35,7 +35,7 @@
     'empty.dataset': ['选择一个 v3 知识 JSON，或从当前 Vault 的 research 目录打开数据集。', 'Choose a v3 knowledge JSON or open one from the current Vault research directory.'],
     'entry.viewer': ['知识文件视图', 'Knowledge file view'], 'entry.browser': ['数据集浏览窗口', 'Dataset browser'],
     'scope': ['研究范围', 'Research scope'], 'questions': ['研究问题', 'Research questions'],
-    'action.editSource': ['编辑 JSON 原文', 'Edit JSON source'], 'action.openEditor': ['在编辑器打开', 'Open in editor'],
+    'action.openEditor': ['在编辑器打开', 'Open in editor'],
     'action.copyReference': ['复制知识引用', 'Copy knowledge reference'], 'action.copyRaw': ['复制原始对象', 'Copy raw object'],
     'action.readSource': ['读取原文片段', 'Read source excerpt'], 'action.openRecord': ['打开对象', 'Open record'],
     'action.retry': ['重试', 'Retry'], 'action.close': ['关闭', 'Close'], 'action.back': ['返回上一对象', 'Back to previous record'],
@@ -167,6 +167,12 @@
     try {
       const parsed = await parseDatasetAsync(content, uri, signal)
       if (signal?.aborted || load !== activeLoad) return false
+      const recognized = parsed.status !== 'invalid'
+        || (!!parsed.raw && typeof parsed.raw === 'object' && (parsed.raw as { schema?: unknown }).schema === 'knowledge-representation-dataset/3.0.0')
+      if (!recognized) {
+        result = null; records = []; selectedId = null
+        return false
+      }
       result = parsed; datasetPath = await portableDatasetPath(uri)
       if (parsed.dataset && parsed.indexes) {
         records = buildViewRecords(parsed.dataset, parsed.indexes)
@@ -175,7 +181,7 @@
         selectedId = initial?.id ?? null; history = []; selectedSourceId = parsed.dataset.sources[0]?.id ?? null; selectedEvidenceId = parsed.dataset.evidence[0]?.id ?? null
         mode = parsed.diagnostics.length ? 'diagnostics' : 'reading'
       } else { records = []; selectedId = null; mode = 'diagnostics' }
-      return parsed.status !== 'invalid' || (!!parsed.raw && typeof parsed.raw === 'object' && (parsed.raw as { schema?: unknown }).schema === 'knowledge-representation-dataset/3.0.0')
+      return true
     } catch (cause) {
       if (!(cause instanceof DOMException && cause.name === 'AbortError')) error = cause instanceof Error ? cause.message : String(cause)
       return false
@@ -302,8 +308,6 @@
         <button type="button" onclick={chooseDataset}>{text('choose')}</button>
         <button type="button" onclick={() => referenceOpen = !referenceOpen}>{text('action.locateReference')}</button>
         <button type="button" onclick={scanning ? () => scanController?.abort() : scan}>{text(scanning ? 'cancel' : 'refresh')}</button>
-      {:else}
-        <button type="button" onclick={() => editFileViewSource()}>{text('action.editSource')}</button>
       {/if}
       {#if result?.dataset && entry === 'browser'}<button type="button" onclick={openCurrentInEditor}>{text('action.openEditor')}</button>{/if}
     </div>

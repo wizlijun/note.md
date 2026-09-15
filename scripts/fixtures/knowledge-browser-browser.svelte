@@ -23,8 +23,8 @@
   } as PluginManifest
   let tab = $state({
     id: 'knowledge-browser-fixture',
-    filePath: '/fixture-vault/research/release.knowledge.json',
-    title: 'release.knowledge.json',
+    filePath: '/fixture-vault/inbox/result.json',
+    title: 'result.json',
     kind: 'code',
     language: 'json',
     mode: 'rich',

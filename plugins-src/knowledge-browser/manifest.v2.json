@@ -43,8 +43,7 @@
         "priority": 100,
         "selectors": [
           {
-            "file_extensions": ["json"],
-            "file_name_patterns": ["*-knowledge-*.json", "*.knowledge.json"]
+            "file_extensions": ["json"]
           }
         ]
       }

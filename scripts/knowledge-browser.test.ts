@@ -13,14 +13,14 @@ describe('Knowledge Browser host integration', () => {
     open_windows: { 'open-browser': 'main' },
   } as PluginManifest
 
-  it('claims only the two named JSON dataset forms through the existing code-file slot', () => {
+  it('claims JSON files so the viewer can confirm the v3 schema marker and fall back otherwise', () => {
     expect(isValidFileView(hostManifest.file_views![0])).toBe(true)
-    for (const path of ['/vault/research/example.knowledge.json', '/vault/research/meeting-knowledge-v3.json']) {
+    for (const path of ['/vault/research/example.knowledge.json', '/vault/research/meeting-knowledge-v3.json', '/vault/inbox/result.json']) {
       expect(fileViewFor({ path, kind: 'code', content: '{}' }, [hostManifest])).toEqual({
         pluginId: manifest.id, viewId: 'knowledge', icon: 'generic', entry: 'viewer.html',
       })
     }
-    for (const path of ['/vault/research/knowledge.json', '/vault/research/example.json', '/vault/research/example.knowledge.json.bak']) {
+    for (const path of ['/vault/research/example.txt', '/vault/research/example.knowledge.json.bak']) {
       expect(fileViewFor({ path, kind: 'code', content: '{}' }, [hostManifest])).toBeNull()
     }
   })
