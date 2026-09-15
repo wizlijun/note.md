@@ -2,7 +2,7 @@
   "manifest_version": 2,
   "id": "notemd.apple-notes",
   "name": "Apple Notes Sync",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "kind": "native",
   "binary": {
     "aarch64-apple-darwin": "bin/notemd-apple-notes",

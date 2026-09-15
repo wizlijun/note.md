@@ -9,6 +9,11 @@ For the full commit history, see the git log.
 
 ### Changed
 
+- **Apple Notes Sync 1.0.3 keeps all persistent sync state in the Vault.**
+  Automatic-sync settings, the latest result and source identity map now share
+  `applenotes/id-sync.json`; the plugin no longer recreates a separate state
+  file in macOS Application Support. Removing `applenotes/` also clears the UI
+  history and disables automatic sync instead of resurrecting stale state.
 - **Sync plugin menus now use consistent Apple-style action labels.** Product
   names remain Apple Notes Sync and Roam Research Sync, while their menu
   commands read “Sync Apple Notes…” and “Sync Roam Research…”.

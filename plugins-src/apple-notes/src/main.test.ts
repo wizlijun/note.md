@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const status = () => ({ auto_sync: false, running: false, last_finished: null, report: null, error: null, vault: null })
+const status = () => ({ ready: true, auto_sync: false, running: false, last_finished: null, report: null, error: null, vault: null })
 const request = vi.fn()
 
 beforeEach(() => {
@@ -35,7 +35,7 @@ describe('Apple Notes window bridge', () => {
     expect(button.disabled).toBe(true)
     expect(document.querySelector('#status')?.textContent).toBe('正在读取 Apple Notes…')
     expect(document.querySelector('.destination p')?.textContent)
-      .toBe('账户 → 文件夹 → YYYY-MM-DD-标题.md · ID：id-sync.json')
+      .toBe('账户 → 文件夹 → YYYY-MM-DD-标题.md · ID 与同步状态：id-sync.json')
   })
 
   it('persists user opt-in through settings and rolls the checkbox back on failure', async () => {
@@ -65,6 +65,14 @@ describe('Apple Notes window bridge', () => {
     expect(document.querySelector('#warnings')?.textContent).toContain('<img src=x onerror=alert(1)>')
     expect(document.querySelector('#warnings img')).toBeNull()
     expect(document.querySelector('#destination')?.textContent).toBe('/tmp/<vault>/applenotes/')
+  })
+
+  it('keeps controls disabled until the Vault-owned state is loaded', async () => {
+    request.mockResolvedValue({ ...status(), ready: false })
+    await load()
+    expect(document.querySelector('#status')?.textContent).toBe('正在读取状态…')
+    expect(document.querySelector<HTMLInputElement>('#auto')?.disabled).toBe(true)
+    expect(document.querySelector<HTMLButtonElement>('#sync')?.disabled).toBe(true)
   })
 
   it('reports a missing host bridge', async () => {

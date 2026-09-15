@@ -129,6 +129,30 @@ fn readable_paths_yaml_and_single_mapping_are_stable() {
 }
 
 #[test]
+fn ui_and_schedule_state_lives_in_and_survives_the_vault_ledger() {
+    let vault = tempfile::tempdir().unwrap();
+    let root = vault.path();
+    let saved = PersistedState {
+        auto_sync: true,
+        last_finished: Some(42),
+        report: Some(SyncReport {
+            created: 1,
+            complete: true,
+            ..Default::default()
+        }),
+        error: None,
+    };
+    write_persisted_state(root, &saved).unwrap();
+    assert_eq!(read_persisted_state(root).unwrap(), Some(saved.clone()));
+
+    apply(root, &snapshot()).unwrap();
+    assert_eq!(read_persisted_state(root).unwrap(), Some(saved));
+
+    fs::remove_dir_all(root.join("applenotes")).unwrap();
+    assert_eq!(read_persisted_state(root).unwrap(), None);
+}
+
+#[test]
 fn collisions_use_stable_numbers_across_reordering_deletion_and_new_ids() {
     let vault = tempfile::tempdir().unwrap();
     let root = vault.path();

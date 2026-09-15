@@ -11,6 +11,7 @@ interface Report {
   complete: boolean
 }
 interface Status {
+  ready: boolean
   auto_sync: boolean
   running: boolean
   last_finished: number | null
@@ -37,7 +38,7 @@ app.innerHTML = `
     <p>${t('Keep a read-only copy of your notes in your Vault.', '在 Vault 中保存 Apple Notes 的只读副本。')}</p>
   </header>
   <section class="destination"><span>${t('Destination', '同步位置')}</span><code id="destination">Vault/applenotes/</code>
-    <p>${t('Account → folders → YYYY-MM-DD-title.md · IDs: id-sync.json', '账户 → 文件夹 → YYYY-MM-DD-标题.md · ID：id-sync.json')}</p></section>
+    <p>${t('Account → folders → YYYY-MM-DD-title.md · IDs and sync state: id-sync.json', '账户 → 文件夹 → YYYY-MM-DD-标题.md · ID 与同步状态：id-sync.json')}</p></section>
   <section class="controls">
     <label><input id="auto" type="checkbox" disabled />${t('Sync automatically every 5 minutes', '每 5 分钟自动同步')}</label>
     <p>${t('Runs while note.md is open. New notes, edits, moves and deletions follow Apple Notes.', '在 note.md 运行时生效，跟随 Apple Notes 的新增、修改、移动和删除。')}</p>
@@ -67,13 +68,14 @@ function showError(error: unknown) {
 }
 function render(state: Status) {
   current = state
-  ready = true
+  ready = state.ready
   auto.checked = state.auto_sync
-  auto.disabled = busy
-  button.disabled = busy || state.running
+  auto.disabled = busy || !state.ready
+  button.disabled = busy || !state.ready || state.running
   button.textContent = state.running ? t('Syncing…', '正在同步…') : t('Sync now', '立即同步')
   document.querySelector('#destination')!.textContent = state.vault ? `${state.vault.replace(/\/$/, '')}/applenotes/` : 'Vault/applenotes/'
-  document.querySelector('#status')!.textContent = state.running ? t('Reading Apple Notes…', '正在读取 Apple Notes…')
+  document.querySelector('#status')!.textContent = !state.ready ? t('Loading…', '正在读取状态…')
+    : state.running ? t('Reading Apple Notes…', '正在读取 Apple Notes…')
     : state.error ? t('Sync failed', '同步失败')
     : state.report ? state.report.complete ? t('Sync complete', '同步完成') : t('Sync incomplete', '同步未完整完成')
     : t('Ready to sync', '尚未同步')
@@ -119,8 +121,8 @@ async function action(method: string, params?: unknown) {
   catch (error) { if (current) auto.checked = current.auto_sync; showError(error) }
   finally {
     busy = false
-    auto.disabled = !ready
-    button.disabled = !ready || !!current?.running
+    auto.disabled = !ready || !current?.ready
+    button.disabled = !ready || !current?.ready || !!current?.running
   }
 }
 button.addEventListener('click', () => void action('sync'))

@@ -72,42 +72,22 @@ fn manifest_validates_and_exposes_only_mac_binaries() {
 }
 
 #[test]
-fn ui_status_defaults_to_off_and_settings_survive_restart() {
+fn cli_activation_never_creates_global_plugin_state() {
     let data = tempfile::tempdir().unwrap();
     let output = protocol(&[
         initialize(data.path()),
-        request(2, "$activate", json!({"event": "onCommand:open"})),
+        request(2, "$activate", json!({"event": "onCli:apple-notes-sync"})),
         request(
             3,
             "ui.request",
             json!({"method": "plugin.status", "params": {}}),
         ),
-        request(
-            4,
-            "ui.request",
-            json!({"method": "plugin.settings", "params": {"auto_sync": true}}),
-        ),
-        request(5, "ui.request", json!({"method": "status", "params": {}})),
-        request(6, "$deactivate", json!({})),
+        request(4, "$deactivate", json!({})),
     ]);
     assert_eq!(result(&output, 3)["auto_sync"], false);
     assert_eq!(result(&output, 3)["running"], false);
-    assert_eq!(result(&output, 4)["auto_sync"], true);
-    assert_eq!(result(&output, 4)["running"], true);
-    // A sync waiting for the host's Vault reply must leave status RPC responsive.
-    assert_eq!(result(&output, 5)["running"], true);
-    let saved: Value =
-        serde_json::from_slice(&std::fs::read(data.path().join("state.json")).unwrap()).unwrap();
-    assert_eq!(saved["auto_sync"], true);
-
-    let output = protocol(&[
-        initialize(data.path()),
-        request(2, "$activate", json!({"event": "onCli:apple-notes-sync"})),
-        request(3, "ui.request", json!({"method": "status", "params": {}})),
-        request(4, "$deactivate", json!({})),
-    ]);
-    assert_eq!(result(&output, 3)["auto_sync"], true);
-    assert_eq!(result(&output, 3)["running"], false);
+    assert_eq!(result(&output, 3)["ready"], false);
+    assert!(!data.path().join("state.json").exists());
     assert!(
         !output
             .iter()

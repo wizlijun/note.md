@@ -48,6 +48,12 @@ version 2 descriptor 是唯一长期 ID 映射，采用确定性、格式化 JSO
 {
   "version": 2,
   "source": "apple-notes",
+  "sync_state": {
+    "auto_sync": false,
+    "last_finished": 1789440000,
+    "report": null,
+    "error": null
+  },
   "accounts": {
     "<account-id>": { "name": "iCloud", "path": "applenotes/iCloud" }
   },
@@ -91,6 +97,7 @@ version 2 descriptor 是唯一长期 ID 映射，采用确定性、格式化 JSO
 - URL、正文占位或暂时无法导出的附件仍以完整 attachment ID 建项，`path` / `sha256` 可为空。
 - version 1 只保存过附件 ID 的 16 位哈希。当前快照能提供完整 ID 时立即补齐；锁定笔记或不可见账户无法补齐时，暂存在 `legacy_attachment_fingerprints`，后续可见时再收敛。该过渡身份也只能存在于 `id-sync.json`。
 - descriptor 损坏、缺失必需映射或与旧状态冲突时 fail closed；不能从无 ID 文件名猜测来源身份。
+- `sync_state` 与身份映射共存，是自动同步开关、上次完成时间、最近报告和错误的唯一持久来源。缺省值可省略。
 
 ## 路径分配
 
@@ -110,6 +117,7 @@ version 2 descriptor 是唯一长期 ID 映射，采用确定性、格式化 JSO
 - 提交顺序：原子写入带 pending 的 descriptor → 全局校验并备份所有旧文件 → 安装所有新文件 → 原子写入完成态 descriptor。先备份、后安装才能安全处理 A ↔ B 或更长的改名循环。
 - staging 与新 trash 路径只用随机事务名和操作序号，不使用来源 ID 或其哈希。历史 trash 是恢复档案，不主动删除或重写；从 v1 迁移时归档的旧 Markdown 可能保留当时 YAML 中的 ID，但同步器不再以其作为映射来源，Agent 与用户日常浏览均不应读取该恢复区。
 - 迁移成功后，旧 state 写为不含 ID 的 version 2 tombstone。旧版二进制因此明确拒绝，而不会把 Vault 当作首次同步、重新生成带 ID 路径。
+- macOS Application Support 中的旧 `plugin_data/notemd.apple-notes/state.json` 不再是状态源。当 Vault descriptor 存在且尚无 `sync_state` 时，其内容一次性迁入 descriptor 后删除；若 `applenotes/` 已被删除，视为用户明确重置，只删除旧全局文件而不恢复历史。
 - dry-run 不写 descriptor、tombstone、文件或控制状态。
 
 ## 安全与失败边界

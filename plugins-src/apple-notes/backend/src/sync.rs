@@ -8,6 +8,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fs::{self, File, OpenOptions};
 use std::io::Write;
 use std::path::{Component, Path, PathBuf};
+use std::time::{SystemTime, UNIX_EPOCH};
 use unicode_casefold::UnicodeCaseFold;
 use unicode_normalization::UnicodeNormalization;
 
@@ -15,7 +16,7 @@ const CONTROL: &str = ".notemd/apple-notes";
 const MAPPING: &str = "applenotes/id-sync.json";
 type Result<T> = std::result::Result<T, String>;
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct SyncReport {
     pub created: usize,
     pub updated: usize,
@@ -26,6 +27,24 @@ pub struct SyncReport {
     pub warnings: Vec<String>,
     pub complete: bool,
     pub dry_run: bool,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
+pub struct PersistedState {
+    pub auto_sync: bool,
+    pub last_finished: Option<u64>,
+    pub report: Option<SyncReport>,
+    pub error: Option<String>,
+}
+
+impl PersistedState {
+    fn is_empty(&self) -> bool {
+        !self.auto_sync
+            && self.last_finished.is_none()
+            && self.report.is_none()
+            && self.error.is_none()
+    }
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -75,6 +94,8 @@ struct Ledger {
     accounts: BTreeMap<String, AccountEntry>,
     folders: BTreeMap<String, FolderEntry>,
     notes: BTreeMap<String, Entry>,
+    #[serde(skip_serializing_if = "PersistedState::is_empty")]
+    sync_state: PersistedState,
     // The recovery catalogue also stays in the single mapping file. Archive
     // filenames are operation numbers, never source IDs or their digests.
     trash: Vec<Backup>,
@@ -89,6 +110,7 @@ impl Default for Ledger {
             accounts: BTreeMap::new(),
             folders: BTreeMap::new(),
             notes: BTreeMap::new(),
+            sync_state: PersistedState::default(),
             trash: vec![],
             pending: None,
         }
@@ -384,6 +406,62 @@ fn read_mapping(root: &Path) -> Result<Option<Ledger>> {
         .map_err(|_| "Apple Notes id-sync.json is invalid; restore the mapping before syncing")?;
     validate_ledger(root, &ledger)?;
     Ok(Some(ledger))
+}
+
+fn canonical_vault(vault: &Path) -> Result<PathBuf> {
+    let root = vault.canonicalize().map_err(|e| format!("vault: {e}"))?;
+    if !root.is_dir() {
+        return Err("vault must be an existing directory".into());
+    }
+    Ok(root)
+}
+
+/// Read the UI/automatic-sync state from the Vault-owned ledger. A missing
+/// ledger means the user cleared `applenotes/`, so callers must reset their
+/// in-memory state instead of resurrecting it from global app data.
+pub fn read_persisted_state(vault: &Path) -> Result<Option<PersistedState>> {
+    let root = canonical_vault(vault)?;
+    if let Some(ledger) = read_mapping(&root)? {
+        return Ok(Some(ledger.sync_state));
+    }
+    let legacy = safe(&root, &format!("{CONTROL}/state.json"))?;
+    if !legacy.exists() {
+        return Ok(None);
+    }
+    let ledger: Ledger = serde_json::from_slice(&fs::read(legacy).map_err(|e| e.to_string())?)
+        .map_err(|_| "invalid legacy Apple Notes mapping")?;
+    Ok((ledger.version == 1).then_some(ledger.sync_state))
+}
+
+/// Persist plugin status beside the identity map, never in macOS App Support.
+/// A pre-v2 Vault keeps this field in its existing v1 ledger until the next
+/// sync migrates that ledger into `applenotes/id-sync.json`.
+pub fn write_persisted_state(vault: &Path, state: &PersistedState) -> Result<()> {
+    let root = canonical_vault(vault)?;
+    let _lock = acquire(&root)?;
+    recover(&root)?;
+    if let Some(mut ledger) = read_mapping(&root)? {
+        ledger.sync_state = state.clone();
+        validate_ledger(&root, &ledger)?;
+        return atomic_json(&root, MAPPING, &ledger);
+    }
+    let legacy_path = format!("{CONTROL}/state.json");
+    let legacy = safe(&root, &legacy_path)?;
+    if legacy.exists() {
+        let mut ledger: Ledger =
+            serde_json::from_slice(&fs::read(&legacy).map_err(|e| e.to_string())?)
+                .map_err(|_| "invalid legacy Apple Notes mapping")?;
+        if ledger.version == 1 {
+            ledger.sync_state = state.clone();
+            return atomic_json(&root, &legacy_path, &ledger);
+        }
+    }
+    let ledger = Ledger {
+        sync_state: state.clone(),
+        ..Ledger::default()
+    };
+    validate_ledger(&root, &ledger)?;
+    atomic_json(&root, MAPPING, &ledger)
 }
 fn verify_owned(root: &Path, entry: &Entry) -> Result<()> {
     for (file, digest) in &entry.files {
@@ -1597,10 +1675,7 @@ pub fn sync(vault: &Path, dry_run: bool) -> Result<SyncReport> {
     if !cfg!(target_os = "macos") {
         return Err("Apple Notes sync is available only on macOS".into());
     }
-    let root = vault.canonicalize().map_err(|e| format!("vault: {e}"))?;
-    if !root.is_dir() {
-        return Err("vault must be an existing directory".into());
-    }
+    let root = canonical_vault(vault)?;
     let _lock = if dry_run { None } else { Some(acquire(&root)?) };
     if dry_run {
         if safe(&root, &format!("{CONTROL}/pending.json"))?.exists()
@@ -1614,6 +1689,42 @@ pub fn sync(vault: &Path, dry_run: bool) -> Result<SyncReport> {
     let staging = tempfile::tempdir().map_err(|e| e.to_string())?;
     let snapshot = source::read_snapshot(staging.path())?;
     apply_snapshot(&root, &snapshot, staging.path(), dry_run)
+}
+
+/// Run a public sync and record its user-facing outcome in the same Vault
+/// ledger. Dry runs remain read-only. This is shared by the plugin window,
+/// host CLI and standalone cron binary so they cannot drift.
+pub fn sync_recorded(vault: &Path, dry_run: bool) -> Result<SyncReport> {
+    let result = sync(vault, dry_run);
+    if dry_run {
+        return result;
+    }
+    let mut state = read_persisted_state(vault)
+        .unwrap_or_default()
+        .unwrap_or_default();
+    state.last_finished = Some(
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs(),
+    );
+    match &result {
+        Ok(report) => {
+            state.report = Some(report.clone());
+            state.error = None;
+        }
+        Err(error) => {
+            state.report = None;
+            state.error = Some(error.clone());
+        }
+    }
+    if let Err(save_error) = write_persisted_state(vault, &state) {
+        return match result {
+            Ok(_) => Err(format!("Could not save sync status: {save_error}")),
+            Err(error) => Err(format!("{error}; could not save sync status: {save_error}")),
+        };
+    }
+    result
 }
 fn apply_snapshot(
     root: &Path,
@@ -1677,6 +1788,7 @@ fn apply_snapshot(
     let mut next = Ledger {
         accounts: new_accounts,
         folders: new_folders,
+        sync_state: old.sync_state.clone(),
         trash: old.trash.clone(),
         ..Ledger::default()
     };

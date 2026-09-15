@@ -8,6 +8,11 @@
 
 ### 变更
 
+- **Apple Notes 同步 1.0.3 将所有持久同步状态收口到 Vault。**
+  自动同步设置、最近结果与来源身份映射现在统一保存在
+  `applenotes/id-sync.json`；插件不再于 macOS Application Support 重建独立
+  `state.json`。删除 `applenotes/` 后，界面历史与自动同步开关也会一并清空，
+  不再恢复过期全局状态。
 - **同步类插件菜单统一采用 Apple 风格的动作式命名。** 产品名仍为“Apple Notes
   同步”和“Roam Research 同步”，菜单命令统一为“同步 Apple Notes…”和
   “同步 Roam Research…”。

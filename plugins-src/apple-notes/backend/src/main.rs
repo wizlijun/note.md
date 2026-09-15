@@ -20,7 +20,7 @@ fn main() {
                 std::process::exit(2);
             }
         };
-        match notemd_apple_notes::sync::sync(&parsed.vault, parsed.dry_run) {
+        match notemd_apple_notes::sync::sync_recorded(&parsed.vault, parsed.dry_run) {
             Ok(report) => {
                 print_line(serde_json::json!({"ok": report.complete, "report": report}));
                 if !report.complete {
