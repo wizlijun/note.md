@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.915.2 — 2026-09-15
+
 ### Changed
 
 - **Apple Notes Sync now keeps readable paths and one central identity map.**
