@@ -14,6 +14,7 @@ import { isConfiguredMemoryProjectionPath } from './memory-projection'
 import { isReadonlyMarkdownTab } from './readonly-document'
 import type { CanvasDiskRevision, CanvasSaveResult } from './canvas/io'
 import { resetFileViewSelection } from './plugins/file-view-selection.svelte'
+import { formatJsonSource } from './json-format'
 
 export type Mode = 'source' | 'rich'
 
@@ -568,6 +569,13 @@ export function toggleMode(id: string): void {
 export function setMode(id: string, mode: Mode): void {
   const t = tabs.find((x) => x.id === id)
   if (!t || t.kind === 'canvas' || t.mode === mode) return
+  if (mode === 'source'
+    && t.kind === 'code'
+    && t.filePath.toLowerCase().endsWith('.json')
+    && !isReadOnlyTab(t)) {
+    const formatted = formatJsonSource(t.currentContent)
+    if (formatted !== null && formatted !== t.currentContent) setContent(id, formatted)
+  }
   t.mode = mode
   notifyInsights('onModeChanged')
   setRecentMode(modeKeyFor(t.filePath), mode).catch((e) => console.warn(e))

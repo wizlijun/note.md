@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { mount, tick, unmount } from 'svelte'
 import ModeToggle from './ModeToggle.svelte'
-import { tabs, type Tab } from '../lib/tabs.svelte'
+import { isDirty, tabs, toggleMode, type Tab } from '../lib/tabs.svelte'
 import { pluginRuntime } from '../lib/plugins/runtime.svelte'
 import { resetFileViewPresentation } from '../lib/plugins/file-view-presentation.svelte'
 
@@ -112,6 +112,67 @@ describe('ModeToggle file-view slot', () => {
     expect(button).not.toBeNull()
     expect(button?.querySelector('path[fill="currentColor"]')).not.toBeNull()
     expect(button?.querySelector('path[fill="#f59e0b"]')).toBeNull()
+  })
+
+  it('formats valid one-line JSON when Source is selected without changing its tokens', async () => {
+    const tab = timelineTab()
+    tab.filePath = '/vault/inbox/knowledge.json'
+    tab.title = 'knowledge.json'
+    tab.kind = 'code'
+    tab.language = 'json'
+    tab.currentContent = tab.initialContent = '{"schema":"knowledge-representation-dataset/3.0.0","big":900719925474099312345}'
+    tabs.push(tab)
+    pluginRuntime.manifests = [{
+      id: 'notemd.knowledge-browser',
+      name: 'Knowledge Browser',
+      version: '1.1.0',
+      binary: '',
+      host_capabilities: [],
+      file_views: [{ id: 'knowledge', entry: 'viewer.html', selectors: [{ file_extensions: ['json'] }] }],
+    }]
+    component = mount(ModeToggle, { target: document.body, props: { tab: tabs[0] } })
+    await tick()
+
+    const buttons = [...document.querySelectorAll<HTMLButtonElement>('[role="tab"]')]
+    expect(buttons).toHaveLength(3)
+    buttons[1].click()
+    await tick()
+
+    expect(tabs[0].mode).toBe('source')
+    expect(tabs[0].currentContent).toBe(`{
+  "schema": "knowledge-representation-dataset/3.0.0",
+  "big": 900719925474099312345
+}\n`)
+    expect(tabs[0].initialContent).toBe('{"schema":"knowledge-representation-dataset/3.0.0","big":900719925474099312345}')
+    expect(isDirty(tabs[0].id)).toBe(true)
+    expect(buttons.map((button) => button.getAttribute('aria-selected'))).toEqual(['false', 'true', 'false'])
+  })
+
+  it('uses the same formatting through the mode shortcut and leaves invalid JSON or JSONC unchanged', () => {
+    const compact = '{"ok":true}'
+    const json = timelineTab()
+    json.filePath = '/vault/data.json'; json.kind = 'code'; json.language = 'json'
+    json.currentContent = json.initialContent = compact
+    tabs.push(json)
+    toggleMode(tabs[0].id)
+    expect(tabs[0].mode).toBe('source')
+    expect(tabs[0].currentContent).toBe('{\n  "ok": true\n}\n')
+
+    const invalid = timelineTab()
+    invalid.id = 'invalid-json'; invalid.filePath = '/vault/broken.json'; invalid.kind = 'code'; invalid.language = 'json'
+    invalid.currentContent = invalid.initialContent = '{"broken":'
+    tabs.push(invalid)
+    toggleMode(tabs[1].id)
+    expect(tabs[1].mode).toBe('source')
+    expect(tabs[1].currentContent).toBe('{"broken":')
+
+    const jsonc = timelineTab()
+    jsonc.id = 'jsonc'; jsonc.filePath = '/vault/settings.jsonc'; jsonc.kind = 'code'; jsonc.language = 'json'
+    jsonc.currentContent = jsonc.initialContent = compact
+    tabs.push(jsonc)
+    toggleMode(tabs[2].id)
+    expect(tabs[2].mode).toBe('source')
+    expect(tabs[2].currentContent).toBe(compact)
   })
 
   it('keeps the original two compact modes when no plugin view matches', async () => {

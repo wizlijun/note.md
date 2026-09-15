@@ -178,13 +178,6 @@ try {
     assert.equal(await page.evaluate(() => window.__knowledgeBrowser.content), valid)
     assert.equal(await page.evaluate(() => window.__knowledgeBrowser.initial), valid)
     assert.match(await plugin().locator('.statusbar').textContent(), /ready/)
-    await viewTabs.nth(1).click()
-    const source = page.getByRole('textbox', { name: 'JSON 源码', exact: true })
-    await source.waitFor()
-    assert.equal(await source.inputValue(), valid)
-    await viewTabs.nth(2).click()
-    await ready()
-    await plugin().getByRole('heading', { name: '提取知识浏览器', exact: true }).waitFor()
   })
 
   await check('forged origin and stale requestId cannot complete a pending host view; the production Worker does', async () => {
@@ -201,6 +194,22 @@ try {
     await ready()
     assert.equal(await page.evaluate(() => window.__knowledgeBrowser.content), large)
     assert.ok(requestedAssets.has(`/assets/${workerAsset}`), `Worker asset was not requested: ${workerAsset}`)
+  })
+
+  await check('Source formats compact JSON and switches back to the knowledge viewer', async () => {
+    const compact = JSON.stringify(JSON.parse(valid))
+    await page.evaluate(content => window.__knowledgeBrowser.reload(content), compact)
+    await ready()
+    const viewTabs = page.getByRole('tab')
+    await viewTabs.nth(1).click()
+    const source = page.getByRole('textbox', { name: 'JSON 源码', exact: true })
+    await source.waitFor()
+    const formatted = await source.inputValue()
+    assert.ok(formatted.includes('\n  "schema": "knowledge-representation-dataset/3.0.0",\n'))
+    assert.deepEqual(JSON.parse(formatted), JSON.parse(compact))
+    await viewTabs.nth(2).click()
+    await ready()
+    await plugin().getByRole('heading', { name: '提取知识浏览器', exact: true }).waitFor()
   })
 
   await check('invalid JSON falls back to the exact host editor bytes and a valid reload recovers', async () => {
