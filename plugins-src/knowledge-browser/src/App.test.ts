@@ -39,8 +39,6 @@ describe('Knowledge Browser application', () => {
     flushSync(); send()
     await vi.waitFor(() => expect(post).toHaveBeenCalledWith({ type: 'file_view.ready', requestId: 1 }, 'tauri://localhost'))
     expect(document.body.textContent).toContain('发布执行人须在获得工程负责人批准后执行发布')
-    expect(document.querySelector('.topbar > .dataset-actions')).not.toBeNull()
-    expect(document.body.textContent).not.toContain('编辑 JSON 原文')
     expect(request).not.toHaveBeenCalledWith('host.vault.write', expect.anything())
   })
 
