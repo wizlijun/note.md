@@ -309,6 +309,7 @@ describe('agent-owned concurrency and time-planning host requirements', () => {
 
 describe('plugin market metadata localization', () => {
   const publishedDirs = [
+    'apple-notes',
     'claude-agent',
     'codex-agent',
     'decision-log',

@@ -2,7 +2,7 @@
   "manifest_version": 2,
   "id": "notemd.apple-notes",
   "name": "Apple Notes Sync",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "kind": "native",
   "binary": {
     "aarch64-apple-darwin": "bin/notemd-apple-notes",
@@ -39,6 +39,16 @@
       "name": "Apple Notes 同步",
       "description": "按 Apple Notes 的账户和文件夹组织方式，将笔记同步到 applenotes 目录，生成只读 Markdown 副本。仅 macOS 可用。",
       "menus": { "open": "同步 Apple Notes…" }
+    },
+    "ja": {
+      "name": "Apple Notes 同期",
+      "description": "Apple Notes のアカウントとフォルダ構成を保ち、読み取り専用の Markdown コピーを applenotes に同期します。macOS 専用です。",
+      "menus": { "open": "Apple Notes を同期…" }
+    },
+    "de": {
+      "name": "Apple Notes-Synchronisierung",
+      "description": "Spiegelt Apple Notes mit seiner Konto- und Ordnerstruktur als schreibgeschützte Markdown-Dateien nach applenotes. Nur für macOS.",
+      "menus": { "open": "Apple Notes synchronisieren…" }
     }
   }
 }
