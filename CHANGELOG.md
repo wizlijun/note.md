@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.915.3 — 2026-09-15
+
 ### Changed
 
 - **Plugin CLI commands now run without opening a note.md window.** File-less
