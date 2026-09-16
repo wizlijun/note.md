@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.916.1 — 2026-09-16
+
 ### Changed
 
 - **Knowledge Browser now opens selected JSON files in the main editor.**
