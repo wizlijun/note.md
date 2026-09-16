@@ -104,6 +104,9 @@
     }
     add(rows, 'field.eventTime', describeTime(raw, 'event'))
     add(rows, 'field.validTime', describeTime(raw, 'valid'))
+    add(rows, 'field.epistemicStrength', raw.epistemic?.strength ?? text('value.unknown'))
+    add(rows, 'field.epistemicBasis', raw.epistemic?.basis)
+    add(rows, 'field.epistemicReason', raw.epistemic?.reason)
     add(rows, 'field.scope', raw.scope)
     add(rows, 'field.limits', raw.limits)
     add(rows, 'field.authority', raw.authority)

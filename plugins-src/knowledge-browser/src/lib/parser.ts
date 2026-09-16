@@ -20,8 +20,7 @@ export async function parseKnowledgeDataset(sourceText: string, uri: string): Pr
   }
   const validation = validateKnowledgeDataset(strict.value)
   const raw = strict.value as Record<string, unknown>
-  const generated = raw && typeof raw === 'object' && raw.generated && typeof raw.generated === 'object' ? raw.generated as Record<string, unknown> : undefined
-  const unsupported = typeof raw?.schema === 'string' && (!isSupportedDataset(strict.value) || generated?.rule !== 'relation-schema-extractor/3.0.0' || generated?.types !== '1.0.0')
+  const unsupported = typeof raw?.schema === 'string' && !isSupportedDataset(strict.value)
   if (unsupported) return {
     status: 'unsupported', uri, sourceText, snapshotHash, records: [], raw: strict.value,
     diagnostics: validation.diagnostics, fatal: true, unsupported: true,

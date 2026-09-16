@@ -1,14 +1,15 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://notemd.local/schemas/knowledge-representation-dataset-3.0.0.json",
+  "$id": "https://notemd.local/schemas/knowledge-representation-dataset-3.1.0.json",
   "title": "Compact Structured Knowledge Dataset",
-  "description": "Token-efficient entities, concepts, claims, events, narratives, and P0-P3 relations.",
+  "description": "Token-efficient knowledge objects and P0-P3 relations with explicit epistemic-strength selection.",
   "type": "object",
   "additionalProperties": false,
   "required": [
     "schema",
     "id",
     "generated",
+    "selection",
     "scope",
     "sources",
     "evidence",
@@ -21,13 +22,16 @@
   ],
   "properties": {
     "schema": {
-      "const": "knowledge-representation-dataset/3.0.0"
+      "const": "knowledge-representation-dataset/3.1.0"
     },
     "id": {
       "$ref": "#/$defs/datasetId"
     },
     "generated": {
       "$ref": "#/$defs/generated"
+    },
+    "selection": {
+      "$ref": "#/$defs/selection"
     },
     "scope": {
       "$ref": "#/$defs/datasetScope"
@@ -152,12 +156,39 @@
           "format": "date-time"
         },
         "rule": {
-          "const": "relation-schema-extractor/3.0.0"
+          "const": "relation-schema-extractor/3.1.0"
         },
         "types": {
           "const": "1.0.0"
         }
       }
+    },
+    "selection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["profile", "policy", "minimum_strength"],
+      "properties": {
+        "profile": {
+          "enum": ["strong_only", "exploratory"]
+        },
+        "policy": {
+          "const": "epistemic-strength/1.0.0"
+        },
+        "minimum_strength": {
+          "enum": ["strong", "medium", "weak"]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"profile": {"const": "strong_only"}},
+            "required": ["profile"]
+          },
+          "then": {
+            "properties": {"minimum_strength": {"const": "strong"}}
+          }
+        }
+      ]
     },
     "datasetScope": {
       "type": "object",
@@ -299,9 +330,39 @@
         }
       }
     },
+    "epistemicAssessment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["strength", "basis"],
+      "properties": {
+        "strength": {
+          "enum": ["strong", "medium", "weak"]
+        },
+        "basis": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "explicit_statement",
+              "explicit_speech_act",
+              "direct_observation",
+              "source_defined",
+              "independent_corroboration",
+              "self_report",
+              "agent_inference",
+              "ambiguous"
+            ]
+          }
+        },
+        "reason": {
+          "$ref": "#/$defs/nonEmptyString"
+        }
+      }
+    },
     "commonRecord": {
       "type": "object",
-      "required": ["id", "i", "why", "ev"],
+      "required": ["id", "i", "why", "ev", "epistemic"],
       "properties": {
         "id": {
           "$ref": "#/$defs/objectId"
@@ -319,6 +380,9 @@
           "items": {
             "$ref": "#/$defs/evidenceId"
           }
+        },
+        "epistemic": {
+          "$ref": "#/$defs/epistemicAssessment"
         },
         "scope": {
           "$ref": "#/$defs/scopeValue"

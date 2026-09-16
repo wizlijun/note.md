@@ -1,6 +1,11 @@
-export const DATASET_SCHEMA = 'knowledge-representation-dataset/3.0.0' as const
-export const EXTRACTOR_RULE = 'relation-schema-extractor/3.0.0' as const
+export const CURRENT_DATASET_SCHEMA = 'knowledge-representation-dataset/3.1.0' as const
+export const LEGACY_DATASET_SCHEMA = 'knowledge-representation-dataset/3.0.0' as const
+export const CURRENT_EXTRACTOR_RULE = 'relation-schema-extractor/3.1.0' as const
+export const LEGACY_EXTRACTOR_RULE = 'relation-schema-extractor/3.0.0' as const
 export const RELATION_TYPES_VERSION = '1.0.0' as const
+
+export type DatasetSchema = typeof CURRENT_DATASET_SCHEMA | typeof LEGACY_DATASET_SCHEMA
+export type ExtractorRule = typeof CURRENT_EXTRACTOR_RULE | typeof LEGACY_EXTRACTOR_RULE
 
 export type LocalId = `e${number}` | `c${number}` | `q${number}` | `v${number}` | `n${number}` | `r${number}`
 export type SourceId = `s${number}`
@@ -9,13 +14,20 @@ export type NodeRef = SourceId | LocalId
 export type TimeValue = string | [string | null, string | null] | null
 export type KnowledgeKind = 'entities' | 'concepts' | 'claims' | 'events' | 'narratives' | 'relations'
 
-export interface GeneratedInfo { by: string; at: string; rule: typeof EXTRACTOR_RULE; types: typeof RELATION_TYPES_VERSION }
+export interface GeneratedInfo { by: string; at: string; rule: ExtractorRule; types: typeof RELATION_TYPES_VERSION }
+export interface Selection { profile: 'strong_only' | 'exploratory'; policy: 'epistemic-strength/1.0.0'; minimum_strength: 'strong' | 'medium' | 'weak' }
+export interface EpistemicAssessment {
+  strength: 'strong' | 'medium' | 'weak'
+  basis: Array<'explicit_statement' | 'explicit_speech_act' | 'direct_observation' | 'source_defined' | 'independent_corroboration' | 'self_report' | 'agent_inference' | 'ambiguous'>
+  reason?: string
+}
 export interface DatasetScope { purpose: string; questions: string[] }
 export interface Source { id: SourceId; uri: string; v: string | null; title?: string; origin?: 'derived' | 'unknown'; group?: string; retrieved?: string }
 export interface Evidence { id: EvidenceId; s: SourceId; loc: string; quote?: string; at?: Exclude<TimeValue, null>; speaker?: `e${number}`; role?: 'mentions' | 'defines' | 'reports' | 'supports' | 'contradicts' | 'describes' | 'sequences' | 'context' | 'identity' }
 export interface Authority { reviewed_by: string[]; basis: string; uses?: string[] }
 export interface CommonRecord {
   id: LocalId; i: 0 | 1; why: string; ev: EvidenceId[]; scope?: string | Record<string, string | number | boolean | null>
+  epistemic?: EpistemicAssessment
   event?: TimeValue; valid?: TimeValue; status?: 'contested' | 'supported' | 'confirmed' | 'superseded' | 'retracted'
   score?: number; score_type?: string; rev?: number; op?: 'update' | 'supersede' | 'correct' | 'retract'; parents?: string[]
   authority?: Authority; limits?: string[]
@@ -31,7 +43,7 @@ export interface Relation extends CommonRecord { id: `r${number}`; p: 0 | 1 | 2 
 export interface Coverage { unprocessed?: Array<{ uri: string; why: string }>; limits?: string[] }
 
 export interface KnowledgeDataset {
-  schema: typeof DATASET_SCHEMA; id: `ks_${string}`; generated: GeneratedInfo; scope: DatasetScope
+  schema: DatasetSchema; id: `ks_${string}`; generated: GeneratedInfo; selection?: Selection; scope: DatasetScope
   sources: Source[]; evidence: Evidence[]; entities: Entity[]; concepts: Concept[]; claims: Claim[]
   events: KnowledgeEvent[]; narratives: Narrative[]; relations: Relation[]; type_defs?: RelationTypeDefinition[]; coverage?: Coverage
 }

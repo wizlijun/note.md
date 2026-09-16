@@ -1,13 +1,13 @@
 {
   "schema": {
     "source": "/Users/bruce/git/sotvault/skills/relation-schema-extractor/references/relationship-extraction.schema.json",
-    "protocol": "knowledge-representation-dataset/3.0.0",
-    "sha256": "a1700e2eb44049b7f9806c1dc0e35d59ffd16d4914ae606eeaea34a5767d30ed"
+    "protocol": "knowledge-representation-dataset/3.1.0",
+    "sha256": "d4bd5b12295ba4222f9f48948376bd4cd49d5601f9a91907c1c7f1a84a9b71a3"
   },
   "relation_types": {
     "source": "/Users/bruce/git/sotvault/skills/relation-schema-extractor/references/relation-types.json",
     "version": "1.0.0",
     "sha256": "18aa514da384a8508cd11cd69ba2000808404cc5e6ad2a5d3e6e7ade4691c6d1"
   },
-  "runtime": "The plugin uses an explicit, CSP-safe validator for these fixed versions and performs no network schema loading."
+  "runtime": "The plugin uses an explicit, CSP-safe validator for paired 3.1.0 current and 3.0.0 legacy datasets and performs no network schema loading."
 }

@@ -33,12 +33,12 @@ sources:
 
 | 项目 | 约定 |
 | --- | --- |
-| 规格版本 | 1.1；2026-09-16 按用户纠正收口为主编辑器单入口，最终产品验收尚未完成 |
+| 规格版本 | 1.2；2026-09-16 对齐提取协议 3.1.0，并保留 3.0.0 历史读取 |
 | 插件中文名 | 提取知识浏览器 |
 | 插件英文名 / ID | Knowledge Browser / `notemd.knowledge-browser` |
 | 目标工程 | `/Users/bruce/git/mdeditor` |
 | 建议目录 | `plugins-src/knowledge-browser/` |
-| 输入协议 | `knowledge-representation-dataset/3.0.0` |
+| 输入协议 | 当前 `knowledge-representation-dataset/3.1.0`；兼容成对的 3.0.0 历史数据 |
 | 内置关系注册表 | `1.0.0` |
 | 产品形态 | note.md 插件 v2：主编辑器只读文件视图；菜单先选择 JSON，再在编辑器标签页打开 |
 | 本文的“提取知识” | 已由抽取 Skill 生成的实体、概念、主张、事件、叙事及 P0–P3 关系 |
@@ -105,7 +105,7 @@ sources:
 
 ### 2.1 一个主编辑器入口，两种打开方式
 
-**直接打开文件。** 在主编辑器打开 JSON 时，宿主将文件内容快照交给插件。插件识别顶层 `schema: knowledge-representation-dataset/3.0.0` 后默认显示知识视图；用户可通过宿主的 Rich / Source / Knowledge Viewer 三段控件切换。非知识 JSON 或无法识别的内容立即回退到原 JSON 编辑器，不改变原文。
+**直接打开文件。** 在主编辑器打开 JSON 时，宿主将文件内容快照交给插件。插件识别顶层 `schema: knowledge-representation-dataset/3.1.0` 或兼容的 3.0.0 后默认显示知识视图；用户可通过宿主的 Rich / Source / Knowledge Viewer 三段控件切换。非知识 JSON 或无法识别的内容立即回退到原 JSON 编辑器，不改变原文。
 
 **从插件菜单打开。** 点击“插件 → 阅读 → 打开提取知识浏览器…”后，宿主立即显示 JSON 文件选择器。选择文件后调用主编辑器的普通打开流程，并显式选择 `knowledge` 文件视图；不得调用 `plugin_v2_open_window`，不得创建独立窗口。
 
@@ -160,10 +160,10 @@ sources:
 
 | 依赖 | 来源 | 本次核对 SHA-256 |
 | --- | --- | --- |
-| JSON Schema | `/Users/bruce/git/sotvault/skills/relation-schema-extractor/references/relationship-extraction.schema.json` | `a1700e2eb44049b7f9806c1dc0e35d59ffd16d4914ae606eeaea34a5767d30ed` |
+| JSON Schema | `/Users/bruce/git/sotvault/skills/relation-schema-extractor/references/relationship-extraction.schema.json` | `d4bd5b12295ba4222f9f48948376bd4cd49d5601f9a91907c1c7f1a84a9b71a3` |
 | 内置关系表 | `/Users/bruce/git/sotvault/skills/relation-schema-extractor/references/relation-types.json` | `18aa514da384a8508cd11cd69ba2000808404cc5e6ad2a5d3e6e7ade4691c6d1` |
 
-v1 支持且只按语义解释 `knowledge-representation-dataset/3.0.0` 与关系表 `1.0.0`。2.x、未知版本和未知注册表版本显示“尚不支持此版本”，可查看原始 JSON；不得猜字段、自动迁移或用最新版注册表替代旧版本。
+插件 3.1.0 以 `knowledge-representation-dataset/3.1.0` + `relation-schema-extractor/3.1.0` 为当前格式，并兼容读取成对的 3.0.0 schema/rule；两代都要求关系表 `1.0.0`。交叉配对、2.x、未知版本和未知注册表版本显示“尚不支持此版本”，可查看原始 JSON；不得猜字段、自动迁移或用最新版注册表替代旧版本。插件版本跟随最新支持的数据格式版本。
 
 `generated.rule` 是抽取规则版本；`generated.types` 是注册表版本；`schema` 是数据结构版本。三者不可互相代替。
 
@@ -183,6 +183,8 @@ v1 支持且只按语义解释 `knowledge-representation-dataset/3.0.0` 与关�
 | `scope` | 继承数据集 scope | 使用记录自己的 scope | 展示局部范围与数据集研究范围；不做未定义的字段合并 |
 | `event` / `valid` | 不适用 | `null` = 适用但未知 | 分别显示“不适用”与“未知” |
 | `evidence.at` | 来源时间未知 | 时间点或区间 | 不继承生成时间 |
+| `selection` | 3.0.0 历史数据不适用；3.1.0 缺失为结构错误 | 显示 profile 与最低证据强度 | 不用 UI 猜测或补写提取门槛 |
+| `epistemic` | 3.0.0 历史记录显示未知；3.1.0 缺失则隔离该记录 | 显示 strength、basis 与可选 reason | 不把重要性 `i` 或模型分数当作证据强度 |
 | `rev/op/parents` | 1 / create / 无父版 | 三者须按契约同时出现 | 默认在元数据展开后可见 |
 | `authority` | 未审核、无行动授权 | 数据里的审核声明 | “来源记录的审核信息”；不显示为本插件核实 |
 | `source.origin` | 原始来源 | derived / unknown | 标签来自数据约定，不能声称已检查来源真实性 |
@@ -490,7 +492,7 @@ flowchart LR
   "manifest_version": 2,
   "id": "notemd.knowledge-browser",
   "name": "Knowledge Browser",
-  "version": "1.2.0",
+  "version": "3.1.0",
   "kind": "native",
   "engines": {"notemd": ">=6.916.1"},
   "description": "Browse extracted knowledge, relations and source evidence.",
@@ -542,7 +544,7 @@ sequenceDiagram
 
 宿主当前在 8 秒内未收到就绪时回退；插件不能先假报 ready 再长期无内容。可先完成版本/顶层检查并渲染可操作的加载或诊断页面，但“知识索引就绪”必须在完整校验结束后单独标示。旧 requestId 的完成结果、错误、原文响应全部丢弃。[^host-view][^host-guide]
 
-用户点击“编辑原文”发送 `file_view.fallback` 且 `reason: "edit"`。回退保留同一份宿主内容，不由插件另读磁盘覆盖未保存编辑。
+用户通过宿主统一的 Rich / Source / Knowledge Viewer 分段控件进入 Source；插件内容区不重复提供“编辑 JSON 原文”按钮。Source 保留同一份宿主内容，不由插件另读磁盘覆盖未保存编辑。
 
 ### 11.3 能力映射
 
@@ -706,6 +708,8 @@ flowchart TD
 | AC-34 | 剪贴板失败或来源读取权限被拒 | 阅读继续；动作反馈真实且具有恢复方式 |
 | AC-35 | 在菜单文件选择器中取消 | 当前标签页、模式和内容不变，不创建空标签页或插件窗口 |
 | AC-36 | 内置关系表缺少方向定义、自定义 relation type | 角色关联不生成因果箭头；自定义定义按数据展示 |
+| AC-37 | 打开合法 3.1.0 数据集，包含 selection 与每条记录的 epistemic | 不产生旧版字段或版本误报；页面显示提取门槛和证据强度 |
+| AC-38 | 打开成对的 3.0.0 历史数据，或把 3.0 schema 与 3.1 rule 交叉组合 | 成对 3.0 可只读浏览且证据强度显示未知；交叉版本明确拒绝，不自动迁移 |
 
 ### 15.1 验证方法要求
 
@@ -737,14 +741,15 @@ flowchart TD
 
 ```json
 {
-  "schema": "knowledge-representation-dataset/3.0.0",
+  "schema": "knowledge-representation-dataset/3.1.0",
   "id": "ks_85cb6e32-b304-4e00-9331-b919b7c40b41",
   "generated": {
     "by": "fixture/1.0.0",
     "at": "2026-09-15T10:00:00Z",
-    "rule": "relation-schema-extractor/3.0.0",
+    "rule": "relation-schema-extractor/3.1.0",
     "types": "1.0.0"
   },
+  "selection": {"profile":"strong_only","policy":"epistemic-strength/1.0.0","minimum_strength":"strong"},
   "scope": {"purpose":"合成发布流程阅读测试","questions":["谁执行发布，谁批准？"]},
   "sources": [{"id":"s1","uri":"/fixtures/release-transcript.md","title":"合成发布会议","v":null}],
   "evidence": [
@@ -752,24 +757,24 @@ flowchart TD
     {"id":"x2","s":"s1","loc":"L3","quote":"批准权是允许或阻止正式发布的权力。","speaker":"e1"}
   ],
   "entities": [
-    {"id":"e1","type":"person","name":"工程负责人","i":0,"why":"发布委派者与批准者","ev":["x1"]},
-    {"id":"e2","type":"person","name":"发布执行人","i":0,"why":"执行工作的人","ev":["x1"]}
+    {"id":"e1","type":"person","name":"工程负责人","i":0,"why":"发布委派者与批准者","ev":["x1"],"epistemic":{"strength":"strong","basis":["explicit_statement"]}},
+    {"id":"e2","type":"person","name":"发布执行人","i":0,"why":"执行工作的人","ev":["x1"],"epistemic":{"strength":"strong","basis":["explicit_statement"]}}
   ],
   "concepts": [
-    {"id":"c1","term":"发布批准权","definition":"允许或阻止正式发布的权力","criteria":["能够决定发布是否继续"],"i":1,"why":"区分执行与批准","ev":["x2"]}
+    {"id":"c1","term":"发布批准权","definition":"允许或阻止正式发布的权力","criteria":["能够决定发布是否继续"],"i":1,"why":"区分执行与批准","ev":["x2"],"epistemic":{"strength":"strong","basis":["source_defined"]}}
   ],
   "claims": [
-    {"id":"q1","text":"发布执行人须在获得工程负责人批准后执行发布。","kind":"rule","about":["e1","e2","v1","c1"],"by":["e1"],"i":0,"why":"决定发布前置条件","ev":["x1"],"valid":null,"limits":["规则有效期未说明"]}
+    {"id":"q1","text":"发布执行人须在获得工程负责人批准后执行发布。","kind":"rule","about":["e1","e2","v1","c1"],"by":["e1"],"i":0,"why":"决定发布前置条件","ev":["x1"],"epistemic":{"strength":"strong","basis":["explicit_speech_act"]},"valid":null,"limits":["规则有效期未说明"]}
   ],
   "events": [
-    {"id":"v1","type":"release","title":"执行正式发布","state":"planned","args":{"executor":"e2","approver":"e1"},"event":null,"i":0,"why":"责任关系作用的具体工作","ev":["x1"]}
+    {"id":"v1","type":"release","title":"执行正式发布","state":"planned","args":{"executor":"e2","approver":"e1"},"event":null,"i":0,"why":"责任关系作用的具体工作","ev":["x1"],"epistemic":{"strength":"strong","basis":["explicit_statement"]}}
   ],
   "narratives": [
-    {"id":"n1","type":"decision_rationale","title":"执行与批准分别归属两个角色","thesis":"委派执行工作后，发布仍需批准。","mode":"agent","members":[{"ref":"r1","role":"premise"},{"ref":"q1","role":"constraint"},{"ref":"v1","role":"outcome"}],"reason":"委派说明执行者，规则主张说明批准前提。","alternatives":["后续规则可能改变批准要求"],"limits":["尚未看到后续规则"],"i":0,"why":"把角色与行动前提连成可读解释","ev":["x1"]}
+    {"id":"n1","type":"decision_rationale","title":"执行与批准分别归属两个角色","thesis":"委派执行工作后，发布仍需批准。","mode":"source","members":[{"ref":"r1","role":"premise"},{"ref":"q1","role":"constraint"},{"ref":"v1","role":"outcome"}],"reason":"委派说明执行者，规则主张说明批准前提。","alternatives":["后续规则可能改变批准要求"],"limits":["尚未看到后续规则"],"i":0,"why":"把角色与行动前提连成可读解释","ev":["x1"],"epistemic":{"strength":"strong","basis":["explicit_statement"]}}
   ],
   "relations": [
-    {"id":"r1","p":0,"type":"delegates_to","text":"工程负责人委派发布执行人完成正式发布。","args":{"delegator":"e1","delegate":"e2","work":"v1"},"i":0,"why":"明确工作委派与承接角色","ev":["x1"],"valid":null,"limits":["委派的有效期未说明"]},
-    {"id":"r2","p":0,"type":"requires_approval","args":{"approver":"e1","action":"v1"},"claim":["q1"],"i":0,"why":"保留行动前提","ev":["x1"],"valid":null,"limits":["规则的有效期未说明"]}
+    {"id":"r1","p":0,"type":"delegates_to","text":"工程负责人委派发布执行人完成正式发布。","args":{"delegator":"e1","delegate":"e2","work":"v1"},"i":0,"why":"明确工作委派与承接角色","ev":["x1"],"epistemic":{"strength":"strong","basis":["explicit_speech_act"]},"valid":null,"limits":["委派的有效期未说明"]},
+    {"id":"r2","p":0,"type":"requires_approval","args":{"approver":"e1","action":"v1"},"claim":["q1"],"i":0,"why":"保留行动前提","ev":["x1"],"epistemic":{"strength":"strong","basis":["explicit_statement"]},"valid":null,"limits":["规则的有效期未说明"]}
   ]
 }
 ```
@@ -788,7 +793,7 @@ flowchart TD
 
 [^request]: 本任务用户要求：一次提取重要实体、概念、主张、事件、叙事与 P0–P3 关系，以紧凑 JSON 表达，并制作可交给 mdeditor 工程实施的知识浏览插件规格。
 [^contract]: [紧凑 JSON 输出契约](/Users/bruce/git/sotvault/skills/relation-schema-extractor/references/output-contract.md)。
-[^schema]: [JSON Schema 3.0.0](/Users/bruce/git/sotvault/skills/relation-schema-extractor/references/relationship-extraction.schema.json)。
+[^schema]: [JSON Schema 3.1.0](/Users/bruce/git/sotvault/skills/relation-schema-extractor/references/relationship-extraction.schema.json)。
 [^types]: [关系类型注册表 1.0.0](/Users/bruce/git/sotvault/skills/relation-schema-extractor/references/relation-types.json)。
 [^validator]: [现有业务校验器](/Users/bruce/git/sotvault/skills/relation-schema-extractor/scripts/validate_output.py)。
 [^host-guide]: [mdeditor 插件 v2 开发规范](/Users/bruce/git/mdeditor/docs/plugin-v2-development.md)，含 `contributes.file_views`、8 秒回退及 Host API。

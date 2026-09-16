@@ -7,6 +7,14 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+### Changed
+
+- **Knowledge Browser 3.1.0 reads the current extraction format without false errors.**
+  The viewer now understands dataset and extractor 3.1.0, including `selection`
+  and per-record `epistemic` metadata, while retaining explicit read-only
+  compatibility with paired 3.0.0 files. Its plugin version now follows the
+  newest knowledge dataset format it supports.
+
 ## v6.916.1 — 2026-09-16
 
 ### Changed

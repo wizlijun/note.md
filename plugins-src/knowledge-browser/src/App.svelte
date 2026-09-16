@@ -16,6 +16,7 @@
   import { queryRecords } from './lib/query'
   import { locateQuote, parseSourceLocation, resolveSourceUri } from './lib/source-resolver'
   import { parseTimeValue } from './lib/time'
+  import { CURRENT_DATASET_SCHEMA, LEGACY_DATASET_SCHEMA } from './lib/types'
   import type { Diagnostic, Evidence, KnowledgeKind, ParseResult, Relation, Source } from './lib/types'
 
   type Category = KnowledgeKind | 'all' | 'sources' | 'evidence'
@@ -29,7 +30,7 @@
     'search': ['搜索当前数据集…', 'Search this dataset…'], 'filters': ['筛选', 'Filters'],
     'empty.dataset': ['当前 JSON 不是可识别的 v3 知识数据集。', 'The current JSON is not a recognized v3 knowledge dataset.'],
     'entry.viewer': ['知识文件视图', 'Knowledge file view'],
-    'scope': ['研究范围', 'Research scope'], 'questions': ['研究问题', 'Research questions'],
+    'scope': ['研究范围', 'Research scope'], 'questions': ['研究问题', 'Research questions'], 'selection': ['提取门槛', 'Selection'],
     'action.openEditor': ['在编辑器打开', 'Open in editor'],
     'action.copyReference': ['复制知识引用', 'Copy knowledge reference'], 'action.copyRaw': ['复制原始对象', 'Copy raw object'],
     'action.readSource': ['读取原文片段', 'Read source excerpt'], 'action.openRecord': ['打开对象', 'Open record'],
@@ -52,6 +53,7 @@
     'field.narrativeType': ['叙事类型', 'Narrative type'], 'field.thesis': ['中心命题', 'Thesis'], 'field.mode': ['叙事来源', 'Narrative mode'], 'field.members': ['阅读链', 'Reading chain'], 'field.alternatives': ['替代解释', 'Alternatives'],
     'field.priority': ['关系 Priority', 'Relation Priority'], 'field.relationType': ['关系类型', 'Relation type'], 'field.statement': ['关系陈述', 'Relation statement'], 'field.claimReferences': ['引用主张', 'Claim references'], 'field.singleSourceReason': ['单来源理由', 'Single-source reason'],
     'field.eventTime': ['事件时间', 'Event time'], 'field.validTime': ['有效时间', 'Valid time'], 'field.scope': ['局部作用范围', 'Local scope'], 'field.limits': ['已知限制', 'Known limits'], 'field.authority': ['来源记录的审核信息', 'Source-recorded review information'],
+    'field.epistemicStrength': ['证据强度', 'Evidence strength'], 'field.epistemicBasis': ['证据依据', 'Evidence basis'], 'field.epistemicReason': ['强度说明', 'Strength rationale'],
     'field.score': ['抽取/分类分数', 'Extraction/classification score'], 'field.revision': ['修订号', 'Revision'], 'field.operation': ['修订动作', 'Revision operation'], 'field.parents': ['父版本', 'Parents'],
     'field.speaker': ['证据说话人', 'Evidence speaker'], 'field.sourceTime': ['来源时间', 'Source time'], 'field.evidenceRole': ['证据作用', 'Evidence role'], 'field.sourceUri': ['来源 URI', 'Source URI'],
     'value.unknown': ['未知', 'Unknown'], 'time.unknown': ['未知', 'Unknown'], 'time.notApplicable': ['不适用', 'Not applicable'], 'time.unstandardized': ['未标准化时间：{value}', 'Unstandardized time: {value}'],
@@ -156,8 +158,10 @@
     try {
       const parsed = await parseDatasetAsync(content, uri, signal)
       if (signal?.aborted || load !== activeLoad) return false
+      const schema = parsed.raw && typeof parsed.raw === 'object' ? (parsed.raw as { schema?: unknown }).schema : undefined
       const recognized = parsed.status !== 'invalid'
-        || (!!parsed.raw && typeof parsed.raw === 'object' && (parsed.raw as { schema?: unknown }).schema === 'knowledge-representation-dataset/3.0.0')
+        || schema === CURRENT_DATASET_SCHEMA
+        || schema === LEGACY_DATASET_SCHEMA
       if (!recognized) {
         result = null; records = []; selectedId = null
         return false
@@ -251,6 +255,7 @@
     <section class="context">
       <div><strong>{text('scope')}</strong><span>{result.dataset.scope.purpose}</span></div>
       {#if result.dataset.scope.questions.length}<div><strong>{text('questions')}</strong><span>{result.dataset.scope.questions.join(' · ')}</span></div>{/if}
+      {#if result.dataset.selection}<div><strong>{text('selection')}</strong><span>{result.dataset.selection.profile} · ≥ {result.dataset.selection.minimum_strength}</span></div>{/if}
     </section>
     <section class="toolbar">
       <label class="search"><span aria-hidden="true">⌕</span><input type="search" placeholder={text('search')} bind:value={query} /></label>

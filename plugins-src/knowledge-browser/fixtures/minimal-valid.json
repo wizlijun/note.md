@@ -1,7 +1,8 @@
 {
-  "schema": "knowledge-representation-dataset/3.0.0",
+  "schema": "knowledge-representation-dataset/3.1.0",
   "id": "ks_85cb6e32-b304-4e00-9331-b919b7c40b41",
-  "generated": {"by":"fixture/1.0.0","at":"2026-09-15T10:00:00Z","rule":"relation-schema-extractor/3.0.0","types":"1.0.0"},
+  "generated": {"by":"fixture/1.0.0","at":"2026-09-15T10:00:00Z","rule":"relation-schema-extractor/3.1.0","types":"1.0.0"},
+  "selection": {"profile":"strong_only","policy":"epistemic-strength/1.0.0","minimum_strength":"strong"},
   "scope": {"purpose":"合成发布流程阅读测试","questions":["谁执行发布，谁批准？"]},
   "sources": [{"id":"s1","uri":"/fixtures/release-transcript.md","title":"合成发布会议","v":null}],
   "evidence": [
@@ -9,15 +10,15 @@
     {"id":"x2","s":"s1","loc":"L3","quote":"批准权是允许或阻止正式发布的权力。","speaker":"e1"}
   ],
   "entities": [
-    {"id":"e1","type":"person","name":"工程负责人","i":0,"why":"发布委派者与批准者","ev":["x1"]},
-    {"id":"e2","type":"person","name":"发布执行人","i":0,"why":"执行工作的人","ev":["x1"]}
+    {"id":"e1","type":"person","name":"工程负责人","i":0,"why":"发布委派者与批准者","ev":["x1"],"epistemic":{"strength":"strong","basis":["explicit_statement"]}},
+    {"id":"e2","type":"person","name":"发布执行人","i":0,"why":"执行工作的人","ev":["x1"],"epistemic":{"strength":"strong","basis":["explicit_statement"]}}
   ],
-  "concepts": [{"id":"c1","term":"发布批准权","definition":"允许或阻止正式发布的权力","criteria":["能够决定发布是否继续"],"i":1,"why":"区分执行与批准","ev":["x2"]}],
-  "claims": [{"id":"q1","text":"发布执行人须在获得工程负责人批准后执行发布。","kind":"rule","about":["e1","e2","v1","c1"],"by":["e1"],"i":0,"why":"决定发布前置条件","ev":["x1"],"valid":null,"limits":["规则有效期未说明"]}],
-  "events": [{"id":"v1","type":"release","title":"执行正式发布","state":"planned","args":{"executor":"e2","approver":"e1"},"event":null,"i":0,"why":"责任关系作用的具体工作","ev":["x1"]}],
-  "narratives": [{"id":"n1","type":"decision_rationale","title":"执行与批准分别归属两个角色","thesis":"委派执行工作后，发布仍需批准。","mode":"agent","members":[{"ref":"r1","role":"premise"},{"ref":"q1","role":"constraint"},{"ref":"v1","role":"outcome"}],"reason":"委派说明执行者，规则主张说明批准前提。","alternatives":["后续规则可能改变批准要求"],"limits":["尚未看到后续规则"],"i":0,"why":"把角色与行动前提连成可读解释","ev":["x1"]}],
+  "concepts": [{"id":"c1","term":"发布批准权","definition":"允许或阻止正式发布的权力","criteria":["能够决定发布是否继续"],"i":1,"why":"区分执行与批准","ev":["x2"],"epistemic":{"strength":"strong","basis":["source_defined"]}}],
+  "claims": [{"id":"q1","text":"发布执行人须在获得工程负责人批准后执行发布。","kind":"rule","about":["e1","e2","v1","c1"],"by":["e1"],"i":0,"why":"决定发布前置条件","ev":["x1"],"epistemic":{"strength":"strong","basis":["explicit_speech_act"]},"valid":null,"limits":["规则有效期未说明"]}],
+  "events": [{"id":"v1","type":"release","title":"执行正式发布","state":"planned","args":{"executor":"e2","approver":"e1"},"event":null,"i":0,"why":"责任关系作用的具体工作","ev":["x1"],"epistemic":{"strength":"strong","basis":["explicit_statement"]}}],
+  "narratives": [{"id":"n1","type":"decision_rationale","title":"执行与批准分别归属两个角色","thesis":"委派执行工作后，发布仍需批准。","mode":"source","members":[{"ref":"r1","role":"premise"},{"ref":"q1","role":"constraint"},{"ref":"v1","role":"outcome"}],"reason":"委派说明执行者，规则主张说明批准前提。","alternatives":["后续规则可能改变批准要求"],"limits":["尚未看到后续规则"],"i":0,"why":"把角色与行动前提连成可读解释","ev":["x1"],"epistemic":{"strength":"strong","basis":["explicit_statement"]}}],
   "relations": [
-    {"id":"r1","p":0,"type":"delegates_to","text":"工程负责人委派发布执行人完成正式发布。","args":{"delegator":"e1","delegate":"e2","work":"v1"},"i":0,"why":"明确工作委派与承接角色","ev":["x1"],"valid":null,"limits":["委派的有效期未说明"]},
-    {"id":"r2","p":0,"type":"requires_approval","args":{"approver":"e1","action":"v1"},"claim":["q1"],"i":0,"why":"保留行动前提","ev":["x1"],"valid":null,"limits":["规则的有效期未说明"]}
+    {"id":"r1","p":0,"type":"delegates_to","text":"工程负责人委派发布执行人完成正式发布。","args":{"delegator":"e1","delegate":"e2","work":"v1"},"i":0,"why":"明确工作委派与承接角色","ev":["x1"],"epistemic":{"strength":"strong","basis":["explicit_speech_act"]},"valid":null,"limits":["委派的有效期未说明"]},
+    {"id":"r2","p":0,"type":"requires_approval","args":{"approver":"e1","action":"v1"},"claim":["q1"],"i":0,"why":"保留行动前提","ev":["x1"],"epistemic":{"strength":"strong","basis":["explicit_statement"]},"valid":null,"limits":["规则的有效期未说明"]}
   ]
 }
