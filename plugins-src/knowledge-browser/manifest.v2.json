@@ -2,10 +2,10 @@
   "manifest_version": 2,
   "id": "notemd.knowledge-browser",
   "name": "Knowledge Browser",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "kind": "native",
   "engines": {
-    "notemd": ">=6.915.3"
+    "notemd": ">=6.916.1"
   },
   "description": "Browse extracted knowledge, relations, timelines and source evidence without changing the source dataset.",
   "ui": "ui/",
@@ -18,20 +18,16 @@
         "location": "plugins",
         "submenu": "reading",
         "label": "Open Knowledge Browser…",
-        "command": "open-browser"
-      }
-    ],
-    "windows": [
-      {
-        "id": "main",
-        "entry": "browser.html",
-        "title": "Knowledge Browser",
-        "width": 1180,
-        "height": 800,
-        "min_width": 640,
-        "min_height": 480,
-        "singleton": true,
-        "open_command": "open-browser"
+        "command": "view-knowledge",
+        "prompt": {
+          "kind": "open-dialog",
+          "filters": [
+            {
+              "name": "JSON",
+              "extensions": ["json"]
+            }
+          ]
+        }
       }
     ],
     "file_views": [
@@ -52,18 +48,14 @@
   "capabilities": [
     "vault.read",
     "editor.open",
-    "dialog",
-    "fs.read:dialog",
-    "clipboard.write",
-    "settings"
+    "clipboard.write"
   ],
   "i18n": {
     "zh": {
       "name": "提取知识浏览器",
       "description": "只读浏览提取的知识对象、多方关系、时间线与原文证据。",
       "menus": {
-        "open-browser": "打开提取知识浏览器…",
-        "view-knowledge": "查看提取知识"
+        "view-knowledge": "打开提取知识浏览器…"
       }
     }
   }

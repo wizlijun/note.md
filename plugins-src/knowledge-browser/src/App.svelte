@@ -7,20 +7,16 @@
   import RelationGraph from './components/RelationGraph.svelte'
   import TimelineView, { type TimelineEntry } from './components/TimelineView.svelte'
   import {
-    chooseJsonFile, copyText, onFileViewOpen, openEditor, readDialogText,
-    vaultInfo, vaultList, vaultRead, vaultReadBytes,
+    copyText, onFileViewOpen, openEditor, vaultInfo, vaultRead, vaultReadBytes,
   } from './lib/bridge'
-  import { scanDatasetDirectory, type DatasetDirectoryItem } from './lib/directory'
   import { relationParticipants } from './lib/indexes'
   import { buildViewRecords, evidenceLabel, relationStatement, sourceLabel, type ViewRecord } from './lib/normalizer'
-  import { parseKnowledgeReference, serializeKnowledgeReference } from './lib/navigation'
+  import { serializeKnowledgeReference } from './lib/navigation'
   import { parseDatasetAsync } from './lib/worker-client'
   import { queryRecords } from './lib/query'
   import { locateQuote, parseSourceLocation, resolveSourceUri } from './lib/source-resolver'
   import { parseTimeValue } from './lib/time'
   import type { Diagnostic, Evidence, KnowledgeKind, ParseResult, Relation, Source } from './lib/types'
-
-  let { entry }: { entry: 'browser' | 'viewer' } = $props()
 
   type Category = KnowledgeKind | 'all' | 'sources' | 'evidence'
   type Mode = 'reading' | 'relations' | 'timeline' | 'diagnostics'
@@ -30,17 +26,15 @@
   const table: Record<string, [string, string]> = {
     'product': ['提取知识浏览器', 'Knowledge Browser'],
     'loading': ['正在解析与建立索引…', 'Parsing and indexing…'],
-    'choose': ['选择 JSON…', 'Choose JSON…'], 'refresh': ['重新读取', 'Reload'], 'cancel': ['取消扫描', 'Cancel scan'],
     'search': ['搜索当前数据集…', 'Search this dataset…'], 'filters': ['筛选', 'Filters'],
-    'empty.dataset': ['选择一个 v3 知识 JSON，或从当前 Vault 的 research 目录打开数据集。', 'Choose a v3 knowledge JSON or open one from the current Vault research directory.'],
-    'entry.viewer': ['知识文件视图', 'Knowledge file view'], 'entry.browser': ['数据集浏览窗口', 'Dataset browser'],
+    'empty.dataset': ['当前 JSON 不是可识别的 v3 知识数据集。', 'The current JSON is not a recognized v3 knowledge dataset.'],
+    'entry.viewer': ['知识文件视图', 'Knowledge file view'],
     'scope': ['研究范围', 'Research scope'], 'questions': ['研究问题', 'Research questions'],
     'action.openEditor': ['在编辑器打开', 'Open in editor'],
     'action.copyReference': ['复制知识引用', 'Copy knowledge reference'], 'action.copyRaw': ['复制原始对象', 'Copy raw object'],
     'action.readSource': ['读取原文片段', 'Read source excerpt'], 'action.openRecord': ['打开对象', 'Open record'],
     'action.retry': ['重试', 'Retry'], 'action.close': ['关闭', 'Close'], 'action.back': ['返回上一对象', 'Back to previous record'],
-    'action.locateReference': ['定位引用…', 'Locate reference…'], 'action.locate': ['定位', 'Locate'],
-    'copied': ['已复制', 'Copied'], 'preference.failed': ['偏好未保存，阅读不受影响。', 'Preferences were not saved; reading is unaffected.'],
+    'copied': ['已复制', 'Copied'],
     'mode.reading': ['阅读', 'Reading'], 'mode.relations': ['关系', 'Relations'], 'mode.timeline': ['时间', 'Time'], 'mode.diagnostics': ['诊断', 'Diagnostics'],
     'kind.all': ['全部知识', 'All knowledge'], 'kind.entities': ['实体', 'Entities'], 'kind.concepts': ['概念', 'Concepts'], 'kind.claims': ['主张', 'Claims'],
     'kind.events': ['事件', 'Events'], 'kind.narratives': ['叙事', 'Narratives'], 'kind.relations': ['关系', 'Relations'], 'kind.sources': ['来源', 'Sources'], 'kind.evidence': ['证据', 'Evidence'],
@@ -94,12 +88,7 @@
   let selectedSourceId = $state<string | null>(null)
   let selectedEvidenceId = $state<string | null>(null)
   let datasetPath = $state('')
-  let datasetItems = $state<DatasetDirectoryItem[]>([])
-  let scanning = $state(false)
-  let scanController: AbortController | null = null
   let preview = $state<{ title: string; status: string; content: string; path?: string } | null>(null)
-  let referenceOpen = $state(false)
-  let referenceText = $state('')
   let activeLoad = 0
   let unsubscribe: (() => void) | undefined
 
@@ -188,31 +177,6 @@
     } finally { if (load === activeLoad) loading = false }
   }
 
-  async function scan(): Promise<void> {
-    if (entry !== 'browser') return
-    scanController?.abort(); scanController = new AbortController(); scanning = true; error = ''
-    try {
-      const found = await scanDatasetDirectory({ list: vaultList, read: vaultRead }, { signal: scanController.signal })
-      datasetItems = found.items
-      if (found.truncated) notice = zh ? '目录结果已按安全上限截断。' : 'Directory results were truncated at the safety limit.'
-      if (found.cancelled) notice = zh ? '已取消扫描，保留已发现的数据集。' : 'Scan cancelled; discovered datasets were kept.'
-    } catch (cause) { error = cause instanceof Error ? cause.message : String(cause) }
-    finally { scanning = false }
-  }
-
-  async function openDataset(path: string): Promise<void> { await applyContent(await vaultRead(path), path) }
-  async function chooseDataset(): Promise<void> {
-    const path = await chooseJsonFile(); if (!path) return
-    try { await applyContent(await readDialogText(path), path) } catch (cause) { error = cause instanceof Error ? cause.message : String(cause) }
-  }
-  async function reload(): Promise<void> {
-    if (!datasetPath) return
-    try {
-      if (!datasetPath.startsWith('/')) await openDataset(datasetPath)
-      else notice = zh ? '手动选择的外部文件请再次选择以刷新授权。' : 'Choose the external file again to refresh its permission.'
-    } catch (cause) { error = cause instanceof Error ? cause.message : String(cause) }
-  }
-
   function selectRecord(record: ViewRecord): void {
     if (selectedId && selectedId !== record.id) history = [...history, selectedId].slice(-100)
     selectedId = record.id; selectedSourceId = null; selectedEvidenceId = null
@@ -229,24 +193,6 @@
     if (!result?.dataset || !datasetPath || datasetPath.startsWith('/')) { error = zh ? '外部文件没有可移植的 Vault 相对路径。' : 'External files do not have a portable Vault-relative path.'; return }
     await reportCopy(serializeKnowledgeReference({ path: datasetPath, dataset: result.dataset.id, ref: record.id, snapshot: result.snapshotHash }))
   }
-  async function locateReference(): Promise<void> {
-    const reference = parseKnowledgeReference(referenceText.trim())
-    if (!reference) { error = zh ? '引用必须是有效的 knowledge-ref/1 JSON。' : 'The reference must be valid knowledge-ref/1 JSON.'; return }
-    try {
-      const content = await vaultRead(reference.path)
-      await applyContent(content, reference.path)
-      if (!result?.dataset || result.dataset.id !== reference.dataset) { error = zh ? '数据集 ID 与引用不匹配，已停止定位。' : 'Dataset ID does not match the reference; location stopped.'; return }
-      const found = records.find(item => item.id === reference.ref)
-      if (!found) { error = zh ? `当前快照中缺少 ${reference.ref}，未用同名对象替补。` : `${reference.ref} is missing from the current snapshot; no name-based substitute was used.`; return }
-      if (reference.snapshot && reference.snapshot !== result.snapshotHash) notice = zh ? '数据集快照已变化；已在当前快照中严格按 ID 定位。' : 'The dataset snapshot changed; the current snapshot was located strictly by ID.'
-      selectRecord(found); category = found.kind; mode = 'reading'; referenceOpen = false
-    } catch (cause) { error = cause instanceof Error ? cause.message : String(cause) }
-  }
-  async function openCurrentInEditor(): Promise<void> {
-    if (!datasetPath || datasetPath.startsWith('/')) { error = zh ? '只能在编辑器中打开当前 Vault 内的文件。' : 'Only current-Vault files can be opened in the editor.'; return }
-    try { await openEditor(datasetPath, 'knowledge') } catch (cause) { error = cause instanceof Error ? cause.message : String(cause) }
-  }
-
   function excerptFor(textValue: string, evidence: Evidence): string {
     const normalized = textValue.replace(/\r\n?/g, '\n'); const lines = normalized.split('\n'); const loc = parseSourceLocation(evidence.loc)
     if (loc.kind === 'lines' && loc.startLine && loc.endLine && loc.startLine <= lines.length) {
@@ -287,38 +233,19 @@
   function selectDiagnostic(item: Diagnostic): void { if (item.objectId) navigate(item.objectId) }
 
   onMount(() => {
-    if (entry === 'viewer') { loading = true; unsubscribe = onFileViewOpen((snapshot, signal) => applyContent(snapshot.content, snapshot.uri, signal)) }
-    else void scan()
+    loading = true
+    unsubscribe = onFileViewOpen((snapshot, signal) => applyContent(snapshot.content, snapshot.uri, signal))
   })
-  onDestroy(() => { activeLoad++; scanController?.abort(); unsubscribe?.() })
+  onDestroy(() => { activeLoad++; unsubscribe?.() })
 </script>
 
-<main class="knowledge-app ui-surface" class:viewer={entry === 'viewer'}>
+<main class="knowledge-app ui-surface viewer">
   <header class="topbar">
     <div class="identity">
-      <span class="eyebrow">{text(entry === 'viewer' ? 'entry.viewer' : 'entry.browser')}</span>
+      <span class="eyebrow">{text('entry.viewer')}</span>
       <h1>{text('product')}</h1>
     </div>
-    <div class="dataset-actions">
-      {#if entry === 'browser'}
-        <select aria-label={zh ? '数据集' : 'Dataset'} value={datasetPath} onchange={(event) => { const path = event.currentTarget.value; if (path) void openDataset(path) }}>
-          <option value="">{scanning ? (zh ? '正在扫描 research…' : 'Scanning research…') : (zh ? '选择数据集' : 'Choose a dataset')}</option>
-          {#each datasetItems as item}<option value={item.path} disabled={item.status !== 'available'}>{item.name}{item.copyState === 'different-snapshot' ? (zh ? ' · 同 ID 不同快照' : ' · same ID, different snapshot') : ''}</option>{/each}
-        </select>
-        <button type="button" onclick={chooseDataset}>{text('choose')}</button>
-        <button type="button" onclick={() => referenceOpen = !referenceOpen}>{text('action.locateReference')}</button>
-        <button type="button" onclick={scanning ? () => scanController?.abort() : scan}>{text(scanning ? 'cancel' : 'refresh')}</button>
-      {/if}
-      {#if result?.dataset && entry === 'browser'}<button type="button" onclick={openCurrentInEditor}>{text('action.openEditor')}</button>{/if}
-    </div>
   </header>
-
-  {#if referenceOpen}
-    <form class="reference-bar" onsubmit={(event) => { event.preventDefault(); void locateReference() }}>
-      <label><span>{zh ? '粘贴 knowledge-ref/1 JSON' : 'Paste knowledge-ref/1 JSON'}</span><input bind:value={referenceText} autocomplete="off" spellcheck="false" /></label>
-      <button type="submit">{text('action.locate')}</button><button type="button" onclick={() => referenceOpen = false}>{text('action.close')}</button>
-    </form>
-  {/if}
 
   {#if result?.dataset}
     <section class="context">
@@ -343,9 +270,9 @@
   {#if notice}<div class="banner" role="status">{notice}<button aria-label={text('action.close')} onclick={() => notice = ''}>×</button></div>{/if}
 
   {#if loading}<section class="empty-state" role="status"><span class="spinner" aria-hidden="true"></span><p>{text('loading')}</p></section>
-  {:else if !result}<section class="empty-state"><h2>{text('product')}</h2><p>{text('empty.dataset')}</p>{#if entry === 'browser'}<button type="button" onclick={chooseDataset}>{text('choose')}</button>{/if}</section>
+  {:else if !result}<section class="empty-state"><h2>{text('product')}</h2><p>{text('empty.dataset')}</p></section>
   {:else if !result.dataset || !result.indexes}
-    <DiagnosticsView diagnostics={result.diagnostics} text={text} onSelect={selectDiagnostic} onRetry={reload} />
+    <DiagnosticsView diagnostics={result.diagnostics} text={text} onSelect={selectDiagnostic} />
   {:else}
     <div class="workspace" class:single={mode !== 'reading'}>
       {#if mode === 'reading'}
@@ -382,7 +309,7 @@
       {:else if mode === 'timeline'}
         <TimelineView dimension={timeDimension} entries={timelineEntries} text={text} onSelect={timelineSelect} />
       {:else}
-        <DiagnosticsView diagnostics={result.diagnostics} browseableCount={records.length} isolatedCount={result.dataset.entities.length + result.dataset.concepts.length + result.dataset.claims.length + result.dataset.events.length + result.dataset.narratives.length + result.dataset.relations.length - records.length} referenceIssueCount={result.diagnostics.filter(item => item.code.includes('ref') || item.code.includes('evidence') || item.code.includes('source')).length} text={text} onSelect={selectDiagnostic} onRetry={reload} />
+        <DiagnosticsView diagnostics={result.diagnostics} browseableCount={records.length} isolatedCount={result.dataset.entities.length + result.dataset.concepts.length + result.dataset.claims.length + result.dataset.events.length + result.dataset.narratives.length + result.dataset.relations.length - records.length} referenceIssueCount={result.diagnostics.filter(item => item.code.includes('ref') || item.code.includes('evidence') || item.code.includes('source')).length} text={text} onSelect={selectDiagnostic} />
       {/if}
     </div>
   {/if}
@@ -408,9 +335,7 @@
   .topbar { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 18px; padding: 18px 24px 12px; border-bottom: 1px solid var(--ui-separator); }
   .identity { min-width: 0; } .eyebrow { margin: 0 0 3px; color: var(--ui-tertiary, GrayText); font-size: 10px; font-weight: 650; letter-spacing: .09em; text-transform: uppercase; }
   h1 { margin: 0; font-size: 22px; letter-spacing: -.025em; } h2 { overflow-wrap: anywhere; }
-  .dataset-actions { display: flex; min-width: 0; flex-wrap: wrap; justify-content: flex-end; gap: 7px; }
-  .dataset-actions select { max-width: 330px; }
-  .dataset-actions button, .dataset-actions select, .toolbar select, .empty-state button, .back, .aux-detail button, .preview button { min-height: 31px; padding: 5px 9px; border: 1px solid var(--ui-control-border); border-radius: 7px; background: var(--ui-surface); }
+  .toolbar select, .back, .aux-detail button, .preview button { min-height: 31px; padding: 5px 9px; border: 1px solid var(--ui-control-border); border-radius: 7px; background: var(--ui-surface); }
   .context { display: flex; min-width: 0; flex-wrap: wrap; gap: 8px 24px; padding: 8px 24px; border-bottom: 1px solid var(--ui-separator); background: var(--ui-bg); font-size: 12px; }
   .context div { display: flex; min-width: 0; gap: 7px; } .context strong { flex: none; } .context span { min-width: 0; color: var(--ui-secondary); overflow-wrap: anywhere; }
   .toolbar { display: flex; min-width: 0; flex-wrap: wrap; align-items: center; gap: 8px; padding: 9px 24px; border-bottom: 1px solid var(--ui-separator); }
@@ -423,10 +348,6 @@
   .banner { display: flex; justify-content: space-between; gap: 8px; padding: 7px 24px; background: color-mix(in srgb, var(--ui-accent, AccentColor) 10%, var(--ui-surface)); font-size: 12px; }
   .banner.error { color: var(--ui-danger, #b42318); background: color-mix(in srgb, var(--ui-danger, #b42318) 8%, var(--ui-surface)); }
   .banner button { border: 0; background: transparent; color: inherit; }
-  .reference-bar { display: flex; min-width: 0; align-items: end; gap: 8px; padding: 9px 24px; border-bottom: 1px solid var(--ui-separator); background: var(--ui-bg); }
-  .reference-bar label { display: grid; min-width: 0; flex: 1; gap: 4px; color: var(--ui-secondary); font-size: 11px; }
-  .reference-bar input { min-width: 0; padding: 6px 8px; border: 1px solid var(--ui-control-border); border-radius: 7px; background: var(--ui-surface); color: CanvasText; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-  .reference-bar button { min-height: 31px; padding: 5px 9px; border: 1px solid var(--ui-control-border); border-radius: 7px; background: var(--ui-surface); }
   .workspace { display: grid; min-width: 0; min-height: 0; grid-template-columns: minmax(280px, 360px) minmax(400px, 1fr); overflow: hidden; }
   .workspace.single { display: block; overflow: auto; } .results { min-width: 0; min-height: 0; overflow: auto; border-right: 1px solid var(--ui-separator); }
   .reader { min-width: 0; min-height: 0; overflow: auto; } .back { margin: 10px 14px 0; }
@@ -458,14 +379,13 @@
   @keyframes spin { to { transform: rotate(360deg); } }
   @media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
   @media (max-width: 759px) {
-    .topbar { align-items: flex-start; flex-direction: column; padding: 13px 14px 10px; } .dataset-actions { justify-content: flex-start; }
-    .context, .toolbar, .reference-bar { padding-inline: 14px; } .toolbar { align-items: stretch; } .search { flex-basis: 100%; }
-    .reference-bar { align-items: stretch; flex-wrap: wrap; } .reference-bar label { flex-basis: 100%; }
+    .topbar { align-items: flex-start; flex-direction: column; padding: 13px 14px 10px; }
+    .context, .toolbar { padding-inline: 14px; } .toolbar { align-items: stretch; } .search { flex-basis: 100%; }
     .workspace { display: block; overflow: auto; } .results, .reader { border: 0; }
     .results.hidden-mobile { display: none; } .reader:not(.visible-mobile) { display: none; }
     .statusbar { display: grid; } .preview { inset: 0; border: 0; border-radius: 0; }
     .aux-detail dl > div { grid-template-columns: 1fr; gap: 4px; }
     .comparison-columns { grid-template-columns: 1fr; }
   }
-  @media (max-width: 399px) { .modes { width: 100%; overflow-x: auto; } .dataset-actions select { max-width: 100%; } }
+  @media (max-width: 399px) { .modes { width: 100%; overflow-x: auto; } }
 </style>

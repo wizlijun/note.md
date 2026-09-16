@@ -68,12 +68,18 @@ export function validateManifest(m: unknown): ValidateResult {
       const mr = me as Record<string, unknown>
       if (mr.prompt != null) {
         const p = mr.prompt as Record<string, unknown>
-        if (p.kind !== 'save-dialog')
+        if (p.kind !== 'save-dialog' && p.kind !== 'open-dialog')
           return { ok: false, error: `unsupported prompt.kind: ${String(p.kind)}` }
-        if (typeof p.default_filename !== 'string' || p.default_filename.length === 0)
+        if (p.kind === 'save-dialog' && (typeof p.default_filename !== 'string' || p.default_filename.length === 0))
           return { ok: false, error: 'prompt.default_filename required' }
-        if (!Array.isArray(p.filters))
+        if (!Array.isArray(p.filters) || p.filters.length === 0)
           return { ok: false, error: 'prompt.filters must be an array' }
+        for (const filter of p.filters) {
+          const fr = filter as Record<string, unknown>
+          if (typeof fr.name !== 'string' || !Array.isArray(fr.extensions) || fr.extensions.length === 0
+            || fr.extensions.some(extension => typeof extension !== 'string' || extension.length === 0))
+            return { ok: false, error: 'prompt.filters entries must have a name and extensions' }
+        }
       }
     }
   }

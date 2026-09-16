@@ -26,7 +26,7 @@ export default defineConfig({
     outDir: 'dist',
     emptyOutDir: true,
     rollupOptions: {
-      input: { browser: 'browser.html', viewer: 'viewer.html' },
+      input: { viewer: 'viewer.html' },
     },
   },
 })

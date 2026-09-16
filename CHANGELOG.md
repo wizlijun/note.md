@@ -7,6 +7,14 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+### Changed
+
+- **Knowledge Browser now opens selected JSON files in the main editor.**
+  Its Reading menu command always presents a JSON file picker, then opens the
+  selection directly in Knowledge Viewer with the existing Rich / Source /
+  Knowledge Viewer switcher. The standalone plugin window and its duplicate
+  dataset-browser path have been removed.
+
 ## v6.915.4 — 2026-09-15
 
 ### Changed

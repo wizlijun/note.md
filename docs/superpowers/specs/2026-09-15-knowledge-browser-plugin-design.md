@@ -33,16 +33,16 @@ sources:
 
 | 项目 | 约定 |
 | --- | --- |
-| 规格版本 | 1.0；用户已授权开始实施，最终产品验收尚未完成 |
+| 规格版本 | 1.1；2026-09-16 按用户纠正收口为主编辑器单入口，最终产品验收尚未完成 |
 | 插件中文名 | 提取知识浏览器 |
 | 插件英文名 / ID | Knowledge Browser / `notemd.knowledge-browser` |
 | 目标工程 | `/Users/bruce/git/mdeditor` |
 | 建议目录 | `plugins-src/knowledge-browser/` |
 | 输入协议 | `knowledge-representation-dataset/3.0.0` |
 | 内置关系注册表 | `1.0.0` |
-| 产品形态 | note.md 插件 v2：编辑器只读文件视图 + 数据集浏览窗口，共用一套浏览组件 |
+| 产品形态 | note.md 插件 v2：主编辑器只读文件视图；菜单先选择 JSON，再在编辑器标签页打开 |
 | 本文的“提取知识” | 已由抽取 Skill 生成的实体、概念、主张、事件、叙事及 P0–P3 关系 |
-| v1 数据操作 | 读取、检索、浏览、定位、比较、复制引用；用户偏好单独保存 |
+| v1 数据操作 | 读取、检索、浏览、定位、比较、复制引用；不保存插件私有状态 |
 | v1 完成标准 | 第 15 节全部 MUST 验收通过；分阶段交付不削减最终范围 |
 
 本文使用 **MUST（必须）**、**SHOULD（应当，偏离须记录原因）**、**MAY（可选）**。没有另行标记的需求按 MUST 执行。标为“未来”的内容不属于 v1。
@@ -62,7 +62,7 @@ sources:
 3. 局部关系图是一种阅读方式；多方关系以有角色的关系节点表达。
 4. 研究问题作为阅读上下文展示。v3 没有问题到对象的明确映射，界面不能把字符串匹配结果标成“该问题的答案”。
 5. 事件时间、有效时间、来源时间、系统记录时间分别展示、分别筛选。
-6. 已有 JSON 是知识内容的来源；界面索引、布局、筛选和偏好不写回知识 JSON。
+6. 已有 JSON 是知识内容的来源；界面索引、布局和筛选不写回知识 JSON。
 7. v1 不承担重新抽取、知识审核、事实修改、实体合并、任务创建或长期记忆写入。未来接入抽取 Agent 时，另立执行与写入规格。
 
 ### 0.3 实施决策与当前宿主差异
@@ -70,14 +70,13 @@ sources:
 以下决定用于消除实施歧义；如与后文较宽泛的表述冲突，以本节为准：
 
 1. 数据集通过协议允许的 `type_defs` 合法声明自定义关系类型时，该类型可进入正常阅读、筛选和关系图，并按声明的角色展示。没有合法定义的未知类型，或试图用 `type_defs` 覆盖内置类型的记录，必须隔离并进入诊断，不进入正常关系图。
-2. 320 px 响应式验收适用于宿主内嵌文件视图。独立窗口保持 manifest 的最小宽度 640 px；两个入口复用同一响应式布局模型，不为窗口另写一套页面。
-3. 两个入口共享浏览组件、状态类型和状态转换模型，但不要求跨窗口实时同步瞬时状态。每个窗口维护自己的运行时状态，只通过插件设置恢复已明确允许持久化的偏好。
+2. 320 px 响应式验收适用于宿主内嵌文件视图；插件不贡献独立窗口，也不保留第二套页面导航。
+3. “插件 → 阅读 → 打开提取知识浏览器…”始终先显示仅允许 `.json` 的打开对话框；选择后由宿主在主编辑器打开文件并默认选择 Knowledge Viewer。取消不改变当前标签页。
 4. 为发现重复 JSON 属性键，语法层使用能够保留 token 位置的严格解析器，诊断必须给出重复键及其位置；不能先用标准 `JSON.parse` 覆盖重复值后再校验。
 5. 固定版本的 Schema 使用构建期生成校验代码，或使用经过显式验证且运行时不依赖 `eval` / `new Function` 的校验器。验收必须在插件 CSP 下证明校验路径无动态代码生成。
 6. 关系图 v1 先采用确定性的分层布局，输入顺序与稳定排序相同则布局结果稳定；任何图形交互都必须保留功能等价的关系列表，不能把图作为唯一阅读入口。
 7. 当前宿主 `host.vault.read` 的文件读取上限为 200 MB，`read_bytes` 的原始字节读取上限为 10 MB。前者可承载本规格不超过 30 MiB 的知识 JSON 与文本预览；后者只用于能力范围内的 SHA-256 来源版本核对，超过 10 MB 时显示“未核对版本”。
-8. 目录扫描取消由插件维护应用级取消令牌：停止调度新读取，并丢弃令牌失效后的完成结果；当前宿主没有目录扫描取消 RPC，不得把 UI 取消描述成已中止宿主内部调用。
-9. “复制知识引用”默认包含当前 `snapshot`。恢复时摘要不一致必须提示快照已变化，并在严格核对 dataset/ref 后允许用户查看当前对象。
+8. “复制知识引用”默认包含当前 `snapshot`。恢复时摘要不一致必须提示快照已变化，并在严格核对 dataset/ref 后允许用户查看当前对象。
 
 ## 1. 用户目标与范围
 
@@ -96,23 +95,21 @@ sources:
 
 ### 1.2 v1 交付边界
 
-必须交付：单数据集完整浏览、当前 Vault 的数据集目录、六类知识检索、对象详情、叙事阅读、局部关系探索、时间线、来源与证据浏览、显式关系比较、数据诊断、引用恢复。
+必须交付：菜单选择 JSON、主编辑器单数据集完整浏览、六类知识检索、对象详情、叙事阅读、局部关系探索、时间线、来源与证据浏览、显式关系比较、数据诊断和引用复制。
 
-未来范围：跨数据集语义合并、全库联合图谱、自然语言问答、重新抽取、模型解释、审核批准、多人协作、版本编辑、完整历史存储、公开链接、独立网站部署。
+未来范围：Vault 数据集目录窗口、跨数据集语义合并、全库联合图谱、跨文件引用恢复、自然语言问答、重新抽取、模型解释、审核批准、多人协作、版本编辑、完整历史存储、公开链接、独立网站部署。
 
 允许跨文件切换数据集；一次只对当前数据集建立知识连接。同名对象和相同短 ID 不能跨数据集合并。
 
 ## 2. 信息架构与页面布局
 
-### 2.1 两个入口，一套阅读状态
+### 2.1 一个主编辑器入口，两种打开方式
 
-**入口 A：编辑器文件视图。** 在主编辑器打开 JSON 时，宿主将文件内容快照交给插件。插件识别顶层 `schema: knowledge-representation-dataset/3.0.0` 后默认显示知识视图；用户可通过宿主的 Rich / Source / Knowledge Viewer 三段控件切换。非知识 JSON 或无法识别的内容立即回退到原 JSON 编辑器，不改变原文。
+**直接打开文件。** 在主编辑器打开 JSON 时，宿主将文件内容快照交给插件。插件识别顶层 `schema: knowledge-representation-dataset/3.0.0` 后默认显示知识视图；用户可通过宿主的 Rich / Source / Knowledge Viewer 三段控件切换。非知识 JSON 或无法识别的内容立即回退到原 JSON 编辑器，不改变原文。
 
-**入口 B：插件菜单“提取知识浏览器”。** 打开单例窗口，展示当前 Vault 的数据集目录。选择数据集后在该窗口内进入同一浏览器；提供“在编辑器打开”动作。
+**从插件菜单打开。** 点击“插件 → 阅读 → 打开提取知识浏览器…”后，宿主立即显示 JSON 文件选择器。选择文件后调用主编辑器的普通打开流程，并显式选择 `knowledge` 文件视图；不得调用 `plugin_v2_open_window`，不得创建独立窗口。
 
-全局“插件 → 阅读”菜单只贡献入口 B；入口 A 的 `view-knowledge` 只作为宿主文件视图切换命令，不重复注册为全局菜单项。
-
-目录默认扫描 `research/` 的直接子文件，仅选 `*-knowledge-*.json`、`*.knowledge.json`。用户可配置其他 Vault 相对目录与是否递归。手动选择文件不受文件名限制，但必须验证协议。目录扫描只发现数据集，不读取其引用的来源正文。
+全局菜单与文件视图共用唯一命令 `view-knowledge`。菜单项声明 `open-dialog` 与 JSON filter；文件视图不再另造第二个可见入口。任意文件名的 `.json` 都可被选择，但必须验证协议标识，非知识 JSON 回退标准编辑器。
 
 ### 2.2 桌面布局
 
@@ -151,7 +148,7 @@ sources:
 
 第一次打开：阅读模式、主张分类、全部重要性、无筛选；按核心优先，再按原始数组顺序排列。第一条可浏览结果在桌面自动选中，窄屏保持列表；没有主张时使用“全部知识”。
 
-再次打开：恢复当前 Vault 与数据集对应的展示偏好。过期选中对象不存在时回到列表，并提示“上次查看的对象不在当前快照中”；不自动选同名对象。
+再次打开：按数据内容重新建立确定性默认视图，不从插件私有存储恢复旧选择。对象不存在时回到列表，不自动选同名对象。
 
 ## 3. 数据契约与解释规则
 
@@ -419,21 +416,17 @@ flowchart LR
 
 当前 `host.editor.open` 接收文件路径及可选视图参数，未提供行号或时间码参数。v1 必须在插件内部实现精确片段预览；“在编辑器打开”只承诺打开整份文件，并提供“复制定位”辅助。不得传入不存在的 `line`、`timestamp` 参数并宣称成功跳转。[^host-code]
 
-## 9. 数据集目录、刷新与引用恢复
+## 9. 文件选择、刷新与引用
 
-### 9.1 目录发现
+### 9.1 菜单选择文件
 
-目录显示文件名、可读研究目的、生成时间、六类知识数量、协议版本及加载状态。数据集没有 `title` 字段，名称优先从文件名得出；`scope.purpose` 作为说明，不能写回一个新 title。
+菜单项使用宿主 `open-dialog` prompt，过滤器只显示 `.json`。选择文件后必须调用宿主既有 `openFile`，再对新标签页显式选择 `notemd.knowledge-browser/knowledge` 文件视图；即使当前已有合法知识 JSON，也不能跳过选择器直接复用当前标签页。
 
-读取顺序：列目录 → 按模式筛文件 → 每次最多 2 个并发读取 → 解析并显示条目。目录扫描只保留每份数据集的摘要，读取后释放其全文；仅当前打开的数据集保留完整索引。一次扫描最多 500 个匹配文件、目录递归最多 10 层；达到上限显示“结果有截断”，允许用户缩小目录。用户可取消扫描；取消不能清空已成功发现的条目。
-
-v1 不自动全库扫描，不访问 `.git`、`.notemd`、依赖目录或其他控制目录。没有数据集时显示抽取 Skill 名称、预期格式与文件命名示例；不放置不可用的“开始 AI 提取”按钮。
+用户取消选择时静默结束，不创建标签页、不切换当前模式。选中非目标 schema、无效 JSON 或 JSONC 时，插件按文件视图握手返回 fallback，宿主保留刚打开文件的标准编辑器内容，不修改原文。
 
 ### 9.2 快照刷新
 
 文件视图以宿主 `file_view.open` 的内容为本次权威浏览快照。收到新 requestId 时取消旧解析与原文读取回调，原子替换整个数据模型，不混合新旧数组。
-
-独立窗口提供“重新读取”。窗口重新获得焦点时只检查当前数据集（若宿主没有变更事件，允许一次节流读取），不轮询整个 Vault。读取到不完整写入时保留上一成功快照，显示“新文件暂时无法解析”；重试或切回源码，不丢弃旧视图冒充空数据集。
 
 数据集 ID 相同且目标对象仍存在时保留选中；ID 改变时重置选择。Vault 切换必须取消在途请求并清理来源正文缓存，避免同路径跨库读取。
 
@@ -447,9 +440,7 @@ v1 不自动全库扫描，不访问 `.git`、`.notemd`、依赖目录或其他�
 
 可选 `snapshot` 为浏览快照摘要，可选 `evidence` 为 `x1`。path 是 Vault 相对位置，不能携带文件正文、绝对用户目录或权限声明。
 
-独立窗口提供“定位引用”：解析封装 → 在当前 Vault 读取 path → 核对 dataset → 核对 ref / evidence → 定位。dataset 不符时停止自动定位；snapshot 不符时提示已变化并允许查看当前对象；短 ID 不存在时显示缺失，不能按名称替补。
-
-文件视图支持当前数据集内定位；跨文件引用在独立窗口恢复。v1 不承诺操作系统 URL scheme 或可公开访问的网页链接，不能把普通 `plugin://` URL 当作跨窗口深链协议。
+文件视图支持当前数据集内定位；跨文件引用恢复留作未来范围。v1 不承诺操作系统 URL scheme 或可公开访问的网页链接，不能把普通 `plugin://` URL 当作跨窗口深链协议。
 
 支持“复制原始对象”和“复制带来源的可读摘录”。后者包括原陈述、对象定位、来源 URI / loc 和来源声明状态。复制成功后才反馈成功；复制失败可选中文本手动复制。
 
@@ -469,7 +460,7 @@ v1 不自动全库扫描，不访问 `.git`、`.notemd`、依赖目录或其他�
 
 | 情况 | 视图行为 | 可用动作 |
 | --- | --- | --- |
-| JSON 语法失败 / 非目标 schema | 文件视图回退宿主源码；独立窗口显示具体错误 | 查看源码、重试、选择文件 |
+| JSON 语法失败 / 非目标 schema | 文件视图回退宿主标准编辑器并保留精确原文 | 查看源码、重新选择文件 |
 | 已知 schema 但必需顶层结构不成立 | 诊断页，不生成知识索引 | 查看错误与原始 JSON |
 | 重复属性键 / 重复局部 ID | 整个数据集进入诊断页，避免二义引用 | 定位冲突位置；不选后一个覆盖 |
 | 单条对象字段错误 | 隔离该对象，其他合法对象可浏览 | 显示原记录和 JSON Pointer |
@@ -499,38 +490,34 @@ v1 不自动全库扫描，不访问 `.git`、`.notemd`、依赖目录或其他�
   "manifest_version": 2,
   "id": "notemd.knowledge-browser",
   "name": "Knowledge Browser",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "kind": "native",
-  "engines": {"notemd": ">=6.915.3"},
+  "engines": {"notemd": ">=6.916.1"},
   "description": "Browse extracted knowledge, relations and source evidence.",
   "ui": "ui/",
   "activation": {"events": []},
   "contributes": {
     "menus": [
-      {"location":"plugins","submenu":"reading","label":"Knowledge Browser","command":"open-browser"},
-      {"location":"plugins","submenu":"reading","label":"View Extracted Knowledge","command":"view-knowledge"}
-    ],
-    "windows": [
-      {"id":"main","entry":"browser.html","title":"Knowledge Browser","width":1180,"height":800,"min_width":640,"min_height":480,"singleton":true,"open_command":"open-browser"}
+      {"location":"plugins","submenu":"reading","label":"Open Knowledge Browser…","command":"view-knowledge","prompt":{"kind":"open-dialog","filters":[{"name":"JSON","extensions":["json"]}]}}
     ],
     "file_views": [
       {"id":"knowledge","entry":"viewer.html","icon":"generic","open_command":"view-knowledge","priority":100,"selectors":[
-        {"file_extensions":["json"],"file_name_patterns":["*-knowledge-*.json","*.knowledge.json"]}
+        {"file_extensions":["json"]}
       ]}
     ]
   },
-  "capabilities": ["vault.read","editor.open","dialog","fs.read:dialog","clipboard.write","settings"],
+  "capabilities": ["vault.read","editor.open","clipboard.write"],
   "i18n": {
     "zh": {
       "name":"提取知识浏览器",
       "description":"浏览提取的知识对象、多维关系与原文证据。",
-      "menus":{"open-browser":"提取知识浏览器","view-knowledge":"查看提取知识"}
+      "menus":{"view-knowledge":"打开提取知识浏览器…"}
     }
   }
 }
 ```
 
-命名选择器只决定尝试加载；协议验证决定是否接受。不得声明接管全部 JSON。菜单打开窗口/文件视图走 `open_command`，不需要为纯前端插件虚设后端进程。[^host-guide]
+扩展名选择器只决定尝试加载；协议验证决定是否接受。插件可以尝试全部 `.json`，但非目标 schema 必须立即 fallback。菜单的 `open-dialog` 由宿主处理，选择后走 `open_command` 文件视图，不需要为纯前端插件虚设后端进程，也不声明任何 `windows`。
 
 ### 11.2 文件视图握手
 
@@ -561,21 +548,15 @@ sequenceDiagram
 
 | 能力 | 用途 | 关键约束 |
 | --- | --- | --- |
-| `vault.read` | 当前 Vault 信息、目录、数据集与原文 | 所有文件路径相对 Vault；来源正文按用户操作读取 |
-| `editor.open` | 在编辑器打开 JSON 或来源 | `fileView: "knowledge"` 只用于符合自身选择器的文件 |
-| `dialog` + `fs.read:dialog` | 用户手动选择任意命名 JSON / 外部来源 | 只读取当次选择器授权路径，不递归授权引用文件 |
+| `vault.read` | 当前 Vault 信息与来源原文 | 所有文件路径相对 Vault；来源正文按用户操作读取 |
+| `editor.open` | 在编辑器打开来源 | 菜单选择 JSON 由宿主 `open-dialog` + `openFile` 完成，不通过插件桥重新读取 |
 | `clipboard.write` | 对象、引用、摘录 | 由用户点击触发 |
-| `settings` | 插件自己的展示偏好与扫描目录 | 使用 host.settings.get / set；不能传其他插件 ID |
 
 v1 不需要 `vault.write`、Agent 执行能力、Memory 控制能力或后台程序。构建脚本可以复用工程的共享类型、样式和纯函数，但产物必须自包含，运行时通过宿主桥访问文件；不能在隔离 UI 里直接调用 Tauri IPC。[^host-guide][^reference-plugin]
 
-### 11.4 展示偏好与缓存
+### 11.4 临时状态与缓存
 
-`host.settings.get` 返回当前插件的 `{settings: ...}`，`host.settings.set` 使用 `{key,value}`。[^host-code]
-
-设置只保存 schemaVersion、目录选择、递归设置、视图/列表宽度、排序、每数据集最后的 view/ref。采用按 Vault 根标识摘要分区，最近最多 50 个数据集；不保存证据正文、主张全文或搜索历史。设置写入按操作结束后防抖，失败只提示“偏好未保存”，阅读继续。
-
-解析索引及原文片段仅保存在内存。原文缓存总量最多 10 MiB，按最近使用淘汰；切换 Vault、关闭数据集或插件卸载时释放相应资源。文件视图与独立窗口不依赖 localStorage 自动互通来传递选中对象。
+筛选、模式、选中对象、解析索引及原文片段仅保存在当前文件视图内存。原文缓存总量最多 10 MiB，按最近使用淘汰；切换文件、关闭标签页、切换 Vault 或卸载插件时释放相应资源。v1 不请求 `settings` 能力，也不使用 localStorage 恢复选择。
 
 ## 12. 内部架构与数据流
 
@@ -653,7 +634,7 @@ flowchart TD
 
 ### 阶段 A：建立可靠数据入口
 
-交付 manifest、两个入口、Schema 兼容解析、数据诊断、目录发现、搜索列表、六类详情、缺省语义和只读验证。用附录样例走通文件视图与窗口两种入口。
+交付 manifest、菜单 JSON 选择器、主编辑器文件视图、Schema 兼容解析、数据诊断、搜索列表、六类详情、缺省语义和只读验证。用附录样例走通直接打开文件与菜单选择文件两种路径，二者都进入同一个主编辑器视图。
 
 ### 阶段 B：完成证据与阅读闭环
 
@@ -691,7 +672,7 @@ flowchart TD
 | --- | --- | --- |
 | AC-01 | 在编辑器打开合法知识 JSON | 默认进入知识视图；切到 Source 后以两空格缩进展开并标记为未保存修改；保存后重开语义不变 |
 | AC-02 | 打开命名匹配但 schema 不支持的 JSON | 明确回退或版本说明，不误解为 v3 |
-| AC-03 | 从插件窗口打开任意命名的合法 JSON | 正常浏览；不要求为读取而重命名 |
+| AC-03 | 点击插件菜单，已有或没有活动文件时选择任意命名的合法 JSON | 必定先显示仅限 JSON 的选择器；选择后在主编辑器标签页正常浏览，不创建插件窗口 |
 | AC-04 | 六类对象齐全或部分数组为空 | 计数正确，全部非空对象可达，空类有明确空状态 |
 | AC-05 | 关系只有 claim，没有 text | 显示引用主张的完整陈述，不能为空或自行编句 |
 | AC-06 | 关系同时含 text 与多个 claim | 主陈述和引用分开可读，保持原顺序 |
@@ -717,20 +698,20 @@ flowchart TD
 | AC-26 | JSON 非法、重复 ID、断开引用、未知字段、p 冲突 | 按诊断矩阵隔离/回退；没有静默修复或隐藏损坏 |
 | AC-27 | 新快照到达时旧 Worker/来源读取刚完成 | 旧结果不污染当前视图，旧错误不覆盖新页面 |
 | AC-28 | 外部写入中途失败、Vault 切换、插件关闭 | 保留明确的旧快照状态或取消请求，释放缓存 |
-| AC-29 | 复制并恢复知识引用，路径内容或摘要已变化 | 严格核对 dataset/ref；变化有提示，缺失不替补 |
-| AC-30 | 完成浏览、筛选、图展开、比较、复制与刷新 | 所有输入 JSON 和原始来源文件的字节摘要不变；仅插件偏好可以变化 |
+| AC-29 | 复制知识引用后在当前数据集定位，或尝试跨文件恢复 | 当前数据集严格按 ref 定位；跨文件恢复明确留作未来，不按名称替补 |
+| AC-30 | 完成浏览、筛选、图展开、比较、复制与刷新 | 所有输入 JSON 和原始来源文件的字节摘要不变；插件不写持久状态 |
 | AC-31 | 伪造 origin/requestId、恶意 HTML、远程 URL | 无脚本执行、无越权桥调用、无自动外部请求 |
 | AC-32 | 小型、常用、大型基准与超限输入 | 达到第 13 节目标或明确超限；记录 p95，不用开发模式结果替代 |
 | AC-33 | 320/768/1280/1440 px、深浅主题、纯键盘 | 核心任务都能完成，无横向撑破、焦点丢失或颜色独占语义 |
-| AC-34 | 偏好写入失败、剪贴板失败、读取权限被拒 | 阅读继续；动作反馈真实且具有恢复方式 |
-| AC-35 | 目录超过扫描限制或用户取消 | 显示截断/取消并保留已发现结果，不宣称全库完整 |
+| AC-34 | 剪贴板失败或来源读取权限被拒 | 阅读继续；动作反馈真实且具有恢复方式 |
+| AC-35 | 在菜单文件选择器中取消 | 当前标签页、模式和内容不变，不创建空标签页或插件窗口 |
 | AC-36 | 内置关系表缺少方向定义、自定义 relation type | 角色关联不生成因果箭头；自定义定义按数据展示 |
 
 ### 15.1 验证方法要求
 
 - 建立合成 fixture 覆盖正常、边界与损坏输入；读取用户真实 JSON 只做本机兼容性检查，不进入公开仓库。
 - 对有效合成 fixture，同时通过现有 Python validator 和插件校验器；非法用例比较预期诊断类别，不要求中文消息逐字相同。
-- 真实宿主检查必须覆盖插件 CSP、Worker、文件视图握手、外部刷新、Vault 路径围栏、菜单、主题和打开源码。
+- 真实宿主检查必须覆盖插件 CSP、Worker、文件视图握手、菜单 JSON 选择器、无独立窗口、Vault 路径围栏、主题和打开源码。
 - 自动化浏览前后比较所有输入数据集/来源文件摘要，确认只读边界。
 - 验收报告区分“自动化通过”“人工通过”“未测试”“未实现”；未测试不能记为通过。
 
@@ -811,6 +792,6 @@ flowchart TD
 [^types]: [关系类型注册表 1.0.0](/Users/bruce/git/sotvault/skills/relation-schema-extractor/references/relation-types.json)。
 [^validator]: [现有业务校验器](/Users/bruce/git/sotvault/skills/relation-schema-extractor/scripts/validate_output.py)。
 [^host-guide]: [mdeditor 插件 v2 开发规范](/Users/bruce/git/mdeditor/docs/plugin-v2-development.md)，含 `contributes.file_views`、8 秒回退及 Host API。
-[^host-code]: [宿主 UI 桥实现](/Users/bruce/git/mdeditor/src-tauri/src/plugin_runtime/ui_rpc.rs)，重点为 `editor_open`、`plugin_settings_get`、`plugin_settings_set`；能力声明见 [host_api.rs](/Users/bruce/git/mdeditor/src-tauri/src/plugin_runtime/host_api.rs)。
+[^host-code]: [宿主 UI 桥实现](/Users/bruce/git/mdeditor/src-tauri/src/plugin_runtime/ui_rpc.rs)，重点为 `editor_open`；能力声明见 [host_api.rs](/Users/bruce/git/mdeditor/src-tauri/src/plugin_runtime/host_api.rs)。
 [^host-view]: [文件视图消息协议](/Users/bruce/git/mdeditor/src/lib/plugins/v2/file-view-msg.ts) 与 [FilePluginView.svelte](/Users/bruce/git/mdeditor/src/components/FilePluginView.svelte)。
 [^reference-plugin]: [Index Viewer 插件](/Users/bruce/git/mdeditor/plugins-src/index-viewer/manifest.v2.json)、[桥接实现](/Users/bruce/git/mdeditor/plugins-src/index-viewer/src/lib/bridge.ts) 和 [页面实现](/Users/bruce/git/mdeditor/plugins-src/index-viewer/src/App.svelte)。

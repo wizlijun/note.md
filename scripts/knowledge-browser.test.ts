@@ -10,7 +10,6 @@ describe('Knowledge Browser host integration', () => {
     binary: '',
     host_capabilities: manifest.capabilities,
     file_views: manifest.contributes.file_views,
-    open_windows: { 'open-browser': 'main' },
   } as PluginManifest
 
   it('claims JSON files so the viewer can confirm the v3 schema marker and fall back otherwise', () => {
@@ -25,20 +24,20 @@ describe('Knowledge Browser host integration', () => {
     }
   })
 
-  it('exposes only the browser window in the global menu while keeping the file-view command host-owned', () => {
+  it('uses one host-owned menu command that chooses JSON before opening the file view', () => {
     const commands = manifest.contributes.menus.map(item => item.command)
-    expect(commands).toEqual(['open-browser'])
-    expect(manifest.contributes.windows[0].open_command).toBe('open-browser')
+    expect(commands).toEqual(['view-knowledge'])
+    expect(manifest.contributes).not.toHaveProperty('windows')
     expect(manifest.contributes.file_views[0].open_command).toBe('view-knowledge')
-    expect(commands).not.toContain(manifest.contributes.file_views[0].open_command)
-    expect(hostManifest.open_windows?.['open-browser']).toBe('main')
+    expect(manifest.contributes.menus[0].prompt).toEqual({
+      kind: 'open-dialog', filters: [{ name: 'JSON', extensions: ['json'] }],
+    })
+    expect(hostManifest.open_windows).toBeUndefined()
   })
 
   it('is a read-only universal UI plugin in the Reading category', () => {
     expect(manifest).not.toHaveProperty('binary')
-    expect(manifest.capabilities).toEqual([
-      'vault.read', 'editor.open', 'dialog', 'fs.read:dialog', 'clipboard.write', 'settings',
-    ])
+    expect(manifest.capabilities).toEqual(['vault.read', 'editor.open', 'clipboard.write'])
     expect(manifest.capabilities).not.toContain('vault.write')
     expect(pluginCategoryFromManifest(manifest)).toBe('reading')
   })

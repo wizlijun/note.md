@@ -17,6 +17,10 @@ interface FileViewCommandDeps {
   unsupported(view: FileViewContribution): void
 }
 
+interface FileViewCommandOptions {
+  alwaysPickFile?: boolean
+}
+
 function commandView(manifest: PluginManifest, command: string): FileViewContribution | null {
   if (Object.hasOwn(manifest.open_windows ?? {}, command)) return null
   const matches = manifest.file_views?.filter((view) => view.open_command === command) ?? []
@@ -40,11 +44,12 @@ export async function dispatchFileViewCommand(
   manifest: PluginManifest,
   command: string,
   deps: FileViewCommandDeps,
+  options: FileViewCommandOptions = {},
 ): Promise<boolean> {
   const view = commandView(manifest, command)
   if (!view) return false
 
-  let tab = deps.activeTab()
+  let tab = options.alwaysPickFile ? null : deps.activeTab()
   if (!tab) {
     const path = await deps.pickOpenFile()
     if (!path) return true

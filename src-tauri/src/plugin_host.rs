@@ -112,8 +112,9 @@ pub struct PromptFilter {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PromptSpec {
-    pub kind: String,                           // "save-dialog" is the only kind
-    pub default_filename: String,
+    pub kind: String,
+    #[serde(default)]
+    pub default_filename: Option<String>,
     pub filters: Vec<PromptFilter>,
 }
 

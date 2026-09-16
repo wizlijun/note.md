@@ -125,6 +125,17 @@ plugins-src/<name>/
 }
 ```
 
+只读 `file_views[].open_command` 如果需要每次从菜单先选择文件，可将同一菜单项声明为：
+
+```jsonc
+"prompt": { "kind": "open-dialog",
+            "filters": [{ "name": "JSON", "extensions": ["json"] }] }
+```
+
+`open-dialog` 只用于宿主处理的文件视图命令：菜单点击后始终先显示文件选择器，
+选择后在主编辑器打开文件并选择该视图；取消时不改变当前标签页。它不需要
+`dialog` 或 `fs.read:dialog` 插件 capability，也不会启动插件进程或窗口。
+
 菜单标签表达用户将要执行的动作，不能直接复制插件产品名。同步类插件的产品名
 统一采用“来源 + Sync/同步”（如 `Roam Research Sync`、`Apple Notes 同步`），
 菜单则采用 Apple 风格的动作式“Sync/同步 + 来源…”（如 `Sync Roam Research…`、

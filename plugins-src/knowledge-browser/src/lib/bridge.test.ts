@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
-  chooseJsonFile, copyText, editFileViewSource, isHostOrigin, onFileViewOpen,
-  openEditor, readDialogText, settingsGet, settingsSet, vaultList, vaultRead,
+  copyText, editFileViewSource, isHostOrigin, onFileViewOpen, openEditor, vaultRead,
 } from './bridge'
 
 const request = vi.fn()
@@ -81,25 +80,15 @@ describe('file-view bridge', () => {
 })
 
 describe('host RPC wrappers', () => {
-  it('uses the declared Vault, editor, dialog, clipboard and settings methods', async () => {
+  it('uses only the declared Vault, editor and clipboard methods', async () => {
     request.mockImplementation(async (method: string) => {
-      if (method === 'host.vault.list') return { entries: [{ name: 'a.json', is_dir: false }] }
       if (method === 'host.vault.read') return { content: '{}' }
-      if (method === 'host.dialog.open') return { paths: ['/tmp/a.json'] }
-      if (method === 'host.fs.read_text') return { content: '{"a":1}' }
-      if (method === 'host.settings.get') return { settings: { preferences: { schemaVersion: 1 } } }
       return { ok: true }
     })
-    await expect(vaultList('research')).resolves.toEqual([{ name: 'a.json', is_dir: false }])
     await expect(vaultRead('research/a.json')).resolves.toBe('{}')
-    await expect(chooseJsonFile()).resolves.toBe('/tmp/a.json')
-    await expect(readDialogText('/tmp/a.json')).resolves.toBe('{"a":1}')
     await openEditor('research/a.json', 'knowledge')
     await copyText('ref')
-    await expect(settingsGet()).resolves.toHaveProperty('preferences.schemaVersion', 1)
-    await settingsSet('preferences', { schemaVersion: 1 })
     expect(request).toHaveBeenCalledWith('host.editor.open', { path: 'research/a.json', fileView: 'knowledge' })
     expect(request).toHaveBeenCalledWith('host.clipboard.write', { text: 'ref' })
-    expect(request).toHaveBeenCalledWith('host.settings.set', { key: 'preferences', value: { schemaVersion: 1 } })
   })
 })

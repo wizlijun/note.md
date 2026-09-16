@@ -2,15 +2,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // message() mock must be hoisted-safe; use vi.hoisted so the factory can reference it.
-const { messageMock, saveMock } = vi.hoisted(() => ({
+const { messageMock, openMock, saveMock } = vi.hoisted(() => ({
   messageMock: vi.fn(),
+  openMock: vi.fn(),
   saveMock: vi.fn(),
 }))
 
 vi.mock('@tauri-apps/plugin-dialog', () => ({
   message: messageMock,
   save: saveMock,
-  open: vi.fn(),
+  open: openMock,
 }))
 
 // Deterministic t(): echo the key, and for the {name} template append the name so
@@ -22,7 +23,21 @@ vi.mock('./i18n/store.svelte', () => ({
 
 beforeEach(() => {
   messageMock.mockReset()
+  openMock.mockReset()
   saveMock.mockReset()
+})
+
+describe('pickOpenFile filters', () => {
+  it('uses a caller-provided JSON-only filter and preserves cancellation', async () => {
+    const { pickOpenFile } = await import('./dialogs')
+    const filters = [{ name: 'JSON', extensions: ['json'] }]
+    openMock.mockResolvedValueOnce('/d/knowledge.json')
+    expect(await pickOpenFile(filters)).toBe('/d/knowledge.json')
+    expect(openMock).toHaveBeenCalledWith({ multiple: false, filters })
+
+    openMock.mockResolvedValueOnce(null)
+    expect(await pickOpenFile(filters)).toBeNull()
+  })
 })
 
 describe('confirmDirtyClose', () => {

@@ -19,10 +19,18 @@ export type SettingsField =
   | { key: string; type: 'boolean'; label: string; default?: boolean }
   | { key: string; type: 'number'; label: string; default?: number; min?: number; max?: number; step?: number }
 
-export interface PromptSpec {
+export interface PromptFilter {
+  name: string
+  extensions: string[]
+}
+
+export type PromptSpec = {
   kind: 'save-dialog'
   default_filename: string
-  filters: Array<{ name: string; extensions: string[] }>
+  filters: PromptFilter[]
+} | {
+  kind: 'open-dialog'
+  filters: PromptFilter[]
 }
 
 export interface MenuEntry {

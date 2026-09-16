@@ -191,7 +191,7 @@ mod tests {
         assert_eq!(me.enabled_when.as_deref(), Some("currentTab.kind == 'markdown'"));
         let prompt = me.prompt.as_ref().expect("prompt passthrough");
         assert_eq!(prompt.kind, "save-dialog");
-        assert_eq!(prompt.default_filename, "{stem}.pdf");
+        assert_eq!(prompt.default_filename.as_deref(), Some("{stem}.pdf"));
         assert_eq!(prompt.filters[0].name, "PDF");
         assert_eq!(prompt.filters[0].extensions, vec!["pdf"]);
 
@@ -219,6 +219,26 @@ mod tests {
         // per-locale menu label resolution works on adapted manifests.
         let zh = v1.i18n.get("zh").expect("zh i18n passthrough");
         assert_eq!(zh.menus.get("export").map(String::as_str), Some("导出 PDF（v2）…"));
+    }
+
+    #[test]
+    fn passes_open_dialog_prompts_without_a_save_filename() {
+        let mut manifest = sample();
+        manifest.contributes.menus = vec![serde_json::json!({
+            "location": "plugins",
+            "label": "Open JSON…",
+            "command": "view-json",
+            "prompt": {
+                "kind": "open-dialog",
+                "filters": [{ "name": "JSON", "extensions": ["json"] }]
+            }
+        })];
+
+        let adapted = to_v1(&manifest).unwrap();
+        let prompt = adapted.menus[0].prompt.as_ref().unwrap();
+        assert_eq!(prompt.kind, "open-dialog");
+        assert_eq!(prompt.default_filename, None);
+        assert_eq!(prompt.filters[0].extensions, vec!["json"]);
     }
 
     /// A ManifestV2 whose contributes.menus entry lacks both label AND command

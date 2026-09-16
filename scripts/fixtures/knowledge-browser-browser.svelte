@@ -19,7 +19,6 @@
     binary: '',
     host_capabilities: sourceManifest.capabilities,
     file_views: sourceManifest.contributes.file_views,
-    open_windows: { 'open-browser': 'main' },
   } as PluginManifest
   let tab = $state({
     id: 'knowledge-browser-fixture',

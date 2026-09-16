@@ -49,10 +49,10 @@ export async function confirmDirtyClose(name: string): Promise<DirtyChoice> {
   return 'cancel'   // Cancel button, Esc, or window dismiss → keep editing
 }
 
-export async function pickOpenFile(): Promise<string | null> {
+export async function pickOpenFile(filters?: Array<{ name: string; extensions: string[] }>): Promise<string | null> {
   const picked = await openDialog({
     multiple: false,
-    filters: [
+    filters: filters ?? [
       { name: 'Canvas', extensions: ['canvas'] },
       { name: 'Markdown', extensions: ['md', 'markdown', 'mdown', 'mkd', 'mdx'] },
       { name: 'HTML', extensions: ['html', 'htm'] },

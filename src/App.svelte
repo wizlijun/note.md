@@ -559,6 +559,7 @@
         const m = pluginRuntime.manifests.find((manifest) => manifest.id === pluginId)
         if (!m) { console.warn('[App] unknown plugin', pluginId); return }
         const menu = m.menus?.find((me) => me.command === command)
+        const openPrompt = menu?.prompt?.kind === 'open-dialog' ? menu.prompt : undefined
 
         // File-view menu commands are implemented by the host. A display-only
         // plugin has no process to execute; the command selects its declared
@@ -569,7 +570,7 @@
             activeTab,
             pickOpenFile: async () => {
               const { pickOpenFile } = await import('./lib/dialogs')
-              return pickOpenFile()
+              return pickOpenFile(openPrompt?.filters)
             },
             openFile,
             flush: (tabId) => window.dispatchEvent(new CustomEvent('notemd:flush-doc', { detail: { tabId } })),
@@ -584,7 +585,7 @@
                 name: menu ? pluginMenuLabel(m, command, menu.label) : pluginName(m),
               }),
             }),
-          })
+          }, { alwaysPickFile: !!openPrompt })
           if (handled) return
         } catch (e) {
           showError(String(e))

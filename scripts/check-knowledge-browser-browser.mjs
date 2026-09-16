@@ -40,9 +40,8 @@ async function check(name, run) {
 
 command('pnpm', ['--filter', 'knowledge-browser', 'build'], root)
 await cp(buildRoot, productionRoot, { recursive: true })
-// The reusable Rust exporter probes /index.html. This plugin intentionally has
-// browser.html + viewer.html, so give the exporter a temporary viewer alias,
-// then derive both served documents from its bridge-injected output.
+// The reusable Rust exporter probes /index.html. Give the file-view entry a
+// temporary alias, then restore its public filename after bridge injection.
 await cp(buildRoot, protocolRoot, { recursive: true })
 await writeFile(join(protocolRoot, 'index.html'), await readFile(join(buildRoot, 'viewer.html')))
 command('cargo', ['test', '--lib', 'plugin_runtime::protocol::tests::export_webkit_protocol_fixture', '--', '--exact'], join(root, 'src-tauri'), {
@@ -53,11 +52,11 @@ command('cargo', ['test', '--lib', 'plugin_runtime::protocol::tests::export_webk
 const csp = await readFile(join(productionRoot, 'plugin-csp.txt'), 'utf8')
 const injectedViewer = await readFile(join(productionRoot, 'index.html'), 'utf8')
 await writeFile(join(productionRoot, 'viewer.html'), injectedViewer)
-await writeFile(join(productionRoot, 'browser.html'), injectedViewer
-  .replace('<title>Extracted Knowledge</title>', '<title>Knowledge Browser</title>')
-  .replace('data-entry="viewer"', 'data-entry="browser"'))
 
 // Production artifact audit is deliberately independent of the browser fixture.
+const entryNames = await readdir(buildRoot)
+assert.ok(entryNames.includes('viewer.html'), 'production bundle must contain the editor file-view entry')
+assert.ok(!entryNames.includes('browser.html'), 'production bundle must not retain the removed standalone window entry')
 const assetNames = await readdir(join(buildRoot, 'assets'))
 const workerAsset = assetNames.find(name => /^dataset\.worker-[\w-]+\.js$/.test(name))
 assert.ok(workerAsset, 'production bundle must contain the dataset Worker')
@@ -123,7 +122,7 @@ async function fixtureServer(kind) {
         if (kind === 'plugin') {
           vite.middlewares.use(async (req, res, next) => {
             const pathname = new URL(req.url ?? '/', 'http://fixture').pathname
-            if (!['/browser.html', '/viewer.html', '/__notemd_bridge__.js'].includes(pathname)
+            if (!['/viewer.html', '/__notemd_bridge__.js'].includes(pathname)
               && !/^\/assets\/[\w.-]+\.(?:js|css)$/.test(pathname)) { next(); return }
             requestedAssets.add(pathname)
             if (delayNextWorker && pathname.includes('dataset.worker-')) {
@@ -173,7 +172,7 @@ try {
     const viewTabs = page.getByRole('tab')
     assert.equal(await viewTabs.count(), 3)
     assert.deepEqual(await viewTabs.evaluateAll(tabs => tabs.map(tab => tab.getAttribute('aria-selected'))), ['false', 'false', 'true'])
-    assert.equal(await plugin().locator('.topbar > .dataset-actions').count(), 1)
+    assert.equal(await plugin().locator('.topbar > .dataset-actions').count(), 0)
     assert.equal(await plugin().getByRole('button', { name: '编辑 JSON 原文', exact: true }).count(), 0)
     assert.equal(await page.evaluate(() => window.__knowledgeBrowser.content), valid)
     assert.equal(await page.evaluate(() => window.__knowledgeBrowser.initial), valid)
@@ -253,21 +252,6 @@ try {
       assert.ok(hostOverflow <= 1, `${width}px host overflow: ${hostOverflow}`)
       await page.screenshot({ path: join(output, `viewer-${width}.png`) })
     }
-  })
-
-  await check('browser.html scans and loads a Vault dataset through its standalone entry', async () => {
-    const standalone = await context.newPage()
-    standalone.on('pageerror', error => errors.push(`browser: ${String(error)}`))
-    await standalone.goto(`${pluginOrigin}/browser.html`)
-    const select = standalone.getByLabel('数据集')
-    await select.locator('option[value="research/release.knowledge.json"]').waitFor({ state: 'attached' })
-    await select.selectOption('research/release.knowledge.json')
-    await standalone.getByText('合成发布流程阅读测试', { exact: true }).waitFor()
-    await standalone.getByRole('heading', { name: '提取知识浏览器', exact: true }).waitFor()
-    assert.ok(calls.some(call => call.method === 'host.vault.list' && call.params.path === 'research'))
-    assert.ok(calls.some(call => call.method === 'host.vault.read' && call.params.path === 'research/release.knowledge.json'))
-    await standalone.screenshot({ path: join(output, 'browser-standalone.png') })
-    await standalone.close()
   })
 
   assert.deepEqual(errors, [])

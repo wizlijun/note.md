@@ -19,7 +19,6 @@ beforeEach(() => {
     if (method === 'host.vault.info') return { root: '/vault', wiki_dir: null, daily_dir: null }
     if (method === 'host.vault.list') return { entries: params?.path === 'research' ? [{ name: 'fixture.knowledge.json', is_dir: false }] : [] }
     if (method === 'host.vault.read') return { content: fixture }
-    if (method === 'host.settings.get') return { settings: {} }
     return { ok: true }
   })
   Object.assign(window, { notemd: { pluginId: 'notemd.knowledge-browser', locale: 'zh', theme: 'system', request } })
@@ -35,18 +34,17 @@ afterEach(async () => {
 describe('Knowledge Browser application', () => {
   it('acknowledges a valid file snapshot only after rendering the shared reader', async () => {
     const post = vi.spyOn(window, 'postMessage').mockImplementation(() => {})
-    app = mount(App, { target: document.body, props: { entry: 'viewer' } })
+    app = mount(App, { target: document.body })
     flushSync(); send()
     await vi.waitFor(() => expect(post).toHaveBeenCalledWith({ type: 'file_view.ready', requestId: 1 }, 'tauri://localhost'))
     expect(document.body.textContent).toContain('发布执行人须在获得工程负责人批准后执行发布')
-    expect(document.querySelector('.topbar > .dataset-actions')).not.toBeNull()
     expect(document.body.textContent).not.toContain('编辑 JSON 原文')
     expect(request).not.toHaveBeenCalledWith('host.vault.write', expect.anything())
   })
 
   it('falls back without changing malformed JSON', async () => {
     const post = vi.spyOn(window, 'postMessage').mockImplementation(() => {})
-    app = mount(App, { target: document.body, props: { entry: 'viewer' } })
+    app = mount(App, { target: document.body })
     flushSync(); send('{"schema":', 2)
     await vi.waitFor(() => expect(post).toHaveBeenCalledWith({ type: 'file_view.fallback', requestId: 2 }, 'tauri://localhost'))
     expect(request).not.toHaveBeenCalledWith('host.vault.write', expect.anything())
@@ -54,18 +52,9 @@ describe('Knowledge Browser application', () => {
 
   it('falls back when an ordinary JSON object has no knowledge schema marker', async () => {
     const post = vi.spyOn(window, 'postMessage').mockImplementation(() => {})
-    app = mount(App, { target: document.body, props: { entry: 'viewer' } })
+    app = mount(App, { target: document.body })
     flushSync(); send('{"name":"ordinary"}', 3)
     await vi.waitFor(() => expect(post).toHaveBeenCalledWith({ type: 'file_view.fallback', requestId: 3 }, 'tauri://localhost'))
     expect(request).not.toHaveBeenCalledWith('host.vault.write', expect.anything())
-  })
-
-  it('discovers a Vault dataset in the standalone window and exposes relation/time/diagnostic modes', async () => {
-    app = mount(App, { target: document.body, props: { entry: 'browser' } })
-    await vi.waitFor(() => expect(document.querySelector('select option[value="research/fixture.knowledge.json"]')).not.toBeNull())
-    const selector = document.querySelector('select[aria-label="数据集"]') as HTMLSelectElement
-    selector.value = 'research/fixture.knowledge.json'; selector.dispatchEvent(new Event('change', { bubbles: true }))
-    await vi.waitFor(() => expect(document.body.textContent).toContain('发布执行人须在获得工程负责人批准后执行发布'))
-    for (const label of ['关系', '时间', '诊断']) expect([...document.querySelectorAll('button')].some(button => button.textContent === label)).toBe(true)
   })
 })

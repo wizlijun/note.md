@@ -12,11 +12,6 @@ export interface VaultInfo {
   daily_dir: string | null
 }
 
-export interface VaultEntry {
-  name: string
-  is_dir: boolean
-}
-
 export interface FileViewSnapshot {
   uri: string
   content: string
@@ -39,8 +34,6 @@ export function bridge(): HostBridge {
   if (!value) throw new Error('Knowledge Browser host bridge is unavailable')
   return value
 }
-
-export function locale(): string { return bridge().locale }
 
 export function isHostOrigin(origin: string): boolean {
   return origin === 'tauri://localhost' || /^https?:\/\/tauri\.localhost$/.test(origin)
@@ -119,12 +112,6 @@ export async function vaultInfo(): Promise<VaultInfo> {
   return bridge().request('host.vault.info')
 }
 
-export async function vaultList(path: string): Promise<VaultEntry[]> {
-  const result = await bridge().request('host.vault.list', { path })
-  if (!Array.isArray(result?.entries)) throw new Error('Invalid Vault directory response')
-  return result.entries
-}
-
 export async function vaultRead(path: string): Promise<string> {
   const result = await bridge().request('host.vault.read', { path })
   if (typeof result?.content !== 'string') throw new Error('Invalid Vault file response')
@@ -137,40 +124,10 @@ export async function vaultReadBytes(path: string): Promise<string> {
   return result.base64
 }
 
-export async function vaultExists(path: string): Promise<boolean> {
-  const result = await bridge().request('host.vault.exists', { path })
-  return result?.exists === true
-}
-
 export async function openEditor(path: string, fileView?: string): Promise<void> {
   await bridge().request('host.editor.open', fileView ? { path, fileView } : { path })
 }
 
-export async function chooseJsonFile(): Promise<string | null> {
-  const result = await bridge().request('host.dialog.open', {
-    title: locale().startsWith('zh') ? '选择知识 JSON' : 'Choose knowledge JSON',
-    filters: [{ name: 'JSON', extensions: ['json'] }],
-    multiple: false,
-  })
-  return Array.isArray(result?.paths) && typeof result.paths[0] === 'string' ? result.paths[0] : null
-}
-
-export async function readDialogText(path: string): Promise<string> {
-  const result = await bridge().request('host.fs.read_text', { path })
-  if (typeof result?.content !== 'string') throw new Error('Invalid selected file response')
-  return result.content
-}
-
 export async function copyText(text: string): Promise<void> {
   await bridge().request('host.clipboard.write', { text })
-}
-
-export async function settingsGet(): Promise<Record<string, unknown>> {
-  const result = await bridge().request('host.settings.get')
-  return result?.settings && typeof result.settings === 'object' && !Array.isArray(result.settings)
-    ? result.settings as Record<string, unknown> : {}
-}
-
-export async function settingsSet(key: string, value: unknown): Promise<void> {
-  await bridge().request('host.settings.set', { key, value })
 }

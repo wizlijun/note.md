@@ -2,7 +2,7 @@
 
 Knowledge Browser is a read-only note.md plugin for `knowledge-representation-dataset/3.0.0` JSON files produced by `relation-schema-extractor`.
 
-It provides an editor file view and a standalone Vault browser. Both surfaces use the same deterministic parser, validation, search, relation, timeline, narrative and evidence-reading model. The plugin never writes a dataset or source file.
+Its menu always asks for a JSON file and opens the selection in the main editor's Knowledge Viewer. The viewer uses a deterministic parser, validation, search, relation, timeline, narrative and evidence-reading model. The plugin never writes a dataset or source file.
 
 ## Development
 

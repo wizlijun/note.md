@@ -75,6 +75,16 @@ describe('dispatchFileViewCommand', () => {
     expect(h.opened).toHaveLength(1)
   })
 
+  it('always asks for a file when the menu declares an open dialog', async () => {
+    const current = tab()
+    const h = harness(current)
+    await dispatchFileViewCommand(manifest(), 'open-timeline', h.deps, { alwaysPickFile: true })
+    expect(h.deps.pickOpenFile).toHaveBeenCalledOnce()
+    expect(h.deps.openFile).toHaveBeenCalledWith('/vault/diary/picked.timeline.md')
+    expect(h.deps.flush).toHaveBeenCalledWith('day')
+    expect(h.opened).toEqual([{ tabId: 'day', pluginId: 'notemd.timeline', viewId: 'timeline', entry: 'index.html', icon: 'generic' }])
+  })
+
   it('treats cancelling the file picker as handled with no side effects', async () => {
     const h = harness(null)
     h.deps.pickOpenFile.mockResolvedValue(null)

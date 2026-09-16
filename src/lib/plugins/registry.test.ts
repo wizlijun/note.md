@@ -37,6 +37,24 @@ describe('validateManifest', () => {
     })
     expect(validateManifest(m).ok).toBe(false)
   })
+  it('accepts an open-dialog menu prompt without a save filename', () => {
+    const m = valid({
+      menus: [{
+        location: 'plugins', label: 'Open JSON…', command: 'open-json',
+        prompt: { kind: 'open-dialog', filters: [{ name: 'JSON', extensions: ['json'] }] },
+      }],
+    })
+    expect(validateManifest(m)).toEqual({ ok: true, value: m })
+  })
+  it('rejects an open-dialog menu prompt without usable filters', () => {
+    const result = validateManifest(valid({
+      menus: [{
+        location: 'plugins', label: 'Open JSON…', command: 'open-json',
+        prompt: { kind: 'open-dialog', filters: [] },
+      }],
+    }))
+    expect(result.ok).toBe(false)
+  })
 })
 
 describe('buildRegistry', () => {
