@@ -1,0 +1,13 @@
+{
+  "name": "note.md",
+  "repositoryDependencies": ["github.com/wizlijun/moraya-core"],
+  "install": "./scripts/cloud-agent-install.sh",
+  "terminals": [
+    {
+      "name": "vite-dev",
+      "command": "pnpm dev",
+      "description": "Vite dev server for the note.md frontend on http://localhost:1420 (the Tauri webview UI; native macOS shell is not available on Linux)."
+    }
+  ],
+  "ports": [{ "name": "vite", "port": 1420 }]
+}
