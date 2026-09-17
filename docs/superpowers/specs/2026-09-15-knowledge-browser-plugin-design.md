@@ -33,12 +33,12 @@ sources:
 
 | 项目 | 约定 |
 | --- | --- |
-| 规格版本 | 1.2；2026-09-16 对齐提取协议 3.1.0，并保留 3.0.0 历史读取 |
+| 规格版本 | 1.3；2026-09-17 对齐提取规则 3.1.1，并保留 3.1.0 / 3.0.0 历史读取 |
 | 插件中文名 | 提取知识浏览器 |
 | 插件英文名 / ID | Knowledge Browser / `notemd.knowledge-browser` |
 | 目标工程 | `/Users/bruce/git/mdeditor` |
 | 建议目录 | `plugins-src/knowledge-browser/` |
-| 输入协议 | 当前 `knowledge-representation-dataset/3.1.0`；兼容成对的 3.0.0 历史数据 |
+| 输入协议 | `knowledge-representation-dataset/3.1.0` + 当前提取规则 3.1.1；兼容规则 3.1.0 及成对的 3.0.0 历史数据 |
 | 内置关系注册表 | `1.0.0` |
 | 产品形态 | note.md 插件 v2：主编辑器只读文件视图；菜单先选择 JSON，再在编辑器标签页打开 |
 | 本文的“提取知识” | 已由抽取 Skill 生成的实体、概念、主张、事件、叙事及 P0–P3 关系 |
@@ -160,10 +160,10 @@ sources:
 
 | 依赖 | 来源 | 本次核对 SHA-256 |
 | --- | --- | --- |
-| JSON Schema | `/Users/bruce/git/sotvault/skills/relation-schema-extractor/references/relationship-extraction.schema.json` | `d4bd5b12295ba4222f9f48948376bd4cd49d5601f9a91907c1c7f1a84a9b71a3` |
+| JSON Schema | `/Users/bruce/git/sotvault/skills/relation-schema-extractor/references/relationship-extraction.schema.json` | `785e149846c762c557f6d2e0fae9593a7d2dd88e6f0aee70722080d27f5b4ae6` |
 | 内置关系表 | `/Users/bruce/git/sotvault/skills/relation-schema-extractor/references/relation-types.json` | `18aa514da384a8508cd11cd69ba2000808404cc5e6ad2a5d3e6e7ade4691c6d1` |
 
-插件 3.1.0 以 `knowledge-representation-dataset/3.1.0` + `relation-schema-extractor/3.1.0` 为当前格式，并兼容读取成对的 3.0.0 schema/rule；两代都要求关系表 `1.0.0`。交叉配对、2.x、未知版本和未知注册表版本显示“尚不支持此版本”，可查看原始 JSON；不得猜字段、自动迁移或用最新版注册表替代旧版本。插件版本跟随最新支持的数据格式版本。
+插件 3.1.1 以 `knowledge-representation-dataset/3.1.0` + `relation-schema-extractor/3.1.1` 为当前格式，同时兼容同一 Schema 下的 3.1.0 规则及成对的 3.0.0 schema/rule；各版本都要求关系表 `1.0.0`。读取 3.1.0 规则时给出非阻断兼容提示，仍默认进入阅读视图。交叉配对、2.x、未知版本和未知注册表版本显示“尚不支持此版本”，可查看原始 JSON；不得猜字段、自动迁移或用最新版注册表替代旧版本。插件版本跟随最新支持的提取规则版本；提取规则升级不要求虚构新的数据集 Schema 版本。
 
 `generated.rule` 是抽取规则版本；`generated.types` 是注册表版本；`schema` 是数据结构版本。三者不可互相代替。
 
@@ -453,7 +453,7 @@ flowchart LR
 1. **语法层**：JSON 可解析、根对象、文件上限、嵌套深度、重复 JSON 属性键。
 2. **结构层**：Draft 2020-12 Schema、必填字段、枚举、ID 格式、数组类型。
 3. **引用层**：ID 唯一、引用存在、引用对象类型正确、禁止直接自引用。
-4. **业务层**：注册表版本、关系类型与角色、p 一致、P3 推理与证据组要求、身份歧义说明等。
+4. **业务层**：注册表版本、关系类型与角色、p 一致、P3 推理与证据组要求、身份歧义说明，以及 3.1.1 的说话人归属、明确言语行为、独立互证、数值精度与对象级限制规则。
 5. **来源层**：仅在读取来源时检查可用性、版本和定位。
 
 复用现有 Python 校验器的业务规则作为对照，不要求用户在插件里安装 Python。Python 当前只是实现参考；前端还须正确处理非法字段类型、未知时间文本和来源读取问题。[^validator]
@@ -469,6 +469,9 @@ flowchart LR
 | 引用对象被隔离或不存在 | 保留有问题的关系/叙事占位，停用对应跳转 | 查看缺失 ID 与诊断 |
 | 未知关系类型 / 自定义类型覆盖内置类型 | 该关系不进入正常关系图；诊断页保留原记录 | 查看原始 type 与定义 |
 | p 与注册表不一致 | 保留原记录并标错误；不自动改 p 或错误归组 | 查看两者差异 |
+| `claim.by` 与 evidence speaker 冲突，或决定/承诺及言语行为关系缺少 `explicit_speech_act` | 隔离对应记录，保留原始证据和指针 | 核对说话人、主张者及 epistemic basis |
+| 独立互证实际来自同一 source.group，或派生来源没有 lineage group | 隔离对应记录，不把证据数量冒充独立来源 | 核对来源组与派生链 |
+| 记录增加 evidence 未出现的小数或百分比精度且没有本地披露 | 隔离对应记录；普通新数字或缺少对象级 limits 只警告 | 核对证据文本、epistemic reason 与 limits |
 | 事件时间无法标准化 | 正常阅读原文本，单列时间分组 | 查看原值 |
 | 来源缺失 / 版本不符 | 知识阅读继续，证据页展示具体状态 | 读取当前文件、复制 URI、重试 |
 | 无结果 / 数组为空 | 明确空状态，不虚构示例数据 | 清除筛选或浏览其他分类 |
@@ -492,7 +495,7 @@ flowchart LR
   "manifest_version": 2,
   "id": "notemd.knowledge-browser",
   "name": "Knowledge Browser",
-  "version": "3.1.0",
+  "version": "3.1.1",
   "kind": "native",
   "engines": {"notemd": ">=6.916.1"},
   "description": "Browse extracted knowledge, relations and source evidence.",
@@ -710,6 +713,8 @@ flowchart TD
 | AC-36 | 内置关系表缺少方向定义、自定义 relation type | 角色关联不生成因果箭头；自定义定义按数据展示 |
 | AC-37 | 打开合法 3.1.0 数据集，包含 selection 与每条记录的 epistemic | 不产生旧版字段或版本误报；页面显示提取门槛和证据强度 |
 | AC-38 | 打开成对的 3.0.0 历史数据，或把 3.0 schema 与 3.1 rule 交叉组合 | 成对 3.0 可只读浏览且证据强度显示未知；交叉版本明确拒绝，不自动迁移 |
+| AC-39 | 用同一 3.1.0 Schema 分别打开 rule 3.1.0 与 3.1.1 数据 | 两者均可浏览；3.1.0 仅显示非阻断兼容警告，3.1.1 不产生版本提示 |
+| AC-40 | 构造说话人错配、言语行为缺失、伪独立互证、虚增小数精度与高风险无本地 limits | 前四类按规则隔离；limits 与普通数字提示为 warning，不强制切换诊断页 |
 
 ### 15.1 验证方法要求
 
@@ -746,7 +751,7 @@ flowchart TD
   "generated": {
     "by": "fixture/1.0.0",
     "at": "2026-09-15T10:00:00Z",
-    "rule": "relation-schema-extractor/3.1.0",
+    "rule": "relation-schema-extractor/3.1.1",
     "types": "1.0.0"
   },
   "selection": {"profile":"strong_only","policy":"epistemic-strength/1.0.0","minimum_strength":"strong"},

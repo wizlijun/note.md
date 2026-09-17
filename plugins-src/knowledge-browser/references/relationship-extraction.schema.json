@@ -156,7 +156,7 @@
           "format": "date-time"
         },
         "rule": {
-          "const": "relation-schema-extractor/3.1.0"
+          "enum": ["relation-schema-extractor/3.1.0", "relation-schema-extractor/3.1.1"]
         },
         "types": {
           "const": "1.0.0"

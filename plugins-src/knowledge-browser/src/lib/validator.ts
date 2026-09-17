@@ -1,6 +1,7 @@
 import relationRegistry from '../../references/relation-types.json'
 import {
-  CURRENT_DATASET_SCHEMA, CURRENT_EXTRACTOR_RULE, LEGACY_DATASET_SCHEMA, LEGACY_EXTRACTOR_RULE,
+  COMPATIBLE_EXTRACTOR_RULE, CURRENT_DATASET_SCHEMA, CURRENT_EXTRACTOR_RULE,
+  LEGACY_DATASET_SCHEMA, LEGACY_EXTRACTOR_RULE,
   RELATION_TYPES_VERSION,
 } from './types'
 import type { Diagnostic, KnowledgeDataset, KnowledgeKind, ValidationResult } from './types'
@@ -14,6 +15,10 @@ const SOURCE = /^s[1-9]\d*$/; const EVIDENCE = /^x[1-9]\d*$/; const ROLE = /^[a-
 const EPISTEMIC_STRENGTHS = ['strong', 'medium', 'weak']
 const EPISTEMIC_BASES = ['explicit_statement', 'explicit_speech_act', 'direct_observation', 'source_defined', 'independent_corroboration', 'self_report', 'agent_inference', 'ambiguous']
 const STRONG_BASES = new Set(['explicit_statement', 'explicit_speech_act', 'direct_observation', 'source_defined', 'independent_corroboration'])
+const CURRENT_EXTRACTOR_RULES = new Set<string>([COMPATIBLE_EXTRACTOR_RULE, CURRENT_EXTRACTOR_RULE])
+const NUMBER_RE = /(?<![0-9A-Za-z.])\d+(?:,\d{3})*(?:\.\d+)?%?(?![0-9A-Za-z.])/g
+const HIGH_RISK_MARKERS = ['报告', '表示', '认为', '估算', '大概', '大约', '左右', '可能', '预计', '目标', '建议', '提议', '主张', '据称', '尚未确认', '未核验', '推断', '原因', '导致']
+const SPEECH_ACT_RELATIONS = new Set(['decides', 'commits_to', 'authorized_to', 'prohibits', 'delegates_to'])
 type UnknownMap = Record<string, unknown>
 
 const isObject = (value: unknown): value is UnknownMap => !!value && typeof value === 'object' && !Array.isArray(value)
@@ -28,6 +33,9 @@ export function validateKnowledgeDataset(input: unknown): ValidationResult {
   const add = (code: string, pointer: string, message: string, suggestion = '查看原始记录并修正字段。', objectId?: string) => {
     diagnostics.push({ code, severity: 'error', pointer, objectId, message, suggestion })
     if (objectId && /^[ecqvnr][1-9]\d*$/.test(objectId)) isolatedIds.add(objectId)
+  }
+  const warn = (code: string, pointer: string, message: string, suggestion = '核对来源与对象级限制。', objectId?: string) => {
+    diagnostics.push({ code, severity: 'warning', pointer, objectId, message, suggestion })
   }
   const requireKeys = (object: UnknownMap, keys: string[], pointer: string, objectId?: string) => keys.forEach(key => { if (!(key in object)) add('schema.required', `${pointer}/${key}`, `缺少必填字段 ${key}。`, undefined, objectId) })
   const allowedKeys = (object: UnknownMap, keys: string[], pointer: string, objectId?: string) => Object.keys(object).forEach(key => { if (!keys.includes(key)) add('schema.additional-property', `${pointer}/${escape(key)}`, `不允许字段 ${key}。`, undefined, objectId) })
@@ -108,8 +116,10 @@ export function validateKnowledgeDataset(input: unknown): ValidationResult {
     requireKeys(input.generated, ['by', 'at', 'rule', 'types'], '/generated'); allowedKeys(input.generated, ['by', 'at', 'rule', 'types'], '/generated')
     if (!nonempty(input.generated.by)) add('schema.nonempty', '/generated/by', 'by 必须是非空字符串。')
     if (!nonempty(input.generated.at) || !/^\d{4}-\d\d-\d\dT.*(?:Z|[+-]\d\d:\d\d)$/.test(input.generated.at) || Number.isNaN(Date.parse(input.generated.at))) add('schema.date-time', '/generated/at', 'generated.at 必须是带时区的 RFC 3339 时间。')
-    const expectedRule = currentVersion ? CURRENT_EXTRACTOR_RULE : legacyVersion ? LEGACY_EXTRACTOR_RULE : undefined
-    if (expectedRule && input.generated.rule !== expectedRule) add('version.rule', '/generated/rule', `当前 schema 仅支持 ${expectedRule}。`, '查看原始 JSON；不要猜测抽取规则。')
+    if (currentVersion) {
+      if (!CURRENT_EXTRACTOR_RULES.has(String(input.generated.rule))) add('version.rule', '/generated/rule', `当前 schema 仅支持 ${[...CURRENT_EXTRACTOR_RULES].join(' 或 ')}。`, '查看原始 JSON；不要猜测抽取规则。')
+      else if (input.generated.rule !== CURRENT_EXTRACTOR_RULE) warn('version.rule-compatible', '/generated/rule', `${String(input.generated.rule)} 是兼容旧规则；新抽取应使用 ${CURRENT_EXTRACTOR_RULE}。`, '历史数据可继续浏览；重新抽取时使用当前规则。')
+    } else if (legacyVersion && input.generated.rule !== LEGACY_EXTRACTOR_RULE) add('version.rule', '/generated/rule', `当前 schema 仅支持 ${LEGACY_EXTRACTOR_RULE}。`, '查看原始 JSON；不要猜测抽取规则。')
     if (input.generated.types !== RELATION_TYPES_VERSION) add('version.types', '/generated/types', `仅支持关系表 ${RELATION_TYPES_VERSION}。`, '查看原始 JSON；不要用其他版本关系表解释。')
   }
   if (currentVersion && 'selection' in input) {
@@ -128,25 +138,74 @@ export function validateKnowledgeDataset(input: unknown): ValidationResult {
   else { requireKeys(input.scope, ['purpose', 'questions'], '/scope'); allowedKeys(input.scope, ['purpose', 'questions'], '/scope'); if (!nonempty(input.scope.purpose)) add('schema.nonempty', '/scope/purpose', 'purpose 必须非空。'); if (!Array.isArray(input.scope.questions) || input.scope.questions.some(q => !nonempty(q))) add('schema.questions', '/scope/questions', 'questions 必须是非空字符串数组。') }
 
   const sourceIds = new Set<string>(); const evidenceIds = new Set<string>(); const objectIds = new Set<string>(); const kindById = new Map<string, string>()
+  const sourcesById = new Map<string, UnknownMap>(); const evidenceById = new Map<string, UnknownMap>()
   const topArrays = ['sources', 'evidence', ...COLLECTIONS]
   topArrays.forEach(name => { if (!Array.isArray(input[name])) add('schema.top-array', `/${name}`, `${name} 必须是数组。`) })
   if (Array.isArray(input.sources)) input.sources.forEach((source, index) => {
     const p = `/sources/${index}`; if (!isObject(source)) return add('schema.source', p, 'source 必须是对象。'); requireKeys(source, ['id', 'uri', 'v'], p); allowedKeys(source, ['id', 'uri', 'v', 'title', 'origin', 'group', 'retrieved'], p)
     if (typeof source.id !== 'string' || !SOURCE.test(source.id)) add('schema.source-id', `${p}/id`, '来源 ID 必须是 s<正整数>。')
-    else if (sourceIds.has(source.id)) add('business.duplicate-id', `${p}/id`, `来源 ID ${source.id} 重复。`); else sourceIds.add(source.id)
+    else if (sourceIds.has(source.id)) add('business.duplicate-id', `${p}/id`, `来源 ID ${source.id} 重复。`); else { sourceIds.add(source.id); sourcesById.set(source.id, source) }
     if (!nonempty(source.uri)) add('schema.nonempty', `${p}/uri`, 'uri 必须非空。'); if (!(source.v === null || nonempty(source.v))) add('schema.source-version', `${p}/v`, 'v 必须是非空字符串或 null。')
     if ('title' in source && !nonempty(source.title)) add('schema.nonempty', `${p}/title`, 'title 必须非空。'); if ('origin' in source && !['derived','unknown'].includes(String(source.origin))) add('schema.source-origin', `${p}/origin`, 'origin 必须是 derived 或 unknown。'); if ('group' in source && !nonempty(source.group)) add('schema.nonempty', `${p}/group`, 'group 必须非空。')
   })
   if (Array.isArray(input.evidence)) input.evidence.forEach((ev, index) => {
     const p = `/evidence/${index}`; if (!isObject(ev)) return add('schema.evidence', p, 'evidence 必须是对象。'); requireKeys(ev, ['id', 's', 'loc'], p); allowedKeys(ev, ['id', 's', 'loc', 'quote', 'at', 'speaker', 'role'], p)
-    if (typeof ev.id !== 'string' || !EVIDENCE.test(ev.id)) add('schema.evidence-id', `${p}/id`, '证据 ID 必须是 x<正整数>。'); else if (evidenceIds.has(ev.id)) add('business.duplicate-id', `${p}/id`, `证据 ID ${ev.id} 重复。`); else evidenceIds.add(ev.id)
+    if (typeof ev.id !== 'string' || !EVIDENCE.test(ev.id)) add('schema.evidence-id', `${p}/id`, '证据 ID 必须是 x<正整数>。'); else if (evidenceIds.has(ev.id)) add('business.duplicate-id', `${p}/id`, `证据 ID ${ev.id} 重复。`); else { evidenceIds.add(ev.id); evidenceById.set(ev.id, ev) }
     if (!nonempty(ev.loc)) add('schema.nonempty', `${p}/loc`, 'loc 必须非空。'); if ('at' in ev) time(ev.at, `${p}/at`, false); if ('quote' in ev && !nonempty(ev.quote)) add('schema.nonempty', `${p}/quote`, 'quote 必须非空。'); if ('speaker' in ev && (typeof ev.speaker !== 'string' || !/^e[1-9]\d*$/.test(ev.speaker))) add('schema.speaker', `${p}/speaker`, 'speaker 必须是实体 ID。'); if ('role' in ev && !['mentions','defines','reports','supports','contradicts','describes','sequences','context','identity'].includes(String(ev.role))) add('schema.evidence-role', `${p}/role`, '证据 role 无效。')
   })
+
+  const epistemicBases = (record: UnknownMap): Set<string> => {
+    const epistemic = record.epistemic
+    return isObject(epistemic) && Array.isArray(epistemic.basis)
+      ? new Set(epistemic.basis.filter((basis): basis is string => typeof basis === 'string'))
+      : new Set()
+  }
+  const recordText = (record: UnknownMap): string => ['text', 'definition', 'thesis', 'title', 'desc', 'reason']
+    .map(field => record[field]).filter((value): value is string => typeof value === 'string').join(' ')
+  const evidenceText = (record: UnknownMap): string => (Array.isArray(record.ev) ? record.ev : []).flatMap(evidenceId => {
+    const evidence = evidenceById.get(String(evidenceId)); if (!evidence) return []
+    const result: string[] = []
+    for (const field of ['quote', 'loc']) if (typeof evidence[field] === 'string') result.push(evidence[field] as string)
+    if (typeof evidence.at === 'string') result.push(evidence.at)
+    else if (Array.isArray(evidence.at)) result.push(...evidence.at.filter((value): value is string => typeof value === 'string'))
+    return result
+  }).join(' ')
+  const validatePrecision = (record: UnknownMap, pointer: string, id: string) => {
+    const text = recordText(record); if (!text) return
+    const recordNumbers = new Set(text.match(NUMBER_RE) ?? [])
+    const sourceNumbers = new Set(evidenceText(record).match(NUMBER_RE) ?? [])
+    const novel = [...recordNumbers].filter(value => !sourceNumbers.has(value)).sort()
+    if (!novel.length) return
+    const epistemic = isObject(record.epistemic) ? record.epistemic : undefined
+    const disclosed = Array.isArray(record.limits) && record.limits.length > 0 && nonempty(epistemic?.reason)
+    const message = `出现 evidence 文本中没有的数字 ${novel.join('、')}。`
+    if (novel.some(value => value.includes('.') || value.includes('%')) && !disclosed) add('business.numeric-precision', pointer, `${message} 小数或百分比增精度必须删除，或明确记录派生转换与本地 limits。`, undefined, id)
+    else warn('warning.numeric-evidence', pointer, `${message} 请核对是否为无损规范化，并在需要时写入本地 limits。`, undefined, id)
+  }
+  const validateIndependence = (record: UnknownMap, pointer: string, id: string) => {
+    if (!epistemicBases(record).has('independent_corroboration')) return
+    const groups = new Set<string>(); const derivedWithoutGroup = new Set<string>()
+    for (const evidenceId of Array.isArray(record.ev) ? record.ev : []) {
+      const evidence = evidenceById.get(String(evidenceId)); const sourceId = typeof evidence?.s === 'string' ? evidence.s : undefined
+      const source = sourceId ? sourcesById.get(sourceId) : undefined
+      if (sourceId) groups.add(typeof source?.group === 'string' ? source.group : sourceId)
+      if (sourceId && source?.origin === 'derived' && typeof source.group !== 'string') derivedWithoutGroup.add(sourceId)
+    }
+    if (groups.size < 2) add('business.independent-corroboration', `${pointer}/epistemic/basis`, 'independent_corroboration 至少需要两个不同 source.group。', undefined, id)
+    if (derivedWithoutGroup.size) add('business.independent-lineage', `${pointer}/epistemic/basis`, `派生来源 ${[...derivedWithoutGroup].sort().join('、')} 缺少 lineage group，不能证明独立互证。`, undefined, id)
+  }
+  const validateLocalLimits = (record: UnknownMap, pointer: string, kind: KnowledgeKind, id: string) => {
+    const bases = epistemicBases(record); const text = recordText(record)
+    let highRisk = ['self_report', 'agent_inference', 'ambiguous'].some(basis => bases.has(basis))
+      || ['evaluation', 'prediction', 'hypothesis'].includes(String(record.kind))
+    if (['claims', 'relations', 'concepts', 'narratives'].includes(kind)) highRisk ||= HIGH_RISK_MARKERS.some(marker => text.includes(marker))
+    if (highRisk && (!Array.isArray(record.limits) || record.limits.length === 0)) warn('warning.local-limits', `${pointer}/limits`, '高风险记录缺少对象级 limits，不能只依赖 coverage.limits。', undefined, id)
+  }
 
   const commonAllowed = ['id', 'i', 'why', 'ev', ...(currentVersion ? ['epistemic'] : []), 'scope', 'event', 'valid', 'status', 'score', 'score_type', 'rev', 'op', 'parents', 'authority', 'limits']
   COLLECTIONS.forEach(kind => { if (!Array.isArray(input[kind])) return; input[kind].forEach((record, index) => {
     const p = `/${kind}/${index}`; if (!isObject(record)) { add('schema.record', p, '记录必须是对象。'); return }
-    const id = typeof record.id === 'string' ? record.id : `${kind}[${index}]`; const before = diagnostics.length
+    const id = typeof record.id === 'string' ? record.id : `${kind}[${index}]`; const beforeErrors = diagnostics.filter(item => item.severity === 'error').length
     common(record, p, id); if (!IDS[kind].test(String(record.id ?? ''))) add('schema.local-id', `${p}/id`, `ID 前缀与 ${kind} 不匹配。`, undefined, id)
     else if (objectIds.has(String(record.id))) add('business.duplicate-id', `${p}/id`, `全局对象 ID ${record.id} 重复。`, undefined, id); else { objectIds.add(String(record.id)); kindById.set(String(record.id), kind) }
     if (kind === 'entities') {
@@ -179,14 +238,42 @@ export function validateKnowledgeDataset(input: unknown): ValidationResult {
       requireKeys(record, ['p', 'type', 'args'], p, id); allowedKeys(record, [...commonAllowed, 'p', 'type', 'text', 'args', 'claim', 'if', 'unless', 'reason', 'single_source_reason'], p, id)
       if (![0,1,2,3].includes(record.p as number) || !Number.isInteger(record.p)) add('schema.priority', `${p}/p`, 'p 必须为 0 到 3 的整数。', undefined, id); if (!ROLE.test(String(record.type))) add('schema.relation-type', `${p}/type`, '关系 type 必须使用小写 snake_case。', undefined, id); roleMap(record.args, `${p}/args`, 2, id); if (!nonempty(record.text) && !Array.isArray(record.claim)) add('business.relation-readable', p, '关系必须至少提供 claim 或完整 text。', undefined, id); if ('text' in record && !nonempty(record.text)) add('schema.nonempty', `${p}/text`, 'text 必须非空。', undefined, id); if ('claim' in record) stringArray(record.claim, `${p}/claim`, 1, true, /^q[1-9]\d*$/, id); for (const field of ['if','unless']) if (field in record) stringArray(record[field], `${p}/${field}`, 1, false, undefined, id); for (const field of ['reason','single_source_reason']) if (field in record && !nonempty(record[field])) add('schema.nonempty', `${p}/${field}`, `${field} 必须非空。`, undefined, id)
     }
-    if (diagnostics.length > before) isolatedIds.add(id)
+    if (currentVersion) {
+      if (kind !== 'entities') validatePrecision(record, p, id)
+      validateIndependence(record, p, id)
+      validateLocalLimits(record, p, kind, id)
+    }
+    if (diagnostics.filter(item => item.severity === 'error').length > beforeErrors) isolatedIds.add(id)
   }) })
 
   const nodeIds = new Set([...sourceIds, ...objectIds])
   const checkRef = (ref: unknown, pointer: string, self?: string, expected?: string) => { if (typeof ref !== 'string' || !nodeIds.has(ref)) add('business.broken-ref', pointer, `引用 ${String(ref)} 不存在。`, '修正引用或恢复对应记录。', self); else if (ref === self) add('business.self-ref', pointer, '不允许直接引用自身。', undefined, self); else if (expected && kindById.get(ref) !== expected) add('business.ref-type', pointer, `引用 ${ref} 必须指向 ${expected}。`, undefined, self) }
   if (Array.isArray(input.evidence)) input.evidence.forEach((ev, i) => { if (!isObject(ev)) return; if (!sourceIds.has(String(ev.s))) add('business.broken-source', `/evidence/${i}/s`, `来源 ${String(ev.s)} 不存在。`); if ('speaker' in ev) checkRef(ev.speaker, `/evidence/${i}/speaker`, undefined, 'entities') })
   COLLECTIONS.forEach(kind => { if (!Array.isArray(input[kind])) return; input[kind].forEach((record, i) => { if (!isObject(record)) return; const id = String(record.id); for (const ev of Array.isArray(record.ev) ? record.ev : []) if (!evidenceIds.has(String(ev))) add('business.broken-evidence', `/${kind}/${i}/ev`, `证据 ${String(ev)} 不存在。`, undefined, id) }) })
-  if (Array.isArray(input.claims)) input.claims.forEach((claim, i) => { if (!isObject(claim)) return; for (const [j, ref] of (Array.isArray(claim.about) ? claim.about : []).entries()) checkRef(ref, `/claims/${i}/about/${j}`, String(claim.id)); for (const [j, ref] of (Array.isArray(claim.by) ? claim.by : []).entries()) if (typeof ref === 'string' && NODE.test(ref)) checkRef(ref, `/claims/${i}/by/${j}`) })
+  if (Array.isArray(input.claims)) input.claims.forEach((claim, i) => {
+    if (!isObject(claim)) return
+    const id = String(claim.id); const p = `/claims/${i}`
+    for (const [j, ref] of (Array.isArray(claim.about) ? claim.about : []).entries()) checkRef(ref, `${p}/about/${j}`, id)
+    for (const [j, ref] of (Array.isArray(claim.by) ? claim.by : []).entries()) if (typeof ref === 'string' && NODE.test(ref)) checkRef(ref, `${p}/by/${j}`)
+    if (!currentVersion) return
+    const bases = epistemicBases(claim)
+    const byEntities = new Set((Array.isArray(claim.by) ? claim.by : []).filter(assertor => kindById.get(String(assertor)) === 'entities').map(String))
+    const speakers = new Set((Array.isArray(claim.ev) ? claim.ev : []).flatMap(evidenceId => {
+      const speaker = evidenceById.get(String(evidenceId))?.speaker
+      return typeof speaker === 'string' ? [speaker] : []
+    }))
+    if (byEntities.size && !speakers.size) {
+      const message = '引用实体主张者，但 evidence 没有可核对的 speaker。'
+      if (['decision', 'commitment'].includes(String(claim.kind))) add('business.claim-speaker', `${p}/by`, message, undefined, id)
+      else warn('warning.claim-speaker', `${p}/by`, message, '补充 evidence.speaker，或核对 by 是否应归属于实体。', id)
+    } else {
+      const missing = [...byEntities].filter(assertor => !speakers.has(assertor)).sort()
+      if (missing.length) add('business.claim-speaker', `${p}/by`, `主张者 ${missing.join('、')} 未出现在引用 evidence 的 speaker 中。`, undefined, id)
+    }
+    if (speakers.size > 1 && byEntities.size === 1) warn('warning.claim-speaker-merge', p, '单一 speaker 归属引用了多个 speaker 的 evidence；检查是否把他人的理由合并给主张者。', undefined, id)
+    if (['decision', 'commitment'].includes(String(claim.kind)) && !bases.has('explicit_speech_act')) add('business.speech-act', `${p}/epistemic/basis`, `${String(claim.kind)} 必须包含 explicit_speech_act。`, undefined, id)
+    if (bases.has('direct_observation') && byEntities.size) add('business.speaker-observation', `${p}/epistemic/basis`, 'speaker-attributed 口头内容不能用 direct_observation 证明现实状态。', undefined, id)
+  })
   if (Array.isArray(input.events)) input.events.forEach((event, i) => { if (!isObject(event)) return; values(event.args).forEach((ref, j) => checkRef(ref, `/events/${i}/args/${j}`, String(event.id))); for (const [j, ref] of (Array.isArray(event.place) ? event.place : []).entries()) checkRef(ref, `/events/${i}/place/${j}`, undefined, 'entities') })
   if (Array.isArray(input.narratives)) input.narratives.forEach((narrative, i) => { if (!isObject(narrative) || !Array.isArray(narrative.members)) return; const refs = narrative.members.map(m => isObject(m) ? m.ref : undefined); refs.forEach((ref, j) => checkRef(ref, `/narratives/${i}/members/${j}/ref`, String(narrative.id))); if (new Set(refs).size < 2) add('business.narrative-distinct', `/narratives/${i}/members`, '叙事至少需要两个不同对象。', undefined, String(narrative.id)) })
 
@@ -210,6 +297,7 @@ export function validateKnowledgeDataset(input: unknown): ValidationResult {
     const refs = values(relation.args); refs.forEach((ref, j) => checkRef(ref, `${p}/args/${j}`, id)); if (new Set(refs).size < 2) add('business.relation-distinct', `${p}/args`, '关系至少需要两个不同节点。', undefined, id)
     for (const [j, ref] of (Array.isArray(relation.claim) ? relation.claim : []).entries()) checkRef(ref, `${p}/claim/${j}`, undefined, 'claims')
     if (relation.p === 3) { if (!nonempty(relation.reason)) add('business.p3-reason', `${p}/reason`, 'P3 必须保存推理。', undefined, id); if (!Array.isArray(relation.limits) || relation.limits.length === 0) add('business.p3-limits', `${p}/limits`, 'P3 必须保存反例问题或未决条件。', undefined, id); const evs = Array.isArray(relation.ev) ? relation.ev : []; const evidence = Array.isArray(input.evidence) ? input.evidence.filter(isObject) : []; const sources = Array.isArray(input.sources) ? input.sources.filter(isObject) : []; const groups = new Set(evs.map(eid => { const ev = evidence.find(e => e.id === eid); const source = sources.find(s => s.id === ev?.s); return source?.group ?? source?.id }).filter(Boolean)); if (groups.size < 2 && !nonempty(relation.single_source_reason)) add('business.p3-independence', p, 'P3 需要两个独立证据组，或 single_source_reason。', undefined, id) }
+    if (currentVersion && SPEECH_ACT_RELATIONS.has(String(relation.type)) && !epistemicBases(relation).has('explicit_speech_act')) add('business.speech-act', `${p}/epistemic/basis`, `${String(relation.type)} 必须包含 explicit_speech_act。`, undefined, id)
   })
   const fatalCodes = new Set([
     'schema.root', 'schema.required', 'schema.additional-property', 'schema.top-array',
@@ -218,11 +306,11 @@ export function validateKnowledgeDataset(input: unknown): ValidationResult {
     'version.schema', 'version.rule', 'version.types', 'version.selection',
   ])
   const fatal = diagnostics.some(item => fatalCodes.has(item.code) && (!item.objectId || item.code === 'business.duplicate-id'))
-  return { valid: diagnostics.length === 0, fatal, diagnostics, isolatedIds }
+  return { valid: diagnostics.every(item => item.severity !== 'error'), fatal, diagnostics, isolatedIds }
 }
 
 export function isSupportedDataset(input: unknown): input is KnowledgeDataset {
   if (!isObject(input) || !isObject(input.generated) || input.generated.types !== RELATION_TYPES_VERSION) return false
-  return (input.schema === CURRENT_DATASET_SCHEMA && input.generated.rule === CURRENT_EXTRACTOR_RULE)
+  return (input.schema === CURRENT_DATASET_SCHEMA && CURRENT_EXTRACTOR_RULES.has(String(input.generated.rule)))
     || (input.schema === LEGACY_DATASET_SCHEMA && input.generated.rule === LEGACY_EXTRACTOR_RULE)
 }

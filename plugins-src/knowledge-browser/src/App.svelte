@@ -172,7 +172,7 @@
         category = parsed.dataset.claims.length ? 'claims' : 'all'
         const initial = records.find(record => category === 'all' || record.kind === category)
         selectedId = initial?.id ?? null; history = []; selectedSourceId = parsed.dataset.sources[0]?.id ?? null; selectedEvidenceId = parsed.dataset.evidence[0]?.id ?? null
-        mode = parsed.diagnostics.length ? 'diagnostics' : 'reading'
+        mode = parsed.diagnostics.some(item => item.severity === 'error') ? 'diagnostics' : 'reading'
       } else { records = []; selectedId = null; mode = 'diagnostics' }
       return true
     } catch (cause) {

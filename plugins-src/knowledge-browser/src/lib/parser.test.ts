@@ -27,6 +27,14 @@ describe('parseKnowledgeDataset', () => {
     expect(result.status).toBe('ready')
     expect(result.records).toHaveLength(8)
   })
+  it('opens extractor rule 3.1.0 with a non-blocking compatibility warning', async () => {
+    const compatible = structuredClone(fixture) as Record<string, any>
+    compatible.generated.rule = 'relation-schema-extractor/3.1.0'
+    const result = await parseKnowledgeDataset(JSON.stringify(compatible), 'research/compatible.knowledge.json')
+    expect(result.status).toBe('ready')
+    expect(result.records).toHaveLength(8)
+    expect(result.diagnostics).toEqual([expect.objectContaining({ code: 'version.rule-compatible', severity: 'warning' })])
+  })
   it.each([
     ['knowledge-representation-dataset/3.1.0', 'relation-schema-extractor/3.0.0'],
     ['knowledge-representation-dataset/3.0.0', 'relation-schema-extractor/3.1.0'],

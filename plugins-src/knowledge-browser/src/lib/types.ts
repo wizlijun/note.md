@@ -1,11 +1,12 @@
 export const CURRENT_DATASET_SCHEMA = 'knowledge-representation-dataset/3.1.0' as const
 export const LEGACY_DATASET_SCHEMA = 'knowledge-representation-dataset/3.0.0' as const
-export const CURRENT_EXTRACTOR_RULE = 'relation-schema-extractor/3.1.0' as const
+export const CURRENT_EXTRACTOR_RULE = 'relation-schema-extractor/3.1.1' as const
+export const COMPATIBLE_EXTRACTOR_RULE = 'relation-schema-extractor/3.1.0' as const
 export const LEGACY_EXTRACTOR_RULE = 'relation-schema-extractor/3.0.0' as const
 export const RELATION_TYPES_VERSION = '1.0.0' as const
 
 export type DatasetSchema = typeof CURRENT_DATASET_SCHEMA | typeof LEGACY_DATASET_SCHEMA
-export type ExtractorRule = typeof CURRENT_EXTRACTOR_RULE | typeof LEGACY_EXTRACTOR_RULE
+export type ExtractorRule = typeof CURRENT_EXTRACTOR_RULE | typeof COMPATIBLE_EXTRACTOR_RULE | typeof LEGACY_EXTRACTOR_RULE
 
 export type LocalId = `e${number}` | `c${number}` | `q${number}` | `v${number}` | `n${number}` | `r${number}`
 export type SourceId = `s${number}`

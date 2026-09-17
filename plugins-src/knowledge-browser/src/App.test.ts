@@ -69,4 +69,15 @@ describe('Knowledge Browser application', () => {
     await vi.waitFor(() => expect(post).toHaveBeenCalledWith({ type: 'file_view.ready', requestId: 4 }, 'tauri://localhost'))
     expect(document.body.textContent).toContain('缺少必填字段 selection')
   })
+
+  it('keeps a compatibility warning in the reading view', async () => {
+    const post = vi.spyOn(window, 'postMessage').mockImplementation(() => {})
+    const compatible = JSON.parse(fixture) as Record<string, any>
+    compatible.generated.rule = 'relation-schema-extractor/3.1.0'
+    app = mount(App, { target: document.body })
+    flushSync(); send(JSON.stringify(compatible), 5)
+    await vi.waitFor(() => expect(post).toHaveBeenCalledWith({ type: 'file_view.ready', requestId: 5 }, 'tauri://localhost'))
+    expect(document.body.textContent).toContain('发布执行人须在获得工程负责人批准后执行发布')
+    expect(document.body.textContent).not.toContain('兼容旧规则')
+  })
 })

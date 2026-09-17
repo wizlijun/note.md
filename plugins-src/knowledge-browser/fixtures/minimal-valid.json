@@ -1,7 +1,7 @@
 {
   "schema": "knowledge-representation-dataset/3.1.0",
   "id": "ks_85cb6e32-b304-4e00-9331-b919b7c40b41",
-  "generated": {"by":"fixture/1.0.0","at":"2026-09-15T10:00:00Z","rule":"relation-schema-extractor/3.1.0","types":"1.0.0"},
+  "generated": {"by":"fixture/1.0.0","at":"2026-09-15T10:00:00Z","rule":"relation-schema-extractor/3.1.1","types":"1.0.0"},
   "selection": {"profile":"strong_only","policy":"epistemic-strength/1.0.0","minimum_strength":"strong"},
   "scope": {"purpose":"合成发布流程阅读测试","questions":["谁执行发布，谁批准？"]},
   "sources": [{"id":"s1","uri":"/fixtures/release-transcript.md","title":"合成发布会议","v":null}],
