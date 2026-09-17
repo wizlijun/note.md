@@ -432,6 +432,7 @@ release_knowledge_browser() {
   trap 'rm -rf "$stage"' RETURN
   mkdir -p "$stage/ui"
   cp "$manifest" "$stage/manifest.json"
+  cp "$src/THIRD_PARTY_LICENSES.txt" "$stage/THIRD_PARTY_LICENSES.txt"
   cp -R "$src/dist/." "$stage/ui/"
 
   local pkg="$out_dir/universal.notemdpkg"

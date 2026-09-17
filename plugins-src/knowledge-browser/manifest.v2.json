@@ -2,12 +2,12 @@
   "manifest_version": 2,
   "id": "notemd.knowledge-browser",
   "name": "Knowledge Browser",
-  "version": "3.1.1",
+  "version": "3.2.0",
   "kind": "native",
   "engines": {
     "notemd": ">=6.916.1"
   },
-  "description": "Browse extracted knowledge, relations, timelines and source evidence without changing the source dataset.",
+  "description": "Browse extracted knowledge as an interactive graph, relation groups, timelines and source evidence without changing the source dataset.",
   "ui": "ui/",
   "activation": {
     "events": []
@@ -53,7 +53,7 @@
   "i18n": {
     "zh": {
       "name": "提取知识浏览器",
-      "description": "只读浏览提取的知识对象、多方关系、时间线与原文证据。",
+      "description": "以交互图谱、关系组、时间线和原文证据只读浏览提取知识。",
       "menus": {
         "view-knowledge": "打开提取知识浏览器…"
       }

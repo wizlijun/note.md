@@ -113,6 +113,12 @@ describe('release-plugins.sh packaging shape', () => {
     expect(packagingBody('release_codex_agent')).toContain('$triple.notemdpkg')
     expect(packagingBody('release_codex_agent')).toContain('cargo build --release --locked')
   })
+
+  it('packages Knowledge Browser third-party license notices', () => {
+    const body = functionBody('release_knowledge_browser')
+    expect(body).toContain('THIRD_PARTY_LICENSES.txt')
+    expect(existsSync(join(ROOT, 'plugins-src/knowledge-browser/THIRD_PARTY_LICENSES.txt'))).toBe(true)
+  })
 })
 
 describe('release.sh transient Apple failures', () => {

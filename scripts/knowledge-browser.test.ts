@@ -36,7 +36,7 @@ describe('Knowledge Browser host integration', () => {
   })
 
   it('is a read-only universal UI plugin in the Reading category', () => {
-    expect(manifest.version).toBe('3.1.1')
+    expect(manifest.version).toBe('3.2.0')
     expect(manifest).not.toHaveProperty('binary')
     expect(manifest.capabilities).toEqual(['vault.read', 'editor.open', 'clipboard.write'])
     expect(manifest.capabilities).not.toContain('vault.write')

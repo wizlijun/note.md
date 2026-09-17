@@ -3,6 +3,7 @@
   import { onDestroy, onMount } from 'svelte'
   import DetailPane from './components/DetailPane.svelte'
   import DiagnosticsView from './components/DiagnosticsView.svelte'
+  import KnowledgeGraph from './components/KnowledgeGraph.svelte'
   import RecordList from './components/RecordList.svelte'
   import RelationGraph from './components/RelationGraph.svelte'
   import TimelineView, { type TimelineEntry } from './components/TimelineView.svelte'
@@ -20,7 +21,7 @@
   import type { Diagnostic, Evidence, KnowledgeKind, ParseResult, Relation, Source } from './lib/types'
 
   type Category = KnowledgeKind | 'all' | 'sources' | 'evidence'
-  type Mode = 'reading' | 'relations' | 'timeline' | 'diagnostics'
+  type Mode = 'graph' | 'reading' | 'relations' | 'timeline' | 'diagnostics'
   type TimeDimension = 'event' | 'valid' | 'source' | 'system'
 
   const zh = (window.notemd?.locale ?? navigator.language).startsWith('zh')
@@ -36,7 +37,7 @@
     'action.readSource': ['读取原文片段', 'Read source excerpt'], 'action.openRecord': ['打开对象', 'Open record'],
     'action.retry': ['重试', 'Retry'], 'action.close': ['关闭', 'Close'], 'action.back': ['返回上一对象', 'Back to previous record'],
     'copied': ['已复制', 'Copied'],
-    'mode.reading': ['阅读', 'Reading'], 'mode.relations': ['关系', 'Relations'], 'mode.timeline': ['时间', 'Time'], 'mode.diagnostics': ['诊断', 'Diagnostics'],
+    'mode.graph': ['图谱', 'Graph'], 'mode.reading': ['阅读', 'Reading'], 'mode.relations': ['关系组', 'Relation groups'], 'mode.timeline': ['时间', 'Time'], 'mode.diagnostics': ['诊断', 'Diagnostics'],
     'kind.all': ['全部知识', 'All knowledge'], 'kind.entities': ['实体', 'Entities'], 'kind.concepts': ['概念', 'Concepts'], 'kind.claims': ['主张', 'Claims'],
     'kind.events': ['事件', 'Events'], 'kind.narratives': ['叙事', 'Narratives'], 'kind.relations': ['关系', 'Relations'], 'kind.sources': ['来源', 'Sources'], 'kind.evidence': ['证据', 'Evidence'],
     'importance.all': ['全部重要性', 'All importance'], 'importance.core': ['核心', 'Core'], 'importance.supporting': ['支撑', 'Supporting'],
@@ -60,8 +61,20 @@
     'time.range': ['{start} 至 {end}', '{start} to {end}'], 'time.openStart': ['开放起点', 'Open start'], 'time.openEnd': ['开放终点', 'Open end'],
     'time.kind.point': ['时间点', 'Point'], 'time.kind.range': ['区间', 'Range'], 'time.kind.unknown': ['未知', 'Unknown'], 'time.kind.not-applicable': ['不适用', 'Not applicable'], 'time.kind.unstandardized': ['未标准化', 'Unstandardized'],
     'graph.title': ['局部关系', 'Local relations'], 'graph.summary': ['{relations} 个完整关系组', '{relations} complete relation groups'], 'graph.empty': ['当前对象没有可浏览的显式关系。', 'No browsable explicit relations for this object.'],
-    'graph.canvasLabel': ['关系节点与参与角色图', 'Relation nodes and participant roles'], 'graph.description': ['线条只表示角色参与，不表示因果方向。', 'Lines show role participation, not causal direction.'],
+    'graph.canvasLabel': ['多类型知识节点与关系交叉图', 'Cross-linked graph of multiple knowledge node and relation types'], 'graph.description': ['线条只表示角色参与，不表示因果方向。', 'Lines show role participation, not causal direction.'],
     'graph.relationNode': ['关系 {id}，类型 {type}', 'Relation {id}, type {type}'], 'graph.participantNode': ['角色 {role}，{label}', 'Role {role}, {label}'], 'graph.equivalentList': ['等价可访问关系清单', 'Equivalent accessible relation list'],
+    'graph.eyebrow': ['交叉知识网络', 'Cross-linked knowledge network'], 'graph.networkTitle': ['知识图谱', 'Knowledge graph'],
+    'graph.networkSummary': ['{nodes} 个节点 · {edges} 条连接', '{nodes} nodes · {edges} connections'],
+    'graph.networkEmpty': ['当前范围没有可显示的知识节点。', 'No knowledge nodes are available in the current scope.'],
+    'graph.scopeLabel': ['图谱范围', 'Graph scope'], 'graph.scopeAll': ['全局', 'All'], 'graph.scopeFocus': ['当前对象', 'Current record'], 'graph.fit': ['适配全图', 'Fit graph'],
+    'graph.truncated': ['为保持可读性，当前少显示 {nodes} 个节点、{edges} 条连接。', 'For readability, {nodes} nodes and {edges} connections are currently omitted.'],
+    'graph.jump': ['跳转', 'Jump'], 'graph.canvasFallback': ['交互图谱正在建立；也可使用跳转和下方关系清单浏览。', 'The interactive graph is being prepared; you can also browse with Jump and the relation list below.'],
+    'graph.nodeLegend': ['节点类型', 'Node types'], 'graph.edgeLegend': ['关系类型', 'Relation types'], 'graph.referenceEdge': ['结构引用', 'Structural reference'],
+    'graph.interactionHint': ['点击查看 · 拖动调整 · 滚轮缩放', 'Click to inspect · drag to arrange · scroll to zoom'], 'graph.detailLabel': ['所选节点或连接详情', 'Selected node or connection details'],
+    'graph.connections': ['直接连接 · {count}', 'Direct connections · {count}'], 'graph.noConnections': ['当前范围没有直接连接。', 'No direct connections in the current scope.'],
+    'graph.openReading': ['在阅读视图打开', 'Open in reading view'], 'graph.explicitRelation': ['显式关系', 'Explicit relation'], 'graph.structuralReference': ['结构引用', 'Structural reference'],
+    'graph.role': ['角色', 'Role'], 'graph.endpoints': ['连接端点', 'Connected records'], 'graph.selectPrompt': ['选择节点或连接查看详情。', 'Select a node or connection to inspect it.'],
+    'graph.accessibleList': ['可访问关系清单 · {count}', 'Accessible relation list · {count}'],
     'timeline.title': ['时间阅读', 'Timeline'], 'timeline.count': ['{count} 项', '{count} items'], 'timeline.empty': ['当前维度没有可显示的时间记录。', 'No time records for this dimension.'], 'timeline.context': ['关联上下文', 'Related context'],
     'timeline.dimension.event': ['事件时间', 'Event time'], 'timeline.dimension.valid': ['有效时间', 'Valid time'], 'timeline.dimension.source': ['来源时间', 'Source time'], 'timeline.dimension.system': ['系统记录时间', 'System record time'],
     'diagnostics.title': ['数据诊断', 'Data diagnostics'], 'diagnostics.summary': ['{errors} 个错误 · {warnings} 个警告', '{errors} errors · {warnings} warnings'], 'diagnostics.counts': ['浏览与隔离计数', 'Browse and isolation counts'],
@@ -83,7 +96,7 @@
   let category = $state<Category>('claims')
   let importance = $state<'all' | 'core' | 'supporting'>('all')
   let priority = $state<'all' | '0' | '1' | '2' | '3'>('all')
-  let mode = $state<Mode>('reading')
+  let mode = $state<Mode>('graph')
   let timeDimension = $state<TimeDimension>('event')
   let selectedId = $state<string | null>(null)
   let history = $state<string[]>([])
@@ -172,7 +185,7 @@
         category = parsed.dataset.claims.length ? 'claims' : 'all'
         const initial = records.find(record => category === 'all' || record.kind === category)
         selectedId = initial?.id ?? null; history = []; selectedSourceId = parsed.dataset.sources[0]?.id ?? null; selectedEvidenceId = parsed.dataset.evidence[0]?.id ?? null
-        mode = parsed.diagnostics.some(item => item.severity === 'error') ? 'diagnostics' : 'reading'
+        mode = parsed.diagnostics.some(item => item.severity === 'error') ? 'diagnostics' : 'graph'
       } else { records = []; selectedId = null; mode = 'diagnostics' }
       return true
     } catch (cause) {
@@ -190,6 +203,17 @@
     if (record) { selectRecord(record); category = record.kind; mode = 'reading'; return }
     const source = result?.indexes?.sourcesById.get(id)
     if (source) { category = 'sources'; selectedSourceId = source.id; mode = 'reading' }
+  }
+  function selectGraphRecord(id: string): void {
+    const record = records.find(item => item.id === id)
+    if (!record) return
+    if (selectedId && selectedId !== record.id) history = [...history, selectedId].slice(-100)
+    selectedId = record.id; selectedSourceId = null; selectedEvidenceId = null
+  }
+  function openGraphRecord(id: string): void {
+    const record = records.find(item => item.id === id)
+    if (!record) return
+    selectGraphRecord(id); category = record.kind; mode = 'reading'
   }
   function back(): void { const previous = history.at(-1); if (previous) { selectedId = previous; history = history.slice(0, -1) } }
   async function reportCopy(value: string): Promise<void> { try { await copyText(value); notice = text('copied') } catch (cause) { error = cause instanceof Error ? cause.message : String(cause) } }
@@ -258,15 +282,17 @@
       {#if result.dataset.selection}<div><strong>{text('selection')}</strong><span>{result.dataset.selection.profile} · ≥ {result.dataset.selection.minimum_strength}</span></div>{/if}
     </section>
     <section class="toolbar">
-      <label class="search"><span aria-hidden="true">⌕</span><input type="search" placeholder={text('search')} bind:value={query} /></label>
-      <label><span class="sr-only">{zh ? '类别' : 'Category'}</span><select bind:value={category} onchange={() => { if (category === 'relations') priority = priority === 'all' ? 'all' : priority }}>
-        {#each ['claims','all','entities','concepts','events','narratives','relations','sources','evidence'] as kind}<option value={kind}>{text(`kind.${kind}`)}</option>{/each}
-      </select></label>
-      {#if category !== 'sources' && category !== 'evidence'}<label><span class="sr-only">{zh ? '重要性' : 'Importance'}</span><select bind:value={importance}><option value="all">{text('importance.all')}</option><option value="core">{text('importance.core')}</option><option value="supporting">{text('importance.supporting')}</option></select></label>{/if}
-      {#if category === 'relations'}<label><span class="sr-only">Priority</span><select bind:value={priority}><option value="all">P0–P3</option>{#each [0,1,2,3] as p}<option value={String(p)}>P{p}</option>{/each}</select></label>{/if}
       <div class="modes" role="group" aria-label={zh ? '阅读方式' : 'Reading mode'}>
-        {#each ['reading','relations','timeline','diagnostics'] as value}<button type="button" aria-pressed={mode === value} onclick={() => mode = value as Mode}>{text(`mode.${value}`)}</button>{/each}
+        {#each ['graph','reading','relations','timeline','diagnostics'] as value}<button type="button" aria-pressed={mode === value} onclick={() => mode = value as Mode}>{text(`mode.${value}`)}</button>{/each}
       </div>
+      {#if mode === 'reading'}
+        <label class="search"><span aria-hidden="true">⌕</span><input type="search" placeholder={text('search')} bind:value={query} /></label>
+        <label><span class="sr-only">{zh ? '类别' : 'Category'}</span><select bind:value={category} onchange={() => { if (category === 'relations') priority = priority === 'all' ? 'all' : priority }}>
+          {#each ['claims','all','entities','concepts','events','narratives','relations','sources','evidence'] as kind}<option value={kind}>{text(`kind.${kind}`)}</option>{/each}
+        </select></label>
+        {#if category !== 'sources' && category !== 'evidence'}<label><span class="sr-only">{zh ? '重要性' : 'Importance'}</span><select bind:value={importance}><option value="all">{text('importance.all')}</option><option value="core">{text('importance.core')}</option><option value="supporting">{text('importance.supporting')}</option></select></label>{/if}
+        {#if category === 'relations'}<label><span class="sr-only">Priority</span><select bind:value={priority}><option value="all">P0–P3</option>{#each [0,1,2,3] as p}<option value={String(p)}>P{p}</option>{/each}</select></label>{/if}
+      {/if}
       {#if mode === 'timeline'}<select aria-label={zh ? '时间维度' : 'Time dimension'} bind:value={timeDimension}>{#each ['event','valid','source','system'] as value}<option value={value}>{text(`timeline.dimension.${value}`)}</option>{/each}</select>{/if}
     </section>
   {/if}
@@ -280,7 +306,9 @@
     <DiagnosticsView diagnostics={result.diagnostics} text={text} onSelect={selectDiagnostic} />
   {:else}
     <div class="workspace" class:single={mode !== 'reading'}>
-      {#if mode === 'reading'}
+      {#if mode === 'graph'}
+        <KnowledgeGraph dataset={result.dataset} indexes={result.indexes} {selectedId} text={text} onSelect={selectGraphRecord} onOpenRecord={openGraphRecord} />
+      {:else if mode === 'reading'}
         <aside class="results" class:hidden-mobile={!!selected && category !== 'sources' && category !== 'evidence'}>
           {#if category === 'sources'}
             <div class="simple-list" role="listbox">{#each visibleSources as source}<button class:selected={source.id === selectedSourceId} onclick={() => { selectedSourceId = source.id; selectedEvidenceId = null }}>{sourceLabel(source)}<small>{source.id} · {source.uri}</small></button>{:else}<p>{text('recordList.empty')}</p>{/each}</div>

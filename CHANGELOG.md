@@ -9,11 +9,14 @@ For the full commit history, see the git log.
 
 ### Changed
 
-- **Knowledge Browser 3.1.1 follows the latest extraction rule.** The viewer
-  accepts extractor rules 3.1.0 and 3.1.1 for dataset schema 3.1.0, and now
-  diagnoses speaker attribution, speech acts, independent corroboration,
-  invented numeric precision, and missing object-level limits. Compatibility
-  warnings remain non-blocking, and paired 3.0.0 files stay readable.
+- **Knowledge Browser 3.2.0 adds an interactive graph as its default view.** Six
+  knowledge-object types and multi-party relations are shown together without
+  flattening relation roles into misleading pairwise facts. Users can switch
+  between the full dataset and the current record's neighborhood, inspect
+  connected details, drag, zoom, fit, and return to Reading, Relation groups,
+  Time, or Diagnostics views. The viewer also accepts extractor rules 3.1.0 and
+  3.1.1 for dataset schema 3.1.0, including the latest diagnostics, while paired
+  3.0.0 files remain readable.
 
 ## v6.916.1 — 2026-09-16
 

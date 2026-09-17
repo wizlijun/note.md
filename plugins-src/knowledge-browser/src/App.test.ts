@@ -80,4 +80,25 @@ describe('Knowledge Browser application', () => {
     expect(document.body.textContent).toContain('发布执行人须在获得工程负责人批准后执行发布')
     expect(document.body.textContent).not.toContain('兼容旧规则')
   })
+
+  it('uses Graph as the default theme and keeps the existing views switchable', async () => {
+    const post = vi.spyOn(window, 'postMessage').mockImplementation(() => {})
+    app = mount(App, { target: document.body })
+    flushSync(); send(fixture, 6)
+    await vi.waitFor(() => expect(post).toHaveBeenCalledWith({ type: 'file_view.ready', requestId: 6 }, 'tauri://localhost'))
+
+    const button = (name: string) => [...document.querySelectorAll<HTMLButtonElement>('.modes button')].find(item => item.textContent === name)!
+    expect(button('图谱').getAttribute('aria-pressed')).toBe('true')
+    expect(document.body.textContent).toContain('知识图谱')
+    expect(document.body.textContent).toContain('delegates_to')
+    expect(document.body.textContent).toContain('requires_approval')
+    document.querySelector<HTMLButtonElement>('.accessible-list button')!.click()
+    await vi.waitFor(() => expect(document.body.textContent).toContain('显式关系'))
+
+    button('阅读').click(); await vi.waitFor(() => expect(button('阅读').getAttribute('aria-pressed')).toBe('true'))
+    expect(document.querySelector('[aria-label="知识详情"]')).not.toBeNull()
+    button('关系组').click(); await vi.waitFor(() => expect(button('关系组').getAttribute('aria-pressed')).toBe('true'))
+    expect(document.body.textContent).toContain('局部关系')
+    expect(request).not.toHaveBeenCalledWith('host.vault.write', expect.anything())
+  })
 })
