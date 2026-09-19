@@ -119,6 +119,15 @@ describe('release-plugins.sh packaging shape', () => {
     expect(body).toContain('THIRD_PARTY_LICENSES.txt')
     expect(existsSync(join(ROOT, 'plugins-src/knowledge-browser/THIRD_PARTY_LICENSES.txt'))).toBe(true)
   })
+
+  it('packages Conversation Dictionary with its review-dataset Skill', () => {
+    expect(table.get('conversation-dictionary')).toBe('release_conversation_dictionary')
+    const body = functionBody('release_conversation_dictionary')
+    expect(body).toContain('notemd.conversation-dictionary')
+    expect(body).toContain('skills/build-conversation-dictionary')
+    expect(packagingBody('release_conversation_dictionary')).toContain('$stage/skills')
+    expect(existsSync(join(ROOT, 'skills/build-conversation-dictionary/SKILL.md'))).toBe(true)
+  })
 })
 
 describe('release.sh transient Apple failures', () => {
@@ -318,6 +327,7 @@ describe('plugin market metadata localization', () => {
     'apple-notes',
     'claude-agent',
     'codex-agent',
+    'conversation-dictionary',
     'decision-log',
     'deepseek-agent',
     'ebook-import',

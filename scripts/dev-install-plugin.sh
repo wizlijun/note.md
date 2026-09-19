@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Dev-install a v2 plugin into the local app-data plugins root.
 #
-# Usage: scripts/dev-install-plugin.sh [--release] [md2pdf|roam-import|apple-notes|meetings|openclaw|assistant-mail|cef|pos-log|decision-log|weekly-review|memory|claude-agent|codex-agent|deepseek-agent|ebook-import|idea-spark|next|power-mode|trace-source|timeline|index-viewer|knowledge-browser]
+# Usage: scripts/dev-install-plugin.sh [--release] [md2pdf|roam-import|apple-notes|meetings|conversation-dictionary|openclaw|assistant-mail|cef|pos-log|decision-log|weekly-review|memory|claude-agent|codex-agent|deepseek-agent|ebook-import|idea-spark|next|power-mode|trace-source|timeline|index-viewer|knowledge-browser]
 #   default plugin = md2pdf (preserves the original behavior).
 #   --release      = build the native plugin binary in release mode (md2pdf +
 #                    openclaw; ignored for the pure-UI plugins).
@@ -44,8 +44,8 @@ PLUGIN=md2pdf
 for arg in "$@"; do
   case "$arg" in
     --release) PROFILE=release ;;
-    md2pdf|roam-import|apple-notes|meetings|openclaw|assistant-mail|cef|pos-log|decision-log|weekly-review|memory|claude-agent|codex-agent|deepseek-agent|ebook-import|idea-spark|next|power-mode|trace-source|timeline|index-viewer|knowledge-browser) PLUGIN="$arg" ;;
-    *) echo "unknown arg: $arg (expected --release | md2pdf | roam-import | apple-notes | meetings | openclaw | assistant-mail | cef | pos-log | decision-log | weekly-review | memory | claude-agent | codex-agent | deepseek-agent | ebook-import | idea-spark | next | power-mode | trace-source | timeline | index-viewer | knowledge-browser)" >&2; exit 2 ;;
+    md2pdf|roam-import|apple-notes|meetings|conversation-dictionary|openclaw|assistant-mail|cef|pos-log|decision-log|weekly-review|memory|claude-agent|codex-agent|deepseek-agent|ebook-import|idea-spark|next|power-mode|trace-source|timeline|index-viewer|knowledge-browser) PLUGIN="$arg" ;;
+    *) echo "unknown arg: $arg (expected --release | md2pdf | roam-import | apple-notes | meetings | conversation-dictionary | openclaw | assistant-mail | cef | pos-log | decision-log | weekly-review | memory | claude-agent | codex-agent | deepseek-agent | ebook-import | idea-spark | next | power-mode | trace-source | timeline | index-viewer | knowledge-browser)" >&2; exit 2 ;;
   esac
 done
 
@@ -122,6 +122,22 @@ elif [[ "$PLUGIN" == "meetings" ]]; then
   ln -sfn "$VERSION" "$ROOT/notemd.meetings/current"
   mark_installed "notemd.meetings" "$VERSION"
   echo "✓ installed notemd.meetings@$VERSION ($PROFILE, $(uname -m), backend + ui) → $DEST"
+
+elif [[ "$PLUGIN" == "conversation-dictionary" ]]; then
+  SRC="plugins-src/conversation-dictionary"
+  cargo build $([ "$PROFILE" = release ] && echo --release) \
+    --manifest-path "$SRC/backend/Cargo.toml" --bin notemd-conversation-dictionary
+  pnpm --filter conversation-dictionary-plugin build
+  VERSION=$(node -e "console.log(require('./$SRC/manifest.v2.json').version)")
+  DEST="$ROOT/notemd.conversation-dictionary/$VERSION"
+  rm -rf "$DEST"; mkdir -p "$DEST/bin" "$DEST/ui" "$DEST/skills"
+  cp "$SRC/backend/target/$PROFILE/notemd-conversation-dictionary" "$DEST/bin/"
+  cp -R "$SRC/dist/." "$DEST/ui/"
+  cp -R "skills/build-conversation-dictionary" "$DEST/skills/"
+  cp "$SRC/manifest.v2.json" "$DEST/manifest.json"
+  ln -sfn "$VERSION" "$ROOT/notemd.conversation-dictionary/current"
+  mark_installed "notemd.conversation-dictionary" "$VERSION"
+  echo "✓ installed notemd.conversation-dictionary@$VERSION ($PROFILE, $(uname -m), backend + ui) → $DEST"
 
 elif [[ "$PLUGIN" == "cef" ]]; then
   SRC="plugins-src/custom-editor-fixture"

@@ -2,7 +2,7 @@
 # Package + sign v2 plugins for the marketplace (子项目③ Task 5).
 #
 #   scripts/release-plugins.sh [--release] <plugin...>
-#     plugin ∈ { md2pdf, roam-import, apple-notes, meetings, openclaw, assistant-mail, pos-log,
+#     plugin ∈ { md2pdf, roam-import, apple-notes, meetings, conversation-dictionary, openclaw, assistant-mail, pos-log,
 #                decision-log, weekly-review, memory, claude-agent, codex-agent, deepseek-agent, ebook-import,
 #                idea-spark, next, power-mode, trace-source, timeline, index-viewer,
 #                knowledge-browser }   (add a case below)
@@ -44,14 +44,14 @@ PLUGINS=()
 for arg in "$@"; do
   case "$arg" in
     --release) : ;; # reserved; release builds are always release-profile
-    md2pdf|roam-import|apple-notes|meetings|openclaw|assistant-mail|pos-log|decision-log|weekly-review|memory|claude-agent|codex-agent|deepseek-agent|ebook-import|idea-spark|next|power-mode|trace-source|timeline|index-viewer|knowledge-browser) PLUGINS+=("$arg") ;;
+    md2pdf|roam-import|apple-notes|meetings|conversation-dictionary|openclaw|assistant-mail|pos-log|decision-log|weekly-review|memory|claude-agent|codex-agent|deepseek-agent|ebook-import|idea-spark|next|power-mode|trace-source|timeline|index-viewer|knowledge-browser) PLUGINS+=("$arg") ;;
     -h|--help)
       grep '^#' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
-    *) echo "unknown arg: $arg (expected --release | md2pdf | roam-import | apple-notes | meetings | openclaw | assistant-mail | pos-log | decision-log | weekly-review | memory | claude-agent | codex-agent | deepseek-agent | ebook-import | idea-spark | next | power-mode | trace-source | timeline | index-viewer | knowledge-browser)" >&2; exit 2 ;;
+    *) echo "unknown arg: $arg (expected --release | md2pdf | roam-import | apple-notes | meetings | conversation-dictionary | openclaw | assistant-mail | pos-log | decision-log | weekly-review | memory | claude-agent | codex-agent | deepseek-agent | ebook-import | idea-spark | next | power-mode | trace-source | timeline | index-viewer | knowledge-browser)" >&2; exit 2 ;;
   esac
 done
 if [[ ${#PLUGINS[@]} -eq 0 ]]; then
-  echo "usage: scripts/release-plugins.sh [--release] <md2pdf|roam-import|apple-notes|meetings|openclaw|assistant-mail|pos-log|decision-log|weekly-review|memory|claude-agent|codex-agent|deepseek-agent|ebook-import|idea-spark|next|power-mode|trace-source|timeline|index-viewer|knowledge-browser>..." >&2
+  echo "usage: scripts/release-plugins.sh [--release] <md2pdf|roam-import|apple-notes|meetings|conversation-dictionary|openclaw|assistant-mail|pos-log|decision-log|weekly-review|memory|claude-agent|codex-agent|deepseek-agent|ebook-import|idea-spark|next|power-mode|trace-source|timeline|index-viewer|knowledge-browser>..." >&2
   exit 2
 fi
 
@@ -476,7 +476,7 @@ release_memory() {
 # workspace root), bins codesigned like build-md2pdf-v2.sh, one Vite UI bundle,
 # then one zip per triple containing manifest.json + bin/<name> + ui/.
 release_native_ui() {
-  local id="$1" src="$2" bin_name="$3" pnpm_filter="$4"
+  local id="$1" src="$2" bin_name="$3" pnpm_filter="$4" skill_src="${5:-}"
   local manifest="$src/manifest.v2.json"
   local version; version="$(manifest_field "$manifest" version)"
   echo "== $id @ $version =="
@@ -521,6 +521,10 @@ release_native_ui() {
     cp "$src/backend/target/$triple/release/$bin_name" "$stage/bin/$bin_name"
     chmod +x "$stage/bin/$bin_name"
     cp -R "$src/dist/." "$stage/ui/"
+    if [[ -n "$skill_src" ]]; then
+      mkdir -p "$stage/skills"
+      cp -R "$skill_src" "$stage/skills/"
+    fi
 
     local pkg="$out_dir/$triple.notemdpkg"
     zip_pkg "$stage" "$pkg"
@@ -539,6 +543,12 @@ release_openclaw() {
 release_assistant_mail() {
   release_native_ui "notemd.assistant-mail" "$REPO_ROOT/plugins-src/assistant-mail" \
     "notemd-assistant-mail" "assistant-mail-plugin"
+}
+
+release_conversation_dictionary() {
+  release_native_ui "notemd.conversation-dictionary" "$REPO_ROOT/plugins-src/conversation-dictionary" \
+    "notemd-conversation-dictionary" "conversation-dictionary-plugin" \
+    "$REPO_ROOT/skills/build-conversation-dictionary"
 }
 
 release_claude_agent() {
@@ -626,6 +636,7 @@ for plugin in "${PLUGINS[@]}"; do
     roam-import) release_roam_import ;;
     apple-notes) release_apple_notes ;;
     meetings)    release_meetings ;;
+    conversation-dictionary) release_conversation_dictionary ;;
     openclaw)    release_openclaw ;;
     assistant-mail) release_assistant_mail ;;
     pos-log)     release_pos_log ;;

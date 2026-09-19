@@ -9,6 +9,7 @@ For the full commit history, see the git log.
 
 ### Changed
 
+- **Conversation Dictionary 0.1.0 turns reviewed communication transcripts into reusable, context-specific ASR corrections.** Users can import an evidence-backed historical review dataset, inspect and edit proposed names or terms, and approve selected changes in one transaction. Entries can be shared across contexts while replacement and preserve rules remain independently scoped; Agent-facing CLI actions may query or submit drafts but cannot approve them. The companion `build-conversation-dictionary` Skill is included for explicit installation and analyzes only conversations the user participated in.
 - **Knowledge Browser 3.2.0 adds an interactive graph as its default view.** Six
   knowledge-object types and multi-party relations are shown together without
   flattening relation roles into misleading pairwise facts. Users can switch

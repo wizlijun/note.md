@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh-TW">
+  <head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /></head>
+  <body>
+    <div id="app"></div>
+    <script>
+      const dictionary = {
+        schema: 'notemd.conversation-dictionary.v1', dictionary_id: 'dict_visual', revision: 1,
+        updated_at: '2026-09-20T00:00:00Z', subject_id: 'human:bruce', scope: 'user_communications',
+        domains: [], entries: [], rules: [],
+      }
+      const snapshot = {
+        settings: { schema: 'notemd.conversation-dictionary-settings.v1', dictionary_path: 'ssot/meetings/conversation-dictionary.yml' },
+        status: { status: 'ready' }, dictionary, candidates: [],
+        batches: [{
+          run_id: '853f8a64-51d4-4dc8-8a97-8bd6d98784a3', dataset_sha256: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', imported_at: '2026-09-20T00:00:00Z',
+          dataset: {
+            state: 'completed', coverage: { discovered: 2, processed: 2, excluded: 0, unknown_scope: 0, failed: 0, pending: 0, chunks_planned: 2, chunks_processed: 2 }, conflicts: [], unresolved: [],
+            proposals: [
+              { id: 'p_domain', kind: 'create_domain', depends_on: [], value: { name: '产品团队', description: '产品团队的会议与通话' }, evidence_ids: [], reason: '两份沟通记录属于同一工作场景。' },
+              { id: 'p_entry', kind: 'create_entry', depends_on: [], value: { kind: 'person', label: '伟滔', forms: ['伟滔', 'Weitao'], description: '' }, evidence_ids: ['ev_1'], reason: '多处上下文支持同一正确写法，仍需你确认。' },
+              { id: 'p_rule', kind: 'create_rule', depends_on: ['p_domain', 'p_entry'], value: { domain_ref: { proposal_id: 'p_domain' }, observed: '伟涛', action: 'replace', target: { entry_ref: { proposal_id: 'p_entry' }, text: '伟滔' }, application: 'suggest' }, evidence_ids: ['ev_1', 'ev_2'], reason: '这个场景中的 ASR 观测可能指向该词条。' },
+            ],
+          },
+          proposal_states: { p_domain: { revision: 1, status: 'pending' }, p_entry: { revision: 1, status: 'pending' }, p_rule: { revision: 1, status: 'pending' } },
+        }],
+      }
+      window.notemd = {
+        pluginId: 'notemd.conversation-dictionary', locale: 'zh-TW', theme: 'light', onMessage() {},
+        async request(method) {
+          if (method === 'plugin.bootstrap') return snapshot
+          if (method === 'plugin.batch_evidence') return { evidence: [
+            { id: 'ev_1', source_id: 'src_1', resource: 'ssot/meetings/20260920/transcript.srt', locator: '00:00:03–00:00:04', excerpt: '……接下来由伟涛负责这次发布。', communication: { basis: { detail: '用户确认自己参加这次产品会议。' } } },
+            { id: 'ev_2', source_id: 'src_2', resource: 'ssot/meetings/20260921/transcript.srt', locator: '00:08:12–00:08:14', excerpt: '伟涛会在今天更新发布说明。', communication: { basis: { detail: '会议元数据记录用户为参会者。' } } },
+          ] }
+          if (method === 'plugin.batch_commit') return { status: 'committed', revision: 2 }
+          if (method === 'host.toast' || method === 'host.editor.open') return {}
+          throw new Error(`visual fixture does not implement ${method}`)
+        },
+      }
+    </script>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

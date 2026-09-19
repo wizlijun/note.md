@@ -1,0 +1,94 @@
+{
+  "manifest_version": 2,
+  "id": "notemd.conversation-dictionary",
+  "name": "Conversation Dictionary",
+  "version": "0.1.0",
+  "kind": "native",
+  "engines": {
+    "notemd": ">=6.916.1"
+  },
+  "description": "Review names and terms from conversations you participate in, then safely reuse confirmed transcription corrections by context.",
+  "binary": {
+    "aarch64-apple-darwin": "bin/notemd-conversation-dictionary",
+    "x86_64-apple-darwin": "bin/notemd-conversation-dictionary"
+  },
+  "ui": "ui/",
+  "activation": {
+    "events": [
+      "onCommand:open",
+      "onCli:conversation-dictionary"
+    ]
+  },
+  "contributes": {
+    "menus": [
+      {
+        "location": "plugins",
+        "submenu": "editing",
+        "label": "Conversation Dictionary…",
+        "command": "open"
+      }
+    ],
+    "windows": [
+      {
+        "id": "main",
+        "entry": "index.html",
+        "title": "Conversation Dictionary",
+        "width": 1060,
+        "height": 760,
+        "min_width": 720,
+        "min_height": 520,
+        "open_command": "open",
+        "singleton": true
+      }
+    ],
+    "cli": [
+      {
+        "subcommand": "conversation-dictionary",
+        "command": "conversation-dictionary",
+        "summary": "Inspect, resolve or propose conversation transcription dictionary data",
+        "args": [
+          {
+            "name": "action",
+            "type": "string",
+            "required": true,
+            "help": "status, list, resolve, propose, pending, check, dataset-check or dataset-import"
+          }
+        ],
+        "flags": [
+          { "long": "--input", "type": "string", "help": "Vault-relative JSON/YAML request or dataset file" },
+          { "long": "--domain", "type": "string", "help": "Exact domain ID" },
+          { "long": "--id", "type": "string", "help": "Exact candidate ID" }
+        ],
+        "requires_tab_context": false
+      }
+    ]
+  },
+  "capabilities": [
+    "ui",
+    "toast",
+    "vault.read",
+    "vault.write",
+    "editor.open"
+  ],
+  "request_timeout_seconds": 120,
+  "i18n": {
+    "zh": {
+      "name": "沟通词典",
+      "description": "整理你参与的会议、通话和语音消息中的人名与术语，经确认后按场景安全复用转写纠错规则。",
+      "menus": { "open": "沟通词典…" },
+      "windows": { "main": "沟通词典" }
+    },
+    "ja": {
+      "name": "会話辞書",
+      "description": "参加した会議、通話、音声メッセージの固有名詞を確認し、文脈ごとに文字起こし修正を再利用します。",
+      "menus": { "open": "会話辞書…" },
+      "windows": { "main": "会話辞書" }
+    },
+    "de": {
+      "name": "Gesprächswörterbuch",
+      "description": "Bestätigte Namen und Begriffe aus eigenen Gesprächen kontextbezogen für Transkriptkorrekturen wiederverwenden.",
+      "menus": { "open": "Gesprächswörterbuch…" },
+      "windows": { "main": "Gesprächswörterbuch" }
+    }
+  }
+}
