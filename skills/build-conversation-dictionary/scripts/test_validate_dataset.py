@@ -80,6 +80,21 @@ class DatasetValidatorTest(unittest.TestCase):
             valid = subprocess.run([str(SCRIPT), str(dataset_path)], capture_output=True, text=True, check=False)
             self.assertEqual(valid.returncode, 0, valid.stdout + valid.stderr)
 
+            dataset["proposals"][0]["value"]["label"] = "Café"
+            dataset["proposals"][0]["value"]["forms"] = ["Cafe\u0301"]
+            dataset_path.write_text(yaml.safe_dump(dataset, allow_unicode=True, sort_keys=False), encoding="utf-8")
+            normalized = subprocess.run([str(SCRIPT), str(dataset_path)], capture_output=True, text=True, check=False)
+            self.assertEqual(normalized.returncode, 0, normalized.stdout + normalized.stderr)
+            dataset["proposals"][0]["value"]["label"] = "伟滔"
+
+            dataset["proposals"][0]["value"]["forms"] = ["Bruce"]
+            dataset_path.write_text(yaml.safe_dump(dataset, allow_unicode=True, sort_keys=False), encoding="utf-8")
+            missing_formal_name = subprocess.run([str(SCRIPT), str(dataset_path)], capture_output=True, text=True, check=False)
+            self.assertEqual(missing_formal_name.returncode, 2)
+            self.assertIn("formal name must appear in forms", missing_formal_name.stdout)
+            dataset["proposals"][0]["value"]["forms"] = ["伟滔"]
+            dataset_path.write_text(yaml.safe_dump(dataset, allow_unicode=True, sort_keys=False), encoding="utf-8")
+
             (root / "evidence.jsonl").write_text("{}\n", encoding="utf-8")
             tampered = subprocess.run([str(SCRIPT), str(dataset_path)], capture_output=True, text=True, check=False)
             self.assertEqual(tampered.returncode, 2)

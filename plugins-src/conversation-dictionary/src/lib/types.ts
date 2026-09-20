@@ -88,12 +88,27 @@ export type AgentIntegration = {
   skill_path: string
   skill_ready: boolean
 }
+export type FormalNameMigration = {
+  required: boolean
+  expected_revision: number
+  expected_sha256: string
+  entries: Array<{
+    id: string
+    kind: string
+    formal_name: string
+    aliases: string[]
+    formal_name_missing: boolean
+    affected_rules: Array<{ rule_id: string; domain_id: string; observed: string; current_output: string; application?: 'suggest' | 'automatic'; enabled: boolean }>
+  }>
+  issues: Array<Record<string, unknown>>
+}
 export type Snapshot = {
   settings: { schema: string; dictionary_path: string }
   status: Record<string, any>
   dictionary: Dictionary | null
   candidates: Candidate[]
   batches: ReviewBatch[]
+  formal_name_migration: FormalNameMigration
   agent_integration: AgentIntegration
   example: DictionaryExample
 }

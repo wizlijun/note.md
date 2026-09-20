@@ -1,19 +1,21 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { mount, unmount } from 'svelte'
 import App from './App.svelte'
+import type { Dictionary, Snapshot } from './lib/types'
 
-const dictionary = {
+const dictionary: Dictionary = {
   schema: 'notemd.conversation-dictionary.v1', dictionary_id: 'dict_1', revision: 1,
   updated_at: '2026-09-20T00:00:00Z', subject_id: 'human:bruce', scope: 'user_communications',
   domains: [], entries: [], rules: [],
 }
 
-function snapshot() {
+function snapshot(): Snapshot {
   return {
     settings: { schema: 'notemd.conversation-dictionary-settings.v1', dictionary_path: 'ssot/meetings/conversation-dictionary.yml' },
-    status: { status: 'ready' }, dictionary, candidates: [],
+    status: { status: 'ready' }, dictionary: structuredClone(dictionary), candidates: [],
+    formal_name_migration: { required: false, expected_revision: 1, expected_sha256: 'a'.repeat(64), entries: [], issues: [] },
     agent_integration: { status: 'ready', agents_path: 'AGENTS.md', agents_ready: true, skill_path: '.agents/skills/build-conversation-dictionary', skill_ready: true },
-    example: { schema: 'notemd.conversation-dictionary-example.v1', example_only: true, description: 'Teaching example', domain: { id: 'example_product_conversation', name: '示例：产品沟通' }, entry: { id: 'example_notemd', kind: 'product', label: 'note.md', forms: ['note.md'] }, rule: { domain_id: 'example_product_conversation', observed: 'note MD', action: 'replace', target: { entry_id: 'example_notemd', text: 'note.md' }, application: 'suggest', enabled: false } },
+    example: { schema: 'notemd.conversation-dictionary-example.v1', example_only: true, description: 'Teaching example', domain: { id: 'example_product_conversation', name: '示例：产品沟通' }, entry: { id: 'example_notemd', kind: 'product', label: 'note.md', forms: ['note.md', 'NoteMD', '小记'] }, rule: { domain_id: 'example_product_conversation', observed: 'note MD', action: 'replace', target: { entry_id: 'example_notemd', text: 'note.md' }, application: 'suggest', enabled: false } },
     batches: [{
       run_id: '853f8a64-51d4-4dc8-8a97-8bd6d98784a3', dataset_sha256: 'a'.repeat(64), imported_at: '2026-09-20T00:00:00Z',
       dataset: { state: 'completed', coverage: { discovered: 2, processed: 2, excluded: 0, unknown_scope: 0, failed: 0, pending: 0, chunks_planned: 2, chunks_processed: 2 }, conflicts: [], unresolved: [], proposals: [
@@ -23,7 +25,7 @@ function snapshot() {
       ] },
       proposal_states: { p_domain: { revision: 1, status: 'pending' }, p_entry: { revision: 1, status: 'pending' }, p_rule: { revision: 1, status: 'pending' } },
     }],
-  }
+  } as Snapshot
 }
 
 let mounted: ReturnType<typeof mount> | undefined
@@ -55,6 +57,8 @@ describe('Conversation Dictionary window', () => {
     save.click()
     await vi.waitFor(() => expect(request).toHaveBeenCalledWith('plugin.batch_commit', expect.objectContaining({
       run_id: '853f8a64-51d4-4dc8-8a97-8bd6d98784a3',
+      expected_dictionary_revision: 1,
+      expected_dictionary_sha256: 'a'.repeat(64),
       selected: expect.arrayContaining([expect.objectContaining({ id: 'p_domain' }), expect.objectContaining({ id: 'p_entry' }), expect.objectContaining({ id: 'p_rule' })]),
     })))
     expect(request.mock.calls.some(([method]) => method.includes('approve'))).toBe(false)
@@ -138,5 +142,67 @@ describe('Conversation Dictionary window', () => {
     const host = document.createElement('div'); document.body.append(host); mounted = mount(App, { target: host })
     await vi.waitFor(() => expect(host.textContent).toContain('词典需要检查'))
     expect(host.textContent).not.toContain('创建词典')
+  })
+
+  it('previews and submits one atomic formal-name migration', async () => {
+    const data = snapshot()
+    data.batches = []
+    data.dictionary!.entries = [{ id: 'e_wei', kind: 'person', label: 'Bruce', forms: ['伟滔', 'Bruce', '滔哥'], description: '' }]
+    data.dictionary!.rules = [
+      { id: 'r_wei', domain_id: 'd_work', observed: '伟涛', action: 'replace', target: { entry_id: 'e_wei', text: '伟滔' }, application: 'automatic', enabled: true, confirmed_by: 'human:bruce', confirmed_at: '2026-09-20T00:00:00Z' },
+      { id: 'r_duplicate', domain_id: 'd_work', observed: '伟涛', action: 'replace', target: { entry_id: 'e_wei', text: '滔哥' }, application: 'suggest', enabled: false, confirmed_by: 'human:bruce', confirmed_at: '2026-09-20T00:00:00Z' },
+      { id: 'r_noop', domain_id: 'd_work', observed: 'Bruce', action: 'replace', target: { entry_id: 'e_wei', text: '伟滔' }, application: 'automatic', enabled: true, confirmed_by: 'human:bruce', confirmed_at: '2026-09-20T00:00:00Z' },
+    ]
+    data.formal_name_migration = {
+      required: true,
+      expected_revision: 1,
+      expected_sha256: 'b'.repeat(64),
+      entries: [{ id: 'e_wei', kind: 'person', formal_name: 'Bruce', aliases: ['伟滔', '滔哥'], formal_name_missing: false, affected_rules: [{ rule_id: 'r_wei', domain_id: 'd_work', observed: '伟涛', current_output: '伟滔', application: 'automatic', enabled: true }] }],
+      issues: [{ kind: 'rule_output_is_not_formal_name' }],
+    }
+    const request = vi.fn(async (method: string) => {
+      if (method === 'plugin.initialize') return { status: 'existing', dictionary_created: false }
+      if (method === 'plugin.bootstrap') return data
+      if (method === 'plugin.normalize_formal_names') return { status: 'committed', revision: 2 }
+      if (method === 'host.toast') return {}
+      throw new Error(`unexpected ${method}`)
+    })
+    window.notemd = { pluginId: 'notemd.conversation-dictionary', locale: 'zh', theme: 'light', request, onMessage: () => {} }
+    const host = document.createElement('div'); document.body.append(host); mounted = mount(App, { target: host })
+    await vi.waitFor(() => expect(host.textContent).toContain('确认正式名'))
+    expect(host.textContent).toContain('伟滔 · 滔哥')
+    expect(host.textContent).toContain('新增别称归一（只建议）')
+    expect(host.textContent).toContain('移除无操作规则')
+    expect(host.textContent).toContain('合并重复规则')
+    const input = [...host.querySelectorAll<HTMLInputElement>('input')].find((item) => item.value === 'Bruce')!
+    input.value = '伟滔'; input.dispatchEvent(new InputEvent('input', { bubbles: true }))
+    const apply = [...host.querySelectorAll('button')].find((button) => button.textContent?.includes('统一为正式名'))!
+    apply.click()
+    await vi.waitFor(() => expect(request).toHaveBeenCalledWith('plugin.normalize_formal_names', expect.objectContaining({
+      expected_revision: 1,
+      expected_sha256: 'b'.repeat(64),
+      formal_names: { e_wei: '伟滔' },
+    })))
+  })
+
+  it('uses an accepted entry permanent id when previewing a remaining rule', async () => {
+    const data = snapshot()
+    data.dictionary!.entries = [{ id: 'e_saved', kind: 'person', label: '新正式名', forms: ['新正式名', '旧草稿名'], description: '' }]
+    data.batches[0].dataset.proposals = data.batches[0].dataset.proposals.filter((proposal) => proposal.id !== 'p_domain')
+    data.batches[0].dataset.proposals[1].depends_on = ['p_entry']
+    data.batches[0].proposal_states = {
+      p_entry: { revision: 2, status: 'accepted', permanent_id: 'e_saved', edited_value: { kind: 'person', label: '新正式名', forms: ['新正式名', '旧草稿名'] } },
+      p_rule: { revision: 1, status: 'pending' },
+    }
+    const request = vi.fn(async (method: string) => {
+      if (method === 'plugin.initialize') return { status: 'existing', dictionary_created: false }
+      if (method === 'plugin.bootstrap') return data
+      throw new Error(`unexpected ${method}`)
+    })
+    window.notemd = { pluginId: 'notemd.conversation-dictionary', locale: 'zh', theme: 'light', request, onMessage: () => {} }
+    const host = document.createElement('div'); document.body.append(host); mounted = mount(App, { target: host })
+    await vi.waitFor(() => expect(host.textContent).toContain('统一输出正式名'))
+    expect(host.textContent).toContain('新正式名')
+    expect(host.textContent).not.toContain('旧草稿名 · p_entry')
   })
 })

@@ -24,6 +24,7 @@ export const api = {
   importDataset: (input: string): Promise<unknown> => bridge().request('plugin.dataset_import', { input }),
   batchEvidence: (run_id: string, proposal_id: string): Promise<{ evidence: Array<Record<string, any>> }> => bridge().request('plugin.batch_evidence', { run_id, proposal_id }),
   commitBatch: (params: unknown): Promise<unknown> => bridge().request('plugin.batch_commit', params),
+  normalizeFormalNames: (params: unknown): Promise<unknown> => bridge().request('plugin.normalize_formal_names', params),
   dictionaryPath: (): Promise<{ path: string }> => bridge().request('plugin.open_dictionary', {}),
   openInEditor: (path: string): Promise<void> => bridge().request('host.editor.open', { path }),
   toast: async (level: 'success' | 'info' | 'warn' | 'error', message: string, detail?: string) => {

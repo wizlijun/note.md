@@ -186,6 +186,14 @@ pub fn dictionary_bytes(dictionary: &Dictionary) -> Result<Vec<u8>, String> {
 }
 
 pub fn atomic_bytes(path: &Path, bytes: &[u8]) -> Result<(), String> {
+    atomic_bytes_inner(path, bytes, None)
+}
+
+pub fn atomic_bytes_if_sha256(path: &Path, bytes: &[u8], expected: &str) -> Result<(), String> {
+    atomic_bytes_inner(path, bytes, Some(expected))
+}
+
+fn atomic_bytes_inner(path: &Path, bytes: &[u8], expected: Option<&str>) -> Result<(), String> {
     let parent = path.parent().ok_or("path has no parent")?;
     fs::create_dir_all(parent).map_err(|error| error.to_string())?;
     let temp = parent.join(format!(
@@ -202,6 +210,19 @@ pub fn atomic_bytes(path: &Path, bytes: &[u8]) -> Result<(), String> {
         .map_err(|error| error.to_string())?;
     file.write_all(bytes).map_err(|error| error.to_string())?;
     file.sync_all().map_err(|error| error.to_string())?;
+    if let Some(expected) = expected {
+        let current = match fs::read(path) {
+            Ok(current) => current,
+            Err(error) => {
+                let _ = fs::remove_file(&temp);
+                return Err(format!("{}: {error}", path.display()));
+            }
+        };
+        if sha256(&current) != expected {
+            let _ = fs::remove_file(&temp);
+            return Err("dictionary changed before the reviewed transaction could be saved".into());
+        }
+    }
     fs::rename(&temp, path).map_err(|error| error.to_string())?;
     File::open(parent)
         .and_then(|dir| dir.sync_all())
@@ -252,4 +273,22 @@ pub fn read_json<T: DeserializeOwned>(path: &Path) -> Result<T, String> {
 
 pub fn default_dictionary_relative() -> &'static str {
     DEFAULT_DICTIONARY_PATH
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn conditional_atomic_write_preserves_an_unexpected_preimage() {
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp.path().join("dictionary.yml");
+        fs::write(&path, b"external change").unwrap();
+
+        let error = atomic_bytes_if_sha256(&path, b"reviewed change", &sha256(b"old baseline"))
+            .unwrap_err();
+
+        assert!(error.contains("changed before"));
+        assert_eq!(fs::read(path).unwrap(), b"external change");
+    }
 }

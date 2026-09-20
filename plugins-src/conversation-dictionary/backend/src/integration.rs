@@ -1,10 +1,12 @@
 use crate::storage;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::fs;
 use std::path::Path;
 
 pub const SKILL_RELATIVE_DIR: &str = ".agents/skills/build-conversation-dictionary";
 pub const AGENTS_RELATIVE_PATH: &str = "AGENTS.md";
+const INTEGRATION_JOURNAL_PATH: &str = ".notemd/conversation-dictionary/integration-journal.json";
 
 const AGENTS_START: &str = "<!-- notemd:conversation-dictionary:start -->";
 const AGENTS_END: &str = "<!-- notemd:conversation-dictionary:end -->";
@@ -59,9 +61,55 @@ const SKILL_FILES: &[(&str, &[u8])] = &[
     ),
 ];
 
+const PREVIOUS_MANAGED_SKILL_HASHES: &[(&str, &str)] = &[
+    (
+        "SKILL.md",
+        "234ecd1dc1e775743dd90339cf3a083ec401618fc7f9445ecf25d890e2423e14",
+    ),
+    (
+        "agents/openai.yaml",
+        "25db5dbe3eef934c70503cf135cbdda9663c039e009290ab4debab6872578957",
+    ),
+    (
+        "references/conversation-dictionary.example.yml",
+        "5a054d6fb9bce6f42939e0da84bb91da32d4c775e86e09a80abec2eac8c2a792",
+    ),
+    (
+        "references/dataset-format.md",
+        "29972d0a1f0a2c25f9792af6253a13c7c35d066d35157d4848fbe0d90618dea4",
+    ),
+    (
+        "scripts/inventory_transcripts.py",
+        "99b0ba7ede34409f566d90cfb334ebb944054d5793fa0b74c1efb8cbe2b4c2b9",
+    ),
+    (
+        "scripts/test_validate_dataset.py",
+        "3c75efc792e558175e9dc0811653ae3b0eac28651c5d524e6669090d4aec7ca6",
+    ),
+    (
+        "scripts/validate_dataset.py",
+        "95ef683d2e15a3f5bc1a44cb8a59df4a3a83635de2d4896f5697c4a83a4958fd",
+    ),
+];
+
 const EXAMPLE_YAML: &str = include_str!(
     "../../../../skills/build-conversation-dictionary/references/conversation-dictionary.example.yml"
 );
+
+#[derive(Debug, Serialize, Deserialize)]
+struct IntegrationJournal {
+    changes: Vec<IntegrationChange>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct IntegrationChange {
+    relative_path: String,
+    previous: Option<Vec<u8>>,
+    next: Vec<u8>,
+    previous_mode: Option<u32>,
+    next_mode: Option<u32>,
+    content_changed: bool,
+}
 
 pub fn default_example() -> Value {
     serde_yaml::from_str(EXAMPLE_YAML)
@@ -69,8 +117,18 @@ pub fn default_example() -> Value {
 }
 
 pub fn ensure_agent_integration(vault: &Path) -> Result<Value, String> {
-    let skill_files_updated = install_skill(vault)?;
-    let agents_updated = ensure_agents_block(vault)?;
+    recover_integration_journal(vault)?;
+    let mut changes = plan_skill_install(vault)?;
+    let skill_files_updated = changes
+        .iter()
+        .filter(|change| change.content_changed)
+        .count();
+    let agents_change = plan_agents_block(vault)?;
+    let agents_updated = agents_change.is_some();
+    if let Some(change) = agents_change {
+        changes.push(change);
+    }
+    apply_integration_changes(vault, changes)?;
     Ok(json!({
         "status": "ready",
         "agents_path": AGENTS_RELATIVE_PATH,
@@ -92,30 +150,45 @@ pub fn agent_integration_status(vault: &Path) -> Value {
     })
 }
 
-fn install_skill(vault: &Path) -> Result<usize, String> {
-    let mut updated = 0;
+fn plan_skill_install(vault: &Path) -> Result<Vec<IntegrationChange>, String> {
+    let mut changes = Vec::new();
     for (relative, contents) in SKILL_FILES {
         let relative_path = Path::new(SKILL_RELATIVE_DIR).join(relative);
         let path = storage::ensure_safe_parent(vault, &relative_path)?;
-        match fs::read(&path) {
-            Ok(current) if current == *contents => {}
-            Ok(_) => {
-                return Err(format!(
-                    "refusing to overwrite customized Skill file {}",
-                    path.display()
-                ));
+        let previous = match fs::read(&path) {
+            Ok(current) if current == *contents => Some(current),
+            Ok(current) => {
+                let previous_hash = PREVIOUS_MANAGED_SKILL_HASHES
+                    .iter()
+                    .find_map(|(known_path, hash)| (*known_path == *relative).then_some(*hash));
+                let current_hash = storage::sha256(&current);
+                if previous_hash != Some(current_hash.as_str()) {
+                    return Err(format!(
+                        "refusing to overwrite customized Skill file {}",
+                        path.display()
+                    ));
+                }
+                Some(current)
             }
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-                storage::atomic_bytes_create_new(&path, contents)?;
-                updated += 1;
-            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
             Err(error) => return Err(format!("{}: {error}", path.display())),
-        }
-        if relative.starts_with("scripts/") {
-            make_executable(&path)?;
+        };
+        let previous_mode = file_mode(&path)?;
+        let next_mode = relative.starts_with("scripts/").then_some(0o755);
+        let content_changed = previous.as_deref() != Some(*contents);
+        let mode_changed = next_mode.is_some_and(|mode| previous_mode != Some(mode));
+        if content_changed || mode_changed {
+            changes.push(IntegrationChange {
+                relative_path: relative_path.to_string_lossy().into_owned(),
+                previous,
+                next: contents.to_vec(),
+                previous_mode,
+                next_mode,
+                content_changed,
+            });
         }
     }
-    Ok(updated)
+    Ok(changes)
 }
 
 fn skill_is_current(vault: &Path) -> Result<bool, String> {
@@ -129,7 +202,7 @@ fn skill_is_current(vault: &Path) -> Result<bool, String> {
     Ok(true)
 }
 
-fn ensure_agents_block(vault: &Path) -> Result<bool, String> {
+fn plan_agents_block(vault: &Path) -> Result<Option<IntegrationChange>, String> {
     let relative = Path::new(AGENTS_RELATIVE_PATH);
     let path = storage::ensure_safe_parent(vault, relative)?;
     let (existing, existed) = match fs::read(&path) {
@@ -141,18 +214,83 @@ fn ensure_agents_block(vault: &Path) -> Result<bool, String> {
     };
     let next = upsert_agents_block(&existing)?;
     if next == existing {
-        return Ok(false);
+        return Ok(None);
     }
-    if existed {
-        let current = fs::read(&path).map_err(|error| format!("{}: {error}", path.display()))?;
-        if current != existing.as_bytes() {
-            return Err("AGENTS.md changed while Conversation Dictionary was initializing".into());
+    Ok(Some(IntegrationChange {
+        relative_path: AGENTS_RELATIVE_PATH.into(),
+        previous: existed.then(|| existing.into_bytes()),
+        next: next.into_bytes(),
+        previous_mode: file_mode(&path)?,
+        next_mode: None,
+        content_changed: true,
+    }))
+}
+
+fn apply_integration_changes(vault: &Path, changes: Vec<IntegrationChange>) -> Result<(), String> {
+    if changes.is_empty() {
+        return Ok(());
+    }
+    let journal_path = vault.join(INTEGRATION_JOURNAL_PATH);
+    storage::atomic_json(&journal_path, &IntegrationJournal { changes })?;
+    let result = (|| {
+        let journal: IntegrationJournal = storage::read_json(&journal_path)?;
+        for change in &journal.changes {
+            let path = storage::resolve_inside(vault, Path::new(&change.relative_path))?;
+            let current = fs::read(&path).ok();
+            if current != change.previous {
+                return Err(format!(
+                    "{} changed while Conversation Dictionary was initializing",
+                    path.display()
+                ));
+            }
+            if change.previous.is_some() {
+                storage::atomic_bytes(&path, &change.next)?;
+            } else {
+                storage::atomic_bytes_create_new(&path, &change.next)?;
+            }
+            if let Some(mode) = change.next_mode {
+                set_file_mode(&path, mode)?;
+            }
         }
-        storage::atomic_bytes(&path, next.as_bytes())?;
-    } else {
-        storage::atomic_bytes_create_new(&path, next.as_bytes())?;
+        Ok(())
+    })();
+    if let Err(error) = result {
+        recover_integration_journal(vault)?;
+        return Err(error);
     }
-    Ok(true)
+    fs::remove_file(journal_path).map_err(|error| error.to_string())?;
+    Ok(())
+}
+
+fn recover_integration_journal(vault: &Path) -> Result<(), String> {
+    let journal_path = vault.join(INTEGRATION_JOURNAL_PATH);
+    if !journal_path.exists() {
+        return Ok(());
+    }
+    let journal: IntegrationJournal = storage::read_json(&journal_path)?;
+    for change in &journal.changes {
+        let path = storage::resolve_inside(vault, Path::new(&change.relative_path))?;
+        let current = fs::read(&path).ok();
+        if current.as_deref() != Some(change.next.as_slice()) && current != change.previous {
+            return Err(format!(
+                "integration recovery conflicts with a customized file {}",
+                path.display()
+            ));
+        }
+    }
+    for change in journal.changes.iter().rev() {
+        let path = storage::resolve_inside(vault, Path::new(&change.relative_path))?;
+        if let Some(previous) = &change.previous {
+            storage::atomic_bytes(&path, previous)?;
+            if let Some(mode) = change.previous_mode {
+                set_file_mode(&path, mode)?;
+            }
+        } else if path.exists() {
+            fs::remove_file(&path).map_err(|error| format!("{}: {error}", path.display()))?;
+        }
+    }
+    fs::remove_file(journal_path).map_err(|error| error.to_string())?;
+    Ok(())
 }
 
 fn agents_block_is_current(vault: &Path) -> Result<bool, String> {
@@ -203,17 +341,32 @@ fn upsert_agents_block(existing: &str) -> Result<String, String> {
 }
 
 #[cfg(unix)]
-fn make_executable(path: &Path) -> Result<(), String> {
+fn file_mode(path: &Path) -> Result<Option<u32>, String> {
+    use std::os::unix::fs::PermissionsExt;
+    match fs::metadata(path) {
+        Ok(metadata) => Ok(Some(metadata.permissions().mode() & 0o777)),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(error) => Err(error.to_string()),
+    }
+}
+
+#[cfg(not(unix))]
+fn file_mode(_path: &Path) -> Result<Option<u32>, String> {
+    Ok(None)
+}
+
+#[cfg(unix)]
+fn set_file_mode(path: &Path, mode: u32) -> Result<(), String> {
     use std::os::unix::fs::PermissionsExt;
     let mut permissions = fs::metadata(path)
         .map_err(|error| error.to_string())?
         .permissions();
-    permissions.set_mode(0o755);
+    permissions.set_mode(mode);
     fs::set_permissions(path, permissions).map_err(|error| error.to_string())
 }
 
 #[cfg(not(unix))]
-fn make_executable(_path: &Path) -> Result<(), String> {
+fn set_file_mode(_path: &Path, _mode: u32) -> Result<(), String> {
     Ok(())
 }
 
@@ -265,6 +418,25 @@ mod tests {
     }
 
     #[test]
+    fn agents_preflight_failure_does_not_install_any_skill_files() {
+        let temp = tempfile::tempdir().unwrap();
+        fs::write(
+            temp.path().join("AGENTS.md"),
+            format!("{AGENTS_START}\ncustom\n{AGENTS_END}\n"),
+        )
+        .unwrap();
+
+        assert!(ensure_agent_integration(temp.path())
+            .unwrap_err()
+            .contains("customized"));
+        assert!(!temp
+            .path()
+            .join(SKILL_RELATIVE_DIR)
+            .join("SKILL.md")
+            .exists());
+    }
+
+    #[test]
     fn existing_skill_file_is_never_overwritten() {
         let temp = tempfile::tempdir().unwrap();
         let path = temp.path().join(SKILL_RELATIVE_DIR).join("SKILL.md");
@@ -274,6 +446,50 @@ mod tests {
             .unwrap_err()
             .contains("refusing to overwrite"));
         assert_eq!(fs::read_to_string(path).unwrap(), "custom");
+    }
+
+    #[test]
+    fn customized_skill_is_rejected_before_any_missing_files_are_created() {
+        let temp = tempfile::tempdir().unwrap();
+        let custom = temp
+            .path()
+            .join(SKILL_RELATIVE_DIR)
+            .join("agents/openai.yaml");
+        fs::create_dir_all(custom.parent().unwrap()).unwrap();
+        fs::write(&custom, "custom").unwrap();
+        assert!(ensure_agent_integration(temp.path())
+            .unwrap_err()
+            .contains("refusing to overwrite"));
+        assert!(!temp
+            .path()
+            .join(SKILL_RELATIVE_DIR)
+            .join("SKILL.md")
+            .exists());
+        assert_eq!(fs::read_to_string(custom).unwrap(), "custom");
+    }
+
+    #[test]
+    fn interrupted_integration_is_rolled_back_before_retry() {
+        let temp = tempfile::tempdir().unwrap();
+        let changes = plan_skill_install(temp.path()).unwrap();
+        let first_path = temp.path().join(&changes[0].relative_path);
+        storage::atomic_json(
+            &temp.path().join(INTEGRATION_JOURNAL_PATH),
+            &IntegrationJournal { changes },
+        )
+        .unwrap();
+        let journal: IntegrationJournal =
+            storage::read_json(&temp.path().join(INTEGRATION_JOURNAL_PATH)).unwrap();
+        storage::atomic_bytes_create_new(&first_path, &journal.changes[0].next).unwrap();
+
+        recover_integration_journal(temp.path()).unwrap();
+
+        assert!(!first_path.exists());
+        assert!(!temp.path().join(INTEGRATION_JOURNAL_PATH).exists());
+        assert_eq!(
+            ensure_agent_integration(temp.path()).unwrap()["status"],
+            "ready"
+        );
     }
 
     #[cfg(unix)]

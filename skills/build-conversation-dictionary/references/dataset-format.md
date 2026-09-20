@@ -38,7 +38,7 @@ proposals:
     value:
       kind: person
       label: 伟滔
-      forms: [伟滔]
+      forms: [伟滔, Bruce, 滔哥]
       description: 产品团队沟通中的人名写法，待用户确认。
     evidence_ids: [ev_1]
     reason: 上下文支持该写法，但同一人物关系仍需确认。
@@ -54,7 +54,7 @@ proposals:
         text: 伟滔
       application: suggest
     evidence_ids: [ev_1]
-    reason: 该场景的一处 ASR 观测可能指向该正确写法。
+    reason: 该场景的一处 ASR 观测可能指向该词条，最终统一输出正式名。
 conflicts: []
 unresolved: []
 ```
@@ -64,11 +64,15 @@ Coverage must satisfy `discovered = processed + excluded + unknown_scope + faile
 Proposal kinds:
 
 - `create_domain`: `value` has non-empty `name` and optional `description`.
-- `create_entry`: `value` has `kind`, `label`, non-empty `forms`, and optional `description`.
-- `add_forms`: `value` has an existing `entry_id` and non-empty `forms`.
+- `create_entry`: `value` has `kind`, `label`, non-empty `forms`, and optional `description`. `label` is the one formal name and must also appear in `forms`; the other forms are confirmed aliases.
+- `add_forms`: `value` has an existing `entry_id` and non-empty `forms`. It adds confirmed aliases; it does not add ASR mistakes or change the formal name.
 - `create_rule`: `value` has `domain_ref`, `observed`, and `action`. Replace rules also require `target` and `application: suggest|automatic`; preserve rules must omit both.
 
-An object reference has exactly one of `existing_id` or `proposal_id`. Declare every proposal reference in `depends_on`; dependencies must exist and be acyclic. `add_forms` must be an explicit dependency when a rule targets a form that is not already in an existing entry.
+For every replace proposal, `target.text` must equal the referenced entry's formal name. The plugin derives the committed output from the entry and never stores an alias as rule output.
+
+Aliases do not act globally. When `forms` contains aliases, include one `create_rule` per alias and evidence-supported context that should normalize it. If the same alias is ambiguous in a context, report the competing targets in `conflicts` or `unresolved` instead of silently choosing one. The review UI shows these alias rules independently, and every approved rule still outputs the single formal name.
+
+An object reference has exactly one of `existing_id` or `proposal_id`. Declare every proposal reference in `depends_on`; dependencies must exist and be acyclic. A rule that normalizes a confirmed alias still targets the same entry's formal name.
 
 `evidence.jsonl` stores one JSON object per occurrence. Bind it to the original file bytes and source identity:
 

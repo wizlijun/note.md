@@ -524,6 +524,8 @@ release_native_ui() {
     if [[ -n "$skill_src" ]]; then
       mkdir -p "$stage/skills"
       cp -R "$skill_src" "$stage/skills/"
+      find "$stage/skills" -type d -name __pycache__ -prune -exec rm -rf {} +
+      find "$stage/skills" -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete
     fi
 
     local pkg="$out_dir/$triple.notemdpkg"

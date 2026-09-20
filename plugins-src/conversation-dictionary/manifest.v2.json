@@ -2,12 +2,12 @@
   "manifest_version": 2,
   "id": "notemd.conversation-dictionary",
   "name": "Conversation Dictionary",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "kind": "native",
   "engines": {
     "notemd": ">=6.916.1"
   },
-  "description": "Review names and terms from conversations you participate in, then safely reuse confirmed transcription corrections by context.",
+  "description": "Review formal names, aliases, and ASR mistakes from conversations you participate in, then normalize confirmed corrections by context.",
   "binary": {
     "aarch64-apple-darwin": "bin/notemd-conversation-dictionary",
     "x86_64-apple-darwin": "bin/notemd-conversation-dictionary"
@@ -74,19 +74,19 @@
   "i18n": {
     "zh": {
       "name": "沟通词典",
-      "description": "整理你参与的会议、通话和语音消息中的人名与术语，经确认后按场景安全复用转写纠错规则。",
+      "description": "整理你参与的会议、通话和语音消息中的正式名、别称与 ASR 误识别，经确认后按场景统一输出正式名。",
       "menus": { "open": "沟通词典…" },
       "windows": { "main": "沟通词典" }
     },
     "ja": {
       "name": "会話辞書",
-      "description": "参加した会議、通話、音声メッセージの固有名詞を確認し、文脈ごとに文字起こし修正を再利用します。",
+      "description": "参加した会議、通話、音声メッセージの正式名、別名、ASR誤認識を確認し、文脈ごとに正式名へ統一します。",
       "menus": { "open": "会話辞書…" },
       "windows": { "main": "会話辞書" }
     },
     "de": {
       "name": "Gesprächswörterbuch",
-      "description": "Bestätigte Namen und Begriffe aus eigenen Gesprächen kontextbezogen für Transkriptkorrekturen wiederverwenden.",
+      "description": "Prüft offizielle Namen, Aliase und ASR-Fehler in eigenen Gesprächen und vereinheitlicht bestätigte Korrekturen je Kontext.",
       "menus": { "open": "Gesprächswörterbuch…" },
       "windows": { "main": "Gesprächswörterbuch" }
     }

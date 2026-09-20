@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import unicodedata
 import uuid
 from pathlib import Path
 
@@ -122,10 +123,27 @@ def main() -> int:
         require("confirmed_by" not in value and "confirmed_at" not in value, f"approval injection: {proposal['id']}")
         if proposal.get("kind") != "create_domain":
             require(bool(proposal.get("evidence_ids")), f"proposal requires verified communication evidence: {proposal['id']}")
+        if proposal.get("kind") == "create_entry":
+            label = value.get("label")
+            forms = value.get("forms")
+            require(isinstance(label, str) and label.strip(), f"formal name missing: {proposal['id']}")
+            require(isinstance(forms, list) and forms and all(isinstance(form, str) and form.strip() for form in forms), f"entry forms invalid: {proposal['id']}")
+            normalized_label = unicodedata.normalize("NFC", label)
+            require(any(unicodedata.normalize("NFC", form) == normalized_label for form in forms), f"formal name must appear in forms: {proposal['id']}")
+        if proposal.get("kind") == "create_rule" and value.get("action") == "replace":
+            target = value.get("target", {})
+            require(isinstance(target.get("text"), str) and target["text"].strip(), f"formal target missing: {proposal['id']}")
         for evidence_id in proposal.get("evidence_ids", []):
             require(evidence_id in evidence_ids, f"missing evidence: {proposal['id']} -> {evidence_id}")
         for dependency in proposal.get("depends_on", []):
             require(dependency in lookup and dependency != proposal["id"], f"invalid dependency: {proposal['id']} -> {dependency}")
+        if proposal.get("kind") == "create_rule" and value.get("action") == "replace":
+            target = value["target"]
+            entry_proposal_id = target.get("entry_ref", {}).get("proposal_id")
+            if entry_proposal_id:
+                entry_proposal = lookup.get(entry_proposal_id, {})
+                require(entry_proposal.get("kind") == "create_entry", f"rule target proposal is not an entry: {proposal['id']}")
+                require(target["text"] == entry_proposal.get("value", {}).get("label"), f"rule output must equal formal name: {proposal['id']}")
 
     visiting: set[str] = set()
     done: set[str] = set()

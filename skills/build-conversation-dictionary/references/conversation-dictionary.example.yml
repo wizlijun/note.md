@@ -10,6 +10,8 @@ entry:
   label: note.md
   forms:
     - note.md
+    - NoteMD
+    - 小记
 rule:
   domain_id: example_product_conversation
   observed: note MD

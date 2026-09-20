@@ -1,4 +1,6 @@
-use notemd_conversation_dictionary::model::{BatchCommitRequest, ProposalInput, ResolveRequest};
+use notemd_conversation_dictionary::model::{
+    BatchCommitRequest, NormalizeFormalNamesRequest, ProposalInput, ResolveRequest,
+};
 use notemd_conversation_dictionary::DictionaryService;
 use notemd_plugin_sdk as sdk;
 use sdk::plugin_protocol as proto;
@@ -264,6 +266,11 @@ impl sdk::NotemdPlugin for ConversationDictionaryPlugin {
                 let request: BatchCommitRequest =
                     serde_json::from_value(params).map_err(|error| error.to_string())?;
                 service.batch_commit(request)
+            }
+            "normalize_formal_names" => {
+                let request: NormalizeFormalNamesRequest =
+                    serde_json::from_value(params).map_err(|error| error.to_string())?;
+                service.normalize_formal_names(request)
             }
             "batch_evidence" => {
                 let run_id = params

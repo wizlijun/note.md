@@ -430,6 +430,8 @@ pub struct BatchCommitRequest {
     pub run_id: String,
     pub dataset_sha256: String,
     pub transaction_id: String,
+    pub expected_dictionary_revision: u64,
+    pub expected_dictionary_sha256: String,
     pub selected: Vec<SelectedProposal>,
 }
 
@@ -439,4 +441,12 @@ pub struct SelectedProposal {
     pub review_revision: u64,
     #[serde(default)]
     pub value: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct NormalizeFormalNamesRequest {
+    pub transaction_id: String,
+    pub expected_revision: u64,
+    pub expected_sha256: String,
+    pub formal_names: BTreeMap<String, String>,
 }
