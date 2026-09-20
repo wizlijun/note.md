@@ -1,11 +1,11 @@
-# 沟通词典：Schema 讨论稿
+# 沟通转写勘误：Schema 讨论稿
 
 - 日期：2026-09-19
 - 最后更新：2026-09-20
 - 状态：用户已确认共享词条、按场景设规则、多个别称与统一正式名输出；v1 已实现并验证
-- 已确认：Conversation Dictionary / 沟通词典；`conversation-dictionary.yml`
+- 已确认产品名：Conversation Transcript Corrections / 沟通转写勘误；兼容文件名仍为 `conversation-dictionary.yml`
 - 用途：用户本人参与沟通的 ASR 转写校正，不用于仅消费的外部内容
-- 主规格：[沟通词典设计](2026-09-19-speech-alignment-plugin-design.md)
+- 主规格：[沟通转写勘误设计](2026-09-19-speech-alignment-plugin-design.md)
 
 ## 1. 先用实际情形检验模型
 

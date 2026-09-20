@@ -1,4 +1,4 @@
 interface:
-  display_name: "Build Conversation Dictionary"
+  display_name: "Build Conversation Corrections Dataset"
   short_description: "Build a review dataset from conversation transcripts"
-  default_prompt: "Analyze the selected transcripts from conversations I participated in and build a review dataset for Conversation Dictionary."
+  default_prompt: "Analyze the selected transcripts from conversations I participated in and build a review dataset for Conversation Transcript Corrections."

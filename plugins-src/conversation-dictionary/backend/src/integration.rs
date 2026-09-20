@@ -10,13 +10,22 @@ const INTEGRATION_JOURNAL_PATH: &str = ".notemd/conversation-dictionary/integrat
 
 const AGENTS_START: &str = "<!-- notemd:conversation-dictionary:start -->";
 const AGENTS_END: &str = "<!-- notemd:conversation-dictionary:end -->";
-const AGENTS_BLOCK: &str = r#"<!-- notemd:conversation-dictionary:start -->
+const PREVIOUS_AGENTS_BLOCK: &str = r#"<!-- notemd:conversation-dictionary:start -->
 ## Conversation Dictionary / 沟通词典
 
 - When the user asks to build or refresh ASR corrections from historical communication transcripts, use `$build-conversation-dictionary` from `.agents/skills/build-conversation-dictionary/`.
 - Analyze only meetings, calls, voice messages, or public conversations the user participated in. Exclude YouTube, podcasts, and other media the user only consumed.
 - Generate an evidence-backed review dataset under `ssot/meetings/conversation-dictionary-drafts/`; never edit `ssot/meetings/conversation-dictionary.yml` directly.
 - Importing a dataset only creates pending proposals. Only the user may approve selected changes in the Conversation Dictionary window.
+<!-- notemd:conversation-dictionary:end -->
+"#;
+const AGENTS_BLOCK: &str = r#"<!-- notemd:conversation-dictionary:start -->
+## Conversation Transcript Corrections / 沟通转写勘误
+
+- When the user asks to build or refresh ASR corrections from historical communication transcripts, use `$build-conversation-dictionary` from `.agents/skills/build-conversation-dictionary/`.
+- Analyze only meetings, calls, voice messages, or public conversations the user participated in. Exclude YouTube, podcasts, and other media the user only consumed.
+- Generate an evidence-backed review dataset under `ssot/meetings/conversation-dictionary-drafts/`; never edit `ssot/meetings/conversation-dictionary.yml` directly.
+- Importing a dataset only creates pending proposals. Only the user may approve selected changes in the Conversation Transcript Corrections window.
 <!-- notemd:conversation-dictionary:end -->
 "#;
 
@@ -67,6 +76,10 @@ const PREVIOUS_MANAGED_SKILL_HASHES: &[(&str, &str)] = &[
         "234ecd1dc1e775743dd90339cf3a083ec401618fc7f9445ecf25d890e2423e14",
     ),
     (
+        "SKILL.md",
+        "dcc908bc1e08d8acc81413d451b4004e1f25f2033ba8f8da2f6e8decad5eff8a",
+    ),
+    (
         "agents/openai.yaml",
         "25db5dbe3eef934c70503cf135cbdda9663c039e009290ab4debab6872578957",
     ),
@@ -75,8 +88,16 @@ const PREVIOUS_MANAGED_SKILL_HASHES: &[(&str, &str)] = &[
         "5a054d6fb9bce6f42939e0da84bb91da32d4c775e86e09a80abec2eac8c2a792",
     ),
     (
+        "references/conversation-dictionary.example.yml",
+        "8843381d402bfcc7d456e70c2c54763eaf0c90c81b812f42bca43ee21647b6e4",
+    ),
+    (
         "references/dataset-format.md",
         "29972d0a1f0a2c25f9792af6253a13c7c35d066d35157d4848fbe0d90618dea4",
+    ),
+    (
+        "references/dataset-format.md",
+        "4053a1253039e98057a03c13a50edeae2c5ce00dada50d687b1da96e2e2d0301",
     ),
     (
         "scripts/inventory_transcripts.py",
@@ -87,8 +108,16 @@ const PREVIOUS_MANAGED_SKILL_HASHES: &[(&str, &str)] = &[
         "3c75efc792e558175e9dc0811653ae3b0eac28651c5d524e6669090d4aec7ca6",
     ),
     (
+        "scripts/test_validate_dataset.py",
+        "9309e80ce159ea35ac4b757e6bfe0b7de011d4ec2e0d1bbc356936929acd5fc0",
+    ),
+    (
         "scripts/validate_dataset.py",
         "95ef683d2e15a3f5bc1a44cb8a59df4a3a83635de2d4896f5697c4a83a4958fd",
+    ),
+    (
+        "scripts/validate_dataset.py",
+        "a9e1bd3e8b03da6a9626f8f6bec35a1c3d628d68e4dd0f904db7b0fe7f912f93",
     ),
 ];
 
@@ -113,7 +142,7 @@ struct IntegrationChange {
 
 pub fn default_example() -> Value {
     serde_yaml::from_str(EXAMPLE_YAML)
-        .expect("bundled Conversation Dictionary example must be valid")
+        .expect("bundled Conversation Transcript Corrections example must be valid")
 }
 
 pub fn ensure_agent_integration(vault: &Path) -> Result<Value, String> {
@@ -158,11 +187,14 @@ fn plan_skill_install(vault: &Path) -> Result<Vec<IntegrationChange>, String> {
         let previous = match fs::read(&path) {
             Ok(current) if current == *contents => Some(current),
             Ok(current) => {
-                let previous_hash = PREVIOUS_MANAGED_SKILL_HASHES
-                    .iter()
-                    .find_map(|(known_path, hash)| (*known_path == *relative).then_some(*hash));
                 let current_hash = storage::sha256(&current);
-                if previous_hash != Some(current_hash.as_str()) {
+                let is_previous_managed =
+                    PREVIOUS_MANAGED_SKILL_HASHES
+                        .iter()
+                        .any(|(known_path, hash)| {
+                            *known_path == *relative && *hash == current_hash.as_str()
+                        });
+                if !is_previous_managed {
                     return Err(format!(
                         "refusing to overwrite customized Skill file {}",
                         path.display()
@@ -208,7 +240,9 @@ fn plan_agents_block(vault: &Path) -> Result<Option<IntegrationChange>, String> 
     let (existing, existed) = match fs::read(&path) {
         Ok(bytes) => String::from_utf8(bytes)
             .map(|value| (value, true))
-            .map_err(|_| "AGENTS.md must be UTF-8 before Conversation Dictionary can manage it")?,
+            .map_err(|_| {
+                "AGENTS.md must be UTF-8 before Conversation Transcript Corrections can manage it"
+            })?,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => (String::new(), false),
         Err(error) => return Err(format!("{}: {error}", path.display())),
     };
@@ -239,7 +273,7 @@ fn apply_integration_changes(vault: &Path, changes: Vec<IntegrationChange>) -> R
             let current = fs::read(&path).ok();
             if current != change.previous {
                 return Err(format!(
-                    "{} changed while Conversation Dictionary was initializing",
+                    "{} changed while Conversation Transcript Corrections was initializing",
                     path.display()
                 ));
             }
@@ -296,8 +330,9 @@ fn recover_integration_journal(vault: &Path) -> Result<(), String> {
 fn agents_block_is_current(vault: &Path) -> Result<bool, String> {
     let path = storage::resolve_inside(vault, Path::new(AGENTS_RELATIVE_PATH))?;
     let existing = match fs::read(&path) {
-        Ok(bytes) => String::from_utf8(bytes)
-            .map_err(|_| "AGENTS.md must be UTF-8 before Conversation Dictionary can inspect it")?,
+        Ok(bytes) => String::from_utf8(bytes).map_err(|_| {
+            "AGENTS.md must be UTF-8 before Conversation Transcript Corrections can inspect it"
+        })?,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
         Err(error) => return Err(format!("{}: {error}", path.display())),
     };
@@ -323,19 +358,31 @@ fn upsert_agents_block(existing: &str) -> Result<String, String> {
             let start = starts[0].0;
             let end = ends[0].0 + AGENTS_END.len();
             if start >= ends[0].0 {
-                return Err("Conversation Dictionary AGENTS.md managed block is malformed".into());
-            }
-            let managed = &existing[start..end];
-            if managed != AGENTS_BLOCK.trim_end_matches('\n') {
                 return Err(
-                    "Conversation Dictionary AGENTS.md managed block was customized; review it manually"
+                    "Conversation Transcript Corrections AGENTS.md managed block is malformed"
                         .into(),
                 );
             }
-            Ok(existing.to_string())
+            let managed = &existing[start..end];
+            if managed == AGENTS_BLOCK.trim_end_matches('\n') {
+                return Ok(existing.to_string());
+            }
+            if managed == PREVIOUS_AGENTS_BLOCK.trim_end_matches('\n') {
+                let mut next = existing.to_string();
+                next.replace_range(start..end, AGENTS_BLOCK.trim_end_matches('\n'));
+                return Ok(next);
+            }
+            if managed != AGENTS_BLOCK.trim_end_matches('\n') {
+                return Err(
+                    "Conversation Transcript Corrections AGENTS.md managed block was customized; review it manually"
+                        .into(),
+                );
+            }
+            unreachable!()
         }
         _ => Err(
-            "Conversation Dictionary AGENTS.md managed block is duplicated or incomplete".into(),
+            "Conversation Transcript Corrections AGENTS.md managed block is duplicated or incomplete"
+                .into(),
         ),
     }
 }
@@ -415,6 +462,31 @@ mod tests {
         assert!(upsert_agents_block(&existing)
             .unwrap_err()
             .contains("customized"));
+    }
+
+    #[test]
+    fn previous_managed_agents_block_is_upgraded_without_touching_user_content() {
+        let existing = format!("# Vault\n\n{PREVIOUS_AGENTS_BLOCK}");
+        let updated = upsert_agents_block(&existing).unwrap();
+        assert!(updated.starts_with("# Vault\n\n"));
+        assert!(updated.contains(AGENTS_BLOCK.trim_end_matches('\n')));
+        assert!(!updated.contains("## Conversation Dictionary / 沟通词典"));
+    }
+
+    #[test]
+    fn latest_published_skill_hashes_are_accepted_as_managed() {
+        assert!(PREVIOUS_MANAGED_SKILL_HASHES.contains(&(
+            "SKILL.md",
+            "dcc908bc1e08d8acc81413d451b4004e1f25f2033ba8f8da2f6e8decad5eff8a"
+        )));
+        assert!(PREVIOUS_MANAGED_SKILL_HASHES.contains(&(
+            "references/dataset-format.md",
+            "4053a1253039e98057a03c13a50edeae2c5ce00dada50d687b1da96e2e2d0301"
+        )));
+        assert!(PREVIOUS_MANAGED_SKILL_HASHES.contains(&(
+            "scripts/validate_dataset.py",
+            "a9e1bd3e8b03da6a9626f8f6bec35a1c3d628d68e4dd0f904db7b0fe7f912f93"
+        )));
     }
 
     #[test]

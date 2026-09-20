@@ -452,3 +452,32 @@ pub struct NormalizeFormalNamesRequest {
     pub expected_sha256: String,
     pub formal_names: BTreeMap<String, String>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct SaveCorrectionEntryRequest {
+    pub transaction_id: String,
+    pub expected_revision: u64,
+    pub expected_sha256: String,
+    #[serde(default)]
+    pub domain_id: Option<String>,
+    pub domain_name: String,
+    #[serde(default)]
+    pub entry_id: Option<String>,
+    pub kind: EntryKind,
+    pub formal_name: String,
+    #[serde(default)]
+    pub aliases: Vec<String>,
+    #[serde(default)]
+    pub mistaken_forms: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct DeleteCorrectionEntryRequest {
+    pub transaction_id: String,
+    pub expected_revision: u64,
+    pub expected_sha256: String,
+    pub domain_id: String,
+    pub entry_id: String,
+    #[serde(default)]
+    pub delete_globally: bool,
+}

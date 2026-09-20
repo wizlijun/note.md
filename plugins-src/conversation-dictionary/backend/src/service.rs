@@ -871,6 +871,328 @@ impl DictionaryService {
         Ok(result)
     }
 
+    pub fn save_correction_entry(
+        &self,
+        request: SaveCorrectionEntryRequest,
+    ) -> Result<Value, String> {
+        if request.transaction_id.trim().is_empty() {
+            return Err("transaction_id is required".into());
+        }
+        let _lock = storage::lock_file(&self.vault)?;
+        self.recover_journal_locked()?;
+        let mut control = storage::load_control(&self.vault)?;
+        let plan_hash =
+            storage::sha256(&serde_json::to_vec(&request).map_err(|error| error.to_string())?);
+        if let Some(existing) = control.transactions.get(&request.transaction_id) {
+            if existing.plan_hash != plan_hash {
+                return Err("transaction_id was already used for another plan".into());
+            }
+            storage::verified_dictionary(&self.vault)?;
+            return Ok(existing.result.clone());
+        }
+
+        let (mut dictionary, baseline) = storage::verified_dictionary(&self.vault)?;
+        validate_dictionary(&dictionary)?;
+        if dictionary.revision != request.expected_revision
+            || baseline.sha256 != request.expected_sha256
+        {
+            return Err("dictionary revision changed; refresh the corrections dictionary".into());
+        }
+        let original = dictionary.clone();
+        let timestamp = now();
+        let actor = dictionary.subject_id.clone();
+        let formal_name = request.formal_name.trim();
+        if formal_name.is_empty() {
+            return Err("formal_name is required".into());
+        }
+        if formal_name.chars().count() > 128 {
+            return Err("formal_name is too long".into());
+        }
+        let aliases = normalized_values(&request.aliases, Some(formal_name))?;
+        let mistaken_forms = normalized_values(&request.mistaken_forms, Some(formal_name))?;
+
+        let domain_id = match request.domain_id.as_deref() {
+            Some(id) => {
+                if !dictionary.domains.iter().any(|domain| domain.id == id) {
+                    return Err(format!("unknown domain '{id}'"));
+                }
+                id.to_string()
+            }
+            None => {
+                let name = request.domain_name.trim();
+                if name.is_empty() {
+                    return Err("domain_name is required for a new context".into());
+                }
+                if dictionary
+                    .domains
+                    .iter()
+                    .any(|domain| nfc(&domain.name) == nfc(name))
+                {
+                    return Err("a context with the same name already exists".into());
+                }
+                let id = format!("d_{}", Uuid::new_v4());
+                dictionary.domains.push(Domain {
+                    id: id.clone(),
+                    name: name.to_string(),
+                    description: String::new(),
+                });
+                id
+            }
+        };
+        let entry_id = match request.entry_id.as_deref() {
+            Some(id) => {
+                let entry = dictionary
+                    .entries
+                    .iter_mut()
+                    .find(|entry| entry.id == id)
+                    .ok_or_else(|| format!("unknown entry '{id}'"))?;
+                let previous_formal_name = entry.label.clone();
+                let mut forms = vec![formal_name.to_string()];
+                forms.extend(aliases.clone());
+                if nfc(&previous_formal_name) != nfc(formal_name)
+                    && !forms
+                        .iter()
+                        .any(|form| nfc(form) == nfc(&previous_formal_name))
+                {
+                    forms.push(previous_formal_name);
+                }
+                entry.kind = request.kind.clone();
+                entry.label = formal_name.to_string();
+                entry.forms = forms;
+                id.to_string()
+            }
+            None => {
+                let id = format!("e_{}", Uuid::new_v4());
+                let mut forms = vec![formal_name.to_string()];
+                forms.extend(aliases.clone());
+                dictionary.entries.push(Entry {
+                    id: id.clone(),
+                    kind: request.kind.clone(),
+                    label: formal_name.to_string(),
+                    forms,
+                    description: String::new(),
+                });
+                id
+            }
+        };
+        let effective_aliases = dictionary
+            .entries
+            .iter()
+            .find(|entry| entry.id == entry_id)
+            .unwrap()
+            .forms
+            .iter()
+            .filter(|form| nfc(form) != nfc(formal_name))
+            .cloned()
+            .collect::<Vec<_>>();
+        let desired_observed = normalized_values(
+            &effective_aliases
+                .iter()
+                .chain(mistaken_forms.iter())
+                .cloned()
+                .collect::<Vec<_>>(),
+            Some(formal_name),
+        )?;
+        if desired_observed.is_empty() {
+            return Err("at least one alias or possible transcription error is required".into());
+        }
+
+        let mut reusable = HashMap::new();
+        let mut retained_rules = Vec::with_capacity(dictionary.rules.len());
+        for mut rule in std::mem::take(&mut dictionary.rules) {
+            let targets_entry = matches!(rule.action, RuleAction::Replace)
+                && rule
+                    .target
+                    .as_ref()
+                    .is_some_and(|target| target.entry_id == entry_id);
+            if !targets_entry {
+                retained_rules.push(rule);
+                continue;
+            }
+            if rule.domain_id == domain_id {
+                reusable.entry(nfc(&rule.observed)).or_insert(rule);
+                continue;
+            }
+            if nfc(&rule.observed) == nfc(formal_name) {
+                continue;
+            }
+            if let Some(target) = &mut rule.target {
+                target.text = formal_name.to_string();
+            }
+            rule.confirmed_by = actor.clone();
+            rule.confirmed_at = timestamp.clone();
+            retained_rules.push(rule);
+        }
+        for observed in desired_observed {
+            let key = nfc(&observed);
+            let mut rule = reusable.remove(&key).unwrap_or_else(|| Rule {
+                id: format!("r_{}", Uuid::new_v4()),
+                domain_id: domain_id.clone(),
+                observed: observed.clone(),
+                action: RuleAction::Replace,
+                target: Some(RuleTarget {
+                    entry_id: entry_id.clone(),
+                    text: formal_name.to_string(),
+                }),
+                application: Some(RuleApplication::Suggest),
+                enabled: true,
+                confirmed_by: actor.clone(),
+                confirmed_at: timestamp.clone(),
+            });
+            rule.observed = observed;
+            rule.target = Some(RuleTarget {
+                entry_id: entry_id.clone(),
+                text: formal_name.to_string(),
+            });
+            rule.confirmed_by = actor.clone();
+            rule.confirmed_at = timestamp.clone();
+            retained_rules.push(rule);
+        }
+        dictionary.rules = retained_rules;
+        validate_dictionary(&dictionary)?;
+        let conflicts = newly_introduced_rule_conflicts(&original, &dictionary);
+        if !conflicts.is_empty() {
+            return Err(format!(
+                "the saved entry conflicts with existing rules for: {}",
+                conflicts
+                    .into_iter()
+                    .map(|(domain, observed)| format!("{domain}/{observed}"))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ));
+        }
+        let changed = dictionary.domains != original.domains
+            || dictionary.entries != original.entries
+            || dictionary.rules != original.rules;
+        if changed {
+            dictionary.revision += 1;
+            dictionary.updated_at = timestamp;
+        }
+        let result = json!({
+            "status": if changed { "committed" } else { "no_change" },
+            "transaction_id": request.transaction_id,
+            "revision": dictionary.revision,
+            "domain_id": domain_id,
+            "entry_id": entry_id,
+        });
+        control.transactions.insert(
+            request.transaction_id.clone(),
+            TransactionRecord {
+                plan_hash,
+                completed_at: now(),
+                revision: dictionary.revision,
+                result: result.clone(),
+            },
+        );
+        self.persist_dictionary(
+            &dictionary,
+            &mut control,
+            Some(&baseline.sha256),
+            Some((&request.transaction_id, &result)),
+        )?;
+        Ok(result)
+    }
+
+    pub fn delete_correction_entry(
+        &self,
+        request: DeleteCorrectionEntryRequest,
+    ) -> Result<Value, String> {
+        if request.transaction_id.trim().is_empty() {
+            return Err("transaction_id is required".into());
+        }
+        let _lock = storage::lock_file(&self.vault)?;
+        self.recover_journal_locked()?;
+        let mut control = storage::load_control(&self.vault)?;
+        let plan_hash =
+            storage::sha256(&serde_json::to_vec(&request).map_err(|error| error.to_string())?);
+        if let Some(existing) = control.transactions.get(&request.transaction_id) {
+            if existing.plan_hash != plan_hash {
+                return Err("transaction_id was already used for another plan".into());
+            }
+            storage::verified_dictionary(&self.vault)?;
+            return Ok(existing.result.clone());
+        }
+        let (mut dictionary, baseline) = storage::verified_dictionary(&self.vault)?;
+        validate_dictionary(&dictionary)?;
+        if dictionary.revision != request.expected_revision
+            || baseline.sha256 != request.expected_sha256
+        {
+            return Err("dictionary revision changed; refresh the corrections dictionary".into());
+        }
+        if !dictionary
+            .domains
+            .iter()
+            .any(|domain| domain.id == request.domain_id)
+        {
+            return Err(format!("unknown domain '{}'", request.domain_id));
+        }
+        if !dictionary
+            .entries
+            .iter()
+            .any(|entry| entry.id == request.entry_id)
+        {
+            return Err(format!("unknown entry '{}'", request.entry_id));
+        }
+        let affected_domains: HashSet<_> = dictionary
+            .rules
+            .iter()
+            .filter(|rule| {
+                rule.target
+                    .as_ref()
+                    .is_some_and(|target| target.entry_id == request.entry_id)
+            })
+            .map(|rule| rule.domain_id.clone())
+            .collect();
+        if !affected_domains.contains(&request.domain_id) {
+            return Err("the entry does not belong to the selected context".into());
+        }
+        if !request.delete_globally && affected_domains.len() <= 1 {
+            return Err("the entry only belongs to this context; delete the entry instead".into());
+        }
+        let original = dictionary.clone();
+        dictionary.rules.retain(|rule| {
+            let targets_entry = rule
+                .target
+                .as_ref()
+                .is_some_and(|target| target.entry_id == request.entry_id);
+            !targets_entry || (!request.delete_globally && rule.domain_id != request.domain_id)
+        });
+        if request.delete_globally {
+            dictionary
+                .entries
+                .retain(|entry| entry.id != request.entry_id);
+        }
+        validate_dictionary(&dictionary)?;
+        dictionary.revision += 1;
+        dictionary.updated_at = now();
+        let result = json!({
+            "status": "committed",
+            "transaction_id": request.transaction_id,
+            "revision": dictionary.revision,
+            "domain_id": request.domain_id,
+            "entry_id": request.entry_id,
+            "delete_globally": request.delete_globally,
+            "affected_contexts": affected_domains.len(),
+        });
+        debug_assert!(dictionary != original);
+        control.transactions.insert(
+            request.transaction_id.clone(),
+            TransactionRecord {
+                plan_hash,
+                completed_at: now(),
+                revision: dictionary.revision,
+                result: result.clone(),
+            },
+        );
+        self.persist_dictionary(
+            &dictionary,
+            &mut control,
+            Some(&baseline.sha256),
+            Some((&request.transaction_id, &result)),
+        )?;
+        Ok(result)
+    }
+
     pub fn batch_evidence(&self, run_id: &str, proposal_id: &str) -> Result<Value, String> {
         let control = storage::load_control(&self.vault)?;
         let batch = control
@@ -2382,6 +2704,29 @@ fn resolve_input_path(vault: &Path, input: &str) -> Result<PathBuf, String> {
 fn nfc(value: &str) -> String {
     value.nfc().collect()
 }
+
+fn normalized_values(values: &[String], excluded: Option<&str>) -> Result<Vec<String>, String> {
+    let excluded = excluded.map(nfc);
+    let mut seen = HashSet::new();
+    let mut result = Vec::new();
+    for value in values {
+        let value = value.trim();
+        if value.is_empty() {
+            continue;
+        }
+        if value.chars().count() > 128 {
+            return Err(
+                "aliases and possible transcription errors must be at most 128 characters".into(),
+            );
+        }
+        let normalized = nfc(value);
+        if excluded.as_ref().is_some_and(|item| item == &normalized) || !seen.insert(normalized) {
+            continue;
+        }
+        result.push(value.to_string());
+    }
+    Ok(result)
+}
 fn is_sha256(value: &str) -> bool {
     value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
 }
@@ -2757,6 +3102,176 @@ mod tests {
             .unwrap_err()
             .contains("must be retained as review history"));
         assert_eq!(storage::load_control(temp.path()).unwrap().batches.len(), 1);
+    }
+
+    #[test]
+    fn manual_editor_creates_a_context_and_entry_in_one_transaction() {
+        let temp = tempfile::tempdir().unwrap();
+        let service = DictionaryService::new(temp.path().to_path_buf());
+        service.create_dictionary("human:bruce").unwrap();
+        let snapshot = service.bootstrap().unwrap();
+        let request = SaveCorrectionEntryRequest {
+            transaction_id: "txn_manual_create".into(),
+            expected_revision: 1,
+            expected_sha256: snapshot["formal_name_migration"]["expected_sha256"]
+                .as_str()
+                .unwrap()
+                .into(),
+            domain_id: None,
+            domain_name: "工作会议".into(),
+            entry_id: None,
+            kind: EntryKind::Person,
+            formal_name: "伟滔".into(),
+            aliases: vec!["Bruce".into(), "Bruce".into()],
+            mistaken_forms: vec!["伟涛".into(), " 伟韬 ".into()],
+        };
+
+        let result = service.save_correction_entry(request.clone()).unwrap();
+        assert_eq!(result["status"], "committed");
+        assert_eq!(result["revision"], 2);
+        assert_eq!(service.save_correction_entry(request).unwrap(), result);
+        let (dictionary, _) = storage::verified_dictionary(temp.path()).unwrap();
+        assert_eq!(dictionary.domains[0].name, "工作会议");
+        assert_eq!(dictionary.entries[0].label, "伟滔");
+        assert_eq!(dictionary.entries[0].forms, vec!["伟滔", "Bruce"]);
+        assert_eq!(dictionary.rules.len(), 3);
+        assert!(dictionary.rules.iter().all(|rule| {
+            rule.target.as_ref().unwrap().text == "伟滔"
+                && rule.application == Some(RuleApplication::Suggest)
+        }));
+    }
+
+    #[test]
+    fn manual_editor_updates_shared_identity_but_only_syncs_the_current_context() {
+        let temp = tempfile::tempdir().unwrap();
+        let service = DictionaryService::new(temp.path().to_path_buf());
+        service.create_dictionary("human:bruce").unwrap();
+        let mut current = dictionary();
+        current.domains.push(Domain {
+            id: "d_private".into(),
+            name: "私聊".into(),
+            description: String::new(),
+        });
+        current.entries[0].forms.push("Bruce".into());
+        current.rules.push(Rule {
+            id: "r_private".into(),
+            domain_id: "d_private".into(),
+            observed: "老布".into(),
+            action: RuleAction::Replace,
+            target: Some(RuleTarget {
+                entry_id: "e_wei".into(),
+                text: "伟滔".into(),
+            }),
+            application: Some(RuleApplication::Automatic),
+            enabled: true,
+            confirmed_by: "human:bruce".into(),
+            confirmed_at: now(),
+        });
+        let mut control = storage::load_control(temp.path()).unwrap();
+        service
+            .persist_dictionary(&current, &mut control, None, None)
+            .unwrap();
+        let snapshot = service.bootstrap().unwrap();
+
+        service
+            .save_correction_entry(SaveCorrectionEntryRequest {
+                transaction_id: "txn_manual_edit".into(),
+                expected_revision: 1,
+                expected_sha256: snapshot["formal_name_migration"]["expected_sha256"]
+                    .as_str()
+                    .unwrap()
+                    .into(),
+                domain_id: Some("d_work".into()),
+                domain_name: "工作".into(),
+                entry_id: Some("e_wei".into()),
+                kind: EntryKind::Person,
+                formal_name: "Bruce Wei".into(),
+                aliases: vec!["Bruce".into()],
+                mistaken_forms: vec!["布鲁斯".into()],
+            })
+            .unwrap();
+
+        let (updated, _) = storage::verified_dictionary(temp.path()).unwrap();
+        let entry = updated
+            .entries
+            .iter()
+            .find(|entry| entry.id == "e_wei")
+            .unwrap();
+        assert_eq!(entry.label, "Bruce Wei");
+        assert_eq!(entry.forms, vec!["Bruce Wei", "Bruce", "伟滔"]);
+        assert!(updated
+            .rules
+            .iter()
+            .any(|rule| { rule.domain_id == "d_work" && rule.observed == "布鲁斯" }));
+        assert!(!updated
+            .rules
+            .iter()
+            .any(|rule| { rule.domain_id == "d_work" && rule.observed == "伟涛" }));
+        let private = updated
+            .rules
+            .iter()
+            .find(|rule| rule.id == "r_private")
+            .unwrap();
+        assert_eq!(private.observed, "老布");
+        assert_eq!(private.target.as_ref().unwrap().text, "Bruce Wei");
+        assert_eq!(private.application, Some(RuleApplication::Automatic));
+    }
+
+    #[test]
+    fn manual_editor_can_remove_one_context_or_delete_the_shared_entry() {
+        let temp = tempfile::tempdir().unwrap();
+        let service = DictionaryService::new(temp.path().to_path_buf());
+        service.create_dictionary("human:bruce").unwrap();
+        let mut current = dictionary();
+        current.domains.push(Domain {
+            id: "d_private".into(),
+            name: "私聊".into(),
+            description: String::new(),
+        });
+        let mut private_rule = current.rules[0].clone();
+        private_rule.id = "r_private".into();
+        private_rule.domain_id = "d_private".into();
+        private_rule.observed = "伟韬".into();
+        current.rules.push(private_rule);
+        let mut control = storage::load_control(temp.path()).unwrap();
+        service
+            .persist_dictionary(&current, &mut control, None, None)
+            .unwrap();
+        let snapshot = service.bootstrap().unwrap();
+        let hash = snapshot["formal_name_migration"]["expected_sha256"]
+            .as_str()
+            .unwrap()
+            .to_string();
+
+        let removed = service
+            .delete_correction_entry(DeleteCorrectionEntryRequest {
+                transaction_id: "txn_remove_context".into(),
+                expected_revision: 1,
+                expected_sha256: hash,
+                domain_id: "d_work".into(),
+                entry_id: "e_wei".into(),
+                delete_globally: false,
+            })
+            .unwrap();
+        assert_eq!(removed["affected_contexts"], 2);
+        let refreshed = service.bootstrap().unwrap();
+        let deleted = service
+            .delete_correction_entry(DeleteCorrectionEntryRequest {
+                transaction_id: "txn_delete_entry".into(),
+                expected_revision: 2,
+                expected_sha256: refreshed["formal_name_migration"]["expected_sha256"]
+                    .as_str()
+                    .unwrap()
+                    .into(),
+                domain_id: "d_private".into(),
+                entry_id: "e_wei".into(),
+                delete_globally: true,
+            })
+            .unwrap();
+        assert_eq!(deleted["affected_contexts"], 1);
+        let (dictionary, _) = storage::verified_dictionary(temp.path()).unwrap();
+        assert!(dictionary.entries.is_empty());
+        assert!(dictionary.rules.is_empty());
     }
 
     fn dictionary() -> Dictionary {

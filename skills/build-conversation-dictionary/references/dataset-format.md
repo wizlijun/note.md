@@ -1,4 +1,4 @@
-# Conversation Dictionary review dataset
+# Conversation Transcript Corrections review dataset
 
 Use schema `notemd.conversation-dictionary-dataset.v1`. The plugin accepts only the four proposal kinds documented below.
 

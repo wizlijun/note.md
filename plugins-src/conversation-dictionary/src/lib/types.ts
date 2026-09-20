@@ -116,3 +116,10 @@ export type InitializationResult = {
   status: 'created' | 'existing'
   dictionary_created: boolean
 }
+export type SaveCorrectionEntryResult = {
+  status: 'committed' | 'no_change'
+  transaction_id: string
+  revision: number
+  domain_id: string
+  entry_id: string
+}

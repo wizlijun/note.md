@@ -31,7 +31,16 @@ function snapshot(): Snapshot {
 let mounted: ReturnType<typeof mount> | undefined
 afterEach(() => { if (mounted) unmount(mounted); mounted = undefined; document.body.innerHTML = ''; vi.restoreAllMocks() })
 
-describe('Conversation Dictionary window', () => {
+async function openTab(host: HTMLElement, label: string) {
+  let button: HTMLButtonElement | undefined
+  await vi.waitFor(() => {
+    button = [...host.querySelectorAll<HTMLButtonElement>('.tabs button')].find((item) => item.textContent?.includes(label))
+    expect(button).toBeDefined()
+  })
+  button!.click()
+}
+
+describe('Conversation Transcript Corrections window', () => {
   it('renders a dataset as grouped proposals and commits selected dependencies only through plugin.batch_commit', async () => {
     const request = vi.fn(async (method: string) => {
       if (method === 'plugin.initialize') return { status: 'existing', dictionary_created: false }
@@ -43,6 +52,7 @@ describe('Conversation Dictionary window', () => {
     })
     window.notemd = { pluginId: 'notemd.conversation-dictionary', locale: 'zh', theme: 'light', request, onMessage: () => {} }
     const host = document.createElement('div'); document.body.append(host); mounted = mount(App, { target: host })
+    await openTab(host, '待确认')
     await vi.waitFor(() => expect([...host.querySelectorAll<HTMLInputElement>('input')].some((input) => input.value === '伟涛')).toBe(true))
     expect(host.textContent).toContain('产品团队 · p_domain')
     expect(host.textContent).toContain('伟滔 · p_entry')
@@ -52,7 +62,7 @@ describe('Conversation Dictionary window', () => {
     expect(request).toHaveBeenCalledWith('plugin.batch_evidence', expect.objectContaining({ proposal_id: 'p_entry' }))
     const selectAll = [...host.querySelectorAll('button')].find((button) => button.textContent?.includes('全选'))!
     const invert = [...host.querySelectorAll('button')].find((button) => button.textContent?.includes('反选'))!
-    const approve = [...host.querySelectorAll('button')].find((button) => button.textContent?.includes('审批通过并写入正式词典'))!
+    const approve = [...host.querySelectorAll('button')].find((button) => button.textContent?.includes('审批通过并加入勘误表'))!
     selectAll.click()
     await vi.waitFor(() => expect([...host.querySelectorAll<HTMLInputElement>('input[type=checkbox]')].every((input) => input.checked)).toBe(true))
     expect(approve.disabled).toBe(false)
@@ -90,6 +100,7 @@ describe('Conversation Dictionary window', () => {
     })
     window.notemd = { pluginId: 'notemd.conversation-dictionary', locale: 'zh', theme: 'light', request, onMessage: () => {} }
     const host = document.createElement('div'); document.body.append(host); mounted = mount(App, { target: host })
+    await openTab(host, '待确认')
     await vi.waitFor(() => expect(host.textContent).toContain('伟滔 · p_entry'))
     const firstLabel = [...host.querySelectorAll<HTMLInputElement>('input')].find((input) => input.value === '伟滔')!
     firstLabel.value = '第一批已编辑'; firstLabel.dispatchEvent(new InputEvent('input', { bubbles: true }))
@@ -113,9 +124,10 @@ describe('Conversation Dictionary window', () => {
     })
     window.notemd = { pluginId: 'notemd.conversation-dictionary', locale: 'zh', theme: 'light', request, onMessage: () => {} }
     const host = document.createElement('div'); document.body.append(host); mounted = mount(App, { target: host })
+    await openTab(host, '待确认')
     await vi.waitFor(() => expect(host.textContent).toContain('仍有需要单独处理的项目'))
     const checkboxes = host.querySelectorAll<HTMLInputElement>('input[type=checkbox]')
-    const approve = [...host.querySelectorAll('button')].find((button) => button.textContent?.includes('审批通过并写入正式词典'))!
+    const approve = [...host.querySelectorAll('button')].find((button) => button.textContent?.includes('审批通过并加入勘误表'))!
     checkboxes[1].click()
     await vi.waitFor(() => expect(approve.disabled).toBe(false))
     checkboxes[2].click()
@@ -136,6 +148,7 @@ describe('Conversation Dictionary window', () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true)
     window.notemd = { pluginId: 'notemd.conversation-dictionary', locale: 'zh', theme: 'light', request, onMessage: () => {} }
     const host = document.createElement('div'); document.body.append(host); mounted = mount(App, { target: host })
+    await openTab(host, '待确认')
     await vi.waitFor(() => expect(host.querySelector('.batch-list strong')?.textContent).toMatch(/^2026-09-20 \d{2}:\d{2}$/))
     const batch = host.querySelector<HTMLButtonElement>('.batch-list button')!
     expect(batch.title).toBe('853f8a64-51d4-4dc8-8a97-8bd6d98784a3')
@@ -157,6 +170,7 @@ describe('Conversation Dictionary window', () => {
     })
     window.notemd = { pluginId: 'notemd.conversation-dictionary', locale: 'zh-TW', theme: 'dark', request, onMessage: () => {} }
     const host = document.createElement('div'); document.body.append(host); mounted = mount(App, { target: host })
+    await openTab(host, '待确认')
     await vi.waitFor(() => expect(host.textContent).toContain('样例 · 未启用'))
     expect(host.textContent).toContain('note MD')
     expect(host.textContent).toContain('不会参与转写')
@@ -176,8 +190,86 @@ describe('Conversation Dictionary window', () => {
     })
     window.notemd = { pluginId: 'notemd.conversation-dictionary', locale: 'zh-TW', theme: 'light', request, onMessage: () => {} }
     const host = document.createElement('div'); document.body.append(host); mounted = mount(App, { target: host })
-    await vi.waitFor(() => expect(host.textContent).toContain('词典需要检查'))
+    await vi.waitFor(() => expect(host.textContent).toContain('勘误词典需要检查'))
     expect(host.textContent).not.toContain('创建词典')
+  })
+
+  it('opens on the corrections dictionary and creates a context with one compact form', async () => {
+    const data = snapshot(); data.batches = []
+    const request = vi.fn(async (method: string) => {
+      if (method === 'plugin.initialize') return { status: 'existing', dictionary_created: false }
+      if (method === 'plugin.bootstrap') return data
+      if (method === 'plugin.save_correction_entry') return { status: 'committed', revision: 2, domain_id: 'd_new', entry_id: 'e_new' }
+      if (method === 'host.toast') return {}
+      throw new Error(`unexpected ${method}`)
+    })
+    window.notemd = { pluginId: 'notemd.conversation-dictionary', locale: 'zh', theme: 'light', request, onMessage: () => {} }
+    const host = document.createElement('div'); document.body.append(host); mounted = mount(App, { target: host })
+    await vi.waitFor(() => expect(host.querySelector<HTMLButtonElement>('.tabs button')?.textContent).toContain('勘误词典'))
+    expect(host.querySelector<HTMLButtonElement>('.tabs button')?.classList.contains('active')).toBe(true)
+    let createContext: HTMLButtonElement | undefined
+    await vi.waitFor(() => {
+      createContext = [...host.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent?.includes('创建第一个场景'))
+      expect(createContext).toBeDefined()
+    })
+    createContext!.click()
+    await vi.waitFor(() => expect(host.textContent).toContain('保存第一个词条时会同时创建场景'))
+    const inputs = [...host.querySelectorAll<HTMLInputElement>('.editor-column input')]
+    inputs[0].value = '产品周会'; inputs[0].dispatchEvent(new InputEvent('input', { bubbles: true }))
+    inputs[1].value = 'note.md'; inputs[1].dispatchEvent(new InputEvent('input', { bubbles: true }))
+    inputs[2].value = 'NoteMD，小记; NOTE MD'; inputs[2].dispatchEvent(new InputEvent('input', { bubbles: true }))
+    inputs[3].value = 'note MD；脑特MD'; inputs[3].dispatchEvent(new InputEvent('input', { bubbles: true }))
+    const save = [...host.querySelectorAll<HTMLButtonElement>('.editor-actions button')].find((button) => button.textContent === '保存')!
+    await vi.waitFor(() => expect(save.disabled).toBe(false))
+    save.click()
+    await vi.waitFor(() => expect(request).toHaveBeenCalledWith('plugin.save_correction_entry', expect.objectContaining({
+      domain_id: null,
+      domain_name: '产品周会',
+      entry_id: null,
+      formal_name: 'note.md',
+      aliases: ['NoteMD', '小记', 'NOTE MD'],
+      mistaken_forms: ['note MD', '脑特MD'],
+    })))
+  })
+
+  it('switches entries by context and can delete a shared entry', async () => {
+    const data = snapshot(); data.batches = []
+    data.dictionary!.domains = [
+      { id: 'd_work', name: '工作会议', description: '' },
+      { id: 'd_private', name: '私聊', description: '' },
+    ]
+    data.dictionary!.entries = [
+      { id: 'e_wei', kind: 'person', label: '伟滔', forms: ['伟滔', 'Bruce'], description: '' },
+      { id: 'e_note', kind: 'product', label: 'note.md', forms: ['note.md', 'NoteMD'], description: '' },
+    ]
+    data.dictionary!.rules = [
+      { id: 'r_work', domain_id: 'd_work', observed: '伟涛', action: 'replace', target: { entry_id: 'e_wei', text: '伟滔' }, application: 'suggest', enabled: true, confirmed_by: 'human:bruce', confirmed_at: '2026-09-20T00:00:00Z' },
+      { id: 'r_private', domain_id: 'd_private', observed: 'Bruce', action: 'replace', target: { entry_id: 'e_wei', text: '伟滔' }, application: 'suggest', enabled: true, confirmed_by: 'human:bruce', confirmed_at: '2026-09-20T00:00:00Z' },
+      { id: 'r_note', domain_id: 'd_private', observed: 'note MD', action: 'replace', target: { entry_id: 'e_note', text: 'note.md' }, application: 'suggest', enabled: true, confirmed_by: 'human:bruce', confirmed_at: '2026-09-20T00:00:00Z' },
+    ]
+    const request = vi.fn(async (method: string) => {
+      if (method === 'plugin.initialize') return { status: 'existing', dictionary_created: false }
+      if (method === 'plugin.bootstrap') return data
+      if (method === 'plugin.delete_correction_entry') return { status: 'committed', revision: 2 }
+      if (method === 'host.toast') return {}
+      throw new Error(`unexpected ${method}`)
+    })
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    window.notemd = { pluginId: 'notemd.conversation-dictionary', locale: 'zh', theme: 'light', request, onMessage: () => {} }
+    const host = document.createElement('div'); document.body.append(host); mounted = mount(App, { target: host })
+    await vi.waitFor(() => expect(host.textContent).toContain('工作会议'))
+    expect(host.textContent).not.toContain('note.md')
+    ;[...host.querySelectorAll<HTMLButtonElement>('.context-column button')].find((button) => button.textContent?.includes('私聊'))!.click()
+    await vi.waitFor(() => expect(host.textContent).toContain('note.md'))
+    ;[...host.querySelectorAll<HTMLButtonElement>('.entry-column button')].find((button) => button.textContent?.includes('伟滔'))!.click()
+    const remove = [...host.querySelectorAll<HTMLButtonElement>('.editor-actions button')].find((button) => button.textContent?.includes('从当前场景移除'))
+    expect(remove).toBeDefined()
+    const deleteButton = [...host.querySelectorAll<HTMLButtonElement>('.editor-actions button')].find((button) => button.textContent?.includes('删除词条'))!
+    deleteButton.click()
+    await vi.waitFor(() => expect(request).toHaveBeenCalledWith('plugin.delete_correction_entry', expect.objectContaining({
+      domain_id: 'd_private', entry_id: 'e_wei', delete_globally: true,
+    })))
+    expect(window.confirm).toHaveBeenCalledWith(expect.stringContaining('2 个场景'))
   })
 
   it('previews and submits one atomic formal-name migration', async () => {
@@ -237,6 +329,7 @@ describe('Conversation Dictionary window', () => {
     })
     window.notemd = { pluginId: 'notemd.conversation-dictionary', locale: 'zh', theme: 'light', request, onMessage: () => {} }
     const host = document.createElement('div'); document.body.append(host); mounted = mount(App, { target: host })
+    await openTab(host, '待确认')
     await vi.waitFor(() => expect(host.textContent).toContain('统一输出正式名'))
     expect(host.textContent).toContain('新正式名')
     expect(host.textContent).not.toContain('旧草稿名 · p_entry')

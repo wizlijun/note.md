@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate the deterministic structure of a Conversation Dictionary dataset."""
+"""Validate the deterministic structure of a Conversation Transcript Corrections dataset."""
 
 from __future__ import annotations
 

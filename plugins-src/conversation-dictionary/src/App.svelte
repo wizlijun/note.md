@@ -2,10 +2,10 @@
   import '../../../src/styles/ui-foundation.css'
   import { onMount } from 'svelte'
   import { api } from './lib/bridge'
-  import type { DatasetProposal, ReviewBatch, Snapshot } from './lib/types'
+  import type { DatasetProposal, Entry, ReviewBatch, Snapshot } from './lib/types'
 
   type Tab = 'pending' | 'dictionary' | 'history' | 'settings'
-  let tab: Tab = 'pending'
+  let tab: Tab = 'dictionary'
   let snapshot: Snapshot | null = null
   let busy = false
   let error = ''
@@ -19,6 +19,12 @@
   let migrationNames: Record<string, string> = {}
   let renamingFormalNames = false
   let batchMenu: { runId: string; x: number; y: number } | null = null
+  let selectedDomainId = ''
+  let selectedEntryId = ''
+  let addingDomain = false
+  let addingSharedEntry = false
+  let newDomainName = ''
+  let correctionDraft = { kind: 'other', formalName: '', aliases: '', mistakenForms: '' }
 
   type MigrationEffect = {
     kind: 'update' | 'remove' | 'consolidate' | 'add_alias'
@@ -36,6 +42,114 @@
   const pendingProposals = (batch: ReviewBatch) => batch.dataset.proposals.filter((proposal) => batch.proposal_states[proposal.id]?.status === 'pending')
   const proposalKey = (batch: ReviewBatch, proposalId: string) => `${batch.run_id}\u0000${proposalId}`
 
+  function entriesForDomain(domainId: string): Entry[] {
+    if (!snapshot?.dictionary) return []
+    const ids = new Set(snapshot.dictionary.rules
+      .filter((rule) => rule.domain_id === domainId && rule.action === 'replace' && rule.target)
+      .map((rule) => rule.target!.entry_id))
+    return snapshot.dictionary.entries.filter((entry) => ids.has(entry.id))
+  }
+
+  function contextIdsForEntry(entryId: string): string[] {
+    if (!snapshot?.dictionary) return []
+    return [...new Set(snapshot.dictionary.rules
+      .filter((rule) => rule.action === 'replace' && rule.target?.entry_id === entryId)
+      .map((rule) => rule.domain_id))]
+  }
+
+  function unattachedEntries(domainId: string): Entry[] {
+    const attached = new Set(entriesForDomain(domainId).map((entry) => entry.id))
+    return snapshot?.dictionary?.entries.filter((entry) => !attached.has(entry.id)) || []
+  }
+
+  function preserveRules(domainId: string) {
+    return snapshot?.dictionary?.rules.filter((rule) => rule.domain_id === domainId && rule.action === 'preserve') || []
+  }
+
+  function parseDelimited(value: string): string[] {
+    const seen = new Set<string>()
+    return value.split(/[,，;；\r\n]+/).map((part) => part.trim()).filter((part) => {
+      const key = part.normalize('NFC')
+      if (!part || seen.has(key)) return false
+      seen.add(key); return true
+    })
+  }
+
+  function loadCorrectionDraft(entryId: string) {
+    const dictionary = snapshot?.dictionary
+    const entry = dictionary?.entries.find((item) => item.id === entryId)
+    if (!dictionary || !entry) {
+      correctionDraft = { kind: 'other', formalName: '', aliases: '', mistakenForms: '' }
+      return
+    }
+    const entryAliases = aliases(entry)
+    const aliasKeys = new Set(entryAliases.map((value) => value.normalize('NFC')))
+    const mistaken = dictionary.rules
+      .filter((rule) => rule.domain_id === selectedDomainId && rule.action === 'replace' && rule.target?.entry_id === entryId)
+      .map((rule) => rule.observed)
+      .filter((value) => !aliasKeys.has(value.normalize('NFC')))
+    correctionDraft = {
+      kind: entry.kind,
+      formalName: entry.label,
+      aliases: entryAliases.join('，'),
+      mistakenForms: mistaken.join('，'),
+    }
+  }
+
+  function selectDomain(domainId: string) {
+    selectedDomainId = domainId
+    addingDomain = false
+    addingSharedEntry = false
+    newDomainName = ''
+    selectedEntryId = entriesForDomain(domainId)[0]?.id || ''
+    loadCorrectionDraft(selectedEntryId)
+  }
+
+  function selectEntry(entryId: string) {
+    addingSharedEntry = false
+    selectedEntryId = entryId
+    loadCorrectionDraft(entryId)
+  }
+
+  function beginNewDomain() {
+    addingDomain = true
+    addingSharedEntry = false
+    selectedDomainId = ''
+    selectedEntryId = ''
+    newDomainName = ''
+    correctionDraft = { kind: 'other', formalName: '', aliases: '', mistakenForms: '' }
+  }
+
+  function beginNewEntry() {
+    addingDomain = false
+    addingSharedEntry = false
+    selectedEntryId = ''
+    correctionDraft = { kind: 'other', formalName: '', aliases: '', mistakenForms: '' }
+  }
+
+  function beginAddSharedEntry() {
+    addingDomain = false
+    addingSharedEntry = true
+    selectedEntryId = ''
+    correctionDraft = { kind: 'other', formalName: '', aliases: '', mistakenForms: '' }
+  }
+
+  function selectSharedEntry(entryId: string) {
+    selectedEntryId = entryId
+    loadCorrectionDraft(entryId)
+  }
+
+  function ensureDictionarySelection() {
+    if (!snapshot?.dictionary || addingDomain) return
+    if (!selectedDomainId || !snapshot.dictionary.domains.some((domain) => domain.id === selectedDomainId)) {
+      selectedDomainId = snapshot.dictionary.domains[0]?.id || ''
+    }
+    const entries = entriesForDomain(selectedDomainId)
+    if (selectedEntryId && entries.some((entry) => entry.id === selectedEntryId)) loadCorrectionDraft(selectedEntryId)
+    else if (entries.length) { selectedEntryId = entries[0].id; loadCorrectionDraft(selectedEntryId) }
+    else { selectedEntryId = ''; loadCorrectionDraft('') }
+  }
+
   async function refresh(preserveDraft = true) {
     const before = preserveDraft ? edited : {}
     snapshot = await api.bootstrap()
@@ -49,6 +163,7 @@
     if (!selectedBatchId || !snapshot.batches.some((batch) => batch.run_id === selectedBatchId)) {
       selectedBatchId = snapshot.batches.find((batch) => pendingProposals(batch).length)?.run_id || snapshot.batches[0]?.run_id || ''
     }
+    ensureDictionarySelection()
   }
 
   async function run(action: () => Promise<unknown>, success: string) {
@@ -65,7 +180,7 @@
     try {
       const result = await api.initialize()
       await refresh(false)
-      if (result.dictionary_created) notice = t('沟通词典已为当前 Vault 准备好', 'Conversation Dictionary is ready for this Vault')
+      if (result.dictionary_created) notice = t('沟通转写勘误已为当前 Vault 准备好', 'Conversation Transcript Corrections is ready for this Vault')
     } catch (value) {
       error = value instanceof Error ? value.message : String(value)
       try { await refresh(false) } catch { /* retain the initialization error */ }
@@ -182,7 +297,7 @@
         review_revision: batch.proposal_states[id].revision,
         ...(edited[proposalKey(batch, id)] ? { value: edited[proposalKey(batch, id)] } : {}),
       })),
-    }), t(`已审批通过 ${ids.length} 项并写入正式词典`, `Approved ${ids.length} items and wrote them to the formal dictionary`))
+    }), t(`已审批通过 ${ids.length} 项并加入勘误表`, `Approved ${ids.length} items and added them to Corrections`))
     for (const id of ids) { delete edited[proposalKey(batch, id)]; selected.delete(id); proposals.delete(id) }
     edited = { ...edited }; selected = new Set(selected)
   }
@@ -289,6 +404,62 @@
     renamingFormalNames = false
   }
 
+  async function saveCorrectionEntry() {
+    if (!snapshot?.dictionary || snapshot.formal_name_migration.required || busy) return
+    busy = true; error = ''; notice = ''
+    try {
+      const result = await api.saveCorrectionEntry({
+        transaction_id: crypto.randomUUID(),
+        expected_revision: snapshot.formal_name_migration.expected_revision,
+        expected_sha256: snapshot.formal_name_migration.expected_sha256,
+        domain_id: addingDomain ? null : selectedDomainId,
+        domain_name: addingDomain ? newDomainName.trim() : (snapshot.dictionary.domains.find((domain) => domain.id === selectedDomainId)?.name || ''),
+        entry_id: selectedEntryId || null,
+        kind: correctionDraft.kind,
+        formal_name: correctionDraft.formalName.trim(),
+        aliases: parseDelimited(correctionDraft.aliases),
+        mistaken_forms: parseDelimited(correctionDraft.mistakenForms),
+      })
+      selectedDomainId = result.domain_id
+      selectedEntryId = result.entry_id
+      addingDomain = false
+      addingSharedEntry = false
+      newDomainName = ''
+      await refresh(false)
+      notice = t('词条已保存', 'Entry saved')
+      await api.toast('success', notice)
+    } catch (value) { error = value instanceof Error ? value.message : String(value) }
+    finally { busy = false }
+  }
+
+  async function deleteCorrectionEntry(deleteGlobally: boolean) {
+    const currentSnapshot = snapshot
+    const dictionary = currentSnapshot?.dictionary
+    const entry = dictionary?.entries.find((item) => item.id === selectedEntryId)
+    if (!dictionary || !entry || busy) return
+    const contexts = contextIdsForEntry(entry.id)
+    const message = deleteGlobally
+      ? t(`删除“${entry.label}”及其在 ${contexts.length} 个场景中的全部规则？`, `Delete “${entry.label}” and all of its rules in ${contexts.length} contexts?`)
+      : t(`从当前场景移除“${entry.label}”？其他场景不会改变。`, `Remove “${entry.label}” from this context? Other contexts will not change.`)
+    if (!window.confirm(message)) return
+    busy = true; error = ''; notice = ''
+    try {
+      await api.deleteCorrectionEntry({
+        transaction_id: crypto.randomUUID(),
+        expected_revision: currentSnapshot.formal_name_migration.expected_revision,
+        expected_sha256: currentSnapshot.formal_name_migration.expected_sha256,
+        domain_id: selectedDomainId,
+        entry_id: entry.id,
+        delete_globally: deleteGlobally,
+      })
+      selectedEntryId = ''
+      await refresh(false)
+      notice = deleteGlobally ? t('词条已删除', 'Entry deleted') : t('已从当前场景移除', 'Removed from this context')
+      await api.toast('success', notice)
+    } catch (value) { error = value instanceof Error ? value.message : String(value) }
+    finally { busy = false }
+  }
+
   async function openDictionary() {
     try { const { path } = await api.dictionaryPath(); await api.openInEditor(path) }
     catch (value) { error = value instanceof Error ? value.message : String(value) }
@@ -333,19 +504,19 @@
 
 <svelte:window onclick={() => batchMenu = null} onkeydown={(event) => { if (event.key === 'Escape') batchMenu = null }} />
 
-<svelte:head><title>{t('沟通词典', 'Conversation Dictionary')}</title></svelte:head>
+<svelte:head><title>{t('沟通转写勘误', 'Conversation Transcript Corrections')}</title></svelte:head>
 
 <main>
   <header class="app-header">
     <div>
-      <h1>{t('沟通词典', 'Conversation Dictionary')}</h1>
+      <h1>{t('沟通转写勘误', 'Conversation Transcript Corrections')}</h1>
       <p>{t('整理你参与的沟通转写，经确认后按场景复用人名与术语。', 'Review transcription terms from conversations you participate in, then reuse them by context.')}</p>
     </div>
-    {#if snapshot?.dictionary}<button class="secondary" onclick={openDictionary}>{t('打开词典', 'Open dictionary')}</button>{/if}
+    {#if snapshot?.dictionary}<button class="secondary" onclick={openDictionary}>{t('打开勘误表', 'Open Corrections')}</button>{/if}
   </header>
 
-  <nav class="tabs" aria-label={t('沟通词典页面', 'Dictionary sections')}>
-    {#each [['pending', t('待确认', 'Review')], ['dictionary', t('词典', 'Dictionary')], ['history', t('历史', 'History')], ['settings', t('设置', 'Settings')]] as item}
+  <nav class="tabs" aria-label={t('沟通转写勘误页面', 'Conversation Transcript Corrections sections')}>
+    {#each [['dictionary', t('勘误词典', 'Corrections Dictionary')], ['pending', t('待确认', 'Review')], ['history', t('历史', 'History')], ['settings', t('设置', 'Settings')]] as item}
       <button class:active={tab === item[0]} aria-current={tab === item[0] ? 'page' : undefined} onclick={() => tab = item[0] as Tab}>{item[1]}</button>
     {/each}
   </nav>
@@ -383,7 +554,7 @@
   {/if}
 
   {#if !snapshot}
-    <div class="loading">{t('正在准备沟通词典…', 'Preparing Conversation Dictionary…')}</div>
+    <div class="loading">{t('正在准备沟通转写勘误…', 'Preparing Conversation Transcript Corrections…')}</div>
   {:else if !snapshot.dictionary}
     {#if snapshot.status.status === 'not_created'}
       <section class="empty-state">
@@ -393,14 +564,14 @@
       </section>
     {:else}
       <section class="empty-state">
-        <h2>{t('词典需要检查', 'Dictionary needs review')}</h2>
-        <p>{snapshot.status.error || t('词典未通过可信基线检查。', 'The dictionary did not pass its reviewed baseline check.')}</p>
-        <button onclick={openDictionary}>{t('打开词典检查', 'Open dictionary')}</button>
+        <h2>{t('勘误词典需要检查', 'Corrections Dictionary needs review')}</h2>
+        <p>{snapshot.status.error || t('勘误表未通过可信基线检查。', 'Corrections did not pass the reviewed baseline check.')}</p>
+        <button onclick={openDictionary}>{t('打开勘误表检查', 'Open Corrections')}</button>
       </section>
     {/if}
   {:else if tab === 'pending'}
     <section class="import-bar">
-      <div><h2>{t('历史整理', 'Historical review')}</h2><p>{t('导入生成 Skill 输出的 Vault 相对路径。正式词典在你确认前不会改变。', 'Import a Vault-relative dataset created by the generation skill. Nothing changes until you approve it.')}</p></div>
+      <div><h2>{t('历史整理', 'Historical review')}</h2><p>{t('导入生成 Skill 输出的 Vault 相对路径。勘误表在你确认前不会改变。', 'Import a Vault-relative dataset created by the generation skill. Corrections do not change until you approve them.')}</p></div>
       <div class="import-controls"><input bind:value={datasetPath} placeholder="ssot/meetings/conversation-dictionary-drafts/…/dataset.yml" disabled={busy} /><button onclick={importDataset} disabled={busy || !datasetPath.trim()}>{t('导入', 'Import')}</button></div>
     </section>
     {#if snapshot.batches.length === 0}
@@ -486,18 +657,81 @@
                 </article>
               {/each}
             </div>
-            <footer class="commit-bar"><div><span>{selectedWithDependencies(batch).length} {t('项待审批（含依赖）', 'items to approve including dependencies')}</span>{#if selectedConflictCount(batch)}<small class="blocking-reason">{t(`所选内容涉及 ${selectedConflictCount(batch)} 个未解决冲突`, `${selectedConflictCount(batch)} unresolved conflicts affect the selection`)}</small>{:else if snapshot.formal_name_migration.required}<small class="blocking-reason">{t('请先完成上方正式名确认', 'Confirm formal names above first')}</small>{/if}</div><button class="primary" onclick={() => commitSelected(batch)} disabled={busy || selected.size === 0 || selectedConflictCount(batch) > 0 || snapshot.formal_name_migration.required}>{t('审批通过并写入正式词典', 'Approve and write to formal dictionary')}</button></footer>
+            <footer class="commit-bar"><div><span>{selectedWithDependencies(batch).length} {t('项待审批（含依赖）', 'items to approve including dependencies')}</span>{#if selectedConflictCount(batch)}<small class="blocking-reason">{t(`所选内容涉及 ${selectedConflictCount(batch)} 个未解决冲突`, `${selectedConflictCount(batch)} unresolved conflicts affect the selection`)}</small>{:else if snapshot.formal_name_migration.required}<small class="blocking-reason">{t('请先完成上方正式名确认', 'Confirm formal names above first')}</small>{/if}</div><button class="primary" onclick={() => commitSelected(batch)} disabled={busy || selected.size === 0 || selectedConflictCount(batch) > 0 || snapshot.formal_name_migration.required}>{t('审批通过并加入勘误表', 'Approve and add to Corrections')}</button></footer>
           </section>
         {/if}
       </div>
     {/if}
   {:else if tab === 'dictionary'}
-    <section><div class="section-heading"><h2>{t('场景', 'Contexts')}</h2><button onclick={beginFormalNameRename} disabled={busy || snapshot.dictionary.entries.length === 0}>{t('修改正式名', 'Edit formal names')}</button></div><div class="cards">{#each snapshot.dictionary.domains as domain}<article><h3>{domain.name}</h3><p>{domain.description}</p><small>{domain.id}</small></article>{/each}</div></section>
-    <section><h2>{t('词条与规则', 'Entries and rules')}</h2>{#each snapshot.dictionary.entries as entry}<article class="entry"><div><h3>{entry.label}</h3><p><strong>{t('别称', 'Aliases')}:</strong> {aliases(entry).length ? aliases(entry).join(' · ') : t('无', 'None')}</p><small>{entry.kind} · {entry.id}</small></div><ul>{#each snapshot.dictionary.rules.filter((rule) => rule.target?.entry_id === entry.id) as rule}<li><span class="rule-kind">{aliases(entry).some((alias) => alias.normalize('NFC') === rule.observed.normalize('NFC')) ? t('别称归一', 'Alias') : t('ASR 纠错', 'ASR correction')}</span> <code>{rule.observed}</code> → <code>{entry.label}</code> · {rule.application} · {snapshot.dictionary.domains.find((domain) => domain.id === rule.domain_id)?.name}</li>{/each}</ul></article>{/each}</section>
+    <div class="dictionary-heading">
+      <div><h2>{t('勘误词典', 'Corrections Dictionary')}</h2><p>{t('先选择沟通场景，再维护该场景中的词条。正式名和别名会在所有场景共用。', 'Choose a conversation context, then maintain its entries. Formal names and aliases are shared across contexts.')}</p></div>
+      <button onclick={beginNewDomain} disabled={busy || snapshot.formal_name_migration.required}>{t('新增场景', 'New context')}</button>
+    </div>
+    <div class="dictionary-layout">
+      <section class="dictionary-column context-column" aria-label={t('场景', 'Contexts')}>
+        <div class="column-title"><strong>{t('场景', 'Contexts')}</strong><span>{snapshot.dictionary.domains.length}</span></div>
+        <div class="dictionary-list">
+          {#each snapshot.dictionary.domains as domain}
+            <button class:selected={!addingDomain && selectedDomainId === domain.id} onclick={() => selectDomain(domain.id)}>
+              <strong>{domain.name}</strong><small>{entriesForDomain(domain.id).length} {t('个词条', 'entries')}</small>
+            </button>
+          {/each}
+          {#if addingDomain}<button class="selected draft-item"><strong>{t('新场景', 'New context')}</strong><small>{t('尚未保存', 'Not saved')}</small></button>{/if}
+        </div>
+        {#if snapshot.dictionary.domains.length === 0 && !addingDomain}<div class="column-empty"><p>{t('还没有场景。', 'No contexts yet.')}</p><button class="primary" onclick={beginNewDomain}>{t('创建第一个场景', 'Create first context')}</button></div>{/if}
+      </section>
+
+      <section class="dictionary-column entry-column" aria-label={t('词条', 'Entries')}>
+        <div class="column-title"><strong>{t('词条', 'Entries')}</strong>{#if selectedDomainId}<div class="column-actions">{#if unattachedEntries(selectedDomainId).length}<button onclick={beginAddSharedEntry} disabled={busy || snapshot.formal_name_migration.required}>{t('添加已有', 'Add existing')}</button>{/if}<button onclick={beginNewEntry} disabled={busy || snapshot.formal_name_migration.required}>{t('新增', 'New')}</button></div>{/if}</div>
+        {#if addingDomain}
+          <div class="column-empty"><p>{t('保存第一个词条时会同时创建场景。', 'The context will be created with its first entry.')}</p></div>
+        {:else if selectedDomainId}
+          {#if addingSharedEntry}
+            <div class="dictionary-list shared-entry-list">
+              <small class="list-caption">{t('选择一个共享词条加入当前场景', 'Choose a shared entry for this context')}</small>
+              {#each unattachedEntries(selectedDomainId) as entry}<button class:selected={selectedEntryId === entry.id} onclick={() => selectSharedEntry(entry.id)}><strong>{entry.label}</strong><small>{entry.kind} · {t('已用于', 'used in')} {contextIdsForEntry(entry.id).length} {t('个场景', 'contexts')}</small></button>{/each}
+            </div>
+          {:else}
+            <div class="dictionary-list">
+              {#each entriesForDomain(selectedDomainId) as entry}
+                <button class:selected={selectedEntryId === entry.id} onclick={() => selectEntry(entry.id)}>
+                  <strong>{entry.label}</strong><small>{entry.kind} · {snapshot.dictionary.rules.filter((rule) => rule.domain_id === selectedDomainId && rule.target?.entry_id === entry.id).length} {t('条规则', 'rules')}</small>
+                </button>
+              {/each}
+              {#if !selectedEntryId && correctionDraft.formalName === '' && entriesForDomain(selectedDomainId).length > 0}<button class="selected draft-item"><strong>{t('新词条', 'New entry')}</strong><small>{t('尚未保存', 'Not saved')}</small></button>{/if}
+            </div>
+          {/if}
+          {#if entriesForDomain(selectedDomainId).length === 0 && selectedEntryId === '' && !addingSharedEntry}<div class="column-empty"><p>{t('这个场景还没有词条。', 'This context has no entries yet.')}</p><button class="primary" onclick={beginNewEntry}>{t('新增词条', 'New entry')}</button></div>{/if}
+          {#if preserveRules(selectedDomainId).length}<details class="preserve-rules"><summary>{t(`保留规则 ${preserveRules(selectedDomainId).length}`, `${preserveRules(selectedDomainId).length} preserve rules`)}</summary><ul>{#each preserveRules(selectedDomainId) as rule}<li><code>{rule.observed}</code></li>{/each}</ul></details>{/if}
+        {:else}<div class="column-empty"><p>{t('请先选择或新增场景。', 'Choose or create a context first.')}</p></div>{/if}
+      </section>
+
+      <section class="dictionary-column editor-column" aria-label={t('词条编辑', 'Entry editor')}>
+        {#if addingSharedEntry && !selectedEntryId}
+          <div class="editor-empty"><p>{t('从中间列表选择要加入当前场景的共享词条。', 'Choose a shared entry from the middle list.')}</p></div>
+        {:else if addingDomain || selectedDomainId}
+          <div class="editor-title">
+            <div><strong>{addingSharedEntry ? t('添加共享词条', 'Add shared entry') : selectedEntryId ? t('编辑词条', 'Edit entry') : t('新增词条', 'New entry')}</strong>{#if selectedEntryId}<small>{selectedEntryId}</small>{/if}</div>
+            <label class="kind-field"><span>{t('类型', 'Type')}</span><select bind:value={correctionDraft.kind} disabled={busy}><option value="person">{t('人物', 'Person')}</option><option value="product">{t('产品', 'Product')}</option><option value="organization">{t('组织', 'Organization')}</option><option value="project">{t('项目', 'Project')}</option><option value="acronym">{t('缩写', 'Acronym')}</option><option value="technical_term">{t('术语', 'Technical term')}</option><option value="other">{t('其他', 'Other')}</option></select></label>
+          </div>
+          {#if addingDomain}<label><span>{t('场景名称', 'Context name')}</span><input bind:value={newDomainName} placeholder={t('例如：产品周会', 'For example: Product weekly')} disabled={busy} /></label>{/if}
+          <label><span>{t('正式名', 'Formal name')}</span><input bind:value={correctionDraft.formalName} placeholder={t('最终统一输出的写法', 'The final spelling used in output')} disabled={busy} /></label>
+          <label><span>{t('别名', 'Aliases')}</span><input bind:value={correctionDraft.aliases} placeholder={t('用逗号或分号隔开，例如：Bruce，滔哥', 'Separate with commas or semicolons')} disabled={busy} /></label>
+          <label><span>{t('可能的错误名', 'Possible transcription errors')}</span><input bind:value={correctionDraft.mistakenForms} placeholder={t('只用于当前场景，例如：伟涛；伟韬', 'Current context only; separate with commas or semicolons')} disabled={busy} /></label>
+          <p class="editor-help">{t('正式名和别名属于同一个共享词条；可能的错误名只在当前场景生效。最终输出始终使用正式名。', 'The formal name and aliases belong to one shared entry. Possible errors apply only in this context. Output always uses the formal name.')}</p>
+          <div class="editor-actions">
+            <button class="primary" onclick={saveCorrectionEntry} disabled={busy || snapshot.formal_name_migration.required || (addingDomain && !newDomainName.trim()) || !correctionDraft.formalName.trim() || (parseDelimited(correctionDraft.aliases).length === 0 && parseDelimited(correctionDraft.mistakenForms).length === 0)}>{t('保存', 'Save')}</button>
+            {#if selectedEntryId && contextIdsForEntry(selectedEntryId).includes(selectedDomainId) && contextIdsForEntry(selectedEntryId).length > 1}<button onclick={() => deleteCorrectionEntry(false)} disabled={busy}>{t('从当前场景移除', 'Remove from context')}</button>{/if}
+            {#if selectedEntryId && contextIdsForEntry(selectedEntryId).includes(selectedDomainId)}<button class="danger-button" onclick={() => deleteCorrectionEntry(true)} disabled={busy}>{t('删除词条', 'Delete entry')}</button>{/if}
+          </div>
+          {#if snapshot.formal_name_migration.required}<p class="blocking-reason">{t('请先完成页面上方的正式名确认。', 'Confirm formal names above before editing.')}</p>{/if}
+        {:else}<div class="editor-empty"><p>{t('选择左侧场景开始维护。', 'Choose a context to begin.')}</p></div>{/if}
+      </section>
+    </div>
   {:else if tab === 'history'}
     <section><h2>{t('提交历史', 'Review history')}</h2><p>{t('当前版本', 'Current revision')}: {snapshot.dictionary.revision} · {snapshot.dictionary.updated_at}</p>{#each snapshot.batches as batch}<article class="history-row"><strong>{batch.run_id}</strong><span>{Object.values(batch.proposal_states).filter((state) => state.status === 'accepted').length} {t('项已接受', 'accepted')}</span><small>{batch.imported_at}</small></article>{/each}</section>
   {:else}
-    <section><h2>{t('设置', 'Settings')}</h2><label><span>{t('词典路径', 'Dictionary path')}</span><input value={snapshot.settings.dictionary_path} readonly /></label><p class="muted">{t(`生成 Skill 已安装到 Vault 的 ${snapshot.agent_integration.skill_path}。`, `The generation skill is installed at ${snapshot.agent_integration.skill_path} in this Vault.`)}</p><p class="muted">{t(`调用说明由 ${snapshot.agent_integration.agents_path} 中的受管理区块提供。`, `Usage instructions are provided by the managed block in ${snapshot.agent_integration.agents_path}.`)}</p><button onclick={openDictionary}>{t('在编辑器中打开', 'Open in editor')}</button></section>
+    <section><h2>{t('设置', 'Settings')}</h2><label><span>{t('勘误表路径', 'Corrections path')}</span><input value={snapshot.settings.dictionary_path} readonly /></label><p class="muted">{t(`生成 Skill 已安装到 Vault 的 ${snapshot.agent_integration.skill_path}。`, `The generation skill is installed at ${snapshot.agent_integration.skill_path} in this Vault.`)}</p><p class="muted">{t(`调用说明由 ${snapshot.agent_integration.agents_path} 中的受管理区块提供。`, `Usage instructions are provided by the managed block in ${snapshot.agent_integration.agents_path}.`)}</p><button onclick={openDictionary}>{t('在编辑器中打开', 'Open in editor')}</button></section>
   {/if}
 </main>
 
@@ -508,6 +742,7 @@
 {/if}
 
 <style>
-  :global(*){box-sizing:border-box} :global(body){margin:0;background:var(--ui-background,#f5f5f7);color:var(--ui-text,#1d1d1f);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif} button,input,select,textarea{font:inherit} button{border:1px solid var(--ui-border,#d0d0d5);border-radius:8px;background:var(--ui-control,#fff);color:inherit;padding:7px 12px;cursor:pointer} button:disabled{opacity:.5;cursor:default} button.primary{background:var(--ui-accent,#0a84ff);border-color:var(--ui-accent,#0a84ff);color:white} button.secondary{white-space:nowrap} main{min-height:100vh;padding:22px 26px}.app-header{display:flex;justify-content:space-between;gap:20px;align-items:flex-start}.app-header h1{font-size:25px;margin:0 0 4px}.app-header p{margin:0;color:var(--ui-text-secondary,#666);max-width:720px}.tabs{display:flex;gap:4px;border-bottom:1px solid var(--ui-border,#ddd);margin:20px 0}.tabs button{border:0;background:none;border-radius:6px 6px 0 0;padding:9px 14px;color:var(--ui-text-secondary,#666)}.tabs button.active{color:var(--ui-accent,#0a84ff);box-shadow:inset 0 -2px var(--ui-accent,#0a84ff)}.banner{padding:10px 12px;border-radius:8px;margin-bottom:12px}.banner.error{background:#ff3b3018;color:#c3271f}.banner.success{background:#34c75918;color:#217a37}section{background:var(--ui-surface,#fff);border:1px solid var(--ui-border,#ddd);border-radius:12px;padding:18px;margin-bottom:16px}section h2{margin:0 0 10px;font-size:18px}.section-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}.section-heading h2{margin:0}label{display:grid;gap:5px;margin:10px 0}label span{font-size:12px;color:var(--ui-text-secondary,#666)}input,select,textarea{width:100%;border:1px solid var(--ui-border,#ccc);border-radius:7px;background:var(--ui-input,#fff);color:inherit;padding:8px 9px}textarea{resize:vertical}.empty-state{max-width:640px;margin:50px auto;text-align:left}.empty-state.compact{margin:20px auto}.teaching-example{margin-top:14px;border:1px dashed var(--ui-border,#ccc);border-radius:10px;padding:13px;background:var(--ui-selection,#0a84ff0a)}.teaching-example p{margin:10px 0}.example-heading{display:flex;justify-content:space-between;gap:12px}.example-heading span,.teaching-example small{color:var(--ui-text-secondary,#666)}.migration-panel{border-color:#ff9f0a;background:#ff9f0a0d}.migration-panel>p{color:var(--ui-text-secondary,#666)}.migration-panel>button+button{margin-left:8px}.migration-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:10px;margin:14px 0}.migration-list article{border:1px solid var(--ui-border,#ddd);border-radius:9px;padding:10px;background:var(--ui-surface,#fff)}.migration-list p{font-size:13px}.migration-list ul{margin:7px 0;padding-left:18px}.rule-kind{display:inline-block;font-size:11px;color:var(--ui-text-secondary,#666);margin-right:4px}.import-bar{display:flex;align-items:flex-end;justify-content:space-between;gap:22px}.import-bar p,.batch-summary p{margin:4px 0;color:var(--ui-text-secondary,#666)}.import-controls{display:flex;gap:8px;min-width:min(480px,50%)}.review-layout{display:grid;grid-template-columns:230px 1fr;gap:14px}.batch-list{display:flex;flex-direction:column;gap:7px}.batch-list button{text-align:left;display:grid;gap:3px;background:transparent}.batch-list button.selected{background:var(--ui-selection,#0a84ff18);border-color:var(--ui-accent,#0a84ff)}.batch-list span,.batch-list small{color:var(--ui-text-secondary,#666)}.proposal-pane{padding:0;overflow:hidden}.batch-summary,.commit-bar{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px 18px}.selection-actions{display:flex;gap:7px}.commit-bar>div{display:grid;gap:3px}.blocking-reason{color:var(--ui-danger,#b42318)}.unresolved-banner{margin:0 18px 12px;padding:10px 12px;border-radius:8px;background:#ff9f0a18;color:#7a4c00;display:grid;gap:3px;font-size:13px}.unresolved-banner details{margin-top:4px}.unresolved-banner pre{max-height:180px;overflow:auto;white-space:pre-wrap;color:inherit}.proposal-list{border-top:1px solid var(--ui-border,#ddd);border-bottom:1px solid var(--ui-border,#ddd);max-height:510px;overflow:auto;padding:10px}.proposal-list article{border:1px solid var(--ui-border,#ddd);border-radius:10px;padding:12px;margin-bottom:9px}.proposal-list article.selected{border-color:var(--ui-accent,#0a84ff);background:var(--ui-selection,#0a84ff0f)}.select-row{display:flex;align-items:center;gap:9px;margin:0}.select-row input{width:auto}.select-row span{margin-left:auto}.reason{font-size:13px;color:var(--ui-text-secondary,#666)}.reference-summary{display:grid;gap:3px;margin:10px 0;padding:8px 9px;border-radius:7px;background:var(--ui-selection,#0a84ff0a)}.reference-summary span{font-size:12px;color:var(--ui-text-secondary,#666)}.reference-summary strong{font-size:13px}.evidence-toggle{margin:0 0 6px;padding:4px 8px;font-size:12px}.evidence-list{display:grid;gap:7px;margin:4px 0 10px}.evidence-list blockquote{margin:0;padding:9px 10px;border-left:3px solid var(--ui-accent,#0a84ff);background:var(--ui-selection,#0a84ff0a);border-radius:0 7px 7px 0}.evidence-list p{margin:0 0 6px;white-space:pre-wrap}.evidence-list footer{display:flex;align-items:center;justify-content:space-between;gap:8px;color:var(--ui-text-secondary,#666);font-size:12px}.evidence-list footer button{padding:3px 7px}.evidence-list small{display:block;margin-top:5px;color:var(--ui-text-secondary,#666)}.preserve{font-size:13px}.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}.cards article,.entry,.history-row{border:1px solid var(--ui-border,#ddd);border-radius:9px;padding:12px}.cards h3,.entry h3{margin:0 0 5px}.cards p,.entry p{margin:0 0 5px}.entry{display:grid;grid-template-columns:minmax(180px,1fr) 2fr;gap:16px;margin-bottom:9px}.entry ul{margin:0;padding-left:20px}.history-row{display:grid;grid-template-columns:1fr auto auto;gap:14px;margin-bottom:8px}.muted{color:var(--ui-text-secondary,#666)}.loading{padding:60px;text-align:center}.batch-context-menu{position:fixed;z-index:1000;min-width:184px}.batch-context-menu .batch-delete{width:100%;border:0;background:transparent;text-align:left;color:var(--ui-danger,#b42318)}.batch-context-menu .batch-delete:hover{background:#d44a4a;color:#fff}
-  @media(max-width:760px){main{padding:16px}.app-header{display:block}.app-header button{margin-top:12px}.import-bar{display:block}.import-controls{min-width:0;width:100%}.review-layout{grid-template-columns:1fr}.batch-list{flex-direction:row;overflow:auto}.batch-list button{min-width:190px}.entry{grid-template-columns:1fr}.history-row{grid-template-columns:1fr}.commit-bar{position:sticky;bottom:0;background:var(--ui-surface,#fff)}}
+  :global(*){box-sizing:border-box} :global(body){margin:0;background:var(--ui-background,#f5f5f7);color:var(--ui-text,#1d1d1f);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif} button,input,select,textarea{font:inherit} button{border:1px solid var(--ui-border,#d0d0d5);border-radius:8px;background:var(--ui-control,#fff);color:inherit;padding:7px 12px;cursor:pointer} button:disabled{opacity:.5;cursor:default} button.primary{background:var(--ui-accent,#0a84ff);border-color:var(--ui-accent,#0a84ff);color:white} button.secondary{white-space:nowrap} button.danger-button{color:var(--ui-danger,#b42318);margin-left:auto} main{min-height:100vh;padding:22px 26px}.app-header{display:flex;justify-content:space-between;gap:20px;align-items:flex-start}.app-header h1{font-size:25px;margin:0 0 4px}.app-header p{margin:0;color:var(--ui-text-secondary,#666);max-width:720px}.tabs{display:flex;gap:4px;border-bottom:1px solid var(--ui-border,#ddd);margin:20px 0}.tabs button{border:0;background:none;border-radius:6px 6px 0 0;padding:9px 14px;color:var(--ui-text-secondary,#666)}.tabs button.active{color:var(--ui-accent,#0a84ff);box-shadow:inset 0 -2px var(--ui-accent,#0a84ff)}.banner{padding:10px 12px;border-radius:8px;margin-bottom:12px}.banner.error{background:#ff3b3018;color:#c3271f}.banner.success{background:#34c75918;color:#217a37}section{background:var(--ui-surface,#fff);border:1px solid var(--ui-border,#ddd);border-radius:12px;padding:18px;margin-bottom:16px}section h2{margin:0 0 10px;font-size:18px}label{display:grid;gap:5px;margin:10px 0}label span{font-size:12px;color:var(--ui-text-secondary,#666)}input,select,textarea{width:100%;border:1px solid var(--ui-border,#ccc);border-radius:7px;background:var(--ui-input,#fff);color:inherit;padding:8px 9px}textarea{resize:vertical}.empty-state{max-width:640px;margin:50px auto;text-align:left}.empty-state.compact{margin:20px auto}.teaching-example{margin-top:14px;border:1px dashed var(--ui-border,#ccc);border-radius:10px;padding:13px;background:var(--ui-selection,#0a84ff0a)}.teaching-example p{margin:10px 0}.example-heading{display:flex;justify-content:space-between;gap:12px}.example-heading span,.teaching-example small{color:var(--ui-text-secondary,#666)}.migration-panel{border-color:#ff9f0a;background:#ff9f0a0d}.migration-panel>p{color:var(--ui-text-secondary,#666)}.migration-panel>button+button{margin-left:8px}.migration-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:10px;margin:14px 0}.migration-list article{border:1px solid var(--ui-border,#ddd);border-radius:9px;padding:10px;background:var(--ui-surface,#fff)}.migration-list p{font-size:13px}.migration-list ul{margin:7px 0;padding-left:18px}.import-bar{display:flex;align-items:flex-end;justify-content:space-between;gap:22px}.import-bar p,.batch-summary p{margin:4px 0;color:var(--ui-text-secondary,#666)}.import-controls{display:flex;gap:8px;min-width:min(480px,50%)}.review-layout{display:grid;grid-template-columns:230px 1fr;gap:14px}.batch-list{display:flex;flex-direction:column;gap:7px}.batch-list button{text-align:left;display:grid;gap:3px;background:transparent}.batch-list button.selected{background:var(--ui-selection,#0a84ff18);border-color:var(--ui-accent,#0a84ff)}.batch-list span,.batch-list small{color:var(--ui-text-secondary,#666)}.proposal-pane{padding:0;overflow:hidden}.batch-summary,.commit-bar{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px 18px}.selection-actions{display:flex;gap:7px}.commit-bar>div{display:grid;gap:3px}.blocking-reason{color:var(--ui-danger,#b42318)}.unresolved-banner{margin:0 18px 12px;padding:10px 12px;border-radius:8px;background:#ff9f0a18;color:#7a4c00;display:grid;gap:3px;font-size:13px}.unresolved-banner details{margin-top:4px}.unresolved-banner pre{max-height:180px;overflow:auto;white-space:pre-wrap;color:inherit}.proposal-list{border-top:1px solid var(--ui-border,#ddd);border-bottom:1px solid var(--ui-border,#ddd);max-height:510px;overflow:auto;padding:10px}.proposal-list article{border:1px solid var(--ui-border,#ddd);border-radius:10px;padding:12px;margin-bottom:9px}.proposal-list article.selected{border-color:var(--ui-accent,#0a84ff);background:var(--ui-selection,#0a84ff0f)}.select-row{display:flex;align-items:center;gap:9px;margin:0}.select-row input{width:auto}.select-row span{margin-left:auto}.reason{font-size:13px;color:var(--ui-text-secondary,#666)}.reference-summary{display:grid;gap:3px;margin:10px 0;padding:8px 9px;border-radius:7px;background:var(--ui-selection,#0a84ff0a)}.reference-summary span{font-size:12px;color:var(--ui-text-secondary,#666)}.reference-summary strong{font-size:13px}.evidence-toggle{margin:0 0 6px;padding:4px 8px;font-size:12px}.evidence-list{display:grid;gap:7px;margin:4px 0 10px}.evidence-list blockquote{margin:0;padding:9px 10px;border-left:3px solid var(--ui-accent,#0a84ff);background:var(--ui-selection,#0a84ff0a);border-radius:0 7px 7px 0}.evidence-list p{margin:0 0 6px;white-space:pre-wrap}.evidence-list footer{display:flex;align-items:center;justify-content:space-between;gap:8px;color:var(--ui-text-secondary,#666);font-size:12px}.evidence-list footer button{padding:3px 7px}.evidence-list small{display:block;margin-top:5px;color:var(--ui-text-secondary,#666)}.preserve{font-size:13px}.history-row{border:1px solid var(--ui-border,#ddd);border-radius:9px;padding:12px;display:grid;grid-template-columns:1fr auto auto;gap:14px;margin-bottom:8px}.dictionary-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:12px}.dictionary-heading h2{margin:0 0 4px;font-size:20px}.dictionary-heading p{margin:0;color:var(--ui-text-secondary,#666)}.dictionary-layout{display:grid;grid-template-columns:minmax(180px,1fr) minmax(210px,1.15fr) minmax(360px,2fr);gap:12px;align-items:stretch}.dictionary-column{padding:0;margin:0;min-height:440px;overflow:hidden}.column-title{min-height:49px;padding:12px 14px;border-bottom:1px solid var(--ui-border,#ddd);display:flex;align-items:center;justify-content:space-between;gap:8px}.column-title>span{color:var(--ui-text-secondary,#666);font-size:12px}.column-title button{padding:4px 8px}.column-actions{display:flex;gap:5px}.dictionary-list{display:grid;padding:8px;gap:4px}.dictionary-list>button{display:grid;gap:3px;text-align:left;border-color:transparent;background:transparent;padding:9px 10px}.dictionary-list>button small{color:var(--ui-text-secondary,#666)}.dictionary-list>button.selected{border-color:var(--ui-accent,#0a84ff);background:var(--ui-selection,#0a84ff12)}.dictionary-list>button.draft-item{border-style:dashed}.list-caption{padding:4px 10px;color:var(--ui-text-secondary,#666)}.preserve-rules{margin:6px 14px 14px;color:var(--ui-text-secondary,#666);font-size:12px}.preserve-rules ul{margin:7px 0;padding-left:20px}.column-empty,.editor-empty{padding:18px;color:var(--ui-text-secondary,#666)}.column-empty p,.editor-empty p{margin:0 0 12px}.editor-column{padding:16px 18px}.editor-title{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:12px}.editor-title>div{display:grid;gap:3px}.editor-title small{color:var(--ui-text-secondary,#666)}.kind-field{display:flex;align-items:center;gap:8px;margin:0}.kind-field select{width:auto;min-width:130px}.editor-help{font-size:12px;line-height:1.5;color:var(--ui-text-secondary,#666);margin:12px 0 16px}.editor-actions{display:flex;align-items:center;gap:8px;border-top:1px solid var(--ui-border,#ddd);padding-top:14px}.muted{color:var(--ui-text-secondary,#666)}.loading{padding:60px;text-align:center}.batch-context-menu{position:fixed;z-index:1000;min-width:184px}.batch-context-menu .batch-delete{width:100%;border:0;background:transparent;text-align:left;color:var(--ui-danger,#b42318)}.batch-context-menu .batch-delete:hover{background:#d44a4a;color:#fff}
+  @media(max-width:900px){.dictionary-layout{grid-template-columns:1fr 1fr}.editor-column{grid-column:1/-1;min-height:0}}
+  @media(max-width:760px){main{padding:16px}.app-header{display:block}.app-header button{margin-top:12px}.import-bar{display:block}.import-controls{min-width:0;width:100%}.review-layout{grid-template-columns:1fr}.batch-list{flex-direction:row;overflow:auto}.batch-list button{min-width:190px}.history-row{grid-template-columns:1fr}.commit-bar{position:sticky;bottom:0;background:var(--ui-surface,#fff)}.dictionary-heading{align-items:flex-start}.dictionary-layout{grid-template-columns:1fr}.dictionary-column{min-height:0}.editor-column{grid-column:auto}.editor-actions{flex-wrap:wrap}button.danger-button{margin-left:0}}
 </style>

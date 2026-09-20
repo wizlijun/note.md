@@ -1,5 +1,6 @@
 use notemd_conversation_dictionary::model::{
-    BatchCommitRequest, NormalizeFormalNamesRequest, ProposalInput, ResolveRequest,
+    BatchCommitRequest, DeleteCorrectionEntryRequest, NormalizeFormalNamesRequest, ProposalInput,
+    ResolveRequest, SaveCorrectionEntryRequest,
 };
 use notemd_conversation_dictionary::DictionaryService;
 use notemd_plugin_sdk as sdk;
@@ -93,7 +94,7 @@ impl ConversationDictionaryPlugin {
                 service.dataset_import_path(&input)
             }
             "approve" | "confirm" | "commit" | "batch-commit" => {
-                Err("human approval is only available in the Conversation Dictionary window".into())
+                Err("human approval is only available in the Conversation Transcript Corrections window".into())
             }
             other => Err(format!("unknown action '{other}'")),
         }?;
@@ -105,7 +106,7 @@ fn cli_success(action: &str, data: Value) -> Value {
     json!({
         "__notemd_cli_result": {
             "exit_code": 0,
-            "message": format!("Conversation Dictionary {action} completed"),
+            "message": format!("Conversation Transcript Corrections {action} completed"),
             "data": data,
         }
     })
@@ -278,6 +279,16 @@ impl sdk::NotemdPlugin for ConversationDictionaryPlugin {
                 let request: NormalizeFormalNamesRequest =
                     serde_json::from_value(params).map_err(|error| error.to_string())?;
                 service.normalize_formal_names(request)
+            }
+            "save_correction_entry" => {
+                let request: SaveCorrectionEntryRequest =
+                    serde_json::from_value(params).map_err(|error| error.to_string())?;
+                service.save_correction_entry(request)
+            }
+            "delete_correction_entry" => {
+                let request: DeleteCorrectionEntryRequest =
+                    serde_json::from_value(params).map_err(|error| error.to_string())?;
+                service.delete_correction_entry(request)
             }
             "batch_evidence" => {
                 let run_id = params

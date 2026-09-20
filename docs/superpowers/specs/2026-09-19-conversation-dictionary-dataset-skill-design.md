@@ -1,9 +1,9 @@
-# 沟通词典：存量字幕生成 Skill 与待审数据集
+# 沟通转写勘误：存量字幕生成 Skill 与待审数据集
 
 - 日期：2026-09-19
 - 最后更新：2026-09-20
 - 状态：v1 数据集协议、生成 Skill、插件导入与集中审阅已实现
-- 产品：Conversation Dictionary / 沟通词典
+- 产品：Conversation Transcript Corrections / 沟通转写勘误
 - 正式文件：`ssot/meetings/conversation-dictionary.yml`
 - 生成 Skill：`build-conversation-dictionary`
 - 关联：[主规格](2026-09-19-speech-alignment-plugin-design.md)、[schema 取舍](2026-09-19-conversation-dictionary-schema-discussion.md)
@@ -14,7 +14,7 @@
 
 用户可以一次发起：
 
-> 用 $build-conversation-dictionary 整理我参与的历史会议和通话字幕，找出可能识别错的人名、术语、同名冲突和可归并写法，生成沟通词典的待审数据集。
+> 用 $build-conversation-dictionary 整理我参与的历史会议和通话字幕，找出可能识别错的人名、术语、同名冲突和可归并写法，生成沟通转写勘误的待审数据集。
 
 可以指定目录、文件清单、时间范围或只处理上次之后的记录。没有指定范围时，先从会议插件归档与用户明确授权的沟通目录形成扫描清单；无法推断边界时问范围，不顺便扫描所有 Vault 文档。
 
@@ -304,7 +304,7 @@ skills/build-conversation-dictionary/
 ```markdown
 ---
 name: build-conversation-dictionary
-description: 根据用户指定的历史沟通字幕，生成沟通词典待审数据集，聚合人名术语的误识别、可能归并写法和冲突，供插件界面确认。用于建立或补全本人沟通词典，不用于普通会议摘要或仅消费的外部节目转写。
+description: 根据用户指定的历史沟通字幕，生成沟通转写勘误待审数据集，聚合人名术语的误识别、可能归并写法和冲突，供插件界面确认。用于建立或补全本人的勘误词典，不用于普通会议摘要或仅消费的外部节目转写。
 ---
 
 # Build Conversation Dictionary

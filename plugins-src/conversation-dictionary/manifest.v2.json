@@ -1,8 +1,8 @@
 {
   "manifest_version": 2,
   "id": "notemd.conversation-dictionary",
-  "name": "Conversation Dictionary",
-  "version": "0.1.5",
+  "name": "Conversation Transcript Corrections",
+  "version": "0.1.6",
   "kind": "native",
   "engines": {
     "notemd": ">=6.916.1"
@@ -24,7 +24,7 @@
       {
         "location": "plugins",
         "submenu": "ai",
-        "label": "Conversation Dictionary…",
+        "label": "Conversation Transcript Corrections…",
         "command": "open"
       }
     ],
@@ -32,7 +32,7 @@
       {
         "id": "main",
         "entry": "index.html",
-        "title": "Conversation Dictionary",
+        "title": "Conversation Transcript Corrections",
         "width": 1060,
         "height": 760,
         "min_width": 720,
@@ -73,22 +73,22 @@
   "request_timeout_seconds": 120,
   "i18n": {
     "zh": {
-      "name": "沟通词典",
+      "name": "沟通转写勘误",
       "description": "整理你参与的会议、通话和语音消息中的正式名、别称与 ASR 误识别，经确认后按场景统一输出正式名。",
-      "menus": { "open": "沟通词典…" },
-      "windows": { "main": "沟通词典" }
+      "menus": { "open": "沟通转写勘误…" },
+      "windows": { "main": "沟通转写勘误" }
     },
     "ja": {
-      "name": "会話辞書",
+      "name": "会話文字起こし訂正",
       "description": "参加した会議、通話、音声メッセージの正式名、別名、ASR誤認識を確認し、文脈ごとに正式名へ統一します。",
-      "menus": { "open": "会話辞書…" },
-      "windows": { "main": "会話辞書" }
+      "menus": { "open": "会話文字起こし訂正…" },
+      "windows": { "main": "会話文字起こし訂正" }
     },
     "de": {
-      "name": "Gesprächswörterbuch",
+      "name": "Gesprächstranskript-Korrekturen",
       "description": "Prüft offizielle Namen, Aliase und ASR-Fehler in eigenen Gesprächen und vereinheitlicht bestätigte Korrekturen je Kontext.",
-      "menus": { "open": "Gesprächswörterbuch…" },
-      "windows": { "main": "Gesprächswörterbuch" }
+      "menus": { "open": "Gesprächstranskript-Korrekturen…" },
+      "windows": { "main": "Gesprächstranskript-Korrekturen" }
     }
   }
 }

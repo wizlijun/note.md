@@ -1,24 +1,24 @@
-# 沟通词典（Conversation Dictionary）——设计规格
+# 沟通转写勘误（Conversation Transcript Corrections）——设计规格
 
 - 日期：2026-09-19
 - 最后更新：2026-09-20
-- 状态：正式协议为 v1；正式名、别称、逐场景规则和旧词典显式迁移已实现
-- 产品中文名：沟通词典
-- 产品英文名：Conversation Dictionary
+- 状态：正式协议为 v1；正式名、别名、逐场景规则、人工维护和旧词典显式迁移已实现
+- 产品中文名：沟通转写勘误
+- 产品英文名：Conversation Transcript Corrections
 - 产品简介：用于你参与的会议、通话和语音消息，校正转写中的人名与术语。
 - 插件 ID：`notemd.conversation-dictionary`
 - 权威词典文件：`conversation-dictionary.yml`
 - 默认 Vault 相对路径：`ssot/meetings/conversation-dictionary.yml`
 
-本文在原设计文件中重写，保留文档路径以便既有引用继续定位。名称统一采用用户确认的 Conversation Dictionary / 沟通词典。仓库当前尚无旧插件实现，因此新插件 ID、CLI、配置与 schema 一并采用 `conversation-dictionary`，无需为未发布设计建立命令兼容层。
+本文在原设计文件中重写，保留文档路径以便既有引用继续定位。用户可见名称统一采用 Conversation Transcript Corrections / 沟通转写勘误；为保证已安装插件和既有 Vault 原位升级，插件 ID、CLI、schema、Skill 名与 `conversation-dictionary.yml` 保持不变。
 
-2026-09-20 已实现 native v2 插件、受控 CLI、历史数据集导入/证据回源/集中编辑与事务提交、确定性 resolve，以及可直接调用的 `build-conversation-dictionary` Skill。首次打开插件窗口会用 Host 提供的当前 Vault 作者身份创建合法空词典，并把生成 Skill 安装到 Vault 的 `.agents/skills/build-conversation-dictionary/`，同时幂等追加根 `AGENTS.md` 受管理区块。当前实现固定默认词典路径，集中审阅支持 `create_domain`、`create_entry`、`add_forms`、`create_rule`，并能把早期 v1 词典显式迁移为统一正式名输出；单次候选决定、直接手工编辑和路径切换仍按本文保留为后续能力。
+2026-09-20 已实现 native v2 插件、受控 CLI、历史数据集导入/证据回源/集中编辑与事务提交、确定性 resolve，以及可直接调用的 `build-conversation-dictionary` Skill。首次打开插件窗口会用 Host 提供的当前 Vault 作者身份创建合法空词典，并把生成 Skill 安装到 Vault 的 `.agents/skills/build-conversation-dictionary/`，同时幂等追加根 `AGENTS.md` 受管理区块。当前实现固定默认词典路径，集中审阅支持 `create_domain`、`create_entry`、`add_forms`、`create_rule`，并能把早期 v1 词典显式迁移为统一正式名输出。人工维护使用“场景 → 词条 → 编辑表单”，可新建场景、创建或关联共享词条、编辑正式名/别名/当前场景错误名、从场景移除词条以及全局删除词条；单次候选决定和路径切换仍按本文保留为后续能力。
 
 用户已进一步确认“共用词条，按场景设规则”。本文已同步为 domains / entries / rules 三个集合；完整情形矩阵、字段取舍与不变量见 [schema 讨论稿](2026-09-19-conversation-dictionary-schema-discussion.md)。以下“仅纠正这次”的默认动作和 suggest/automatic 两种应用方式为推荐设计，尚非用户确认的交互细节。
 
 ## 1. 产品定义
 
-沟通词典维护用户本人参与沟通时，ASR 容易识别错误的人名、组织、产品、项目和专用术语。Agent 提出疑似错误，用户确认正式名、别称与目标词条；后续处理同一沟通场景的转写时复用确认过的规则，并统一输出正式名。
+沟通转写勘误维护用户本人参与沟通时，ASR 容易识别错误的人名、组织、产品、项目和专用术语。Agent 提出疑似错误，用户确认正式名、别名与目标词条；后续处理同一沟通场景的转写时复用确认过的规则，并统一输出正式名。
 
 核心流程：**确认来源范围 → 选择沟通场景 → 查词典 → 提议新词或歧义 → 人工确认 → 在后续转写派生内容中复用。**
 
@@ -59,7 +59,7 @@
 
 ## 2. 使用流程与界面
 
-插件使用独立窗口，窗口标题和插件菜单统一为「沟通词典 / Conversation Dictionary」。业务设置留在插件窗口内，不注册 Host 全局设置。
+插件使用独立窗口，窗口标题和插件菜单统一为「沟通转写勘误 / Conversation Transcript Corrections」。业务设置留在插件窗口内，不注册 Host 全局设置。
 
 ### 2.1 首次使用
 
@@ -75,8 +75,12 @@
 
 两个主要入口：
 
-- **待确认**：默认首页。左侧候选列表，右侧当前候选的来源、上下文、建议与可编辑决定；窄窗口改为列表进入详情。
-- **词典**：按场景查看与搜索词条。场景管理放在此处，避免让少量场景占据独立一级导航。
+- **勘误词典**：首个页签与默认首页。三栏分别为场景、当前场景的词条、单一编辑表单；规则归属场景，并通过别名归一与“可能的错误名”呈现。
+- **待确认**：历史数据集审阅。左侧批次列表，右侧当前批次的来源、上下文、建议与可编辑决定；窄窗口改为列表进入详情。
+
+人工维护先选择场景，再只展示该场景的词条。正式名、类型和别名属于共享词条；可能的错误名只同步当前场景。编辑区用正式名、别名、可能的错误名三行输入，别名和错误名接受中英文逗号、分号或换行分隔，由一次保存事务完成校验、冲突检测与 revision 更新。已有共享词条通过“添加已有”明确关联，不能仅凭同名自动合并。
+
+词条可从当前场景移除，也可全局删除。场景移除只删除当前场景指向该词条的 replace 规则，并且仅在词条仍属于其他场景时提供；全局删除会在确认框显示受影响场景数，然后删除共享词条和所有引用规则。preserve 规则继续按场景显示，不归入某个词条。
 
 “历史”和“设置”是次级入口。待确认增加“历史整理”批次分组，批次主标题使用本地导入时间 `YYYY-MM-DD HH:mm`，run ID 只作辅助标识，并展示生成 Skill 的覆盖、候选聚合和冲突；未接受任何提案的批次可从右键菜单确认删除，删除同时移除本地导入快照，不改正式词典。已有接受项的批次保留为审计历史。详见 [存量生成 Skill 与数据集设计](2026-09-19-conversation-dictionary-dataset-skill-design.md)。待确认按场景筛选；同一误识别的多次出现可聚合展示，但每个来源保留自身范围判断，不能用一次参与证明覆盖其他来源。
 
@@ -328,7 +332,7 @@ rules:
 
 scope_pending 只能补证后进入 pending，或关闭为 dismissed；不能直接作为可用规则批准。单次纠正与规则保存是提交前的意图选择，不是先确认后再弹一次确认。
 
-历史整理允许用户全选、反选并集中批准已展示的变更计划：每条规则仍有独立选择与结果，依赖同时展示；只有与所选提案关联的未解决冲突阻止本次批准，批次中未关联的冲突和 unresolved 项继续留在提示区，不阻塞安全子集。主操作“审批通过并写入正式词典”调用受 CAS 与 journal 保护的提交事务，一次提交整个选择、revision 只增加一次，Agent 不可批准。未知来源、合并既有词条和停用旧规则仍须先明确处理。直接手工新建词条/规则也经过相同人工提交服务，可不关联候选或伪造转写来源。编辑正式名时必须同一事务更新全部 rule target；编辑别称、application、场景以及规则启停也有历史，停用一条映射不影响其他场景规则。
+历史整理允许用户全选、反选并集中批准已展示的变更计划：每条规则仍有独立选择与结果，依赖同时展示；只有与所选提案关联的未解决冲突阻止本次批准，批次中未关联的冲突和 unresolved 项继续留在提示区，不阻塞安全子集。主操作“审批通过并写入正式词典”调用受 CAS 与 journal 保护的提交事务，一次提交整个选择、revision 只增加一次，Agent 不可批准。未知来源、合并既有词条和停用旧规则仍须先明确处理。直接手工维护也经过相同 CAS、journal、事务幂等和冲突检查，不要求伪造转写来源。编辑正式名时必须同一事务更新全部 rule target；编辑别名只同步当前场景的归一规则，其他场景的既有规则保持不变；停用一条映射不影响其他场景规则。
 
 决定保存 UUID、类型、可选候选 ID/hash、来源版本/位置、base revision/hash、最终字段、human actor、时间及结果。源文件可读时提交前校验其 hash 与原观测；已变更则重新定位审阅，不能将旧位置的决定应用到新文本。词典历史批准和当前 enabled 状态分开。
 
@@ -419,24 +423,24 @@ YAML 是可移植的人类确认内容；控制状态记录最近成功提交的
 
 ```markdown
 <!-- notemd:conversation-dictionary:start -->
-## Conversation Dictionary / 沟通词典
+## Conversation Transcript Corrections / 沟通转写勘误
 
 - When the user asks to build or refresh ASR corrections from historical communication transcripts, use `$build-conversation-dictionary` from `.agents/skills/build-conversation-dictionary/`.
 - Analyze only meetings, calls, voice messages, or public conversations the user participated in. Exclude YouTube, podcasts, and other media the user only consumed.
 - Generate an evidence-backed review dataset under `ssot/meetings/conversation-dictionary-drafts/`; never edit `ssot/meetings/conversation-dictionary.yml` directly.
-- Importing a dataset only creates pending proposals. Only the user may approve selected changes in the Conversation Dictionary window.
+- Importing a dataset only creates pending proposals. Only the user may approve selected changes in the Conversation Transcript Corrections window.
 <!-- notemd:conversation-dictionary:end -->
 ```
 
 ### 8.2 配套 Skill
 
-当前实现提供 `skills/build-conversation-dictionary/SKILL.md`。市场安装包附带同版资源，插件首次打开时将固定白名单内的文件安装到当前 Vault 的 `.agents/skills/build-conversation-dictionary/`；不会修改用户全局 Skill 目录。触发条件仅为维护沟通词典，或处理有依据表明用户参与的沟通转写及其派生摘要；不得因“转写、字幕、播客”关键词就触发应用。
+当前实现提供 `skills/build-conversation-dictionary/SKILL.md`。市场安装包附带同版资源，插件首次打开时将固定白名单内的文件安装到当前 Vault 的 `.agents/skills/build-conversation-dictionary/`；不会修改用户全局 Skill 目录。触发条件仅为维护勘误词典，或处理有依据表明用户参与的沟通转写及其派生摘要；不得因“转写、字幕、播客”关键词就触发应用。
 
 Skill 按来源门禁、场景选择、CLI 校验、候选提交的顺序执行。字段定义以同一协议文件为准，不在 Skill 另写漂移版本。插件 UI 显示 Vault 内安装路径和 AGENTS 接入状态；V1 不安装到各 Agent 全局目录。没有 Skill 时 AGENTS 段也必须完整约束来源范围和人工批准。
 
 ### 8.3 存量沟通字幕生成 Skill
 
-新增 `build-conversation-dictionary`，当用户要求建立/补全沟通词典或整理存量字幕时使用。它枚举明确范围的来源，分块分析、跨文件聚合、对照已有规则找冲突，生成 dataset.yml、evidence.jsonl 与 report.md。日常单份会议整理不会自动触发全量扫描。
+新增 `build-conversation-dictionary`，当用户要求建立/补全勘误词典或整理存量字幕时使用。它枚举明确范围的来源，分块分析、跨文件聚合、对照已有规则找冲突，生成 dataset.yml、evidence.jsonl 与 report.md。日常单份会议整理不会自动触发全量扫描。
 
 Skill 支持尚无词典时生成关联的场景/词条/规则草稿，也支持已有词典增量补全；同规则的多次出现聚为一项提案，跨场景分别保留规则。可能同名或近音只能生成归并建议，不能由 Agent 合并实体。
 

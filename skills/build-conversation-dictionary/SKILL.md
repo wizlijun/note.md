@@ -1,9 +1,9 @@
 ---
 name: build-conversation-dictionary
-description: Analyze a user-selected corpus of ASR transcripts from meetings, calls, voice messages, or public conversations the user participated in; generate an evidence-backed Conversation Dictionary review dataset with possible transcription corrections, shared entries, per-context rules, and conflicts. Use when building or refreshing the user's communication dictionary from historical transcripts, not for ordinary summaries or media the user only consumed.
+description: Analyze a user-selected corpus of ASR transcripts from meetings, calls, voice messages, or public conversations the user participated in; generate an evidence-backed Conversation Transcript Corrections review dataset with possible transcription corrections, shared entries, per-context rules, and conflicts. Use when building or refreshing the user's communication corrections from historical transcripts, not for ordinary summaries or media the user only consumed.
 ---
 
-# Build Conversation Dictionary
+# Build Conversation Transcript Corrections Dataset
 
 Generate a review dataset. Never modify `conversation-dictionary.yml`, approve rules, or alter source transcripts.
 
