@@ -4,7 +4,9 @@ import manifest from '../manifest.v2.json'
 describe('manifest', () => {
   it('declares a native singleton window and one action-routed CLI without approval commands', () => {
     expect(manifest.id).toBe('notemd.conversation-dictionary')
+    expect(manifest.version).toBe('0.1.1')
     expect(manifest.kind).toBe('native')
+    expect(manifest.contributes.menus[0].submenu).toBe('ai')
     expect(manifest.contributes.windows[0]).toMatchObject({ id: 'main', open_command: 'open', singleton: true })
     expect(manifest.activation.events).toContain('onCli:conversation-dictionary')
     expect(manifest.contributes.cli).toHaveLength(1)

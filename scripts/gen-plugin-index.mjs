@@ -59,6 +59,7 @@ const OFFICIAL_PLUGIN_CATEGORIES = new Map([
   ['notemd.claude-agent', 'ai'],
   ['notemd.codex-agent', 'ai'],
   ['notemd.deepseek-agent', 'ai'],
+  ['notemd.conversation-dictionary', 'ai'],
   ['notemd.openclaw-chat', 'advance'],
   ['notemd.decision-log', 'reflect'],
   ['notemd.weekly-review', 'reflect'],

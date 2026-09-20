@@ -49,11 +49,12 @@ describe('pluginCategoryFromManifest', () => {
     }
   })
 
-  it('puts the three official agents and Memory in AI without moving other AI-capable plugins', () => {
+  it('puts official AI products in AI without moving other AI-capable plugins', () => {
     for (const id of [
       'notemd.claude-agent',
       'notemd.codex-agent',
       'notemd.deepseek-agent',
+      'notemd.conversation-dictionary',
       'notemd.memory',
     ]) {
       expect(pluginCategoryFromManifest({ id })).toBe('ai')

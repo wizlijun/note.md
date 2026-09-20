@@ -147,7 +147,7 @@ en:{
  entry_lbl:'How to use',host:'Requires note.md ',
  err:"Couldn't load plugins, please retry later.",empty:'No plugins published yet.',
  fallback:'Enable it from the Plugins menu in note.md after install.',
- group_record:'Capture',group_reading:'Read',group_inspiration:'Ideas',
+ group_ai:'AI',group_record:'Capture',group_reading:'Read',group_inspiration:'Ideas',
  group_advance:'Move Forward',group_reflect:'Reflect',group_create:'Create',group_import_export:'Import & Export',group_experience:'Experience',group_other:'Other',system:'System Feature'
 },
 zh:{
@@ -163,7 +163,7 @@ zh:{
  entry_lbl:'使用入口',host:'需要 note.md ',
  err:'暂时无法加载插件列表，请稍后重试。',empty:'暂无已上架插件。',
  fallback:'安装后在 note.md 的「插件」菜单中启用。',
- group_record:'记录',group_reading:'阅读',group_inspiration:'灵感',
+ group_ai:'AI',group_record:'记录',group_reading:'阅读',group_inspiration:'灵感',
  group_advance:'推进',group_reflect:'回顾',group_create:'创作',group_import_export:'导入与导出',group_experience:'体验增强',group_other:'其他',system:'系统功能'
 }};
 // Per-plugin entry, from each manifest's contributes.menus.location.
@@ -187,7 +187,8 @@ var ENTRY_MAP={
  'notemd.weekly-review':{en:'<b>Plugins</b> → <b>Reflect</b> → Weekly Review',zh:'「<b>插件</b>」→「<b>回顾</b>」→ 周检视'},
  'notemd.timeline':{en:'Open a Markdown file with <code>type: timeline</code> to show it automatically, or choose <strong>Plugins → Reflect → View Timeline</strong>. With no file open, the command asks you to choose one. Edit category rules within the view.',zh:'打开 frontmatter 中设有 <code>type: timeline</code> 的 Markdown 文件可自动显示，或选择<strong>插件 → 回顾 → 查看时间轴</strong>；没有打开文件时会要求选择文件。分类规则可在视图内设置。'},
  'notemd.md2pdf':{en:'<b>Plugins</b> → <b>Import & Export</b> → Export to PDF… (also CLI <code>notemd pdf</code>)',zh:'「<b>插件</b>」→「<b>导入与导出</b>」→ 导出为 PDF…（也支持 CLI <code>notemd pdf</code>）'},
- 'notemd.power-mode':{en:'<b>Plugins</b> → <b>Experience</b> → Power Mode',zh:'「<b>插件</b>」→「<b>体验增强</b>」→ 狂暴模式'}
+ 'notemd.power-mode':{en:'<b>Plugins</b> → <b>Experience</b> → Power Mode',zh:'「<b>插件</b>」→「<b>体验增强</b>」→ 狂暴模式'},
+ 'notemd.conversation-dictionary':{en:'<b>Plugins</b> → <b>AI</b> → Conversation Dictionary…',zh:'「<b>插件</b>」→「<b>AI</b>」→ 沟通词典…'}
 };
 function pickLang(){
  var q=new URLSearchParams(location.search).get('lang');
@@ -209,15 +210,15 @@ function applyStatic(){
 function entryFor(id){
  var e=ENTRY_MAP[id];return e?e[lang]:I18N[lang].fallback;
 }
-var GROUP_ORDER=['record','reading','inspiration','advance','reflect','create','import-export','experience','other'];
-var LEGACY_GROUPS={'agents':'advance','capture':'record','capture-import':'record','thinking':'reflect','thinking-review':'reflect','publish-export':'import-export','editing':'experience','editor-extensions':'experience'};
-var OFFICIAL_GROUPS={'notemd.pos-log':'record','notemd.roam-import':'import-export','notemd.ebook-import':'reading','notemd.trace-source':'reading','notemd.idea-spark':'inspiration','notemd.next':'advance','notemd.claude-agent':'advance','notemd.codex-agent':'advance','notemd.deepseek-agent':'advance','notemd.openclaw-chat':'advance','notemd.decision-log':'reflect','notemd.weekly-review':'reflect','notemd.md2pdf':'import-export','notemd.power-mode':'experience'};
+var GROUP_ORDER=['ai','record','reading','inspiration','advance','reflect','create','import-export','experience','other'];
+var LEGACY_GROUPS={'agents':'ai','capture':'record','capture-import':'record','thinking':'reflect','thinking-review':'reflect','publish-export':'import-export','editing':'experience','editor-extensions':'experience'};
+var OFFICIAL_GROUPS={'notemd.pos-log':'record','notemd.roam-import':'import-export','notemd.ebook-import':'reading','notemd.trace-source':'reading','notemd.idea-spark':'inspiration','notemd.next':'advance','notemd.claude-agent':'ai','notemd.codex-agent':'ai','notemd.deepseek-agent':'ai','notemd.conversation-dictionary':'ai','notemd.memory':'ai','notemd.openclaw-chat':'advance','notemd.decision-log':'reflect','notemd.weekly-review':'reflect','notemd.timeline':'reflect','notemd.md2pdf':'import-export','notemd.power-mode':'experience'};
 var AI_ROLES={'notemd.ebook-import':{en:'AI Read',zh:'AI 阅读'},'notemd.idea-spark':{en:'AI Inspire',zh:'AI 启发'},'notemd.trace-source':{en:'AI Reason',zh:'AI 推理'},'notemd.claude-agent':{en:'AI Action',zh:'AI 执行'},'notemd.codex-agent':{en:'AI Action',zh:'AI 执行'},'notemd.deepseek-agent':{en:'AI Action',zh:'AI 执行'},'notemd.openclaw-chat':{en:'AI Action',zh:'AI 执行'}};
 function normalizeGroup(value,id){return OFFICIAL_GROUPS[id]||(GROUP_ORDER.indexOf(value)>=0?value:(LEGACY_GROUPS[value]||'other'));}
 function groupLabel(key){
  return I18N[lang]['group_'+key.replace(/-/g,'_')]||I18N[lang].group_other;
 }
-function isSystemGroup(key){return key==='import-export'||key==='experience';}
+function isSystemGroup(key){return key==='ai'||key==='import-export'||key==='experience';}
 function groupPlugins(list){
  var groups={};GROUP_ORDER.forEach(function(key){groups[key]=[];});
  (list||[]).forEach(function(plugin){groups[normalizeGroup(plugin.category,plugin.id)].push(plugin);});

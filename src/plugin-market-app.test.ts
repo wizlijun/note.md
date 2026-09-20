@@ -305,21 +305,23 @@ describe('plugin market staged loading', () => {
     expect(document.body.textContent).toContain('追溯文字的原始出处。')
   })
 
-  it('puts the three agents and Memory in the first system category without moving other AI plugins', async () => {
+  it('puts official AI products in the first system category without moving other AI plugins', async () => {
     const claude = entry('notemd.claude-agent', 'Claude Agent')
     const codex = entry('notemd.codex-agent', 'Codex Agent')
     const deepseek = entry('notemd.deepseek-agent', 'DeepSeek Agent')
     const memory = entry('notemd.memory', 'Memory')
+    const dictionary = entry('notemd.conversation-dictionary', 'Conversation Dictionary')
     const ebook = entry('notemd.ebook-import', 'Ebook Import')
     for (const item of [claude, codex, deepseek]) item.category = 'agents'
     memory.category = 'thinking-review'
+    dictionary.category = 'editing'
     ebook.category = 'reading'
     const next = entry('notemd.next', 'Next')
     next.category = 'thinking'
     mocks.invoke.mockImplementation((command: string) => {
       if (command === 'plugin_market_installed') return Promise.resolve([])
       if (command === 'plugin_market_index') {
-        return Promise.resolve({ plugins: [next, ebook, memory, codex, claude, deepseek] })
+        return Promise.resolve({ plugins: [next, ebook, memory, dictionary, codex, claude, deepseek] })
       }
       return Promise.resolve()
     })
@@ -330,11 +332,12 @@ describe('plugin market staged loading', () => {
     expect(categories[0]?.dataset.category).toBe('ai')
     expect(categories[0]?.querySelector('h2')?.textContent).toBe('AI')
     expect(categories[0]?.querySelector('.system-badge')).not.toBeNull()
-    expect(categories[0]?.querySelectorAll('.plugin-card')).toHaveLength(4)
+    expect(categories[0]?.querySelectorAll('.plugin-card')).toHaveLength(5)
     expect(categories[0]?.textContent).toContain('Claude Agent')
     expect(categories[0]?.textContent).toContain('Codex Agent')
     expect(categories[0]?.textContent).toContain('DeepSeek Agent')
     expect(categories[0]?.textContent).toContain('Memory')
+    expect(categories[0]?.textContent).toContain('Conversation Dictionary')
     expect(document.querySelector('[data-plugin-id="notemd.codex-agent"] .ai-badge')?.textContent)
       .toContain('AI Action')
     expect(document.querySelector('[data-plugin-id="notemd.next"] .ai-badge')).toBeNull()

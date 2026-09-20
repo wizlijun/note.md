@@ -253,6 +253,7 @@ pub fn plugin_menu_group_for_plugin(plugin_id: &str, group: Option<&str>) -> &'s
         "notemd.claude-agent"
         | "notemd.codex-agent"
         | "notemd.deepseek-agent"
+        | "notemd.conversation-dictionary"
         | "notemd.memory" => "ai",
         "notemd.decision-log" | "notemd.weekly-review" | "notemd.timeline" => "reflect",
         "notemd.roam-import" | "notemd.md2pdf" => "import-export",
@@ -452,6 +453,7 @@ mod tests {
     fn first_party_plugins_override_ambiguous_legacy_groups() {
         assert_eq!(plugin_menu_group_for_plugin("notemd.claude-agent", Some("advance")), "ai");
         assert_eq!(plugin_menu_group_for_plugin("notemd.memory", Some("reflect")), "ai");
+        assert_eq!(plugin_menu_group_for_plugin("notemd.conversation-dictionary", Some("editing")), "ai");
         assert_eq!(plugin_menu_group_for_plugin("notemd.openclaw-chat", Some("agents")), "advance");
         assert_eq!(plugin_menu_group_for_plugin("notemd.idea-spark", Some("thinking")), "inspiration");
         assert_eq!(plugin_menu_group_for_plugin("notemd.trace-source", Some("capture")), "reading");

@@ -57,6 +57,7 @@ describe('plugin capability categories', () => {
     expect(normalizePluginCategory('advance', 'notemd.claude-agent')).toBe('ai')
     expect(normalizePluginCategory('advance', 'notemd.codex-agent')).toBe('ai')
     expect(normalizePluginCategory('advance', 'notemd.deepseek-agent')).toBe('ai')
+    expect(normalizePluginCategory('editing', 'notemd.conversation-dictionary')).toBe('ai')
     expect(normalizePluginCategory('reflect', 'notemd.memory')).toBe('ai')
     expect(normalizePluginCategory('agents', 'notemd.openclaw-chat')).toBe('advance')
     expect(normalizePluginCategory('capture', 'notemd.idea-spark')).toBe('inspiration')

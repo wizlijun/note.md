@@ -38,6 +38,7 @@ export const OFFICIAL_PLUGIN_CATEGORIES: Readonly<Record<string, PluginCategory>
   'notemd.claude-agent': 'ai',
   'notemd.codex-agent': 'ai',
   'notemd.deepseek-agent': 'ai',
+  'notemd.conversation-dictionary': 'ai',
   'notemd.openclaw-chat': 'advance',
   'notemd.decision-log': 'reflect',
   'notemd.weekly-review': 'reflect',
