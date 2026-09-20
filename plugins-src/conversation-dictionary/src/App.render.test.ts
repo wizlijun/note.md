@@ -336,16 +336,20 @@ describe('Conversation Transcript Corrections window', () => {
     await vi.waitFor(() => expect(request).toHaveBeenCalledWith('plugin.save_correction_entry', expect.objectContaining({ domain_id: 'public', formal_name: '小王', aliases: [], mistaken_forms: [] })))
   })
 
-  it('moves an unassigned entry by drag and drop and selects the persisted target context', async () => {
+  it('moves an entry by drag and drop while staying in the source context', async () => {
     const data = publicFixture()
+    data.dictionary!.entries.push({ id: 'e_next', kind: 'person', label: '下一位', forms: ['下一位'], description: '' })
     const { host, request } = await mountDictionary(data, (method, params) => {
       if (method === 'plugin.move_correction_entry') { data.dictionary!.entry_domains!.e_source = [params.target_domain_id]; return {} }
       throw new Error(method)
     })
     dragEntry(host)
     await vi.waitFor(() => expect(request).toHaveBeenCalledWith('plugin.move_correction_entry', expect.objectContaining({ entry_id: 'e_source', source_domain_id: 'public', target_domain_id: 'd_work', expected_revision: 1, expected_sha256: 'a'.repeat(64) })))
-    await vi.waitFor(() => expect(host.querySelector('.context-column .selected')?.textContent).toContain('工作会议'))
-    expect(host.querySelector('.entry-column')?.textContent).toContain('小王')
+    await vi.waitFor(() => expect(host.querySelector('.entry-column')?.textContent).not.toContain('小王'))
+    expect(host.querySelector('.context-column .selected')?.textContent).toContain('public（公共）')
+    expect(host.querySelector<HTMLInputElement>('.editor-column input')?.value).toBe('下一位')
+    host.querySelector<HTMLButtonElement>('[data-drop-domain="d_work"]')!.click()
+    await vi.waitFor(() => expect(host.querySelector('.entry-column')?.textContent).toContain('小王'))
     expect(host.querySelector('.entry-column')?.textContent).toContain('王明')
   })
 
@@ -453,7 +457,7 @@ describe('Conversation Transcript Corrections window', () => {
     expect(host.querySelector('.entry-column')?.textContent).not.toContain('小王')
   })
 
-  it('locks editing after a committed move cannot reload and recovers to the correct entry', async () => {
+  it('locks editing after a committed move cannot reload and recovers in the original context', async () => {
     const data = publicFixture()
     let committed = false
     let failReload = true
@@ -477,9 +481,10 @@ describe('Conversation Transcript Corrections window', () => {
     expect(host.querySelector('.context-column .selected')?.textContent).toContain('public（公共）')
     failReload = false
     ;[...host.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent === '重新加载')!.click()
-    await vi.waitFor(() => expect(host.querySelector('.context-column .selected')?.textContent).toContain('工作会议'))
-    expect(host.querySelector<HTMLFieldSetElement>('.dictionary-fieldset')?.disabled).toBe(false)
-    expect(host.querySelector<HTMLInputElement>('.editor-column input')?.value).toBe('小王')
+    await vi.waitFor(() => expect(host.querySelector<HTMLFieldSetElement>('.dictionary-fieldset')?.disabled).toBe(false))
+    expect(host.querySelector('.context-column .selected')?.textContent).toContain('public（公共）')
+    expect(host.querySelector('.entry-column')?.textContent).not.toContain('小王')
+    expect(host.querySelector<HTMLInputElement>('.editor-column input')?.value).toBe('')
     expect(request.mock.calls.filter(([method]) => method === 'plugin.move_correction_entry')).toHaveLength(1)
   })
 

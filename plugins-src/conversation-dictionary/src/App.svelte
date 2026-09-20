@@ -531,7 +531,7 @@
     const targetDomainId = dragged ? domainAtPoint(event.clientX, event.clientY) : ''
     cancelEntryDrag()
     if (dragged && targetDomainId && targetDomainId !== dragged.sourceDomainId) {
-      await moveEntry(dragged.entryId, dragged.sourceDomainId, targetDomainId)
+      await moveEntry(dragged.entryId, dragged.sourceDomainId, targetDomainId, true)
     }
   }
 
@@ -555,9 +555,13 @@
     event.preventDefault(); event.stopImmediatePropagation()
   }
 
-  async function moveEntry(entryId: string, sourceDomainId: string, targetDomainId: string) {
+  async function moveEntry(entryId: string, sourceDomainId: string, targetDomainId: string, stayInSource = false) {
     if (!snapshot?.dictionary || busy || snapshot.formal_name_migration.required || !targetDomainId || sourceDomainId === targetDomainId) return
     if (!canDiscardDraft()) return
+    const entries = entriesForDomain(sourceDomainId)
+    const remaining = entries.filter((entry) => entry.id !== entryId)
+    const nextEntryId = selectedEntryId !== entryId ? selectedEntryId
+      : remaining[Math.min(entries.findIndex((entry) => entry.id === entryId), remaining.length - 1)]?.id || ''
     busy = true; error = ''; notice = ''
     try {
       await api.moveCorrectionEntry({
@@ -566,7 +570,9 @@
         expected_sha256: snapshot.formal_name_migration.expected_sha256,
         entry_id: entryId, source_domain_id: sourceDomainId, target_domain_id: targetDomainId,
       })
-      await refreshCommitted({ domainId: targetDomainId, entryId })
+      await refreshCommitted(stayInSource
+        ? { domainId: sourceDomainId, entryId: nextEntryId }
+        : { domainId: targetDomainId, entryId })
       notice = t('词条已移入目标场景', 'Entry moved to the selected context')
     } catch (value) { error = value instanceof Error ? value.message : String(value) }
     finally { busy = false }
