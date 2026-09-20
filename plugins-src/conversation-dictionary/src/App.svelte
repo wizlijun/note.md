@@ -18,6 +18,7 @@
   let loadingEvidence = new Set<string>()
   let migrationNames: Record<string, string> = {}
   let renamingFormalNames = false
+  let batchMenu: { runId: string; x: number; y: number } | null = null
 
   type MigrationEffect = {
     kind: 'update' | 'remove' | 'consolidate' | 'add_alias'
@@ -117,9 +118,21 @@
     const next = new Set(selected); next.has(id) ? next.delete(id) : next.add(id); selected = next
   }
 
-  function selectSafe(batch: ReviewBatch) {
-    if (batch.dataset.conflicts.length) { selected = new Set(); return }
-    selected = new Set(pendingProposals(batch).filter((proposal) => proposal.kind !== 'add_forms' || proposal.depends_on.every((id) => batch.proposal_states[id]?.status === 'accepted')).map((proposal) => proposal.id))
+  function selectAll(batch: ReviewBatch) {
+    selected = new Set(pendingProposals(batch).map((proposal) => proposal.id))
+  }
+
+  function invertSelection(batch: ReviewBatch) {
+    selected = new Set(pendingProposals(batch).map((proposal) => proposal.id).filter((id) => !selected.has(id)))
+  }
+
+  function conflictProposalIds(conflict: Record<string, any>): string[] {
+    return [...(conflict.proposal_ids || []), ...(conflict.rule_or_proposal_ids || [])]
+  }
+
+  function selectedConflictCount(batch: ReviewBatch): number {
+    const ids = new Set(selectedWithDependencies(batch))
+    return batch.dataset.conflicts.filter((conflict) => conflictProposalIds(conflict as Record<string, any>).some((id) => ids.has(id))).length
   }
 
   async function toggleEvidence(batch: ReviewBatch, proposal: DatasetProposal) {
@@ -155,9 +168,8 @@
   }
 
   async function commitSelected(batch: ReviewBatch) {
-    if (batch.dataset.conflicts.length) return
     const ids = selectedWithDependencies(batch)
-    if (!ids.length) return
+    if (!ids.length || selectedConflictCount(batch)) return
     const proposals = new Map(batch.dataset.proposals.map((proposal) => [proposal.id, proposal]))
     await run(() => api.commitBatch({
       run_id: batch.run_id,
@@ -170,7 +182,7 @@
         review_revision: batch.proposal_states[id].revision,
         ...(edited[proposalKey(batch, id)] ? { value: edited[proposalKey(batch, id)] } : {}),
       })),
-    }), t(`已保存 ${ids.length} 项更改`, `Saved ${ids.length} changes`))
+    }), t(`已审批通过 ${ids.length} 项并写入正式词典`, `Approved ${ids.length} items and wrote them to the formal dictionary`))
     for (const id of ids) { delete edited[proposalKey(batch, id)]; selected.delete(id); proposals.delete(id) }
     edited = { ...edited }; selected = new Set(selected)
   }
@@ -287,8 +299,39 @@
     catch (value) { error = value instanceof Error ? value.message : String(value) }
   }
 
+  function formatBatchTime(value: string): string {
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return value
+    const pad = (part: number) => String(part).padStart(2, '0')
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
+  }
+
+  function openBatchMenu(event: MouseEvent, batch: ReviewBatch) {
+    event.preventDefault()
+    const width = 190
+    const height = 42
+    batchMenu = {
+      runId: batch.run_id,
+      x: Math.max(6, Math.min(event.clientX, window.innerWidth - width - 6)),
+      y: Math.max(6, Math.min(event.clientY, window.innerHeight - height - 6)),
+    }
+  }
+
+  async function deleteBatch(runId: string) {
+    batchMenu = null
+    const batch = snapshot?.batches.find((item) => item.run_id === runId)
+    if (!batch) return
+    if (!window.confirm(t(`删除 ${formatBatchTime(batch.imported_at)} 导入的待审数据集？`, `Delete the review dataset imported at ${formatBatchTime(batch.imported_at)}?`))) return
+    for (const key of Object.keys(edited)) if (key.startsWith(`${runId}\u0000`)) delete edited[key]
+    for (const key of Object.keys(evidence)) if (key.startsWith(`${runId}\u0000`)) delete evidence[key]
+    selected = new Set()
+    await run(() => api.deleteBatch(runId), t('待审数据集已删除', 'Review dataset deleted'))
+  }
+
   onMount(() => { initializeAndRefresh() })
 </script>
+
+<svelte:window onclick={() => batchMenu = null} onkeydown={(event) => { if (event.key === 'Escape') batchMenu = null }} />
 
 <svelte:head><title>{t('沟通词典', 'Conversation Dictionary')}</title></svelte:head>
 
@@ -376,9 +419,9 @@
       <div class="review-layout">
         <aside class="batch-list">
           {#each snapshot.batches as batch}
-            <button class:selected={selectedBatchId === batch.run_id} onclick={() => { selectedBatchId = batch.run_id; selected = new Set() }}>
-              <strong>{batch.run_id.slice(0, 8)}</strong><span>{pendingProposals(batch).length} {t('项待确认', 'pending')}</span>
-              <small>{batch.dataset.coverage.processed}/{batch.dataset.coverage.discovered} {t('份来源已处理', 'sources processed')}</small>
+            <button class:selected={selectedBatchId === batch.run_id} title={batch.run_id} onclick={() => { selectedBatchId = batch.run_id; selected = new Set() }} oncontextmenu={(event) => openBatchMenu(event, batch)}>
+              <strong>{formatBatchTime(batch.imported_at)}</strong><span>{pendingProposals(batch).length} {t('项待确认', 'pending')}</span>
+              <small>{batch.dataset.coverage.processed}/{batch.dataset.coverage.discovered} {t('份来源已处理', 'sources processed')} · {batch.run_id.slice(0, 8)}</small>
             </button>
           {/each}
         </aside>
@@ -387,12 +430,12 @@
           <section class="proposal-pane">
             <div class="batch-summary">
               <div><h2>{t('待审数据集', 'Review dataset')}</h2><p>{batch.dataset.state} · {batch.dataset.coverage.chunks_processed}/{batch.dataset.coverage.chunks_planned} chunks · {batch.dataset.conflicts.length} {t('个冲突', 'conflicts')}</p></div>
-              <button onclick={() => selectSafe(batch)}>{t('选择可处理项', 'Select reviewable')}</button>
+              <div class="selection-actions"><button onclick={() => selectAll(batch)}>{t('全选', 'Select all')}</button><button onclick={() => invertSelection(batch)}>{t('反选', 'Invert')}</button></div>
             </div>
             {#if batch.dataset.conflicts.length || batch.dataset.unresolved.length}
               <div class="unresolved-banner">
                 <strong>{t('仍有需要单独处理的项目', 'Some items still need separate review')}</strong>
-                <span>{t('它们不会随选中提案写入词典；请修订数据集后重新导入。', 'They are not written with selected proposals. Revise the dataset and import a new run.')}</span>
+                <span>{t('未关联到所选提案的冲突不会阻止审批；若选中关联项，请修改选择或导入修订后的数据集。', 'Conflicts unrelated to the selection do not block approval. If a selected item is involved, revise the selection or import a corrected dataset.')}</span>
                 <details><summary>{t('查看详情', 'View details')}</summary><pre>{JSON.stringify([...batch.dataset.conflicts, ...batch.dataset.unresolved], null, 2)}</pre></details>
               </div>
             {/if}
@@ -443,7 +486,7 @@
                 </article>
               {/each}
             </div>
-            <footer class="commit-bar"><span>{selectedWithDependencies(batch).length} {t('项更改（含依赖）', 'changes including dependencies')}</span><button class="primary" onclick={() => commitSelected(batch)} disabled={busy || selected.size === 0 || batch.dataset.conflicts.length > 0 || snapshot.formal_name_migration.required}>{t('保存选中的更改', 'Save selected changes')}</button></footer>
+            <footer class="commit-bar"><div><span>{selectedWithDependencies(batch).length} {t('项待审批（含依赖）', 'items to approve including dependencies')}</span>{#if selectedConflictCount(batch)}<small class="blocking-reason">{t(`所选内容涉及 ${selectedConflictCount(batch)} 个未解决冲突`, `${selectedConflictCount(batch)} unresolved conflicts affect the selection`)}</small>{:else if snapshot.formal_name_migration.required}<small class="blocking-reason">{t('请先完成上方正式名确认', 'Confirm formal names above first')}</small>{/if}</div><button class="primary" onclick={() => commitSelected(batch)} disabled={busy || selected.size === 0 || selectedConflictCount(batch) > 0 || snapshot.formal_name_migration.required}>{t('审批通过并写入正式词典', 'Approve and write to formal dictionary')}</button></footer>
           </section>
         {/if}
       </div>
@@ -458,7 +501,13 @@
   {/if}
 </main>
 
+{#if batchMenu}
+  <div class="batch-context-menu menu-panel" role="menu" tabindex="-1" style={`left:${batchMenu.x}px;top:${batchMenu.y}px`}>
+    <button class="batch-delete menu-row" role="menuitem" onclick={() => deleteBatch(batchMenu!.runId)}>{t('删除待审数据集', 'Delete review dataset')}</button>
+  </div>
+{/if}
+
 <style>
-  :global(*){box-sizing:border-box} :global(body){margin:0;background:var(--ui-background,#f5f5f7);color:var(--ui-text,#1d1d1f);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif} button,input,select,textarea{font:inherit} button{border:1px solid var(--ui-border,#d0d0d5);border-radius:8px;background:var(--ui-control,#fff);color:inherit;padding:7px 12px;cursor:pointer} button:disabled{opacity:.5;cursor:default} button.primary{background:var(--ui-accent,#0a84ff);border-color:var(--ui-accent,#0a84ff);color:white} button.secondary{white-space:nowrap} main{min-height:100vh;padding:22px 26px}.app-header{display:flex;justify-content:space-between;gap:20px;align-items:flex-start}.app-header h1{font-size:25px;margin:0 0 4px}.app-header p{margin:0;color:var(--ui-text-secondary,#666);max-width:720px}.tabs{display:flex;gap:4px;border-bottom:1px solid var(--ui-border,#ddd);margin:20px 0}.tabs button{border:0;background:none;border-radius:6px 6px 0 0;padding:9px 14px;color:var(--ui-text-secondary,#666)}.tabs button.active{color:var(--ui-accent,#0a84ff);box-shadow:inset 0 -2px var(--ui-accent,#0a84ff)}.banner{padding:10px 12px;border-radius:8px;margin-bottom:12px}.banner.error{background:#ff3b3018;color:#c3271f}.banner.success{background:#34c75918;color:#217a37}section{background:var(--ui-surface,#fff);border:1px solid var(--ui-border,#ddd);border-radius:12px;padding:18px;margin-bottom:16px}section h2{margin:0 0 10px;font-size:18px}.section-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}.section-heading h2{margin:0}label{display:grid;gap:5px;margin:10px 0}label span{font-size:12px;color:var(--ui-text-secondary,#666)}input,select,textarea{width:100%;border:1px solid var(--ui-border,#ccc);border-radius:7px;background:var(--ui-input,#fff);color:inherit;padding:8px 9px}textarea{resize:vertical}.empty-state{max-width:640px;margin:50px auto;text-align:left}.empty-state.compact{margin:20px auto}.teaching-example{margin-top:14px;border:1px dashed var(--ui-border,#ccc);border-radius:10px;padding:13px;background:var(--ui-selection,#0a84ff0a)}.teaching-example p{margin:10px 0}.example-heading{display:flex;justify-content:space-between;gap:12px}.example-heading span,.teaching-example small{color:var(--ui-text-secondary,#666)}.migration-panel{border-color:#ff9f0a;background:#ff9f0a0d}.migration-panel>p{color:var(--ui-text-secondary,#666)}.migration-panel>button+button{margin-left:8px}.migration-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:10px;margin:14px 0}.migration-list article{border:1px solid var(--ui-border,#ddd);border-radius:9px;padding:10px;background:var(--ui-surface,#fff)}.migration-list p{font-size:13px}.migration-list ul{margin:7px 0;padding-left:18px}.rule-kind{display:inline-block;font-size:11px;color:var(--ui-text-secondary,#666);margin-right:4px}.import-bar{display:flex;align-items:flex-end;justify-content:space-between;gap:22px}.import-bar p,.batch-summary p{margin:4px 0;color:var(--ui-text-secondary,#666)}.import-controls{display:flex;gap:8px;min-width:min(480px,50%)}.review-layout{display:grid;grid-template-columns:230px 1fr;gap:14px}.batch-list{display:flex;flex-direction:column;gap:7px}.batch-list button{text-align:left;display:grid;gap:3px;background:transparent}.batch-list button.selected{background:var(--ui-selection,#0a84ff18);border-color:var(--ui-accent,#0a84ff)}.batch-list span,.batch-list small{color:var(--ui-text-secondary,#666)}.proposal-pane{padding:0;overflow:hidden}.batch-summary,.commit-bar{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px 18px}.unresolved-banner{margin:0 18px 12px;padding:10px 12px;border-radius:8px;background:#ff9f0a18;color:#7a4c00;display:grid;gap:3px;font-size:13px}.unresolved-banner details{margin-top:4px}.unresolved-banner pre{max-height:180px;overflow:auto;white-space:pre-wrap;color:inherit}.proposal-list{border-top:1px solid var(--ui-border,#ddd);border-bottom:1px solid var(--ui-border,#ddd);max-height:510px;overflow:auto;padding:10px}.proposal-list article{border:1px solid var(--ui-border,#ddd);border-radius:10px;padding:12px;margin-bottom:9px}.proposal-list article.selected{border-color:var(--ui-accent,#0a84ff);background:var(--ui-selection,#0a84ff0f)}.select-row{display:flex;align-items:center;gap:9px;margin:0}.select-row input{width:auto}.select-row span{margin-left:auto}.reason{font-size:13px;color:var(--ui-text-secondary,#666)}.reference-summary{display:grid;gap:3px;margin:10px 0;padding:8px 9px;border-radius:7px;background:var(--ui-selection,#0a84ff0a)}.reference-summary span{font-size:12px;color:var(--ui-text-secondary,#666)}.reference-summary strong{font-size:13px}.evidence-toggle{margin:0 0 6px;padding:4px 8px;font-size:12px}.evidence-list{display:grid;gap:7px;margin:4px 0 10px}.evidence-list blockquote{margin:0;padding:9px 10px;border-left:3px solid var(--ui-accent,#0a84ff);background:var(--ui-selection,#0a84ff0a);border-radius:0 7px 7px 0}.evidence-list p{margin:0 0 6px;white-space:pre-wrap}.evidence-list footer{display:flex;align-items:center;justify-content:space-between;gap:8px;color:var(--ui-text-secondary,#666);font-size:12px}.evidence-list footer button{padding:3px 7px}.evidence-list small{display:block;margin-top:5px;color:var(--ui-text-secondary,#666)}.preserve{font-size:13px}.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}.cards article,.entry,.history-row{border:1px solid var(--ui-border,#ddd);border-radius:9px;padding:12px}.cards h3,.entry h3{margin:0 0 5px}.cards p,.entry p{margin:0 0 5px}.entry{display:grid;grid-template-columns:minmax(180px,1fr) 2fr;gap:16px;margin-bottom:9px}.entry ul{margin:0;padding-left:20px}.history-row{display:grid;grid-template-columns:1fr auto auto;gap:14px;margin-bottom:8px}.muted{color:var(--ui-text-secondary,#666)}.loading{padding:60px;text-align:center}
+  :global(*){box-sizing:border-box} :global(body){margin:0;background:var(--ui-background,#f5f5f7);color:var(--ui-text,#1d1d1f);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif} button,input,select,textarea{font:inherit} button{border:1px solid var(--ui-border,#d0d0d5);border-radius:8px;background:var(--ui-control,#fff);color:inherit;padding:7px 12px;cursor:pointer} button:disabled{opacity:.5;cursor:default} button.primary{background:var(--ui-accent,#0a84ff);border-color:var(--ui-accent,#0a84ff);color:white} button.secondary{white-space:nowrap} main{min-height:100vh;padding:22px 26px}.app-header{display:flex;justify-content:space-between;gap:20px;align-items:flex-start}.app-header h1{font-size:25px;margin:0 0 4px}.app-header p{margin:0;color:var(--ui-text-secondary,#666);max-width:720px}.tabs{display:flex;gap:4px;border-bottom:1px solid var(--ui-border,#ddd);margin:20px 0}.tabs button{border:0;background:none;border-radius:6px 6px 0 0;padding:9px 14px;color:var(--ui-text-secondary,#666)}.tabs button.active{color:var(--ui-accent,#0a84ff);box-shadow:inset 0 -2px var(--ui-accent,#0a84ff)}.banner{padding:10px 12px;border-radius:8px;margin-bottom:12px}.banner.error{background:#ff3b3018;color:#c3271f}.banner.success{background:#34c75918;color:#217a37}section{background:var(--ui-surface,#fff);border:1px solid var(--ui-border,#ddd);border-radius:12px;padding:18px;margin-bottom:16px}section h2{margin:0 0 10px;font-size:18px}.section-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}.section-heading h2{margin:0}label{display:grid;gap:5px;margin:10px 0}label span{font-size:12px;color:var(--ui-text-secondary,#666)}input,select,textarea{width:100%;border:1px solid var(--ui-border,#ccc);border-radius:7px;background:var(--ui-input,#fff);color:inherit;padding:8px 9px}textarea{resize:vertical}.empty-state{max-width:640px;margin:50px auto;text-align:left}.empty-state.compact{margin:20px auto}.teaching-example{margin-top:14px;border:1px dashed var(--ui-border,#ccc);border-radius:10px;padding:13px;background:var(--ui-selection,#0a84ff0a)}.teaching-example p{margin:10px 0}.example-heading{display:flex;justify-content:space-between;gap:12px}.example-heading span,.teaching-example small{color:var(--ui-text-secondary,#666)}.migration-panel{border-color:#ff9f0a;background:#ff9f0a0d}.migration-panel>p{color:var(--ui-text-secondary,#666)}.migration-panel>button+button{margin-left:8px}.migration-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:10px;margin:14px 0}.migration-list article{border:1px solid var(--ui-border,#ddd);border-radius:9px;padding:10px;background:var(--ui-surface,#fff)}.migration-list p{font-size:13px}.migration-list ul{margin:7px 0;padding-left:18px}.rule-kind{display:inline-block;font-size:11px;color:var(--ui-text-secondary,#666);margin-right:4px}.import-bar{display:flex;align-items:flex-end;justify-content:space-between;gap:22px}.import-bar p,.batch-summary p{margin:4px 0;color:var(--ui-text-secondary,#666)}.import-controls{display:flex;gap:8px;min-width:min(480px,50%)}.review-layout{display:grid;grid-template-columns:230px 1fr;gap:14px}.batch-list{display:flex;flex-direction:column;gap:7px}.batch-list button{text-align:left;display:grid;gap:3px;background:transparent}.batch-list button.selected{background:var(--ui-selection,#0a84ff18);border-color:var(--ui-accent,#0a84ff)}.batch-list span,.batch-list small{color:var(--ui-text-secondary,#666)}.proposal-pane{padding:0;overflow:hidden}.batch-summary,.commit-bar{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px 18px}.selection-actions{display:flex;gap:7px}.commit-bar>div{display:grid;gap:3px}.blocking-reason{color:var(--ui-danger,#b42318)}.unresolved-banner{margin:0 18px 12px;padding:10px 12px;border-radius:8px;background:#ff9f0a18;color:#7a4c00;display:grid;gap:3px;font-size:13px}.unresolved-banner details{margin-top:4px}.unresolved-banner pre{max-height:180px;overflow:auto;white-space:pre-wrap;color:inherit}.proposal-list{border-top:1px solid var(--ui-border,#ddd);border-bottom:1px solid var(--ui-border,#ddd);max-height:510px;overflow:auto;padding:10px}.proposal-list article{border:1px solid var(--ui-border,#ddd);border-radius:10px;padding:12px;margin-bottom:9px}.proposal-list article.selected{border-color:var(--ui-accent,#0a84ff);background:var(--ui-selection,#0a84ff0f)}.select-row{display:flex;align-items:center;gap:9px;margin:0}.select-row input{width:auto}.select-row span{margin-left:auto}.reason{font-size:13px;color:var(--ui-text-secondary,#666)}.reference-summary{display:grid;gap:3px;margin:10px 0;padding:8px 9px;border-radius:7px;background:var(--ui-selection,#0a84ff0a)}.reference-summary span{font-size:12px;color:var(--ui-text-secondary,#666)}.reference-summary strong{font-size:13px}.evidence-toggle{margin:0 0 6px;padding:4px 8px;font-size:12px}.evidence-list{display:grid;gap:7px;margin:4px 0 10px}.evidence-list blockquote{margin:0;padding:9px 10px;border-left:3px solid var(--ui-accent,#0a84ff);background:var(--ui-selection,#0a84ff0a);border-radius:0 7px 7px 0}.evidence-list p{margin:0 0 6px;white-space:pre-wrap}.evidence-list footer{display:flex;align-items:center;justify-content:space-between;gap:8px;color:var(--ui-text-secondary,#666);font-size:12px}.evidence-list footer button{padding:3px 7px}.evidence-list small{display:block;margin-top:5px;color:var(--ui-text-secondary,#666)}.preserve{font-size:13px}.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}.cards article,.entry,.history-row{border:1px solid var(--ui-border,#ddd);border-radius:9px;padding:12px}.cards h3,.entry h3{margin:0 0 5px}.cards p,.entry p{margin:0 0 5px}.entry{display:grid;grid-template-columns:minmax(180px,1fr) 2fr;gap:16px;margin-bottom:9px}.entry ul{margin:0;padding-left:20px}.history-row{display:grid;grid-template-columns:1fr auto auto;gap:14px;margin-bottom:8px}.muted{color:var(--ui-text-secondary,#666)}.loading{padding:60px;text-align:center}.batch-context-menu{position:fixed;z-index:1000;min-width:184px}.batch-context-menu .batch-delete{width:100%;border:0;background:transparent;text-align:left;color:var(--ui-danger,#b42318)}.batch-context-menu .batch-delete:hover{background:#d44a4a;color:#fff}
   @media(max-width:760px){main{padding:16px}.app-header{display:block}.app-header button{margin-top:12px}.import-bar{display:block}.import-controls{min-width:0;width:100%}.review-layout{grid-template-columns:1fr}.batch-list{flex-direction:row;overflow:auto}.batch-list button{min-width:190px}.entry{grid-template-columns:1fr}.history-row{grid-template-columns:1fr}.commit-bar{position:sticky;bottom:0;background:var(--ui-surface,#fff)}}
 </style>

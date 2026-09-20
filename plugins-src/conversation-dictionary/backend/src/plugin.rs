@@ -262,6 +262,13 @@ impl sdk::NotemdPlugin for ConversationDictionaryPlugin {
                     .ok_or("input is required")?;
                 service.dataset_import_path(input)
             }
+            "batch_delete" => {
+                let run_id = params
+                    .get("run_id")
+                    .and_then(Value::as_str)
+                    .ok_or("run_id is required")?;
+                service.delete_batch(run_id)
+            }
             "batch_commit" => {
                 let request: BatchCommitRequest =
                     serde_json::from_value(params).map_err(|error| error.to_string())?;

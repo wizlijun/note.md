@@ -29,7 +29,7 @@ function snapshot(): Snapshot {
 }
 
 let mounted: ReturnType<typeof mount> | undefined
-afterEach(() => { if (mounted) unmount(mounted); mounted = undefined; document.body.innerHTML = '' })
+afterEach(() => { if (mounted) unmount(mounted); mounted = undefined; document.body.innerHTML = ''; vi.restoreAllMocks() })
 
 describe('Conversation Dictionary window', () => {
   it('renders a dataset as grouped proposals and commits selected dependencies only through plugin.batch_commit', async () => {
@@ -50,11 +50,19 @@ describe('Conversation Dictionary window', () => {
     evidenceButton.click()
     await vi.waitFor(() => expect(host.textContent).toContain('请伟涛负责发布。'))
     expect(request).toHaveBeenCalledWith('plugin.batch_evidence', expect.objectContaining({ proposal_id: 'p_entry' }))
+    const selectAll = [...host.querySelectorAll('button')].find((button) => button.textContent?.includes('全选'))!
+    const invert = [...host.querySelectorAll('button')].find((button) => button.textContent?.includes('反选'))!
+    const approve = [...host.querySelectorAll('button')].find((button) => button.textContent?.includes('审批通过并写入正式词典'))!
+    selectAll.click()
+    await vi.waitFor(() => expect([...host.querySelectorAll<HTMLInputElement>('input[type=checkbox]')].every((input) => input.checked)).toBe(true))
+    expect(approve.disabled).toBe(false)
+    invert.click()
+    await vi.waitFor(() => expect([...host.querySelectorAll<HTMLInputElement>('input[type=checkbox]')].every((input) => !input.checked)).toBe(true))
+    expect(approve.disabled).toBe(true)
     const checkbox = host.querySelectorAll<HTMLInputElement>('input[type=checkbox]')[2]
     checkbox.click()
-    const save = [...host.querySelectorAll('button')].find((button) => button.textContent?.includes('保存选中的更改'))!
-    await vi.waitFor(() => expect(save.disabled).toBe(false))
-    save.click()
+    await vi.waitFor(() => expect(approve.disabled).toBe(false))
+    approve.click()
     await vi.waitFor(() => expect(request).toHaveBeenCalledWith('plugin.batch_commit', expect.objectContaining({
       run_id: '853f8a64-51d4-4dc8-8a97-8bd6d98784a3',
       expected_dictionary_revision: 1,
@@ -96,7 +104,7 @@ describe('Conversation Dictionary window', () => {
     await vi.waitFor(() => expect(host.textContent).toContain('第二批证据'))
   })
 
-  it('blocks committing a dataset that reports unresolved conflicts', async () => {
+  it('blocks only selections that include proposals tied to unresolved conflicts', async () => {
     const data = snapshot()
     data.batches[0].dataset.conflicts = [{ id: 'conflict_1', proposal_ids: ['p_rule'] }] as any
     const request = vi.fn(async (method: string) => {
@@ -106,11 +114,39 @@ describe('Conversation Dictionary window', () => {
     window.notemd = { pluginId: 'notemd.conversation-dictionary', locale: 'zh', theme: 'light', request, onMessage: () => {} }
     const host = document.createElement('div'); document.body.append(host); mounted = mount(App, { target: host })
     await vi.waitFor(() => expect(host.textContent).toContain('仍有需要单独处理的项目'))
-    const select = [...host.querySelectorAll('button')].find((button) => button.textContent?.includes('选择可处理项'))!
-    select.click()
-    const save = [...host.querySelectorAll('button')].find((button) => button.textContent?.includes('保存选中的更改'))!
-    expect(save.disabled).toBe(true)
+    const checkboxes = host.querySelectorAll<HTMLInputElement>('input[type=checkbox]')
+    const approve = [...host.querySelectorAll('button')].find((button) => button.textContent?.includes('审批通过并写入正式词典'))!
+    checkboxes[1].click()
+    await vi.waitFor(() => expect(approve.disabled).toBe(false))
+    checkboxes[2].click()
+    await vi.waitFor(() => expect(approve.disabled).toBe(true))
+    expect(host.textContent).toContain('所选内容涉及 1 个未解决冲突')
     expect(request.mock.calls.some(([method]) => method === 'plugin.batch_commit')).toBe(false)
+  })
+
+  it('shows the import timestamp as the batch title and deletes a pending batch from its context menu', async () => {
+    const data = snapshot()
+    const request = vi.fn(async (method: string) => {
+      if (method === 'plugin.initialize') return { status: 'existing', dictionary_created: false }
+      if (method === 'plugin.bootstrap') return data
+      if (method === 'plugin.batch_delete') { data.batches = []; return { status: 'deleted' } }
+      if (method === 'host.toast') return {}
+      throw new Error(`unexpected ${method}`)
+    })
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    window.notemd = { pluginId: 'notemd.conversation-dictionary', locale: 'zh', theme: 'light', request, onMessage: () => {} }
+    const host = document.createElement('div'); document.body.append(host); mounted = mount(App, { target: host })
+    await vi.waitFor(() => expect(host.querySelector('.batch-list strong')?.textContent).toMatch(/^2026-09-20 \d{2}:\d{2}$/))
+    const batch = host.querySelector<HTMLButtonElement>('.batch-list button')!
+    expect(batch.title).toBe('853f8a64-51d4-4dc8-8a97-8bd6d98784a3')
+    batch.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: 40, clientY: 50 }))
+    await vi.waitFor(() => expect(document.querySelector('.menu-panel')).not.toBeNull())
+    const menu = document.querySelector<HTMLElement>('.menu-panel')!
+    const remove = menu.querySelector<HTMLButtonElement>('.menu-row')!
+    expect(remove.textContent).toContain('删除待审数据集')
+    remove.click()
+    await vi.waitFor(() => expect(request).toHaveBeenCalledWith('plugin.batch_delete', { run_id: '853f8a64-51d4-4dc8-8a97-8bd6d98784a3' }))
+    await vi.waitFor(() => expect(host.textContent).toContain('暂无历史整理批次'))
   })
 
   it('initializes automatically and shows an inactive teaching example', async () => {

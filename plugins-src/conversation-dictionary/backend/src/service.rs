@@ -397,6 +397,63 @@ impl DictionaryService {
         Ok(json!({"status":"imported","sha256":hash}))
     }
 
+    pub fn delete_batch(&self, run_id: &str) -> Result<Value, String> {
+        Uuid::parse_str(run_id).map_err(|_| "run_id must be a UUID")?;
+        let _lock = storage::lock_file(&self.vault)?;
+        let mut control = storage::load_control(&self.vault)?;
+        let batch_index = control
+            .batches
+            .iter()
+            .position(|batch| batch.run_id == run_id)
+            .ok_or_else(|| format!("unknown dataset run '{run_id}'"))?;
+        if control.batches[batch_index]
+            .proposal_states
+            .values()
+            .any(|review| review.status == ProposalReviewStatus::Accepted)
+        {
+            return Err(
+                "dataset has accepted proposals and must be retained as review history".into(),
+            );
+        }
+
+        let datasets_dir = self.vault.join(storage::CONTROL_DIR).join("datasets");
+        let snapshot_dir = datasets_dir.join(run_id);
+        let staged_dir = datasets_dir.join(format!(".deleting-{run_id}"));
+        let staged = match fs::symlink_metadata(&snapshot_dir) {
+            Ok(metadata) if metadata.file_type().is_symlink() => {
+                return Err("dataset snapshot path must not be a symbolic link".into())
+            }
+            Ok(metadata) if !metadata.is_dir() => {
+                return Err("dataset snapshot path is not a directory".into())
+            }
+            Ok(_) => {
+                match fs::symlink_metadata(&staged_dir) {
+                    Ok(_) => return Err("a previous deletion cleanup is still present".into()),
+                    Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                    Err(error) => return Err(error.to_string()),
+                }
+                fs::rename(&snapshot_dir, &staged_dir).map_err(|error| error.to_string())?;
+                true
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => false,
+            Err(error) => return Err(error.to_string()),
+        };
+
+        control.batches.remove(batch_index);
+        if let Err(error) = storage::save_control(&self.vault, &control) {
+            if staged {
+                let _ = fs::rename(&staged_dir, &snapshot_dir);
+            }
+            return Err(error);
+        }
+        let cleanup_pending = staged && fs::remove_dir_all(&staged_dir).is_err();
+        Ok(json!({
+            "status":"deleted",
+            "run_id":run_id,
+            "cleanup_pending":cleanup_pending,
+        }))
+    }
+
     pub fn batch_commit(&self, request: BatchCommitRequest) -> Result<Value, String> {
         if request.selected.is_empty() {
             return Err("select at least one proposal".into());
@@ -440,9 +497,6 @@ impl DictionaryService {
         if control.batches[batch_index].dataset_sha256 != request.dataset_sha256 {
             return Err("dataset hash changed".into());
         }
-        if !control.batches[batch_index].dataset.conflicts.is_empty() {
-            return Err("dataset has unresolved conflicts; revise and import a new run".into());
-        }
         validate_dataset(&control.batches[batch_index].dataset)?;
         let evidence_path = self
             .vault
@@ -473,6 +527,17 @@ impl DictionaryService {
             .iter()
             .map(|selected| selected.id.as_str())
             .collect();
+        if control.batches[batch_index]
+            .dataset
+            .conflicts
+            .iter()
+            .any(|conflict| conflict_intersects_selection(conflict, &selected_ids))
+        {
+            return Err(
+                "selected proposals include an unresolved conflict; revise the selection or import a corrected run"
+                    .into(),
+            );
+        }
         for selected in &request.selected {
             let proposal = proposal_lookup
                 .get(&selected.id)
@@ -2013,6 +2078,15 @@ fn deterministic_dataset_conflicts(
     Ok(conflicts)
 }
 
+fn conflict_intersects_selection(conflict: &Value, selected_ids: &HashSet<&str>) -> bool {
+    ["proposal_ids", "rule_or_proposal_ids"]
+        .into_iter()
+        .filter_map(|key| conflict.get(key).and_then(Value::as_array))
+        .flatten()
+        .filter_map(Value::as_str)
+        .any(|id| selected_ids.contains(id))
+}
+
 fn rule_behaviors(dictionary: &Dictionary) -> BTreeMap<(String, String), HashSet<String>> {
     let mut groups: BTreeMap<(String, String), HashSet<String>> = BTreeMap::new();
     for rule in dictionary.rules.iter().filter(|rule| rule.enabled) {
@@ -2613,6 +2687,78 @@ mod tests {
             .contains("current Vault author"));
     }
 
+    #[test]
+    fn deleting_a_pending_batch_removes_its_snapshot_but_preserves_the_dictionary() {
+        let temp = tempfile::tempdir().unwrap();
+        let service = DictionaryService::new(temp.path().to_path_buf());
+        service.create_dictionary("human:bruce").unwrap();
+        let dictionary_path = storage::dictionary_path(temp.path()).unwrap();
+        let dictionary_before = fs::read(&dictionary_path).unwrap();
+        let data = dataset("human:bruce");
+        let run_id = data.run_id.clone();
+        let proposal_states = data
+            .proposals
+            .iter()
+            .map(|proposal| (proposal.id.clone(), ProposalReview::default()))
+            .collect();
+        let mut control = storage::load_control(temp.path()).unwrap();
+        control.batches.push(ReviewBatch {
+            run_id: run_id.clone(),
+            dataset_sha256: "a".repeat(64),
+            imported_at: now(),
+            dataset: data,
+            proposal_states,
+        });
+        storage::save_control(temp.path(), &control).unwrap();
+        let snapshot_dir = temp
+            .path()
+            .join(storage::CONTROL_DIR)
+            .join("datasets")
+            .join(&run_id);
+        fs::create_dir_all(&snapshot_dir).unwrap();
+        fs::write(snapshot_dir.join("dataset.yml"), "snapshot").unwrap();
+
+        let result = service.delete_batch(&run_id).unwrap();
+
+        assert_eq!(result["status"], "deleted");
+        assert!(!snapshot_dir.exists());
+        assert!(storage::load_control(temp.path())
+            .unwrap()
+            .batches
+            .is_empty());
+        assert_eq!(fs::read(dictionary_path).unwrap(), dictionary_before);
+    }
+
+    #[test]
+    fn deleting_a_batch_with_accepted_items_is_rejected() {
+        let temp = tempfile::tempdir().unwrap();
+        let service = DictionaryService::new(temp.path().to_path_buf());
+        service.create_dictionary("human:bruce").unwrap();
+        let data = dataset("human:bruce");
+        let run_id = data.run_id.clone();
+        let mut proposal_states: BTreeMap<_, _> = data
+            .proposals
+            .iter()
+            .map(|proposal| (proposal.id.clone(), ProposalReview::default()))
+            .collect();
+        proposal_states.get_mut("p_domain").unwrap().status = ProposalReviewStatus::Accepted;
+        let mut control = storage::load_control(temp.path()).unwrap();
+        control.batches.push(ReviewBatch {
+            run_id: run_id.clone(),
+            dataset_sha256: "a".repeat(64),
+            imported_at: now(),
+            dataset: data,
+            proposal_states,
+        });
+        storage::save_control(temp.path(), &control).unwrap();
+
+        assert!(service
+            .delete_batch(&run_id)
+            .unwrap_err()
+            .contains("must be retained as review history"));
+        assert_eq!(storage::load_control(temp.path()).unwrap().batches.len(), 1);
+    }
+
     fn dictionary() -> Dictionary {
         Dictionary {
             schema: DICTIONARY_SCHEMA.into(),
@@ -3190,13 +3336,13 @@ mod tests {
         control.batches[0]
             .dataset
             .conflicts
-            .push(json!({"id":"conflict_1"}));
+            .push(json!({"id":"conflict_1","proposal_ids":["p_entry"]}));
         storage::save_control(temp.path(), &control).unwrap();
         assert!(service
             .batch_commit(request.clone())
             .unwrap_err()
-            .contains("unresolved conflicts"));
-        control.batches[0].dataset.conflicts.clear();
+            .contains("unresolved conflict"));
+        control.batches[0].dataset.conflicts = vec![json!({"id":"unrelated_cluster_conflict"})];
         storage::save_control(temp.path(), &control).unwrap();
         fs::write(&transcript_path, "来源在批准前变化").unwrap();
         assert!(service
