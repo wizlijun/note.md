@@ -29,6 +29,10 @@
   let savedDraft = JSON.stringify(correctionDraft)
   let draggingEntry: { entryId: string; sourceDomainId: string } | null = null
   let dropDomainId = ''
+  let dragPress: { entryId: string; sourceDomainId: string; pointerId: number; x: number; y: number; element: HTMLElement } | null = null
+  let dragX = 0
+  let dragY = 0
+  let suppressDragClick = false
   let moveTargetId = ''
   let needsReload = false
   let pendingSelection: { domainId?: string; entryId: string } | null = null
@@ -492,25 +496,63 @@
     finally { busy = false }
   }
 
-  function startEntryDrag(event: DragEvent, entryId: string) {
-    if (busy || needsReload || snapshot?.formal_name_migration.required || !event.dataTransfer) { event.preventDefault(); return }
-    draggingEntry = { entryId, sourceDomainId: selectedDomainId }
-    event.dataTransfer.effectAllowed = 'move'
-    event.dataTransfer.setData('text/plain', entryId)
+  // Tauri intercepts HTML5 drag/drop in plugin windows. Use pointer events for internal moves.
+  function beginEntryDrag(event: PointerEvent, entryId: string) {
+    if (event.button !== 0 || event.isPrimary === false || busy || needsReload || snapshot?.formal_name_migration.required) return
+    cancelEntryDrag()
+    suppressDragClick = false
+    dragPress = { entryId, sourceDomainId: selectedDomainId, pointerId: event.pointerId, x: event.clientX, y: event.clientY, element: event.currentTarget as HTMLElement }
   }
 
-  function dragOverDomain(event: DragEvent, domainId: string) {
-    if (!draggingEntry || busy || draggingEntry.sourceDomainId === domainId) return
-    event.preventDefault()
-    if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'
-    dropDomainId = domainId
+  function domainAtPoint(x: number, y: number): string {
+    const button = document.elementFromPoint(x, y)?.closest<HTMLButtonElement>('[data-drop-domain]')
+    return button && !button.disabled ? button.dataset.dropDomain || '' : ''
   }
 
-  async function dropEntry(event: DragEvent, targetDomainId: string) {
+  function moveEntryPointer(event: PointerEvent) {
+    if (!dragPress || event.pointerId !== dragPress.pointerId) return
+    if (!draggingEntry) {
+      if (Math.hypot(event.clientX - dragPress.x, event.clientY - dragPress.y) < 6) return
+      draggingEntry = { entryId: dragPress.entryId, sourceDomainId: dragPress.sourceDomainId }
+      suppressDragClick = true
+      dragPress.element.setPointerCapture(event.pointerId)
+    }
     event.preventDefault()
+    dragX = Math.min(event.clientX + 12, window.innerWidth - 180)
+    dragY = event.clientY + 12
+    const domainId = domainAtPoint(event.clientX, event.clientY)
+    dropDomainId = domainId !== draggingEntry.sourceDomainId ? domainId : ''
+  }
+
+  async function finishEntryDrag(event: PointerEvent) {
+    if (!dragPress || event.pointerId !== dragPress.pointerId) return
     const dragged = draggingEntry
-    draggingEntry = null; dropDomainId = ''
-    if (dragged) await moveEntry(dragged.entryId, dragged.sourceDomainId, targetDomainId)
+    // Re-check the release point; the pointer may have left the last highlighted target.
+    const targetDomainId = dragged ? domainAtPoint(event.clientX, event.clientY) : ''
+    cancelEntryDrag()
+    if (dragged && targetDomainId && targetDomainId !== dragged.sourceDomainId) {
+      await moveEntry(dragged.entryId, dragged.sourceDomainId, targetDomainId)
+    }
+  }
+
+  function cancelEntryDrag() {
+    const press = dragPress
+    dragPress = null; draggingEntry = null; dropDomainId = ''
+    if (press?.element.hasPointerCapture(press.pointerId)) press.element.releasePointerCapture(press.pointerId)
+  }
+
+  function cancelEntryPointer(event: PointerEvent) {
+    if (event.pointerId === dragPress?.pointerId) cancelEntryDrag()
+  }
+
+  function resetDragClick(event: PointerEvent) {
+    if (event.isPrimary !== false) suppressDragClick = false
+  }
+
+  function suppressClickAfterDrag(event: MouseEvent) {
+    if (!suppressDragClick || event.detail === 0) return
+    suppressDragClick = false
+    event.preventDefault(); event.stopImmediatePropagation()
   }
 
   async function moveEntry(entryId: string, sourceDomainId: string, targetDomainId: string) {
@@ -623,10 +665,23 @@
     await run(() => api.deleteBatch(runId), t('待审数据集已删除', 'Review dataset deleted'))
   }
 
-  onMount(() => { initializeAndRefresh() })
+  onMount(() => {
+    initializeAndRefresh()
+    window.addEventListener('click', suppressClickAfterDrag, true)
+    window.addEventListener('pointerdown', resetDragClick, true)
+    window.addEventListener('scroll', cancelEntryDrag, true)
+    return () => {
+      cancelEntryDrag()
+      window.removeEventListener('click', suppressClickAfterDrag, true)
+      window.removeEventListener('pointerdown', resetDragClick, true)
+      window.removeEventListener('scroll', cancelEntryDrag, true)
+    }
+  })
 </script>
 
-<svelte:window onclick={() => batchMenu = null} onkeydown={(event) => { if (event.key === 'Escape') batchMenu = null }} />
+<svelte:window onclick={() => batchMenu = null}
+  onpointermove={moveEntryPointer} onpointerup={finishEntryDrag} onpointercancel={cancelEntryPointer} onblur={cancelEntryDrag}
+  onkeydown={(event) => { if (event.key === 'Escape') { batchMenu = null; cancelEntryDrag() } }} />
 
 <svelte:head><title>{t('沟通转写勘误', 'Conversation Transcript Corrections')}</title></svelte:head>
 
@@ -799,9 +854,7 @@
         <div class="dictionary-list">
           {#each dictionaryDomains() as domain}
             <button class:selected={!addingDomain && selectedDomainId === domain.id} class:drop-target={dropDomainId === domain.id}
-              disabled={busy} onclick={() => selectDomain(domain.id)}
-              ondragover={(event) => dragOverDomain(event, domain.id)} ondragleave={() => dropDomainId = ''}
-              ondrop={(event) => dropEntry(event, domain.id)}>
+              data-drop-domain={domain.id} disabled={busy} onclick={() => selectDomain(domain.id)}>
               <strong>{domain.name}</strong><small>{entriesForDomain(domain.id).length} {t('个词条', 'entries')}</small>
             </button>
           {/each}
@@ -823,9 +876,9 @@
           {:else}
             <div class="dictionary-list">
               {#each entriesForDomain(selectedDomainId) as entry}
-                <button class:selected={selectedEntryId === entry.id} onclick={() => selectEntry(entry.id)}
-                  draggable={!busy && !snapshot.formal_name_migration.required} ondragstart={(event) => startEntryDrag(event, entry.id)}
-                  ondragend={() => { draggingEntry = null; dropDomainId = '' }} title={t('拖到左侧场景以移动词条', 'Drag to a context to move this entry')}>
+                <button class="entry-drag-handle" class:selected={selectedEntryId === entry.id} class:dragging={draggingEntry?.entryId === entry.id} onclick={() => selectEntry(entry.id)}
+                  draggable="false" ondragstart={(event) => event.preventDefault()} onpointerdown={(event) => beginEntryDrag(event, entry.id)}
+                  onlostpointercapture={cancelEntryPointer} title={t('拖到左侧场景以移动词条', 'Drag to a context to move this entry')}>
                   <strong>{entry.label}</strong><small>{entry.kind} · {snapshot.dictionary.rules.filter((rule) => rule.domain_id === selectedDomainId && rule.target?.entry_id === entry.id).length} {t('条规则', 'rules')}</small>
                 </button>
               {/each}
@@ -884,6 +937,10 @@
   {/if}
 </main>
 
+{#if draggingEntry}
+  <div class="entry-drag-preview" aria-hidden="true" style={`left:${dragX}px;top:${dragY}px`}>{snapshot?.dictionary?.entries.find((entry) => entry.id === draggingEntry!.entryId)?.label}</div>
+{/if}
+
 {#if batchMenu}
   <div class="batch-context-menu menu-panel" role="menu" tabindex="-1" style={`left:${batchMenu.x}px;top:${batchMenu.y}px`}>
     <button class="batch-delete menu-row" role="menuitem" onclick={() => deleteBatch(batchMenu!.runId)}>{t('删除待审数据集', 'Delete review dataset')}</button>
@@ -894,7 +951,9 @@
   :global(*){box-sizing:border-box} :global(body){margin:0;background:var(--ui-background,#f5f5f7);color:var(--ui-text,#1d1d1f);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif} button,input,select,textarea{font:inherit} button{border:1px solid var(--ui-border,#d0d0d5);border-radius:8px;background:var(--ui-control,#fff);color:inherit;padding:7px 12px;cursor:pointer} button:disabled{opacity:.5;cursor:default} button.primary{background:var(--ui-accent,#0a84ff);border-color:var(--ui-accent,#0a84ff);color:white} button.secondary{white-space:nowrap} button.danger-button{color:var(--ui-danger,#b42318);margin-left:auto} main{min-height:100vh;padding:22px 26px}.app-header{display:flex;justify-content:space-between;gap:20px;align-items:flex-start}.app-header h1{font-size:25px;margin:0 0 4px}.app-header p{margin:0;color:var(--ui-text-secondary,#666);max-width:720px}.tabs{display:flex;gap:4px;border-bottom:1px solid var(--ui-border,#ddd);margin:20px 0}.tabs button{border:0;background:none;border-radius:6px 6px 0 0;padding:9px 14px;color:var(--ui-text-secondary,#666)}.tabs button.active{color:var(--ui-accent,#0a84ff);box-shadow:inset 0 -2px var(--ui-accent,#0a84ff)}.banner{padding:10px 12px;border-radius:8px;margin-bottom:12px}.banner.error{background:#ff3b3018;color:#c3271f}.banner.success{background:#34c75918;color:#217a37}section{background:var(--ui-surface,#fff);border:1px solid var(--ui-border,#ddd);border-radius:12px;padding:18px;margin-bottom:16px}section h2{margin:0 0 10px;font-size:18px}label{display:grid;gap:5px;margin:10px 0}label span{font-size:12px;color:var(--ui-text-secondary,#666)}input,select,textarea{width:100%;border:1px solid var(--ui-border,#ccc);border-radius:7px;background:var(--ui-input,#fff);color:inherit;padding:8px 9px}textarea{resize:vertical}.empty-state{max-width:640px;margin:50px auto;text-align:left}.empty-state.compact{margin:20px auto}.teaching-example{margin-top:14px;border:1px dashed var(--ui-border,#ccc);border-radius:10px;padding:13px;background:var(--ui-selection,#0a84ff0a)}.teaching-example p{margin:10px 0}.example-heading{display:flex;justify-content:space-between;gap:12px}.example-heading span,.teaching-example small{color:var(--ui-text-secondary,#666)}.migration-panel{border-color:#ff9f0a;background:#ff9f0a0d}.migration-panel>p{color:var(--ui-text-secondary,#666)}.migration-panel>button+button{margin-left:8px}.migration-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:10px;margin:14px 0}.migration-list article{border:1px solid var(--ui-border,#ddd);border-radius:9px;padding:10px;background:var(--ui-surface,#fff)}.migration-list p{font-size:13px}.migration-list ul{margin:7px 0;padding-left:18px}.import-bar{display:flex;align-items:flex-end;justify-content:space-between;gap:22px}.import-bar p,.batch-summary p{margin:4px 0;color:var(--ui-text-secondary,#666)}.import-controls{display:flex;gap:8px;min-width:min(480px,50%)}.review-layout{display:grid;grid-template-columns:230px 1fr;gap:14px}.batch-list{display:flex;flex-direction:column;gap:7px}.batch-list button{text-align:left;display:grid;gap:3px;background:transparent}.batch-list button.selected{background:var(--ui-selection,#0a84ff18);border-color:var(--ui-accent,#0a84ff)}.batch-list span,.batch-list small{color:var(--ui-text-secondary,#666)}.proposal-pane{padding:0;overflow:hidden}.batch-summary,.commit-bar{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px 18px}.selection-actions{display:flex;gap:7px}.commit-bar>div{display:grid;gap:3px}.blocking-reason{color:var(--ui-danger,#b42318)}.unresolved-banner{margin:0 18px 12px;padding:10px 12px;border-radius:8px;background:#ff9f0a18;color:#7a4c00;display:grid;gap:3px;font-size:13px}.unresolved-banner details{margin-top:4px}.unresolved-banner pre{max-height:180px;overflow:auto;white-space:pre-wrap;color:inherit}.proposal-list{border-top:1px solid var(--ui-border,#ddd);border-bottom:1px solid var(--ui-border,#ddd);max-height:510px;overflow:auto;padding:10px}.proposal-list article{border:1px solid var(--ui-border,#ddd);border-radius:10px;padding:12px;margin-bottom:9px}.proposal-list article.selected{border-color:var(--ui-accent,#0a84ff);background:var(--ui-selection,#0a84ff0f)}.select-row{display:flex;align-items:center;gap:9px;margin:0}.select-row input{width:auto}.select-row span{margin-left:auto}.reason{font-size:13px;color:var(--ui-text-secondary,#666)}.reference-summary{display:grid;gap:3px;margin:10px 0;padding:8px 9px;border-radius:7px;background:var(--ui-selection,#0a84ff0a)}.reference-summary span{font-size:12px;color:var(--ui-text-secondary,#666)}.reference-summary strong{font-size:13px}.evidence-toggle{margin:0 0 6px;padding:4px 8px;font-size:12px}.evidence-list{display:grid;gap:7px;margin:4px 0 10px}.evidence-list blockquote{margin:0;padding:9px 10px;border-left:3px solid var(--ui-accent,#0a84ff);background:var(--ui-selection,#0a84ff0a);border-radius:0 7px 7px 0}.evidence-list p{margin:0 0 6px;white-space:pre-wrap}.evidence-list footer{display:flex;align-items:center;justify-content:space-between;gap:8px;color:var(--ui-text-secondary,#666);font-size:12px}.evidence-list footer button{padding:3px 7px}.evidence-list small{display:block;margin-top:5px;color:var(--ui-text-secondary,#666)}.preserve{font-size:13px}.history-row{border:1px solid var(--ui-border,#ddd);border-radius:9px;padding:12px;display:grid;grid-template-columns:1fr auto auto;gap:14px;margin-bottom:8px}.dictionary-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:12px}.dictionary-heading h2{margin:0 0 4px;font-size:20px}.dictionary-heading p{margin:0;color:var(--ui-text-secondary,#666)}.dictionary-layout{display:grid;grid-template-columns:minmax(180px,1fr) minmax(210px,1.15fr) minmax(360px,2fr);gap:12px;align-items:stretch}.dictionary-column{padding:0;margin:0;min-height:440px;overflow:hidden}.column-title{min-height:49px;padding:12px 14px;border-bottom:1px solid var(--ui-border,#ddd);display:flex;align-items:center;justify-content:space-between;gap:8px}.column-title>span{color:var(--ui-text-secondary,#666);font-size:12px}.column-title button{padding:4px 8px}.column-actions{display:flex;gap:5px}.dictionary-list{display:grid;padding:8px;gap:4px}.dictionary-list>button{display:grid;gap:3px;text-align:left;border-color:transparent;background:transparent;padding:9px 10px}.dictionary-list>button small{color:var(--ui-text-secondary,#666)}.dictionary-list>button.selected{border-color:var(--ui-accent,#0a84ff);background:var(--ui-selection,#0a84ff12)}.dictionary-list>button.draft-item{border-style:dashed}.list-caption{padding:4px 10px;color:var(--ui-text-secondary,#666)}.preserve-rules{margin:6px 14px 14px;color:var(--ui-text-secondary,#666);font-size:12px}.preserve-rules ul{margin:7px 0;padding-left:20px}.column-empty,.editor-empty{padding:18px;color:var(--ui-text-secondary,#666)}.column-empty p,.editor-empty p{margin:0 0 12px}.editor-column{padding:16px 18px}.editor-title{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:12px}.editor-title>div{display:grid;gap:3px}.editor-title small{color:var(--ui-text-secondary,#666)}.kind-field{display:flex;align-items:center;gap:8px;margin:0}.kind-field select{width:auto;min-width:130px}.editor-help{font-size:12px;line-height:1.5;color:var(--ui-text-secondary,#666);margin:12px 0 16px}.editor-actions{display:flex;align-items:center;gap:8px;border-top:1px solid var(--ui-border,#ddd);padding-top:14px}.muted{color:var(--ui-text-secondary,#666)}.loading{padding:60px;text-align:center}.batch-context-menu{position:fixed;z-index:1000;min-width:184px}.batch-context-menu .batch-delete{width:100%;border:0;background:transparent;text-align:left;color:var(--ui-danger,#b42318)}.batch-context-menu .batch-delete:hover{background:#d44a4a;color:#fff}
   .dictionary-fieldset{border:0;padding:0;margin:0;min-width:0}
   .dictionary-list>button.drop-target{outline:2px solid var(--ui-accent,#0a84ff);background:var(--ui-selection,#0a84ff18)}
-  .dictionary-list>button[draggable="true"]{cursor:grab}
+  .dictionary-list>button.entry-drag-handle{cursor:grab;user-select:none;-webkit-user-select:none;-webkit-user-drag:none;touch-action:none}
+  .dictionary-list>button.dragging{opacity:.55;cursor:grabbing}
+  .entry-drag-preview{position:fixed;z-index:1100;pointer-events:none;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:var(--ui-surface,#fff);border:1px solid var(--ui-accent,#0a84ff);box-shadow:0 5px 18px #0002;border-radius:8px;padding:8px 12px}
   .move-controls{display:flex;align-items:flex-end;gap:8px;margin-top:14px}.move-controls label{flex:1;margin:0}
   .merge-panel{border:1px solid var(--ui-border,#ddd);border-radius:9px;padding:14px;margin-top:16px}.merge-actions{display:flex;gap:8px}
   .editor-actions{flex-wrap:wrap}

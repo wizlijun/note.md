@@ -296,15 +296,31 @@ describe('Conversation Transcript Corrections window', () => {
     return { host, request }
   }
 
-  function dragEntry(host: HTMLElement) {
+  function pointerEvent(type: string, x: number, y: number, pointerId = 1) {
+    const event = new MouseEvent(type, { bubbles: true, cancelable: true, button: 0, clientX: x, clientY: y })
+    Object.defineProperties(event, { pointerId: { value: pointerId }, isPrimary: { value: true } })
+    return event
+  }
+
+  function prepareDrag(host: HTMLElement) {
     const source = [...host.querySelectorAll<HTMLButtonElement>('.entry-column button')].find((button) => button.textContent?.includes('小王'))!
-    const target = [...host.querySelectorAll<HTMLButtonElement>('.context-column button')].find((button) => button.textContent?.includes('工作会议'))!
-    const dataTransfer = { setData: vi.fn(), effectAllowed: '', dropEffect: '' }
-    for (const [type, node] of [['dragstart', source], ['dragover', target], ['drop', target]] as const) {
-      const event = new Event(type, { bubbles: true, cancelable: true })
-      Object.defineProperty(event, 'dataTransfer', { value: dataTransfer })
-      node.dispatchEvent(event)
-    }
+    const target = host.querySelector<HTMLButtonElement>('[data-drop-domain="d_work"]')!
+    let captured = false
+    Object.defineProperties(source, {
+      setPointerCapture: { value: () => { captured = true }, configurable: true },
+      hasPointerCapture: { value: () => captured, configurable: true },
+      releasePointerCapture: { value: () => { captured = false }, configurable: true },
+    })
+    if (!document.elementFromPoint) Object.defineProperty(document, 'elementFromPoint', { value: () => null, configurable: true })
+    const hit = vi.spyOn(document, 'elementFromPoint').mockReturnValue(target.querySelector('strong'))
+    source.dispatchEvent(pointerEvent('pointerdown', 400, 300))
+    return { source, target, hit }
+  }
+
+  function dragEntry(host: HTMLElement) {
+    prepareDrag(host)
+    window.dispatchEvent(pointerEvent('pointermove', 100, 300))
+    window.dispatchEvent(pointerEvent('pointerup', 100, 300))
   }
 
   it('shows rule-free entries in public and saves a formal name without inventing corrections', async () => {
@@ -331,6 +347,60 @@ describe('Conversation Transcript Corrections window', () => {
     await vi.waitFor(() => expect(host.querySelector('.context-column .selected')?.textContent).toContain('工作会议'))
     expect(host.querySelector('.entry-column')?.textContent).toContain('小王')
     expect(host.querySelector('.entry-column')?.textContent).toContain('王明')
+  })
+
+  it('uses pointer events without native drag events and cancels on Escape, blur, scroll or pointer cancellation', async () => {
+    const { host, request } = await mountDictionary(publicFixture(), () => ({}))
+    for (const type of ['escape', 'blur', 'scroll', 'pointercancel', 'lostpointercapture']) {
+      const { source } = prepareDrag(host)
+      expect(source.draggable).toBe(false)
+      window.dispatchEvent(pointerEvent('pointermove', 100, 300))
+      await vi.waitFor(() => expect(host.querySelector('.drop-target')).not.toBeNull())
+      if (type === 'escape') window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+      else if (type === 'pointercancel') window.dispatchEvent(pointerEvent(type, 100, 300))
+      else if (type === 'lostpointercapture') source.dispatchEvent(pointerEvent(type, 100, 300))
+      else window.dispatchEvent(new Event(type))
+      window.dispatchEvent(pointerEvent('pointerup', 100, 300))
+      await vi.waitFor(() => expect(host.querySelector('.drop-target')).toBeNull())
+      vi.restoreAllMocks()
+    }
+    expect(request.mock.calls.some(([method]) => method === 'plugin.move_correction_entry')).toBe(false)
+  })
+
+  it('does not move on a short press, wrong pointer, same context or invalid release point', async () => {
+    const { host, request } = await mountDictionary(publicFixture(), () => ({}))
+    let drag = prepareDrag(host)
+    window.dispatchEvent(pointerEvent('pointermove', 398, 300))
+    window.dispatchEvent(pointerEvent('pointerup', 398, 300))
+    expect(host.querySelector('.drop-target')).toBeNull()
+    drag = prepareDrag(host)
+    window.dispatchEvent(pointerEvent('pointermove', 100, 300, 2))
+    window.dispatchEvent(pointerEvent('pointerup', 100, 300, 2))
+    window.dispatchEvent(new Event('blur'))
+    drag = prepareDrag(host)
+    window.dispatchEvent(pointerEvent('pointermove', 100, 300))
+    await vi.waitFor(() => expect(host.querySelector('.drop-target')).not.toBeNull())
+    drag.hit.mockReturnValue(null)
+    window.dispatchEvent(pointerEvent('pointerup', 900, 900))
+    drag = prepareDrag(host)
+    drag.hit.mockReturnValue(host.querySelector('[data-drop-domain="public"]'))
+    window.dispatchEvent(pointerEvent('pointermove', 100, 300))
+    window.dispatchEvent(pointerEvent('pointerup', 100, 300))
+    expect(request.mock.calls.some(([method]) => method === 'plugin.move_correction_entry')).toBe(false)
+  })
+
+  it('suppresses the click generated by a drag but permits the next independent click', async () => {
+    const { host } = await mountDictionary(publicFixture(), () => ({}))
+    const { source, target, hit } = prepareDrag(host)
+    window.dispatchEvent(pointerEvent('pointermove', 100, 300))
+    hit.mockReturnValue(null)
+    window.dispatchEvent(pointerEvent('pointerup', 900, 900))
+    const click = new MouseEvent('click', { bubbles: true, cancelable: true, detail: 1 })
+    source.dispatchEvent(click)
+    expect(click.defaultPrevented).toBe(true)
+    target.dispatchEvent(pointerEvent('pointerdown', 100, 300))
+    target.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }))
+    await vi.waitFor(() => expect(host.querySelector('.context-column .selected')?.textContent).toContain('工作会议'))
   })
 
   it('retains the source context and draft when a move conflicts', async () => {
