@@ -2,7 +2,7 @@
   "manifest_version": 2,
   "id": "notemd.conversation-dictionary",
   "name": "Conversation Dictionary",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "kind": "native",
   "engines": {
     "notemd": ">=6.916.1"

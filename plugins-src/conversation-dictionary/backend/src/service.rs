@@ -100,27 +100,28 @@ impl DictionaryService {
                     return Err("dictionary path must not be a symbolic link".into());
                 }
                 Ok(_) => {
-                    let (existing, _) = storage::verified_dictionary(&self.vault)?;
+                    let (existing, baseline) = storage::verified_dictionary(&self.vault)?;
                     if existing.subject_id != subject_id {
                         return Err(
                             "dictionary subject does not match the current Vault author".into()
                         );
                     }
+                    self.ensure_baseline_snapshot_locked(&baseline)?;
                     dictionary = existing;
                     dictionary_created = false;
                 }
                 Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-                    if storage::load_control(&self.vault)?.baseline.is_some() {
-                        return Err(
-                            "reviewed dictionary baseline exists but the dictionary file is missing"
-                                .into(),
-                        );
+                    if let Some(baseline) = storage::load_control(&self.vault)?.baseline {
+                        dictionary =
+                            self.restore_missing_dictionary_locked(&baseline, subject_id)?;
+                        dictionary_created = false;
+                    } else {
+                        dictionary = new_dictionary(subject_id);
+                        validate_dictionary(&dictionary)?;
+                        let mut control = storage::load_control(&self.vault)?;
+                        self.persist_new_dictionary(&dictionary, &mut control)?;
+                        dictionary_created = true;
                     }
-                    dictionary = new_dictionary(subject_id);
-                    validate_dictionary(&dictionary)?;
-                    let mut control = storage::load_control(&self.vault)?;
-                    self.persist_new_dictionary(&dictionary, &mut control)?;
-                    dictionary_created = true;
                 }
                 Err(error) => return Err(format!("{}: {error}", path.display())),
             }
@@ -897,6 +898,54 @@ impl DictionaryService {
         Ok((bytes, dataset, hash, evidence_bytes))
     }
 
+    fn ensure_baseline_snapshot_locked(&self, baseline: &Baseline) -> Result<(), String> {
+        let dictionary_path = storage::dictionary_path(&self.vault)?;
+        let bytes = fs::read(&dictionary_path)
+            .map_err(|error| format!("{}: {error}", dictionary_path.display()))?;
+        if storage::sha256(&bytes) != baseline.sha256 {
+            return Err("dictionary changed before its recovery snapshot could be saved".into());
+        }
+        let snapshot = String::from_utf8(bytes)
+            .map_err(|_| "dictionary recovery snapshot must be UTF-8".to_string())?;
+        let mut control = storage::load_control(&self.vault)?;
+        if control.baseline_dictionary.as_deref() == Some(snapshot.as_str()) {
+            return Ok(());
+        }
+        control.baseline_dictionary = Some(snapshot);
+        storage::save_control(&self.vault, &control)
+    }
+
+    fn restore_missing_dictionary_locked(
+        &self,
+        baseline: &Baseline,
+        expected_subject_id: &str,
+    ) -> Result<Dictionary, String> {
+        let control = storage::load_control(&self.vault)?;
+        let snapshot = control.baseline_dictionary.ok_or(
+            "reviewed dictionary is missing and no verified recovery snapshot is available in the local control state",
+        )?;
+        let bytes = snapshot.as_bytes();
+        if storage::sha256(bytes) != baseline.sha256 {
+            return Err("reviewed dictionary is missing and its recovery snapshot does not match the reviewed baseline".into());
+        }
+        let dictionary: Dictionary = serde_yaml::from_slice(bytes)
+            .map_err(|error| format!("invalid recovery dictionary snapshot: {error}"))?;
+        if dictionary.dictionary_id != baseline.dictionary_id
+            || dictionary.revision != baseline.revision
+        {
+            return Err("reviewed dictionary is missing and its recovery snapshot identity does not match the reviewed baseline".into());
+        }
+        if dictionary.subject_id != expected_subject_id {
+            return Err("dictionary subject does not match the current Vault author".into());
+        }
+        validate_dictionary_legacy(&dictionary)?;
+        let settings = storage::load_settings(&self.vault)?;
+        let relative = storage::validate_relative_path(&settings.dictionary_path)?;
+        let dictionary_path = storage::ensure_safe_parent(&self.vault, &relative)?;
+        storage::atomic_bytes_create_new(&dictionary_path, bytes)?;
+        Ok(dictionary)
+    }
+
     fn persist_dictionary(
         &self,
         dictionary: &Dictionary,
@@ -907,6 +956,15 @@ impl DictionaryService {
         let path = storage::dictionary_path(&self.vault)?;
         let bytes = storage::dictionary_bytes(dictionary)?;
         let hash = storage::sha256(&bytes);
+        control.baseline = Some(Baseline {
+            dictionary_id: dictionary.dictionary_id.clone(),
+            revision: dictionary.revision,
+            sha256: hash.clone(),
+        });
+        control.baseline_dictionary = Some(
+            String::from_utf8(bytes.clone())
+                .map_err(|_| "dictionary recovery snapshot must be UTF-8".to_string())?,
+        );
         let journal = json!({
             "schema":"notemd.conversation-dictionary-journal.v1",
             "dictionary_path":path.strip_prefix(&self.vault).unwrap_or(&path),
@@ -926,11 +984,6 @@ impl DictionaryService {
             let _ = fs::remove_file(storage::journal_path(&self.vault));
             return Err(error);
         }
-        control.baseline = Some(Baseline {
-            dictionary_id: dictionary.dictionary_id.clone(),
-            revision: dictionary.revision,
-            sha256: hash,
-        });
         storage::save_control(&self.vault, control)?;
         fs::remove_file(storage::journal_path(&self.vault)).map_err(|error| error.to_string())?;
         Ok(())
@@ -946,6 +999,15 @@ impl DictionaryService {
         let path = storage::ensure_safe_parent(&self.vault, &relative)?;
         let bytes = storage::dictionary_bytes(dictionary)?;
         let hash = storage::sha256(&bytes);
+        control.baseline = Some(Baseline {
+            dictionary_id: dictionary.dictionary_id.clone(),
+            revision: dictionary.revision,
+            sha256: hash.clone(),
+        });
+        control.baseline_dictionary = Some(
+            String::from_utf8(bytes.clone())
+                .map_err(|_| "dictionary recovery snapshot must be UTF-8".to_string())?,
+        );
         let journal = json!({
             "schema":"notemd.conversation-dictionary-journal.v1",
             "dictionary_path":relative,
@@ -961,11 +1023,6 @@ impl DictionaryService {
             let _ = fs::remove_file(storage::journal_path(&self.vault));
             return Err(error);
         }
-        control.baseline = Some(Baseline {
-            dictionary_id: dictionary.dictionary_id.clone(),
-            revision: dictionary.revision,
-            sha256: hash,
-        });
         storage::save_control(&self.vault, control)?;
         fs::remove_file(storage::journal_path(&self.vault)).map_err(|error| error.to_string())?;
         Ok(())
@@ -1002,11 +1059,16 @@ impl DictionaryService {
                     .and_then(|control| control.baseline.map(|baseline| baseline.sha256))
             });
         if current.as_deref() == Some(expected) {
+            let bytes = storage::dictionary_bytes(&dictionary)?;
             control.baseline = Some(Baseline {
                 dictionary_id: dictionary.dictionary_id,
                 revision: dictionary.revision,
                 sha256: expected.into(),
             });
+            control.baseline_dictionary = Some(
+                String::from_utf8(bytes)
+                    .map_err(|_| "dictionary recovery snapshot must be UTF-8".to_string())?,
+            );
             storage::save_control(&self.vault, &control)?;
             fs::remove_file(path).map_err(|error| error.to_string())?;
             return Ok(());
@@ -1019,6 +1081,10 @@ impl DictionaryService {
                 revision: dictionary.revision,
                 sha256: expected.into(),
             });
+            control.baseline_dictionary = Some(
+                String::from_utf8(bytes)
+                    .map_err(|_| "dictionary recovery snapshot must be UTF-8".to_string())?,
+            );
             storage::save_control(&self.vault, &control)?;
             fs::remove_file(path).map_err(|error| error.to_string())?;
             return Ok(());
@@ -2444,11 +2510,27 @@ mod tests {
         let path = storage::dictionary_path(temp.path()).unwrap();
         let first_bytes = fs::read(&path).unwrap();
         let first_dictionary = storage::verified_dictionary(temp.path()).unwrap().0;
+        let mut control = storage::load_control(temp.path()).unwrap();
+        assert_eq!(
+            control.baseline_dictionary.as_deref().unwrap().as_bytes(),
+            first_bytes
+        );
+        control.baseline_dictionary = None;
+        storage::save_control(temp.path(), &control).unwrap();
         let second = service.ensure_initialized("human:bruce").unwrap();
 
         assert_eq!(first["status"], "created");
         assert_eq!(second["status"], "existing");
         assert_eq!(fs::read(path).unwrap(), first_bytes);
+        let reseeded_control = storage::load_control(temp.path()).unwrap();
+        assert_eq!(
+            reseeded_control
+                .baseline_dictionary
+                .as_deref()
+                .unwrap()
+                .as_bytes(),
+            first_bytes
+        );
         assert_eq!(first_dictionary.revision, 1);
         assert!(first_dictionary.domains.is_empty());
         assert!(first_dictionary.entries.is_empty());
@@ -2461,6 +2543,63 @@ mod tests {
             service.bootstrap().unwrap()["example"]["example_only"],
             true
         );
+    }
+
+    #[test]
+    fn initialization_restores_a_missing_dictionary_from_the_reviewed_snapshot() {
+        let temp = tempfile::tempdir().unwrap();
+        let service = DictionaryService::new(temp.path().to_path_buf());
+        service.ensure_initialized("human:bruce").unwrap();
+        let dictionary_path = storage::dictionary_path(temp.path()).unwrap();
+        let expected = fs::read(&dictionary_path).unwrap();
+        let control_before = fs::read(storage::control_path(temp.path())).unwrap();
+        fs::remove_file(&dictionary_path).unwrap();
+
+        let result = service.ensure_initialized("human:bruce").unwrap();
+
+        assert_eq!(result["status"], "existing");
+        assert_eq!(result["dictionary_created"], false);
+        assert_eq!(fs::read(dictionary_path).unwrap(), expected);
+        assert_eq!(
+            fs::read(storage::control_path(temp.path())).unwrap(),
+            control_before
+        );
+    }
+
+    #[test]
+    fn initialization_refuses_a_corrupt_recovery_snapshot() {
+        let temp = tempfile::tempdir().unwrap();
+        let service = DictionaryService::new(temp.path().to_path_buf());
+        service.ensure_initialized("human:bruce").unwrap();
+        let dictionary_path = storage::dictionary_path(temp.path()).unwrap();
+        fs::remove_file(&dictionary_path).unwrap();
+        let mut control = storage::load_control(temp.path()).unwrap();
+        control.baseline_dictionary = Some("corrupt".into());
+        storage::save_control(temp.path(), &control).unwrap();
+
+        assert!(service
+            .ensure_initialized("human:bruce")
+            .unwrap_err()
+            .contains("does not match the reviewed baseline"));
+        assert!(!dictionary_path.exists());
+    }
+
+    #[test]
+    fn initialization_keeps_failing_closed_for_an_old_baseline_without_a_snapshot() {
+        let temp = tempfile::tempdir().unwrap();
+        let service = DictionaryService::new(temp.path().to_path_buf());
+        service.ensure_initialized("human:bruce").unwrap();
+        let dictionary_path = storage::dictionary_path(temp.path()).unwrap();
+        fs::remove_file(&dictionary_path).unwrap();
+        let mut control = storage::load_control(temp.path()).unwrap();
+        control.baseline_dictionary = None;
+        storage::save_control(temp.path(), &control).unwrap();
+
+        assert!(service
+            .ensure_initialized("human:bruce")
+            .unwrap_err()
+            .contains("no verified recovery snapshot"));
+        assert!(!dictionary_path.exists());
     }
 
     #[test]
@@ -2830,6 +2969,11 @@ mod tests {
             .is_none_or(|target| target.text == "Bruce")));
         assert!(renamed.rules.iter().any(|rule| rule.observed == "伟滔"));
         validate_dictionary(&renamed).unwrap();
+        let control = storage::load_control(temp.path()).unwrap();
+        assert_eq!(
+            control.baseline_dictionary.as_deref().unwrap().as_bytes(),
+            fs::read(storage::dictionary_path(temp.path()).unwrap()).unwrap()
+        );
     }
 
     #[test]
@@ -3065,6 +3209,15 @@ mod tests {
         assert_eq!(service.batch_commit(request.clone()).unwrap(), commit);
         let dictionary_path = storage::dictionary_path(temp.path()).unwrap();
         let committed_bytes = fs::read(&dictionary_path).unwrap();
+        let committed_control = storage::load_control(temp.path()).unwrap();
+        assert_eq!(
+            committed_control
+                .baseline_dictionary
+                .as_deref()
+                .unwrap()
+                .as_bytes(),
+            committed_bytes
+        );
         fs::write(
             &dictionary_path,
             [committed_bytes.as_slice(), b"\n# external"].concat(),

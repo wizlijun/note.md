@@ -409,6 +409,8 @@ impl Default for ProposalReview {
 pub struct ControlState {
     #[serde(default)]
     pub baseline: Option<Baseline>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub baseline_dictionary: Option<String>,
     #[serde(default)]
     pub candidates: Vec<CandidateRecord>,
     #[serde(default)]

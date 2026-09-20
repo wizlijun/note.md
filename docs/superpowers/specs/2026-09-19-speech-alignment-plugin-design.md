@@ -402,6 +402,8 @@ YAML 是可移植的人类确认内容；控制状态记录最近成功提交的
 
 所有词典提交共用一条事务路径：取得该词典写锁 → 比较 base hash/revision 与候选 hash → 校验完整新词典 → 写入可恢复 journal → 同目录临时文件写入/fsync/解析回读 → 原子替换 → 持久化决定与新基线 → 标记提交完成。
 
+每次成功写入还在本地 `control.json` 的 `baseline_dictionary` 字段维护与可信 baseline 逐字节一致的恢复副本。正式词典意外缺失时，只在副本 hash、dictionary_id、revision 和 subject_id 全部匹配时恢复；无可信副本时继续失败关闭，不能用空词典覆盖已有审批状态。有效旧词典首次打开时补建该副本。
+
 - 写前发现外部修改或旧 revision 则停止，保留草稿；刷新差异后重新提交，不采用 last-write-wins。
 - journal 包含事务 ID、前后 hash 与快照、决定及阶段；候选只有一个最终决定。相同事务重试返回同一结果。
 - journal 持久化早于词典替换；词典替换后未写基线的崩溃由 journal 完成恢复，不能将其误报为外部篡改。
