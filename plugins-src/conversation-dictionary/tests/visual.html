@@ -7,7 +7,12 @@
       const dictionary = {
         schema: 'notemd.conversation-dictionary.v1', dictionary_id: 'dict_visual', revision: 1,
         updated_at: '2026-09-20T00:00:00Z', subject_id: 'human:bruce', scope: 'user_communications',
-        domains: [], entries: [], rules: [],
+        domains: [{ id: 'd_work', name: '产品沟通', description: '' }, { id: 'd_private', name: '家人朋友', description: '' }],
+        entries: [
+          { id: 'e_bruce', kind: 'person', label: 'Bruce', forms: ['Bruce', '滔哥'], description: '' },
+          { id: 'e_weitao', kind: 'person', label: '伟滔', forms: ['伟滔', 'Weitao'], description: '' },
+          { id: 'e_note', kind: 'product', label: 'note.md', forms: ['note.md', '小记'], description: '' },
+        ], entry_domains: { e_weitao: ['d_work'], e_note: ['d_work'] }, rules: [],
       }
       const snapshot = {
         settings: { schema: 'notemd.conversation-dictionary-settings.v1', dictionary_path: 'ssot/meetings/conversation-dictionary.yml' },
@@ -30,13 +35,26 @@
       }
       window.notemd = {
         pluginId: 'notemd.conversation-dictionary', locale: 'zh-TW', theme: 'light', onMessage() {},
-        async request(method) {
+        async request(method, params) {
           if (method === 'plugin.initialize') return { status: 'existing', dictionary_created: false }
           if (method === 'plugin.bootstrap') return snapshot
           if (method === 'plugin.batch_evidence') return { evidence: [
             { id: 'ev_1', source_id: 'src_1', resource: 'ssot/meetings/20260920/transcript.srt', locator: '00:00:03–00:00:04', excerpt: '……接下来由伟涛负责这次发布。', communication: { basis: { detail: '用户确认自己参加这次产品会议。' } } },
             { id: 'ev_2', source_id: 'src_2', resource: 'ssot/meetings/20260921/transcript.srt', locator: '00:08:12–00:08:14', excerpt: '伟涛会在今天更新发布说明。', communication: { basis: { detail: '会议元数据记录用户为参会者。' } } },
           ] }
+          if (method === 'plugin.move_correction_entry') {
+            dictionary.entry_domains[params.entry_id] = [params.target_domain_id]
+            return { status: 'committed' }
+          }
+          if (method === 'plugin.merge_correction_entries') {
+            const source = dictionary.entries.find((entry) => entry.id === params.source_entry_id)
+            const target = dictionary.entries.find((entry) => entry.id === params.target_entry_id)
+            target.forms = [...new Set([...target.forms, ...source.forms])]
+            dictionary.entry_domains[target.id] = [...new Set([...(dictionary.entry_domains[target.id] || ['public']), ...(dictionary.entry_domains[source.id] || ['public'])])]
+            dictionary.entries = dictionary.entries.filter((entry) => entry.id !== source.id)
+            delete dictionary.entry_domains[source.id]
+            return { status: 'committed' }
+          }
           if (method === 'plugin.batch_commit') return { status: 'committed', revision: 2 }
           if (method === 'plugin.batch_delete') { snapshot.batches = []; return { status: 'deleted' } }
           if (method === 'host.toast' || method === 'host.editor.open') return {}

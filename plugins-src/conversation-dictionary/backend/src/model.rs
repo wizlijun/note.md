@@ -2,6 +2,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::BTreeMap;
 
+pub const PUBLIC_DOMAIN_ID: &str = "public";
+
 pub const DICTIONARY_SCHEMA: &str = "notemd.conversation-dictionary.v1";
 pub const SETTINGS_SCHEMA: &str = "notemd.conversation-dictionary-settings.v1";
 pub const DATASET_SCHEMA: &str = "notemd.conversation-dictionary-dataset.v1";
@@ -34,6 +36,8 @@ pub struct Dictionary {
     pub domains: Vec<Domain>,
     #[serde(default)]
     pub entries: Vec<Entry>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub entry_domains: BTreeMap<String, Vec<String>>,
     #[serde(default)]
     pub rules: Vec<Rule>,
 }
@@ -480,4 +484,23 @@ pub struct DeleteCorrectionEntryRequest {
     pub entry_id: String,
     #[serde(default)]
     pub delete_globally: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct MoveCorrectionEntryRequest {
+    pub transaction_id: String,
+    pub expected_revision: u64,
+    pub expected_sha256: String,
+    pub entry_id: String,
+    pub source_domain_id: String,
+    pub target_domain_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct MergeCorrectionEntriesRequest {
+    pub transaction_id: String,
+    pub expected_revision: u64,
+    pub expected_sha256: String,
+    pub source_entry_id: String,
+    pub target_entry_id: String,
 }

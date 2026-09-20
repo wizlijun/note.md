@@ -209,7 +209,7 @@ describe('Conversation Transcript Corrections window', () => {
     expect(host.querySelector<HTMLButtonElement>('.tabs button')?.classList.contains('active')).toBe(true)
     let createContext: HTMLButtonElement | undefined
     await vi.waitFor(() => {
-      createContext = [...host.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent?.includes('创建第一个场景'))
+      createContext = [...host.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent?.includes('新增场景'))
       expect(createContext).toBeDefined()
     })
     createContext!.click()
@@ -270,6 +270,162 @@ describe('Conversation Transcript Corrections window', () => {
       domain_id: 'd_private', entry_id: 'e_wei', delete_globally: true,
     })))
     expect(window.confirm).toHaveBeenCalledWith(expect.stringContaining('2 个场景'))
+  })
+
+  function publicFixture() {
+    const data = snapshot(); data.batches = []
+    data.dictionary!.domains = [{ id: 'd_work', name: '工作会议', description: '' }]
+    data.dictionary!.entries = [
+      { id: 'e_source', kind: 'person', label: '小王', forms: ['小王'], description: '' },
+      { id: 'e_target', kind: 'person', label: '王明', forms: ['王明', '老王'], description: '' },
+    ]
+    data.dictionary!.entry_domains = { e_target: ['d_work'] }
+    return data
+  }
+
+  async function mountDictionary(data: Snapshot, mutation: (method: string, params: any) => any) {
+    const request = vi.fn(async (method: string, params?: any) => {
+      if (method === 'plugin.initialize') return { status: 'existing', dictionary_created: false }
+      if (method === 'plugin.bootstrap') return structuredClone(data)
+      if (method === 'host.toast') return {}
+      return mutation(method, params)
+    })
+    window.notemd = { pluginId: 'notemd.conversation-dictionary', locale: 'zh', theme: 'light', request, onMessage: () => {} }
+    const host = document.createElement('div'); document.body.append(host); mounted = mount(App, { target: host })
+    await vi.waitFor(() => expect(host.querySelector('.entry-column')?.textContent).toContain('小王'))
+    return { host, request }
+  }
+
+  function dragEntry(host: HTMLElement) {
+    const source = [...host.querySelectorAll<HTMLButtonElement>('.entry-column button')].find((button) => button.textContent?.includes('小王'))!
+    const target = [...host.querySelectorAll<HTMLButtonElement>('.context-column button')].find((button) => button.textContent?.includes('工作会议'))!
+    const dataTransfer = { setData: vi.fn(), effectAllowed: '', dropEffect: '' }
+    for (const [type, node] of [['dragstart', source], ['dragover', target], ['drop', target]] as const) {
+      const event = new Event(type, { bubbles: true, cancelable: true })
+      Object.defineProperty(event, 'dataTransfer', { value: dataTransfer })
+      node.dispatchEvent(event)
+    }
+  }
+
+  it('shows rule-free entries in public and saves a formal name without inventing corrections', async () => {
+    const data = publicFixture()
+    const { host, request } = await mountDictionary(data, (method) => {
+      if (method === 'plugin.save_correction_entry') return { domain_id: 'public', entry_id: 'e_source' }
+      throw new Error(method)
+    })
+    expect(host.querySelector('.context-column .selected')?.textContent).toContain('public（公共）')
+    expect(host.querySelector('.entry-column')?.textContent).not.toContain('王明')
+    const save = [...host.querySelectorAll<HTMLButtonElement>('.editor-actions button')].find((button) => button.textContent === '保存')!
+    expect(save.disabled).toBe(false); save.click()
+    await vi.waitFor(() => expect(request).toHaveBeenCalledWith('plugin.save_correction_entry', expect.objectContaining({ domain_id: 'public', formal_name: '小王', aliases: [], mistaken_forms: [] })))
+  })
+
+  it('moves an unassigned entry by drag and drop and selects the persisted target context', async () => {
+    const data = publicFixture()
+    const { host, request } = await mountDictionary(data, (method, params) => {
+      if (method === 'plugin.move_correction_entry') { data.dictionary!.entry_domains!.e_source = [params.target_domain_id]; return {} }
+      throw new Error(method)
+    })
+    dragEntry(host)
+    await vi.waitFor(() => expect(request).toHaveBeenCalledWith('plugin.move_correction_entry', expect.objectContaining({ entry_id: 'e_source', source_domain_id: 'public', target_domain_id: 'd_work', expected_revision: 1, expected_sha256: 'a'.repeat(64) })))
+    await vi.waitFor(() => expect(host.querySelector('.context-column .selected')?.textContent).toContain('工作会议'))
+    expect(host.querySelector('.entry-column')?.textContent).toContain('小王')
+    expect(host.querySelector('.entry-column')?.textContent).toContain('王明')
+  })
+
+  it('retains the source context and draft when a move conflicts', async () => {
+    const data = publicFixture()
+    const { host } = await mountDictionary(data, () => { throw new Error('目标场景存在冲突') })
+    dragEntry(host)
+    await vi.waitFor(() => expect(host.textContent).toContain('目标场景存在冲突'))
+    expect(host.querySelector('.context-column .selected')?.textContent).toContain('public（公共）')
+    expect(host.querySelector<HTMLInputElement>('.editor-column input')?.value).toBe('小王')
+  })
+
+  it('does not move a dirty draft when the user cancels', async () => {
+    const { host, request } = await mountDictionary(publicFixture(), () => ({}))
+    vi.spyOn(window, 'confirm').mockReturnValue(false)
+    const input = host.querySelector<HTMLInputElement>('.editor-column input')!
+    input.value = '未保存的称呼'; input.dispatchEvent(new Event('input', { bubbles: true }))
+    await vi.waitFor(() => expect(input.value).toBe('未保存的称呼'))
+    dragEntry(host)
+    await vi.waitFor(() => expect(window.confirm).toHaveBeenCalled())
+    expect(request.mock.calls.some(([method]) => method === 'plugin.move_correction_entry')).toBe(false)
+    expect(input.value).toBe('未保存的称呼')
+  })
+
+  it('offers merge after Save, searches aliases and keeps the selected target after merging', async () => {
+    const data = publicFixture()
+    const { host, request } = await mountDictionary(data, (method) => {
+      if (method === 'plugin.merge_correction_entries') {
+        data.dictionary!.entries = data.dictionary!.entries.filter((entry) => entry.id !== 'e_source')
+        data.dictionary!.entry_domains!.e_target = ['public', 'd_work']
+        data.dictionary!.entries[0].forms.push('小王')
+        return {}
+      }
+      throw new Error(method)
+    })
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const actions = [...host.querySelectorAll<HTMLButtonElement>('.editor-actions button')]
+    expect(actions[0].textContent).toBe('保存'); expect(actions[1].textContent).toBe('合并到…'); actions[1].click()
+    await vi.waitFor(() => expect(host.querySelector('.merge-panel')).not.toBeNull())
+    const search = host.querySelector<HTMLInputElement>('.merge-panel input')!
+    search.value = '老王'; search.dispatchEvent(new Event('input', { bubbles: true }))
+    await vi.waitFor(() => expect(host.querySelector('.merge-panel select')?.textContent).toContain('王明'))
+    expect(host.querySelector('.merge-panel select')?.textContent).not.toContain('小王')
+    const select = host.querySelector<HTMLSelectElement>('.merge-panel select')!
+    select.value = 'e_target'; select.dispatchEvent(new Event('change', { bubbles: true }))
+    const confirm = host.querySelector<HTMLButtonElement>('.merge-actions .primary')!
+    await vi.waitFor(() => expect(confirm.disabled).toBe(false)); confirm.click()
+    await vi.waitFor(() => expect(request).toHaveBeenCalledWith('plugin.merge_correction_entries', expect.objectContaining({ source_entry_id: 'e_source', target_entry_id: 'e_target', expected_revision: 1 })))
+    expect(window.confirm).toHaveBeenCalledWith(expect.stringContaining('涉及 2 个场景'))
+    await vi.waitFor(() => expect(host.querySelector<HTMLInputElement>('.editor-column input')?.value).toBe('王明'))
+    expect(host.querySelector('.entry-column')?.textContent).not.toContain('小王')
+  })
+
+  it('locks editing after a committed move cannot reload and recovers to the correct entry', async () => {
+    const data = publicFixture()
+    let committed = false
+    let failReload = true
+    const request = vi.fn(async (method: string, params?: any) => {
+      if (method === 'plugin.initialize') return {}
+      if (method === 'plugin.bootstrap') {
+        if (committed && failReload) throw new Error('network unavailable')
+        return structuredClone(data)
+      }
+      if (method === 'plugin.move_correction_entry') {
+        committed = true; data.dictionary!.entry_domains!.e_source = [params.target_domain_id]; return {}
+      }
+      throw new Error(method)
+    })
+    window.notemd = { pluginId: 'notemd.conversation-dictionary', locale: 'zh', theme: 'light', request, onMessage: () => {} }
+    const host = document.createElement('div'); document.body.append(host); mounted = mount(App, { target: host })
+    await vi.waitFor(() => expect(host.querySelector('.entry-column')?.textContent).toContain('小王'))
+    dragEntry(host)
+    await vi.waitFor(() => expect(host.textContent).toContain('更改已保存，但重新加载失败'))
+    expect(host.querySelector<HTMLFieldSetElement>('.dictionary-fieldset')?.disabled).toBe(true)
+    expect(host.querySelector('.context-column .selected')?.textContent).toContain('public（公共）')
+    failReload = false
+    ;[...host.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent === '重新加载')!.click()
+    await vi.waitFor(() => expect(host.querySelector('.context-column .selected')?.textContent).toContain('工作会议'))
+    expect(host.querySelector<HTMLFieldSetElement>('.dictionary-fieldset')?.disabled).toBe(false)
+    expect(host.querySelector<HTMLInputElement>('.editor-column input')?.value).toBe('小王')
+    expect(request.mock.calls.filter(([method]) => method === 'plugin.move_correction_entry')).toHaveLength(1)
+  })
+
+  it('retains the merge target and both entries after a merge conflict', async () => {
+    const { host } = await mountDictionary(publicFixture(), () => { throw new Error('合并规则冲突') })
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    ;[...host.querySelectorAll<HTMLButtonElement>('.editor-actions button')].find((button) => button.textContent === '合并到…')!.click()
+    await vi.waitFor(() => expect(host.querySelector('.merge-panel')).not.toBeNull())
+    const select = host.querySelector<HTMLSelectElement>('.merge-panel select')!
+    select.value = 'e_target'; select.dispatchEvent(new Event('change', { bubbles: true }))
+    const confirm = host.querySelector<HTMLButtonElement>('.merge-actions .primary')!
+    await vi.waitFor(() => expect(confirm.disabled).toBe(false)); confirm.click()
+    await vi.waitFor(() => expect(host.textContent).toContain('合并规则冲突'))
+    expect(select.value).toBe('e_target')
+    expect(host.querySelector<HTMLInputElement>('.editor-column input')?.value).toBe('小王')
+    expect(host.querySelector('.merge-panel select')?.textContent).toContain('王明')
   })
 
   it('previews and submits one atomic formal-name migration', async () => {

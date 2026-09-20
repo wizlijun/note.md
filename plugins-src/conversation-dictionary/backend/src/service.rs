@@ -39,7 +39,7 @@ impl DictionaryService {
                         "dictionary_id": dictionary.dictionary_id,
                         "subject_id": dictionary.subject_id,
                         "revision": dictionary.revision,
-                        "domains": dictionary.domains,
+                        "domains": available_domains(&dictionary),
                         "entries": dictionary.entries.len(),
                         "rules": dictionary.rules.len(),
                     })
@@ -184,23 +184,13 @@ impl DictionaryService {
     pub fn list(&self, domain_id: &str) -> Result<Value, String> {
         let (dictionary, _) = storage::verified_dictionary(&self.vault)?;
         validate_dictionary(&dictionary)?;
-        if !dictionary
-            .domains
-            .iter()
-            .any(|domain| domain.id == domain_id)
-        {
+        if !has_domain(&dictionary, domain_id) {
             return Err(format!("unknown domain '{domain_id}'"));
         }
-        let entry_ids: HashSet<_> = dictionary
-            .rules
-            .iter()
-            .filter(|rule| rule.enabled && rule.domain_id == domain_id)
-            .filter_map(|rule| rule.target.as_ref().map(|target| target.entry_id.as_str()))
-            .collect();
         let entries: Vec<_> = dictionary
             .entries
             .iter()
-            .filter(|entry| entry_ids.contains(entry.id.as_str()))
+            .filter(|entry| effective_entry_domains(&dictionary, &entry.id).contains(domain_id))
             .cloned()
             .collect();
         let rules: Vec<_> = dictionary
@@ -223,11 +213,7 @@ impl DictionaryService {
         let (dictionary, _) = storage::verified_dictionary(&self.vault)?;
         validate_dictionary(&dictionary)?;
         validate_scope(&self.vault, &request.context, &dictionary.subject_id)?;
-        if !dictionary
-            .domains
-            .iter()
-            .any(|domain| domain.id == request.domain_id)
-        {
+        if !has_domain(&dictionary, &request.domain_id) {
             return Err(format!("unknown domain '{}'", request.domain_id));
         }
         let source = request
@@ -243,11 +229,7 @@ impl DictionaryService {
         let (dictionary, _) = storage::verified_dictionary(&self.vault)?;
         validate_proposal(&self.vault, &proposal)?;
         validate_scope_claim(&self.vault, &proposal.context, &dictionary.subject_id)?;
-        if !dictionary
-            .domains
-            .iter()
-            .any(|domain| domain.id == proposal.domain_id)
-        {
+        if !has_domain(&dictionary, &proposal.domain_id) {
             return Err(format!("unknown domain '{}'", proposal.domain_id));
         }
         let status = match proposal.context.communication.user_relation {
@@ -744,6 +726,13 @@ impl DictionaryService {
                 result.entry(entry_id).or_default().insert(domain_id);
                 result
             });
+        // Capture context membership before normalization can remove the last replacement rule.
+        for entry in &original.entries {
+            dictionary.entry_domains.insert(
+                entry.id.clone(),
+                sorted_domains(effective_entry_domains(&original, &entry.id)),
+            );
+        }
         let mut normalized_rules: Vec<Rule> = Vec::with_capacity(dictionary.rules.len());
         let mut rule_groups: HashMap<(String, String, String), usize> = HashMap::new();
         let mut removed_noop_rule_ids = Vec::new();
@@ -838,7 +827,9 @@ impl DictionaryService {
         }
         dictionary.rules = normalized_rules;
         validate_dictionary(&dictionary)?;
-        let changed = dictionary.entries != original.entries || dictionary.rules != original.rules;
+        let changed = dictionary.entries != original.entries
+            || dictionary.entry_domains != original.entry_domains
+            || dictionary.rules != original.rules;
         if changed {
             dictionary.revision += 1;
             dictionary.updated_at = now();
@@ -913,7 +904,7 @@ impl DictionaryService {
 
         let domain_id = match request.domain_id.as_deref() {
             Some(id) => {
-                if !dictionary.domains.iter().any(|domain| domain.id == id) {
+                if !has_domain(&dictionary, id) {
                     return Err(format!("unknown domain '{id}'"));
                 }
                 id.to_string()
@@ -993,9 +984,15 @@ impl DictionaryService {
                 .collect::<Vec<_>>(),
             Some(formal_name),
         )?;
-        if desired_observed.is_empty() {
-            return Err("at least one alias or possible transcription error is required".into());
+        let mut memberships = effective_entry_domains(&dictionary, &entry_id);
+        // A new entry has no prior membership; the implicit fallback is not an explicit association.
+        if request.entry_id.is_none() {
+            memberships.clear();
         }
+        memberships.insert(domain_id.clone());
+        dictionary
+            .entry_domains
+            .insert(entry_id.clone(), sorted_domains(memberships));
 
         let mut reusable = HashMap::new();
         let mut retained_rules = Vec::with_capacity(dictionary.rules.len());
@@ -1063,6 +1060,7 @@ impl DictionaryService {
         }
         let changed = dictionary.domains != original.domains
             || dictionary.entries != original.entries
+            || dictionary.entry_domains != original.entry_domains
             || dictionary.rules != original.rules;
         if changed {
             dictionary.revision += 1;
@@ -1119,11 +1117,7 @@ impl DictionaryService {
         {
             return Err("dictionary revision changed; refresh the corrections dictionary".into());
         }
-        if !dictionary
-            .domains
-            .iter()
-            .any(|domain| domain.id == request.domain_id)
-        {
+        if !has_domain(&dictionary, &request.domain_id) {
             return Err(format!("unknown domain '{}'", request.domain_id));
         }
         if !dictionary
@@ -1133,16 +1127,7 @@ impl DictionaryService {
         {
             return Err(format!("unknown entry '{}'", request.entry_id));
         }
-        let affected_domains: HashSet<_> = dictionary
-            .rules
-            .iter()
-            .filter(|rule| {
-                rule.target
-                    .as_ref()
-                    .is_some_and(|target| target.entry_id == request.entry_id)
-            })
-            .map(|rule| rule.domain_id.clone())
-            .collect();
+        let affected_domains = effective_entry_domains(&dictionary, &request.entry_id);
         if !affected_domains.contains(&request.domain_id) {
             return Err("the entry does not belong to the selected context".into());
         }
@@ -1158,9 +1143,19 @@ impl DictionaryService {
             !targets_entry || (!request.delete_globally && rule.domain_id != request.domain_id)
         });
         if request.delete_globally {
+            dictionary.entry_domains.remove(&request.entry_id);
             dictionary
                 .entries
                 .retain(|entry| entry.id != request.entry_id);
+        } else {
+            let remaining = affected_domains
+                .iter()
+                .filter(|id| **id != request.domain_id)
+                .cloned()
+                .collect();
+            dictionary
+                .entry_domains
+                .insert(request.entry_id.clone(), sorted_domains(remaining));
         }
         validate_dictionary(&dictionary)?;
         dictionary.revision += 1;
@@ -1189,6 +1184,216 @@ impl DictionaryService {
             &mut control,
             Some(&baseline.sha256),
             Some((&request.transaction_id, &result)),
+        )?;
+        Ok(result)
+    }
+
+    pub fn move_correction_entry(
+        &self,
+        request: MoveCorrectionEntryRequest,
+    ) -> Result<Value, String> {
+        self.edit_entry_transaction(
+            &request.transaction_id,
+            request.expected_revision,
+            &request.expected_sha256,
+            &request,
+            |dictionary| {
+                for domain in [&request.source_domain_id, &request.target_domain_id] {
+                    if !has_domain(dictionary, domain) {
+                        return Err(format!("unknown domain '{domain}'"));
+                    }
+                }
+                if !dictionary
+                    .entries
+                    .iter()
+                    .any(|entry| entry.id == request.entry_id)
+                {
+                    return Err(format!("unknown entry '{}'", request.entry_id));
+                }
+                let mut memberships = effective_entry_domains(dictionary, &request.entry_id);
+                if !memberships.contains(&request.source_domain_id) {
+                    return Err("the entry does not belong to the selected context".into());
+                }
+                if request.source_domain_id != request.target_domain_id {
+                    memberships.remove(&request.source_domain_id);
+                    memberships.insert(request.target_domain_id.clone());
+                    dictionary
+                        .entry_domains
+                        .insert(request.entry_id.clone(), sorted_domains(memberships));
+                    for rule in &mut dictionary.rules {
+                        if rule.domain_id == request.source_domain_id
+                            && rule_targets_entry(rule, &request.entry_id)
+                        {
+                            rule.domain_id = request.target_domain_id.clone();
+                        }
+                    }
+                    consolidate_entry_rules(
+                        dictionary,
+                        &request.entry_id,
+                        Some(&request.target_domain_id),
+                    )?;
+                }
+                Ok(json!({"entry_id": request.entry_id, "domain_id":request.target_domain_id}))
+            },
+        )
+    }
+
+    pub fn merge_correction_entries(
+        &self,
+        request: MergeCorrectionEntriesRequest,
+    ) -> Result<Value, String> {
+        self.edit_entry_transaction(
+            &request.transaction_id,
+            request.expected_revision,
+            &request.expected_sha256,
+            &request,
+            |dictionary| {
+                let source = dictionary
+                    .entries
+                    .iter()
+                    .find(|entry| entry.id == request.source_entry_id)
+                    .cloned()
+                    .ok_or_else(|| format!("unknown entry '{}'", request.source_entry_id))?;
+                let target = dictionary
+                    .entries
+                    .iter()
+                    .find(|entry| entry.id == request.target_entry_id)
+                    .cloned()
+                    .ok_or_else(|| format!("unknown entry '{}'", request.target_entry_id))?;
+                if source.id == target.id {
+                    return Ok(json!({"entry_id": target.id, "source_entry_id": source.id}));
+                }
+                let source_domains = effective_entry_domains(dictionary, &source.id);
+                let mut memberships = effective_entry_domains(dictionary, &target.id);
+                memberships.extend(source_domains.clone());
+                dictionary.entry_domains.remove(&source.id);
+                dictionary
+                    .entry_domains
+                    .insert(target.id.clone(), sorted_domains(memberships));
+                let merged_forms = normalized_values(
+                    &target
+                        .forms
+                        .iter()
+                        .chain(std::iter::once(&source.label))
+                        .chain(source.forms.iter())
+                        .cloned()
+                        .collect::<Vec<_>>(),
+                    None,
+                )?;
+                let merged_entry = dictionary
+                    .entries
+                    .iter_mut()
+                    .find(|entry| entry.id == target.id)
+                    .unwrap();
+                merged_entry.forms = merged_forms;
+                if !source.description.trim().is_empty()
+                    && source.description.trim() != target.description.trim()
+                {
+                    if target.description.trim().is_empty() {
+                        merged_entry.description = source.description.clone();
+                    } else {
+                        merged_entry.description =
+                            format!("{}\n\n{}", target.description, source.description);
+                    }
+                }
+                dictionary.entries.retain(|entry| entry.id != source.id);
+                for rule in &mut dictionary.rules {
+                    if rule_targets_entry(rule, &source.id) {
+                        rule.target = Some(RuleTarget {
+                            entry_id: target.id.clone(),
+                            text: target.label.clone(),
+                        });
+                    }
+                }
+                dictionary.rules.retain(|rule| {
+                    !rule_targets_entry(rule, &target.id)
+                        || nfc(&rule.observed) != nfc(&target.label)
+                });
+                // Merging explicitly confirms the old formal name as an alias in its former contexts.
+                // Existing rules keep their enabled/application state; only missing aliases get suggestions.
+                if nfc(&source.label) != nfc(&target.label) {
+                    for domain_id in source_domains {
+                        if !dictionary.rules.iter().any(|rule| {
+                            rule.domain_id == domain_id
+                                && nfc(&rule.observed) == nfc(&source.label)
+                                && rule_targets_entry(rule, &target.id)
+                        }) {
+                            dictionary.rules.push(Rule {
+                                id: format!("r_{}", Uuid::new_v4()),
+                                domain_id,
+                                observed: source.label.clone(),
+                                action: RuleAction::Replace,
+                                target: Some(RuleTarget {
+                                    entry_id: target.id.clone(),
+                                    text: target.label.clone(),
+                                }),
+                                application: Some(RuleApplication::Suggest),
+                                enabled: true,
+                                confirmed_by: dictionary.subject_id.clone(),
+                                confirmed_at: now(),
+                            });
+                        }
+                    }
+                }
+                consolidate_entry_rules(dictionary, &target.id, None)?;
+                Ok(json!({"entry_id": target.id, "source_entry_id": source.id}))
+            },
+        )
+    }
+
+    fn edit_entry_transaction<T: serde::Serialize>(
+        &self,
+        transaction_id: &str,
+        expected_revision: u64,
+        expected_sha256: &str,
+        request: &T,
+        edit: impl FnOnce(&mut Dictionary) -> Result<Value, String>,
+    ) -> Result<Value, String> {
+        if transaction_id.trim().is_empty() {
+            return Err("transaction_id is required".into());
+        }
+        let _lock = storage::lock_file(&self.vault)?;
+        self.recover_journal_locked()?;
+        let mut control = storage::load_control(&self.vault)?;
+        let plan_hash =
+            storage::sha256(&serde_json::to_vec(request).map_err(|error| error.to_string())?);
+        if let Some(existing) = control.transactions.get(transaction_id) {
+            if existing.plan_hash != plan_hash {
+                return Err("transaction_id was already used for another plan".into());
+            }
+            storage::verified_dictionary(&self.vault)?;
+            return Ok(existing.result.clone());
+        }
+        let (mut dictionary, baseline) = storage::verified_dictionary(&self.vault)?;
+        validate_dictionary(&dictionary)?;
+        if dictionary.revision != expected_revision || baseline.sha256 != expected_sha256 {
+            return Err("dictionary revision changed; refresh the corrections dictionary".into());
+        }
+        let original = dictionary.clone();
+        let mut result = edit(&mut dictionary)?;
+        validate_dictionary(&dictionary)?;
+        let changed = dictionary != original;
+        if changed {
+            dictionary.revision += 1;
+            dictionary.updated_at = now();
+        }
+        result["status"] = json!(if changed { "committed" } else { "no_change" });
+        result["transaction_id"] = json!(transaction_id);
+        result["revision"] = json!(dictionary.revision);
+        control.transactions.insert(
+            transaction_id.to_string(),
+            TransactionRecord {
+                plan_hash,
+                completed_at: now(),
+                revision: dictionary.revision,
+                result: result.clone(),
+            },
+        );
+        self.persist_dictionary(
+            &dictionary,
+            &mut control,
+            Some(&baseline.sha256),
+            Some((transaction_id, &result)),
         )?;
         Ok(result)
     }
@@ -1484,6 +1689,113 @@ fn now() -> String {
     Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true)
 }
 
+fn has_domain(dictionary: &Dictionary, domain_id: &str) -> bool {
+    domain_id == PUBLIC_DOMAIN_ID
+        || dictionary
+            .domains
+            .iter()
+            .any(|domain| domain.id == domain_id)
+}
+
+fn available_domains(dictionary: &Dictionary) -> Vec<Domain> {
+    let mut domains = dictionary.domains.clone();
+    if !domains.iter().any(|domain| domain.id == PUBLIC_DOMAIN_ID) {
+        domains.insert(
+            0,
+            Domain {
+                id: PUBLIC_DOMAIN_ID.into(),
+                name: "public（公共）".into(),
+                description: String::new(),
+            },
+        );
+    }
+    domains
+}
+
+fn rule_targets_entry(rule: &Rule, entry_id: &str) -> bool {
+    rule.action == RuleAction::Replace
+        && rule
+            .target
+            .as_ref()
+            .is_some_and(|target| target.entry_id == entry_id)
+}
+
+fn effective_entry_domains(dictionary: &Dictionary, entry_id: &str) -> HashSet<String> {
+    let mut domains: HashSet<String> = dictionary
+        .entry_domains
+        .get(entry_id)
+        .into_iter()
+        .flatten()
+        .cloned()
+        .collect();
+    domains.extend(
+        dictionary
+            .rules
+            .iter()
+            .filter(|rule| rule_targets_entry(rule, entry_id))
+            .map(|rule| rule.domain_id.clone()),
+    );
+    if domains.is_empty() {
+        domains.insert(PUBLIC_DOMAIN_ID.into());
+    }
+    domains
+}
+
+fn sorted_domains(domains: HashSet<String>) -> Vec<String> {
+    let mut result: Vec<_> = domains.into_iter().collect();
+    result.sort();
+    result
+}
+
+fn consolidate_entry_rules(
+    dictionary: &mut Dictionary,
+    entry_id: &str,
+    domain_id: Option<&str>,
+) -> Result<(), String> {
+    let selected = |rule: &Rule| {
+        rule_targets_entry(rule, entry_id)
+            && domain_id.is_none_or(|domain| rule.domain_id == domain)
+    };
+    let keys: HashSet<_> = dictionary
+        .rules
+        .iter()
+        .filter(|rule| selected(rule))
+        .map(|rule| (rule.domain_id.clone(), nfc(&rule.observed)))
+        .collect();
+    // Include disabled rules: reorganizing a dictionary must not silently discard a future conflict.
+    for rule in &dictionary.rules {
+        if keys.contains(&(rule.domain_id.clone(), nfc(&rule.observed)))
+            && !rule_targets_entry(rule, entry_id)
+        {
+            return Err(format!(
+                "the entry conflicts with existing rules for: {}/{}",
+                rule.domain_id, rule.observed
+            ));
+        }
+    }
+    let mut retained: Vec<Rule> = Vec::with_capacity(dictionary.rules.len());
+    let mut groups: HashMap<(String, String), usize> = HashMap::new();
+    for rule in std::mem::take(&mut dictionary.rules) {
+        if !selected(&rule) {
+            retained.push(rule);
+            continue;
+        }
+        let key = (rule.domain_id.clone(), nfc(&rule.observed));
+        if let Some(index) = groups.get(&key).copied() {
+            let existing = &mut retained[index];
+            existing.enabled &= rule.enabled;
+            if rule.application == Some(RuleApplication::Suggest) {
+                existing.application = Some(RuleApplication::Suggest);
+            }
+        } else {
+            groups.insert(key, retained.len());
+            retained.push(rule);
+        }
+    }
+    dictionary.rules = retained;
+    Ok(())
+}
+
 fn new_dictionary(subject_id: &str) -> Dictionary {
     Dictionary {
         schema: DICTIONARY_SCHEMA.into(),
@@ -1494,6 +1806,7 @@ fn new_dictionary(subject_id: &str) -> Dictionary {
         scope: "user_communications".into(),
         domains: vec![],
         entries: vec![],
+        entry_domains: BTreeMap::new(),
         rules: vec![],
     }
 }
@@ -1554,6 +1867,22 @@ fn validate_dictionary_legacy(dictionary: &Dictionary) -> Result<(), String> {
                 "entry '{}' has duplicate normalized forms",
                 entry.id
             ));
+        }
+    }
+    domain_ids.insert(PUBLIC_DOMAIN_ID);
+    for (entry_id, memberships) in &dictionary.entry_domains {
+        if !entries.contains_key(entry_id.as_str()) {
+            return Err(format!(
+                "entry_domains references unknown entry '{entry_id}'"
+            ));
+        }
+        let mut seen = HashSet::new();
+        for domain in memberships {
+            if !domain_ids.contains(domain.as_str()) || !seen.insert(domain.as_str()) {
+                return Err(format!(
+                    "entry '{entry_id}' has invalid or duplicate context '{domain}'"
+                ));
+            }
         }
     }
     let mut rule_ids = HashSet::new();
@@ -2648,7 +2977,7 @@ fn apply_proposal(
         "create_rule" => {
             let v: RuleDraft = serde_json::from_value(value.clone()).map_err(|e| e.to_string())?;
             let domain_id = resolve_ref(&v.domain_ref, assigned, "domain")?;
-            if !dictionary.domains.iter().any(|d| d.id == domain_id) {
+            if !has_domain(dictionary, &domain_id) {
                 return Err("rule domain not found".into());
             }
             let target = if let Some(target) = v.target {
@@ -3274,6 +3603,470 @@ mod tests {
         assert!(dictionary.rules.is_empty());
     }
 
+    fn fixture_service(current: &Dictionary) -> (tempfile::TempDir, DictionaryService) {
+        let temp = tempfile::tempdir().unwrap();
+        let service = DictionaryService::new(temp.path().to_path_buf());
+        service.create_dictionary("human:bruce").unwrap();
+        let mut control = storage::load_control(temp.path()).unwrap();
+        service
+            .persist_dictionary(current, &mut control, None, None)
+            .unwrap();
+        (temp, service)
+    }
+
+    fn move_request(
+        service: &DictionaryService,
+        source: &str,
+        target: &str,
+    ) -> MoveCorrectionEntryRequest {
+        let (dictionary, baseline) = storage::verified_dictionary(service.vault()).unwrap();
+        MoveCorrectionEntryRequest {
+            transaction_id: Uuid::new_v4().to_string(),
+            expected_revision: dictionary.revision,
+            expected_sha256: baseline.sha256,
+            entry_id: "e_wei".into(),
+            source_domain_id: source.into(),
+            target_domain_id: target.into(),
+        }
+    }
+
+    fn merge_fixture() -> Dictionary {
+        let mut current = dictionary();
+        current.entries.push(Entry {
+            id: "e_target".into(),
+            kind: EntryKind::Other,
+            label: "Bruce Wei".into(),
+            forms: vec!["Bruce Wei".into(), "Bruce".into()],
+            description: "keep me".into(),
+        });
+        current
+    }
+
+    fn merge_request(service: &DictionaryService) -> MergeCorrectionEntriesRequest {
+        let (dictionary, baseline) = storage::verified_dictionary(service.vault()).unwrap();
+        MergeCorrectionEntriesRequest {
+            transaction_id: Uuid::new_v4().to_string(),
+            expected_revision: dictionary.revision,
+            expected_sha256: baseline.sha256,
+            source_entry_id: "e_wei".into(),
+            target_entry_id: "e_target".into(),
+        }
+    }
+
+    #[test]
+    fn legacy_orphans_are_public_without_changing_the_reviewed_file() {
+        let mut current = dictionary();
+        current.rules.clear();
+        let (temp, service) = fixture_service(&current);
+        let path = storage::dictionary_path(temp.path()).unwrap();
+        let before = fs::read(&path).unwrap();
+        assert_eq!(
+            service.list("public").unwrap()["entries"]
+                .as_array()
+                .unwrap()
+                .len(),
+            1
+        );
+        assert_eq!(service.status()["domains"][0]["id"], "public");
+        assert_eq!(service.bootstrap().unwrap()["dictionary"]["revision"], 1);
+        assert_eq!(fs::read(path).unwrap(), before);
+        assert!(!serde_yaml::to_string(&current)
+            .unwrap()
+            .contains("entry_domains"));
+        assert!(service.list("d_work").unwrap()["entries"]
+            .as_array()
+            .unwrap()
+            .is_empty());
+    }
+
+    #[test]
+    fn explicit_zero_rule_membership_survives_save_move_and_delete() {
+        let mut current = dictionary();
+        current.entries.clear();
+        current.rules.clear();
+        let (temp, service) = fixture_service(&current);
+        let (_, baseline) = storage::verified_dictionary(temp.path()).unwrap();
+        let saved = service
+            .save_correction_entry(SaveCorrectionEntryRequest {
+                transaction_id: "save_zero".into(),
+                expected_revision: 1,
+                expected_sha256: baseline.sha256,
+                domain_id: Some("d_work".into()),
+                domain_name: "工作".into(),
+                entry_id: None,
+                kind: EntryKind::Person,
+                formal_name: "Alice".into(),
+                aliases: vec![],
+                mistaken_forms: vec![],
+            })
+            .unwrap();
+        let entry_id = saved["entry_id"].as_str().unwrap();
+        let (dictionary, _) = storage::verified_dictionary(temp.path()).unwrap();
+        assert_eq!(dictionary.entry_domains[entry_id], vec!["d_work"]);
+        assert!(dictionary.rules.is_empty());
+        let mut request = move_request(&service, "d_work", "public");
+        request.entry_id = entry_id.into();
+        service.move_correction_entry(request).unwrap();
+        assert_eq!(
+            service.list("public").unwrap()["entries"][0]["id"],
+            entry_id
+        );
+        let (dictionary, baseline) = storage::verified_dictionary(temp.path()).unwrap();
+        assert!(dictionary.rules.is_empty());
+        service
+            .delete_correction_entry(DeleteCorrectionEntryRequest {
+                transaction_id: "delete_zero".into(),
+                expected_revision: dictionary.revision,
+                expected_sha256: baseline.sha256,
+                domain_id: "public".into(),
+                entry_id: entry_id.into(),
+                delete_globally: true,
+            })
+            .unwrap();
+        let (dictionary, _) = storage::verified_dictionary(temp.path()).unwrap();
+        assert!(dictionary.entries.is_empty());
+        assert!(dictionary.entry_domains.is_empty());
+    }
+
+    #[test]
+    fn public_orphan_moves_without_enabling_alias_rules_and_is_idempotent() {
+        let mut current = dictionary();
+        current.rules.clear();
+        current.entries[0].forms.push("Bruce".into());
+        let (temp, service) = fixture_service(&current);
+        let request = move_request(&service, "public", "d_work");
+        let result = service.move_correction_entry(request.clone()).unwrap();
+        assert_eq!(
+            service.move_correction_entry(request.clone()).unwrap(),
+            result
+        );
+        let mut stale = request.clone();
+        stale.transaction_id = "stale".into();
+        assert!(service
+            .move_correction_entry(stale)
+            .unwrap_err()
+            .contains("revision changed"));
+        let mut reused = request;
+        reused.target_domain_id = "public".into();
+        assert!(service
+            .move_correction_entry(reused)
+            .unwrap_err()
+            .contains("another plan"));
+        let (dictionary, _) = storage::verified_dictionary(temp.path()).unwrap();
+        assert_eq!(dictionary.entry_domains["e_wei"], vec!["d_work"]);
+        assert!(dictionary.rules.is_empty());
+        let same = move_request(&service, "d_work", "d_work");
+        assert_eq!(
+            service.move_correction_entry(same).unwrap()["status"],
+            "no_change"
+        );
+    }
+
+    #[test]
+    fn moving_one_shared_context_preserves_others_and_rule_safety() {
+        let mut current = dictionary();
+        current.domains.push(Domain {
+            id: "d_private".into(),
+            name: "私聊".into(),
+            description: String::new(),
+        });
+        let mut other = current.rules[0].clone();
+        other.id = "r_private".into();
+        other.domain_id = "d_private".into();
+        current.rules.push(other.clone());
+        current.rules[0].enabled = false;
+        current.rules[0].application = Some(RuleApplication::Suggest);
+        let (temp, service) = fixture_service(&current);
+        service
+            .move_correction_entry(move_request(&service, "d_work", "public"))
+            .unwrap();
+        let (updated, _) = storage::verified_dictionary(temp.path()).unwrap();
+        assert_eq!(
+            effective_entry_domains(&updated, "e_wei"),
+            HashSet::from(["d_private".into(), "public".into()])
+        );
+        assert_eq!(
+            updated.rules.iter().find(|r| r.id == other.id).unwrap(),
+            &other
+        );
+        let moved = updated
+            .rules
+            .iter()
+            .find(|rule| rule.id == current.rules[0].id)
+            .unwrap();
+        assert!(!moved.enabled);
+        assert_eq!(moved.application, Some(RuleApplication::Suggest));
+        assert_eq!(moved.domain_id, "public");
+        assert!(resolve_dictionary(&updated, "d_work", "伟涛")
+            .unwrap()
+            .applied
+            .is_empty());
+    }
+
+    #[test]
+    fn move_rejects_target_conflicts_atomically_including_disabled_rules() {
+        let mut current = dictionary();
+        let mut preserve = current.rules[0].clone();
+        preserve.id = "r_preserve".into();
+        preserve.domain_id = "public".into();
+        preserve.action = RuleAction::Preserve;
+        preserve.target = None;
+        preserve.application = None;
+        preserve.enabled = false;
+        current.rules.push(preserve);
+        let (temp, service) = fixture_service(&current);
+        let before = fs::read(storage::dictionary_path(temp.path()).unwrap()).unwrap();
+        assert!(service
+            .move_correction_entry(move_request(&service, "d_work", "public"))
+            .unwrap_err()
+            .contains("conflicts"));
+        assert_eq!(
+            fs::read(storage::dictionary_path(temp.path()).unwrap()).unwrap(),
+            before
+        );
+    }
+
+    #[test]
+    fn merge_unifies_names_memberships_and_conservatively_consolidates_rules() {
+        let mut current = merge_fixture();
+        current.rules[0].enabled = false;
+        let mut target_rule = current.rules[0].clone();
+        target_rule.id = "r_target".into();
+        target_rule.enabled = true;
+        target_rule.application = Some(RuleApplication::Suggest);
+        target_rule.target = Some(RuleTarget {
+            entry_id: "e_target".into(),
+            text: "Bruce Wei".into(),
+        });
+        current.rules.push(target_rule);
+        current
+            .entry_domains
+            .insert("e_target".into(), vec!["public".into()]);
+        let (temp, service) = fixture_service(&current);
+        let request = merge_request(&service);
+        let result = service.merge_correction_entries(request.clone()).unwrap();
+        assert_eq!(
+            service.merge_correction_entries(request.clone()).unwrap(),
+            result
+        );
+        let mut stale = request;
+        stale.transaction_id = "stale_merge".into();
+        assert!(service
+            .merge_correction_entries(stale)
+            .unwrap_err()
+            .contains("revision changed"));
+        let (updated, _) = storage::verified_dictionary(temp.path()).unwrap();
+        assert_eq!(updated.entries.len(), 1);
+        let target = &updated.entries[0];
+        assert_eq!(target.id, "e_target");
+        assert_eq!(target.label, "Bruce Wei");
+        assert_eq!(target.kind, EntryKind::Other);
+        assert_eq!(target.description, "keep me");
+        assert_eq!(target.forms, vec!["Bruce Wei", "Bruce", "伟滔"]);
+        assert_eq!(updated.entry_domains["e_target"], vec!["d_work", "public"]);
+        let corrected = updated.rules.iter().find(|r| r.observed == "伟涛").unwrap();
+        assert!(!corrected.enabled);
+        assert_eq!(corrected.application, Some(RuleApplication::Suggest));
+        let alias = updated.rules.iter().find(|r| r.observed == "伟滔").unwrap();
+        assert_eq!(alias.domain_id, "d_work");
+        assert_eq!(alias.target.as_ref().unwrap().text, "Bruce Wei");
+        assert_eq!(alias.application, Some(RuleApplication::Suggest));
+        assert!(!updated.entry_domains.contains_key("e_wei"));
+    }
+
+    #[test]
+    fn merge_orphan_keeps_public_and_removes_new_noop_rules() {
+        let mut current = merge_fixture();
+        current.rules[0].observed = "Bruce Wei".into();
+        let (temp, service) = fixture_service(&current);
+        service
+            .merge_correction_entries(merge_request(&service))
+            .unwrap();
+        let (updated, _) = storage::verified_dictionary(temp.path()).unwrap();
+        assert_eq!(updated.entry_domains["e_target"], vec!["d_work", "public"]);
+        assert!(!updated.rules.iter().any(|r| r.observed == "Bruce Wei"));
+    }
+
+    #[test]
+    fn merge_rejects_formal_alias_conflict_and_invalid_hash_without_writes() {
+        let mut current = merge_fixture();
+        let mut preserve = current.rules[0].clone();
+        preserve.id = "r_preserve".into();
+        preserve.observed = "伟滔".into();
+        preserve.action = RuleAction::Preserve;
+        preserve.target = None;
+        preserve.application = None;
+        current.rules.push(preserve);
+        let (temp, service) = fixture_service(&current);
+        let before = fs::read(storage::dictionary_path(temp.path()).unwrap()).unwrap();
+        let request = merge_request(&service);
+        assert!(service
+            .merge_correction_entries(request.clone())
+            .unwrap_err()
+            .contains("conflicts"));
+        let mut invalid = request;
+        invalid.expected_sha256 = "0".repeat(64);
+        assert!(service
+            .merge_correction_entries(invalid)
+            .unwrap_err()
+            .contains("revision changed"));
+        assert_eq!(
+            fs::read(storage::dictionary_path(temp.path()).unwrap()).unwrap(),
+            before
+        );
+    }
+
+    #[test]
+    fn saving_public_rules_does_not_apply_them_to_other_contexts() {
+        let mut current = dictionary();
+        current.entries.clear();
+        current.rules.clear();
+        let (temp, service) = fixture_service(&current);
+        let (_, baseline) = storage::verified_dictionary(temp.path()).unwrap();
+        service
+            .save_correction_entry(SaveCorrectionEntryRequest {
+                transaction_id: "save_public".into(),
+                expected_revision: 1,
+                expected_sha256: baseline.sha256,
+                domain_id: Some("public".into()),
+                domain_name: String::new(),
+                entry_id: None,
+                kind: EntryKind::Person,
+                formal_name: "伟滔".into(),
+                aliases: vec!["Bruce".into()],
+                mistaken_forms: vec![],
+            })
+            .unwrap();
+        let (updated, _) = storage::verified_dictionary(temp.path()).unwrap();
+        assert_eq!(
+            resolve_dictionary(&updated, "public", "Bruce")
+                .unwrap()
+                .suggestions
+                .len(),
+            1
+        );
+        assert!(resolve_dictionary(&updated, "d_work", "Bruce")
+            .unwrap()
+            .suggestions
+            .is_empty());
+    }
+
+    #[test]
+    fn membership_validation_rejects_missing_entries_or_contexts() {
+        let mut current = dictionary();
+        current
+            .entry_domains
+            .insert("missing".into(), vec!["public".into()]);
+        assert!(validate_dictionary(&current)
+            .unwrap_err()
+            .contains("unknown entry"));
+        current.entry_domains.clear();
+        current
+            .entry_domains
+            .insert("e_wei".into(), vec!["missing".into()]);
+        assert!(validate_dictionary(&current)
+            .unwrap_err()
+            .contains("invalid or duplicate context"));
+    }
+
+    #[test]
+    fn moving_into_an_existing_membership_consolidates_without_enabling_rules() {
+        let mut current = dictionary();
+        let mut public = current.rules[0].clone();
+        public.id = "r_public".into();
+        public.domain_id = "public".into();
+        public.enabled = false;
+        public.application = Some(RuleApplication::Suggest);
+        current.rules.push(public);
+        let (temp, service) = fixture_service(&current);
+        service
+            .move_correction_entry(move_request(&service, "d_work", "public"))
+            .unwrap();
+        let (updated, _) = storage::verified_dictionary(temp.path()).unwrap();
+        assert_eq!(updated.rules.len(), 1);
+        assert!(!updated.rules[0].enabled);
+        assert_eq!(updated.rules[0].application, Some(RuleApplication::Suggest));
+        assert_eq!(updated.entry_domains["e_wei"], vec!["public"]);
+    }
+
+    #[test]
+    fn concurrent_moves_cannot_overwrite_each_other() {
+        let mut current = dictionary();
+        current.rules.clear();
+        let (temp, service) = fixture_service(&current);
+        let first = move_request(&service, "public", "d_work");
+        let mut second = first.clone();
+        second.transaction_id = "second_move".into();
+        let path = temp.path().to_path_buf();
+        let task =
+            std::thread::spawn(move || DictionaryService::new(path).move_correction_entry(first));
+        let second_result = service.move_correction_entry(second);
+        let first_result = task.join().unwrap();
+        assert_ne!(first_result.is_ok(), second_result.is_ok());
+        let error = first_result.err().or_else(|| second_result.err()).unwrap();
+        assert!(error.contains("revision changed"));
+        assert_eq!(
+            storage::verified_dictionary(temp.path())
+                .unwrap()
+                .0
+                .revision,
+            2
+        );
+    }
+
+    #[test]
+    fn merge_preserves_distinct_descriptions_and_inactive_aliases() {
+        for (source_description, target_description, expected) in [
+            ("来源备注", "目标备注", "目标备注\n\n来源备注"),
+            ("来源备注", "", "来源备注"),
+            ("共同备注", "共同备注", "共同备注"),
+            ("", "目标备注", "目标备注"),
+        ] {
+            let mut current = merge_fixture();
+            current.entries[0].description = source_description.into();
+            current.entries[0].forms.push("小伟".into());
+            current.entries[1].description = target_description.into();
+            let (temp, service) = fixture_service(&current);
+            service
+                .merge_correction_entries(merge_request(&service))
+                .unwrap();
+            let (updated, _) = storage::verified_dictionary(temp.path()).unwrap();
+            assert_eq!(updated.entries[0].description, expected);
+            assert!(updated.entries[0].forms.contains(&"小伟".into()));
+            assert!(!updated.rules.iter().any(|rule| rule.observed == "小伟"));
+        }
+    }
+
+    #[test]
+    fn merging_into_a_conflicting_third_target_is_rejected_atomically() {
+        let mut current = merge_fixture();
+        current.entries.push(Entry {
+            id: "e_third".into(),
+            kind: EntryKind::Other,
+            label: "Other".into(),
+            forms: vec!["Other".into()],
+            description: String::new(),
+        });
+        let mut conflicting = current.rules[0].clone();
+        conflicting.id = "r_third".into();
+        conflicting.enabled = false;
+        conflicting.target = Some(RuleTarget {
+            entry_id: "e_third".into(),
+            text: "Other".into(),
+        });
+        current.rules.push(conflicting);
+        let (temp, service) = fixture_service(&current);
+        let before = fs::read(storage::dictionary_path(temp.path()).unwrap()).unwrap();
+        assert!(service
+            .merge_correction_entries(merge_request(&service))
+            .unwrap_err()
+            .contains("conflicts"));
+        assert_eq!(
+            fs::read(storage::dictionary_path(temp.path()).unwrap()).unwrap(),
+            before
+        );
+    }
+
     fn dictionary() -> Dictionary {
         Dictionary {
             schema: DICTIONARY_SCHEMA.into(),
@@ -3287,6 +4080,7 @@ mod tests {
                 name: "工作".into(),
                 description: "".into(),
             }],
+            entry_domains: BTreeMap::new(),
             entries: vec![Entry {
                 id: "e_wei".into(),
                 kind: EntryKind::Person,
@@ -3530,6 +4324,7 @@ mod tests {
 
         assert_eq!(result["rules_removed_as_noop"], json!(["r_wei"]));
         let (migrated, _) = storage::verified_dictionary(temp.path()).unwrap();
+        assert_eq!(migrated.entry_domains["e_wei"], vec!["d_work"]);
         assert!(!migrated.rules.iter().any(|rule| rule.observed == "Bruce"));
         assert!(migrated
             .rules

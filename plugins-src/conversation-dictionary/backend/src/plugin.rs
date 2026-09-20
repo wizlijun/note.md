@@ -1,6 +1,7 @@
 use notemd_conversation_dictionary::model::{
-    BatchCommitRequest, DeleteCorrectionEntryRequest, NormalizeFormalNamesRequest, ProposalInput,
-    ResolveRequest, SaveCorrectionEntryRequest,
+    BatchCommitRequest, DeleteCorrectionEntryRequest, MergeCorrectionEntriesRequest,
+    MoveCorrectionEntryRequest, NormalizeFormalNamesRequest, ProposalInput, ResolveRequest,
+    SaveCorrectionEntryRequest,
 };
 use notemd_conversation_dictionary::DictionaryService;
 use notemd_plugin_sdk as sdk;
@@ -284,6 +285,16 @@ impl sdk::NotemdPlugin for ConversationDictionaryPlugin {
                 let request: SaveCorrectionEntryRequest =
                     serde_json::from_value(params).map_err(|error| error.to_string())?;
                 service.save_correction_entry(request)
+            }
+            "move_correction_entry" => {
+                let request: MoveCorrectionEntryRequest =
+                    serde_json::from_value(params).map_err(|error| error.to_string())?;
+                service.move_correction_entry(request)
+            }
+            "merge_correction_entries" => {
+                let request: MergeCorrectionEntriesRequest =
+                    serde_json::from_value(params).map_err(|error| error.to_string())?;
+                service.merge_correction_entries(request)
             }
             "delete_correction_entry" => {
                 let request: DeleteCorrectionEntryRequest =

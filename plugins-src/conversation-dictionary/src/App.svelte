@@ -26,6 +26,16 @@
   let newDomainName = ''
   let correctionDraft = { kind: 'other', formalName: '', aliases: '', mistakenForms: '' }
 
+  let savedDraft = JSON.stringify(correctionDraft)
+  let draggingEntry: { entryId: string; sourceDomainId: string } | null = null
+  let dropDomainId = ''
+  let moveTargetId = ''
+  let needsReload = false
+  let pendingSelection: { domainId?: string; entryId: string } | null = null
+  let merging = false
+  let mergeSearch = ''
+  let mergeTargetId = ''
+
   type MigrationEffect = {
     kind: 'update' | 'remove' | 'consolidate' | 'add_alias'
     ruleId?: string
@@ -42,19 +52,38 @@
   const pendingProposals = (batch: ReviewBatch) => batch.dataset.proposals.filter((proposal) => batch.proposal_states[proposal.id]?.status === 'pending')
   const proposalKey = (batch: ReviewBatch, proposalId: string) => `${batch.run_id}\u0000${proposalId}`
 
+  function dictionaryDomains() {
+    const domains = snapshot?.dictionary?.domains || []
+    return [{ id: 'public', name: t('public（公共）', 'public (Shared)'), description: '' }, ...domains.filter((domain) => domain.id !== 'public')]
+  }
+
   function entriesForDomain(domainId: string): Entry[] {
-    if (!snapshot?.dictionary) return []
-    const ids = new Set(snapshot.dictionary.rules
-      .filter((rule) => rule.domain_id === domainId && rule.action === 'replace' && rule.target)
-      .map((rule) => rule.target!.entry_id))
-    return snapshot.dictionary.entries.filter((entry) => ids.has(entry.id))
+    return snapshot?.dictionary?.entries.filter((entry) => contextIdsForEntry(entry.id).includes(domainId)) || []
   }
 
   function contextIdsForEntry(entryId: string): string[] {
     if (!snapshot?.dictionary) return []
-    return [...new Set(snapshot.dictionary.rules
-      .filter((rule) => rule.action === 'replace' && rule.target?.entry_id === entryId)
-      .map((rule) => rule.domain_id))]
+    const ids = new Set([
+      ...(snapshot.dictionary.entry_domains?.[entryId] || []),
+      ...snapshot.dictionary.rules
+        .filter((rule) => rule.action === 'replace' && rule.target?.entry_id === entryId)
+        .map((rule) => rule.domain_id),
+    ])
+    return ids.size ? [...ids] : ['public']
+  }
+
+  function mergeTargets() {
+    const query = mergeSearch.trim().toLocaleLowerCase()
+    return snapshot?.dictionary?.entries.filter((entry) => entry.id !== selectedEntryId &&
+      (!query || [entry.label, ...entry.forms].some((name) => name.toLocaleLowerCase().includes(query)))) || []
+  }
+
+  function canDiscardDraft() {
+    return (JSON.stringify(correctionDraft) === savedDraft && !(addingDomain && newDomainName.trim())) || window.confirm(t('当前词条有未保存的修改。放弃修改并继续？', 'Discard unsaved changes to this entry and continue?'))
+  }
+
+  function resetEntryActions() {
+    merging = false; mergeSearch = ''; mergeTargetId = ''; moveTargetId = ''
   }
 
   function unattachedEntries(domainId: string): Entry[] {
@@ -76,10 +105,12 @@
   }
 
   function loadCorrectionDraft(entryId: string) {
+    resetEntryActions()
     const dictionary = snapshot?.dictionary
     const entry = dictionary?.entries.find((item) => item.id === entryId)
     if (!dictionary || !entry) {
       correctionDraft = { kind: 'other', formalName: '', aliases: '', mistakenForms: '' }
+      savedDraft = JSON.stringify(correctionDraft)
       return
     }
     const entryAliases = aliases(entry)
@@ -94,9 +125,11 @@
       aliases: entryAliases.join('，'),
       mistakenForms: mistaken.join('，'),
     }
+    savedDraft = JSON.stringify(correctionDraft)
   }
 
   function selectDomain(domainId: string) {
+    if (busy || !canDiscardDraft()) return
     selectedDomainId = domainId
     addingDomain = false
     addingSharedEntry = false
@@ -106,43 +139,54 @@
   }
 
   function selectEntry(entryId: string) {
+    if (busy || !canDiscardDraft()) return
     addingSharedEntry = false
     selectedEntryId = entryId
     loadCorrectionDraft(entryId)
   }
 
   function beginNewDomain() {
+    if (busy || !canDiscardDraft()) return
+    resetEntryActions()
     addingDomain = true
     addingSharedEntry = false
     selectedDomainId = ''
     selectedEntryId = ''
     newDomainName = ''
     correctionDraft = { kind: 'other', formalName: '', aliases: '', mistakenForms: '' }
+    savedDraft = JSON.stringify(correctionDraft)
   }
 
   function beginNewEntry() {
+    if (busy || !canDiscardDraft()) return
+    resetEntryActions()
     addingDomain = false
     addingSharedEntry = false
     selectedEntryId = ''
     correctionDraft = { kind: 'other', formalName: '', aliases: '', mistakenForms: '' }
+    savedDraft = JSON.stringify(correctionDraft)
   }
 
   function beginAddSharedEntry() {
+    if (busy || !canDiscardDraft()) return
+    resetEntryActions()
     addingDomain = false
     addingSharedEntry = true
     selectedEntryId = ''
     correctionDraft = { kind: 'other', formalName: '', aliases: '', mistakenForms: '' }
+    savedDraft = JSON.stringify(correctionDraft)
   }
 
   function selectSharedEntry(entryId: string) {
+    if (busy || !canDiscardDraft()) return
     selectedEntryId = entryId
     loadCorrectionDraft(entryId)
   }
 
   function ensureDictionarySelection() {
     if (!snapshot?.dictionary || addingDomain) return
-    if (!selectedDomainId || !snapshot.dictionary.domains.some((domain) => domain.id === selectedDomainId)) {
-      selectedDomainId = snapshot.dictionary.domains[0]?.id || ''
+    if (!selectedDomainId || !dictionaryDomains().some((domain) => domain.id === selectedDomainId)) {
+      selectedDomainId = 'public'
     }
     const entries = entriesForDomain(selectedDomainId)
     if (selectedEntryId && entries.some((entry) => entry.id === selectedEntryId)) loadCorrectionDraft(selectedEntryId)
@@ -153,6 +197,13 @@
   async function refresh(preserveDraft = true) {
     const before = preserveDraft ? edited : {}
     snapshot = await api.bootstrap()
+    if (pendingSelection) {
+      selectedDomainId = pendingSelection.domainId || selectedDomainId
+      selectedEntryId = pendingSelection.entryId
+      addingDomain = false; addingSharedEntry = false; newDomainName = ''
+      pendingSelection = null
+    }
+    needsReload = false
     edited = before
     if (snapshot.formal_name_migration.required) {
       migrationNames = Object.fromEntries(snapshot.formal_name_migration.entries.map((entry) => [
@@ -164,6 +215,20 @@
       selectedBatchId = snapshot.batches.find((batch) => pendingProposals(batch).length)?.run_id || snapshot.batches[0]?.run_id || ''
     }
     ensureDictionarySelection()
+  }
+
+  async function refreshCommitted(selection: { domainId?: string; entryId: string }) {
+    pendingSelection = selection
+    try { await refresh(false) }
+    catch { needsReload = true; throw new Error(t('更改已保存，但重新加载失败。请点击“重新加载”后继续。', 'Changes were saved, but reloading failed. Reload before continuing.')) }
+  }
+
+  async function reloadDictionary() {
+    if (busy) return
+    busy = true; error = ''
+    try { await refresh(false) }
+    catch (value) { error = value instanceof Error ? value.message : String(value) }
+    finally { busy = false }
   }
 
   async function run(action: () => Promise<unknown>, success: string) {
@@ -413,21 +478,81 @@
         expected_revision: snapshot.formal_name_migration.expected_revision,
         expected_sha256: snapshot.formal_name_migration.expected_sha256,
         domain_id: addingDomain ? null : selectedDomainId,
-        domain_name: addingDomain ? newDomainName.trim() : (snapshot.dictionary.domains.find((domain) => domain.id === selectedDomainId)?.name || ''),
+        domain_name: addingDomain ? newDomainName.trim() : (dictionaryDomains().find((domain) => domain.id === selectedDomainId)?.name || ''),
         entry_id: selectedEntryId || null,
         kind: correctionDraft.kind,
         formal_name: correctionDraft.formalName.trim(),
         aliases: parseDelimited(correctionDraft.aliases),
         mistaken_forms: parseDelimited(correctionDraft.mistakenForms),
       })
-      selectedDomainId = result.domain_id
-      selectedEntryId = result.entry_id
-      addingDomain = false
-      addingSharedEntry = false
-      newDomainName = ''
-      await refresh(false)
+      await refreshCommitted({ domainId: result.domain_id, entryId: result.entry_id })
       notice = t('词条已保存', 'Entry saved')
       await api.toast('success', notice)
+    } catch (value) { error = value instanceof Error ? value.message : String(value) }
+    finally { busy = false }
+  }
+
+  function startEntryDrag(event: DragEvent, entryId: string) {
+    if (busy || needsReload || snapshot?.formal_name_migration.required || !event.dataTransfer) { event.preventDefault(); return }
+    draggingEntry = { entryId, sourceDomainId: selectedDomainId }
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/plain', entryId)
+  }
+
+  function dragOverDomain(event: DragEvent, domainId: string) {
+    if (!draggingEntry || busy || draggingEntry.sourceDomainId === domainId) return
+    event.preventDefault()
+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'
+    dropDomainId = domainId
+  }
+
+  async function dropEntry(event: DragEvent, targetDomainId: string) {
+    event.preventDefault()
+    const dragged = draggingEntry
+    draggingEntry = null; dropDomainId = ''
+    if (dragged) await moveEntry(dragged.entryId, dragged.sourceDomainId, targetDomainId)
+  }
+
+  async function moveEntry(entryId: string, sourceDomainId: string, targetDomainId: string) {
+    if (!snapshot?.dictionary || busy || snapshot.formal_name_migration.required || !targetDomainId || sourceDomainId === targetDomainId) return
+    if (!canDiscardDraft()) return
+    busy = true; error = ''; notice = ''
+    try {
+      await api.moveCorrectionEntry({
+        transaction_id: crypto.randomUUID(),
+        expected_revision: snapshot.formal_name_migration.expected_revision,
+        expected_sha256: snapshot.formal_name_migration.expected_sha256,
+        entry_id: entryId, source_domain_id: sourceDomainId, target_domain_id: targetDomainId,
+      })
+      await refreshCommitted({ domainId: targetDomainId, entryId })
+      notice = t('词条已移入目标场景', 'Entry moved to the selected context')
+    } catch (value) { error = value instanceof Error ? value.message : String(value) }
+    finally { busy = false }
+  }
+
+  function beginMerge() {
+    if (busy || !selectedEntryId) return
+    merging = true; mergeSearch = ''; mergeTargetId = ''
+  }
+
+  async function mergeEntries() {
+    const dictionary = snapshot?.dictionary
+    const source = dictionary?.entries.find((entry) => entry.id === selectedEntryId)
+    const target = dictionary?.entries.find((entry) => entry.id === mergeTargetId)
+    if (!snapshot || !source || !target || busy || snapshot.formal_name_migration.required) return
+    if (!canDiscardDraft()) return
+    const count = new Set([...contextIdsForEntry(source.id), ...contextIdsForEntry(target.id)]).size
+    if (!window.confirm(t(`将“${source.label}”合并到“${target.label}”？涉及 ${count} 个场景。保留目标词条，原正式名成为别名，相关规则统一输出“${target.label}”。`, `Merge “${source.label}” into “${target.label}” across ${count} contexts? Keep the target entry, retain the old formal name as an alias, and output “${target.label}” in related rules.`))) return
+    busy = true; error = ''; notice = ''
+    try {
+      await api.mergeCorrectionEntries({
+        transaction_id: crypto.randomUUID(),
+        expected_revision: snapshot.formal_name_migration.expected_revision,
+        expected_sha256: snapshot.formal_name_migration.expected_sha256,
+        source_entry_id: source.id, target_entry_id: target.id,
+      })
+      await refreshCommitted({ entryId: target.id })
+      notice = t(`已合并到“${target.label}”`, `Merged into “${target.label}”`)
     } catch (value) { error = value instanceof Error ? value.message : String(value) }
     finally { busy = false }
   }
@@ -452,8 +577,7 @@
         entry_id: entry.id,
         delete_globally: deleteGlobally,
       })
-      selectedEntryId = ''
-      await refresh(false)
+      await refreshCommitted({ entryId: '' })
       notice = deleteGlobally ? t('词条已删除', 'Entry deleted') : t('已从当前场景移除', 'Removed from this context')
       await api.toast('success', notice)
     } catch (value) { error = value instanceof Error ? value.message : String(value) }
@@ -522,6 +646,7 @@
   </nav>
 
   {#if error}<div class="banner error" role="alert">{error}</div>{/if}
+  {#if needsReload}<button onclick={reloadDictionary} disabled={busy}>{t('重新加载', 'Reload')}</button>{/if}
   {#if notice}<div class="banner success" role="status">{notice}</div>{/if}
 
   {#if snapshot?.dictionary && (snapshot.formal_name_migration.required || renamingFormalNames)}
@@ -663,22 +788,26 @@
       </div>
     {/if}
   {:else if tab === 'dictionary'}
+    <fieldset class="dictionary-fieldset" disabled={needsReload}>
     <div class="dictionary-heading">
       <div><h2>{t('勘误词典', 'Corrections Dictionary')}</h2><p>{t('先选择沟通场景，再维护该场景中的词条。正式名和别名会在所有场景共用。', 'Choose a conversation context, then maintain its entries. Formal names and aliases are shared across contexts.')}</p></div>
       <button onclick={beginNewDomain} disabled={busy || snapshot.formal_name_migration.required}>{t('新增场景', 'New context')}</button>
     </div>
     <div class="dictionary-layout">
       <section class="dictionary-column context-column" aria-label={t('场景', 'Contexts')}>
-        <div class="column-title"><strong>{t('场景', 'Contexts')}</strong><span>{snapshot.dictionary.domains.length}</span></div>
+        <div class="column-title"><strong>{t('场景', 'Contexts')}</strong><span>{dictionaryDomains().length}</span></div>
         <div class="dictionary-list">
-          {#each snapshot.dictionary.domains as domain}
-            <button class:selected={!addingDomain && selectedDomainId === domain.id} onclick={() => selectDomain(domain.id)}>
+          {#each dictionaryDomains() as domain}
+            <button class:selected={!addingDomain && selectedDomainId === domain.id} class:drop-target={dropDomainId === domain.id}
+              disabled={busy} onclick={() => selectDomain(domain.id)}
+              ondragover={(event) => dragOverDomain(event, domain.id)} ondragleave={() => dropDomainId = ''}
+              ondrop={(event) => dropEntry(event, domain.id)}>
               <strong>{domain.name}</strong><small>{entriesForDomain(domain.id).length} {t('个词条', 'entries')}</small>
             </button>
           {/each}
           {#if addingDomain}<button class="selected draft-item"><strong>{t('新场景', 'New context')}</strong><small>{t('尚未保存', 'Not saved')}</small></button>{/if}
         </div>
-        {#if snapshot.dictionary.domains.length === 0 && !addingDomain}<div class="column-empty"><p>{t('还没有场景。', 'No contexts yet.')}</p><button class="primary" onclick={beginNewDomain}>{t('创建第一个场景', 'Create first context')}</button></div>{/if}
+        <p class="list-caption">{t('将词条拖到场景中即可移动。公共场景收纳尚未分配的词条。', 'Drag entries onto a context to move them. Public holds unassigned entries.')}</p>
       </section>
 
       <section class="dictionary-column entry-column" aria-label={t('词条', 'Entries')}>
@@ -694,7 +823,9 @@
           {:else}
             <div class="dictionary-list">
               {#each entriesForDomain(selectedDomainId) as entry}
-                <button class:selected={selectedEntryId === entry.id} onclick={() => selectEntry(entry.id)}>
+                <button class:selected={selectedEntryId === entry.id} onclick={() => selectEntry(entry.id)}
+                  draggable={!busy && !snapshot.formal_name_migration.required} ondragstart={(event) => startEntryDrag(event, entry.id)}
+                  ondragend={() => { draggingEntry = null; dropDomainId = '' }} title={t('拖到左侧场景以移动词条', 'Drag to a context to move this entry')}>
                   <strong>{entry.label}</strong><small>{entry.kind} · {snapshot.dictionary.rules.filter((rule) => rule.domain_id === selectedDomainId && rule.target?.entry_id === entry.id).length} {t('条规则', 'rules')}</small>
                 </button>
               {/each}
@@ -720,14 +851,32 @@
           <label><span>{t('可能的错误名', 'Possible transcription errors')}</span><input bind:value={correctionDraft.mistakenForms} placeholder={t('只用于当前场景，例如：伟涛；伟韬', 'Current context only; separate with commas or semicolons')} disabled={busy} /></label>
           <p class="editor-help">{t('正式名和别名属于同一个共享词条；可能的错误名只在当前场景生效。最终输出始终使用正式名。', 'The formal name and aliases belong to one shared entry. Possible errors apply only in this context. Output always uses the formal name.')}</p>
           <div class="editor-actions">
-            <button class="primary" onclick={saveCorrectionEntry} disabled={busy || snapshot.formal_name_migration.required || (addingDomain && !newDomainName.trim()) || !correctionDraft.formalName.trim() || (parseDelimited(correctionDraft.aliases).length === 0 && parseDelimited(correctionDraft.mistakenForms).length === 0)}>{t('保存', 'Save')}</button>
+            <button class="primary" onclick={saveCorrectionEntry} disabled={busy || snapshot.formal_name_migration.required || (addingDomain && !newDomainName.trim()) || !correctionDraft.formalName.trim()}>{t('保存', 'Save')}</button>
+            {#if selectedEntryId && !addingSharedEntry}<button onclick={beginMerge} disabled={busy || snapshot.formal_name_migration.required || snapshot.dictionary.entries.length < 2}>{t('合并到…', 'Merge into…')}</button>{/if}
             {#if selectedEntryId && contextIdsForEntry(selectedEntryId).includes(selectedDomainId) && contextIdsForEntry(selectedEntryId).length > 1}<button onclick={() => deleteCorrectionEntry(false)} disabled={busy}>{t('从当前场景移除', 'Remove from context')}</button>{/if}
             {#if selectedEntryId && contextIdsForEntry(selectedEntryId).includes(selectedDomainId)}<button class="danger-button" onclick={() => deleteCorrectionEntry(true)} disabled={busy}>{t('删除词条', 'Delete entry')}</button>{/if}
           </div>
+          {#if selectedEntryId && contextIdsForEntry(selectedEntryId).includes(selectedDomainId)}
+            <div class="move-controls">
+              <label><span>{t('移动到场景', 'Move to context')}</span><select bind:value={moveTargetId} disabled={busy || snapshot.formal_name_migration.required}><option value="">{t('选择目标场景', 'Choose a context')}</option>{#each dictionaryDomains().filter((domain) => domain.id !== selectedDomainId) as domain}<option value={domain.id}>{domain.name}</option>{/each}</select></label>
+              <button disabled={busy || !moveTargetId || snapshot.formal_name_migration.required} onclick={() => moveEntry(selectedEntryId, selectedDomainId, moveTargetId)}>{t('移动', 'Move')}</button>
+            </div>
+          {/if}
+          {#if merging}
+            <div class="merge-panel" role="region" aria-label={t('合并词条', 'Merge entries')}>
+              <strong>{t('选择保留的目标词条', 'Choose the entry to keep')}</strong>
+              <label><span>{t('搜索正式名或别名', 'Search formal name or alias')}</span><input bind:value={mergeSearch} oninput={() => mergeTargetId = ''} disabled={busy} /></label>
+              <label><span>{t('合并到', 'Merge into')}</span><select bind:value={mergeTargetId} size={5} disabled={busy}><option value="" disabled>{t('选择目标词条', 'Choose target entry')}</option>{#each mergeTargets() as entry}<option value={entry.id}>{entry.label} · {entry.kind} · {contextIdsForEntry(entry.id).map((id) => dictionaryDomains().find((domain) => domain.id === id)?.name || id).join('、')} · {entry.id}</option>{/each}</select></label>
+              {#if !mergeTargets().length}<p class="muted">{t('没有匹配的词条', 'No matching entries')}</p>{/if}
+              <p class="editor-help">{t('保留目标词条的正式名和类型；合并两者的别名、场景和规则。当前词条的正式名将保留为别名。', 'Keep the target formal name and type. Combine aliases, contexts and rules; retain this formal name as an alias.')}</p>
+              <div class="merge-actions"><button class="primary" onclick={mergeEntries} disabled={busy || !mergeTargetId}>{t('确认合并', 'Confirm merge')}</button><button onclick={() => merging = false} disabled={busy}>{t('取消', 'Cancel')}</button></div>
+            </div>
+          {/if}
           {#if snapshot.formal_name_migration.required}<p class="blocking-reason">{t('请先完成页面上方的正式名确认。', 'Confirm formal names above before editing.')}</p>{/if}
         {:else}<div class="editor-empty"><p>{t('选择左侧场景开始维护。', 'Choose a context to begin.')}</p></div>{/if}
       </section>
     </div>
+    </fieldset>
   {:else if tab === 'history'}
     <section><h2>{t('提交历史', 'Review history')}</h2><p>{t('当前版本', 'Current revision')}: {snapshot.dictionary.revision} · {snapshot.dictionary.updated_at}</p>{#each snapshot.batches as batch}<article class="history-row"><strong>{batch.run_id}</strong><span>{Object.values(batch.proposal_states).filter((state) => state.status === 'accepted').length} {t('项已接受', 'accepted')}</span><small>{batch.imported_at}</small></article>{/each}</section>
   {:else}
@@ -743,6 +892,12 @@
 
 <style>
   :global(*){box-sizing:border-box} :global(body){margin:0;background:var(--ui-background,#f5f5f7);color:var(--ui-text,#1d1d1f);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif} button,input,select,textarea{font:inherit} button{border:1px solid var(--ui-border,#d0d0d5);border-radius:8px;background:var(--ui-control,#fff);color:inherit;padding:7px 12px;cursor:pointer} button:disabled{opacity:.5;cursor:default} button.primary{background:var(--ui-accent,#0a84ff);border-color:var(--ui-accent,#0a84ff);color:white} button.secondary{white-space:nowrap} button.danger-button{color:var(--ui-danger,#b42318);margin-left:auto} main{min-height:100vh;padding:22px 26px}.app-header{display:flex;justify-content:space-between;gap:20px;align-items:flex-start}.app-header h1{font-size:25px;margin:0 0 4px}.app-header p{margin:0;color:var(--ui-text-secondary,#666);max-width:720px}.tabs{display:flex;gap:4px;border-bottom:1px solid var(--ui-border,#ddd);margin:20px 0}.tabs button{border:0;background:none;border-radius:6px 6px 0 0;padding:9px 14px;color:var(--ui-text-secondary,#666)}.tabs button.active{color:var(--ui-accent,#0a84ff);box-shadow:inset 0 -2px var(--ui-accent,#0a84ff)}.banner{padding:10px 12px;border-radius:8px;margin-bottom:12px}.banner.error{background:#ff3b3018;color:#c3271f}.banner.success{background:#34c75918;color:#217a37}section{background:var(--ui-surface,#fff);border:1px solid var(--ui-border,#ddd);border-radius:12px;padding:18px;margin-bottom:16px}section h2{margin:0 0 10px;font-size:18px}label{display:grid;gap:5px;margin:10px 0}label span{font-size:12px;color:var(--ui-text-secondary,#666)}input,select,textarea{width:100%;border:1px solid var(--ui-border,#ccc);border-radius:7px;background:var(--ui-input,#fff);color:inherit;padding:8px 9px}textarea{resize:vertical}.empty-state{max-width:640px;margin:50px auto;text-align:left}.empty-state.compact{margin:20px auto}.teaching-example{margin-top:14px;border:1px dashed var(--ui-border,#ccc);border-radius:10px;padding:13px;background:var(--ui-selection,#0a84ff0a)}.teaching-example p{margin:10px 0}.example-heading{display:flex;justify-content:space-between;gap:12px}.example-heading span,.teaching-example small{color:var(--ui-text-secondary,#666)}.migration-panel{border-color:#ff9f0a;background:#ff9f0a0d}.migration-panel>p{color:var(--ui-text-secondary,#666)}.migration-panel>button+button{margin-left:8px}.migration-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:10px;margin:14px 0}.migration-list article{border:1px solid var(--ui-border,#ddd);border-radius:9px;padding:10px;background:var(--ui-surface,#fff)}.migration-list p{font-size:13px}.migration-list ul{margin:7px 0;padding-left:18px}.import-bar{display:flex;align-items:flex-end;justify-content:space-between;gap:22px}.import-bar p,.batch-summary p{margin:4px 0;color:var(--ui-text-secondary,#666)}.import-controls{display:flex;gap:8px;min-width:min(480px,50%)}.review-layout{display:grid;grid-template-columns:230px 1fr;gap:14px}.batch-list{display:flex;flex-direction:column;gap:7px}.batch-list button{text-align:left;display:grid;gap:3px;background:transparent}.batch-list button.selected{background:var(--ui-selection,#0a84ff18);border-color:var(--ui-accent,#0a84ff)}.batch-list span,.batch-list small{color:var(--ui-text-secondary,#666)}.proposal-pane{padding:0;overflow:hidden}.batch-summary,.commit-bar{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px 18px}.selection-actions{display:flex;gap:7px}.commit-bar>div{display:grid;gap:3px}.blocking-reason{color:var(--ui-danger,#b42318)}.unresolved-banner{margin:0 18px 12px;padding:10px 12px;border-radius:8px;background:#ff9f0a18;color:#7a4c00;display:grid;gap:3px;font-size:13px}.unresolved-banner details{margin-top:4px}.unresolved-banner pre{max-height:180px;overflow:auto;white-space:pre-wrap;color:inherit}.proposal-list{border-top:1px solid var(--ui-border,#ddd);border-bottom:1px solid var(--ui-border,#ddd);max-height:510px;overflow:auto;padding:10px}.proposal-list article{border:1px solid var(--ui-border,#ddd);border-radius:10px;padding:12px;margin-bottom:9px}.proposal-list article.selected{border-color:var(--ui-accent,#0a84ff);background:var(--ui-selection,#0a84ff0f)}.select-row{display:flex;align-items:center;gap:9px;margin:0}.select-row input{width:auto}.select-row span{margin-left:auto}.reason{font-size:13px;color:var(--ui-text-secondary,#666)}.reference-summary{display:grid;gap:3px;margin:10px 0;padding:8px 9px;border-radius:7px;background:var(--ui-selection,#0a84ff0a)}.reference-summary span{font-size:12px;color:var(--ui-text-secondary,#666)}.reference-summary strong{font-size:13px}.evidence-toggle{margin:0 0 6px;padding:4px 8px;font-size:12px}.evidence-list{display:grid;gap:7px;margin:4px 0 10px}.evidence-list blockquote{margin:0;padding:9px 10px;border-left:3px solid var(--ui-accent,#0a84ff);background:var(--ui-selection,#0a84ff0a);border-radius:0 7px 7px 0}.evidence-list p{margin:0 0 6px;white-space:pre-wrap}.evidence-list footer{display:flex;align-items:center;justify-content:space-between;gap:8px;color:var(--ui-text-secondary,#666);font-size:12px}.evidence-list footer button{padding:3px 7px}.evidence-list small{display:block;margin-top:5px;color:var(--ui-text-secondary,#666)}.preserve{font-size:13px}.history-row{border:1px solid var(--ui-border,#ddd);border-radius:9px;padding:12px;display:grid;grid-template-columns:1fr auto auto;gap:14px;margin-bottom:8px}.dictionary-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:12px}.dictionary-heading h2{margin:0 0 4px;font-size:20px}.dictionary-heading p{margin:0;color:var(--ui-text-secondary,#666)}.dictionary-layout{display:grid;grid-template-columns:minmax(180px,1fr) minmax(210px,1.15fr) minmax(360px,2fr);gap:12px;align-items:stretch}.dictionary-column{padding:0;margin:0;min-height:440px;overflow:hidden}.column-title{min-height:49px;padding:12px 14px;border-bottom:1px solid var(--ui-border,#ddd);display:flex;align-items:center;justify-content:space-between;gap:8px}.column-title>span{color:var(--ui-text-secondary,#666);font-size:12px}.column-title button{padding:4px 8px}.column-actions{display:flex;gap:5px}.dictionary-list{display:grid;padding:8px;gap:4px}.dictionary-list>button{display:grid;gap:3px;text-align:left;border-color:transparent;background:transparent;padding:9px 10px}.dictionary-list>button small{color:var(--ui-text-secondary,#666)}.dictionary-list>button.selected{border-color:var(--ui-accent,#0a84ff);background:var(--ui-selection,#0a84ff12)}.dictionary-list>button.draft-item{border-style:dashed}.list-caption{padding:4px 10px;color:var(--ui-text-secondary,#666)}.preserve-rules{margin:6px 14px 14px;color:var(--ui-text-secondary,#666);font-size:12px}.preserve-rules ul{margin:7px 0;padding-left:20px}.column-empty,.editor-empty{padding:18px;color:var(--ui-text-secondary,#666)}.column-empty p,.editor-empty p{margin:0 0 12px}.editor-column{padding:16px 18px}.editor-title{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:12px}.editor-title>div{display:grid;gap:3px}.editor-title small{color:var(--ui-text-secondary,#666)}.kind-field{display:flex;align-items:center;gap:8px;margin:0}.kind-field select{width:auto;min-width:130px}.editor-help{font-size:12px;line-height:1.5;color:var(--ui-text-secondary,#666);margin:12px 0 16px}.editor-actions{display:flex;align-items:center;gap:8px;border-top:1px solid var(--ui-border,#ddd);padding-top:14px}.muted{color:var(--ui-text-secondary,#666)}.loading{padding:60px;text-align:center}.batch-context-menu{position:fixed;z-index:1000;min-width:184px}.batch-context-menu .batch-delete{width:100%;border:0;background:transparent;text-align:left;color:var(--ui-danger,#b42318)}.batch-context-menu .batch-delete:hover{background:#d44a4a;color:#fff}
+  .dictionary-fieldset{border:0;padding:0;margin:0;min-width:0}
+  .dictionary-list>button.drop-target{outline:2px solid var(--ui-accent,#0a84ff);background:var(--ui-selection,#0a84ff18)}
+  .dictionary-list>button[draggable="true"]{cursor:grab}
+  .move-controls{display:flex;align-items:flex-end;gap:8px;margin-top:14px}.move-controls label{flex:1;margin:0}
+  .merge-panel{border:1px solid var(--ui-border,#ddd);border-radius:9px;padding:14px;margin-top:16px}.merge-actions{display:flex;gap:8px}
+  .editor-actions{flex-wrap:wrap}
   @media(max-width:900px){.dictionary-layout{grid-template-columns:1fr 1fr}.editor-column{grid-column:1/-1;min-height:0}}
   @media(max-width:760px){main{padding:16px}.app-header{display:block}.app-header button{margin-top:12px}.import-bar{display:block}.import-controls{min-width:0;width:100%}.review-layout{grid-template-columns:1fr}.batch-list{flex-direction:row;overflow:auto}.batch-list button{min-width:190px}.history-row{grid-template-columns:1fr}.commit-bar{position:sticky;bottom:0;background:var(--ui-surface,#fff)}.dictionary-heading{align-items:flex-start}.dictionary-layout{grid-template-columns:1fr}.dictionary-column{min-height:0}.editor-column{grid-column:auto}.editor-actions{flex-wrap:wrap}button.danger-button{margin-left:0}}
 </style>

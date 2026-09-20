@@ -19,6 +19,7 @@ export type Dictionary = {
   subject_id: string
   scope: string
   domains: Domain[]
+  entry_domains?: Record<string, string[]>
   entries: Entry[]
   rules: Rule[]
 }
