@@ -12,7 +12,7 @@
 
 本文在原设计文件中重写，保留文档路径以便既有引用继续定位。名称统一采用用户确认的 Conversation Dictionary / 沟通词典。仓库当前尚无旧插件实现，因此新插件 ID、CLI、配置与 schema 一并采用 `conversation-dictionary`，无需为未发布设计建立命令兼容层。
 
-2026-09-20 已实现 native v2 插件、受控 CLI、历史数据集导入/证据回源/集中编辑与事务提交、确定性 resolve，以及可直接调用的 `build-conversation-dictionary` Skill。首个切片固定默认词典路径，集中审阅支持 `create_domain`、`create_entry`、`add_forms`、`create_rule`；单次候选决定、直接手工编辑、旧 schema 迁移、路径切换和 AGENTS.md 自动安装仍按本文保留为后续能力，界面不会伪装成已经支持。
+2026-09-20 已实现 native v2 插件、受控 CLI、历史数据集导入/证据回源/集中编辑与事务提交、确定性 resolve，以及可直接调用的 `build-conversation-dictionary` Skill。首次打开插件窗口会用 Host 提供的当前 Vault 作者身份创建合法空词典，并把生成 Skill 安装到 Vault 的 `.agents/skills/build-conversation-dictionary/`，同时幂等追加根 `AGENTS.md` 受管理区块。首个切片固定默认词典路径，集中审阅支持 `create_domain`、`create_entry`、`add_forms`、`create_rule`；单次候选决定、直接手工编辑、旧 schema 迁移和路径切换仍按本文保留为后续能力，界面不会伪装成已经支持。
 
 用户已进一步确认“共用词条，按场景设规则”。本文已同步为 domains / entries / rules 三个集合；完整情形矩阵、字段取舍与不变量见 [schema 讨论稿](2026-09-19-conversation-dictionary-schema-discussion.md)。以下“仅纠正这次”的默认动作和 suggest/automatic 两种应用方式为推荐设计，尚非用户确认的交互细节。
 
@@ -55,11 +55,11 @@
 
 ### 2.1 首次使用
 
-1. 空态说明范围：“用于你参与的会议、通话和语音消息。”
-2. 展示默认词典路径，用户可修改；点击创建后产生合法空词典，并从用户配置绑定服务主体。
-3. 用户命名第一个场景，例如“产品团队”或“家人”；不自动创建全局场景。
-4. 用户可以直接添加已知词条、让 Agent 在处理沟通转写时提交候选，或调用 build-conversation-dictionary 一次整理存量字幕、导入待审数据集。
-5. 设置里提供“将使用规则加入 AGENTS.md”，显式安装后 Agent 按相同边界使用。
+1. 打开插件窗口时自动执行一次幂等初始化；CLI 激活不执行初始化，也不修改 Vault。
+2. 从 `host.vault.info.author` 取得可信 `human:<id>`，按默认路径 no-clobber 创建合法空词典。界面不让用户手工填写主体身份。
+3. 将 `build-conversation-dictionary` 安装到 Vault 的 `.agents/skills/`，并在根 `AGENTS.md` 追加受管理区块；内容相同则跳过，发现用户改过受管文件或区块则停止并提示，不覆盖。
+4. 空态展示一个明确标为“未启用”的教学样例。样例只存在于界面和 Skill reference，不进入正式词典、不带人工批准字段、也不参与 ASR。
+5. 用户可调用 build-conversation-dictionary 一次整理存量字幕、导入待审数据集；之后在界面创建真实场景、词条和逐场景规则。
 
 空词典允许 `domains: []`、`entries: []`、`rules: []`，不要求编造首个词条。没有场景或规则时查询返回原文。
 
@@ -404,45 +404,24 @@ YAML 是可移植的人类确认内容；控制状态记录最近成功提交的
 
 ### 8.1 Vault AGENTS.md
 
-新 Vault 模板与既有 Vault 使用同一段规则。既有 Vault 仅在用户点击接入时添加；受管 marker 外字节完全不变，整文件 expected-hash 检查，重复安装幂等。`CLAUDE.md` 继续遵守宿主既有继承机制。
+首次打开插件窗口时，新旧 Vault 使用同一段规则。受管 marker 外字节完全不变；重复初始化幂等；受管区块不完整、重复或已被修改时停止，不自动改写用户内容。`CLAUDE.md` 继续遵守宿主既有继承机制。Codex 在下一次以该 Vault 为工作目录启动会沿目录链读取根 `AGENTS.md`，并发现 `.agents/skills/` 下的 Skill；已运行的 Agent 会话不承诺热加载。
 
 ```markdown
-<!-- notemd:conversation-dictionary:start v1 -->
-## Conversation Dictionary
+<!-- notemd:conversation-dictionary:start -->
+## Conversation Dictionary / 沟通词典
 
-- Use this dictionary only for ASR transcripts of meetings, calls and voice
-  messages in which the user participates, and their derived previews/summaries.
-  Exclude merely consumed YouTube, podcast, course and other external content;
-  a public interview in which the user participates remains in scope. A file
-  path, a familiar name or a speaker label does not prove participation.
-- Establish scope from the user's instructions or source metadata before looking
-  up rules. Preserve the original when scope is unknown; split mixed sources.
-- Use `notemd conversation-dictionary status --json` to discover the configured
-  dictionary and domains. The default Vault-relative path is
-  `ssot/meetings/conversation-dictionary.yml`; settings live in
-  `.notemd/conversation-dictionary.json` under `dictionary_path`.
-- Select one existing domain per request. Use the controlled resolve command
-  with source context. Do not pool aliases across domains or bypass an invalid
-  dictionary or unreviewed external changes by reading YAML as approved rules.
-- Apply only verified enabled automatic rules for the selected domain. Suggest
-  rules and ambiguous mappings require review. Preserve rules take priority.
-  Keep unknown or ambiguous forms and propose at most three candidates with
-  confidence and a short reason using `notemd conversation-dictionary propose`.
-- A one-time correction does not approve a reusable rule. Shared entries may have
-  different rules per domain; rule output is explicit, never inferred from label.
-  Human decisions in the plugin approve dictionary changes. Never write approval
-  metadata yourself. When the plugin is unavailable, preserve the original and
-  present suggestions in the current response without persisting approvals.
-- Keep original audio, transcripts and imported sources unchanged. Entries are
-  spelling guidance, not evidence of identity, biography or speaker attribution.
+- When the user asks to build or refresh ASR corrections from historical communication transcripts, use `$build-conversation-dictionary` from `.agents/skills/build-conversation-dictionary/`.
+- Analyze only meetings, calls, voice messages, or public conversations the user participated in. Exclude YouTube, podcasts, and other media the user only consumed.
+- Generate an evidence-backed review dataset under `ssot/meetings/conversation-dictionary-drafts/`; never edit `ssot/meetings/conversation-dictionary.yml` directly.
+- Importing a dataset only creates pending proposals. Only the user may approve selected changes in the Conversation Dictionary window.
 <!-- notemd:conversation-dictionary:end -->
 ```
 
 ### 8.2 配套 Skill
 
-当前实现提供 `skills/build-conversation-dictionary/SKILL.md`，并已安装到本机 Codex Skills 目录供直接调用。市场安装包也在 `skills/` 目录附带同版资源，用户可显式复制到 Codex Skills 目录；插件不会静默修改 Agent 的全局配置。触发条件仅为维护沟通词典，或处理有依据表明用户参与的沟通转写及其派生摘要；不得因“转写、字幕、播客”关键词就触发应用。
+当前实现提供 `skills/build-conversation-dictionary/SKILL.md`。市场安装包附带同版资源，插件首次打开时将固定白名单内的文件安装到当前 Vault 的 `.agents/skills/build-conversation-dictionary/`；不会修改用户全局 Skill 目录。触发条件仅为维护沟通词典，或处理有依据表明用户参与的沟通转写及其派生摘要；不得因“转写、字幕、播客”关键词就触发应用。
 
-Skill 按来源门禁、场景选择、CLI 校验、候选提交的顺序执行。字段定义以同一协议文件为准，不在 Skill 另写漂移版本。插件 UI 显示版本、安装说明和路径；V1 不静默安装到各 Agent 全局目录。没有 Skill 时 AGENTS 段也必须完整约束来源范围和人工批准。
+Skill 按来源门禁、场景选择、CLI 校验、候选提交的顺序执行。字段定义以同一协议文件为准，不在 Skill 另写漂移版本。插件 UI 显示 Vault 内安装路径和 AGENTS 接入状态；V1 不安装到各 Agent 全局目录。没有 Skill 时 AGENTS 段也必须完整约束来源范围和人工批准。
 
 ### 8.3 存量沟通字幕生成 Skill
 
@@ -464,7 +443,7 @@ Skill 支持尚无词典时生成关联的场景/词条/规则草稿，也支持
 6. 新目标使用 no-clobber 创建；已存在则转为外部差异审阅，不覆盖。旧文件保留不动，不自动删除或重命名。
 7. 旧 AGENTS marker 只有在可识别且用户启动更新时替换；自由文本不改。新 marker 与命令使用新名称。
 
-仅在确认后创建真实 `conversation-dictionary.yml`。不因产品改名静默移动现有词典或重命名无关插件。
+首次打开会先创建空的 `conversation-dictionary.yml` 与可信基线；旧文件内容只有在用户确认提案后才进入该正式词典。不因产品改名静默移动现有词典或重命名无关插件。
 
 ## 10. 实现切分与验收
 
@@ -487,17 +466,17 @@ Skill 支持尚无词典时生成关联的场景/词条/规则草稿，也支持
 | 中文边界 | 在选定分词器中实测“伟涛负责发布”及更长专名含同字的对照；能证明边界时才替换，不确定时原文保留且给出原因 |
 | 单轮应用 | A→B 与 B→C 不产生 A→C；resolve 始终不写候选或词典 |
 | 人工决定 | propose 不改变词典；一次人工确认恰好一个决定/一次实际词典变更；修改字段生效；CLI 不可转发人工批准 |
-| 空态与规则 | 空词典合法；preserve 无 target 且生效；单次纠正/保留不写词典；直接手工新增也有决定记录 |
+| 空态与规则 | 首次打开自动创建空词典；教学样例不进入正式数据且不参与 ASR；preserve 无 target 且生效；单次纠正/保留不写词典；直接手工新增也有决定记录 |
 | 外部变化 | 修改 YAML 中 confirmed_by 或丢失控制状态均不自动获得信任；用户导入后才恢复查询 |
 | 恢复 | 在 journal、词典替换、决定/基线写入之间注入崩溃；重启不丢决定、不重复加 revision，第三种 hash 报冲突 |
 | 路径 | 默认路径精确；非法配置不静默回退；symlink 逃逸失败；切换失败保持可恢复；已有目标不覆盖 |
 | 原始材料 | resolve、propose、人工提交前后原始转写和音频 hash 不变；删除来源后已确认规则仍可使用 |
 | 导入 | 旧文件逐字节不变；不接受旧 confirmed 为批准；被移除字段、冲突和不适用范围在审阅中可见 |
-| Agent 接入 | AGENTS marker 外字节不变、重复安装幂等、并发外改不覆盖；插件缺失时无 YAML 直读绕过 |
+| Agent 接入 | 首次界面打开安装 Vault Skill 并添加 AGENTS 区块；marker 外字节不变、重复安装幂等、用户改动和并发外改不覆盖；CLI 激活无初始化副作用；插件缺失时无 YAML 直读绕过 |
 | 存量生成 | 完整清单与覆盖可核验；同一规则多次出现聚合且不虚增独立证据；首次/增量/partial/续算均可生成待审数据集，确认前正式词典不变 |
 | 批次审阅 | 草稿能改字、拆分与关联已有词条；选择变更一次提交；本批部分提交后余项继续审阅；重导入、重跑与崩溃重试不重复生效 |
 | UI 与构建 | 真实插件窗口可选择来源/场景、审阅、编辑、提交、打开源文件及重启回读；专项测试、类型检查、构建、manifest 校验通过 |
 
 最终完成标准：用户能维护这份沟通专用词典；Agent 能识别使用边界、复用已确认规则并提出候选；人能在可回源界面中决定；外部内容、原始材料和未经批准的规则不会被自动改动或应用。
 
-本轮交付为重新设计及 schema 取舍的建议规格，不代表插件、Skill、CLI 或真实 Vault 数据已实现或迁移。
+本文同时记录已实现切片与后续边界；具体发布版本以插件 manifest 和市场索引为准。

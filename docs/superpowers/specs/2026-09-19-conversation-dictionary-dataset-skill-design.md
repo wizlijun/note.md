@@ -287,11 +287,14 @@ check 只验证；import 将不可变快照加入插件待审状态，返回 bat
 skills/build-conversation-dictionary/
 ├── SKILL.md
 ├── references/
+│   ├── conversation-dictionary.example.yml
 │   └── dataset-format.md
 └── scripts/
     ├── inventory_transcripts.py
     └── validate_dataset.py
 ```
+
+`conversation-dictionary.example.yml` 只解释场景、共享词条与逐场景规则的关系，不是可导入数据集，也不含批准信息。插件首次空态显示同一未启用样例；正式词典仍以空集合开始，保证 `base_dictionary.state=absent` 的首次数据集可以导入。
 
 脚本和插件校验器已用合成字幕、证据篡改、中文位置、依赖提交和重试数据验证。schema 类型仍以插件协议为权威；Skill 引用它，不把 Agent 输出当作批准。
 

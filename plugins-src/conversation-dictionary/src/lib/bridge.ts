@@ -1,4 +1,4 @@
-import type { Snapshot } from './types'
+import type { InitializationResult, Snapshot } from './types'
 
 export interface NotemdBridge {
   pluginId: string
@@ -18,8 +18,8 @@ export function bridge(): NotemdBridge {
 }
 
 export const api = {
+  initialize: (): Promise<InitializationResult> => bridge().request('plugin.initialize', {}),
   bootstrap: (): Promise<Snapshot> => bridge().request('plugin.bootstrap', {}),
-  createDictionary: (subject_id: string): Promise<unknown> => bridge().request('plugin.create_dictionary', { subject_id }),
   checkDataset: (input: string): Promise<unknown> => bridge().request('plugin.dataset_check', { input }),
   importDataset: (input: string): Promise<unknown> => bridge().request('plugin.dataset_import', { input }),
   batchEvidence: (run_id: string, proposal_id: string): Promise<{ evidence: Array<Record<string, any>> }> => bridge().request('plugin.batch_evidence', { run_id, proposal_id }),

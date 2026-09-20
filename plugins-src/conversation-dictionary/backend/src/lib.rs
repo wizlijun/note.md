@@ -1,3 +1,4 @@
+pub mod integration;
 pub mod model;
 pub mod service;
 pub mod storage;

@@ -12,6 +12,8 @@ function snapshot() {
   return {
     settings: { schema: 'notemd.conversation-dictionary-settings.v1', dictionary_path: 'ssot/meetings/conversation-dictionary.yml' },
     status: { status: 'ready' }, dictionary, candidates: [],
+    agent_integration: { status: 'ready', agents_path: 'AGENTS.md', agents_ready: true, skill_path: '.agents/skills/build-conversation-dictionary', skill_ready: true },
+    example: { schema: 'notemd.conversation-dictionary-example.v1', example_only: true, description: 'Teaching example', domain: { id: 'example_product_conversation', name: '示例：产品沟通' }, entry: { id: 'example_notemd', kind: 'product', label: 'note.md', forms: ['note.md'] }, rule: { domain_id: 'example_product_conversation', observed: 'note MD', action: 'replace', target: { entry_id: 'example_notemd', text: 'note.md' }, application: 'suggest', enabled: false } },
     batches: [{
       run_id: '853f8a64-51d4-4dc8-8a97-8bd6d98784a3', dataset_sha256: 'a'.repeat(64), imported_at: '2026-09-20T00:00:00Z',
       dataset: { state: 'completed', coverage: { discovered: 2, processed: 2, excluded: 0, unknown_scope: 0, failed: 0, pending: 0, chunks_planned: 2, chunks_processed: 2 }, conflicts: [], unresolved: [], proposals: [
@@ -30,6 +32,7 @@ afterEach(() => { if (mounted) unmount(mounted); mounted = undefined; document.b
 describe('Conversation Dictionary window', () => {
   it('renders a dataset as grouped proposals and commits selected dependencies only through plugin.batch_commit', async () => {
     const request = vi.fn(async (method: string) => {
+      if (method === 'plugin.initialize') return { status: 'existing', dictionary_created: false }
       if (method === 'plugin.bootstrap') return snapshot()
       if (method === 'plugin.batch_commit') return { status: 'committed', revision: 2 }
       if (method === 'plugin.batch_evidence') return { evidence: [{ id: 'ev_1', source_id: 'src_1', resource: 'ssot/meetings/a/transcript.srt', excerpt: '请伟涛负责发布。', communication: { basis: { detail: '用户确认参与会议' } } }] }
@@ -68,6 +71,7 @@ describe('Conversation Dictionary window', () => {
     second.dataset.proposals[2].value.target!.text = '李雷'
     data.batches.push(second)
     const request = vi.fn(async (method: string, params: any) => {
+      if (method === 'plugin.initialize') return { status: 'existing', dictionary_created: false }
       if (method === 'plugin.bootstrap') return data
       if (method === 'plugin.batch_evidence') return { evidence: [{ id: 'ev_1', excerpt: params.run_id.startsWith('853f') ? '第一批证据' : '第二批证据' }] }
       throw new Error(`unexpected ${method}`)
@@ -91,7 +95,10 @@ describe('Conversation Dictionary window', () => {
   it('blocks committing a dataset that reports unresolved conflicts', async () => {
     const data = snapshot()
     data.batches[0].dataset.conflicts = [{ id: 'conflict_1', proposal_ids: ['p_rule'] }] as any
-    const request = vi.fn(async (method: string) => method === 'plugin.bootstrap' ? data : {})
+    const request = vi.fn(async (method: string) => {
+      if (method === 'plugin.initialize') return { status: 'existing', dictionary_created: false }
+      return method === 'plugin.bootstrap' ? data : {}
+    })
     window.notemd = { pluginId: 'notemd.conversation-dictionary', locale: 'zh', theme: 'light', request, onMessage: () => {} }
     const host = document.createElement('div'); document.body.append(host); mounted = mount(App, { target: host })
     await vi.waitFor(() => expect(host.textContent).toContain('仍有需要单独处理的项目'))
@@ -102,25 +109,26 @@ describe('Conversation Dictionary window', () => {
     expect(request.mock.calls.some(([method]) => method === 'plugin.batch_commit')).toBe(false)
   })
 
-  it('uses the Chinese empty state and creates only through the trusted UI request', async () => {
-    const empty = snapshot(); empty.dictionary = null as any; empty.batches = []
-    empty.status = { status: 'not_created' }
-    const request = vi.fn(async (method: string) => method === 'plugin.bootstrap' ? empty : {})
+  it('initializes automatically and shows an inactive teaching example', async () => {
+    const empty = snapshot(); empty.batches = []
+    const request = vi.fn(async (method: string) => {
+      if (method === 'plugin.initialize') return { status: 'created', dictionary_created: true }
+      return method === 'plugin.bootstrap' ? empty : {}
+    })
     window.notemd = { pluginId: 'notemd.conversation-dictionary', locale: 'zh-TW', theme: 'dark', request, onMessage: () => {} }
     const host = document.createElement('div'); document.body.append(host); mounted = mount(App, { target: host })
-    await vi.waitFor(() => expect(host.textContent).toContain('创建你的沟通词典'))
-    const subject = host.querySelector<HTMLInputElement>('input[placeholder="human:your-id"]')!
-    subject.value = 'human:bruce'; subject.dispatchEvent(new InputEvent('input', { bubbles: true }))
-    const button = [...host.querySelectorAll('button')].find((item) => item.textContent === '创建词典')!
-    await vi.waitFor(() => expect(button.disabled).toBe(false))
-    button.click()
-    await vi.waitFor(() => expect(request).toHaveBeenCalledWith('plugin.create_dictionary', { subject_id: 'human:bruce' }))
+    await vi.waitFor(() => expect(host.textContent).toContain('样例 · 未启用'))
+    expect(host.textContent).toContain('note MD')
+    expect(host.textContent).toContain('不会参与转写')
+    expect(request).toHaveBeenCalledWith('plugin.initialize', {})
+    expect(request.mock.calls.some(([method]) => method === 'plugin.create_dictionary')).toBe(false)
   })
 
   it('does not offer to recreate a dictionary that failed its reviewed baseline check', async () => {
     const invalid = snapshot(); invalid.dictionary = null as any; invalid.batches = []
     invalid.status = { status: 'needs_review', error: 'dictionary changed outside the reviewed plugin transaction' } as any
     const request = vi.fn(async (method: string) => {
+      if (method === 'plugin.initialize') throw new Error('dictionary changed outside the reviewed plugin transaction')
       if (method === 'plugin.bootstrap') return invalid
       if (method === 'plugin.open_dictionary') return { path: 'ssot/meetings/conversation-dictionary.yml' }
       if (method === 'host.editor.open') return {}

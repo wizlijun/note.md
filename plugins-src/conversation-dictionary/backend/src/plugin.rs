@@ -11,7 +11,13 @@ use std::time::Duration;
 #[derive(Default)]
 struct State {
     vault: Option<PathBuf>,
+    author: Option<String>,
     vault_checked: bool,
+}
+
+struct VaultContext {
+    root: PathBuf,
+    author: String,
 }
 
 pub struct ConversationDictionaryPlugin {
@@ -34,6 +40,23 @@ impl ConversationDictionaryPlugin {
             .clone()
             .ok_or("no Vault configured")?;
         Ok(DictionaryService::new(vault))
+    }
+
+    fn initialization_context(&self) -> Result<(DictionaryService, String), String> {
+        for _ in 0..60 {
+            let state = self.state.lock().unwrap();
+            if state.vault_checked {
+                let vault = state.vault.clone().ok_or("no Vault configured")?;
+                let author = state
+                    .author
+                    .clone()
+                    .ok_or("the current Vault author is unavailable")?;
+                return Ok((DictionaryService::new(vault), author));
+            }
+            drop(state);
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        Err("timed out while reading the current Vault identity".into())
     }
 
     fn execute_cli(&self, context: &Value) -> Result<Value, String> {
@@ -122,16 +145,23 @@ fn cli_str(context: &Value, key: &str) -> Option<String> {
     None
 }
 
-async fn vault_from_host(host: &sdk::Host) -> Option<PathBuf> {
+async fn vault_from_host(host: &sdk::Host) -> Option<VaultContext> {
     for attempt in 1..=3 {
         match host.request("host.vault.info", json!({})).await {
             Ok(value) => {
-                if let Some(root) = value
+                let root = value
                     .get("root")
                     .and_then(Value::as_str)
-                    .filter(|root| !root.is_empty())
-                {
-                    return Some(PathBuf::from(root));
+                    .filter(|root| !root.is_empty());
+                let author = value
+                    .get("author")
+                    .and_then(Value::as_str)
+                    .filter(|author| author.starts_with("human:") && author.len() > 6);
+                if let (Some(root), Some(author)) = (root, author) {
+                    return Some(VaultContext {
+                        root: PathBuf::from(root),
+                        author: author.to_string(),
+                    });
                 }
             }
             Err(error) => {
@@ -166,6 +196,7 @@ impl sdk::NotemdPlugin for ConversationDictionaryPlugin {
         if params.event.starts_with("onCli:") {
             let mut state = self.state.lock().unwrap();
             state.vault = seeded;
+            state.author = None;
             state.vault_checked = true;
             return Ok(());
         }
@@ -175,10 +206,13 @@ impl sdk::NotemdPlugin for ConversationDictionaryPlugin {
         let state = self.state.clone();
         let host = host.clone();
         tokio::spawn(async move {
-            let resolved = vault_from_host(&host).await.or(seeded);
+            let resolved = vault_from_host(&host).await;
             let mut state = state.lock().unwrap();
-            if resolved.is_some() {
-                state.vault = resolved;
+            if let Some(context) = resolved {
+                state.vault = Some(context.root);
+                state.author = Some(context.author);
+            } else if state.vault.is_none() {
+                state.vault = seeded;
             }
             state.vault_checked = true;
         });
@@ -205,16 +239,13 @@ impl sdk::NotemdPlugin for ConversationDictionaryPlugin {
         params: Value,
     ) -> Result<Value, String> {
         let method = method.strip_prefix("plugin.").unwrap_or(method);
+        if method == "initialize" {
+            let (service, author) = self.initialization_context()?;
+            return service.ensure_initialized(&author);
+        }
         let service = self.service()?;
         match method {
             "bootstrap" => service.bootstrap(),
-            "create_dictionary" => {
-                let subject = params
-                    .get("subject_id")
-                    .and_then(Value::as_str)
-                    .ok_or("subject_id is required")?;
-                service.create_dictionary(subject)
-            }
             "dataset_check" => {
                 let input = params
                     .get("input")

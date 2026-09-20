@@ -43,17 +43,53 @@ pub fn resolve_inside(vault: &Path, relative: &Path) -> Result<PathBuf, String> 
             return Err("unsafe Vault-relative path".into());
         };
         cursor.push(part);
-        if cursor.exists() {
-            let metadata = fs::symlink_metadata(&cursor).map_err(|error| error.to_string())?;
-            if metadata.file_type().is_symlink() {
+        match fs::symlink_metadata(&cursor) {
+            Ok(metadata) if metadata.file_type().is_symlink() => {
                 return Err(format!(
                     "path crosses a symbolic link: {}",
                     cursor.display()
                 ));
             }
+            Ok(_) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => return Err(error.to_string()),
         }
     }
     Ok(joined)
+}
+
+pub fn ensure_safe_parent(vault: &Path, relative: &Path) -> Result<PathBuf, String> {
+    let path = resolve_inside(vault, relative)?;
+    let parent = relative.parent().ok_or("path has no parent")?;
+    let mut cursor = vault.to_path_buf();
+    for component in parent.components() {
+        let Component::Normal(part) = component else {
+            return Err("unsafe Vault-relative path".into());
+        };
+        cursor.push(part);
+        match fs::symlink_metadata(&cursor) {
+            Ok(metadata) if metadata.file_type().is_symlink() => {
+                return Err(format!(
+                    "path crosses a symbolic link: {}",
+                    cursor.display()
+                ));
+            }
+            Ok(metadata) if !metadata.is_dir() => {
+                return Err(format!(
+                    "path component is not a directory: {}",
+                    cursor.display()
+                ));
+            }
+            Ok(_) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                fs::create_dir(&cursor)
+                    .map_err(|error| format!("{}: {error}", cursor.display()))?;
+            }
+            Err(error) => return Err(error.to_string()),
+        }
+    }
+    resolve_inside(vault, relative)?;
+    Ok(path)
 }
 
 pub fn load_settings(vault: &Path) -> Result<Settings, String> {
@@ -167,6 +203,36 @@ pub fn atomic_bytes(path: &Path, bytes: &[u8]) -> Result<(), String> {
     file.write_all(bytes).map_err(|error| error.to_string())?;
     file.sync_all().map_err(|error| error.to_string())?;
     fs::rename(&temp, path).map_err(|error| error.to_string())?;
+    File::open(parent)
+        .and_then(|dir| dir.sync_all())
+        .map_err(|error| error.to_string())?;
+    Ok(())
+}
+
+pub fn atomic_bytes_create_new(path: &Path, bytes: &[u8]) -> Result<(), String> {
+    let parent = path.parent().ok_or("path has no parent")?;
+    let temp = parent.join(format!(
+        ".{}.{}.tmp",
+        path.file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("write"),
+        uuid::Uuid::new_v4()
+    ));
+    let mut file = OpenOptions::new()
+        .create_new(true)
+        .write(true)
+        .open(&temp)
+        .map_err(|error| error.to_string())?;
+    file.write_all(bytes).map_err(|error| error.to_string())?;
+    file.sync_all().map_err(|error| error.to_string())?;
+    let published = fs::hard_link(&temp, path).map_err(|error| {
+        format!(
+            "refusing to overwrite existing file {}: {error}",
+            path.display()
+        )
+    });
+    let _ = fs::remove_file(&temp);
+    published?;
     File::open(parent)
         .and_then(|dir| dir.sync_all())
         .map_err(|error| error.to_string())?;

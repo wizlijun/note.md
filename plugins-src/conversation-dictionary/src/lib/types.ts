@@ -66,10 +66,38 @@ export type Candidate = {
   domain_id: string
   candidates: Array<{ output: string; confidence: number; reason: string }>
 }
+export type DictionaryExample = {
+  schema: string
+  example_only: true
+  description: string
+  domain: { id: string; name: string }
+  entry: { id: string; kind: string; label: string; forms: string[] }
+  rule: {
+    domain_id: string
+    observed: string
+    action: 'replace' | 'preserve'
+    target?: { entry_id: string; text: string }
+    application?: 'suggest' | 'automatic'
+    enabled: false
+  }
+}
+export type AgentIntegration = {
+  status: 'ready' | 'needs_initialization'
+  agents_path: string
+  agents_ready: boolean
+  skill_path: string
+  skill_ready: boolean
+}
 export type Snapshot = {
   settings: { schema: string; dictionary_path: string }
   status: Record<string, any>
   dictionary: Dictionary | null
   candidates: Candidate[]
   batches: ReviewBatch[]
+  agent_integration: AgentIntegration
+  example: DictionaryExample
+}
+export type InitializationResult = {
+  status: 'created' | 'existing'
+  dictionary_created: boolean
 }

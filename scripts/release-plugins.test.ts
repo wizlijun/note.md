@@ -127,6 +127,7 @@ describe('release-plugins.sh packaging shape', () => {
     expect(body).toContain('skills/build-conversation-dictionary')
     expect(packagingBody('release_conversation_dictionary')).toContain('$stage/skills')
     expect(existsSync(join(ROOT, 'skills/build-conversation-dictionary/SKILL.md'))).toBe(true)
+    expect(existsSync(join(ROOT, 'skills/build-conversation-dictionary/references/conversation-dictionary.example.yml'))).toBe(true)
   })
 })
 

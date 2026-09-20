@@ -10,7 +10,6 @@
   let busy = false
   let error = ''
   let notice = ''
-  let subjectId = ''
   let datasetPath = ''
   let selectedBatchId = ''
   let selected = new Set<string>()
@@ -41,8 +40,19 @@
     finally { busy = false }
   }
 
-  async function createDictionary() {
-    await run(() => api.createDictionary(subjectId.trim()), t('沟通词典已创建', 'Dictionary created'))
+  async function initializeAndRefresh() {
+    if (busy) return
+    busy = true; error = ''; notice = ''
+    try {
+      const result = await api.initialize()
+      await refresh(false)
+      if (result.dictionary_created) notice = t('沟通词典已为当前 Vault 准备好', 'Conversation Dictionary is ready for this Vault')
+    } catch (value) {
+      error = value instanceof Error ? value.message : String(value)
+      try { await refresh(false) } catch { /* retain the initialization error */ }
+    } finally {
+      busy = false
+    }
   }
 
   async function importDataset() {
@@ -150,7 +160,7 @@
     catch (value) { error = value instanceof Error ? value.message : String(value) }
   }
 
-  onMount(() => { refresh(false).catch((value) => { error = value instanceof Error ? value.message : String(value) }) })
+  onMount(() => { initializeAndRefresh() })
 </script>
 
 <svelte:head><title>{t('沟通词典', 'Conversation Dictionary')}</title></svelte:head>
@@ -174,14 +184,13 @@
   {#if notice}<div class="banner success" role="status">{notice}</div>{/if}
 
   {#if !snapshot}
-    <div class="loading">{t('正在载入…', 'Loading…')}</div>
+    <div class="loading">{t('正在准备沟通词典…', 'Preparing Conversation Dictionary…')}</div>
   {:else if !snapshot.dictionary}
     {#if snapshot.status.status === 'not_created'}
       <section class="empty-state">
-        <h2>{t('创建你的沟通词典', 'Create your conversation dictionary')}</h2>
-        <p>{t('只用于你参与的会议、通话和语音消息；仅消费的节目内容不会自动使用。', 'It applies only to meetings, calls and voice messages you participate in—not media you merely consume.')}</p>
-        <label><span>{t('词典服务对象', 'Dictionary subject')}</span><input bind:value={subjectId} placeholder="human:your-id" disabled={busy} /></label>
-        <button class="primary" onclick={createDictionary} disabled={busy || !subjectId.trim()}>{t('创建词典', 'Create dictionary')}</button>
+        <h2>{t('初始化尚未完成', 'Initialization is incomplete')}</h2>
+        <p>{t('请检查当前 Vault 与作者身份，然后重试。词典不会使用手工填写的身份。', 'Check the current Vault and its author identity, then retry. The dictionary never uses a manually entered identity.')}</p>
+        <button class="primary" onclick={initializeAndRefresh} disabled={busy}>{t('重试初始化', 'Retry initialization')}</button>
       </section>
     {:else}
       <section class="empty-state">
@@ -196,7 +205,17 @@
       <div class="import-controls"><input bind:value={datasetPath} placeholder="ssot/meetings/conversation-dictionary-drafts/…/dataset.yml" disabled={busy} /><button onclick={importDataset} disabled={busy || !datasetPath.trim()}>{t('导入', 'Import')}</button></div>
     </section>
     {#if snapshot.batches.length === 0}
-      <section class="empty-state compact"><h3>{t('暂无历史整理批次', 'No review datasets')}</h3><p>{t('运行 build-conversation-dictionary Skill 后，把生成的数据集导入这里。', 'Run the build-conversation-dictionary skill, then import its dataset here.')}</p></section>
+      <section class="empty-state compact">
+        <h3>{t('暂无历史整理批次', 'No review datasets')}</h3>
+        <p>{t('运行 build-conversation-dictionary Skill 后，把生成的数据集导入这里。下方样例只用于说明，不会参与转写。', 'Run the build-conversation-dictionary skill, then import its dataset here. The example below is instructional and never affects transcription.')}</p>
+        {#if snapshot.dictionary.domains.length === 0 && snapshot.dictionary.entries.length === 0 && snapshot.dictionary.rules.length === 0}
+          <article class="teaching-example" aria-label={t('未启用的教学样例', 'Inactive teaching example')}>
+            <div class="example-heading"><strong>{t('样例 · 未启用', 'Example · inactive')}</strong><span>{snapshot.example.domain.name}</span></div>
+            <p><code>{snapshot.example.rule.observed}</code> → <code>{snapshot.example.rule.target?.text}</code></p>
+            <small>{t('词条', 'Entry')}: {snapshot.example.entry.label} · {t('后续使用', 'Future use')}: {t('只建议', 'Suggest')}</small>
+          </article>
+        {/if}
+      </section>
     {:else}
       <div class="review-layout">
         <aside class="batch-list">
@@ -279,11 +298,11 @@
   {:else if tab === 'history'}
     <section><h2>{t('提交历史', 'Review history')}</h2><p>{t('当前版本', 'Current revision')}: {snapshot.dictionary.revision} · {snapshot.dictionary.updated_at}</p>{#each snapshot.batches as batch}<article class="history-row"><strong>{batch.run_id}</strong><span>{Object.values(batch.proposal_states).filter((state) => state.status === 'accepted').length} {t('项已接受', 'accepted')}</span><small>{batch.imported_at}</small></article>{/each}</section>
   {:else}
-    <section><h2>{t('设置', 'Settings')}</h2><label><span>{t('词典路径', 'Dictionary path')}</span><input value={snapshot.settings.dictionary_path} readonly /></label><p class="muted">{t('配套 build-conversation-dictionary Skill 已随插件包附带在 skills/ 目录；复制到 ~/.codex/skills/ 后可由 Codex 调用。', 'The build-conversation-dictionary skill is bundled under skills/. Copy it to ~/.codex/skills/ to make it available to Codex.')}</p><p class="muted">{t('首个实现切片固定使用默认路径。路径迁移、旧 schema 导入和 AGENTS.md 自动安装将在后续版本提供。', 'The first implementation slice uses the default path. Path migration, legacy import and managed AGENTS.md installation are deferred.')}</p><button onclick={openDictionary}>{t('在编辑器中打开', 'Open in editor')}</button></section>
+    <section><h2>{t('设置', 'Settings')}</h2><label><span>{t('词典路径', 'Dictionary path')}</span><input value={snapshot.settings.dictionary_path} readonly /></label><p class="muted">{t(`生成 Skill 已安装到 Vault 的 ${snapshot.agent_integration.skill_path}。`, `The generation skill is installed at ${snapshot.agent_integration.skill_path} in this Vault.`)}</p><p class="muted">{t(`调用说明由 ${snapshot.agent_integration.agents_path} 中的受管理区块提供。`, `Usage instructions are provided by the managed block in ${snapshot.agent_integration.agents_path}.`)}</p><button onclick={openDictionary}>{t('在编辑器中打开', 'Open in editor')}</button></section>
   {/if}
 </main>
 
 <style>
-  :global(*){box-sizing:border-box} :global(body){margin:0;background:var(--ui-background,#f5f5f7);color:var(--ui-text,#1d1d1f);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif} button,input,select{font:inherit} button{border:1px solid var(--ui-border,#d0d0d5);border-radius:8px;background:var(--ui-control,#fff);color:inherit;padding:7px 12px;cursor:pointer} button:disabled{opacity:.5;cursor:default} button.primary{background:var(--ui-accent,#0a84ff);border-color:var(--ui-accent,#0a84ff);color:white} button.secondary{white-space:nowrap} main{min-height:100vh;padding:22px 26px}.app-header{display:flex;justify-content:space-between;gap:20px;align-items:flex-start}.app-header h1{font-size:25px;margin:0 0 4px}.app-header p{margin:0;color:var(--ui-text-secondary,#666);max-width:720px}.tabs{display:flex;gap:4px;border-bottom:1px solid var(--ui-border,#ddd);margin:20px 0}.tabs button{border:0;background:none;border-radius:6px 6px 0 0;padding:9px 14px;color:var(--ui-text-secondary,#666)}.tabs button.active{color:var(--ui-accent,#0a84ff);box-shadow:inset 0 -2px var(--ui-accent,#0a84ff)}.banner{padding:10px 12px;border-radius:8px;margin-bottom:12px}.banner.error{background:#ff3b3018;color:#c3271f}.banner.success{background:#34c75918;color:#217a37}section{background:var(--ui-surface,#fff);border:1px solid var(--ui-border,#ddd);border-radius:12px;padding:18px;margin-bottom:16px}section h2{margin:0 0 10px;font-size:18px}label{display:grid;gap:5px;margin:10px 0}label span{font-size:12px;color:var(--ui-text-secondary,#666)}input,select{width:100%;border:1px solid var(--ui-border,#ccc);border-radius:7px;background:var(--ui-input,#fff);color:inherit;padding:8px 9px}.empty-state{max-width:640px;margin:50px auto;text-align:left}.empty-state.compact{margin:20px auto}.import-bar{display:flex;align-items:flex-end;justify-content:space-between;gap:22px}.import-bar p,.batch-summary p{margin:4px 0;color:var(--ui-text-secondary,#666)}.import-controls{display:flex;gap:8px;min-width:min(480px,50%)}.review-layout{display:grid;grid-template-columns:230px 1fr;gap:14px}.batch-list{display:flex;flex-direction:column;gap:7px}.batch-list button{text-align:left;display:grid;gap:3px;background:transparent}.batch-list button.selected{background:var(--ui-selection,#0a84ff18);border-color:var(--ui-accent,#0a84ff)}.batch-list span,.batch-list small{color:var(--ui-text-secondary,#666)}.proposal-pane{padding:0;overflow:hidden}.batch-summary,.commit-bar{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px 18px}.unresolved-banner{margin:0 18px 12px;padding:10px 12px;border-radius:8px;background:#ff9f0a18;color:#7a4c00;display:grid;gap:3px;font-size:13px}.unresolved-banner details{margin-top:4px}.unresolved-banner pre{max-height:180px;overflow:auto;white-space:pre-wrap;color:inherit}.proposal-list{border-top:1px solid var(--ui-border,#ddd);border-bottom:1px solid var(--ui-border,#ddd);max-height:510px;overflow:auto;padding:10px}.proposal-list article{border:1px solid var(--ui-border,#ddd);border-radius:10px;padding:12px;margin-bottom:9px}.proposal-list article.selected{border-color:var(--ui-accent,#0a84ff);background:var(--ui-selection,#0a84ff0f)}.select-row{display:flex;align-items:center;gap:9px;margin:0}.select-row input{width:auto}.select-row span{margin-left:auto}.reason{font-size:13px;color:var(--ui-text-secondary,#666)}.reference-summary{display:grid;gap:3px;margin:10px 0;padding:8px 9px;border-radius:7px;background:var(--ui-selection,#0a84ff0a)}.reference-summary span{font-size:12px;color:var(--ui-text-secondary,#666)}.reference-summary strong{font-size:13px}.evidence-toggle{margin:0 0 6px;padding:4px 8px;font-size:12px}.evidence-list{display:grid;gap:7px;margin:4px 0 10px}.evidence-list blockquote{margin:0;padding:9px 10px;border-left:3px solid var(--ui-accent,#0a84ff);background:var(--ui-selection,#0a84ff0a);border-radius:0 7px 7px 0}.evidence-list p{margin:0 0 6px;white-space:pre-wrap}.evidence-list footer{display:flex;align-items:center;justify-content:space-between;gap:8px;color:var(--ui-text-secondary,#666);font-size:12px}.evidence-list footer button{padding:3px 7px}.evidence-list small{display:block;margin-top:5px;color:var(--ui-text-secondary,#666)}.preserve{font-size:13px}.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}.cards article,.entry,.history-row{border:1px solid var(--ui-border,#ddd);border-radius:9px;padding:12px}.cards h3,.entry h3{margin:0 0 5px}.cards p,.entry p{margin:0 0 5px}.entry{display:grid;grid-template-columns:minmax(180px,1fr) 2fr;gap:16px;margin-bottom:9px}.entry ul{margin:0;padding-left:20px}.history-row{display:grid;grid-template-columns:1fr auto auto;gap:14px;margin-bottom:8px}.muted{color:var(--ui-text-secondary,#666)}.loading{padding:60px;text-align:center}
+  :global(*){box-sizing:border-box} :global(body){margin:0;background:var(--ui-background,#f5f5f7);color:var(--ui-text,#1d1d1f);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif} button,input,select{font:inherit} button{border:1px solid var(--ui-border,#d0d0d5);border-radius:8px;background:var(--ui-control,#fff);color:inherit;padding:7px 12px;cursor:pointer} button:disabled{opacity:.5;cursor:default} button.primary{background:var(--ui-accent,#0a84ff);border-color:var(--ui-accent,#0a84ff);color:white} button.secondary{white-space:nowrap} main{min-height:100vh;padding:22px 26px}.app-header{display:flex;justify-content:space-between;gap:20px;align-items:flex-start}.app-header h1{font-size:25px;margin:0 0 4px}.app-header p{margin:0;color:var(--ui-text-secondary,#666);max-width:720px}.tabs{display:flex;gap:4px;border-bottom:1px solid var(--ui-border,#ddd);margin:20px 0}.tabs button{border:0;background:none;border-radius:6px 6px 0 0;padding:9px 14px;color:var(--ui-text-secondary,#666)}.tabs button.active{color:var(--ui-accent,#0a84ff);box-shadow:inset 0 -2px var(--ui-accent,#0a84ff)}.banner{padding:10px 12px;border-radius:8px;margin-bottom:12px}.banner.error{background:#ff3b3018;color:#c3271f}.banner.success{background:#34c75918;color:#217a37}section{background:var(--ui-surface,#fff);border:1px solid var(--ui-border,#ddd);border-radius:12px;padding:18px;margin-bottom:16px}section h2{margin:0 0 10px;font-size:18px}label{display:grid;gap:5px;margin:10px 0}label span{font-size:12px;color:var(--ui-text-secondary,#666)}input,select{width:100%;border:1px solid var(--ui-border,#ccc);border-radius:7px;background:var(--ui-input,#fff);color:inherit;padding:8px 9px}.empty-state{max-width:640px;margin:50px auto;text-align:left}.empty-state.compact{margin:20px auto}.teaching-example{margin-top:14px;border:1px dashed var(--ui-border,#ccc);border-radius:10px;padding:13px;background:var(--ui-selection,#0a84ff0a)}.teaching-example p{margin:10px 0}.example-heading{display:flex;justify-content:space-between;gap:12px}.example-heading span,.teaching-example small{color:var(--ui-text-secondary,#666)}.import-bar{display:flex;align-items:flex-end;justify-content:space-between;gap:22px}.import-bar p,.batch-summary p{margin:4px 0;color:var(--ui-text-secondary,#666)}.import-controls{display:flex;gap:8px;min-width:min(480px,50%)}.review-layout{display:grid;grid-template-columns:230px 1fr;gap:14px}.batch-list{display:flex;flex-direction:column;gap:7px}.batch-list button{text-align:left;display:grid;gap:3px;background:transparent}.batch-list button.selected{background:var(--ui-selection,#0a84ff18);border-color:var(--ui-accent,#0a84ff)}.batch-list span,.batch-list small{color:var(--ui-text-secondary,#666)}.proposal-pane{padding:0;overflow:hidden}.batch-summary,.commit-bar{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px 18px}.unresolved-banner{margin:0 18px 12px;padding:10px 12px;border-radius:8px;background:#ff9f0a18;color:#7a4c00;display:grid;gap:3px;font-size:13px}.unresolved-banner details{margin-top:4px}.unresolved-banner pre{max-height:180px;overflow:auto;white-space:pre-wrap;color:inherit}.proposal-list{border-top:1px solid var(--ui-border,#ddd);border-bottom:1px solid var(--ui-border,#ddd);max-height:510px;overflow:auto;padding:10px}.proposal-list article{border:1px solid var(--ui-border,#ddd);border-radius:10px;padding:12px;margin-bottom:9px}.proposal-list article.selected{border-color:var(--ui-accent,#0a84ff);background:var(--ui-selection,#0a84ff0f)}.select-row{display:flex;align-items:center;gap:9px;margin:0}.select-row input{width:auto}.select-row span{margin-left:auto}.reason{font-size:13px;color:var(--ui-text-secondary,#666)}.reference-summary{display:grid;gap:3px;margin:10px 0;padding:8px 9px;border-radius:7px;background:var(--ui-selection,#0a84ff0a)}.reference-summary span{font-size:12px;color:var(--ui-text-secondary,#666)}.reference-summary strong{font-size:13px}.evidence-toggle{margin:0 0 6px;padding:4px 8px;font-size:12px}.evidence-list{display:grid;gap:7px;margin:4px 0 10px}.evidence-list blockquote{margin:0;padding:9px 10px;border-left:3px solid var(--ui-accent,#0a84ff);background:var(--ui-selection,#0a84ff0a);border-radius:0 7px 7px 0}.evidence-list p{margin:0 0 6px;white-space:pre-wrap}.evidence-list footer{display:flex;align-items:center;justify-content:space-between;gap:8px;color:var(--ui-text-secondary,#666);font-size:12px}.evidence-list footer button{padding:3px 7px}.evidence-list small{display:block;margin-top:5px;color:var(--ui-text-secondary,#666)}.preserve{font-size:13px}.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}.cards article,.entry,.history-row{border:1px solid var(--ui-border,#ddd);border-radius:9px;padding:12px}.cards h3,.entry h3{margin:0 0 5px}.cards p,.entry p{margin:0 0 5px}.entry{display:grid;grid-template-columns:minmax(180px,1fr) 2fr;gap:16px;margin-bottom:9px}.entry ul{margin:0;padding-left:20px}.history-row{display:grid;grid-template-columns:1fr auto auto;gap:14px;margin-bottom:8px}.muted{color:var(--ui-text-secondary,#666)}.loading{padding:60px;text-align:center}
   @media(max-width:760px){main{padding:16px}.app-header{display:block}.app-header button{margin-top:12px}.import-bar{display:block}.import-controls{min-width:0;width:100%}.review-layout{grid-template-columns:1fr}.batch-list{flex-direction:row;overflow:auto}.batch-list button{min-width:190px}.entry{grid-template-columns:1fr}.history-row{grid-template-columns:1fr}.commit-bar{position:sticky;bottom:0;background:var(--ui-surface,#fff)}}
 </style>

@@ -1,3 +1,4 @@
+use crate::integration;
 use crate::model::*;
 use crate::storage;
 use chrono::{SecondsFormat, Utc};
@@ -66,30 +67,75 @@ impl DictionaryService {
             "dictionary": dictionary,
             "candidates": control.candidates,
             "batches": control.batches,
+            "agent_integration": integration::agent_integration_status(&self.vault),
+            "example": integration::default_example(),
+        }))
+    }
+
+    pub fn ensure_initialized(&self, subject_id: &str) -> Result<Value, String> {
+        validate_subject(subject_id)?;
+        let dictionary_created;
+        let dictionary;
+        {
+            let _lock = storage::lock_file(&self.vault)?;
+            self.recover_journal_locked()?;
+            let path = storage::dictionary_path(&self.vault)?;
+            match fs::symlink_metadata(&path) {
+                Ok(metadata) if metadata.file_type().is_symlink() => {
+                    return Err("dictionary path must not be a symbolic link".into());
+                }
+                Ok(_) => {
+                    let (existing, _) = storage::verified_dictionary(&self.vault)?;
+                    if existing.subject_id != subject_id {
+                        return Err(
+                            "dictionary subject does not match the current Vault author".into()
+                        );
+                    }
+                    dictionary = existing;
+                    dictionary_created = false;
+                }
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                    if storage::load_control(&self.vault)?.baseline.is_some() {
+                        return Err(
+                            "reviewed dictionary baseline exists but the dictionary file is missing"
+                                .into(),
+                        );
+                    }
+                    dictionary = new_dictionary(subject_id);
+                    validate_dictionary(&dictionary)?;
+                    let mut control = storage::load_control(&self.vault)?;
+                    self.persist_new_dictionary(&dictionary, &mut control)?;
+                    dictionary_created = true;
+                }
+                Err(error) => return Err(format!("{}: {error}", path.display())),
+            }
+        }
+        let agent_integration = integration::ensure_agent_integration(&self.vault)?;
+        Ok(json!({
+            "status": if dictionary_created { "created" } else { "existing" },
+            "dictionary_created": dictionary_created,
+            "dictionary": dictionary,
+            "agent_integration": agent_integration,
+            "example": integration::default_example(),
         }))
     }
 
     pub fn create_dictionary(&self, subject_id: &str) -> Result<Value, String> {
         validate_subject(subject_id)?;
         let _lock = storage::lock_file(&self.vault)?;
+        self.recover_journal_locked()?;
         let path = storage::dictionary_path(&self.vault)?;
-        if path.exists() {
-            return Err("dictionary already exists; review it instead of overwriting".into());
+        match fs::symlink_metadata(&path) {
+            Ok(_) => {
+                return Err("dictionary already exists; review it instead of overwriting".into())
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => return Err(format!("{}: {error}", path.display())),
         }
-        let dictionary = Dictionary {
-            schema: DICTIONARY_SCHEMA.into(),
-            dictionary_id: format!("dict_{}", Uuid::new_v4()),
-            revision: 1,
-            updated_at: now(),
-            subject_id: subject_id.into(),
-            scope: "user_communications".into(),
-            domains: vec![],
-            entries: vec![],
-            rules: vec![],
-        };
+        let dictionary = new_dictionary(subject_id);
         validate_dictionary(&dictionary)?;
         let mut control = storage::load_control(&self.vault)?;
-        self.persist_dictionary(&dictionary, &mut control, None)?;
+        self.persist_new_dictionary(&dictionary, &mut control)?;
         Ok(json!({"created":true,"dictionary":dictionary}))
     }
 
@@ -651,6 +697,40 @@ impl DictionaryService {
         Ok(())
     }
 
+    fn persist_new_dictionary(
+        &self,
+        dictionary: &Dictionary,
+        control: &mut ControlState,
+    ) -> Result<(), String> {
+        let settings = storage::load_settings(&self.vault)?;
+        let relative = storage::validate_relative_path(&settings.dictionary_path)?;
+        let path = storage::ensure_safe_parent(&self.vault, &relative)?;
+        let bytes = storage::dictionary_bytes(dictionary)?;
+        let hash = storage::sha256(&bytes);
+        let journal = json!({
+            "schema":"notemd.conversation-dictionary-journal.v1",
+            "dictionary_path":relative,
+            "dictionary":dictionary,
+            "dictionary_sha256":hash,
+            "control":control,
+            "transaction_id":Value::Null,
+            "result":Value::Null,
+        });
+        storage::atomic_json(&storage::journal_path(&self.vault), &journal)?;
+        if let Err(error) = storage::atomic_bytes_create_new(&path, &bytes) {
+            let _ = fs::remove_file(storage::journal_path(&self.vault));
+            return Err(error);
+        }
+        control.baseline = Some(Baseline {
+            dictionary_id: dictionary.dictionary_id.clone(),
+            revision: dictionary.revision,
+            sha256: hash,
+        });
+        storage::save_control(&self.vault, control)?;
+        fs::remove_file(storage::journal_path(&self.vault)).map_err(|error| error.to_string())?;
+        Ok(())
+    }
+
     pub fn recover_journal(&self) -> Result<(), String> {
         let _lock = storage::lock_file(&self.vault)?;
         self.recover_journal_locked()
@@ -704,6 +784,20 @@ impl DictionaryService {
 
 fn now() -> String {
     Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true)
+}
+
+fn new_dictionary(subject_id: &str) -> Dictionary {
+    Dictionary {
+        schema: DICTIONARY_SCHEMA.into(),
+        dictionary_id: format!("dict_{}", Uuid::new_v4()),
+        revision: 1,
+        updated_at: now(),
+        subject_id: subject_id.into(),
+        scope: "user_communications".into(),
+        domains: vec![],
+        entries: vec![],
+        rules: vec![],
+    }
 }
 
 fn validate_subject(subject: &str) -> Result<(), String> {
@@ -1918,6 +2012,47 @@ fn is_cjk_ideograph(character: char) -> bool {
 mod tests {
     use super::*;
     use std::io::Write;
+
+    #[test]
+    fn first_open_initialization_is_idempotent_and_keeps_dictionary_empty() {
+        let temp = tempfile::tempdir().unwrap();
+        fs::write(temp.path().join("AGENTS.md"), "# Vault\n").unwrap();
+        let service = DictionaryService::new(temp.path().to_path_buf());
+
+        let first = service.ensure_initialized("human:bruce").unwrap();
+        let path = storage::dictionary_path(temp.path()).unwrap();
+        let first_bytes = fs::read(&path).unwrap();
+        let first_dictionary = storage::verified_dictionary(temp.path()).unwrap().0;
+        let second = service.ensure_initialized("human:bruce").unwrap();
+
+        assert_eq!(first["status"], "created");
+        assert_eq!(second["status"], "existing");
+        assert_eq!(fs::read(path).unwrap(), first_bytes);
+        assert_eq!(first_dictionary.revision, 1);
+        assert!(first_dictionary.domains.is_empty());
+        assert!(first_dictionary.entries.is_empty());
+        assert!(first_dictionary.rules.is_empty());
+        assert_eq!(
+            service.bootstrap().unwrap()["agent_integration"]["status"],
+            "ready"
+        );
+        assert_eq!(
+            service.bootstrap().unwrap()["example"]["example_only"],
+            true
+        );
+    }
+
+    #[test]
+    fn initialization_rejects_a_different_vault_author() {
+        let temp = tempfile::tempdir().unwrap();
+        let service = DictionaryService::new(temp.path().to_path_buf());
+        service.ensure_initialized("human:bruce").unwrap();
+        assert!(service
+            .ensure_initialized("human:someone-else")
+            .unwrap_err()
+            .contains("current Vault author"));
+    }
+
     fn dictionary() -> Dictionary {
         Dictionary {
             schema: DICTIONARY_SCHEMA.into(),

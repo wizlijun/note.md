@@ -104,6 +104,15 @@ fn cli_status_is_structured_and_cli_cannot_approve() {
         status["result"]["__notemd_cli_result"]["data"]["status"],
         "not_created"
     );
+    assert!(!vault
+        .path()
+        .join("ssot/meetings/conversation-dictionary.yml")
+        .exists());
+    assert!(!vault.path().join("AGENTS.md").exists());
+    assert!(!vault
+        .path()
+        .join(".agents/skills/build-conversation-dictionary")
+        .exists());
     let forbidden = plugin.request(
         "command.execute",
         json!({
