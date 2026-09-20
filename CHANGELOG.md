@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.920.1 — 2026-09-20
+
 ### Changed
 
 - **Conversation Dictionary 0.1.0 turns reviewed communication transcripts into reusable, context-specific ASR corrections.** Users can import an evidence-backed historical review dataset, inspect and edit proposed names or terms, and approve selected changes in one transaction. Entries can be shared across contexts while replacement and preserve rules remain independently scoped; Agent-facing CLI actions may query or submit drafts but cannot approve them. The companion `build-conversation-dictionary` Skill is included for explicit installation and analyzes only conversations the user participated in.
