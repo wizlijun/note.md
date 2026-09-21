@@ -7,6 +7,18 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+### Added
+
+- **Typeset Reader 0.1.0 turns `*.typeset.md` books into a paginated Typst reading view.** It uses the wonderous-book layout, shows the first pages while the rest of a large book continues rendering, and persists the finished page cache for instant reopening. The view keeps the title in the editor tab, uses an ebook icon, and moves zoom controls into the page context menu.
+
+### Changed
+
+- **Ebook Import 1.5.0 now writes book sources as `book.typeset.md`.** Existing `book.md` libraries remain readable, while newly imported books open automatically in Typeset Reader when it is installed.
+
+### Fixed
+
+- **Long-running plugin requests are no longer mistaken for idle processes.** Large Typst books can continue rendering beyond the idle timeout without the plugin channel being closed.
+
 ## v6.920.1 — 2026-09-20
 
 ### Changed
