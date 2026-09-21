@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.921.2 — 2026-09-21
+
 ### Changed
 
 - **Typeset Reader 0.1.1 adds persistent template controls to the page context menu.** Readers can keep automatic content-language detection or explicitly choose Wonderous Book or the AIWriter CJK template; zoom remains in the same context menu.
