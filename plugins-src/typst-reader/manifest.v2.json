@@ -5,7 +5,7 @@
   "version": "0.1.1",
   "kind": "native",
   "engines": {
-    "notemd": ">=6.921.1"
+    "notemd": ">=6.921.2"
   },
   "description": "Read specially named Markdown documents with book-quality Typst pagination and persistent page caching.",
   "binary": {
