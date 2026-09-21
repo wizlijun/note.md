@@ -41,6 +41,7 @@ pub enum FileViewIcon {
     Generic,
     Sparkle,
     Clock,
+    Book,
 }
 
 impl FileViewIcon {
@@ -392,7 +393,7 @@ mod tests {
         let m: ManifestV2 = serde_json::from_value(raw.clone()).unwrap();
         assert_eq!(m.contributes.file_views[0].icon, FileViewIcon::Generic);
 
-        for icon in ["generic", "sparkle", "clock"] {
+        for icon in ["generic", "sparkle", "clock", "book"] {
             let mut with_icon = raw.clone();
             with_icon["contributes"]["file_views"][0]["icon"] = json!(icon);
             let parsed: ManifestV2 = serde_json::from_value(with_icon).unwrap();

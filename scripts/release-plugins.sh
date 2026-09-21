@@ -4,7 +4,7 @@
 #   scripts/release-plugins.sh [--release] <plugin...>
 #     plugin ∈ { md2pdf, roam-import, apple-notes, meetings, conversation-dictionary, openclaw, assistant-mail, pos-log,
 #                decision-log, weekly-review, memory, claude-agent, codex-agent, deepseek-agent, ebook-import,
-#                idea-spark, next, power-mode, trace-source, timeline, index-viewer,
+#                idea-spark, next, power-mode, trace-source, timeline, index-viewer, typst-reader,
 #                knowledge-browser }   (add a case below)
 #     --release  currently a no-op flag reserved for build-profile parity with
 #                dev-install-plugin.sh; the release builds below are always
@@ -44,14 +44,14 @@ PLUGINS=()
 for arg in "$@"; do
   case "$arg" in
     --release) : ;; # reserved; release builds are always release-profile
-    md2pdf|roam-import|apple-notes|meetings|conversation-dictionary|openclaw|assistant-mail|pos-log|decision-log|weekly-review|memory|claude-agent|codex-agent|deepseek-agent|ebook-import|idea-spark|next|power-mode|trace-source|timeline|index-viewer|knowledge-browser) PLUGINS+=("$arg") ;;
+    md2pdf|roam-import|apple-notes|meetings|conversation-dictionary|openclaw|assistant-mail|pos-log|decision-log|weekly-review|memory|claude-agent|codex-agent|deepseek-agent|ebook-import|idea-spark|next|power-mode|trace-source|timeline|index-viewer|typst-reader|knowledge-browser) PLUGINS+=("$arg") ;;
     -h|--help)
       grep '^#' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
-    *) echo "unknown arg: $arg (expected --release | md2pdf | roam-import | apple-notes | meetings | conversation-dictionary | openclaw | assistant-mail | pos-log | decision-log | weekly-review | memory | claude-agent | codex-agent | deepseek-agent | ebook-import | idea-spark | next | power-mode | trace-source | timeline | index-viewer | knowledge-browser)" >&2; exit 2 ;;
+    *) echo "unknown arg: $arg (expected --release | md2pdf | roam-import | apple-notes | meetings | conversation-dictionary | openclaw | assistant-mail | pos-log | decision-log | weekly-review | memory | claude-agent | codex-agent | deepseek-agent | ebook-import | idea-spark | next | power-mode | trace-source | timeline | index-viewer | typst-reader | knowledge-browser)" >&2; exit 2 ;;
   esac
 done
 if [[ ${#PLUGINS[@]} -eq 0 ]]; then
-  echo "usage: scripts/release-plugins.sh [--release] <md2pdf|roam-import|apple-notes|meetings|conversation-dictionary|openclaw|assistant-mail|pos-log|decision-log|weekly-review|memory|claude-agent|codex-agent|deepseek-agent|ebook-import|idea-spark|next|power-mode|trace-source|timeline|index-viewer|knowledge-browser>..." >&2
+  echo "usage: scripts/release-plugins.sh [--release] <md2pdf|roam-import|apple-notes|meetings|conversation-dictionary|openclaw|assistant-mail|pos-log|decision-log|weekly-review|memory|claude-agent|codex-agent|deepseek-agent|ebook-import|idea-spark|next|power-mode|trace-source|timeline|index-viewer|typst-reader|knowledge-browser>..." >&2
   exit 2
 fi
 
@@ -521,6 +521,9 @@ release_native_ui() {
     cp "$src/backend/target/$triple/release/$bin_name" "$stage/bin/$bin_name"
     chmod +x "$stage/bin/$bin_name"
     cp -R "$src/dist/." "$stage/ui/"
+    if [[ -f "$src/THIRD_PARTY_LICENSES.txt" ]]; then
+      cp "$src/THIRD_PARTY_LICENSES.txt" "$stage/"
+    fi
     if [[ -n "$skill_src" ]]; then
       mkdir -p "$stage/skills"
       cp -R "$skill_src" "$stage/skills/"
@@ -577,6 +580,12 @@ release_deepseek_agent() {
 release_ebook_import() {
   release_native_ui "notemd.ebook-import" "$REPO_ROOT/plugins-src/ebook-import" \
     "notemd-ebook-import" "ebook-import-plugin"
+}
+
+# ── typst-reader: native Typst renderer + read-only paged UI ─────────────────
+release_typst_reader() {
+  release_native_ui "notemd.typst-reader" "$REPO_ROOT/plugins-src/typst-reader" \
+    "notemd-typst-reader" "typst-reader"
 }
 
 # ── pos-log: native backend only, per-arch packages (no ui/) ─────────────────
@@ -652,6 +661,7 @@ for plugin in "${PLUGINS[@]}"; do
     codex-agent) release_codex_agent ;;
     deepseek-agent) release_deepseek_agent ;;
     ebook-import) release_ebook_import ;;
+    typst-reader) release_typst_reader ;;
     idea-spark)  release_idea_spark ;;
     next)        release_next ;;
     power-mode)  release_power_mode ;;

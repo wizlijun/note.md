@@ -23,7 +23,7 @@ use plugin_protocol as proto;
 use serde_json::Value;
 use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, LazyLock, RwLock};
 use std::time::{Duration, Instant};
 
@@ -31,6 +31,21 @@ use super::process::{self, HostSink, PluginProcess};
 use super::STATE;
 
 type InstalledPlugin = (proto::ManifestV2, PathBuf);
+
+struct InFlightRequest<'a>(&'a AtomicUsize);
+
+impl<'a> InFlightRequest<'a> {
+    fn new(count: &'a AtomicUsize) -> Self {
+        count.fetch_add(1, Ordering::AcqRel);
+        Self(count)
+    }
+}
+
+impl Drop for InFlightRequest<'_> {
+    fn drop(&mut self) {
+        self.0.fetch_sub(1, Ordering::AcqRel);
+    }
+}
 
 /// Marketplace/runtime identity is the complete manifest plus its selected
 /// install directory. Version alone is not enough: a repaired package can alter
@@ -163,6 +178,9 @@ pub struct PluginLifecycle {
     pub crash_times: std::sync::Mutex<Vec<Instant>>,
     /// Refreshed on every trigger/execute; drives idle shutdown.
     pub last_activity: std::sync::Mutex<Instant>,
+    /// Requests currently waiting on the plugin. A long-running request is
+    /// active work even when the process has not emitted stdout recently.
+    in_flight_requests: AtomicUsize,
     /// Deliberate shutdown in flight — the crash watcher must not misread the
     /// resulting process exit as a crash (spec §4.2).
     shutting_down: AtomicBool,
@@ -188,6 +206,7 @@ impl PluginLifecycle {
             phase: tokio::sync::Mutex::new(Phase::Inactive),
             crash_times: std::sync::Mutex::new(Vec::new()),
             last_activity: std::sync::Mutex::new(Instant::now()),
+            in_flight_requests: AtomicUsize::new(0),
             shutting_down: AtomicBool::new(false),
             retired: AtomicBool::new(false),
             backoff_secs: DEFAULT_BACKOFF_SECS.to_vec(),
@@ -340,6 +359,7 @@ impl PluginLifecycle {
     /// Execute a command on the ACTIVE process (callers `ensure_active` first;
     /// spec §4.2 lazy re-activation happens there, not here).
     pub async fn execute(&self, params: proto::ExecuteCommandParams) -> Result<Value, String> {
+        let _request = InFlightRequest::new(&self.in_flight_requests);
         self.ensure_not_retired()?;
         self.touch();
         let proc = {
@@ -374,6 +394,7 @@ impl PluginLifecycle {
     /// Wire shape: `proc.request("ui.request", { method, params })`; the SDK's
     /// `serve_io` routes it to the plugin's `on_ui_request(method, params)`.
     pub async fn ui_request(&self, method: &str, params: Value) -> Result<Value, String> {
+        let _request = InFlightRequest::new(&self.in_flight_requests);
         self.ensure_not_retired()?;
         self.touch();
         let proc = {
@@ -423,7 +444,8 @@ impl PluginLifecycle {
             let mut phase = self.phase.lock().await;
             let ours = matches!(&*phase, Phase::Active(p) if Arc::ptr_eq(p, proc));
             let still_idle = self.last_activity.lock().unwrap().elapsed() >= idle_after;
-            if ours && still_idle {
+            let no_requests = self.in_flight_requests.load(Ordering::Acquire) == 0;
+            if ours && still_idle && no_requests {
                 proc.shutdown().await;
                 *phase = Phase::Inactive;
                 true

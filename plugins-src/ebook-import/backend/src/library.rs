@@ -1,9 +1,23 @@
 //! The book library: everything already imported into the vault, not just what
 //! this window's queue did. Pure filesystem read, no state.
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 #[cfg(test)]
 mod tests;
+
+pub const BOOK_FILE: &str = "book.typeset.md";
+pub const LEGACY_BOOK_FILE: &str = "book.md";
+
+/// Resolve the imported source document without hiding existing libraries.
+/// New imports use the semantic `.typeset.md` suffix; an old `book.md` stays
+/// readable until the user explicitly migrates it. When both exist, the new
+/// contract wins deterministically.
+pub fn book_document_path(dir: &Path) -> Option<PathBuf> {
+    [BOOK_FILE, LEGACY_BOOK_FILE]
+        .into_iter()
+        .map(|name| dir.join(name))
+        .find(|path| is_regular_file(path))
+}
 
 /// One imported book: the directory `<ebooks_root>/<YYYY-MM>/<Title>/`.
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
@@ -11,6 +25,8 @@ pub struct BookEntry {
     /// Vault-relative, POSIX-separated directory path — the same shape
     /// `dest_rel` has, so it feeds `ai_read_start` unchanged.
     pub rel: String,
+    /// File name inside `rel`; callers must not reconstruct the contract.
+    pub document: String,
     pub name: String,
     pub month: String,
     /// Stable logical category. Legacy books may not have one yet.
@@ -85,7 +101,8 @@ fn read_added_at(dir: &Path) -> Option<chrono::DateTime<chrono::Utc>> {
 /// `meta.yml` `added_at` first. Equal timestamps fall back to newest month then
 /// alphabetical name. Books with missing or invalid metadata remain visible
 /// after all timestamped books and use that same legacy month/name order. A
-/// directory only counts as a book if it holds a `book.md` — every row the
+/// directory only counts as a book if it holds a current or legacy book
+/// document — every row the
 /// window draws offers "AI read", and that job would have nothing to read
 /// otherwise.
 ///
@@ -104,9 +121,7 @@ pub fn scan(vault: &Path, ebooks_root: &str) -> Vec<BookEntry> {
         let month_name = month.file_name().to_string_lossy().to_string();
         for book in sorted_subdirs(&month.path()) {
             let dir = book.path();
-            if !is_regular_file(&dir.join("book.md")) {
-                continue;
-            }
+            let Some(document) = book_document_path(&dir) else { continue };
             let name = book.file_name().to_string_lossy().to_string();
             let meta = dir.join("meta.yml");
             let topic_id = if is_regular_file(&meta) {
@@ -135,6 +150,7 @@ pub fn scan(vault: &Path, ebooks_root: &str) -> Vec<BookEntry> {
                 read_added_at(&dir),
                 BookEntry {
                     rel: format!("{ebooks_root}/{month_name}/{name}"),
+                    document: document.file_name().unwrap().to_string_lossy().into_owned(),
                     name,
                     month: month_name.clone(),
                     topic_id,

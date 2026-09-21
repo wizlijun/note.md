@@ -149,6 +149,7 @@ describe('fileViewFor matching', () => {
 
   it('carries a declared switcher icon and defaults old declarations to generic', () => {
     expect(fileViewFor(doc(), [manifest([view({ icon: 'clock' })])])).toEqual({ ...expected, icon: 'clock' })
+    expect(fileViewFor(doc(), [manifest([view({ icon: 'book' })])])).toEqual({ ...expected, icon: 'book' })
     expect(fileViewFor(doc(), [manifest()])).toEqual(expected)
     expect(fileViewFor(doc(), [manifest([view({ icon: 'calendar' as never })])])).toBeNull()
     expect(fileViewFor(doc(), [manifest([view({ icon: null as never })])])).toBeNull()

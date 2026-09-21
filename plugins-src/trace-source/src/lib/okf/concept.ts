@@ -38,7 +38,7 @@ export const CONCEPT_TYPE = {
   dailyNote: 'Daily Note',
   /** wikilink 页 `wikipage/<title>.note.md` */
   wikiPage: 'Wiki Page',
-  /** 电子书导入产出的 `book.md` */
+  /** 电子书导入产出的 `book.typeset.md`（旧书仍可能是 `book.md`） */
   book: 'Book',
   /** AI 先读:电子书摘要 `YYYY-MM-DD-summary.md`(claude-agent ai-read-ebook 任务产出) */
   bookSummary: 'Book Summary',

@@ -253,7 +253,7 @@
     align-items: center;
     gap: 8px;
   }
-  /* The title opens book.md — the book itself is the primary thing here. */
+  /* The title opens the resolved book document — the book itself is primary. */
   .name {
     flex: 1;
     min-width: 0;

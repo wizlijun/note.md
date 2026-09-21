@@ -351,8 +351,8 @@ pub fn existing_book_meta(ebooks_root: &Path, rel: &str) -> Result<PathBuf, Stri
             ));
         }
     }
-    if !crate::library::is_regular_file(&current.join("book.md")) {
-        return Err(format!("missing book.md for {rel:?}"));
+    if crate::library::book_document_path(&current).is_none() {
+        return Err(format!("missing book document for {rel:?}"));
     }
     let meta = current.join("meta.yml");
     let metadata =
@@ -374,8 +374,8 @@ fn read_yaml_mapping(path: &Path) -> Result<Mapping, String> {
         .ok_or_else(|| format!("{}: expected a YAML mapping", path.display()))
 }
 
-/// Scan committed books. Only a directory containing both `book.md` and
-/// `meta.yml` participates; `meta.yml` is the import commit marker.
+/// Scan committed books. A current or legacy book document plus `meta.yml`
+/// participates; `meta.yml` is the import commit marker.
 pub fn scan_books(ebooks_root: &Path) -> Result<Vec<ScannedBook>, String> {
     let mut books = Vec::new();
     let Ok(months) = std::fs::read_dir(ebooks_root) else {
@@ -404,13 +404,12 @@ pub fn scan_books(ebooks_root: &Path) -> Result<Vec<ScannedBook>, String> {
         entries.sort_by_key(|e| e.file_name());
         for entry in entries {
             let dir = entry.path();
-            let book_path = dir.join("book.md");
+            let book_path = crate::library::book_document_path(&dir);
             let meta_path = dir.join("meta.yml");
-            if !crate::library::is_regular_file(&book_path)
-                || !crate::library::is_regular_file(&meta_path)
-            {
+            if book_path.is_none() || !crate::library::is_regular_file(&meta_path) {
                 continue;
             }
+            let book_path = book_path.unwrap();
             let dir_name = entry.file_name().to_string_lossy().to_string();
             let frontmatter = read_book_frontmatter(&book_path);
             let (mut title, mut creator, mut publisher, mut language) = frontmatter
@@ -666,7 +665,7 @@ pub fn read_book_evidence(ebooks_root: &Path, rel: &str) -> Result<BookEvidence,
     let dir = meta
         .parent()
         .ok_or_else(|| format!("book metadata has no parent: {}", meta.display()))?;
-    let book_path = dir.join("book.md");
+    let book_path = crate::library::book_document_path(dir).ok_or("book document is missing")?;
     let book_text = read_prefix(&book_path, BOOK_CONTEXT_READ_LIMIT)?;
     let source_format =
         read_book_frontmatter(&book_path).and_then(|frontmatter| frontmatter.source_format);

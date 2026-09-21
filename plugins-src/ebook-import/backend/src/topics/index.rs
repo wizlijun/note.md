@@ -58,7 +58,7 @@ fn readings(dir: &Path) -> Result<Vec<Reading>, String> {
             || !lower.ends_with(".md")
             || matches!(
                 lower.as_str(),
-                "book.md" | "book.note.md" | "book.notes.md" | "index.md" | "log.md"
+                "book.md" | "book.typeset.md" | "book.note.md" | "book.notes.md" | "index.md" | "log.md"
             )
             || lower.ends_with(".index.md")
             || !crate::library::is_regular_file(&entry.path())

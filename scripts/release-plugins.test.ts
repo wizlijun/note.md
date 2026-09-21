@@ -127,6 +127,17 @@ describe('release-plugins.sh packaging shape', () => {
     expect(existsSync(join(ROOT, 'plugins-src/knowledge-browser/THIRD_PARTY_LICENSES.txt'))).toBe(true)
   })
 
+  it('packages Typeset Reader as a native UI plugin with its license notice', () => {
+    expect(dispatchTable().get('typst-reader')).toBe('release_typst_reader')
+    const body = functionBody('release_typst_reader')
+    expect(body).toContain('notemd.typst-reader')
+    expect(body).toContain('notemd-typst-reader')
+    expect(body).toContain('"typst-reader"')
+    expect(packagingBody('release_typst_reader')).toContain('$triple.notemdpkg')
+    expect(functionBody('release_native_ui')).toContain('THIRD_PARTY_LICENSES.txt')
+    expect(existsSync(join(ROOT, 'plugins-src/typst-reader/THIRD_PARTY_LICENSES.txt'))).toBe(true)
+  })
+
   it('packages Conversation Dictionary with its review-dataset Skill', () => {
     expect(table.get('conversation-dictionary')).toBe('release_conversation_dictionary')
     const body = functionBody('release_conversation_dictionary')
@@ -348,6 +359,7 @@ describe('plugin market metadata localization', () => {
     'power-mode',
     'roam-import',
     'trace-source',
+    'typst-reader',
     'weekly-review',
   ]
 

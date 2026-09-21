@@ -13,6 +13,7 @@
     claimAiRead,
     failAiRead,
     latestSummary,
+    BOOK_DOCUMENT,
     mergeLibrary,
     replayPendingLibraryAi,
     stashOrApplyLibraryAi,
@@ -395,7 +396,7 @@
 
   async function openInEditor(item: QueueItem) {
     if (!item.destRel) return
-    await openPath(`${item.destRel.replace(/\/+$/, '')}/book.md`)
+    await openPath(`${item.destRel.replace(/\/+$/, '')}/${BOOK_DOCUMENT}`)
   }
 
   // ── which agent reads the book ────────────────────────────────────────────
@@ -1069,7 +1070,7 @@
     agentId={agentId ?? null}
     {nowMs}
     onread={libraryRead}
-    onopenbook={(b) => openPath(`${b.rel}/book.md`)}
+    onopenbook={(b) => openPath(`${b.rel}/${b.document ?? 'book.md'}`)}
     onopensummary={(b) => {
       const s = latestSummary(b)
       if (s) void openPath(s)

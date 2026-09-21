@@ -388,13 +388,12 @@ fn resolve_ai_book(vault: &Path, dest_rel: &str) -> Result<PathBuf, String> {
             ));
         }
     }
-    let book = dir.join("book.md");
-    if !crate::library::is_regular_file(&book) {
+    let Some(book) = crate::library::book_document_path(&dir) else {
         return Err(format!(
-            "refusing non-regular or symlinked book file {}",
-            book.display()
+            "missing a regular book document in {}",
+            dir.display()
         ));
-    }
+    };
     Ok(book)
 }
 
@@ -1512,13 +1511,17 @@ async fn run_ai_job(host: &sdk::Host, vault: &Path, locale: &str, job: crate::ai
             return;
         }
     };
+    let book_rel = book_abs
+        .strip_prefix(vault)
+        .map(|path| path.to_string_lossy().replace('\\', "/"))
+        .unwrap_or_else(|_| book_abs.to_string_lossy().into_owned());
     let summary_abs = vault.join(&summary_rel).to_string_lossy().to_string();
     let run = host
         .request(
             "host.agent.run",
             json!({
                 "task": airead::TASK_ID,
-                "prompt": airead::run_prompt(&job.dest_rel, &summary_rel, locale),
+                "prompt": airead::run_prompt(&book_rel, &summary_rel, locale),
                 "note_path": book_abs.to_string_lossy(),
                 // The agent chosen in the picker, or the host default that the
                 // scheduler pinned for an older window before dispatch.

@@ -94,6 +94,12 @@
           <circle cx="12" cy="12" r="9"/>
           <path d="M12 7v5l3 2"/>
         </svg>
+      {:else if presentation.candidate.icon === 'book'}
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M3.5 5.5c3-.8 5.8-.2 8.5 1.7v11.7c-2.7-1.9-5.5-2.5-8.5-1.7z"/>
+          <path d="M20.5 5.5c-3-.8-5.8-.2-8.5 1.7v11.7c2.7-1.9 5.5-2.5 8.5-1.7z"/>
+          <path d="M6.5 9.2c1.2-.1 2.3.1 3.2.6M14.3 9.8c.9-.5 2-.7 3.2-.6"/>
+        </svg>
       {:else}
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <rect x="3" y="3" width="18" height="18" rx="2"/>

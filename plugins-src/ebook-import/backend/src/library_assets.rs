@@ -212,7 +212,8 @@ where
             }
         }
     }
-    evidence.push_str(&pipeline::read_asset_evidence(&dir.join("book.md"))?);
+    let document_path = crate::library::book_document_path(dir).ok_or("Book document is missing")?;
+    evidence.push_str(&pipeline::read_asset_evidence(&document_path)?);
     let cancelled = AtomicBool::new(false);
     let assets = fetch_with_retry(
         || fetch(&book.title, book.creator.as_deref(), &evidence, &cancelled),

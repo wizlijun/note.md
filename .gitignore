@@ -13,6 +13,7 @@ plugins-src/deepseek-agent/backend/target/
 plugins-src/codex-agent/backend/target/
 plugins-src/agent-run-core/target/
 plugins-src/ebook-import/backend/target/
+plugins-src/typst-reader/backend/target/
 plugins-src/roam-import/backend/target/
 plugins-src/meetings/backend/target/
 plugins-src/conversation-dictionary/backend/target/

@@ -29,7 +29,7 @@ try{
  assert.ok(doc.sections.some(section=>section.title==='待整理'&&section.description.some(text=>text.includes('Pending'))))
  const links=row.cells.flatMap(cell=>cell.links)
  assert.ok(links.length>=5)
- assert.ok(links.every(link=>link.kind!=='page'&&!link.href.endsWith('/book.md')))
+ assert.ok(links.every(link=>link.kind!=='page'&&!link.href.endsWith('/book.md')&&!link.href.endsWith('/book.typeset.md')))
  assert.ok(!links.some(link=>decodeURIComponent(link.href).includes('.note.md')))
  console.log('PASS: Rust gallery output parses, text/paths survive escaping, latest summary and local cover match, pending books retained.')
  console.log('Fixture:',output)

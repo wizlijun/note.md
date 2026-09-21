@@ -114,6 +114,33 @@ describe('ModeToggle file-view slot', () => {
     expect(button?.querySelector('path[fill="#f59e0b"]')).toBeNull()
   })
 
+  it('renders the dedicated open-book icon for an ebook view', async () => {
+    const tab = timelineTab()
+    tab.filePath = '/vault/books/example/book.typeset.md'
+    tab.title = 'book.typeset.md'
+    tab.currentContent = '# Book'
+    tabs.push(tab)
+    pluginRuntime.manifests = [{
+      id: 'notemd.typst-reader',
+      name: 'Typeset Reader',
+      version: '0.1.0',
+      binary: '',
+      host_capabilities: [],
+      file_views: [{
+        id: 'typeset',
+        entry: 'index.html',
+        icon: 'book',
+        selectors: [{ file_name_patterns: ['*.typeset.md'] }],
+      }],
+    }]
+    component = mount(ModeToggle, { target: document.body, props: { tab: tabs[0] } })
+    await tick()
+
+    const button = document.querySelector<HTMLButtonElement>('[data-file-view-icon="book"]')
+    expect(button).not.toBeNull()
+    expect(button?.querySelectorAll('path')).toHaveLength(3)
+  })
+
   it('formats valid one-line JSON when Source is selected without changing its tokens', async () => {
     const tab = timelineTab()
     tab.filePath = '/vault/inbox/knowledge.json'

@@ -78,6 +78,36 @@ fn scan_lists_every_book_dir_newest_month_first() {
     assert_eq!(got[1].rel, "ssot/ebooks/2026-07/Old Book");
 }
 
+#[test]
+fn new_typeset_document_is_listed_and_preferred_over_legacy_markdown() {
+    let tmp = tempfile::tempdir().unwrap();
+    let v = tmp.path();
+    book(
+        v,
+        "ssot/ebooks",
+        "2026-08",
+        "Typeset Book",
+        &[LEGACY_BOOK_FILE, BOOK_FILE],
+    );
+
+    let got = scan(v, "ssot/ebooks");
+
+    assert_eq!(got.len(), 1);
+    assert_eq!(got[0].document, BOOK_FILE);
+}
+
+#[test]
+fn a_legacy_book_remains_readable() {
+    let tmp = tempfile::tempdir().unwrap();
+    let v = tmp.path();
+    book(v, "ssot/ebooks", "2026-08", "Legacy Book", &[LEGACY_BOOK_FILE]);
+
+    let got = scan(v, "ssot/ebooks");
+
+    assert_eq!(got.len(), 1);
+    assert_eq!(got[0].document, LEGACY_BOOK_FILE);
+}
+
 /// Same month: alphabetical, so the list doesn't reshuffle between refreshes
 /// (readdir order is not stable across platforms or filesystems).
 #[test]
@@ -91,8 +121,8 @@ fn books_in_one_month_are_sorted_by_name() {
     assert_eq!(names, ["Alpha", "Mu", "Zeta"]);
 }
 
-/// A directory without `book.md` is not a book. `work/` scratch dirs, a
-/// half-finished import, or anything the user filed here by hand must not show
+/// A directory without a current or legacy book document is not a book.
+/// `work/` scratch dirs, a half-finished import, or anything filed by hand must not show
 /// up as a readable book — every row in the list offers "AI read", and that
 /// job would have nothing to read.
 #[test]

@@ -640,6 +640,33 @@ importers:
         specifier: ^4.1.5
         version: 4.1.5(@types/node@25.6.2)(happy-dom@20.9.0)(jsdom@25.0.1)(vite@6.4.2(@types/node@25.6.2)(yaml@2.9.0))
 
+  plugins-src/typst-reader:
+    devDependencies:
+      '@sveltejs/vite-plugin-svelte':
+        specifier: ^5
+        version: 5.1.1(svelte@5.55.5)(vite@6.4.2(@types/node@22.20.1)(yaml@2.9.0))
+      '@types/node':
+        specifier: ^22.20.1
+        version: 22.20.1
+      jsdom:
+        specifier: ^25
+        version: 25.0.1
+      svelte:
+        specifier: ^5
+        version: 5.55.5
+      svelte-check:
+        specifier: ^4
+        version: 4.4.8(picomatch@4.0.4)(svelte@5.55.5)(typescript@5.9.3)
+      typescript:
+        specifier: ^5
+        version: 5.9.3
+      vite:
+        specifier: ^6
+        version: 6.4.2(@types/node@22.20.1)(yaml@2.9.0)
+      vitest:
+        specifier: ^4
+        version: 4.1.5(@types/node@22.20.1)(happy-dom@20.9.0)(jsdom@25.0.1)(vite@6.4.2(@types/node@22.20.1)(yaml@2.9.0))
+
   plugins-src/weekly-review:
     devDependencies:
       '@sveltejs/vite-plugin-svelte':
@@ -2892,6 +2919,7 @@ snapshots:
   '@types/node@25.6.2':
     dependencies:
       undici-types: 7.19.2
+    optional: true
 
   '@types/trusted-types@2.0.7': {}
 
@@ -2899,7 +2927,7 @@ snapshots:
 
   '@types/ws@8.18.1':
     dependencies:
-      '@types/node': 25.6.2
+      '@types/node': 22.20.1
 
   '@upsetjs/venn.js@2.0.0':
     optionalDependencies:
@@ -3365,7 +3393,7 @@ snapshots:
 
   happy-dom@20.9.0:
     dependencies:
-      '@types/node': 25.6.2
+      '@types/node': 22.20.1
       '@types/whatwg-mimetype': 3.0.2
       '@types/ws': 8.18.1
       entities: 7.0.1
@@ -3858,7 +3886,8 @@ snapshots:
 
   undici-types@6.21.0: {}
 
-  undici-types@7.19.2: {}
+  undici-types@7.19.2:
+    optional: true
 
   unicode-emoji-modifier-base@1.0.0: {}
 

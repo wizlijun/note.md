@@ -21,7 +21,7 @@ const MAX_ITEMS = 32
 const MAX_PATH = 16_384
 const MAX_FRONTMATTER = 128 * 1024
 const VIEW_KEYS = new Set(['id', 'entry', 'icon', 'open_command', 'priority', 'selectors'])
-const VIEW_ICONS = new Set<FileViewIcon>(['generic', 'sparkle', 'clock'])
+const VIEW_ICONS = new Set<FileViewIcon>(['generic', 'sparkle', 'clock', 'book'])
 const SELECTOR_KEYS = new Set(['file_extensions', 'file_name_patterns', 'path_patterns', 'frontmatter'])
 
 function record(value: unknown): value is Record<string, unknown> {

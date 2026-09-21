@@ -7,7 +7,7 @@
  * and run json-schema-to-typescript to regenerate this file.
  */
 
-export type FileViewIcon = "generic" | "sparkle" | "clock";
+export type FileViewIcon = "generic" | "sparkle" | "clock" | "book";
 export type FileViewScalar = string | number | boolean;
 export type PluginKind = "native" | "wasm";
 

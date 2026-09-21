@@ -283,11 +283,13 @@ pub fn output_language(locale: &str) -> &'static str {
 }
 
 /// 附加给 run-task 的定位 prompt(任务模板自带总 prompt,这里只给坐标)。
-pub fn run_prompt(dest_rel: &str, summary_rel: &str, locale: &str) -> String {
+pub fn run_prompt(book_rel: &str, summary_rel: &str, locale: &str) -> String {
     let lang = output_language(locale);
+    let book_name = book_rel.rsplit('/').next().unwrap_or(book_rel);
     format!(
-        "本次只读这一本书:`{dest_rel}/book.md`。\n\
+        "本次只读这一本书:`{book_rel}`。\n\
          摘要写到 `{summary_rel}`(同名文件已存在则直接覆盖)。\n\
+         摘要 frontmatter 的 `sources[0].resource` 必须写 `{book_name}`。\n\
          摘要正文一律用 {lang} 书写 —— 与原书语言无关;书名、专有名词、直接引文\n\
          可保留原文并在需要处附 {lang} 译文。\n\
          不要读、不要改 vault 里的其它文件 —— 权限也已按此限定。"
@@ -618,7 +620,7 @@ mod tests {
 
     /// The window can reach one book from two places — the import queue's
     /// "AI 先读" and the library's "重读". Both are the same work on the same
-    /// `book.md`, writing the same summary file; queueing it twice burns a
+    /// book document, writing the same summary file; queueing it twice burns a
     /// second run's tokens for nothing. Identity is the book, not the job id.
     #[test]
     fn one_book_queued_from_two_places_is_read_once() {
@@ -770,8 +772,9 @@ mod tests {
     /// 摘要语言跟界面走,不跟书走 —— 俄语书 + 中文界面 = 中文摘要。
     #[test]
     fn run_prompt_pins_the_output_language_to_the_ui_locale() {
-        let p = run_prompt("ssot/books/2026-08/x", "ssot/books/2026-08/x/2026-08-04-summary.md", "zh-CN");
+        let p = run_prompt("ssot/books/2026-08/x/book.typeset.md", "ssot/books/2026-08/x/2026-08-04-summary.md", "zh-CN");
         assert!(p.contains("简体中文"), "got: {p}");
+        assert!(p.contains("`sources[0].resource` 必须写 `book.typeset.md`"), "got: {p}");
         assert!(run_prompt("d", "s", "ja").contains("日本語"));
         assert!(run_prompt("d", "s", "de").contains("Deutsch"));
         // 未知/未设 locale 落到英文,而不是静默跟随书的语言。

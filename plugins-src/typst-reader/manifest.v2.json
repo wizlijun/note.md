@@ -1,0 +1,74 @@
+{
+  "manifest_version": 2,
+  "id": "notemd.typst-reader",
+  "name": "Typeset Reader",
+  "version": "0.1.0",
+  "kind": "native",
+  "engines": {
+    "notemd": ">=6.920.2"
+  },
+  "description": "Read specially named Markdown documents with book-quality Typst pagination and persistent page caching.",
+  "binary": {
+    "aarch64-apple-darwin": "bin/notemd-typst-reader",
+    "x86_64-apple-darwin": "bin/notemd-typst-reader"
+  },
+  "ui": "ui/",
+  "activation": {
+    "events": []
+  },
+  "contributes": {
+    "menus": [
+      {
+        "location": "plugins",
+        "submenu": "reading",
+        "label": "Open Typeset Reader",
+        "command": "view-typeset"
+      }
+    ],
+    "file_views": [
+      {
+        "id": "typeset",
+        "entry": "index.html",
+        "icon": "book",
+        "open_command": "view-typeset",
+        "priority": 110,
+        "selectors": [
+          {
+            "file_name_patterns": [
+              "*.typeset.md"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "capabilities": [
+    "ui",
+    "vault.read"
+  ],
+  "request_timeout_seconds": 600,
+  "idle_shutdown_seconds": 600,
+  "i18n": {
+    "zh": {
+      "name": "排版阅读器",
+      "description": "使用 Typst 将特殊命名的 Markdown 排版为分页书籍视图，并持久缓存页面。",
+      "menus": {
+        "view-typeset": "打开排版阅读器"
+      }
+    },
+    "ja": {
+      "name": "組版リーダー",
+      "description": "特別な名前の Markdown を Typst でページ組版し、ページを永続キャッシュします。",
+      "menus": {
+        "view-typeset": "組版リーダーを開く"
+      }
+    },
+    "de": {
+      "name": "Satzleser",
+      "description": "Setzt speziell benannte Markdown-Dokumente mit Typst und speichert die Seiten dauerhaft im Cache.",
+      "menus": {
+        "view-typeset": "Satzleser öffnen"
+      }
+    }
+  }
+}

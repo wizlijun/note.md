@@ -558,6 +558,25 @@ async fn idle_shutdown_deactivates_then_next_trigger_reactivates() {
     lc.deactivate().await;
 }
 
+#[tokio::test]
+async fn idle_shutdown_does_not_reap_an_in_flight_ui_request() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut lc = make_lifecycle("delayed.sh", "test.idle-in-flight", &["*"], Some(1), dir.path());
+    lc.idle_poll = Duration::from_millis(100);
+    let lc = Arc::new(lc);
+
+    lc.ensure_active(&Trigger::Startup).await.unwrap();
+    let out = lc
+        .ui_request("delayed", json!({}))
+        .await
+        .expect("the idle watcher must not close a process with an active UI request");
+    assert_eq!(out, json!({ "delayed": true }));
+    assert_eq!(lc.phase_kind().await, PhaseKind::Active);
+
+    tokio::time::sleep(Duration::from_millis(2200)).await;
+    assert_eq!(lc.phase_kind().await, PhaseKind::Inactive);
+}
+
 // ── ④ deactivate is not a crash ──
 
 #[tokio::test]

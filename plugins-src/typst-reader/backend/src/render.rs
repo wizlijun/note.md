@@ -1,0 +1,782 @@
+use percent_encoding::percent_decode_str;
+use pulldown_cmark::{Event, HeadingLevel, Options, Parser, Tag, TagEnd};
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
+use std::fs;
+use std::path::{Component, Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
+use typst::foundations::{Dict, IntoValue};
+use typst_as_lib::{typst_kit_options::TypstKitFontOptions, TypstEngine, TypstTemplateMainFile};
+
+const CACHE_SCHEMA: &str = "typeset-svg-v2";
+const RENDERER_VERSION: &str = "typst-0.15.1+cmarker-0.1.10+wonderous-book-0.1.2+template-15";
+const QUICK_PREVIEW_BYTES: usize = 16 * 1024;
+const MAX_CONTINUATION_BYTES: usize = 320 * 1024;
+const TEMPLATE: &str = include_str!("../assets/template.typ");
+const CMARKER_LIB: &str = include_str!("../assets/cmarker/lib.typ");
+const CMARKER_WASM: &[u8] = include_bytes!("../assets/cmarker/plugin.wasm");
+const WONDEROUS_BOOK_LIB: &str = include_str!("../assets/wonderous-book/lib.typ");
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct RenderRequest {
+    pub uri: String,
+    pub content: String,
+    pub vault_root: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct RenderManifest {
+    pub schema: String,
+    pub cache_key: String,
+    pub page_count: usize,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct RenderResult {
+    pub cache_key: String,
+    pub page_count: usize,
+    pub hit: bool,
+    pub complete: bool,
+}
+
+pub struct RenderSession {
+    key: String,
+    engine: TypstEngine<TypstTemplateMainFile>,
+    chunks: Vec<RenderChunk>,
+    next_chunk: usize,
+    page_count: usize,
+    title: String,
+    author: String,
+    temp_dir: PathBuf,
+    final_dir: PathBuf,
+}
+
+struct RenderChunk {
+    markdown: String,
+    chapter_start: bool,
+}
+
+#[derive(Default, Deserialize)]
+struct BookFrontmatter {
+    title: Option<String>,
+    creator: Option<String>,
+    author: Option<String>,
+    #[serde(default)]
+    sources: Vec<BookSource>,
+}
+
+#[derive(Default, Deserialize)]
+struct BookSource {
+    author: Option<String>,
+}
+
+impl RenderSession {
+    pub fn key(&self) -> &str {
+        &self.key
+    }
+}
+
+impl Drop for RenderSession {
+    fn drop(&mut self) {
+        if self.temp_dir.exists() {
+            fs::remove_dir_all(&self.temp_dir).ok();
+        }
+    }
+}
+
+fn strip_frontmatter(markdown: &str) -> &str {
+    let text = markdown.strip_prefix('\u{feff}').unwrap_or(markdown);
+    let Some(rest) = text
+        .strip_prefix("---\n")
+        .or_else(|| text.strip_prefix("---\r\n"))
+    else {
+        return text;
+    };
+    let mut offset = text.len() - rest.len();
+    for line in rest.split_inclusive('\n') {
+        offset += line.len();
+        if line.trim_end_matches(['\r', '\n']) == "---" {
+            return &text[offset..];
+        }
+    }
+    text
+}
+
+fn book_frontmatter(markdown: &str) -> BookFrontmatter {
+    let text = markdown.strip_prefix('\u{feff}').unwrap_or(markdown);
+    let Some(rest) = text
+        .strip_prefix("---\n")
+        .or_else(|| text.strip_prefix("---\r\n"))
+    else {
+        return BookFrontmatter::default();
+    };
+    let mut yaml = String::new();
+    for line in rest.lines() {
+        if line.trim_end_matches('\r') == "---" {
+            return serde_yaml::from_str(&yaml).unwrap_or_default();
+        }
+        yaml.push_str(line);
+        yaml.push('\n');
+    }
+    BookFrontmatter::default()
+}
+
+fn canonical_regular(path: &Path, root: &Path, label: &str) -> Result<PathBuf, String> {
+    let metadata = fs::symlink_metadata(path)
+        .map_err(|error| format!("inspect {label} {}: {error}", path.display()))?;
+    if metadata.file_type().is_symlink() || !metadata.is_file() {
+        return Err(format!("{label} must be a regular non-symlink file"));
+    }
+    let canonical = path
+        .canonicalize()
+        .map_err(|error| format!("resolve {label} {}: {error}", path.display()))?;
+    if !canonical.starts_with(root) {
+        return Err(format!("{label} is outside the Vault"));
+    }
+    Ok(canonical)
+}
+
+fn has_uri_scheme(value: &str) -> bool {
+    let Some((scheme, _)) = value.split_once(':') else {
+        return false;
+    };
+    !scheme.is_empty()
+        && scheme.chars().enumerate().all(|(index, character)| {
+            if index == 0 {
+                character.is_ascii_alphabetic()
+            } else {
+                character.is_ascii_alphanumeric() || matches!(character, '+' | '-' | '.')
+            }
+        })
+}
+
+fn local_image_paths(
+    markdown: &str,
+    book_dir: &Path,
+    vault: &Path,
+) -> Result<Vec<PathBuf>, String> {
+    let mut paths = Vec::new();
+    let parser = Parser::new_ext(markdown, Options::all());
+    for event in parser {
+        let Event::Start(Tag::Image { dest_url, .. }) = event else {
+            continue;
+        };
+        let raw = dest_url.as_ref();
+        if raw.starts_with('#') {
+            continue;
+        }
+        if raw.starts_with('/') || raw.starts_with("//") || has_uri_scheme(raw) {
+            return Err(format!("remote or absolute image is not supported: {raw}"));
+        }
+        let without_suffix = raw.split(['?', '#']).next().unwrap_or(raw);
+        let decoded = percent_decode_str(without_suffix)
+            .decode_utf8()
+            .map_err(|_| format!("image path is not valid UTF-8: {raw}"))?;
+        let relative = Path::new(decoded.as_ref());
+        if relative
+            .components()
+            .any(|part| !matches!(part, Component::Normal(_)))
+        {
+            return Err(format!(
+                "image path must stay inside the book directory: {raw}"
+            ));
+        }
+        paths.push(canonical_regular(&book_dir.join(relative), vault, "image")?);
+    }
+    paths.sort();
+    paths.dedup();
+    Ok(paths)
+}
+
+fn validate_source(
+    request: &RenderRequest,
+) -> Result<(PathBuf, PathBuf, String, Vec<PathBuf>, String, String), String> {
+    let vault = Path::new(&request.vault_root)
+        .canonicalize()
+        .map_err(|error| format!("resolve Vault root: {error}"))?;
+    if !vault.is_dir() {
+        return Err("Vault root is not a directory".into());
+    }
+    let source = canonical_regular(Path::new(&request.uri), &vault, "source")?;
+    let name = source
+        .file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or_default();
+    if !name.ends_with(".typeset.md") {
+        return Err("Typst Reader only renders *.typeset.md".into());
+    }
+    let book_dir = source
+        .parent()
+        .ok_or("source has no parent directory")?
+        .to_path_buf();
+    let frontmatter = book_frontmatter(&request.content);
+    let title = frontmatter.title.unwrap_or_else(|| {
+        book_dir
+            .file_name()
+            .and_then(|value| value.to_str())
+            .unwrap_or("Book")
+            .to_string()
+    });
+    let author = frontmatter
+        .creator
+        .or(frontmatter.author)
+        .or_else(|| {
+            frontmatter
+                .sources
+                .into_iter()
+                .find_map(|source| source.author)
+        })
+        .unwrap_or_default();
+    let markdown = strip_frontmatter(&request.content).to_string();
+    let images = local_image_paths(&markdown, &book_dir, &vault)?;
+    Ok((vault, book_dir, markdown, images, title, author))
+}
+
+fn cache_key(content: &str, book_dir: &Path, images: &[PathBuf]) -> Result<String, String> {
+    let mut digest = Sha256::new();
+    digest.update(CACHE_SCHEMA.as_bytes());
+    digest.update([0]);
+    digest.update(RENDERER_VERSION.as_bytes());
+    digest.update([0]);
+    digest.update(TEMPLATE.as_bytes());
+    digest.update([0]);
+    digest.update(WONDEROUS_BOOK_LIB.as_bytes());
+    digest.update([0]);
+    digest.update(CMARKER_LIB.as_bytes());
+    digest.update([0]);
+    digest.update(CMARKER_WASM);
+    digest.update([0]);
+    digest.update(content.as_bytes());
+    for path in images {
+        digest.update([0]);
+        let relative = path
+            .strip_prefix(book_dir)
+            .map_err(|_| format!("image escaped the book directory: {}", path.display()))?;
+        digest.update(relative.as_os_str().as_encoded_bytes());
+        digest.update([0]);
+        digest.update(
+            fs::read(path).map_err(|error| format!("read image {}: {error}", path.display()))?,
+        );
+    }
+    Ok(format!("{:x}", digest.finalize()))
+}
+
+fn manifest_at(cache_dir: &Path, key: &str) -> PathBuf {
+    cache_dir.join(CACHE_SCHEMA).join(key).join("manifest.json")
+}
+
+fn read_manifest(cache_dir: &Path, key: &str) -> Option<RenderManifest> {
+    let manifest: RenderManifest =
+        serde_json::from_slice(&fs::read(manifest_at(cache_dir, key)).ok()?).ok()?;
+    if manifest.schema != CACHE_SCHEMA || manifest.cache_key != key || manifest.page_count == 0 {
+        return None;
+    }
+    let dir = cache_dir.join(CACHE_SCHEMA).join(key);
+    (0..manifest.page_count)
+        .all(|page| dir.join(format!("page-{page:04}.svg")).is_file())
+        .then_some(manifest)
+}
+
+fn chapter_chunks(markdown: String) -> Vec<RenderChunk> {
+    let mut h1_starts = Vec::new();
+    let mut safe_boundaries = Vec::new();
+
+    for (event, range) in Parser::new_ext(&markdown, Options::all()).into_offset_iter() {
+        match event {
+            Event::Start(Tag::Heading {
+                level: HeadingLevel::H1,
+                ..
+            }) => h1_starts.push(range.start),
+            Event::End(TagEnd::Heading(_)) => safe_boundaries.push(range.end),
+            Event::End(
+                TagEnd::Paragraph
+                | TagEnd::CodeBlock
+                | TagEnd::BlockQuote(_)
+                | TagEnd::List(_)
+                | TagEnd::Table
+                | TagEnd::FootnoteDefinition,
+            ) => safe_boundaries.push(range.end),
+            _ => {}
+        }
+    }
+    h1_starts.sort_unstable();
+    h1_starts.dedup();
+    safe_boundaries.sort_unstable();
+    safe_boundaries.dedup();
+
+    let mut positive_h1 = h1_starts.iter().copied().filter(|start| *start > 0);
+    let first_h1 = positive_h1.next();
+    let preview_h1 = first_h1.map(|start| {
+        if start < 512 {
+            positive_h1.next().unwrap_or(start)
+        } else {
+            start
+        }
+    });
+    let preview_end = preview_h1
+        .or_else(|| {
+            safe_boundaries
+                .iter()
+                .copied()
+                .filter(|boundary| *boundary <= QUICK_PREVIEW_BYTES)
+                .next_back()
+        })
+        .unwrap_or(markdown.len());
+
+    let mut chunks = Vec::new();
+    let mut start = 0;
+    let mut end = preview_end;
+    while start < markdown.len() {
+        if start > 0 {
+            end = markdown.len().min(start + MAX_CONTINUATION_BYTES);
+            if end < markdown.len() {
+                end = h1_starts
+                    .iter()
+                    .copied()
+                    .filter(|boundary| *boundary > start && *boundary <= end)
+                    .next_back()
+                    .or_else(|| {
+                        safe_boundaries
+                            .iter()
+                            .copied()
+                            .filter(|boundary| *boundary > start && *boundary <= end)
+                            .next_back()
+                    })
+                    .unwrap_or(end);
+            }
+        }
+        while !markdown.is_char_boundary(end) {
+            end -= 1;
+        }
+        let chapter_start = h1_starts.binary_search(&start).is_ok();
+        let chunk = &markdown[start..end];
+        if !chunk.trim().is_empty() {
+            chunks.push(RenderChunk {
+                markdown: chunk.to_string(),
+                chapter_start,
+            });
+        }
+        if end >= markdown.len() {
+            break;
+        }
+        start = end;
+    }
+    if chunks.is_empty() {
+        vec![RenderChunk {
+            markdown,
+            chapter_start: false,
+        }]
+    } else {
+        chunks
+    }
+}
+
+fn compile_chunk(
+    engine: &TypstEngine<TypstTemplateMainFile>,
+    markdown: &str,
+    page_offset: usize,
+    title: &str,
+    author: &str,
+    first: bool,
+    chapter_start: bool,
+) -> Result<typst_layout::PagedDocument, String> {
+    let mut input = Dict::new();
+    input.insert("markdown".into(), markdown.into_value());
+    input.insert("page_offset".into(), (page_offset as i64).into_value());
+    input.insert("title".into(), title.into_value());
+    input.insert("author".into(), author.into_value());
+    input.insert("first".into(), first.into_value());
+    input.insert("chapter_start".into(), chapter_start.into_value());
+    let compiled = engine.compile_with_input(input);
+    let document: typst_layout::PagedDocument = compiled
+        .output
+        .map_err(|errors| format!("Typst compile failed: {errors:#?}"))?;
+    if document.pages().is_empty() {
+        return Err("Typst produced no pages".into());
+    }
+    Ok(document)
+}
+
+fn start_session(
+    cache_dir: &Path,
+    key: String,
+    book_dir: PathBuf,
+    markdown: String,
+    title: String,
+    author: String,
+) -> Result<RenderSession, String> {
+    static TEMP_ID: AtomicU64 = AtomicU64::new(0);
+    let schema_dir = cache_dir.join(CACHE_SCHEMA);
+    fs::create_dir_all(&schema_dir).map_err(|error| format!("create cache: {error}"))?;
+    let final_dir = schema_dir.join(&key);
+    let temp_dir = schema_dir.join(format!(
+        ".{key}.tmp-{}-{}",
+        std::process::id(),
+        TEMP_ID.fetch_add(1, Ordering::Relaxed),
+    ));
+    fs::create_dir(&temp_dir).map_err(|error| format!("create temporary cache: {error}"))?;
+    let engine = TypstEngine::builder()
+        .main_file(TEMPLATE)
+        .search_fonts_with(
+            TypstKitFontOptions::default()
+                .include_system_fonts(true)
+                .include_embedded_fonts(true),
+        )
+        .with_static_source_file_resolver([
+            ("cmarker/lib.typ", CMARKER_LIB),
+            ("wonderous-book/lib.typ", WONDEROUS_BOOK_LIB),
+        ])
+        .with_static_file_resolver([("cmarker/plugin.wasm", CMARKER_WASM)])
+        .with_file_system_resolver(book_dir)
+        .build();
+    Ok(RenderSession {
+        key,
+        engine,
+        chunks: chapter_chunks(markdown),
+        next_chunk: 0,
+        page_count: 0,
+        title,
+        author,
+        temp_dir,
+        final_dir,
+    })
+}
+
+pub fn prepare(
+    cache_dir: &Path,
+    request: &RenderRequest,
+) -> Result<(RenderResult, Option<RenderSession>), String> {
+    let (_vault, book_dir, markdown, images, title, author) = validate_source(request)?;
+    let key = cache_key(&request.content, &book_dir, &images)?;
+    if let Some(manifest) = read_manifest(cache_dir, &key) {
+        return Ok((
+            RenderResult {
+                cache_key: key,
+                page_count: manifest.page_count,
+                hit: true,
+                complete: true,
+            },
+            None,
+        ));
+    }
+    let session = start_session(cache_dir, key.clone(), book_dir, markdown, title, author)?;
+    Ok((
+        RenderResult {
+            cache_key: key,
+            page_count: 0,
+            hit: false,
+            complete: false,
+        },
+        Some(session),
+    ))
+}
+
+pub fn render_next(session: &mut RenderSession) -> Result<RenderResult, String> {
+    let chunk = session
+        .chunks
+        .get(session.next_chunk)
+        .ok_or("render session is already complete")?;
+    let document = compile_chunk(
+        &session.engine,
+        &chunk.markdown,
+        session.page_count,
+        &session.title,
+        &session.author,
+        session.next_chunk == 0,
+        chunk.chapter_start,
+    )?;
+    for page in document.pages() {
+        let index = session.page_count;
+        let svg = typst_svg::svg(page, &Default::default());
+        fs::write(session.temp_dir.join(format!("page-{index:04}.svg")), svg)
+            .map_err(|error| format!("write cached page: {error}"))?;
+        session.page_count += 1;
+    }
+    session.next_chunk += 1;
+    let complete = session.next_chunk == session.chunks.len();
+    if complete {
+        let manifest = RenderManifest {
+            schema: CACHE_SCHEMA.into(),
+            cache_key: session.key.clone(),
+            page_count: session.page_count,
+        };
+        fs::write(
+            session.temp_dir.join("manifest.json"),
+            serde_json::to_vec(&manifest).map_err(|error| error.to_string())?,
+        )
+        .map_err(|error| format!("write cache manifest: {error}"))?;
+        if session.final_dir.exists() {
+            fs::remove_dir_all(&session.temp_dir).ok();
+        } else {
+            match fs::rename(&session.temp_dir, &session.final_dir) {
+                Ok(()) => {}
+                Err(_) if session.final_dir.exists() => {
+                    fs::remove_dir_all(&session.temp_dir).ok();
+                }
+                Err(error) => return Err(format!("commit cache: {error}")),
+            }
+        }
+    }
+    Ok(RenderResult {
+        cache_key: session.key.clone(),
+        page_count: session.page_count,
+        hit: false,
+        complete,
+    })
+}
+
+#[cfg(test)]
+pub fn render(cache_dir: &Path, request: &RenderRequest) -> Result<RenderResult, String> {
+    let (mut result, session) = prepare(cache_dir, request)?;
+    let Some(mut session) = session else {
+        return Ok(result);
+    };
+    while !result.complete {
+        result = render_next(&mut session)?;
+    }
+    Ok(result)
+}
+
+pub fn page(cache_dir: &Path, key: &str, page: usize) -> Result<String, String> {
+    if key.len() != 64 || !key.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return Err("invalid cache key".into());
+    }
+    let manifest = read_manifest(cache_dir, key).ok_or("render cache is unavailable")?;
+    if page >= manifest.page_count {
+        return Err("page is outside the document".into());
+    }
+    fs::read_to_string(
+        cache_dir
+            .join(CACHE_SCHEMA)
+            .join(key)
+            .join(format!("page-{page:04}.svg")),
+    )
+    .map_err(|error| format!("read cached page: {error}"))
+}
+
+pub fn session_page(session: &RenderSession, page: usize) -> Result<String, String> {
+    if page >= session.page_count {
+        return Err("page is outside the rendered portion".into());
+    }
+    fs::read_to_string(session.temp_dir.join(format!("page-{page:04}.svg")))
+        .map_err(|error| format!("read rendered page: {error}"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn request(vault: &Path, source: &Path, content: &str) -> RenderRequest {
+        RenderRequest {
+            uri: source.to_string_lossy().into_owned(),
+            content: content.into(),
+            vault_root: vault.to_string_lossy().into_owned(),
+        }
+    }
+
+    #[test]
+    fn strips_only_a_leading_frontmatter_block() {
+        assert_eq!(
+            strip_frontmatter("---\ntype: Book\n---\n# Title"),
+            "# Title"
+        );
+        assert_eq!(
+            strip_frontmatter("# Title\n---\nbody"),
+            "# Title\n---\nbody"
+        );
+        let metadata =
+            book_frontmatter("---\ntitle: Seven Powers\ncreator: Hamilton Helmer\n---\n# One");
+        assert_eq!(metadata.title.as_deref(), Some("Seven Powers"));
+        assert_eq!(metadata.creator.as_deref(), Some("Hamilton Helmer"));
+        let metadata = book_frontmatter(
+            "---\ntitle: Why We Remember\nsources:\n  - resource: original.epub\n    author: Charan Ranganath\n---\n",
+        );
+        assert_eq!(
+            metadata.sources[0].author.as_deref(),
+            Some("Charan Ranganath")
+        );
+    }
+
+    #[test]
+    fn exposes_a_small_preview_without_recompiling_every_subchapter() {
+        let markdown = format!(
+            "# Part One\n\nIntro.\n\n## 1\n\n## Chapter title\n\n{}",
+            (0..100)
+                .map(|_| format!("{}\n\n", "paragraph ".repeat(100)))
+                .collect::<String>()
+        );
+        let chunks = chapter_chunks(markdown);
+
+        assert_eq!(chunks.len(), 2, "got {} chunks", chunks.len());
+        assert!(chunks[0].markdown.starts_with("# Part One"));
+        assert!(chunks[0].markdown.len() <= QUICK_PREVIEW_BYTES);
+        assert!(chunks[1].markdown.len() > QUICK_PREVIEW_BYTES);
+        assert!(!chunks[1].chapter_start);
+    }
+
+    #[test]
+    fn rejects_remote_and_escaping_images() {
+        let vault = tempfile::tempdir().unwrap();
+        let book = vault.path().join("book");
+        fs::create_dir(&book).unwrap();
+        assert!(local_image_paths("![](https://example.com/a.png)", &book, vault.path()).is_err());
+        assert!(local_image_paths("![](data:image/png;base64,AAAA)", &book, vault.path()).is_err());
+        assert!(local_image_paths("![](../a.png)", &book, vault.path()).is_err());
+    }
+
+    #[test]
+    fn compiles_chinese_commonmark_and_reuses_the_cache() {
+        let vault = tempfile::tempdir().unwrap();
+        let book = vault.path().join("book");
+        fs::create_dir(&book).unwrap();
+        let source = book.join("book.typeset.md");
+        let content = "---\ntype: Book\n---\n# 中文书名\n\n正文 **加粗**\n\n- 列表\n";
+        fs::write(&source, content).unwrap();
+        let cache = vault.path().join("cache");
+        let first = render(&cache, &request(vault.path(), &source, content)).unwrap();
+        assert!(!first.hit);
+        assert!(first.page_count >= 1);
+        assert!(page(&cache, &first.cache_key, 0)
+            .unwrap()
+            .starts_with("<svg"));
+        let second = render(&cache, &request(vault.path(), &source, content)).unwrap();
+        assert!(second.hit);
+        assert_eq!(second.cache_key, first.cache_key);
+    }
+
+    #[test]
+    fn changing_a_local_image_invalidates_the_cache() {
+        let vault = tempfile::tempdir().unwrap();
+        let book = vault.path().join("book");
+        fs::create_dir(&book).unwrap();
+        let source = book.join("book.typeset.md");
+        let content = "# Illustrated\n\n![](cover.svg)\n";
+        fs::write(&source, content).unwrap();
+        let image = book.join("cover.svg");
+        fs::write(&image, r#"<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="10" height="10" fill="red"/></svg>"#).unwrap();
+        let cache = vault.path().join("cache");
+
+        let first = render(&cache, &request(vault.path(), &source, content)).unwrap();
+        fs::write(&image, r#"<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="10" height="10" fill="blue"/></svg>"#).unwrap();
+        let second = render(&cache, &request(vault.path(), &source, content)).unwrap();
+
+        assert_ne!(second.cache_key, first.cache_key);
+        assert!(!second.hit);
+    }
+
+    #[test]
+    fn compiles_a_multisection_book_with_tables_code_and_images() {
+        let vault = tempfile::tempdir().unwrap();
+        let book = vault.path().join("book");
+        fs::create_dir(&book).unwrap();
+        let source = book.join("book.typeset.md");
+        fs::write(
+            book.join("diagram.svg"),
+            r##"<svg xmlns="http://www.w3.org/2000/svg" width="120" height="40"><rect width="120" height="40" fill="#2563eb"/></svg>"##,
+        )
+        .unwrap();
+        let mut content = String::from("# 长书测试\n\n![](diagram.svg)\n\n| 列一 | 列二 |\n| --- | --- |\n| 中文 | 123 |\n\n```rust\nfn main() {}\n```\n");
+        for chapter in 1..=20 {
+            content.push_str(&format!(
+                "\n# 第 {chapter} 章\n\n这是用于验证分页、中文字体和缓存的正文。\n\n- 要点一\n- 要点二\n"
+            ));
+        }
+        fs::write(&source, &content).unwrap();
+        let cache = vault.path().join("cache");
+
+        let first = render(&cache, &request(vault.path(), &source, &content)).unwrap();
+        let second = render(&cache, &request(vault.path(), &source, &content)).unwrap();
+
+        assert!(first.page_count >= 20, "got {} pages", first.page_count);
+        assert!(second.hit);
+        assert_eq!(second.cache_key, first.cache_key);
+    }
+
+    #[test]
+    fn exposes_the_first_chapter_before_the_full_cache_is_complete() {
+        let vault = tempfile::tempdir().unwrap();
+        let book = vault.path().join("book");
+        fs::create_dir(&book).unwrap();
+        let source = book.join("book.typeset.md");
+        let content = "# First\n\nFirst chapter.\n\n# Second\n\nSecond chapter.\n";
+        fs::write(&source, content).unwrap();
+        let cache = vault.path().join("cache");
+
+        let (prepared, session) =
+            prepare(&cache, &request(vault.path(), &source, content)).unwrap();
+        assert_eq!(prepared.page_count, 0);
+        assert!(!prepared.complete);
+        let mut session = session.unwrap();
+        let first = render_next(&mut session).unwrap();
+        assert!(!first.complete);
+        assert!(first.page_count >= 1);
+        assert!(session_page(&session, 0).unwrap().starts_with("<svg"));
+
+        let finished = render_next(&mut session).unwrap();
+        assert!(finished.complete);
+        assert!(finished.page_count > first.page_count);
+        assert!(page(&cache, &finished.cache_key, 0)
+            .unwrap()
+            .starts_with("<svg"));
+    }
+
+    #[test]
+    fn tolerates_dangling_epub_fragment_links() {
+        let vault = tempfile::tempdir().unwrap();
+        let book = vault.path().join("book");
+        fs::create_dir(&book).unwrap();
+        let source = book.join("book.typeset.md");
+        let content = "# Index\n\n[A](#calibre_link-373) [Website](https://example.com)\n";
+        fs::write(&source, content).unwrap();
+        let cache = vault.path().join("cache");
+
+        let rendered = render(&cache, &request(vault.path(), &source, content)).unwrap();
+        assert!(rendered.page_count >= 1);
+        assert!(page(&cache, &rendered.cache_key, 0)
+            .unwrap()
+            .starts_with("<svg"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn rejects_a_symlinked_source_or_image() {
+        use std::os::unix::fs::symlink;
+
+        let vault = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        let book = vault.path().join("book");
+        fs::create_dir(&book).unwrap();
+        let external_source = outside.path().join("book.typeset.md");
+        fs::write(&external_source, "# Outside\n").unwrap();
+        let linked_source = book.join("book.typeset.md");
+        symlink(&external_source, &linked_source).unwrap();
+        assert!(validate_source(&request(vault.path(), &linked_source, "# Outside\n")).is_err());
+
+        fs::remove_file(&linked_source).unwrap();
+        fs::write(&linked_source, "![](cover.svg)\n").unwrap();
+        let external_image = outside.path().join("cover.svg");
+        fs::write(
+            &external_image,
+            r#"<svg xmlns="http://www.w3.org/2000/svg"/>"#,
+        )
+        .unwrap();
+        symlink(&external_image, book.join("cover.svg")).unwrap();
+        assert!(
+            validate_source(&request(vault.path(), &linked_source, "![](cover.svg)\n")).is_err()
+        );
+    }
+
+    #[test]
+    fn rejects_invalid_cache_keys_and_out_of_range_pages() {
+        let vault = tempfile::tempdir().unwrap();
+        let book = vault.path().join("book");
+        fs::create_dir(&book).unwrap();
+        let source = book.join("book.typeset.md");
+        fs::write(&source, "# Book\n").unwrap();
+        let cache = vault.path().join("cache");
+        let rendered = render(&cache, &request(vault.path(), &source, "# Book\n")).unwrap();
+
+        assert!(page(&cache, "../manifest.json", 0).is_err());
+        assert!(page(&cache, &rendered.cache_key, rendered.page_count).is_err());
+    }
+}

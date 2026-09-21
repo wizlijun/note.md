@@ -53,6 +53,7 @@ const OFFICIAL_PLUGIN_CATEGORIES = new Map([
   ['notemd.pos-log', 'record'],
   ['notemd.roam-import', 'import-export'],
   ['notemd.ebook-import', 'reading'],
+  ['notemd.typst-reader', 'reading'],
   ['notemd.trace-source', 'reading'],
   ['notemd.idea-spark', 'inspiration'],
   ['notemd.next', 'advance'],

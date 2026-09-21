@@ -5,11 +5,15 @@
 
 import type { AiStatus, BackendAiEvent, LocalAiEvent } from './queue'
 
+export const BOOK_DOCUMENT = 'book.typeset.md'
+
 /** One book as `plugin.library_list` reports it (see backend `library.rs`). */
 export interface RawBook {
   /** Vault-relative, POSIX-separated book directory — the same shape `dest_rel`
    * has, so it feeds `ai_read_start` unchanged. */
   rel: string
+  /** Current backends always provide this; optional for one-version UI/backend compatibility. */
+  document?: string
   name: string
   month: string
   topic_id?: string | null

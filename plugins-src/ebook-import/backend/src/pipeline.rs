@@ -326,7 +326,7 @@ pub fn month_dir(d: chrono::NaiveDate) -> String {
 
 /// Copies the finished work dir's outputs into `dest`: `config.txt` as-is,
 /// `meta.yml` with the RFC 3339 UTC instant the book joined the vault,
-/// `input.md` renamed to `book.md` (the vault-facing name) with an OKF
+/// `input.md` written as `book.typeset.md` (the vault-facing name) with an OKF
 /// concept head prepended (`type: Book` + the source book as `sources[]`,
 /// see bookconf::book_frontmatter), and `images/` (if the run produced one
 /// -- Calibre HTMLZ extraction and Baidu's remote-image localization both
@@ -363,7 +363,7 @@ fn finalize_with_assets(
     let input_md = work.join("input.md");
     let markdown = std::fs::read_to_string(&input_md)
         .map_err(|e| format!("read {}: {e}", input_md.display()))?;
-    let book_md = dest.join("book.md");
+    let book_md = dest.join(crate::library::BOOK_FILE);
     std::fs::write(
         &book_md,
         format!("{}{markdown}", bookconf::book_frontmatter(input_file, meta)),
@@ -643,10 +643,10 @@ mod tests {
             vault.join("ssot/ebooks").join(&month).join("My Book"),
             "dest must be <vault>/<ebooks_root>/<YYYY-MM>/<Title>"
         );
-        let book_md = std::fs::read_to_string(dest.join("book.md")).unwrap();
+        let book_md = std::fs::read_to_string(dest.join(crate::library::BOOK_FILE)).unwrap();
         assert!(
             book_md.starts_with("---\ntype: Book\ntitle: \"My Book_Author\"\n"),
-            "book.md must open with an OKF concept head, got: {book_md}"
+            "book.typeset.md must open with an OKF concept head, got: {book_md}"
         );
         assert!(book_md.ends_with("---\n# Stub Content"), "got: {book_md}");
         let cfg = std::fs::read_to_string(dest.join("config.txt")).unwrap();
@@ -798,20 +798,20 @@ mod tests {
         .unwrap();
 
         assert!(dest.join("config.txt").exists());
-        assert!(dest.join("book.md").exists());
+        assert!(dest.join(crate::library::BOOK_FILE).exists());
         assert_eq!(
             std::fs::read_to_string(dest.join("meta.yml")).unwrap(),
             "added_at: 2026-08-27T06:40:15Z\ntopic_id: software-engineering\n"
         );
         assert!(dest.join("images/pic.png").exists());
         assert_eq!(
-            std::fs::read_to_string(dest.join("book.md")).unwrap(),
+            std::fs::read_to_string(dest.join(crate::library::BOOK_FILE)).unwrap(),
             format!(
                 "{}{}",
                 crate::bookconf::book_frontmatter("/in/some-book.epub", &meta),
                 std::fs::read_to_string(work.join("input.md")).unwrap()
             ),
-            "book.md is the converted markdown prefixed with its OKF concept head"
+            "book.typeset.md is the converted markdown prefixed with its OKF concept head"
         );
     }
 
@@ -978,7 +978,7 @@ mod tests {
             std::fs::read(dest.join("cover.jpg")).unwrap(),
             b"downloaded validated image"
         );
-        assert!(std::fs::read_to_string(dest.join("book.md"))
+        assert!(std::fs::read_to_string(dest.join(crate::library::BOOK_FILE))
             .unwrap()
             .ends_with("Original text"));
     }

@@ -233,7 +233,8 @@
       "enum": [
         "generic",
         "sparkle",
-        "clock"
+        "clock",
+        "book"
       ]
     },
     "FileViewScalar": {
