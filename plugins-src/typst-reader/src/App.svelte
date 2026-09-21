@@ -1,7 +1,10 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte'
   import Page from './components/Page.svelte'
-  import { locale, onDocument, renderDocument, renderNext, type TypesetDocument } from './lib/bridge'
+  import {
+    loadBookStyleRule, locale, onDocument, renderDocument, renderNext, saveBookStyleRule,
+    type BookStyleRule, type TypesetDocument,
+  } from './lib/bridge'
 
   const zh = locale().startsWith('zh')
   let document = $state<TypesetDocument>()
@@ -11,10 +14,31 @@
   let error = $state('')
   let renderingMore = $state(false)
   let zoom = $state(1)
-  let zoomMenu = $state<{ x: number; y: number }>()
-  let zoomMenuElement = $state<HTMLDivElement>()
+  let contextMenu = $state<{ x: number; y: number }>()
+  let contextMenuElement = $state<HTMLDivElement>()
+  let bookStyle = $state<BookStyleRule>('auto')
+  let settingsLoaded = false
+  let settingsError = $state('')
+  let savingRule = $state(false)
   let generation = 0
   const zoomLevels = [0.75, 1, 1.25, 1.5]
+  const bookStyleRules: { value: BookStyleRule; zh: string; en: string }[] = [
+    { value: 'auto', zh: '自动（根据正文语言）', en: 'Automatic (content language)' },
+    { value: 'wonderous-book', zh: 'Wonderous Book', en: 'Wonderous Book' },
+    { value: 'aiwriter-book', zh: 'AI Writer（中日韩）', en: 'AI Writer (CJK)' },
+  ]
+
+  const poll = () => new Promise<void>((resolve) => window.setTimeout(resolve, 100))
+
+  async function ensureSettings() {
+    if (settingsLoaded) return
+    try {
+      bookStyle = await loadBookStyleRule()
+    } catch {
+      bookStyle = 'auto'
+    }
+    settingsLoaded = true
+  }
 
   async function open(next: TypesetDocument) {
     const current = ++generation
@@ -25,7 +49,9 @@
     cacheKey = ''
     pageCount = 0
     try {
-      let result = await renderDocument(next)
+      await ensureSettings()
+      if (current !== generation) return
+      let result = await renderDocument(next, bookStyle)
       if (current !== generation) return
       cacheKey = result.cache_key
       pageCount = result.page_count
@@ -37,9 +63,12 @@
       while (!result.complete) {
         result = await renderNext(result.cache_key)
         if (current !== generation) return
-        pageCount = result.page_count
-        status = 'ready'
-        await tick()
+        if (result.page_count > pageCount) {
+          pageCount = result.page_count
+          status = 'ready'
+          await tick()
+        }
+        if (result.busy) await poll()
       }
       renderingMore = false
     } catch (value) {
@@ -50,40 +79,60 @@
     }
   }
 
-  async function openZoomMenu(event: MouseEvent) {
+  async function openContextMenu(event: MouseEvent) {
+    if ((event.target as HTMLElement | null)?.closest('.reader-menu')) return
     event.preventDefault()
-    const width = 150
-    const height = 146
-    zoomMenu = {
+    const width = 238
+    const height = 340
+    contextMenu = {
       x: Math.max(8, Math.min(event.clientX, window.innerWidth - width - 8)),
       y: Math.max(8, Math.min(event.clientY, window.innerHeight - height - 8)),
     }
     await tick()
-    zoomMenuElement?.focus()
+    contextMenuElement?.focus()
   }
 
   function setZoom(value: number) {
     zoom = value
-    zoomMenu = undefined
+    contextMenu = undefined
   }
 
-  function dismissZoomMenu(event: PointerEvent) {
-    if (!zoomMenu || (event.target as HTMLElement | null)?.closest('.zoom-menu')) return
-    zoomMenu = undefined
+  async function setBookStyle(value: BookStyleRule) {
+    if (savingRule || value === bookStyle) {
+      contextMenu = undefined
+      return
+    }
+    savingRule = true
+    settingsError = ''
+    try {
+      await saveBookStyleRule(value)
+      bookStyle = value
+      contextMenu = undefined
+      if (document) await open(document)
+    } catch (value) {
+      settingsError = value instanceof Error ? value.message : String(value)
+    } finally {
+      savingRule = false
+    }
+  }
+
+  function dismissContextMenu(event: PointerEvent) {
+    if (!contextMenu || (event.target as HTMLElement | null)?.closest('.reader-menu')) return
+    contextMenu = undefined
   }
 
   function handleKeydown(event: KeyboardEvent) {
-    if (!zoomMenu || event.key !== 'Escape') return
+    if (!contextMenu || event.key !== 'Escape') return
     event.preventDefault()
-    zoomMenu = undefined
+    contextMenu = undefined
   }
 
   onMount(() => onDocument((next) => { void open(next) }))
 </script>
 
-<svelte:window onpointerdown={dismissZoomMenu} onkeydown={handleKeydown} onblur={() => { zoomMenu = undefined }} />
+<svelte:window onpointerdown={dismissContextMenu} onkeydown={handleKeydown} />
 
-<main class="ui-surface">
+<main class="ui-surface" oncontextmenu={openContextMenu}>
   {#if status === 'idle'}
     <section class="state">{zh ? '正在载入文档…' : 'Loading document…'}</section>
   {:else if status === 'rendering'}
@@ -91,9 +140,9 @@
   {:else if status === 'error'}
     <section class="state error" role="alert"><strong>{zh ? '无法排版这份文档' : 'Could not typeset this document'}</strong><span>{error}</span>{#if document}<button type="button" onclick={() => open(document!)}>{zh ? '重试' : 'Retry'}</button>{/if}</section>
   {:else}
-    <section class="pages" role="document" aria-label={zh ? '排版页面' : 'Typeset pages'} style={`--zoom:${zoom}`} oncontextmenu={openZoomMenu}>
+    <section class="pages" role="document" aria-label={zh ? '排版页面' : 'Typeset pages'} style={`--zoom:${zoom}`}>
       <div class="scaled" style={`width:${794 * zoom}px`}>
-        {#each Array(pageCount) as _, index}
+        {#each Array(pageCount) as _, index (`${cacheKey}:${index}`)}
           <div class="page-slot" style={`height:${1123 * zoom}px`}>
             <div class="page-scale"><Page {cacheKey} {index} label={`${zh ? '第' : 'Page '}${index + 1}${zh ? ' 页' : ''}`} /></div>
           </div>
@@ -103,25 +152,40 @@
     {#if renderingMore}<div class="progress" role="status"><div class="spinner small"></div>{zh ? `继续排版，已完成 ${pageCount} 页…` : `Typesetting more pages… ${pageCount} ready`}</div>{/if}
     {#if error}<button class="retry-toast" type="button" onclick={() => document && open(document)}>{zh ? '后续页面排版失败，重试' : 'More pages failed. Retry'}</button>{/if}
   {/if}
-  {#if zoomMenu}
+  {#if contextMenu}
     <div
-      bind:this={zoomMenuElement}
-      class="zoom-menu menu-panel"
+      bind:this={contextMenuElement}
+      class="reader-menu menu-panel"
       role="menu"
-      aria-label={zh ? '页面缩放' : 'Page zoom'}
+      aria-label={zh ? '排版设置' : 'Typesetting settings'}
       tabindex="-1"
-      style={`left:${zoomMenu.x}px;top:${zoomMenu.y}px`}
+      style={`left:${contextMenu.x}px;top:${contextMenu.y}px`}
     >
+      <div class="menu-label">{zh ? '排版模板' : 'Typesetting template'}</div>
+      {#each bookStyleRules as rule}
+        <button
+          type="button"
+          class="setting-row menu-row"
+          class:active={bookStyle === rule.value}
+          role="menuitemradio"
+          aria-checked={bookStyle === rule.value}
+          disabled={savingRule}
+          onclick={() => setBookStyle(rule.value)}
+        ><span>{zh ? rule.zh : rule.en}</span><span class="check" aria-hidden="true">{bookStyle === rule.value ? '✓' : ''}</span></button>
+      {/each}
+      <div class="menu-sep" role="separator"></div>
+      <div class="menu-label">{zh ? '页面缩放' : 'Page zoom'}</div>
       {#each zoomLevels as level}
         <button
           type="button"
-          class="zoom-row menu-row"
+          class="setting-row menu-row"
           class:active={zoom === level}
           role="menuitemradio"
           aria-checked={zoom === level}
           onclick={() => setZoom(level)}
         ><span>{Math.round(level * 100)}%</span><span class="check" aria-hidden="true">{zoom === level ? '✓' : ''}</span></button>
       {/each}
+      {#if settingsError}<div class="settings-error" role="alert">{settingsError}</div>{/if}
     </div>
   {/if}
 </main>
@@ -143,9 +207,11 @@
   .scaled { margin: 24px auto; display: flex; flex-direction: column; gap: 22px; }
   .page-slot { position: relative; width: 100%; flex: 0 0 auto; }
   .page-scale { position: absolute; inset: 0 auto auto 0; transform: scale(var(--zoom)); transform-origin: top left; }
-  .zoom-menu { position: fixed; z-index: 20; width: 150px; box-sizing: border-box; }
-  .zoom-row { width: 100%; min-height: 30px; justify-content: space-between; border: 0; border-radius: 5px; background: none; text-align: left; }
+  .reader-menu { position: fixed; z-index: 20; width: 238px; box-sizing: border-box; }
+  .setting-row { width: 100%; min-height: 30px; justify-content: space-between; border: 0; border-radius: 5px; background: none; text-align: left; }
+  .menu-label { padding: 3px 9px 4px; color: GrayText; font-size: 11px; }
   .check { width: 14px; text-align: center; }
+  .settings-error { padding: 6px 9px 3px; color: #b42318; font-size: 11px; overflow-wrap: anywhere; }
   .progress, .retry-toast { position: fixed; right: 14px; bottom: 14px; z-index: 10; border: 1px solid color-mix(in srgb, CanvasText 16%, transparent); border-radius: 8px; box-shadow: 0 4px 16px rgba(0, 0, 0, .14); background: color-mix(in srgb, Canvas 92%, transparent); backdrop-filter: blur(18px); }
   .progress { display: flex; align-items: center; gap: 7px; padding: 7px 10px; color: GrayText; font-size: 11px; }
   .retry-toast { color: #b42318; padding: 7px 10px; }

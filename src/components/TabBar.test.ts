@@ -40,7 +40,10 @@ vi.mock('../lib/dialogs', () => ({ confirmDirtyClose: mocked.confirmDirtyClose }
 vi.mock('../lib/plugins/runtime.svelte', () => ({ pluginRuntime: { manifests: [] }, dispatchPluginCommand: vi.fn() }))
 vi.mock('../lib/settings.svelte', () => ({ getPluginScopedAll: () => ({}), pluginScopedVersion: { value: 0 } }))
 vi.mock('../lib/sotvault.svelte', () => ({ sotvaultStore: { tick: 0, vaultRoot: null }, isMirroredSource: () => false }))
-vi.mock('../lib/window-title', () => ({ SYNC_MARK: '↔' }))
+vi.mock('../lib/window-title', () => ({
+  SYNC_MARK: '↔',
+  displayTitleForDocument: (tab: { title: string }) => tab.title,
+}))
 
 function openMenu(index: number) {
   const tab = document.querySelectorAll<HTMLButtonElement>('button.tab')[index]

@@ -7,6 +7,15 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+### Changed
+
+- **Typeset Reader 0.1.1 adds persistent template controls to the page context menu.** Readers can keep automatic content-language detection or explicitly choose Wonderous Book or the AIWriter CJK template; zoom remains in the same context menu.
+
+### Fixed
+
+- **Typeset books now show their metadata title in the editor tab and single-document window title.** `book.typeset.md` falls back to its book-directory name when metadata has no usable title.
+- **Large books remain readable while later pages are still being typeset.** Background pagination no longer blocks page requests, and the AIWriter continuation template no longer inserts an unintended blank even page.
+
 ## v6.921.1 — 2026-09-21
 
 ### Added

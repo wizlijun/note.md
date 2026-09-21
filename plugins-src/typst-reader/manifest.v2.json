@@ -2,7 +2,7 @@
   "manifest_version": 2,
   "id": "notemd.typst-reader",
   "name": "Typeset Reader",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "kind": "native",
   "engines": {
     "notemd": ">=6.921.1"
@@ -44,7 +44,8 @@
   },
   "capabilities": [
     "ui",
-    "vault.read"
+    "vault.read",
+    "settings"
   ],
   "request_timeout_seconds": 600,
   "idle_shutdown_seconds": 600,

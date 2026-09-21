@@ -5,6 +5,7 @@
   import { t } from '../lib/i18n/store.svelte'
   import { handleFileViewMessage, type FileViewOpen, type FileViewOpenPage, type FileViewPageResult } from '../lib/plugins/v2/file-view-msg'
   import { pluginRuntime } from '../lib/plugins/runtime.svelte'
+  import { displayTitleForDocument } from '../lib/window-title'
 
   type FallbackReason = 'edit' | 'unsupported' | 'unavailable'
   let { tab, view, fallback, onFallback }: {
@@ -160,7 +161,7 @@
         bind:this={iframeEl}
         data-plugin-view-id={view.pluginId}
         class:pending={status === 'loading'}
-        title={tab.title}
+        title={displayTitleForDocument(tab)}
         {src}
         sandbox="allow-scripts allow-same-origin allow-forms"
         onload={() => { loaded = true; sendSnapshot() }}

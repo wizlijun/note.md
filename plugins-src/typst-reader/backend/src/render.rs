@@ -8,9 +8,9 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use typst::foundations::{Dict, IntoValue};
 use typst_as_lib::{typst_kit_options::TypstKitFontOptions, TypstEngine, TypstTemplateMainFile};
 
-const CACHE_SCHEMA: &str = "typeset-svg-v2";
+const CACHE_SCHEMA: &str = "typeset-svg-v3";
 const RENDERER_VERSION: &str =
-    "typst-0.15.1+cmarker-0.1.10+wonderous-book-0.1.2+aiwriter-book-0.4.13+template-16";
+    "typst-0.15.1+cmarker-0.1.10+wonderous-book-0.1.2+aiwriter-book-0.4.13+template-17";
 const QUICK_PREVIEW_BYTES: usize = 16 * 1024;
 const MAX_CONTINUATION_BYTES: usize = 320 * 1024;
 const TEMPLATE: &str = include_str!("../assets/template.typ");
@@ -24,6 +24,8 @@ pub struct RenderRequest {
     pub uri: String,
     pub content: String,
     pub vault_root: String,
+    #[serde(default)]
+    pub book_style: BookStyleRule,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -33,12 +35,13 @@ pub struct RenderManifest {
     pub page_count: usize,
 }
 
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct RenderResult {
     pub cache_key: String,
     pub page_count: usize,
     pub hit: bool,
     pub complete: bool,
+    pub busy: bool,
 }
 
 pub struct RenderSession {
@@ -59,10 +62,38 @@ struct RenderChunk {
     chapter_start: bool,
 }
 
+struct ValidatedSource {
+    book_dir: PathBuf,
+    markdown: String,
+    images: Vec<PathBuf>,
+    title: String,
+    author: String,
+    book_style: BookStyle,
+}
+
+struct CompileInput<'a> {
+    markdown: &'a str,
+    page_offset: usize,
+    title: &'a str,
+    author: &'a str,
+    book_style: BookStyle,
+    first: bool,
+    chapter_start: bool,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum BookStyle {
+pub enum BookStyle {
     Wonderous,
     AiWriter,
+}
+
+#[derive(Debug, Clone, Copy, Default, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub enum BookStyleRule {
+    #[default]
+    Auto,
+    WonderousBook,
+    AiwriterBook,
 }
 
 impl BookStyle {
@@ -94,16 +125,14 @@ fn is_cjk(character: char) -> bool {
 }
 
 fn book_style(language: Option<&str>, markdown: &str) -> BookStyle {
-    if language.is_some_and(|language| {
+    let language_is_cjk = language.is_some_and(|language| {
         let primary = language
             .split(['-', '_'])
             .next()
             .unwrap_or_default()
             .to_ascii_lowercase();
         matches!(primary.as_str(), "zh" | "ja" | "ko")
-    }) {
-        return BookStyle::AiWriter;
-    }
+    });
     let mut cjk = 0usize;
     let mut significant = 0usize;
     for character in markdown.chars().take(200_000) {
@@ -116,8 +145,20 @@ fn book_style(language: Option<&str>, markdown: &str) -> BookStyle {
     }
     if cjk >= 32 && cjk.saturating_mul(5) >= significant {
         BookStyle::AiWriter
+    } else if significant < 160 && language_is_cjk && cjk > 0 {
+        // Metadata is useful for genuinely short samples, but a mislabeled
+        // full English book must not be forced through the CJK template.
+        BookStyle::AiWriter
     } else {
         BookStyle::Wonderous
+    }
+}
+
+fn resolve_book_style(rule: BookStyleRule, language: Option<&str>, markdown: &str) -> BookStyle {
+    match rule {
+        BookStyleRule::Auto => book_style(language, markdown),
+        BookStyleRule::WonderousBook => BookStyle::Wonderous,
+        BookStyleRule::AiwriterBook => BookStyle::AiWriter,
     }
 }
 
@@ -129,6 +170,14 @@ struct BookSource {
 impl RenderSession {
     pub fn key(&self) -> &str {
         &self.key
+    }
+
+    pub fn page_count(&self) -> usize {
+        self.page_count
+    }
+
+    pub fn temp_dir(&self) -> &Path {
+        &self.temp_dir
     }
 }
 
@@ -244,20 +293,7 @@ fn local_image_paths(
     Ok(paths)
 }
 
-fn validate_source(
-    request: &RenderRequest,
-) -> Result<
-    (
-        PathBuf,
-        PathBuf,
-        String,
-        Vec<PathBuf>,
-        String,
-        String,
-        BookStyle,
-    ),
-    String,
-> {
+fn validate_source(request: &RenderRequest) -> Result<ValidatedSource, String> {
     let vault = Path::new(&request.vault_root)
         .canonicalize()
         .map_err(|error| format!("resolve Vault root: {error}"))?;
@@ -278,7 +314,11 @@ fn validate_source(
         .to_path_buf();
     let frontmatter = book_frontmatter(&request.content);
     let markdown = strip_frontmatter(&request.content).to_string();
-    let style = book_style(frontmatter.language.as_deref(), &markdown);
+    let style = resolve_book_style(
+        request.book_style,
+        frontmatter.language.as_deref(),
+        &markdown,
+    );
     let title = frontmatter.title.unwrap_or_else(|| {
         book_dir
             .file_name()
@@ -297,10 +337,22 @@ fn validate_source(
         })
         .unwrap_or_default();
     let images = local_image_paths(&markdown, &book_dir, &vault)?;
-    Ok((vault, book_dir, markdown, images, title, author, style))
+    Ok(ValidatedSource {
+        book_dir,
+        markdown,
+        images,
+        title,
+        author,
+        book_style: style,
+    })
 }
 
-fn cache_key(content: &str, book_dir: &Path, images: &[PathBuf]) -> Result<String, String> {
+fn cache_key(
+    content: &str,
+    book_dir: &Path,
+    images: &[PathBuf],
+    book_style: BookStyle,
+) -> Result<String, String> {
     let mut digest = Sha256::new();
     digest.update(CACHE_SCHEMA.as_bytes());
     digest.update([0]);
@@ -315,6 +367,8 @@ fn cache_key(content: &str, book_dir: &Path, images: &[PathBuf]) -> Result<Strin
     digest.update(CMARKER_LIB.as_bytes());
     digest.update([0]);
     digest.update(CMARKER_WASM);
+    digest.update([0]);
+    digest.update(book_style.as_str().as_bytes());
     digest.update([0]);
     digest.update(content.as_bytes());
     for path in images {
@@ -388,8 +442,7 @@ fn chapter_chunks(markdown: String) -> Vec<RenderChunk> {
             safe_boundaries
                 .iter()
                 .copied()
-                .filter(|boundary| *boundary <= QUICK_PREVIEW_BYTES)
-                .next_back()
+                .rfind(|boundary| *boundary <= QUICK_PREVIEW_BYTES)
         })
         .unwrap_or(markdown.len());
 
@@ -403,14 +456,12 @@ fn chapter_chunks(markdown: String) -> Vec<RenderChunk> {
                 end = h1_starts
                     .iter()
                     .copied()
-                    .filter(|boundary| *boundary > start && *boundary <= end)
-                    .next_back()
+                    .rfind(|boundary| *boundary > start && *boundary <= end)
                     .or_else(|| {
                         safe_boundaries
                             .iter()
                             .copied()
-                            .filter(|boundary| *boundary > start && *boundary <= end)
-                            .next_back()
+                            .rfind(|boundary| *boundary > start && *boundary <= end)
                     })
                     .unwrap_or(end);
             }
@@ -443,23 +494,20 @@ fn chapter_chunks(markdown: String) -> Vec<RenderChunk> {
 
 fn compile_chunk(
     engine: &TypstEngine<TypstTemplateMainFile>,
-    markdown: &str,
-    page_offset: usize,
-    title: &str,
-    author: &str,
-    book_style: BookStyle,
-    first: bool,
-    chapter_start: bool,
+    input: CompileInput<'_>,
 ) -> Result<typst_layout::PagedDocument, String> {
-    let mut input = Dict::new();
-    input.insert("markdown".into(), markdown.into_value());
-    input.insert("page_offset".into(), (page_offset as i64).into_value());
-    input.insert("title".into(), title.into_value());
-    input.insert("author".into(), author.into_value());
-    input.insert("book_style".into(), book_style.as_str().into_value());
-    input.insert("first".into(), first.into_value());
-    input.insert("chapter_start".into(), chapter_start.into_value());
-    let compiled = engine.compile_with_input(input);
+    let mut dict = Dict::new();
+    dict.insert("markdown".into(), input.markdown.into_value());
+    dict.insert(
+        "page_offset".into(),
+        (input.page_offset as i64).into_value(),
+    );
+    dict.insert("title".into(), input.title.into_value());
+    dict.insert("author".into(), input.author.into_value());
+    dict.insert("book_style".into(), input.book_style.as_str().into_value());
+    dict.insert("first".into(), input.first.into_value());
+    dict.insert("chapter_start".into(), input.chapter_start.into_value());
+    let compiled = engine.compile_with_input(dict);
     let document: typst_layout::PagedDocument = compiled
         .output
         .map_err(|errors| format!("Typst compile failed: {errors:#?}"))?;
@@ -521,8 +569,13 @@ pub fn prepare(
     cache_dir: &Path,
     request: &RenderRequest,
 ) -> Result<(RenderResult, Option<RenderSession>), String> {
-    let (_vault, book_dir, markdown, images, title, author, book_style) = validate_source(request)?;
-    let key = cache_key(&request.content, &book_dir, &images)?;
+    let source = validate_source(request)?;
+    let key = cache_key(
+        &request.content,
+        &source.book_dir,
+        &source.images,
+        source.book_style,
+    )?;
     if let Some(manifest) = read_manifest(cache_dir, &key) {
         return Ok((
             RenderResult {
@@ -530,6 +583,7 @@ pub fn prepare(
                 page_count: manifest.page_count,
                 hit: true,
                 complete: true,
+                busy: false,
             },
             None,
         ));
@@ -537,11 +591,11 @@ pub fn prepare(
     let session = start_session(
         cache_dir,
         key.clone(),
-        book_dir,
-        markdown,
-        title,
-        author,
-        book_style,
+        source.book_dir,
+        source.markdown,
+        source.title,
+        source.author,
+        source.book_style,
     )?;
     Ok((
         RenderResult {
@@ -549,6 +603,7 @@ pub fn prepare(
             page_count: 0,
             hit: false,
             complete: false,
+            busy: false,
         },
         Some(session),
     ))
@@ -561,13 +616,15 @@ pub fn render_next(session: &mut RenderSession) -> Result<RenderResult, String> 
         .ok_or("render session is already complete")?;
     let document = compile_chunk(
         &session.engine,
-        &chunk.markdown,
-        session.page_count,
-        &session.title,
-        &session.author,
-        session.book_style,
-        session.next_chunk == 0,
-        chunk.chapter_start,
+        CompileInput {
+            markdown: &chunk.markdown,
+            page_offset: session.page_count,
+            title: &session.title,
+            author: &session.author,
+            book_style: session.book_style,
+            first: session.next_chunk == 0,
+            chapter_start: chunk.chapter_start,
+        },
     )?;
     for page in document.pages() {
         let index = session.page_count;
@@ -606,7 +663,18 @@ pub fn render_next(session: &mut RenderSession) -> Result<RenderResult, String> 
         page_count: session.page_count,
         hit: false,
         complete,
+        busy: false,
     })
+}
+
+pub fn in_progress(key: &str, page_count: usize) -> RenderResult {
+    RenderResult {
+        cache_key: key.to_string(),
+        page_count,
+        hit: false,
+        complete: false,
+        busy: true,
+    }
 }
 
 #[cfg(test)]
@@ -646,6 +714,27 @@ pub fn session_page(session: &RenderSession, page: usize) -> Result<String, Stri
         .map_err(|error| format!("read rendered page: {error}"))
 }
 
+pub fn in_progress_page(
+    cache_dir: &Path,
+    key: &str,
+    temp_dir: &Path,
+    rendered_page_count: usize,
+    page_index: usize,
+) -> Result<String, String> {
+    if page_index >= rendered_page_count {
+        return Err("page is outside the rendered portion".into());
+    }
+    let temporary = temp_dir.join(format!("page-{page_index:04}.svg"));
+    if temporary.is_file() {
+        return fs::read_to_string(temporary)
+            .map_err(|error| format!("read rendered page: {error}"));
+    }
+    // The final chunk atomically renames the temporary cache before the UI's
+    // next status poll observes completion. Keep already-visible pages readable
+    // during that short interval.
+    page(cache_dir, key, page_index)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -655,6 +744,7 @@ mod tests {
             uri: source.to_string_lossy().into_owned(),
             content: content.into(),
             vault_root: vault.to_string_lossy().into_owned(),
+            book_style: BookStyleRule::Auto,
         }
     }
 
@@ -685,13 +775,10 @@ mod tests {
     fn chooses_the_chinese_template_from_metadata_or_cjk_content() {
         assert_eq!(
             book_style(Some("zh-CN"), "English body"),
-            BookStyle::AiWriter
+            BookStyle::Wonderous
         );
-        assert_eq!(book_style(Some("ja"), "English body"), BookStyle::AiWriter);
-        assert_eq!(
-            book_style(Some("ko_KR"), "English body"),
-            BookStyle::AiWriter
-        );
+        assert_eq!(book_style(Some("ja"), "短い本文"), BookStyle::AiWriter);
+        assert_eq!(book_style(Some("ko_KR"), "짧은 본문"), BookStyle::AiWriter);
         assert_eq!(
             book_style(None, &"这是一本没有语言元数据的中文书籍正文。".repeat(8)),
             BookStyle::AiWriter
@@ -700,6 +787,37 @@ mod tests {
             book_style(None, "An English book with a short 中文 title."),
             BookStyle::Wonderous
         );
+        assert_eq!(
+            book_style(
+                Some("zh"),
+                &"This is a mislabeled English book. ".repeat(20)
+            ),
+            BookStyle::Wonderous
+        );
+        assert_eq!(
+            resolve_book_style(BookStyleRule::AiwriterBook, Some("en"), "English body"),
+            BookStyle::AiWriter
+        );
+    }
+
+    #[test]
+    fn separates_cache_keys_for_manual_template_rules() {
+        let vault = tempfile::tempdir().unwrap();
+        let book = vault.path().join("book");
+        fs::create_dir(&book).unwrap();
+        let source = book.join("book.typeset.md");
+        let content = "# Book\n\nEnglish body.\n";
+        fs::write(&source, content).unwrap();
+        let cache = vault.path().join("cache");
+        let mut wonderous = request(vault.path(), &source, content);
+        wonderous.book_style = BookStyleRule::WonderousBook;
+        let mut aiwriter = request(vault.path(), &source, content);
+        aiwriter.book_style = BookStyleRule::AiwriterBook;
+
+        let first = render(&cache, &wonderous).unwrap();
+        let second = render(&cache, &aiwriter).unwrap();
+
+        assert_ne!(first.cache_key, second.cache_key);
     }
 
     #[test]
@@ -747,6 +865,53 @@ mod tests {
         let second = render(&cache, &request(vault.path(), &source, content)).unwrap();
         assert!(second.hit);
         assert_eq!(second.cache_key, first.cache_key);
+    }
+
+    #[test]
+    fn compiles_the_ebook_import_semantic_contract() {
+        let vault = tempfile::tempdir().unwrap();
+        let book = vault.path().join("book");
+        fs::create_dir(&book).unwrap();
+        let source = book.join("book.typeset.md");
+        fs::write(
+            book.join("diagram.svg"),
+            r#"<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="10" height="10"/></svg>"#,
+        )
+        .unwrap();
+        let content = r#"# Chapter
+
+> Quoted text.
+
+H<sub>2</sub>O, x<sup>2</sup>, <mark>important</mark>, <s>obsolete</s>.
+
+<dl>
+<dt>Latency</dt>
+<dd>Time needed for one operation.</dd>
+</dl>
+
+<figure>
+
+![System diagram](diagram.svg)
+
+<figcaption>Figure 1. System diagram.</figcaption>
+
+</figure>
+"#;
+        fs::write(&source, content).unwrap();
+
+        let canonical_vault = fs::canonicalize(vault.path()).unwrap();
+        let images = local_image_paths(content, &book, &canonical_vault).unwrap();
+        assert_eq!(
+            images,
+            vec![fs::canonicalize(book.join("diagram.svg")).unwrap()]
+        );
+
+        let rendered = render(
+            &vault.path().join("cache"),
+            &request(vault.path(), &source, content),
+        )
+        .unwrap();
+        assert!(rendered.page_count >= 1);
     }
 
     #[test]
@@ -823,6 +988,40 @@ mod tests {
         assert!(page(&cache, &finished.cache_key, 0)
             .unwrap()
             .starts_with("<svg"));
+    }
+
+    #[test]
+    fn aiwriter_continuation_does_not_insert_an_empty_even_page() {
+        let vault = tempfile::tempdir().unwrap();
+        let book = vault.path().join("book");
+        fs::create_dir(&book).unwrap();
+        let session = start_session(
+            &vault.path().join("cache"),
+            "a".repeat(64),
+            book,
+            "# Placeholder\n".into(),
+            "中文书名".into(),
+            "作者".into(),
+            BookStyle::AiWriter,
+        )
+        .unwrap();
+
+        let document = compile_chunk(
+            &session.engine,
+            CompileInput {
+                markdown: "# 第 二 章\n\n这里是必须出现在下一页的正文。",
+                page_offset: 3,
+                title: "中文书名",
+                author: "作者",
+                book_style: BookStyle::AiWriter,
+                first: false,
+                chapter_start: true,
+            },
+        )
+        .unwrap();
+
+        assert_eq!(document.pages().len(), 1);
+        assert!(typst_svg::svg(&document.pages()[0], &Default::default()).len() > 2_000);
     }
 
     #[test]

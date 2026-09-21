@@ -12,7 +12,7 @@
   import { getPluginScopedAll, pluginScopedVersion } from '../lib/settings.svelte'
   import type { EnabledWhenContext } from '../lib/plugins/types'
   import { sotvaultStore, isMirroredSource } from '../lib/sotvault.svelte'
-  import { SYNC_MARK } from '../lib/window-title'
+  import { displayTitleForDocument, SYNC_MARK } from '../lib/window-title'
 
   async function onClose(e: MouseEvent, id: string) {
     e.stopPropagation()
@@ -172,7 +172,7 @@
             title={mirrored(tab.filePath) ? `${t('syncMark.tooltip')}\n${tab.filePath}` : tab.filePath}
           >
             {#if mirrored(tab.filePath)}<span class="sync-mark" aria-hidden="true">{SYNC_MARK}</span>{/if}
-            <span class="title">{tab.title}</span>
+            <span class="title">{displayTitleForDocument(tab)}</span>
             {#if isDirty(tab.id)}<span class="dot" aria-label={t('tabBar.modified')}></span>{/if}
             <span class="close" role="button" onclick={(e) => onClose(e, tab.id)}>×</span>
           </button>

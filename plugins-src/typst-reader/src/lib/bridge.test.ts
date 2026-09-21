@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { onDocument, renderDocument, renderNext } from './bridge'
+import { loadBookStyleRule, onDocument, renderDocument, renderNext, saveBookStyleRule } from './bridge'
 
 describe('typeset file-view bridge', () => {
   const request = vi.fn()
@@ -35,20 +35,28 @@ describe('typeset file-view bridge', () => {
   })
 
   it('passes the exact snapshot and Vault root to the native renderer', async () => {
-    request.mockResolvedValueOnce({ root: '/vault' }).mockResolvedValueOnce({ cache_key: 'a'.repeat(64), page_count: 3, hit: true, complete: true })
-    const result = await renderDocument({ uri: '/vault/book.typeset.md', content: '# Book', requestId: 1 })
+    request.mockResolvedValueOnce({ root: '/vault' }).mockResolvedValueOnce({ cache_key: 'a'.repeat(64), page_count: 3, hit: true, complete: true, busy: false })
+    const result = await renderDocument({ uri: '/vault/book.typeset.md', content: '# Book', requestId: 1 }, 'auto')
     expect(result.hit).toBe(true)
     expect(request.mock.calls).toEqual([
       ['host.vault.info'],
-      ['plugin.render', { uri: '/vault/book.typeset.md', content: '# Book', vault_root: '/vault' }],
+      ['plugin.render', { uri: '/vault/book.typeset.md', content: '# Book', vault_root: '/vault', book_style: 'auto' }],
     ])
   })
 
   it('requests the next render batch independently of document preparation', async () => {
     const key = 'b'.repeat(64)
-    request.mockResolvedValueOnce({ cache_key: key, page_count: 7, hit: false, complete: false })
-    await expect(renderNext(key)).resolves.toEqual({ cache_key: key, page_count: 7, hit: false, complete: false })
+    request.mockResolvedValueOnce({ cache_key: key, page_count: 7, hit: false, complete: false, busy: true })
+    await expect(renderNext(key)).resolves.toEqual({ cache_key: key, page_count: 7, hit: false, complete: false, busy: true })
     expect(request).toHaveBeenCalledWith('plugin.render-next', { cache_key: key })
+  })
+
+  it('loads and saves the controlled template rule through plugin-scoped settings', async () => {
+    request.mockResolvedValueOnce({ settings: { bookStyle: 'aiwriter-book' } })
+    await expect(loadBookStyleRule()).resolves.toBe('aiwriter-book')
+    request.mockResolvedValueOnce({ ok: true })
+    await saveBookStyleRule('wonderous-book')
+    expect(request).toHaveBeenLastCalledWith('host.settings.set', { key: 'bookStyle', value: 'wonderous-book' })
   })
 
 })

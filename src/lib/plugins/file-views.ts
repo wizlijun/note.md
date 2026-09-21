@@ -137,7 +137,7 @@ function globMatches(pattern: string, text: string): boolean {
   return previous[tokens.length] === 1
 }
 
-function frontmatterValues(content: string): Map<string, FileViewScalar> | null {
+export function frontmatterValues(content: string): Map<string, FileViewScalar> | null {
   // Bound metadata parsing independently of the document body size.
   const header = /^\uFEFF?---[ \t]*\r?\n([\s\S]*?)^---[ \t]*\r?$/m.exec(content.slice(0, MAX_FRONTMATTER))
   if (!header || header.index !== 0) return null

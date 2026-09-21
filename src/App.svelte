@@ -62,7 +62,7 @@
   import { indexStatus } from './lib/search/index-status.svelte'
   import { openAndRevealSearchHit, type SearchHitRevealRequest } from './lib/search/reveal-hit'
   import { requestReveal } from './lib/outline/reveal.svelte'
-  import { windowTitleFor } from './lib/window-title'
+  import { displayTitleForDocument, windowTitleFor } from './lib/window-title'
   import { installRecentsSync, refreshRecentMenu, mergedRecents } from './lib/recent-sync.svelte'
   import { maybeInstallTracker, shutdownTracker } from './lib/insights/tracker.svelte'
   import { ensureWikilinkBlocklist } from './lib/wikilink/blocklist-io.svelte'
@@ -949,7 +949,7 @@
   $effect(() => {
     const tabCount = tabs.length
     void sotvaultStore.tick
-    const doc = tabCount === 1 && current ? current.title : null
+    const doc = tabCount === 1 && current ? displayTitleForDocument(current) : null
     const title = windowTitleFor(doc, isMirroredSource(current?.filePath || null))
     getCurrentWindow().setTitle(title).catch(() => {})
   })

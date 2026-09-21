@@ -225,8 +225,6 @@
       ]
     ]
     counter(page).update(1)
-  } else if chapter-start and calc.even(page-offset + 1) {
-    pagebreak()
   }
   body
 }

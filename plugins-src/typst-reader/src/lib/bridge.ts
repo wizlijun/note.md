@@ -9,7 +9,10 @@ export interface RenderResult {
   page_count: number
   hit: boolean
   complete: boolean
+  busy: boolean
 }
+
+export type BookStyleRule = 'auto' | 'wonderous-book' | 'aiwriter-book'
 
 interface HostBridge {
   locale: string
@@ -48,29 +51,50 @@ export function onDocument(callback: (document: TypesetDocument) => void): () =>
   }
 }
 
-export async function renderDocument(document: TypesetDocument): Promise<RenderResult> {
+function validBookStyleRule(value: unknown): value is BookStyleRule {
+  return value === 'auto' || value === 'wonderous-book' || value === 'aiwriter-book'
+}
+
+function validateRenderResult(result: any, cacheKey?: string): RenderResult {
+  if (typeof result?.cache_key !== 'string' || (cacheKey !== undefined && result.cache_key !== cacheKey)
+    || !Number.isSafeInteger(result.page_count) || result.page_count < 0
+    || typeof result.hit !== 'boolean' || typeof result.complete !== 'boolean'
+    || typeof result.busy !== 'boolean') {
+    throw new Error('The renderer returned invalid progress.')
+  }
+  return result
+}
+
+export async function loadBookStyleRule(): Promise<BookStyleRule> {
+  const result = await host().request('host.settings.get')
+  const value = result?.settings?.bookStyle
+  return validBookStyleRule(value) ? value : 'auto'
+}
+
+export async function saveBookStyleRule(value: BookStyleRule): Promise<void> {
+  if (!validBookStyleRule(value)) throw new Error('Invalid typesetting template rule.')
+  await host().request('host.settings.set', { key: 'bookStyle', value })
+}
+
+export async function renderDocument(document: TypesetDocument, bookStyle: BookStyleRule): Promise<RenderResult> {
   const vault = await host().request('host.vault.info')
   if (typeof vault?.root !== 'string' || !vault.root) throw new Error('Open a Vault first.')
   const result = await host().request('plugin.render', {
     uri: document.uri,
     content: document.content,
     vault_root: vault.root,
+    book_style: bookStyle,
   })
-  if (typeof result?.cache_key !== 'string' || !Number.isSafeInteger(result.page_count)
-    || result.page_count < 0 || typeof result.hit !== 'boolean' || typeof result.complete !== 'boolean') {
-    throw new Error('The renderer returned an invalid document.')
-  }
-  return result
+  return validateRenderResult(result)
 }
 
 export async function renderNext(cacheKey: string): Promise<RenderResult> {
   const result = await host().request('plugin.render-next', { cache_key: cacheKey })
-  if (typeof result?.cache_key !== 'string' || result.cache_key !== cacheKey
-    || !Number.isSafeInteger(result.page_count) || result.page_count < 1
-    || result.hit !== false || typeof result.complete !== 'boolean') {
+  const progress = validateRenderResult(result, cacheKey)
+  if (progress.hit !== false || (progress.complete && progress.busy)) {
     throw new Error('The renderer returned invalid progress.')
   }
-  return result
+  return progress
 }
 
 export async function loadPage(cacheKey: string, page: number): Promise<string> {
