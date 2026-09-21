@@ -9,7 +9,7 @@ For the full commit history, see the git log.
 
 ### Added
 
-- **Typeset Reader 0.1.0 turns `*.typeset.md` books into a paginated Typst reading view.** It uses the wonderous-book layout, shows the first pages while the rest of a large book continues rendering, and persists the finished page cache for instant reopening. The view keeps the title in the editor tab, uses an ebook icon, and moves zoom controls into the page context menu.
+- **Typeset Reader 0.1.0 turns `*.typeset.md` books into a paginated Typst reading view.** It uses wonderous-book by default and automatically applies the AIWriter book template to Chinese, Japanese, or Korean content. The first pages appear while the rest of a large book continues rendering, and the finished page cache makes reopening instant. The view keeps the title in the editor tab, uses an ebook icon, and moves zoom controls into the page context menu.
 
 ### Changed
 

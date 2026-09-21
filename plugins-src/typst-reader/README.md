@@ -6,6 +6,11 @@ wonderous-book 0.1.2 排版。冷打开时先生成一个小型预览批次，�
 阅读，再用较大的续排批次避免反复编译的开销；全部页面会持久缓存，相同正文、
 模板和本地图片再次打开时直接复用。
 
+模板统一保存在后端资源目录。默认使用 wonderous-book；frontmatter 的 `language`
+为 `zh`、`ja`、`ko`（含地区后缀），或未声明语言但正文 CJK 字符占比较高时，自动
+改用 `templates/aiwriter-book.typ`。模板选择会进入缓存版本，规则或模板变化不会
+误用旧页面。
+
 选择 `typeset` 作为语义后缀，是因为文件本身仍是 Markdown，而不是 Typst
 源代码。电子书导入器的新文件名是 `book.typeset.md`；旧 `book.md` 不会自动
 改名，仍由普通 Markdown 视图打开。

@@ -15,3 +15,7 @@ License: MIT-0
 
 The complete wonderous-book license text is included at:
 backend/assets/wonderous-book/LICENSE
+
+Typeset Reader also includes the user-supplied AIWriter book template,
+reconstructed from AIWriter 0.4.13 embedded resources. Its provenance is
+recorded in backend/assets/templates/aiwriter-book.typ.

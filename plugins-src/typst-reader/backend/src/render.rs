@@ -9,13 +9,15 @@ use typst::foundations::{Dict, IntoValue};
 use typst_as_lib::{typst_kit_options::TypstKitFontOptions, TypstEngine, TypstTemplateMainFile};
 
 const CACHE_SCHEMA: &str = "typeset-svg-v2";
-const RENDERER_VERSION: &str = "typst-0.15.1+cmarker-0.1.10+wonderous-book-0.1.2+template-15";
+const RENDERER_VERSION: &str =
+    "typst-0.15.1+cmarker-0.1.10+wonderous-book-0.1.2+aiwriter-book-0.4.13+template-16";
 const QUICK_PREVIEW_BYTES: usize = 16 * 1024;
 const MAX_CONTINUATION_BYTES: usize = 320 * 1024;
 const TEMPLATE: &str = include_str!("../assets/template.typ");
 const CMARKER_LIB: &str = include_str!("../assets/cmarker/lib.typ");
 const CMARKER_WASM: &[u8] = include_bytes!("../assets/cmarker/plugin.wasm");
 const WONDEROUS_BOOK_LIB: &str = include_str!("../assets/wonderous-book/lib.typ");
+const AIWRITER_BOOK_TEMPLATE: &str = include_str!("../assets/templates/aiwriter-book.typ");
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct RenderRequest {
@@ -47,6 +49,7 @@ pub struct RenderSession {
     page_count: usize,
     title: String,
     author: String,
+    book_style: BookStyle,
     temp_dir: PathBuf,
     final_dir: PathBuf,
 }
@@ -56,13 +59,66 @@ struct RenderChunk {
     chapter_start: bool,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum BookStyle {
+    Wonderous,
+    AiWriter,
+}
+
+impl BookStyle {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Wonderous => "wonderous-book",
+            Self::AiWriter => "aiwriter-book",
+        }
+    }
+}
+
 #[derive(Default, Deserialize)]
 struct BookFrontmatter {
     title: Option<String>,
     creator: Option<String>,
     author: Option<String>,
+    language: Option<String>,
     #[serde(default)]
     sources: Vec<BookSource>,
+}
+
+fn is_cjk(character: char) -> bool {
+    matches!(character as u32,
+        0x3400..=0x4dbf
+        | 0x4e00..=0x9fff
+        | 0xf900..=0xfaff
+        | 0x3040..=0x30ff
+        | 0xac00..=0xd7af)
+}
+
+fn book_style(language: Option<&str>, markdown: &str) -> BookStyle {
+    if language.is_some_and(|language| {
+        let primary = language
+            .split(['-', '_'])
+            .next()
+            .unwrap_or_default()
+            .to_ascii_lowercase();
+        matches!(primary.as_str(), "zh" | "ja" | "ko")
+    }) {
+        return BookStyle::AiWriter;
+    }
+    let mut cjk = 0usize;
+    let mut significant = 0usize;
+    for character in markdown.chars().take(200_000) {
+        if character.is_alphanumeric() {
+            significant += 1;
+            if is_cjk(character) {
+                cjk += 1;
+            }
+        }
+    }
+    if cjk >= 32 && cjk.saturating_mul(5) >= significant {
+        BookStyle::AiWriter
+    } else {
+        BookStyle::Wonderous
+    }
 }
 
 #[derive(Default, Deserialize)]
@@ -190,7 +246,18 @@ fn local_image_paths(
 
 fn validate_source(
     request: &RenderRequest,
-) -> Result<(PathBuf, PathBuf, String, Vec<PathBuf>, String, String), String> {
+) -> Result<
+    (
+        PathBuf,
+        PathBuf,
+        String,
+        Vec<PathBuf>,
+        String,
+        String,
+        BookStyle,
+    ),
+    String,
+> {
     let vault = Path::new(&request.vault_root)
         .canonicalize()
         .map_err(|error| format!("resolve Vault root: {error}"))?;
@@ -210,6 +277,8 @@ fn validate_source(
         .ok_or("source has no parent directory")?
         .to_path_buf();
     let frontmatter = book_frontmatter(&request.content);
+    let markdown = strip_frontmatter(&request.content).to_string();
+    let style = book_style(frontmatter.language.as_deref(), &markdown);
     let title = frontmatter.title.unwrap_or_else(|| {
         book_dir
             .file_name()
@@ -227,9 +296,8 @@ fn validate_source(
                 .find_map(|source| source.author)
         })
         .unwrap_or_default();
-    let markdown = strip_frontmatter(&request.content).to_string();
     let images = local_image_paths(&markdown, &book_dir, &vault)?;
-    Ok((vault, book_dir, markdown, images, title, author))
+    Ok((vault, book_dir, markdown, images, title, author, style))
 }
 
 fn cache_key(content: &str, book_dir: &Path, images: &[PathBuf]) -> Result<String, String> {
@@ -241,6 +309,8 @@ fn cache_key(content: &str, book_dir: &Path, images: &[PathBuf]) -> Result<Strin
     digest.update(TEMPLATE.as_bytes());
     digest.update([0]);
     digest.update(WONDEROUS_BOOK_LIB.as_bytes());
+    digest.update([0]);
+    digest.update(AIWRITER_BOOK_TEMPLATE.as_bytes());
     digest.update([0]);
     digest.update(CMARKER_LIB.as_bytes());
     digest.update([0]);
@@ -377,6 +447,7 @@ fn compile_chunk(
     page_offset: usize,
     title: &str,
     author: &str,
+    book_style: BookStyle,
     first: bool,
     chapter_start: bool,
 ) -> Result<typst_layout::PagedDocument, String> {
@@ -385,6 +456,7 @@ fn compile_chunk(
     input.insert("page_offset".into(), (page_offset as i64).into_value());
     input.insert("title".into(), title.into_value());
     input.insert("author".into(), author.into_value());
+    input.insert("book_style".into(), book_style.as_str().into_value());
     input.insert("first".into(), first.into_value());
     input.insert("chapter_start".into(), chapter_start.into_value());
     let compiled = engine.compile_with_input(input);
@@ -404,6 +476,7 @@ fn start_session(
     markdown: String,
     title: String,
     author: String,
+    book_style: BookStyle,
 ) -> Result<RenderSession, String> {
     static TEMP_ID: AtomicU64 = AtomicU64::new(0);
     let schema_dir = cache_dir.join(CACHE_SCHEMA);
@@ -425,6 +498,7 @@ fn start_session(
         .with_static_source_file_resolver([
             ("cmarker/lib.typ", CMARKER_LIB),
             ("wonderous-book/lib.typ", WONDEROUS_BOOK_LIB),
+            ("templates/aiwriter-book.typ", AIWRITER_BOOK_TEMPLATE),
         ])
         .with_static_file_resolver([("cmarker/plugin.wasm", CMARKER_WASM)])
         .with_file_system_resolver(book_dir)
@@ -437,6 +511,7 @@ fn start_session(
         page_count: 0,
         title,
         author,
+        book_style,
         temp_dir,
         final_dir,
     })
@@ -446,7 +521,7 @@ pub fn prepare(
     cache_dir: &Path,
     request: &RenderRequest,
 ) -> Result<(RenderResult, Option<RenderSession>), String> {
-    let (_vault, book_dir, markdown, images, title, author) = validate_source(request)?;
+    let (_vault, book_dir, markdown, images, title, author, book_style) = validate_source(request)?;
     let key = cache_key(&request.content, &book_dir, &images)?;
     if let Some(manifest) = read_manifest(cache_dir, &key) {
         return Ok((
@@ -459,7 +534,15 @@ pub fn prepare(
             None,
         ));
     }
-    let session = start_session(cache_dir, key.clone(), book_dir, markdown, title, author)?;
+    let session = start_session(
+        cache_dir,
+        key.clone(),
+        book_dir,
+        markdown,
+        title,
+        author,
+        book_style,
+    )?;
     Ok((
         RenderResult {
             cache_key: key,
@@ -482,6 +565,7 @@ pub fn render_next(session: &mut RenderSession) -> Result<RenderResult, String> 
         session.page_count,
         &session.title,
         &session.author,
+        session.book_style,
         session.next_chunk == 0,
         chunk.chapter_start,
     )?;
@@ -594,6 +678,27 @@ mod tests {
         assert_eq!(
             metadata.sources[0].author.as_deref(),
             Some("Charan Ranganath")
+        );
+    }
+
+    #[test]
+    fn chooses_the_chinese_template_from_metadata_or_cjk_content() {
+        assert_eq!(
+            book_style(Some("zh-CN"), "English body"),
+            BookStyle::AiWriter
+        );
+        assert_eq!(book_style(Some("ja"), "English body"), BookStyle::AiWriter);
+        assert_eq!(
+            book_style(Some("ko_KR"), "English body"),
+            BookStyle::AiWriter
+        );
+        assert_eq!(
+            book_style(None, &"这是一本没有语言元数据的中文书籍正文。".repeat(8)),
+            BookStyle::AiWriter
+        );
+        assert_eq!(
+            book_style(None, "An English book with a short 中文 title."),
+            BookStyle::Wonderous
         );
     }
 
