@@ -4,4 +4,4 @@ pub mod service;
 pub mod storage;
 
 pub use model::*;
-pub use service::DictionaryService;
+pub use service::{DictionaryService, HumanAction};

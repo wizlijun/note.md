@@ -4,7 +4,7 @@ import manifest from '../manifest.v2.json'
 describe('manifest', () => {
   it('declares a native singleton window and one action-routed CLI without approval commands', () => {
     expect(manifest.id).toBe('notemd.conversation-dictionary')
-    expect(manifest.version).toBe('0.1.9')
+    expect(manifest.version).toBe('0.1.10')
     expect(manifest.name).toBe('Conversation Transcript Corrections')
     expect(manifest.i18n.zh.name).toBe('沟通转写勘误')
     expect(manifest.kind).toBe('native')

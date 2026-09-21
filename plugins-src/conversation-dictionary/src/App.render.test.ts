@@ -162,6 +162,28 @@ describe('Conversation Transcript Corrections window', () => {
     await vi.waitFor(() => expect(host.textContent).toContain('暂无历史整理批次'))
   })
 
+  it('retains review history after any proposal in a batch was accepted', async () => {
+    const data = snapshot()
+    data.batches[0].proposal_states.p_domain = { revision: 2, status: 'accepted', permanent_id: 'd_product' }
+    const request = vi.fn(async (method: string) => {
+      if (method === 'plugin.initialize') return { status: 'existing', dictionary_created: false }
+      if (method === 'plugin.bootstrap') return data
+      throw new Error(`unexpected ${method}`)
+    })
+    window.notemd = { pluginId: 'notemd.conversation-dictionary', locale: 'zh', theme: 'light', request, onMessage: () => {} }
+    const host = document.createElement('div'); document.body.append(host); mounted = mount(App, { target: host })
+    await openTab(host, '待确认')
+    let batch: HTMLButtonElement | null = null
+    await vi.waitFor(() => {
+      batch = host.querySelector<HTMLButtonElement>('.batch-list button')
+      expect(batch).not.toBeNull()
+    })
+    batch!.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: 40, clientY: 50 }))
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(document.querySelector('.menu-panel')).toBeNull()
+    expect(request.mock.calls.some(([method]) => method === 'plugin.batch_delete')).toBe(false)
+  })
+
   it('initializes automatically and shows an inactive teaching example', async () => {
     const empty = snapshot(); empty.batches = []
     const request = vi.fn(async (method: string) => {
@@ -178,7 +200,7 @@ describe('Conversation Transcript Corrections window', () => {
     expect(request.mock.calls.some(([method]) => method === 'plugin.create_dictionary')).toBe(false)
   })
 
-  it('does not offer to recreate a dictionary that failed its reviewed baseline check', async () => {
+  it('does not expose editing or recreation when initialization fails its reviewed baseline check', async () => {
     const invalid = snapshot(); invalid.dictionary = null as any; invalid.batches = []
     invalid.status = { status: 'needs_review', error: 'dictionary changed outside the reviewed plugin transaction' } as any
     const request = vi.fn(async (method: string) => {
@@ -190,8 +212,33 @@ describe('Conversation Transcript Corrections window', () => {
     })
     window.notemd = { pluginId: 'notemd.conversation-dictionary', locale: 'zh-TW', theme: 'light', request, onMessage: () => {} }
     const host = document.createElement('div'); document.body.append(host); mounted = mount(App, { target: host })
-    await vi.waitFor(() => expect(host.textContent).toContain('勘误词典需要检查'))
+    await vi.waitFor(() => expect(host.textContent).toContain('初始化未通过'))
+    expect(host.textContent).toContain('dictionary changed outside the reviewed plugin transaction')
+    expect(host.querySelector('.tabs')).toBeNull()
     expect(host.textContent).not.toContain('创建词典')
+  })
+
+  it('blocks the editing UI when initialization fails even if bootstrap can read a dictionary', async () => {
+    const data = snapshot()
+    let canInitialize = false
+    const request = vi.fn(async (method: string) => {
+      if (method === 'plugin.initialize') {
+        if (!canInitialize) throw new Error('Host identity service unavailable')
+        return { status: 'existing', dictionary_created: false }
+      }
+      if (method === 'plugin.bootstrap') return data
+      throw new Error(`unexpected ${method}`)
+    })
+    window.notemd = { pluginId: 'notemd.conversation-dictionary', locale: 'zh', theme: 'light', request, onMessage: () => {} }
+    const host = document.createElement('div'); document.body.append(host); mounted = mount(App, { target: host })
+    await vi.waitFor(() => expect(host.textContent).toContain('初始化未通过'))
+    expect(host.textContent).toContain('Host identity service unavailable')
+    expect(host.querySelector('.tabs')).toBeNull()
+    expect(host.textContent).not.toContain('打开勘误表')
+    canInitialize = true
+    ;[...host.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent?.includes('重试初始化'))!.click()
+    await vi.waitFor(() => expect(host.querySelector('.tabs')).not.toBeNull())
+    expect(host.textContent).not.toContain('Host identity service unavailable')
   })
 
   it('opens on the corrections dictionary and creates a context with one compact form', async () => {

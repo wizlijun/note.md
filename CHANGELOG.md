@@ -7,6 +7,10 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+### Fixed
+
+- **Conversation Transcript Corrections 0.1.10 can be maintained from another machine or Host author identity.** An existing dictionary keeps its original subject while each human change records the current trusted Host author as its reviewer. Review batches that already contain accepted proposals are retained as audit history and no longer offer a delete action.
+
 ## v6.921.2 — 2026-09-21
 
 ### Changed

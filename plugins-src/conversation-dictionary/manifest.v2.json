@@ -2,7 +2,7 @@
   "manifest_version": 2,
   "id": "notemd.conversation-dictionary",
   "name": "Conversation Transcript Corrections",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "kind": "native",
   "engines": {
     "notemd": ">=6.916.1"

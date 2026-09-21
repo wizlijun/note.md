@@ -1,7 +1,7 @@
 # 沟通转写勘误（Conversation Transcript Corrections）——设计规格
 
 - 日期：2026-09-19
-- 最后更新：2026-09-20
+- 最后更新：2026-09-22
 - 状态：正式协议为 v1；正式名、别名、逐场景规则、人工维护和旧词典显式迁移已实现
 - 产品中文名：沟通转写勘误
 - 产品英文名：Conversation Transcript Corrections
@@ -12,7 +12,7 @@
 
 本文在原设计文件中重写，保留文档路径以便既有引用继续定位。用户可见名称统一采用 Conversation Transcript Corrections / 沟通转写勘误；为保证已安装插件和既有 Vault 原位升级，插件 ID、CLI、schema、Skill 名与 `conversation-dictionary.yml` 保持不变。
 
-2026-09-20 已实现 native v2 插件、受控 CLI、历史数据集导入/证据回源/集中编辑与事务提交、确定性 resolve，以及可直接调用的 `build-conversation-dictionary` Skill。首次打开插件窗口会用 Host 提供的当前 Vault 作者身份创建合法空词典，并把生成 Skill 安装到 Vault 的 `.agents/skills/build-conversation-dictionary/`，同时幂等追加根 `AGENTS.md` 受管理区块。当前实现固定默认词典路径，集中审阅支持 `create_domain`、`create_entry`、`add_forms`、`create_rule`，并能把早期 v1 词典显式迁移为统一正式名输出。人工维护使用“场景 → 词条 → 编辑表单”，可新建场景、创建或关联共享词条、编辑正式名/别名/当前场景错误名、从场景移除词条以及全局删除词条；单次候选决定和路径切换仍按本文保留为后续能力。
+2026-09-20 已实现 native v2 插件、受控 CLI、历史数据集导入/证据回源/集中编辑与事务提交、确定性 resolve，以及可直接调用的 `build-conversation-dictionary` Skill。首次打开插件窗口会用 Host 提供的当前 Vault 作者身份创建合法空词典，并把生成 Skill 安装到 Vault 的 `.agents/skills/build-conversation-dictionary/`，同时幂等追加根 `AGENTS.md` 受管理区块。2026-09-22 起，已存在词典的 `subject_id` 不再与当前机器的 Host 作者身份硬绑定：主体仍表示词典服务对象，当前可信 Host 作者只作为本次人工操作的 actor，允许同一 Vault 在不同机器、不同 `human:*` 名称下继续审阅和维护，并在 `confirmed_by` 与事务历史中留下实际操作者。当前实现固定默认词典路径，集中审阅支持 `create_domain`、`create_entry`、`add_forms`、`create_rule`，并能把早期 v1 词典显式迁移为统一正式名输出。人工维护使用“场景 → 词条 → 编辑表单”，可新建场景、创建或关联共享词条、编辑正式名/别名/当前场景错误名、从场景移除词条以及全局删除词条；单次候选决定和路径切换仍按本文保留为后续能力。
 
 用户已进一步确认“共用词条，按场景设规则”。本文已同步为 domains / entries / rules 三个集合；完整情形矩阵、字段取舍与不变量见 [schema 讨论稿](2026-09-19-conversation-dictionary-schema-discussion.md)。以下“仅纠正这次”的默认动作和 suggest/automatic 两种应用方式为推荐设计，尚非用户确认的交互细节。
 
@@ -64,7 +64,7 @@
 ### 2.1 首次使用
 
 1. 打开插件窗口时自动执行一次幂等初始化；CLI 激活不执行初始化，也不修改 Vault。
-2. 从 `host.vault.info.author` 取得可信 `human:<id>`，按默认路径 no-clobber 创建合法空词典。界面不让用户手工填写主体身份。
+2. 从 `host.vault.info.author` 取得可信 `human:<id>`；仅在不存在词典时把它作为初始 `subject_id`，按默认路径 no-clobber 创建合法空词典。已有词典保留原 `subject_id`，当前作者作为人工操作 actor。界面、数据集和 CLI 都不能手工填写或冒充 actor。
 3. 将 `build-conversation-dictionary` 安装到 Vault 的 `.agents/skills/`，并在根 `AGENTS.md` 追加受管理区块；内容相同则跳过，发现用户改过受管文件或区块则停止并提示，不覆盖。
 4. 空态展示一个明确标为“未启用”的教学样例。样例只存在于界面和 Skill reference，不进入正式词典、不带人工批准字段、也不参与 ASR。
 5. 用户可调用 build-conversation-dictionary 一次整理存量字幕、导入待审数据集；之后在界面创建真实场景、词条和逐场景规则。
@@ -232,7 +232,7 @@ rules:
 - preserve rule 只含 domain_id、observed、启停与批准信息，不含 target 或 application；不必创建虚构词条。
 - replacement 的 application 为 `suggest | automatic`。enabled 为 false 时不参与匹配；confirmed_by/at 记录人工批准，不因暂停而抹去历史。
 - 一条规则只对应一个场景和一个观测写法；向其他场景复用时新建并分别批准，不把多个场景塞进共享规则以混合批准粒度。
-- V1 中批准 actor 必须等于当前词典 subject，由插件取得，CLI 不可自报。actor 字符串不是密码学认证。
+- V1 中批准 actor 必须是 Host 在当前操作时提供的可信 `human:<id>`，不要求等于词典 subject；因此同一主体词典可由不同机器上的不同 Host 作者继续维护。`confirmed_by` 与事务记录写入实际 actor，CLI、数据集和界面不可自报。actor 字符串不是密码学认证。
 - 无效引用、重复 ID、重复 YAML key、非法类型或未知会影响匹配的字段使整份校验失败；已知可保留的扩展字段不在无关保存中丢失。
 - 同场景同 observed 指向不同 entry 是局部语义歧义，可以存储并展示，但不自动应用。不会使其他已验证场景失效。
 - 稳定序列化按集合内 ID 排序；forms 保留人工顺序。不保存具体来源、置信度、读法或发音字段。
@@ -406,7 +406,7 @@ YAML 是可移植的人类确认内容；控制状态记录最近成功提交的
 
 所有词典提交共用一条事务路径：取得该词典写锁 → 比较 base hash/revision 与候选 hash → 校验完整新词典 → 写入可恢复 journal → 同目录临时文件写入/fsync/解析回读 → 原子替换 → 持久化决定与新基线 → 标记提交完成。
 
-每次成功写入还在本地 `control.json` 的 `baseline_dictionary` 字段维护与可信 baseline 逐字节一致的恢复副本。正式词典意外缺失时，只在副本 hash、dictionary_id、revision 和 subject_id 全部匹配时恢复；无可信副本时继续失败关闭，不能用空词典覆盖已有审批状态。有效旧词典首次打开时补建该副本。
+每次成功写入还在本地 `control.json` 的 `baseline_dictionary` 字段维护与可信 baseline 逐字节一致的恢复副本。正式词典意外缺失时，只在副本 hash、dictionary_id、revision 和 subject_id 全部匹配控制基线时恢复；恢复不要求当前 Host 作者等于 subject。无可信副本时继续失败关闭，不能用空词典覆盖已有审批状态。有效旧词典首次打开时补建该副本。
 
 - 写前发现外部修改或旧 revision 则停止，保留草稿；刷新差异后重新提交，不采用 last-write-wins。
 - journal 包含事务 ID、前后 hash 与快照、决定及阶段；候选只有一个最终决定。相同事务重试返回同一结果。

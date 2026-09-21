@@ -14,6 +14,23 @@ pub struct DictionaryService {
     vault: PathBuf,
 }
 
+pub struct HumanAction {
+    actor: String,
+}
+
+impl HumanAction {
+    pub fn from_host_author(value: &str) -> Result<Self, String> {
+        validate_subject(value)?;
+        Ok(Self {
+            actor: value.to_string(),
+        })
+    }
+
+    pub fn actor(&self) -> &str {
+        &self.actor
+    }
+}
+
 impl DictionaryService {
     pub fn new(vault: PathBuf) -> Self {
         Self { vault }
@@ -21,6 +38,11 @@ impl DictionaryService {
 
     pub fn vault(&self) -> &Path {
         &self.vault
+    }
+
+    #[cfg(test)]
+    fn reviewed_human_action(&self) -> Result<HumanAction, String> {
+        HumanAction::from_host_author(&storage::verified_dictionary(&self.vault)?.0.subject_id)
     }
 
     pub fn status(&self) -> Value {
@@ -87,8 +109,8 @@ impl DictionaryService {
         }))
     }
 
-    pub fn ensure_initialized(&self, subject_id: &str) -> Result<Value, String> {
-        validate_subject(subject_id)?;
+    pub fn ensure_initialized(&self, current_author: &str) -> Result<Value, String> {
+        validate_subject(current_author)?;
         let dictionary_created;
         let dictionary;
         {
@@ -101,22 +123,16 @@ impl DictionaryService {
                 }
                 Ok(_) => {
                     let (existing, baseline) = storage::verified_dictionary(&self.vault)?;
-                    if existing.subject_id != subject_id {
-                        return Err(
-                            "dictionary subject does not match the current Vault author".into()
-                        );
-                    }
                     self.ensure_baseline_snapshot_locked(&baseline)?;
                     dictionary = existing;
                     dictionary_created = false;
                 }
                 Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
                     if let Some(baseline) = storage::load_control(&self.vault)?.baseline {
-                        dictionary =
-                            self.restore_missing_dictionary_locked(&baseline, subject_id)?;
+                        dictionary = self.restore_missing_dictionary_locked(&baseline)?;
                         dictionary_created = false;
                     } else {
-                        dictionary = new_dictionary(subject_id);
+                        dictionary = new_dictionary(current_author);
                         validate_dictionary(&dictionary)?;
                         let mut control = storage::load_control(&self.vault)?;
                         self.persist_new_dictionary(&dictionary, &mut control)?;
@@ -436,7 +452,18 @@ impl DictionaryService {
         }))
     }
 
+    #[cfg(test)]
     pub fn batch_commit(&self, request: BatchCommitRequest) -> Result<Value, String> {
+        let action = self.reviewed_human_action()?;
+        self.batch_commit_as(&action, request)
+    }
+
+    pub fn batch_commit_as(
+        &self,
+        action: &HumanAction,
+        request: BatchCommitRequest,
+    ) -> Result<Value, String> {
+        let actor = action.actor();
         if request.selected.is_empty() {
             return Err("select at least one proposal".into());
         }
@@ -460,6 +487,7 @@ impl DictionaryService {
             if existing.plan_hash != plan_hash {
                 return Err("transaction_id was already used for another plan".into());
             }
+            ensure_transaction_actor(existing, actor)?;
             let (dictionary, _) = storage::verified_dictionary(&self.vault)?;
             validate_dictionary(&dictionary)?;
             return Ok(existing.result.clone());
@@ -564,7 +592,6 @@ impl DictionaryService {
             })
             .collect();
         let original_dictionary = dictionary.clone();
-        let actor = dictionary.subject_id.clone();
         let timestamp = now();
         for selected_id in ordered {
             let selected = request
@@ -593,7 +620,7 @@ impl DictionaryService {
                 proposal,
                 &value,
                 &assigned,
-                &actor,
+                actor,
                 &timestamp,
             )?;
             assigned.insert(selected.id.clone(), permanent.clone());
@@ -638,6 +665,7 @@ impl DictionaryService {
                 plan_hash,
                 completed_at: now(),
                 revision: dictionary.revision,
+                actor: Some(actor.to_string()),
                 result: result.clone(),
             },
         );
@@ -650,10 +678,21 @@ impl DictionaryService {
         Ok(result)
     }
 
+    #[cfg(test)]
     pub fn normalize_formal_names(
         &self,
         request: NormalizeFormalNamesRequest,
     ) -> Result<Value, String> {
+        let action = self.reviewed_human_action()?;
+        self.normalize_formal_names_as(&action, request)
+    }
+
+    pub fn normalize_formal_names_as(
+        &self,
+        action: &HumanAction,
+        request: NormalizeFormalNamesRequest,
+    ) -> Result<Value, String> {
+        let actor = action.actor();
         if request.transaction_id.trim().is_empty() {
             return Err("transaction_id is required".into());
         }
@@ -666,6 +705,7 @@ impl DictionaryService {
             if existing.plan_hash != plan_hash {
                 return Err("transaction_id was already used for another plan".into());
             }
+            ensure_transaction_actor(existing, actor)?;
             let (dictionary, _) = storage::verified_dictionary(&self.vault)?;
             validate_dictionary_legacy(&dictionary)?;
             return Ok(existing.result.clone());
@@ -749,7 +789,7 @@ impl DictionaryService {
                 .to_string();
             if target.text != formal_name {
                 target.text = formal_name.clone();
-                rule.confirmed_by = dictionary.subject_id.clone();
+                rule.confirmed_by = actor.to_string();
                 rule.confirmed_at = confirmed_at.clone();
                 rules_updated += 1;
             }
@@ -774,7 +814,7 @@ impl DictionaryService {
                     };
                 existing.application = Some(conservative_application);
                 existing.enabled &= rule.enabled;
-                existing.confirmed_by = dictionary.subject_id.clone();
+                existing.confirmed_by = actor.to_string();
                 existing.confirmed_at = confirmed_at.clone();
                 consolidated_rules.push(json!({
                     "kept_rule_id": existing.id,
@@ -811,7 +851,7 @@ impl DictionaryService {
                         }),
                         application: Some(RuleApplication::Suggest),
                         enabled: true,
-                        confirmed_by: dictionary.subject_id.clone(),
+                        confirmed_by: actor.to_string(),
                         confirmed_at: confirmed_at.clone(),
                     };
                     rule_groups.insert(key, normalized_rules.len());
@@ -850,6 +890,7 @@ impl DictionaryService {
                 plan_hash,
                 completed_at: now(),
                 revision: dictionary.revision,
+                actor: Some(actor.to_string()),
                 result: result.clone(),
             },
         );
@@ -862,10 +903,21 @@ impl DictionaryService {
         Ok(result)
     }
 
+    #[cfg(test)]
     pub fn save_correction_entry(
         &self,
         request: SaveCorrectionEntryRequest,
     ) -> Result<Value, String> {
+        let action = self.reviewed_human_action()?;
+        self.save_correction_entry_as(&action, request)
+    }
+
+    pub fn save_correction_entry_as(
+        &self,
+        action: &HumanAction,
+        request: SaveCorrectionEntryRequest,
+    ) -> Result<Value, String> {
+        let actor = action.actor();
         if request.transaction_id.trim().is_empty() {
             return Err("transaction_id is required".into());
         }
@@ -878,6 +930,7 @@ impl DictionaryService {
             if existing.plan_hash != plan_hash {
                 return Err("transaction_id was already used for another plan".into());
             }
+            ensure_transaction_actor(existing, actor)?;
             storage::verified_dictionary(&self.vault)?;
             return Ok(existing.result.clone());
         }
@@ -891,7 +944,7 @@ impl DictionaryService {
         }
         let original = dictionary.clone();
         let timestamp = now();
-        let actor = dictionary.subject_id.clone();
+        let actor = actor.to_string();
         let formal_name = request.formal_name.trim();
         if formal_name.is_empty() {
             return Err("formal_name is required".into());
@@ -1079,6 +1132,7 @@ impl DictionaryService {
                 plan_hash,
                 completed_at: now(),
                 revision: dictionary.revision,
+                actor: Some(actor.to_string()),
                 result: result.clone(),
             },
         );
@@ -1091,10 +1145,21 @@ impl DictionaryService {
         Ok(result)
     }
 
+    #[cfg(test)]
     pub fn delete_correction_entry(
         &self,
         request: DeleteCorrectionEntryRequest,
     ) -> Result<Value, String> {
+        let action = self.reviewed_human_action()?;
+        self.delete_correction_entry_as(&action, request)
+    }
+
+    pub fn delete_correction_entry_as(
+        &self,
+        action: &HumanAction,
+        request: DeleteCorrectionEntryRequest,
+    ) -> Result<Value, String> {
+        let actor = action.actor();
         if request.transaction_id.trim().is_empty() {
             return Err("transaction_id is required".into());
         }
@@ -1107,6 +1172,7 @@ impl DictionaryService {
             if existing.plan_hash != plan_hash {
                 return Err("transaction_id was already used for another plan".into());
             }
+            ensure_transaction_actor(existing, actor)?;
             storage::verified_dictionary(&self.vault)?;
             return Ok(existing.result.clone());
         }
@@ -1176,6 +1242,7 @@ impl DictionaryService {
                 plan_hash,
                 completed_at: now(),
                 revision: dictionary.revision,
+                actor: Some(actor.to_string()),
                 result: result.clone(),
             },
         );
@@ -1188,11 +1255,24 @@ impl DictionaryService {
         Ok(result)
     }
 
+    #[cfg(test)]
     pub fn move_correction_entry(
         &self,
         request: MoveCorrectionEntryRequest,
     ) -> Result<Value, String> {
+        let action = self.reviewed_human_action()?;
+        self.move_correction_entry_as(&action, request)
+    }
+
+    pub fn move_correction_entry_as(
+        &self,
+        action: &HumanAction,
+        request: MoveCorrectionEntryRequest,
+    ) -> Result<Value, String> {
+        let actor = action.actor();
+        let timestamp = now();
         self.edit_entry_transaction(
+            action,
             &request.transaction_id,
             request.expected_revision,
             &request.expected_sha256,
@@ -1225,12 +1305,16 @@ impl DictionaryService {
                             && rule_targets_entry(rule, &request.entry_id)
                         {
                             rule.domain_id = request.target_domain_id.clone();
+                            rule.confirmed_by = actor.to_string();
+                            rule.confirmed_at = timestamp.clone();
                         }
                     }
                     consolidate_entry_rules(
                         dictionary,
                         &request.entry_id,
                         Some(&request.target_domain_id),
+                        actor,
+                        &timestamp,
                     )?;
                 }
                 Ok(json!({"entry_id": request.entry_id, "domain_id":request.target_domain_id}))
@@ -1238,11 +1322,24 @@ impl DictionaryService {
         )
     }
 
+    #[cfg(test)]
     pub fn merge_correction_entries(
         &self,
         request: MergeCorrectionEntriesRequest,
     ) -> Result<Value, String> {
+        let action = self.reviewed_human_action()?;
+        self.merge_correction_entries_as(&action, request)
+    }
+
+    pub fn merge_correction_entries_as(
+        &self,
+        action: &HumanAction,
+        request: MergeCorrectionEntriesRequest,
+    ) -> Result<Value, String> {
+        let actor = action.actor();
+        let timestamp = now();
         self.edit_entry_transaction(
+            action,
             &request.transaction_id,
             request.expected_revision,
             &request.expected_sha256,
@@ -1303,6 +1400,8 @@ impl DictionaryService {
                             entry_id: target.id.clone(),
                             text: target.label.clone(),
                         });
+                        rule.confirmed_by = actor.to_string();
+                        rule.confirmed_at = timestamp.clone();
                     }
                 }
                 dictionary.rules.retain(|rule| {
@@ -1329,13 +1428,13 @@ impl DictionaryService {
                                 }),
                                 application: Some(RuleApplication::Suggest),
                                 enabled: true,
-                                confirmed_by: dictionary.subject_id.clone(),
-                                confirmed_at: now(),
+                                confirmed_by: actor.to_string(),
+                                confirmed_at: timestamp.clone(),
                             });
                         }
                     }
                 }
-                consolidate_entry_rules(dictionary, &target.id, None)?;
+                consolidate_entry_rules(dictionary, &target.id, None, actor, &timestamp)?;
                 Ok(json!({"entry_id": target.id, "source_entry_id": source.id}))
             },
         )
@@ -1343,12 +1442,14 @@ impl DictionaryService {
 
     fn edit_entry_transaction<T: serde::Serialize>(
         &self,
+        action: &HumanAction,
         transaction_id: &str,
         expected_revision: u64,
         expected_sha256: &str,
         request: &T,
         edit: impl FnOnce(&mut Dictionary) -> Result<Value, String>,
     ) -> Result<Value, String> {
+        let actor = action.actor();
         if transaction_id.trim().is_empty() {
             return Err("transaction_id is required".into());
         }
@@ -1361,6 +1462,7 @@ impl DictionaryService {
             if existing.plan_hash != plan_hash {
                 return Err("transaction_id was already used for another plan".into());
             }
+            ensure_transaction_actor(existing, actor)?;
             storage::verified_dictionary(&self.vault)?;
             return Ok(existing.result.clone());
         }
@@ -1386,6 +1488,7 @@ impl DictionaryService {
                 plan_hash,
                 completed_at: now(),
                 revision: dictionary.revision,
+                actor: Some(actor.to_string()),
                 result: result.clone(),
             },
         );
@@ -1507,11 +1610,7 @@ impl DictionaryService {
         storage::save_control(&self.vault, &control)
     }
 
-    fn restore_missing_dictionary_locked(
-        &self,
-        baseline: &Baseline,
-        expected_subject_id: &str,
-    ) -> Result<Dictionary, String> {
+    fn restore_missing_dictionary_locked(&self, baseline: &Baseline) -> Result<Dictionary, String> {
         let control = storage::load_control(&self.vault)?;
         let snapshot = control.baseline_dictionary.ok_or(
             "reviewed dictionary is missing and no verified recovery snapshot is available in the local control state",
@@ -1526,9 +1625,6 @@ impl DictionaryService {
             || dictionary.revision != baseline.revision
         {
             return Err("reviewed dictionary is missing and its recovery snapshot identity does not match the reviewed baseline".into());
-        }
-        if dictionary.subject_id != expected_subject_id {
-            return Err("dictionary subject does not match the current Vault author".into());
         }
         validate_dictionary_legacy(&dictionary)?;
         let settings = storage::load_settings(&self.vault)?;
@@ -1689,6 +1785,17 @@ fn now() -> String {
     Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true)
 }
 
+fn ensure_transaction_actor(record: &TransactionRecord, actor: &str) -> Result<(), String> {
+    if record
+        .actor
+        .as_deref()
+        .is_some_and(|recorded| recorded != actor)
+    {
+        return Err("transaction_id was already used by another reviewer".into());
+    }
+    Ok(())
+}
+
 fn has_domain(dictionary: &Dictionary, domain_id: &str) -> bool {
     domain_id == PUBLIC_DOMAIN_ID
         || dictionary
@@ -1751,6 +1858,8 @@ fn consolidate_entry_rules(
     dictionary: &mut Dictionary,
     entry_id: &str,
     domain_id: Option<&str>,
+    actor: &str,
+    timestamp: &str,
 ) -> Result<(), String> {
     let selected = |rule: &Rule| {
         rule_targets_entry(rule, entry_id)
@@ -1787,6 +1896,8 @@ fn consolidate_entry_rules(
             if rule.application == Some(RuleApplication::Suggest) {
                 existing.application = Some(RuleApplication::Suggest);
             }
+            existing.confirmed_by = actor.to_string();
+            existing.confirmed_at = timestamp.to_string();
         } else {
             groups.insert(key, retained.len());
             retained.push(rule);
@@ -1894,6 +2005,12 @@ fn validate_dictionary_legacy(dictionary: &Dictionary) -> Result<(), String> {
         if !domain_ids.contains(rule.domain_id.as_str()) || rule.observed.trim().is_empty() {
             return Err(format!(
                 "rule '{}' has invalid domain or observed text",
+                rule.id
+            ));
+        }
+        if validate_subject(&rule.confirmed_by).is_err() || rule.confirmed_at.trim().is_empty() {
+            return Err(format!(
+                "rule '{}' requires a human confirmer and confirmation time",
                 rule.id
             ));
         }
@@ -3249,6 +3366,18 @@ mod tests {
     use std::io::Write;
 
     #[test]
+    fn human_actions_only_accept_trusted_human_host_identities() {
+        assert_eq!(
+            HumanAction::from_host_author("human:alice")
+                .unwrap()
+                .actor(),
+            "human:alice"
+        );
+        assert!(HumanAction::from_host_author("agent:alice").is_err());
+        assert!(HumanAction::from_host_author("").is_err());
+    }
+
+    #[test]
     fn first_open_initialization_is_idempotent_and_keeps_dictionary_empty() {
         let temp = tempfile::tempdir().unwrap();
         fs::write(temp.path().join("AGENTS.md"), "# Vault\n").unwrap();
@@ -3265,7 +3394,7 @@ mod tests {
         );
         control.baseline_dictionary = None;
         storage::save_control(temp.path(), &control).unwrap();
-        let second = service.ensure_initialized("human:bruce").unwrap();
+        let second = service.ensure_initialized("human:other-machine").unwrap();
 
         assert_eq!(first["status"], "created");
         assert_eq!(second["status"], "existing");
@@ -3303,7 +3432,7 @@ mod tests {
         let control_before = fs::read(storage::control_path(temp.path())).unwrap();
         fs::remove_file(&dictionary_path).unwrap();
 
-        let result = service.ensure_initialized("human:bruce").unwrap();
+        let result = service.ensure_initialized("human:other-reviewer").unwrap();
 
         assert_eq!(result["status"], "existing");
         assert_eq!(result["dictionary_created"], false);
@@ -3351,14 +3480,20 @@ mod tests {
     }
 
     #[test]
-    fn initialization_rejects_a_different_vault_author() {
+    fn initialization_keeps_the_subject_when_the_current_author_differs() {
         let temp = tempfile::tempdir().unwrap();
         let service = DictionaryService::new(temp.path().to_path_buf());
         service.ensure_initialized("human:bruce").unwrap();
-        assert!(service
-            .ensure_initialized("human:someone-else")
-            .unwrap_err()
-            .contains("current Vault author"));
+        let before = fs::read(storage::dictionary_path(temp.path()).unwrap()).unwrap();
+
+        let result = service.ensure_initialized("human:someone-else").unwrap();
+
+        assert_eq!(result["status"], "existing");
+        assert_eq!(result["dictionary"]["subject_id"], "human:bruce");
+        assert_eq!(
+            fs::read(storage::dictionary_path(temp.path()).unwrap()).unwrap(),
+            before
+        );
     }
 
     #[test]
@@ -3454,12 +3589,21 @@ mod tests {
             aliases: vec!["Bruce".into(), "Bruce".into()],
             mistaken_forms: vec!["伟涛".into(), " 伟韬 ".into()],
         };
+        let reviewer = HumanAction::from_host_author("human:alice").unwrap();
 
-        let result = service.save_correction_entry(request.clone()).unwrap();
+        let result = service
+            .save_correction_entry_as(&reviewer, request.clone())
+            .unwrap();
         assert_eq!(result["status"], "committed");
         assert_eq!(result["revision"], 2);
-        assert_eq!(service.save_correction_entry(request).unwrap(), result);
+        assert_eq!(
+            service
+                .save_correction_entry_as(&reviewer, request)
+                .unwrap(),
+            result
+        );
         let (dictionary, _) = storage::verified_dictionary(temp.path()).unwrap();
+        assert_eq!(dictionary.subject_id, "human:bruce");
         assert_eq!(dictionary.domains[0].name, "工作会议");
         assert_eq!(dictionary.entries[0].label, "伟滔");
         assert_eq!(dictionary.entries[0].forms, vec!["伟滔", "Bruce"]);
@@ -3467,7 +3611,14 @@ mod tests {
         assert!(dictionary.rules.iter().all(|rule| {
             rule.target.as_ref().unwrap().text == "伟滔"
                 && rule.application == Some(RuleApplication::Suggest)
+                && rule.confirmed_by == "human:alice"
         }));
+        assert_eq!(
+            storage::load_control(temp.path()).unwrap().transactions["txn_manual_create"]
+                .actor
+                .as_deref(),
+            Some("human:alice")
+        );
     }
 
     #[test]
@@ -3777,8 +3928,9 @@ mod tests {
         current.rules[0].enabled = false;
         current.rules[0].application = Some(RuleApplication::Suggest);
         let (temp, service) = fixture_service(&current);
+        let reviewer = HumanAction::from_host_author("human:alice").unwrap();
         service
-            .move_correction_entry(move_request(&service, "d_work", "public"))
+            .move_correction_entry_as(&reviewer, move_request(&service, "d_work", "public"))
             .unwrap();
         let (updated, _) = storage::verified_dictionary(temp.path()).unwrap();
         assert_eq!(
@@ -3797,6 +3949,7 @@ mod tests {
         assert!(!moved.enabled);
         assert_eq!(moved.application, Some(RuleApplication::Suggest));
         assert_eq!(moved.domain_id, "public");
+        assert_eq!(moved.confirmed_by, "human:alice");
         assert!(resolve_dictionary(&updated, "d_work", "伟涛")
             .unwrap()
             .applied
@@ -3844,9 +3997,14 @@ mod tests {
             .insert("e_target".into(), vec!["public".into()]);
         let (temp, service) = fixture_service(&current);
         let request = merge_request(&service);
-        let result = service.merge_correction_entries(request.clone()).unwrap();
+        let reviewer = HumanAction::from_host_author("human:alice").unwrap();
+        let result = service
+            .merge_correction_entries_as(&reviewer, request.clone())
+            .unwrap();
         assert_eq!(
-            service.merge_correction_entries(request.clone()).unwrap(),
+            service
+                .merge_correction_entries_as(&reviewer, request.clone())
+                .unwrap(),
             result
         );
         let mut stale = request;
@@ -3867,10 +4025,12 @@ mod tests {
         let corrected = updated.rules.iter().find(|r| r.observed == "伟涛").unwrap();
         assert!(!corrected.enabled);
         assert_eq!(corrected.application, Some(RuleApplication::Suggest));
+        assert_eq!(corrected.confirmed_by, "human:alice");
         let alias = updated.rules.iter().find(|r| r.observed == "伟滔").unwrap();
         assert_eq!(alias.domain_id, "d_work");
         assert_eq!(alias.target.as_ref().unwrap().text, "Bruce Wei");
         assert_eq!(alias.application, Some(RuleApplication::Suggest));
+        assert_eq!(alias.confirmed_by, "human:alice");
         assert!(!updated.entry_domains.contains_key("e_wei"));
     }
 
@@ -4262,22 +4422,29 @@ mod tests {
                 .into(),
             formal_names: BTreeMap::from([("e_wei".into(), "伟滔".into())]),
         };
-        let result = service.normalize_formal_names(request.clone()).unwrap();
+        let reviewer = HumanAction::from_host_author("human:alice").unwrap();
+        let result = service
+            .normalize_formal_names_as(&reviewer, request.clone())
+            .unwrap();
         assert_eq!(result["status"], "committed");
         assert_eq!(result["revision"], 2);
         assert_eq!(result["rules_updated"], 0);
         assert_eq!(result["alias_rules_added"].as_array().unwrap().len(), 2);
         assert_eq!(
-            service.normalize_formal_names(request.clone()).unwrap(),
+            service
+                .normalize_formal_names_as(&reviewer, request.clone())
+                .unwrap(),
             result
         );
         let (migrated, _) = storage::verified_dictionary(temp.path()).unwrap();
         assert_eq!(migrated.entries[0].label, "伟滔");
         assert_eq!(migrated.rules[0].target.as_ref().unwrap().text, "伟滔");
         assert!(migrated.rules.iter().any(|rule| rule.observed == "Bruce"
-            && matches!(rule.application, Some(RuleApplication::Suggest))));
+            && matches!(rule.application, Some(RuleApplication::Suggest))
+            && rule.confirmed_by == "human:alice"));
         assert!(migrated.rules.iter().any(|rule| rule.observed == "滔哥"
-            && matches!(rule.application, Some(RuleApplication::Suggest))));
+            && matches!(rule.application, Some(RuleApplication::Suggest))
+            && rule.confirmed_by == "human:alice"));
         assert!(migrated.entries[0].forms.contains(&"Bruce".to_string()));
         validate_dictionary(&migrated).unwrap();
         let dictionary_path = storage::dictionary_path(temp.path()).unwrap();
@@ -4288,7 +4455,7 @@ mod tests {
         )
         .unwrap();
         assert!(service
-            .normalize_formal_names(request)
+            .normalize_formal_names_as(&reviewer, request)
             .unwrap_err()
             .contains("outside the reviewed plugin transaction"));
         fs::write(dictionary_path, migrated_bytes).unwrap();
@@ -4628,6 +4795,7 @@ mod tests {
                 .into(),
             selected,
         };
+        let reviewer = HumanAction::from_host_author("human:alice").unwrap();
         let (mut changed_dictionary, _) = storage::verified_dictionary(temp.path()).unwrap();
         changed_dictionary.revision += 1;
         let mut changed_control = storage::load_control(temp.path()).unwrap();
@@ -4635,7 +4803,7 @@ mod tests {
             .persist_dictionary(&changed_dictionary, &mut changed_control, None, None)
             .unwrap();
         assert!(service
-            .batch_commit(request.clone())
+            .batch_commit_as(&reviewer, request.clone())
             .unwrap_err()
             .contains("refresh the review"));
         changed_dictionary.revision -= 1;
@@ -4649,23 +4817,35 @@ mod tests {
             .push(json!({"id":"conflict_1","proposal_ids":["p_entry"]}));
         storage::save_control(temp.path(), &control).unwrap();
         assert!(service
-            .batch_commit(request.clone())
+            .batch_commit_as(&reviewer, request.clone())
             .unwrap_err()
             .contains("unresolved conflict"));
         control.batches[0].dataset.conflicts = vec![json!({"id":"unrelated_cluster_conflict"})];
         storage::save_control(temp.path(), &control).unwrap();
         fs::write(&transcript_path, "来源在批准前变化").unwrap();
         assert!(service
-            .batch_commit(request.clone())
+            .batch_commit_as(&reviewer, request.clone())
             .unwrap_err()
             .contains("changed after scan"));
         fs::write(&transcript_path, transcript).unwrap();
-        let commit = service.batch_commit(request.clone()).unwrap();
+        let commit = service.batch_commit_as(&reviewer, request.clone()).unwrap();
         assert_eq!(commit["revision"], 2);
-        assert_eq!(service.batch_commit(request.clone()).unwrap(), commit);
+        assert_eq!(
+            service.batch_commit_as(&reviewer, request.clone()).unwrap(),
+            commit
+        );
+        let other_reviewer = HumanAction::from_host_author("human:carol").unwrap();
+        assert!(service
+            .batch_commit_as(&other_reviewer, request.clone())
+            .unwrap_err()
+            .contains("another reviewer"));
         let dictionary_path = storage::dictionary_path(temp.path()).unwrap();
         let committed_bytes = fs::read(&dictionary_path).unwrap();
         let committed_control = storage::load_control(temp.path()).unwrap();
+        assert_eq!(
+            committed_control.transactions["txn_1"].actor.as_deref(),
+            Some("human:alice")
+        );
         assert_eq!(
             committed_control
                 .baseline_dictionary
@@ -4680,28 +4860,36 @@ mod tests {
         )
         .unwrap();
         assert!(service
-            .batch_commit(request.clone())
+            .batch_commit_as(&reviewer, request.clone())
             .unwrap_err()
             .contains("outside the reviewed plugin transaction"));
         fs::write(&dictionary_path, committed_bytes).unwrap();
-        let reuse = service.batch_commit(BatchCommitRequest {
-            run_id: data.run_id,
-            dataset_sha256: batch["dataset_sha256"].as_str().unwrap().into(),
-            transaction_id: "txn_1".into(),
-            expected_dictionary_revision: 1,
-            expected_dictionary_sha256: snapshot["formal_name_migration"]["expected_sha256"]
-                .as_str()
-                .unwrap()
-                .into(),
-            selected: vec![SelectedProposal {
-                id: "p_entry".into(),
-                review_revision: 1,
-                value: None,
-            }],
-        });
+        let reuse = service.batch_commit_as(
+            &reviewer,
+            BatchCommitRequest {
+                run_id: data.run_id,
+                dataset_sha256: batch["dataset_sha256"].as_str().unwrap().into(),
+                transaction_id: "txn_1".into(),
+                expected_dictionary_revision: 1,
+                expected_dictionary_sha256: snapshot["formal_name_migration"]["expected_sha256"]
+                    .as_str()
+                    .unwrap()
+                    .into(),
+                selected: vec![SelectedProposal {
+                    id: "p_entry".into(),
+                    review_revision: 1,
+                    value: None,
+                }],
+            },
+        );
         assert!(reuse.unwrap_err().contains("another plan"));
         let restarted = DictionaryService::new(temp.path().to_path_buf());
         let (dictionary, _) = storage::verified_dictionary(temp.path()).unwrap();
+        assert_eq!(dictionary.subject_id, "human:bruce");
+        assert!(dictionary
+            .rules
+            .iter()
+            .all(|rule| rule.confirmed_by == "human:alice"));
         let domain_id = dictionary.domains[0].id.clone();
         let text = "请，伟涛，负责";
         let resolved = restarted

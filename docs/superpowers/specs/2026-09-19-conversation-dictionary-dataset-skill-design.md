@@ -183,7 +183,7 @@ V1 的 proposals 是受限的变更意图，不接受任意 JSON Patch 或任意
 关联已有条目可以直接在 create_rule 中使用 existing_id，不需要复制 entry。references 必须恰好包含 `existing_id` 或 `proposal_id` 之一；proposal_id 必须指向匹配类型的提案，每个 proposal 可包含 depends_on，依赖图无环。create_entry 的 label 必须出现在 forms；create_rule 的 target.text 必须等于所引用 entry 的正式名。插件提交时再次从 entry 派生 target.text，防止编辑或旧生成器把别称写成最终输出。新永久 ID 由插件提交时分配并持久记录映射，Agent 不伪造稳定正式 ID。
 
 - create_rule 的 replacement 需要 target 和 application；preserve 禁止这两项，与正式规则一致。
-- 所有 value 禁止携带 confirmed_by/at、正式 revision 或“已批准”状态；启停和批准字段由提交服务产生。
+- 所有 value 禁止携带 confirmed_by/at、正式 revision 或“已批准”状态；启停和批准字段由提交服务产生，`confirmed_by` 使用提交时 Host 提供的实际 `human:*` 操作者，不要求等于数据集或词典的 subject。
 - value 中的 description 不当作消歧表达式，Agent reason 与人工编辑分开保留。
 - merge_entries 是建议，不自动重写跨场景引用；create_entry 后同名条目仍允许保持独立。批量确认前的编辑支持将一组拆成多个条目、或将一个草稿改为引用既有条目。合并后尚未审阅、指向被合并条目的提案必须重新显示目标差异；不能静默重定向为已确认。
 - 批准一个 rule 依赖尚未批准的新 domain/entry 时，界面显式展示依赖，用户一并选择或改为已有对象；不能悄悄顺带批准未展示的提案。

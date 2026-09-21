@@ -8,6 +8,7 @@
   let tab: Tab = 'dictionary'
   let snapshot: Snapshot | null = null
   let busy = false
+  let initializationError = ''
   let error = ''
   let notice = ''
   let datasetPath = ''
@@ -54,6 +55,7 @@
   const clone = <T,>(value: T): T => JSON.parse(JSON.stringify(value))
   const currentBatch = (): ReviewBatch | undefined => snapshot?.batches.find((batch) => batch.run_id === selectedBatchId)
   const pendingProposals = (batch: ReviewBatch) => batch.dataset.proposals.filter((proposal) => batch.proposal_states[proposal.id]?.status === 'pending')
+  const hasAcceptedProposals = (batch: ReviewBatch) => Object.values(batch.proposal_states).some((state) => state.status === 'accepted')
   const proposalKey = (batch: ReviewBatch, proposalId: string) => `${batch.run_id}\u0000${proposalId}`
 
   function dictionaryDomains() {
@@ -249,9 +251,10 @@
     try {
       const result = await api.initialize()
       await refresh(false)
+      initializationError = ''
       if (result.dictionary_created) notice = t('沟通转写勘误已为当前 Vault 准备好', 'Conversation Transcript Corrections is ready for this Vault')
     } catch (value) {
-      error = value instanceof Error ? value.message : String(value)
+      initializationError = value instanceof Error ? value.message : String(value)
       try { await refresh(false) } catch { /* retain the initialization error */ }
     } finally {
       busy = false
@@ -651,6 +654,10 @@
 
   function openBatchMenu(event: MouseEvent, batch: ReviewBatch) {
     event.preventDefault()
+    if (hasAcceptedProposals(batch)) {
+      batchMenu = null
+      return
+    }
     const width = 190
     const height = 42
     batchMenu = {
@@ -663,7 +670,7 @@
   async function deleteBatch(runId: string) {
     batchMenu = null
     const batch = snapshot?.batches.find((item) => item.run_id === runId)
-    if (!batch) return
+    if (!batch || hasAcceptedProposals(batch)) return
     if (!window.confirm(t(`删除 ${formatBatchTime(batch.imported_at)} 导入的待审数据集？`, `Delete the review dataset imported at ${formatBatchTime(batch.imported_at)}?`))) return
     for (const key of Object.keys(edited)) if (key.startsWith(`${runId}\u0000`)) delete edited[key]
     for (const key of Object.keys(evidence)) if (key.startsWith(`${runId}\u0000`)) delete evidence[key]
@@ -697,20 +704,22 @@
       <h1>{t('沟通转写勘误', 'Conversation Transcript Corrections')}</h1>
       <p>{t('整理你参与的沟通转写，经确认后按场景复用人名与术语。', 'Review transcription terms from conversations you participate in, then reuse them by context.')}</p>
     </div>
-    {#if snapshot?.dictionary}<button class="secondary" onclick={openDictionary}>{t('打开勘误表', 'Open Corrections')}</button>{/if}
+    {#if snapshot?.dictionary && !initializationError}<button class="secondary" onclick={openDictionary}>{t('打开勘误表', 'Open Corrections')}</button>{/if}
   </header>
 
-  <nav class="tabs" aria-label={t('沟通转写勘误页面', 'Conversation Transcript Corrections sections')}>
-    {#each [['dictionary', t('勘误词典', 'Corrections Dictionary')], ['pending', t('待确认', 'Review')], ['history', t('历史', 'History')], ['settings', t('设置', 'Settings')]] as item}
-      <button class:active={tab === item[0]} aria-current={tab === item[0] ? 'page' : undefined} onclick={() => tab = item[0] as Tab}>{item[1]}</button>
-    {/each}
-  </nav>
+  {#if !initializationError}
+    <nav class="tabs" aria-label={t('沟通转写勘误页面', 'Conversation Transcript Corrections sections')}>
+      {#each [['dictionary', t('勘误词典', 'Corrections Dictionary')], ['pending', t('待确认', 'Review')], ['history', t('历史', 'History')], ['settings', t('设置', 'Settings')]] as item}
+        <button class:active={tab === item[0]} aria-current={tab === item[0] ? 'page' : undefined} onclick={() => tab = item[0] as Tab}>{item[1]}</button>
+      {/each}
+    </nav>
+  {/if}
 
   {#if error}<div class="banner error" role="alert">{error}</div>{/if}
   {#if needsReload}<button onclick={reloadDictionary} disabled={busy}>{t('重新加载', 'Reload')}</button>{/if}
   {#if notice}<div class="banner success" role="status">{notice}</div>{/if}
 
-  {#if snapshot?.dictionary && (snapshot.formal_name_migration.required || renamingFormalNames)}
+  {#if snapshot?.dictionary && !initializationError && (snapshot.formal_name_migration.required || renamingFormalNames)}
     <section class="migration-panel" aria-labelledby="formal-name-migration-title">
       <h2 id="formal-name-migration-title">{snapshot.formal_name_migration.required ? t('确认正式名', 'Confirm formal names') : t('修改正式名', 'Edit formal names')}</h2>
       <p>{t('每个词条只有一个正式名。保存前请检查下面的完整影响：规则输出会更新；变成无操作的规则会移除；重复规则会保守合并；已有别称会在该词条现有场景中新增“只建议”归一规则。', 'Each entry has one formal name. Review the full impact below: outputs are updated, no-op rules are removed, duplicates are conservatively consolidated, and existing aliases gain suggest-only normalization rules in the entry’s current contexts.')}</p>
@@ -739,13 +748,20 @@
     </section>
   {/if}
 
-  {#if !snapshot}
+  {#if initializationError}
+    <section class="empty-state">
+      <h2>{t('初始化未通过', 'Initialization failed')}</h2>
+      <p role="alert">{initializationError}</p>
+      <p>{t('请检查当前 Vault、可信基线与 Host 身份服务后重试。', 'Check the current Vault, reviewed baseline, and Host identity service, then retry.')}</p>
+      <button class="primary" onclick={initializeAndRefresh} disabled={busy}>{t('重试初始化', 'Retry initialization')}</button>
+    </section>
+  {:else if !snapshot}
     <div class="loading">{t('正在准备沟通转写勘误…', 'Preparing Conversation Transcript Corrections…')}</div>
   {:else if !snapshot.dictionary}
     {#if snapshot.status.status === 'not_created'}
       <section class="empty-state">
         <h2>{t('初始化尚未完成', 'Initialization is incomplete')}</h2>
-        <p>{t('请检查当前 Vault 与作者身份，然后重试。词典不会使用手工填写的身份。', 'Check the current Vault and its author identity, then retry. The dictionary never uses a manually entered identity.')}</p>
+        <p>{t('请检查当前 Vault 与 Host 身份服务后重试。词典不会使用手工填写的身份。', 'Check the current Vault and Host identity service, then retry. The dictionary never uses a manually entered identity.')}</p>
         <button class="primary" onclick={initializeAndRefresh} disabled={busy}>{t('重试初始化', 'Retry initialization')}</button>
       </section>
     {:else}

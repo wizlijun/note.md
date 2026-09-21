@@ -3,7 +3,7 @@ use notemd_conversation_dictionary::model::{
     MoveCorrectionEntryRequest, NormalizeFormalNamesRequest, ProposalInput, ResolveRequest,
     SaveCorrectionEntryRequest,
 };
-use notemd_conversation_dictionary::DictionaryService;
+use notemd_conversation_dictionary::{DictionaryService, HumanAction};
 use notemd_plugin_sdk as sdk;
 use sdk::plugin_protocol as proto;
 use serde_json::{json, Value};
@@ -63,6 +63,11 @@ impl ConversationDictionaryPlugin {
         Err("timed out while reading the current Vault identity".into())
     }
 
+    fn human_action(&self) -> Result<HumanAction, String> {
+        let (_, author) = self.initialization_context()?;
+        HumanAction::from_host_author(&author)
+    }
+
     fn execute_cli(&self, context: &Value) -> Result<Value, String> {
         let action = cli_str(context, "action").ok_or("action is required")?;
         let service = self.service()?;
@@ -94,7 +99,17 @@ impl ConversationDictionaryPlugin {
                     cli_str(context, "input").ok_or("--input is required for dataset-import")?;
                 service.dataset_import_path(&input)
             }
-            "approve" | "confirm" | "commit" | "batch-commit" => {
+            "approve"
+            | "confirm"
+            | "commit"
+            | "batch-commit"
+            | "normalize-formal-names"
+            | "save-correction-entry"
+            | "move-correction-entry"
+            | "merge-correction-entries"
+            | "delete-correction-entry"
+            | "batch-delete"
+            | "candidate-dismiss" => {
                 Err("human approval is only available in the Conversation Transcript Corrections window".into())
             }
             other => Err(format!("unknown action '{other}'")),
@@ -265,6 +280,7 @@ impl sdk::NotemdPlugin for ConversationDictionaryPlugin {
                 service.dataset_import_path(input)
             }
             "batch_delete" => {
+                let _action = self.human_action()?;
                 let run_id = params
                     .get("run_id")
                     .and_then(Value::as_str)
@@ -272,34 +288,40 @@ impl sdk::NotemdPlugin for ConversationDictionaryPlugin {
                 service.delete_batch(run_id)
             }
             "batch_commit" => {
+                let action = self.human_action()?;
                 let request: BatchCommitRequest =
                     serde_json::from_value(params).map_err(|error| error.to_string())?;
-                service.batch_commit(request)
+                service.batch_commit_as(&action, request)
             }
             "normalize_formal_names" => {
+                let action = self.human_action()?;
                 let request: NormalizeFormalNamesRequest =
                     serde_json::from_value(params).map_err(|error| error.to_string())?;
-                service.normalize_formal_names(request)
+                service.normalize_formal_names_as(&action, request)
             }
             "save_correction_entry" => {
+                let action = self.human_action()?;
                 let request: SaveCorrectionEntryRequest =
                     serde_json::from_value(params).map_err(|error| error.to_string())?;
-                service.save_correction_entry(request)
+                service.save_correction_entry_as(&action, request)
             }
             "move_correction_entry" => {
+                let action = self.human_action()?;
                 let request: MoveCorrectionEntryRequest =
                     serde_json::from_value(params).map_err(|error| error.to_string())?;
-                service.move_correction_entry(request)
+                service.move_correction_entry_as(&action, request)
             }
             "merge_correction_entries" => {
+                let action = self.human_action()?;
                 let request: MergeCorrectionEntriesRequest =
                     serde_json::from_value(params).map_err(|error| error.to_string())?;
-                service.merge_correction_entries(request)
+                service.merge_correction_entries_as(&action, request)
             }
             "delete_correction_entry" => {
+                let action = self.human_action()?;
                 let request: DeleteCorrectionEntryRequest =
                     serde_json::from_value(params).map_err(|error| error.to_string())?;
-                service.delete_correction_entry(request)
+                service.delete_correction_entry_as(&action, request)
             }
             "batch_evidence" => {
                 let run_id = params

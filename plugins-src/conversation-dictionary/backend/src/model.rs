@@ -428,6 +428,8 @@ pub struct TransactionRecord {
     pub plan_hash: String,
     pub completed_at: String,
     pub revision: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub actor: Option<String>,
     pub result: Value,
 }
 
