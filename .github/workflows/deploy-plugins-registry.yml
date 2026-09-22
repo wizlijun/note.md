@@ -13,23 +13,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      # plugins-registry has its own pnpm-lock.yaml, so wrangler-action detects
-      # pnpm as the package manager. Make pnpm (and Node) available first, or the
-      # action fails with "Unable to locate executable file: pnpm".
+      # plugins-registry has its own lockfile and Wrangler devDependency. Use
+      # that pinned toolchain directly so deployment does not depend on a
+      # wrapper action's package-manager discovery.
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: pnpm
           cache-dependency-path: plugins-registry/pnpm-lock.yaml
-      # Install the devDependency wrangler (+ the rest) so wrangler-action finds
-      # it via `pnpm exec wrangler` and doesn't try to `pnpm add` it into the
-      # workspace root (which pnpm refuses without -w).
       - name: Install deps
         run: pnpm install --frozen-lockfile
         working-directory: plugins-registry
       - name: Deploy notemd-plugins to Cloudflare Workers
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          workingDirectory: plugins-registry
+        run: pnpm exec wrangler deploy
+        working-directory: plugins-registry
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

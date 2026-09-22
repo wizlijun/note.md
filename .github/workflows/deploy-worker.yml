@@ -13,10 +13,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      # worker/ has its own pnpm-lock.yaml, so wrangler-action detects pnpm as
-      # the package manager. Make pnpm (and Node) available and install deps
-      # first, or the action fails with "Unable to locate executable file: pnpm"
-      # and then falls back to `pnpm add wrangler`.
+      # worker/ has its own lockfile and Wrangler devDependency. Install that
+      # pinned toolchain, then invoke Wrangler directly instead of asking a
+      # wrapper action to discover or install a package manager.
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -27,7 +26,7 @@ jobs:
         run: pnpm install --frozen-lockfile
         working-directory: worker
       - name: Deploy mdeditor-share to Cloudflare Workers
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          workingDirectory: worker
+        run: pnpm exec wrangler deploy
+        working-directory: worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
