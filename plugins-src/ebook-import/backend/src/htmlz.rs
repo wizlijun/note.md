@@ -1,15 +1,15 @@
 //! Unpacks Calibre-produced HTMLZ archives (a zip containing an HTML body,
 //! an optional images directory, and an OPF metadata sidecar), recovers
-//! book metadata from that sidecar, and converts the HTML to Markdown with
-//! Calibre's own markup debris stripped out. Ports `01_convert_to_htmlz.py`
-//! verbatim -- both the file-discovery heuristics (the python script used
-//! `glob`, so it never assumed a fixed HTMLZ layout) and the cleaning-rule
-//! order -- so this Rust port produces byte-comparable output.
+//! book metadata from that sidecar, and converts the HTML to Markdown while
+//! retaining the semantic subset understood by Typeset Reader. File discovery
+//! follows the old `01_convert_to_htmlz.py` glob-style heuristics, but Markdown
+//! cleanup is deliberately more precise so real book content is not discarded.
 
 #[cfg(test)]
 mod tests;
 
 use crate::bookconf::BookMeta;
+use htmd::Element;
 use quick_xml::events::Event;
 use quick_xml::Reader;
 use regex::Regex;
@@ -266,60 +266,277 @@ fn parse_opf(xml: &str) -> BookMeta {
     meta
 }
 
-/// Converts HTML to Markdown via `htmd` (skipping `<script>`/`<style>`
-/// bodies, which never belong in reading content), then strips Calibre's
-/// HTMLZ markup debris via [`clean_calibre_markers`].
+fn attr<'a>(element: &'a Element<'a>, name: &str) -> Option<&'a str> {
+    element
+        .attrs
+        .iter()
+        .find(|attribute| attribute.name.local.as_ref().eq_ignore_ascii_case(name))
+        .map(|attribute| attribute.value.as_ref())
+}
+
+fn attr_has_token(element: &Element<'_>, name: &str, token: &str) -> bool {
+    attr(element, name).is_some_and(|value| {
+        value
+            .split_ascii_whitespace()
+            .any(|value| value.eq_ignore_ascii_case(token))
+    })
+}
+
+fn is_hidden(element: &Element<'_>) -> bool {
+    attr(element, "hidden").is_some()
+        || attr(element, "aria-hidden").is_some_and(|value| value.eq_ignore_ascii_case("true"))
+        || attr_has_token(element, "role", "doc-pagebreak")
+        || attr_has_token(element, "type", "pagebreak")
+        || attr_has_token(element, "epub:type", "pagebreak")
+}
+
+fn block_content(element: Element<'_>) -> Option<String> {
+    if is_hidden(&element) {
+        return None;
+    }
+    Some(format!("\n\n{}\n\n", element.content))
+}
+
+fn toc_content(content: &str) -> String {
+    content
+        .lines()
+        .filter_map(|line| {
+            let trimmed = line.trim();
+            if trimmed.is_empty() {
+                return None;
+            }
+            let already_structured = trimmed.starts_with('#')
+                || trimmed.starts_with("- ")
+                || trimmed.starts_with("* ")
+                || trimmed.starts_with("+ ")
+                || trimmed
+                    .split_once(". ")
+                    .is_some_and(|(prefix, _)| prefix.chars().all(|ch| ch.is_ascii_digit()));
+            Some(if already_structured {
+                line.trim_end().to_string()
+            } else {
+                let indent = &line[..line.len() - line.trim_start().len()];
+                format!("{indent}- {trimmed}")
+            })
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn container_content(element: Element<'_>) -> Option<String> {
+    if is_hidden(&element) {
+        return None;
+    }
+    let is_toc = attr_has_token(&element, "role", "doc-toc")
+        || attr_has_token(&element, "type", "toc")
+        || attr_has_token(&element, "epub:type", "toc")
+        || attr_has_token(&element, "class", "toc");
+    let content = if is_toc {
+        toc_content(element.content)
+    } else {
+        element.content.to_string()
+    };
+    Some(format!("\n\n{content}\n\n"))
+}
+
+fn semantic_inline(element: Element<'_>) -> Option<String> {
+    if is_hidden(&element) || element.content.is_empty() {
+        return None;
+    }
+    let tag = if element.tag == "del" {
+        "s"
+    } else {
+        element.tag
+    };
+    Some(format!("<{tag}>{}</{tag}>", element.content))
+}
+
+fn definition_list(element: Element<'_>) -> Option<String> {
+    if is_hidden(&element) {
+        return None;
+    }
+    let content = element.content.trim();
+    if content.is_empty() {
+        return None;
+    }
+    Some(format!("\n\n<dl>\n{content}\n</dl>\n\n"))
+}
+
+fn definition_item(element: Element<'_>) -> Option<String> {
+    if is_hidden(&element) {
+        return None;
+    }
+    let content = element.content.trim();
+    if content.is_empty() {
+        return None;
+    }
+    Some(format!(
+        "\n<{}>{}</{}>\n",
+        element.tag, content, element.tag
+    ))
+}
+
+fn figure_content(element: Element<'_>) -> Option<String> {
+    if is_hidden(&element) {
+        return None;
+    }
+    let content = element.content.trim();
+    if content.is_empty() {
+        return None;
+    }
+    // Blank lines keep Markdown images visible to pulldown-cmark, which the
+    // Reader uses for path validation and cache invalidation, while cmarker
+    // can still associate the following figcaption with this figure.
+    Some(format!("\n\n<figure>\n\n{content}\n\n</figure>\n\n"))
+}
+
+fn figcaption_content(element: Element<'_>) -> Option<String> {
+    if is_hidden(&element) {
+        return None;
+    }
+    let content = element.content.trim();
+    if content.is_empty() {
+        return None;
+    }
+    Some(format!("\n\n<figcaption>{content}</figcaption>\n\n"))
+}
+
+fn aside_content(element: Element<'_>) -> Option<String> {
+    if is_hidden(&element) {
+        return None;
+    }
+    let is_note = ["doc-note", "doc-tip", "note", "tip", "sidebar"]
+        .iter()
+        .any(|token| {
+            attr_has_token(&element, "role", token)
+                || attr_has_token(&element, "type", token)
+                || attr_has_token(&element, "epub:type", token)
+                || attr_has_token(&element, "class", token)
+        });
+    if !is_note {
+        return Some(format!("\n\n{}\n\n", element.content));
+    }
+    let quoted = element
+        .content
+        .trim()
+        .lines()
+        .map(|line| {
+            if line.is_empty() {
+                ">".to_string()
+            } else {
+                format!("> {line}")
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    Some(format!("\n\n{quoted}\n\n"))
+}
+
+fn deduplicated_emphasis(element: Element<'_>, marker: &str) -> Option<String> {
+    if is_hidden(&element) {
+        return None;
+    }
+    let content = element.content;
+    let trimmed = content.trim_matches(|ch: char| ch.is_ascii_whitespace());
+    if trimmed.is_empty() {
+        return None;
+    }
+    if trimmed.len() > marker.len() * 2 && trimmed.starts_with(marker) && trimmed.ends_with(marker)
+    {
+        return Some(content.to_string());
+    }
+    let start = content.find(trimmed).unwrap_or(0);
+    let end = start + trimmed.len();
+    Some(format!(
+        "{}{marker}{trimmed}{marker}{}",
+        &content[..start],
+        &content[end..]
+    ))
+}
+
+fn heading_content(element: Element<'_>) -> Option<String> {
+    if is_hidden(&element) {
+        return None;
+    }
+    let content = element.content.trim();
+    if content.is_empty() {
+        return None;
+    }
+    let level = element.tag.strip_prefix('h')?.parse::<usize>().ok()?;
+    Some(format!("\n\n{} {content}\n\n", "#".repeat(level)))
+}
+
+fn blockquote_content(element: Element<'_>) -> Option<String> {
+    if is_hidden(&element) {
+        return None;
+    }
+    let content = element.content.trim();
+    if content.is_empty() {
+        return None;
+    }
+    let quoted = content
+        .lines()
+        .map(|line| format!("> {line}"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    Some(format!("\n\n{quoted}\n\n"))
+}
+
+/// Converts HTML to Markdown via `htmd`, retaining the small semantic subset
+/// that Typeset Reader can render safely. Scripts, styles, hidden/page-break
+/// markers and arbitrary CSS are deliberately excluded.
 pub fn html_to_markdown(html: &str) -> Result<String, String> {
     let converter = htmd::HtmlToMarkdown::builder()
         .skip_tags(vec!["script", "style"])
+        .add_handler(vec!["span"], |element: Element<'_>| {
+            (!is_hidden(&element)).then(|| element.content.to_string())
+        })
+        .add_handler(vec!["p"], block_content)
+        .add_handler(
+            vec![
+                "div", "nav", "section", "article", "header", "footer", "main",
+            ],
+            container_content,
+        )
+        .add_handler(vec!["aside"], aside_content)
+        .add_handler(vec!["blockquote"], blockquote_content)
+        .add_handler(vec!["h1", "h2", "h3", "h4", "h5", "h6"], heading_content)
+        .add_handler(vec!["i", "em"], |element: Element<'_>| {
+            deduplicated_emphasis(element, "_")
+        })
+        .add_handler(vec!["b", "strong"], |element: Element<'_>| {
+            deduplicated_emphasis(element, "**")
+        })
+        .add_handler(vec!["sup", "sub", "mark", "s", "del"], semantic_inline)
+        .add_handler(vec!["dl"], definition_list)
+        .add_handler(vec!["dt", "dd"], definition_item)
+        .add_handler(vec!["figure"], figure_content)
+        .add_handler(vec!["figcaption"], figcaption_content)
         .build();
     let md = converter.convert(html).map_err(|e| e.to_string())?;
     Ok(clean_calibre_markers(&md))
 }
 
-/// Strips Calibre's HTMLZ markup debris out of converted markdown, in the
-/// exact order the original `01_convert_to_htmlz.py` script applied them so
-/// output stays byte-comparable across the python -> rust port:
+/// Normalizes converted Markdown without making content-based guesses:
 ///
-/// 1. `{.calibreN}` pandoc-style class annotations
-/// 2. `(#calibre_link-N)` internal anchor targets
-/// 3. whole lines that are pure structural noise: `:::` fence markers,
-///    digit-only page-number lines, and lines ending in `.ct}`/`.cn}`
-///    (Calibre caption-class remnants)
-/// 4. stray BOM (`\u{feff}`) removal and NBSP (`\u{a0}`) -> space
-/// 5. collapsing runs of 3+ newlines (left behind by the drops above) down
+/// 1. stray BOM (`\u{feff}`) removal and NBSP (`\u{a0}`) -> space
+/// 2. collapsing runs of 3+ newlines down
 ///    to a single blank line
+///
+/// Older versions removed fragment links and guessed that digit-only, `:::`
+/// and class-looking text was conversion debris. Those guesses could delete
+/// real book content (including code), so page breaks and hidden nodes are now
+/// removed from their explicit HTML semantics before conversion.
 pub fn clean_calibre_markers(md: &str) -> String {
-    static CALIBRE_CLASS: OnceLock<Regex> = OnceLock::new();
-    static CALIBRE_LINK: OnceLock<Regex> = OnceLock::new();
-    static DIGITS_ONLY: OnceLock<Regex> = OnceLock::new();
     static BLANK_RUN: OnceLock<Regex> = OnceLock::new();
 
-    let calibre_class = CALIBRE_CLASS.get_or_init(|| Regex::new(r"\{\.calibre[^}]*\}").unwrap());
-    let calibre_link = CALIBRE_LINK.get_or_init(|| Regex::new(r"\(#calibre_link-\d+\)").unwrap());
-    let digits_only = DIGITS_ONLY.get_or_init(|| Regex::new(r"^\s*\d+\s*$").unwrap());
     let blank_run = BLANK_RUN.get_or_init(|| Regex::new(r"\n{3,}").unwrap());
 
-    let step1 = calibre_class.replace_all(md, "");
-    let step2 = calibre_link.replace_all(&step1, "");
-
-    let step3 = step2
-        .lines()
-        .filter(|line| {
-            let trimmed = line.trim();
-            !(trimmed.starts_with(":::")
-                || digits_only.is_match(line)
-                || trimmed.ends_with(".ct}")
-                || trimmed.ends_with(".cn}"))
-        })
-        .collect::<Vec<_>>()
-        .join("\n");
-
-    let step4: String = step3
+    let normalized: String = md
         .chars()
         .filter(|&c| c != '\u{feff}')
         .map(|c| if c == '\u{a0}' { ' ' } else { c })
         .collect();
 
-    blank_run.replace_all(&step4, "\n\n").into_owned()
+    blank_run.replace_all(&normalized, "\n\n").into_owned()
 }

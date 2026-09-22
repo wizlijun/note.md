@@ -20,21 +20,21 @@ fn write_htmlz(path: &Path, entries: &[(&str, &[u8])]) {
 fn cleans_calibre_markers() {
     let md = "Title{.calibre1}\n[x](#calibre_link-12)\n::: div\n42\nfoo\nbar .ct}\n\n\n\nend";
     let out = clean_calibre_markers(md);
-    assert!(!out.contains("{.calibre"));
-    assert!(!out.contains("#calibre_link"));
-    assert!(!out.contains(":::"));
-    assert!(!out.lines().any(|l| l.trim() == "42")); // 纯数字行删
-    assert!(!out.contains(".ct}"));
+    assert!(out.contains("Title{.calibre1}"));
+    assert!(out.contains("[x](#calibre_link-12)"));
+    assert!(out.contains("::: div"));
+    assert!(out.lines().any(|l| l.trim() == "42"));
+    assert!(out.contains("bar .ct}"));
     assert!(out.contains("foo"));
     assert!(!out.contains("\n\n\n")); // ≥3 空行折叠
 }
 
 #[test]
-fn clean_calibre_markers_drops_cn_suffixed_lines_and_normalizes_whitespace() {
+fn clean_calibre_markers_preserves_content_and_normalizes_whitespace() {
     let md = "kept\ncaption remnant .cn}\n\u{feff}BOM\u{a0}here";
     let out = clean_calibre_markers(md);
     assert!(out.contains("kept"));
-    assert!(!out.contains(".cn}"));
+    assert!(out.contains("caption remnant .cn}"));
     assert!(!out.contains('\u{feff}'));
     assert!(out.contains("BOM here"));
 }
@@ -195,7 +195,7 @@ fn extract_rejects_zip_slip_entries() {
 }
 
 #[test]
-fn html_to_markdown_strips_calibre_markers_and_skipped_tags() {
+fn html_to_markdown_skips_unsafe_tags_without_deleting_visible_text() {
     let html = "<html><body>\
         <script>evil()</script>\
         <h1>Title{.calibre1}</h1>\
@@ -203,6 +203,215 @@ fn html_to_markdown_strips_calibre_markers_and_skipped_tags() {
         </body></html>";
     let md = html_to_markdown(html).expect("conversion should succeed");
     assert!(!md.contains("evil()"));
-    assert!(!md.contains("{.calibre"));
+    assert!(md.contains("Title{.calibre1}"));
     assert!(md.contains("Body text."));
+}
+
+#[test]
+fn html_to_markdown_preserves_heading_hierarchy_and_blockquotes() {
+    let html = r#"<html><body>
+        <h1>Part One</h1>
+        <h2>Chapter One</h2>
+        <h3>A Smaller Section</h3>
+        <blockquote><p>A quoted paragraph.</p></blockquote>
+        <aside role="doc-note"><p>A side note.</p></aside>
+        </body></html>"#;
+
+    let md = html_to_markdown(html).expect("conversion should succeed");
+
+    assert!(md.lines().any(|line| line == "# Part One"), "got: {md}");
+    assert!(md.lines().any(|line| line == "## Chapter One"), "got: {md}");
+    assert!(
+        md.lines().any(|line| line == "### A Smaller Section"),
+        "got: {md}"
+    );
+    assert!(
+        md.lines()
+            .any(|line| line.trim_start().starts_with("> A quoted paragraph.")),
+        "got: {md}"
+    );
+    assert!(
+        md.lines()
+            .any(|line| line.trim_start().starts_with("> A side note.")),
+        "got: {md}"
+    );
+}
+
+#[test]
+fn html_to_markdown_keeps_toc_and_internal_link_text_renderable() {
+    let html = r##"<html><body>
+        <nav class="toc"><a href="#calibre_link-12">Chapter One</a></nav>
+        <h1 id="calibre_link-12">Chapter One</h1>
+        <p>Return to the <a href="#calibre_link-12">chapter opening</a>.</p>
+        </body></html>"##;
+
+    let md = html_to_markdown(html).expect("conversion should succeed");
+
+    assert!(md.contains("Chapter One"), "TOC label was lost: {md}");
+    assert!(
+        md.lines().any(|line| line.starts_with("- [Chapter One]")),
+        "TOC entry should remain a Markdown list item: {md}"
+    );
+    assert!(
+        md.contains("chapter opening"),
+        "internal-link label was lost: {md}"
+    );
+    assert!(
+        md.contains("[Chapter One](#calibre_link-12)")
+            && md.contains("[chapter opening](#calibre_link-12)"),
+        "internal links should remain valid Markdown until anchor support is added: {md}"
+    );
+}
+
+#[test]
+fn html_to_markdown_preserves_typeset_reader_inline_html_contract() {
+    // Typeset Reader's vendored cmarker maps these exact HTML tags to Typst's
+    // super/subscript, highlight, and strike primitives. CommonMark has no
+    // lossless spelling for the first three, so the importer must retain the
+    // safe semantic tags rather than flattening them to plain text.
+    let html = r#"<html><body><p>
+        E = mc<sup>2</sup>, H<sub>2</sub>O,
+        <mark>important</mark>, and <s>obsolete</s>.
+        </p></body></html>"#;
+
+    let md = html_to_markdown(html).expect("conversion should succeed");
+
+    for semantic in [
+        "<sup>2</sup>",
+        "<sub>2</sub>",
+        "<mark>important</mark>",
+        "<s>obsolete</s>",
+    ] {
+        assert!(
+            md.contains(semantic),
+            "Typeset Reader semantic tag {semantic:?} was flattened: {md}"
+        );
+    }
+}
+
+#[test]
+fn html_to_markdown_preserves_typeset_reader_definition_lists() {
+    // cmarker renders dl/dt/dd as a Typst terms list; flattening the wrapper
+    // destroys the term/definition relationship even when the words survive.
+    let html = r#"<html><body><dl>
+        <dt>Latency</dt><dd>Time needed to complete one operation.</dd>
+        <dt>Throughput</dt><dd>Operations completed per unit of time.</dd>
+        </dl></body></html>"#;
+
+    let md = html_to_markdown(html).expect("conversion should succeed");
+
+    for tag in ["<dl>", "<dt>", "</dt>", "<dd>", "</dd>", "</dl>"] {
+        assert!(
+            md.contains(tag),
+            "Typeset Reader definition-list tag {tag:?} was flattened: {md}"
+        );
+    }
+    assert!(md.contains("Latency"), "got: {md}");
+    assert!(
+        md.contains("Time needed to complete one operation."),
+        "got: {md}"
+    );
+}
+
+#[test]
+fn html_to_markdown_preserves_typeset_reader_figures_and_captions() {
+    // cmarker associates figcaption with figure. The image deliberately stays
+    // Markdown so Reader path validation and cache hashing still see it; raw
+    // img dimensions are not part of the safe importer contract yet.
+    let html = r#"<html><body><figure id="architecture">
+        <img src="images/architecture.png" alt="System architecture" width="640" />
+        <figcaption>Figure 1. System architecture.</figcaption>
+        </figure></body></html>"#;
+
+    let md = html_to_markdown(html).expect("conversion should succeed");
+
+    assert!(md.contains("<figure"), "figure wrapper was flattened: {md}");
+    assert!(
+        md.contains("</figure>"),
+        "figure wrapper was flattened: {md}"
+    );
+    assert!(
+        md.contains("<figcaption>") && md.contains("</figcaption>"),
+        "figure caption was detached: {md}"
+    );
+    assert!(
+        md.contains("![System architecture](images/architecture.png)"),
+        "figure image must remain visible to Reader's Markdown image scanner: {md}"
+    );
+    assert!(
+        !md.contains("<img"),
+        "raw image bypasses Reader safety: {md}"
+    );
+    assert!(
+        !md.contains("width=\"640\""),
+        "unsafe raw size leaked: {md}"
+    );
+}
+
+#[test]
+fn html_to_markdown_drops_semantic_pagebreaks_but_keeps_real_numbers() {
+    let html = r#"<html><body>
+        <p>42</p>
+        <span role="doc-pagebreak" title="43">43</span>
+        <span type="pagebreak" title="44">44</span>
+        <p aria-hidden="true">tracking text</p>
+        </body></html>"#;
+
+    let md = html_to_markdown(html).expect("conversion should succeed");
+
+    assert!(md.lines().any(|line| line.trim() == "42"), "got: {md}");
+    assert!(!md.contains("43"), "semantic pagebreak leaked: {md}");
+    assert!(!md.contains("44"), "semantic pagebreak leaked: {md}");
+    assert!(!md.contains("tracking text"), "hidden text leaked: {md}");
+}
+
+#[test]
+fn html_to_markdown_drops_hidden_semantic_nodes() {
+    let html = r#"<html><body>
+        <section hidden><h2>Hidden section</h2><p>section secret</p></section>
+        <figure aria-hidden="true"><img src="hidden.png" alt="hidden image" />
+          <figcaption>hidden caption</figcaption>
+        </figure>
+        <p>Visible <mark hidden>marked secret</mark> text.</p>
+        <h3 aria-hidden="true">hidden heading</h3>
+        <h3>Visible heading</h3>
+        </body></html>"#;
+
+    let md = html_to_markdown(html).expect("conversion should succeed");
+
+    for hidden in [
+        "Hidden section",
+        "section secret",
+        "hidden image",
+        "hidden caption",
+        "marked secret",
+        "hidden heading",
+    ] {
+        assert!(!md.contains(hidden), "hidden node leaked {hidden:?}: {md}");
+    }
+    assert!(
+        md.contains("Visible text."),
+        "visible siblings changed: {md}"
+    );
+    assert!(
+        md.contains("### Visible heading"),
+        "visible heading changed: {md}"
+    );
+}
+
+#[test]
+fn html_to_markdown_deduplicates_calibre_tag_emphasis() {
+    let html = "<html><body><p><i><i>italic</i></i> and <b><b>bold</b></b></p></body></html>";
+    let md = html_to_markdown(html).expect("conversion should succeed");
+
+    assert!(md.contains("_italic_"), "got: {md}");
+    assert!(md.contains("**bold**"), "got: {md}");
+    assert!(
+        !md.contains("__italic__"),
+        "nested italics became bold: {md}"
+    );
+    assert!(
+        !md.contains("****bold****"),
+        "nested bold was duplicated: {md}"
+    );
 }

@@ -42,13 +42,20 @@ pub fn detect(device_override: Option<&str>) -> Option<Detected> {
 }
 
 /// Converts `input` to HTMLZ by invoking `<calibre> <input> <out_htmlz>`.
+/// `tag` mode asks Calibre to express styles with semantic HTML tags where
+/// possible instead of leaving them only in CSS classes. The downstream
+/// Markdown conversion can retain those tags, while arbitrary book CSS is
+/// intentionally not carried into the trusted Typeset rendering path.
 /// Calibre's own conversion progress/warnings go to stderr; on failure we
 /// fold a tail excerpt of that (or stdout, if stderr was empty) into the
 /// returned error so callers can show something actionable instead of a
 /// bare "conversion failed".
 pub fn convert_to_htmlz(calibre: &str, input: &Path, out_htmlz: &Path) -> Result<(), String> {
     let mut cmd = Command::new(calibre);
-    cmd.arg(input).arg(out_htmlz);
+    cmd.arg(input)
+        .arg(out_htmlz)
+        .arg("--htmlz-css-type")
+        .arg("tag");
     match run_with_timeout(cmd, CONVERT_TIMEOUT) {
         Ok(RunOutcome::Exited { success: true, .. }) => Ok(()),
         Ok(RunOutcome::Exited { success: false, code, stdout, stderr }) => {

@@ -99,6 +99,51 @@ fn convert_to_htmlz_ok_fixture_produces_output_file() {
     assert!(out.exists(), "ok fixture should have produced the output file");
 }
 
+#[cfg(unix)]
+#[test]
+fn convert_to_htmlz_requests_tag_based_css_preservation() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let tmp = tempfile::tempdir().unwrap();
+    let converter = tmp.path().join("ebook-convert-check-css.sh");
+    std::fs::write(
+        &converter,
+        concat!(
+            "#!/bin/sh\n",
+            "previous=\n",
+            "found=\n",
+            "output=\n",
+            "for argument in \"$@\"; do\n",
+            "  if [ \"$previous\" = \"--htmlz-css-type\" ] && [ \"$argument\" = \"tag\" ]; then found=yes; fi\n",
+            "  case \"$argument\" in *.htmlz) output=$argument ;; esac\n",
+            "  previous=$argument\n",
+            "done\n",
+            "if [ \"$found\" != yes ]; then\n",
+            "  echo 'missing --htmlz-css-type tag' >&2\n",
+            "  exit 23\n",
+            "fi\n",
+            ": > \"$output\"\n",
+        ),
+    )
+    .unwrap();
+    let mut permissions = std::fs::metadata(&converter).unwrap().permissions();
+    permissions.set_mode(0o755);
+    std::fs::set_permissions(&converter, permissions).unwrap();
+
+    let input = tmp.path().join("book.epub");
+    std::fs::write(&input, b"fake epub bytes").unwrap();
+    let out = tmp.path().join("book.htmlz");
+
+    let result = convert_to_htmlz(converter.to_str().unwrap(), &input, &out);
+
+    assert!(
+        result.is_ok(),
+        "ebook-convert must receive --htmlz-css-type tag so Calibre emits semantic tags instead of flattening styles: {:?}",
+        result.err()
+    );
+    assert!(out.is_file());
+}
+
 /// Finding 3 (final review): a child writing more than a pipe's OS buffer
 /// (~64KB) to stderr before exiting must not deadlock run_with_timeout,
 /// which used to read stdout/stderr only *after* `try_wait` observed the
