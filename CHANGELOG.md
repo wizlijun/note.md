@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.922.1 — 2026-09-22
+
 ### Changed
 
 - **Ebook Import 1.5.1 preserves more book structure for Typeset Reader.** Calibre now emits semantic HTML tags, and imports retain heading levels, contents links, quotations, notes, superscript/subscript, highlights, strike-through text, definition lists, and figure captions. Page-break markers and hidden content are removed semantically instead of deleting digit-only or code-like lines.
