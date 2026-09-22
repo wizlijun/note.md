@@ -7,8 +7,14 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+### Changed
+
+- **Ebook Import 1.5.1 preserves more book structure for Typeset Reader.** Calibre now emits semantic HTML tags, and imports retain heading levels, contents links, quotations, notes, superscript/subscript, highlights, strike-through text, definition lists, and figure captions. Page-break markers and hidden content are removed semantically instead of deleting digit-only or code-like lines.
+
 ### Fixed
 
+- **Root-relative Markdown links inside the Vault now open the intended Vault document.** Links such as `[Daily note](/dailynote/2020/2020-03-22.note.md)` resolve `/` from the Vault root instead of the computer's filesystem root; plain `/...` values in `resource` metadata are clickable too. Explicit `file://` links keep their filesystem meaning.
+- **Popup menus no longer show an extra blue outline when the menu container receives keyboard focus.** Menu items and controls keep their normal focus indication.
 - **Conversation Transcript Corrections 0.1.10 can be maintained from another machine or Host author identity.** An existing dictionary keeps its original subject while each human change records the current trusted Host author as its reviewer. Review batches that already contain accepted proposals are retained as audit history and no longer offer a delete action.
 
 ## v6.921.2 — 2026-09-21

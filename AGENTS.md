@@ -59,6 +59,7 @@ agent 交互时，使用中文回复。
 
 - TestFlight 发布时需要 `MATCH_PASSWORD` 环境变量，定义在项目根目录 `.env` 文件中
 - 执行 testflight.sh 前需先 `source .env` 或 `export $(cat .env | xargs)`
+- note.md 插件市场发布必须沿用项目既有流程：使用仓库现有 Wrangler 3 和 Account API Token，依次执行 R2 包/签名上传、匿名公网回读验签、KV 索引发布及公网复核。禁止自行升级或安装其他 Wrangler 版本，禁止改用 Cloudflare Dashboard、浏览器 OAuth 上传或其他发布通道。网络失败时先确认目标对象是否落盘，再用相同命令和幂等对象键安全重试。
 
 ## 核心原则
 
