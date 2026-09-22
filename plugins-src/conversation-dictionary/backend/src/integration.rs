@@ -19,13 +19,35 @@ const PREVIOUS_AGENTS_BLOCK: &str = r#"<!-- notemd:conversation-dictionary:start
 - Importing a dataset only creates pending proposals. Only the user may approve selected changes in the Conversation Dictionary window.
 <!-- notemd:conversation-dictionary:end -->
 "#;
-const AGENTS_BLOCK: &str = r#"<!-- notemd:conversation-dictionary:start -->
+const PREVIOUS_FORMATTED_AGENTS_BLOCK: &str = r#"<!-- notemd:conversation-dictionary:start -->
+
+## Conversation Dictionary / 沟通词典
+
+- When the user asks to build or refresh ASR corrections from historical communication transcripts, use `$build-conversation-dictionary` from `.agents/skills/build-conversation-dictionary/`.
+- Analyze only meetings, calls, voice messages, or public conversations the user participated in. Exclude YouTube, podcasts, and other media the user only consumed.
+- Generate an evidence-backed review dataset under `ssot/meetings/conversation-dictionary-drafts/`; never edit `ssot/meetings/conversation-dictionary.yml` directly.
+- Importing a dataset only creates pending proposals. Only the user may approve selected changes in the Conversation Dictionary window.
+
+<!-- notemd:conversation-dictionary:end -->
+"#;
+const PREVIOUS_UNFORMATTED_AGENTS_BLOCK: &str = r#"<!-- notemd:conversation-dictionary:start -->
 ## Conversation Transcript Corrections / 沟通转写勘误
 
 - When the user asks to build or refresh ASR corrections from historical communication transcripts, use `$build-conversation-dictionary` from `.agents/skills/build-conversation-dictionary/`.
 - Analyze only meetings, calls, voice messages, or public conversations the user participated in. Exclude YouTube, podcasts, and other media the user only consumed.
 - Generate an evidence-backed review dataset under `ssot/meetings/conversation-dictionary-drafts/`; never edit `ssot/meetings/conversation-dictionary.yml` directly.
 - Importing a dataset only creates pending proposals. Only the user may approve selected changes in the Conversation Transcript Corrections window.
+<!-- notemd:conversation-dictionary:end -->
+"#;
+const AGENTS_BLOCK: &str = r#"<!-- notemd:conversation-dictionary:start -->
+
+## Conversation Transcript Corrections / 沟通转写勘误
+
+- When the user asks to build or refresh ASR corrections from historical communication transcripts, use `$build-conversation-dictionary` from `.agents/skills/build-conversation-dictionary/`.
+- Analyze only meetings, calls, voice messages, or public conversations the user participated in. Exclude YouTube, podcasts, and other media the user only consumed.
+- Generate an evidence-backed review dataset under `ssot/meetings/conversation-dictionary-drafts/`; never edit `ssot/meetings/conversation-dictionary.yml` directly.
+- Importing a dataset only creates pending proposals. Only the user may approve selected changes in the Conversation Transcript Corrections window.
+
 <!-- notemd:conversation-dictionary:end -->
 "#;
 
@@ -336,7 +358,7 @@ fn agents_block_is_current(vault: &Path) -> Result<bool, String> {
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
         Err(error) => return Err(format!("{}: {error}", path.display())),
     };
-    Ok(existing.contains(AGENTS_BLOCK))
+    Ok(existing.contains(AGENTS_BLOCK.trim_end_matches('\n')))
 }
 
 fn upsert_agents_block(existing: &str) -> Result<String, String> {
@@ -367,7 +389,10 @@ fn upsert_agents_block(existing: &str) -> Result<String, String> {
             if managed == AGENTS_BLOCK.trim_end_matches('\n') {
                 return Ok(existing.to_string());
             }
-            if managed == PREVIOUS_AGENTS_BLOCK.trim_end_matches('\n') {
+            if managed == PREVIOUS_AGENTS_BLOCK.trim_end_matches('\n')
+                || managed == PREVIOUS_FORMATTED_AGENTS_BLOCK.trim_end_matches('\n')
+                || managed == PREVIOUS_UNFORMATTED_AGENTS_BLOCK.trim_end_matches('\n')
+            {
                 let mut next = existing.to_string();
                 next.replace_range(start..end, AGENTS_BLOCK.trim_end_matches('\n'));
                 return Ok(next);
@@ -471,6 +496,77 @@ mod tests {
         assert!(updated.starts_with("# Vault\n\n"));
         assert!(updated.contains(AGENTS_BLOCK.trim_end_matches('\n')));
         assert!(!updated.contains("## Conversation Dictionary / 沟通词典"));
+    }
+
+    #[test]
+    fn previous_formatted_agents_block_is_upgraded_without_touching_user_content() {
+        let existing = r#"# Vault
+
+<!-- notemd:conversation-dictionary:start -->
+
+## Conversation Dictionary / 沟通词典
+
+- When the user asks to build or refresh ASR corrections from historical communication transcripts, use `$build-conversation-dictionary` from `.agents/skills/build-conversation-dictionary/`.
+- Analyze only meetings, calls, voice messages, or public conversations the user participated in. Exclude YouTube, podcasts, and other media the user only consumed.
+- Generate an evidence-backed review dataset under `ssot/meetings/conversation-dictionary-drafts/`; never edit `ssot/meetings/conversation-dictionary.yml` directly.
+- Importing a dataset only creates pending proposals. Only the user may approve selected changes in the Conversation Dictionary window.
+
+<!-- notemd:conversation-dictionary:end -->
+
+Keep this rule.
+"#;
+
+        let updated = upsert_agents_block(existing).unwrap();
+
+        assert!(updated.starts_with("# Vault\n\n"));
+        assert!(updated.ends_with("\nKeep this rule.\n"));
+        assert!(updated.contains(AGENTS_BLOCK.trim_end_matches('\n')));
+        assert!(!updated.contains("## Conversation Dictionary / 沟通词典"));
+    }
+
+    #[test]
+    fn previous_unformatted_agents_block_is_upgraded_without_touching_user_content() {
+        let existing = format!("# Vault\n\n{PREVIOUS_UNFORMATTED_AGENTS_BLOCK}");
+        let updated = upsert_agents_block(&existing).unwrap();
+        assert!(updated.starts_with("# Vault\n\n"));
+        assert!(updated.contains(AGENTS_BLOCK.trim_end_matches('\n')));
+    }
+
+    #[test]
+    fn markdown_formatted_managed_agents_block_is_accepted_without_touching_user_content() {
+        let existing = r#"# Vault
+
+<!-- notemd:conversation-dictionary:start -->
+
+## Conversation Transcript Corrections / 沟通转写勘误
+
+- When the user asks to build or refresh ASR corrections from historical communication transcripts, use `$build-conversation-dictionary` from `.agents/skills/build-conversation-dictionary/`.
+- Analyze only meetings, calls, voice messages, or public conversations the user participated in. Exclude YouTube, podcasts, and other media the user only consumed.
+- Generate an evidence-backed review dataset under `ssot/meetings/conversation-dictionary-drafts/`; never edit `ssot/meetings/conversation-dictionary.yml` directly.
+- Importing a dataset only creates pending proposals. Only the user may approve selected changes in the Conversation Transcript Corrections window.
+
+<!-- notemd:conversation-dictionary:end -->
+
+Keep this rule.
+"#;
+
+        let updated = upsert_agents_block(existing).unwrap();
+
+        assert_eq!(updated, existing);
+        assert!(updated.starts_with("# Vault\n\n"));
+        assert!(updated.ends_with("\nKeep this rule.\n"));
+    }
+
+    #[test]
+    fn formatted_managed_agents_block_at_eof_without_newline_is_current() {
+        let temp = tempfile::tempdir().unwrap();
+        fs::write(
+            temp.path().join("AGENTS.md"),
+            AGENTS_BLOCK.trim_end_matches('\n'),
+        )
+        .unwrap();
+
+        assert!(agents_block_is_current(temp.path()).unwrap());
     }
 
     #[test]
