@@ -62,6 +62,26 @@ describe('frontmatterInlineParts', () => {
       ])
   })
 
+  it('decorates a root-relative resource path when the caller identifies a resource field', () => {
+    expect(frontmatterInlineParts('/dailynote/2020/2020-03-25.note.md', { linkLocalResource: true }))
+      .toEqual([{
+        kind: 'url',
+        raw: '/dailynote/2020/2020-03-25.note.md',
+        href: '/dailynote/2020/2020-03-25.note.md',
+      }])
+    expect(frontmatterInlineParts(' /dailynote/2020/a.note.md ', { linkLocalResource: true }))
+      .toEqual([
+        { kind: 'text', text: ' ' },
+        { kind: 'url', raw: '/dailynote/2020/a.note.md', href: '/dailynote/2020/a.note.md' },
+        { kind: 'text', text: ' ' },
+      ])
+  })
+
+  it('does not decorate arbitrary root-relative scalar text without resource context', () => {
+    expect(frontmatterInlineParts('/dailynote/2020/2020-03-25.note.md'))
+      .toEqual([{ kind: 'text', text: '/dailynote/2020/2020-03-25.note.md' }])
+  })
+
   it('never interprets HTML as markup', () => {
     expect(frontmatterInlineParts('<img src=x onerror=alert(1)>')).toEqual([
       { kind: 'text', text: '<img src=x onerror=alert(1)>' },

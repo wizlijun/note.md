@@ -7,6 +7,7 @@ vi.mock('./okf/identity', () => ({
 }))
 
 const BASE = '/Users/me/notes/index.md'
+const VAULT = '/Users/me/notes'
 
 describe('classifyLink', () => {
   it('ignores in-document anchors and empty hrefs', () => {
@@ -29,6 +30,36 @@ describe('classifyLink', () => {
 
   it('treats absolute editable paths as edit actions', () => {
     expect(classifyLink('/tmp/a.md', BASE)).toEqual({ kind: 'edit', path: '/tmp/a.md' })
+  })
+
+  it('resolves root-relative Markdown paths from a vault document against the vault root', () => {
+    expect(classifyLink('/dailynote/2020/2020-03-25.note.md', BASE, VAULT)).toEqual({
+      kind: 'edit',
+      path: '/Users/me/notes/dailynote/2020/2020-03-25.note.md',
+    })
+    expect(classifyLink('/dailynote/2020/2020-03-22%20日常笔记.note.md', BASE, VAULT)).toEqual({
+      kind: 'edit',
+      path: '/Users/me/notes/dailynote/2020/2020-03-22 日常笔记.note.md',
+    })
+  })
+
+  it('keeps root-relative links as filesystem-absolute paths outside the vault', () => {
+    expect(classifyLink('/tmp/a.md', '/Users/me/Desktop/index.md', VAULT))
+      .toEqual({ kind: 'edit', path: '/tmp/a.md' })
+    expect(classifyLink('/tmp/a.md', '/Users/me/notes-old/index.md', VAULT))
+      .toEqual({ kind: 'edit', path: '/tmp/a.md' })
+    expect(classifyLink('/tmp/a.md', BASE, undefined))
+      .toEqual({ kind: 'edit', path: '/tmp/a.md' })
+  })
+
+  it('does not let root-relative URL traversal escape the vault root', () => {
+    expect(classifyLink('/../../outside.md', BASE, VAULT))
+      .toEqual({ kind: 'edit', path: '/Users/me/notes/outside.md' })
+  })
+
+  it('keeps explicit file URLs filesystem-absolute inside a vault document', () => {
+    expect(classifyLink('file:///tmp/a.md', BASE, VAULT))
+      .toEqual({ kind: 'edit', path: '/tmp/a.md' })
   })
 
   it('strips query and fragment from local paths', () => {

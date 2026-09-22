@@ -100,6 +100,17 @@ describe('renderFrontmatter — rendering', () => {
     expect(el.querySelector('.fm-chips [data-url="https://example.com"]')).toBeTruthy()
     expect(el.querySelector('.fm-nested a[href="guide.md"]')).toBeTruthy()
   })
+
+  it('decorates root-relative resource fields as editor links', () => {
+    const el = renderFrontmatter([
+      'resource: /dailynote/2020/2020-03-25.note.md',
+      'sources:',
+      '  - resource: /dailynote/2020/2020-03-22.note.md',
+    ].join('\n'))
+
+    expect(el.querySelector('[data-url="/dailynote/2020/2020-03-25.note.md"]')).toBeTruthy()
+    expect(el.querySelector('[data-url="/dailynote/2020/2020-03-22.note.md"]')).toBeTruthy()
+  })
 })
 
 describe('renderFrontmatter — editing', () => {

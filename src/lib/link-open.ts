@@ -1,5 +1,5 @@
 import { classifyPath } from './fs'
-import { basename } from './paths'
+import { basename, normalize as normalizeFsPath, relative } from './paths'
 
 /** Matches a URI scheme prefix like `http:`, `mailto:`, `file:` (RFC 3986). */
 const SCHEME_RE = /^[a-z][a-z0-9+.-]*:/i
@@ -19,8 +19,22 @@ export type LinkAction =
  * Returns an absolute path, or null when the link is relative but no base is
  * available (e.g. an untitled buffer). Normalises `.` / `..` segments.
  */
-function resolveRelative(href: string, basePath: string | undefined): string | null {
-  if (href.startsWith('/')) return normalize(href)
+function resolveRelative(
+  href: string,
+  basePath: string | undefined,
+  vaultRoot?: string | null,
+): string | null {
+  if (href.startsWith('/')) {
+    // Markdown uses URL-style root-relative paths. Inside a configured Vault,
+    // that logical root is the Vault rather than the host filesystem root.
+    // Normalise the href before joining so `/../x` remains inside the Vault in
+    // the same way a browser resolves it from a website origin.
+    if (basePath && vaultRoot && relative(vaultRoot, basePath) !== null) {
+      const root = normalizeFsPath(vaultRoot).replace(/\/+$/, '')
+      return root + normalize(href)
+    }
+    return normalize(href)
+  }
   if (!basePath) return null
   const dir = basePath.slice(0, basePath.lastIndexOf('/'))
   return normalize(`${dir}/${href}`)
@@ -45,12 +59,18 @@ function normalize(path: string): string {
  *  - `file://…` or a local path to an editable text file → edit (new tab)
  *  - a local path to an image / other  → system (default app)
  */
-export function classifyLink(href: string, basePath: string | undefined): LinkAction {
+export function classifyLink(
+  href: string,
+  basePath: string | undefined,
+  vaultRoot?: string | null,
+): LinkAction {
   const raw = href.trim()
   if (!raw || raw.startsWith('#')) return { kind: 'ignore' }
 
   let target = raw
+  let explicitFileUrl = false
   if (/^file:\/\//i.test(target)) {
+    explicitFileUrl = true
     target = target.replace(/^file:\/\//i, '')
   } else if (SCHEME_RE.test(target)) {
     // Any other scheme (http, https, mailto, tel, ftp, …) → system handler.
@@ -61,7 +81,9 @@ export function classifyLink(href: string, basePath: string | undefined): LinkAc
   // Strip URL suffixes first so encoded # / ? remain part of the filename.
   let clean = target.split('#')[0].split('?')[0]
   try { clean = decodeURIComponent(clean) } catch { /* Keep literal/malformed % names usable. */ }
-  const abs = resolveRelative(clean, basePath)
+  // `file://` explicitly names a host filesystem path and therefore never
+  // adopts the Vault-root-relative Markdown convention.
+  const abs = resolveRelative(clean, basePath, explicitFileUrl ? null : vaultRoot)
   if (!abs) return { kind: 'ignore' }
 
   const cls = classifyPath(abs)

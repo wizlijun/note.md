@@ -24,6 +24,11 @@ interface MarkdownLink {
   href: string
 }
 
+export interface FrontmatterInlineOptions {
+  /** Treat a whole `/...` resource scalar as a clickable local path. */
+  linkLocalResource?: boolean
+}
+
 /** Parse the common Markdown link form, including balanced URL parentheses. */
 function markdownLinkAt(input: string, start: number): MarkdownLink | null {
   if (input[start] !== '[' || input[start - 1] === '!') return null
@@ -72,7 +77,23 @@ function markdownLinkAt(input: string, start: number): MarkdownLink | null {
  * raw source so an editable scalar's textContent remains byte-for-byte equal
  * to the parsed scalar until the user actually edits it.
  */
-export function frontmatterInlineParts(input: string): FrontmatterInlinePart[] {
+export function frontmatterInlineParts(
+  input: string,
+  options: FrontmatterInlineOptions = {},
+): FrontmatterInlinePart[] {
+  if (options.linkLocalResource) {
+    const value = input.trim()
+    if (value.startsWith('/')) {
+      const start = input.indexOf(value)
+      const parts: FrontmatterInlinePart[] = []
+      if (start > 0) parts.push({ kind: 'text', text: input.slice(0, start) })
+      parts.push({ kind: 'url', raw: value, href: value })
+      const end = start + value.length
+      if (end < input.length) parts.push({ kind: 'text', text: input.slice(end) })
+      return parts
+    }
+  }
+
   const parts: FrontmatterInlinePart[] = []
   let text = ''
   const flush = () => {

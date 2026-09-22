@@ -84,10 +84,10 @@ function renderKvProperties(
       valEl.classList.add('fm-editable')
       valEl.contentEditable = 'true'
       valEl.spellcheck = false
-      valEl.appendChild(renderInlineValue(original))
+      valEl.appendChild(renderInlineValue(original, key))
       wireScalarEdit(valEl, key, original, originalValue, segText, segStart, segEnd, fullRaw, onChange)
     } else {
-      valEl.appendChild(renderReadonlyValue(valueNode?.toJSON?.() ?? null))
+      valEl.appendChild(renderReadonlyValue(valueNode?.toJSON?.() ?? null, key))
     }
 
     row.append(keyEl, valEl)
@@ -158,7 +158,7 @@ function wireScalarEdit(
     if (ev.key === 'Enter') { ev.preventDefault(); cell.blur() }
     else if (ev.key === 'Escape') {
       ev.preventDefault()
-      cell.replaceChildren(renderInlineValue(original))
+      cell.replaceChildren(renderInlineValue(original, key))
       cell.blur()
     }
   })
@@ -171,7 +171,7 @@ function rawFallback(raw: string): HTMLElement {
   return pre
 }
 
-function renderReadonlyValue(value: unknown): Node {
+function renderReadonlyValue(value: unknown, fieldKey?: string): Node {
   if (value == null) return document.createTextNode('')
 
   if (Array.isArray(value)) {
@@ -180,7 +180,7 @@ function renderReadonlyValue(value: unknown): Node {
     if (value.every(isChipValue)) ul.classList.add('fm-chips')
     for (const item of value) {
       const li = document.createElement('li')
-      li.appendChild(renderReadonlyValue(item))
+      li.appendChild(renderReadonlyValue(item, fieldKey))
       ul.appendChild(li)
     }
     return ul
@@ -196,23 +196,25 @@ function renderReadonlyValue(value: unknown): Node {
       keyEl.className = 'fm-nested-key'
       keyEl.textContent = `${k}: `
       line.appendChild(keyEl)
-      line.appendChild(renderReadonlyValue(v))
+      line.appendChild(renderReadonlyValue(v, k))
       box.appendChild(line)
     }
     return box
   }
 
   // Scalar (incl. multi-line strings, which the `.fm-val` pre-wrap keeps intact).
-  return renderInlineValue(String(value))
+  return renderInlineValue(String(value), fieldKey)
 }
 
 function isChipValue(value: unknown): boolean {
   return value == null || typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean'
 }
 
-function renderInlineValue(value: string): DocumentFragment {
+function renderInlineValue(value: string, fieldKey?: string): DocumentFragment {
   const fragment = document.createDocumentFragment()
-  for (const part of frontmatterInlineParts(value)) {
+  for (const part of frontmatterInlineParts(value, {
+    linkLocalResource: fieldKey?.toLowerCase() === 'resource',
+  })) {
     if (part.kind === 'text') {
       fragment.appendChild(document.createTextNode(part.text))
     } else if (part.kind === 'wikilink') {

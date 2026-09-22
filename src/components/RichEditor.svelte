@@ -39,6 +39,7 @@
   import { pageNameOf } from '../lib/outline/backlinks'
   import { ensureIndex } from '../lib/outline/backlinks-io.svelte'
   import { outlineGate } from '../lib/outline/gate.svelte'
+  import { sotvaultStore } from '../lib/sotvault.svelte'
 
   // Reactive store of the currently active theme id, set by the theme-init
   // block in App.svelte. Default is 'default'.
@@ -411,7 +412,7 @@
       return
     }
     const href = urlEl ? urlEl.getAttribute('data-url') || '' : anchor!.getAttribute('href') || ''
-    const action = classifyLink(href, tab.filePath)
+    const action = classifyLink(href, tab.filePath, sotvaultStore.vaultRoot)
     if (action.kind !== 'ignore') void openLinkAction(action)
   }
 
