@@ -122,6 +122,7 @@ impl DictionaryService {
                     return Err("dictionary path must not be a symbolic link".into());
                 }
                 Ok(_) => {
+                    self.restore_missing_trusted_terminal_newline_locked()?;
                     let (existing, baseline) = storage::verified_dictionary(&self.vault)?;
                     self.ensure_baseline_snapshot_locked(&baseline)?;
                     dictionary = existing;
@@ -1591,6 +1592,36 @@ impl DictionaryService {
         }
         validate_evidence(&self.vault, &dataset, &evidence_bytes)?;
         Ok((bytes, dataset, hash, evidence_bytes))
+    }
+
+    fn restore_missing_trusted_terminal_newline_locked(&self) -> Result<(), String> {
+        let dictionary_path = storage::dictionary_path(&self.vault)?;
+        let current = fs::read(&dictionary_path)
+            .map_err(|error| format!("{}: {error}", dictionary_path.display()))?;
+        let control = storage::load_control(&self.vault)?;
+        let (Some(baseline), Some(snapshot)) = (control.baseline, control.baseline_dictionary)
+        else {
+            return Ok(());
+        };
+        let reviewed = snapshot.as_bytes();
+        if storage::sha256(reviewed) != baseline.sha256 {
+            return Ok(());
+        }
+        let Some(reviewed_without_newline) = reviewed.strip_suffix(b"\n") else {
+            return Ok(());
+        };
+        if current != reviewed_without_newline {
+            return Ok(());
+        }
+        let dictionary: Dictionary = serde_yaml::from_slice(reviewed)
+            .map_err(|error| format!("invalid reviewed dictionary snapshot: {error}"))?;
+        if dictionary.dictionary_id != baseline.dictionary_id
+            || dictionary.revision != baseline.revision
+        {
+            return Ok(());
+        }
+        validate_dictionary_legacy(&dictionary)?;
+        storage::atomic_bytes_if_sha256(&dictionary_path, reviewed, &storage::sha256(&current))
     }
 
     fn ensure_baseline_snapshot_locked(&self, baseline: &Baseline) -> Result<(), String> {
@@ -3493,6 +3524,74 @@ mod tests {
         assert_eq!(
             fs::read(storage::dictionary_path(temp.path()).unwrap()).unwrap(),
             before
+        );
+    }
+
+    #[test]
+    fn initialization_restores_a_missing_trusted_terminal_newline() {
+        let temp = tempfile::tempdir().unwrap();
+        let service = DictionaryService::new(temp.path().to_path_buf());
+        service.ensure_initialized("human:bruce").unwrap();
+        let dictionary_path = storage::dictionary_path(temp.path()).unwrap();
+        let reviewed = fs::read(&dictionary_path).unwrap();
+        let control_before = fs::read(storage::control_path(temp.path())).unwrap();
+        assert_eq!(reviewed.last(), Some(&b'\n'));
+        fs::write(&dictionary_path, &reviewed[..reviewed.len() - 1]).unwrap();
+
+        let result = service.ensure_initialized("human:other-machine").unwrap();
+
+        assert_eq!(result["status"], "existing");
+        assert_eq!(fs::read(dictionary_path).unwrap(), reviewed);
+        assert_eq!(
+            fs::read(storage::control_path(temp.path())).unwrap(),
+            control_before
+        );
+    }
+
+    #[test]
+    fn initialization_does_not_restore_any_other_external_dictionary_change() {
+        let temp = tempfile::tempdir().unwrap();
+        let service = DictionaryService::new(temp.path().to_path_buf());
+        service.ensure_initialized("human:bruce").unwrap();
+        let dictionary_path = storage::dictionary_path(temp.path()).unwrap();
+        let mut changed = fs::read(&dictionary_path).unwrap();
+        changed.extend_from_slice(b"# external\n");
+        fs::write(&dictionary_path, &changed).unwrap();
+        let control_before = fs::read(storage::control_path(temp.path())).unwrap();
+
+        assert!(service
+            .ensure_initialized("human:other-machine")
+            .unwrap_err()
+            .contains("outside the reviewed plugin transaction"));
+        assert_eq!(fs::read(dictionary_path).unwrap(), changed);
+        assert_eq!(
+            fs::read(storage::control_path(temp.path())).unwrap(),
+            control_before
+        );
+    }
+
+    #[test]
+    fn initialization_does_not_restore_a_newline_from_an_unverified_snapshot() {
+        let temp = tempfile::tempdir().unwrap();
+        let service = DictionaryService::new(temp.path().to_path_buf());
+        service.ensure_initialized("human:bruce").unwrap();
+        let dictionary_path = storage::dictionary_path(temp.path()).unwrap();
+        let reviewed = fs::read(&dictionary_path).unwrap();
+        let without_newline = reviewed[..reviewed.len() - 1].to_vec();
+        fs::write(&dictionary_path, &without_newline).unwrap();
+        let mut control = storage::load_control(temp.path()).unwrap();
+        control.baseline_dictionary = Some("unverified snapshot\n".into());
+        storage::save_control(temp.path(), &control).unwrap();
+        let control_before = fs::read(storage::control_path(temp.path())).unwrap();
+
+        assert!(service
+            .ensure_initialized("human:other-machine")
+            .unwrap_err()
+            .contains("outside the reviewed plugin transaction"));
+        assert_eq!(fs::read(dictionary_path).unwrap(), without_newline);
+        assert_eq!(
+            fs::read(storage::control_path(temp.path())).unwrap(),
+            control_before
         );
     }
 
