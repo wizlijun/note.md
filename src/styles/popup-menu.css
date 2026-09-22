@@ -12,6 +12,10 @@
   font-size: 13px;
   font-weight: 400;
 }
+/* Popup containers may receive programmatic focus for Escape/key handling.
+   Keep their chrome identical to non-focusable host menus; focusable rows and
+   controls inside the panel retain the shared focus-visible treatment. */
+.menu-panel:focus { outline: none; }
 .menu-row {
   display: flex;
   align-items: center;

@@ -32,7 +32,7 @@
 .ui-surface :where(input, select, textarea) { max-width: 100%; box-sizing: border-box; }
 .ui-surface :where(input[type='checkbox'], input[type='radio'], input[type='range']) { accent-color: var(--ui-accent); }
 /* Beat scoped control resets without removing the browser's pointer behavior. */
-.ui-surface.ui-surface :is(button, input, select, textarea, summary, a, [tabindex]):focus-visible {
+.ui-surface.ui-surface :is(button, input, select, textarea, summary, a, [tabindex]):not(.menu-panel):focus-visible {
   outline: 3px solid var(--ui-focus);
   outline-offset: 2px;
 }
