@@ -2,7 +2,7 @@
 
 This document tells an LLM agent everything it needs to understand and work
 with note.md and its vaults. It is the authoritative plain-text companion to
-https://notemd.net/. Last updated: 2026-09.
+https://notemd.net/. Last reviewed: 2026-09-22 for note.md 6.921.2.
 
 ## What note.md is
 
@@ -26,9 +26,9 @@ not permission.
 
 - Platform: macOS 13+ (Apple Silicon & Intel) and Windows 10/11 x64 — a Tauri
   app rendering in the system WebView. The macOS build is code-signed and
-  notarized. Windows packages are produced after the macOS release and may
-  trail it by a version or two; https://notemd.net/download hands each
-  platform its newest available installer.
+  notarized (~12 MB download, ~19 MB installed). Windows releases may trail
+  macOS significantly, and some native plugins currently ship only for macOS;
+  https://notemd.net/download hands each platform its newest available installer.
 - Website: https://notemd.net/ · Repo: https://github.com/wizlijun/note.md
 - License: Apache-2.0. Product name is all-lowercase "note.md".
 - Symbol language: `✦` marks what AI writes, `●` marks what the human thinks.
@@ -60,7 +60,7 @@ OpenClaw, Hermes, or you) can honor it with nothing but file reads and writes.
 
 note.md follows the Open Knowledge Format v0.2 strictly, and expects agents
 working in a vault to do the same. Spec:
-https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md
+https://github.com/GoogleCloudPlatform/open-knowledge-format/blob/main/SPEC.md
 
 - **Hard constraints.** Every `.md` you create in a vault opens with a
   parseable YAML frontmatter block, and that block carries a non-empty
@@ -125,6 +125,18 @@ https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md
 - Slug rule: the title with filesystem-illegal characters replaced; CJK is
   kept as-is. Frontmatter `title` is authoritative when slug and title
   differ.
+
+### Canvas, source files and declarative views
+
+- JSON Canvas (`*.canvas`) opens as a spatial editor; unsaved canvases receive
+  a stable filename on first save. JSON documents have a dedicated formatter.
+- Imported sources may declare `readonly: true`; Rich, Source and metadata
+  editing then stay read-only while an external sync may refresh the file.
+- Long documents expose a table of contents and metadata card. Declarative
+  file views select specialized readers by suffix or metadata: Timeline,
+  Index Viewer, Knowledge Browser and Typeset Reader (`*.typeset.md`).
+- Plugin installs and updates hot-reload their UI, commands and file views
+  without requiring an app restart.
 
 ### Block citations (mdblock)
 
@@ -247,8 +259,9 @@ it is not a second search index for every document in the vault.
   tracked by Git. `USER.md` and `MEMORY.md` are concise, human-readable
   projections that can be rebuilt from those assets.
 - An actionable agent must request context for a specific space, purpose,
-  provider, model, and tool set. Consent and policy determine which approved
-  claims it may receive; semantic similarity alone never grants permission.
+  role, scope, provider, model, and tool set. Consent and policy determine
+  which approved claims it may receive or coauthor; semantic similarity alone
+  never grants permission.
 - Search keeps its own job: retrieve potentially relevant material from the
   whole vault. Memory governs which personal claims are trusted. See the
   product thesis at https://notemd.net/blog/personal-ai-memory/.
@@ -257,17 +270,25 @@ it is not a second search index for every document in the vault.
 
 ### CLI
 
-The `notemd` CLI drives app features headlessly (only commands from enabled
-plugins are exposed):
+The `notemd` CLI drives app features headlessly. Core commands are always
+available; commands contributed by plugins appear while those plugins are
+installed and enabled:
 
     notemd search "query" --vault ~/Vault      # full-text search, path:line:text
     notemd search "query" --json --limit 20    # structured hits with source_ref
     notemd memory pending --json       # pending agent proposals for human review
     notemd memory context --space <id> --purpose <purpose> --caller <agent> --json
-    notemd -s draft.md              # publish file as a self-contained web page, prints URL
     notemd share draft.md --json    # structured output
     notemd share draft.md --unshare # revoke
     notemd plugin list
+    notemd plugin install <id>[@version]
+    notemd plugin update <id>
+    notemd plugin remove <id>
+    notemd mcp                       # read-only local Vault MCP over stdio
+    notemd meetings-sync --dry-run  # incremental Hemory import, if enabled
+    notemd apple-notes-sync --dry-run # Apple Notes sync, macOS, if enabled
+    notemd roam-sync --dry-run      # changed Roam pages, if enabled
+    notemd mail-sync                # admitted Assistant Mail, if enabled
     notemd reading-insights report --vault ~/Vault --date 7d   # engagement digest
     notemd doctor                    # self-check env, vault, index, plugins, network (--offline, --json)
     notemd help
@@ -317,26 +338,33 @@ with one line of warning on stderr.
 
 ### MCP
 
-The share worker (self-hosted on the user's Cloudflare account) exposes an
-MCP endpoint, so agents can publish documents on the user's behalf. A vault
-MCP server (`vault_search` / `vault_read` / `vault_annotate`) is on the
-roadmap.
+`notemd mcp` starts the shipped local Vault MCP server over stdio. It exposes
+read-only `search` and `vault_info` tools backed by the same index as the app
+and CLI. It opens no TCP port: the shell reaches the running app through a
+local Unix socket or Windows named pipe. It can be disabled in Settings.
+
+The self-hosted Cloudflare share worker has a separate MCP endpoint for
+publishing and revoking shared pages. Its tools and authorization do not grant
+general Vault access.
 
 ### Sharing pipeline
 
-`Cmd+Shift+L` (or `notemd -s`) publishes a document as a self-contained HTML
+`Cmd+Shift+L` (or `notemd share`) publishes a document as a self-contained HTML
 page: KaTeX, Mermaid SVG, syntax highlighting, light/dark, mobile-ready.
 Shares can be updated in place or revoked (410 after unshare).
 
-## Roadmap (agent-relevant)
+## Current agent-relevant capabilities
 
-Shipped: sidecar annotations, the outline editor, controlled personal Memory,
-a dedicated Daily Notes window, one-shot Roam Research import (a plugin, with date-page rewriting
-and a broken-link report), wiki pages, and the vault-wide index — full-text
-search over the whole vault, rebuildable from files at any time, reachable
-headlessly through `notemd search` (see the CLI section above). On the
-roadmap: the vault MCP server (`vault_search` / `vault_read` /
-`vault_annotate`).
+Shipped through 6.921.2: sidecar annotations and Smart Lookup's governed
+answer writeback; outline, Daily Notes, wiki and JSON Canvas editing; controlled
+Memory with role/scope policy and governed coauthoring; vault-wide full-text
+search plus the read-only local Vault MCP; table of contents, metadata cards,
+JSON formatting, auto naming and read-only imported sources; declarative file
+views (Timeline, Index Viewer, Knowledge Browser and Typeset Reader); Apple
+Notes and Roam Research sync, Meetings and Assistant Mail ingestion; and
+human-approved Conversation Transcript Corrections. Plugin installs and updates
+hot-reload without an app restart. Native plugin availability depends on
+platform and minimum host version.
 
 ## Contact
 

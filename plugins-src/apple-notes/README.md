@@ -2,6 +2,9 @@
 
 通过 macOS 自带 Notes 的 JXA / Apple Events 接口，将所有账户中的可见笔记单向同步到当前 Vault 的 `applenotes/`。支持手动同步、宿主运行期间每 5 分钟自动同步和独立 cron CLI。不会修改 Apple Notes。
 
+需要 note.md `6.915.1` 或更高版本；当前发布包支持 macOS Apple Silicon 与
+Intel，不提供 Windows 版本。
+
 ## 文件组织
 
 保留 Apple Notes 的账户、文件夹和子文件夹层级。日常浏览的目录、笔记和附件都不附带来源 ID；笔记文件名只包含创建日期和标题：
@@ -34,12 +37,14 @@ modified: '2026-09-15T09:00:00.000Z'
 locked: false
 ```
 
-本次宿主改动会让 `readonly: true` 的 Markdown 在 Rich、Source 和 YAML 属性区只读，并阻止保存、另存和历史覆盖。外部同步仍可刷新内容。请在 Apple Notes 中编辑原件。
+从 note.md `6.915.1` 起，`readonly: true` 的 Markdown 在 Rich、Source 和
+YAML 属性区只读，并阻止保存、另存和历史覆盖。外部同步仍可刷新内容。请在
+Apple Notes 中编辑原件。
 
 ## 使用与权限
 
 1. 从源码安装开发插件：`bash scripts/dev-install-plugin.sh apple-notes`。插件需要同时包含 UI 和当前 macOS 架构的二进制。
-2. 在插件菜单打开「同步 Apple Notes」，点击立即同步。首次运行允许 macOS 的「自动化 → Notes」授权。本次宿主已加入 Automation entitlement 与用途说明；需要使用包含这些改动的宿主构建，旧签名安装包可能无法提示授权。
+2. 在插件菜单打开「同步 Apple Notes」，点击立即同步。首次运行允许 macOS 的「自动化 → Notes」授权。`6.915.1` 起的正式宿主包含 Automation entitlement 与用途说明；更早的签名安装包可能无法提示授权。
 3. 按需开启「每 5 分钟自动同步」。默认关闭；开启后立即同步，后续在应用运行期间定时同步，并在下次启动恢复。系统睡眠或未登录时不保证执行。
 
 Notes 的 iCloud 下载由系统 Notes 完成；同步依据本机接口当前可见内容，不会强制刷新 iCloud，也不读取 Notes 私有数据库。

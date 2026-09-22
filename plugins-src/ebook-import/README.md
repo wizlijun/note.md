@@ -2,6 +2,24 @@
 
 导入书籍、维护主题分类，并生成书库根目录的 `*.index.md`。新导入的正文保存为 `book.typeset.md`，可由排版阅读器使用 Typst 分页显示；旧 `book.md` 仍保持可读兼容。导入文件或书目标题在首个 `_` 或 `-` 后的后缀不进入书籍目录名，但完整原标题仍保留在正文、`config.txt` 和书目元数据中。
 
+## 开始使用
+
+需要 note.md `6.910.1` 或更高版本。当前原生发布包支持 macOS Apple Silicon
+与 Intel，不提供 Windows 版本。在「插件 → 阅读 → 导入电子书…」中选择
+文件，也可以从命令行导入：
+
+```sh
+notemd ebook /absolute/path/to/book.epub --topic "待读"
+```
+
+EPUB、MOBI 等格式依赖本机 [Calibre](https://calibre-ebook.com/) 提供的
+`ebook-convert`；普通 PDF 可直接导入。扫描 PDF 的 OCR 会调用用户所选的第三方
+AI 服务，正文可能离开本机，并产生相应的隐私与费用影响，确认后才会执行。
+
+安装 Typeset Reader `0.1.1` 且宿主达到 `6.921.2` 后，新导入的
+`*.typeset.md` 会以分页排版视图打开；未安装或版本不足时仍可作为普通 Markdown
+读取，不影响源文件。
+
 ## 书籍索引
 
 索引遵循 [文件索引 V1](../../skills/file-index/references/format.md)，默认 `view: gallery`。每本书一行列表，标题表达分类；作者、入库日期、封面是行内属性。词汇解释保留为段落。

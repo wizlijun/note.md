@@ -6,6 +6,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Free document sharing with note.md on Cloudflare — your own worker, your own links</title>
 <meta name="description" content="Deploy note.md's share worker to Cloudflare's free tier in ten minutes. Publish any markdown as a beautiful self-contained page — with math, diagrams, dark mode — on infrastructure you control.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Free document sharing with note.md on Cloudflare — your own worker, your own links">
+<meta property="og:description" content="Deploy note.md's share worker to Cloudflare's free tier in ten minutes. Publish any markdown as a beautiful self-contained page — with math, diagrams, dark mode — on infrastructure you control.">
+<meta property="og:url" content="https://notemd.net/guides/share-on-cloudflare/">
+<meta property="og:site_name" content="note.md">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Free document sharing with note.md on Cloudflare — your own worker, your own links">
+<meta name="twitter:description" content="Deploy note.md's share worker to Cloudflare's free tier in ten minutes. Publish any markdown as a beautiful self-contained page — with math, diagrams, dark mode — on infrastructure you control.">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="/favicon.ico" sizes="32x32">
 <link rel="canonical" href="https://notemd.net/guides/share-on-cloudflare/">
@@ -109,11 +117,11 @@ wrangler login
 wrangler kv:namespace create SHARES     # copy the id into wrangler.toml
 openssl rand -hex 32 | wrangler secret put SHARE_API_KEY
 wrangler deploy                          # prints your Worker URL</code></pre>
-<p>Paste the Worker URL and API key into <b>note.md → Preferences → Share</b>, restart, done. Full details live in the repo's <code>worker/README.md</code>.</p><h2>What you get</h2><ul>
+<p>Paste the Worker URL and API key into <b>note.md → Preferences → Share</b> and save. Full details live in the repo's <code>worker/README.md</code>.</p><h2>What you get</h2><ul>
 <li><b>One keystroke:</b> <code>Cmd+Shift+L</code> publishes the current file; the URL lands in your clipboard. Share again to update in place; unshare returns 410.</li>
 <li><b>Faithful rendering:</b> KaTeX math, Mermaid diagrams as SVG, syntax highlighting, light/dark via <code>prefers-color-scheme</code>, mobile-optimized.</li>
 <li><b>Images included:</b> image-heavy documents spill to Cloudflare R2 (also free tier) automatically.</li>
-<li><b>Agent-ready:</b> the Worker exposes an MCP endpoint, so your agents can publish on your behalf — <code>notemd -s draft.md</code> does it from any script.</li>
+<li><b>Agent-ready:</b> the Worker exposes an MCP endpoint, so your agents can publish on your behalf — <code>notemd share draft.md</code> does it from any script.</li>
 </ul>
 <section class="faq"><h2>FAQ</h2><h3>How much does this cost?</h3><p>Nothing for personal use. Cloudflare's free tier includes 100,000 Worker requests per day and 10GB of R2 storage — orders of magnitude beyond a person sharing documents.</p><h3>Can I take a shared page down?</h3><p>Yes, instantly. File → Unshare (or notemd share --unshare) revokes the link; visitors get a 410. It's your Worker — you can also just delete it.</p></section>
 </div></main>

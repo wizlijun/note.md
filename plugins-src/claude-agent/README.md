@@ -9,6 +9,8 @@ template — the plugin only starts it, watches it, and records it.
 
 ## Prerequisites
 
+- **note.md 6.905.6 or later.** Current native packages support macOS Apple
+  Silicon and Intel; no Windows package is published yet.
 - **Claude Code installed and logged in.** Verify with `claude --version` and
   `claude -p "reply ok" --output-format json`.
 - A vault configured in note.md.
@@ -35,8 +37,10 @@ child process if it's set in the environment.
 └── .mcp.json             # optional, auto-discovered
 ```
 
-Plain text, git-tracked, yours to edit. Running one outside note.md with
-`cd <task> && claude -p …` is exactly equivalent.
+Plain text and git-tracked. The closest manual invocation is `cd <task> &&
+claude -p …`, but note.md additionally materializes scoped settings, assembles
+run context, performs prechecks, tracks progress and artifacts, records usage,
+and sends completion notifications.
 
 `task.json`:
 
@@ -46,7 +50,7 @@ Plain text, git-tracked, yours to edit. Running one outside note.md with
 | `description` | | One line under the name |
 | `prompt` | | The template's own prompt (part ① below) |
 | `max_turns` | | → `--max-turns`; omitted if unset |
-| `timeout_seconds` | | Default 1800; the run is killed past this |
+| `timeout_seconds` | | Default 1800; inactivity timeout, reset by every event |
 | `model` | | → `--model`; omitted if unset |
 
 ### The prompt is three parts, in this fixed order
@@ -98,12 +102,19 @@ source" rule is enforced by permissions rather than by the prompt alone.
   it's the acceptance test for the whole setup.
 - **`answer-note-question`** — answers the open questions captured in sidecar
   `.note.md` files (`type:: question`, `status:: open`), following the protocol
-  in `docs/superpowers/specs/2026-07-27-annotation-qa-loop-design.md`: reply as
-  a `✦` child node, flip `status::` to `answered`, and **never** to `closed` —
-  only a person closes a question.
+  in `docs/superpowers/specs/2026-07-27-annotation-qa-loop-design.md`: write one
+  fenced `type:: answer` child whose opening fence immediately follows `- `,
+  flip `status::` to `answered`, never hand-write `✦`, and **never** set
+  `closed` or `adopted` — only a person closes or adopts an answer.
+- **`ai-read-ebook`** — reads one scoped book and writes the requested reading
+  artifact; separate books may run concurrently.
+- **`search-plan` / `search-answer` / `search-summary`** — the staged Smart
+  Lookup workflow.
+- **`vault-research`** — evidence-backed research across the configured Vault.
 
-Both are seeded on first activation and **never overwritten**; once you edit
-one, it's yours.
+Built-in templates are owned by the plugin and refreshed on upgrade. To
+customize one safely, copy it to a new task id first; edits made directly to a
+built-in directory will be replaced by a later plugin version.
 
 ## CLI
 
@@ -121,17 +132,18 @@ usable from cron.
 
 ## Concurrency
 
-One run per task at a time; different tasks run in parallel. The lock is a file
-under `.notemd/agent-runs/<task>/`; if a process dies holding it, the next run
-sees a dead pid and reclaims it.
+Normally one run may hold a task lock at a time and different tasks can run in
+parallel. The scoped `ai-read-ebook` task may run for different books at once.
+The plugin setting caps total parallel AI reads from 1 to 5. Locks live under
+`.notemd/agent-runs/<task>/`; a dead holder is reclaimed on the next run.
 
 ## Run records
 
-`.notemd/agent-runs/<task>/runs/<runId>.json` holds the outcome: status, exit
-code, turn count, session id, the result text (8 KB tail) and, on failure, the
-last 2 KB of stderr. The full event stream is **not** persisted — it exists for
-the window to watch live. The whole `agent-runs/` tree is added to the vault's
-`.gitignore`.
+`.notemd/agent-runs/<task>/runs/` holds a JSON summary, capped event log,
+progress state and a bounded complete terminal `.result` for each run. Records
+include status, harness/model, artifacts and provider-reported token usage; the
+UI labels any derived dollar figure as an API list-price estimate. The whole
+`agent-runs/` tree is added to the vault's `.gitignore`.
 
 Hitting a rate limit isn't retried automatically; it shows up as the run's
 result text, and you decide when to run again.

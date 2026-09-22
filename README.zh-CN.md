@@ -4,8 +4,9 @@
 
 > **读 AI 写的，留下你想的，留住只有你才写得出的字。**
 
-为人与 AI Agent 在同一批文件中协作而设计的 markdown 阅读器、编辑器、双链笔记工具。原生 macOS 应用，下载约 11 MB，
-装完约 15 MB。你的笔记是磁盘上一个纯 `.md` 文件夹——永远属于你。
+为人与 AI Agent 在同一批文件中协作而设计的 markdown 阅读器、编辑器、双链笔记工具。
+桌面版支持 macOS 13+（Apple Silicon 与 Intel）和 Windows 10/11 x64；签名并公证的
+macOS 版下载约 12 MB，装完约 19 MB。你的笔记是磁盘上一个纯 `.md` 文件夹——永远属于你。
 
 [下载](https://notemd.net/download) · [插件市场](https://plugins.notemd.net) · [完整功能清单](docs/FEATURES.zh-CN.md)
 
@@ -13,8 +14,8 @@
 
 ## 1. 读 agent 写的东西，这里体验最好
 
-富文本与源码双模，一个快捷键之隔。任意导入 Notion、Typora 主题。Mermaid、Graphviz、  
-KaTeX 都专门调过，按需加载。没有捆绑 Chromium——整个应用装完约 15 MB。
+富文本与源码双模，一个快捷键之隔。可导入 Typora 兼容主题。Mermaid、Graphviz、
+KaTeX 都专门调过，按需加载。没有捆绑 Chromium——当前 macOS 版装完约 19 MB。
 
 高亮一句断言，在旁边留下你的疑问，就地把写错的句子改对。
 
@@ -23,10 +24,11 @@ Claude、Codex、OpenClaw 各有各的对话窗口，但没有一个是**读**�
 ## 2. 上一代笔记工具做对的事，全都内置
 
 local-first、git sync、大纲、`[[双链]]`与反向链接、wiki 页面、每日笔记、  
-全库检索、插件机制。
+全库检索、JSON Canvas、插件机制。
 
-这些是 Roam Research 和 Obsidian 想明白的事，note.md 把它们落在文件上：一个  
-插件导入你整份 Roam 数据，Obsidian 的 vault 直接打开。
+这些是 Roam Research 和 Obsidian 想明白的事，note.md 把它们落在文件上：
+Roam Research 同步可从整图导出完成初始化，之后持续同步变化页面；Obsidian 的
+vault 则可直接打开。
 
 ## 3. 为 AI Agent 原生设计。用你已经在用的 AI。
 
@@ -72,6 +74,29 @@ Memory 把分工倒过来：agent 从你带进 vault 的工作与沟通中发现
 
 ---
 
+## 最近发布 · v6.904–v6.921
+
+- **同一批文件，更多阅读方式。** 只读目录会跟随长文的当前阅读位置；插件文件视图与
+  Rich、Source 并列，失败时安全回退编辑器。时间轴把每日记录排成日程，索引查看器把
+  `*.index.md` 显示成表格、看板、分组列表或封面画廊，知识浏览器把受支持的 JSON
+  数据集显示成交互图谱，排版阅读器则用 Typst 渐进分页 `*.typeset.md` 书籍。
+- **带进更多来源，控制权仍在你手里。** Apple Notes 同步在 macOS 上把系统备忘录镜像为
+  可读、只读的 Markdown；Roam Research 同步持续收取页面与每日笔记；会议插件增量归档
+  Hemory 逐字稿；助理邮箱把准入邮件的原始 `.eml` 与完整性元数据归档到可配置的 Vault
+  目录。每条流程都有自己的冲突、恢复和删除边界。
+- **更完整的工作台。** 标准 `.canvas` 文件会以兼容 Obsidian 的无限画布打开，支持套索、
+  吸附、对齐、分组和多选缩放。新笔记与画布直接在 Vault 中打开，保存时按日期和标题
+  自动命名。合法 JSON 会排成可读源码行而不改变值；`readonly: true` 会被所有编辑路径
+  一致执行。
+- **检索更聪明，批准仍由人做。** 智能查找会先解析保守时间窗口，再检索并把结果交给
+  已启用的 Agent。Memory 新增角色/场景治理与受控共写，由隔离 Agent 提交可审查改动。
+  沟通转写勘误把你亲自参与的沟通证据整理成分场景的人名与 ASR 修正规则；Agent 可以
+  提案，只有你能批准。
+- **插件原地更新。** 安装、更新、启用、停用或移除插件后，命令、菜单和已打开视图会
+  自动刷新，无需重启应用。逐版本细节见[更新日志](CHANGELOG.zh-CN.md)。
+
+---
+
 ## 五个信念
 
 1. **AI 的文字无限，你的注意力有限——你的判断才是残余。**  
@@ -90,7 +115,7 @@ Memory 把分工倒过来：agent 从你带进 vault 的工作与沟通中发现
 ## 严格遵循 OKF v0.2
 
 信念 2 需要的是一套格式，不只是一个后缀。note.md 严格遵循  
-[Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md)
+[Open Knowledge Format](https://github.com/GoogleCloudPlatform/open-knowledge-format/blob/main/SPEC.md)
 （OKF）v0.2——Google Cloud 开放的知识文档规范，人与 agent 交换知识用的公共约定：  
 纯 Markdown、YAML frontmatter、可 diff、可移植。
 
@@ -109,9 +134,9 @@ Memory 把分工倒过来：agent 从你带进 vault 的工作与沟通中发现
   文件夹；每一个写文档的路径都有测试拿它校验产物。
 
 你的 agent 拿到同一份契约：vault 的 `AGENTS.md` 里写明了 OKF 要求，在这个文件夹里  
-干活的 agent 也照此写文件。还在路上的部分：由应用自动填 `generated` / `verified`，  
-以及 bundle 级导出（`index.md`、`log.md`、把 wikilink 改写成 OKF 链接）——进度见  
-[一致性审计](docs/okf-v0.2-conformance-audit.md)。格式细节见  
+干活的 agent 也照此写文件。应用现在会在证据充分时填写人类作者身份的 `generated` /
+`verified`；bundle 导出也会写出 `index.md`、`log.md` 和可移植链接。剩余的读侧展示与
+attestation 工作见[一致性审计](docs/okf-v0.2-conformance-audit.md)。格式细节见
 [`docs/okf-v0.2-format-constraints.md`](docs/okf-v0.2-format-constraints.md)。
 
 ## AI 写的，人负责
@@ -122,9 +147,9 @@ note.md 完全由 AI Coding 开发和维护，所以更新很快。维护者是�
 ## 引擎盖下
 
 基于 [Tauri](https://tauri.app) 与  
-`[@moraya/core](https://www.npmjs.com/package/@moraya/core)` 构建：签名并公证的  
-原生 macOS `.app`——原生 Rust 二进制，菜单、窗口、托盘均为系统原生控件——编辑器  
-UI 渲染在系统 WebView（WKWebView）里，而不是一个捆绑的浏览器。
+[`@moraya/core`](https://www.npmjs.com/package/@moraya/core) 构建：原生 Rust 桌面
+二进制，菜单、窗口与托盘使用系统能力，编辑器 UI 渲染在操作系统 WebView 中，而不是
+捆绑一份浏览器。macOS `.app` 经过签名与公证；Windows 使用系统 WebView2 运行时。
 
 产品名为 **note.md**（全小写——一篇笔记就是一个 markdown 文件）；CLI 二进制与  
 bundle identifier 为 `notemd` / `net.notemd.app`，旧的 `mdedit` 软链仍可用。  
@@ -134,6 +159,8 @@ bundle identifier 为 `notemd` / `net.notemd.app`，旧的 `mdedit` 软链仍可
 ## 开发与构建
 
 ```bash
+corepack enable             # 项目固定 pnpm 11.7.0
+git clone https://github.com/wizlijun/moraya-core.git ../moraya-core
 pnpm install
 pnpm tauri dev            # 开发
 pnpm tauri build          # 构建，当前架构
@@ -150,6 +177,12 @@ pnpm tauri build --target x86_64-apple-darwin
 输出：`src-tauri/target/<arch>-apple-darwin/release/bundle/macos/note.md.app`  
 （当前架构则在 `src-tauri/target/release/…`）。
 
+本仓库当前依赖同级目录中的 `../moraya-core` checkout。
+
+Windows 需安装带 Corepack 的 Node.js、Rust MSVC 工具链与 WebView2，然后执行同一组
+`pnpm install` / `pnpm tauri dev` / `pnpm tauri build`。NSIS 安装包位于
+`src-tauri/target/<arch>-pc-windows-msvc/release/bundle/nsis/`。
+
 ## CLI
 
 ```bash
@@ -160,6 +193,9 @@ notemd share draft.md                      # 发布分享链接，输出 URL
 notemd share draft.md --json               # 结构化输出
 notemd share draft.md --unshare            # 取消分享
 notemd plugin list                         # 列出插件及启用状态
+notemd meetings-sync --dry-run             # 预览 Hemory 增量归档
+notemd apple-notes-sync --dry-run           # 预览 Apple Notes 同步（仅 macOS）
+notemd mail-sync                            # 拉取助理邮箱准入邮件
 notemd reading-insights report --vault ~/Vault --date 7d
 notemd doctor                              # 自检环境、Vault、索引、插件与网络（--offline、--json）
 notemd help                                # 完整帮助
@@ -193,20 +229,21 @@ Unix domain socket，Windows 是命名管道），不碰网络。默认开启，
 ## 发布（仓库维护者）
 
 ```bash
-scripts/release.sh <x.y.z>
+scripts/release.sh [x.y.z] [--draft|--prerelease]
 ```
 
 依次执行：测试 → 版本号 → 按架构签名构建 → 公证 → 打 tag → push → GitHub  
 Release（两个 `.dmg`、两个 updater 包及签名、驱动按架构自动更新的  
-`latest.json`）。需要 `.env.release` 中的 `APPLE_ID`、`APPLE_PASSWORD`、  
+`latest.json`）。随后用 `scripts/release-windows.ps1` 把 Windows 包补进同一 tag。
+需要 `.env.release` 中的 `APPLE_ID`、`APPLE_PASSWORD`、
 `APPLE_TEAM_ID`，以及 `~/.tauri/mdeditor.key` 的 updater 签名私钥。
 
 ## 文档
 
-- 完整功能清单：`[docs/FEATURES.zh-CN.md](docs/FEATURES.zh-CN.md)`
+- 完整功能清单：[docs/FEATURES.zh-CN.md](docs/FEATURES.zh-CN.md)
 - 知识文档格式（OKF v0.2）：[`docs/okf-v0.2-format-constraints.md`](docs/okf-v0.2-format-constraints.md)
   · [一致性审计](docs/okf-v0.2-conformance-audit.md)
-- 写插件：`[docs/plugin-v2-development.md](docs/plugin-v2-development.md)`
+- 写插件：[docs/plugin-v2-development.md](docs/plugin-v2-development.md)
 - 设计与计划：`docs/superpowers/specs/`、`docs/superpowers/plans/`
 
 ## 致谢

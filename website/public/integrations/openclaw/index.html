@@ -6,6 +6,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Using note.md with OpenClaw — give your personal agent a real memory</title>
 <meta name="description" content="OpenClaw stores memory as markdown files. note.md is a markdown vault with a reading-annotation loop. Point them at the same folder and your agent's memory becomes your notebook.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Using note.md with OpenClaw — give your personal agent a real memory">
+<meta property="og:description" content="OpenClaw stores memory as markdown files. note.md is a markdown vault with a reading-annotation loop. Point them at the same folder and your agent's memory becomes your notebook.">
+<meta property="og:url" content="https://notemd.net/integrations/openclaw/">
+<meta property="og:site_name" content="note.md">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Using note.md with OpenClaw — give your personal agent a real memory">
+<meta name="twitter:description" content="OpenClaw stores memory as markdown files. note.md is a markdown vault with a reading-annotation loop. Point them at the same folder and your agent's memory becomes your notebook.">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="/favicon.ico" sizes="32x32">
 <link rel="canonical" href="https://notemd.net/integrations/openclaw/">
@@ -17,7 +25,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=EB+Garamond:ital,wght@0,400..700;1,400..700&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
-<script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Does OpenClaw need a plugin to work with note.md?", "acceptedAnswer": {"@type": "Answer", "text": "No. Both sides speak plain markdown files. An AGENTS.md at the vault root describing the conventions is all the 'integration' there is."}}, {"@type": "Question", "name": "Is it safe to let OpenClaw write into my vault?", "acceptedAnswer": {"@type": "Answer", "text": "Keep the vault in git (see the GitHub guide) so every agent write is diffable and revertible. By convention agents should not write into your .note.md sidecars — state that rule in AGENTS.md."}}]}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Does OpenClaw need a plugin to work with note.md?", "acceptedAnswer": {"@type": "Answer", "text": "No for file-based work: both sides can use plain markdown with an AGENTS.md describing the boundaries. The optional official OpenClaw Chat plugin adds a note.md-native conversation window."}}, {"@type": "Question", "name": "Is it safe to let OpenClaw write into my vault?", "acceptedAnswer": {"@type": "Answer", "text": "Keep the vault in git (see the GitHub guide) so committed agent writes are diffable and revertible. By convention agents treat .note.md sidecars as human-owned; Smart Lookup's fenced answer writeback is the narrow built-in exception. State the boundary in AGENTS.md."}}]}</script>
 <style>
 :root{--ink:#17181C;--paper:#FAFAF7;--amber:#F59E0B;--gray:#9CA3AF;--line:#E7E5E0;
 --serif:"Playfair Display",Georgia,serif;--body:"EB Garamond",Georgia,serif;
@@ -103,15 +111,16 @@ pre{font-size:12.5px;padding:14px 15px}
 </div></header>
 <main><div class="wrap">
 
-<h2>Why this pairing works</h2><p>OpenClaw keeps its memory as plain markdown — <code>MEMORY.md</code> for long-term facts, <code>memory/YYYY-MM-DD.md</code> for daily working notes. That's structurally identical to a note.md vault's <code>wikipage/</code> and <code>dailynote/</code> convention: dated outlines plus curated pages. Same idea, convergently evolved.</p>
+<h2>Why this pairing works</h2><p>OpenClaw keeps memory in markdown — <code>MEMORY.md</code> for long-term facts and <code>memory/YYYY-MM-DD.md</code> for daily working notes. note.md also uses files, but its <code>wikipage/</code> and <code>dailynote/yyyy/*.note.md</code> layouts have different paths and schemas. Connect them through an explicit workspace or conversion rule rather than treating the formats as identical.</p>
 <p>Pair them and each side gets what it lacks: OpenClaw gets a human who actually reads and curates its memory in a view built for that; you get an agent that works around the clock and writes everything down where you can see it.</p><h2>Setup</h2><ol>
 <li>Put an <code>AGENTS.md</code> at your vault root describing the conventions (sidecar pairing, daily-note paths, <code>[[yyyy-MM-dd]]</code> date links). Grab the summary from <a href="/llms-full.txt">llms-full.txt</a>.</li>
-<li>Point OpenClaw's workspace at your vault (or symlink its <code>memory/</code> into <code>dailynote/</code> — dated files are dated files).</li>
+<li>Point OpenClaw's workspace at the vault, or have it write reports to a dedicated vault folder. Do not symlink <code>memory/</code> to <code>dailynote/</code> without a converter: the layouts and metadata differ.</li>
+<li>Optionally install the official OpenClaw Chat plugin for a note.md-native conversation window.</li>
 <li>Have OpenClaw write reports and research as <code>.md</code> documents into the vault.</li>
 <li>Open them in note.md, read, highlight, question — your marks land in sidecar <code>.note.md</code> files.</li>
 <li>Tell OpenClaw to read sidecars before follow-up work. Your judgment becomes its steering signal.</li>
 </ol><h2>The loop in practice</h2><p>Evening: OpenClaw researches a topic and drops <code>research/topic.md</code> in the vault. Morning: you read it in note.md over coffee, highlight two claims, add a doubt. Afternoon: OpenClaw picks up <code>research/topic.note.md</code>, sees exactly which claims earned your attention, and digs where you doubted. No prompt engineering — just files.</p>
-<section class="faq"><h2>FAQ</h2><h3>Does OpenClaw need a plugin to work with note.md?</h3><p>No. Both sides speak plain markdown files. An AGENTS.md at the vault root describing the conventions is all the 'integration' there is.</p><h3>Is it safe to let OpenClaw write into my vault?</h3><p>Keep the vault in git (see the GitHub guide) so every agent write is diffable and revertible. By convention agents should not write into your .note.md sidecars — state that rule in AGENTS.md.</p></section>
+<section class="faq"><h2>FAQ</h2><h3>Does OpenClaw need a plugin to work with note.md?</h3><p>No for file-based work: both sides can use plain markdown with an AGENTS.md describing the boundaries. The optional official OpenClaw Chat plugin adds a note.md-native conversation window.</p><h3>Is it safe to let OpenClaw write into my vault?</h3><p>Keep the vault in git (see the GitHub guide) so committed agent writes are diffable and revertible. By convention agents treat .note.md sidecars as human-owned; Smart Lookup's fenced answer writeback is the narrow built-in exception. State the boundary in AGENTS.md.</p></section>
 </div></main>
 <section class="cta"><div class="wrap">
 <h2>Own your thinking.</h2>

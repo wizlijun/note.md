@@ -6,6 +6,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ひとつの Vault、多くのエージェント — Cowork・Codex・OpenClaw・ChatGPT を指揮する（2026年）</title>
 <meta name="description" content="あなたの markdown Vault は、エージェントのための git リポジトリだ。Claude Cowork、Claude Code、Codex、ChatGPT、OpenClaw、Hermes はすべて同じファイルを読み書きできる — だから各仕事を、どのモデルでも、いちばん得意な相手に割り当て、判断だけは自分のために取っておける。">
+<meta property="og:type" content="website">
+<meta property="og:title" content="ひとつの Vault、多くのエージェント — Cowork・Codex・OpenClaw・ChatGPT を指揮する（2026年）">
+<meta property="og:description" content="あなたの markdown Vault は、エージェントのための git リポジトリだ。Claude Cowork、Claude Code、Codex、ChatGPT、OpenClaw、Hermes はすべて同じファイルを読み書きできる — だから各仕事を、どのモデルでも、いちばん得意な相手に割り当て、判断だけは自分のために取っておける。">
+<meta property="og:url" content="https://notemd.net/ja/orchestrate-agents/">
+<meta property="og:site_name" content="note.md">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="ひとつの Vault、多くのエージェント — Cowork・Codex・OpenClaw・ChatGPT を指揮する（2026年）">
+<meta name="twitter:description" content="あなたの markdown Vault は、エージェントのための git リポジトリだ。Claude Cowork、Claude Code、Codex、ChatGPT、OpenClaw、Hermes はすべて同じファイルを読み書きできる — だから各仕事を、どのモデルでも、いちばん得意な相手に割り当て、判断だけは自分のために取っておける。">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="/favicon.ico" sizes="32x32">
 <link rel="canonical" href="https://notemd.net/ja/orchestrate-agents/">
@@ -17,7 +25,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=EB+Garamond:ital,wght@0,400..700;1,400..700&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
-<script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "異なる AI エージェントが本当にひとつの Vault を共有できるか？", "acceptedAnswer": {"@type": "Answer", "text": "できる — それが設計だ。Vault はプレーンな markdown に、規約を述べたひとつの AGENTS.md。Claude Cowork、Claude Code、Codex、ChatGPT、OpenClaw、Hermes はすべてそのファイルを読み書きするので、各タスクを最適なエージェント（とモデル）に振り分けられる。Vault を git に入れておけば、すべての書き込みは diff 可能で巻き戻せる。"}}, {"@type": "Question", "name": "エージェントたちはどうやって互いに仕事を受け渡すのか？", "acceptedAnswer": {"@type": "Answer", "text": "ファイルを通じてだ。あるエージェントが markdown を Vault に書き、次のエージェントがそれを入力として読む。あなたの注釈はサイドカーの .note.md ファイルに住み、操舵信号として働く — エージェントは次のパスの前にあなたの余白を読む。共有メモリも私的なプロトコルも要らない。"}}, {"@type": "Question", "name": "これには専用のオーケストレーションツールや MCP サーバーが要るか？", "acceptedAnswer": {"@type": "Answer", "text": "要らない。オーケストレーションはあなた自身で、媒体はファイルシステムだ。中央データベースも隠れた状態もない — ルールは AGENTS.md、出力は .md、判断は .note.md。ツールインターフェースを好むエージェントのために Vault MCP サーバーがロードマップ上にあるが、プレーンなファイルはもう今日から動く。"}}, {"@type": "Question", "name": "なぜ全部にひとつの AI を使わないのか？", "acceptedAnswer": {"@type": "Answer", "text": "単一のエージェントがすべてに最も強いわけではないからだ。夜通しの自動化、慎重なレビュー、速い画像生成、プライベートなローカル作業、そして最終判断は、それぞれ最適なツールの異なる別々の仕事だ。それらを — 自分が所有するファイルの上で — 専門家たちに分けるほうが、ひとりの万能選手に全部やらせるより勝る。そして、どの働き手も差し替えられる自由を保てる。"}}]}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "異なる AI エージェントが本当にひとつの Vault を共有できるか？", "acceptedAnswer": {"@type": "Answer", "text": "できる — それが設計だ。Vault はプレーンな markdown に、規約を述べたひとつの AGENTS.md。Claude Cowork、Claude Code、Codex、ChatGPT、OpenClaw、Hermes はすべてそのファイルを読み書きするので、各タスクを最適なエージェント（とモデル）に振り分けられる。Vault を git に入れておけば、すべての書き込みは diff 可能で巻き戻せる。"}}, {"@type": "Question", "name": "エージェントたちはどうやって互いに仕事を受け渡すのか？", "acceptedAnswer": {"@type": "Answer", "text": "ファイルを通じてだ。あるエージェントが markdown を Vault に書き、次のエージェントがそれを入力として読む。あなたの注釈はサイドカーの .note.md ファイルに住み、操舵信号として働く — エージェントは次のパスの前にあなたの余白を読む。共有メモリも私的なプロトコルも要らない。"}}, {"@type": "Question", "name": "これには専用のオーケストレーションツールや MCP サーバーが要るか？", "acceptedAnswer": {"@type": "Answer", "text": "中央のオーケストレーターは不要だ。ルールは AGENTS.md、出力は .md、判断は .note.md にある。エージェントはファイルまたはリリース済みのローカル読み取り専用 Vault MCP（notemd mcp）の search と vault_info を使える。Share Worker の MCP は別の公開インターフェースだ。"}}, {"@type": "Question", "name": "なぜ全部にひとつの AI を使わないのか？", "acceptedAnswer": {"@type": "Answer", "text": "単一のエージェントがすべてに最も強いわけではないからだ。夜通しの自動化、慎重なレビュー、速い画像生成、プライベートなローカル作業、そして最終判断は、それぞれ最適なツールの異なる別々の仕事だ。それらを — 自分が所有するファイルの上で — 専門家たちに分けるほうが、ひとりの万能選手に全部やらせるより勝る。そして、どの働き手も差し替えられる自由を保てる。"}}]}</script>
 <style>
 :root{--ink:#17181C;--paper:#FAFAF7;--amber:#F59E0B;--gray:#9CA3AF;--line:#E7E5E0;
 --serif:"Playfair Display",Georgia,serif;--body:"EB Garamond",Georgia,serif;
@@ -93,7 +101,7 @@ pre{font-size:12.5px;padding:14px 15px}
 <nav><div class="wrap nav-in">
 <a class="logo" href="/ja/"><svg width="24" height="24" viewBox="0 0 512 512" aria-hidden="true"><rect width="512" height="512" rx="115" fill="#17181C" stroke="#3A3D46" stroke-width="14"/><path d="M 185.49318,76.468676 C 202.86539,165.0158 220.23759,183.99019 301.30788,202.96457 220.23759,221.93895 202.86539,240.91333 185.49318,329.46046 168.12097,240.91333 150.74877,221.93895 69.67847,202.96457 150.74877,183.99019 168.12097,165.0158 185.49318,76.468676 Z" fill="#F59E0B"/><rect x="260.643" y="239.444" width="186.136" height="48" rx="29.39" fill="#FAFAF7"/><circle cx="289.722" cy="342.122" r="28.414" fill="#9CA3AF"/><rect x="333.7" y="324.65" width="112.797" height="40" rx="26.856" fill="#9CA3AF"/><circle cx="288.251" cy="420.101" r="28.414" fill="#9CA3AF"/><rect x="336.022" y="403.894" width="109.256" height="40" rx="26.013" fill="#9CA3AF"/></svg><span>note<span class="dot">.</span>md</span></a>
 <a class="npl" href="https://plugins.notemd.net">プラグイン</a>
-<div class="lang-sw"><a href="/orchestrate-agents/">EN</a><a href="/de/orchestrate-agents/">DE</a><a href="/ja/orchestrate-agents/" class=on>日本語</a><a href="/zh/orchestrate-agents/">中文</a></div>
+<div class="lang-sw"><a href="/ja/orchestrate-agents/">EN</a><a href="/de/orchestrate-agents/">DE</a><a href="/ja/orchestrate-agents/" class=on>日本語</a><a href="/zh/orchestrate-agents/">中文</a></div>
 <a class="nav-cta" href="/download">ダウンロード</a>
 </div></nav>
 <header class="ph"><div class="wrap">
@@ -125,12 +133,12 @@ pre{font-size:12.5px;padding:14px 15px}
 <li><b>あなたはループの中、チェックポイントに留まる。</b>端から端まで走るブラックボックスではない。品質管理に人間を置いた、ステーションの並ぶラインだ。エージェントが書き、レビューし、図解する — 何を世に出すかを決めるのはあなただ。</li>
 <li><b>それでもただのファイル。</b>オーケストレーションのデータベースなし、隠れた状態なし。ルールは <code>AGENTS.md</code>、出力は <code>.md</code>、判断は <code>.note.md</code> — すべて Obsidian でも、CLI でも、どのエージェントでも読める。note.md を差し替えても、Vault は依然として全員の共有ワークスペースだ。</li>
 </ul>
-<p>Vault を <a href="/guides/vault-on-github/">git</a> に入れておけば、すべてのエージェントの書き込みは diff 可能、帰属可能、巻き戻し可能になる — エージェントの厄日は <code>git revert</code> 一発で済み、悲劇にはならない。</p><h2>セットアップ</h2><ol>
-<li>Vault のルートに <code>AGENTS.md</code> を置く — <a href="/llms-full.txt">llms-full.txt</a> から規約を取り、ハウスルールを足す（鉄則：エージェントは決して <code>*.note.md</code> サイドカーに書き込まない）。</li>
-<li>各エージェントを同じフォルダに繋ぐ：<a href="/integrations/openclaw/">OpenClaw</a>、<a href="/integrations/cowork/">Cowork</a>、<a href="/integrations/codex/">Codex</a>、<a href="/integrations/chatgpt-work/">ChatGPT</a>、<a href="/integrations/hermes/">Hermes</a>。</li>
+<p>Vault を <a href="/ja/guides/vault-on-github/">git</a> に入れておけば、すべてのエージェントの書き込みは diff 可能、帰属可能、巻き戻し可能になる — エージェントの厄日は <code>git revert</code> 一発で済み、悲劇にはならない。</p><h2>セットアップ</h2><ol>
+<li>Vault のルートに <code>AGENTS.md</code> を置き、<a href="/llms-full.txt">llms-full.txt</a> を参考にハウスルールを足す。サイドカーは通常人間所有で、Smart Lookup の fenced answer だけが狭い例外だ。</li>
+<li>各エージェントを同じフォルダに繋ぐ：<a href="/ja/integrations/openclaw/">OpenClaw</a>、<a href="/ja/integrations/cowork/">Cowork</a>、<a href="/ja/integrations/codex/">Codex</a>、<a href="/ja/integrations/chatgpt-work/">ChatGPT</a>、<a href="/ja/integrations/hermes/">Hermes</a>。</li>
 <li>結果を note.md で読み、注釈する。次のエージェントには先にサイドカーを読ませる。ループはあなたのディスクの上で閉じる。</li>
 </ol>
-<section class="faq"><h2>FAQ</h2><h3>異なる AI エージェントが本当にひとつの Vault を共有できるか？</h3><p>できる — それが設計だ。Vault はプレーンな markdown に、規約を述べたひとつの AGENTS.md。Claude Cowork、Claude Code、Codex、ChatGPT、OpenClaw、Hermes はすべてそのファイルを読み書きするので、各タスクを最適なエージェント（とモデル）に振り分けられる。Vault を git に入れておけば、すべての書き込みは diff 可能で巻き戻せる。</p><h3>エージェントたちはどうやって互いに仕事を受け渡すのか？</h3><p>ファイルを通じてだ。あるエージェントが markdown を Vault に書き、次のエージェントがそれを入力として読む。あなたの注釈はサイドカーの .note.md ファイルに住み、操舵信号として働く — エージェントは次のパスの前にあなたの余白を読む。共有メモリも私的なプロトコルも要らない。</p><h3>これには専用のオーケストレーションツールや MCP サーバーが要るか？</h3><p>要らない。オーケストレーションはあなた自身で、媒体はファイルシステムだ。中央データベースも隠れた状態もない — ルールは AGENTS.md、出力は .md、判断は .note.md。ツールインターフェースを好むエージェントのために Vault MCP サーバーがロードマップ上にあるが、プレーンなファイルはもう今日から動く。</p><h3>なぜ全部にひとつの AI を使わないのか？</h3><p>単一のエージェントがすべてに最も強いわけではないからだ。夜通しの自動化、慎重なレビュー、速い画像生成、プライベートなローカル作業、そして最終判断は、それぞれ最適なツールの異なる別々の仕事だ。それらを — 自分が所有するファイルの上で — 専門家たちに分けるほうが、ひとりの万能選手に全部やらせるより勝る。そして、どの働き手も差し替えられる自由を保てる。</p></section>
+<section class="faq"><h2>FAQ</h2><h3>異なる AI エージェントが本当にひとつの Vault を共有できるか？</h3><p>できる — それが設計だ。Vault はプレーンな markdown に、規約を述べたひとつの AGENTS.md。Claude Cowork、Claude Code、Codex、ChatGPT、OpenClaw、Hermes はすべてそのファイルを読み書きするので、各タスクを最適なエージェント（とモデル）に振り分けられる。Vault を git に入れておけば、すべての書き込みは diff 可能で巻き戻せる。</p><h3>エージェントたちはどうやって互いに仕事を受け渡すのか？</h3><p>ファイルを通じてだ。あるエージェントが markdown を Vault に書き、次のエージェントがそれを入力として読む。あなたの注釈はサイドカーの .note.md ファイルに住み、操舵信号として働く — エージェントは次のパスの前にあなたの余白を読む。共有メモリも私的なプロトコルも要らない。</p><h3>これには専用のオーケストレーションツールや MCP サーバーが要るか？</h3><p>中央のオーケストレーターは不要だ。ルールは AGENTS.md、出力は .md、判断は .note.md にある。エージェントはファイルまたはリリース済みのローカル読み取り専用 Vault MCP（notemd mcp）の search と vault_info を使える。Share Worker の MCP は別の公開インターフェースだ。</p><h3>なぜ全部にひとつの AI を使わないのか？</h3><p>単一のエージェントがすべてに最も強いわけではないからだ。夜通しの自動化、慎重なレビュー、速い画像生成、プライベートなローカル作業、そして最終判断は、それぞれ最適なツールの異なる別々の仕事だ。それらを — 自分が所有するファイルの上で — 専門家たちに分けるほうが、ひとりの万能選手に全部やらせるより勝る。そして、どの働き手も差し替えられる自由を保てる。</p></section>
 </div></main>
 <section class="cta"><div class="wrap">
 <h2>思考を所有せよ。</h2>

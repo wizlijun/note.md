@@ -6,6 +6,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>用 note.md 搭配 ChatGPT（工作模式）—— 生成到一个属于你的 vault 里</title>
 <meta name="description" content="ChatGPT 的工作模式能连接你的文件夹，擅长起草和生图。把它指向一个 note.md vault，它做出来的一切就都成了你能阅读、批注、留存的 markdown。">
+<meta property="og:type" content="website">
+<meta property="og:title" content="用 note.md 搭配 ChatGPT（工作模式）—— 生成到一个属于你的 vault 里">
+<meta property="og:description" content="ChatGPT 的工作模式能连接你的文件夹，擅长起草和生图。把它指向一个 note.md vault，它做出来的一切就都成了你能阅读、批注、留存的 markdown。">
+<meta property="og:url" content="https://notemd.net/zh/integrations/chatgpt-work/">
+<meta property="og:site_name" content="note.md">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="用 note.md 搭配 ChatGPT（工作模式）—— 生成到一个属于你的 vault 里">
+<meta name="twitter:description" content="ChatGPT 的工作模式能连接你的文件夹，擅长起草和生图。把它指向一个 note.md vault，它做出来的一切就都成了你能阅读、批注、留存的 markdown。">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="/favicon.ico" sizes="32x32">
 <link rel="canonical" href="https://notemd.net/zh/integrations/chatgpt-work/">
@@ -17,7 +25,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=EB+Garamond:ital,wght@0,400..700;1,400..700&family=Courier+Prime:wght@400;700&family=Noto+Serif+SC:wght@700&display=swap" rel="stylesheet">
-<script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "ChatGPT 会自动读 AGENTS.md 吗？", "acceptedAnswer": {"@type": "Answer", "text": "不像 CLI agent（Codex、Claude Code）那样自动读。把 vault 约定贴进 ChatGPT 的项目或自定义指令，并把它指向 AGENTS.md 文件，它就会遵守同一套 house rules——sidecar 文件不许碰，新活儿写成带日期的 markdown。"}}, {"@type": "Question", "name": "ChatGPT 生成的图片能住进我的 vault 吗？", "acceptedAnswer": {"@type": "Answer", "text": "能。把它们和文档并排放进 {docname}_files/ 文件夹、用相对链接——和 note.md 处理粘贴截图是同一套约定。它们会在阅读视图里渲染，并随 vault 一起进 git。"}}, {"@type": "Question", "name": "我必须只选一个 agent 吗？", "acceptedAnswer": {"@type": "Answer", "text": "不必——这正是重点。快速生成用 ChatGPT，仔细审阅用另一个 agent，私密工作用本地 agent。它们通过文件协作，你来编排。见编排指南。"}}]}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "ChatGPT 会自动读 AGENTS.md 吗？", "acceptedAnswer": {"@type": "Answer", "text": "不像 CLI agent（Codex、Claude Code）那样自动读。把 vault 约定贴进 ChatGPT 的项目或自定义指令，并指向 AGENTS.md。sidecar 由人拥有，Smart Lookup fenced answer 回写除外；新文件遵守你的命名规则。"}}, {"@type": "Question", "name": "ChatGPT 生成的图片能住进我的 vault 吗？", "acceptedAnswer": {"@type": "Answer", "text": "能。把它们和文档并排放进 {docname}_files/ 文件夹、用相对链接——和 note.md 处理粘贴截图是同一套约定。它们会在阅读视图里渲染，并随 vault 一起进 git。"}}, {"@type": "Question", "name": "我必须只选一个 agent 吗？", "acceptedAnswer": {"@type": "Answer", "text": "不必——这正是重点。快速生成用 ChatGPT，仔细审阅用另一个 agent，私密工作用本地 agent。它们通过文件协作，你来编排。见编排指南。"}}]}</script>
 <style>
 :root{--ink:#17181C;--paper:#FAFAF7;--amber:#F59E0B;--gray:#9CA3AF;--line:#E7E5E0;
 --serif:"Playfair Display",Georgia,serif;--body:"EB Garamond",Georgia,serif;
@@ -93,7 +101,7 @@ pre{font-size:12.5px;padding:14px 15px}
 <nav><div class="wrap nav-in">
 <a class="logo" href="/zh/"><svg width="24" height="24" viewBox="0 0 512 512" aria-hidden="true"><rect width="512" height="512" rx="115" fill="#17181C" stroke="#3A3D46" stroke-width="14"/><path d="M 185.49318,76.468676 C 202.86539,165.0158 220.23759,183.99019 301.30788,202.96457 220.23759,221.93895 202.86539,240.91333 185.49318,329.46046 168.12097,240.91333 150.74877,221.93895 69.67847,202.96457 150.74877,183.99019 168.12097,165.0158 185.49318,76.468676 Z" fill="#F59E0B"/><rect x="260.643" y="239.444" width="186.136" height="48" rx="29.39" fill="#FAFAF7"/><circle cx="289.722" cy="342.122" r="28.414" fill="#9CA3AF"/><rect x="333.7" y="324.65" width="112.797" height="40" rx="26.856" fill="#9CA3AF"/><circle cx="288.251" cy="420.101" r="28.414" fill="#9CA3AF"/><rect x="336.022" y="403.894" width="109.256" height="40" rx="26.013" fill="#9CA3AF"/></svg><span>note<span class="dot">.</span>md</span></a>
 <a class="npl" href="https://plugins.notemd.net">插件</a>
-<div class="lang-sw"><a href="/integrations/chatgpt-work/">EN</a><a href="/de/integrations/chatgpt-work/">DE</a><a href="/ja/integrations/chatgpt-work/">日本語</a><a href="/zh/integrations/chatgpt-work/" class=on>中文</a></div>
+<div class="lang-sw"><a href="/zh/integrations/chatgpt-work/">EN</a><a href="/de/integrations/chatgpt-work/">DE</a><a href="/ja/integrations/chatgpt-work/">日本語</a><a href="/zh/integrations/chatgpt-work/" class=on>中文</a></div>
 <a class="nav-cta" href="/download">下载</a>
 </div></nav>
 <header class="ph"><div class="wrap">
@@ -110,7 +118,7 @@ pre{font-size:12.5px;padding:14px 15px}
 <li>让它把成果按日期存成 markdown，例如 <code>drafts/2026-07-23-launch-post.md</code>，生成的图片用相对链接放进 <code>{docname}_files/</code>。</li>
 <li>在 note.md 里打开结果；阅读、高亮、发问——你的标记落进sidecar 的 <code>.note.md</code>，原文保持干净、可再生成。</li>
 </ol><h2>循环跑起来是什么样</h2><p>你让 ChatGPT 起草一篇发布稿并生成三张主图；它写出 <code>drafts/launch-post.md</code>，填满一个 <code>_files/</code> 文件夹。你在 note.md 里读它，删掉两张图，把一段夸大的话高亮，留一句批注。接着把 <code>launch-post.note.md</code> 交给一个更谨慎的审阅 agent——“照我的批注改”。ChatGPT 生成得快；vault 留住了它；你做了判断。这就是分工。</p>
-<section class="faq"><h2>FAQ</h2><h3>ChatGPT 会自动读 AGENTS.md 吗？</h3><p>不像 CLI agent（Codex、Claude Code）那样自动读。把 vault 约定贴进 ChatGPT 的项目或自定义指令，并把它指向 AGENTS.md 文件，它就会遵守同一套 house rules——sidecar 文件不许碰，新活儿写成带日期的 markdown。</p><h3>ChatGPT 生成的图片能住进我的 vault 吗？</h3><p>能。把它们和文档并排放进 {docname}_files/ 文件夹、用相对链接——和 note.md 处理粘贴截图是同一套约定。它们会在阅读视图里渲染，并随 vault 一起进 git。</p><h3>我必须只选一个 agent 吗？</h3><p>不必——这正是重点。快速生成用 ChatGPT，仔细审阅用另一个 agent，私密工作用本地 agent。它们通过文件协作，你来编排。见编排指南。</p></section>
+<section class="faq"><h2>FAQ</h2><h3>ChatGPT 会自动读 AGENTS.md 吗？</h3><p>不像 CLI agent（Codex、Claude Code）那样自动读。把 vault 约定贴进 ChatGPT 的项目或自定义指令，并指向 AGENTS.md。sidecar 由人拥有，Smart Lookup fenced answer 回写除外；新文件遵守你的命名规则。</p><h3>ChatGPT 生成的图片能住进我的 vault 吗？</h3><p>能。把它们和文档并排放进 {docname}_files/ 文件夹、用相对链接——和 note.md 处理粘贴截图是同一套约定。它们会在阅读视图里渲染，并随 vault 一起进 git。</p><h3>我必须只选一个 agent 吗？</h3><p>不必——这正是重点。快速生成用 ChatGPT，仔细审阅用另一个 agent，私密工作用本地 agent。它们通过文件协作，你来编排。见编排指南。</p></section>
 </div></main>
 <section class="cta"><div class="wrap">
 <h2>拥有你的思考。</h2>

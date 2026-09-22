@@ -11,6 +11,20 @@ Packages are minisign-signed and sha256-pinned in the index, so integrity is
 verified **client-side**. Every route here is public — there is nothing secret
 to protect on read, which is why CORS is `*`.
 
+The landing page renders the latest entry for each plugin from the same index.
+Each card shows its `min_host` requirement and translates its published
+`archs` into user-facing platform support. `universal` means the package has no
+native binary and can run on both currently supported host platforms; native
+packages are shown only for the exact target triples present in the index.
+Native backends, when a plugin has one, run out of process; UI-only plugins
+must not be described as native processes.
+
+The page keeps a small static map for each official plugin's category and
+human-readable entry point. When publishing a new official plugin, update
+`ENTRY_MAP` and `OFFICIAL_GROUPS` in `src/page.ts` together and add its expected
+entry and group to `tests/index.test.ts`. Names and descriptions still come
+from the registry index and its localized manifest data.
+
 ## Routes
 
 - `GET /api/index.json` — the published index verbatim from KV key `index`

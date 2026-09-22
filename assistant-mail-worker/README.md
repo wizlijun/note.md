@@ -6,7 +6,7 @@ separate storage, credentials, routes, and rollback boundaries.
 
 ## Current production deployment
 
-As of 2026-09-11, the independent service is deployed at
+As of 2026-09-13, the independent service is deployed at
 `https://mail.5000g.com` (with
 `https://notemd-assistant-mail.oldbruce.workers.dev` retained as a deployment
 fallback) with:
@@ -24,7 +24,8 @@ fallback) with:
 
 This status confirms infrastructure and routing only. No live email was sent as
 part of deployment, and the M0 content-processing limitations documented in the
-design spec still apply.
+[design spec](../docs/superpowers/specs/2026-09-11-assistant-mail-intake-plugin-design.md)
+still apply.
 
 ## Security boundary
 
@@ -72,12 +73,18 @@ auditable delivery row.
 
 R2 and D1 do not share a transaction. The staging state machine deliberately
 makes every interrupted transition retryable. Operational monitoring should
-alert on old `received_pending` sources and failed deletion jobs.
+alert on old `received_pending` sources and failed deletion jobs. Each scheduled
+run reconciles at most 50 pending sources and 20 running or failed deletion
+jobs; backlog monitoring must account for those batch limits.
 
 ## HTTP API
 
 All JSON responses use `{ "data": ... }`; errors use
 `{ "error": { "code": "...", "message": "..." } }`.
+Every HTTP route requires `Authorization: Bearer
+<ASSISTANT_MAIL_ACCESS_KEY>`. JSON mutation requests whose declared
+`Content-Length` exceeds 64 KiB are rejected. Incoming raw messages are limited
+to 25 MiB, checked both before and after reading the stream.
 
 | Method | Route | Purpose |
 | --- | --- | --- |
@@ -85,8 +92,8 @@ All JSON responses use `{ "data": ... }`; errors use
 | `GET` | `/v1/status` | Coverage, source/delivery counts, and change high-watermark |
 | `GET` | `/v1/intake-policy` | Read setup/strict sender-filter state |
 | `PUT` | `/v1/intake-policy` | Set the exact sender and enable/disable strict filtering |
-| `GET` | `/v1/changes?after=&limit=` | Monotonic upsert/tombstone feed; cursor is opaque |
-| `GET` | `/v1/sources?limit=` | List non-deleted source metadata |
+| `GET` | `/v1/changes?after=&limit=` | Monotonic upsert/tombstone feed; cursor is opaque; default 100, maximum 200 rows |
+| `GET` | `/v1/sources?limit=` | Bounded snapshot of non-deleted source metadata; default 100, maximum 200 rows |
 | `GET` | `/v1/sources/:id` | Get non-deleted source metadata |
 | `GET` | `/v1/sources/:id/raw` | Download raw MIME for local plugin processing |
 | `GET` | `/v1/messages/:id/raw` | Compatibility alias for the raw download |
@@ -95,7 +102,21 @@ All JSON responses use `{ "data": ... }`; errors use
 | `POST` | `/v1/deletion-plans/:id/execute` | Confirm and execute that exact plan |
 | `GET` | `/v1/deletion-jobs/:id` | Inspect deletion/retry status |
 
-Create a plan with an explicit bounded ID list:
+### Change notification contract
+
+The Worker does not send webhooks, push notifications, or MCP notifications.
+Clients poll `/v1/changes`, persist the opaque `next_cursor`, and continue while
+`has_more` is true. A successful promotion emits `source.upsert`; executing a
+deletion plan emits `source.deleted` with a tombstone before R2 cleanup begins.
+The feed is ordered by its monotonic sequence and is the synchronization
+contract for removing local managed archive/diary projections. `/v1/sources`
+has no cursor and is only a bounded current snapshot; use the change feed for
+incremental synchronization.
+
+### Deletion/revocation contract
+
+Create a short-lived plan with 1–100 source UUIDs (duplicate IDs are
+deduplicated):
 
 ```json
 { "source_ids": ["00000000-0000-4000-8000-000000000001"] }
@@ -107,6 +128,16 @@ unchanged hash:
 ```json
 { "plan_hash": "<sha256 from plan>", "confirmation": "DELETE" }
 ```
+
+The default plan lifetime is 900 seconds. Execution accepts only a still-pending
+plan whose current targets reproduce the frozen hash; an expired, already-used,
+or stale plan returns a conflict and must not be silently replaced. The execute
+endpoint returns `202` with a `job_id` even when cleanup completed during the
+request. Clients should inspect that job rather than repeat execution; scheduled
+reconciliation retries running or failed jobs.
+
+There is no undelete endpoint. Once execution publishes the tombstone, the
+source remains unreadable even while physical cleanup is retrying.
 
 Execution first marks every source `deleting` and appends a tombstone in one D1
 batch. Every source/raw read then returns `410`, even if R2 deletion subsequently

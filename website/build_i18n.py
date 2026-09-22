@@ -12,6 +12,10 @@ STRINGS = [('<title>note.md — The markdown editor for humans and agents</title
   '<title>note.md — 人与 agent 共用的 markdown 编辑器</title>',
   '<title>note.md — Der Markdown-Editor für Menschen und Agents</title>',
   '<title>note.md — 人間とエージェントのための markdown エディタ</title>'),
+ ('content="note.md — The markdown editor for humans and agents"',
+  'content="note.md — 人与 agent 共用的 markdown 编辑器"',
+  'content="note.md — Der Markdown-Editor für Menschen und Agents"',
+  'content="note.md — 人間とエージェントのための markdown エディタ"'),
  ('content="Read what your agents write, keep your judgment in plain markdown, and approve which personal memories '
   'become trusted context. Your files stay yours."',
   'content="读 agent 写的东西，把你的判断留在纯 markdown 里，并亲自批准哪些个人记忆可以成为可信上下文。文件始终属于你。"',
@@ -58,12 +62,12 @@ STRINGS = [('<title>note.md — The markdown editor for humans and agents</title
   'Alles landet im Vault, den deine Agents teilen — pures Markdown. Agents können erkennen, was wichtig ist; nur du bestätigst, was Erinnerung wird.',
   'AI が書く量は、読み切れない。note.md なら読み進められる。ハイライトして、疑問を書いて、その場で直す。'
   'すべては Agent と共有する Vault に、ただの markdown として残る。Agent は大切なことに気づける。何を記憶にするか承認するのは、あなただけ。'),
- ('11 MB<i>·</i>any Typora theme<i>·</i>Mermaid &amp; Graphviz, tuned<i>·</i>outliner, [[wikilinks]], daily notes'
+ ('12 MB<i>·</i>Typora-compatible themes<i>·</i>Mermaid &amp; Graphviz, tuned<i>·</i>outliner, [[wikilinks]], daily notes'
   '<i>·</i>one vault every agent shares',
-  '11 MB<i>·</i>主题随你换<i>·</i>Mermaid、Graphviz 都调过<i>·</i>大纲、[[双链]]、每日笔记<i>·</i>一个 vault，所有 agent 共用',
-  '11 MB<i>·</i>jedes Typora-Theme<i>·</i>Mermaid &amp; Graphviz, abgestimmt<i>·</i>Outliner, [[Wikilinks]], Tagesnotizen'
+  '12 MB<i>·</i>兼容 Typora 主题<i>·</i>Mermaid、Graphviz 都调过<i>·</i>大纲、[[双链]]、每日笔记<i>·</i>一个 vault，所有 agent 共用',
+  '12 MB<i>·</i>Typora-kompatible Themes<i>·</i>Mermaid &amp; Graphviz, abgestimmt<i>·</i>Outliner, [[Wikilinks]], Tagesnotizen'
   '<i>·</i>ein Vault für alle Agents',
-  '11 MB<i>·</i>Typora テーマ対応<i>·</i>Mermaid、Graphviz 調整済み<i>·</i>アウトライン、[[ウィキリンク]]、デイリーノート'
+  '12 MB<i>·</i>Typora 互換テーマ<i>·</i>Mermaid、Graphviz 調整済み<i>·</i>アウトライン、[[ウィキリンク]]、デイリーノート'
   '<i>·</i>一つの vault をすべての agent と'),
  ('<span class="bl">Download for macOS</span>',
   '<span class="bl">下载 macOS 版</span>',
@@ -74,6 +78,10 @@ STRINGS = [('<title>note.md — The markdown editor for humans and agents</title
   'data-dl-win="下载 Windows 版"',
   'data-dl-win="Für Windows laden"',
   'data-dl-win="Windows 版をダウンロード"'),
+ ('data-dl-other="View desktop releases"',
+  'data-dl-other="查看桌面版发布"',
+  'data-dl-other="Desktop-Releases ansehen"',
+  'data-dl-other="デスクトップ版を見る"'),
  ('<span class="bl">Star on GitHub</span>',
   '<span class="bl">GitHub 加星</span>',
   '<span class="bl">Auf GitHub sternen</span>',
@@ -86,10 +94,14 @@ STRINGS = [('<title>note.md — The markdown editor for humans and agents</title
   ' · <a href="/download?os=windows">Windows?</a>',
   'macOS 13+ · 無料＆オープン · ファイルはあなたの Mac の中に · <a href="/download?os=mac&amp;arch=x86_64">Intel Mac は？</a>'
   ' · <a href="/download?os=windows">Windows は？</a>'),
- ('Windows 10/11 · free &amp; open · your files stay on your own PC · <a href="/download?os=mac">Mac?</a>',
-  'Windows 10/11 · 免费开源 · 文件都在你自己电脑上 · <a href="/download?os=mac">Mac？</a>',
-  'Windows 10/11 · frei &amp; offen · deine Dateien bleiben auf deinem PC · <a href="/download?os=mac">Mac?</a>',
-  'Windows 10/11 · 無料＆オープン · ファイルはあなたの PC の中に · <a href="/download?os=mac">Mac は？</a>'),
+ ('Windows 10/11 x64 · free &amp; open · Windows releases can trail macOS, and some native plugins are macOS-only · <a href="/download?os=mac">Mac?</a>',
+  'Windows 10/11 x64 · 免费开源 · Windows 发布可能落后于 macOS，部分原生插件仅支持 macOS · <a href="/download?os=mac">Mac？</a>',
+  'Windows 10/11 x64 · frei &amp; offen · Windows-Releases können macOS hinterherhinken; einige native Plugins gibt es nur für macOS · <a href="/download?os=mac">Mac?</a>',
+  'Windows 10/11 x64 · 無料＆オープン · Windows 版は macOS 版より遅れる場合があり、一部のネイティブプラグインは macOS 専用 · <a href="/download?os=mac">Mac は？</a>'),
+ ('Desktop app for macOS 13+ and Windows 10/11 x64 · Linux, mobile, and Windows ARM builds are not currently published',
+  '桌面应用支持 macOS 13+ 与 Windows 10/11 x64 · 暂不发布 Linux、移动端或 Windows ARM 版本',
+  'Desktop-App für macOS 13+ und Windows 10/11 x64 · derzeit keine Builds für Linux, Mobilgeräte oder Windows ARM',
+  'デスクトップアプリは macOS 13+ と Windows 10/11 x64 対応 · Linux、モバイル、Windows ARM 版は現在未提供'),
  ('<div class="sec-k">Five things</div>',
   '<div class="sec-k">五件事</div>',
   '<div class="sec-k">Fünf Dinge</div>',
@@ -99,12 +111,12 @@ STRINGS = [('<title>note.md — The markdown editor for humans and agents</title
   '<h2>写，交给 AI。<br>读，交给这里。</h2>',
   '<h2>Die KI schreibt.<br>Hier liest du.</h2>',
   '<h2>書くのは AI。<br>読むのは、ここ。</h2>'),
- ('Preview and source, one key apart. Notion and Typora themes work as they are. Mermaid, Graphviz and math, all '
-  'tuned. The whole app installs at ~15 MB, with no browser engine inside.',
-  '预览与源码，一键之隔。Notion、Typora 的主题，拿来就用。Mermaid、Graphviz、公式，都调过。整个应用安装后约 15 MB，没有浏览器内核。',
-  'Vorschau und Quelltext, eine Taste auseinander. Themes von Notion und Typora laufen, wie sie sind. Mermaid, '
-  'Graphviz und Formeln — alles abgestimmt. Installiert braucht die ganze App rund 15 MB, ohne Browser-Engine im Bauch.',
-  'プレビューとソースは、キー一つ隣。Notion や Typora のテーマは、そのまま使える。Mermaid も Graphviz も数式も、調整済み。インストール後も約 15 MB、ブラウザエンジンは入っていない。'),
+ ('Preview and source, one key apart. Typora-compatible themes work as they are. Mermaid, Graphviz and math, all '
+  'tuned. The whole app installs at ~19 MB, with no browser engine inside.',
+  '预览与源码，一键之隔。兼容 Typora 的主题拿来就用。Mermaid、Graphviz、公式，都调过。整个应用安装后约 19 MB，没有浏览器内核。',
+  'Vorschau und Quelltext, eine Taste auseinander. Typora-kompatible Themes laufen, wie sie sind. Mermaid, '
+  'Graphviz und Formeln — alles abgestimmt. Installiert braucht die ganze App rund 19 MB, ohne Browser-Engine im Bauch.',
+  'プレビューとソースは、キー一つ隣。Typora 互換テーマは、そのまま使える。Mermaid も Graphviz も数式も、調整済み。インストール後も約 19 MB、ブラウザエンジンは入っていない。'),
  ('A shaky line? Highlight it. A doubt? In the margin. Wrong? Fix it on the spot.',
   '可疑的句子，划出来。疑问，写在旁边。错了，当场改。',
   'Eine wacklige Zeile? Markieren. Ein Zweifel? An den Rand. Falsch? Sofort korrigieren.',
@@ -154,15 +166,15 @@ STRINGS = [('<title>note.md — The markdown editor for humans and agents</title
   '<a href="/orchestrate-agents/">So geht\'s</a>.',
   'あなたのフォルダは、どの AI ツールも共有する作業台。Cowork、Claude Code、Codex、DeepSeek、ChatGPT、OpenClaw、Hermes——同じファイル、'
   '同じルール、すべて git の中。<a href="/orchestrate-agents/">やり方を見る</a>。'),
- ('Every file it writes follows <a href="https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md">Open '
+ ('Every file it writes follows <a href="https://github.com/GoogleCloudPlatform/open-knowledge-format/blob/main/SPEC.md">Open '
   'Knowledge Format</a> v0.2, strictly: what a document is, where it came from, who checked it — plain YAML at the top '
   'of the file. Any tool can read your vault. Not just this one.',
-  '它写出的每一个文件，都严格遵循 <a href="https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md">Open '
+  '它写出的每一个文件，都严格遵循 <a href="https://github.com/GoogleCloudPlatform/open-knowledge-format/blob/main/SPEC.md">Open '
   'Knowledge Format</a> v0.2：这是什么、从哪来、谁确认过——就写在文件开头的 YAML 里。你的 vault，任何工具都读得懂，不止这一个。',
-  'Jede Datei, die es schreibt, folgt strikt dem <a href="https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md">Open '
+  'Jede Datei, die es schreibt, folgt strikt dem <a href="https://github.com/GoogleCloudPlatform/open-knowledge-format/blob/main/SPEC.md">Open '
   'Knowledge Format</a> v0.2: was ein Dokument ist, woher es kommt, wer es geprüft hat — schlichtes YAML am Anfang der '
   'Datei. Jedes Werkzeug kann deinen Vault lesen. Nicht nur dieses.',
-  '書き出すファイルはすべて <a href="https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md">Open '
+  '書き出すファイルはすべて <a href="https://github.com/GoogleCloudPlatform/open-knowledge-format/blob/main/SPEC.md">Open '
   'Knowledge Format</a> v0.2 に厳密に従う。何の文書か、どこから来たか、誰が確認したか——ファイル冒頭のただの YAML に。'
   'あなたの vault は、どのツールからでも読める。これだけではなく。'),
  ("Built-in agents, without a second token meter. Change AI tools whenever you want. What's yours stays yours.",
@@ -178,12 +190,12 @@ STRINGS = [('<title>note.md — The markdown editor for humans and agents</title
   '写个插件。加个定时任务。挂上你的 skills。',
   'Schreib ein Plugin. Häng einen Cronjob dran. Setz deine Skills obendrauf.',
   'プラグインを書く。定期実行を足す。skills をぶら下げる。'),
- ('Put a <span class="mono-s">?</span> in a note and an agent takes it from there: edits the document, fills in '
-  'the context, hands it back — async. Whether you keep it is up to you.',
-  '在批注里打个 <span class="mono-s">?</span>，agent 就接手：改文档、补上下文，异步交回来。用不用，你说了算。',
-  'Setz ein <span class="mono-s">?</span> in eine Notiz, und ein Agent übernimmt: überarbeitet das Dokument, ergänzt '
-  'den Kontext, gibt es zurück — asynchron. Ob du es nimmst, entscheidest du.',
-  '注釈に <span class="mono-s">?</span> を置けば、agent が引き取る。文書を直し、文脈を補い、非同期で返してくる。使うかどうかは、あなたが決める。'),
+ ('Put a <span class="mono-s">?</span> in a sidecar note and Smart Lookup writes a fenced answer beneath it — async, '
+  'without touching the source document. You decide whether to adopt it.',
+  '在手记里打个 <span class="mono-s">?</span>，Smart Lookup 会异步在下方写入受控答案区块，不碰源文档。要不要采纳，由你决定。',
+  'Setz ein <span class="mono-s">?</span> in eine Randnotiz. Smart Lookup schreibt asynchron eine abgegrenzte Antwort '
+  'darunter, ohne das Quelldokument zu ändern. Du entscheidest, ob du sie übernimmst.',
+  'サイドノートに <span class="mono-s">?</span> を置くと、Smart Lookup が非同期で区切られた回答を直下に書く。元文書には触れない。採用するかは、あなたが決める。'),
  # ---- claim 05 ----
  ('<h2>Agents notice.<br>You decide what becomes memory.</h2>',
   '<h2>Agent 负责发现。<br>什么成为记忆，由你决定。</h2>',
@@ -204,6 +216,38 @@ STRINGS = [('<title>note.md — The markdown editor for humans and agents</title
   '<a href="/blog/personal-ai-memory/">可信的个人记忆，为什么必须由你点头 →</a>',
   '<a href="/blog/personal-ai-memory/">Warum verlässliches persönliches Gedächtnis dein Ja braucht →</a>',
   '<a href="/blog/personal-ai-memory/">信頼できる個人メモリに、なぜあなたの確認が必要なのか →</a>'),
+ ('<div class="sec-k">New in v6.904–v6.921</div>',
+  '<div class="sec-k">v6.904–v6.921 新功能</div>',
+  '<div class="sec-k">Neu in v6.904–v6.921</div>',
+  '<div class="sec-k">v6.904–v6.921 の新機能</div>'),
+ ('<h2>Read in the right view.</h2>', '<h2>用合适的视图阅读。</h2>', '<h2>Lies in der passenden Ansicht.</h2>', '<h2>内容に合う表示で読む。</h2>'),
+ ('Navigate long files with the table of contents, browse structured notes as Timeline or Index views, explore links '
+  'in Knowledge Browser, and page through <code>*.typeset.md</code> books.',
+  '用目录导航长文，以时间线或索引视图浏览结构化笔记，在知识浏览器中探索链接，并以分页排版阅读 <code>*.typeset.md</code> 书籍。',
+  'Navigiere lange Dateien über das Inhaltsverzeichnis, lies strukturierte Notizen als Timeline oder Index, erkunde '
+  'Links im Knowledge Browser und blättere durch <code>*.typeset.md</code>-Bücher.',
+  '目次で長文を移動し、構造化ノートをタイムラインや索引で見て、Knowledge Browser でリンクを探索し、<code>*.typeset.md</code> の本をページ表示で読める。'),
+ ('<h2>Bring more into the vault.</h2>', '<h2>把更多资料带进 vault。</h2>', '<h2>Bring mehr in den Vault.</h2>', '<h2>さらに多くを Vault へ。</h2>'),
+ ('Sync Apple Notes and Roam Research, archive Meetings, and keep Assistant Mail as local records. Availability depends '
+  'on platform; current Apple Notes and other native packages may be macOS-only.',
+  '同步 Apple Notes 与 Roam Research，归档会议，并把 Assistant Mail 留作本地记录。功能可用性取决于平台；当前 Apple Notes 等原生插件可能仅支持 macOS。',
+  'Synchronisiere Apple Notes und Roam Research, archiviere Meetings und bewahre Assistant Mail lokal auf. Die '
+  'Verfügbarkeit hängt von der Plattform ab; Apple Notes und andere native Pakete können derzeit macOS vorbehalten sein.',
+  'Apple Notes と Roam Research を同期し、会議をアーカイブし、Assistant Mail をローカル記録として残せる。利用可否はプラットフォーム依存で、Apple Notes など一部のネイティブパッケージは現在 macOS 専用。'),
+ ('<h2>Think spatially.</h2>', '<h2>在空间中思考。</h2>', '<h2>Denke räumlich.</h2>', '<h2>空間で考える。</h2>'),
+ ('Open JSON Canvas files, format JSON, keep imported sources read-only, and let untitled notes and canvases receive '
+  'stable names when you save.',
+  '打开 JSON Canvas、格式化 JSON、让导入来源保持只读；无标题笔记和画布会在保存时获得稳定文件名。',
+  'Öffne JSON-Canvas-Dateien, formatiere JSON, halte importierte Quellen schreibgeschützt und gib unbenannten Notizen '
+  'und Canvases beim Speichern stabile Namen.',
+  'JSON Canvas を開き、JSON を整形し、取り込んだソースを読み取り専用に保てる。無題のノートやキャンバスには保存時に安定した名前が付く。'),
+ ('<h2>Agents propose. You approve.</h2>', '<h2>Agent 提议，由你批准。</h2>', '<h2>Agents schlagen vor. Du bestätigst.</h2>', '<h2>Agent が提案し、あなたが承認する。</h2>'),
+ ('Smart Lookup returns governed answers, Memory applies role and scope, Conversation Transcript Corrections keeps human '
+  'approval in the loop, and plugin installs hot-reload without restarting the app.',
+  'Smart Lookup 返回受控答案，Memory 应用角色与范围，沟通转写勘误保留人工批准；插件安装与更新无需重启即可热加载。',
+  'Smart Lookup liefert kontrollierte Antworten, Memory wendet Rolle und Geltungsbereich an, Gesprächstranskript-Korrekturen '
+  'behalten die menschliche Freigabe bei, und Plugins werden ohne App-Neustart neu geladen.',
+  'Smart Lookup は管理された回答を返し、Memory は役割と範囲を適用し、会話文字起こし訂正は人の承認を維持する。プラグインはアプリを再起動せず再読み込みされる。'),
  ('<div class="sec-k">The trick</div>',
   '<div class="sec-k">关键</div>',
   '<div class="sec-k">Der Trick</div>',
@@ -244,17 +288,21 @@ STRINGS = [('<title>note.md — The markdown editor for humans and agents</title
   'Kostenlos. Offen. Ein Ordner auf deinem eigenen Rechner. Mehr nicht.',
   '無料。オープン。あなた自身のパソコンにあるフォルダ一つ。それだけ。'),
  ('macOS 13 or later · Apple Silicon &amp; <a href="/download?os=mac&amp;arch=x86_64">Intel</a>'
-  ' · also on <a href="/download?os=windows">Windows</a> · from GitHub Releases',
+  ' · also on <a href="/download?os=windows">Windows</a> · some native plugins are macOS-only · from GitHub Releases',
   'macOS 13 或更高 · Apple Silicon 与 <a href="/download?os=mac&amp;arch=x86_64">Intel</a>'
-  ' · 也有 <a href="/download?os=windows">Windows</a> 版 · 从 GitHub Releases 获取',
+  ' · 也有 <a href="/download?os=windows">Windows</a> 版 · 部分原生插件仅支持 macOS · 从 GitHub Releases 获取',
   'macOS 13 oder neuer · Apple Silicon &amp; <a href="/download?os=mac&amp;arch=x86_64">Intel</a>'
-  ' · auch für <a href="/download?os=windows">Windows</a> · von GitHub Releases',
+  ' · auch für <a href="/download?os=windows">Windows</a> · einige native Plugins nur für macOS · von GitHub Releases',
   'macOS 13 以降 · Apple Silicon &amp; <a href="/download?os=mac&amp;arch=x86_64">Intel</a>'
-  ' · <a href="/download?os=windows">Windows</a> 版もあり · GitHub Releases から'),
- ('Windows 10/11, 64-bit · also on <a href="/download?os=mac">macOS</a> 13+ · from GitHub Releases',
-  'Windows 10/11 64 位 · 也有 <a href="/download?os=mac">macOS</a> 13+ 版 · 从 GitHub Releases 获取',
-  'Windows 10/11, 64-Bit · auch für <a href="/download?os=mac">macOS</a> 13+ · von GitHub Releases',
-  'Windows 10/11 64 ビット · <a href="/download?os=mac">macOS</a> 13+ 版もあり · GitHub Releases から'),
+  ' · <a href="/download?os=windows">Windows</a> 版もあり · 一部のネイティブプラグインは macOS 専用 · GitHub Releases から'),
+ ('Windows 10/11 x64 · releases can trail macOS · some native plugins are macOS-only · also on <a href="/download?os=mac">macOS</a> 13+ · from GitHub Releases',
+  'Windows 10/11 x64 · 发布可能落后于 macOS · 部分原生插件仅支持 macOS · 也有 <a href="/download?os=mac">macOS</a> 13+ 版 · 从 GitHub Releases 获取',
+  'Windows 10/11 x64 · Releases können macOS hinterherhinken · einige native Plugins nur für macOS · auch für <a href="/download?os=mac">macOS</a> 13+ · von GitHub Releases',
+  'Windows 10/11 x64 · macOS 版より遅れる場合あり · 一部のネイティブプラグインは macOS 専用 · <a href="/download?os=mac">macOS</a> 13+ 版もあり · GitHub Releases から'),
+ ('Desktop only · macOS 13+ and Windows 10/11 x64 · no Linux, mobile, or Windows ARM build is currently published',
+  '仅桌面端 · macOS 13+ 与 Windows 10/11 x64 · 暂不发布 Linux、移动端或 Windows ARM 版本',
+  'Nur Desktop · macOS 13+ und Windows 10/11 x64 · derzeit keine Builds für Linux, Mobilgeräte oder Windows ARM',
+  'デスクトップのみ · macOS 13+ と Windows 10/11 x64 · Linux、モバイル、Windows ARM 版は現在未提供'),
  ('Written and maintained entirely by AI coding. Reviewed and tested by a human before every release.',
   '代码全部由 AI 写，也由 AI 维护。每次发布前，都有人亲自审、亲自测。',
   'Vollständig per AI-Coding geschrieben und gepflegt. Vor jedem Release von einem Menschen geprüft und getestet.',
@@ -274,6 +322,10 @@ STRINGS = [('<title>note.md — The markdown editor for humans and agents</title
   '>Cloudflare 免费分享</a>',
   '>Kostenlos teilen über Cloudflare</a>',
   '>Cloudflare で無料共有</a>'),
+ ('>One vault, many agents</a>',
+  '>一个 vault，多个 agent</a>',
+  '>Ein Vault, viele Agents</a>',
+  '>ひとつの Vault、多くのエージェント</a>'),
  ('>Vault on GitHub</a>', '>GitHub 托管 vault</a>', '>Vault auf GitHub</a>', '>GitHub で Vault をホスト</a>')]
 
 COL = {"zh": 1, "de": 2, "ja": 3}
@@ -304,6 +356,7 @@ def build(lang):
         src = src.replace(en, target)
     src = src.replace('<html lang="en">', f'<html lang="{lang}">')
     src = src.replace(f'<link rel="canonical" href="{BASE}/">', f'<link rel="canonical" href="{BASE}/{lang}/">')
+    src = src.replace(f'<meta property="og:url" content="{BASE}/">', f'<meta property="og:url" content="{BASE}/{lang}/">')
     for old, new in SWITCH[lang] + FONTS.get(lang, []):
         if old not in src:
             missing.append(old[:60]); continue

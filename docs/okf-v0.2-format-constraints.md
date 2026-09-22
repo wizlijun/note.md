@@ -3,7 +3,7 @@
 > 依据官方规范整理，带解释与示例。规范关键词遵循 RFC 2119：**MUST**（必须）/ **SHOULD**（应当）/ **MAY**（可以）。
 >
 > **官方完整文档（SSOT）**：
-> - 规范全文：https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md
+> - 规范全文：https://github.com/GoogleCloudPlatform/open-knowledge-format/blob/main/SPEC.md
 > - 仓库（含参考实现与示例 bundle）：https://github.com/GoogleCloudPlatform/knowledge-catalog
 > - 官方介绍博客：https://cloud.google.com/blog/products/data-analytics/how-the-open-knowledge-format-can-improve-data-sharing
 

@@ -4,8 +4,16 @@
 <meta charset="UTF-8">
 <!-- Hello, agent. The plain-text version of this site is at /llms.txt -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>note.md vs Roam Research（2026年）— ファイル、エージェント、そして Roam に何が起きたか</title>
-<meta name="description" content="note.md と Roam Research の正直な比較。アウトラインノート、デイリーノート、[[ウィキリンク]] を、AIエージェント対応のローカルなプレーンファイルで持つか、ブラウザの中の Roam のグラフで持つか。移行パス付き。">
+<title>note.md vs Roam Research（2026年）— ファイル、エージェント、継続同期</title>
+<meta name="description" content="note.md と Roam Research の実用的な比較。アウトライン、デイリーノート、[[ウィキリンク]]、ローカルファイルとエージェント接続、完全エクスポートと継続同期。">
+<meta property="og:type" content="website">
+<meta property="og:title" content="note.md vs Roam Research（2026年）— ファイル、エージェント、継続同期">
+<meta property="og:description" content="note.md と Roam Research の実用的な比較。アウトライン、デイリーノート、[[ウィキリンク]]、ローカルファイルとエージェント接続、完全エクスポートと継続同期。">
+<meta property="og:url" content="https://notemd.net/ja/compare/roam-research/">
+<meta property="og:site_name" content="note.md">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="note.md vs Roam Research（2026年）— ファイル、エージェント、継続同期">
+<meta name="twitter:description" content="note.md と Roam Research の実用的な比較。アウトライン、デイリーノート、[[ウィキリンク]]、ローカルファイルとエージェント接続、完全エクスポートと継続同期。">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="/favicon.ico" sizes="32x32">
 <link rel="canonical" href="https://notemd.net/ja/compare/roam-research/">
@@ -93,20 +101,20 @@ pre{font-size:12.5px;padding:14px 15px}
 <nav><div class="wrap nav-in">
 <a class="logo" href="/ja/"><svg width="24" height="24" viewBox="0 0 512 512" aria-hidden="true"><rect width="512" height="512" rx="115" fill="#17181C" stroke="#3A3D46" stroke-width="14"/><path d="M 185.49318,76.468676 C 202.86539,165.0158 220.23759,183.99019 301.30788,202.96457 220.23759,221.93895 202.86539,240.91333 185.49318,329.46046 168.12097,240.91333 150.74877,221.93895 69.67847,202.96457 150.74877,183.99019 168.12097,165.0158 185.49318,76.468676 Z" fill="#F59E0B"/><rect x="260.643" y="239.444" width="186.136" height="48" rx="29.39" fill="#FAFAF7"/><circle cx="289.722" cy="342.122" r="28.414" fill="#9CA3AF"/><rect x="333.7" y="324.65" width="112.797" height="40" rx="26.856" fill="#9CA3AF"/><circle cx="288.251" cy="420.101" r="28.414" fill="#9CA3AF"/><rect x="336.022" y="403.894" width="109.256" height="40" rx="26.013" fill="#9CA3AF"/></svg><span>note<span class="dot">.</span>md</span></a>
 <a class="npl" href="https://plugins.notemd.net">プラグイン</a>
-<div class="lang-sw"><a href="/compare/roam-research/">EN</a><a href="/de/compare/roam-research/">DE</a><a href="/ja/compare/roam-research/" class=on>日本語</a><a href="/zh/compare/roam-research/">中文</a></div>
+<div class="lang-sw"><a href="/ja/compare/roam-research/">EN</a><a href="/de/compare/roam-research/">DE</a><a href="/ja/compare/roam-research/" class=on>日本語</a><a href="/zh/compare/roam-research/">中文</a></div>
 <a class="nav-cta" href="/download">ダウンロード</a>
 </div></nav>
 <header class="ph"><div class="wrap">
 <div class="crumb">比較</div>
 <h1>note.md vs Roam Research</h1>
-<p class="lead">どちらもアウトラインとデイリーノートと [[二重括弧]] を愛している。片方は10年分の思考を企業のブラウザタブに預ける。もう片方は、自分が所有するフォルダに置く。</p>
+<p class="lead">どちらもアウトラインとデイリーノートと [[二重括弧]] を愛している。Roam はホストされたグラフを、note.md は自分が所有するフォルダを中心に置く。</p>
 </div></header>
 <main><div class="wrap">
-<table><thead><tr><th></th><th>note.md</th><th>Roam Research</th></tr></thead><tbody><tr><td>ノートの置き場所</td><td>ディスク上のプレーンな markdown ファイル</td><td>クラウド上の独自グラフデータベース</td></tr><tr><td>価格</td><td>無料、オープンソース</td><td>月額15ドルから</td></tr><tr><td>デイリーノート &amp; アウトライン</td><td>あり — <code>.note.md</code> アウトラインファイル</td><td>あり — このパターンの発祥地</td></tr><tr><td>[[Wikilink]] &amp; バックリンク</td><td>あり。Vault 全体でひとつの名前空間</td><td>あり。さらにブロック参照とクエリ</td></tr><tr><td>ブロック単位の引用</td><td>あり — <code>((file#b-xxxxxx))</code>、編集に強い</td><td>あり — ブロック参照はより深い（埋め込み、クエリ）</td></tr><tr><td>AIエージェント</td><td>第一級：プレーンファイル + <code>AGENTS.md</code>、エージェントがあなたの注釈を読む</td><td>組み込みではなし</td></tr><tr><td>AI文書の読解と注釈</td><td>コアワークフロー — サイドカー <code>.note.md</code></td><td>主眼ではない</td></tr><tr><td>開発ペース</td><td>活発</td><td>2021年頃から静かなことで有名</td></tr><tr><td>オフライン / 寿命</td><td>ファイルはどのエディタでも、永遠に読める</td><td>エクスポートが必要。グラフを読むにはアプリが要る</td></tr></tbody></table>
+<table><thead><tr><th></th><th>note.md</th><th>Roam Research</th></tr></thead><tbody><tr><td>ノートの置き場所</td><td>ディスク上のプレーンな markdown ファイル</td><td>クラウド上の独自グラフデータベース</td></tr><tr><td>価格</td><td>無料、オープンソース</td><td>月額15ドルから</td></tr><tr><td>デイリーノート &amp; アウトライン</td><td>あり — <code>.note.md</code> アウトラインファイル</td><td>あり — このパターンの発祥地</td></tr><tr><td>[[Wikilink]] &amp; バックリンク</td><td>あり。Vault 全体でひとつの名前空間</td><td>あり。さらにブロック参照とクエリ</td></tr><tr><td>ブロック単位の引用</td><td>あり — <code>((file#b-xxxxxx))</code>、編集に強い</td><td>あり — ブロック参照はより深い（埋め込み、クエリ）</td></tr><tr><td>AIエージェント</td><td>第一級：プレーンファイル + <code>AGENTS.md</code>、エージェントがあなたの注釈を読む</td><td>ファイル型エージェントには連携、エクスポート、または CLI ブリッジが必要</td></tr><tr><td>AI文書の読解と注釈</td><td>コアワークフロー — サイドカー <code>.note.md</code></td><td>主眼ではない</td></tr><tr><td>オフライン / 寿命</td><td>ファイルはどのエディタでも、永遠に読める</td><td>エクスポートが必要。グラフを読むにはアプリが要る</td></tr></tbody></table>
 <h2>正直なところ</h2><p>Roam は2020年、デイリーノートとバックリンクという思考法を発明した。敬意は払うべきだ。ブロック参照、埋め込み、datalog クエリを使い込むなら、Roam は今でも note.md より深い。ここでそれを誤魔化すつもりはない。</p>
-<p>だが Roam はひとつ、時の試練に耐えなかった賭けをした。グラフは彼らのデータベースの中、サブスクリプションの向こう側、彼らのロードマップ次第 — そしてそのロードマップは何年も静かなままだ。その間に世界はひっくり返った。エージェントはメガバイト単位で markdown を書き、いま重要なのは<em>プレーンファイル</em>を読み書きできるツールだ。ブラウザタブの中のグラフはエージェントの記憶になれない。markdown のフォルダならなれる。</p>
-<p>note.md は Roam を偉大にしたもの — アウトラインエディタ、デイリーノート、ひとつの大きな <code>[[namespace]]</code>、即時検索 — を残し、それをファイルの上に作り直した。Vault は今日どのエディタでも開けるし、50年後も開ける。そして Roam が持たなかったものを加えた。エージェントが第一級市民として、次の一語を書く前にあなたの注釈を読む。</p><h2>Roam からの移行</h2><p>グラフを JSON でエクスポートすれば（Roam は完全エクスポートに対応）、note.md の Roam インポータ（ロードマップ上、コンバータは利用可能）がページを <code>wikipage/</code> のアウトラインノートに、デイリーノートを <code>dailynote/yyyy/yyyy-MM-dd.note.md</code> に変換する — <code>[[July 10th, 2026]]</code> のような日付リンクは正規形の <code>[[2026-07-10]]</code> に書き換え、壊れたリンクは報告する。3年分のノートが、3年分のエージェント検索可能なコンテキストになる。</p><h2>どちらを選ぶか</h2><ul>
-<li><b>Roam に残る</b> — ブロック参照、埋め込み、クエリがワークフローの屋台骨で、サブスクリプションと開発ペースを受け入れられるなら。</li>
+<p>Roam はライブのグラフをサービス内に保持し、note.md は普通のファイルを一次資料にする。この違いは、エージェントの直接ファイルアクセス、Git 履歴、元アプリなしで読める長期保存が必要なときに効く。Roam にはエクスポートとデスクトップ CLI ブリッジがあり、note.md は Roam を手放さずに両方を利用できる。</p>
+<p>note.md は Roam を偉大にしたもの — アウトラインエディタ、デイリーノート、ひとつの大きな <code>[[namespace]]</code>、即時検索 — を残し、それをファイルの上に作り直した。Vault は今日どのエディタでも開けるし、50年後も開ける。そして Roam が持たなかったものを加えた。エージェントが第一級市民として、次の一語を書く前にあなたの注釈を読む。</p><h2>Roam から同期する</h2><p>リリース済みの <b>Roam Research Sync</b> プラグインには三つの経路がある。完全な JSON エクスポートは <code>wikipage/</code> と <code>dailynote/yyyy/yyyy-MM-dd.note.md</code> を作り、<code>[[July 10th, 2026]]</code> を <code>[[2026-07-10]]</code> に書き換える。日次・増分 CLI 同期は Roam デスクトップアプリと <code>roam</code> CLI を使い、ローカルブロックを保ちながら後の変更をマージする。</p><h2>どちらを選ぶか</h2><ul>
+<li><b>Roam に残る</b> — ブロック参照、埋め込み、クエリがワークフローの屋台骨で、ホスト型グラフが要件に合うなら。</li>
 <li><b>note.md を選ぶ</b> — Roam の書き心地を自分が所有するファイルの上で得たいなら。ノートをエージェントの記憶として兼用し、AI の出力を読むことを第一級の行為にしたいなら。</li>
 </ul>
 <section class="faq"><h2>FAQ</h2><h3>Roam Research のグラフを note.md にインポートできるか？</h3><p>できる — Roam からグラフを JSON でエクスポートし、ページを wiki ノートに、デイリーノートを日付付きアウトラインファイルに変換する。日付リンクは正規形の [[yyyy-MM-dd]] に書き換えられ、壊れたリンクは報告される。</p><h3>note.md には Roam のようなブロック参照があるか？</h3><p>note.md には安定したブロック ID がある。すべてのトップレベルブロックに b-xxxxxx の id が付き、どこからでも ((file#b-xxxxxx)) として引用できる。引用とナビゲーションはカバーするが、Roam 式のトランスクルージョン／埋め込みは目標ではない。</p><h3>note.md は無料か？</h3><p>無料だ。note.md はフリーでオープンソース（Apache-2.0）。Roam Research は月額15ドルから。</p></section>

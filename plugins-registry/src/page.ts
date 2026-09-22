@@ -18,6 +18,15 @@ export const PAGE_HTML = `<!DOCTYPE html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>note.md plugins</title>
 <meta name="description" content="Official plugin marketplace for note.md — install plugins and see where to use each one inside the app.">
+<link rel="canonical" href="https://plugins.notemd.net/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="note.md plugins">
+<meta property="og:description" content="Official plugin marketplace for note.md — install plugins and see where to use each one inside the app.">
+<meta property="og:url" content="https://plugins.notemd.net/">
+<meta property="og:site_name" content="note.md">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="note.md plugins">
+<meta name="twitter:description" content="Official plugin marketplace for note.md — install plugins and see where to use each one inside the app.">
 <link rel="icon" href="${SITE}/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -68,7 +77,8 @@ h2{font-family:var(--serif);font-size:27px;margin:0 0 14px;font-weight:700}
 .entry{border-top:1px solid var(--line);padding-top:13px;font-size:15px}
 .entry .lbl{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--gray);display:block;margin-bottom:4px}
 .entry code{font-family:var(--mono);font-size:.9em;background:#FFF9EE;padding:1px 5px;border-radius:4px}
-.host{font-family:var(--mono);font-size:12px;color:var(--gray);margin-top:11px}
+.compat{font-family:var(--mono);font-size:12px;color:var(--gray);margin-top:11px}
+.compat span{display:block}
 .msg{grid-column:1/-1;text-align:center;color:var(--gray);font-style:italic;padding:40px 0}
 footer{background:var(--ink);color:#7C8290;font-size:13.5px;padding:34px 0 44px;margin-top:64px}
 .fbase{font-family:var(--mono);font-size:12.5px}
@@ -98,8 +108,8 @@ main{padding:38px 0 16px}
 <a href="/" class="on" data-t="nav_plugins">Plugins</a>
 </div>
 <div class="lang-sw">
-<a data-lang="en">EN</a>
-<a data-lang="zh">中文</a>
+<a href="?lang=en" data-lang="en">EN</a>
+<a href="?lang=zh" data-lang="zh">中文</a>
 </div>
 <a class="nav-cta" href="${SITE}/download" data-t="nav_download">Download</a>
 </div></nav>
@@ -107,7 +117,7 @@ main{padding:38px 0 16px}
 <header class="ph"><div class="wrap">
 <div class="crumb" data-t="crumb">Plugin Marketplace</div>
 <h1 data-t="title">Plugins for note.md</h1>
-<p class="lead" data-t="lead">Small, signed native plugins that add features to note.md — export, import, chat, and more. Install from inside the app; each plugin's process is its own.</p>
+<p class="lead" data-t="lead">Signed, capability-gated plugins that add features to note.md — export, import, chat, and more. Install from inside the app; native backends, when present, run out of process.</p>
 </div></header>
 
 <main class="wrap">
@@ -135,32 +145,38 @@ note<span style="color:var(--amber)">.</span>md — <a href="${SITE}">notemd.net
 var SITE='${SITE}';
 var I18N={
 en:{
+ meta_title:'note.md plugins',meta_desc:'Official plugin marketplace for note.md — install plugins and see where to use each one inside the app.',
  nav_home:'note.md',nav_plugins:'Plugins',nav_download:'Download',
  crumb:'Plugin Marketplace',title:'Plugins for note.md',
- lead:"Small, signed native plugins that add features to note.md — export, import, chat, and more. Install from inside the app; each plugin's process is its own.",
+ lead:'Signed, capability-gated plugins that add features to note.md — export, import, chat, and more. Install from inside the app; native backends, when present, run out of process.',
  install_h:'How to install',
  install_1:'Open note.md and go to the <b>Plugins</b> menu → <b>Plugin Marketplace</b>.',
  install_2:'Find a plugin below and click <b>Install</b> — packages are minisign-signed and verified on your machine.',
  install_3:'Use it from the entry shown on each card. Updates appear in the same marketplace.',
  latest_h:'Latest plugins',loading:'Loading plugins…',
  foot:'Official plugin marketplace',
- entry_lbl:'How to use',host:'Requires note.md ',
+ entry_lbl:'How to use',host:'Requires note.md ',platform:'Platforms: ',
+ platform_all:'macOS & Windows',platform_macos:'macOS',platform_windows:'Windows',
+ arch_arm64:'Apple Silicon',arch_intel:'Intel',arch_win_arm64:'ARM64',arch_win_x64:'x64',arch_win_x86:'x86',
  err:"Couldn't load plugins, please retry later.",empty:'No plugins published yet.',
  fallback:'Enable it from the Plugins menu in note.md after install.',
  group_ai:'AI',group_record:'Capture',group_reading:'Read',group_inspiration:'Ideas',
  group_advance:'Move Forward',group_reflect:'Reflect',group_create:'Create',group_import_export:'Import & Export',group_experience:'Experience',group_other:'Other',system:'System Feature'
 },
 zh:{
+ meta_title:'note.md 插件市场',meta_desc:'note.md 官方插件市场：安装插件，并查看每个插件在应用内的使用入口。',
  nav_home:'note.md 主站',nav_plugins:'插件',nav_download:'下载',
  crumb:'插件市场',title:'note.md 插件市场',
- lead:'一批小巧、签名的原生插件，为 note.md 扩展能力——导出、导入、对话等。全部从 App 内安装，每个插件独立进程运行。',
+ lead:'经签名、按能力授权的插件，为 note.md 扩展导出、导入、对话等能力。全部从 App 内安装；如含原生后端，后端会在独立进程中运行。',
  install_h:'如何安装',
  install_1:'打开 note.md，进入顶部「<b>插件</b>」菜单 →「<b>插件市场</b>」。',
  install_2:'在下方找到想要的插件，点「<b>安装</b>」——安装包经 minisign 签名，在你本机校验。',
  install_3:'安装后按每张卡片标注的入口使用。更新也在同一个插件市场里。',
  latest_h:'最新插件',loading:'正在加载插件…',
  foot:'官方插件市场',
- entry_lbl:'使用入口',host:'需要 note.md ',
+ entry_lbl:'使用入口',host:'需要 note.md ',platform:'支持平台：',
+ platform_all:'macOS 与 Windows',platform_macos:'macOS',platform_windows:'Windows',
+ arch_arm64:'Apple Silicon',arch_intel:'Intel',arch_win_arm64:'ARM64',arch_win_x64:'x64',arch_win_x86:'x86',
  err:'暂时无法加载插件列表，请稍后重试。',empty:'暂无已上架插件。',
  fallback:'安装后在 note.md 的「插件」菜单中启用。',
  group_ai:'AI',group_record:'记录',group_reading:'阅读',group_inspiration:'灵感',
@@ -188,7 +204,13 @@ var ENTRY_MAP={
  'notemd.timeline':{en:'Open a Markdown file with <code>type: timeline</code> to show it automatically, or choose <strong>Plugins → Reflect → View Timeline</strong>. With no file open, the command asks you to choose one. Edit category rules within the view.',zh:'打开 frontmatter 中设有 <code>type: timeline</code> 的 Markdown 文件可自动显示，或选择<strong>插件 → 回顾 → 查看时间轴</strong>；没有打开文件时会要求选择文件。分类规则可在视图内设置。'},
  'notemd.md2pdf':{en:'<b>Plugins</b> → <b>Import & Export</b> → Export to PDF… (also CLI <code>notemd pdf</code>)',zh:'「<b>插件</b>」→「<b>导入与导出</b>」→ 导出为 PDF…（也支持 CLI <code>notemd pdf</code>）'},
  'notemd.power-mode':{en:'<b>Plugins</b> → <b>Experience</b> → Power Mode',zh:'「<b>插件</b>」→「<b>体验增强</b>」→ 狂暴模式'},
- 'notemd.conversation-dictionary':{en:'<b>Plugins</b> → <b>AI</b> → Conversation Dictionary…',zh:'「<b>插件</b>」→「<b>AI</b>」→ 沟通词典…'}
+ 'notemd.assistant-mail':{en:'<b>Plugins</b> → <b>Capture</b> → Assistant Mail… (also CLI <code>notemd mail-status</code>, <code>mail-sync</code> and <code>mail-query</code>)',zh:'「<b>插件</b>」→「<b>记录</b>」→「助理邮箱…」（也支持 CLI <code>notemd mail-status</code>、<code>mail-sync</code> 与 <code>mail-query</code>）'},
+ 'notemd.apple-notes':{en:'<b>Plugins</b> → <b>Import & Export</b> → Sync Apple Notes… (also CLI <code>notemd apple-notes-sync</code>)',zh:'「<b>插件</b>」→「<b>导入与导出</b>」→「同步 Apple Notes…」（也支持 CLI <code>notemd apple-notes-sync</code>）'},
+ 'notemd.knowledge-browser':{en:'Open a supported knowledge JSON file to view it automatically, or choose <b>Plugins → Read → Open Knowledge Browser…</b>.',zh:'打开受支持的知识 JSON 文件可自动显示，或选择「<b>插件 → 阅读 → 打开提取知识浏览器…</b>」。'},
+ 'notemd.meetings':{en:'<b>Plugins</b> → <b>Capture</b> → Meetings… (also CLI <code>notemd meetings-sync</code> and <code>meetings-import-hemory</code>)',zh:'「<b>插件</b>」→「<b>记录</b>」→「会议记录…」（也支持 CLI <code>notemd meetings-sync</code> 与 <code>meetings-import-hemory</code>）'},
+ 'notemd.memory':{en:'<b>Plugins</b> → <b>Reflect</b> → Memory',zh:'「<b>插件</b>」→「<b>回顾</b>」→「记忆」'},
+ 'notemd.typst-reader':{en:'Open a <code>*.typeset.md</code> file to view it automatically, or choose <b>Plugins → Read → Open Typeset Reader</b>.',zh:'打开 <code>*.typeset.md</code> 文件可自动显示，或选择「<b>插件 → 阅读 → 打开排版阅读器</b>」。'},
+ 'notemd.conversation-dictionary':{en:'<b>Plugins</b> → <b>AI</b> → Conversation Transcript Corrections… (also CLI <code>notemd conversation-dictionary</code>)',zh:'「<b>插件</b>」→「<b>AI</b>」→「沟通转写勘误…」（也支持 CLI <code>notemd conversation-dictionary</code>）'}
 };
 function pickLang(){
  var q=new URLSearchParams(location.search).get('lang');
@@ -200,6 +222,12 @@ function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return
 function applyStatic(){
  var d=I18N[lang];
  document.documentElement.lang=lang;
+ document.title=d.meta_title;
+ document.querySelector('meta[name="description"]').setAttribute('content',d.meta_desc);
+ document.querySelector('meta[property="og:title"]').setAttribute('content',d.meta_title);
+ document.querySelector('meta[property="og:description"]').setAttribute('content',d.meta_desc);
+ document.querySelector('meta[name="twitter:title"]').setAttribute('content',d.meta_title);
+ document.querySelector('meta[name="twitter:description"]').setAttribute('content',d.meta_desc);
  document.querySelectorAll('[data-t]').forEach(function(el){
   var k=el.getAttribute('data-t');if(d[k]!=null)el.innerHTML=d[k];
  });
@@ -212,8 +240,8 @@ function entryFor(id){
 }
 var GROUP_ORDER=['ai','record','reading','inspiration','advance','reflect','create','import-export','experience','other'];
 var LEGACY_GROUPS={'agents':'ai','capture':'record','capture-import':'record','thinking':'reflect','thinking-review':'reflect','publish-export':'import-export','editing':'experience','editor-extensions':'experience'};
-var OFFICIAL_GROUPS={'notemd.pos-log':'record','notemd.roam-import':'import-export','notemd.ebook-import':'reading','notemd.trace-source':'reading','notemd.idea-spark':'inspiration','notemd.next':'advance','notemd.claude-agent':'ai','notemd.codex-agent':'ai','notemd.deepseek-agent':'ai','notemd.conversation-dictionary':'ai','notemd.memory':'ai','notemd.openclaw-chat':'advance','notemd.decision-log':'reflect','notemd.weekly-review':'reflect','notemd.timeline':'reflect','notemd.md2pdf':'import-export','notemd.power-mode':'experience'};
-var AI_ROLES={'notemd.ebook-import':{en:'AI Read',zh:'AI 阅读'},'notemd.idea-spark':{en:'AI Inspire',zh:'AI 启发'},'notemd.trace-source':{en:'AI Reason',zh:'AI 推理'},'notemd.claude-agent':{en:'AI Action',zh:'AI 执行'},'notemd.codex-agent':{en:'AI Action',zh:'AI 执行'},'notemd.deepseek-agent':{en:'AI Action',zh:'AI 执行'},'notemd.openclaw-chat':{en:'AI Action',zh:'AI 执行'}};
+var OFFICIAL_GROUPS={'notemd.pos-log':'record','notemd.assistant-mail':'record','notemd.meetings':'record','notemd.roam-import':'import-export','notemd.apple-notes':'import-export','notemd.ebook-import':'reading','notemd.index-viewer':'reading','notemd.knowledge-browser':'reading','notemd.typst-reader':'reading','notemd.trace-source':'reading','notemd.idea-spark':'inspiration','notemd.next':'advance','notemd.claude-agent':'ai','notemd.codex-agent':'ai','notemd.deepseek-agent':'ai','notemd.conversation-dictionary':'ai','notemd.openclaw-chat':'advance','notemd.memory':'reflect','notemd.decision-log':'reflect','notemd.weekly-review':'reflect','notemd.timeline':'reflect','notemd.md2pdf':'import-export','notemd.power-mode':'experience'};
+var AI_ROLES={'notemd.ebook-import':{en:'AI Read',zh:'AI 阅读'},'notemd.idea-spark':{en:'AI Inspire',zh:'AI 启发'},'notemd.trace-source':{en:'AI Reason',zh:'AI 推理'},'notemd.claude-agent':{en:'AI Action',zh:'AI 执行'},'notemd.codex-agent':{en:'AI Action',zh:'AI 执行'},'notemd.deepseek-agent':{en:'AI Action',zh:'AI 执行'},'notemd.openclaw-chat':{en:'AI Action',zh:'AI 执行'},'notemd.memory':{en:'AI Memory',zh:'AI 记忆'},'notemd.conversation-dictionary':{en:'AI Review',zh:'AI 审阅'}};
 function normalizeGroup(value,id){return OFFICIAL_GROUPS[id]||(GROUP_ORDER.indexOf(value)>=0?value:(LEGACY_GROUPS[value]||'other'));}
 function groupLabel(key){
  return I18N[lang]['group_'+key.replace(/-/g,'_')]||I18N[lang].group_other;
@@ -226,8 +254,28 @@ function groupPlugins(list){
   return {key:key,items:groups[key]};
  });
 }
+function platformForArchs(archs,d){
+ var values=Array.isArray(archs)?archs:[];
+ if(values.indexOf('universal')>=0)return d.platform_all;
+ var mac=[],win=[],other=[];
+ values.forEach(function(arch){
+  if(arch==='aarch64-apple-darwin')mac.push(d.arch_arm64);
+  else if(arch==='x86_64-apple-darwin')mac.push(d.arch_intel);
+  else if(arch==='aarch64-pc-windows-msvc')win.push(d.arch_win_arm64);
+  else if(arch==='x86_64-pc-windows-msvc')win.push(d.arch_win_x64);
+  else if(arch==='i686-pc-windows-msvc')win.push(d.arch_win_x86);
+  else other.push(arch);
+ });
+ var labels=[];
+ if(mac.length)labels.push(d.platform_macos+' ('+mac.join(', ')+')');
+ if(win.length)labels.push(d.platform_windows+' ('+win.join(', ')+')');
+ return labels.concat(other).join(' · ');
+}
 function renderCard(p,d){
- var host=p.min_host?'<div class="host">'+esc(d.host)+esc(p.min_host)+'</div>':'';
+ var platform=platformForArchs(p.archs,d);
+ var compatibility=(platform||p.min_host)?'<div class="compat">'+
+  (platform?'<span>'+esc(d.platform)+esc(platform)+'</span>':'')+
+  (p.min_host?'<span>'+esc(d.host)+esc(p.min_host)+'</span>':'')+'</div>':'';
  var ai=AI_ROLES[p.id];
  var localized=p.i18n&&p.i18n[lang]||{};
  return '<div class="card'+(ai?' ai-card':'')+'">'+
@@ -235,7 +283,7 @@ function renderCard(p,d){
   (ai?'<span class="ai">'+esc(ai[lang])+'</span>':'')+
   (p.version?'<span class="ver">v'+esc(p.version)+'</span>':'')+'</div>'+
   '<p class="desc">'+esc(localized.description||p.description||'')+'</p>'+
-  '<div class="entry"><span class="lbl">'+esc(d.entry_lbl)+'</span>'+entryFor(p.id)+host+'</div>'+
+  '<div class="entry"><span class="lbl">'+esc(d.entry_lbl)+'</span>'+entryFor(p.id)+compatibility+'</div>'+
   '</div>';
 }
 function renderPlugins(list){
@@ -272,7 +320,8 @@ function load(){
  });
 }
 document.querySelectorAll('.lang-sw a').forEach(function(a){
- a.addEventListener('click',function(){
+ a.addEventListener('click',function(event){
+  event.preventDefault();
   lang=a.getAttribute('data-lang');
   var u=new URL(location.href);u.searchParams.set('lang',lang);history.replaceState(null,'',u);
   applyStatic();if(CACHE)renderPlugins(CACHE);else load();

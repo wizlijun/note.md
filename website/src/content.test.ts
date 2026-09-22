@@ -144,3 +144,75 @@ describe('Agent-ready and token pricing copy', () => {
     for (const claim of obsoleteClaims) expect(copy).not.toContain(claim)
   })
 })
+
+describe('v6.904–v6.921 content coverage', () => {
+  const recentHeadings = [
+    { home: 'index.html', heading: 'New in v6.904–v6.921', view: 'Knowledge Browser' },
+    { home: 'de/index.html', heading: 'Neu in v6.904–v6.921', view: 'Knowledge Browser' },
+    { home: 'ja/index.html', heading: 'v6.904–v6.921 の新機能', view: 'Knowledge Browser' },
+    { home: 'zh/index.html', heading: 'v6.904–v6.921 新功能', view: '知识浏览器' },
+  ]
+
+  it.each(recentHeadings)('shows current shipped capabilities on $home', ({ home, heading, view }) => {
+    const html = readFileSync(join(publicDir, home), 'utf8')
+    expect(html).toContain(heading)
+    for (const capability of ['Smart Lookup', 'JSON Canvas', view]) {
+      expect(html).toContain(capability)
+    }
+  })
+
+  it('documents the shipped local MCP and current share command', () => {
+    const full = readFileSync(join(publicDir, 'llms-full.txt'), 'utf8')
+    expect(full).toContain('notemd mcp')
+    expect(full).toContain('read-only `search` and `vault_info`')
+    expect(full).toContain('notemd share draft.md')
+    expect(full).not.toContain('notemd -s')
+    expect(full).not.toContain('Vault MCP server (`vault_search`')
+  })
+
+  it('removes reviewed stale website claims', () => {
+    const websiteCopy = [
+      readFileSync(join(__dirname, '..', 'build_i18n.py'), 'utf8'),
+      readFileSync(join(__dirname, '..', 'build_pages.py'), 'utf8'),
+      readTextTree(join(__dirname, '..', 'i18n')),
+      readTextTree(publicDir),
+    ].join('\n')
+    for (const stale of [
+      'notemd -s',
+      'on the roadmap, converter available',
+      'Famously quiet since ~2021',
+      'every save is a commit',
+      'Sync-to-Vault plugin',
+      'structurally identical to a note.md vault',
+      'Notion and Typora themes',
+      '~15 MB',
+    ]) {
+      expect(websiteCopy).not.toContain(stale)
+    }
+  })
+})
+
+describe('localized navigation and social metadata', () => {
+  it.each(locales.filter(({ lang }) => lang !== 'en'))('keeps $lang internal page links localized', ({ prefix }) => {
+    const html = readTextTree(join(publicDir, prefix.slice(1)))
+    for (const segment of ['compare', 'integrations', 'guides', 'blog', 'orchestrate-agents']) {
+      expect(html).not.toContain(`href="/${segment}/`)
+    }
+  })
+
+  it('adds Open Graph and Twitter metadata to every generated HTML page', () => {
+    const visit = (dir: string): string[] => readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+      const path = join(dir, entry.name)
+      return entry.isDirectory() ? visit(path) : entry.name.endsWith('.html') ? [path] : []
+    })
+    const pages = visit(publicDir)
+    expect(pages).toHaveLength(52)
+    for (const page of pages) {
+      const html = readFileSync(page, 'utf8')
+      expect(html, page).toContain('<meta property="og:title"')
+      expect(html, page).toContain('<meta property="og:description"')
+      expect(html, page).toContain('<meta property="og:url"')
+      expect(html, page).toContain('<meta name="twitter:card" content="summary">')
+    }
+  })
+})

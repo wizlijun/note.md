@@ -6,6 +6,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>GitHub で無料の Vault ホスティング — markdown フォルダにバージョン履歴と同期を</title>
 <meta name="description" content="note.md の Vault はプレーンなファイル。つまり git が完璧に働く。GitHub の無料プライベートホスティング、完全なバージョン履歴、マルチデバイス同期、そしてエージェントの書き込みはすべて diff 可能で巻き戻せる。">
+<meta property="og:type" content="website">
+<meta property="og:title" content="GitHub で無料の Vault ホスティング — markdown フォルダにバージョン履歴と同期を">
+<meta property="og:description" content="note.md の Vault はプレーンなファイル。つまり git が完璧に働く。GitHub の無料プライベートホスティング、完全なバージョン履歴、マルチデバイス同期、そしてエージェントの書き込みはすべて diff 可能で巻き戻せる。">
+<meta property="og:url" content="https://notemd.net/ja/guides/vault-on-github/">
+<meta property="og:site_name" content="note.md">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="GitHub で無料の Vault ホスティング — markdown フォルダにバージョン履歴と同期を">
+<meta name="twitter:description" content="note.md の Vault はプレーンなファイル。つまり git が完璧に働く。GitHub の無料プライベートホスティング、完全なバージョン履歴、マルチデバイス同期、そしてエージェントの書き込みはすべて diff 可能で巻き戻せる。">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="/favicon.ico" sizes="32x32">
 <link rel="canonical" href="https://notemd.net/ja/guides/vault-on-github/">
@@ -17,7 +25,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=EB+Garamond:ital,wght@0,400..700;1,400..700&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
-<script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "GitHub のプライベートリポジトリは本当に無料か？", "acceptedAnswer": {"@type": "Answer", "text": "無料だ — GitHub の無料プランで、プライベートリポジトリは無制限、履歴も完全。数十年分のテキスト Vault でも数メガバイトに収まる。"}}, {"@type": "Question", "name": "機密なノートはどうする？", "acceptedAnswer": {"@type": "Answer", "text": "Vault はあなたのものだ。プライベートリポジトリでも、セルフホストの Gitea でも、リモートなしでもいい — git はローカルでも動く。さらに慎重を期すなら、git-crypt や age で選んだパスを暗号化できる。"}}, {"@type": "Question", "name": "git を知っている必要があるか？", "acceptedAnswer": {"@type": "Answer", "text": "ほとんど要らない。日常は三つのコマンドで足りるし（add、commit、push）、note.md の同期機能が大半を隠してくれる。見返り — 書いたすべての思考の完全な履歴 — は、割に合わないほど大きい。"}}]}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "GitHub のプライベートリポジトリは本当に無料か？", "acceptedAnswer": {"@type": "Answer", "text": "無料だ — GitHub の無料プランで、プライベートリポジトリは無制限、履歴も完全。数十年分のテキスト Vault でも数メガバイトに収まる。"}}, {"@type": "Question", "name": "機密なノートはどうする？", "acceptedAnswer": {"@type": "Answer", "text": "Vault はあなたのものだ。プライベートリポジトリでも、セルフホストの Gitea でも、リモートなしでもいい — git はローカルでも動く。さらに慎重を期すなら、git-crypt や age で選んだパスを暗号化できる。"}}, {"@type": "Question", "name": "git を知っている必要があるか？", "acceptedAnswer": {"@type": "Answer", "text": "add、commit、pull、push と競合解決の基礎は必要だ。note.md は普通のファイルを書き Sync to Vault を提供するが、Git の履歴や競合モデルを置き換えない。"}}]}</script>
 <style>
 :root{--ink:#17181C;--paper:#FAFAF7;--amber:#F59E0B;--gray:#9CA3AF;--line:#E7E5E0;
 --serif:"Playfair Display",Georgia,serif;--body:"EB Garamond",Georgia,serif;
@@ -93,7 +101,7 @@ pre{font-size:12.5px;padding:14px 15px}
 <nav><div class="wrap nav-in">
 <a class="logo" href="/ja/"><svg width="24" height="24" viewBox="0 0 512 512" aria-hidden="true"><rect width="512" height="512" rx="115" fill="#17181C" stroke="#3A3D46" stroke-width="14"/><path d="M 185.49318,76.468676 C 202.86539,165.0158 220.23759,183.99019 301.30788,202.96457 220.23759,221.93895 202.86539,240.91333 185.49318,329.46046 168.12097,240.91333 150.74877,221.93895 69.67847,202.96457 150.74877,183.99019 168.12097,165.0158 185.49318,76.468676 Z" fill="#F59E0B"/><rect x="260.643" y="239.444" width="186.136" height="48" rx="29.39" fill="#FAFAF7"/><circle cx="289.722" cy="342.122" r="28.414" fill="#9CA3AF"/><rect x="333.7" y="324.65" width="112.797" height="40" rx="26.856" fill="#9CA3AF"/><circle cx="288.251" cy="420.101" r="28.414" fill="#9CA3AF"/><rect x="336.022" y="403.894" width="109.256" height="40" rx="26.013" fill="#9CA3AF"/></svg><span>note<span class="dot">.</span>md</span></a>
 <a class="npl" href="https://plugins.notemd.net">プラグイン</a>
-<div class="lang-sw"><a href="/guides/vault-on-github/">EN</a><a href="/de/guides/vault-on-github/">DE</a><a href="/ja/guides/vault-on-github/" class=on>日本語</a><a href="/zh/guides/vault-on-github/">中文</a></div>
+<div class="lang-sw"><a href="/ja/guides/vault-on-github/">EN</a><a href="/de/guides/vault-on-github/">DE</a><a href="/ja/guides/vault-on-github/" class=on>日本語</a><a href="/zh/guides/vault-on-github/">中文</a></div>
 <a class="nav-cta" href="/download">ダウンロード</a>
 </div></nav>
 <header class="ph"><div class="wrap">
@@ -103,18 +111,18 @@ pre{font-size:12.5px;padding:14px 15px}
 </div></header>
 <main><div class="wrap">
 
-<h2>なぜ git が完璧な Vault バックエンドなのか</h2><p>データベースには、忘れるに決まっているバックアップが要る。同期サービスにはサブスクリプションと信頼が要る。git にはどちらも要らない。保存はすべてコミット、コミットはすべて履歴、push はすべてオフサイトバックアップだ。そしてエージェントの時代、git は二重に元を取る — <b>エージェントが Vault に書き込むとき、git はすべての書き込みを diff 可能、帰属可能、巻き戻し可能にする。</b>エージェントの厄日は <code>git revert</code> 一発で済む。悲劇にはならない。</p><h2>セットアップ</h2><pre><code>cd ~/Vault
+<h2>なぜ git が完璧な Vault バックエンドなのか</h2><p>git は各<em>コミット</em>を履歴にし、各 push をオフサイトコピーにする。保存だけでは自動コミットされない。エージェントが Vault に書くとき、git はコミット済みの変更を diff、帰属、巻き戻し可能にする。</p><h2>セットアップ</h2><pre><code>cd ~/Vault
 git init
 printf '.DS_Store\n.mdeditor/\n' &gt; .gitignore
 git add -A &amp;&amp; git commit -m "vault: day one"
 gh repo create my-vault --private --source=. --push</code></pre>
 <p>これだけだ。GitHub のプライベートリポジトリは履歴無制限で無料。あとは好きなだけコミットすればいい — 自動化してもいい。</p><h2>同期と自動化</h2><ul>
-<li><b>note.md との統合：</b>Sync-to-Vault プラグインが、日付プレフィックス付きの名前と競合を考慮したリフレッシュで、git 同期された Vault にファイルをコピーする。最近使ったファイルの履歴も、Vault を通じてデバイス間でミラーされる。</li>
-<li><b>自動コミット：</b>cron の一行か launchd ジョブで <code>git add -A &amp;&amp; git commit -m "auto" &amp;&amp; git push</code> を毎時回せば、労なき継続バックアップになる。</li>
+<li><b>note.md との統合：</b>組み込みの <b>Sync to Vault</b> コマンドが、日付プレフィックスと競合検知付きでファイルを git 同期 Vault にコピーする。</li>
+<li><b>自動コミット：</b>単一書き込み元なら <code>git add -A &amp;&amp; if ! git diff --cached --quiet; then git commit -m "auto" &amp;&amp; git push; fi</code> を定期実行できる。変更なしはスキップされる。複数端末では pull と競合処理方針が別途必要だ。</li>
 <li><b>マルチデバイス：</b>2台目の Mac にリポジトリを clone。書く前に pull、書いたら push。アウトラインの競合は稀で（ファイルが小さい）、起きたときも git が何が起きたかを正確に見せてくれる。</li>
 <li><b>エージェント：</b>エージェントには作業コピーを与える。そのコミットは同僚の PR と同じようにレビューする — 実際、いまやそういうものなのだから。</li>
 </ul>
-<section class="faq"><h2>FAQ</h2><h3>GitHub のプライベートリポジトリは本当に無料か？</h3><p>無料だ — GitHub の無料プランで、プライベートリポジトリは無制限、履歴も完全。数十年分のテキスト Vault でも数メガバイトに収まる。</p><h3>機密なノートはどうする？</h3><p>Vault はあなたのものだ。プライベートリポジトリでも、セルフホストの Gitea でも、リモートなしでもいい — git はローカルでも動く。さらに慎重を期すなら、git-crypt や age で選んだパスを暗号化できる。</p><h3>git を知っている必要があるか？</h3><p>ほとんど要らない。日常は三つのコマンドで足りるし（add、commit、push）、note.md の同期機能が大半を隠してくれる。見返り — 書いたすべての思考の完全な履歴 — は、割に合わないほど大きい。</p></section>
+<section class="faq"><h2>FAQ</h2><h3>GitHub のプライベートリポジトリは本当に無料か？</h3><p>無料だ — GitHub の無料プランで、プライベートリポジトリは無制限、履歴も完全。数十年分のテキスト Vault でも数メガバイトに収まる。</p><h3>機密なノートはどうする？</h3><p>Vault はあなたのものだ。プライベートリポジトリでも、セルフホストの Gitea でも、リモートなしでもいい — git はローカルでも動く。さらに慎重を期すなら、git-crypt や age で選んだパスを暗号化できる。</p><h3>git を知っている必要があるか？</h3><p>add、commit、pull、push と競合解決の基礎は必要だ。note.md は普通のファイルを書き Sync to Vault を提供するが、Git の履歴や競合モデルを置き換えない。</p></section>
 </div></main>
 <section class="cta"><div class="wrap">
 <h2>思考を所有せよ。</h2>

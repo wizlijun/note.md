@@ -8,7 +8,7 @@ Section 3.
 ## Local dev
 
     pnpm install
-    echo 'SIGNING_KEY=$(openssl rand -hex 32)' > .dev.vars
+    printf 'SIGNING_KEY=%s\n' "$(openssl rand -hex 32)" > .dev.vars
     pnpm dev          # http://127.0.0.1:8787
     pnpm test         # vitest-in-workerd
 

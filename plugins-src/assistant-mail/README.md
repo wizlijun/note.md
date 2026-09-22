@@ -5,10 +5,13 @@ stores each raw MIME message and its structured sidecar in the current Vault.
 The default archive is `ssot/mails`, grouped by UTC receive month, and can be
 changed in the trusted settings window.
 
-Assistant Mail 0.1.5 requires note.md 6.912.1 or newer. Operational plugin
+Assistant Mail 0.1.6 requires note.md 6.912.1 or newer. Operational plugin
 CLI commands keep the desktop process running for tray services and scheduled
 work: a newly started main window is hidden, an already hidden window is not
 revealed or focused, and a visible window remains visible.
+
+Current native packages support macOS Apple Silicon and Intel; no Windows
+package is published yet.
 
 When a Git, backup, or sync tool recreates the plugin-owned directories with a
 read-only `0755`-style permission drift, credential reads repair them to `0700`

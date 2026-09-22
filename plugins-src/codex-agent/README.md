@@ -7,7 +7,9 @@ host's standard agent-provider commands, or detach long jobs from the
 
 ## Requirements
 
-- note.md 6.817.4 or later
+- note.md 6.905.6 or later
+- Current native packages support macOS Apple Silicon and Intel; no Windows
+  package is published yet
 - Codex CLI installed and authenticated (`codex --version`, `codex login status`)
 - Existing Codex CLI authentication, or an invocation-scoped `CODEX_API_KEY`
 
@@ -32,8 +34,13 @@ model setting.
 
 The plugin maps Codex JSONL events into note.md's shared live stream, task
 progress, history and artifact records. CLI runs detach by default so they can
-outlive note.md's temporary headless command process. Poll a returned run id
-through the provider's `run-status` command when a caller needs completion.
+outlive note.md's temporary headless command process. The plugin window shows
+progress and history; `run-status` is a host-internal provider command used by
+other plugins, not a separate public CLI subcommand.
+
+```sh
+notemd codex-agent <task-id> --prompt "extra instructions"
+```
 
 ## Permissions
 

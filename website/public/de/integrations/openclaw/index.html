@@ -6,6 +6,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>note.md mit OpenClaw nutzen — gib deinem persönlichen Agent ein echtes Gedächtnis</title>
 <meta name="description" content="OpenClaw speichert sein Gedächtnis als Markdown-Dateien. note.md ist ein Markdown-Vault mit Lese-Annotations-Loop. Richte beide auf denselben Ordner, und das Gedächtnis deines Agents wird dein Notizbuch.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="note.md mit OpenClaw nutzen — gib deinem persönlichen Agent ein echtes Gedächtnis">
+<meta property="og:description" content="OpenClaw speichert sein Gedächtnis als Markdown-Dateien. note.md ist ein Markdown-Vault mit Lese-Annotations-Loop. Richte beide auf denselben Ordner, und das Gedächtnis deines Agents wird dein Notizbuch.">
+<meta property="og:url" content="https://notemd.net/de/integrations/openclaw/">
+<meta property="og:site_name" content="note.md">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="note.md mit OpenClaw nutzen — gib deinem persönlichen Agent ein echtes Gedächtnis">
+<meta name="twitter:description" content="OpenClaw speichert sein Gedächtnis als Markdown-Dateien. note.md ist ein Markdown-Vault mit Lese-Annotations-Loop. Richte beide auf denselben Ordner, und das Gedächtnis deines Agents wird dein Notizbuch.">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="/favicon.ico" sizes="32x32">
 <link rel="canonical" href="https://notemd.net/de/integrations/openclaw/">
@@ -17,7 +25,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=EB+Garamond:ital,wght@0,400..700;1,400..700&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
-<script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Braucht OpenClaw ein Plugin, um mit note.md zu arbeiten?", "acceptedAnswer": {"@type": "Answer", "text": "Nein. Beide Seiten sprechen reine Markdown-Dateien. Eine AGENTS.md in der Vault-Wurzel, die die Konventionen beschreibt, ist die ganze 'Integration'."}}, {"@type": "Question", "name": "Ist es sicher, OpenClaw in meinen Vault schreiben zu lassen?", "acceptedAnswer": {"@type": "Answer", "text": "Halte den Vault in Git (siehe die GitHub-Anleitung), dann ist jeder Agent-Write diffbar und rückgängig zu machen. Per Konvention schreiben Agents nicht in deine .note.md-Sidecar-Dateien — halte diese Regel in der AGENTS.md fest."}}]}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Braucht OpenClaw ein Plugin, um mit note.md zu arbeiten?", "acceptedAnswer": {"@type": "Answer", "text": "Für dateibasierte Arbeit nicht: Beide Seiten können reines Markdown mit den Grenzen aus AGENTS.md nutzen. Das optionale offizielle OpenClaw-Chat-Plugin ergänzt ein note.md-eigenes Gesprächsfenster."}}, {"@type": "Question", "name": "Ist es sicher, OpenClaw in meinen Vault schreiben zu lassen?", "acceptedAnswer": {"@type": "Answer", "text": "Halte den Vault in Git, damit committete Agent-Änderungen diffbar und rückgängig sind. .note.md gehört grundsätzlich dem Menschen; Smart Lookups abgegrenzte Antwort ist die enge Ausnahme. Halte die Grenze in AGENTS.md fest."}}]}</script>
 <style>
 :root{--ink:#17181C;--paper:#FAFAF7;--amber:#F59E0B;--gray:#9CA3AF;--line:#E7E5E0;
 --serif:"Playfair Display",Georgia,serif;--body:"EB Garamond",Georgia,serif;
@@ -93,7 +101,7 @@ pre{font-size:12.5px;padding:14px 15px}
 <nav><div class="wrap nav-in">
 <a class="logo" href="/de/"><svg width="24" height="24" viewBox="0 0 512 512" aria-hidden="true"><rect width="512" height="512" rx="115" fill="#17181C" stroke="#3A3D46" stroke-width="14"/><path d="M 185.49318,76.468676 C 202.86539,165.0158 220.23759,183.99019 301.30788,202.96457 220.23759,221.93895 202.86539,240.91333 185.49318,329.46046 168.12097,240.91333 150.74877,221.93895 69.67847,202.96457 150.74877,183.99019 168.12097,165.0158 185.49318,76.468676 Z" fill="#F59E0B"/><rect x="260.643" y="239.444" width="186.136" height="48" rx="29.39" fill="#FAFAF7"/><circle cx="289.722" cy="342.122" r="28.414" fill="#9CA3AF"/><rect x="333.7" y="324.65" width="112.797" height="40" rx="26.856" fill="#9CA3AF"/><circle cx="288.251" cy="420.101" r="28.414" fill="#9CA3AF"/><rect x="336.022" y="403.894" width="109.256" height="40" rx="26.013" fill="#9CA3AF"/></svg><span>note<span class="dot">.</span>md</span></a>
 <a class="npl" href="https://plugins.notemd.net">plugins</a>
-<div class="lang-sw"><a href="/integrations/openclaw/">EN</a><a href="/de/integrations/openclaw/" class=on>DE</a><a href="/ja/integrations/openclaw/">日本語</a><a href="/zh/integrations/openclaw/">中文</a></div>
+<div class="lang-sw"><a href="/de/integrations/openclaw/">EN</a><a href="/de/integrations/openclaw/" class=on>DE</a><a href="/ja/integrations/openclaw/">日本語</a><a href="/zh/integrations/openclaw/">中文</a></div>
 <a class="nav-cta" href="/download">Laden</a>
 </div></nav>
 <header class="ph"><div class="wrap">
@@ -103,15 +111,16 @@ pre{font-size:12.5px;padding:14px 15px}
 </div></header>
 <main><div class="wrap">
 
-<h2>Warum das Paar funktioniert</h2><p>OpenClaw hält sein Gedächtnis als reines Markdown — <code>MEMORY.md</code> für Langzeit-Fakten, <code>memory/YYYY-MM-DD.md</code> für tägliche Arbeitsnotizen. Das ist strukturell identisch mit der <code>wikipage/</code>- und <code>dailynote/</code>-Konvention eines note.md-Vaults: datierte Outlines plus kuratierte Seiten. Dieselbe Idee, konvergent evolviert.</p>
+<h2>Warum das Paar funktioniert</h2><p>OpenClaw hält sein Gedächtnis als Markdown — <code>MEMORY.md</code> für Langzeit-Fakten und <code>memory/YYYY-MM-DD.md</code> für tägliche Arbeitsnotizen. note.md nutzt ebenfalls Dateien, doch <code>wikipage/</code> und <code>dailynote/yyyy/*.note.md</code> haben andere Pfade und Schemata. Verbinde beide über eine ausdrückliche Workspace- oder Konvertierungsregel, statt die Formate gleichzusetzen.</p>
 <p>Kombinier sie, und jede Seite bekommt, was ihr fehlt: OpenClaw bekommt einen Menschen, der sein Gedächtnis tatsächlich liest und kuratiert, in einer Ansicht, die dafür gebaut ist; du bekommst einen Agent, der rund um die Uhr arbeitet und alles dort aufschreibt, wo du es sehen kannst.</p><h2>Setup</h2><ol>
 <li>Leg eine <code>AGENTS.md</code> in die Vault-Wurzel, die die Konventionen beschreibt (Sidecar-Pairing, Daily-Note-Pfade, <code>[[yyyy-MM-dd]]</code>-Datumslinks). Die Zusammenfassung gibt's in <a href="/llms-full.txt">llms-full.txt</a>.</li>
-<li>Richte OpenClaws Workspace auf deinen Vault (oder symlink sein <code>memory/</code> nach <code>dailynote/</code> — datierte Dateien sind datierte Dateien).</li>
+<li>Richte OpenClaws Workspace auf den Vault oder lass Reports in einen eigenen Vault-Ordner schreiben. Verlinke <code>memory/</code> nicht ohne Konverter nach <code>dailynote/</code>: Layout und Metadaten unterscheiden sich.</li>
+<li>Optional bietet das offizielle OpenClaw-Chat-Plugin ein note.md-eigenes Gesprächsfenster.</li>
 <li>Lass OpenClaw Reports und Recherchen als <code>.md</code>-Dokumente in den Vault schreiben.</li>
 <li>Öffne sie in note.md, lies, markiere, hinterfrage — deine Markierungen landen in Sidecar-Dateien (<code>.note.md</code>).</li>
 <li>Sag OpenClaw, es soll die Sidecar-Dateien vor Folgearbeiten lesen. Dein Urteil wird sein Steuersignal.</li>
 </ol><h2>Der Loop in der Praxis</h2><p>Abends: OpenClaw recherchiert ein Thema und legt <code>research/topic.md</code> in den Vault. Morgens: Du liest es in note.md beim Kaffee, markierst zwei Behauptungen, notierst einen Zweifel. Nachmittags: OpenClaw nimmt sich <code>research/topic.note.md</code> vor, sieht genau, welche Behauptungen deine Aufmerksamkeit verdient haben, und gräbt dort nach, wo du gezweifelt hast. Kein Prompt-Engineering — nur Dateien.</p>
-<section class="faq"><h2>FAQ</h2><h3>Braucht OpenClaw ein Plugin, um mit note.md zu arbeiten?</h3><p>Nein. Beide Seiten sprechen reine Markdown-Dateien. Eine AGENTS.md in der Vault-Wurzel, die die Konventionen beschreibt, ist die ganze 'Integration'.</p><h3>Ist es sicher, OpenClaw in meinen Vault schreiben zu lassen?</h3><p>Halte den Vault in Git (siehe die GitHub-Anleitung), dann ist jeder Agent-Write diffbar und rückgängig zu machen. Per Konvention schreiben Agents nicht in deine .note.md-Sidecar-Dateien — halte diese Regel in der AGENTS.md fest.</p></section>
+<section class="faq"><h2>FAQ</h2><h3>Braucht OpenClaw ein Plugin, um mit note.md zu arbeiten?</h3><p>Für dateibasierte Arbeit nicht: Beide Seiten können reines Markdown mit den Grenzen aus AGENTS.md nutzen. Das optionale offizielle OpenClaw-Chat-Plugin ergänzt ein note.md-eigenes Gesprächsfenster.</p><h3>Ist es sicher, OpenClaw in meinen Vault schreiben zu lassen?</h3><p>Halte den Vault in Git, damit committete Agent-Änderungen diffbar und rückgängig sind. .note.md gehört grundsätzlich dem Menschen; Smart Lookups abgegrenzte Antwort ist die enge Ausnahme. Halte die Grenze in AGENTS.md fest.</p></section>
 </div></main>
 <section class="cta"><div class="wrap">
 <h2>Besitze dein Denken.</h2>

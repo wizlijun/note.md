@@ -1,5 +1,8 @@
 # Roam Research Sync
 
+Requires note.md `6.828.3` or later. Current native packages support macOS
+Apple Silicon and Intel; no Windows package is published yet.
+
 Keep using [Roam Research](https://roamresearch.com) in the way that already
 works for you. This plugin gathers its pages and daily notes into a note.md
 vault as plain `.note.md` files, so agents can search and compute across that
@@ -37,7 +40,7 @@ you already exported from Roam (Roam → graph menu → Export All → JSON).
 
 Every sync of a given day re-merges Roam's current daily page into that day's
 existing `.note.md`, block by block, identified by Roam's own block uid
-(`id::`). Both import paths therefore write `id::` on **every** Roam block, not
+(`id::`). All three paths therefore write `id::` on **every** Roam block, not
 just on `((ref))` targets: a page first written by the JSON import and later
 synced by the CLI has to align block-for-block, and a block without an `id::`
 matches nothing in that merge — it survives as a "local block" beside Roam's
@@ -244,7 +247,7 @@ Roam no longer answers for is simply skipped, and its `.note.md` is left
 alone. Deleting your copy of something is not this plugin's call to make. If
 you want it gone from the vault, delete the file (or the block) there.
 
-### CLI usage
+### Incremental CLI usage
 
 ```
 notemd roam-sync [--since yyyy-MM-dd] [--graph GRAPH] [--dry-run] [--json]
@@ -339,7 +342,7 @@ Neither of them filters those tags. If you rely on them to keep
 scratch/meta/private material out of your Roam UI, be aware it will still
 show up in the synced `.note.md` files.
 
-## CLI usage
+## Daily CLI usage
 
 ```
 notemd roam-day [--date yyyy-MM-dd|today|yesterday] [--graph GRAPH] [--json]

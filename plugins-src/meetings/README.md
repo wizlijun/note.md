@@ -4,7 +4,9 @@
 
 ## 命令行增量同步
 
-升级到 note.md 6.906.2 或更新版本，在插件市场安装/更新并启用会议插件 1.0.3，配置好 Vault 后，执行：
+升级到 note.md 6.906.2 或更新版本，在插件市场安装/更新并启用会议插件 1.0.3，
+配置好 Vault 后执行。当前原生发布包支持 macOS Apple Silicon 与 Intel，不提供
+Windows 版本：
 
 ```sh
 notemd meetings-sync

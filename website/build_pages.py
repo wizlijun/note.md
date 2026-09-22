@@ -112,6 +112,13 @@ CHROME = {
 def lp(lang, path):
     return path if lang == "en" else "/" + lang + path
 
+def localize_internal_links(html, lang):
+    if lang == "en":
+        return html
+    for segment in ("compare", "integrations", "guides", "blog", "orchestrate-agents"):
+        html = html.replace(f'href="/{segment}/', f'href="/{lang}/{segment}/')
+    return html
+
 FONTS = ("https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900"
          "&family=EB+Garamond:ital,wght@0,400..700;1,400..700&family=Courier+Prime:wght@400;700")
 
@@ -188,7 +195,7 @@ def render(p, lang):
         rows = "".join("<tr>" + "".join(f"<td>{cell}</td>" for cell in r) + "</tr>" for r in p["table"]["rows"])
         table_html = f"<table><thead><tr>{head}</tr></thead><tbody>{rows}</tbody></table>"
     body_html = "".join(f"<h2>{h}</h2>{html}" for h, html in p["sections"])
-    return f"""<!DOCTYPE html>
+    rendered = f"""<!DOCTYPE html>
 <html lang="{lang}">
 <head>
 <meta charset="UTF-8">
@@ -196,6 +203,14 @@ def render(p, lang):
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{p['title']}</title>
 <meta name="description" content="{p['desc']}">
+<meta property="og:type" content="website">
+<meta property="og:title" content="{p['title']}">
+<meta property="og:description" content="{p['desc']}">
+<meta property="og:url" content="{BASE}{lp(lang, p['path'])}">
+<meta property="og:site_name" content="note.md">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="{p['title']}">
+<meta name="twitter:description" content="{p['desc']}">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="/favicon.ico" sizes="32x32">
 <link rel="canonical" href="{BASE}{lp(lang, p['path'])}">
@@ -234,6 +249,7 @@ def render(p, lang):
 </div></footer>
 </body>
 </html>"""
+    return localize_internal_links(rendered, lang)
 
 DL = '<a href="/download">Download note.md</a>'
 
@@ -241,11 +257,11 @@ PAGES = [
 # ---------------------------------------------------------------- compare
 {
  "path": "/compare/roam-research/",
- "title": "note.md vs Roam Research (2026) — files, agents, and what happened to Roam",
- "desc": "An honest comparison of note.md and Roam Research: outliner notes, daily notes and [[wikilinks]] — as plain local files with AI-agent support, versus Roam's in-browser graph. Including a migration path.",
+ "title": "note.md vs Roam Research (2026) — files, agents, and continuous sync",
+ "desc": "A practical comparison of note.md and Roam Research: outlines, daily notes and [[wikilinks]], local files and agent access, plus full-export and continuous sync paths.",
  "crumb": "Compare",
  "h1": "note.md vs Roam Research",
- "lead": "Both love outlines, daily notes, and [[double brackets]]. One keeps your ten years of thinking in a company's browser tab. The other keeps it in a folder you own.",
+ "lead": "Both love outlines, daily notes, and [[double brackets]]. Roam centers a hosted graph; note.md centers a folder of files you own.",
  "table": {
   "head": ["", "note.md", "Roam Research"],
   "rows": [
@@ -254,18 +270,17 @@ PAGES = [
    ["Daily notes &amp; outlines", "Yes — <code>.note.md</code> outline files", "Yes — where the pattern was born"],
    ["[[Wikilinks]] &amp; backlinks", "Yes, one namespace across the vault", "Yes, plus block references and queries"],
    ["Block-level citations", "Yes — <code>((file#b-xxxxxx))</code>, edit-resilient", "Yes — block refs, deeper (embeds, queries)"],
-   ["AI agents", "First-class: plain files + <code>AGENTS.md</code>, agents read your annotations", "None built in"],
+   ["AI agents", "First-class: plain files + <code>AGENTS.md</code>, agents read your annotations", "Requires an integration, export, or CLI bridge for file-based agents"],
    ["Reading &amp; annotating AI documents", "Core workflow — sidecar <code>.note.md</code>", "Not a focus"],
-   ["Development pace", "Active", "Famously quiet since ~2021"],
    ["Offline / longevity", "Files readable in any editor, forever", "Export required; app needed to read the graph"],
   ]},
  "sections": [
   ("The honest take", """<p>Roam invented the daily-notes-plus-backlinks way of thinking in 2020, and credit where due: if you use block references, embeds, and datalog queries heavily, Roam still goes deeper than note.md does. Nothing here pretends otherwise.</p>
-<p>But Roam made one bet that aged badly: your graph lives in their database, behind their subscription, at the mercy of their roadmap — and that roadmap has been quiet for years. Meanwhile the world flipped. Agents write markdown by the megabyte, and the tools that matter now are the ones that read and write <em>plain files</em>. A browser-tab graph can't be your agent's memory. A folder of markdown can.</p>
+<p>Roam keeps the live graph in its service; note.md keeps the primary material as ordinary files. That difference matters when agents need direct filesystem access, when you want Git history, or when you need the archive to remain readable without the original app. Roam provides export and a desktop CLI bridge; note.md can use both without asking you to abandon Roam.</p>
 <p>note.md keeps what made Roam great — the outline editor, daily notes, one big <code>[[namespace]]</code>, instant search — and rebuilds it on files. Your vault opens in any editor today and in fifty years. And it adds the thing Roam never had: your agents as first-class citizens, reading your annotations before they write another word.</p>"""),
-  ("Migrating from Roam", """<p>Export your graph as JSON (Roam supports full export), and note.md's Roam importer (on the roadmap, converter available) turns pages into <code>wikipage/</code> outline notes and daily notes into <code>dailynote/yyyy/yyyy-MM-dd.note.md</code> — rewriting date links like <code>[[July 10th, 2026]]</code> to the canonical <code>[[2026-07-10]]</code> and reporting any broken links. Your three years of notes become three years of agent-searchable context.</p>"""),
+  ("Syncing from Roam", """<p>The shipped <b>Roam Research Sync</b> plugin has three paths. A whole-graph JSON export creates <code>wikipage/</code> outline notes and <code>dailynote/yyyy/yyyy-MM-dd.note.md</code> daily notes, rewriting date links such as <code>[[July 10th, 2026]]</code> to <code>[[2026-07-10]]</code>. Daily and incremental CLI sync use Roam's desktop app and <code>roam</code> CLI to merge later changes while preserving local blocks. You can keep using Roam while selected knowledge becomes agent-searchable local context.</p>"""),
   ("Choose one", """<ul>
-<li><b>Stay with Roam</b> if block references, embeds, and queries are load-bearing in your workflow, and you're comfortable with the subscription and the pace.</li>
+<li><b>Stay with Roam</b> if block references, embeds, and queries are load-bearing in your workflow, and a hosted graph fits your needs.</li>
 <li><b>Choose note.md</b> if you want Roam's writing feel on files you own, your notes to double as agent memory, and reading AI output to be a first-class act.</li>
 </ul>"""),
  ],
@@ -329,9 +344,9 @@ PAGES = [
   "head": ["", "note.md", "Notion"],
   "rows": [
    ["Model", "Local markdown files you own", "Cloud workspace, blocks in their database"],
-   ["Price", "Free, open source", "Free tier; teams pay per seat, AI extra"],
-   ["Offline", "Always — it's your disk", "Limited; cloud-first"],
-   ["AI", "Any agent, via plain files — yours to choose", "Notion AI, inside Notion, on their terms"],
+   ["Price", "Free, open source", "Free tier; paid plans per seat; AI included or metered by plan"],
+   ["Offline", "Always — it's your disk", "Selected pages can work offline in desktop and mobile apps"],
+   ["AI", "Any agent, via plain files — yours to choose", "Notion AI, multiple supported models, and Notion MCP"],
    ["Team collaboration", "Git-based sharing; single-player first", "Excellent — real-time multiplayer, comments"],
    ["Databases &amp; project tools", "No — it's a notes tool (CSV grid included)", "Yes — tables, kanban, calendars, forms"],
    ["Data longevity", "Readable in fifty years, any editor", "Export to markdown/CSV; structure degrades"],
@@ -340,7 +355,8 @@ PAGES = [
  "sections": [
   ("The honest take", """<p>If you run a team wiki, a project tracker, and a hiring pipeline, Notion is genuinely good and note.md is not trying to be that. Real-time multiplayer, databases, permissions — that's Notion's home turf and it earns its seats.</p>
 <p>But personal knowledge is a different game with a different time horizon. Your notes should outlive your employer, your tools, and possibly Notion Labs Inc. Every page you write into a cloud workspace is a page you'll someday export, reformat, and grieve over — ask anyone who has left Evernote. note.md's answer is structural: there is nothing to export, because there was never anything but files.</p>
-<p>Then there's the AI question. Notion gives you Notion AI — one assistant, inside one app, priced per seat. note.md gives you a vault any agent can work: Claude Code today, whatever ships next week, all reading the same files and the same <code>AGENTS.md</code>. In a decade where the assistants change monthly, betting your knowledge on one vendor's AI is the new lock-in.</p>"""),
+<p>Notion now offers offline pages, several AI models, and Notion MCP; those are real strengths. The distinction is ownership and interchange. note.md gives any filesystem-capable agent the same local files and <code>AGENTS.md</code>, with no export step or workspace API between the tool and the source. Notion remains stronger for collaborative databases; note.md is deliberately stronger when the durable asset should be a folder.</p>
+<p><small>Notion capabilities and plans last reviewed 2026-09-22: <a href="https://www.notion.com/help/use-pages-offline">offline pages</a>, <a href="https://www.notion.com/help/notion-ai-faqs">Notion AI</a>, and <a href="https://www.notion.com/pricing">pricing</a>.</small></p>"""),
   ("Choose one", """<ul>
 <li><b>Choose Notion</b> for team wikis, project management, and anything that needs multiplayer editing and databases.</li>
 <li><b>Choose note.md</b> for your own thinking: reading AI output, daily notes, a personal knowledge base that compounds for decades and feeds every agent you'll ever use.</li>
@@ -365,11 +381,12 @@ PAGES = [
  "h1": "note.md + OpenClaw",
  "lead": "OpenClaw's philosophy: the model only remembers what gets saved to disk. note.md's philosophy: the disk is the product. This is barely an integration — more like two tools discovering they were built for each other.",
  "sections": [
-  ("Why this pairing works", """<p>OpenClaw keeps its memory as plain markdown — <code>MEMORY.md</code> for long-term facts, <code>memory/YYYY-MM-DD.md</code> for daily working notes. That's structurally identical to a note.md vault's <code>wikipage/</code> and <code>dailynote/</code> convention: dated outlines plus curated pages. Same idea, convergently evolved.</p>
+  ("Why this pairing works", """<p>OpenClaw keeps memory in markdown — <code>MEMORY.md</code> for long-term facts and <code>memory/YYYY-MM-DD.md</code> for daily working notes. note.md also uses files, but its <code>wikipage/</code> and <code>dailynote/yyyy/*.note.md</code> layouts have different paths and schemas. Connect them through an explicit workspace or conversion rule rather than treating the formats as identical.</p>
 <p>Pair them and each side gets what it lacks: OpenClaw gets a human who actually reads and curates its memory in a view built for that; you get an agent that works around the clock and writes everything down where you can see it.</p>"""),
   ("Setup", """<ol>
 <li>Put an <code>AGENTS.md</code> at your vault root describing the conventions (sidecar pairing, daily-note paths, <code>[[yyyy-MM-dd]]</code> date links). Grab the summary from <a href="/llms-full.txt">llms-full.txt</a>.</li>
-<li>Point OpenClaw's workspace at your vault (or symlink its <code>memory/</code> into <code>dailynote/</code> — dated files are dated files).</li>
+<li>Point OpenClaw's workspace at the vault, or have it write reports to a dedicated vault folder. Do not symlink <code>memory/</code> to <code>dailynote/</code> without a converter: the layouts and metadata differ.</li>
+<li>Optionally install the official OpenClaw Chat plugin for a note.md-native conversation window.</li>
 <li>Have OpenClaw write reports and research as <code>.md</code> documents into the vault.</li>
 <li>Open them in note.md, read, highlight, question — your marks land in sidecar <code>.note.md</code> files.</li>
 <li>Tell OpenClaw to read sidecars before follow-up work. Your judgment becomes its steering signal.</li>
@@ -378,9 +395,9 @@ PAGES = [
  ],
  "faq": [
   ("Does OpenClaw need a plugin to work with note.md?",
-   "No. Both sides speak plain markdown files. An AGENTS.md at the vault root describing the conventions is all the 'integration' there is."),
+   "No for file-based work: both sides can use plain markdown with an AGENTS.md describing the boundaries. The optional official OpenClaw Chat plugin adds a note.md-native conversation window."),
   ("Is it safe to let OpenClaw write into my vault?",
-   "Keep the vault in git (see the GitHub guide) so every agent write is diffable and revertible. By convention agents should not write into your .note.md sidecars — state that rule in AGENTS.md."),
+   "Keep the vault in git (see the GitHub guide) so committed agent writes are diffable and revertible. By convention agents treat .note.md sidecars as human-owned; Smart Lookup's fenced answer writeback is the narrow built-in exception. State the boundary in AGENTS.md."),
  ],
 },
 {
@@ -423,16 +440,16 @@ PAGES = [
 <p>Codex is strongest as a working agent: ask it to draft, refactor documents, batch-process notes, or build the small scripts your vault accumulates (importers, link checkers, report generators). Everything it writes is markdown in the vault, which means everything it writes flows into your reading-annotation loop.</p>"""),
   ("Setup", """<ol>
 <li>Copy the conventions summary from <a href="/llms-full.txt">llms-full.txt</a> into <code>AGENTS.md</code> at your vault root.</li>
-<li>Add vault-specific rules — e.g. "never modify <code>*.note.md</code>", "new research goes under <code>research/</code> with a date prefix".</li>
+<li>Add vault-specific rules — e.g. "treat <code>*.note.md</code> as human-owned except Smart Lookup fenced answers", "new research goes under <code>research/</code> with a date prefix".</li>
 <li>Run <code>codex</code> in the vault directory. It picks up the rules automatically.</li>
 <li>Review its output in note.md; annotate; tell the next run to read the sidecars.</li>
 </ol>"""),
  ],
  "faq": [
   ("Does Codex need an MCP server to use the vault?",
-   "No. The vault is plain files in the working directory — Codex's home turf. An MCP endpoint exists for the share worker (publishing pages), not for basic vault work."),
+   "No. The vault is plain files in the working directory — Codex's home turf. If a tool interface is preferable, the shipped local read-only Vault MCP server provides search and vault_info. The share worker's MCP endpoint is a separate publishing interface."),
   ("What should I forbid in AGENTS.md?",
-   "The one hard rule: agents don't write into your .note.md sidecar files — those hold human judgment. Everything else (naming, folders, link style) is house preference."),
+   "Treat .note.md sidecars as human-owned. Smart Lookup's fenced answer writeback is the narrow built-in exception; general agents should not alter highlights, questions, or adopted conclusions. Everything else (naming, folders, link style) is house preference."),
  ],
 },
 {
@@ -479,7 +496,7 @@ PAGES = [
  ],
  "faq": [
   ("Does ChatGPT read AGENTS.md automatically?",
-   "Not the way a CLI agent (Codex, Claude Code) does. Paste your vault conventions into the ChatGPT project or custom instructions, and point it at the AGENTS.md file so it follows the same house rules — sidecar files are off-limits, new work is dated markdown."),
+   "Not the way a CLI agent (Codex, Claude Code) does. Paste your vault conventions into the ChatGPT project or custom instructions, and point it at AGENTS.md. Sidecars are human-owned except for Smart Lookup's fenced answer writeback; new work should follow your naming rules."),
   ("Can ChatGPT-generated images live in my vault?",
    "Yes. Save them beside the document in a {docname}_files/ folder with relative links — the same convention note.md uses for pasted screenshots. They render in the reading view and travel with the vault in git."),
   ("Do I have to pick one agent?",
@@ -502,12 +519,12 @@ wrangler login
 wrangler kv:namespace create SHARES     # copy the id into wrangler.toml
 openssl rand -hex 32 | wrangler secret put SHARE_API_KEY
 wrangler deploy                          # prints your Worker URL</code></pre>
-<p>Paste the Worker URL and API key into <b>note.md → Preferences → Share</b>, restart, done. Full details live in the repo's <code>worker/README.md</code>.</p>"""),
+<p>Paste the Worker URL and API key into <b>note.md → Preferences → Share</b> and save. Full details live in the repo's <code>worker/README.md</code>.</p>"""),
   ("What you get", """<ul>
 <li><b>One keystroke:</b> <code>Cmd+Shift+L</code> publishes the current file; the URL lands in your clipboard. Share again to update in place; unshare returns 410.</li>
 <li><b>Faithful rendering:</b> KaTeX math, Mermaid diagrams as SVG, syntax highlighting, light/dark via <code>prefers-color-scheme</code>, mobile-optimized.</li>
 <li><b>Images included:</b> image-heavy documents spill to Cloudflare R2 (also free tier) automatically.</li>
-<li><b>Agent-ready:</b> the Worker exposes an MCP endpoint, so your agents can publish on your behalf — <code>notemd -s draft.md</code> does it from any script.</li>
+<li><b>Agent-ready:</b> the Worker exposes an MCP endpoint, so your agents can publish on your behalf — <code>notemd share draft.md</code> does it from any script.</li>
 </ul>"""),
  ],
  "faq": [
@@ -525,7 +542,7 @@ wrangler deploy                          # prints your Worker URL</code></pre>
  "h1": "Your vault on GitHub, free",
  "lead": "A vault is a folder of markdown. Git was built for folders of text. GitHub hosts private repos for free. Three facts that add up to bulletproof, zero-cost infrastructure for a lifetime of notes.",
  "sections": [
-  ("Why git is the perfect vault backend", """<p>Databases need backups you'll forget to make. Sync services need subscriptions and trust. Git needs neither: every save is a commit, every commit is history, every push is an off-site backup. And in the agent era it earns its keep twice over — <b>when agents write into your vault, git makes every write diffable, attributable, and revertible.</b> An agent's bad day is a <code>git revert</code>, not a tragedy.</p>"""),
+  ("Why git is the perfect vault backend", """<p>Databases need backups you'll forget to make. Sync services need subscriptions and trust. Git makes each <em>commit</em> history and each push an off-site copy; saving a file does not commit it automatically. In the agent era it earns its keep twice over — <b>when agents write into your vault, git makes committed changes diffable, attributable, and revertible.</b> An agent's bad day can become a <code>git revert</code>, not a tragedy.</p>"""),
   ("Setup", """<pre><code>cd ~/Vault
 git init
 printf '.DS_Store\\n.mdeditor/\\n' &gt; .gitignore
@@ -533,8 +550,8 @@ git add -A &amp;&amp; git commit -m "vault: day one"
 gh repo create my-vault --private --source=. --push</code></pre>
 <p>That's it. A private GitHub repo is free with unlimited history. From then on, commit as often as you like — or automate it.</p>"""),
   ("Sync and automation", """<ul>
-<li><b>note.md integration:</b> the Sync-to-Vault plugin copies files into your git-synced vault with date-prefixed names and conflict-aware refresh; recent-file history mirrors across devices through the vault.</li>
-<li><b>Auto-commit:</b> a cron line or launchd job running <code>git add -A &amp;&amp; git commit -m "auto" &amp;&amp; git push</code> every hour gives you effortless continuous backup.</li>
+<li><b>note.md integration:</b> the built-in <b>Sync to Vault</b> command copies files into your git-synced vault with date-prefixed names and conflict-aware refresh; recent-file history can be mirrored through the vault.</li>
+<li><b>Auto-commit:</b> on a single writer, schedule <code>git add -A &amp;&amp; if ! git diff --cached --quiet; then git commit -m "auto" &amp;&amp; git push; fi</code>. It skips clean runs; multi-device setups still need an explicit pull/conflict policy.</li>
 <li><b>Multi-device:</b> clone the repo on a second machine; pull before writing, push after. Conflicts in outlines are rare (small files) and git shows exactly what happened when they occur.</li>
 <li><b>Agents:</b> give agents a working copy. Review their commits like you'd review a colleague's PR — because that's what they are now.</li>
 </ul>"""),
@@ -545,7 +562,7 @@ gh repo create my-vault --private --source=. --push</code></pre>
   ("What about sensitive notes?",
    "The vault is yours: choose a private repo, a self-hosted Gitea, or no remote at all — git works locally. For extra caution, git-crypt or age can encrypt selected paths."),
   ("Do I need to know git?",
-   "Barely. Three commands cover daily life (add, commit, push), and note.md's sync features hide most of it. The payoff — total history of every thought you ever wrote — is disproportionate."),
+   "You need the basics: add, commit, pull, push, and conflict resolution. note.md writes ordinary files and provides Sync to Vault, but it does not replace Git's history or conflict model."),
  ],
 },
 # ----------------------------------------------------------------- essays
@@ -584,7 +601,7 @@ gh repo create my-vault --private --source=. --push</code></pre>
 </ul>
 <p>Keep the vault in <a href="/guides/vault-on-github/">git</a> and every agent write is diffable, attributable, and revertible — an agent's bad day is a <code>git revert</code>, not a tragedy.</p>"""),
   ("Set it up", """<ol>
-<li>Put an <code>AGENTS.md</code> at your vault root — grab the conventions from <a href="/llms-full.txt">llms-full.txt</a> and add house rules (the hard one: agents never write into <code>*.note.md</code> sidecars).</li>
+<li>Put an <code>AGENTS.md</code> at your vault root — use the vault rules from <a href="/llms-full.txt">llms-full.txt</a> as a reference, then add house rules. Agents normally treat <code>*.note.md</code> sidecars as human-owned; Smart Lookup's fenced answer writeback is the narrow built-in exception.</li>
 <li>Wire up each agent on the same folder: <a href="/integrations/openclaw/">OpenClaw</a>, <a href="/integrations/cowork/">Cowork</a>, <a href="/integrations/codex/">Codex</a>, <a href="/integrations/chatgpt-work/">ChatGPT</a>, <a href="/integrations/hermes/">Hermes</a>.</li>
 <li>Read and annotate the results in note.md; tell the next agent to read the sidecars first. The loop closes on your disk.</li>
 </ol>"""),
@@ -595,7 +612,7 @@ gh repo create my-vault --private --source=. --push</code></pre>
   ("How do agents hand work off to each other?",
    "Through files. One agent writes markdown into the vault; the next reads it as input. Your annotations live in sidecar .note.md files and act as the steering signal — an agent reads your margins before its next pass. No shared memory or private protocol is needed."),
   ("Does this need a special orchestration tool or MCP server?",
-   "No. The orchestration is you, and the medium is the filesystem. There's no central database or hidden state — rules in AGENTS.md, output in .md, judgment in .note.md. A Vault MCP server is on the roadmap for agents that prefer a tool interface, but plain files already work today."),
+   "No central orchestrator is required: rules live in AGENTS.md, output in .md, and judgment in .note.md. Agents can use plain files or the shipped local, read-only Vault MCP server (<code>notemd mcp</code>), which exposes <code>search</code> and <code>vault_info</code>. The share worker's MCP endpoint is a separate publishing interface."),
   ("Why not just use one AI for everything?",
    "Because no single agent is best at everything. Overnight automation, careful review, fast image generation, private local work, and final judgment are different jobs with different best-fit tools. Splitting them across specialists — over files you own — beats one generalist doing all of it, and keeps you free to swap any worker out."),
  ],

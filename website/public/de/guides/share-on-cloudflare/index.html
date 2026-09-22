@@ -6,6 +6,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Kostenloses Dokumenten-Sharing mit note.md auf Cloudflare — dein eigener Worker, deine eigenen Links</title>
 <meta name="description" content="Deploye note.mds Share-Worker in zehn Minuten auf Cloudflares Free-Tier. Veröffentliche beliebiges Markdown als schöne, in sich geschlossene Seite — mit Mathe, Diagrammen, Dark Mode — auf Infrastruktur, die du kontrollierst.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Kostenloses Dokumenten-Sharing mit note.md auf Cloudflare — dein eigener Worker, deine eigenen Links">
+<meta property="og:description" content="Deploye note.mds Share-Worker in zehn Minuten auf Cloudflares Free-Tier. Veröffentliche beliebiges Markdown als schöne, in sich geschlossene Seite — mit Mathe, Diagrammen, Dark Mode — auf Infrastruktur, die du kontrollierst.">
+<meta property="og:url" content="https://notemd.net/de/guides/share-on-cloudflare/">
+<meta property="og:site_name" content="note.md">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Kostenloses Dokumenten-Sharing mit note.md auf Cloudflare — dein eigener Worker, deine eigenen Links">
+<meta name="twitter:description" content="Deploye note.mds Share-Worker in zehn Minuten auf Cloudflares Free-Tier. Veröffentliche beliebiges Markdown als schöne, in sich geschlossene Seite — mit Mathe, Diagrammen, Dark Mode — auf Infrastruktur, die du kontrollierst.">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="/favicon.ico" sizes="32x32">
 <link rel="canonical" href="https://notemd.net/de/guides/share-on-cloudflare/">
@@ -93,7 +101,7 @@ pre{font-size:12.5px;padding:14px 15px}
 <nav><div class="wrap nav-in">
 <a class="logo" href="/de/"><svg width="24" height="24" viewBox="0 0 512 512" aria-hidden="true"><rect width="512" height="512" rx="115" fill="#17181C" stroke="#3A3D46" stroke-width="14"/><path d="M 185.49318,76.468676 C 202.86539,165.0158 220.23759,183.99019 301.30788,202.96457 220.23759,221.93895 202.86539,240.91333 185.49318,329.46046 168.12097,240.91333 150.74877,221.93895 69.67847,202.96457 150.74877,183.99019 168.12097,165.0158 185.49318,76.468676 Z" fill="#F59E0B"/><rect x="260.643" y="239.444" width="186.136" height="48" rx="29.39" fill="#FAFAF7"/><circle cx="289.722" cy="342.122" r="28.414" fill="#9CA3AF"/><rect x="333.7" y="324.65" width="112.797" height="40" rx="26.856" fill="#9CA3AF"/><circle cx="288.251" cy="420.101" r="28.414" fill="#9CA3AF"/><rect x="336.022" y="403.894" width="109.256" height="40" rx="26.013" fill="#9CA3AF"/></svg><span>note<span class="dot">.</span>md</span></a>
 <a class="npl" href="https://plugins.notemd.net">plugins</a>
-<div class="lang-sw"><a href="/guides/share-on-cloudflare/">EN</a><a href="/de/guides/share-on-cloudflare/" class=on>DE</a><a href="/ja/guides/share-on-cloudflare/">日本語</a><a href="/zh/guides/share-on-cloudflare/">中文</a></div>
+<div class="lang-sw"><a href="/de/guides/share-on-cloudflare/">EN</a><a href="/de/guides/share-on-cloudflare/" class=on>DE</a><a href="/ja/guides/share-on-cloudflare/">日本語</a><a href="/zh/guides/share-on-cloudflare/">中文</a></div>
 <a class="nav-cta" href="/download">Laden</a>
 </div></nav>
 <header class="ph"><div class="wrap">
@@ -109,11 +117,11 @@ wrangler login
 wrangler kv:namespace create SHARES     # copy the id into wrangler.toml
 openssl rand -hex 32 | wrangler secret put SHARE_API_KEY
 wrangler deploy                          # prints your Worker URL</code></pre>
-<p>Worker-URL und API-Key in <b>note.md → Preferences → Share</b> einfügen, neu starten, fertig. Alle Details stehen in der <code>worker/README.md</code> des Repos.</p><h2>Was du bekommst</h2><ul>
+<p>Worker-URL und API-Key in <b>note.md → Preferences → Share</b> einfügen und speichern. Alle Details stehen in der <code>worker/README.md</code> des Repos.</p><h2>Was du bekommst</h2><ul>
 <li><b>Ein Tastendruck:</b> <code>Cmd+Shift+L</code> veröffentlicht die aktuelle Datei; die URL landet in deiner Zwischenablage. Nochmal teilen aktualisiert in place; Unshare liefert 410.</li>
 <li><b>Treues Rendering:</b> KaTeX-Mathe, Mermaid-Diagramme als SVG, Syntax-Highlighting, Hell/Dunkel via <code>prefers-color-scheme</code>, mobil-optimiert.</li>
 <li><b>Bilder inklusive:</b> Bildlastige Dokumente laufen automatisch nach Cloudflare R2 über (ebenfalls Free-Tier).</li>
-<li><b>Agent-ready:</b> Der Worker stellt einen MCP-Endpunkt bereit, deine Agents können also in deinem Namen veröffentlichen — <code>notemd -s draft.md</code> erledigt es aus jedem Skript.</li>
+<li><b>Agent-ready:</b> Der Worker stellt einen MCP-Endpunkt bereit, deine Agents können also in deinem Namen veröffentlichen — <code>notemd share draft.md</code> erledigt es aus jedem Skript.</li>
 </ul>
 <section class="faq"><h2>FAQ</h2><h3>Was kostet das?</h3><p>Nichts, für persönliche Nutzung. Cloudflares Free-Tier umfasst 100.000 Worker-Requests pro Tag und 10 GB R2-Speicher — Größenordnungen über dem, was ein Mensch beim Teilen von Dokumenten braucht.</p><h3>Kann ich eine geteilte Seite wieder offline nehmen?</h3><p>Ja, sofort. File → Unshare (oder notemd share --unshare) widerruft den Link; Besucher bekommen einen 410. Es ist dein Worker — du kannst ihn auch einfach löschen.</p></section>
 </div></main>

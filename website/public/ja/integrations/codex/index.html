@@ -6,6 +6,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Codex で note.md を使う — AGENTS.md はすでに Codex の母語だ</title>
 <meta name="description" content="OpenAI の Codex CLI は規約として AGENTS.md を読む。note.md の Vault は、まさにそのファイルにルールを載せている。Vault の中で codex を走らせれば、振る舞い方は最初から知っている。">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Codex で note.md を使う — AGENTS.md はすでに Codex の母語だ">
+<meta property="og:description" content="OpenAI の Codex CLI は規約として AGENTS.md を読む。note.md の Vault は、まさにそのファイルにルールを載せている。Vault の中で codex を走らせれば、振る舞い方は最初から知っている。">
+<meta property="og:url" content="https://notemd.net/ja/integrations/codex/">
+<meta property="og:site_name" content="note.md">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Codex で note.md を使う — AGENTS.md はすでに Codex の母語だ">
+<meta name="twitter:description" content="OpenAI の Codex CLI は規約として AGENTS.md を読む。note.md の Vault は、まさにそのファイルにルールを載せている。Vault の中で codex を走らせれば、振る舞い方は最初から知っている。">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="/favicon.ico" sizes="32x32">
 <link rel="canonical" href="https://notemd.net/ja/integrations/codex/">
@@ -17,7 +25,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=EB+Garamond:ital,wght@0,400..700;1,400..700&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
-<script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Codex が Vault を使うのに MCP サーバーは要るか？", "acceptedAnswer": {"@type": "Answer", "text": "要らない。Vault は作業ディレクトリのプレーンなファイル — Codex のホームグラウンドだ。MCP エンドポイントは share worker（ページの公開）用にあるもので、基本的な Vault 作業には不要。"}}, {"@type": "Question", "name": "AGENTS.md では何を禁じるべきか？", "acceptedAnswer": {"@type": "Answer", "text": "唯一の鉄則：エージェントは .note.md サイドカーに書き込まない — そこには人間の判断が入っている。それ以外（命名、フォルダ、リンクの流儀）はハウスの好みだ。"}}]}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Codex が Vault を使うのに MCP サーバーは要るか？", "acceptedAnswer": {"@type": "Answer", "text": "要らない。Vault は作業ディレクトリのプレーンファイルだ。ツール方式がよければ、リリース済みのローカル読み取り専用 Vault MCP が search と vault_info を提供する。Share Worker の MCP は別の公開インターフェースだ。"}}, {"@type": "Question", "name": "AGENTS.md では何を禁じるべきか？", "acceptedAnswer": {"@type": "Answer", "text": ".note.md は人間所有とする。Smart Lookup の fenced answer だけが狭い例外で、一般のエージェントはハイライト、質問、採用済み結論を変えない。それ以外はハウスの好みだ。"}}]}</script>
 <style>
 :root{--ink:#17181C;--paper:#FAFAF7;--amber:#F59E0B;--gray:#9CA3AF;--line:#E7E5E0;
 --serif:"Playfair Display",Georgia,serif;--body:"EB Garamond",Georgia,serif;
@@ -93,7 +101,7 @@ pre{font-size:12.5px;padding:14px 15px}
 <nav><div class="wrap nav-in">
 <a class="logo" href="/ja/"><svg width="24" height="24" viewBox="0 0 512 512" aria-hidden="true"><rect width="512" height="512" rx="115" fill="#17181C" stroke="#3A3D46" stroke-width="14"/><path d="M 185.49318,76.468676 C 202.86539,165.0158 220.23759,183.99019 301.30788,202.96457 220.23759,221.93895 202.86539,240.91333 185.49318,329.46046 168.12097,240.91333 150.74877,221.93895 69.67847,202.96457 150.74877,183.99019 168.12097,165.0158 185.49318,76.468676 Z" fill="#F59E0B"/><rect x="260.643" y="239.444" width="186.136" height="48" rx="29.39" fill="#FAFAF7"/><circle cx="289.722" cy="342.122" r="28.414" fill="#9CA3AF"/><rect x="333.7" y="324.65" width="112.797" height="40" rx="26.856" fill="#9CA3AF"/><circle cx="288.251" cy="420.101" r="28.414" fill="#9CA3AF"/><rect x="336.022" y="403.894" width="109.256" height="40" rx="26.013" fill="#9CA3AF"/></svg><span>note<span class="dot">.</span>md</span></a>
 <a class="npl" href="https://plugins.notemd.net">プラグイン</a>
-<div class="lang-sw"><a href="/integrations/codex/">EN</a><a href="/de/integrations/codex/">DE</a><a href="/ja/integrations/codex/" class=on>日本語</a><a href="/zh/integrations/codex/">中文</a></div>
+<div class="lang-sw"><a href="/ja/integrations/codex/">EN</a><a href="/de/integrations/codex/">DE</a><a href="/ja/integrations/codex/" class=on>日本語</a><a href="/zh/integrations/codex/">中文</a></div>
 <a class="nav-cta" href="/download">ダウンロード</a>
 </div></nav>
 <header class="ph"><div class="wrap">
@@ -106,11 +114,11 @@ pre{font-size:12.5px;padding:14px 15px}
 <h2>なぜこの組み合わせが効くのか</h2><p>Codex は実行ディレクトリの <code>AGENTS.md</code> を読む — それが Codex 生来の規約で、設定は要らない。note.md の Vault はファイルのルール（サイドカーのペアリング、アウトライン形式、日付リンク、ブロック引用）を、まさにそのファイルで公開している。つまり連携とはこうだ：<code>cd vault &amp;&amp; codex</code>。以上。</p>
 <p>Codex が最も強いのは、働くエージェントとしてだ。下書き、文書のリファクタリング、ノートの一括処理、Vault に溜まっていく小さなスクリプト（インポータ、リンクチェッカー、レポート生成）の作成。Codex が書くものはすべて Vault 内の markdown — つまり、書くものはすべてあなたのリーディング・注釈ループに流れ込む。</p><h2>セットアップ</h2><ol>
 <li><a href="/llms-full.txt">llms-full.txt</a> の規約要約を、Vault ルートの <code>AGENTS.md</code> にコピーする。</li>
-<li>Vault 固有のルールを足す — 例：「<code>*.note.md</code> は決して変更しない」「新しい調査は日付プレフィックス付きで <code>research/</code> 以下へ」。</li>
+<li>Vault 固有のルールを足す — 例：「Smart Lookup の fenced answer 以外、<code>*.note.md</code> は人間所有」「新しい調査は日付プレフィックス付きで <code>research/</code> 以下へ」。</li>
 <li>Vault ディレクトリで <code>codex</code> を実行する。ルールは自動で拾われる。</li>
 <li>出力を note.md でレビューし、注釈する。次の実行にはサイドカーを読ませる。</li>
 </ol>
-<section class="faq"><h2>FAQ</h2><h3>Codex が Vault を使うのに MCP サーバーは要るか？</h3><p>要らない。Vault は作業ディレクトリのプレーンなファイル — Codex のホームグラウンドだ。MCP エンドポイントは share worker（ページの公開）用にあるもので、基本的な Vault 作業には不要。</p><h3>AGENTS.md では何を禁じるべきか？</h3><p>唯一の鉄則：エージェントは .note.md サイドカーに書き込まない — そこには人間の判断が入っている。それ以外（命名、フォルダ、リンクの流儀）はハウスの好みだ。</p></section>
+<section class="faq"><h2>FAQ</h2><h3>Codex が Vault を使うのに MCP サーバーは要るか？</h3><p>要らない。Vault は作業ディレクトリのプレーンファイルだ。ツール方式がよければ、リリース済みのローカル読み取り専用 Vault MCP が search と vault_info を提供する。Share Worker の MCP は別の公開インターフェースだ。</p><h3>AGENTS.md では何を禁じるべきか？</h3><p>.note.md は人間所有とする。Smart Lookup の fenced answer だけが狭い例外で、一般のエージェントはハイライト、質問、採用済み結論を変えない。それ以外はハウスの好みだ。</p></section>
 </div></main>
 <section class="cta"><div class="wrap">
 <h2>思考を所有せよ。</h2>

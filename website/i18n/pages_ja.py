@@ -7,11 +7,11 @@ PAGES = [
 # ---------------------------------------------------------------- compare
 {
  "path": "/compare/roam-research/",
- "title": "note.md vs Roam Research（2026年）— ファイル、エージェント、そして Roam に何が起きたか",
- "desc": "note.md と Roam Research の正直な比較。アウトラインノート、デイリーノート、[[ウィキリンク]] を、AIエージェント対応のローカルなプレーンファイルで持つか、ブラウザの中の Roam のグラフで持つか。移行パス付き。",
+ "title": "note.md vs Roam Research（2026年）— ファイル、エージェント、継続同期",
+ "desc": "note.md と Roam Research の実用的な比較。アウトライン、デイリーノート、[[ウィキリンク]]、ローカルファイルとエージェント接続、完全エクスポートと継続同期。",
  "crumb": "比較",
  "h1": "note.md vs Roam Research",
- "lead": "どちらもアウトラインとデイリーノートと [[二重括弧]] を愛している。片方は10年分の思考を企業のブラウザタブに預ける。もう片方は、自分が所有するフォルダに置く。",
+ "lead": "どちらもアウトラインとデイリーノートと [[二重括弧]] を愛している。Roam はホストされたグラフを、note.md は自分が所有するフォルダを中心に置く。",
  "table": {
   "head": ["", "note.md", "Roam Research"],
   "rows": [
@@ -20,18 +20,17 @@ PAGES = [
    ["デイリーノート &amp; アウトライン", "あり — <code>.note.md</code> アウトラインファイル", "あり — このパターンの発祥地"],
    ["[[Wikilink]] &amp; バックリンク", "あり。Vault 全体でひとつの名前空間", "あり。さらにブロック参照とクエリ"],
    ["ブロック単位の引用", "あり — <code>((file#b-xxxxxx))</code>、編集に強い", "あり — ブロック参照はより深い（埋め込み、クエリ）"],
-   ["AIエージェント", "第一級：プレーンファイル + <code>AGENTS.md</code>、エージェントがあなたの注釈を読む", "組み込みではなし"],
+   ["AIエージェント", "第一級：プレーンファイル + <code>AGENTS.md</code>、エージェントがあなたの注釈を読む", "ファイル型エージェントには連携、エクスポート、または CLI ブリッジが必要"],
    ["AI文書の読解と注釈", "コアワークフロー — サイドカー <code>.note.md</code>", "主眼ではない"],
-   ["開発ペース", "活発", "2021年頃から静かなことで有名"],
    ["オフライン / 寿命", "ファイルはどのエディタでも、永遠に読める", "エクスポートが必要。グラフを読むにはアプリが要る"],
   ]},
  "sections": [
   ("正直なところ", """<p>Roam は2020年、デイリーノートとバックリンクという思考法を発明した。敬意は払うべきだ。ブロック参照、埋め込み、datalog クエリを使い込むなら、Roam は今でも note.md より深い。ここでそれを誤魔化すつもりはない。</p>
-<p>だが Roam はひとつ、時の試練に耐えなかった賭けをした。グラフは彼らのデータベースの中、サブスクリプションの向こう側、彼らのロードマップ次第 — そしてそのロードマップは何年も静かなままだ。その間に世界はひっくり返った。エージェントはメガバイト単位で markdown を書き、いま重要なのは<em>プレーンファイル</em>を読み書きできるツールだ。ブラウザタブの中のグラフはエージェントの記憶になれない。markdown のフォルダならなれる。</p>
+<p>Roam はライブのグラフをサービス内に保持し、note.md は普通のファイルを一次資料にする。この違いは、エージェントの直接ファイルアクセス、Git 履歴、元アプリなしで読める長期保存が必要なときに効く。Roam にはエクスポートとデスクトップ CLI ブリッジがあり、note.md は Roam を手放さずに両方を利用できる。</p>
 <p>note.md は Roam を偉大にしたもの — アウトラインエディタ、デイリーノート、ひとつの大きな <code>[[namespace]]</code>、即時検索 — を残し、それをファイルの上に作り直した。Vault は今日どのエディタでも開けるし、50年後も開ける。そして Roam が持たなかったものを加えた。エージェントが第一級市民として、次の一語を書く前にあなたの注釈を読む。</p>"""),
-  ("Roam からの移行", """<p>グラフを JSON でエクスポートすれば（Roam は完全エクスポートに対応）、note.md の Roam インポータ（ロードマップ上、コンバータは利用可能）がページを <code>wikipage/</code> のアウトラインノートに、デイリーノートを <code>dailynote/yyyy/yyyy-MM-dd.note.md</code> に変換する — <code>[[July 10th, 2026]]</code> のような日付リンクは正規形の <code>[[2026-07-10]]</code> に書き換え、壊れたリンクは報告する。3年分のノートが、3年分のエージェント検索可能なコンテキストになる。</p>"""),
+  ("Roam から同期する", """<p>リリース済みの <b>Roam Research Sync</b> プラグインには三つの経路がある。完全な JSON エクスポートは <code>wikipage/</code> と <code>dailynote/yyyy/yyyy-MM-dd.note.md</code> を作り、<code>[[July 10th, 2026]]</code> を <code>[[2026-07-10]]</code> に書き換える。日次・増分 CLI 同期は Roam デスクトップアプリと <code>roam</code> CLI を使い、ローカルブロックを保ちながら後の変更をマージする。</p>"""),
   ("どちらを選ぶか", """<ul>
-<li><b>Roam に残る</b> — ブロック参照、埋め込み、クエリがワークフローの屋台骨で、サブスクリプションと開発ペースを受け入れられるなら。</li>
+<li><b>Roam に残る</b> — ブロック参照、埋め込み、クエリがワークフローの屋台骨で、ホスト型グラフが要件に合うなら。</li>
 <li><b>note.md を選ぶ</b> — Roam の書き心地を自分が所有するファイルの上で得たいなら。ノートをエージェントの記憶として兼用し、AI の出力を読むことを第一級の行為にしたいなら。</li>
 </ul>"""),
  ],
@@ -95,9 +94,9 @@ PAGES = [
   "head": ["", "note.md", "Notion"],
   "rows": [
    ["モデル", "自分が所有するローカルの markdown ファイル", "クラウドワークスペース。ブロックは彼らのデータベースの中"],
-   ["価格", "無料、オープンソース", "無料枠あり。チームは席課金、AI は別料金"],
-   ["オフライン", "常に — 自分のディスクだ", "限定的。クラウドファースト"],
-   ["AI", "どのエージェントでも、プレーンファイル経由 — 選ぶのはあなた", "Notion AI を、Notion の中で、彼らの条件で"],
+   ["価格", "無料、オープンソース", "無料枠あり。有料プランは席課金、AI はプランにより内包または計量"],
+   ["オフライン", "常に — 自分のディスクだ", "デスクトップとモバイルで選択したページをオフライン利用"],
+   ["AI", "どのエージェントでも、プレーンファイル経由 — 選ぶのはあなた", "Notion AI、複数の対応モデル、Notion MCP"],
    ["チームコラボレーション", "git ベースの共有。シングルプレイヤー第一", "優秀 — リアルタイム同時編集、コメント"],
    ["データベース &amp; プロジェクトツール", "なし — これはノートツールだ（CSV グリッドは付属）", "あり — テーブル、カンバン、カレンダー、フォーム"],
    ["データの寿命", "50年後も、どのエディタでも読める", "markdown/CSV へエクスポート。構造は劣化する"],
@@ -106,7 +105,8 @@ PAGES = [
  "sections": [
   ("正直なところ", """<p>チーム wiki とプロジェクトトラッカーと採用パイプラインを回しているなら、Notion は本当によくできているし、note.md はそれになろうとしていない。リアルタイム同時編集、データベース、権限管理 — そこは Notion のホームグラウンドで、席料に見合う働きをする。</p>
 <p>だが個人の知識は別のゲームで、時間軸も別だ。ノートは雇用主より、ツールより、そしておそらく Notion Labs Inc. より長生きするべきだ。クラウドワークスペースに書き込んだページはすべて、いつかエクスポートし、整形し直し、嘆くことになるページだ — Evernote を去った人間に聞けばいい。note.md の答えは構造的だ。エクスポートするものは何もない。最初からファイル以外の何ものでもなかったのだから。</p>
-<p>そして AI の問題がある。Notion がくれるのは Notion AI — ひとつのアシスタント、ひとつのアプリの中、席単位の課金。note.md がくれるのは、どのエージェントでも働ける Vault だ。今日は Claude Code、来週は次に出る何か。すべてが同じファイルと同じ <code>AGENTS.md</code> を読む。アシスタントが毎月入れ替わる時代に、知識を一社の AI に賭けるのが新しいロックインだ。</p>"""),
+<p>Notion は現在、オフラインページ、複数の AI モデル、Notion MCP を提供しており、これは明確な強みだ。違いは所有権と交換可能性にある。note.md ではファイルシステムを扱えるどのエージェントも同じローカルファイルと <code>AGENTS.md</code> を使い、ツールと原本の間にエクスポートや Workspace API を挟まない。Notion は共同データベースに強く、note.md は永続資産をフォルダにしたい場合に強い。</p>
+<p><small>Notion の機能とプランは 2026-09-22 に最終確認：<a href="https://www.notion.com/help/use-pages-offline">オフラインページ</a>、<a href="https://www.notion.com/help/notion-ai-faqs">Notion AI</a>、<a href="https://www.notion.com/pricing">料金</a>。</small></p>"""),
   ("どちらを選ぶか", """<ul>
 <li><b>Notion を選ぶ</b> — チーム wiki、プロジェクト管理、同時編集とデータベースが必要なすべてに。</li>
 <li><b>note.md を選ぶ</b> — 自分自身の思考に。AI の出力を読み、デイリーノートを書き、何十年も複利で育ち、これから使うすべてのエージェントに供給される個人の知識ベースに。</li>
@@ -131,11 +131,12 @@ PAGES = [
  "h1": "note.md + OpenClaw",
  "lead": "OpenClaw の哲学：モデルはディスクに保存されたものしか覚えていない。note.md の哲学：ディスクこそが製品。これは連携と呼ぶのも大げさだ — 互いのために作られていたと気づいた二つのツール、と言う方が近い。",
  "sections": [
-  ("なぜこの組み合わせが効くのか", """<p>OpenClaw は記憶をプレーンな markdown として保持する — 長期的な事実は <code>MEMORY.md</code>、日々の作業メモは <code>memory/YYYY-MM-DD.md</code>。これは note.md の Vault の <code>wikipage/</code> と <code>dailynote/</code> 規約と構造的に同一だ。日付付きアウトラインと、キュレーションされたページ。同じ発想が、収斂進化した。</p>
+  ("なぜこの組み合わせが効くのか", """<p>OpenClaw は長期記憶を <code>MEMORY.md</code>、日々の作業メモを <code>memory/YYYY-MM-DD.md</code> に置く。note.md もファイルを使うが、<code>wikipage/</code> と <code>dailynote/yyyy/*.note.md</code> はパスもスキーマも異なる。同一形式とみなさず、明示的なワークスペースまたは変換ルールで接続する。</p>
 <p>組み合わせれば、双方が欠けていたものを手に入れる。OpenClaw は、その記憶を専用のビューで実際に読み、手入れする人間を。あなたは、24時間働き、すべてを見える場所に書き残すエージェントを。</p>"""),
   ("セットアップ", """<ol>
 <li>Vault のルートに、規約（サイドカーのペアリング、デイリーノートのパス、<code>[[yyyy-MM-dd]]</code> の日付リンク）を書いた <code>AGENTS.md</code> を置く。要約は <a href="/llms-full.txt">llms-full.txt</a> から取れる。</li>
-<li>OpenClaw のワークスペースを Vault に向ける（または <code>memory/</code> を <code>dailynote/</code> に symlink する — 日付付きファイルは日付付きファイルだ）。</li>
+<li>OpenClaw のワークスペースを Vault に向けるか、専用フォルダへレポートを書かせる。変換なしで <code>memory/</code> を <code>dailynote/</code> に symlink しない。構造とメタデータが異なる。</li>
+<li>必要なら公式 OpenClaw Chat プラグインで note.md 内の会話ウィンドウを追加する。</li>
 <li>OpenClaw にレポートや調査を <code>.md</code> 文書として Vault に書かせる。</li>
 <li>note.md で開き、読み、ハイライトし、疑問を書く — マークはサイドカーの <code>.note.md</code> に落ちる。</li>
 <li>フォローアップ作業の前にサイドカーを読むよう OpenClaw に伝える。あなたの判断がエージェントの操舵信号になる。</li>
@@ -144,9 +145,9 @@ PAGES = [
  ],
  "faq": [
   ("OpenClaw が note.md と連携するのにプラグインは要るか？",
-   "要らない。双方ともプレーンな markdown ファイルを話す。Vault のルートに規約を書いた AGENTS.md を置く — 「連携」はそれで全部だ。"),
+   "ファイル連携には不要だ。どちらも AGENTS.md の境界に従って markdown を使える。任意の公式 OpenClaw Chat プラグインは note.md 内の会話ウィンドウを追加する。"),
   ("OpenClaw に Vault へ書き込ませて安全か？",
-   "Vault を git に入れておくこと（GitHub のガイドを参照）。エージェントの書き込みはすべて diff で確認でき、巻き戻せる。規約として、エージェントは .note.md サイドカーには書き込まない — そのルールを AGENTS.md に明記すること。"),
+   "Vault を git に入れれば、コミット済みのエージェント変更は diff と巻き戻しができる。.note.md は原則として人間所有で、Smart Lookup の fenced answer だけが狭い例外だ。この境界を AGENTS.md に明記する。"),
  ],
 },
 {
@@ -189,16 +190,16 @@ PAGES = [
 <p>Codex が最も強いのは、働くエージェントとしてだ。下書き、文書のリファクタリング、ノートの一括処理、Vault に溜まっていく小さなスクリプト（インポータ、リンクチェッカー、レポート生成）の作成。Codex が書くものはすべて Vault 内の markdown — つまり、書くものはすべてあなたのリーディング・注釈ループに流れ込む。</p>"""),
   ("セットアップ", """<ol>
 <li><a href="/llms-full.txt">llms-full.txt</a> の規約要約を、Vault ルートの <code>AGENTS.md</code> にコピーする。</li>
-<li>Vault 固有のルールを足す — 例：「<code>*.note.md</code> は決して変更しない」「新しい調査は日付プレフィックス付きで <code>research/</code> 以下へ」。</li>
+<li>Vault 固有のルールを足す — 例：「Smart Lookup の fenced answer 以外、<code>*.note.md</code> は人間所有」「新しい調査は日付プレフィックス付きで <code>research/</code> 以下へ」。</li>
 <li>Vault ディレクトリで <code>codex</code> を実行する。ルールは自動で拾われる。</li>
 <li>出力を note.md でレビューし、注釈する。次の実行にはサイドカーを読ませる。</li>
 </ol>"""),
  ],
  "faq": [
   ("Codex が Vault を使うのに MCP サーバーは要るか？",
-   "要らない。Vault は作業ディレクトリのプレーンなファイル — Codex のホームグラウンドだ。MCP エンドポイントは share worker（ページの公開）用にあるもので、基本的な Vault 作業には不要。"),
+   "要らない。Vault は作業ディレクトリのプレーンファイルだ。ツール方式がよければ、リリース済みのローカル読み取り専用 Vault MCP が search と vault_info を提供する。Share Worker の MCP は別の公開インターフェースだ。"),
   ("AGENTS.md では何を禁じるべきか？",
-   "唯一の鉄則：エージェントは .note.md サイドカーに書き込まない — そこには人間の判断が入っている。それ以外（命名、フォルダ、リンクの流儀）はハウスの好みだ。"),
+   ".note.md は人間所有とする。Smart Lookup の fenced answer だけが狭い例外で、一般のエージェントはハイライト、質問、採用済み結論を変えない。それ以外はハウスの好みだ。"),
  ],
 },
 {
@@ -241,12 +242,12 @@ wrangler login
 wrangler kv:namespace create SHARES     # copy the id into wrangler.toml
 openssl rand -hex 32 | wrangler secret put SHARE_API_KEY
 wrangler deploy                          # prints your Worker URL</code></pre>
-<p>Worker の URL と API キーを <b>note.md → Preferences → Share</b> に貼り、再起動、完了。詳細はリポジトリの <code>worker/README.md</code> にある。</p>"""),
+<p>Worker の URL と API キーを <b>note.md → Preferences → Share</b> に貼って保存する。詳細はリポジトリの <code>worker/README.md</code> にある。</p>"""),
   ("手に入るもの", """<ul>
 <li><b>キー一発：</b><code>Cmd+Shift+L</code> で現在のファイルを公開。URL はクリップボードに入る。再共有でその場で更新、共有解除で 410 を返す。</li>
 <li><b>忠実なレンダリング：</b>KaTeX の数式、Mermaid 図は SVG に、シンタックスハイライト、<code>prefers-color-scheme</code> によるライト／ダーク、モバイル最適化。</li>
 <li><b>画像も込み：</b>画像の多い文書は、自動的に Cloudflare R2（これも無料枠）にあふれ出す。</li>
-<li><b>エージェント対応：</b>Worker は MCP エンドポイントを公開しているので、エージェントが代理で公開できる — <code>notemd -s draft.md</code> はどんなスクリプトからでも動く。</li>
+<li><b>エージェント対応：</b>Worker は MCP エンドポイントを公開しているので、エージェントが代理で公開できる — <code>notemd share draft.md</code> はどんなスクリプトからでも動く。</li>
 </ul>"""),
  ],
  "faq": [
@@ -264,7 +265,7 @@ wrangler deploy                          # prints your Worker URL</code></pre>
  "h1": "あなたの Vault を GitHub に、無料で",
  "lead": "Vault は markdown のフォルダ。git はテキストのフォルダのために作られた。GitHub はプライベートリポジトリを無料でホストする。三つの事実を足し合わせると、一生分のノートのための、堅牢でコストゼロのインフラになる。",
  "sections": [
-  ("なぜ git が完璧な Vault バックエンドなのか", """<p>データベースには、忘れるに決まっているバックアップが要る。同期サービスにはサブスクリプションと信頼が要る。git にはどちらも要らない。保存はすべてコミット、コミットはすべて履歴、push はすべてオフサイトバックアップだ。そしてエージェントの時代、git は二重に元を取る — <b>エージェントが Vault に書き込むとき、git はすべての書き込みを diff 可能、帰属可能、巻き戻し可能にする。</b>エージェントの厄日は <code>git revert</code> 一発で済む。悲劇にはならない。</p>"""),
+  ("なぜ git が完璧な Vault バックエンドなのか", """<p>git は各<em>コミット</em>を履歴にし、各 push をオフサイトコピーにする。保存だけでは自動コミットされない。エージェントが Vault に書くとき、git はコミット済みの変更を diff、帰属、巻き戻し可能にする。</p>"""),
   ("セットアップ", """<pre><code>cd ~/Vault
 git init
 printf '.DS_Store\\n.mdeditor/\\n' &gt; .gitignore
@@ -272,8 +273,8 @@ git add -A &amp;&amp; git commit -m "vault: day one"
 gh repo create my-vault --private --source=. --push</code></pre>
 <p>これだけだ。GitHub のプライベートリポジトリは履歴無制限で無料。あとは好きなだけコミットすればいい — 自動化してもいい。</p>"""),
   ("同期と自動化", """<ul>
-<li><b>note.md との統合：</b>Sync-to-Vault プラグインが、日付プレフィックス付きの名前と競合を考慮したリフレッシュで、git 同期された Vault にファイルをコピーする。最近使ったファイルの履歴も、Vault を通じてデバイス間でミラーされる。</li>
-<li><b>自動コミット：</b>cron の一行か launchd ジョブで <code>git add -A &amp;&amp; git commit -m "auto" &amp;&amp; git push</code> を毎時回せば、労なき継続バックアップになる。</li>
+<li><b>note.md との統合：</b>組み込みの <b>Sync to Vault</b> コマンドが、日付プレフィックスと競合検知付きでファイルを git 同期 Vault にコピーする。</li>
+<li><b>自動コミット：</b>単一書き込み元なら <code>git add -A &amp;&amp; if ! git diff --cached --quiet; then git commit -m "auto" &amp;&amp; git push; fi</code> を定期実行できる。変更なしはスキップされる。複数端末では pull と競合処理方針が別途必要だ。</li>
 <li><b>マルチデバイス：</b>2台目の Mac にリポジトリを clone。書く前に pull、書いたら push。アウトラインの競合は稀で（ファイルが小さい）、起きたときも git が何が起きたかを正確に見せてくれる。</li>
 <li><b>エージェント：</b>エージェントには作業コピーを与える。そのコミットは同僚の PR と同じようにレビューする — 実際、いまやそういうものなのだから。</li>
 </ul>"""),
@@ -284,7 +285,7 @@ gh repo create my-vault --private --source=. --push</code></pre>
   ("機密なノートはどうする？",
    "Vault はあなたのものだ。プライベートリポジトリでも、セルフホストの Gitea でも、リモートなしでもいい — git はローカルでも動く。さらに慎重を期すなら、git-crypt や age で選んだパスを暗号化できる。"),
   ("git を知っている必要があるか？",
-   "ほとんど要らない。日常は三つのコマンドで足りるし（add、commit、push）、note.md の同期機能が大半を隠してくれる。見返り — 書いたすべての思考の完全な履歴 — は、割に合わないほど大きい。"),
+   "add、commit、pull、push と競合解決の基礎は必要だ。note.md は普通のファイルを書き Sync to Vault を提供するが、Git の履歴や競合モデルを置き換えない。"),
  ],
 },
 {
@@ -307,7 +308,7 @@ gh repo create my-vault --private --source=. --push</code></pre>
  ],
  "faq": [
   ("ChatGPT は AGENTS.md を自動で読むか？",
-   "CLI エージェント（Codex、Claude Code）のようには読まない。Vault の規約を ChatGPT のプロジェクトやカスタム指示に貼り付け、AGENTS.md ファイルを指し示せば、同じハウスルールに従う — サイドカーファイルは立入禁止、新しい仕事は日付付き markdown。"),
+   "CLI エージェントのようには読まない。Vault の規約をプロジェクト指示に貼り、AGENTS.md を示す。サイドカーは人間所有で Smart Lookup の fenced answer は例外。新規ファイルは命名規則に従う。"),
   ("ChatGPT が生成した画像を Vault に置けるか？",
    "置ける。文書の隣の {docname}_files/ フォルダに相対リンクで保存する — note.md が貼り付けたスクリーンショットに使うのと同じ規約だ。読書ビューでレンダリングされ、git で Vault と一緒に旅する。"),
   ("エージェントをひとつに絞る必要があるか？",
@@ -349,7 +350,7 @@ gh repo create my-vault --private --source=. --push</code></pre>
 </ul>
 <p>Vault を <a href="/guides/vault-on-github/">git</a> に入れておけば、すべてのエージェントの書き込みは diff 可能、帰属可能、巻き戻し可能になる — エージェントの厄日は <code>git revert</code> 一発で済み、悲劇にはならない。</p>"""),
   ("セットアップ", """<ol>
-<li>Vault のルートに <code>AGENTS.md</code> を置く — <a href="/llms-full.txt">llms-full.txt</a> から規約を取り、ハウスルールを足す（鉄則：エージェントは決して <code>*.note.md</code> サイドカーに書き込まない）。</li>
+<li>Vault のルートに <code>AGENTS.md</code> を置き、<a href="/llms-full.txt">llms-full.txt</a> を参考にハウスルールを足す。サイドカーは通常人間所有で、Smart Lookup の fenced answer だけが狭い例外だ。</li>
 <li>各エージェントを同じフォルダに繋ぐ：<a href="/integrations/openclaw/">OpenClaw</a>、<a href="/integrations/cowork/">Cowork</a>、<a href="/integrations/codex/">Codex</a>、<a href="/integrations/chatgpt-work/">ChatGPT</a>、<a href="/integrations/hermes/">Hermes</a>。</li>
 <li>結果を note.md で読み、注釈する。次のエージェントには先にサイドカーを読ませる。ループはあなたのディスクの上で閉じる。</li>
 </ol>"""),
@@ -360,7 +361,7 @@ gh repo create my-vault --private --source=. --push</code></pre>
   ("エージェントたちはどうやって互いに仕事を受け渡すのか？",
    "ファイルを通じてだ。あるエージェントが markdown を Vault に書き、次のエージェントがそれを入力として読む。あなたの注釈はサイドカーの .note.md ファイルに住み、操舵信号として働く — エージェントは次のパスの前にあなたの余白を読む。共有メモリも私的なプロトコルも要らない。"),
   ("これには専用のオーケストレーションツールや MCP サーバーが要るか？",
-   "要らない。オーケストレーションはあなた自身で、媒体はファイルシステムだ。中央データベースも隠れた状態もない — ルールは AGENTS.md、出力は .md、判断は .note.md。ツールインターフェースを好むエージェントのために Vault MCP サーバーがロードマップ上にあるが、プレーンなファイルはもう今日から動く。"),
+   "中央のオーケストレーターは不要だ。ルールは AGENTS.md、出力は .md、判断は .note.md にある。エージェントはファイルまたはリリース済みのローカル読み取り専用 Vault MCP（notemd mcp）の search と vault_info を使える。Share Worker の MCP は別の公開インターフェースだ。"),
   ("なぜ全部にひとつの AI を使わないのか？",
    "単一のエージェントがすべてに最も強いわけではないからだ。夜通しの自動化、慎重なレビュー、速い画像生成、プライベートなローカル作業、そして最終判断は、それぞれ最適なツールの異なる別々の仕事だ。それらを — 自分が所有するファイルの上で — 専門家たちに分けるほうが、ひとりの万能選手に全部やらせるより勝る。そして、どの働き手も差し替えられる自由を保てる。"),
  ],

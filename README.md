@@ -5,8 +5,10 @@
 > **Read what AI writes. Keep what you think. Keep what only *you* can write.**
 
 A markdown reader, editor, and bidirectional-linking notes tool designed for
-people and AI agents to work in the same files. Native macOS app, ~11 MB to download, ~15 MB installed. Your
-notes are a folder of plain `.md` files on your disk — forever.
+people and AI agents to work in the same files. Desktop app for macOS 13+
+(Apple Silicon and Intel) and Windows 10/11 x64. The signed macOS build is
+~12 MB to download and ~19 MB installed. Your notes are a folder of plain
+`.md` files on your disk — forever.
 
 [Download](https://notemd.net/download) · [Plugins](https://plugins.notemd.net) · [Full feature list](docs/FEATURES.md)
 
@@ -14,9 +16,9 @@ notes are a folder of plain `.md` files on your disk — forever.
 
 ## 1. The best place to read what your agents wrote
 
-Rich view and source view, one keystroke apart. Import any Notion- or
-Typora-style theme. Mermaid, Graphviz, and KaTeX all tuned and lazily loaded.
-No bundled Chromium — the whole app installs at ~15 MB.
+Rich view and source view, one keystroke apart. Import Typora-compatible
+themes. Mermaid, Graphviz, and KaTeX all tuned and lazily loaded.
+No bundled Chromium — the current macOS app installs at ~19 MB.
 
 Highlight a claim, leave a question in the margin, fix the sentence right
 where it's wrong.
@@ -27,11 +29,11 @@ place to *read*. This is.
 ## 2. Everything the last generation got right, built in
 
 Local-first. Git sync. Outliner. `[[wikilinks]]` and backlinks. Wiki pages.
-Daily notes. Full-vault search. A plugin system.
+Daily notes. Full-vault search. JSON Canvas. A plugin system.
 
 Roam Research and Obsidian figured these out. note.md ships them on files:
-one plugin imports your entire Roam graph, and an Obsidian vault opens
-directly.
+Roam Research Sync initializes from a full graph export and can then keep
+changed pages in sync, while an Obsidian vault opens directly.
 
 ## 3. Agent-ready by design. Use the AI you already have.
 
@@ -83,6 +85,38 @@ The rest is yours to discover.
 
 ---
 
+## Recently shipped · v6.904–v6.921
+
+- **More ways to read the same files.** A read-only table of contents follows
+  your position in long documents. Plugin file views sit beside Rich and
+  Source with a safe editor fallback: Timeline renders daily schedules, Index
+  Viewer turns `*.index.md` into tables, boards, lists or cover galleries,
+  Knowledge Browser opens supported JSON datasets as an interactive graph,
+  and Typeset Reader progressively paginates `*.typeset.md` books with Typst.
+- **More sources, still under your control.** Apple Notes Sync mirrors Notes
+  into readable, read-only Markdown on macOS; Roam Research Sync keeps pages
+  and daily notes current; Meetings incrementally archives Hemory transcripts;
+  and Assistant Mail stores admitted messages as raw mail plus integrity
+  metadata in a configurable Vault archive. Each workflow keeps its own
+  conflict, recovery and deletion boundary.
+- **A better working surface.** Standard `.canvas` files now open as an
+  Obsidian-compatible infinite canvas with lasso selection, snapping,
+  alignment, grouping and multi-selection resize. New notes and canvases open
+  immediately in the Vault and receive a date-and-title filename when saved.
+  Valid JSON is formatted into readable source lines without changing its
+  values, and `readonly: true` is enforced across every editing path.
+- **Smarter retrieval, explicit approval.** Smart Lookup resolves conservative
+  time windows before searching and hands results to enabled Agents. Memory
+  adds role/scope governance and governed coauthoring where isolated Agents
+  submit reviewable changes. Conversation Transcript Corrections turns
+  evidence from conversations you participated in into context-specific name
+  and ASR corrections; Agents may propose, but only you can approve.
+- **Plugins update in place.** Installing, updating, enabling, disabling or
+  removing a plugin refreshes its commands, menus and open views without an
+  app restart. See the [changelog](CHANGELOG.md) for release-by-release detail.
+
+---
+
 ## Five convictions
 
 1. **AI text is infinite; your attention isn't — your judgment is the residue.**
@@ -102,7 +136,7 @@ The rest is yours to discover.
 ## Strictly OKF v0.2
 
 Conviction 2 needs a format, not just a file extension. note.md follows the
-[Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md)
+[Open Knowledge Format](https://github.com/GoogleCloudPlatform/open-knowledge-format/blob/main/SPEC.md)
 (OKF) v0.2 — Google Cloud's open spec for knowledge that humans and agents
 exchange: plain Markdown, YAML frontmatter, diffable, portable.
 
@@ -128,8 +162,9 @@ exchange: plain Markdown, YAML frontmatter, diffable, portable.
 
 Your agents get the same contract: the vault's `AGENTS.md` spells out the OKF
 requirement, so anything working in that folder writes conformant files too.
-Still landing: the app filling in `generated` / `verified` on your behalf, and
-bundle-level export (`index.md`, `log.md`, wikilinks rewritten as OKF links) —
+The app now records human authorship in `generated` / `verified` where it has
+the evidence to do so, and bundle export writes `index.md`, `log.md` and
+portable links. Remaining read-side presentation and attestation work is
 tracked in the [conformance audit](docs/okf-v0.2-conformance-audit.md).
 Format details: [`docs/okf-v0.2-format-constraints.md`](docs/okf-v0.2-format-constraints.md).
 
@@ -142,10 +177,10 @@ tested, and smoke-run before it ships.
 ## Under the hood
 
 Built with [Tauri](https://tauri.app) on
-[`@moraya/core`](https://www.npmjs.com/package/@moraya/core): a code-signed,
-notarized native macOS `.app` — native Rust binary, native menus / window /
-tray — with the editor UI rendered in the system WebView (WKWebView), not a
-bundled browser.
+[`@moraya/core`](https://www.npmjs.com/package/@moraya/core): a native Rust
+desktop binary with native menus / windows / tray and an editor UI rendered in
+the operating system WebView, not a bundled browser. The macOS `.app` is
+code-signed and notarized; Windows uses the system WebView2 runtime.
 
 The product name is **note.md** (all lowercase — a note that *is* a plain
 markdown file). The CLI binary and bundle identifier are `notemd` /
@@ -156,6 +191,8 @@ before v4.8.0 shipped as **M↓**.
 ## Develop & build
 
 ```bash
+corepack enable             # project pins pnpm 11.7.0
+git clone https://github.com/wizlijun/moraya-core.git ../moraya-core
 pnpm install
 pnpm tauri dev            # develop
 pnpm tauri build          # build, current arch
@@ -172,6 +209,13 @@ pnpm tauri build --target x86_64-apple-darwin
 Output: `src-tauri/target/<arch>-apple-darwin/release/bundle/macos/note.md.app`
 (or `src-tauri/target/release/…` for the current arch).
 
+The repository currently depends on a sibling `../moraya-core` checkout.
+
+On Windows, install Node.js with Corepack, the Rust MSVC toolchain and WebView2, then run
+the same `pnpm install` / `pnpm tauri dev` / `pnpm tauri build` commands. The
+NSIS installer is written under
+`src-tauri/target/<arch>-pc-windows-msvc/release/bundle/nsis/`.
+
 ## CLI
 
 ```bash
@@ -182,6 +226,9 @@ notemd share draft.md                      # publish a share link, prints URL
 notemd share draft.md --json               # structured output
 notemd share draft.md --unshare            # remove the share
 notemd plugin list                         # all plugins and their status
+notemd meetings-sync --dry-run             # preview incremental Hemory import
+notemd apple-notes-sync --dry-run           # preview Apple Notes sync (macOS)
+notemd mail-sync                            # pull admitted Assistant Mail
 notemd reading-insights report --vault ~/Vault --date 7d
 notemd doctor                              # self-check env, vault, index, plugins, network (--offline, --json)
 notemd help                                # full reference
@@ -218,12 +265,13 @@ run it.
 ## Release (maintainers)
 
 ```bash
-scripts/release.sh <x.y.z>
+scripts/release.sh [x.y.z] [--draft|--prerelease]
 ```
 
 Tests → version bump → signed per-arch builds → notarize → tag → push →
 GitHub Release (two `.dmg`s, two updater tarballs + signatures, and a
-`latest.json` manifest driving per-arch auto-update). Requires `APPLE_ID`,
+`latest.json` manifest driving per-arch auto-update). Windows packages are
+then added to the same tag with `scripts/release-windows.ps1`. Requires `APPLE_ID`,
 `APPLE_PASSWORD`, `APPLE_TEAM_ID` in `.env.release` and the updater key at
 `~/.tauri/mdeditor.key`.
 

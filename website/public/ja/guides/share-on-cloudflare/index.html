@@ -6,6 +6,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Cloudflare で note.md の文書を無料共有 — 自分の Worker、自分のリンク</title>
 <meta name="description" content="note.md の share worker を Cloudflare の無料枠に10分でデプロイする。どんな markdown も、数式・図・ダークモード付きの美しい自己完結ページとして — 自分が管理するインフラの上で公開できる。">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Cloudflare で note.md の文書を無料共有 — 自分の Worker、自分のリンク">
+<meta property="og:description" content="note.md の share worker を Cloudflare の無料枠に10分でデプロイする。どんな markdown も、数式・図・ダークモード付きの美しい自己完結ページとして — 自分が管理するインフラの上で公開できる。">
+<meta property="og:url" content="https://notemd.net/ja/guides/share-on-cloudflare/">
+<meta property="og:site_name" content="note.md">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Cloudflare で note.md の文書を無料共有 — 自分の Worker、自分のリンク">
+<meta name="twitter:description" content="note.md の share worker を Cloudflare の無料枠に10分でデプロイする。どんな markdown も、数式・図・ダークモード付きの美しい自己完結ページとして — 自分が管理するインフラの上で公開できる。">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="/favicon.ico" sizes="32x32">
 <link rel="canonical" href="https://notemd.net/ja/guides/share-on-cloudflare/">
@@ -93,7 +101,7 @@ pre{font-size:12.5px;padding:14px 15px}
 <nav><div class="wrap nav-in">
 <a class="logo" href="/ja/"><svg width="24" height="24" viewBox="0 0 512 512" aria-hidden="true"><rect width="512" height="512" rx="115" fill="#17181C" stroke="#3A3D46" stroke-width="14"/><path d="M 185.49318,76.468676 C 202.86539,165.0158 220.23759,183.99019 301.30788,202.96457 220.23759,221.93895 202.86539,240.91333 185.49318,329.46046 168.12097,240.91333 150.74877,221.93895 69.67847,202.96457 150.74877,183.99019 168.12097,165.0158 185.49318,76.468676 Z" fill="#F59E0B"/><rect x="260.643" y="239.444" width="186.136" height="48" rx="29.39" fill="#FAFAF7"/><circle cx="289.722" cy="342.122" r="28.414" fill="#9CA3AF"/><rect x="333.7" y="324.65" width="112.797" height="40" rx="26.856" fill="#9CA3AF"/><circle cx="288.251" cy="420.101" r="28.414" fill="#9CA3AF"/><rect x="336.022" y="403.894" width="109.256" height="40" rx="26.013" fill="#9CA3AF"/></svg><span>note<span class="dot">.</span>md</span></a>
 <a class="npl" href="https://plugins.notemd.net">プラグイン</a>
-<div class="lang-sw"><a href="/guides/share-on-cloudflare/">EN</a><a href="/de/guides/share-on-cloudflare/">DE</a><a href="/ja/guides/share-on-cloudflare/" class=on>日本語</a><a href="/zh/guides/share-on-cloudflare/">中文</a></div>
+<div class="lang-sw"><a href="/ja/guides/share-on-cloudflare/">EN</a><a href="/de/guides/share-on-cloudflare/">DE</a><a href="/ja/guides/share-on-cloudflare/" class=on>日本語</a><a href="/zh/guides/share-on-cloudflare/">中文</a></div>
 <a class="nav-cta" href="/download">ダウンロード</a>
 </div></nav>
 <header class="ph"><div class="wrap">
@@ -109,11 +117,11 @@ wrangler login
 wrangler kv:namespace create SHARES     # copy the id into wrangler.toml
 openssl rand -hex 32 | wrangler secret put SHARE_API_KEY
 wrangler deploy                          # prints your Worker URL</code></pre>
-<p>Worker の URL と API キーを <b>note.md → Preferences → Share</b> に貼り、再起動、完了。詳細はリポジトリの <code>worker/README.md</code> にある。</p><h2>手に入るもの</h2><ul>
+<p>Worker の URL と API キーを <b>note.md → Preferences → Share</b> に貼って保存する。詳細はリポジトリの <code>worker/README.md</code> にある。</p><h2>手に入るもの</h2><ul>
 <li><b>キー一発：</b><code>Cmd+Shift+L</code> で現在のファイルを公開。URL はクリップボードに入る。再共有でその場で更新、共有解除で 410 を返す。</li>
 <li><b>忠実なレンダリング：</b>KaTeX の数式、Mermaid 図は SVG に、シンタックスハイライト、<code>prefers-color-scheme</code> によるライト／ダーク、モバイル最適化。</li>
 <li><b>画像も込み：</b>画像の多い文書は、自動的に Cloudflare R2（これも無料枠）にあふれ出す。</li>
-<li><b>エージェント対応：</b>Worker は MCP エンドポイントを公開しているので、エージェントが代理で公開できる — <code>notemd -s draft.md</code> はどんなスクリプトからでも動く。</li>
+<li><b>エージェント対応：</b>Worker は MCP エンドポイントを公開しているので、エージェントが代理で公開できる — <code>notemd share draft.md</code> はどんなスクリプトからでも動く。</li>
 </ul>
 <section class="faq"><h2>FAQ</h2><h3>いくらかかるのか？</h3><p>個人利用ならゼロだ。Cloudflare の無料枠には1日10万 Worker リクエストと 10GB の R2 ストレージが含まれる — 人間が文書を共有する量の、数桁上だ。</p><h3>共有したページを取り下げられるか？</h3><p>できる、即座に。File → Unshare（または notemd share --unshare）でリンクは失効し、訪問者には 410 が返る。あなたの Worker なのだから、丸ごと消してしまってもいい。</p></section>
 </div></main>

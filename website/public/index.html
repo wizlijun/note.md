@@ -6,6 +6,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>note.md — The markdown editor for humans and agents</title>
 <meta name="description" content="Read what your agents write, keep your judgment in plain markdown, and approve which personal memories become trusted context. Your files stay yours.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="note.md — The markdown editor for humans and agents">
+<meta property="og:description" content="Read what your agents write, keep your judgment in plain markdown, and approve which personal memories become trusted context. Your files stay yours.">
+<meta property="og:url" content="https://notemd.net/">
+<meta property="og:site_name" content="note.md">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="note.md — The markdown editor for humans and agents">
+<meta name="twitter:description" content="Read what your agents write, keep your judgment in plain markdown, and approve which personal memories become trusted context. Your files stay yours.">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="/favicon.ico" sizes="32x32">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -243,9 +251,9 @@
       <span class="kicker">For the age of infinite text</span>
       <h1>Read what AI writes.<br>Keep what <em>you</em> think.<span class="cursor"></span></h1>
       <p class="sub">AI writes more than you can read. note.md is where you get through it: highlight, question, fix it on the spot. It all lands in the vault your agents share — plain markdown. Agents can notice what matters; only you approve what becomes memory.</p>
-      <p class="hooks">11 MB<i>·</i>any Typora theme<i>·</i>Mermaid &amp; Graphviz, tuned<i>·</i>outliner, [[wikilinks]], daily notes<i>·</i>one vault every agent shares</p>
+      <p class="hooks">12 MB<i>·</i>Typora-compatible themes<i>·</i>Mermaid &amp; Graphviz, tuned<i>·</i>outliner, [[wikilinks]], daily notes<i>·</i>one vault every agent shares</p>
       <div class="cta-row">
-        <a class="btn-primary" href="/download" data-dl data-dl-win="Download for Windows">
+        <a class="btn-primary" href="/download" data-dl data-dl-win="Download for Windows" data-dl-other="View desktop releases">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M18.7 12.9c0-2.4 2-3.6 2.1-3.7-1.1-1.7-2.9-1.9-3.5-1.9-1.5-.2-2.9.9-3.7.9-.8 0-1.9-.9-3.2-.8-1.6 0-3.1 1-4 2.4-1.7 3-.4 7.4 1.2 9.8.8 1.2 1.8 2.5 3.1 2.4 1.2-.1 1.7-.8 3.2-.8 1.5 0 1.9.8 3.2.8 1.3 0 2.2-1.2 3-2.4.9-1.4 1.3-2.7 1.3-2.8-.1 0-2.6-1-2.7-3.9zM16.3 5.4c.7-.8 1.1-2 1-3.1-1 0-2.2.7-2.9 1.5-.6.7-1.2 1.9-1 3 1.1.1 2.2-.6 2.9-1.4z"/></svg>
           <span class="bl">Download for macOS</span>
         </a>
@@ -254,7 +262,7 @@
           <span class="bl">Star on GitHub</span>
         </a>
       </div>
-      <p class="plat-note"><span data-plat="mac">macOS 13+ · free &amp; open · your files stay on your own Mac · <a href="/download?os=mac&amp;arch=x86_64">Intel Mac?</a> · <a href="/download?os=windows">Windows?</a></span><span data-plat="win" hidden>Windows 10/11 · free &amp; open · your files stay on your own PC · <a href="/download?os=mac">Mac?</a></span></p>
+      <p class="plat-note"><span data-plat="mac">macOS 13+ · free &amp; open · your files stay on your own Mac · <a href="/download?os=mac&amp;arch=x86_64">Intel Mac?</a> · <a href="/download?os=windows">Windows?</a></span><span data-plat="win" hidden>Windows 10/11 x64 · free &amp; open · Windows releases can trail macOS, and some native plugins are macOS-only · <a href="/download?os=mac">Mac?</a></span><span data-plat="other" hidden>Desktop app for macOS 13+ and Windows 10/11 x64 · Linux, mobile, and Windows ARM builds are not currently published</span></p>
     </div>
 
     <div class="mock" aria-hidden="true">
@@ -285,7 +293,7 @@
       <li>
         <div><span class="n">01</span><h2>AI handles the writing.<br>This handles the reading.</h2></div>
         <div>
-          <p>Preview and source, one key apart. Notion and Typora themes work as they are. Mermaid, Graphviz and math, all tuned. The whole app installs at ~15 MB, with no browser engine inside.</p>
+          <p>Preview and source, one key apart. Typora-compatible themes work as they are. Mermaid, Graphviz and math, all tuned. The whole app installs at ~19 MB, with no browser engine inside.</p>
           <p>A shaky line? Highlight it. A doubt? In the margin. Wrong? Fix it on the spot.</p>
           <p class="beat">Claude, Codex and OpenClaw all have a chat window. None of them is made for reading.</p>
         </div>
@@ -303,7 +311,7 @@
           <p>Built-in agent workflows use the agents, AI subscriptions, API accounts, or local runtimes you already have. note.md sells no tokens, adds no token markup, and charges no separate per-token fee.</p>
           <p>Model usage still follows your chosen provider's plan, limits, and billing — or your own local compute.</p>
           <p>Your folder is the workspace every AI tool shares. Cowork, Claude Code, Codex, DeepSeek, ChatGPT, OpenClaw, Hermes — same files, same house rules, all in git. <a href="/orchestrate-agents/">See how</a>.</p>
-          <p>Every file it writes follows <a href="https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md">Open Knowledge Format</a> v0.2, strictly: what a document is, where it came from, who checked it — plain YAML at the top of the file. Any tool can read your vault. Not just this one.</p>
+          <p>Every file it writes follows <a href="https://github.com/GoogleCloudPlatform/open-knowledge-format/blob/main/SPEC.md">Open Knowledge Format</a> v0.2, strictly: what a document is, where it came from, who checked it — plain YAML at the top of the file. Any tool can read your vault. Not just this one.</p>
           <p class="beat">Built-in agents, without a second token meter. Change AI tools whenever you want. What's yours stays yours.</p>
         </div>
       </li>
@@ -311,7 +319,7 @@
         <div><span class="n">04</span><h2>Need something else?<br>Add it.</h2></div>
         <div>
           <p>Write a plugin. Add a scheduled job. Hang your skills off it.</p>
-          <p>Put a <span class="mono-s">?</span> in a note and an agent takes it from there: edits the document, fills in the context, hands it back — async. Whether you keep it is up to you.</p>
+          <p>Put a <span class="mono-s">?</span> in a sidecar note and Smart Lookup writes a fenced answer beneath it — async, without touching the source document. You decide whether to adopt it.</p>
         </div>
       </li>
       <li>
@@ -321,6 +329,32 @@
           <p>Search finds what you wrote. Memory governs what an agent may believe about you — and what it may act on. note.md keeps those jobs separate on purpose.</p>
           <p class="beat"><a href="/blog/personal-ai-memory/">Why trustworthy personal memory needs your yes →</a></p>
         </div>
+      </li>
+    </ol>
+  </div>
+</section>
+
+<div class="orn">* * *</div>
+
+<section id="whats-new">
+  <div class="wrap">
+    <div class="sec-k">New in v6.904–v6.921</div>
+    <ol class="claims">
+      <li>
+        <div><span class="n">01</span><h2>Read in the right view.</h2></div>
+        <div><p>Navigate long files with the table of contents, browse structured notes as Timeline or Index views, explore links in Knowledge Browser, and page through <code>*.typeset.md</code> books.</p></div>
+      </li>
+      <li>
+        <div><span class="n">02</span><h2>Bring more into the vault.</h2></div>
+        <div><p>Sync Apple Notes and Roam Research, archive Meetings, and keep Assistant Mail as local records. Availability depends on platform; current Apple Notes and other native packages may be macOS-only.</p></div>
+      </li>
+      <li>
+        <div><span class="n">03</span><h2>Think spatially.</h2></div>
+        <div><p>Open JSON Canvas files, format JSON, keep imported sources read-only, and let untitled notes and canvases receive stable names when you save.</p></div>
+      </li>
+      <li>
+        <div><span class="n">04</span><h2>Agents propose. You approve.</h2></div>
+        <div><p>Smart Lookup returns governed answers, Memory applies role and scope, Conversation Transcript Corrections keeps human approval in the loop, and plugin installs hot-reload without restarting the app.</p></div>
       </li>
     </ol>
   </div>
@@ -357,12 +391,12 @@
     <h2>Own your thinking.</h2>
     <p class="lead">Free. Open. A folder on your own computer. That's it.</p>
     <div class="cta-row">
-      <a class="btn-primary" href="/download" data-dl data-dl-win="Download for Windows">
+      <a class="btn-primary" href="/download" data-dl data-dl-win="Download for Windows" data-dl-other="View desktop releases">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M18.7 12.9c0-2.4 2-3.6 2.1-3.7-1.1-1.7-2.9-1.9-3.5-1.9-1.5-.2-2.9.9-3.7.9-.8 0-1.9-.9-3.2-.8-1.6 0-3.1 1-4 2.4-1.7 3-.4 7.4 1.2 9.8.8 1.2 1.8 2.5 3.1 2.4 1.2-.1 1.7-.8 3.2-.8 1.5 0 1.9.8 3.2.8 1.3 0 2.2-1.2 3-2.4.9-1.4 1.3-2.7 1.3-2.8-.1 0-2.6-1-2.7-3.9zM16.3 5.4c.7-.8 1.1-2 1-3.1-1 0-2.2.7-2.9 1.5-.6.7-1.2 1.9-1 3 1.1.1 2.2-.6 2.9-1.4z"/></svg>
         <span class="bl">Download for macOS</span>
       </a>
     </div>
-    <p class="fine"><span data-plat="mac">macOS 13 or later · Apple Silicon &amp; <a href="/download?os=mac&amp;arch=x86_64">Intel</a> · also on <a href="/download?os=windows">Windows</a> · from GitHub Releases</span><span data-plat="win" hidden>Windows 10/11, 64-bit · also on <a href="/download?os=mac">macOS</a> 13+ · from GitHub Releases</span></p>
+    <p class="fine"><span data-plat="mac">macOS 13 or later · Apple Silicon &amp; <a href="/download?os=mac&amp;arch=x86_64">Intel</a> · also on <a href="/download?os=windows">Windows</a> · some native plugins are macOS-only · from GitHub Releases</span><span data-plat="win" hidden>Windows 10/11 x64 · releases can trail macOS · some native plugins are macOS-only · also on <a href="/download?os=mac">macOS</a> 13+ · from GitHub Releases</span><span data-plat="other" hidden>Desktop only · macOS 13+ and Windows 10/11 x64 · no Linux, mobile, or Windows ARM build is currently published</span></p>
     <p class="fine">Written and maintained entirely by AI coding. Reviewed and tested by a human before every release.</p>
   </div>
 </section>
@@ -395,25 +429,28 @@
 
 <script>
 // The page ships in its macOS form — that's the majority case and it needs no
-// JS. Windows visitors get the download CTA rewritten in place. Everyone else
-// (Linux, mobile) keeps the macOS copy; /download itself sends them to the
-// releases page.
+// JS. Windows visitors get their installer; unsupported platforms get an
+// explicit desktop-only message and the GitHub Releases page.
 (function () {
   var d = navigator.userAgentData;
   var isWin = d ? d.platform === "Windows"
                 : /Windows NT/.test(navigator.userAgent) && !/Android/.test(navigator.userAgent);
-  if (!isWin) return;
+  var isMac = d ? d.platform === "macOS"
+                : /Macintosh|Mac OS X/.test(navigator.userAgent) && !/iPhone|iPad|iPod/.test(navigator.userAgent);
+  if (isMac) return;
+  var target = isWin ? "win" : "other";
   var winIcon = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">'
     + '<path d="M3 5.8 10.3 4.8v6.7H3V5.8Zm8.4-1.1L21 3.3v8.2h-9.6V4.7ZM3 12.5h7.3v6.7L3 18.2v-5.7Zm8.4 0H21v8.2l-9.6-1.3v-6.9Z"/></svg>';
   Array.prototype.forEach.call(document.querySelectorAll("[data-dl]"), function (a) {
-    a.setAttribute("href", "/download?os=windows");
+    a.setAttribute("href", isWin ? "/download?os=windows" : "https://github.com/wizlijun/note.md/releases/latest");
     var label = a.querySelector(".bl");
-    if (label && a.getAttribute("data-dl-win")) label.textContent = a.getAttribute("data-dl-win");
+    var copy = a.getAttribute(isWin ? "data-dl-win" : "data-dl-other");
+    if (label && copy) label.textContent = copy;
     var icon = a.querySelector("svg");
-    if (icon) icon.outerHTML = winIcon;
+    if (icon && isWin) icon.outerHTML = winIcon;
   });
   Array.prototype.forEach.call(document.querySelectorAll("[data-plat]"), function (el) {
-    el.hidden = el.getAttribute("data-plat") !== "win";
+    el.hidden = el.getAttribute("data-plat") !== target;
   });
 })();
 </script>

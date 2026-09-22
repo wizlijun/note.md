@@ -43,10 +43,25 @@ The agent-ready notes system, rolling out incrementally:
       renaming a directory updates paths instead of rebuilding every file.
       Headless too — see `notemd search` under *Built for agents*.
       (Backlinks and linked references already work across `.note.md`.)
-- [ ] **Vault MCP server** — expose `vault_search` / `vault_read` /
-      `vault_annotate` so any agent (Claude Cowork, Claude Code, Codex,
-      ChatGPT Work, OpenClaw, Hermes, …) can work your vault, with note.md as
-      one client among many.
+- [x] **Smart Lookup** — `Cmd/Ctrl+K` turns a natural-language request into a
+      validated local search plan, separating dates, paths, tags, types, and
+      provenance from the actual query. Matching notes and source previews
+      appear first; quick summaries and a handoff to Claude, Codex, or
+      DeepSeek remain explicit actions. Time-sensitive questions are resolved
+      against a frozen local date and timezone before retrieval.
+- [x] **Controlled personal Memory** — agents may discover and propose durable
+      claims, but only the user can confirm, reject, mark important, or ignore
+      them. Role and Scope registries keep identities and work contexts apart;
+      authoritative revisions live under `.notemd/memory/`, while `USER.md`
+      and `MEMORY.md` are rebuildable, human-readable projections. Memory also
+      provides a governed co-writing workspace with stable block identities,
+      exact-version review, recoverable drafts, and human acceptance of agent
+      suggestions.
+- [x] **Local Vault MCP server** — `notemd mcp` speaks MCP over stdio and
+      exposes the read-only `search` and `vault_info` tools. It uses the same
+      warm index as the app and CLI, reaches the running app only through a
+      local socket or named pipe, opens no TCP port, and can be disabled in
+      Settings.
 
 ## Reading & annotating
 
@@ -72,6 +87,15 @@ The agent-ready notes system, rolling out incrementally:
 - **Attachment & video cards** — links to documents, audio, and video render
   as chips / cards; YouTube and Bilibili URLs fetch their titles and render
   as branded play cards.
+- **Table of contents** — a read-only outline of the current Markdown
+  document, including unsaved headings. Click to jump to a section; while
+  scrolling in rich or source view, the active heading follows the reading
+  position, including when headings have duplicate text.
+- **Typeset books** — the optional Typeset Reader turns `*.typeset.md` into
+  cached, paginated Typst pages. Large books become readable after the first
+  batch while later pages continue rendering; CJK books automatically use a
+  suitable book template, with a persistent template override and zoom in the
+  page context menu.
 
 ## Writing & editing
 
@@ -85,7 +109,9 @@ The agent-ready notes system, rolling out incrementally:
 - **Wikilinks** — `[[note]]` renders as a link; click to open (or create)
   `note.md` beside the current file; `[[note|alias]]` shows the alias.
 - **Task checkboxes**, **bare-URL autolink**, **collapsible + inline-editable
-  YAML frontmatter panel**, **line-break fidelity** across export / share.
+  YAML metadata card**, **line-break fidelity** across export / share. The
+  card recognises wikilinks, Markdown links, bare URLs, and scalar lists while
+  reading, without changing the source text.
 - **Paste anything** — screenshots land in `{docname}_files/` with relative
   links; files paste as attachment links; images get a click-to-resize
   toolbar (25 / 50 / 75 / 100 %).
@@ -96,7 +122,18 @@ The agent-ready notes system, rolling out incrementally:
   `/spreadsheet` slash command embeds a grid inside markdown.
 - **Find & Replace** (`Cmd+F` / `Cmd+H`) with regex, whole-word, and
   case-sensitive options, in both modes.
-- **New file** (`Cmd+N`) with a random writing prompt, body pre-selected.
+- **Readable JSON source** — entering Source for a valid `.json` expands
+  compact content with two-space indentation while preserving key order,
+  duplicate keys, number spelling, and escapes. Invalid JSON and JSONC stay
+  untouched; formatting is an ordinary unsaved edit.
+- **Source-controlled read-only documents** — top-level `readonly: true`
+  prevents Rich, Source, metadata, save, overwrite, Save As, and history
+  restore from changing a Markdown file, while its external synchronizer may
+  still refresh an open document.
+- **New file** (`Cmd+N`) and tray Quick Note create a blank temporary Markdown
+  document directly in the Vault's configured inbox. On manual save, an
+  unnamed document becomes `YYYY-MM-DD-title.md`, or a timestamped fallback;
+  existing names are never rewritten and collisions receive a number.
 
 ## Your files & vault
 
@@ -105,6 +142,14 @@ The agent-ready notes system, rolling out incrementally:
   modes (all / files / with-notes / markdown-by-H1 / notes).
 - **Switchable side panels** — a registry of left/right sidebars with a
   title-bar switcher.
+- **JSON Canvas workspace** — create and edit standard, Obsidian-compatible
+  `.canvas` files with text, file/image, link, and group cards; labelled
+  connections; pan/zoom, lasso and box selection; snapping, alignment and
+  distribution; multi-selection resizing; contextual tools; copy/paste; and
+  undo/redo. Unknown JSON Canvas fields survive round trips, and protected
+  atomic saves, auto-save, and external-change handling keep the file safe.
+  New canvases start as `Vault/canvas/untitled.canvas` and receive a date plus
+  title (or time) name on manual save.
 - **External change detection** — clean tabs reload silently; dirty tabs get
   a conflict banner (reload / overwrite / recreate on delete). Never silent
   data loss.
@@ -114,8 +159,10 @@ The agent-ready notes system, rolling out incrementally:
   a stable, git-versioned host.
 - **Large-file gate** — files above a configurable threshold stay in the
   working tree instead of entering a vault commit; the tray shows the state.
-- **Tabs** with dirty indicators and drag-to-reorder; **auto-save** (opt-in);
-  **recent files**; Finder double-click / drag-to-open.
+- **Tabs** with dirty indicators and drag-to-reorder; right-click actions to
+  close the current tab, tabs to its left, or all tabs (with save prompts
+  preserved); **auto-save** (opt-in); **recent files**; Finder double-click /
+  drag-to-open.
 
 ## Built for agents
 
@@ -141,18 +188,73 @@ The agent-ready notes system, rolling out incrementally:
   network checks, `--json` for machine-readable output).
 - **`notemd` CLI** — drive plugin features without the GUI:
   `notemd share draft.md` publishes a share link; `--json` for structured
-  output; `notemd reading-insights report` writes engagement digests.
+  output; `notemd reading-insights report` writes engagement digests;
+  enabled plugins add commands such as `meetings-sync`, `apple-notes-sync`,
+  and the read-only / proposal operations for Memory, mail, and transcript
+  corrections. Operational commands keep note.md available in the background
+  without opening or focusing an extra window.
   Install from **Help → Install 'notemd' Command in PATH…**.
-- **MCP endpoint** — the share Worker exposes MCP so agents can publish
-  documents on your behalf.
+- **Two distinct MCP surfaces** — the local `notemd mcp` endpoint provides
+  read-only Vault search and information; the optional share Worker exposes a
+  separate MCP endpoint for publishing documents on your behalf.
 - **Plugin system (v2)** — out-of-process plugins over stdin/stdout JSON *plus*
   isolated-webview UI plugins, with declarative manifests (menus, context
   menus, settings panels, sidebars, tray items, CLI subcommands) and
-  capability-gated host actions; dormant until invoked. Browse and install from
-  the in-app marketplace ([plugins.notemd.net](https://plugins.notemd.net)):
-  **Roam Research Sync**, **Base** (Obsidian `.base` tables), **Weekly Review**
-  (year-calendar review), **Decision**, **OpenClaw Chat**, md→PDF, and more.
-  Writing your own: [`plugin-v2-development.md`](plugin-v2-development.md).
+  capability-gated host actions; dormant until invoked. Plugins may also
+  declare file views selected by extension, filename, path, or frontmatter;
+  these appear beside Rich and Source, with a built-in-editor fallback on
+  failure. Installing, updating, enabling, disabling, or removing a plugin
+  reloads its runtime, menus, shortcuts, and open views without restarting.
+  Browse and install from the in-app marketplace
+  ([plugins.notemd.net](https://plugins.notemd.net)). Writing your own:
+  [`plugin-v2-development.md`](plugin-v2-development.md).
+
+## Official plugins & file views
+
+- **Memory 2.5.2** *(note.md 6.906.1+)* — the controlled personal Memory and
+  governed co-writing workspace described above.
+- **Meetings 1.0.3** *(macOS; note.md 6.906.2+)* — safely migrate Hemory
+  conversations, or incrementally archive new and changed speaker-attributed,
+  time-coded transcripts with `notemd meetings-sync`; dry runs, checkpoints,
+  journals, and conflict reports protect local edits, and audio is never
+  copied.
+- **Timeline 1.0.4** *(note.md 6.909.4+)* — render Markdown with
+  `type: timeline` as a vertical daily schedule with overlapping events,
+  configurable categories, date navigation, and a configurable opening time.
+- **Index Viewer 1.0.2** *(note.md 6.910.1+)* — render `*.index.md` as a cover
+  gallery, multi-column table, grouped list, or swimlane board. Heading
+  hierarchy supplies categories; one-line list attributes, tags, wikilinks,
+  and relative file links remain portable Markdown.
+- **Ebook Import 1.5.0** *(macOS; note.md 6.910.1+)* — import books with
+  metadata and covers from Open Library plus Apple Books fallback, maintain
+  live gallery indexes, AI reading notes, and topic organization, and write
+  new book bodies as `book.typeset.md` while retaining compatibility with
+  existing `book.md`.
+- **Assistant Mail 0.1.6** *(macOS; note.md 6.912.1+)* — pull approved mail
+  from a dedicated Worker into a portable Vault archive of paired `.eml` and
+  integrity JSON files. The trusted UI provides sanitized, sandboxed HTML
+  previews; Agent CLI commands disclose only bounded metadata, and deletion
+  requires a reviewed plan.
+- **Apple Notes Sync 1.0.4** *(macOS; note.md 6.915.1+)* — mirror Apple Notes
+  accounts and nested folders into readable, source-controlled Markdown under
+  `applenotes/`, with attachments, manual or five-minute automatic sync,
+  journal recovery, protected deletions, and stable identities kept centrally
+  in `applenotes/id-sync.json`.
+- **Knowledge Browser 3.2.0** *(note.md 6.916.1+)* — open supported extracted
+  knowledge JSON directly in the editor as an interactive graph, relation
+  groups, timeline, reading view, or diagnostics. It preserves multi-party
+  relationship roles and source evidence without changing the dataset.
+- **Conversation Transcript Corrections 0.1.9** *(macOS; note.md 6.916.1+)* —
+  review formal names, aliases, and ASR mistakes from conversations in which
+  the user participated, merge entries across public contexts, and apply
+  approved replacement or preservation rules per context. Agents may query or
+  propose drafts, but cannot approve them; an optional
+  `build-conversation-dictionary` Skill prepares review datasets.
+- **Typeset Reader 0.1.1** *(macOS; note.md 6.921.2+)* — the progressive Typst
+  view described above, integrated with Ebook Import 1.5.0.
+- The marketplace also includes **Roam Research Sync**, **Base** (Obsidian
+  `.base` tables), **Weekly Review**, **Decision**, Claude / Codex / DeepSeek
+  Agents, **OpenClaw Chat**, md→PDF, and more.
 
 ## Share & export
 
@@ -169,12 +271,15 @@ The agent-ready notes system, rolling out incrementally:
 
 ## The app
 
-- **Trilingual UI** — English, 简体中文, 日本語 — covering every dialog, the
-  native macOS menu bar (system items included), the tray, and plugin
-  strings; switch live in Preferences, no restart.
+- **Four-language UI** — English, Deutsch, 简体中文, 日本語 — covering dialogs,
+  native desktop menus, the tray, and plugin strings; switch live in
+  Preferences, no restart.
 - **Typora-compatible themes** — import any Typora theme `.zip`; pick
   separate light / dark themes that follow macOS Appearance. Ships with
   **default** (GitHub-style) and **effie** (mint-paper, LXGW WenKai).
 - **Menu-bar tray**, Typora-style notification bar, full-UI zoom
   (`Cmd+=` / `Cmd+-` / `Cmd+0`).
-- **Apple Silicon & Intel** `.dmg`s with per-arch auto-update.
+- **macOS 13+ and Windows 10/11 x64** desktop builds. macOS ships signed and
+  notarized Apple Silicon and Intel `.dmg`s with per-architecture auto-update;
+  Windows uses its own installer and can trail the macOS release while its
+  package is produced.
