@@ -46,25 +46,23 @@ impl ConversationDictionaryPlugin {
         Ok(DictionaryService::new(vault))
     }
 
-    fn initialization_context(&self) -> Result<(DictionaryService, String), String> {
-        for _ in 0..60 {
-            let state = self.state.lock().unwrap();
-            if state.vault_checked {
-                let vault = state.vault.clone().ok_or("no Vault configured")?;
-                let author = state
-                    .author
-                    .clone()
-                    .ok_or("the current Vault author is unavailable")?;
-                return Ok((DictionaryService::new(vault), author));
-            }
-            drop(state);
-            std::thread::sleep(Duration::from_millis(50));
+    fn initialization_context(&self) -> Result<Option<(DictionaryService, String)>, String> {
+        let state = self.state.lock().unwrap();
+        if !state.vault_checked {
+            return Ok(None);
         }
-        Err("timed out while reading the current Vault identity".into())
+        let vault = state.vault.clone().ok_or("no Vault configured")?;
+        let author = state
+            .author
+            .clone()
+            .ok_or("the current Vault author is unavailable")?;
+        Ok(Some((DictionaryService::new(vault), author)))
     }
 
     fn human_action(&self) -> Result<HumanAction, String> {
-        let (_, author) = self.initialization_context()?;
+        let (_, author) = self
+            .initialization_context()?
+            .ok_or("the current Vault identity is still loading")?;
         HumanAction::from_host_author(&author)
     }
 
@@ -259,7 +257,9 @@ impl sdk::NotemdPlugin for ConversationDictionaryPlugin {
     ) -> Result<Value, String> {
         let method = method.strip_prefix("plugin.").unwrap_or(method);
         if method == "initialize" {
-            let (service, author) = self.initialization_context()?;
+            let Some((service, author)) = self.initialization_context()? else {
+                return Ok(json!({ "status": "pending", "dictionary_created": false }));
+            };
             return service.ensure_initialized(&author);
         }
         let service = self.service()?;
@@ -350,6 +350,12 @@ impl sdk::NotemdPlugin for ConversationDictionaryPlugin {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+
+    async fn env_guard() -> tokio::sync::MutexGuard<'static, ()> {
+        static LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+        LOCK.lock().await
+    }
 
     #[test]
     fn cli_action_is_read_from_the_declared_positional_argument() {
@@ -363,5 +369,100 @@ mod tests {
         let manifest: proto::ManifestV2 =
             serde_json::from_str(include_str!("../../manifest.v2.json")).unwrap();
         proto::validate_manifest(&manifest, "6.916.1").unwrap();
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn initialize_does_not_block_the_host_identity_response() {
+        let _env = env_guard().await;
+        let vault = tempfile::tempdir().unwrap();
+        std::env::set_var(
+            "NOTEMD_SHARED_CONFIG",
+            vault.path().join("missing-shared.json"),
+        );
+
+        let (mut to_plugin, plugin_stdin) = tokio::io::duplex(16 * 1024);
+        let (plugin_stdout, from_plugin) = tokio::io::duplex(16 * 1024);
+        std::thread::spawn(move || {
+            tokio::runtime::Builder::new_multi_thread()
+                .worker_threads(2)
+                .enable_all()
+                .build()
+                .unwrap()
+                .block_on(sdk::serve_io(
+                    ConversationDictionaryPlugin::new(),
+                    plugin_stdin,
+                    plugin_stdout,
+                ));
+        });
+
+        to_plugin
+            .write_all(
+                b"{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"$activate\",\"params\":{\"event\":\"onCommand:open\"}}\n\
+                  {\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"ui.request\",\"params\":{\"method\":\"initialize\",\"params\":{}}}\n",
+            )
+            .await
+            .unwrap();
+
+        let mut lines = BufReader::new(from_plugin).lines();
+        let (host_request_id, pending) = tokio::time::timeout(Duration::from_secs(1), async {
+            let mut host_request_id = None;
+            let mut pending = None;
+            while host_request_id.is_none() || pending.is_none() {
+                let line = lines
+                    .next_line()
+                    .await
+                    .unwrap()
+                    .expect("plugin stdout closed");
+                let value: Value = serde_json::from_str(&line).unwrap();
+                if value.get("method").and_then(Value::as_str) == Some("host.vault.info") {
+                    host_request_id = value.get("id").cloned();
+                } else if value.get("id").and_then(Value::as_u64) == Some(2) {
+                    pending = Some(value);
+                }
+            }
+            (host_request_id.unwrap(), pending.unwrap())
+        })
+        .await
+        .expect("initialize blocked the protocol loop while identity was in flight");
+        assert_eq!(pending["result"]["status"], "pending");
+
+        let response = json!({
+            "jsonrpc": "2.0",
+            "id": host_request_id,
+            "result": {
+                "root": vault.path().to_string_lossy(),
+                "author": "human:protocol-test"
+            }
+        });
+        to_plugin
+            .write_all(format!("{response}\n").as_bytes())
+            .await
+            .unwrap();
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        to_plugin
+            .write_all(
+                b"{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"ui.request\",\"params\":{\"method\":\"initialize\",\"params\":{}}}\n",
+            )
+            .await
+            .unwrap();
+
+        let initialized = tokio::time::timeout(Duration::from_secs(2), async {
+            loop {
+                let line = lines
+                    .next_line()
+                    .await
+                    .unwrap()
+                    .expect("plugin stdout closed");
+                let value: Value = serde_json::from_str(&line).unwrap();
+                if value.get("id").and_then(Value::as_u64) == Some(3) {
+                    break value;
+                }
+            }
+        })
+        .await
+        .expect("initialize did not resume after the Host identity response");
+        assert_eq!(initialized["result"]["status"], "created");
+        assert_eq!(initialized["result"]["dictionary_created"], true);
+        std::env::remove_var("NOTEMD_SHARED_CONFIG");
     }
 }

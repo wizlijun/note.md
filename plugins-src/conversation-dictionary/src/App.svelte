@@ -11,6 +11,7 @@
   let initializationError = ''
   let error = ''
   let notice = ''
+  let disposed = false
   let datasetPath = ''
   let selectedBatchId = ''
   let selected = new Set<string>()
@@ -245,15 +246,28 @@
     finally { busy = false }
   }
 
+  async function initializeWhenIdentityIsReady() {
+    for (let attempt = 0; attempt < 50; attempt += 1) {
+      if (disposed) return null
+      const result = await api.initialize()
+      if (disposed) return null
+      if (result.status !== 'pending') return result
+      await new Promise((resolve) => setTimeout(resolve, 100))
+    }
+    throw new Error(t('Host 身份服务未在预期时间内就绪', 'The Host identity service did not become ready in time'))
+  }
+
   async function initializeAndRefresh() {
     if (busy) return
     busy = true; error = ''; notice = ''
     try {
-      const result = await api.initialize()
+      const result = await initializeWhenIdentityIsReady()
+      if (!result || disposed) return
       await refresh(false)
       initializationError = ''
       if (result.dictionary_created) notice = t('沟通转写勘误已为当前 Vault 准备好', 'Conversation Transcript Corrections is ready for this Vault')
     } catch (value) {
+      if (disposed) return
       initializationError = value instanceof Error ? value.message : String(value)
       try { await refresh(false) } catch { /* retain the initialization error */ }
     } finally {
@@ -679,11 +693,13 @@
   }
 
   onMount(() => {
+    disposed = false
     initializeAndRefresh()
     window.addEventListener('click', suppressClickAfterDrag, true)
     window.addEventListener('pointerdown', resetDragClick, true)
     window.addEventListener('scroll', cancelEntryDrag, true)
     return () => {
+      disposed = true
       cancelEntryDrag()
       window.removeEventListener('click', suppressClickAfterDrag, true)
       window.removeEventListener('pointerdown', resetDragClick, true)

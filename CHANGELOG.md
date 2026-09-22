@@ -7,6 +7,10 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+### Fixed
+
+- **Conversation Transcript Corrections 0.1.11 initializes reliably when first opened.** The plugin no longer blocks the protocol loop while waiting for the current Vault and trusted Host author identity; the window waits briefly and continues automatically as soon as the identity service responds.
+
 ## v6.922.1 — 2026-09-22
 
 ### Changed

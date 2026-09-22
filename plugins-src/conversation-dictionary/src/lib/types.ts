@@ -114,7 +114,7 @@ export type Snapshot = {
   example: DictionaryExample
 }
 export type InitializationResult = {
-  status: 'created' | 'existing'
+  status: 'pending' | 'created' | 'existing'
   dictionary_created: boolean
 }
 export type SaveCorrectionEntryResult = {

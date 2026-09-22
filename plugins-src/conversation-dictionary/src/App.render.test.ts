@@ -200,6 +200,44 @@ describe('Conversation Transcript Corrections window', () => {
     expect(request.mock.calls.some(([method]) => method === 'plugin.create_dictionary')).toBe(false)
   })
 
+  it('retries automatically while the Host identity is still loading', async () => {
+    const data = snapshot(); data.batches = []
+    let attempts = 0
+    const request = vi.fn(async (method: string) => {
+      if (method === 'plugin.initialize') {
+        attempts += 1
+        if (attempts < 3) return { status: 'pending', dictionary_created: false }
+        return { status: 'existing', dictionary_created: false }
+      }
+      if (method === 'plugin.bootstrap') return data
+      throw new Error(`unexpected ${method}`)
+    })
+    window.notemd = { pluginId: 'notemd.conversation-dictionary', locale: 'zh-TW', theme: 'light', request, onMessage: () => {} }
+    const host = document.createElement('div'); document.body.append(host); mounted = mount(App, { target: host })
+    await vi.waitFor(() => expect(attempts).toBe(3))
+    await vi.waitFor(() => expect(host.querySelector('.tabs')).not.toBeNull())
+    expect(host.textContent).not.toContain('初始化未通过')
+  })
+
+  it('stops pending identity retries when the window closes', async () => {
+    let attempts = 0
+    const request = vi.fn(async (method: string) => {
+      if (method === 'plugin.initialize') {
+        attempts += 1
+        return { status: 'pending', dictionary_created: false }
+      }
+      throw new Error(`unexpected ${method}`)
+    })
+    window.notemd = { pluginId: 'notemd.conversation-dictionary', locale: 'zh-TW', theme: 'light', request, onMessage: () => {} }
+    const host = document.createElement('div'); document.body.append(host); mounted = mount(App, { target: host })
+    await vi.waitFor(() => expect(attempts).toBeGreaterThanOrEqual(2))
+    await unmount(mounted)
+    mounted = undefined
+    const attemptsAfterClose = attempts
+    await new Promise((resolve) => setTimeout(resolve, 250))
+    expect(attempts).toBe(attemptsAfterClose)
+  })
+
   it('does not expose editing or recreation when initialization fails its reviewed baseline check', async () => {
     const invalid = snapshot(); invalid.dictionary = null as any; invalid.batches = []
     invalid.status = { status: 'needs_review', error: 'dictionary changed outside the reviewed plugin transaction' } as any
