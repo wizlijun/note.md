@@ -25,9 +25,12 @@ function load(page: string, platform: string | null) {
     Object.defineProperty(window.navigator, 'userAgentData', { value: undefined, configurable: true })
   }
 
-  // happy-dom does not execute scripts injected via innerHTML.
-  for (const el of Array.from(document.querySelectorAll('script'))) {
-    if (el.textContent?.includes('data-dl')) new Function(el.textContent)()
+  // happy-dom does not execute scripts injected via innerHTML. A null platform
+  // intentionally represents the no-JS baseline, so leave the markup alone.
+  if (platform) {
+    for (const el of Array.from(document.querySelectorAll('script'))) {
+      if (el.textContent?.includes('data-dl')) new Function(el.textContent)()
+    }
   }
 }
 
@@ -74,5 +77,13 @@ describe.each(PAGES)('%s', (page) => {
     const win = Array.from(document.querySelectorAll('[data-plat="win"]')) as HTMLElement[]
     expect(win.length).toBe(2)
     for (const span of win) expect(span.hidden).toBe(false)
+  })
+
+  it('sends unsupported desktop visitors to the releases page', () => {
+    load(page, 'Linux')
+    for (const cta of Array.from(document.querySelectorAll('[data-dl]'))) {
+      expect(cta.getAttribute('href')).toBe('https://github.com/wizlijun/note.md/releases/latest')
+      expect(cta.querySelector('.bl')?.textContent).toBe(cta.getAttribute('data-dl-other'))
+    }
   })
 })

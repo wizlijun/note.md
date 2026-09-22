@@ -13,6 +13,7 @@ const locales = [
 
 const readTextTree = (dir: string): string =>
   readdirSync(dir, { withFileTypes: true })
+    .filter((entry) => entry.name !== '__pycache__')
     .map((entry) => {
       const path = join(dir, entry.name)
       return entry.isDirectory() ? readTextTree(path) : readFileSync(path, 'utf8')

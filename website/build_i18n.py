@@ -238,7 +238,7 @@ STRINGS = [('<title>note.md — The markdown editor for humans and agents</title
  ('Open JSON Canvas files, format JSON, keep imported sources read-only, and let untitled notes and canvases receive '
   'stable names when you save.',
   '打开 JSON Canvas、格式化 JSON、让导入来源保持只读；无标题笔记和画布会在保存时获得稳定文件名。',
-  'Öffne JSON-Canvas-Dateien, formatiere JSON, halte importierte Quellen schreibgeschützt und gib unbenannten Notizen '
+  'Öffne JSON Canvas-Dateien, formatiere JSON, halte importierte Quellen schreibgeschützt und gib unbenannten Notizen '
   'und Canvases beim Speichern stabile Namen.',
   'JSON Canvas を開き、JSON を整形し、取り込んだソースを読み取り専用に保てる。無題のノートやキャンバスには保存時に安定した名前が付く。'),
  ('<h2>Agents propose. You approve.</h2>', '<h2>Agent 提议，由你批准。</h2>', '<h2>Agents schlagen vor. Du bestätigst.</h2>', '<h2>Agent が提案し、あなたが承認する。</h2>'),
