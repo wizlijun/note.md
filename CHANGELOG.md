@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.924.1 — 2026-09-24
+
 ### Fixed
 
 - **Markdown opens directly in the selected theme.** Effie is ready before the document first appears, without the initial default-theme flash. Theme loading starts earlier, duplicate reads are shared, and unchanged offline fonts no longer undergo repeated full validation.
