@@ -2,6 +2,27 @@ import { invoke } from '@tauri-apps/api/core'
 
 export type ThemeSlot = 'light' | 'dark'
 
+const pendingCss = new Map<string, Promise<string>>()
+const slotRequests = new Map<ThemeSlot, object>()
+const loadedSlots = new Map<ThemeSlot, { id: string; element: Element }>()
+
+export function invalidateThemeContent(): void {
+  loadedSlots.clear()
+  pendingCss.clear()
+  slotRequests.clear()
+}
+
+function readThemeCss(id: string): Promise<string> {
+  let request = pendingCss.get(id)
+  if (!request) {
+    request = invoke<string>('theme_load_compiled', { id })
+    pendingCss.set(id, request)
+    const clear = () => { if (pendingCss.get(id) === request) pendingCss.delete(id) }
+    void request.then(clear, clear)
+  }
+  return request
+}
+
 export interface ThemeSettingsLike {
   light: string
   dark: string
@@ -29,11 +50,19 @@ export async function applyThemeContent(slot: ThemeSlot, themeId: string): Promi
   ensureThemeSlots()
   const el = document.querySelector(`style[data-theme-slot="${slot}"]`)
   if (!el) return
+  const request = {}
+  slotRequests.set(slot, request)
+  const loaded = loadedSlots.get(slot)
+  if (loaded?.id === themeId && loaded.element === el) return
   try {
-    const css = await invoke<string>('theme_load_compiled', { id: themeId })
-    el.textContent = css
+    const css = await readThemeCss(themeId)
+    if (slotRequests.get(slot) !== request) return
+    if (el.textContent !== css) el.textContent = css
+    loadedSlots.set(slot, { id: themeId, element: el })
   } catch (e) {
+    if (slotRequests.get(slot) !== request) return
     console.warn('[theme-loader] applyThemeContent failed', slot, themeId, e)
+    loadedSlots.delete(slot)
     el.textContent = ''
   }
 }

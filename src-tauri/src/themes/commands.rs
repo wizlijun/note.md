@@ -40,17 +40,31 @@ pub fn theme_load_compiled(app: tauri::AppHandle, id: String) -> Result<String, 
 
 // Effie's published webfont CSS loads Unicode-range subsets. Keep that fast
 // online fallback until all three verified system faces are installed. Exact
-// import removal also works for older built-in copies in users' theme folders.
+// import replacement also works for older built-in copies in users' theme folders.
 const EFFIE_WEBFONT_IMPORTS: [&str; 3] = [
     "@import \"https://cdn.jsdelivr.net/npm/lxgw-wenkai-lite-webfont@1.7.0/lxgwwenkailite-regular.css\";",
     "@import \"https://cdn.jsdelivr.net/npm/lxgw-wenkai-lite-webfont@1.7.0/lxgwwenkailite-bold.css\";",
     "@import \"https://cdn.jsdelivr.net/npm/lxgw-wenkai-lite-webfont@1.7.0/lxgwwenkaimonolite-regular.css\";",
 ];
 
+// The web bundle's Bold face was renamed Medium in the installed release
+// (OS/2 weight 500). Preserve its CSS 700 role explicitly, otherwise WebKit
+// synthesizes another bold stroke on top of that face. PostScript names also
+// select the exact Regular face instead of relying on system family matching.
+const EFFIE_LOCAL_FONT_FACES: [&str; 3] = [
+    "@font-face { font-family: 'LXGW WenKai Lite'; font-style: normal; font-weight: 400; src: local('LXGWWenKaiLite-Regular'); }\n",
+    "@font-face { font-family: 'LXGW WenKai Lite'; font-style: normal; font-weight: 700; src: local('LXGWWenKaiLite-Medium'); }\n",
+    "@font-face { font-family: 'LXGW WenKai Mono Lite'; font-style: normal; font-weight: 400; src: local('LXGWWenKaiMonoLite-Regular'); }\n",
+];
+
 fn effie_css_for_font_state(id: &str, css: String, installed: bool) -> String {
     if id != "effie" || !installed { return css; }
     css.split_inclusive('\n')
-        .filter(|line| !EFFIE_WEBFONT_IMPORTS.contains(&line.trim_end_matches(['\r', '\n'])))
+        .map(|line| {
+            EFFIE_WEBFONT_IMPORTS.iter()
+                .position(|import| *import == line.trim_end_matches(['\r', '\n']))
+                .map_or(line, |index| EFFIE_LOCAL_FONT_FACES[index])
+        })
         .collect()
 }
 
@@ -303,6 +317,13 @@ mod tests {
         for import in EFFIE_WEBFONT_IMPORTS {
             assert!(!offline.lines().any(|line| line == import), "retained {import}");
         }
+        for face in EFFIE_LOCAL_FONT_FACES {
+            assert!(offline.contains(face), "missing {face}");
+        }
+        assert!(offline.contains("font-weight: 400; src: local('LXGWWenKaiLite-Regular')"));
+        assert!(offline.contains("font-weight: 700; src: local('LXGWWenKaiLite-Medium')"));
+        assert!(!offline.contains("url("));
+        assert_eq!(effie_css_for_font_state("effie", offline.clone(), true), offline);
         assert!(offline.contains("LXGW WenKai Lite"));
         assert!(offline.contains("LXGW WenKai Mono Lite"));
         assert!(offline.contains("#4a8b8e"));

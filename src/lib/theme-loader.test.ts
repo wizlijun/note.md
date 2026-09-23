@@ -67,3 +67,36 @@ describe('theme-loader', () => {
     stop()
   })
 })
+
+describe('theme request ordering', () => {
+  it('shares one read for identical light/dark themes and reuses loaded slots', async () => {
+    const { invoke } = await import('@tauri-apps/api/core')
+    const { applyThemeContent } = await import('./theme-loader')
+    await Promise.all([applyThemeContent('light', 'effie'), applyThemeContent('dark', 'effie')])
+    await applyThemeContent('light', 'effie')
+    expect(invoke).toHaveBeenCalledTimes(1)
+    expect(document.querySelector('style[data-theme-slot="dark"]')?.textContent).toContain('effie')
+  })
+
+  it('does not let an old response overwrite a newer selection', async () => {
+    const { invoke } = await import('@tauri-apps/api/core')
+    let resolveOld!: (css: string) => void
+    vi.mocked(invoke).mockImplementationOnce(() => new Promise<string>((resolve) => { resolveOld = resolve }) as never)
+    const { applyThemeContent } = await import('./theme-loader')
+    const old = applyThemeContent('light', 'old')
+    await applyThemeContent('light', 'effie')
+    resolveOld('old CSS')
+    await old
+    expect(document.querySelector('style[data-theme-slot="light"]')?.textContent).toContain('effie')
+  })
+
+  it('reloads an edited theme after registry invalidation', async () => {
+    const { invoke } = await import('@tauri-apps/api/core')
+    const { applyThemeContent, invalidateThemeContent } = await import('./theme-loader')
+    await applyThemeContent('light', 'effie')
+    invalidateThemeContent()
+    vi.mocked(invoke).mockResolvedValueOnce('edited CSS')
+    await applyThemeContent('light', 'effie')
+    expect(document.querySelector('style[data-theme-slot="light"]')?.textContent).toBe('edited CSS')
+  })
+})

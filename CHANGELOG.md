@@ -7,6 +7,11 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+### Fixed
+
+- **Markdown opens directly in the selected theme.** Effie is ready before the document first appears, without the initial default-theme flash. Theme loading starts earlier, duplicate reads are shared, and unchanged offline fonts no longer undergo repeated full validation.
+- **Effie's offline headings and bold text match the original web fonts.** Explicit local font weights prevent macOS from adding another synthetic bold stroke. Normal body text keeps its original weight.
+
 ## v6.923.1 — 2026-09-23
 
 ### Fixed

@@ -178,13 +178,60 @@ pub fn install(style: &str, completed: impl FnMut(usize)) -> Result<(), String> 
     install_to(&user_font_dir()?, bundle(style)?, fetch, completed)
 }
 
+fn installed_font_is_verified(path: &Path, spec: &FontSpec) -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        use std::collections::HashMap;
+        use std::os::unix::fs::MetadataExt;
+        use std::sync::{Mutex, OnceLock};
+
+        type Stamp = (u64, u64, u64, i64, i64, i64, i64);
+        type Cache = HashMap<(PathBuf, &'static str), Stamp>;
+        static VERIFIED: OnceLock<Mutex<Cache>> = OnceLock::new();
+        let stamp = |metadata: fs::Metadata| {
+            (
+                metadata.dev(),
+                metadata.ino(),
+                metadata.len(),
+                metadata.mtime(),
+                metadata.mtime_nsec(),
+                metadata.ctime(),
+                metadata.ctime_nsec(),
+            )
+        };
+        let Ok(mut cache) = VERIFIED.get_or_init(Mutex::default).lock() else {
+            return false;
+        };
+        let Ok(before) = fs::metadata(path).map(stamp) else {
+            return false;
+        };
+        let key = (path.to_owned(), spec.sha256);
+        if cache.get(&key) == Some(&before) {
+            return true;
+        }
+        cache.remove(&key);
+        if verify(path, spec).is_err() {
+            return false;
+        }
+        // Cache only a stable successful verification. Replacements, writes,
+        // removals and reinstalls invalidate it on the next status/theme read.
+        if fs::metadata(path).map(stamp).ok() != Some(before) {
+            return false;
+        }
+        cache.insert(key, before);
+        true
+    }
+    #[cfg(not(target_os = "macos"))]
+    verify(path, spec).is_ok()
+}
+
 pub fn installed_count(style: &str) -> Result<(usize, usize), String> {
     let specs = bundle(style)?;
     let dir = user_font_dir()?;
     Ok((
         specs
             .iter()
-            .filter(|spec| verify(&dir.join(spec.file), spec).is_ok())
+            .filter(|spec| installed_font_is_verified(&dir.join(spec.file), spec))
             .count(),
         specs.len(),
     ))
@@ -279,6 +326,10 @@ mod tests {
         )
         .unwrap();
         install_to(&dir, &[spec], |_, _| panic!("must not redownload"), |_| {}).unwrap();
+        assert!(installed_font_is_verified(&dir.join(spec.file), &spec));
+        assert!(installed_font_is_verified(&dir.join(spec.file), &spec));
+        fs::write(dir.join(spec.file), vec![0; data.len()]).unwrap();
+        assert!(!installed_font_is_verified(&dir.join(spec.file), &spec));
         fs::write(dir.join(spec.file), b"changed").unwrap();
         assert!(install_to(&dir, &[spec], |_, _| panic!("must not overwrite"), |_| {}).is_err());
         assert_eq!(fs::read(dir.join(spec.file)).unwrap(), b"changed");

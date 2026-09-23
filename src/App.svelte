@@ -108,6 +108,7 @@
     platform().then((p) => { platformName = p })
   })
 
+  let themeReady = $state(false)
   let showUpdateDialog = $state(false)
   let collectedItems = $derived<CollectedItems>(collectMenuItems(pluginRuntime.manifests))
   // Tracks last applied enabled state per menu-item id, so we only invoke the
@@ -146,6 +147,8 @@
     void import('./lib/okf/identity').then(m => m.warmHumanActor())
 
     let stopAutoSave: (() => void) | undefined
+    let stopThemes: (() => void) | undefined
+    let disposed = false
     let dispatchPlugin: (pluginId: string, command: string) => Promise<void> = async () => {}
 
     const win = getCurrentWindow()
@@ -356,6 +359,14 @@
 
     ;(async () => {
       try { await loadSettings() } catch (e) { console.warn('[App] loadSettings:', e) }
+      // Theme CSS is on the first-render path; plugin/sidebar setup is not.
+      try {
+        const { initializeThemes } = await import('./lib/theme-controller.svelte')
+        stopThemes = await initializeThemes()
+        if (disposed) { stopThemes(); return }
+      } catch (e) { console.warn('[App] theme init:', e) }
+      if (disposed) return
+      themeReady = true
       try { await loadLocale() } catch (e) { console.warn('[App] loadLocale:', e) }
       // Plugin windows persist their own settings through a self-scoped Host
       // RPC; mirror those writes so a later global save cannot restore stale
@@ -395,86 +406,6 @@
         const { installHoverInvalidator } = await import('./lib/mdblock-hover/hover-store.svelte')
         installHoverInvalidator()
       } catch (e) { console.warn('[App] installHoverInvalidator:', e) }
-      // Theme initialization: load registry, install style slots, observe
-      // system appearance, and keep activeTheme.id + slot CSS in sync.
-      try {
-        const { loadThemes, themes, findThemeById } = await import('./lib/themes.svelte')
-        const { ensureThemeSlots, applyThemeContent, computeActiveThemeId, observePrefersColorScheme } = await import('./lib/theme-loader')
-        const { setActiveTheme } = await import('./lib/active-theme.svelte')
-        await loadThemes()
-        ensureThemeSlots()
-
-        let systemDark = false
-        let lightAssigned: string | null = null
-        let darkAssigned: string | null = null
-        // followSystem is the third field of the host.theme.css bundle (it
-        // decides whether the kit picks dark_css), so a change to it alone
-        // must still reach plugin windows.
-        let followAssigned: boolean | null = null
-
-        // Plugin windows are isolated webviews: they never see the style slots
-        // above. Carry the current in-memory ids in the push so they cannot
-        // race settings.json persistence and re-apply the previous theme.
-        function notifyPluginWindows(t: typeof settings.theme) {
-          void invoke('plugin_v2_theme_changed', {
-            lightId: t.light,
-            darkId: t.dark,
-            followSystem: t.followSystem,
-          }).catch(() => {})
-        }
-
-        async function syncSlots() {
-          const t = settings.theme
-          let changed = false
-          if (t.light !== lightAssigned) {
-            const meta = findThemeById(t.light)
-            if (meta) { await applyThemeContent('light', meta.id) }
-            lightAssigned = t.light
-            changed = true
-          }
-          if (t.dark !== darkAssigned) {
-            const meta = findThemeById(t.dark)
-            if (meta) { await applyThemeContent('dark', meta.id) }
-            darkAssigned = t.dark
-            changed = true
-          }
-          if (t.followSystem !== followAssigned) {
-            followAssigned = t.followSystem
-            changed = true
-          }
-          setActiveTheme(computeActiveThemeId(t, systemDark))
-          // One push per actual change (not per changed slot).
-          if (changed) notifyPluginWindows(t)
-        }
-
-        const stopSystem = observePrefersColorScheme((dark) => {
-          systemDark = dark
-          void syncSlots()
-        })
-        // Re-sync whenever settings.theme changes (the dropdowns mutate it).
-        const stopWatch = $effect.root(() => {
-          $effect(() => {
-            void settings.theme.light
-            void settings.theme.dark
-            void settings.theme.followSystem
-            void syncSlots()
-          })
-        })
-        // Also re-sync when themes list changes (import added new themes).
-        const stopThemesWatch = $effect.root(() => {
-          $effect(() => {
-            void themes.list
-            lightAssigned = null
-            darkAssigned = null
-            void syncSlots()
-          })
-        })
-        ;(window as unknown as { __notemd_stop_theme?: () => void }).__notemd_stop_theme = () => {
-          stopSystem()
-          stopWatch()
-          stopThemesWatch()
-        }
-      } catch (e) { console.warn('[App] theme init:', e) }
       stopAutoSave = startAutoSaveWatcher()
 
       if (await isIOS()) {
@@ -893,6 +824,8 @@
       cleanupRecents?.()
       setVaultRootChangedHandler(null)
       void shutdownTracker()
+      disposed = true
+      stopThemes?.()
       stopAutoSave?.()
     }
   })
@@ -1028,11 +961,11 @@
       <SidePanel side="left" tab={current ?? null} />
     {/if}
     {#if current}
-      <div class="document-column">
+      <div class="document-column" aria-busy={!themeReady}>
         {#if tabs.length === 1 && platformName !== 'ios'}
           <div class="single-tab-viewbar"><ModeToggle tab={current} /></div>
         {/if}
-        <EditorPane tab={current} />
+        {#if themeReady}<EditorPane tab={current} />{/if}
       </div>
     {:else}
       <EmptyState />
