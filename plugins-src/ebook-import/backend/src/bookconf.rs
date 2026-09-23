@@ -115,10 +115,10 @@ pub fn sanitize_dirname(input: &str) -> String {
 }
 
 /// Builds the imported book's directory name from its title. Import suffixes
-/// beginning with `_` or `-` are not part of the book name.
+/// beginning with `_`, `-`, or `:` are not part of the book name.
 pub fn book_dirname(input: &str) -> String {
     let title = input
-        .find(['_', '-'])
+        .find(['_', '-', ':'])
         .map(|index| &input[..index])
         .unwrap_or(input);
     sanitize_dirname(title)
@@ -269,8 +269,10 @@ mod tests {
     }
 
     #[test]
-    fn book_dirname_discards_title_suffix_after_underscore_or_hyphen() {
+    fn book_dirname_discards_title_suffix_after_separator() {
         assert_eq!(book_dirname("Book_Name"), "Book");
+        assert_eq!(book_dirname("Agency_ The Psychological History of Human Progress"), "Agency");
+        assert_eq!(book_dirname("Agency: The Psychological History of Human Progress"), "Agency");
         assert_eq!(book_dirname("Book - Author"), "Book");
         assert_eq!(book_dirname("Book_Name-Edition"), "Book");
         assert_eq!(book_dirname("A/B"), "A_B");
