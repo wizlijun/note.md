@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { loadBookStyleRule, onDocument, renderDocument, renderNext, saveBookStyleRule } from './bridge'
+import { cancelRender, loadBookStyleRule, onDocument, renderDocument, renderNext, saveBookStyleRule } from './bridge'
 
 describe('typeset file-view bridge', () => {
   const request = vi.fn()
@@ -35,7 +35,7 @@ describe('typeset file-view bridge', () => {
   })
 
   it('passes the exact snapshot and Vault root to the native renderer', async () => {
-    request.mockResolvedValueOnce({ root: '/vault' }).mockResolvedValueOnce({ cache_key: 'a'.repeat(64), page_count: 3, hit: true, complete: true, busy: false })
+    request.mockResolvedValueOnce({ root: '/vault' }).mockResolvedValueOnce({ render_id: 'render-1', stage: 'complete', completed_chunks: 1, total_chunks: 2, cache_key: 'a'.repeat(64), page_count: 3, hit: true, complete: true, busy: false })
     const result = await renderDocument({ uri: '/vault/book.typeset.md', content: '# Book', requestId: 1 }, 'auto')
     expect(result.hit).toBe(true)
     expect(request.mock.calls).toEqual([
@@ -44,11 +44,11 @@ describe('typeset file-view bridge', () => {
     ])
   })
 
-  it('requests the next render batch independently of document preparation', async () => {
+  it('polls only the current render session independently of the cache key', async () => {
     const key = 'b'.repeat(64)
-    request.mockResolvedValueOnce({ cache_key: key, page_count: 7, hit: false, complete: false, busy: true })
-    await expect(renderNext(key)).resolves.toEqual({ cache_key: key, page_count: 7, hit: false, complete: false, busy: true })
-    expect(request).toHaveBeenCalledWith('plugin.render-next', { cache_key: key })
+    request.mockResolvedValueOnce({ render_id: 'render-1', stage: 'rendering', completed_chunks: 1, total_chunks: 2, cache_key: key, page_count: 7, hit: false, complete: false, busy: true })
+    await expect(renderNext('render-1')).resolves.toEqual({ render_id: 'render-1', stage: 'rendering', completed_chunks: 1, total_chunks: 2, cache_key: key, page_count: 7, hit: false, complete: false, busy: true })
+    expect(request).toHaveBeenCalledWith('plugin.render-next', { render_id: 'render-1' })
   })
 
   it('loads and saves the controlled template rule through plugin-scoped settings', async () => {
@@ -57,6 +57,19 @@ describe('typeset file-view bridge', () => {
     request.mockResolvedValueOnce({ ok: true })
     await saveBookStyleRule('wonderous-book')
     expect(request).toHaveBeenLastCalledWith('host.settings.set', { key: 'bookStyle', value: 'wonderous-book' })
+  })
+
+  it('accepts queued preparation without a cache key and cancels by session', async () => {
+    request.mockResolvedValueOnce({ root: '/vault' }).mockResolvedValueOnce({ render_id: 'queued-1', stage: 'queued', completed_chunks: 0, total_chunks: 0, cache_key: '', page_count: 0, hit: false, complete: false, busy: true })
+    await expect(renderDocument({ uri: '/vault/book.typeset.md', content: '# Book', requestId: 1 }, 'auto')).resolves.toMatchObject({ cache_key: '', stage: 'queued' })
+    request.mockResolvedValueOnce({ ok: true })
+    await cancelRender('queued-1')
+    expect(request).toHaveBeenLastCalledWith('plugin.cancel', { render_id: 'queued-1' })
+  })
+
+  it('rejects progress belonging to another view session', async () => {
+    request.mockResolvedValueOnce({ render_id: 'other', stage: 'rendering', completed_chunks: 1, total_chunks: 2, cache_key: 'a', page_count: 1, hit: false, complete: false, busy: true })
+    await expect(renderNext('this-view')).rejects.toThrow('invalid progress')
   })
 
 })

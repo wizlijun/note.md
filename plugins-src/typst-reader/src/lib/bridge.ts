@@ -4,7 +4,14 @@ export interface TypesetDocument {
   requestId: number
 }
 
+export type RenderStage = 'queued' | 'preparing' | 'rendering' | 'complete' | 'error' | 'cancelled'
+
 export interface RenderResult {
+  render_id: string
+  stage: RenderStage
+  completed_chunks: number
+  total_chunks: number
+  error?: string
   cache_key: string
   page_count: number
   hit: boolean
@@ -55,11 +62,18 @@ function validBookStyleRule(value: unknown): value is BookStyleRule {
   return value === 'auto' || value === 'wonderous-book' || value === 'aiwriter-book'
 }
 
-function validateRenderResult(result: any, cacheKey?: string): RenderResult {
-  if (typeof result?.cache_key !== 'string' || (cacheKey !== undefined && result.cache_key !== cacheKey)
+function validateRenderResult(result: any, renderId?: string): RenderResult {
+  if (typeof result?.render_id !== 'string' || !result.render_id
+    || (renderId !== undefined && result.render_id !== renderId)
+    || typeof result.cache_key !== 'string'
     || !Number.isSafeInteger(result.page_count) || result.page_count < 0
+    || (result.page_count > 0 && !result.cache_key)
+    || !Number.isSafeInteger(result.completed_chunks) || result.completed_chunks < 0
+    || !Number.isSafeInteger(result.total_chunks) || result.total_chunks < result.completed_chunks
+    || !['queued', 'preparing', 'rendering', 'complete', 'error', 'cancelled'].includes(result.stage)
     || typeof result.hit !== 'boolean' || typeof result.complete !== 'boolean'
-    || typeof result.busy !== 'boolean') {
+    || typeof result.busy !== 'boolean' || (result.complete && result.busy)
+    || (result.error !== undefined && typeof result.error !== 'string')) {
     throw new Error('The renderer returned invalid progress.')
   }
   return result
@@ -88,13 +102,13 @@ export async function renderDocument(document: TypesetDocument, bookStyle: BookS
   return validateRenderResult(result)
 }
 
-export async function renderNext(cacheKey: string): Promise<RenderResult> {
-  const result = await host().request('plugin.render-next', { cache_key: cacheKey })
-  const progress = validateRenderResult(result, cacheKey)
-  if (progress.hit !== false || (progress.complete && progress.busy)) {
-    throw new Error('The renderer returned invalid progress.')
-  }
-  return progress
+export async function renderNext(renderId: string): Promise<RenderResult> {
+  const result = await host().request('plugin.render-next', { render_id: renderId })
+  return validateRenderResult(result, renderId)
+}
+
+export async function cancelRender(renderId: string): Promise<void> {
+  await host().request('plugin.cancel', { render_id: renderId })
 }
 
 export async function loadPage(cacheKey: string, page: number): Promise<string> {

@@ -1,5 +1,6 @@
 mod plugin;
 mod render;
+mod world;
 
 fn main() {
     let rt = tokio::runtime::Builder::new_multi_thread()

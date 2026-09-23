@@ -9,6 +9,7 @@ For the full commit history, see the git log.
 
 ### Fixed
 
+- **Typeset Reader 0.2.0 opens and paginates large books much faster.** Fonts and compiler work are reused across batches, opening stays responsive during preparation, and long first chapters no longer bypass the preview budget. Reading views show progress, release offscreen pages, and cancel obsolete work when closed or switched.
 - **Ebook Import 1.5.2 shortens titles with a colon when naming imported book folders.** A title such as `Agency: The Psychological History` now creates `Agency/`, matching titles that use `_ `.
 - **Conversation Transcript Corrections 0.1.13 no longer mistakes formatter-added spacing for a customized managed block.** Its AGENTS.md block now uses formatter-stable spacing and precisely migrates every exact layout produced by the two previously published templates, while real user edits remain protected from overwrite.
 - **Conversation Transcript Corrections 0.1.12 recovers from a synced missing final newline without weakening its reviewed baseline.** When the live dictionary is byte-for-byte the trusted recovery snapshot except for its final LF, initialization restores that exact reviewed byte atomically; comments, fields, any other whitespace, and every other external change still fail closed.

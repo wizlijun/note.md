@@ -1,3 +1,4 @@
+use crate::world::RenderWorld;
 use percent_encoding::percent_decode_str;
 use pulldown_cmark::{Event, HeadingLevel, Options, Parser, Tag, TagEnd};
 use serde::{Deserialize, Serialize};
@@ -5,14 +6,13 @@ use sha2::{Digest, Sha256};
 use std::fs;
 use std::path::{Component, Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
-use typst::foundations::{Dict, IntoValue};
-use typst_as_lib::{typst_kit_options::TypstKitFontOptions, TypstEngine, TypstTemplateMainFile};
+use typst::foundations::{Bytes, Dict, IntoValue};
 
-const CACHE_SCHEMA: &str = "typeset-svg-v3";
+const CACHE_SCHEMA: &str = "typeset-svg-v4";
 const RENDERER_VERSION: &str =
-    "typst-0.15.1+cmarker-0.1.10+wonderous-book-0.1.2+aiwriter-book-0.4.13+template-17";
+    "typst-0.15.1+cmarker-0.1.10+wonderous-book-0.1.2+aiwriter-book-0.4.13+template-18+font-store";
 const QUICK_PREVIEW_BYTES: usize = 16 * 1024;
-const MAX_CONTINUATION_BYTES: usize = 320 * 1024;
+const MAX_CONTINUATION_BYTES: usize = 64 * 1024;
 const TEMPLATE: &str = include_str!("../assets/template.typ");
 const CMARKER_LIB: &str = include_str!("../assets/cmarker/lib.typ");
 const CMARKER_WASM: &[u8] = include_bytes!("../assets/cmarker/plugin.wasm");
@@ -46,7 +46,7 @@ pub struct RenderResult {
 
 pub struct RenderSession {
     key: String,
-    engine: TypstEngine<TypstTemplateMainFile>,
+    engine: RenderWorld,
     chunks: Vec<RenderChunk>,
     next_chunk: usize,
     page_count: usize,
@@ -65,7 +65,7 @@ struct RenderChunk {
 struct ValidatedSource {
     book_dir: PathBuf,
     markdown: String,
-    images: Vec<PathBuf>,
+    images: Vec<(PathBuf, Bytes)>,
     title: String,
     author: String,
     book_style: BookStyle,
@@ -168,12 +168,20 @@ struct BookSource {
 }
 
 impl RenderSession {
+    pub fn rendered_pages(&self) -> usize {
+        self.page_count
+    }
+
     pub fn key(&self) -> &str {
         &self.key
     }
 
-    pub fn page_count(&self) -> usize {
-        self.page_count
+    pub fn chunk_count(&self) -> usize {
+        self.chunks.len()
+    }
+
+    pub fn completed_chunks(&self) -> usize {
+        self.next_chunk
     }
 
     pub fn temp_dir(&self) -> &Path {
@@ -336,7 +344,14 @@ fn validate_source(request: &RenderRequest) -> Result<ValidatedSource, String> {
                 .find_map(|source| source.author)
         })
         .unwrap_or_default();
-    let images = local_image_paths(&markdown, &book_dir, &vault)?;
+    let images = local_image_paths(&markdown, &book_dir, &vault)?
+        .into_iter()
+        .map(|path| {
+            let bytes = fs::read(&path)
+                .map_err(|error| format!("read image {}: {error}", path.display()))?;
+            Ok((path, Bytes::new(bytes)))
+        })
+        .collect::<Result<Vec<_>, String>>()?;
     Ok(ValidatedSource {
         book_dir,
         markdown,
@@ -350,7 +365,7 @@ fn validate_source(request: &RenderRequest) -> Result<ValidatedSource, String> {
 fn cache_key(
     content: &str,
     book_dir: &Path,
-    images: &[PathBuf],
+    images: &[(PathBuf, Bytes)],
     book_style: BookStyle,
 ) -> Result<String, String> {
     let mut digest = Sha256::new();
@@ -371,16 +386,14 @@ fn cache_key(
     digest.update(book_style.as_str().as_bytes());
     digest.update([0]);
     digest.update(content.as_bytes());
-    for path in images {
+    for (path, bytes) in images {
         digest.update([0]);
         let relative = path
             .strip_prefix(book_dir)
             .map_err(|_| format!("image escaped the book directory: {}", path.display()))?;
         digest.update(relative.as_os_str().as_encoded_bytes());
         digest.update([0]);
-        digest.update(
-            fs::read(path).map_err(|error| format!("read image {}: {error}", path.display()))?,
-        );
+        digest.update(bytes.as_slice());
     }
     Ok(format!("{:x}", digest.finalize()))
 }
@@ -395,105 +408,248 @@ fn read_manifest(cache_dir: &Path, key: &str) -> Option<RenderManifest> {
     if manifest.schema != CACHE_SCHEMA || manifest.cache_key != key || manifest.page_count == 0 {
         return None;
     }
-    let dir = cache_dir.join(CACHE_SCHEMA).join(key);
-    (0..manifest.page_count)
-        .all(|page| dir.join(format!("page-{page:04}.svg")).is_file())
-        .then_some(manifest)
+    Some(manifest)
+}
+
+// CommonMark ends an HTML block at a blank line, even while a figure/div
+// container is still open. Keep those containers together across Markdown
+// blocks so cmarker's HTML reconstruction sees both opening and closing tags.
+fn track_html_containers(html: &str, stack: &mut Vec<String>) {
+    let mut rest = html;
+    while let Some(start) = rest.find('<') {
+        rest = &rest[start + 1..];
+        if let Some(comment) = rest.strip_prefix("!--") {
+            let Some(end) = comment.find("-->") else {
+                return;
+            };
+            rest = &comment[end + 3..];
+            continue;
+        }
+        let mut quote = None;
+        let end = rest.char_indices().find_map(|(index, character)| {
+            if let Some(expected) = quote {
+                if character == expected {
+                    quote = None;
+                }
+            } else if matches!(character, '\'' | '"') {
+                quote = Some(character);
+            } else if character == '>' {
+                return Some(index);
+            }
+            None
+        });
+        let Some(end) = end else { return };
+        let tag = rest[..end].trim();
+        rest = &rest[end + 1..];
+        let closing = tag.starts_with('/');
+        let name: String = tag
+            .trim_start_matches('/')
+            .chars()
+            .take_while(|character| character.is_ascii_alphanumeric() || *character == '-')
+            .collect::<String>()
+            .to_ascii_lowercase();
+        if name.is_empty() {
+            continue;
+        }
+        if closing {
+            if let Some(index) = stack.iter().rposition(|open| *open == name) {
+                stack.truncate(index);
+            }
+        } else if !tag.ends_with('/')
+            && !matches!(
+                name.as_str(),
+                "area"
+                    | "base"
+                    | "br"
+                    | "col"
+                    | "embed"
+                    | "hr"
+                    | "img"
+                    | "input"
+                    | "link"
+                    | "meta"
+                    | "param"
+                    | "source"
+                    | "track"
+                    | "wbr"
+            )
+        {
+            stack.push(name);
+        }
+    }
 }
 
 fn chapter_chunks(markdown: String) -> Vec<RenderChunk> {
+    use std::collections::{HashMap, HashSet};
+    use std::ops::Range;
+
+    let parser = Parser::new_ext(&markdown, Options::all());
+    let definitions: HashMap<String, Range<usize>> = parser
+        .reference_definitions()
+        .iter()
+        .map(|(label, definition)| (label.to_lowercase(), definition.span.clone()))
+        .collect();
+    let mut footnotes = HashMap::new();
+    let mut references = Vec::new();
+    let mut footnote_references = Vec::new();
     let mut h1_starts = Vec::new();
     let mut safe_boundaries = Vec::new();
+    let mut depth = 0usize;
+    let mut html_containers = Vec::new();
+    let mut footnote_start = None;
 
-    for (event, range) in Parser::new_ext(&markdown, Options::all()).into_offset_iter() {
+    for (event, range) in parser.into_offset_iter() {
         match event {
-            Event::Start(Tag::Heading {
-                level: HeadingLevel::H1,
-                ..
-            }) => h1_starts.push(range.start),
-            Event::End(TagEnd::Heading(_)) => safe_boundaries.push(range.end),
-            Event::End(
-                TagEnd::Paragraph
-                | TagEnd::CodeBlock
-                | TagEnd::BlockQuote(_)
-                | TagEnd::List(_)
-                | TagEnd::Table
-                | TagEnd::FootnoteDefinition,
-            ) => safe_boundaries.push(range.end),
+            Event::Start(tag) => {
+                match tag {
+                    Tag::Heading {
+                        level: HeadingLevel::H1,
+                        ..
+                    } if depth == 0 && html_containers.is_empty() => {
+                        h1_starts.push(range.start);
+                    }
+                    Tag::FootnoteDefinition(label) => {
+                        footnote_start = Some((label.to_string(), range.start));
+                    }
+                    Tag::Link { id, .. } | Tag::Image { id, .. } if !id.is_empty() => {
+                        if let Some(definition) = definitions.get(&id.to_lowercase()) {
+                            references.push((range.start, definition.clone()));
+                        }
+                    }
+                    _ => {}
+                }
+                depth += 1;
+            }
+            Event::End(tag) => {
+                depth = depth.saturating_sub(1);
+                if tag == TagEnd::FootnoteDefinition {
+                    if let Some((label, start)) = footnote_start.take() {
+                        footnotes.insert(label, start..range.end);
+                    }
+                }
+                if depth == 0 && html_containers.is_empty() {
+                    safe_boundaries.push(range.end);
+                }
+            }
+            Event::FootnoteReference(label) => {
+                footnote_references.push((range.start, label.to_string()))
+            }
+            Event::Html(html) | Event::InlineHtml(html) => {
+                track_html_containers(&html, &mut html_containers)
+            }
+            Event::Rule if depth == 0 && html_containers.is_empty() => {
+                safe_boundaries.push(range.end)
+            }
             _ => {}
         }
     }
-    h1_starts.sort_unstable();
-    h1_starts.dedup();
+    safe_boundaries.push(markdown.len());
     safe_boundaries.sort_unstable();
     safe_boundaries.dedup();
-
-    let mut positive_h1 = h1_starts.iter().copied().filter(|start| *start > 0);
-    let first_h1 = positive_h1.next();
-    let preview_h1 = first_h1.map(|start| {
-        if start < 512 {
-            positive_h1.next().unwrap_or(start)
-        } else {
-            start
-        }
-    });
-    let preview_end = preview_h1
-        .or_else(|| {
-            safe_boundaries
-                .iter()
-                .copied()
-                .rfind(|boundary| *boundary <= QUICK_PREVIEW_BYTES)
-        })
-        .unwrap_or(markdown.len());
-
     let mut chunks = Vec::new();
     let mut start = 0;
-    let mut end = preview_end;
     while start < markdown.len() {
-        if start > 0 {
-            end = markdown.len().min(start + MAX_CONTINUATION_BYTES);
-            if end < markdown.len() {
-                end = h1_starts
+        let budget = if chunks.is_empty() {
+            QUICK_PREVIEW_BYTES
+        } else {
+            MAX_CONTINUATION_BYTES
+        };
+        let limit = start.saturating_add(budget).min(markdown.len());
+        let chapter_end = if chunks.is_empty() {
+            h1_starts
+                .iter()
+                .copied()
+                .find(|boundary| *boundary >= 512 && *boundary <= limit)
+                .or_else(|| {
+                    h1_starts
+                        .iter()
+                        .copied()
+                        .find(|boundary| *boundary > start && *boundary <= limit)
+                })
+        } else {
+            h1_starts
+                .iter()
+                .copied()
+                .rfind(|boundary| *boundary > start && *boundary <= limit)
+        };
+        // An indivisible oversized block (code/list/table/HTML/paragraph) is
+        // kept intact. Never cut UTF-8 or silently change Markdown semantics.
+        let end = chapter_end
+            .or_else(|| {
+                safe_boundaries
                     .iter()
                     .copied()
-                    .rfind(|boundary| *boundary > start && *boundary <= end)
-                    .or_else(|| {
-                        safe_boundaries
-                            .iter()
-                            .copied()
-                            .rfind(|boundary| *boundary > start && *boundary <= end)
-                    })
-                    .unwrap_or(end);
-            }
-        }
-        while !markdown.is_char_boundary(end) {
-            end -= 1;
-        }
-        let chapter_start = h1_starts.binary_search(&start).is_ok();
+                    .rfind(|boundary| *boundary > start && *boundary <= limit)
+            })
+            .or_else(|| {
+                safe_boundaries
+                    .iter()
+                    .copied()
+                    .find(|boundary| *boundary > start)
+            })
+            .unwrap_or(markdown.len());
         let chunk = &markdown[start..end];
         if !chunk.trim().is_empty() {
+            let mut text = chunk.to_string();
+            let mut included = HashSet::new();
+            let mut append_definition = |definition: &Range<usize>, text: &mut String| {
+                if !(definition.start >= start && definition.end <= end)
+                    && included.insert((definition.start, definition.end))
+                {
+                    text.push_str("\n\n");
+                    text.push_str(&markdown[definition.clone()]);
+                }
+            };
+            for (offset, definition) in &references {
+                if *offset >= start && *offset < end {
+                    append_definition(definition, &mut text);
+                }
+            }
+            // Footnotes can be defined after their first use, including in a
+            // later batch. Copy only the needed definitions (and dependencies).
+            let mut seen_footnotes = HashSet::new();
+            let mut pending: Vec<String> = footnote_references
+                .iter()
+                .filter(|(offset, _)| *offset >= start && *offset < end)
+                .map(|(_, label)| label.clone())
+                .collect();
+            while let Some(label) = pending.pop() {
+                if !seen_footnotes.insert(label.clone()) {
+                    continue;
+                }
+                if let Some(definition) = footnotes.get(&label) {
+                    append_definition(definition, &mut text);
+                    for (offset, reference) in &references {
+                        if definition.contains(offset) {
+                            append_definition(reference, &mut text);
+                        }
+                    }
+                    pending.extend(
+                        footnote_references
+                            .iter()
+                            .filter(|(offset, _)| definition.contains(offset))
+                            .map(|(_, label)| label.clone()),
+                    );
+                }
+            }
             chunks.push(RenderChunk {
-                markdown: chunk.to_string(),
-                chapter_start,
+                markdown: text,
+                chapter_start: h1_starts.binary_search(&start).is_ok(),
             });
-        }
-        if end >= markdown.len() {
-            break;
         }
         start = end;
     }
     if chunks.is_empty() {
-        vec![RenderChunk {
+        chunks.push(RenderChunk {
             markdown,
             chapter_start: false,
-        }]
-    } else {
-        chunks
+        });
     }
+    chunks
 }
 
 fn compile_chunk(
-    engine: &TypstEngine<TypstTemplateMainFile>,
+    engine: &mut RenderWorld,
     input: CompileInput<'_>,
 ) -> Result<typst_layout::PagedDocument, String> {
     let mut dict = Dict::new();
@@ -507,7 +663,10 @@ fn compile_chunk(
     dict.insert("book_style".into(), input.book_style.as_str().into_value());
     dict.insert("first".into(), input.first.into_value());
     dict.insert("chapter_start".into(), input.chapter_start.into_value());
-    let compiled = engine.compile_with_input(dict);
+    engine.set_inputs(dict);
+    let compiled = typst::compile(engine);
+    // Retain reusable template/plugin/layout work across continuation batches.
+    comemo::evict(8);
     let document: typst_layout::PagedDocument = compiled
         .output
         .map_err(|errors| format!("Typst compile failed: {errors:#?}"))?;
@@ -520,41 +679,50 @@ fn compile_chunk(
 fn start_session(
     cache_dir: &Path,
     key: String,
-    book_dir: PathBuf,
-    markdown: String,
-    title: String,
-    author: String,
-    book_style: BookStyle,
+    source: ValidatedSource,
 ) -> Result<RenderSession, String> {
+    let ValidatedSource {
+        book_dir,
+        markdown,
+        title,
+        author,
+        book_style,
+        images,
+    } = source;
     static TEMP_ID: AtomicU64 = AtomicU64::new(0);
     let schema_dir = cache_dir.join(CACHE_SCHEMA);
     fs::create_dir_all(&schema_dir).map_err(|error| format!("create cache: {error}"))?;
     let final_dir = schema_dir.join(&key);
+    if final_dir.exists() {
+        fs::remove_dir_all(&final_dir).map_err(|error| format!("remove invalid cache: {error}"))?;
+    }
     let temp_dir = schema_dir.join(format!(
         ".{key}.tmp-{}-{}",
         std::process::id(),
         TEMP_ID.fetch_add(1, Ordering::Relaxed),
     ));
-    fs::create_dir(&temp_dir).map_err(|error| format!("create temporary cache: {error}"))?;
-    let engine = TypstEngine::builder()
-        .main_file(TEMPLATE)
-        .search_fonts_with(
-            TypstKitFontOptions::default()
-                .include_system_fonts(true)
-                .include_embedded_fonts(true),
-        )
-        .with_static_source_file_resolver([
+    let mut files = vec![("cmarker/plugin.wasm".to_string(), Bytes::new(CMARKER_WASM))];
+    for (path, bytes) in images {
+        let relative = path
+            .strip_prefix(&book_dir)
+            .map_err(|_| "image escaped the book directory")?;
+        files.push((relative.to_string_lossy().into_owned(), bytes));
+    }
+    let engine = RenderWorld::new(
+        TEMPLATE,
+        &[
             ("cmarker/lib.typ", CMARKER_LIB),
             ("wonderous-book/lib.typ", WONDEROUS_BOOK_LIB),
             ("templates/aiwriter-book.typ", AIWRITER_BOOK_TEMPLATE),
-        ])
-        .with_static_file_resolver([("cmarker/plugin.wasm", CMARKER_WASM)])
-        .with_file_system_resolver(book_dir)
-        .build();
+        ],
+        files,
+    );
+    let chunks = chapter_chunks(markdown);
+    fs::create_dir(&temp_dir).map_err(|error| format!("create temporary cache: {error}"))?;
     Ok(RenderSession {
         key,
         engine,
-        chunks: chapter_chunks(markdown),
+        chunks,
         next_chunk: 0,
         page_count: 0,
         title,
@@ -576,7 +744,10 @@ pub fn prepare(
         &source.images,
         source.book_style,
     )?;
-    if let Some(manifest) = read_manifest(cache_dir, &key) {
+    if let Some(manifest) = read_manifest(cache_dir, &key).filter(|manifest| {
+        let dir = cache_dir.join(CACHE_SCHEMA).join(&key);
+        (0..manifest.page_count).all(|page| dir.join(format!("page-{page:04}.svg")).is_file())
+    }) {
         return Ok((
             RenderResult {
                 cache_key: key,
@@ -588,15 +759,7 @@ pub fn prepare(
             None,
         ));
     }
-    let session = start_session(
-        cache_dir,
-        key.clone(),
-        source.book_dir,
-        source.markdown,
-        source.title,
-        source.author,
-        source.book_style,
-    )?;
+    let session = start_session(cache_dir, key.clone(), source)?;
     Ok((
         RenderResult {
             cache_key: key,
@@ -615,7 +778,7 @@ pub fn render_next(session: &mut RenderSession) -> Result<RenderResult, String> 
         .get(session.next_chunk)
         .ok_or("render session is already complete")?;
     let document = compile_chunk(
-        &session.engine,
+        &mut session.engine,
         CompileInput {
             markdown: &chunk.markdown,
             page_offset: session.page_count,
@@ -706,6 +869,7 @@ pub fn page(cache_dir: &Path, key: &str, page: usize) -> Result<String, String> 
     .map_err(|error| format!("read cached page: {error}"))
 }
 
+#[cfg(test)]
 pub fn session_page(session: &RenderSession, page: usize) -> Result<String, String> {
     if page >= session.page_count {
         return Err("page is outside the rendered portion".into());
@@ -830,11 +994,116 @@ mod tests {
         );
         let chunks = chapter_chunks(markdown);
 
-        assert_eq!(chunks.len(), 2, "got {} chunks", chunks.len());
+        assert_eq!(chunks.len(), 3, "got {} chunks", chunks.len());
         assert!(chunks[0].markdown.starts_with("# Part One"));
         assert!(chunks[0].markdown.len() <= QUICK_PREVIEW_BYTES);
         assert!(chunks[1].markdown.len() > QUICK_PREVIEW_BYTES);
         assert!(!chunks[1].chapter_start);
+    }
+
+    #[test]
+    fn long_first_chapter_cannot_bypass_the_preview_budget() {
+        let markdown = format!(
+            "# First\n\n{}\n# Second\n\nEnd.\n",
+            "A short paragraph for a very long first chapter.\n\n".repeat(8_000)
+        );
+        let chunks = chapter_chunks(markdown.clone());
+        assert!(chunks[0].markdown.len() <= QUICK_PREVIEW_BYTES);
+        assert!(chunks
+            .iter()
+            .skip(1)
+            .all(|chunk| chunk.markdown.len() <= MAX_CONTINUATION_BYTES));
+        assert_eq!(
+            chunks
+                .iter()
+                .map(|chunk| chunk.markdown.as_str())
+                .collect::<String>(),
+            markdown
+        );
+    }
+
+    #[test]
+    fn oversized_nested_blocks_are_never_split_internally() {
+        for block in [
+            format!("```text\n{}```\n", "code line\n".repeat(10_000)),
+            format!(
+                "- First item\n\n{}",
+                "  Nested paragraph.\n\n".repeat(5_000)
+            ),
+            format!("<div>\n{}\n</div>\n", "HTML line\n".repeat(10_000)),
+            format!(
+                "| One | Two |\n| --- | --- |\n{}",
+                "| a | b |\n".repeat(10_000)
+            ),
+        ] {
+            let markdown = format!("# Book\n\n{block}\n# End\n\nDone.\n");
+            let chunks = chapter_chunks(markdown.clone());
+            assert!(
+                chunks
+                    .iter()
+                    .any(|chunk| chunk.markdown.contains(block.trim_end())),
+                "split a block: {}",
+                &block[..block.len().min(40)]
+            );
+            assert!(chunks.last().unwrap().markdown.contains("# End\n\nDone."));
+        }
+    }
+
+    #[test]
+    fn keeps_reference_links_and_footnotes_defined_in_later_batches() {
+        let chunks = chapter_chunks(format!(
+            "# First\n\n[Useful link][source] and a note[^note].\n\n{}\n# Second\n\n[source]: https://example.com\n\n[^note]: A footnote with [another][source].\n",
+            "A short paragraph.\n\n".repeat(5_000),
+        ));
+        let first = &chunks[0].markdown;
+        assert!(first.contains("[source]: https://example.com"));
+        assert!(first.contains("[^note]: A footnote"));
+        assert!(Parser::new_ext(first, Options::all())
+            .any(|event| matches!(event, Event::FootnoteReference(_))));
+        assert!(Parser::new_ext(first, Options::all())
+            .any(|event| matches!(event, Event::Start(Tag::Link { .. }))));
+    }
+
+    #[test]
+    fn repairs_a_cache_with_a_missing_page() {
+        let vault = tempfile::tempdir().unwrap();
+        let source = vault.path().join("book.typeset.md");
+        let content = "# Book\n\nBody.\n";
+        fs::write(&source, content).unwrap();
+        let cache = vault.path().join("cache");
+        let request = request(vault.path(), &source, content);
+        let first = render(&cache, &request).unwrap();
+        fs::remove_file(
+            cache
+                .join(CACHE_SCHEMA)
+                .join(&first.cache_key)
+                .join("page-0000.svg"),
+        )
+        .unwrap();
+        let repaired = render(&cache, &request).unwrap();
+        assert!(!repaired.hit);
+        assert!(page(&cache, &repaired.cache_key, 0)
+            .unwrap()
+            .starts_with("<svg"));
+        assert!(render(&cache, &request).unwrap().hit);
+    }
+
+    #[test]
+    fn session_uses_the_image_snapshot_that_was_hashed() {
+        let vault = tempfile::tempdir().unwrap();
+        let source = vault.path().join("book.typeset.md");
+        let image = vault.path().join("image.svg");
+        let content = "# Book\n\n![](image.svg)\n";
+        fs::write(&source, content).unwrap();
+        fs::write(&image, r#"<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="10" height="10"/></svg>"#).unwrap();
+        let (_, session) = prepare(
+            &vault.path().join("cache"),
+            &request(vault.path(), &source, content),
+        )
+        .unwrap();
+        fs::remove_file(image).unwrap();
+        let mut session = session.unwrap();
+        while !render_next(&mut session).unwrap().complete {}
     }
 
     #[test]
@@ -995,19 +1264,22 @@ H<sub>2</sub>O, x<sup>2</sup>, <mark>important</mark>, <s>obsolete</s>.
         let vault = tempfile::tempdir().unwrap();
         let book = vault.path().join("book");
         fs::create_dir(&book).unwrap();
-        let session = start_session(
+        let mut session = start_session(
             &vault.path().join("cache"),
             "a".repeat(64),
-            book,
-            "# Placeholder\n".into(),
-            "中文书名".into(),
-            "作者".into(),
-            BookStyle::AiWriter,
+            ValidatedSource {
+                book_dir: book,
+                markdown: "# Placeholder\n".into(),
+                title: "中文书名".into(),
+                author: "作者".into(),
+                book_style: BookStyle::AiWriter,
+                images: vec![],
+            },
         )
         .unwrap();
 
         let document = compile_chunk(
-            &session.engine,
+            &mut session.engine,
             CompileInput {
                 markdown: "# 第 二 章\n\n这里是必须出现在下一页的正文。",
                 page_offset: 3,

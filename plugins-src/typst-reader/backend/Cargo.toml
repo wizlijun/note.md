@@ -1,6 +1,6 @@
 [package]
 name = "notemd-typst-reader"
-version = "0.1.1"
+version = "0.2.0"
 edition = "2021"
 
 [[bin]]
@@ -17,7 +17,9 @@ pulldown-cmark = "0.13"
 percent-encoding = "2"
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 typst = "0.15.1"
-typst-as-lib = { version = "0.16.0", features = ["typst-kit-fonts", "typst-kit-embed-fonts"] }
+typst-kit = { version = "0.15.1", features = ["scan-fonts", "embedded-fonts"] }
+typst-utils = "0.15.1"
+comemo = "0.5"
 typst-layout = "0.15.1"
 typst-svg = "0.15.1"
 
@@ -25,7 +27,7 @@ typst-svg = "0.15.1"
 tempfile = "3"
 
 [profile.release]
-opt-level = "z"
+opt-level = 3
 lto = true
 codegen-units = 1
 strip = true
