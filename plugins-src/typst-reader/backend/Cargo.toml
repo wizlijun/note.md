@@ -1,6 +1,6 @@
 [package]
 name = "notemd-typst-reader"
-version = "0.2.1"
+version = "0.2.2"
 edition = "2021"
 
 [[bin]]
@@ -27,8 +27,12 @@ typst-svg = "0.15.1"
 [dev-dependencies]
 tempfile = "3"
 
+[patch.crates-io]
+# Typst's SVG exporter otherwise links PDF-image conversion and 14 PDF fonts.
+typst-svg = { path = "vendor/typst-svg" }
+
 [profile.release]
-opt-level = 3
+opt-level = "s"
 lto = true
 codegen-units = 1
 strip = true

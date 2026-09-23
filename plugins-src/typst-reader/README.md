@@ -40,6 +40,11 @@ Intel 两种架构；Windows 尚无原生插件包。
 采用 GUST Font License。链接指向固定版本的公开字体文件，后端固定各自 SHA-256 和字体家族名，
 不接受文档指定的下载地址。中文下载项约 34 MB，英文约 0.2 MB。
 
+Markdown 中的本地图片可使用 PNG、JPEG、GIF、WebP 或 SVG。PDF 图片会在输入
+阶段明确拒绝；阅读器不需要 PDF 图片转换，因而它使用的 `typst-svg` 0.15.1
+局部补丁移除了该转换及其静态链接的 PDF 标准字体。Release 构建采用面向体积的
+`opt-level=s`，保留排版任务 panic 隔离及现有分页性能。
+
 选择 `typeset` 作为语义后缀，是因为文件本身仍是 Markdown，而不是 Typst
 源代码。电子书导入器的新文件名是 `book.typeset.md`；旧 `book.md` 不会自动
 改名，仍由普通 Markdown 视图打开。
@@ -72,4 +77,5 @@ python3 scripts/benchmark-typst-reader.py \
 
 cmarker 与 wonderous-book 的固定离线副本位于 `backend/assets/`；来源、版本
 与许可证见对应目录及 `THIRD_PARTY_LICENSES.txt`。其余 Rust 依赖的许可证由
-Cargo 元数据记录。
+Cargo 元数据记录。`backend/vendor/typst-svg/` 是 Typst 0.15.1 的 Apache-2.0
+局部补丁；变更说明在该目录的 `PATCHES.md`，许可证在 `backend/vendor/LICENSE-APACHE`。

@@ -8,6 +8,7 @@ use std::path::{Component, Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use typst::foundations::{Bytes, Dict, IntoValue};
+use typst::visualize::{ImageFormat, VectorFormat};
 
 const CACHE_SCHEMA: &str = "typeset-svg-v4";
 const RENDERER_VERSION: &str =
@@ -350,6 +351,20 @@ fn validate_source(request: &RenderRequest) -> Result<ValidatedSource, String> {
         .map(|path| {
             let bytes = fs::read(&path)
                 .map_err(|error| format!("read image {}: {error}", path.display()))?;
+            let pdf_extension = path
+                .extension()
+                .and_then(|value| value.to_str())
+                .is_some_and(|value| value.eq_ignore_ascii_case("pdf"));
+            let pdf_content = matches!(
+                ImageFormat::detect(&bytes),
+                Some(ImageFormat::Vector(VectorFormat::Pdf))
+            );
+            if pdf_extension || pdf_content {
+                return Err(format!(
+                    "PDF images are not supported in Markdown (use PNG, JPEG, GIF, WebP or SVG): {}",
+                    path.display()
+                ));
+            }
             Ok((path, Bytes::new(bytes)))
         })
         .collect::<Result<Vec<_>, String>>()?;
@@ -1122,6 +1137,27 @@ mod tests {
         assert!(local_image_paths("![](https://example.com/a.png)", &book, vault.path()).is_err());
         assert!(local_image_paths("![](data:image/png;base64,AAAA)", &book, vault.path()).is_err());
         assert!(local_image_paths("![](../a.png)", &book, vault.path()).is_err());
+    }
+
+    #[test]
+    fn rejects_pdf_images_by_extension_or_content() {
+        let vault = tempfile::tempdir().unwrap();
+        let source = vault.path().join("book.typeset.md");
+        for (name, bytes) in [
+            (
+                "cover.pdf",
+                b"<svg xmlns=\"http://www.w3.org/2000/svg\"/>".as_slice(),
+            ),
+            ("cover.png", b"%PDF-1.4\n".as_slice()),
+        ] {
+            let content = format!("# Book\n\n![]({name})\n");
+            fs::write(&source, &content).unwrap();
+            fs::write(vault.path().join(name), bytes).unwrap();
+            let error = validate_source(&request(vault.path(), &source, &content))
+                .err()
+                .unwrap();
+            assert!(error.contains("PDF images are not supported"), "{error}");
+        }
     }
 
     #[test]
