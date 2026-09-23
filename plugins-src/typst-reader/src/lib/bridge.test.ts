@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cancelRender, loadBookStyleRule, onDocument, renderDocument, renderNext, saveBookStyleRule } from './bridge'
+import { cancelRender, downloadFonts, fontDownloadStatus, loadBookStyleRule, onDocument, renderDocument, renderNext, saveBookStyleRule } from './bridge'
 
 describe('typeset file-view bridge', () => {
   const request = vi.fn()
@@ -70,6 +70,14 @@ describe('typeset file-view bridge', () => {
   it('rejects progress belonging to another view session', async () => {
     request.mockResolvedValueOnce({ render_id: 'other', stage: 'rendering', completed_chunks: 1, total_chunks: 2, cache_key: 'a', page_count: 1, hit: false, complete: false, busy: true })
     await expect(renderNext('this-view')).rejects.toThrow('invalid progress')
+  })
+
+  it('starts only a fixed font bundle and validates download progress', async () => {
+    const progress = { style: 'cjk', stage: 'downloading', completed: 1, total: 3 }
+    request.mockResolvedValueOnce(progress).mockResolvedValueOnce({ ...progress, stage: 'complete', completed: 3 })
+    await expect(downloadFonts('cjk')).resolves.toEqual(progress)
+    expect(request).toHaveBeenCalledWith('plugin.fonts-download', { style: 'cjk' })
+    await expect(fontDownloadStatus()).resolves.toMatchObject({ stage: 'complete', completed: 3 })
   })
 
 })

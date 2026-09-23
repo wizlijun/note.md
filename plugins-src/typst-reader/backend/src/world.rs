@@ -1,11 +1,13 @@
-//! Offline compilation world. Files are immutable snapshots; the font store is
-//! shared across books and loads each font only once, as in Typst's CLI.
+//! Offline compilation world. Files are immutable snapshots; installed system
+//! fonts are discovered once and loaded lazily, then refreshed after installs.
+use sha2::{Digest, Sha256};
 use std::collections::HashMap;
-use std::sync::OnceLock;
+use std::sync::{Arc, OnceLock, RwLock};
+use std::time::UNIX_EPOCH;
 use typst::diag::{FileError, FileResult};
 use typst::foundations::{Bytes, Datetime, Dict, Duration};
 use typst::syntax::{FileId, RootedPath, Source, VirtualPath, VirtualRoot};
-use typst::text::{Font, FontBook};
+use typst::text::{Font, FontBook, FontInfo};
 use typst::{Library, LibraryExt, World};
 use typst_kit::fonts::FontStore;
 use typst_utils::LazyHash;
@@ -18,14 +20,57 @@ fn file_id(path: &str) -> FileId {
     .intern()
 }
 
-fn fonts() -> &'static FontStore {
-    static FONTS: OnceLock<FontStore> = OnceLock::new();
+pub struct FontCatalog {
+    store: FontStore,
+    fingerprint: [u8; 32],
+}
+
+fn build_catalog(mut fonts: Vec<(typst_kit::fonts::FontPath, FontInfo)>) -> FontCatalog {
+    fonts.sort_by(|left, right| (&left.0.path, left.0.index).cmp(&(&right.0.path, right.0.index)));
+    let mut fingerprint = Sha256::new();
+    for (path, _) in &fonts {
+        fingerprint.update(path.path.as_os_str().as_encoded_bytes());
+        fingerprint.update(path.index.to_le_bytes());
+        if let Ok(metadata) = std::fs::metadata(&path.path) {
+            fingerprint.update(metadata.len().to_le_bytes());
+            if let Ok(modified) = metadata.modified().and_then(|time| {
+                time.duration_since(UNIX_EPOCH)
+                    .map_err(std::io::Error::other)
+            }) {
+                fingerprint.update(modified.as_nanos().to_le_bytes());
+            }
+        }
+    }
+    let mut store = FontStore::new();
+    store.extend(fonts);
+    FontCatalog {
+        store,
+        fingerprint: fingerprint.finalize().into(),
+    }
+}
+
+fn catalog_slot() -> &'static RwLock<Arc<FontCatalog>> {
+    static FONTS: OnceLock<RwLock<Arc<FontCatalog>>> = OnceLock::new();
     FONTS.get_or_init(|| {
-        let mut store = FontStore::new();
-        store.extend(typst_kit::fonts::embedded());
-        store.extend(typst_kit::fonts::system());
-        store
+        RwLock::new(Arc::new(build_catalog(
+            typst_kit::fonts::system().collect(),
+        )))
     })
+}
+
+pub fn font_catalog() -> Arc<FontCatalog> {
+    catalog_slot().read().unwrap().clone()
+}
+
+pub fn refresh_fonts() {
+    let next = Arc::new(build_catalog(typst_kit::fonts::system().collect()));
+    *catalog_slot().write().unwrap() = next;
+}
+
+impl FontCatalog {
+    pub fn fingerprint(&self) -> [u8; 32] {
+        self.fingerprint
+    }
 }
 
 pub struct RenderWorld {
@@ -33,14 +78,24 @@ pub struct RenderWorld {
     main: FileId,
     sources: HashMap<FileId, Source>,
     files: HashMap<FileId, Bytes>,
-    fonts: &'static FontStore,
+    fonts: Arc<FontCatalog>,
 }
 
 impl RenderWorld {
+    #[cfg(test)]
     pub fn new(
         main: &str,
         sources: &[(&str, &str)],
         files: impl IntoIterator<Item = (String, Bytes)>,
+    ) -> Self {
+        Self::with_fonts(main, sources, files, font_catalog())
+    }
+
+    pub fn with_fonts(
+        main: &str,
+        sources: &[(&str, &str)],
+        files: impl IntoIterator<Item = (String, Bytes)>,
+        fonts: Arc<FontCatalog>,
     ) -> Self {
         let id = file_id("main.typ");
         let mut source_map = HashMap::new();
@@ -63,7 +118,7 @@ impl RenderWorld {
             main: id,
             sources: source_map,
             files: file_map,
-            fonts: fonts(),
+            fonts,
         }
     }
 
@@ -77,7 +132,7 @@ impl World for RenderWorld {
         &self.library
     }
     fn book(&self) -> &LazyHash<FontBook> {
-        self.fonts.book()
+        self.fonts.store.book()
     }
     fn main(&self) -> FileId {
         self.main
@@ -92,7 +147,7 @@ impl World for RenderWorld {
         self.files.get(&id).cloned().ok_or(FileError::AccessDenied)
     }
     fn font(&self, id: usize) -> Option<Font> {
-        self.fonts.font(id)
+        self.fonts.store.font(id)
     }
     fn today(&self, _: Option<Duration>) -> Option<Datetime> {
         None
@@ -104,10 +159,42 @@ mod tests {
     use super::*;
 
     #[test]
+    fn installed_fonts_change_the_cache_fingerprint() {
+        let dir = tempfile::tempdir().unwrap();
+        let empty_fingerprint =
+            build_catalog(typst_kit::fonts::scan(dir.path()).collect()).fingerprint();
+
+        let system_font = typst_kit::fonts::system()
+            .find(|(path, _)| {
+                path.index == 0
+                    && path
+                        .path
+                        .extension()
+                        .is_some_and(|ext| ext == "ttf" || ext == "otf")
+                    && std::fs::metadata(&path.path).is_ok_and(|meta| meta.len() < 2_000_000)
+            })
+            .expect("test host needs one small system font");
+        let path = dir.path().join("reader-font.ttf");
+        std::fs::copy(&system_font.0.path, &path).unwrap();
+        let installed = build_catalog(typst_kit::fonts::scan(dir.path()).collect());
+        assert_eq!(
+            installed.store.font(0).unwrap().info().family,
+            system_font.1.family
+        );
+        assert_ne!(installed.fingerprint(), empty_fingerprint);
+
+        std::fs::remove_file(path).unwrap();
+        assert_eq!(
+            build_catalog(typst_kit::fonts::scan(dir.path()).collect()).fingerprint(),
+            empty_fingerprint
+        );
+    }
+
+    #[test]
     fn worlds_share_fonts_and_only_expose_snapshotted_files() {
         let first = RenderWorld::new("Hello", &[], [("image.svg".into(), Bytes::new("snapshot"))]);
         let second = RenderWorld::new("Other book", &[], []);
-        assert!(std::ptr::eq(first.fonts, second.fonts));
+        assert!(Arc::ptr_eq(&first.fonts, &second.fonts));
         assert_eq!(
             first.file(file_id("image.svg")).unwrap().as_slice(),
             b"snapshot"

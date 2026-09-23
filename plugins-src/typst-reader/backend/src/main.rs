@@ -1,3 +1,4 @@
+mod fonts;
 mod plugin;
 mod render;
 mod world;

@@ -102,7 +102,7 @@
   }
 
   function canClose(): boolean {
-    return !importReport && !importBusy && !busy && !cliBusy && !gitProxyBusy
+    return !importReport && !importBusy && !fontBusy && !busy && !cliBusy && !gitProxyBusy
       && !syncDirBusy && !thresholdBusy && !searchExcludeDirsBusy && !searchThresholdBusy
       && !globSaveBusy && !weightsBusy && !vaultBusy && settingsSaveBusy === 0
   }
@@ -909,6 +909,40 @@
 
   let importReport = $state<unknown | null>(null)
   let importBusy = $state(false)
+  let fontStatus = $state<{ installed: number; total: number } | null>(null)
+  let fontBusy = $state(false)
+  let fontError = $state<string | null>(null)
+  const fontText = {
+    en: { download: 'Download offline fonts', downloading: 'Downloading fonts…', installed: 'Installed' },
+    zh: { download: '下载离线字体', downloading: '正在下载字体…', installed: '已安装' },
+    ja: { download: 'オフラインフォントをダウンロード', downloading: 'フォントをダウンロード中…', installed: 'インストール済み' },
+    de: { download: 'Offline-Schriftarten laden', downloading: 'Schriftarten werden geladen…', installed: 'Installiert' },
+  } satisfies Record<Locale, { download: string; downloading: string; installed: string }>
+
+  $effect(() => {
+    if (!open || (settings.theme.light !== 'effie' && settings.theme.dark !== 'effie')) return
+    let active = true
+    void invoke<{ installed: number; total: number }>('theme_font_status')
+      .then((status) => { if (active) { fontStatus = status; fontError = null } })
+      .catch((error) => { if (active) { fontStatus = null; fontError = String(error) } })
+    return () => { active = false }
+  })
+
+  async function downloadThemeFonts() {
+    if (fontBusy) return
+    fontBusy = true
+    fontError = null
+    try {
+      fontStatus = await invoke<{ installed: number; total: number }>('theme_font_download')
+      const errors = await invoke<string[]>('theme_recompile_all')
+      if (errors.length) throw new Error(errors.join('\n'))
+      await reloadThemes()
+    } catch (error) {
+      fontError = String(error)
+    } finally {
+      fontBusy = false
+    }
+  }
 
   // ── git proxy ────────────────────────────────────────────────────────────
   // Machine-local, so it lives in shared.json rather than the vault's own
@@ -1100,6 +1134,18 @@
 
         <section class="block">
           <h3>{t('settings.themes')}</h3>
+          {#snippet themeFontControl()}
+            <div class="row">
+              {#if fontStatus && fontStatus.total > 0 && fontStatus.installed >= fontStatus.total}
+                <span>{fontText[i18n.locale].installed} {fontStatus.installed}/{fontStatus.total}</span>
+              {:else}
+                <button onclick={downloadThemeFonts} disabled={fontBusy}>
+                  {fontBusy ? fontText[i18n.locale].downloading : fontText[i18n.locale].download}
+                </button>
+                {#if fontStatus}<span>{fontStatus.installed}/{fontStatus.total}</span>{/if}
+              {/if}
+            </div>
+          {/snippet}
           <label class="row">
             <span class="lbl">{t('settings.lightTheme')}</span>
             <select value={settings.theme.light} onchange={onLightThemeChange}>
@@ -1108,6 +1154,7 @@
               {/each}
             </select>
           </label>
+          {#if settings.theme.light === 'effie' && fontStatus?.total}{@render themeFontControl()}{/if}
           <label class="row">
             <span class="lbl">{t('settings.darkTheme')}</span>
             <select value={settings.theme.dark} onchange={onDarkThemeChange}>
@@ -1116,6 +1163,10 @@
               {/each}
             </select>
           </label>
+          {#if settings.theme.dark === 'effie' && fontStatus?.total}{@render themeFontControl()}{/if}
+          {#if fontError && (settings.theme.light === 'effie' || settings.theme.dark === 'effie')}
+            <p class="desc" role="alert">{fontError}</p>
+          {/if}
           <label class="row" style="margin-top: 6px;">
             <input
               type="checkbox"

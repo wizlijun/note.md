@@ -1,6 +1,6 @@
 [package]
 name = "notemd-typst-reader"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 
 [[bin]]
@@ -17,7 +17,8 @@ pulldown-cmark = "0.13"
 percent-encoding = "2"
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 typst = "0.15.1"
-typst-kit = { version = "0.15.1", features = ["scan-fonts", "embedded-fonts"] }
+typst-kit = { version = "0.15.1", features = ["scan-fonts"] }
+notemd-fonts = { path = "../../../notemd-fonts" }
 typst-utils = "0.15.1"
 comemo = "0.5"
 typst-layout = "0.15.1"

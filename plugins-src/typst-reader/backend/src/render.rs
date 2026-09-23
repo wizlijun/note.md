@@ -1,4 +1,4 @@
-use crate::world::RenderWorld;
+use crate::world::{self, FontCatalog, RenderWorld};
 use percent_encoding::percent_decode_str;
 use pulldown_cmark::{Event, HeadingLevel, Options, Parser, Tag, TagEnd};
 use serde::{Deserialize, Serialize};
@@ -6,18 +6,19 @@ use sha2::{Digest, Sha256};
 use std::fs;
 use std::path::{Component, Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
 use typst::foundations::{Bytes, Dict, IntoValue};
 
 const CACHE_SCHEMA: &str = "typeset-svg-v4";
 const RENDERER_VERSION: &str =
-    "typst-0.15.1+cmarker-0.1.10+wonderous-book-0.1.2+aiwriter-book-0.4.13+template-18+font-store";
+    "typst-0.15.1+cmarker-0.1.10+wonderous-book-0.1.2+cjk-book+template-20+system-fonts";
 const QUICK_PREVIEW_BYTES: usize = 16 * 1024;
 const MAX_CONTINUATION_BYTES: usize = 64 * 1024;
 const TEMPLATE: &str = include_str!("../assets/template.typ");
 const CMARKER_LIB: &str = include_str!("../assets/cmarker/lib.typ");
 const CMARKER_WASM: &[u8] = include_bytes!("../assets/cmarker/plugin.wasm");
 const WONDEROUS_BOOK_LIB: &str = include_str!("../assets/wonderous-book/lib.typ");
-const AIWRITER_BOOK_TEMPLATE: &str = include_str!("../assets/templates/aiwriter-book.typ");
+const CJK_BOOK_TEMPLATE: &str = include_str!("../assets/templates/cjk-book.typ");
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct RenderRequest {
@@ -367,6 +368,7 @@ fn cache_key(
     book_dir: &Path,
     images: &[(PathBuf, Bytes)],
     book_style: BookStyle,
+    fonts: &FontCatalog,
 ) -> Result<String, String> {
     let mut digest = Sha256::new();
     digest.update(CACHE_SCHEMA.as_bytes());
@@ -377,13 +379,15 @@ fn cache_key(
     digest.update([0]);
     digest.update(WONDEROUS_BOOK_LIB.as_bytes());
     digest.update([0]);
-    digest.update(AIWRITER_BOOK_TEMPLATE.as_bytes());
+    digest.update(CJK_BOOK_TEMPLATE.as_bytes());
     digest.update([0]);
     digest.update(CMARKER_LIB.as_bytes());
     digest.update([0]);
     digest.update(CMARKER_WASM);
     digest.update([0]);
     digest.update(book_style.as_str().as_bytes());
+    digest.update([0]);
+    digest.update(fonts.fingerprint());
     digest.update([0]);
     digest.update(content.as_bytes());
     for (path, bytes) in images {
@@ -680,6 +684,7 @@ fn start_session(
     cache_dir: &Path,
     key: String,
     source: ValidatedSource,
+    fonts: Arc<FontCatalog>,
 ) -> Result<RenderSession, String> {
     let ValidatedSource {
         book_dir,
@@ -708,14 +713,15 @@ fn start_session(
             .map_err(|_| "image escaped the book directory")?;
         files.push((relative.to_string_lossy().into_owned(), bytes));
     }
-    let engine = RenderWorld::new(
+    let engine = RenderWorld::with_fonts(
         TEMPLATE,
         &[
             ("cmarker/lib.typ", CMARKER_LIB),
             ("wonderous-book/lib.typ", WONDEROUS_BOOK_LIB),
-            ("templates/aiwriter-book.typ", AIWRITER_BOOK_TEMPLATE),
+            ("templates/cjk-book.typ", CJK_BOOK_TEMPLATE),
         ],
         files,
+        fonts,
     );
     let chunks = chapter_chunks(markdown);
     fs::create_dir(&temp_dir).map_err(|error| format!("create temporary cache: {error}"))?;
@@ -738,11 +744,13 @@ pub fn prepare(
     request: &RenderRequest,
 ) -> Result<(RenderResult, Option<RenderSession>), String> {
     let source = validate_source(request)?;
+    let fonts = world::font_catalog();
     let key = cache_key(
         &request.content,
         &source.book_dir,
         &source.images,
         source.book_style,
+        &fonts,
     )?;
     if let Some(manifest) = read_manifest(cache_dir, &key).filter(|manifest| {
         let dir = cache_dir.join(CACHE_SCHEMA).join(&key);
@@ -759,7 +767,7 @@ pub fn prepare(
             None,
         ));
     }
-    let session = start_session(cache_dir, key.clone(), source)?;
+    let session = start_session(cache_dir, key.clone(), source, fonts)?;
     Ok((
         RenderResult {
             cache_key: key,
@@ -1275,6 +1283,7 @@ H<sub>2</sub>O, x<sup>2</sup>, <mark>important</mark>, <s>obsolete</s>.
                 book_style: BookStyle::AiWriter,
                 images: vec![],
             },
+            world::font_catalog(),
         )
         .unwrap();
 

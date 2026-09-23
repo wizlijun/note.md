@@ -1,18 +1,12 @@
-// Reconstructed from the embedded `book` template in:
-// /Applications/写匠.app/Contents/Resources/aiwriter
-// AIWriter version: 0.4.13
-// Binary SHA-256: dbb43cb1b884fa61737a0e0754109fb6620abe7a94eb4ced3ef5b38be92ff022
-//
-// The style declarations, colors, page dimensions, margins, font fallback
-// chains, and heading rules below are recovered from the application binary.
-// The wrapper function and title-page argument wiring are reconstructed because
-// Rust stores those runtime-substituted values separately from the string data.
+// CJK book typography. The CN and Lite faces are official open-source subsets
+// available from the font download menu; system fonts remain the fallback.
 
 #let ACCENT = rgb("#d0483e")
 #let ACCENT_DEEP = rgb("#a3362e")
 
 #let SERIF = (
   "Source Han Serif SC",
+  "Source Han Serif CN",
   "思源宋体",
   "Songti SC",
   "STSong",
@@ -24,6 +18,7 @@
 
 #let KAI = (
   "LXGW WenKai",
+  "LXGW WenKai Lite",
   "霞鹜文楷",
   "Kaiti SC",
   "STKaiti",
@@ -33,6 +28,7 @@
 
 #let SANS = (
   "Source Han Sans SC",
+  "Source Han Sans CN",
   "思源黑体",
   "Heiti SC",
   "PingFang SC",
@@ -48,7 +44,7 @@
   30pt
 }
 
-#let aiwriter-book(
+#let cjk-book(
   title: none,
   subtitle: none,
   author: none,
@@ -144,9 +140,8 @@
   body
 }
 
-// Progressive adapter used by note.md. It preserves the supplied template's
-// typography and chapter rules, while the host owns chunking and page offsets.
-#let aiwriter-book-part(
+// Progressive adapter: the renderer owns chunking and page offsets.
+#let cjk-book-part(
   title: none,
   author: none,
   first: false,

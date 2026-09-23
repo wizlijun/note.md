@@ -34,7 +34,31 @@ pub fn theme_reveal(app: tauri::AppHandle) -> Result<(), String> {
 #[tauri::command]
 pub fn theme_load_compiled(app: tauri::AppHandle, id: String) -> Result<String, String> {
     let path = compiled_path(&app, &id)?;
-    std::fs::read_to_string(&path).map_err(|e| format!("read {path:?}: {e}"))
+    let css = std::fs::read_to_string(&path).map_err(|e| format!("read {path:?}: {e}"))?;
+    Ok(theme_css_with_local_fonts(&id, css))
+}
+
+// Effie's published webfont CSS loads Unicode-range subsets. Keep that fast
+// online fallback until all three verified system faces are installed. Exact
+// import removal also works for older built-in copies in users' theme folders.
+const EFFIE_WEBFONT_IMPORTS: [&str; 3] = [
+    "@import \"https://cdn.jsdelivr.net/npm/lxgw-wenkai-lite-webfont@1.7.0/lxgwwenkailite-regular.css\";",
+    "@import \"https://cdn.jsdelivr.net/npm/lxgw-wenkai-lite-webfont@1.7.0/lxgwwenkailite-bold.css\";",
+    "@import \"https://cdn.jsdelivr.net/npm/lxgw-wenkai-lite-webfont@1.7.0/lxgwwenkaimonolite-regular.css\";",
+];
+
+fn effie_css_for_font_state(id: &str, css: String, installed: bool) -> String {
+    if id != "effie" || !installed { return css; }
+    css.split_inclusive('\n')
+        .filter(|line| !EFFIE_WEBFONT_IMPORTS.contains(&line.trim_end_matches(['\r', '\n'])))
+        .collect()
+}
+
+fn theme_css_with_local_fonts(id: &str, css: String) -> String {
+    if id != "effie" { return css; }
+    let installed = cfg!(target_os = "macos")
+        && notemd_fonts::bundle_installed("effie").unwrap_or(false);
+    effie_css_for_font_state(id, css, installed)
 }
 
 #[tauri::command]
@@ -208,7 +232,7 @@ pub fn theme_css_bundle_for_settings<R: tauri::Runtime>(
             .ok()
             .and_then(|p| std::fs::read_to_string(p).ok())
             .unwrap_or_default();
-        unscope_theme_css(&css, id)
+        unscope_theme_css(&theme_css_with_local_fonts(id, css), id)
     };
     theme_bundle_json(&load(&light_id), &load(&dark_id), follow_system)
 }
@@ -264,6 +288,27 @@ fn is_usable_theme_id(id: &str) -> bool {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn effie_uses_local_fonts_only_when_the_complete_bundle_is_installed() {
+        let compiled = crate::themes::compiler::compile_theme_css(
+            include_str!("../../resources/themes/effie.css"), "effie", "/tmp/themes/effie",
+        ).unwrap();
+        for import in EFFIE_WEBFONT_IMPORTS {
+            assert!(compiled.lines().any(|line| line == import), "missing {import}");
+        }
+        assert_eq!(effie_css_for_font_state("effie", compiled.clone(), false), compiled);
+        assert_eq!(effie_css_for_font_state("custom", compiled.clone(), true), compiled);
+        let offline = effie_css_for_font_state("effie", compiled.clone(), true);
+        for import in EFFIE_WEBFONT_IMPORTS {
+            assert!(!offline.lines().any(|line| line == import), "retained {import}");
+        }
+        assert!(offline.contains("LXGW WenKai Lite"));
+        assert!(offline.contains("LXGW WenKai Mono Lite"));
+        assert!(offline.contains("#4a8b8e"));
+        let unrelated = "@import \"https://cdn.jsdelivr.net/npm/lxgw-wenkai-lite-webfont@2.0.0/lxgwwenkailite-regular.css\";\n";
+        assert_eq!(effie_css_for_font_state("effie", unrelated.into(), true), unrelated);
+    }
 
     #[test]
     fn parse_theme_settings_reads_the_object_shape() {

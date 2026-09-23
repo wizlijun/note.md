@@ -37,6 +37,7 @@ plugin-protocol = { path = "../plugin-protocol" }
 # the CLI and the watcher are three adapters over one algorithm — see
 # docs/2026-08-10-vault-search-index-design.md §2.
 searchidx = { path = "../searchidx" }
+notemd-fonts = { path = "../notemd-fonts" }
 # The CLI's own no-index fallback scan (`cli::search::fallback_scan`) — the
 # searchidx crate carries its own separate copy for the same reason.
 ignore = "0.4"

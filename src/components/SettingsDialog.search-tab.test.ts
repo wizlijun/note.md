@@ -90,6 +90,7 @@ import { ask, open as openFilePicker } from '@tauri-apps/plugin-dialog'
 import * as settingsModule from '../lib/settings.svelte'
 import * as toastModule from '../lib/toast.svelte'
 import { t } from '../lib/i18n/store.svelte'
+import { i18n } from '../lib/i18n/store.svelte'
 import { pendingThemeImport } from '../lib/theme-import-bus.svelte'
 
 let stats: Mock<() => Promise<SearchStats | null>>
@@ -667,6 +668,54 @@ function buttonByText(scope: Element | Document, text: string): HTMLButtonElemen
   if (!btn) throw new Error(`no button with text "${text}"`)
   return btn as HTMLButtonElement
 }
+
+describe('SettingsDialog — offline theme fonts', () => {
+  it('shows the download after Effie selection and refreshes the compiled theme after installation', async () => {
+    const previousTheme = { ...settings.theme }
+    const previousLocale = i18n.locale
+    settings.theme.light = 'default'
+    settings.theme.dark = 'default'
+    i18n.locale = 'en'
+    const commands: string[] = []
+    invokeMock.mockImplementation(async (cmd: string, args?: unknown) => {
+      if (cmd === 'theme_font_status') return { installed: 1, total: 3 }
+      if (cmd === 'theme_font_download') { commands.push(cmd); return { installed: 3, total: 3 } }
+      if (cmd === 'theme_recompile_all') { commands.push(cmd); return [] }
+      if (cmd === 'theme_list') {
+        commands.push(cmd)
+        return [
+          { id: 'default', name: 'Default', appearance: 'light' },
+          { id: 'effie', name: 'Effie', appearance: 'light' },
+        ]
+      }
+      return defaultInvokeImpl(cmd, args)
+    })
+
+    try {
+      await mountDialog()
+      await settle()
+      const section = namedSection(t('settings.themes'))
+      expect(Array.from(section.querySelectorAll('button')).some((button) => button.textContent?.trim() === 'Download offline fonts')).toBe(false)
+      const light = Array.from(section.querySelectorAll('label')).find((label) => label.textContent?.includes(t('settings.lightTheme')))?.querySelector('select')
+      expect(light).toBeTruthy()
+      light!.value = 'effie'
+      light!.dispatchEvent(new Event('change', { bubbles: true }))
+      await settle()
+      expect(buttonByText(section, 'Download offline fonts').nextElementSibling?.textContent).toBe('1/3')
+      buttonByText(section, 'Download offline fonts').click()
+      await settle()
+      expect(section.textContent).toContain('Installed 3/3')
+      expect(commands.slice(-3)).toEqual(['theme_font_download', 'theme_recompile_all', 'theme_list'])
+
+      settings.theme.dark = 'effie'
+      await settle()
+      expect(section.textContent?.match(/Installed 3\/3/g)).toHaveLength(2)
+    } finally {
+      settings.theme = previousTheme
+      i18n.locale = previousLocale
+    }
+  })
+})
 
 function typeInto(el: Element, value: string): void {
   const input = el as HTMLInputElement

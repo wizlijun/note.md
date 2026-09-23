@@ -1,3 +1,4 @@
+use crate::fonts::FontInstaller;
 use crate::render::{self, RenderRequest};
 use notemd_plugin_sdk as sdk;
 use sdk::plugin_protocol as proto;
@@ -167,6 +168,7 @@ fn run_worker(cache_dir: PathBuf, receiver: Receiver<Work>, delay: std::time::Du
 
 pub struct TypstReaderPlugin {
     data_dir: PathBuf,
+    font_installer: FontInstaller,
     readers: HashMap<String, Arc<Reader>>,
     worker: Option<SyncSender<Work>>,
     worker_thread: Option<std::thread::JoinHandle<()>>,
@@ -179,6 +181,7 @@ impl TypstReaderPlugin {
     pub fn new() -> Self {
         Self {
             data_dir: std::env::temp_dir().join("notemd-typst-reader-uninitialized"),
+            font_installer: FontInstaller::new(),
             readers: HashMap::new(),
             worker: None,
             worker_thread: None,
@@ -207,6 +210,16 @@ impl TypstReaderPlugin {
 
     fn handle_ui_request(&mut self, method: &str, params: Value) -> Result<Value, String> {
         match method.strip_prefix("plugin.").unwrap_or(method) {
+            "fonts-status" => serde_json::to_value(self.font_installer.status())
+                .map_err(|error| error.to_string()),
+            "fonts-download" => {
+                let style = params
+                    .get("style")
+                    .and_then(Value::as_str)
+                    .ok_or("fonts-download needs style")?;
+                serde_json::to_value(self.font_installer.start(style)?)
+                    .map_err(|error| error.to_string())
+            }
             "render" => {
                 let request: RenderRequest = serde_json::from_value(params)
                     .map_err(|error| format!("invalid render request: {error}"))?;
@@ -397,6 +410,18 @@ mod tests {
             );
             std::thread::sleep(Duration::from_millis(10));
         }
+    }
+
+    #[test]
+    fn font_download_rpc_accepts_only_fixed_bundle_names() {
+        let mut plugin = TypstReaderPlugin::new();
+        assert_eq!(
+            plugin.handle_ui_request("fonts-status", json!({})).unwrap()["stage"],
+            "idle"
+        );
+        assert!(plugin
+            .handle_ui_request("fonts-download", json!({ "style": "../escape" }))
+            .is_err());
     }
 
     #[test]

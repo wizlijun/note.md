@@ -1498,6 +1498,8 @@ pub fn run() {
                 themes::commands::theme_list,
                 themes::commands::theme_reveal,
                 themes::commands::theme_load_compiled,
+                themes::fonts::theme_font_status,
+                themes::fonts::theme_font_download,
                 themes::commands::theme_recompile,
                 themes::commands::theme_recompile_all,
                 themes::commands::theme_restore_builtins,

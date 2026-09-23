@@ -9,6 +9,8 @@ For the full commit history, see the git log.
 
 ### Fixed
 
+- **Effie Markdown themes can install their fonts for offline use.** Theme settings download the verified LXGW WenKai Lite text and monospace faces into the macOS user's font library. Once all faces are present, the host uses local fonts; otherwise Effie keeps its existing CDN subset loading.
+- **Typeset Reader 0.2.1 installs optional book fonts for the whole macOS user account.** Template context menus download pinned open-source fonts from public CDNs into `~/Library/Fonts`, verify each file, and refresh pagination. The plugin contains no bundled font files or embedded font set; existing system fonts and offline fallbacks remain available.
 - **Typeset Reader 0.2.0 opens and paginates large books much faster.** Fonts and compiler work are reused across batches, opening stays responsive during preparation, and long first chapters no longer bypass the preview budget. Reading views show progress, release offscreen pages, and cancel obsolete work when closed or switched.
 - **Ebook Import 1.5.2 shortens titles with a colon when naming imported book folders.** A title such as `Agency: The Psychological History` now creates `Agency/`, matching titles that use `_ `.
 - **Conversation Transcript Corrections 0.1.13 no longer mistakes formatter-added spacing for a customized managed block.** Its AGENTS.md block now uses formatter-stable spacing and precisely migrates every exact layout produced by the two previously published templates, while real user edits remain protected from overwrite.

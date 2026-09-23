@@ -6,6 +6,7 @@
  * Description: Mint paper, teal headings, purple strong, orange em. Auto-flips to a dark Dracula-mood palette via prefers-color-scheme.
  */
 
+/* The host omits these subset imports when all three user-installed fonts are available. */
 @import url('https://cdn.jsdelivr.net/npm/lxgw-wenkai-lite-webfont@1.7.0/lxgwwenkailite-regular.css');
 @import url('https://cdn.jsdelivr.net/npm/lxgw-wenkai-lite-webfont@1.7.0/lxgwwenkailite-bold.css');
 @import url('https://cdn.jsdelivr.net/npm/lxgw-wenkai-lite-webfont@1.7.0/lxgwwenkaimonolite-regular.css');

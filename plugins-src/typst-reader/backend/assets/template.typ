@@ -1,10 +1,10 @@
 #import "wonderous-book/lib.typ": book-part
-#import "templates/aiwriter-book.typ": aiwriter-book-part
+#import "templates/cjk-book.typ": cjk-book-part
 #import "cmarker/lib.typ": render
 #import sys: inputs
 
 #let book-layout = if inputs.book_style == "aiwriter-book" {
-  aiwriter-book-part.with(
+  cjk-book-part.with(
     title: inputs.title,
     author: inputs.author,
     first: inputs.first,

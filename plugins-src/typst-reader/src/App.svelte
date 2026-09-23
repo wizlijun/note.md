@@ -2,8 +2,9 @@
   import { onMount, tick } from 'svelte'
   import Page from './components/Page.svelte'
   import {
-    cancelRender, loadBookStyleRule, locale, onDocument, renderDocument, renderNext, saveBookStyleRule,
-    type BookStyleRule, type TypesetDocument, type RenderResult,
+    cancelRender, downloadFonts, fontDownloadStatus, loadBookStyleRule, locale, onDocument,
+    renderDocument, renderNext, saveBookStyleRule,
+    type BookStyleRule, type FontStatus, type TypesetDocument, type RenderResult,
   } from './lib/bridge'
 
   const zh = locale().startsWith('zh')
@@ -39,11 +40,14 @@
   let settingsPromise: Promise<void> | undefined
   let settingsError = $state('')
   let savingRule = $state(false)
+  let fontStatus = $state<FontStatus>()
+  let fontError = $state('')
+  let fontController: AbortController | undefined
   const zoomLevels = [0.75, 1, 1.25, 1.5]
   const bookStyleRules: { value: BookStyleRule; zh: string; en: string }[] = [
     { value: 'auto', zh: '自动（根据正文语言）', en: 'Automatic (content language)' },
     { value: 'wonderous-book', zh: 'Wonderous Book', en: 'Wonderous Book' },
-    { value: 'aiwriter-book', zh: 'AI Writer（中日韩）', en: 'AI Writer (CJK)' },
+    { value: 'aiwriter-book', zh: '中文书籍（CJK）', en: 'CJK Book' },
   ]
 
   function cancel(job: NonNullable<typeof active>) {
@@ -129,7 +133,7 @@
     if ((event.target as HTMLElement | null)?.closest('.reader-menu')) return
     event.preventDefault()
     const width = 238
-    const height = 340
+    const height = 430
     contextMenu = {
       x: Math.max(8, Math.min(event.clientX, window.innerWidth - width - 8)),
       y: Math.max(8, Math.min(event.clientY, window.innerHeight - height - 8)),
@@ -173,6 +177,29 @@
     }
   }
 
+  async function downloadFontBundle(style: 'cjk' | 'wonderous') {
+    if (fontStatus?.stage === 'downloading') return
+    fontController?.abort()
+    const controller = new AbortController()
+    fontController = controller
+    fontError = ''
+    try {
+      let result = await downloadFonts(style)
+      while (!destroyed && !controller.signal.aborted && result.stage === 'downloading') {
+        fontStatus = result
+        await poll(controller.signal)
+        if (controller.signal.aborted) return
+        result = await fontDownloadStatus()
+      }
+      if (destroyed || controller.signal.aborted) return
+      fontStatus = result
+      if (result.stage === 'error') fontError = result.error || (zh ? '字体下载失败。' : 'Font download failed.')
+      if (result.stage === 'complete' && document) void open(document)
+    } catch (value) {
+      if (!destroyed && !controller.signal.aborted) fontError = value instanceof Error ? value.message : String(value)
+    }
+  }
+
   function dismissContextMenu(event: PointerEvent) {
     if (!contextMenu || (event.target as HTMLElement | null)?.closest('.reader-menu')) return
     contextMenu = undefined
@@ -191,6 +218,7 @@
       destroyed = true
       off()
       window.clearInterval(clock)
+      fontController?.abort()
       if (active) cancel(active)
     }
   })
@@ -218,6 +246,11 @@
     {#if renderingMore}<div class="progress" role="status"><div class="spinner small"></div>{progressLabel} · {elapsed}s</div>{/if}
     {#if error}<div class="retry-toast" role="alert"><span>{error}</span><button type="button" onclick={() => document && open(document)}>{zh ? '后续页面排版失败，重试' : 'More pages failed. Retry'}</button></div>{/if}
   {/if}
+  {#if fontStatus?.stage === 'downloading'}
+    <div class="font-notice" role="status">{zh ? `正在下载字体 ${fontStatus.completed}/${fontStatus.total}…` : `Downloading fonts ${fontStatus.completed}/${fontStatus.total}…`}</div>
+  {:else if fontError}
+    <div class="font-notice error" role="alert">{fontError}</div>
+  {/if}
   {#if contextMenu}
     <div
       bind:this={contextMenuElement}
@@ -239,6 +272,21 @@
           onclick={() => setBookStyle(rule.value)}
         ><span>{zh ? rule.zh : rule.en}</span><span class="check" aria-hidden="true">{bookStyle === rule.value ? '✓' : ''}</span></button>
       {/each}
+      <div class="menu-sep" role="separator"></div>
+      <div class="menu-label">{zh ? '开源字体 · 安装到 ~/Library/Fonts' : 'Open fonts · install to ~/Library/Fonts'}</div>
+      {#if bookStyle !== 'wonderous-book'}
+        <button type="button" class="setting-row menu-row" role="menuitem" disabled={fontStatus?.stage === 'downloading'} onclick={() => downloadFontBundle('cjk')}>
+          {zh ? '下载中文模板字体（约 34 MB）' : 'Download CJK fonts (about 34 MB)'}
+        </button>
+      {/if}
+      {#if bookStyle !== 'aiwriter-book'}
+        <button type="button" class="setting-row menu-row" role="menuitem" disabled={fontStatus?.stage === 'downloading'} onclick={() => downloadFontBundle('wonderous')}>
+          {zh ? '下载英文模板字体' : 'Download English font'}
+        </button>
+      {/if}
+      {#if fontStatus?.stage === 'downloading'}<div class="menu-label" role="status">{zh ? `正在下载 ${fontStatus.completed}/${fontStatus.total} 款字体…` : `Downloading ${fontStatus.completed}/${fontStatus.total} fonts…`}</div>{/if}
+      {#if fontStatus?.stage === 'complete'}<div class="menu-label" role="status">{zh ? '字体已安装，正在重新排版。' : 'Fonts installed; retypesetting.'}</div>{/if}
+      {#if fontError}<div class="settings-error" role="alert">{fontError}</div>{/if}
       <div class="menu-sep" role="separator"></div>
       <div class="menu-label">{zh ? '页面缩放' : 'Page zoom'}</div>
       {#each zoomLevels as level}
@@ -279,6 +327,8 @@
   .check { width: 14px; text-align: center; }
   .settings-error { padding: 6px 9px 3px; color: #b42318; font-size: 11px; overflow-wrap: anywhere; }
   .progress, .retry-toast { position: fixed; right: 14px; bottom: 14px; z-index: 10; border: 1px solid color-mix(in srgb, CanvasText 16%, transparent); border-radius: 8px; box-shadow: 0 4px 16px rgba(0, 0, 0, .14); background: color-mix(in srgb, Canvas 92%, transparent); backdrop-filter: blur(18px); }
+  .font-notice { position: fixed; left: 14px; bottom: 14px; z-index: 10; padding: 8px 10px; border-radius: 8px; background: Canvas; box-shadow: 0 4px 16px rgba(0, 0, 0, .14); font-size: 12px; }
+  .font-notice.error { color: #b42318; max-width: min(400px, 80vw); overflow-wrap: anywhere; }
   .progress { display: flex; align-items: center; gap: 7px; padding: 7px 10px; color: GrayText; font-size: 11px; }
   .retry-toast { color: #b42318; padding: 7px 10px; max-width: min(500px, 80vw); display: flex; flex-direction: column; gap: 6px; font-size: 12px; overflow-wrap: anywhere; }
   @keyframes spin { to { transform: rotate(360deg); } }

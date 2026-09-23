@@ -21,6 +21,14 @@ export interface RenderResult {
 
 export type BookStyleRule = 'auto' | 'wonderous-book' | 'aiwriter-book'
 
+export interface FontStatus {
+  style: 'cjk' | 'wonderous' | ''
+  stage: 'idle' | 'downloading' | 'complete' | 'error'
+  completed: number
+  total: number
+  error?: string
+}
+
 interface HostBridge {
   locale: string
   request(method: string, params?: unknown): Promise<any>
@@ -88,6 +96,25 @@ export async function loadBookStyleRule(): Promise<BookStyleRule> {
 export async function saveBookStyleRule(value: BookStyleRule): Promise<void> {
   if (!validBookStyleRule(value)) throw new Error('Invalid typesetting template rule.')
   await host().request('host.settings.set', { key: 'bookStyle', value })
+}
+
+function validateFontStatus(value: any): FontStatus {
+  if (!['', 'cjk', 'wonderous'].includes(value?.style)
+    || !['idle', 'downloading', 'complete', 'error'].includes(value?.stage)
+    || !Number.isSafeInteger(value?.completed) || value.completed < 0
+    || !Number.isSafeInteger(value?.total) || value.total < value.completed
+    || (value.error !== undefined && typeof value.error !== 'string')) {
+    throw new Error('The font downloader returned invalid progress.')
+  }
+  return value
+}
+
+export async function fontDownloadStatus(): Promise<FontStatus> {
+  return validateFontStatus(await host().request('plugin.fonts-status'))
+}
+
+export async function downloadFonts(style: 'cjk' | 'wonderous'): Promise<FontStatus> {
+  return validateFontStatus(await host().request('plugin.fonts-download', { style }))
 }
 
 export async function renderDocument(document: TypesetDocument, bookStyle: BookStyleRule): Promise<RenderResult> {

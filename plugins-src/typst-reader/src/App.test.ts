@@ -10,6 +10,8 @@ const bridge = vi.hoisted(() => ({
   saveBookStyleRule: vi.fn(),
   cancelRender: vi.fn(),
   loadPage: vi.fn(),
+  downloadFonts: vi.fn(),
+  fontDownloadStatus: vi.fn(),
 }))
 
 vi.mock('./lib/bridge', () => ({
@@ -24,6 +26,8 @@ vi.mock('./lib/bridge', () => ({
   saveBookStyleRule: bridge.saveBookStyleRule,
   cancelRender: bridge.cancelRender,
   loadPage: bridge.loadPage,
+  downloadFonts: bridge.downloadFonts,
+  fontDownloadStatus: bridge.fontDownloadStatus,
 }))
 
 describe('Typst Reader', () => {
@@ -47,6 +51,8 @@ describe('Typst Reader', () => {
     bridge.saveBookStyleRule.mockReset()
     bridge.cancelRender.mockReset()
     bridge.loadPage.mockReset()
+    bridge.downloadFonts.mockReset()
+    bridge.fontDownloadStatus.mockReset()
     vi.unstubAllGlobals()
     document.body.innerHTML = ''
   })
@@ -83,13 +89,31 @@ describe('Typst Reader', () => {
     const menu = document.querySelector('[role="menu"]')
     expect(menu?.classList.contains('menu-panel')).toBe(true)
     expect([...document.querySelectorAll('[role="menuitemradio"]')].map(item => item.textContent?.trim())).toEqual([
-      '自动（根据正文语言）✓', 'Wonderous Book', 'AI Writer（中日韩）', '75%', '100%✓', '125%', '150%',
+      '自动（根据正文语言）✓', 'Wonderous Book', '中文书籍（CJK）', '75%', '100%✓', '125%', '150%',
     ])
 
     ;(document.querySelectorAll<HTMLButtonElement>('[role="menuitemradio"]')[5]).click()
     await tick()
     expect(document.querySelector('.scaled')?.getAttribute('style')).toContain('992.5px')
     expect(document.querySelector('[role="menu"]')).toBeNull()
+  })
+
+  it('downloads the selected template fonts and rerenders after installation', async () => {
+    bridge.renderDocument.mockResolvedValue({ render_id: 'render-1', stage: 'complete', completed_chunks: 1, total_chunks: 1, cache_key: 'd'.repeat(64), page_count: 1, hit: true, complete: true, busy: false })
+    bridge.downloadFonts.mockResolvedValue({ style: 'cjk', stage: 'complete', completed: 3, total: 3 })
+    component = mount(App, { target: document.body })
+    await tick()
+    const opened = { uri: '/vault/book.typeset.md', content: '# 中文书', requestId: 1 }
+    bridge.listener?.(opened)
+    await vi.waitFor(() => expect(document.querySelector('.pages')).not.toBeNull())
+    document.querySelector('main')?.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }))
+    await tick()
+    const download = [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')]
+      .find(button => button.textContent?.includes('下载中文模板字体'))!
+    download.click()
+    await vi.waitFor(() => expect(bridge.downloadFonts).toHaveBeenCalledWith('cjk'))
+    await vi.waitFor(() => expect(bridge.renderDocument).toHaveBeenCalledTimes(2))
+    expect(bridge.renderDocument).toHaveBeenLastCalledWith(opened, 'auto')
   })
 
   it('persists a template rule from the context menu and rerenders the document', async () => {
