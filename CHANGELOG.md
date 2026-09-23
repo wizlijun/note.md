@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.923.1 — 2026-09-23
+
 ### Fixed
 
 - **Effie Markdown themes can install their fonts for offline use.** Theme settings download the verified LXGW WenKai Lite text and monospace faces into the macOS user's font library. Once all faces are present, the host uses local fonts; otherwise Effie keeps its existing CDN subset loading.
