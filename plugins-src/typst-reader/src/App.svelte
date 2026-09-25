@@ -276,7 +276,7 @@
       <div class="menu-label">{zh ? '开源字体 · 安装到 ~/Library/Fonts' : 'Open fonts · install to ~/Library/Fonts'}</div>
       {#if bookStyle !== 'wonderous-book'}
         <button type="button" class="setting-row menu-row" role="menuitem" disabled={fontStatus?.stage === 'downloading'} onclick={() => downloadFontBundle('cjk')}>
-          {zh ? '下载中文模板字体（约 34 MB）' : 'Download CJK fonts (about 34 MB)'}
+          {zh ? '下载中文模板字体（约 66 MB）' : 'Download CJK fonts (about 66 MB)'}
         </button>
       {/if}
       {#if bookStyle !== 'aiwriter-book'}

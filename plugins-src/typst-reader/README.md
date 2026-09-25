@@ -23,6 +23,14 @@ wonderous-book 0.1.2 排版。冷打开时先生成一个小型预览批次，�
 需要 note.md `6.921.2` 或更高版本。当前发布包提供 macOS Apple Silicon 与
 Intel 两种架构；Windows 尚无原生插件包。
 
+0.2.3 将中文排版统一为书籍版式：170 × 240 mm 开本、朱红封面和原有章节装饰。
+完整文档与渐进批次共用同一套样式，中文引用不再叠加额外竖线；等宽代码优先使用
+DejaVu Sans Mono，未安装时回退到 Menlo、Consolas 或 Liberation Mono。
+
+0.2.4 修复后续章节的本地图片加载：Markdown 图片路径中的百分号编码、查询或
+片段后缀，以及原始 HTML `<img>` 使用相同的受限文件快照；缺失、越界或远程
+图片在排版前明确报错，不会等到续排时出现无路径的 `access denied`。
+
 模板统一保存在后端资源目录。自动模式根据正文字符比例选择模板：CJK 正文使用
 `templates/cjk-book.typ`，其他正文使用 wonderous-book；语言元数据只用于很短
 的 CJK 内容，避免错误的 `language` 字段影响整本英文书。阅读视图右键菜单可手动
@@ -30,15 +38,18 @@ Intel 两种架构；Windows 尚无原生插件包。
 模板字体不随插件包分发。右键菜单可按需从固定的开源字体 CDN 下载所选模板的字体，
 校验后安装到当前用户的 `~/Library/Fonts`，其他应用也可使用；断网时使用系统回退。
 已安装字体集合参与分页缓存键，安装完成后新排版自动使用新字体。
-宿主的 Effie Markdown 主题复用同一字体清单和安装校验机制；已安装的文楷常规字面
-不会重复下载。
+宿主的 Effie Markdown 主题复用同一安装校验机制，但继续使用自己的 Lite 字体清单；
+已安装且通过校验的字体文件不会重复下载。
 
-中文模板的下载项包含 [思源宋体 CN](https://cdn.jsdelivr.net/gh/adobe-fonts/source-han-serif@2.003R/SubsetOTF/CN/SourceHanSerifCN-Regular.otf)、
-[霞鹜文楷轻便版](https://cdn.jsdelivr.net/gh/lxgw/LxgwWenKai-Lite@v1.522/fonts/TTF/LXGWWenKaiLite-Regular.ttf) 与
-[思源黑体 CN](https://cdn.jsdelivr.net/gh/adobe-fonts/source-han-sans@2.004R/SubsetOTF/CN/SourceHanSansCN-Regular.otf)，
-均采用 SIL OFL 1.1；英文模板下载 [TeX Gyre Pagella](https://mirrors.ctan.org/fonts/tex-gyre/opentype/texgyrepagella-regular.otf)，
+中文模板的下载项包含与原始书籍版式相同版本的 [思源宋体 SC](https://raw.githubusercontent.com/adobe-fonts/source-han-serif/2.003R/OTF/SimplifiedChinese/SourceHanSerifSC-Regular.otf)、
+[霞鹜文楷](https://raw.githubusercontent.com/lxgw/LxgwWenKai/v1.520/fonts/TTF/LXGWWenKai-Regular.ttf) 与
+[思源黑体 SC](https://cdn.jsdelivr.net/gh/adobe-fonts/source-han-sans@2.004R/OTF/SimplifiedChinese/SourceHanSansSC-Regular.otf)，
+均采用 SIL OFL 1.1；另含可选的 [DejaVu Sans Mono](https://cdn.jsdelivr.net/gh/typst/typst-assets@ab9eed7b046c6a29f6cdb8566f4b44fb46a2f57f/files/fonts/DejaVuSansMono.ttf)
+等宽代码字体（DejaVu / Bitstream Vera 许可），以及用于脚注上标的
+[Libertinus Serif](https://cdn.jsdelivr.net/gh/typst/typst-assets@ab9eed7b046c6a29f6cdb8566f4b44fb46a2f57f/files/fonts/LibertinusSerif-Regular.otf)
+（SIL OFL 1.1），仍仅下载安装到系统，不打包进插件。已有 CN/Lite 字体继续作为离线回退，不删除或覆盖。英文模板下载 [TeX Gyre Pagella](https://mirrors.ctan.org/fonts/tex-gyre/opentype/texgyrepagella-regular.otf)，
 采用 GUST Font License。链接指向固定版本的公开字体文件，后端固定各自 SHA-256 和字体家族名，
-不接受文档指定的下载地址。中文下载项约 34 MB，英文约 0.2 MB。
+不接受文档指定的下载地址。中文下载项约 66 MB，英文约 0.2 MB。
 
 Markdown 中的本地图片可使用 PNG、JPEG、GIF、WebP 或 SVG。PDF 图片会在输入
 阶段明确拒绝；阅读器不需要 PDF 图片转换，因而它使用的 `typst-svg` 0.15.1

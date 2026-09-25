@@ -1135,13 +1135,14 @@ dependencies = [
 
 [[package]]
 name = "notemd-typst-reader"
-version = "0.2.2"
+version = "0.2.4"
 dependencies = [
  "comemo",
  "notemd-fonts",
  "notemd-plugin-sdk",
  "percent-encoding",
  "pulldown-cmark",
+ "quick-xml 0.42.0",
  "serde",
  "serde_json",
  "serde_yaml",

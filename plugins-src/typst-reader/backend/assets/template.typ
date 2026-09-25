@@ -23,24 +23,33 @@
 }
 #show: book-layout
 
-#show raw.where(block: true): it => block(
-  fill: if inputs.book_style == "aiwriter-book" { rgb("d0483e").lighten(93%) } else { rgb("f4f4f5") },
-  inset: if inputs.book_style == "aiwriter-book" { 8pt } else { 9pt },
-  radius: if inputs.book_style == "aiwriter-book" { 4pt } else { 3pt },
-  width: 100%,
-  it,
-)
-#show quote.where(block: true): it => block(
-  stroke: (left: 2pt + rgb("9ca3af")),
-  inset: (left: 10pt, y: 3pt),
-  it,
-)
+#show raw: set text(font: ("DejaVu Sans Mono", "Menlo", "Consolas", "Liberation Mono"))
+
+#let english-blocks(body) = {
+  show raw.where(block: true): it => block(
+    fill: rgb("f4f4f5"), inset: 9pt, radius: 3pt, width: 100%, it,
+  )
+  show quote.where(block: true): it => block(
+    stroke: (left: 2pt + rgb("9ca3af")), inset: (left: 10pt, y: 3pt), it,
+  )
+  body
+}
+#show: if inputs.book_style == "aiwriter-book" {
+  body => {
+    show super: set text(font: ("Libertinus Serif", "Times New Roman", "New Computer Modern"))
+    show footnote.entry: set par(first-line-indent: 0pt)
+    body
+  }
+} else { english-blocks }
 
 #render(
   inputs.markdown,
   raw-typst: false,
   set-document-title: false,
   scope: (
+    divider: () => if inputs.book_style == "aiwriter-book" {
+      line(length: 100%)
+    } else { divider() },
     image: (source, alt: none, ..args) => image(source, alt: alt, ..args),
     // Calibre books can retain fragment links whose anchors were discarded.
     // SVG page navigation cannot follow them yet, so keep their visible text.

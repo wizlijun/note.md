@@ -7,6 +7,11 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+### Fixed
+
+- **Typeset Reader 0.2.4 completes later pages with local images.** HTML `<img>` elements and Markdown image paths containing percent encoding, query strings, or fragments now use the same validated file snapshots. Missing or disallowed images fail before pagination instead of ending continuation with an opaque access-denied error.
+- **Typeset Reader 0.2.3 restores the Chinese book layout.** The original 170 × 240 mm page, red book cover, chapter ornaments, typography, and spacing share one template. Chinese quotations no longer gain an extra gray rule; inline code stays monospace and footnote markers regain readable sizing. Optional verified system-font downloads now match the original Source Han SC and LXGW WenKai faces, with code and footnote fonts; existing subsets remain fallbacks and no fonts are bundled. Existing pagination caches refresh automatically.
+
 ## v6.924.1 — 2026-09-24
 
 ### Fixed

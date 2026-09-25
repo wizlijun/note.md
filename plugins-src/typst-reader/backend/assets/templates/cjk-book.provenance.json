@@ -1,0 +1,17 @@
+{
+  "template": "cjk-book.typ",
+  "reference": "AIWriter 0.4.31 built-in book PDF style",
+  "reference_sha256": "be3a0e46cb0d990cc383df4bdc2cef9781cfd276c19cff68feda216d13d0409d",
+  "verified_on": "2026-09-24",
+  "extraction": "Layout, heading rules, cover, and optional outline were reconstructed from embedded static Typst fragments. Runtime title/subtitle/author interpolation is expressed as function parameters.",
+  "fragment_offsets": {
+    "book_style": 35536981,
+    "book_cover": 60841014,
+    "book_outline": 35536679
+  },
+  "reader_adaptations": [
+    "Progressive batches share the full-document style, omit the global outline, and carry page offsets.",
+    "Optional verified system-font downloads match the original Source Han SC and LXGW WenKai versions. Existing CN and Lite subsets remain fallbacks; no external application paths or bundled fonts are needed.",
+    "Markdown is still parsed by cmarker with raw Typst disabled. The template entry supplies monospace and superscript font fallbacks, unindented footnote entries, and the original full-width divider without duplicating cmarker's block spacing."
+  ]
+}

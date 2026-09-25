@@ -1,8 +1,10 @@
 use crate::world::{self, FontCatalog, RenderWorld};
 use percent_encoding::percent_decode_str;
 use pulldown_cmark::{Event, HeadingLevel, Options, Parser, Tag, TagEnd};
+use quick_xml::{escape::unescape, events::Event as XmlEvent, Reader};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use std::collections::HashMap;
 use std::fs;
 use std::path::{Component, Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -12,7 +14,7 @@ use typst::visualize::{ImageFormat, VectorFormat};
 
 const CACHE_SCHEMA: &str = "typeset-svg-v4";
 const RENDERER_VERSION: &str =
-    "typst-0.15.1+cmarker-0.1.10+wonderous-book-0.1.2+cjk-book+template-20+system-fonts";
+    "typst-0.15.1+cmarker-0.1.10+wonderous-book-0.1.2+cjk-book+template-21+system-fonts";
 const QUICK_PREVIEW_BYTES: usize = 16 * 1024;
 const MAX_CONTINUATION_BYTES: usize = 64 * 1024;
 const TEMPLATE: &str = include_str!("../assets/template.typ");
@@ -68,6 +70,7 @@ struct ValidatedSource {
     book_dir: PathBuf,
     markdown: String,
     images: Vec<(PathBuf, Bytes)>,
+    image_aliases: Vec<(String, PathBuf)>,
     title: String,
     author: String,
     book_style: BookStyle,
@@ -265,38 +268,79 @@ fn has_uri_scheme(value: &str) -> bool {
         })
 }
 
+fn html_image_sources(fragment: &str) -> Result<Vec<String>, String> {
+    if !fragment
+        .as_bytes()
+        .windows(4)
+        .any(|window| window.eq_ignore_ascii_case(b"<img"))
+    {
+        return Ok(Vec::new());
+    }
+    let mut reader = Reader::from_str(fragment);
+    let mut sources = Vec::new();
+    loop {
+        match reader.read_event() {
+            Ok(XmlEvent::Start(tag) | XmlEvent::Empty(tag))
+                if tag.name().as_ref().eq_ignore_ascii_case("img") =>
+            {
+                for attribute in tag.html_attributes() {
+                    let attribute =
+                        attribute.map_err(|error| format!("parse HTML image: {error}"))?;
+                    if attribute.key.as_ref().eq_ignore_ascii_case("src") {
+                        sources.push(
+                            unescape(attribute.value.as_ref())
+                                .map_err(|error| format!("decode HTML image source: {error}"))?
+                                .into_owned(),
+                        );
+                    }
+                }
+            }
+            Ok(XmlEvent::Eof) => break,
+            Err(error) => return Err(format!("parse HTML image: {error}")),
+            _ => {}
+        }
+    }
+    Ok(sources)
+}
+
 fn local_image_paths(
     markdown: &str,
     book_dir: &Path,
     vault: &Path,
-) -> Result<Vec<PathBuf>, String> {
+) -> Result<Vec<(PathBuf, String)>, String> {
     let mut paths = Vec::new();
     let parser = Parser::new_ext(markdown, Options::all());
     for event in parser {
-        let Event::Start(Tag::Image { dest_url, .. }) = event else {
-            continue;
+        let sources = match event {
+            Event::Start(Tag::Image { dest_url, .. }) => vec![dest_url.into_string()],
+            Event::Html(fragment) | Event::InlineHtml(fragment) => html_image_sources(&fragment)?,
+            _ => continue,
         };
-        let raw = dest_url.as_ref();
-        if raw.starts_with('#') {
-            continue;
-        }
-        if raw.starts_with('/') || raw.starts_with("//") || has_uri_scheme(raw) {
-            return Err(format!("remote or absolute image is not supported: {raw}"));
-        }
-        let without_suffix = raw.split(['?', '#']).next().unwrap_or(raw);
-        let decoded = percent_decode_str(without_suffix)
-            .decode_utf8()
-            .map_err(|_| format!("image path is not valid UTF-8: {raw}"))?;
-        let relative = Path::new(decoded.as_ref());
-        if relative
-            .components()
-            .any(|part| !matches!(part, Component::Normal(_)))
-        {
-            return Err(format!(
-                "image path must stay inside the book directory: {raw}"
+        for raw in sources {
+            if raw.starts_with('#') {
+                continue;
+            }
+            if raw.starts_with('/') || raw.starts_with("//") || has_uri_scheme(&raw) {
+                return Err(format!("remote or absolute image is not supported: {raw}"));
+            }
+            let without_suffix = raw.split(['?', '#']).next().unwrap_or(&raw);
+            let decoded = percent_decode_str(without_suffix)
+                .decode_utf8()
+                .map_err(|_| format!("image path is not valid UTF-8: {raw}"))?;
+            let relative = Path::new(decoded.as_ref());
+            if relative
+                .components()
+                .any(|part| !matches!(part, Component::Normal(_)))
+            {
+                return Err(format!(
+                    "image path must stay inside the book directory: {raw}"
+                ));
+            }
+            paths.push((
+                canonical_regular(&book_dir.join(relative), vault, "image")?,
+                raw,
             ));
         }
-        paths.push(canonical_regular(&book_dir.join(relative), vault, "image")?);
     }
     paths.sort();
     paths.dedup();
@@ -346,32 +390,38 @@ fn validate_source(request: &RenderRequest) -> Result<ValidatedSource, String> {
                 .find_map(|source| source.author)
         })
         .unwrap_or_default();
-    let images = local_image_paths(&markdown, &book_dir, &vault)?
-        .into_iter()
-        .map(|path| {
-            let bytes = fs::read(&path)
-                .map_err(|error| format!("read image {}: {error}", path.display()))?;
-            let pdf_extension = path
-                .extension()
-                .and_then(|value| value.to_str())
-                .is_some_and(|value| value.eq_ignore_ascii_case("pdf"));
-            let pdf_content = matches!(
-                ImageFormat::detect(&bytes),
-                Some(ImageFormat::Vector(VectorFormat::Pdf))
-            );
-            if pdf_extension || pdf_content {
-                return Err(format!(
-                    "PDF images are not supported in Markdown (use PNG, JPEG, GIF, WebP or SVG): {}",
-                    path.display()
-                ));
-            }
-            Ok((path, Bytes::new(bytes)))
-        })
-        .collect::<Result<Vec<_>, String>>()?;
+    let image_aliases = local_image_paths(&markdown, &book_dir, &vault)?;
+    let mut images = Vec::new();
+    for path in image_aliases.iter().map(|(path, _)| path) {
+        if images.last().is_some_and(|(previous, _)| previous == path) {
+            continue;
+        }
+        let bytes =
+            fs::read(path).map_err(|error| format!("read image {}: {error}", path.display()))?;
+        let pdf_extension = path
+            .extension()
+            .and_then(|value| value.to_str())
+            .is_some_and(|value| value.eq_ignore_ascii_case("pdf"));
+        let pdf_content = matches!(
+            ImageFormat::detect(&bytes),
+            Some(ImageFormat::Vector(VectorFormat::Pdf))
+        );
+        if pdf_extension || pdf_content {
+            return Err(format!(
+                "PDF images are not supported in Markdown (use PNG, JPEG, GIF, WebP or SVG): {}",
+                path.display()
+            ));
+        }
+        images.push((path.clone(), Bytes::new(bytes)));
+    }
     Ok(ValidatedSource {
         book_dir,
         markdown,
         images,
+        image_aliases: image_aliases
+            .into_iter()
+            .map(|(path, alias)| (alias, path))
+            .collect(),
         title,
         author,
         book_style: style,
@@ -708,6 +758,7 @@ fn start_session(
         author,
         book_style,
         images,
+        image_aliases,
     } = source;
     static TEMP_ID: AtomicU64 = AtomicU64::new(0);
     let schema_dir = cache_dir.join(CACHE_SCHEMA);
@@ -722,6 +773,12 @@ fn start_session(
         TEMP_ID.fetch_add(1, Ordering::Relaxed),
     ));
     let mut files = vec![("cmarker/plugin.wasm".to_string(), Bytes::new(CMARKER_WASM))];
+    let by_path: HashMap<_, _> = images.iter().map(|(path, bytes)| (path, bytes)).collect();
+    for (alias, path) in image_aliases {
+        if let Some(bytes) = by_path.get(&path) {
+            files.push((alias, (*bytes).clone()));
+        }
+    }
     for (path, bytes) in images {
         let relative = path
             .strip_prefix(&book_dir)
@@ -935,6 +992,65 @@ mod tests {
         }
     }
 
+    fn typeset_sample(
+        markdown: &str,
+        book_style: BookStyle,
+        first: bool,
+    ) -> typst_layout::PagedDocument {
+        let mut engine = RenderWorld::new(
+            TEMPLATE,
+            &[
+                ("cmarker/lib.typ", CMARKER_LIB),
+                ("wonderous-book/lib.typ", WONDEROUS_BOOK_LIB),
+                ("templates/cjk-book.typ", CJK_BOOK_TEMPLATE),
+            ],
+            [("cmarker/plugin.wasm".into(), Bytes::new(CMARKER_WASM))],
+        );
+        compile_chunk(
+            &mut engine,
+            CompileInput {
+                markdown,
+                page_offset: 0,
+                title: "版式测试",
+                author: "测试作者",
+                book_style,
+                first,
+                chapter_start: false,
+            },
+        )
+        .unwrap()
+    }
+
+    fn visit_frame<'a>(
+        frame: &'a typst::layout::Frame,
+        origin: typst::layout::Point,
+        visit: &mut impl FnMut(typst::layout::Point, &'a typst::layout::FrameItem),
+    ) {
+        use typst::layout::FrameItem;
+        for (position, item) in frame.items() {
+            let position = origin + *position;
+            visit(position, item);
+            if let FrameItem::Group(group) = item {
+                visit_frame(&group.frame, position, visit);
+            }
+        }
+    }
+
+    fn text_at<'a>(
+        frame: &'a typst::layout::Frame,
+        needle: &str,
+    ) -> Option<(typst::layout::Point, &'a typst::text::TextItem)> {
+        let mut found = None;
+        visit_frame(frame, typst::layout::Point::zero(), &mut |point, item| {
+            if let typst::layout::FrameItem::Text(text) = item {
+                if text.text.contains(needle) {
+                    found = Some((point, text));
+                }
+            }
+        });
+        found
+    }
+
     #[test]
     fn strips_only_a_leading_frontmatter_block() {
         assert_eq!(
@@ -1137,6 +1253,12 @@ mod tests {
         assert!(local_image_paths("![](https://example.com/a.png)", &book, vault.path()).is_err());
         assert!(local_image_paths("![](data:image/png;base64,AAAA)", &book, vault.path()).is_err());
         assert!(local_image_paths("![](../a.png)", &book, vault.path()).is_err());
+        assert!(
+            local_image_paths("<img src='https://example.com/a.png'>", &book, vault.path())
+                .is_err()
+        );
+        assert!(local_image_paths("<img src='../a.png'>", &book, vault.path()).is_err());
+        assert!(local_image_paths("<img src='%2e%2e/a.png'>", &book, vault.path()).is_err());
     }
 
     #[test]
@@ -1181,6 +1303,136 @@ mod tests {
     }
 
     #[test]
+    fn cjk_book_keeps_the_dark_bordered_cover_and_original_chapter_size() {
+        use typst::layout::{Abs, FrameItem};
+        use typst::visualize::{Color, Paint};
+
+        let document = typeset_sample("# 第一章\n\n普通正文。\n", BookStyle::AiWriter, true);
+        let [cover, chapter, ..] = document.pages() else {
+            panic!("the book should have a separate cover and chapter");
+        };
+        for page in [cover, chapter] {
+            assert_eq!(page.frame.width(), Abs::mm(170.0));
+            assert_eq!(page.frame.height(), Abs::mm(240.0));
+        }
+        let paper = Some(Paint::Solid(Color::from_u8(251, 248, 241, 255)));
+        assert_eq!(chapter.fill_or_white(), paper);
+        let Paint::Solid(cover_color) = cover.fill_or_white().unwrap() else {
+            panic!("cover needs a solid color");
+        };
+        let rgb = cover_color.to_rgb();
+        assert!(rgb.red > rgb.green * 1.5 && rgb.red > rgb.blue * 1.5 && rgb.red < 0.85);
+        let border = Paint::Solid("#e8e0cf".parse().unwrap());
+        let mut has_cover_border = false;
+        visit_frame(
+            &cover.frame,
+            typst::layout::Point::zero(),
+            &mut |_, item| {
+                if let FrameItem::Shape(shape, _) = item {
+                    has_cover_border |= shape.stroke.as_ref().is_some_and(|s| s.paint == border);
+                }
+            },
+        );
+        assert!(
+            has_cover_border,
+            "the dark cover must retain its fine border"
+        );
+        assert_eq!(
+            text_at(&chapter.frame, "第一章").unwrap().1.size,
+            Abs::pt(22.0)
+        );
+    }
+
+    #[test]
+    fn cjk_quote_keeps_indentation_without_the_english_gray_stripe() {
+        use typst::layout::FrameItem;
+        use typst::visualize::Paint;
+
+        let markdown = "普通正文。\n\n> 引用第一段。\n>\n> 引用第二段。\n";
+        let chinese = typeset_sample(markdown, BookStyle::AiWriter, false);
+        let english = typeset_sample(markdown, BookStyle::Wonderous, false);
+        let gray = Paint::Solid("#9ca3af".parse().unwrap());
+        let has_gray_stripe = |frame: &typst::layout::Frame| {
+            let mut found = false;
+            visit_frame(frame, typst::layout::Point::zero(), &mut |_, item| {
+                if let FrameItem::Shape(shape, _) = item {
+                    found |= shape.fill.as_ref() == Some(&gray)
+                        || shape.stroke.as_ref().is_some_and(|s| s.paint == gray);
+                }
+            });
+            found
+        };
+        let chinese_frame = &chinese.pages()[0].frame;
+        assert!(!has_gray_stripe(chinese_frame));
+        assert!(has_gray_stripe(&english.pages()[0].frame));
+        let ordinary = text_at(chinese_frame, "普通正文").unwrap().0.x;
+        let quoted = text_at(chinese_frame, "引用第一段").unwrap().0.x;
+        assert!(
+            quoted > ordinary + typst::layout::Abs::pt(5.0),
+            "quote should retain original indentation: quote x={quoted:?}, ordinary x={ordinary:?}"
+        );
+    }
+
+    #[test]
+    fn cjk_inline_code_uses_monospace_and_markdown_is_not_typst_code() {
+        use typst::layout::FrameItem;
+        use typst::visualize::Paint;
+
+        let markdown = "行内 `book.typeset.md` 与中文**强调**。问**“这个设计…余量”**，这里 ^^原文^^ 不转换。[^note]\n\n#panic(\"INJECTION\")\n\n[^note]: 脚注解释。\n";
+        let document = typeset_sample(markdown, BookStyle::AiWriter, false);
+        let frame = &document.pages()[0].frame;
+        let (code_position, code) = text_at(frame, "book.typeset.md").unwrap();
+        let family = code.font.font().info().family.as_str();
+        assert!(
+            ["DejaVu Sans Mono", "Menlo", "Consolas", "Liberation Mono"].contains(&family),
+            "inline code used {family} instead of a monospace face"
+        );
+        let strong = text_at(frame, "强调").unwrap().1;
+        assert_eq!(strong.fill, Paint::Solid("#a3362e".parse().unwrap()));
+        let footnote = text_at(frame, "脚注解释").unwrap();
+        assert!(footnote.0.y > code_position.y);
+        let mut visible_text = String::new();
+        let mut footnote_markers = Vec::new();
+        visit_frame(frame, typst::layout::Point::zero(), &mut |_, item| {
+            if let FrameItem::Text(text) = item {
+                visible_text.push_str(&text.text);
+                // A native superscript glyph retains its parent text size; it
+                // must not be mistaken for the 10.5pt page number.
+                let family = text.font.font().info().family.as_str();
+                if matches!(text.text.as_str(), "1" | "¹")
+                    && ["Libertinus Serif", "Times New Roman", "New Computer Modern"]
+                        .contains(&family)
+                {
+                    footnote_markers.push((text.size, text.bbox().size().y.abs()));
+                }
+            }
+        });
+        assert_eq!(
+            footnote_markers.len(),
+            2,
+            "reference and entry need numbered markers"
+        );
+        assert!(
+            footnote_markers.iter().all(|(size, height)| {
+                *size >= typst::layout::Abs::pt(5.0) && *height >= typst::layout::Abs::pt(2.0)
+            }),
+            "footnote markers are near-invisible: {footnote_markers:?}"
+        );
+        assert!(
+            visible_text.contains("^^原文^^"),
+            "literal carets should not become formatting"
+        );
+        assert!(
+            visible_text.contains("问**“这个设计…余量”**"),
+            "punctuation-adjacent markers are literal in the original parser"
+        );
+        assert!(
+            visible_text.contains("#panic"),
+            "Markdown must not execute embedded Typst"
+        );
+    }
+
+    #[test]
     fn compiles_the_ebook_import_semantic_contract() {
         let vault = tempfile::tempdir().unwrap();
         let book = vault.path().join("book");
@@ -1216,7 +1468,10 @@ H<sub>2</sub>O, x<sup>2</sup>, <mark>important</mark>, <s>obsolete</s>.
         let images = local_image_paths(content, &book, &canonical_vault).unwrap();
         assert_eq!(
             images,
-            vec![fs::canonicalize(book.join("diagram.svg")).unwrap()]
+            vec![(
+                fs::canonicalize(book.join("diagram.svg")).unwrap(),
+                "diagram.svg".to_string(),
+            )]
         );
 
         let rendered = render(
@@ -1304,6 +1559,60 @@ H<sub>2</sub>O, x<sup>2</sup>, <mark>important</mark>, <s>obsolete</s>.
     }
 
     #[test]
+    fn snapshots_html_image_used_in_a_later_chapter() {
+        let vault = tempfile::tempdir().unwrap();
+        let book = vault.path().join("book");
+        fs::create_dir(&book).unwrap();
+        let source = book.join("book.typeset.md");
+        fs::write(
+            book.join("diagram.svg"),
+            r#"<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="10" height="10"/></svg>"#,
+        )
+        .unwrap();
+        fs::write(
+            book.join("a&b.svg"),
+            r#"<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"/>"#,
+        )
+        .unwrap();
+        let content = "# First\n\nText only.\n\n# Second\n\n<img src=\"diagram.svg\">\n\n<img src='a&amp;b.svg'>\n";
+        fs::write(&source, content).unwrap();
+        let cache = vault.path().join("cache");
+        let (_, session) = prepare(&cache, &request(vault.path(), &source, content)).unwrap();
+        let mut session = session.unwrap();
+        assert_eq!(session.chunks.len(), 2);
+        assert!(!render_next(&mut session).unwrap().complete);
+        assert!(render_next(&mut session).unwrap().complete);
+        assert!(
+            render(&cache, &request(vault.path(), &source, content))
+                .unwrap()
+                .hit
+        );
+    }
+
+    #[test]
+    fn resolves_encoded_and_suffixed_markdown_image_paths() {
+        let vault = tempfile::tempdir().unwrap();
+        let source = vault.path().join("book.typeset.md");
+        let svg = r#"<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"/>"#;
+        fs::write(vault.path().join("my diagram.svg"), svg).unwrap();
+        fs::write(vault.path().join("diagram.svg"), svg).unwrap();
+        let mut failures = Vec::new();
+        for image in [
+            "my%20diagram.svg",
+            "diagram.svg?size=10",
+            "diagram.svg#figure",
+        ] {
+            let content = format!("# First\n\nText.\n\n# Second\n\n![]({image})\n");
+            fs::write(&source, &content).unwrap();
+            let cache = vault.path().join("cache");
+            if let Err(error) = render(&cache, &request(vault.path(), &source, &content)) {
+                failures.push(format!("{image}: {error}"));
+            }
+        }
+        assert!(failures.is_empty(), "{}", failures.join("\n"));
+    }
+
+    #[test]
     fn aiwriter_continuation_does_not_insert_an_empty_even_page() {
         let vault = tempfile::tempdir().unwrap();
         let book = vault.path().join("book");
@@ -1318,6 +1627,7 @@ H<sub>2</sub>O, x<sup>2</sup>, <mark>important</mark>, <s>obsolete</s>.
                 author: "作者".into(),
                 book_style: BookStyle::AiWriter,
                 images: vec![],
+                image_aliases: vec![],
             },
             world::font_catalog(),
         )
@@ -1385,6 +1695,12 @@ H<sub>2</sub>O, x<sup>2</sup>, <mark>important</mark>, <s>obsolete</s>.
         assert!(
             validate_source(&request(vault.path(), &linked_source, "![](cover.svg)\n")).is_err()
         );
+        assert!(validate_source(&request(
+            vault.path(),
+            &linked_source,
+            "<img src='cover.svg'>\n"
+        ))
+        .is_err());
     }
 
     #[test]

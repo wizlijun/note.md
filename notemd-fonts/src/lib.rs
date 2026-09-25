@@ -24,19 +24,39 @@ const WENKAI_REGULAR: FontSpec = FontSpec {
 
 const CJK: &[FontSpec] = &[
     FontSpec {
-        file: "SourceHanSerifCN-Regular.otf",
-        family: "Source Han Serif CN",
-        url: "https://cdn.jsdelivr.net/gh/adobe-fonts/source-han-serif@2.003R/SubsetOTF/CN/SourceHanSerifCN-Regular.otf",
-        sha256: "3754ea669c530e2473354f8f6d9f79680a44d7e26ec7d00eeabee4a7e0753c5d",
-        bytes: 11_626_108,
+        file: "SourceHanSerifSC-Regular.otf",
+        family: "Source Han Serif SC",
+        url: "https://raw.githubusercontent.com/adobe-fonts/source-han-serif/2.003R/OTF/SimplifiedChinese/SourceHanSerifSC-Regular.otf",
+        sha256: "78aa7a328fd974df2d688c8a9fd74a33d8334dfa84ab24d9d11efb2ffc464117",
+        bytes: 24_543_332,
     },
-    WENKAI_REGULAR,
     FontSpec {
-        file: "SourceHanSansCN-Regular.otf",
-        family: "Source Han Sans CN",
-        url: "https://cdn.jsdelivr.net/gh/adobe-fonts/source-han-sans@2.004R/SubsetOTF/CN/SourceHanSansCN-Regular.otf",
-        sha256: "c0aa89a70f92a820ff95490fea6d472cd19621a71c9a748a4950eb2eafe6438e",
-        bytes: 8_331_636,
+        file: "LXGWWenKai-Regular.ttf",
+        family: "LXGW WenKai",
+        url: "https://raw.githubusercontent.com/lxgw/LxgwWenKai/v1.520/fonts/TTF/LXGWWenKai-Regular.ttf",
+        sha256: "8d6ba638ac9553413354cfaab97637c1cd778444e259441ea1e5f8fb2c697fba",
+        bytes: 24_744_500,
+    },
+    FontSpec {
+        file: "DejaVuSansMono.ttf",
+        family: "DejaVu Sans Mono",
+        url: "https://cdn.jsdelivr.net/gh/typst/typst-assets@ab9eed7b046c6a29f6cdb8566f4b44fb46a2f57f/files/fonts/DejaVuSansMono.ttf",
+        sha256: "b4a6c3e4faab8773f4ff761d56451646409f29abedd68f05d38c2df667d3c582",
+        bytes: 340_712,
+    },
+    FontSpec {
+        file: "SourceHanSansSC-Regular.otf",
+        family: "Source Han Sans SC",
+        url: "https://cdn.jsdelivr.net/gh/adobe-fonts/source-han-sans@2.004R/OTF/SimplifiedChinese/SourceHanSansSC-Regular.otf",
+        sha256: "84bbd4ace91d327b3ad1a581c688196278a4e41308520176f419180064e4af2b",
+        bytes: 16_437_608,
+    },
+    FontSpec {
+        file: "LibertinusSerif-Regular.otf",
+        family: "Libertinus Serif",
+        url: "https://cdn.jsdelivr.net/gh/typst/typst-assets@ab9eed7b046c6a29f6cdb8566f4b44fb46a2f57f/files/fonts/LibertinusSerif-Regular.otf",
+        sha256: "fcf06307a77367394fcb0ccb241e59eea70dba3d732be309647611224679c733",
+        bytes: 337_132,
     },
 ];
 
@@ -248,7 +268,7 @@ mod tests {
 
     #[test]
     fn only_fixed_bundles_are_available() {
-        assert_eq!(bundle("cjk").unwrap().len(), 3);
+        assert_eq!(bundle("cjk").unwrap().len(), 5);
         assert_eq!(bundle("wonderous").unwrap().len(), 1);
         assert_eq!(bundle("effie").unwrap().len(), 3);
         assert!(bundle("../other").is_err());
