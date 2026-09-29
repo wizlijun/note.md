@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.929.1 — 2026-09-29
+
 ### Added
 
 - **File → Latest Created shows the seven newest Markdown files in the Vault.** It includes nested folders and ranks files by their latest creation or modification time. The menu updates after file changes and opens the selected document directly.
