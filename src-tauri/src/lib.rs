@@ -57,6 +57,9 @@ pub mod memory_control;
 #[cfg(any(target_os = "ios", test))]
 pub mod vault_ios;
 
+#[cfg(not(target_os = "ios"))]
+mod latest_files;
+
 pub struct PendingFiles(Mutex<Vec<String>>);
 /// Search-result jumps are delivered to the editor window through a durable
 /// mailbox. The main webview acknowledges a request only after `openFile` and
@@ -70,6 +73,8 @@ pub struct TrayRepoItem(Mutex<Option<MenuItem<tauri::Wry>>>);
 pub struct TrayStatusItem(Mutex<Option<IconMenuItem<tauri::Wry>>>);
 #[cfg(not(target_os = "ios"))]
 pub struct RecentMenu(pub Mutex<Option<Submenu<tauri::Wry>>>);
+#[cfg(not(target_os = "ios"))]
+pub struct LatestMenu(pub Mutex<Option<Submenu<tauri::Wry>>>);
 #[cfg(not(target_os = "ios"))]
 pub struct TraySyncNowItem(pub Mutex<Option<MenuItem<tauri::Wry>>>);
 #[cfg(not(target_os = "ios"))]
@@ -1361,6 +1366,8 @@ pub fn run() {
     #[cfg(not(target_os = "ios"))]
     let builder = builder.manage(RecentMenu(Mutex::new(None)));
     #[cfg(not(target_os = "ios"))]
+    let builder = builder.manage(LatestMenu(Mutex::new(None)));
+    #[cfg(not(target_os = "ios"))]
     let builder = builder.manage(TraySyncNowItem(Mutex::new(None)));
     #[cfg(not(target_os = "ios"))]
     let builder = builder.manage(TrayShownLargeFiles(Mutex::new(Vec::new())));
@@ -1569,6 +1576,8 @@ pub fn run() {
                 acknowledge_search_reveal,
                 editor_open_remote_buffer,
                 update_recent_menu,
+                update_latest_menu,
+                latest_vault_files,
                 set_menu_locale,
                 file_exists,
                 dbg_log,
@@ -1682,8 +1691,9 @@ pub fn run() {
                 *app.state::<DailyNotesEnabled>().0.lock().unwrap() = read_daily_notes_enabled(&app.handle());
                 let menu_locale = read_saved_locale(&app.handle());
                 let plugin_items = plugin_host::collect_top_menu_items(&menu_locale);
-                let (menu, recent_submenu) = build_menu(&app.handle(), &plugin_items, &menu_locale)?;
+                let (menu, recent_submenu, latest_submenu) = build_menu(&app.handle(), &plugin_items, &menu_locale)?;
                 *app.state::<RecentMenu>().0.lock().unwrap() = Some(recent_submenu);
+                *app.state::<LatestMenu>().0.lock().unwrap() = Some(latest_submenu);
                 app.set_menu(menu)?;
                 app.on_menu_event(|app, event| {
                     if event.id().0.as_str() == "hide-app" {
@@ -2034,6 +2044,48 @@ fn update_recent_menu(app: tauri::AppHandle, items: Vec<RecentMenuItem>) -> Resu
     Ok(())
 }
 
+/// Metadata-only work runs off the UI thread, including on very large vaults.
+#[cfg(not(target_os = "ios"))]
+#[tauri::command]
+async fn latest_vault_files(app: tauri::AppHandle, vault_root: String) -> Result<Vec<String>, String> {
+    let root = std::path::PathBuf::from(vault_root);
+    if sotvault::resolve_vault_root(&app).as_deref() != Some(root.as_path()) {
+        return Err("Vault changed".into());
+    }
+    tauri::async_runtime::spawn_blocking(move || latest_files::scan_latest_files(&root))
+        .await.map_err(|e| e.to_string())?
+}
+
+#[cfg(not(target_os = "ios"))]
+#[derive(serde::Deserialize)]
+struct LatestMenuItem {
+    path: String,
+    label: String,
+}
+
+#[cfg(not(target_os = "ios"))]
+#[tauri::command]
+fn update_latest_menu(app: tauri::AppHandle, items: Vec<LatestMenuItem>) -> Result<(), String> {
+    let state = app.state::<LatestMenu>();
+    let guard = state.0.lock().unwrap();
+    let submenu = guard.as_ref().ok_or("latest menu not initialized")?;
+    while submenu.remove_at(0).map_err(|e| e.to_string())?.is_some() {}
+    if items.is_empty() {
+        let locale = read_saved_locale(&app);
+        let placeholder = MenuItemBuilder::with_id("latest-none", menu_label(&locale, "file.noLatest"))
+            .enabled(false).build(&app).map_err(|e| e.to_string())?;
+        submenu.append(&placeholder).map_err(|e| e.to_string())?;
+    } else {
+        for item in items.into_iter().take(7) {
+            // Encode the path in the ID so a refresh cannot redirect an in-flight click.
+            let mi = MenuItemBuilder::with_id(format!("open-latest:{}", item.path), native_menu_literal(&item.label))
+                .build(&app).map_err(|e| e.to_string())?;
+            submenu.append(&mi).map_err(|e| e.to_string())?;
+        }
+    }
+    Ok(())
+}
+
 /// Native menu label catalog. Mirrors the JS i18n catalog for the handful of
 /// custom menu strings (macOS-provided items like Undo/Copy/Quit localize
 /// themselves). Unknown locales fall back to English.
@@ -2064,6 +2116,8 @@ fn menu_label(locale: &str, key: &str) -> String {
         ),
         "plugins.group.experience" => ("Experience", "体验增强", "体験向上", "Erlebnis"),
         "plugins.group.other" => ("Other", "其他", "その他", "Sonstige"),
+        "file.latestCreated" => ("Latest Created", "最新创建", "最近作成したファイル", "Zuletzt erstellt"),
+        "file.noLatest" => ("No Markdown Files", "无 Markdown 文件", "Markdown ファイルなし", "Keine Markdown-Dateien"),
         "file.openRecent" => ("Open Recent", "打开最近", "最近使ったファイルを開く", "Zuletzt geöffnet"),
         "file.noRecent" => ("No Recent Files", "无最近文件", "最近のファイルなし", "Keine letzten Dateien"),
         "file.new" => ("New", "新建", "新規", "Neu"),
@@ -2470,9 +2524,10 @@ fn set_menu_locale(app: tauri::AppHandle, locale: String) -> Result<(), String> 
 #[cfg(not(target_os = "ios"))]
 fn apply_menu_locale(app: &tauri::AppHandle, locale: &str) -> Result<(), String> {
     let plugin_items = plugin_host::collect_top_menu_items(locale);
-    let (menu, recent_submenu) =
+    let (menu, recent_submenu, latest_submenu) =
         build_menu(app, &plugin_items, locale).map_err(|e| e.to_string())?;
     *app.state::<RecentMenu>().0.lock().unwrap() = Some(recent_submenu);
+    *app.state::<LatestMenu>().0.lock().unwrap() = Some(latest_submenu);
     app.set_menu(menu).map_err(|e| e.to_string())?;
 
     // set_menu resets every item to its build-time enabled default. Runtime
@@ -2520,7 +2575,7 @@ fn build_menu<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
     plugin_items: &[plugin_host::LocatedMenuItem],
     locale: &str,
-) -> tauri::Result<(Menu<R>, Submenu<R>)> {
+) -> tauri::Result<(Menu<R>, Submenu<R>, Submenu<R>)> {
     let app_meta = AboutMetadata {
         name: Some("note.md".into()),
         version: Some(env!("CARGO_PKG_VERSION").into()),
@@ -2557,6 +2612,11 @@ fn build_menu<R: tauri::Runtime>(
         )
         .build()?;
 
+    let latest_menu = SubmenuBuilder::new(app, menu_label(locale, "file.latestCreated"))
+        .item(&MenuItemBuilder::with_id("latest-none", menu_label(locale, "file.noLatest"))
+            .enabled(false).build(app)?)
+        .build()?;
+
     let file_b = SubmenuBuilder::new(app, menu_label(locale, "menu.file"))
         .item(&MenuItemBuilder::with_id("new", menu_label(locale, "file.new")).accelerator("CmdOrCtrl+N").build(app)?)
         // "New Base" creates a .base table file. It used to ride in on the
@@ -2568,6 +2628,7 @@ fn build_menu<R: tauri::Runtime>(
         .item(&MenuItemBuilder::with_id("new-canvas", menu_label(locale, "file.newCanvas")).build(app)?)
         .item(&MenuItemBuilder::with_id("open", menu_label(locale, "file.open")).accelerator("CmdOrCtrl+O").build(app)?)
         .item(&recent_menu)
+        .item(&latest_menu)
         .separator()
         .item(
             &MenuItemBuilder::with_id("close-tab", menu_label(locale, "file.closeTab"))
@@ -2720,7 +2781,7 @@ fn build_menu<R: tauri::Runtime>(
     let menu = MenuBuilder::new(app)
         .items(&[&app_menu, &file_menu, &edit_menu, &view_menu, &plugins_menu, &window_menu, &help_menu])
         .build()?;
-    Ok((menu, recent_menu))
+    Ok((menu, recent_menu, latest_menu))
 }
 
 #[cfg(all(test, not(target_os = "ios")))]

@@ -64,6 +64,7 @@
   import { requestReveal } from './lib/outline/reveal.svelte'
   import { displayTitleForDocument, windowTitleFor } from './lib/window-title'
   import { installRecentsSync, refreshRecentMenu, mergedRecents } from './lib/recent-sync.svelte'
+  import { installLatestMenu } from './lib/latest-menu'
   import { maybeInstallTracker, shutdownTracker } from './lib/insights/tracker.svelte'
   import { ensureWikilinkBlocklist } from './lib/wikilink/blocklist-io.svelte'
 
@@ -106,6 +107,11 @@
   let drawerOpen = $state(false)
   $effect(() => {
     platform().then((p) => { platformName = p })
+  })
+
+  $effect(() => {
+    const root = sotvaultStore.vaultRoot
+    if (platformName === 'macos') return installLatestMenu(root)
   })
 
   let themeReady = $state(false)
@@ -650,6 +656,14 @@
       const plugin = parsePluginMenuId(id)
       if (plugin) {
         await dispatchPlugin(plugin.pluginId, plugin.command)
+        return
+      }
+      if (id.startsWith('open-latest:')) {
+        try {
+          await openFile(id.slice('open-latest:'.length))
+        } catch (e) {
+          await showError(String(e))
+        }
         return
       }
       if (id.startsWith('open-recent:')) {

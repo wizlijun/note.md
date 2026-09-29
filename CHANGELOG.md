@@ -7,6 +7,10 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+### Added
+
+- **File → Latest Created shows the seven newest Markdown files in the Vault.** It includes nested folders and ranks files by their latest creation or modification time. The menu updates after file changes and opens the selected document directly.
+
 ### Fixed
 
 - **Typeset Reader 0.2.4 completes later pages with local images.** HTML `<img>` elements and Markdown image paths containing percent encoding, query strings, or fragments now use the same validated file snapshots. Missing or disallowed images fail before pagination instead of ending continuation with an opaque access-denied error.
