@@ -15,6 +15,9 @@ pub fn as_of() -> String {
 }
 
 pub const POLICY_VERSION: &str = "index-priority-v1/nonoverlap-v1/date-doc-inclusive-v1";
+// Shared retained-metadata budget for one snapshot or one lazy file read.
+// Source text has a separate host-side budget and is never counted here.
+const MAX_METADATA_BYTES: usize = 64 * 1024 * 1024;
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UnitRef {
@@ -289,8 +292,8 @@ impl SearchIndex {
                 };
                 retained_bytes += serde_json::to_vec(&file).map_err(|e| e.to_string())?.len()
                     + file.unit_fingerprint.len();
-                if retained_bytes > 32 * 1024 * 1024 {
-                    return Err("SNAPSHOT_LIMIT: metadata exceeds 32 MiB".into());
+                if retained_bytes > MAX_METADATA_BYTES {
+                    return Err("SNAPSHOT_LIMIT: metadata exceeds 64 MiB".into());
                 }
                 ids.insert(r.get::<_, i64>(0).map_err(|e| e.to_string())?, files.len());
                 files.push(file);
@@ -344,7 +347,7 @@ impl SearchIndex {
                     line: r.get(3).unwrap_or(0),
                 };
                 retained_bytes += link.kind.len() + link.target.len() + 32;
-                if retained_bytes > 32 * 1024 * 1024 {
+                if retained_bytes > MAX_METADATA_BYTES {
                     return Err("SNAPSHOT_LIMIT: link metadata exceeds budget".into());
                 }
                 files[i].links.push(link);
@@ -386,7 +389,7 @@ impl SearchIndex {
         let mut retained = 0usize;
         let mut retain = |unit: UnitRef| -> Result<(), String> {
             retained += unit.breadcrumb.len() + unit.agent_by.as_ref().map_or(0, String::len) + 256;
-            if units.len() >= 500_000 || retained > 32 * 1024 * 1024 {
+            if units.len() >= 500_000 || retained > MAX_METADATA_BYTES {
                 return Err("SNAPSHOT_LIMIT: single-file unit metadata exceeds budget".into());
             }
             units.push(unit);
@@ -427,16 +430,42 @@ mod tests {
             WITH RECURSIVE n(x) AS (VALUES(1) UNION ALL SELECT x+1 FROM n WHERE x<140000)
             INSERT INTO blocks(file_id,line_start,line_end,breadcrumb,level,is_annotation)
             SELECT (SELECT id FROM files ORDER BY path LIMIT 1),x*2,x*2,'Synthetic breadcrumb','line',x=140000 FROM n;").unwrap();
+        let mut files = Vec::new();
         for range in [(None, None), (Some("2026-09-01"), Some("2026-10-01"))] {
             let capture = index.capture_metadata(range.0, range.1, "2026-09-30", &Weights::default()).unwrap();
             assert_eq!(capture.files.len(), 3);
             let file = capture.files.iter().find(|f| f.path == "2026-09-01-a.md").unwrap();
             assert!(file.priority_basis.as_ref().unwrap().factors.annotation > 1.0);
             assert!(serde_json::to_vec(&capture.files).unwrap().len() < 4096);
-            assert!(matches!(index.capture_file_units(file, "2026-09-30", &Weights::default()), Err(e) if e.starts_with("SNAPSHOT_LIMIT")));
-            let small = capture.files.iter().find(|f| f.path == "2026-09-30-b.md").unwrap();
-            assert!(!index.capture_file_units(small, "2026-09-30", &Weights::default()).unwrap().is_empty());
+            files = capture.files;
         }
+        let file = files.iter().find(|f| f.path == "2026-09-01-a.md").unwrap();
+        let units = index.capture_file_units(file, "2026-09-30", &Weights::default()).unwrap();
+        let retained: usize = units.iter().map(|u| u.breadcrumb.len() + 256).sum();
+        assert_eq!(units.len(), 140_000, "the expanded budget must not truncate units");
+        assert!(retained > 32 * 1024 * 1024 && retained < 64 * 1024 * 1024);
+        drop(units);
+
+        // Reuse the same rows to hit the exact 64 MiB boundary, then exceed it
+        // by one byte. Only breadcrumbs grow; no second large fixture is built.
+        let limit = 64 * 1024 * 1024;
+        let per_breadcrumb = (limit - 140_000 * 256) / 140_000;
+        let remainder = limit - 140_000 * (256 + per_breadcrumb);
+        index.conn.execute("UPDATE blocks SET breadcrumb=?1 WHERE file_id=(SELECT id FROM files WHERE path=?2)", [&"x".repeat(per_breadcrumb), &file.path]).unwrap();
+        index.conn.execute("UPDATE blocks SET breadcrumb=?1 WHERE id=(SELECT min(id) FROM blocks WHERE file_id=(SELECT id FROM files WHERE path=?2))", [&"x".repeat(per_breadcrumb + remainder), &file.path]).unwrap();
+        let exact = index.capture_metadata(Some("2026-09-01"), Some("2026-10-01"), "2026-09-30", &Weights::default()).unwrap();
+        let exact_file = exact.files.iter().find(|f| f.path == file.path).unwrap();
+        let units = index.capture_file_units(exact_file, "2026-09-30", &Weights::default()).unwrap();
+        assert_eq!(units.len(), 140_000);
+        assert_eq!(units.iter().map(|u| u.breadcrumb.len() + 256).sum::<usize>(), limit);
+        drop(units);
+
+        index.conn.execute("UPDATE blocks SET breadcrumb=breadcrumb||'x' WHERE id=(SELECT min(id) FROM blocks WHERE file_id=(SELECT id FROM files WHERE path=?1))", [&file.path]).unwrap();
+        let over = index.capture_metadata(Some("2026-09-01"), Some("2026-10-01"), "2026-09-30", &Weights::default()).unwrap();
+        let over_file = over.files.iter().find(|f| f.path == file.path).unwrap();
+        assert!(matches!(index.capture_file_units(over_file, "2026-09-30", &Weights::default()), Err(e) if e.starts_with("SNAPSHOT_LIMIT")));
+        let small = over.files.iter().find(|f| f.path == "2026-09-30-b.md").unwrap();
+        assert!(!index.capture_file_units(small, "2026-09-30", &Weights::default()).unwrap().is_empty());
     }
 
     #[test]

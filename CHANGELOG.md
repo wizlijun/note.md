@@ -9,7 +9,7 @@ For the full commit history, see the git log.
 
 ### Fixed
 
-- Fixed STRATA failing to open large Vaults with `SNAPSHOT_LIMIT: unit metadata exceeds budget`. Index snapshots now stream file priorities and load paragraph references only for requested files, preserving source validation and extraction budgets.
+- Fixed STRATA failing to open large Vaults with `SNAPSHOT_LIMIT: unit metadata exceeds budget`. Index snapshots now stream file priorities and load paragraph references only for requested files, preserving source validation and extraction budgets. Metadata memory budgets are now 64 MiB per snapshot/file and 256 MiB across cached snapshots.
 
 ## v6.930.1 — 2026-09-30
 

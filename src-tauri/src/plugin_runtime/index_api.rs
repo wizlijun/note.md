@@ -22,7 +22,7 @@ use tauri::Manager;
 const TTL: Duration = Duration::from_secs(3600);
 const TOTAL_BYTES: usize = 32 * 1024 * 1024;
 const MAX_PAGE_BYTES: usize = 4 * 1024 * 1024;
-const MAX_CACHE_BYTES: usize = 128 * 1024 * 1024;
+const MAX_CACHE_BYTES: usize = 256 * 1024 * 1024;
 #[derive(Clone)]
 struct Context {
     root: PathBuf,
