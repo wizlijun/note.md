@@ -50,6 +50,7 @@
   let observedBounds = ''
   let frameWidth = 1, frameHeight = 1
   let peakMaximum = 0
+  let visibleIds = new Set<string>()
   let visibleNodes: AtlasNode[] = []
   let nodeById = new Map<string, AtlasNode>()
   let anchors = new Map<string, PeakAnchor>()
@@ -98,8 +99,8 @@
   /** O(N) data work happens once per Worker result, never on camera-only frames. */
   function cacheResult() {
     if (!result || !context) return
-    const visible = new Set(result.visibleIds)
-    visibleNodes = result.layout.nodes.filter(node => visible.has(node.id))
+    visibleIds = new Set(result.visibleIds)
+    visibleNodes = result.layout.nodes.filter(node => visibleIds.has(node.id))
     nodeById = new Map(result.layout.nodes.map(node => [node.id, node]))
     anchors = new Map(result.peakAnchors.map(peak => [peak.id, peak]))
     clusterById = new Map([...result.layout.domains, ...result.layout.topics].map(cluster => [cluster.id, cluster]))
@@ -134,7 +135,7 @@
     const key = `${dataset}:${focusId}:${personal}:${currentLod}`
     if (sceneKey === key) return
     sceneKey = key
-    const limit = currentLod === 'knowledge' ? 1500 : 300
+    const limit = dataset === 'meetings_knowledge' ? (currentLod === 'knowledge' ? 200 : 0) : currentLod === 'knowledge' ? 1500 : 300
     const ordered: AtlasNode[] = []
     // Atlas order is stable. Prioritize core/owner nodes without sorting 32k rows.
     const append = (owner: boolean | null) => {
@@ -146,7 +147,7 @@
       }
     }
     if (personal) { append(true); append(false) } else append(null)
-    marks = ordered.map(node => ({ id: node.id, x: anchors.get(node.id)?.x ?? node.x, y: anchors.get(node.id)?.y ?? node.y,
+    marks = dataset === 'meetings_knowledge' ? [] : ordered.map(node => ({ id: node.id, x: anchors.get(node.id)?.x ?? node.x, y: anchors.get(node.id)?.y ?? node.y,
       personal: emphasized(node), kind: node.kind }))
     context!.font = '13px -apple-system, sans-serif'
     if (currentLod === 'knowledge') entries = ordered.slice(0, 200).map(node => ({
@@ -219,7 +220,7 @@
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, w, h)
     if (!result) {
       labels = []; plotPoints = []; previousResult = null
-      visibleNodes = []; nodeById.clear(); anchors.clear(); clusterById.clear(); clusterEntries = { domain: [], topic: [] }
+      visibleNodes = []; visibleIds.clear(); nodeById.clear(); anchors.clear(); clusterById.clear(); clusterEntries = { domain: [], topic: [] }
       marks = []; entries = []; relationDrawings = []; sceneKey = ''; previousRelations = null
       paths = []; shade = null; peakMaximum = 0
       return
@@ -271,12 +272,10 @@
       ctx.setLineDash([])
     }
     ctx.globalAlpha = 1; plotPoints = []
-    // Overview labels carry the hierarchy; bound the number of individual screen marks.
-    for (const n of marks) {
-      const p = project(n.id, n)
-      if (!p.visible || p.x < 0 || p.x > w || p.y < 0 || p.y > h) continue
+    const drawMark = (n: Pick<Mark, 'id' | 'personal' | 'kind'>, p: Projected) => {
       const owner = n.personal
       plotPoints.push({ id: n.id, x: p.x, y: p.y, personal: owner })
+      if (dataset === 'meetings_knowledge' && n.id === selectedId) return
       const kind = knowledgeKinds.find(kind => kind.id === n.kind)
       ctx.fillStyle = ink(dataset === 'meetings_knowledge' && kind ? `--st-kind-${kind.id}` : owner && personal ? '--st-gold' : '--st-green'); ctx.beginPath()
       const size = currentLod === 'knowledge' ? 3 : 2
@@ -284,6 +283,12 @@
       else ctx.arc(p.x, p.y, size, 0, Math.PI * 2)
       if (dataset === 'meetings_knowledge') { ctx.strokeStyle = ink('--st-bg'); ctx.lineWidth = 2; ctx.stroke() }
       ctx.fill()
+    }
+    // Index markers retain their existing budget. Meeting markers are emitted only
+    // with a readable individual label below, never as an overview point cloud.
+    for (const n of marks) {
+      const p = project(n.id, n)
+      if (p.visible && p.x >= 0 && p.x <= w && p.y >= 0 && p.y <= h) drawMark(n, p)
     }
     const nextControlKey = `${w}:${h}:${view}`
     if (!occupiedControl || controlKey !== nextControlKey) {
@@ -297,6 +302,7 @@
       if (next.length >= 24) break
       const p = project(e.id, e)
       if (!p.visible || p.x < 0 || p.x > w || p.y < 90 || p.y > h - bottomMargin - 5) continue
+      if (dataset === 'meetings_knowledge' && !e.cluster && plotPoints.some(mark => Math.hypot(mark.x - p.x, mark.y - p.y) < 56)) continue
       const bw = e.width, bh = 46
       const offsets = e.cluster ? [[0, 22], [0, -28], [60, 0], [-60, 0]] : [[0, 38], [0, -38], [100, 0], [-100, 0], [90, 48], [-90, 48]]
       for (const [dx, dy] of offsets) {
@@ -304,8 +310,21 @@
         const box = { x: x - bw / 2 - 4, y: y - bh / 2 - 4, w: bw + 8, h: bh + 8 }
         if (box.y < 86 || box.y + box.h > h - bottomMargin || occupied.some(b => box.x < b.x + b.w && box.x + box.w > b.x && box.y < b.y + b.h && box.y + box.h > b.y)) continue
         occupied.push(box); next.push({ id: e.id, text: e.name, sub: e.sub, x, y, w: bw, personal: e.personal, cluster: e.cluster })
+        if (dataset === 'meetings_knowledge' && !e.cluster) drawMark({ id: e.id, personal: e.personal, kind: nodeById.get(e.id)?.kind }, p)
         if (!e.cluster) { ctx.strokeStyle = ink('--st-muted'); ctx.globalAlpha = .45; ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(x, y + (y > p.y ? -22 : 22)); ctx.stroke(); ctx.globalAlpha = 1 }
         break
+      }
+    }
+    // A directory selection remains locatable even when its label is omitted.
+    // Date-filtered or offscreen knowledge must not acquire a selection marker.
+    if (dataset === 'meetings_knowledge' && selectedId && visibleIds.has(selectedId)) {
+      const node = nodeById.get(selectedId)
+      if (node) {
+        const p = project(selectedId, anchors.get(selectedId) || node)
+        if (p.visible && p.x >= 0 && p.x <= w && p.y >= 0 && p.y <= h) {
+          ctx.strokeStyle = ink('--st-ink'); ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(p.x, p.y, 8, 0, Math.PI * 2); ctx.stroke()
+          if (!plotPoints.some(mark => mark.id === selectedId)) plotPoints.push({ id: selectedId, x: p.x, y: p.y, personal: emphasized(node) })
+        }
       }
     }
     labels = next
@@ -390,6 +409,7 @@
     {#if result?.stats.contoursTruncated || result?.stats.unresolvedPeaks}<div class="detail-note">{result.stats.contoursTruncated ? '概览已简化轮廓。' : ''}{result.stats.unresolvedPeaks ? '密集区域的子峰请展开山群查看。' : ''}</div>{/if}
     <div class="legend-row emphasis-legend"><span>◆ {dataset === 'meetings_knowledge' ? '核心' : '个人独有'}</span><span>● {dataset === 'meetings_knowledge' ? '支撑' : '其他 / 未知'}</span><span>相对高程 · 固定刻度</span></div>
     {#if dataset === 'meetings_knowledge'}
+      <div>概览按山群聚合；放大或展开查看少量标记，全部知识见目录</div>
       <div class="legend-row kind-legend" aria-label="知识点类型">{#each knowledgeKinds as kind}<span><i style:background="var(--st-kind-{kind.id})"></i>{kind.name}</span>{/each}</div>
       <div>连线为抽取关系，山脊为地形</div>
     {/if}
