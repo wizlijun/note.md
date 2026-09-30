@@ -11,6 +11,7 @@ pub mod commands;
 pub mod discovery;
 pub mod host_api;
 pub mod index_api;
+pub mod knowledge_api;
 pub mod installer;
 pub mod lifecycle;
 pub mod location;

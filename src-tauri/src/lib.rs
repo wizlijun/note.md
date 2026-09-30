@@ -26,6 +26,7 @@ pub mod cli;
 #[cfg(not(target_os = "ios"))]
 pub mod plugin_host;
 #[cfg(not(target_os = "ios"))]
+pub mod knowledge_structure;
 pub mod plugin_runtime;
 #[cfg(not(target_os = "ios"))]
 pub mod themes;

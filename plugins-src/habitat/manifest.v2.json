@@ -1,0 +1,28 @@
+{
+  "manifest_version": 2,
+  "id": "notemd.habitat",
+  "name": "HABITAT",
+  "version": "0.1.0",
+  "kind": "native",
+  "engines": { "notemd": ">=6.930.3" },
+  "description": "Explore the structure of your Vault as a growing city, with source evidence and version history.",
+  "binary": {
+    "aarch64-apple-darwin": "bin/notemd-habitat",
+    "x86_64-apple-darwin": "bin/notemd-habitat"
+  },
+  "ui": "ui/",
+  "activation": { "events": ["onCommand:open"] },
+  "contributes": {
+    "menus": [{ "location": "plugins", "submenu": "thinking", "label": "Open HABITAT…", "command": "open" }],
+    "windows": [{ "id": "main", "entry": "index.html", "title": "HABITAT · 心城", "width": 1380, "height": 900, "min_width": 760, "min_height": 560, "singleton": true, "open_command": "open" }]
+  },
+  "capabilities": ["vault.read", "vault.write", "index.read", "editor.open", "settings", "ui"],
+  "request_timeout_seconds": 300,
+  "i18n": {
+    "zh": {
+      "name": "HABITAT · 心城",
+      "description": "从 Vault 材料形成可回源的知识城市，保留每个版本与结构变化。",
+      "menus": { "open": "打开心城…" }
+    }
+  }
+}

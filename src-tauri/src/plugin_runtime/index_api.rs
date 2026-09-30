@@ -713,6 +713,326 @@ pub(crate) fn dispatch<R: tauri::Runtime>(
     Ok(result)
 }
 
+/// A captured source set is an analysis boundary, not a replacement for the
+/// plugin's live vault.read/write grants. The caller retains those grants.
+pub(crate) struct KnowledgeCapture {
+    root: PathBuf,
+    config: String,
+    id: String,
+    plugin: String,
+    epoch: u64,
+}
+
+impl KnowledgeCapture {
+    pub(crate) fn recheck<R: tauri::Runtime>(
+        &self,
+        app: &tauri::AppHandle<R>,
+        graph: &habitat_core::Snapshot,
+    ) -> Result<(), String> {
+        let ctx = context(app)?;
+        if EPOCH.load(Ordering::SeqCst) != self.epoch
+            || ctx.root != self.root
+            || ctx.config != self.config
+        {
+            return Err("KNOWLEDGE_CAPTURE_CHANGED: Vault or analysis settings changed".into());
+        }
+        let entry = lookup(&self.id, &self.plugin, &ctx)?;
+        let captured = entry.lock().unwrap_or_else(|p| p.into_inner());
+        validate_captured_knowledge(&ctx, &captured, graph)
+    }
+}
+
+fn validate_captured_knowledge(
+    ctx: &Context,
+    captured: &Snapshot,
+    graph: &habitat_core::Snapshot,
+) -> Result<(), String> {
+    if captured.range.is_some() {
+        return Err("KNOWLEDGE_CAPTURE_SCOPE: HABITAT requires an atlas capture".into());
+    }
+    if captured.coverage["stale"].as_u64() != Some(0) {
+        return Err(
+            "KNOWLEDGE_CAPTURE_STALE: 索引尚未完成更新，请等待索引完成后重试；不保存缺少来源的版本"
+                .into(),
+        );
+    }
+    validate_knowledge_sources(ctx, &captured.files, graph)
+}
+
+pub(crate) fn validate_knowledge_capture<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    plugin: &str,
+    id: &str,
+    graph: &habitat_core::Snapshot,
+) -> Result<KnowledgeCapture, String> {
+    if !authorized(plugin) {
+        return Err("CAPABILITY_DENIED: index.read revoked".into());
+    }
+    let epoch = EPOCH.load(Ordering::SeqCst);
+    let ctx = context(app)?;
+    let lease = KnowledgeCapture {
+        root: ctx.root,
+        config: ctx.config,
+        id: id.into(),
+        plugin: plugin.into(),
+        epoch,
+    };
+    lease.recheck(app, graph)?;
+    Ok(lease)
+}
+
+/// A controlled pending draft may outlive its ephemeral index ID. Recovery
+/// keeps its captured source hashes but requires the original analysis policy.
+pub(crate) fn validate_knowledge_recovery<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    root: &Path,
+    graph: &habitat_core::Snapshot,
+) -> Result<(), String> {
+    let ctx = context(app)?;
+    if ctx.root != root {
+        return Err("KNOWLEDGE_CAPTURE_CHANGED: Vault changed".into());
+    }
+    let (meetings_root, configs) = knowledge_configuration(&ctx)?;
+    if knowledge_scope_hash(&ctx.config, &meetings_root)? != graph.meta.scope_hash {
+        return Err(
+            "KNOWLEDGE_CAPTURE_CHANGED: archive this draft and capture the new analysis scope"
+                .into(),
+        );
+    }
+    if configs
+        .keys()
+        .any(|path| !graph.sources.iter().any(|source| &source.path == path))
+    {
+        return Err("KNOWLEDGE_CAPTURE_CHANGED: configuration was added after capture".into());
+    }
+    for source in &graph.sources {
+        let config = configs.get(&source.path);
+        if let Some(expected) = config {
+            if expected != &source.hash {
+                return Err("KNOWLEDGE_CAPTURE_CHANGED: configuration changed".into());
+            }
+        } else if !knowledge_eligible(&source.path)
+            || (!searchidx::scan::is_indexable(&source.path, &ctx.opts)
+                && !knowledge_supplement(&source.path, &meetings_root, &ctx.opts))
+        {
+            return Err(
+                "KNOWLEDGE_CAPTURE_SCOPE: source is outside the current analysis scope".into(),
+            );
+        }
+    }
+    Ok(())
+}
+
+fn knowledge_eligible(path: &str) -> bool {
+    habitat_core::codec::safe_source_path(path)
+        && !path.starts_with(".notemd/")
+        && !path.starts_with(".local/")
+        && !matches!(path, "USER.md" | "MEMORY.md" | "AGENTS.md" | "CLAUDE.md")
+        && !path.split('/').any(|p| {
+            matches!(
+                p,
+                ".local" | "node_modules" | ".ssh" | ".aws" | ".credentials"
+            )
+        })
+}
+
+fn knowledge_excluded(path: &str, opts: &ScanOptions) -> bool {
+    opts.exclude_dirs.iter().any(|dir| {
+        let dir = dir.trim_matches('/');
+        !dir.is_empty() && (path == dir || path.starts_with(&format!("{dir}/")))
+    })
+}
+
+fn knowledge_supplement(path: &str, meetings_root: &str, opts: &ScanOptions) -> bool {
+    knowledge_eligible(path)
+        && !knowledge_excluded(path, opts)
+        && path.starts_with(&format!("{meetings_root}/"))
+        && path.ends_with("/knowledge.json")
+}
+
+fn knowledge_scope_hash(config: &str, meetings_root: &str) -> Result<String, String> {
+    Ok(habitat_core::hash(serde_json::to_vec(&json!({"policy":"habitat-capture/1",
+        "indexConfig":config,"meetingsRoot":meetings_root,
+        "excluded":[".notemd/* except settings/meetings","USER.md","MEMORY.md","AGENTS.md","CLAUDE.md","private runtime"]}))
+        .map_err(|e| e.to_string())?))
+}
+
+fn knowledge_configuration(
+    ctx: &Context,
+) -> Result<(String, std::collections::BTreeMap<String, String>), String> {
+    let mut root = "ssot/meetings".to_owned();
+    let mut configs = std::collections::BTreeMap::new();
+    for path in [".notemd/settings.json", ".notemd/meetings.json"] {
+        let file = match open_source(&ctx.root, path) {
+            Ok(file) => file,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(_) => {
+                return Err(
+                    "KNOWLEDGE_CAPTURE_SCOPE: configuration is unavailable or symlinked".into(),
+                )
+            }
+        };
+        let mut bytes = Vec::new();
+        file.take(1024 * 1024 + 1)
+            .read_to_end(&mut bytes)
+            .map_err(|e| e.to_string())?;
+        if bytes.len() > 1024 * 1024 {
+            return Err("KNOWLEDGE_CAPTURE_SCOPE: configuration exceeds budget".into());
+        }
+        let value: Value = serde_json::from_slice(&bytes)
+            .map_err(|_| "KNOWLEDGE_CAPTURE_SCOPE: invalid configuration")?;
+        if path.ends_with("meetings.json") {
+            if let Some(value) = value["meetings_root"].as_str() {
+                root = value.trim_matches('/').to_owned();
+            }
+        }
+        configs.insert(path.to_owned(), habitat_core::hash(bytes));
+    }
+    if !knowledge_eligible(&root) || root == "." {
+        return Err("KNOWLEDGE_CAPTURE_SCOPE: invalid meetings root".into());
+    }
+    Ok((root, configs))
+}
+
+fn knowledge_supplement_paths(
+    ctx: &Context,
+    meetings_root: &str,
+) -> Result<HashSet<String>, String> {
+    let mut paths = HashSet::new();
+    let mut queue = std::collections::VecDeque::from([(meetings_root.to_owned(), 0usize)]);
+    let mut visited = 0;
+    while let Some((relative, depth)) = queue.pop_front() {
+        if knowledge_excluded(&relative, &ctx.opts) {
+            continue;
+        }
+        visited += 1;
+        if visited > 10_000 || depth > 12 {
+            return Err(
+                "KNOWLEDGE_CAPTURE_SCOPE: meetings directory exceeds capture budget".into(),
+            );
+        }
+        let mut path = ctx.root.clone();
+        let mut absent = false;
+        for part in Path::new(&relative).components() {
+            let Component::Normal(part) = part else {
+                return Err("KNOWLEDGE_CAPTURE_SCOPE: invalid supplemental path".into());
+            };
+            path.push(part);
+            match std::fs::symlink_metadata(&path) {
+                Ok(meta) if meta.file_type().is_symlink() => {
+                    return Err("KNOWLEDGE_CAPTURE_SCOPE: symlinked meetings path".into())
+                }
+                Ok(_) => {}
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                    absent = true;
+                    break;
+                }
+                Err(e) => return Err(format!("KNOWLEDGE_CAPTURE_SCOPE: {e}")),
+            }
+        }
+        if absent {
+            continue;
+        }
+        for entry in std::fs::read_dir(path).map_err(|e| format!("KNOWLEDGE_CAPTURE_SCOPE: {e}"))? {
+            let entry = entry.map_err(|e| e.to_string())?;
+            let name = entry
+                .file_name()
+                .into_string()
+                .map_err(|_| "KNOWLEDGE_CAPTURE_SCOPE: non-UTF8 source path")?;
+            let child = format!("{relative}/{name}");
+            if !knowledge_eligible(&child) || knowledge_excluded(&child, &ctx.opts) {
+                continue;
+            }
+            let kind = entry.file_type().map_err(|e| e.to_string())?;
+            if kind.is_symlink() {
+                continue;
+            }
+            if kind.is_dir() {
+                queue.push_back((child, depth + 1));
+            } else if kind.is_file() && name == "knowledge.json" {
+                paths.insert(child);
+            }
+        }
+    }
+    Ok(paths)
+}
+
+fn validate_knowledge_sources(
+    ctx: &Context,
+    captured: &[File],
+    graph: &habitat_core::Snapshot,
+) -> Result<(), String> {
+    let (meetings_root, configs) = knowledge_configuration(ctx)?;
+    if knowledge_scope_hash(&ctx.config, &meetings_root)? != graph.meta.scope_hash {
+        return Err(
+            "KNOWLEDGE_CAPTURE_SCOPE: submitted scope does not match capture/configuration".into(),
+        );
+    }
+    let expected: HashMap<_, _> = captured
+        .iter()
+        .filter(|f| knowledge_eligible(&f.path))
+        .map(|f| (f.path.as_str(), f.content_hash.as_str()))
+        .collect();
+    let supplements = knowledge_supplement_paths(ctx, &meetings_root)?;
+    let mut supplied = HashSet::new();
+    let mut supplement_bytes = 0;
+    for source in &graph.sources {
+        if !matches!(source.status.as_str(), "available" | "unavailable") {
+            return Err("KNOWLEDGE_CAPTURE_SCOPE: unsupported source availability".into());
+        }
+        if !supplied.insert(source.path.as_str()) {
+            return Err("KNOWLEDGE_CAPTURE_SCOPE: duplicate source path".into());
+        }
+        if let Some(hash) = expected.get(source.path.as_str()) {
+            if *hash != source.hash {
+                return Err(
+                    "KNOWLEDGE_CAPTURE_SCOPE: indexed source hash differs from capture".into(),
+                );
+            }
+            if !searchidx::scan::is_indexable(&source.path, &ctx.opts) {
+                return Err(
+                    "KNOWLEDGE_CAPTURE_SCOPE: indexed source is outside current analysis scope"
+                        .into(),
+                );
+            }
+        } else if let Some(hash) = configs.get(&source.path) {
+            if hash != &source.hash {
+                return Err("KNOWLEDGE_CAPTURE_CHANGED: configuration changed".into());
+            }
+        } else if !supplements.contains(&source.path)
+            || !knowledge_supplement(&source.path, &meetings_root, &ctx.opts)
+        {
+            return Err("KNOWLEDGE_CAPTURE_SCOPE: submitted source was not captured".into());
+        } else {
+            // Supplements are prefetched raw inputs, including when parsing failed.
+            // Their hash must not be invented by marking them unavailable.
+            let file = open_source(&ctx.root, &source.path)
+                .map_err(|_| "KNOWLEDGE_CAPTURE_CHANGED: supplemental source unavailable")?;
+            let remaining = 96 * 1024 * 1024 - supplement_bytes;
+            let mut bytes = Vec::new();
+            file.take(remaining as u64 + 1)
+                .read_to_end(&mut bytes)
+                .map_err(|e| e.to_string())?;
+            supplement_bytes += bytes.len();
+            if supplement_bytes > 96 * 1024 * 1024 || habitat_core::hash(&bytes) != source.hash {
+                return Err(
+                    "KNOWLEDGE_CAPTURE_CHANGED: supplemental content changed or exceeds budget"
+                        .into(),
+                );
+            }
+        }
+    }
+    if expected.keys().any(|path| !supplied.contains(path))
+        || configs.keys().any(|path| !supplied.contains(path.as_str()))
+        || supplements
+            .iter()
+            .any(|path| !supplied.contains(path.as_str()))
+    {
+        return Err("KNOWLEDGE_CAPTURE_SCOPE: incomplete source manifest; record unavailable inputs instead of dropping them".into());
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1016,5 +1336,169 @@ mod tests {
         entry.lock().unwrap().created = Instant::now();
         invalidate_plugin(&plugin);
         assert!(lookup(&id, &plugin, &context).is_err());
+    }
+}
+
+#[cfg(test)]
+mod knowledge_capture_tests {
+    use super::*;
+    use habitat_core::{Snapshot as Graph, Source};
+
+    fn fixture() -> (tempfile::TempDir, Context) {
+        let temp = tempfile::tempdir().unwrap();
+        let ctx = Context {
+            root: temp.path().canonicalize().unwrap(),
+            config: "captured-config".into(),
+            opts: ScanOptions::default(),
+            weights: Weights::default(),
+        };
+        (temp, ctx)
+    }
+    fn source(path: &str, body: &str) -> Source {
+        Source {
+            id: path.into(),
+            path: path.into(),
+            hash: habitat_core::hash(body),
+            status: "available".into(),
+            family: path.into(),
+            ..Default::default()
+        }
+    }
+    fn indexed(source: &Source) -> File {
+        File {
+            path: source.path.clone(),
+            content_hash: source.hash.clone(),
+            file_key: source.id.clone(),
+            title: None,
+            concept_type: None,
+            tags: vec![],
+            doc_date: None,
+            date_inferred: false,
+            index_origin: "authored".into(),
+            human_verified: false,
+            confidentiality: "default".into(),
+            attention_minutes: 0.,
+            links: vec![],
+            file_priority: 0.,
+            priority_basis: None,
+            unit_fingerprint: [0; 32],
+            mtime: 0,
+            size: 0,
+        }
+    }
+    fn graph(ctx: &Context, sources: Vec<Source>) -> Graph {
+        let mut graph = Graph::default();
+        graph.meta.scope_hash = knowledge_scope_hash(&ctx.config, "ssot/meetings").unwrap();
+        graph.sources = sources;
+        graph
+    }
+    #[test]
+    fn manifest_is_exactly_bound_to_captured_paths_and_hashes() {
+        let (_temp, ctx) = fixture();
+        let s = source("notes/a.md", "captured");
+        let files = vec![indexed(&s)];
+        let mut g = graph(&ctx, vec![s]);
+        assert!(validate_knowledge_sources(&ctx, &files, &g).is_ok());
+        // Missing bodies remain part of capture, with their original hash.
+        g.sources[0].status = "unavailable".into();
+        assert!(validate_knowledge_sources(&ctx, &files, &g).is_ok());
+        g.sources[0].hash = habitat_core::hash("invented");
+        assert!(validate_knowledge_sources(&ctx, &files, &g).is_err());
+        g.sources[0].hash = files[0].content_hash.clone();
+        g.sources.push(source("notes/uncaptured.md", "outside"));
+        assert!(validate_knowledge_sources(&ctx, &files, &g).is_err());
+        g.sources.clear();
+        assert!(validate_knowledge_sources(&ctx, &files, &g).is_err());
+    }
+    #[test]
+    fn supplements_respect_configured_root_exclusions_and_raw_hash() {
+        let (_temp, mut ctx) = fixture();
+        std::fs::create_dir_all(ctx.root.join("ssot/meetings/a")).unwrap();
+        let path = "ssot/meetings/a/knowledge.json";
+        std::fs::write(ctx.root.join(path), "{}").unwrap();
+        let mut g = graph(&ctx, vec![source(path, "{}")]);
+        assert!(validate_knowledge_sources(&ctx, &[], &g).is_ok());
+        g.sources[0].status = "unavailable".into();
+        g.sources[0].hash = habitat_core::hash("fabricated");
+        assert!(validate_knowledge_sources(&ctx, &[], &g).is_err());
+        g.sources[0].hash = habitat_core::hash("{}");
+        ctx.opts.exclude_dirs.push("ssot/meetings/a".into());
+        assert!(validate_knowledge_sources(&ctx, &[], &g).is_err());
+        g.sources.clear();
+        assert!(validate_knowledge_sources(&ctx, &[], &g).is_ok());
+        ctx.opts.exclude_dirs.clear();
+        assert!(validate_knowledge_sources(&ctx, &[], &g).is_err());
+    }
+    #[test]
+    fn configuration_is_mandatory_and_changes_invalidate_capture() {
+        let (_temp, ctx) = fixture();
+        std::fs::create_dir(ctx.root.join(".notemd")).unwrap();
+        std::fs::write(ctx.root.join(".notemd/settings.json"), "{}").unwrap();
+        let mut g = graph(&ctx, vec![source(".notemd/settings.json", "{}")]);
+        assert!(validate_knowledge_sources(&ctx, &[], &g).is_ok());
+        std::fs::write(ctx.root.join(".notemd/settings.json"), "{\"other\":1}").unwrap();
+        assert!(validate_knowledge_sources(&ctx, &[], &g).is_err());
+        g.sources.clear();
+        assert!(validate_knowledge_sources(&ctx, &[], &g).is_err());
+    }
+    #[test]
+    fn policy_matches_backend_and_does_not_reintroduce_private_runtime() {
+        assert_eq!(knowledge_scope_hash("config", "meetings").unwrap(), habitat_core::hash(
+            serde_json::to_vec(&json!({"policy":"habitat-capture/1","indexConfig":"config","meetingsRoot":"meetings",
+            "excluded":[".notemd/* except settings/meetings","USER.md","MEMORY.md","AGENTS.md","CLAUDE.md","private runtime"]})).unwrap()));
+        for path in [
+            "USER.md",
+            "MEMORY.md",
+            "AGENTS.md",
+            "CLAUDE.md",
+            ".notemd/settings.json",
+            "notes/.credentials/token.md",
+            "notes/.local/a.md",
+        ] {
+            assert!(!knowledge_eligible(path), "{path}");
+        }
+        assert!(knowledge_eligible("notes/USER.md"));
+    }
+    #[test]
+    fn index_lag_cannot_publish_a_smaller_source_manifest() {
+        let (_temp, ctx) = fixture();
+        let source = source("note.md", "old body");
+        std::fs::write(ctx.root.join(&source.path), "old body").unwrap();
+        let mut file = indexed(&source);
+        let metadata = std::fs::metadata(ctx.root.join(&source.path)).unwrap();
+        file.size = metadata.len();
+        file.mtime = metadata
+            .modified()
+            .unwrap()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as i64;
+        // A legitimate edit happened before the index watcher updated its row.
+        std::fs::write(
+            ctx.root.join(&source.path),
+            "changed body with a different size",
+        )
+        .unwrap();
+        let captured = build_snapshot(
+            "notemd.habitat",
+            ctx.clone(),
+            None,
+            "2026-09-30".into(),
+            Capture {
+                files: vec![file],
+                indexed: 1,
+                undated: 1,
+                generation: "old-index".into(),
+            },
+        )
+        .unwrap();
+        assert_eq!(captured.coverage["stale"], 1);
+        assert!(captured.files.is_empty());
+        let reduced = graph(&ctx, vec![]);
+        // Exact matching to the filtered files alone would wrongly pass.
+        assert!(validate_knowledge_sources(&ctx, &captured.files, &reduced).is_ok());
+        assert!(validate_captured_knowledge(&ctx, &captured, &reduced)
+            .unwrap_err()
+            .contains("KNOWLEDGE_CAPTURE_STALE"));
     }
 }

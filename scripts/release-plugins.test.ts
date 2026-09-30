@@ -114,6 +114,24 @@ describe('release-plugins.sh packaging shape', () => {
     expect(packagingBody('release_codex_agent')).toContain('cargo build --release --locked')
   })
 
+  it('accepts HABITAT and builds both manifest targets with its matching backend and UI', () => {
+    const manifest = JSON.parse(readFileSync(join(ROOT, 'plugins-src/habitat/manifest.v2.json'), 'utf8'))
+    const ui = JSON.parse(readFileSync(join(ROOT, 'plugins-src/habitat/package.json'), 'utf8'))
+    const body = functionBody('release_habitat')
+    const shared = packagingBody('release_habitat')
+    const accepted = SCRIPT.match(/^    ([a-z0-9|_-]+)\) PLUGINS\+=/m)?.[1].split('|')
+    expect(accepted).toContain('habitat')
+    expect(table.get('habitat')).toBe('release_habitat')
+    expect(body).toContain(`release_native_ui "${manifest.id}" "$REPO_ROOT/plugins-src/habitat"`)
+    expect(body).toContain(`"notemd-habitat" "${ui.name}"`)
+    expect(Object.keys(manifest.binary).sort()).toEqual(['aarch64-apple-darwin', 'x86_64-apple-darwin'])
+    expect(Object.values(manifest.binary)).toEqual(['bin/notemd-habitat', 'bin/notemd-habitat'])
+    expect(shared).toContain('for triple in aarch64-apple-darwin x86_64-apple-darwin')
+    expect(shared).toContain('cargo build --release --locked')
+    expect(shared).toContain('cp -R "$src/dist/." "$stage/ui/"')
+    expect(shared).toContain('sign_pkg "$pkg"')
+  })
+
   it('does not ship Python interpreter caches from bundled Skills', () => {
     const body = functionBody('release_native_ui')
     expect(body).toContain('__pycache__')

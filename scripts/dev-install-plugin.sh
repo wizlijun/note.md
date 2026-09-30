@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Dev-install a v2 plugin into the local app-data plugins root.
 #
-# Usage: scripts/dev-install-plugin.sh [--release] [md2pdf|roam-import|apple-notes|meetings|strata|conversation-dictionary|openclaw|assistant-mail|cef|pos-log|decision-log|weekly-review|memory|claude-agent|codex-agent|deepseek-agent|ebook-import|typst-reader|idea-spark|next|power-mode|trace-source|timeline|index-viewer|knowledge-browser]
+# Usage: scripts/dev-install-plugin.sh [--release] [md2pdf|roam-import|apple-notes|meetings|strata|habitat|conversation-dictionary|openclaw|assistant-mail|cef|pos-log|decision-log|weekly-review|memory|claude-agent|codex-agent|deepseek-agent|ebook-import|typst-reader|idea-spark|next|power-mode|trace-source|timeline|index-viewer|knowledge-browser]
 #   default plugin = md2pdf (preserves the original behavior).
 #   --release      = build the native plugin binary in release mode (md2pdf +
 #                    openclaw; ignored for the pure-UI plugins).
@@ -44,8 +44,8 @@ PLUGIN=md2pdf
 for arg in "$@"; do
   case "$arg" in
     --release) PROFILE=release ;;
-    md2pdf|roam-import|apple-notes|meetings|strata|conversation-dictionary|openclaw|assistant-mail|cef|pos-log|decision-log|weekly-review|memory|claude-agent|codex-agent|deepseek-agent|ebook-import|typst-reader|idea-spark|next|power-mode|trace-source|timeline|index-viewer|knowledge-browser) PLUGIN="$arg" ;;
-    *) echo "unknown arg: $arg (expected --release | md2pdf | roam-import | apple-notes | meetings | strata | conversation-dictionary | openclaw | assistant-mail | cef | pos-log | decision-log | weekly-review | memory | claude-agent | codex-agent | deepseek-agent | ebook-import | typst-reader | idea-spark | next | power-mode | trace-source | timeline | index-viewer | knowledge-browser)" >&2; exit 2 ;;
+    md2pdf|roam-import|apple-notes|meetings|strata|habitat|conversation-dictionary|openclaw|assistant-mail|cef|pos-log|decision-log|weekly-review|memory|claude-agent|codex-agent|deepseek-agent|ebook-import|typst-reader|idea-spark|next|power-mode|trace-source|timeline|index-viewer|knowledge-browser) PLUGIN="$arg" ;;
+    *) echo "unknown arg: $arg (expected --release | md2pdf | roam-import | apple-notes | meetings | strata | habitat | conversation-dictionary | openclaw | assistant-mail | cef | pos-log | decision-log | weekly-review | memory | claude-agent | codex-agent | deepseek-agent | ebook-import | typst-reader | idea-spark | next | power-mode | trace-source | timeline | index-viewer | knowledge-browser)" >&2; exit 2 ;;
   esac
 done
 
@@ -137,6 +137,33 @@ elif [[ "$PLUGIN" == "strata" ]]; then
   ln -sfn "$VERSION" "$ROOT/notemd.strata/current"
   mark_installed "notemd.strata" "$VERSION"
   echo "✓ installed notemd.strata@$VERSION ($PROFILE, $(uname -m), backend + ui) → $DEST"
+
+elif [[ "$PLUGIN" == "habitat" ]]; then
+  SRC="plugins-src/habitat"
+  cargo build $([ "$PROFILE" = release ] && echo --release) \
+    --manifest-path "$SRC/backend/Cargo.toml" --bin notemd-habitat
+  pnpm --filter habitat-plugin build
+  VERSION=$(node -e "console.log(require('./$SRC/manifest.v2.json').version)")
+  DEST="$ROOT/notemd.habitat/$VERSION"
+  mkdir -p "$DEST/bin" "$DEST/ui"
+  cp "$SRC/backend/target/$PROFILE/notemd-habitat" "$DEST/bin/"
+  cp -R "$SRC/dist/." "$DEST/ui/"
+  cp "$SRC/manifest.v2.json" "$DEST/manifest.json"
+  # This development install targets the current source-built host only.
+  # Keep the source manifest's release minimum unchanged.
+  node --input-type=module - "$DEST/manifest.json" <<'HABITAT_DEV_MANIFEST'
+import { readFileSync, writeFileSync } from 'node:fs'
+const path = process.argv[2]
+const manifest = JSON.parse(readFileSync(path, 'utf8'))
+const version = JSON.parse(readFileSync('package.json', 'utf8')).version
+manifest.engines.notemd = `=${version}`
+writeFileSync(path, JSON.stringify(manifest, null, 2) + '\n')
+console.log(`HABITAT dev: installed manifest targets note.md =${version}; source manifest unchanged.`)
+console.log('仅用于包含新 host.knowledge.* 接口的本仓库源码宿主，不适用于同版本正式安装包。')
+HABITAT_DEV_MANIFEST
+  ln -sfn "$VERSION" "$ROOT/notemd.habitat/current"
+  mark_installed "notemd.habitat" "$VERSION"
+  echo "✓ installed notemd.habitat@$VERSION ($PROFILE, $(uname -m), backend + ui) → $DEST"
 
 elif [[ "$PLUGIN" == "conversation-dictionary" ]]; then
   SRC="plugins-src/conversation-dictionary"

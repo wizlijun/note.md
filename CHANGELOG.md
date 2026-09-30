@@ -7,6 +7,10 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+### Added
+
+- **HABITAT can build a knowledge city from your Vault.** The host now provides scoped access to source-checked index snapshots and a dedicated Git-backed knowledge-structure file. HABITAT 0.1.0 can generate a local structure, inspect its evidence and compare saved versions; Vault Sync protects pending writes and divergent histories. Install the plugin separately from the marketplace.
+
 ## v6.930.2 — 2026-09-30
 
 ### Fixed

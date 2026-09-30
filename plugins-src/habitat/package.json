@@ -1,0 +1,27 @@
+{
+  "name": "habitat-plugin",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "preview": "vite build && node scripts/preview.mjs",
+    "build": "vite build",
+    "check": "svelte-check --tsconfig ./tsconfig.json",
+    "test": "vitest run && node --test scripts/preview.test.mjs"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^5",
+    "@types/node": "^22.20.1",
+    "svelte": "^5",
+    "svelte-check": "^4",
+    "typescript": "^5",
+    "vite": "^6",
+    "vitest": "^4",
+    "jsdom": "^25",
+    "@types/three": "0.160.0"
+  },
+  "dependencies": {
+    "three": "0.160.0"
+  }
+}

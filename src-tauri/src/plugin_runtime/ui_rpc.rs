@@ -173,6 +173,14 @@ pub struct SaveOptions {
 /// `AppHandle` ([`TauriServices`]); tests inject stubs. `Send + Sync` so the
 /// trait object can cross the async boundary.
 pub trait HostServices: Send + Sync {
+    fn knowledge_request(
+        &self,
+        _plugin_id: &str,
+        _method: &str,
+        _params: &serde_json::Value,
+    ) -> Result<serde_json::Value, String> {
+        Err("KNOWLEDGE_UNAVAILABLE: 请使用支持知识历史的 note.md 宿主".into())
+    }
     fn index_request(&self, _plugin_id: &str, _method: &str, _params: &serde_json::Value) -> Result<serde_json::Value, String> {
         Err("INDEX_UNAVAILABLE".into())
     }
@@ -284,7 +292,9 @@ fn capability_denial(
     capabilities: &[String],
     id: Option<u64>,
 ) -> Option<proto::RpcResponse> {
-    match method_capability(method) {
+    match super::host_api::missing_knowledge_capability(method, capabilities)
+        .or_else(|| method_capability(method))
+    {
         Some("__unknown__") => Some(err(
             id,
             proto::ERR_METHOD_NOT_FOUND,
@@ -335,6 +345,24 @@ pub async fn dispatch<R: tauri::Runtime>(
     }
 
     use tauri::Manager;
+
+    if req.method.starts_with("host.knowledge.") {
+        if let Some(denial) = capability_denial(&req.method, capabilities, req.id) {
+            return denial;
+        }
+        let app = app.clone();
+        let plugin = plugin_id.to_string();
+        let id = req.id;
+        return match tauri::async_runtime::spawn_blocking(move || {
+            super::knowledge_api::dispatch(&app, &plugin, &req.method, &req.params)
+        })
+        .await
+        {
+            Ok(Ok(value)) => ok(id, value),
+            Ok(Err(detail)) => err(id, proto::ERR_INTERNAL, detail),
+            Err(error) => err(id, proto::ERR_INTERNAL, error.to_string()),
+        };
+    }
 
     if matches!(req.method.as_str(), "host.index.snapshot" | "host.index.blocks" | "host.index.status") {
         if let Some(denial) = capability_denial(&req.method, capabilities, req.id) { return denial; }
@@ -525,7 +553,9 @@ pub async fn dispatch_with(
     let id = req.id;
 
     // Capability gate — identical to host_api::make_sink.
-    match method_capability(&req.method) {
+    match super::host_api::missing_knowledge_capability(&req.method, capabilities)
+        .or_else(|| method_capability(&req.method))
+    {
         Some("__unknown__") => {
             return err(
                 id,
@@ -553,6 +583,7 @@ pub async fn dispatch_with(
 
     let out: Result<serde_json::Value, String> = match req.method.as_str() {
         "host.index.snapshot" | "host.index.blocks" | "host.index.status" => services.index_request(plugin_id, &req.method, &req.params),
+        "host.knowledge.load" | "host.knowledge.history" | "host.knowledge.read" | "host.knowledge.save" | "host.knowledge.recover" | "host.knowledge.discard" => services.knowledge_request(plugin_id, &req.method, &req.params),
         "host.dialog.open" => dialog_open(services, plugin_id, &req.params),
         "host.dialog.save" => dialog_save(services, plugin_id, &req.params),
         "host.fs.read_text" => fs_read_text(plugin_id, &req.params),
@@ -736,13 +767,14 @@ fn clipboard_write(
 pub(crate) fn vault_info(services: &dyn HostServices) -> serde_json::Value {
     match services.vault_root() {
         None => serde_json::json!({
-            "root": null, "wiki_dir": null, "daily_dir": null,
+            "root": null, "vaultKey": null, "wiki_dir": null, "daily_dir": null,
             "author": crate::okf::human_actor_for_vault(None),
         }),
         Some(root) => {
             let (wiki, daily) = services.wiki_daily_dirs();
             serde_json::json!({
                 "root": root.to_string_lossy(),
+                "vaultKey": std::fs::canonicalize(&root).ok().map(|p| habitat_core::hash(p.to_string_lossy().as_bytes())),
                 "wiki_dir": wiki.unwrap_or_else(|| DEFAULT_WIKI_DIR.into()),
                 "daily_dir": daily.unwrap_or_else(|| DEFAULT_DAILY_DIR.into()),
                 "author": crate::okf::human_actor_for_vault(Some(root.as_path())),
@@ -1287,6 +1319,14 @@ impl<R: tauri::Runtime> TauriServices<R> {
 }
 
 impl<R: tauri::Runtime> HostServices for TauriServices<R> {
+    fn knowledge_request(
+        &self,
+        plugin_id: &str,
+        method: &str,
+        params: &serde_json::Value,
+    ) -> Result<serde_json::Value, String> {
+        super::knowledge_api::dispatch(&self.app, plugin_id, method, params)
+    }
     fn index_request(&self, plugin_id: &str, method: &str, params: &serde_json::Value) -> Result<serde_json::Value, String> {
         super::index_api::dispatch(&self.app, plugin_id, method, params)
     }
@@ -2369,8 +2409,17 @@ mod tests {
         let r = run(&s, &["vault.read"], "host.vault.info", serde_json::json!({})).await;
         let res = r.result.unwrap();
         assert_eq!(res["root"], dir.path().to_string_lossy().to_string());
+        assert_eq!(res["vaultKey"], habitat_core::hash(std::fs::canonicalize(dir.path()).unwrap().to_string_lossy().as_bytes()));
         assert_eq!(res["wiki_dir"], "wiki");
         assert_eq!(res["daily_dir"], "journal");
+    }
+
+    #[tokio::test]
+    async fn vault_info_key_matches_canonical_path_even_with_a_path_alias() {
+        let dir = tempfile::tempdir().unwrap();
+        let s = StubServices { vault: Some(dir.path().join(".")), ..Default::default() };
+        let r = run(&s, &["vault.read"], "host.vault.info", serde_json::json!({})).await;
+        assert_eq!(r.result.unwrap()["vaultKey"], habitat_core::hash(std::fs::canonicalize(dir.path()).unwrap().to_string_lossy().as_bytes()));
     }
 
     #[tokio::test]
@@ -2389,6 +2438,7 @@ mod tests {
         let r = run(&s, &["vault.read"], "host.vault.info", serde_json::json!({})).await;
         let res = r.result.unwrap();
         assert!(res["root"].is_null());
+        assert!(res["vaultKey"].is_null());
         assert!(res["wiki_dir"].is_null());
         assert!(res["daily_dir"].is_null());
     }

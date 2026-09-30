@@ -27,6 +27,24 @@ pub type ToastEmitter = Arc<dyn Fn(serde_json::Value) + Send + Sync>;
 /// `windows::push_to_window`; in tests it records `(window_id, payload)`.
 pub type UiPoster = Arc<dyn Fn(&str, &serde_json::Value) + Send + Sync>;
 
+/// Knowledge snapshots have compound permissions: saving captures index data
+/// and writes the Vault, while reading history only needs Vault access.
+pub(crate) fn missing_knowledge_capability(
+    method: &str,
+    capabilities: &[String],
+) -> Option<&'static str> {
+    let required: &[&str] = match method {
+        "host.knowledge.save" => &["vault.read", "vault.write", "index.read"],
+        "host.knowledge.recover" | "host.knowledge.discard" => &["vault.read", "vault.write"],
+        "host.knowledge.load" | "host.knowledge.history" | "host.knowledge.read" => &["vault.read"],
+        _ => &[],
+    };
+    required
+        .iter()
+        .copied()
+        .find(|cap| !capabilities.iter().any(|value| value == cap))
+}
+
 /// 方法所需 capability；`None` = 免授权（spec §5 表）。
 /// 进程侧（make_sink）与 UI 侧（ui_rpc::dispatch）共用同一张表。
 pub fn method_capability(method: &str) -> Option<&'static str> {
@@ -34,6 +52,12 @@ pub fn method_capability(method: &str) -> Option<&'static str> {
         "host.log.info" | "host.log.warn" | "host.log.error" => None,
         "host.toast" => Some("toast"),
         "host.index.snapshot" | "host.index.blocks" | "host.index.status" => Some("index.read"),
+        "host.knowledge.load" | "host.knowledge.history" | "host.knowledge.read" => {
+            Some("vault.read")
+        }
+        "host.knowledge.save" | "host.knowledge.recover" | "host.knowledge.discard" => {
+            Some("vault.write")
+        }
         // 子项目②b: plugin process → its own window push.
         "host.ui.post" => Some("ui"),
         "host.dialog.open" | "host.dialog.save" => Some("dialog"),
@@ -171,7 +195,9 @@ pub fn make_sink(
             })
         };
 
-        match method_capability(&req.method) {
+        match missing_knowledge_capability(&req.method, &capabilities)
+            .or_else(|| method_capability(&req.method))
+        {
             Some("__unknown__") => {
                 // Notification: silent no-op (no id to respond to)
                 req.id.and_then(|id| {
@@ -217,6 +243,7 @@ pub fn make_sink(
                             let s: &dyn rpc::HostServices = svc.as_ref();
                             match req.method.as_str() {
                                 "host.index.snapshot" | "host.index.blocks" | "host.index.status" => Some(s.index_request(&plugin_id, &req.method, &req.params)),
+                                "host.knowledge.load" | "host.knowledge.history" | "host.knowledge.read" | "host.knowledge.save" | "host.knowledge.recover" | "host.knowledge.discard" => Some(s.knowledge_request(&plugin_id, &req.method, &req.params)),
                                 "host.vault.info" => Some(Ok(rpc::vault_info(s))),
                                 "host.vault.read" => Some(rpc::vault_read(s, &req.params)),
                                 "host.vault.read_bytes" => Some(rpc::vault_read_bytes(s, &req.params)),
@@ -545,6 +572,8 @@ mod tests {
 
     #[test]
     fn method_capability_table() {
+        assert_eq!(method_capability("host.knowledge.history"), Some("vault.read"));
+        assert_eq!(method_capability("host.knowledge.save"), Some("vault.write"));
         assert_eq!(method_capability("host.log.info"), None);
         assert_eq!(method_capability("host.log.warn"), None);
         assert_eq!(method_capability("host.log.error"), None);
@@ -820,6 +849,15 @@ mod tests {
     /// `agent_execute`/`notify_user` 调用，供 host.agent.*/host.notify 测试断言。
     struct ServicesStub(std::path::PathBuf, Arc<Mutex<Vec<(String, serde_json::Value)>>>);
     impl crate::plugin_runtime::ui_rpc::HostServices for ServicesStub {
+        fn knowledge_request(
+            &self,
+            plugin_id: &str,
+            method: &str,
+            params: &serde_json::Value,
+        ) -> Result<serde_json::Value, String> {
+            self.1.lock().unwrap().push((method.into(), params.clone()));
+            Ok(serde_json::json!({"pluginId": plugin_id, "method": method}))
+        }
         fn index_request(&self, plugin_id: &str, method: &str, params: &serde_json::Value) -> Result<serde_json::Value, String> {
             self.1.lock().unwrap().push((method.into(), params.clone()));
             Ok(serde_json::json!({"pluginId":plugin_id,"method":method}))
@@ -1144,6 +1182,52 @@ mod tests {
             assert_eq!(ui.error.unwrap().code,proto::ERR_CAPABILITY_DENIED);
         }
         assert_eq!(calls.lock().unwrap().len(),6,"denied calls never reach the service");
+    }
+
+    #[tokio::test]
+    async fn knowledge_methods_require_every_capability_on_both_bridges() {
+        let dir = tempfile::tempdir().unwrap();
+        let calls = Arc::new(Mutex::new(Vec::new()));
+        let services = Arc::new(ServicesStub(dir.path().to_path_buf(), calls.clone()));
+        let cases: &[(&str, &[&str])] = &[
+            ("host.knowledge.load", &["vault.read"]),
+            ("host.knowledge.history", &["vault.read"]),
+            ("host.knowledge.read", &["vault.read"]),
+            ("host.knowledge.save", &["vault.read", "vault.write", "index.read"]),
+            ("host.knowledge.recover", &["vault.read", "vault.write"]),
+            ("host.knowledge.discard", &["vault.read", "vault.write"]),
+        ];
+        let (emitter, _) = recording_emitter();
+        for &(method, required) in cases {
+            let granted: Vec<String> = required.iter().map(|cap| (*cap).to_string()).collect();
+            let sink = make_sink(
+                "notemd.habitat".into(), granted.clone(), dir.path().to_path_buf(),
+                emitter.clone(), noop_poster(), Some(services.clone()),
+            );
+            let native = sink(req(method, Some(1), serde_json::json!({}))).unwrap();
+            let ui = crate::plugin_runtime::ui_rpc::dispatch_with(
+                services.as_ref(), "notemd.habitat", &granted,
+                req(method, Some(1), serde_json::json!({})), dir.path(), &emitter,
+            ).await;
+            assert_eq!(native.result, ui.result, "{method}");
+            assert!(native.error.is_none(), "{method}");
+
+            for omitted in required {
+                let denied: Vec<String> = granted.iter().filter(|cap| cap.as_str() != *omitted).cloned().collect();
+                let sink = make_sink(
+                    "notemd.habitat".into(), denied.clone(), dir.path().to_path_buf(),
+                    emitter.clone(), noop_poster(), Some(services.clone()),
+                );
+                let native = sink(req(method, Some(2), serde_json::json!({}))).unwrap();
+                let ui = crate::plugin_runtime::ui_rpc::dispatch_with(
+                    services.as_ref(), "notemd.habitat", &denied,
+                    req(method, Some(2), serde_json::json!({})), dir.path(), &emitter,
+                ).await;
+                assert_eq!(native.error.unwrap().code, proto::ERR_CAPABILITY_DENIED, "{method} missing {omitted}");
+                assert_eq!(ui.error.unwrap().code, proto::ERR_CAPABILITY_DENIED, "{method} missing {omitted}");
+            }
+        }
+        assert_eq!(calls.lock().unwrap().len(), cases.len() * 2);
     }
 
 }

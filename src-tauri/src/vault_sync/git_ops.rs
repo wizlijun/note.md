@@ -109,7 +109,13 @@ pub fn fetch(repo: &Path, remote: &str, branch: &str) -> GitResult<()> {
 /// git add -A,然后把超阈值文件撤出暂存(仍留在工作区),返回被排除清单。
 fn stage_except_oversized(repo: &Path) -> GitResult<Vec<String>> {
     let oversized = super::large_files::detect_oversized(repo)?;
-    run_git(repo, &["add", "-A"])?;
+    // A crash may leave a same-directory atomic-write temporary behind. The
+    // watcher filter is insufficient: timer-driven sync also stages files.
+    let staged_temporaries = run_git(repo, &["ls-files", "--", ":(glob).notemd/habitat/.knowledge-structure-*.tmp"])?;
+    if !staged_temporaries.is_empty() {
+        return Err("KNOWLEDGE_STRUCTURE_PENDING: a reserved snapshot temporary is already tracked/staged".into());
+    }
+    run_git(repo, &["add", "-A", "--", ".", crate::knowledge_structure::TEMP_EXCLUDE_PATHSPEC])?;
     for f in &oversized {
         let _ = run_git(repo, &["reset", "--", f]);
     }
@@ -179,6 +185,7 @@ pub fn sync(repo: &Path, remote: &str, branch: &str) -> GitResult<SyncReport> {
         // one lock boundary, so the commit cannot knowingly contain an older
         // projection than its authoritative YAML collection.
         reconcile_memory_v2(repo)?;
+        crate::knowledge_structure::guard_before_sync_commit(repo)?;
 
         // ① 本地改动先入库。此后工作区干净,后续步骤无须触碰用户正在编辑的文件。
         if has_changes(repo)? {
@@ -206,6 +213,7 @@ pub fn sync(repo: &Path, remote: &str, branch: &str) -> GitResult<SyncReport> {
         // A Memory RPC may have completed while fetch was in flight. Commit
         // that lock-consistent snapshot before touching the worktree by merge.
         reconcile_memory_v2(repo)?;
+        crate::knowledge_structure::guard_before_sync_commit(repo)?;
         if has_changes(repo)? {
             let more = stage_except_oversized(repo)?;
             for file in more {
@@ -221,6 +229,7 @@ pub fn sync(repo: &Path, remote: &str, branch: &str) -> GitResult<SyncReport> {
             }
         }
         let upstream = format!("{remote}/{branch}");
+        crate::knowledge_structure::guard_before_sync_merge(repo, &upstream)?;
         let can_fast_forward =
             run_git(repo, &["merge-base", "--is-ancestor", "HEAD", &upstream]).is_ok();
         if can_fast_forward {
@@ -518,6 +527,30 @@ mod gate_tests {
     }
 
     #[test]
+    fn sync_never_stages_snapshot_atomic_write_temporaries() {
+        let dir = init_repo();
+        std::fs::create_dir_all(dir.path().join(".notemd/habitat")).unwrap();
+        std::fs::write(dir.path().join(".notemd/habitat/.knowledge-structure-crashed.tmp"), "partial snapshot").unwrap();
+        std::fs::write(dir.path().join("note.md"), "user note").unwrap();
+        sync(dir.path(), "origin", "main").unwrap();
+        let tree = run_git(dir.path(), &["ls-tree", "-r", "--name-only", "HEAD"]).unwrap();
+        assert!(tree.contains("note.md"));
+        assert!(!tree.contains("knowledge-structure"));
+        assert!(dir.path().join(".notemd/habitat/.knowledge-structure-crashed.tmp").exists());
+    }
+
+    #[test]
+    fn sync_rejects_unknown_structure_working_edits_before_staging() {
+        let dir = init_repo();
+        std::fs::create_dir_all(dir.path().join(".notemd/habitat")).unwrap();
+        std::fs::write(dir.path().join(habitat_core::SNAPSHOT_PATH), "unknown structure edit").unwrap();
+        let error = sync(dir.path(), "origin", "main").unwrap_err();
+        assert!(error.contains("KNOWLEDGE_STRUCTURE_PENDING"), "{error}");
+        assert!(run_git(dir.path(), &["rev-parse", "--verify", "HEAD"]).is_err());
+        assert_eq!(std::fs::read_to_string(dir.path().join(habitat_core::SNAPSHOT_PATH)).unwrap(), "unknown structure edit");
+    }
+
+    #[test]
     fn sync_fails_closed_when_memory_v2_is_partially_activated() {
         let dir = init_repo();
         std::fs::create_dir_all(dir.path().join(".notemd/memory/claims/aa")).unwrap();
@@ -559,6 +592,36 @@ mod gate_tests {
     }
 
     #[test]
+    fn sync_preserves_both_divergent_structure_snapshots_without_running_text_merge() {
+        use crate::knowledge_structure::store::tests::snapshot;
+        let root = TempDir::new().unwrap();
+        let (work, bare) = init_remote_pair(root.path());
+        let base = snapshot("base", None);
+        std::fs::create_dir_all(work.join(".notemd/habitat")).unwrap();
+        std::fs::write(work.join(habitat_core::SNAPSHOT_PATH), habitat_core::encode(&base).unwrap()).unwrap();
+        git(&work, &["add", "--", habitat_core::SNAPSHOT_PATH]);
+        git(&work, &["commit", "-q", "-m", "structure baseline"]);
+        git(&work, &["push", "-q", "origin", "main"]);
+        let theirs = snapshot("remote concept", Some(&base));
+        push_from_other_device(root.path(), habitat_core::SNAPSHOT_PATH,
+            &habitat_core::encode(&theirs).unwrap());
+        let ours = snapshot("local concept", Some(&base));
+        let ours_bytes = habitat_core::encode(&ours).unwrap();
+        std::fs::write(work.join(habitat_core::SNAPSHOT_PATH), &ours_bytes).unwrap();
+        git(&work, &["add", "--", habitat_core::SNAPSHOT_PATH]);
+        git(&work, &["commit", "-q", "-m", "local structure"]);
+        let before = run_git(&work, &["rev-parse", "HEAD"]).unwrap();
+        let error = sync(&work, "origin", "main").unwrap_err();
+        assert!(error.contains("KNOWLEDGE_STRUCTURE_CONFLICT"), "{error}");
+        assert_eq!(run_git(&work, &["rev-parse", "HEAD"]).unwrap(), before);
+        assert_eq!(std::fs::read(work.join(habitat_core::SNAPSHOT_PATH)).unwrap(), ours_bytes);
+        assert!(!work.join(".git/MERGE_HEAD").exists());
+        let remote = std::process::Command::new("git").current_dir(&bare).args(["show", &format!("main:{}", habitat_core::SNAPSHOT_PATH)]).output().unwrap();
+        assert!(remote.status.success());
+        assert_eq!(habitat_core::decode(&remote.stdout).unwrap().meta.snapshot_id, theirs.meta.snapshot_id);
+    }
+
+    #[test]
     fn push_failure_then_clean_cycle_retries_push() {
         let root = TempDir::new().unwrap();
         let (work, bare) = init_remote_pair(root.path());
@@ -589,7 +652,7 @@ mod gate_tests {
     }
 
     /// 另一设备推进一个改动 `note.md` 的提交,返回该 clone 的路径。
-    fn push_from_other_device(root: &std::path::Path, file: &str, content: &str) {
+    fn push_from_other_device(root: &std::path::Path, file: &str, content: impl AsRef<[u8]>) {
         let other = root.join("other");
         if !other.exists() {
             git(root, &["clone", "-q", "remote.git", "other"]);
