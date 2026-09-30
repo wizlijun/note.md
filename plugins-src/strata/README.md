@@ -16,9 +16,13 @@
 
 会议概览以山体和山群标签表达聚合，不铺满知识点阵。展开到知识层后，仅显示成功放置标签的少量标记，保持屏幕间距；选中知识用空心环定位。全部知识与关系仍可从目录访问，标记抽样不会删除知识、改变地形贡献或缓存布局。
 
+## 三维局部构图
+
+0.1.6 修正展开知识群后的局部三维取景：相机按裁切范围的真实起伏和中高构图，隐藏局部切面的侧壁、底座和背景地板，避免把高海拔的一小块坡面显示成远处的窄柱。全景构图保持原样；局部仍使用同一高度场与固定高程，不拉平、夸大或重新归一山高，也不改变日期贡献与知识坐标。本轮数值回归和原生近景验收仍在进行。
+
 ## 运行前提
 
-STRATA 0.1.5 要求 **note.md 6.930.2 或更新版本**，包含大 Vault 流式快照修复，使用 note.md 6.930.1 新增的 `host.index.*` v1 / `index.read`。manifest 的 `engines.notemd: >=6.930.2` 同时约束市场版本选择和安装；6.929.1 及更早宿主不具备这些接口。索引 schema 从 6 升至 7，首次运行沿用宿主现有索引重建流程；未就绪会显示 `INDEX_NOT_READY`，待正常索引完成后刷新。
+STRATA 0.1.6 要求 **note.md 6.930.2 或更新版本**，包含大 Vault 流式快照修复，使用 note.md 6.930.1 新增的 `host.index.*` v1 / `index.read`。manifest 的 `engines.notemd: >=6.930.2` 同时约束市场版本选择和安装；6.929.1 及更早宿主不具备这些接口。索引 schema 从 6 升至 7，首次运行沿用宿主现有索引重建流程；未就绪会显示 `INDEX_NOT_READY`，待正常索引完成后刷新。
 
 「全 Vault 索引」首次打开只读取已授权索引元数据，在本地 Worker 中聚类、生成候选地形。使用「设置 → 从原文深读」明确选择 Agent、文档数与正文预算，才发送当前日期范围内的原文。深读需安装包含 `strata-extract-v1` 的配套 provider：Claude Agent 1.0.32、Codex Agent 1.0.19 或 DeepSeek Agent 1.1.18（及后续兼容版本）。界面仍检查实际任务与输入隔离能力；旧 provider 会禁用深读，本地候选浏览仍可用。「会议知识」直接读取本地已有提取结果，不提供深读入口，也不调用 Agent。
 
@@ -81,7 +85,7 @@ python3 plugins-src/strata/backend/tests/protocol_smoke.py
 pnpm check:protocol
 ```
 
-本地开发安装沿用 `bash scripts/dev-install-plugin.sh strata`；需先运行 note.md 6.930.2 或更新宿主，不会自动更新正在运行的旧宿主。双架构签名打包用 `bash scripts/release-plugins.sh strata`，输出 `dist-plugins/notemd.strata/0.1.5/`，该脚本不上传。正式发布须先完成兼容宿主的公开发行，再沿用仓库既有流程发布目标插件；0.1.5 验证正在进行，本文件中的版本要求与本地构建步骤不代表公网发布已经完成。
+本地开发安装沿用 `bash scripts/dev-install-plugin.sh strata`；需先运行 note.md 6.930.2 或更新宿主，不会自动更新正在运行的旧宿主。双架构签名打包用 `bash scripts/release-plugins.sh strata`，输出 `dist-plugins/notemd.strata/0.1.6/`，该脚本不上传。正式发布须先完成兼容宿主的公开发行，再沿用仓库既有流程发布目标插件；0.1.6 验证正在进行，本文件中的版本要求与本地构建步骤不代表公网发布已经完成。
 
 macOS 原生协议/GPU 验证：`node plugins-src/strata/scripts/check-webkit-worker.mjs`；独立交互窗口：`node plugins-src/strata/scripts/open-webkit-fixture.mjs`。两者均使用临时非持久 WebKit 与合成 RPC，不触碰宿主配置。
 

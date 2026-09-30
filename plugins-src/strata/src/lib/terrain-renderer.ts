@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import type { ContourMultiPolygon } from 'd3-contour'
 import { traceContour, elevation } from './contour-path'
 
-export interface CameraView { yaw: number; pitch: number; distance: number; targetX: number; targetY: number }
+export interface CameraView { yaw: number; pitch: number; distance: number; targetX: number; targetY: number; zoom?: number }
 export interface TerrainRenderOptions {
   field: Float32Array
   grid: { width: number; height: number; bounds?: { width: number; height: number } }
@@ -222,7 +222,11 @@ export function createTerrain3D(canvas: HTMLCanvasElement, getInk: (token: strin
     const nextSpanX = grid.bounds?.width ?? 1, nextSpanY = grid.bounds?.height ?? 1;
     if (spanX !== nextSpanX || spanY !== nextSpanY) renderer.shadowMap.needsUpdate = true;
     spanX = nextSpanX; spanY = nextSpanY;
+    const focused = spanX < 1 || spanY < 1;
     for (const mesh of [terrain, skirt, slab]) mesh.scale.set(spanX, 1, spanY);
+    // A cropped high-altitude patch is a surface detail, not a new mountain from zero.
+    // Keep its true Y coordinates; omit the artificial full-height wall and ground.
+    skirt.visible = slab.visible = ground.visible = !focused;
 
     const bg = ink('--st-bg', '#f5f4ed');
     const low = ink('--st-terrain-low', '#b8c99b');
@@ -260,10 +264,13 @@ export function createTerrain3D(canvas: HTMLCanvasElement, getInk: (token: strin
       camera.aspect = width / height; camera.updateProjectionMatrix();
     }
     const tx = clamp(finite(view.targetX, 0.5), 0, 1), ty = clamp(finite(view.targetY, 0.5), 0, 1);
-    target.set((tx - 0.5) * worldWidth * spanX, Math.min(.8, elevation(heightAt(tx, ty)) * verticalScale * .5) + .12, (ty - 0.5) * worldDepth * spanY);
+    const heightBounds = geometry.boundingBox!;
+    const targetHeight = focused ? (heightBounds.min.y + heightBounds.max.y) / 2 : Math.min(.8, elevation(heightAt(tx, ty)) * verticalScale * .5) + .12;
+    target.set((tx - 0.5) * worldWidth * spanX, targetHeight, (ty - 0.5) * worldDepth * spanY);
     const yaw = finite(view.yaw, -0.38);
     const pitch = clamp(finite(view.pitch, 0.72), 0.12, Math.PI / 2 - 0.025);
-    const distance = clamp(finite(view.distance, 14), .25, 36);
+    const localDistance = Math.max(14 * Math.max(spanX, spanY), 2.8 * (heightBounds.max.y - heightBounds.min.y)) * Math.max(1, .85 / camera.aspect) / clamp(finite(view.zoom ?? 1, 1), 1, 6);
+    const distance = clamp(focused ? localDistance : finite(view.distance, 14), .25, 36);
     const horizontal = Math.cos(pitch) * distance;
     camera.position.set(target.x + Math.sin(yaw) * horizontal,
       target.y + Math.sin(pitch) * distance, target.z + Math.cos(yaw) * horizontal);

@@ -254,7 +254,7 @@
     if (view === '3d') {
       try {
         three ??= createTerrain3D(mountain, ink)
-        three.render({ field: result.field, grid: result.grid, contours: result.contours, levels: result.levels, view: { ...camera, distance: Math.max(14 * Math.max(result.grid.bounds.width, result.grid.bounds.height), 2.8 * elevation(peakMaximum) * verticalScale) * Math.max(1, .85 / (w / h)) / zoom }, verticalScale, contourOpacity: .65, detail: Math.ceil(result.contours.length / step) })
+        three.render({ field: result.field, grid: result.grid, contours: result.contours, levels: result.levels, view: { ...camera, zoom, distance: Math.max(14 * Math.max(result.grid.bounds.width, result.grid.bounds.height), 2.8 * elevation(peakMaximum) * verticalScale) * Math.max(1, .85 / (w / h)) / zoom }, verticalScale, contourOpacity: .65, detail: Math.ceil(result.contours.length / step) })
       } catch (error) { three?.dispose(); three = null; onview('2d'); onerror('三维暂不可用，已切换到同一地形的等高线。'); return }
     } else {
       ctx.fillStyle = ink('--st-bg'); ctx.fillRect(0, 0, w, h)
