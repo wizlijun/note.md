@@ -31,6 +31,12 @@ pub const GOVERNED_DOCUMENT_REVIEW_CLAUDE_SETTINGS_JSON: &str = include_str!(
     "../templates/governed-document-review/claude-settings.json"
 );
 
+pub const STRATA_EXTRACT_TASK: &str = "strata-extract-v1";
+pub const STRATA_EXTRACT_TASK_JSON: &str = include_str!("../templates/strata-extract-v1/task.json");
+pub const STRATA_EXTRACT_INSTRUCTIONS: &str = include_str!("../templates/strata-extract-v1/INSTRUCTIONS.md");
+pub const STRATA_EXTRACT_POLICY_JSON: &str = include_str!("../templates/strata-extract-v1/policy.json");
+pub const STRATA_EXTRACT_CLAUDE_SETTINGS_JSON: &str = include_str!("../templates/strata-extract-v1/claude-settings.json");
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TaskDef {
     /// The directory name. Filled in from disk; serialized out to the window.

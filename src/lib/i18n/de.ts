@@ -287,6 +287,7 @@ export const de: Record<keyof Messages, string> = {
   'capability.secrets': 'Geheimnisse speichern und lesen (API-Schlüssel, Token)',
   'capability.storage': 'Plugin-Daten auf diesem Gerät speichern',
   'capability.vault.read': 'Dateien in Ihrem Tresor lesen',
+  'capability.index.read': 'Vault-Index und Quellen im ausgewählten Bereich lesen',
   'capability.vault.write': 'Dateien in Ihrem Tresor erstellen, ändern, löschen und verschieben',
   'capability.memory.control': 'Kontrollierte USER/MEMORY-Änderungen prüfen und anwenden',
   'capability.dialog': 'Datei-Öffnen-/Speichern-Dialoge anzeigen',

@@ -30,6 +30,614 @@
       "title": "ExecuteCommandParams",
       "type": "object"
     },
+    "plugin_protocol::IndexBlocksParams": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "additionalProperties": false,
+      "properties": {
+        "cursor": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "fileKeys": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "maxBytes": {
+          "format": "uint",
+          "minimum": 0.0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "snapshotId": {
+          "type": "string"
+        },
+        "version": {
+          "format": "uint32",
+          "minimum": 0.0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "fileKeys",
+        "snapshotId",
+        "version"
+      ],
+      "title": "IndexBlocksParams",
+      "type": "object"
+    },
+    "plugin_protocol::IndexBlocksResult": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "definitions": {
+        "IndexConflict": {
+          "properties": {
+            "fileKey": {
+              "type": "string"
+            },
+            "reason": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "fileKey",
+            "reason"
+          ],
+          "type": "object"
+        },
+        "IndexPriorityFactors": {
+          "properties": {
+            "agent": {
+              "format": "double",
+              "type": "number"
+            },
+            "annotation": {
+              "format": "double",
+              "type": "number"
+            },
+            "attention": {
+              "format": "double",
+              "type": "number"
+            },
+            "freshness": {
+              "format": "double",
+              "type": "number"
+            },
+            "origin": {
+              "format": "double",
+              "type": "number"
+            },
+            "structural": {
+              "format": "double",
+              "type": "number"
+            },
+            "verified": {
+              "format": "double",
+              "type": "number"
+            }
+          },
+          "required": [
+            "agent",
+            "annotation",
+            "attention",
+            "freshness",
+            "origin",
+            "structural",
+            "verified"
+          ],
+          "type": "object"
+        },
+        "IndexUnit": {
+          "properties": {
+            "agentBy": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "blockKey": {
+              "type": "string"
+            },
+            "breadcrumb": {
+              "type": "string"
+            },
+            "contentHash": {
+              "type": "string"
+            },
+            "fileKey": {
+              "type": "string"
+            },
+            "isAnnotation": {
+              "type": "boolean"
+            },
+            "level": {
+              "type": "string"
+            },
+            "lineEnd": {
+              "format": "uint32",
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "lineStart": {
+              "format": "uint32",
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "priority": {
+              "format": "double",
+              "type": "number"
+            },
+            "priorityFactors": {
+              "$ref": "#/definitions/IndexPriorityFactors"
+            },
+            "text": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "blockKey",
+            "breadcrumb",
+            "contentHash",
+            "fileKey",
+            "isAnnotation",
+            "level",
+            "lineEnd",
+            "lineStart",
+            "priority",
+            "priorityFactors",
+            "text"
+          ],
+          "type": "object"
+        }
+      },
+      "properties": {
+        "conflicts": {
+          "items": {
+            "$ref": "#/definitions/IndexConflict"
+          },
+          "type": "array"
+        },
+        "nextCursor": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "snapshotId": {
+          "type": "string"
+        },
+        "units": {
+          "items": {
+            "$ref": "#/definitions/IndexUnit"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "conflicts",
+        "snapshotId",
+        "units"
+      ],
+      "title": "IndexBlocksResult",
+      "type": "object"
+    },
+    "plugin_protocol::IndexSnapshotParams": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "additionalProperties": false,
+      "definitions": {
+        "IndexRange": {
+          "additionalProperties": false,
+          "properties": {
+            "dateKind": {
+              "type": "string"
+            },
+            "from": {
+              "type": "string"
+            },
+            "to": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "dateKind",
+            "from",
+            "to"
+          ],
+          "type": "object"
+        }
+      },
+      "properties": {
+        "cursor": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "pageSize": {
+          "format": "uint",
+          "minimum": 0.0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "range": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/IndexRange"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "version": {
+          "format": "uint32",
+          "minimum": 0.0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "version"
+      ],
+      "title": "IndexSnapshotParams",
+      "type": "object"
+    },
+    "plugin_protocol::IndexSnapshotResult": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "definitions": {
+        "IndexCoverage": {
+          "properties": {
+            "excluded": {
+              "format": "uint",
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "indexed": {
+              "format": "uint",
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "selected": {
+              "format": "uint",
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "skipped": {
+              "format": "uint",
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "stale": {
+              "format": "uint",
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "undated": {
+              "format": "uint",
+              "minimum": 0.0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "excluded",
+            "indexed",
+            "selected",
+            "skipped",
+            "stale",
+            "undated"
+          ],
+          "type": "object"
+        },
+        "IndexFile": {
+          "properties": {
+            "attentionMinutes": {
+              "format": "double",
+              "type": "number"
+            },
+            "conceptType": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "confidentiality": {
+              "type": "string"
+            },
+            "contentHash": {
+              "type": "string"
+            },
+            "dateInferred": {
+              "type": "boolean"
+            },
+            "docDate": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "fileKey": {
+              "type": "string"
+            },
+            "filePriority": {
+              "format": "double",
+              "type": "number"
+            },
+            "humanVerified": {
+              "type": "boolean"
+            },
+            "indexOrigin": {
+              "type": "string"
+            },
+            "links": {
+              "items": {
+                "$ref": "#/definitions/IndexLink"
+              },
+              "type": "array"
+            },
+            "path": {
+              "type": "string"
+            },
+            "priorityBasis": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/IndexPriorityBasis"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "tags": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "title": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "attentionMinutes",
+            "confidentiality",
+            "contentHash",
+            "dateInferred",
+            "fileKey",
+            "filePriority",
+            "humanVerified",
+            "indexOrigin",
+            "links",
+            "path",
+            "tags"
+          ],
+          "type": "object"
+        },
+        "IndexLink": {
+          "properties": {
+            "kind": {
+              "type": "string"
+            },
+            "line": {
+              "format": "uint32",
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "target": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "line",
+            "target"
+          ],
+          "type": "object"
+        },
+        "IndexPriorityBasis": {
+          "properties": {
+            "aggregation": {
+              "type": "string"
+            },
+            "blockKey": {
+              "type": "string"
+            },
+            "factors": {
+              "$ref": "#/definitions/IndexPriorityFactors"
+            }
+          },
+          "required": [
+            "aggregation",
+            "blockKey",
+            "factors"
+          ],
+          "type": "object"
+        },
+        "IndexPriorityFactors": {
+          "properties": {
+            "agent": {
+              "format": "double",
+              "type": "number"
+            },
+            "annotation": {
+              "format": "double",
+              "type": "number"
+            },
+            "attention": {
+              "format": "double",
+              "type": "number"
+            },
+            "freshness": {
+              "format": "double",
+              "type": "number"
+            },
+            "origin": {
+              "format": "double",
+              "type": "number"
+            },
+            "structural": {
+              "format": "double",
+              "type": "number"
+            },
+            "verified": {
+              "format": "double",
+              "type": "number"
+            }
+          },
+          "required": [
+            "agent",
+            "annotation",
+            "attention",
+            "freshness",
+            "origin",
+            "structural",
+            "verified"
+          ],
+          "type": "object"
+        },
+        "IndexWeights": {
+          "properties": {
+            "attention": {
+              "format": "double",
+              "type": "number"
+            },
+            "derived": {
+              "format": "double",
+              "type": "number"
+            },
+            "human": {
+              "format": "double",
+              "type": "number"
+            },
+            "source": {
+              "format": "double",
+              "type": "number"
+            },
+            "unlabeled": {
+              "format": "double",
+              "type": "number"
+            }
+          },
+          "required": [
+            "attention",
+            "derived",
+            "human",
+            "source",
+            "unlabeled"
+          ],
+          "type": "object"
+        }
+      },
+      "properties": {
+        "asOf": {
+          "type": "string"
+        },
+        "configHash": {
+          "type": "string"
+        },
+        "coverage": {
+          "$ref": "#/definitions/IndexCoverage"
+        },
+        "effectiveWeights": {
+          "$ref": "#/definitions/IndexWeights"
+        },
+        "files": {
+          "items": {
+            "$ref": "#/definitions/IndexFile"
+          },
+          "type": "array"
+        },
+        "freshness": {
+          "type": "string"
+        },
+        "indexGeneration": {
+          "type": "string"
+        },
+        "mode": {
+          "type": "string"
+        },
+        "nextCursor": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "policyVersion": {
+          "type": "string"
+        },
+        "snapshotId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "asOf",
+        "configHash",
+        "coverage",
+        "effectiveWeights",
+        "files",
+        "freshness",
+        "indexGeneration",
+        "mode",
+        "policyVersion",
+        "snapshotId"
+      ],
+      "title": "IndexSnapshotResult",
+      "type": "object"
+    },
+    "plugin_protocol::IndexStatusParams": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "additionalProperties": false,
+      "properties": {
+        "snapshotId": {
+          "type": "string"
+        },
+        "version": {
+          "format": "uint32",
+          "minimum": 0.0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "snapshotId",
+        "version"
+      ],
+      "title": "IndexStatusParams",
+      "type": "object"
+    },
+    "plugin_protocol::IndexStatusResult": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "properties": {
+        "freshness": {
+          "type": "string"
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "snapshotId": {
+          "type": "string"
+        },
+        "valid": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "freshness",
+        "snapshotId",
+        "valid"
+      ],
+      "title": "IndexStatusResult",
+      "type": "object"
+    },
     "plugin_protocol::InitializeParams": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "additionalProperties": false,

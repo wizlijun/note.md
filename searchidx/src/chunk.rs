@@ -88,6 +88,7 @@ pub fn parse_file(rel_path: &str, raw: &str, mtime_secs: i64, globs: &SourceGlob
         doc_date,
         date_inferred,
         human_verified: fm.human_verified,
+        confidentiality: fm.confidentiality.clone().unwrap_or_else(|| "unknown".into()),
         origin: origin::derive(rel_path, fm_present.then_some(&fm), globs),
     };
     Parsed { meta, blocks, links: links::extract(body, body_line) }

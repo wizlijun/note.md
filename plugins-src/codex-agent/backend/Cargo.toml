@@ -1,6 +1,6 @@
 [package]
 name = "notemd-codex-agent"
-version = "1.0.2"
+version = "1.0.19"
 edition = "2021"
 
 [[bin]]

@@ -289,6 +289,7 @@ export const zh: Record<keyof Messages, string> = {
   'capability.secrets': '存储和读取机密（API 密钥、令牌）',
   'capability.storage': '在本机存储插件数据',
   'capability.vault.read': '读取你的 Vault 中的文件',
+  'capability.index.read': '读取 Vault 索引与指定范围的原文证据',
   'capability.vault.write': '在你的 Vault 中创建、修改、删除和移动文件',
   'capability.memory.control': '审阅并应用受控的 USER/MEMORY 变更',
   'capability.dialog': '显示打开/保存文件对话框',

@@ -121,6 +121,7 @@ fn harness_capabilities(
     agent_run_core::HarnessCapabilities {
         tasks: vec![
             task::GOVERNED_DOCUMENT_REVIEW_TASK.into(),
+            task::STRATA_EXTRACT_TASK.into(),
             task::SEARCH_PLAN_TASK.into(),
             task::SEARCH_ANSWER_TASK.into(),
             task::SEARCH_SUMMARY_TASK.into(),
@@ -1131,6 +1132,7 @@ mod tests {
                 "search-plan",
                 "search-summary",
                 "selfcheck",
+                "strata-extract-v1",
                 "vault-research"
             ]
         );
@@ -1308,7 +1310,7 @@ mod tests {
         let v = tempfile::tempdir().unwrap();
         task::seed_builtin_templates(v.path());
         let got = overview(v.path());
-        assert_eq!(got.len(), 7);
+        assert_eq!(got.len(), 8);
         for t in &got {
             let expected = if task::is_input_only_task(&t.def.id)
                 || t.def.id == task::VAULT_RESEARCH_TASK
@@ -1471,6 +1473,7 @@ mod tests {
             capabilities.tasks,
             vec![
                 "governed-document-review",
+                "strata-extract-v1",
                 "search-plan",
                 "search-answer",
                 "search-summary",

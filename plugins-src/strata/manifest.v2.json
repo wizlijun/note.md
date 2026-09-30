@@ -1,0 +1,62 @@
+{
+  "manifest_version": 2,
+  "id": "notemd.strata",
+  "name": "STRATA",
+  "version": "0.1.0",
+  "kind": "native",
+  "engines": {
+    "notemd": ">=6.930.1"
+  },
+  "description": "Explore indexed knowledge as stable contour maps and 3D terrain, with date filters and source evidence. Requires note.md 6.930.1 or later.",
+  "binary": {
+    "aarch64-apple-darwin": "bin/notemd-strata",
+    "x86_64-apple-darwin": "bin/notemd-strata"
+  },
+  "ui": "ui/",
+  "activation": {
+    "events": [
+      "onCommand:open"
+    ]
+  },
+  "contributes": {
+    "menus": [
+      {
+        "location": "plugins",
+        "submenu": "thinking",
+        "label": "Open STRATA…",
+        "command": "open"
+      }
+    ],
+    "windows": [
+      {
+        "id": "main",
+        "entry": "index.html",
+        "title": "STRATA · 层峦",
+        "width": 1280,
+        "height": 840,
+        "min_width": 800,
+        "min_height": 560,
+        "singleton": true,
+        "open_command": "open"
+      }
+    ]
+  },
+  "capabilities": [
+    "vault.read",
+    "index.read",
+    "agent",
+    "editor.open",
+    "settings",
+    "ui"
+  ],
+  "request_timeout_seconds": 300,
+  "i18n": {
+    "zh": {
+      "name": "STRATA · 层峦",
+      "description": "按日期探索知识等高线与三维山体，沿用索引优先级，并回到原文核对证据。需 note.md 6.930.1 或更新版本。",
+      "menus": {
+        "open": "打开层峦…"
+      }
+    }
+  }
+}

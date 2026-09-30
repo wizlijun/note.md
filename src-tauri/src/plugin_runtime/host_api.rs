@@ -33,6 +33,7 @@ pub fn method_capability(method: &str) -> Option<&'static str> {
     match method {
         "host.log.info" | "host.log.warn" | "host.log.error" => None,
         "host.toast" => Some("toast"),
+        "host.index.snapshot" | "host.index.blocks" | "host.index.status" => Some("index.read"),
         // 子项目②b: plugin process → its own window push.
         "host.ui.post" => Some("ui"),
         "host.dialog.open" | "host.dialog.save" => Some("dialog"),
@@ -215,6 +216,7 @@ pub fn make_sink(
                         services.as_ref().and_then(|svc| {
                             let s: &dyn rpc::HostServices = svc.as_ref();
                             match req.method.as_str() {
+                                "host.index.snapshot" | "host.index.blocks" | "host.index.status" => Some(s.index_request(&plugin_id, &req.method, &req.params)),
                                 "host.vault.info" => Some(Ok(rpc::vault_info(s))),
                                 "host.vault.read" => Some(rpc::vault_read(s, &req.params)),
                                 "host.vault.read_bytes" => Some(rpc::vault_read_bytes(s, &req.params)),
@@ -244,9 +246,12 @@ pub fn make_sink(
                             result: Some(v),
                             error: None,
                         }),
-                        Some(Err(detail)) => req
-                            .id
-                            .and_then(|id| reply_err(id, proto::ERR_INTERNAL, detail)),
+                        Some(Err(detail)) => req.id.and_then(|id| {
+                            let code = if req.method.starts_with("host.index.") {
+                                super::index_api::error_code(&detail)
+                            } else { proto::ERR_INTERNAL };
+                            reply_err(id, code, detail)
+                        }),
                         None => req.id.and_then(|id| {
                             reply_err(
                                 id,
@@ -815,6 +820,10 @@ mod tests {
     /// `agent_execute`/`notify_user` 调用，供 host.agent.*/host.notify 测试断言。
     struct ServicesStub(std::path::PathBuf, Arc<Mutex<Vec<(String, serde_json::Value)>>>);
     impl crate::plugin_runtime::ui_rpc::HostServices for ServicesStub {
+        fn index_request(&self, plugin_id: &str, method: &str, params: &serde_json::Value) -> Result<serde_json::Value, String> {
+            self.1.lock().unwrap().push((method.into(), params.clone()));
+            Ok(serde_json::json!({"pluginId":plugin_id,"method":method}))
+        }
         fn pick_paths(
             &self,
             _o: &crate::plugin_runtime::ui_rpc::OpenOptions,
@@ -1116,4 +1125,25 @@ mod tests {
         );
         assert!(seen.lock().unwrap().is_empty());
     }
+    #[tokio::test]
+    async fn index_methods_have_the_same_capability_gate_on_native_and_ui_bridges() {
+        let dir=tempfile::tempdir().unwrap();
+        let calls=Arc::new(Mutex::new(Vec::new()));
+        let services=Arc::new(ServicesStub(dir.path().to_path_buf(),calls.clone()));
+        let caps=vec!["index.read".to_string()];
+        for method in ["host.index.snapshot","host.index.blocks","host.index.status"] {
+            assert_eq!(method_capability(method),Some("index.read"));
+            let (emitter,_)=recording_emitter();
+            let sink=make_sink("test.index".into(),caps.clone(),dir.path().to_path_buf(),emitter.clone(),noop_poster(),Some(services.clone()));
+            let native=sink(req(method,Some(1),serde_json::json!({"version":1}))).unwrap();
+            let ui=crate::plugin_runtime::ui_rpc::dispatch_with(services.as_ref(),"test.index",&caps,req(method,Some(1),serde_json::json!({"version":1})),dir.path(),&emitter).await;
+            assert_eq!(native.result,ui.result);assert!(native.error.is_none());
+            let denied=make_sink("test.index".into(),vec![],dir.path().to_path_buf(),emitter.clone(),noop_poster(),Some(services.clone()));
+            assert_eq!(denied(req(method,Some(1),serde_json::json!({}))).unwrap().error.unwrap().code,proto::ERR_CAPABILITY_DENIED);
+            let ui=crate::plugin_runtime::ui_rpc::dispatch_with(services.as_ref(),"test.index",&[],req(method,Some(1),serde_json::json!({})),dir.path(),&emitter).await;
+            assert_eq!(ui.error.unwrap().code,proto::ERR_CAPABILITY_DENIED);
+        }
+        assert_eq!(calls.lock().unwrap().len(),6,"denied calls never reach the service");
+    }
+
 }

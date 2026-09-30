@@ -1,6 +1,6 @@
 [package]
 name = "notemd-claude-agent"
-version = "1.0.0"
+version = "1.0.32"
 edition = "2021"
 
 # claude-agent v2 backend: a general headless runner. Task templates live in the

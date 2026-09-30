@@ -18,6 +18,9 @@ fn main() {
     add!(plugin_protocol::RpcError); add!(plugin_protocol::InitializeParams);
     add!(plugin_protocol::ActivateParams); add!(plugin_protocol::ExecuteCommandParams);
     add!(plugin_protocol::ToastParams); add!(plugin_protocol::LogParams);
+    add!(plugin_protocol::IndexStatusParams); add!(plugin_protocol::IndexStatusResult);
+    add!(plugin_protocol::IndexSnapshotParams); add!(plugin_protocol::IndexSnapshotResult);
+    add!(plugin_protocol::IndexBlocksParams); add!(plugin_protocol::IndexBlocksResult);
     add!(plugin_protocol::UiRequestParams); add!(plugin_protocol::UiPostParams);
     fs::write(out.join("rpc.schema.json"),
         serde_json::to_string_pretty(&rpc).unwrap() + "\n").unwrap();

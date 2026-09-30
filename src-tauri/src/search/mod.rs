@@ -367,6 +367,7 @@ fn install_if_current(
 /// `IndexHandle`. See `watch::WatchState`'s doc comment for why `IndexHandle`
 /// and the watcher must be governed by the same counter.
 pub fn open_vault(app: &AppHandle, vault_root: &Path) {
+    crate::plugin_runtime::index_api::invalidate_all();
     let my_gen = watch::reserve_generation(app);
     let idx_handle = handle(app);
     let open_state = app.state::<OpenState>().inner().clone();

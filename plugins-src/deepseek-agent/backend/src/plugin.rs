@@ -115,6 +115,7 @@ fn harness_capabilities(
     HarnessCapabilities {
         tasks: vec![
             task::GOVERNED_DOCUMENT_REVIEW_TASK.to_string(),
+            task::STRATA_EXTRACT_TASK.to_string(),
             task::SEARCH_PLAN_TASK.to_string(),
             task::SEARCH_ANSWER_TASK.to_string(),
             task::SEARCH_SUMMARY_TASK.to_string(),
@@ -1096,6 +1097,7 @@ mod tests {
                 "search-plan",
                 "search-summary",
                 "selfcheck",
+                "strata-extract-v1",
                 "vault-research"
             ]
         );
@@ -1162,6 +1164,7 @@ mod tests {
             value["tasks"],
             json!([
                 "governed-document-review",
+                "strata-extract-v1",
                 "search-plan",
                 "search-answer",
                 "search-summary",
@@ -1336,7 +1339,7 @@ mod tests {
         let v = tempfile::tempdir().unwrap();
         task::seed_builtin_templates(v.path());
         let got = overview(v.path());
-        assert_eq!(got.len(), 8);
+        assert_eq!(got.len(), 9);
         for t in &got {
             let expected = if task::is_input_only_task(&t.def.id)
                 || t.def.id == task::VAULT_RESEARCH_TASK

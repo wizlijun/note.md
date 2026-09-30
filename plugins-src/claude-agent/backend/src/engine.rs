@@ -1006,7 +1006,7 @@ mod tests {
 
     #[tokio::test]
     async fn search_protocol_tasks_run_in_a_removed_empty_directory_outside_the_vault() {
-        for task_id in [task::SEARCH_PLAN_TASK, task::SEARCH_ANSWER_TASK] {
+        for task_id in [task::SEARCH_PLAN_TASK, task::SEARCH_ANSWER_TASK, task::STRATA_EXTRACT_TASK] {
             let d = tempfile::tempdir().unwrap();
             let c = fake_claude(
                 d.path(),

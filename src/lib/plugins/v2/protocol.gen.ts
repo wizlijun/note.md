@@ -152,6 +152,182 @@ export interface ExecuteCommandParams {
 }
 /**
  * This interface was referenced by `RpcCombinedSchema`'s JSON-Schema
+ * via the `definition` "IndexBlocksParams".
+ */
+export interface IndexBlocksParams {
+  cursor?: string | null;
+  fileKeys: string[];
+  maxBytes?: number | null;
+  snapshotId: string;
+  version: number;
+}
+/**
+ * This interface was referenced by `RpcCombinedSchema`'s JSON-Schema
+ * via the `definition` "IndexConflict".
+ */
+export interface IndexConflict {
+  fileKey: string;
+  reason: string;
+}
+/**
+ * This interface was referenced by `RpcCombinedSchema`'s JSON-Schema
+ * via the `definition` "IndexPriorityFactors".
+ */
+export interface IndexPriorityFactors {
+  agent: number;
+  annotation: number;
+  attention: number;
+  freshness: number;
+  origin: number;
+  structural: number;
+  verified: number;
+}
+/**
+ * This interface was referenced by `RpcCombinedSchema`'s JSON-Schema
+ * via the `definition` "IndexUnit".
+ */
+export interface IndexUnit {
+  agentBy?: string | null;
+  blockKey: string;
+  breadcrumb: string;
+  contentHash: string;
+  fileKey: string;
+  isAnnotation: boolean;
+  level: string;
+  lineEnd: number;
+  lineStart: number;
+  priority: number;
+  priorityFactors: IndexPriorityFactors;
+  text: string;
+}
+/**
+ * This interface was referenced by `RpcCombinedSchema`'s JSON-Schema
+ * via the `definition` "IndexBlocksResult".
+ */
+export interface IndexBlocksResult {
+  conflicts: IndexConflict[];
+  nextCursor?: string | null;
+  snapshotId: string;
+  units: IndexUnit[];
+}
+/**
+ * This interface was referenced by `RpcCombinedSchema`'s JSON-Schema
+ * via the `definition` "IndexRange".
+ */
+export interface IndexRange {
+  dateKind: string;
+  from: string;
+  to: string;
+}
+/**
+ * This interface was referenced by `RpcCombinedSchema`'s JSON-Schema
+ * via the `definition` "IndexSnapshotParams".
+ */
+export interface IndexSnapshotParams {
+  cursor?: string | null;
+  pageSize?: number | null;
+  range?: IndexRange | null;
+  version: number;
+}
+/**
+ * This interface was referenced by `RpcCombinedSchema`'s JSON-Schema
+ * via the `definition` "IndexCoverage".
+ */
+export interface IndexCoverage {
+  excluded: number;
+  indexed: number;
+  selected: number;
+  skipped: number;
+  stale: number;
+  undated: number;
+}
+/**
+ * This interface was referenced by `RpcCombinedSchema`'s JSON-Schema
+ * via the `definition` "IndexFile".
+ */
+export interface IndexFile {
+  attentionMinutes: number;
+  conceptType?: string | null;
+  confidentiality: string;
+  contentHash: string;
+  dateInferred: boolean;
+  docDate?: string | null;
+  fileKey: string;
+  filePriority: number;
+  humanVerified: boolean;
+  indexOrigin: string;
+  links: IndexLink[];
+  path: string;
+  priorityBasis?: IndexPriorityBasis | null;
+  tags: string[];
+  title?: string | null;
+}
+/**
+ * This interface was referenced by `RpcCombinedSchema`'s JSON-Schema
+ * via the `definition` "IndexLink".
+ */
+export interface IndexLink {
+  kind: string;
+  line: number;
+  target: string;
+}
+/**
+ * This interface was referenced by `RpcCombinedSchema`'s JSON-Schema
+ * via the `definition` "IndexPriorityBasis".
+ */
+export interface IndexPriorityBasis {
+  aggregation: string;
+  blockKey: string;
+  factors: IndexPriorityFactors;
+}
+/**
+ * This interface was referenced by `RpcCombinedSchema`'s JSON-Schema
+ * via the `definition` "IndexWeights".
+ */
+export interface IndexWeights {
+  attention: number;
+  derived: number;
+  human: number;
+  source: number;
+  unlabeled: number;
+}
+/**
+ * This interface was referenced by `RpcCombinedSchema`'s JSON-Schema
+ * via the `definition` "IndexSnapshotResult".
+ */
+export interface IndexSnapshotResult {
+  asOf: string;
+  configHash: string;
+  coverage: IndexCoverage;
+  effectiveWeights: IndexWeights;
+  files: IndexFile[];
+  freshness: string;
+  indexGeneration: string;
+  mode: string;
+  nextCursor?: string | null;
+  policyVersion: string;
+  snapshotId: string;
+}
+/**
+ * This interface was referenced by `RpcCombinedSchema`'s JSON-Schema
+ * via the `definition` "IndexStatusParams".
+ */
+export interface IndexStatusParams {
+  snapshotId: string;
+  version: number;
+}
+/**
+ * This interface was referenced by `RpcCombinedSchema`'s JSON-Schema
+ * via the `definition` "IndexStatusResult".
+ */
+export interface IndexStatusResult {
+  freshness: string;
+  reason?: string | null;
+  snapshotId: string;
+  valid: boolean;
+}
+/**
+ * This interface was referenced by `RpcCombinedSchema`'s JSON-Schema
  * via the `definition` "InitializeParams".
  */
 export interface InitializeParams {

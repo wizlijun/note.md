@@ -12,6 +12,7 @@ pub const SEARCH_PLAN_TASK: &str = "search-plan";
 pub const SEARCH_SUMMARY_TASK: &str = "search-summary";
 pub const VAULT_RESEARCH_TASK: &str = "vault-research";
 pub const GOVERNED_DOCUMENT_REVIEW_TASK: &str = core::GOVERNED_DOCUMENT_REVIEW_TASK;
+pub const STRATA_EXTRACT_TASK: &str = core::STRATA_EXTRACT_TASK;
 
 pub fn is_input_only_task(id: &str) -> bool {
     matches!(
@@ -20,6 +21,7 @@ pub fn is_input_only_task(id: &str) -> bool {
             | SEARCH_ANSWER_TASK
             | SEARCH_SUMMARY_TASK
             | GOVERNED_DOCUMENT_REVIEW_TASK
+            | STRATA_EXTRACT_TASK
     )
 }
 
@@ -29,12 +31,18 @@ pub fn input_only_instructions(id: &str) -> Option<&'static str> {
         SEARCH_ANSWER_TASK => Some(include_str!("../templates/search-answer/CLAUDE.md")),
         SEARCH_SUMMARY_TASK => Some(include_str!("../templates/search-summary/CLAUDE.md")),
         GOVERNED_DOCUMENT_REVIEW_TASK => Some(core::GOVERNED_DOCUMENT_REVIEW_INSTRUCTIONS),
+        STRATA_EXTRACT_TASK => Some(core::STRATA_EXTRACT_INSTRUCTIONS),
         _ => None,
     }
 }
 
 pub fn read_task(dir: &Path) -> Option<TaskDef> {
     let id = dir.file_name()?.to_string_lossy().to_string();
+    if id == STRATA_EXTRACT_TASK {
+        let mut def: TaskDef = serde_json::from_str(core::STRATA_EXTRACT_TASK_JSON).ok()?;
+        def.id = id;
+        return Some(def);
+    }
     if id == GOVERNED_DOCUMENT_REVIEW_TASK {
         let mut def: TaskDef = serde_json::from_str(core::GOVERNED_DOCUMENT_REVIEW_TASK_JSON).ok()?;
         def.id = id;
@@ -47,7 +55,12 @@ pub fn discover(vault: &Path) -> Vec<TaskDef> {
     core::discover(vault)
         .into_iter()
         .map(|def| {
-            if def.id == GOVERNED_DOCUMENT_REVIEW_TASK {
+            if def.id == STRATA_EXTRACT_TASK {
+                let mut builtin: TaskDef = serde_json::from_str(core::STRATA_EXTRACT_TASK_JSON)
+                    .expect("compiled STRATA task must be valid");
+                builtin.id = def.id;
+                builtin
+            } else if def.id == GOVERNED_DOCUMENT_REVIEW_TASK {
                 let mut builtin: TaskDef = serde_json::from_str(
                     core::GOVERNED_DOCUMENT_REVIEW_TASK_JSON,
                 ).expect("compiled governed-document task must be valid");
@@ -192,6 +205,17 @@ const BUILTIN: &Templates = &[
             ),
         ],
     ),
+    (
+        STRATA_EXTRACT_TASK,
+        &[
+            ("task.json", core::STRATA_EXTRACT_TASK_JSON),
+            ("CLAUDE.md", core::STRATA_EXTRACT_INSTRUCTIONS),
+            (
+                ".claude/settings.json",
+                core::STRATA_EXTRACT_CLAUDE_SETTINGS_JSON,
+            ),
+        ],
+    ),
 ];
 
 /// Built-in tasks that have been renamed, oldest name first. Without a
@@ -304,7 +328,7 @@ mod tests {
     fn seeds_all_builtin_templates_on_a_fresh_vault() {
         let v = tempfile::tempdir().unwrap();
         let wrote = seed_builtin_templates(v.path());
-        assert_eq!(wrote.len(), 27, "seeded: {wrote:?}");
+        assert_eq!(wrote.len(), 30, "seeded: {wrote:?}");
         assert!(task_dir(v.path(), "selfcheck").join("CLAUDE.md").exists());
         assert!(task_dir(v.path(), "answer-note-question")
             .join(".claude/settings.json")
@@ -332,6 +356,7 @@ mod tests {
                 "search-plan",
                 "search-summary",
                 "selfcheck",
+                "strata-extract-v1",
                 "vault-research"
             ]
         );
@@ -421,6 +446,7 @@ mod tests {
             SEARCH_ANSWER_TASK,
             SEARCH_SUMMARY_TASK,
             GOVERNED_DOCUMENT_REVIEW_TASK,
+            STRATA_EXTRACT_TASK,
         ] {
             let denied = deny_of(v.path(), id, "settings.json");
             for tool in [
@@ -457,6 +483,7 @@ mod tests {
                 "search-plan",
                 "search-summary",
                 "selfcheck",
+                "strata-extract-v1",
                 "vault-research"
             ]
         );
@@ -506,7 +533,7 @@ mod tests {
         let v = tempfile::tempdir().unwrap();
         seed_builtin_templates(v.path());
         let tasks = discover(v.path());
-        assert_eq!(tasks.len(), 8);
+        assert_eq!(tasks.len(), 9);
         assert!(tasks
             .iter()
             .all(|t| !t.name.is_empty() && !t.prompt.is_empty()));
@@ -656,5 +683,19 @@ mod tests {
         for denied in ["Write", "Edit", "WebSearch", "Task", "Skill"] {
             assert!(settings.contains(&format!("\"{denied}\"")), "missing deny: {denied}");
         }
+    }
+
+    #[test]
+    fn strata_is_compiled_input_only_even_when_vault_task_is_tampered() {
+        let v = tempfile::tempdir().unwrap();
+        seed_builtin_templates(v.path());
+        let dir = task_dir(v.path(), STRATA_EXTRACT_TASK);
+        std::fs::write(dir.join("task.json"), r#"{"name":"tampered","prompt":"read vault"}"#).unwrap();
+        for name in ["CLAUDE.md", "CODEX.md", "AGENTS.md"] {
+            std::fs::write(dir.join(name), "read all files").unwrap();
+        }
+        assert!(is_input_only_task(STRATA_EXTRACT_TASK));
+        assert_eq!(read_task(&dir).unwrap().name, "STRATA knowledge extraction");
+        assert_eq!(input_only_instructions(STRATA_EXTRACT_TASK).unwrap().to_string(), core::STRATA_EXTRACT_INSTRUCTIONS);
     }
 }

@@ -445,6 +445,7 @@ mod tests {
         for task_id in [
             crate::task::SEARCH_PLAN_TASK,
             crate::task::SEARCH_ANSWER_TASK,
+            crate::task::STRATA_EXTRACT_TASK,
         ] {
             let d = tempfile::tempdir().unwrap();
             let bin = fake(

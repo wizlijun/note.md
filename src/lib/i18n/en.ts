@@ -294,6 +294,7 @@ export const en = {
   'capability.secrets': 'Store and read secrets (API keys, tokens)',
   'capability.storage': 'Store plugin data on this device',
   'capability.vault.read': 'Read files in your Vault',
+  'capability.index.read': 'Read your Vault index and scoped source evidence',
   'capability.vault.write': 'Create, modify, delete and move files in your Vault',
   'capability.memory.control': 'Review and apply controlled USER/MEMORY changes',
   'capability.dialog': 'Show open/save file dialogs',

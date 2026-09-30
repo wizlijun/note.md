@@ -654,6 +654,16 @@ async fn reconcile_with_map_forced(
     new_map: BTreeMap<String, (proto::ManifestV2, PathBuf)>,
     force_replace: &[String],
 ) {
+    // Invalidate snapshots even for UI-only plugins without a RUNNING process.
+    // Release STATE before the cache lock to keep the lock order acyclic.
+    let invalidated: Vec<String> = {
+        let state = STATE.read().unwrap();
+        state.plugins.iter()
+            .filter(|(id, old)| force_replace.contains(id) || new_map.get(*id)
+                .is_none_or(|new| !same_install(&old.0, &old.1, &new.0, &new.1)))
+            .map(|(id, _)| id.clone()).collect()
+    };
+    for id in &invalidated { super::index_api::invalidate_plugin(id); }
     // Which live lifecycles vanished from or no longer describe the install
     // tree? Collect them under a read lock, then release it before async teardown.
     let stale: Vec<(String, Arc<PluginLifecycle>)> = {
@@ -713,6 +723,7 @@ async fn reconcile_with_map_forced(
             }
         }
         state.plugins = new_map;
+        for id in &invalidated { super::index_api::invalidate_plugin(id); }
         stale_now
     };
 

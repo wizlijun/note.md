@@ -76,11 +76,13 @@ use crate::tokenize::{tokenize, TOKENIZER_ID};
 // refresh (DELETE + re-INSERT), so every ingest rebuilt it in full. Removing it
 // needs no further version bump — v6 has never shipped, and an index is not
 // readable surface: a v6 database created by an earlier dev build keeps a stale,
-// unused index, which costs a hair on write and nothing on read, and bumping to
-// v7 would force every dev machine into a full reindex to buy exactly that hair.
+// unused index, which costs a hair on write and nothing on read. That change
+// alone did not warrant rebuilding; v7 below adds actual readable surface.
 // If you want it back, prove with `EXPLAIN QUERY PLAN` that a real query uses it
 // first — `query::tests::no_unused_index_on_doc_attention` is the tripwire.
-pub const SCHEMA_VERSION: i64 = 6;
+// v6 -> v7: explicit confidentiality metadata. Existing indexes rebuild; until
+// that finishes consumers must report index-not-ready, never assume coverage.
+pub const SCHEMA_VERSION: i64 = 7;
 
 const SCHEMA_SQL: &str = r#"
 CREATE TABLE files(
@@ -88,7 +90,8 @@ CREATE TABLE files(
   ext TEXT NOT NULL, mtime INTEGER, size INTEGER, content_hash TEXT,
   title TEXT, concept_type TEXT, tags_json TEXT,
   doc_date TEXT, date_inferred INTEGER,
-  human_verified INTEGER DEFAULT 0, origin TEXT NOT NULL);
+  human_verified INTEGER DEFAULT 0, origin TEXT NOT NULL,
+  confidentiality TEXT NOT NULL DEFAULT 'unknown');
 CREATE TABLE blocks(
   id INTEGER PRIMARY KEY, file_id INTEGER NOT NULL REFERENCES files(id),
   line_start INTEGER, line_end INTEGER,
@@ -519,13 +522,13 @@ pub fn replace_file(
     remove_file(tx, rel)?;
     let tags_json = serde_json::to_string(&parsed.meta.tags).unwrap_or_else(|_| "[]".into());
     tx.execute(
-        "INSERT INTO files(path,ext,mtime,size,content_hash,title,concept_type,tags_json,doc_date,date_inferred,human_verified,origin)
-         VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12)",
+        "INSERT INTO files(path,ext,mtime,size,content_hash,title,concept_type,tags_json,doc_date,date_inferred,human_verified,origin,confidentiality)
+         VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13)",
         params![
             rel, ext, mtime, size, hash,
             parsed.meta.title, parsed.meta.concept_type, tags_json,
             parsed.meta.doc_date, parsed.meta.date_inferred as i64,
-            parsed.meta.human_verified as i64, parsed.meta.origin.as_str()
+            parsed.meta.human_verified as i64, parsed.meta.origin.as_str(), parsed.meta.confidentiality
         ],
     )?;
     let file_id = tx.last_insert_rowid();
@@ -1408,6 +1411,7 @@ mod tests {
             doc_date: None,
             date_inferred: false,
             human_verified: false,
+            confidentiality: "unknown".into(),
             origin: crate::Origin::Unlabeled,
         }
     }
@@ -1504,7 +1508,7 @@ mod tests {
     /// 新表新列 → schema 必须 bump,老库在下次打开时全量重建。
     #[test]
     fn the_schema_version_covers_doc_attention() {
-        assert_eq!(SCHEMA_VERSION, 6, "加了 doc_attention 表就必须 bump");
+        assert_eq!(SCHEMA_VERSION, 7, "新增索引字段必须 bump");
     }
 
     /// 写入即整表替换:摄取是全量重算的,残留旧行等于双计。

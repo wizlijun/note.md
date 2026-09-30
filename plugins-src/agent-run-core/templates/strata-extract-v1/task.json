@@ -1,0 +1,8 @@
+{
+  "name": "STRATA knowledge extraction",
+  "description": "Extract evidence-linked knowledge only from a frozen STRATA input packet.",
+  "prompt": "Return one complete STRATA extraction JSON object for the supplied packet. Do not use tools.",
+  "max_turns": 4,
+  "timeout_seconds": 600,
+  "source_plugin": "notemd.strata"
+}

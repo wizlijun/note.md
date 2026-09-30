@@ -18,6 +18,8 @@ pub struct Frontmatter {
     pub generated_by: Option<String>,
     /// True when a `verified` entry carries a `by:` with the OKF `human:` prefix.
     pub human_verified: bool,
+    /// Explicit disclosure marker; never inferred from provenance.
+    pub confidentiality: Option<String>,
 }
 
 /// `(raw_frontmatter, body, 1-based line number of the body's first line)`.
@@ -54,6 +56,7 @@ fn find_closing_delimiter(rest: &str) -> Option<usize> {
 
 pub fn parse(raw: &str) -> Frontmatter {
     let mut fm = Frontmatter::default();
+    let mut private = false;
     let mut lines = raw.lines().peekable();
     while let Some(line) = lines.next() {
         let Some((key, value)) = split_key(line) else {
@@ -64,6 +67,15 @@ pub fn parse(raw: &str) -> Frontmatter {
             continue;
         }
         match key {
+            "confidentiality" => {
+                if let Some(v) = explicit_marker(value) {
+                    if matches!(v, "confidential" | "explicitly_public" | "unknown") {
+                        if v == "confidential" { private = true; }
+                        fm.confidentiality = Some(v.to_string());
+                    }
+                }
+            }
+            "private" => { private |= explicit_marker(value) == Some("true"); }
             "type" => fm.concept_type = scalar(value),
             "title" => fm.title = scalar(value),
             "created" => fm.created = scalar(value),
@@ -99,7 +111,21 @@ pub fn parse(raw: &str) -> Frontmatter {
             _ => {}
         }
     }
+    if private { fm.confidentiality = Some("confidential".into()); }
     fm
+}
+
+/// Disclosure markers must match exactly, including inside quotes. The
+/// general shallow YAML reader's comment stripping is intentionally tolerant;
+/// using it here could turn `"explicitly_public # no"` into a public marker.
+fn explicit_marker(value: &str) -> Option<&str> {
+    let value=value.trim();
+    if let Some(quote)=value.chars().next().filter(|c| matches!(c, '\'' | '"')) {
+        let (inner,tail)=value[1..].split_once(quote)?;
+        let tail=tail.trim();
+        return (tail.is_empty() || tail.starts_with('#')).then_some(inner);
+    }
+    Some(strip_trailing_comment(value).trim())
 }
 
 /// The `key: value` entries belonging to a mapping-valued key, whichever of
@@ -422,5 +448,20 @@ mod tests {
         let f = parse("type: [unclosed\n\t\tgarbage: : :\n%%%");
         assert_eq!(f.title, None);
         assert!(f.tags.is_empty());
+    }
+}
+
+#[cfg(test)]
+mod confidentiality_tests {
+    use super::parse;
+    #[test]
+    fn disclosure_requires_explicit_markers_and_private_wins() {
+        for text in ["", "private: false", "sensitivity: public", "origin: human", "confidentiality: public", "  private: true", "confidentiality: \"explicitly_public # not a marker\"", "confidentiality: \"explicitly_public\" extra"] {
+            assert_eq!(parse(text).confidentiality,None,"{text}");
+        }
+        assert_eq!(parse("confidentiality: 'explicitly_public'").confidentiality.as_deref(),Some("explicitly_public"));
+        for text in ["private: true", "confidentiality: confidential", "private: true\nconfidentiality: explicitly_public", "confidentiality: confidential\nconfidentiality: unknown"] {
+            assert_eq!(parse(text).confidentiality.as_deref(),Some("confidential"),"{text}");
+        }
     }
 }

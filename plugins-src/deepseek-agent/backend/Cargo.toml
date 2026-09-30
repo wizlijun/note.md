@@ -1,6 +1,6 @@
 [package]
 name = "notemd-deepseek-agent"
-version = "1.0.0"
+version = "1.1.18"
 edition = "2021"
 
 # deepseek-agent v2 backend: an ACP client. A run spawns `dsh-acp-demo` with cwd

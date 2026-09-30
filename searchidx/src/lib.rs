@@ -29,6 +29,7 @@ pub mod query;
 /// second-guess from outside.
 pub(crate) mod rename;
 pub mod scan;
+pub mod snapshot;
 pub mod store;
 pub mod tokenize;
 pub mod transcript;

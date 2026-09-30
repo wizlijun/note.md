@@ -55,6 +55,7 @@ pub struct FileMeta {
     /// True when `doc_date` came from mtime rather than the name/frontmatter.
     pub date_inferred: bool,
     pub human_verified: bool,
+    pub confidentiality: String,
     /// Provenance tier from `origin::derive` (spec §3) — index-side only,
     /// never written back to the file. See `crate::origin` for the rule
     /// table and `store::replace_file`/`store::origin_of` for how it is

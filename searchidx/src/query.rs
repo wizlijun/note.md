@@ -244,7 +244,7 @@ pub struct Answer {
 /// module threads `&Weights` through rather than reading a global, so the
 /// GUI, the `notemd search` CLI and the watcher can each carry a different
 /// (or identical) value without any shared mutable state.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize)]
 pub struct Weights {
     pub human: f64,
     pub derived: f64,
@@ -1250,6 +1250,61 @@ fn level_rank(level: &str) -> u8 {
     }
 }
 
+/// Query-independent factors shared by search and the read-only index API.
+/// Keep their application order: multiplying by their product first can change
+/// floating-point tie ordering in existing search results.
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize)]
+pub struct PriorityFactors {
+    pub structural: f64,
+    pub annotation: f64,
+    pub verified: f64,
+    pub origin: f64,
+    pub attention: f64,
+    pub agent: f64,
+    pub freshness: f64,
+}
+
+impl PriorityFactors {
+    pub fn apply(self, mut value: f64) -> f64 {
+        value *= self.structural;
+        value *= self.annotation;
+        value *= self.verified;
+        value *= self.origin;
+        value *= self.attention;
+        value *= self.agent;
+        value *= self.freshness;
+        value
+    }
+}
+
+pub struct PriorityInput<'a> {
+    pub level: &'a str,
+    pub is_annotation: bool,
+    pub human_verified: bool,
+    pub origin: Origin,
+    pub attention_minutes: f64,
+    pub agent_authored: bool,
+    pub doc_date: Option<&'a str>,
+}
+
+pub fn priority_factors(input: PriorityInput<'_>, today: &str, weights: &Weights) -> PriorityFactors {
+    PriorityFactors {
+        structural: if matches!(input.level, "file" | "section") { 1.2 } else { 1.0 },
+        annotation: if input.is_annotation { 1.2 } else { 1.0 },
+        verified: if input.human_verified { 1.1 } else { 1.0 },
+        origin: match input.origin {
+            Origin::Human => weights.human,
+            Origin::Derived => weights.derived,
+            Origin::Source => weights.source,
+            Origin::Unlabeled => weights.unlabeled,
+        },
+        attention: crate::attention::boost(input.attention_minutes, 0, weights.attention),
+        agent: if input.agent_authored { 0.85 } else { 1.0 },
+        freshness: input.doc_date.and_then(|date| days_between(date, today))
+            .map(|age| 1.0 + 0.2 * (-(age as f64) / 180.0).exp()).unwrap_or(1.0),
+    }
+}
+
 /// FTS5's `bm25()` returns NEGATIVE values, more negative meaning more relevant.
 /// The design spec's literal `1/(1+rank)` is non-monotonic there (and can go
 /// negative), so we work with `r = -bm25` — non-negative, larger is better —
@@ -1288,15 +1343,11 @@ fn score_of(
     if linked_mention {
         r *= 1.5;
     }
-    if hit.level == "file" || hit.level == "section" {
-        r *= 1.2;
-    }
-    if is_annotation {
-        r *= 1.2;
-    }
-    if hit.human_verified {
-        r *= 1.1;
-    }
+    let factors = priority_factors(PriorityInput {
+        level: &hit.level, is_annotation, human_verified: hit.human_verified,
+        origin: hit.origin, attention_minutes: hit.attention_minutes,
+        agent_authored: hit.agent_by.is_some(), doc_date: hit.doc_date.as_deref(),
+    }, today, weights);
     // Provenance tiering (spec `docs/superpowers/specs/
     // 2026-08-11-md-origin-tiering-design.md` §3, CLAUDE.md belief 1): what
     // you wrote outranks what an agent generated, which outranks raw source
@@ -1316,18 +1367,6 @@ fn score_of(
     // signal from the specific sign-off, one from the general shape of the
     // document — the same way `is_annotation` and `phrase_exact` above each
     // apply independently even though both can fire on the same hit.
-    r *= match hit.origin {
-        Origin::Human => weights.human,
-        Origin::Derived => weights.derived,
-        Origin::Source => weights.source,
-        // The ×0.3 default is a deliberate strong penalty, not a token
-        // nudge: stacked with the default top-20 limit, it is usually enough
-        // to push an unlabeled file out of the visible result set entirely.
-        // That is the accepted, confirmed design (spec §3.1) — unlabeled
-        // material is real and searchable via `origin:unlabeled`, it just
-        // does not compete for the front page by default.
-        Origin::Unlabeled => weights.unlabeled,
-    };
     // 注意力加权(规格 §4.2)。与上面所有档一样是乘性的,但只向上:
     // `attention::boost` 在 0 分钟时严格返回 1.0,所以从没打开过的文档
     // ——包括 agent 昨天刚生成、你还没来得及读的那些——原地不动。
@@ -1335,15 +1374,9 @@ fn score_of(
     // 这个衰减「你何时在它身上花过时间」。
     //
     // `hit.attention_minutes` 已由 `finish` 衰减到今天,所以这里传 0。
-    r *= crate::attention::boost(hit.attention_minutes, 0, weights.attention);
     // The first line of defense against memory self-propagation: AI-authored
     // material is findable but never outranks the primary source it summarized.
-    if hit.agent_by.is_some() {
-        r *= 0.85;
-    }
-    if let Some(age) = hit.doc_date.as_deref().and_then(|d| days_between(d, today)) {
-        r *= 1.0 + 0.2 * (-(age as f64) / 180.0).exp();
-    }
+    r = factors.apply(r);
     r / (1.0 + r)
 }
 

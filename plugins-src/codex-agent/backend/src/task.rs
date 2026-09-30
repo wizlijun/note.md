@@ -18,6 +18,7 @@ pub const SEARCH_PLAN_TASK: &str = "search-plan";
 pub const SEARCH_SUMMARY_TASK: &str = "search-summary";
 pub const VAULT_RESEARCH_TASK: &str = "vault-research";
 pub const GOVERNED_DOCUMENT_REVIEW_TASK: &str = core::GOVERNED_DOCUMENT_REVIEW_TASK;
+pub const STRATA_EXTRACT_TASK: &str = core::STRATA_EXTRACT_TASK;
 
 pub fn is_input_only_task(id: &str) -> bool {
     matches!(
@@ -26,6 +27,7 @@ pub fn is_input_only_task(id: &str) -> bool {
             | SEARCH_ANSWER_TASK
             | SEARCH_SUMMARY_TASK
             | GOVERNED_DOCUMENT_REVIEW_TASK
+            | STRATA_EXTRACT_TASK
     )
 }
 
@@ -67,6 +69,7 @@ fn builtin_def(id: &str) -> Option<TaskDef> {
         "search-plan" => include_str!("../templates/search-plan/task.json"),
         "search-summary" => include_str!("../templates/search-summary/task.json"),
         GOVERNED_DOCUMENT_REVIEW_TASK => core::GOVERNED_DOCUMENT_REVIEW_TASK_JSON,
+        STRATA_EXTRACT_TASK => core::STRATA_EXTRACT_TASK_JSON,
         "vault-research" => include_str!("../templates/vault-research/task.json"),
         _ => return None,
     };
@@ -147,6 +150,10 @@ const OWNED: &Templates = &[
     (
         GOVERNED_DOCUMENT_REVIEW_TASK,
         &[("CODEX.md", core::GOVERNED_DOCUMENT_REVIEW_INSTRUCTIONS)],
+    ),
+    (
+        STRATA_EXTRACT_TASK,
+        &[("CODEX.md", core::STRATA_EXTRACT_INSTRUCTIONS)],
     ),
 ];
 
@@ -263,6 +270,21 @@ const SHARED: &[(&str, &str, &str)] = &[
         "policy.json",
         core::GOVERNED_DOCUMENT_REVIEW_POLICY_JSON,
     ),
+    (
+        STRATA_EXTRACT_TASK,
+        "task.json",
+        core::STRATA_EXTRACT_TASK_JSON,
+    ),
+    (
+        STRATA_EXTRACT_TASK,
+        "AGENTS.md",
+        core::STRATA_EXTRACT_INSTRUCTIONS,
+    ),
+    (
+        STRATA_EXTRACT_TASK,
+        "policy.json",
+        core::STRATA_EXTRACT_POLICY_JSON,
+    ),
 ];
 
 /// Keep derived data out of the vault's git history.
@@ -272,6 +294,9 @@ pub fn ensure_gitignore(vault: &Path) {
 
 /// Codex-specific instructions, kept separate from shared `AGENTS.md` ownership.
 pub fn codex_instructions(task_dir: &Path) -> String {
+    if task_dir.file_name().and_then(|name| name.to_str()) == Some(STRATA_EXTRACT_TASK) {
+        return core::STRATA_EXTRACT_INSTRUCTIONS.to_string();
+    }
     if task_dir.file_name().and_then(|name| name.to_str()) == Some(GOVERNED_DOCUMENT_REVIEW_TASK) {
         return core::GOVERNED_DOCUMENT_REVIEW_INSTRUCTIONS.to_string();
     }
@@ -287,7 +312,7 @@ mod tests {
     fn seeds_all_templates_on_a_fresh_vault() {
         let v = tempfile::tempdir().unwrap();
         let wrote = seed_builtin_templates(v.path());
-        assert_eq!(wrote.len(), 29, "seeded: {wrote:?}");
+        assert_eq!(wrote.len(), 33, "seeded: {wrote:?}");
         let ids: Vec<String> = discover(v.path()).into_iter().map(|t| t.id).collect();
         assert_eq!(
             ids,
@@ -298,6 +323,7 @@ mod tests {
                 "search-plan",
                 "search-summary",
                 "selfcheck",
+                "strata-extract-v1",
                 "vault-research"
             ]
         );
@@ -305,6 +331,7 @@ mod tests {
             "selfcheck",
             "answer-note-question",
             GOVERNED_DOCUMENT_REVIEW_TASK,
+            STRATA_EXTRACT_TASK,
             "search-answer",
             "search-plan",
             "search-summary",
@@ -324,6 +351,7 @@ mod tests {
             "selfcheck",
             "answer-note-question",
             GOVERNED_DOCUMENT_REVIEW_TASK,
+            STRATA_EXTRACT_TASK,
             "search-answer",
             "search-plan",
             "search-summary",
@@ -363,7 +391,7 @@ mod tests {
         let v = tempfile::tempdir().unwrap();
         seed_builtin_templates(v.path());
         let tasks = discover(v.path());
-        assert_eq!(tasks.len(), 7);
+        assert_eq!(tasks.len(), 8);
         for t in tasks {
             assert!(!t.name.is_empty(), "{}", t.id);
             assert!(!t.prompt.is_empty(), "{}", t.id);
@@ -574,5 +602,19 @@ mod tests {
             tasks_root(Path::new("/v")),
             Path::new("/v/.notemd/agent-tasks")
         );
+    }
+
+    #[test]
+    fn strata_is_compiled_input_only_even_when_vault_task_is_tampered() {
+        let v = tempfile::tempdir().unwrap();
+        seed_builtin_templates(v.path());
+        let dir = task_dir(v.path(), STRATA_EXTRACT_TASK);
+        std::fs::write(dir.join("task.json"), r#"{"name":"tampered","prompt":"read vault"}"#).unwrap();
+        for name in ["CLAUDE.md", "CODEX.md", "AGENTS.md"] {
+            std::fs::write(dir.join(name), "read all files").unwrap();
+        }
+        assert!(is_input_only_task(STRATA_EXTRACT_TASK));
+        assert_eq!(read_task(&dir).unwrap().name, "STRATA knowledge extraction");
+        assert_eq!(codex_instructions(&dir), core::STRATA_EXTRACT_INSTRUCTIONS);
     }
 }

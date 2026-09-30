@@ -7,6 +7,16 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+### Added
+
+- **STRATA turns your indexed knowledge into contour maps and 3D terrain.** Filter by document date, explore topic groups and individual peaks, distinguish personal knowledge from confidentiality, and inspect supporting source passages. The separately installed STRATA 0.1.0 plugin requires this host version.
+- **Scoped knowledge extraction with Claude, Codex, and DeepSeek.** Updated Agent plugins support STRATA's explicit document and text budgets, source-quote checks, progress, and interrupted-task recovery. Browsing the local index does not start AI extraction.
+
+### Changed
+
+- **Plugin index access is scoped and source-checked.** New read-only index APIs reuse your search priorities and enforce date ranges, source hashes, and permission changes. The derived search index rebuilds once on upgrade to add explicit confidentiality labels; source documents are unchanged.
+
+
 ## v6.929.1 — 2026-09-29
 
 ### Added

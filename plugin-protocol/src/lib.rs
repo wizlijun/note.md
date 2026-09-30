@@ -7,6 +7,8 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 mod file_views;
+mod index;
+pub use index::*;
 pub use file_views::{FileViewContribution, FileViewIcon, FileViewScalar, FileViewSelector};
 
 #[derive(Debug, Deserialize)]

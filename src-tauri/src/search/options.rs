@@ -25,6 +25,10 @@ const DEFAULT_THRESHOLD_MB: u32 = 10;
 /// 而不是各自再读一遍文件,是同一条"只读一次"纪律在多字段场景下的延伸。
 pub fn for_vault(vault_root: &Path) -> ScanOptions {
     let vs = vault_settings::read(vault_root);
+    from_settings(&vs)
+}
+
+pub(crate) fn from_settings(vs: &VaultSettings) -> ScanOptions {
     ScanOptions {
         // 回落链:索引阈值 → git 门禁 → 默认。中间那一跳是一次性的善意,
         // 让既有用户的索引行为不因为这次拆分而改变。

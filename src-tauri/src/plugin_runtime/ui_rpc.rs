@@ -173,6 +173,9 @@ pub struct SaveOptions {
 /// `AppHandle` ([`TauriServices`]); tests inject stubs. `Send + Sync` so the
 /// trait object can cross the async boundary.
 pub trait HostServices: Send + Sync {
+    fn index_request(&self, _plugin_id: &str, _method: &str, _params: &serde_json::Value) -> Result<serde_json::Value, String> {
+        Err("INDEX_UNAVAILABLE".into())
+    }
     /// Show an open dialog; blocks until closed. `None` = user cancelled.
     fn pick_paths(&self, opts: &OpenOptions) -> Result<Option<Vec<PathBuf>>, String>;
     /// Show a save dialog; blocks until closed. `None` = user cancelled.
@@ -332,6 +335,16 @@ pub async fn dispatch<R: tauri::Runtime>(
     }
 
     use tauri::Manager;
+
+    if matches!(req.method.as_str(), "host.index.snapshot" | "host.index.blocks" | "host.index.status") {
+        if let Some(denial) = capability_denial(&req.method, capabilities, req.id) { return denial; }
+        let app = app.clone(); let plugin = plugin_id.to_string(); let id = req.id;
+        return match tauri::async_runtime::spawn_blocking(move || super::index_api::dispatch(&app, &plugin, &req.method, &req.params)).await {
+            Ok(Ok(value)) => ok(id, value),
+            Ok(Err(detail)) => err(id, super::index_api::error_code(&detail), detail),
+            Err(error) => err(id, proto::ERR_INTERNAL, error.to_string()),
+        };
+    }
 
     // `host.theme.css` is answered HERE instead of in `dispatch_with`: the
     // bundle comes from the app config dir + compiled theme artifacts, i.e. it
@@ -539,6 +552,7 @@ pub async fn dispatch_with(
     }
 
     let out: Result<serde_json::Value, String> = match req.method.as_str() {
+        "host.index.snapshot" | "host.index.blocks" | "host.index.status" => services.index_request(plugin_id, &req.method, &req.params),
         "host.dialog.open" => dialog_open(services, plugin_id, &req.params),
         "host.dialog.save" => dialog_save(services, plugin_id, &req.params),
         "host.fs.read_text" => fs_read_text(plugin_id, &req.params),
@@ -576,7 +590,12 @@ pub async fn dispatch_with(
     };
     match out {
         Ok(v) => ok(id, v),
-        Err(detail) => err(id, proto::ERR_INTERNAL, detail),
+        Err(detail) => {
+            let code = if req.method.starts_with("host.index.") {
+                super::index_api::error_code(&detail)
+            } else { proto::ERR_INTERNAL };
+            err(id, code, detail)
+        }
     }
 }
 
@@ -1268,6 +1287,9 @@ impl<R: tauri::Runtime> TauriServices<R> {
 }
 
 impl<R: tauri::Runtime> HostServices for TauriServices<R> {
+    fn index_request(&self, plugin_id: &str, method: &str, params: &serde_json::Value) -> Result<serde_json::Value, String> {
+        super::index_api::dispatch(&self.app, plugin_id, method, params)
+    }
     fn pick_paths(&self, opts: &OpenOptions) -> Result<Option<Vec<PathBuf>>, String> {
         use tauri_plugin_dialog::{DialogExt, FilePath};
         let mut builder = self.app.dialog().file();

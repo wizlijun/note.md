@@ -120,6 +120,7 @@ function capabilityKey(cap: string): keyof Messages | null {
     secrets: 'capability.secrets',
     storage: 'capability.storage',
     'vault.read': 'capability.vault.read',
+    'index.read': 'capability.index.read',
     'vault.write': 'capability.vault.write',
     'memory.control': 'capability.memory.control',
     dialog: 'capability.dialog',

@@ -10,6 +10,7 @@ pub mod cdr_repository;
 pub mod commands;
 pub mod discovery;
 pub mod host_api;
+pub mod index_api;
 pub mod installer;
 pub mod lifecycle;
 pub mod location;

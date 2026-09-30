@@ -1,0 +1,5 @@
+{
+  "permission_mode": "read-only",
+  "on_permission_request": "reject",
+  "rationale": "Only the caller's frozen packet is input; tools, free Vault access and file writes are forbidden. Provider input-only isolation enforces the boundary."
+}

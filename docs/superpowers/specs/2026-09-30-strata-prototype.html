@@ -1,0 +1,564 @@
+<div id="strata-terrain" aria-label="STRATA 层峦插件设计原型">
+  <header class="st-toolbar">
+    <div class="st-brand"><i data-lucide="mountain" aria-hidden="true"></i><strong>STRATA</strong><span>层峦</span></div>
+    <div class="st-dates"><label>文档日期 <input type="date" data-from value="2026-09-01" aria-label="开始日期"></label><span>—</span><input type="date" data-to value="2026-09-30" aria-label="结束日期"><select data-range aria-label="日期快捷范围"><option value="30">近 30 天</option><option value="7">近 7 天</option><option value="90">近 90 天</option><option value="custom">自定义</option></select></div>
+    <div class="st-actions"><div class="st-view-switch" aria-label="地形视角"><button type="button" data-view="2d" aria-pressed="false" class="cursor-interaction">等高线</button><button type="button" data-view="3d" aria-pressed="true" class="cursor-interaction">三维山体</button></div><button type="button" data-personal aria-pressed="true" class="cursor-interaction">个人优先</button><button type="button" data-relations aria-pressed="false" class="cursor-interaction">关系</button><button type="button" data-settings aria-expanded="false" class="cursor-interaction"><i data-lucide="sliders-horizontal" aria-hidden="true"></i><span>设置</span></button></div>
+  </header>
+  <div class="st-settings" hidden>
+    <label>知识层级 <select data-level><option value="auto">跟随缩放</option><option value="domain">领域</option><option value="topic">主题</option><option value="knowledge">知识点</option></select></label>
+    <label>地形细节 <select data-detail><option value="12">丰富细节</option><option value="8">简洁线条</option></select></label>
+    <label><input type="checkbox" data-public checked> 显示公开材料</label>
+    <span class="st-settings-note">固定对数高程 · 日期切换保持布局 · 二维与三维共用地形</span>
+  </div>
+  <div class="st-error" role="alert" hidden></div>
+  <div class="st-map">
+    <canvas class="st-gl" aria-label="三维知识山体，拖动旋转，滚轮缩放"></canvas>
+    <canvas class="st-overlay" aria-label="知识等高线地图；使用地图上的主题按钮查看证据"></canvas>
+    <div class="st-map-heading"><span class="st-eyebrow">YOUR KNOWLEDGE, IN RELIEF</span><h2>每一座山，都有你的来处。</h2><div class="st-status" aria-live="polite"></div></div>
+    <div class="st-labels" aria-label="地图中的主题和知识点"></div>
+    <div class="st-empty" hidden>这个日期范围内还没有知识点。<span>试试 2026 年 9 月的示例。</span></div>
+    <div class="st-legend"><span><b class="st-diamond">◆</b> 个人独有</span><span><b class="st-dot">●</b> 其他材料</span><span class="st-legend-height">相对高程 · 固定对数刻度</span></div>
+    <div class="st-caption"><span>合成数据 · 交互设计原型</span><span data-lod>领域</span></div>
+    <div class="st-map-controls"><div class="st-orbit"><button type="button" data-turn="-1" aria-label="向左旋转山体" class="cursor-interaction">↶</button><button type="button" data-turn="1" aria-label="向右旋转山体" class="cursor-interaction">↷</button><button type="button" data-tilt="1" aria-label="更俯视山体" class="st-angle cursor-interaction">俯</button><button type="button" data-tilt="-1" aria-label="更侧视山体" class="st-angle cursor-interaction">侧</button></div><button type="button" data-zoom-in aria-label="放大地图" class="cursor-interaction">＋</button><button type="button" data-zoom-out aria-label="缩小地图" class="cursor-interaction">−</button><button type="button" data-home aria-label="查看全景" class="cursor-interaction"><i data-lucide="maximize" aria-hidden="true"></i><span>全景</span></button></div>
+    <section class="st-evidence" hidden aria-label="知识证据详情">
+      <div class="st-evidence-top"><span>原文证据</span><button type="button" data-close aria-label="关闭证据" class="cursor-interaction">×</button></div>
+      <div class="st-evidence-body"></div>
+    </section>
+  </div>
+</div>
+<style>
+  #strata-terrain{color-scheme:light dark;--st-bg:light-dark(#f5f4ed,#151e1d);--st-surface:light-dark(#fcfbf7,#1e2927);--st-ink:light-dark(#243d36,#e0ece4);--st-muted:light-dark(#61766b,#a8bdb0);--st-border:light-dark(#d8ddd3,#394b42);--st-green:light-dark(#356e58,#91bb9d);--st-gold:light-dark(#9b631f,#d8ad68);--st-grid:light-dark(#e1e6da,#27352d);font:13px/1.5 -apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;color:var(--st-ink);background:var(--st-bg);width:100%;overflow:hidden;isolation:isolate}
+  #strata-terrain *{box-sizing:border-box}#strata-terrain [hidden]{display:none!important}#strata-terrain button,#strata-terrain input,#strata-terrain select{font:inherit;color:inherit}#strata-terrain button{border:0;background:transparent;border-radius:6px}#strata-terrain button:focus-visible,#strata-terrain input:focus-visible,#strata-terrain select:focus-visible{outline:2px solid var(--st-green);outline-offset:2px}#strata-terrain button:disabled{opacity:.4}
+  #strata-terrain .st-toolbar{display:flex;gap:18px;flex-wrap:wrap;align-items:center;padding:15px 20px;background:var(--st-surface);border-bottom:1px solid var(--st-border)}#strata-terrain .st-brand{display:flex;align-items:center;gap:8px;white-space:nowrap}#strata-terrain .st-brand strong{letter-spacing:2px;font-size:15px;font-weight:500}#strata-terrain .st-brand>span{font-size:12px;color:var(--st-muted)}#strata-terrain .st-brand>svg{width:21px;height:21px;color:var(--st-green)}
+  #strata-terrain .st-dates{display:flex;align-items:center;gap:7px;flex-wrap:wrap}#strata-terrain .st-dates label{display:flex;align-items:center;gap:8px;color:var(--st-muted)}#strata-terrain input[type=date]{width:122px;min-width:0;padding:5px 3px;border:0;background:transparent;color:var(--st-ink);font-size:12px}#strata-terrain select{max-width:100%;padding:5px;border:1px solid var(--st-border);border-radius:5px;background:var(--st-surface);font-size:12px}#strata-terrain .st-actions{margin-left:auto;display:flex;align-items:center;gap:4px}#strata-terrain .st-actions button{padding:6px 9px;display:flex;align-items:center;gap:5px;white-space:nowrap}#strata-terrain .st-actions button[aria-pressed=true]{background:var(--st-ink);color:var(--st-surface)}#strata-terrain .st-actions svg{width:15px;height:15px}
+  #strata-terrain .st-settings{padding:10px 20px;display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;background:var(--st-surface);border-bottom:1px solid var(--st-border)}#strata-terrain .st-settings label{display:flex;align-items:center;gap:6px}#strata-terrain .st-settings-note{color:var(--st-muted);font-size:12px}#strata-terrain .st-error{padding:9px 20px;color:light-dark(#9b341d,#f6b0a0);background:var(--st-surface)}
+  #strata-terrain .st-map{position:relative;height:570px;overflow:hidden;touch-action:pan-y}#strata-terrain canvas{width:100%;height:100%;display:block;touch-action:none;cursor:grab}#strata-terrain canvas:active{cursor:grabbing}#strata-terrain .st-map-heading{position:absolute;top:27px;left:28px;pointer-events:none;max-width:calc(100% - 50px)}#strata-terrain .st-eyebrow{font:10px/1.5 ui-monospace,monospace;letter-spacing:2.1px;color:var(--st-muted)}#strata-terrain h2{font-size:20px;font-weight:400;letter-spacing:.5px;margin:7px 0 7px}#strata-terrain .st-status{font-size:12px;color:var(--st-muted)}
+  #strata-terrain .st-labels{position:absolute;inset:0;pointer-events:none}#strata-terrain .st-place{position:absolute;transform:translate(-50%,-50%);pointer-events:auto;padding:5px 9px;text-align:center;background:color-mix(in srgb,var(--st-bg) 91%,transparent);white-space:nowrap;max-width:calc(100% - 20px);border-radius:5px}#strata-terrain .st-place .st-place-title{display:block;letter-spacing:.5px;font-size:15px;font-weight:500}#strata-terrain .st-place small{font-size:11px;color:var(--st-muted);letter-spacing:.2px}#strata-terrain .st-place[data-personal=true] .st-place-title:before{content:'◆';font-size:9px;color:var(--st-gold);margin-right:5px}#strata-terrain .st-place[data-size=small] .st-place-title{font-size:12px;letter-spacing:0}#strata-terrain .st-place[aria-pressed=true]{box-shadow:0 0 0 1px var(--st-green);background:var(--st-surface)}
+  #strata-terrain .st-legend{position:absolute;bottom:44px;left:24px;display:flex;gap:16px;flex-wrap:wrap;color:var(--st-muted);font-size:11px;pointer-events:none}#strata-terrain .st-legend b{font-weight:400;font-size:10px;padding-right:4px}#strata-terrain .st-diamond{color:var(--st-gold)}#strata-terrain .st-dot{color:var(--st-green)}#strata-terrain .st-caption{position:absolute;bottom:15px;left:24px;right:24px;display:flex;justify-content:space-between;color:var(--st-muted);font:10px/1.5 ui-monospace,monospace;letter-spacing:.4px;pointer-events:none}#strata-terrain .st-map-controls{position:absolute;bottom:58px;right:20px;display:flex;flex-direction:column;gap:2px;background:var(--st-surface);border:1px solid var(--st-border);padding:3px;border-radius:8px;box-shadow:0 3px 15px #00000009}#strata-terrain .st-map-controls button{width:33px;height:32px;font-size:20px;display:flex;align-items:center;justify-content:center}#strata-terrain .st-map-controls [data-home]{font-size:10px;height:40px;flex-direction:column;gap:2px}#strata-terrain .st-map-controls svg{width:13px;height:13px}
+  #strata-terrain .st-empty{position:absolute;inset:45% 20px auto;text-align:center;font-size:16px;max-width:430px;margin:auto;padding:18px;background:var(--st-surface);border-radius:8px}#strata-terrain .st-empty span{display:block;font-size:12px;color:var(--st-muted);margin-top:8px}#strata-terrain .st-evidence{position:absolute;right:65px;bottom:60px;width:min(350px,calc(100% - 40px));background:var(--st-surface);border:1px solid var(--st-border);box-shadow:0 15px 55px #00000022;border-radius:10px;z-index:3}#strata-terrain .st-evidence-top{display:flex;align-items:center;justify-content:space-between;padding:8px 16px;border-bottom:1px solid var(--st-border);font-size:11px;color:var(--st-muted)}#strata-terrain .st-evidence-top button{font-size:20px;width:26px;height:26px}#strata-terrain .st-evidence-body{padding:16px}#strata-terrain .st-evidence h3{font-size:16px;line-height:1.45;font-weight:500;margin:0 0 8px}#strata-terrain .st-meta{font-size:11px;color:var(--st-muted)}#strata-terrain blockquote{border-left:2px solid var(--st-gold);padding:0 0 0 12px;margin:13px 0;font-size:13px;line-height:1.7}#strata-terrain .st-source{font-size:11px;color:var(--st-muted);overflow-wrap:anywhere}#strata-terrain .st-linkline{font-size:12px;border-top:1px solid var(--st-border);padding-top:10px;margin-top:12px}#strata-terrain .st-linkline strong{font-weight:500}#strata-terrain .st-example-note{font-size:11px;color:var(--st-muted);margin:10px 0 0}
+  #strata-terrain .st-place[data-peak=true]{max-width:154px;white-space:normal;padding:4px 7px}#strata-terrain .st-place[data-peak=true] .st-place-title{line-height:1.5}#strata-terrain .st-explore{margin-top:12px;padding:8px 12px;background:var(--st-ink);color:var(--st-surface);width:100%;text-align:left}
+  @media(max-width:740px){#strata-terrain .st-toolbar{gap:9px;padding:12px 14px}#strata-terrain .st-brand{width:100%}#strata-terrain .st-dates{flex:1}#strata-terrain .st-actions{margin-left:0}#strata-terrain .st-map{height:570px}#strata-terrain .st-map-heading{top:20px;left:20px}#strata-terrain h2{font-size:18px}#strata-terrain .st-evidence{right:16px;bottom:59px}}
+  @media(max-width:440px){#strata-terrain .st-dates label{gap:4px;font-size:11px;white-space:nowrap}#strata-terrain input[type=date]{width:112px;font-size:11px}#strata-terrain .st-dates{gap:3px;flex:0 0 100%;width:100%}#strata-terrain .st-dates select{margin-top:3px}#strata-terrain .st-actions{margin-left:0}#strata-terrain .st-actions button{padding:5px 7px;font-size:12px}#strata-terrain .st-map{height:550px}#strata-terrain .st-eyebrow{font-size:9px;letter-spacing:1px}#strata-terrain h2{font-size:17px}#strata-terrain .st-legend{left:18px;gap:10px}#strata-terrain .st-legend-height{display:none}#strata-terrain .st-caption{left:18px;right:18px;font-size:9px}#strata-terrain .st-place .st-place-title{font-size:13px}#strata-terrain .st-place small{font-size:11px}}
+  #strata-terrain{--st-terrain-low:light-dark(#688566,#496853);--st-terrain-mid:light-dark(#8e9d7a,#819071);--st-terrain-high:light-dark(#c1bba8,#b0ae9a)}#strata-terrain .st-view-switch{display:flex;border:1px solid var(--st-border);border-radius:7px;padding:2px;margin-right:4px}#strata-terrain .st-actions{flex-wrap:wrap}#strata-terrain .st-gl,#strata-terrain .st-overlay{position:absolute;inset:0}#strata-terrain .st-overlay{z-index:1}#strata-terrain[data-view="3d"] .st-overlay{pointer-events:none}#strata-terrain .st-map-heading,#strata-terrain .st-legend,#strata-terrain .st-caption{z-index:2}#strata-terrain .st-labels,#strata-terrain .st-map-controls{z-index:2}#strata-terrain .st-empty{z-index:2}#strata-terrain .st-map-controls .st-angle{font-size:12px}#strata-terrain .st-orbit{border-bottom:1px solid var(--st-border);padding-bottom:3px;margin-bottom:3px}
+  @media(pointer:coarse){#strata-terrain .st-map-controls button{width:42px;height:42px}#strata-terrain .st-actions button{min-height:40px}#strata-terrain input[type=date],#strata-terrain select{font-size:16px}#strata-terrain .st-dates{width:100%}#strata-terrain .st-dates input{width:142px}#strata-terrain .st-place{min-height:44px}}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+<script>
+/* global THREE, d3 */
+
+/**
+ * THREE r160 terrain view of the caller's scalar field; no generated mountains.
+ * Coordinates passed to heightAt/project and view.targetX/Y are normalized [0,1].
+ * yaw/pitch are radians (pitch is elevation above the map), distance is world units.
+ * Pass a NEW field/contours reference after changing their contents. Camera-only
+ * renders reuse geometry, heights, normals and the contour texture.
+ */
+function createTerrain3D(canvas, getInk) {
+  if (typeof THREE === 'undefined' || typeof d3 === 'undefined') {
+    throw new Error('STRATA 3D requires THREE r160 and D3.');
+  }
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 0.95;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.shadowMap.autoUpdate = false;
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 90);
+  const worldWidth = 12, worldDepth = 8;
+  const segmentsX = 480, segmentsY = 312;
+  const geometry = new THREE.PlaneGeometry(worldWidth, worldDepth, segmentsX, segmentsY);
+  geometry.rotateX(-Math.PI / 2);
+  const positions = geometry.attributes.position;
+  const colors = new Float32Array(positions.count * 3);
+  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  const rawHeights = new Float32Array(positions.count);
+  const baseElevations = new Float32Array(positions.count);
+
+  const textureCanvas = document.createElement('canvas');
+  textureCanvas.width = 2048;
+  textureCanvas.height = 1366;
+  const textureContext = textureCanvas.getContext('2d');
+  if (!textureContext) {
+    geometry.dispose(); renderer.dispose(); renderer.forceContextLoss();
+    throw new Error('STRATA contour texture could not create a 2D context.');
+  }
+  const contourTexture = new THREE.CanvasTexture(textureCanvas);
+  contourTexture.colorSpace = THREE.SRGBColorSpace;
+  contourTexture.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+  const material = new THREE.MeshStandardMaterial({
+    color: 0xffffff, vertexColors: true, map: contourTexture,
+    roughness: 0.94, metalness: 0, side: THREE.FrontSide,
+  });
+  const terrain = new THREE.Mesh(geometry, material);
+  terrain.castShadow = true;
+  terrain.receiveShadow = true;
+  scene.add(terrain);
+
+  // A thin skirt connects actual boundary heights to a flat map slab.
+  const perimeter = [];
+  for (let x = 0; x <= segmentsX; x++) perimeter.push(x);
+  for (let y = 1; y <= segmentsY; y++) perimeter.push(y * (segmentsX + 1) + segmentsX);
+  for (let x = segmentsX - 1; x >= 0; x--) perimeter.push(segmentsY * (segmentsX + 1) + x);
+  for (let y = segmentsY - 1; y > 0; y--) perimeter.push(y * (segmentsX + 1));
+  const skirtGeometry = new THREE.BufferGeometry();
+  const skirtPositions = new Float32Array(perimeter.length * 6);
+  const skirtIndices = [];
+  for (let i = 0; i < perimeter.length; i++) {
+    const j = (i + 1) % perimeter.length;
+    skirtIndices.push(i * 2, j * 2, i * 2 + 1, j * 2, j * 2 + 1, i * 2 + 1);
+  }
+  skirtGeometry.setAttribute('position', new THREE.BufferAttribute(skirtPositions, 3));
+  skirtGeometry.setIndex(skirtIndices);
+  const skirtMaterial = new THREE.MeshStandardMaterial({ roughness: 1, side: THREE.DoubleSide });
+  const skirt = new THREE.Mesh(skirtGeometry, skirtMaterial);
+  skirt.castShadow = true;
+  skirt.receiveShadow = true;
+  scene.add(skirt);
+
+  const slabGeometry = new THREE.BoxGeometry(worldWidth + 0.035, 0.2, worldDepth + 0.035);
+  const slabMaterial = new THREE.MeshStandardMaterial({ roughness: 1 });
+  const slab = new THREE.Mesh(slabGeometry, slabMaterial);
+  slab.position.y = -0.14;
+  slab.castShadow = true;
+  slab.receiveShadow = true;
+  scene.add(slab);
+
+  const groundGeometry = new THREE.PlaneGeometry(200, 200);
+  const groundMaterial = new THREE.ShadowMaterial({ color: 0x1d2923, opacity: 0.16 });
+  const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+  ground.rotation.x = -Math.PI / 2;
+  ground.position.y = -0.245;
+  ground.receiveShadow = true;
+  scene.add(ground);
+
+  const hemisphere = new THREE.HemisphereLight(0xf4f7f1, 0x5a695d, 0.95);
+  scene.add(hemisphere);
+  const sunlight = new THREE.DirectionalLight(0xfff5df, 2.4);
+  sunlight.position.set(-5, 10, 6);
+  sunlight.castShadow = true;
+  sunlight.shadow.mapSize.set(2048, 2048);
+  Object.assign(sunlight.shadow.camera, { left: -9, right: 9, top: 8, bottom: -8, near: 0.5, far: 32 });
+  sunlight.shadow.bias = -0.00015;
+  sunlight.shadow.normalBias = 0.028;
+  sunlight.shadow.radius = 2;
+  scene.add(sunlight);
+  scene.add(sunlight.target);
+
+  let field = null, gridWidth = 0, gridHeight = 0, verticalScale = 1;
+  let previousContours = null, previousLevels = '', previousTextureKey = '', previousPalette = '';
+  let cssWidth = 1, cssHeight = 1, pixelRatio = 0, disposed = false, hasRendered = false;
+  const projected = new THREE.Vector3();
+  const target = new THREE.Vector3();
+  const interpolatedColor = new THREE.Color();
+  const lowColor = new THREE.Color(), midColor = new THREE.Color(), highColor = new THREE.Color();
+  const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+  const finite = (value, fallback) => Number.isFinite(value) ? value : fallback;
+  const ink = (name, fallback) => getInk(name) || fallback;
+  const elevation = value => 0.24 * Math.log1p(Math.max(0, value) / 0.012);
+
+  // D3 contour coordinates place cell i at i + 0.5, rather than at i.
+  function heightAt(x, y) {
+    if (!field) return 0;
+    const gx = clamp(finite(x, 0) * gridWidth - 0.5, 0, gridWidth - 1);
+    const gy = clamp(finite(y, 0) * gridHeight - 0.5, 0, gridHeight - 1);
+    const x0 = Math.floor(gx), y0 = Math.floor(gy);
+    const x1 = Math.min(x0 + 1, gridWidth - 1), y1 = Math.min(y0 + 1, gridHeight - 1);
+    const tx = gx - x0, ty = gy - y0;
+    const a = finite(field[y0 * gridWidth + x0], 0), b = finite(field[y0 * gridWidth + x1], 0);
+    const c = finite(field[y1 * gridWidth + x0], 0), d = finite(field[y1 * gridWidth + x1], 0);
+    return Math.max(0, (a + (b - a) * tx) * (1 - ty) + (c + (d - c) * tx) * ty);
+  }
+
+  function updateHeights(resample) {
+    for (let i = 0; i < positions.count; i++) {
+      if (resample) {
+        const x = positions.getX(i) / worldWidth + 0.5;
+        const y = positions.getZ(i) / worldDepth + 0.5;
+        rawHeights[i] = heightAt(x, y);
+        baseElevations[i] = elevation(rawHeights[i]);
+      }
+      positions.setY(i, baseElevations[i] * verticalScale);
+    }
+    positions.needsUpdate = true;
+    geometry.computeVertexNormals();
+    geometry.computeBoundingBox();
+    geometry.computeBoundingSphere();
+    for (let i = 0; i < perimeter.length; i++) {
+      const source = perimeter[i], offset = i * 6;
+      skirtPositions[offset] = skirtPositions[offset + 3] = positions.getX(source);
+      skirtPositions[offset + 1] = positions.getY(source);
+      skirtPositions[offset + 4] = -0.041;
+      skirtPositions[offset + 2] = skirtPositions[offset + 5] = positions.getZ(source);
+    }
+    skirtGeometry.attributes.position.needsUpdate = true;
+    skirtGeometry.computeVertexNormals();
+    skirtGeometry.computeBoundingSphere();
+    renderer.shadowMap.needsUpdate = true;
+  }
+
+  function updateColors() {
+    const normals = geometry.attributes.normal;
+    for (let i = 0; i < positions.count; i++) {
+      // Fixed height transfer keeps color comparable across date ranges.
+      const band = clamp(baseElevations[i] / 0.98, 0, 1);
+      if (band < 0.55) interpolatedColor.copy(lowColor).lerp(midColor, band / 0.55);
+      else interpolatedColor.copy(midColor).lerp(highColor, (band - 0.55) / 0.45);
+      // Steep slopes expose a restrained rock color; no extra displacement/noise.
+      const slope = clamp((1 - normals.getY(i) - 0.18) * 1.5, 0, 0.34);
+      interpolatedColor.lerp(highColor, slope);
+      interpolatedColor.toArray(colors, i * 3);
+    }
+    geometry.attributes.color.needsUpdate = true;
+  }
+
+  function updateTexture(contours, opacity, detail, lineColor) {
+    const ctx = textureContext, tw = textureCanvas.width, th = textureCanvas.height;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#ffffff'; // Multiplicative identity for vertex colors.
+    ctx.fillRect(0, 0, tw, th);
+    if (opacity > 0 && contours.length) {
+      const sx = tw / gridWidth, sy = th / gridHeight;
+      ctx.scale(sx, sy);
+      ctx.strokeStyle = lineColor;
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+      ctx.globalAlpha = opacity * 0.43;
+      const path = d3.geoPath(null, ctx);
+      const stride = Math.max(1, Math.ceil(contours.length / detail));
+      for (let i = 0; i < contours.length; i++) {
+        if (i % stride !== 0 && i !== contours.length - 1) continue;
+        ctx.lineWidth = (i % (stride * 4) === 0 ? 1.65 : 1.0) / Math.sqrt(sx * sy);
+        ctx.beginPath(); path(contours[i]); ctx.stroke();
+      }
+    }
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalAlpha = 1;
+    contourTexture.needsUpdate = true;
+  }
+
+  function render(options) {
+    if (disposed) throw new Error('STRATA 3D renderer has been disposed.');
+    if (renderer.getContext().isContextLost()) throw new Error('STRATA WebGL context was lost.');
+    const { field: nextField, grid, contours = [], levels = [], view = {} } = options;
+    if (!grid || !Number.isInteger(grid.width) || !Number.isInteger(grid.height)
+      || grid.width < 1 || grid.height < 1 || !nextField || nextField.length !== grid.width * grid.height) {
+      throw new Error('STRATA 3D field dimensions do not match the grid.');
+    }
+    const nextScale = clamp(finite(options.verticalScale, 1), 0, 6);
+    const fieldChanged = nextField !== field || grid.width !== gridWidth || grid.height !== gridHeight;
+    const scaleChanged = nextScale !== verticalScale;
+    field = nextField; gridWidth = grid.width; gridHeight = grid.height; verticalScale = nextScale;
+
+    const bg = ink('--st-bg', '#f5f4ed');
+    const low = ink('--st-terrain-low', '#b8c99b');
+    const mid = ink('--st-terrain-mid', '#7b9872');
+    const high = ink('--st-terrain-high', '#ddd5bf');
+    const border = ink('--st-border', '#d8ddd3');
+    const line = ink('--st-green', '#356e58');
+    const paletteKey = [bg, low, mid, high, border].join('|');
+    const paletteChanged = paletteKey !== previousPalette;
+    if (paletteChanged) {
+      lowColor.set(low); midColor.set(mid); highColor.set(high);
+      scene.background = new THREE.Color(bg);
+      skirtMaterial.color.copy(lowColor).multiplyScalar(0.77);
+      slabMaterial.color.set(border);
+      previousPalette = paletteKey;
+    }
+    if (fieldChanged || scaleChanged) updateHeights(fieldChanged);
+    if (fieldChanged || scaleChanged || paletteChanged) updateColors();
+
+    const opacity = clamp(finite(options.contourOpacity, 0.55), 0, 1);
+    const detail = clamp(Math.round(finite(options.detail, 18)), 1, 80);
+    const levelsKey = levels.join(',');
+    const textureKey = [gridWidth, gridHeight, opacity, detail, line].join('|');
+    if (contours !== previousContours || textureKey !== previousTextureKey || levelsKey !== previousLevels) {
+      updateTexture(contours, opacity, detail, line);
+      previousContours = contours; previousTextureKey = textureKey; previousLevels = levelsKey;
+    }
+
+    const rect = canvas.getBoundingClientRect();
+    const width = Math.max(1, Math.round(rect.width)), height = Math.max(1, Math.round(rect.height));
+    const dpr = Math.min(2, Math.max(1, globalThis.devicePixelRatio || 1));
+    if (width !== cssWidth || height !== cssHeight || dpr !== pixelRatio) {
+      cssWidth = width; cssHeight = height; pixelRatio = dpr;
+      renderer.setPixelRatio(dpr); renderer.setSize(width, height, false);
+      camera.aspect = width / height; camera.updateProjectionMatrix();
+    }
+    const tx = clamp(finite(view.targetX, 0.5), 0, 1), ty = clamp(finite(view.targetY, 0.5), 0, 1);
+    target.set((tx - 0.5) * worldWidth, 0.12, (ty - 0.5) * worldDepth);
+    const yaw = finite(view.yaw, -0.38);
+    const pitch = clamp(finite(view.pitch, 0.72), 0.12, Math.PI / 2 - 0.025);
+    const distance = clamp(finite(view.distance, 14), 3.5, 36);
+    const horizontal = Math.cos(pitch) * distance;
+    camera.position.set(target.x + Math.sin(yaw) * horizontal,
+      target.y + Math.sin(pitch) * distance, target.z + Math.cos(yaw) * horizontal);
+    camera.lookAt(target);
+    camera.updateMatrixWorld();
+    renderer.render(scene, camera);
+    hasRendered = true;
+  }
+
+  function project(point) {
+    if (!hasRendered || disposed) return { x: 0, y: 0, visible: false };
+    const x = finite(point.x, 0), y = finite(point.y, 0);
+    const wx = (x - 0.5) * worldWidth, wz = (y - 0.5) * worldDepth;
+    const wy = elevation(heightAt(x, y)) * verticalScale + 0.028;
+    projected.set(wx, wy, wz).project(camera);
+    let visible = x >= 0 && x <= 1 && y >= 0 && y <= 1
+      && projected.z >= -1 && projected.z <= 1 && Math.abs(projected.x) <= 1 && Math.abs(projected.y) <= 1;
+    // Heightfield ray marching avoids labels appearing through foreground ridges.
+    if (visible) for (let step = 1; step < 40; step++) {
+      const t = step / 40;
+      const rx = wx + (camera.position.x - wx) * t, rz = wz + (camera.position.z - wz) * t;
+      const nx = rx / worldWidth + 0.5, ny = rz / worldDepth + 0.5;
+      if (nx < 0 || nx > 1 || ny < 0 || ny > 1) continue;
+      const rayY = wy + (camera.position.y - wy) * t;
+      if (elevation(heightAt(nx, ny)) * verticalScale > rayY + 0.035) { visible = false; break; }
+    }
+    return { x: (projected.x + 1) * cssWidth / 2, y: (1 - projected.y) * cssHeight / 2, visible };
+  }
+
+  function dispose() {
+    if (disposed) return;
+    disposed = true; field = null; previousContours = null;
+    geometry.dispose(); skirtGeometry.dispose(); slabGeometry.dispose(); groundGeometry.dispose();
+    material.dispose(); skirtMaterial.dispose(); slabMaterial.dispose(); groundMaterial.dispose();
+    contourTexture.dispose(); sunlight.shadow.map?.dispose();
+    renderer.renderLists.dispose(); renderer.dispose(); renderer.forceContextLoss();
+    scene.clear();
+    textureCanvas.width = textureCanvas.height = 1;
+  }
+
+  return { render, project, heightAt, dispose };
+}
+
+(() => {
+  const root=document.getElementById('strata-terrain'), q=s=>root.querySelector(s);
+  const canvas=q('.st-overlay'),glCanvas=q('.st-gl'),ctx=canvas.getContext('2d'),map=q('.st-map'),labels=q('.st-labels');
+  const groups=[
+    {id:'product',name:'产品与判断',x:.25,y:.31,topics:['本地优先','证据先行'],terms:['离线检索优先于云端推荐','先验证原文，再给出结论','缓存命中不应改写原文','让复杂设置渐进出现','日期筛选保持空间稳定','索引权重服从本人设置','把来源与真伪分开','读取结果必须可回溯'],personal:true,origin:'human',quote:'这次先做好离线检索；推荐功能等真实使用之后再决定。'},
+    {id:'people',name:'协作与信任',x:.72,y:.29,topics:['工作边界','反馈闭环'],terms:['承诺应明确负责人和期限','复杂决策保留异议','交付前共同确认标准','会议结论附原话','进度变化及时同步','按反馈修改工作方式','澄清执行与批准的边界','复盘关注行动而非动机'],personal:true,origin:'source',quote:'这个事项由我跟进，周五前给出结果；方案变更时我们再一起确认。'},
+    {id:'methods',name:'方法与习惯',x:.49,y:.56,topics:['记录与复盘','注意力'],terms:['每天保留一段不被打断的时间','复盘只保留可行动的变化','把疑问留在来源旁边','减少重复整理的步骤','按周回看重要决定','优先处理已承诺的事情','用短记录保存当时语境','让知识在使用中生长'],personal:true,origin:'human',quote:'试着把上午第一段时间留给最重要的一件事，周末再看是否有效。'},
+    {id:'reading',name:'阅读与连接',x:.23,y:.78,topics:['认知工具','知识组织'],terms:['间隔复习的基本概念','用概念连接不同章节','目录不等于知识结构','作者观点需要保留归属','笔记是理解的外部线索','举例帮助理解抽象概念','主题可以跨越单一文档','相似不等于因果'],personal:false,origin:'source',quote:'这段材料介绍了间隔复习，并把它描述为一种安排回顾时间的方法。'},
+    {id:'life',name:'生活与节奏',x:.76,y:.76,topics:['日常观察','生活安排'],terms:['给每周散步留出时间','重要安排提前一天准备','保留与家人共享的时段','记录变化而非急于判断','把旅途里的观察记下来','为休息留下空白','在熟悉的路上发现细节','计划应留有调整余地'],personal:true,origin:'human',quote:'这周想把周末的一段时间留给散步，不再排满每一个时段。'}
+  ];
+  // Terrain model: deterministic nonnegative kernels; no render-time randomness.
+  const terrainGrid={width:960,height:624};
+  const contourLevels=Array.from({length:140},(_,i)=>.012*Math.expm1((i+1)*.011/.24));
+  function seeded(id,salt=0){let h=2166136261^salt;for(let i=0;i<id.length;i++)h=Math.imul(h^id.charCodeAt(i),16777619);h=Math.imul(h^(h>>>16),2246822507);return ((h^(h>>>13))>>>0)/4294967296;}
+  function terrainNoise(x,y,salt){
+    const ix=Math.floor(x),iy=Math.floor(y),u=x-ix,v=y-iy;
+    const smooth=t=>t*t*t*(t*(t*6-15)+10),sx=smooth(u),sy=smooth(v);
+    const lattice=(a,b)=>{let h=Math.imul(a,374761393)^Math.imul(b,668265263)^salt;h=Math.imul(h^(h>>>13),1274126177);return ((h^(h>>>16))>>>0)/2147483648-1;};
+    const a=lattice(ix,iy),b=lattice(ix+1,iy),c=lattice(ix,iy+1),d=lattice(ix+1,iy+1);
+    return (a+(b-a)*sx)*(1-sy)+(c+(d-c)*sx)*sy;
+  }
+  function terrainFractal(x,y,salt,octaves=5,ridged=false){
+    let sum=0,amplitude=1,total=0,feedback=1;
+    for(let octave=0;octave<octaves;octave++){
+      let signal=terrainNoise(x,y,salt+octave*7919);
+      if(ridged){signal=(1-Math.abs(signal))**2*feedback;feedback=Math.min(1,signal*2.2);}
+      sum+=signal*amplitude;total+=amplitude;amplitude*=ridged?.55:.52;
+      // Rotate each octave so the underlying square lattice has no preferred axis.
+      const nextX=(x*.8-y*.6)*2.03+17.7;y=(x*.6+y*.8)*2.03+9.2;x=nextX;
+    }
+    return sum/total;
+  }
+  function terrainWarp(x,y){return {
+    x:x+.027*terrainFractal(x*3.5,y*3.5,71)+.009*terrainFractal(x*12,y*12,313,3),
+    y:y+.027*terrainFractal(x*3.5,y*3.5,137)+.009*terrainFractal(x*12,y*12,911,3)
+  };}
+  function summitWarp(x,y){return {
+    x:x+.006*terrainFractal(x*32,y*32,2311,3),
+    y:y+.006*terrainFractal(x*32,y*32,3253,3)
+  };}
+  function terrainPoint(g,j){
+    const id=g.id+'-'+j,axis=seeded(g.id,11)*Math.PI*2;
+    const along=(j/7-.38)*(.22+.04*seeded(g.id,19));
+    const across=(j%2?1:-1)*(.016+.036*seeded(id,23))+.014*Math.sin(j*.85+axis);
+    return {x:g.x+Math.cos(axis)*along-Math.sin(axis)*across,y:g.y+Math.sin(axis)*along+Math.cos(axis)*across};
+  }
+  function makeTerrainKernels(items){
+    const {width:gw,height:gh}=terrainGrid,size=gw*gh;
+    const xs=new Float32Array(size),ys=new Float32Array(size),summitXs=new Float32Array(size),summitYs=new Float32Array(size),summitTexture=new Float32Array(size),texture=new Float32Array(size),regionalTexture=new Float32Array(size);
+    for(let y=0;y<gh;y++)for(let x=0;x<gw;x++){
+      const i=y*gw+x,nx=x/gw,ny=y/gh,p=terrainWarp(nx,ny),detail=summitWarp(nx,ny);xs[i]=p.x;ys[i]=p.y;summitXs[i]=detail.x;summitYs[i]=detail.y;
+      regionalTexture[i]=.65+1.2*terrainFractal(nx*6,ny*6,8819,4,true)+.3*terrainFractal(nx*4,ny*4,9151,4);
+      summitTexture[i]=1+.55*terrainFractal(nx*44,ny*44,5741,3);
+      texture[i]=.7+.5*terrainFractal(nx*15,ny*15,557,4,true)+.27*terrainFractal(nx*7,ny*7,1237);
+    }
+    return items.map(r=>{
+      const field=new Float32Array(size),foot=new Float32Array(size),p=terrainWarp(r.x,r.y),summitPoint=summitWarp(r.x,r.y);
+      const angle=seeded(r.g,11)*Math.PI*2+(seeded(r.id,31)-.5)*1.15,c=Math.cos(angle),s=Math.sin(angle);
+      const long=.035+.025*seeded(r.id,37),short=.014+.01*seeded(r.id,41),bendPhase=seeded(r.id,43)*6;
+      const separation=Math.min(...items.filter(other=>other.id!==r.id).map(other=>Math.hypot(other.x-r.x,other.y-r.y)));
+      const summitWidth=Math.max(.0075,Math.min(.015,separation*.24)),summitAspect=.88+.5*seeded(r.id,59);
+      let total=0,footTotal=0;
+      for(let i=0;i<size;i++){
+        const dx=xs[i]-p.x,dy=ys[i]-p.y,u=dx*c+dy*s,v=-dx*s+dy*c;
+        // Curving crest, off-centre shoulder and broad slope share a fixed mass.
+        const bend=v-.009*Math.sin(u*42+bendPhase);
+        const crest=.57*Math.exp(-.5*((u/long)**2+(bend/short)**2))/(long*short);
+        const shoulder=.28*Math.exp(-.5*(((u+.025)/(.08))**2+((v-.017)/(.032))**2))/(.08*.032);
+        const slope=.15*Math.exp(-.5*((u/.105)**2+(v/.059)**2))/(.105*.059);
+        const sx=summitXs[i]-summitPoint.x,sy=summitYs[i]-summitPoint.y,su=sx*c+sy*s,sv=-sx*s+sy*c;
+        const summit=Math.exp(-.5*((su/(summitWidth*summitAspect))**2+(sv/(summitWidth/summitAspect))**2)*summitTexture[i])/(summitWidth*summitWidth);
+        field[i]=(.6*(crest+shoulder+slope)+.4*summit)*texture[i];total+=field[i];
+        foot[i]=Math.exp(-.5*((u/.32)**2+(v/.2)**2))*regionalTexture[i];footTotal+=foot[i];
+      }
+      // Freeze normalization over the full grid, never over the selected dates.
+      const massArea=2*Math.PI*.034**2*size,scale=massArea/total,footScale=massArea/footTotal;
+      for(let i=0;i<size;i++)field[i]=.78*field[i]*scale+.22*foot[i]*footScale;
+      return {id:r.id,field,mass:.8*(1-Math.exp(-r.weight/2))};
+    });
+  }
+  function terrainField(kernels,ids){
+    const field=new Float32Array(terrainGrid.width*terrainGrid.height);
+    for(const kernel of kernels)if(ids.has(kernel.id))for(let i=0;i<field.length;i++)field[i]+=kernel.mass*kernel.field[i];
+    return field;
+  }
+  function terrainPeak(field,r){
+    const {width:gw,height:gh}=terrainGrid;
+    let at=Math.round(r.y*gh)*gw+Math.round(r.x*gw);
+    for(let step=0;step<32;step++){
+      let next=at;const x=at%gw,y=Math.floor(at/gw);
+      for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++)if(x+dx>=0&&x+dx<gw&&y+dy>=0&&y+dy<gh){const i=(y+dy)*gw+x+dx;if(field[i]>field[next])next=i;}
+      if(next===at)break;at=next;
+    }
+    // d3-contour places a grid sample at the centre of its cell.
+    return {x:(at%gw+.5)/gw,y:(Math.floor(at/gw)+.5)/gh};
+  }
+  // End terrain model.
+  const records=groups.flatMap((g,gi)=>g.terms.map((title,j)=>({id:g.id+'-'+j,g:g.id,title,topic:g.topics[j%2],date:'2026-09-'+String(1+(j*4+gi*3)%30).padStart(2,'0'),...terrainPoint(g,j),personal:g.personal,origin:g.origin,weight:({human:1.25,source:.9})[g.origin],quote:j===0?g.quote:'示例记录：'+title+'。后续复盘时再结合具体语境判断是否适用。',path:'示例/'+g.id+'/记录-'+(j+1)+'.md',line:4+j*3})));
+  const terrainKernels=makeTerrainKernels(records);
+  const edges=[{from:'product',to:'reading',type:'引用背景',text:'离线检索方案引用了知识组织的阅读笔记。'},{from:'people',to:'methods',type:'促成调整',text:'合成复盘记录明确把工作反馈与习惯调整联系起来。'},{from:'methods',to:'life',type:'应用于',text:'合成日记把留白方法用于周末安排。'}];
+  let state={view:'3d',yaw:-.25,pitch:.85,targetX:.5,targetY:.5,from:'2026-09-01',to:'2026-09-30',personal:true,relations:false,public:true,level:'auto',detail:12,zoom:1,panX:0,panY:0,selected:null,selectedRecord:null,focusGroup:null};
+  let width=0,height=0,active=[],contours=[],heightField=null,terrain3D=null,reliefRaster=null,reliefTheme=null,peakAnchors=new Map(),drag=null,renderQueued=false;
+  const style={contourOpacity:.65,fill:true,verticalScale:1};
+  const saved=window.openai?.widgetState;
+  function restore(s){if(!s)return;const v=s.privateContent||s;for(const k of ['from','to'])if(/^\d{4}-\d{2}-\d{2}$/.test(v[k]||''))state[k]=v[k];for(const k of ['personal','relations','public'])if(typeof v[k]==='boolean')state[k]=v[k];if(['auto','domain','topic','knowledge'].includes(v.level))state.level=v.level;if([8,12].includes(v.detail))state.detail=v.detail;if(Number.isFinite(v.zoom)&&v.zoom>=1&&v.zoom<=6){state.zoom=v.zoom;for(const k of ['panX','panY'])if(Number.isFinite(v[k])&&Math.abs(v[k])<=3)state[k]=v[k];if(groups.some(g=>g.id===v.focusGroup))state.focusGroup=v.focusGroup;}}
+  function restoreView(s){const v=s?.privateContent||s;if(!v)return;if(['2d','3d'].includes(v.view)){state.view=v.view;for(const key of ['yaw','pitch','targetX','targetY'])if(Number.isFinite(v[key]))state[key]=v[key];state.pitch=Math.max(.28,Math.min(1.4,state.pitch));}else{state.zoom=1;state.panX=0;state.panY=0;state.focusGroup=null;state.level='auto';}}
+  restore(saved);restoreView(saved);
+  function save(){window.openai?.setWidgetState?.({modelContent:{plugin:'STRATA · 层峦',dateRange:[state.from,state.to],personalFirst:state.personal,view:state.view,synthetic:true},privateContent:state}).catch(()=>{});}
+  // Canvas cannot resolve light-dark() custom-property strings itself. Resolve through CSS.
+  const probe=document.createElement('span');probe.hidden=true;root.append(probe);
+  function ink(name){probe.style.color='var('+name+')';return getComputedStyle(probe).color;}
+  const mapPos=r=>({x:((r.x-.5)*state.zoom+.5+state.panX)*width,y:((r.y-.5)*state.zoom+.5+state.panY)*height});
+  const pos=r=>state.view==='3d'&&terrain3D?terrain3D.project(r):mapPos(r);
+  const edgeVisible=e=>active.some(r=>r.id===e.from+'-0')&&active.some(r=>r.id===e.to+'-0');
+  const lod=()=>state.level==='auto'?(state.zoom<1.5?'domain':state.zoom<2.4?'topic':'knowledge'):state.level;
+  function sync(){root.dataset.view=state.view;glCanvas.hidden=state.view!=='3d';q('.st-orbit').hidden=state.view!=='3d';for(const button of root.querySelectorAll('[data-view]'))if(button.tagName==='BUTTON')button.setAttribute('aria-pressed',String(button.dataset.view===state.view));const days=state.to==='2026-09-30'?Math.round((Date.parse(state.to+'T12:00:00Z')-Date.parse(state.from+'T12:00:00Z'))/86400000)+1:0;q('[data-range]').value=[7,30,90].includes(days)?String(days):'custom';q('[data-from]').value=state.from;q('[data-to]').value=state.to;q('[data-personal]').setAttribute('aria-pressed',String(state.personal));q('[data-relations]').setAttribute('aria-pressed',String(state.relations));q('[data-public]').checked=state.public;q('[data-level]').value=state.level;q('[data-detail]').value=String(state.detail);q('[data-zoom-out]').disabled=state.zoom<=1;q('[data-zoom-in]').disabled=state.zoom>=6;}
+  function rebuild(){
+    sync(); const bad=!state.from||!state.to||state.from>state.to;
+    q('.st-error').hidden=!bad;q('.st-error').textContent=bad?'请选择有效的日期范围，开始日期不能晚于结束日期。':'';
+    active=bad?[]:records.filter(r=>r.date>=state.from&&r.date<=state.to&&(state.public||r.personal));
+    q('.st-status').textContent=active.length+' 个知识点 · '+new Set(active.map(r=>r.g)).size+' 座主题山群 · 文档日期';
+    q('.st-empty').hidden=bad||active.length>0;
+    if(!window.d3){q('.st-error').hidden=false;q('.st-error').textContent='绘图资源未载入，请在可联网环境重试。正式插件将内置绘图库。';return;}
+    // Every contour uses the same continuous field; simpler detail takes a subset.
+    const field=terrainField(terrainKernels,new Set(active.map(r=>r.id)));heightField=field;reliefRaster=null;
+    peakAnchors=new Map(active.map(r=>[r.id,terrainPeak(field,r)]));
+    contours=d3.contours().size([terrainGrid.width,terrainGrid.height]).thresholds(contourLevels)(field);
+    root.dataset.activeCount=String(active.length);root.dataset.contourCount=String(contours.filter(c=>c.coordinates.length).length);root.dataset.heightChecksum=String(Math.round(field.reduce((a,b)=>a+b,0)*1000));
+    if(state.selected&&!active.some(r=>r.g===state.selected))closeEvidence(false);
+    draw();if(state.selected)showEvidence(state.selected,false,state.selectedRecord);
+  }
+  function buildReliefRaster(){
+    const theme=ink('--st-bg')+ink('--st-terrain-low');
+    if(reliefRaster&&reliefTheme===theme)return;
+    const {width:gw,height:gh}=terrainGrid,raster=document.createElement('canvas');raster.width=gw;raster.height=gh;
+    const rc=raster.getContext('2d'),pixels=rc.createImageData(gw,gh),elevations=new Float32Array(heightField.length);
+    const low=d3.rgb(ink('--st-terrain-low')),high=d3.rgb(ink('--st-terrain-high')),paper=d3.rgb(ink('--st-bg'));
+    for(let i=0;i<heightField.length;i++)elevations[i]=.24*Math.log1p(heightField[i]/.012);
+    for(let y=0;y<gh;y++)for(let x=0;x<gw;x++){
+      const i=y*gw+x,h=elevations[i],t=Math.min(1,h/1.05);
+      const nx=-(elevations[y*gw+Math.min(gw-1,x+1)]-elevations[y*gw+Math.max(0,x-1)])*gw/24;
+      const nz=-(elevations[Math.min(gh-1,y+1)*gw+x]-elevations[Math.max(0,y-1)*gw+x])*gh/16;
+      const light=Math.max(0,(-.45*nx+1-.6*nz)/(Math.hypot(nx,1,nz)*1.25)),shade=.77+.25*light;
+      for(let c=0;c<3;c++){const key=['r','g','b'][c];pixels.data[i*4+c]=Math.min(255,((low[key]+(high[key]-low[key])*t)*.73+paper[key]*.27)*shade);}
+      pixels.data[i*4+3]=255;
+    }
+    rc.putImageData(pixels,0,0);reliefRaster=raster;reliefTheme=theme;
+  }
+  function draw(){
+    if(!heightField)return;
+    width=map.clientWidth;height=map.clientHeight;const dpr=Math.min(devicePixelRatio||1,2);canvas.width=width*dpr;canvas.height=height*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);
+    const contourStep=lod()==='knowledge'?(state.detail===12?2:4):(state.detail===12?3:6);
+    sync();
+    if(state.view==='3d'){
+      try{
+        if(!terrain3D)terrain3D=createTerrain3D(glCanvas,ink);
+        terrain3D.render({field:heightField,grid:terrainGrid,contours,levels:contourLevels,view:{yaw:state.yaw,pitch:state.pitch,distance:14*Math.max(1,.85/(width/height))/state.zoom,targetX:state.targetX,targetY:state.targetY},verticalScale:style.verticalScale,contourOpacity:style.contourOpacity,detail:Math.ceil(contours.length/contourStep)});
+      }catch(error){state.view='2d';q('.st-error').hidden=false;q('.st-error').textContent='三维视图暂不可用，已显示同一地形的二维等高线。';sync();}
+    }
+    if(state.view==='2d'){
+      ctx.fillStyle=ink('--st-bg');ctx.fillRect(0,0,width,height);
+      if(style.fill&&active.length){buildReliefRaster();const origin=mapPos({x:0,y:0});ctx.drawImage(reliefRaster,origin.x,origin.y,width*state.zoom,height*state.zoom);}
+      const transform=d3.geoTransform({point(x,y){const p=mapPos({x:x/terrainGrid.width,y:y/terrainGrid.height});this.stream.point(p.x,p.y)}}),path=d3.geoPath(transform,ctx);
+      for(let i=0;i<contours.length;i+=contourStep){ctx.beginPath();path(contours[i]);ctx.strokeStyle=ink('--st-green');ctx.globalAlpha=style.contourOpacity*(i%(contourStep*4)===0?.85:.5);ctx.lineWidth=i%(contourStep*4)===0?1:.6;ctx.stroke();}
+    }
+    ctx.globalAlpha=1;
+    if(state.relations){for(const edge of edges){if(state.selected&&edge.from!==state.selected&&edge.to!==state.selected)continue;const a=groups.find(g=>g.id===edge.from),b=groups.find(g=>g.id===edge.to);if(!edgeVisible(edge))continue;const pa=pos(a),pb=pos(b);if(pa.visible===false||pb.visible===false)continue;ctx.beginPath();ctx.moveTo(pa.x,pa.y);ctx.bezierCurveTo(pa.x+(pb.x-pa.x)*.2,pa.y-30,pb.x-(pb.x-pa.x)*.2,pb.y+30,pb.x,pb.y);ctx.strokeStyle=ink('--st-gold');ctx.globalAlpha=.65;ctx.lineWidth=1.4;ctx.stroke();ctx.globalAlpha=1;}}
+    for(const r of active){const p=pos(peakAnchors.get(r.id)||r);if(p.visible===false)continue;ctx.fillStyle=ink(r.personal?'--st-gold':'--st-green');ctx.globalAlpha=r.personal?(state.personal?.95:.4):.55;const size=(state.zoom>1.6?2.8:1.9)*(r.personal&&state.personal?1.25:1);ctx.beginPath();if(r.personal){ctx.moveTo(p.x,p.y-size*1.4);ctx.lineTo(p.x+size,p.y);ctx.lineTo(p.x,p.y+size*1.4);ctx.lineTo(p.x-size,p.y);ctx.closePath()}else ctx.arc(p.x,p.y,size,0,Math.PI*2);ctx.fill();}ctx.globalAlpha=1;
+    renderLabels();q('[data-lod]').textContent=(state.view==='3d'?'拖动旋转 · ':'')+({domain:'领域',topic:'主题',knowledge:'子项山峰'})[lod()]+' · '+Math.round(state.zoom*100)+'%';
+    const focused=groups.find(g=>g.id===state.focusGroup);
+    q('h2').textContent=focused?focused.name+' · '+active.filter(r=>r.g===focused.id).length+' 座子峰':'每一座山，都有你的来处。';sync();
+  }
+  function renderLabels(){
+    labels.replaceChildren();const entries=[];
+    for(const g of groups){if(state.focusGroup&&lod()==='knowledge'&&g.id!==state.focusGroup)continue;const members=active.filter(r=>r.g===g.id);if(!members.length)continue;
+      if(lod()==='domain')entries.push({g,record:members[0],name:g.name,x:g.x,y:g.y+.047,sub:members.length+' 个知识点'+(g.personal?' · 个人独有':' · 公开材料'),small:false});
+      else if(lod()==='topic')g.topics.forEach(topic=>{const rs=members.filter(r=>r.topic===topic),anchors=records.filter(r=>r.g===g.id&&r.topic===topic);if(rs.length)entries.push({g,record:rs[0],name:topic,x:anchors.reduce((s,r)=>s+r.x,0)/anchors.length,y:anchors.reduce((s,r)=>s+r.y,0)/anchors.length,sub:rs.length+' 个知识点',small:true});});
+      else members.forEach(r=>entries.push({g,record:r,name:r.title,...(peakAnchors.get(r.id)||{x:r.x,y:r.y}),sub:r.date.slice(5),small:true,peak:true}));
+    }
+    const controlBounds=q('.st-map-controls').getBoundingClientRect(),mapBounds=map.getBoundingClientRect();const occupied=[{x:controlBounds.left-mapBounds.left-5,y:controlBounds.top-mapBounds.top-5,w:controlBounds.width+10,h:controlBounds.height+10}];const peakBoxes=lod()==='knowledge'?active.map(r=>{const p=pos(peakAnchors.get(r.id)||r);return {x:p.x-13,y:p.y-13,w:26,h:26};}):[];
+    if(state.personal)entries.sort((a,b)=>Number(b.g.personal)-Number(a.g.personal));
+    for(const e of entries){const p=pos(e);if(p.visible===false||p.x<10||p.x>width-10||p.y<130||p.y>height-80)continue;const button=document.createElement('button');button.type='button';button.className='st-place cursor-interaction';button.dataset.personal=String(e.g.personal);button.dataset.size=e.small?'small':'large';button.dataset.group=e.g.id;button.dataset.peak=String(!!e.peak);button.dataset.record=e.record.id;button.setAttribute('aria-pressed',String(e.peak?state.selectedRecord===e.record.id:state.selected===e.g.id));button.setAttribute('aria-label',e.name+'，查看原文证据');const title=document.createElement('span');title.className='st-place-title';title.textContent=e.name;const sub=document.createElement('small');sub.textContent=e.sub;button.append(title,sub);labels.append(button);const bw=button.offsetWidth,bh=button.offsetHeight;
+      const offsets=e.peak?[[0,54],[0,-54],[110,0],[-110,0],[100,50],[-100,50],[100,-50],[-100,-50],[0,85],[0,-85]]:[[0,0]];let placed=null;
+      for(const [ox,oy] of offsets){const x=Math.max(bw/2+9,Math.min(width-bw/2-9,p.x+ox)),y=p.y+oy,box={x:x-bw/2-5,y:y-bh/2-5,w:bw+10,h:bh+10};if(y-bh/2<125||y+bh/2>height-65)continue;if(![...occupied,...peakBoxes].some(b=>box.x<b.x+b.w&&box.x+box.w>b.x&&box.y<b.y+b.h&&box.y+box.h>b.y)){placed={x,y,box};break;}}
+      if(!placed){button.remove();continue;}occupied.push(placed.box);button.style.left=placed.x+'px';button.style.top=placed.y+'px';button.onclick=()=>showEvidence(e.g.id,true,e.record.id);
+      if(e.peak){ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(placed.x,placed.y+(placed.y>p.y?-bh/2:bh/2));ctx.strokeStyle=ink('--st-muted');ctx.globalAlpha=.45;ctx.lineWidth=.65;ctx.stroke();ctx.globalAlpha=1;}
+      else button.ondblclick=()=>focusPeaks(e.g.id);
+    }
+  }
+  function showEvidence(id,remember=true,recordId){const g=groups.find(x=>x.id===id),members=active.filter(r=>r.g===id);if(!g||!members.length)return;state.selected=id;const r=members.find(x=>x.id===recordId)||members[0],body=q('.st-evidence-body');state.selectedRecord=r.id;body.replaceChildren();const el=(tag,cls,text)=>{const v=document.createElement(tag);if(cls)v.className=cls;v.textContent=text;return v;};body.append(el('h3','',r.title),el('div','st-meta',(r.personal?'◆ 个人独有':'● 公开材料')+' · '+r.origin+' · '+r.date),el('blockquote','',r.quote),el('div','st-source',r.path+' · L'+r.line+'–L'+(r.line+1)));
+    const relation=edges.find(e=>(e.from===id||e.to===id)&&edgeVisible(e)&&r.id===id+'-0');if(relation&&state.relations){body.append(el('div','st-linkline',relation.type+' · '+relation.text));}body.append(el('p','st-example-note','合成证据，仅演示回源交互。正式插件在此打开对应原文。'));
+    if(state.focusGroup!==id){const explore=el('button','st-explore cursor-interaction','展开这一山群 · '+members.length+' 座子峰');explore.type='button';explore.onclick=()=>focusPeaks(id);body.append(explore);}q('.st-evidence').hidden=false;draw();if(remember){q('[data-close]').focus();save();}}
+  function focusPeaks(id){
+    const points=records.filter(r=>r.g===id),cx=(Math.min(...points.map(r=>r.x))+Math.max(...points.map(r=>r.x)))/2,cy=(Math.min(...points.map(r=>r.y))+Math.max(...points.map(r=>r.y)))/2;
+    const spanX=Math.max(...points.map(r=>r.x))-Math.min(...points.map(r=>r.x)),spanY=Math.max(...points.map(r=>r.y))-Math.min(...points.map(r=>r.y));
+    state.zoom=Math.min(5,.76/(spanX+.03),.6/(spanY+.025));state.panX=-(cx-.5)*state.zoom;state.panY=.05-(cy-.5)*state.zoom;state.level='knowledge';state.targetX=cx;state.targetY=cy;if(state.view==='3d')state.pitch=1.1;state.focusGroup=id;state.selected=null;state.selectedRecord=null;q('.st-evidence').hidden=true;draw();save();
+  }
+  function closeEvidence(remember=true){const previous=state.selected;state.selected=null;state.selectedRecord=null;q('.st-evidence').hidden=true;draw();if(remember){labels.querySelector('[data-group="'+previous+'"]')?.focus();save();}}
+  for(const side of ['from','to'])q('[data-'+side+']').addEventListener('change',e=>{state[side]=e.target.value;q('[data-range]').value='custom';rebuild();save();});
+  q('[data-range]').addEventListener('change',e=>{if(e.target.value==='custom')return;const end=new Date('2026-09-30T12:00:00Z'),start=new Date(end);start.setUTCDate(start.getUTCDate()-Number(e.target.value)+1);state.from=start.toISOString().slice(0,10);state.to='2026-09-30';rebuild();save();});
+  for(const key of ['personal','relations'])q('[data-'+key+']').onclick=()=>{state[key]=!state[key];rebuild();save();};
+  q('[data-settings]').onclick=()=>{const panel=q('.st-settings');panel.hidden=!panel.hidden;q('[data-settings]').setAttribute('aria-expanded',String(!panel.hidden));};
+  q('[data-public]').onchange=e=>{state.public=e.target.checked;rebuild();save();};q('[data-level]').onchange=e=>{state.level=e.target.value;draw();save();};q('[data-detail]').onchange=e=>{state.detail=Number(e.target.value);rebuild();save();};q('[data-close]').onclick=()=>closeEvidence();
+  function zoom(z){state.zoom=Math.max(1,Math.min(6,z));if(state.zoom===1){state.panX=0;state.panY=0;state.focusGroup=null;state.level='auto';}draw();save();}
+  q('[data-zoom-in]').onclick=()=>zoom(state.zoom+.5);q('[data-zoom-out]').onclick=()=>zoom(state.zoom-.5);q('[data-home]').onclick=()=>{state.zoom=1;state.panX=0;state.panY=0;state.level='auto';state.focusGroup=null;state.targetX=.5;state.targetY=.5;state.yaw=-.25;state.pitch=.85;draw();save();};
+  for(const button of root.querySelectorAll('button[data-view]'))button.onclick=()=>{state.view=button.dataset.view;draw();save();};
+  for(const button of root.querySelectorAll('[data-turn]'))button.onclick=()=>{state.yaw+=Number(button.dataset.turn)*.3;draw();save();};
+  for(const button of root.querySelectorAll('[data-tilt]'))button.onclick=()=>{state.pitch=Math.max(.28,Math.min(1.4,state.pitch+Number(button.dataset.tilt)*.15));draw();save();};
+  for(const surface of [canvas,glCanvas]){
+    surface.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY,px:state.panX,py:state.panY,yaw:state.yaw,pitch:state.pitch};surface.setPointerCapture(e.pointerId);});
+    surface.addEventListener('pointermove',e=>{if(!drag)return;const dx=e.clientX-drag.x,dy=e.clientY-drag.y;
+      if(state.view==='3d'){state.yaw=drag.yaw-dx*.006;state.pitch=Math.max(.28,Math.min(1.4,drag.pitch+dy*.005));}
+      else{state.panX=Math.max(-state.zoom/2,Math.min(state.zoom/2,drag.px+dx/width));state.panY=Math.max(-state.zoom/2,Math.min(state.zoom/2,drag.py+dy/height));}
+      if(!renderQueued){renderQueued=true;requestAnimationFrame(()=>{renderQueued=false;draw();});}
+    });
+    surface.addEventListener('pointerup',e=>{const tapped=drag&&Math.hypot(e.clientX-drag.x,e.clientY-drag.y)<4;drag=null;if(tapped){const rect=surface.getBoundingClientRect(),x=e.clientX-rect.left,y=e.clientY-rect.top;let nearest=null,distance=22;for(const r of active){const p=pos(peakAnchors.get(r.id)||r),d=Math.hypot(p.x-x,p.y-y);if(p.visible!==false&&d<distance){distance=d;nearest=r;}}if(nearest)showEvidence(nearest.g,true,nearest.id);}save();});
+    surface.addEventListener('pointercancel',()=>drag=null);
+  }
+  glCanvas.addEventListener('wheel',e=>{e.preventDefault();zoom(state.zoom*Math.exp(-e.deltaY*.001));},{passive:false});
+  root.addEventListener('keydown',e=>{if(e.key==='Escape')closeEvidence();});
+  window.addEventListener('openai:set_globals',e=>{restore(e.detail?.globals?.widgetState);restoreView(e.detail?.globals?.widgetState);rebuild();});
+  new ResizeObserver(()=>{if(window.d3)draw();}).observe(map);matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>draw());
+  rebuild();if(globalThis.Tweak){const tweak=new Tweak({container:root,onChange:draw});tweak.addSlider(style,'contourOpacity',{label:'等高线清晰度',min:.25,max:.9,step:.05});tweak.addToggle(style,'fill',{label:'二维地形晕染'});tweak.addSlider(style,'verticalScale',{label:'三维高程倍率',min:.6,max:1.8,step:.1});}
+})();
+</script>
