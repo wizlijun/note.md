@@ -2,7 +2,7 @@
   "manifest_version": 2,
   "id": "notemd.strata",
   "name": "STRATA",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "kind": "native",
   "engines": {
     "notemd": ">=6.930.2"

@@ -101,7 +101,10 @@
       const output = build ? await worker.build(data.nodes.map(({ id, title, kind, state, features, links, ownerSpecificity, confidentiality, sourceGroups }) => ({ id, title, kind, state, features, links, ownerSpecificity, confidentiality, sourceGroups })), epoch, selection, options, previousAtlas) : await worker.render(selection, options)
       if (disposed || id !== computationId || viewId !== requestId) return
       terrain = output; previousAtlas = output.layout
-      if (build) api.saveAtlas(data.vaultKey, output.layout).catch(e => { if (!disposed && viewId === requestId) notice = `地图布局未保存：${errorText(e)}` })
+      if (notice === '来源或索引配置已变化，正在更新地图。') notice = ''
+      if (build) api.saveAtlas(data.vaultKey, output.layout)
+        .then(() => { if (!disposed && viewId === requestId && notice.startsWith('地图布局未保存：')) notice = '' })
+        .catch(e => { if (!disposed && viewId === requestId) notice = `地图布局未保存：${errorText(e)}` })
     } catch (e) { if (!disposed && id === computationId && (e as Error)?.name !== 'AbortError') { error = `地形计算失败：${errorText(e)}`; terrain = null } }
     finally { if (!disposed && id === computationId) computing = false }
   }

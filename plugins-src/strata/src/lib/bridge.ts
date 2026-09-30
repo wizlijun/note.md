@@ -15,10 +15,21 @@ export const api = {
   settings: () => request<{ settings: { browser?: Partial<Preferences> } }>('host.settings.get'),
   saveSettings: (value: Preferences) => request('host.settings.set', { key: 'browser', value }),
   loadAtlas: (vaultKey: string) => request<{ atlas: Atlas | null }>('plugin.atlas.load', { vaultKey }),
-  saveAtlas: (vaultKey: string, atlas: Atlas) => request('plugin.atlas.save', { vaultKey, atlas }),
+  saveAtlas: (vaultKey: string, atlas: Atlas) => request('plugin.atlas.save', { vaultKey, atlas: atlasGeometry(atlas) }),
   indexStatus: (snapshotId: string) => request<{ valid: boolean; freshness: string; reason?: string }>('host.index.status', { version: 1, snapshotId }),
   openSource: async (nodeId: string, range: DateRange, evidenceId?: string) => {
     const target = await request<{ path: string; lineStart?: number; lineEnd?: number }>('plugin.open_source', { nodeId, evidenceId, ...range })
     return request('host.editor.open', { path: target.path })
   },
+}
+
+/** Persist layout only; fresh snapshots supply titles, source support and evidence. */
+export function atlasGeometry(atlas: Atlas) {
+  const clusters = (items: Atlas['domains']) => items.map(({ id, name, parentId, x, y, radius, memberIds }) => ({ id, name, parentId, x, y, radius, memberIds }))
+  return {
+    version: atlas.version, epoch: atlas.epoch, worldSize: atlas.worldSize,
+    nodes: atlas.nodes.map(({ id, x, y, radius, parentTopic, parentDomain, crowded }) => ({ id, x, y, radius, parentTopic, parentDomain, crowded })),
+    domains: clusters(atlas.domains), topics: clusters(atlas.topics), idf: atlas.idf,
+    diagnostics: atlas.diagnostics,
+  }
 }

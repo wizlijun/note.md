@@ -175,17 +175,57 @@ fn read<T: DeserializeOwned>(path: &Path) -> Result<Option<T>, String> {
     }
 }
 
+const ATLAS_INPUT_BYTES: usize = 64 * 1024 * 1024;
+const ATLAS_CACHE_BYTES: usize = 16 * 1024 * 1024;
+const ATLAS_LABEL_BYTES: usize = 512;
+
+fn atlas_label(name: &str) -> String {
+    if name.len() <= ATLAS_LABEL_BYTES {
+        return name.into();
+    }
+    let mut end = ATLAS_LABEL_BYTES - '…'.len_utf8();
+    while !name.is_char_boundary(end) {
+        end -= 1;
+    }
+    format!("{}…", &name[..end])
+}
+
+// Count encoded bytes without allocating another copy of the complete atlas.
+fn json_within_budget(value: &Value, budget: usize) -> bool {
+    struct LimitedWriter(usize);
+    impl Write for LimitedWriter {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            if bytes.len() > self.0 {
+                return Err(std::io::Error::other("atlas byte budget exceeded"));
+            }
+            self.0 -= bytes.len();
+            Ok(bytes.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+    serde_json::to_writer(LimitedWriter(budget), value).is_ok()
+}
+
 /// Persist geometry only. Fresh snapshot nodes supply all labels/evidence again.
 pub fn sanitize_atlas(mut value: Value, allowed: &HashSet<String>) -> Result<Value, String> {
-    if serde_json::to_vec(&value)
-        .map_err(|_| "布局格式无效")?
-        .len()
-        > 16 * 1024 * 1024
-        || value["version"] != "strata-atlas/1"
-        || value["worldSize"] != 4096
-        || value["epoch"].as_str().is_none_or(|s| s.len() > 256)
+    // Keep v1 readable so the frontend can explicitly rebuild its coordinates
+    // once when migrating to v2. Both versions use the same geometry schema.
+    if !matches!(
+        value["version"].as_str(),
+        Some("strata-atlas/1" | "strata-atlas/2")
+    ) || value["worldSize"] != 4096
     {
-        return Err("布局版本或大小不受支持".into());
+        return Err("布局版本不受支持".into());
+    }
+    if value["epoch"].as_str().is_none_or(|s| s.len() > 256) {
+        return Err("布局批次标识无效".into());
+    }
+    // Worker layouts also contain the current title/features/sourceGroups. They
+    // are discarded below and must not consume the geometry-only disk budget.
+    if !json_within_budget(&value, ATLAS_INPUT_BYTES) {
+        return Err("布局输入超过 64 MiB 预算".into());
     }
     let nodes = value["nodes"].as_array().ok_or("布局缺少节点")?;
     if nodes.len() > 100_000 {
@@ -230,14 +270,16 @@ pub fn sanitize_atlas(mut value: Value, allowed: &HashSet<String>) -> Result<Val
         }
         let mut clean = Vec::new();
         for group in groups {
-            for key in ["id", "name"] {
-                if group[key]
-                    .as_str()
-                    .is_none_or(|s| s.is_empty() || s.len() > 512)
-                {
-                    return Err("布局分层标识无效".into());
-                }
+            if group["id"]
+                .as_str()
+                .is_none_or(|s| s.is_empty() || s.len() > 512)
+            {
+                return Err("布局分层标识无效".into());
             }
+            let name = group["name"]
+                .as_str()
+                .filter(|s| !s.is_empty())
+                .ok_or("布局分层名称无效")?;
             for key in ["x", "y", "radius"] {
                 let v = group[key].as_f64().ok_or("布局分层坐标无效")?;
                 if !v.is_finite() || v.abs() > 16384.0 || (key == "radius" && v < 0.0) {
@@ -254,7 +296,9 @@ pub fn sanitize_atlas(mut value: Value, allowed: &HashSet<String>) -> Result<Val
             if members.is_empty() {
                 continue;
             }
-            clean.push(json!({"id":group["id"],"name":if pruned {Value::String("主题".into())} else {group["name"].clone()},"x":group["x"],"y":group["y"],"radius":group["radius"],"parentId":group["parentId"],"memberIds":members}));
+            // Legacy workers use a complete document title for singleton
+            // clusters. Persist a bounded display label, never alter its ID.
+            clean.push(json!({"id":group["id"],"name":if pruned {"主题".into()} else {atlas_label(name)},"x":group["x"],"y":group["y"],"radius":group["radius"],"parentId":group["parentId"],"memberIds":members}));
         }
         value[key] = json!(clean);
     }
@@ -278,7 +322,146 @@ pub fn sanitize_atlas(mut value: Value, allowed: &HashSet<String>) -> Result<Val
         "rebuildSuggested":diagnostics["rebuildSuggested"].as_bool().unwrap_or(false),
         "elapsedMs":diagnostics["elapsedMs"].as_f64().filter(|v|v.is_finite()&&*v>=0.0).unwrap_or(0.0)
     });
-    Ok(
-        json!({"version":value["version"],"epoch":value["epoch"],"worldSize":4096,"nodes":value["nodes"],"domains":value["domains"],"topics":value["topics"],"idf":value["idf"],"diagnostics":value["diagnostics"]}),
-    )
+    let clean = json!({"version":value["version"],"epoch":value["epoch"],"worldSize":4096,"nodes":value["nodes"],"domains":value["domains"],"topics":value["topics"],"idf":value["idf"],"diagnostics":value["diagnostics"]});
+    if !json_within_budget(&clean, ATLAS_CACHE_BYTES) {
+        return Err("布局几何缓存超过 16 MiB 预算".into());
+    }
+    Ok(clean)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn atlas() -> Value {
+        json!({
+            "version":"strata-atlas/1", "epoch":"fixture:1", "worldSize":4096,
+            "nodes":[{"id":"n1","x":0.25,"y":0.75,"radius":0.01,"parentTopic":"t","parentDomain":"d","crowded":false}],
+            "domains":[{"id":"d","name":"Domain","x":0.5,"y":0.5,"radius":0.4,"memberIds":["n1"]}],
+            "topics":[{"id":"t","name":"Topic","parentId":"d","x":0.5,"y":0.5,"radius":0.2,"memberIds":["n1"]}],
+            "idf":{"term":1.0}, "diagnostics":{}
+        })
+    }
+
+    fn allowed() -> HashSet<String> {
+        HashSet::from(["n1".into()])
+    }
+
+    #[test]
+    fn full_worker_payload_over_disk_budget_saves_only_geometry_and_reloads() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(dir.path(), &task::hash("vault")).unwrap();
+        let mut value = atlas();
+        value["nodes"][0]["title"] = json!("x".repeat(ATLAS_CACHE_BYTES + 1));
+        value["nodes"][0]["sourceGroups"] = json!([{"groupId":"private source"}]);
+        value["nodes"][0]["evidence"] = json!([{"quote":"must not persist"}]);
+        assert!(!json_within_budget(&value, ATLAS_CACHE_BYTES));
+        cache.save_atlas(value, &allowed()).unwrap();
+        let stored = std::fs::read(cache.root.join("atlas.json")).unwrap();
+        assert!(stored.len() < 2048);
+        let reloaded = cache.load_atlas(&allowed()).unwrap();
+        assert_eq!(reloaded["nodes"], atlas()["nodes"]);
+        assert!(reloaded["nodes"][0].get("title").is_none());
+        assert!(reloaded["nodes"][0].get("sourceGroups").is_none());
+        assert!(reloaded["nodes"][0].get("evidence").is_none());
+        assert_eq!(reloaded["epoch"], "fixture:1");
+    }
+
+    #[test]
+    fn input_and_sanitized_geometry_have_separate_hard_byte_limits() {
+        let mut value = atlas();
+        value["discarded"] = json!("x".repeat(ATLAS_INPUT_BYTES));
+        assert!(sanitize_atlas(value, &allowed())
+            .unwrap_err()
+            .contains("输入超过 64 MiB"));
+
+        let mut value = atlas();
+        let idf: serde_json::Map<String, Value> = (0..35_000)
+            .map(|i| (format!("{i:05}{}", "x".repeat(495)), json!(1)))
+            .collect();
+        value["idf"] = json!(idf);
+        assert!(json_within_budget(&value, ATLAS_INPUT_BYTES));
+        assert!(sanitize_atlas(value, &allowed())
+            .unwrap_err()
+            .contains("几何缓存超过 16 MiB"));
+    }
+
+    #[test]
+    fn legacy_atlas_loads_unchanged_until_v2_geometry_is_saved() {
+        let dir = tempfile::tempdir().unwrap();
+        let key = task::hash("vault");
+        let cache = Cache::new(dir.path(), &key).unwrap();
+        cache.save_atlas(atlas(), &allowed()).unwrap();
+        let reopened = Cache::new(dir.path(), &key).unwrap();
+        let mut rebuilt = reopened.load_atlas(&allowed()).unwrap();
+        assert_eq!(rebuilt["version"], "strata-atlas/1");
+        assert_eq!(rebuilt["nodes"][0]["x"], 0.25);
+        rebuilt["version"] = json!("strata-atlas/2");
+        rebuilt["nodes"][0]["x"] = json!(0.5);
+        reopened.save_atlas(rebuilt, &allowed()).unwrap();
+        let loaded = cache.load_atlas(&allowed()).unwrap();
+        assert_eq!(loaded["version"], "strata-atlas/2");
+        assert_eq!(loaded["nodes"][0]["x"], 0.5);
+    }
+
+    #[test]
+    fn long_cluster_labels_are_bounded_at_utf8_boundaries_without_changing_identity() {
+        let mut value = atlas();
+        value["domains"][0]["name"] = json!("知识领域".repeat(2000));
+        value["topics"][0]["name"] = json!("📚e\u{301}".repeat(4000));
+        let clean = sanitize_atlas(value, &allowed()).unwrap();
+        for key in ["domains", "topics"] {
+            let group = &clean[key][0];
+            assert!(group["name"].as_str().unwrap().len() <= ATLAS_LABEL_BYTES);
+            assert!(group["name"].as_str().unwrap().ends_with('…'));
+            for field in ["id", "x", "y", "radius", "memberIds"] {
+                assert_eq!(group[field], atlas()[key][0][field]);
+            }
+        }
+        let mut value = atlas();
+        value["domains"][0]["id"] = json!("x".repeat(513));
+        assert!(sanitize_atlas(value, &allowed()).is_err());
+        for name in [json!(""), Value::Null, json!(["not a label"])] {
+            let mut value = atlas();
+            value["topics"][0]["name"] = name;
+            assert!(sanitize_atlas(value, &allowed()).is_err());
+        }
+    }
+
+    #[test]
+    fn atlas_shape_coordinates_and_authorization_stay_validated() {
+        for (key, invalid) in [
+            ("version", json!("other")),
+            ("worldSize", json!(1)),
+            ("epoch", json!("x".repeat(257))),
+        ] {
+            let mut value = atlas();
+            value[key] = invalid;
+            assert!(sanitize_atlas(value, &allowed()).is_err());
+        }
+        for (key, invalid) in [
+            ("x", json!(16385)),
+            ("y", Value::Null),
+            ("radius", json!(-1)),
+            ("crowded", json!("no")),
+        ] {
+            let mut value = atlas();
+            value["nodes"][0][key] = invalid;
+            assert!(sanitize_atlas(value, &allowed()).is_err());
+        }
+        let mut value = atlas();
+        value["nodes"]
+            .as_array_mut()
+            .unwrap()
+            .push(atlas()["nodes"][0].clone());
+        assert!(sanitize_atlas(value, &allowed())
+            .unwrap_err()
+            .contains("重复"));
+
+        let pruned = sanitize_atlas(atlas(), &HashSet::new()).unwrap();
+        assert_eq!(pruned["nodes"], json!([]));
+        assert_eq!(pruned["domains"], json!([]));
+        assert_eq!(pruned["topics"], json!([]));
+        assert_eq!(pruned["idf"], json!({}));
+    }
 }

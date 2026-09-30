@@ -82,3 +82,20 @@ it('does not let an older atlas-load rejection overwrite a newer date result', a
   expect(mocks.build.mock.calls.at(-1)?.[2].from).toBe('2026-09-20')
   expect(document.body.textContent).not.toContain('old layout failed')
 })
+
+it('clears a prior layout-save warning after a successful retry', async () => {
+  const base = request.getMockImplementation()!; let failSave = true
+  request.mockImplementation((m: string) => m === 'plugin.atlas.save' && failSave ? Promise.reject(new Error('layout save failed')) : base(m))
+  app = mount(App, { target: document.body }); await flush()
+  expect(document.body.textContent).toContain('地图布局未保存')
+  failSave = false; button('刷新').click(); await flush()
+  expect(document.body.textContent).not.toContain('地图布局未保存')
+})
+it('clears the index-refresh notice after the replacement terrain is ready', async () => {
+  app = mount(App, { target: document.body }); await flush()
+  const base = request.getMockImplementation()!
+  request.mockImplementation((m: string) => m === 'host.index.status' ? Promise.resolve({ valid: false, reason: 'SOURCE_CHANGED' }) : base(m))
+  window.dispatchEvent(new Event('focus')); await flush()
+  expect(mocks.build).toHaveBeenCalledTimes(2)
+  expect(document.body.textContent).not.toContain('正在更新地图')
+})

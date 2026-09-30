@@ -376,6 +376,35 @@ class ProtocolTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             w.call("atlas.save", {"vaultKey": snap["vaultKey"], "atlas": atlas})
 
+    def test_large_worker_atlas_persists_compact_geometry_across_restart(self):
+        w = self.wire_for()
+        snap = w.call("snapshot", RANGE)
+        ident = snap["nodes"][0]["id"]
+        atlas = {"version": "strata-atlas/1", "epoch": "real-worker-shape", "worldSize": 4096,
+                 "nodes": [{"id": ident, "title": "x" * (16 * 1024 * 1024), "sourceGroups": [{"groupId": "must not persist"}],
+                            "x": 0.25, "y": 0.75, "radius": 0.01, "parentTopic": "t", "parentDomain": "d", "crowded": False}],
+                 "domains": [{"id": "d", "name": "知识领域" * 2000, "x": 0.5, "y": 0.5, "radius": 0.4, "memberIds": [ident]}],
+                 "topics": [{"id": "t", "parentId": "d", "name": "Topic", "x": 0.5, "y": 0.5, "radius": 0.2, "memberIds": [ident]}],
+                 "idf": {"term": 1}, "diagnostics": {}}
+        w.call("atlas.save", {"vaultKey": snap["vaultKey"], "atlas": atlas})
+        saved = w.call("atlas.load", {"vaultKey": snap["vaultKey"]})["atlas"]
+        self.assertEqual(saved["nodes"][0]["x"], 0.25)
+        self.assertEqual(saved["nodes"][0]["y"], 0.75)
+        self.assertNotIn("title", saved["nodes"][0])
+        self.assertNotIn("sourceGroups", saved["nodes"][0])
+        self.assertLessEqual(len(saved["domains"][0]["name"].encode()), 512)
+        self.assertTrue(saved["domains"][0]["name"].endswith("…"))
+        self.assertLess(len(json.dumps(saved)), 2048)
+        w.close()
+        restarted = self.wire_for()
+        self.assertEqual(restarted.call("atlas.load", {"vaultKey": snap["vaultKey"]})["atlas"], saved)
+        self.assertEqual(saved["version"], "strata-atlas/1")
+        saved["version"] = "strata-atlas/2"
+        saved["nodes"][0]["x"] = 0.5
+        restarted.call("atlas.save", {"vaultKey": snap["vaultKey"], "atlas": saved})
+        self.assertEqual(restarted.call("atlas.load", {"vaultKey": snap["vaultKey"]})["atlas"], saved)
+        self.assertFalse(any(method.startswith("host.agent") or method == "host.index.blocks" for method, _ in restarted.calls))
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

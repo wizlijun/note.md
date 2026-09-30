@@ -2,12 +2,12 @@ import { contours as d3Contours } from 'd3-contour'
 import { seeded, stableHash, WORLD_SIZE } from './atlas'
 import type { Atlas, AtlasNode, PeakAnchor, TerrainBounds, TerrainContour, TerrainGrid, TerrainRenderOptions, TerrainResult, TerrainSelection } from './types-terrain'
 
-export const TERRAIN_VERSION = 'strata-terrain/1'
+export const TERRAIN_VERSION = 'strata-terrain/2'
 export const KERNEL_INTEGRAL = 2 * Math.PI * (48 / WORLD_SIZE) ** 2
 // Keep the prototype's first 140 levels; extend the same fixed scale for dense production atlases.
 export const CONTOUR_LEVELS = Array.from({ length: 384 }, (_, i) => .012 * Math.expm1((i + 1) * .011 / .24))
 export const elevation = (height: number): number => .24 * Math.log1p(Math.max(0, height) / .012)
-const TEMPLATE_SIZE = 64, LOCAL_SHARE = .78, FOOT_BINS = 8, FOOT_GRID = 128
+const TEMPLATE_SIZE = 64, REGION_GRID = 256, LOCAL_SHARE = .4, TOPIC_FOOT_SHARE = .75
 const CACHE_LIMIT = 24 * 1024 * 1024, MAX_VERTICES = 220_000
 const MAX_CACHED_PATCHES = 40_000
 
@@ -90,8 +90,8 @@ function template(variant: number, foot: boolean): Template {
       // The summit is centered exactly at the node; domain warp affects its surrounding slopes.
       const detail = 1 + .55 * fractal(nx * 8, ny * 8, seed + 5741, 3)
       const su = nx * c + ny * s, sv = -nx * s + ny * c
-      const core = Math.exp(-.5 * ((su / (.08 * aspect)) ** 2 + (sv / (.08 / aspect)) ** 2) * detail) / .08 ** 2
-      value = (.6 * (crest + shoulder + slope) + .4 * core) * texture
+      const core = Math.exp(-.5 * ((su / (.09 * aspect)) ** 2 + (sv / (.09 / aspect)) ** 2) * detail) / .09 ** 2
+      value = (.7 * (crest + shoulder + slope) + .3 * core) * texture
     }
     values[y * stride + x] = value * taper
   }
@@ -166,19 +166,25 @@ function matchesSelection(node: AtlasNode, selection: TerrainSelection, scope: S
 export class TerrainEngine {
   readonly atlas: Atlas
   private readonly local: Kernel[]
-  private readonly footBasis: Patch[]
-  private readonly footIndex: Uint8Array
+  private readonly regions: Kernel[]
+  private readonly regionGrid: TerrainGrid = { width: REGION_GRID, height: REGION_GRID, bounds: { x: 0, y: 0, width: 1, height: 1 } }
+  private readonly topicIndex: Uint32Array
+  private readonly domainIndex: Uint32Array
   private readonly cache = new Map<string, Patch>()
   private cacheBytes = 0
   constructor(atlas: Atlas) {
     this.atlas = atlas
-    this.local = atlas.nodes.map(node => kernel(node.id, node.x, node.y, Math.max(1 / 32768, Math.min(.28, node.radius * 10)), stableHash(atlas.epoch + node.id) % 32, false))
-    const footGrid = { width: FOOT_GRID, height: FOOT_GRID, bounds: { x: 0, y: 0, width: 1, height: 1 } }
-    // Broad slopes are a fixed world-space basis. Their resolution never follows dates or zoom.
-    this.footBasis = Array.from({ length: FOOT_BINS * FOOT_BINS }, (_, i) => makePatch(kernel('foot:' + i,
-      (i % FOOT_BINS + .5) / FOOT_BINS, (Math.floor(i / FOOT_BINS) + .5) / FOOT_BINS,
-      .65, stableHash(atlas.epoch + ':foot:' + i) % 8, true), footGrid))
-    this.footIndex = Uint8Array.from(atlas.nodes, node => Math.min(7, Math.floor(node.y * FOOT_BINS)) * FOOT_BINS + Math.min(7, Math.floor(node.x * FOOT_BINS)))
+    this.local = atlas.nodes.map(node => kernel(node.id, node.x, node.y, Math.max(1 / 32768, Math.min(.28, node.radius * 12)), stableHash(atlas.epoch + node.id) % 32, false))
+    // The selected source mass forms shared shoulders at its actual frozen topic/domain.
+    // Kernel supports and integrals depend on the complete atlas, never the date mask.
+    this.regions = [
+      ...atlas.topics.map(cluster => kernel('topic:' + cluster.id, cluster.x, cluster.y, Math.max(.04, Math.min(.8, cluster.radius * 2.4)), stableHash(atlas.epoch + cluster.id) % 8, true)),
+      ...atlas.domains.map(cluster => kernel('domain:' + cluster.id, cluster.x, cluster.y, Math.max(.085, Math.min(.9, cluster.radius * 2)), stableHash(atlas.epoch + cluster.id) % 8, true)),
+    ]
+    const topics = new Map(atlas.topics.map((cluster, i) => [cluster.id, i]))
+    const domains = new Map(atlas.domains.map((cluster, i) => [cluster.id, atlas.topics.length + i]))
+    this.topicIndex = Uint32Array.from(atlas.nodes, node => topics.get(node.parentTopic)!)
+    this.domainIndex = Uint32Array.from(atlas.nodes, node => domains.get(node.parentDomain)!)
   }
 
   private patch(k: Kernel, grid: TerrainGrid, gridKey: string): Patch {
@@ -200,7 +206,7 @@ export class TerrainEngine {
     if (![b.x, b.y, b.width, b.height].every(Number.isFinite) || b.width <= 0 || b.height <= 0 || b.x < 0 || b.y < 0 || b.x + b.width > 1.000001 || b.y + b.height > 1.000001) throw new Error('地形视口超出固定世界范围')
     const grid: TerrainGrid = { width: Math.max(32, Math.min(1024, Math.floor(options.width || 512))), height: Math.max(32, Math.min(1024, Math.floor(options.height || 512))), bounds: b }
     const gridKey = JSON.stringify(grid), masses = calculateMasses(this.atlas, selection), field = new Float32Array(grid.width * grid.height)
-    const footMasses = new Float64Array(this.footBasis.length), visibleIds: string[] = []
+    const regionMasses = new Float64Array(this.regions.length), visibleIds: string[] = []
     const scope = selection.nodeIds ? new Set(selection.nodeIds) : null
     let totalMass = 0
     const splat = (patch: Patch, mass: number) => {
@@ -213,30 +219,34 @@ export class TerrainEngine {
       if (matchesSelection(this.atlas.nodes[i], selection, scope)) visibleIds.push(this.atlas.nodes[i].id)
       if (!masses[i]) continue
       totalMass += masses[i]
-      const local = this.local[i]
+      // A fixed world-area budget prevents 1/r² needles in dense clusters. The remaining
+      // source mass stays in its own hierarchy; dates and zoom never change this split.
+      const local = this.local[i], localShare = LOCAL_SHARE * Math.min(1, (local.radius / .035) ** 2)
       if (local.x + local.radius > b.x && local.x - local.radius < b.x + b.width && local.y + local.radius > b.y && local.y - local.radius < b.y + b.height) {
-        splat(this.patch(local, grid, gridKey), masses[i] * LOCAL_SHARE)
+        splat(this.patch(local, grid, gridKey), masses[i] * localShare)
       }
-      footMasses[this.footIndex[i]] += masses[i] * (1 - LOCAL_SHARE)
+      regionMasses[this.topicIndex[i]] += masses[i] * (1 - localShare) * TOPIC_FOOT_SHARE
+      regionMasses[this.domainIndex[i]] += masses[i] * (1 - localShare) * (1 - TOPIC_FOOT_SHARE)
     }
-    const broad = new Float64Array(FOOT_GRID * FOOT_GRID)
-    footMasses.forEach((mass, i) => {
+    // Regional kernels use a fixed world grid, then a continuous mass-preserving surface.
+    // This bounds thousands of overlapping wide slopes without a world grid per source.
+    const broad = new Float64Array(REGION_GRID * REGION_GRID)
+    regionMasses.forEach((mass, i) => {
       if (!mass) return
-      const patch = this.footBasis[i]
+      const patch = this.patch(this.regions[i], this.regionGrid, 'regions')
       for (let y = 0; y < patch.height; y++) for (let x = 0; x < patch.width; x++) {
-        broad[(patch.y + y) * FOOT_GRID + patch.x + x] += patch.values[y * patch.width + x] * mass
+        broad[(patch.y + y) * REGION_GRID + patch.x + x] += patch.values[y * patch.width + x] * mass
       }
     })
-    const stride = FOOT_GRID + 1, broadVertices = new Float64Array(stride * stride)
-    // Cell averages → continuous vertices, with clamped edges. Trapezoidal integration
-    // preserves the original sum exactly in each axis, without per-view normalization.
-    for (let y = 0; y <= FOOT_GRID; y++) for (let x = 0; x <= FOOT_GRID; x++) {
-      const x0 = Math.max(0, x - 1), x1 = Math.min(FOOT_GRID - 1, x), y0 = Math.max(0, y - 1), y1 = Math.min(FOOT_GRID - 1, y)
-      broadVertices[y * stride + x] = (broad[y0 * FOOT_GRID + x0] + broad[y0 * FOOT_GRID + x1] + broad[y1 * FOOT_GRID + x0] + broad[y1 * FOOT_GRID + x1]) / 4
+    const stride = REGION_GRID + 1, broadVertices = new Float64Array(stride * stride)
+    // Clamped averages preserve total mass under trapezoidal integration in both axes.
+    for (let y = 0; y <= REGION_GRID; y++) for (let x = 0; x <= REGION_GRID; x++) {
+      const x0 = Math.max(0, x - 1), x1 = Math.min(REGION_GRID - 1, x), y0 = Math.max(0, y - 1), y1 = Math.min(REGION_GRID - 1, y)
+      broadVertices[y * stride + x] = (broad[y0 * REGION_GRID + x0] + broad[y0 * REGION_GRID + x1] + broad[y1 * REGION_GRID + x0] + broad[y1 * REGION_GRID + x1]) / 4
     }
-    const broadTemplate = integrateTemplate(broadVertices, FOOT_GRID), pw = b.width * FOOT_GRID / grid.width, ph = b.height * FOOT_GRID / grid.height
+    const broadTemplate = integrateTemplate(broadVertices, REGION_GRID), pw = b.width * REGION_GRID / grid.width, ph = b.height * REGION_GRID / grid.height
     if (totalMass) for (let y = 0; y < grid.height; y++) for (let x = 0; x < grid.width; x++) {
-      const ax = b.x * FOOT_GRID + x * pw, ay = b.y * FOOT_GRID + y * ph
+      const ax = b.x * REGION_GRID + x * pw, ay = b.y * REGION_GRID + y * ph
       field[y * grid.width + x] += integral(broadTemplate, ax, ay, ax + pw, ay + ph) / (pw * ph)
     }
     const peakAnchors = findPeaks(field, grid, this.atlas.nodes, masses)
@@ -263,7 +273,7 @@ export class TerrainEngine {
     const fieldIntegral = field.reduce((sum, value) => sum + value, 0) * b.width * b.height / field.length
     return { field, grid, contours, levels: contours.map(contour => contour.value), peakAnchors, layout: this.atlas, visibleIds, masses,
       stats: { elapsedMs: performance.now() - start, selectedNodes: visibleIds.length, totalMass, fieldIntegral,
-        kernelBytes: this.cacheBytes + this.footBasis.reduce((sum, patch) => sum + patch.values.byteLength, 0) + [...templates.values()].reduce((sum, t) => sum + t.prefix.byteLength * 4, 0),
+        kernelBytes: this.cacheBytes + [...templates.values()].reduce((sum, t) => sum + t.prefix.byteLength * 4, 0),
         contourVertices, contoursTruncated, unresolvedPeaks: peakAnchors.filter(peak => !peak.resolved).length } }
   }
 }

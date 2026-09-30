@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildAtlas } from './atlas'
+import { ATLAS_VERSION, buildAtlas } from './atlas'
 import { calculateMasses, CONTOUR_LEVELS, KERNEL_INTEGRAL, TerrainEngine } from './terrain'
 import type { TerrainInputNode } from './types-terrain'
 
@@ -65,6 +65,30 @@ describe('frozen atlas and source budgets', () => {
     const fallback = buildAtlas(nodes.map(node => ({ ...node, features: [] })), 'chinese-fallback')
     for (const cluster of [...fallback.domains, ...fallback.topics]) expect(nodes.map(node => node.title)).toContain(cluster.name)
   })
+
+  it('bounds display labels without truncating titles or splitting Unicode characters', () => {
+    const title = '\n  \n' + '🗻'.repeat(150) + '\n第二行不应成为标签'
+    const atlas = buildAtlas([{ ...fixture(1)[0], title, features: [] }], 'long-title')
+    expect(atlas.nodes[0].title).toBe(title)
+    for (const cluster of [...atlas.domains, ...atlas.topics]) {
+      expect(cluster.name).toBe('🗻'.repeat(96) + '…')
+      expect(new TextEncoder().encode(cluster.name).length).toBeLessThan(512)
+    }
+  })
+
+  it('allocates area to large memberships and rebuilds v1 geometry only once', () => {
+    const nodes = fixture(160).map((node, i) => ({ ...node, features: [i < 60 ? 'shared-large-domain' : `isolated-${i}`] }))
+    const atlas = buildAtlas(nodes, 'unequal-memberships')
+    const largest = atlas.domains.reduce((a, b) => a.memberIds.length > b.memberIds.length ? a : b)
+    const singletonRadii = atlas.domains.filter(domain => domain.memberIds.length === 1).map(domain => domain.radius).sort((a, b) => a - b)
+    expect(largest.memberIds.length).toBeGreaterThanOrEqual(40)
+    expect((largest.radius / singletonRadii[Math.floor(singletonRadii.length / 2)]) ** 2).toBeGreaterThan(largest.memberIds.length * .5)
+    const legacy = { ...atlas, version: 'strata-atlas/1', nodes: atlas.nodes.map(node => ({ ...node, x: 0, y: 0 })) }
+    const migrated = buildAtlas(nodes, atlas.epoch, legacy)
+    expect(migrated.version).toBe(ATLAS_VERSION)
+    expect(migrated.nodes).toEqual(atlas.nodes)
+    expect(buildAtlas(nodes, atlas.epoch, migrated).nodes).toEqual(migrated.nodes)
+  })
 })
 
 describe('shared conservative scalar field', () => {
@@ -115,7 +139,7 @@ describe('shared conservative scalar field', () => {
     expect(exclusive.size).toBe(40)
   })
 
-  it('keeps wide slopes continuous when the viewport oversamples the fixed 128-cell basis', () => {
+  it('keeps wide slopes continuous when the viewport oversamples the fixed regional grid', () => {
     const engine = new TerrainEngine(buildAtlas(fixture(1), 'smooth-wide-slopes'))
     const result = engine.render(all, { width: 512, height: 512, contourStep: 12 })
     // This strip lies outside the compact local peak: only the broad, continuous slope remains.
@@ -125,5 +149,17 @@ describe('shared conservative scalar field', () => {
       if (Math.abs(a - b) <= Math.max(1e-12, Math.abs(a) * 1e-6)) plateaus++
     }
     expect(plateaus).toBeLessThan(6)
+  })
+
+  it('bounds dense child crests by fixed world area instead of amplifying shrinking kernels', () => {
+    const atlas = buildAtlas(fixture(1), 'bounded-dense-crest')
+    const maxima = [.001, .0001].map(radius => {
+      const dense = { ...atlas, nodes: atlas.nodes.map(node => ({ ...node, radius })) }
+      const result = new TerrainEngine(dense).render(all, { width: 256, height: 256, contourStep: 12,
+        bounds: { x: .48, y: .48, width: .04, height: .04 } })
+      return Math.max(...result.field)
+    })
+    expect(maxima[1]).toBeLessThan(maxima[0] * 1.3)
+    expect(maxima[1]).toBeGreaterThan(maxima[0] * .5)
   })
 })

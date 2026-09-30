@@ -34,6 +34,19 @@ pub async fn snapshot(host: &dyn Host, range: Option<&DateRange>) -> Result<Inde
     if let Some(range) = range {
         range.validate()?;
     }
+    match snapshot_once(host, range).await {
+        // A source can change while reading pages in an active Vault. Retry
+        // once with a new snapshot; the failed round's files and cursors are
+        // dropped together. Authorization, limits and other errors stay final.
+        Err(error) if error.starts_with("SNAPSHOT_STALE:") => snapshot_once(host, range).await,
+        result => result,
+    }
+}
+
+async fn snapshot_once(
+    host: &dyn Host,
+    range: Option<&DateRange>,
+) -> Result<IndexSnapshot, String> {
     let mut params = json!({"version":1,"pageSize":1000});
     if let Some(range) = range {
         params["range"] = json!({"from":range.from,"to":range.to,"dateKind":"doc_date"});
@@ -134,7 +147,135 @@ pub fn safe_path(path: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::safe_path;
+    use super::{safe_path, snapshot};
+    use crate::{
+        rpc::{Host, Reply, RequestFuture},
+        types::DateRange,
+    };
+    use serde_json::{json, Value};
+    use std::{collections::VecDeque, sync::Mutex};
+
+    struct FakeHost {
+        replies: Mutex<VecDeque<Reply>>,
+        calls: Mutex<Vec<Value>>,
+    }
+
+    impl FakeHost {
+        fn new(replies: Vec<Reply>) -> Self {
+            Self {
+                replies: Mutex::new(replies.into()),
+                calls: Mutex::new(Vec::new()),
+            }
+        }
+    }
+
+    impl Host for FakeHost {
+        fn request<'a>(&'a self, method: &'a str, params: Value) -> RequestFuture<'a> {
+            Box::pin(async move {
+                assert_eq!(method, "host.index.snapshot");
+                self.calls.lock().unwrap().push(params);
+                self.replies
+                    .lock()
+                    .unwrap()
+                    .pop_front()
+                    .expect("unexpected extra RPC")
+            })
+        }
+
+        fn post(&self, _: Value) {
+            panic!("metadata reads must not post events");
+        }
+    }
+
+    fn page(snapshot_id: &str, file_key: &str, cursor: Option<&str>, range: bool) -> Value {
+        json!({
+            "snapshotId": snapshot_id,
+            "configHash": format!("{snapshot_id}-config"),
+            "asOf": "2026-09-30",
+            "mode": if range { "range" } else { "atlas_metadata" },
+            "files": [{
+                "fileKey": file_key,
+                "path": format!("{file_key}.md"),
+                "contentHash": "a".repeat(64),
+                "indexOrigin": "human"
+            }],
+            "nextCursor": cursor
+        })
+    }
+
+    #[tokio::test]
+    async fn stale_page_restarts_the_whole_snapshot_without_mixing_files_or_cursors() {
+        for range in [
+            None,
+            Some(DateRange {
+                from: "2026-09-01".into(),
+                to: "2026-09-30".into(),
+            }),
+        ] {
+            let host = FakeHost::new(vec![
+                Ok(page("old", "discarded", Some("cursor"), range.is_some())),
+                Err("SNAPSHOT_STALE: source changed; refresh metadata".into()),
+                Ok(page("new", "kept-a", Some("cursor"), range.is_some())),
+                Ok(page("new", "kept-b", None, range.is_some())),
+            ]);
+            let result = snapshot(&host, range.as_ref()).await.unwrap();
+            assert_eq!(result.snapshot_id, "new");
+            assert_eq!(result.config_hash, "new-config");
+            assert_eq!(
+                result
+                    .files
+                    .iter()
+                    .map(|file| file.file_key.as_str())
+                    .collect::<Vec<_>>(),
+                vec!["kept-a", "kept-b"]
+            );
+            assert!(result.next_cursor.is_none());
+            let calls = host.calls.lock().unwrap();
+            assert_eq!(calls.len(), 4);
+            assert!(calls[0].get("cursor").is_none());
+            assert_eq!(
+                calls[0], calls[2],
+                "retry must start over with the same date range"
+            );
+            assert_eq!(calls[1]["cursor"], "cursor");
+            assert_eq!(
+                calls[3]["cursor"], "cursor",
+                "old cursor history must also be discarded"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn repeated_stale_snapshot_stops_after_two_complete_attempts() {
+        let error = "SNAPSHOT_STALE: source changed; refresh metadata";
+        let host = FakeHost::new(vec![Err(error.into()), Err(error.into())]);
+        assert_eq!(snapshot(&host, None).await.unwrap_err(), error);
+        let calls = host.calls.lock().unwrap();
+        assert_eq!(calls.len(), 2);
+        assert!(calls.iter().all(|params| params.get("cursor").is_none()));
+    }
+
+    #[tokio::test]
+    async fn only_the_exact_stale_error_prefix_is_retried() {
+        for error in [
+            "CAPABILITY_DENIED: index.read revoked",
+            "SNAPSHOT_EXPIRED",
+            "SNAPSHOT_INVALIDATED",
+            "SNAPSHOT_LIMIT: metadata exceeds budget",
+            "host.index.snapshot 超时",
+            "SNAPSHOT_STALE",
+            "prefix SNAPSHOT_STALE: source changed",
+            "SNAPSHOT_STALE_OTHER: source changed",
+        ] {
+            let host = FakeHost::new(vec![Err(error.into())]);
+            assert_eq!(snapshot(&host, None).await.unwrap_err(), error);
+            assert_eq!(
+                host.calls.lock().unwrap().len(),
+                1,
+                "must not retry {error}"
+            );
+        }
+    }
 
     #[test]
     fn accepts_non_nul_control_characters_in_relative_filenames() {

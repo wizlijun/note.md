@@ -1,6 +1,6 @@
 import type { Atlas, AtlasCluster, AtlasNode, TerrainInputNode } from './types-terrain'
 
-export const ATLAS_VERSION = 'strata-atlas/1'
+export const ATLAS_VERSION = 'strata-atlas/2'
 export const WORLD_SIZE = 4096
 const MAX_TERMS = 32, MAX_POSTING = 32, MAX_CANDIDATES = 256, MAX_NEIGHBORS = 12
 const STOP = new Set('the a an and or of to in for is are on with this that from as by at it be 的 了 和 是 在 与 及 一个 我们 你们'.split(' '))
@@ -200,7 +200,9 @@ function titleFor(members: number[], nodes: TerrainInputNode[]): string {
     scores.set(name, (scores.get(name) || 0) + 1)
   }
   const labels = [...scores].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 2).map(([term]) => term)
-  return labels.join(' · ') || nodes[members[0]]?.title || '未归类'
+  const label = (labels.join(' · ') || nodes[members[0]]?.title || '未归类').split(/\r?\n/).map(line => line.trim()).find(Boolean) || '未归类'
+  const characters = Array.from(label)
+  return characters.length > 96 ? characters.slice(0, 96).join('') + '…' : label
 }
 
 function circle(rect: Rect): { x: number; y: number; radius: number } {
@@ -213,13 +215,14 @@ export function buildAtlas(input: TerrainInputNode[], epoch: string, previous?: 
   if (previous?.epoch === epoch && previous.version === ATLAS_VERSION) return updateAtlas(nodes, previous, start)
   const { graph, idf } = buildGraph(nodes)
   const domainMembers = groupMembers(communities(graph, .6))
-  const domainSlots = slots(domainMembers.map(group => Math.sqrt(group.length)), { x: .035, y: .035, width: .93, height: .93 })
+  // Area is proportional to membership; square-root weights compress large real-world clusters.
+  const domainSlots = slots(domainMembers.map(group => group.length), { x: .035, y: .035, width: .93, height: .93 })
   const domains: AtlasCluster[] = [], topics: AtlasCluster[] = [], placed: AtlasNode[] = []
   domainMembers.forEach((members, domainIndex) => {
     const d = circle(domainSlots[domainIndex]), domainId = 'domain:' + nodes[members[0]].id
     domains.push({ id: domainId, name: titleFor(members, nodes), ...d, memberIds: members.map(i => nodes[i].id) })
     const groups = members.length <= 8 ? [members] : groupMembers(communities(induced(graph, members), 1.2)).map(group => group.map(i => members[i]))
-    const side = d.radius * 1.4, topicSlots = slots(groups.map(group => Math.sqrt(group.length)), { x: d.x - side / 2, y: d.y - side / 2, width: side, height: side })
+    const side = d.radius * 1.4, topicSlots = slots(groups.map(group => group.length), { x: d.x - side / 2, y: d.y - side / 2, width: side, height: side })
     groups.forEach((items, groupIndex) => {
       const t = groups.length === 1 ? { ...d, radius: d.radius * .87 } : circle(topicSlots[groupIndex])
       const topicId = 'topic:' + nodes[items[0]].id

@@ -4,11 +4,13 @@
 
 ## 运行前提
 
-STRATA 0.1.1 要求 **note.md 6.930.2 或更新版本**，包含大 Vault 流式快照修复，使用 note.md 6.930.1 新增的 `host.index.*` v1 / `index.read`。manifest 的 `engines.notemd: >=6.930.2` 同时约束市场版本选择和安装；6.929.1 及更早宿主不具备这些接口。索引 schema 从 6 升至 7，首次运行沿用宿主现有索引重建流程；未就绪会显示 `INDEX_NOT_READY`，待正常索引完成后刷新。
+STRATA 0.1.2 要求 **note.md 6.930.2 或更新版本**，包含大 Vault 流式快照修复，使用 note.md 6.930.1 新增的 `host.index.*` v1 / `index.read`。manifest 的 `engines.notemd: >=6.930.2` 同时约束市场版本选择和安装；6.929.1 及更早宿主不具备这些接口。索引 schema 从 6 升至 7，首次运行沿用宿主现有索引重建流程；未就绪会显示 `INDEX_NOT_READY`，待正常索引完成后刷新。
 
 首次打开只读取已授权索引元数据，在本地 Worker 中聚类、生成候选地形。使用「设置 → 从原文深读」明确选择 Agent、文档数与正文预算，才发送当前日期范围内的原文。深读需安装包含 `strata-extract-v1` 的配套 provider：Claude Agent 1.0.32、Codex Agent 1.0.19 或 DeepSeek Agent 1.1.18（及后续兼容版本）。界面仍检查实际任务与输入隔离能力；旧 provider 会禁用深读，本地候选浏览仍可用。
 
 ## 浏览与语义
+
+全景的山群对应领域分组，中层山体对应主题分组，放大后的子峰对应文档候选或已深读知识节点。候选按内容去重，分组主要使用索引标签、缺失时使用标题词汇；不是对全部原文的语义理解。山高来自所选日期内来源优先级加权后的贡献与局部密度叠加，不能直接当作知识重要性排名。山脊和分形细节没有独立知识或已核实关系含义。
 
 - 文档日期包含起止两天；索引缺日期时的修改时间推定单独计数。切换日期不重新排列旧节点，不按当前最大值重标高。
 - 「个人优先」强调个人独有知识的标签与峰顶；**个人独有与保密性分开**。索引仅采纳明确 `confidentiality: confidential | explicitly_public | unknown` / `private: true`，不会把本人创作当成私密，也不会把 `private: false` 当成公开。
@@ -19,7 +21,7 @@ STRATA 0.1.1 要求 **note.md 6.930.2 或更新版本**，包含大 Vault 流式
 
 ## 实现
 
-`backend/` 是异步 Rust NDJSON 插件进程，负责范围快照、内容去重预算、证据核验、原子缓存、任务恢复与回源。`src/lib/atlas.ts` 使用有界倒排候选图与多层社区划分；旧节点沿用布局。`terrain.ts` 按冻结来源组分配质量，使用确定性多尺度分形核与宽山脚；同一标量场供 D3 contours/Canvas 和 Three.js 网格使用。不同日期只是移除对应贡献；空范围严格为零。显式重排才改变地图 epoch。
+`backend/` 是异步 Rust NDJSON 插件进程，负责范围快照、内容去重预算、证据核验、原子缓存、任务恢复与回源。`src/lib/atlas.ts` 使用有界倒排候选图与多层社区划分；旧节点沿用布局。`terrain.ts` 按冻结来源组分配质量，使用确定性多尺度分形核与宽山脚；同一标量场供 D3 contours/Canvas 和 Three.js 网格使用。不同日期只是移除对应贡献；空范围严格为零。显式重排才改变地图 epoch。升级 0.1.2 会将旧 `/1` 布局一次性迁移到 `/2`，为大聚类分配相应面积；此后日期切换和再次打开沿用新布局。
 
 前端为 Svelte 5，d3-contour 4.0.2 和 Three.js r160 随包离线构建；Worker 是同源独立 ES module，不需要 CDN、eval、blob Worker 或放宽宿主 CSP。布局缓存不保存引文与原文。每次浏览最多用 500 文件 / 16 MiB 的原文核对缓存引文；未完成本次证明的节点保留地图身份，但降为候选并收起引文，覆盖详情标记待核对数量。缩小日期后可以继续查看。缓存位于 Host 提供的插件 data_dir 内，按 Vault 隔离；源变更/排除/撤权后不展示失效引文。
 
@@ -40,7 +42,7 @@ python3 plugins-src/strata/backend/tests/protocol_smoke.py
 pnpm check:protocol
 ```
 
-本地开发安装沿用 `bash scripts/dev-install-plugin.sh strata`；需先运行 note.md 6.930.2 或更新宿主，不会自动更新正在运行的旧宿主。双架构签名打包用 `bash scripts/release-plugins.sh strata`，输出 `dist-plugins/notemd.strata/0.1.1/`，该脚本不上传。正式发布须先完成兼容宿主的公开发行，再沿用仓库既有流程发布目标插件；本文件中的版本要求与本地构建步骤不代表公网发布已经完成。
+本地开发安装沿用 `bash scripts/dev-install-plugin.sh strata`；需先运行 note.md 6.930.2 或更新宿主，不会自动更新正在运行的旧宿主。双架构签名打包用 `bash scripts/release-plugins.sh strata`，输出 `dist-plugins/notemd.strata/0.1.2/`，该脚本不上传。正式发布须先完成兼容宿主的公开发行，再沿用仓库既有流程发布目标插件；本文件中的版本要求与本地构建步骤不代表公网发布已经完成。
 
 macOS 原生协议/GPU 验证：`node plugins-src/strata/scripts/check-webkit-worker.mjs`；独立交互窗口：`node plugins-src/strata/scripts/open-webkit-fixture.mjs`。两者均使用临时非持久 WebKit 与合成 RPC，不触碰宿主配置。
 
