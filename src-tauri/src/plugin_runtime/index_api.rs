@@ -3,7 +3,7 @@
 use plugin_protocol::{IndexBlocksParams, IndexRange, IndexSnapshotParams, IndexStatusParams};
 use searchidx::{
     query::Weights,
-    snapshot::{Capture, File},
+    snapshot::{Capture, File, UnitRef},
     ScanOptions, SearchIndex,
 };
 use serde_json::{json, Value};
@@ -378,15 +378,13 @@ fn build_snapshot(
         }
         true
     });
-    let skipped = capture.files.iter().filter(|f| f.units.is_empty()).count();
+    let skipped = capture
+        .files
+        .iter()
+        .filter(|f| f.priority_basis.is_none())
+        .count();
     let coverage = json!({"indexed":capture.indexed,"selected":capture.files.len(),"stale":stale,"excluded":excluded,"undated":capture.undated,"skipped":skipped});
-    let retained = serde_json::to_vec(&capture.files).unwrap().len()
-        + capture
-            .files
-            .iter()
-            .flat_map(|f| &f.units)
-            .map(|u| u.breadcrumb.len() + u.agent_by.as_ref().map_or(0, String::len) + 256)
-            .sum::<usize>();
+    let retained = serde_json::to_vec(&capture.files).unwrap().len() + capture.files.len() * 32; // fixed per-file unit fingerprint
     let source_stamps = capture
         .files
         .iter()
@@ -479,7 +477,11 @@ fn metadata_page(snap: &mut Snapshot, p: &IndexSnapshotParams) -> Result<Value, 
     }
     Ok(result)
 }
-fn blocks_page(snap: &mut Snapshot, p: &IndexBlocksParams) -> Result<Value, String> {
+fn blocks_page(
+    snap: &mut Snapshot,
+    p: &IndexBlocksParams,
+    read_units: &mut impl FnMut(&File) -> Result<Vec<UnitRef>, String>,
+) -> Result<Value, String> {
     if snap.range.is_none() {
         return Err("CAPABILITY_DENIED: atlas_metadata cannot read source blocks".into());
     }
@@ -527,13 +529,32 @@ fn blocks_page(snap: &mut Snapshot, p: &IndexBlocksParams) -> Result<Value, Stri
                 continue;
             }
         };
+        // Load only this requested file after verifying its frozen source hash.
+        // The index also checks the frozen unit fingerprint before serving it.
+        let file_units = match read_units(file) {
+            Ok(units) => units,
+            Err(error)
+                if error.starts_with("SNAPSHOT_STALE") || error.starts_with("SNAPSHOT_LIMIT") =>
+            {
+                let reason = if error.starts_with("SNAPSHOT_LIMIT") {
+                    "too_large"
+                } else {
+                    "changed"
+                };
+                conflicts.push(json!({"fileKey":file.file_key,"reason":reason}));
+                cursor.file += 1;
+                cursor.unit = 0;
+                continue;
+            }
+            Err(error) => return Err(error),
+        };
         let lines: Vec<_> = text.split('\n').collect();
-        while cursor.unit < file.units.len() {
-            let unit = &file.units[cursor.unit];
+        while cursor.unit < file_units.len() {
+            let unit = &file_units[cursor.unit];
             let Some(slice) = lines.get(unit.line_start as usize - 1..unit.line_end as usize)
             else {
                 conflicts.push(json!({"fileKey":file.file_key,"reason":"changed"}));
-                cursor.unit = file.units.len();
+                cursor.unit = file_units.len();
                 break;
             };
             let text = slice.join("\n");
@@ -576,6 +597,31 @@ fn blocks_page(snap: &mut Snapshot, p: &IndexBlocksParams) -> Result<Value, Stri
     Ok(result)
 }
 
+// Both metadata and lazy units use the same index handle and Vault checks.
+// A block page releases the index lock after each file, before reading the next.
+fn with_index<R: tauri::Runtime, T>(
+    app: &tauri::AppHandle<R>,
+    ctx: &Context,
+    action: impl FnOnce(&mut SearchIndex) -> Result<T, String>,
+) -> Result<T, String> {
+    if let Some(handle) = app.try_state::<crate::search::IndexHandle>() {
+        let mut guard = crate::search::lock(handle.inner());
+        let index = guard
+            .as_mut()
+            .ok_or("INDEX_NOT_READY: initial build or rebuild in progress")?;
+        if index.vault_root().canonicalize().ok().as_ref() != Some(&ctx.root) {
+            return Err("INDEX_NOT_READY: vault changed".into());
+        }
+        action(index)
+    } else {
+        // Read-only CLI access never creates or rebuilds an index.
+        let db = searchidx::paths::index_db_path(&ctx.root).ok_or("INDEX_NOT_READY")?;
+        let mut index =
+            SearchIndex::open_existing_at(&ctx.root, &db, &ctx.opts.source_globs.stamp())?;
+        action(&mut index)
+    }
+}
+
 pub(crate) fn error_code(detail: &str) -> i64 {
     if detail.starts_with("CAPABILITY_DENIED") {
         plugin_protocol::ERR_CAPABILITY_DENIED
@@ -608,26 +654,9 @@ pub(crate) fn dispatch<R: tauri::Runtime>(
                 let as_of = searchidx::snapshot::as_of();
                 let from = p.range.as_ref().map(|r| r.from.as_str());
                 let to = p.range.as_ref().map(|r| r.to.as_str());
-                let capture = if let Some(handle) = app.try_state::<crate::search::IndexHandle>() {
-                    let mut guard = crate::search::lock(handle.inner());
-                    let index = guard
-                        .as_mut()
-                        .ok_or("INDEX_NOT_READY: initial build or rebuild in progress")?;
-                    if index.vault_root().canonicalize().ok().as_ref() != Some(&ctx.root) {
-                        return Err("INDEX_NOT_READY: vault changed".into());
-                    }
-                    index.capture_metadata(from, to, &as_of, &ctx.weights)?
-                } else {
-                    // Headless CLI uses the existing index without triggering
-                    // source reads. Initial/schema rebuild belongs to the indexer.
-                    let db = searchidx::paths::index_db_path(&ctx.root).ok_or("INDEX_NOT_READY")?;
-                    let mut index = SearchIndex::open_existing_at(
-                        &ctx.root,
-                        &db,
-                        &ctx.opts.source_globs.stamp(),
-                    )?;
-                    index.capture_metadata(from, to, &as_of, &ctx.weights)?
-                };
+                let capture = with_index(app, &ctx, |index| {
+                    index.capture_metadata(from, to, &as_of, &ctx.weights)
+                })?;
                 insert(build_snapshot(
                     plugin,
                     ctx.clone(),
@@ -645,7 +674,12 @@ pub(crate) fn dispatch<R: tauri::Runtime>(
             version(p.version)?;
             let entry = lookup(&p.snapshot_id, plugin, &ctx)?;
             let mut snap = entry.lock().unwrap_or_else(|p| p.into_inner());
-            blocks_page(&mut snap, &p)?
+            let as_of = snap.as_of.clone();
+            blocks_page(&mut snap, &p, &mut |file| {
+                with_index(app, &ctx, |index| {
+                    index.capture_file_units(file, &as_of, &ctx.weights)
+                })
+            })?
         }
         "host.index.status" => {
             let p: IndexStatusParams = serde_json::from_value(params.clone())
@@ -717,6 +751,29 @@ mod tests {
             build_snapshot("fixture.plugin", ctx, range, "2026-09-30".into(), capture).unwrap();
         (dir, snap)
     }
+    fn fixture_units(snap: &Snapshot, file: &File) -> Vec<UnitRef> {
+        let mut index = SearchIndex::open_existing_at(
+            &snap.context.root,
+            &snap.context.root.join(".index.db"),
+            "",
+        )
+        .unwrap();
+        index
+            .capture_file_units(file, &snap.as_of, &snap.context.weights)
+            .unwrap()
+    }
+    fn read_blocks(snap: &mut Snapshot, p: &IndexBlocksParams) -> Result<Value, String> {
+        let mut index = SearchIndex::open_existing_at(
+            &snap.context.root,
+            &snap.context.root.join(".index.db"),
+            "",
+        )?;
+        let as_of = snap.as_of.clone();
+        let weights = snap.context.weights;
+        blocks_page(snap, p, &mut |file| {
+            index.capture_file_units(file, &as_of, &weights)
+        })
+    }
     fn request(snap: &Snapshot) -> IndexBlocksParams {
         IndexBlocksParams {
             version: 1,
@@ -772,10 +829,39 @@ mod tests {
             .contains("INVALID_CURSOR"));
     }
     #[test]
+    fn lightweight_snapshot_loads_only_requested_file_and_reports_lazy_conflicts() {
+        let (_dir, mut snap) = fixture();
+        assert_eq!(snap.coverage["skipped"], 0);
+        let mut p = request(&snap);
+        p.file_keys.truncate(1);
+        let selected = snap.files[0].clone();
+        let expected = fixture_units(&snap, &selected);
+        let mut calls = 0;
+        let result = blocks_page(&mut snap, &p, &mut |file| {
+            calls += 1;
+            assert_eq!(file.file_key, selected.file_key);
+            Ok(expected.clone())
+        })
+        .unwrap();
+        assert_eq!(calls, 1);
+        assert_eq!(result["units"].as_array().unwrap().len(), expected.len());
+        for (error, reason) in [
+            ("SNAPSHOT_STALE: unit fingerprint changed", "changed"),
+            ("SNAPSHOT_LIMIT: file units exceed budget", "too_large"),
+        ] {
+            let result = blocks_page(&mut snap, &p, &mut |_| Err(error.into())).unwrap();
+            assert!(result["units"].as_array().unwrap().is_empty());
+            assert_eq!(result["conflicts"][0]["reason"], reason);
+        }
+        assert!(blocks_page(&mut snap, &p, &mut |_| Err("INDEX_NOT_READY".into())).is_err());
+        snap.range = None;
+        assert!(blocks_page(&mut snap, &p, &mut |_| panic!("atlas must not load units")).is_err());
+    }
+    #[test]
     fn source_is_exact_inclusive_cr_normalized_and_hash_checked() {
         let (dir, mut snap) = fixture();
         let p = request(&snap);
-        let result = blocks_page(&mut snap, &p).unwrap();
+        let result = read_blocks(&mut snap, &p).unwrap();
         serde_json::from_value::<plugin_protocol::IndexBlocksResult>(result.clone()).unwrap();
         assert!(!result["units"].as_array().unwrap().is_empty());
         for unit in result["units"].as_array().unwrap() {
@@ -795,7 +881,7 @@ mod tests {
             );
         }
         std::fs::write(dir.path().join(&snap.files[0].path), "CHANGED CONTENT").unwrap();
-        let result = blocks_page(&mut snap, &p).unwrap();
+        let result = read_blocks(&mut snap, &p).unwrap();
         assert!(result["conflicts"]
             .as_array()
             .unwrap()
@@ -808,7 +894,7 @@ mod tests {
         let (_dir, mut snap) = fixture();
         let mut p = request(&snap);
         snap.range = None;
-        assert!(blocks_page(&mut snap, &p)
+        assert!(read_blocks(&mut snap, &p)
             .unwrap_err()
             .contains("atlas_metadata"));
         snap.range = Some(IndexRange {
@@ -817,15 +903,15 @@ mod tests {
             date_kind: "doc_date".into(),
         });
         p.file_keys = vec!["fabricated".into()];
-        assert!(blocks_page(&mut snap, &p)
+        assert!(read_blocks(&mut snap, &p)
             .unwrap_err()
             .contains("outside snapshot"));
         p = request(&snap);
         snap.served = TOTAL_BYTES;
-        assert!(blocks_page(&mut snap, &p).unwrap_err().contains("BUDGET"));
+        assert!(read_blocks(&mut snap, &p).unwrap_err().contains("BUDGET"));
         snap.served = 0;
         snap.context.opts.exclude_dirs = vec![snap.files[0].path.clone()];
-        assert!(blocks_page(&mut snap, &p).unwrap()["conflicts"]
+        assert!(read_blocks(&mut snap, &p).unwrap()["conflicts"]
             .as_array()
             .unwrap()
             .iter()
@@ -839,7 +925,7 @@ mod tests {
         let mut all = HashSet::new();
         let mut pages = 0;
         loop {
-            let result = blocks_page(&mut snap, &p).unwrap();
+            let result = read_blocks(&mut snap, &p).unwrap();
             for u in result["units"].as_array().unwrap() {
                 assert!(all.insert(u["blockKey"].as_str().unwrap().to_string()));
             }
@@ -849,7 +935,7 @@ mod tests {
                 if pages == 1 {
                     let mut bad = p.clone();
                     bad.file_keys.reverse();
-                    assert!(blocks_page(&mut snap, &bad)
+                    assert!(read_blocks(&mut snap, &bad)
                         .unwrap_err()
                         .contains("INVALID_CURSOR"));
                 }
@@ -861,7 +947,10 @@ mod tests {
         assert!(pages > 1);
         assert_eq!(
             all.len(),
-            snap.files.iter().map(|f| f.units.len()).sum::<usize>()
+            snap.files
+                .iter()
+                .map(|f| fixture_units(&snap, f).len())
+                .sum::<usize>()
         );
     }
     #[cfg(unix)]
@@ -874,7 +963,7 @@ mod tests {
         let path = dir.path().join(&snap.files[0].path);
         std::fs::remove_file(&path).unwrap();
         std::os::unix::fs::symlink(outside.path(), path).unwrap();
-        let result = blocks_page(&mut snap, &p).unwrap();
+        let result = read_blocks(&mut snap, &p).unwrap();
         assert!(!result.to_string().contains("OUTSIDE PRIVATE"));
         assert!(result["conflicts"]
             .as_array()

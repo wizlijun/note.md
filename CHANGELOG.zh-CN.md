@@ -6,6 +6,10 @@
 
 ## 未发布
 
+### 修复
+
+- 修复大 Vault 打开 STRATA 时出现 `SNAPSHOT_LIMIT: unit metadata exceeds budget`。索引快照改为流式计算文件优先级，只为实际请求的文件加载段落引用，保留来源校验和抽取预算。
+
 ## v6.930.1 — 2026-09-30
 
 ### 新增
