@@ -205,6 +205,46 @@ class ProtocolTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             w.call("open_source", {**RANGE, "nodeId": node["id"]})
 
+    def test_control_character_filename_roundtrips_without_hiding_other_files(self):
+        w = self.wire_for()
+        path = "notes/知识\x1d记录.md"
+        w.files.append(w.file(path, "原文件名必须保留。", 3))
+        snap = w.call("snapshot", RANGE)
+        self.assertEqual(snap["coverage"]["selected"], 3)
+        self.assertEqual(len(snap["nodes"]), 3)
+        node = next(n for n in snap["nodes"] if n["id"] == "candidate:" + w.files[-1]["contentHash"][:24])
+        self.assertFalse(any(m.startswith("host.agent") or m == "host.index.blocks" for m, _ in w.calls))
+        source = w.call("open_source", {**RANGE, "nodeId": node["id"]})
+        self.assertEqual(source["path"], path)
+        self.assertEqual(source["contentHash"], w.files[-1]["contentHash"])
+        w.extract()
+        self.assertEqual(w.await_job()["state"], "partial")
+        verified = [n for n in w.call("snapshot", RANGE)["nodes"] if n["state"] == "verified"]
+        self.assertEqual(len(verified), 1)
+        evidence = verified[0]["evidence"][0]
+        self.assertEqual(evidence["path"], path)
+        opened = w.call("open_source", {**RANGE, "nodeId": verified[0]["id"], "evidenceId": evidence["id"]})
+        self.assertEqual(opened["path"], path)
+        self.assertEqual(opened["quote"], w.files[-1]["_text"])
+        w.conflict = True
+        with self.assertRaises(RuntimeError):
+            w.call("open_source", {**RANGE, "nodeId": node["id"]})
+
+    def test_invalid_sources_still_reject_entire_snapshot(self):
+        w = self.wire_for()
+        for patch in [
+            {"path": "notes/invalid\0.md"},
+            {"path": "../outside.md"},
+            {"path": "/outside.md"},
+            {"path": "notes/.ssh/key.md"},
+            {"contentHash": "invalid"},
+            {"filePriority": -1},
+        ]:
+            with self.subTest(patch=patch):
+                w.files = [w.file("valid.md", "有效来源。", 1), {**w.file("bad.md", "不得显示。", 1), **patch}]
+                with self.assertRaisesRegex(RuntimeError, "索引包含无效来源"):
+                    w.call("snapshot", RANGE)
+
     def test_success_budget_cache_and_exact_source_open(self):
         w = self.wire_for()
         start = w.extract()

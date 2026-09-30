@@ -4,7 +4,7 @@
 
 ## 运行前提
 
-STRATA 0.1.0 要求 **note.md 6.930.1 或更新版本**，使用该版本新增的 `host.index.*` v1 / `index.read`。manifest 的 `engines.notemd: >=6.930.1` 同时约束市场版本选择和安装；6.929.1 及更早宿主不具备这些接口。索引 schema 从 6 升至 7，首次运行沿用宿主现有索引重建流程；未就绪会显示 `INDEX_NOT_READY`，待正常索引完成后刷新。
+STRATA 0.1.1 要求 **note.md 6.930.2 或更新版本**，包含大 Vault 流式快照修复，使用 note.md 6.930.1 新增的 `host.index.*` v1 / `index.read`。manifest 的 `engines.notemd: >=6.930.2` 同时约束市场版本选择和安装；6.929.1 及更早宿主不具备这些接口。索引 schema 从 6 升至 7，首次运行沿用宿主现有索引重建流程；未就绪会显示 `INDEX_NOT_READY`，待正常索引完成后刷新。
 
 首次打开只读取已授权索引元数据，在本地 Worker 中聚类、生成候选地形。使用「设置 → 从原文深读」明确选择 Agent、文档数与正文预算，才发送当前日期范围内的原文。深读需安装包含 `strata-extract-v1` 的配套 provider：Claude Agent 1.0.32、Codex Agent 1.0.19 或 DeepSeek Agent 1.1.18（及后续兼容版本）。界面仍检查实际任务与输入隔离能力；旧 provider 会禁用深读，本地候选浏览仍可用。
 
@@ -40,7 +40,7 @@ python3 plugins-src/strata/backend/tests/protocol_smoke.py
 pnpm check:protocol
 ```
 
-本地开发安装沿用 `bash scripts/dev-install-plugin.sh strata`；需先运行 note.md 6.930.1 或更新宿主，不会自动更新正在运行的旧宿主。双架构签名打包用 `bash scripts/release-plugins.sh strata`，输出 `dist-plugins/notemd.strata/0.1.0/`，该脚本不上传。正式发布须先完成兼容宿主的公开发行，再沿用仓库既有流程发布四个配套插件；本文件中的版本要求与本地构建步骤不代表公网发布已经完成。
+本地开发安装沿用 `bash scripts/dev-install-plugin.sh strata`；需先运行 note.md 6.930.2 或更新宿主，不会自动更新正在运行的旧宿主。双架构签名打包用 `bash scripts/release-plugins.sh strata`，输出 `dist-plugins/notemd.strata/0.1.1/`，该脚本不上传。正式发布须先完成兼容宿主的公开发行，再沿用仓库既有流程发布目标插件；本文件中的版本要求与本地构建步骤不代表公网发布已经完成。
 
 macOS 原生协议/GPU 验证：`node plugins-src/strata/scripts/check-webkit-worker.mjs`；独立交互窗口：`node plugins-src/strata/scripts/open-webkit-fixture.mjs`。两者均使用临时非持久 WebKit 与合成 RPC，不触碰宿主配置。
 

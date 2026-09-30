@@ -2,12 +2,12 @@
   "manifest_version": 2,
   "id": "notemd.strata",
   "name": "STRATA",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "kind": "native",
   "engines": {
-    "notemd": ">=6.930.1"
+    "notemd": ">=6.930.2"
   },
-  "description": "Explore indexed knowledge as stable contour maps and 3D terrain, with date filters and source evidence. Requires note.md 6.930.1 or later.",
+  "description": "Explore indexed knowledge as stable contour maps and 3D terrain, with date filters and source evidence. Requires note.md 6.930.2 or later.",
   "binary": {
     "aarch64-apple-darwin": "bin/notemd-strata",
     "x86_64-apple-darwin": "bin/notemd-strata"
@@ -53,7 +53,7 @@
   "i18n": {
     "zh": {
       "name": "STRATA · 层峦",
-      "description": "按日期探索知识等高线与三维山体，沿用索引优先级，并回到原文核对证据。需 note.md 6.930.1 或更新版本。",
+      "description": "按日期探索知识等高线与三维山体，沿用索引优先级，并回到原文核对证据。需 note.md 6.930.2 或更新版本。",
       "menus": {
         "open": "打开层峦…"
       }

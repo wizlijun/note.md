@@ -118,14 +118,58 @@ pub fn valid_hash(hash: &str) -> bool {
     hash.len() == 64 && hash.bytes().all(|c| c.is_ascii_hexdigit())
 }
 pub fn safe_path(path: &str) -> bool {
+    // POSIX permits non-NUL control characters in filenames. JSON RPC escapes
+    // them; rejecting them here would hide the entire valid index.
     !path.is_empty()
         && !path.starts_with('/')
         && !path.contains('\\')
         && !path.contains(':')
-        && !path.chars().any(char::is_control)
+        && !path.contains('\0')
         && path.split('/').all(|part| {
             !part.is_empty()
                 && !matches!(part, "." | ".." | ".git" | ".ssh" | ".aws")
                 && !part.starts_with(".env")
         })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::safe_path;
+
+    #[test]
+    fn accepts_non_nul_control_characters_in_relative_filenames() {
+        // POSIX filenames can contain these characters; JSON RPC preserves them.
+        for path in [
+            "notes/知识\u{1d}记录.md",
+            "notes/tab\tname.md",
+            "line\nbreak.md",
+            "c1\u{85}.md",
+        ] {
+            assert!(safe_path(path), "{path:?}");
+        }
+    }
+
+    #[test]
+    fn rejects_nul_and_existing_unsafe_path_forms() {
+        for path in [
+            "",
+            "bad\0.md",
+            "/absolute.md",
+            "../outside.md",
+            "a/../b.md",
+            "./note.md",
+            "a//b.md",
+            "a/",
+            "C:/note.md",
+            "file:///note.md",
+            "a\\b.md",
+            ".git/config",
+            "a/.ssh/key",
+            ".aws/key",
+            ".env",
+            "a/.env.local",
+        ] {
+            assert!(!safe_path(path), "{path:?}");
+        }
+    }
 }
