@@ -6,7 +6,7 @@
   import type { MeetingNodeMetadata } from './lib/meetings'
   import { api } from './lib/bridge'
   import { TerrainWorkerClient } from './lib/worker-client'
-  import type { Atlas, TerrainBounds, TerrainResult } from './lib/types-terrain'
+  import type { Atlas, TerrainBounds, TerrainRenderOptions, TerrainResult } from './lib/types-terrain'
   import type { Dataset, Job, KnowledgeNode, Preferences, Provider, Snapshot } from './lib/types'
   import { confidentialityLabels, errorText, jobLabels, nodeVisible, originLabels, ownerLabels, rangeError, recentRange, restorePreferences, running, sourceFilesForNode, supportsExtraction } from './lib/domain'
 
@@ -122,7 +122,7 @@
     const id = ++computationId, viewId = requestId, data = snapshot, activeDataset = dataset
     computing = true
     try {
-      const options = { width: 768, height: 512, bounds, contourStep: bounds ? 2 : 3 }
+      const options: TerrainRenderOptions = { width: 768, height: 512, bounds, contourStep: bounds ? 2 : 3, ...(activeDataset === 'meetings_knowledge' ? { surface: 'meeting' as const } : {}) }
       const output = build ? await worker.build(data.nodes.map(({ id, title, kind, state, features, links, ownerSpecificity, confidentiality, sourceGroups, importance }) => ({ id, title, kind, state, features, links, ownerSpecificity, confidentiality, sourceGroups, importance })), epoch, selection, options, previousAtlas) : await worker.render(selection, options)
       if (disposed || id !== computationId || viewId !== requestId) return
       terrain = output; previousAtlas = output.layout
@@ -274,7 +274,7 @@
         <p class="muted">日期只筛选贡献，保持地图布局与高度刻度。高程表达加权积累，不表示事实真假。</p>
         {#if terrain?.layout.diagnostics.rebuildSuggested}<p class="muted">地图已有拥挤区域，可以重新整理布局。</p>{/if}
         {#if rebuildConfirm}<p>重新整理会改变现有山群位置。</p><div class="inline"><button onclick={() => { rebuildConfirm = false; settings = false; void load(true) }}>重新整理</button><button onclick={() => rebuildConfirm = false}>取消</button></div>{:else}<button class="menu-row" onclick={() => rebuildConfirm = true} disabled={loading || busy}>重新整理地图布局…</button>{/if}
-        {#if isMeetings}<hr /><p class="muted">一座子峰对应一条已有知识；核心与支撑知识按固定权重积累成山。类型用峰顶颜色区分，关系保留角色。证据强度是抽取记录的声明，不表示事实真假或私密性。点击刷新重新读取会议知识。</p>{:else}
+        {#if isMeetings}<hr /><p class="muted">核心与支撑知识按固定权重汇成连续山脊与宽坡。地形以固定尺度平滑表达知识群，单条知识通过近景标记与目录定位，类型用标记颜色区分，关系保留角色。证据强度是抽取记录的声明，不表示事实真假或私密性。点击刷新重新读取会议知识。</p>{:else}
         <hr />
         <div class="panel-title"><strong>从原文深读</strong><button onclick={loadProviders} aria-label="刷新 Agent 列表">↻</button></div>
         <label>Agent<select aria-label="深读 Agent" bind:value={prefs.harness} onchange={persist}><option value="" disabled>选择 Agent</option>{#each providers as p}<option value={p.id} disabled={!supportsExtraction(p)}>{p.name}{supportsExtraction(p) ? '' : '（需更新或配置）'}</option>{/each}</select></label>

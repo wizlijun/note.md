@@ -2,7 +2,7 @@ import { contours as d3Contours } from 'd3-contour'
 import { seeded, stableHash, WORLD_SIZE } from './atlas'
 import type { Atlas, AtlasNode, PeakAnchor, TerrainBounds, TerrainContour, TerrainGrid, TerrainRenderOptions, TerrainResult, TerrainSelection } from './types-terrain'
 
-export const TERRAIN_VERSION = 'strata-terrain/2'
+export const TERRAIN_VERSION = 'strata-terrain/3'
 export const KERNEL_INTEGRAL = 2 * Math.PI * (48 / WORLD_SIZE) ** 2
 // Keep the prototype's first 140 levels; extend the same fixed scale for dense production atlases.
 export const CONTOUR_LEVELS = Array.from({ length: 384 }, (_, i) => .012 * Math.expm1((i + 1) * .011 / .24))
@@ -10,6 +10,9 @@ export const elevation = (height: number): number => .24 * Math.log1p(Math.max(0
 const TEMPLATE_SIZE = 64, REGION_GRID = 256, LOCAL_SHARE = .4, TOPIC_FOOT_SHARE = .75
 const CACHE_LIMIT = 24 * 1024 * 1024, MAX_VERTICES = 220_000
 const MAX_CACHED_PATCHES = 40_000
+// Fixed world scale, independent of date masks, viewport bounds or display resolution.
+// Three box passes approximate Gaussian sigma = sqrt(78) / 256 ≈ .0345 world units.
+const MEETING_SMOOTH_RADII = [8, 8, 9] as const
 
 function noise(x: number, y: number, salt: number): number {
   const ix = Math.floor(x), iy = Math.floor(y), u = x - ix, v = y - iy
@@ -62,6 +65,48 @@ function integrateTemplate(values: Float64Array, size: number): Template {
       prefix[at - 1] + prefix[at - stride] - prefix[at - stride - 1]
   }
   return { values, prefix, rows, columns, size }
+}
+
+function surfaceTemplate(cells: Float64Array, size: number): Template {
+  const stride = size + 1, vertices = new Float64Array(stride * stride)
+  // Clamped corner averages preserve cell mass under trapezoidal integration.
+  for (let y = 0; y <= size; y++) for (let x = 0; x <= size; x++) {
+    const x0 = Math.max(0, x - 1), x1 = Math.min(size - 1, x), y0 = Math.max(0, y - 1), y1 = Math.min(size - 1, y)
+    vertices[y * stride + x] = (cells[y0 * size + x0] + cells[y0 * size + x1] + cells[y1 * size + x0] + cells[y1 * size + x1]) / 4
+  }
+  return integrateTemplate(vertices, size)
+}
+
+/** Positive, mass-preserving low-pass; no viewport blur or global rescaling. */
+function smoothMeetingSurface(cells: Float32Array): Template {
+  const size = REGION_GRID
+  let source = Float64Array.from(cells), target = new Float64Array(cells.length)
+  // Half-sample symmetric reflection (-1→0, N→N-1), unlike edge clamping,
+  // makes each normalized box doubly stochastic: rows AND columns sum to one.
+  const mirror = (value: number) => value < 0 ? -value - 1 : value >= size ? 2 * size - value - 1 : value
+  for (const radius of MEETING_SMOOTH_RADII) for (let axis = 0; axis < 2; axis++) {
+    const width = radius * 2 + 1
+    for (let line = 0; line < size; line++) {
+      const at = (position: number) => axis ? mirror(position) * size + line : line * size + mirror(position)
+      let sum = 0
+      for (let offset = -radius; offset <= radius; offset++) sum += source[at(offset)]
+      for (let position = 0; position < size; position++) {
+        // Floating-point cancellation may leave tiny negative zero-tail residuals.
+        target[at(position)] = Math.max(0, sum / width)
+        sum += source[at(position + radius + 1)] - source[at(position - radius)]
+      }
+    }
+    ;[source, target] = [target, source]
+  }
+  return surfaceTemplate(source, size)
+}
+
+function addSurface(field: Float32Array, grid: TerrainGrid, surface: Template): void {
+  const b = grid.bounds, pw = b.width * surface.size / grid.width, ph = b.height * surface.size / grid.height
+  for (let y = 0; y < grid.height; y++) for (let x = 0; x < grid.width; x++) {
+    const ax = b.x * surface.size + x * pw, ay = b.y * surface.size + y * ph
+    field[y * grid.width + x] += integral(surface, ax, ay, ax + pw, ay + ph) / (pw * ph)
+  }
 }
 
 /** A bounded bank of positive natural kernels, integrated once, not a world grid per node. */
@@ -204,8 +249,11 @@ export class TerrainEngine {
   render(selection: TerrainSelection, options: TerrainRenderOptions = {}): TerrainResult {
     const start = performance.now(), b = options.bounds || { x: 0, y: 0, width: 1, height: 1 }
     if (![b.x, b.y, b.width, b.height].every(Number.isFinite) || b.width <= 0 || b.height <= 0 || b.x < 0 || b.y < 0 || b.x + b.width > 1.000001 || b.y + b.height > 1.000001) throw new Error('地形视口超出固定世界范围')
-    const grid: TerrainGrid = { width: Math.max(32, Math.min(1024, Math.floor(options.width || 512))), height: Math.max(32, Math.min(1024, Math.floor(options.height || 512))), bounds: b }
-    const gridKey = JSON.stringify(grid), masses = calculateMasses(this.atlas, selection), field = new Float32Array(grid.width * grid.height)
+    const requestedGrid: TerrainGrid = { width: Math.max(32, Math.min(1024, Math.floor(options.width || 512))), height: Math.max(32, Math.min(1024, Math.floor(options.height || 512))), bounds: b }
+    const meeting = options.surface === 'meeting'
+    let grid = meeting ? this.regionGrid : requestedGrid
+    let field = new Float32Array(grid.width * grid.height)
+    const gridKey = JSON.stringify(grid), masses = calculateMasses(this.atlas, selection)
     const regionMasses = new Float64Array(this.regions.length), visibleIds: string[] = []
     const scope = selection.nodeIds ? new Set(selection.nodeIds) : null
     let totalMass = 0
@@ -222,7 +270,8 @@ export class TerrainEngine {
       // A fixed world-area budget prevents 1/r² needles in dense clusters. The remaining
       // source mass stays in its own hierarchy; dates and zoom never change this split.
       const local = this.local[i], localShare = LOCAL_SHARE * Math.min(1, (local.radius / .035) ** 2)
-      if (local.x + local.radius > b.x && local.x - local.radius < b.x + b.width && local.y + local.radius > b.y && local.y - local.radius < b.y + b.height) {
+      const bounds = grid.bounds
+      if (local.x + local.radius > bounds.x && local.x - local.radius < bounds.x + bounds.width && local.y + local.radius > bounds.y && local.y - local.radius < bounds.y + bounds.height) {
         splat(this.patch(local, grid, gridKey), masses[i] * localShare)
       }
       regionMasses[this.topicIndex[i]] += masses[i] * (1 - localShare) * TOPIC_FOOT_SHARE
@@ -238,16 +287,14 @@ export class TerrainEngine {
         broad[(patch.y + y) * REGION_GRID + patch.x + x] += patch.values[y * patch.width + x] * mass
       }
     })
-    const stride = REGION_GRID + 1, broadVertices = new Float64Array(stride * stride)
-    // Clamped averages preserve total mass under trapezoidal integration in both axes.
-    for (let y = 0; y <= REGION_GRID; y++) for (let x = 0; x <= REGION_GRID; x++) {
-      const x0 = Math.max(0, x - 1), x1 = Math.min(REGION_GRID - 1, x), y0 = Math.max(0, y - 1), y1 = Math.min(REGION_GRID - 1, y)
-      broadVertices[y * stride + x] = (broad[y0 * REGION_GRID + x0] + broad[y0 * REGION_GRID + x1] + broad[y1 * REGION_GRID + x0] + broad[y1 * REGION_GRID + x1]) / 4
-    }
-    const broadTemplate = integrateTemplate(broadVertices, REGION_GRID), pw = b.width * REGION_GRID / grid.width, ph = b.height * REGION_GRID / grid.height
-    if (totalMass) for (let y = 0; y < grid.height; y++) for (let x = 0; x < grid.width; x++) {
-      const ax = b.x * REGION_GRID + x * pw, ay = b.y * REGION_GRID + y * ph
-      field[y * grid.width + x] += integral(broadTemplate, ax, ay, ax + pw, ay + ph) / (pw * ph)
+    if (totalMass) addSurface(field, grid, surfaceTemplate(broad, REGION_GRID))
+    if (meeting) {
+      // Aggregate the complete conservative world field before cropping. Local peaks
+      // and decorative foot-kernel frequencies are filtered together. Knowledge mass
+      // remains intact; meeting mode does not promise an individual geometric summit.
+      const smooth = totalMass ? smoothMeetingSurface(field) : null
+      grid = requestedGrid; field = new Float32Array(grid.width * grid.height)
+      if (smooth) addSurface(field, grid, smooth)
     }
     const peakAnchors = findPeaks(field, grid, this.atlas.nodes, masses)
     let contourVertices = 0, contoursTruncated = false

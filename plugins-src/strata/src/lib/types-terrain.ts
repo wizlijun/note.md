@@ -81,6 +81,8 @@ export interface TerrainRenderOptions {
   bounds?: TerrainBounds
   /** Select fixed thresholds, never rescale them to current min/max. */
   contourStep?: number
+  /** Meeting knowledge uses one conservative, smooth world field at every zoom. */
+  surface?: 'default' | 'meeting'
 }
 
 export interface TerrainResult {

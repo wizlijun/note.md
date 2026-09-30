@@ -406,10 +406,10 @@
     <button aria-label="放大地图" onclick={() => changeZoom(.5)} disabled={zoom >= 6}>＋</button><button aria-label="缩小地图" onclick={() => changeZoom(-.5)} disabled={zoom <= 1}>−</button><button aria-label="返回全景" onclick={home}>全景</button>
   </div>
   <div class="legend">
-    {#if result?.stats.contoursTruncated || result?.stats.unresolvedPeaks}<div class="detail-note">{result.stats.contoursTruncated ? '概览已简化轮廓。' : ''}{result.stats.unresolvedPeaks ? '密集区域的子峰请展开山群查看。' : ''}</div>{/if}
+    {#if result?.stats.contoursTruncated || (dataset !== 'meetings_knowledge' && result?.stats.unresolvedPeaks)}<div class="detail-note">{result.stats.contoursTruncated ? '概览已简化轮廓。' : ''}{dataset !== 'meetings_knowledge' && result.stats.unresolvedPeaks ? '密集区域的子峰请展开山群查看。' : ''}</div>{/if}
     <div class="legend-row emphasis-legend"><span>◆ {dataset === 'meetings_knowledge' ? '核心' : '个人独有'}</span><span>● {dataset === 'meetings_knowledge' ? '支撑' : '其他 / 未知'}</span><span>相对高程 · 固定刻度</span></div>
     {#if dataset === 'meetings_knowledge'}
-      <div>概览按山群聚合；放大或展开查看少量标记，全部知识见目录</div>
+      <div>概览按山群聚合；连续坡面表示知识积累，全部知识见目录</div>
       <div class="legend-row kind-legend" aria-label="知识点类型">{#each knowledgeKinds as kind}<span><i style:background="var(--st-kind-{kind.id})"></i>{kind.name}</span>{/each}</div>
       <div>连线为抽取关系，山脊为地形</div>
     {/if}

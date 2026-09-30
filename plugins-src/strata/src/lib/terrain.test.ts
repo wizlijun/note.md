@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { createHash } from 'node:crypto'
 import { ATLAS_VERSION, buildAtlas } from './atlas'
 import { calculateMasses, CONTOUR_LEVELS, KERNEL_INTEGRAL, TerrainEngine } from './terrain'
 import type { TerrainInputNode } from './types-terrain'
@@ -92,6 +93,17 @@ describe('frozen atlas and source budgets', () => {
 })
 
 describe('shared conservative scalar field', () => {
+  it('preserves the released index field and contours bit for bit around a meeting render', () => {
+    const engine = new TerrainEngine(buildAtlas(fixture(40), 'epoch'))
+    const options = { width: 192, height: 192, contourStep: 6 }
+    const before = engine.render(all, options)
+    expect(createHash('sha256').update(Buffer.from(before.field.buffer)).digest('hex')).toBe('4b5a85376d0289baabed8c73fd14871dde4dc8e2aac0b0bdaf8c171e6269adc7')
+    expect(createHash('sha256').update(JSON.stringify(before.contours)).digest('hex')).toBe('d380fdfa3aad87fa3485e98032c04d9c9f7db6006e04b96d9f87a308432f1077')
+    engine.render(all, { ...options, surface: 'meeting' })
+    const after = engine.render(all, { ...options, surface: 'default' })
+    expect(after.field).toEqual(before.field)
+    expect(after.contours).toEqual(before.contours)
+  })
   it('is deterministic, positive, empty at zero, monotone across dates, and conserves mass', () => {
     const atlas = buildAtlas(fixture(40), 'epoch'), engine = new TerrainEngine(atlas)
     const full = engine.render(all, { width: 192, height: 192, contourStep: 6 })
@@ -161,5 +173,65 @@ describe('shared conservative scalar field', () => {
     })
     expect(maxima[1]).toBeLessThan(maxima[0] * 1.3)
     expect(maxima[1]).toBeGreaterThan(maxima[0] * .5)
+  })
+})
+
+describe('meeting continuous slopes at a fixed world scale', () => {
+  const options = { width: 128, height: 128, contourStep: 12, surface: 'meeting' as const }
+  it('keeps all source budgets, date monotonicity, deterministic fields and an exact empty state', () => {
+    const engine = new TerrainEngine(buildAtlas(fixture(40), 'meeting-surface'))
+    const full = engine.render(all, options), again = engine.render(all, options)
+    const partial = engine.render({ from: '2026-09-29', to: '2026-09-30' }, options)
+    expect(again.field).toEqual(full.field)
+    expect(full.visibleIds).toHaveLength(40)
+    expect(full.masses).toEqual(calculateMasses(engine.atlas, all))
+    expect(full.field.every(value => Number.isFinite(value) && value >= 0)).toBe(true)
+    expect(partial.field.every((value, i) => value <= full.field[i] + 1e-6)).toBe(true)
+    expect(full.stats.fieldIntegral / (full.stats.totalMass * KERNEL_INTEGRAL)).toBeCloseTo(1, 6)
+    expect(full.contours.every(contour => CONTOUR_LEVELS.includes(contour.value))).toBe(true)
+    const empty = engine.render({ from: '2020-01-01', to: '2020-01-02' }, options)
+    expect(empty.field.every(value => value === 0)).toBe(true)
+    expect(empty.stats.fieldIntegral).toBe(0)
+    expect(empty.contours).toHaveLength(0)
+    expect(empty.peakAnchors).toHaveLength(0)
+  })
+
+  it('conserves sources beside mirror boundaries without edge clamping or global renormalization', () => {
+    const atlas = buildAtlas(fixture(3), 'boundary-sources')
+    for (const node of atlas.nodes) { node.x = .001; node.y = .999; node.radius = .001 }
+    for (const cluster of [...atlas.topics, ...atlas.domains]) { cluster.x = .001; cluster.y = .999; cluster.radius = .01 }
+    const engine = new TerrainEngine(atlas)
+    const full = engine.render(all, options)
+    expect(full.stats.fieldIntegral / (full.stats.totalMass * KERNEL_INTEGRAL)).toBeCloseTo(1, 6)
+    const partial = engine.render({ from: '2026-09-29', to: '2026-09-30' }, options)
+    expect(partial.field.every((value, i) => value <= full.field[i] + 1e-6)).toBe(true)
+  })
+
+  it('integrates every resolution and focused tile from the same smooth world field', () => {
+    const engine = new TerrainEngine(buildAtlas(fixture(12), 'meeting-tiles'))
+    const fine = engine.render(all, options), coarse = engine.render(all, { ...options, width: 64, height: 64 })
+    for (let y = 0; y < 64; y++) for (let x = 0; x < 64; x++) {
+      const i = 2 * y * 128 + 2 * x
+      expect(coarse.field[y * 64 + x]).toBeCloseTo((fine.field[i] + fine.field[i + 1] + fine.field[i + 128] + fine.field[i + 129]) / 4, 6)
+    }
+    const tile = engine.render(all, { ...options, width: 64, height: 64, bounds: { x: .25, y: .25, width: .5, height: .5 } })
+    for (let y = 0; y < 64; y++) for (let x = 0; x < 64; x++) expect(tile.field[y * 64 + x]).toBe(fine.field[(y + 32) * 128 + x + 32])
+    expect(tile.stats.fieldIntegral).toBeLessThan(fine.stats.fieldIntegral)
+  })
+
+  it('removes high-frequency surface bumps from both summits and broad shoulders', () => {
+    const engine = new TerrainEngine(buildAtlas(fixture(40), 'meeting-roughness'))
+    const dimensions = { width: 256, height: 256, contourStep: 12 }
+    const raw = engine.render(all, dimensions), smooth = engine.render(all, { ...dimensions, surface: 'meeting' })
+    const curvature = (field: Float32Array) => {
+      let total = 0
+      for (let y = 1; y < 255; y++) for (let x = 1; x < 255; x++) {
+        const i = y * 256 + x
+        total += Math.abs(field[i - 1] - 2 * field[i] + field[i + 1]) + Math.abs(field[i - 256] - 2 * field[i] + field[i + 256])
+      }
+      return total
+    }
+    expect(curvature(smooth.field)).toBeLessThan(curvature(raw.field) * .25)
+    expect(smooth.stats.fieldIntegral).toBeCloseTo(raw.stats.fieldIntegral, 7)
   })
 })

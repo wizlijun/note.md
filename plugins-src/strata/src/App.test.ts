@@ -115,6 +115,7 @@ it('isolates dataset layout and preferences and uses warm date filtering for mee
   expect(request).toHaveBeenCalledWith('plugin.meetings.snapshot', {})
   expect(request).toHaveBeenCalledWith('plugin.meetings.atlas.load', { vaultKey: 'vault-fixture' })
   expect(request.mock.calls.some(c => c[0] === 'plugin.meetings.atlas.save')).toBe(true)
+  expect(mocks.build.mock.calls.at(-1)![3]).toEqual(expect.objectContaining({ surface: 'meeting' }))
   expect(document.body.textContent).toContain('会议知识 ·')
   button('设置').click(); await tick()
   expect(document.body.textContent).not.toContain('开始深读')
@@ -123,8 +124,9 @@ it('isolates dataset layout and preferences and uses warm date filtering for mee
   const from = document.querySelector<HTMLInputElement>('[aria-label="开始日期"]')!
   from.value = '2026-09-15'; from.dispatchEvent(new Event('input', { bubbles: true })); from.dispatchEvent(new Event('change', { bubbles: true })); await flush()
   expect(request.mock.calls.filter(c => c[0] === 'plugin.meetings.snapshot')).toHaveLength(1)
-  expect(mocks.render).toHaveBeenCalledWith(expect.objectContaining({ from: '2026-09-15' }), expect.anything())
+  expect(mocks.render).toHaveBeenCalledWith(expect.objectContaining({ from: '2026-09-15' }), expect.objectContaining({ surface: 'meeting' }))
   await chooseDataset('vault_index')
+  expect(mocks.build.mock.calls.at(-1)![3]).not.toHaveProperty('surface')
   expect(document.querySelector<HTMLInputElement>('[aria-label="开始日期"]')!.value).toBe('2026-09-01')
   await chooseDataset('meetings_knowledge')
   expect(document.querySelector<HTMLInputElement>('[aria-label="开始日期"]')!.value).toBe('2026-09-15')
@@ -209,7 +211,8 @@ it('keeps terrain detail notices in the meeting legend flow', async () => {
   })
   app = mount(App, { target: document.body }); await flush(); await chooseDataset('meetings_knowledge')
   expect(document.querySelectorAll('.detail-note')).toHaveLength(1)
-  expect(document.querySelector('.legend')?.firstElementChild?.textContent).toBe('概览已简化轮廓。密集区域的子峰请展开山群查看。')
+  expect(document.querySelector('.legend')?.firstElementChild?.textContent).toBe('概览已简化轮廓。')
+  expect(document.querySelector('.legend')?.textContent).toContain('连续坡面表示知识积累')
   expect(document.querySelectorAll('.kind-legend span')).toHaveLength(5)
 })
 
