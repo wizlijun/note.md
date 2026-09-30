@@ -4,11 +4,13 @@
   import { createTerrain3D } from '../lib/terrain-renderer'
   import { elevation, traceContour } from '../lib/contour-path'
 
-  let { result, view = '3d', personal = true, relations = [], showRelations = false, level = 'auto', verticalScale = 1, onselect, onview, onfocus, onerror }: {
+  let { result, view = '3d', dataset = 'vault_index', selectedId = '', personal = true, relations = [], showRelations = false, level = 'auto', verticalScale = 1, onselect, onview, onfocus, onerror }: {
     result: TerrainResult | null
     view: '2d' | '3d'
+    dataset?: 'vault_index' | 'meetings_knowledge'
+    selectedId?: string
     personal?: boolean
-    relations?: { source: string; target: string }[]
+    relations?: { source: string; target: string; participants?: { nodeId: string; role: string }[] }[]
     showRelations?: boolean
     level?: 'auto' | 'domain' | 'topic' | 'knowledge'
     verticalScale?: number
@@ -20,7 +22,7 @@
 
   type Label = { id: string; text: string; sub: string; x: number; y: number; w: number; personal: boolean; cluster: boolean }
   type Entry = { id: string; name: string; x: number; y: number; sub: string; personal: boolean; cluster: boolean; width: number }
-  type Mark = { id: string; x: number; y: number; personal: boolean }
+  type Mark = { id: string; x: number; y: number; personal: boolean; kind?: string }
   type Projected = { x: number; y: number; visible: boolean }
   let surface: HTMLDivElement
   let overlay: HTMLCanvasElement
@@ -38,6 +40,7 @@
   let three: ReturnType<typeof createTerrain3D> | null = null
   let context: CanvasRenderingContext2D | null = null
   let previousResult: TerrainResult | null = null
+  let previousDataset: typeof dataset | undefined
   let layoutEpoch = ''
   let paths: Path2D[] = []
   let shade: HTMLCanvasElement | null = null
@@ -56,11 +59,17 @@
   let marks: Mark[] = []
   let entries: Entry[] = []
   let previousRelations: typeof relations | null = null
-  let relationSegments: { a: { x: number; y: number }; b: { x: number; y: number } }[] = []
+  let relationSelection = ''
+  let relationDrawings: { points: { x: number; y: number }[]; center?: { x: number; y: number } }[] = []
   let occupiedControl: { x: number; y: number; w: number; h: number } | null = null
   let controlKey = ''
   const frameColors = new Map<string, string>()
   const projected = new Map<string, Projected>()
+  const knowledgeKinds = [
+    { id: 'entity', name: '实体' }, { id: 'concept', name: '概念' }, { id: 'claim', name: '主张' },
+    { id: 'event', name: '事件' }, { id: 'narrative', name: '叙事' },
+  ]
+  const emphasized = (node: AtlasNode) => dataset === 'meetings_knowledge' ? node.importance === 0 : node.ownerSpecificity === 'owner_specific'
   const local = (p: { x: number; y: number }) => {
     const b = result!.grid.bounds
     return { x: (p.x - b.x) / b.width, y: (p.y - b.y) / b.height }
@@ -106,14 +115,14 @@
     const counts = new Map<string, { count: number; verified: boolean; personal: boolean }>()
     for (const node of visibleNodes) for (const id of [node.parentDomain, node.parentTopic]) {
       const summary = counts.get(id) || { count: 0, verified: false, personal: false }
-      summary.count++; summary.verified ||= node.state === 'verified'; summary.personal ||= node.ownerSpecificity === 'owner_specific'
+      summary.count++; summary.verified ||= node.state === 'verified'; summary.personal ||= emphasized(node)
       counts.set(id, summary)
     }
     context.font = '13px -apple-system, sans-serif'
     const summarize = (clusters: AtlasCluster[]): Entry[] => clusters.flatMap(cluster => {
       const summary = counts.get(cluster.id)
       return summary ? [{ id: cluster.id, name: cluster.name, x: cluster.x, y: cluster.y,
-        sub: `${summary.count} 个${summary.verified ? '知识 / 候选' : '索引候选'}`, personal: summary.personal,
+        sub: dataset === 'meetings_knowledge' ? `${summary.count} 条知识` : `${summary.count} 个${summary.verified ? '知识 / 候选' : '索引候选'}`, personal: summary.personal,
         cluster: true, width: entryWidth(cluster.name) }] : []
     })
     clusterEntries = { domain: summarize(result.layout.domains), topic: summarize(result.layout.topics) }
@@ -122,27 +131,27 @@
 
   /** Cache only bounded drawing candidates when presentation settings/semantic LOD change. */
   function cacheScene(currentLod: 'domain' | 'topic' | 'knowledge') {
-    const key = `${focusId}:${personal}:${currentLod}`
+    const key = `${dataset}:${focusId}:${personal}:${currentLod}`
     if (sceneKey === key) return
     sceneKey = key
     const limit = currentLod === 'knowledge' ? 1500 : 300
     const ordered: AtlasNode[] = []
-    // Atlas order is stable. Two bounded-output passes prioritize owners without sorting 32k rows.
+    // Atlas order is stable. Prioritize core/owner nodes without sorting 32k rows.
     const append = (owner: boolean | null) => {
       for (const node of visibleNodes) {
         if (ordered.length >= limit) break
         if (focusId && node.parentDomain !== focusId && node.parentTopic !== focusId) continue
-        if (owner !== null && (node.ownerSpecificity === 'owner_specific') !== owner) continue
+        if (owner !== null && emphasized(node) !== owner) continue
         ordered.push(node)
       }
     }
     if (personal) { append(true); append(false) } else append(null)
     marks = ordered.map(node => ({ id: node.id, x: anchors.get(node.id)?.x ?? node.x, y: anchors.get(node.id)?.y ?? node.y,
-      personal: node.ownerSpecificity === 'owner_specific' }))
+      personal: emphasized(node), kind: node.kind }))
     context!.font = '13px -apple-system, sans-serif'
     if (currentLod === 'knowledge') entries = ordered.slice(0, 200).map(node => ({
       id: node.id, name: node.title, x: anchors.get(node.id)?.x ?? node.x, y: anchors.get(node.id)?.y ?? node.y,
-      sub: node.state === 'verified' ? '引文已核对' : '索引候选', personal: node.ownerSpecificity === 'owner_specific',
+      sub: node.state === 'imported' ? '已提取知识' : node.state === 'verified' ? '引文已核对' : '索引候选', personal: emphasized(node),
       cluster: false, width: entryWidth(node.title),
     }))
     else {
@@ -152,13 +161,32 @@
   }
 
   function cacheRelations() {
-    if (previousRelations === relations) return
-    previousRelations = relations
+    if (previousRelations === relations && relationSelection === selectedId) return
+    previousRelations = relations; relationSelection = selectedId
     const visible = new Set(visibleNodes.map(node => node.id))
-    relationSegments = relations.slice(0, 60).flatMap(edge => {
-      const a = nodeById.get(edge.source), b = nodeById.get(edge.target)
-      return a && b && visible.has(a.id) && visible.has(b.id) ? [{ a: anchors.get(a.id) || a, b: anchors.get(b.id) || b }] : []
-    })
+    const participantIds = (edge: typeof relations[number]) => dataset === 'meetings_knowledge' && edge.participants?.length ? edge.participants.map(participant => participant.nodeId) : [edge.source, edge.target]
+    relationDrawings = []
+    let count = 0
+    // Selected-node relations come first. Skip incomplete/oversized relations as a whole:
+    // drawing a subset of a hyperedge would imply a different relationship.
+    const append = (selected: boolean) => {
+      for (const edge of relations) {
+        if (count >= 60) break
+        const ids = participantIds(edge)
+        if (!!selectedId && ids.includes(selectedId) !== selected) continue
+        if (ids.length > 32 || ids.some(id => !visible.has(id))) continue
+        const nodes = [...new Set(ids)].map(id => nodeById.get(id)!).filter(Boolean)
+        if (nodes.length < 2) continue
+        const points = nodes.map(node => anchors.get(node.id) || node)
+        if (points.length === 2) relationDrawings.push({ points })
+        else {
+          const center = { x: points.reduce((sum, point) => sum + point.x, 0) / points.length, y: points.reduce((sum, point) => sum + point.y, 0) / points.length }
+          relationDrawings.push({ points, center })
+        }
+        count++
+      }
+    }
+    if (selectedId) { append(true); append(false) } else append(false)
   }
   function schedule() { if (mounted && !frame) frame = requestAnimationFrame(() => { frame = 0; draw() }) }
   function raster() {
@@ -192,14 +220,14 @@
     if (!result) {
       labels = []; plotPoints = []; previousResult = null
       visibleNodes = []; nodeById.clear(); anchors.clear(); clusterById.clear(); clusterEntries = { domain: [], topic: [] }
-      marks = []; entries = []; relationSegments = []; sceneKey = ''; previousRelations = null
+      marks = []; entries = []; relationDrawings = []; sceneKey = ''; previousRelations = null
       paths = []; shade = null; peakMaximum = 0
       return
     }
     const boundsKey = JSON.stringify(result.grid.bounds)
     if (boundsKey !== observedBounds) { observedBounds = boundsKey; zoom = 1; pan = { x: 0, y: 0 }; camera.targetX = .5; camera.targetY = .5 }
-    if (previousResult !== result) {
-      previousResult = result; shade = null
+    if (previousResult !== result || previousDataset !== dataset) {
+      previousResult = result; previousDataset = dataset; shade = null
       paths = result.contours.map(contour => { const p = new Path2D(); traceContour(p, contour); return p })
       cacheResult()
     }
@@ -228,12 +256,19 @@
       }
     }
     if (showRelations) {
-      ctx.strokeStyle = ink('--st-gold'); ctx.lineWidth = 1; ctx.globalAlpha = .65
-      for (const { a, b } of relationSegments) {
-        const pa = point(a), pb = point(b)
-        if (!pa.visible || !pb.visible) continue
-        ctx.beginPath(); ctx.moveTo(pa.x, pa.y); ctx.lineTo(pb.x, pb.y); ctx.stroke()
+      ctx.strokeStyle = ink(dataset === 'meetings_knowledge' ? '--st-muted' : '--st-gold'); ctx.lineWidth = 1; ctx.globalAlpha = .65
+      ctx.setLineDash(dataset === 'meetings_knowledge' ? [4, 3] : [])
+      const onScreen = (p: Projected) => p.visible && p.x >= 0 && p.x <= w && p.y >= 0 && p.y <= h
+      for (const relation of relationDrawings) {
+        const points = relation.points.map(point), center = relation.center ? point(relation.center) : undefined
+        if (points.some(p => !onScreen(p)) || (center && !onScreen(center))) continue
+        const end = center || points[1]
+        for (const start of center ? points : [points[0]]) {
+          ctx.beginPath(); ctx.moveTo(start.x, start.y); ctx.lineTo(end.x, end.y); ctx.stroke()
+        }
+        if (center) { ctx.beginPath(); ctx.arc(center.x, center.y, 3, 0, Math.PI * 2); ctx.stroke() }
       }
+      ctx.setLineDash([])
     }
     ctx.globalAlpha = 1; plotPoints = []
     // Overview labels carry the hierarchy; bound the number of individual screen marks.
@@ -242,10 +277,12 @@
       if (!p.visible || p.x < 0 || p.x > w || p.y < 0 || p.y > h) continue
       const owner = n.personal
       plotPoints.push({ id: n.id, x: p.x, y: p.y, personal: owner })
-      ctx.fillStyle = ink(owner && personal ? '--st-gold' : '--st-green'); ctx.beginPath()
+      const kind = knowledgeKinds.find(kind => kind.id === n.kind)
+      ctx.fillStyle = ink(dataset === 'meetings_knowledge' && kind ? `--st-kind-${kind.id}` : owner && personal ? '--st-gold' : '--st-green'); ctx.beginPath()
       const size = currentLod === 'knowledge' ? 3 : 2
       if (owner) { ctx.moveTo(p.x, p.y - size * 1.5); ctx.lineTo(p.x + size, p.y); ctx.lineTo(p.x, p.y + size * 1.5); ctx.lineTo(p.x - size, p.y); ctx.closePath() }
       else ctx.arc(p.x, p.y, size, 0, Math.PI * 2)
+      if (dataset === 'meetings_knowledge') { ctx.strokeStyle = ink('--st-bg'); ctx.lineWidth = 2; ctx.stroke() }
       ctx.fill()
     }
     const nextControlKey = `${w}:${h}:${view}`
@@ -255,17 +292,17 @@
       occupiedControl = { x: controlBox.left - mapBox.left - 5, y: controlBox.top - mapBox.top - 5, w: controlBox.width + 10, h: controlBox.height + 10 }
     }
     const occupied = [occupiedControl]
-    const next: Label[] = []; ctx.font = '13px -apple-system, sans-serif'
+    const next: Label[] = [], bottomMargin = dataset === 'meetings_knowledge' ? 100 : 50; ctx.font = '13px -apple-system, sans-serif'
     for (const e of entries) {
       if (next.length >= 24) break
       const p = project(e.id, e)
-      if (!p.visible || p.x < 0 || p.x > w || p.y < 90 || p.y > h - 55) continue
+      if (!p.visible || p.x < 0 || p.x > w || p.y < 90 || p.y > h - bottomMargin - 5) continue
       const bw = e.width, bh = 46
       const offsets = e.cluster ? [[0, 22], [0, -28], [60, 0], [-60, 0]] : [[0, 38], [0, -38], [100, 0], [-100, 0], [90, 48], [-90, 48]]
       for (const [dx, dy] of offsets) {
         const x = Math.max(bw / 2 + 8, Math.min(w - bw / 2 - 8, p.x + dx)), y = p.y + dy
         const box = { x: x - bw / 2 - 4, y: y - bh / 2 - 4, w: bw + 8, h: bh + 8 }
-        if (box.y < 86 || box.y + box.h > h - 50 || occupied.some(b => box.x < b.x + b.w && box.x + box.w > b.x && box.y < b.y + b.h && box.y + box.h > b.y)) continue
+        if (box.y < 86 || box.y + box.h > h - bottomMargin || occupied.some(b => box.x < b.x + b.w && box.x + box.w > b.x && box.y < b.y + b.h && box.y + box.h > b.y)) continue
         occupied.push(box); next.push({ id: e.id, text: e.name, sub: e.sub, x, y, w: bw, personal: e.personal, cluster: e.cluster })
         if (!e.cluster) { ctx.strokeStyle = ink('--st-muted'); ctx.globalAlpha = .45; ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(x, y + (y > p.y ? -22 : 22)); ctx.stroke(); ctx.globalAlpha = 1 }
         break
@@ -324,7 +361,7 @@
     if (e.key === 'ArrowUp') view === '3d' ? tilt(.15) : (pan.y += .08, schedule())
     if (e.key === 'ArrowDown') view === '3d' ? tilt(-.15) : (pan.y -= .08, schedule())
   }
-  $effect(() => { result; view; personal; showRelations; relations; level; verticalScale; schedule() })
+  $effect(() => { result; view; dataset; selectedId; personal; showRelations; relations; level; verticalScale; schedule() })
   onMount(() => {
     context = overlay.getContext('2d'); mounted = true
     const resize = new ResizeObserver(() => { occupiedControl = null; schedule() }); resize.observe(surface); resize.observe(controls)
@@ -342,24 +379,32 @@
   <div class="map-caption"><span>YOUR KNOWLEDGE, IN RELIEF</span><h1>{focusName || '每一座山，都有你的来处。'}</h1></div>
   <div class="labels" aria-label="可见的知识与山群">
     {#each labels as label (label.id)}
-      <button class="map-label" class:personal={personal && label.personal} style:left="{label.x}px" style:top="{label.y}px" style:width="{label.w}px" title={label.text} onclick={() => choose(label)} aria-label={label.cluster ? `展开山群：${label.text}` : `查看证据：${label.text}`}><span>{label.personal ? '◆ ' : ''}{label.text}</span><small>{label.sub}</small></button>
+      <button class="map-label" class:personal={personal && label.personal} style:left="{label.x}px" style:top="{label.y}px" style:width="{label.w}px" title={label.text} onclick={() => choose(label)} aria-label={label.cluster ? `展开山群：${label.text}` : `${dataset === 'meetings_knowledge' ? '查看知识' : '查看证据'}：${label.text}`}><span>{label.personal ? '◆ ' : ''}{label.text}</span><small>{label.sub}</small></button>
     {/each}
   </div>
   <div class="map-controls" bind:this={controls} aria-label="地图导航">
     {#if view === '3d'}<button aria-label="向左旋转" onclick={() => turn(-.3)}>↶</button><button aria-label="向右旋转" onclick={() => turn(.3)}>↷</button><button aria-label="更俯视" onclick={() => tilt(.15)}>俯</button><button aria-label="更侧视" onclick={() => tilt(-.15)}>侧</button>{/if}
     <button aria-label="放大地图" onclick={() => changeZoom(.5)} disabled={zoom >= 6}>＋</button><button aria-label="缩小地图" onclick={() => changeZoom(-.5)} disabled={zoom <= 1}>−</button><button aria-label="返回全景" onclick={home}>全景</button>
   </div>
-  <div class="legend"><span>◆ 个人独有</span><span>● 其他 / 未知</span><span>相对高程 · 固定刻度</span></div>
+  <div class="legend">
+    {#if result?.stats.contoursTruncated || result?.stats.unresolvedPeaks}<div class="detail-note">{result.stats.contoursTruncated ? '概览已简化轮廓。' : ''}{result.stats.unresolvedPeaks ? '密集区域的子峰请展开山群查看。' : ''}</div>{/if}
+    <div class="legend-row emphasis-legend"><span>◆ {dataset === 'meetings_knowledge' ? '核心' : '个人独有'}</span><span>● {dataset === 'meetings_knowledge' ? '支撑' : '其他 / 未知'}</span><span>相对高程 · 固定刻度</span></div>
+    {#if dataset === 'meetings_knowledge'}
+      <div class="legend-row kind-legend" aria-label="知识点类型">{#each knowledgeKinds as kind}<span><i style:background="var(--st-kind-{kind.id})"></i>{kind.name}</span>{/each}</div>
+      <div>连线为抽取关系，山脊为地形</div>
+    {/if}
+  </div>
   <div class="view-hint">{view === '3d' ? '拖动旋转' : '拖动平移'} · {Math.round(zoom * 100)}%</div>
   {#if result && !result.visibleIds.length}<div class="map-empty">此范围内没有可展示的知识或索引候选。<small>调整日期或资料筛选后再试。</small></div>{/if}
 </div>
 
 <style>
-  .terrain{position:relative;width:100%;height:100%;min-height:400px;overflow:hidden;background:var(--st-bg);isolation:isolate}
+  .terrain{--st-kind-entity:#607f95;--st-kind-concept:#857648;--st-kind-claim:#986978;--st-kind-event:#a66d43;--st-kind-narrative:#648477;position:relative;width:100%;height:100%;min-height:400px;overflow:hidden;background:var(--st-bg);isolation:isolate}
   canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;cursor:grab}canvas:active{cursor:grabbing}.hidden{display:none}.passive{pointer-events:none}
   .color-probe{position:absolute;visibility:hidden;pointer-events:none}.map-caption{position:absolute;top:22px;left:25px;max-width:calc(100% - 50px);pointer-events:none}.map-caption>span{font:10px/1.5 ui-monospace,monospace;letter-spacing:2px;color:var(--st-muted)}h1{font-size:21px;font-weight:400;margin:8px 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .labels{position:absolute;inset:0;pointer-events:none}.map-label{position:absolute;transform:translate(-50%,-50%);height:46px;padding:5px 9px;border:0;border-radius:5px;background:var(--st-label);color:var(--st-ink);pointer-events:auto;text-align:center}.map-label>span{display:block;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.map-label small{display:block;font-size:11px;margin-top:3px;color:var(--st-muted)}.map-label.personal>span{font-weight:500}.map-label:hover{box-shadow:0 0 0 1px var(--st-green)}
   .map-controls{position:absolute;bottom:48px;right:17px;display:flex;flex-direction:column;gap:2px;padding:4px;background:var(--st-surface);border:1px solid var(--st-border);border-radius:8px}.map-controls button{height:31px;min-width:33px;padding:0 5px;border:0;background:none;color:var(--st-ink);font-size:14px}.map-controls button:hover{background:var(--ui-hover)}.map-controls button:disabled{opacity:.35}
-  .legend{position:absolute;bottom:16px;left:24px;display:flex;gap:16px;font-size:11px;color:var(--st-muted);pointer-events:none;background:var(--st-label);padding:3px 7px;border-radius:3px}.view-hint{position:absolute;bottom:16px;right:22px;font-size:11px;color:var(--st-muted);background:var(--st-label);padding:3px 7px;border-radius:3px}.map-empty{position:absolute;top:46%;left:20px;right:20px;max-width:440px;margin:auto;padding:22px;text-align:center;background:var(--st-surface);border-radius:8px}.map-empty small{display:block;margin-top:8px;color:var(--st-muted)}
-  @media(max-width:650px){.legend{left:12px;gap:8px}.legend span:last-child{display:none}.map-caption{left:17px}.map-caption h1{font-size:18px}.map-controls{right:12px}.view-hint{right:12px}}
+  .legend{position:absolute;bottom:16px;left:24px;display:flex;flex-direction:column;gap:5px;max-width:calc(100% - 105px);font-size:11px;color:var(--st-muted);pointer-events:none;background:var(--st-label);padding:3px 7px;border-radius:3px}.legend-row{display:flex;flex-wrap:wrap;gap:12px}.kind-legend span{display:flex;align-items:center;gap:4px}.kind-legend i{width:7px;height:7px;border-radius:50%;display:inline-block}.view-hint{position:absolute;bottom:16px;right:22px;font-size:11px;color:var(--st-muted);background:var(--st-label);padding:3px 7px;border-radius:3px}.map-empty{position:absolute;top:46%;left:20px;right:20px;max-width:440px;margin:auto;padding:22px;text-align:center;background:var(--st-surface);border-radius:8px}.map-empty small{display:block;margin-top:8px;color:var(--st-muted)}
+  @media(prefers-color-scheme:dark){.terrain{--st-kind-entity:#97b5c5;--st-kind-concept:#c5b57a;--st-kind-claim:#c99eaf;--st-kind-event:#d5ab80;--st-kind-narrative:#99baaa}}
+  @media(max-width:650px){.legend{left:12px}.legend-row{gap:8px}.emphasis-legend span:last-child{display:none}.map-caption{left:17px}.map-caption h1{font-size:18px}.map-controls{right:12px}.view-hint{right:12px}}
 </style>

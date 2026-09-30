@@ -176,8 +176,9 @@ fn read<T: DeserializeOwned>(path: &Path) -> Result<Option<T>, String> {
 }
 
 const ATLAS_INPUT_BYTES: usize = 64 * 1024 * 1024;
-const ATLAS_CACHE_BYTES: usize = 16 * 1024 * 1024;
+const ATLAS_CACHE_BYTES: usize = 32 * 1024 * 1024;
 const ATLAS_LABEL_BYTES: usize = 512;
+const ATLAS_IDF_TERMS: usize = 250_000;
 
 fn atlas_label(name: &str) -> String {
     if name.len() <= ATLAS_LABEL_BYTES {
@@ -306,7 +307,7 @@ pub fn sanitize_atlas(mut value: Value, allowed: &HashSet<String>) -> Result<Val
         value["idf"] = json!({});
     }
     let idf = value["idf"].as_object().ok_or("布局词频格式无效")?;
-    if idf.len() > 100_000
+    if idf.len() > ATLAS_IDF_TERMS
         || idf.iter().any(|(k, v)| {
             k.len() > 512
                 || v.as_f64()
@@ -324,7 +325,7 @@ pub fn sanitize_atlas(mut value: Value, allowed: &HashSet<String>) -> Result<Val
     });
     let clean = json!({"version":value["version"],"epoch":value["epoch"],"worldSize":4096,"nodes":value["nodes"],"domains":value["domains"],"topics":value["topics"],"idf":value["idf"],"diagnostics":value["diagnostics"]});
     if !json_within_budget(&clean, ATLAS_CACHE_BYTES) {
-        return Err("布局几何缓存超过 16 MiB 预算".into());
+        return Err("布局几何缓存超过 32 MiB 预算".into());
     }
     Ok(clean)
 }
@@ -381,9 +382,53 @@ mod tests {
             .collect();
         value["idf"] = json!(idf);
         assert!(json_within_budget(&value, ATLAS_INPUT_BYTES));
+        assert!(serde_json::to_vec(&value).unwrap().len() > 16 * 1024 * 1024);
+        let directory = tempfile::tempdir().unwrap();
+        let cache = Cache::new(directory.path(), &task::hash("large-vault")).unwrap();
+        cache.save_atlas(value.clone(), &allowed()).unwrap();
+        assert_eq!(
+            cache.load_atlas(&allowed()).unwrap()["idf"]
+                .as_object()
+                .unwrap()
+                .len(),
+            35_000
+        );
+        let idf: serde_json::Map<String, Value> = (0..70_000)
+            .map(|i| (format!("{i:05}{}", "x".repeat(495)), json!(1)))
+            .collect();
+        value["idf"] = json!(idf);
+        assert!(json_within_budget(&value, ATLAS_INPUT_BYTES));
         assert!(sanitize_atlas(value, &allowed())
             .unwrap_err()
-            .contains("几何缓存超过 16 MiB"));
+            .contains("几何缓存超过 32 MiB"));
+    }
+
+    #[test]
+    fn meeting_scale_idf_roundtrips_without_truncation_but_remains_bounded() {
+        let directory = tempfile::tempdir().unwrap();
+        let cache = Cache::new(directory.path(), &task::hash("meeting-idf")).unwrap();
+        let mut value = atlas();
+        let terms = |count| {
+            (0..count)
+                .map(|i| (format!("term_{i:06}"), json!(1)))
+                .collect::<serde_json::Map<String, Value>>()
+        };
+        value["idf"] = json!(terms(117_137));
+        cache.save_atlas(value.clone(), &allowed()).unwrap();
+        assert_eq!(cache.load_atlas(&allowed()).unwrap()["idf"], value["idf"]);
+        value["idf"] = json!(terms(250_001));
+        assert!(json_within_budget(&value, ATLAS_CACHE_BYTES));
+        assert!(cache
+            .save_atlas(value, &allowed())
+            .unwrap_err()
+            .contains("词频超过范围"));
+        assert_eq!(
+            cache.load_atlas(&allowed()).unwrap()["idf"]
+                .as_object()
+                .unwrap()
+                .len(),
+            117_137
+        );
     }
 
     #[test]

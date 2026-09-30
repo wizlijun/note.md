@@ -12,7 +12,8 @@ export interface TerrainInputNode {
   id: string
   title: string
   kind?: string
-  state?: 'candidate' | 'verified'
+  state?: 'candidate' | 'verified' | 'imported'
+  importance?: 0 | 1
   features?: string[]
   links?: string[]
   ownerSpecificity?: 'owner_specific' | 'general' | 'unknown'

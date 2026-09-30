@@ -7,7 +7,7 @@
   "engines": {
     "notemd": ">=6.930.2"
   },
-  "description": "Explore indexed knowledge as stable contour maps and 3D terrain, with date filters and source evidence. Requires note.md 6.930.2 or later.",
+  "description": "Explore Vault index and extracted meeting knowledge as contour maps and 3D terrain, with separate date filters, layouts and source details. Requires note.md 6.930.2 or later.",
   "binary": {
     "aarch64-apple-darwin": "bin/notemd-strata",
     "x86_64-apple-darwin": "bin/notemd-strata"
@@ -53,7 +53,7 @@
   "i18n": {
     "zh": {
       "name": "STRATA · 层峦",
-      "description": "按日期探索知识等高线与三维山体，沿用索引优先级，并回到原文核对证据。需 note.md 6.930.2 或更新版本。",
+      "description": "切换全 Vault 索引与会议知识，以等高线和三维山体探索知识、关系及来源，分别保存日期与布局。需 note.md 6.930.2 或更新版本。",
       "menus": {
         "open": "打开层峦…"
       }

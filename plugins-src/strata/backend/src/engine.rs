@@ -1,6 +1,7 @@
 use crate::{
     cache::{Artifact, Cache, Pending},
     index::{self, IndexSnapshot},
+    meetings,
     rpc::Host,
     task,
     types::*,
@@ -107,6 +108,41 @@ impl Engine {
         }
         let ctx = self.context(host.as_ref()).await?;
         match method.strip_prefix("plugin.").unwrap_or(method) {
+            "meetings.snapshot" => {
+                let snapshot = meetings::snapshot(host.as_ref(), &ctx.root, &ctx.key).await?;
+                Self::same_vault(host.as_ref(), &ctx).await?;
+                serde_json::to_value(snapshot).map_err(|_| "无法编码会议知识快照".into())
+            }
+            "meetings.atlas.load" | "meetings.atlas.save" => {
+                if params["vaultKey"].as_str() != Some(ctx.key.as_str()) {
+                    return Err("布局所属 Vault 已变化".into());
+                }
+                let snapshot = meetings::snapshot(host.as_ref(), &ctx.root, &ctx.key).await?;
+                let allowed = meetings::allowed_ids(&snapshot);
+                Self::same_vault(host.as_ref(), &ctx).await?;
+                let data = self
+                    .data_dir
+                    .lock()
+                    .unwrap()
+                    .clone()
+                    .ok_or("插件尚未初始化")?;
+                let _guard = self.cache_gate.lock().unwrap();
+                let cache = Cache::new(&data.join("meetings"), &ctx.key)?;
+                if method.ends_with("load") {
+                    Ok(json!({"atlas":cache.load_atlas(&allowed)?}))
+                } else {
+                    cache.save_atlas(params["atlas"].clone(), &allowed)?;
+                    Ok(json!({"ok":true}))
+                }
+            }
+            "meetings.open_source" => {
+                if params["vaultKey"].as_str() != Some(ctx.key.as_str()) {
+                    return Err("会议所属 Vault 已变化".into());
+                }
+                let path = meetings::open_source(host.as_ref(), &ctx.root, &params).await?;
+                Self::same_vault(host.as_ref(), &ctx).await?;
+                Ok(json!({"path":path}))
+            }
             "snapshot" => {
                 let range: DateRange =
                     serde_json::from_value(params).map_err(|_| "缺少日期范围")?;

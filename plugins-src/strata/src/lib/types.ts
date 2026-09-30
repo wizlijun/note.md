@@ -1,12 +1,16 @@
+import type { MeetingNodeMetadata, MeetingSnapshotMetadata } from './meetings'
 import type { Atlas, TerrainInputNode, SourceSupport } from './types-terrain'
 export type { Atlas }
+export type Dataset = 'vault_index' | 'meetings_knowledge'
 export type Confidentiality = 'confidential' | 'explicitly_public' | 'unknown'
 export type OwnerSpecificity = 'owner_specific' | 'general' | 'unknown'
 export interface DateRange { from: string; to: string }
 export interface Evidence { id: string; sourceId: string; path: string; contentHash: string; blockKey: string; lineStart: number; lineEnd: number; quote: string }
 export interface KnowledgeNode extends TerrainInputNode {
   kind: string
-  state: 'candidate' | 'verified'
+  state: 'candidate' | 'verified' | 'imported'
+  importance?: 0 | 1
+  meeting?: MeetingNodeMetadata
   features: string[]
   links: string[]
   ownerSpecificity: OwnerSpecificity
@@ -25,7 +29,7 @@ export interface SourceFile {
   attentionMinutes: number; filePriority: number; priorityBasis?: unknown; confidentiality: Confidentiality
   links: { kind: string; target: string; line: number }[]
 }
-export interface Relation { id: string; source: string; target: string; type: string; title: string; evidence: Evidence[] }
+export interface Relation { id: string; source: string; target: string; type: string; title: string; evidence: Evidence[]; participants?: { nodeId: string; role: string }[]; meeting?: MeetingNodeMetadata }
 export interface Coverage {
   indexed: number; selected: number; processed: number; candidate: number; excluded: number; stale: number
   proofDeferred: number
@@ -41,6 +45,7 @@ export interface Job {
 }
 export interface Snapshot {
   schema: 'notemd.strata/snapshot/v1'; vaultKey: string; snapshotId: string; configHash: string; asOf: string
+  meetings?: MeetingSnapshotMetadata
   range: DateRange; files: SourceFile[]; nodes: KnowledgeNode[]; relations: Relation[]; coverage: Coverage; job: Job | null
 }
 export interface Provider {
@@ -52,3 +57,5 @@ export interface Preferences {
   from: string; to: string; view: '2d' | '3d'; personal: boolean; relations: boolean; includePublic: boolean
   level: 'auto' | 'domain' | 'topic' | 'knowledge'; verticalScale: number; harness: string
 }
+
+export interface BrowserSettings { browser?: Partial<Preferences>; datasets?: { active?: Dataset; preferences?: Partial<Record<Dataset, Partial<Preferences>>> } }
