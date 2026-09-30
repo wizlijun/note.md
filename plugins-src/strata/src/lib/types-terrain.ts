@@ -15,6 +15,10 @@ export interface TerrainInputNode {
   state?: 'candidate' | 'verified' | 'imported'
   importance?: 0 | 1
   features?: string[]
+  /** Complete concept/non-person terms supplied by the meeting adapter. Empty means no safe name; never fall back to a person title. */
+  topicTerms?: string[]
+  /** Opaque meeting identity for independent-source naming support, not a mass budget. */
+  topicSourceId?: string
   links?: string[]
   ownerSpecificity?: 'owner_specific' | 'general' | 'unknown'
   confidentiality?: 'confidential' | 'explicitly_public' | 'unknown'
@@ -92,6 +96,8 @@ export interface TerrainResult {
   levels: number[]
   peakAnchors: PeakAnchor[]
   layout: Atlas
+  /** Representative concepts for the current visible cohort; never persisted in frozen geometry. */
+  clusterNames?: Record<string, string>
   visibleIds: string[]
   /** Aligned with layout.nodes. */
   masses: Float32Array

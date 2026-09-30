@@ -72,7 +72,7 @@ it('uses meeting importance and imported labels, then invalidates emphasis when 
   expect([...document.querySelectorAll('.map-label small')].every(label => label.textContent === '已提取知识')).toBe(true)
   expect(document.querySelector('.legend')?.textContent).toContain('◆ 核心')
   expect(document.querySelector('.legend')?.textContent).toContain('● 支撑')
-  expect(document.querySelector('.legend')?.textContent).toContain('连线为抽取关系，山脊为地形')
+  expect(document.querySelector('.legend')?.textContent).toContain('近邻表示主题聚合；连线表示已有关系')
   state.set('dataset', 'vault_index'); await flush()
   expect(document.querySelector('.map-label.personal')?.getAttribute('aria-label')).toBe('查看证据：个人材料中的支撑')
   expect(document.querySelector('.legend')?.textContent).toContain('个人独有')
@@ -112,7 +112,7 @@ it.each(['2d', '3d'] as const)('shows mountain groups without a point cloud, the
   await flush()
   expect(markerPositions).toHaveLength(0)
   expect(document.querySelector('.map-label small')?.textContent).toBe('300 条知识')
-  expect(document.querySelector('.legend')?.textContent).toContain('概览按山群聚合')
+  expect(document.querySelector('.legend')?.textContent).toContain('标题为当前范围的代表词')
   expect(document.querySelector('.legend')?.textContent).toContain('全部知识见目录')
   const zoom = document.querySelector<HTMLButtonElement>('[aria-label="放大地图"]')!
   zoom.click(); zoom.click(); zoom.click(); await flush()
@@ -149,16 +149,16 @@ it('retains index overview marker behavior', async () => {
   component = mount(TerrainMap, { target: document.body, props: { result: data, dataset: 'vault_index', view: '2d', onfocus: vi.fn(), onselect: vi.fn(), onview: vi.fn(), onerror: vi.fn() } })
   await flush()
   expect(markerPositions).toHaveLength(300)
-  expect(document.querySelector('.legend')?.textContent).not.toContain('概览按山群聚合')
+  expect(document.querySelector('.legend')?.textContent).not.toContain('标题为当前范围的代表词')
 })
 
 it('draws every hyperedge participant to one directionless junction and skips incomplete relations', async () => {
   const data = meetingResult(), state = new SvelteMap<string, TerrainResult>([['result', data]])
   const relations = [{ source: 'support', target: 'core', participants: [{ nodeId: 'support', role: 'cause' }, { nodeId: 'core', role: 'action' }, { nodeId: 'third', role: 'result' }] }]
-  component = mount(TerrainMap, { target: document.body, props: { get result() { return state.get('result')! }, dataset: 'meetings_knowledge', relations, showRelations: true, view: '2d', onfocus: vi.fn(), onselect: vi.fn(), onview: vi.fn(), onerror: vi.fn() } })
+  component = mount(TerrainMap, { target: document.body, props: { get result() { return state.get('result')! }, dataset: 'meetings_knowledge', level: 'knowledge', relations, showRelations: true, view: '2d', onfocus: vi.fn(), onselect: vi.fn(), onview: vi.fn(), onerror: vi.fn() } })
   await flush()
   expect(relationLines).toHaveLength(3)
-  expect(relationLines.map(line => line.from)).toEqual([[270, 180], [630, 180], [450, 420]])
+  expect(relationLines.map(line => line.from)).toEqual(expect.arrayContaining([[270, 180], [630, 180], [450, 420]]))
   for (const line of relationLines) { expect(line.to[0]).toBeCloseTo(450); expect(line.to[1]).toBeCloseTo(260) }
   expect(data.field.every(value => value === 0)).toBe(true)
   relationLines = []
@@ -168,16 +168,16 @@ it('draws every hyperedge participant to one directionless junction and skips in
   expect(relationLines).toHaveLength(0)
 })
 
-it('prioritizes selected-node relations within the 60-relation overlay budget', async () => {
+it('shows only selected-node relations and aggregates repeated connections', async () => {
   const data = meetingResult(), state = new SvelteMap<string, string>([['selected', 'third']])
   const relations = [...Array.from({ length: 60 }, () => ({ source: 'support', target: 'core' })), { source: 'core', target: 'third' }]
-  component = mount(TerrainMap, { target: document.body, props: { result: data, dataset: 'meetings_knowledge', get selectedId() { return state.get('selected')! }, relations, showRelations: true, view: '2d', onfocus: vi.fn(), onselect: vi.fn(), onview: vi.fn(), onerror: vi.fn() } })
+  component = mount(TerrainMap, { target: document.body, props: { result: data, dataset: 'meetings_knowledge', level: 'knowledge', get selectedId() { return state.get('selected')! }, relations, showRelations: true, view: '2d', onfocus: vi.fn(), onselect: vi.fn(), onview: vi.fn(), onerror: vi.fn() } })
   await flush()
-  expect(relationLines).toHaveLength(60)
+  expect(relationLines).toHaveLength(1)
   expect(relationLines[0]).toEqual({ from: [630, 180], to: [450, 420] })
   relationLines = []; state.set('selected', 'support'); await flush()
-  expect(relationLines).toHaveLength(60)
-  expect(relationLines[0]).toEqual({ from: [270, 180], to: [630, 180] })
+  expect(relationLines).toHaveLength(1)
+  expect(relationLines[0]).toEqual({ from: [630, 180], to: [270, 180] })
 })
 afterEach(async () => { if (component) await unmount(component); component = undefined; document.body.innerHTML = ''; vi.restoreAllMocks(); vi.unstubAllGlobals() })
 
@@ -229,4 +229,32 @@ it('reuses the 3D renderer through an empty date-refresh state and disposes only
   expect(onview).not.toHaveBeenCalled()
   await unmount(component); component = undefined
   expect(three.dispose).toHaveBeenCalledTimes(1)
+})
+
+
+it.each(['2d', '3d'] as const)('connects readable overview concept groups without drawing the underlying node web in %s', async view => {
+  const data = meetingResult()
+  data.layout.nodes = data.layout.nodes.map((node, i) => ({ ...node, parentDomain: `d${i}`, topicTerms: [`概念${i}`] }))
+  data.layout.domains = data.layout.nodes.map((node, i) => ({ id: node.parentDomain, name: `概念${i}`, x: node.x, y: node.y, radius: .1, memberIds: [node.id] }))
+  const relations = Array.from({ length: 60 }, () => ({ source: 'support', target: 'core' }))
+  three.project.mockImplementation((position: { x: number; y: number }) => ({ x: position.x * 900, y: position.y * 600, visible: true }))
+  component = mount(TerrainMap, { target: document.body, props: { result: data, dataset: 'meetings_knowledge', level: 'domain', relations, showRelations: true, view, onfocus: vi.fn(), onselect: vi.fn(), onview: vi.fn(), onerror: vi.fn() } })
+  await flush()
+  expect(document.querySelector('h1')?.textContent).toBe('概念与范畴')
+  expect(document.querySelectorAll('.map-label')).toHaveLength(3)
+  expect(markerPositions).toHaveLength(0)
+  expect(relationLines).toHaveLength(1)
+  expect(relationLines[0]).toEqual({ from: [270, 180], to: [630, 180] })
+})
+
+
+it('starts meeting overview at the more specific topic vocabulary while preserving the index domain view', async () => {
+  const data = meetingResult(), state = new SvelteMap<string, 'vault_index' | 'meetings_knowledge'>([['dataset', 'meetings_knowledge']])
+  data.layout.domains[0].name = '宽泛山群'; data.layout.topics[0].name = '具体概念'
+  component = mount(TerrainMap, { target: document.body, props: { result: data, get dataset() { return state.get('dataset')! }, view: '2d', onfocus: vi.fn(), onselect: vi.fn(), onview: vi.fn(), onerror: vi.fn() } })
+  await flush()
+  expect(document.querySelector('[aria-label="展开山群：具体概念"]')).not.toBeNull()
+  expect(document.querySelector('[aria-label="展开山群：宽泛山群"]')).toBeNull()
+  state.set('dataset', 'vault_index'); await flush()
+  expect(document.querySelector('[aria-label="展开山群：宽泛山群"]')).not.toBeNull()
 })

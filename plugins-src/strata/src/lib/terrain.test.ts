@@ -178,6 +178,18 @@ describe('shared conservative scalar field', () => {
 
 describe('meeting continuous slopes at a fixed world scale', () => {
   const options = { width: 128, height: 128, contourStep: 12, surface: 'meeting' as const }
+  it('returns date-specific concept names beside unchanged full-atlas geometry only for meetings', () => {
+    const input = fixture(2).map((node, i) => ({ ...node, kind: 'concept', topicTerms: [i ? '历史概念' : '当前概念'], topicSourceId: `meeting-${i}`, links: [i ? 'node-00000' : 'node-00001'] }))
+    const atlas = buildAtlas(input, 'current-concept-names'), frozen = JSON.stringify(atlas), engine = new TerrainEngine(atlas)
+    const current = engine.render({ from: '2026-09-29', to: '2026-09-30' }, options)
+    expect(Object.keys(current.clusterNames!)).toHaveLength(2)
+    expect(Object.values(current.clusterNames!).every(name => name === '当前概念')).toBe(true)
+    expect(JSON.stringify(current.layout)).toBe(frozen)
+    expect(JSON.stringify(engine.atlas)).toBe(frozen)
+    const empty = engine.render({ from: '2020-01-01', to: '2020-01-02' }, options)
+    expect(empty.clusterNames).toEqual({})
+    expect(engine.render(all, { ...options, surface: 'default' })).not.toHaveProperty('clusterNames')
+  })
   it('keeps all source budgets, date monotonicity, deterministic fields and an exact empty state', () => {
     const engine = new TerrainEngine(buildAtlas(fixture(40), 'meeting-surface'))
     const full = engine.render(all, options), again = engine.render(all, options)

@@ -1,5 +1,5 @@
 import { contours as d3Contours } from 'd3-contour'
-import { seeded, stableHash, WORLD_SIZE } from './atlas'
+import { meetingClusterNames, seeded, stableHash, WORLD_SIZE } from './atlas'
 import type { Atlas, AtlasNode, PeakAnchor, TerrainBounds, TerrainContour, TerrainGrid, TerrainRenderOptions, TerrainResult, TerrainSelection } from './types-terrain'
 
 export const TERRAIN_VERSION = 'strata-terrain/3'
@@ -254,7 +254,7 @@ export class TerrainEngine {
     let grid = meeting ? this.regionGrid : requestedGrid
     let field = new Float32Array(grid.width * grid.height)
     const gridKey = JSON.stringify(grid), masses = calculateMasses(this.atlas, selection)
-    const regionMasses = new Float64Array(this.regions.length), visibleIds: string[] = []
+    const regionMasses = new Float64Array(this.regions.length), visibleIds: string[] = [], visibleNodes: AtlasNode[] = []
     const scope = selection.nodeIds ? new Set(selection.nodeIds) : null
     let totalMass = 0
     const splat = (patch: Patch, mass: number) => {
@@ -264,7 +264,10 @@ export class TerrainEngine {
       }
     }
     for (let i = 0; i < masses.length; i++) {
-      if (matchesSelection(this.atlas.nodes[i], selection, scope)) visibleIds.push(this.atlas.nodes[i].id)
+      if (matchesSelection(this.atlas.nodes[i], selection, scope)) {
+        visibleIds.push(this.atlas.nodes[i].id)
+        if (meeting) visibleNodes.push(this.atlas.nodes[i])
+      }
       if (!masses[i]) continue
       totalMass += masses[i]
       // A fixed world-area budget prevents 1/r² needles in dense clusters. The remaining
@@ -318,7 +321,9 @@ export class TerrainEngine {
       contourVertices += count; contours.push(contour)
     }
     const fieldIntegral = field.reduce((sum, value) => sum + value, 0) * b.width * b.height / field.length
+    const clusterNames = meeting ? Object.fromEntries(meetingClusterNames(visibleNodes, [...this.atlas.domains, ...this.atlas.topics])) : undefined
     return { field, grid, contours, levels: contours.map(contour => contour.value), peakAnchors, layout: this.atlas, visibleIds, masses,
+      ...(clusterNames ? { clusterNames } : {}),
       stats: { elapsedMs: performance.now() - start, selectedNodes: visibleIds.length, totalMass, fieldIntegral,
         kernelBytes: this.cacheBytes + [...templates.values()].reduce((sum, t) => sum + t.prefix.byteLength * 4, 0),
         contourVertices, contoursTruncated, unresolvedPeaks: peakAnchors.filter(peak => !peak.resolved).length } }

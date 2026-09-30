@@ -15,7 +15,8 @@ export const seeded = (id: string, salt = 0): number => stableHash(id, salt) / 4
 
 /** Explicit index features are preferred; the title fallback is only lexical organization. */
 function terms(node: TerrainInputNode): string[] {
-  const source = (node.features?.length ? node.features : [node.title]).join(' ').normalize('NFKC').toLowerCase()
+  const features = node.topicTerms !== undefined ? (node.features || []) : node.features?.length ? node.features : [node.title]
+  const source = features.join(' ').normalize('NFKC').toLowerCase()
   const found = source.match(/[\p{L}\p{N}_-]+/gu) || []
   const values: string[] = []
   for (const word of found) {
@@ -190,7 +191,72 @@ function slots(weights: number[], rect: Rect): Rect[] {
   return result
 }
 
-function titleFor(members: number[], nodes: TerrainInputNode[]): string {
+type TopicNamer = (members: number[]) => string
+
+/** Meeting labels use actual schema vocabulary, never speaker names or generated categories. */
+function meetingNamer(nodes: readonly TerrainInputNode[]): TopicNamer | undefined {
+  if (!nodes.some(node => node.topicTerms !== undefined)) return
+  const words = new Map<string, { name: string; concept: boolean; sources: number }>()
+  const sourceTerms = new Map<string, Set<string>>()
+  const nodeTerms = nodes.map(node => {
+    const keys = new Set<string>()
+    for (const value of (node.topicTerms || []).slice(0, MAX_TERMS)) {
+      const name = value.normalize('NFKC').trim(), key = name.toLowerCase()
+      if (!name || Array.from(name).length > 96 || STOP.has(key)) continue
+      keys.add(key)
+      const word = words.get(key) || { name, concept: false, sources: 0 }
+      word.concept ||= node.kind === 'concept'; words.set(key, word)
+    }
+    if (node.topicTerms !== undefined) {
+      const id = node.topicSourceId || node.id, known = sourceTerms.get(id) || new Set<string>()
+      for (const key of keys) known.add(key)
+      sourceTerms.set(id, known)
+    }
+    return [...keys]
+  })
+  for (const keys of sourceTerms.values()) for (const key of keys) words.get(key)!.sources++
+  const sourceCount = sourceTerms.size
+  return members => {
+    const support = new Map<string, { nodes: number; sources: Set<string> }>()
+    for (const i of members) for (const key of nodeTerms[i]) {
+      const found = support.get(key) || { nodes: 0, sources: new Set<string>() }
+      found.nodes++; found.sources.add(nodes[i].topicSourceId || nodes[i].id); support.set(key, found)
+    }
+    const candidates = [...support].map(([key, found]) => {
+      const word = words.get(key)!
+      // Actual member coverage leads. Independent meetings are a modest bonus,
+      // while positive IDF discounts common vocabulary without erasing broad support.
+      const score = found.nodes * (1 + .25 * Math.log1p(found.sources.size)) * Math.log1p(sourceCount / (word.sources + 1))
+      return { ...word, score }
+    })
+    const hasConcept = candidates.some(candidate => candidate.concept)
+    const ranked = candidates.filter(candidate => !hasConcept || candidate.concept).sort((a, b) => b.score - a.score || a.name.localeCompare(b.name))
+    // One representative concept does not assert that two unrelated terms form a category.
+    return ranked[0]?.name || '未命名知识群'
+  }
+}
+
+function shortLabel(label: string): string {
+  const line = label.split(/\r?\n/).map(line => line.trim()).find(Boolean) || '未归类'
+  const characters = Array.from(line)
+  return characters.length > 96 ? characters.slice(0, 96).join('') + '…' : line
+}
+
+/** Label only the supplied visible knowledge; geometry and cached full-atlas names stay untouched. */
+export function meetingClusterNames(nodes: readonly TerrainInputNode[], clusters: readonly Pick<AtlasCluster, 'id' | 'memberIds'>[]): Map<string, string> {
+  const names = new Map<string, string>(), nameFor = meetingNamer(nodes)
+  if (!nameFor) return names
+  const indices = new Map(nodes.map((node, i) => [node.id, i]))
+  for (const cluster of clusters) {
+    const members: number[] = []
+    for (const id of cluster.memberIds) { const i = indices.get(id); if (i !== undefined) members.push(i) }
+    if (members.length) names.set(cluster.id, shortLabel(nameFor(members)))
+  }
+  return names
+}
+
+function titleFor(members: number[], nodes: TerrainInputNode[], meetingName?: TopicNamer): string {
+  if (meetingName && members.some(i => nodes[i].topicTerms !== undefined)) return shortLabel(meetingName(members))
   const scores = new Map<string, number>()
   // Internal CJK bigrams are useful for similarity but are not human-readable topic names.
   // Only original, complete source features may label a cluster; otherwise retain a real title.
@@ -200,9 +266,7 @@ function titleFor(members: number[], nodes: TerrainInputNode[]): string {
     scores.set(name, (scores.get(name) || 0) + 1)
   }
   const labels = [...scores].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 2).map(([term]) => term)
-  const label = (labels.join(' · ') || nodes[members[0]]?.title || '未归类').split(/\r?\n/).map(line => line.trim()).find(Boolean) || '未归类'
-  const characters = Array.from(label)
-  return characters.length > 96 ? characters.slice(0, 96).join('') + '…' : label
+  return shortLabel(labels.join(' · ') || nodes[members[0]]?.title || '未归类')
 }
 
 function circle(rect: Rect): { x: number; y: number; radius: number } {
@@ -214,19 +278,20 @@ export function buildAtlas(input: TerrainInputNode[], epoch: string, previous?: 
   if (new Set(nodes.map(node => node.id)).size !== nodes.length) throw new Error('STRATA 节点 ID 重复')
   if (previous?.epoch === epoch && previous.version === ATLAS_VERSION) return updateAtlas(nodes, previous, start)
   const { graph, idf } = buildGraph(nodes)
+  const meetingName = meetingNamer(nodes)
   const domainMembers = groupMembers(communities(graph, .6))
   // Area is proportional to membership; square-root weights compress large real-world clusters.
   const domainSlots = slots(domainMembers.map(group => group.length), { x: .035, y: .035, width: .93, height: .93 })
   const domains: AtlasCluster[] = [], topics: AtlasCluster[] = [], placed: AtlasNode[] = []
   domainMembers.forEach((members, domainIndex) => {
     const d = circle(domainSlots[domainIndex]), domainId = 'domain:' + nodes[members[0]].id
-    domains.push({ id: domainId, name: titleFor(members, nodes), ...d, memberIds: members.map(i => nodes[i].id) })
+    domains.push({ id: domainId, name: titleFor(members, nodes, meetingName), ...d, memberIds: members.map(i => nodes[i].id) })
     const groups = members.length <= 8 ? [members] : groupMembers(communities(induced(graph, members), 1.2)).map(group => group.map(i => members[i]))
     const side = d.radius * 1.4, topicSlots = slots(groups.map(group => group.length), { x: d.x - side / 2, y: d.y - side / 2, width: side, height: side })
     groups.forEach((items, groupIndex) => {
       const t = groups.length === 1 ? { ...d, radius: d.radius * .87 } : circle(topicSlots[groupIndex])
       const topicId = 'topic:' + nodes[items[0]].id
-      topics.push({ id: topicId, parentId: domainId, name: titleFor(items, nodes), ...t, memberIds: items.map(i => nodes[i].id) })
+      topics.push({ id: topicId, parentId: domainId, name: titleFor(items, nodes, meetingName), ...t, memberIds: items.map(i => nodes[i].id) })
       const unit = t.radius / Math.max(2, Math.sqrt(items.length) * 1.1)
       // Equal-area sunflower slots: deterministic O(N), no pairwise collision loop.
       items.forEach((i, j) => {
@@ -287,8 +352,9 @@ function updateAtlas(nodes: TerrainInputNode[], previous: Atlas, start: number):
     domains.find(domain => domain.id === topic.parentId)?.memberIds.push(node.id)
   }
   const indices = new Map(nodes.map((node, i) => [node.id, i]))
+  const meetingName = meetingNamer(nodes)
   for (const cluster of [...domains, ...topics]) if (cluster.memberIds.length) {
-    cluster.name = titleFor(cluster.memberIds.map(id => indices.get(id)!).filter(i => i !== undefined), nodes)
+    cluster.name = titleFor(cluster.memberIds.map(id => indices.get(id)!).filter(i => i !== undefined), nodes, meetingName)
   }
   return { ...previous, nodes: placed, domains: domains.filter(d => d.memberIds.length), topics: topics.filter(t => t.memberIds.length),
     diagnostics: { ...previous.diagnostics, crowdedNodes: placed.filter(node => node.crowded).length,

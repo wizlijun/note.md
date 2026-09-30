@@ -3,6 +3,7 @@
   import type { TerrainResult, TerrainBounds, AtlasCluster, AtlasNode, PeakAnchor } from '../lib/types-terrain'
   import { createTerrain3D } from '../lib/terrain-renderer'
   import { elevation, traceContour } from '../lib/contour-path'
+  import { meetingRelationGroups } from '../lib/meeting-relations'
 
   let { result, view = '3d', dataset = 'vault_index', selectedId = '', personal = true, relations = [], showRelations = false, level = 'auto', verticalScale = 1, onselect, onview, onfocus, onerror }: {
     result: TerrainResult | null
@@ -21,7 +22,7 @@
   } = $props()
 
   type Label = { id: string; text: string; sub: string; x: number; y: number; w: number; personal: boolean; cluster: boolean }
-  type Entry = { id: string; name: string; x: number; y: number; sub: string; personal: boolean; cluster: boolean; width: number }
+  type Entry = { id: string; name: string; x: number; y: number; sub: string; personal: boolean; cluster: boolean; width: number; count?: number; semantic?: boolean }
   type Mark = { id: string; x: number; y: number; personal: boolean; kind?: string }
   type Projected = { x: number; y: number; visible: boolean }
   let surface: HTMLDivElement
@@ -61,6 +62,7 @@
   let entries: Entry[] = []
   let previousRelations: typeof relations | null = null
   let relationSelection = ''
+  let relationLevel = ''
   let relationDrawings: { points: { x: number; y: number }[]; center?: { x: number; y: number } }[] = []
   let occupiedControl: { x: number; y: number; w: number; h: number } | null = null
   let controlKey = ''
@@ -83,7 +85,7 @@
     frameColors.set(token, color)
     return color
   }
-  const lod = () => level !== 'auto' ? level : focusId || zoom >= 2.4 ? 'knowledge' : zoom >= 1.6 ? 'topic' : 'domain'
+  const lod = () => level !== 'auto' ? level : focusId || zoom >= 2.4 ? 'knowledge' : dataset === 'meetings_knowledge' || zoom >= 1.6 ? 'topic' : 'domain'
   function point(p: { x: number; y: number }) {
     const n = local(p)
     if (view === '3d' && three) return three.project(n)
@@ -113,10 +115,10 @@
     } else if (focusId) focusName = clusterById.get(focusId)!.name
     peakMaximum = 0
     for (const peak of result.peakAnchors) peakMaximum = Math.max(peakMaximum, peak.height)
-    const counts = new Map<string, { count: number; verified: boolean; personal: boolean }>()
+    const counts = new Map<string, { count: number; verified: boolean; personal: boolean; semantic: boolean }>()
     for (const node of visibleNodes) for (const id of [node.parentDomain, node.parentTopic]) {
-      const summary = counts.get(id) || { count: 0, verified: false, personal: false }
-      summary.count++; summary.verified ||= node.state === 'verified'; summary.personal ||= emphasized(node)
+      const summary = counts.get(id) || { count: 0, verified: false, personal: false, semantic: false }
+      summary.count++; summary.verified ||= node.state === 'verified'; summary.personal ||= emphasized(node); summary.semantic ||= !!node.topicTerms?.length
       counts.set(id, summary)
     }
     context.font = '13px -apple-system, sans-serif'
@@ -124,7 +126,7 @@
       const summary = counts.get(cluster.id)
       return summary ? [{ id: cluster.id, name: cluster.name, x: cluster.x, y: cluster.y,
         sub: dataset === 'meetings_knowledge' ? `${summary.count} 条知识` : `${summary.count} 个${summary.verified ? '知识 / 候选' : '索引候选'}`, personal: summary.personal,
-        cluster: true, width: entryWidth(cluster.name) }] : []
+        cluster: true, count: summary.count, semantic: summary.semantic, width: entryWidth(cluster.name) }] : []
     })
     clusterEntries = { domain: summarize(result.layout.domains), topic: summarize(result.layout.topics) }
     sceneKey = ''; previousRelations = null
@@ -138,15 +140,18 @@
     const limit = dataset === 'meetings_knowledge' ? (currentLod === 'knowledge' ? 200 : 0) : currentLod === 'knowledge' ? 1500 : 300
     const ordered: AtlasNode[] = []
     // Atlas order is stable. Prioritize core/owner nodes without sorting 32k rows.
-    const append = (owner: boolean | null) => {
+    const append = (owner: boolean | null, semantic?: number) => {
       for (const node of visibleNodes) {
         if (ordered.length >= limit) break
         if (focusId && node.parentDomain !== focusId && node.parentTopic !== focusId) continue
         if (owner !== null && emphasized(node) !== owner) continue
+        if (semantic !== undefined && (node.kind === 'concept' ? 0 : node.topicTerms?.length ? 1 : 2) !== semantic) continue
         ordered.push(node)
       }
     }
-    if (personal) { append(true); append(false) } else append(null)
+    if (dataset === 'meetings_knowledge') {
+      for (const semantic of [0, 1, 2]) { if (personal) { append(true, semantic); append(false, semantic) } else append(null, semantic) }
+    } else if (personal) { append(true); append(false) } else append(null)
     marks = dataset === 'meetings_knowledge' ? [] : ordered.map(node => ({ id: node.id, x: anchors.get(node.id)?.x ?? node.x, y: anchors.get(node.id)?.y ?? node.y,
       personal: emphasized(node), kind: node.kind }))
     context!.font = '13px -apple-system, sans-serif'
@@ -157,16 +162,28 @@
     }))
     else {
       const candidates = clusterEntries[currentLod]
+      if (dataset === 'meetings_knowledge') {
+        entries = [...candidates].sort((a, b) => Number(!!b.semantic) - Number(!!a.semantic) || (b.count || 0) - (a.count || 0) || (personal ? Number(b.personal) - Number(a.personal) : 0)).slice(0, 200)
+        return
+      }
       entries = personal ? [...candidates.filter(entry => entry.personal), ...candidates.filter(entry => !entry.personal)].slice(0, 200) : candidates.slice(0, 200)
     }
   }
 
-  function cacheRelations() {
-    if (previousRelations === relations && relationSelection === selectedId) return
-    previousRelations = relations; relationSelection = selectedId
+  function cacheRelations(currentLod: 'domain' | 'topic' | 'knowledge', shown: Set<string>) {
+    const levelKey = dataset === 'meetings_knowledge' ? `${currentLod}:${[...shown].sort().join('|')}` : ''
+    if (previousRelations === relations && relationSelection === selectedId && relationLevel === levelKey) return
+    previousRelations = relations; relationSelection = selectedId; relationLevel = levelKey
     const visible = new Set(visibleNodes.map(node => node.id))
     const participantIds = (edge: typeof relations[number]) => dataset === 'meetings_knowledge' && edge.participants?.length ? edge.participants.map(participant => participant.nodeId) : [edge.source, edge.target]
     relationDrawings = []
+    if (dataset === 'meetings_knowledge') {
+      relationDrawings = meetingRelationGroups(relations, nodeById, visibleIds, shown, currentLod, selectedId).map(group => {
+        const points = group.ids.map(id => currentLod === 'knowledge' ? anchors.get(id) || nodeById.get(id)! : clusterById.get(id)!)
+        return { points, ...(points.length > 2 ? { center: { x: points.reduce((sum, p) => sum + p.x, 0) / points.length, y: points.reduce((sum, p) => sum + p.y, 0) / points.length } } : {}) }
+      })
+      return
+    }
     let count = 0
     // Selected-node relations come first. Skip incomplete/oversized relations as a whole:
     // drawing a subset of a hyperedge would imply a different relationship.
@@ -234,7 +251,6 @@
     }
     const currentLod = lod(), step = currentLod === 'knowledge' ? 1 : 2
     cacheScene(currentLod)
-    if (showRelations) cacheRelations()
     if (view === '3d') {
       try {
         three ??= createTerrain3D(mountain, ink)
@@ -255,21 +271,6 @@
         }
         ctx.restore()
       }
-    }
-    if (showRelations) {
-      ctx.strokeStyle = ink(dataset === 'meetings_knowledge' ? '--st-muted' : '--st-gold'); ctx.lineWidth = 1; ctx.globalAlpha = .65
-      ctx.setLineDash(dataset === 'meetings_knowledge' ? [4, 3] : [])
-      const onScreen = (p: Projected) => p.visible && p.x >= 0 && p.x <= w && p.y >= 0 && p.y <= h
-      for (const relation of relationDrawings) {
-        const points = relation.points.map(point), center = relation.center ? point(relation.center) : undefined
-        if (points.some(p => !onScreen(p)) || (center && !onScreen(center))) continue
-        const end = center || points[1]
-        for (const start of center ? points : [points[0]]) {
-          ctx.beginPath(); ctx.moveTo(start.x, start.y); ctx.lineTo(end.x, end.y); ctx.stroke()
-        }
-        if (center) { ctx.beginPath(); ctx.arc(center.x, center.y, 3, 0, Math.PI * 2); ctx.stroke() }
-      }
-      ctx.setLineDash([])
     }
     ctx.globalAlpha = 1; plotPoints = []
     const drawMark = (n: Pick<Mark, 'id' | 'personal' | 'kind'>, p: Projected) => {
@@ -314,6 +315,22 @@
         if (!e.cluster) { ctx.strokeStyle = ink('--st-muted'); ctx.globalAlpha = .45; ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(x, y + (y > p.y ? -22 : 22)); ctx.stroke(); ctx.globalAlpha = 1 }
         break
       }
+    }
+    if (showRelations) {
+      cacheRelations(currentLod, new Set(next.map(label => label.id)))
+      ctx.strokeStyle = ink(dataset === 'meetings_knowledge' ? '--st-muted' : '--st-gold'); ctx.lineWidth = 1; ctx.globalAlpha = dataset === 'meetings_knowledge' ? .45 : .65
+      ctx.setLineDash(dataset === 'meetings_knowledge' ? [4, 3] : [])
+      const onScreen = (p: Projected) => p.visible && p.x >= 0 && p.x <= w && p.y >= 0 && p.y <= h
+      for (const relation of relationDrawings) {
+        const points = relation.points.map(point), center = relation.center ? point(relation.center) : undefined
+        if (points.some(p => !onScreen(p)) || (center && !onScreen(center))) continue
+        const end = center || points[1]
+        for (const start of center ? points : [points[0]]) {
+          ctx.beginPath(); ctx.moveTo(start.x, start.y); ctx.lineTo(end.x, end.y); ctx.stroke()
+        }
+        if (center) { ctx.beginPath(); ctx.arc(center.x, center.y, 3, 0, Math.PI * 2); ctx.stroke() }
+      }
+      ctx.setLineDash([]); ctx.globalAlpha = 1
     }
     // A directory selection remains locatable even when its label is omitted.
     // Date-filtered or offscreen knowledge must not acquire a selection marker.
@@ -395,7 +412,7 @@
   <canvas bind:this={mountain} class:hidden={view !== '3d' || !result} aria-label="三维知识山体" onpointerdown={down} onpointermove={move} onpointerup={up} onpointercancel={() => drag = null}></canvas>
   <canvas bind:this={overlay} class:passive={view === '3d'} aria-label="知识等高线、峰顶和关系" onpointerdown={down} onpointermove={move} onpointerup={up} onpointercancel={() => drag = null}></canvas>
   <span class="color-probe" bind:this={colorProbe} aria-hidden="true"></span>
-  <div class="map-caption"><span>YOUR KNOWLEDGE, IN RELIEF</span><h1>{focusName || '每一座山，都有你的来处。'}</h1></div>
+  <div class="map-caption"><span>YOUR KNOWLEDGE, IN RELIEF</span><h1>{focusName || (dataset === 'meetings_knowledge' ? '概念与范畴' : '每一座山，都有你的来处。')}</h1></div>
   <div class="labels" aria-label="可见的知识与山群">
     {#each labels as label (label.id)}
       <button class="map-label" class:personal={personal && label.personal} style:left="{label.x}px" style:top="{label.y}px" style:width="{label.w}px" title={label.text} onclick={() => choose(label)} aria-label={label.cluster ? `展开山群：${label.text}` : `${dataset === 'meetings_knowledge' ? '查看知识' : '查看证据'}：${label.text}`}><span>{label.personal ? '◆ ' : ''}{label.text}</span><small>{label.sub}</small></button>
@@ -409,9 +426,9 @@
     {#if result?.stats.contoursTruncated || (dataset !== 'meetings_knowledge' && result?.stats.unresolvedPeaks)}<div class="detail-note">{result.stats.contoursTruncated ? '概览已简化轮廓。' : ''}{dataset !== 'meetings_knowledge' && result.stats.unresolvedPeaks ? '密集区域的子峰请展开山群查看。' : ''}</div>{/if}
     <div class="legend-row emphasis-legend"><span>◆ {dataset === 'meetings_knowledge' ? '核心' : '个人独有'}</span><span>● {dataset === 'meetings_knowledge' ? '支撑' : '其他 / 未知'}</span><span>相对高程 · 固定刻度</span></div>
     {#if dataset === 'meetings_knowledge'}
-      <div>概览按山群聚合；连续坡面表示知识积累，全部知识见目录</div>
+      <div>标题为当前范围的代表词；全部知识见目录</div>
       <div class="legend-row kind-legend" aria-label="知识点类型">{#each knowledgeKinds as kind}<span><i style:background="var(--st-kind-{kind.id})"></i>{kind.name}</span>{/each}</div>
-      <div>连线为抽取关系，山脊为地形</div>
+      <div>近邻表示主题聚合；连线表示已有关系</div>
     {/if}
   </div>
   <div class="view-hint">{view === '3d' ? '拖动旋转' : '拖动平移'} · {Math.round(zoom * 100)}%</div>

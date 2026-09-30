@@ -111,7 +111,12 @@
         catch (e) { if (disposed || id !== requestId) return; notice = `未能恢复地图布局，将依据当前索引生成：${errorText(e)}` }
       }
       if (disposed || id !== requestId) return
-      if (rebuild) { previousAtlas = undefined; bounds = undefined; epoch = `${data.vaultKey}:${activeDataset}:${Date.now()}` }
+      const meetingEpoch = `${data.vaultKey}:meetings_knowledge:concepts-v1:`
+      if (activeDataset === 'meetings_knowledge' && !previousAtlas?.epoch.startsWith(meetingEpoch)) {
+        previousAtlas = undefined; bounds = undefined; epoch = meetingEpoch + '1'
+        prefs.relations = true; persist()
+      }
+      if (rebuild) { previousAtlas = undefined; bounds = undefined; epoch = activeDataset === 'meetings_knowledge' ? meetingEpoch + Date.now() : `${data.vaultKey}:${activeDataset}:${Date.now()}` }
       epoch ||= previousAtlas?.epoch ?? `${data.vaultKey}:${activeDataset}:1`
       snapshot = data; job = data.job; lastJobVersion = signature(job); loading = false; lastChecked = Date.now()
       await compute(true)
@@ -123,9 +128,13 @@
     computing = true
     try {
       const options: TerrainRenderOptions = { width: 768, height: 512, bounds, contourStep: bounds ? 2 : 3, ...(activeDataset === 'meetings_knowledge' ? { surface: 'meeting' as const } : {}) }
-      const output = build ? await worker.build(data.nodes.map(({ id, title, kind, state, features, links, ownerSpecificity, confidentiality, sourceGroups, importance }) => ({ id, title, kind, state, features, links, ownerSpecificity, confidentiality, sourceGroups, importance })), epoch, selection, options, previousAtlas) : await worker.render(selection, options)
+      const output = build ? await worker.build(data.nodes.map(({ id, title, kind, state, features, topicTerms, topicSourceId, links, ownerSpecificity, confidentiality, sourceGroups, importance }) => ({ id, title, kind, state, features, topicTerms, topicSourceId, links, ownerSpecificity, confidentiality, sourceGroups, importance })), epoch, selection, options, previousAtlas) : await worker.render(selection, options)
       if (disposed || id !== computationId || viewId !== requestId) return
-      terrain = output; previousAtlas = output.layout
+      previousAtlas = output.layout
+      if (activeDataset === 'meetings_knowledge') {
+        const label = (clusters: Atlas['domains']) => clusters.map(cluster => ({ ...cluster, name: output.clusterNames?.[cluster.id] ?? cluster.name }))
+        terrain = { ...output, layout: { ...output.layout, domains: label(output.layout.domains), topics: label(output.layout.topics) } }
+      } else terrain = output
       if (notice === '来源或索引配置已变化，正在更新地图。') notice = ''
       if (build) api.saveAtlas(data.vaultKey, output.layout, activeDataset)
         .then(() => { if (!disposed && viewId === requestId && notice.startsWith('地图布局未保存：')) notice = '' })
@@ -274,7 +283,7 @@
         <p class="muted">日期只筛选贡献，保持地图布局与高度刻度。高程表达加权积累，不表示事实真假。</p>
         {#if terrain?.layout.diagnostics.rebuildSuggested}<p class="muted">地图已有拥挤区域，可以重新整理布局。</p>{/if}
         {#if rebuildConfirm}<p>重新整理会改变现有山群位置。</p><div class="inline"><button onclick={() => { rebuildConfirm = false; settings = false; void load(true) }}>重新整理</button><button onclick={() => rebuildConfirm = false}>取消</button></div>{:else}<button class="menu-row" onclick={() => rebuildConfirm = true} disabled={loading || busy}>重新整理地图布局…</button>{/if}
-        {#if isMeetings}<hr /><p class="muted">核心与支撑知识按固定权重汇成连续山脊与宽坡。地形以固定尺度平滑表达知识群，单条知识通过近景标记与目录定位，类型用标记颜色区分，关系保留角色。证据强度是抽取记录的声明，不表示事实真假或私密性。点击刷新重新读取会议知识。</p>{:else}
+        {#if isMeetings}<hr /><p class="muted">概览名称优先使用概念与术语；相近内容聚合，关系在概览合并为少量山群连线，展开或选中知识后查看具体连接。人物保留在知识与来源详情中。核心与支撑知识按固定权重汇成连续山脊与宽坡。地形以固定尺度平滑表达知识群，单条知识通过近景标记与目录定位，类型用标记颜色区分，关系保留角色。证据强度是抽取记录的声明，不表示事实真假或私密性。点击刷新重新读取会议知识。</p>{:else}
         <hr />
         <div class="panel-title"><strong>从原文深读</strong><button onclick={loadProviders} aria-label="刷新 Agent 列表">↻</button></div>
         <label>Agent<select aria-label="深读 Agent" bind:value={prefs.harness} onchange={persist}><option value="" disabled>选择 Agent</option>{#each providers as p}<option value={p.id} disabled={!supportsExtraction(p)}>{p.name}{supportsExtraction(p) ? '' : '（需更新或配置）'}</option>{/each}</select></label>

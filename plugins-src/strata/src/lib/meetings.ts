@@ -27,6 +27,7 @@ export interface MeetingSnapshotMetadata {
 }
 export interface MeetingKnowledgeNode extends Omit<KnowledgeNode, 'state'> {
   state: 'imported'; importance: 0 | 1; meeting: MeetingNodeMetadata
+  topicTerms: string[]; topicSourceId: string
 }
 export interface MeetingRelation extends Relation {
   participants: { nodeId: string; role: string }[]; meeting: MeetingNodeMetadata
@@ -42,6 +43,16 @@ const hash = async (text: string): Promise<string> => [...new Uint8Array(await c
 const validDate = (date: string | null): date is string => typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date) && Number.isFinite(Date.parse(date + 'T12:00:00Z')) && new Date(date + 'T12:00:00Z').toISOString().slice(0, 10) === date
 const within = (date: string | null, range: DateRange) => date !== null && date >= range.from && date <= range.to
 const feature = (value: string) => Array.from(value.trim()).slice(0, 96).join('')
+const termKey = (value: string) => value.normalize('NFKC').trim().toLowerCase()
+/** Attribution is retained in metadata, but is not a semantic relationship. */
+function semanticReferences(record: KnowledgeRecord): string[] {
+  const refs: string[] = []
+  if ('about' in record) refs.push(...record.about)
+  if ('args' in record) refs.push(...Object.values(record.args).flat())
+  if ('members' in record) refs.push(...record.members.map(member => member.ref))
+  if ('claim' in record) refs.push(...(record.claim ?? []))
+  return [...new Set(refs)]
+}
 
 /** Already extracted knowledge is imported, never relabelled as verified source text. */
 export async function adaptMeetingSnapshot(input: MeetingSnapshotInput, range: DateRange): Promise<MeetingSnapshot> {
@@ -52,7 +63,7 @@ export async function adaptMeetingSnapshot(input: MeetingSnapshotInput, range: D
     invalidFiles: 0, isolatedRecords: 0, relations: 0, rawRecords: 0, usableRecords: 0, dateExtent: null, diagnostics: [], diagnosticCount: 0 }
   const diagnose = (item: MeetingDiagnostic) => { meetings.diagnosticCount++; if (meetings.diagnostics.length < MAX_DIAGNOSTICS) meetings.diagnostics.push({ code: item.code, message: item.message.slice(0, 512), ...(item.path ? { path: item.path } : {}) }) }
   for (const diagnostic of input.diagnostics ?? []) diagnose(diagnostic)
-  const paths = new Set<string>()
+  const paths = new Set<string>(), batchPersonNames = new Set<string>()
   for (const document of input.documents) {
     if (paths.has(document.path)) throw new Error('会议知识快照包含重复文件')
     paths.add(document.path)
@@ -99,17 +110,56 @@ export async function adaptMeetingSnapshot(input: MeetingSnapshotInput, range: D
       dateInferred: document.dateInferred, indexOrigin: 'derived', humanVerified: false, attentionMinutes: 0,
       filePriority: 1, confidentiality: 'unknown', links: [] })
     const localNodes = new Map<string, MeetingKnowledgeNode>()
+    const personTerms = new Set<string>(), personNames = new Set<string>()
+    for (const record of indexes.nodesById.values()) if ('name' in record && record.type === 'person') {
+      personTerms.add(termKey(record.id))
+      for (const name of [record.name, ...(record.aliases ?? [])]) {
+        const key = termKey(name)
+        if (key) { personTerms.add(key); personNames.add(key); batchPersonNames.add(key) }
+      }
+    }
+    for (const evidence of indexes.evidenceById.values()) if (evidence.speaker) personTerms.add(termKey(evidence.speaker))
+    const boundedTerms = (values: string[]): string[] => {
+      const seen = new Set<string>(), terms: string[] = []
+      for (const value of values) {
+        const term = value.trim(), key = termKey(term)
+        // Keep complete original terms. A concept mentioning a person remains
+        // a concept; only an exact known person name/alias/ID is ineligible.
+        if (!key || personTerms.has(key) || seen.has(key) || Array.from(term).length > 96) continue
+        seen.add(key); terms.push(term)
+        if (terms.length === 24) break
+      }
+      return terms
+    }
+    const namedTerms = new Map<string, string[]>()
+    for (const record of indexes.nodesById.values()) {
+      if ('term' in record) namedTerms.set(record.id, boundedTerms([record.term, ...(record.aliases ?? [])]))
+      else if ('name' in record && record.type !== 'person') namedTerms.set(record.id, boundedTerms([record.name, ...(record.aliases ?? [])]))
+    }
+    const namesByLength = [...personNames].sort((a, b) => b.length - a.length || a.localeCompare(b)).map(name => {
+      const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      // CJK names occur without spaces; Latin names must not erase a substring
+      // of an unrelated word (for example Al in algorithm).
+      return /\p{Script=Han}/u.test(name) ? new RegExp(escaped, 'gu') : new RegExp('(?<![\\p{L}\\p{N}_])' + escaped + '(?![\\p{L}\\p{N}_])', 'gu')
+    })
+    const impersonalText = (value: string): string => {
+      let text = termKey(value)
+      for (const name of namesByLength) text = text.replace(name, ' ')
+      return feature(text)
+    }
     for (const view of parsed.records) {
       const record = view.raw
       if (view.kind === 'relations') continue
-      const related = referencedRecordIds(record).flatMap(ref => {
-        const target = indexes.nodesById.get(ref), kind = indexes.kindById.get(ref)
-        return target && (kind === 'concepts' || kind === 'entities') ? [recordLabel(target)] : []
-      })
-      const features = [...new Set([view.label, ...related].map(feature).filter(Boolean))].slice(0, 24)
+      const semanticRefs = semanticReferences(record)
+      const person = 'name' in record && record.type === 'person'
+      const topicTerms = person ? [] : boundedTerms([...(namedTerms.get(record.id) ?? []), ...semanticRefs.flatMap(ref => namedTerms.get(ref) ?? [])])
+      // Complete source terms support readable labels. Longer statements remain
+      // lexical features only, with explicit local person names removed.
+      const lexicalTitle = view.kind === 'concepts' || view.kind === 'entities' ? '' : impersonalText(view.label)
+      const features = person ? [] : [...new Set([...topicTerms, lexicalTitle].filter(Boolean))].slice(0, 24)
       const speakers = 'by' in record ? record.by.map(ref => { const target = indexes.nodesById.get(ref); return target ? recordLabel(target) : ref }).filter(Boolean) : []
       const node: MeetingKnowledgeNode = { id: id(record.id), title: view.label, kind: PEAK_KIND[view.kind], state: 'imported', importance: record.i,
-        features, links: referencedRecordIds(record).filter(ref => indexes.nodesById.has(ref) && indexes.kindById.get(ref) !== 'relations').map(id),
+        features, topicTerms, topicSourceId: fileKey, links: semanticRefs.filter(ref => indexes.nodesById.has(ref) && indexes.kindById.get(ref) !== 'relations').map(id),
         ownerSpecificity: 'unknown', confidentiality: 'unknown', classificationReason: '已导入会议知识；尚未核对当前原文，不推断个人独有性或保密性。',
         speaker: speakers.length ? speakers.join('、') : null, conditions: 'if' in record ? [...(record.if ?? [])] : [], limits: [...(record.limits ?? [])],
         epistemic: record.epistemic?.strength ?? 'unknown', evidence: [], meeting: metadata(record, view.kind),
@@ -132,6 +182,13 @@ export async function adaptMeetingSnapshot(input: MeetingSnapshotInput, range: D
     }
     for (const node of localNodes.values()) node.links = [...new Set(node.links)].filter(link => link !== node.id).slice(0, 64)
     // parsed.sourceText/raw/dataset are not retained in the returned snapshot.
+  }
+  // Classification can differ across meetings. Conservatively withhold an
+  // exact explicitly declared person name from naming/lexical candidates; this
+  // does not resolve identities or change any record, type, relation or source.
+  for (const node of nodes) {
+    node.topicTerms = node.topicTerms.filter(term => !batchPersonNames.has(termKey(term)))
+    node.features = node.features.filter(term => !batchPersonNames.has(termKey(term)))
   }
   meetings.relations = relations.length
   return { schema: 'notemd.strata/snapshot/v1', vaultKey: input.vaultKey, datasetKey: input.datasetKey, snapshotId: input.snapshotId,

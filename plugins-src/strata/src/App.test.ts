@@ -212,7 +212,7 @@ it('keeps terrain detail notices in the meeting legend flow', async () => {
   app = mount(App, { target: document.body }); await flush(); await chooseDataset('meetings_knowledge')
   expect(document.querySelectorAll('.detail-note')).toHaveLength(1)
   expect(document.querySelector('.legend')?.firstElementChild?.textContent).toBe('概览已简化轮廓。')
-  expect(document.querySelector('.legend')?.textContent).toContain('连续坡面表示知识积累')
+  expect(document.querySelector('.legend')?.textContent).toContain('标题为当前范围的代表词')
   expect(document.querySelectorAll('.kind-legend span')).toHaveLength(5)
 })
 
@@ -237,4 +237,46 @@ it.each(['date', 'reload'] as const)('returns a relation-only directory to page 
   button('新会议关系related_to').click(); await tick()
   expect(document.querySelector('[aria-label="会议关系详情"]')?.textContent).toContain('新会议关系')
   expect(request.mock.calls.filter(call => call[0] === 'plugin.meetings.snapshot')).toHaveLength(change === 'date' ? 1 : 2)
+})
+
+
+it.each([false, true])('migrates only old meeting layouts and preserves a current semantic layout (current=%s)', async current => {
+  const data = meetingSnapshot()
+  data.nodes = [{ id: 'concept', title: '概念原词', kind: 'concept', state: 'imported', topicTerms: ['概念原词'], topicSourceId: 'meeting-source', features: ['概念原词'], links: [], sourceGroups: [] } as unknown as Snapshot['nodes'][number]]
+  mocks.parseMeetings.mockResolvedValue(data)
+  const epoch = current ? 'vault-fixture:meetings_knowledge:concepts-v1:123' : 'vault-fixture:meetings_knowledge:1'
+  const saved = { version: 'strata-atlas/2', epoch, nodes: [], domains: [], topics: [] }
+  const base = request.getMockImplementation()!
+  request.mockImplementation((method, params) => method === 'plugin.meetings.atlas.load' ? Promise.resolve({ atlas: saved }) : base(method, params))
+  app = mount(App, { target: document.body }); await flush(); await chooseDataset('meetings_knowledge')
+  const build = mocks.build.mock.calls.at(-1)!
+  expect(build[0][0]).toEqual(expect.objectContaining({ topicTerms: ['概念原词'], topicSourceId: 'meeting-source' }))
+  expect(build[1]).toBe(current ? epoch : 'vault-fixture:meetings_knowledge:concepts-v1:1')
+  expect(build[4]).toEqual(current ? saved : undefined)
+  if (!current) expect(button('关系').getAttribute('aria-pressed')).toBe('true')
+  await chooseDataset('vault_index')
+  expect(mocks.build.mock.calls.at(-1)![1]).toBe('vault-fixture:vault_index:1')
+})
+
+it('renames meeting groups from the visible date range without changing cached layout names', async () => {
+  const data = meetingSnapshot()
+  data.nodes = ['历史主题', '当前概念'].map((title, i) => ({ id: `c${i}`, title, kind: 'concept', state: 'imported', topicTerms: [title], topicSourceId: `m${i}`, features: [title], links: [],
+    sourceGroups: [{ groupId: `g${i}`, groupVersion: 'v', priority: 1, dates: [i ? '2026-09-25' : '2026-09-05'] }] } as unknown as Snapshot['nodes'][number]))
+  mocks.parseMeetings.mockResolvedValue(data)
+  const build = mocks.build.getMockImplementation()!
+  mocks.build.mockImplementation(async (...args) => {
+    const output = await build(...args)
+    return { ...output, layout: { ...output.layout, domains: [{ id: 'd', name: '全量历史缓存名称', memberIds: ['c0', 'c1'] }], topics: [] } }
+  })
+  app = mount(App, { target: document.body }); await flush(); await chooseDataset('meetings_knowledge')
+  const original = await mocks.build.mock.results.at(-1)!.value
+  mocks.render.mockResolvedValue({ ...original, visibleIds: ['c1'], clusterNames: { d: '当前概念' } })
+  const from = document.querySelector<HTMLInputElement>('[aria-label="开始日期"]')!
+  from.value = '2026-09-15'; from.dispatchEvent(new Event('input', { bubbles: true })); from.dispatchEvent(new Event('change', { bubbles: true })); await flush()
+  button('目录').click(); await flush()
+  expect(document.querySelector('.directory-items')?.textContent).toContain('当前概念')
+  expect(document.querySelector('.directory-items')?.textContent).not.toContain('历史主题')
+  expect(original.layout.domains[0].name).toBe('全量历史缓存名称')
+  const saved = request.mock.calls.find(call => call[0] === 'plugin.meetings.atlas.save')![1] as any
+  expect(saved.atlas.domains[0].name).toBe('全量历史缓存名称')
 })

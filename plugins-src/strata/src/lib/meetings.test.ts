@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import { describe, expect, it } from 'vitest'
 import fixture from '../../../knowledge-browser/fixtures/minimal-valid.json'
 import { adaptMeetingSnapshot } from './meetings'
+import type { KnowledgeDataset } from '../../../knowledge-browser/src/lib/types'
 import type { MeetingDocument, MeetingSnapshotInput } from './meetings'
 
 const range = { from: '2026-09-01', to: '2026-09-30' }
@@ -76,4 +77,99 @@ describe('meeting dataset adapter', () => {
     expect(result.meetings.diagnosticCount).toBe(120); expect(result.meetings.diagnostics).toHaveLength(80)
     expect(result.meetings.diagnostics.every(item => item.message.length <= 512)).toBe(true)
   })
+
+  it('separates attributed speakers from semantic objects and keeps the complete source record', async () => {
+    const value = structuredClone(fixture) as unknown as KnowledgeDataset
+    value.events = []; value.narratives = []; value.relations = []
+    value.concepts[0].aliases = ['发布许可']
+    value.entities.push({ ...value.entities[1], id: 'e3', type: 'system', name: '发布平台', aliases: ['交付系统'] })
+    value.claims[0].about = ['c1', 'e3']
+    value.claims[0].text = '工程负责人讨论发布批准权与发布平台。'
+    const result = await adaptMeetingSnapshot(snapshot([document(undefined, value)]), range)
+    const claim = result.nodes.find(node => node.meeting.localId === 'q1')!
+    const speaker = result.nodes.find(node => node.meeting.localId === 'e1')!
+    expect(claim.topicTerms).toEqual(['发布批准权', '发布许可', '发布平台', '交付系统'])
+    expect(claim.features.some(term => term.includes('工程负责人'))).toBe(false)
+    expect(claim.links.map(id => id.split(':').at(-1))).toEqual(['c1', 'e3'])
+    expect(claim.speaker).toBe('工程负责人')
+    expect(claim.meeting.record).toEqual(value.claims[0])
+    expect(claim.meeting.references.some(ref => ref.localId === 'e1')).toBe(true)
+    expect(claim.meeting.evidence[0].speaker).toEqual({ id: 'e1', name: '工程负责人' })
+    expect(speaker.features).toEqual([]); expect(speaker.topicTerms).toEqual([])
+    expect(claim.topicSourceId).toBe('meeting:' + hash(document().path))
+    expect(claim.sourceGroups).toHaveLength(1)
+  })
+
+  it('retains people linked by explicit about and named relationship roles, not by alone', async () => {
+    const value = structuredClone(fixture) as unknown as KnowledgeDataset
+    value.claims[0].about = ['e2', 'c1']
+    const result = await adaptMeetingSnapshot(snapshot([document(undefined, value)]), range)
+    const claim = result.nodes.find(node => node.meeting.localId === 'q1')!
+    expect(claim.links.some(id => id.endsWith(':e1'))).toBe(false)
+    expect(claim.links.some(id => id.endsWith(':e2'))).toBe(true)
+    expect(claim.topicTerms).toEqual(['发布批准权'])
+    expect(result.relations[0].participants.map(({ role }) => role)).toEqual(['delegator', 'delegate', 'work'])
+    expect(result.relations[0].meeting.record).toEqual(value.relations[0])
+    const person = result.nodes.find(node => node.meeting.localId === 'e1')!
+    expect(person.links.some(id => id.endsWith(':e2'))).toBe(true)
+    expect(person.links.some(id => id.endsWith(':v1'))).toBe(true)
+  })
+
+  it('never gives same-named people cross-meeting lexical features or topic labels', async () => {
+    const result = await adaptMeetingSnapshot(snapshot([document(), document('ssot/meetings/other/knowledge.json')]), range)
+    const people = result.nodes.filter(node => node.meeting.kind === 'entities' && 'type' in node.meeting.record && node.meeting.record.type === 'person')
+    expect(people).toHaveLength(4)
+    expect(new Set(people.map(node => node.id)).size).toBe(4)
+    expect(people.every(node => !node.features.length && !node.topicTerms.length)).toBe(true)
+    expect(new Set(people.map(node => node.topicSourceId)).size).toBe(2)
+    for (const node of people) expect(node.links.every(id => id.startsWith(node.topicSourceId + ':'))).toBe(true)
+  })
+
+  it('uses bounded original concept terms and non-person aliases without inventing categories', async () => {
+    const value = structuredClone(fixture) as unknown as KnowledgeDataset
+    value.concepts[0].term = '工程负责人批准权'
+    value.concepts[0].aliases = ['工程负责人', 'e1', '发布许可', ...Array.from({ length: 40 }, (_, i) => '许可别名' + i)]
+    const result = await adaptMeetingSnapshot(snapshot([document(undefined, value)]), range)
+    const concept = result.nodes.find(node => node.meeting.localId === 'c1')!
+    expect(concept.topicTerms[0]).toBe('工程负责人批准权')
+    expect(concept.topicTerms).toContain('发布许可')
+    expect(concept.topicTerms).not.toContain('工程负责人')
+    expect(concept.topicTerms).not.toContain('e1')
+    expect(concept.topicTerms.length).toBeLessThanOrEqual(24)
+    expect(concept.meeting.record).toEqual(value.concepts[0])
+    expect(concept).not.toHaveProperty('category')
+  })
+
+
+  it('removes an explicit Latin person name without corrupting unrelated words', async () => {
+    const value = structuredClone(fixture) as unknown as KnowledgeDataset
+    value.entities[0].name = 'Al'
+    value.claims[0].text = 'Al discusses algorithm reliability'
+    const result = await adaptMeetingSnapshot(snapshot([document(undefined, value)]), range)
+    const claim = result.nodes.find(node => node.meeting.localId === 'q1')!
+    expect(claim.features).toContain('discusses algorithm reliability')
+    expect(claim.topicTerms).not.toContain('Al')
+  })
+
+
+  it('conservatively excludes a batch-declared person name without merging cross-meeting identities', async () => {
+    const first = structuredClone(fixture) as unknown as KnowledgeDataset
+    first.entities.push({ ...first.entities[1], id: 'e3', type: 'system', name: 'Alex', aliases: ['ＡＬＥＸ', '产品平台'] })
+    first.claims[0].about = ['e3', 'c1']
+    const second = structuredClone(first)
+    second.entities[2].type = 'person'
+    second.entities[2].aliases = ['ＡＬＥＸ']
+    const result = await adaptMeetingSnapshot(snapshot([document(undefined, first), document('ssot/meetings/other/knowledge.json', second)]), range)
+    const system = result.nodes.find(node => node.meeting.localId === 'e3' && node.meeting.datasetPath === document().path)!
+    expect(system.meeting.record).toEqual(first.entities[2])
+    expect(system.topicTerms).toEqual(['产品平台'])
+    expect(system.features).toEqual(['产品平台'])
+    expect(result.nodes.every(node => !node.topicTerms.some(term => term.normalize('NFKC').toLowerCase() === 'alex'))).toBe(true)
+    expect(result.nodes.every(node => !node.features.some(term => term.normalize('NFKC').toLowerCase() === 'alex'))).toBe(true)
+    expect(result.nodes.filter(node => node.meeting.localId === 'e3')).toHaveLength(2)
+    expect(result.nodes).toHaveLength(14)
+    expect(result.relations).toHaveLength(4)
+    expect(result.nodes.every(node => node.sourceGroups.length === 1)).toBe(true)
+  })
+
 })
