@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
-import { cityNodes, isExplicit } from './domain'
-import { overviewBlocks } from './city-projection'
+import { cityNodes } from './domain'
+import { districtCenter, overviewBlocks, overviewBuildings, streetPlan, visualPoint, type StreetSegment } from './city-projection'
 import type { Edge, Layout, Node } from './types'
 
 const SCALE = .052
@@ -10,11 +10,11 @@ export function landmarkStyle(node: Node) {
   return (node.status === 'anchor' || node.status === 'observed') ? known.get(node.label.toLowerCase()) : undefined
 }
 function seed(text: string) { let n = 2166136261; for (const c of text) n = Math.imul(n ^ c.charCodeAt(0), 16777619); return (n >>> 0) / 4294967296 }
-interface Lot { node: Node; x: number; z: number; h: number; w: number; style?: string }
+interface Lot { node: Node; x: number; z: number; h: number; w: number; zone: string; style?: string; growing?: boolean }
 export interface CityData { nodes: Node[]; layout: Layout[]; edges: Edge[] }
 export interface Label { id: string; name: string; x: number; y: number; kind: string; selected: boolean }
-export interface SceneStatus { labels: Label[]; count: number; rendered?: number; aggregated?: boolean; hover?: { name: string; kind: string; x: number; y: number } }
-const palette = { cream: '#ece7d5', roof: '#c29b78', project: '#729497', park: '#a4b789', grass: '#b9c8a1', road: '#ddd8c8' }
+export interface SceneStatus { labels: Label[]; count: number; rendered?: number; aggregated?: boolean; zoom?: number; hover?: { name: string; kind: string; x: number; y: number } }
+const palette = { road: '#687777', path: '#d8c49b' }
 
 export class CityScene {
   private renderer: THREE.WebGLRenderer
@@ -23,9 +23,6 @@ export class CityScene {
   private controls: OrbitControls
   private city = new THREE.Group()
   private lots: Lot[] = []
-  private data: CityData | null = null
-  private detail = false
-  private building = false
   private total = 0
   private rawLots = new Map<string, Lot>()
   private changeMarkers: THREE.InstancedMesh | null = null
@@ -101,23 +98,73 @@ export class CityScene {
     if (!entries.length) { geometry.dispose(); return }
     const mesh = new THREE.InstancedMesh(geometry, this.material(color), entries.length)
     const dummy = new THREE.Object3D()
+    const hasColors = entries.some(entry => !!entry.color)
     entries.forEach((entry, i) => {
       dummy.position.set(entry.p[0], entry.p[1], entry.p[2]); dummy.scale.set(entry.s[0], entry.s[1], entry.s[2]); dummy.rotation.set(0, entry.ry ?? 0, 0); dummy.updateMatrix()
       mesh.setMatrixAt(i, dummy.matrix)
-      if (entry.color) mesh.setColorAt(i, new THREE.Color(entry.color))
+      if (hasColors) mesh.setColorAt(i, new THREE.Color(entry.color ?? color))
     })
     mesh.castShadow = true; mesh.receiveShadow = true; mesh.instanceMatrix.needsUpdate = true
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true
     mesh.computeBoundingSphere(); this.city.add(mesh)
     if (selectable) { this.pickables.push(mesh); this.instanceIds.set(mesh, entries.map(e => e.id ?? '')) }
   }
+  private streetStrip(street: StreetSegment, width: number, y: number, color: string) {
+    const [a, bend, b] = street.points
+    const curve = new THREE.QuadraticBezierCurve3(new THREE.Vector3(a[0], y, a[1]), new THREE.Vector3(bend[0], y, bend[1]), new THREE.Vector3(b[0], y, b[1]))
+    const points = curve.getPoints(12), vertices: number[] = [], indices: number[] = []
+    points.forEach((point, i) => {
+      const before = points[Math.max(0, i - 1)], after = points[Math.min(points.length - 1, i + 1)]
+      const dx = after.x - before.x, dz = after.z - before.z, length = Math.hypot(dx, dz) || 1
+      const sideX = -dz / length * width / 2, sideZ = dx / length * width / 2
+      vertices.push(point.x + sideX, y, point.z + sideZ, point.x - sideX, y, point.z - sideZ)
+      if (i) { const n = i * 2; indices.push(n - 2, n, n - 1, n - 1, n, n + 1) }
+    })
+    const geometry = new THREE.BufferGeometry()
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3)); geometry.setIndex(indices); geometry.computeVertexNormals()
+    const mesh = new THREE.Mesh(geometry, this.material(color)); mesh.receiveShadow = true; this.city.add(mesh)
+  }
+  private gableRoof() {
+    const lf=[-1,-.5,1], lb=[-1,-.5,-1], rf=[1,-.5,1], rb=[1,-.5,-1], front=[0,.5,1], back=[0,.5,-1]
+    const triangles=[lf,front,back, lf,back,lb, rf,rb,back, rf,back,front, lf,rf,front, lb,back,rb]
+    const geometry=new THREE.BufferGeometry()
+    geometry.setAttribute('position',new THREE.Float32BufferAttribute(triangles.flat(),3));geometry.computeVertexNormals()
+    return geometry
+  }
+  private streets(streets: StreetSegment[]) {
+    for (const street of streets) {
+      if (street.traffic) {
+        this.streetStrip(street, street.width + .23, .145, this.dark ? '#9ba99c' : '#c9c5af')
+        this.streetStrip(street, street.width, .153, this.dark ? '#526569' : palette.road)
+        if (street.traffic > 4) this.streetStrip(street, .035, .159, this.dark ? '#b7ab82' : '#e9d8a8')
+      } else {
+        this.streetStrip(street, street.width + .16, .143, this.dark ? '#506852' : '#a9bd97')
+        this.streetStrip(street, street.width, .15, this.dark ? '#aa9d79' : palette.path)
+      }
+    }
+  }
+  private river(center: THREE.Vector3, width: number, depth: number) {
+    const left=center.x-width/2+.35, span=(width-.7)/6, coast=center.z+depth/2-2
+    for(let i=0;i<6;i++) {
+      const x0=left+i*span, x1=x0+span
+      const z0=coast+Math.sin(i*.9)*.5, z1=coast+Math.sin((i+1)*.9)*.5
+      const segment:StreetSegment={id:`river-${i}`,points:[[x0,z0],[(x0+x1)/2,(z0+z1)/2+Math.sin(i*1.7)*.5],[x1,z1]],width:2.6,traffic:0}
+      this.streetStrip(segment,3.25,.111,this.dark?'#7a947f':'#dbcda8')
+      this.streetStrip(segment,2.6,.121,this.dark?'#386977':'#69b5bd')
+    }
+    const rocks=[]
+    for(let i=0;i<64;i++) {
+      const x=left+seed(`river-rock-x-${i}`)*(width-.7), z=coast+(i%2?1.6:-1.6)+Math.sin((x-left)/span*.9)*.5
+      const size=.18+seed(`river-rock-size-${i}`)*.34
+      rocks.push({p:[x,.22,z],s:[size,size*.75,size*.7],ry:seed(`river-rock-turn-${i}`)*6,color:i%3?'#a9a99c':'#8d9d91'})
+    }
+    this.batch(new THREE.DodecahedronGeometry(1,0),'#a9a99c',rocks)
+  }
   private clear() {
-    this.city.traverse(object => { if(object instanceof THREE.InstancedMesh)object.dispose(); if (object instanceof THREE.Mesh) object.geometry.dispose(); if(object instanceof THREE.Line){object.geometry.dispose();for(const m of Array.isArray(object.material)?object.material:[object.material])m.dispose()} })
+    this.city.traverse(object => { if(object instanceof THREE.InstancedMesh)object.dispose(); if (object instanceof THREE.Mesh) object.geometry.dispose() })
     this.city.clear(); this.pickables = []; this.instanceIds.clear(); this.ring = null; this.selectedGlyph = null; this.renderedIds.clear()
   }
   setData(data: CityData, reframe: boolean) {
-    this.data = data; this.building = true
-    if (reframe) this.detail = false
     this.clear(); this.changeMarkers = null; this.blockMembers.clear()
     const positions = new Map(data.layout.map(p => [p.id, p]))
     const heroIds = new Set<string>()
@@ -125,25 +172,28 @@ export class CityScene {
       const candidates = data.nodes.filter(n=>n.label.toLowerCase()===label && landmarkStyle(n)).sort((a,b)=>Number(b.status==='anchor')-Number(a.status==='anchor')||(b.evidence?.length??0)-(a.evidence?.length??0)||a.id.localeCompare(b.id))
       if(candidates[0])heroIds.add(candidates[0].id)
     }
-    this.lots = data.nodes.flatMap(node => {
+    const sourceLots: Lot[] = data.nodes.flatMap(node => {
       const p = positions.get(node.id); if (!p || !Number.isFinite(p.x) || !Number.isFinite(p.y)) return []
       const variation = seed(node.id), style = heroIds.has(node.id) ? landmarkStyle(node) : undefined
-      const h = style === 'campus' ? 11 : style === 'camp' ? 2 : node.nodeType === 'project' ? 1.25 + variation * 1.8 : node.nodeType === 'topic' ? .15 : node.nodeType === 'document' ? .12 + variation * .1 : .2 + variation * .44
-      return [{ node, x: p.x * SCALE, z: p.y * SCALE, h, w: style ? 3.6 : node.nodeType === 'project' ? .28 : node.nodeType === 'topic' ? .48 : .13, style }]
+      const h = style === 'campus' ? 5.5 : style === 'camp' ? 2 : node.nodeType === 'project' ? 1.25 + variation * 1.8 : node.nodeType === 'topic' ? .15 : node.nodeType === 'document' ? .12 + variation * .1 : .2 + variation * .44
+      return [{ node, x: p.x * SCALE, z: p.y * SCALE, h, w: style ? 3.6 : node.nodeType === 'project' ? .28 : node.nodeType === 'topic' ? .48 : .13, zone:p.zone, style }]
     })
+    const blocks = overviewBlocks(sourceLots)
+    this.lots = sourceLots.map(lot => ({...lot, ...visualPoint(lot.x, lot.z)}))
     this.total = this.lots.length
     this.rawLots = new Map(this.lots.map(l => [l.node.id, l]))
     this.bounds.makeEmpty(); for (const lot of this.lots) this.bounds.expandByPoint(new THREE.Vector3(lot.x, lot.h, lot.z))
     if (this.bounds.isEmpty()) this.bounds.set(new THREE.Vector3(-12, 0, -12), new THREE.Vector3(12, 1, 12))
-    const aggregated = data.nodes.length > 1200 && !this.detail
-    const blocks = aggregated ? overviewBlocks(this.lots) : []
+    const aggregated = data.nodes.length > 1200
     if (aggregated) {
       const heroes = this.lots.filter(l => l.style)
-      this.lots = [...heroes, ...blocks.flatMap(block => block.representatives.slice(0, block.members.some(l=>l.node.nodeType==='project') ? 7 : 5).map((lot, i) => {
+      const largestBlock = Math.max(1, ...blocks.map(block => block.members.length))
+      this.lots = [...heroes, ...blocks.flatMap(block => overviewBuildings(block, largestBlock).map(({lot,x,z}) => {
         this.blockMembers.set(lot.node.id, block.members.map(l=>l.node.id))
-        const v = seed(lot.node.id), project = lot.node.nodeType === 'project'
-        return {...lot, x:block.x + (i % 3 - 1) * 1.8, z:block.z + (Math.floor(i / 3) - 1) * 1.8,
-          w:project ? 1.1 : .85 + v * .28, h:project ? 2 + v * 3.2 : .65 + v * 1.65}
+        const v = seed(lot.node.id), established = lot.node.nodeType === 'project' && ['anchor','observed','confirmed','user-confirmed'].includes(lot.node.status)
+        const growing = block.members.filter(member => member.zone === 'unassigned').length > block.members.length / 2
+        return {...lot, ...visualPoint(x,z), growing, w:growing ? .45 + v * .22 : established ? .9 + v * .18 : .7 + v * .23,
+          h:growing ? .28 + v * .4 : established ? 1.8 + v * 2.5 : .8 + v * 1.2}
       }))]
     }
     this.byId = new Map(this.lots.map(l => [l.node.id, l]))
@@ -154,64 +204,103 @@ export class CityScene {
     const base = this.mesh(new THREE.ExtrudeGeometry(shape, { depth: 1.2, bevelEnabled: true, bevelSize: .22, bevelThickness: .22, bevelSegments: 2, steps: 1 }), '#c3b297', center.x, -1.35, center.z); base.rotation.x = -Math.PI / 2
     this.ground = this.mesh(new THREE.ShapeGeometry(shape), this.dark ? '#516956' : '#bdcba3', center.x, .09, center.z); this.ground.rotation.x = -Math.PI/2; this.ground.castShadow = false
     this.water = this.mesh(new THREE.PlaneGeometry(2000,2000), this.dark ? '#2c5054' : '#b8d9d5', center.x, -1.7, center.z); this.water.rotation.x = -Math.PI/2; this.water.castShadow = false
-    // Environment paving and landscape have no knowledge-edge meaning.
-    const streetEntries = []
-    const spacing = aggregated ? 8 : 34 * SCALE
-    const roadWidth = aggregated ? .85 : .045
-    for (let x = Math.ceil((center.x-w/2+2)/spacing)*spacing; x < center.x+w/2-2; x+=spacing) streetEntries.push({p:[x,.115,center.z],s:[roadWidth,.012,d-3]})
-    for (let z = Math.ceil((center.z-d/2+2)/spacing)*spacing; z < center.z+d/2-2; z+=spacing) streetEntries.push({p:[center.x,.115,z],s:[w-3,.012,roadWidth]})
-    this.batch(new THREE.BoxGeometry(1,1,1), aggregated ? '#b1b6a6' : palette.road, streetEntries)
+    const growingGround=blocks.filter(block=>block.members.filter(member=>member.zone==='unassigned').length>block.members.length/2).map(block=>{
+      const c=districtCenter(block),p=visualPoint(c.x,c.z)
+      return {p:[p.x,.106,p.z],s:[4.2,.025,4.1],ry:seed(`${block.x}:${block.z}:ground`)*6,color:'#d3c69e'}
+    })
+    this.batch(new THREE.CylinderGeometry(1,1,1,12),'#d3c69e',growingGround)
+    this.river(center,w,d)
+    // Pale paths complete the landscape; explicit links widen their routed street segments.
+    const streets = streetPlan(blocks, data.edges, sourceLots).map(street => ({...street, points:street.points.map(([x,z]) => { const p=visualPoint(x,z); return [p.x,p.z] as [number,number] })}))
     const heroes=this.lots.filter(l=>l.style)
-    const inHero=(l:Lot)=>heroes.some(h=>Math.abs(l.x-h.x)<4.5 && Math.abs(l.z-h.z)<3.8)
-    const plots = aggregated ? blocks.map(b=>({p:[b.x,.12,b.z],s:[6.5,.04,6.5],color:seed(`${b.x}/${b.z}`)>.65?'#acc397':'#d9d9be'})) : this.lots.filter(l => !inHero(l) && l.node.nodeType === 'topic').map(l => ({p:[l.x,.12,l.z],s:[1.28,.035,1.28],color:seed(l.node.id)> .7?'#b4c49b':'#c4cfac'}))
-    this.batch(new THREE.BoxGeometry(1,1,1), '#ffffff', plots)
-    const bodies = [], roofs = [], windows = [], trees = [], trunks = []
+    const nearHero=(x:number,z:number,margin=0)=>heroes.some(h=>Math.abs(x-h.x)<(h.style==='camp'?8:4.5)+margin && Math.abs(z-h.z)<(h.style==='camp'?6.5:3.8)+margin)
+    const inHero=(l:Lot)=>nearHero(l.x,l.z)
+    const plots = blocks.map(b=>{
+      const c=districtCenter(b), p=visualPoint(c.x,c.z), v=seed(`${b.x}/${b.z}`), density=Math.min(1,Math.log2(b.members.length+1)/9)
+      const growing=b.members.filter(member=>member.zone==='unassigned').length>b.members.length/2
+      return {p:[p.x,.115,p.z],s:[growing?1.8:1.85+v*.1,.045,growing?1.7:1.75+seed(`${b.x}:${b.z}:plot`)*.1],ry:v*6.28,color:growing?'#d9c99d':density>.55?'#d9d5b7':'#a9c29a'}
+    }).filter(plot=>!nearHero(plot.p[0],plot.p[2],.5))
+    this.batch(new THREE.CylinderGeometry(1,1,1,9), '#ffffff', plots)
+    this.streets(streets)
+    const bodies = [], roofs = [], houseRoofs = [], windows = [], doors = [], trees = [], trunks = []
     for (const lot of this.lots) {
       const {node,x,z,h,w,style} = lot, v = seed(node.id)
       if (style) { this.landmark(lot); this.renderedIds.add(node.id); continue }
       if(inHero(lot) && lot.node.id!==this.selected) continue
       this.renderedIds.add(node.id)
-      const project = node.nodeType === 'project', topic = node.nodeType === 'topic', document = node.nodeType === 'document'
-      bodies.push({p:[x,.16+h/2,z],s:[w,h,w*.86],id:node.id,color:project ? ['#76969a','#a8bcb7','#8a9c8c'][Math.floor(v*3)] : topic ? '#becfa5' : document ? '#ded6c0' : ['#f0e7d3','#d9ccb2','#d9c3a8','#b5c4ba'][Math.floor(v*4)]})
-      if (!project && !topic) roofs.push({p:[x,.17+h,z],s:[w*1.1,.055,w],color:document ? '#ae8971' : '#c2aa86'})
+      const project = !lot.growing && node.nodeType === 'project' && ['anchor','observed','confirmed','user-confirmed'].includes(node.status), topic = node.nodeType === 'topic', document = node.nodeType === 'document'
+      if(lot.growing) {
+        bodies.push({p:[x,.16+h/2,z],s:[w,h,w*.86],id:node.id,color:['#b7a991','#d2bb95','#b9b9aa'][Math.floor(v*3)]})
+        continue
+      }
+      bodies.push({p:[x,.16+h/2,z],s:[w,h,w*.86],id:node.id,color:project ? ['#76969a','#a8bcb7','#8a9c8c'][Math.floor(v*3)] : topic ? '#becfa5' : document ? '#ded6c0' : node.nodeType === 'project' ? '#a6bab0' : ['#f0e7d3','#d9ccb2','#d9c3a8','#b5c4ba'][Math.floor(v*4)]})
+      if (!project && !topic) {
+        houseRoofs.push({p:[x,.35+h,z],s:[w*.57,.4,w*.52],ry:v>.5?Math.PI/2:0,color:document ? '#a97b63' : ['#bd8c68','#c7956f','#a8876d'][Math.floor(v*3)]})
+        windows.push({p:[x+w*.17,.18+Math.min(h*.62,.92),z+w*.44],s:[w*.26,.2,.025],color:'#9fb9b4'})
+        windows.push({p:[x+w*.505,.18+Math.min(h*.61,.9),z],s:[.025,.2,w*.24],color:'#9fb9b4'})
+        doors.push({p:[x-w*.24,.34,z+w*.445],s:[w*.18,.37,.028],color:'#8b7865'})
+      }
       if (project) {
         roofs.push({p:[x,.19+h,z],s:[w*1.05,.055,w*.95],color:'#e9e7dc'})
         for(let y=.38;y<h;y+=.26) windows.push({p:[x,.16+y,z+w*.437],s:[w*.78,.055,.014]})
         bodies.push({p:[x+w*.72,.16+h*.19,z+w*.45],s:[w*.65,h*.38,w*.7],id:node.id,color:'#aabcb3'})
       }
-      if ((topic || aggregated) && v>.35) {
-        trees.push({p:[x+.72,aggregated ? .7 : .45,z+.65],s:[aggregated ? .4 : .26,aggregated ? 1 : .5,aggregated ? .4 : .26],ry:v*6})
-        trunks.push({p:[x+.72,.3,z+.65],s:[.035,.2,.035]})
-      }
+      if (topic && v>.55) { trees.push({p:[x+.75,.76,z+.65],s:[.42,.96,.42],ry:v*6}); trunks.push({p:[x+.75,.3,z+.65],s:[.06,.35,.06]}) }
     }
     this.batch(new THREE.BoxGeometry(1,1,1),'#ffffff', bodies,true)
     this.batch(new THREE.BoxGeometry(1,1,1),'#ffffff', roofs)
+    this.batch(this.gableRoof(),'#ffffff', houseRoofs)
     this.batch(new THREE.BoxGeometry(1,1,1),'#d5e4df', windows)
+    this.batch(new THREE.BoxGeometry(1,1,1),'#8b7865', doors)
+    for (const block of blocks) {
+      const center=districtCenter(block), c=visualPoint(center.x,center.z), density=Math.min(1,Math.log2(block.members.length+1)/9)
+      const growing=block.members.filter(member=>member.zone==='unassigned').length>block.members.length/2
+      const count=growing?1:Math.round(4-density*2)
+      for(let i=0;i<count;i++) {
+        const angle=seed(`${block.x}:${block.z}:tree:${i}`)*Math.PI*2, radius=2.55+seed(`${i}:${block.x}:radius`)*.32
+        const x=c.x+Math.cos(angle)*radius,z=c.z+Math.sin(angle)*radius
+        if(nearHero(x,z))continue
+        const height=.65+seed(`${block.x}:${block.z}:${i}:height`)*.65
+        trees.push({p:[x,.35+height/2,z],s:[.28+height*.13,height,.28+height*.13],ry:angle,color:i%3?'#739b75':'#8aae78'})
+        trunks.push({p:[x,.28,z],s:[.06,.34,.06]})
+      }
+    }
     // A planted perimeter makes the scene a single place, instead of a scatterplot.
     for (let i=0;i<130;i++) {
-      const t=i/130*Math.PI*2, x=center.x+Math.cos(t)*(w/2-1.6), z=center.z+Math.sin(t)*(d/2-1.6), variation=seed(`tree-${i}`)
+      const t=i/130*Math.PI*2, variation=seed(`tree-${i}`), x=center.x+Math.cos(t)*(w/2-1.2-variation*.8), z=center.z+Math.sin(t)*(d/2-1.2-variation*.8)
       trees.push({p:[x,.45+variation*.2,z],s:[.5,.7+variation*.4,.5],ry:variation*6})
       trunks.push({p:[x,.22,z],s:[.06,.32,.06]})
     }
     this.batch(new THREE.ConeGeometry(1,1,6),'#8baf85',trees)
     this.batch(new THREE.BoxGeometry(1,1,1),'#997e60',trunks)
-    this.relationships(data.edges)
     const reserved = this.lots.filter(l => l.style).sort((a,b)=>(b.node.evidence?.length??0)-(a.node.evidence?.length??0)).slice(0,3)
     const named = [...reserved,...cityNodes(this.lots.map(l=>l.node).filter(n=>!known.has(n.label.toLowerCase())),'',7).flatMap(n=>this.byId.has(n.id)?[this.byId.get(n.id)!]:[])]
     const seen = new Set<string>(); this.labels = named.filter(l=>!seen.has(l.node.id)&&!!seen.add(l.node.id)).slice(0,12)
     this.hasData = true
     this.setSelected(this.selected,this.changed)
     if (reframe) this.fit(); else this.schedule()
-    this.building = false
   }
   private landmark(lot: Lot) {
     const {x,z,node,style} = lot
     const camp=style==='camp'
+    if(camp) {
+      const grove=this.mesh(new THREE.CylinderGeometry(1,1,.06,28),'#91b17e',x,.145,z)
+      grove.scale.set(8,1,6.6)
+      const forest=[],forestTrunks=[]
+      for(let i=0;i<66;i++) {
+        const angle=seed(`${node.id}:forest-angle:${i}`)*Math.PI*2, radius=3.8+seed(`${node.id}:forest-radius:${i}`)*4
+        const tx=x+Math.cos(angle)*radius,tz=z+Math.sin(angle)*radius*.82, height=1.05+seed(`${node.id}:forest-height:${i}`)*1.25
+        forest.push({p:[tx,.4+height/2,tz],s:[.46+height*.16,height,.46+height*.16],ry:angle,color:i%4?'#587f66':'#769d71'})
+        forestTrunks.push({p:[tx,.32,tz],s:[.08,.5,.08]})
+      }
+      this.batch(new THREE.ConeGeometry(1,1,7),'#6e9871',forest)
+      this.batch(new THREE.BoxGeometry(1,1,1),'#997954',forestTrunks)
+    }
     this.mesh(new THREE.BoxGeometry(9,.16,7.8),camp?'#a7be8f':'#e5dfcc',x,.23,z)
     this.mesh(new THREE.BoxGeometry(9.4,.08,8.2),'#eee6d1',x,.14,z)
     const trees=[],trunks=[]
     for(let i=0;i<16;i++) {
-      const angle=i/16*Math.PI*2, tx=x+Math.cos(angle)*4.1,tz=z+Math.sin(angle)*3.4,h=.9+seed(`hero-tree-${i}`)*1.1
+      const angle=i/16*Math.PI*2, tx=x+Math.cos(angle)*4.1,tz=z+Math.sin(angle)*3.4,h=.9+seed(`${node.id}:hero-tree-${i}`)*1.1
       trees.push({p:[tx,.5+h/2,tz],s:[.7,h,.7],ry:i});trunks.push({p:[tx,.4,tz],s:[.09,.5,.09]})
     }
     this.batch(new THREE.ConeGeometry(1,1,7),'#6e9871',trees)
@@ -224,44 +313,28 @@ export class CityScene {
       this.batch(new THREE.BoxGeometry(1,1,1),'#a77f56',[{p:[x-.9,.55,z+.6],s:[.9,.15,.25]},{p:[x+.2,.55,z+1.3],s:[.25,.15,.9]}])
     } else {
       const warm=node.label.toLowerCase()==='note.md'
-      const towers=[{p:[x-1.5,3.9,z-.3],s:[1.6,7.3,1.65],id:node.id},{p:[x+.65,5.7,z-1.15],s:[1.7,10.9,1.6],id:node.id},{p:[x+1.7,1.8,z+1.5],s:[1.5,3.1,1.7],id:node.id}]
-      this.batch(new THREE.BoxGeometry(1,1,1),warm?'#c6ac84':'#668d83',towers,true)
-      this.mesh(new THREE.BoxGeometry(5.9,.7,4.2),warm?'#ddd0ad':'#a4b3a0',x,.63,z)
+      const buildings=[
+        {p:[x-2.15,2.05,z-1.7],s:[2.15,3.65,2.1],id:node.id},
+        {p:[x+1.65,2.7,z-1.7],s:[2.35,4.95,2.05],id:node.id},
+        {p:[x-2.05,1.55,z+1.8],s:[2.3,2.65,2],id:node.id},
+        {p:[x+1.65,1.95,z+1.8],s:[2.25,3.45,2.1],id:node.id},
+      ]
+      this.batch(new THREE.BoxGeometry(1,1,1),warm?'#c6ac84':'#668d83',buildings,true)
       const stripes=[]
-      for(const tower of towers) for(let y=.9;y<tower.s[1];y+=.55) {
-        stripes.push({p:[tower.p[0],y,tower.p[2]+tower.s[2]/2+.012],s:[tower.s[0]*.83,.16,.02]})
-        stripes.push({p:[tower.p[0]+tower.s[0]/2+.012,y,tower.p[2]],s:[.02,.16,tower.s[2]*.83]})
+      for(const building of buildings) for(let y=.75;y<building.s[1];y+=.48) {
+        stripes.push({p:[building.p[0],y,building.p[2]+building.s[2]/2+.012],s:[building.s[0]*.83,.14,.02]})
+        stripes.push({p:[building.p[0]+building.s[0]/2+.012,y,building.p[2]],s:[.02,.14,building.s[2]*.83]})
       }
-      this.batch(new THREE.BoxGeometry(1,1,1),warm?'#f0e5cb':'#c6d5bc',stripes)
-      const roofs=towers.map(t=>({p:[t.p[0],t.p[1]+t.s[1]/2+.08,t.p[2]],s:[t.s[0]*1.09,.15,t.s[2]*1.09]}))
+      this.batch(new THREE.BoxGeometry(1,1,1),warm?'#f0e5cb':'#b8d9d5',stripes)
+      const roofs=buildings.map(t=>({p:[t.p[0],t.p[1]+t.s[1]/2+.08,t.p[2]],s:[t.s[0]*1.09,.15,t.s[2]*1.09]}))
       this.batch(new THREE.BoxGeometry(1,1,1),'#e9e5d3',roofs)
-      this.mesh(new THREE.BoxGeometry(.7,.55,.7),'#9caf98',x+.65,11.5,z-1.15)
-      this.mesh(new THREE.BoxGeometry(3,.08,.65),'#f4ecda',x,.23,z+3)
-      this.batch(new THREE.BoxGeometry(1,1,1),'#c0a889',[{p:[x-2,.45,z+2.6],s:[1.2,.2,.3]},{p:[x+1.4,.45,z+2.6],s:[1.2,.2,.3]}])
+      this.mesh(new THREE.CylinderGeometry(.72,.72,.13,16),'#e8ddbf',x,.34,z)
+      this.mesh(new THREE.CylinderGeometry(.52,.52,.025,16),'#83bfc1',x,.42,z)
+      this.mesh(new THREE.BoxGeometry(1.15,.08,1.9),'#e7dfca',x,.24,z+2.45)
+      this.batch(new THREE.BoxGeometry(1,1,1),'#c0a889',[{p:[x-1.1,.4,z+2.7],s:[.75,.2,.25]},{p:[x+1.05,.4,z+2.7],s:[.75,.2,.25]}])
     }
   }
 
-  private relationships(edges: Edge[]) {
-    const prominent = new Set(cityNodes(this.lots.map(l=>l.node),'',120).map(n=>n.id))
-    for(const l of this.lots) if(l.style) prominent.add(l.node.id)
-    const candidates=edges.filter(e=>e.participants.filter(p=>prominent.has(p.node)).length>=2).sort((a,b)=>Number(isExplicit(b))-Number(isExplicit(a))||b.verifiedFamilies-a.verifiedFamilies||a.id.localeCompare(b.id)).slice(0,70)
-    for(const edge of candidates) {
-      const points=[...new Set(edge.participants.map(p=>p.node))].flatMap(id=>this.byId.has(id)?[this.byId.get(id)!]:[])
-      if(points.length<2)continue
-      const cx=points.reduce((s,l)=>s+l.x,0)/points.length,cz=points.reduce((s,l)=>s+l.z,0)/points.length
-      for(const lot of points) {
-        const distance=Math.hypot(lot.x-cx,lot.z-cz)
-        const curve=new THREE.QuadraticBezierCurve3(new THREE.Vector3(lot.x,.21,lot.z),new THREE.Vector3(lot.x,.22,cz),new THREE.Vector3(cx,.21,cz))
-        if(isExplicit(edge)) {
-          const road=new THREE.Mesh(new THREE.TubeGeometry(curve,16,.045+Math.min(5,edge.verifiedFamilies)*.018,4,false),this.material('#b49364'))
-          road.receiveShadow=true;this.city.add(road);continue
-        }
-        const geometry=new THREE.BufferGeometry().setFromPoints(curve.getPoints(Math.min(40,Math.max(6,Math.ceil(distance)))))
-        const material=isExplicit(edge)?new THREE.LineBasicMaterial({color:'#b08d5b',transparent:true,opacity:.58}):new THREE.LineDashedMaterial({color:'#9cac92',dashSize:.14,gapSize:.12,transparent:true,opacity:.4})
-        const line=new THREE.Line(geometry,material);line.computeLineDistances();this.city.add(line)
-      }
-    }
-  }
   setSelected(id: string, changed: Set<string>) {
     this.selected=id;this.changed=changed
     if(this.changeMarkers){this.city.remove(this.changeMarkers);this.changeMarkers.geometry.dispose();this.changeMarkers.dispose();this.changeMarkers=null}
@@ -286,11 +359,11 @@ export class CityScene {
     this.schedule()
   }
   setDark(value: boolean) {this.dark=value;this.renderer.setClearColor(value?'#162c30':'#e7eee5',1);this.renderer.toneMappingExposure=value?.85:1.1;this.sun.intensity=value?1.6:2.6;if(this.ground)this.ground.material=this.material(value?'#516956':'#bdcba3');if(this.water)this.water.material=this.material(value?'#2c5054':'#b8d9d5');this.schedule()}
-  resize(width: number,height: number) {this.width=width;this.height=height;this.renderer.setSize(width,height,false);const size=this.bounds.getSize(new THREE.Vector3());const half=this.hasData&&this.camera.zoom===1?Math.max(12,(size.x+size.z+15)*.30,(size.x+size.z+15)*.40*height/width):(this.camera.top-this.camera.bottom)/2;this.camera.top=half;this.camera.bottom=-half;this.camera.left=-half*width/height;this.camera.right=half*width/height;this.camera.updateProjectionMatrix();if(this.hasData)this.schedule()}
+  resize(width: number,height: number) {this.width=width;this.height=height;this.renderer.setSize(width,height,false);const size=this.bounds.getSize(new THREE.Vector3());const half=this.hasData&&this.camera.zoom===1?Math.max(12,(size.x+size.z+15)*.26,(size.x+size.z+15)*.35*height/width):(this.camera.top-this.camera.bottom)/2;this.camera.top=half;this.camera.bottom=-half;this.camera.left=-half*width/height;this.camera.right=half*width/height;this.camera.updateProjectionMatrix();if(this.hasData)this.schedule()}
   fit() {
     const center=this.bounds.getCenter(new THREE.Vector3()), size=this.bounds.getSize(new THREE.Vector3())
     this.controls.target.set(center.x,0,center.z);this.camera.position.set(center.x+95,92,center.z+116);this.camera.zoom=1;this.controls.update()
-    const half=Math.max(12,(size.x+size.z+15)*.30,((size.x+size.z+15)*.40)*this.height/this.width)
+    const half=Math.max(12,(size.x+size.z+15)*.26,((size.x+size.z+15)*.35)*this.height/this.width)
     this.camera.top=half;this.camera.bottom=-half;this.camera.left=-half*this.width/this.height;this.camera.right=half*this.width/this.height;this.camera.updateProjectionMatrix();this.schedule()
   }
   zoom(factor: number) {this.camera.zoom=THREE.MathUtils.clamp(this.camera.zoom*factor,.35,16);this.camera.updateProjectionMatrix();this.cameraChanged()}
@@ -315,11 +388,9 @@ export class CityScene {
       if(!l.style&&l.node.id!==this.selected&&rects.some(r=>Math.abs(x-r.x)<(w+r.w)/2+10&&Math.abs(y-r.y)<35))continue
       rects.push({x,y,w});labels.push({id:l.node.id,name:l.node.label,x,y,kind:l.node.nodeType,selected:l.node.id===this.selected})
     }
-    this.status({labels,count:this.total,rendered:this.lots.length,aggregated:!!this.data && this.data.nodes.length>1200&&!this.detail,hover})
+    this.status({labels,count:this.total,rendered:this.lots.length,aggregated:this.total>1200,zoom:this.camera.zoom,hover})
   }
   private cameraChanged=()=>{
-    const detail=this.camera.zoom>=3.5
-    if(!this.building && this.data && this.data.nodes.length>1200 && detail!==this.detail){this.detail=detail;this.setData(this.data,false)}
     this.schedule()
   }
   private schedule=()=>{if(this.disposed)return;cancelAnimationFrame(this.frame);this.frame=requestAnimationFrame(()=>{this.renderer.render(this.scene,this.camera);this.emit()})}

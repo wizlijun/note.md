@@ -2,7 +2,7 @@
 
 HABITAT 从当前 Vault 的 Markdown、大纲节点和已有会议知识数据提取可回源的知识结构，以候选主题、概念、实体和项目呈现为城市。核心计算在本机完成，不新增模型调用。已有 AI 抽取数据仍标记为导入声明或候选；来源版本匹配不代表语义已经证实。
 
-`0.1.0` 已发布至 [note.md 插件市场](https://plugins.notemd.net/)，提供 macOS Apple Silicon / Intel 包。最低宿主为 `>=6.930.3`，需要包含新 `host.knowledge.*` 接口；旧版宿主 `6.930.2` 无此接口，升级至 `6.930.3` 或更新版后才可使用本插件。已完成本地提取、压缩快照、专用 Git 保存与历史接口、语义比较及 Three.js 低模 3D 城市界面；真实 Vault 本轮只读验证，没有在该 Vault 创建结构文件、Git 提交或推送。以下说明当前实现与验证范围。
+`0.1.1` 已发布至 [note.md 插件市场](https://plugins.notemd.net/)，提供 macOS Apple Silicon / Intel 包。最低宿主为 `>=6.930.3`，需要包含新 `host.knowledge.*` 接口；宿主 `6.930.3` 已发布。已完成本地提取、压缩快照、专用 Git 保存与历史接口、语义比较及 Three.js 低模 3D 城市界面；真实 Vault 本轮只读验证，没有在该 Vault 创建结构文件、Git 提交或推送。产品设计与当前实现边界见 [提取规格](../../docs/superpowers/specs/2026-09-30-vault-knowledge-structure-extraction-design.md#11-源码实现与真实全量验收2026-09-30)。
 
 ## 模块职责
 
@@ -23,8 +23,8 @@ HABITAT 从当前 Vault 的 Markdown、大纲节点和已有会议知识数据�
 - 词汇特征与显式联系形成候选邻近图。组织算法为 `connected-local-moving/1`，是确定性局部移动及连通性细化，**不是完整 Leiden**。主归属由社区分区决定，次归属保留跨主题联系；主题名称与归属仍是候选。
 - 原有身份和坐标尽量继承；新主题采用方形螺旋布局并避让已有地块。词面相似和局部共现不宣称因果。
 - 城市使用 Three.js/WebGL：地形基座、光照阴影、园区建筑群、营地、街区和树木；支持旋转、平移、缩放与对象选择。Hemory、note.md、Bushcraft 的园区/营地外观来自本次视觉规划，不改变其真实类型、候选状态或主题归属。
-- 超过 1,200 个对象时，总览按固定 8 单位空间格选择确定性的代表建筑；当前全量为 935 个代表。它是渲染聚合，不是新的语义社区，不改变快照坐标。每格保留全部成员引用，悬停显示街区对象数；放大至 3.5 倍展开原对象，列表选择非代表项时临时显示选择标记。列表每页 60 项，搜索、分页与主题过滤覆盖整个快照。
-- 地标优先标注；实线金色连接与候选虚线来自结构关系，只显示有限显著联系。街道铺装、树木和景观是装饰，不宣称真实调用或知识关系。历史变化以橙色地面标记显示，总览中街区任一成员变化会标记其代表建筑。
+- 超过 1,200 个对象时，按固定 8 单位空间格选择确定性的代表建筑；当前全量为 549 座代表建筑。它是渲染聚合，不是新的语义社区，不改变快照坐标。每格保留全部成员引用；放大后仍限制建筑总量，避免 32,526 个对象同时成为针垫。列表每页 60 项，搜索、分页与主题过滤覆盖整个快照。
+- 地标优先标注。对象间不叠画独立曲线；二元关系聚合到街区后沿稳定街道网络路由，经过的路段按固定的局部流量函数变宽。直接记录的引用/知识链接权重最高，标签较低，导入候选更低；多参与者关系不擅自拆成两两道路，未投影或断开的关系不虚构道路。浅色小径、树木和水岸是景观，不代表真实知识调用；没有调用事件数据时不生成车流。历史变化以橙色地面标记显示，总览中街区任一成员变化会标记其代表建筑。
 
 尚未实现人工合并/拆分、用途及园区规划编辑、真实知识调用事件车流、跨设备同时生成或自动语义消歧。没有事件数据时不生成真实车流；历史界面列出保存版本及结构差异，未实现完整成长动画或恢复旧版为新版本的操作。
 
@@ -70,7 +70,7 @@ cargo build --release --manifest-path plugins-src/habitat/backend/Cargo.toml --b
 bash scripts/dev-install-plugin.sh habitat
 ```
 
-源 manifest 保持最低宿主 `>=6.930.3`。dev 安装脚本只把**安装副本**的版本约束改为源码仓库当前 `package.json` 的精确版本，供本地源码宿主调试；市场发布包始终使用源 manifest 的正式门槛。
+源 manifest 的最低宿主版本为 `>=6.930.3`。dev 安装脚本只调整**安装副本**的版本约束，源 manifest 不变；本地开发宿主须包含 `host.knowledge.*` 接口。此命令是本地插件开发安装，不发布插件，不替换正式 note.md app。
 
 ## 只读复验与预览
 
@@ -78,9 +78,9 @@ bash scripts/dev-install-plugin.sh habitat
 
 ```sh
 mkdir -p tasks/design
-python3 habitat-core/examples/export_audit_manifest.py /path/to/vault tasks/design/habitat-vault-manifest.json
-cargo run --release --manifest-path habitat-core/Cargo.toml --example audit_vault -- /path/to/vault tasks/design/habitat-vault-manifest.json tasks/design/habitat-current.jsonl
-pnpm --filter habitat-plugin preview --snapshot /path/to/mdeditor/tasks/design/habitat-current.jsonl --port 8787
+python3 habitat-core/examples/export_audit_manifest.py /Users/bruce/git/sotvault tasks/design/habitat-vault-manifest.json
+cargo run --release --manifest-path habitat-core/Cargo.toml --example audit_vault -- /Users/bruce/git/sotvault tasks/design/habitat-vault-manifest.json tasks/design/habitat-current.jsonl
+pnpm --filter habitat-plugin preview --snapshot /Users/bruce/git/mdeditor/tasks/design/habitat-current.jsonl --port 8787
 ```
 
 最后一条命令自动构建前端并仅监听 `127.0.0.1:8787`，输入必须是解压后的标准 JSONL。也可先构建再直接运行：
@@ -91,9 +91,30 @@ node plugins-src/habitat/scripts/preview.mjs --snapshot /absolute/path/snapshot.
 
 浏览器预览显示“只读预览 · 未存入 Vault”。它支持城市选择、全量搜索、分页、主题和覆盖范围浏览；重新解析、保存、Git 历史和打开原文均不可用。此模式不能证明真实 note.md 桥接已通过验收。
 
-## 本地验证说明
+## 2026-09-30 全量验证记录
 
-前端测试、原生后端测试、结构核心测试、宿主知识接口及 Vault 同步测试均已覆盖生成、来源核对、压缩快照、历史读取和冲突保护。使用上节命令可在自己的 Vault 运行只读审计；审计清单、展开快照与截图只保存在被忽略的 `tasks/design/`，不随源码或插件包发布。
+本机 `/Users/bruce/git/sotvault` 冻结清单包含 14,207 输入（含 445 个 `knowledge.json` 与 2 份配置），全部成功解析；没有不可用输入。输出只保存在仓库被忽略的 `tasks/design/`。
+
+| 指标 | 实测 |
+| --- | ---: |
+| 节点 | 32,526：概念 11,603、实体 5,805、项目 401、文档 12,437、主题 2,280 |
+| 关系 / 证据定位 | 31,067 / 63,870 |
+| 会议知识记录 | 44,838 = 19,145 已投影 + 25,693 明确未投影 + 0 隔离记录 |
+| 未有命名概念归属的来源 / 未解析本地链接 | 8,184 / 12,287 |
+| 压缩快照 | 8,274,428 bytes（7.89 MiB），低于 10 MiB 门禁 |
+| 完整展开 JSONL | 48,601,593 bytes；压缩后为 17.03% |
+| 提取 / 组织 / 完整解码 | 30,376 / 1,282 / 1,050 ms |
+| 同输入完整重跑 | 32,913 ms；压缩字节与 JSONL 字节均完全相同 |
+| 无损解码 / 空标签 / 坏证据引用 | 通过 / 0 / 0 |
+| 主题布局宽高比 / 全部坐标重复 | 1.0 / 0 |
+
+源码验证还包括核心 24 项、原生后端 9 项、宿主知识接口/事务 28 项、Vault Sync 20 项、既有 index 9 项、Vault 信息 7 项；前端 20 项与本地服务 2 项测试、类型检查、生产构建通过。宿主和插件 debug 二进制构建、原生 NDJSON 初始化及宿主请求往返通过。宿主按测试名称筛选包含既有回归，不以数量宣称覆盖完整应用。历史缓存已覆盖容量上限、跨分支 commit 绑定与未知坏版本拒绝。
+
+12 项提取 fixture 测试已通过，覆盖 AST、空 Wiki 入链、真实 `note.md` 名称、路径扩展、局部大纲证据、改名身份、来源去重、会议闭包和完整关系角色。全量结果中可检索到 Hemory、note.md、隐性知识与 Bushcraft；名称命中数不代表已确认项目数或语义质量准确率。
+
+只读浏览器预览已验证真实全量数据的亮色、暗色、800 px 窗口、选择详情、覆盖面板及写操作不可用状态，未出现浏览器错误。本机 Chrome 单次首次显示 325 ms、搜索 54 ms；这是一次观察值，不是 SLA。截图保存在忽略目录 `tasks/design/habitat-final-{overview,hemory,detail,coverage,dark,narrow}.png`，不代表原生宿主集成验收。
+
+可复验摘要为 `tasks/design/habitat-current-summary.json`，快照为同目录 `habitat-current.jsonl.zst` 与人工预览用 `.jsonl`。上述耗时是本机单次测量，不是 p50/p95 或峰值内存结论；全库人工语义准确率和真实宿主全量保存/回放仍需单独验收。
 
 ## 2026-09-30 三维视觉重做
 
@@ -101,8 +122,14 @@ node plugins-src/habitat/scripts/preview.mjs --snapshot /absolute/path/snapshot.
 
 ## 0.1.0 市场发布验证（2026-09-30）
 
-使用仓库 Wrangler 3.114.17 与 Account API Token，按 R2 包/签名上传 → 匿名回读验签 → KV 索引的顺序发布。双架构 Developer ID、minisign 生产签名均通过验证，原生进程初始化/退出检查通过。公网包与本地产物逐字节一致；索引保留原有 249 条，仅新增 HABITAT 为第 250 条，普通与绕缓存公网索引均匹配候选文件。市场包仅含插件；宿主需另行升级到 6.930.3 或更新版。未修改实际 Vault，也未随包携带私有快照。
+使用仓库 Wrangler 3.114.17 与 Account API Token，按 R2 包/签名上传 → 匿名回读验签 → KV 索引的顺序发布。双架构 Developer ID、minisign 生产签名均通过验证，原生进程初始化/退出检查通过。公网包与本地产物逐字节一致；索引保留原有 249 条，仅新增 HABITAT 为第 250 条，普通与绕缓存公网索引均匹配候选文件。未发布宿主、未修改实际 Vault，也未随包携带私有快照。
 
 - Apple Silicon：3,477,791 bytes，SHA-256 `b762c3a4fc37f3424a4c588e3763dfe5b04367977f52274fbfde0851611a3ebe`。
 - Intel：3,575,249 bytes，SHA-256 `78fe74c7ef6bab26f700b833074575d8108f1d0d66956be6bf41f1a126120587`。
 - 发布审计文件：`tasks/design/habitat-release/`（本机忽略目录）。
+
+## 0.1.1 道路与街区更新（2026-10-01）
+
+关系不再以跨街区曲线叠画；直接记录的链接、标签以及低权重的导入候选沿已有街道网络聚合，局部关系量决定路宽。道路宽度采用固定映射，使历史版本中其他地区增长不会令原路变窄。园区占地按整段道路采样避让，街区有分组住宅、项目楼群、成长地块、营地和水岸。真实快照 32,526 对象的全景、近景、Hemory 详情和 800 px 窄屏已在 Chrome 只读预览验证；这是低模程序化城市，尚未达到概念效果图的写实程度，也没有实际车辆流量。
+
+前端 32 项、预览 HTTP 2 项测试及类型检查、生产构建通过。Apple Silicon / Intel 包分别为 SHA-256 `108ed929121fe006a618329deb7dfef63e31a3524149bfd42f240202089bd3c5` / `01563f2e9a8aa407e7d9346a81169ae9fbb1e1288a8849789b8b1ec851e035de`；Developer ID 与 minisign 验签通过。沿用仓库 Wrangler 3.114.17 + Account API Token，R2 四对象匿名回读逐字节匹配后发布 KV；公网索引由 250 条增至 251 条，旧条目保持不变。

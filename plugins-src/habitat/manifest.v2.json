@@ -2,7 +2,7 @@
   "manifest_version": 2,
   "id": "notemd.habitat",
   "name": "HABITAT",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "kind": "native",
   "engines": { "notemd": ">=6.930.3" },
   "description": "Explore the structure of your Vault as a growing city, with source evidence and version history.",
