@@ -2,7 +2,7 @@
 
 HABITAT 从当前 Vault 的 Markdown、大纲节点和已有会议知识数据提取可回源的知识结构，以候选主题、概念、实体和项目呈现为城市。核心计算在本机完成，不新增模型调用。已有 AI 抽取数据仍标记为导入声明或候选；来源版本匹配不代表语义已经证实。
 
-`0.2.0` 城市渲染重构，准备发布至 [note.md 插件市场](https://plugins.notemd.net/)，提供 macOS Apple Silicon / Intel 包。最低宿主为 `>=6.930.3`，需要包含新 `host.knowledge.*` 接口；宿主 `6.930.3` 已发布。已完成本地提取、压缩快照、专用 Git 保存与历史接口、语义比较及 Three.js 低模 3D 城市界面；真实 Vault 本轮只读验证，没有在该 Vault 创建结构文件、Git 提交或推送。产品设计与当前实现边界见 [提取规格](../../docs/superpowers/specs/2026-09-30-vault-knowledge-structure-extraction-design.md#11-源码实现与真实全量验收2026-09-30)。
+`0.2.0` 城市渲染重构已发布至 [note.md 插件市场](https://plugins.notemd.net/)，提供 macOS Apple Silicon / Intel 包。最低宿主为 `>=6.930.3`，需要包含新 `host.knowledge.*` 接口；宿主 `6.930.3` 已发布。已完成本地提取、压缩快照、专用 Git 保存与历史接口、语义比较及 Three.js 低模 3D 城市界面；真实 Vault 本轮只读验证，没有在该 Vault 创建结构文件、Git 提交或推送。产品设计与当前实现边界见 [提取规格](../../docs/superpowers/specs/2026-09-30-vault-knowledge-structure-extraction-design.md#11-源码实现与真实全量验收2026-09-30)。
 
 ## 模块职责
 
@@ -151,3 +151,5 @@ node plugins-src/habitat/scripts/render-qa.mjs \
 需先在当前环境安装 Playwright，或通过 `--playwright /absolute/path/to/playwright/index.mjs` 指定现有模块；Chrome 可通过 `--chrome` 指定。脚本检查 20 次全量重建、全量历史高亮、子集/全量反复切换、知识 ID 拾取、旋转缩放、深浅色、窄窗口、关闭重开和仅本地资源加载。`--hardware` 使用默认 GPU；省略则使用 SwiftShader 做可移植检查。渲染耗时为 JS 提交测量，不当作 GPU 帧率。
 
 最终真实全量浏览器验收：69 个 draw calls、69 个 GPU 几何、25 张 GPU 纹理，20 次重建及 5 次全量变化标记、5 次子集恢复均无资源增长；浏览器错误、警告、失败请求和外网请求均为 0。场景含 1,228 个建筑/景观实例，实际34模型文件不是知识对象数。正式UI另验 Hemory/note.md/Bushcraft 点击靠近和来源详情、搜索恢复、深浅色及800px无横向溢出。Apple M4 Pro热缓存成景约0.43秒，较冷首屏曾约1.2秒；旋转JS提交0.6–1.0ms，不代表GPU帧率。没有以本地浏览器结果替代原生宿主完整读写验收。
+
+发布复核：前端28项、HTTP3项、类型检查、生产构建通过；已退休旧渲染模块的12项测试由新规划8项测试替代。双架构原生初始化/退出、Developer ID与minisign验签通过。沿用Wrangler 3.114.17与Account API Token，R2包和签名匿名回读逐字节一致后才发布KV，公网252条索引保留全部251条旧记录。Apple Silicon包3,964,996 bytes（SHA-256 `ad9f37effe38166f91c03499ce4021ea3d2fbb91c7724ce5d5df9691ede4c05e`）；Intel包4,063,032 bytes（`7e06ee5a66c521dd37c1b4ef0e27cdc59e4033732e8751d9be6116155628d890`）。宿主继续使用6.930.3。
