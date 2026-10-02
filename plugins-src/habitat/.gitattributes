@@ -1,0 +1,2 @@
+# Keep third-party license notices byte-identical to their upstream archives.
+public/models/**/License.txt -text -whitespace

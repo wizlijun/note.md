@@ -1,20 +1,60 @@
 import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
-import { cityNodes } from './domain'
-import { districtCenter, overviewBlocks, overviewBuildings, streetPlan, visualPoint, type StreetSegment } from './city-projection'
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
+import { CityAssets, houses, commercial, trees, tents, type CityAssetId, type CityAssetPlacement } from './city-assets'
+import { planCity, segmentDistance, type CityPlan, type CityPoint, type CityPlacement } from './city-plan'
 import type { Edge, Layout, Node } from './types'
 
 const SCALE = .052
 const known = new Map([['hemory', 'campus'], ['note.md', 'campus'], ['bushcraft', 'camp']])
-export function landmarkStyle(node: Node) {
-  return (node.status === 'anchor' || node.status === 'observed') ? known.get(node.label.toLowerCase()) : undefined
+export function landmarkStyle(node: Node) { return ['anchor', 'observed'].includes(node.status) ? known.get(node.label.toLowerCase()) : undefined }
+function seed(text: string) {
+  let n = 2166136261
+  for (const c of text) n = Math.imul(n ^ c.charCodeAt(0), 16777619)
+  // Avalanche suffix differences: x/z samples must not form diagonal bands.
+  n = Math.imul(n ^ n >>> 16, 0x85ebca6b); n = Math.imul(n ^ n >>> 13, 0xc2b2ae35)
+  return ((n ^ n >>> 16) >>> 0) / 4294967296
 }
-function seed(text: string) { let n = 2166136261; for (const c of text) n = Math.imul(n ^ c.charCodeAt(0), 16777619); return (n >>> 0) / 4294967296 }
-interface Lot { node: Node; x: number; z: number; h: number; w: number; zone: string; style?: string; growing?: boolean }
+interface VisualLot { node: Node; x: number; z: number; h: number; w: number; style?: string; parcelId: string }
 export interface CityData { nodes: Node[]; layout: Layout[]; edges: Edge[] }
 export interface Label { id: string; name: string; x: number; y: number; kind: string; selected: boolean }
-export interface SceneStatus { labels: Label[]; count: number; rendered?: number; aggregated?: boolean; zoom?: number; hover?: { name: string; kind: string; x: number; y: number } }
-const palette = { road: '#687777', path: '#d8c49b' }
+export interface SceneStatus { labels: Label[]; count: number; rendered?: number; aggregated?: boolean; zoom?: number; loading?: boolean; error?: string; hover?: { name: string; kind: string; x: number; y: number } }
+type Primitive = { p: number[]; s: number[]; ry?: number; color?: string }
+
+function polygonGeometry(points: CityPoint[], y: number) {
+  const shape = new THREE.Shape(points.map(p => new THREE.Vector2(p.x, -p.z)))
+  const geometry = new THREE.ShapeGeometry(shape)
+  geometry.rotateX(-Math.PI / 2); geometry.translate(0, y, 0)
+  const pos = geometry.getAttribute('position'), uv = geometry.getAttribute('uv')
+  for (let i = 0; i < pos.count; i++) uv.setXY(i, pos.getX(i) * .1, pos.getZ(i) * .1)
+  return geometry
+}
+function ribbon(points: CityPoint[], width: number, y: number) {
+  const vertices: number[] = [], indices: number[] = []
+  points.forEach((p, i) => {
+    const a = points[Math.max(0, i - 1)], b = points[Math.min(points.length - 1, i + 1)]
+    const length = Math.hypot(b.x - a.x, b.z - a.z) || 1, x = -(b.z - a.z) / length * width / 2, z = (b.x - a.x) / length * width / 2
+    vertices.push(p.x + x, y, p.z + z, p.x - x, y, p.z - z)
+    if (i) { const n = i * 2; indices.push(n - 2, n, n - 1, n - 1, n, n + 1) }
+  })
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3)); g.setIndex(indices); g.computeVertexNormals(); return g
+}
+function hull(points: CityPoint[]) {
+  const sorted = [...points].sort((a, b) => a.x - b.x || a.z - b.z)
+  const cross = (a: CityPoint, b: CityPoint, c: CityPoint) => (b.x - a.x) * (c.z - a.z) - (b.z - a.z) * (c.x - a.x)
+  const lower: CityPoint[] = [], upper: CityPoint[] = []
+  for (const p of sorted) { while (lower.length > 1 && cross(lower.at(-2)!, lower.at(-1)!, p) <= 0) lower.pop(); lower.push(p) }
+  for (const p of [...sorted].reverse()) { while (upper.length > 1 && cross(upper.at(-2)!, upper.at(-1)!, p) <= 0) upper.pop(); upper.push(p) }
+  return lower.slice(0, -1).concat(upper.slice(0, -1))
+}
+function inPolygon(point: CityPoint, polygon: CityPoint[]) {
+  let inside = false
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const a = polygon[i], b = polygon[j]
+    if ((a.z > point.z) !== (b.z > point.z) && point.x < (b.x - a.x) * (point.z - a.z) / (b.z - a.z) + a.x) inside = !inside
+  }
+  return inside
+}
 
 export class CityScene {
   private renderer: THREE.WebGLRenderer
@@ -22,380 +62,311 @@ export class CityScene {
   private camera = new THREE.OrthographicCamera(-60, 60, 45, -45, .1, 700)
   private controls: OrbitControls
   private city = new THREE.Group()
-  private lots: Lot[] = []
-  private total = 0
-  private rawLots = new Map<string, Lot>()
-  private changeMarkers: THREE.InstancedMesh | null = null
+  private assets: CityAssets | null = null
+  private assetQueue = new Map<CityAssetId, CityAssetPlacement[]>()
+  private materials = new Map<string, THREE.Material>()
+  private textures: THREE.Texture[] = []
+  private latest: CityData | null = null
+  private reframe = true
+  private lots: VisualLot[] = []
+  private byId = new Map<string, VisualLot>()
   private blockMembers = new Map<string, string[]>()
-  private byId = new Map<string, Lot>()
   private pickables: THREE.InstancedMesh[] = []
-  private instanceIds = new Map<THREE.Object3D, string[]>()
-  private materials = new Map<string, THREE.MeshStandardMaterial>()
+  private instanceIds = new Map<THREE.Object3D, (string | null)[]>()
+  private labels: VisualLot[] = []
+  private markers = new THREE.Group()
   private selected = ''
   private changed = new Set<string>()
-  private ring: THREE.Mesh | null = null
-  private selectedGlyph: THREE.InstancedMesh | null = null
-  private renderedIds = new Set<string>()
-  private labels: Lot[] = []
   private bounds = new THREE.Box3()
   private frame = 0
   private width = 1
   private height = 1
   private dark = false
   private disposed = false
-  private hasData = false
+  private loading = true
+  private error = ''
+  private total = 0
   private pointerDown: { x: number; y: number } | null = null
   private lastHover = 0
   private ray = new THREE.Raycaster()
   private mouse = new THREE.Vector2()
   private sun: THREE.DirectionalLight
-  private water: THREE.Mesh | null = null
+  private hemisphere: THREE.HemisphereLight
   private ground: THREE.Mesh | null = null
+  private water: THREE.Mesh | null = null
+  private contact: Primitive[] = []
+  private driveways: THREE.BufferGeometry[] = []
+  private grass: THREE.CanvasTexture
+  private paving: THREE.CanvasTexture
+  private contactMap: THREE.CanvasTexture
+
   constructor(private canvas: HTMLCanvasElement, private status: (value: SceneStatus) => void, private select: (id: string) => void) {
-    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' })
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
-    this.renderer.shadowMap.enabled = true
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap
-    this.renderer.outputColorSpace = THREE.SRGBColorSpace
-    this.renderer.toneMapping = THREE.ACESFilmicToneMapping
-    this.renderer.toneMappingExposure = 1.1
-    this.camera.position.set(95, 92, 116)
-    this.controls = new OrbitControls(this.camera, canvas)
-    this.controls.enableDamping = false
-    this.controls.minPolarAngle = .35
-    this.controls.maxPolarAngle = 1.22
-    this.controls.minZoom = .35
-    this.controls.maxZoom = 16
+    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, powerPreference: 'high-performance' })
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5))
+    this.renderer.shadowMap.enabled = true; this.renderer.shadowMap.type = THREE.PCFSoftShadowMap
+    this.renderer.outputColorSpace = THREE.SRGBColorSpace; this.renderer.toneMapping = THREE.ACESFilmicToneMapping; this.renderer.toneMappingExposure = 1.18
+    this.camera.position.set(90, 95, 110)
+    this.controls = new OrbitControls(this.camera, canvas); this.controls.enableDamping = false
+    this.controls.minPolarAngle = .3; this.controls.maxPolarAngle = 1.25; this.controls.minZoom = .45; this.controls.maxZoom = 18
     this.controls.mouseButtons = { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN }
-    this.controls.addEventListener('change', this.cameraChanged)
-    this.scene.add(new THREE.HemisphereLight(0xe8f1ee, 0x8c8a6a, 1.5))
-    this.sun = new THREE.DirectionalLight(0xffedcd, 2.6)
-    this.sun.position.set(-35, 75, 30)
-    this.sun.castShadow = true
-    this.sun.shadow.mapSize.set(2048, 2048)
-    this.sun.shadow.camera.left = this.sun.shadow.camera.bottom = -65
-    this.sun.shadow.camera.right = this.sun.shadow.camera.top = 65
-    this.sun.shadow.camera.near = .1; this.sun.shadow.camera.far = 220
-    this.sun.shadow.bias = -.0006; this.sun.shadow.normalBias = .025
-    this.scene.add(this.sun, this.sun.target, this.city)
-    canvas.addEventListener('pointerdown', this.down)
-    canvas.addEventListener('pointerup', this.up)
-    canvas.addEventListener('pointermove', this.hover)
-    canvas.addEventListener('pointerleave', this.leave)
-    canvas.addEventListener('contextmenu', this.contextMenu)
+    this.controls.addEventListener('change', this.schedule)
+    this.hemisphere = new THREE.HemisphereLight(0xeaf2ff, 0x69784a, 2.1)
+    this.sun = new THREE.DirectionalLight(0xffecd2, 3.1); this.sun.position.set(-50, 95, 35); this.sun.castShadow = true
+    this.sun.shadow.mapSize.set(2048, 2048); this.sun.shadow.camera.near = .1; this.sun.shadow.camera.far = 350
+    this.sun.shadow.bias = -.00008; this.sun.shadow.normalBias = .035; this.sun.shadow.radius = 3
+    this.scene.add(this.hemisphere, this.sun, this.sun.target, this.city, this.markers)
+    this.grass = this.makeTexture('grass'); this.paving = this.makeTexture('paving'); this.contactMap = this.makeTexture('shadow')
+    canvas.addEventListener('pointerdown', this.down); canvas.addEventListener('pointerup', this.up); canvas.addEventListener('pointermove', this.hover); canvas.addEventListener('pointerleave', this.leave); canvas.addEventListener('contextmenu', this.contextMenu)
+    CityAssets.load().then(assets => {
+      if (this.disposed) { assets.dispose(); return }
+      this.assets = assets; this.loading = false
+      if (this.latest) this.rebuild(this.latest, this.reframe)
+      else this.schedule()
+    }).catch(error => { if (!this.disposed) { this.loading = false; this.error = String(error); this.schedule() } })
   }
   private contextMenu = (e: Event) => e.preventDefault()
-  private material(color: string, roughness = .86) {
-    const key = `${color}:${roughness}`
-    if (!this.materials.has(key)) this.materials.set(key, new THREE.MeshStandardMaterial({ color, roughness, flatShading: true }))
+  private makeTexture(kind: 'grass' | 'paving' | 'shadow') {
+    const canvas = document.createElement('canvas'); canvas.width = canvas.height = kind === 'shadow' ? 64 : 256
+    const c = canvas.getContext('2d')!
+    if (kind === 'shadow') {
+      const gradient = c.createRadialGradient(32, 32, 3, 32, 32, 31); gradient.addColorStop(0, 'rgba(25,35,22,.7)'); gradient.addColorStop(.5, 'rgba(25,35,22,.28)'); gradient.addColorStop(1, 'rgba(25,35,22,0)'); c.fillStyle = gradient; c.fillRect(0, 0, 64, 64)
+    } else {
+      c.fillStyle = kind === 'grass' ? '#a7b780' : '#c6c5b4'; c.fillRect(0, 0, 256, 256)
+      for (let i = 0; i < 6000; i++) { const v = seed(`${kind}:${i}`); c.fillStyle = `rgba(${v > .5 ? '255,255,220' : '50,65,35'},${.02 + v * .075})`; c.fillRect(seed(`${i}:x`) * 256, seed(`${i}:z`) * 256, 1 + v * 3, 1 + v * 3) }
+      if (kind === 'paving') { c.strokeStyle = '#868e791f'; c.lineWidth = 1; for (let i = 0; i < 256; i += 16) { c.beginPath(); c.moveTo(i, 0); c.lineTo(i, 256); c.moveTo(0, i); c.lineTo(256, i); c.stroke() } }
+    }
+    const texture = new THREE.CanvasTexture(canvas); texture.colorSpace = THREE.SRGBColorSpace; texture.wrapS = texture.wrapT = kind === 'shadow' ? THREE.ClampToEdgeWrapping : THREE.RepeatWrapping; texture.anisotropy = Math.min(8, this.renderer.capabilities.getMaxAnisotropy()); this.textures.push(texture); return texture
+  }
+  private material(color: string, texture?: THREE.Texture) {
+    const key = `${color}:${texture?.uuid ?? ''}`
+    if (!this.materials.has(key)) this.materials.set(key, new THREE.MeshStandardMaterial({ color, map: texture ?? null, roughness: .98, metalness: 0 }))
     return this.materials.get(key)!
   }
-  private mesh(geometry: THREE.BufferGeometry, color: string, x: number, y: number, z: number) {
-    const mesh = new THREE.Mesh(geometry, this.material(color)); mesh.position.set(x, y, z)
-    mesh.castShadow = true; mesh.receiveShadow = true; this.city.add(mesh); return mesh
+  private mesh(geometry: THREE.BufferGeometry, material: THREE.Material, cast = false) {
+    const mesh = new THREE.Mesh(geometry, material); mesh.castShadow = cast; mesh.receiveShadow = true; this.city.add(mesh); return mesh
   }
-  private batch(geometry: THREE.BufferGeometry, color: string, entries: { p: number[]; s: number[]; ry?: number; id?: string; color?: string }[], selectable = false) {
+  private merge(geometries: THREE.BufferGeometry[], material: THREE.Material) {
+    if (!geometries.length) return
+    const merged = mergeGeometries(geometries); geometries.forEach(g => g.dispose()); if (merged) this.mesh(merged, material)
+  }
+  private batch(geometry: THREE.BufferGeometry, color: string, entries: Primitive[], cast = true) {
     if (!entries.length) { geometry.dispose(); return }
-    const mesh = new THREE.InstancedMesh(geometry, this.material(color), entries.length)
-    const dummy = new THREE.Object3D()
-    const hasColors = entries.some(entry => !!entry.color)
-    entries.forEach((entry, i) => {
-      dummy.position.set(entry.p[0], entry.p[1], entry.p[2]); dummy.scale.set(entry.s[0], entry.s[1], entry.s[2]); dummy.rotation.set(0, entry.ry ?? 0, 0); dummy.updateMatrix()
-      mesh.setMatrixAt(i, dummy.matrix)
-      if (hasColors) mesh.setColorAt(i, new THREE.Color(entry.color ?? color))
-    })
-    mesh.castShadow = true; mesh.receiveShadow = true; mesh.instanceMatrix.needsUpdate = true
-    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true
-    mesh.computeBoundingSphere(); this.city.add(mesh)
-    if (selectable) { this.pickables.push(mesh); this.instanceIds.set(mesh, entries.map(e => e.id ?? '')) }
+    const mesh = new THREE.InstancedMesh(geometry, this.material(color), entries.length), dummy = new THREE.Object3D()
+    entries.forEach((entry, i) => { dummy.position.fromArray(entry.p); dummy.scale.fromArray(entry.s); dummy.rotation.set(0, entry.ry ?? 0, 0); dummy.updateMatrix(); mesh.setMatrixAt(i, dummy.matrix); mesh.setColorAt(i, new THREE.Color(entry.color ?? '#ffffff')) })
+    mesh.castShadow = cast; mesh.receiveShadow = true; mesh.computeBoundingSphere(); this.city.add(mesh)
   }
-  private streetStrip(street: StreetSegment, width: number, y: number, color: string) {
-    const [a, bend, b] = street.points
-    const curve = new THREE.QuadraticBezierCurve3(new THREE.Vector3(a[0], y, a[1]), new THREE.Vector3(bend[0], y, bend[1]), new THREE.Vector3(b[0], y, b[1]))
-    const points = curve.getPoints(12), vertices: number[] = [], indices: number[] = []
-    points.forEach((point, i) => {
-      const before = points[Math.max(0, i - 1)], after = points[Math.min(points.length - 1, i + 1)]
-      const dx = after.x - before.x, dz = after.z - before.z, length = Math.hypot(dx, dz) || 1
-      const sideX = -dz / length * width / 2, sideZ = dx / length * width / 2
-      vertices.push(point.x + sideX, y, point.z + sideZ, point.x - sideX, y, point.z - sideZ)
-      if (i) { const n = i * 2; indices.push(n - 2, n, n - 1, n - 1, n, n + 1) }
-    })
-    const geometry = new THREE.BufferGeometry()
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3)); geometry.setIndex(indices); geometry.computeVertexNormals()
-    const mesh = new THREE.Mesh(geometry, this.material(color)); mesh.receiveShadow = true; this.city.add(mesh)
+  private addAsset(asset: CityAssetId, x: number, z: number, radius: number, rotation = 0, id?: string, y = .19) {
+    const size = this.assets!.size(asset), scale = radius * 2 / Math.hypot(size.x, size.z)
+    if (!this.assetQueue.has(asset)) this.assetQueue.set(asset, [])
+    this.assetQueue.get(asset)!.push({ x, y, z, rotation, scale, id })
+    this.contact.push({ p: [x, .18, z], s: [radius * 2.5, radius * 2.5, 1] })
+    return size.y * scale
   }
-  private gableRoof() {
-    const lf=[-1,-.5,1], lb=[-1,-.5,-1], rf=[1,-.5,1], rb=[1,-.5,-1], front=[0,.5,1], back=[0,.5,-1]
-    const triangles=[lf,front,back, lf,back,lb, rf,rb,back, rf,back,front, lf,rf,front, lb,back,rb]
-    const geometry=new THREE.BufferGeometry()
-    geometry.setAttribute('position',new THREE.Float32BufferAttribute(triangles.flat(),3));geometry.computeVertexNormals()
-    return geometry
+  private clearGroup(group: THREE.Group) {
+    group.traverse(object => { if (object instanceof THREE.Mesh && !object.geometry.userData.sharedCityAsset) object.geometry.dispose(); if (object instanceof THREE.InstancedMesh) object.dispose() })
+    group.clear()
   }
-  private streets(streets: StreetSegment[]) {
-    for (const street of streets) {
-      if (street.traffic) {
-        this.streetStrip(street, street.width + .23, .145, this.dark ? '#9ba99c' : '#c9c5af')
-        this.streetStrip(street, street.width, .153, this.dark ? '#526569' : palette.road)
-        if (street.traffic > 4) this.streetStrip(street, .035, .159, this.dark ? '#b7ab82' : '#e9d8a8')
-      } else {
-        this.streetStrip(street, street.width + .16, .143, this.dark ? '#506852' : '#a9bd97')
-        this.streetStrip(street, street.width, .15, this.dark ? '#aa9d79' : palette.path)
-      }
-    }
-  }
-  private river(center: THREE.Vector3, width: number, depth: number) {
-    const left=center.x-width/2+.35, span=(width-.7)/6, coast=center.z+depth/2-2
-    for(let i=0;i<6;i++) {
-      const x0=left+i*span, x1=x0+span
-      const z0=coast+Math.sin(i*.9)*.5, z1=coast+Math.sin((i+1)*.9)*.5
-      const segment:StreetSegment={id:`river-${i}`,points:[[x0,z0],[(x0+x1)/2,(z0+z1)/2+Math.sin(i*1.7)*.5],[x1,z1]],width:2.6,traffic:0}
-      this.streetStrip(segment,3.25,.111,this.dark?'#7a947f':'#dbcda8')
-      this.streetStrip(segment,2.6,.121,this.dark?'#386977':'#69b5bd')
-    }
-    const rocks=[]
-    for(let i=0;i<64;i++) {
-      const x=left+seed(`river-rock-x-${i}`)*(width-.7), z=coast+(i%2?1.6:-1.6)+Math.sin((x-left)/span*.9)*.5
-      const size=.18+seed(`river-rock-size-${i}`)*.34
-      rocks.push({p:[x,.22,z],s:[size,size*.75,size*.7],ry:seed(`river-rock-turn-${i}`)*6,color:i%3?'#a9a99c':'#8d9d91'})
-    }
-    this.batch(new THREE.DodecahedronGeometry(1,0),'#a9a99c',rocks)
-  }
-  private clear() {
-    this.city.traverse(object => { if(object instanceof THREE.InstancedMesh)object.dispose(); if (object instanceof THREE.Mesh) object.geometry.dispose() })
-    this.city.clear(); this.pickables = []; this.instanceIds.clear(); this.ring = null; this.selectedGlyph = null; this.renderedIds.clear()
-  }
+  private clear() { this.clearGroup(this.city); this.clearGroup(this.markers); this.pickables = []; this.instanceIds.clear(); this.assetQueue.clear(); this.contact = []; this.byId.clear(); this.blockMembers.clear(); this.lots = []; this.labels = [] }
   setData(data: CityData, reframe: boolean) {
-    this.clear(); this.changeMarkers = null; this.blockMembers.clear()
-    const positions = new Map(data.layout.map(p => [p.id, p]))
-    const heroIds = new Set<string>()
+    this.latest = data; this.reframe = reframe; this.total = data.nodes.length
+    if (this.assets) this.rebuild(data, reframe); else this.schedule()
+  }
+  private rebuild(data: CityData, reframe: boolean) {
+    const started = performance.now(); this.clear()
+    const positions = new Map(data.layout.map(p => [p.id, p])), nodes = new Map(data.nodes.map(n => [n.id, n])), heroIds = new Set<string>()
     for (const label of known.keys()) {
-      const candidates = data.nodes.filter(n=>n.label.toLowerCase()===label && landmarkStyle(n)).sort((a,b)=>Number(b.status==='anchor')-Number(a.status==='anchor')||(b.evidence?.length??0)-(a.evidence?.length??0)||a.id.localeCompare(b.id))
-      if(candidates[0])heroIds.add(candidates[0].id)
+      const candidates = data.nodes.filter(n => n.label.toLowerCase() === label && landmarkStyle(n)).sort((a, b) => Number(b.status === 'anchor') - Number(a.status === 'anchor') || (b.evidence?.length ?? 0) - (a.evidence?.length ?? 0) || a.id.localeCompare(b.id))
+      if (candidates[0]) heroIds.add(candidates[0].id)
     }
-    const sourceLots: Lot[] = data.nodes.flatMap(node => {
-      const p = positions.get(node.id); if (!p || !Number.isFinite(p.x) || !Number.isFinite(p.y)) return []
-      const variation = seed(node.id), style = heroIds.has(node.id) ? landmarkStyle(node) : undefined
-      const h = style === 'campus' ? 5.5 : style === 'camp' ? 2 : node.nodeType === 'project' ? 1.25 + variation * 1.8 : node.nodeType === 'topic' ? .15 : node.nodeType === 'document' ? .12 + variation * .1 : .2 + variation * .44
-      return [{ node, x: p.x * SCALE, z: p.y * SCALE, h, w: style ? 3.6 : node.nodeType === 'project' ? .28 : node.nodeType === 'topic' ? .48 : .13, zone:p.zone, style }]
-    })
-    const blocks = overviewBlocks(sourceLots)
-    this.lots = sourceLots.map(lot => ({...lot, ...visualPoint(lot.x, lot.z)}))
-    this.total = this.lots.length
-    this.rawLots = new Map(this.lots.map(l => [l.node.id, l]))
-    this.bounds.makeEmpty(); for (const lot of this.lots) this.bounds.expandByPoint(new THREE.Vector3(lot.x, lot.h, lot.z))
+    const input = data.nodes.flatMap(node => { const p = positions.get(node.id); return p ? [{ node, x: p.x * SCALE, z: p.y * SCALE, zone: p.zone, style: heroIds.has(node.id) ? landmarkStyle(node) : undefined }] : [] })
+    const plan = planCity(input, data.edges), parcels = new Map(plan.parcels.map(p => [p.id, p]))
+    this.bounds.makeEmpty()
+    for (const parcel of plan.parcels) for (const p of parcel.polygon) this.bounds.expandByPoint(new THREE.Vector3(p.x, 0, p.z))
     if (this.bounds.isEmpty()) this.bounds.set(new THREE.Vector3(-12, 0, -12), new THREE.Vector3(12, 1, 12))
-    const aggregated = data.nodes.length > 1200
-    if (aggregated) {
-      const heroes = this.lots.filter(l => l.style)
-      const largestBlock = Math.max(1, ...blocks.map(block => block.members.length))
-      this.lots = [...heroes, ...blocks.flatMap(block => overviewBuildings(block, largestBlock).map(({lot,x,z}) => {
-        this.blockMembers.set(lot.node.id, block.members.map(l=>l.node.id))
-        const v = seed(lot.node.id), established = lot.node.nodeType === 'project' && ['anchor','observed','confirmed','user-confirmed'].includes(lot.node.status)
-        const growing = block.members.filter(member => member.zone === 'unassigned').length > block.members.length / 2
-        return {...lot, ...visualPoint(x,z), growing, w:growing ? .45 + v * .22 : established ? .9 + v * .18 : .7 + v * .23,
-          h:growing ? .28 + v * .4 : established ? 1.8 + v * 2.5 : .8 + v * 1.2}
-      }))]
+    for (const [id, p] of plan.positions) { const node = nodes.get(id); if (node) this.byId.set(id, { node, x: p.x, z: p.z, h: 1, w: .8, parcelId: '' }) }
+    this.terrain(plan); this.roads(plan)
+    for (const placement of plan.placements) {
+      const node = nodes.get(placement.id); if (!node) continue
+      const parcel = parcels.get(placement.parcelId)!, h = this.building(placement, node)
+      const lot: VisualLot = { node, x: placement.x, z: placement.z, h, w: placement.footprint, style: heroIds.has(node.id) ? landmarkStyle(node) : undefined, parcelId: placement.parcelId }
+      this.lots.push(lot); this.byId.set(node.id, lot); this.blockMembers.set(node.id, parcel.members.map(l => l.node.id))
     }
-    this.byId = new Map(this.lots.map(l => [l.node.id, l]))
-    const size = this.bounds.getSize(new THREE.Vector3()), center = this.bounds.getCenter(new THREE.Vector3())
-    const w = Math.max(24, size.x + 8), d = Math.max(24, size.z + 8)
-    const shape = new THREE.Shape(), r = Math.min(4, w / 8, d / 8)
-    shape.moveTo(-w/2+r, -d/2); shape.lineTo(w/2-r,-d/2); shape.quadraticCurveTo(w/2,-d/2,w/2,-d/2+r); shape.lineTo(w/2,d/2-r); shape.quadraticCurveTo(w/2,d/2,w/2-r,d/2); shape.lineTo(-w/2+r,d/2); shape.quadraticCurveTo(-w/2,d/2,-w/2,d/2-r); shape.lineTo(-w/2,-d/2+r); shape.quadraticCurveTo(-w/2,-d/2,-w/2+r,-d/2)
-    const base = this.mesh(new THREE.ExtrudeGeometry(shape, { depth: 1.2, bevelEnabled: true, bevelSize: .22, bevelThickness: .22, bevelSegments: 2, steps: 1 }), '#c3b297', center.x, -1.35, center.z); base.rotation.x = -Math.PI / 2
-    this.ground = this.mesh(new THREE.ShapeGeometry(shape), this.dark ? '#516956' : '#bdcba3', center.x, .09, center.z); this.ground.rotation.x = -Math.PI/2; this.ground.castShadow = false
-    this.water = this.mesh(new THREE.PlaneGeometry(2000,2000), this.dark ? '#2c5054' : '#b8d9d5', center.x, -1.7, center.z); this.water.rotation.x = -Math.PI/2; this.water.castShadow = false
-    const growingGround=blocks.filter(block=>block.members.filter(member=>member.zone==='unassigned').length>block.members.length/2).map(block=>{
-      const c=districtCenter(block),p=visualPoint(c.x,c.z)
-      return {p:[p.x,.106,p.z],s:[4.2,.025,4.1],ry:seed(`${block.x}:${block.z}:ground`)*6,color:'#d3c69e'}
+    const represented = new Map(this.lots.map(l => [`${l.x},${l.z}`, l]))
+    for (const lot of this.byId.values()) {
+      if (lot.parcelId) continue
+      const building = represented.get(`${lot.x},${lot.z}`)
+      if (building) { lot.h = building.h; lot.w = building.w; lot.parcelId = building.parcelId }
+    }
+    this.merge(this.driveways, this.material('#c6c2ae')); this.driveways = []
+    this.landscape(plan)
+    for (const [asset, placements] of this.assetQueue) for (const mesh of this.assets!.instantiate(asset, placements)) { this.city.add(mesh); if (mesh.userData.ids.some((id: string | null) => id)) { this.pickables.push(mesh); this.instanceIds.set(mesh, mesh.userData.ids) } }
+    this.contactShadows()
+    this.labels = [...this.lots.filter(l => l.style), ...this.lots.filter(l => !l.style && l.node.nodeType === 'topic').sort((a, b) => (b.node.evidence?.length ?? 0) - (a.node.evidence?.length ?? 0) || a.node.id.localeCompare(b.node.id)).slice(0, 3)]
+    const center = this.bounds.getCenter(new THREE.Vector3()), size = this.bounds.getSize(new THREE.Vector3()), span = Math.max(size.x, size.z) * .7 + 12
+    this.sun.position.set(center.x - 50, 95, center.z + 35); this.sun.target.position.copy(center); this.sun.shadow.camera.left = this.sun.shadow.camera.bottom = -span; this.sun.shadow.camera.right = this.sun.shadow.camera.top = span; this.sun.shadow.camera.updateProjectionMatrix()
+    this.canvas.dataset.planningMs = (performance.now() - started).toFixed(1); this.canvas.dataset.parcels = String(plan.parcels.length); this.canvas.dataset.roads = String(plan.roads.length); this.canvas.dataset.models = String([...this.assetQueue.values()].reduce((n, a) => n + a.length, 0))
+    this.setSelected(this.selected, this.changed); if (reframe) this.fit(); else this.schedule()
+  }
+  private terrain(plan: CityPlan) {
+    const bounds = this.bounds, center = bounds.getCenter(new THREE.Vector3()), size = bounds.getSize(new THREE.Vector3())
+    const perimeter = hull(plan.parcels.flatMap(p => p.polygon))
+    const outer = (perimeter.length > 2 ? perimeter : [{ x: -12, z: -12 }, { x: 12, z: -12 }, { x: 12, z: 12 }, { x: -12, z: 12 }]).map(p => {
+      const dx = p.x - center.x, dz = p.z - center.z, d = Math.hypot(dx, dz) || 1
+      return new THREE.Vector3(p.x + dx / d * 4.5, 0, p.z + dz / d * 4.5)
     })
-    this.batch(new THREE.CylinderGeometry(1,1,1,12),'#d3c69e',growingGround)
-    this.river(center,w,d)
-    // Pale paths complete the landscape; explicit links widen their routed street segments.
-    const streets = streetPlan(blocks, data.edges, sourceLots).map(street => ({...street, points:street.points.map(([x,z]) => { const p=visualPoint(x,z); return [p.x,p.z] as [number,number] })}))
-    const heroes=this.lots.filter(l=>l.style)
-    const nearHero=(x:number,z:number,margin=0)=>heroes.some(h=>Math.abs(x-h.x)<(h.style==='camp'?8:4.5)+margin && Math.abs(z-h.z)<(h.style==='camp'?6.5:3.8)+margin)
-    const inHero=(l:Lot)=>nearHero(l.x,l.z)
-    const plots = blocks.map(b=>{
-      const c=districtCenter(b), p=visualPoint(c.x,c.z), v=seed(`${b.x}/${b.z}`), density=Math.min(1,Math.log2(b.members.length+1)/9)
-      const growing=b.members.filter(member=>member.zone==='unassigned').length>b.members.length/2
-      return {p:[p.x,.115,p.z],s:[growing?1.8:1.85+v*.1,.045,growing?1.7:1.75+seed(`${b.x}:${b.z}:plot`)*.1],ry:v*6.28,color:growing?'#d9c99d':density>.55?'#d9d5b7':'#a9c29a'}
-    }).filter(plot=>!nearHero(plot.p[0],plot.p[2],.5))
-    this.batch(new THREE.CylinderGeometry(1,1,1,9), '#ffffff', plots)
-    this.streets(streets)
-    const bodies = [], roofs = [], houseRoofs = [], windows = [], doors = [], trees = [], trunks = []
-    for (const lot of this.lots) {
-      const {node,x,z,h,w,style} = lot, v = seed(node.id)
-      if (style) { this.landmark(lot); this.renderedIds.add(node.id); continue }
-      if(inHero(lot) && lot.node.id!==this.selected) continue
-      this.renderedIds.add(node.id)
-      const project = !lot.growing && node.nodeType === 'project' && ['anchor','observed','confirmed','user-confirmed'].includes(node.status), topic = node.nodeType === 'topic', document = node.nodeType === 'document'
-      if(lot.growing) {
-        bodies.push({p:[x,.16+h/2,z],s:[w,h,w*.86],id:node.id,color:['#b7a991','#d2bb95','#b9b9aa'][Math.floor(v*3)]})
-        continue
-      }
-      bodies.push({p:[x,.16+h/2,z],s:[w,h,w*.86],id:node.id,color:project ? ['#76969a','#a8bcb7','#8a9c8c'][Math.floor(v*3)] : topic ? '#becfa5' : document ? '#ded6c0' : node.nodeType === 'project' ? '#a6bab0' : ['#f0e7d3','#d9ccb2','#d9c3a8','#b5c4ba'][Math.floor(v*4)]})
-      if (!project && !topic) {
-        houseRoofs.push({p:[x,.35+h,z],s:[w*.57,.4,w*.52],ry:v>.5?Math.PI/2:0,color:document ? '#a97b63' : ['#bd8c68','#c7956f','#a8876d'][Math.floor(v*3)]})
-        windows.push({p:[x+w*.17,.18+Math.min(h*.62,.92),z+w*.44],s:[w*.26,.2,.025],color:'#9fb9b4'})
-        windows.push({p:[x+w*.505,.18+Math.min(h*.61,.9),z],s:[.025,.2,w*.24],color:'#9fb9b4'})
-        doors.push({p:[x-w*.24,.34,z+w*.445],s:[w*.18,.37,.028],color:'#8b7865'})
-      }
-      if (project) {
-        roofs.push({p:[x,.19+h,z],s:[w*1.05,.055,w*.95],color:'#e9e7dc'})
-        for(let y=.38;y<h;y+=.26) windows.push({p:[x,.16+y,z+w*.437],s:[w*.78,.055,.014]})
-        bodies.push({p:[x+w*.72,.16+h*.19,z+w*.45],s:[w*.65,h*.38,w*.7],id:node.id,color:'#aabcb3'})
-      }
-      if (topic && v>.55) { trees.push({p:[x+.75,.76,z+.65],s:[.42,.96,.42],ry:v*6}); trunks.push({p:[x+.75,.3,z+.65],s:[.06,.35,.06]}) }
+    const curve = new THREE.CatmullRomCurve3(outer, true, 'centripetal'), coast = curve.getPoints(160).map(p => ({ x: p.x, z: p.z }))
+    const shape = new THREE.Shape(coast.map(p => new THREE.Vector2(p.x, -p.z)))
+    const cliff = new THREE.ExtrudeGeometry(shape, { depth: 1.6, bevelEnabled: true, bevelSegments: 2, bevelSize: .6, bevelThickness: .25, steps: 1 }); cliff.rotateX(-Math.PI / 2); cliff.translate(0, -1.95, 0)
+    this.mesh(cliff, this.material('#b6b099'))
+    this.ground = this.mesh(polygonGeometry(coast, .09), this.material('#d8caaa'))
+    const lawn = coast.map(p => ({ x: center.x + (p.x - center.x) * .985, z: center.z + (p.z - center.z) * .985 }))
+    this.mesh(polygonGeometry(lawn, .12), this.material('#c4d39a', this.grass))
+    const groups = new Map<string, THREE.BufferGeometry[]>()
+    for (const p of plan.parcels) {
+      const color = p.kind === 'growth' ? '#c6b68d' : p.kind === 'campus' ? '#d6d8bb' : p.kind === 'park' ? '#b1c887' : '#c5d298'
+      if (!groups.has(color)) groups.set(color, [])
+      groups.get(color)!.push(polygonGeometry(p.polygon, .145))
     }
-    this.batch(new THREE.BoxGeometry(1,1,1),'#ffffff', bodies,true)
-    this.batch(new THREE.BoxGeometry(1,1,1),'#ffffff', roofs)
-    this.batch(this.gableRoof(),'#ffffff', houseRoofs)
-    this.batch(new THREE.BoxGeometry(1,1,1),'#d5e4df', windows)
-    this.batch(new THREE.BoxGeometry(1,1,1),'#8b7865', doors)
-    for (const block of blocks) {
-      const center=districtCenter(block), c=visualPoint(center.x,center.z), density=Math.min(1,Math.log2(block.members.length+1)/9)
-      const growing=block.members.filter(member=>member.zone==='unassigned').length>block.members.length/2
-      const count=growing?1:Math.round(4-density*2)
-      for(let i=0;i<count;i++) {
-        const angle=seed(`${block.x}:${block.z}:tree:${i}`)*Math.PI*2, radius=2.55+seed(`${i}:${block.x}:radius`)*.32
-        const x=c.x+Math.cos(angle)*radius,z=c.z+Math.sin(angle)*radius
-        if(nearHero(x,z))continue
-        const height=.65+seed(`${block.x}:${block.z}:${i}:height`)*.65
-        trees.push({p:[x,.35+height/2,z],s:[.28+height*.13,height,.28+height*.13],ry:angle,color:i%3?'#739b75':'#8aae78'})
-        trunks.push({p:[x,.28,z],s:[.06,.34,.06]})
-      }
-    }
-    // A planted perimeter makes the scene a single place, instead of a scatterplot.
-    for (let i=0;i<130;i++) {
-      const t=i/130*Math.PI*2, variation=seed(`tree-${i}`), x=center.x+Math.cos(t)*(w/2-1.2-variation*.8), z=center.z+Math.sin(t)*(d/2-1.2-variation*.8)
-      trees.push({p:[x,.45+variation*.2,z],s:[.5,.7+variation*.4,.5],ry:variation*6})
-      trunks.push({p:[x,.22,z],s:[.06,.32,.06]})
-    }
-    this.batch(new THREE.ConeGeometry(1,1,6),'#8baf85',trees)
-    this.batch(new THREE.BoxGeometry(1,1,1),'#997e60',trunks)
-    const reserved = this.lots.filter(l => l.style).sort((a,b)=>(b.node.evidence?.length??0)-(a.node.evidence?.length??0)).slice(0,3)
-    const named = [...reserved,...cityNodes(this.lots.map(l=>l.node).filter(n=>!known.has(n.label.toLowerCase())),'',7).flatMap(n=>this.byId.has(n.id)?[this.byId.get(n.id)!]:[])]
-    const seen = new Set<string>(); this.labels = named.filter(l=>!seen.has(l.node.id)&&!!seen.add(l.node.id)).slice(0,12)
-    this.hasData = true
-    this.setSelected(this.selected,this.changed)
-    if (reframe) this.fit(); else this.schedule()
+    for (const [color, geometries] of groups) this.merge(geometries, this.material(color, this.grass))
+    let waterMaterial = this.materials.get('water') as THREE.MeshStandardMaterial | undefined
+    if (!waterMaterial) { waterMaterial = new THREE.MeshStandardMaterial({ roughness: .32, metalness: .08 }); this.materials.set('water', waterMaterial) }
+    waterMaterial.color.set(this.dark ? '#244a54' : '#75bfc1'); this.water = this.mesh(new THREE.PlaneGeometry(2000, 2000), waterMaterial); this.water.rotation.x = -Math.PI / 2; this.water.position.y = -1.3
+    const rocks: { x: number; z: number; radius: number }[] = []
+    for (let i = 0; i < 145; i++) { const p = curve.getPoint(i / 145), toward = new THREE.Vector3(center.x - p.x, 0, center.z - p.z).normalize(); rocks.push({ x: p.x + toward.x * .5, z: p.z + toward.z * .5, radius: .25 + seed(`coast:${i}`) * .4 }) }
+    for (const [i, p] of rocks.entries()) this.addAsset(i % 4 ? 'nature/rock_smallB' : 'nature/rock_largeA', p.x, p.z, p.radius, seed(`rock:${i}`) * 6, undefined, -.05)
+    const surf = coast.map(p => ({ x: center.x + (p.x - center.x) * 1.017, z: center.z + (p.z - center.z) * 1.017 }))
+    this.mesh(ribbon(surf, .2, -1.24), this.material('#b9d9cf'))
+    this.bounds.expandByVector(new THREE.Vector3(3, 0, 3)); this.bounds.max.y = Math.max(12, size.y)
   }
-  private landmark(lot: Lot) {
-    const {x,z,node,style} = lot
-    const camp=style==='camp'
-    if(camp) {
-      const grove=this.mesh(new THREE.CylinderGeometry(1,1,.06,28),'#91b17e',x,.145,z)
-      grove.scale.set(8,1,6.6)
-      const forest=[],forestTrunks=[]
-      for(let i=0;i<66;i++) {
-        const angle=seed(`${node.id}:forest-angle:${i}`)*Math.PI*2, radius=3.8+seed(`${node.id}:forest-radius:${i}`)*4
-        const tx=x+Math.cos(angle)*radius,tz=z+Math.sin(angle)*radius*.82, height=1.05+seed(`${node.id}:forest-height:${i}`)*1.25
-        forest.push({p:[tx,.4+height/2,tz],s:[.46+height*.16,height,.46+height*.16],ry:angle,color:i%4?'#587f66':'#769d71'})
-        forestTrunks.push({p:[tx,.32,tz],s:[.08,.5,.08]})
+  private roads(plan: CityPlan) {
+    const shoulders: THREE.BufferGeometry[] = [], pavement: THREE.BufferGeometry[] = [], paths: THREE.BufferGeometry[] = [], marks: THREE.BufferGeometry[] = []
+    const junctions = new Map<string, { p: CityPoint; width: number; paved: boolean }>()
+    for (const road of plan.roads) {
+      const paved = road.traffic > .2
+      shoulders.push(ribbon(road.points, road.width + .42, .18)); (paved ? pavement : paths).push(ribbon(road.points, road.width, .205))
+      for (const p of [road.points[0], road.points.at(-1)!]) { const key = `${p.x},${p.z}`, old = junctions.get(key); if (!old || old.width < road.width) junctions.set(key, { p, width: road.width, paved }) }
+      if (road.width > 1.15) for (let i = 1; i < road.points.length; i++) {
+        const a = road.points[i - 1], b = road.points[i], length = Math.hypot(b.x - a.x, b.z - a.z), dx = (b.x - a.x) / length, dz = (b.z - a.z) / length
+        for (let at = .55; at < length - .5; at += 1.1) marks.push(ribbon([{ x: a.x + dx * at, z: a.z + dz * at }, { x: a.x + dx * Math.min(at + .5, length - .4), z: a.z + dz * Math.min(at + .5, length - .4) }], .045, .216))
       }
-      this.batch(new THREE.ConeGeometry(1,1,7),'#6e9871',forest)
-      this.batch(new THREE.BoxGeometry(1,1,1),'#997954',forestTrunks)
     }
-    this.mesh(new THREE.BoxGeometry(9,.16,7.8),camp?'#a7be8f':'#e5dfcc',x,.23,z)
-    this.mesh(new THREE.BoxGeometry(9.4,.08,8.2),'#eee6d1',x,.14,z)
-    const trees=[],trunks=[]
-    for(let i=0;i<16;i++) {
-      const angle=i/16*Math.PI*2, tx=x+Math.cos(angle)*4.1,tz=z+Math.sin(angle)*3.4,h=.9+seed(`${node.id}:hero-tree-${i}`)*1.1
-      trees.push({p:[tx,.5+h/2,tz],s:[.7,h,.7],ry:i});trunks.push({p:[tx,.4,tz],s:[.09,.5,.09]})
-    }
-    this.batch(new THREE.ConeGeometry(1,1,7),'#6e9871',trees)
-    this.batch(new THREE.BoxGeometry(1,1,1),'#997954',trunks)
-    if(camp) {
-      const tents=[{p:[x-1.4,1.05,z-.3],s:[1.6,1.45,1.5],ry:.6,id:node.id},{p:[x+1.2,.9,z+.5],s:[1.3,1.15,1.6],ry:-.5,id:node.id},{p:[x-.6,.8,z+2],s:[1.1,.9,1.2],ry:.2,id:node.id}]
-      this.batch(new THREE.ConeGeometry(1,1,4),'#cd955c',tents,true)
-      const pond=this.mesh(new THREE.CircleGeometry(1.15,32),'#78b7b0',x+.7,.33,z-1.9);pond.rotation.x=-Math.PI/2;pond.scale.x=1.5
-      this.mesh(new THREE.CylinderGeometry(.35,.4,.08,14),'#e7c78b',x-.1,.4,z+.5)
-      this.batch(new THREE.BoxGeometry(1,1,1),'#a77f56',[{p:[x-.9,.55,z+.6],s:[.9,.15,.25]},{p:[x+.2,.55,z+1.3],s:[.25,.15,.9]}])
-    } else {
-      const warm=node.label.toLowerCase()==='note.md'
-      const buildings=[
-        {p:[x-2.15,2.05,z-1.7],s:[2.15,3.65,2.1],id:node.id},
-        {p:[x+1.65,2.7,z-1.7],s:[2.35,4.95,2.05],id:node.id},
-        {p:[x-2.05,1.55,z+1.8],s:[2.3,2.65,2],id:node.id},
-        {p:[x+1.65,1.95,z+1.8],s:[2.25,3.45,2.1],id:node.id},
-      ]
-      this.batch(new THREE.BoxGeometry(1,1,1),warm?'#c6ac84':'#668d83',buildings,true)
-      const stripes=[]
-      for(const building of buildings) for(let y=.75;y<building.s[1];y+=.48) {
-        stripes.push({p:[building.p[0],y,building.p[2]+building.s[2]/2+.012],s:[building.s[0]*.83,.14,.02]})
-        stripes.push({p:[building.p[0]+building.s[0]/2+.012,y,building.p[2]],s:[.02,.14,building.s[2]*.83]})
+    for (const { p, width, paved } of junctions.values()) {
+      for (const [target, radius, y] of [[shoulders, width / 2 + .21, .18], [paved ? pavement : paths, width / 2, .206]] as [THREE.BufferGeometry[], number, number][]) {
+        const g = new THREE.CircleGeometry(radius, 12); g.rotateX(-Math.PI / 2); g.translate(p.x, y, p.z); g.deleteAttribute('uv'); target.push(g)
       }
-      this.batch(new THREE.BoxGeometry(1,1,1),warm?'#f0e5cb':'#b8d9d5',stripes)
-      const roofs=buildings.map(t=>({p:[t.p[0],t.p[1]+t.s[1]/2+.08,t.p[2]],s:[t.s[0]*1.09,.15,t.s[2]*1.09]}))
-      this.batch(new THREE.BoxGeometry(1,1,1),'#e9e5d3',roofs)
-      this.mesh(new THREE.CylinderGeometry(.72,.72,.13,16),'#e8ddbf',x,.34,z)
-      this.mesh(new THREE.CylinderGeometry(.52,.52,.025,16),'#83bfc1',x,.42,z)
-      this.mesh(new THREE.BoxGeometry(1.15,.08,1.9),'#e7dfca',x,.24,z+2.45)
-      this.batch(new THREE.BoxGeometry(1,1,1),'#c0a889',[{p:[x-1.1,.4,z+2.7],s:[.75,.2,.25]},{p:[x+1.05,.4,z+2.7],s:[.75,.2,.25]}])
     }
+    this.merge(shoulders, this.material('#e5dfc8')); this.merge(pavement, this.material('#6e7776')); this.merge(paths, this.material('#bea783')); this.merge(marks, this.material('#e8dfbd'))
   }
-
+  private building(p: CityPlacement, node: Node) {
+    const v = seed(node.id), r = p.footprint
+    if (p.kind === 'campus') {
+      const plaza = new THREE.CircleGeometry(r * .99, 48); plaza.rotateX(-Math.PI / 2); plaza.translate(p.x, .185, p.z); this.mesh(plaza, this.material('#d7d8cb', this.paving))
+      let height = 0
+      const models: CityAssetId[] = node.label.toLowerCase() === 'hemory' ? [commercial[5], commercial[6], commercial[2], commercial[0]] : [commercial[6], commercial[5], commercial[3], commercial[1]]
+      const offsets = [[-.43, -.36, .25], [.35, -.27, .28], [-.35, .4, .24], [.4, .39, .23]]
+      offsets.forEach(([dx, dz, radius], i) => { height = Math.max(height, this.addAsset(models[i], p.x + dx * r, p.z + dz * r, radius * r, i % 2 ? Math.PI : 0, node.id)) })
+      const pool = new THREE.CylinderGeometry(r * .13, r * .13, .13, 32); pool.translate(p.x, .27, p.z); this.mesh(pool, this.material('#729fa5'))
+      const benches: Primitive[] = [], lamps: Primitive[] = []
+      for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2, x = p.x + Math.cos(a) * r * .87, z = p.z + Math.sin(a) * r * .87; this.addAsset(trees[i % 2], x, z, .42, a); if (i % 2) benches.push({ p: [p.x + Math.cos(a) * r * .33, .43, p.z + Math.sin(a) * r * .33], s: [.8, .17, .25], ry: -a }); lamps.push({ p: [x, .7, z], s: [.035, 1.05, .035] }) }
+      this.batch(new THREE.BoxGeometry(1, 1, 1), '#998069', benches); this.batch(new THREE.CylinderGeometry(1, 1, 1, 5), '#566866', lamps)
+      return height
+    }
+    if (p.kind === 'camp') {
+      const clearing = new THREE.CircleGeometry(r * .6, 48); clearing.rotateX(-Math.PI / 2); clearing.translate(p.x, .165, p.z); this.mesh(clearing, this.material('#d5c6a0', this.grass))
+      for (let i = 0; i < 5; i++) { const a = i / 5 * Math.PI * 2 + .3, radius = r * .4; this.addAsset(tents[i % tents.length], p.x + Math.cos(a) * radius, p.z + Math.sin(a) * radius, r * .17, Math.PI / 2 - a, node.id) }
+      for (let i = 0; i < 18; i++) {
+        const a = i / 18 * Math.PI * 2, distance = r * (.77 + seed(`${node.id}:forest:${i}`) * .08)
+        this.addAsset(trees[i % trees.length], p.x + Math.cos(a) * distance, p.z + Math.sin(a) * distance, r * (.055 + seed(`${node.id}:canopy:${i}`) * .025), a)
+      }
+      this.addAsset('nature/campfire_logs', p.x, p.z, r * .085); this.addAsset('nature/log_stack', p.x + r * .15, p.z + r * .13, r * .08, .4)
+      return r * .38
+    }
+    const model = p.kind === 'construction' ? (v < .3 ? 'survival/structure' : houses[Math.floor(v * houses.length)]) : p.kind === 'midrise' ? commercial[Math.floor(v * 5)] : houses[Math.floor(v * houses.length)]
+    const height = this.addAsset(model, p.x, p.z, r * .97, p.rotation, node.id)
+    const dx = Math.sin(p.rotation), dz = Math.cos(p.rotation), driveway = new THREE.PlaneGeometry(r * .5, r * .8); driveway.rotateX(-Math.PI / 2); driveway.rotateY(p.rotation); driveway.translate(p.x + dx * r * .65, .177, p.z + dz * r * .65); this.driveways.push(driveway)
+    if (p.kind === 'construction') this.addAsset(v < .5 ? 'survival/resource-wood' : 'survival/box', p.x - dx * r * .66, p.z - dz * r * .66, r * .14, p.rotation)
+    else this.addAsset('suburban/planter', p.x + dz * r * .6, p.z - dx * r * .6, r * .16, p.rotation)
+    return height
+  }
+  private landscape(plan: CityPlan) {
+    const lamps: Primitive[] = [], heads: Primitive[] = [], benches: Primitive[] = [], planters: Primitive[] = []
+    const safe = (p: CityPoint, radius: number) => !plan.placements.some(l => Math.hypot(p.x - l.x, p.z - l.z) < l.footprint + radius + .25) && !plan.roads.some(r => r.points.slice(1).some((b, i) => segmentDistance(p, r.points[i], b) < r.width / 2 + radius + .3))
+    for (const parcel of plan.parcels) {
+      const xs = parcel.polygon.map(p => p.x), zs = parcel.polygon.map(p => p.z), minX = Math.min(...xs), maxX = Math.max(...xs), minZ = Math.min(...zs), maxZ = Math.max(...zs)
+      const count = parcel.kind === 'park' ? 150 : parcel.kind === 'campus' ? 70 : parcel.kind === 'growth' ? 7 : 18
+      for (let i = 0; i < count; i++) {
+        const x = minX + seed(`${parcel.id}:${i}:x`) * (maxX - minX), z = minZ + seed(`${parcel.id}:${i}:z`) * (maxZ - minZ), p = { x, z }, radius = .35 + seed(`${parcel.id}:${i}:r`) * .42
+        if (!inPolygon(p, parcel.polygon) || !safe(p, radius)) continue
+        const type = parcel.kind === 'park' ? 2 + i % 2 : i % trees.length
+        this.addAsset(trees[type], x, z, radius, seed(`${parcel.id}:${i}:turn`) * 6)
+        if (i % 3 === 0) this.addAsset('nature/plant_bushDetailed', x + radius * .5, z + radius * .3, .22, i)
+      }
+    }
+    for (const road of plan.roads) {
+      const a = road.points[0], b = road.points.at(-1)!, length = Math.hypot(b.x - a.x, b.z - a.z), dx = (b.x - a.x) / length, dz = (b.z - a.z) / length
+      if (length < 4 || road.width < 1) continue
+      for (let distance = 2; distance < length - 1; distance += 6) {
+        const side = seed(`${road.id}:${distance}`) > .5 ? 1 : -1, offset = side * (road.width / 2 + .42), x = a.x + dx * distance - dz * offset, z = a.z + dz * distance + dx * offset
+        lamps.push({ p: [x, .84, z], s: [.025, 1.3, .025] }); heads.push({ p: [x, 1.5, z], s: [.18, .08, .13], ry: Math.atan2(dx, dz) })
+        if (distance === 2 && seed(road.id) > .62) { benches.push({ p: [x - dz * .25, .4, z + dx * .25], s: [.65, .13, .23], ry: Math.atan2(dx, dz) }); planters.push({ p: [x + dx * .8, .3, z + dz * .8], s: [.3, .24, .3] }) }
+      }
+    }
+    this.batch(new THREE.CylinderGeometry(1, 1, 1, 6), '#52615e', lamps); this.batch(new THREE.BoxGeometry(1, 1, 1), '#e4dfb7', heads); this.batch(new THREE.BoxGeometry(1, 1, 1), '#9e7e57', benches); this.batch(new THREE.BoxGeometry(1, 1, 1), '#8b9d65', planters)
+  }
+  private contactShadows() {
+    if (!this.contact.length) return
+    let material = this.materials.get('contact')
+    if (!material) { material = new THREE.MeshBasicMaterial({ map: this.contactMap, transparent: true, depthWrite: false, opacity: .5 }); this.materials.set('contact', material) }
+    const mesh = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1), material, this.contact.length), dummy = new THREE.Object3D()
+    this.contact.forEach((p, i) => { dummy.position.fromArray(p.p); dummy.rotation.set(-Math.PI / 2, 0, 0); dummy.scale.fromArray(p.s); dummy.updateMatrix(); mesh.setMatrixAt(i, dummy.matrix) }); mesh.computeBoundingSphere(); this.city.add(mesh)
+  }
   setSelected(id: string, changed: Set<string>) {
-    this.selected=id;this.changed=changed
-    if(this.changeMarkers){this.city.remove(this.changeMarkers);this.changeMarkers.geometry.dispose();this.changeMarkers.dispose();this.changeMarkers=null}
-    const marked=this.lots.filter(l=>changed.has(l.node.id) || this.blockMembers.get(l.node.id)?.some(id=>changed.has(id)))
-    if(marked.length){
-      const markers=new THREE.InstancedMesh(new THREE.RingGeometry(.7,.85,20),this.material('#d79542'),marked.length),dummy=new THREE.Object3D()
-      marked.forEach((l,i)=>{dummy.position.set(l.x,.28,l.z);dummy.rotation.x=-Math.PI/2;dummy.scale.setScalar(Math.max(1,l.w));dummy.updateMatrix();markers.setMatrixAt(i,dummy.matrix)})
-      this.city.add(markers);this.changeMarkers=markers
+    this.selected = id; this.changed = changed; this.clearGroup(this.markers)
+    const marked = this.lots.filter(l => changed.has(l.node.id) || this.blockMembers.get(l.node.id)?.some(id => changed.has(id)))
+    if (marked.length) {
+      const rings = marked.map(l => { const g = new THREE.RingGeometry(l.w, l.w + .13, 32); g.rotateX(-Math.PI / 2); g.translate(l.x, .24, l.z); return g })
+      const geometry = mergeGeometries(rings); rings.forEach(g => g.dispose())
+      if (geometry) this.markers.add(new THREE.Mesh(geometry, this.material('#dba751')))
     }
-    if(this.ring){this.city.remove(this.ring);this.ring.geometry.dispose();this.ring=null}
-    if(this.selectedGlyph){
-      this.city.remove(this.selectedGlyph);this.pickables=this.pickables.filter(m=>m!==this.selectedGlyph);this.instanceIds.delete(this.selectedGlyph)
-      this.selectedGlyph.geometry.dispose();this.selectedGlyph.dispose();this.selectedGlyph=null
-    }
-    const lot=this.byId.get(id) ?? this.rawLots.get(id)
-    if(lot&&!this.renderedIds.has(id)){
-      const glyph=new THREE.InstancedMesh(new THREE.BoxGeometry(.55,1.1,.55),this.material('#d4aa6c'),1)
-      glyph.setMatrixAt(0,new THREE.Matrix4().makeTranslation(lot.x,.75,lot.z));glyph.computeBoundingSphere();glyph.castShadow=true
-      this.city.add(glyph);this.pickables.push(glyph);this.instanceIds.set(glyph,[id]);this.selectedGlyph=glyph
-    }
-    if(lot){const radius=Math.max(.45,lot.w*1.2);this.ring=this.mesh(new THREE.RingGeometry(radius,radius+.09,48),'#de994e',lot.x,.26,lot.z);this.ring.rotation.x=-Math.PI/2;this.ring.castShadow=false}
+    const lot = this.byId.get(id)
+    if (lot) { const radius = Math.max(.8, lot.w), ring = new THREE.Mesh(new THREE.RingGeometry(radius, radius + .12, 48), this.material('#eabc65')); ring.rotation.x = -Math.PI / 2; ring.position.set(lot.x, .25, lot.z); this.markers.add(ring) }
     this.schedule()
   }
-  setDark(value: boolean) {this.dark=value;this.renderer.setClearColor(value?'#162c30':'#e7eee5',1);this.renderer.toneMappingExposure=value?.85:1.1;this.sun.intensity=value?1.6:2.6;if(this.ground)this.ground.material=this.material(value?'#516956':'#bdcba3');if(this.water)this.water.material=this.material(value?'#2c5054':'#b8d9d5');this.schedule()}
-  resize(width: number,height: number) {this.width=width;this.height=height;this.renderer.setSize(width,height,false);const size=this.bounds.getSize(new THREE.Vector3());const half=this.hasData&&this.camera.zoom===1?Math.max(12,(size.x+size.z+15)*.26,(size.x+size.z+15)*.35*height/width):(this.camera.top-this.camera.bottom)/2;this.camera.top=half;this.camera.bottom=-half;this.camera.left=-half*width/height;this.camera.right=half*width/height;this.camera.updateProjectionMatrix();if(this.hasData)this.schedule()}
+  setDark(value: boolean) {
+    this.dark = value; this.renderer.setClearColor(value ? '#172e35' : '#acd2d1', 1); this.renderer.toneMappingExposure = value ? .8 : 1.05; this.sun.intensity = value ? 1.5 : 2.4; this.hemisphere.intensity = value ? 1.3 : 1.7
+    if (this.water) (this.water.material as THREE.MeshStandardMaterial).color.set(value ? '#244a54' : '#75bfc1')
+    this.schedule()
+  }
+  resize(width: number, height: number) { this.width = width; this.height = height; this.renderer.setSize(width, height, false); const half = (this.camera.top - this.camera.bottom) / 2; this.camera.left = -half * width / height; this.camera.right = half * width / height; this.camera.updateProjectionMatrix(); if (this.lots.length && this.camera.zoom === 1) this.fit(); else this.schedule() }
   fit() {
-    const center=this.bounds.getCenter(new THREE.Vector3()), size=this.bounds.getSize(new THREE.Vector3())
-    this.controls.target.set(center.x,0,center.z);this.camera.position.set(center.x+95,92,center.z+116);this.camera.zoom=1;this.controls.update()
-    const half=Math.max(12,(size.x+size.z+15)*.26,((size.x+size.z+15)*.35)*this.height/this.width)
-    this.camera.top=half;this.camera.bottom=-half;this.camera.left=-half*this.width/this.height;this.camera.right=half*this.width/this.height;this.camera.updateProjectionMatrix();this.schedule()
+    const center = this.bounds.getCenter(new THREE.Vector3()), size = this.bounds.getSize(new THREE.Vector3()), span = Math.max(30, size.x, size.z)
+    this.controls.target.set(center.x, 0, center.z); this.camera.position.set(center.x + span * .78, span * .85, center.z + span * .98); this.camera.zoom = 1; this.controls.update()
+    this.camera.updateMatrixWorld(true)
+    const viewBounds = new THREE.Box3()
+    for (const x of [this.bounds.min.x, this.bounds.max.x]) for (const y of [0, this.bounds.max.y]) for (const z of [this.bounds.min.z, this.bounds.max.z]) viewBounds.expandByPoint(new THREE.Vector3(x, y, z).applyMatrix4(this.camera.matrixWorldInverse))
+    const half = Math.max(12, Math.abs(viewBounds.min.y), Math.abs(viewBounds.max.y), Math.abs(viewBounds.min.x) * this.height / this.width, Math.abs(viewBounds.max.x) * this.height / this.width) * 1.04
+    this.camera.top = half; this.camera.bottom = -half; this.camera.left = -half * this.width / this.height; this.camera.right = half * this.width / this.height; this.camera.updateProjectionMatrix(); this.schedule()
   }
-  zoom(factor: number) {this.camera.zoom=THREE.MathUtils.clamp(this.camera.zoom*factor,.35,16);this.camera.updateProjectionMatrix();this.cameraChanged()}
-  rotate() {const offset=this.camera.position.clone().sub(this.controls.target).applyAxisAngle(new THREE.Vector3(0,1,0),Math.PI/4);this.camera.position.copy(this.controls.target).add(offset);this.controls.update();this.schedule()}
-  focus(id: string) {const l=this.byId.get(id) ?? this.rawLots.get(id);if(!l)return;const offset=this.camera.position.clone().sub(this.controls.target);this.controls.target.set(l.x,l.h*.3,l.z);this.camera.position.copy(this.controls.target).add(offset);this.camera.zoom=Math.max(this.camera.zoom,2);this.camera.updateProjectionMatrix();this.controls.update();this.cameraChanged()}
-  private down=(e:PointerEvent)=>{this.pointerDown={x:e.clientX,y:e.clientY}}
-  private up=(e:PointerEvent)=>{if(this.pointerDown&&Math.hypot(e.clientX-this.pointerDown.x,e.clientY-this.pointerDown.y)<4){const id=this.pick(e);if(id)this.select(id)}this.pointerDown=null}
-  private pick(e:PointerEvent) {
-    const rect=this.canvas.getBoundingClientRect();this.mouse.set((e.clientX-rect.left)/this.width*2-1,-(e.clientY-rect.top)/this.height*2+1);this.ray.setFromCamera(this.mouse,this.camera)
-    const hit=this.ray.intersectObjects(this.pickables,false)[0];return hit&&hit.instanceId!==undefined?this.instanceIds.get(hit.object)?.[hit.instanceId]:undefined
-  }
-  private hover=(e:PointerEvent)=>{if(this.pointerDown||performance.now()-this.lastHover<130)return;this.lastHover=performance.now();const id=this.pick(e),lot=id?this.byId.get(id):undefined;this.canvas.style.cursor=lot?'pointer':'grab';if(lot){const r=this.canvas.getBoundingClientRect();this.emit({name:lot.node.label + (this.blockMembers.has(lot.node.id) ? ` · 街区含 ${this.blockMembers.get(lot.node.id)!.length} 个对象` : ''),kind:lot.node.nodeType,x:e.clientX-r.left,y:e.clientY-r.top})}else this.emit()}
-  private leave=()=>this.emit()
-  private emit(hover?:SceneStatus['hover']) {
-    const candidates=[...this.labels];const selected=this.byId.get(this.selected) ?? this.rawLots.get(this.selected);if(selected&&!candidates.includes(selected))candidates.unshift(selected)
-    const rects:{x:number;y:number;w:number}[]=[],labels:Label[]=[]
-    for(const l of candidates.sort((a,b)=>Number(!!b.style)-Number(!!a.style)||Number(b.node.id===this.selected)-Number(a.node.id===this.selected))) {
-      const p=new THREE.Vector3(l.x,l.h+.6,l.z).project(this.camera),x=(p.x+1)*this.width/2,w=Math.min(180,l.node.label.length*8+25)
-      let y=(1-p.y)*this.height/2
-      if(l.style)for(let attempt=0;attempt<3&&rects.some(r=>Math.abs(x-r.x)<(w+r.w)/2+10&&Math.abs(y-r.y)<35);attempt++)y-=36
-      if(x<50||x>this.width-60||y<30||y>this.height-80||p.z>1)continue
-      if(!l.style&&l.node.id!==this.selected&&rects.some(r=>Math.abs(x-r.x)<(w+r.w)/2+10&&Math.abs(y-r.y)<35))continue
-      rects.push({x,y,w});labels.push({id:l.node.id,name:l.node.label,x,y,kind:l.node.nodeType,selected:l.node.id===this.selected})
+  zoom(factor: number) { this.camera.zoom = THREE.MathUtils.clamp(this.camera.zoom * factor, .45, 18); this.camera.updateProjectionMatrix(); this.schedule() }
+  rotate() { const offset = this.camera.position.clone().sub(this.controls.target).applyAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 4); this.camera.position.copy(this.controls.target).add(offset); this.controls.update(); this.schedule() }
+  focus(id: string) { const l = this.byId.get(id); if (!l) return; const offset = this.camera.position.clone().sub(this.controls.target); this.controls.target.set(l.x, l.h * .25, l.z); this.camera.position.copy(this.controls.target).add(offset); this.camera.zoom = Math.max(this.camera.zoom, l.w > 4 ? 3 : 5); this.camera.updateProjectionMatrix(); this.controls.update(); this.schedule() }
+  private down = (e: PointerEvent) => { this.pointerDown = { x: e.clientX, y: e.clientY } }
+  private up = (e: PointerEvent) => { if (e.button === 0 && this.pointerDown && Math.hypot(e.clientX - this.pointerDown.x, e.clientY - this.pointerDown.y) < 4) { const id = this.pick(e); if (id) this.select(id) } this.pointerDown = null }
+  private pick(e: PointerEvent) { const rect = this.canvas.getBoundingClientRect(); this.mouse.set((e.clientX - rect.left) / this.width * 2 - 1, -(e.clientY - rect.top) / this.height * 2 + 1); this.ray.setFromCamera(this.mouse, this.camera); const hit = this.ray.intersectObjects(this.pickables, false)[0]; return hit && hit.instanceId !== undefined ? this.instanceIds.get(hit.object)?.[hit.instanceId] : undefined }
+  private hover = (e: PointerEvent) => { if (this.pointerDown || performance.now() - this.lastHover < 130) return; this.lastHover = performance.now(); const id = this.pick(e), lot = id ? this.byId.get(id) : undefined; this.canvas.style.cursor = lot ? 'pointer' : 'grab'; if (lot) { const r = this.canvas.getBoundingClientRect(); this.emit({ name: lot.node.label + (this.blockMembers.has(lot.node.id) ? ` · 街区含 ${this.blockMembers.get(lot.node.id)!.length} 个对象` : ''), kind: lot.node.nodeType, x: e.clientX - r.left, y: e.clientY - r.top }) } else this.emit() }
+  private leave = () => this.emit()
+  private emit(hover?: SceneStatus['hover']) {
+    const candidates = [...this.labels], selected = this.byId.get(this.selected); if (selected && !candidates.includes(selected)) candidates.unshift(selected)
+    const rects: { x: number; y: number; w: number }[] = [], labels: Label[] = []
+    for (const l of candidates.sort((a, b) => Number(b.node.id === this.selected) - Number(a.node.id === this.selected) || Number(!!b.style) - Number(!!a.style))) {
+      const p = new THREE.Vector3(l.x, l.h + .6, l.z).project(this.camera), x = (p.x + 1) * this.width / 2, w = Math.min(180, l.node.label.length * 8 + 25); let y = (1 - p.y) * this.height / 2
+      if (l.style) for (let attempt = 0; attempt < 3 && rects.some(r => Math.abs(x - r.x) < (w + r.w) / 2 + 10 && Math.abs(y - r.y) < 35); attempt++) y -= 36
+      if (x < 50 || x > this.width - 60 || y < 30 || y > this.height - 80 || p.z > 1) continue
+      if (!l.style && l.node.id !== this.selected && rects.some(r => Math.abs(x - r.x) < (w + r.w) / 2 + 10 && Math.abs(y - r.y) < 35)) continue
+      rects.push({ x, y, w }); labels.push({ id: l.node.id, name: l.node.label, x, y, kind: l.node.nodeType, selected: l.node.id === this.selected })
     }
-    this.status({labels,count:this.total,rendered:this.lots.length,aggregated:this.total>1200,zoom:this.camera.zoom,hover})
+    this.status({ labels, count: this.total, rendered: this.lots.length, aggregated: this.total > this.lots.length, zoom: this.camera.zoom, loading: this.loading, error: this.error || undefined, hover })
   }
-  private cameraChanged=()=>{
-    this.schedule()
-  }
-  private schedule=()=>{if(this.disposed)return;cancelAnimationFrame(this.frame);this.frame=requestAnimationFrame(()=>{this.renderer.render(this.scene,this.camera);this.emit()})}
-  dispose() {
-    this.disposed=true;cancelAnimationFrame(this.frame);this.controls.dispose();this.clear();for(const m of this.materials.values())m.dispose();this.materials.clear();this.sun.shadow.map?.dispose();this.renderer.dispose()
-    this.canvas.removeEventListener('pointerdown',this.down);this.canvas.removeEventListener('pointerup',this.up);this.canvas.removeEventListener('pointermove',this.hover);this.canvas.removeEventListener('pointerleave',this.leave);this.canvas.removeEventListener('contextmenu',this.contextMenu)
-  }
+  private schedule = () => { if (this.disposed) return; cancelAnimationFrame(this.frame); this.frame = requestAnimationFrame(() => { const start = performance.now(); this.renderer.render(this.scene, this.camera); Object.assign(this.canvas.dataset, { ready: String(!this.loading && !this.error), drawCalls: String(this.renderer.info.render.calls), triangles: String(this.renderer.info.render.triangles), geometries: String(this.renderer.info.memory.geometries), textures: String(this.renderer.info.memory.textures), renderMs: (performance.now() - start).toFixed(1) }); this.emit() }) }
+  dispose() { this.disposed = true; cancelAnimationFrame(this.frame); this.controls.dispose(); this.clear(); this.assets?.dispose(); for (const m of this.materials.values()) m.dispose(); for (const t of this.textures) t.dispose(); this.sun.shadow.map?.dispose(); const gl = this.renderer.getContext(); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false); this.renderer.dispose(); this.canvas.removeEventListener('pointerdown', this.down); this.canvas.removeEventListener('pointerup', this.up); this.canvas.removeEventListener('pointermove', this.hover); this.canvas.removeEventListener('pointerleave', this.leave); this.canvas.removeEventListener('contextmenu', this.contextMenu) }
 }

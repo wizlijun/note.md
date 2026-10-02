@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { get } from 'node:http'
-import { mkdtemp, mkdir, writeFile, readFile, rm, symlink } from 'node:fs/promises'
+import { mkdtemp, mkdir, writeFile, readFile, rm, symlink, cp } from 'node:fs/promises'
+import { createHash } from 'node:crypto'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { loadSnapshot, startPreview } from './preview.mjs'
 
 const rows = [{ kind: 'meta', schema: 'vault-knowledge-structure/1', snapshotId: 'test', algorithm: {}, coverage: {} }, { kind: 'node', id: 'n', nodeType: 'concept', label: '本地材料', status: 'candidate', evidence: [] }]
@@ -40,4 +42,43 @@ test('malformed JSONL fails with a line number and does not start a server', asy
     await writeFile(path, ''); await assert.rejects(loadSnapshot(path), /非空普通 JSONL/)
     await writeFile(path, JSON.stringify({ kind: 'unexpected' })); await assert.rejects(loadSnapshot(path), /不支持的记录类型/)
   } finally { await rm(root, { recursive: true, force: true }) }
+})
+
+test('bundled city models and every texture resolve locally with correct MIME and verified bytes', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'habitat-city-assets-'))
+  let server
+  try {
+    const models = fileURLToPath(new URL('../public/models/', import.meta.url))
+    const manifest = JSON.parse(await readFile(join(models, 'manifest.json'), 'utf8'))
+    const distDir = join(root, 'dist'), snapshotPath = join(root, 'snapshot.jsonl')
+    await mkdir(distDir); await cp(models, join(distDir, 'models'), { recursive: true })
+    await writeFile(join(distDir, 'index.html'), '<html><head></head><body>city</body></html>')
+    await writeFile(snapshotPath, rows.map(row => JSON.stringify(row)).join('\n'))
+    const result = await startPreview({ snapshotPath, distDir, port: 0 }); server = result.server
+    for (const file of manifest.files) {
+      const url = `${result.url}/models/${file.path}`, response = await fetch(url)
+      assert.equal(response.status, 200, file.path)
+      const bytes = Buffer.from(await response.arrayBuffer())
+      assert.equal(bytes.length, file.bytes, file.path)
+      assert.equal(Number(response.headers.get('content-length')), file.bytes, file.path)
+      const head = await fetch(url, { method: 'HEAD' })
+      assert.equal(Number(head.headers.get('content-length')), file.bytes)
+      assert.equal((await head.arrayBuffer()).byteLength, 0)
+      assert.equal(createHash('sha256').update(bytes).digest('hex'), file.sha256, file.path)
+      if (file.path.endsWith('.glb')) {
+        assert.equal(response.headers.get('content-type'), 'model/gltf-binary')
+        assert.equal(bytes.readUInt32LE(0), 0x46546c67)
+        const gltf = JSON.parse(bytes.subarray(20, 20 + bytes.readUInt32LE(12)).toString())
+        for (const resource of [...(gltf.images ?? []), ...(gltf.buffers ?? [])]) {
+          if (!resource.uri || resource.uri.startsWith('data:')) continue
+          const dependency = new URL(resource.uri, url)
+          assert.equal(dependency.origin, result.url, 'models must not require remote assets')
+          const texture = await fetch(dependency)
+          assert.equal(texture.status, 200, dependency.href)
+          if (resource.uri.endsWith('.png')) assert.equal(texture.headers.get('content-type'), 'image/png')
+        }
+      }
+    }
+    for (const path of ['/models/missing.glb', '/models/nature/Textures/missing.png', '/models/manifest.json']) assert.equal((await fetch(result.url + path)).status, 404)
+  } finally { if (server) await new Promise(resolve => server.close(resolve)); await rm(root, { recursive: true, force: true }) }
 })

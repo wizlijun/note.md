@@ -12,6 +12,7 @@ const maxBytes = 256 * 1024 * 1024
 const collection = new Map([['source', 'sources'], ['node', 'nodes'], ['evidence', 'evidence'], ['edge', 'edges'], ['membership', 'memberships'], ['lineage', 'lineage'], ['layout', 'layout']])
 const unavailable = '本地只读预览不连接 note.md 宿主，不能重新解析、保存或读取 Git 历史。请在包含 HABITAT 新接口的源码版 note.md 中操作。'
 const bridge = `window.notemd={request:async(method,params={})=>{const response=await fetch('/__habitat_preview_rpc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({method,params})});const result=await response.json();if(result.error)throw new Error(result.error);return result}};`
+const assetMime = { '.html': 'text/html; charset=utf-8', '.js': 'application/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.ico': 'image/x-icon', '.woff2': 'font/woff2', '.glb': 'model/gltf-binary' }
 
 export async function loadSnapshot(path) {
   const info = await stat(path)
@@ -43,7 +44,7 @@ async function assetsIn(directory) {
     for (const entry of await readdir(path, { withFileTypes: true })) {
       const key = `${prefix}/${entry.name}`, full = join(path, entry.name)
       if (entry.isDirectory()) await visit(full, key)
-      else if (entry.isFile() && ['.html', '.js', '.css', '.svg', '.png', '.webp', '.ico', '.woff2'].includes(extname(entry.name))) assets.set(key, await readFile(full))
+      else if (entry.isFile() && assetMime[extname(entry.name)]) assets.set(key, await readFile(full))
     }
   }
   await visit(directory, '')
@@ -58,7 +59,7 @@ export async function startPreview({ snapshotPath, port = 8787, distDir = dist }
   const state = JSON.stringify({ vaultKey: 'local-readonly-preview', snapshot: null, preview: snapshot, job: null, pending: false, historyAvailable: false, readOnlyPreview: true })
   let boundPort = port
   const server = createServer(async (request, response) => {
-    const send = (status, body, type = 'application/json; charset=utf-8') => { response.writeHead(status, { 'Content-Type': type }); response.end(body) }
+    const send = (status, body, type = 'application/json; charset=utf-8') => { response.writeHead(status, { 'Content-Type': type, 'Content-Length': Buffer.byteLength(body) }); response.end(request.method === 'HEAD' ? undefined : body) }
     response.setHeader('Cache-Control', 'no-store')
     response.setHeader('X-Content-Type-Options', 'nosniff')
     response.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; object-src 'none'; frame-ancestors 'none'; base-uri 'none'")
@@ -77,11 +78,11 @@ export async function startPreview({ snapshotPath, port = 8787, distDir = dist }
         return send(400, JSON.stringify({ error: message }))
       }
       if (request.method !== 'GET' && request.method !== 'HEAD') return send(405, JSON.stringify({ error: '只读预览不支持此请求。' }))
-      if (path === '/__habitat_preview_bridge.js') return send(200, request.method === 'HEAD' ? '' : bridge, 'application/javascript; charset=utf-8')
+      if (path === '/__habitat_preview_bridge.js') return send(200, bridge, 'application/javascript; charset=utf-8')
       const key = path === '/' ? '/index.html' : path, content = assets.get(key)
       if (!content) return send(404, JSON.stringify({ error: '资源不存在。' }))
-      const mime = { '.html': 'text/html; charset=utf-8', '.js': 'application/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.webp': 'image/webp', '.ico': 'image/x-icon', '.woff2': 'font/woff2' }[extname(key)]
-      send(200, request.method === 'HEAD' ? '' : content, mime)
+      const mime = assetMime[extname(key)]
+      send(200, content, mime)
     } catch { if (!response.headersSent) send(500, JSON.stringify({ error: '本地预览请求失败。' })); else response.end() }
   })
   await new Promise((resolveReady, reject) => { server.once('error', reject); server.listen(port, '127.0.0.1', resolveReady) })

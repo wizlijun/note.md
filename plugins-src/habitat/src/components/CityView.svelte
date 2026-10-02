@@ -32,11 +32,11 @@
   <div class="map-caption" class:closer={(status.zoom ?? 1) > 1.3}><span class="eyebrow">A LIVING ATLAS OF YOUR MIND</span><h2 class="map-heading">知识正在成为一座城<span>KNOWLEDGE CITY</span></h2><p class="map-mini-stat"><strong>{status.count.toLocaleString()}</strong> 个结构对象<span> / {status.aggregated ? `街区总览 · ${status.rendered?.toLocaleString()} 座代表建筑` : '对象细节 · 独立地址'}</span></p><small>项目园区、概念街区与探索营地 · 总览建筑代表同一空间街区中的对象</small></div>
   <div class="city-labels">
     {#each status.labels as label (label.id)}
-      <button class="city-label" class:active={label.selected} style:left={`${label.x}px`} style:top={`${label.y}px`} onclick={() => select(label.id)} ondblclick={() => scene?.focus(label.id)} title={`${label.name} · ${typeLabel(label.kind)}`}><span class="label-dot"></span><span>{label.name}</span></button>
+      <button class="city-label" class:active={label.selected} style:left={`${label.x}px`} style:top={`${label.y}px`} onclick={() => { scene?.focus(label.id); select(label.id) }} title={`${label.name} · ${typeLabel(label.kind)} · 点击靠近`}><span class="label-dot"></span><span>{label.name}</span></button>
     {/each}
   </div>
   {#if status.hover}<div class="map-tooltip" style:left={`${Math.min(status.hover.x+14, (container?.clientWidth ?? 600)-215)}px`} style:top={`${Math.max(12,status.hover.y-65)}px`}><strong>{status.hover.name}</strong><span>{typeLabel(status.hover.kind)} · 点击查看依据</span></div>{/if}
-  {#if unavailable}<div class="canvas-fallback">此环境暂不支持三维画布，请从左侧结构列表浏览全部知识。</div>{:else if !ready}<div class="canvas-fallback">正在搭建你的城市…</div>{/if}
+  {#if unavailable}<div class="canvas-fallback">此环境暂不支持三维画布，请从左侧结构列表浏览全部知识。</div>{:else if status.error}<div class="canvas-fallback">城市模型加载失败，请重新打开此页面。<small>{status.error}</small></div>{:else if !ready || status.loading}<div class="canvas-fallback">正在搭建你的城市…</div>{/if}
   <div class="map-controls"><button aria-label="旋转城市" onclick={() => scene?.rotate()}>↻</button><span></span><button aria-label="缩小" onclick={() => scene?.zoom(.8)}>−</button><button aria-label="回到全景" onclick={() => scene?.fit()}>全景</button><button aria-label="放大" onclick={() => scene?.zoom(1.25)}>＋</button></div>
   <div class="map-legend"><span><i class="swatch project"></i>项目园区</span><span><i class="swatch concept"></i>概念街区</span><span><i class="swatch topic"></i>主题绿地</span><span><i class="swatch material"></i>材料聚落</span><span class="road-label">记录中的联系越密，道路越宽 · 导入候选权重较低</span></div>
   <div class="city-interaction-hint">拖动旋转 · 右键平移 · 滚轮探索</div>
