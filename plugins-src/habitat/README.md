@@ -2,7 +2,7 @@
 
 HABITAT 从当前 Vault 的 Markdown、大纲节点和已有会议知识数据提取可回源的知识结构，以候选主题、概念、实体和项目呈现为城市。核心计算在本机完成，不新增模型调用。已有 AI 抽取数据仍标记为导入声明或候选；来源版本匹配不代表语义已经证实。
 
-`0.2.0` 城市渲染重构已发布至 [note.md 插件市场](https://plugins.notemd.net/)，提供 macOS Apple Silicon / Intel 包。最低宿主为 `>=6.930.3`，需要包含新 `host.knowledge.*` 接口；宿主 `6.930.3` 已发布。已完成本地提取、压缩快照、专用 Git 保存与历史接口、语义比较及 Three.js 低模 3D 城市界面；真实 Vault 本轮只读验证，没有在该 Vault 创建结构文件、Git 提交或推送。产品设计与当前实现边界见 [提取规格](../../docs/superpowers/specs/2026-09-30-vault-knowledge-structure-extraction-design.md#11-源码实现与真实全量验收2026-09-30)。
+`0.2.1` 街区标记更新已发布至 [note.md 插件市场](https://plugins.notemd.net/)，提供 macOS Apple Silicon / Intel 包。最低宿主为 `>=6.930.3`，需要包含新 `host.knowledge.*` 接口；宿主 `6.930.3` 已发布。已完成本地提取、压缩快照、专用 Git 保存与历史接口、语义比较及 Three.js 低模 3D 城市界面；真实 Vault 本轮只读验证，没有在该 Vault 创建结构文件、Git 提交或推送。产品设计与当前实现边界见 [提取规格](../../docs/superpowers/specs/2026-09-30-vault-knowledge-structure-extraction-design.md#11-源码实现与真实全量验收2026-09-30)。
 
 ## 模块职责
 
@@ -157,3 +157,5 @@ node plugins-src/habitat/scripts/render-qa.mjs \
 ## 0.2.1 街区标记
 
 每个可见街区均显示可点击标记，名称优先取地标及本区实际主题，否则使用代表对象；悬停显示完整名称和对象数。远景拥挤处折叠文字但保留标记，靠边展开向内对齐；标签不会覆盖详情面板。真实全量110个街区均有标记，选中对象使用真实知识ID且没有重复标签。知识规划、保存坐标及快照协议保持原样。
+
+0.2.1 验收：110/110街区标记、唯一知识ID、悬停展开、点击依据、旋转及800px全覆盖通过；28项前端、3项HTTP、类型检查与真实GPU20次重建回归通过。双架构包Developer ID/minisign验证及R2匿名回读匹配，KV由252→253条，保留全部旧记录；公网回读在短暂传播延迟后与候选索引完全一致。
