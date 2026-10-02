@@ -1,5 +1,5 @@
 export interface ProjectedLot {
-  node: { id: string; nodeType: string; evidence?: string[] }
+  node: { id: string; nodeType: string; evidence?: string[]; attentionScore?: number }
   x: number
   z: number
   zone?: string

@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url'
 
 const dist = resolve(dirname(fileURLToPath(import.meta.url)), '../dist')
 const maxBytes = 256 * 1024 * 1024
-const collection = new Map([['source', 'sources'], ['node', 'nodes'], ['evidence', 'evidence'], ['edge', 'edges'], ['membership', 'memberships'], ['lineage', 'lineage'], ['layout', 'layout']])
+const collection = new Map([['source', 'sources'], ['node', 'nodes'], ['evidence', 'evidence'], ['edge', 'edges'], ['membership', 'memberships'], ['lineage', 'lineage'], ['layout', 'layout'], ['attention', 'attention'], ['attention_observation', 'attentionObservations']])
 const unavailable = '本地只读预览不连接 note.md 宿主，不能重新解析、保存或读取 Git 历史。请在包含 HABITAT 新接口的源码版 note.md 中操作。'
 const bridge = `window.notemd={request:async(method,params={})=>{const response=await fetch('/__habitat_preview_rpc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({method,params})});const result=await response.json();if(result.error)throw new Error(result.error);return result}};`
 const assetMime = { '.html': 'text/html; charset=utf-8', '.js': 'application/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.ico': 'image/x-icon', '.woff2': 'font/woff2', '.glb': 'model/gltf-binary' }
@@ -17,7 +17,7 @@ const assetMime = { '.html': 'text/html; charset=utf-8', '.js': 'application/jav
 export async function loadSnapshot(path) {
   const info = await stat(path)
   if (!info.isFile() || info.size === 0 || info.size > maxBytes) throw new Error('快照必须是不超过 256 MiB 的非空普通 JSONL 文件。')
-  const snapshot = { meta: null, sources: [], nodes: [], evidence: [], edges: [], memberships: [], lineage: [], layout: [] }
+  const snapshot = { meta: null, sources: [], nodes: [], evidence: [], edges: [], memberships: [], lineage: [], layout: [], attention: [], attentionObservations: [] }
   const input = createReadStream(path, { encoding: 'utf8' })
   const lines = createInterface({ input, crlfDelay: Infinity })
   let number = 0
@@ -30,11 +30,11 @@ export async function loadSnapshot(path) {
       if (!record || typeof record !== 'object' || Array.isArray(record)) throw new Error(`快照第 ${number} 行应为记录对象。`)
       const { kind, ...data } = record
       if (kind === 'meta') { if (snapshot.meta) throw new Error('快照包含重复 meta 记录。'); snapshot.meta = data }
-      else if (collection.has(kind)) { if (typeof data.id !== 'string') throw new Error(`快照第 ${number} 行缺少记录 id。`); snapshot[collection.get(kind)].push(data) }
+      else if (collection.has(kind)) { if (typeof data[kind === 'attention' ? 'node' : kind === 'attention_observation' ? 'evidence' : 'id'] !== 'string') throw new Error(`快照第 ${number} 行缺少记录 id。`); snapshot[collection.get(kind)].push(data) }
       else throw new Error(`快照第 ${number} 行含不支持的记录类型。`)
     }
   } finally { lines.close(); input.destroy() }
-  if (snapshot.meta?.schema !== 'vault-knowledge-structure/1' || !snapshot.meta.coverage || !snapshot.meta.algorithm || typeof snapshot.meta.snapshotId !== 'string') throw new Error('快照缺少有效的 vault-knowledge-structure/1 元数据。')
+  if (!['vault-knowledge-structure/1', 'vault-knowledge-structure/2'].includes(snapshot.meta?.schema) || !snapshot.meta.coverage || !snapshot.meta.algorithm || typeof snapshot.meta.snapshotId !== 'string') throw new Error('快照缺少有效的 vault-knowledge-structure/1 或 /2 元数据。')
   return snapshot
 }
 

@@ -88,3 +88,20 @@ button.primary { border-radius:9px; padding:8px 14px; box-shadow:0 3px 8px #2846
 @media(prefers-color-scheme:dark) { :root { --hb-float:rgba(28,44,36,.94); --hb-shadow:0 12px 40px #07110d30,0 2px 6px #07110d20; } .landscape { background:radial-gradient(ellipse at 45% 30%,#283d2d 0%,var(--hb-map) 65%); } .map-caption .eyebrow { color:var(--hb-muted); } .node-glyph.topic { color:#b6c990; } }
 @media(max-width:1100px) { .directory { width:232px; padding:23px 15px 0; } .directory .section-title { font-size:15px; } .directory .section-title small { font-size:8px; } .map-legend { gap:10px; padding:8px 11px; } .toolbar { padding:15px 22px; } }
 @media(max-width:800px) { .toolbar { min-height:66px; padding:12px 15px; gap:12px; } .brand { font-size:15px; letter-spacing:1.5px; gap:7px; } .brand-mark { width:29px; height:32px; flex-basis:29px; } .brand small { margin-left:5px; font-size:10px; } .toolbar-actions { gap:3px; } .toolbar-actions>button:not(.primary) { padding:6px 7px; font-size:10px; } .toolbar-actions>.primary { padding:7px 9px; font-size:10px; } .directory { width:205px; padding:20px 12px 0; } .directory-kicker { font-size:7px; letter-spacing:1.3px; } .directory .section-title { font-size:14px; margin-bottom:18px; } .directory .section-title small { font-size:8px; } .map-caption { top:20px; left:21px; } .map-heading { font-size:21px; } .map-controls { right:16px; bottom:65px; } .map-legend { max-width:calc(100% - 28px); gap:8px; font-size:8px; padding:8px 9px; } .map-legend span { gap:4px; } .detail-panel { top:115px; bottom:113px; right:13px; width:min(280px,calc(100% - 26px)); padding:17px 17px 0; } .historical-bar { padding:6px 15px; font-size:8px; } }
+
+/* Attention is a dated view of the graph, separate from its historical structure. */
+.focus-switch { display:flex;gap:3px;padding:3px;border:1px solid var(--hb-line);border-radius:8px;background:var(--hb-bg); }
+.focus-switch button { flex:1;border:0;background:transparent;padding:6px 4px;font-size:11px;border-radius:5px; }
+.focus-switch button.active { background:var(--hb-panel);color:var(--hb-accent);box-shadow:0 1px 4px #223a2910;font-weight:600; }
+.focus-window { font-size:10px;line-height:1.7;color:var(--hb-muted);margin:9px 2px 12px; }
+.window-choice { display:flex;align-items:center;gap:6px;font-size:9px;color:var(--hb-muted);margin:0 1px 12px; }
+.window-choice select { flex:1;padding:4px;font-size:10px; }
+.node-row.context-word strong { color:var(--hb-muted);font-weight:400; }
+.node-row.context-word .node-glyph { opacity:.55; }
+.attention-detail { background:var(--hb-soft);border-radius:8px;padding:10px 12px;margin:4px 0 10px; }
+.attention-detail>div { display:flex;justify-content:space-between;gap:8px;align-items:baseline;font-size:10px; }
+.attention-detail>div span { color:var(--hb-muted);font-size:9px; }
+.attention-detail p { margin:6px 0;font-size:10px;line-height:1.7; }
+.attention-detail small { display:block;color:var(--hb-muted);font-size:9px;line-height:1.65; }
+.evidence-date { color:var(--hb-accent); }
+.evidence-date small { display:block;color:var(--hb-muted);font-size:9px; }

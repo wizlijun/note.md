@@ -113,6 +113,9 @@ fn validated_summary(root: &Path, oid: &str) -> Result<Value, String> {
         "parents": snapshot.meta.parents,
         "generatedAt": snapshot.meta.generated_at,
         "changeCause": snapshot.meta.change_cause,
+        "schema": snapshot.meta.schema,
+        "focus": snapshot.meta.focus,
+        "attentionNodes": snapshot.attention.len(),
         "nodes": snapshot.nodes.len(),
         "edges": snapshot.edges.len()
     });

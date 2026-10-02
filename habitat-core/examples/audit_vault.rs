@@ -1,5 +1,5 @@
 //! Development-only, explicitly invoked read-only Vault validation adapter.
-//! Usage: audit_vault ROOT MANIFEST_JSON OUTPUT_JSONL
+//! Usage: audit_vault ROOT MANIFEST_JSON OUTPUT_JSONL [AS_OF WINDOW_DAYS UTC_OFFSET_MINUTES]
 //! The manifest is exported from SQLite with mode=ro; this process never opens
 //! or changes the search index. All artifacts must be written outside the Vault.
 //! Writes the complete JSONL for local inspection and its .jsonl.zst snapshot.
@@ -50,8 +50,12 @@ fn extract(
     root: &Path,
     inputs: &[SourceInput],
     previous: Option<&Snapshot>,
+    focus: Option<&FocusContext>,
 ) -> Result<Extraction, String> {
     let mut extractor = Extractor::new("development-vault-audit", inputs, previous);
+    if let Some(focus) = focus {
+        extractor.set_focus(focus.clone())?;
+    }
     for (index, input) in inputs.iter().enumerate() {
         match safe_read(root, &input.path) {
             Ok(content) => {
@@ -69,9 +73,22 @@ fn extract(
 }
 fn main() -> Result<(), String> {
     let args: Vec<_> = std::env::args().collect();
-    if args.len() != 4 {
-        return Err("usage: audit_vault ROOT MANIFEST_JSON OUTPUT_JSONL".into());
+    if !matches!(args.len(), 4 | 7) {
+        return Err("usage: audit_vault ROOT MANIFEST_JSON OUTPUT_JSONL [AS_OF WINDOW_DAYS UTC_OFFSET_MINUTES]".into());
     }
+    let focus = if args.len() == 7 {
+        Some(FocusContext {
+            as_of: args[4].clone(),
+            window_days: args[5]
+                .parse()
+                .map_err(|_| "WINDOW_DAYS must be an integer")?,
+            utc_offset_minutes: args[6]
+                .parse()
+                .map_err(|_| "UTC_OFFSET_MINUTES must be an integer")?,
+        })
+    } else {
+        None
+    };
     let root = fs::canonicalize(&args[1]).map_err(|e| e.to_string())?;
     let output = PathBuf::from(&args[3]);
     let parent = output.parent().ok_or("输出路径缺少父目录")?;
@@ -85,7 +102,7 @@ fn main() -> Result<(), String> {
         serde_json::from_slice(&fs::read(&args[2]).map_err(|e| e.to_string())?)
             .map_err(|e| e.to_string())?;
     let start = Instant::now();
-    let data = extract(&root, &inputs, None)?;
+    let data = extract(&root, &inputs, None, focus.as_ref())?;
     let extraction_ms = start.elapsed().as_millis();
     let evidence_ids: std::collections::BTreeSet<_> =
         data.evidence.iter().map(|e| e.id.as_str()).collect();
@@ -144,12 +161,12 @@ fn main() -> Result<(), String> {
             (label, count)
         })
         .collect();
-    let initial = json!({"bytes":bytes.len(),"packedBytes":bytes.len(),"jsonlBytes":jsonl.len(),"compressionRatio":bytes.len() as f64/jsonl.len() as f64,"packedPath":packed_path,"jsonlPath":output,"sources":snapshot.sources.len(),"nodes":snapshot.nodes.len(),"evidence":snapshot.evidence.len(),"edges":snapshot.edges.len(),"types":types,"extractionMs":extraction_ms,"organizationMs":organization_ms,"decodeMs":decode_ms,"losslessDecode":true});
+    let initial = json!({"bytes":bytes.len(),"packedBytes":bytes.len(),"jsonlBytes":jsonl.len(),"compressionRatio":bytes.len() as f64/jsonl.len() as f64,"packedPath":packed_path,"jsonlPath":output,"focus":snapshot.meta.focus,"attentionNodes":snapshot.attention.len(),"sources":snapshot.sources.len(),"nodes":snapshot.nodes.len(),"evidence":snapshot.evidence.len(),"edges":snapshot.edges.len(),"types":types,"extractionMs":extraction_ms,"organizationMs":organization_ms,"decodeMs":decode_ms,"losslessDecode":true});
     eprintln!("first full snapshot: {initial}");
     fs::write(&output, &jsonl).map_err(|e| e.to_string())?;
     fs::write(&packed_path, &bytes).map_err(|e| e.to_string())?;
     let start = Instant::now();
-    let repeated = extract(&root, &inputs, Some(&snapshot))?;
+    let repeated = extract(&root, &inputs, Some(&snapshot), focus.as_ref())?;
     let again = organize::build(
         "development-vault-audit",
         &hash("controlled-index-plus-meeting-knowledge/1"),

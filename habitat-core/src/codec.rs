@@ -2,7 +2,7 @@ use crate::{hash, model::*};
 use base64::{engine::general_purpose::STANDARD, Engine};
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::{json, Value};
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 use std::io::Read;
 
 pub const MAX_DECODE_BYTES: usize = 128 * 1024 * 1024;
@@ -32,6 +32,10 @@ fn normalize(snapshot: &mut Snapshot) {
     snapshot.memberships.sort_by(|a, b| a.id.cmp(&b.id));
     snapshot.lineage.sort_by(|a, b| a.id.cmp(&b.id));
     snapshot.layout.sort_by(|a, b| a.id.cmp(&b.id));
+    snapshot.attention.sort_by(|a, b| a.node.cmp(&b.node));
+    snapshot
+        .attention_observations
+        .sort_by(|a, b| a.evidence.cmp(&b.evidence));
     snapshot.meta.parents.sort();
     snapshot.meta.parents.dedup();
     snapshot
@@ -56,6 +60,14 @@ fn normalize(snapshot: &mut Snapshot) {
     for item in &mut snapshot.memberships {
         item.score = round(item.score);
     }
+    for item in &mut snapshot.attention {
+        item.score = round(item.score);
+        item.evidence.sort();
+        item.evidence.dedup();
+    }
+    for item in &mut snapshot.attention_observations {
+        item.confidence = round(item.confidence);
+    }
     for item in &mut snapshot.layout {
         item.x = round(item.x);
         item.y = round(item.y);
@@ -72,13 +84,19 @@ fn round(value: f64) -> f64 {
 }
 
 fn state_hash(snapshot: &Snapshot) -> Result<String, String> {
-    digest(
-        json!({"schema":snapshot.meta.schema,"vaultId":snapshot.meta.vault_id,
+    let mut state = json!({"schema":snapshot.meta.schema,"vaultId":snapshot.meta.vault_id,
         "algorithm":snapshot.meta.algorithm,"scopeHash":snapshot.meta.scope_hash,
         "manifestHash":snapshot.meta.manifest_hash,"structureHash":snapshot.meta.structure_hash,
         "evidenceHash":snapshot.meta.evidence_hash,"layoutHash":snapshot.meta.layout_hash,
-        "coverage":snapshot.meta.coverage}),
-    )
+        "coverage":snapshot.meta.coverage});
+    // The v1 digest must remain byte-for-byte the original formula. New focus
+    // records are a separate state dimension, not a knowledge-structure delta.
+    if snapshot.meta.schema == SCHEMA {
+        state["focus"] = json!(snapshot.meta.focus);
+        state["attention"] = json!(snapshot.attention);
+        state["attentionObservations"] = json!(snapshot.attention_observations);
+    }
+    digest(state)
 }
 fn snapshot_id(meta: &Meta) -> Result<String, String> {
     digest(json!({"schema":meta.schema,"stateHash":meta.state_hash,"parents":meta.parents}))
@@ -110,7 +128,9 @@ pub fn finalize(snapshot: &mut Snapshot, previous: Option<&Snapshot>) -> Result<
             *snapshot = old.clone();
             return Ok(false);
         }
-        snapshot.meta.change_cause = if snapshot.meta.algorithm != old.meta.algorithm {
+        snapshot.meta.change_cause = if snapshot.meta.algorithm != old.meta.algorithm
+            || snapshot.meta.schema != old.meta.schema
+        {
             if crate::diff::material_changed(old, snapshot) {
                 "mixed"
             } else {
@@ -118,6 +138,10 @@ pub fn finalize(snapshot: &mut Snapshot, previous: Option<&Snapshot>) -> Result<
             }
         } else if snapshot.meta.scope_hash != old.meta.scope_hash {
             "scope"
+        } else if snapshot.meta.focus != old.meta.focus
+            && !crate::diff::material_changed(old, snapshot)
+        {
+            "attention_window"
         } else if snapshot.meta.structure_hash != old.meta.structure_hash {
             "content"
         } else if snapshot.meta.evidence_hash != old.meta.evidence_hash
@@ -126,6 +150,10 @@ pub fn finalize(snapshot: &mut Snapshot, previous: Option<&Snapshot>) -> Result<
             "evidence"
         } else if snapshot.meta.layout_hash != old.meta.layout_hash {
             "layout"
+        } else if snapshot.attention != old.attention
+            || snapshot.attention_observations != old.attention_observations
+        {
+            "attention"
         } else {
             "coverage"
         }
@@ -161,10 +189,107 @@ pub fn safe_source_path(path: &str) -> bool {
             .all(|p| !p.is_empty() && !matches!(p, "." | ".." | ".git") && !p.starts_with(".env"))
         && !path.starts_with(".notemd/habitat/")
 }
+
+fn focus_date(value: &str) -> Result<chrono::NaiveDate, String> {
+    if value.len() != 10 {
+        return Err("关注记录日期必须为 YYYY-MM-DD".into());
+    }
+    let date = chrono::NaiveDate::parse_from_str(value, "%Y-%m-%d")
+        .map_err(|_| "关注记录日期无效".to_string())?;
+    if date.format("%Y-%m-%d").to_string() != value {
+        return Err("关注记录日期必须为 YYYY-MM-DD".into());
+    }
+    Ok(date)
+}
+
+fn unit_score(value: f64) -> bool {
+    value.is_finite() && (0.0..=1.0).contains(&value)
+}
+
+fn validate_attention(snapshot: &Snapshot) -> Result<(), String> {
+    let Some(focus) = &snapshot.meta.focus else {
+        if !snapshot.attention.is_empty() || !snapshot.attention_observations.is_empty() {
+            return Err("关注记录缺少观察窗口".into());
+        }
+        return Ok(());
+    };
+    if !(1..=3660).contains(&focus.window_days) || !(-840..=840).contains(&focus.utc_offset_minutes)
+    {
+        return Err("关注观察窗口或时区无效".into());
+    }
+    let as_of = focus_date(&focus.as_of)?;
+    let start = as_of
+        .checked_sub_days(chrono::Days::new(u64::from(focus.window_days - 1)))
+        .ok_or("关注观察窗口超出日期范围")?;
+    ids(
+        snapshot.attention.iter().map(|a| a.node.as_str()),
+        "关注节点",
+    )?;
+    ids(
+        snapshot
+            .attention_observations
+            .iter()
+            .map(|o| o.evidence.as_str()),
+        "关注观测证据",
+    )?;
+    let evidence: HashSet<_> = snapshot.evidence.iter().map(|e| e.id.as_str()).collect();
+    let nodes: BTreeMap<_, _> = snapshot.nodes.iter().map(|n| (n.id.as_str(), n)).collect();
+    let mut observations = BTreeMap::new();
+    for observation in &snapshot.attention_observations {
+        let date = focus_date(&observation.date)?;
+        if !evidence.contains(observation.evidence.as_str())
+            || date < start
+            || date > as_of
+            || observation.event_id.trim().is_empty()
+            || observation.event_id.len() > 256
+            || observation.signal.trim().is_empty()
+            || observation.date_basis.trim().is_empty()
+            || !unit_score(observation.confidence)
+        {
+            return Err("关注观测的证据、事件、日期或置信度无效".into());
+        }
+        observations.insert(observation.evidence.as_str(), observation);
+    }
+    for attention in &snapshot.attention {
+        let node = nodes.get(attention.node.as_str()).ok_or("关注节点不存在")?;
+        if !unit_score(attention.score)
+            || !matches!(attention.category.as_str(), "concept" | "context")
+            || attention.evidence.is_empty()
+            || attention
+                .evidence
+                .iter()
+                .any(|id| !node.evidence.contains(id))
+        {
+            return Err("关注度分数、类别或节点证据无效".into());
+        }
+        let mut days = HashSet::new();
+        let mut events = HashSet::new();
+        for id in &attention.evidence {
+            let observation = observations.get(id.as_str()).ok_or("关注度缺少对应观测")?;
+            days.insert(observation.date.as_str());
+            events.insert(observation.event_id.as_str());
+        }
+        if attention.active_days as usize != days.len()
+            || attention.events as usize != events.len()
+            || days.iter().max().copied() != Some(attention.last_observed_at.as_str())
+        {
+            return Err("关注度日期、活跃天数或事件数与证据不一致".into());
+        }
+    }
+    Ok(())
+}
+
 pub fn validate(snapshot: &Snapshot) -> Result<(), String> {
     let meta = &snapshot.meta;
-    if meta.schema != SCHEMA {
+    if !matches!(meta.schema.as_str(), SCHEMA | SCHEMA_V1) {
         return Err("不支持的知识结构版本".into());
+    }
+    if meta.schema == SCHEMA_V1
+        && (meta.focus.is_some()
+            || !snapshot.attention.is_empty()
+            || !snapshot.attention_observations.is_empty())
+    {
+        return Err("旧版结构不能携带关注度记录".into());
     }
     if meta.vault_id.is_empty()
         || meta.algorithm.version.is_empty()
@@ -251,6 +376,7 @@ pub fn validate(snapshot: &Snapshot) -> Result<(), String> {
             return Err("谱系目标无效".into());
         }
     }
+    validate_attention(snapshot)?;
     let mut check = snapshot.clone();
     normalize(&mut check);
     if &check != snapshot {
@@ -292,6 +418,8 @@ pub fn encode_jsonl(snapshot: &Snapshot) -> Result<Vec<u8>, String> {
     records!("membership", memberships);
     records!("lineage", lineage);
     records!("layout", layout);
+    records!("attention", attention);
+    records!("attention_observation", attention_observations);
     Ok(bytes)
 }
 fn take<T: DeserializeOwned>(value: Value) -> Result<T, String> {
@@ -326,6 +454,8 @@ fn decode_jsonl(bytes: &[u8]) -> Result<Snapshot, String> {
             "membership" => snapshot.memberships.push(take(value)?),
             "lineage" => snapshot.lineage.push(take(value)?),
             "layout" => snapshot.layout.push(take(value)?),
+            "attention" => snapshot.attention.push(take(value)?),
+            "attention_observation" => snapshot.attention_observations.push(take(value)?),
             _ => return Err("未知记录类型或重复 metadata".into()),
         }
     }
@@ -399,10 +529,7 @@ mod tests {
         );
         assert!(decode_jsonl(duplicated.as_bytes()).is_err());
         assert!(decode_jsonl(text.trim_end().as_bytes()).is_err());
-        let unknown = text.replace(
-            "vault-knowledge-structure/1",
-            "vault-knowledge-structure/999",
-        );
+        let unknown = text.replace(SCHEMA, "vault-knowledge-structure/999");
         assert!(
             decode(&zstd::stream::encode_all(unknown.as_bytes(), 9).unwrap())
                 .unwrap_err()

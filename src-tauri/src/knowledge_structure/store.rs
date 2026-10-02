@@ -609,6 +609,57 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn old_contract_history_survives_focus_schema_migration_and_window_updates() {
+        let (dir, root) = fixture();
+        let runtime = dir.path().join("runtime");
+        fs::write(root.join(".notemd/vault-id"), "contract-vault\n").unwrap();
+        let v1 = include_bytes!("../../../habitat-core/tests/fixtures/contract/schema1.jsonl.zst");
+        let old = habitat_core::decode(v1).unwrap();
+        let first = save(&root, &runtime, None, v1).unwrap();
+        let mut next = old.clone();
+        next.meta.focus = Some(habitat_core::FocusContext {
+            as_of: "2026-10-02".into(),
+            window_days: 30,
+            utc_offset_minutes: 480,
+        });
+        habitat_core::finalize(&mut next, Some(&old)).unwrap();
+        assert_eq!(next.meta.schema, habitat_core::SCHEMA);
+        let second = save(
+            &root,
+            &runtime,
+            Some(&old.meta.snapshot_id),
+            &habitat_core::encode(&next).unwrap(),
+        )
+        .unwrap();
+        let mut later = next.clone();
+        later.meta.focus.as_mut().unwrap().as_of = "2026-10-03".into();
+        habitat_core::finalize(&mut later, Some(&next)).unwrap();
+        assert_eq!(later.meta.change_cause, "attention_window");
+        save(
+            &root,
+            &runtime,
+            Some(&next.meta.snapshot_id),
+            &habitat_core::encode(&later).unwrap(),
+        )
+        .unwrap();
+        let history = super::super::history::history(&root, 20).unwrap();
+        assert_eq!(history["versions"].as_array().unwrap().len(), 3);
+        assert_eq!(history["versions"][0]["focus"]["asOf"], "2026-10-03");
+        assert_eq!(history["versions"][0]["schema"], habitat_core::SCHEMA);
+        let original_bytes = super::super::history::blob(&root, first["commit"].as_str().unwrap())
+            .unwrap()
+            .unwrap();
+        assert_eq!(original_bytes, v1);
+        let original =
+            super::super::history::read_at(&root, first["commit"].as_str().unwrap()).unwrap();
+        assert_eq!(
+            original["snapshot"]["meta"]["schema"],
+            habitat_core::SCHEMA_V1
+        );
+        assert_ne!(first["commit"], second["commit"]);
+    }
+
+    #[test]
     fn saves_three_versions_without_committing_other_staged_files_and_noop_keeps_head() {
         let (dir, root) = fixture();
         let runtime = dir.path().join("runtime");
@@ -1044,10 +1095,9 @@ pub(crate) mod tests {
         );
         let runtime = dir.path().join("runtime");
         let bytes = habitat_core::codec::encode_jsonl(&snapshot("a", None)).unwrap();
-        let invalid = String::from_utf8(bytes).unwrap().replace(
-            "vault-knowledge-structure/1",
-            "vault-knowledge-structure/999",
-        );
+        let invalid = String::from_utf8(bytes)
+            .unwrap()
+            .replace(habitat_core::SCHEMA, "vault-knowledge-structure/999");
         assert!(save(&root, &runtime, None, invalid.as_bytes())
             .unwrap_err()
             .contains("INVALID_SNAPSHOT"));

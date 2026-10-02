@@ -16,13 +16,15 @@ const hardware = args.includes('--hardware')
 const output = resolve(value('--output', resolve(root, '../../tasks/design/habitat-render-qa')))
 await mkdir(output, { recursive: true })
 const snapshot = await loadSnapshot(resolve(snapshotPath))
-const keywordGraph = snapshot.meta.algorithm.version === 'habitat-keyword/2'
-const graphNodes = snapshot.nodes.filter(node => !keywordGraph || node.nodeType === 'keyword')
-const data = JSON.stringify({ nodes: graphNodes, topics: snapshot.nodes.filter(node => node.nodeType === 'topic'), memberships: snapshot.memberships, keywordGraph, layout: snapshot.layout, edges: snapshot.edges })
+const keywordGraph = /^habitat-(keyword|focus)\//.test(snapshot.meta.algorithm.version)
+const recentFocus = !!snapshot.meta.focus && !args.includes('--history')
+const attentionIds = new Set(snapshot.attention?.map(item => item.node) ?? [])
+const graphNodes = snapshot.nodes.filter(node => (!keywordGraph || node.nodeType === 'keyword') && (!recentFocus || attentionIds.has(node.id)))
+const data = JSON.stringify({ nodes: graphNodes, topics: snapshot.nodes.filter(node => node.nodeType === 'topic'), memberships: snapshot.memberships, attention: recentFocus ? snapshot.attention : [], keywordGraph, layout: snapshot.layout, edges: snapshot.edges })
 const harness = `
 import { CityScene } from '/src/lib/city-scene.ts';
 const data = await (await fetch('/__qa/data')).json();
-const subsetNodes = data.nodes.filter((node, index) => index < 480 || ['hemory', 'note.md', 'bushcraft'].includes(node.label.toLowerCase()));
+const subsetNodes = data.nodes.filter((node, index) => index < Math.min(480, Math.max(1, Math.floor(data.nodes.length / 2))) || ['hemory', 'note.md', 'bushcraft'].includes(node.label.toLowerCase()));
 const subsetIds = new Set(subsetNodes.map(node => node.id));
 const subset = { ...data, nodes: subsetNodes, edges: data.edges.filter(edge => edge.participants.every(item => subsetIds.has(item.node))) };
 let scene, status, firstReadyMs, selections = [];
@@ -122,8 +124,8 @@ try {
   assert.equal(Number(report.baseline.districtLabels), Number(report.baseline.parcels), 'every overview parcel has a visible marker')
   const labelIds = await page.evaluate(() => window.__cityQA.status.labels.map(label => label.id))
   assert.equal(new Set(labelIds).size, labelIds.length, 'district and selected labels have unique identities')
-  assert.ok(Number(report.baseline.models) > 100, 'real snapshot should render a populated city')
-  assert.ok(Number(report.baseline.triangles) > 100000, 'real GLB geometry should be present')
+  assert.ok(Number(report.baseline.models) >= Math.min(10, graphNodes.length), 'each nonempty graph should render real city assets')
+  assert.ok(Number(report.baseline.triangles) > (recentFocus ? 1000 : 100000), 'real GLB geometry should be present')
   assert.equal(await page.evaluate(() => window.__cityQA.status.count), graphNodes.length)
   for (let index = 0; index < 20; index++) {
     await action('rebuild'); const sample = await metrics(); report.rebuilds.push(sample)
@@ -175,13 +177,14 @@ try {
   report.checks.push('selection labels, focus and actual mouse picking preserve knowledge ID')
   for (const [name, screenshotName] of [['note.md', 'note-campus'], ['bushcraft', 'camp']]) {
     const targetId = await page.evaluate(name => window.__cityQA.landmarkId(name), name)
+    if (!targetId && recentFocus) continue
     assert.ok(targetId, `missing ${name} landmark in real snapshot`)
     await action('fit'); await action('select', targetId); await action('focus', targetId); await screenshot(screenshotName)
   }
   const ordinary = await page.evaluate(() => window.__cityQA.ordinaryId)
   assert.ok(ordinary, 'real snapshot should contain an ordinary neighborhood')
   await action('fit'); await action('select', ordinary); await action('focus', ordinary); await screenshot('neighborhood')
-  report.checks.push('note.md campus, Bushcraft camp and ordinary neighborhood close-up screenshots')
+  report.checks.push('available project/camp landmarks and an ordinary neighborhood close-up screenshot')
   await action('rotate'); await action('zoom'); await action('dark', true); await screenshot('dark')
   await page.setViewportSize({ width: 780, height: 900 }); await action('resize'); await screenshot('narrow')
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), 780)

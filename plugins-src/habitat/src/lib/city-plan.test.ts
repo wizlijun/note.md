@@ -168,3 +168,15 @@ it('packs isolated keywords into stable exploration plots without fabricating co
   expect(planCity([...lots].reverse(), [], communities)).toEqual(plan)
   assertClearances(plan)
 })
+
+it('fits a sparse attention foreground without replacing its real community memberships', () => {
+  const lots = [lot('a', -1000, 0), lot('b', 1000, 0), lot('c', 0, 1000)]
+  const communities = { topics: lots.map(l => ({ ...l.node, id: `topic-${l.node.id}`, label: l.node.id, key: l.node.id, status: 'candidate', x: l.x, z: l.z })), memberships: lots.map(l => ({ id: `m-${l.node.id}`, node: l.node.id, topic: `topic-${l.node.id}`, role: 'primary', score: 1 })) }
+  const historical = planCity(lots, [], communities), foreground = planCity(lots, [], { ...communities, focus: true })
+  const identities = (plan: CityPlan) => plan.parcels.map(p => [p.id, p.topicId, p.members.map(l => l.node.id)])
+  expect(identities(foreground)).toEqual(identities(historical))
+  const span = (plan: CityPlan) => Math.max(...plan.parcels.map(p => p.center.x)) - Math.min(...plan.parcels.map(p => p.center.x))
+  expect(span(foreground)).toBeLessThan(span(historical) / 5)
+  expect(planCity([...lots].reverse(), [], { ...communities, focus: true })).toEqual(foreground)
+  assertClearances(foreground)
+})

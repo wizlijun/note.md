@@ -10,8 +10,8 @@ const NODE_SPACING: f64 = 40.;
 pub fn algorithm() -> Algorithm {
     Algorithm {
         version: ALGORITHM_VERSION.into(),
-        parser_version: "habitat-ast/1".into(),
-        tokenizer_version: "nfkc-keyword/2".into(),
+        parser_version: "habitat-ast/2".into(),
+        tokenizer_version: "nfkc-keyword-focus/3".into(),
         effective_params: BTreeMap::from([
             ("organization".into(), serde_json::json!("leiden-rs/0.8.1")),
             ("quality".into(), serde_json::json!("modularity")),
@@ -20,11 +20,18 @@ pub fn algorithm() -> Algorithm {
             ("skipRefinement".into(), serde_json::json!(false)),
             ("maxIterations".into(), serde_json::json!(100)),
             ("keywordIdentity".into(), serde_json::json!("normalized-lexeme-not-entity/1")),
-            ("maxKeywords".into(), serde_json::json!(crate::keyword::MAX_KEYWORDS)),
+            ("maxBackgroundKeywords".into(), serde_json::json!(crate::keyword::MAX_KEYWORDS)),
             ("stopWords".into(), serde_json::json!("provenance-and-malformed/1")),
-            ("attention".into(), serde_json::json!("0.55*normalizedTFIDFPrior+0.45*personalizedPageRank")),
+            ("backgroundRanking".into(), serde_json::json!("0.55*normalizedTFIDFPrior+0.45*personalizedPageRank")),
+            ("focusMethod".into(), serde_json::json!("dated-personal-events/1")),
+            ("maxFocusConcepts".into(), serde_json::json!(crate::focus::MAX_CONCEPTS)),
+            ("maxFocusContextKeywords".into(), serde_json::json!(crate::focus::MAX_CONTEXTS)),
+            ("minFocusActiveDays".into(), serde_json::json!(crate::focus::MIN_ACTIVE_DAYS)),
+            ("maxEmergingFocusConcepts".into(), serde_json::json!(crate::focus::MAX_EMERGING)),
+            ("focusRetention".into(), serde_json::json!("current-source-literal-rematch; recent-and-retained-vocabulary-bypasses-background-budget/1")),
+            ("focusRelations".into(), serde_json::json!("historical-clause-NPMI; co_discussed; min2-deduplicated-events; max8-terms; max160-chars/1")),
             ("prior".into(), serde_json::json!("(ln((1+sourceGroups)/(1+termSourceGroups))+1)*(1+ln(1+termSourceGroups))*(4ln(1+humanGroups)+1.5ln(1+linkedGroups)+0.3ln(1+unknownNativeGroups)+2*declaredProject)")),
-            ("humanAttentionEvidence".into(), serde_json::json!("matched-context-only")),
+            ("humanAttentionEvidence".into(), serde_json::json!("matched-personal-context-or-attention")),
             ("termFrequency".into(), serde_json::json!("one-contribution-per-source-group")),
             ("pageRankDamping".into(), serde_json::json!(0.85)),
             ("pageRankTolerance".into(), serde_json::json!(1e-10)),
@@ -63,12 +70,15 @@ pub fn build(
             scope_hash: scope_hash.into(),
             algorithm: algorithm(),
             coverage: data.coverage,
+            focus: data.focus,
             ..Default::default()
         },
         sources: data.sources,
         nodes: data.nodes,
         evidence: data.evidence,
         edges: data.edges,
+        attention: data.attention,
+        attention_observations: data.attention_observations,
         ..Default::default()
     };
     let candidates = snapshot.nodes.clone();

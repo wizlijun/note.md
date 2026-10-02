@@ -14,3 +14,21 @@ export function fixture(id = 'current'): Snapshot {
 }
 export const versions: Version[] = [{ commit: 'commit-current', snapshotId: 'current', parents: ['old'], generatedAt: '2026-09-30T07:00:00Z', changeCause: 'content', nodes: 3, edges: 1 }, { commit: 'commit-old', snapshotId: 'old', parents: [], generatedAt: '2026-09-29T07:00:00Z', changeCause: 'initial', nodes: 2, edges: 0 }]
 export const difference: Diff = { from: 'old', to: 'current', causes: ['content'], comparable: true, warnings: [], added: [fixture().nodes[1]], removed: [], renamed: [{ id: 'n1', before: '纸船构思', after: '纸船计划' }], changed: [], edgesAdded: fixture().edges, edgesRemoved: [], edgesChanged: [], membershipChanges: 1, layoutChanges: 0 }
+
+export function focusFixture(): Snapshot {
+  const data = fixture()
+  data.meta.schema = 'vault-knowledge-structure/2'
+  data.meta.algorithm.version = 'habitat-focus/3'
+  data.meta.focus = { asOf: '2026-10-02', windowDays: 30, utcOffsetMinutes: 480 }
+  data.nodes[0].nodeType = data.nodes[1].nodeType = 'keyword'
+  data.nodes.push({ id: 'old', key: 'old', nodeType: 'keyword', label: '十年前的旧主题', status: 'observed', evidence: [] })
+  data.attention = [
+    { node: 'n1', score: .3, lastObservedAt: '2026-09-24', activeDays: 2, events: 3, evidence: ['e1'], category: 'context' },
+    { node: 'n2', score: .8, lastObservedAt: '2026-10-01', activeDays: 5, events: 7, evidence: ['e2'], category: 'concept' }
+  ]
+  data.attentionObservations = [
+    { evidence: 'e1', date: '2026-09-24', eventId: 'event-1', signal: 'agent_user', dateBasis: 'same_day_session', confidence: .9 },
+    { evidence: 'e2', date: '2026-10-01', eventId: 'event-2', signal: 'native_human', dateBasis: 'explicit_unit_created', confidence: 1 }
+  ]
+  return data
+}

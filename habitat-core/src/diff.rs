@@ -26,6 +26,8 @@ pub struct Diff {
     pub edges_changed: Vec<Edge>,
     pub membership_changes: usize,
     pub layout_changes: usize,
+    pub attention_changes: usize,
+    pub observation_changes: usize,
 }
 /// Raw capture identity is independent of parser output, source-family
 /// grouping, availability flags and evidence locators.
@@ -59,11 +61,38 @@ pub fn compare(before: &Snapshot, after: &Snapshot) -> Result<Diff, String> {
         edges_changed: vec![],
         membership_changes: 0,
         layout_changes: 0,
+        attention_changes: 0,
+        observation_changes: 0,
     };
-    let algorithm = before.meta.algorithm != after.meta.algorithm;
+    let algorithm =
+        before.meta.algorithm != after.meta.algorithm || before.meta.schema != after.meta.schema;
     let scope = before.meta.scope_hash != after.meta.scope_hash;
     let evidence = before.meta.evidence_hash != after.meta.evidence_hash
         || before.meta.manifest_hash != after.meta.manifest_hash;
+    if before.meta.focus != after.meta.focus {
+        out.causes.push("attention_window".into());
+        out.warnings
+            .push("关注观察窗口变化；淡出近期视图不代表知识被删除或遗忘。".into());
+    }
+    out.attention_changes = changed_records(
+        before.attention.iter().map(|a| (&a.node, a)),
+        after.attention.iter().map(|a| (&a.node, a)),
+    );
+    out.observation_changes = changed_records(
+        before
+            .attention_observations
+            .iter()
+            .map(|o| (&o.evidence, o)),
+        after
+            .attention_observations
+            .iter()
+            .map(|o| (&o.evidence, o)),
+    );
+    if out.attention_changes > 0 || out.observation_changes > 0 {
+        out.causes.push("attention".into());
+        out.warnings
+            .push("关注度分数仅用于单次观察内排序，不能解释为知识量或重要性的增长。".into());
+    }
     if algorithm {
         out.causes.push("algorithm".into());
         out.warnings

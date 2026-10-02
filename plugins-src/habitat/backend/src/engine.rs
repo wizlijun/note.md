@@ -1,5 +1,5 @@
 use crate::{capture, rpc::Host};
-use habitat_core::{extract::Extractor, hash, Snapshot};
+use habitat_core::{extract::Extractor, hash, FocusContext, Snapshot};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{
@@ -57,6 +57,26 @@ fn atomic_cache_write(path: &Path, bytes: &[u8]) -> Result<(), String> {
         .map_err(|e| e.to_string())?;
     Ok(())
 }
+// Freeze one local observation day and offset for the whole run. Capture and
+// parsing can cross midnight without changing the interpretation halfway through.
+fn focus_context(
+    params: &Value,
+    now: chrono::DateTime<chrono::FixedOffset>,
+) -> Result<FocusContext, String> {
+    let window_days = match params.get("windowDays") {
+        None => 30,
+        Some(value) => value
+            .as_u64()
+            .filter(|n| matches!(n, 7 | 30 | 90))
+            .ok_or("关注范围仅支持最近 7、30 或 90 天")? as u32,
+    };
+    Ok(FocusContext {
+        as_of: now.date_naive().to_string(),
+        window_days,
+        utc_offset_minutes: now.offset().local_minus_utc() / 60,
+    })
+}
+
 impl Default for Engine {
     fn default() -> Self {
         Self::new()
@@ -237,6 +257,7 @@ impl Engine {
                 )
             }
             "generate" => {
+                let focus = focus_context(&params, chrono::Local::now().fixed_offset())?;
                 let mut runs = self.runs.lock().unwrap();
                 if runs.get(&ctx.key).is_some_and(|r| r.job.state == "running") {
                     return Err("已有一次解析正在运行".into());
@@ -268,7 +289,7 @@ impl Engine {
                 let engine = self.clone();
                 tokio::spawn(async move {
                     let result = engine
-                        .generate(host.clone(), ctx.clone(), stop.clone())
+                        .generate(host.clone(), ctx.clone(), stop.clone(), focus)
                         .await;
                     if let Some(run) = engine.runs.lock().unwrap().get_mut(&ctx.key) {
                         match result {
@@ -394,6 +415,7 @@ impl Engine {
         host: Arc<dyn Host>,
         ctx: Context,
         stop: Arc<AtomicBool>,
+        focus: FocusContext,
     ) -> Result<(String, String), String> {
         let state = Self::load(host.as_ref(), &ctx).await?;
         if state["pending"].as_bool() == Some(true) {
@@ -412,6 +434,7 @@ impl Engine {
         }
         let capture = capture::capture(host.as_ref(), &stop).await?;
         let mut extractor = Extractor::new(&ctx.vault_id, &capture.inputs, previous.as_ref());
+        extractor.set_focus(focus)?;
         let total = capture.inputs.len();
         let mut bytes = 0usize;
         for (i, input) in capture.inputs.iter().enumerate() {
@@ -448,7 +471,7 @@ impl Engine {
         self.progress(
             &ctx,
             "organize",
-            "正在形成候选主题并匹配上一版身份",
+            "正在识别近期概念、形成社区并匹配历史身份",
             total,
             total,
         );
@@ -600,6 +623,33 @@ mod tests {
         }
         panic!("job timed out")
     }
+    #[test]
+    fn focus_window_is_validated_and_local_observation_day_is_frozen() {
+        let now = chrono::DateTime::parse_from_rfc3339("2026-10-02T00:15:00+08:00").unwrap();
+        let default = focus_context(&json!({}), now).unwrap();
+        assert_eq!(default.as_of, "2026-10-02");
+        assert_eq!(default.utc_offset_minutes, 480);
+        assert_eq!(default.window_days, 30);
+        for days in [7, 30, 90] {
+            assert_eq!(
+                focus_context(&json!({"windowDays":days}), now)
+                    .unwrap()
+                    .window_days,
+                days
+            );
+        }
+        for value in [
+            json!(0),
+            json!(-1),
+            json!(365),
+            json!("30"),
+            json!(30.5),
+            json!(null),
+        ] {
+            assert!(focus_context(&json!({"windowDays":value}), now).is_err());
+        }
+    }
+
     #[tokio::test]
     async fn actual_capture_extract_encode_save_pipeline_repeats_as_noop() {
         let dir = tempfile::tempdir().unwrap();

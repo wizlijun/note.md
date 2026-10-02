@@ -2,6 +2,7 @@
 pub mod codec;
 pub mod diff;
 pub mod extract;
+pub mod focus;
 mod keyword;
 pub mod model;
 pub mod organize;

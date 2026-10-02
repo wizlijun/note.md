@@ -2,8 +2,9 @@ import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import { CityAssets, houses, commercial, trees, tents, type CityAssetId, type CityAssetPlacement } from './city-assets'
+import { focusDistrictLabel } from './domain'
 import { planCity, segmentDistance, type CityPlan, type CityPoint, type CityPlacement } from './city-plan'
-import type { Edge, Layout, Membership, Node } from './types'
+import type { Attention, Edge, Layout, Membership, Node } from './types'
 
 const SCALE = .052
 const known = new Map([['hemory', 'campus'], ['note.md', 'campus'], ['bushcraft', 'camp']])
@@ -15,9 +16,9 @@ function seed(text: string) {
   n = Math.imul(n ^ n >>> 16, 0x85ebca6b); n = Math.imul(n ^ n >>> 13, 0xc2b2ae35)
   return ((n ^ n >>> 16) >>> 0) / 4294967296
 }
-interface VisualLot { node: Node; x: number; z: number; h: number; w: number; style?: string; parcelId: string; district?: { name: string; count: number; kind: string; topicId?: string; unassigned?: boolean } }
-export interface CityData { nodes: Node[]; layout: Layout[]; edges: Edge[]; memberships?: Membership[]; topics?: Node[]; keywordGraph?: boolean }
-export interface Label { id: string; nodeId?: string; name: string; x: number; y: number; kind: string; selected: boolean; district?: { name: string; count: number; kind: string; topicId?: string; unassigned?: boolean }; compact?: boolean; width?: number }
+interface VisualLot { node: Node; x: number; z: number; h: number; w: number; style?: string; parcelId: string; district?: { name: string; count: number; kind: string; topicId?: string; unassigned?: boolean; contextName?: string; attentionCategory?: string } }
+export interface CityData { nodes: Node[]; layout: Layout[]; edges: Edge[]; memberships?: Membership[]; topics?: Node[]; keywordGraph?: boolean; attention?: Attention[] }
+export interface Label { id: string; nodeId?: string; attentionCategory?: string; name: string; x: number; y: number; kind: string; selected: boolean; district?: { name: string; count: number; kind: string; topicId?: string; unassigned?: boolean; contextName?: string; attentionCategory?: string }; compact?: boolean; width?: number }
 export interface SceneStatus { labels: Label[]; count: number; rendered?: number; aggregated?: boolean; zoom?: number; loading?: boolean; error?: string; hover?: { name: string; kind: string; x: number; y: number } }
 type Primitive = { p: number[]; s: number[]; ry?: number; color?: string }
 
@@ -178,9 +179,13 @@ export class CityScene {
       const candidates = data.nodes.filter(n => n.label.toLowerCase() === label && landmarkStyle(n)).sort((a, b) => Number(b.status === 'anchor') - Number(a.status === 'anchor') || (b.evidence?.length ?? 0) - (a.evidence?.length ?? 0) || a.id.localeCompare(b.id))
       if (candidates[0]) heroIds.add(candidates[0].id)
     }
-    const input = data.nodes.flatMap(node => { const p = positions.get(node.id); return p ? [{ node, x: p.x * SCALE, z: p.y * SCALE, zone: p.zone, style: heroIds.has(node.id) ? landmarkStyle(node) : undefined }] : [] })
+    const attention = new Map(data.attention?.map(item => [item.node, item]) ?? [])
+    const input = data.nodes.flatMap(originalNode => {
+      const node = { ...originalNode, attentionScore: attention.get(originalNode.id)?.score }, p = positions.get(node.id)
+      return p ? [{ node, x: p.x * SCALE, z: p.y * SCALE, zone: p.zone, style: heroIds.has(node.id) ? landmarkStyle(node) : undefined }] : []
+    })
     const communities = data.keywordGraph ? {
-      memberships: data.memberships ?? [],
+      focus: !!data.attention?.length, memberships: data.memberships ?? [],
       topics: (data.topics ?? []).flatMap(node => { const p = positions.get(node.id); return p ? [{ ...node, x: p.x * SCALE, z: p.y * SCALE }] : [] })
     } : undefined
     const plan = planCity(input, data.edges, communities), parcels = new Map(plan.parcels.map(p => [p.id, p]))
@@ -211,8 +216,9 @@ export class CityScene {
       const rank = (node: Node) => node.nodeType === 'topic' ? 0 : ['concept', 'entity', 'project'].includes(node.nodeType) ? 1 : 2
       const representative = hero?.node ?? [...members].sort((a, b) => rank(a) - rank(b) || Number(a.label.length > 24) - Number(b.label.length > 24) || (b.evidence?.length ?? 0) - (a.evidence?.length ?? 0) || a.id.localeCompare(b.id))[0]
       if (!representative) return []
+      const focusLabel = focusDistrictLabel(members, attention)
       const kind = parcel.kind === 'campus' ? '项目园区' : parcel.kind === 'park' ? '探索营地' : parcel.kind === 'growth' ? data.keywordGraph ? '探索地块（尚无社区）' : '材料街区' : '知识街区'
-      return [{ node: representative, x: hero?.x ?? parcel.center.x, z: hero?.z ?? parcel.center.z, h: hero?.h ?? .3, w: 1, style: hero?.style, parcelId: parcel.id, district: { name: parcel.name ?? representative.label, count: parcel.members.length, kind, topicId: parcel.topicId, unassigned: parcel.unassigned } }]
+      return [{ node: representative, x: hero?.x ?? parcel.center.x, z: hero?.z ?? parcel.center.z, h: hero?.h ?? .3, w: 1, style: hero?.style, parcelId: parcel.id, district: { name: focusLabel ? (parcel.unassigned ? '待连接：' : '') + focusLabel.name : parcel.name ?? representative.label, contextName: focusLabel && parcel.topicId ? parcel.name : undefined, attentionCategory: focusLabel?.category, count: parcel.members.length, kind, topicId: parcel.topicId, unassigned: parcel.unassigned } }]
     })
     const center = this.bounds.getCenter(new THREE.Vector3()), size = this.bounds.getSize(new THREE.Vector3()), span = Math.max(size.x, size.z) * .7 + 12
     const lightDistance = Math.max(100, span * 2)
@@ -383,7 +389,7 @@ export class CityScene {
       // Every on-screen parcel retains its marker; only its text folds when crowded.
       const compact = !prominent && overlaps
       rects.push({ x, y: y - height / 2, w: compact ? 12 : width, h: compact ? 12 : height })
-      labels.push({ id: l.district ? l.parcelId : l.node.id, nodeId: l.node.id, name: l.district?.name ?? l.node.label, x, y, kind: l.node.nodeType, selected: l.node.id === this.selected, district: l.district, compact, width })
+      labels.push({ id: l.district ? l.parcelId : l.node.id, nodeId: l.node.id, attentionCategory: l.district?.attentionCategory ?? this.latest?.attention?.find(item => item.node === l.node.id)?.category, name: l.district?.name ?? l.node.label, x, y, kind: l.node.nodeType, selected: l.node.id === this.selected, district: l.district, compact, width })
     }
     this.canvas.dataset.districtLabels = String(labels.filter(l => l.district).length)
     this.status({ labels, count: this.total, rendered: this.lots.length, aggregated: this.total > this.lots.length, zoom: this.camera.zoom, loading: this.loading, error: this.error || undefined, hover })

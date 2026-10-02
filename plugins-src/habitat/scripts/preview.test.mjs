@@ -82,3 +82,22 @@ test('bundled city models and every texture resolve locally with correct MIME an
     for (const path of ['/models/missing.glb', '/models/nature/Textures/missing.png', '/models/manifest.json']) assert.equal((await fetch(result.url + path)).status, 404)
   } finally { if (server) await new Promise(resolve => server.close(resolve)); await rm(root, { recursive: true, force: true }) }
 })
+
+test('reads schema 2 attention and dated observations using their actual record identities', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'habitat-preview-focus-'))
+  try {
+    const path = join(root, 'focus.jsonl')
+    const records = [
+      { ...rows[0], schema: 'vault-knowledge-structure/2', focus: { asOf: '2026-10-02', windowDays: 30, utcOffsetMinutes: 480 } },
+      rows[1],
+      { kind: 'attention', node: 'n', score: .7, category: 'concept', activeDays: 3, events: 4, evidence: ['e'], lastObservedAt: '2026-10-01' },
+      { kind: 'attention_observation', evidence: 'e', date: '2026-10-01', eventId: 'event', signal: 'agent_user', dateBasis: 'same_day_session', confidence: .9 }
+    ]
+    await writeFile(path, records.map(record => JSON.stringify(record)).join('\n'))
+    const snapshot = await loadSnapshot(path)
+    assert.equal(snapshot.attention[0].node, 'n')
+    assert.equal(snapshot.attention[0].category, 'concept')
+    assert.equal(snapshot.attentionObservations[0].evidence, 'e')
+    assert.equal(snapshot.meta.focus.windowDays, 30)
+  } finally { await rm(root, { recursive: true, force: true }) }
+})

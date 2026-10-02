@@ -15,6 +15,16 @@ fn extraction(s: &Snapshot) -> Extraction {
         edges: s.edges.clone(),
         coverage: s.meta.coverage.clone(),
         features: BTreeMap::new(),
+        focus: s.meta.focus.clone(),
+        attention_observations: s.attention_observations.clone(),
+        attention: s.attention.clone(),
+        retained_keywords: s
+            .nodes
+            .iter()
+            .filter(|n| n.node_type == "keyword")
+            .filter_map(|n| n.key.strip_prefix("keyword:").map(str::to_owned))
+            .collect(),
+        ..Default::default()
     }
 }
 fn main() -> Result<(), String> {

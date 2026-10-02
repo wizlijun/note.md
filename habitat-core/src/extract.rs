@@ -1,4 +1,6 @@
-//! Deterministic local extraction. Source text is consumed once, never retained.
+//! Deterministic local extraction. Attention event text is retained only during
+//! the build; snapshots persist evidence locators, not source text.
+mod attention;
 mod knowledge;
 mod markdown;
 
@@ -40,6 +42,13 @@ pub struct Extractor {
     daily_root: String,
     blocked: BTreeSet<String>,
     fatal: Option<String>,
+    focus: Option<FocusContext>,
+    focus_events: Vec<crate::focus::UserEvent>,
+    previous_keywords: BTreeMap<String, String>,
+    attention: Vec<Attention>,
+    attention_observations: Vec<AttentionObservation>,
+    retained_keywords: BTreeSet<String>,
+    statistical_weights: BTreeMap<String, f64>,
 }
 
 pub(super) fn normalize(value: &str) -> String {
@@ -75,6 +84,19 @@ impl Extractor {
                 .map(str::to_owned)
                 .collect(),
             fatal: None,
+            focus: None,
+            focus_events: Vec::new(),
+            previous_keywords: previous
+                .filter(|s| s.meta.vault_id == vault_id)
+                .into_iter()
+                .flat_map(|s| &s.nodes)
+                .filter(|n| n.node_type == "keyword")
+                .map(|n| (normalize(&n.label), n.label.clone()))
+                .collect(),
+            attention: Vec::new(),
+            attention_observations: Vec::new(),
+            retained_keywords: BTreeSet::new(),
+            statistical_weights: BTreeMap::new(),
         };
         let old = previous.filter(|s| s.meta.vault_id == vault_id);
         let old_by_path: BTreeMap<_, _> = old
@@ -158,6 +180,13 @@ impl Extractor {
         }
         self.seen.insert(path.into());
         self.sources.get_mut(path).unwrap().status = "available".into();
+        if let Some(focus) = &self.focus {
+            self.focus_events.extend(crate::focus::events_from_markdown(
+                path,
+                content,
+                focus.utc_offset_minutes,
+            ));
+        }
         if is_config(path) {
             self.read_config(path, content);
         } else if path.ends_with("/knowledge.json") {
@@ -296,11 +325,11 @@ impl Extractor {
         status: &str,
         mut participants: Vec<Participant>,
         evidence: Vec<String>,
-    ) {
+    ) -> Option<String> {
         participants.sort_by(|a, b| (&a.role, &a.node).cmp(&(&b.role, &b.node)));
         participants.dedup_by(|a, b| a.role == b.role && a.node == b.node);
         if participants.len() < 2 {
-            return;
+            return None;
         }
         let id = stable_id(
             "edge",
@@ -310,7 +339,7 @@ impl Extractor {
             ),
         );
         let edge = self.edges.entry(id.clone()).or_insert_with(|| Edge {
-            id,
+            id: id.clone(),
             edge_type: edge_type.into(),
             status: status.into(),
             participants,
@@ -319,6 +348,7 @@ impl Extractor {
         edge.evidence.extend(evidence);
         edge.evidence.sort();
         edge.evidence.dedup();
+        Some(id)
     }
 
     pub fn finish(mut self) -> Result<Extraction, String> {
@@ -516,6 +546,7 @@ impl Extractor {
             }
             features.sort();
         }
+        self.extract_attention()?;
         let used_evidence: BTreeSet<_> = self
             .nodes
             .values()
@@ -576,6 +607,11 @@ impl Extractor {
             edges: self.edges.into_values().collect(),
             coverage: self.coverage,
             features: self.features,
+            focus: self.focus,
+            attention_observations: self.attention_observations,
+            attention: self.attention,
+            retained_keywords: self.retained_keywords,
+            statistical_weights: self.statistical_weights,
         })
     }
 

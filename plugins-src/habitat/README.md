@@ -2,7 +2,9 @@
 
 HABITAT 从当前 Vault 的 Markdown、大纲节点和已有会议知识数据生成可回源的关键词关系图：关键词成为建筑，关系形成道路，Leiden 社区形成街区。核心计算在本机完成，不新增模型调用。已有 AI 抽取数据仍标记为导入声明或候选；来源版本匹配不代表语义已经证实。
 
-`0.3.0` 已发布至 [note.md 插件市场](https://plugins.notemd.net/)。知识节点改为关注关键词，采用 TF-IDF 关注先验、个性化 PageRank、局部 NPMI 关联和标准 Leiden 社区发现。提供 macOS Apple Silicon / Intel 包。最低宿主为 `>=6.930.3`，需要包含新 `host.knowledge.*` 接口；宿主 `6.930.3` 已发布。已完成本地提取、压缩快照、专用 Git 保存与历史接口、语义比较及 Three.js 低模 3D 城市界面；真实 Vault 本轮只读验证，没有在该 Vault 创建结构文件、Git 提交或推送。产品设计与当前实现边界见 [提取规格](../../docs/superpowers/specs/2026-09-30-vault-knowledge-structure-extraction-design.md#11-源码实现与真实全量验收2026-09-30)。
+本次 `0.4.0` 将“近期关注”与“历史结构”分开。默认最近30天，从可识别的本人记录和提问中发现连续原文词项，按最近使用、跨日再访和每日饱和排序；不需要先给所有正文补 Wiki 链接。工具和项目另列背景线索，导入或提交文章降低权重。该分数是可解释的记录代理，不测量掌握程度或心理状态。
+
+最低宿主为 `>=6.1002.1`，用于读写带观察窗口与日期依据的 schema/2，并继续读取 schema/1 历史。计算、快照与 Git 保存在本机，不新增模型调用。产品设计与已知边界见 [近期校准规格](../../docs/superpowers/specs/2026-10-02-habitat-recent-focus-calibration.md) 和 [算法说明](../../habitat-core/KEYWORD_GRAPH.md)。
 
 ## 模块职责
 
@@ -20,8 +22,11 @@ HABITAT 从当前 Vault 的 Markdown、大纲节点和已有会议知识数据�
 - 精确副本和可核对的单一来源链共享来源家族。未知谱系保留 `unresolved`，不会被算成已验证的独立来源；导入证据的 `imported` 与原文定位核对的 `matched` 分开。
 - 会议数据先检查 schema 与引用闭包。首版投影 `concept`、`entity`、`project`；`claims/events/narratives` 全部读取检查，保留在带 path/hash 的原知识文件并计入未投影统计，不逐条生成建筑或单条定位索引。已投影对象和关系维护 record/evidence JSON Pointer；只有参与者均已投影的关系才进入图，保留完整角色，不能把不完整多元关系降成错误二元边。
 - 解析阶段同名会议对象保留各自 dataset 作用域。图谱阶段以 NFKC/大小写归一的词项汇总证据，表示“同一个词”，不确认同名人物是同一个实体；原有 JSON Pointer 定位保留。“项目”元数据只构成候选意图。
-- 组织算法为 `habitat-keyword/2`：候选来自明确 Wiki 链接、标签和已有命名概念/实体/项目；用来源去重的 TF-IDF 关注先验和个性化 PageRank 选择最多 1,200 个关键词。人工记录线索、主动链接和项目元数据加权，模板词、日期和路径噪声过滤，纯导入内容降权。当前不自动发现未标注正文中的全部术语。
+- 组织算法为 `habitat-focus/3`。历史基础图继续从 Wiki 链接、标签和命名对象以 TF-IDF 与个性化 PageRank 选择最多1,200词；近期层补充真实主动正文中的本地词性/短语候选，旧关注词与新关注词不受基础预算截断。
+- 近期观察使用明确事件日期，排除助手内容、工具结果、已识别的自动审批/子代理包装和重复导出；未知日期不假设为最近，修改时间不作为关注日期。跨日长会话缺少逐条时间时仅使用可归于开始日的第一条提问，覆盖因此是保守的。
+- 同词每天贡献封顶、10天指数半衰期，再结合跨日支持和语料区分度排序；最多30个概念与8个背景，不补齐数量。阈值和类别判断是工程启发式，仍可能漏词或误分。界面可切换历史结构，7/30/90天用于下一次解析；已有版本保留原观察时点。
 - 明确关系保留类型、方向角色和来源；同一来源组去重。统计共现仅来自短段落/大纲节点，使用一致窗口计算正 NPMI，并要求至少两个去重来源组；未知谱系不冒称独立证据，共现不表示因果。多元关系保留，不能为画道路强拆成两两事实。
+- 新发现正文词的 `co_discussed` 关系使用真实短分句的正 NPMI，至少两个去重事件共同讨论；与基础图按来源组计算的 `co_occurs` 分开。两者均不等于因果，也不表示已知独立证据。
 - 固定种子调用 `leiden-rs =0.8.1` 完整三阶段 Leiden（局部移动、细化、聚合）；按加权关系形成社区，中心词组合命名。NPMI 权重用于聚类，道路按关系类型与来源支持单独分级。主归属决定街区，次归属仅表示跨主题联系；未形成关系的词留在探索区。算法依据和参数见 [关键词图谱规格](../../docs/superpowers/specs/2026-10-02-habitat-keyword-graph.md)。
 - 原有身份和坐标尽量继承；新主题采用方形螺旋布局并避让已有地块。词面相似和局部共现不宣称因果。
 - 城市使用 Three.js/WebGL：地形基座、光照阴影、园区建筑群、营地、街区和树木；支持旋转、平移、缩放与对象选择。Hemory、note.md、Bushcraft 的园区/营地外观来自本次视觉规划，不改变其真实类型、候选状态或主题归属。
@@ -32,7 +37,7 @@ HABITAT 从当前 Vault 的 Markdown、大纲节点和已有会议知识数据�
 
 ## 快照与 Git
 
-生产固定文件为 `.notemd/habitat/knowledge-structure.jsonl.zst`。内部是完整、规范排序的 UTF-8 JSONL（schema `vault-knowledge-structure/1`），外层使用标准 Zstandard level 9 无损压缩，不是私有压缩格式或删减投影。来源 hash、身份、证据定位、角色、归属、布局、覆盖与算法参数均在快照内；不保存原文全文。
+生产固定文件为 `.notemd/habitat/knowledge-structure.jsonl.zst`。内部是完整、规范排序的 UTF-8 JSONL（schema `vault-knowledge-structure/2`，向后读取 `/1`），外层使用标准 Zstandard level 9 无损压缩，不是私有压缩格式或删减投影。来源 hash、身份、证据定位、角色、归属、布局、覆盖与算法参数均在快照内；不保存原文全文。
 
 `habitat_core::encode/decode` 处理压缩快照；`codec::encode_jsonl` 用于人工导出。已安装标准 `zstd` 命令时，可在 Vault 外解压查看：
 
@@ -49,7 +54,7 @@ git -C /path/to/vault log --oneline -- .notemd/habitat/knowledge-structure.jsonl
 git -C /path/to/vault show COMMIT:.notemd/habitat/knowledge-structure.jsonl.zst | zstd -d -c > /tmp/habitat-history.jsonl
 ```
 
-Git 保留所有结构版本；界面首版最多列出最近 100 个，截断时明确提示。压缩文件的文本 diff 不表达知识变化。HABITAT 的“历史 → 查看结构变化”解码两个完整版本，按稳定 ID 比较新增、缺失、改名、关系、归属和布局，并区分方法/范围/依据变化。旧结构中的证据只在当前来源 hash 匹配时打开；当前文件不能冒充旧版原文。
+Git 保留所有结构版本；界面首版最多列出最近 100 个，截断时明确提示。压缩文件的文本 diff 不表达知识变化。HABITAT 的“历史 → 查看结构变化”解码两个完整版本，按稳定 ID 比较新增、缺失、改名、关系、归属和布局，并区分方法/范围/依据、关注转移与窗口变化。观察窗口推进不会直接删除历史节点或道路。旧结构中的证据只在当前来源 hash 匹配时打开；当前文件不能冒充旧版原文。
 
 ## 构建与测试
 
@@ -72,7 +77,7 @@ cargo build --release --manifest-path plugins-src/habitat/backend/Cargo.toml --b
 bash scripts/dev-install-plugin.sh habitat
 ```
 
-源 manifest 的最低宿主版本为 `>=6.930.3`。dev 安装脚本只调整**安装副本**的版本约束，源 manifest 不变；本地开发宿主须包含 `host.knowledge.*` 接口。此命令是本地插件开发安装，不发布插件，不替换正式 note.md app。
+源 manifest 的最低宿主版本为 `>=6.1002.1`。dev 安装脚本只调整**安装副本**的版本约束，源 manifest 不变；本地开发宿主须包含 `host.knowledge.*` 接口。此命令是本地插件开发安装，不发布插件，不替换正式 note.md app。
 
 ## 只读复验与预览
 
@@ -81,7 +86,7 @@ bash scripts/dev-install-plugin.sh habitat
 ```sh
 mkdir -p tasks/design
 python3 habitat-core/examples/export_audit_manifest.py /Users/bruce/git/sotvault tasks/design/habitat-vault-manifest.json
-cargo run --release --manifest-path habitat-core/Cargo.toml --example audit_vault -- /Users/bruce/git/sotvault tasks/design/habitat-vault-manifest.json tasks/design/habitat-current.jsonl
+cargo run --release --manifest-path habitat-core/Cargo.toml --example audit_vault -- /Users/bruce/git/sotvault tasks/design/habitat-vault-manifest.json tasks/design/habitat-current.jsonl 2026-10-02 30 480
 pnpm --filter habitat-plugin preview --snapshot /Users/bruce/git/mdeditor/tasks/design/habitat-current.jsonl --port 8787
 ```
 
@@ -172,3 +177,15 @@ node plugins-src/habitat/scripts/render-qa.mjs \
 32 项核心、9 项 backend、28 项宿主知识接口、35 项前端和 3 项预览服务测试通过，类型检查无错误警告。独立审计 20 项检查包含正负 NPMI、重复来源不增权、社区连通、顺序确定和旧格式兼容。新旧真实快照均通过硬件浏览器渲染回归，新图连续 20 次重建维持 69 个几何体/25 张纹理；社区筛选、关键词证据、探索区、地标、暗色窄屏和销毁重建通过。只读浏览器与 mock-host 测试不等同于真实宿主端到端写入。
 
 0.3.0 发布复核：Apple Silicon / Intel 原生初始化与退出通过；包 Developer ID 和 minisign 验证通过。沿用 Wrangler 3 和 Account API Token 发布，R2 四个对象匿名回读逐字节一致，随后才更新 KV。公网普通/绕缓存索引均为 254 条，与候选一致，原 253 条未改动。最低宿主仍为 >=6.930.3。
+
+
+## 0.4.0 近期关注校准（2026-10-02）
+
+默认观察最近30天，支持7/30/90天重新解析。概念关注仅统计局部主动讨论；工具操作中的同名词不抵消也不抬高概念关注。背景词另列，近期社区标签从当前可见词产生；切换历史结构显示完整关键词图。关注日期与依据进入schema/2，旧schema/1可读且旧规范字节/哈希保持不变；窗口变化与结构变化分别说明。
+
+同一14,273输入清单的真实两轮生成完全一致：1,202关键词、46社区、2,521关系；34个近期项（30概念、4背景），完整压缩快照4,498,637 bytes。提取40.75秒、组织0.71秒、无损解码0.49秒、重跑38.33秒，均为本机单次测量。输出与原文语义审计仅保存在被忽略的 `tasks/design/habitat-recent/`，真实Vault未写入快照或提交。
+
+前20词的131条依据通过原文字面、日期窗口和用户角色核对，每词抽查最近两条。该核查不等于全库语义准确率：泛词、输出格式偏好、工具与概念歧义仍可能入选，缺少可靠日期的真实关注可能漏掉；不把候选排名解释为认知能力或信念。核心63项、后端10项、宿主知识历史/事务20项测试通过，含跨窗口保留节点/道路、同源去重、来源改动重新定位、旧格式迁移与历史字节保留。
+
+
+最终真实浏览器复核通过近期/历史切换、社区标签、日期依据、分类、暗色与780px窄屏，旧schema/1也能打开；43项前端、4项预览服务测试、类型检查和构建通过。首轮38项真实关注图20次重建资源稳定为48几何/21纹理；最终34项图完成截图和交互复核，无浏览器错误。这是只读浏览器验收，不替代原生宿主实际Vault的全量保存回放。

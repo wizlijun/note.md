@@ -2,16 +2,16 @@
   import { onMount, untrack } from 'svelte'
   import { CityScene, type SceneStatus } from '../lib/city-scene'
   import { UNASSIGNED_TOPIC, typeLabel, type FamilyCounts } from '../lib/domain'
-  import type { Edge, Layout, Membership, Node } from '../lib/types'
+  import type { Attention, Edge, FocusContext, Layout, Membership, Node } from '../lib/types'
 
-  let { nodes, layout, edges, memberships = [], topics = [], keywordGraph = false, oncommunity, families, selectedId, scopeKey = '', changedIds = new Set<string>(), onselect }: { nodes: Node[]; layout: Layout[]; edges: Edge[]; memberships?: Membership[]; topics?: Node[]; keywordGraph?: boolean; oncommunity?: (id: string) => void; families: Map<string, FamilyCounts>; selectedId: string; scopeKey?: string; changedIds?: Set<string>; onselect: (id: string) => void } = $props()
+  let { nodes, layout, edges, memberships = [], topics = [], keywordGraph = false, recentFocus, attention = [], oncommunity, families, selectedId, scopeKey = '', changedIds = new Set<string>(), onselect }: { nodes: Node[]; layout: Layout[]; edges: Edge[]; memberships?: Membership[]; topics?: Node[]; keywordGraph?: boolean; recentFocus?: FocusContext; attention?: Attention[]; oncommunity?: (id: string) => void; families: Map<string, FamilyCounts>; selectedId: string; scopeKey?: string; changedIds?: Set<string>; onselect: (id: string) => void } = $props()
   let canvas: HTMLCanvasElement
   let container = $state<HTMLDivElement>()
   let scene: CityScene | null = null
   let ready = $state(false), unavailable = $state(false), status = $state.raw<SceneStatus>({ labels: [], count: 0 })
   let previousScope: string | null = null
   $effect(() => {
-    const data = { nodes, layout, edges, memberships, topics, keywordGraph }, currentScope = scopeKey
+    const data = { nodes, layout, edges, memberships, topics, keywordGraph, attention }, currentScope = scopeKey
     if (ready && scene) untrack(() => { scene!.setData(data, previousScope !== currentScope); previousScope = currentScope })
   })
   $effect(() => { if (ready) scene?.setSelected(selectedId, changedIds) })
@@ -29,10 +29,10 @@
 
 <div class="city-canvas" bind:this={container}>
   <canvas bind:this={canvas} aria-label="知识城市三维沙盘；拖动旋转，右键拖动平移，滚轮缩放。所有对象也可从结构列表访问。"></canvas>
-  <div class="map-caption" class:closer={(status.zoom ?? 1) > 1.3}><span class="eyebrow">A LIVING ATLAS OF YOUR MIND</span><h2 class="map-heading">知识正在成为一座城<span>KNOWLEDGE CITY</span></h2><p class="map-mini-stat"><strong>{status.count.toLocaleString()}</strong> {keywordGraph ? '个关键词' : '个结构对象'}<span> / {status.aggregated ? `街区总览 · ${status.rendered?.toLocaleString()} 座代表建筑` : '对象细节 · 独立地址'}</span></p><small>{keywordGraph ? '街区由关键词关系社区形成 · 建筑代表关键词 · 道路承载关系' : '旧版对象图 · 街区按空间聚合，建筑代表结构对象'}</small></div>
+  <div class="map-caption" class:closer={(status.zoom ?? 1) > 1.3}><span class="eyebrow">A LIVING ATLAS OF YOUR MIND</span><h2 class="map-heading">{recentFocus ? `近期关注 · 最近 ${recentFocus.windowDays} 天` : '知识正在成为一座城'}<span>{recentFocus ? `截至 ${recentFocus.asOf} · 主动记录与反复提及` : 'KNOWLEDGE CITY'}</span></h2><p class="map-mini-stat"><strong>{status.count.toLocaleString()}</strong> {keywordGraph ? '个关键词' : '个结构对象'}<span> / {status.aggregated ? `街区总览 · ${status.rendered?.toLocaleString()} 座代表建筑` : '对象细节 · 独立地址'}</span></p><small>{recentFocus ? '关注线索的本次快照 · 时间窗口推进后可淡出，历史仍保留' : keywordGraph ? '街区由关键词关系社区形成 · 建筑代表关键词 · 道路承载关系' : '旧版对象图 · 街区按空间聚合，建筑代表结构对象'}</small></div>
   <div class="city-labels">
     {#each status.labels as label (label.id)}
-      <button class="city-label" class:district={!!label.district} class:compact={label.compact} class:edge-left={label.x < 132} class:edge-right={label.x > (container?.clientWidth ?? 600) - 132} class:landmark={label.district?.kind === '项目园区' || label.district?.kind === '探索营地'} class:active={label.selected} style:left={`${label.x}px`} style:top={`${label.y}px`} style:--label-width={`${label.width ?? 185}px`} data-parcel={label.district ? label.id : undefined} aria-label={label.district ? `${label.name} · ${label.district.kind} · ${label.district.count.toLocaleString()} ${keywordGraph ? '个关键词' : '个对象'}` : label.name} onclick={() => { scene?.focus(label.nodeId ?? label.id); if (label.district?.unassigned && oncommunity) oncommunity(UNASSIGNED_TOPIC); else if (label.district?.topicId && oncommunity) oncommunity(label.district.topicId); else select(label.nodeId ?? label.id) }} title={label.district ? `${label.district.kind} · ${label.name}${keywordGraph ? '' : '（代表名称）'}\n${label.district.count.toLocaleString()} ${keywordGraph ? '个关键词' : '个对象'} · ${label.district.unassigned ? '仅为空间收纳，不表示彼此相关；点击查看待连接关键词' : label.district.topicId ? '点击查看该社区关键词' : '点击靠近并查看依据'}` : `${label.name} · ${typeLabel(label.kind)} · 点击靠近`}><span class="label-dot"></span><span class="label-name">{label.name}</span>{#if label.district}<small class="district-count">{label.district.count.toLocaleString()} {keywordGraph ? '个关键词' : '个对象'}</small>{/if}</button>
+      <button class="city-label" class:district={!!label.district} class:compact={label.compact} class:edge-left={label.x < 132} class:edge-right={label.x > (container?.clientWidth ?? 600) - 132} class:landmark={label.district?.kind === '项目园区' || label.district?.kind === '探索营地'} class:active={label.selected} class:context-label={label.attentionCategory === 'context'} style:left={`${label.x}px`} style:top={`${label.y}px`} style:--label-width={`${label.width ?? 185}px`} data-parcel={label.district ? label.id : undefined} aria-label={label.district ? `${label.name} · ${label.district.kind} · ${label.district.count.toLocaleString()} ${keywordGraph ? '个关键词' : '个对象'}` : label.name} onclick={() => { scene?.focus(label.nodeId ?? label.id); if (label.district?.unassigned && oncommunity) oncommunity(UNASSIGNED_TOPIC); else if (label.district?.topicId && oncommunity) oncommunity(label.district.topicId); else select(label.nodeId ?? label.id) }} title={label.district ? `${label.district.kind} · ${label.name}${keywordGraph ? '' : '（代表名称）'}${label.district.contextName ? '\n原社区：' + label.district.contextName : ''}\n${label.district.count.toLocaleString()} ${keywordGraph ? '个关键词' : '个对象'} · ${label.district.unassigned ? '仅为空间收纳，不表示彼此相关；点击查看待连接关键词' : label.district.topicId ? '点击查看该社区关键词' : '点击靠近并查看依据'}` : `${label.name} · ${typeLabel(label.kind)} · 点击靠近`}><span class="label-dot"></span><span class="label-name">{label.name}</span>{#if label.district}<small class="district-count">{label.district.count.toLocaleString()} {keywordGraph ? '个关键词' : '个对象'}</small>{/if}</button>
     {/each}
   </div>
   {#if status.hover}<div class="map-tooltip" style:left={`${Math.min(status.hover.x+14, (container?.clientWidth ?? 600)-215)}px`} style:top={`${Math.max(12,status.hover.y-65)}px`}><strong>{status.hover.name}</strong><span>{typeLabel(status.hover.kind)} · 点击查看依据</span></div>{/if}
@@ -61,6 +61,7 @@
   .city-label.edge-left:hover,.city-label.edge-left:focus-visible { transform:translate(0,-100%); }
   .city-label.edge-right:hover,.city-label.edge-right:focus-visible { transform:translate(-100%,-100%); }
   .city-label::after { content:''; position:absolute; left:50%; bottom:-8px; height:8px; border-left:1px solid #66827580; }
+  .city-label.context-label { background:#edf2efde;border-color:#b5c2b8;color:#64786d;font-weight:400; }
   .city-label.active { color:#895827; border-color:#bc935e; background:#fff5df; }
   .label-dot { width:5px;height:5px;border-radius:50%;background:#89a67b;flex-shrink:0; }
   .city-label.active .label-dot { background:#bf8849; }

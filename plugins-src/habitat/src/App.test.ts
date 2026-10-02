@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { mount, tick, unmount } from 'svelte'
 import App from './App.svelte'
-import { difference, fixture, versions } from './lib/test-fixture'
+import { difference, fixture, focusFixture, versions } from './lib/test-fixture'
 import type { Snapshot, State } from './lib/types'
 
 let app: ReturnType<typeof mount>
@@ -41,7 +41,7 @@ it('opens a genuine empty state without generating or injecting demo nodes', asy
 })
 it('starts a background parse only after a click and exposes cancellation', async () => {
   await mountApp(); button('重新解析').click(); await flush()
-  expect(request).toHaveBeenCalledWith('plugin.generate', {})
+  expect(request).toHaveBeenCalledWith('plugin.generate', { windowDays: 30 })
   expect(document.body.textContent).toContain('正在解析材料')
   button('取消').click(); await flush()
   expect(request).toHaveBeenCalledWith('plugin.cancel', {})
@@ -191,4 +191,56 @@ it('browses keyword communities without listing sources or topic containers as k
   expect(document.querySelectorAll('.node-row')).toHaveLength(1)
   expect(document.querySelector('.node-row')?.textContent).toContain('纸船计划')
   expect(document.querySelector('.detail-panel')).toBeNull()
+})
+
+it('defaults to recent attention, ranks by score and explains dated observations without claiming mastery', async () => {
+  current.snapshot = focusFixture()
+  await mountApp()
+  const rows = document.querySelectorAll<HTMLButtonElement>('.node-row')
+  expect(rows).toHaveLength(2)
+  expect(rows[0].textContent).toContain('观察与反馈')
+  expect(rows[1].classList.contains('context-word')).toBe(true)
+  expect(document.body.textContent).toContain('最近 30 天')
+  expect(document.body.textContent).not.toContain('十年前的旧主题')
+  rows[0].click(); await flush()
+  expect(document.querySelector('.attention-detail')?.textContent).toContain('5 个活跃日 · 7 次记录事件')
+  expect(document.querySelector('.attention-detail')?.textContent).toContain('不表示掌握程度')
+  expect(document.querySelector('.evidence-date')?.textContent).toContain('2026-10-01')
+  expect(document.querySelector('.evidence-date')?.textContent).toContain('本人笔记')
+  button('历史结构').click(); await flush()
+  expect(document.querySelectorAll('.node-row')).toHaveLength(3)
+  expect(document.body.textContent).toContain('十年前的旧主题')
+  expect(document.querySelector('.detail-panel')).toBeNull()
+  button('近期关注').click(); await flush()
+  expect(document.querySelectorAll('.node-row')).toHaveLength(2)
+  expect(request.mock.calls.some(call => call[0] === 'plugin.generate')).toBe(false)
+})
+it('changes the next generation window without relabelling the saved attention window', async () => {
+  current.snapshot = focusFixture()
+  await mountApp()
+  const select = document.querySelector<HTMLSelectElement>('[aria-label="下次解析关注范围"]')!
+  select.value = '7'; select.dispatchEvent(new Event('change', { bubbles: true })); await flush()
+  expect(document.querySelector('.focus-window')?.textContent).toContain('最近 30 天')
+  button('重新解析').click(); await flush()
+  expect(request).toHaveBeenCalledWith('plugin.generate', { windowDays: 7 })
+})
+it('keeps old snapshots explicit and does not treat a computed empty focus as missing history', async () => {
+  current.snapshot = focusFixture(); current.snapshot.attention = []
+  await mountApp()
+  expect(document.querySelectorAll('.node-row')).toHaveLength(0)
+  expect(document.body.textContent).toContain('这段时间还没有足够的关注线索')
+  button('历史结构').click(); await flush()
+  expect(document.querySelectorAll('.node-row')).toHaveLength(3)
+})
+
+it('names recent membership chips from visible concepts while retaining the original community identity', async () => {
+  current.snapshot = focusFixture()
+  current.snapshot.memberships = [{ id: 'm', node: 'n2', topic: 't1', role: 'primary', score: 1 }]
+  await mountApp(); document.querySelector<HTMLButtonElement>('.node-row')!.click(); await flush()
+  const chip = document.querySelector<HTMLButtonElement>('.memberships button')!
+  expect(chip.textContent).toContain('观察与反馈')
+  expect(chip.title).toBe('原社区：研究方法')
+  button('历史结构').click(); await flush()
+  ;[...document.querySelectorAll<HTMLButtonElement>('.node-row')].find(row => row.textContent?.includes('观察与反馈'))!.click(); await flush()
+  expect(document.querySelector('.memberships button')?.textContent).toContain('研究方法')
 })

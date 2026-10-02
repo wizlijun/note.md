@@ -8,7 +8,7 @@ export function request<T>(method: string, params: unknown = {}): Promise<T> {
 }
 export const api = {
   state: () => request<State>('plugin.state'),
-  generate: () => request<Job>('plugin.generate'),
+  generate: (windowDays?: 7 | 30 | 90) => request<Job>('plugin.generate', windowDays ? { windowDays } : {}),
   job: () => request<Job | null>('plugin.job'),
   cancel: () => request<Job | null>('plugin.cancel'),
   retrySave: () => request<{ status: string }>('plugin.retry_save'),

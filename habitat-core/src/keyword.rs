@@ -35,7 +35,7 @@ fn normalized(value: &str) -> String {
         .join(" ")
         .to_lowercase()
 }
-fn acceptable(value: &str) -> bool {
+pub(crate) fn acceptable(value: &str) -> bool {
     let n = value.chars().count();
     if !(2..=64).contains(&n)
         || !value.chars().any(char::is_alphabetic)
@@ -307,7 +307,10 @@ pub(crate) fn project(vault: &str, mut data: Extraction) -> (Extraction, Graph) 
             let f = family(source).to_owned();
             word.evidence.insert(id.clone());
             word.families.insert(f.clone());
-            if ev.authorship == "human" && ev.verification == "matched" && ev.role == "context" {
+            if ev.authorship == "human"
+                && ev.verification == "matched"
+                && matches!(ev.role.as_str(), "context" | "attention")
+            {
                 word.human.insert(f.clone());
             }
             if native
@@ -333,10 +336,13 @@ pub(crate) fn project(vault: &str, mut data: Extraction) -> (Extraction, Graph) 
         .collect();
     let mut graph: Graph = vec![BTreeMap::new(); words.len()];
     let mut mapped_edges: BTreeMap<String, (Edge, Vec<(usize, String)>)> = BTreeMap::new();
+    let mut statistical_weights: BTreeMap<String, f64> = BTreeMap::new();
     for edge in &data.edges {
         // Co-mention assertions are recomputed below with repeated, bounded
         // windows. No clique is manufactured from a multi-party relation.
-        if matches!(edge.edge_type.as_str(), "co_mentioned_in" | "co_occurs") {
+        if edge.edge_type == "co_mentioned_in"
+            || edge.edge_type == "co_occurs" && !data.statistical_weights.contains_key(&edge.id)
+        {
             continue;
         }
         let Some(participants) = edge
@@ -365,6 +371,12 @@ pub(crate) fn project(vault: &str, mut data: Extraction) -> (Extraction, Graph) 
             edge.status,
             serde_json::to_string(&participants).unwrap()
         );
+        if let Some(weight) = data.statistical_weights.get(&edge.id) {
+            statistical_weights
+                .entry(key.clone())
+                .and_modify(|old| *old = old.max(*weight))
+                .or_insert(*weight);
+        }
         let (aggregate, _) = mapped_edges.entry(key).or_insert_with(|| {
             (
                 Edge {
@@ -379,7 +391,7 @@ pub(crate) fn project(vault: &str, mut data: Extraction) -> (Extraction, Graph) 
     }
     // Aggregate lexical assertions before measuring graph strength. Repeated
     // scoped records from one source family do not buy extra PageRank mass.
-    for (edge, participants) in mapped_edges.values_mut() {
+    for (key, (edge, participants)) in &mut mapped_edges {
         edge.evidence.sort();
         edge.evidence.dedup();
         count_families(edge, &evidence, &sources);
@@ -390,7 +402,10 @@ pub(crate) fn project(vault: &str, mut data: Extraction) -> (Extraction, Graph) 
                 role: role.clone(),
             })
             .collect();
-        let weight = edge_weight(edge);
+        let weight = statistical_weights
+            .get(key)
+            .copied()
+            .unwrap_or_else(|| edge_weight(edge));
         if participants.len() == 2 && weight > 0. {
             let (a, b) = (participants[0].0, participants[1].0);
             if a != b {
@@ -538,7 +553,16 @@ pub(crate) fn project(vault: &str, mut data: Extraction) -> (Extraction, Graph) 
         }
     });
     ranked.truncate(MAX_KEYWORDS);
-    let selected: BTreeSet<_> = ranked.into_iter().collect();
+    let selected: BTreeSet<_> = ranked
+        .into_iter()
+        .chain(
+            words
+                .iter()
+                .enumerate()
+                .filter(|(_, word)| data.retained_keywords.contains(&word.spelling))
+                .map(|(i, _)| i),
+        )
+        .collect();
     let mut output_nodes = Vec::new();
     let mut index = BTreeMap::new();
     for &i in &selected {
@@ -657,6 +681,11 @@ pub(crate) fn project(vault: &str, mut data: Extraction) -> (Extraction, Graph) 
         .filter(|e| used.contains(&e.id))
         .collect();
     let assigned: BTreeSet<_> = kept_evidence.iter().map(|e| e.source.as_str()).collect();
+    let mut attention = data.attention;
+    for item in &mut attention {
+        let i = lookup[&item.node.as_str()];
+        item.node = output_nodes[index[&i]].id.clone();
+    }
     let mut coverage = data.coverage;
     coverage.unassigned_sources = data
         .sources
@@ -671,6 +700,11 @@ pub(crate) fn project(vault: &str, mut data: Extraction) -> (Extraction, Graph) 
             edges: output_edges.into_values().collect(),
             coverage,
             features: BTreeMap::new(),
+            focus: data.focus,
+            attention_observations: data.attention_observations,
+            attention,
+            retained_keywords: data.retained_keywords,
+            statistical_weights: BTreeMap::new(),
         },
         output_graph,
     )

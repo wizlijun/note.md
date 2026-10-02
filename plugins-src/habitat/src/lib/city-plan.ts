@@ -28,7 +28,7 @@ const hash = (key: string) => {
 const distance = (a: CityPoint, b: CityPoint) => Math.hypot(a.x - b.x, a.z - b.z)
 const vertexKey = (p: CityPoint) => `${Math.round(p.x * 10000)},${Math.round(p.z * 10000)}`
 const rank = (lot: ProjectedLot) => lot.style ? 0 : lot.node.nodeType === 'project' ? 1 : ['concept', 'entity'].includes(lot.node.nodeType) ? 2 : 3
-const compareLots = (a: ProjectedLot, b: ProjectedLot) => rank(a) - rank(b) || (b.node.evidence?.length ?? 0) - (a.node.evidence?.length ?? 0) || a.node.id.localeCompare(b.node.id)
+const compareLots = (a: ProjectedLot, b: ProjectedLot) => rank(a) - rank(b) || (b.node.attentionScore ?? 0) - (a.node.attentionScore ?? 0) || (b.node.evidence?.length ?? 0) - (a.node.evidence?.length ?? 0) || a.node.id.localeCompare(b.node.id)
 
 export function segmentDistance(p: CityPoint, a: CityPoint, b: CityPoint) {
   const dx = b.x - a.x, dz = b.z - a.z, length2 = dx * dx + dz * dz
@@ -78,7 +78,7 @@ function convexHull(points: CityPoint[]) {
 
 /** Statistical support affects capacity, but never becomes an asserted semantic fact. */
 export function relationWeight(edge: Edge) {
-  if (edge.participants.length === 2 && edge.edgeType === 'co_occurs' && edge.status === 'statistical') {
+  if (edge.participants.length === 2 && ['co_occurs', 'co_discussed'].includes(edge.edgeType) && edge.status === 'statistical') {
     const support = edge.verifiedFamilies + edge.provisionalFamilies * .5 + edge.unresolvedLineage * .15
     return Math.min(.8, .15 * Math.log1p(support))
   }
@@ -89,7 +89,7 @@ export function relationWeight(edge: Edge) {
     : edge.status === 'imported' ? .12 : 0
 }
 
-export interface CommunityPlan { memberships: Membership[]; topics: (Node & { x: number; z: number })[] }
+export interface CommunityPlan { focus?: boolean; memberships: Membership[]; topics: (Node & { x: number; z: number })[] }
 
 /** Membership owns the district; coordinates only choose its place in the city. */
 function semanticParcels(lots: ProjectedLot[], communities: CommunityPlan): CityParcel[] {
@@ -111,13 +111,20 @@ function semanticParcels(lots: ProjectedLot[], communities: CommunityPlan): City
     return heroes.map((hero, i) => ({ id: `${topicId}:${hero.node.id}`, topicId,
       members: [hero, ...members.filter(l => !l.style && Math.floor(hash(l.node.id) * heroes.length) === i)] }))
   }).sort((a, b) => Number(b.members.some(l => l.style)) - Number(a.members.some(l => l.style)) || a.id.localeCompare(b.id))
+  const originFor = (topicId: string, members: ProjectedLot[]) => {
+    const topic = topics.get(topicId), cell = !topic && topicId.startsWith('exploration:') ? topicId.split(':').slice(1).map(Number) : null
+    return topic ?? (cell ? { x: cell[0] * 12 + 6, z: cell[1] * 12 + 6 } : members[0])
+  }
+  const origins = entries.map(entry => originFor(entry.topicId, entry.members))
+  const extent = Math.max(1, Math.max(...origins.map(p => p.x)) - Math.min(...origins.map(p => p.x)), Math.max(...origins.map(p => p.z)) - Math.min(...origins.map(p => p.z)))
+  // Focus frames only its visible districts; archived empty space is not carried into the foreground.
+  const scale = communities.focus ? Math.min(.5, Math.sqrt(entries.length) * 16 / extent) : .5
   for (const { id, topicId, members } of entries) {
     members.sort(compareLots)
     const topic = topics.get(topicId), hero = members.find(l => l.style)
-    const cell = !topic && topicId.startsWith('exploration:') ? topicId.split(':').slice(1).map(Number) : null
-    const origin = topic ?? (cell ? { x: cell[0] * 12 + 6, z: cell[1] * 12 + 6 } : members[0])
+    const origin = originFor(topicId, members)
     // Semantic layout reserves generous analytical spacing; use a compact city-scale projection.
-    const original = visualPoint(origin.x * .5, origin.z * .5)
+    const original = visualPoint(origin.x * scale, origin.z * scale)
     let center = original
     const radius = hero ? 11 : 6
     for (let step = 0; parcels.some(p => distance(p.center, center) < radius + (p.kind === 'campus' || p.kind === 'park' ? 11 : 6)); step++) {
