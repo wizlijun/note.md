@@ -2,7 +2,7 @@
 
 HABITAT 从当前 Vault 的 Markdown、大纲节点和已有会议知识数据生成可回源的关键词关系图：关键词成为建筑，关系形成道路，Leiden 社区形成街区。核心计算在本机完成，不新增模型调用。已有 AI 抽取数据仍标记为导入声明或候选；来源版本匹配不代表语义已经证实。
 
-`0.3.0` 将知识节点改为关注关键词，采用 TF-IDF 关注先验、个性化 PageRank、局部 NPMI 关联和标准 Leiden 社区发现。提供 macOS Apple Silicon / Intel 包。最低宿主为 `>=6.930.3`，需要包含新 `host.knowledge.*` 接口；宿主 `6.930.3` 已发布。已完成本地提取、压缩快照、专用 Git 保存与历史接口、语义比较及 Three.js 低模 3D 城市界面；真实 Vault 本轮只读验证，没有在该 Vault 创建结构文件、Git 提交或推送。产品设计与当前实现边界见 [提取规格](../../docs/superpowers/specs/2026-09-30-vault-knowledge-structure-extraction-design.md#11-源码实现与真实全量验收2026-09-30)。
+`0.3.0` 已发布至 [note.md 插件市场](https://plugins.notemd.net/)。知识节点改为关注关键词，采用 TF-IDF 关注先验、个性化 PageRank、局部 NPMI 关联和标准 Leiden 社区发现。提供 macOS Apple Silicon / Intel 包。最低宿主为 `>=6.930.3`，需要包含新 `host.knowledge.*` 接口；宿主 `6.930.3` 已发布。已完成本地提取、压缩快照、专用 Git 保存与历史接口、语义比较及 Three.js 低模 3D 城市界面；真实 Vault 本轮只读验证，没有在该 Vault 创建结构文件、Git 提交或推送。产品设计与当前实现边界见 [提取规格](../../docs/superpowers/specs/2026-09-30-vault-knowledge-structure-extraction-design.md#11-源码实现与真实全量验收2026-09-30)。
 
 ## 模块职责
 
@@ -170,3 +170,5 @@ node plugins-src/habitat/scripts/render-qa.mjs \
 完整提取约 31 秒，组织约 250 毫秒；压缩快照 1,637,865 字节。两轮全量输入得到完全相同的 JSONL/压缩字节，旧发布 core 也能解码并逐字节回编码新文件。旧快照迁移正确标记算法变化；实际 Vault 没有写入或创建 Git 提交。
 
 32 项核心、9 项 backend、28 项宿主知识接口、35 项前端和 3 项预览服务测试通过，类型检查无错误警告。独立审计 20 项检查包含正负 NPMI、重复来源不增权、社区连通、顺序确定和旧格式兼容。新旧真实快照均通过硬件浏览器渲染回归，新图连续 20 次重建维持 69 个几何体/25 张纹理；社区筛选、关键词证据、探索区、地标、暗色窄屏和销毁重建通过。只读浏览器与 mock-host 测试不等同于真实宿主端到端写入。
+
+0.3.0 发布复核：Apple Silicon / Intel 原生初始化与退出通过；包 Developer ID 和 minisign 验证通过。沿用 Wrangler 3 和 Account API Token 发布，R2 四个对象匿名回读逐字节一致，随后才更新 KV。公网普通/绕缓存索引均为 254 条，与候选一致，原 253 条未改动。最低宿主仍为 >=6.930.3。
