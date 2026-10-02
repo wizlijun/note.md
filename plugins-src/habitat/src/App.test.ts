@@ -174,3 +174,21 @@ it('labels the local read-only preview and never pretends to open a source', asy
   expect(document.body.textContent).toContain('本地预览仅显示来源路径和定位信息')
   expect(request.mock.calls.some(c => c[0] === 'host.editor.open')).toBe(false)
 })
+
+it('browses keyword communities without listing sources or topic containers as keywords', async () => {
+  const snapshot = current.snapshot!
+  snapshot.meta.algorithm.version = 'habitat-keyword/2'
+  snapshot.nodes[0].nodeType = snapshot.nodes[1].nodeType = 'keyword'
+  snapshot.memberships = [{ id: 'm', node: 'n1', topic: 't1', role: 'primary', score: 1 }]
+  snapshot.edges[0].edgeType = 'co_occurs'; snapshot.edges[0].status = 'statistical'
+  await mountApp()
+  expect(document.querySelectorAll('.node-row')).toHaveLength(2)
+  expect(document.querySelector('.section-title')?.textContent).toContain('2 个关键词')
+  document.querySelector<HTMLButtonElement>('.node-row')!.click(); await flush()
+  expect(document.querySelector('.detail-panel')?.textContent).toContain('统计共现')
+  expect(document.querySelector('.detail-panel')?.textContent).toContain('不自动推断因果')
+  document.querySelector<HTMLButtonElement>('.memberships button')!.click(); await flush()
+  expect(document.querySelectorAll('.node-row')).toHaveLength(1)
+  expect(document.querySelector('.node-row')?.textContent).toContain('纸船计划')
+  expect(document.querySelector('.detail-panel')).toBeNull()
+})

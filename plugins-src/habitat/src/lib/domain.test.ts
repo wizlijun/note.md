@@ -39,3 +39,27 @@ it('caps repeated evidence in one known family and separates unknown lineage', (
   snapshot.evidence.push({ ...snapshot.evidence[0], id: 'e3', source: 's2' })
   expect(nodeFamilyCounts(snapshot).get('n1')).toEqual({ verified: 1, provisional: 0, unresolved: 1 })
 })
+
+it('keeps only keywords in the new graph and uses primary memberships for district browsing', () => {
+  const snapshot = fixture()
+  snapshot.meta.algorithm.version = 'habitat-keyword/2'
+  snapshot.nodes[0].nodeType = snapshot.nodes[1].nodeType = 'keyword'
+  snapshot.nodes.push({ id: 'doc', key: 'doc', nodeType: 'document', label: '材料文件', status: 'observed' })
+  snapshot.memberships = [
+    { id: 'm1', node: 'n1', topic: 't1', role: 'primary', score: 1 },
+    { id: 'm2', node: 'n2', topic: 't1', role: 'secondary', score: .2 }
+  ]
+  expect(filterNodes(snapshot, '', '').map(n => n.id)).toEqual(['n1', 'n2'])
+  expect(filterNodes(snapshot, '', 't1').map(n => n.id)).toEqual(['n1'])
+  expect(filterNodes(snapshot, 'paperboat', '').map(n => n.id)).toEqual(['n1'])
+  expect(isExplicit({ ...snapshot.edges[0], edgeType: 'co_occurs', status: 'statistical' })).toBe(false)
+})
+
+it('keeps unconnected-keyword browsing distinct from semantic communities', () => {
+  const snapshot = fixture()
+  snapshot.meta.algorithm.version = 'habitat-keyword/2'
+  snapshot.nodes[0].nodeType = snapshot.nodes[1].nodeType = 'keyword'
+  snapshot.memberships = [{ id: 'm1', node: 'n1', topic: 't1', role: 'primary', score: 1 }]
+  expect(filterNodes(snapshot, '', '__unassigned__').map(n => n.id)).toEqual(['n2'])
+  expect(filterNodes(snapshot, '', 't1').map(n => n.id)).toEqual(['n1'])
+})

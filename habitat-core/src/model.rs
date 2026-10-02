@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 
 pub const SCHEMA: &str = "vault-knowledge-structure/1";
 pub const SNAPSHOT_PATH: &str = ".notemd/habitat/knowledge-structure.jsonl.zst";
-pub const ALGORITHM_VERSION: &str = "habitat-local/1";
+pub const ALGORITHM_VERSION: &str = "habitat-keyword/2";
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]

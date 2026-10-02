@@ -16,13 +16,15 @@ const hardware = args.includes('--hardware')
 const output = resolve(value('--output', resolve(root, '../../tasks/design/habitat-render-qa')))
 await mkdir(output, { recursive: true })
 const snapshot = await loadSnapshot(resolve(snapshotPath))
-const data = JSON.stringify({ nodes: snapshot.nodes, layout: snapshot.layout, edges: snapshot.edges })
+const keywordGraph = snapshot.meta.algorithm.version === 'habitat-keyword/2'
+const graphNodes = snapshot.nodes.filter(node => !keywordGraph || node.nodeType === 'keyword')
+const data = JSON.stringify({ nodes: graphNodes, topics: snapshot.nodes.filter(node => node.nodeType === 'topic'), memberships: snapshot.memberships, keywordGraph, layout: snapshot.layout, edges: snapshot.edges })
 const harness = `
 import { CityScene } from '/src/lib/city-scene.ts';
 const data = await (await fetch('/__qa/data')).json();
 const subsetNodes = data.nodes.filter((node, index) => index < 480 || ['hemory', 'note.md', 'bushcraft'].includes(node.label.toLowerCase()));
 const subsetIds = new Set(subsetNodes.map(node => node.id));
-const subset = { nodes: subsetNodes, layout: data.layout.filter(item => subsetIds.has(item.id)), edges: data.edges.filter(edge => edge.participants.every(item => subsetIds.has(item.node))) };
+const subset = { ...data, nodes: subsetNodes, edges: data.edges.filter(edge => edge.participants.every(item => subsetIds.has(item.node))) };
 let scene, status, firstReadyMs, selections = [];
 const canvas = document.querySelector('canvas');
 function create() {
@@ -36,7 +38,8 @@ window.__cityQA = {
   get nodeCount() { return data.nodes.length },
   get subsetCount() { return subsetNodes.length },
   get firstReadyMs() { return firstReadyMs },
-  get ordinaryId() { return data.nodes.find(node => node.nodeType === 'concept' && node.status === 'observed' && data.layout.some(layout => layout.id === node.id))?.id },
+  landmarkId(name) { return data.nodes.find(node => node.label.toLowerCase() === name && ['anchor', 'observed', 'confirmed', 'user-confirmed'].includes(node.status))?.id },
+  get ordinaryId() { return data.nodes.find(node => ['concept', 'keyword'].includes(node.nodeType) && !['hemory', 'note.md', 'bushcraft'].includes(node.label.toLowerCase()) && data.layout.some(layout => layout.id === node.id))?.id },
   rebuild() { ready(); scene.setData(data, false) },
   subset() { ready(); scene.setData(subset, true) },
   restore() { ready(); scene.setData(data, true) },
@@ -69,7 +72,7 @@ const vite = await createServer({
   } }],
 })
 let browser
-const report = { startedAt: new Date().toISOString(), requestedRenderer: hardware ? 'hardware' : 'swiftshader', snapshotId: snapshot.meta.snapshotId, nodes: snapshot.nodes.length, checks: [], rotations: [], rebuilds: [], errors: [], warnings: [], externalRequests: [], failedRequests: [], screenshots: [] }
+const report = { startedAt: new Date().toISOString(), requestedRenderer: hardware ? 'hardware' : 'swiftshader', snapshotId: snapshot.meta.snapshotId, nodes: graphNodes.length, checks: [], rotations: [], rebuilds: [], errors: [], warnings: [], externalRequests: [], failedRequests: [], screenshots: [] }
 const save = () => writeFile(resolve(output, 'report.json'), JSON.stringify(report, null, 2) + '\n')
 try {
   await vite.listen()
@@ -121,7 +124,7 @@ try {
   assert.equal(new Set(labelIds).size, labelIds.length, 'district and selected labels have unique identities')
   assert.ok(Number(report.baseline.models) > 100, 'real snapshot should render a populated city')
   assert.ok(Number(report.baseline.triangles) > 100000, 'real GLB geometry should be present')
-  assert.equal(await page.evaluate(() => window.__cityQA.status.count), snapshot.nodes.length)
+  assert.equal(await page.evaluate(() => window.__cityQA.status.count), graphNodes.length)
   for (let index = 0; index < 20; index++) {
     await action('rebuild'); const sample = await metrics(); report.rebuilds.push(sample)
     assert.equal(sample.geometries, report.baseline.geometries, `GPU geometry count grew at rebuild ${index + 1}`)
@@ -138,7 +141,7 @@ try {
   }
   await screenshot('history-all-changed'); await action('clearSelection')
   assert.equal((await metrics()).geometries, report.baseline.geometries)
-  report.checks.push('all 32K changed IDs use batched rings, repeated highlighting remains stable and clearing releases rings')
+  report.checks.push('all changed keyword/object IDs use batched rings, repeated highlighting remains stable and clearing releases rings')
   report.subsetRestores = []
   for (let index = 0; index < 5; index++) {
     await action('subset')
@@ -146,34 +149,36 @@ try {
     const subset = await metrics()
     if (!index) await screenshot('subset')
     await action('restore'); const restored = await metrics()
-    assert.equal(await page.evaluate(() => window.__cityQA.status.count), snapshot.nodes.length)
+    assert.equal(await page.evaluate(() => window.__cityQA.status.count), graphNodes.length)
     assert.equal(restored.geometries, report.baseline.geometries, 'restoring original full data must restore the same geometry count')
     assert.equal(restored.textures, report.baseline.textures, 'restoring original full data must restore the same texture count')
     assert.deepEqual(await page.evaluate(() => window.__cityQA.status.labels.map(label => label.id).sort()), initialLabels.map(label => label.id).sort(), 'landmark identities must survive subset/full transitions')
     report.subsetRestores.push({ subset, restored })
   }
   report.checks.push('five subset/full-data transitions restore all nodes, label identities and GPU resource counts')
-  const hero = await page.evaluate(() => window.__cityQA.status.labels.find(label => label.name.toLowerCase() === 'hemory') ?? window.__cityQA.status.labels[0])
+  const heroId = await page.evaluate(() => window.__cityQA.landmarkId('hemory'))
+  const hero = initialLabels.find(label => label.nodeId === heroId || label.id === heroId) ?? initialLabels[0]
+  const selectedHeroId = hero.nodeId ?? hero.id
   assert.ok(hero, 'city should expose a selectable label')
-  await action('select', hero.id); await action('focus', hero.id)
-  assert.ok(await page.evaluate(id => window.__cityQA.status.labels.some(label => label.id === id && label.selected), hero.id))
+  await action('select', selectedHeroId); await action('focus', selectedHeroId)
+  assert.ok(await page.evaluate(id => window.__cityQA.status.labels.some(label => (label.nodeId ?? label.id) === id && label.selected), selectedHeroId))
   assert.equal((await metrics()).ready, 'true')
   await screenshot('focus')
   // Focused campuses have an open courtyard; sample neighboring visible building pixels.
   let picked = false
   for (const [dx, dy] of [[-70, 0], [70, 0], [0, -70], [0, 70], [-110, -50], [110, -50], [-50, 110], [50, 110], [0, 0]]) {
     await page.mouse.click(720 + dx, 500 + dy)
-    picked = await page.evaluate(id => window.__cityQA.selections.includes(id), hero.id)
+    picked = await page.evaluate(id => window.__cityQA.selections.includes(id), selectedHeroId)
     if (picked) break
   }
   assert.ok(picked, 'mouse picking should select the focused knowledge ID')
   report.checks.push('selection labels, focus and actual mouse picking preserve knowledge ID')
   for (const [name, screenshotName] of [['note.md', 'note-campus'], ['bushcraft', 'camp']]) {
-    const target = initialLabels.find(label => label.name.toLowerCase() === name)
-    assert.ok(target, `missing ${name} landmark in real snapshot`)
-    await action('fit'); await action('select', target.id); await action('focus', target.id); await screenshot(screenshotName)
+    const targetId = await page.evaluate(name => window.__cityQA.landmarkId(name), name)
+    assert.ok(targetId, `missing ${name} landmark in real snapshot`)
+    await action('fit'); await action('select', targetId); await action('focus', targetId); await screenshot(screenshotName)
   }
-  const ordinary = initialLabels.find(label => !['hemory', 'note.md', 'bushcraft'].includes(label.name.toLowerCase()))?.id ?? await page.evaluate(() => window.__cityQA.ordinaryId)
+  const ordinary = await page.evaluate(() => window.__cityQA.ordinaryId)
   assert.ok(ordinary, 'real snapshot should contain an ordinary neighborhood')
   await action('fit'); await action('select', ordinary); await action('focus', ordinary); await screenshot('neighborhood')
   report.checks.push('note.md campus, Bushcraft camp and ordinary neighborhood close-up screenshots')

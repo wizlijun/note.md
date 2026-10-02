@@ -116,3 +116,55 @@ describe('deterministic game city plan', () => {
     assertClearances(coincident)
   })
 })
+
+describe('keyword community districts', () => {
+  const topic = (id: string, x: number, z: number) => ({ id, key: id, label: `${id} · 主题`, nodeType: 'topic', status: 'candidate', x, z })
+  const membership = (node: string, topic: string, role = 'primary', score = 1) => ({ id: `${node}:${topic}`, node, topic, role, score })
+  it('uses primary communities even when unrelated keywords have identical coordinates', () => {
+    const lots = [lot('a', 0, 0), lot('b', 0, 0), lot('c', 0, 0), lot('isolated', 0, 0)]
+    const communities = { topics: [topic('one', 0, 0), topic('two', 0, 0)], memberships: [membership('a', 'one'), membership('b', 'one'), membership('c', 'two'), membership('c', 'one', 'secondary')] }
+    const plan = planCity(lots, [], communities)
+    expect(plan.parcels).toHaveLength(3)
+    expect(plan.parcels.find(p => p.topicId === 'one')?.members.map(m => m.node.id).sort()).toEqual(['a', 'b'])
+    expect(plan.parcels.find(p => p.topicId === 'two')?.members.map(m => m.node.id)).toEqual(['c'])
+    expect(plan.parcels.find(p => p.kind === 'growth')?.members[0].node.id).toBe('isolated')
+    expect(plan.parcels.find(p => p.topicId === 'one')?.name).toBe('one · 主题')
+    expect(planCity([...lots].reverse(), [], { topics: [...communities.topics].reverse(), memberships: [...communities.memberships].reverse() })).toEqual(plan)
+    expect(plan.roads.every(r => r.traffic === 0)).toBe(true)
+    assertClearances(plan)
+  })
+  it('keeps distinct landmark campuses without absorbing a neighbouring community', () => {
+    const lots = [lot('hemory', 0, 0, 'campus'), lot('notemd', 0, 0, 'campus'), lot('member', 0, 0), lot('other', 0, 0)]
+    const plan = planCity(lots, [], { topics: [topic('projects', 0, 0), topic('other-topic', 1, 1)], memberships: [membership('hemory', 'projects'), membership('notemd', 'projects'), membership('member', 'projects'), membership('other', 'other-topic')] })
+    expect(plan.parcels.filter(p => p.kind === 'campus')).toHaveLength(2)
+    expect(plan.placements.filter(p => p.kind === 'campus').map(p => p.id).sort()).toEqual(['hemory', 'notemd'])
+    expect(plan.parcels.filter(p => p.kind === 'campus').every(p => p.members.every(m => m.node.id !== 'other'))).toBe(true)
+    expect(plan.positions.size).toBe(lots.length)
+    assertClearances(plan)
+  })
+  it('routes supported statistical links on local streets without asserting them as explicit facts', () => {
+    const lots = [lot('a', 0, 0), lot('b', 1, 1)]
+    const communities = { topics: [topic('one', 0, 0)], memberships: [membership('a', 'one'), membership('b', 'one')] }
+    const baseline = planCity(lots, [], communities)
+    const link = { ...edge('statistical', 'a', 'b'), edgeType: 'co_occurs', status: 'statistical', verifiedFamilies: 3 }
+    const statistical = planCity(lots, [link], communities)
+    const explicit = planCity(lots, [edge('explicit', 'a', 'b')], communities)
+    expect(skeleton(statistical)).toEqual(skeleton(baseline))
+    expect(statistical.placements).toEqual(baseline.placements)
+    expect(statistical.roads.some(r => r.traffic > 0)).toBe(true)
+    expect(Math.max(...statistical.roads.map(r => r.traffic))).toBeLessThan(Math.max(...explicit.roads.map(r => r.traffic)))
+    expect(planCity(lots, [{ ...link, verifiedFamilies: 0 }], communities)).toEqual(baseline)
+  })
+})
+
+it('packs isolated keywords into stable exploration plots without fabricating communities or relationships', () => {
+  const lots = Array.from({ length: 180 }, (_, i) => lot(`isolated-${i}`, (i % 18) * 2, Math.floor(i / 18) * 2))
+  const communities = { topics: [], memberships: [] }
+  const plan = planCity(lots, [], communities)
+  expect(plan.parcels.length).toBeLessThan(10)
+  expect(plan.parcels.every(p => p.unassigned && !p.topicId && p.kind === 'growth' && p.name === '待连接关键词')).toBe(true)
+  expect(plan.roads.every(r => r.traffic === 0)).toBe(true)
+  expect(plan.positions.size).toBe(lots.length)
+  expect(planCity([...lots].reverse(), [], communities)).toEqual(plan)
+  assertClearances(plan)
+})

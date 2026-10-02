@@ -1,11 +1,12 @@
 import { isExplicit } from './domain'
 import { visualPoint, type ProjectedLot } from './city-projection'
-import type { Edge } from './types'
+import type { Edge, Membership, Node } from './types'
 
 export interface CityPoint { x: number; z: number }
 export interface CityParcel {
   id: string; center: CityPoint; polygon: CityPoint[]; members: ProjectedLot[]
   kind: 'neighborhood' | 'growth' | 'campus' | 'park'
+  topicId?: string; name?: string; unassigned?: boolean
 }
 export interface CityRoad { id: string; points: CityPoint[]; width: number; traffic: number; tier: number }
 export interface CityPlacement {
@@ -75,7 +76,12 @@ function convexHull(points: CityPoint[]) {
   return [...half(ordered).slice(0, -1), ...half(ordered.reverse()).slice(0, -1)]
 }
 
-function relationWeight(edge: Edge) {
+/** Statistical support affects capacity, but never becomes an asserted semantic fact. */
+export function relationWeight(edge: Edge) {
+  if (edge.participants.length === 2 && edge.edgeType === 'co_occurs' && edge.status === 'statistical') {
+    const support = edge.verifiedFamilies + edge.provisionalFamilies * .5 + edge.unresolvedLineage * .15
+    return Math.min(.8, .15 * Math.log1p(support))
+  }
   if (edge.participants.length !== 2 || edge.status === 'candidate') return 0
   return edge.verifiedFamilies > 0 && isExplicit(edge) ? 2
     : edge.status === 'observed' && ['explicit_reference', 'wikilink', 'links_to', 'cites'].includes(edge.edgeType) ? 1
@@ -83,13 +89,57 @@ function relationWeight(edge: Edge) {
     : edge.status === 'imported' ? .12 : 0
 }
 
-/** Geometry depends only on stable spatial containers; evidence changes road capacity, never addresses. */
-export function planCity(lots: ProjectedLot[], edges: Edge[]): CityPlan {
+export interface CommunityPlan { memberships: Membership[]; topics: (Node & { x: number; z: number })[] }
+
+/** Membership owns the district; coordinates only choose its place in the city. */
+function semanticParcels(lots: ProjectedLot[], communities: CommunityPlan): CityParcel[] {
+  const topics = new Map(communities.topics.map(t => [t.id, t]))
+  const primary = new Map([...communities.memberships].filter(m => m.role === 'primary' && topics.has(m.topic))
+    .sort((a, b) => b.score - a.score || a.topic.localeCompare(b.topic)).reverse().map(m => [m.node, m.topic]))
+  const groups = new Map<string, ProjectedLot[]>()
+  for (const lot of lots) {
+    // Unconnected words share explicitly non-semantic exploration plots, never a fabricated community.
+    const key = primary.get(lot.node.id) ?? `exploration:${Math.floor(lot.x / 12)}:${Math.floor(lot.z / 12)}`
+    if (!groups.has(key)) groups.set(key, [])
+    groups.get(key)!.push(lot)
+  }
+  const parcels: CityParcel[] = []
+  // Landmarks reserve enough space first, while staying within their semantic community.
+  const entries = [...groups].flatMap(([topicId, members]) => {
+    const heroes = members.filter(l => l.style).sort(compareLots)
+    if (heroes.length < 2) return [{ id: topicId, topicId, members }]
+    return heroes.map((hero, i) => ({ id: `${topicId}:${hero.node.id}`, topicId,
+      members: [hero, ...members.filter(l => !l.style && Math.floor(hash(l.node.id) * heroes.length) === i)] }))
+  }).sort((a, b) => Number(b.members.some(l => l.style)) - Number(a.members.some(l => l.style)) || a.id.localeCompare(b.id))
+  for (const { id, topicId, members } of entries) {
+    members.sort(compareLots)
+    const topic = topics.get(topicId), hero = members.find(l => l.style)
+    const cell = !topic && topicId.startsWith('exploration:') ? topicId.split(':').slice(1).map(Number) : null
+    const origin = topic ?? (cell ? { x: cell[0] * 12 + 6, z: cell[1] * 12 + 6 } : members[0])
+    // Semantic layout reserves generous analytical spacing; use a compact city-scale projection.
+    const original = visualPoint(origin.x * .5, origin.z * .5)
+    let center = original
+    const radius = hero ? 11 : 6
+    for (let step = 0; parcels.some(p => distance(p.center, center) < radius + (p.kind === 'campus' || p.kind === 'park' ? 11 : 6)); step++) {
+      const angle = hash(id) * Math.PI * 2 + step * 2.399963
+      const span = 12 + Math.sqrt(step) * 6
+      center = { x: original.x + Math.cos(angle) * span, z: original.z + Math.sin(angle) * span }
+    }
+    parcels.push({ id: `community:${id}`, center, polygon: [], members,
+      kind: hero?.style === 'camp' ? 'park' : hero ? 'campus' : topic ? 'neighborhood' : 'growth',
+      topicId: topic?.id, name: topic?.label ?? '待连接关键词', unassigned: !topic })
+  }
+  return parcels
+}
+
+/** Semantic snapshots use communities; legacy snapshots retain their original spatial containers. */
+export function planCity(lots: ProjectedLot[], edges: Edge[], communities?: CommunityPlan): CityPlan {
   const plan: CityPlan = { parcels: [], roads: [], placements: [], positions: new Map() }
   const valid = lots.filter(l => Number.isFinite(l.x) && Number.isFinite(l.z)).sort(compareLots)
   if (!valid.length) return plan
-  const heroes: CityParcel[] = []
-  for (const lot of valid.filter(l => l.style)) {
+  const semantic = communities ? semanticParcels(valid, communities) : null
+  const heroes: CityParcel[] = semantic?.filter(p => p.kind === 'campus' || p.kind === 'park') ?? []
+  for (const lot of (semantic ? [] : valid.filter(l => l.style))) {
     const original = visualPoint(lot.x, lot.z)
     let center = original
     // Coincident named landmarks retain separate addresses and enough room for their campuses.
@@ -101,7 +151,7 @@ export function planCity(lots: ProjectedLot[], edges: Edge[]): CityPlan {
     heroes.push({ id: `landmark:${lot.node.id}`, center, polygon: [], members: [lot], kind: lot.style === 'camp' ? 'park' : 'campus' })
   }
   const cells = new Map<string, CityParcel>()
-  for (const lot of valid.filter(l => !l.style)) {
+  for (const lot of (semantic ? [] : valid.filter(l => !l.style))) {
     const ix = Math.floor(lot.x / 8), iz = Math.floor(lot.z / 8), id = `district:${ix}:${iz}`
     let parcel = cells.get(id)
     if (!parcel) {
@@ -112,7 +162,7 @@ export function planCity(lots: ProjectedLot[], edges: Edge[]): CityPlan {
     }
     parcel.members.push(lot)
   }
-  const ordinary: CityParcel[] = []
+  const ordinary: CityParcel[] = semantic?.filter(p => p.kind !== 'campus' && p.kind !== 'park') ?? []
   for (const parcel of [...cells.values()].sort((a, b) => a.id.localeCompare(b.id))) {
     const hero = heroes.filter(h => distance(h.center, parcel.center) < 18).sort((a, b) => distance(a.center, parcel.center) - distance(b.center, parcel.center) || a.id.localeCompare(b.id))[0]
     if (hero) hero.members.push(...parcel.members)
@@ -155,11 +205,16 @@ export function planCity(lots: ProjectedLot[], edges: Edge[]): CityPlan {
   // Route aggregated relations over the existing road graph. A shared border is the local street.
   const nodeParcels = new Map(plan.parcels.flatMap(p => p.members.map(l => [l.node.id, p.id] as const)))
   const pairWeights = new Map<string, number>()
+  const localRelations: { edge: Edge; parcel: string; weight: number }[] = []
   for (const edge of [...edges].sort((a, b) => a.id.localeCompare(b.id))) {
     const weight = relationWeight(edge)
     if (!weight) continue
     const a = nodeParcels.get(edge.participants[0].node), b = nodeParcels.get(edge.participants[1].node)
-    if (!a || !b || a === b) continue
+    if (!a || !b) continue
+    if (a === b) {
+      if (communities) localRelations.push({ edge, parcel: a, weight })
+      continue
+    }
     const key = JSON.stringify(a < b ? [a, b] : [b, a])
     pairWeights.set(key, (pairWeights.get(key) ?? 0) + weight)
   }
@@ -176,13 +231,7 @@ export function planCity(lots: ProjectedLot[], edges: Edge[]): CityPlan {
     const road = roads.get(parcelRoads.get(parcelId)![0])!
     return vertexKey(road.points[0])
   }
-  for (const [key, weight] of [...pairWeights].sort(([a], [b]) => a.localeCompare(b))) {
-    const [a, b] = JSON.parse(key) as [string, string], aRoads = parcelRoads.get(a)!, bRoads = parcelRoads.get(b)!
-    const shared = aRoads.find(id => bRoads.includes(id))
-    if (shared) { roads.get(shared)!.traffic += weight; continue }
-    const start = entrance(a)
-    let target = entrance(b)
-    if (target === start) target = bRoads.flatMap(id => roads.get(id)!.points.map(vertexKey)).find(id => id !== start)!
+  const route = (start: string, target: string, weight: number) => {
     const queue = [start]
     const visited = new Set([start]), previous = new Map<string, { from: string; road: string }>()
     for (let i = 0; i < queue.length && !visited.has(target); i++) {
@@ -191,16 +240,22 @@ export function planCity(lots: ProjectedLot[], edges: Edge[]): CityPlan {
         visited.add(next.to); previous.set(next.to, { from: queue[i], road: next.road }); queue.push(next.to)
       }
     }
-    if (!visited.has(target)) continue
+    if (!visited.has(target)) return
     for (let at = target; at !== start;) {
       const step = previous.get(at)!
       roads.get(step.road)!.traffic += weight; at = step.from
     }
   }
-  for (const road of plan.roads) {
-    road.width = road.traffic ? Math.min(MAX_ROAD_WIDTH, .6 + .18 * Math.log1p(road.traffic)) : .42
-    road.tier = road.traffic >= 30 ? 3 : road.traffic >= 5 ? 2 : road.traffic > 0 ? 1 : 0
+  for (const [key, weight] of [...pairWeights].sort(([a], [b]) => a.localeCompare(b))) {
+    const [a, b] = JSON.parse(key) as [string, string], aRoads = parcelRoads.get(a)!, bRoads = parcelRoads.get(b)!
+    const shared = aRoads.find(id => bRoads.includes(id))
+    if (shared) { roads.get(shared)!.traffic += weight; continue }
+    const start = entrance(a)
+    let target = entrance(b)
+    if (target === start) target = bRoads.flatMap(id => roads.get(id)!.points.map(vertexKey)).find(id => id !== start)!
+    route(start, target, weight)
   }
+
 
   const clearance = (p: CityPoint) => Math.min(...plan.roads.map(r => segmentDistance(p, r.points[0], r.points[1])))
   // Placements reserve the maximum street width so additional evidence never pushes buildings aside.
@@ -262,6 +317,22 @@ export function planCity(lots: ProjectedLot[], edges: Edge[]): CityPlan {
       const address = represented ?? local[Math.floor(hash(member.node.id) * local.length)] ?? parcel.center
       plan.positions.set(member.node.id, { x: address.x, z: address.z })
     }
+  }
+  for (const { edge, parcel, weight } of localRelations) {
+    const addresses = edge.participants.map(p => plan.positions.get(p.node))
+    if (!addresses[0] || !addresses[1]) continue
+    const frontage = addresses.map(point => (parcelRoads.get(parcel) ?? []).map(id => roads.get(id)!)
+      .sort((a, b) => segmentDistance(point!, a.points[0], a.points[1]) - segmentDistance(point!, b.points[0], b.points[1]) || a.id.localeCompare(b.id))[0])
+    if (!frontage[0] || !frontage[1]) continue
+    frontage[0].traffic += weight
+    if (frontage[0] === frontage[1]) continue
+    frontage[1].traffic += weight
+    const entrance = (index: number) => vertexKey([...frontage[index].points].sort((a, b) => distance(a, addresses[index]!) - distance(b, addresses[index]!))[0])
+    route(entrance(0), entrance(1), weight)
+  }
+  for (const road of plan.roads) {
+    road.width = road.traffic ? Math.min(MAX_ROAD_WIDTH, .6 + .18 * Math.log1p(road.traffic)) : .42
+    road.tier = road.traffic >= 30 ? 3 : road.traffic >= 5 ? 2 : road.traffic > 0 ? 1 : 0
   }
   plan.placements.sort((a, b) => a.id.localeCompare(b.id))
   plan.positions = new Map([...plan.positions].sort(([a], [b]) => a.localeCompare(b)))

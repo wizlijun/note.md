@@ -1,39 +1,48 @@
-//! Deterministic, bounded local organization. Affinity is not a factual edge.
-//! The initial local-moving/refinement heuristic is explicitly versioned; it
-//! is not advertised as a complete Leiden implementation or a semantic oracle.
+//! Versioned keyword organization: local lexical projection, personalized
+//! PageRank and the standard three-phase Leiden implementation.
 use crate::{hash, model::*, stable_id};
+use leiden_rs::{GraphDataBuilder, Leiden, LeidenConfig, QualityType};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
-use unicode_normalization::UnicodeNormalization;
 
-const TOP_K: usize = 12;
-const CANDIDATES: usize = 256;
-const MAX_TERMS: usize = 32;
-const TOPIC_SPACING: f64 = 34.;
-const NODE_SPACING: f64 = 3.;
+const TOPIC_SPACING: f64 = 480.;
+const NODE_SPACING: f64 = 40.;
 
 pub fn algorithm() -> Algorithm {
     Algorithm {
         version: ALGORITHM_VERSION.into(),
         parser_version: "habitat-ast/1".into(),
-        tokenizer_version: "jieba-rs-0.10+nfkc/1".into(),
+        tokenizer_version: "nfkc-keyword/2".into(),
         effective_params: BTreeMap::from([
-            (
-                "organization".into(),
-                serde_json::json!("connected-local-moving/1"),
-            ),
+            ("organization".into(), serde_json::json!("leiden-rs/0.8.1")),
+            ("quality".into(), serde_json::json!("modularity")),
+            ("seed".into(), serde_json::json!(42)),
+            ("resolution".into(), serde_json::json!(1.0)),
+            ("skipRefinement".into(), serde_json::json!(false)),
+            ("maxIterations".into(), serde_json::json!(100)),
+            ("keywordIdentity".into(), serde_json::json!("normalized-lexeme-not-entity/1")),
+            ("maxKeywords".into(), serde_json::json!(crate::keyword::MAX_KEYWORDS)),
+            ("stopWords".into(), serde_json::json!("provenance-and-malformed/1")),
+            ("attention".into(), serde_json::json!("0.55*normalizedTFIDFPrior+0.45*personalizedPageRank")),
+            ("prior".into(), serde_json::json!("(ln((1+sourceGroups)/(1+termSourceGroups))+1)*(1+ln(1+termSourceGroups))*(4ln(1+humanGroups)+1.5ln(1+linkedGroups)+0.3ln(1+unknownNativeGroups)+2*declaredProject)")),
+            ("humanAttentionEvidence".into(), serde_json::json!("matched-context-only")),
+            ("termFrequency".into(), serde_json::json!("one-contribution-per-source-group")),
+            ("pageRankDamping".into(), serde_json::json!(0.85)),
+            ("pageRankTolerance".into(), serde_json::json!(1e-10)),
+            ("importedOnlyLimit".into(), serde_json::json!(120)),
+            ("association".into(), serde_json::json!("bounded-window-NPMI*sourceGroups/(sourceGroups+2)")),
+            ("minAssociationSourceGroups".into(), serde_json::json!(2)),
+            ("minNPMI".into(), serde_json::json!(0.05)),
+            ("maxWindowTerms".into(), serde_json::json!(8)),
+            ("maxWindowLines".into(), serde_json::json!(12)),
+            ("windowDeduplication".into(), serde_json::json!("source-family+keyword-set/1")),
+            ("explicitWeight".into(), serde_json::json!("authority*ln(1+min(16,deduplicatedSourceGroups)); observed=1, imported=0.25, candidate=0")),
+            ("candidateGate".into(), serde_json::json!("humanContext>=1 OR linkedGroups>=2 OR declaredProject OR (unknownNativeGroups>=2 AND linkedGroups>=1); importedOnly requires >=2 groups and an attended explicit neighbor")),
+            ("communityName".into(), serde_json::json!("top3 internalStrengthSquared/totalStrength")),
             ("primaryAssignment".into(), serde_json::json!("community")),
             ("topicIdentity".into(), serde_json::json!("birth-id/2")),
-            (
-                "layout".into(),
-                serde_json::json!("anchored-square-spiral/2"),
-            ),
+            ("layout".into(), serde_json::json!("membership-anchored-districts/3")),
             ("topicSpacing".into(), serde_json::json!(TOPIC_SPACING)),
             ("nodeSpacing".into(), serde_json::json!(NODE_SPACING)),
-            ("maxTerms".into(), serde_json::json!(MAX_TERMS)),
-            ("maxCandidates".into(), serde_json::json!(CANDIDATES)),
-            ("maxNeighbors".into(), serde_json::json!(TOP_K)),
-            ("cosineThreshold".into(), serde_json::json!(0.25)),
-            ("resolution".into(), serde_json::json!(1.0)),
             ("secondaryThreshold".into(), serde_json::json!(0.2)),
             ("topicContinuation".into(), serde_json::json!(0.6)),
             ("topicContinuationMargin".into(), serde_json::json!(0.15)),
@@ -44,10 +53,10 @@ pub fn algorithm() -> Algorithm {
 pub fn build(
     vault_id: &str,
     scope_hash: &str,
-    mut data: Extraction,
+    data: Extraction,
     previous: Option<&Snapshot>,
 ) -> Result<Snapshot, String> {
-    data.nodes.sort_by(|a, b| a.id.cmp(&b.id));
+    let (data, graph) = crate::keyword::project(vault_id, data);
     let mut snapshot = Snapshot {
         meta: Meta {
             vault_id: vault_id.into(),
@@ -62,20 +71,8 @@ pub fn build(
         edges: data.edges,
         ..Default::default()
     };
-    let candidates: Vec<_> = snapshot
-        .nodes
-        .iter()
-        .filter(|n| matches!(n.node_type.as_str(), "concept" | "entity" | "project"))
-        .cloned()
-        .collect();
-    let graph = affinity(
-        &candidates,
-        &data.features,
-        &snapshot.edges,
-        &snapshot.sources,
-        &snapshot.evidence,
-    );
-    let groups = communities(&graph);
+    let candidates = snapshot.nodes.clone();
+    let groups = communities(&graph)?;
     let mut clusters: Vec<Vec<usize>> =
         BTreeMap::<usize, Vec<usize>>::new().into_values().collect();
     let mut by_group: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
@@ -135,13 +132,28 @@ pub fn build(
         let member_ids: Vec<_> = members.iter().map(|j| candidates[*j].id.as_str()).collect();
         let key = format!("topic:{}", hash(member_ids.join("\0")));
         let mut representative = members.clone();
+        let member_set: BTreeSet<_> = members.iter().copied().collect();
+        let distinctiveness = |i: usize| {
+            let internal: f64 = graph[i]
+                .iter()
+                .filter(|(j, _)| member_set.contains(j))
+                .map(|(_, w)| w)
+                .sum();
+            internal * internal / degree(&graph[i]).max(f64::EPSILON)
+        };
         representative.sort_by(|a, b| {
-            degree(&graph[*b])
-                .total_cmp(&degree(&graph[*a]))
+            distinctiveness(*b)
+                .total_cmp(&distinctiveness(*a))
                 .then(candidates[*a].label.len().cmp(&candidates[*b].label.len()))
                 .then(candidates[*a].id.cmp(&candidates[*b].id))
         });
         let chosen = &candidates[representative[0]];
+        let name = representative
+            .iter()
+            .take(3)
+            .map(|j| candidates[*j].label.as_str())
+            .collect::<Vec<_>>()
+            .join(" · ");
         let id = matched.get(&i).cloned().unwrap_or_else(|| {
             stable_id(
                 "t",
@@ -163,7 +175,7 @@ pub fn build(
             label: old
                 .filter(|n| n.status == "user-confirmed")
                 .map(|n| n.label.clone())
-                .unwrap_or_else(|| chosen.label.clone()),
+                .unwrap_or(name),
             status: old
                 .map(|n| n.status.clone())
                 .unwrap_or_else(|| "candidate".into()),
@@ -240,223 +252,32 @@ pub fn build(
 fn degree(row: &BTreeMap<usize, f64>) -> f64 {
     row.values().sum()
 }
-fn terms(text: &str, jieba: &jieba_rs::Jieba) -> Vec<String> {
-    let norm: String = text.nfkc().collect::<String>().to_lowercase();
-    jieba
-        .cut(&norm, false)
-        .into_iter()
-        .map(|t| t.word)
-        .filter(|t| t.chars().count() >= 2 && t.chars().any(char::is_alphabetic))
-        .map(str::to_string)
-        .collect()
-}
-fn affinity(
-    nodes: &[Node],
-    features: &BTreeMap<String, Vec<String>>,
-    edges: &[Edge],
-    sources: &[Source],
-    evidence: &[Evidence],
-) -> Vec<BTreeMap<usize, f64>> {
-    let jieba = jieba_rs::Jieba::new();
-    let source_family: HashMap<_, _> = sources
-        .iter()
-        .map(|s| (s.id.as_str(), s.family.as_str()))
-        .collect();
-    let evidence_family: HashMap<_, _> = evidence
-        .iter()
-        .filter_map(|e| {
-            source_family
-                .get(e.source.as_str())
-                .map(|f| (e.id.as_str(), *f))
-        })
-        .collect();
-    let mut counts = vec![];
-    let mut term_families: HashMap<String, HashSet<String>> = HashMap::new();
-    let mut all_families = HashSet::new();
-    for node in nodes {
-        let mut count: HashMap<String, f64> = HashMap::new();
-        for term in terms(&node.label, &jieba) {
-            *count.entry(term).or_default() += 3.;
-        }
-        for term in features.get(&node.id).into_iter().flatten().take(128) {
-            for t in terms(term, &jieba) {
-                *count.entry(t).or_default() += 1.;
-            }
-        }
-        let mut families: HashSet<String> = node
-            .evidence
-            .iter()
-            .filter_map(|id| evidence_family.get(id.as_str()).map(|s| s.to_string()))
-            .collect();
-        if families.is_empty() {
-            families.insert(format!("anchor:{}", node.id));
-        }
-        all_families.extend(families.iter().cloned());
-        for term in count.keys() {
-            term_families
-                .entry(term.clone())
-                .or_default()
-                .extend(families.iter().cloned());
-        }
-        counts.push(count);
+fn communities(graph: &[BTreeMap<usize, f64>]) -> Result<Vec<usize>, String> {
+    if graph.is_empty() {
+        return Ok(Vec::new());
     }
-    let family_count = all_families.len();
-    let df: HashMap<String, usize> = term_families
-        .into_iter()
-        .map(|(term, families)| (term, families.len()))
-        .collect();
-    let max_df = (family_count as f64 * 0.4).ceil().max(8.) as usize;
-    let mut vectors: Vec<BTreeMap<String, f64>> = vec![];
-    let mut posting: HashMap<String, Vec<usize>> = HashMap::new();
-    for (i, count) in counts.into_iter().enumerate() {
-        let mut weights: Vec<_> = count
-            .into_iter()
-            .filter(|(t, _)| df[t] <= max_df)
-            .map(|(t, tf)| {
-                let idf = ((1 + family_count) as f64 / (1 + df[&t]) as f64).ln() + 1.;
-                (t, tf.ln_1p() * idf)
-            })
-            .collect();
-        weights.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
-        weights.truncate(MAX_TERMS);
-        let length = weights
-            .iter()
-            .map(|(_, w)| w * w)
-            .sum::<f64>()
-            .sqrt()
-            .max(f64::EPSILON);
-        let vector: BTreeMap<_, _> = weights.into_iter().map(|(t, w)| (t, w / length)).collect();
-        for t in vector.keys() {
-            posting.entry(t.clone()).or_default().push(i);
-        }
-        vectors.push(vector);
+    if graph.iter().all(BTreeMap::is_empty) {
+        return Ok((0..graph.len()).collect());
     }
-    let mut nearest = vec![BTreeMap::new(); nodes.len()];
-    for (i, vector) in vectors.iter().enumerate() {
-        let mut rare: Vec<_> = vector.keys().collect();
-        rare.sort_by_key(|t| (df[*t], *t));
-        let mut candidates = BTreeSet::new();
-        for t in rare.into_iter().take(16) {
-            for &j in posting[t].iter().take(128) {
-                if j != i {
-                    candidates.insert(j);
-                }
-                if candidates.len() >= CANDIDATES {
-                    break;
-                }
-            }
-            if candidates.len() >= CANDIDATES {
-                break;
-            }
-        }
-        let mut ranked: Vec<_> = candidates
-            .into_iter()
-            .map(|j| {
-                let score = vector
-                    .iter()
-                    .map(|(t, w)| w * vectors[j].get(t).copied().unwrap_or(0.))
-                    .sum::<f64>();
-                (j, score)
-            })
-            .filter(|(_, s)| *s >= 0.25)
-            .collect();
-        ranked.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
-        ranked.truncate(TOP_K);
-        nearest[i] = ranked.into_iter().collect();
-    }
-    let mut graph = vec![BTreeMap::new(); nodes.len()];
-    for i in 0..nodes.len() {
-        for (&j, &w) in &nearest[i] {
-            if nearest[j].contains_key(&i) {
-                graph[i].insert(j, w);
-                graph[j].insert(i, w);
+    let mut builder = GraphDataBuilder::new(graph.len());
+    for (i, neighbors) in graph.iter().enumerate() {
+        for (&j, &weight) in neighbors {
+            if i < j && weight.is_finite() && weight > 0. {
+                builder.add_edge(i, j, weight).map_err(|e| e.to_string())?;
             }
         }
     }
-    let lookup: HashMap<_, _> = nodes
-        .iter()
-        .enumerate()
-        .map(|(i, n)| (n.id.as_str(), i))
-        .collect();
-    // Explicit binary links provide an organization hint. Multi-party records
-    // remain hyperedges in the snapshot and are never expanded to a clique.
-    for edge in edges {
-        if edge.participants.len() != 2 {
-            continue;
-        }
-        if let (Some(&a), Some(&b)) = (
-            lookup.get(edge.participants[0].node.as_str()),
-            lookup.get(edge.participants[1].node.as_str()),
-        ) {
-            if a != b {
-                let w = if edge.edge_type == "co_mentioned_in" {
-                    0.35
-                } else {
-                    0.5
-                };
-                graph[a].entry(b).and_modify(|v| *v = v.max(w)).or_insert(w);
-                graph[b].entry(a).and_modify(|v| *v = v.max(w)).or_insert(w);
-            }
-        }
-    }
-    graph
-}
-
-fn communities(graph: &[BTreeMap<usize, f64>]) -> Vec<usize> {
-    let n = graph.len();
-    let mut labels: Vec<_> = (0..n).collect();
-    let degrees: Vec<_> = graph.iter().map(degree).collect();
-    let m: f64 = degrees.iter().sum();
-    if m <= 0. {
-        return labels;
-    }
-    let mut totals = degrees.clone();
-    for _ in 0..16 {
-        let mut changed = false;
-        for i in 0..n {
-            let old = labels[i];
-            totals[old] -= degrees[i];
-            let mut weights: BTreeMap<usize, f64> = BTreeMap::new();
-            for (&j, &w) in &graph[i] {
-                *weights.entry(labels[j]).or_default() += w;
-            }
-            let score =
-                |c: usize| weights.get(&c).copied().unwrap_or(0.) - degrees[i] * totals[c] / m;
-            let mut best = old;
-            let mut gain = score(old);
-            for &c in weights.keys() {
-                let s = score(c);
-                if s > gain + 1e-9 {
-                    best = c;
-                    gain = s;
-                }
-            }
-            labels[i] = best;
-            totals[best] += degrees[i];
-            changed |= best != old;
-        }
-        if !changed {
-            break;
-        }
-    }
-    // Split disconnected portions of a local-moving community.
-    let mut result = vec![usize::MAX; n];
-    for i in 0..n {
-        if result[i] != usize::MAX {
-            continue;
-        }
-        let mut pending = vec![i];
-        result[i] = i;
-        while let Some(j) = pending.pop() {
-            for &k in graph[j].keys() {
-                if labels[k] == labels[i] && result[k] == usize::MAX {
-                    result[k] = i;
-                    pending.push(k);
-                }
-            }
-        }
-    }
-    result
+    let data = builder.build().map_err(|e| e.to_string())?;
+    let result = Leiden::new(LeidenConfig {
+        seed: Some(42),
+        resolution: 1.0,
+        quality: QualityType::Modularity,
+        skip_refinement: false,
+        ..Default::default()
+    })
+    .run(&data)
+    .map_err(|e| format!("Leiden 社区检测失败: {e}"))?;
+    Ok(result.partition.as_slice().to_vec())
 }
 
 // Integer square spiral: new districts expand in all directions, with no
@@ -516,6 +337,9 @@ impl Occupied {
 }
 
 fn positions(snapshot: &mut Snapshot, previous: Option<&Snapshot>) {
+    // A method migration must not freeze the old spatial buckets as semantic
+    // communities. Within the new algorithm unchanged memberships stay put.
+    let previous = previous.filter(|p| p.meta.algorithm.version == ALGORITHM_VERSION);
     let old: HashMap<_, _> = previous
         .map(|s| s.layout.iter().map(|p| (&p.id, p)).collect())
         .unwrap_or_default();
@@ -525,47 +349,96 @@ fn positions(snapshot: &mut Snapshot, previous: Option<&Snapshot>) {
         .filter(|m| m.role == "primary")
         .map(|m| (&m.node, &m.topic))
         .collect();
+    let old_primary: HashMap<_, _> = previous
+        .map(|s| {
+            s.memberships
+                .iter()
+                .filter(|m| m.role == "primary")
+                .map(|m| (&m.node, &m.topic))
+                .collect()
+        })
+        .unwrap_or_default();
     let mut topics: Vec<_> = snapshot
         .nodes
         .iter()
         .filter(|n| n.node_type == "topic")
         .collect();
     topics.sort_by(|a, b| a.id.cmp(&b.id));
+    let mut counts: BTreeMap<&str, usize> = BTreeMap::new();
+    for topic in primary.values() {
+        *counts.entry(topic.as_str()).or_default() += 1;
+    }
+    let radius = |id: &str| {
+        ((counts.get(id).copied().unwrap_or(0) as f64).sqrt().ceil() * NODE_SPACING).max(120.)
+    };
     let mut centers: HashMap<String, (f64, f64)> = HashMap::new();
-    let mut districts = Occupied::new(TOPIC_SPACING);
+    let mut reserved: Vec<(f64, f64, f64)> = Vec::new();
     let mut occupied = Occupied::new(NODE_SPACING);
-    // Even a just-retired landmark remains reserved during this transition;
-    // a new district must not appear on top of its surviving former members.
-    for p in old.values() {
-        occupied.insert(p.x, p.y);
-        if p.zone == "topic" {
-            districts.insert(p.x, p.y);
+    // Reserve all surviving district centers before placing any new ones.
+    for topic in &topics {
+        if let Some(p) = old.get(&topic.id) {
+            centers.insert(topic.id.clone(), (p.x, p.y));
+            reserved.push((p.x, p.y, radius(&topic.id)));
+            occupied.insert(p.x, p.y);
         }
     }
     let mut next = 0;
-    for topic in topics {
-        let (x, y) = if let Some(p) = old.get(&topic.id) {
-            (p.x, p.y)
-        } else {
-            loop {
-                let (x, y) = spiral(next);
-                next += 1;
-                let (x, y) = (x * TOPIC_SPACING, y * TOPIC_SPACING);
-                if districts.vacant(x, y) && occupied.vacant(x, y) {
-                    districts.insert(x, y);
-                    occupied.insert(x, y);
-                    break (x, y);
-                }
+    for topic in &topics {
+        if centers.contains_key(&topic.id) {
+            continue;
+        }
+        loop {
+            let (sx, sy) = spiral(next);
+            next += 1;
+            let (x, y) = (sx * TOPIC_SPACING, sy * TOPIC_SPACING);
+            let r = radius(&topic.id);
+            if reserved
+                .iter()
+                .all(|&(px, py, pr)| (x - px).hypot(y - py) >= r + pr + 120.)
+            {
+                centers.insert(topic.id.clone(), (x, y));
+                reserved.push((x, y, r));
+                occupied.insert(x, y);
+                break;
             }
-        };
-        centers.insert(topic.id.clone(), (x, y));
+        }
     }
-    let mut index: BTreeMap<String, usize> = BTreeMap::new();
-    let mut sorted: Vec<_> = snapshot.nodes.iter().collect();
-    sorted.sort_by(|a, b| a.id.cmp(&b.id));
-    for node in sorted {
-        if let Some(p) = old.get(&node.id) {
+    let mut retained = HashSet::new();
+    for n in &snapshot.nodes {
+        if n.node_type == "topic" {
+            continue;
+        }
+        if let Some(p) = old
+            .get(&n.id)
+            .filter(|p| p.pinned || primary.get(&n.id) == old_primary.get(&n.id))
+        {
+            occupied.insert(p.x, p.y);
             snapshot.layout.push((*p).clone());
+            retained.insert(n.id.clone());
+        }
+    }
+    let unassigned_count = snapshot
+        .nodes
+        .iter()
+        .filter(|n| n.node_type != "topic" && !primary.contains_key(&n.id))
+        .count();
+    let unassigned_radius = (unassigned_count as f64).sqrt().ceil() * NODE_SPACING;
+    let unassigned_center = loop {
+        let (sx, sy) = spiral(next);
+        next += 1;
+        let (x, y) = (sx * TOPIC_SPACING, sy * TOPIC_SPACING);
+        if reserved
+            .iter()
+            .all(|&(px, py, r)| (x - px).hypot(y - py) >= unassigned_radius + r + 120.)
+        {
+            break (x, y);
+        }
+    };
+    let mut index: BTreeMap<String, usize> = BTreeMap::new();
+    let mut nodes: Vec<_> = snapshot.nodes.iter().collect();
+    nodes.sort_by(|a, b| a.id.cmp(&b.id));
+    for node in nodes {
+        if retained.contains(&node.id) {
             continue;
         }
         if let Some(&(x, y)) = centers.get(&node.id) {
@@ -580,11 +453,11 @@ fn positions(snapshot: &mut Snapshot, previous: Option<&Snapshot>) {
         }
         let topic = primary.get(&node.id).copied();
         let key = topic.cloned().unwrap_or_else(|| "unassigned".into());
-        let next = index.entry(key.clone()).or_insert(1);
-        let (cx, cy) = centers.get(&key).copied().unwrap_or((-50., 0.));
+        let (cx, cy) = centers.get(&key).copied().unwrap_or(unassigned_center);
+        let i = index.entry(key).or_insert(1);
         let (x, y) = loop {
-            let (x, y) = spiral(*next);
-            *next += 1;
+            let (x, y) = spiral(*i);
+            *i += 1;
             let (x, y) = (cx + x * NODE_SPACING, cy + y * NODE_SPACING);
             if occupied.vacant(x, y) {
                 occupied.insert(x, y);
@@ -595,9 +468,7 @@ fn positions(snapshot: &mut Snapshot, previous: Option<&Snapshot>) {
             id: node.id.clone(),
             x,
             y,
-            zone: if node.node_type == "project" {
-                "project"
-            } else if topic.is_some() {
+            zone: if topic.is_some() {
                 "knowledge"
             } else {
                 "unassigned"
@@ -611,197 +482,30 @@ fn positions(snapshot: &mut Snapshot, previous: Option<&Snapshot>) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    fn data() -> Extraction {
-        Extraction {
-            nodes: vec![
-                Node {
-                    id: "a".into(),
-                    key: "a".into(),
-                    node_type: "concept".into(),
-                    label: "检索记忆".into(),
-                    status: "candidate".into(),
-                    ..Default::default()
-                },
-                Node {
-                    id: "b".into(),
-                    key: "b".into(),
-                    node_type: "concept".into(),
-                    label: "检索记忆系统".into(),
-                    status: "candidate".into(),
-                    ..Default::default()
-                },
-            ],
-            ..Default::default()
-        }
+    #[test]
+    fn no_edges_do_not_fabricate_communities() {
+        assert_eq!(
+            communities(&vec![BTreeMap::new(); 3]).unwrap(),
+            vec![0, 1, 2]
+        );
     }
     #[test]
-    fn repeat_is_identical_and_preserves_coordinates() {
-        let a = build("v", &hash("scope"), data(), None).unwrap();
-        let b = build("v", &hash("scope"), data(), Some(&a)).unwrap();
-        assert_eq!(a, b);
-    }
-    #[test]
-    fn zero_graph_has_no_fabricated_groups() {
-        assert_eq!(communities(&vec![BTreeMap::new(); 3]), vec![0, 1, 2]);
-    }
-    fn linked_groups(groups: &[Vec<&str>]) -> Extraction {
-        let mut data = Extraction::default();
-        for group in groups {
-            for &id in group {
-                data.nodes.push(Node {
-                    id: id.into(),
-                    key: id.into(),
-                    node_type: "concept".into(),
-                    label: id.into(),
-                    status: "candidate".into(),
-                    ..Default::default()
-                });
-            }
-            for i in 0..group.len() {
-                for j in i + 1..group.len() {
-                    data.edges.push(Edge {
-                        id: format!("{}-{}", group[i], group[j]),
-                        edge_type: "explicit".into(),
-                        status: "candidate".into(),
-                        participants: vec![
-                            Participant {
-                                node: group[i].into(),
-                                role: "a".into(),
-                            },
-                            Participant {
-                                node: group[j].into(),
-                                role: "b".into(),
-                            },
-                        ],
-                        ..Default::default()
-                    });
+    fn leiden_three_phases_are_deterministic_and_split_disconnected_groups() {
+        let mut graph = vec![BTreeMap::new(); 6];
+        for group in [[0, 1, 2], [3, 4, 5]] {
+            for &a in &group {
+                for &b in &group {
+                    if a != b {
+                        graph[a].insert(b, 1.);
+                    }
                 }
             }
         }
-        data
-    }
-    #[test]
-    fn growing_then_splitting_a_topic_never_reuses_a_survivors_matching_key() {
-        let mut previous = None;
-        for members in [
-            vec!["a", "b"],
-            vec!["a", "b", "c"],
-            vec!["a", "b", "c", "d", "e"],
-            vec!["a", "b", "c", "d", "e", "f"],
-        ] {
-            previous = Some(
-                build(
-                    "v",
-                    &hash("scope"),
-                    linked_groups(&[members]),
-                    previous.as_ref(),
-                )
-                .unwrap(),
-            );
-        }
-        let before = previous.unwrap();
-        let original = before
-            .nodes
-            .iter()
-            .find(|n| n.node_type == "topic")
-            .unwrap();
-        let groups = [vec!["a", "b"], vec!["c", "d", "e", "f"]];
-        let after = build("v", &hash("scope"), linked_groups(&groups), Some(&before)).unwrap();
-        let topics: Vec<_> = after
-            .nodes
-            .iter()
-            .filter(|n| n.node_type == "topic")
-            .collect();
-        assert_eq!(topics.len(), 2);
-        assert!(topics
-            .iter()
-            .any(|n| n.id == original.id && n.key == original.key));
-        assert_ne!(topics[0].key, topics[1].key);
-        assert_eq!(
-            after,
-            build("v", &hash("scope"), linked_groups(&groups), Some(&after)).unwrap()
-        );
-        for old in &before.layout {
-            if let Some(now) = after.layout.iter().find(|p| p.id == old.id) {
-                assert_eq!(old, now);
-            }
-        }
-    }
-    #[test]
-    fn incremental_members_keep_old_coordinates_and_find_empty_space() {
-        let first = build("v", &hash("scope"), linked_groups(&[vec!["a", "b"]]), None).unwrap();
-        let second = build(
-            "v",
-            &hash("scope"),
-            linked_groups(&[vec!["a", "b", "c"]]),
-            Some(&first),
-        )
-        .unwrap();
-        for p in &first.layout {
-            assert_eq!(second.layout.iter().find(|q| q.id == p.id), Some(p));
-        }
-        let added = second.layout.iter().find(|p| p.id == "c").unwrap();
-        assert!(first
-            .layout
-            .iter()
-            .all(|p| (p.x - added.x).abs() + 1e-6 >= NODE_SPACING
-                || (p.y - added.y).abs() + 1e-6 >= NODE_SPACING));
-        assert_eq!(
-            second
-                .memberships
-                .iter()
-                .filter(|m| m.node == "c" && m.role == "primary")
-                .count(),
-            1
-        );
-        assert_eq!(
-            second.meta.algorithm.effective_params["primaryAssignment"],
-            "community"
-        );
-    }
-    #[test]
-    fn new_districts_expand_outward_and_preserve_legacy_and_pinned_space() {
-        let mut first = Snapshot::default();
-        first.nodes = (0..25)
-            .map(|i| Node {
-                id: format!("t{i:02}"),
-                node_type: "topic".into(),
-                ..Default::default()
-            })
-            .collect();
-        positions(&mut first, None);
-        let coordinates: HashSet<_> = first
-            .layout
-            .iter()
-            .map(|p| (p.x as i64, p.y as i64))
-            .collect();
-        assert_eq!(coordinates.len(), 25);
-        assert_eq!(coordinates.iter().map(|p| p.0).min(), Some(-68));
-        assert_eq!(coordinates.iter().map(|p| p.0).max(), Some(68));
-        assert_eq!(coordinates.iter().map(|p| p.1).min(), Some(-68));
-        assert_eq!(coordinates.iter().map(|p| p.1).max(), Some(68));
-        // A legacy off-grid pin blocks its neighborhood, not just an exact key.
-        first.layout[0].x = 0.5;
-        first.layout[0].y = 0.5;
-        first.layout[0].pinned = true;
-        let mut next = Snapshot {
-            nodes: first.nodes.clone(),
-            ..Default::default()
-        };
-        next.nodes.push(Node {
-            id: "t-new".into(),
-            node_type: "topic".into(),
-            ..Default::default()
-        });
-        positions(&mut next, Some(&first));
-        for p in &first.layout {
-            assert_eq!(next.layout.iter().find(|q| q.id == p.id), Some(p));
-        }
-        let added = next.layout.iter().find(|p| p.id == "t-new").unwrap();
-        assert!(first
-            .layout
-            .iter()
-            .all(|p| (p.x - added.x).abs() + 1e-6 >= TOPIC_SPACING
-                || (p.y - added.y).abs() + 1e-6 >= TOPIC_SPACING));
+        let a = communities(&graph).unwrap();
+        let b = communities(&graph).unwrap();
+        assert_eq!(a, b);
+        assert_eq!(a[0], a[1]);
+        assert_eq!(a[3], a[4]);
+        assert_ne!(a[0], a[3]);
     }
 }

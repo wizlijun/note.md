@@ -2,6 +2,7 @@
 pub mod codec;
 pub mod diff;
 pub mod extract;
+mod keyword;
 pub mod model;
 pub mod organize;
 pub use codec::{decode, encode, finalize, validate};

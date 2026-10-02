@@ -3,11 +3,11 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import { CityAssets, houses, commercial, trees, tents, type CityAssetId, type CityAssetPlacement } from './city-assets'
 import { planCity, segmentDistance, type CityPlan, type CityPoint, type CityPlacement } from './city-plan'
-import type { Edge, Layout, Node } from './types'
+import type { Edge, Layout, Membership, Node } from './types'
 
 const SCALE = .052
 const known = new Map([['hemory', 'campus'], ['note.md', 'campus'], ['bushcraft', 'camp']])
-export function landmarkStyle(node: Node) { return ['anchor', 'observed'].includes(node.status) ? known.get(node.label.toLowerCase()) : undefined }
+export function landmarkStyle(node: Node) { return ['anchor', 'observed', 'user-confirmed', 'confirmed'].includes(node.status) ? known.get(node.label.toLowerCase()) : undefined }
 function seed(text: string) {
   let n = 2166136261
   for (const c of text) n = Math.imul(n ^ c.charCodeAt(0), 16777619)
@@ -15,9 +15,9 @@ function seed(text: string) {
   n = Math.imul(n ^ n >>> 16, 0x85ebca6b); n = Math.imul(n ^ n >>> 13, 0xc2b2ae35)
   return ((n ^ n >>> 16) >>> 0) / 4294967296
 }
-interface VisualLot { node: Node; x: number; z: number; h: number; w: number; style?: string; parcelId: string; district?: { name: string; count: number; kind: string } }
-export interface CityData { nodes: Node[]; layout: Layout[]; edges: Edge[] }
-export interface Label { id: string; name: string; x: number; y: number; kind: string; selected: boolean; district?: { name: string; count: number; kind: string }; compact?: boolean; width?: number }
+interface VisualLot { node: Node; x: number; z: number; h: number; w: number; style?: string; parcelId: string; district?: { name: string; count: number; kind: string; topicId?: string; unassigned?: boolean } }
+export interface CityData { nodes: Node[]; layout: Layout[]; edges: Edge[]; memberships?: Membership[]; topics?: Node[]; keywordGraph?: boolean }
+export interface Label { id: string; nodeId?: string; name: string; x: number; y: number; kind: string; selected: boolean; district?: { name: string; count: number; kind: string; topicId?: string; unassigned?: boolean }; compact?: boolean; width?: number }
 export interface SceneStatus { labels: Label[]; count: number; rendered?: number; aggregated?: boolean; zoom?: number; loading?: boolean; error?: string; hover?: { name: string; kind: string; x: number; y: number } }
 type Primitive = { p: number[]; s: number[]; ry?: number; color?: string }
 
@@ -179,7 +179,11 @@ export class CityScene {
       if (candidates[0]) heroIds.add(candidates[0].id)
     }
     const input = data.nodes.flatMap(node => { const p = positions.get(node.id); return p ? [{ node, x: p.x * SCALE, z: p.y * SCALE, zone: p.zone, style: heroIds.has(node.id) ? landmarkStyle(node) : undefined }] : [] })
-    const plan = planCity(input, data.edges), parcels = new Map(plan.parcels.map(p => [p.id, p]))
+    const communities = data.keywordGraph ? {
+      memberships: data.memberships ?? [],
+      topics: (data.topics ?? []).flatMap(node => { const p = positions.get(node.id); return p ? [{ ...node, x: p.x * SCALE, z: p.y * SCALE }] : [] })
+    } : undefined
+    const plan = planCity(input, data.edges, communities), parcels = new Map(plan.parcels.map(p => [p.id, p]))
     this.bounds.makeEmpty()
     for (const parcel of plan.parcels) for (const p of parcel.polygon) this.bounds.expandByPoint(new THREE.Vector3(p.x, 0, p.z))
     if (this.bounds.isEmpty()) this.bounds.set(new THREE.Vector3(-12, 0, -12), new THREE.Vector3(12, 1, 12))
@@ -207,11 +211,12 @@ export class CityScene {
       const rank = (node: Node) => node.nodeType === 'topic' ? 0 : ['concept', 'entity', 'project'].includes(node.nodeType) ? 1 : 2
       const representative = hero?.node ?? [...members].sort((a, b) => rank(a) - rank(b) || Number(a.label.length > 24) - Number(b.label.length > 24) || (b.evidence?.length ?? 0) - (a.evidence?.length ?? 0) || a.id.localeCompare(b.id))[0]
       if (!representative) return []
-      const kind = parcel.kind === 'campus' ? '项目园区' : parcel.kind === 'park' ? '探索营地' : parcel.kind === 'growth' ? '材料街区' : '知识街区'
-      return [{ node: representative, x: hero?.x ?? parcel.center.x, z: hero?.z ?? parcel.center.z, h: hero?.h ?? .3, w: 1, style: hero?.style, parcelId: parcel.id, district: { name: representative.label, count: parcel.members.length, kind } }]
+      const kind = parcel.kind === 'campus' ? '项目园区' : parcel.kind === 'park' ? '探索营地' : parcel.kind === 'growth' ? data.keywordGraph ? '探索地块（尚无社区）' : '材料街区' : '知识街区'
+      return [{ node: representative, x: hero?.x ?? parcel.center.x, z: hero?.z ?? parcel.center.z, h: hero?.h ?? .3, w: 1, style: hero?.style, parcelId: parcel.id, district: { name: parcel.name ?? representative.label, count: parcel.members.length, kind, topicId: parcel.topicId, unassigned: parcel.unassigned } }]
     })
     const center = this.bounds.getCenter(new THREE.Vector3()), size = this.bounds.getSize(new THREE.Vector3()), span = Math.max(size.x, size.z) * .7 + 12
-    this.sun.position.set(center.x - 50, 95, center.z + 35); this.sun.target.position.copy(center); this.sun.shadow.camera.left = this.sun.shadow.camera.bottom = -span; this.sun.shadow.camera.right = this.sun.shadow.camera.top = span; this.sun.shadow.camera.updateProjectionMatrix()
+    const lightDistance = Math.max(100, span * 2)
+    this.sun.position.set(center.x - lightDistance * .5, lightDistance * .95, center.z + lightDistance * .35); this.sun.shadow.camera.far = Math.max(350, lightDistance + span * 3); this.sun.target.position.copy(center); this.sun.shadow.camera.left = this.sun.shadow.camera.bottom = -span; this.sun.shadow.camera.right = this.sun.shadow.camera.top = span; this.sun.shadow.camera.updateProjectionMatrix()
     this.canvas.dataset.planningMs = (performance.now() - started).toFixed(1); this.canvas.dataset.parcels = String(plan.parcels.length); this.canvas.dataset.roads = String(plan.roads.length); this.canvas.dataset.models = String([...this.assetQueue.values()].reduce((n, a) => n + a.length, 0))
     this.setSelected(this.selected, this.changed); if (reframe) this.fit(); else this.schedule()
   }
@@ -348,6 +353,7 @@ export class CityScene {
   resize(width: number, height: number) { this.width = width; this.height = height; this.renderer.setSize(width, height, false); const half = (this.camera.top - this.camera.bottom) / 2; this.camera.left = -half * width / height; this.camera.right = half * width / height; this.camera.updateProjectionMatrix(); if (this.lots.length && this.camera.zoom === 1) this.fit(); else this.schedule() }
   fit() {
     const center = this.bounds.getCenter(new THREE.Vector3()), size = this.bounds.getSize(new THREE.Vector3()), span = Math.max(30, size.x, size.z)
+    this.camera.far = Math.max(700, span * 6);
     this.controls.target.set(center.x, 0, center.z); this.camera.position.set(center.x + span * .78, span * .85, center.z + span * .98); this.camera.zoom = 1; this.controls.update()
     this.camera.updateMatrixWorld(true)
     const viewBounds = new THREE.Box3()
@@ -361,7 +367,7 @@ export class CityScene {
   private down = (e: PointerEvent) => { this.pointerDown = { x: e.clientX, y: e.clientY } }
   private up = (e: PointerEvent) => { if (e.button === 0 && this.pointerDown && Math.hypot(e.clientX - this.pointerDown.x, e.clientY - this.pointerDown.y) < 4) { const id = this.pick(e); if (id) this.select(id) } this.pointerDown = null }
   private pick(e: PointerEvent) { const rect = this.canvas.getBoundingClientRect(); this.mouse.set((e.clientX - rect.left) / this.width * 2 - 1, -(e.clientY - rect.top) / this.height * 2 + 1); this.ray.setFromCamera(this.mouse, this.camera); const hit = this.ray.intersectObjects(this.pickables, false)[0]; return hit && hit.instanceId !== undefined ? this.instanceIds.get(hit.object)?.[hit.instanceId] : undefined }
-  private hover = (e: PointerEvent) => { if (this.pointerDown || performance.now() - this.lastHover < 130) return; this.lastHover = performance.now(); const id = this.pick(e), lot = id ? this.byId.get(id) : undefined; this.canvas.style.cursor = lot ? 'pointer' : 'grab'; if (lot) { const r = this.canvas.getBoundingClientRect(); this.emit({ name: lot.node.label + (this.blockMembers.has(lot.node.id) ? ` · 街区含 ${this.blockMembers.get(lot.node.id)!.length} 个对象` : ''), kind: lot.node.nodeType, x: e.clientX - r.left, y: e.clientY - r.top }) } else this.emit() }
+  private hover = (e: PointerEvent) => { if (this.pointerDown || performance.now() - this.lastHover < 130) return; this.lastHover = performance.now(); const id = this.pick(e), lot = id ? this.byId.get(id) : undefined; this.canvas.style.cursor = lot ? 'pointer' : 'grab'; if (lot) { const r = this.canvas.getBoundingClientRect(); this.emit({ name: lot.node.label + (this.blockMembers.has(lot.node.id) ? ` · 街区含 ${this.blockMembers.get(lot.node.id)!.length} ${this.latest?.keywordGraph ? '个关键词' : '个对象'}` : ''), kind: lot.node.nodeType, x: e.clientX - r.left, y: e.clientY - r.top }) } else this.emit() }
   private leave = () => this.emit()
   private emit(hover?: SceneStatus['hover']) {
     const candidates = [...this.labels], selected = this.byId.get(this.selected)
@@ -371,13 +377,13 @@ export class CityScene {
       const p = new THREE.Vector3(l.x, l.h + .6, l.z).project(this.camera), x = (p.x + 1) * this.width / 2, y = (1 - p.y) * this.height / 2
       if (x < 12 || x > this.width - 12 || y < 22 || y > this.height - 50 || p.z < -1 || p.z > 1) continue
       const prominent = !!l.style || l.node.id === this.selected
-      const width = prominent ? Math.min(185, l.node.label.length * 10 + 28) : Math.min(this.camera.zoom > 1.5 ? 132 : 82, l.node.label.length * 9 + 30)
+      const width = prominent ? Math.min(185, (l.district?.name ?? l.node.label).length * 10 + 28) : Math.min(this.camera.zoom > 1.5 ? 132 : 82, (l.district?.name ?? l.node.label).length * 9 + 30)
       const height = prominent ? 29 : 19
       const overlaps = rects.some(r => Math.abs(x - r.x) < (width + r.w) / 2 + 3 && Math.abs(y - height / 2 - r.y) < (height + r.h) / 2 + 3)
       // Every on-screen parcel retains its marker; only its text folds when crowded.
       const compact = !prominent && overlaps
       rects.push({ x, y: y - height / 2, w: compact ? 12 : width, h: compact ? 12 : height })
-      labels.push({ id: l.node.id, name: l.node.label, x, y, kind: l.node.nodeType, selected: l.node.id === this.selected, district: l.district, compact, width })
+      labels.push({ id: l.district ? l.parcelId : l.node.id, nodeId: l.node.id, name: l.district?.name ?? l.node.label, x, y, kind: l.node.nodeType, selected: l.node.id === this.selected, district: l.district, compact, width })
     }
     this.canvas.dataset.districtLabels = String(labels.filter(l => l.district).length)
     this.status({ labels, count: this.total, rendered: this.lots.length, aggregated: this.total > this.lots.length, zoom: this.camera.zoom, loading: this.loading, error: this.error || undefined, hover })

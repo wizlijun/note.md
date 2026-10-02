@@ -2021,6 +2021,7 @@ dependencies = [
  "base64 0.22.1",
  "chrono",
  "jieba-rs",
+ "leiden-rs",
  "pulldown-cmark",
  "regex",
  "serde",
@@ -2776,6 +2777,17 @@ name = "leb128fmt"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "09edd9e8b54e49e587e4f6295a7d29c3ea94d469cb40ab8ca70b288248a81db2"
+
+[[package]]
+name = "leiden-rs"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c7bbf4703fdbd25078c1842083c8f4e5551ed118a9d00342e309fee0bea46d42"
+dependencies = [
+ "rand 0.9.4",
+ "rustc-hash",
+ "thiserror 2.0.18",
+]
 
 [[package]]
 name = "libappindicator"

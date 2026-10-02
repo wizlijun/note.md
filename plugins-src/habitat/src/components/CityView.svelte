@@ -1,17 +1,17 @@
 <script lang="ts">
   import { onMount, untrack } from 'svelte'
   import { CityScene, type SceneStatus } from '../lib/city-scene'
-  import { typeLabel, type FamilyCounts } from '../lib/domain'
-  import type { Edge, Layout, Node } from '../lib/types'
+  import { UNASSIGNED_TOPIC, typeLabel, type FamilyCounts } from '../lib/domain'
+  import type { Edge, Layout, Membership, Node } from '../lib/types'
 
-  let { nodes, layout, edges, families, selectedId, scopeKey = '', changedIds = new Set<string>(), onselect }: { nodes: Node[]; layout: Layout[]; edges: Edge[]; families: Map<string, FamilyCounts>; selectedId: string; scopeKey?: string; changedIds?: Set<string>; onselect: (id: string) => void } = $props()
+  let { nodes, layout, edges, memberships = [], topics = [], keywordGraph = false, oncommunity, families, selectedId, scopeKey = '', changedIds = new Set<string>(), onselect }: { nodes: Node[]; layout: Layout[]; edges: Edge[]; memberships?: Membership[]; topics?: Node[]; keywordGraph?: boolean; oncommunity?: (id: string) => void; families: Map<string, FamilyCounts>; selectedId: string; scopeKey?: string; changedIds?: Set<string>; onselect: (id: string) => void } = $props()
   let canvas: HTMLCanvasElement
   let container = $state<HTMLDivElement>()
   let scene: CityScene | null = null
   let ready = $state(false), unavailable = $state(false), status = $state.raw<SceneStatus>({ labels: [], count: 0 })
   let previousScope: string | null = null
   $effect(() => {
-    const data = { nodes, layout, edges }, currentScope = scopeKey
+    const data = { nodes, layout, edges, memberships, topics, keywordGraph }, currentScope = scopeKey
     if (ready && scene) untrack(() => { scene!.setData(data, previousScope !== currentScope); previousScope = currentScope })
   })
   $effect(() => { if (ready) scene?.setSelected(selectedId, changedIds) })
@@ -29,16 +29,16 @@
 
 <div class="city-canvas" bind:this={container}>
   <canvas bind:this={canvas} aria-label="知识城市三维沙盘；拖动旋转，右键拖动平移，滚轮缩放。所有对象也可从结构列表访问。"></canvas>
-  <div class="map-caption" class:closer={(status.zoom ?? 1) > 1.3}><span class="eyebrow">A LIVING ATLAS OF YOUR MIND</span><h2 class="map-heading">知识正在成为一座城<span>KNOWLEDGE CITY</span></h2><p class="map-mini-stat"><strong>{status.count.toLocaleString()}</strong> 个结构对象<span> / {status.aggregated ? `街区总览 · ${status.rendered?.toLocaleString()} 座代表建筑` : '对象细节 · 独立地址'}</span></p><small>项目园区、概念街区与探索营地 · 总览建筑代表同一空间街区中的对象</small></div>
+  <div class="map-caption" class:closer={(status.zoom ?? 1) > 1.3}><span class="eyebrow">A LIVING ATLAS OF YOUR MIND</span><h2 class="map-heading">知识正在成为一座城<span>KNOWLEDGE CITY</span></h2><p class="map-mini-stat"><strong>{status.count.toLocaleString()}</strong> {keywordGraph ? '个关键词' : '个结构对象'}<span> / {status.aggregated ? `街区总览 · ${status.rendered?.toLocaleString()} 座代表建筑` : '对象细节 · 独立地址'}</span></p><small>{keywordGraph ? '街区由关键词关系社区形成 · 建筑代表关键词 · 道路承载关系' : '旧版对象图 · 街区按空间聚合，建筑代表结构对象'}</small></div>
   <div class="city-labels">
     {#each status.labels as label (label.id)}
-      <button class="city-label" class:district={!!label.district} class:compact={label.compact} class:edge-left={label.x < 132} class:edge-right={label.x > (container?.clientWidth ?? 600) - 132} class:landmark={label.district?.kind === '项目园区' || label.district?.kind === '探索营地'} class:active={label.selected} style:left={`${label.x}px`} style:top={`${label.y}px`} style:--label-width={`${label.width ?? 185}px`} data-parcel={label.district ? label.id : undefined} aria-label={label.district ? `${label.name} · ${label.district.kind} · ${label.district.count.toLocaleString()} 个对象` : label.name} onclick={() => { scene?.focus(label.id); select(label.id) }} title={label.district ? `${label.district.kind} · ${label.name}（代表名称）\n${label.district.count.toLocaleString()} 个对象 · 点击靠近并查看代表对象依据` : `${label.name} · ${typeLabel(label.kind)} · 点击靠近`}><span class="label-dot"></span><span class="label-name">{label.name}</span>{#if label.district}<small class="district-count">{label.district.count.toLocaleString()} 个对象</small>{/if}</button>
+      <button class="city-label" class:district={!!label.district} class:compact={label.compact} class:edge-left={label.x < 132} class:edge-right={label.x > (container?.clientWidth ?? 600) - 132} class:landmark={label.district?.kind === '项目园区' || label.district?.kind === '探索营地'} class:active={label.selected} style:left={`${label.x}px`} style:top={`${label.y}px`} style:--label-width={`${label.width ?? 185}px`} data-parcel={label.district ? label.id : undefined} aria-label={label.district ? `${label.name} · ${label.district.kind} · ${label.district.count.toLocaleString()} ${keywordGraph ? '个关键词' : '个对象'}` : label.name} onclick={() => { scene?.focus(label.nodeId ?? label.id); if (label.district?.unassigned && oncommunity) oncommunity(UNASSIGNED_TOPIC); else if (label.district?.topicId && oncommunity) oncommunity(label.district.topicId); else select(label.nodeId ?? label.id) }} title={label.district ? `${label.district.kind} · ${label.name}${keywordGraph ? '' : '（代表名称）'}\n${label.district.count.toLocaleString()} ${keywordGraph ? '个关键词' : '个对象'} · ${label.district.unassigned ? '仅为空间收纳，不表示彼此相关；点击查看待连接关键词' : label.district.topicId ? '点击查看该社区关键词' : '点击靠近并查看依据'}` : `${label.name} · ${typeLabel(label.kind)} · 点击靠近`}><span class="label-dot"></span><span class="label-name">{label.name}</span>{#if label.district}<small class="district-count">{label.district.count.toLocaleString()} {keywordGraph ? '个关键词' : '个对象'}</small>{/if}</button>
     {/each}
   </div>
   {#if status.hover}<div class="map-tooltip" style:left={`${Math.min(status.hover.x+14, (container?.clientWidth ?? 600)-215)}px`} style:top={`${Math.max(12,status.hover.y-65)}px`}><strong>{status.hover.name}</strong><span>{typeLabel(status.hover.kind)} · 点击查看依据</span></div>{/if}
   {#if unavailable}<div class="canvas-fallback">此环境暂不支持三维画布，请从左侧结构列表浏览全部知识。</div>{:else if status.error}<div class="canvas-fallback">城市模型加载失败，请重新打开此页面。<small>{status.error}</small></div>{:else if !ready || status.loading}<div class="canvas-fallback">正在搭建你的城市…</div>{/if}
   <div class="map-controls"><button aria-label="旋转城市" onclick={() => scene?.rotate()}>↻</button><span></span><button aria-label="缩小" onclick={() => scene?.zoom(.8)}>−</button><button aria-label="回到全景" onclick={() => scene?.fit()}>全景</button><button aria-label="放大" onclick={() => scene?.zoom(1.25)}>＋</button></div>
-  <div class="map-legend"><span><i class="swatch project"></i>项目园区</span><span><i class="swatch concept"></i>概念街区</span><span><i class="swatch topic"></i>主题绿地</span><span><i class="swatch material"></i>材料聚落</span><span class="road-label">记录中的联系越密，道路越宽 · 导入候选权重较低</span></div>
+  <div class="map-legend"><span><i class="swatch project"></i>项目园区</span><span><i class="swatch concept"></i>概念街区</span><span><i class="swatch topic"></i>主题绿地</span><span><i class="swatch material"></i>材料聚落</span><span class="road-label">{keywordGraph ? '关系支持越多，道路越宽 · 统计共现不等于语义事实' : '记录中的联系越密，道路越宽 · 导入候选权重较低'}</span></div>
   <div class="city-interaction-hint">拖动旋转 · 右键平移 · 滚轮探索</div>
 </div>
 
