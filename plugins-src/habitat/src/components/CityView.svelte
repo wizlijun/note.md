@@ -32,7 +32,7 @@
   <div class="map-caption" class:closer={(status.zoom ?? 1) > 1.3}><span class="eyebrow">A LIVING ATLAS OF YOUR MIND</span><h2 class="map-heading">知识正在成为一座城<span>KNOWLEDGE CITY</span></h2><p class="map-mini-stat"><strong>{status.count.toLocaleString()}</strong> 个结构对象<span> / {status.aggregated ? `街区总览 · ${status.rendered?.toLocaleString()} 座代表建筑` : '对象细节 · 独立地址'}</span></p><small>项目园区、概念街区与探索营地 · 总览建筑代表同一空间街区中的对象</small></div>
   <div class="city-labels">
     {#each status.labels as label (label.id)}
-      <button class="city-label" class:active={label.selected} style:left={`${label.x}px`} style:top={`${label.y}px`} onclick={() => { scene?.focus(label.id); select(label.id) }} title={`${label.name} · ${typeLabel(label.kind)} · 点击靠近`}><span class="label-dot"></span><span>{label.name}</span></button>
+      <button class="city-label" class:district={!!label.district} class:compact={label.compact} class:edge-left={label.x < 132} class:edge-right={label.x > (container?.clientWidth ?? 600) - 132} class:landmark={label.district?.kind === '项目园区' || label.district?.kind === '探索营地'} class:active={label.selected} style:left={`${label.x}px`} style:top={`${label.y}px`} style:--label-width={`${label.width ?? 185}px`} data-parcel={label.district ? label.id : undefined} aria-label={label.district ? `${label.name} · ${label.district.kind} · ${label.district.count.toLocaleString()} 个对象` : label.name} onclick={() => { scene?.focus(label.id); select(label.id) }} title={label.district ? `${label.district.kind} · ${label.name}（代表名称）\n${label.district.count.toLocaleString()} 个对象 · 点击靠近并查看代表对象依据` : `${label.name} · ${typeLabel(label.kind)} · 点击靠近`}><span class="label-dot"></span><span class="label-name">{label.name}</span>{#if label.district}<small class="district-count">{label.district.count.toLocaleString()} 个对象</small>{/if}</button>
     {/each}
   </div>
   {#if status.hover}<div class="map-tooltip" style:left={`${Math.min(status.hover.x+14, (container?.clientWidth ?? 600)-215)}px`} style:top={`${Math.max(12,status.hover.y-65)}px`}><strong>{status.hover.name}</strong><span>{typeLabel(status.hover.kind)} · 点击查看依据</span></div>{/if}
@@ -45,9 +45,21 @@
 <style>
   .map-caption small { display:block; max-width:370px; }
   .map-caption.closer { opacity:0; }
-  .city-labels { position:absolute; inset:0; pointer-events:none; overflow:hidden; }
+  .city-labels { position:absolute; inset:0; pointer-events:none; overflow:hidden; z-index:1; }
   .city-label { position:absolute; transform:translate(-50%,-100%); display:flex; align-items:center; gap:6px; max-width:185px; padding:6px 10px; border:1px solid #ffffffae; background:#fffdf3ee; box-shadow:0 3px 10px #223a2920; border-radius:7px; font-size:11px; font-weight:550; color:#365448; white-space:nowrap; pointer-events:auto; }
-  .city-label>span:last-child { overflow:hidden;text-overflow:ellipsis; }
+  .city-label .label-name { overflow:hidden;text-overflow:ellipsis; }
+  .city-label.district { max-width:var(--label-width); padding:3px 5px; gap:4px; font-size:9px; border-radius:5px; background:#fffff2df; }
+  .city-label.landmark,.city-label.active { max-width:185px; padding:6px 10px; font-size:11px; z-index:2; }
+  .city-label.compact { width:12px;height:12px;padding:3px;border-radius:50%;gap:0; }
+  .city-label.compact .label-name { display:none; }
+  .district-count { display:none;font-size:9px;font-weight:400;color:inherit;opacity:.75; }
+  .city-label.district:hover,.city-label.district:focus-visible { z-index:6; max-width:260px;width:max-content;height:auto;padding:6px 9px;gap:5px;border-radius:6px;background:#fffff4;box-shadow:0 3px 12px #223a2940; }
+  .city-label.district:hover .label-name,.city-label.district:focus-visible .label-name { display:block;max-width:165px; }
+  .city-label.district:hover .district-count,.city-label.district:focus-visible .district-count { display:block; }
+  .city-label.district::after { height:4px;bottom:-5px; }
+  .city-label.compact::after { display:none; }
+  .city-label.edge-left:hover,.city-label.edge-left:focus-visible { transform:translate(0,-100%); }
+  .city-label.edge-right:hover,.city-label.edge-right:focus-visible { transform:translate(-100%,-100%); }
   .city-label::after { content:''; position:absolute; left:50%; bottom:-8px; height:8px; border-left:1px solid #66827580; }
   .city-label.active { color:#895827; border-color:#bc935e; background:#fff5df; }
   .label-dot { width:5px;height:5px;border-radius:50%;background:#89a67b;flex-shrink:0; }
@@ -55,6 +67,6 @@
   .city-interaction-hint { position:absolute;left:24px;bottom:66px;font-size:10px;color:#647b6d;letter-spacing:.5px;pointer-events:none; }
   .map-controls>span { height:15px;width:1px;background:var(--hb-line);margin:0 3px; }
   .map-heading>span { display:block;font-size:9px;letter-spacing:3px;font-weight:400;margin-top:8px;color:var(--hb-muted); }
-  @media(prefers-color-scheme:dark) { .city-label { background:#233930ed;border-color:#8eab803f;color:#e4e8d5; }.city-label.active { color:#edc38b;background:#394133;border-color:#b99e6f; }.city-interaction-hint{color:#a7bbae;} }
+  @media(prefers-color-scheme:dark) { .city-label,.city-label.district { background:#233930ed;border-color:#8eab803f;color:#e4e8d5; }.city-label.district:hover,.city-label.district:focus-visible{background:#314a3a;color:#e4e8d5;}.city-label.active { color:#edc38b;background:#394133;border-color:#b99e6f; }.city-interaction-hint{color:#a7bbae;} }
   @media(max-width:800px) { .city-interaction-hint { display:none; }.map-caption small { display:none; } }
 </style>

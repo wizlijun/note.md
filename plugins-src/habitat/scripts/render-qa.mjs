@@ -116,6 +116,9 @@ try {
   // WebGL uploads culled geometries lazily. Warm every direction, then rebuild at
   // the original camera pose before comparing identical rebuilds for leaks.
   await action('rebuild'); report.baseline = await metrics()
+  assert.equal(Number(report.baseline.districtLabels), Number(report.baseline.parcels), 'every overview parcel has a visible marker')
+  const labelIds = await page.evaluate(() => window.__cityQA.status.labels.map(label => label.id))
+  assert.equal(new Set(labelIds).size, labelIds.length, 'district and selected labels have unique identities')
   assert.ok(Number(report.baseline.models) > 100, 'real snapshot should render a populated city')
   assert.ok(Number(report.baseline.triangles) > 100000, 'real GLB geometry should be present')
   assert.equal(await page.evaluate(() => window.__cityQA.status.count), snapshot.nodes.length)

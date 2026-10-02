@@ -15,9 +15,9 @@ function seed(text: string) {
   n = Math.imul(n ^ n >>> 16, 0x85ebca6b); n = Math.imul(n ^ n >>> 13, 0xc2b2ae35)
   return ((n ^ n >>> 16) >>> 0) / 4294967296
 }
-interface VisualLot { node: Node; x: number; z: number; h: number; w: number; style?: string; parcelId: string }
+interface VisualLot { node: Node; x: number; z: number; h: number; w: number; style?: string; parcelId: string; district?: { name: string; count: number; kind: string } }
 export interface CityData { nodes: Node[]; layout: Layout[]; edges: Edge[] }
-export interface Label { id: string; name: string; x: number; y: number; kind: string; selected: boolean }
+export interface Label { id: string; name: string; x: number; y: number; kind: string; selected: boolean; district?: { name: string; count: number; kind: string }; compact?: boolean; width?: number }
 export interface SceneStatus { labels: Label[]; count: number; rendered?: number; aggregated?: boolean; zoom?: number; loading?: boolean; error?: string; hover?: { name: string; kind: string; x: number; y: number } }
 type Primitive = { p: number[]; s: number[]; ry?: number; color?: string }
 
@@ -201,7 +201,15 @@ export class CityScene {
     this.landscape(plan)
     for (const [asset, placements] of this.assetQueue) for (const mesh of this.assets!.instantiate(asset, placements)) { this.city.add(mesh); if (mesh.userData.ids.some((id: string | null) => id)) { this.pickables.push(mesh); this.instanceIds.set(mesh, mesh.userData.ids) } }
     this.contactShadows()
-    this.labels = [...this.lots.filter(l => l.style), ...this.lots.filter(l => !l.style && l.node.nodeType === 'topic').sort((a, b) => (b.node.evidence?.length ?? 0) - (a.node.evidence?.length ?? 0) || a.node.id.localeCompare(b.node.id)).slice(0, 3)]
+    this.labels = plan.parcels.flatMap(parcel => {
+      const members = parcel.members.map(l => nodes.get(l.node.id)!).filter(Boolean)
+      const hero = this.lots.find(l => l.parcelId === parcel.id && l.style)
+      const rank = (node: Node) => node.nodeType === 'topic' ? 0 : ['concept', 'entity', 'project'].includes(node.nodeType) ? 1 : 2
+      const representative = hero?.node ?? [...members].sort((a, b) => rank(a) - rank(b) || Number(a.label.length > 24) - Number(b.label.length > 24) || (b.evidence?.length ?? 0) - (a.evidence?.length ?? 0) || a.id.localeCompare(b.id))[0]
+      if (!representative) return []
+      const kind = parcel.kind === 'campus' ? '项目园区' : parcel.kind === 'park' ? '探索营地' : parcel.kind === 'growth' ? '材料街区' : '知识街区'
+      return [{ node: representative, x: hero?.x ?? parcel.center.x, z: hero?.z ?? parcel.center.z, h: hero?.h ?? .3, w: 1, style: hero?.style, parcelId: parcel.id, district: { name: representative.label, count: parcel.members.length, kind } }]
+    })
     const center = this.bounds.getCenter(new THREE.Vector3()), size = this.bounds.getSize(new THREE.Vector3()), span = Math.max(size.x, size.z) * .7 + 12
     this.sun.position.set(center.x - 50, 95, center.z + 35); this.sun.target.position.copy(center); this.sun.shadow.camera.left = this.sun.shadow.camera.bottom = -span; this.sun.shadow.camera.right = this.sun.shadow.camera.top = span; this.sun.shadow.camera.updateProjectionMatrix()
     this.canvas.dataset.planningMs = (performance.now() - started).toFixed(1); this.canvas.dataset.parcels = String(plan.parcels.length); this.canvas.dataset.roads = String(plan.roads.length); this.canvas.dataset.models = String([...this.assetQueue.values()].reduce((n, a) => n + a.length, 0))
@@ -356,15 +364,22 @@ export class CityScene {
   private hover = (e: PointerEvent) => { if (this.pointerDown || performance.now() - this.lastHover < 130) return; this.lastHover = performance.now(); const id = this.pick(e), lot = id ? this.byId.get(id) : undefined; this.canvas.style.cursor = lot ? 'pointer' : 'grab'; if (lot) { const r = this.canvas.getBoundingClientRect(); this.emit({ name: lot.node.label + (this.blockMembers.has(lot.node.id) ? ` · 街区含 ${this.blockMembers.get(lot.node.id)!.length} 个对象` : ''), kind: lot.node.nodeType, x: e.clientX - r.left, y: e.clientY - r.top }) } else this.emit() }
   private leave = () => this.emit()
   private emit(hover?: SceneStatus['hover']) {
-    const candidates = [...this.labels], selected = this.byId.get(this.selected); if (selected && !candidates.includes(selected)) candidates.unshift(selected)
-    const rects: { x: number; y: number; w: number }[] = [], labels: Label[] = []
-    for (const l of candidates.sort((a, b) => Number(b.node.id === this.selected) - Number(a.node.id === this.selected) || Number(!!b.style) - Number(!!a.style))) {
-      const p = new THREE.Vector3(l.x, l.h + .6, l.z).project(this.camera), x = (p.x + 1) * this.width / 2, w = Math.min(180, l.node.label.length * 8 + 25); let y = (1 - p.y) * this.height / 2
-      if (l.style) for (let attempt = 0; attempt < 3 && rects.some(r => Math.abs(x - r.x) < (w + r.w) / 2 + 10 && Math.abs(y - r.y) < 35); attempt++) y -= 36
-      if (x < 50 || x > this.width - 60 || y < 30 || y > this.height - 80 || p.z > 1) continue
-      if (!l.style && l.node.id !== this.selected && rects.some(r => Math.abs(x - r.x) < (w + r.w) / 2 + 10 && Math.abs(y - r.y) < 35)) continue
-      rects.push({ x, y, w }); labels.push({ id: l.node.id, name: l.node.label, x, y, kind: l.node.nodeType, selected: l.node.id === this.selected })
+    const candidates = [...this.labels], selected = this.byId.get(this.selected)
+    if (selected && !candidates.some(l => l.node.id === selected.node.id)) candidates.unshift(selected)
+    const rects: { x: number; y: number; w: number; h: number }[] = [], labels: Label[] = []
+    for (const l of candidates.sort((a, b) => Number(b.node.id === this.selected) - Number(a.node.id === this.selected) || Number(!!b.style) - Number(!!a.style) || a.parcelId.localeCompare(b.parcelId))) {
+      const p = new THREE.Vector3(l.x, l.h + .6, l.z).project(this.camera), x = (p.x + 1) * this.width / 2, y = (1 - p.y) * this.height / 2
+      if (x < 12 || x > this.width - 12 || y < 22 || y > this.height - 50 || p.z < -1 || p.z > 1) continue
+      const prominent = !!l.style || l.node.id === this.selected
+      const width = prominent ? Math.min(185, l.node.label.length * 10 + 28) : Math.min(this.camera.zoom > 1.5 ? 132 : 82, l.node.label.length * 9 + 30)
+      const height = prominent ? 29 : 19
+      const overlaps = rects.some(r => Math.abs(x - r.x) < (width + r.w) / 2 + 3 && Math.abs(y - height / 2 - r.y) < (height + r.h) / 2 + 3)
+      // Every on-screen parcel retains its marker; only its text folds when crowded.
+      const compact = !prominent && overlaps
+      rects.push({ x, y: y - height / 2, w: compact ? 12 : width, h: compact ? 12 : height })
+      labels.push({ id: l.node.id, name: l.node.label, x, y, kind: l.node.nodeType, selected: l.node.id === this.selected, district: l.district, compact, width })
     }
+    this.canvas.dataset.districtLabels = String(labels.filter(l => l.district).length)
     this.status({ labels, count: this.total, rendered: this.lots.length, aggregated: this.total > this.lots.length, zoom: this.camera.zoom, loading: this.loading, error: this.error || undefined, hover })
   }
   private schedule = () => { if (this.disposed) return; cancelAnimationFrame(this.frame); this.frame = requestAnimationFrame(() => { const start = performance.now(); this.renderer.render(this.scene, this.camera); Object.assign(this.canvas.dataset, { ready: String(!this.loading && !this.error), drawCalls: String(this.renderer.info.render.calls), triangles: String(this.renderer.info.render.triangles), geometries: String(this.renderer.info.memory.geometries), textures: String(this.renderer.info.memory.textures), renderMs: (performance.now() - start).toFixed(1) }); this.emit() }) }
