@@ -11,6 +11,8 @@ allowBuilds:
 # it from its own dependency. Keep both product paths on the same audited build.
 overrides:
   mermaid: 11.17.2
+  # Svelte's compatible devalue range includes the three GHSA fixes in 5.9.3.
+  devalue@<5.9.3: 5.9.3
 
 packages:
   - 'plugins-src/*'

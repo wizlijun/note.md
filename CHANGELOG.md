@@ -10,6 +10,7 @@ For the full commit history, see the git log.
 ### Changed
 
 - **HABITAT separates recent attention from accumulated knowledge.** HABITAT 0.4.0 can save dated observations and a 30-day focus window alongside the existing knowledge structure. Version comparison distinguishes attention shifts from structural changes, and older snapshots remain readable. Install the updated plugin separately.
+- Updated the transitive `devalue` dependency to 5.9.3 to address three security advisories without changing the Svelte version.
 
 ## v6.930.3 — 2026-09-30
 
