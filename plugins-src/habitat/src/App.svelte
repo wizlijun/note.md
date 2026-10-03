@@ -3,7 +3,7 @@
   import CityView from './components/CityView.svelte'
   import { deriveConceptGrowth, growthStateLabels, type ConceptGrowthProfile } from './lib/concept-growth'
   import { api } from './lib/bridge'
-  import { UNASSIGNED_TOPIC, attentionLabel, attentionNodes, focusDistrictLabel, hasRecentFocus, signalLabel, dateBasisLabel, relationExplanation, causeLabel, dateLabel, edgeLabel, errorText, filterNodes, graphNodes, isKeywordGraph, locatorLabel, nodeFamilyCounts, statusLabel, typeLabel } from './lib/domain'
+  import { UNASSIGNED_TOPIC, cityRelations, isConceptGraph, isMainConcept, isAssertedRelation, isStatisticalRelation, participantRoleLabel, relationStatement, type GraphLayer, attentionLabel, focusDistrictLabel, hasRecentFocus, signalLabel, dateBasisLabel, relationExplanation, causeLabel, dateLabel, edgeLabel, errorText, filterNodes, isKeywordGraph, locatorLabel, nodeFamilyCounts, statusLabel, typeLabel } from './lib/domain'
   import type { Diff, Job, Snapshot, State, Version } from './lib/types'
 
   let hostState = $state.raw<State | null>(null), snapshot = $state.raw<Snapshot | null>(null)
@@ -15,23 +15,26 @@
   let historyTruncated = $state(false)
   let opening = $state('')
   let previewMode = $state(false)
+  let graphLayer = $state<GraphLayer>('main'), includeStatistical = $state(false)
   let focusMode = $state<'recent' | 'history'>('recent'), windowChoice = $state<7 | 30 | 90>(30)
   let disposed = false, stateEpoch = 0, versionEpoch = 0, diffEpoch = 0, historyEpoch = 0, polling = false, jobEpoch = 0
   const busy = $derived(job?.state === 'running' || starting)
   const keywordGraph = $derived(isKeywordGraph(snapshot))
+  const conceptGraph = $derived(isConceptGraph(snapshot))
+  const nodeUnit = $derived(conceptGraph ? graphLayer === 'main' ? '个概念 / 项目' : graphLayer === 'background' ? '个背景实体' : '个节点' : keywordGraph ? '个关键词' : '个对象')
   const focusAvailable = $derived(hasRecentFocus(snapshot))
   const recentView = $derived(focusAvailable && focusMode === 'recent')
   const focus = $derived(snapshot?.meta.focus)
   const attentionById = $derived(new Map(snapshot?.attention?.map(item => [item.node, item]) ?? []))
   const observationByEvidence = $derived(new Map(snapshot?.attentionObservations?.map(item => [item.evidence, item]) ?? []))
-  const knowledgeNodes = $derived(recentView ? attentionNodes(snapshot) : graphNodes(snapshot))
+  const knowledgeNodes = $derived(filterNodes(snapshot, '', '', recentView, graphLayer))
   const knowledgeIds = $derived(new Set(knowledgeNodes.map(node => node.id)))
-  const filtered = $derived(filterNodes(snapshot, query, topic, recentView))
+  const filtered = $derived(filterNodes(snapshot, query, topic, recentView, graphLayer))
   const topics = $derived.by(() => {
     const ids = new Set(snapshot?.memberships.filter(m => knowledgeIds.has(m.node) && (!keywordGraph || m.role === 'primary')).map(m => m.topic) ?? [])
-    return snapshot?.nodes.filter(n => n.nodeType === 'topic' && (!recentView || ids.has(n.id))) ?? []
+    return snapshot?.nodes.filter(n => n.nodeType === 'topic' && ((!recentView && !conceptGraph) || ids.has(n.id))) ?? []
   })
-  const viewEdges = $derived(snapshot?.edges.filter(edge => edge.participants.every(p => knowledgeIds.has(p.node))) ?? [])
+  const viewEdges = $derived(cityRelations(snapshot, includeStatistical).filter(edge => edge.participants.every(p => knowledgeIds.has(p.node))))
   const communityFocusNames = $derived.by(() => {
     const groups = new Map<string, typeof filtered>(), visible = new Map(filtered.map(node => [node.id, node]))
     if (recentView) for (const membership of snapshot?.memberships ?? []) {
@@ -46,12 +49,17 @@
   const selected = $derived(snapshot?.nodes.find(n => n.id === selectedId))
   const nodeById = $derived(new Map(snapshot?.nodes.map(n => [n.id, n]) ?? []))
   const sourceById = $derived(new Map(snapshot?.sources.map(s => [s.id, s]) ?? []))
-  const growthById = $derived(snapshot ? deriveConceptGrowth(snapshot, comparisonAfter?.meta.snapshotId === snapshot.meta.snapshotId ? { previous: comparisonBefore ?? undefined, diff: diff ?? undefined } : {}) : new Map<string, ConceptGrowthProfile>())
+  const growthById = $derived.by(() => {
+    const profiles = snapshot ? deriveConceptGrowth(snapshot, comparisonAfter?.meta.snapshotId === snapshot.meta.snapshotId ? { previous: comparisonBefore ?? undefined, diff: diff ?? undefined } : {}) : new Map<string, ConceptGrowthProfile>()
+    if (conceptGraph) for (const node of snapshot?.nodes ?? []) if (!isMainConcept(node)) profiles.delete(node.id)
+    return profiles
+  })
   const selectedGrowth = $derived(growthById.get(selectedId))
   const growthChanges = $derived.by(() => {
     if (!diff?.comparable || !comparisonBefore || !comparisonAfter || diff.from !== comparisonBefore.meta.snapshotId || diff.to !== comparisonAfter.meta.snapshotId) return []
     const before = deriveConceptGrowth(comparisonBefore), after = deriveConceptGrowth(comparisonAfter, { previous: comparisonBefore, diff })
     return comparisonAfter.nodes.flatMap(node => {
+      if (isConceptGraph(comparisonAfter) && !isMainConcept(node)) return []
       const a=before.get(node.id), b=after.get(node.id)
       return a && b && (a.stage!==b.stage || b.state==='rebuilding') ? [{id:node.id,name:node.label,before:a.label,after:b.label,state:b.state}] : []
     })
@@ -60,17 +68,23 @@
   const selectedSignals = $derived([...new Set((selectedAttention?.evidence ?? []).flatMap(id => { const observation = observationByEvidence.get(id); return observation ? [signalLabel(observation.signal)] : [] }))])
   const selectedEvidence = $derived.by(() => { const ids = new Set(recentView && selectedAttention ? selectedAttention.evidence : selected?.evidence ?? []); return ids.size ? [...(snapshot?.evidence.filter(e => ids.has(e.id)) ?? [])].sort((a, b) => (observationByEvidence.get(b.id)?.date ?? '').localeCompare(observationByEvidence.get(a.id)?.date ?? '') || a.id.localeCompare(b.id)) : [] })
   const selectedMemberships = $derived(snapshot?.memberships.filter(m => m.node === selectedId && (!recentView || m.role === 'primary')) ?? [])
-  const selectedEdges = $derived(snapshot?.edges.filter(e => e.participants.some(p => p.node === selectedId)) ?? [])
+  const selectedEdges = $derived.by(() => {
+    const edges = snapshot?.edges.filter(e => e.participants.some(p => p.node === selectedId)) ?? []
+    if (!conceptGraph) return edges
+    const rank = (edge: typeof edges[number]) => isAssertedRelation(edge) ? 0 : ['candidate', 'imported', 'unresolved'].includes(edge.status) ? 3 : isStatisticalRelation(edge) ? 2 : 1
+    return edges.sort((a, b) => rank(a) - rank(b) || a.id.localeCompare(b.id))
+  })
   const changedIds = $derived(new Set(diff && diff.to === snapshot?.meta.snapshotId ? [...diff.added, ...diff.changed, ...diff.renamed].map(n => n.id) : []))
   const coverage = $derived(snapshot?.meta.coverage)
   const families = $derived(nodeFamilyCounts(snapshot))
   const selectedFamilies = $derived(families.get(selectedId))
   const progress = $derived(job?.total ? Math.min(100, Math.round(job.processed / job.total * 100)) : 0)
 
-  function setFocusMode(mode: 'recent' | 'history') { focusMode = mode; topic = ''; query = ''; page = 0; selectedId = ''; notice = '' }
+  function setFocusMode(mode: 'recent' | 'history') { focusMode = mode; topic = ''; query = ''; page = 0; if (!conceptGraph) selectedId = ''; notice = '' }
+  function setGraphLayer(layer: GraphLayer) { graphLayer = layer; topic = ''; query = ''; page = 0; selectedId = ''; notice = '' }
   function selectCommunity(id: string) { topic = id; query = ''; page = 0; selectedId = ''; notice = '' }
   function select(id: string) { selectedId = id; notice = '' }
-  function clearForVault() { ++versionEpoch; ++diffEpoch; ++historyEpoch; ++jobEpoch; snapshot = null; activeCommit = ''; previewMode = false; focusMode = 'recent'; windowChoice = 30; selectedId = ''; topic = ''; query = ''; page = 0; diff = null; comparisonBefore = null; comparisonAfter = null; versions = []; historyTruncated = false; compareFrom = ''; compareTo = ''; versionLoading = false; historyLoading = false; diffLoading = false; starting = false }
+  function clearForVault() { ++versionEpoch; ++diffEpoch; ++historyEpoch; ++jobEpoch; snapshot = null; activeCommit = ''; previewMode = false; focusMode = 'recent'; graphLayer = 'main'; includeStatistical = false; windowChoice = 30; selectedId = ''; topic = ''; query = ''; page = 0; diff = null; comparisonBefore = null; comparisonAfter = null; versions = []; historyTruncated = false; compareFrom = ''; compareTo = ''; versionLoading = false; historyLoading = false; diffLoading = false; starting = false }
   function showPreview() { if (!hostState?.preview) return; ++versionEpoch; activeCommit = ''; previewMode = true; snapshot = hostState.preview; selectedId = ''; topic = ''; query = ''; page = 0; diff = null }
   async function loadState() {
     const epoch = ++stateEpoch
@@ -202,28 +216,30 @@
   <div class="workspace">
     {#if snapshot}
       <aside class="directory" aria-label="知识结构列表">
-        <div class="directory-kicker">YOUR KNOWLEDGE ATLAS</div><div class="section-title"><span>{recentView ? '近期关注' : '历史结构'}</span><small>{knowledgeNodes.length.toLocaleString()} {keywordGraph ? '个关键词' : '个对象'}</small></div>
+        <div class="directory-kicker">YOUR KNOWLEDGE ATLAS</div><div class="section-title"><span>{recentView ? '近期关注' : '历史结构'}</span><small>{knowledgeNodes.length.toLocaleString()} {nodeUnit}</small></div>
         {#if focusAvailable}<div class="focus-switch" aria-label="知识视角"><button class:active={recentView} aria-pressed={recentView} onclick={() => setFocusMode('recent')}>近期关注</button><button class:active={!recentView} aria-pressed={!recentView} onclick={() => setFocusMode('history')}>历史结构</button></div>
-          <p class="focus-window">{recentView ? `最近 ${focus!.windowDays} 天 · 截至 ${focus!.asOf}` : '全量历史关键词与关系'}</p>
+          <p class="focus-window">{recentView ? `最近 ${focus!.windowDays} 天 · 截至 ${focus!.asOf}` : conceptGraph ? graphLayer === 'background' ? '历史背景实体与关系' : '历史概念为自动识别结果，可回源核对。' : '全量历史关键词与关系'}</p>
         {:else}<p class="focus-window">此版本未计算近期关注</p>{/if}
         {#if !hostState?.readOnlyPreview}<label class="window-choice">下次解析范围<select aria-label="下次解析关注范围" bind:value={windowChoice} disabled={busy}><option value={7}>最近 7 天</option><option value={30}>最近 30 天</option><option value={90}>最近 90 天</option></select></label>{/if}
-        <label class="search"><span aria-hidden="true"><svg viewBox="0 0 20 20" fill="none"><circle cx="8.5" cy="8.5" r="5.5" stroke="currentColor" stroke-width="1.5"/><path d="m13 13 4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span><input aria-label="搜索概念与别名" placeholder="搜索概念与别名" bind:value={query} oninput={() => page = 0}></label>
-        <select aria-label="筛选主题" bind:value={topic} onchange={() => page = 0}><option value="">全部主题</option>{#if keywordGraph}<option value={UNASSIGNED_TOPIC}>待连接关键词（尚无社区）</option>{/if}{#each topics as item}<option value={item.id}>{(recentView ? communityFocusNames.get(item.id) : undefined) ?? item.label} · {topicSizes.get(item.id) ?? 0} {keywordGraph ? '个关键词' : '个对象'}</option>{/each}</select>
-        <div class="list-meta">{filtered.length.toLocaleString()} {keywordGraph ? '个关键词' : '个对象'} <span>{recentView ? '按近期关注分排序' : keywordGraph ? '来源与关键词分开呈现' : '旧版对象图'}</span></div>
-        <div class="node-list">{#each pageItems as node (node.id)}{@const attention = attentionById.get(node.id)}<button class:selected={node.id === selectedId} class="node-row" class:context-word={recentView && attention?.category === 'context'} onclick={() => select(node.id)}><span class="node-glyph" class:project={node.nodeType === 'project'} class:topic={node.nodeType === 'topic'} aria-hidden="true">{node.nodeType === 'project' ? '▥' : node.nodeType === 'topic' ? '▱' : '▰'}</span><span><strong>{node.label}</strong><small>{recentView && attention ? `${attentionLabel(attention)} · ${attention.activeDays} 天 / ${attention.events} 次记录事件` : `${typeLabel(node.nodeType)} · ${statusLabel(node.status)}`}</small></span></button>{/each}{#if !filtered.length}<p class="quiet-empty">没有匹配的对象。试试其他词，或切换到全部主题。</p>{/if}</div>
+        {#if conceptGraph}<label class="window-choice">知识层<select aria-label="知识层" value={graphLayer} onchange={event => setGraphLayer(event.currentTarget.value as GraphLayer)}><option value="main">主城 · 概念与项目</option><option value="background">背景实体</option><option value="all">全部节点</option></select></label><label class="window-choice"><input type="checkbox" aria-label="包含统计关联" bind:checked={includeStatistical}>包含统计关联</label>{/if}
+        <label class="search"><span aria-hidden="true"><svg viewBox="0 0 20 20" fill="none"><circle cx="8.5" cy="8.5" r="5.5" stroke="currentColor" stroke-width="1.5"/><path d="m13 13 4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span><input aria-label={conceptGraph ? '搜索节点与别名' : '搜索概念与别名'} placeholder={conceptGraph ? '搜索节点与别名' : '搜索概念与别名'} bind:value={query} oninput={() => page = 0}></label>
+        <select aria-label="筛选主题" bind:value={topic} onchange={() => page = 0}><option value="">全部主题</option>{#if keywordGraph}<option value={UNASSIGNED_TOPIC}>{conceptGraph ? '待连接节点（尚无社区）' : '待连接关键词（尚无社区）'}</option>{/if}{#each topics as item}<option value={item.id}>{(recentView ? communityFocusNames.get(item.id) : undefined) ?? item.label} · {topicSizes.get(item.id) ?? 0} {nodeUnit}</option>{/each}</select>
+        <div class="list-meta">{filtered.length.toLocaleString()} {nodeUnit} <span>{conceptGraph ? graphLayer === 'main' ? '概念与明确项目' : graphLayer === 'background' ? '人物、工具、作品与待辨认词项' : '概念与背景分型呈现' : recentView ? '按近期关注分排序' : keywordGraph ? '来源与关键词分开呈现' : '旧版对象图'}</span></div>
+        <div class="node-list">{#each pageItems as node (node.id)}{@const attention = attentionById.get(node.id)}<button class:selected={node.id === selectedId} class="node-row" class:context-word={conceptGraph ? !isMainConcept(node) : recentView && attention?.category === 'context'} onclick={() => select(node.id)}><span class="node-glyph" class:project={node.nodeType === 'project'} class:topic={node.nodeType === 'topic'} aria-hidden="true">{node.nodeType === 'project' ? '▥' : node.nodeType === 'topic' ? '▱' : '▰'}</span><span><strong>{node.label}</strong><small>{recentView && attention ? `${conceptGraph ? typeLabel(node.nodeType, true) : attentionLabel(attention)} · ${attention.activeDays} 天 / ${attention.events} 次记录事件` : `${typeLabel(node.nodeType, conceptGraph)} · ${statusLabel(node.status)}`}</small></span></button>{/each}{#if !filtered.length}<p class="quiet-empty">没有匹配的对象。试试其他词，或切换到全部主题。</p>{/if}</div>
         <div class="pagination"><button aria-label="上一页" disabled={page === 0} onclick={() => page--}>‹</button><span>{Math.min(page + 1, pageCount)} / {pageCount}</span><button aria-label="下一页" disabled={page + 1 >= pageCount} onclick={() => page++}>›</button></div>
         <div class="directory-footer">{viewEdges.length.toLocaleString()} 条关系 <span>·</span> {snapshot.sources.length.toLocaleString()} 份来源</div>
       </aside>
       <main class="landscape" aria-label="知识城市">
-        <CityView nodes={filtered} layout={snapshot.layout} edges={viewEdges} recentFocus={recentView ? focus : undefined} attention={recentView ? snapshot.attention : undefined} memberships={snapshot.memberships} growth={growthById} {topics} {keywordGraph} oncommunity={selectCommunity} {families} {selectedId} {changedIds} scopeKey={(hostState?.vaultKey ?? '') + '\0' + (snapshot.meta.snapshotId ?? '') + '\0' + (recentView ? 'recent' : 'history') + '\0' + query + '\0' + topic} onselect={select} />
-        {#if recentView && !knowledgeNodes.length}<div class="empty-overlay"><h2>这段时间还没有足够的关注线索</h2><p>没有可靠日期的记录不会被当成最近关注。可切换历史结构继续查看。</p></div>{/if}
+        <CityView nodes={filtered} layout={snapshot.layout} edges={viewEdges} {conceptGraph} layer={graphLayer} {includeStatistical} recentFocus={recentView ? focus : undefined} attention={recentView ? snapshot.attention : undefined} memberships={snapshot.memberships} growth={growthById} {topics} {keywordGraph} oncommunity={selectCommunity} {families} {selectedId} {changedIds} scopeKey={(hostState?.vaultKey ?? '') + '\0' + (snapshot.meta.snapshotId ?? '') + '\0' + (recentView ? 'recent' : 'history') + '\0' + query + '\0' + topic + '\0' + (conceptGraph ? graphLayer + ':' + includeStatistical : '')} onselect={select} />
+        {#if recentView && !knowledgeNodes.length}<div class="empty-overlay"><h2>{conceptGraph ? '本层近期没有足够的关注线索' : '这段时间还没有足够的关注线索'}</h2><p>{conceptGraph ? '可切换知识层或历史结构查看已保留的节点与来源。' : '没有可靠日期的记录不会被当成最近关注。可切换历史结构继续查看。'}</p></div>{/if}
+        {#if conceptGraph && snapshot.nodes.length && !filtered.length && (!recentView || knowledgeNodes.length)}<div class="empty-overlay"><h2>{graphLayer === 'background' && !query && !topic ? '本层尚无背景实体' : '本层没有匹配的节点'}</h2><p>可调整搜索或主题，或切换知识层继续查看保留的结构。</p></div>{/if}
         {#if !snapshot.nodes.length}<div class="empty-overlay"><h2>材料已读取，结构尚待形成</h2><p>这次解析没有找到可展示的概念。可查看覆盖范围和未归属材料。</p></div>{/if}
         {#if versionLoading}<div class="loading-overlay" role="status">正在读取历史版本…</div>{/if}
-        {#if selected}<section class="detail-panel" aria-label="概念详情">
-          <div class="detail-heading"><span class="eyebrow">{typeLabel(selected.nodeType)} / {statusLabel(selected.status)}</span><button aria-label="关闭详情" onclick={() => selectedId = ''}>×</button></div>
-          <h2>{selected.label}</h2>
+        {#if selected}<section class="detail-panel" aria-label={conceptGraph && !isMainConcept(selected) ? '背景实体详情' : '概念详情'}>
+          <div class="detail-heading"><span class="eyebrow">{typeLabel(selected.nodeType, conceptGraph)} / {statusLabel(selected.status)}</span><button aria-label="关闭详情" onclick={() => selectedId = ''}>×</button></div>
+          <h2>{selected.label}</h2>{#if conceptGraph && !isMainConcept(selected)}<p class="metadata">背景层 · {typeLabel(selected.nodeType, true)} · 原始来源与关系保留</p>{/if}
           {#if keywordGraph && selectedGrowth}<div class="growth-badge"><strong>{selectedGrowth.label}</strong><span>{growthStateLabels[selectedGrowth.state]}</span><span class="growth-meter" aria-label={`建筑积累等级 ${selectedGrowth.level + 1} / 6`}>{#each [0,1,2,3,4,5] as level}<i class:filled={level <= selectedGrowth.level}></i>{/each}</span></div>{/if}
-          {#if selectedAttention}<section class="attention-detail" aria-label="近期关注依据"><div><strong>{attentionLabel(selectedAttention)}</strong><span>关注排序分 {Math.round(selectedAttention.score * 100)} / 100</span></div><p>最近记录 {selectedAttention.lastObservedAt}<br>{selectedAttention.activeDays} 个活跃日 · {selectedAttention.events} 次记录事件</p>{#if selectedSignals.length}<p>信号：{selectedSignals.join(' · ')}</p>{/if}<small>依据近期主动记录与反复提及进行排序。分组是规则线索；分数只用于本版排序，不表示掌握程度。记录事件不等于独立来源。</small></section>
+          {#if selectedAttention}<section class="attention-detail" aria-label="近期关注依据"><div><strong>{conceptGraph ? typeLabel(selected?.nodeType ?? '', true) + ' · 近期记录' : attentionLabel(selectedAttention)}</strong><span>关注排序分 {Math.round(selectedAttention.score * 100)} / 100</span></div><p>最近记录 {selectedAttention.lastObservedAt}<br>{selectedAttention.activeDays} 个活跃日 · {selectedAttention.events} 次记录事件</p>{#if selectedSignals.length}<p>信号：{selectedSignals.join(' · ')}</p>{/if}<small>依据近期主动记录与反复提及进行排序。分组是规则线索；分数只用于本版排序，不表示掌握程度。记录事件不等于独立来源。</small></section>
           {:else if recentView}<p class="metadata">这个关联词未进入本版近期关注名单；下面为历史来源。</p>{/if}
           {#if selected.intentStatus}<p class="metadata">意图状态：{statusLabel(selected.intentStatus)}</p>{/if}
           {#if selected.aliases?.length}<p class="metadata">别名：{selected.aliases.join(' · ')}</p>{/if}
@@ -236,7 +252,7 @@
             <div class="evidence-card"><div class="evidence-path">{source?.path ?? '来源记录不可用'}</div><p>{locatorLabel(evidence.locator)}</p>{#if observation}<p class="evidence-date"><time datetime={observation.date}>{observation.date}</time> · {signalLabel(observation.signal)}<small>{dateBasisLabel(observation.dateBasis)}</small></p>{/if}<div class="evidence-meta"><span>{statusLabel(evidence.authorship)}</span><span>{statusLabel(evidence.verification)}</span>{#if evidence.granularity === 'whole_source' || evidence.granularity === 'file'}<span>文件级依据</span>{/if}</div><button disabled={!source || opening === evidence.id} onclick={() => openEvidence(evidence.id)}>{opening === evidence.id ? '正在核对…' : '核对并打开原文'} ↗</button></div>
           {/each}
           {#if !selectedEvidence.length}<p class="muted">没有直接原文依据；可通过主题成员继续查看。</p>{:else if selectedEvidence.length > 40}<p class="muted">先展示前 40 条依据，共 {selectedEvidence.length} 条。</p>{/if}
-          {#if selectedEdges.length}<h3>相关关系 <small>{selectedEdges.length}</small></h3>{#if keywordGraph}<p class="muted">这些已记录关系可能来自当前关注窗口之外。共同讨论与统计共现不自动推断因果、归属等语义事实；记录事件与来源组分别计数。</p>{/if}{#each selectedEdges.slice(0, 20) as edge}<div class="relation-card"><div><strong title={edge.edgeType}>{edgeLabel(edge.edgeType)}</strong><small>{edge.status === 'imported' ? 'AI 提取声明' : statusLabel(edge.status)}</small></div>{#each edge.participants.filter(p => p.node !== selectedId).slice(0, 8) as participant}<button onclick={() => select(participant.node)}>{nodeById.get(participant.node)?.label ?? participant.node}<small>{participant.role}</small></button>{/each}{#if relationExplanation(edge)}<p>{relationExplanation(edge)}</p>{/if}<p>已核对来源组 {edge.verifiedFamilies} · 暂定 {edge.provisionalFamilies} · 谱系未知 {edge.unresolvedLineage}</p></div>{/each}{/if}</div>
+          {#if selectedEdges.length}<h3>相关关系 <small>{selectedEdges.length}</small></h3>{#if keywordGraph}<p class="muted">这些已记录关系可能来自当前关注窗口之外。共同讨论与统计共现不自动推断因果、归属等语义事实；记录事件与来源组分别计数。</p>{/if}{#each selectedEdges.slice(0, 20) as edge}<div class="relation-card"><div><strong>{edgeLabel(edge.edgeType)}</strong><small>{edge.status === 'imported' ? conceptGraph ? '导入候选' : 'AI 提取声明' : statusLabel(edge.status)}</small></div>{#if relationStatement(edge, nodeById)}<p class="relation-direction">{relationStatement(edge, nodeById)}</p>{/if}{#each edge.participants.filter(p => p.node !== selectedId).slice(0, 8) as participant}<button onclick={() => select(participant.node)}>{nodeById.get(participant.node)?.label ?? participant.node}<small>{participantRoleLabel(participant.role)} · {typeLabel(nodeById.get(participant.node)?.nodeType ?? 'entity', conceptGraph)}</small></button>{/each}{#if relationExplanation(edge)}<p>{relationExplanation(edge)}</p>{/if}<p>已核对来源组 {edge.verifiedFamilies} · 暂定 {edge.provisionalFamilies} · 谱系未知 {edge.unresolvedLineage}</p>{#if conceptGraph}{#each edge.evidence.slice(0, 3) as evidenceId}<button disabled={opening === evidenceId} onclick={() => openEvidence(evidenceId)}>核对关系原文 ↗</button>{/each}{/if}</div>{/each}{/if}</div>
           <div class="detail-footnote">{hostState?.readOnlyPreview ? '本地预览仅展示定位，打开原文需在 note.md 中核对。' : '位置与材料结构，不代表掌握程度。'}</div>
         </section>{/if}
       </main>

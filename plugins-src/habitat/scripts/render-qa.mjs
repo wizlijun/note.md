@@ -11,21 +11,25 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const args = process.argv.slice(2)
 const value = (name, fallback) => args.includes(name) ? args[args.indexOf(name) + 1] : fallback
 const snapshotPath = value('--snapshot')
-if (!snapshotPath) throw new Error('Usage: node scripts/render-qa.mjs --snapshot /path/current.jsonl [--output /path/qa] [--hardware]')
+if (!snapshotPath) throw new Error('Usage: node scripts/render-qa.mjs --snapshot /path/current.jsonl [--output /path/qa] [--hardware] [--history] [--background]')
 const hardware = args.includes('--hardware')
 const output = resolve(value('--output', resolve(root, '../../tasks/design/habitat-render-qa')))
 await mkdir(output, { recursive: true })
 const snapshot = await loadSnapshot(resolve(snapshotPath))
 const keywordGraph = /^habitat-(keyword|focus)\//.test(snapshot.meta.algorithm.version)
+const conceptGraph = /^habitat-focus\/(\d+)/.exec(snapshot.meta.algorithm.version)?.[1] >= 4
+const background = args.includes('--background')
 const recentFocus = !!snapshot.meta.focus && !args.includes('--history')
 const attentionIds = new Set(snapshot.attention?.map(item => item.node) ?? [])
-const graphNodes = snapshot.nodes.filter(node => (!keywordGraph || node.nodeType === 'keyword') && (!recentFocus || attentionIds.has(node.id)))
-const data = JSON.stringify({ growthSnapshot: snapshot, nodes: graphNodes, topics: snapshot.nodes.filter(node => node.nodeType === 'topic'), memberships: snapshot.memberships, attention: recentFocus ? snapshot.attention : [], keywordGraph, layout: snapshot.layout, edges: snapshot.edges })
+const graphNodes = snapshot.nodes.filter(node => (conceptGraph ? node.nodeType !== 'topic' && (['keyword', 'project'].includes(node.nodeType) !== background) : !keywordGraph || node.nodeType === 'keyword') && (!recentFocus || attentionIds.has(node.id)))
+const data = JSON.stringify({ growthSnapshot: snapshot, nodes: graphNodes, topics: snapshot.nodes.filter(node => node.nodeType === 'topic'), memberships: snapshot.memberships, attention: recentFocus ? snapshot.attention : [], keywordGraph, conceptGraph, layout: snapshot.layout })
 const harness = `
 import { CityScene } from '/src/lib/city-scene.ts';
 import { deriveConceptGrowth } from '/src/lib/concept-growth.ts';
+import { cityRelations, isMainConcept } from '/src/lib/domain.ts';
 const { growthSnapshot, ...data } = await (await fetch('/__qa/data')).json();
-data.growth = deriveConceptGrowth(growthSnapshot);
+data.growth = deriveConceptGrowth(data.conceptGraph ? { ...growthSnapshot, nodes: growthSnapshot.nodes.filter(isMainConcept) } : growthSnapshot);
+data.edges = cityRelations(growthSnapshot);
 const subsetNodes = data.nodes.filter((node, index) => index < Math.min(480, Math.max(1, Math.floor(data.nodes.length / 2))) || ['hemory', 'note.md', 'bushcraft'].includes(node.label.toLowerCase()));
 const subsetIds = new Set(subsetNodes.map(node => node.id));
 const subset = { ...data, nodes: subsetNodes, edges: data.edges.filter(edge => edge.participants.every(item => subsetIds.has(item.node))) };
@@ -43,7 +47,7 @@ window.__cityQA = {
   get subsetCount() { return subsetNodes.length },
   get firstReadyMs() { return firstReadyMs },
   landmarkId(name) { return data.nodes.find(node => node.label.toLowerCase() === name && ['anchor', 'observed', 'confirmed', 'user-confirmed'].includes(node.status))?.id },
-  get ordinaryId() { return data.nodes.find(node => ['concept', 'keyword'].includes(node.nodeType) && !['hemory', 'note.md', 'bushcraft'].includes(node.label.toLowerCase()) && data.layout.some(layout => layout.id === node.id))?.id },
+  get ordinaryId() { return data.nodes.find(node => (${background} || ['concept', 'keyword'].includes(node.nodeType)) && !['hemory', 'note.md', 'bushcraft'].includes(node.label.toLowerCase()) && data.layout.some(layout => layout.id === node.id))?.id },
   rebuild() { ready(); scene.setData(data, false) },
   subset() { ready(); scene.setData(subset, true) },
   restore() { ready(); scene.setData(data, true) },
@@ -173,12 +177,12 @@ try {
   report.checks.push('five subset/full-data transitions restore all nodes, label identities and GPU resource counts')
   if(keywordGraph) {
     await action('rebuilding')
-    assert.equal(Number((await metrics()).rebuildingBuildings), Math.min(3,graphNodes.length))
+    assert.equal(Number((await metrics()).rebuildingBuildings), conceptGraph && background ? 0 : Math.min(3,graphNodes.length))
     assert.equal(Number((await metrics()).primaryBuildings), graphNodes.length, 'scaffolding never creates additional concept buildings')
     await action('restore')
     assert.equal((await metrics()).geometries, report.baseline.geometries, 'temporary rebuilding geometry is released')
     assert.equal((await metrics()).textures, report.baseline.textures)
-    report.checks.push('synthetic rebuilding-state overlay preserves every primary concept ID and releases temporary resources')
+    report.checks.push(background ? 'background entities never acquire concept rebuilding state' : 'synthetic rebuilding-state overlay preserves every primary concept ID and releases temporary resources')
   }
   const heroId = await page.evaluate(() => window.__cityQA.landmarkId('hemory'))
   const hero = initialLabels.find(label => label.nodeId === heroId || label.id === heroId) ?? initialLabels[0]
@@ -199,7 +203,7 @@ try {
   report.checks.push('selection labels, focus and actual mouse picking preserve knowledge ID')
   for (const [name, screenshotName] of [['note.md', 'note-campus'], ['bushcraft', 'camp']]) {
     const targetId = await page.evaluate(name => window.__cityQA.landmarkId(name), name)
-    if (!targetId && recentFocus) continue
+    if (!targetId && (recentFocus || background || conceptGraph)) continue
     assert.ok(targetId, `missing ${name} landmark in real snapshot`)
     await action('fit'); await action('select', targetId); await action('focus', targetId); await screenshot(screenshotName)
   }

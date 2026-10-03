@@ -25,8 +25,11 @@ fn stats(s: &Snapshot) -> Vec<&Edge> {
 }
 fn fixture() -> Extraction {
     extract(&[
-        ("a.md", "[[检索]] 与 [[记忆]] 有联系。甲。\n\n[[户外]]。"),
-        ("b.md", "[[检索]] 与 [[记忆]] 有联系。乙。"),
+        (
+            "a.md",
+            "[[信息检索]] 与 [[记忆]] 有联系。甲。\n\n[[户外]]。",
+        ),
+        ("b.md", "[[信息检索]] 与 [[记忆]] 有联系。乙。"),
     ])
 }
 #[test]
@@ -60,8 +63,8 @@ fn repeated_bounded_windows_create_statistical_edges_with_honest_source_counts()
 fn separate_paragraphs_do_not_create_a_document_wide_clique() {
     let s = build(
         extract(&[
-            ("a.md", "[[检索]] 甲。\n\n[[记忆]] 甲。"),
-            ("b.md", "[[检索]] 乙。\n\n[[记忆]] 乙。"),
+            ("a.md", "[[信息检索]] 甲。\n\n[[记忆]] 甲。"),
+            ("b.md", "[[信息检索]] 乙。\n\n[[记忆]] 乙。"),
         ]),
         None,
     );
@@ -71,10 +74,13 @@ fn separate_paragraphs_do_not_create_a_document_wide_clique() {
 fn duplicated_material_and_repeated_paragraphs_are_not_independent_support() {
     let s = build(
         extract(&[
-            ("a.md", "[[检索]] [[记忆]]\n\n[[检索]] [[记忆]]\n\n[[户外]]"),
+            (
+                "a.md",
+                "[[信息检索]] [[记忆]]\n\n[[信息检索]] [[记忆]]\n\n[[户外]]",
+            ),
             (
                 "copy.md",
-                "[[检索]] [[记忆]]\n\n[[检索]] [[记忆]]\n\n[[户外]]",
+                "[[信息检索]] [[记忆]]\n\n[[信息检索]] [[记忆]]\n\n[[户外]]",
             ),
         ]),
         None,
@@ -84,9 +90,9 @@ fn duplicated_material_and_repeated_paragraphs_are_not_independent_support() {
 #[test]
 fn coincident_locators_in_related_sources_never_fabricate_joint_windows() {
     let mut data = extract(&[
-        ("a.md", "[[检索]] 甲"),
+        ("a.md", "[[信息检索]] 甲"),
         ("a-copy.md", "[[记忆]] 甲"),
-        ("b.md", "[[检索]] 乙"),
+        ("b.md", "[[信息检索]] 乙"),
         ("b-copy.md", "[[记忆]] 乙"),
         ("c.md", "[[户外]]"),
     ]);
@@ -107,8 +113,8 @@ fn long_keyword_lists_and_universal_pairs_do_not_create_statistics() {
     assert!(stats(&s).is_empty());
     let s = build(
         extract(&[
-            ("a.md", "[[检索]] [[记忆]]甲"),
-            ("b.md", "[[检索]] [[记忆]]乙"),
+            ("a.md", "[[信息检索]] [[记忆]]甲"),
+            ("b.md", "[[信息检索]] [[记忆]]乙"),
         ]),
         None,
     );
@@ -226,7 +232,7 @@ fn explicit_project_intent_survives_keyword_conversion() {
         None,
     );
     let n = s.nodes.iter().find(|n| n.label == "My project").unwrap();
-    assert_eq!(n.node_type, "keyword");
+    assert_eq!(n.node_type, "project");
     assert_eq!(n.intent_status.as_deref(), Some("declared_project"));
 }
 

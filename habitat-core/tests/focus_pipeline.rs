@@ -154,7 +154,12 @@ fn recent_keyword_survives_more_than_twelve_hundred_background_candidates() {
             id: format!("background:{i}"),
             key: format!("background:{i}"),
             node_type: "concept".into(),
-            label: format!("历史词{i:04}"),
+            label: format!(
+                "历史词{}{}{}",
+                (b'a' + ((i / 676) % 26) as u8) as char,
+                (b'a' + ((i / 26) % 26) as u8) as char,
+                (b'a' + (i % 26) as u8) as char
+            ),
             status: "observed".into(),
             evidence: vec!["evidence".into()],
             ..Default::default()
@@ -212,10 +217,159 @@ fn recent_keyword_survives_more_than_twelve_hundred_background_candidates() {
 #[test]
 fn declared_project_context_is_not_overwritten_by_a_same_spelling_generic_keyword() {
     let mut docs = docs();
-    docs.push(("project.md", "---\ntitle: 工作记忆\ntype: project\n---\n这是明确声明的项目。".into()));
+    docs.push((
+        "project.md",
+        "---\ntitle: 工作记忆\ntype: project\n---\n这是明确声明的项目。".into(),
+    ));
     let snapshot = build(&docs, "2026-10-02", None);
-    let node = snapshot.nodes.iter().find(|n| n.label == "工作记忆").unwrap();
+    let node = snapshot
+        .nodes
+        .iter()
+        .find(|n| n.label == "工作记忆")
+        .unwrap();
     assert_eq!(node.intent_status.as_deref(), Some("declared_project"));
-    let attention = snapshot.attention.iter().find(|a| a.node == node.id).unwrap();
+    let attention = snapshot
+        .attention
+        .iter()
+        .find(|a| a.node == node.id)
+        .unwrap();
     assert_eq!(attention.category, "context");
+}
+
+#[test]
+fn imported_project_mentions_never_declare_a_personal_project() {
+    let mut dataset: serde_json::Value = serde_json::from_str(include_str!(
+        "../../plugins-src/knowledge-browser/fixtures/minimal-valid.json"
+    ))
+    .unwrap();
+    dataset["entities"][0]["type"] = "project".into();
+    let text = serde_json::to_string(&dataset).unwrap();
+    let input = SourceInput {
+        path: "ssot/meetings/import/knowledge.json".into(),
+        hash: hash(&text),
+        origin: "unlabeled".into(),
+    };
+    let mut extractor = Extractor::new("focus-vault", &[input], None);
+    extractor
+        .set_focus(FocusContext {
+            as_of: "2026-10-02".into(),
+            window_days: 30,
+            utc_offset_minutes: 480,
+        })
+        .unwrap();
+    extractor
+        .add_document("ssot/meetings/import/knowledge.json", &text)
+        .unwrap();
+    let data = extractor.finish().unwrap();
+    assert!(!data.nodes.iter().any(|n| n.node_type == "project"));
+    let imported = data
+        .nodes
+        .iter()
+        .find(|n| n.intent_status.as_deref() == Some("imported_project_mention"))
+        .unwrap();
+    assert_ne!(imported.node_type, "keyword");
+}
+
+#[test]
+fn direct_definitions_create_typed_source_claims_without_wiki_pages() {
+    let docs = vec![(
+        "agent-sessions/definition.md",
+        session("工作记忆是一种记忆。", "2026-10-01"),
+    )];
+    let snapshot = build(&docs, "2026-10-02", None);
+    let edge = snapshot
+        .edges
+        .iter()
+        .find(|e| e.status == "asserted")
+        .expect("literal definition must survive full pipeline");
+    assert_eq!(edge.edge_type, "is_a");
+    assert_eq!(edge.participants.len(), 2);
+    assert!(edge.participants.iter().any(|p| p.role == "subject"));
+    assert!(edge.participants.iter().any(|p| p.role == "object"));
+    assert!(!edge.evidence.is_empty());
+}
+
+#[test]
+fn previous_keywords_cannot_resurrect_rejected_format_words() {
+    let docs = vec![(
+        "agent-sessions/format.md",
+        session("输出 JSON title 字段。the title 是字段。", "2026-10-01"),
+    )];
+    let mut previous = build(&docs, "2026-10-02", None);
+    previous.nodes.push(Node {
+        id: "old-the".into(),
+        key: "keyword:the".into(),
+        label: "the".into(),
+        node_type: "keyword".into(),
+        status: "observed".into(),
+        ..Default::default()
+    });
+    previous.meta.algorithm.version = "habitat-focus/3".into();
+    finalize(&mut previous, None).unwrap();
+    let snapshot = build(&docs, "2026-10-02", Some(&previous));
+    assert!(!snapshot.nodes.iter().any(|n| n.label == "the"));
+    assert!(!snapshot.attention.iter().any(|a| snapshot
+        .nodes
+        .iter()
+        .any(|n| n.id == a.node && n.label == "title")));
+}
+
+#[test]
+fn historical_concept_type_cannot_promote_current_installation_evidence() {
+    let docs = vec![
+        (
+            "agent-sessions/old-a.md",
+            session("为什么客户端影响数据一致性？", "2026-08-01"),
+        ),
+        (
+            "agent-sessions/old-b.md",
+            session("理解客户端如何影响数据一致性。", "2026-08-02"),
+        ),
+        (
+            "agent-sessions/old-c.md",
+            session("比较客户端与服务端的职责区别。", "2026-08-03"),
+        ),
+        (
+            "agent-sessions/recent-a.md",
+            session("请安装客户端。", "2026-09-29"),
+        ),
+        (
+            "agent-sessions/recent-b.md",
+            session("安装客户端并重连服务器。", "2026-09-30"),
+        ),
+    ];
+    let snapshot = build(&docs, "2026-10-02", None);
+    for a in &snapshot.attention {
+        let node = snapshot.nodes.iter().find(|n| n.id == a.node).unwrap();
+        assert!(!(node.label == "客户端" && a.category == "concept"));
+    }
+}
+
+#[test]
+fn uppercase_acronym_phrase_survives_all_gates_and_previous_snapshot_rematching() {
+    let docs = vec![
+        ("terms.md", "[[CLIP特征]]。[[router用户]]。".into()),
+        (
+            "agent-sessions/clip-a.md",
+            session("为什么CLIP特征影响检索质量？", "2026-09-29"),
+        ),
+        (
+            "agent-sessions/clip-b.md",
+            session("解释CLIP特征的机制。", "2026-09-30"),
+        ),
+    ];
+    let snapshot = build(&docs, "2026-10-02", None);
+    let node = snapshot
+        .nodes
+        .iter()
+        .find(|n| n.label == "CLIP特征")
+        .expect("case-sensitive lexical evidence must survive normalized identity projection");
+    assert_eq!(node.node_type, "keyword");
+    assert!(snapshot
+        .attention
+        .iter()
+        .any(|a| a.node == node.id && a.active_days == 2));
+    assert!(!snapshot.nodes.iter().any(|n| n.label == "router用户"));
+    let again = build(&docs, "2026-10-02", Some(&snapshot));
+    assert_eq!(encode(&again).unwrap(), encode(&snapshot).unwrap());
 }

@@ -64,12 +64,18 @@ pub fn compare(before: &Snapshot, after: &Snapshot) -> Result<Diff, String> {
         attention_changes: 0,
         observation_changes: 0,
     };
-    let algorithm =
-        before.meta.algorithm != after.meta.algorithm || before.meta.schema != after.meta.schema;
+    let focus_mode = before.meta.focus.is_some() != after.meta.focus.is_some();
+    let algorithm = before.meta.algorithm != after.meta.algorithm
+        || before.meta.schema != after.meta.schema
+        || focus_mode;
     let scope = before.meta.scope_hash != after.meta.scope_hash;
     let evidence = before.meta.evidence_hash != after.meta.evidence_hash
         || before.meta.manifest_hash != after.meta.manifest_hash;
-    if before.meta.focus != after.meta.focus {
+    if focus_mode {
+        out.warnings.push(
+            "关注分析启用状态改变，术语质量门禁不同；不能作为同一方法的知识增长比较。".into(),
+        );
+    } else if before.meta.focus != after.meta.focus {
         out.causes.push("attention_window".into());
         out.warnings
             .push("关注观察窗口变化；淡出近期视图不代表知识被删除或遗忘。".into());
@@ -267,5 +273,30 @@ mod tests {
         finalize(&mut b, Some(&a)).unwrap();
         assert!(material_changed(&a, &b));
         assert!(compare(&a, &b).unwrap().causes.contains(&"mixed".into()));
+    }
+    #[test]
+    fn enabling_or_disabling_focus_changes_the_method_but_advancing_it_does_not() {
+        let plain = base();
+        let mut focused = plain.clone();
+        focused.meta.focus = Some(FocusContext {
+            as_of: "2026-10-02".into(),
+            window_days: 30,
+            utc_offset_minutes: 480,
+        });
+        finalize(&mut focused, Some(&plain)).unwrap();
+        for (before, after) in [(&plain, &focused), (&focused, &plain)] {
+            let diff = compare(before, after).unwrap();
+            assert!(!diff.comparable);
+            assert!(diff.causes.contains(&"algorithm".into()));
+            assert!(!diff.causes.contains(&"attention_window".into()));
+            assert!(diff.warnings.iter().any(|s| s.contains("质量门禁不同")));
+        }
+        let mut advanced = focused.clone();
+        advanced.meta.focus.as_mut().unwrap().as_of = "2026-10-03".into();
+        finalize(&mut advanced, Some(&focused)).unwrap();
+        let diff = compare(&focused, &advanced).unwrap();
+        assert!(diff.comparable);
+        assert!(diff.causes.contains(&"attention_window".into()));
+        assert!(!diff.causes.contains(&"algorithm".into()));
     }
 }

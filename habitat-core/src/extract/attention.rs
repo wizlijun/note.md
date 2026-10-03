@@ -47,12 +47,24 @@ impl Extractor {
         let Some(context) = self.focus.clone() else {
             return Ok(());
         };
-        let events = std::mem::take(&mut self.focus_events);
+        let events = crate::term_quality::deduplicate_events(
+            std::mem::take(&mut self.focus_events)
+                .into_iter()
+                .filter(|e| e.date <= context.as_of)
+                .collect(),
+        );
         let eligible = |n: &&Node| {
             matches!(
                 n.node_type.as_str(),
-                "concept" | "entity" | "project" | "keyword"
-            ) && crate::keyword::acceptable(&normalize(&n.label))
+                "concept"
+                    | "entity"
+                    | "project"
+                    | "keyword"
+                    | "person"
+                    | "tool"
+                    | "resource"
+                    | "term_candidate"
+            ) && (crate::keyword::acceptable(&n.label) || n.node_type == "project")
         };
         // Always refresh the complete currently extracted vocabulary, starting
         // on the first run. Refreshing only previous selected nodes would cause
@@ -64,34 +76,96 @@ impl Extractor {
             .map(|n| (normalize(&n.label), n.label.clone()))
             .collect();
         let mut anchors: BTreeMap<String, String> = BTreeMap::new();
-        for node in self.nodes.values().filter(eligible).filter(|n| n.status != "imported") {
+        for node in self.nodes.values().filter(eligible) {
             let key = normalize(&node.label);
-            // An explicit native project declaration wins deterministically;
-            // traversal order of equal-spelling generic concepts cannot erase
-            // it. Imported entity guesses are not personal concept metadata.
-            if node.node_type == "project" {
-                anchors.insert(key, "strong_context".into());
+            let hint = match node.node_type.as_str() {
+                "project"
+                    if matches!(
+                        node.intent_status.as_deref(),
+                        Some("declared_project" | "task_project_reference")
+                    ) || node.status != "imported" =>
+                {
+                    "project"
+                }
+                "project" => "entity",
+                "person" => "person",
+                "tool" => "tool",
+                "resource" => "resource",
+                "entity" => "entity",
+                _ => "concept",
+            };
+            let old = anchors.get(&key).map(String::as_str);
+            if hint == "project" || old == Some("project") {
+                anchors.insert(key, "project".into());
+            } else if let Some(old) = old {
+                if old != hint {
+                    anchors.insert(key, "entity".into());
+                }
             } else {
-                anchors.entry(key).or_insert_with(|| "concept".into());
+                anchors.insert(key, hint.into());
             }
         }
-        let candidates: Vec<_> = crate::focus::rank_events(events.clone(), &context, &anchors)?
-            .into_iter()
-            .filter(|c| crate::keyword::acceptable(&normalize(&c.term)))
-            .collect();
-        let selected = crate::focus::foreground(&candidates);
+        // All histories share the same admission test, including previous
+        // versions. Retention never bypasses term quality.
         for (key, label) in &self.previous_keywords {
             vocabulary
                 .entry(key.clone())
                 .or_insert_with(|| label.clone());
         }
-        for candidate in &selected {
+        vocabulary.extend(crate::term_quality::candidate_terms(&events));
+        for label in crate::concept_relations::candidate_endpoints(&events) {
+            vocabulary.entry(normalize(&label)).or_insert(label);
+        }
+        let candidates = crate::focus::rank_events(events.clone(), &context, &anchors)?;
+        for candidate in &candidates {
             vocabulary.insert(normalize(&candidate.term), candidate.term.clone());
         }
+        let assessments = crate::term_quality::assess_terms(&events, &vocabulary, &anchors);
+        vocabulary.retain(|key, _| {
+            assessments.get(key).is_some_and(|a| {
+                a.frequency > 0 || a.class == crate::term_quality::TermClass::Project
+            })
+        });
+        for node in self.nodes.values_mut() {
+            if matches!(
+                node.node_type.as_str(),
+                "concept"
+                    | "keyword"
+                    | "entity"
+                    | "person"
+                    | "tool"
+                    | "resource"
+                    | "term_candidate"
+                    | "project"
+            ) {
+                node.node_type = assessments
+                    .get(&normalize(&node.label))
+                    .map(|a| a.class.node_type())
+                    .unwrap_or("term_candidate")
+                    .into();
+            }
+        }
+        let as_of = NaiveDate::parse_from_str(&context.as_of, "%Y-%m-%d").unwrap();
+        let first = (as_of - chrono::Duration::days(context.window_days as i64 - 1)).to_string();
+        let active_events = events
+            .iter()
+            .filter(|e| e.date >= first)
+            .map(|e| &e.event_id)
+            .collect::<BTreeSet<_>>()
+            .len()
+            .max(1) as f64;
+        let mut candidates =
+            crate::focus::qualify_candidates(candidates, &assessments, as_of, active_events);
+        candidates.retain(|c| {
+            assessments
+                .get(&normalize(&c.term))
+                .is_some_and(|a| a.class.main())
+        });
+        let preliminary = crate::focus::foreground(&candidates);
         let vocabulary: Vec<_> = vocabulary.into_iter().collect();
         let patterns = AhoCorasick::new(vocabulary.iter().map(|(_, label)| label.to_lowercase()))
             .map_err(|e| format!("关注词典构建失败: {e}"))?;
-        let active: BTreeSet<_> = selected.iter().map(|c| normalize(&c.term)).collect();
+        let active: BTreeSet<_> = preliminary.iter().map(|c| normalize(&c.term)).collect();
         let mut original_ids: BTreeMap<String, String> = BTreeMap::new();
         let mut historical: BTreeMap<String, FocusCandidate> = BTreeMap::new();
         // Refresh historical evidence against current bytes. Future-dated
@@ -115,6 +189,19 @@ impl Extractor {
                 .collect();
             for index in matches {
                 let (key, label) = &vocabulary[index];
+                let assessment = &assessments[key];
+                if !crate::term_quality::mention_context(&event.text, label)
+                    || assessment.class == crate::term_quality::TermClass::Keyword
+                        && (!assessment.concept_events.contains(&event.event_id)
+                            || !crate::term_quality::concept_context(&event.text, label))
+                {
+                    continue;
+                }
+                if !assessment.concept_events.contains(&event.event_id)
+                    && !assessment.background_events.contains(&event.event_id)
+                {
+                    continue;
+                }
                 let occurrence = Occurrence {
                     path: event.path.clone(),
                     date: event.date.clone(),
@@ -129,7 +216,7 @@ impl Extractor {
                 let node = self.add_node(
                     format!("attention-word:{key}"),
                     label.clone(),
-                    "keyword",
+                    assessment.class.node_type(),
                     "observed",
                     vec![evidence],
                     Vec::new(),
@@ -139,7 +226,12 @@ impl Extractor {
                     .entry(key.clone())
                     .or_insert_with(|| FocusCandidate {
                         term: label.clone(),
-                        kind: "concept".into(),
+                        kind: if assessment.class == crate::term_quality::TermClass::Keyword {
+                            "concept"
+                        } else {
+                            "context"
+                        }
+                        .into(),
                         score: 0.,
                         active_days: 0,
                         events: 0,
@@ -153,10 +245,94 @@ impl Extractor {
                 }
             }
         }
+        // A separate dated background ranking supplies the background view;
+        // these nodes never consume the concept quota or define main districts.
+        let mut background = Vec::new();
+        for candidate in historical.values() {
+            let class = assessments[&normalize(&candidate.term)].class;
+            if matches!(
+                class,
+                crate::term_quality::TermClass::Keyword | crate::term_quality::TermClass::Candidate
+            ) {
+                continue;
+            }
+            let mut events: BTreeMap<String, Occurrence> = BTreeMap::new();
+            for occurrence in &candidate.occurrences {
+                if occurrence.date >= first && occurrence.date <= context.as_of {
+                    events
+                        .entry(occurrence.event_id.clone())
+                        .or_insert_with(|| occurrence.clone());
+                }
+            }
+            let dates: BTreeSet<_> = events.values().map(|o| o.date.clone()).collect();
+            if dates.len() < 2 {
+                continue;
+            }
+            let activation: f64 = dates
+                .iter()
+                .map(|date| {
+                    2f64.powf(
+                        -(as_of - NaiveDate::parse_from_str(date, "%Y-%m-%d").unwrap()).num_days()
+                            as f64
+                            / 10.,
+                    )
+                })
+                .sum();
+            background.push(FocusCandidate {
+                term: candidate.term.clone(),
+                kind: "context".into(),
+                score: activation.ln_1p() * (1. + (1. + dates.len() as f64).ln()),
+                active_days: dates.len(),
+                events: events.len(),
+                last_observed_at: dates.last().unwrap().clone(),
+                occurrences: events.into_values().collect(),
+            });
+        }
+        let max_background = background
+            .iter()
+            .map(|c| c.score)
+            .fold(0., f64::max)
+            .max(f64::EPSILON);
+        for c in &mut background {
+            c.score = 0.3 * c.score / max_background;
+        }
+        candidates.retain(|c| c.kind == "concept");
+        candidates.extend(background);
+        candidates.sort_by(|a, b| b.score.total_cmp(&a.score).then(a.term.cmp(&b.term)));
+        let selected = crate::focus::foreground(&candidates);
+        for candidate in &selected {
+            self.retained_keywords.insert(normalize(&candidate.term));
+        }
         // Relationships belong to the retained knowledge graph, so remeasure
         // all trusted historical observations rather than just today's window.
         // Otherwise advancing a date alone would erase established roads.
-        let historical: Vec<_> = historical.into_values().collect();
+        let historical: Vec<_> = historical
+            .into_values()
+            .filter(|c| assessments[&normalize(&c.term)].class.main())
+            .collect();
+        let relation_terms: BTreeMap<_, _> = historical
+            .iter()
+            .map(|c| (normalize(&c.term), c.term.clone()))
+            .collect();
+        for claim in crate::concept_relations::extract_relations(&events, &relation_terms) {
+            let (Some(from), Some(to)) =
+                (original_ids.get(&claim.from), original_ids.get(&claim.to))
+            else {
+                continue;
+            };
+            let participants = vec![
+                Participant {
+                    node: from.clone(),
+                    role: "subject".into(),
+                },
+                Participant {
+                    node: to.clone(),
+                    role: "object".into(),
+                },
+            ];
+            let evidence = self.attention_evidence(&claim.occurrence);
+            self.add_edge(&claim.relation, &claim.status, participants, vec![evidence]);
+        }
         for relation in crate::focus::associations(&historical) {
             let Some(a) = original_ids.get(&normalize(&relation.a)).cloned() else {
                 continue;

@@ -90,7 +90,18 @@ impl Extractor {
                 .filter(|s| s.meta.vault_id == vault_id)
                 .into_iter()
                 .flat_map(|s| &s.nodes)
-                .filter(|n| n.node_type == "keyword")
+                .filter(|n| {
+                    matches!(
+                        n.node_type.as_str(),
+                        "keyword"
+                            | "project"
+                            | "person"
+                            | "tool"
+                            | "resource"
+                            | "entity"
+                            | "term_candidate"
+                    )
+                })
                 .map(|n| (normalize(&n.label), n.label.clone()))
                 .collect(),
             attention: Vec::new(),

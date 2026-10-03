@@ -1,4 +1,4 @@
-import { isExplicit } from './domain'
+import { isAssertedRelation, isExplicit } from './domain'
 import { visualPoint, type ProjectedLot } from './city-projection'
 import type { Edge, Membership, Node } from './types'
 
@@ -83,6 +83,7 @@ export function relationWeight(edge: Edge) {
     return Math.min(.8, .15 * Math.log1p(support))
   }
   if (edge.participants.length !== 2 || edge.status === 'candidate') return 0
+  if (isAssertedRelation(edge) && edge.evidence.length > 0) return 1
   return edge.verifiedFamilies > 0 && isExplicit(edge) ? 2
     : edge.status === 'observed' && ['explicit_reference', 'wikilink', 'links_to', 'cites'].includes(edge.edgeType) ? 1
     : edge.status === 'observed' && edge.edgeType === 'tagged_with' ? .35

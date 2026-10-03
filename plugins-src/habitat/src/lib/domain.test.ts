@@ -94,3 +94,47 @@ it('distinguishes repeated discussion events from source-group co-occurrence and
   expect(signalLabel('trace_request')).toBe('留存过程的请求')
   expect(dateBasisLabel('daily_date')).toBe('日记所属日期')
 })
+
+it('separates concepts and explicit projects from background entities only in focus/4 and later', async () => {
+  const { graphNodes, isConceptGraph } = await import('./domain')
+  const snapshot = focusFixture()
+  snapshot.meta.algorithm.version = 'habitat-focus/4'
+  snapshot.nodes[0].nodeType = 'project'
+  const background = ['person', 'tool', 'resource', 'entity', 'term_candidate'].map((nodeType, i) => ({ id: `background-${i}`, key: `background-${i}`, label: nodeType, nodeType, status: 'observed', evidence: ['e1'] }))
+  snapshot.nodes.push(...background)
+  snapshot.attention!.push(...background.map(node => ({ ...snapshot.attention![0], node: node.id, score: 1 })))
+  const before = JSON.stringify(snapshot)
+  expect(isConceptGraph(snapshot)).toBe(true)
+  expect(filterNodes(snapshot, '', '', true).map(n => n.id)).toEqual(['n2', 'n1'])
+  expect(graphNodes(snapshot).map(n => n.id)).toEqual(['n1', 'n2', 'old'])
+  expect(filterNodes(snapshot, '', '', true, 'background').map(n => n.id)).toEqual(background.map(n => n.id))
+  expect(graphNodes(snapshot, 'all')).toHaveLength(8)
+  expect(graphNodes(snapshot, 'all').some(n => n.nodeType === 'topic')).toBe(false)
+  expect(JSON.stringify(snapshot)).toBe(before)
+  snapshot.meta.algorithm.version = 'habitat-focus/3'
+  expect(isConceptGraph(snapshot)).toBe(false)
+  expect(graphNodes(snapshot, 'background').map(n => n.id)).toEqual(['n2', 'old'])
+  snapshot.meta.algorithm.version = 'habitat-focus/14'
+  expect(isConceptGraph(snapshot)).toBe(true)
+})
+
+it('keeps asserted statements, explicit links and optional statistics distinct regardless of source count', async () => {
+  const { cityRelations, isAssertedRelation, participantRoleLabel, relationStatement, statusLabel, typeLabel } = await import('./domain')
+  const snapshot = focusFixture(); snapshot.meta.algorithm.version = 'habitat-focus/4'
+  const asserted = { ...snapshot.edges[0], id: 'assertion', edgeType: 'depends_on', status: 'asserted', participants: [{ node: 'n2', role: 'object' }, { node: 'n1', role: 'subject' }] }
+  const statistical = { ...snapshot.edges[0], id: 'statistics', edgeType: 'co_occurs', status: 'statistical' }
+  snapshot.edges.push(asserted, statistical, { ...asserted, id: 'candidate', status: 'candidate', verifiedFamilies: 1000 }, { ...asserted, id: 'imported', status: 'imported', verifiedFamilies: 1000 })
+  expect(cityRelations(snapshot).map(e => e.id)).toEqual(['r1', 'assertion'])
+  expect(cityRelations(snapshot, true).map(e => e.id)).toEqual(['r1', 'assertion', 'statistics'])
+  expect(isAssertedRelation(asserted)).toBe(true)
+  expect(relationStatement(asserted, new Map(snapshot.nodes.map(n => [n.id, n])))).toBe('纸船计划 → 依赖 → 观察与反馈')
+  expect(relationExplanation(asserted)).toContain('不等于已核实的客观事实')
+  expect(statusLabel('asserted')).toBe('原文陈述')
+  expect(statusLabel('declared_project')).toBe('明确项目声明')
+  expect(participantRoleLabel('subject')).toBe('主语')
+  expect(participantRoleLabel('unknown-role')).toBe('关联对象')
+  expect(typeLabel('keyword', true)).toBe('概念')
+  expect(typeLabel('keyword')).toBe('关键词')
+  snapshot.meta.algorithm.version = 'habitat-focus/3'
+  expect(cityRelations(snapshot)).toEqual(snapshot.edges)
+})

@@ -4,6 +4,8 @@ pub mod diff;
 pub mod extract;
 pub mod focus;
 mod keyword;
+mod term_quality;
+mod concept_relations;
 pub mod model;
 pub mod organize;
 pub use codec::{decode, encode, finalize, validate};

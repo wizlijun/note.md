@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { planCity, segmentDistance, type CityPlan } from './city-plan'
+import { planCity, relationWeight, segmentDistance, type CityPlan } from './city-plan'
 import type { ProjectedLot } from './city-projection'
 import type { Edge } from './types'
 
@@ -20,6 +20,15 @@ function assertClearances(plan: CityPlan) {
 }
 
 describe('deterministic game city plan', () => {
+  it('routes evidenced source assertions without upgrading them to verified facts', () => {
+    const assertion = { ...edge('claim', 'a', 'b'), edgeType: 'depends_on', status: 'asserted', verifiedFamilies: 0, participants: [{ node: 'a', role: 'subject' }, { node: 'b', role: 'object' }] }
+    expect(relationWeight(assertion)).toBe(1)
+    expect(relationWeight({ ...assertion, evidence: [] })).toBe(0)
+    expect(relationWeight({ ...assertion, status: 'negated' })).toBe(0)
+    const plan = planCity([lot('a', 0, 0), lot('b', 16, 0)], [assertion])
+    expect(plan.roads.some(road => road.traffic > 0)).toBe(true)
+  })
+
   it('covers every original object and preserves identity through aggregation', () => {
     const lots = city(), plan = planCity(lots, [])
     expect(plan.parcels.flatMap(p => p.members)).toHaveLength(lots.length)

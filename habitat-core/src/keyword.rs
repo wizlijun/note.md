@@ -25,6 +25,7 @@ struct Word {
     declared: bool,
     status: String,
     intent: Option<String>,
+    node_type: String,
 }
 fn normalized(value: &str) -> String {
     value
@@ -36,6 +37,11 @@ fn normalized(value: &str) -> String {
         .to_lowercase()
 }
 pub(crate) fn acceptable(value: &str) -> bool {
+    if !crate::term_quality::surface_allowed(value) {
+        return false;
+    }
+    let value = normalized(value);
+    let value = value.as_str();
     let n = value.chars().count();
     if !(2..=64).contains(&n)
         || !value.chars().any(char::is_alphabetic)
@@ -185,7 +191,7 @@ fn edge_weight(edge: &Edge) -> f64 {
     }
     let authority = match edge.status.as_str() {
         "imported" => 0.25,
-        "observed" | "user-confirmed" => 1.,
+        "observed" | "user-confirmed" | "asserted" => 1.,
         _ => 0.,
     };
     authority
@@ -256,12 +262,19 @@ pub(crate) fn project(vault: &str, mut data: Extraction) -> (Extraction, Graph) 
     for n in &data.nodes {
         if !matches!(
             n.node_type.as_str(),
-            "concept" | "entity" | "project" | "keyword"
+            "concept"
+                | "entity"
+                | "project"
+                | "keyword"
+                | "person"
+                | "tool"
+                | "resource"
+                | "term_candidate"
         ) {
             continue;
         }
         let norm = normalized(&n.label);
-        if !acceptable(&norm) {
+        if !acceptable(&n.label) && n.node_type != "project" {
             continue;
         }
         let word = groups.entry(norm.clone()).or_insert_with(|| Word {
@@ -269,15 +282,29 @@ pub(crate) fn project(vault: &str, mut data: Extraction) -> (Extraction, Graph) 
             ..Default::default()
         });
         word.originals.push(n.id.clone());
+        let class = if n.node_type == "concept" {
+            "keyword"
+        } else {
+            n.node_type.as_str()
+        };
+        let class_priority = |s: &str| match s {
+            "project" => 7,
+            "person" => 6,
+            "tool" => 5,
+            "resource" => 4,
+            "keyword" => 3,
+            "entity" => 2,
+            "term_candidate" => 1,
+            _ => 0,
+        };
+        if class_priority(class) > class_priority(&word.node_type) {
+            word.node_type = class.into();
+        }
         word.labels.insert(n.label.clone());
         // Aliases remain display/search aliases. They are not transitive entity
         // identity assertions and cannot merge unrelated scoped names.
-        word.labels.extend(
-            n.aliases
-                .iter()
-                .filter(|a| acceptable(&normalized(a)))
-                .cloned(),
-        );
+        word.labels
+            .extend(n.aliases.iter().filter(|a| acceptable(a)).cloned());
         let native = n.status != "imported";
         word.native |= native;
         if authority(&n.status) > authority(&word.status) {
@@ -285,7 +312,7 @@ pub(crate) fn project(vault: &str, mut data: Extraction) -> (Extraction, Graph) 
         }
         if let Some(intent) = &n.intent_status {
             if intent != "imported_project_mention" {
-                word.declared = true;
+                word.declared |= intent == "declared_project";
                 if word
                     .intent
                     .as_ref()
@@ -406,7 +433,15 @@ pub(crate) fn project(vault: &str, mut data: Extraction) -> (Extraction, Graph) 
             .get(key)
             .copied()
             .unwrap_or_else(|| edge_weight(edge));
-        if participants.len() == 2 && weight > 0. {
+        let main = participants
+            .iter()
+            .all(|(i, _)| matches!(words[*i].node_type.as_str(), "keyword" | "project"));
+        let weight = if edge.status == "statistical" {
+            weight * 0.1
+        } else {
+            weight
+        };
+        if main && participants.len() == 2 && weight > 0. {
             let (a, b) = (participants[0].0, participants[1].0);
             if a != b {
                 *graph[a].entry(b).or_default() += weight;
@@ -416,6 +451,9 @@ pub(crate) fn project(vault: &str, mut data: Extraction) -> (Extraction, Graph) 
     }
     let mut windows: BTreeMap<String, Window> = BTreeMap::new();
     for (i, word) in words.iter().enumerate() {
+        if !matches!(word.node_type.as_str(), "keyword" | "project") {
+            continue;
+        }
         for id in &word.evidence {
             let ev = evidence[id.as_str()];
             if ev.verification != "matched"
@@ -496,8 +534,8 @@ pub(crate) fn project(vault: &str, mut data: Extraction) -> (Extraction, Graph) 
             continue;
         }
         let weight = npmi * families.len() as f64 / (families.len() as f64 + 2.);
-        *graph[a].entry(b).or_default() += weight;
-        *graph[b].entry(a).or_default() += weight;
+        *graph[a].entry(b).or_default() += weight * 0.1;
+        *graph[b].entry(a).or_default() += weight * 0.1;
         associations.push(Association {
             a,
             b,
@@ -539,8 +577,12 @@ pub(crate) fn project(vault: &str, mut data: Extraction) -> (Extraction, Graph) 
         .collect();
     ranked.sort_by(|&a, &b| {
         let score = |i: usize| 0.55 * prior[i] / sum + 0.45 * ranks[i];
-        score(b)
-            .total_cmp(&score(a))
+        matches!(words[b].node_type.as_str(), "keyword" | "project")
+            .cmp(&matches!(
+                words[a].node_type.as_str(),
+                "keyword" | "project"
+            ))
+            .then_with(|| score(b).total_cmp(&score(a)))
             .then(words[a].spelling.cmp(&words[b].spelling))
     });
     let mut imported = 0;
@@ -582,7 +624,7 @@ pub(crate) fn project(vault: &str, mut data: Extraction) -> (Extraction, Graph) 
         output_nodes.push(Node {
             id,
             key,
-            node_type: "keyword".into(),
+            node_type: w.node_type.clone(),
             label: label.clone(),
             status: w.status.clone(),
             aliases: w.labels.iter().filter(|s| **s != label).cloned().collect(),
@@ -681,11 +723,22 @@ pub(crate) fn project(vault: &str, mut data: Extraction) -> (Extraction, Graph) 
         .filter(|e| used.contains(&e.id))
         .collect();
     let assigned: BTreeSet<_> = kept_evidence.iter().map(|e| e.source.as_str()).collect();
-    let mut attention = data.attention;
-    for item in &mut attention {
-        let i = lookup[&item.node.as_str()];
-        item.node = output_nodes[index[&i]].id.clone();
-    }
+    let attention: Vec<_> = data
+        .attention
+        .into_iter()
+        .filter_map(|mut item| {
+            let i = *lookup.get(item.node.as_str())?;
+            let output = *index.get(&i)?;
+            item.node = output_nodes[output].id.clone();
+            Some(item)
+        })
+        .collect();
+    let attention_evidence: BTreeSet<_> = attention
+        .iter()
+        .flat_map(|a| a.evidence.iter().cloned())
+        .collect();
+    data.attention_observations
+        .retain(|o| attention_evidence.contains(&o.evidence));
     let mut coverage = data.coverage;
     coverage.unassigned_sources = data
         .sources

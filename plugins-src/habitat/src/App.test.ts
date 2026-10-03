@@ -279,3 +279,105 @@ it('loads both frozen versions for genuine rebuilding and removes that state in 
   expect(document.querySelector('.growth-badge')?.textContent).not.toContain('结构重建')
   expect(request.mock.calls.some(c => ['plugin.generate','host.vault.write'].includes(c[0]))).toBe(false)
 })
+
+function conceptSnapshot() {
+  const data = focusFixture(); data.meta.algorithm.version = 'habitat-focus/4'
+  data.nodes[0] = { ...data.nodes[0], nodeType: 'project', status: 'observed', intentStatus: 'declared_project' }
+  data.nodes.push({ id:'person', key:'person', nodeType:'person', label:'原文中的人物', status:'observed', evidence:['e1'] }, { id:'tool', key:'tool', nodeType:'tool', label:'原文中的工具', status:'observed', evidence:['e1'] })
+  data.attention!.push({ ...data.attention![0], node:'person', score:1 }, { ...data.attention![0], node:'tool', score:.9 })
+  data.edges = [
+    { ...data.edges[0], id:'statement', edgeType:'depends_on', status:'asserted', evidence:['e2'], participants:[{node:'n2',role:'subject'},{node:'n1',role:'object'}] },
+    { ...data.edges[0], id:'statistics', edgeType:'co_discussed', status:'statistical' },
+    { ...data.edges[0], id:'person-link', participants:[{node:'n2',role:'source'},{node:'person',role:'target'}] },
+    { ...data.edges[0], id:'imported-claim', edgeType:'is_a', status:'imported' },
+  ]
+  return data
+}
+
+it('defaults the concept city to concepts and projects and exposes background sources without reclassification', async () => {
+  current.snapshot = conceptSnapshot(); const original = JSON.stringify(current.snapshot)
+  await mountApp()
+  expect([...document.querySelectorAll('.node-row strong')].map(n=>n.textContent)).toEqual(['观察与反馈','纸船计划'])
+  expect(document.querySelector('.section-title')?.textContent).toContain('个概念 / 项目')
+  expect(document.querySelector('.focus-window')?.textContent).not.toContain('历史概念为自动识别结果')
+  const project = [...document.querySelectorAll<HTMLButtonElement>('.node-row')].find(n=>n.textContent?.includes('纸船计划'))!
+  expect(project.textContent).toContain('项目 · 2 天')
+  expect(project.classList.contains('context-word')).toBe(false)
+  project.click(); await flush()
+  expect(document.querySelector('.detail-panel')?.textContent).toContain('明确项目声明')
+  const layer = document.querySelector<HTMLSelectElement>('[aria-label="知识层"]')!
+  layer.value='background'; layer.dispatchEvent(new Event('change',{bubbles:true})); await flush()
+  expect(document.querySelector('.detail-panel')).toBeNull()
+  expect([...document.querySelectorAll('.node-row strong')].map(n=>n.textContent)).toEqual(['原文中的人物','原文中的工具'])
+  document.querySelector<HTMLButtonElement>('.node-row')!.click(); await flush()
+  expect(document.querySelector('.detail-panel')?.textContent).toContain('背景层 · 人物')
+  expect(document.querySelector('.growth-badge')).toBeNull()
+  button('核对并打开原文 ↗').click(); await flush()
+  expect(request).toHaveBeenCalledWith('plugin.open_source', {evidenceId:'e1'})
+  expect(request).toHaveBeenCalledWith('host.editor.open', {path:'fixture/research.md'})
+  layer.value='all'; layer.dispatchEvent(new Event('change',{bubbles:true})); await flush()
+  expect(document.querySelectorAll('.node-row')).toHaveLength(4)
+  button('历史结构').click(); await flush()
+  expect(document.querySelectorAll('.node-row')).toHaveLength(5)
+  expect(document.querySelector('.focus-window')?.textContent).toBe('历史概念为自动识别结果，可回源核对。')
+  expect(JSON.stringify(current.snapshot)).toBe(original)
+})
+
+it('starts roads with textual statements, optionally adds statistics and preserves selected concept evidence', async () => {
+  current.snapshot = conceptSnapshot(); await mountApp()
+  expect(document.querySelector('.directory-footer')?.textContent).toContain('1 条关系')
+  document.querySelector<HTMLButtonElement>('.node-row')!.click(); await flush()
+  const cards = [...document.querySelectorAll('.relation-card')]
+  expect(cards[0].textContent).toContain('原文陈述')
+  expect(cards[0].textContent).toContain('观察与反馈 → 依赖 → 纸船计划')
+  expect(cards[0].textContent).toContain('不等于已核实的客观事实')
+  expect(cards.find(card => card.textContent?.includes('重复共同讨论'))?.textContent).toContain('统计关联')
+  expect(cards[3].textContent).toContain('导入候选')
+  expect(document.querySelector('.detail-panel')?.textContent).not.toContain('subject')
+  button('核对关系原文 ↗').click(); await flush()
+  expect(request).toHaveBeenCalledWith('plugin.open_source', {evidenceId:'e2'})
+  const statistics=document.querySelector<HTMLInputElement>('[aria-label="包含统计关联"]')!
+  expect(statistics.checked).toBe(false); statistics.click(); await flush()
+  expect(document.querySelector('.directory-footer')?.textContent).toContain('2 条关系')
+  expect(document.querySelector('.detail-panel h2')?.textContent).toBe('观察与反馈')
+  button('历史结构').click(); await flush()
+  expect(document.querySelector('.detail-panel h2')?.textContent).toBe('观察与反馈')
+  const personLink=[...document.querySelectorAll<HTMLButtonElement>('.relation-card button')].find(n=>n.textContent?.includes('原文中的人物'))!
+  personLink.click(); await flush()
+  expect(document.querySelector('.detail-panel h2')?.textContent).toBe('原文中的人物')
+  expect(document.querySelector('.evidence-path')?.textContent).toBe('fixture/research.md')
+  expect(document.querySelectorAll('.node-row')).toHaveLength(3)
+})
+
+it('does not add concept-layer or road-certainty controls to an older keyword snapshot', async () => {
+  current.snapshot=focusFixture(); await mountApp()
+  expect(document.querySelector('[aria-label="知识层"]')).toBeNull()
+  expect(document.querySelector('[aria-label="包含统计关联"]')).toBeNull()
+  expect(document.querySelector('.section-title')?.textContent).toContain('2 个关键词')
+})
+
+it('handles empty and single background layers across recent and history without losing source access', async () => {
+  const data=focusFixture();data.meta.algorithm.version='habitat-focus/4'
+  data.nodes.push({id:'person',key:'person',nodeType:'person',label:'历史人物条目',status:'observed',evidence:['e1']})
+  current.snapshot=data;await mountApp()
+  const layer=document.querySelector<HTMLSelectElement>('[aria-label="知识层"]')!
+  layer.value='background';layer.dispatchEvent(new Event('change',{bubbles:true}));await flush()
+  expect(document.querySelectorAll('.node-row')).toHaveLength(0)
+  expect(document.querySelector('.empty-overlay')?.textContent).toContain('本层近期没有足够的关注线索')
+  button('历史结构').click();await flush()
+  expect(document.querySelectorAll('.node-row')).toHaveLength(1)
+  expect(document.querySelector('.empty-overlay')).toBeNull()
+  document.querySelector<HTMLButtonElement>('.node-row')!.click();await flush()
+  expect(document.querySelector('.detail-panel h2')?.textContent).toBe('历史人物条目')
+  expect(document.querySelector('.growth-badge')).toBeNull()
+  button('核对并打开原文 ↗').click();await flush()
+  expect(request).toHaveBeenCalledWith('plugin.open_source',{evidenceId:'e1'})
+  const search=document.querySelector<HTMLInputElement>('[aria-label="搜索节点与别名"]')!
+  search.value='不存在的搜索词';search.dispatchEvent(new Event('input',{bubbles:true}));await flush()
+  expect(document.querySelector('.empty-overlay')?.textContent).toContain('本层没有匹配的节点')
+  layer.value='main';layer.dispatchEvent(new Event('change',{bubbles:true}));await flush()
+  expect(document.querySelectorAll('.node-row')).toHaveLength(3)
+  expect(document.querySelector('.detail-panel')).toBeNull()
+  button('近期关注').click();await flush()
+  expect(document.querySelectorAll('.node-row')).toHaveLength(2)
+})

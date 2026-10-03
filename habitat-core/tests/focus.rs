@@ -92,6 +92,8 @@ fn role_headers_inside_fenced_examples_are_not_real_user_events_and_user_heading
 #[test]
 fn review_skill_ambient_reply_echo_and_delegated_tasks_are_not_owner_attention() {
     for wrapper in [
+        "<skill>\n<name>an-example</name>\n你是一名专家。你的任务是解释认知心理学。\n</skill>",
+        "---BEGIN TASK FROM PARENT AGENT---\nYou are a fact-checker. Check these claims.",
         "The following is the Codex agent history whose request action needs review",
         "Base directory for this skill: /skills/chart\nThis skill teaches neuroscience.",
         "This block is automatically supplied ambient UI state, not part of the user's request.",
@@ -372,4 +374,18 @@ fn dependent_modifiers_require_a_referent_but_full_phrases_survive() {
     )
     .unwrap();
     assert!(explicit.iter().any(|c| c.term == "核心"));
+}
+
+#[test]
+fn emerging_terms_need_distinct_utterances_not_only_distinct_session_ids() {
+    let ranked = rank(events("2026-10-01", "为什么工作记忆影响决策质量？"));
+    let mut candidate = ranked.into_iter().find(|c| c.term == "工作记忆").unwrap();
+    candidate.score = 1.;
+    let mut copy = candidate.occurrences[0].clone();
+    copy.event_id = "different-export-context".into();
+    candidate.occurrences.push(copy);
+    candidate.events = 2;
+    assert!(focus::foreground(&[candidate.clone()]).is_empty());
+    candidate.occurrences[1].text = "为什么工作记忆与认知负荷相关？".into();
+    assert_eq!(focus::foreground(&[candidate]).len(), 1);
 }

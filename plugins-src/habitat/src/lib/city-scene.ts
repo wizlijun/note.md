@@ -3,7 +3,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import { CityAssets, houses, commercial, trees, tents, rusticHuts, rusticCabins, type CityAssetId, type CityAssetPlacement } from './city-assets'
 import type { ConceptGrowthProfile, GrowthState } from './concept-growth'
-import { focusDistrictLabel } from './domain'
+import { focusDistrictLabel, isMainConcept, typeLabel } from './domain'
 import { planCity, segmentDistance, type CityPlan, type CityPoint, type CityPlacement } from './city-plan'
 import type { Attention, Edge, Layout, Membership, Node } from './types'
 
@@ -18,7 +18,7 @@ function seed(text: string) {
   return ((n ^ n >>> 16) >>> 0) / 4294967296
 }
 interface VisualLot { node: Node; x: number; z: number; h: number; w: number; style?: string; parcelId: string; district?: { name: string; count: number; kind: string; topicId?: string; unassigned?: boolean; contextName?: string; attentionCategory?: string } }
-export interface CityData { nodes: Node[]; layout: Layout[]; edges: Edge[]; memberships?: Membership[]; topics?: Node[]; keywordGraph?: boolean; attention?: Attention[]; growth?: Map<string, ConceptGrowthProfile> }
+export interface CityData { nodes: Node[]; layout: Layout[]; edges: Edge[]; memberships?: Membership[]; topics?: Node[]; keywordGraph?: boolean; conceptGraph?: boolean; attention?: Attention[]; growth?: Map<string, ConceptGrowthProfile> }
 export interface Label { id: string; nodeId?: string; attentionCategory?: string; name: string; x: number; y: number; kind: string; selected: boolean; district?: { name: string; count: number; kind: string; topicId?: string; unassigned?: boolean; contextName?: string; attentionCategory?: string }; compact?: boolean; width?: number; growth?: string; growthState?: GrowthState }
 export interface SceneStatus { labels: Label[]; count: number; rendered?: number; aggregated?: boolean; zoom?: number; loading?: boolean; error?: string; hover?: { name: string; kind: string; growth?: string; x: number; y: number } }
 type Primitive = { p: number[]; s: number[]; ry?: number; color?: string }
@@ -226,8 +226,9 @@ export class CityScene {
       const representative = hero?.node ?? [...members].sort((a, b) => rank(a) - rank(b) || Number(a.label.length > 24) - Number(b.label.length > 24) || (b.evidence?.length ?? 0) - (a.evidence?.length ?? 0) || a.id.localeCompare(b.id))[0]
       if (!representative) return []
       const focusLabel = focusDistrictLabel(members, attention)
+      const parcelName = data.conceptGraph ? parcel.name?.replace('待连接关键词', '待连接节点') : parcel.name
       const kind = parcel.kind === 'campus' ? '项目园区' : parcel.kind === 'park' ? '探索营地' : parcel.kind === 'growth' ? data.keywordGraph ? '探索地块（尚无社区）' : '材料街区' : '知识街区'
-      return [{ node: representative, x: hero?.x ?? parcel.center.x, z: hero?.z ?? parcel.center.z, h: hero?.h ?? .3, w: 1, style: hero?.style, parcelId: parcel.id, district: { name: focusLabel ? (parcel.unassigned ? '待连接：' : '') + focusLabel.name : parcel.name ?? representative.label, contextName: focusLabel && parcel.topicId ? parcel.name : undefined, attentionCategory: focusLabel?.category, count: parcel.members.length, kind, topicId: parcel.topicId, unassigned: parcel.unassigned } }]
+      return [{ node: representative, x: hero?.x ?? parcel.center.x, z: hero?.z ?? parcel.center.z, h: hero?.h ?? .3, w: 1, style: hero?.style, parcelId: parcel.id, district: { name: focusLabel ? (parcel.unassigned ? '待连接：' : '') + focusLabel.name : parcelName ?? representative.label, contextName: focusLabel && parcel.topicId ? parcelName : undefined, attentionCategory: focusLabel?.category, count: parcel.members.length, kind, topicId: parcel.topicId, unassigned: parcel.unassigned } }]
     })
     const center = this.bounds.getCenter(new THREE.Vector3()), size = this.bounds.getSize(new THREE.Vector3()), span = Math.max(size.x, size.z) * .7 + 12
     const lightDistance = Math.max(100, span * 2)
@@ -368,6 +369,14 @@ export class CityScene {
     return height
   }
   private conceptBuilding(p: CityPlacement, node: Node) {
+    // Background objects have a neutral pavilion, not a concept maturity stage.
+    if (this.latest?.conceptGraph && !isMainConcept(node)) {
+      const radius = p.footprint
+      const ground = new THREE.PlaneGeometry(radius * 1.3, radius * 1.3)
+      ground.rotateX(-Math.PI / 2); ground.rotateY(p.rotation); ground.translate(p.x, .21, p.z)
+      this.yards.push(ground)
+      return this.addAsset(commercial[3], p.x, p.z, radius * .55, p.rotation, node.id, .24) + .24
+    }
     const growth = this.latest?.growth?.get(node.id), stage = growth?.stage ?? 'hut'
     const v = seed(node.id), r = p.footprint, rotation = p.rotation
     const level = ['hut', 'cottage', 'house', 'workshop', 'midrise', 'tower'].indexOf(stage)
@@ -467,9 +476,9 @@ export class CityScene {
         // A small visibility graph follows real gaps between the at-most-12
         // reserved plots. Reuse it for all inner addresses of this block.
         const alleyWidth = .2
-        let graph: { points: CityPoint[]; exits: number; neighbors: { to: number; cost: number }[][] } | undefined
-        const alleys = () => {
-          if (graph) return graph
+        let graph: { points: CityPoint[]; exits: number; neighbors: { to: number; cost: number }[][]; perimeter: number } | undefined
+        const alleys = (perimeter = 0) => {
+          if (graph && graph.perimeter >= perimeter) return graph
           const points = sides.flatMap(side => [.15, .5, .85].map(t => endpoint(side, t)))
             .filter(point => clear(point, point, alleyWidth))
           const exits = points.length
@@ -477,13 +486,23 @@ export class CityScene {
             const point = { x: (lots[i].x + b.x) / 2, z: (lots[i].z + b.z) / 2 }
             if (clear(point, point, alleyWidth)) points.push(point)
           }
+          // Midpoints alone can leave a front gate behind its own plot's
+          // exclusion circle. Add safe turning points only for blocked plots.
+          if (perimeter) for (const lot of lots) {
+            const radius = (lot.footprint + alleyWidth / 2 + .015) / Math.cos(Math.PI / perimeter) + .001
+            for (let i = 0; i < perimeter; i++) {
+              const angle = i * Math.PI * 2 / perimeter
+              const point = { x: lot.x + Math.cos(angle) * radius, z: lot.z + Math.sin(angle) * radius }
+              if (clear(point, point, alleyWidth)) points.push(point)
+            }
+          }
           const neighbors = points.map(() => [] as { to: number; cost: number }[])
           for (let i = 0; i < points.length; i++) for (let j = i + 1; j < points.length; j++) {
             if (!clear(points[i], points[j], alleyWidth)) continue
             const cost = Math.hypot(points[i].x - points[j].x, points[i].z - points[j].z)
             neighbors[i].push({ to: j, cost }); neighbors[j].push({ to: i, cost })
           }
-          return graph = { points, exits, neighbors }
+          return graph = { points, exits, neighbors, perimeter }
         }
         for (const lot of lots) {
           const front = { x: Math.sin(lot.rotation), z: Math.cos(lot.rotation) }
@@ -502,21 +521,24 @@ export class CityScene {
           if (!path) {
             width = alleyWidth
             const escape = { x: lot.x + front.x * (lot.footprint + width / 2 + .02), z: lot.z + front.z * (lot.footprint + width / 2 + .02) }
-            const network = alleys(), costs = network.points.map(point => clear(escape, point, width) ? Math.hypot(point.x-escape.x,point.z-escape.z) : Infinity)
-            const previous = network.points.map(() => -1), visited = new Set<number>()
-            if (clear(gate, escape, width, lot)) for (;;) {
-              let at = -1
-              for (let i = 0; i < costs.length; i++) if (!visited.has(i) && Number.isFinite(costs[i]) && (at < 0 || costs[i] < costs[at])) at = i
-              if (at < 0) break
-              if (at < network.exits) {
-                const route = []
-                for (let i = at; i >= 0; i = previous[i]) route.push(network.points[i])
-                path = [gate, escape, ...route.reverse()]; break
+            for (const perimeter of [0, 16, 64]) {
+              const network = alleys(perimeter), costs = network.points.map(point => clear(escape, point, width) ? Math.hypot(point.x-escape.x,point.z-escape.z) : Infinity)
+              const previous = network.points.map(() => -1), visited = new Set<number>()
+              if (clear(gate, escape, width, lot)) for (;;) {
+                let at = -1
+                for (let i = 0; i < costs.length; i++) if (!visited.has(i) && Number.isFinite(costs[i]) && (at < 0 || costs[i] < costs[at])) at = i
+                if (at < 0) break
+                if (at < network.exits) {
+                  const route = []
+                  for (let i = at; i >= 0; i = previous[i]) route.push(network.points[i])
+                  path = [gate, escape, ...route.reverse()]; break
+                }
+                visited.add(at)
+                for (const next of network.neighbors[at]) if (costs[at] + next.cost < costs[next.to]) {
+                  costs[next.to] = costs[at] + next.cost; previous[next.to] = at
+                }
               }
-              visited.add(at)
-              for (const next of network.neighbors[at]) if (costs[at] + next.cost < costs[next.to]) {
-                costs[next.to] = costs[at] + next.cost; previous[next.to] = at
-              }
+              if (path) break
             }
           }
           if (!path) { missing.push(lot.id); continue }
@@ -634,7 +656,21 @@ export class CityScene {
   }
   zoom(factor: number) { this.camera.zoom = THREE.MathUtils.clamp(this.camera.zoom * factor, .45, 18); this.camera.updateProjectionMatrix(); this.schedule() }
   rotate() { const offset = this.camera.position.clone().sub(this.controls.target).applyAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 4); this.camera.position.copy(this.controls.target).add(offset); this.controls.update(); this.schedule() }
-  focus(id: string) { const l = this.byId.get(id); if (!l) return; const offset = this.camera.position.clone().sub(this.controls.target); this.controls.target.set(l.x, l.h * .25, l.z); this.camera.position.copy(this.controls.target).add(offset); this.camera.zoom = Math.max(this.camera.zoom, l.w > 4 ? 3 : 5); this.camera.updateProjectionMatrix(); this.controls.update(); this.schedule() }
+  focus(id: string) {
+    const l = this.byId.get(id); if (!l) return
+    const offset = this.camera.position.clone().sub(this.controls.target)
+    this.controls.target.set(l.x, l.h * .25, l.z); this.camera.position.copy(this.controls.target).add(offset)
+    this.controls.update(); this.camera.updateMatrixWorld(true)
+    // A sparse city has a smaller frustum: cap magnification so the roof label
+    // and the complete building still fit, including after manual zooming.
+    let fitZoom = Infinity
+    for (const x of [l.x - l.w / 2, l.x + l.w / 2]) for (const y of [0, l.h + .6]) for (const z of [l.z - l.w / 2, l.z + l.w / 2]) {
+      const p = new THREE.Vector3(x, y, z).applyMatrix4(this.camera.matrixWorldInverse)
+      fitZoom = Math.min(fitZoom, this.camera.right * .8 / Math.max(.01, Math.abs(p.x)), this.camera.top * .8 / Math.max(.01, Math.abs(p.y)))
+    }
+    this.camera.zoom = Math.min(fitZoom, Math.max(this.camera.zoom, l.w > 4 ? 3 : 5))
+    this.camera.updateProjectionMatrix(); this.schedule()
+  }
   private down = (e: PointerEvent) => { this.pointerDown = { x: e.clientX, y: e.clientY } }
   private up = (e: PointerEvent) => { if (e.button === 0 && this.pointerDown && Math.hypot(e.clientX - this.pointerDown.x, e.clientY - this.pointerDown.y) < 4) { const id = this.pick(e); if (id) this.select(id) } this.pointerDown = null }
   private pick(e: PointerEvent) { const rect = this.canvas.getBoundingClientRect(); this.mouse.set((e.clientX - rect.left) / this.width * 2 - 1, -(e.clientY - rect.top) / this.height * 2 + 1); this.ray.setFromCamera(this.mouse, this.camera); const hit = this.ray.intersectObjects(this.pickables, false)[0]; return hit && hit.instanceId !== undefined ? this.instanceIds.get(hit.object)?.[hit.instanceId] : undefined }
@@ -650,7 +686,7 @@ export class CityScene {
       if (x < 12 || x > this.width - 12 || y < 22 || y > this.height - 50 || p.z < -1 || p.z > 1) continue
       const prominent = !!l.style || l.node.id === this.selected
       const growth = !l.district ? this.latest?.growth?.get(l.node.id)?.label : undefined
-      const extra = growth ? 36 : 0
+      const extra = growth ? 36 : !l.district && this.latest?.conceptGraph ? typeLabel(l.node.nodeType, true).length * 8 + 12 : 0
       const width = prominent ? Math.min(185, (l.district?.name ?? l.node.label).length * 10 + 28 + extra) : Math.min(this.camera.zoom > 1.5 ? 170 : 132, (l.district?.name ?? l.node.label).length * 9 + 30 + extra)
       const height = prominent ? 29 : l.district ? 19 : 24
       const overlaps = rects.some(r => Math.abs(x - r.x) < (width + r.w) / 2 + 3 && Math.abs(y - height / 2 - r.y) < (height + r.h) / 2 + 3)

@@ -140,6 +140,10 @@ fn wrapper(text: &str) -> bool {
         "<environment_context>",
         "<INSTRUCTIONS>",
         "<skills_instructions>",
+        "<skill>",
+        "<skill ",
+        "你是一个外部 Agent",
+        "你是一个外部Agent",
         "<system-reminder>",
         "<subagent_notification>",
         "<task>",
@@ -148,6 +152,11 @@ fn wrapper(text: &str) -> bool {
         "You are a coding",
         "Task name:",
         "NEW_TASK",
+        "BEGIN TASK FROM PARENT AGENT",
+        "You are a fact-checker",
+        "You are a worker",
+        "You are the worker",
+        "END TASK FROM PARENT AGENT",
         "Your task is",
         "Your task:",
         "The following is a summary",
@@ -399,6 +408,12 @@ fn push_event(
 ) {
     let body = lines[start..end].join("\n");
     if wrapper(&body)
+        || (["你是一名", "你是 ", "你是一个"]
+            .iter()
+            .any(|p| body.contains(p))
+            && ["你的任务", "唯一任务", "最高优先级规则"]
+                .iter()
+                .any(|p| body.contains(p)))
         || operative(&body)
         || body.contains("Answers to your questions:")
         || body.chars().count() > 6000
@@ -501,10 +516,10 @@ fn push_event(
         });
     }
 }
-fn stop(term: &str) -> bool {
+pub(crate) fn lexical_stop(term: &str) -> bool {
     let t = norm(term);
     let n = t.chars().count();
-    if !(2..=20).contains(&n)
+    if !(2..=64).contains(&n)
         || !t.chars().any(char::is_alphabetic)
         || t.ends_with(".wav")
         || t.ends_with(".json")
@@ -886,7 +901,7 @@ fn stop(term: &str) -> bool {
 fn noun(tag: &str) -> bool {
     matches!(tag, "n" | "ng" | "nz" | "nt" | "vn" | "an" | "eng" | "l")
 }
-fn phrase_operator(s: &str) -> bool {
+pub(crate) fn phrase_operator(s: &str) -> bool {
     [
         "代表", "影响", "导致", "对应", "需要", "希望", "进行", "分为", "成为", "现在", "今天",
         "之前", "之后", "这个", "那个", "我的", "可以", "它们", "他们", "我们",
@@ -1031,7 +1046,7 @@ pub fn rank_events(
             {
                 continue;
             }
-            if !stop(t.word) {
+            if !lexical_stop(t.word) {
                 found.insert(norm(t.word), t.word.to_string());
             }
             // Two or three adjacent nominal tokens form a literal phrase.
@@ -1047,11 +1062,11 @@ pub fn rank_events(
                     break;
                 }
                 let phrase = &e.text[t.byte_start..next.byte_end];
-                if !stop(phrase)
+                if !lexical_stop(phrase)
                     && phrase.chars().count() <= 12
-                    && (!t.tag.starts_with('v') || !stop(t.word))
-                    && (!next.tag.starts_with('v') || !stop(next.word))
-                    && (!stop(t.word) || !stop(next.word))
+                    && (!t.tag.starts_with('v') || !lexical_stop(t.word))
+                    && (!next.tag.starts_with('v') || !lexical_stop(next.word))
+                    && (!lexical_stop(t.word) || !lexical_stop(next.word))
                     && !matches!(
                         next.word,
                         "问题"
@@ -1074,7 +1089,7 @@ pub fn rank_events(
         let lower = e.text.to_lowercase();
         for anchor in anchors
             .keys()
-            .filter(|a| !stop(a) && jieba.tag(a, false).iter().any(|t| noun(t.tag)))
+            .filter(|a| !lexical_stop(a) && jieba.tag(a, false).iter().any(|t| noun(t.tag)))
         {
             for (at, _) in lower.match_indices(anchor.as_str()) {
                 if let Some(literal) = e.text.get(at..at + anchor.len()) {
@@ -1097,7 +1112,8 @@ pub fn rank_events(
         for (key, label) in found {
             let Some(local) = e
                 .text
-                .split_inclusive(['。', '！', '？', '!', '?', '；', ';'])
+                .split(". ")
+                .flat_map(|s| s.split_inclusive(['。', '！', '？', '!', '?', '；', ';']))
                 .find(|s| literal_contains(s, &label))
             else {
                 continue;
@@ -1237,7 +1253,7 @@ pub fn rank_events(
         .len()
         .max(1) as f64;
     let mut result = Vec::new();
-    for (_, (term, mut occurrences)) in terms {
+    for (_, (term, occurrences)) in terms {
         let mut days: BTreeMap<NaiveDate, f64> = BTreeMap::new();
         let mut inquiry_days = BTreeSet::new();
         for (o, ask) in occurrences.values() {
@@ -1263,10 +1279,6 @@ pub fn rank_events(
         // Operational uses of a homonymous word neither erase nor inflate
         // repeated conceptual reflection. A concept keeps only its actual
         // active local observations; background evidence stays in full graph.
-        if kind == "concept" {
-            occurrences.retain(|_, (_, ask)| *ask);
-            days.retain(|date, _| inquiry_days.contains(date));
-        }
         let activation: f64 = days
             .iter()
             .map(|(date, w)| w * 2f64.powf(-(as_of - *date).num_days() as f64 / 10.))
@@ -1292,41 +1304,96 @@ pub fn rank_events(
         });
     }
     result.sort_by(|a, b| b.score.total_cmp(&a.score).then(a.term.cmp(&b.term)));
-    // Prefer a supported complete phrase over its nested fragment only when
-    // their observed event support is identical, never by semantic guessing.
-    let mut remove = BTreeSet::new();
-    for (i, a) in result.iter().enumerate() {
-        for b in &result {
-            if b.term != a.term
-                && b.term.contains(&a.term)
-                && b.kind == a.kind
-                && b.events == a.events
-                && b.occurrences
-                    .iter()
-                    .map(|o| &o.event_id)
-                    .collect::<BTreeSet<_>>()
-                    == a.occurrences.iter().map(|o| &o.event_id).collect()
-            {
-                remove.insert(i);
-                break;
-            }
+    let vocabulary = result
+        .iter()
+        .map(|c| (crate::term_quality::normalize(&c.term), c.term.clone()))
+        .collect();
+    let assessments = crate::term_quality::assess_terms(&active, &vocabulary, anchors);
+    Ok(qualify_candidates(
+        result,
+        &assessments,
+        as_of,
+        total_events,
+    ))
+}
+
+/// The final corpus-wide type decision must re-filter observations, not just
+/// relabel an earlier background score as a concept. Used by both rank paths.
+pub(crate) fn qualify_candidates(
+    mut result: Vec<FocusCandidate>,
+    assessments: &BTreeMap<String, crate::term_quality::TermAssessment>,
+    as_of: NaiveDate,
+    total_events: f64,
+) -> Vec<FocusCandidate> {
+    result.retain_mut(|candidate| {
+        let key = crate::term_quality::normalize(&candidate.term);
+        let Some(assessment) = assessments.get(&key) else {
+            return false;
+        };
+        if assessment.class == crate::term_quality::TermClass::Candidate {
+            return false;
         }
-    }
-    let maximum = result
+        candidate.kind = if assessment.class == crate::term_quality::TermClass::Keyword {
+            "concept"
+        } else {
+            "context"
+        }
+        .into();
+        candidate.occurrences.retain(|o| {
+            crate::term_quality::prose(&o.text)
+                && (candidate.kind == "context"
+                    || (assessment.concept_events.contains(&o.event_id)
+                        && crate::term_quality::concept_context(&o.text, &candidate.term)))
+        });
+        if candidate.occurrences.is_empty() {
+            return false;
+        }
+        let days: BTreeSet<_> = candidate
+            .occurrences
+            .iter()
+            .map(|o| o.date.clone())
+            .collect();
+        candidate.active_days = days.len();
+        candidate.events = candidate
+            .occurrences
+            .iter()
+            .map(|o| &o.event_id)
+            .collect::<BTreeSet<_>>()
+            .len();
+        candidate.last_observed_at = days.last().unwrap().clone();
+        let activation: f64 = days
+            .iter()
+            .map(|d| 2f64.powf(-(as_of - day(d).unwrap()).num_days() as f64 / 10.))
+            .sum();
+        let idf = ((1. + total_events) / (1. + candidate.events as f64))
+            .ln()
+            .clamp(1., 5.);
+        let termhood = if assessment.token_length > 1 {
+            1. + 0.2 * assessment.c_value.max(0.).ln_1p()
+        } else {
+            1.
+        };
+        candidate.score = activation.ln_1p()
+            * (1. + (1. + days.len() as f64).ln())
+            * idf.sqrt()
+            * termhood
+            * if candidate.kind == "concept" {
+                1.
+            } else {
+                0.22
+            };
+        true
+    });
+    result.sort_by(|a, b| b.score.total_cmp(&a.score).then(a.term.cmp(&b.term)));
+    let max = result
         .first()
-        .map(|x| x.score)
+        .map(|c| c.score)
         .unwrap_or(1.)
         .max(f64::EPSILON);
-    result = result
-        .into_iter()
-        .enumerate()
-        .filter(|(i, _)| !remove.contains(i))
-        .map(|(_, mut c)| {
-            c.score /= maximum;
-            c
-        })
-        .collect();
-    Ok(result)
+    for candidate in &mut result {
+        candidate.score /= max;
+    }
+    result
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -1443,6 +1510,13 @@ pub fn foreground(candidates: &[FocusCandidate]) -> Vec<FocusCandidate> {
             if candidate.active_days < MIN_ACTIVE_DAYS {
                 if emerging >= MAX_EMERGING
                     || candidate.events < 2
+                    || candidate
+                        .occurrences
+                        .iter()
+                        .map(|o| (&o.date, norm(&o.text)))
+                        .collect::<BTreeSet<_>>()
+                        .len()
+                        < 2
                     || candidate.term.chars().count() < 4
                 {
                     continue;
