@@ -91,6 +91,12 @@ export function relationWeight(edge: Edge) {
 
 export interface CommunityPlan { focus?: boolean; memberships: Membership[]; topics: (Node & { x: number; z: number })[] }
 
+// Foreground land follows the visible population, not the archived community's size.
+function focusRadius(members: ProjectedLot[]) {
+  const hero = members.find(l => l.style)
+  return hero ? hero.style === 'camp' ? 9.5 : 9 : 3.9 + Math.sqrt(Math.min(14, members.length) - 1) * 2
+}
+
 /** Membership owns the district; coordinates only choose its place in the city. */
 function semanticParcels(lots: ProjectedLot[], communities: CommunityPlan): CityParcel[] {
   const topics = new Map(communities.topics.map(t => [t.id, t]))
@@ -118,7 +124,8 @@ function semanticParcels(lots: ProjectedLot[], communities: CommunityPlan): City
   const origins = entries.map(entry => originFor(entry.topicId, entry.members))
   const extent = Math.max(1, Math.max(...origins.map(p => p.x)) - Math.min(...origins.map(p => p.x)), Math.max(...origins.map(p => p.z)) - Math.min(...origins.map(p => p.z)))
   // Focus frames only its visible districts; archived empty space is not carried into the foreground.
-  const scale = communities.focus ? Math.min(.5, Math.sqrt(entries.length) * 16 / extent) : .5
+  const scale = communities.focus ? Math.min(.5, Math.sqrt(entries.reduce((sum, entry) => sum + focusRadius(entry.members) ** 2, 0)) * 1.1 / extent) : .5
+  const radii = new Map<string, number>()
   for (const { id, topicId, members } of entries) {
     members.sort(compareLots)
     const topic = topics.get(topicId), hero = members.find(l => l.style)
@@ -126,12 +133,13 @@ function semanticParcels(lots: ProjectedLot[], communities: CommunityPlan): City
     // Semantic layout reserves generous analytical spacing; use a compact city-scale projection.
     const original = visualPoint(origin.x * scale, origin.z * scale)
     let center = original
-    const radius = hero ? 11 : 6
-    for (let step = 0; parcels.some(p => distance(p.center, center) < radius + (p.kind === 'campus' || p.kind === 'park' ? 11 : 6)); step++) {
+    const radius = communities.focus ? focusRadius(members) : hero ? 11 : 6
+    for (let step = 0; parcels.some(p => distance(p.center, center) < radius + radii.get(p.id)!); step++) {
       const angle = hash(id) * Math.PI * 2 + step * 2.399963
-      const span = 12 + Math.sqrt(step) * 6
+      const span = communities.focus ? radius * 2 + Math.sqrt(step) * 3 : 12 + Math.sqrt(step) * 6
       center = { x: original.x + Math.cos(angle) * span, z: original.z + Math.sin(angle) * span }
     }
+    radii.set(`community:${id}`, radius)
     parcels.push({ id: `community:${id}`, center, polygon: [], members,
       kind: hero?.style === 'camp' ? 'park' : hero ? 'campus' : topic ? 'neighborhood' : 'growth',
       topicId: topic?.id, name: topic?.label ?? '待连接关键词', unassigned: !topic })
@@ -182,7 +190,7 @@ export function planCity(lots: ProjectedLot[], edges: Edge[], communities?: Comm
   for (const parcel of plan.parcels) parcel.members.sort(compareLots)
   // Follow the settlement's convex outline, instead of adding empty rectangular outer districts.
   const extent = convexHull(plan.parcels.flatMap(parcel => Array.from({ length: 12 }, (_, i) => {
-    const angle = i / 12 * Math.PI * 2, margin = parcel.kind === 'campus' || parcel.kind === 'park' ? 9.5 : 6
+    const angle = i / 12 * Math.PI * 2, margin = communities?.focus ? focusRadius(parcel.members) : parcel.kind === 'campus' || parcel.kind === 'park' ? 9.5 : 6
     return { x: parcel.center.x + Math.cos(angle) * margin, z: parcel.center.z + Math.sin(angle) * margin }
   })))
   for (const parcel of plan.parcels) {
@@ -190,7 +198,8 @@ export function planCity(lots: ProjectedLot[], edges: Edge[], communities?: Comm
     for (const other of plan.parcels) {
       if (parcel === other) continue
       const normal = { x: other.center.x - parcel.center.x, z: other.center.z - parcel.center.z }
-      const limit = (other.center.x ** 2 + other.center.z ** 2 - parcel.center.x ** 2 - parcel.center.z ** 2) / 2
+      const areaWeight = communities?.focus ? focusRadius(parcel.members) ** 2 - focusRadius(other.members) ** 2 : 0
+      const limit = (other.center.x ** 2 + other.center.z ** 2 - parcel.center.x ** 2 - parcel.center.z ** 2 + areaWeight) / 2
       polygon = clip(polygon, normal, limit)
     }
     parcel.polygon = polygon.map(p => ({ x: Math.round(p.x * 10000) / 10000, z: Math.round(p.z * 10000) / 10000 }))
@@ -273,25 +282,37 @@ export function planCity(lots: ProjectedLot[], edges: Edge[], communities?: Comm
     const target = parcel.kind === 'campus' || parcel.kind === 'park' ? 1 : Math.min(14, parcel.members.length, Math.max(3, Math.ceil(area / 12)))
     if (parcel.kind === 'campus' || parcel.kind === 'park') candidates.push({ point: parcel.center, rotation: hash(parcel.id) * .5 - .25 })
     else {
+      // A single keyword gets a small inhabited plot rather than an empty block with one house at its edge.
+      if (communities?.focus && parcel.members.length === 1) candidates.push({ point: parcel.center, rotation: hash(parcel.id) * .5 - .25 })
+      const frontage = communities?.focus ? 3.7 : 2.9
+      const spacing = communities?.focus ? 4.4 : 2.85
       const sides = parcel.polygon.map((a, i) => ({ a, b: parcel.polygon[(i + 1) % parcel.polygon.length] }))
         .sort((a, b) => distance(b.a, b.b) - distance(a.a, a.b) || vertexKey(a.a).localeCompare(vertexKey(b.a)))
+      if (communities?.focus && parcel.members.length > 1 && parcel.members.length <= 6) {
+        const count = parcel.members.length, ring = focusRadius(parcel.members) - ROAD_MARGIN - 2.3
+        const orientation = Math.atan2(sides[0].b.z - sides[0].a.z, sides[0].b.x - sides[0].a.x)
+        for (let slot = 0; slot < count; slot++) {
+          const angle = orientation + slot / count * Math.PI * 2
+          candidates.push({ point: { x: parcel.center.x + Math.cos(angle) * ring, z: parcel.center.z + Math.sin(angle) * ring }, rotation: Math.PI / 2 - angle })
+        }
+      }
       for (const { a, b } of sides) {
         const length = distance(a, b), dx = (b.x - a.x) / length, dz = (b.z - a.z) / length
-        const slots = Math.max(1, Math.floor(length / 2.85))
+        const slots = Math.max(1, Math.floor(length / spacing))
         for (let slot = 0; slot < slots; slot++) {
           const t = (slot + .5) / slots
           const road = { x: a.x + (b.x - a.x) * t, z: a.z + (b.z - a.z) * t }
           const sign = (parcel.center.x - road.x) * -dz + (parcel.center.z - road.z) * dx > 0 ? 1 : -1
           const inward = { x: -dz * sign, z: dx * sign }
-          candidates.push({ point: { x: road.x + inward.x * 2.9, z: road.z + inward.z * 2.9 }, rotation: Math.atan2(-inward.x, -inward.z) })
+          candidates.push({ point: { x: road.x + inward.x * frontage, z: road.z + inward.z * frontage }, rotation: Math.atan2(-inward.x, -inward.z) })
         }
       }
       // A second aligned row fills deep blocks while the first row establishes the street frontage.
       const axis = sides[0], dx = axis.b.x - axis.a.x, dz = axis.b.z - axis.a.z, length = Math.hypot(dx, dz)
       const ux = dx / length, uz = dz / length, span = Math.sqrt(area) + 6
-      for (let row = -Math.ceil(span / 2.85); row <= Math.ceil(span / 2.85); row++) {
-        for (let col = -Math.ceil(span / 2.85); col <= Math.ceil(span / 2.85); col++) {
-          const across = (col + (Math.abs(row) % 2) * .5) * 2.85, inward = row * 2.55
+      for (let row = -Math.ceil(span / spacing); row <= Math.ceil(span / spacing); row++) {
+        for (let col = -Math.ceil(span / spacing); col <= Math.ceil(span / spacing); col++) {
+          const across = (col + (Math.abs(row) % 2) * .5) * spacing, inward = row * (communities?.focus ? spacing * .9 : 2.55)
           const point = { x: parcel.center.x + across * ux - inward * uz, z: parcel.center.z + across * uz + inward * ux }
           if (!inside(point, parcel.polygon)) continue
           const nearest = [...sides].sort((a, b) => segmentDistance(point, a.a, a.b) - segmentDistance(point, b.a, b.b))[0]
@@ -310,12 +331,14 @@ export function planCity(lots: ProjectedLot[], edges: Edge[], communities?: Comm
       const hero = parcel.kind === 'campus' || parcel.kind === 'park'
       const roadSpace = clearance(point) - ROAD_MARGIN - .001
       const neighborSpace = Math.min(...plan.placements.map(p => distance(p, point) - p.footprint - .22))
-      const desired = hero ? parcel.kind === 'park' ? 7 : 6.5 : 1.2 + hash(`${lot.node.id}:size`) * .25
+      const attention = Math.max(0, Math.min(1, lot.node.attentionScore ?? 0))
+      const desired = hero ? parcel.kind === 'park' ? 7 : 6.5 : communities?.focus ? 1.7 + attention * .5 : 1.2 + hash(`${lot.node.id}:size`) * .25
       const footprint = Math.min(desired, roadSpace, neighborSpace)
-      if (footprint < (hero ? .4 : 1) || !inside(point, parcel.polygon)) continue
+      if (footprint < (hero ? .4 : communities?.focus ? 1.55 : 1) || !inside(point, parcel.polygon)) continue
       const status = (lot.node as ProjectedLot['node'] & { status?: string }).status
       const kind = hero ? parcel.kind === 'park' ? 'camp' : 'campus' : parcel.kind === 'growth' ? 'construction'
-        : lot.node.nodeType === 'project' && ['anchor', 'observed', 'confirmed', 'user-confirmed'].includes(status ?? '') ? 'midrise' : 'house'
+        : (lot.node.nodeType === 'project' && ['anchor', 'observed', 'confirmed', 'user-confirmed'].includes(status ?? ''))
+          || (communities?.focus && ['concept', 'keyword'].includes(lot.node.nodeType) && attention >= .65) ? 'midrise' : 'house'
       const placement: CityPlacement = { id: lot.node.id, parcelId: parcel.id, ...point, rotation, footprint, kind }
       local.push(placement); plan.placements.push(placement)
     }

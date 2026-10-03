@@ -97,6 +97,10 @@ export class CityScene {
   private water: THREE.Mesh | null = null
   private contact: Primitive[] = []
   private driveways: THREE.BufferGeometry[] = []
+  private yards: THREE.BufferGeometry[] = []
+  private lawns: THREE.BufferGeometry[] = []
+  private gardenWalls: Primitive[] = []
+  private walks: { a: CityPoint; b: CityPoint; width: number }[] = []
   private grass: THREE.CanvasTexture
   private paving: THREE.CanvasTexture
   private contactMap: THREE.CanvasTexture
@@ -160,14 +164,14 @@ export class CityScene {
     const size = this.assets!.size(asset), scale = radius * 2 / Math.hypot(size.x, size.z)
     if (!this.assetQueue.has(asset)) this.assetQueue.set(asset, [])
     this.assetQueue.get(asset)!.push({ x, y, z, rotation, scale, id })
-    this.contact.push({ p: [x, .18, z], s: [radius * 2.5, radius * 2.5, 1] })
+    this.contact.push({ p: [x, Math.max(.18, y - .008), z], s: [radius * 2.5, radius * 2.5, 1] })
     return size.y * scale
   }
   private clearGroup(group: THREE.Group) {
     group.traverse(object => { if (object instanceof THREE.Mesh && !object.geometry.userData.sharedCityAsset) object.geometry.dispose(); if (object instanceof THREE.InstancedMesh) object.dispose() })
     group.clear()
   }
-  private clear() { this.clearGroup(this.city); this.clearGroup(this.markers); this.pickables = []; this.instanceIds.clear(); this.assetQueue.clear(); this.contact = []; this.byId.clear(); this.blockMembers.clear(); this.lots = []; this.labels = [] }
+  private clear() { this.clearGroup(this.city); this.clearGroup(this.markers); this.pickables = []; this.instanceIds.clear(); this.assetQueue.clear(); this.contact = []; this.walks = []; this.byId.clear(); this.blockMembers.clear(); this.lots = []; this.labels = [] }
   setData(data: CityData, reframe: boolean) {
     this.latest = data; this.reframe = reframe; this.total = data.nodes.length
     if (this.assets) this.rebuild(data, reframe); else this.schedule()
@@ -206,7 +210,11 @@ export class CityScene {
       const building = represented.get(`${lot.x},${lot.z}`)
       if (building) { lot.h = building.h; lot.w = building.w; lot.parcelId = building.parcelId }
     }
-    this.merge(this.driveways, this.material('#c6c2ae')); this.driveways = []
+    this.entrances(plan)
+    this.merge(this.driveways, this.material('#d4cbb8')); this.driveways = []
+    this.merge(this.yards, this.material('#ddd6c6', this.paving)); this.yards = []
+    this.merge(this.lawns, this.material('#a6b791', this.grass)); this.lawns = []
+    this.batch(new THREE.BoxGeometry(1, 1, 1), '#d5cebb', this.gardenWalls); this.gardenWalls = []
     this.landscape(plan)
     for (const [asset, placements] of this.assetQueue) for (const mesh of this.assets!.instantiate(asset, placements)) { this.city.add(mesh); if (mesh.userData.ids.some((id: string | null) => id)) { this.pickables.push(mesh); this.instanceIds.set(mesh, mesh.userData.ids) } }
     this.contactShadows()
@@ -223,7 +231,9 @@ export class CityScene {
     const center = this.bounds.getCenter(new THREE.Vector3()), size = this.bounds.getSize(new THREE.Vector3()), span = Math.max(size.x, size.z) * .7 + 12
     const lightDistance = Math.max(100, span * 2)
     this.sun.position.set(center.x - lightDistance * .5, lightDistance * .95, center.z + lightDistance * .35); this.sun.shadow.camera.far = Math.max(350, lightDistance + span * 3); this.sun.target.position.copy(center); this.sun.shadow.camera.left = this.sun.shadow.camera.bottom = -span; this.sun.shadow.camera.right = this.sun.shadow.camera.top = span; this.sun.shadow.camera.updateProjectionMatrix()
+    this.canvas.dataset.entranceWalks = String(this.walks.length)
     this.canvas.dataset.planningMs = (performance.now() - started).toFixed(1); this.canvas.dataset.parcels = String(plan.parcels.length); this.canvas.dataset.roads = String(plan.roads.length); this.canvas.dataset.models = String([...this.assetQueue.values()].reduce((n, a) => n + a.length, 0))
+    this.bounds.max.y = Math.max(3, ...this.lots.map(lot => lot.h + .8))
     this.setSelected(this.selected, this.changed); if (reframe) this.fit(); else this.schedule()
   }
   private terrain(plan: CityPlan) {
@@ -239,10 +249,10 @@ export class CityScene {
     this.mesh(cliff, this.material('#b6b099'))
     this.ground = this.mesh(polygonGeometry(coast, .09), this.material('#d8caaa'))
     const lawn = coast.map(p => ({ x: center.x + (p.x - center.x) * .985, z: center.z + (p.z - center.z) * .985 }))
-    this.mesh(polygonGeometry(lawn, .12), this.material('#c4d39a', this.grass))
+    this.mesh(polygonGeometry(lawn, .12), this.material('#c2cfb2', this.grass))
     const groups = new Map<string, THREE.BufferGeometry[]>()
     for (const p of plan.parcels) {
-      const color = p.kind === 'growth' ? '#c6b68d' : p.kind === 'campus' ? '#d6d8bb' : p.kind === 'park' ? '#b1c887' : '#c5d298'
+      const color = p.kind === 'growth' ? '#c8c1a7' : p.kind === 'campus' ? '#d0d3bc' : p.kind === 'park' ? '#afc198' : '#c4ceb0'
       if (!groups.has(color)) groups.set(color, [])
       groups.get(color)!.push(polygonGeometry(p.polygon, .145))
     }
@@ -279,14 +289,32 @@ export class CityScene {
   private building(p: CityPlacement, node: Node) {
     const v = seed(node.id), r = p.footprint
     if (p.kind === 'campus') {
-      const plaza = new THREE.CircleGeometry(r * .99, 48); plaza.rotateX(-Math.PI / 2); plaza.translate(p.x, .185, p.z); this.mesh(plaza, this.material('#d7d8cb', this.paving))
+      const outline = [[-.64,-.72],[.64,-.72],[.75,-.6],[.75,.6],[.64,.72],[-.64,.72],[-.75,.6],[-.75,-.6]].map(([x,z]) => ({ x:p.x+x*r, z:p.z+z*r }))
+      this.mesh(polygonGeometry(outline, .185), this.material('#d7d8cb', this.paving))
+      // A connected courtyard and tower plinths read as a planned campus.
+      for (const [width, depth] of [[r * 1.46, r * .13], [r * .13, r * 1.4]]) {
+        const promenade = new THREE.PlaneGeometry(width, depth)
+        promenade.rotateX(-Math.PI / 2); promenade.translate(p.x, .2, p.z); this.driveways.push(promenade)
+      }
       let height = 0
       const models: CityAssetId[] = node.label.toLowerCase() === 'hemory' ? [commercial[5], commercial[6], commercial[2], commercial[0]] : [commercial[6], commercial[5], commercial[3], commercial[1]]
       const offsets = [[-.43, -.36, .25], [.35, -.27, .28], [-.35, .4, .24], [.4, .39, .23]]
-      offsets.forEach(([dx, dz, radius], i) => { height = Math.max(height, this.addAsset(models[i], p.x + dx * r, p.z + dz * r, radius * r, i % 2 ? Math.PI : 0, node.id)) })
+      offsets.forEach(([dx, dz, radius], i) => {
+        const x = p.x + dx * r, z = p.z + dz * r
+        const plinth = new THREE.BoxGeometry(radius * r * 1.5, .09, radius * r * 1.5); plinth.translate(x, .23, z)
+        this.mesh(plinth, this.material('#e2dfd2'))
+        height = Math.max(height, this.addAsset(models[i], x, z, radius * r, i % 2 ? Math.PI : 0, node.id, .28))
+      })
       const pool = new THREE.CylinderGeometry(r * .13, r * .13, .13, 32); pool.translate(p.x, .27, p.z); this.mesh(pool, this.material('#729fa5'))
       const benches: Primitive[] = [], lamps: Primitive[] = []
-      for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2, x = p.x + Math.cos(a) * r * .87, z = p.z + Math.sin(a) * r * .87; this.addAsset(trees[i % 2], x, z, .42, a); if (i % 2) benches.push({ p: [p.x + Math.cos(a) * r * .33, .43, p.z + Math.sin(a) * r * .33], s: [.8, .17, .25], ry: -a }); lamps.push({ p: [x, .7, z], s: [.035, 1.05, .035] }) }
+      for (let i = 0; i < 8; i++) {
+        const side = i < 4 ? -1 : 1, along = (i % 4 - 1.5) * .32
+        const x = p.x + side * r * .76, z = p.z + along * r
+        this.addAsset(trees[1], x, z, r * .065, i)
+        const garden = new THREE.PlaneGeometry(r * .1, r * .2); garden.rotateX(-Math.PI / 2); garden.translate(x, .191, z); this.lawns.push(garden)
+        if (i % 2) benches.push({ p: [p.x + side * r * .18, .43, p.z + along * r], s: [.25, .17, .8] })
+        lamps.push({ p: [p.x + side * r * .68, .7, z], s: [.035, 1.05, .035] })
+      }
       this.batch(new THREE.BoxGeometry(1, 1, 1), '#998069', benches); this.batch(new THREE.CylinderGeometry(1, 1, 1, 5), '#566866', lamps)
       return height
     }
@@ -301,23 +329,88 @@ export class CityScene {
       return r * .38
     }
     const model = p.kind === 'construction' ? (v < .3 ? 'survival/structure' : houses[Math.floor(v * houses.length)]) : p.kind === 'midrise' ? commercial[Math.floor(v * 5)] : houses[Math.floor(v * houses.length)]
-    const height = this.addAsset(model, p.x, p.z, r * .97, p.rotation, node.id)
-    const dx = Math.sin(p.rotation), dz = Math.cos(p.rotation), driveway = new THREE.PlaneGeometry(r * .5, r * .8); driveway.rotateX(-Math.PI / 2); driveway.rotateY(p.rotation); driveway.translate(p.x + dx * r * .65, .177, p.z + dz * r * .65); this.driveways.push(driveway)
-    if (p.kind === 'construction') this.addAsset(v < .5 ? 'survival/resource-wood' : 'survival/box', p.x - dx * r * .66, p.z - dz * r * .66, r * .14, p.rotation)
-    else this.addAsset('suburban/planter', p.x + dz * r * .6, p.z - dx * r * .6, r * .16, p.rotation)
+    // One knowledge address includes its own garden and entrance, all inside
+    // the planner's reserved circle. Accessories never become extra nodes.
+    const dx = Math.sin(p.rotation), dz = Math.cos(p.rotation)
+    const point = (side: number, forward: number) => ({ x: p.x + (dz * side + dx * forward) * r, z: p.z + (-dx * side + dz * forward) * r })
+    const plane = (side: number, forward: number, width: number, depth: number, y: number) => {
+      const at = point(side, forward), g = new THREE.PlaneGeometry(width * r, depth * r)
+      g.rotateX(-Math.PI / 2); g.rotateY(p.rotation); g.translate(at.x, y, at.z); return g
+    }
+    this.yards.push(plane(0, 0, 1.42, 1.3, .205))
+    const main = point(-.09, -.1)
+    const height = this.addAsset(model, main.x, main.z, r * .68, p.rotation, node.id, .23)
+    this.driveways.push(plane(-.09, .45, .36, .39, .214))
+    this.lawns.push(plane(.47, .2, .32, .7, .213))
+    for (const [side, forward, width, depth] of [[0, -.66, 1.4, .045], [-.71, 0, .045, 1.32], [.71, 0, .045, 1.32]]) {
+      const at = point(side, forward)
+      this.gardenWalls.push({ p: [at.x, .27, at.z], s: [width * r, .14, depth * r], ry: p.rotation })
+    }
+    if (p.kind === 'construction') {
+      const at = point(.48, .31)
+      this.addAsset(v < .5 ? 'survival/resource-wood' : 'survival/box', at.x, at.z, r * .13, p.rotation, undefined, .23)
+    } else {
+      const at = point(.46, -.4), shrub = point(.48, .37)
+      this.addAsset(trees[Math.floor(v * 2)], at.x, at.z, r * .19, p.rotation, undefined, .23)
+      this.addAsset('nature/plant_bushDetailed', shrub.x, shrub.z, r * .12, p.rotation, undefined, .23)
+    }
     return height
+  }
+  private entrances(plan: CityPlan) {
+    // These narrow garden walks are visual access to an address, not graph
+    // relations. They never change road traffic, width, tier or edge counts.
+    for (const lot of plan.placements) {
+      const nearby = plan.roads.map(road => {
+        const a = road.points[0], b = road.points.at(-1)!, dx = b.x - a.x, dz = b.z - a.z
+        const t = THREE.MathUtils.clamp(((lot.x-a.x)*dx+(lot.z-a.z)*dz)/(dx*dx+dz*dz || 1), 0, 1)
+        return { road, point: { x:a.x+dx*t, z:a.z+dz*t } }
+      }).sort((a,b) => Math.hypot(a.point.x-lot.x,a.point.z-lot.z)-Math.hypot(b.point.x-lot.x,b.point.z-lot.z) || a.road.id.localeCompare(b.road.id))
+      const ordinary = lot.kind !== 'campus' && lot.kind !== 'camp'
+      const front = { x:Math.sin(lot.rotation), z:Math.cos(lot.rotation) }
+      const target = ordinary ? nearby.find(candidate => {
+        const dx=candidate.point.x-lot.x,dz=candidate.point.z-lot.z
+        return (dx*front.x+dz*front.z)/(Math.hypot(dx,dz)||1) > .35
+      }) : nearby[0]
+      if (!target) continue
+      const distance = Math.hypot(target.point.x-lot.x,target.point.z-lot.z), dx = (target.point.x-lot.x)/distance, dz = (target.point.z-lot.z)/distance
+      if (!distance || distance < lot.footprint + target.road.width / 2) continue
+      const a = ordinary ? { x:lot.x+front.x*lot.footprint*.63,z:lot.z+front.z*lot.footprint*.63 } : { x:lot.x+dx*lot.footprint*.5,z:lot.z+dz*lot.footprint*.5 }
+      const b = { x:target.point.x-dx*(target.road.width/2+.08), z:target.point.z-dz*(target.road.width/2+.08) }
+      const width = lot.kind === 'campus' ? .7 : .32
+      if (plan.placements.some(other => other !== lot && segmentDistance(other,a,b) < other.footprint + width/2)) continue
+      this.walks.push({a,b,width})
+      const walk = ribbon([a,b],width,.174)
+      walk.setAttribute('uv',new THREE.Float32BufferAttribute(new Float32Array(walk.getAttribute('position').count * 2),2))
+      this.driveways.push(walk)
+    }
   }
   private landscape(plan: CityPlan) {
     const lamps: Primitive[] = [], heads: Primitive[] = [], benches: Primitive[] = [], planters: Primitive[] = []
-    const safe = (p: CityPoint, radius: number) => !plan.placements.some(l => Math.hypot(p.x - l.x, p.z - l.z) < l.footprint + radius + .25) && !plan.roads.some(r => r.points.slice(1).some((b, i) => segmentDistance(p, r.points[i], b) < r.width / 2 + radius + .3))
+    const safe = (p: CityPoint, radius: number) => !plan.placements.some(l => Math.hypot(p.x - l.x, p.z - l.z) < l.footprint + radius + .25) && !plan.roads.some(r => r.points.slice(1).some((b, i) => segmentDistance(p, r.points[i], b) < r.width / 2 + radius + .3)) && !this.walks.some(w => segmentDistance(p,w.a,w.b) < w.width / 2 + radius + .12)
+    const planted: { x:number; z:number; radius:number }[] = []
+    const plant = (p:CityPoint, radius:number, type:number, rotation:number) => {
+      if (!safe(p,radius) || planted.some(t => Math.hypot(t.x-p.x,t.z-p.z) < (t.radius+radius)*.9)) return false
+      this.addAsset(trees[type % trees.length],p.x,p.z,radius,rotation); planted.push({...p,radius}); return true
+    }
     for (const parcel of plan.parcels) {
+      // Short street-side rows provide structure; sparse interiors stay open.
+      if (parcel.kind !== 'park') for (let edge=0;edge<parcel.polygon.length;edge++) {
+        const a=parcel.polygon[edge],b=parcel.polygon[(edge+1)%parcel.polygon.length],length=Math.hypot(b.x-a.x,b.z-a.z)
+        const count=Math.min(4,Math.floor(length/3.8))
+        for(let i=0;i<count;i++) {
+          const t=(i+1)/(count+1), x=a.x+(b.x-a.x)*t,z=a.z+(b.z-a.z)*t
+          const inward=Math.hypot(parcel.center.x-x,parcel.center.z-z)||1, offset=1.5
+          const p={x:x+(parcel.center.x-x)/inward*offset,z:z+(parcel.center.z-z)/inward*offset}
+          if(inPolygon(p,parcel.polygon)) plant(p,.52,1,edge)
+        }
+      }
       const xs = parcel.polygon.map(p => p.x), zs = parcel.polygon.map(p => p.z), minX = Math.min(...xs), maxX = Math.max(...xs), minZ = Math.min(...zs), maxZ = Math.max(...zs)
-      const count = parcel.kind === 'park' ? 150 : parcel.kind === 'campus' ? 70 : parcel.kind === 'growth' ? 7 : 18
+      const count = parcel.kind === 'park' ? 120 : parcel.kind === 'campus' ? 14 : parcel.kind === 'growth' ? 3 : 5
       for (let i = 0; i < count; i++) {
         const x = minX + seed(`${parcel.id}:${i}:x`) * (maxX - minX), z = minZ + seed(`${parcel.id}:${i}:z`) * (maxZ - minZ), p = { x, z }, radius = .35 + seed(`${parcel.id}:${i}:r`) * .42
-        if (!inPolygon(p, parcel.polygon) || !safe(p, radius)) continue
+        if (!inPolygon(p, parcel.polygon)) continue
         const type = parcel.kind === 'park' ? 2 + i % 2 : i % trees.length
-        this.addAsset(trees[type], x, z, radius, seed(`${parcel.id}:${i}:turn`) * 6)
+        if (!plant(p,radius,type,seed(`${parcel.id}:${i}:turn`) * 6)) continue
         if (i % 3 === 0) this.addAsset('nature/plant_bushDetailed', x + radius * .5, z + radius * .3, .22, i)
       }
     }
@@ -352,7 +445,7 @@ export class CityScene {
     this.schedule()
   }
   setDark(value: boolean) {
-    this.dark = value; this.renderer.setClearColor(value ? '#172e35' : '#acd2d1', 1); this.renderer.toneMappingExposure = value ? .8 : 1.05; this.sun.intensity = value ? 1.5 : 2.4; this.hemisphere.intensity = value ? 1.3 : 1.7
+    this.dark = value; this.renderer.setClearColor(value ? '#172e35' : '#acd2d1', 1); this.renderer.toneMappingExposure = value ? .8 : 1.05; this.sun.intensity = value ? 1.5 : 2.4; this.hemisphere.intensity = value ? 1.2 : 1.3
     if (this.water) (this.water.material as THREE.MeshStandardMaterial).color.set(value ? '#244a54' : '#75bfc1')
     this.schedule()
   }
@@ -387,8 +480,8 @@ export class CityScene {
       const height = prominent ? 29 : 19
       const overlaps = rects.some(r => Math.abs(x - r.x) < (width + r.w) / 2 + 3 && Math.abs(y - height / 2 - r.y) < (height + r.h) / 2 + 3)
       // Every on-screen parcel retains its marker; only its text folds when crowded.
-      const compact = !prominent && overlaps
-      rects.push({ x, y: y - height / 2, w: compact ? 12 : width, h: compact ? 12 : height })
+      const compact = l.node.id !== this.selected && overlaps
+      rects.push({ x, y: y - (compact ? 12 : height) / 2, w: compact ? 12 : width, h: compact ? 12 : height })
       labels.push({ id: l.district ? l.parcelId : l.node.id, nodeId: l.node.id, attentionCategory: l.district?.attentionCategory ?? this.latest?.attention?.find(item => item.node === l.node.id)?.category, name: l.district?.name ?? l.node.label, x, y, kind: l.node.nodeType, selected: l.node.id === this.selected, district: l.district, compact, width })
     }
     this.canvas.dataset.districtLabels = String(labels.filter(l => l.district).length)

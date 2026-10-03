@@ -180,3 +180,33 @@ it('fits a sparse attention foreground without replacing its real community memb
   expect(planCity([...lots].reverse(), [], { ...communities, focus: true })).toEqual(foreground)
   assertClearances(foreground)
 })
+
+it('sizes focus land to its inhabitants and reserves larger project campuses', () => {
+  const lots = [lot('isolated', -100, -100), lot('campus', 100, 100, 'campus'), ...Array.from({ length: 6 }, (_, i) => lot(`group-${i}`, 0, 0))]
+  const communities = { focus: true, topics: [{ id: 'group', key: 'group', label: 'Group', nodeType: 'topic', status: 'candidate', x: 0, z: 0 }], memberships: lots.filter(l => l.node.id.startsWith('group-')).map(l => ({ id: `m-${l.node.id}`, node: l.node.id, topic: 'group', role: 'primary', score: 1 })) }
+  const plan = planCity(lots, [], communities)
+  const area = (id: string) => Math.abs(plan.parcels.find(p => p.members.some(l => l.node.id === id))!.polygon.reduce((sum, a, i, points) => { const b = points[(i + 1) % points.length]; return sum + a.x * b.z - b.x * a.z }, 0)) / 2
+  expect(area('isolated')).toBeLessThan(area('group-0'))
+  expect(area('isolated')).toBeLessThan(area('campus'))
+  expect(plan.placements.find(p => p.id === 'campus')!.footprint).toBeGreaterThanOrEqual(6)
+  expect(plan.placements.find(p => p.id === 'isolated')!.footprint).toBeGreaterThanOrEqual(1.55)
+  expect(planCity([...lots].reverse(), [], { ...communities, memberships: [...communities.memberships].reverse() })).toEqual(plan)
+  expect(plan.roads.every(r => r.traffic === 0)).toBe(true)
+  assertClearances(plan)
+})
+
+it('keeps all sparse focus buildings visible and uses bounded attention scale without invented roads', () => {
+  const lots = Array.from({ length: 34 }, (_, i) => ({ ...lot(`focus-${i}`, (i % 6) * 40, Math.floor(i / 6) * 40), node: { id: `focus-${i}`, nodeType: 'keyword', evidence: [`e${i}`], attentionScore: i === 0 ? .95 : .3 } }))
+  const communities = { focus: true, topics: Array.from({ length: 18 }, (_, i) => ({ id: `topic-${i}`, key: `topic-${i}`, label: `Topic ${i}`, nodeType: 'topic', status: 'candidate', x: (i % 6) * 40, z: Math.floor(i / 6) * 40 })), memberships: lots.map((l, i) => ({ id: `m-${i}`, node: l.node.id, topic: `topic-${i % 18}`, role: 'primary', score: 1 })) }
+  const baseline = planCity(lots, [], communities)
+  expect(baseline.placements).toHaveLength(lots.length)
+  expect(baseline.placements.find(p => p.id === 'focus-0')!.kind).toBe('midrise')
+  expect(baseline.placements.every(p => p.footprint >= 1.55 && p.footprint <= 2.2)).toBe(true)
+  expect(baseline.parcels.flatMap(p => p.members).map(l => l.node.id).sort()).toEqual(lots.map(l => l.node.id).sort())
+  const linked = planCity(lots, Array.from({ length: 200 }, (_, i) => edge(`e${i}`, 'focus-0', 'focus-17')), communities)
+  expect(linked.placements).toEqual(baseline.placements)
+  expect(skeleton(linked)).toEqual(skeleton(baseline))
+  expect(linked.roads.some(r => r.tier === 3)).toBe(true)
+  expect(planCity([...lots].reverse(), [], { ...communities, topics: [...communities.topics].reverse(), memberships: [...communities.memberships].reverse() })).toEqual(baseline)
+  assertClearances(linked)
+})
