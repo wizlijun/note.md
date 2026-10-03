@@ -66,6 +66,32 @@ describe('continuous valley terrain', () => {
     material.dispose(); dispose(terrain)
   })
 
+  it('uses continuous height-gradient normals and has concave upland gullies', () => {
+    const terrain = buildTerrain(fixture()), positions = terrain.surface.getAttribute('position'), normals = terrain.surface.getAttribute('normal')
+    const shared = new Map<string, number[]>(); let repeats = 0, steep = 0
+    for (let i = 0; i < positions.count; i++) {
+      if (positions.getY(i) < terrain.stats.maxHeight * .2) continue
+      const key = `${positions.getX(i)},${positions.getZ(i)}`, normal = [normals.getX(i), normals.getY(i), normals.getZ(i)]
+      const previous = shared.get(key)
+      if (previous) { expect(normal).toEqual(previous); repeats++ } else shared.set(key, normal)
+      if (normal[1] < .75) steep++
+    }
+    expect(repeats).toBeGreaterThan(200)
+    expect(steep).toBeGreaterThan(40)
+    const span = terrain.bounds.max.x - terrain.bounds.min.x, delta = span * .015
+    let gullies = 0
+    for (let row = 0; row < 45; row++) for (let col = 0; col < 45; col++) {
+      const x = terrain.bounds.min.x + span * col / 44, z = terrain.bounds.min.z + (terrain.bounds.max.z - terrain.bounds.min.z) * row / 44
+      const h = terrain.sample(x, z).height
+      if (h < terrain.stats.maxHeight * .22) continue
+      const across = terrain.sample(x - delta, z).height + terrain.sample(x + delta, z).height - h * 2
+      const along = terrain.sample(x, z - delta).height + terrain.sample(x, z + delta).height - h * 2
+      if (Math.max(across, along) > terrain.stats.maxHeight * .022) gullies++
+    }
+    expect(gullies, 'upland profile includes concave cuts between subsidiary ridges').toBeGreaterThan(4)
+    dispose(terrain)
+  })
+
   it('is deterministic under reordered input and keeps empty and 1007-address geometry bounded', () => {
     const plan = fixture(), a = buildTerrain(plan), b = buildTerrain({ ...plan, placements: [...plan.placements].reverse(), roads: [...plan.roads].reverse(), parcels: [...plan.parcels].reverse() })
     expect(b.surface.getAttribute('position').array).toEqual(a.surface.getAttribute('position').array)
@@ -74,7 +100,7 @@ describe('continuous valley terrain', () => {
     dispose(a); dispose(b)
     for (const input of [{ parcels: [], roads: [], placements: [], positions: new Map() }, fixture(1007)] as CityPlan[]) {
       const terrain = buildTerrain(input)
-      expect(terrain.stats.surfaceTriangles).toBeLessThan(48000)
+      expect(terrain.stats.surfaceTriangles).toBeLessThan(180000)
       expect(terrain.trees.length).toBeLessThanOrEqual(180)
       expect(terrain.rocks.length).toBeLessThanOrEqual(60)
       expect(terrain.bounds.isEmpty()).toBe(false)
@@ -82,5 +108,5 @@ describe('continuous valley terrain', () => {
       for (const name of ['surface', 'water', 'shore'] as const) expect([...terrain[name].getAttribute('position').array].every(Number.isFinite)).toBe(true)
       dispose(terrain)
     }
-  })
+  }, 15000)
 })

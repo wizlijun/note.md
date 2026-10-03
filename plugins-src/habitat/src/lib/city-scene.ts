@@ -250,7 +250,7 @@ export class CityScene {
     const terrain = buildTerrain(plan)
     let land = this.materials.get('valley-land') as THREE.MeshStandardMaterial | undefined
     if (!land) {
-      land = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, flatShading: true })
+      land = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, flatShading: false })
       this.materials.set('valley-land', land)
     }
     this.ground = this.mesh(terrain.surface, land, true)

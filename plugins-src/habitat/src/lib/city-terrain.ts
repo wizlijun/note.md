@@ -13,7 +13,7 @@ export interface CityTerrain {
   stats: { surfaceTriangles: number; waterTriangles: number; shoreTriangles: number; maxHeight: number; treeCount: number; rockCount: number }
 }
 
-const GROUND = .12, WATER = -.16, RESOLUTION = 152
+const GROUND = .12, WATER = -.16, RESOLUTION = 288
 const clamp = (v: number) => Math.max(0, Math.min(1, v))
 const smooth = (v: number) => { const t = clamp(v); return t * t * (3 - 2 * t) }
 const random = (i: number, salt: number) => {
@@ -21,7 +21,14 @@ const random = (i: number, salt: number) => {
   v = Math.imul(v ^ (v >>> 13), 1274126177)
   return ((v ^ (v >>> 16)) >>> 0) / 4294967296
 }
-interface Vertex { x: number; y: number; z: number }
+function noise(x: number, z: number) {
+  const ix = Math.floor(x), iz = Math.floor(z), u = smooth(x - ix), v = smooth(z - iz)
+  const lattice = (a: number, b: number) => random(Math.imul(a, 73856093) ^ Math.imul(b, 19349663), 97) * 2 - 1
+  return (lattice(ix, iz) * (1 - u) + lattice(ix + 1, iz) * u) * (1 - v)
+    + (lattice(ix, iz + 1) * (1 - u) + lattice(ix + 1, iz + 1) * u) * v
+}
+interface Vertex { x: number; y: number; z: number; wet?: number }
+interface RidgePoint { x: number; z: number; height: number; width: number }
 function polygonClip(points: Vertex[], value: (p: Vertex) => number): Vertex[] {
   const result: Vertex[] = []
   for (let i = 0; i < points.length; i++) {
@@ -29,16 +36,17 @@ function polygonClip(points: Vertex[], value: (p: Vertex) => number): Vertex[] {
     if (da <= 0) result.push(a)
     if ((da < 0 && db > 0) || (da > 0 && db < 0)) {
       const t = da / (da - db)
-      result.push({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, z: a.z + (b.z - a.z) * t })
+      result.push({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, z: a.z + (b.z - a.z) * t, wet: a.wet === undefined || b.wet === undefined ? undefined : a.wet + (b.wet - a.wet) * t })
     }
   }
   return result
 }
-function geometry(positions: number[], colors: number[]) {
+function geometry(positions: number[], colors: number[], normals?: number[]) {
   const result = new BufferGeometry()
   result.setAttribute('position', new Float32BufferAttribute(positions, 3))
   result.setAttribute('color', new Float32BufferAttribute(colors, 3))
-  result.computeVertexNormals()
+  if (normals) result.setAttribute('normal', new Float32BufferAttribute(normals, 3))
+  else result.computeVertexNormals()
   result.computeBoundingBox()
   return result
 }
@@ -90,46 +98,87 @@ export function buildTerrain(plan: CityPlan): CityTerrain {
     }
     return d
   }
-  function field(x: number, z: number) {
-    const outside = Math.hypot(Math.max(0, Math.abs(x) - hx - guard), Math.max(0, Math.abs(z) - hz - guard))
+  const ridgePoint = (x: number, z: number, height: number, width: number): RidgePoint => ({ x, z, height, width: width * scale })
+  const mainRidge = [
+    ridgePoint(-hx - scale * .17, -hz - scale * .11, .15, .15),
+    ridgePoint(-hx * .80, -hz - scale * .26, .74, .19),
+    ridgePoint(-hx * .36, -hz - scale * .20, .49, .17),
+    ridgePoint(hx * .02, -hz - scale * .34, 1.08, .19),
+    ridgePoint(hx * .39, -hz - scale * .24, .56, .16),
+    ridgePoint(hx * .80, -hz - scale * .18, .81, .18),
+    ridgePoint(hx + scale * .17, -hz - scale * .29, .13, .14),
+  ]
+  // Branches taper down from different parts of the crest. Their gaps are real
+  // concave valleys, not noise painted over radially symmetric hill envelopes.
+  const ridges = [mainRidge,
+    [mainRidge[1], ridgePoint(-hx * .95, -hz - scale * .10, .35, .12), ridgePoint(-hx - scale * .15, -hz * .35, .02, .16)],
+    [mainRidge[1], ridgePoint(-hx * .52, -hz - scale * .42, .31, .13)],
+    [mainRidge[3], ridgePoint(-hx * .08, -hz - scale * .15, .59, .11), ridgePoint(-hx * .30, -hz - scale * .045, .015, .13)],
+    [mainRidge[3], ridgePoint(hx * .30, -hz - scale * .47, .48, .14)],
+    [mainRidge[5], ridgePoint(hx * .62, -hz - scale * .075, .26, .11), ridgePoint(hx * .90, -hz * .68, .015, .13)],
+    [ridgePoint(-hx - scale * .10, -hz * .40, .22, .18), ridgePoint(-hx - scale * .20, hz * .25, .12, .14), ridgePoint(-hx - scale * .09, hz * .65, .015, .13)],
+  ]
+  function protectedDistance(x: number, z: number) {
+    return Math.hypot(Math.max(0, Math.abs(x) - hx - guard), Math.max(0, Math.abs(z) - hz - guard))
+  }
+  function field(x: number, z: number, waterDistance: number) {
+    const outside = protectedDistance(x, z)
     if (outside === 0) return GROUND
-    const transition = smooth(outside / (scale * .15))
-    // Unequal, staggered peaks share overlapping foothills, rather than tracing
-    // the protected rectangle as two equal-height artificial retaining walls.
-    const mound = (px: number, pz: number, wx: number, wz: number) => Math.exp(-1.4 * (Math.pow((x - px) / (scale * wx), 2) + Math.pow((z - pz) / (scale * wz), 2)))
-    const peaks = [
-      .75 * mound(-hx * .72, -hz - scale * .22, .22, .20),
-      mound(hx * .05, -hz - scale * .28, .20, .22),
-      .57 * mound(hx * .82, -hz - scale * .18, .18, .17),
-      .28 * mound(-hx - scale * .16, hz * .10, .20, .32),
-    ]
-    const tallest = Math.max(...peaks), crest = tallest + (peaks.reduce((sum, h) => sum + h, 0) - tallest) * .20
-    const crags = .92 + .05 * Math.sin(x / scale * 20 + z / scale * 11) + .03 * Math.cos(x / scale * 31 - z / scale * 13)
-    const foothills = .32 + .12 * Math.sin(x / scale * 7 + .4) * Math.cos(z / scale * 6)
-    const land = GROUND + transition * (peak * crest * crags + Math.min(.7, scale * .008) * foothills)
-    const d = wetDistance(x, z), waterBlend = 1 - smooth((d + bank * .55) / (bank * 1.8))
+    const transition = smooth(outside / (scale * .095))
+    const qx = x + scale * .028 * noise(x / scale * 5 + 17, z / scale * 5)
+    const qz = z + scale * .026 * noise(x / scale * 6 - 8, z / scale * 6 + 31)
+    let crest = 0, foothill = 0
+    for (const ridge of ridges) for (let i = 1; i < ridge.length; i++) {
+      const a = ridge[i - 1], b = ridge[i], dx = b.x - a.x, dz = b.z - a.z
+      const t = clamp(((qx - a.x) * dx + (qz - a.z) * dz) / (dx * dx + dz * dz))
+      const d = Math.hypot(qx - a.x - t * dx, qz - a.z - t * dz)
+      const height = a.height * (1 - t) + b.height * t
+      const side = dx * (qz - a.z) - dz * (qx - a.x)
+      const width = (a.width * (1 - t) + b.width * t) * (side > 0 ? .86 : 1.17)
+      crest = Math.max(crest, height * Math.pow(clamp(1 - d / width), 1.65))
+      foothill = Math.max(foothill, height * Math.pow(clamp(1 - d / (width * 1.85)), 2.4))
+    }
+    const detail = .56 * noise(x / scale * 27, z / scale * 27)
+      + .29 * noise(x / scale * 59 + 9, z / scale * 59) + .15 * noise(x / scale * 113, z / scale * 113 - 7)
+    const relief = Math.max(0, crest + foothill * .14 + detail * Math.min(.075, crest * .20))
+    const land = GROUND + transition * (peak * relief + .20 + .11 * noise(x / scale * 9, z / scale * 9))
+    const d = waterDistance, waterBlend = 1 - smooth((d + bank * .55) / (bank * 1.8))
     // A shallow bank descends into a real basin. Water is later clipped to this mesh.
     const bed = WATER - .25 - Math.min(scale * .025, 1.7) * smooth(-d / (riverWidth * 1.2))
     const basin = waterBlend * smooth(outside / (scale * .055))
     return land * (1 - basin) + bed * basin
   }
-  const grass = new Color('#91a774'), meadow = new Color('#b4bb84'), forest = new Color('#72885c'), stone = new Color('#aaa394'), sand = new Color('#c9be9c')
+  const grass = new Color('#81966a'), meadow = new Color('#a2ab78'), forest = new Color('#536c50')
+  const stone = new Color('#a4adb0'), rockShade = new Color('#53616b'), talus = new Color('#b5a17e'), sand = new Color('#c9be9c')
   const shallow = new Color('#88bab8'), deep = new Color('#3d879a')
-  const surface: number[] = [], colors: number[] = [], water: number[] = [], waterColors: number[] = [], shore: number[] = [], shoreColors: number[] = []
-  const shoreline = new Map<string, Vertex>()
+  const surface: number[] = [], colors: number[] = [], surfaceNormals: number[] = [], water: number[] = [], waterColors: number[] = [], shore: number[] = [], shoreColors: number[] = []
+  const shoreline = new Map<string, Vertex>(), colorCache = new WeakMap<Vertex, Color>()
   const color = new Color()
   function groundColor(p: Vertex) {
-    const x = p.x - center.x, z = p.z - center.z, d = wetDistance(x, z)
-    color.copy(grass).lerp(meadow, clamp(.35 + .2 * Math.sin(x / scale * 15) * Math.cos(z / scale * 11)))
-    if (p.y > 1) color.lerp(forest, smooth(p.y / peak) * .6)
-    color.lerp(stone, smooth((p.y / peak - .45) / .46))
+    const cached = colorCache.get(p)
+    if (cached) return cached
+    const x = p.x - center.x, z = p.z - center.z, d = p.wet ?? wetDistance(x, z), gradient = gradientAt(p.x, p.z)
+    const slope = Math.hypot(gradient.x, gradient.z), elevation = clamp((p.y - GROUND) / peak)
+    const texture = noise(x / scale * 64 + 3, z / scale * 64 - 5), strata = noise(x / scale * 34, z / scale * 16 + p.y / peak * 7)
+    const grain = .65 * noise(x / scale * 139, z / scale * 151) + .35 * noise(x / scale * 223 + 7, z / scale * 197)
+    const bedding = Math.sin((p.y / peak * 15 + x / scale * 3 + strata * .3) * Math.PI)
+    color.copy(grass).lerp(meadow, clamp(.36 + noise(x / scale * 14, z / scale * 14) * .30))
+    color.lerp(forest, smooth(elevation * 3) * (1 - smooth(slope / .8)) * .50)
+    const exposed = smooth((slope - .35 + texture * .12) / .72) * smooth((p.y - .35) / 1.4)
+    color.lerp(talus, smooth((slope - .18) / .5) * (1 - smooth((slope - .65) / .65)) * smooth(elevation * 5) * .60)
+    const rock = stone.clone().lerp(rockShade, clamp(.29 + strata * .20 + texture * .20 + grain * .25 + bedding * .065 + smooth((slope - .6) / 1.2) * .19))
+    color.lerp(rock, Math.max(exposed, smooth((elevation - .57) / .34) * .84))
     if (d < bank * 1.8 && p.y < .8) color.lerp(sand, 1 - smooth(Math.max(0, d - bank * .35) / (bank * 1.45)))
-    return color
+    const result = color.clone(); colorCache.set(p, result); return result
   }
   function emit(polygon: Vertex[], target: number[], targetColors: number[], kind: 'ground' | 'water' | 'shore') {
     for (let i = 1; i < polygon.length - 1; i++) for (const p of [polygon[0], polygon[i], polygon[i + 1]]) {
       if (kind === 'water' && Math.abs(p.y - WATER) < 1e-7) shoreline.set(`${p.x.toFixed(4)},${p.z.toFixed(4)}`, p)
       target.push(p.x, kind === 'water' ? WATER : p.y + (kind === 'shore' ? .006 : 0), p.z)
+      if (kind === 'ground') {
+        const gradient = gradientAt(p.x, p.z), length = Math.hypot(gradient.x, 1, gradient.z)
+        surfaceNormals.push(-gradient.x / length, 1 / length, -gradient.z / length)
+      }
       const c = kind === 'water' ? color.copy(shallow).lerp(deep, smooth((WATER - p.y) / 1.8)) : kind === 'shore' ? color.copy(sand) : groundColor(p)
       targetColors.push(c.r, c.g, c.b)
     }
@@ -137,9 +186,42 @@ export function buildTerrain(plan: CityPlan): CityTerrain {
   const vertices: Vertex[] = []
   let maxHeight = GROUND
   for (let row = 0; row <= RESOLUTION; row++) for (let col = 0; col <= RESOLUTION; col++) {
-    const x = -outerX + col * stepX, z = -outerZ + row * stepZ, y = field(x, z)
+    const x = -outerX + col * stepX, z = -outerZ + row * stepZ, wet = wetDistance(x, z), y = field(x, z, wet)
     maxHeight = Math.max(maxHeight, y)
-    vertices.push({ x: x + center.x, y, z: z + center.z })
+    vertices.push({ x: x + center.x, y, z: z + center.z, wet })
+  }
+  // Two bounded D8 flow-accumulation incision passes. This is a local visual
+  // erosion model, not a hydrology simulation; no protected or wet vertex moves.
+  const offsets = [-RESOLUTION - 2, -RESOLUTION - 1, -RESOLUTION, -1, 1, RESOLUTION, RESOLUTION + 1, RESOLUTION + 2]
+  const lengths = [Math.hypot(stepX, stepZ), stepZ, Math.hypot(stepX, stepZ), stepX, stepX, Math.hypot(stepX, stepZ), stepZ, Math.hypot(stepX, stepZ)]
+  for (let pass = 0; pass < 2; pass++) {
+    const flow = new Float64Array(vertices.length).fill(1), downstream = new Int32Array(vertices.length).fill(-1), grades = new Float32Array(vertices.length)
+    for (let row = 1; row < RESOLUTION; row++) for (let col = 1; col < RESOLUTION; col++) {
+      const at = row * (RESOLUTION + 1) + col, p = vertices[at]
+      if (p.y < .8 || protectedDistance(p.x - center.x, p.z - center.z) < scale * .035) continue
+      for (let j = 0; j < offsets.length; j++) {
+        const grade = (p.y - vertices[at + offsets[j]].y) / lengths[j]
+        if (grade > grades[at]) { grades[at] = grade; downstream[at] = at + offsets[j] }
+      }
+    }
+    const order = vertices.map((_, i) => i).sort((a, b) => vertices[b].y - vertices[a].y || a - b)
+    for (const at of order) if (downstream[at] >= 0) flow[downstream[at]] += flow[at]
+    for (let i = 0; i < vertices.length; i++) if (downstream[i] >= 0) {
+      const cut = Math.min(peak * .025, peak * .004 * Math.log1p(flow[i]) * Math.min(1.5, grades[i]))
+      vertices[i].y = Math.max(GROUND + .5, vertices[i].y - cut)
+    }
+  }
+  maxHeight = vertices.reduce((height, p) => Math.max(height, p.y), GROUND)
+  const gradients = vertices.map((_, i) => {
+    const row = Math.floor(i / (RESOLUTION + 1)), col = i % (RESOLUTION + 1)
+    const left = col ? i - 1 : i, right = col < RESOLUTION ? i + 1 : i
+    const back = row ? i - RESOLUTION - 1 : i, front = row < RESOLUTION ? i + RESOLUTION + 1 : i
+    return { x: (vertices[right].y - vertices[left].y) / (stepX * (col && col < RESOLUTION ? 2 : 1)),
+      z: (vertices[front].y - vertices[back].y) / (stepZ * (row && row < RESOLUTION ? 2 : 1)) }
+  })
+  function gradientAt(x: number, z: number) {
+    const col = Math.round((x - center.x + outerX) / stepX), row = Math.round((z - center.z + outerZ) / stepZ)
+    return col < 0 || col > RESOLUTION || row < 0 || row > RESOLUTION ? { x: 0, z: 0 } : gradients[row * (RESOLUTION + 1) + col]
   }
   const sample = (x: number, z: number) => {
     const gx = clamp((x - center.x + outerX) / (outerX * 2)) * RESOLUTION
@@ -155,10 +237,11 @@ export function buildTerrain(plan: CityPlan): CityTerrain {
     const a = row * (RESOLUTION + 1) + col, b = a + 1, c = a + RESOLUTION + 1, d = c + 1
     for (const triangle of [[vertices[a], vertices[c], vertices[b]], [vertices[b], vertices[c], vertices[d]]]) {
       emit(triangle, surface, colors, 'ground')
-      emit(polygonClip(triangle, p => p.y - WATER), water, waterColors, 'water')
-      const beach = polygonClip(polygonClip(triangle, p => WATER - p.y), p => p.y - .34)
-      // Exclude ordinary flat ground at the same elevation as the beach.
-      emit(polygonClip(beach, p => wetDistance(p.x - center.x, p.z - center.z) - bank), shore, shoreColors, 'shore')
+      if (triangle.some(p => p.y < WATER)) emit(polygonClip(triangle, p => p.y - WATER), water, waterColors, 'water')
+      if (triangle.some(p => p.wet! < bank) && triangle.some(p => p.y < .34) && triangle.some(p => p.y >= WATER)) {
+        const beach = polygonClip(polygonClip(triangle, p => WATER - p.y), p => p.y - .34)
+        emit(polygonClip(beach, p => p.wet! - bank), shore, shoreColors, 'shore')
+      }
     }
   }
   // A broad, shallow apron continues beyond the camera, with no vertical skirt.
@@ -189,11 +272,17 @@ export function buildTerrain(plan: CityPlan): CityTerrain {
     const radius = Math.min(2.1, .48 + scale * .006) * .82 * (.65 + random(i, 31) * .65)
     if (Math.abs(x) < hx + guard + radius && Math.abs(z) < hz + guard + radius) continue
     const y = sample(x + center.x, z + center.z).height, delta = Math.max(.6, radius)
-    const slope = Math.max(Math.abs(field(x + delta, z) - field(x - delta, z)), Math.abs(field(x, z + delta) - field(x, z - delta))) / (2 * delta)
+    const slope = Math.max(Math.abs(sample(x + center.x + delta, z + center.z).height - sample(x + center.x - delta, z + center.z).height), Math.abs(sample(x + center.x, z + center.z + delta).height - sample(x + center.x, z + center.z - delta).height)) / (2 * delta)
     if (y < WATER + .35 || wetDistance(x, z) < bank + radius || y > peak * .84) continue
     const point = { x: x + center.x, y, z: z + center.z, radius }
     const target = y > peak * .55 || slope > .65 || random(i, 41) > .86 ? rocks : trees
     if (target.length >= (target === rocks ? 60 : 180) || slope > 1.4) continue
+    // Broken rock is already part of the mountain mesh. Loose stones belong on
+    // the talus foot, not scattered as toy boulders across exposed high cliffs.
+    if (target === rocks) {
+      if (y > peak * .38 || slope > .9 || random(i, 53) > .45) continue
+      point.radius *= .7
+    }
     if ([...trees, ...rocks].some(p => Math.hypot(p.x - point.x, p.z - point.z) < (p.radius + radius) * 1.12)) continue
     target.push(point)
   }
@@ -212,6 +301,6 @@ export function buildTerrain(plan: CityPlan): CityTerrain {
   }
   const summit = vertices.reduce((best, p) => p.y > best.y ? p : best)
   framingPoints.push(new Vector3(summit.x, summit.y, summit.z))
-  return { framingPoints, surface: geometry(surface, colors), water: geometry(water, waterColors), shore: geometry(shore, shoreColors), bounds, trees, rocks, sample, waterLevel: WATER,
+  return { framingPoints, surface: geometry(surface, colors, surfaceNormals), water: geometry(water, waterColors), shore: geometry(shore, shoreColors), bounds, trees, rocks, sample, waterLevel: WATER,
     stats: { surfaceTriangles: surface.length / 9, waterTriangles: water.length / 9, shoreTriangles: shore.length / 9, maxHeight, treeCount: trees.length, rockCount: rocks.length } }
 }
