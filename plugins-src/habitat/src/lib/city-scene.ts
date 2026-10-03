@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import { CityAssets, houses, commercial, trees, tents, rusticHuts, rusticCabins, type CityAssetId, type CityAssetPlacement } from './city-assets'
+import { buildTerrain } from './city-terrain'
 import type { ConceptGrowthProfile, GrowthState } from './concept-growth'
 import { focusDistrictLabel, isMainConcept, typeLabel } from './domain'
 import { planCity, segmentDistance, type CityPlan, type CityPoint, type CityPlacement } from './city-plan'
@@ -41,14 +42,6 @@ function ribbon(points: CityPoint[], width: number, y: number) {
   })
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3)); g.setIndex(indices); g.computeVertexNormals(); return g
 }
-function hull(points: CityPoint[]) {
-  const sorted = [...points].sort((a, b) => a.x - b.x || a.z - b.z)
-  const cross = (a: CityPoint, b: CityPoint, c: CityPoint) => (b.x - a.x) * (c.z - a.z) - (b.z - a.z) * (c.x - a.x)
-  const lower: CityPoint[] = [], upper: CityPoint[] = []
-  for (const p of sorted) { while (lower.length > 1 && cross(lower.at(-2)!, lower.at(-1)!, p) <= 0) lower.pop(); lower.push(p) }
-  for (const p of [...sorted].reverse()) { while (upper.length > 1 && cross(upper.at(-2)!, upper.at(-1)!, p) <= 0) upper.pop(); upper.push(p) }
-  return lower.slice(0, -1).concat(upper.slice(0, -1))
-}
 function inPolygon(point: CityPoint, polygon: CityPoint[]) {
   let inside = false
   for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
@@ -80,6 +73,7 @@ export class CityScene {
   private selected = ''
   private changed = new Set<string>()
   private bounds = new THREE.Box3()
+  private framingPoints: THREE.Vector3[] = []
   private frame = 0
   private width = 1
   private height = 1
@@ -161,18 +155,18 @@ export class CityScene {
     entries.forEach((entry, i) => { dummy.position.fromArray(entry.p); dummy.scale.fromArray(entry.s); dummy.rotation.set(0, entry.ry ?? 0, 0); dummy.updateMatrix(); mesh.setMatrixAt(i, dummy.matrix); mesh.setColorAt(i, new THREE.Color(entry.color ?? '#ffffff')) })
     mesh.castShadow = cast; mesh.receiveShadow = true; mesh.computeBoundingSphere(); this.city.add(mesh)
   }
-  private addAsset(asset: CityAssetId, x: number, z: number, radius: number, rotation = 0, id?: string, y = .19) {
+  private addAsset(asset: CityAssetId, x: number, z: number, radius: number, rotation = 0, id?: string, y = .19, contactShadow = true) {
     const size = this.assets!.size(asset), scale = radius * 2 / Math.hypot(size.x, size.z)
     if (!this.assetQueue.has(asset)) this.assetQueue.set(asset, [])
     this.assetQueue.get(asset)!.push({ x, y, z, rotation, scale, id })
-    this.contact.push({ p: [x, Math.max(.18, y - .008), z], s: [radius * 2.5, radius * 2.5, 1] })
+    if (contactShadow) this.contact.push({ p: [x, Math.max(.18, y - .008), z], s: [radius * 2.5, radius * 2.5, 1] })
     return size.y * scale
   }
   private clearGroup(group: THREE.Group) {
     group.traverse(object => { if (object instanceof THREE.Mesh && !object.geometry.userData.sharedCityAsset) object.geometry.dispose(); if (object instanceof THREE.InstancedMesh) object.dispose() })
     group.clear()
   }
-  private clear() { this.clearGroup(this.city); this.clearGroup(this.markers); this.pickables = []; this.instanceIds.clear(); this.assetQueue.clear(); this.contact = []; this.walks = []; this.byId.clear(); this.blockMembers.clear(); this.lots = []; this.labels = [] }
+  private clear() { this.clearGroup(this.city); this.clearGroup(this.markers); this.pickables = []; this.instanceIds.clear(); this.assetQueue.clear(); this.contact = []; this.walks = []; this.byId.clear(); this.blockMembers.clear(); this.lots = []; this.labels = []; this.framingPoints = []; this.ground = null; this.water = null }
   setData(data: CityData, reframe: boolean) {
     this.latest = data; this.reframe = reframe; this.total = data.nodes.length
     if (this.assets) this.rebuild(data, reframe); else this.schedule()
@@ -245,39 +239,45 @@ export class CityScene {
     }, {} as Record<string, number>))
     this.canvas.dataset.entranceWalks = String(this.walks.length)
     this.canvas.dataset.planningMs = (performance.now() - started).toFixed(1); this.canvas.dataset.parcels = String(plan.parcels.length); this.canvas.dataset.roads = String(plan.roads.length); this.canvas.dataset.models = String([...this.assetQueue.values()].reduce((n, a) => n + a.length, 0))
-    this.bounds.max.y = Math.max(3, ...this.lots.map(lot => lot.h + .8))
+    this.bounds.max.y = Math.max(this.bounds.max.y, 3, ...this.lots.map(lot => lot.h + .8))
+    for (const lot of this.lots) {
+      this.framingPoints.push(new THREE.Vector3(lot.x, lot.h + .8, lot.z))
+      for (const dx of [-lot.w, lot.w]) for (const dz of [-lot.w, lot.w]) this.framingPoints.push(new THREE.Vector3(lot.x + dx, 0, lot.z + dz))
+    }
     this.setSelected(this.selected, this.changed); if (reframe) this.fit(); else this.schedule()
   }
   private terrain(plan: CityPlan) {
-    const bounds = this.bounds, center = bounds.getCenter(new THREE.Vector3()), size = bounds.getSize(new THREE.Vector3())
-    const perimeter = hull(plan.parcels.flatMap(p => p.polygon))
-    const outer = (perimeter.length > 2 ? perimeter : [{ x: -12, z: -12 }, { x: 12, z: -12 }, { x: 12, z: 12 }, { x: -12, z: 12 }]).map(p => {
-      const dx = p.x - center.x, dz = p.z - center.z, d = Math.hypot(dx, dz) || 1
-      return new THREE.Vector3(p.x + dx / d * 4.5, 0, p.z + dz / d * 4.5)
-    })
-    const curve = new THREE.CatmullRomCurve3(outer, true, 'centripetal'), coast = curve.getPoints(160).map(p => ({ x: p.x, z: p.z }))
-    const shape = new THREE.Shape(coast.map(p => new THREE.Vector2(p.x, -p.z)))
-    const cliff = new THREE.ExtrudeGeometry(shape, { depth: 1.6, bevelEnabled: true, bevelSegments: 2, bevelSize: .6, bevelThickness: .25, steps: 1 }); cliff.rotateX(-Math.PI / 2); cliff.translate(0, -1.95, 0)
-    this.mesh(cliff, this.material('#b6b099'))
-    this.ground = this.mesh(polygonGeometry(coast, .09), this.material('#d8caaa'))
-    const lawn = coast.map(p => ({ x: center.x + (p.x - center.x) * .985, z: center.z + (p.z - center.z) * .985 }))
-    this.mesh(polygonGeometry(lawn, .12), this.material('#c2cfb2', this.grass))
+    const terrain = buildTerrain(plan)
+    let land = this.materials.get('valley-land') as THREE.MeshStandardMaterial | undefined
+    if (!land) {
+      land = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, flatShading: true })
+      this.materials.set('valley-land', land)
+    }
+    this.ground = this.mesh(terrain.surface, land, true)
+    this.mesh(terrain.shore, this.material('#c8c4a1'))
+    let waterMaterial = this.materials.get('water') as THREE.MeshStandardMaterial | undefined
+    if (!waterMaterial) {
+      waterMaterial = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .27, metalness: .12 })
+      this.materials.set('water', waterMaterial)
+    }
+    waterMaterial.color.set(this.dark ? '#739a9f' : '#ffffff')
+    this.water = this.mesh(terrain.water, waterMaterial)
     const groups = new Map<string, THREE.BufferGeometry[]>()
     for (const p of plan.parcels) {
-      const color = p.kind === 'growth' ? '#c8c1a7' : p.kind === 'campus' ? '#d0d3bc' : p.kind === 'park' ? '#afc198' : '#c4ceb0'
+      const color = p.kind === 'growth' ? '#c0c4a4' : p.kind === 'campus' ? '#c7cdb6' : p.kind === 'park' ? '#a4ba92' : '#b9c9a8'
       if (!groups.has(color)) groups.set(color, [])
       groups.get(color)!.push(polygonGeometry(p.polygon, .145))
     }
     for (const [color, geometries] of groups) this.merge(geometries, this.material(color, this.grass))
-    let waterMaterial = this.materials.get('water') as THREE.MeshStandardMaterial | undefined
-    if (!waterMaterial) { waterMaterial = new THREE.MeshStandardMaterial({ roughness: .32, metalness: .08 }); this.materials.set('water', waterMaterial) }
-    waterMaterial.color.set(this.dark ? '#244a54' : '#75bfc1'); this.water = this.mesh(new THREE.PlaneGeometry(2000, 2000), waterMaterial); this.water.rotation.x = -Math.PI / 2; this.water.position.y = -1.3
-    const rocks: { x: number; z: number; radius: number }[] = []
-    for (let i = 0; i < 145; i++) { const p = curve.getPoint(i / 145), toward = new THREE.Vector3(center.x - p.x, 0, center.z - p.z).normalize(); rocks.push({ x: p.x + toward.x * .5, z: p.z + toward.z * .5, radius: .25 + seed(`coast:${i}`) * .4 }) }
-    for (const [i, p] of rocks.entries()) this.addAsset(i % 4 ? 'nature/rock_smallB' : 'nature/rock_largeA', p.x, p.z, p.radius, seed(`rock:${i}`) * 6, undefined, -.05)
-    const surf = coast.map(p => ({ x: center.x + (p.x - center.x) * 1.017, z: center.z + (p.z - center.z) * 1.017 }))
-    this.mesh(ribbon(surf, .2, -1.24), this.material('#b9d9cf'))
-    this.bounds.expandByVector(new THREE.Vector3(3, 0, 3)); this.bounds.max.y = Math.max(12, size.y)
+    for (const [i, p] of terrain.trees.entries()) this.addAsset(trees[2 + i % 2], p.x, p.z, p.radius, seed(`valley-tree:${i}`) * Math.PI * 2, undefined, p.y, false)
+    for (const [i, p] of terrain.rocks.entries()) this.addAsset(i % 3 ? 'nature/rock_smallB' : 'nature/rock_largeA', p.x, p.z, p.radius, seed(`valley-rock:${i}`) * Math.PI * 2, undefined, p.y, false)
+    this.bounds.union(terrain.bounds)
+    this.framingPoints.push(...terrain.framingPoints)
+    Object.assign(this.canvas.dataset, {
+      terrain: 'mountain-valley', terrainPeak: terrain.stats.maxHeight.toFixed(2),
+      terrainTriangles: String(terrain.stats.surfaceTriangles), waterTriangles: String(terrain.stats.waterTriangles),
+      shoreTriangles: String(terrain.stats.shoreTriangles), terrainTrees: String(terrain.trees.length),
+    })
   }
   private roads(plan: CityPlan) {
     const shoulders: THREE.BufferGeometry[] = [], pavement: THREE.BufferGeometry[] = [], paths: THREE.BufferGeometry[] = [], marks: THREE.BufferGeometry[] = []
@@ -697,8 +697,8 @@ export class CityScene {
     this.schedule()
   }
   setDark(value: boolean) {
-    this.dark = value; this.renderer.setClearColor(value ? '#172e35' : '#acd2d1', 1); this.renderer.toneMappingExposure = value ? .8 : 1.05; this.sun.intensity = value ? 1.5 : 2.4; this.hemisphere.intensity = value ? 1.2 : 1.3
-    if (this.water) (this.water.material as THREE.MeshStandardMaterial).color.set(value ? '#244a54' : '#75bfc1')
+    this.dark = value; this.renderer.setClearColor(value ? '#202e2e' : '#cbd8c6', 1); this.renderer.toneMappingExposure = value ? .8 : 1.05; this.sun.intensity = value ? 1.5 : 2.4; this.hemisphere.intensity = value ? 1.2 : 1.3
+    if (this.water) (this.water.material as THREE.MeshStandardMaterial).color.set(value ? '#739a9f' : '#ffffff')
     this.schedule()
   }
   resize(width: number, height: number) { this.width = width; this.height = height; this.renderer.setSize(width, height, false); const half = (this.camera.top - this.camera.bottom) / 2; this.camera.left = -half * width / height; this.camera.right = half * width / height; this.camera.updateProjectionMatrix(); if (this.lots.length && this.camera.zoom === 1) this.fit(); else this.schedule() }
@@ -708,8 +708,14 @@ export class CityScene {
     this.controls.target.set(center.x, 0, center.z); this.camera.position.set(center.x + span * .78, span * .85, center.z + span * .98); this.camera.zoom = 1; this.controls.update()
     this.camera.updateMatrixWorld(true)
     const viewBounds = new THREE.Box3()
-    for (const x of [this.bounds.min.x, this.bounds.max.x]) for (const y of [0, this.bounds.max.y]) for (const z of [this.bounds.min.z, this.bounds.max.z]) viewBounds.expandByPoint(new THREE.Vector3(x, y, z).applyMatrix4(this.camera.matrixWorldInverse))
-    const half = Math.max(12, Math.abs(viewBounds.min.y), Math.abs(viewBounds.max.y), Math.abs(viewBounds.min.x) * this.height / this.width, Math.abs(viewBounds.max.x) * this.height / this.width) * 1.04
+    const frame = this.framingPoints.length ? this.framingPoints : [this.bounds.min, this.bounds.max]
+    for (const point of frame) viewBounds.expandByPoint(point.clone().applyMatrix4(this.camera.matrixWorldInverse))
+    // Frame actual peaks and rooftops, rather than imaginary tall corners over
+    // the whole valley, which would shrink the city excessively.
+    const viewCenter = viewBounds.getCenter(new THREE.Vector3()), viewSize = viewBounds.getSize(new THREE.Vector3())
+    const shift = new THREE.Vector3(viewCenter.x, viewCenter.y, 0).applyQuaternion(this.camera.quaternion)
+    this.controls.target.add(shift); this.camera.position.add(shift); this.controls.update(); this.camera.updateMatrixWorld(true)
+    const half = Math.max(12, viewSize.y / 2, viewSize.x * this.height / this.width / 2) * 1.04
     this.camera.top = half; this.camera.bottom = -half; this.camera.left = -half * this.width / this.height; this.camera.right = half * this.width / this.height; this.camera.updateProjectionMatrix(); this.schedule()
   }
   zoom(factor: number) { this.camera.zoom = THREE.MathUtils.clamp(this.camera.zoom * factor, .45, 18); this.camera.updateProjectionMatrix(); this.schedule() }
@@ -731,7 +737,7 @@ export class CityScene {
   }
   private down = (e: PointerEvent) => { this.pointerDown = { x: e.clientX, y: e.clientY } }
   private up = (e: PointerEvent) => { if (e.button === 0 && this.pointerDown && Math.hypot(e.clientX - this.pointerDown.x, e.clientY - this.pointerDown.y) < 4) { const id = this.pick(e); if (id) this.select(id) } this.pointerDown = null }
-  private pick(e: PointerEvent) { const rect = this.canvas.getBoundingClientRect(); this.mouse.set((e.clientX - rect.left) / this.width * 2 - 1, -(e.clientY - rect.top) / this.height * 2 + 1); this.ray.setFromCamera(this.mouse, this.camera); const hit = this.ray.intersectObjects(this.pickables, false)[0]; return hit && hit.instanceId !== undefined ? this.instanceIds.get(hit.object)?.[hit.instanceId] : undefined }
+  private pick(e: PointerEvent) { const rect = this.canvas.getBoundingClientRect(); this.mouse.set((e.clientX - rect.left) / this.width * 2 - 1, -(e.clientY - rect.top) / this.height * 2 + 1); this.ray.setFromCamera(this.mouse, this.camera); const hit = this.ray.intersectObjects(this.pickables, false)[0]; if (!hit) return; const ground = this.ground && this.ray.intersectObject(this.ground, false)[0]; if (ground && ground.distance < hit.distance - .01) return; return hit.instanceId !== undefined ? this.instanceIds.get(hit.object)?.[hit.instanceId] : undefined }
   private hover = (e: PointerEvent) => { if (this.pointerDown || performance.now() - this.lastHover < 130) return; this.lastHover = performance.now(); const id = this.pick(e), lot = id ? this.byId.get(id) : undefined; this.canvas.style.cursor = lot ? 'pointer' : 'grab'; if (lot) { const r = this.canvas.getBoundingClientRect(); this.emit({ name: lot.node.label + (!this.latest?.keywordGraph && this.blockMembers.has(lot.node.id) ? ` · 街区含 ${this.blockMembers.get(lot.node.id)!.length} ${this.latest?.keywordGraph ? '个关键词' : '个对象'}` : ''), kind: lot.node.nodeType, growth: this.latest?.growth?.get(lot.node.id)?.label, x: e.clientX - r.left, y: e.clientY - r.top }) } else this.emit() }
   private leave = () => this.emit()
   private emit(hover?: SceneStatus['hover']) {
