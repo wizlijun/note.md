@@ -244,3 +244,38 @@ it('names recent membership chips from visible concepts while retaining the orig
   ;[...document.querySelectorAll<HTMLButtonElement>('.node-row')].find(row => row.textContent?.includes('观察与反馈'))!.click(); await flush()
   expect(document.querySelector('.memberships button')?.textContent).toContain('研究方法')
 })
+
+it('shows evidence-derived building level independently from the recent attention score', async () => {
+  current.snapshot = focusFixture()
+  current.snapshot.attention![1].score = 1
+  await mountApp()
+  const row = [...document.querySelectorAll<HTMLButtonElement>('.node-row')].find(row => row.textContent?.includes('观察与反馈'))!
+  row.click(); await flush()
+  expect(document.querySelector('.growth-badge')?.textContent).toContain('茅草屋')
+  expect(document.querySelectorAll('.growth-meter .filled')).toHaveLength(1)
+  expect(document.querySelector('[aria-label="建筑成长依据"]')?.textContent).toContain('0 组含本人主动记录')
+  expect(document.querySelector('[aria-label="近期关注依据"]')?.textContent).toContain('100 / 100')
+  button('历史结构').click(); await flush()
+  ;[...document.querySelectorAll<HTMLButtonElement>('.node-row')].find(row => row.textContent?.includes('观察与反馈'))!.click(); await flush()
+  expect(document.querySelectorAll('.growth-meter .filled')).toHaveLength(1)
+})
+
+it('loads both frozen versions for genuine rebuilding and removes that state in another version', async () => {
+  const after = focusFixture(), before = focusFixture()
+  before.meta.snapshotId = 'old'
+  after.memberships = [{ id:'m', node:'n2', topic:'t1', role:'primary', score:1 }]
+  before.nodes.push({ id:'t0', key:'t0', label:'先前社区', nodeType:'topic', status:'observed' })
+  before.memberships = [{ id:'m', node:'n2', topic:'t0', role:'primary', score:1 }]
+  current.snapshot = after
+  const base = request.getMockImplementation()!
+  request.mockImplementation((method, params) => method === 'plugin.read_version'
+    ? Promise.resolve({ snapshot: (params as { commit:string }).commit === 'commit-old' ? before : after }) : base(method, params))
+  await mountApp()
+  ;[...document.querySelectorAll<HTMLButtonElement>('.node-row')].find(row => row.textContent?.includes('观察与反馈'))!.click(); await flush()
+  button('历史').click(); await flush(); button('查看结构变化').click(); await flush()
+  expect(document.querySelector('.growth-badge')?.textContent).toContain('结构重建')
+  expect(document.querySelector('[aria-label="版本差异"]')?.textContent).toContain('建筑的生长与重建')
+  document.querySelectorAll<HTMLButtonElement>('.version-row')[1].click(); await flush()
+  expect(document.querySelector('.growth-badge')?.textContent).not.toContain('结构重建')
+  expect(request.mock.calls.some(c => ['plugin.generate','host.vault.write'].includes(c[0]))).toBe(false)
+})

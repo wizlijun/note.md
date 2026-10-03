@@ -161,7 +161,8 @@ it('packs isolated keywords into stable exploration plots without fabricating co
   const lots = Array.from({ length: 180 }, (_, i) => lot(`isolated-${i}`, (i % 18) * 2, Math.floor(i / 18) * 2))
   const communities = { topics: [], memberships: [] }
   const plan = planCity(lots, [], communities)
-  expect(plan.parcels.length).toBeLessThan(10)
+  expect(plan.parcels.length).toBeLessThan(20)
+  expect(plan.placements).toHaveLength(lots.length)
   expect(plan.parcels.every(p => p.unassigned && !p.topicId && p.kind === 'growth' && p.name === '待连接关键词')).toBe(true)
   expect(plan.roads.every(r => r.traffic === 0)).toBe(true)
   expect(plan.positions.size).toBe(lots.length)
@@ -188,19 +189,20 @@ it('sizes focus land to its inhabitants and reserves larger project campuses', (
   const area = (id: string) => Math.abs(plan.parcels.find(p => p.members.some(l => l.node.id === id))!.polygon.reduce((sum, a, i, points) => { const b = points[(i + 1) % points.length]; return sum + a.x * b.z - b.x * a.z }, 0)) / 2
   expect(area('isolated')).toBeLessThan(area('group-0'))
   expect(area('isolated')).toBeLessThan(area('campus'))
-  expect(plan.placements.find(p => p.id === 'campus')!.footprint).toBeGreaterThanOrEqual(6)
+  expect(plan.placements.find(p => p.id === 'campus')!.footprint).toBeGreaterThanOrEqual(3)
+  expect(plan.placements.find(p => p.id === 'campus')!.footprint).toBeLessThan(4)
   expect(plan.placements.find(p => p.id === 'isolated')!.footprint).toBeGreaterThanOrEqual(1.55)
   expect(planCity([...lots].reverse(), [], { ...communities, memberships: [...communities.memberships].reverse() })).toEqual(plan)
   expect(plan.roads.every(r => r.traffic === 0)).toBe(true)
   assertClearances(plan)
 })
 
-it('keeps all sparse focus buildings visible and uses bounded attention scale without invented roads', () => {
+it('keeps all sparse focus addresses visible with bounded footprints without invented roads', () => {
   const lots = Array.from({ length: 34 }, (_, i) => ({ ...lot(`focus-${i}`, (i % 6) * 40, Math.floor(i / 6) * 40), node: { id: `focus-${i}`, nodeType: 'keyword', evidence: [`e${i}`], attentionScore: i === 0 ? .95 : .3 } }))
   const communities = { focus: true, topics: Array.from({ length: 18 }, (_, i) => ({ id: `topic-${i}`, key: `topic-${i}`, label: `Topic ${i}`, nodeType: 'topic', status: 'candidate', x: (i % 6) * 40, z: Math.floor(i / 6) * 40 })), memberships: lots.map((l, i) => ({ id: `m-${i}`, node: l.node.id, topic: `topic-${i % 18}`, role: 'primary', score: 1 })) }
   const baseline = planCity(lots, [], communities)
   expect(baseline.placements).toHaveLength(lots.length)
-  expect(baseline.placements.find(p => p.id === 'focus-0')!.kind).toBe('midrise')
+  expect(baseline.placements.find(p => p.id === 'focus-0')!.kind).toBe('house') // Growth is derived separately from evidence, not attention.
   expect(baseline.placements.every(p => p.footprint >= 1.55 && p.footprint <= 2.2)).toBe(true)
   expect(baseline.parcels.flatMap(p => p.members).map(l => l.node.id).sort()).toEqual(lots.map(l => l.node.id).sort())
   const linked = planCity(lots, Array.from({ length: 200 }, (_, i) => edge(`e${i}`, 'focus-0', 'focus-17')), communities)
@@ -209,4 +211,31 @@ it('keeps all sparse focus buildings visible and uses bounded attention scale wi
   expect(linked.roads.some(r => r.tier === 3)).toBe(true)
   expect(planCity([...lots].reverse(), [], { ...communities, topics: [...communities.topics].reverse(), memberships: [...communities.memberships].reverse() })).toEqual(baseline)
   assertClearances(linked)
+})
+
+it('gives every semantic keyword its own building beyond the old 650-building budget', () => {
+  const lots = Array.from({ length: 701 }, (_, i) => lot(`concept-${String(i).padStart(4, '0')}`, 0, 0))
+  const topic = { id: 'one-topic', key: 'one-topic', label: 'Same topic', nodeType: 'topic', status: 'candidate', x: 0, z: 0 }
+  const communities = { topics: [topic], memberships: lots.map(l => ({ id: `m-${l.node.id}`, node: l.node.id, topic: topic.id, role: 'primary', score: 1 })) }
+  const plan = planCity(lots, [], communities)
+  expect(plan.placements.map(p => p.id).sort()).toEqual(lots.map(l => l.node.id).sort())
+  expect(new Set(plan.placements.map(p => `${p.x},${p.z}`)).size).toBe(lots.length)
+  expect(plan.parcels.every(p => p.topicId === topic.id && p.name === topic.label)).toBe(true)
+  expect(plan.parcels.every(p => p.members.length <= 12)).toBe(true)
+  for (const placement of plan.placements) expect(plan.positions.get(placement.id)).toEqual({ x: placement.x, z: placement.z })
+  assertClearances(plan)
+})
+
+it('keeps concept addresses fixed as attention and building level grow beside project landmarks', () => {
+  const lots = [lot('project', 0, 0, 'campus'), ...Array.from({ length: 20 }, (_, i) => lot(`concept-${i}`, 0, 0))]
+  const topic = { id: 'one-topic', key: 'one-topic', label: 'Same topic', nodeType: 'topic', status: 'candidate', x: 0, z: 0 }
+  const communities = { focus: true, topics: [topic], memberships: lots.map(l => ({ id: `m-${l.node.id}`, node: l.node.id, topic: topic.id, role: 'primary', score: 1 })) }
+  const baseline = planCity(lots, [], communities)
+  const grown = planCity(lots.map(l => ({ ...l, node: { ...l.node, attentionScore: .99 } })), [edge('growth', 'project', 'concept-0')], communities)
+  expect(baseline.placements).toHaveLength(lots.length)
+  expect(grown.positions).toEqual(baseline.positions)
+  expect(skeleton(grown)).toEqual(skeleton(baseline))
+  expect(grown.placements.map(({ kind, ...address }) => address)).toEqual(baseline.placements.map(({ kind, ...address }) => address))
+  expect(baseline.parcels.filter(p => p.kind === 'campus').every(p => p.members.length === 1)).toBe(true)
+  assertClearances(grown)
 })

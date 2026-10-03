@@ -1,7 +1,8 @@
 import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
-import { CityAssets, houses, commercial, trees, tents, type CityAssetId, type CityAssetPlacement } from './city-assets'
+import { CityAssets, houses, commercial, trees, tents, rusticHuts, rusticCabins, type CityAssetId, type CityAssetPlacement } from './city-assets'
+import type { ConceptGrowthProfile, GrowthState } from './concept-growth'
 import { focusDistrictLabel } from './domain'
 import { planCity, segmentDistance, type CityPlan, type CityPoint, type CityPlacement } from './city-plan'
 import type { Attention, Edge, Layout, Membership, Node } from './types'
@@ -17,9 +18,9 @@ function seed(text: string) {
   return ((n ^ n >>> 16) >>> 0) / 4294967296
 }
 interface VisualLot { node: Node; x: number; z: number; h: number; w: number; style?: string; parcelId: string; district?: { name: string; count: number; kind: string; topicId?: string; unassigned?: boolean; contextName?: string; attentionCategory?: string } }
-export interface CityData { nodes: Node[]; layout: Layout[]; edges: Edge[]; memberships?: Membership[]; topics?: Node[]; keywordGraph?: boolean; attention?: Attention[] }
-export interface Label { id: string; nodeId?: string; attentionCategory?: string; name: string; x: number; y: number; kind: string; selected: boolean; district?: { name: string; count: number; kind: string; topicId?: string; unassigned?: boolean; contextName?: string; attentionCategory?: string }; compact?: boolean; width?: number }
-export interface SceneStatus { labels: Label[]; count: number; rendered?: number; aggregated?: boolean; zoom?: number; loading?: boolean; error?: string; hover?: { name: string; kind: string; x: number; y: number } }
+export interface CityData { nodes: Node[]; layout: Layout[]; edges: Edge[]; memberships?: Membership[]; topics?: Node[]; keywordGraph?: boolean; attention?: Attention[]; growth?: Map<string, ConceptGrowthProfile> }
+export interface Label { id: string; nodeId?: string; attentionCategory?: string; name: string; x: number; y: number; kind: string; selected: boolean; district?: { name: string; count: number; kind: string; topicId?: string; unassigned?: boolean; contextName?: string; attentionCategory?: string }; compact?: boolean; width?: number; growth?: string; growthState?: GrowthState }
+export interface SceneStatus { labels: Label[]; count: number; rendered?: number; aggregated?: boolean; zoom?: number; loading?: boolean; error?: string; hover?: { name: string; kind: string; growth?: string; x: number; y: number } }
 type Primitive = { p: number[]; s: number[]; ry?: number; color?: string }
 
 function polygonGeometry(points: CityPoint[], y: number) {
@@ -202,7 +203,7 @@ export class CityScene {
       const node = nodes.get(placement.id); if (!node) continue
       const parcel = parcels.get(placement.parcelId)!, h = this.building(placement, node)
       const lot: VisualLot = { node, x: placement.x, z: placement.z, h, w: placement.footprint, style: heroIds.has(node.id) ? landmarkStyle(node) : undefined, parcelId: placement.parcelId }
-      this.lots.push(lot); this.byId.set(node.id, lot); this.blockMembers.set(node.id, parcel.members.map(l => l.node.id))
+      this.lots.push(lot); this.byId.set(node.id, lot); this.blockMembers.set(node.id, data.keywordGraph ? [node.id] : parcel.members.map(l => l.node.id))
     }
     const represented = new Map(this.lots.map(l => [`${l.x},${l.z}`, l]))
     for (const lot of this.byId.values()) {
@@ -231,6 +232,15 @@ export class CityScene {
     const center = this.bounds.getCenter(new THREE.Vector3()), size = this.bounds.getSize(new THREE.Vector3()), span = Math.max(size.x, size.z) * .7 + 12
     const lightDistance = Math.max(100, span * 2)
     this.sun.position.set(center.x - lightDistance * .5, lightDistance * .95, center.z + lightDistance * .35); this.sun.shadow.camera.far = Math.max(350, lightDistance + span * 3); this.sun.target.position.copy(center); this.sun.shadow.camera.left = this.sun.shadow.camera.bottom = -span; this.sun.shadow.camera.right = this.sun.shadow.camera.top = span; this.sun.shadow.camera.updateProjectionMatrix()
+    const primaryBuildings = [...this.assetQueue.values()].flat().filter(p => p.id)
+    this.canvas.dataset.primaryBuildings = String(primaryBuildings.length)
+    this.canvas.dataset.conceptAddresses = String(this.lots.length)
+    this.canvas.dataset.uniqueBuildingIds = String(new Set(primaryBuildings.map(p => p.id)).size)
+    this.canvas.dataset.rebuildingBuildings = String(this.lots.filter(lot => data.growth?.get(lot.node.id)?.state === 'rebuilding').length)
+    this.canvas.dataset.growthStages = JSON.stringify(this.lots.reduce((counts, lot) => {
+      const stage = data.growth?.get(lot.node.id)?.stage ?? 'unassessed'
+      counts[stage] = (counts[stage] ?? 0) + 1; return counts
+    }, {} as Record<string, number>))
     this.canvas.dataset.entranceWalks = String(this.walks.length)
     this.canvas.dataset.planningMs = (performance.now() - started).toFixed(1); this.canvas.dataset.parcels = String(plan.parcels.length); this.canvas.dataset.roads = String(plan.roads.length); this.canvas.dataset.models = String([...this.assetQueue.values()].reduce((n, a) => n + a.length, 0))
     this.bounds.max.y = Math.max(3, ...this.lots.map(lot => lot.h + .8))
@@ -287,6 +297,7 @@ export class CityScene {
     this.merge(shoulders, this.material('#e5dfc8')); this.merge(pavement, this.material('#6e7776')); this.merge(paths, this.material('#bea783')); this.merge(marks, this.material('#e8dfbd'))
   }
   private building(p: CityPlacement, node: Node) {
+    if (this.latest?.keywordGraph) return this.conceptBuilding(p, node)
     const v = seed(node.id), r = p.footprint
     if (p.kind === 'campus') {
       const outline = [[-.64,-.72],[.64,-.72],[.75,-.6],[.75,.6],[.64,.72],[-.64,.72],[-.75,.6],[-.75,-.6]].map(([x,z]) => ({ x:p.x+x*r, z:p.z+z*r }))
@@ -356,16 +367,177 @@ export class CityScene {
     }
     return height
   }
+  private conceptBuilding(p: CityPlacement, node: Node) {
+    const growth = this.latest?.growth?.get(node.id), stage = growth?.stage ?? 'hut'
+    const v = seed(node.id), r = p.footprint, rotation = p.rotation
+    const level = ['hut', 'cottage', 'house', 'workshop', 'midrise', 'tower'].indexOf(stage)
+    const models: readonly CityAssetId[] = stage === 'hut' ? rusticHuts : stage === 'cottage' ? rusticCabins
+      : stage === 'house' ? houses : stage === 'workshop' ? [commercial[3], commercial[4], houses[6]]
+      : stage === 'midrise' ? [commercial[0], commercial[1], commercial[2]] : [commercial[5], commercial[6]]
+    const model = models[Math.floor(v * models.length)]
+    const dx = Math.sin(rotation), dz = Math.cos(rotation)
+    const point = (side: number, forward: number) => ({ x:p.x+(dz*side+dx*forward)*r, z:p.z+(-dx*side+dz*forward)*r })
+    const plane = (side:number, forward:number, width:number, depth:number, y:number) => {
+      const at=point(side,forward), g=new THREE.PlaneGeometry(width*r,depth*r)
+      g.rotateX(-Math.PI/2); g.rotateY(rotation); g.translate(at.x,y,at.z); return g
+    }
+    const primitive = (side:number, forward:number, y:number, width:number, height:number, depth:number, color:string) => {
+      const at=point(side,forward)
+      this.gardenWalls.push({p:[at.x,y,at.z],s:[width*r,height*r,depth*r],ry:rotation,color})
+    }
+    // Every address has exactly one pickable primary building. The plot and
+    // accessories describe its setting without inventing additional concepts.
+    this.yards.push(plane(0,0,1.38,1.3,.205))
+    if(level<2) this.lawns.push(plane(0,0,1.34,1.26,.21))
+    const main=point(-.1,-.13), radius=r*[.47,.54,.61,.65,.61,.57][level]
+    const height=this.addAsset(model,main.x,main.z,radius,rotation,node.id,.24)
+    const placement=this.assetQueue.get(model)!.at(-1)!, uniform=placement.scale as number
+    const desiredHeight=THREE.MathUtils.clamp(r*[.84,1.06,1.3,1.52,2.45,4.6][level],height*.9,height*1.2)
+    placement.scale=new THREE.Vector3(uniform,uniform*desiredHeight/height,uniform)
+    // Stone thresholds, front walks, planted borders, and open gates make a
+    // house readable as an individual address even before its label is shown.
+    this.driveways.push(plane(-.1,.43,.28,.43,.221))
+    for(let step=0;step<2;step++) primitive(-.1,.27+step*.07,.23+(.05-step*.018)*r,.34,.025,.09,'#e7dfcd')
+    if(level>=2) {
+      for(const [side,forward,width,depth] of [[0,-.66,1.36,.04],[-.7,0,.04,1.3],[.7,0,.04,1.3]])
+        primitive(side,forward,.23+.045*r,width,.09,depth,'#f0e7d3')
+      this.lawns.push(plane(.49,.18,.25,.8,.217))
+      // A slim address post at the gate; the screen label carries the real name.
+      primitive(.23,.58,.23+.12*r,.055,.24,.055,'#796652')
+      primitive(.23,.58,.23+.23*r,.16,.08,.025,level>=4?'#597d80':'#af956c')
+    } else {
+      for(const side of [-.6,.55]) for(let i=0;i<4;i++) primitive(side,-.53+i*.2,.23+.06*r,.035,.12,.035,'#a88a5f')
+      for(const side of [-.6,.55]) primitive(side,-.22,.23+.08*r,.025,.025,.7,'#ad916c')
+      const wood=point(.48,.33)
+      this.addAsset('nature/log_stack',wood.x,wood.z,r*.12,rotation,undefined,.23)
+    }
+    const tree=point(.5,-.46), shrub=point(.51,.4)
+    this.addAsset(level<2?trees[2]:trees[1],tree.x,tree.z,r*.17,rotation,undefined,.23)
+    this.addAsset('nature/plant_bushDetailed',shrub.x,shrub.z,r*.1,rotation,undefined,.23)
+    if(level>=3) {
+      // Sheltered entrance, paving bands and a seating edge for established work.
+      primitive(-.1,.31,.23+.45*r,.38,.035,.25,'#627f7d')
+      for(const side of [-.27,.07]) primitive(side,.41,.23+.225*r,.025,.45,.025,'#e5dcc6')
+      primitive(.46,.12,.23+.075*r,.17,.055,.35,'#ac8a5f')
+      for(const z of [-.35,-.15,.05]) this.driveways.push(plane(-.65,z,.08,.14,.222))
+    } else {
+      const flower=point(.49,.07)
+      this.addAsset('nature/flower_yellowA',flower.x,flower.z,r*.065,rotation,undefined,.23)
+    }
+    if(growth?.state==='rebuilding') {
+      // Scaffolding requires actual restructuring evidence, never weak concepts.
+      for(const side of [-.64,.63]) for(const forward of [-.5,.26])
+        primitive(side,forward,.23+.38*r,.025,.76,.025,'#d4a25d')
+      for(const side of [-.64,.63]) for(const y of [.27,.55])
+        primitive(side,-.12,.23+y*r,.025,.025,.8,'#d4a25d')
+      const supplies=point(.44,.27)
+      this.addAsset('survival/box',supplies.x,supplies.z,r*.11,rotation,undefined,.23)
+    }
+    return desiredHeight+.24
+  }
   private entrances(plan: CityPlan) {
     // These narrow garden walks are visual access to an address, not graph
     // relations. They never change road traffic, width, tier or edge counts.
+    delete this.canvas.dataset.entranceAddresses
+    delete this.canvas.dataset.entranceMissing
+    if (this.latest?.keywordGraph) {
+      const roads = new Map(plan.roads.map(road => [road.id, road]))
+      const missing: string[] = []
+      let connected = 0
+      for (const parcel of plan.parcels) {
+        const lots = plan.placements.filter(lot => lot.parcelId === parcel.id)
+        const sides = parcel.polygon.map((a, i) => {
+          const b = parcel.polygon[(i + 1) % parcel.polygon.length]
+          const key = (p: CityPoint) => `${Math.round(p.x * 10000)},${Math.round(p.z * 10000)}`
+          const keys = [key(a), key(b)].sort(), road = roads.get(keys.join('|'))!
+          return { a, b, road }
+        }).filter(side => !!side.road)
+        const inside = (point: CityPoint, width: number) => inPolygon(point, parcel.polygon)
+          && sides.every(side => segmentDistance(point, side.a, side.b) >= width / 2 + .015)
+        const clear = (a: CityPoint, b: CityPoint, width: number, owner?: CityPlacement) => inside(a, width) && inside(b, width)
+          && lots.every(other => other === owner || segmentDistance(other, a, b) >= other.footprint + width / 2 + .01)
+        const endpoint = (side: typeof sides[number], t: number) => {
+          const x = side.a.x + (side.b.x - side.a.x) * t, z = side.a.z + (side.b.z - side.a.z) * t
+          const length = Math.hypot(side.b.x - side.a.x, side.b.z - side.a.z)
+          let nx = -(side.b.z - side.a.z) / length, nz = (side.b.x - side.a.x) / length
+          if ((parcel.center.x - x) * nx + (parcel.center.z - z) * nz < 0) { nx = -nx; nz = -nz }
+          const inset = side.road.width / 2 + .08
+          return { x: x + nx * inset, z: z + nz * inset }
+        }
+        // A small visibility graph follows real gaps between the at-most-12
+        // reserved plots. Reuse it for all inner addresses of this block.
+        const alleyWidth = .2
+        let graph: { points: CityPoint[]; exits: number; neighbors: { to: number; cost: number }[][] } | undefined
+        const alleys = () => {
+          if (graph) return graph
+          const points = sides.flatMap(side => [.15, .5, .85].map(t => endpoint(side, t)))
+            .filter(point => clear(point, point, alleyWidth))
+          const exits = points.length
+          for (let i = 0; i < lots.length; i++) for (const b of lots.slice(i + 1)) {
+            const point = { x: (lots[i].x + b.x) / 2, z: (lots[i].z + b.z) / 2 }
+            if (clear(point, point, alleyWidth)) points.push(point)
+          }
+          const neighbors = points.map(() => [] as { to: number; cost: number }[])
+          for (let i = 0; i < points.length; i++) for (let j = i + 1; j < points.length; j++) {
+            if (!clear(points[i], points[j], alleyWidth)) continue
+            const cost = Math.hypot(points[i].x - points[j].x, points[i].z - points[j].z)
+            neighbors[i].push({ to: j, cost }); neighbors[j].push({ to: i, cost })
+          }
+          return graph = { points, exits, neighbors }
+        }
+        for (const lot of lots) {
+          const front = { x: Math.sin(lot.rotation), z: Math.cos(lot.rotation) }
+          const gate = { x: lot.x + front.x * lot.footprint * .63, z: lot.z + front.z * lot.footprint * .63 }
+          let width = lot.kind === 'campus' ? .7 : .32
+          const targets = sides.map(side => {
+            const dx = side.b.x - side.a.x, dz = side.b.z - side.a.z
+            const t = THREE.MathUtils.clamp(((lot.x-side.a.x)*dx+(lot.z-side.a.z)*dz)/(dx*dx+dz*dz), 0, 1)
+            return endpoint(side, t)
+          }).sort((a,b) => Math.hypot(a.x-gate.x,a.z-gate.z)-Math.hypot(b.x-gate.x,b.z-gate.z))
+          let path: CityPoint[] | undefined
+          for (const target of targets) {
+            if ((target.x-lot.x)*front.x+(target.z-lot.z)*front.z < lot.footprint * .63) continue
+            if (clear(gate, target, width, lot)) { path = [gate, target]; break }
+          }
+          if (!path) {
+            width = alleyWidth
+            const escape = { x: lot.x + front.x * (lot.footprint + width / 2 + .02), z: lot.z + front.z * (lot.footprint + width / 2 + .02) }
+            const network = alleys(), costs = network.points.map(point => clear(escape, point, width) ? Math.hypot(point.x-escape.x,point.z-escape.z) : Infinity)
+            const previous = network.points.map(() => -1), visited = new Set<number>()
+            if (clear(gate, escape, width, lot)) for (;;) {
+              let at = -1
+              for (let i = 0; i < costs.length; i++) if (!visited.has(i) && Number.isFinite(costs[i]) && (at < 0 || costs[i] < costs[at])) at = i
+              if (at < 0) break
+              if (at < network.exits) {
+                const route = []
+                for (let i = at; i >= 0; i = previous[i]) route.push(network.points[i])
+                path = [gate, escape, ...route.reverse()]; break
+              }
+              visited.add(at)
+              for (const next of network.neighbors[at]) if (costs[at] + next.cost < costs[next.to]) {
+                costs[next.to] = costs[at] + next.cost; previous[next.to] = at
+              }
+            }
+          }
+          if (!path) { missing.push(lot.id); continue }
+          connected++
+          for (let i = 1; i < path.length; i++) this.walks.push({ a: path[i-1], b: path[i], width })
+          const walk = ribbon(path, width, .174)
+          walk.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(walk.getAttribute('position').count * 2), 2))
+          this.driveways.push(walk)
+        }
+      }
+      this.canvas.dataset.entranceAddresses = String(connected)
+      this.canvas.dataset.entranceMissing = JSON.stringify(missing)
+      return
+    }
     for (const lot of plan.placements) {
       const nearby = plan.roads.map(road => {
         const a = road.points[0], b = road.points.at(-1)!, dx = b.x - a.x, dz = b.z - a.z
         const t = THREE.MathUtils.clamp(((lot.x-a.x)*dx+(lot.z-a.z)*dz)/(dx*dx+dz*dz || 1), 0, 1)
         return { road, point: { x:a.x+dx*t, z:a.z+dz*t } }
       }).sort((a,b) => Math.hypot(a.point.x-lot.x,a.point.z-lot.z)-Math.hypot(b.point.x-lot.x,b.point.z-lot.z) || a.road.id.localeCompare(b.road.id))
-      const ordinary = lot.kind !== 'campus' && lot.kind !== 'camp'
+      const ordinary = !!this.latest?.keywordGraph || lot.kind !== 'campus' && lot.kind !== 'camp'
       const front = { x:Math.sin(lot.rotation), z:Math.cos(lot.rotation) }
       const target = ordinary ? nearby.find(candidate => {
         const dx=candidate.point.x-lot.x,dz=candidate.point.z-lot.z
@@ -466,24 +638,28 @@ export class CityScene {
   private down = (e: PointerEvent) => { this.pointerDown = { x: e.clientX, y: e.clientY } }
   private up = (e: PointerEvent) => { if (e.button === 0 && this.pointerDown && Math.hypot(e.clientX - this.pointerDown.x, e.clientY - this.pointerDown.y) < 4) { const id = this.pick(e); if (id) this.select(id) } this.pointerDown = null }
   private pick(e: PointerEvent) { const rect = this.canvas.getBoundingClientRect(); this.mouse.set((e.clientX - rect.left) / this.width * 2 - 1, -(e.clientY - rect.top) / this.height * 2 + 1); this.ray.setFromCamera(this.mouse, this.camera); const hit = this.ray.intersectObjects(this.pickables, false)[0]; return hit && hit.instanceId !== undefined ? this.instanceIds.get(hit.object)?.[hit.instanceId] : undefined }
-  private hover = (e: PointerEvent) => { if (this.pointerDown || performance.now() - this.lastHover < 130) return; this.lastHover = performance.now(); const id = this.pick(e), lot = id ? this.byId.get(id) : undefined; this.canvas.style.cursor = lot ? 'pointer' : 'grab'; if (lot) { const r = this.canvas.getBoundingClientRect(); this.emit({ name: lot.node.label + (this.blockMembers.has(lot.node.id) ? ` · 街区含 ${this.blockMembers.get(lot.node.id)!.length} ${this.latest?.keywordGraph ? '个关键词' : '个对象'}` : ''), kind: lot.node.nodeType, x: e.clientX - r.left, y: e.clientY - r.top }) } else this.emit() }
+  private hover = (e: PointerEvent) => { if (this.pointerDown || performance.now() - this.lastHover < 130) return; this.lastHover = performance.now(); const id = this.pick(e), lot = id ? this.byId.get(id) : undefined; this.canvas.style.cursor = lot ? 'pointer' : 'grab'; if (lot) { const r = this.canvas.getBoundingClientRect(); this.emit({ name: lot.node.label + (!this.latest?.keywordGraph && this.blockMembers.has(lot.node.id) ? ` · 街区含 ${this.blockMembers.get(lot.node.id)!.length} ${this.latest?.keywordGraph ? '个关键词' : '个对象'}` : ''), kind: lot.node.nodeType, growth: this.latest?.growth?.get(lot.node.id)?.label, x: e.clientX - r.left, y: e.clientY - r.top }) } else this.emit() }
   private leave = () => this.emit()
   private emit(hover?: SceneStatus['hover']) {
-    const candidates = [...this.labels], selected = this.byId.get(this.selected)
-    if (selected && !candidates.some(l => l.node.id === selected.node.id)) candidates.unshift(selected)
+    const showConcepts = this.latest?.keywordGraph && (this.lots.length <= 60 || this.camera.zoom >= 2)
+    const candidates = showConcepts ? [...this.lots] : [...this.labels], selected = this.byId.get(this.selected)
+    if (selected && !candidates.some(l => !l.district && l.node.id === selected.node.id)) candidates.unshift(selected)
     const rects: { x: number; y: number; w: number; h: number }[] = [], labels: Label[] = []
     for (const l of candidates.sort((a, b) => Number(b.node.id === this.selected) - Number(a.node.id === this.selected) || Number(!!b.style) - Number(!!a.style) || a.parcelId.localeCompare(b.parcelId))) {
       const p = new THREE.Vector3(l.x, l.h + .6, l.z).project(this.camera), x = (p.x + 1) * this.width / 2, y = (1 - p.y) * this.height / 2
       if (x < 12 || x > this.width - 12 || y < 22 || y > this.height - 50 || p.z < -1 || p.z > 1) continue
       const prominent = !!l.style || l.node.id === this.selected
-      const width = prominent ? Math.min(185, (l.district?.name ?? l.node.label).length * 10 + 28) : Math.min(this.camera.zoom > 1.5 ? 132 : 82, (l.district?.name ?? l.node.label).length * 9 + 30)
-      const height = prominent ? 29 : 19
+      const growth = !l.district ? this.latest?.growth?.get(l.node.id)?.label : undefined
+      const extra = growth ? 36 : 0
+      const width = prominent ? Math.min(185, (l.district?.name ?? l.node.label).length * 10 + 28 + extra) : Math.min(this.camera.zoom > 1.5 ? 170 : 132, (l.district?.name ?? l.node.label).length * 9 + 30 + extra)
+      const height = prominent ? 29 : l.district ? 19 : 24
       const overlaps = rects.some(r => Math.abs(x - r.x) < (width + r.w) / 2 + 3 && Math.abs(y - height / 2 - r.y) < (height + r.h) / 2 + 3)
       // Every on-screen parcel retains its marker; only its text folds when crowded.
       const compact = l.node.id !== this.selected && overlaps
       rects.push({ x, y: y - (compact ? 12 : height) / 2, w: compact ? 12 : width, h: compact ? 12 : height })
-      labels.push({ id: l.district ? l.parcelId : l.node.id, nodeId: l.node.id, attentionCategory: l.district?.attentionCategory ?? this.latest?.attention?.find(item => item.node === l.node.id)?.category, name: l.district?.name ?? l.node.label, x, y, kind: l.node.nodeType, selected: l.node.id === this.selected, district: l.district, compact, width })
+      labels.push({ id: l.district ? l.parcelId : l.node.id, nodeId: l.node.id, attentionCategory: l.district?.attentionCategory ?? this.latest?.attention?.find(item => item.node === l.node.id)?.category, name: l.district?.name ?? l.node.label, x, y, kind: l.node.nodeType, selected: l.node.id === this.selected, district: l.district, compact, width, growth: !l.district ? this.latest?.growth?.get(l.node.id)?.label : undefined, growthState: !l.district ? this.latest?.growth?.get(l.node.id)?.state : undefined })
     }
+    this.canvas.dataset.conceptLabels = String(labels.filter(l => !l.district).length)
     this.canvas.dataset.districtLabels = String(labels.filter(l => l.district).length)
     this.status({ labels, count: this.total, rendered: this.lots.length, aggregated: this.total > this.lots.length, zoom: this.camera.zoom, loading: this.loading, error: this.error || undefined, hover })
   }

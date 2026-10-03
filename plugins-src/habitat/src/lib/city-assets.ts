@@ -1,5 +1,7 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
+import { createRusticAssets, type RusticAssetId } from './city-rustic-assets'
+export { rusticHuts, rusticCabins } from './city-rustic-assets'
 
 // Original CC0 Kenney models; provenance and checksums live in public/models/manifest.json.
 export const houses = ['suburban/building-type-a', 'suburban/building-type-b', 'suburban/building-type-d', 'suburban/building-type-f', 'suburban/building-type-h', 'suburban/building-type-j', 'suburban/building-type-l', 'suburban/building-type-n', 'suburban/building-type-r'] as const
@@ -8,7 +10,7 @@ export const trees = ['nature/tree_detailed', 'nature/tree_oak', 'nature/tree_pi
 export const tents = ['survival/tent', 'nature/tent_detailedOpen'] as const
 export const props = ['suburban/planter', 'suburban/fence-low', 'nature/rock_largeA', 'nature/rock_smallB', 'nature/campfire_logs', 'nature/plant_bushDetailed', 'nature/flower_yellowA', 'nature/log_stack', 'survival/resource-wood', 'survival/box', 'survival/structure'] as const
 export const cityAssetGroups = { houses, commercial, trees, tents, props }
-export type CityAssetId = typeof houses[number] | typeof commercial[number] | typeof trees[number] | typeof tents[number] | typeof props[number]
+export type CityAssetId = typeof houses[number] | typeof commercial[number] | typeof trees[number] | typeof tents[number] | typeof props[number] | RusticAssetId
 export interface CityAssetPlacement { x: number; y: number; z: number; rotation: number; scale: number | THREE.Vector3; id?: string }
 interface AssetPart { geometry: THREE.BufferGeometry; material: THREE.Material | THREE.Material[] }
 interface AssetModel { size: THREE.Vector3; parts: AssetPart[] }
@@ -31,6 +33,13 @@ export class CityAssets {
   static async load(): Promise<CityAssets> {
     const assets = new CityAssets()
     const loader = new GLTFLoader()
+    for (const model of createRusticAssets()) {
+      assets.models.set(model.id, model)
+      for (const part of model.parts) {
+        assets.geometries.add(part.geometry)
+        assets.materials.add(part.material)
+      }
+    }
     // Relative to the plugin document, including plugin:// and embedded host UI routes.
     const results = await Promise.allSettled(Object.values(cityAssetGroups).flat().map(async id => {
       const gltf = await loader.loadAsync(new URL(`models/${id}.glb`, document.baseURI).href)

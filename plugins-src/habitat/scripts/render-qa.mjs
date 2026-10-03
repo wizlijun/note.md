@@ -20,10 +20,12 @@ const keywordGraph = /^habitat-(keyword|focus)\//.test(snapshot.meta.algorithm.v
 const recentFocus = !!snapshot.meta.focus && !args.includes('--history')
 const attentionIds = new Set(snapshot.attention?.map(item => item.node) ?? [])
 const graphNodes = snapshot.nodes.filter(node => (!keywordGraph || node.nodeType === 'keyword') && (!recentFocus || attentionIds.has(node.id)))
-const data = JSON.stringify({ nodes: graphNodes, topics: snapshot.nodes.filter(node => node.nodeType === 'topic'), memberships: snapshot.memberships, attention: recentFocus ? snapshot.attention : [], keywordGraph, layout: snapshot.layout, edges: snapshot.edges })
+const data = JSON.stringify({ growthSnapshot: snapshot, nodes: graphNodes, topics: snapshot.nodes.filter(node => node.nodeType === 'topic'), memberships: snapshot.memberships, attention: recentFocus ? snapshot.attention : [], keywordGraph, layout: snapshot.layout, edges: snapshot.edges })
 const harness = `
 import { CityScene } from '/src/lib/city-scene.ts';
-const data = await (await fetch('/__qa/data')).json();
+import { deriveConceptGrowth } from '/src/lib/concept-growth.ts';
+const { growthSnapshot, ...data } = await (await fetch('/__qa/data')).json();
+data.growth = deriveConceptGrowth(growthSnapshot);
 const subsetNodes = data.nodes.filter((node, index) => index < Math.min(480, Math.max(1, Math.floor(data.nodes.length / 2))) || ['hemory', 'note.md', 'bushcraft'].includes(node.label.toLowerCase()));
 const subsetIds = new Set(subsetNodes.map(node => node.id));
 const subset = { ...data, nodes: subsetNodes, edges: data.edges.filter(edge => edge.participants.every(item => subsetIds.has(item.node))) };
@@ -45,6 +47,7 @@ window.__cityQA = {
   rebuild() { ready(); scene.setData(data, false) },
   subset() { ready(); scene.setData(subset, true) },
   restore() { ready(); scene.setData(data, true) },
+  rebuilding() { ready(); const growth = new Map(data.growth); for (const node of data.nodes.slice(0, 3)) { const profile = growth.get(node.id); if(profile) growth.set(node.id, { ...profile, state:'rebuilding' }) }; scene.setData({ ...data, growth }, false) },
   highlightAll() { ready(); scene.setSelected('', new Set(data.nodes.map(node => node.id))) },
   clearSelection() { ready(); scene.setSelected('', new Set()) },
   select(id) { ready(); scene.setSelected(id, new Set([id])) },
@@ -114,6 +117,8 @@ try {
   console.log(`City QA renderer: ${report.renderer.renderer}; first ready ${report.firstReadyMs.toFixed(1)} ms`)
   await screenshot('overview')
   const initialLabels = await page.evaluate(() => window.__cityQA.status.labels)
+  // Warm shared assets used only by restructuring before measuring resource stability.
+  if (keywordGraph) { await action('rebuilding'); await action('restore') }
   for (let index = 0; index < 8; index++) { await action('rotate'); report.rotations.push(await metrics()) }
   const submissions = report.rotations.map(sample => Number(sample.renderMs)).sort((a, b) => a - b)
   report.submissionTiming = { firstRenderMs: Number(report.firstFrame.renderMs), warmedRotationMinMs: submissions[0], warmedRotationMedianMs: (submissions[3] + submissions[4]) / 2, warmedRotationMaxMs: submissions[7] }
@@ -121,7 +126,15 @@ try {
   // WebGL uploads culled geometries lazily. Warm every direction, then rebuild at
   // the original camera pose before comparing identical rebuilds for leaks.
   await action('rebuild'); report.baseline = await metrics()
-  assert.equal(Number(report.baseline.districtLabels), Number(report.baseline.parcels), 'every overview parcel has a visible marker')
+  if (keywordGraph) {
+    assert.equal(Number(report.baseline.entranceAddresses), graphNodes.length, 'every concept has a safe route to its street')
+    assert.equal(report.baseline.entranceMissing, '[]')
+    assert.equal(Number(report.baseline.conceptAddresses), graphNodes.length, 'every keyword owns an address')
+    assert.equal(Number(report.baseline.primaryBuildings), graphNodes.length, 'every keyword owns exactly one primary building')
+    assert.equal(Number(report.baseline.uniqueBuildingIds), graphNodes.length, 'no keyword shares a primary building')
+  }
+  if (!keywordGraph || graphNodes.length > 60) assert.equal(Number(report.baseline.districtLabels), Number(report.baseline.parcels), 'every overview parcel has a visible marker')
+  else assert.equal(Number(report.baseline.conceptLabels), graphNodes.length, 'every recent concept has its own marker')
   const labelIds = await page.evaluate(() => window.__cityQA.status.labels.map(label => label.id))
   assert.equal(new Set(labelIds).size, labelIds.length, 'district and selected labels have unique identities')
   assert.ok(Number(report.baseline.models) >= Math.min(10, graphNodes.length), 'each nonempty graph should render real city assets')
@@ -158,6 +171,15 @@ try {
     report.subsetRestores.push({ subset, restored })
   }
   report.checks.push('five subset/full-data transitions restore all nodes, label identities and GPU resource counts')
+  if(keywordGraph) {
+    await action('rebuilding')
+    assert.equal(Number((await metrics()).rebuildingBuildings), Math.min(3,graphNodes.length))
+    assert.equal(Number((await metrics()).primaryBuildings), graphNodes.length, 'scaffolding never creates additional concept buildings')
+    await action('restore')
+    assert.equal((await metrics()).geometries, report.baseline.geometries, 'temporary rebuilding geometry is released')
+    assert.equal((await metrics()).textures, report.baseline.textures)
+    report.checks.push('synthetic rebuilding-state overlay preserves every primary concept ID and releases temporary resources')
+  }
   const heroId = await page.evaluate(() => window.__cityQA.landmarkId('hemory'))
   const hero = initialLabels.find(label => label.nodeId === heroId || label.id === heroId) ?? initialLabels[0]
   const selectedHeroId = hero.nodeId ?? hero.id

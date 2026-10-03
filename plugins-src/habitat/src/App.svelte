@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import CityView from './components/CityView.svelte'
+  import { deriveConceptGrowth, growthStateLabels, type ConceptGrowthProfile } from './lib/concept-growth'
   import { api } from './lib/bridge'
   import { UNASSIGNED_TOPIC, attentionLabel, attentionNodes, focusDistrictLabel, hasRecentFocus, signalLabel, dateBasisLabel, relationExplanation, causeLabel, dateLabel, edgeLabel, errorText, filterNodes, graphNodes, isKeywordGraph, locatorLabel, nodeFamilyCounts, statusLabel, typeLabel } from './lib/domain'
   import type { Diff, Job, Snapshot, State, Version } from './lib/types'
@@ -10,6 +11,7 @@
   let error = $state(''), notice = $state(''), selectedId = $state(''), query = $state(''), topic = $state(''), page = $state(0)
   let showHistory = $state(false), showCoverage = $state(false), historyLoading = $state(false), versionLoading = $state(false), diffLoading = $state(false)
   let versions = $state<Version[]>([]), activeCommit = $state(''), compareFrom = $state(''), compareTo = $state(''), diff = $state.raw<Diff | null>(null)
+  let comparisonBefore = $state.raw<Snapshot | null>(null), comparisonAfter = $state.raw<Snapshot | null>(null)
   let historyTruncated = $state(false)
   let opening = $state('')
   let previewMode = $state(false)
@@ -44,12 +46,22 @@
   const selected = $derived(snapshot?.nodes.find(n => n.id === selectedId))
   const nodeById = $derived(new Map(snapshot?.nodes.map(n => [n.id, n]) ?? []))
   const sourceById = $derived(new Map(snapshot?.sources.map(s => [s.id, s]) ?? []))
+  const growthById = $derived(snapshot ? deriveConceptGrowth(snapshot, comparisonAfter?.meta.snapshotId === snapshot.meta.snapshotId ? { previous: comparisonBefore ?? undefined, diff: diff ?? undefined } : {}) : new Map<string, ConceptGrowthProfile>())
+  const selectedGrowth = $derived(growthById.get(selectedId))
+  const growthChanges = $derived.by(() => {
+    if (!diff?.comparable || !comparisonBefore || !comparisonAfter || diff.from !== comparisonBefore.meta.snapshotId || diff.to !== comparisonAfter.meta.snapshotId) return []
+    const before = deriveConceptGrowth(comparisonBefore), after = deriveConceptGrowth(comparisonAfter, { previous: comparisonBefore, diff })
+    return comparisonAfter.nodes.flatMap(node => {
+      const a=before.get(node.id), b=after.get(node.id)
+      return a && b && (a.stage!==b.stage || b.state==='rebuilding') ? [{id:node.id,name:node.label,before:a.label,after:b.label,state:b.state}] : []
+    })
+  })
   const selectedAttention = $derived(attentionById.get(selectedId))
   const selectedSignals = $derived([...new Set((selectedAttention?.evidence ?? []).flatMap(id => { const observation = observationByEvidence.get(id); return observation ? [signalLabel(observation.signal)] : [] }))])
   const selectedEvidence = $derived.by(() => { const ids = new Set(recentView && selectedAttention ? selectedAttention.evidence : selected?.evidence ?? []); return ids.size ? [...(snapshot?.evidence.filter(e => ids.has(e.id)) ?? [])].sort((a, b) => (observationByEvidence.get(b.id)?.date ?? '').localeCompare(observationByEvidence.get(a.id)?.date ?? '') || a.id.localeCompare(b.id)) : [] })
   const selectedMemberships = $derived(snapshot?.memberships.filter(m => m.node === selectedId && (!recentView || m.role === 'primary')) ?? [])
   const selectedEdges = $derived(snapshot?.edges.filter(e => e.participants.some(p => p.node === selectedId)) ?? [])
-  const changedIds = $derived(new Set(diff ? [...diff.added, ...diff.changed, ...diff.renamed].map(n => n.id) : []))
+  const changedIds = $derived(new Set(diff && diff.to === snapshot?.meta.snapshotId ? [...diff.added, ...diff.changed, ...diff.renamed].map(n => n.id) : []))
   const coverage = $derived(snapshot?.meta.coverage)
   const families = $derived(nodeFamilyCounts(snapshot))
   const selectedFamilies = $derived(families.get(selectedId))
@@ -58,7 +70,7 @@
   function setFocusMode(mode: 'recent' | 'history') { focusMode = mode; topic = ''; query = ''; page = 0; selectedId = ''; notice = '' }
   function selectCommunity(id: string) { topic = id; query = ''; page = 0; selectedId = ''; notice = '' }
   function select(id: string) { selectedId = id; notice = '' }
-  function clearForVault() { ++versionEpoch; ++diffEpoch; ++historyEpoch; ++jobEpoch; snapshot = null; activeCommit = ''; previewMode = false; focusMode = 'recent'; windowChoice = 30; selectedId = ''; topic = ''; query = ''; page = 0; diff = null; versions = []; historyTruncated = false; compareFrom = ''; compareTo = ''; versionLoading = false; historyLoading = false; diffLoading = false; starting = false }
+  function clearForVault() { ++versionEpoch; ++diffEpoch; ++historyEpoch; ++jobEpoch; snapshot = null; activeCommit = ''; previewMode = false; focusMode = 'recent'; windowChoice = 30; selectedId = ''; topic = ''; query = ''; page = 0; diff = null; comparisonBefore = null; comparisonAfter = null; versions = []; historyTruncated = false; compareFrom = ''; compareTo = ''; versionLoading = false; historyLoading = false; diffLoading = false; starting = false }
   function showPreview() { if (!hostState?.preview) return; ++versionEpoch; activeCommit = ''; previewMode = true; snapshot = hostState.preview; selectedId = ''; topic = ''; query = ''; page = 0; diff = null }
   async function loadState() {
     const epoch = ++stateEpoch
@@ -149,7 +161,13 @@
   async function compare() {
     if (!compareFrom) return
     const epoch = ++diffEpoch; diffLoading = true; diff = null; error = ''
-    try { const result = await api.diff(compareFrom, compareTo || undefined); if (!disposed && epoch === diffEpoch) diff = result }
+    try {
+      const [result, before, after] = await Promise.all([
+        api.diff(compareFrom, compareTo || undefined), api.version(compareFrom),
+        compareTo ? api.version(compareTo) : Promise.resolve({ snapshot: hostState?.snapshot ?? snapshot }),
+      ])
+      if (!disposed && epoch === diffEpoch) { comparisonBefore=before.snapshot; comparisonAfter=after.snapshot; diff=result }
+    }
     catch (e) { if (!disposed && epoch === diffEpoch) error = errorText(e) }
     finally { if (!disposed && epoch === diffEpoch) diffLoading = false }
   }
@@ -197,20 +215,21 @@
         <div class="directory-footer">{viewEdges.length.toLocaleString()} 条关系 <span>·</span> {snapshot.sources.length.toLocaleString()} 份来源</div>
       </aside>
       <main class="landscape" aria-label="知识城市">
-        <CityView nodes={filtered} layout={snapshot.layout} edges={viewEdges} recentFocus={recentView ? focus : undefined} attention={recentView ? snapshot.attention : undefined} memberships={snapshot.memberships} {topics} {keywordGraph} oncommunity={selectCommunity} {families} {selectedId} {changedIds} scopeKey={(hostState?.vaultKey ?? '') + '\0' + (snapshot.meta.snapshotId ?? '') + '\0' + (recentView ? 'recent' : 'history') + '\0' + query + '\0' + topic} onselect={select} />
+        <CityView nodes={filtered} layout={snapshot.layout} edges={viewEdges} recentFocus={recentView ? focus : undefined} attention={recentView ? snapshot.attention : undefined} memberships={snapshot.memberships} growth={growthById} {topics} {keywordGraph} oncommunity={selectCommunity} {families} {selectedId} {changedIds} scopeKey={(hostState?.vaultKey ?? '') + '\0' + (snapshot.meta.snapshotId ?? '') + '\0' + (recentView ? 'recent' : 'history') + '\0' + query + '\0' + topic} onselect={select} />
         {#if recentView && !knowledgeNodes.length}<div class="empty-overlay"><h2>这段时间还没有足够的关注线索</h2><p>没有可靠日期的记录不会被当成最近关注。可切换历史结构继续查看。</p></div>{/if}
         {#if !snapshot.nodes.length}<div class="empty-overlay"><h2>材料已读取，结构尚待形成</h2><p>这次解析没有找到可展示的概念。可查看覆盖范围和未归属材料。</p></div>{/if}
         {#if versionLoading}<div class="loading-overlay" role="status">正在读取历史版本…</div>{/if}
         {#if selected}<section class="detail-panel" aria-label="概念详情">
           <div class="detail-heading"><span class="eyebrow">{typeLabel(selected.nodeType)} / {statusLabel(selected.status)}</span><button aria-label="关闭详情" onclick={() => selectedId = ''}>×</button></div>
           <h2>{selected.label}</h2>
+          {#if keywordGraph && selectedGrowth}<div class="growth-badge"><strong>{selectedGrowth.label}</strong><span>{growthStateLabels[selectedGrowth.state]}</span><span class="growth-meter" aria-label={`建筑积累等级 ${selectedGrowth.level + 1} / 6`}>{#each [0,1,2,3,4,5] as level}<i class:filled={level <= selectedGrowth.level}></i>{/each}</span></div>{/if}
           {#if selectedAttention}<section class="attention-detail" aria-label="近期关注依据"><div><strong>{attentionLabel(selectedAttention)}</strong><span>关注排序分 {Math.round(selectedAttention.score * 100)} / 100</span></div><p>最近记录 {selectedAttention.lastObservedAt}<br>{selectedAttention.activeDays} 个活跃日 · {selectedAttention.events} 次记录事件</p>{#if selectedSignals.length}<p>信号：{selectedSignals.join(' · ')}</p>{/if}<small>依据近期主动记录与反复提及进行排序。分组是规则线索；分数只用于本版排序，不表示掌握程度。记录事件不等于独立来源。</small></section>
           {:else if recentView}<p class="metadata">这个关联词未进入本版近期关注名单；下面为历史来源。</p>{/if}
           {#if selected.intentStatus}<p class="metadata">意图状态：{statusLabel(selected.intentStatus)}</p>{/if}
           {#if selected.aliases?.length}<p class="metadata">别名：{selected.aliases.join(' · ')}</p>{/if}
           {#if selectedFamilies}<p class="metadata">{recentView ? '全部历史依据：' : ''}已核对来源组 {selectedFamilies.verified} · 暂定 {selectedFamilies.provisional} · 谱系未知 {selectedFamilies.unresolved}</p>{/if}
           {#if selectedMemberships.length}<div class="memberships">{#each selectedMemberships as membership}<button title={recentView && communityFocusNames.get(membership.topic) ? `原社区：${nodeById.get(membership.topic)?.label ?? membership.topic}` : undefined} onclick={() => selectCommunity(membership.topic)}>{(recentView ? communityFocusNames.get(membership.topic) : undefined) ?? nodeById.get(membership.topic)?.label ?? membership.topic}<small>{statusLabel(membership.role)}</small></button>{/each}</div>{/if}
-          <div class="detail-scroll"><h3>来源依据 <small>{selectedEvidence.length}</small></h3>
+          <div class="detail-scroll">{#if keywordGraph && selectedGrowth}<section class="growth-detail" aria-label="建筑成长依据"><h3>为什么长成这座建筑</h3>{#each selectedGrowth.reasons as reason}<p>{reason}</p>{/each}<small>{selectedGrowth.limits.join('；')}</small></section>{/if}<h3>来源依据 <small>{selectedEvidence.length}</small></h3>
           {#each selectedEvidence.slice(0, 40) as evidence}
             {@const source = sourceById.get(evidence.source)}
             {@const observation = observationByEvidence.get(evidence.id)}
@@ -231,6 +250,7 @@
       {#if versions.length}<section class="compare-controls"><h3>比较两个版本</h3><label>从<select aria-label="比较起始版本" bind:value={compareFrom} onchange={() => { ++diffEpoch; diff = null; diffLoading = false }}>{#each versions as v}<option value={v.commit}>{dateLabel(v.generatedAt)} · {v.commit.slice(0, 7)}</option>{/each}</select></label><label>到<select aria-label="比较目标版本" bind:value={compareTo} onchange={() => { ++diffEpoch; diff = null; diffLoading = false }}><option value="">当前结构</option>{#each versions as v}<option value={v.commit}>{dateLabel(v.generatedAt)} · {v.commit.slice(0, 7)}</option>{/each}</select></label><button class="primary" disabled={diffLoading || !compareFrom || compareFrom === compareTo} onclick={compare}>{diffLoading ? '正在比较…' : '查看结构变化'}</button></section>{/if}
       {#if diff}<section class="diff-result" aria-label="版本差异"><h3>结构变化</h3><p class="muted">{diff.causes.map(causeLabel).join(' · ') || '无结构变化'}{#if !diff.comparable} · 分析条件不同，不作知识增长比较{/if}</p>{#each diff.warnings as warning}<p class="diff-warning">{warning}</p>{/each}<div class="diff-counts"><span><strong>+{diff.added.length}</strong>{diff.comparable ? '新出现' : '新增输出'}</span><span><strong>−{diff.removed.length}</strong>{diff.comparable ? '不再出现' : '不再输出'}</span><span><strong>{diff.renamed.length}</strong>改名</span></div>
         {#each [['新增', diff.added], ['不再出现', diff.removed], ['内容变化', diff.changed]] as [label, items]}{#if (items as typeof diff.added).length}<h4>{label}</h4><ul>{#each (items as typeof diff.added).slice(0, 12) as node}<li>{node.label}</li>{/each}</ul>{#if (items as typeof diff.added).length > 12}<p class="muted">共 {(items as typeof diff.added).length} 项，先展示 12 项。</p>{/if}{/if}{/each}
+        {#if keywordGraph && growthChanges.length}<h4>建筑的生长与重建</h4><ul>{#each growthChanges.slice(0,12) as item}<li>{item.name}：{item.before} → {item.after}{item.state==='rebuilding' ? ' · 结构重建' : ''}</li>{/each}</ul><p class="muted">同一概念身份保留，建筑随该版可用证据改变。级别变化不等于掌握程度变化。</p>{/if}
         {#if diff.renamed.length}<h4>改名</h4><ul>{#each diff.renamed.slice(0, 12) as item}<li>{item.before} → {item.after}</li>{/each}</ul>{/if}<p class="diff-summary">关系 +{diff.edgesAdded.length} / −{diff.edgesRemoved.length} / 更新 {diff.edgesChanged.length}<br>归属变化 {diff.membershipChanges} · 地块变化 {diff.layoutChanges}{#if diff.attentionChanges !== undefined}<br>关注线索变化 {diff.attentionChanges} · 日期观察变化 {diff.observationChanges ?? 0}{/if}</p><p class="muted">关注窗口推进时，词语可能淡出近期前景，仍保留在历史结构中；这不表示删除、遗忘或掌握程度变化。</p></section>{/if}
     </aside>{/if}
     {#if showCoverage && coverage}<aside class="coverage-pane" aria-label="解析覆盖范围"><div class="section-title"><span>解析覆盖范围</span><button aria-label="关闭覆盖范围" onclick={() => showCoverage = false}>×</button></div><dl><dt>索引文件</dt><dd>{coverage.indexed.toLocaleString()}</dd><dt>已解析</dt><dd>{coverage.parsed.toLocaleString()}</dd><dt>不可用</dt><dd>{coverage.unavailable.toLocaleString()}</dd><dt>已排除</dt><dd>{coverage.excluded.toLocaleString()}</dd><dt>已有知识数据集</dt><dd>{coverage.knowledgeDatasets.toLocaleString()}</dd><dt>知识数据记录</dt><dd>{coverage.knowledgeRecords.toLocaleString()}</dd><dt>已导入记录</dt><dd>{coverage.importedRecords.toLocaleString()}</dd><dt>隔离记录</dt><dd>{coverage.isolatedRecords.toLocaleString()}</dd><dt>未投影记录</dt><dd>{coverage.unprojectedRecords.toLocaleString()}</dd><dt>未归属来源</dt><dd>{coverage.unassignedSources.toLocaleString()}</dd><dt>待解析链接</dt><dd>{coverage.unresolvedLinks.toLocaleString()}</dd></dl><p class="muted">覆盖量描述本次读取范围；文件数量不等于知识数量。</p>{#if snapshot}<p class="metadata">{snapshot.meta.algorithm.version}<br>{snapshot.meta.snapshotId.slice(0, 20)}…</p>{/if}{#if coverage.diagnosticCount}<p class="muted">共 {coverage.diagnosticCount} 项诊断，先展示前 40 项。</p>{/if}{#each coverage.diagnostics.slice(0, 40) as item}<div class="diagnostic"><strong>{item.code}</strong><p>{item.message}</p><small>{item.path}</small></div>{/each}</aside>{/if}
