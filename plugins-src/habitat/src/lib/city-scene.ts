@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import { CityAssets, houses, commercial, trees, tents, rusticHuts, rusticCabins, type CityAssetId, type CityAssetPlacement } from './city-assets'
-import { buildTerrain } from './city-terrain'
+import { buildTerrain, type CityTerrain } from './city-terrain'
 import type { ConceptGrowthProfile, GrowthState } from './concept-growth'
 import { focusDistrictLabel, isMainConcept, typeLabel } from './domain'
 import { planCity, segmentDistance, type CityPlan, type CityPoint, type CityPlacement } from './city-plan'
@@ -74,6 +74,7 @@ export class CityScene {
   private changed = new Set<string>()
   private bounds = new THREE.Box3()
   private framingPoints: THREE.Vector3[] = []
+  private terrainSample?: CityTerrain['sample']
   private frame = 0
   private width = 1
   private height = 1
@@ -166,7 +167,7 @@ export class CityScene {
     group.traverse(object => { if (object instanceof THREE.Mesh && !object.geometry.userData.sharedCityAsset) object.geometry.dispose(); if (object instanceof THREE.InstancedMesh) object.dispose() })
     group.clear()
   }
-  private clear() { this.clearGroup(this.city); this.clearGroup(this.markers); this.pickables = []; this.instanceIds.clear(); this.assetQueue.clear(); this.contact = []; this.walks = []; this.byId.clear(); this.blockMembers.clear(); this.lots = []; this.labels = []; this.framingPoints = []; this.ground = null; this.water = null }
+  private clear() { this.clearGroup(this.city); this.clearGroup(this.markers); this.pickables = []; this.instanceIds.clear(); this.assetQueue.clear(); this.contact = []; this.walks = []; this.byId.clear(); this.blockMembers.clear(); this.lots = []; this.labels = []; this.framingPoints = []; this.terrainSample = undefined; this.ground = null; this.water = null }
   setData(data: CityData, reframe: boolean) {
     this.latest = data; this.reframe = reframe; this.total = data.nodes.length
     if (this.assets) this.rebuild(data, reframe); else this.schedule()
@@ -248,6 +249,7 @@ export class CityScene {
   }
   private terrain(plan: CityPlan) {
     const terrain = buildTerrain(plan)
+    this.terrainSample = terrain.sample
     let land = this.materials.get('valley-land') as THREE.MeshStandardMaterial | undefined
     if (!land) {
       land = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, flatShading: false })
@@ -277,6 +279,7 @@ export class CityScene {
       terrain: 'mountain-valley', terrainPeak: terrain.stats.maxHeight.toFixed(2),
       terrainTriangles: String(terrain.stats.surfaceTriangles), waterTriangles: String(terrain.stats.waterTriangles),
       shoreTriangles: String(terrain.stats.shoreTriangles), terrainTrees: String(terrain.trees.length),
+      riverThroughCity: String(!!plan.river), bridges: String(plan.roads.filter(road => road.bridge).length),
     })
   }
   private roads(plan: CityPlan) {
@@ -311,6 +314,41 @@ export class CityScene {
     }
     this.merge(shoulders, this.material('#e5dfc8')); this.merge(pavement, this.material('#6e7776')); this.merge(paths, this.material('#bea783')); this.merge(marks, this.material('#e8dfbd'))
     this.batch(new THREE.BoxGeometry(1,1,1),'#ffffff',cars); this.batch(new THREE.BoxGeometry(1,1,1),'#bed2cc',cabins); this.batch(new THREE.BoxGeometry(1,1,1),'#43504c',tires)
+    this.bridges(plan)
+  }
+  private bridges(plan: CityPlan) {
+    const masonry: Primitive[] = [], rails: Primitive[] = [], timber: Primitive[] = []
+    for (const road of plan.roads.filter(road => road.bridge)) {
+      const a = road.points[0], b = road.points.at(-1)!, length = Math.hypot(b.x-a.x,b.z-a.z)
+      if (!length) continue
+      const dx=(b.x-a.x)/length,dz=(b.z-a.z)/length,angle=Math.atan2(dx,dz),width=road.width+.42
+      const point=(at:number,side=0)=>[a.x+dx*at+dz*side,a.z+dz*at-dx*side]
+      const center=point(length/2),paved=road.traffic>.2
+      // The existing street surface continues onto a real deck. Its supports
+      // stay at the banks, leaving the channel open below every crossing.
+      masonry.push({p:[center[0],.105,center[1]],s:[width,.15,length],ry:angle,color:paved?'#b1afa0':'#927d63'})
+      for(const side of [-1,1]) {
+        const edge=point(length/2,side*(width/2-.045))
+        rails.push({p:[edge[0],.65,edge[1]],s:[.065,.07,length-.15],ry:angle})
+        rails.push({p:[edge[0],.40,edge[1]],s:[.045,.045,length-.15],ry:angle})
+        const count=Math.max(2,Math.ceil(length/1.1))
+        for(let i=0;i<=count;i++) {
+          const p=point(.10+(length-.20)*i/count,side*(width/2-.045))
+          rails.push({p:[p[0],.435,p[1]],s:[.075,.50,.075],ry:angle})
+        }
+      }
+      for(const at of [.2,length-.2]) {
+        const p=point(at)
+        masonry.push({p:[p[0],-.16,p[1]],s:[width+.18,.64,.42],ry:angle,color:'#aaa695'})
+      }
+      if(!paved) for(let at=.2;at<length-.1;at+=.34) {
+        const p=point(at)
+        timber.push({p:[p[0],.216,p[1]],s:[road.width,.018,.025],ry:angle})
+      }
+    }
+    this.batch(new THREE.BoxGeometry(1,1,1),'#ada794',masonry)
+    this.batch(new THREE.BoxGeometry(1,1,1),'#586961',rails)
+    this.batch(new THREE.BoxGeometry(1,1,1),'#877b65',timber)
   }
   private building(p: CityPlacement, node: Node) {
     if (this.latest?.keywordGraph) return this.conceptBuilding(p, node)
@@ -596,7 +634,8 @@ export class CityScene {
   private landscape(plan: CityPlan) {
     const lamps: Primitive[] = [], heads: Primitive[] = [], benches: Primitive[] = [], planters: Primitive[] = []
     const plazas: THREE.BufferGeometry[] = [], gardenBeds: THREE.BufferGeometry[] = []
-    const safe = (p: CityPoint, radius: number) => !plan.placements.some(l => Math.hypot(p.x - l.x, p.z - l.z) < l.footprint + radius + .25) && !plan.roads.some(r => r.points.slice(1).some((b, i) => segmentDistance(p, r.points[i], b) < r.width / 2 + radius + .3)) && !this.walks.some(w => segmentDistance(p,w.a,w.b) < w.width / 2 + radius + .12)
+    const safe = (p: CityPoint, radius: number) => [p,{x:p.x-radius,z:p.z},{x:p.x+radius,z:p.z},{x:p.x,z:p.z-radius},{x:p.x,z:p.z+radius}].every(q=>Math.abs((this.terrainSample?.(q.x,q.z).height??.12)-.12)<.025)
+      && !plan.placements.some(l => Math.hypot(p.x - l.x, p.z - l.z) < l.footprint + radius + .25) && !plan.roads.some(r => r.points.slice(1).some((b, i) => segmentDistance(p, r.points[i], b) < r.width / 2 + radius + .3)) && !this.walks.some(w => segmentDistance(p,w.a,w.b) < w.width / 2 + radius + .12)
     const planted: { x:number; z:number; radius:number }[] = []
     const available = (p: CityPoint, radius: number) => safe(p, radius) && !planted.some(t => Math.hypot(t.x-p.x,t.z-p.z) < t.radius+radius+.08)
     const seat = (p: CityPoint, angle: number) => {
@@ -655,7 +694,7 @@ export class CityScene {
     // public furniture clear of entrances and show low lamps on footpaths.
     for (const road of plan.roads) for (let segment=1;segment<road.points.length;segment++) {
       const a=road.points[segment-1],b=road.points[segment],length=Math.hypot(b.x-a.x,b.z-a.z)
-      if(length<3 || (!this.latest?.conceptGraph && road.width<1)) continue
+      if(road.bridge || length<3 || (!this.latest?.conceptGraph && road.width<1)) continue
       const dx=(b.x-a.x)/length,dz=(b.z-a.z)/length,angle=Math.atan2(dx,dz)
       for(let distance=1.5;distance<length-1;distance+=6) {
         const side=seed(`${road.id}:${segment}:${distance}`)>.5?1:-1,offset=side*(road.width/2+.7)

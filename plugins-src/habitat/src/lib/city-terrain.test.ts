@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { Box3, Mesh, MeshBasicMaterial, Raycaster, Vector3 } from 'three'
+import { Mesh, MeshBasicMaterial, Raycaster, Vector3 } from 'three'
 import { buildTerrain, type CityTerrain } from './city-terrain'
-import type { CityPlan } from './city-plan'
+import { planCity, type CityPlan } from './city-plan'
+import type { ProjectedLot } from './city-projection'
 
 function fixture(count = 15): CityPlan {
   const placements = Array.from({ length: count }, (_, i) => ({ id: String(i), parcelId: 'p', x: (i % 32) * 3.8, z: Math.floor(i / 32) * 3.8, footprint: 1.45, rotation: 0, kind: 'house' as const }))
@@ -18,8 +19,8 @@ describe('continuous valley terrain', () => {
     for (const p of plan.placements) for (let i = 0; i < 8; i++) points.push({ x: p.x + Math.cos(i * Math.PI / 4) * p.footprint, z: p.z + Math.sin(i * Math.PI / 4) * p.footprint })
     for (const road of plan.roads) for (let i = 1; i < road.points.length; i++) {
       const a = road.points[i - 1], b = road.points[i], length = Math.hypot(b.x - a.x, b.z - a.z)
-      for (let j = 0; j <= 8; j++) for (const side of [-1, 1]) points.push({ x: a.x + (b.x - a.x) * j / 8 + (b.z - a.z) / length * (road.width / 2 + 1.2) * side,
-        z: a.z + (b.z - a.z) * j / 8 - (b.x - a.x) / length * (road.width / 2 + 1.2) * side })
+      for (let j = 0; j <= 8; j++) for (const side of [-1, 1]) points.push({ x: a.x + (b.x - a.x) * j / 8 + (b.z - a.z) / length * (road.width / 2 + .2) * side,
+        z: a.z + (b.z - a.z) * j / 8 - (b.x - a.x) / length * (road.width / 2 + .2) * side })
     }
     for (const p of points) {
       ray.set(new Vector3(p.x, 100, p.z), new Vector3(0, -1, 0))
@@ -27,11 +28,7 @@ describe('continuous valley terrain', () => {
       expect(hits.length).toBeGreaterThan(0)
       expect(hits[0].point.y).toBeCloseTo(.12, 5)
     }
-    const dry = new Box3().setFromPoints(points.map(p => new Vector3(p.x, .12, p.z)))
-    const water = terrain.water.getAttribute('position')
-    for (let i = 0; i < water.count; i++) expect(water.getX(i) >= dry.min.x && water.getX(i) <= dry.max.x && water.getZ(i) >= dry.min.z && water.getZ(i) <= dry.max.z).toBe(false)
     for (const p of [...terrain.trees, ...terrain.rocks]) {
-      expect(p.x + p.radius > dry.min.x && p.x - p.radius < dry.max.x && p.z + p.radius > dry.min.z && p.z - p.radius < dry.max.z).toBe(false)
       ray.set(new Vector3(p.x, 100, p.z), new Vector3(0, -1, 0))
       expect(ray.intersectObject(ground)[0].point.y).toBeCloseTo(p.y, 4)
     }
@@ -91,6 +88,53 @@ describe('continuous valley terrain', () => {
     expect(gullies, 'upland profile includes concave cuts between subsidiary ridges').toBeGreaterThan(4)
     dispose(terrain)
   })
+
+  it('connects through-city water below bridges and keeps both banks dry at 1/3/15/197/1003 addresses', () => {
+    for (const count of [1, 3, 15, 197, 1003]) {
+      const lots = Array.from({ length: count }, (_, i) => ({ node: { id: String(i), nodeType: 'concept', evidence: [String(i)] }, x: (i % Math.ceil(Math.sqrt(count))) * 9, z: Math.floor(i / Math.ceil(Math.sqrt(count))) * 9, zone: 'concept' })) as ProjectedLot[]
+      const plan = planCity(lots, []), terrain = buildTerrain(plan)
+      expect(terrain.stats.surfaceTriangles, `count ${count} bounded conforming mesh`).toBeLessThan(220000)
+      for (const road of plan.roads.filter(r => !r.bridge)) for (let i = 1; i < road.points.length; i++) {
+        const a = road.points[i - 1], b = road.points[i], length = Math.hypot(b.x - a.x, b.z - a.z)
+        for (const t of [0, .5, 1]) for (const side of [-1, 1]) {
+          const x = a.x + (b.x - a.x) * t + (b.z - a.z) / length * (road.width / 2 + .2) * side
+          const z = a.z + (b.z - a.z) * t - (b.x - a.x) / length * (road.width / 2 + .2) * side
+          expect(terrain.sample(x, z).height, `count ${count} road shoulder ${JSON.stringify({x,z,road,t,side})}`).toBeCloseTo(.12, 5)
+        }
+      }
+      if (plan.river) {
+        const p = plan.river.points[Math.floor(plan.river.points.length / 2)], material = new MeshBasicMaterial()
+        const ground = new Mesh(terrain.surface, material), ray = new Raycaster(new Vector3(p.x, 100, p.z), new Vector3(0, -1, 0))
+        expect(ray.intersectObject(ground)[0].point.y).toBeCloseTo(terrain.sample(p.x, p.z).height, 4)
+        expect(ray.intersectObject(ground)[0].point.y).toBeLessThan(terrain.waterLevel)
+        material.dispose()
+      }
+      for (const parcel of plan.parcels) for (const p of parcel.polygon) expect(terrain.sample(p.x, p.z).height, `count ${count} parcel edge ${JSON.stringify(p)}`).toBeCloseTo(.12, 5)
+      for (const p of plan.placements) for (let i = 0; i < 8; i++) expect(terrain.sample(p.x + Math.cos(i * Math.PI / 4) * p.footprint, p.z + Math.sin(i * Math.PI / 4) * p.footprint).height, `count ${count} footprint`).toBeCloseTo(.12, 5)
+      if (plan.river) for (let i = 1; i < plan.river.points.length; i++) {
+        const a = plan.river.points[i - 1], b = plan.river.points[i]
+        for (let j = 0; j <= 20; j++) for (const side of [-.35, 0, .35]) {
+          const p = { x: a.x + (b.x - a.x) * j / 20, z: a.z + (b.z - a.z) * j / 20 }
+          p[plan.river.axis] += side * plan.river.halfWidth
+          expect(terrain.sample(p.x, p.z).height, `count ${count} river ${i}/${j}/${side}`).toBeLessThan(terrain.waterLevel - .01)
+        }
+      }
+      const water = terrain.water.getAttribute('position'), parents = new Map<string, string>()
+      const find = (key: string): string => { const p = parents.get(key)!; if (p === key) return key; const r = find(p); parents.set(key, r); return r }
+      for (let i = 0; i < water.count; i += 3) {
+        const keys = [i, i + 1, i + 2].map(j => `${water.getX(j).toFixed(3)},${water.getZ(j).toFixed(3)}`)
+        for (const key of keys) if (!parents.has(key)) parents.set(key, key)
+        for (const key of keys.slice(1)) parents.set(find(key), find(keys[0]))
+      }
+      expect(new Set([...parents.keys()].map(find)).size, `count ${count} actual water components`).toBe(1)
+      dispose(terrain)
+    }
+    const vertical = planCity([{ node: { id: 'a', nodeType: 'concept' }, x: 0, z: -24, zone: 'concept' }, { node: { id: 'b', nodeType: 'concept' }, x: 0, z: 24, zone: 'concept' }] as ProjectedLot[], [])
+    expect(vertical.river!.axis).toBe('z')
+    const terrain = buildTerrain(vertical)
+    for (const p of vertical.river!.points) expect(terrain.sample(p.x, p.z).water, JSON.stringify({p,sample:terrain.sample(p.x,p.z)})).toBe(true)
+    dispose(terrain)
+  }, 30000)
 
   it('is deterministic under reordered input and keeps empty and 1007-address geometry bounded', () => {
     const plan = fixture(), a = buildTerrain(plan), b = buildTerrain({ ...plan, placements: [...plan.placements].reverse(), roads: [...plan.roads].reverse(), parcels: [...plan.parcels].reverse() })

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { planCity, relationWeight, segmentDistance, type CityPlan } from './city-plan'
+import { planCity, relationWeight, riverDistance, segmentDistance, type CityPlan } from './city-plan'
 import type { ProjectedLot } from './city-projection'
 import type { Edge } from './types'
 
@@ -10,6 +10,15 @@ function city(): ProjectedLot[] {
 }
 const skeleton = (plan: CityPlan) => plan.roads.map(({ id, points }) => ({ id, points }))
 function assertClearances(plan: CityPlan) {
+  if (plan.river) for (const road of plan.roads.filter(road => !road.bridge)) for (let i = 1; i < road.points.length; i++) {
+    const a = road.points[i - 1], b = road.points[i], length = Math.hypot(b.x - a.x, b.z - a.z)
+    for (const t of [0, .2, .4, .6, .8, 1]) for (const side of [-1, 1]) {
+      const point = { x: a.x + (b.x - a.x) * t - side * (b.z - a.z) / length * (road.width / 2 + .21),
+        z: a.z + (b.z - a.z) * t + side * (b.x - a.x) / length * (road.width / 2 + .21) }
+      const dryBank = riverDistance(plan.river, point)
+      if (Number.isFinite(dryBank)) expect(dryBank, `road shoulder ${road.id} intrudes into river bank`).toBeGreaterThanOrEqual(plan.river.bankWidth - .001)
+    }
+  }
   for (let i = 0; i < plan.placements.length; i++) {
     const a = plan.placements[i]
     for (const road of plan.roads) for (let j = 1; j < road.points.length; j++) {
@@ -20,6 +29,56 @@ function assertClearances(plan: CityPlan) {
 }
 
 describe('deterministic game city plan', () => {
+  it('reserves a continuous cross-city river and routes a real relation over a bridge', () => {
+    const lots = [lot('west', -16, 0), lot('east', 16, 0)]
+    const plain = planCity(lots, []), linked = planCity(lots, [edge('across', 'west', 'east')])
+    const river = plain.river!
+    expect(river).toBeDefined()
+    expect(linked.river).toEqual(river)
+    const along = river.axis === 'x' ? 'z' : 'x'
+    expect(river.points.length).toBeGreaterThanOrEqual(2)
+    expect(river.points.length).toBe(3) // central crossing is inserted into a two-parcel seam
+    for (let i = 1; i < river.points.length; i++) expect(river.points[i][along]).toBeGreaterThan(river.points[i - 1][along])
+    const bridges = plain.roads.filter(road => road.bridge)
+    expect(bridges.length).toBeGreaterThanOrEqual(1)
+    expect((bridges[0].points[0][along] + bridges[0].points[1][along]) / 2).toBeCloseTo(river.points[1][along], 5)
+    expect(linked.roads.filter(road => road.bridge).some(road => road.traffic > 0)).toBe(true)
+    for (const bridge of bridges) {
+      const [a, b] = bridge.points, midpoint = { x: (a.x + b.x) / 2, z: (a.z + b.z) / 2 }
+      expect(riverDistance(river, midpoint)).toBeCloseTo(-river.halfWidth, 5)
+      expect(riverDistance(river, a)).toBeGreaterThan(river.bankWidth)
+      expect(riverDistance(river, b)).toBeGreaterThan(river.bankWidth)
+    }
+    for (const placement of plain.placements) for (let i = 0; i < 16; i++) {
+      const angle = i * Math.PI / 8
+      expect(riverDistance(river, { x: placement.x + Math.cos(angle) * placement.footprint, z: placement.z + Math.sin(angle) * placement.footprint })).toBeGreaterThan(0)
+    }
+    expect(riverDistance(river, { x: river.points[0].x, z: river.points[0].z - 1000 })).toBe(Infinity)
+  })
+
+  it('supports a vertical bank split and keeps one-parcel plans unchanged', () => {
+    const vertical = planCity([lot('north', 0, -24), lot('south', 0, 24)], [])
+    expect(vertical.river?.axis).toBe('z')
+    expect(vertical.roads.some(road => road.bridge)).toBe(true)
+    expect(planCity([lot('only', 0, 0)], []).river).toBeUndefined()
+  })
+
+  it('keeps a large occupied city split into dry banks with reachable bridge roads', () => {
+    const plan = planCity(city(), []), river = plan.river!
+    expect(river).toBeDefined()
+    expect(plan.roads.filter(road => road.bridge).length).toBeGreaterThanOrEqual(2)
+    for (const parcel of plan.parcels) for (const corner of parcel.polygon) {
+      const d = riverDistance(river, corner)
+      if (Number.isFinite(d)) expect(d).toBeGreaterThanOrEqual(river.bankWidth)
+    }
+    for (const road of plan.roads.filter(road => !road.bridge)) for (const t of [0, .25, .5, .75, 1]) {
+      const [a, b] = road.points, point = { x: a.x + (b.x - a.x) * t, z: a.z + (b.z - a.z) * t }
+      const d = riverDistance(river, point)
+      if (Number.isFinite(d)) expect(d).toBeGreaterThanOrEqual(river.bankWidth + road.width / 2)
+    }
+    expect(planCity([...city()].reverse(), []).river).toEqual(river)
+  })
+
   it.each(['depends_on', 'influences'])('routes evidenced %s source assertions without upgrading them to verified facts', edgeType => {
     const assertion = { ...edge('claim', 'a', 'b'), edgeType, status: 'asserted', verifiedFamilies: 0, participants: [{ node: 'a', role: 'subject' }, { node: 'b', role: 'object' }] }
     expect(relationWeight(assertion)).toBe(1)
@@ -134,6 +193,7 @@ describe('keyword community districts', () => {
     const communities = { topics: [topic('one', 0, 0), topic('two', 0, 0)], memberships: [membership('a', 'one'), membership('b', 'one'), membership('c', 'two'), membership('c', 'one', 'secondary')] }
     const plan = planCity(lots, [], communities)
     expect(plan.parcels).toHaveLength(3)
+    expect(plan.river).toBeDefined()
     expect(plan.parcels.find(p => p.topicId === 'one')?.members.map(m => m.node.id).sort()).toEqual(['a', 'b'])
     expect(plan.parcels.find(p => p.topicId === 'two')?.members.map(m => m.node.id)).toEqual(['c'])
     expect(plan.parcels.find(p => p.kind === 'growth')?.members[0].node.id).toBe('isolated')
@@ -227,11 +287,18 @@ it('gives every semantic keyword its own building beyond the old 650-building bu
   const topic = { id: 'one-topic', key: 'one-topic', label: 'Same topic', nodeType: 'topic', status: 'candidate', x: 0, z: 0 }
   const communities = { topics: [topic], memberships: lots.map(l => ({ id: `m-${l.node.id}`, node: l.node.id, topic: topic.id, role: 'primary', score: 1 })) }
   const plan = planCity(lots, [], communities)
+  expect(plan.river).toBeDefined()
   expect(plan.placements.map(p => p.id).sort()).toEqual(lots.map(l => l.node.id).sort())
   expect(new Set(plan.placements.map(p => `${p.x},${p.z}`)).size).toBe(lots.length)
   expect(plan.parcels.every(p => p.topicId === topic.id && p.name === topic.label)).toBe(true)
   expect(plan.parcels.every(p => p.members.length <= 12)).toBe(true)
-  for (const placement of plan.placements) expect(plan.positions.get(placement.id)).toEqual({ x: placement.x, z: placement.z })
+  for (const placement of plan.placements) {
+    expect(plan.positions.get(placement.id)).toEqual({ x: placement.x, z: placement.z })
+    for (let i = 0; i < 8; i++) {
+      const angle = i * Math.PI / 4
+      expect(riverDistance(plan.river!, { x: placement.x + Math.cos(angle) * placement.footprint, z: placement.z + Math.sin(angle) * placement.footprint })).toBeGreaterThan(0)
+    }
+  }
   assertClearances(plan)
 })
 

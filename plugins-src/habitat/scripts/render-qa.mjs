@@ -25,6 +25,7 @@ const graphNodes = snapshot.nodes.filter(node => (conceptGraph ? node.nodeType !
 const data = JSON.stringify({ growthSnapshot: snapshot, nodes: graphNodes, topics: snapshot.nodes.filter(node => node.nodeType === 'topic'), memberships: snapshot.memberships, attention: recentFocus ? snapshot.attention : [], keywordGraph, conceptGraph, layout: snapshot.layout })
 const harness = `
 import { CityScene } from '/src/lib/city-scene.ts';
+import { riverDistance } from '/src/lib/city-plan.ts';
 import { deriveConceptGrowth } from '/src/lib/concept-growth.ts';
 import { cityRelations, isMainConcept } from '/src/lib/domain.ts';
 const { growthSnapshot, ...data } = await (await fetch('/__qa/data')).json();
@@ -33,6 +34,9 @@ data.edges = cityRelations(growthSnapshot);
 const subsetNodes = data.nodes.filter((node, index) => index < Math.min(480, Math.max(1, Math.floor(data.nodes.length / 2))) || ['hemory', 'note.md', 'bushcraft'].includes(node.label.toLowerCase()));
 const subsetIds = new Set(subsetNodes.map(node => node.id));
 const subset = { ...data, nodes: subsetNodes, edges: data.edges.filter(edge => edge.participants.every(item => subsetIds.has(item.node))) };
+// Observe the exact plan passed to the real renderer; do not construct a second terrain.
+const terrain = CityScene.prototype.terrain;
+CityScene.prototype.terrain = function(plan) { this.__qaPlan = plan; return terrain.call(this, plan) };
 let scene, status, firstReadyMs, selections = [];
 const canvas = document.querySelector('canvas');
 function create() {
@@ -46,6 +50,69 @@ window.__cityQA = {
   get nodeCount() { return data.nodes.length },
   get subsetCount() { return subsetNodes.length },
   get firstReadyMs() { return firstReadyMs },
+  get riverChecks() {
+    const plan = scene.__qaPlan, sample = scene.terrainSample, river = plan?.river;
+    const failures = [], counts = { river: 0, bridge: 0, road: 0, footprint: 0 };
+    const fail = (kind, id, point, result) => { if (failures.length < 16) failures.push({ kind, id, point, result }) };
+    const dry = (kind, id, p) => {
+      const result = sample(p.x, p.z); counts[kind]++;
+      if (result.water || Math.abs(result.height - .12) > .025) fail(kind, id, p, result);
+    };
+    if (!plan || !sample) return { parcels: plan?.parcels.length ?? 0, failures: [{ kind: 'missing-scene-terrain' }] };
+    const bridges = plan.roads.filter(road => road.bridge);
+    if (!river) return { parcels: plan.parcels.length, roads: plan.roads.length, bridges: bridges.length, failures: plan.parcels.length >= 2 ? [{ kind: 'missing-cross-city-river' }] : [] };
+    const cross = river.axis, along = cross === 'x' ? 'z' : 'x';
+    for (let index = 1; index < river.points.length; index++) {
+      const a = river.points[index - 1], b = river.points[index];
+      const length = Math.hypot(b.x - a.x, b.z - a.z), steps = Math.max(2, Math.ceil(length / Math.max(.35, Math.min(1.2, river.halfWidth * .35))));
+      for (let i = 0; i <= steps; i++) for (const offset of [-.35, 0, .35]) {
+        const t = i / steps, p = { x: a.x + (b.x - a.x) * t, z: a.z + (b.z - a.z) * t };
+        p[cross] += river.halfWidth * offset;
+        const result = sample(p.x, p.z); counts.river++;
+        if (riverDistance(river, p) >= 0 || !result.water) fail('river', index, p, result);
+      }
+    }
+    for (const bridge of bridges) {
+      const [a, b] = bridge.points, mid = { x: (a.x + b.x) / 2, z: (a.z + b.z) / 2 };
+      const result = sample(mid.x, mid.z); counts.bridge++;
+      if (Math.abs(a[cross] - b[cross]) < river.halfWidth * 2 || Math.abs(a[along] - b[along]) > .0001 || riverDistance(river, mid) >= 0 || !result.water) fail('bridge-water', bridge.id, mid, result);
+      dry('road', bridge.id + ':start', a); dry('road', bridge.id + ':end', b);
+    }
+    for (const road of plan.roads.filter(road => !road.bridge)) for (let segment = 1; segment < road.points.length; segment++) {
+      const a = road.points[segment - 1], b = road.points[segment], length = Math.hypot(b.x - a.x, b.z - a.z), steps = Math.max(1, Math.ceil(length / 2));
+      for (let i = 0; i <= steps; i++) for (const side of [-1, 0, 1]) {
+        const t = i / steps, p = { x: a.x + (b.x - a.x) * t, z: a.z + (b.z - a.z) * t };
+        if (side && length) { p.x += -side * (b.z - a.z) / length * road.width / 2; p.z += side * (b.x - a.x) / length * road.width / 2 }
+        dry('road', road.id, p);
+      }
+    }
+    for (const placement of plan.placements) for (let i = 0; i < 16; i++) {
+      const angle = i * Math.PI / 8;
+      dry('footprint', placement.id, { x: placement.x + Math.cos(angle) * placement.footprint, z: placement.z + Math.sin(angle) * placement.footprint });
+    }
+    const graph = new Map();
+    for (const road of plan.roads) {
+      const [a, b] = road.points, key = p => Math.round(p.x * 10000) + ',' + Math.round(p.z * 10000), ak = key(a), bk = key(b);
+      graph.set(ak, [...(graph.get(ak) ?? []), bk]); graph.set(bk, [...(graph.get(bk) ?? []), ak]);
+    }
+    const seen = new Set(), queue = [...graph.keys()].slice(0, 1);
+    for (const at of queue) { if (seen.has(at)) continue; seen.add(at); queue.push(...graph.get(at)) }
+    if (seen.size !== graph.size) fail('disconnected-roads', 'graph', null, { reached: seen.size, total: graph.size });
+    return { parcels: plan.parcels.length, roads: plan.roads.length, bridges: bridges.length, bridgeTraffic: bridges.reduce((sum, road) => sum + road.traffic, 0), graphVertices: graph.size, connectedVertices: seen.size, riverPoints: river.points.length, riverAxis: river.axis, counts, failures };
+  },
+  bridgeFocus() {
+    ready();
+    const bridges = scene.__qaPlan?.roads.filter(road => road.bridge) ?? [];
+    const bridge = bridges[Math.floor(bridges.length / 2)];
+    if (!bridge) { scene.fit(); return }
+    const [a, b] = bridge.points, midpoint = { x: (a.x + b.x) / 2, z: (a.z + b.z) / 2 };
+    const offset = scene.camera.position.clone().sub(scene.controls.target);
+    scene.controls.target.set(midpoint.x, 0, midpoint.z);
+    scene.camera.position.copy(scene.controls.target).add(offset);
+    scene.camera.zoom = Math.max(scene.controls.minZoom, Math.min(scene.controls.maxZoom,
+      scene.camera.top / Math.max(6, Math.hypot(a.x - b.x, a.z - b.z) * .9)));
+    scene.camera.updateProjectionMatrix(); scene.controls.update(); scene.schedule();
+  },
   // Three r160 registers onGeometryDispose exactly when WebGLGeometries first
   // uploads a geometry. QA-only ownership evidence; no plugin API is added.
   sharedGeometryInventory() {
@@ -128,6 +195,15 @@ try {
   if (hardware) assert.ok(report.hardwareConfirmed, `hardware requested but renderer is ${report.renderer.renderer}`)
   console.log(`City QA renderer: ${report.renderer.renderer}; first ready ${report.firstReadyMs.toFixed(1)} ms`)
   await screenshot('overview')
+  report.riverChecks = await page.evaluate(() => window.__cityQA.riverChecks)
+  assert.ok(report.riverChecks.parcels < 2 || report.riverChecks.bridges > 0, 'multi-parcel city must have a cross-river bridge')
+  assert.deepEqual(report.riverChecks.failures, [], 'rendered city must have continuous river water, wet bridge spans and dry roads/building footprints')
+  report.checks.push('actual rendered terrain has a continuous cross-city river, wet bridge spans and dry street/building footprints')
+  if (report.riverChecks.bridges) {
+    await action('bridgeFocus'); await screenshot('bridge-closeup')
+    await action('rotate'); await screenshot('bridge-rotated')
+    await action('fit')
+  }
   const initialLabels = await page.evaluate(() => window.__cityQA.status.labels)
   // Warm shared assets used only by restructuring before measuring resource stability.
   if (keywordGraph) { await action('rebuilding'); await action('restore') }

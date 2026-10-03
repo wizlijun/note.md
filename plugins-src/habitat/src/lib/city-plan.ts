@@ -8,7 +8,17 @@ export interface CityParcel {
   kind: 'neighborhood' | 'growth' | 'campus' | 'park'
   topicId?: string; name?: string; unassigned?: boolean
 }
-export interface CityRoad { id: string; points: CityPoint[]; width: number; traffic: number; tier: number }
+export interface CityRoad { id: string; points: CityPoint[]; width: number; traffic: number; tier: number; bridge?: boolean }
+export interface CityRiver {
+  /** River centerline follows the former shared border between the two banks. */
+  points: CityPoint[]
+  /** Cross-river axis; points increase along the other axis. */
+  axis: 'x' | 'z'
+  halfWidth: number
+  bankWidth: number
+  /** Distance each bank moved away from the original centerline. */
+  setback: number
+}
 export interface CityPlacement {
   id: string; parcelId: string; x: number; z: number; rotation: number
   /** Ground-plane bounding-circle radius, including all model accessories. */
@@ -16,6 +26,7 @@ export interface CityPlacement {
 }
 export interface CityPlan {
   parcels: CityParcel[]; roads: CityRoad[]; placements: CityPlacement[]; positions: Map<string, CityPoint>
+  river?: CityRiver
 }
 
 const MAX_ROAD_WIDTH = 1.8
@@ -27,6 +38,23 @@ const hash = (key: string) => {
 }
 const distance = (a: CityPoint, b: CityPoint) => Math.hypot(a.x - b.x, a.z - b.z)
 const vertexKey = (p: CityPoint) => `${Math.round(p.x * 10000)},${Math.round(p.z * 10000)}`
+
+/** Signed horizontal distance from the same winding water edge used by the terrain. */
+export function riverDistance(river: CityRiver, point: CityPoint) {
+  const along = river.axis === 'x' ? 'z' : 'x', cross = river.axis
+  const points = river.points
+  if (points.length < 2) return Infinity
+  if (point[along] < points[0][along] || point[along] > points.at(-1)![along]) return Infinity
+  let lo = 0, hi = points.length - 1
+  while (lo < hi - 1) {
+    const mid = (lo + hi) >> 1
+    if (points[mid][along] <= point[along]) lo = mid
+    else hi = mid
+  }
+  const a = points[lo], b = points[lo + 1]
+  const t = (point[along] - a[along]) / (b[along] - a[along])
+  return Math.abs(point[cross] - (a[cross] + (b[cross] - a[cross]) * t)) - river.halfWidth
+}
 const rank = (lot: ProjectedLot) => lot.style ? 0 : lot.node.nodeType === 'project' ? 1 : ['concept', 'entity'].includes(lot.node.nodeType) ? 2 : 3
 const compareLots = (a: ProjectedLot, b: ProjectedLot) => rank(a) - rank(b) || (b.node.attentionScore ?? 0) - (a.node.attentionScore ?? 0) || (b.node.evidence?.length ?? 0) - (a.node.evidence?.length ?? 0) || a.node.id.localeCompare(b.node.id)
 
@@ -74,6 +102,82 @@ function convexHull(points: CityPoint[]) {
     return result
   }
   return [...half(ordered).slice(0, -1), ...half(ordered.reverse()).slice(0, -1)]
+}
+
+/** Reserve a dry corridor without deforming a parcel or changing its members. */
+function reserveRiver(parcels: CityParcel[]): { river: CityRiver; bridges: [CityPoint, CityPoint][] } | undefined {
+  if (parcels.length < 2) return undefined
+  const extentX = Math.max(...parcels.map(p => p.center.x)) - Math.min(...parcels.map(p => p.center.x))
+  const extentZ = Math.max(...parcels.map(p => p.center.z)) - Math.min(...parcels.map(p => p.center.z))
+  const sides = new Map<string, { a: CityPoint; b: CityPoint; owners: string[] }>()
+  for (const parcel of parcels) for (let i = 0; i < parcel.polygon.length; i++) {
+    const a = parcel.polygon[i], b = parcel.polygon[(i + 1) % parcel.polygon.length]
+    if (distance(a, b) < .001) continue
+    const ak = vertexKey(a), bk = vertexKey(b), id = ak < bk ? `${ak}|${bk}` : `${bk}|${ak}`
+    const side = sides.get(id)
+    if (side) side.owners.push(parcel.id)
+    else sides.set(id, { a, b, owners: [parcel.id] })
+  }
+  type Candidate = { axis: 'x' | 'z'; left: Set<string>; chain: CityPoint[]; stretch: number; balance: number }
+  const candidates: Candidate[] = []
+  for (const axis of ['x', 'z'] as const) {
+    const along: 'x' | 'z' = axis === 'x' ? 'z' : 'x'
+    const sorted = [...parcels].sort((a, b) => a.center[axis] - b.center[axis] || a.id.localeCompare(b.id))
+    const minBank = Math.max(1, Math.ceil(parcels.length * .25)), maxBank = Math.min(parcels.length - 1, Math.floor(parcels.length * .75))
+    for (let split = minBank; split <= maxBank; split++) {
+      if (sorted[split - 1].center[axis] >= sorted[split].center[axis]) continue
+      const left = new Set(sorted.slice(0, split).map(p => p.id))
+      const seam = [...sides.values()].filter(s => s.owners.length === 2 && left.has(s.owners[0]) !== left.has(s.owners[1]))
+      if (!seam.length) continue
+      const vertices = new Map<string, CityPoint>(), neighbors = new Map<string, string[]>()
+      for (const side of seam) {
+        const a = vertexKey(side.a), b = vertexKey(side.b)
+        vertices.set(a, side.a); vertices.set(b, side.b)
+        neighbors.set(a, [...(neighbors.get(a) ?? []), b]); neighbors.set(b, [...(neighbors.get(b) ?? []), a])
+      }
+      const ends = [...neighbors].filter(([, adjacent]) => adjacent.length === 1).map(([id]) => id)
+      if (ends.length !== 2 || [...neighbors.values()].some(adjacent => adjacent.length > 2)) continue
+      ends.sort((a, b) => vertices.get(a)![along] - vertices.get(b)![along] || a.localeCompare(b))
+      const chain: CityPoint[] = [], visited = new Set<string>()
+      for (let at = ends[0], from = ''; at && !visited.has(at);) {
+        chain.push(vertices.get(at)!); visited.add(at)
+        const next: string | undefined = neighbors.get(at)!.find(id => id !== from)
+        from = at; at = next ?? ''
+      }
+      if (chain.length !== vertices.size || vertexKey(chain.at(-1)!) !== ends[1]) continue
+      if (chain.some((p, i) => i > 0 && p[along] <= chain[i - 1][along] + 1e-4)) continue
+      const stretch = Math.max(...chain.slice(1).map((p, i) => Math.hypot(1, (p[axis] - chain[i][axis]) / (p[along] - chain[i][along]))))
+      candidates.push({ axis, left, chain, stretch, balance: Math.abs(parcels.length - 2 * split) })
+    }
+  }
+  candidates.sort((a, b) => a.stretch - b.stretch || a.balance - b.balance || a.axis.localeCompare(b.axis)
+    || a.chain.map(vertexKey).join('|').localeCompare(b.chain.map(vertexKey).join('|')))
+  const choice = candidates[0]
+  if (!choice) return undefined
+  const { axis, left, chain, stretch } = choice
+  // A two-parcel city has only the two edge endpoints; add a central road
+  // vertex so its sole bridge crosses the city rather than hugging the rim.
+  if (chain.length === 2) {
+    const [a, b] = chain, midpoint = { x: (a.x + b.x) / 2, z: (a.z + b.z) / 2 }
+    const seamKey = [vertexKey(a), vertexKey(b)].sort().join('|')
+    for (const parcel of parcels) for (let i = parcel.polygon.length - 1; i >= 0; i--) {
+      const p = parcel.polygon[i], q = parcel.polygon[(i + 1) % parcel.polygon.length]
+      if ([vertexKey(p), vertexKey(q)].sort().join('|') === seamKey) parcel.polygon.splice(i + 1, 0, midpoint)
+    }
+    chain.splice(1, 0, midpoint)
+  }
+  const span = Math.max(extentX, extentZ, 24), halfWidth = Math.max(1.5, Math.min(8, span * .024))
+  const bankWidth = Math.max(1.2, Math.min(3, span * .012))
+  const setback = halfWidth + bankWidth + (MAX_ROAD_WIDTH / 2 + .21) * stretch + .35
+  const move = (p: CityPoint, direction: number): CityPoint => ({ ...p, [axis]: p[axis] + direction * setback })
+  for (const parcel of parcels) {
+    const direction = left.has(parcel.id) ? -1 : 1
+    parcel.center = move(parcel.center, direction)
+    parcel.polygon = parcel.polygon.map(p => move(p, direction))
+  }
+  const bridgeCount = Math.min(5, Math.max(1, Math.floor(chain.length / 3)))
+  const bridgePoints = Array.from({ length: bridgeCount }, (_, i) => chain[Math.round((i + .5) / bridgeCount * (chain.length - 1))])
+  return { river: { points: chain, axis, halfWidth, bankWidth, setback }, bridges: [...new Map(bridgePoints.map(p => [vertexKey(p), [move(p, -1), move(p, 1)] as [CityPoint, CityPoint]])).values()] }
 }
 
 /** Statistical support affects capacity, but never becomes an asserted semantic fact. */
@@ -231,6 +335,8 @@ export function planCity(lots: ProjectedLot[], edges: Edge[], communities?: Comm
     }
     parcel.polygon = polygon.map(p => ({ x: Math.round(p.x * 10000) / 10000, z: Math.round(p.z * 10000) / 10000 }))
   }
+  const crossing = reserveRiver(plan.parcels)
+  if (crossing) plan.river = crossing.river
   const roads = new Map<string, CityRoad>(), parcelRoads = new Map<string, string[]>()
   for (const parcel of plan.parcels) {
     const ids: string[] = []
@@ -242,6 +348,10 @@ export function planCity(lots: ProjectedLot[], edges: Edge[], communities?: Comm
       ids.push(id)
     }
     parcelRoads.set(parcel.id, ids.sort())
+  }
+  for (const [a, b] of crossing?.bridges ?? []) {
+    const id = `bridge:${vertexKey(a)}|${vertexKey(b)}`
+    roads.set(id, { id, points: [a, b], width: .42, traffic: 0, tier: 0, bridge: true })
   }
   plan.roads = [...roads.values()].sort((a, b) => a.id.localeCompare(b.id))
 
