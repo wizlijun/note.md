@@ -186,7 +186,16 @@ fn instruction_phrase(term: &str) -> bool {
     let Some(last) = tags.last() else {
         return false;
     };
-    if tags.len() < 2 || !first.tag.starts_with('v') {
+    if tags.len() < 2 {
+        return false;
+    }
+    if tags
+        .iter()
+        .any(|tag| tag.tag == "v" && ["有", "是"].contains(&tag.word))
+    {
+        return true;
+    }
+    if !first.tag.starts_with('v') {
         return false;
     }
     // A verb applied to a named ASCII object or a generic output artifact
@@ -232,8 +241,32 @@ fn value_slot_use(text: &str, term: &str) -> bool {
             })
         })
 }
+// In an imperative, the verb plus its object is not itself the concept.
+// Keep the same spelling eligible when it is explicitly discussed as a term
+// (e.g. 设计思维 / 优化算法), rather than banning those verbs globally.
+fn requested_action_phrase(text: &str, term: &str) -> bool {
+    static SEGMENTER: LazyLock<Jieba> = LazyLock::new(Jieba::new);
+    let tags = SEGMENTER.tag(term, false);
+    if tags.len() < 2
+        || ![
+            "设计", "改进", "优化", "开发", "实现", "采用", "看到", "描述", "指定",
+        ]
+        .contains(&tags[0].word)
+    {
+        return false;
+    }
+    text.match_indices(term).any(|(at, _)| {
+        let before = text[..at].trim_end();
+        ["请", "需要", "希望", "深度", "简要", "想要"]
+            .iter()
+            .any(|prefix| before.ends_with(prefix))
+    })
+}
 fn phrase_integrity(text: &str, term: &str) -> bool {
-    (!(discourse_slot_use(text, term) || instruction_phrase(term) || value_slot_use(text, term))
+    (!(discourse_slot_use(text, term)
+        || instruction_phrase(term)
+        || value_slot_use(text, term)
+        || requested_action_phrase(text, term))
         || named_term_context(text, term))
         && lexical_match(text, term)
 }
@@ -356,11 +389,90 @@ fn explicit_concept(text: &str, term: &str) -> bool {
     .iter()
     .any(|p| text.contains(p))
 }
+// A requested analytical persona is an instruction to the assistant, not an
+// observation of interest in that persona's discipline. Test each occurrence
+// so a later substantive use in the same clause can still qualify.
+fn perspective_occurrence(before: &str, after: &str) -> bool {
+    static PREFIX: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(
+            r"(?:以|从|作为|扮演|你是)(?:一个|一名|专业的|资深的)?$|(?:from|as)(?: a| an)?\s*$",
+        )
+        .unwrap()
+    });
+    static EXPERTISE: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(
+            r"^(?:的)?(?:[\p{Han}]{2,6}的)?(?:知识|经验)(?:帮我|帮助我|来)?(?:分析|解释|判断)",
+        )
+        .unwrap()
+    });
+    PREFIX.is_match(before)
+        && (EXPERTISE.is_match(after)
+            || [
+                "视角",
+                "角度",
+                "专家",
+                "学家",
+                "科学家",
+                "perspective",
+                "expert",
+            ]
+            .iter()
+            .any(|suffix| {
+                after
+                    .trim_start_matches('的')
+                    .trim_start()
+                    .starts_with(suffix)
+            }))
+}
+// Practical investigation is not restricted to abstract 'why' questions.
+// A complete noun phrase serving as the subject of an algorithm/process or
+// requested design has the same status in any field. Bare UI/output nouns
+// and operational verbs cannot inherit this admission.
+fn applied_topic(before: &str, after: &str, term: &str) -> bool {
+    static METHOD: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^(?:生成|提取|识别|匹配|检索|组织|分类)?的(?:算法|模型|机制|原理|流程|架构|策略|方法)").unwrap()
+    });
+    static SEGMENTER: LazyLock<Jieba> = LazyLock::new(Jieba::new);
+    let tags = SEGMENTER.tag(term, false);
+    let full_term = term.chars().count() >= 4
+        // One ASCII identifier is more often the implementation/tool than
+        // the concept being developed. It needs the existing direct inquiry
+        // or explicit entity typing, not this compound-application shortcut.
+        && (!term.is_ascii() || term.split_whitespace().count() > 1)
+        && !discourse_phrase(term)
+        && !instruction_phrase(term)
+        && tags.iter().all(|tag| {
+            matches!(
+                tag.tag,
+                "n" | "ng" | "nz" | "nt" | "ns" | "eng" | "vn" | "an" | "a" | "v" | "f"
+            )
+        });
+    if !full_term {
+        return false;
+    }
+    let application = METHOD.is_match(after)
+        || ["设计", "改进", "优化", "开发", "实现", "采用"]
+            .iter()
+            .any(|verb| before.ends_with(verb))
+            && (after.is_empty()
+                || after.starts_with(['。', '，', '？', '?'])
+                || ["的", "功能", "算法", "模型", "流程"]
+                    .iter()
+                    .any(|p| after.starts_with(p)));
+    // Segmentation boundaries alone do not make a suffix a complete phrase:
+    // 后/端云服务 and 模糊/时间解析 must retain their attached modifier. This
+    // guard belongs only to the new application channel; explicit discussion
+    // of a nested concept still uses the existing independent-context rules.
+    application
+        && !SEGMENTER.tag(before, false).last().is_some_and(|tag| {
+            tag.byte_end == before.len()
+                && matches!(tag.tag, "n" | "ng" | "nz" | "nt" | "ns" | "a" | "an" | "f")
+        })
+}
 /// A discussion is local to the term's clause. Formatting requests, operation
 /// instructions and field names cannot borrow 'research' from elsewhere.
 pub fn concept_context(text: &str, term: &str) -> bool {
     if !prose(text)
-        || operation(text)
         || !phrase_integrity(text, term)
         || code_occurrence(text, term)
         || text.contains("图片")
@@ -391,10 +503,6 @@ pub fn concept_context(text: &str, term: &str) -> bool {
             if placeholder(&term) && !explicit_concept(clause, &term) {
                 return false;
             }
-            if clause.contains(&format!("{term}专家")) || clause.contains(&format!("{term}助手"))
-            {
-                return false;
-            }
             if [
                 "格式", "输出", "正文", "标题", "写成", "文件", "目录", "保存", "排版",
             ]
@@ -408,7 +516,13 @@ pub fn concept_context(text: &str, term: &str) -> bool {
             lower.match_indices(&term).any(|(start, _)| {
                 let before = lower[..start].trim_end();
                 let after = lower[start + term.len()..].trim_start();
-                if applied_concept_goal(clause, &term) || POSSESSIVE.is_match(before) {
+                if perspective_occurrence(before, after) {
+                    return false;
+                }
+                if applied_concept_goal(clause, &term)
+                    || applied_topic(before, after, &term)
+                    || POSSESSIVE.is_match(before)
+                {
                     return true;
                 }
                 if before.ends_with("科学的")
@@ -434,7 +548,7 @@ pub fn concept_context(text: &str, term: &str) -> bool {
                     .iter()
                     .any(|v| before.ends_with(v));
                 if applied
-                    && ["视角", "角度", "的机制", "理论", "原理"]
+                    && ["的机制", "理论", "原理"]
                         .iter()
                         .any(|v| after.starts_with(v))
                 {
@@ -680,6 +794,7 @@ pub(crate) fn strong_seed_context(text: &str, term: &str) -> bool {
                     || after.starts_with("定义为");
                 let beneficiary = before.ends_with('对');
                 definition
+                    || applied_topic(before, after, &term)
                     || CAUSAL.is_match(after)
                     || ["影响", "导致", "取决于", "依赖"]
                         .iter()
@@ -1090,6 +1205,12 @@ pub fn assess_terms(
             if code_occurrence(&e.text, label) {
                 continue;
             }
+            let substantive_occurrence = text.match_indices(key.as_str()).any(|(at, _)| {
+                !perspective_occurrence(text[..at].trim_end(), text[at + key.len()..].trim_start())
+            });
+            if !substantive_occurrence {
+                continue;
+            }
             entry.all.insert(e.event_id.clone());
             let independent = spans
                 .iter()
@@ -1348,6 +1469,94 @@ mod tests {
         assert_eq!(a["story"].class, TermClass::Candidate);
     }
     #[test]
+    fn analysis_persona_is_not_the_discussion_subject() {
+        for domain in ["认知心理学", "经济学", "计算机科学"] {
+            for text in [
+                format!("请以{domain}的视角分析决策"),
+                format!("请从{domain}角度解释决策"),
+                format!("请以{domain}专家的视角理解决策"),
+                format!("请以专业的{domain}的知识帮我分析决策"),
+                format!("请以专业的{domain}的架构时的知识帮我分析决策"),
+            ] {
+                assert!(!concept_context(&text, domain), "{text}");
+                assert!(!strong_seed_context(&text, domain), "{text}");
+                assert!(concept_context(&text, "决策"), "{text}");
+            }
+            assert!(concept_context(&format!("我想理解{domain}的机制"), domain));
+            assert!(concept_context(
+                &format!("请以{domain}视角分析决策以及{domain}的机制"),
+                domain
+            ));
+        }
+    }
+    #[test]
+    fn conceptual_application_is_local_and_topic_neutral() {
+        for term in ["知识图谱", "智能搜索", "工作记忆", "风险管理"] {
+            for text in [
+                format!("请解释{term}的算法，最后重新生成文件。"),
+                format!("能不能采用{term}的模型？"),
+                format!("我们需要优化{term}的流程。"),
+            ] {
+                assert!(concept_context(&text, term), "{text}");
+                assert!(strong_seed_context(&text, term), "{text}");
+            }
+        }
+        for (text, term) in [
+            ("请优化可能原因的算法", "可能原因"),
+            ("请重新生成知识图谱文件", "知识图谱"),
+            ("请设计融入文档的方法", "融入文档"),
+            ("我希望看到方法的原理是什么", "看到方法"),
+            ("请简要描述关键概念的流程", "描述关键概念"),
+            ("深度实现一版设计文档", "一版设计文档"),
+            ("因为加密时需要指定目标平台的架构", "指定目标平台"),
+            ("领导在批示时有专门的方法", "时有专门"),
+            ("优化 M4ARepairService 的恢复逻辑", "M4ARepairService"),
+            ("当前代码中wespeaker的模型从哪里加载", "wespeaker"),
+            ("能不能保持和ouraring的算法一致", "ouraring"),
+            ("优先实现macapp", "macapp"),
+        ] {
+            assert!(!concept_context(text, term), "{text}");
+        }
+    }
+    #[test]
+    fn application_suffixes_cannot_discard_attached_nominal_modifiers() {
+        for (text, full, suffix) in [
+            (
+                "请以专业的后端云服务的架构知识帮我分析。",
+                "后端云服务",
+                "端云服务",
+            ),
+            ("请分析模糊时间解析的算法。", "模糊时间解析", "时间解析"),
+        ] {
+            assert!(
+                applied_topic(
+                    text.split(full).next().unwrap(),
+                    text.split(full).nth(1).unwrap(),
+                    full
+                ),
+                "{full}"
+            );
+            assert!(
+                !applied_topic(
+                    text.split(suffix).next().unwrap(),
+                    text.split(suffix).nth(1).unwrap(),
+                    suffix
+                ),
+                "{suffix}"
+            );
+        }
+        assert!(!concept_context(
+            "请以专业的后端云服务的架构知识帮我分析。",
+            "端云服务"
+        ));
+        assert!(concept_context("请解释时间解析的算法。", "时间解析"));
+        assert!(concept_context("请分析整个记忆系统的架构。", "记忆系统"));
+        assert!(strong_seed_context(
+            "请分析整个记忆系统的架构。",
+            "记忆系统"
+        ));
+    }
+    #[test]
     fn fragments_need_independent_occurrences() {
         assert!(!mention_context("安装客户端", "客户"));
         assert!(mention_context("研究客户端", "客户端"));
@@ -1376,7 +1585,7 @@ mod tests {
                 vec!["认知心理学"],
             ),
             ("我是个做生产力软件的，提高人的生产力", vec!["生产力"]),
-            ("以认知心理学视角分析决策", vec!["认知心理学", "决策"]),
+            ("以认知心理学视角分析决策", vec!["决策"]),
             ("如何保护员工的能动性", vec!["能动性"]),
             (
                 "我期望以认知心理学的理论依据设计新的协作方式。以对齐生产力",
@@ -1543,6 +1752,9 @@ mod tests {
             ("什么是指标体系？", "指标体系"),
             ("请解释原因分析的机制。", "原因分析"),
             ("什么是随机变量？", "随机变量"),
+            ("什么是设计思维？", "设计思维"),
+            ("请解释优化算法的机制。", "优化算法"),
+            ("我想理解软件开发的流程。", "软件开发"),
             ("什么是证据？", "证据"),
             ("结论的定义是什么？", "结论"),
             ("请解释工作记忆（working memory）的机制。", "工作记忆"),

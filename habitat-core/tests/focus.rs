@@ -522,3 +522,52 @@ fn inline_notification_elision_does_not_join_a_fake_statement() {
     assert!(!e.iter().any(|x| x.text.contains("工作记忆依赖")));
     assert!(e.iter().any(|x| x.text.contains("<term>情绪</term>")));
 }
+
+#[test]
+fn a_requested_lens_cannot_add_focus_days_or_events_to_a_real_interest() {
+    for term in ["认知心理学", "风险管理"] {
+        let vocabulary = [(term.into(), "concept".into())].into_iter().collect();
+        let original = events("2026-09-29", &format!("我想理解{term}的机制。"));
+        let baseline = focus::rank_events(original.clone(), &context(), &vocabulary).unwrap();
+        let mut input = original;
+        for date in ["2026-09-30", "2026-10-01", "2026-10-02"] {
+            input.extend(events(date, &format!("请以{term}的视角分析决策。")));
+        }
+        let ranked = focus::rank_events(input, &context(), &vocabulary).unwrap();
+        let before = baseline.iter().find(|c| c.term == term).unwrap();
+        let after = ranked.iter().find(|c| c.term == term).unwrap();
+        assert_eq!(after.active_days, before.active_days);
+        assert_eq!(after.events, before.events);
+        assert_eq!(after.last_observed_at, "2026-09-29");
+        assert!(after.occurrences.iter().all(|o| !o.text.contains("视角")));
+    }
+}
+#[test]
+fn applied_topics_from_different_fields_use_the_same_admission() {
+    let mut input = Vec::new();
+    for term in ["知识图谱", "风险管理", "工作记忆"] {
+        input.extend(events("2026-10-01", &format!("请优化{term}的模型。")));
+        input.extend(events("2026-10-02", &format!("请分析{term}的机制。")));
+    }
+    let vocabulary = ["知识图谱", "风险管理", "工作记忆"]
+        .into_iter()
+        .map(|t| (t.into(), "concept".into()))
+        .collect();
+    let ranked = focus::rank_events(input, &context(), &vocabulary).unwrap();
+    let selected = focus::foreground(&ranked);
+    let mut scores = Vec::new();
+    for term in ["知识图谱", "风险管理", "工作记忆"] {
+        let found = selected
+            .iter()
+            .find(|c| c.term == term)
+            .unwrap_or_else(|| panic!("missing {term}: {selected:?}"));
+        assert_eq!(found.kind, "concept");
+        assert_eq!(found.active_days, 2, "{term}: {found:?}");
+        assert_eq!(found.events, 2);
+        scores.push(found.score);
+    }
+    assert!(
+        (scores[1] - scores[2]).abs() < 1e-12,
+        "same observation/token structure: {scores:?}"
+    );
+}
