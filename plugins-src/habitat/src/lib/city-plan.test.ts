@@ -20,8 +20,8 @@ function assertClearances(plan: CityPlan) {
 }
 
 describe('deterministic game city plan', () => {
-  it('routes evidenced source assertions without upgrading them to verified facts', () => {
-    const assertion = { ...edge('claim', 'a', 'b'), edgeType: 'depends_on', status: 'asserted', verifiedFamilies: 0, participants: [{ node: 'a', role: 'subject' }, { node: 'b', role: 'object' }] }
+  it.each(['depends_on', 'influences'])('routes evidenced %s source assertions without upgrading them to verified facts', edgeType => {
+    const assertion = { ...edge('claim', 'a', 'b'), edgeType, status: 'asserted', verifiedFamilies: 0, participants: [{ node: 'a', role: 'subject' }, { node: 'b', role: 'object' }] }
     expect(relationWeight(assertion)).toBe(1)
     expect(relationWeight({ ...assertion, evidence: [] })).toBe(0)
     expect(relationWeight({ ...assertion, status: 'negated' })).toBe(0)

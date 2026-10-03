@@ -3,8 +3,9 @@
 //! https://aclanthology.org/C92-2082/
 //!
 //! Deliberately low recall: quoted/reported, uncertain, negative and interrogative
-//! contexts are omitted. Both arguments must occupy the complete clause around
-//! a supported predicate. Co-occurrence never supplies a typed relationship.
+//! contexts are omitted. Arguments must occupy a complete local statement;
+//! influences additionally permits bounded modifiers and object coordination.
+//! Co-occurrence never supplies a typed relationship.
 use crate::focus::{Occurrence, UserEvent};
 use regex::Regex;
 use std::collections::{BTreeMap, BTreeSet};
@@ -43,6 +44,7 @@ fn unsafe_context(text: &str) -> bool {
         "而不是", "不是", "并非", "并不", "不能", "不要", "否认", "不意味着",
         "不依赖", "不属于", "不一定", "未证实", "举例", "例如", "譬如",
         "无需", "无须", "不必", "不用", "没有依赖",
+        "不影响", "不会影响", "没有影响", "未影响", "不曾影响", "无影响",
         "只要", "只有", "一旦", "前提", "否则", "应该", "应当", "设想",
     ].iter().any(|marker| text.contains(marker))
         || ENGLISH.get_or_init(|| Regex::new(
@@ -99,6 +101,10 @@ fn statement_parts(clause: &str) -> Option<(&str, &str, &'static str, bool)> {
             (" depends on ", "", "depends_on", false),
             ("依赖于", "", "depends_on", false),
             ("依赖", "", "depends_on", false),
+            (" affects ", "", "influences", false),
+            (" influences ", "", "influences", false),
+            ("对", "有影响", "influences", false),
+            ("影响", "", "influences", false),
             ("又称为", "", "alias_of", true),
             ("又称", "", "alias_of", true),
             ("简称为", "", "alias_of", true),
@@ -144,23 +150,82 @@ fn statement_parts(clause: &str) -> Option<(&str, &str, &'static str, bool)> {
     None
 }
 
+fn influence_endpoint(text: &str) -> &str {
+    let text = text.trim();
+    let text = text.strip_prefix("用户的").unwrap_or(text);
+    text.strip_prefix("当前").unwrap_or(text).trim()
+}
+
+fn relation_arguments(clause: &str) -> Vec<(&str, &str, &'static str, bool)> {
+    let Some((left, right, relation, reverse)) = statement_parts(clause) else {
+        return Vec::new();
+    };
+    if relation != "influences" {
+        return vec![(left, right, relation, reverse)];
+    }
+    // One explicit subject and one predicate only. No Cartesian expansion of
+    // coordinated subjects, inferred verb arguments or pronoun resolution.
+    let left = influence_endpoint(left);
+    let objects: Vec<_> = right
+        .split(" and ")
+        .flat_map(|part| part.split(['和', '与', '及', '、']))
+        .map(influence_endpoint)
+        .collect();
+    if !(1..=4).contains(&objects.len())
+        || left.contains(['和', '与', '及', '、'])
+        || left.contains(" and ")
+        || std::iter::once(left)
+            .chain(objects.iter().copied())
+            .any(|arg| {
+                arg.is_empty()
+                    || !endpoint_shape(arg)
+                    || arg.contains(['，', ',', '；', ';'])
+                    || [
+                        "影响",
+                        "并",
+                        "帮助",
+                        "改变",
+                        "提高",
+                        "降低",
+                        "导致",
+                        "促进",
+                        "依赖",
+                        " affects ",
+                        " influences ",
+                    ]
+                    .iter()
+                    .any(|p| arg.contains(p))
+            })
+    {
+        return Vec::new();
+    }
+    objects
+        .into_iter()
+        .map(|right| (left, right, relation, reverse))
+        .collect()
+}
+
 fn parse_clause<'a>(
     clause: &str,
     terms: &'a BTreeMap<String, String>,
-) -> Option<(&'a String, &'a String, &'static str)> {
-    let (left, right, relation, reverse) = statement_parts(clause)?;
-    if !endpoint_shape(left) || !endpoint_shape(right) {
-        return None;
-    }
-    let (from, to) = (argument(left, terms)?, argument(right, terms)?);
-    if from == to {
-        return None;
-    }
-    Some(if reverse {
-        (to, from, relation)
-    } else {
-        (from, to, relation)
-    })
+) -> Vec<(&'a String, &'a String, &'static str)> {
+    relation_arguments(clause)
+        .into_iter()
+        .filter_map(|(left, right, relation, reverse)| {
+            if !endpoint_shape(left) || !endpoint_shape(right) {
+                return None;
+            }
+            let (from, to) = (argument(left, terms)?, argument(right, terms)?);
+            if from == to {
+                return None;
+            }
+            Some(if reverse {
+                (to, from, relation)
+            } else {
+                (from, to, relation)
+            })
+        })
+        .collect()
 }
 
 fn delegated_events(events: &[UserEvent]) -> BTreeSet<&str> {
@@ -209,20 +274,88 @@ fn endpoint_shape(endpoint: &str) -> bool {
 fn eligible(event: &UserEvent) -> bool {
     let text = event.text.trim();
     matches!(event.signal.as_str(), "agent_user" | "native_human")
-        && !event.inquiry
         && !event.event_id.is_empty()
         && !text.starts_with(['>', '#', '<'])
         && !text.starts_with("//")
         && !text.starts_with("~~~")
         && !event.text.starts_with("    ")
         && !event.text.starts_with('\t')
-        && !unsafe_context(text)
+}
+
+/// Framing may precede the apparent statement on another line of the same
+/// user turn. Keep this scope even when interrogative turns allow local claims.
+fn framed_events(events: &[UserEvent]) -> BTreeSet<&str> {
+    events
+        .iter()
+        .filter(|event| {
+            let text = event.text.to_lowercase();
+            [
+                "请验证",
+                "请核实",
+                "猜测",
+                "对吗",
+                "正确吗",
+                "不确定",
+                "以下假设",
+                "问题和假设",
+                "假设如下",
+                "假设",
+                "猜想",
+                "假如",
+                "倘若",
+                "除非",
+                "如果",
+                "据说",
+                "资料显示",
+                "数据显示",
+                "研究表明",
+                "作者说",
+                "我认为",
+                "听说",
+                "有人说",
+                "写道",
+                "引文",
+                "引用如下",
+                "原文如下",
+                "材料说",
+                "文中说",
+                "他说",
+                "她说",
+                "according to",
+                "verify the following",
+                "suppose that",
+                "assume that",
+                "if ",
+                "unless ",
+                "~~~",
+            ]
+            .iter()
+            .any(|marker| text.contains(marker))
+                || text.contains(['“', '”', '‘', '’', '「', '」', '『', '』', '`', '"', '\''])
+        })
+        .map(|event| event.event_id.as_str())
+        .collect()
+}
+
+fn asserted_complement(clause: &str) -> Option<&str> {
+    let clause = clause.trim();
+    let clause = ["以及", "并且", "而且", "同时"]
+        .iter()
+        .find_map(|prefix| clause.strip_prefix(prefix))
+        .unwrap_or(clause);
+    ["我深刻知道", "也深刻知道", "我知道", "我观察到", "我发现"]
+        .iter()
+        .find_map(|prefix| clause.strip_prefix(prefix))
+        .map(str::trim)
 }
 
 fn clauses(event: &UserEvent) -> Vec<&str> {
     sentences(event.text.trim())
         .into_iter()
         .flat_map(|sentence| {
+            if unsafe_context(sentence) {
+                return Vec::new();
+            }
             let parts: Vec<_> = sentence
                 .split([',', '，', ';', '；'])
                 .map(|clause| {
@@ -237,8 +370,17 @@ fn clauses(event: &UserEvent) -> Vec<&str> {
             // subordinate statement is promoted into an unconditional assertion.
             if parts.iter().all(|part| statement_parts(part).is_some()) {
                 parts
+                    .into_iter()
+                    .map(|part| asserted_complement(part).unwrap_or(part))
+                    .collect()
             } else {
-                Vec::new()
+                // A mixed sentence can contain an explicitly introduced
+                // author's assertion. Do not promote arbitrary comma fragments.
+                parts
+                    .into_iter()
+                    .filter_map(asserted_complement)
+                    .filter(|part| statement_parts(part).is_some())
+                    .collect()
             }
         })
         .collect()
@@ -250,39 +392,42 @@ fn clauses(event: &UserEvent) -> Vec<&str> {
 pub(crate) fn candidate_endpoints(events: &[UserEvent]) -> Vec<String> {
     let mut candidates = BTreeMap::new();
     let delegated = delegated_events(events);
-    for event in events
-        .iter()
-        .filter(|event| eligible(event) && !delegated.contains(event.event_id.as_str()))
-    {
+    let framed = framed_events(events);
+    for event in events.iter().filter(|event| {
+        eligible(event)
+            && !delegated.contains(event.event_id.as_str())
+            && !framed.contains(event.event_id.as_str())
+    }) {
         for clause in clauses(event) {
-            let Some((left, right, _, _)) = statement_parts(clause) else {
-                continue;
-            };
-            if !endpoint_shape(left) || !endpoint_shape(right) {
-                continue;
-            }
-            for endpoint in [left, right] {
-                let lower = endpoint.to_ascii_lowercase();
-                let endpoint = ["the ", "an ", "a "]
-                    .iter()
-                    .find_map(|prefix| lower.starts_with(prefix).then(|| &endpoint[prefix.len()..]))
-                    .unwrap_or(endpoint)
-                    .trim();
-                if !endpoint_shape(endpoint)
-                    || !(2..=64).contains(&endpoint.chars().count())
-                    || endpoint.split_whitespace().count() > 8
-                {
+            for (left, right, _, _) in relation_arguments(clause) {
+                if !endpoint_shape(left) || !endpoint_shape(right) {
                     continue;
                 }
-                let key = normalized(endpoint);
-                candidates
-                    .entry(key)
-                    .and_modify(|old: &mut String| {
-                        if endpoint < old.as_str() {
-                            *old = endpoint.into();
-                        }
-                    })
-                    .or_insert_with(|| endpoint.to_string());
+                for endpoint in [left, right] {
+                    let lower = endpoint.to_ascii_lowercase();
+                    let endpoint = ["the ", "an ", "a "]
+                        .iter()
+                        .find_map(|prefix| {
+                            lower.starts_with(prefix).then(|| &endpoint[prefix.len()..])
+                        })
+                        .unwrap_or(endpoint)
+                        .trim();
+                    if !endpoint_shape(endpoint)
+                        || !(2..=64).contains(&endpoint.chars().count())
+                        || endpoint.split_whitespace().count() > 8
+                    {
+                        continue;
+                    }
+                    let key = normalized(endpoint);
+                    candidates
+                        .entry(key)
+                        .and_modify(|old: &mut String| {
+                            if endpoint < old.as_str() {
+                                *old = endpoint.into();
+                            }
+                        })
+                        .or_insert_with(|| endpoint.to_string());
+                }
             }
         }
     }
@@ -329,36 +474,40 @@ pub(crate) fn extract_relations(
     });
     let mut claims = BTreeMap::new();
     let delegated = delegated_events(events);
+    let framed = framed_events(events);
     for event in ordered {
-        if !eligible(event) || delegated.contains(event.event_id.as_str()) {
+        if !eligible(event)
+            || delegated.contains(event.event_id.as_str())
+            || framed.contains(event.event_id.as_str())
+        {
             continue;
         }
         for clause in clauses(event) {
-            let Some((from, to, relation)) = parse_clause(clause, &lookup) else {
-                continue;
-            };
-            let key = (
-                event.event_id.clone(),
-                from.clone(),
-                to.clone(),
-                relation.to_string(),
-            );
-            claims.entry(key).or_insert_with(|| RelationClaim {
-                from: from.clone(),
-                to: to.clone(),
-                relation: relation.into(),
-                status: "asserted".into(),
-                occurrence: Occurrence {
-                    path: event.path.clone(),
-                    date: event.date.clone(),
-                    start: event.start,
-                    end: event.end,
-                    text: clause.into(),
-                    event_id: event.event_id.clone(),
-                    signal: event.signal.clone(),
-                    date_basis: event.date_basis.clone(),
-                },
-            });
+            for (from, to, relation) in parse_clause(clause, &lookup) {
+                let key = (
+                    event.date.clone(),
+                    normalized(clause),
+                    from.clone(),
+                    to.clone(),
+                    relation.to_string(),
+                );
+                claims.entry(key).or_insert_with(|| RelationClaim {
+                    from: from.clone(),
+                    to: to.clone(),
+                    relation: relation.into(),
+                    status: "asserted".into(),
+                    occurrence: Occurrence {
+                        path: event.path.clone(),
+                        date: event.date.clone(),
+                        start: event.start,
+                        end: event.end,
+                        text: event.text.clone(),
+                        event_id: event.event_id.clone(),
+                        signal: event.signal.clone(),
+                        date_basis: event.date_basis.clone(),
+                    },
+                });
+            }
         }
     }
     claims.into_values().collect()
@@ -394,6 +543,12 @@ mod tests {
             "system",
             "tool",
             "note.md",
+            "情绪",
+            "决策",
+            "直觉",
+            "ai",
+            "能动性",
+            "生产力",
         ]
         .into_iter()
         .map(|t| (t.into(), t.into()))
@@ -574,5 +729,118 @@ mod tests {
                 "unexpected seed: {text}"
             );
         }
+    }
+
+    #[test]
+    fn local_statements_survive_an_inquiry_turn_without_promoting_its_questions() {
+        let mut e = event("我想研究记忆。工作记忆是一种记忆。情绪影响决策。情绪如何影响记忆？");
+        e.inquiry = true;
+        let claims = triples(&[e]);
+        assert_eq!(claims.len(), 2);
+        assert!(claims.contains(&("情绪".into(), "influences".into(), "决策".into())));
+        assert!(claims.contains(&("工作记忆".into(), "is_a".into(), "记忆".into())));
+    }
+
+    #[test]
+    fn real_mixed_research_paragraph_keeps_only_explicit_author_statement() {
+        let text = "我有一个直觉，积极心理学代表心理学那一波。不知道我的直觉对不对。 我是个做生产力软件的，期望自己的app能提高人的生产力，但慢慢涉足到使用者的学习、注意力、记忆等领域，以及也深刻知道用户的当前情绪影响直觉和决策，以及专注、浮动注意力等直接影响学习和工作效率等。请深度分析这些问题。";
+        let mut e = event(text);
+        e.inquiry = true;
+        let mut admitted = terms();
+        admitted.remove("直觉");
+        let claims = extract_relations(&[e], &admitted);
+        assert_eq!(claims.len(), 1);
+        assert_eq!(
+            (&*claims[0].from, &*claims[0].relation, &*claims[0].to),
+            ("情绪", "influences", "决策")
+        );
+        assert_eq!(claims[0].status, "asserted");
+        assert_eq!(
+            claims[0].occurrence.text, text,
+            "keep qualifications and source context"
+        );
+    }
+
+    #[test]
+    fn influences_are_directional_bounded_and_preserve_full_concept_boundaries() {
+        let claims = triples(&[event(
+            "我知道用户的当前情绪影响直觉和决策。工作记忆对决策有影响。AI affects 生产力。",
+        )]);
+        assert_eq!(claims.len(), 4);
+        assert!(claims.contains(&("工作记忆".into(), "influences".into(), "决策".into())));
+        assert!(!claims.iter().any(|(from, _, _)| from == "记忆"));
+        for text in [
+            "情绪和记忆影响决策和直觉。",
+            "情绪影响决策并改变记忆。",
+            "情绪影响决策的速度。",
+            "AI helps 能动性。",
+            "theAI affects 生产力。",
+            "情绪影响决策，AI帮助能动性。",
+            "情绪影响。决策。",
+        ] {
+            assert!(triples(&[event(text)]).is_empty(), "must abstain: {text}");
+        }
+    }
+
+    #[test]
+    fn influence_questions_hypotheses_negation_and_reports_never_assert() {
+        for text in [
+            "情绪如何影响记忆？",
+            "请解释情绪为什么影响记忆。",
+            "情绪可能影响决策。",
+            "情绪不影响决策。",
+            "情绪未必影响决策。",
+            "如果情绪影响决策，AI就能提高生产力。",
+            "据说，情绪影响决策。",
+            "请验证：情绪影响决策。",
+            "请验证以下猜测。情绪影响决策。",
+            "情绪影响决策。这对吗？",
+            "情绪影响决策。我不确定。",
+            "问题和假设如下。情绪影响决策。",
+            "AI如何帮助人，以及如何保护能动性？",
+            "人+AI协作工作，需要怎样才能保持生产力正向提升。",
+            "材料说，情绪影响决策。",
+            "\"引用\n情绪影响决策。\"",
+            "假如我知道情绪影响决策。",
+            "我认为情绪影响决策。",
+        ] {
+            assert!(triples(&[event(text)]).is_empty(), "must abstain: {text}");
+            assert!(
+                candidate_endpoints(&[event(text)]).is_empty(),
+                "no seeds: {text}"
+            );
+        }
+    }
+
+    #[test]
+    fn framing_on_other_lines_of_same_turn_is_not_lost() {
+        let header = event("请验证以下猜测。");
+        let mut claim = event("情绪影响决策。");
+        claim.start = 13;
+        assert!(triples(&[header.clone(), claim.clone()]).is_empty());
+        assert!(candidate_endpoints(&[header.clone(), claim.clone()]).is_empty());
+        claim.event_id = "independent-turn".into();
+        assert_eq!(triples(&[header, claim]).len(), 1);
+    }
+
+    #[test]
+    fn influence_endpoint_seeds_share_the_same_guard_and_remain_unadmitted() {
+        let events = [event("用户的当前压力影响睡眠质量和运动表现。")];
+        let seeds = candidate_endpoints(&events);
+        assert_eq!(seeds, vec!["压力", "睡眠质量", "运动表现"]);
+        assert!(extract_relations(&events, &terms()).is_empty());
+        let admitted = seeds.into_iter().map(|s| (normalized(&s), s)).collect();
+        assert_eq!(extract_relations(&events, &admitted).len(), 2);
+    }
+
+    #[test]
+    fn identical_daily_claims_in_different_turns_count_once() {
+        let first = event("情绪影响决策。");
+        let mut copy = first.clone();
+        copy.event_id = "different-wrapper".into();
+        copy.path = "copy.md".into();
+        let mut next_day = copy.clone();
+        next_day.date = "2026-10-04".into();
+        assert_eq!(triples(&[first, copy, next_day]).len(), 2);
     }
 }

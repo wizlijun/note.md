@@ -903,8 +903,9 @@ fn noun(tag: &str) -> bool {
 }
 pub(crate) fn phrase_operator(s: &str) -> bool {
     [
-        "代表", "影响", "导致", "对应", "需要", "希望", "进行", "分为", "成为", "现在", "今天",
-        "之前", "之后", "这个", "那个", "我的", "可以", "它们", "他们", "我们",
+        "知道", "理解", "解释", "分析", "讨论", "比较", "代表", "影响", "导致", "对应", "需要",
+        "希望", "进行", "分为", "成为", "现在", "今天", "之前", "之后", "这个", "那个", "我的",
+        "可以", "它们", "他们", "我们",
     ]
     .contains(&s)
 }
@@ -1031,7 +1032,7 @@ pub fn rank_events(
         let tags = jieba.tag(&e.text, true);
         let mut found = BTreeMap::new();
         for (i, t) in tags.iter().enumerate() {
-            if !noun(t.tag) || phrase_operator(t.word) {
+            if (!noun(t.tag) && t.tag != "v") || phrase_operator(t.word) {
                 continue;
             }
             if t.word.is_ascii()
@@ -1046,7 +1047,9 @@ pub fn rank_events(
             {
                 continue;
             }
-            if !lexical_stop(t.word) {
+            if !lexical_stop(t.word)
+                && (noun(t.tag) || crate::term_quality::nominal_slot(&e.text, t.word))
+            {
                 found.insert(norm(t.word), t.word.to_string());
             }
             // Two or three adjacent nominal tokens form a literal phrase.
@@ -1054,7 +1057,11 @@ pub fn rank_events(
             let mut last = t.byte_end;
             for next in tags.iter().skip(i + 1).take(2) {
                 if t.tag == "l"
-                    || next.tag == "l"
+                    || (next.tag == "l"
+                        && !crate::term_quality::strong_seed_context(
+                            &e.text,
+                            &e.text[t.byte_start..next.byte_end],
+                        ))
                     || !noun(next.tag)
                     || phrase_operator(next.word)
                     || !e.text[last..next.byte_start].trim().is_empty()
@@ -1114,7 +1121,13 @@ pub fn rank_events(
                 .text
                 .split(". ")
                 .flat_map(|s| s.split_inclusive(['。', '！', '？', '!', '?', '；', ';']))
-                .find(|s| literal_contains(s, &label))
+                .filter(|s| literal_contains(s, &label))
+                .max_by_key(|s| {
+                    (
+                        crate::term_quality::strong_seed_context(s, &label),
+                        crate::term_quality::concept_context(s, &label),
+                    )
+                })
             else {
                 continue;
             };
@@ -1235,11 +1248,16 @@ pub fn rank_events(
             };
             terms
                 .entry(key)
-                .or_insert_with(|| (label, BTreeMap::new()))
+                .or_insert_with(|| (label.clone(), BTreeMap::new()))
                 .1
                 .entry(e.event_id.clone())
                 .and_modify(|existing| {
-                    if ask && !existing.1 {
+                    if (crate::term_quality::concept_context(&occurrence.text, &label)
+                        && !crate::term_quality::concept_context(&existing.0.text, &label))
+                        || (ask
+                            && !existing.1
+                            && !crate::term_quality::concept_context(&existing.0.text, &label))
+                    {
                         *existing = (occurrence.clone(), ask);
                     }
                 })
@@ -1485,7 +1503,7 @@ pub fn associations(candidates: &[FocusCandidate]) -> Vec<FocusAssociation> {
 pub const MAX_CONCEPTS: usize = 30;
 pub const MAX_CONTEXTS: usize = 8;
 pub const MIN_ACTIVE_DAYS: usize = 2;
-pub const MAX_EMERGING: usize = 3;
+pub const MAX_EMERGING: usize = 6;
 /// The foreground is a supported subset, not a quota. Unselected candidates
 /// remain available to the historical graph; weak one-off metaphors are not
 /// promoted merely to fill the city.
@@ -1508,17 +1526,20 @@ pub fn foreground(candidates: &[FocusCandidate]) -> Vec<FocusCandidate> {
                 continue;
             }
             if candidate.active_days < MIN_ACTIVE_DAYS {
-                if emerging >= MAX_EMERGING
-                    || candidate.events < 2
-                    || candidate
+                let strong_seed = candidate.occurrences.iter().any(|o| {
+                    o.signal != "submitted_material"
+                        && crate::term_quality::strong_seed_context(&o.text, &candidate.term)
+                });
+                let repeated = candidate.events >= 2
+                    && candidate
                         .occurrences
                         .iter()
                         .map(|o| (&o.date, norm(&o.text)))
                         .collect::<BTreeSet<_>>()
                         .len()
-                        < 2
-                    || candidate.term.chars().count() < 4
-                {
+                        >= 2
+                    && candidate.term.chars().count() >= 4;
+                if emerging >= MAX_EMERGING || (!strong_seed && !repeated) {
                     continue;
                 }
                 emerging += 1;

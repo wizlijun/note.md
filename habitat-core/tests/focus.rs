@@ -232,13 +232,12 @@ fn english_boundaries_do_not_turn_mail_or_training_into_ai() {
     assert!(!focus::literal_contains("ai_module", "ai"));
 }
 #[test]
-fn foreground_is_supported_and_never_fills_a_quota_with_single_event_metaphors() {
-    let ranked = rank(events(
-        "2026-10-01",
-        "我想理解工作记忆与认知负荷之间的关系。",
-    ));
+fn focused_single_day_inquiry_is_an_emerging_seed_without_inflated_support() {
+    let ranked = rank(events("2026-10-01", "我想理解工作记忆如何影响认知负荷。"));
     assert!(!ranked.is_empty());
-    assert!(focus::foreground(&ranked).is_empty());
+    let selected = focus::foreground(&ranked);
+    assert!(!selected.is_empty());
+    assert!(selected.iter().all(|c| c.active_days == 1 && c.events == 1));
 }
 #[test]
 fn chosen_evidence_sentence_obeys_the_same_english_boundaries_as_candidate() {
@@ -381,11 +380,122 @@ fn emerging_terms_need_distinct_utterances_not_only_distinct_session_ids() {
     let ranked = rank(events("2026-10-01", "为什么工作记忆影响决策质量？"));
     let mut candidate = ranked.into_iter().find(|c| c.term == "工作记忆").unwrap();
     candidate.score = 1.;
+    candidate.term = "时间线融合".into();
+    candidate.occurrences[0].text = "有一些记录手段对齐时间线融合。".into();
     let mut copy = candidate.occurrences[0].clone();
     copy.event_id = "different-export-context".into();
     candidate.occurrences.push(copy);
     candidate.events = 2;
     assert!(focus::foreground(&[candidate.clone()]).is_empty());
-    candidate.occurrences[1].text = "为什么工作记忆与认知负荷相关？".into();
+    candidate.occurrences[1].text = "我想理解时间线融合与信息组织之间的关系。".into();
     assert_eq!(focus::foreground(&[candidate]).len(), 1);
+}
+
+#[test]
+fn later_concept_sentence_wins_over_first_incidental_match() {
+    let ranked = rank(events(
+        "2026-10-01",
+        "我有一个直觉。当前情绪影响直觉和决策。",
+    ));
+    let term = ranked.iter().find(|c| c.term == "直觉").unwrap();
+    assert!(term.occurrences[0].text.contains("情绪影响"));
+}
+#[test]
+fn nominal_domains_and_complete_single_day_assertions_need_no_wiki() {
+    let ranked = focus::rank_events(
+        events(
+            "2026-10-01",
+            "认知心理学、认知神经科学则是在研究原理。涉足到使用者的学习、注意力、记忆等领域。",
+        ),
+        &context(),
+        &BTreeMap::new(),
+    )
+    .unwrap();
+    let selected = focus::foreground(&ranked);
+    for name in ["学习", "注意力", "认知神经科学"] {
+        assert!(
+            selected.iter().any(|c| c.term == name),
+            "missing {name}: {:?}",
+            selected.iter().map(|c| &c.term).collect::<Vec<_>>()
+        );
+    }
+    assert!(selected.iter().all(|c| c.active_days == 1 && c.events == 1));
+}
+#[test]
+fn conceptual_project_goals_and_capacities_have_literal_evidence() {
+    let input = events(
+        "2026-10-01",
+        "这个项目的目的是呈现当前vault中的知识结构。还需要培养元认知的能力。",
+    );
+    let a = ["知识结构", "元认知"]
+        .into_iter()
+        .map(|s| (s.into(), "concept".into()))
+        .collect();
+    let ranked = focus::rank_events(input, &context(), &a).unwrap();
+    for name in ["知识结构", "元认知"] {
+        assert!(
+            focus::foreground(&ranked).iter().any(|c| c.term == name),
+            "missing {name}"
+        );
+    }
+}
+#[test]
+fn one_day_operation_and_quoted_theory_are_not_new_concept_seeds() {
+    for text in [
+        "请保持main分支工作，在根目录标记bigfile.md持续append记录。",
+        "请溯源以下观点：工作记忆影响决策质量。",
+        "生成一个海报，人物在旁边学习。",
+    ] {
+        assert!(
+            focus::foreground(&rank(events("2026-10-01", text))).is_empty(),
+            "{text}"
+        );
+    }
+}
+
+#[test]
+fn complete_terms_do_not_lose_evidence_to_discourse_verb_prefixes() {
+    let ranked = rank(events(
+        "2026-10-01",
+        "我想知道工作记忆与情绪调节如何互相影响。",
+    ));
+    assert!(!ranked.iter().any(|c| c.term == "知道工作记忆"));
+    assert!(ranked.iter().any(|c| c.term == "工作记忆"));
+}
+#[test]
+fn suffixes_modifiers_and_unresolved_followups_do_not_become_seeds() {
+    for text in [
+        "认知神经科学则是在研究原理，并试图以科学的药物模拟人脑。",
+        "- 关键指标是什么",
+        "这本书英文是什么",
+    ] {
+        let ranked = rank(events("2026-10-01", text));
+        assert!(
+            !focus::foreground(&ranked)
+                .iter()
+                .any(|c| matches!(c.term.as_str(), "科学" | "关键指标" | "英文")),
+            "{text}"
+        );
+    }
+}
+
+#[test]
+fn single_day_seeds_need_complete_definition_or_substantive_concept_role() {
+    let negatives = [
+        ("为什么行间距还是那么小？", "行间距"),
+        ("给我特点、价值和为什么会火", "会火"),
+        ("请把这方面讨论融入文档", "融入文档"),
+        ("列出记忆对人类的重要性", "人类"),
+    ];
+    for (text, term) in negatives {
+        let selected = focus::foreground(&rank(events("2026-10-01", text)));
+        assert!(
+            !selected.iter().any(|c| c.term == term),
+            "{text}: {selected:?}"
+        );
+    }
+    let ranked = rank(events("2026-10-01", "什么是工作记忆？"));
+    assert!(focus::foreground(&ranked)
+        .iter()
+        .any(|c| c.term == "工作记忆"));
 }

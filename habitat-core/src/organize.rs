@@ -11,13 +11,13 @@ pub fn algorithm() -> Algorithm {
     Algorithm {
         version: ALGORITHM_VERSION.into(),
         parser_version: "habitat-ast/2".into(),
-        tokenizer_version: "nfkc-pos-cvalue/4".into(),
+        tokenizer_version: "nfkc-pos-cvalue/5".into(),
         effective_params: BTreeMap::from([
             ("termQualityScope".into(),serde_json::json!("focus-enabled-extraction; no-focus preserves legacy-declared projection")),
             ("termhood".into(),serde_json::json!("C-value=log2(tokenLength)*(deduplicatedEventFrequency-meanContainingTermFrequency); single-token independent context channel")),
             ("focusTermhoodWeight".into(),serde_json::json!("1+0.2*ln(1+max(C-value,0)); only multi-token terms")),
-            ("phraseAdmission".into(),serde_json::json!("nominal tail; multi-token terms require >=2 contextual events or direct inquiry/definition; single-token separate channel")),
-            ("emergingSupport".into(),serde_json::json!(">=2 distinct date+normalized-observation utterances, not session identifiers alone")),
+            ("phraseAdmission".into(),serde_json::json!("nominal tail or explicit domain/capacity nominalization; multi-token terms require >=2 contextual events OR direct inquiry/definition OR strong local assertion/domain/capacity; single-token separate channel")),
+            ("emergingSupport".into(),serde_json::json!("one complete definition/domain/causal-argument/capacity-goal observation OR >=2 distinct date+normalized-observation utterances with term length >=4; no generic why/query-value promotion; max6 single-day concepts; no support inflation")),
             ("typing".into(),serde_json::json!("native-project-metadata+explicit-context-rules; no-trained-NER")),
             ("semanticRelations".into(),serde_json::json!("bounded-literal-predicate-patterns; asserted-source-claim; no-trained-OpenIE")),
             ("communityProjection".into(),serde_json::json!("keyword+project only; statistical edges weight 0.1")),

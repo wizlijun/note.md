@@ -226,7 +226,8 @@ export class CityScene {
       const representative = hero?.node ?? [...members].sort((a, b) => rank(a) - rank(b) || Number(a.label.length > 24) - Number(b.label.length > 24) || (b.evidence?.length ?? 0) - (a.evidence?.length ?? 0) || a.id.localeCompare(b.id))[0]
       if (!representative) return []
       const focusLabel = focusDistrictLabel(members, attention)
-      const parcelName = data.conceptGraph ? parcel.name?.replace('待连接关键词', '待连接节点') : parcel.name
+      const parcelName = data.conceptGraph && parcel.unassigned && !focusLabel ? representative.label
+        : data.conceptGraph ? parcel.name?.replace('待连接关键词', '待连接节点') : parcel.name
       const kind = parcel.kind === 'campus' ? '项目园区' : parcel.kind === 'park' ? '探索营地' : parcel.kind === 'growth' ? data.keywordGraph ? '探索地块（尚无社区）' : '材料街区' : '知识街区'
       return [{ node: representative, x: hero?.x ?? parcel.center.x, z: hero?.z ?? parcel.center.z, h: hero?.h ?? .3, w: 1, style: hero?.style, parcelId: parcel.id, district: { name: focusLabel ? (parcel.unassigned ? '待连接：' : '') + focusLabel.name : parcelName ?? representative.label, contextName: focusLabel && parcel.topicId ? parcelName : undefined, attentionCategory: focusLabel?.category, count: parcel.members.length, kind, topicId: parcel.topicId, unassigned: parcel.unassigned } }]
     })
@@ -280,6 +281,7 @@ export class CityScene {
   }
   private roads(plan: CityPlan) {
     const shoulders: THREE.BufferGeometry[] = [], pavement: THREE.BufferGeometry[] = [], paths: THREE.BufferGeometry[] = [], marks: THREE.BufferGeometry[] = []
+    const cars: Primitive[] = [], cabins: Primitive[] = [], tires: Primitive[] = []
     const junctions = new Map<string, { p: CityPoint; width: number; paved: boolean }>()
     for (const road of plan.roads) {
       const paved = road.traffic > .2
@@ -289,6 +291,18 @@ export class CityScene {
         const a = road.points[i - 1], b = road.points[i], length = Math.hypot(b.x - a.x, b.z - a.z), dx = (b.x - a.x) / length, dz = (b.z - a.z) / length
         for (let at = .55; at < length - .5; at += 1.1) marks.push(ribbon([{ x: a.x + dx * at, z: a.z + dz * at }, { x: a.x + dx * Math.min(at + .5, length - .4), z: a.z + dz * Math.min(at + .5, length - .4) }], .045, .216))
       }
+      if (this.latest?.conceptGraph && paved) {
+        const segments = road.points.slice(1).map((b,i)=>({a:road.points[i],b,length:Math.hypot(b.x-road.points[i].x,b.z-road.points[i].z)})).filter(s=>s.length>2)
+        const count = Math.min(3,1+Math.floor(Math.log1p(road.traffic)/1.5))
+        for(let i=0;i<Math.min(count,segments.length);i++) {
+          const {a,b}=segments[i],angle=Math.atan2(b.x-a.x,b.z-a.z),dx=Math.sin(angle),dz=Math.cos(angle)
+          const t=.35+seed(`${road.id}:car:${i}`)*.3,offset=road.width*.22
+          const x=a.x+(b.x-a.x)*t-dz*offset,z=a.z+(b.z-a.z)*t+dx*offset
+          cars.push({p:[x,.32,z],s:[.21,.15,.48],ry:angle,color:['#b96f55','#e0c68b','#6c9399'][Math.floor(seed(road.id)*3)]})
+          cabins.push({p:[x,.43,z],s:[.17,.09,.25],ry:angle})
+          for(const side of [-1,1]) for(const end of [-1,1]) tires.push({p:[x+dz*side*.105+dx*end*.145,.265,z-dx*side*.105+dz*end*.145],s:[.055,.095,.095],ry:angle})
+        }
+      }
     }
     for (const { p, width, paved } of junctions.values()) {
       for (const [target, radius, y] of [[shoulders, width / 2 + .21, .18], [paved ? pavement : paths, width / 2, .206]] as [THREE.BufferGeometry[], number, number][]) {
@@ -296,6 +310,7 @@ export class CityScene {
       }
     }
     this.merge(shoulders, this.material('#e5dfc8')); this.merge(pavement, this.material('#6e7776')); this.merge(paths, this.material('#bea783')); this.merge(marks, this.material('#e8dfbd'))
+    this.batch(new THREE.BoxGeometry(1,1,1),'#ffffff',cars); this.batch(new THREE.BoxGeometry(1,1,1),'#bed2cc',cabins); this.batch(new THREE.BoxGeometry(1,1,1),'#43504c',tires)
   }
   private building(p: CityPlacement, node: Node) {
     if (this.latest?.keywordGraph) return this.conceptBuilding(p, node)
@@ -580,13 +595,41 @@ export class CityScene {
   }
   private landscape(plan: CityPlan) {
     const lamps: Primitive[] = [], heads: Primitive[] = [], benches: Primitive[] = [], planters: Primitive[] = []
+    const plazas: THREE.BufferGeometry[] = [], gardenBeds: THREE.BufferGeometry[] = []
     const safe = (p: CityPoint, radius: number) => !plan.placements.some(l => Math.hypot(p.x - l.x, p.z - l.z) < l.footprint + radius + .25) && !plan.roads.some(r => r.points.slice(1).some((b, i) => segmentDistance(p, r.points[i], b) < r.width / 2 + radius + .3)) && !this.walks.some(w => segmentDistance(p,w.a,w.b) < w.width / 2 + radius + .12)
     const planted: { x:number; z:number; radius:number }[] = []
+    const available = (p: CityPoint, radius: number) => safe(p, radius) && !planted.some(t => Math.hypot(t.x-p.x,t.z-p.z) < t.radius+radius+.08)
+    const seat = (p: CityPoint, angle: number) => {
+      const dx = Math.sin(angle), dz = Math.cos(angle)
+      benches.push({ p:[p.x,.43,p.z],s:[.82,.085,.28],ry:angle }, { p:[p.x-dx*.14,.65,p.z-dz*.14],s:[.82,.25,.06],ry:angle })
+      for (const side of [-.29,.29]) lamps.push({ p:[p.x+dz*side,.3,p.z-dx*side],s:[.045,.25,.2],ry:angle })
+    }
     const plant = (p:CityPoint, radius:number, type:number, rotation:number) => {
       if (!safe(p,radius) || planted.some(t => Math.hypot(t.x-p.x,t.z-p.z) < (t.radius+radius)*.9)) return false
       this.addAsset(trees[type % trees.length],p.x,p.z,radius,rotation); planted.push({...p,radius}); return true
     }
     for (const parcel of plan.parcels) {
+      // Pocket gardens occupy real spare ground. They are scenery, with no
+      // knowledge ID, and cannot take a building's plot or its entrance path.
+      if (this.latest?.conceptGraph) {
+        const radius = 1.05
+        const spots = parcel.polygon.flatMap((a, edge) => {
+          const b = parcel.polygon[(edge+1)%parcel.polygon.length]
+          return [.3,.7].map(t => ({x:(a.x+(b.x-a.x)*t)*.72+parcel.center.x*.28,z:(a.z+(b.z-a.z)*t)*.72+parcel.center.z*.28}))
+        })
+        const p = spots.find(p => available(p,radius) && Array.from({length:8},(_,i)=>({x:p.x+Math.cos(i*Math.PI/4)*radius,z:p.z+Math.sin(i*Math.PI/4)*radius})).every(q=>inPolygon(q,parcel.polygon)))
+        if (p) {
+          planted.push({...p,radius})
+          const paving = new THREE.CircleGeometry(radius,24); paving.rotateX(-Math.PI/2); paving.translate(p.x,.184,p.z); plazas.push(paving)
+          const bed = new THREE.CircleGeometry(.39,16); bed.rotateX(-Math.PI/2); bed.translate(p.x,.199,p.z); gardenBeds.push(bed)
+          this.addAsset('nature/plant_bushDetailed',p.x,p.z,.34,0,undefined,.2)
+          for (let i=0;i<7;i++) {
+            const angle=i*Math.PI*2/7
+            this.addAsset('nature/flower_yellowA',p.x+Math.sin(angle)*.44,p.z+Math.cos(angle)*.44,.085,angle,undefined,.2)
+          }
+          for(const side of [-1,1]) seat({x:p.x+side*.75,z:p.z},side*Math.PI/2)
+        }
+      }
       // Short street-side rows provide structure; sparse interiors stay open.
       if (parcel.kind !== 'park') for (let edge=0;edge<parcel.polygon.length;edge++) {
         const a=parcel.polygon[edge],b=parcel.polygon[(edge+1)%parcel.polygon.length],length=Math.hypot(b.x-a.x,b.z-a.z)
@@ -608,15 +651,30 @@ export class CityScene {
         if (i % 3 === 0) this.addAsset('nature/plant_bushDetailed', x + radius * .5, z + radius * .3, .22, i)
       }
     }
-    for (const road of plan.roads) {
-      const a = road.points[0], b = road.points.at(-1)!, length = Math.hypot(b.x - a.x, b.z - a.z), dx = (b.x - a.x) / length, dz = (b.z - a.z) / length
-      if (length < 4 || road.width < 1) continue
-      for (let distance = 2; distance < length - 1; distance += 6) {
-        const side = seed(`${road.id}:${distance}`) > .5 ? 1 : -1, offset = side * (road.width / 2 + .42), x = a.x + dx * distance - dz * offset, z = a.z + dz * distance + dx * offset
-        lamps.push({ p: [x, .84, z], s: [.025, 1.3, .025] }); heads.push({ p: [x, 1.5, z], s: [.18, .08, .13], ry: Math.atan2(dx, dz) })
-        if (distance === 2 && seed(road.id) > .62) { benches.push({ p: [x - dz * .25, .4, z + dx * .25], s: [.65, .13, .23], ry: Math.atan2(dx, dz) }); planters.push({ p: [x + dx * .8, .3, z + dz * .8], s: [.3, .24, .3] }) }
+    // Follow every actual road segment, rather than its endpoint chord; keep
+    // public furniture clear of entrances and show low lamps on footpaths.
+    for (const road of plan.roads) for (let segment=1;segment<road.points.length;segment++) {
+      const a=road.points[segment-1],b=road.points[segment],length=Math.hypot(b.x-a.x,b.z-a.z)
+      if(length<3 || (!this.latest?.conceptGraph && road.width<1)) continue
+      const dx=(b.x-a.x)/length,dz=(b.z-a.z)/length,angle=Math.atan2(dx,dz)
+      for(let distance=1.5;distance<length-1;distance+=6) {
+        const side=seed(`${road.id}:${segment}:${distance}`)>.5?1:-1,offset=side*(road.width/2+.7)
+        const p={x:a.x+dx*distance-dz*offset,z:a.z+dz*distance+dx*offset}
+        if(!available(p,.15)) continue
+        planted.push({...p,radius:.15})
+        const height=road.traffic>.2?1.35:.65
+        lamps.push({p:[p.x,.2+height/2,p.z],s:[.045,height,.045]})
+        heads.push({p:[p.x,.2+height,p.z],s:[.16,.1,.16],ry:angle})
+        const flower={x:p.x+dx*.6,z:p.z+dz*.6}
+        if(distance===1.5 && available(flower,.26)) {
+          planted.push({...flower,radius:.26})
+          planters.push({p:[flower.x,.3,flower.z],s:[.38,.22,.38]})
+          this.addAsset('nature/plant_bushDetailed',flower.x,flower.z,.22,angle,undefined,.41)
+          this.addAsset('nature/flower_yellowA',flower.x,flower.z,.09,angle,undefined,.64)
+        }
       }
     }
+    this.merge(plazas,this.material('#d6cbb4',this.paving)); this.merge(gardenBeds,this.material('#718b55'))
     this.batch(new THREE.CylinderGeometry(1, 1, 1, 6), '#52615e', lamps); this.batch(new THREE.BoxGeometry(1, 1, 1), '#e4dfb7', heads); this.batch(new THREE.BoxGeometry(1, 1, 1), '#9e7e57', benches); this.batch(new THREE.BoxGeometry(1, 1, 1), '#8b9d65', planters)
   }
   private contactShadows() {
@@ -685,8 +743,7 @@ export class CityScene {
       const p = new THREE.Vector3(l.x, l.h + .6, l.z).project(this.camera), x = (p.x + 1) * this.width / 2, y = (1 - p.y) * this.height / 2
       if (x < 12 || x > this.width - 12 || y < 22 || y > this.height - 50 || p.z < -1 || p.z > 1) continue
       const prominent = !!l.style || l.node.id === this.selected
-      const growth = !l.district ? this.latest?.growth?.get(l.node.id)?.label : undefined
-      const extra = growth ? 36 : !l.district && this.latest?.conceptGraph ? typeLabel(l.node.nodeType, true).length * 8 + 12 : 0
+      const extra = !l.district && this.latest?.conceptGraph && !isMainConcept(l.node) ? typeLabel(l.node.nodeType, true).length * 8 + 12 : 0
       const width = prominent ? Math.min(185, (l.district?.name ?? l.node.label).length * 10 + 28 + extra) : Math.min(this.camera.zoom > 1.5 ? 170 : 132, (l.district?.name ?? l.node.label).length * 9 + 30 + extra)
       const height = prominent ? 29 : l.district ? 19 : 24
       const overlaps = rects.some(r => Math.abs(x - r.x) < (width + r.w) / 2 + 3 && Math.abs(y - height / 2 - r.y) < (height + r.h) / 2 + 3)

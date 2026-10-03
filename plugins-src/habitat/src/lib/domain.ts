@@ -2,7 +2,7 @@ import type { Attention, Edge, Locator, Node, Snapshot } from './types'
 
 export const typeLabels: Record<string, string> = { keyword: '关键词', concept: '概念', project: '项目', topic: '主题', entity: '实体', claim: '主张', event: '事件', narrative: '叙事', person: '人物', tool: '工具', resource: '资料作品', term_candidate: '待辨认词项', system: '系统', organization: '组织', document: '文档', wiki: '命名锚点' }
 export const statusLabels: Record<string, string> = { asserted: '原文陈述', declared_project: '明确项目声明', task_project_reference: '任务中提及项目', imported_project_mention: '导入项目提及', submitted: '用户提交材料', statistical: '统计关联', candidate: '候选', anchor: '命名锚点', observed: '明确记录', imported: 'AI 提取候选', 'user-confirmed': '用户已确认', confirmed: '已确认', disputed: '有分歧', contested: '有分歧', superseded: '已替代', 'source-unavailable': '来源不可用', unavailable: '来源不可用', unresolved: '待辨认', matched: '版本已核对', verified: '已核对', unknown: '未知', agent: 'AI 生成', human: '用户记录', quoted: '引用', derived: '派生材料', provisional: '暂定', summary: '摘要', source: '来源', primary: '主要归属', secondary: '关联归属' }
-const edgeLabels: Record<string, string> = { precedes: '先于', derived_from: '来源于', participates_in: '参与', distinct_from: '区别于', has_role_in: '在其中担任角色', inhibits: '抑制', is_a: '是一种', part_of: '是其组成部分', depends_on: '依赖', alias_of: '又称', links_to: '知识链接', cites: '引用', co_discussed: '重复共同讨论', co_occurs: '统计共现', explicit_reference: '明确引用', wikilink: '知识链接', tagged_with: '标签关联', co_mentioned_in: '同处讨论', lexically_similar: '词汇邻近' }
+const edgeLabels: Record<string, string> = { influences: '影响', precedes: '先于', derived_from: '来源于', participates_in: '参与', distinct_from: '区别于', has_role_in: '在其中担任角色', inhibits: '抑制', is_a: '是一种', part_of: '是其组成部分', depends_on: '依赖', alias_of: '又称', links_to: '知识链接', cites: '引用', co_discussed: '重复共同讨论', co_occurs: '统计共现', explicit_reference: '明确引用', wikilink: '知识链接', tagged_with: '标签关联', co_mentioned_in: '同处讨论', lexically_similar: '词汇邻近' }
 export function relationExplanation(edge: Edge) {
   if (isAssertedRelation(edge)) return '原文明确陈述了这个有方向的关系；保留原文依据，不等于已核实的客观事实。'
   if (edge.edgeType === 'co_discussed') return '至少两次去重的主动记录事件中，在同一短句共同讨论；记录事件不等于独立来源。'
@@ -59,7 +59,7 @@ export function filterNodes(snapshot: Snapshot | null, query: string, topic: str
 }
 export function isStatisticalRelation(edge: Edge) { return edge.status === 'statistical' && ['co_occurs', 'co_discussed'].includes(edge.edgeType) }
 export function isAssertedRelation(edge: Edge) {
-  return edge.status === 'asserted' && ['is_a', 'part_of', 'depends_on', 'alias_of'].includes(edge.edgeType)
+  return edge.status === 'asserted' && ['is_a', 'part_of', 'depends_on', 'alias_of', 'influences'].includes(edge.edgeType)
     && edge.participants.length === 2 && edge.participants.some(p => p.role === 'subject') && edge.participants.some(p => p.role === 'object')
 }
 /** Display certainty is independent of support counts: imported/candidate claims never upgrade a road. */

@@ -138,3 +138,16 @@ it('keeps asserted statements, explicit links and optional statistics distinct r
   snapshot.meta.algorithm.version = 'habitat-focus/3'
   expect(cityRelations(snapshot)).toEqual(snapshot.edges)
 })
+
+
+it('shows original influence statements with direction without upgrading questions or imported claims', async () => {
+  const { cityRelations, isAssertedRelation, relationStatement } = await import('./domain')
+  const snapshot = focusFixture(); snapshot.meta.algorithm.version = 'habitat-focus/5'
+  const influence = { ...snapshot.edges[0], id: 'influence', edgeType: 'influences', status: 'asserted', participants: [{ node: 'n2', role: 'object' }, { node: 'n1', role: 'subject' }] }
+  snapshot.edges = [influence, ...['candidate', 'imported', 'negated', 'questioned', 'conditional'].map(status => ({ ...influence, id: status, status, verifiedFamilies: 1000 }))]
+  expect(cityRelations(snapshot)).toEqual([influence])
+  expect(isAssertedRelation(influence)).toBe(true)
+  expect(isAssertedRelation({ ...influence, participants: [{ node: 'n1', role: 'source' }, { node: 'n2', role: 'target' }] })).toBe(false)
+  expect(relationStatement(influence, new Map(snapshot.nodes.map(n => [n.id, n])))).toBe('纸船计划 → 影响 → 观察与反馈')
+  expect(relationExplanation(influence)).toContain('不等于已核实的客观事实')
+})

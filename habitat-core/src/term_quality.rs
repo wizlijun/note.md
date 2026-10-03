@@ -253,7 +253,7 @@ pub fn concept_context(text: &str, term: &str) -> bool {
     text.split(". ")
         .flat_map(|s| s.split_inclusive(['。', '！', '？', '!', '?', '；', ';', '，', ',']))
         .any(|clause| {
-            if !literal_contains(clause, &term) || operation(clause) {
+            if !lexical_match(clause, &term) || operation(clause) {
                 return false;
             }
             if placeholder(&term) && !explicit_concept(clause, &term) {
@@ -276,7 +276,7 @@ pub fn concept_context(text: &str, term: &str) -> bool {
             lower.match_indices(&term).any(|(start, _)| {
                 let before = lower[..start].trim_end();
                 let after = lower[start + term.len()..].trim_start();
-                if POSSESSIVE.is_match(before) {
+                if applied_concept_goal(clause, &term) || POSSESSIVE.is_match(before) {
                     return true;
                 }
                 if before.ends_with("科学的")
@@ -487,6 +487,93 @@ pub fn concept_context(text: &str, term: &str) -> bool {
         })
 }
 
+/// Strong nominal slots permit a verbal dictionary entry to name a domain or
+/// capacity. This is syntactic nominalization, not a topic dictionary.
+pub(crate) fn nominal_slot(text: &str, term: &str) -> bool {
+    let lower = text.to_lowercase();
+    let term = term.to_lowercase();
+    static DOMAIN: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^(?:[、和与及][\p{Han}A-Za-z]{2,12})*等(?:领域|学科|概念)").unwrap()
+    });
+    lower.match_indices(&term).any(|(at, _)| {
+        let before = lower[..at].trim_end();
+        let after = lower[at + term.len()..].trim_start();
+        DOMAIN.is_match(after) || before.ends_with("培养") && after.starts_with("的能力")
+    })
+}
+/// A one-day seed must be the explicit object of inquiry, a named domain,
+/// an applied conceptual goal, or an argument of a substantive causal claim.
+/// It is an observed new focus, not evidence of long-term investment.
+pub(crate) fn strong_seed_context(text: &str, term: &str) -> bool {
+    if !concept_context(text, term)
+        || [
+            "溯源",
+            "以下内容",
+            "以下观点",
+            "引用",
+            "转述",
+            "原文",
+            "翻译",
+            "海报",
+            "作图",
+        ]
+        .iter()
+        .any(|p| text.contains(p))
+    {
+        return false;
+    }
+    let lower = text.to_lowercase();
+    let term = term.to_lowercase();
+    static CAUSAL: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(
+        r"^(?:[、和与及][\p{Han}A-Za-z]{2,12})*(?:(?:则|会|直接|显著|如何|怎样|能够|可以|是|在|是在))*?(?:影响|导致|决定|取决于|依赖|研究|是一种|是指|定义为)"
+    ).unwrap()
+    });
+    if nominal_slot(text, &term) || applied_concept_goal(text, &term) {
+        return true;
+    }
+    lower
+        .split(['。', '！', '？', '!', '?', '；', ';', '，', ','])
+        .any(|clause| {
+            if !lexical_match(clause, &term) {
+                return false;
+            }
+            clause.match_indices(&term).any(|(at, _)| {
+                let before = clause[..at].trim_end();
+                let after = clause[at + term.len()..].trim_start();
+                let definition = before.ends_with("什么是")
+                    || before.ends_with("定义")
+                    || after.starts_with("的定义")
+                    || after.starts_with("是指")
+                    || after.starts_with("定义为");
+                let beneficiary = before.ends_with('对');
+                definition
+                    || CAUSAL.is_match(after)
+                    || ["影响", "导致", "取决于", "依赖"]
+                        .iter()
+                        .any(|v| before.ends_with(v))
+                    || (!beneficiary
+                        && ["的作用", "的机制", "的重要性"]
+                            .iter()
+                            .any(|p| after.starts_with(p)))
+            })
+        })
+}
+fn applied_concept_goal(text: &str, term: &str) -> bool {
+    let lower = text.to_lowercase();
+    let term = term.to_lowercase();
+    static GOAL: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(
+        r"(?:呈现|提取|理解|研究)(?:当前)?(?:[a-zA-Z]{1,16}|[\p{Han}]{1,6})?(?:中的|的)?$|培养(?:[\p{Han}]{1,6}的)?$"
+    ).unwrap()
+    });
+    lower.match_indices(&term).any(|(at, _)| {
+        let before = lower[..at].trim_end();
+        let after = lower[at + term.len()..].trim_start();
+        before.ends_with("培养") && after.starts_with("的能力")
+            || GOAL.is_match(before) && term.ends_with("结构")
+    })
+}
 fn direct_term_request(text: &str, term: &str) -> bool {
     let lower = text.to_lowercase();
     let term = term.to_lowercase();
@@ -594,6 +681,11 @@ fn contextual_class(text: &str, term: &str, jieba: &Jieba) -> Option<TermClass> 
     .iter()
     .any(|p| low.replace(' ', "").contains(&p.replace(' ', "")))
         && exact_token_end
+        && nominal_candidate(term, jieba)
+        && !jieba
+            .tag(term, false)
+            .last()
+            .is_some_and(|t| t.tag.starts_with('v'))
     {
         return Some(TermClass::Tool);
     }
@@ -700,6 +792,7 @@ pub fn c_values(
 pub fn candidate_terms(events: &[UserEvent]) -> BTreeMap<String, String> {
     let jieba = Jieba::new();
     let mut candidates: BTreeMap<String, (String, BTreeSet<String>)> = BTreeMap::new();
+    let mut strong = BTreeSet::new();
     let mut seen = BTreeSet::new();
     for event in events {
         if !seen.insert((event.event_id.clone(), normalize(&event.text)))
@@ -712,7 +805,7 @@ pub fn candidate_terms(events: &[UserEvent]) -> BTreeMap<String, String> {
         for (i, tag) in tags.iter().enumerate() {
             if !matches!(
                 tag.tag,
-                "n" | "ng" | "nz" | "nt" | "vn" | "an" | "eng" | "l"
+                "n" | "ng" | "nz" | "nt" | "vn" | "an" | "eng" | "l" | "v"
             ) || !surface_allowed(tag.word)
                 || crate::focus::phrase_operator(tag.word)
             {
@@ -723,7 +816,10 @@ pub fn candidate_terms(events: &[UserEvent]) -> BTreeMap<String, String> {
             if tag.tag != "l" {
                 for next in tags.iter().skip(i + 1).take(2) {
                     if crate::focus::phrase_operator(next.word)
-                        || !matches!(next.tag, "n" | "ng" | "nz" | "nt" | "vn" | "an" | "eng")
+                        || !matches!(
+                            next.tag,
+                            "n" | "ng" | "nz" | "nt" | "vn" | "an" | "eng" | "l"
+                        )
                         || !event.text[last..next.byte_start].trim().is_empty()
                     {
                         break;
@@ -736,10 +832,16 @@ pub fn candidate_terms(events: &[UserEvent]) -> BTreeMap<String, String> {
                 }
             }
             for span in spans {
-                if code_occurrence(&event.text, span) || !concept_context(&event.text, span) {
+                if (!nominal_candidate(span, &jieba) && !nominal_slot(&event.text, span))
+                    || code_occurrence(&event.text, span)
+                    || !concept_context(&event.text, span)
+                {
                     continue;
                 }
                 let key = normalize(span);
+                if strong_seed_context(&event.text, span) {
+                    strong.insert(key.clone());
+                }
                 let item = candidates
                     .entry(key)
                     .or_insert_with(|| (span.into(), BTreeSet::new()));
@@ -749,7 +851,7 @@ pub fn candidate_terms(events: &[UserEvent]) -> BTreeMap<String, String> {
     }
     candidates
         .into_iter()
-        .filter(|(_, (_, events))| events.len() >= 2)
+        .filter(|(key, (_, events))| events.len() >= 2 || strong.contains(key))
         .map(|(key, (label, _))| (key, label))
         .collect()
 }
@@ -825,6 +927,7 @@ pub fn assess_terms(
         concept: BTreeSet<String>,
         background: BTreeSet<String>,
         direct: bool,
+        nominal_slot: bool,
         types: BTreeMap<&'static str, usize>,
     }
     let mut stats: BTreeMap<String, Stats> = BTreeMap::new();
@@ -867,13 +970,19 @@ pub fn assess_terms(
                                 || direct_term_request(
                                     &e.text,
                                     accepted[other.pattern().as_usize()].1,
+                                )
+                                || strong_seed_context(
+                                    &e.text,
+                                    accepted[other.pattern().as_usize()].1,
                                 ))
                             && concept_context(&e.text, accepted[other.pattern().as_usize()].1)
                     })
                 });
             if e.signal != "submitted_material" && independent && concept_context(&e.text, label) {
                 entry.concept.insert(e.event_id.clone());
-                entry.direct |= direct_term_request(&e.text, label);
+                entry.direct |=
+                    direct_term_request(&e.text, label) || strong_seed_context(&e.text, label);
+                entry.nominal_slot |= nominal_slot(&e.text, label);
             } else {
                 entry.background.insert(e.event_id.clone());
             }
@@ -928,7 +1037,7 @@ pub fn assess_terms(
                 TermClass::Entity
             } else if !s.concept.is_empty()
                 && surface_allowed(label)
-                && nominal_candidate(label, &jieba)
+                && (nominal_candidate(label, &jieba) || s.nominal_slot)
                 && (tokens[key].len() == 1 || s.concept.len() >= 2 || s.direct)
             {
                 TermClass::Keyword
@@ -1176,5 +1285,10 @@ mod tests {
             &["星图"],
         );
         assert_eq!(app["星图"].class, TermClass::Tool);
+    }
+    #[test]
+    fn installing_an_action_is_not_entity_typing() {
+        let a = assess(&["请重启启动流程。", "请安装启动服务。"], &["启动"]);
+        assert!(a.get("启动").is_none_or(|v| v.class != TermClass::Tool));
     }
 }
