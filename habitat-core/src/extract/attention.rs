@@ -121,9 +121,23 @@ impl Extractor {
             vocabulary.insert(normalize(&candidate.term), candidate.term.clone());
         }
         let assessments = crate::term_quality::assess_terms(&events, &vocabulary, &anchors);
+        // Rejected fragments are neither concepts nor background entities.
+        // Remove original/previous anchors too; discard whole affected claims
+        // instead of rewriting their participant meaning.
+        self.nodes.retain(|_, node| {
+            !assessments
+                .get(&normalize(&node.label))
+                .is_some_and(|a| a.rejected)
+        });
+        self.edges.retain(|_, edge| {
+            edge.participants
+                .iter()
+                .all(|p| self.nodes.contains_key(&p.node))
+        });
         vocabulary.retain(|key, _| {
             assessments.get(key).is_some_and(|a| {
-                a.frequency > 0 || a.class == crate::term_quality::TermClass::Project
+                !a.rejected
+                    && (a.frequency > 0 || a.class == crate::term_quality::TermClass::Project)
             })
         });
         for node in self.nodes.values_mut() {

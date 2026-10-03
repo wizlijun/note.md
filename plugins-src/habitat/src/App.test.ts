@@ -294,8 +294,8 @@ function conceptSnapshot() {
   return data
 }
 
-it('defaults the concept city to concepts and projects and exposes background sources without reclassification', async () => {
-  current.snapshot = conceptSnapshot(); const original = JSON.stringify(current.snapshot)
+it.each([4, 5, 6])('defaults focus/%i to concepts and projects and exposes background sources without reclassification', async version => {
+  current.snapshot = conceptSnapshot(); current.snapshot.meta.algorithm.version = `habitat-focus/${version}`; const original = JSON.stringify(current.snapshot)
   await mountApp()
   expect([...document.querySelectorAll('.node-row strong')].map(n=>n.textContent)).toEqual(['观察与反馈','纸船计划'])
   expect(document.querySelector('.section-title')?.textContent).toContain('个概念 / 项目')

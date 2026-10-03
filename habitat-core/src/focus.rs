@@ -395,6 +395,37 @@ pub fn events_from_markdown(path: &str, raw: &str, utc_offset_minutes: i32) -> V
     }
     events
 }
+// Only the known injected system-notification wrapper is stripped. Keep
+// outside fragments separate, with their original line, so elision cannot
+// synthesize a new sentence or a relation across the removed payload.
+fn notification_free_segments(lines: &[&str], start: usize, end: usize) -> Vec<(usize, String)> {
+    static TAG: OnceLock<Regex> = OnceLock::new();
+    let tag = TAG.get_or_init(|| Regex::new(r"(?i)<(/?)system-notification(?:\s[^>]*)?>").unwrap());
+    let mut depth = 0usize;
+    let mut result = Vec::new();
+    for (offset, line) in lines[start..end].iter().enumerate() {
+        let mut cursor = 0;
+        for found in tag.captures_iter(line) {
+            let matched = found.get(0).unwrap();
+            if depth == 0 && matched.start() > cursor {
+                result.push((
+                    start + offset + 1,
+                    line[cursor..matched.start()].to_string(),
+                ));
+            }
+            if &found[1] == "/" {
+                depth = depth.saturating_sub(1);
+            } else {
+                depth += 1;
+            }
+            cursor = matched.end();
+        }
+        if depth == 0 && cursor < line.len() {
+            result.push((start + offset + 1, line[cursor..].to_string()));
+        }
+    }
+    result
+}
 fn push_event(
     events: &mut Vec<UserEvent>,
     path: &str,
@@ -406,7 +437,12 @@ fn push_event(
     signal: &str,
     basis: &str,
 ) {
-    let body = lines[start..end].join("\n");
+    let segments = notification_free_segments(lines, start, end);
+    let body = segments
+        .iter()
+        .map(|(_, text)| text.as_str())
+        .collect::<Vec<_>>()
+        .join("\n");
     if wrapper(&body)
         || (["你是一名", "你是 ", "你是一个"]
             .iter()
@@ -422,7 +458,7 @@ fn push_event(
     }
     let mut fenced = false;
     let mut parts = Vec::new();
-    for (offset, line) in lines[start..end].iter().enumerate() {
+    for (line_number, line) in &segments {
         let t = line.trim();
         if t.starts_with("```") || t.starts_with("~~~") {
             fenced = !fenced;
@@ -474,7 +510,7 @@ fn push_event(
             continue;
         }
         let clean = t.trim_start_matches("- ").trim_start_matches("> ");
-        parts.push((start + offset + 1, clean.to_string()));
+        parts.push((*line_number, clean.to_string()));
     }
     if parts.is_empty() {
         return;
@@ -1348,7 +1384,7 @@ pub(crate) fn qualify_candidates(
         let Some(assessment) = assessments.get(&key) else {
             return false;
         };
-        if assessment.class == crate::term_quality::TermClass::Candidate {
+        if assessment.rejected || assessment.class == crate::term_quality::TermClass::Candidate {
             return false;
         }
         candidate.kind = if assessment.class == crate::term_quality::TermClass::Keyword {

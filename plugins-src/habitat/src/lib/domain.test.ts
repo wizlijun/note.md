@@ -95,10 +95,10 @@ it('distinguishes repeated discussion events from source-group co-occurrence and
   expect(dateBasisLabel('daily_date')).toBe('日记所属日期')
 })
 
-it('separates concepts and explicit projects from background entities only in focus/4 and later', async () => {
+it.each([4, 5, 6])('separates concepts and projects from background entities in focus/%i and preserves focus/3', async version => {
   const { graphNodes, isConceptGraph } = await import('./domain')
   const snapshot = focusFixture()
-  snapshot.meta.algorithm.version = 'habitat-focus/4'
+  snapshot.meta.algorithm.version = `habitat-focus/${version}`
   snapshot.nodes[0].nodeType = 'project'
   const background = ['person', 'tool', 'resource', 'entity', 'term_candidate'].map((nodeType, i) => ({ id: `background-${i}`, key: `background-${i}`, label: nodeType, nodeType, status: 'observed', evidence: ['e1'] }))
   snapshot.nodes.push(...background)

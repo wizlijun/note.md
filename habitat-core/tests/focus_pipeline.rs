@@ -373,3 +373,89 @@ fn uppercase_acronym_phrase_survives_all_gates_and_previous_snapshot_rematching(
     let again = build(&docs, "2026-10-02", Some(&snapshot));
     assert_eq!(encode(&again).unwrap(), encode(&snapshot).unwrap());
 }
+
+#[test]
+fn rejected_history_fragments_cannot_reenter_through_wiki_or_previous_snapshots() {
+    let docs = vec![
+        (
+            "links.md",
+            "[[可能原因]] [[原因]] [[卡定稿]] [[定稿]] [[命令]] [[安装wespeacker]] [[融入文档]] [[工作记忆]]".into(),
+        ),
+        (
+            "links-two.md",
+            "旧词项引用：[[可能原因]] [[原因]] [[卡定稿]] [[定稿]] [[命令]] [[安装wespeacker]] [[融入文档]] [[工作记忆]]"
+                .into(),
+        ),
+        (
+            "agent-sessions/old-a.md",
+            session("请问可能原因是什么。原因是什么？", "2026-03-21"),
+        ),
+        (
+            "agent-sessions/old-b.md",
+            session("服务端没有移动。可能原因是什么", "2026-04-05"),
+        ),
+        (
+            "agent-sessions/old-c.md",
+            session("ai生成视频 抽卡：1.5卡定稿 是什么水平", "2026-09-10"),
+        ),
+        (
+            "agent-sessions/old-d.md",
+            session(
+                "把安装wespeacker依赖的方法备注文档。请把这方面讨论融入文档。",
+                "2026-09-18",
+            ),
+        ),
+        (
+            "agent-sessions/value-query.md",
+            session("运行命令是什么", "2026-08-26"),
+        ),
+        (
+            "agent-sessions/valid.md",
+            session("什么是工作记忆？", "2026-10-01"),
+        ),
+    ];
+    // A legacy/no-focus graph deliberately admits wiki anchors. The quality
+    // migration must remove proven junk from every layer, not relabel it.
+    let inputs: Vec<_> = docs
+        .iter()
+        .map(|(p, t)| SourceInput {
+            path: (*p).into(),
+            hash: hash(t),
+            origin: "unlabeled".into(),
+        })
+        .collect();
+    let mut legacy = Extractor::new("focus-vault", &inputs, None);
+    for (path, text) in &docs {
+        legacy.add_document(path, text).unwrap();
+    }
+    let old = organize::build(
+        "focus-vault",
+        &hash("scope"),
+        legacy.finish().unwrap(),
+        None,
+    )
+    .unwrap();
+    assert!(old.nodes.iter().any(|n| n.label == "可能原因"));
+    let cleaned = build(&docs, "2026-10-03", Some(&old));
+    for label in [
+        "可能原因",
+        "原因",
+        "卡定稿",
+        "定稿",
+        "命令",
+        "安装wespeacker",
+        "融入文档",
+    ] {
+        assert!(
+            !cleaned.nodes.iter().any(|n| n.label == label),
+            "invalid term survived in some layer: {label}"
+        );
+    }
+    assert!(cleaned
+        .nodes
+        .iter()
+        .any(|n| n.label == "工作记忆" && n.node_type == "keyword"));
+    let again = build(&docs, "2026-10-03", Some(&cleaned));
+    assert_eq!(encode(&cleaned).unwrap(), encode(&again).unwrap());
+    validate(&cleaned).unwrap();
+}

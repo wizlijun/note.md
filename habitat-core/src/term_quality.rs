@@ -38,6 +38,8 @@ impl TermClass {
 #[derive(Debug, Clone)]
 pub struct TermAssessment {
     pub class: TermClass,
+    /// Proven malformed/discourse-only terms are removed, not demoted to background.
+    pub rejected: bool,
     pub c_value: f64,
     pub token_length: usize,
     pub frequency: usize,
@@ -110,6 +112,131 @@ pub fn prose(text: &str) -> bool {
                 .iter()
                 .any(|s| t.contains(s)))
 }
+/// Naming a term deliberately is stronger than requesting an unspecified
+/// answer with "X是什么". Used only to preserve explicit metalinguistic uses.
+fn named_term_context(text: &str, term: &str) -> bool {
+    let text = text.to_lowercase();
+    let term = term.to_lowercase();
+    [
+        format!("什么是{term}"),
+        format!("{term}的定义"),
+        format!("{term}这一概念"),
+        format!("{term}这个术语"),
+        format!("{term}是指"),
+        format!("{term}定义为"),
+        format!("what is {term}"),
+        format!("{term} refers to "),
+    ]
+    .iter()
+    .any(|p| text.contains(p))
+}
+/// Closed-class discourse modifiers plus an unresolved relational head are
+/// an answer slot, not a domain noun phrase. Domain modifiers/heads such as
+/// "可能世界", "原因分析" and "随机变量" are not covered by this pattern.
+fn discourse_phrase(term: &str) -> bool {
+    static DISCOURSE: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(
+        r"^(?:可能|主要|具体|相关|当前|实际|潜在|根本|关键|后续|发展|这个|那个|这些|那些|一些|其他|各种|上述|以下|本次|这次|所有|任何)*(?:的)?(?:原因|情况|方面|事情|内容|问题|结果|答案|特点|意思|因素|条件|水平|机制|作用|价值|意义|指标)$"
+    ).unwrap()
+    });
+    DISCOURSE.is_match(term)
+}
+fn discourse_slot_use(text: &str, term: &str) -> bool {
+    if !discourse_phrase(term) {
+        return false;
+    }
+    let text = text.to_lowercase();
+    let term = term.to_lowercase();
+    text.split(['。', '？', '?', '！', '!', '；', ';', '\n'])
+        .any(|clause| {
+            clause.match_indices(&term).any(|(at, _)| {
+                let before = clause[..at].trim_end();
+                let after = clause[at + term.len()..].trim_start();
+                (before.trim_start_matches(['-', '#', ' ']).is_empty() && after.is_empty())
+                    || after.starts_with([':', '：'])
+                    || ["是什么", "有哪些", "如何", "怎样", "怎么样"]
+                        .iter()
+                        .any(|p| after.starts_with(p))
+                    || [
+                        "分析", "说明", "介绍", "给出", "解释", "列出", "总结", "概括", "提供",
+                        "调查", "检查", "填写", "描述",
+                    ]
+                    .iter()
+                    .any(|p| {
+                        before
+                            .trim_end_matches("一下")
+                            .trim_end_matches('的')
+                            .ends_with(p)
+                    })
+            })
+        })
+}
+fn instruction_phrase(term: &str) -> bool {
+    static JIEBA: LazyLock<Jieba> = LazyLock::new(Jieba::new);
+    static COPULA: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^(?:这|那|这些|那些|它|它们|他们|我们|我)(?:是|有|会|正在)").unwrap()
+    });
+    if COPULA.is_match(term) {
+        return true;
+    }
+    let tags = JIEBA.tag(term, false);
+    let Some(first) = tags.first() else {
+        return false;
+    };
+    let Some(last) = tags.last() else {
+        return false;
+    };
+    if tags.len() < 2 || !first.tag.starts_with('v') {
+        return false;
+    }
+    // A verb applied to a named ASCII object or a generic output artifact
+    // must not be concatenated into a purported noun phrase.
+    (first.word.chars().any(|c| !c.is_ascii()) && last.tag == "eng")
+        || [
+            "文档", "文件", "代码", "目录", "页面", "正文", "报告", "脚本", "输出",
+        ]
+        .contains(&last.word)
+}
+// The subject of a quantity evaluation or a concrete execution lookup is
+// a whole situation/value slot. Its final noun cannot borrow "是什么".
+fn value_slot_use(text: &str, term: &str) -> bool {
+    static QUANTITY: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"[0-9]+(?:\.[0-9]+)?\s*[\p{Han}]{0,3}$").unwrap());
+    static IDENTIFIER: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"[a-z][a-z0-9_-]*\s*$").unwrap());
+    let text = text.to_lowercase();
+    let term = term.to_lowercase();
+    text.split(['。', '？', '?', '！', '!', '；', ';', '\n'])
+        .any(|clause| {
+            clause.match_indices(&term).any(|(at, _)| {
+                let before = clause[..at].trim_end();
+                let after = clause[at + term.len()..].trim_start();
+                if QUANTITY.is_match(before)
+                    && ["是什么水平", "是什么程度", "算什么水平", "算什么程度"]
+                        .iter()
+                        .any(|p| after.starts_with(p))
+                {
+                    return true;
+                }
+                if !["命令", "指令"].contains(&term.as_str()) {
+                    return false;
+                }
+                let specific = IDENTIFIER.is_match(before.trim_end_matches('的').trim_end())
+                    || ["运行", "执行", "导入", "刷新", "启动", "停止", "安装"]
+                        .iter()
+                        .any(|p| before.trim_end_matches('的').ends_with(p));
+                specific
+                    && ["是什么", "有哪些", "怎么", "如何", "为什么不能", "为何不能"]
+                        .iter()
+                        .any(|p| after.starts_with(p))
+            })
+        })
+}
+fn phrase_integrity(text: &str, term: &str) -> bool {
+    (!(discourse_slot_use(text, term) || instruction_phrase(term) || value_slot_use(text, term))
+        || named_term_context(text, term))
+        && lexical_match(text, term)
+}
 fn code_occurrence(text: &str, term: &str) -> bool {
     let lower = text.to_lowercase();
     let term = term.to_lowercase();
@@ -144,12 +271,17 @@ fn lexical_match(text: &str, term: &str) -> bool {
     let tokens = SEGMENTER.cut(&lower, false);
     let starts: BTreeSet<_> = tokens.iter().map(|t| t.byte_start).collect();
     let ends: BTreeSet<_> = tokens.iter().map(|t| t.byte_end).collect();
-    lower
-        .match_indices(&term.to_lowercase())
-        .any(|(at, _)| starts.contains(&at) && ends.contains(&(at + term.len())))
+    lower.match_indices(&term.to_lowercase()).any(|(at, _)| {
+        starts.contains(&at)
+            && ends.contains(&(at + term.len()))
+            && !lower[..at]
+                .chars()
+                .next_back()
+                .is_some_and(|c| c.is_ascii_digit())
+    })
 }
 pub fn mention_context(text: &str, term: &str) -> bool {
-    prose(text) && lexical_match(text, term) && !code_occurrence(text, term)
+    prose(text) && phrase_integrity(text, term) && !code_occurrence(text, term)
 }
 fn operation(text: &str) -> bool {
     let t = text.trim().to_lowercase();
@@ -229,7 +361,7 @@ fn explicit_concept(text: &str, term: &str) -> bool {
 pub fn concept_context(text: &str, term: &str) -> bool {
     if !prose(text)
         || operation(text)
-        || !lexical_match(text, term)
+        || !phrase_integrity(text, term)
         || code_occurrence(text, term)
         || text.contains("图片")
             && ["修改", "调整", "放大", "缩小", "生成", "背景"]
@@ -253,7 +385,7 @@ pub fn concept_context(text: &str, term: &str) -> bool {
     text.split(". ")
         .flat_map(|s| s.split_inclusive(['。', '！', '？', '!', '?', '；', ';', '，', ',']))
         .any(|clause| {
-            if !lexical_match(clause, &term) || operation(clause) {
+            if !phrase_integrity(clause, &term) || operation(clause) {
                 return false;
             }
             if placeholder(&term) && !explicit_concept(clause, &term) {
@@ -927,6 +1059,7 @@ pub fn assess_terms(
         concept: BTreeSet<String>,
         background: BTreeSet<String>,
         direct: bool,
+        rejected_occurrence: bool,
         nominal_slot: bool,
         types: BTreeMap<&'static str, usize>,
     }
@@ -950,7 +1083,11 @@ pub fn assess_terms(
             if let Some(kind) = contextual_class(&e.text, label, &jieba) {
                 *entry.types.entry(kind.node_type()).or_default() += 1;
             }
-            if !lexical_match(&e.text, label) || code_occurrence(&e.text, label) {
+            if !phrase_integrity(&e.text, label) {
+                entry.rejected_occurrence = true;
+                continue;
+            }
+            if code_occurrence(&e.text, label) {
                 continue;
             }
             entry.all.insert(e.event_id.clone());
@@ -1046,13 +1183,15 @@ pub fn assess_terms(
             } else {
                 TermClass::Candidate
             };
-            if s.all.is_empty() && class != TermClass::Project {
+            let rejected = s.all.is_empty() && s.rejected_occurrence && class != TermClass::Project;
+            if s.all.is_empty() && class != TermClass::Project && !rejected {
                 return None;
             }
             Some((
                 key.clone(),
                 TermAssessment {
                     class,
+                    rejected,
                     c_value: *values.get(key).unwrap_or(&0.),
                     token_length: tokens[key].len(),
                     frequency: s.all.len(),
@@ -1290,5 +1429,132 @@ mod tests {
     fn installing_an_action_is_not_entity_typing() {
         let a = assess(&["请重启启动流程。", "请安装启动服务。"], &["启动"]);
         assert!(a.get("启动").is_none_or(|v| v.class != TermClass::Tool));
+    }
+    #[test]
+    fn discourse_slots_are_not_technical_terms_even_after_repetition() {
+        let a = assess(
+            &[
+                "请问可能原因是什么",
+                "服务端没有移动。可能原因是什么",
+                "请分析主要原因",
+                "说明具体情况",
+                "这件事的根本原因是什么",
+                "关键指标是什么",
+                "请描述后续发展情况",
+                "原因是什么",
+                "请分析原因",
+                "情况如何",
+                "结果是什么",
+            ],
+            &[
+                "可能原因",
+                "主要原因",
+                "具体情况",
+                "根本原因",
+                "关键指标",
+                "后续发展情况",
+            ],
+        );
+        for term in [
+            "可能原因",
+            "主要原因",
+            "具体情况",
+            "根本原因",
+            "关键指标",
+            "后续发展情况",
+        ] {
+            assert!(a[term].rejected, "{term}: {:?}", a[term]);
+        }
+    }
+    #[test]
+    fn bare_discourse_heads_are_rejected_in_value_or_output_slots() {
+        for (text, term) in [
+            ("原因是什么", "原因"),
+            ("请分析原因", "原因"),
+            ("情况如何", "情况"),
+            ("结果是什么", "结果"),
+        ] {
+            let a = assess(&[text], &[term]);
+            assert!(a.get(term).is_none_or(|a| a.rejected), "{text}: {a:?}");
+            assert!(!concept_context(text, term));
+        }
+    }
+    #[test]
+    fn quantity_truncation_and_instruction_concatenation_are_rejected() {
+        let a = assess(
+            &[
+                "ai生成视频 抽卡：1.5卡定稿 是什么水平",
+                "把安装wespeacker依赖的方法备注在文档",
+                "请把讨论融入文档",
+                "生成完整分析思考md",
+                "这是hemory",
+                "请表述hemory的价值",
+            ],
+            &[
+                "卡定稿",
+                "安装wespeacker",
+                "融入文档",
+                "思考md",
+                "这是hemory",
+                "表述hemory",
+            ],
+        );
+        for term in [
+            "卡定稿",
+            "安装wespeacker",
+            "融入文档",
+            "思考md",
+            "这是hemory",
+            "表述hemory",
+        ] {
+            assert!(a[term].rejected, "{term}: {:?}", a[term]);
+        }
+    }
+    #[test]
+    fn value_queries_do_not_promote_suffixes_after_longer_terms_are_rejected() {
+        let samples = [
+            ("ai生成视频 抽卡：1.5卡定稿 是什么水平", "定稿"),
+            ("3年经验是什么水平", "经验"),
+            ("运行命令是什么", "命令"),
+            ("导入init db 的命令是什么", "命令"),
+            ("opsx-continue 命令为什么不能直接带change id", "命令"),
+            ("刷新指令是什么", "指令"),
+        ];
+        for (text, term) in samples {
+            let a = assess(&[text], &[term]);
+            assert!(a.get(term).is_none_or(|a| a.rejected), "{text}: {a:?}");
+            assert!(!concept_context(text, term));
+            assert!(!strong_seed_context(text, term));
+        }
+    }
+    #[test]
+    fn genuine_domain_compounds_definitions_and_parenthetical_aliases_survive() {
+        let samples = [
+            ("什么是可能世界？", "可能世界"),
+            ("什么是原因？", "原因"),
+            ("原因是指引起结果的因素。", "原因"),
+            ("什么是命令？", "命令"),
+            ("命令与事件的区别是什么？", "命令"),
+            ("请解释命令模式的机制。", "命令模式"),
+            ("定稿的定义是什么？", "定稿"),
+            ("什么是根本原因？", "根本原因"),
+            ("关键指标的定义是什么？", "关键指标"),
+            ("请解释关键路径的机制。", "关键路径"),
+            ("什么是指标体系？", "指标体系"),
+            ("请解释原因分析的机制。", "原因分析"),
+            ("什么是随机变量？", "随机变量"),
+            ("什么是证据？", "证据"),
+            ("结论的定义是什么？", "结论"),
+            ("请解释工作记忆（working memory）的机制。", "工作记忆"),
+            ("请解释working memory（工作记忆）的机制。", "working memory"),
+            ("认知心理学、认知神经科学则是在研究原理。", "认知神经科学"),
+            ("为什么CLIP特征影响检索质量？", "CLIP特征"),
+        ];
+        for (text, term) in samples {
+            let a = assess(&[text], &[term]);
+            assert!(a.contains_key(&normalize(term)), "missing {term} in {text}");
+            assert!(!a[&normalize(term)].rejected, "{term}");
+            assert_eq!(a[&normalize(term)].class, TermClass::Keyword, "{term}");
+        }
     }
 }

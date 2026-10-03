@@ -499,3 +499,26 @@ fn single_day_seeds_need_complete_definition_or_substantive_concept_role() {
         .iter()
         .any(|c| c.term == "工作记忆"));
 }
+
+#[test]
+fn system_notifications_do_not_override_real_user_text_or_line_positions() {
+    let text = "什么是工作记忆？\n<system-notification>\nParse the JSON to understand current state.\nAutomatically create an artifact.\n</system-notification>\n情绪如何影响决策？";
+    let raw = session("2026-10-01", text);
+    let e = focus::events_from_markdown("agent-sessions/a.md", &raw, 480);
+    assert_eq!(e.len(), 2);
+    for item in &e {
+        assert_eq!(raw.lines().nth(item.start - 1).unwrap(), item.text);
+        assert!(!item.text.contains("current"));
+        assert!(!item.text.contains("artifact"));
+    }
+    assert!(e[0].text.contains("工作记忆"));
+    assert!(e[1].text.contains("情绪"));
+}
+#[test]
+fn inline_notification_elision_does_not_join_a_fake_statement() {
+    let e = events("2026-10-01", "工作记忆<system-notification>invented bridge</system-notification>依赖外部记忆。\n请解释<term>情绪</term>的作用。");
+    assert!(e.iter().any(|x| x.text == "工作记忆"));
+    assert!(e.iter().any(|x| x.text == "依赖外部记忆。"));
+    assert!(!e.iter().any(|x| x.text.contains("工作记忆依赖")));
+    assert!(e.iter().any(|x| x.text.contains("<term>情绪</term>")));
+}
