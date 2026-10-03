@@ -46,6 +46,14 @@ window.__cityQA = {
   get nodeCount() { return data.nodes.length },
   get subsetCount() { return subsetNodes.length },
   get firstReadyMs() { return firstReadyMs },
+  // Three r160 registers onGeometryDispose exactly when WebGLGeometries first
+  // uploads a geometry. QA-only ownership evidence; no plugin API is added.
+  sharedGeometryInventory() {
+    return [...scene.assets.models].flatMap(([asset, model]) => model.parts.map((part, index) => ({
+      asset, part: index, id: part.geometry.id,
+      uploaded: !!part.geometry._listeners?.dispose?.some(listener => listener.name === 'onGeometryDispose'),
+    }))).filter(part => part.uploaded);
+  },
   landmarkId(name) { return data.nodes.find(node => node.label.toLowerCase() === name && ['anchor', 'observed', 'confirmed', 'user-confirmed'].includes(node.status))?.id },
   get ordinaryId() { return data.nodes.find(node => (${background} || ['concept', 'keyword'].includes(node.nodeType)) && !['hemory', 'note.md', 'bushcraft'].includes(node.label.toLowerCase()) && data.layout.some(layout => layout.id === node.id))?.id },
   rebuild() { ready(); scene.setData(data, false) },
@@ -127,8 +135,23 @@ try {
   const submissions = report.rotations.map(sample => Number(sample.renderMs)).sort((a, b) => a - b)
   report.submissionTiming = { firstRenderMs: Number(report.firstFrame.renderMs), warmedRotationMinMs: submissions[0], warmedRotationMedianMs: (submissions[3] + submissions[4]) / 2, warmedRotationMaxMs: submissions[7] }
   report.timingNote = 'firstReadyMs is browser navigation to the first ready callback (includes dev-module loading, snapshot, assets and scene build). renderMs is CPU-side JavaScript renderer.render submission duration, not GPU frame duration or FPS. Rotation samples are eight successive 45-degree turns. firstRenderMs is the first renderer.render call in this browser context and includes required shader compilation/resource upload; OS/driver shader caches may already be warm, so this is not a guaranteed cold-driver-cache measurement.'
-  // WebGL uploads culled geometries lazily. Warm every direction, then rebuild at
-  // the original camera pose before comparing identical rebuilds for leaks.
+  // A subset can choose a shared model variant absent from the full scene. Warm
+  // this path before the baseline, and prove every persistent increment belongs
+  // to an already-owned asset geometry rather than hiding a scene-resource leak.
+  const beforeSubsetWarmup = await metrics()
+  const sharedBeforeWarmup = await page.evaluate(() => window.__cityQA.sharedGeometryInventory())
+  await action('subset')
+  for (let index = 0; index < 8; index++) await action('rotate')
+  await action('restore')
+  const afterSubsetWarmup = await metrics()
+  const sharedAfterWarmup = await page.evaluate(() => window.__cityQA.sharedGeometryInventory())
+  const addedSharedGeometries = sharedAfterWarmup.filter(part => !sharedBeforeWarmup.some(previous => previous.id === part.id))
+  report.assetWarmup = { before: beforeSubsetWarmup, after: afterSubsetWarmup, addedSharedGeometries }
+  assert.equal(Number(afterSubsetWarmup.geometries) - Number(beforeSubsetWarmup.geometries), addedSharedGeometries.length,
+    'first subset/full persistent geometry increment must be explained exactly by shared model uploads')
+  report.checks.push('subset warmup accounts exactly for newly uploaded shared model geometries')
+  // WebGL uploads culled geometries lazily. Every tested path and direction is
+  // now warm; compare identical rebuilds and subset restores without tolerances.
   await action('rebuild'); report.baseline = await metrics()
   if (keywordGraph) {
     assert.equal(Number(report.baseline.entranceAddresses), graphNodes.length, 'every concept has a safe route to its street')
@@ -162,12 +185,18 @@ try {
   assert.equal((await metrics()).geometries, report.baseline.geometries)
   report.checks.push('all changed keyword/object IDs use batched rings, repeated highlighting remains stable and clearing releases rings')
   report.subsetRestores = []
+  const sharedBeforeSubset = await page.evaluate(() => window.__cityQA.sharedGeometryInventory())
   for (let index = 0; index < 5; index++) {
     await action('subset')
     assert.equal(await page.evaluate(() => window.__cityQA.status.count), await page.evaluate(() => window.__cityQA.subsetCount))
     const subset = await metrics()
     if (!index) await screenshot('subset')
     await action('restore'); const restored = await metrics()
+    if (!index) {
+      const sharedAfterSubset = await page.evaluate(() => window.__cityQA.sharedGeometryInventory())
+      report.subsetSharedUpload = { before: sharedBeforeSubset.length, after: sharedAfterSubset.length,
+        added: sharedAfterSubset.filter(part => !sharedBeforeSubset.some(previous => previous.id === part.id)) };
+    }
     assert.equal(await page.evaluate(() => window.__cityQA.status.count), graphNodes.length)
     assert.equal(restored.geometries, report.baseline.geometries, 'restoring original full data must restore the same geometry count')
     assert.equal(restored.textures, report.baseline.textures, 'restoring original full data must restore the same texture count')
