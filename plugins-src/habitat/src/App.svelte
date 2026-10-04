@@ -16,7 +16,7 @@
   let opening = $state('')
   let previewMode = $state(false)
   let graphLayer = $state<GraphLayer>('main'), includeStatistical = $state(false)
-  let focusMode = $state<'recent' | 'history'>('recent'), windowChoice = $state<7 | 30 | 90>(30)
+  let focusMode = $state<'recent' | 'history'>('history'), windowChoice = $state<7 | 30 | 90>(30)
   let disposed = false, stateEpoch = 0, versionEpoch = 0, diffEpoch = 0, historyEpoch = 0, polling = false, jobEpoch = 0
   const busy = $derived(job?.state === 'running' || starting)
   const keywordGraph = $derived(isKeywordGraph(snapshot))
@@ -84,7 +84,7 @@
   function setGraphLayer(layer: GraphLayer) { graphLayer = layer; topic = ''; query = ''; page = 0; selectedId = ''; notice = '' }
   function selectCommunity(id: string) { topic = id; query = ''; page = 0; selectedId = ''; notice = '' }
   function select(id: string) { selectedId = id; notice = '' }
-  function clearForVault() { ++versionEpoch; ++diffEpoch; ++historyEpoch; ++jobEpoch; snapshot = null; activeCommit = ''; previewMode = false; focusMode = 'recent'; graphLayer = 'main'; includeStatistical = false; windowChoice = 30; selectedId = ''; topic = ''; query = ''; page = 0; diff = null; comparisonBefore = null; comparisonAfter = null; versions = []; historyTruncated = false; compareFrom = ''; compareTo = ''; versionLoading = false; historyLoading = false; diffLoading = false; starting = false }
+  function clearForVault() { ++versionEpoch; ++diffEpoch; ++historyEpoch; ++jobEpoch; snapshot = null; activeCommit = ''; previewMode = false; focusMode = 'history'; graphLayer = 'main'; includeStatistical = false; windowChoice = 30; selectedId = ''; topic = ''; query = ''; page = 0; diff = null; comparisonBefore = null; comparisonAfter = null; versions = []; historyTruncated = false; compareFrom = ''; compareTo = ''; versionLoading = false; historyLoading = false; diffLoading = false; starting = false }
   function showPreview() { if (!hostState?.preview) return; ++versionEpoch; activeCommit = ''; previewMode = true; snapshot = hostState.preview; selectedId = ''; topic = ''; query = ''; page = 0; diff = null }
   async function loadState() {
     const epoch = ++stateEpoch
@@ -218,7 +218,7 @@
       <aside class="directory" aria-label="知识结构列表">
         <div class="directory-kicker">YOUR KNOWLEDGE ATLAS</div><div class="section-title"><span>{recentView ? '近期关注' : '历史结构'}</span><small>{knowledgeNodes.length.toLocaleString()} {nodeUnit}</small></div>
         {#if focusAvailable}<div class="focus-switch" aria-label="知识视角"><button class:active={recentView} aria-pressed={recentView} onclick={() => setFocusMode('recent')}>近期关注</button><button class:active={!recentView} aria-pressed={!recentView} onclick={() => setFocusMode('history')}>历史结构</button></div>
-          <p class="focus-window">{recentView ? `最近 ${focus!.windowDays} 天 · 截至 ${focus!.asOf}` : conceptGraph ? graphLayer === 'background' ? '历史背景实体与关系' : '历史概念为自动识别结果，可回源核对。' : '全量历史关键词与关系'}</p>
+          <p class="focus-window">{recentView ? `最近 ${focus!.windowDays} 天 · 截至 ${focus!.asOf}` : conceptGraph ? graphLayer === 'background' ? '历史背景实体与关系' : graphLayer === 'all' ? '全库已提取节点 · 包含概念与背景实体' : '全库已提取概念与项目 · 不限最近30天' : '全量历史关键词与关系'}</p>
         {:else}<p class="focus-window">此版本未计算近期关注</p>{/if}
         {#if !hostState?.readOnlyPreview}<label class="window-choice">下次解析范围<select aria-label="下次解析关注范围" bind:value={windowChoice} disabled={busy}><option value={7}>最近 7 天</option><option value={30}>最近 30 天</option><option value={90}>最近 90 天</option></select></label>{/if}
         {#if conceptGraph}<label class="window-choice">知识层<select aria-label="知识层" value={graphLayer} onchange={event => setGraphLayer(event.currentTarget.value as GraphLayer)}><option value="main">主城 · 概念与项目</option><option value="background">背景实体</option><option value="all">全部节点</option></select></label><label class="window-choice"><input type="checkbox" aria-label="包含统计关联" bind:checked={includeStatistical}>包含统计关联</label>{/if}
