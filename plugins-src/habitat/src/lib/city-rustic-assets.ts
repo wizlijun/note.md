@@ -4,7 +4,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 // Original procedural architecture. One asset is one complete building; garden
 // furniture belongs to the scene and does not introduce another knowledge node.
 export const rusticHuts = ['rustic/hut-a', 'rustic/hut-b'] as const
-export const rusticCabins = ['rustic/cabin-a', 'rustic/cabin-b', 'rustic/cabin-c', 'rustic/cabin-d'] as const
+export const rusticCabins = ['rustic/cabin-a', 'rustic/cabin-b'] as const
 export type RusticAssetId = typeof rusticHuts[number] | typeof rusticCabins[number]
 export interface RusticAsset {
   id: RusticAssetId
@@ -23,12 +23,11 @@ export function createRusticAssets(): RusticAsset[] {
     return materials.get(color)!
   }
   return [...rusticHuts, ...rusticCabins].map((id, variant) => {
-    const hut = variant < 2, alternate = variant % 2 === 1, cabin = variant - 2
-    const width = hut ? alternate ? 1.26 : 1.42 : [1.55, 1.8, 1.64, 1.76][cabin]
-    const depth = hut ? alternate ? 1.5 : 1.18 : [1.25, 1.36, 1.3, 1.42][cabin]
-    const wall = hut ? .94 : [1.1, 1.22, 1.13, 1.16][cabin]
-    const rise = hut ? alternate ? .82 : .72 : [.64, .64, .80, .48][cabin]
-    const roof = cabin === 2 ? ['#626e79', '#52606b', '#495660'] : cabin === 3 ? ['#a36f54', '#8c5e48', '#744f3e'] : ['#60776f', '#50675f', '#45594f']
+    const hut = variant < 2, alternate = variant % 2 === 1
+    const width = hut ? alternate ? 1.26 : 1.42 : alternate ? 1.8 : 1.55
+    const depth = hut ? alternate ? 1.5 : 1.18 : alternate ? 1.36 : 1.25
+    const wall = hut ? .94 : alternate ? 1.22 : 1.1
+    const rise = hut ? alternate ? .82 : .72 : .64
     const base = .12, eave = wall + base, ridge = eave + rise
     const wood = alternate ? '#78523a' : '#936b47', trim = '#573e2d'
     const groups = new Map<string, THREE.BufferGeometry[]>()
@@ -39,9 +38,9 @@ export function createRusticAssets(): RusticAsset[] {
       if (!groups.has(color)) groups.set(color, [])
       groups.get(color)!.push(geometry)
     }
-    const box = (x: number, y: number, z: number, w: number, h: number, d: number, color: string, rz = 0, rx = 0) => {
+    const box = (x: number, y: number, z: number, w: number, h: number, d: number, color: string, rz = 0) => {
       const geometry = new THREE.BoxGeometry(w, h, d)
-      geometry.rotateZ(rz); geometry.rotateX(rx); geometry.translate(x, y, z); add(geometry, color)
+      geometry.rotateZ(rz); geometry.translate(x, y, z); add(geometry, color)
     }
     const beam = (a: number[], b: number[], radius: number, color: string, sides = 6) => {
       const from = new THREE.Vector3(...a), to = new THREE.Vector3(...b), direction = to.clone().sub(from)
@@ -83,12 +82,12 @@ export function createRusticAssets(): RusticAsset[] {
     const run = width / 2 + .19, slope = Math.atan2(rise, run), roofDepth = depth + .36
     const courses = hut ? 7 : 6
     for (const side of [-1, 1]) {
-      box(side * run / 2, ridge - rise / 2, 0, Math.hypot(run, rise) + .06, hut ? .095 : .065, roofDepth, hut ? '#9e7b40' : roof[1], -side * slope)
+      box(side * run / 2, ridge - rise / 2, 0, Math.hypot(run, rise) + .06, hut ? .095 : .065, roofDepth, hut ? '#9e7b40' : '#536761', -side * slope)
       for (let row = 0; row < courses; row++) {
         // Overlapping courses step out from the slope; coplanar faces flicker when zoomed.
         const lift = .008 * (courses - row)
         const t = (row + .5) / courses, x = side * run * t, y = ridge - rise * t + .052 + lift
-        const color = hut ? ['#c3a15e', '#b79250', '#d0b173'][row % 3] : roof[row % 2]
+        const color = hut ? ['#c3a15e', '#b79250', '#d0b173'][row % 3] : ['#60776f', '#50675f'][row % 2]
         box(x, y, 0, Math.hypot(run, rise) / courses + .048, hut ? .066 : .033, roofDepth + (row % 2 ? .025 : 0), color, -side * slope)
         if (hut) for (let reed = 0; reed < 17; reed++) {
           const z = -roofDepth / 2 + .035 + reed * (roofDepth - .07) / 16
@@ -97,7 +96,7 @@ export function createRusticAssets(): RusticAsset[] {
         }
       }
     }
-    beam([0, ridge + .04, -roofDepth / 2 - .015], [0, ridge + .04, roofDepth / 2 + .015], hut ? .095 : .065, hut ? '#b48d4d' : roof[2], 8)
+    beam([0, ridge + .04, -roofDepth / 2 - .015], [0, ridge + .04, roofDepth / 2 + .015], hut ? .095 : .065, hut ? '#b48d4d' : '#45594f', 8)
     if (hut) for (let i = 0; i < 6; i++) {
       const z = -roofDepth * .42 + i * roofDepth * .168
       beam([-.105, ridge + .04, z], [0, ridge + .145, z], .016, trim, 4)
@@ -112,57 +111,20 @@ export function createRusticAssets(): RusticAsset[] {
     box(doorX + .105, base + .36, front + .052, .03, .045, .035, '#ceb36e')
     box(doorX, .065, front + .19, .52, .13, .32, '#aaa08b')
     box(doorX, .028, front + .36, .6, .056, .17, '#aaa08b')
-    const window = (x: number, y: number, z: number, side = false, back = false) => {
+    const window = (x: number, y: number, z: number, side = false) => {
       const panel = (dx: number, dy: number, w: number, h: number, d: number, color: string) => {
         if (side) box(x + d / 2, y + dy, z + dx, d, h, w, color)
-        else box(x + dx, y + dy, z + (back ? -d : d) / 2, w, h, d, color)
+        else box(x + dx, y + dy, z + d / 2, w, h, d, color)
       }
       panel(0, 0, .37, .34, .035, '#425c58')
       for (const dx of [-.205, .205]) panel(dx, 0, .046, .41, .07, trim)
       for (const dy of [-.188, .188]) panel(0, dy, .455, .048, .085, wood)
       panel(0, 0, .025, .34, .07, '#c6ab7b'); panel(0, 0, .37, .025, .07, '#c6ab7b')
       panel(0, -.23, .49, .045, .13, wood)
-      if (!hut && !back && cabin === 0) {
-        // Shutters attach to the same wall, leaving the small house silhouette.
-        for (const direction of [-1, 1]) {
-          panel(direction * .29, 0, .12, .34, .055, roof[1])
-          for (const dy of [-.10, 0, .10]) panel(direction * .29, dy, .125, .022, .065, roof[0])
-        }
-      }
-      if (!hut && !side && !back && (cabin === 1 || cabin === 3)) {
-        panel(0, -.30, .48, .11, .19, wood)
-        panel(0, -.25, .42, .022, .15, trim)
-        for (const dx of [-.13, 0, .13]) panel(dx, -.21 + (dx === 0 ? .018 : 0), .10, .075, .12, '#60776f')
-      }
     }
     window(width * .29, base + .57, front + .02)
     window(width / 2 + (hut ? .024 : .065), base + .57, -.06, true)
     if (!hut) {
-      window(0, base + .60, -depth / 2 - .075, false, true)
-      if (cabin === 1 || cabin === 2) {
-        const z = depth / 2 + .04
-        for (const side of [-1, 1]) beam([side * width * .44, eave + .02, z], [0, ridge - .08, z], .025, trim, 4)
-        beam([0, eave + .03, z], [0, ridge - .08, z], .024, wood, 4)
-      }
-      if (cabin === 2 || cabin === 3) {
-        // A shallow attached porch/canopy extends the entrance, never a second
-        // house. Its posts, roof and landing are included in the shared bounds.
-        const porch = cabin === 2, canopyWidth = porch ? .94 : .73
-        const canopyDepth = porch ? .57 : .40, canopyY = eave - .045
-        box(doorX, canopyY, front + .18, canopyWidth, .052, canopyDepth, roof[1], 0, .16)
-        box(doorX, canopyY + .023, front + .18, canopyWidth + .025, .026, canopyDepth, roof[0], 0, .16)
-        if (porch) {
-          box(doorX, .065, front + .24, canopyWidth + .035, .13, .62, wood)
-          for (const side of [-1, 1]) {
-            const x = doorX + side * (canopyWidth / 2 - .06), z = front + .40
-            box(x, (canopyY + .12) / 2, z, .055, canopyY - .12, .055, trim)
-            beam([x, canopyY - .24, z], [x, canopyY - .04, z - .17], .021, wood, 4)
-          }
-        } else for (const side of [-1, 1]) {
-          const x = doorX + side * (canopyWidth / 2 - .055)
-          beam([x, canopyY - .20, front + .025], [x, canopyY - .05, front + .25], .024, trim, 4)
-        }
-      }
       // A single chimney attaches to the existing house; it is never a second body.
       box(-width * .27, ridge - .11, -depth * .2, .18, .54, .19, '#a4927d')
       box(-width * .27, ridge + .165, -depth * .2, .23, .065, .24, '#817867')
