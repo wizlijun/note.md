@@ -472,6 +472,18 @@ export class CityScene {
       for(const side of [-.6,.55]) primitive(side,-.22,.23+.08*r,.025,.025,.7,'#ad916c')
       const wood=point(.48,.33)
       this.addAsset('nature/log_stack',wood.x,wood.z,r*.12,rotation,undefined,.23)
+      // Small front-corner details stay inside the reserved yard, clear of the
+      // central entrance. They vary by address without implying another stage.
+      if(seed(`${node.id}:garden`)>.5) {
+        primitive(-.48,.46,.23+.045*r,.24,.09,.18,'#a48b66')
+        primitive(-.48,.46,.23+.093*r,.20,.012,.14,'#665643')
+        for(const side of [-.54,-.42]) for(const forward of [.42,.49])
+          primitive(side,forward,.23+.12*r,.055,.045,.05,'#78925c')
+      } else {
+        primitive(-.48,.46,.23+.10*r,.25,.035,.13,'#ac8a5f')
+        for(const side of [-.57,-.39]) primitive(side,.46,.23+.045*r,.025,.09,.09,'#716451')
+        primitive(-.48,.40,.23+.18*r,.25,.09,.025,'#ac8a5f')
+      }
     }
     const tree=point(.5,-.46), shrub=point(.51,.4)
     this.addAsset(level<2?trees[2]:trees[1],tree.x,tree.z,r*.17,rotation,undefined,.23)
