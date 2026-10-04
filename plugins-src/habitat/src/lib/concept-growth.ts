@@ -26,7 +26,7 @@ export interface ConceptGrowthProfile {
 export interface GrowthOptions { previous?: Snapshot; diff?: Diff }
 
 const stages: GrowthStage[] = ['hut', 'cottage', 'house', 'workshop', 'midrise', 'tower']
-const labels = ['茅草屋', '木屋', '住宅', '工作室', '楼宇', '摩天楼']
+const labels = ['茅草屋', '小屋', '住宅', '工作室', '楼宇', '摩天楼']
 export const growthStateLabels = { growth: '正在生长', rebuilding: '结构重建', dormant: '近期静置', unassessed: '状态待观察' } as const
 const DAY = 86400000
 function day(value: string | undefined): number | undefined {

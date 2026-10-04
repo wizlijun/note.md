@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
-import { CityAssets, houses, commercial, trees, tents, rusticHuts, rusticCabins, type CityAssetId, type CityAssetPlacement } from './city-assets'
+import { CityAssets, houses, commercial, trees, tents, rusticHuts, rusticCabins, workplaceStudios, type CityAssetId, type CityAssetPlacement } from './city-assets'
 import { buildTerrain, type CityTerrain } from './city-terrain'
 import type { ConceptGrowthProfile, GrowthState } from './concept-growth'
 import { focusDistrictLabel, isMainConcept, typeLabel } from './domain'
@@ -207,6 +207,8 @@ export class CityScene {
       if (building) { lot.h = building.h; lot.w = building.w; lot.parcelId = building.parcelId }
     }
     this.entrances(plan)
+    // This untextured batch combines rectangular paving and bent entrance walks.
+    for (const driveway of this.driveways) driveway.deleteAttribute('uv')
     this.merge(this.driveways, this.material('#d4cbb8')); this.driveways = []
     this.merge(this.yards, this.material('#ddd6c6', this.paving)); this.yards = []
     this.merge(this.lawns, this.material('#a6b791', this.grass)); this.lawns = []
@@ -434,9 +436,9 @@ export class CityScene {
     const v = seed(node.id), r = p.footprint, rotation = p.rotation
     const level = ['hut', 'cottage', 'house', 'workshop', 'midrise', 'tower'].indexOf(stage)
     const models: readonly CityAssetId[] = stage === 'hut' ? rusticHuts : stage === 'cottage' ? rusticCabins
-      : stage === 'house' ? houses : stage === 'workshop' ? [commercial[3], commercial[4], houses[6]]
+      : stage === 'house' ? houses : stage === 'workshop' ? workplaceStudios
       : stage === 'midrise' ? [commercial[0], commercial[1], commercial[2]] : [commercial[5], commercial[6]]
-    const model = models[Math.floor(v * models.length)]
+    const variant = Math.floor(v * models.length), model = models[variant]
     const dx = Math.sin(rotation), dz = Math.cos(rotation)
     const point = (side: number, forward: number) => ({ x:p.x+(dz*side+dx*forward)*r, z:p.z+(-dx*side+dz*forward)*r })
     const plane = (side:number, forward:number, width:number, depth:number, y:number) => {
@@ -451,15 +453,22 @@ export class CityScene {
     // accessories describe its setting without inventing additional concepts.
     this.yards.push(plane(0,0,1.38,1.3,.205))
     if(level<2) this.lawns.push(plane(0,0,1.34,1.26,.21))
-    const main=point(-.1,-.13), radius=r*[.47,.54,.61,.65,.61,.57][level]
+    const main=point(-.1,-.13), radius=r*[.47,.62,.65,.70,.64,.60][level]
     const height=this.addAsset(model,main.x,main.z,radius,rotation,node.id,.24)
     const placement=this.assetQueue.get(model)!.at(-1)!, uniform=placement.scale as number
     const desiredHeight=THREE.MathUtils.clamp(r*[.84,1.06,1.3,1.52,2.45,4.6][level],height*.9,height*1.2)
     placement.scale=new THREE.Vector3(uniform,uniform*desiredHeight/height,uniform)
     // Stone thresholds, front walks, planted borders, and open gates make a
     // house readable as an individual address even before its label is shown.
-    this.driveways.push(plane(-.1,.43,.28,.43,.221))
-    for(let step=0;step<2;step++) primitive(-.1,.27+step*.07,.23+(.05-step*.018)*r,.34,.025,.09,'#e7dfcd')
+    const entrance=this.assets!.entrance(model)
+    if(entrance) {
+      const side=-.1+entrance.x*uniform/r, forward=-.13+entrance.z*uniform/r
+      const path=[point(side,forward),point(side,Math.max(.48,forward+.04)),point(-.1,.63)]
+      this.driveways.push(ribbon(path,.20*r,.222))
+    } else {
+      this.driveways.push(plane(-.1,.43,.28,.43,.221))
+      for(let step=0;step<2;step++) primitive(-.1,.27+step*.07,.23+(.05-step*.018)*r,.34,.025,.09,'#e7dfcd')
+    }
     if(level>=2) {
       for(const [side,forward,width,depth] of [[0,-.66,1.36,.04],[-.7,0,.04,1.3],[.7,0,.04,1.3]])
         primitive(side,forward,.23+.045*r,width,.09,depth,'#f0e7d3')
@@ -467,19 +476,28 @@ export class CityScene {
       // A slim address post at the gate; the screen label carries the real name.
       primitive(.23,.58,.23+.12*r,.055,.24,.055,'#796652')
       primitive(.23,.58,.23+.23*r,.16,.08,.025,level>=4?'#597d80':'#af956c')
+    } else if(stage==='cottage' && (variant===1 || variant===2)) {
+      // Masonry cottages have a low garden wall and a small entrance terrace.
+      for(const side of [-.69,.67]) primitive(side,-.22,.23+.065*r,.055,.13,.75,'#aca58f')
+      this.driveways.push(plane(-.48,.43,.30,.24,.222))
+      primitive(-.48,.48,.23+.085*r,.28,.06,.10,'#a68357')
+      for(const side of [-.58,-.38]) primitive(side,.48,.23+.035*r,.03,.07,.08,'#776f60')
     } else {
       for(const side of [-.6,.55]) for(let i=0;i<4;i++) primitive(side,-.53+i*.2,.23+.06*r,.035,.12,.035,'#a88a5f')
       for(const side of [-.6,.55]) primitive(side,-.22,.23+.08*r,.025,.025,.7,'#ad916c')
       const wood=point(.48,.33)
       this.addAsset('nature/log_stack',wood.x,wood.z,r*.12,rotation,undefined,.23)
     }
-    const tree=point(.5,-.46), shrub=point(.51,.4)
-    this.addAsset(level<2?trees[2]:trees[1],tree.x,tree.z,r*.17,rotation,undefined,.23)
-    this.addAsset('nature/plant_bushDetailed',shrub.x,shrub.z,r*.1,rotation,undefined,.23)
+    const tree=point(.65,-.49), shrub=point(.62,.43)
+    this.addAsset(level<2?trees[2]:trees[1],tree.x,tree.z,r*.13,rotation,undefined,.23)
+    this.addAsset('nature/plant_bushDetailed',shrub.x,shrub.z,r*.09,rotation,undefined,.23)
     if(level>=3) {
       // Sheltered entrance, paving bands and a seating edge for established work.
-      primitive(-.1,.31,.23+.45*r,.38,.035,.25,'#627f7d')
-      for(const side of [-.27,.07]) primitive(side,.41,.23+.225*r,.025,.45,.025,'#e5dcc6')
+      // The studio models already include their own entrance architecture.
+      if(stage!=='workshop') {
+        primitive(-.1,.31,.23+.45*r,.38,.035,.25,'#627f7d')
+        for(const side of [-.27,.07]) primitive(side,.41,.23+.225*r,.025,.45,.025,'#e5dcc6')
+      }
       primitive(.46,.12,.23+.075*r,.17,.055,.35,'#ac8a5f')
       for(const z of [-.35,-.15,.05]) this.driveways.push(plane(-.65,z,.08,.14,.222))
     } else {
