@@ -239,6 +239,16 @@ it('packs isolated keywords into stable exploration plots without fabricating co
   assertClearances(plan)
 })
 
+it('keeps unassigned concepts in separate districts even when coordinates coincide', () => {
+  const lots = [lot('decision', 0, 0), lot('python', 0, 0), lot('timeline', 0, 0)]
+  const communities = { topics: [], memberships: [], isolateUnassigned: true }
+  const plan = planCity(lots, [], communities)
+  expect(plan.parcels).toHaveLength(3)
+  expect(plan.parcels.map(parcel => parcel.members.map(member => member.node.id))).toEqual([['decision'], ['python'], ['timeline']])
+  expect(plan.parcels.every(parcel => parcel.unassigned && !parcel.topicId)).toBe(true)
+  expect(planCity([...lots].reverse(), [], communities)).toEqual(plan)
+})
+
 it('fits a sparse attention foreground without replacing its real community memberships', () => {
   const lots = [lot('a', -1000, 0), lot('b', 1000, 0), lot('c', 0, 1000)]
   const communities = { topics: lots.map(l => ({ ...l.node, id: `topic-${l.node.id}`, label: l.node.id, key: l.node.id, status: 'candidate', x: l.x, z: l.z })), memberships: lots.map(l => ({ id: `m-${l.node.id}`, node: l.node.id, topic: `topic-${l.node.id}`, role: 'primary', score: 1 })) }

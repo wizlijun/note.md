@@ -194,7 +194,7 @@ export function relationWeight(edge: Edge) {
     : edge.status === 'imported' ? .12 : 0
 }
 
-export interface CommunityPlan { focus?: boolean; memberships: Membership[]; topics: (Node & { x: number; z: number })[] }
+export interface CommunityPlan { focus?: boolean; isolateUnassigned?: boolean; memberships: Membership[]; topics: (Node & { x: number; z: number })[] }
 
 const SEMANTIC_BLOCK_CAPACITY = 12
 const semanticFootprint = (focus?: boolean) => focus ? 2.2 : 1.45
@@ -230,14 +230,14 @@ function semanticParcels(lots: ProjectedLot[], communities: CommunityPlan): City
     .sort((a, b) => b.score - a.score || a.topic.localeCompare(b.topic)).reverse().map(m => [m.node, m.topic]))
   const groups = new Map<string, ProjectedLot[]>()
   for (const lot of lots) {
-    // Unconnected words share explicitly non-semantic exploration plots, never a fabricated community.
-    const key = primary.get(lot.node.id) ?? `exploration:${Math.floor(lot.x / 12)}:${Math.floor(lot.z / 12)}`
+    // A concept without a supported community owns its own address. Physical proximity is not a topic.
+    const key = primary.get(lot.node.id) ?? (communities.isolateUnassigned ? `unassigned:${lot.node.id}` : `exploration:${Math.floor(lot.x / 12)}:${Math.floor(lot.z / 12)}`)
     if (!groups.has(key)) groups.set(key, [])
     groups.get(key)!.push(lot)
   }
   const parcels: CityParcel[] = []
-  // Physical blocks preserve the original topic; they do not assert new communities.
-  // Each landmark owns one address, while neighbouring concepts get their own houses.
+  // Large communities need multiple physical blocks, but each block is named only for its own members.
+  // Landmarks keep individual campuses while other members share the actual community.
   const entries = [...groups].flatMap(([topicId, members]) => {
     const heroes = members.filter(l => l.style).sort((a, b) => a.node.id.localeCompare(b.node.id))
     const ordinary = members.filter(l => !l.style).sort((a, b) => a.node.id.localeCompare(b.node.id))
