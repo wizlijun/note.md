@@ -59,7 +59,7 @@
     "json-schema-to-typescript": "^15.0.4",
     "prosemirror-commands": "^1.7.1",
     "prosemirror-history": "1.5.0",
-    "prosemirror-model": "1.25.4",
+    "prosemirror-model": "1.25.11",
     "prosemirror-schema-basic": "^1.2.4",
     "prosemirror-schema-list": "^1.5.1",
     "prosemirror-state": "^1.4.4",

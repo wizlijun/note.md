@@ -15,6 +15,8 @@ overrides:
   devalue@<5.9.3: 5.9.3
   # GHSA-c8x8-7fp4-3x9w: validate pasted HTML in every editor dependency path.
   prosemirror-view@<1.42.3: 1.42.3
+  # Editor Node/Fragment identity must be shared with the patched view.
+  prosemirror-model: 1.25.11
 
 packages:
   - 'plugins-src/*'
