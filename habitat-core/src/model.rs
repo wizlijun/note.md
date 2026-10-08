@@ -3,7 +3,8 @@ use std::collections::BTreeMap;
 
 pub const SCHEMA_V1: &str = "vault-knowledge-structure/1";
 pub const SCHEMA: &str = "vault-knowledge-structure/2";
-pub const SNAPSHOT_PATH: &str = ".notemd/habitat/knowledge-structure.jsonl.zst";
+pub const LEGACY_SNAPSHOT_PATH: &str = ".notemd/habitat/knowledge-structure.jsonl.zst";
+pub const SNAPSHOT_PATH: &str = ".notemd/habitat/knowledge-structure-v2.jsonl.zst";
 pub const ALGORITHM_VERSION: &str = "habitat-focus/7";
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]

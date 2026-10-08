@@ -4,7 +4,7 @@ HABITAT 从当前 Vault 的 Markdown、大纲节点和已有会议知识数据�
 
 本次 `0.4.0` 将“近期关注”与“历史结构”分开。默认最近30天，从可识别的本人记录和提问中发现连续原文词项，按最近使用、跨日再访和每日饱和排序；不需要先给所有正文补 Wiki 链接。工具和项目另列背景线索，导入或提交文章降低权重。该分数是可解释的记录代理，不测量掌握程度或心理状态。
 
-最低宿主为 `>=6.1002.1`，用于读写带观察窗口与日期依据的 schema/2，并继续读取 schema/1 历史。计算、快照与 Git 保存在本机，不新增模型调用。产品设计与已知边界见 [近期校准规格](../../docs/superpowers/specs/2026-10-02-habitat-recent-focus-calibration.md) 和 [算法说明](../../habitat-core/KEYWORD_GRAPH.md)。
+最低宿主为 `>=6.1008.2`，用于读写带观察窗口与日期依据的 schema/2，并继续读取 schema/1 历史。计算、快照与 Git 保存在本机，不新增模型调用。产品设计与已知边界见 [近期校准规格](../../docs/superpowers/specs/2026-10-02-habitat-recent-focus-calibration.md) 和 [算法说明](../../habitat-core/KEYWORD_GRAPH.md)。
 
 ## 模块职责
 
@@ -37,12 +37,12 @@ HABITAT 从当前 Vault 的 Markdown、大纲节点和已有会议知识数据�
 
 ## 快照与 Git
 
-生产固定文件为 `.notemd/habitat/knowledge-structure.jsonl.zst`。内部是完整、规范排序的 UTF-8 JSONL（schema `vault-knowledge-structure/2`，向后读取 `/1`），外层使用标准 Zstandard level 9 无损压缩，不是私有压缩格式或删减投影。来源 hash、身份、证据定位、角色、归属、布局、覆盖与算法参数均在快照内；不保存原文全文。
+schema 2 的生产文件为 `.notemd/habitat/knowledge-structure-v2.jsonl.zst`；旧路径 `.notemd/habitat/knowledge-structure.jsonl.zst` 只保留旧宿主可读的 schema 1 历史。新版快照内部是完整、规范排序的 UTF-8 JSONL，外层使用标准 Zstandard level 9 无损压缩，不是私有压缩格式或删减投影。来源 hash、身份、证据定位、角色、归属、布局、覆盖与算法参数均在快照内；不保存原文全文。分开路径可防止旧宿主在普通 Git 同步时解码不认识的 `focus` 字段。
 
 `habitat_core::encode/decode` 处理压缩快照；`codec::encode_jsonl` 用于人工导出。已安装标准 `zstd` 命令时，可在 Vault 外解压查看：
 
 ```sh
-zstd -d -c -- /path/to/vault/.notemd/habitat/knowledge-structure.jsonl.zst > /tmp/habitat-current.jsonl
+zstd -d -c -- /path/to/vault/.notemd/habitat/knowledge-structure-v2.jsonl.zst > /tmp/habitat-current.jsonl
 ```
 
 源码宿主中的“重新解析”执行生成与保存事务，只提交上述一个固定文件，保留其他已暂存和未暂存修改；相同结果沿用原版本，不制造空历史。失败预览与待保存事务不是已提交历史。体量超过现有 Git 门禁时保留旧版并报告，不能截断后声称覆盖全库。
@@ -50,11 +50,13 @@ zstd -d -c -- /path/to/vault/.notemd/habitat/knowledge-structure.jsonl.zst > /tm
 人可以直接使用 Git 检查该文件的版本和导出某一版：
 
 ```sh
-git -C /path/to/vault log --oneline -- .notemd/habitat/knowledge-structure.jsonl.zst
-git -C /path/to/vault show COMMIT:.notemd/habitat/knowledge-structure.jsonl.zst | zstd -d -c > /tmp/habitat-history.jsonl
+git -C /path/to/vault log --oneline -- .notemd/habitat/knowledge-structure-v2.jsonl.zst .notemd/habitat/knowledge-structure.jsonl.zst
+git -C /path/to/vault show COMMIT:.notemd/habitat/knowledge-structure-v2.jsonl.zst | zstd -d -c > /tmp/habitat-history.jsonl
 ```
 
 Git 保留所有结构版本；界面首版最多列出最近 100 个，截断时明确提示。压缩文件的文本 diff 不表达知识变化。HABITAT 的“历史 → 查看结构变化”解码两个完整版本，按稳定 ID 比较新增、缺失、改名、关系、归属和布局，并区分方法/范围/依据、关注转移与窗口变化。观察窗口推进不会直接删除历史节点或道路。旧结构中的证据只在当前来源 hash 匹配时打开；当前文件不能冒充旧版原文。
+
+已发布旧宿主若本地 HEAD 早已包含旧路径的 schema 2，其旧解析器会在拉取迁移提交前阻断同步；仅更新新版插件不能修补该旧进程。该设备须升级宿主，或在保全本地未提交改动后单独完成 Git 迁移。新版宿主会把旧路径中已提交的 schema 2 原字节移到新路径，旧提交仍可从历史读取。
 
 ## 构建与测试
 
@@ -77,7 +79,7 @@ cargo build --release --manifest-path plugins-src/habitat/backend/Cargo.toml --b
 bash scripts/dev-install-plugin.sh habitat
 ```
 
-源 manifest 的最低宿主版本为 `>=6.1002.1`。dev 安装脚本只调整**安装副本**的版本约束，源 manifest 不变；本地开发宿主须包含 `host.knowledge.*` 接口。此命令是本地插件开发安装，不发布插件，不替换正式 note.md app。
+源 manifest 的最低宿主版本为 `>=6.1008.2`。dev 安装脚本只调整**安装副本**的版本约束，源 manifest 不变；本地开发宿主须包含 `host.knowledge.*` 接口。此命令是本地插件开发安装，不发布插件，不替换正式 note.md app。
 
 ## 只读复验与预览
 

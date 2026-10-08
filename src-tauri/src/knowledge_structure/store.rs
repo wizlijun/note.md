@@ -1,5 +1,5 @@
 use super::history::{committed, git, git_text, validate_bytes};
-use habitat_core::{Snapshot, SNAPSHOT_PATH};
+use habitat_core::{Snapshot, LEGACY_SNAPSHOT_PATH, SCHEMA_V1, SNAPSHOT_PATH};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::fs::{self, File};
@@ -10,6 +10,8 @@ use std::path::{Component, Path, PathBuf};
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct Pending {
     version: u32,
+    #[serde(default)]
+    path: Option<String>,
     repo: String,
     base_commit: Option<String>,
     base_snapshot: Option<String>,
@@ -54,7 +56,141 @@ fn safe_path(root: &Path, relative: &str) -> Result<PathBuf, String> {
 }
 
 pub(crate) fn read_current(root: &Path) -> Result<Option<Vec<u8>>, String> {
-    let path = safe_path(root, SNAPSHOT_PATH)?;
+    read_current_at(root, SNAPSHOT_PATH)?.map_or_else(
+        || read_current_at(root, LEGACY_SNAPSHOT_PATH),
+        |bytes| Ok(Some(bytes)),
+    )
+}
+
+/// Move an already committed v2 snapshot out of the path read by older hosts.
+/// The caller owns RepositoryWriter; failures before commit restore both files.
+pub(crate) fn migrate_legacy_schema2_unlocked(root: &Path) -> Result<(), String> {
+    let Some(revision) = super::history::head(root)? else {
+        return Ok(());
+    };
+    let Some(old_bytes) = super::history::blob_at(root, &revision, LEGACY_SNAPSHOT_PATH)? else {
+        return Ok(());
+    };
+    let old = validate_bytes(&old_bytes)?;
+    if old.meta.schema == SCHEMA_V1 {
+        return Ok(());
+    }
+    let old_current = read_current_at(root, LEGACY_SNAPSHOT_PATH)?;
+    let new_current = read_current_at(root, SNAPSHOT_PATH)?;
+    let new_committed = super::history::blob_at(root, &revision, SNAPSHOT_PATH)?;
+    if old_current
+        .as_deref()
+        .is_some_and(|bytes| bytes != old_bytes.as_slice())
+        || new_current
+            .as_deref()
+            .is_some_and(|bytes| bytes != old_bytes.as_slice())
+        || (old_current.is_none() && new_current.is_none())
+        || new_committed
+            .as_deref()
+            .is_some_and(|bytes| bytes != old_bytes.as_slice())
+        || (new_committed.is_some() && new_current.is_none())
+    {
+        return Err("KNOWLEDGE_MIGRATION_REQUIRED: 快照路径存在不同字节，请先人工核对".into());
+    }
+    check_git_idle(root)?;
+    if !git_text(
+        root,
+        &[
+            "diff",
+            "--cached",
+            "--name-only",
+            "--",
+            LEGACY_SNAPSHOT_PATH,
+            SNAPSHOT_PATH,
+        ],
+    )?
+    .trim()
+    .is_empty()
+    {
+        return Err("KNOWLEDGE_MIGRATION_REQUIRED: 快照路径有暂存改动".into());
+    }
+    let old_path = safe_path(root, LEGACY_SNAPSHOT_PATH)?;
+    let new_path = safe_path(root, SNAPSHOT_PATH)?;
+    let parent = old_path.parent().ok_or("KNOWLEDGE_INVALID_PATH")?;
+    if fs::read_dir(parent).map_err(io)?.any(|entry| {
+        entry.ok().is_some_and(|item| {
+            item.file_name()
+                .to_string_lossy()
+                .starts_with(super::TEMP_PREFIX)
+        })
+    }) {
+        return Err("KNOWLEDGE_MIGRATION_REQUIRED: 有未完成的快照事务，请先恢复".into());
+    }
+    if new_current.is_none() {
+        let mut temp = tempfile::NamedTempFile::new_in(parent).map_err(io)?;
+        temp.write_all(&old_bytes).map_err(io)?;
+        temp.as_file().sync_all().map_err(io)?;
+        temp.persist_noclobber(&new_path).map_err(|e| io(e.error))?;
+        sync_directory(parent)?;
+    }
+    let outcome = (|| -> Result<(), String> {
+        if old_current.is_some() {
+            fs::remove_file(&old_path).map_err(io)?;
+        }
+        if new_committed.is_some() {
+            git(
+                root,
+                &[
+                    "commit",
+                    "--only",
+                    "-m",
+                    "habitat: remove duplicate legacy v2 structure",
+                    "--",
+                    LEGACY_SNAPSHOT_PATH,
+                ],
+            )?;
+        } else {
+            git(root, &["add", "-N", "--", SNAPSHOT_PATH])?;
+            git(
+                root,
+                &[
+                    "commit",
+                    "--only",
+                    "-m",
+                    "habitat: move v2 structure away from legacy hosts",
+                    "--",
+                    LEGACY_SNAPSHOT_PATH,
+                    SNAPSHOT_PATH,
+                ],
+            )?;
+        }
+        Ok(())
+    })();
+    if let Err(error) = outcome {
+        if super::history::head(root)?.as_deref() != Some(revision.as_str()) {
+            return Err(format!(
+                "KNOWLEDGE_MIGRATION_REQUIRED: 提交状态需核对，旧字节仍保留于 Git 历史: {error}"
+            ));
+        }
+        fs::write(&old_path, &old_bytes).map_err(io)?;
+        if new_current.is_none() {
+            fs::remove_file(&new_path).map_err(io)?;
+        }
+        let _ = git(
+            root,
+            &[
+                "reset",
+                "-q",
+                "HEAD",
+                "--",
+                LEGACY_SNAPSHOT_PATH,
+                SNAPSHOT_PATH,
+            ],
+        );
+        return Err(format!(
+            "KNOWLEDGE_MIGRATION_REQUIRED: 迁移未完成，原字节已保留: {error}"
+        ));
+    }
+    Ok(())
+}
+
+pub(crate) fn read_current_at(root: &Path, relative: &str) -> Result<Option<Vec<u8>>, String> {
+    let path = safe_path(root, relative)?;
     match fs::metadata(&path) {
         Ok(meta) if !meta.is_file() => {
             Err("KNOWLEDGE_INVALID_PATH: snapshot is not a regular file".into())
@@ -65,6 +201,14 @@ pub(crate) fn read_current(root: &Path) -> Result<Option<Vec<u8>>, String> {
         Ok(_) => fs::read(path).map(Some).map_err(io),
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
         Err(e) => Err(io(e)),
+    }
+}
+
+fn snapshot_path(snapshot: &Snapshot) -> &'static str {
+    if snapshot.meta.schema == SCHEMA_V1 {
+        LEGACY_SNAPSHOT_PATH
+    } else {
+        SNAPSHOT_PATH
     }
 }
 
@@ -79,9 +223,17 @@ fn read_pending(root: &Path, runtime: &Path) -> Result<Option<Pending>, String> 
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
         Err(e) => return Err(io(e)),
     };
-    let pending: Pending =
+    let mut pending: Pending =
         serde_json::from_slice(&bytes).map_err(|e| format!("KNOWLEDGE_INVALID_PENDING: {e}"))?;
-    if pending.version != 1
+    if pending.version == 1 && pending.path.is_none() {
+        pending.path = Some(LEGACY_SNAPSHOT_PATH.into());
+    }
+    if !matches!(pending.version, 1 | 2)
+        || (pending.version == 1 && pending.path.as_deref() != Some(LEGACY_SNAPSHOT_PATH))
+        || !matches!(
+            pending.path.as_deref(),
+            Some(SNAPSHOT_PATH | LEGACY_SNAPSHOT_PATH)
+        )
         || pending.repo != fs::canonicalize(root).map_err(io)?.to_string_lossy()
         || !pending.temp_name.starts_with(super::TEMP_PREFIX)
         || !pending.temp_name.ends_with(".tmp")
@@ -214,6 +366,8 @@ pub fn load(root: &Path, runtime: &Path) -> Result<Value, String> {
     check_repo(root)?;
     let writer = crate::memory_control::v2::RepositoryWriter::new(root);
     let _transaction = writer.begin().map_err(|e| e.to_string())?;
+    read_pending(root, runtime)?;
+    migrate_legacy_schema2_unlocked(root)?;
     let (commit, saved) = committed(root)?;
     let current = read_current(root)?;
     let pending = read_pending(root, runtime)?;
@@ -252,6 +406,7 @@ pub fn save_with_guard(
     check_size(root, bytes)?;
     let snapshot = validate_bytes(bytes)?;
     let canonical = habitat_core::encode(&snapshot)?;
+    let target_path = snapshot_path(&snapshot);
     check_size(root, &canonical)?;
     let writer = crate::memory_control::v2::RepositoryWriter::new(root);
     let _transaction = writer.begin().map_err(|e| e.to_string())?;
@@ -259,8 +414,12 @@ pub fn save_with_guard(
     if read_pending(root, runtime)?.is_some() {
         return Err("KNOWLEDGE_STRUCTURE_PENDING: recover the previous save before generating another version".into());
     }
+    migrate_legacy_schema2_unlocked(root)?;
     let (base_commit, saved) = committed(root)?;
     check_base(expected_base, saved.as_deref())?;
+    if target_path == LEGACY_SNAPSHOT_PATH && read_current_at(root, SNAPSHOT_PATH)?.is_some() {
+        return Err("KNOWLEDGE_UNSUPPORTED_DOWNGRADE: 不能在新版快照之上写入旧格式".into());
+    }
     let current = read_current(root)?;
     if current != saved {
         return Err(
@@ -283,12 +442,12 @@ pub fn save_with_guard(
             "KNOWLEDGE_BASE_CHANGED: snapshot parents do not match the committed base".into(),
         );
     }
-    let target = safe_path(root, SNAPSHOT_PATH)?;
+    let target = safe_path(root, target_path)?;
     let parent = target.parent().ok_or("KNOWLEDGE_INVALID_PATH")?;
     fs::create_dir_all(parent).map_err(io)?;
     // Check ignoring before creating an untracked output. Never force-add it.
     let ignored = crate::platform::command("git")
-        .args(["check-ignore", "--no-index", "-q", "--", SNAPSHOT_PATH])
+        .args(["check-ignore", "--no-index", "-q", "--", target_path])
         .current_dir(root)
         .status()
         .map_err(io)?;
@@ -307,7 +466,8 @@ pub fn save_with_guard(
     temp.as_file().sync_all().map_err(io)?;
     let temp_path = temp.into_temp_path().keep().map_err(|e| io(e.error))?;
     let pending = Pending {
-        version: 1,
+        version: 2,
+        path: Some(target_path.into()),
         repo: fs::canonicalize(root)
             .map_err(io)?
             .to_string_lossy()
@@ -365,7 +525,8 @@ fn finish_save(
         return Err("KNOWLEDGE_EXTERNAL_CHANGE: snapshot changed before commit".into());
     }
     authorize(&snapshot)?;
-    git(root, &["add", "-N", "--", SNAPSHOT_PATH])?;
+    let target_path = pending.path.as_deref().ok_or("KNOWLEDGE_INVALID_PENDING")?;
+    git(root, &["add", "-N", "--", target_path])?;
     git(
         root,
         &[
@@ -374,7 +535,7 @@ fn finish_save(
             "-m",
             "habitat: save knowledge structure",
             "--",
-            SNAPSHOT_PATH,
+            target_path,
         ],
     )?;
     let (commit, committed_bytes) = committed(root)?;
@@ -461,7 +622,10 @@ pub fn recover_with_guard(
     check_size(root, &bytes)?;
     check_sources(root, &snapshot)?;
     authorize(&snapshot)?;
-    let target = safe_path(root, SNAPSHOT_PATH)?;
+    let target = safe_path(
+        root,
+        pending.path.as_deref().ok_or("KNOWLEDGE_INVALID_PENDING")?,
+    )?;
     fs::rename(&temp_path, &target).map_err(io)?;
     sync_directory(target.parent().unwrap())?;
     finish_save(root, runtime, &pending, &bytes, authorize)
@@ -518,7 +682,8 @@ pub fn discard_pending(root: &Path, runtime: &Path) -> Result<Value, String> {
     {
         return Err("KNOWLEDGE_INVALID_PENDING: draft differs from transaction".into());
     }
-    let indexed = git(root, &["show", &format!(":{SNAPSHOT_PATH}")]).ok();
+    let target_path = pending.path.as_deref().ok_or("KNOWLEDGE_INVALID_PENDING")?;
+    let indexed = git(root, &["show", &format!(":{target_path}")]).ok();
     if let Some(indexed) = indexed.as_deref() {
         if !indexed.is_empty() && Some(indexed) != saved.as_deref() && indexed != bytes {
             return Err("KNOWLEDGE_EXTERNAL_CHANGE: discard does not own the staged edit".into());
@@ -538,9 +703,15 @@ pub fn discard_pending(root: &Path, runtime: &Path) -> Result<Value, String> {
         temp.persist_noclobber(&archive).map_err(|e| io(e.error))?;
         sync_directory(&archive_dir)?;
     }
-    let target = safe_path(root, SNAPSHOT_PATH)?;
+    let target = safe_path(root, target_path)?;
     let parent = target.parent().unwrap();
-    if let Some(saved) = saved.as_deref() {
+    let saved_at_target = saved
+        .as_deref()
+        .map(validate_bytes)
+        .transpose()?
+        .is_some_and(|snapshot| snapshot_path(&snapshot) == target_path);
+    if saved_at_target {
+        let saved = saved.as_deref().ok_or("KNOWLEDGE_INVALID_PENDING")?;
         let mut temp = tempfile::Builder::new()
             .prefix(super::TEMP_PREFIX)
             .suffix(".tmp")
@@ -554,11 +725,11 @@ pub fn discard_pending(root: &Path, runtime: &Path) -> Result<Value, String> {
     }
     sync_directory(parent)?;
     if commit.is_some() {
-        git(root, &["reset", "-q", "HEAD", "--", SNAPSHOT_PATH])?;
+        git(root, &["reset", "-q", "HEAD", "--", target_path])?;
     } else {
         git(
             root,
-            &["rm", "--cached", "--ignore-unmatch", "--", SNAPSHOT_PATH],
+            &["rm", "--cached", "--ignore-unmatch", "--", target_path],
         )?;
     }
     clear_pending(root, runtime, &pending)?;
@@ -657,6 +828,94 @@ pub(crate) mod tests {
             habitat_core::SCHEMA_V1
         );
         assert_ne!(first["commit"], second["commit"]);
+    }
+
+    #[test]
+    fn sync_migration_then_recovery_clears_legacy_committed_journal() {
+        let (dir, root) = fixture();
+        let runtime = dir.path().join("runtime");
+        let prior_commit = super::super::history::head(&root).unwrap();
+        let snapshot = snapshot("legacy v2", None);
+        let bytes = habitat_core::encode(&snapshot).unwrap();
+        fs::create_dir_all(root.join(".notemd/habitat")).unwrap();
+        fs::write(root.join(LEGACY_SNAPSHOT_PATH), &bytes).unwrap();
+        git(&root, &["add", "--", LEGACY_SNAPSHOT_PATH]).unwrap();
+        git(&root, &["commit", "-q", "-m", "legacy save completed"]).unwrap();
+        let journal = Pending {
+            version: 1,
+            path: None,
+            repo: fs::canonicalize(&root)
+                .unwrap()
+                .to_string_lossy()
+                .into_owned(),
+            base_commit: prior_commit,
+            base_snapshot: None,
+            previous_hash: None,
+            target_hash: habitat_core::hash(&bytes),
+            snapshot_id: snapshot.meta.snapshot_id.clone(),
+            temp_name: ".knowledge-structure-cleared.tmp".into(),
+        };
+        write_pending(&runtime, &journal).unwrap();
+        // The prior host may crash after deleting the temp but before deleting
+        // its runtime journal. Sync cannot locate that journal, yet migration
+        // preserves the exact committed bytes and recovery can still finish.
+        super::super::history::guard_before_sync_commit(&root).unwrap();
+        assert!(!root.join(LEGACY_SNAPSHOT_PATH).exists());
+        assert_eq!(fs::read(root.join(SNAPSHOT_PATH)).unwrap(), bytes);
+        assert_eq!(recover(&root, &runtime).unwrap()["status"], "saved");
+        assert!(!pending_path(&runtime).exists());
+    }
+
+    #[test]
+    fn identical_v2_at_both_committed_paths_removes_only_legacy_copy() {
+        let (dir, root) = fixture();
+        let runtime = dir.path().join("runtime");
+        let bytes = habitat_core::encode(&snapshot("duplicate v2", None)).unwrap();
+        fs::create_dir_all(root.join(".notemd/habitat")).unwrap();
+        fs::write(root.join(LEGACY_SNAPSHOT_PATH), &bytes).unwrap();
+        fs::write(root.join(SNAPSHOT_PATH), &bytes).unwrap();
+        git(&root, &["add", "--", LEGACY_SNAPSHOT_PATH, SNAPSHOT_PATH]).unwrap();
+        git(&root, &["commit", "-q", "-m", "merged identical copies"]).unwrap();
+
+        let state = load(&root, &runtime).unwrap();
+        assert_eq!(state["snapshot"]["meta"]["schema"], habitat_core::SCHEMA);
+        assert!(!root.join(LEGACY_SNAPSHOT_PATH).exists());
+        assert_eq!(fs::read(root.join(SNAPSHOT_PATH)).unwrap(), bytes);
+        assert!(
+            super::super::history::blob_at(&root, "HEAD", LEGACY_SNAPSHOT_PATH)
+                .unwrap()
+                .is_none()
+        );
+        assert_eq!(
+            super::super::history::blob_at(&root, "HEAD", SNAPSHOT_PATH)
+                .unwrap()
+                .unwrap(),
+            bytes
+        );
+    }
+
+    #[test]
+    fn different_v2_at_both_committed_paths_is_not_migrated() {
+        let (dir, root) = fixture();
+        let runtime = dir.path().join("runtime");
+        let old_bytes = habitat_core::encode(&snapshot("legacy v2", None)).unwrap();
+        let new_bytes = habitat_core::encode(&snapshot("other v2", None)).unwrap();
+        fs::create_dir_all(root.join(".notemd/habitat")).unwrap();
+        fs::write(root.join(LEGACY_SNAPSHOT_PATH), &old_bytes).unwrap();
+        fs::write(root.join(SNAPSHOT_PATH), &new_bytes).unwrap();
+        git(&root, &["add", "--", LEGACY_SNAPSHOT_PATH, SNAPSHOT_PATH]).unwrap();
+        git(&root, &["commit", "-q", "-m", "different copies"]).unwrap();
+        let before = super::super::history::head(&root).unwrap();
+
+        assert!(load(&root, &runtime)
+            .unwrap_err()
+            .contains("MIGRATION_REQUIRED"));
+        assert_eq!(super::super::history::head(&root).unwrap(), before);
+        assert_eq!(
+            fs::read(root.join(LEGACY_SNAPSHOT_PATH)).unwrap(),
+            old_bytes
+        );
+        assert_eq!(fs::read(root.join(SNAPSHOT_PATH)).unwrap(), new_bytes);
     }
 
     #[test]

@@ -1,4 +1,4 @@
-use habitat_core::{Snapshot, SNAPSHOT_PATH};
+use habitat_core::{Snapshot, LEGACY_SNAPSHOT_PATH, SNAPSHOT_PATH};
 use serde_json::{json, Value};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::Path;
@@ -64,11 +64,8 @@ pub(crate) fn head(root: &Path) -> Result<Option<String>, String> {
     }
 }
 
-fn blob_oid(root: &Path, revision: &str) -> Result<Option<String>, String> {
-    let tree = git(
-        root,
-        &["ls-tree", "-z", "-l", revision, "--", SNAPSHOT_PATH],
-    )?;
+fn blob_oid_at(root: &Path, revision: &str, path: &str) -> Result<Option<String>, String> {
+    let tree = git(root, &["ls-tree", "-z", "-l", revision, "--", path])?;
     if tree.is_empty() {
         return Ok(None);
     }
@@ -89,8 +86,44 @@ fn blob_oid(root: &Path, revision: &str) -> Result<Option<String>, String> {
     Ok(Some(fields[2].to_owned()))
 }
 
+fn blob_oid(root: &Path, revision: &str) -> Result<Option<String>, String> {
+    Ok(blob_oid_at(root, revision, SNAPSHOT_PATH)?.or(blob_oid_at(
+        root,
+        revision,
+        LEGACY_SNAPSHOT_PATH,
+    )?))
+}
+
+fn version_blob_oid(root: &Path, revision: &str) -> Result<Option<String>, String> {
+    let parents = git_text(root, &["rev-list", "--parents", "-n", "1", revision])?;
+    let parent = parents.split_whitespace().nth(1);
+    let new = blob_oid_at(root, revision, SNAPSHOT_PATH)?;
+    let old = blob_oid_at(root, revision, LEGACY_SNAPSHOT_PATH)?;
+    let previous_new = parent
+        .map(|p| blob_oid_at(root, p, SNAPSHOT_PATH))
+        .transpose()?
+        .flatten();
+    let previous_old = parent
+        .map(|p| blob_oid_at(root, p, LEGACY_SNAPSHOT_PATH))
+        .transpose()?
+        .flatten();
+    if new != previous_new && new.is_some() {
+        return Ok(new);
+    }
+    if old != previous_old && old.is_some() {
+        return Ok(old);
+    }
+    Ok(new.or(old))
+}
+
 pub(crate) fn blob(root: &Path, revision: &str) -> Result<Option<Vec<u8>>, String> {
     blob_oid(root, revision)?
+        .map(|oid| git(root, &["cat-file", "blob", &oid]))
+        .transpose()
+}
+
+pub(crate) fn blob_at(root: &Path, revision: &str, path: &str) -> Result<Option<Vec<u8>>, String> {
+    blob_oid_at(root, revision, path)?
         .map(|oid| git(root, &["cat-file", "blob", &oid]))
         .transpose()
 }
@@ -146,21 +179,33 @@ pub(crate) fn validate_bytes(bytes: &[u8]) -> Result<Snapshot, String> {
 /// Called under the shared RepositoryWriter lock, before *every* auto-stage.
 /// A dedicated save owns pending/unknown edits; auto-sync must not bypass it.
 pub fn guard_before_sync_commit(root: &Path) -> Result<(), String> {
-    let (_, committed) = committed(root)?;
-    let current = super::store::read_current(root)?;
-    if current != committed {
-        return Err(
-            "KNOWLEDGE_STRUCTURE_PENDING: uncommitted structure requires its save/recovery service"
-                .into(),
-        );
-    }
-    if let Some(bytes) = &committed {
-        validate_bytes(bytes)?;
+    super::store::migrate_legacy_schema2_unlocked(root)?;
+    let revision = head(root)?;
+    for path in [SNAPSHOT_PATH, LEGACY_SNAPSHOT_PATH] {
+        let committed = revision
+            .as_deref()
+            .map(|rev| blob_at(root, rev, path))
+            .transpose()?
+            .flatten();
+        let current = super::store::read_current_at(root, path)?;
+        if current != committed {
+            return Err("KNOWLEDGE_STRUCTURE_PENDING: uncommitted structure requires its save/recovery service".into());
+        }
+        if let Some(bytes) = &committed {
+            validate_bytes(bytes)?;
+        }
     }
     // The working tree may equal HEAD while an older/foreign graph is staged.
     let staged = git_text(
         root,
-        &["diff", "--cached", "--name-only", "--", SNAPSHOT_PATH],
+        &[
+            "diff",
+            "--cached",
+            "--name-only",
+            "--",
+            SNAPSHOT_PATH,
+            LEGACY_SNAPSHOT_PATH,
+        ],
     )?;
     if !staged.trim().is_empty() {
         return Err(
@@ -174,12 +219,20 @@ pub fn guard_before_sync_commit(root: &Path) -> Result<(), String> {
 /// Inspect immutable sides before invoking merge, including clean text merges.
 pub fn guard_before_sync_merge(root: &Path, upstream: &str) -> Result<(), String> {
     let ours = head(root)?.ok_or("KNOWLEDGE_GIT: merge requires a local HEAD")?;
+    let base = git_text(root, &["merge-base", &ours, upstream])?;
+    for path in [SNAPSHOT_PATH, LEGACY_SNAPSHOT_PATH] {
+        let ours_bytes = blob_at(root, &ours, path)?;
+        let theirs_bytes = blob_at(root, upstream, path)?;
+        for bytes in [&ours_bytes, &theirs_bytes].into_iter().flatten() {
+            validate_bytes(bytes)?;
+        }
+        let base_bytes = blob_at(root, base.trim(), path)?;
+        if ours_bytes != base_bytes && theirs_bytes != base_bytes && ours_bytes != theirs_bytes {
+            return Err("KNOWLEDGE_STRUCTURE_CONFLICT: both branches changed the structure; preserve both snapshots and reconcile explicitly".into());
+        }
+    }
     let ours_bytes = blob(root, &ours)?;
     let theirs_bytes = blob(root, upstream)?;
-    for bytes in [&ours_bytes, &theirs_bytes].into_iter().flatten() {
-        validate_bytes(bytes)?;
-    }
-    let base = git_text(root, &["merge-base", &ours, upstream])?;
     let base_bytes = blob(root, base.trim())?;
     if ours_bytes != base_bytes && theirs_bytes != base_bytes && ours_bytes != theirs_bytes {
         return Err("KNOWLEDGE_STRUCTURE_CONFLICT: both branches changed the structure; preserve both snapshots and reconcile explicitly".into());
@@ -203,6 +256,7 @@ pub fn history(root: &Path, limit: usize) -> Result<Value, String> {
             &count,
             "--",
             SNAPSHOT_PATH,
+            LEGACY_SNAPSHOT_PATH,
         ],
     )?;
     let mut seen = HashSet::new();
@@ -211,7 +265,7 @@ pub fn history(root: &Path, limit: usize) -> Result<Value, String> {
     let mut examined = 0;
     for commit in commits.lines() {
         examined += 1;
-        let Some(oid) = blob_oid(root, commit)? else {
+        let Some(oid) = version_blob_oid(root, commit)? else {
             continue;
         };
         let mut summary = validated_summary(root, &oid)?;
@@ -238,8 +292,9 @@ pub fn read_at(root: &Path, commit_id: &str) -> Result<Value, String> {
         root,
         &["cat-file", "-e", &format!("{commit_id}^{{commit}}")],
     )?;
-    let bytes =
-        blob(root, commit_id)?.ok_or("KNOWLEDGE_NOT_FOUND: no structure at this revision")?;
+    let oid = version_blob_oid(root, commit_id)?
+        .ok_or("KNOWLEDGE_NOT_FOUND: no structure at this revision")?;
+    let bytes = git(root, &["cat-file", "blob", &oid])?;
     let snapshot = validate_bytes(&bytes)?;
     Ok(json!({"snapshot": snapshot, "commit": commit_id}))
 }

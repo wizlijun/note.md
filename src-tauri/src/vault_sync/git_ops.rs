@@ -297,6 +297,10 @@ pub fn sync(repo: &Path, remote: &str, branch: &str) -> GitResult<SyncReport> {
             args.extend(["-m", "vault: reconcile Memory v2 projections"]);
             run_git(repo, &args)?;
         }
+        // A fast-forward or merge can introduce a v2 Habitat snapshot at the
+        // legacy path. Move it before pushing so older hosts never receive a
+        // newly synchronized commit that still blocks their normal Git sync.
+        crate::knowledge_structure::guard_before_sync_commit(repo)?;
     }
 
     // ③ 树干净≠已同步:上轮 commit 成功但 push 失败会留下滞留提交,
