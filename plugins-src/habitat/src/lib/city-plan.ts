@@ -196,17 +196,16 @@ export function relationWeight(edge: Edge) {
 
 export interface CommunityPlan { focus?: boolean; isolateUnassigned?: boolean; memberships: Membership[]; topics: (Node & { x: number; z: number })[] }
 
-const SEMANTIC_BLOCK_CAPACITY = 12
 const semanticFootprint = (focus?: boolean) => focus ? 2.2 : 1.45
+const semanticSpacing = (members: ProjectedLot[], focus?: boolean) => Math.max(semanticFootprint(focus) * 2 + .24, members.some(lot => lot.style) ? 6.64 : 0)
 
 /** A disk of this radius fits every address, including the widest future street. */
 function semanticRadius(members: ProjectedLot[], focus?: boolean) {
   const hero = members.find(l => l.style)
-  if (hero) return 5
-  const footprint = semanticFootprint(focus), positions = semanticSlots(members.length, footprint * 2 + .24)
+  const footprint = hero ? 3.2 : semanticFootprint(focus), positions = semanticSlots(members.length, semanticSpacing(members, focus))
   const occupied = Math.max(...positions.map(p => Math.hypot(p.x, p.z))) + footprint + ROAD_MARGIN + .02
   // The city's perimeter uses a regular dodecagon: reserve its smaller inradius.
-  return Math.max(focus ? 3.9 : 3.1, occupied / Math.cos(Math.PI / 12))
+  return Math.max(hero ? 5 : focus ? 3.9 : 3.1, occupied / Math.cos(Math.PI / 12))
 }
 
 /** Fixed addresses depend on membership, never attention or building strength. */
@@ -236,18 +235,8 @@ function semanticParcels(lots: ProjectedLot[], communities: CommunityPlan): City
     groups.get(key)!.push(lot)
   }
   const parcels: CityParcel[] = []
-  // Large communities need multiple physical blocks, but each block is named only for its own members.
-  // Landmarks keep individual campuses while other members share the actual community.
-  const entries = [...groups].flatMap(([topicId, members]) => {
-    const heroes = members.filter(l => l.style).sort((a, b) => a.node.id.localeCompare(b.node.id))
-    const ordinary = members.filter(l => !l.style).sort((a, b) => a.node.id.localeCompare(b.node.id))
-    const blocks = []
-    for (const hero of heroes) blocks.push({ id: heroes.length === 1 && !ordinary.length ? topicId : `${topicId}:${hero.node.id}`, topicId, members: [hero] })
-    for (let start = 0; start < ordinary.length; start += SEMANTIC_BLOCK_CAPACITY) {
-      blocks.push({ id: !heroes.length && ordinary.length <= SEMANTIC_BLOCK_CAPACITY ? topicId : `${topicId}:block:${ordinary[start].node.id}`, topicId, members: ordinary.slice(start, start + SEMANTIC_BLOCK_CAPACITY) })
-    }
-    return blocks
-  }).sort((a, b) => Number(b.members.some(l => l.style)) - Number(a.members.some(l => l.style)) || a.id.localeCompare(b.id))
+  const entries = [...groups].map(([topicId, members]) => ({ id: topicId, topicId, members }))
+    .sort((a, b) => Number(b.members.some(l => l.style)) - Number(a.members.some(l => l.style)) || a.id.localeCompare(b.id))
   const originFor = (topicId: string, members: ProjectedLot[]) => {
     const topic = topics.get(topicId), cell = !topic && topicId.startsWith('exploration:') ? topicId.split(':').slice(1).map(Number) : null
     return topic ?? (cell ? { x: cell[0] * 12 + 6, z: cell[1] * 12 + 6 } : members[0])
@@ -414,12 +403,11 @@ export function planCity(lots: ProjectedLot[], edges: Edge[], communities?: Comm
   // Placements reserve the maximum street width so additional evidence never pushes buildings aside.
   if (communities) {
     for (const parcel of plan.parcels) {
-      const hero = parcel.kind === 'campus' || parcel.kind === 'park'
       const radius = semanticFootprint(communities.focus)
       const sides = parcel.polygon.map((a, i) => ({ a, b: parcel.polygon[(i + 1) % parcel.polygon.length] }))
       const axis = [...sides].sort((a, b) => distance(b.a, b.b) - distance(a.a, a.b) || vertexKey(a.a).localeCompare(vertexKey(b.a)))[0]
       const angle = Math.atan2(axis.b.z - axis.a.z, axis.b.x - axis.a.x)
-      const slots = semanticSlots(parcel.members.length, radius * 2 + .24)
+      const slots = semanticSlots(parcel.members.length, semanticSpacing(parcel.members, communities.focus))
       for (let i = 0; i < parcel.members.length; i++) {
         const lot = parcel.members[i], slot = slots[i]
         const point = { x: parcel.center.x + slot.x * Math.cos(angle) - slot.z * Math.sin(angle), z: parcel.center.z + slot.x * Math.sin(angle) + slot.z * Math.cos(angle) }
@@ -427,8 +415,8 @@ export function planCity(lots: ProjectedLot[], edges: Edge[], communities?: Comm
         const dx = nearest.b.x - nearest.a.x, dz = nearest.b.z - nearest.a.z
         const t = Math.max(0, Math.min(1, ((point.x - nearest.a.x) * dx + (point.z - nearest.a.z) * dz) / (dx * dx + dz * dz)))
         const rotation = Math.atan2(nearest.a.x + dx * t - point.x, nearest.a.z + dz * t - point.z)
-        const footprint = hero ? 3.2 : radius
-        const kind = hero ? parcel.kind === 'park' ? 'camp' : 'campus' : 'house'
+        const footprint = lot.style ? 3.2 : radius
+        const kind = lot.style === 'camp' ? 'camp' : lot.style ? 'campus' : 'house'
         plan.placements.push({ id: lot.node.id, parcelId: parcel.id, ...point, rotation, footprint, kind })
         plan.positions.set(lot.node.id, point)
       }

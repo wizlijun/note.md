@@ -24,6 +24,10 @@ export interface Label { id: string; nodeId?: string; attentionCategory?: string
 export interface SceneStatus { labels: Label[]; count: number; rendered?: number; aggregated?: boolean; zoom?: number; loading?: boolean; error?: string; hover?: { name: string; kind: string; growth?: string; x: number; y: number } }
 type Primitive = { p: number[]; s: number[]; ry?: number; color?: string }
 
+export function districtLabelTarget(representativeId: string, visibleMembers: string[], filtered: boolean) {
+  return filtered ? visibleMembers[0] ?? representativeId : representativeId
+}
+
 function polygonGeometry(points: CityPoint[], y: number) {
   const shape = new THREE.Shape(points.map(p => new THREE.Vector2(p.x, -p.z)))
   const geometry = new THREE.ShapeGeometry(shape)
@@ -237,17 +241,19 @@ export class CityScene {
       const members = parcel.members.map(l => nodes.get(l.node.id)!).filter(Boolean)
       const hero = this.lots.find(l => l.parcelId === parcel.id && l.style)
       const rank = (node: Node) => node.nodeType === 'topic' ? 0 : ['concept', 'entity', 'project'].includes(node.nodeType) ? 1 : 2
-      const representative = hero?.node ?? [...members].sort((a, b) => rank(a) - rank(b) || Number(a.label.length > 24) - Number(b.label.length > 24) || (b.evidence?.length ?? 0) - (a.evidence?.length ?? 0) || a.id.localeCompare(b.id))[0]
+      const renderedMembers = data.keywordGraph ? members : this.lots.filter(lot => lot.parcelId === parcel.id).map(lot => lot.node)
+      const representative = hero?.node ?? [...renderedMembers].sort((a, b) => rank(a) - rank(b) || Number(a.label.length > 24) - Number(b.label.length > 24) || (b.evidence?.length ?? 0) - (a.evidence?.length ?? 0) || a.id.localeCompare(b.id))[0]
       if (!representative) return []
+      const anchor = data.keywordGraph ? hero : this.lots.find(lot => lot.parcelId === parcel.id && lot.node.id === representative.id)
       const focusLabel = focusDistrictLabel(members, attention)
       const memberName = members.length === 1 ? members[0].label : [...members]
         .sort((a, b) => (b.evidence?.length ?? 0) - (a.evidence?.length ?? 0) || a.id.localeCompare(b.id))
         .slice(0, 3).map(node => node.label).join(' · ') + (members.length > 3 ? ` 等 ${members.length} 个` : '')
       const topicWords = parcel.name?.split(' · ') ?? []
-      const exactTopicName = !!parcel.topicId && topicWords.length === members.length && topicWords.every(word => members.some(node => node.label === word))
+      const exactTopicName = !!parcel.topicId && topicWords.length > 0 && topicWords.every(word => members.some(node => node.label === word))
       const parcelName = data.conceptGraph ? exactTopicName ? parcel.name : memberName : parcel.name
       const kind = parcel.kind === 'campus' ? '项目园区' : parcel.kind === 'park' ? '探索营地' : parcel.kind === 'growth' ? data.keywordGraph ? '探索地块（尚无社区）' : '材料街区' : '知识街区'
-      return [{ node: representative, x: hero?.x ?? parcel.center.x, z: hero?.z ?? parcel.center.z, h: hero?.h ?? .3, w: 1, style: hero?.style, parcelId: parcel.id, district: { name: data.conceptGraph ? parcelName ?? memberName : focusLabel ? (parcel.unassigned ? '待连接：' : '') + focusLabel.name : parcelName ?? representative.label, contextName: data.conceptGraph ? parcel.topicId && !exactTopicName ? parcel.name : undefined : focusLabel && parcel.topicId ? parcelName : undefined, attentionCategory: focusLabel?.category, count: parcel.members.length, kind, topicId: parcel.topicId, unassigned: parcel.unassigned } }]
+      return [{ node: representative, x: anchor?.x ?? parcel.center.x, z: anchor?.z ?? parcel.center.z, h: anchor?.h ?? .3, w: 1, style: hero?.style, parcelId: parcel.id, district: { name: data.conceptGraph ? parcelName ?? memberName : focusLabel ? (parcel.unassigned ? '待连接：' : '') + focusLabel.name : parcelName ?? representative.label, contextName: data.conceptGraph ? parcel.topicId && !exactTopicName ? parcel.name : undefined : focusLabel && parcel.topicId ? parcelName : undefined, attentionCategory: focusLabel?.category, count: parcel.members.length, kind, topicId: parcel.topicId, unassigned: parcel.unassigned } }]
     })
     const center = this.bounds.getCenter(new THREE.Vector3()), size = this.bounds.getSize(new THREE.Vector3()), span = Math.max(size.x, size.z) * .7 + 12
     const lightDistance = Math.max(100, span * 2)
@@ -836,11 +842,14 @@ export class CityScene {
     if (selected && visible(selected.node.id) && !candidates.some(l => !l.district && l.node.id === selected.node.id)) candidates.unshift(selected)
     const rects: { x: number; y: number; w: number; h: number }[] = [], labels: Label[] = []
     for (const l of candidates.sort((a, b) => Number(b.node.id === this.selected) - Number(a.node.id === this.selected) || Number(!!b.style) - Number(!!a.style) || a.parcelId.localeCompare(b.parcelId))) {
-      const p = new THREE.Vector3(l.x, l.h + .6, l.z).project(this.camera), x = (p.x + 1) * this.width / 2, y = (1 - p.y) * this.height / 2
-      if (x < 12 || x > this.width - 12 || y < 22 || y > this.height - 50 || p.z < -1 || p.z > 1) continue
       const shownMembers = l.district ? (this.parcelMembers.get(l.parcelId) ?? []).filter(visible) : []
+      const filteredDistrict = !!l.district && !!this.visibleIds && shownMembers.length < l.district.count
+      const targetId = districtLabelTarget(l.node.id, shownMembers, filteredDistrict)
+      const anchor = filteredDistrict ? this.byId.get(targetId) ?? l : l
+      const p = new THREE.Vector3(anchor.x, anchor.h + .6, anchor.z).project(this.camera), x = (p.x + 1) * this.width / 2, y = (1 - p.y) * this.height / 2
+      if (x < 12 || x > this.width - 12 || y < 22 || y > this.height - 50 || p.z < -1 || p.z > 1) continue
       const shownNodes = shownMembers.map(id => this.byId.get(id)?.node).filter((node): node is Node => !!node)
-      const districtName = l.district && this.visibleIds && shownMembers.length < l.district.count
+      const districtName = filteredDistrict
         ? shownNodes.slice(0, 3).map(node => node.label).join(' · ') + (shownMembers.length > 3 ? ` 等 ${shownMembers.length} 个` : '') : l.district?.name
       const prominent = !!l.style || l.node.id === this.selected
       const extra = !l.district && this.latest?.conceptGraph && !isMainConcept(l.node) ? typeLabel(l.node.nodeType, true).length * 8 + 12 : 0
@@ -850,7 +859,7 @@ export class CityScene {
       // Every on-screen parcel retains its marker; only its text folds when crowded.
       const compact = l.node.id !== this.selected && overlaps
       rects.push({ x, y: y - (compact ? 12 : height) / 2, w: compact ? 12 : width, h: compact ? 12 : height })
-      labels.push({ id: l.district ? l.parcelId : l.node.id, nodeId: shownMembers[0] ?? l.node.id, attentionCategory: l.district?.attentionCategory ?? this.latest?.attention?.find(item => item.node === l.node.id)?.category, name: districtName ?? l.node.label, x, y, kind: l.node.nodeType, selected: l.node.id === this.selected, district: l.district ? { ...l.district, count: shownMembers.length } : undefined, compact, width, growth: !l.district ? this.latest?.growth?.get(l.node.id)?.label : undefined, growthState: !l.district ? this.latest?.growth?.get(l.node.id)?.state : undefined })
+      labels.push({ id: l.district ? l.parcelId : l.node.id, nodeId: targetId, attentionCategory: l.district?.attentionCategory ?? this.latest?.attention?.find(item => item.node === l.node.id)?.category, name: districtName ?? l.node.label, x, y, kind: l.node.nodeType, selected: targetId === this.selected, district: l.district ? { ...l.district, count: shownMembers.length } : undefined, compact, width, growth: !l.district ? this.latest?.growth?.get(l.node.id)?.label : undefined, growthState: !l.district ? this.latest?.growth?.get(l.node.id)?.state : undefined })
     }
     this.canvas.dataset.conceptLabels = String(labels.filter(l => !l.district).length)
     this.canvas.dataset.districtLabels = String(labels.filter(l => l.district).length)

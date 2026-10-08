@@ -202,10 +202,11 @@ describe('keyword community districts', () => {
     expect(plan.roads.every(r => r.traffic === 0)).toBe(true)
     assertClearances(plan)
   })
-  it('keeps distinct landmark campuses without absorbing a neighbouring community', () => {
+  it('keeps landmark buildings in their graph community without absorbing a neighbouring community', () => {
     const lots = [lot('hemory', 0, 0, 'campus'), lot('notemd', 0, 0, 'campus'), lot('member', 0, 0), lot('other', 0, 0)]
     const plan = planCity(lots, [], { topics: [topic('projects', 0, 0), topic('other-topic', 1, 1)], memberships: [membership('hemory', 'projects'), membership('notemd', 'projects'), membership('member', 'projects'), membership('other', 'other-topic')] })
-    expect(plan.parcels.filter(p => p.kind === 'campus')).toHaveLength(2)
+    expect(plan.parcels.filter(p => p.topicId === 'projects')).toHaveLength(1)
+    expect(plan.parcels.find(p => p.topicId === 'projects')?.members.map(m => m.node.id).sort()).toEqual(['hemory', 'member', 'notemd'])
     expect(plan.placements.filter(p => p.kind === 'campus').map(p => p.id).sort()).toEqual(['hemory', 'notemd'])
     expect(plan.parcels.filter(p => p.kind === 'campus').every(p => p.members.every(m => m.node.id !== 'other'))).toBe(true)
     expect(plan.positions.size).toBe(lots.length)
@@ -297,17 +298,13 @@ it('gives every semantic keyword its own building beyond the old 650-building bu
   const topic = { id: 'one-topic', key: 'one-topic', label: 'Same topic', nodeType: 'topic', status: 'candidate', x: 0, z: 0 }
   const communities = { topics: [topic], memberships: lots.map(l => ({ id: `m-${l.node.id}`, node: l.node.id, topic: topic.id, role: 'primary', score: 1 })) }
   const plan = planCity(lots, [], communities)
-  expect(plan.river).toBeDefined()
+  expect(plan.parcels).toHaveLength(1)
+  expect(plan.parcels[0].members).toHaveLength(lots.length)
   expect(plan.placements.map(p => p.id).sort()).toEqual(lots.map(l => l.node.id).sort())
   expect(new Set(plan.placements.map(p => `${p.x},${p.z}`)).size).toBe(lots.length)
   expect(plan.parcels.every(p => p.topicId === topic.id && p.name === topic.label)).toBe(true)
-  expect(plan.parcels.every(p => p.members.length <= 12)).toBe(true)
   for (const placement of plan.placements) {
     expect(plan.positions.get(placement.id)).toEqual({ x: placement.x, z: placement.z })
-    for (let i = 0; i < 8; i++) {
-      const angle = i * Math.PI / 4
-      expect(riverDistance(plan.river!, { x: placement.x + Math.cos(angle) * placement.footprint, z: placement.z + Math.sin(angle) * placement.footprint })).toBeGreaterThan(0)
-    }
   }
   assertClearances(plan)
 })
@@ -322,6 +319,7 @@ it('keeps concept addresses fixed as attention and building level grow beside pr
   expect(grown.positions).toEqual(baseline.positions)
   expect(skeleton(grown)).toEqual(skeleton(baseline))
   expect(grown.placements.map(({ kind, ...address }) => address)).toEqual(baseline.placements.map(({ kind, ...address }) => address))
-  expect(baseline.parcels.filter(p => p.kind === 'campus').every(p => p.members.length === 1)).toBe(true)
+  expect(baseline.parcels.filter(p => p.kind === 'campus')).toHaveLength(1)
+  expect(baseline.parcels[0].members).toHaveLength(lots.length)
   assertClearances(grown)
 })
