@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.1008.2 — 2026-10-08
+
 ### Fixed
 
 - **HABITAT snapshots no longer block Vault Sync on older hosts after migration.** Host 6.1008.2 stores schema 2 snapshots at a new path and moves any existing schema 2 snapshot from the legacy path while preserving its bytes and Git history. HABITAT 0.5.3 requires this host version. A device whose older host has already committed a schema 2 snapshot at the legacy path must upgrade the host before it can resume syncing.
