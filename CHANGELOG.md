@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.1008.1 — 2026-10-08
+
 ### Changed
 
 - **HABITAT separates recent attention from accumulated knowledge.** HABITAT 0.5.0 can save dated observations and a 30-day focus window alongside the existing knowledge structure. Version comparison distinguishes attention shifts from structural changes, and older snapshots remain readable. The plugin now opens the full concept-and-project city by default, keeps background entities separate, and represents concept growth with varied buildings across connected mountain and river terrain. Install the updated plugin separately.
