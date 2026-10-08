@@ -193,9 +193,13 @@ it('browses keyword communities without listing sources or topic containers as k
   expect(document.querySelector('.detail-panel')).toBeNull()
 })
 
-it('defaults to recent attention, ranks by score and explains dated observations without claiming mastery', async () => {
+it('defaults to full history and explicitly switches to recent attention ranked by dated observations', async () => {
   current.snapshot = focusFixture()
   await mountApp()
+  expect(document.querySelectorAll('.node-row')).toHaveLength(3)
+  expect(document.body.textContent).toContain('十年前的旧主题')
+  expect(document.querySelector('.focus-window')?.textContent).toBe('全量历史关键词与关系')
+  button('近期关注').click(); await flush()
   const rows = document.querySelectorAll<HTMLButtonElement>('.node-row')
   expect(rows).toHaveLength(2)
   expect(rows[0].textContent).toContain('观察与反馈')
@@ -217,7 +221,7 @@ it('defaults to recent attention, ranks by score and explains dated observations
 })
 it('changes the next generation window without relabelling the saved attention window', async () => {
   current.snapshot = focusFixture()
-  await mountApp()
+  await mountApp(); button('近期关注').click(); await flush()
   const select = document.querySelector<HTMLSelectElement>('[aria-label="下次解析关注范围"]')!
   select.value = '7'; select.dispatchEvent(new Event('change', { bubbles: true })); await flush()
   expect(document.querySelector('.focus-window')?.textContent).toContain('最近 30 天')
@@ -226,7 +230,7 @@ it('changes the next generation window without relabelling the saved attention w
 })
 it('keeps old snapshots explicit and does not treat a computed empty focus as missing history', async () => {
   current.snapshot = focusFixture(); current.snapshot.attention = []
-  await mountApp()
+  await mountApp(); button('近期关注').click(); await flush()
   expect(document.querySelectorAll('.node-row')).toHaveLength(0)
   expect(document.body.textContent).toContain('这段时间还没有足够的关注线索')
   button('历史结构').click(); await flush()
@@ -236,7 +240,7 @@ it('keeps old snapshots explicit and does not treat a computed empty focus as mi
 it('names recent membership chips from visible concepts while retaining the original community identity', async () => {
   current.snapshot = focusFixture()
   current.snapshot.memberships = [{ id: 'm', node: 'n2', topic: 't1', role: 'primary', score: 1 }]
-  await mountApp(); document.querySelector<HTMLButtonElement>('.node-row')!.click(); await flush()
+  await mountApp(); button('近期关注').click(); await flush(); document.querySelector<HTMLButtonElement>('.node-row')!.click(); await flush()
   const chip = document.querySelector<HTMLButtonElement>('.memberships button')!
   expect(chip.textContent).toContain('观察与反馈')
   expect(chip.title).toBe('原社区：研究方法')
@@ -248,7 +252,7 @@ it('names recent membership chips from visible concepts while retaining the orig
 it('shows evidence-derived building level independently from the recent attention score', async () => {
   current.snapshot = focusFixture()
   current.snapshot.attention![1].score = 1
-  await mountApp()
+  await mountApp(); button('近期关注').click(); await flush()
   const row = [...document.querySelectorAll<HTMLButtonElement>('.node-row')].find(row => row.textContent?.includes('观察与反馈'))!
   row.click(); await flush()
   expect(document.querySelector('.growth-badge')?.textContent).toContain('茅草屋')
@@ -294,9 +298,14 @@ function conceptSnapshot() {
   return data
 }
 
-it.each([4, 5, 6])('defaults focus/%i to concepts and projects and exposes background sources without reclassification', async version => {
+it.each([4, 5, 6, 7])('defaults focus/%i to full concept history and exposes recent and background views without reclassification', async version => {
   current.snapshot = conceptSnapshot(); current.snapshot.meta.algorithm.version = `habitat-focus/${version}`; const original = JSON.stringify(current.snapshot)
   await mountApp()
+  expect([...document.querySelectorAll('.node-row strong')].map(n=>n.textContent)).toEqual(['纸船计划','观察与反馈','十年前的旧主题'])
+  expect(document.querySelector('.focus-window')?.textContent).toBe('全库已提取概念与项目 · 不限最近30天')
+  expect(document.body.textContent).not.toContain('原文中的人物')
+  expect(document.body.textContent).not.toContain('原文中的工具')
+  button('近期关注').click(); await flush()
   expect([...document.querySelectorAll('.node-row strong')].map(n=>n.textContent)).toEqual(['观察与反馈','纸船计划'])
   expect(document.querySelector('.section-title')?.textContent).toContain('个概念 / 项目')
   expect(document.querySelector('.focus-window')?.textContent).not.toContain('历史概念为自动识别结果')
@@ -319,12 +328,12 @@ it.each([4, 5, 6])('defaults focus/%i to concepts and projects and exposes backg
   expect(document.querySelectorAll('.node-row')).toHaveLength(4)
   button('历史结构').click(); await flush()
   expect(document.querySelectorAll('.node-row')).toHaveLength(5)
-  expect(document.querySelector('.focus-window')?.textContent).toBe('历史概念为自动识别结果，可回源核对。')
+  expect(document.querySelector('.focus-window')?.textContent).toBe('全库已提取节点 · 包含概念与背景实体')
   expect(JSON.stringify(current.snapshot)).toBe(original)
 })
 
 it('starts roads with textual statements, optionally adds statistics and preserves selected concept evidence', async () => {
-  current.snapshot = conceptSnapshot(); await mountApp()
+  current.snapshot = conceptSnapshot(); await mountApp(); button('近期关注').click(); await flush()
   expect(document.querySelector('.directory-footer')?.textContent).toContain('1 条关系')
   document.querySelector<HTMLButtonElement>('.node-row')!.click(); await flush()
   const cards = [...document.querySelectorAll('.relation-card')]
@@ -350,7 +359,7 @@ it('starts roads with textual statements, optionally adds statistics and preserv
 })
 
 it('does not add concept-layer or road-certainty controls to an older keyword snapshot', async () => {
-  current.snapshot=focusFixture(); await mountApp()
+  current.snapshot=focusFixture(); await mountApp(); button('近期关注').click(); await flush()
   expect(document.querySelector('[aria-label="知识层"]')).toBeNull()
   expect(document.querySelector('[aria-label="包含统计关联"]')).toBeNull()
   expect(document.querySelector('.section-title')?.textContent).toContain('2 个关键词')
@@ -359,7 +368,7 @@ it('does not add concept-layer or road-certainty controls to an older keyword sn
 it('handles empty and single background layers across recent and history without losing source access', async () => {
   const data=focusFixture();data.meta.algorithm.version='habitat-focus/4'
   data.nodes.push({id:'person',key:'person',nodeType:'person',label:'历史人物条目',status:'observed',evidence:['e1']})
-  current.snapshot=data;await mountApp()
+  current.snapshot=data;await mountApp(); button('近期关注').click(); await flush()
   const layer=document.querySelector<HTMLSelectElement>('[aria-label="知识层"]')!
   layer.value='background';layer.dispatchEvent(new Event('change',{bubbles:true}));await flush()
   expect(document.querySelectorAll('.node-row')).toHaveLength(0)
@@ -380,4 +389,24 @@ it('handles empty and single background layers across recent and history without
   expect(document.querySelector('.detail-panel')).toBeNull()
   button('近期关注').click();await flush()
   expect(document.querySelectorAll('.node-row')).toHaveLength(2)
+})
+
+it('resets a switched Vault to full concept history while clearing recent and background filters', async () => {
+  current.snapshot = conceptSnapshot(); current.snapshot.meta.algorithm.version = 'habitat-focus/7'
+  await mountApp(); button('近期关注').click(); await flush()
+  const layer = document.querySelector<HTMLSelectElement>('[aria-label="知识层"]')!
+  layer.value = 'background'; layer.dispatchEvent(new Event('change', { bubbles: true })); await flush()
+  document.querySelector<HTMLInputElement>('[aria-label="包含统计关联"]')!.click(); await flush()
+  expect(document.querySelectorAll('.node-row')).toHaveLength(2)
+  expect(document.querySelector('.focus-window')?.textContent).toContain('最近 30 天')
+  const next = conceptSnapshot(); next.meta.algorithm.version = 'habitat-focus/7'
+  next.nodes[0].label = '新 Vault 的项目'
+  current = { ...current, vaultKey: 'different-vault', snapshot: next }
+  window.dispatchEvent(new Event('focus')); await flush()
+  expect(document.querySelector<HTMLSelectElement>('[aria-label="知识层"]')!.value).toBe('main')
+  expect(document.querySelector<HTMLInputElement>('[aria-label="包含统计关联"]')!.checked).toBe(false)
+  expect([...document.querySelectorAll('.node-row strong')].map(n => n.textContent)).toEqual(['新 Vault 的项目', '观察与反馈', '十年前的旧主题'])
+  expect(document.querySelector('.focus-window')?.textContent).toBe('全库已提取概念与项目 · 不限最近30天')
+  expect(document.body.textContent).not.toContain('纸船计划')
+  expect(request.mock.calls.some(call => ['plugin.generate', 'host.vault.write'].includes(call[0]))).toBe(false)
 })

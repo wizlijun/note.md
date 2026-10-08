@@ -2,9 +2,9 @@
   "manifest_version": 2,
   "id": "notemd.habitat",
   "name": "HABITAT",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "kind": "native",
-  "engines": { "notemd": ">=6.1002.1" },
+  "engines": { "notemd": ">=6.1008.1" },
   "description": "Explore the structure of your Vault as a growing city, with source evidence and version history.",
   "binary": {
     "aarch64-apple-darwin": "bin/notemd-habitat",
