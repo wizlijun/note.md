@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.1009.2 — 2026-10-09
+
 ### Fixed
 
 - **Rich Markdown resolves root-relative resources from the vault first.** Images, HTML audio/video and posters, and local file links such as `/ssot/...` now try the vault before falling back to the full filesystem path. Encoded spaces and filenames resolve consistently without changing the Markdown; plugin editors use the same rules within their existing vault permissions, and each editor keeps its own document directory.
