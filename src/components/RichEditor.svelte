@@ -2,7 +2,7 @@
   import { onMount, onDestroy, untrack } from 'svelte'
   import type { Tab } from '../lib/tabs.svelte'
   import { setContent, activeTab, openFile } from '../lib/tabs.svelte'
-  import { classifyLink, resolveWikilinkPath, restoreWikilinks, type LinkAction } from '../lib/link-open'
+  import { resolveLinkAction, resolveWikilinkPath, restoreWikilinks } from '../lib/link-open'
   import { buildFencedBlock, stripCodeFence } from '../lib/code-fence'
   import { toDisplayMarkdown } from '../lib/mdx/display'
   import { activeTheme } from '../lib/active-theme.svelte'
@@ -40,6 +40,7 @@
   import { ensureIndex } from '../lib/outline/backlinks-io.svelte'
   import { outlineGate } from '../lib/outline/gate.svelte'
   import { sotvaultStore } from '../lib/sotvault.svelte'
+  import { dirname } from '../lib/paths'
 
   // Reactive store of the currently active theme id, set by the theme-init
   // block in App.svelte. Default is 'default'.
@@ -412,8 +413,7 @@
       return
     }
     const href = urlEl ? urlEl.getAttribute('data-url') || '' : anchor!.getAttribute('href') || ''
-    const action = classifyLink(href, tab.filePath, sotvaultStore.vaultRoot)
-    if (action.kind !== 'ignore') void openLinkAction(action)
+    void openLink(href, tab.filePath, sotvaultStore.vaultRoot)
   }
 
   /** Open a `[[wikilink]]` target, creating an empty `.md` file if it's missing. */
@@ -454,8 +454,12 @@
     })
   }
 
-  async function openLinkAction(action: LinkAction) {
+  async function openLink(href: string, basePath: string, vaultRoot: string | null) {
     try {
+      const action = await resolveLinkAction(href, basePath, vaultRoot, async (path) => {
+        const { exists } = await import('@tauri-apps/plugin-fs')
+        return exists(path)
+      })
       if (action.kind === 'browser') {
         const { openUrl } = await import('@tauri-apps/plugin-opener')
         await openUrl(action.url)
@@ -1114,6 +1118,13 @@
     ;(async () => {
       try {
         const { mountRichEditor, updateDocumentBaseDir } = await import('../lib/editor-bridge')
+        const { TauriMediaResolver } = await import('../lib/adapters/tauri-media-resolver')
+        // Keep resolution attached to this tab, including Save As / renames.
+        // Another mounted editor may change moraya's global base directory.
+        const mediaResolver = new TauriMediaResolver(() => ({
+          vaultRoot: sotvaultStore.vaultRoot,
+          ...(tab.filePath ? { baseDir: dirname(tab.filePath) } : {}),
+        }))
         updateDocumentBaseDir(tab.filePath)
         const inst = await mountRichEditor(host!, wrapIfNeeded(tab.currentContent), (md) => {
           // Read-only tabs render a transformed copy of the file; letting that
@@ -1123,7 +1134,7 @@
           const unwrapped = unwrapIfNeeded(md)
           lastSync = unwrapped
           setContent(tabId, unwrapped)
-        }, ime, undefined, readOnly)
+        }, ime, mediaResolver, readOnly)
         if (readOnly) {
           const v = inst.view as unknown as EditorView
           // `editable: false` only stops DOM-level input. Menu commands,

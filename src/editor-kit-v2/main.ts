@@ -78,7 +78,8 @@ export async function mountDocumentEditor(
   watchKitTheme()
   await applyKitTheme()
   const root = await loadVaultRoot()
-  setKitBaseDir(root ? `${root.replace(/\/$/, '')}/${(opts.baseDir ?? '').replace(/^\/+|\/+$/g, '')}` : '')
+  const baseDir = root ? `${root.replace(/\/$/, '')}/${(opts.baseDir ?? '').replace(/^\/+|\/+$/g, '')}` : ''
+  setKitBaseDir(baseDir)
   const host = document.createElement('div')
   host.className = 'kit-host'
   container.appendChild(host)
@@ -112,7 +113,7 @@ export async function mountDocumentEditor(
   let freshCounter = 0
   const canonicalContent = new Map<string, string>()
 
-  const rich = await mountRich(host, '', root, () => {}, opts.placeholder, undefined, withBlockIdentitySchema)
+  const rich = await mountRich(host, '', root, () => {}, opts.placeholder, undefined, withBlockIdentitySchema, baseDir)
   const freshId = () => opts.ids.blockId?.() ?? `block-${crypto.randomUUID?.() ?? `${Date.now()}-${++freshCounter}`}`
   const initial = materializeBlocks(snapshot.blocks, rich.view.state.schema)
   rich.view.dispatch(rich.view.state.tr.replaceWith(0, rich.view.state.doc.content.size, initial.doc.content)

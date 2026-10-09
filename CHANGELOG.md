@@ -9,6 +9,8 @@ For the full commit history, see the git log.
 
 ### Fixed
 
+- **Rich Markdown resolves root-relative resources from the vault first.** Images, HTML audio/video and posters, and local file links such as `/ssot/...` now try the vault before falling back to the full filesystem path. Encoded spaces and filenames resolve consistently without changing the Markdown; plugin editors use the same rules within their existing vault permissions, and each editor keeps its own document directory.
+
 - **Typeset Reader 0.2.4 completes later pages with local images.** HTML `<img>` elements and Markdown image paths containing percent encoding, query strings, or fragments now use the same validated file snapshots. Missing or disallowed images fail before pagination instead of ending continuation with an opaque access-denied error.
 - **Typeset Reader 0.2.3 restores the Chinese book layout.** The original 170 × 240 mm page, red book cover, chapter ornaments, typography, and spacing share one template. Chinese quotations no longer gain an extra gray rule; inline code stays monospace and footnote markers regain readable sizing. Optional verified system-font downloads now match the original Source Han SC and LXGW WenKai faces, with code and footnote fonts; existing subsets remain fallbacks and no fonts are bundled. Existing pagination caches refresh automatically.
 

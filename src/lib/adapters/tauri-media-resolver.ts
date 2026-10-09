@@ -1,6 +1,7 @@
 import { readFile } from '@tauri-apps/plugin-fs'
-import type { MediaResolver } from '@moraya/core'
+import type { LocalMediaSource, MediaResolver } from '@moraya/core'
 import { basename } from '../paths'
+import { localResourceCandidates, type LocalResourceContext } from '../local-resource'
 
 const blobCache = new Map<string, string>()
 
@@ -29,32 +30,38 @@ function buildBlob(bytes: Uint8Array, mime: string): string {
 }
 
 export class TauriMediaResolver implements MediaResolver {
-  async loadLocalImage(absolutePath: string): Promise<string> {
-    const cached = blobCache.get(absolutePath)
-    if (cached) return cached
-    try {
-      const bytes = await readFile(absolutePath)
-      const mime = IMAGE_MIME[pathExt(absolutePath)] || 'image/png'
-      const url = buildBlob(bytes, mime)
-      blobCache.set(absolutePath, url)
-      return url
-    } catch {
-      return ''
+  constructor(private readonly getContext: () => LocalResourceContext = () => ({})) {}
+
+  private async load(
+    absolutePath: string,
+    source: LocalMediaSource | undefined,
+    mimes: Record<string, string>,
+    fallbackMime: string,
+  ): Promise<string> {
+    // Without source metadata this is already a filesystem path. Never decode
+    // it again or reinterpret it as a root-relative Markdown URL.
+    const candidates = source
+      ? localResourceCandidates(source.src, { baseDir: source.baseDir, ...this.getContext() })
+      : [absolutePath]
+    for (const path of candidates) {
+      const cached = blobCache.get(path)
+      if (cached) return cached
+      try {
+        const bytes = await readFile(path)
+        const url = buildBlob(bytes, mimes[pathExt(path)] || fallbackMime)
+        blobCache.set(path, url)
+        return url
+      } catch { /* Try the full filesystem path if the vault candidate failed. */ }
     }
+    return ''
   }
 
-  async loadLocalMedia(absolutePath: string): Promise<string> {
-    const cached = blobCache.get(absolutePath)
-    if (cached) return cached
-    try {
-      const bytes = await readFile(absolutePath)
-      const mime = MEDIA_MIME[pathExt(absolutePath)] || 'application/octet-stream'
-      const url = buildBlob(bytes, mime)
-      blobCache.set(absolutePath, url)
-      return url
-    } catch {
-      return ''
-    }
+  loadLocalImage(absolutePath: string, source?: LocalMediaSource): Promise<string> {
+    return this.load(absolutePath, source, IMAGE_MIME, 'image/png')
+  }
+
+  loadLocalMedia(absolutePath: string, source?: LocalMediaSource): Promise<string> {
+    return this.load(absolutePath, source, MEDIA_MIME, 'application/octet-stream')
   }
 
   async loadRemoteMedia(url: string): Promise<string> {

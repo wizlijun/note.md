@@ -149,7 +149,8 @@ export async function mountMarkdownEditor(container: HTMLElement, opts: KitOptio
   // second mount that omits `baseDir` would silently inherit the previous
   // mount's directory and resolve relative images against the wrong folder.
   const root = await vaultRoot()
-  setKitBaseDir(root ? joinAbsolute(root, opts.baseDir ?? '') : '')
+  const baseDir = root ? joinAbsolute(root, opts.baseDir ?? '') : ''
+  setKitBaseDir(baseDir)
 
   let markdown = opts.initialMarkdown
   let mode: KitMode = opts.mode ?? 'rich'
@@ -181,7 +182,7 @@ export async function mountMarkdownEditor(container: HTMLElement, opts: KitOptio
     rich?.destroy(); rich = null
     source?.destroy(); source = null
     host.innerHTML = ''
-    if (mode === 'rich') rich = await mountRich(host, markdown, root, emit, placeholder, () => powerMode)
+    if (mode === 'rich') rich = await mountRich(host, markdown, root, emit, placeholder, () => powerMode, undefined, baseDir)
     else source = mountSource(host, markdown, emit, placeholder)
   }
 
