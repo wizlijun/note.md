@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { classifyLink, resolveWikilinkPath, restoreWikilinks, newWikilinkFileText } from './link-open'
+import { classifyLink, resolveLinkAction, resolveWikilinkPath, restoreWikilinks, newWikilinkFileText } from './link-open'
 
 const humanActor = vi.fn()
 vi.mock('./okf/identity', () => ({
@@ -13,6 +13,14 @@ describe('classifyLink', () => {
   it('ignores in-document anchors and empty hrefs', () => {
     expect(classifyLink('#section', BASE)).toEqual({ kind: 'ignore' })
     expect(classifyLink('   ', BASE)).toEqual({ kind: 'ignore' })
+  })
+
+  it('does not mistake Windows drive paths for external URL schemes', () => {
+    expect(classifyLink('C:\\notes\\a%20b.md', BASE, VAULT)).toEqual({ kind: 'edit', path: 'C:/notes/a b.md' })
+  })
+
+  it('routes protocol-relative URLs to the browser rather than the vault', () => {
+    expect(classifyLink('//example.com/a.png', BASE, VAULT)).toEqual({ kind: 'browser', url: 'https://example.com/a.png' })
   })
 
   it('routes external URL schemes to the browser', () => {
@@ -43,11 +51,11 @@ describe('classifyLink', () => {
     })
   })
 
-  it('keeps root-relative links as filesystem-absolute paths outside the vault', () => {
+  it('uses the configured vault even for externally opened documents, but not when unset', () => {
     expect(classifyLink('/tmp/a.md', '/Users/me/Desktop/index.md', VAULT))
-      .toEqual({ kind: 'edit', path: '/tmp/a.md' })
+      .toEqual({ kind: 'edit', path: '/Users/me/notes/tmp/a.md' })
     expect(classifyLink('/tmp/a.md', '/Users/me/notes-old/index.md', VAULT))
-      .toEqual({ kind: 'edit', path: '/tmp/a.md' })
+      .toEqual({ kind: 'edit', path: '/Users/me/notes/tmp/a.md' })
     expect(classifyLink('/tmp/a.md', BASE, undefined))
       .toEqual({ kind: 'edit', path: '/tmp/a.md' })
   })
@@ -114,6 +122,39 @@ describe('classifyLink', () => {
   it('ignores relative links when no base path is available (untitled buffer)', () => {
     expect(classifyLink('sibling.md', '')).toEqual({ kind: 'ignore' })
     expect(classifyLink('sibling.md', undefined)).toEqual({ kind: 'ignore' })
+  })
+})
+
+describe('resolveLinkAction', () => {
+  it('selects the vault resource before the full path when both exist', async () => {
+    const exists = vi.fn(async () => true)
+    expect(await resolveLinkAction('/assets/my%20file.pdf', BASE, VAULT, exists))
+      .toEqual({ kind: 'system', path: '/Users/me/notes/assets/my file.pdf' })
+    expect(exists.mock.calls).toEqual([['/Users/me/notes/assets/my file.pdf']])
+  })
+
+  it('falls back to the full decoded path when the vault file is missing', async () => {
+    const exists = vi.fn(async () => false)
+    expect(await resolveLinkAction('/tmp/a%20b.md?q=1#heading', BASE, VAULT, exists))
+      .toEqual({ kind: 'edit', path: '/tmp/a b.md' })
+  })
+
+  it('falls back even when checking the vault path is denied', async () => {
+    const exists = vi.fn(async () => { throw new Error('denied') })
+    expect(await resolveLinkAction('/tmp/a.pdf', BASE, VAULT, exists))
+      .toEqual({ kind: 'system', path: '/tmp/a.pdf' })
+  })
+
+  it('does not probe the filesystem for URLs, anchors, or unambiguous paths', async () => {
+    const exists = vi.fn(async () => false)
+    expect(await resolveLinkAction('https://example.com/a', BASE, VAULT, exists))
+      .toEqual({ kind: 'browser', url: 'https://example.com/a' })
+    expect(await resolveLinkAction('#anchor', BASE, VAULT, exists)).toEqual({ kind: 'ignore' })
+    expect(await resolveLinkAction('file:///tmp/a.pdf', BASE, VAULT, exists))
+      .toEqual({ kind: 'system', path: '/tmp/a.pdf' })
+    expect(await resolveLinkAction('./a.md', BASE, VAULT, exists))
+      .toEqual({ kind: 'edit', path: '/Users/me/notes/a.md' })
+    expect(exists).not.toHaveBeenCalled()
   })
 })
 

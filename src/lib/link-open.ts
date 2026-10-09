@@ -1,5 +1,6 @@
 import { classifyPath } from './fs'
-import { basename, normalize as normalizeFsPath, relative } from './paths'
+import { basename, dirname } from './paths'
+import { localResourceCandidates } from './local-resource'
 
 /** Matches a URI scheme prefix like `http:`, `mailto:`, `file:` (RFC 3986). */
 const SCHEME_RE = /^[a-z][a-z0-9+.-]*:/i
@@ -22,19 +23,8 @@ export type LinkAction =
 function resolveRelative(
   href: string,
   basePath: string | undefined,
-  vaultRoot?: string | null,
 ): string | null {
-  if (href.startsWith('/')) {
-    // Markdown uses URL-style root-relative paths. Inside a configured Vault,
-    // that logical root is the Vault rather than the host filesystem root.
-    // Normalise the href before joining so `/../x` remains inside the Vault in
-    // the same way a browser resolves it from a website origin.
-    if (basePath && vaultRoot && relative(vaultRoot, basePath) !== null) {
-      const root = normalizeFsPath(vaultRoot).replace(/\/+$/, '')
-      return root + normalize(href)
-    }
-    return normalize(href)
-  }
+  if (href.startsWith('/')) return normalize(href)
   if (!basePath) return null
   const dir = basePath.slice(0, basePath.lastIndexOf('/'))
   return normalize(`${dir}/${href}`)
@@ -67,29 +57,39 @@ export function classifyLink(
   const raw = href.trim()
   if (!raw || raw.startsWith('#')) return { kind: 'ignore' }
 
-  let target = raw
-  let explicitFileUrl = false
-  if (/^file:\/\//i.test(target)) {
-    explicitFileUrl = true
-    target = target.replace(/^file:\/\//i, '')
-  } else if (SCHEME_RE.test(target)) {
-    // Any other scheme (http, https, mailto, tel, ftp, …) → system handler.
+  if (raw.startsWith('//')) return { kind: 'browser', url: `https:${raw}` }
+  if (SCHEME_RE.test(raw) && !/^file:\/\//i.test(raw) && !/^[a-z]:[/\\]/i.test(raw)) {
     return { kind: 'browser', url: raw }
   }
 
-  // Markdown hrefs are URLs; decode their path exactly once at this boundary.
-  // Strip URL suffixes first so encoded # / ? remain part of the filename.
-  let clean = target.split('#')[0].split('?')[0]
-  try { clean = decodeURIComponent(clean) } catch { /* Keep literal/malformed % names usable. */ }
-  // `file://` explicitly names a host filesystem path and therefore never
-  // adopts the Vault-root-relative Markdown convention.
-  const abs = resolveRelative(clean, basePath, explicitFileUrl ? null : vaultRoot)
-  if (!abs) return { kind: 'ignore' }
+  const [path] = localResourceCandidates(raw, { baseDir: basePath ? dirname(basePath) : undefined, vaultRoot })
+  return path ? classifyLocalPath(path) : { kind: 'ignore' }
+}
 
-  const cls = classifyPath(abs)
-  // Editable = text-bearing kinds. Images and unknown types open externally.
-  if (cls && cls.kind !== 'image') return { kind: 'edit', path: abs }
-  return { kind: 'system', path: abs }
+function classifyLocalPath(path: string): LinkAction {
+  const cls = classifyPath(path)
+  if (cls && cls.kind !== 'image') return { kind: 'edit', path }
+  return { kind: 'system', path }
+}
+
+/** Select the first existing candidate before opening, not merely the first
+ * spelling. The last candidate is left to the opener to report a normal file
+ * error when neither exists; URL/anchor clicks need no filesystem access. */
+export async function resolveLinkAction(
+  href: string,
+  basePath: string | undefined,
+  vaultRoot: string | null | undefined,
+  exists: (path: string) => Promise<boolean>,
+): Promise<LinkAction> {
+  const action = classifyLink(href, basePath, vaultRoot)
+  if (action.kind === 'browser' || action.kind === 'ignore') return action
+  const candidates = localResourceCandidates(href, { baseDir: basePath ? dirname(basePath) : undefined, vaultRoot })
+  for (const path of candidates.slice(0, -1)) {
+    try {
+      if (await exists(path)) return classifyLocalPath(path)
+    } catch { /* Permission/unavailable vault: still try the full path. */ }
+  }
+  return classifyLocalPath(candidates[candidates.length - 1])
 }
 
 /**
