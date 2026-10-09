@@ -10,4 +10,4 @@ pub use store::{discard_pending, load, recover, save};
 pub const TEMP_PREFIX: &str = ".knowledge-structure-";
 pub const TEMP_EXCLUDE_PATHSPEC: &str = ":(exclude,glob).notemd/habitat/.knowledge-structure-*.tmp";
 
-pub(crate) use history::{guard_before_sync_commit, guard_before_sync_merge};
+pub(crate) use history::{guard_before_sync_commit, guard_before_sync_merge, resolve_sync_merge};

@@ -35,7 +35,7 @@ fn io(error: std::io::Error) -> String {
 }
 
 /// No symlink component is followed, including a dangling target symlink.
-fn safe_path(root: &Path, relative: &str) -> Result<PathBuf, String> {
+pub(crate) fn safe_path(root: &Path, relative: &str) -> Result<PathBuf, String> {
     let path = Path::new(relative);
     if relative.is_empty() || !path.components().all(|c| matches!(c, Component::Normal(_))) {
         return Err("KNOWLEDGE_INVALID_PATH: expected a relative Vault path".into());

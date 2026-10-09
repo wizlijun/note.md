@@ -91,6 +91,130 @@ fn v2_snapshot(previous: Option<&Snapshot>) -> Snapshot {
     snapshot
 }
 
+fn changed_v2_snapshot(previous: &Snapshot, variant: &str) -> Snapshot {
+    let mut snapshot = v2_snapshot(Some(previous));
+    snapshot.meta.algorithm.version = variant.into();
+    habitat_core::finalize(&mut snapshot, Some(previous)).unwrap();
+    snapshot
+}
+
+fn divergent_legacy_pair() -> (tempfile::TempDir, PathBuf, PathBuf, PathBuf, Snapshot) {
+    let (dir, local) = fixture();
+    let base = v2_snapshot(None);
+    fs::create_dir_all(local.join(".notemd/habitat")).unwrap();
+    fs::write(local.join(LEGACY_PATH), habitat_core::encode(&base).unwrap()).unwrap();
+    git(&local, &["add", "--", LEGACY_PATH]);
+    git(&local, &["commit", "-q", "-m", "shared old-path v2"]);
+    let remote = dir.path().join("remote.git");
+    git(
+        dir.path(),
+        &["init", "--bare", "-q", "-b", "main", remote.to_str().unwrap()],
+    );
+    git(&local, &["remote", "add", "origin", remote.to_str().unwrap()]);
+    git(&local, &["push", "-q", "-u", "origin", "main"]);
+    let other = dir.path().join("other");
+    git(
+        dir.path(),
+        &["clone", "-q", remote.to_str().unwrap(), other.to_str().unwrap()],
+    );
+    git(&other, &["config", "user.name", "Other Test"]);
+    git(&other, &["config", "user.email", "other@example.invalid"]);
+    git(&other, &["config", "commit.gpgsign", "false"]);
+    (dir, local, other, remote, base)
+}
+
+#[test]
+fn migration_is_not_a_second_structure_change_during_sync() {
+    let (dir, local, other, remote, base) = divergent_legacy_pair();
+    let local_snapshot = changed_v2_snapshot(&base, "local-new-content");
+    let local_bytes = habitat_core::encode(&local_snapshot).unwrap();
+    knowledge_structure::load(&local, &dir.path().join("local-runtime")).unwrap();
+    fs::write(local.join(SNAPSHOT_PATH), &local_bytes).unwrap();
+    fs::write(local.join("local-note.md"), "local ordinary note\n").unwrap();
+    git(&local, &["add", "--", SNAPSHOT_PATH, "local-note.md"]);
+    git(&local, &["commit", "-q", "-m", "local new structure"]);
+
+    knowledge_structure::load(&other, &dir.path().join("other-runtime")).unwrap();
+    fs::write(other.join("remote-note.md"), "remote ordinary note\n").unwrap();
+    git(&other, &["add", "--", "remote-note.md"]);
+    git(&other, &["commit", "-q", "-m", "remote ordinary note"]);
+    git(&other, &["push", "-q", "origin", "main"]);
+
+    git_ops::sync(&local, "origin", "main").unwrap();
+    assert_eq!(head_blob(&local, SNAPSHOT_PATH).unwrap(), local_bytes);
+    assert!(head_blob(&local, LEGACY_PATH).is_none());
+    assert_eq!(head_blob(&remote, SNAPSHOT_PATH).unwrap(), local_bytes);
+    assert!(head_blob(&remote, LEGACY_PATH).is_none());
+    assert_eq!(fs::read(local.join("remote-note.md")).unwrap(), b"remote ordinary note\n");
+    assert!(released_guard_accepts(&local));
+    assert!(!fs::read_dir(local.join(".notemd/habitat"))
+        .unwrap()
+        .any(|entry| entry.unwrap().file_name().to_string_lossy().contains(".conflict.")));
+    git_ops::sync(&local, "origin", "main").unwrap();
+}
+
+#[test]
+fn remote_old_path_change_wins_over_local_path_only_migration() {
+    let (dir, local, other, remote, base) = divergent_legacy_pair();
+    let remote_snapshot = changed_v2_snapshot(&base, "remote-new-content");
+    let remote_bytes = habitat_core::encode(&remote_snapshot).unwrap();
+    knowledge_structure::load(&local, &dir.path().join("local-runtime")).unwrap();
+    fs::write(local.join("local-note.md"), "local ordinary note\n").unwrap();
+    git(&local, &["add", "--", "local-note.md"]);
+    git(&local, &["commit", "-q", "-m", "local ordinary note"]);
+
+    fs::write(other.join(LEGACY_PATH), &remote_bytes).unwrap();
+    fs::write(other.join("remote-note.md"), "remote ordinary note\n").unwrap();
+    git(&other, &["add", "--", LEGACY_PATH, "remote-note.md"]);
+    git(&other, &["commit", "-q", "-m", "remote old-path structure"]);
+    let remote_commit = String::from_utf8(git(&other, &["rev-parse", "HEAD"]))
+        .unwrap()
+        .trim()
+        .to_owned();
+    git(&other, &["push", "-q", "origin", "main"]);
+
+    git_ops::sync(&local, "origin", "main").unwrap();
+    assert_eq!(head_blob(&local, SNAPSHOT_PATH).unwrap(), remote_bytes);
+    assert!(head_blob(&local, LEGACY_PATH).is_none());
+    assert_eq!(head_blob(&remote, SNAPSHOT_PATH).unwrap(), remote_bytes);
+    assert!(head_blob(&remote, LEGACY_PATH).is_none());
+    assert_eq!(fs::read(local.join("remote-note.md")).unwrap(), b"remote ordinary note\n");
+    assert_eq!(
+        git(&local, &["show", &format!("{remote_commit}:{LEGACY_PATH}")]),
+        remote_bytes
+    );
+    assert!(released_guard_accepts(&local));
+    assert!(!fs::read_dir(local.join(".notemd/habitat"))
+        .unwrap()
+        .any(|entry| entry.unwrap().file_name().to_string_lossy().contains(".conflict.")));
+}
+
+#[test]
+fn two_real_structure_changes_still_preserve_both_before_merge() {
+    let (dir, local, other, remote, base) = divergent_legacy_pair();
+    let local_snapshot = changed_v2_snapshot(&base, "local-new-content");
+    let remote_snapshot = changed_v2_snapshot(&base, "remote-new-content");
+    let local_bytes = habitat_core::encode(&local_snapshot).unwrap();
+    let remote_bytes = habitat_core::encode(&remote_snapshot).unwrap();
+    knowledge_structure::load(&local, &dir.path().join("local-runtime")).unwrap();
+    knowledge_structure::load(&other, &dir.path().join("other-runtime")).unwrap();
+    fs::write(local.join(SNAPSHOT_PATH), &local_bytes).unwrap();
+    git(&local, &["add", "--", SNAPSHOT_PATH]);
+    git(&local, &["commit", "-q", "-m", "local structure"]);
+    let local_head = git(&local, &["rev-parse", "HEAD"]);
+    fs::write(other.join(SNAPSHOT_PATH), &remote_bytes).unwrap();
+    git(&other, &["add", "--", SNAPSHOT_PATH]);
+    git(&other, &["commit", "-q", "-m", "remote structure"]);
+    git(&other, &["push", "-q", "origin", "main"]);
+
+    let error = git_ops::sync(&local, "origin", "main").unwrap_err();
+    assert!(error.contains("KNOWLEDGE_STRUCTURE_CONFLICT"), "{error}");
+    assert_eq!(git(&local, &["rev-parse", "HEAD"]), local_head);
+    assert_eq!(head_blob(&local, SNAPSHOT_PATH).unwrap(), local_bytes);
+    assert_eq!(head_blob(&remote, SNAPSHOT_PATH).unwrap(), remote_bytes);
+    assert!(!local.join(".git/MERGE_HEAD").exists());
+}
+
 /// Mirrors the released guard's decisive contract: only this fixed path is
 /// compared with HEAD and decoded; a missing file is accepted. The strict meta
 /// shape comes from v6.930.3, so an accidental `focus` field fails here.

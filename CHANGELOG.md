@@ -7,6 +7,10 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+### Fixed
+
+- **Vault Sync no longer mistakes a HABITAT snapshot path migration for a second edit.** When devices move the same snapshot to the new path and only one generates a new version, sync merges ordinary files and keeps the new snapshot. Truly different edits on both devices still require explicit reconciliation.
+
 ## v6.1008.2 — 2026-10-08
 
 ### Fixed

@@ -1,6 +1,8 @@
-use habitat_core::{Snapshot, LEGACY_SNAPSHOT_PATH, SNAPSHOT_PATH};
+use habitat_core::{Snapshot, LEGACY_SNAPSHOT_PATH, SCHEMA_V1, SNAPSHOT_PATH};
 use serde_json::{json, Value};
 use std::collections::{HashMap, HashSet, VecDeque};
+use std::fs;
+use std::io::Write;
 use std::path::Path;
 use std::sync::{LazyLock, Mutex};
 
@@ -216,26 +218,113 @@ pub fn guard_before_sync_commit(root: &Path) -> Result<(), String> {
     Ok(())
 }
 
-/// Inspect immutable sides before invoking merge, including clean text merges.
-pub fn guard_before_sync_merge(root: &Path, upstream: &str) -> Result<(), String> {
+struct StructureSide {
+    active: Option<Vec<u8>>,
+    legacy_v1: Option<Vec<u8>>,
+}
+
+fn structure_side(root: &Path, revision: &str) -> Result<StructureSide, String> {
+    let new = blob_at(root, revision, SNAPSHOT_PATH)?;
+    let old = blob_at(root, revision, LEGACY_SNAPSHOT_PATH)?;
+    let new_snapshot = new.as_deref().map(validate_bytes).transpose()?;
+    let old_snapshot = old.as_deref().map(validate_bytes).transpose()?;
+    if new_snapshot
+        .as_ref()
+        .is_some_and(|s| s.meta.schema == SCHEMA_V1)
+        || (new_snapshot.is_some()
+            && old_snapshot
+                .as_ref()
+                .is_some_and(|s| s.meta.schema != SCHEMA_V1)
+            && new != old)
+    {
+        return Err(
+            "KNOWLEDGE_INVALID_SNAPSHOT: incompatible structure paths in one revision".into(),
+        );
+    }
+    let legacy_v1 = if old_snapshot
+        .as_ref()
+        .is_some_and(|s| s.meta.schema == SCHEMA_V1)
+    {
+        old.clone()
+    } else {
+        None
+    };
+    Ok(StructureSide {
+        active: new.or(old),
+        legacy_v1,
+    })
+}
+
+fn choose_structure(
+    base: &Option<Vec<u8>>,
+    ours: &Option<Vec<u8>>,
+    theirs: &Option<Vec<u8>>,
+) -> Result<Option<Vec<u8>>, String> {
+    if ours == theirs || theirs == base {
+        Ok(ours.clone())
+    } else if ours == base {
+        Ok(theirs.clone())
+    } else {
+        Err("KNOWLEDGE_STRUCTURE_CONFLICT: both branches changed the structure; preserve both snapshots and reconcile explicitly".into())
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct StructureMergePlan {
+    legacy: Option<Vec<u8>>,
+    current: Option<Vec<u8>>,
+}
+
+/// Compare the logical snapshot across the old and new paths before Git merge.
+/// A byte-for-byte move is not a new structure version.
+pub(crate) fn guard_before_sync_merge(
+    root: &Path,
+    upstream: &str,
+) -> Result<StructureMergePlan, String> {
     let ours = head(root)?.ok_or("KNOWLEDGE_GIT: merge requires a local HEAD")?;
     let base = git_text(root, &["merge-base", &ours, upstream])?;
-    for path in [SNAPSHOT_PATH, LEGACY_SNAPSHOT_PATH] {
-        let ours_bytes = blob_at(root, &ours, path)?;
-        let theirs_bytes = blob_at(root, upstream, path)?;
-        for bytes in [&ours_bytes, &theirs_bytes].into_iter().flatten() {
-            validate_bytes(bytes)?;
+    let base = structure_side(root, base.trim())?;
+    let ours = structure_side(root, &ours)?;
+    let theirs = structure_side(root, upstream)?;
+    let selected = choose_structure(&base.active, &ours.active, &theirs.active)?;
+    let legacy_v1 = choose_structure(&base.legacy_v1, &ours.legacy_v1, &theirs.legacy_v1)?;
+    let (legacy, current) = match selected {
+        Some(bytes) if validate_bytes(&bytes)?.meta.schema == SCHEMA_V1 => (Some(bytes), None),
+        Some(bytes) => (legacy_v1, Some(bytes)),
+        None => (None, None),
+    };
+    Ok(StructureMergePlan { legacy, current })
+}
+
+/// Resolve only the snapshot paths after Git has merged other Vault files.
+/// Both source versions remain reachable through the merge parents.
+pub(crate) fn resolve_sync_merge(root: &Path, plan: &StructureMergePlan) -> Result<(), String> {
+    for (path, selected) in [
+        (LEGACY_SNAPSHOT_PATH, &plan.legacy),
+        (SNAPSHOT_PATH, &plan.current),
+    ] {
+        let target = super::store::safe_path(root, path)?;
+        if super::store::read_current_at(root, path)? == *selected {
+            continue;
         }
-        let base_bytes = blob_at(root, base.trim(), path)?;
-        if ours_bytes != base_bytes && theirs_bytes != base_bytes && ours_bytes != theirs_bytes {
-            return Err("KNOWLEDGE_STRUCTURE_CONFLICT: both branches changed the structure; preserve both snapshots and reconcile explicitly".into());
+        if let Some(bytes) = selected {
+            let parent = target.parent().ok_or("KNOWLEDGE_INVALID_PATH")?;
+            fs::create_dir_all(parent).map_err(|e| format!("KNOWLEDGE_IO: {e}"))?;
+            let mut temp = tempfile::NamedTempFile::new_in(parent)
+                .map_err(|e| format!("KNOWLEDGE_IO: {e}"))?;
+            temp.write_all(bytes)
+                .map_err(|e| format!("KNOWLEDGE_IO: {e}"))?;
+            temp.as_file().sync_all().map_err(|e| format!("KNOWLEDGE_IO: {e}"))?;
+            temp.persist(&target)
+                .map_err(|e| format!("KNOWLEDGE_IO: {}", e.error))?;
+        } else if target.exists() {
+            fs::remove_file(&target).map_err(|e| format!("KNOWLEDGE_IO: {e}"))?;
         }
     }
-    let ours_bytes = blob(root, &ours)?;
-    let theirs_bytes = blob(root, upstream)?;
-    let base_bytes = blob(root, base.trim())?;
-    if ours_bytes != base_bytes && theirs_bytes != base_bytes && ours_bytes != theirs_bytes {
-        return Err("KNOWLEDGE_STRUCTURE_CONFLICT: both branches changed the structure; preserve both snapshots and reconcile explicitly".into());
+    for path in [LEGACY_SNAPSHOT_PATH, SNAPSHOT_PATH] {
+        if root.join(path).exists() || !git_text(root, &["ls-files", "--", path])?.is_empty() {
+            git(root, &["add", "-A", "--", path])?;
+        }
     }
     Ok(())
 }

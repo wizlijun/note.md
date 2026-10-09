@@ -229,7 +229,7 @@ pub fn sync(repo: &Path, remote: &str, branch: &str) -> GitResult<SyncReport> {
             }
         }
         let upstream = format!("{remote}/{branch}");
-        crate::knowledge_structure::guard_before_sync_merge(repo, &upstream)?;
+        let structure_plan = crate::knowledge_structure::guard_before_sync_merge(repo, &upstream)?;
         let can_fast_forward =
             run_git(repo, &["merge-base", "--is-ancestor", "HEAD", &upstream]).is_ok();
         if can_fast_forward {
@@ -238,7 +238,9 @@ pub fn sync(repo: &Path, remote: &str, branch: &str) -> GitResult<SyncReport> {
         } else {
             // 真分叉:合并而非 rebase。rebase 会先把工作区 checkout 回上游再逐个
             // 重放本地提交,等于把 ① 要消灭的回滚窗口原样请回来。
-            if run_git(repo, &["merge", "--no-commit", "--no-edit", &upstream]).is_err() {
+            let merge_failed =
+                run_git(repo, &["merge", "--no-commit", "--no-edit", &upstream]).is_err();
+            if merge_failed {
                 if !repo.join(".git").join("MERGE_HEAD").exists() {
                     let _ = run_git(repo, &["merge", "--abort"]);
                     return Err("merge failed, skipping cycle".into());
@@ -262,7 +264,18 @@ pub fn sync(repo: &Path, remote: &str, branch: &str) -> GitResult<SyncReport> {
                         "MEMORY_SOURCE_CONFLICT: authoritative Memory assets conflicted: {detail}"
                     ));
                 }
-                // 冲突:留一份含双方内容的副本,工作区取本地版本(用户刚写的字优先)。
+            }
+            // Git can report add/add or delete/modify merely because one host
+            // moved the same snapshot to the v2 path. Resolve those two paths
+            // from their logical three-way value before ordinary file conflicts.
+            if let Err(error) =
+                crate::knowledge_structure::resolve_sync_merge(repo, &structure_plan)
+            {
+                let _ = run_git(repo, &["merge", "--abort"]);
+                return Err(error);
+            }
+            if merge_failed {
+                // Ordinary conflicts still keep the existing local-first copy.
                 super::conflict::handle_conflicts(repo, "--ours")?;
             }
         }
