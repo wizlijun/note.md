@@ -337,13 +337,13 @@ fn conflicted_paths(repo: &Path) -> GitResult<Vec<String>> {
 }
 
 fn reconcile_memory_v2(repo: &Path) -> GitResult<()> {
-    use crate::memory_control::v2::{rebuild_projections_unlocked, RepositoryMode, V2Repository};
+    use crate::memory_control::v2::{reconcile_projections_unlocked, RepositoryMode, V2Repository};
 
     let snapshot = V2Repository::new(repo)
         .load()
         .map_err(|error| format!("Memory v2 reconcile failed: {error}"))?;
     match snapshot.mode {
-        RepositoryMode::V2Active => rebuild_projections_unlocked(repo)
+        RepositoryMode::V2Active => reconcile_projections_unlocked(repo, &snapshot)
             .map(|_| ())
             .map_err(|error| format!("Memory v2 reconcile failed: {error}")),
         RepositoryMode::V2Incomplete => Err(
@@ -579,6 +579,35 @@ mod gate_tests {
             run_git(dir.path(), &["rev-parse", "--verify", "HEAD"]).is_err(),
             "an incomplete authority tree must not be committed"
         );
+    }
+
+    #[test]
+    fn cached_memory_projection_does_not_bypass_source_validation() {
+        let dir = init_repo();
+        crate::memory_control::dispatch(
+            dir.path(),
+            "host.memory.v2.initialize",
+            &serde_json::json!({}),
+        ).unwrap();
+        sync(dir.path(), "origin", "main").unwrap();
+        sync(dir.path(), "origin", "main").unwrap();
+        let before = std::fs::read(dir.path().join("USER.md")).unwrap();
+        let modified = std::fs::metadata(dir.path().join("USER.md")).unwrap().modified().unwrap();
+        let head = run_git(dir.path(), &["rev-parse", "HEAD"]).unwrap();
+        let repository = crate::memory_control::v2::V2Repository::new(dir.path()).load().unwrap();
+        std::fs::write(&repository.authorities[0].path, "corrupted: authority\n").unwrap();
+
+        let error = sync(dir.path(), "origin", "main").unwrap_err();
+
+        assert!(error.contains("Memory v2 reconcile failed"), "{error}");
+        assert_eq!(std::fs::read(dir.path().join("USER.md")).unwrap(), before);
+        assert_eq!(std::fs::metadata(dir.path().join("USER.md")).unwrap().modified().unwrap(), modified);
+        assert_eq!(run_git(dir.path(), &["rev-parse", "HEAD"]).unwrap(), head);
+
+        std::fs::remove_file(dir.path().join(".notemd/memory/bootstrap.yaml")).unwrap();
+        let error = sync(dir.path(), "origin", "main").unwrap_err();
+        assert!(error.contains("MEMORY_PROTOCOL_INCOMPLETE"), "{error}");
+        assert_eq!(run_git(dir.path(), &["rev-parse", "HEAD"]).unwrap(), head);
     }
 
     /// bare 远端 + 已推首个提交的工作仓库,返回 (work, bare)。
