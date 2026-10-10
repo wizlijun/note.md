@@ -1,4 +1,5 @@
 import type { Env } from './index'
+import { activeProjectMetadata, readProjectState } from './project'
 
 export const FEEDBACK_ID_RE = /^[a-zA-Z0-9_-]{1,128}$/
 export const FEEDBACK_HASH_RE = /^[a-f0-9]{64}$/
@@ -87,9 +88,10 @@ async function readBody(req: Request): Promise<Uint8Array | null> {
 }
 
 async function submitFeedback(req: Request, env: Env, slug: string): Promise<Response> {
-  const share = await env.SHARES.getWithMetadata<ShareMetadata>(slug)
-  if (!share.value || !share.metadata) return new Response('Share expired', { status: 410 })
-  const meta = share.metadata
+  const project = await readProjectState(env, slug)
+  const share = project ? null : await env.SHARES.getWithMetadata<ShareMetadata>(slug)
+  const meta = project ? activeProjectMetadata(project.state) : share?.value ? share.metadata : null
+  if (!meta) return new Response('Share expired', { status: 410 })
   if (meta.expires_at !== null && !(Date.parse(meta.expires_at) > Date.now())) {
     return new Response('Share expired', { status: 410 })
   }

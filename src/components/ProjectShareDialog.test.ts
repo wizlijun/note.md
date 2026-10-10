@@ -106,6 +106,66 @@ async function openDialog() {
 
 describe('ProjectShareDialog titles', () => {
   const title = () => document.querySelector<HTMLInputElement>('#share-title')!
+  const theme = () => document.querySelector<HTMLInputElement>('#share-current-theme')!
+  it('shows a copyable entry link while full publication is pending and preserves it after failure', async () => {
+    h.identities.p = { ...info }
+    let failFull: (error: Error) => void = () => {}
+    vi.mocked(publishProject).mockImplementationOnce(async (_info, _files, _title, options) => {
+      const identity = { ...info, baseUrl: 'https://share.example', slug: 'p', edit_token: 'edit', feedbackToken: 'feedback',
+        url: 'https://share.example/p', publishedSnapshotId: 's1', pending: { phase: 'preparing' as const,
+          snapshotId: 's1', entry: 'main.md', expiresInSeconds: null, publicationId: 'publication', previousPublicationId: null,
+          approved: [{ path: 'main.md', hash: 'h' }], frozenTheme: { themeId: 'default', compiledCss: '' } } }
+      h.identities.p = identity
+      await options?.onEntryPublished?.({ info: { ...info, url: identity.url, publishedSnapshotId: 's1' }, identity })
+      await new Promise<void>((_resolve, reject) => { failFull = reject })
+      throw new Error('unreachable')
+    })
+    await openDialog()
+    button('发布分享').click()
+    await vi.waitFor(() => expect(document.body.textContent).toContain('入口已发布，正在同步项目'))
+    expect(document.querySelector<HTMLInputElement>('#share-read-link')?.value).toBe('https://share.example/p')
+    expect(button('复制阅读链接').disabled).toBe(false)
+    button('复制阅读链接').click()
+    await tick()
+    expect(button('重试原包发布').disabled).toBe(true)
+    failFull(new Error('archive offline'))
+    await vi.waitFor(() => expect(document.querySelector('[role=alert]')?.textContent).toContain('完整项目尚未同步完成'))
+    expect(button('复制阅读链接').disabled).toBe(false)
+    expect(button('重试原包发布').disabled).toBe(false)
+  })
+  it('defaults the theme checkbox on and passes an unchecked choice when publishing', async () => {
+    await openDialog()
+    expect(theme()?.checked).toBe(true)
+    theme().click()
+    button('保存并重新扫描').click()
+    await tick()
+    await vi.waitFor(() => expect(button('保存并重新扫描').disabled).toBe(false))
+    expect(theme().checked).toBe(false)
+    vi.mocked(publishProject).mockResolvedValueOnce({ info, identity: { ...h.identities.p, useCurrentTheme: false } as ProjectIdentity })
+    button('更新分享').click()
+    await vi.waitFor(() => expect(publishProject).toHaveBeenCalledWith(expect.objectContaining(info), expect.any(Array), 'main', expect.objectContaining({ useCurrentTheme: false, onEntryPublished: expect.any(Function) })))
+    await vi.waitFor(() => expect(theme().disabled).toBe(false))
+    expect(theme().checked).toBe(false)
+  })
+  it('restores independent project theme choices', async () => {
+    h.identities.p.useCurrentTheme = false
+    h.listed.push({ ...info, project_id: 'b', entry: 'other.md' })
+    await openDialog()
+    expect(theme()?.checked).toBe(false)
+    const select = document.querySelector<HTMLSelectElement>('#share-recent-project')!
+    select.value = 'b'; select.dispatchEvent(new Event('change', { bubbles: true }))
+    await vi.waitFor(() => expect(theme().checked).toBe(true))
+    await vi.waitFor(() => expect(select.disabled).toBe(false))
+    select.value = 'p'; select.dispatchEvent(new Event('change', { bubbles: true }))
+    await vi.waitFor(() => expect(theme().checked).toBe(false))
+  })
+  it('locks the frozen pending theme choice instead of the previously published preference', async () => {
+    h.identities.p.useCurrentTheme = false
+    h.identities.p.pending = { snapshotId: 'frozen', entry: 'main.md', expiresInSeconds: null, useCurrentTheme: true }
+    await openDialog()
+    await vi.waitFor(() => expect(theme().disabled).toBe(true))
+    expect(theme().checked).toBe(true)
+  })
   it('defaults to the entry name, preserves editing across scans and sends the title when publishing', async () => {
     await openDialog()
     expect(title().value).toBe('main')
@@ -119,7 +179,7 @@ describe('ProjectShareDialog titles', () => {
     button('更新分享').click()
     await tick()
     await vi.waitFor(() => expect(document.querySelector('[role=alert]')?.textContent).toBeUndefined())
-    await vi.waitFor(() => expect(publishProject).toHaveBeenCalledWith(expect.objectContaining(info), expect.any(Array), 'My reader'))
+    await vi.waitFor(() => expect(publishProject).toHaveBeenCalledWith(expect.objectContaining(info), expect.any(Array), 'My reader', expect.objectContaining({ useCurrentTheme: true, onEntryPublished: expect.any(Function) })))
     await vi.waitFor(() => expect(document.body.textContent).toContain('字体将使用替代'))
     expect(document.body.textContent).toContain('某图表有错误')
   })
@@ -139,14 +199,17 @@ describe('ProjectShareDialog titles', () => {
     h.identities.p.shareTitle = 'previous'
     await openDialog()
     title().value = 'new'; title().dispatchEvent(new Event('input', { bubbles: true }))
+    theme().click()
     vi.mocked(publishProject).mockImplementationOnce(async () => {
-      h.identities.p.pending = { snapshotId: 'frozen', entry: 'main.md', expiresInSeconds: null, shareTitle: 'new' }
+      h.identities.p.pending = { snapshotId: 'frozen', entry: 'main.md', expiresInSeconds: null, shareTitle: 'new', useCurrentTheme: false }
       throw new Error('unknown upload')
     })
     expect(button('更新分享').disabled).toBe(false)
     button('更新分享').click()
     await vi.waitFor(() => expect(title().readOnly).toBe(true))
     expect(title().value).toBe('new')
+    expect(theme().checked).toBe(false)
+    expect(theme().disabled).toBe(true)
     expect(button('重试原包发布').disabled).toBe(false)
     await unmount(component!); component = null
     await openDialog()

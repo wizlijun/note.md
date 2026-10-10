@@ -22,6 +22,7 @@
   let error = $state('')
   let notice = $state('')
   let shareTitle = $state('')
+  let useCurrentTheme = $state(true)
   let publishWarnings = $state<string[]>([])
   let cloudError = $state('')
   let rebindProjectId = $state('')
@@ -94,7 +95,7 @@
   function clearProject() {
     page = 'share'; info = null; managementOnly = false; rebindProjectId = ''; boundSourceRoot = ''
     inbox = []; selected = null; review = null; mirror = null; oldSnapshot = null; cloudError = ''
-    candidates = []; options = []; files = []; issues = []; excluded = []; shareTitle = ''; publishWarnings = []
+    candidates = []; options = []; files = []; issues = []; excluded = []; shareTitle = ''; useCurrentTheme = true; publishWarnings = []
   }
   async function refreshProjects() {
     const [listed, identities] = await Promise.all([listProjects(), projectIdentities()])
@@ -117,6 +118,7 @@
     info = opened; boundSourceRoot = opened.sourceRoot
     const saved = projects[opened.project_id]
     shareTitle = normalizeShareTitle(saved?.pending?.shareTitle ?? saved?.shareTitle, saved?.pending?.entry ?? opened.entry)
+    useCurrentTheme = saved?.pending ? saved.pending.useCurrentTheme ?? true : saved?.useCurrentTheme ?? true
     rebindProjectId = opened.orphaned ? '' : opened.project_id
     managementOnly = opened.sourceAvailable === false || !!opened.deleting || !!opened.orphaned || !!opened.error
     rememberProject(opened)
@@ -299,10 +301,20 @@
         if (blocking.length) throw new Error('存在不可安全发布的问题，请先处理下方列出的原因，再重新扫描。')
         if (!files.some(file => file.path === project.entry)) throw new Error('必须包含入口文档')
       }
-      const published = await publishProject(project, pending ? [] : files, shareTitle)
+      const published = await publishProject(project, pending ? [] : files, shareTitle, {
+        useCurrentTheme,
+        onEntryPublished(result) {
+          info = result.info
+          projects = { ...projects, [project.project_id]: result.identity }
+          notice = result.identity.publishedSnapshotId === result.identity.pending?.snapshotId
+            ? '入口已发布，正在同步项目…链接现在可以复制。'
+            : '现有分享继续可用，正在同步新版项目…链接现在可以复制。'
+        },
+      })
       info = published.info
       projects = { ...projects, [project.project_id]: published.identity }
       shareTitle = normalizeShareTitle(published.identity.shareTitle, published.info.entry)
+      useCurrentTheme = published.identity.useCurrentTheme ?? true
       publishWarnings = published.warnings ?? []
       notice = '项目已发布。原件保存只刷新镜像；后续修改仍需手动重新发布。'
       await refreshSotvault()
@@ -310,6 +322,8 @@
       projects = await projectIdentities()
       const frozen = projects[project.project_id]?.pending
       if (frozen) shareTitle = normalizeShareTitle(frozen.shareTitle ?? projects[project.project_id]?.shareTitle, frozen.entry)
+      if (frozen) useCurrentTheme = frozen.useCurrentTheme ?? true
+      if (frozen?.phase && projects[project.project_id]?.url) throw new Error(`完整项目尚未同步完成，已发布链接仍可访问和复制。请重试继续同步项目。\n${String(e)}`)
       if (frozen) throw new Error(`发布结果未确认。本机已保留原包，下次点击“重试原包发布”会使用相同地址和内容。\n${String(e)}`)
       throw e
     }
@@ -501,7 +515,9 @@
               <label class="field-row" for="share-entry"><span>入口文档</span><input id="share-entry" readonly value={info.entry} /></label>
               <p class="desc">从这篇文档开始，包含你勾选的引用文档和资源。</p>
               <label class="field-row" for="share-title"><span>分享标题</span><input id="share-title" bind:value={shareTitle} readonly={!!pending} disabled={busy || !!info.deleting || !!info.orphaned} /></label>
-              {#if pending}<p class="message warning">上次发布结果尚未确认。重试会发送已冻结的原包（入口 {pending.entry}），不包含此后编辑的内容。</p>{/if}
+              <label class="theme-option"><input id="share-current-theme" type="checkbox" bind:checked={useCurrentTheme} disabled={busy || !!pending || !!info.deleting || !!info.orphaned} />使用当前主题</label>
+              <p class="desc">取消后使用应用内置的默认正文主题。</p>
+              {#if pending}<p class="message warning">{pending.phase === 'preparing' || pending.phase === 'full' ? '入口链接已就绪，完整项目尚未同步完成。重试会继续本次批准范围；源文件变化时需要先处理。' : `上次发布结果尚未确认。重试会发送已冻结的原包（入口 ${pending.entry}），不包含此后编辑的内容。`}</p>{/if}
               {#if managementOnly && !pending}<p class="message warning">源文件暂时不可用。仍可管理分享和本机反馈；修复源文件后重新扫描才能发布。</p>{/if}
             </section>
             <section>
@@ -524,8 +540,8 @@
             {#if shareUrl}
               <section>
                 <div class="section-heading"><h3>分享链接</h3><span class="section-meta">{identity?.expiresAt === null ? '长期有效' : identity?.expiresAt ? `有效期至 ${formatDate(identity.expiresAt)}` : ''}</span></div>
-                <div class="field-row"><label for="share-read-link">阅读链接</label><input id="share-read-link" readonly value={shareUrl} /><button disabled={busy} onclick={() => run(() => copy(shareUrl))}>复制阅读链接</button></div>
-                <div class="collaboration-row"><p class="desc">协作链接允许对方编辑和标注，修改由你审阅后合入。</p><button disabled={busy || !editableLink} onclick={() => run(() => copy(editableLink))}>复制协作链接</button></div>
+                <div class="field-row"><label for="share-read-link">阅读链接</label><input id="share-read-link" readonly value={shareUrl} /><button onclick={() => { void copy(shareUrl).catch(e => { error = String(e) }) }}>复制阅读链接</button></div>
+                <div class="collaboration-row"><p class="desc">协作链接允许对方编辑和标注，修改由你审阅后合入。</p><button disabled={!editableLink} onclick={() => { void copy(editableLink).catch(e => { error = String(e) }) }}>复制协作链接</button></div>
               </section>
             {/if}
             <section class="project-management">
@@ -617,6 +633,7 @@
   .field-row { display: flex; align-items: center; gap: 12px; margin: 8px 0; }
   .field-row > span, .field-row > label { width: 70px; flex-shrink: 0; }
   .field-row input { flex: 1; width: 0; }
+  .theme-option { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
   .collaboration-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
   .collaboration-row button { flex-shrink: 0; }
   .file-list { margin-top: 12px; max-height: 264px; overflow: auto; border: 1px solid var(--ui-separator); border-radius: 6px; }

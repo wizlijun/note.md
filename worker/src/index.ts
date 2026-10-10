@@ -9,6 +9,7 @@ export interface Env {
 export { SlugAnalytics, DayRollup } from './audience'
 import { SLUG_RE as AUDIENCE_SLUG_RE } from './audience'
 import { handleFeedback, FEEDBACK_ID_RE, FEEDBACK_HASH_RE } from './feedback'
+import { activeProjectMetadata, handleProject, publicProject, readProjectState, revokeProject } from './project'
 
 const SLUG_RE = /^\d{4}-\d{2}-\d{2}-[a-z0-9-]{1,50}(?:-[a-zA-Z0-9]{2,4})?$/
 const TOKEN_RE = /^[a-zA-Z0-9]{16,128}$/
@@ -183,6 +184,7 @@ async function publishHtmlCore(
   const slug = args.slug
   const editToken = args.edit_token
   const html = args.html
+  if (await readProjectState(env, slug)) return coreErr(409, 'project_protocol', 'Use the project publication protocol')
 
   const existing = await env.SHARES.getWithMetadata<KvMeta>(slug)
   let createdAt: string
@@ -221,8 +223,16 @@ interface GetShareResult {
   created_at: string; original_filename: string; source_ext: string; size_bytes: number
 }
 
-async function getShareCore(env: Env, slug: string): Promise<CoreResult<GetShareResult>> {
+async function getShareCore(env: Env, slug: string, retried = false): Promise<CoreResult<GetShareResult>> {
   if (!SLUG_RE.test(slug)) return coreErr(404, 'not_found', 'slug not found')
+  const project = await readProjectState(env, slug)
+  if (project) {
+    if (!activeProjectMetadata(project.state)) return coreErr(404, 'not_found', 'slug not found')
+    const version = project.state.active, object = await env.MEDIA.get(version.htmlKey)
+    if (!object) return retried ? coreErr(503, 'project_unavailable', 'project publication unavailable') : getShareCore(env, slug, true)
+    return { ok: true, data: { slug, html: await object.text(), expires_at: version.expires_at,
+      created_at: project.state.created_at ?? '', original_filename: version.entry, source_ext: 'md', size_bytes: object.size } }
+  }
   const result = await env.SHARES.getWithMetadata<KvMeta>(slug)
   if (!result.value || !result.metadata) return coreErr(404, 'not_found', 'slug not found')
   return {
@@ -244,6 +254,9 @@ async function deleteShareCore(
 ): Promise<CoreResult<{ slug: string }>> {
   if (!SLUG_RE.test(slug)) return coreErr(400, 'bad_slug', 'invalid slug')
   if (!TOKEN_RE.test(editToken)) return coreErr(400, 'bad_edit_token', 'invalid edit_token')
+  const projectStatus = await revokeProject(env, slug, editToken)
+  if (projectStatus !== null) return projectStatus.status === 204 ? { ok: true, data: { slug } }
+    : coreErr(projectStatus.status, 'project_revoke', 'Project revocation failed')
   const existing = await env.SHARES.getWithMetadata<KvMeta>(slug)
   if (!existing.value || !existing.metadata) return coreErr(404, 'not_found', 'slug not found')
   if (existing.metadata.edit_token !== editToken) {
@@ -384,7 +397,9 @@ async function handlePublish(req: Request, env: Env, baseUrl: string): Promise<R
   })
 }
 
-async function handleGet(slug: string, env: Env): Promise<Response> {
+async function handleGet(slug: string, env: Env, head = false): Promise<Response> {
+  const project = await publicProject(env, slug, false, head)
+  if (project) return project
   const r = await getShareCore(env, slug)
   if (!r.ok) {
     return new Response(NOT_FOUND_HTML, { status: 410, headers: { 'Content-Type': 'text/html; charset=utf-8' } })
@@ -535,8 +550,11 @@ async function handleMediaDelete(path: string, req: Request, env: Env): Promise<
 
 async function handleDelete(slug: string, req: Request, env: Env): Promise<Response> {
   if (unauthorized(req, env)) return new Response('Unauthorized', { status: 401 })
-  let body: { edit_token?: string }
+  let body: { edit_token?: string; publicationId?: string; previousPublicationId?: string | null; project_id?: string; entrySnapshotId?: string; legacySnapshotId?: string }
   try { body = await req.json() } catch { return new Response('Bad JSON', { status: 400 }) }
+  const project = await revokeProject(env, slug, body?.edit_token ?? '', body ?? {})
+  if (project) return project.status === 204 ? Response.json({ publicationId: project.publicationId })
+    : new Response('Project revocation failed', { status: project.status })
   const r = await deleteShareCore(env, slug, body?.edit_token ?? '')
   if (!r.ok) return new Response(r.message, { status: r.status })
   return new Response(null, { status: 204 })
@@ -1083,7 +1101,7 @@ async function handleAudienceSessions(req: Request, env: Env, url: URL): Promise
 const CORS_HEADERS: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'authorization, content-type, x-feedback-token',
+  'Access-Control-Allow-Headers': 'authorization, content-type, x-feedback-token, x-edit-token, x-publication-id, x-snapshot-id',
   'Access-Control-Max-Age': '86400',
 }
 
@@ -1119,6 +1137,7 @@ export default {
         headers: { ...CORS_HEADERS, Allow: 'GET, HEAD, POST, DELETE, OPTIONS' },
       })
     }
+    if (path.startsWith('project/')) return withCors(await handleProject(req, env, url))
     if (path === 'feedback' || path.startsWith('feedback/')) return withCors(await handleFeedback(req, env, url))
     // Audience analytics: CORS-enabled (cross-origin from the app webview).
     if (path.startsWith('a/')) {
@@ -1144,7 +1163,7 @@ export default {
     const getLike = req.method === 'GET' || req.method === 'HEAD'
     if (getLike && path.startsWith('f/')) return stripBodyForHead(req, await handleMediaGet(path, req, env))
     if (req.method === 'DELETE' && path.startsWith('f/')) return withCors(await handleMediaDelete(path, req, env))
-    if (getLike && path) return stripBodyForHead(req, await handleGet(path, env))
+    if (getLike && path) return stripBodyForHead(req, await handleGet(path, env, req.method === 'HEAD'))
     if (req.method === 'DELETE' && path) return withCors(await handleDelete(path, req, env))
     return new Response('Not Found', { status: 404 })
   }

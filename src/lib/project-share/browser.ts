@@ -1,5 +1,5 @@
 /** Serialized into the static bundle. Keep every runtime dependency inside this function. */
-export async function projectShareBrowser(parser: any): Promise<void> {
+export async function projectShareBrowser(parser: any, zipper?: any): Promise<void> {
   const data = JSON.parse(document.getElementById('project-data')!.textContent!)
   const snapshot = data.snapshot
   const files = new Map<string, any>(snapshot.files.map((file: any) => [file.path, file]))
@@ -26,8 +26,68 @@ export async function projectShareBrowser(parser: any): Promise<void> {
   const expanded = new Set<string>()
   const panel = $('file-panel')
   const fileToggle = $('file-toggle')
+  const menu = $('file-menu')
+  let menuTarget: HTMLElement | undefined
+  let downloadPath = ''
+  const download = (bytes: Uint8Array, filename: string) => {
+    const url=URL.createObjectURL(new Blob([new Uint8Array(bytes).buffer],{type:'application/octet-stream'}))
+    const link=document.createElement('a'); link.href=url; link.download=filename; link.click()
+    setTimeout(()=>URL.revokeObjectURL(url),1000)
+  }
+  const fileBytes = (file:any): Uint8Array => {
+    if(typeof file.markdown==='string') return new TextEncoder().encode(file.markdown)
+    const raw=atob(file.dataUrl.slice(file.dataUrl.indexOf(',')+1))
+    return Uint8Array.from(raw,char=>char.charCodeAt(0))
+  }
+  const closeMenu = (restoreFocus=false) => {
+    menu.hidden=true
+    if(restoreFocus) menuTarget?.focus()
+  }
+  const openMenu = (event: MouseEvent | KeyboardEvent, row:HTMLElement, filePath:string) => {
+    event.preventDefault(); menuTarget=row; downloadPath=filePath; menu.hidden=false
+    const rect=row.getBoundingClientRect()
+    const x=event instanceof MouseEvent && event.clientX ? event.clientX : rect.left
+    const y=event instanceof MouseEvent && event.clientY ? event.clientY : rect.bottom
+    menu.style.left=Math.max(4,Math.min(x,innerWidth-menu.offsetWidth-4))+'px'
+    menu.style.top=Math.max(4,Math.min(y,innerHeight-menu.offsetHeight-4))+'px'
+    $('download-file').focus()
+  }
+  $('download-file').onclick=()=> { download(fileBytes(files.get(downloadPath)),downloadPath.split('/').pop()!); closeMenu(true) }
+  $('download-all').onclick=()=> {
+    try {
+      if(data.publicationPending) return
+      if(data.archiveUrl) {
+        const link=document.createElement('a'); link.href=data.archiveUrl; link.download=''; link.click()
+        return
+      }
+      const chunks: Uint8Array[]=[]
+      const archive=new zipper.Zip((error:Error|null,chunk:Uint8Array)=> { if(error) throw error; chunks.push(chunk) })
+      for(const file of snapshot.files) {
+        if(!file.path || /[\\:\0]/.test(file.path) || file.path.split('/').some((part:string)=>!part || part==='.' || part==='..')) throw new Error('无效的分享文件路径')
+        const entry=new zipper.ZipPassThrough(file.path)
+        if(Number.isSafeInteger(file.modifiedAt) && file.modifiedAt>=0) {
+          const time=new Date(file.modifiedAt)
+          if(time.getFullYear()>=1980 && time.getFullYear()<=2099) entry.mtime=time
+        }
+        archive.add(entry); entry.push(fileBytes(file),true)
+      }
+      const filename=(data.title || 'project').replace(/[\\/:*?"<>|\x00-\x1f]/g,'_').replace(/[. ]+$/g,'') || 'project'
+      archive.end()
+      const bytes=new Uint8Array(chunks.reduce((size,chunk)=>size+chunk.length,0))
+      let offset=0
+      for(const chunk of chunks) { bytes.set(chunk,offset); offset+=chunk.length }
+      download(bytes,filename+'.zip')
+    } catch(error:any) { say('下载失败：'+error.message) }
+  }
+  document.addEventListener('click',event=> { if(!menu.contains(event.target as Node)) closeMenu() })
+  document.addEventListener('scroll',()=>closeMenu(),true)
   const mobile = () => window.matchMedia('(max-width: 650px)').matches
   const say = (message: string) => { status.textContent = message }
+  if(data.publicationPending) {
+    const downloadAll=$('download-all') as HTMLButtonElement
+    downloadAll.disabled=true; downloadAll.textContent='下载全部（同步中）'
+    say('入口已可阅读，其余分享文件正在同步。')
+  }
   const uuid = () => crypto.randomUUID()
   const escape = (value: string) => value.replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]!))
   const request = (mode: IDBTransactionMode, key: string, value?: unknown): Promise<any> => new Promise((resolve,reject) => {
@@ -174,6 +234,9 @@ export async function projectShareBrowser(parser: any): Promise<void> {
     panel.hidden=!open
     $('file-backdrop').hidden=!open || !mobile()
     fileToggle.setAttribute('aria-expanded',String(open))
+    fileToggle.setAttribute('aria-label',open?'收起文件导航':'展开文件导航')
+    fileToggle.setAttribute('title',open?'收起文件导航':'展开文件导航')
+    document.querySelector('.layout')!.classList.toggle('files-open',open)
     if(restoreFocus) fileToggle.focus()
   }
   const renderTree = () => {
@@ -197,6 +260,9 @@ export async function projectShareBrowser(parser: any): Promise<void> {
           item.append(button,children); append(node,children,depth+1)
         } else {
           button.setAttribute('data-file',node.path)
+          button.setAttribute('aria-haspopup','menu')
+          button.oncontextmenu=event=>openMenu(event,button,node.path)
+          button.onkeydown=event=> { if(event.key==='ContextMenu' || (event.key==='F10' && event.shiftKey)) openMenu(event,button,node.path) }
           if(node.path===path) button.setAttribute('aria-current','page')
           button.onclick=()=> {
             const params=new URLSearchParams(location.hash.slice(1)); params.set('doc',node.path); params.delete('heading')
@@ -258,8 +324,13 @@ export async function projectShareBrowser(parser: any): Promise<void> {
     if(heading) Array.from(article.querySelectorAll('[id]')).find(element=>element.id===heading)?.scrollIntoView?.()
   }
   fileToggle.onclick=()=> { setPanel(panel.hidden); if(!panel.hidden) (panel.querySelector('[aria-current="page"]') as HTMLElement|null)?.focus() }
-  $('file-close').onclick=$('file-backdrop').onclick=()=>setPanel(false,true)
-  document.addEventListener('keydown',event=> { if(event.key==='Escape' && !panel.hidden) { event.preventDefault(); setPanel(false,true) } })
+  $('file-backdrop').onclick=()=>setPanel(false,true)
+  window.addEventListener('resize',()=> { setPanel(!panel.hidden); closeMenu() })
+  document.addEventListener('keydown',event=> {
+    if(event.key!=='Escape') return
+    if(!menu.hidden) { event.preventDefault(); closeMenu(true) }
+    else if(!panel.hidden) { event.preventDefault(); setPanel(false,true) }
+  })
   editButton.onclick=()=> { if(!token || !initialized) return; editing=!editing; baseline=false; render(); if(editing) editor.focus() }
   $('baseline').onclick=()=> { baseline=!baseline; editing=false; render() }
   editor.oninput=()=> {
@@ -329,8 +400,26 @@ export async function projectShareBrowser(parser: any): Promise<void> {
       history.replaceState(null,'',location.pathname+location.search+(params.size?'#'+params.toString():''))
     } else token=await request('readonly',snapshot.project_id+':token') ?? ''
     ready=true
-    say(state.pending && !state.pending.delivered ? '有待确认的提交，点击提交重试原包' : '')
+    say(state.pending && !state.pending.delivered ? '有待确认的提交，点击提交重试原包' : data.publicationPending ? '入口已可阅读，其余分享文件正在同步。' : '')
   } catch(error:any) { say('本地存储不可用：'+error.message+'；无法持久保存，修改请导出备份') }
   initialized=true
   navigate()
+  if(data.publicationPending && data.archiveUrl) {
+    const downloadAll=$('download-all') as HTMLButtonElement
+    const check=async()=> {
+      try {
+        const response=await fetch(data.archiveUrl,{method:'HEAD',cache:'no-store'})
+        if(response.ok) {
+          data.publicationPending=false
+          downloadAll.disabled=false; downloadAll.textContent='下载全部'
+          if(!editing && !Object.keys(state.drafts).length && !state.annotations.length && !state.pending) location.reload()
+          else say('完整项目已同步，刷新页面后可查看全部文件。请先导出当前入口草稿备份，再刷新页面。')
+          return
+        }
+        if(response.status===410 || response.status===404) return
+      } catch { /* Retain the readable entry while the owner retries the full package. */ }
+      setTimeout(check,3000)
+    }
+    setTimeout(check,3000)
+  }
 }

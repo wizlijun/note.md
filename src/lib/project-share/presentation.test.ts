@@ -10,7 +10,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@tauri-apps/api/core', () => ({ invoke: mocks.invoke }))
 vi.mock('@tauri-apps/plugin-fs', () => ({ readFile: mocks.readFile }))
 vi.mock('../settings.svelte', () => ({ settings: { theme: mocks.theme } }))
-import { renderProjectPresentation } from './presentation'
+import { captureProjectTheme, renderProjectPresentation } from './presentation'
 import * as sharedRenderer from '../plugins/host-render-html'
 import { buildProjectBundle } from './bundle'
 
@@ -33,6 +33,24 @@ beforeEach(() => {
   mocks.theme.followSystem = false
 })
 describe('frozen project presentation', () => {
+  it('freezes actual compiled CSS across entry and complete publication', async () => {
+    const frozenTheme=await captureProjectTheme()
+    mocks.theme.light='default'
+    mocks.invoke.mockResolvedValue('different later CSS')
+    mocks.invoke.mockClear()
+    const result=await renderProjectPresentation(snapshot('# frozen'),{frozenTheme})
+    expect(result.themeId).toBe('effie')
+    expect(result.styleHead).toContain('color: teal')
+    expect(result.styleHead).not.toContain('different later CSS')
+    expect(mocks.invoke).not.toHaveBeenCalled()
+  })
+  it('uses the built-in default theme when the current-theme option is disabled', async () => {
+    mocks.theme.light = 'effie'
+    const result = await renderProjectPresentation(snapshot('# default'), { useCurrentTheme: false })
+    expect(result.themeId).toBe('default')
+    expect(mocks.invoke).toHaveBeenCalledWith('theme_load_compiled', { id: 'default' })
+    expect(mocks.theme.light).toBe('effie')
+  })
   it('embeds actual dependency fonts when Vite root is outside the project', async () => {
     const { execFile } = await import('node:child_process')
     const { resolve } = await import('node:path')

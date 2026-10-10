@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { Marked } from 'marked'
+import { Zip, ZipPassThrough, Unzip, UnzipPassThrough, unzipSync } from 'fflate'
 import { buildProjectBundle } from './bundle'
 import { projectShareBrowser } from './browser'
 import type { ProjectSnapshot } from './types'
@@ -29,6 +30,24 @@ const status = () => $('status').textContent!
 const input = (value: string) => { ($('editor') as HTMLTextAreaElement).value = value; $('editor').dispatchEvent(new Event('input')) }
 const click = (id: string) => $(''+id).click()
 
+function pendingPublication() {
+  const data=JSON.parse($('project-data').textContent!)
+  data.archiveUrl='https://share.test/project/slug/download'
+  data.publicationPending=true
+  $('project-data').textContent=JSON.stringify(data)
+  return data
+}
+
+function publicationPoll() {
+  let check: (()=>Promise<void>) | undefined
+  const original=globalThis.setTimeout.bind(globalThis)
+  const timer=vi.spyOn(globalThis,'setTimeout').mockImplementation(((callback:any,delay?:number,...args:any[])=> {
+    if(delay===3000) { check=callback; return 0 as any }
+    return original(callback,delay,...args)
+  }) as typeof setTimeout)
+  return {run:async()=> { expect(check).toBeDefined(); await check!() },restore:()=>timer.mockRestore()}
+}
+
 beforeEach(() => {
   values = new Map()
   vi.unstubAllGlobals()
@@ -39,6 +58,146 @@ beforeEach(() => {
 })
 
 describe('browser project collaboration', () => {
+  it('uses an edge icon with no top toolbar and updates the mobile backdrop on resize', async () => {
+    await projectShareBrowser(new Marked())
+    expect(document.querySelector('.reader-tools')).toBeNull()
+    expect($('file-toggle').querySelector('svg')).not.toBeNull()
+    expect($('file-toggle').getAttribute('aria-label')).toBe('展开文件导航')
+    click('file-toggle')
+    expect(document.querySelector('.layout')?.classList.contains('files-open')).toBe(true)
+    expect($('file-toggle').getAttribute('aria-label')).toBe('收起文件导航')
+    vi.stubGlobal('matchMedia', () => ({ matches: true }))
+    window.dispatchEvent(new Event('resize'))
+    expect($('file-backdrop').hidden).toBe(false)
+    click('file-toggle')
+    expect($('file-backdrop').hidden).toBe(true)
+  })
+
+  it('downloads the published snapshot as a ZIP with Unicode directories and binary attachments in read-only mode', async () => {
+    history.replaceState(null, '', '/')
+    const data=JSON.parse($('project-data').textContent!)
+    data.title='分享/标题'
+    data.snapshot.files.push({path:'附件/图片.png',dataUrl:'data:image/png;base64,AAH+/w==',bytes:4,hash:'d'.repeat(64)})
+    data.snapshot.files.push({path:'__proto__',dataUrl:'data:application/octet-stream;base64,AA==',bytes:1,hash:'f'.repeat(64)})
+    data.snapshot.files.push({path:'中文/空白.md',markdown:'',bytes:0,hash:'e'.repeat(64)})
+    $('project-data').textContent=JSON.stringify(data)
+    let blob: Blob | undefined
+    vi.spyOn(URL,'createObjectURL').mockImplementation(value=> {blob=value as Blob; return 'blob:test'})
+    const save=vi.spyOn(HTMLAnchorElement.prototype,'click').mockImplementation(()=>{})
+    await projectShareBrowser(new Marked(), {Zip,ZipPassThrough})
+    click('download-all')
+    expect((save.mock.instances[0] as HTMLAnchorElement).download).toBe('分享_标题.zip')
+    const archive=unzipSync(new Uint8Array(await blob!.arrayBuffer()))
+    expect(Object.keys(archive).sort()).toEqual(data.snapshot.files.map((file:any)=>file.path).filter((path:string)=>path!=='__proto__').sort())
+    expect(new TextDecoder().decode(archive['README.md'])).toBe(snapshot.files[0].markdown)
+    expect(Array.from(archive['附件/图片.png'])).toEqual([0,1,254,255])
+    expect(archive['中文/空白.md'].length).toBe(0)
+    const paths:string[]=[]
+    const reader=new Unzip(file=> { paths.push(file.name); file.ondata=()=>{}; file.start() })
+    reader.register(UnzipPassThrough); reader.push(new Uint8Array(await blob!.arrayBuffer()),true)
+    expect(paths).toContain('__proto__')
+    expect($('collaboration').hidden).toBe(true)
+    save.mockRestore()
+  })
+
+  it('downloads the right-clicked published file without changing selection or including local drafts', async () => {
+    let blob: Blob | undefined
+    vi.spyOn(URL,'createObjectURL').mockImplementation(value=> {blob=value as Blob; return 'blob:test'})
+    const save=vi.spyOn(HTMLAnchorElement.prototype,'click').mockImplementation(()=>{})
+    await projectShareBrowser(new Marked(),{Zip,ZipPassThrough})
+    click('edit'); input('本地草稿')
+    const row=document.querySelector('[data-file="Research.md"]') as HTMLElement
+    row.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,clientX:35,clientY:50}))
+    expect($('file-menu').hidden).toBe(false)
+    expect($('editor').getAttribute('hidden')).toBeNull()
+    click('download-file')
+    expect((save.mock.instances[0] as HTMLAnchorElement).download).toBe('Research.md')
+    expect(await blob!.text()).toBe('# Research')
+    expect($('file-menu').hidden).toBe(true)
+    row.dispatchEvent(new KeyboardEvent('keydown',{bubbles:true,key:'F10',shiftKey:true}))
+    expect($('file-menu').hidden).toBe(false)
+    document.dispatchEvent(new KeyboardEvent('keydown',{bubbles:true,key:'Escape'}))
+    expect($('file-menu').hidden).toBe(true)
+    expect(document.activeElement).toBe(row)
+    expect(($('editor') as HTMLTextAreaElement).value).toBe('本地草稿')
+    save.mockRestore()
+  })
+
+  it('runs the exact serialized bundle including its embedded ZIP dependency', async () => {
+    let blob:Blob|undefined
+    vi.spyOn(URL,'createObjectURL').mockImplementation(value=> {blob=value as Blob; return 'blob:test'})
+    const save=vi.spyOn(HTMLAnchorElement.prototype,'click').mockImplementation(()=>{})
+    const scripts=Array.from(document.querySelectorAll('script'))
+    new Function(scripts[scripts.length-1].textContent!)()
+    await vi.waitFor(()=>expect(($('edit') as HTMLButtonElement).disabled).toBe(false))
+    click('download-all')
+    expect(new TextDecoder().decode(unzipSync(new Uint8Array(await blob!.arrayBuffer()))['README.md'])).toBe(snapshot.files[0].markdown)
+    save.mockRestore()
+  })
+
+  it('downloads a retained archive directly instead of rebuilding a ZIP in the browser', async () => {
+    const data=JSON.parse($('project-data').textContent!)
+    data.archiveUrl='https://share.test/project/slug/download'
+    $('project-data').textContent=JSON.stringify(data)
+    const save=vi.spyOn(HTMLAnchorElement.prototype,'click').mockImplementation(()=>{})
+    await projectShareBrowser(new Marked())
+    click('download-all')
+    expect((save.mock.instances[0] as HTMLAnchorElement).href).toBe(data.archiveUrl)
+    save.mockRestore()
+  })
+
+  it('disables pending archive downloads and explains syncing before local storage recovery completes', async () => {
+    pendingPublication()
+    fakeDatabase(25)
+    const poll=publicationPoll()
+    const loading=projectShareBrowser(new Marked())
+    try {
+      expect(($('download-all') as HTMLButtonElement).disabled).toBe(true)
+      expect($('download-all').textContent).toContain('同步中')
+      expect(status()).toContain('其余分享文件正在同步')
+    } finally { await loading; poll.restore() }
+  })
+
+  it('polls pending archives with HEAD and reloads a clean page only after the archive is ready', async () => {
+    const data=pendingPublication()
+    const poll=publicationPoll()
+    const reload=vi.spyOn(location,'reload').mockImplementation(()=>{})
+    const fetchArchive=vi.fn().mockResolvedValueOnce(new Response(null,{status:409})).mockResolvedValueOnce(new Response(null,{status:200}))
+    vi.stubGlobal('fetch',fetchArchive)
+    try {
+      await projectShareBrowser(new Marked())
+      expect(($('download-all') as HTMLButtonElement).disabled).toBe(true)
+      await poll.run()
+      expect(reload).not.toHaveBeenCalled()
+      expect(($('download-all') as HTMLButtonElement).disabled).toBe(true)
+      await poll.run()
+      expect(fetchArchive.mock.calls).toEqual([[data.archiveUrl,{method:'HEAD',cache:'no-store'}],[data.archiveUrl,{method:'HEAD',cache:'no-store'}]])
+      expect(reload).toHaveBeenCalledTimes(1)
+      expect(($('download-all') as HTMLButtonElement).disabled).toBe(false)
+    } finally { poll.restore(); reload.mockRestore() }
+  })
+
+  it('keeps entry drafts when a pending archive becomes ready and downloads the retained URL directly', async () => {
+    const data=pendingPublication()
+    values.set('project_1:snapshot_1',{drafts:{'README.md':'入口草稿'},annotations:[],pending:null})
+    const poll=publicationPoll()
+    const reload=vi.spyOn(location,'reload').mockImplementation(()=>{})
+    const save=vi.spyOn(HTMLAnchorElement.prototype,'click').mockImplementation(()=>{})
+    const fetchArchive=vi.fn().mockResolvedValue(new Response(null,{status:200}))
+    vi.stubGlobal('fetch',fetchArchive)
+    try {
+      await projectShareBrowser(new Marked())
+      await poll.run()
+      expect(reload).not.toHaveBeenCalled()
+      expect(status()).toContain('请先导出当前入口草稿备份')
+      expect(($('editor') as HTMLTextAreaElement).value).toBe('入口草稿')
+      click('download-all')
+      expect(save).toHaveBeenCalledTimes(1)
+      expect((save.mock.instances[0] as HTMLAnchorElement).href).toBe(data.archiveUrl)
+      expect(fetchArchive).toHaveBeenCalledTimes(1)
+    } finally { poll.restore(); reload.mockRestore(); save.mockRestore() }
+  })
+
   it('starts secondary collaboration controls collapsed and reveals them on demand', async () => {
     await projectShareBrowser(new Marked())
     const details = $('collaboration-options') as HTMLDetailsElement

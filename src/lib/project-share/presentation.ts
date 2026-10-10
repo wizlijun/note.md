@@ -15,6 +15,7 @@ export interface ProjectPresentation {
   documents: Record<string, string>
   warnings: string[]
 }
+export interface FrozenProjectTheme { themeId: string; compiledCss: string }
 
 // These are build-time dependency assets, never paths chosen by document input.
 const mathFonts = import.meta.glob<string>('../../../node_modules/katex/dist/fonts/*.woff2', {
@@ -311,15 +312,20 @@ async function renderApprovedDocument(file: ProjectFile, files: Map<string, Proj
   return sanitize(root.innerHTML, true)
 }
 
-export async function renderProjectPresentation(snapshot: ProjectSnapshot): Promise<ProjectPresentation> {
-  const themeId = computeActiveThemeId(settings.theme, typeof window.matchMedia === 'function' && window.matchMedia('(prefers-color-scheme: dark)').matches)
-  let themeCss: string
-  try { themeCss = await invoke<string>('theme_load_compiled', { id: themeId }) }
+export async function captureProjectTheme(useCurrentTheme = true): Promise<FrozenProjectTheme> {
+  const themeId = !useCurrentTheme ? 'default' : computeActiveThemeId(settings.theme, typeof window.matchMedia === 'function' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+  let compiledCss: string
+  try { compiledCss = await invoke<string>('theme_load_compiled', { id: themeId }) }
   catch { throw new Error(`无法加载当前主题「${themeId}」，项目分享未更新。`) }
-  if (typeof themeCss !== 'string' || !themeCss.trim()) throw new Error(`当前主题「${themeId}」没有可用样式，项目分享未更新。`)
+  if (typeof compiledCss !== 'string' || !compiledCss.trim()) throw new Error(`当前主题「${themeId}」没有可用样式，项目分享未更新。`)
+  return { themeId, compiledCss }
+}
+
+export async function renderProjectPresentation(snapshot: ProjectSnapshot, options: { useCurrentTheme?: boolean; frozenTheme?: FrozenProjectTheme } = {}): Promise<ProjectPresentation> {
+  const { themeId, compiledCss } = options.frozenTheme ?? await captureProjectTheme(options.useCurrentTheme)
   const warnings: string[] = []
   const files = new Map(snapshot.files.map(file => [file.path, file]))
-  const safeTheme = sanitizeCss(themeCss, warnings, files)
+  const safeTheme = sanitizeCss(compiledCss, warnings, files)
   // Local-only font families remain in the template's fallback chain; no host font is read.
   if (/font-family\s*:/i.test(safeTheme)) warnings.push('主题字体未随分享打包；访客缺少相应字体时使用模板的替代字体。')
   const styleHead = themedStyleHead(safeTheme, inlineMathCss()) + `<style>${FRONTMATTER_CSS}</style>`
