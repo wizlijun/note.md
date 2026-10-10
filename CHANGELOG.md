@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.1010.5 — 2026-10-10
+
 ### Improvements
 
 - **Project sharing becomes available as soon as the entry document is uploaded.** The approved documents and attachments follow in one ZIP; complete publications switch atomically, and Download all reuses the retained archive.
