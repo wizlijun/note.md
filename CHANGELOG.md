@@ -7,6 +7,12 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+### Improvements
+
+- **Project sharing becomes available as soon as the entry document is uploaded.** The approved documents and attachments follow in one ZIP; complete publications switch atomically, and Download all reuses the retained archive.
+- **Shared reading pages adapt to the window width.** A sidebar icon follows the file panel, the document starts without a toolbar row, and files offer a right-click download action.
+- **Choose the shared document theme.** “Use current theme” is selected by default; turning it off publishes with the built-in default theme.
+
 ## v6.1010.4 — 2026-10-10
 
 ### Changed
