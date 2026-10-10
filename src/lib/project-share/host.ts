@@ -3,6 +3,8 @@ import { Store } from '@tauri-apps/plugin-store'
 import { sha256Hex } from '../hash'
 import { generateSlug } from '../share/slug'
 import { buildProjectBundle } from './bundle'
+import { renderProjectPresentation } from './presentation'
+import { normalizeShareTitle } from './title'
 import type { FeedbackEnvelope, LocalFeedback, ProjectFile, ProjectInfo, ProjectSnapshot, ProjectSummary } from './types'
 
 export interface ProjectIdentity {
@@ -16,7 +18,8 @@ export interface ProjectIdentity {
   url?: string
   expiresAt?: string | null
   publishedSnapshotId?: string
-  pending?: { snapshotId: string; entry: string; expiresInSeconds: number | null }
+  shareTitle?: string
+  pending?: { snapshotId: string; entry: string; expiresInSeconds: number | null; shareTitle?: string; warnings?: string[] }
 }
 const KEY = 'projectShares'
 
@@ -117,7 +120,7 @@ async function ownerRequest(baseUrl: string, apiKey: string, path: string, metho
 }
 
 /** Persist everything needed to retry before sending the first request. */
-export async function publishProject(info: ProjectInfo, files: ProjectFile[]): Promise<{ info: ProjectInfo; identity: ProjectIdentity }> {
+export async function publishProject(info: ProjectInfo, files: ProjectFile[], title?: string): Promise<{ info: ProjectInfo; identity: ProjectIdentity; warnings?: string[] }> {
   const current = await projectCommand<ProjectInfo>('get', { project_id: info.project_id })
   if (info.deleting || current.deleting) throw new Error('项目正在删除，请完成或取消删除后再发布。')
   const cfg = await configuration()
@@ -131,17 +134,22 @@ export async function publishProject(info: ProjectInfo, files: ProjectFile[]): P
     }
   }
   let html: string
+  let warnings: string[] = []
   if (identity.pending) {
     html = await projectCommand<string>('bundle-get', { project_id: info.project_id, snapshotId: identity.pending.snapshotId })
+    warnings = identity.pending.warnings ?? []
   } else {
     if (!files.some(file => file.path === info.entry)) throw new Error('必须包含入口文档')
     const snapshot = await projectCommand<ProjectSnapshot>('snapshot', {
       project_id: info.project_id, paths: files.map(file => file.path), hashes: Object.fromEntries(files.map(file => [file.path, file.hash])),
     })
-    html = buildProjectBundle(snapshot, `${identity.baseUrl}/feedback/${identity.slug}`)
+    const shareTitle = normalizeShareTitle(title ?? identity.shareTitle, snapshot.entry)
+    const presentation = await renderProjectPresentation(snapshot)
+    warnings = presentation.warnings
+    html = buildProjectBundle(snapshot, `${identity.baseUrl}/feedback/${identity.slug}`, { title: shareTitle, presentation })
     await projectCommand('bundle', { project_id: info.project_id, snapshotId: snapshot.snapshotId, html })
     identity = { ...identity, sourceRoot: info.sourceRoot, entry: info.entry,
-      pending: { snapshotId: snapshot.snapshotId, entry: snapshot.entry, expiresInSeconds: cfg.expiresInSeconds } }
+      pending: { snapshotId: snapshot.snapshotId, entry: snapshot.entry, expiresInSeconds: cfg.expiresInSeconds, shareTitle, warnings } }
   }
   // A previous save may have failed after updating Store's in-memory cache.
   // Every attempt must durably retain the retry credentials before uploading.
@@ -154,10 +162,11 @@ export async function publishProject(info: ProjectInfo, files: ProjectFile[]): P
   })
   const url = `${identity.baseUrl}/${identity.slug}`
   const published = await projectCommand<ProjectInfo>('published', { project_id: info.project_id, snapshotId: pending.snapshotId, url })
-  identity = { ...identity, url, publishedSnapshotId: pending.snapshotId, expiresAt: receipt.expires_at }
+  identity = { ...identity, url, publishedSnapshotId: pending.snapshotId, expiresAt: receipt.expires_at,
+    ...(pending.shareTitle === undefined ? {} : { shareTitle: pending.shareTitle }) }
   delete identity.pending
   await remember(identity)
-  return { info: published, identity }
+  return { info: published, identity, warnings }
 }
 
 export function collaborationLink(identity: ProjectIdentity): string | undefined {

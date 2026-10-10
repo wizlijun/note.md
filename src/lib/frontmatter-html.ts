@@ -1,6 +1,7 @@
 import { parseDocument, isMap } from 'yaml'
 import { segmentFrontmatter } from './frontmatter-segment'
 import { htmlEscape, renderMarkdownInline } from './plugins/host-render-html'
+import type { BodyRenderOptions } from './plugins/host-render-html'
 import { frontmatterInlineParts } from './frontmatter-inline'
 import { t } from './i18n/store.svelte'
 
@@ -49,7 +50,7 @@ export function splitFrontmatter(md: string): SplitDoc {
  * prose regions, rendered as markdown). Returns '' for an empty block — there
  * is nothing worth a disclosure widget.
  */
-export function frontmatterDetailsHtml(fm: string): string {
+export function frontmatterDetailsHtml(fm: string, options?: BodyRenderOptions): string {
   if (fm.trim() === '') return ''
   const parts: string[] = []
   const keys: string[] = []
@@ -59,7 +60,7 @@ export function frontmatterDetailsHtml(fm: string): string {
       parts.push(properties.html)
       keys.push(...properties.keys)
     } else if (seg.text.trim() !== '') {
-      parts.push(`<div class="frontmatter-md">${renderMarkdownInline(seg.text)}</div>`)
+      parts.push(`<div class="frontmatter-md">${renderMarkdownInline(seg.text, options)}</div>`)
     }
   }
   if (!parts.length) return ''

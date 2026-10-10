@@ -275,8 +275,8 @@ export const __setImageReaderForTests = sharedSetImageReader
 /** The shared inline `<style>` head used by both the share page and the
  *  git-history rich preview: katex + hljs(light/dark) + base responsive block +
  *  the user's theme CSS + mobile overrides + CriticMarkup. */
-function themedStyleHead(themeCss: string): string {
-  return `<style>${katexCss}</style>
+export function themedStyleHead(themeCss: string, mathCss: string = katexCss): string {
+  return `<style>${mathCss}</style>
 <style>${hljsLightCss}</style>
 <style>@media (prefers-color-scheme: dark) { ${hljsDarkCss} }</style>
 <style>${themeCssBlock()}</style>

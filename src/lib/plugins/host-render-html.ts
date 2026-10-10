@@ -138,29 +138,44 @@ export const CRITIC_CSS = `
 }
 `
 
-const sharedMarked = new Marked(
-  // The rich editor maps every markdown soft break to a hard line break
-  // (moraya's softbreak → hardbreak). `breaks: true` mirrors that in exported
-  // / previewed HTML so multi-line blockquotes and wrapped paragraphs keep
-  // their line breaks instead of collapsing onto one line.
-  { breaks: true, gfm: true },
-  markedHighlight({
-    langPrefix: 'hljs language-',
-    highlight(code: string, lang: string): string {
-      const language = lang && hljs.getLanguage(lang) ? lang : 'plaintext'
-      return hljs.highlight(code, { language }).value
-    },
-  }),
-  markedKatex({ throwOnError: false }),
-)
-sharedMarked.use({ extensions: [criticAnnotationExtension, blockCitationExtension, highlightCaretExtension, highlightEqExtension] })
+export interface BodyRenderOptions {
+  /** Untrusted raw HTML is handled before generated math/highlight markup. */
+  sanitizeHtml?: (html: string) => string
+  extensions?: TokenizerAndRendererExtension[]
+}
+
+function createSharedMarked(options?: BodyRenderOptions): Marked {
+  const parser = new Marked(
+    // The rich editor maps every markdown soft break to a hard line break
+    // (moraya's softbreak → hardbreak). `breaks: true` mirrors that in exported
+    // / previewed HTML so multi-line blockquotes and wrapped paragraphs keep
+    // their line breaks instead of collapsing onto one line.
+    { breaks: true, gfm: true },
+    markedHighlight({
+      langPrefix: 'hljs language-',
+      highlight(code: string, lang: string): string {
+        const language = lang && hljs.getLanguage(lang) ? lang : 'plaintext'
+        return hljs.highlight(code, { language }).value
+      },
+    }),
+    markedKatex({ throwOnError: false }),
+  )
+  parser.use({ extensions: [criticAnnotationExtension, blockCitationExtension, highlightCaretExtension, highlightEqExtension, ...(options?.extensions ?? [])] })
+  if (options?.sanitizeHtml) {
+    const sanitize = options.sanitizeHtml
+    parser.use({ renderer: { html: ({ text }) => sanitize(text) } })
+  }
+  return parser
+}
+
+const sharedMarked = createSharedMarked()
 
 /**
  * Synchronously render a small markdown fragment to an HTML string using the
  * shared pipeline. Used for the non-key:value regions inside frontmatter.
  */
-export function renderMarkdownInline(md: string): string {
-  return sharedMarked.parse(md, { async: false }) as string
+export function renderMarkdownInline(md: string, options?: BodyRenderOptions): string {
+  return (options ? createSharedMarked(options) : sharedMarked).parse(md, { async: false }) as string
 }
 
 /**
@@ -168,7 +183,7 @@ export function renderMarkdownInline(md: string): string {
  * through the shared marked + KaTeX + hljs pipeline; html tabs are passed
  * through; code tabs are syntax-highlighted in a `<pre>`.
  */
-export async function renderTabBody(tab: Tab): Promise<string> {
+export async function renderTabBody(tab: Pick<Tab, 'kind' | 'currentContent' | 'language'>, options?: BodyRenderOptions): Promise<string> {
   if (tab.kind === 'html') return tab.currentContent
   if (tab.kind === 'code') {
     const lang = tab.language && hljs.getLanguage(tab.language) ? tab.language : 'plaintext'
@@ -178,7 +193,7 @@ export async function renderTabBody(tab: Tab): Promise<string> {
   // mdx goes through the same display transform as the reading view, so JSX
   // and `import` lines render as code instead of leaking into the output.
   const md = tab.kind === 'mdx' ? toDisplayMarkdown(tab.currentContent) : tab.currentContent
-  return await sharedMarked.parse(md, { async: true })
+  return await (options ? createSharedMarked(options) : sharedMarked).parse(md, { async: true })
 }
 
 // ---- image inline ----------------------------------------------------------
@@ -278,7 +293,7 @@ function pickImageReader(): ImageReader {
 
 // ---- diagrams --------------------------------------------------------------
 
-async function renderDiagramsToString(html: string): Promise<string> {
+export async function renderDiagramsToString(html: string): Promise<string> {
   const { renderDiagrams } = await import('../diagram-render')
   const staging = document.createElement('div')
   staging.setAttribute(

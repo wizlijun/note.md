@@ -36,6 +36,8 @@ pub struct ProjectFile {
     pub path: String,
     pub hash: String,
     pub bytes: usize,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub modified_at: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub markdown: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -319,7 +321,11 @@ fn read_json<T: for<'de> Deserialize<'de>>(path: &Path) -> Result<T> {
     let bytes = std::fs::read(path).map_err(|e| e.to_string())?;
     serde_json::from_slice(&bytes).map_err(|e| e.to_string())
 }
-fn make_file(path: &str, bytes: Vec<u8>) -> Result<ProjectFile> {
+fn source_modified_at(path: &Path) -> Option<u64> {
+    std::fs::metadata(path).ok()?.modified().ok()?
+        .duration_since(std::time::UNIX_EPOCH).ok()?.as_millis().try_into().ok()
+}
+fn make_file(path: &str, bytes: Vec<u8>, modified_at: Option<u64>) -> Result<ProjectFile> {
     let hash = sha256_hex(&bytes);
     let size = bytes.len();
     let (markdown, data_url) = if is_md(path) {
@@ -337,6 +343,7 @@ fn make_file(path: &str, bytes: Vec<u8>) -> Result<ProjectFile> {
         path: path.into(),
         hash,
         bytes: size,
+        modified_at,
         markdown,
         data_url,
     })
@@ -813,6 +820,7 @@ impl ProjectStore {
         make_file(
             path,
             read_bytes(&self.source_path(Path::new(&b.source_root), path)?)?,
+            None,
         )
     }
     fn mirror_path(&self, b: &Binding, path: &str) -> Result<PathBuf> {
@@ -896,6 +904,7 @@ impl ProjectStore {
             }
             let source = self.source_path(Path::new(&b.source_root), &path)?;
             let bytes = read_bytes(&source)?;
+            let modified_at = source_modified_at(&source);
             total += bytes.len();
             if total > MAX_BYTES {
                 return Err("snapshot exceeds 25 MiB".into());
@@ -904,11 +913,11 @@ impl ProjectStore {
                 return Err(format!("source hash changed: {path}"));
             }
             let target = self.check_mirror(&b, &path, &records)?;
-            prepared.push((path, source, target, bytes));
+            prepared.push((path, source, target, bytes, modified_at));
         }
         let snapshot_id = uuid::Uuid::new_v4().to_string();
         let mut files = vec![];
-        for (path, source, target, bytes) in &prepared {
+        for (path, source, target, bytes, modified_at) in &prepared {
             if sha256_hex(&read_bytes(source)?) != sha256_hex(bytes) {
                 return Err(format!("source changed during snapshot: {path}"));
             }
@@ -931,10 +940,10 @@ impl ProjectStore {
                 &self.management(&b, &format!("snapshots/{snapshot_id}/files/{path}"))?,
                 bytes,
             )?;
-            files.push(make_file(path, bytes.clone())?);
+            files.push(make_file(path, bytes.clone(), *modified_at)?);
         }
         // Freeze only if all approved source/mirror bytes still match the proposal.
-        for (path, source, target, bytes) in &prepared {
+        for (path, source, target, bytes, _) in &prepared {
             if read_bytes(source)? != *bytes || read_bytes(target)? != *bytes {
                 return Err(format!("file changed during snapshot: {path}"));
             }
@@ -968,8 +977,8 @@ impl ProjectStore {
         let source = self.bound_source(&binding, path)?;
         let target = self.mirror_path(&binding, path)?;
         Ok(MirrorView {
-            source: make_file(path, read_bytes(&source)?)?,
-            mirror: make_file(path, read_bytes(&target)?)?,
+            source: make_file(path, read_bytes(&source)?, None)?,
+            mirror: make_file(path, read_bytes(&target)?, None)?,
         })
     }
     pub fn resolve_mirror(
@@ -1428,6 +1437,28 @@ mod tests {
     use super::*;
     use tempfile::TempDir;
 
+    #[test]
+    fn project_share_modified_at_supports_old_schema_one_manifests() {
+        let legacy = serde_json::json!({"schemaVersion":1,"project_id":"p","snapshotId":"s","entry":"README.md",
+            "files":[{"path":"README.md","hash":"h","bytes":1,"markdown":"a"}]});
+        let snapshot: ProjectSnapshot = serde_json::from_value(legacy).unwrap();
+        assert_eq!(snapshot.schema_version, 1);
+        assert_eq!(snapshot.files[0].modified_at, None);
+        assert!(serde_json::to_value(snapshot).unwrap()["files"][0].get("modifiedAt").is_none());
+    }
+    #[test]
+    fn project_share_snapshot_freezes_source_mtime_not_mirror_copy_time() {
+        let (_t, service, project) = fixture();
+        let source = Path::new(&project.source_root).join("README.md");
+        let old_time = std::time::UNIX_EPOCH + std::time::Duration::from_millis(1_600_000_000_123);
+        std::fs::File::options().write(true).open(&source).unwrap().set_times(std::fs::FileTimes::new().set_modified(old_time)).unwrap();
+        let snapshot = freeze(&service, &project);
+        let entry = snapshot.files.iter().find(|file| file.path == "README.md").unwrap();
+        assert_eq!(entry.modified_at, Some(1_600_000_000_123));
+        assert_eq!(entry.hash, sha256_hex(&std::fs::read(&source).unwrap()));
+        assert_ne!(std::fs::metadata(Path::new(&project.mirror_root).join("README.md")).unwrap().modified().unwrap(), old_time);
+        assert_eq!(service.snapshot_get(&project.project_id, &snapshot.snapshot_id).unwrap().files[0].modified_at, entry.modified_at);
+    }
     #[test]
     fn project_share_fixed_entry_regression() {
         let (_t, s, a) = fixture();
