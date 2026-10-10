@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.1010.4 — 2026-10-10
+
 ### Changed
 
 - **Shared projects now use your current Markdown theme.** Published pages render diagrams, formulas and highlighted code, with a Folder View file tree that starts collapsed and sorts recent files first. Set a share title before publishing; the browser title shows read-only or editable mode. Personal drafts keep diagram code until reviewed and republished.
