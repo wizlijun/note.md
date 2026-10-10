@@ -63,16 +63,43 @@ afterEach(async () => {
 })
 async function openDialog() {
   component = mount(ProjectShareDialog, { target: document.body, props: { onClose: vi.fn() } })
-  await vi.waitFor(() => expect(button('保存修改并重新扫描').disabled).toBe(false))
+  await vi.waitFor(() => expect(button('保存并重新扫描').disabled).toBe(false))
 }
 
 describe('ProjectShareDialog editor buffers', () => {
+  it('separates sharing from feedback and preserves review text when navigating', async () => {
+    await openDialog()
+    expect(button('分享内容').getAttribute('aria-current')).toBe('page')
+    expect(document.querySelector('footer button.primary')?.textContent).toBe('更新分享')
+    expect(document.body.textContent).not.toContain('Alice')
+    button('反馈收件箱').click()
+    await vi.waitFor(() => expect(button('Alice').disabled).toBe(false))
+    expect(button('反馈收件箱').getAttribute('aria-current')).toBe('page')
+    expect(document.querySelector('footer button.primary')).toBeNull()
+    button('Alice').click()
+    await vi.waitFor(() => expect(button('审阅文件').disabled).toBe(false))
+    button('审阅文件').click()
+    await vi.waitFor(() => expect(document.querySelector('textarea')).not.toBeNull())
+    const editor = document.querySelector('textarea')!
+    editor.value = 'my merged text'
+    editor.dispatchEvent(new Event('input', { bubbles: true }))
+    button('分享内容').click()
+    await vi.waitFor(() => expect(document.querySelector('textarea')).toBeNull())
+    button('反馈收件箱').click()
+    await vi.waitFor(() => expect(document.querySelector('textarea')?.value).toBe('my merged text'))
+  })
+
   it('restores feedback management after a published entry disappears without enabling a new publish', async () => {
     h.failOpen = true
     component = mount(ProjectShareDialog, { target: document.body, props: { onClose: vi.fn() } })
+    await vi.waitFor(() => expect(button('反馈收件箱').disabled).toBe(false))
+    button('反馈收件箱').click()
     await vi.waitFor(() => expect(button('Alice').disabled).toBe(false))
-    expect(button('停止分享').disabled).toBe(false)
-    expect(button('重新发布批准的范围').disabled).toBe(true)
+    button('分享内容').click()
+    await vi.waitFor(() => expect(button('停止分享').disabled).toBe(false))
+    expect(button('更新分享').disabled).toBe(true)
+    button('反馈收件箱').click()
+    await vi.waitFor(() => expect(button('Alice').disabled).toBe(false))
     button('Alice').click()
     await vi.waitFor(() => expect(button('审阅文件').disabled).toBe(false))
     button('审阅文件').click()
@@ -84,14 +111,16 @@ describe('ProjectShareDialog editor buffers', () => {
     const flush = (event: Event) => { if ((event as CustomEvent).detail?.tabId === 'source') h.dirty.add('source') }
     window.addEventListener('notemd:flush-doc', flush)
     try {
-      button('保存修改并重新扫描').click()
+      button('保存并重新扫描').click()
       await vi.waitFor(() => expect(h.saved).toEqual(['mirror', 'source']))
-      await vi.waitFor(() => expect(button('保存修改并重新扫描').disabled).toBe(false))
+      await vi.waitFor(() => expect(button('保存并重新扫描').disabled).toBe(false))
       expect(h.dirty.has('personal')).toBe(true)
     } finally { window.removeEventListener('notemd:flush-doc', flush) }
   })
   it('saves the reviewed source before showing its current text, then reads it again', async () => {
     await openDialog()
+    button('反馈收件箱').click()
+    await vi.waitFor(() => expect(button('Alice').disabled).toBe(false))
     button('Alice').click()
     await vi.waitFor(() => expect(button('审阅文件').disabled).toBe(false))
     h.dirty.add('source')
