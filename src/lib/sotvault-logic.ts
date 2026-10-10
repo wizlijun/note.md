@@ -1,4 +1,5 @@
 export interface SotRecord {
+  project_id?: string | null
   vault_path: string
   source_path: string
   synced_at: number
@@ -40,7 +41,7 @@ export function canSyncToVault(
   if (!path || !vaultRoot) return false
   if (isUnder(path, vaultRoot)) return false
   if (isTracked(path, records)) return false
-  if (isSyncedSource(path, records)) return false
+  if (records.some((r) => r.source_path === path && !r.project_id)) return false
   return true
 }
 

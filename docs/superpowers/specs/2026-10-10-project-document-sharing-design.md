@@ -1,8 +1,8 @@
 # 项目文档分享：极简设计
 
-日期：2026-10-10。状态：待用户审阅；未实现。
+日期：2026-10-10。状态：已实现并通过本地验收；尚未发布应用或部署 Worker。
 
-沿用 Superpowers brainstorming 的架构设计流程。本次按极简原则重新 review，替代此前较重的版本；本轮只修订 Spec。
+沿用 Superpowers brainstorming 的架构设计流程。本次按极简原则重新 review，替代此前较重的版本；实施按已批准的本 Spec 完成。
 
 ## 1. 目标与结论
 
@@ -147,8 +147,17 @@ KV 和公共缓存决定停止分享/更新的传播时间，不能承诺立即�
 | 审阅回写 | 原件未改可接受；已改有可操作的人工合入；路径伪造/未知基线隔离；重复/崩溃/原件再次变化不静默覆盖 |
 | 完整流程 | 两篇互引文档和图片一起发布；对方编辑/标注提交；主人取件合入原件、镜像刷新、重新发布；停止分享不删原件 |
 
-本次 review 结论：首版收敛为“项目镜像 + 静态分享包 + 反馈收件”。上述均为未来功能验收；本轮仅文档审查，不能以旧测试宣称新功能已通过。
+本次 review 结论：首版收敛为“项目镜像 + 静态分享包 + 反馈收件”。上述验收已通过针对性回归和本地分阶段联调。验证使用新功能测试及真实 Chromium、本地 Worker、Rust 文件操作；没有部署线上服务。
 
-代码依据：`src/lib/share/index.ts:73`、`src/lib/share/publish.ts:49`、`src/lib/plugins/share-baker.ts:322`、`src-tauri/src/sotvault/{store,logic,mirror_meta,mod}.rs`、`worker/src/index.ts`。现有 HTML 发布上限 25 MiB，项目包与 feedback 尚需实现。
+代码依据：`src/lib/share/index.ts:73`、`src/lib/share/publish.ts:49`、`src/lib/plugins/share-baker.ts:322`、`src-tauri/src/sotvault/{store,logic,mirror_meta,mod}.rs`、`worker/src/index.ts`。项目包沿用现有 HTML 发布 25 MiB 上限，feedback 上限为 5 MiB。
 
 技术边界参考：[Workers KV 的最终一致性](https://developers.cloudflare.com/kv/concepts/how-kv-works/)、[R2 条件写入与分页 API](https://developers.cloudflare.com/r2/api/workers/workers-api-reference/)。
+
+## 10. 实施结果与首版边界
+
+- 宿主桌面“文件 → 分享项目…”提供范围确认、发布/重发、反馈审阅、停止及显式重绑；不依赖插件。项目可在 Vault 外，也可在 Vault 内不与 Sync 重叠的子目录。源根不能包含 Vault，或与生成镜像目录重叠。
+- iOS 当前没有既有 Sync 后端，本轮保持 iOS 编译兼容并隐藏该入口，未扩展 iOS 文件授权/Sync。UI 首版使用中文。
+- 移动源根、Vault 或 syncDir 后，须自行把已有项目镜像放到当前 Vault/<syncDir>/<project_id>，再明确选择源根重绑。重绑核验原件和镜像仍等于记录 hash，保留 ID、快照和反馈，不自动搬文件。
+- 项目发布支持设置中的 never/7d/30d/90d，永不过期仅扩展项目发布，旧单篇合同不变。反馈列表仅返回 ID，主人逐份下载新包，避免将整页大正文聚合进 Worker 内存。
+- 验证：前端全套 3382 项、Rust library 全套 1143 项、Worker 全套 137 项通过；svelte-check 为 0 errors、33 个既有 warnings；生产构建和 iOS simulator 编译通过。
+- 真实 Chromium 与本地 Wrangler 3/Rust 的分阶段联调覆盖两篇互引和图片、旧原文标注、中文编辑、离线草稿重开、同包重试、取件、人工接受、原件/镜像刷新、同 URL 重发和停止保留反馈。完整打包 Tauri 应用的实机交互及线上发布仍需发布阶段验证。

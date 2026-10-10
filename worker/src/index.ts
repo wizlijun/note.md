@@ -8,6 +8,7 @@ export interface Env {
 
 export { SlugAnalytics, DayRollup } from './audience'
 import { SLUG_RE as AUDIENCE_SLUG_RE } from './audience'
+import { handleFeedback, FEEDBACK_ID_RE, FEEDBACK_HASH_RE } from './feedback'
 
 const SLUG_RE = /^\d{4}-\d{2}-\d{2}-[a-z0-9-]{1,50}(?:-[a-zA-Z0-9]{2,4})?$/
 const TOKEN_RE = /^[a-zA-Z0-9]{16,128}$/
@@ -105,7 +106,7 @@ interface PublishBody {
   edit_token: string
   html: string
   expires_in_seconds?: number
-  metadata: { original_filename: string; source_ext: string; src?: string }
+  metadata: { original_filename: string; source_ext: string; src?: string; project_id?: string; feedback_token_hash?: string }
 }
 
 interface KvMeta {
@@ -120,6 +121,8 @@ interface KvMeta {
    *  attributed back to a local document. Empty for shares published before this
    *  field existed. */
   src?: string
+  project_id?: string
+  feedback_token_hash?: string
 }
 
 const NOT_FOUND_HTML = `<!doctype html><html lang="en"><head>
@@ -147,7 +150,7 @@ const coreErr = (status: number, code: string, message: string): CoreErr =>
 interface PublishArgs {
   slug?: unknown; edit_token?: unknown; html?: unknown
   expires_in_seconds?: unknown
-  metadata?: { original_filename?: unknown; source_ext?: unknown; src?: unknown }
+  metadata?: { original_filename?: unknown; source_ext?: unknown; src?: unknown; project_id?: unknown; feedback_token_hash?: unknown }
 }
 
 interface PublishResult {
@@ -169,6 +172,14 @@ async function publishHtmlCore(
   if (new TextEncoder().encode(args.html).byteLength > MAX_HTML_BYTES) {
     return coreErr(413, 'payload_too_large', `html exceeds ${MAX_HTML_BYTES} bytes`)
   }
+  const projectId = args.metadata?.project_id
+  const feedbackTokenHash = args.metadata?.feedback_token_hash
+  if (projectId !== undefined || feedbackTokenHash !== undefined) {
+    if (typeof projectId !== 'string' || !FEEDBACK_ID_RE.test(projectId)
+      || typeof feedbackTokenHash !== 'string' || !FEEDBACK_HASH_RE.test(feedbackTokenHash)) {
+      return coreErr(400, 'bad_project_metadata', 'project_id and SHA-256 feedback_token_hash must be supplied together')
+    }
+  }
   const slug = args.slug
   const editToken = args.edit_token
   const html = args.html
@@ -185,10 +196,9 @@ async function publishHtmlCore(
   }
 
   const expiresInRaw = args.expires_in_seconds
-  const expirationTtl = typeof expiresInRaw === 'number' && expiresInRaw >= MIN_EXPIRES_IN
-    ? Math.floor(expiresInRaw)
-    : DEFAULT_EXPIRES_IN
-  const expiresAt = new Date(Date.now() + expirationTtl * 1000).toISOString()
+  const expirationTtl = typeof projectId === 'string' && expiresInRaw === null ? undefined
+    : typeof expiresInRaw === 'number' && expiresInRaw >= MIN_EXPIRES_IN ? Math.floor(expiresInRaw) : DEFAULT_EXPIRES_IN
+  const expiresAt = expirationTtl === undefined ? null : new Date(Date.now() + expirationTtl * 1000).toISOString()
 
   const meta: KvMeta = {
     edit_token: editToken,
@@ -198,6 +208,8 @@ async function publishHtmlCore(
     source_ext: typeof args.metadata?.source_ext === 'string' ? args.metadata.source_ext : '',
     size_bytes: new TextEncoder().encode(html).byteLength,
     src: typeof args.metadata?.src === 'string' ? args.metadata.src : '',
+    ...(typeof projectId === 'string' && typeof feedbackTokenHash === 'string'
+      ? { project_id: projectId, feedback_token_hash: feedbackTokenHash } : {}),
   }
   await env.SHARES.put(slug, html, { metadata: meta, expirationTtl })
 
@@ -364,7 +376,9 @@ async function handlePublish(req: Request, env: Env, baseUrl: string): Promise<R
     }
     return new Response(r.message, { status: r.status })
   }
-  return new Response(JSON.stringify({ slug: r.data.slug, edit_token: r.data.edit_token, url: r.data.url }), {
+  return new Response(JSON.stringify({ slug: r.data.slug, edit_token: r.data.edit_token, url: r.data.url,
+    ...(body.metadata?.project_id ? { expires_at: r.data.expires_at } : {}),
+  }), {
     status: 200,
     headers: { 'Content-Type': 'application/json' },
   })
@@ -1069,7 +1083,7 @@ async function handleAudienceSessions(req: Request, env: Env, url: URL): Promise
 const CORS_HEADERS: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'authorization, content-type',
+  'Access-Control-Allow-Headers': 'authorization, content-type, x-feedback-token',
   'Access-Control-Max-Age': '86400',
 }
 
@@ -1105,6 +1119,7 @@ export default {
         headers: { ...CORS_HEADERS, Allow: 'GET, HEAD, POST, DELETE, OPTIONS' },
       })
     }
+    if (path === 'feedback' || path.startsWith('feedback/')) return withCors(await handleFeedback(req, env, url))
     // Audience analytics: CORS-enabled (cross-origin from the app webview).
     if (path.startsWith('a/')) {
       let res: Response

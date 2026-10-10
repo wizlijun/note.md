@@ -2,8 +2,9 @@
  * App-level UI state shared between App.svelte and command modules.
  * Hoisted so commands.ts can dispatch 'preferences' without prop-drilling.
  */
-export const uiState = $state<{ showSettings: boolean; pendingSettingsTab: string | null }>({
+export const uiState = $state<{ showSettings: boolean; showProjectShare: boolean; pendingSettingsTab: string | null }>({
   showSettings: false,
+  showProjectShare: false,
   pendingSettingsTab: null,
 })
 
@@ -52,4 +53,9 @@ export function consumePendingSettingsTab(): string | null {
   const tab = uiState.pendingSettingsTab
   uiState.pendingSettingsTab = null
   return tab
+}
+
+/** Open the host project sharing workflow. Platform gating lives in commands. */
+export function openProjectShare() {
+  uiState.showProjectShare = true
 }

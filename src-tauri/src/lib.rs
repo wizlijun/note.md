@@ -44,6 +44,8 @@ pub mod notifications;
 #[cfg(not(target_os = "ios"))]
 pub mod sotvault;
 #[cfg(not(target_os = "ios"))]
+pub mod project_share;
+#[cfg(not(target_os = "ios"))]
 pub mod search;
 #[cfg(not(target_os = "ios"))]
 pub mod smart_search;
@@ -1335,6 +1337,7 @@ fn running_under_rosetta() -> bool {
         .unwrap_or(false)
 }
 
+#[cfg(not(target_os = "ios"))]
 fn argv_requests_cli_background(argv: &[String]) -> bool {
     argv.iter().any(|arg| arg == cli::open::BACKGROUND_FLAG)
 }
@@ -1523,6 +1526,7 @@ pub fn run() {
                 sotvault::sotvault_records,
                 sotvault::sotvault_forget,
                 sotvault::sotvault_sync_to_vault,
+                project_share::project_share,
                 sotvault::sotvault_check_update,
                 sotvault::sotvault_apply_update,
                 sotvault::sotvault_accept_current,
@@ -2097,6 +2101,7 @@ fn menu_label(locale: &str, key: &str) -> String {
         "plugins.market" => ("Plugin Market…", "插件市场…", "プラグインマーケット…", "Plugin-Markt…"),
         "file.syncToVault" => ("Sync to Vault…", "同步到 Vault…", "Vault に同期…", "Mit Vault synchronisieren…"),
         "file.viewSyncSource" => ("Reveal Sync Source…", "查看 Sync 的源文件…", "Sync 元ファイルを表示…", "Sync-Quelldatei anzeigen…"),
+        "file.projectShare" => ("Share Project…", "分享项目…", "プロジェクトを共有…", "Projekt teilen…"),
         "file.share" => ("Share Current File…", "分享当前文件…", "現在のファイルを共有…", "Aktuelle Datei teilen…"),
         "file.unshare" => ("Unshare Current File…", "取消分享当前文件…", "現在のファイルの共有を解除…", "Freigabe der aktuellen Datei aufheben…"),
         "file.copyShareLink" => ("Copy Share Link", "复制分享链接", "共有リンクをコピー", "Freigabe-Link kopieren"),
@@ -2595,6 +2600,7 @@ fn build_menu<R: tauri::Runtime>(
                 .accelerator("CmdOrCtrl+Shift+L")
                 .build(app)?,
         )
+        .item(&MenuItemBuilder::with_id("project-share", menu_label(locale, "file.projectShare")).build(app)?)
         .item(&MenuItemBuilder::with_id("unshare", menu_label(locale, "file.unshare")).build(app)?)
         .item(&MenuItemBuilder::with_id("copy-share-link", menu_label(locale, "file.copyShareLink")).build(app)?);
     // Plugin-contributed menu items no longer scatter into File/Edit/View/etc.
@@ -2837,7 +2843,9 @@ mod pending_search_reveal_tests {
 
 #[cfg(test)]
 mod argv_open_target_tests {
-    use super::{argv_open_target, argv_requests_cli_background};
+    use super::argv_open_target;
+    #[cfg(not(target_os = "ios"))]
+    use super::argv_requests_cli_background;
 
     /// The GUI relaunch marker (and any other flag) is not a file to open.
     #[test]
@@ -2848,6 +2856,7 @@ mod argv_open_target_tests {
         assert_eq!(argv_open_target("-q"), None);
     }
 
+    #[cfg(not(target_os = "ios"))]
     #[test]
     fn cli_background_marker_requires_an_exact_argv_match() {
         assert!(argv_requests_cli_background(&[

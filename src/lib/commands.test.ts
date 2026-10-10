@@ -12,6 +12,7 @@ const isIOS = vi.fn(async () => false)
 const pickSaveCanvasFile = vi.fn(async () => '/tmp/copy.canvas')
 const confirmCanvasSaveAsReferences = vi.fn(async () => true)
 const toggleSideView = vi.fn(async () => {})
+const openProjectShare = vi.fn()
 
 vi.mock('./tabs.svelte', () => ({
   activeTab: () => tab,
@@ -42,7 +43,7 @@ vi.mock('./sotvault.svelte', () => ({
   syncCurrentToVault: vi.fn(), deviceSourceForVaultPath: vi.fn(), revealVaultSource: vi.fn(),
 }))
 vi.mock('./side-panel/registry.svelte', () => ({ toggleSideView }))
-vi.mock('./ui-state.svelte', () => ({ openSettings: vi.fn() }))
+vi.mock('./ui-state.svelte', () => ({ openSettings: vi.fn(), openProjectShare }))
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -77,5 +78,20 @@ describe('Table of contents command', () => {
     const { dispatch } = await import('./commands')
     await dispatch('toggle-table-of-contents')
     expect(toggleSideView).toHaveBeenCalledWith('table-of-contents')
+  })
+})
+
+
+describe('Project sharing command', () => {
+  it('opens the host dialog from the native project-share id', async () => {
+    const { dispatch } = await import('./commands')
+    await dispatch('project-share')
+    expect(openProjectShare).toHaveBeenCalledOnce()
+  })
+  it('does not invoke the unsupported project host on iOS', async () => {
+    isIOS.mockResolvedValueOnce(true)
+    const { dispatch } = await import('./commands')
+    await dispatch('project-share')
+    expect(openProjectShare).not.toHaveBeenCalled()
   })
 })

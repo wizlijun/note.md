@@ -51,6 +51,6 @@ export function noteHomeForRead(
 
 /** Companion path next to the vault copy `mainPath` was synced to, or null. */
 function mappedVaultCompanion(mainPath: string, records: SotRecord[]): string | null {
-  const rec = records.find((r) => r.source_path === mainPath)
+  const rec = records.find((r) => r.source_path === mainPath && !r.project_id)
   return rec ? companionPathFor(rec.vault_path) : null
 }

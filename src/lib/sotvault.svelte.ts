@@ -106,7 +106,7 @@ export function isMirrorPath(path: string | null): boolean {
 
 /** This device's recorded source for a vault mirror (from git-synced metas). */
 export function deviceSourceForVaultPath(path: string | null): string | null {
-  return deviceSourceFor(path, sotvaultStore.mirrorMetas, sotvaultStore.vaultRoot, getDeviceId())
+  return computeSourceForVault(path, sotvaultStore.records) ?? deviceSourceFor(path, sotvaultStore.mirrorMetas, sotvaultStore.vaultRoot, getDeviceId())
 }
 
 export interface NoteSibling { notePath: string; deviceName: string }
@@ -223,6 +223,7 @@ interface UpdateCheck {
   outcome: string
   vaultPath: string | null
   openedIsSource: boolean
+  projectId?: string | null
 }
 
 export async function maybeCheckVaultUpdate(tab: { filePath: string }): Promise<void> {
@@ -258,6 +259,29 @@ export async function maybeCheckVaultUpdate(tab: { filePath: string }): Promise<
     return
   }
 
+  // A project conflict needs explicit approval of these exact source/mirror bytes.
+  if (res.projectId) {
+    const projectId = res.projectId
+    const marker = `/${projectId}/`
+    const index = vaultPath.lastIndexOf(marker)
+    if (index < 0) return
+    const path = vaultPath.slice(index + marker.length)
+    try {
+      const view = await invoke<{ source: { hash: string; markdown?: string }; mirror: { hash: string; markdown?: string } }>('project_share', {
+        request: { op: 'mirror', project_id: projectId, path },
+      })
+      const overwrite = await ask(`${t('sotvault.conflictOverwrite')}\n\n${view.source.markdown ?? view.source.hash}\n\n${vaultPath}\n${view.mirror.markdown ?? view.mirror.hash}`, { title: t('sotvault.conflictTitle') })
+      if (overwrite) {
+        await invoke('project_share', { request: { op: 'resolve-mirror', project_id: projectId, path, expectedSourceHash: view.source.hash, expectedMirrorHash: view.mirror.hash } })
+        await reloadTabFromDisk(vaultPath)
+        await refreshSotvault()
+      }
+    } catch (e) {
+      pushToast({ level: 'error', message: t('sotvault.updateFailed'), detail: String(e) })
+    }
+    return
+  }
+
   // action === 'conflict'
   const overwrite = await ask(t('sotvault.conflictOverwrite'), { title: t('sotvault.conflictTitle') })
   if (overwrite) {
@@ -281,27 +305,26 @@ export async function maybeCheckVaultUpdate(tab: { filePath: string }): Promise<
  *  不依赖前端 records 是否已 refresh——避免"首存紧跟 note-sync 时 records 未就绪→漏推"。
  *  走 apply_update(非 sync_to_vault,后者会 dedup 出第二份副本)。 */
 export async function pushSourceToVaultIfTracked(srcPath: string): Promise<void> {
-  let res: UpdateCheck
   try {
-    res = await invoke<UpdateCheck>('sotvault_check_update', { openedPath: srcPath })
+    const records = await invoke<SotRecord[]>('sotvault_records')
+    for (const record of records.filter((r) => r.source_path === srcPath)) {
+      const res = await invoke<UpdateCheck>('sotvault_check_update', { openedPath: record.vault_path })
+      const action = pushActionForOutcome(res.outcome)
+      if (action === 'apply-silent' && res.vaultPath) {
+        try {
+          await invoke('sotvault_apply_update', { vaultPath: res.vaultPath })
+          await reloadTabFromDisk(res.vaultPath)
+        } catch (e) {
+          pushToast({ level: 'error', message: t('sotvault.updateFailed'), detail: String(e) })
+        }
+      } else if (action === 'prompt-conflict') {
+        await maybeCheckVaultUpdate({ filePath: record.vault_path })
+      }
+    }
+    await refreshSotvault()
   } catch (e) {
     console.warn('[sotvault] push check:', e)
-    return
   }
-  const action = pushActionForOutcome(res.outcome)
-  if (action === 'noop' || !res.vaultPath) return
-  if (action === 'apply-silent') {
-    try {
-      await invoke('sotvault_apply_update', { vaultPath: res.vaultPath })
-      await reloadTabFromDisk(res.vaultPath)   // 幂等:vault 副本没开着就是 no-op
-      await refreshSotvault()
-    } catch (e) {
-      console.warn('[sotvault] push apply:', e)
-    }
-    return
-  }
-  // 'prompt-conflict' —— 复用现有冲突对话框
-  await maybeCheckVaultUpdate({ filePath: srcPath })
 }
 
 async function applyVaultUpdate(vaultPath: string): Promise<void> {

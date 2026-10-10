@@ -51,3 +51,12 @@ describe('noteHomeForRead', () => {
     expect(noteHomeForRead('/dl/foo.note.md', { vaultRoot: '/v', records })).toBeNull()
   })
 })
+
+it('project mirrors never capture the personal note home', () => {
+  const project = { ...rec('/dl/foo.md', '/v/sync/p/docs/foo.md'), project_id: 'p' }
+  const legacy = rec('/dl/foo.md', '/v/sync/2026-07-15-foo.md')
+  expect(noteHomeForRead('/dl/foo.md', { vaultRoot: '/v', records: [project, legacy] }))
+    .toBe('/v/sync/2026-07-15-foo.note.md')
+  expect(planNoteHome('/dl/foo.md', { vaultRoot: '/v', records: [project], legacyNoteExists: false }))
+    .toEqual({ action: 'sync' })
+})
