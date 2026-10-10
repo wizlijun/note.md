@@ -13,6 +13,8 @@
 
   let { onClose }: { onClose: () => void } = $props()
   let busy = $state(false)
+  let page = $state<'share' | 'feedback'>('share')
+  let contentElement: HTMLDivElement | undefined = $state()
   let pullingFor = $state('')
   let error = $state('')
   let notice = $state('')
@@ -43,6 +45,23 @@
   const editableLink = $derived(identity ? collaborationLink(identity) : undefined)
   const oldMarkdown = $derived(oldSnapshot?.files.find(file => file.path === annotationPath)?.markdown)
   const totalBytes = $derived(files.reduce((sum, file) => sum + file.bytes, 0))
+  const pendingFeedback = $derived(inbox.filter(item => item.status === 'pending').length)
+  const projectName = $derived(info?.sourceRoot.split('/').filter(Boolean).at(-1) ?? '')
+
+  $effect(() => {
+    void page
+    void info?.project_id
+    if (contentElement) contentElement.scrollTop = 0
+  })
+
+  function formatSize(bytes: number) {
+    return bytes < 1024 ? `${bytes} B` : bytes < 1024 * 1024 ? `${(bytes / 1024).toFixed(1)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`
+  }
+
+  function formatDate(value: string) {
+    const date = new Date(value)
+    return Number.isNaN(date.getTime()) ? value : date.toLocaleString(undefined, { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+  }
 
   async function run(task: () => Promise<void>) {
     if (busy) return
@@ -63,6 +82,7 @@
   }
 
   async function loadProject(sourceRoot: string, entry: string, projectId?: string) {
+    page = 'share'
     const stored = (projectId ? projects[projectId] : undefined) ?? Object.values(projects).find(project => project.sourceRoot === sourceRoot)
     if (stored?.pending) entry = stored.pending.entry
     boundSourceRoot = sourceRoot
@@ -336,64 +356,206 @@
 
 <div class="overlay" role="presentation" onclick={event => { if (event.target === event.currentTarget) close() }}>
   <div class="dialog ui-surface" role="dialog" aria-modal="true" aria-labelledby="project-share-title" aria-busy={busy} tabindex="-1" use:modalFocus={{ onClose: close, canClose: () => !busy }}>
-    <header><div><h2 id="project-share-title">项目文档分享</h2><p>以原项目为正文来源，确认范围后发布；收到的修改由你逐文件审阅。</p></div><button aria-label="关闭项目分享" disabled={busy} onclick={close}>关闭</button></header>
-    <div class="content">
-      {#if error}<p class="error" role="alert">{error}</p>{/if}
-      {#if notice}<p class="notice" role="status">{notice}</p>{/if}
-      <section>
-        <div class="actions"><button data-initial-focus disabled={busy} onclick={() => run(chooseProject)}>选择项目根和入口…</button>
-          {#if Object.keys(projects).length}<label>最近项目 <select aria-label="最近项目" disabled={busy} value={info?.project_id ?? ''} onchange={event => { const item = projects[event.currentTarget.value]; if (item) void run(() => loadProject(item.sourceRoot, item.entry, item.project_id)) }}><option value="">选择项目</option>{#each Object.values(projects) as item (item.project_id)}<option value={item.project_id}>{item.sourceRoot}</option>{/each}</select></label>{/if}
-        </div>
-        {#if rebindProjectId}<button disabled={busy} onclick={() => run(rebindProject)}>重新绑定项目目录…</button>{/if}
-        {#if info}
-          <p class="path">{info.sourceRoot}</p>
-          <label>入口文档 <select aria-label="入口文档" value={info.entry} disabled={busy || !!pending} onchange={event => run(() => changeEntry(event.currentTarget.value))}>{#each candidates as path (path)}<option value={path}>{path}</option>{/each}</select></label>
-          {#if pending}<p class="warning">上次发布结果尚未确认。重试会发送已冻结的原包（入口 {pending.entry}），不包含此后编辑的内容。</p>{/if}
-          <div class="actions"><button disabled={busy || (!pending && (managementOnly || !files.length || !!blocking.length))} class="primary" onclick={() => run(publish)}>{pending ? '重试原包发布' : identity?.url ? '重新发布批准的范围' : '发布批准的范围'}</button><button disabled={busy} onclick={() => run(saveAndScan)}>保存修改并重新扫描</button></div>
-          {#if shareUrl}<label>阅读链接 <input readonly value={shareUrl} aria-label="项目阅读链接" /></label><div class="actions"><button disabled={busy} onclick={() => run(() => copy(shareUrl))}>复制阅读链接</button><button disabled={busy || !editableLink} onclick={() => run(() => copy(editableLink))}>复制协作链接</button><button disabled={busy} onclick={() => run(stop)}>停止分享…</button></div><p>协作链接持有者可以编辑和标注全部已分享文档。{identity?.expiresAt === null ? '服务确认不设到期时间。' : identity?.expiresAt ? `服务确认的到期时间：${identity.expiresAt}` : ''}</p>
-          {:else if pending}<button disabled={busy} onclick={() => run(stop)}>请求停止这次待确认分享…</button>{/if}
+    <header class="dialog-header">
+      <h2 id="project-share-title">分享项目</h2>
+      <span class="current-page">{page === 'share' ? '分享内容' : '反馈收件箱'}</span>
+    </header>
+    <div class="share-layout">
+      <aside class="sidebar">
+        <nav aria-label="项目分享">
+          <button class:active={page === 'share'} aria-current={page === 'share' ? 'page' : undefined} disabled={busy} onclick={() => page = 'share'}>
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M5 2.5h6l4 4v11H5zM11 2.5v4h4M8 10h4M8 13h4" /></svg>
+            <span>分享内容</span>
+          </button>
+          <button class:active={page === 'feedback'} aria-current={page === 'feedback' ? 'page' : undefined} disabled={busy || !info} onclick={() => page = 'feedback'}>
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M3 3.5h14v10H8l-4 3v-3H3zM6 7h8M6 10h5" /></svg>
+            <span>反馈收件箱</span>{#if pendingFeedback}<span class="count" aria-label={`${pendingFeedback} 份待审阅`}>{pendingFeedback}</span>{/if}
+          </button>
+        </nav>
+        {#if info || Object.keys(projects).length}
+          <div class="project-switch">
+            {#if Object.keys(projects).length}
+              <label for="share-recent-project">最近项目</label>
+              <select id="share-recent-project" disabled={busy} value={info?.project_id ?? ''} onchange={event => { const item = projects[event.currentTarget.value]; if (item) void run(() => loadProject(item.sourceRoot, item.entry, item.project_id)) }}>
+                <option value="">选择项目</option>
+                {#each Object.values(projects) as item (item.project_id)}<option value={item.project_id}>{item.sourceRoot.split('/').filter(Boolean).at(-1)} — {item.sourceRoot}</option>{/each}
+              </select>
+            {/if}
+            <button data-initial-focus disabled={busy} onclick={() => run(chooseProject)}>选择项目…</button>
+          </div>
         {/if}
-      </section>
-      {#if info}
-        <section><h3>本次分享范围：{files.length} 个文件，{(totalBytes / 1024).toFixed(1)} KiB</h3><p>只上传勾选文件。排除的引用会显示未共享；个人手记、凭据和管理文件不参与分享。发布前会保存批准文件及关联镜像的修改并重新校验。</p>
-          <div class="file-list">{#each options as file (file.path)}<div class="file-row"><label><input type="checkbox" checked={!excluded.includes(file.path)} disabled={busy || file.path === info.entry || !!pending} onchange={event => run(() => toggleFile(file.path, event.currentTarget.checked))} /><span>{file.path}{file.path === info.entry ? '（入口）' : ''}</span></label>{#if info.files.includes(file.path)}<button disabled={busy} onclick={() => run(() => viewMirror(file.path))}>镜像对照</button>{/if}</div>{/each}</div>
-          {#if issues.length}<ul class="issues">{#each issues as issue}<li class:warning={issue.kind !== 'private'}><strong>{issue.from}</strong> → {issue.target}：{issue.message}{#if issue.from !== info.entry}<button disabled={busy || !!pending} onclick={() => run(() => excludeDocument(issue.from))}>排除此文档并重扫</button>{/if}</li>{/each}</ul>{/if}
-          {#if blocking.length}<p class="warning">缺失、越界或同名歧义尚未解决，不能发布。可修改原文、调整根目录，或排除产生问题的非入口文档。</p>{/if}
-        </section>
-        {#if mirror}<section class="mirror-review"><h3>镜像对照：{mirror.path}</h3><div class="columns two"><div><h4>当前源文件</h4><pre>{mirror.source.markdown ?? `${mirror.source.bytes} bytes\n${mirror.source.hash}`}</pre></div><div><h4>当前镜像</h4><pre>{mirror.mirror.markdown ?? `${mirror.mirror.bytes} bytes\n${mirror.mirror.hash}`}</pre></div></div><p>确认后只用上面显示的源版本覆盖这份镜像；任一文件再变化都会要求重新审阅。</p><div class="actions"><button class="primary" disabled={busy} onclick={() => run(resolveMirror)}>确认用源版本覆盖镜像</button><button disabled={busy} onclick={() => mirror = null}>取消</button></div></section>{/if}
-        <section><div class="section-heading"><h3>反馈收件箱（{inbox.length}）</h3><button disabled={busy || pulling} onclick={() => { void checkFeedback() }}>{pulling ? '正在检查云端…' : '检查新反馈'}</button></div>{#if cloudError}<p class="warning">{cloudError}</p>{/if}{#if !inbox.length}<p>暂时没有本机反馈。打开分享时会尝试取回云端收件。</p>{/if}<div class="inbox-list">{#each inbox as item (item.envelope.payload.submissionId)}<button class:selected={selected?.envelope.payload.submissionId === item.envelope.payload.submissionId} disabled={busy} onclick={() => run(() => selectFeedback(item))}><strong>{item.envelope.payload.name || '未署名协作者'}</strong><span>{item.envelope.receivedAt} · {statusLabel(item.status)} · {item.envelope.payload.edits.length} 处编辑 / {item.envelope.payload.annotations.length} 条标注</span></button>{/each}</div>
+      </aside>
+      <div class="content" bind:this={contentElement} role="region" aria-label={page === 'share' ? '分享内容' : '反馈收件箱'}>
+        {#if error}<p class="message error" role="alert">{error}</p>{/if}
+        {#if notice}<p class="message notice" role="status">{notice}</p>{/if}
+        {#if info}
+          <div class="project-heading">
+            <div class="project-title"><h3>{projectName}</h3><span class="badge">{pending ? '发布待确认' : shareUrl ? '已分享' : '未发布'}</span></div>
+            <p class="path">{info.sourceRoot}</p>
+          </div>
+          {#if page === 'share'}
+            <section class="entry-section">
+              <label class="field-row" for="share-entry"><span>入口文档</span><select id="share-entry" value={info.entry} disabled={busy || !!pending} onchange={event => run(() => changeEntry(event.currentTarget.value))}>{#each candidates as path (path)}<option value={path}>{path}</option>{/each}</select></label>
+              <p class="desc">从这篇文档开始，包含你勾选的引用文档和资源。</p>
+              {#if pending}<p class="message warning">上次发布结果尚未确认。重试会发送已冻结的原包（入口 {pending.entry}），不包含此后编辑的内容。</p>{/if}
+              {#if managementOnly && !pending}<p class="message warning">入口暂时无法读取。仍可管理分享和反馈；重新选择有效入口并扫描后可再次发布。</p>{/if}
+            </section>
+            <section>
+              <div class="section-heading"><h3>分享文件 <span class="section-meta">{files.length} 个 · {formatSize(totalBytes)}</span></h3><button disabled={busy} onclick={() => run(saveAndScan)}>保存并重新扫描</button></div>
+              <p class="desc">仅分享勾选的文件，个人手记和私密配置会自动排除。</p>
+              <div class="file-list" aria-label="分享文件">
+                {#each options as file (file.path)}
+                  <div class="file-row">
+                    <label><input type="checkbox" checked={!excluded.includes(file.path)} disabled={busy || file.path === info.entry || !!pending} onchange={event => run(() => toggleFile(file.path, event.currentTarget.checked))} /><span class="file-path">{file.path}</span>{#if file.path === info.entry}<span class="badge">入口</span>{/if}</label>
+                    <span class="file-size">{formatSize(file.bytes)}</span>
+                    {#if info.files.includes(file.path)}<button class="subtle" disabled={busy} onclick={() => run(() => viewMirror(file.path))}>镜像对照</button>{/if}
+                  </div>
+                {/each}
+                {#if !options.length}<p class="list-empty">{managementOnly ? '修复入口后可重新扫描文件。' : '暂时没有可分享的文件。'}</p>{/if}
+              </div>
+              {#if issues.length}<details class="reference-issues" open={blocking.length > 0}><summary>{blocking.length ? `${blocking.length} 个引用问题需要处理` : '查看已排除的私密引用'}</summary><ul class="issues">{#each issues as issue}<li class:warning={issue.kind !== 'private'}><strong>{issue.from}</strong> → {issue.target}：{issue.message}{#if issue.from !== info.entry}<button disabled={busy || !!pending} onclick={() => run(() => excludeDocument(issue.from))}>排除此文档并重扫</button>{/if}</li>{/each}</ul></details>{/if}
+              {#if blocking.length}<p class="warning desc">处理缺失、越界或同名歧义后才能发布。可修改原文、调整项目目录，或排除有问题的非入口文档。</p>{/if}
+            </section>
+            {#if mirror}<section class="mirror-review"><h3>镜像对照：{mirror.path}</h3><div class="columns two"><div><h4>当前源文件</h4><pre>{mirror.source.markdown ?? `${mirror.source.bytes} bytes\n${mirror.source.hash}`}</pre></div><div><h4>当前镜像</h4><pre>{mirror.mirror.markdown ?? `${mirror.mirror.bytes} bytes\n${mirror.mirror.hash}`}</pre></div></div><p>确认后只用上面显示的源版本覆盖这份镜像；任一文件再变化都会要求重新审阅。</p><div class="actions"><button class="primary" disabled={busy} onclick={() => run(resolveMirror)}>确认用源版本覆盖镜像</button><button disabled={busy} onclick={() => mirror = null}>取消</button></div></section>{/if}
+            {#if shareUrl}
+              <section>
+                <div class="section-heading"><h3>分享链接</h3><span class="section-meta">{identity?.expiresAt === null ? '长期有效' : identity?.expiresAt ? `有效期至 ${formatDate(identity.expiresAt)}` : ''}</span></div>
+                <div class="field-row"><label for="share-read-link">阅读链接</label><input id="share-read-link" readonly value={shareUrl} /><button disabled={busy} onclick={() => run(() => copy(shareUrl))}>复制阅读链接</button></div>
+                <div class="collaboration-row"><p class="desc">协作链接允许对方编辑和标注，修改由你审阅后合入。</p><button disabled={busy || !editableLink} onclick={() => run(() => copy(editableLink))}>复制协作链接</button></div>
+              </section>
+            {/if}
+            <details class="project-management">
+              <summary>项目管理</summary>
+              <p class="desc">目录移动后可重新绑定；停止分享会保留本机文件和已收到的反馈。</p>
+              <div class="actions">
+                {#if rebindProjectId}<button disabled={busy} onclick={() => run(rebindProject)}>重新绑定项目目录…</button>{/if}
+                {#if shareUrl || pending}<button class="danger" disabled={busy} onclick={() => run(stop)}>{pending && !shareUrl ? '停止待确认的分享…' : '停止分享…'}</button>{/if}
+              </div>
+            </details>
+          {:else}
+            <section><div class="section-heading"><h3>反馈收件箱（{inbox.length}）</h3><button disabled={busy || pulling} onclick={() => { void checkFeedback() }}>{pulling ? '正在检查云端…' : '检查新反馈'}</button></div>{#if cloudError}<p class="warning">{cloudError}</p>{/if}{#if !inbox.length}<p>暂时没有本机反馈。打开分享时会尝试取回云端收件。</p>{/if}<div class="inbox-list">{#each inbox as item (item.envelope.payload.submissionId)}<button class:selected={selected?.envelope.payload.submissionId === item.envelope.payload.submissionId} disabled={busy} onclick={() => run(() => selectFeedback(item))}><strong>{item.envelope.payload.name || '未署名协作者'}</strong><span>{formatDate(item.envelope.receivedAt)} · {statusLabel(item.status)} · {item.envelope.payload.edits.length} 处编辑 / {item.envelope.payload.annotations.length} 条标注</span></button>{/each}</div>
           {#if selected}<div class="feedback-detail"><h4>{selected.envelope.payload.name || '未署名协作者'} · {statusLabel(selected.status)}</h4>{#if selected.error}<p class="warning">{selected.error}</p>{/if}{#if selected.status === 'quarantined'}<p class="warning">这份反馈的快照、文件集合或基线不可信，已保留原包但不能写回原件。</p>{:else}<div class="actions"><button disabled={busy || selected.status === 'accepted'} onclick={() => run(() => reject())}>拒绝整份反馈</button>{#if !selected.envelope.payload.edits.length}<button disabled={busy || selected.status === 'resolved'} onclick={() => run(resolve)}>标注已阅</button>{/if}</div>{/if}
             {#each selected.envelope.payload.edits as edit (edit.path)}<div class="edit-row"><span>{edit.path} · {statusLabel(selected.decisions[edit.path]?.status ?? 'pending')}</span><button disabled={busy || selected.status === 'quarantined'} onclick={() => run(() => selectReview(edit.path))}>审阅文件</button><button disabled={busy || selected.status === 'quarantined' || ['accepted', 'rejected', 'mirror_pending'].includes(selected.decisions[edit.path]?.status ?? '')} onclick={() => run(() => reject(edit.path))}>拒绝此文件</button></div>{/each}
             {#if review}<h3>文件审阅：{review.path}</h3><p>{statusLabel(review.status)} · {review.sourcePath}</p><div class="columns"><div><h4>发布时的基线</h4><pre>{review.base}</pre></div><div><h4>当前原件</h4><pre>{review.current}</pre></div><div><h4>协作者提交</h4><pre>{review.after}</pre></div></div><label>最终写回文本（可人工合入）<textarea bind:value={finalText} disabled={busy || ['accepted', 'rejected', 'mirror_pending', 'recovery_conflict'].includes(review.status)} spellcheck="false" rows="12"></textarea></label><button class="primary" disabled={busy || ['accepted', 'rejected', 'mirror_pending', 'recovery_conflict'].includes(review.status)} onclick={() => run(applyReview)}>接受此文件并写回原件</button>{/if}
             {#if selected.envelope.payload.annotations.length}<h3>旧快照中的标注</h3><p>以下选文和评论保留在提交时的快照中，不会自动迁移到当前正文。</p>{#each selected.envelope.payload.annotations as annotation}<article class="annotation"><button disabled={busy || !oldSnapshot} onclick={() => annotationPath = annotation.path}>{annotation.path}</button><blockquote>{annotation.quote}</blockquote><p>{annotation.comment}</p></article>{/each}{#if oldMarkdown !== undefined}<details open><summary>{annotationPath} · 提交时原文</summary><pre>{oldMarkdown}</pre></details>{/if}{/if}
           </div>{/if}
         </section>
-      {:else}<p>先选择项目根和入口 Markdown。分享需要已配置的 Vault 和分享服务。</p>{/if}
+          {/if}
+        {:else}
+          <div class="empty-state">
+            <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M6 14a3 3 0 0 1 3-3h10l4 5h16a3 3 0 0 1 3 3v17a3 3 0 0 1-3 3H9a3 3 0 0 1-3-3zM24 31V21m-4 4 4-4 4 4" /></svg>
+            <h3>分享整个项目的文档</h3>
+            <p>选择项目目录与入口文档，把相关引用一起分享。<br />对方可在浏览器编辑和标注，收到的修改由你审阅。</p>
+            <button class="primary" data-initial-focus disabled={busy} onclick={() => run(chooseProject)}>选择项目…</button>
+            <p class="desc">支持 Vault 外的目录。请先配置 Vault 和分享服务。</p>
+            {#if rebindProjectId}<button disabled={busy} onclick={() => run(rebindProject)}>重新绑定项目目录…</button>{/if}
+          </div>
+        {/if}
+      </div>
     </div>
-    <footer><span>{busy ? '正在处理…' : '原件修改不会自动重新发布。'}</span><button disabled={busy} onclick={close}>完成</button></footer>
+    <footer>
+      <span class="footer-status">{busy ? '正在处理…' : info && page === 'share' ? pending ? '将重试上次保留的发布内容。' : `${files.length} 个文件 · 修改后需重新发布` : info ? '审阅并接受后，修改才会写入原文档。' : '原文档保留在你的项目目录中。'}</span>
+      <button disabled={busy} onclick={close}>完成</button>
+      {#if info && page === 'share'}<button disabled={busy || (!pending && (managementOnly || !files.length || !!blocking.length))} class="primary" onclick={() => run(publish)}>{pending ? '重试原包发布' : identity?.url ? '更新分享' : '发布分享'}</button>{/if}
+    </footer>
   </div>
 </div>
 
 <style>
-  .overlay { position: fixed; inset: 0; z-index: 2000; background: #0005; display: flex; align-items: center; justify-content: center; padding: 24px; }
-  .dialog { width: min(1180px, 100%); max-height: calc(100vh - 48px); display: flex; flex-direction: column; border: 1px solid var(--border-color, #8884); border-radius: 14px; background: var(--bg-primary, Canvas); color: var(--text-primary, CanvasText); box-shadow: 0 20px 80px #0004; font-size: 13px; }
-  header, footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 22px; flex-shrink: 0; }
-  header { border-bottom: 1px solid var(--border-color, #8883); } footer { border-top: 1px solid var(--border-color, #8883); }
-  h2 { font-size: 18px; margin: 0 0 6px; } h3 { font-size: 14px; margin: 0 0 10px; } h4 { font-size: 13px; margin: 0 0 8px; }
-  p { margin: 8px 0; line-height: 1.6; } header p, footer span { opacity: .7; }
-  .content { overflow: auto; padding: 0 22px 18px; min-height: 120px; }
-  section { padding: 20px 0; border-bottom: 1px solid var(--border-color, #8883); } section:last-child { border-bottom: none; }
-  button { font: inherit; color: inherit; border: 1px solid var(--border-color, #8884); border-radius: 6px; padding: 7px 11px; background: var(--bg-secondary, #8881); cursor: pointer; } button:disabled { opacity: .45; cursor: default; } button.primary { background: var(--accent, #397ee9); border-color: transparent; color: #fff; }
-  label { display: flex; gap: 8px; align-items: center; margin: 8px 0; } label:has(textarea) { align-items: stretch; flex-direction: column; }
-  input:not([type='checkbox']), select, textarea { font: inherit; padding: 7px 9px; border: 1px solid var(--border-color, #8885); border-radius: 5px; color: inherit; background: var(--bg-primary, Canvas); min-width: 0; } input[readonly] { flex: 1; } textarea { width: 100%; box-sizing: border-box; font-family: var(--font-mono, monospace); resize: vertical; }
-  select { max-width: 600px; } input[type='checkbox'] { accent-color: var(--accent, #397ee9); }
-  .actions, .section-heading, .file-row, .edit-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; } .actions { margin: 10px 0; } .section-heading, .file-row { justify-content: space-between; } .file-row { border-bottom: 1px solid #8882; min-height: 36px; } .edit-row { margin: 8px 0; } .edit-row span { flex: 1; }
-  .path { font-family: var(--font-mono, monospace); overflow-wrap: anywhere; } .file-list { max-height: 280px; overflow: auto; } .file-row label { min-width: 0; overflow-wrap: anywhere; }
-  .error, .warning { color: var(--color-warning, #af681a); white-space: pre-wrap; overflow-wrap: anywhere; } .error { color: var(--color-error, #ce4545); } .notice { color: var(--accent, #397ee9); white-space: pre-wrap; }
-  .issues { padding-left: 22px; } .issues li { line-height: 1.7; margin: 6px 0; overflow-wrap: anywhere; } .issues button { margin-left: 10px; }
-  .columns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 12px 0; } .columns.two { grid-template-columns: repeat(2, minmax(0, 1fr)); } .columns > div { min-width: 0; }
-  pre { white-space: pre-wrap; overflow-wrap: anywhere; padding: 12px; border: 1px solid var(--border-color, #8883); border-radius: 6px; background: var(--bg-secondary, #8881); font-size: 12px; line-height: 1.6; max-height: 340px; overflow: auto; margin: 0 0 10px; }
-  .inbox-list { display: grid; gap: 6px; } .inbox-list button { display: flex; flex-direction: column; text-align: left; gap: 5px; } .inbox-list button.selected { border-color: var(--accent, #397ee9); } .inbox-list span { opacity: .75; }
-  .feedback-detail { padding-top: 16px; } .annotation { padding: 12px; margin: 10px 0; border: 1px solid var(--border-color, #8883); border-radius: 6px; } blockquote { white-space: pre-wrap; margin: 8px 0; padding-left: 12px; border-left: 3px solid #8885; } .annotation p { white-space: pre-wrap; } summary { cursor: pointer; margin: 10px 0; }
-  @media (max-width: 850px) { .columns, .columns.two { grid-template-columns: 1fr; } .overlay { padding: 12px; } .dialog { max-height: calc(100vh - 24px); } select { max-width: 65vw; } }
+  .overlay { position: fixed; inset: 0; z-index: 2000; background: rgba(0,0,0,.3); display: flex; align-items: center; justify-content: center; }
+  .dialog { width: min(1000px, calc(100vw - 48px)); height: min(780px, calc(100dvh - 48px)); display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--ui-separator); border-radius: 12px; background: var(--ui-surface); box-shadow: 0 12px 40px rgba(0,0,0,.25); }
+  .dialog-header { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px 16px; padding: 18px 22px; border-bottom: 1px solid var(--ui-separator); flex-shrink: 0; }
+  h2 { margin: 0; font-size: 17px; font-weight: 600; }
+  h3, h4 { margin: 0 0 10px; font-size: 13px; font-weight: 600; }
+  p { margin: 8px 0; line-height: 1.5; }
+  .current-page, .desc, .section-meta, .footer-status { color: var(--ui-secondary); }
+  .desc, .section-meta, .footer-status { font-size: 12px; }
+  .share-layout { display: grid; grid-template-columns: 182px minmax(0,1fr); flex: 1; min-height: 0; }
+  .sidebar { display: flex; flex-direction: column; gap: 24px; min-height: 0; overflow: auto; padding: 12px; background: var(--ui-bg); border-right: 1px solid var(--ui-separator); }
+  nav { display: flex; flex-direction: column; gap: 4px; }
+  nav button { display: flex; align-items: center; gap: 8px; padding: 9px 10px; border: 0; background: transparent; text-align: start; border-radius: 7px; }
+  nav button.active { background: var(--ui-selection); font-weight: 600; }
+  nav svg { width: 18px; height: 18px; flex-shrink: 0; }
+  .count { margin-left: auto; font-size: 12px; font-variant-numeric: tabular-nums; }
+  .project-switch { display: grid; gap: 8px; margin-top: auto; min-width: 0; }
+  .project-switch label { color: var(--ui-secondary); font-size: 12px; }
+  .project-switch select { width: 100%; }
+  .content { overflow: auto; overscroll-behavior: contain; scrollbar-gutter: stable; padding: 22px 26px; min-width: 0; min-height: 0; }
+  .project-heading { margin-bottom: 20px; }
+  .project-title { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .project-title h3 { margin: 0; font-size: 16px; overflow-wrap: anywhere; }
+  .path { margin: 6px 0 0; color: var(--ui-secondary); font-size: 12px; overflow-wrap: anywhere; }
+  .badge { border-radius: 4px; background: var(--ui-bg); border: 1px solid var(--ui-separator); padding: 1px 6px; font-size: 12px; white-space: nowrap; color: var(--ui-secondary); }
+  section { padding: 20px 0; border-top: 1px solid var(--ui-separator); }
+  .entry-section { padding-top: 0; border-top: 0; }
+  .section-heading { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px 12px; margin-bottom: 8px; }
+  .section-heading h3 { margin: 0; }
+  .section-meta { font-weight: 400; margin-left: 6px; overflow-wrap: anywhere; }
+  button { min-height: 32px; padding: 6px 12px; border-radius: 6px; border: 1px solid var(--ui-control-border); background: var(--ui-surface); color: CanvasText; cursor: pointer; line-height: 1.4; overflow-wrap: anywhere; }
+  button:not(:disabled):hover { background: var(--ui-hover); }
+  button:disabled { opacity: .5; cursor: default; }
+  button.primary { background: var(--ui-accent); border-color: var(--ui-accent); color: var(--ui-accent-foreground); font-weight: 500; }
+  button.primary:not(:disabled):hover { background: color-mix(in srgb, var(--ui-accent) 88%, black); }
+  button.danger { color: var(--ui-danger); }
+  button.subtle { border-color: transparent; background: transparent; color: var(--ui-secondary); font-size: 12px; padding: 4px 8px; }
+  input:not([type='checkbox']), select, textarea { min-width: 0; min-height: 32px; padding: 6px 9px; border: 1px solid var(--ui-control-border); border-radius: 6px; color: CanvasText; background: var(--ui-surface); }
+  input[readonly] { color: var(--ui-secondary); background: var(--ui-bg); }
+  .field-row { display: flex; align-items: center; gap: 12px; margin: 8px 0; }
+  .field-row > span, .field-row > label { width: 70px; flex-shrink: 0; }
+  .field-row select, .field-row input { flex: 1; width: 0; }
+  .collaboration-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .collaboration-row button { flex-shrink: 0; }
+  .file-list { margin-top: 12px; max-height: 264px; overflow: auto; border: 1px solid var(--ui-separator); border-radius: 6px; }
+  .file-row { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-bottom: 1px solid var(--ui-separator); min-height: 36px; }
+  .file-row:last-child { border-bottom: 0; }
+  .file-row label { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; cursor: pointer; }
+  .file-row input { flex-shrink: 0; margin: 0; }
+  .file-path { min-width: 0; overflow-wrap: anywhere; }
+  .file-size { font-size: 12px; color: var(--ui-secondary); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .file-row button { flex-shrink: 0; }
+  .list-empty { padding: 10px; color: var(--ui-secondary); }
+  .message { padding: 10px 12px; margin: 0 0 16px; border-radius: 6px; background: var(--ui-bg); white-space: pre-wrap; overflow-wrap: anywhere; }
+  .error { color: var(--ui-danger); } .warning { color: var(--ui-warning); } .notice { color: var(--ui-success); }
+  .reference-issues { margin-top: 12px; }
+  .issues { padding-left: 20px; font-size: 12px; } .issues li { line-height: 1.6; margin: 8px 0; overflow-wrap: anywhere; } .issues button { margin: 4px 0; }
+  .project-management { padding: 16px 0 0; border-top: 1px solid var(--ui-separator); }
+  summary { cursor: pointer; color: var(--ui-secondary); }
+  .project-management[open] summary { margin-bottom: 12px; }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 0; }
+  .columns { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; margin: 12px 0; } .columns.two { grid-template-columns: repeat(2,minmax(0,1fr)); } .columns > div { min-width: 0; }
+  pre { white-space: pre-wrap; overflow-wrap: anywhere; padding: 12px; border: 1px solid var(--ui-separator); border-radius: 6px; background: var(--ui-bg); font: 12px/1.6 ui-monospace, Menlo, monospace; max-height: 340px; overflow: auto; margin: 0 0 10px; }
+  .feedback-detail { padding-top: 20px; overflow-wrap: anywhere; }
+  .feedback-detail > label { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; }
+  textarea { width: 100%; font-family: ui-monospace, Menlo, monospace; resize: vertical; }
+  .inbox-list { display: grid; border: 1px solid var(--ui-separator); border-radius: 6px; overflow: hidden; }
+  .inbox-list:empty { display: none; }
+  .inbox-list button { display: flex; flex-direction: column; text-align: left; gap: 5px; border: 0; border-bottom: 1px solid var(--ui-separator); border-radius: 0; padding: 12px; }
+  .inbox-list button:last-child { border-bottom: 0; }
+  .inbox-list button.selected { background: var(--ui-selection); }
+  .inbox-list span { color: var(--ui-secondary); font-size: 12px; }
+  .edit-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 0; border-bottom: 1px solid var(--ui-separator); } .edit-row span { flex: 1; min-width: 0; }
+  .annotation { padding: 12px; margin: 10px 0; border: 1px solid var(--ui-separator); border-radius: 6px; } blockquote { white-space: pre-wrap; margin: 8px 0; padding-left: 12px; border-left: 3px solid var(--ui-control-border); } .annotation p { white-space: pre-wrap; }
+  .empty-state { display: flex; min-height: 100%; flex-direction: column; justify-content: center; align-items: center; text-align: center; box-sizing: border-box; gap: 12px; padding: 24px 0; }
+  .empty-state svg { width: 48px; height: 48px; color: var(--ui-secondary); }
+  .empty-state h3 { font-size: 16px; margin: 0; } .empty-state p { color: var(--ui-secondary); margin: 0; }
+  footer { display: flex; align-items: center; gap: 8px; padding: 12px 22px; border-top: 1px solid var(--ui-separator); flex-shrink: 0; }
+  .footer-status { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  footer button { flex-shrink: 0; }
+  @media (max-width: 760px) {
+    .dialog { width: calc(100vw - 24px); height: calc(100dvh - 24px); }
+    .dialog-header { padding: 14px 16px; }
+    .share-layout { grid-template-columns: minmax(0,1fr); grid-template-rows: auto minmax(0,1fr); }
+    .sidebar { padding: 8px; border-right: 0; border-bottom: 1px solid var(--ui-separator); gap: 8px; max-height: 180px; }
+    nav { flex-direction: row; } nav button { flex: 1; }
+    .project-switch { display: flex; align-items: center; margin: 0; } .project-switch label { flex-shrink: 0; } .project-switch select { flex: 1; min-width: 0; width: 0; } .project-switch button { flex-shrink: 0; }
+    .content { padding: 18px 16px; }
+    .columns, .columns.two { grid-template-columns: minmax(0,1fr); }
+    footer { padding: 12px 16px; }
+  }
+  @media (max-width: 480px) {
+    .field-row { flex-wrap: wrap; gap: 8px; } .field-row > span, .field-row > label { width: 100%; } .field-row select { width: 100%; flex-basis: 100%; }
+    .collaboration-row { align-items: flex-start; flex-direction: column; gap: 4px; }
+    .file-row { flex-wrap: wrap; gap: 6px; } .file-row label { flex-basis: 100%; }
+    footer { flex-wrap: wrap; justify-content: flex-end; } .footer-status { flex-basis: 100%; }
+  }
 </style>
