@@ -1,6 +1,20 @@
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
+/// The sidecar stays at a fixed inode while records are atomically replaced.
+/// Callers hold this across the complete read/validate/write/save operation.
+pub struct RecordsLock(std::fs::File);
+impl Drop for RecordsLock {
+    fn drop(&mut self) { let _ = fs2::FileExt::unlock(&self.0); }
+}
+pub fn lock_records(path: &Path) -> std::io::Result<RecordsLock> {
+    if let Some(parent) = path.parent() { std::fs::create_dir_all(parent)?; }
+    let file = std::fs::OpenOptions::new().read(true).write(true).create(true)
+        .open(path.with_extension("json.lock"))?;
+    fs2::FileExt::lock_exclusive(&file)?;
+    Ok(RecordsLock(file))
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Record {
     pub vault_path: String,
@@ -59,6 +73,16 @@ impl RecordStore {
     pub fn remove(&mut self, vault_path: &str) {
         self.records.retain(|r| r.vault_path != vault_path);
     }
+}
+
+/// Production reads never discard an unreadable or malformed mapping table.
+pub fn read_records(path: &Path) -> std::io::Result<RecordStore> {
+    let bytes = match std::fs::read(path) {
+        Ok(bytes) => bytes,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(RecordStore::default()),
+        Err(error) => return Err(error),
+    };
+    serde_json::from_slice(&bytes).map_err(|error| std::io::Error::new(std::io::ErrorKind::InvalidData, error))
 }
 
 /// Load records from `path`. A missing file yields an empty store. A corrupt
@@ -137,6 +161,52 @@ mod tests {
             note_merge_base: None,
             project_id: None,
         }
+    }
+
+    #[test]
+    fn records_lock_child() {
+        let Ok(path) = std::env::var("NOTEMD_RECORDS_LOCK_TEST") else { return; };
+        let path = std::path::PathBuf::from(path);
+        std::fs::write(path.with_extension("ready"), b"ready").unwrap();
+        let _lock = lock_records(&path).unwrap();
+        let mut records = read_records(&path).unwrap();
+        records.upsert(rec("/vault/child.md", "/source/child.md"));
+        save_records(&path, &records).unwrap();
+        std::fs::write(path.with_extension("acquired"), b"acquired").unwrap();
+    }
+    #[test]
+    fn fixed_sidecar_lock_serializes_processes_across_atomic_record_replacement() {
+        let tmp = TempDir::new().unwrap();
+        let path = tmp.path().join("sotvault-sync.json");
+        let lock = lock_records(&path).unwrap();
+        let mut child = std::process::Command::new(std::env::current_exe().unwrap())
+            .args(["--exact", "sotvault::store::tests::records_lock_child", "--nocapture"])
+            .env("NOTEMD_RECORDS_LOCK_TEST", &path)
+            .stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null()).spawn().unwrap();
+        let started = std::time::Instant::now();
+        while !path.with_extension("ready").exists() && started.elapsed() < std::time::Duration::from_secs(10) {
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+        assert!(path.with_extension("ready").exists());
+        let mut records = RecordStore::default();
+        records.upsert(rec("/vault/parent.md", "/source/parent.md"));
+        save_records(&path, &records).unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(100));
+        assert!(!path.with_extension("acquired").exists());
+        drop(lock);
+        assert!(child.wait().unwrap().success());
+        let records = read_records(&path).unwrap();
+        assert_eq!(records.records.len(), 2);
+        assert!(records.find_by_vault("/vault/parent.md").is_some());
+        assert!(records.find_by_vault("/vault/child.md").is_some());
+    }
+    #[test]
+    fn strict_records_read_preserves_malformed_file() {
+        let tmp = TempDir::new().unwrap();
+        let path = tmp.path().join("sotvault-sync.json");
+        std::fs::write(&path, b"broken").unwrap();
+        assert!(read_records(&path).is_err());
+        assert_eq!(std::fs::read(&path).unwrap(), b"broken");
     }
 
     #[test]

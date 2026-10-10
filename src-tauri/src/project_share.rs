@@ -23,6 +23,12 @@ pub struct ProjectInfo {
     pub files: Vec<String>,
     pub published_snapshot_id: Option<String>,
     pub url: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_available: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub deleting: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -118,6 +124,12 @@ struct Binding {
     project_id: String,
     source_root: String,
     mirror_root: String,
+    #[serde(default)]
+    deleting: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    deletion_files: Option<BTreeMap<String, String>>,
+    #[serde(default)]
+    deletion_requires_stop: bool,
 }
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -176,18 +188,36 @@ fn is_md(path: &str) -> bool {
         .iter()
         .any(|e| path.to_lowercase().ends_with(e))
 }
+fn io_error(error: std::io::Error) -> String {
+    if error.kind() == std::io::ErrorKind::NotFound { format!("NOT_FOUND: {error}") }
+    else { format!("UNREADABLE: {error}") }
+}
 fn read_bytes(path: &Path) -> Result<Vec<u8>> {
-    if std::fs::metadata(path).map_err(|e| e.to_string())?.len() > MAX_BYTES as u64 {
-        return Err("file exceeds 25 MiB".into());
+    if std::fs::metadata(path).map_err(io_error)?.len() > MAX_BYTES as u64 {
+        return Err("TOO_LARGE: file exceeds 25 MiB".into());
     }
-    std::fs::read(path).map_err(|e| e.to_string())
+    std::fs::read(path).map_err(io_error)
 }
 fn safe_source(root: &Path, relative: &str) -> Result<PathBuf> {
     validate_relative(relative)?;
+    let requested = root.join(relative);
+    for ancestor in requested.ancestors().take_while(|p| *p != root) {
+        match std::fs::symlink_metadata(ancestor) {
+            Ok(meta) if meta.file_type().is_symlink() => {
+                let target = ancestor.canonicalize().map_err(|e| format!("UNSAFE_PATH: unresolved symlink: {e}"))?;
+                if !target.starts_with(root) { return Err("UNSAFE_PATH: source symlink escapes root".into()); }
+                let rel = target.strip_prefix(root).map_err(|e| e.to_string())?;
+                validate_relative(rel.to_str().ok_or("invalid UTF-8 source path")?)?;
+            }
+            Ok(_) => {},
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {},
+            Err(e) => return Err(io_error(e)),
+        }
+    }
     let p = root
         .join(relative)
         .canonicalize()
-        .map_err(|e| e.to_string())?;
+        .map_err(io_error)?;
     if !p.starts_with(root) || !p.is_file() {
         return Err("source escapes project root or is not a file".into());
     }
@@ -215,6 +245,39 @@ fn safe_destination(root: &Path, relative: &Path) -> Result<PathBuf> {
         }
     }
     Ok(p)
+}
+/// Remove only the files authorized by the durable deletion reservation.
+/// A new file appearing after preflight keeps its directory nonempty and stops
+/// cleanup; recursive deletion must never consume concurrent user work.
+fn remove_reserved_tree(root: &Path, files: &BTreeMap<String, String>) -> Result<()> {
+    let mut directories = HashSet::new();
+    directories.insert(root.to_path_buf());
+    for (relative, expected) in files {
+        let path = safe_destination(root, Path::new(relative))?;
+        for directory in path.ancestors().skip(1).take_while(|p| p.starts_with(root)) {
+            directories.insert(directory.to_path_buf());
+        }
+        match std::fs::symlink_metadata(&path) {
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(error) => return Err(error.to_string()),
+            Ok(meta) if !meta.is_file() || meta.file_type().is_symlink() => return Err(format!("unsafe deletion file: {}", path.display())),
+            Ok(_) => {},
+        }
+        if sha256_hex(&std::fs::read(&path).map_err(io_error)?) != *expected {
+            return Err(format!("managed file changed during deletion: {}", path.display()));
+        }
+        std::fs::remove_file(path).map_err(|e| e.to_string())?;
+    }
+    let mut directories: Vec<_> = directories.into_iter().collect();
+    directories.sort_by_key(|path| std::cmp::Reverse(path.components().count()));
+    for directory in directories {
+        match std::fs::remove_dir(&directory) {
+            Ok(()) => {},
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {},
+            Err(error) => return Err(format!("directory contains unremoved content; preserve before retry: {}: {error}", directory.display())),
+        }
+    }
+    Ok(())
 }
 fn write_atomic(path: &Path, bytes: &[u8]) -> Result<()> {
     let parent = path.parent().ok_or("missing parent")?;
@@ -332,23 +395,27 @@ impl ProjectStore {
     }
     fn binding(&self, id: &str) -> Result<Binding> {
         valid_id(id)?;
-        let b = self
-            .bindings()?
-            .into_iter()
-            .find(|b| b.project_id == id)
+        let entries: Vec<serde_json::Value> = read_json(&self.bindings_path())?;
+        let entry = entries.into_iter().find(|v| v.get("project_id").and_then(|v| v.as_str()) == Some(id))
             .ok_or("project binding missing; rebind required")?;
+        let b: Binding = serde_json::from_value(entry).map_err(|e| e.to_string())?;
+        self.validate_binding(&b)?;
+        Ok(b)
+    }
+    fn validate_binding(&self, b: &Binding) -> Result<()> {
+        valid_id(&b.project_id)?;
         let expected = self
             .vault
             .join(vault_settings::resolve_sync_dir(&self.vault))
-            .join(id);
-        if Path::new(&b.mirror_root) != expected || !Path::new(&b.source_root).is_dir() {
+            .join(&b.project_id);
+        if Path::new(&b.mirror_root) != expected {
             return Err("project location changed; rebind required".into());
         }
         let relative = expected
             .strip_prefix(&self.vault)
             .map_err(|e| e.to_string())?;
         safe_destination(&self.vault, relative)?;
-        Ok(b)
+        Ok(())
     }
     fn management(&self, b: &Binding, rel: &str) -> Result<PathBuf> {
         safe_destination(
@@ -361,7 +428,10 @@ impl ProjectStore {
         )
     }
     fn config(&self, b: &Binding) -> Result<Config> {
-        read_json(&self.management(b, "project.json")?)
+        let config: Config = read_json(&self.management(b, "project.json")?)?;
+        if config.project_id != b.project_id { return Err("project mirror identity mismatch".into()); }
+        validate_relative(&config.entry)?;
+        Ok(config)
     }
     fn info(&self, b: &Binding) -> Result<ProjectInfo> {
         let c = self.config(b)?;
@@ -369,82 +439,318 @@ impl ProjectStore {
             project_id: b.project_id.clone(),
             source_root: b.source_root.clone(),
             mirror_root: b.mirror_root.clone(),
-            entry: c.entry,
+            entry: c.entry.clone(),
             files: c.files,
             published_snapshot_id: c.published_snapshot_id,
             url: c.url,
+            source_available: Some(self.source_root(&b.source_root).and_then(|root| self.source_path(&root, &c.entry)).is_ok()),
+            deleting: Some(b.deleting),
+            error: None,
         })
     }
     fn source_root(&self, source: &str) -> Result<PathBuf> {
         let source = Path::new(source).canonicalize().map_err(|e| e.to_string())?;
         let vault = self.vault.canonicalize().map_err(|e| e.to_string())?;
-        if !source.is_dir() || vault.starts_with(&source) {
+        if !source.is_dir() || (source != vault && vault.starts_with(&source)) {
             return Err("project root must be a directory and cannot contain the Vault".into());
         }
         if let Ok(relative) = source.strip_prefix(&vault) {
-            validate_relative(relative.to_str().ok_or("invalid UTF-8 project root")?)?;
+            if !relative.as_os_str().is_empty() { validate_relative(relative.to_str().ok_or("invalid UTF-8 project root")?)?; }
             let sync_root = vault.join(vault_settings::resolve_sync_dir(&vault));
-            if source.starts_with(&sync_root) || sync_root.starts_with(&source) {
+            if source.starts_with(&sync_root) || (source != vault && sync_root.starts_with(&source)) {
                 return Err("project source and Sync mirror directories cannot overlap".into());
             }
         }
         Ok(source)
     }
+    fn lock(&self) -> Result<store::RecordsLock> {
+        store::lock_records(&self.records_path()).map_err(|e| e.to_string())
+    }
+    fn active(&self, b: &Binding) -> Result<()> {
+        if b.deleting { return Err("project deletion in progress".into()); }
+        Ok(())
+    }
+    fn source_path(&self, root: &Path, relative: &str) -> Result<PathBuf> {
+        validate_relative(relative)?;
+        self.source_root(root.to_str().ok_or("invalid UTF-8 source root")?)?;
+        let vault = self.vault.canonicalize().map_err(io_error)?;
+        let sync = vault.join(vault_settings::resolve_sync_dir(&vault));
+        // Check the requested path before resolving it: an absent Sync target is unsafe too.
+        let requested = root.join(relative);
+        if requested.starts_with(&sync) { return Err("UNSAFE_PATH: Sync is not a project source".into()); }
+        for ancestor in requested.ancestors().take_while(|p| *p != root) {
+            if let Ok(target) = ancestor.canonicalize() {
+                if target.starts_with(&sync) { return Err("UNSAFE_PATH: Sync alias is not a project source".into()); }
+            }
+        }
+        let actual = safe_source(root, relative)?;
+        if actual.starts_with(&sync) { return Err("UNSAFE_PATH: Sync is not a project source".into()); }
+        if let Ok(rel) = actual.strip_prefix(&vault) {
+            validate_relative(rel.to_str().ok_or("invalid UTF-8 source path")?)?;
+        }
+        safe_source(root, relative)
+    }
+    pub fn get(&self, id: &str) -> Result<ProjectInfo> { self.info(&self.binding(id)?) }
+    pub fn projects(&self) -> Result<Vec<ProjectInfo>> {
+        if !self.bindings_path().exists() { return Ok(vec![]); }
+        let entries: Vec<serde_json::Value> = read_json(&self.bindings_path())?;
+        Ok(entries.into_iter().map(|entry| {
+            let id = entry.get("project_id").and_then(|v| v.as_str()).unwrap_or("invalid").to_string();
+            let result = serde_json::from_value::<Binding>(entry.clone()).map_err(|e| e.to_string())
+                .and_then(|b| { self.validate_binding(&b)?; self.info(&b) });
+            result.unwrap_or_else(|error| ProjectInfo {
+                project_id: id, source_root: entry.get("source_root").and_then(|v| v.as_str()).unwrap_or("").into(),
+                mirror_root: entry.get("mirror_root").and_then(|v| v.as_str()).unwrap_or("").into(),
+                entry: String::new(), files: vec![], published_snapshot_id: None, url: None,
+                source_available: Some(false), deleting: entry.get("deleting").and_then(|v| v.as_bool()), error: Some(error),
+            })
+        }).collect())
+    }
+    pub fn create(&self, source_file: &str) -> Result<ProjectInfo> {
+        let _lock = self.lock()?;
+        std::fs::create_dir_all(&self.vault).map_err(|e| e.to_string())?;
+        let file = Path::new(source_file).canonicalize().map_err(io_error)?;
+        // A local Sync mirror locates its existing project; it never becomes a source.
+        let records = store::read_records(&self.records_path()).map_err(|e| e.to_string())?;
+        if let Some(record) = records.records.iter().find(|r| Path::new(&r.vault_path).canonicalize().ok().as_ref() == Some(&file)) {
+            if let Some(id) = &record.project_id { return self.get(id); }
+        }
+        let source = self.source_root(file.parent().ok_or("missing source parent")?.to_str().ok_or("invalid UTF-8 source path")?)?;
+        let entry = file.file_name().and_then(|v| v.to_str()).ok_or("invalid source filename")?;
+        self.open_locked(&source, entry)
+    }
     pub fn open(&self, source: &str, entry: &str) -> Result<ProjectInfo> {
+        let _lock = self.lock()?;
         std::fs::create_dir_all(&self.vault).map_err(|e| e.to_string())?;
         let source = self.source_root(source)?;
-        safe_source(&source, entry)?;
-        if !is_md(entry) {
-            return Err("entry must be Markdown".into());
-        }
+        self.open_locked(&source, entry)
+    }
+    fn open_locked(&self, source: &Path, entry: &str) -> Result<ProjectInfo> {
+        let file = self.source_path(source, entry)?;
+        if !is_md(entry) { return Err("entry must be Markdown".into()); }
         let mut bindings = self.bindings()?;
-        if let Some(b) = bindings
-            .iter()
-            .find(|b| Path::new(&b.source_root) == source)
-        {
-            let b = self.binding(&b.project_id)?;
-            let mut c = self.config(&b)?;
-            c.entry = entry.into();
-            write_json(&self.management(&b, "project.json")?, &c)?;
-            return self.info(&b);
+        let mut matches = vec![];
+        for binding in &bindings {
+            let Ok(config) = self.config(binding) else { continue; };
+            if Path::new(&binding.source_root).join(&config.entry).canonicalize().ok().as_ref() == Some(&file) {
+                matches.push(binding);
+            }
         }
+        if matches.len() > 1 { return Err("multiple projects use this entry; select an existing project".into()); }
+        if let Some(b) = matches.first() { return self.get(&b.project_id); }
         let id = uuid::Uuid::new_v4().to_string();
-        let mirror = self
-            .vault
-            .join(vault_settings::resolve_sync_dir(&self.vault))
-            .join(&id);
         let b = Binding {
-            project_id: id.clone(),
-            source_root: source.to_string_lossy().into(),
-            mirror_root: mirror.to_string_lossy().into(),
+            project_id: id.clone(), source_root: source.to_string_lossy().into(),
+            mirror_root: self.vault.join(vault_settings::resolve_sync_dir(&self.vault)).join(&id).to_string_lossy().into(), deleting: false, deletion_files: None, deletion_requires_stop: false,
         };
-        let c = Config {
-            project_id: id,
-            entry: entry.into(),
-            files: vec![],
-            published_snapshot_id: None,
-            url: None,
-        };
+        let c = Config { project_id: id, entry: entry.into(), files: vec![], published_snapshot_id: None, url: None };
         write_json(&self.management(&b, "project.json")?, &c)?;
         bindings.push(b.clone());
         write_json(&self.bindings_path(), &bindings)?;
         self.info(&b)
     }
+    pub fn stopped(&self, id: &str) -> Result<()> {
+        let _lock = self.lock()?;
+        let b = self.binding(id)?;
+        // A vanished mirror may be the result of an interrupted local deletion.
+        if b.deleting && !self.management(&b, "project.json")?.exists() {
+            let mut bindings = self.bindings()?;
+            bindings.iter_mut().find(|b| b.project_id == id).ok_or("project binding missing")?.deletion_requires_stop = false;
+            return write_json(&self.bindings_path(), &bindings);
+        }
+        let mut c = self.config(&b)?;
+        c.url = None;
+        let config_path = self.management(&b, "project.json")?;
+        write_json(&config_path, &c)?;
+        if b.deleting {
+            let mut bindings = self.bindings()?;
+            let binding = bindings.iter_mut().find(|b| b.project_id == id).ok_or("project binding missing")?;
+            binding.deletion_requires_stop = false;
+            if let Some(files) = &mut binding.deletion_files {
+                files.insert(".notemd/project.json".into(), sha256_hex(&read_bytes(&config_path)?));
+            }
+            write_json(&self.bindings_path(), &bindings)?;
+        }
+        Ok(())
+    }
+    pub fn begin_delete(&self, id: &str) -> Result<()> {
+        let _lock = self.lock()?;
+        let b = self.binding(id)?;
+        let (_, files) = self.delete_preflight(&b)?;
+        if b.deleting { return Ok(()); }
+        let requires_stop = if Path::new(&b.mirror_root).exists() { self.config(&b)?.url.is_some() } else { false };
+        let mut bindings = self.bindings()?;
+        let binding = bindings.iter_mut().find(|b| b.project_id == id).ok_or("project binding missing")?;
+        binding.deleting = true;
+        binding.deletion_files = Some(files);
+        binding.deletion_requires_stop = requires_stop;
+        write_json(&self.bindings_path(), &bindings)
+    }
+    pub fn cancel_delete(&self, id: &str) -> Result<()> {
+        let _lock = self.lock()?;
+        let b = self.binding(id)?;
+        if let Some(files) = &b.deletion_files {
+            if files.keys().any(|path| !Path::new(&b.mirror_root).join(path).exists()) {
+                return Err("local cleanup already started; retry deletion".into());
+            }
+        }
+        self.set_deleting(id, false)
+    }
+    fn set_deleting(&self, id: &str, deleting: bool) -> Result<()> {
+        let mut bindings = self.bindings()?;
+        let binding = bindings.iter_mut().find(|b| b.project_id == id).ok_or("project binding missing")?;
+        binding.deleting = deleting;
+        if !deleting { binding.deletion_files = None; binding.deletion_requires_stop = false; }
+        write_json(&self.bindings_path(), &bindings)
+    }
+    /// Enumerate every managed file first. Unknown contents, notes and symlinks
+    /// must never be silently discarded by the recursive cleanup.
+    fn delete_preflight(&self, b: &Binding) -> Result<(Vec<PathBuf>, BTreeMap<String, String>)> {
+        let root = Path::new(&b.mirror_root);
+        let records = store::read_records(&self.records_path()).map_err(|e| e.to_string())?;
+        if records.records.iter().any(|r| r.project_id.as_deref() != Some(b.project_id.as_str()) && Path::new(&r.vault_path).starts_with(root)) {
+            return Err("another Sync record overlaps project mirror".into());
+        }
+        let mut allowed = HashSet::new();
+        let mut mirrors = HashSet::new();
+        for record in records.records.iter().filter(|r| r.project_id.as_deref() == Some(b.project_id.as_str())) {
+            let relative = Path::new(&record.vault_path).strip_prefix(root).map_err(|_| "project record outside mirror root")?;
+            let path = relative.to_str().ok_or("invalid mirror path")?;
+            let target = self.mirror_path(b, path)?;
+            if root.exists() && b.deletion_files.is_none() && sha256_hex(&read_bytes(&target)?) != record.vault_hash {
+                return Err(format!("mirror changed; preserve before deletion: {}", target.display()));
+            }
+            allowed.insert(target);
+            mirrors.insert(mirror_meta::relative_mirror(&self.vault, Path::new(&record.vault_path)));
+        }
+        if let Some(files) = &b.deletion_files {
+            allowed.clear();
+            for path in files.keys() {
+                allowed.insert(safe_destination(root, Path::new(path))?);
+            }
+        }
+        if root.exists() && b.deletion_files.is_none() {
+            let config = self.config(b)?;
+            allowed.insert(self.management(b, "project.json")?);
+            for path in &config.files {
+                let target = self.mirror_path(b, path)?;
+                if !allowed.contains(&target) { return Err(format!("project mirror record missing: {path}")); }
+            }
+            let snapshots = self.management(b, "snapshots")?;
+            if snapshots.exists() {
+                for entry in std::fs::read_dir(snapshots).map_err(|e| e.to_string())? {
+                    let entry = entry.map_err(|e| e.to_string())?;
+                    let name = entry.file_name().into_string().map_err(|_| "invalid snapshot name")?;
+                    let baseline = self.baseline(b, &name)?;
+                    allowed.insert(self.management(b, &format!("snapshots/{name}/manifest.json"))?);
+                    let bundle = self.management(b, &format!("snapshots/{name}/bundle.html"))?;
+                    if bundle.exists() { allowed.insert(bundle); }
+                    for file in baseline.files {
+                        validate_relative(&file.path)?;
+                        let path = self.management(b, &format!("snapshots/{name}/files/{}", file.path))?;
+                        if sha256_hex(&read_bytes(&path)?) != file.hash { return Err(format!("snapshot changed: {}", path.display())); }
+                        allowed.insert(path);
+                    }
+                }
+            }
+            let inbox = self.management(b, "inbox")?;
+            if inbox.exists() {
+                for entry in std::fs::read_dir(inbox).map_err(|e| e.to_string())? {
+                    let path = entry.map_err(|e| e.to_string())?.path();
+                    if path.extension().and_then(|v| v.to_str()) != Some("json") { continue; }
+                    let name = path.file_stem().and_then(|v| v.to_str()).ok_or("invalid feedback name")?;
+                    let file = self.inbox_path(b, name)?;
+                    let local: LocalFeedback = read_json(&file)?;
+                    if local.envelope.payload.project_id != b.project_id || local.envelope.payload.submission_id != name {
+                        return Err("feedback identity mismatch".into());
+                    }
+                    allowed.insert(file);
+                }
+            }
+        }
+        if root.exists() {
+            fn walk(root: &Path, allowed: &HashSet<PathBuf>) -> Result<()> {
+                for entry in std::fs::read_dir(root).map_err(|e| e.to_string())? {
+                    let entry = entry.map_err(|e| e.to_string())?;
+                    let path = entry.path();
+                    let kind = entry.file_type().map_err(|e| e.to_string())?;
+                    if kind.is_symlink() { return Err(format!("symlink blocks deletion: {}", path.display())); }
+                    if kind.is_dir() {
+                        if !allowed.iter().any(|file| file.starts_with(&path)) { return Err(format!("unknown directory blocks deletion: {}", path.display())); }
+                        walk(&path, allowed)?;
+                    } else if !kind.is_file() || !allowed.contains(&path) {
+                        return Err(format!("unknown file blocks deletion: {}", path.display()));
+                    }
+                }
+                Ok(())
+            }
+            walk(root, &allowed)?;
+        }
+        // Inspect actual metadata files, including historical filenames, and
+        // remove only exact mirror matches belonging to this project's records.
+        let dir = safe_destination(&self.vault, Path::new(".notemd/mirrors"))?;
+        let mut metadata = vec![];
+        if dir.exists() {
+            for entry in std::fs::read_dir(dir).map_err(|e| e.to_string())? {
+                let path = entry.map_err(|e| e.to_string())?.path();
+                let kind = std::fs::symlink_metadata(&path).map_err(|e| e.to_string())?.file_type();
+                if kind.is_symlink() { return Err("symlink in mirror metadata path".into()); }
+                if !kind.is_file() { continue; }
+                if let Ok(meta) = read_json::<mirror_meta::MirrorMeta>(&path) {
+                    if mirrors.contains(&meta.mirror) { metadata.push(path); }
+                }
+            }
+        }
+        let mut files = b.deletion_files.clone().unwrap_or_default();
+        for path in allowed.iter().filter(|path| path.exists()) {
+            let relative = path.strip_prefix(root).map_err(|e| e.to_string())?.to_str().ok_or("invalid deletion path")?;
+            let hash = sha256_hex(&std::fs::read(path).map_err(io_error)?);
+            if let Some(expected) = files.get(relative) {
+                if expected != &hash { return Err(format!("managed file changed after deletion reservation: {}", path.display())); }
+            } else {
+                files.insert(relative.to_string(), hash);
+            }
+        }
+        Ok((metadata, files))
+    }
+    pub fn delete(&self, id: &str) -> Result<()> {
+        let _lock = self.lock()?;
+        valid_id(id)?;
+        if !self.bindings()?.iter().any(|b| b.project_id == id) { return Ok(()); }
+        let b = self.binding(id)?;
+        if !b.deleting { return Err("begin deletion before deleting project".into()); }
+        let (metadata, files) = self.delete_preflight(&b)?;
+        if b.deletion_requires_stop { return Err("stop remote sharing before deleting project".into()); }
+        let root = Path::new(&b.mirror_root);
+        if root.exists() { remove_reserved_tree(root, &files)?; }
+        for path in metadata { std::fs::remove_file(path).map_err(|e| e.to_string())?; }
+        let mut records = store::read_records(&self.records_path()).map_err(|e| e.to_string())?;
+        records.records.retain(|r| r.project_id.as_deref() != Some(id));
+        store::save_records(&self.records_path(), &records).map_err(|e| e.to_string())?;
+        let mut bindings = self.bindings()?;
+        bindings.retain(|b| b.project_id != id);
+        write_json(&self.bindings_path(), &bindings)
+    }
     /// Rebind an already moved project; never move directories or overwrite files.
     pub fn rebind(&self, id: &str, source: &str) -> Result<ProjectInfo> {
+        let _lock = self.lock()?;
         valid_id(id)?;
         let source = self.source_root(source)?;
         let mut bindings = self.bindings()?;
         let old = bindings.iter().find(|b| b.project_id == id).cloned().ok_or("project binding missing")?;
-        if bindings.iter().any(|b| b.project_id != id && Path::new(&b.source_root) == source) {
-            return Err("source already belongs to another project".into());
-        }
         let b = Binding { project_id: id.into(), source_root: source.to_string_lossy().into(),
-            mirror_root: self.vault.join(vault_settings::resolve_sync_dir(&self.vault)).join(id).to_string_lossy().into() };
+            mirror_root: self.vault.join(vault_settings::resolve_sync_dir(&self.vault)).join(id).to_string_lossy().into(), deleting: old.deleting, deletion_files: old.deletion_files.clone(), deletion_requires_stop: old.deletion_requires_stop };
         let config = self.config(&b)?;
         if config.project_id != id { return Err("project mirror identity mismatch".into()); }
-        safe_source(&source, &config.entry)?;
-        let mut records = store::load_records(&self.records_path());
+        self.active(&old)?;
+        let entry_file = self.source_path(&source, &config.entry)?;
+        for other in bindings.iter().filter(|b| b.project_id != id) {
+            let Ok(c) = self.config(other) else { continue; };
+            if Path::new(&other.source_root).join(c.entry).canonicalize().ok().as_ref() == Some(&entry_file) {
+                return Err("entry already belongs to another project".into());
+            }
+        }
+        let mut records = store::read_records(&self.records_path()).map_err(|e| e.to_string())?;
         let mut found = HashSet::new();
         for record in records.records.iter_mut().filter(|r| r.project_id.as_deref() == Some(id)) {
             let relative = Path::new(&record.vault_path).strip_prefix(&old.mirror_root)
@@ -452,7 +758,7 @@ impl ProjectStore {
                 .map_err(|_| "project mirror record is outside its binding")?;
             let path = relative.to_str().ok_or("invalid UTF-8 mirror path")?;
             let target = self.mirror_path(&b, path)?;
-            let original = safe_source(&source, path)?;
+            let original = self.source_path(&source, path)?;
             if sha256_hex(&read_bytes(&target)?) != record.vault_hash || sha256_hex(&read_bytes(&original)?) != record.source_hash {
                 return Err(format!("rebind requires unchanged source and mirror: {path}"));
             }
@@ -473,8 +779,9 @@ impl ProjectStore {
     }
     pub fn list(&self, id: &str) -> Result<Vec<String>> {
         let b = self.binding(id)?;
+        self.source_root(&b.source_root)?;
         let root = Path::new(&b.source_root);
-        fn walk(root: &Path, dir: &Path, files: &mut Vec<String>) -> Result<()> {
+        fn walk(root: &Path, dir: &Path, sync: &Path, files: &mut Vec<String>) -> Result<()> {
             for ent in std::fs::read_dir(dir).map_err(|e| e.to_string())? {
                 let ent = ent.map_err(|e| e.to_string())?;
                 let p = ent.path();
@@ -483,12 +790,12 @@ impl ProjectStore {
                     .map_err(|e| e.to_string())?
                     .to_string_lossy()
                     .replace('\\', "/");
-                if validate_relative(&rel).is_err() {
+                if p.starts_with(sync) || validate_relative(&rel).is_err() {
                     continue;
                 }
                 let typ = ent.file_type().map_err(|e| e.to_string())?;
                 if typ.is_dir() {
-                    walk(root, &p, files)?;
+                    let _ = walk(root, &p, sync, files);
                 } else if is_md(&rel) && safe_source(root, &rel).is_ok() {
                     files.push(rel);
                 }
@@ -496,7 +803,8 @@ impl ProjectStore {
             Ok(())
         }
         let mut out = vec![];
-        walk(root, root, &mut out)?;
+        walk(root, root, &self.vault.canonicalize().map_err(io_error)?.join(vault_settings::resolve_sync_dir(&self.vault)), &mut out)?;
+        out.retain(|path| self.source_path(root, path).is_ok());
         out.sort();
         Ok(out)
     }
@@ -504,7 +812,7 @@ impl ProjectStore {
         let b = self.binding(id)?;
         make_file(
             path,
-            read_bytes(&safe_source(Path::new(&b.source_root), path)?)?,
+            read_bytes(&self.source_path(Path::new(&b.source_root), path)?)?,
         )
     }
     fn mirror_path(&self, b: &Binding, path: &str) -> Result<PathBuf> {
@@ -570,7 +878,9 @@ impl ProjectStore {
         paths: Vec<String>,
         hashes: BTreeMap<String, String>,
     ) -> Result<ProjectSnapshot> {
+        let _lock = self.lock()?;
         let b = self.binding(id)?;
+        self.active(&b)?;
         let mut c = self.config(&b)?;
         if !paths.contains(&c.entry) || paths.is_empty() {
             return Err("snapshot must include entry".into());
@@ -578,13 +888,13 @@ impl ProjectStore {
         let mut seen = HashSet::new();
         let mut prepared = vec![];
         let mut total = 0;
-        let mut records = store::load_records(&self.records_path());
+        let mut records = store::read_records(&self.records_path()).map_err(|e| e.to_string())?;
         for path in paths {
             validate_relative(&path)?;
             if !seen.insert(path.to_lowercase()) {
                 return Err("case-folded path collision".into());
             }
-            let source = safe_source(Path::new(&b.source_root), &path)?;
+            let source = self.source_path(Path::new(&b.source_root), &path)?;
             let bytes = read_bytes(&source)?;
             total += bytes.len();
             if total > MAX_BYTES {
@@ -669,7 +979,9 @@ impl ProjectStore {
         expected_source: &str,
         expected_mirror: &str,
     ) -> Result<ProjectInfo> {
+        let _lock = self.lock()?;
         let binding = self.binding(id)?;
+        self.active(&binding)?;
         let source = self.bound_source(&binding, path)?;
         let target = self.mirror_path(&binding, path)?;
         let bytes = read_bytes(&source)?;
@@ -678,7 +990,7 @@ impl ProjectStore {
         {
             return Err("source or mirror changed; review conflict again".into());
         }
-        let mut records = store::load_records(&self.records_path());
+        let mut records = store::read_records(&self.records_path()).map_err(|e| e.to_string())?;
         let mut record = records
             .find_by_vault(&target.to_string_lossy())
             .cloned()
@@ -711,7 +1023,9 @@ impl ProjectStore {
         .map_err(|e| e.to_string())
     }
     pub fn bundle(&self, id: &str, snapshot: &str, html: &str) -> Result<()> {
+        let _lock = self.lock()?;
         let b = self.binding(id)?;
+        self.active(&b)?;
         self.baseline(&b, snapshot)?;
         if html.len() > MAX_BYTES {
             return Err("bundle exceeds 25 MiB".into());
@@ -723,7 +1037,9 @@ impl ProjectStore {
         write_atomic(&path, html.as_bytes())
     }
     pub fn published(&self, id: &str, snapshot: &str, url: &str) -> Result<ProjectInfo> {
+        let _lock = self.lock()?;
         let b = self.binding(id)?;
+        self.active(&b)?;
         self.baseline(&b, snapshot)?;
         if !self
             .management(&b, &format!("snapshots/{snapshot}/bundle.html"))?
@@ -781,9 +1097,9 @@ impl ProjectStore {
         Ok(())
     }
     fn bound_source(&self, b: &Binding, path: &str) -> Result<PathBuf> {
-        let source = safe_source(Path::new(&b.source_root), path)?;
+        let source = self.source_path(Path::new(&b.source_root), path)?;
         let target = self.mirror_path(b, path)?;
-        let records = store::load_records(&self.records_path());
+        let records = store::read_records(&self.records_path()).map_err(|e| e.to_string())?;
         let record = records
             .find_by_vault(&target.to_string_lossy())
             .ok_or("source binding missing")?;
@@ -795,7 +1111,9 @@ impl ProjectStore {
         Ok(source)
     }
     pub fn feedback(&self, id: &str, envelope: FeedbackEnvelope) -> Result<LocalFeedback> {
+        let _lock = self.lock()?;
         let b = self.binding(id)?;
+        self.active(&b)?;
         let path = self.inbox_path(&b, &envelope.payload.submission_id)?;
         if path.exists() {
             let mut existing: LocalFeedback = read_json(&path)?;
@@ -859,6 +1177,8 @@ impl ProjectStore {
         }
     }
     fn recover(&self, b: &Binding, f: &mut LocalFeedback) -> Result<()> {
+        // Missing sources and deletion reservations leave persisted intents untouched.
+        if b.deleting || self.source_root(&b.source_root).is_err() { return Ok(()); }
         let pending: Vec<_> = f
             .decisions
             .iter()
@@ -866,6 +1186,7 @@ impl ProjectStore {
             .map(|(p, d)| (p.clone(), d.clone()))
             .collect();
         for (path, mut d) in pending {
+            if self.source_path(Path::new(&b.source_root), &path).is_err() { continue; }
             let outcome = (|| {
                 self.validate_feedback(b, &f.envelope.payload)?;
                 let source = self.bound_source(b, &path)?;
@@ -881,7 +1202,7 @@ impl ProjectStore {
                         f.decisions.insert(path.clone(), d.clone());
                         write_json(&self.inbox_path(b, &f.envelope.payload.submission_id)?, f)?;
                     }
-                    match crate::sotvault::refresh_source_mirrors(
+                    match crate::sotvault::refresh_source_mirrors_locked(
                         &self.records_path(),
                         &self.vault,
                         &source.to_string_lossy(),
@@ -914,6 +1235,7 @@ impl ProjectStore {
         write_json(&self.inbox_path(b, &f.envelope.payload.submission_id)?, f)
     }
     pub fn inbox(&self, id: &str) -> Result<Vec<LocalFeedback>> {
+        let _lock = self.lock()?;
         let b = self.binding(id)?;
         let dir = self.management(&b, "inbox")?;
         if !dir.exists() {
@@ -934,6 +1256,7 @@ impl ProjectStore {
         Ok(out)
     }
     pub fn review(&self, id: &str, submission: &str, path: &str) -> Result<ReviewFile> {
+        let _lock = self.lock()?;
         let b = self.binding(id)?;
         let f = self.load_feedback(&b, submission)?;
         if f.status == "quarantined" {
@@ -988,10 +1311,12 @@ impl ProjectStore {
         expected: &str,
         content: &str,
     ) -> Result<LocalFeedback> {
+        let _lock = self.lock()?;
         if content.len() > MAX_BYTES {
             return Err("content exceeds 25 MiB".into());
         }
         let b = self.binding(id)?;
+        self.active(&b)?;
         let mut f = self.load_feedback(&b, submission)?;
         if f.status == "quarantined" {
             return Err("feedback quarantined".into());
@@ -1041,7 +1366,9 @@ impl ProjectStore {
         Ok(f)
     }
     pub fn reject(&self, id: &str, submission: &str, path: Option<&str>) -> Result<LocalFeedback> {
+        let _lock = self.lock()?;
         let b = self.binding(id)?;
+        self.active(&b)?;
         let mut f = self.load_feedback(&b, submission)?;
         if let Some(p) = path {
             if !f.envelope.payload.edits.iter().any(|e| e.path == p) {
@@ -1076,7 +1403,9 @@ impl ProjectStore {
         Ok(f)
     }
     pub fn resolve(&self, id: &str, submission: &str) -> Result<LocalFeedback> {
+        let _lock = self.lock()?;
         let b = self.binding(id)?;
+        self.active(&b)?;
         let mut f = self.load_feedback(&b, submission)?;
         if f.status == "quarantined" || !f.envelope.payload.edits.is_empty() {
             return Err("resolve requires valid annotation-only feedback".into());
@@ -1099,6 +1428,298 @@ mod tests {
     use super::*;
     use tempfile::TempDir;
 
+    #[test]
+    fn project_share_fixed_entry_regression() {
+        let (_t, s, a) = fixture();
+        let b = s.open(&a.source_root, "docs/a.md").unwrap();
+        assert_ne!(a.project_id, b.project_id);
+        assert_eq!(s.open(&a.source_root, "README.md").unwrap().project_id, a.project_id);
+        assert_eq!(s.info(&s.binding(&a.project_id).unwrap()).unwrap().entry, "README.md");
+    }
+    #[test]
+    fn project_share_missing_source_keeps_history_regression() {
+        let (_t, s, p) = fixture();
+        let snap = freeze(&s, &p);
+        std::fs::remove_dir_all(&p.source_root).unwrap();
+        assert!(s.snapshot_get(&p.project_id, &snap.snapshot_id).is_ok());
+        assert!(s.inbox(&p.project_id).is_ok());
+    }
+    #[test]
+    fn project_share_vault_root_regression() {
+        let (_t, s, _) = fixture();
+        std::fs::write(s.vault.join("root.md"), "root document").unwrap();
+        assert!(s.open(s.vault.to_str().unwrap(), "root.md").is_ok());
+    }
+    #[test]
+    fn project_share_create_uses_complete_entry_and_recovers_nested_legacy_binding() {
+        let (_t, s, a) = fixture();
+        let nested = s.open(&a.source_root, "docs/a.md").unwrap();
+        let restored = s.create(Path::new(&a.source_root).join("docs/a.md").to_str().unwrap()).unwrap();
+        assert_eq!(restored.project_id, nested.project_id);
+        assert_eq!(restored.source_root, a.source_root);
+        assert_eq!(restored.entry, "docs/a.md");
+        assert_ne!(restored.project_id, a.project_id);
+        assert_eq!(s.create(Path::new(&a.source_root).join("README.md").to_str().unwrap()).unwrap().project_id, a.project_id);
+        assert_eq!(s.projects().unwrap().len(), 2);
+        let mut bindings = s.bindings().unwrap();
+        let mut duplicate = bindings[0].clone();
+        duplicate.project_id = "duplicate".into();
+        duplicate.mirror_root = s.vault.join("sync/duplicate").to_string_lossy().into();
+        let mut config = s.config(&bindings[0]).unwrap();
+        config.project_id = duplicate.project_id.clone();
+        write_json(&s.management(&duplicate, "project.json").unwrap(), &config).unwrap();
+        bindings.push(duplicate);
+        write_json(&s.bindings_path(), &bindings).unwrap();
+        assert!(s.create(Path::new(&a.source_root).join("README.md").to_str().unwrap()).unwrap_err().contains("multiple projects"));
+    }
+    #[test]
+    fn project_share_missing_source_preserves_pending_intent_and_exact_bundle() {
+        let (t, s, p) = fixture();
+        let snapshot = freeze(&s, &p);
+        s.bundle(&p.project_id, &snapshot.snapshot_id, "exact publication bytes").unwrap();
+        let mut feedback = s.feedback(&p.project_id, envelope(&p, &snapshot, "offline")).unwrap();
+        feedback.decisions.insert("README.md".into(), Decision { status: "pending".into(),
+            before_hash: Some(snapshot.files[0].hash.clone()), result_hash: Some(sha256_hex(b"result")), content: Some("result".into()), ..Default::default() });
+        let path = s.inbox_path(&s.binding(&p.project_id).unwrap(), "offline").unwrap();
+        write_json(&path, &feedback).unwrap();
+        let original = std::fs::read(&path).unwrap();
+        std::fs::rename(&p.source_root, t.path().join("moved-source")).unwrap();
+        assert_eq!(s.get(&p.project_id).unwrap().source_available, Some(false));
+        assert_eq!(s.projects().unwrap()[0].source_available, Some(false));
+        assert_eq!(s.inbox(&p.project_id).unwrap()[0].decisions["README.md"].status, "pending");
+        assert_eq!(std::fs::read(path).unwrap(), original);
+        assert_eq!(s.bundle_get(&p.project_id, &snapshot.snapshot_id).unwrap(), "exact publication bytes");
+        assert!(s.snapshot_get(&p.project_id, &snapshot.snapshot_id).is_ok());
+        assert!(s.snapshot(&p.project_id, vec!["README.md".into()], BTreeMap::new()).is_err());
+        assert!(s.apply(&p.project_id, "offline", "README.md", "hash", "edit").is_err());
+    }
+    #[test]
+    fn project_share_projects_reports_each_damaged_item() {
+        let (_t, s, p) = fixture();
+        let other = s.open(&p.source_root, "docs/a.md").unwrap();
+        std::fs::write(Path::new(&other.mirror_root).join(".notemd/project.json"), "bad json").unwrap();
+        let mut entries: Vec<serde_json::Value> = read_json(&s.bindings_path()).unwrap();
+        entries.push(serde_json::json!({"project_id":"broken-binding"}));
+        write_json(&s.bindings_path(), &entries).unwrap();
+        let projects = s.projects().unwrap();
+        assert_eq!(projects.len(), 3);
+        assert!(projects[0].error.is_none());
+        assert_eq!(projects[0].entry, "README.md");
+        assert!(projects[1].error.is_some());
+        assert_eq!(projects[2].project_id, "broken-binding");
+        assert!(projects[2].error.is_some());
+    }
+    #[test]
+    fn project_share_read_only_real_absence_is_not_found() {
+        let (_t, s, p) = fixture();
+        assert!(s.read(&p.project_id, "missing.png").unwrap_err().starts_with("NOT_FOUND:"));
+        for path in ["../escape.png", ".notemd/key", "private.note.md", "docs"] {
+            assert!(!s.read(&p.project_id, path).unwrap_err().starts_with("NOT_FOUND:"));
+        }
+        let huge = Path::new(&p.source_root).join("huge.png");
+        std::fs::File::create(&huge).unwrap().set_len(MAX_BYTES as u64 + 1).unwrap();
+        assert!(s.read(&p.project_id, "huge.png").unwrap_err().starts_with("TOO_LARGE:"));
+        std::fs::write(Path::new(&p.source_root).join("invalid.md"), [255]).unwrap();
+        assert!(!s.read(&p.project_id, "invalid.md").unwrap_err().starts_with("NOT_FOUND:"));
+    }
+    #[cfg(unix)]
+    #[test]
+    fn project_share_vault_root_rejects_sync_reads_in_every_source_entrypoint() {
+        let (_t, s, _) = fixture();
+        std::fs::write(s.vault.join("root.md"), "root").unwrap();
+        let p = s.create(s.vault.join("root.md").to_str().unwrap()).unwrap();
+        std::fs::create_dir_all(s.vault.join("sync/generated")).unwrap();
+        std::fs::write(s.vault.join("sync/generated/a.md"), "never read").unwrap();
+        std::os::unix::fs::symlink(s.vault.join("sync"), s.vault.join("alias")).unwrap();
+        for path in ["sync/generated/a.md", "sync/missing.png", "alias/generated/a.md", "alias/missing.png"] {
+            assert!(!s.read(&p.project_id, path).unwrap_err().starts_with("NOT_FOUND:"), "{path}");
+            assert!(s.snapshot(&p.project_id, vec!["root.md".into(), path.into()], BTreeMap::new()).is_err());
+        }
+        assert_eq!(s.list(&p.project_id).unwrap(), vec!["root.md"]);
+        freeze_one(&s, &p);
+        assert_eq!(s.create(Path::new(&p.mirror_root).join("root.md").to_str().unwrap()).unwrap().project_id, p.project_id);
+        assert!(s.create(s.vault.join("sync/generated/a.md").to_str().unwrap()).is_err());
+    }
+    fn freeze_one(s: &ProjectStore, p: &ProjectInfo) -> ProjectSnapshot {
+        let file = s.read(&p.project_id, &p.entry).unwrap();
+        s.snapshot(&p.project_id, vec![p.entry.clone()], [(p.entry.clone(), file.hash)].into()).unwrap()
+    }
+    #[test]
+    fn project_share_delete_keeps_sources_other_projects_and_legacy_records() {
+        let (_t, s, p) = fixture();
+        freeze(&s, &p);
+        let other = s.open(&p.source_root, "docs/a.md").unwrap();
+        freeze_one(&s, &other);
+        let legacy = s.vault.join("legacy.md");
+        std::fs::write(&legacy, "legacy").unwrap();
+        let source_before = std::fs::read(Path::new(&p.source_root).join("README.md")).unwrap();
+        let other_before = std::fs::read(Path::new(&other.mirror_root).join("docs/a.md")).unwrap();
+        let mut records = store::load_records(&s.records_path());
+        records.upsert(Record { vault_path: legacy.to_string_lossy().into(), source_path: Path::new(&p.source_root).join("README.md").to_string_lossy().into(),
+            synced_at: 1, source_hash: sha256_hex(&source_before), vault_hash: sha256_hex(b"legacy"), note_merge_base: None, project_id: None });
+        store::save_records(&s.records_path(), &records).unwrap();
+        let keep: Vec<_> = records.records.iter().filter(|r| r.project_id.as_deref() != Some(p.project_id.as_str())).cloned().collect();
+        s.begin_delete(&p.project_id).unwrap();
+        assert_eq!(s.get(&p.project_id).unwrap().deleting, Some(true));
+        assert!(s.snapshot(&p.project_id, vec!["README.md".into()], BTreeMap::new()).is_err());
+        let target = Path::new(&p.mirror_root).join("README.md");
+        let records_before = std::fs::read(s.records_path()).unwrap();
+        assert!(crate::sotvault::forget_from_store(&s.records_path(), target.to_str().unwrap()).is_err());
+        assert_eq!(std::fs::read(s.records_path()).unwrap(), records_before);
+        assert!(crate::sotvault::apply_update_from_store(&s.records_path(), &s.vault, target.to_str().unwrap()).is_err());
+        s.delete(&p.project_id).unwrap();
+        s.delete(&p.project_id).unwrap();
+        assert!(!Path::new(&p.mirror_root).exists());
+        assert_eq!(std::fs::read(Path::new(&p.source_root).join("README.md")).unwrap(), source_before);
+        assert_eq!(std::fs::read(Path::new(&other.mirror_root).join("docs/a.md")).unwrap(), other_before);
+        assert_eq!(std::fs::read(&legacy).unwrap(), b"legacy");
+        assert_eq!(store::load_records(&s.records_path()).records, keep);
+        assert_eq!(mirror_meta::read_all(&s.vault).len(), 1);
+        assert_ne!(s.create(Path::new(&p.source_root).join("README.md").to_str().unwrap()).unwrap().project_id, p.project_id);
+    }
+    #[test]
+    fn project_share_delete_revalidates_drift_and_unknown_contents() {
+        let (_t, s, p) = fixture();
+        freeze(&s, &p);
+        let mirror = Path::new(&p.mirror_root).join("README.md");
+        let original = std::fs::read(&mirror).unwrap();
+        std::fs::write(&mirror, "unsaved mirror work").unwrap();
+        assert!(s.begin_delete(&p.project_id).is_err());
+        std::fs::write(&mirror, &original).unwrap();
+        for name in ["unknown.md", "README.note.md", ".notemd/unknown.json"] {
+            let path = Path::new(&p.mirror_root).join(name);
+            std::fs::write(&path, "keep me").unwrap();
+            assert!(s.begin_delete(&p.project_id).is_err());
+            assert!(path.exists());
+            std::fs::remove_file(path).unwrap();
+        }
+        s.begin_delete(&p.project_id).unwrap();
+        std::fs::write(&mirror, "changed after reservation").unwrap();
+        assert!(s.delete(&p.project_id).is_err());
+        assert_eq!(std::fs::read_to_string(&mirror).unwrap(), "changed after reservation");
+        s.cancel_delete(&p.project_id).unwrap();
+        assert_eq!(s.get(&p.project_id).unwrap().deleting, Some(false));
+    }
+    #[test]
+    fn project_share_delete_offline_draft_missing_source_and_interrupted_cleanup() {
+        let (_t, s, p) = fixture();
+        std::fs::remove_dir_all(&p.source_root).unwrap();
+        s.begin_delete(&p.project_id).unwrap();
+        std::fs::remove_dir_all(&p.mirror_root).unwrap();
+        s.stopped(&p.project_id).unwrap();
+        s.delete(&p.project_id).unwrap();
+        assert!(s.projects().unwrap().is_empty());
+    }
+    #[test]
+    fn project_share_active_delete_requires_stopped_and_stopped_keeps_history() {
+        let (_t, s, p) = fixture();
+        let snap = freeze(&s, &p);
+        s.bundle(&p.project_id, &snap.snapshot_id, "bundle").unwrap();
+        s.published(&p.project_id, &snap.snapshot_id, "https://share.example/id").unwrap();
+        s.begin_delete(&p.project_id).unwrap();
+        assert!(s.delete(&p.project_id).is_err());
+        assert!(Path::new(&p.mirror_root).exists());
+        s.stopped(&p.project_id).unwrap();
+        assert!(s.get(&p.project_id).unwrap().url.is_none());
+        assert_eq!(s.bundle_get(&p.project_id, &snap.snapshot_id).unwrap(), "bundle");
+        s.delete(&p.project_id).unwrap();
+    }
+    #[cfg(unix)]
+    #[test]
+    fn project_share_delete_symlinks_and_changed_location_preserve_originals() {
+        let (t, s, p) = fixture();
+        freeze(&s, &p);
+        let target = Path::new(&p.mirror_root).join("README.md");
+        let outside = t.path().join("outside.md");
+        std::fs::copy(&target, &outside).unwrap();
+        std::fs::remove_file(&target).unwrap();
+        std::os::unix::fs::symlink(&outside, &target).unwrap();
+        assert!(s.begin_delete(&p.project_id).is_err());
+        assert!(outside.exists());
+        std::fs::remove_file(&target).unwrap();
+        std::fs::copy(&outside, &target).unwrap();
+        s.begin_delete(&p.project_id).unwrap();
+        vault_settings::write(&s.vault, &vault_settings::VaultSettings { sync_dir: Some("changed".into()), ..Default::default() }).unwrap();
+        assert!(s.delete(&p.project_id).is_err());
+        assert!(target.exists());
+        assert!(Path::new(&p.source_root).join("README.md").exists());
+    }
+    #[test]
+    fn project_share_partial_cleanup_retries_without_config_or_snapshot_manifest() {
+        let (_t, s, p) = fixture();
+        let snap = freeze(&s, &p);
+        s.begin_delete(&p.project_id).unwrap();
+        std::fs::remove_file(Path::new(&p.mirror_root).join(".notemd/project.json")).unwrap();
+        std::fs::remove_file(Path::new(&p.mirror_root).join(format!(".notemd/snapshots/{}/manifest.json", snap.snapshot_id))).unwrap();
+        std::fs::remove_file(Path::new(&p.mirror_root).join("README.md")).unwrap();
+        assert!(s.projects().unwrap()[0].error.is_some());
+        assert_eq!(s.projects().unwrap()[0].deleting, Some(true));
+        assert!(s.cancel_delete(&p.project_id).is_err());
+        s.begin_delete(&p.project_id).unwrap();
+        let unknown = Path::new(&p.mirror_root).join("preserve.md");
+        std::fs::write(&unknown, "new user work").unwrap();
+        assert!(s.delete(&p.project_id).is_err());
+        assert_eq!(std::fs::read_to_string(&unknown).unwrap(), "new user work");
+        std::fs::remove_file(unknown).unwrap();
+        s.delete(&p.project_id).unwrap();
+        assert!(s.projects().unwrap().is_empty());
+        assert!(Path::new(&p.source_root).join("README.md").exists());
+    }
+    #[test]
+    fn project_share_missing_config_keeps_remote_stop_requirement() {
+        let (_t, s, p) = fixture();
+        let snap = freeze(&s, &p);
+        s.bundle(&p.project_id, &snap.snapshot_id, "bundle").unwrap();
+        s.published(&p.project_id, &snap.snapshot_id, "https://share.example/id").unwrap();
+        s.begin_delete(&p.project_id).unwrap();
+        std::fs::remove_file(Path::new(&p.mirror_root).join(".notemd/project.json")).unwrap();
+        assert!(s.delete(&p.project_id).unwrap_err().contains("stop remote"));
+        s.stopped(&p.project_id).unwrap();
+        s.delete(&p.project_id).unwrap();
+    }
+    #[test]
+    fn project_share_damaged_unrelated_config_does_not_block_create_or_rebind() {
+        let (t, s, p) = fixture();
+        std::fs::write(Path::new(&p.mirror_root).join(".notemd/project.json"), "broken config").unwrap();
+        let nested = s.create(Path::new(&p.source_root).join("docs/a.md").to_str().unwrap()).unwrap();
+        assert_ne!(nested.project_id, p.project_id);
+        freeze_one(&s, &nested);
+        let moved = t.path().join("new-docs");
+        std::fs::rename(&nested.source_root, &moved).unwrap();
+        s.rebind(&nested.project_id, moved.to_str().unwrap()).unwrap();
+        let items = s.projects().unwrap();
+        assert!(items.iter().find(|item| item.project_id == p.project_id).unwrap().error.is_some());
+        assert!(items.iter().find(|item| item.project_id == nested.project_id).unwrap().error.is_none());
+    }
+    #[cfg(unix)]
+    #[test]
+    fn project_share_unreadable_reference_never_becomes_missing() {
+        use std::os::unix::fs::PermissionsExt;
+        let (_t, s, p) = fixture();
+        let path = Path::new(&p.source_root).join("unreadable.png");
+        std::fs::write(&path, b"private").unwrap();
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0)).unwrap();
+        let result = s.read(&p.project_id, "unreadable.png");
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).unwrap();
+        assert!(result.unwrap_err().starts_with("UNREADABLE:"));
+    }
+    #[test]
+    fn project_share_precise_cleanup_preserves_content_added_after_preflight() {
+        let (_t, s, p) = fixture();
+        freeze(&s, &p);
+        s.begin_delete(&p.project_id).unwrap();
+        let b = s.binding(&p.project_id).unwrap();
+        let (_, files) = s.delete_preflight(&b).unwrap();
+        let added = Path::new(&p.mirror_root).join("concurrent-user-work.md");
+        std::fs::write(&added, "preserve concurrent work").unwrap();
+        assert!(remove_reserved_tree(Path::new(&p.mirror_root), &files).is_err());
+        assert_eq!(std::fs::read_to_string(&added).unwrap(), "preserve concurrent work");
+        assert!(s.binding(&p.project_id).unwrap().deleting);
+        assert!(s.delete(&p.project_id).is_err());
+        std::fs::remove_file(added).unwrap();
+        s.delete(&p.project_id).unwrap();
+        assert!(s.projects().unwrap().is_empty());
+    }
     fn fixture() -> (TempDir, ProjectStore, ProjectInfo) {
         let t = TempDir::new().unwrap();
         let source = t.path().join("source");
@@ -1824,12 +2445,14 @@ pub(crate) fn validate_sync_record(
             .to_path_buf(),
     );
     let binding = service.binding(id)?;
+    service.active(&binding)?;
+    service.source_root(&binding.source_root)?;
     let relative = Path::new(&record.vault_path)
         .strip_prefix(&binding.mirror_root)
         .map_err(|_| "mirror outside bound project")?;
     let path = relative.to_str().ok_or("invalid UTF-8 mirror path")?;
     let target = service.mirror_path(&binding, path)?;
-    let source = safe_source(Path::new(&binding.source_root), path)?;
+    let source = service.source_path(Path::new(&binding.source_root), path)?;
     if target != Path::new(&record.vault_path) || source != Path::new(&record.source_path) {
         return Err("project source/mirror binding mismatch".into());
     }
@@ -1869,11 +2492,18 @@ pub fn project_share(
         serde_json::to_value(v).map_err(|e| e.to_string())
     }
     let op = string(&request, "op")?;
+    if op == "projects" { return value(service.projects()?); }
+    if op == "create" { return value(service.create(string(&request, "sourceFile")?)?); }
     if op == "open" {
         return value(service.open(string(&request, "sourceRoot")?, string(&request, "entry")?)?);
     }
     let id = string(&request, "project_id")?;
     match op {
+        "get" => value(service.get(id)?),
+        "stopped" => { service.stopped(id)?; Ok(serde_json::Value::Null) },
+        "begin-delete" => { service.begin_delete(id)?; Ok(serde_json::Value::Null) },
+        "cancel-delete" => { service.cancel_delete(id)?; Ok(serde_json::Value::Null) },
+        "delete" => { service.delete(id)?; Ok(serde_json::Value::Null) },
         "rebind" => value(service.rebind(id, string(&request, "sourceRoot")?)?),
         "list" => value(service.list(id)?),
         "snapshot-get" => value(service.snapshot_get(id, string(&request, "snapshotId")?)?),

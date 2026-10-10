@@ -9,6 +9,8 @@ For the full commit history, see the git log.
 
 ### Changed
 
+- **Create a sharing project directly from the current document.** Each entry document has its own project and link, using its folder to resolve references. Unpublished projects stay in the list, missing referenced files no longer prevent sharing existing content, and projects can be deleted after revoking their link without deleting source documents.
+
 - **Project sharing now follows the app’s settings layout.** Share contents and the feedback inbox have separate navigation, with a fixed publish action, clearer file selection and links, and consistent light, dark, and narrow-window styling. Switching sections keeps your review draft.
 
 ### Fixed

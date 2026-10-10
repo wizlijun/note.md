@@ -127,7 +127,7 @@ fn store_path(app: &AppHandle) -> Result<PathBuf, String> {
 }
 
 fn load_store(app: &AppHandle) -> Result<RecordStore, String> {
-    Ok(store::load_records(&store_path(app)?))
+    store::read_records(&store_path(app)?).map_err(|e| e.to_string())
 }
 
 fn save_store(app: &AppHandle, s: &RecordStore) -> Result<(), String> {
@@ -404,6 +404,7 @@ pub fn notemd_relink_mirror_source(
     device_id: String,
     device_name: String,
 ) -> Result<Record, String> {
+    let _records_lock = store::lock_records(&store_path(&app)?).map_err(|e| e.to_string())?;
     let vault_root = resolve_vault_root(&app).ok_or("Vault not configured")?;
     let tracked = load_store(&app)?;
     if tracked.find_by_vault(&vault_path).is_some_and(|r| r.project_id.is_some()) {
@@ -497,9 +498,17 @@ pub fn sotvault_records(app: AppHandle) -> Result<Vec<Record>, String> {
 
 #[tauri::command]
 pub fn sotvault_forget(app: AppHandle, vault_path: String) -> Result<(), String> {
-    let mut s = load_store(&app)?;
-    s.remove(&vault_path);
-    save_store(&app, &s)
+    forget_from_store(&store_path(&app)?, &vault_path)
+}
+
+pub(crate) fn forget_from_store(records_path: &Path, vault_path: &str) -> Result<(), String> {
+    let _records_lock = store::lock_records(records_path).map_err(|e| e.to_string())?;
+    let mut records = store::read_records(records_path).map_err(|e| e.to_string())?;
+    if records.find_by_vault(vault_path).is_some_and(|r| r.project_id.is_some()) {
+        return Err("project mirrors require whole-project management".into());
+    }
+    records.remove(vault_path);
+    store::save_records(records_path, &records).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -511,6 +520,7 @@ pub fn sotvault_sync_to_vault(
     device_id: Option<String>,
     device_name: Option<String>,
 ) -> Result<Record, String> {
+    let _records_lock = store::lock_records(&store_path(&app)?).map_err(|e| e.to_string())?;
     let source = PathBuf::from(&src_path);
     if !source.is_file() {
         return Err("source file does not exist".into());
@@ -656,7 +666,8 @@ pub fn sotvault_apply_update(app: AppHandle, vault_path: String) -> Result<Strin
 }
 
 pub(crate) fn apply_update_from_store(records_path: &Path, vault: &Path, vault_path: &str) -> Result<String, String> {
-    let mut s = store::load_records(records_path);
+    let _records_lock = store::lock_records(records_path).map_err(|e| e.to_string())?;
+    let mut s = store::read_records(records_path).map_err(|e| e.to_string())?;
     let rec = s.find_by_vault(&vault_path).cloned().ok_or("not tracked")?;
     if rec.project_id.is_some() {
         crate::project_share::validate_sync_record(records_path, vault, &rec)?;
@@ -708,6 +719,7 @@ pub(crate) fn apply_update_from_store(records_path: &Path, vault: &Path, vault_p
 /// record to the current source + vault fingerprints (stops further prompts).
 #[tauri::command]
 pub fn sotvault_accept_current(app: AppHandle, vault_path: String) -> Result<(), String> {
+    let _records_lock = store::lock_records(&store_path(&app)?).map_err(|e| e.to_string())?;
     let mut s = load_store(&app)?;
     let rec = s.find_by_vault(&vault_path).cloned().ok_or("not tracked")?;
     if rec.project_id.is_some() { return Err("project conflicts require explicit resolution with reviewed source/mirror hashes".into()); }
@@ -1022,7 +1034,7 @@ fn validate_mirror_record(records_path: &Path, vault: &Path, r: &Record) -> Resu
 }
 
 pub(crate) fn check_source_mirrors(records_path: &Path, vault: &Path, source: &str) -> Result<(), String> {
-    let records = store::load_records(records_path);
+    let records = store::read_records(records_path).map_err(|e| e.to_string())?;
     for r in records.all_by_source(source) {
         validate_mirror_record(records_path, vault, r)?;
         if logic::sha256_hex(&std::fs::read(&r.vault_path).map_err(|e| e.to_string())?) != r.vault_hash { return Err(format!("mirror conflict: {}", r.vault_path)); }
@@ -1040,7 +1052,7 @@ fn planned_mirror_bytes(source: &str, target: &Path, bytes: &[u8], project: bool
 }
 
 pub(crate) fn plan_source_mirrors(records_path: &Path, vault: &Path, source: &str, content: &[u8]) -> Result<std::collections::BTreeMap<String, MirrorRefresh>, String> {
-    let records = store::load_records(records_path);
+    let records = store::read_records(records_path).map_err(|e| e.to_string())?;
     let mut result = std::collections::BTreeMap::new();
     for r in records.all_by_source(source) {
         validate_mirror_record(records_path, vault, r)?;
@@ -1052,8 +1064,8 @@ pub(crate) fn plan_source_mirrors(records_path: &Path, vault: &Path, source: &st
 
 /// Recovery recognizes both the persisted old bytes and this intent's exact
 /// result. A third hash is always a conflict, including after a partial refresh.
-pub(crate) fn refresh_source_mirrors(records_path: &Path, vault: &Path, source: &str, intents: &std::collections::BTreeMap<String, MirrorRefresh>) -> Result<(), String> {
-    let mut records = store::load_records(records_path);
+pub(crate) fn refresh_source_mirrors_locked(records_path: &Path, vault: &Path, source: &str, intents: &std::collections::BTreeMap<String, MirrorRefresh>) -> Result<(), String> {
+    let mut records = store::read_records(records_path).map_err(|e| e.to_string())?;
     let targets: Vec<_> = records.all_by_source(source).cloned().collect();
     if targets.len() != intents.len() { return Err("mirror mappings changed after acceptance".into()); }
     let bytes = std::fs::read(source).map_err(|e| e.to_string())?;
