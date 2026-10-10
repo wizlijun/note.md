@@ -193,3 +193,35 @@ describe('syncCurrentToVault', () => {
     expect(call?.[1]).toMatchObject({ deviceId: getDeviceId(), deviceName: 'Test-Mac' })
   })
 })
+
+describe('saving a source with several mirrors', () => {
+  it('refreshes both legacy and project targets independently', async () => {
+    const paths = ['/v/sync/a.md', '/v/sync/p/docs/a.md']
+    invoke.mockImplementation(async (command: string, args?: { openedPath?: string }) => {
+      if (command === 'sotvault_records') return paths.map((vault_path, i) => ({ source_path: '/src/a.md', vault_path, project_id: i ? 'p' : null }))
+      if (command === 'sotvault_check_update') return { outcome: 'origin_updated', vaultPath: args?.openedPath, openedIsSource: false }
+      if (command === 'sotvault_vault_root') return '/v'
+      if (command === 'notemd_mirror_metas') return []
+      return 'updated'
+    })
+    const { pushSourceToVaultIfTracked } = await import('./sotvault.svelte')
+    await pushSourceToVaultIfTracked('/src/a.md')
+    for (const vaultPath of paths) expect(invoke).toHaveBeenCalledWith('sotvault_apply_update', { vaultPath })
+  })
+})
+
+it('project conflict confirmation resolves with the reviewed source and mirror hashes', async () => {
+  const target = '/v/sync/p/README.md'
+  invoke.mockImplementation(async (cmd: string) => {
+    if (cmd === 'sotvault_check_update') return { outcome: 'conflict', vaultPath: target, openedIsSource: false, projectId: 'p' }
+    if (cmd === 'sotvault_records') return [{ source_path: '/src/README.md', vault_path: target, project_id: 'p' }]
+    if (cmd === 'sotvault_vault_root') return '/v'
+    if (cmd === 'project_share') return { source: { hash: 'source-reviewed', markdown: 'source' }, mirror: { hash: 'mirror-reviewed', markdown: 'mirror' } }
+    if (cmd === 'notemd_mirror_metas') return []
+    return 'updated'
+  })
+  ask.mockResolvedValueOnce(true)
+  await maybeCheckVaultUpdate({ filePath: target })
+  expect(invoke).toHaveBeenCalledWith('project_share', { request: { op: 'resolve-mirror', project_id: 'p', path: 'README.md', expectedSourceHash: 'source-reviewed', expectedMirrorHash: 'mirror-reviewed' } })
+  expect(invoke).not.toHaveBeenCalledWith('sotvault_apply_update', expect.anything())
+})

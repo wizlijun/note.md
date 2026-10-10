@@ -370,6 +370,7 @@ pub fn notemd_migrate_mirror_meta(
     let store = load_store(&app)?;
     let mut written = 0usize;
     for rec in &store.records {
+        if rec.project_id.is_some() { continue; } // Project metadata intentionally has no absolute source path.
         let vault_path = PathBuf::from(&rec.vault_path);
         if vault_path.strip_prefix(&vault_root).is_err() {
             continue; // record belongs to a different vault
@@ -406,6 +407,10 @@ pub fn notemd_relink_mirror_source(
     device_name: String,
 ) -> Result<Record, String> {
     let vault_root = resolve_vault_root(&app).ok_or("Vault not configured")?;
+    let tracked = load_store(&app)?;
+    if tracked.find_by_vault(&vault_path).is_some_and(|r| r.project_id.is_some()) {
+        return Err("project mirrors require whole-project rebind".into());
+    }
     let mirror = PathBuf::from(&vault_path);
     let source = PathBuf::from(&new_source);
     if !mirror.is_file() {
@@ -461,7 +466,7 @@ pub fn notemd_mirror_note_siblings(app: AppHandle, doc_path: String) -> Result<V
     let self_rel = mirror_meta::relative_mirror(&vault_root, &doc);
     let mirror_rel = if metas.iter().any(|m| m.mirror == self_rel) {
         self_rel // the doc IS a mirror
-    } else if let Some(rec) = store.find_by_source(&doc_path) {
+    } else if let Some(rec) = store.find_legacy_by_source(&doc_path) {
         mirror_meta::relative_mirror(&vault_root, &PathBuf::from(&rec.vault_path))
     } else {
         return Ok(Vec::new()); // not a tracked mirror/source
@@ -530,12 +535,19 @@ pub fn sotvault_sync_to_vault(
     // so repeated shares don't proliferate `-2` copies. Manual sync omits the
     // flag → fresh dedup, preserving its snapshot semantics.
     let existing = if reuse_existing.unwrap_or(false) {
-        s.find_by_source(&source.to_string_lossy())
+        s.find_legacy_by_source(&source.to_string_lossy())
             .map(|r| PathBuf::from(&r.vault_path))
     } else {
         None
     };
     let target = logic::sync_target(existing, &subdir, &basename, &|p| p.exists());
+    if reuse_existing.unwrap_or(false) {
+        if let Some(record) = s.find_by_vault(&target.to_string_lossy()) {
+            if logic::sha256_hex(&std::fs::read(&target).map_err(|e| e.to_string())?) != record.vault_hash {
+                return Err("mirror conflict; resolve local mirror changes first".into());
+            }
+        }
+    }
     let src_bytes = std::fs::read(&source).map_err(|e| e.to_string())?;
 
     let stem = target
@@ -567,6 +579,7 @@ pub fn sotvault_sync_to_vault(
         source_hash,
         vault_hash,
         note_merge_base: note_base,
+        project_id: None,
     };
     s.upsert(rec.clone());
     save_store(&app, &s)?;
@@ -596,6 +609,7 @@ pub struct UpdateCheck {
     pub outcome: UpdateOutcome,
     pub vault_path: Option<String>,
     pub opened_is_source: bool,
+    pub project_id: Option<String>,
 }
 
 /// Check whether an opened file (either the vault copy OR its source) is out of
@@ -613,10 +627,15 @@ pub fn sotvault_check_update(app: AppHandle, opened_path: String) -> Result<Upda
                     outcome: UpdateOutcome::NotTracked,
                     vault_path: None,
                     opened_is_source: false,
+                    project_id: None,
                 })
             }
         },
     };
+    if record.project_id.is_some() {
+        let vault = resolve_vault_root(&app).ok_or("Vault not configured")?;
+        crate::project_share::validate_sync_record(&store_path(&app)?, &vault, &record)?;
+    }
     let outcome = logic::check_update_io(
         &record,
         std::path::Path::new(&record.source_path),
@@ -626,6 +645,7 @@ pub fn sotvault_check_update(app: AppHandle, opened_path: String) -> Result<Upda
         outcome,
         vault_path: Some(record.vault_path),
         opened_is_source,
+        project_id: record.project_id,
     })
 }
 
@@ -633,8 +653,18 @@ pub fn sotvault_check_update(app: AppHandle, opened_path: String) -> Result<Upda
 /// the new content so the open tab can be reloaded.
 #[tauri::command]
 pub fn sotvault_apply_update(app: AppHandle, vault_path: String) -> Result<String, String> {
-    let mut s = load_store(&app)?;
+    let vault = resolve_vault_root(&app).ok_or("Vault not configured")?;
+    apply_update_from_store(&store_path(&app)?, &vault, &vault_path)
+}
+
+pub(crate) fn apply_update_from_store(records_path: &Path, vault: &Path, vault_path: &str) -> Result<String, String> {
+    let mut s = store::load_records(records_path);
     let rec = s.find_by_vault(&vault_path).cloned().ok_or("not tracked")?;
+    if rec.project_id.is_some() {
+        crate::project_share::validate_sync_record(records_path, vault, &rec)?;
+        let mirror = std::fs::read(&rec.vault_path).map_err(|e| e.to_string())?;
+        if logic::sha256_hex(&mirror) != rec.vault_hash { return Err("mirror conflict; resolve local mirror changes first".into()); }
+    }
     let src_bytes = std::fs::read(&rec.source_path).map_err(|e| e.to_string())?;
 
     let vault_pathbuf = PathBuf::from(&rec.vault_path);
@@ -649,14 +679,18 @@ pub fn sotvault_apply_update(app: AppHandle, vault_path: String) -> Result<Strin
         .unwrap_or_else(|| Path::new("."));
 
     let vault_string: String = match std::str::from_utf8(&src_bytes) {
+        Ok(src_md) if rec.project_id.is_some() => src_md.to_string(),
         Ok(src_md) => bundle_referenced_images(src_md, source_dir, dest_dir, &stem)?,
         Err(_) => return Err("source is not valid UTF-8".into()),
     };
     let vault_bytes = vault_string.clone().into_bytes();
-    std::fs::write(&rec.vault_path, &vault_bytes).map_err(|e| e.to_string())?;
+    if rec.project_id.is_some() {
+        crate::project_share::write_project_mirror(records_path, vault, &rec, &vault_bytes)?;
+    } else { std::fs::write(&rec.vault_path, &vault_bytes).map_err(|e| e.to_string())?; }
     let prior = rec.note_merge_base.clone();
-    let note_base =
-        reconcile_companion_notes(Path::new(&rec.source_path), &vault_pathbuf, prior.as_deref());
+    let note_base = if rec.project_id.is_some() { prior } else {
+        reconcile_companion_notes(Path::new(&rec.source_path), &vault_pathbuf, prior.as_deref())
+    };
 
     let updated = Record {
         synced_at: now_secs(),
@@ -665,8 +699,10 @@ pub fn sotvault_apply_update(app: AppHandle, vault_path: String) -> Result<Strin
         note_merge_base: note_base,
         ..rec
     };
+    let checksum = updated.vault_hash.clone();
     s.upsert(updated);
-    save_store(&app, &s)?;
+    store::save_records(records_path, &s).map_err(|e| e.to_string())?;
+    mirror_meta::refresh_checksums(vault, &vault_pathbuf, &checksum)?;
     Ok(vault_string)
 }
 
@@ -676,6 +712,7 @@ pub fn sotvault_apply_update(app: AppHandle, vault_path: String) -> Result<Strin
 pub fn sotvault_accept_current(app: AppHandle, vault_path: String) -> Result<(), String> {
     let mut s = load_store(&app)?;
     let rec = s.find_by_vault(&vault_path).cloned().ok_or("not tracked")?;
+    if rec.project_id.is_some() { return Err("project conflicts require explicit resolution with reviewed source/mirror hashes".into()); }
     let src = std::fs::read(&rec.source_path).map_err(|e| e.to_string())?;
     let vlt = std::fs::read(&rec.vault_path).map_err(|e| e.to_string())?;
     let updated = Record {
@@ -968,3 +1005,89 @@ mod tests {
     }
 }
 
+
+/// A per-file accepted edit records each mirror's old and intended result hash.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MirrorRefresh { pub before_hash: String, pub result_hash: String }
+
+fn validate_mirror_record(records_path: &Path, vault: &Path, r: &Record) -> Result<(), String> {
+    crate::project_share::validate_sync_record(records_path, vault, r)?;
+    let path = Path::new(&r.vault_path);
+    if !path.starts_with(vault) { return Err("mirror outside current Vault; rebind required".into()); }
+    let mut ancestor = path.to_path_buf();
+    while ancestor != vault {
+        if std::fs::symlink_metadata(&ancestor).map_err(|e| e.to_string())?.file_type().is_symlink() { return Err("symlink in mirror path".into()); }
+        if !ancestor.pop() { return Err("mirror outside Vault".into()); }
+    }
+    Ok(())
+}
+
+pub(crate) fn check_source_mirrors(records_path: &Path, vault: &Path, source: &str) -> Result<(), String> {
+    let records = store::load_records(records_path);
+    for r in records.all_by_source(source) {
+        validate_mirror_record(records_path, vault, r)?;
+        if logic::sha256_hex(&std::fs::read(&r.vault_path).map_err(|e| e.to_string())?) != r.vault_hash { return Err(format!("mirror conflict: {}", r.vault_path)); }
+    }
+    Ok(())
+}
+
+fn planned_mirror_bytes(source: &str, target: &Path, bytes: &[u8], project: bool) -> Result<Vec<u8>, String> {
+    if project { return Ok(bytes.to_vec()); }
+    let Ok(md) = std::str::from_utf8(bytes) else { return Ok(bytes.to_vec()); };
+    let (refs, _) = logic::plan_image_assets(md, Path::new(source).parent().ok_or("missing source parent")?, target.file_stem().and_then(|s| s.to_str()).unwrap_or("mirror"), &|p| p.exists());
+    let mut output = md.to_string();
+    for reference in refs { output = output.replace(&reference.original, &reference.rewritten); }
+    Ok(output.into_bytes())
+}
+
+pub(crate) fn plan_source_mirrors(records_path: &Path, vault: &Path, source: &str, content: &[u8]) -> Result<std::collections::BTreeMap<String, MirrorRefresh>, String> {
+    let records = store::load_records(records_path);
+    let mut result = std::collections::BTreeMap::new();
+    for r in records.all_by_source(source) {
+        validate_mirror_record(records_path, vault, r)?;
+        let output = planned_mirror_bytes(source, Path::new(&r.vault_path), content, r.project_id.is_some())?;
+        result.insert(r.vault_path.clone(), MirrorRefresh { before_hash: r.vault_hash.clone(), result_hash: logic::sha256_hex(&output) });
+    }
+    Ok(result)
+}
+
+/// Recovery recognizes both the persisted old bytes and this intent's exact
+/// result. A third hash is always a conflict, including after a partial refresh.
+pub(crate) fn refresh_source_mirrors(records_path: &Path, vault: &Path, source: &str, intents: &std::collections::BTreeMap<String, MirrorRefresh>) -> Result<(), String> {
+    let mut records = store::load_records(records_path);
+    let targets: Vec<_> = records.all_by_source(source).cloned().collect();
+    if targets.len() != intents.len() { return Err("mirror mappings changed after acceptance".into()); }
+    let bytes = std::fs::read(source).map_err(|e| e.to_string())?;
+    // Preflight every target before writing any mirror.
+    for r in &targets {
+        validate_mirror_record(records_path, vault, r)?;
+        let intent = intents.get(&r.vault_path).ok_or("mirror mapping changed")?;
+        let current = logic::sha256_hex(&std::fs::read(&r.vault_path).map_err(|e| e.to_string())?);
+        let output = planned_mirror_bytes(source, Path::new(&r.vault_path), &bytes, r.project_id.is_some())?;
+        if (current != intent.before_hash && current != intent.result_hash) || logic::sha256_hex(&output) != intent.result_hash { return Err(format!("mirror conflict: {}", r.vault_path)); }
+    }
+    for mut r in targets {
+        let target = Path::new(&r.vault_path); let intent = intents.get(&r.vault_path).ok_or("mirror mapping changed")?;
+        validate_mirror_record(records_path, vault, &r)?;
+        let current = logic::sha256_hex(&std::fs::read(target).map_err(|e| e.to_string())?);
+        if current != intent.before_hash && current != intent.result_hash { return Err(format!("mirror conflict: {}", r.vault_path)); }
+        if current != intent.result_hash {
+            let output = if r.project_id.is_some() { bytes.clone() } else {
+                match std::str::from_utf8(&bytes) {
+                    Ok(md) => bundle_referenced_images(md, Path::new(source).parent().ok_or("missing source parent")?, target.parent().ok_or("missing mirror parent")?, target.file_stem().and_then(|s| s.to_str()).unwrap_or("mirror"))?.into_bytes(),
+                    Err(_) => bytes.clone(),
+                }
+            };
+            if logic::sha256_hex(&output) != intent.result_hash { return Err("mirror preparation changed; retry after resolving assets".into()); }
+            if r.project_id.is_some() { crate::project_share::write_project_mirror(records_path, vault, &r, &output)?; }
+            else { std::fs::write(target, &output).map_err(|e| e.to_string())?; }
+        }
+        r.source_hash = logic::sha256_hex(&bytes); r.vault_hash = intent.result_hash.clone(); r.synced_at = now_secs();
+        if r.project_id.is_none() { r.note_merge_base = reconcile_companion_notes(Path::new(source), target, r.note_merge_base.as_deref()); }
+        // Either interruption order is recoverable from the persisted intent.
+        mirror_meta::refresh_checksums(vault, target, &r.vault_hash)?;
+        records.upsert(r); store::save_records(records_path, &records).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}

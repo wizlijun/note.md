@@ -25,6 +25,7 @@
   import { startAutoSaveWatcher } from './lib/autosave.svelte'
   import { installFocusPoll } from './lib/file-watcher.svelte'
   import SettingsDialog from './components/SettingsDialog.svelte'
+  import ProjectShareDialog from './components/ProjectShareDialog.svelte'
   import UpdateBanner from './components/UpdateBanner.svelte'
   import UpdateDialog from './components/UpdateDialog.svelte'
   import Toast from './components/Toast.svelte'
@@ -989,6 +990,9 @@
     {/if}
   </section>
   <SettingsDialog bind:open={uiState.showSettings} />
+  {#if uiState.showProjectShare && platformName !== 'ios'}
+    <ProjectShareDialog onClose={() => uiState.showProjectShare = false} />
+  {/if}
   <UpdateDialog bind:open={showUpdateDialog} />
 </main>
 

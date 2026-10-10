@@ -14,6 +14,9 @@ pub struct Record {
     /// 该模式已整体移除——手记只住 vault,旧字段在加载时被 serde 静默忽略。
     #[serde(default)]
     pub note_merge_base: Option<String>,
+    /// Absent on historic single-file mirrors (legacy scope).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub project_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -35,6 +38,14 @@ impl RecordStore {
 
     pub fn find_by_source(&self, source_path: &str) -> Option<&Record> {
         self.records.iter().find(|r| r.source_path == source_path)
+    }
+
+    pub fn find_legacy_by_source(&self, source_path: &str) -> Option<&Record> {
+        self.records.iter().find(|r| r.source_path == source_path && r.project_id.is_none())
+    }
+
+    pub fn all_by_source<'a>(&'a self, source_path: &'a str) -> impl Iterator<Item = &'a Record> + 'a {
+        self.records.iter().filter(move |r| r.source_path == source_path)
     }
 
     pub fn upsert(&mut self, rec: Record) {
@@ -85,6 +96,7 @@ pub fn relink_record(
         synced_at: now,
         source_hash: source_hash.to_string(),
         vault_hash: vault_hash.to_string(),
+        project_id: existing.as_ref().and_then(|r| r.project_id.clone()),
         note_merge_base: existing.and_then(|r| r.note_merge_base),
     }
 }
@@ -95,7 +107,19 @@ pub fn save_records(path: &Path, store: &RecordStore) -> std::io::Result<()> {
     }
     let json = serde_json::to_vec_pretty(store)
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
-    std::fs::write(path, json)
+    // A crash must leave the previous complete mapping available for intent recovery.
+    use std::io::Write;
+    let temporary = path.with_extension(format!("{}.tmp", uuid::Uuid::new_v4()));
+    let result = (|| {
+        let mut file = std::fs::OpenOptions::new().write(true).create_new(true).open(&temporary)?;
+        file.write_all(&json)?;
+        file.sync_all()?;
+        std::fs::rename(&temporary, path)?;
+        if let Some(parent) = path.parent() { std::fs::File::open(parent)?.sync_all()?; }
+        Ok(())
+    })();
+    if result.is_err() { let _ = std::fs::remove_file(temporary); }
+    result
 }
 
 #[cfg(test)]
@@ -111,7 +135,17 @@ mod tests {
             source_hash: "aaa".into(),
             vault_hash: "aaa".into(),
             note_merge_base: None,
+            project_id: None,
         }
+    }
+
+    #[test]
+    fn legacy_lookup_ignores_project_mirrors_and_all_lookup_keeps_both() {
+        let mut store = RecordStore::default();
+        let mut project = rec("/v/project/a.md", "/src/a.md"); project.project_id = Some("p".into());
+        store.upsert(project); store.upsert(rec("/v/legacy.md", "/src/a.md"));
+        assert_eq!(store.find_legacy_by_source("/src/a.md").unwrap().vault_path, "/v/legacy.md");
+        assert_eq!(store.all_by_source("/src/a.md").count(), 2);
     }
 
     #[test]
@@ -182,6 +216,7 @@ mod tests {
         let store = load_records(&p);
         assert_eq!(store.records.len(), 1);
         assert_eq!(store.records[0].note_merge_base, None);
+        assert_eq!(store.records[0].project_id, None);
     }
 
     #[test]

@@ -28,6 +28,9 @@ pub enum UpdateOutcome {
 /// - source changed, vault untouched -> OriginUpdated
 /// - source changed, vault also changed -> Conflict
 pub fn decide_update(record: &Record, source_now: &str, vault_now: &str) -> UpdateOutcome {
+    if record.project_id.is_some() && vault_now != record.vault_hash {
+        return UpdateOutcome::Conflict;
+    }
     if source_now == record.source_hash {
         return UpdateOutcome::UpToDate;
     }
@@ -346,6 +349,7 @@ mod tests {
             source_hash: source_hash.into(),
             vault_hash: vault_hash.into(),
             note_merge_base: None,
+            project_id: None,
         }
     }
 
@@ -400,6 +404,7 @@ mod tests {
             source_hash: sha256_hex(b"OLD"),
             vault_hash: sha256_hex(b"OLD"),
             note_merge_base: None,
+            project_id: None,
         };
         let out = check_update_io(&r, &source, &vault).unwrap();
         assert_eq!(out, UpdateOutcome::OriginUpdated);

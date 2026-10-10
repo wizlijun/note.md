@@ -7,6 +7,10 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+### Added
+
+- **Share a project with its referenced documents from File → Share Project.** Choose a project folder, including folders outside the vault; note.md keeps a local Sync mirror and publishes a static page. Recipients can edit Markdown and annotate selected text in their browser, with local drafts and automatic feedback submission. Retrieve feedback in note.md and review each file before applying changes to the original documents.
+
 ## v6.1009.2 — 2026-10-09
 
 ### Fixed

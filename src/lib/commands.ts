@@ -73,7 +73,13 @@ export async function cmdSyncToVault(): Promise<void> {
   await syncCurrentToVault()
 }
 
-import { openSettings } from './ui-state.svelte'
+import { openSettings, openProjectShare } from './ui-state.svelte'
+
+export async function cmdProjectShare(): Promise<void> {
+  const { isIOS } = await import('./platform.svelte')
+  if (await isIOS()) return
+  openProjectShare()
+}
 
 export type CommandId =
   | 'open'
@@ -85,6 +91,7 @@ export type CommandId =
   | 'toggle-mode'
   | 'preferences'
   | 'share'
+  | 'project-share'
   | 'unshare'
   | 'copy-share-link'
   | 'docs'
@@ -106,6 +113,7 @@ const handlers: Record<CommandId, () => void | Promise<void>> = {
   'toggle-mode': cmdToggleMode,
   'preferences': openSettings,
   'share': sharePublishCurrent,
+  'project-share': cmdProjectShare,
   'unshare': shareUnpublishCurrent,
   'copy-share-link': shareCopyLinkCurrent,
   'docs': () => {

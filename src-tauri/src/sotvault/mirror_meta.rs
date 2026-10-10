@@ -1,5 +1,5 @@
 //! Git-synced, per-mirror metadata under `{vault}/.notemd/mirrors/`. One file
-//! per mirror per device (`{stem}.{deviceId8}.json`) so different devices never
+//! per mirror per device (full relative-path hash + device hash) so different devices never
 //! touch the same file — no cross-device git conflicts (same partitioning idea
 //! as recents `<deviceId>.json` and analytics `<day>.<deviceId>.json`).
 
@@ -40,24 +40,37 @@ pub fn relative_mirror(vault_root: &Path, vault_path: &Path) -> String {
     }
 }
 
-/// Meta file path for a mirror+device: `{dir}/{stem}.{deviceId8}.json`, where
-/// `stem` is the mirror md's file stem and `deviceId8` its first 8 chars.
+/// Metadata key uses the complete mirror-relative path and complete device id.
 pub fn meta_path(vault_root: &Path, mirror_rel: &str, device_id: &str) -> PathBuf {
-    let stem = Path::new(mirror_rel)
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .unwrap_or("mirror");
-    let dev8: String = device_id.chars().take(8).collect();
-    meta_dir(vault_root).join(format!("{stem}.{dev8}.json"))
+    let key = super::logic::sha256_hex(mirror_rel.as_bytes());
+    let device = super::logic::sha256_hex(device_id.as_bytes());
+    meta_dir(vault_root).join(format!("{key}.{device}.json"))
 }
 
 /// Write one mirror meta, creating `.notemd/mirrors/` as needed.
 pub fn write(vault_root: &Path, meta: &MirrorMeta) -> Result<(), String> {
     let dir = meta_dir(vault_root);
-    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     let path = meta_path(vault_root, &meta.mirror, &meta.device_id);
+    for candidate in [vault_root.join(".notemd"), dir.clone(), path.clone()] {
+        if std::fs::symlink_metadata(&candidate).is_ok_and(|m| m.file_type().is_symlink()) {
+            return Err("symlink in mirror metadata path".into());
+        }
+    }
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     let txt = serde_json::to_string_pretty(meta).map_err(|e| e.to_string())?;
     std::fs::write(path, txt).map_err(|e| e.to_string())
+}
+
+/// Refresh all known device metadata for this mirror. Old stem-based metadata
+/// remains readable; writes use the full relative path key.
+pub fn refresh_checksums(vault_root: &Path, mirror: &Path, hash: &str) -> Result<(), String> {
+    let relative = relative_mirror(vault_root, mirror);
+    for mut meta in read_all(vault_root).into_iter().filter(|m| m.mirror == relative) {
+        meta.checksum = format!("sha256:{hash}");
+        meta.synced_at = super::now_secs();
+        write(vault_root, &meta)?;
+    }
+    Ok(())
 }
 
 /// Distinct sibling mirrors of `mirror_rel`: metas with the same `checksum` but
@@ -89,11 +102,19 @@ pub fn read_all(vault_root: &Path) -> Vec<MirrorMeta> {
         }
         if let Ok(txt) = std::fs::read_to_string(&p) {
             if let Ok(m) = serde_json::from_str::<MirrorMeta>(&txt) {
+                // Prefer refreshed full-path metadata over its historic stem key.
+                let current = meta_path(vault_root, &m.mirror, &m.device_id);
+                if p != current && current.exists() { continue; }
                 out.push(m);
             }
         }
     }
-    out
+    let mut unique = std::collections::BTreeMap::new();
+    for meta in out {
+        let key = (meta.mirror.clone(), meta.device_id.clone());
+        if unique.get(&key).is_none_or(|prior: &MirrorMeta| prior.synced_at <= meta.synced_at) { unique.insert(key, meta); }
+    }
+    unique.into_values().collect()
 }
 
 #[cfg(test)]
@@ -124,9 +145,10 @@ mod tests {
     }
 
     #[test]
-    fn meta_path_uses_stem_and_device8() {
+    fn meta_path_uses_full_relative_path_and_device() {
         let p = meta_path(Path::new("/v"), "sync/2026-07-16-foo.md", "550e8400-e29b-41d4");
-        assert_eq!(p, Path::new("/v/.notemd/mirrors/2026-07-16-foo.550e8400.json"));
+        assert_ne!(p, meta_path(Path::new("/v"), "other/2026-07-16-foo.md", "550e8400-e29b-41d4"));
+        assert_ne!(p, meta_path(Path::new("/v"), "sync/2026-07-16-foo.md", "550e8400-different"));
     }
 
     #[test]
@@ -136,6 +158,19 @@ mod tests {
         write(dir.path(), &m).unwrap();
         let all = read_all(dir.path());
         assert_eq!(all, vec![m]);
+    }
+
+    #[test]
+    fn legacy_metadata_is_read_and_refresh_prefers_full_path_key() {
+        let dir = TempDir::new().unwrap();
+        std::fs::create_dir_all(meta_dir(dir.path())).unwrap();
+        let old = meta("sync/p/docs/a.md", "device-id", "/source/a.md");
+        std::fs::write(meta_dir(dir.path()).join("a.device-i.json"), serde_json::to_vec(&old).unwrap()).unwrap();
+        assert_eq!(read_all(dir.path()).len(), 1);
+        refresh_checksums(dir.path(), &dir.path().join(&old.mirror), "newhash").unwrap();
+        let read = read_all(dir.path());
+        assert_eq!(read.len(), 1);
+        assert_eq!(read[0].checksum, "sha256:newhash");
     }
 
     #[test]
