@@ -11,6 +11,7 @@
   import { modalFocus } from '../lib/ui/modal-focus'
   import { scanProject, isBlockingReferenceIssue, type ReferenceIssue } from '../lib/project-share/references'
   import { projectCommand, projectIdentities, listProjects, createProject, deleteProject, cancelProjectDeletion, publishProject, collaborationLink, pullProjectFeedback, stopProjectShare, rememberProjectLocation, type ProjectIdentity } from '../lib/project-share/host'
+  import { normalizeShareTitle } from '../lib/project-share/title'
   import type { ProjectFile, ProjectInfo, ProjectSummary, LocalFeedback, ProjectSnapshot, ReviewFile } from '../lib/project-share/types'
 
   let { onClose }: { onClose: () => void } = $props()
@@ -20,6 +21,8 @@
   let pullingFor = $state('')
   let error = $state('')
   let notice = $state('')
+  let shareTitle = $state('')
+  let publishWarnings = $state<string[]>([])
   let cloudError = $state('')
   let rebindProjectId = $state('')
   let boundSourceRoot = $state('')
@@ -74,6 +77,7 @@
     busy = true
     error = ''
     notice = ''
+    publishWarnings = []
     try { await task() } catch (e) { error = String(e) } finally { busy = false }
   }
   function close() { if (!busy) onClose() }
@@ -90,7 +94,7 @@
   function clearProject() {
     page = 'share'; info = null; managementOnly = false; rebindProjectId = ''; boundSourceRoot = ''
     inbox = []; selected = null; review = null; mirror = null; oldSnapshot = null; cloudError = ''
-    candidates = []; options = []; files = []; issues = []; excluded = []
+    candidates = []; options = []; files = []; issues = []; excluded = []; shareTitle = ''; publishWarnings = []
   }
   async function refreshProjects() {
     const [listed, identities] = await Promise.all([listProjects(), projectIdentities()])
@@ -111,6 +115,8 @@
       opened = { ...summary, sourceAvailable: false, error: String(e) }
     }
     info = opened; boundSourceRoot = opened.sourceRoot
+    const saved = projects[opened.project_id]
+    shareTitle = normalizeShareTitle(saved?.pending?.shareTitle ?? saved?.shareTitle, saved?.pending?.entry ?? opened.entry)
     rebindProjectId = opened.orphaned ? '' : opened.project_id
     managementOnly = opened.sourceAvailable === false || !!opened.deleting || !!opened.orphaned || !!opened.error
     rememberProject(opened)
@@ -293,14 +299,18 @@
         if (blocking.length) throw new Error('存在不可安全发布的问题，请先处理下方列出的原因，再重新扫描。')
         if (!files.some(file => file.path === project.entry)) throw new Error('必须包含入口文档')
       }
-      const published = await publishProject(project, pending ? [] : files)
+      const published = await publishProject(project, pending ? [] : files, shareTitle)
       info = published.info
       projects = { ...projects, [project.project_id]: published.identity }
+      shareTitle = normalizeShareTitle(published.identity.shareTitle, published.info.entry)
+      publishWarnings = published.warnings ?? []
       notice = '项目已发布。原件保存只刷新镜像；后续修改仍需手动重新发布。'
       await refreshSotvault()
     } catch (e) {
       projects = await projectIdentities()
-      if (projects[project.project_id]?.pending) throw new Error(`发布结果未确认。本机已保留原包，下次点击“重试原包发布”会使用相同地址和内容。\n${String(e)}`)
+      const frozen = projects[project.project_id]?.pending
+      if (frozen) shareTitle = normalizeShareTitle(frozen.shareTitle ?? projects[project.project_id]?.shareTitle, frozen.entry)
+      if (frozen) throw new Error(`发布结果未确认。本机已保留原包，下次点击“重试原包发布”会使用相同地址和内容。\n${String(e)}`)
       throw e
     }
   }
@@ -480,6 +490,7 @@
       <div class="content" bind:this={contentElement} role="region" aria-label={page === 'share' ? '分享内容' : '反馈收件箱'}>
         {#if error}<p class="message error" role="alert">{error}</p>{/if}
         {#if notice}<p class="message notice" role="status">{notice}</p>{/if}
+        {#if publishWarnings.length}<ul class="message warning" aria-label="发布呈现提示" role="status">{#each publishWarnings as warning}<li>{warning}</li>{/each}</ul>{/if}
         {#if info}
           <div class="project-heading">
             <div class="project-title"><h3>{projectName}</h3><span class="badge">{projectStatus(info)}</span></div>
@@ -489,6 +500,7 @@
             <section class="entry-section">
               <label class="field-row" for="share-entry"><span>入口文档</span><input id="share-entry" readonly value={info.entry} /></label>
               <p class="desc">从这篇文档开始，包含你勾选的引用文档和资源。</p>
+              <label class="field-row" for="share-title"><span>分享标题</span><input id="share-title" bind:value={shareTitle} readonly={!!pending} disabled={busy || !!info.deleting || !!info.orphaned} /></label>
               {#if pending}<p class="message warning">上次发布结果尚未确认。重试会发送已冻结的原包（入口 {pending.entry}），不包含此后编辑的内容。</p>{/if}
               {#if managementOnly && !pending}<p class="message warning">源文件暂时不可用。仍可管理分享和本机反馈；修复源文件后重新扫描才能发布。</p>{/if}
             </section>

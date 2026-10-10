@@ -11,6 +11,8 @@ For the full commit history, see the git log.
 
 ### Changed
 
+- **Shared projects now use your current Markdown theme.** Published pages render diagrams, formulas and highlighted code, with a Folder View file tree that starts collapsed and sorts recent files first. Set a share title before publishing; the browser title shows read-only or editable mode. Personal drafts keep diagram code until reviewed and republished.
+
 - **Create a sharing project directly from the current document.** Each entry document has its own project and link, using its folder to resolve references. Unpublished projects stay in the list, missing referenced files no longer prevent sharing existing content, and projects can be deleted after revoking their link without deleting source documents.
 
 ## v6.1010.2 — 2026-10-10

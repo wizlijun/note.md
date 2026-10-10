@@ -16,6 +16,7 @@ export interface ProjectFile {
   path: string
   hash: string
   bytes: number
+  modifiedAt?: number
   markdown?: string
   dataUrl?: string
 }

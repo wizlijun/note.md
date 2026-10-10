@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ProjectInfo, ProjectSnapshot } from './types'
 
-const mocks = vi.hoisted(() => ({ invoke: vi.fn(), fetch: vi.fn(), save: vi.fn(), data: {} as Record<string, any>, events: [] as string[], baseUrl: 'https://share.test' }))
+const mocks = vi.hoisted(() => ({ invoke: vi.fn(), fetch: vi.fn(), save: vi.fn(), data: {} as Record<string, any>, events: [] as string[], baseUrl: 'https://share.test', render: vi.fn(), bundle: vi.fn() }))
 vi.mock('@tauri-apps/api/core', () => ({ invoke: mocks.invoke }))
 vi.mock('@tauri-apps/plugin-store', () => ({ Store: { load: async () => ({
   get: async (key: string) => structuredClone(mocks.data[key]),
@@ -9,7 +9,8 @@ vi.mock('@tauri-apps/plugin-store', () => ({ Store: { load: async () => ({
   save: async () => { mocks.events.push('persist'); await mocks.save() },
 }) } }))
 vi.mock('../settings.svelte', () => ({ getPluginScopedKey: (key: string) => ({ 'share.baseUrl': mocks.baseUrl, 'share.apiKey': 'owner', 'share.defaultExpiry': '7d' })[key] }))
-vi.mock('./bundle', () => ({ buildProjectBundle: () => '<html>frozen bundle</html>' }))
+vi.mock('./bundle', () => ({ buildProjectBundle: mocks.bundle }))
+vi.mock('./presentation', () => ({ renderProjectPresentation: mocks.render }))
 import { publishProject, projectIdentities, pullProjectFeedback, stopProjectShare, listProjects, createProject, deleteProject, cancelProjectDeletion } from './host'
 
 const info: ProjectInfo = { project_id: 'project_1', sourceRoot: '/project', mirrorRoot: '/vault/sync/project_1', entry: 'README.md', files: [] }
@@ -19,6 +20,8 @@ const snapshot: ProjectSnapshot = { schemaVersion: 1, project_id: info.project_i
 beforeEach(() => {
   mocks.data = {}; mocks.events = []; mocks.invoke.mockReset(); mocks.fetch.mockReset(); mocks.save.mockReset()
   mocks.baseUrl = 'https://share.test'
+  mocks.render.mockReset().mockResolvedValue({ themeId: 'current-theme', styleHead: '<style>current</style>', documents: { 'README.md': '<p>hello</p>' }, warnings: ['字体将使用替代'] })
+  mocks.bundle.mockReset().mockReturnValue('<html>frozen bundle</html>')
   vi.stubGlobal('fetch', mocks.fetch)
   mocks.invoke.mockImplementation(async (_command: string, { request }: any) => {
     if (request.op === 'snapshot') return snapshot
@@ -32,6 +35,79 @@ beforeEach(() => {
 })
 
 describe('host project share', () => {
+  it('bakes the frozen snapshot before persisting the titled bundle and pending identity', async () => {
+    mocks.render.mockImplementationOnce(async (input) => { mocks.events.push('render'); expect(input).toEqual(snapshot); return { themeId: 'picked', styleHead: '', documents: {}, warnings: ['图表错误'] } })
+    mocks.invoke.mockImplementation(async (_command, { request }) => {
+      mocks.events.push(request.op)
+      if (request.op === 'get') return info
+      if (request.op === 'snapshot') return snapshot
+      if (request.op === 'published') return { ...info, url: request.url }
+      return null
+    })
+    mocks.fetch.mockImplementationOnce(async () => {
+      mocks.events.push('upload')
+      expect((await projectIdentities())[info.project_id].pending?.shareTitle).toBe('分享标题')
+      return Response.json({})
+    })
+    const result = await publishProject(info, [file], '  分享标题  ')
+    expect(mocks.bundle).toHaveBeenCalledWith(snapshot, expect.stringContaining('/feedback/'), { title: '分享标题', presentation: { themeId: 'picked', styleHead: '', documents: {}, warnings: ['图表错误'] } })
+    expect(mocks.events.indexOf('render')).toBeLessThan(mocks.events.indexOf('bundle'))
+    expect(mocks.events.indexOf('bundle')).toBeLessThan(mocks.events.indexOf('persist'))
+    expect(mocks.events.indexOf('persist')).toBeLessThan(mocks.events.indexOf('upload'))
+    expect(result.identity.shareTitle).toBe('分享标题')
+    expect(result.warnings).toEqual(['图表错误'])
+  })
+  it('does not persist pending or upload when presentation cannot be baked', async () => {
+    mocks.render.mockRejectedValueOnce(new Error('theme unavailable'))
+    await expect(publishProject(info, [file], 'new title')).rejects.toThrow('theme unavailable')
+    expect(mocks.fetch).not.toHaveBeenCalled()
+    expect(mocks.invoke.mock.calls.some(([, args]) => args.request.op === 'bundle')).toBe(false)
+    expect((await projectIdentities())[info.project_id]).toBeUndefined()
+  })
+  it('freezes a pending title and retries without rendering or accepting a changed title', async () => {
+    mocks.fetch.mockRejectedValueOnce(new Error('unknown'))
+    await expect(publishProject(info, [file], 'frozen title')).rejects.toThrow('unknown')
+    expect((await projectIdentities())[info.project_id].pending?.shareTitle).toBe('frozen title')
+    mocks.render.mockClear(); mocks.bundle.mockClear()
+    mocks.fetch.mockResolvedValueOnce(Response.json({}))
+    const result = await publishProject(info, [], 'later title')
+    expect(mocks.render).not.toHaveBeenCalled()
+    expect(mocks.bundle).not.toHaveBeenCalled()
+    expect(result.identity.shareTitle).toBe('frozen title')
+    expect(result.warnings).toEqual(['字体将使用替代'])
+  })
+  it('retries legacy pending metadata without inventing a new title or rendering again', async () => {
+    mocks.fetch.mockRejectedValueOnce(new Error('unknown'))
+    await expect(publishProject(info, [file])).rejects.toThrow('unknown')
+    delete mocks.data.projectShares[info.project_id].pending.shareTitle
+    delete mocks.data.projectShares[info.project_id].pending.warnings
+    mocks.render.mockClear(); mocks.bundle.mockClear()
+    mocks.fetch.mockResolvedValueOnce(Response.json({}))
+    const result = await publishProject(info, [], 'new input cannot change the old bundle')
+    expect(result.identity.shareTitle).toBeUndefined()
+    expect(result.warnings).toEqual([])
+    expect(mocks.render).not.toHaveBeenCalled()
+    expect(mocks.bundle).not.toHaveBeenCalled()
+  })
+  it('preserves an existing live identity and its remembered title when baking fails', async () => {
+    mocks.fetch.mockResolvedValueOnce(Response.json({}))
+    await publishProject(info, [file], 'published title')
+    const previous = (await projectIdentities())[info.project_id]
+    mocks.fetch.mockClear()
+    mocks.render.mockRejectedValueOnce(new Error('broken template'))
+    await expect(publishProject(info, [file], 'unpublished title')).rejects.toThrow('broken template')
+    expect((await projectIdentities())[info.project_id]).toEqual(previous)
+    expect(mocks.fetch).not.toHaveBeenCalled()
+  })
+  it('remembers successful custom titles on the original URL and supports empty title fallback', async () => {
+    mocks.fetch.mockImplementation(async () => Response.json({}))
+    const first = await publishProject(info, [file], 'custom')
+    const second = await publishProject(info, [file])
+    expect(second.identity.url).toBe(first.identity.url)
+    expect(second.identity.shareTitle).toBe('custom')
+    const third = await publishProject(info, [file], '  ')
+    expect(third.identity.shareTitle).toBe('README')
+  })
   it('lists unpublished host drafts and preserves orphaned publishing credentials for management', async () => {
     mocks.data.projectShares = { orphan: { project_id: 'orphan', sourceRoot: '/old', entry: 'old.md', url: 'https://share.test/old' } }
     const projects = await listProjects()

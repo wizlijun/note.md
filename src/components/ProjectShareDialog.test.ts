@@ -5,6 +5,7 @@ import ProjectShareDialog from './ProjectShareDialog.svelte'
 import { ask, open } from '@tauri-apps/plugin-dialog'
 import { pickSaveFile } from '../lib/dialogs'
 import { createProject, deleteProject, cancelProjectDeletion, projectCommand, publishProject } from '../lib/project-share/host'
+import type { ProjectIdentity } from '../lib/project-share/host'
 import type { ProjectSummary } from '../lib/project-share/types'
 import { openSettings, uiState } from '../lib/ui-state.svelte'
 
@@ -16,7 +17,7 @@ const h = vi.hoisted(() => ({
   reviewCalls: 0,
   failOpen: false,
   listed: [] as ProjectSummary[],
-  identities: {} as Record<string, typeof info & { url?: string; publishedSnapshotId?: string }>,
+  identities: {} as Record<string, Partial<ProjectIdentity>>,
   warnings: false,
   realScan: false,
   unsafe: false,
@@ -102,6 +103,57 @@ async function openDialog() {
   component = mount(ProjectShareDialog, { target: document.body, props: { onClose: vi.fn() } })
   await vi.waitFor(() => expect(button('保存并重新扫描').disabled).toBe(false))
 }
+
+describe('ProjectShareDialog titles', () => {
+  const title = () => document.querySelector<HTMLInputElement>('#share-title')!
+  it('defaults to the entry name, preserves editing across scans and sends the title when publishing', async () => {
+    await openDialog()
+    expect(title().value).toBe('main')
+    title().value = 'My reader'; title().dispatchEvent(new Event('input', { bubbles: true }))
+    button('保存并重新扫描').click()
+    await tick()
+    await vi.waitFor(() => expect(button('保存并重新扫描').disabled).toBe(false))
+    expect(title().value).toBe('My reader')
+    vi.mocked(publishProject).mockResolvedValueOnce({ info, identity: { ...h.identities.p, shareTitle: 'My reader' } as ProjectIdentity, warnings: ['字体将使用替代', '某图表有错误'] })
+    expect(button('更新分享').disabled).toBe(false)
+    button('更新分享').click()
+    await tick()
+    await vi.waitFor(() => expect(document.querySelector('[role=alert]')?.textContent).toBeUndefined())
+    await vi.waitFor(() => expect(publishProject).toHaveBeenCalledWith(expect.objectContaining(info), expect.any(Array), 'My reader'))
+    await vi.waitFor(() => expect(document.body.textContent).toContain('字体将使用替代'))
+    expect(document.body.textContent).toContain('某图表有错误')
+  })
+  it('initializes independent remembered titles when changing projects', async () => {
+    h.identities.p.shareTitle = 'Remembered'
+    h.listed.push({ ...info, project_id: 'b', entry: 'docs/Second.MDX' })
+    await openDialog()
+    expect(title().value).toBe('Remembered')
+    title().value = 'unsaved'; title().dispatchEvent(new Event('input', { bubbles: true }))
+    const select = document.querySelector<HTMLSelectElement>('#share-recent-project')!
+    select.value = 'b'; select.dispatchEvent(new Event('change', { bubbles: true }))
+    await vi.waitFor(() => expect(title().value).toBe('Second'))
+    select.value = 'p'; select.dispatchEvent(new Event('change', { bubbles: true }))
+    await vi.waitFor(() => expect(title().value).toBe('Remembered'))
+  })
+  it('shows the frozen pending title read-only and updates it after an unknown upload result', async () => {
+    h.identities.p.shareTitle = 'previous'
+    await openDialog()
+    title().value = 'new'; title().dispatchEvent(new Event('input', { bubbles: true }))
+    vi.mocked(publishProject).mockImplementationOnce(async () => {
+      h.identities.p.pending = { snapshotId: 'frozen', entry: 'main.md', expiresInSeconds: null, shareTitle: 'new' }
+      throw new Error('unknown upload')
+    })
+    expect(button('更新分享').disabled).toBe(false)
+    button('更新分享').click()
+    await vi.waitFor(() => expect(title().readOnly).toBe(true))
+    expect(title().value).toBe('new')
+    expect(button('重试原包发布').disabled).toBe(false)
+    await unmount(component!); component = null
+    await openDialog()
+    expect(title().value).toBe('new')
+    expect(title().readOnly).toBe(true)
+  })
+})
 
 describe('ProjectShareDialog editor buffers', () => {
   it('separates sharing from feedback and preserves review text when navigating', async () => {

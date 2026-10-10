@@ -23,6 +23,10 @@ export async function projectShareBrowser(parser: any): Promise<void> {
   let saving = Promise.resolve()
   let busy = false
   const key = snapshot.project_id + ':' + snapshot.snapshotId
+  const expanded = new Set<string>()
+  const panel = $('file-panel')
+  const fileToggle = $('file-toggle')
+  const mobile = () => window.matchMedia('(max-width: 650px)').matches
   const say = (message: string) => { status.textContent = message }
   const uuid = () => crypto.randomUUID()
   const escape = (value: string) => value.replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]!))
@@ -35,7 +39,7 @@ export async function projectShareBrowser(parser: any): Promise<void> {
   })
   const save = (): Promise<void> => {
     const value = JSON.parse(JSON.stringify(state))
-    saving = saving.catch(() => {}).then(() => request('readwrite', key, value)).then(() => {})
+    saving = saving.catch(() => {}).then(() => request('readwrite', key, value)).then(() => {}, error => { ready=false; render(); throw error })
     return saving
   }
   const normalize = (from: string, raw: string): {path:string; fragment:string} | null => {
@@ -74,7 +78,11 @@ export async function projectShareBrowser(parser: any): Promise<void> {
     template.innerHTML=html
     const allowed=new Set('P BR HR H1 H2 H3 H4 H5 H6 EM STRONG DEL S BLOCKQUOTE PRE CODE UL OL LI TABLE THEAD TBODY TR TH TD A IMG DETAILS SUMMARY SUP SUB DIV SPAN INPUT'.split(' '))
     for(const element of Array.from(template.content.querySelectorAll('*'))) {
-      if(!allowed.has(element.tagName)) { element.remove(); continue }
+      if(!allowed.has(element.tagName)) {
+        if(['SCRIPT','STYLE','IFRAME','OBJECT','EMBED','SVG','MATH','FORM'].includes(element.tagName)) element.remove()
+        else element.replaceWith(...Array.from(element.childNodes))
+        continue
+      }
       for(const attribute of Array.from(element.attributes)) {
         if(!['href','src','alt','title','data-project-path','type','checked','disabled','colspan','rowspan','start','align'].includes(attribute.name)) element.removeAttribute(attribute.name)
       }
@@ -108,6 +116,101 @@ export async function projectShareBrowser(parser: any): Promise<void> {
     }
     return template.content
   }
+  // Published HTML has already been sanitized by the host; retain generated SVG,
+  // MathML and theme classes while resolving only the snapshot resource table.
+  const publishedContent = (html: string): DocumentFragment => {
+    const template=document.createElement('template')
+    template.innerHTML=html
+    for(const element of Array.from(template.content.querySelectorAll('[data-project-resource]'))) {
+      const resource=files.get(element.getAttribute('data-project-resource')!)
+      const image=element.tagName.toLowerCase()==='img' || element.tagName.toLowerCase()==='image'
+      if(resource?.dataUrl && (!image || /^data:image\//i.test(resource.dataUrl))) {
+        element.setAttribute(image && element.tagName.toLowerCase()==='img'?'src':'href',resource.dataUrl)
+      } else {
+        element.removeAttribute('src'); element.removeAttribute('href'); element.removeAttribute('xlink:href')
+        if(image) element.setAttribute('alt','未共享图片')
+      }
+      element.removeAttribute('data-project-resource')
+    }
+    for(const element of Array.from(template.content.querySelectorAll('[data-project-path]'))) {
+      const raw=element.getAttribute('data-project-path')!
+      const separator=raw.indexOf('#')
+      const target=separator<0?raw:raw.slice(0,separator)
+      const heading=separator<0?'':raw.slice(separator+1)
+      const file=files.get(target || path)
+      if(file?.markdown!==undefined) element.setAttribute('href','#doc='+encodeURIComponent(target || path)+'&heading='+encodeURIComponent(heading))
+      else if(file?.dataUrl) { element.setAttribute('href',file.dataUrl); element.setAttribute('download',target.split('/').pop()!) }
+      else { element.removeAttribute('href'); element.classList.add('unshared'); element.append('（未共享引用）') }
+      element.removeAttribute('data-project-path')
+    }
+    for(const element of Array.from(template.content.querySelectorAll('a[href^="#"]'))) {
+      const href=element.getAttribute('href')!
+      if(href.startsWith('#doc=')) continue
+      let heading=href.slice(1)
+      try { heading=decodeURIComponent(heading) } catch { /* Keep literal malformed heading IDs. */ }
+      element.setAttribute('href','#doc='+encodeURIComponent(path)+'&heading='+encodeURIComponent(heading))
+    }
+    return template.content
+  }
+  const revealCurrent = () => {
+    const parts=path.split('/').slice(0,-1)
+    for(let index=1;index<=parts.length;index++) expanded.add(parts.slice(0,index).join('/'))
+  }
+  const tree: any = {children:new Map<string,any>()}
+  for(const file of docs) {
+    let parent=tree
+    const parts=file.path.split('/')
+    for(let index=0;index<parts.length;index++) {
+      const nodePath=parts.slice(0,index+1).join('/')
+      if(!parent.children.has(parts[index])) parent.children.set(parts[index],{name:parts[index],path:nodePath,folder:index<parts.length-1,children:new Map<string,any>(),modifiedAt:undefined})
+      const node=parent.children.get(parts[index])
+      const time=Number.isSafeInteger(file.modifiedAt) && file.modifiedAt>=0?file.modifiedAt:undefined
+      if(time!==undefined && (node.modifiedAt===undefined || time>node.modifiedAt)) node.modifiedAt=time
+      parent=node
+    }
+  }
+  const icon = (folder:boolean): string => '<svg class="file-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(folder?'<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>':'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>')+'</svg>'
+  const setPanel = (open:boolean,restoreFocus=false) => {
+    panel.hidden=!open
+    $('file-backdrop').hidden=!open || !mobile()
+    fileToggle.setAttribute('aria-expanded',String(open))
+    if(restoreFocus) fileToggle.focus()
+  }
+  const renderTree = () => {
+    const append = (parent:any,list:HTMLElement,depth:number) => {
+      const nodes=Array.from(parent.children.values()) as any[]
+      nodes.sort((a,b)=>Number(b.folder)-Number(a.folder) || (b.modifiedAt??-1)-(a.modifiedAt??-1) || a.name.localeCompare(b.name) || a.path.localeCompare(b.path))
+      for(const node of nodes) {
+        const item=document.createElement('li')
+        const button=document.createElement('button')
+        button.className='file-row'; button.style.paddingLeft=(8+depth*14)+'px'; button.title=node.name
+        button.innerHTML=(node.folder?'<svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>':'<span class="chevron"></span>')+icon(node.folder)
+        const label=document.createElement('span'); label.className='file-label'; label.textContent=node.name; button.append(label)
+        if(node.folder) {
+          button.setAttribute('data-folder',node.path); button.setAttribute('aria-expanded',String(expanded.has(node.path)))
+          const children=document.createElement('ul'); children.hidden=!expanded.has(node.path)
+          button.onclick=()=> {
+            const open=!expanded.has(node.path)
+            if(open) expanded.add(node.path); else expanded.delete(node.path)
+            button.setAttribute('aria-expanded',String(open)); children.hidden=!open
+          }
+          item.append(button,children); append(node,children,depth+1)
+        } else {
+          button.setAttribute('data-file',node.path)
+          if(node.path===path) button.setAttribute('aria-current','page')
+          button.onclick=()=> {
+            const params=new URLSearchParams(location.hash.slice(1)); params.set('doc',node.path); params.delete('heading')
+            history.pushState(null,'','#'+params.toString()); navigate()
+            if(mobile()) { setPanel(false); (editing?editor:article).focus() }
+            else (Array.from($('files').querySelectorAll('[data-file]')).find(row=>row.getAttribute('data-file')===node.path) as HTMLElement|undefined)?.focus()
+          }
+          item.append(button)
+        }
+        list.append(item)
+      }
+    }
+    $('files').replaceChildren(); append(tree,$('files'),0)
+  }
   const currentText = () => state.drafts[path] ?? files.get(path)?.markdown ?? ''
   const comments = () => {
     $('comments').replaceChildren()
@@ -116,36 +219,48 @@ export async function projectShareBrowser(parser: any): Promise<void> {
     }
   }
   const render = () => {
-    $('title').textContent=path
     editor.value=currentText()
-    article.replaceChildren(sanitize(parser.parse(baseline ? files.get(path).markdown : currentText(),{async:false})))
-    let count=0
-    for(const heading of Array.from(article.querySelectorAll('h1,h2,h3,h4,h5,h6'))) {
-      heading.id=(heading.textContent??'').trim().toLowerCase().replace(/[^\p{L}\p{N}\s_-]/gu,'').replace(/\s+/g,'-') || 'heading-'+(++count)
+    const original=baseline || currentText()===files.get(path).markdown
+    const published=data.presentation?.documents[path]
+    $('reader').setAttribute('data-theme',data.presentation?.themeId??'')
+    article.setAttribute('data-theme',data.presentation?.themeId??'')
+    article.replaceChildren(original && published!==undefined ? publishedContent(published) : sanitize(parser.parse(baseline?files.get(path).markdown:currentText(),{async:false,breaks:true})))
+    if(!(original && published!==undefined)) {
+      const headings=new Map<string,number>()
+      for(const heading of Array.from(article.querySelectorAll('h1,h2,h3,h4,h5,h6'))) {
+        const slug=(heading.textContent??'').trim().toLowerCase().replace(/[^\p{L}\p{N}\s_-]/gu,'').replace(/\s+/g,'-') || 'heading'
+        const count=headings.get(slug)??0; headings.set(slug,count+1); heading.id=slug+(count?'-'+count:'')
+      }
+      if(!original && /^ {0,3}(`{3,}|~{3,})(mermaid|dot|graphviz|circo|neato|fdp|sfdp|twopi)\b/im.test(currentText())) {
+        const hint=document.createElement('p'); hint.className='draft-diagram-note'; hint.textContent='草稿图表显示源代码；主人合入并重新发布后完整渲染。'; article.prepend(hint)
+      }
     }
     editor.hidden=!editing
     article.hidden=editing
     editButton.textContent=editing?'预览':'编辑 Markdown'
     $('baseline').textContent=baseline?'查看我的修改':'查看发布原文'
+    document.title=data.title+' · '+(token?'可编辑':'只读')
+    $('collaboration').hidden=!token
     editButton.disabled=!token || !initialized
-    submit.disabled=!token || !ready || busy;
-    ($('annotate') as HTMLButtonElement).disabled=!token || !ready
+    ;($('baseline') as HTMLButtonElement).disabled=!token || !initialized
+    ;($('export') as HTMLButtonElement).disabled=!token || !initialized
+    ;(name as HTMLInputElement).disabled=!token || !initialized
+    submit.disabled=!token || !ready || busy
+    ;($('annotate') as HTMLButtonElement).disabled=!token || !initialized
     comments()
   }
   const navigate = () => {
     const params=new URLSearchParams(location.hash.slice(1))
     const target=params.get('doc')
     if(target && files.get(target)?.markdown!==undefined) path=target
-    render()
+    revealCurrent(); renderTree(); render()
     const heading=params.get('heading')
-    if(heading) document.getElementById(heading)?.scrollIntoView?.()
+    if(heading) Array.from(article.querySelectorAll('[id]')).find(element=>element.id===heading)?.scrollIntoView?.()
   }
-  for(const file of docs) {
-    const button=document.createElement('button'); button.textContent=file.path
-    button.onclick=()=> { location.hash='doc='+encodeURIComponent(file.path) }
-    $('files').append(button)
-  }
-  editButton.onclick=()=> { editing=!editing; baseline=false; render() }
+  fileToggle.onclick=()=> { setPanel(panel.hidden); if(!panel.hidden) (panel.querySelector('[aria-current="page"]') as HTMLElement|null)?.focus() }
+  $('file-close').onclick=$('file-backdrop').onclick=()=>setPanel(false,true)
+  document.addEventListener('keydown',event=> { if(event.key==='Escape' && !panel.hidden) { event.preventDefault(); setPanel(false,true) } })
+  editButton.onclick=()=> { if(!token || !initialized) return; editing=!editing; baseline=false; render(); if(editing) editor.focus() }
   $('baseline').onclick=()=> { baseline=!baseline; editing=false; render() }
   editor.oninput=()=> {
     state.drafts[path]=editor.value
@@ -154,7 +269,10 @@ export async function projectShareBrowser(parser: any): Promise<void> {
   }
   $('annotate').onclick=async()=> {
     if(!baseline && currentText()!==files.get(path).markdown) { say('标注基于发布时的原文；请先点击“查看发布原文”再选文'); return }
-    const quote=editing ? editor.value.slice(editor.selectionStart,editor.selectionEnd) : window.getSelection()?.toString()??''
+    if(!token || !initialized) return
+    const selection=window.getSelection()
+    if(editing || !selection?.rangeCount || Array.from({length:selection.rangeCount},(_,index)=>selection.getRangeAt(index)).some(range=>!article.contains(range.startContainer) || !article.contains(range.endContainer))) { say('请在发布原文的正文中选中要标注的文字'); return }
+    const quote=selection.toString()
     if(!quote) { say('请先选中要标注的文字'); return }
     const comment=window.prompt('评论')
     if(!comment?.trim()) return
@@ -191,7 +309,8 @@ export async function projectShareBrowser(parser: any): Promise<void> {
     finally { busy=false;render() }
   }
   window.addEventListener('hashchange',navigate)
-  render()
+  window.addEventListener('popstate',navigate)
+  navigate()
   try {
     db=await new Promise<IDBDatabase>((resolve,reject)=> {
       const op=indexedDB.open('notemd-project-sharing',1)
@@ -210,7 +329,7 @@ export async function projectShareBrowser(parser: any): Promise<void> {
       history.replaceState(null,'',location.pathname+location.search+(params.size?'#'+params.toString():''))
     } else token=await request('readonly',snapshot.project_id+':token') ?? ''
     ready=true
-    say(state.pending && !state.pending.delivered ? '有待确认的提交，点击提交重试原包' : token?'草稿只保存在本浏览器；点击提交自动回传':'只读链接')
+    say(state.pending && !state.pending.delivered ? '有待确认的提交，点击提交重试原包' : '')
   } catch(error:any) { say('本地存储不可用：'+error.message+'；无法持久保存，修改请导出备份') }
   initialized=true
   navigate()
