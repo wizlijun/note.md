@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.1010.3 — 2026-10-10
+
 ### Changed
 
 - **Create a sharing project directly from the current document.** Each entry document has its own project and link, using its folder to resolve references. Unpublished projects stay in the list, missing referenced files no longer prevent sharing existing content, and projects can be deleted after revoking their link without deleting source documents.
