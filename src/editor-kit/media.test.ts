@@ -69,6 +69,55 @@ describe('bridgeMediaResolver', () => {
     expect(url).toMatch(/^blob:/)
   })
 
+  it('resolves root-relative encoded images within the vault', async () => {
+    const request = vi.fn().mockResolvedValue({ base64: 'aGVsbG8=' })
+    stubBridge(request)
+    const r = bridgeMediaResolver('/vault')
+    const url = await r.loadLocalImage('/ssot/chart 1.png', { src: '/ssot/chart%201.png', baseDir: '/vault/notes' })
+    expect(url).toMatch(/^blob:/)
+    expect(request).toHaveBeenCalledWith('host.vault.read_bytes', { path: 'ssot/chart 1.png' })
+  })
+
+  it('does not try an outside-vault fallback when a root-relative resource is missing', async () => {
+    const request = vi.fn().mockRejectedValue(new Error('not found'))
+    stubBridge(request)
+    const r = bridgeMediaResolver('/vault')
+    expect(await r.loadLocalImage('/outside/missing.png', { src: '/outside/missing.png', baseDir: '/vault' })).toBe('')
+    expect(request.mock.calls).toEqual([['host.vault.read_bytes', { path: 'outside/missing.png' }]])
+  })
+
+  it('can fall back to an explicit full path that is still inside the vault', async () => {
+    const request = vi.fn().mockImplementation(async (_method, params) => {
+      if (params.path === 'vault/fallback.png') throw new Error('not found')
+      return { base64: 'aGVsbG8=' }
+    })
+    stubBridge(request)
+    const r = bridgeMediaResolver('/vault')
+    expect(await r.loadLocalImage('/vault/fallback.png', { src: '/vault/fallback.png', baseDir: '/vault' })).toMatch(/^blob:/)
+    expect(request.mock.calls).toEqual([
+      ['host.vault.read_bytes', { path: 'vault/fallback.png' }],
+      ['host.vault.read_bytes', { path: 'fallback.png' }],
+    ])
+  })
+
+  it('uses its own base directory rather than a different editor global directory', async () => {
+    const request = vi.fn().mockResolvedValue({ base64: 'aGVsbG8=' })
+    stubBridge(request)
+    const r = bridgeMediaResolver('/vault', '/vault/owner%20')
+    expect(await r.loadLocalMedia('/vault/other/a.mp3', { src: './a%20b.mp3', baseDir: '/vault/other' })).toMatch(/^blob:/)
+    expect(request).toHaveBeenCalledWith('host.vault.read_bytes', { path: 'owner%20/a b.mp3' })
+  })
+
+  it('does not serve a cached image from a different vault', async () => {
+    stubBridge(vi.fn().mockResolvedValue({ base64: 'aGVsbG8=' }))
+    const first = bridgeMediaResolver('/vault')
+    await first.loadLocalImage('/vault/private.png')
+    const request = vi.fn().mockResolvedValue({ base64: 'aGVsbG8=' })
+    stubBridge(request)
+    expect(await bridgeMediaResolver('/different').loadLocalImage('/vault/private.png')).toBe('')
+    expect(request).not.toHaveBeenCalled()
+  })
+
   it('passes remote urls through untouched', async () => {
     stubBridge(vi.fn())
     const r = bridgeMediaResolver('/vault')

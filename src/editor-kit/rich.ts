@@ -99,11 +99,12 @@ export async function mountRich(
   placeholder?: string,
   getPowerMode?: ConfigGetter,
   customizeSchema?: (schema: Schema) => Schema,
+  baseDir: string = vaultRoot,
 ): Promise<MorayaEditorInstance> {
   const options: CreateEditorOptions = {
     container: host,
     initialContent: initial,
-    mediaResolver: bridgeMediaResolver(vaultRoot),
+    mediaResolver: bridgeMediaResolver(vaultRoot, baseDir),
     platform: { getCurrentFilePath: () => null, isMacOS: isApplePlatformSync() },
     // Math / mermaid pull heavy renderers the kit's consumers do not need
     // (spec §3.4: kit options are narrowed for plugin windows).

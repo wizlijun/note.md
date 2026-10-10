@@ -9,8 +9,9 @@
 // extension→MIME tables + empty string on failure); only the byte source
 // differs. Keep the two in sync when either changes.
 
-import type { MediaResolver } from '@moraya/core'
-import { basename } from '../lib/paths'
+import type { LocalMediaSource, MediaResolver } from '@moraya/core'
+import { basename, relative } from '../lib/paths'
+import { localResourceCandidates } from '../lib/local-resource'
 
 const blobCache = new Map<string, string>()
 
@@ -63,10 +64,8 @@ function decodeBase64(base64: string): Uint8Array {
  */
 export function toVaultRelative(vaultRoot: string, absolutePath: string): string | null {
   if (!vaultRoot) return null
-  const root = vaultRoot.endsWith('/') ? vaultRoot.slice(0, -1) : vaultRoot
-  if (!absolutePath.startsWith(root + '/')) return null
-  const rel = absolutePath.slice(root.length + 1)
-  return rel.length > 0 ? rel : null
+  const rel = relative(vaultRoot, absolutePath)
+  return rel && !rel.split('/').includes('..') ? rel : null
 }
 
 /** Ask the host for the vault root; empty string when unset or unavailable. */
@@ -88,29 +87,35 @@ export async function loadVaultRoot(): Promise<string> {
  * empty string — the same failure behaviour as the desktop Tauri resolver, so
  * the `<img>` simply renders broken instead of throwing inside a NodeView.
  */
-export function bridgeMediaResolver(vaultRoot: string): MediaResolver {
-  async function load(absolutePath: string, mimes: Record<string, string>, fallbackMime: string): Promise<string> {
-    const cached = blobCache.get(absolutePath)
-    if (cached) return cached
-    const rel = toVaultRelative(vaultRoot, absolutePath)
-    if (!rel) return ''
+export function bridgeMediaResolver(vaultRoot: string, baseDir?: string): MediaResolver {
+  async function load(absolutePath: string, source: LocalMediaSource | undefined, mimes: Record<string, string>, fallbackMime: string): Promise<string> {
     const b = bridge()
     if (!b) return ''
-    try {
-      const res = await b.request('host.vault.read_bytes', { path: rel })
-      const base64 = res?.base64
-      if (typeof base64 !== 'string') return ''
-      const url = buildBlob(decodeBase64(base64), mimes[pathExt(absolutePath)] || fallbackMime)
-      blobCache.set(absolutePath, url)
-      return url
-    } catch {
-      return ''
+    const candidates = source
+      ? localResourceCandidates(source.src, { vaultRoot, baseDir: baseDir ?? source.baseDir })
+      : [absolutePath]
+    for (const path of candidates) {
+      // Check containment BEFORE the cache. A cached file from a previous vault
+      // must not bypass this resolver's permissions; Rust checks symlinks too.
+      const rel = toVaultRelative(vaultRoot, path)
+      if (!rel) continue
+      const cached = blobCache.get(path)
+      if (cached) return cached
+      try {
+        const res = await b.request('host.vault.read_bytes', { path: rel })
+        const base64 = res?.base64
+        if (typeof base64 !== 'string') continue
+        const url = buildBlob(decodeBase64(base64), mimes[pathExt(path)] || fallbackMime)
+        blobCache.set(path, url)
+        return url
+      } catch { /* Only vault-contained fallback candidates may be tried. */ }
     }
+    return ''
   }
 
   return {
-    loadLocalImage: (absolutePath) => load(absolutePath, IMAGE_MIME, 'image/png'),
-    loadLocalMedia: (absolutePath) => load(absolutePath, MEDIA_MIME, 'application/octet-stream'),
+    loadLocalImage: (absolutePath, source) => load(absolutePath, source, IMAGE_MIME, 'image/png'),
+    loadLocalMedia: (absolutePath, source) => load(absolutePath, source, MEDIA_MIME, 'application/octet-stream'),
     // No plugin-http in a plugin webview either; hand the URL back and let the
     // WebView fetch it (subject to the window's CSP).
     loadRemoteMedia: async (url) => url,
