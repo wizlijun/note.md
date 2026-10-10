@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.1010.2 — 2026-10-10
+
 ### Changed
 
 - **Project sharing now follows the app’s settings layout.** Share contents and the feedback inbox have separate navigation, with a fixed publish action, clearer file selection and links, and consistent light, dark, and narrow-window styling. Switching sections keeps your review draft.
