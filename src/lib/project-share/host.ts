@@ -3,7 +3,7 @@ import { Store } from '@tauri-apps/plugin-store'
 import { sha256Hex } from '../hash'
 import { generateSlug } from '../share/slug'
 import { buildProjectBundle } from './bundle'
-import type { FeedbackEnvelope, LocalFeedback, ProjectFile, ProjectInfo, ProjectSnapshot } from './types'
+import type { FeedbackEnvelope, LocalFeedback, ProjectFile, ProjectInfo, ProjectSnapshot, ProjectSummary } from './types'
 
 export interface ProjectIdentity {
   project_id: string
@@ -27,6 +27,54 @@ export function projectCommand<T>(op: string, input: Record<string, unknown>): P
 export async function projectIdentities(): Promise<Record<string, ProjectIdentity>> {
   const store = await Store.load('share_db.json')
   return await store.get<Record<string, ProjectIdentity>>(KEY) ?? {}
+}
+
+/** The host owns projects; publishing credentials may outlive a lost binding. */
+export async function listProjects(): Promise<ProjectSummary[]> {
+  const local = await projectCommand<ProjectSummary[]>('projects', {})
+  const identities = await projectIdentities()
+  const known = new Set(local.map(project => project.project_id))
+  return [...local, ...Object.values(identities).filter(identity => !known.has(identity.project_id)).map(identity => ({
+    project_id: identity.project_id, sourceRoot: identity.sourceRoot, entry: identity.entry,
+    mirrorRoot: '', files: [], url: identity.url, publishedSnapshotId: identity.publishedSnapshotId,
+    sourceAvailable: false, orphaned: true, error: '仅有分享记录，本机项目绑定缺失。可停止分享或移除此记录。',
+  }))]
+}
+
+export function createProject(sourceFile: string): Promise<ProjectInfo> {
+  return projectCommand('create', { sourceFile })
+}
+
+async function forgetProjectIdentity(project_id: string): Promise<void> {
+  const store = await Store.load('share_db.json')
+  const all = await store.get<Record<string, ProjectIdentity>>(KEY) ?? {}
+  delete all[project_id]
+  await store.set(KEY, all)
+  await store.save()
+}
+
+export function cancelProjectDeletion(project_id: string): Promise<void> {
+  return projectCommand('cancel-delete', { project_id })
+}
+
+/** Reserve locally before revoking remotely; failures retain credentials for retry. */
+export async function deleteProject(project_id: string, beforeDelete?: () => Promise<void>): Promise<void> {
+  const local = (await projectCommand<ProjectSummary[]>('projects', {})).find(project => project.project_id === project_id)
+  const identity = (await projectIdentities())[project_id]
+  if (local?.url && !identity) throw new Error('缺少此项目的本机发布凭据，无法确认撤回分享。请先恢复凭据。')
+  if (local) await projectCommand('begin-delete', { project_id })
+  if (identity?.url || identity?.pending || local?.url) {
+    await stopProjectShare(project_id)
+  }
+  await beforeDelete?.()
+  if (local) await projectCommand('delete', { project_id })
+  await forgetProjectIdentity(project_id)
+  try {
+    if (localStorage.getItem('projectShare.lastProjectId') === project_id) {
+      localStorage.removeItem('projectShare.lastProjectId')
+      localStorage.removeItem('projectShare.lastProject')
+    }
+  } catch { /* persisted selection is optional */ }
 }
 
 async function remember(identity: ProjectIdentity): Promise<void> {
@@ -70,6 +118,8 @@ async function ownerRequest(baseUrl: string, apiKey: string, path: string, metho
 
 /** Persist everything needed to retry before sending the first request. */
 export async function publishProject(info: ProjectInfo, files: ProjectFile[]): Promise<{ info: ProjectInfo; identity: ProjectIdentity }> {
+  const current = await projectCommand<ProjectInfo>('get', { project_id: info.project_id })
+  if (info.deleting || current.deleting) throw new Error('项目正在删除，请完成或取消删除后再发布。')
   const cfg = await configuration()
   let identity = (await projectIdentities())[info.project_id]
   checkService(identity, cfg.baseUrl)
@@ -92,8 +142,10 @@ export async function publishProject(info: ProjectInfo, files: ProjectFile[]): P
     await projectCommand('bundle', { project_id: info.project_id, snapshotId: snapshot.snapshotId, html })
     identity = { ...identity, sourceRoot: info.sourceRoot, entry: info.entry,
       pending: { snapshotId: snapshot.snapshotId, entry: snapshot.entry, expiresInSeconds: cfg.expiresInSeconds } }
-    await remember(identity)
   }
+  // A previous save may have failed after updating Store's in-memory cache.
+  // Every attempt must durably retain the retry credentials before uploading.
+  await remember(identity)
   const pending = identity.pending!
   const receipt = await ownerRequest(identity.baseUrl, cfg.apiKey, '/publish', 'POST', {
     slug: identity.slug, edit_token: identity.edit_token, html, expires_in_seconds: pending.expiresInSeconds,
@@ -144,6 +196,9 @@ export async function stopProjectShare(project_id: string): Promise<void> {
   if (!identity) throw new Error('该项目没有本机发布记录')
   checkService(identity, cfg.baseUrl)
   await ownerRequest(identity.baseUrl, cfg.apiKey, '/' + identity.slug, 'DELETE', { edit_token: identity.edit_token })
+  // Orphaned owner credentials still allow revocation without inventing a binding.
+  const local = await projectCommand<ProjectSummary[]>('projects', {})
+  if (local.some(project => project.project_id === project_id)) await projectCommand('stopped', { project_id })
   const stopped = { ...identity }
   delete stopped.url
   delete stopped.pending

@@ -6,7 +6,12 @@ export interface ProjectInfo {
   files: string[]
   publishedSnapshotId?: string | null
   url?: string | null
+  sourceAvailable?: boolean
+  deleting?: boolean
+  error?: string
+  orphaned?: boolean
 }
+export interface ProjectSummary extends ProjectInfo {}
 export interface ProjectFile {
   path: string
   hash: string
