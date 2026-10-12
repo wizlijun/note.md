@@ -52,9 +52,13 @@ const options = {
 const program = ts.createProgram(files, options)
 const checker = program.getTypeChecker()
 const globalSymbol = checker.resolveName('globalThis', undefined, ts.SymbolFlags.Value, false)
+const standardLibraries = new Map([...ts.libMap].filter(([name]) =>
+  name.startsWith('es') || name === 'decorators' || name === 'decorators.legacy'))
+const standardDeclarationFiles = new Set(standardLibraries.values())
 
 // TextEncoder is the kernel's standard UTF-8 codec, available in all three
-// hosts. DOM declarations otherwise describe host dependencies, including types.
+// hosts. Non-ECMAScript default libraries otherwise describe host dependencies,
+// including Worker-only types that do not appear in lib.dom declarations.
 const encodingDeclarations = new Set(['TextEncoder', 'TextEncoderCommon', 'TextEncoderEncodeIntoResult'])
 const hostNames = new Set([
   'window', 'document', 'HTMLElement', 'Node', 'DOMParser', 'navigator',
@@ -65,7 +69,8 @@ const hostNames = new Set([
 function forbiddenSymbol(symbol) {
   if (!symbol) return false
   return (symbol.declarations ?? []).some(declaration => {
-    if (!basename(declaration.getSourceFile().fileName).startsWith('lib.dom')) return false
+    const source = declaration.getSourceFile()
+    if (!program.isSourceFileDefaultLibrary(source) || standardDeclarationFiles.has(basename(source.fileName))) return false
     for (let owner = declaration; owner; owner = owner.parent) {
       if (owner.name && ts.isIdentifier(owner.name) && encodingDeclarations.has(owner.name.text)) return false
     }
@@ -166,6 +171,11 @@ for (const path of files) {
   }
   for (const reference of source.typeReferenceDirectives) {
     report(source, `external type reference ${JSON.stringify(reference.fileName)} is forbidden`)
+  }
+  for (const reference of source.libReferenceDirectives) {
+    if (!standardLibraries.has(reference.fileName.toLowerCase())) {
+      report(source, `host library reference ${JSON.stringify(reference.fileName)} is forbidden`)
+    }
   }
   for (const reference of source.referencedFiles) {
     const name = reference.fileName

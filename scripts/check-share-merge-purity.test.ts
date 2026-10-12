@@ -67,6 +67,31 @@ it.each([
 }, 15_000)
 
 it.each([
+  ['export const value = new FileReaderSync()', 'FileReaderSync'],
+  ['export type Value = DedicatedWorkerGlobalScope', 'DedicatedWorkerGlobalScope'],
+])('rejects Worker library runtime and type references: %s', (source, name) => {
+  const root = fixture({ 'bad.ts': `/// <reference lib="webworker" />\n${source}` })
+  const result = check(root)
+  expect(result.status).toBe(1)
+  expect(result.stderr).toContain('bad.ts')
+  expect(result.stderr).toContain(`host reference ${name}`)
+}, 15_000)
+
+it('rejects host library directives even without a host symbol use', () => {
+  const root = fixture({ 'bad.ts': '/// <reference lib="dom" />\nexport const value = 1' })
+  const result = check(root)
+  expect(result.status).toBe(1)
+  expect(result.stderr).toContain('host library reference "dom"')
+}, 15_000)
+
+it('allows ECMAScript library directives with standard computation and TextEncoder', () => {
+  const root = fixture({ 'safe.ts': '/// <reference lib="es2022" />\nexport const value = new Map([[1, Math.max(2, 3)]]); export const bytes = new TextEncoder().encode("中文")' })
+  const result = check(root)
+  expect(result.stderr).toBe('')
+  expect(result.status).toBe(0)
+}, 15_000)
+
+it.each([
   'export const value = window.location',
   'export const value = document.title',
   'export type Value = HTMLElement',
