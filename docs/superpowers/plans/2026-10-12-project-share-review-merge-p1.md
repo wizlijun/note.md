@@ -194,7 +194,7 @@ pnpm build
 git diff --check
 ```
 
-- [ ] **Step 5: 写报告并精确提交。** `docs(share): record Git review targets and P1 acceptance`。root逐项读日志/退出码，任务spec+quality审查、全分支final review（base0ca59cf9）及唯一必要修复波次后，归档全部裁定/证据再仅清本计划workspace。P1完成不代表P2/编辑器/离线客户端已实现。随后按用户最新授权进入统一发布，发布前盘点所有未发布更新、至少逐patch核验Memory9a14dd7c和Rich c49b8e66，不静默遗漏宿主/插件/Worker；保留发布证据后才清本计划workspace。
+- [x] **Step 5: 写报告并精确提交。** `docs(share): record Git review targets and P1 acceptance`。root逐项读日志/退出码，任务spec+quality审查、全分支final review（base0ca59cf9）及唯一必要修复波次后，归档全部裁定/证据再仅清本计划workspace。P1完成不代表P2/编辑器/离线客户端已实现。随后按用户最新授权进入统一发布，发布前盘点所有未发布更新、至少逐patch核验Memory9a14dd7c和Rich c49b8e66，不静默遗漏宿主/插件/Worker；保留发布证据后才清本计划workspace。
 
 ## 计划自审
 

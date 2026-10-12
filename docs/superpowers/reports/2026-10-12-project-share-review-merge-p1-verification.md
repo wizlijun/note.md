@@ -4,7 +4,7 @@
 
 ## 最终统一修复（2026-10-13）
 
-冻结审查 `0ca59cf9..4a2ca1c9` 判定 4 Important / 2 Minor；以下一次统一修复处理 I1–I4、M1–M2 与 Task 4 author oracle。早期 Task 4 的 `result.is_ok()` 未覆盖 `stateError`、前端门禁和重开恢复；其历史通过记录不构成这些路径已正确的证据。本节取代相应历史结论，原始失败/通过日志均保留。最终 scoped 复审与发行由 root 继续。
+冻结审查 `0ca59cf9..4a2ca1c9` 判定 4 Important / 2 Minor；以下一次统一修复处理 I1–I4、M1–M2 与 Task 4 author oracle。早期 Task 4 的 `result.is_ok()` 未覆盖 `stateError`、前端门禁和重开恢复；其历史通过记录不构成这些路径已正确的证据。本节取代相应历史结论，原始失败/通过日志均保留。最终唯一 scoped 复审已全部批准；发行由 root 继续，尚不宣称已发布。
 
 | 项目 | 最终行为与实际回归 |
 | --- | --- |
@@ -118,7 +118,7 @@ P1起点0ca59cf9；同一main顺序写入，不建worktree。P0独立证据见20
 | Task3 Git UI | 32fcd45e；计划修订0e1d44b5，最终Spec✅/Approved | 父文件清单I1经控制器正式修订为现有isBusy+真实父组件测试，scoped ADDRESSED；产品未造无功能改动。六文件176/176，Chrome生产组件+真实Worker隔离bridge；原生边界保留。 |
 | Task4 集成验收 | ef78b8a9，Spec✅/Approved | 0 Critical/Important；Minor为署名截断可增加独立字面期望及既有噪声，交最终review triage。 |
 
-最终 whole-branch review 已冻结于 `4a2ca1c9`，发现与统一修复见本文首节；本次唯一 scoped 复审待 root 执行，逐任务批准不等于最终通过。
+最终 whole-branch review 已冻结于 `4a2ca1c9`，发现与统一修复见本文首节；本次唯一 scoped 复审已完成：I1–I4/M1–M2及字面oracle全部ADDRESSED，无新Critical/Important/Minor；Spec PASS、Quality Approved、P1源码可发布。发行产物仍单独验证。
 
 ## 统一发布盘点（root，发行前）
 
@@ -136,7 +136,7 @@ P1起点0ca59cf9；同一main顺序写入，不建worktree。P0独立证据见20
 
 ## Rulings I made
 
-以下为本P1计划ledger所有裁定，按时间顺序逐字归档，包含理由及误判代价。P0裁定见已独立归档报告。
+以下32项为本P1 ledger裁定的逐字、完整、时间顺序归档，均含理由及代价；P0独立裁定见P0报告。
 
 Ruling: 继续当前main，不新建分支/worktree — 用户明确持续授权 — 误判代价：共享checkout，所有写任务顺序执行并精确提交。
 
@@ -188,7 +188,21 @@ Ruling: guest_author在既有control/<>清洗外剔除@，访客名按UTF-8字�
 
 Ruling: 不恢复三份旧stash，保留全部refs并将20文件逐hunk审计归档 — website五文件与正式tag/HEAD exact blob相同，Next多项目/推荐及Roam空bullet已等价覆盖并扩展，旧v1插件日志执行器已明确退役由v2替代，未发现独立未发布产品行为 — 误判代价：旧Rust空dash独立测试与少量注释未逐字重引（现有TS具名等价覆盖），不是所有stash字节进入发行；原stash可继续审查恢复。
 
-## 最终检查输入与日志摘要（root复核）
+Ruling: 分享Git所有调用使用受支持的--no-lazy-fetch全局机制，Git不认识该能力时fail-closed并降级P0，不改vault-sync合法联网能力 — final I3真实partial clone证明cat-file会隐式fetch，未知环境变量在旧Git可能静默无效，禁止联网比Git目标可用性优先 — 误判代价：不支持此能力的旧Git无法用P1 Git目标，即使普通仓库对象齐全；须真实缺失promisor blob/tree零fetch/transport及旧能力失败回归。
+
+Ruling: 新增本机只读branch-state接缝返回经原固定H/owned intent/实际ref/完整提交验证的既有分支结果，重开后UI只补记git-branched，不依赖当前HEAD、不放宽普通混合终态B/C — final I2持久intent与内存结果断开，真实分支不能因关闭或HEAD前进丢失补记入口 — 误判代价：增加本机op与只读验证路径，必须保持两锁外CLI/绑定范围重验/未知ref拒绝/P0意图守卫，不能泄漏私有intent到公开协议。
+
+Ruling: reject增加可选本机target枚举，B/C显式target走raw inbox及既有A intent守卫，缺省/worktree保持原P0恢复语义 — final I4拒绝建议仍绕回recover可刷新镜像/删除其他路径草稿，违背Git模式只读边界 — 误判代价：Git模式存在未恢复A intent时不能直接拒绝，须明确切A恢复；本机调用方需传target，公开协议不变。
+
+Ruling: snapshot使用spec§9.3完整固定标题与两个trailers；已有create-only旧P1 ref不覆写，不加未发布对象迁移，语义不符记录Git错误且P0冻结仍有效 — final M1发现原消息遗漏share与归属trailers，当前尚无正式P1版本需迁移 — 误判代价：本地未发布预览留下的旧消息ref重试可能只保留P0而Git报错；新消息必须完整字面测试并证明旧ref不覆写。
+
+Ruling: B/C新建结果对固定H无实际变更时明确提示已包含/无需合入，不确认或保存空补丁；Rust实际tree相同也拒绝新ref，已创建自有分支仅补记不受此规则阻碍 — final M2真实git am拒绝空变更补丁，避免占用无意义exports和产生误导成功 — 误判代价：不能通过此入口创建仅用于署名的空提交；须both-same及clean规范化同tree零新ref/零Decision回归，不复制合并算法。
+
+Ruling: branch-state无intent或intent对应ref缺失返回null且不写任何状态，存在但与自有intent/完整提交不匹配的ref明确拒绝；普通B保留原expectedHead与混合终态门禁 — intent持久化先于CAS，崩在两者之间不能伪造已创建结果，也不应阻断原本安全的正常重试 — 误判代价：缺失ref且HEAD已前进时不会自动迁移parent，普通B仍可能拒绝；用户需明确处理原状态，查询不能复建已删除分支。
+
+Ruling: branch-state保留B对snapshot.git=None的既有兼容，始终校验冻结字节/identity/绑定/范围/原H及自有ref完整提交；仅有Git快照元数据时校验snapshot ref及祖先隔离 — spec§9.4无snapshotCommit仅跳过submission对象，§9.5以可信冻结base及H合成，恢复接口不能额外拒绝既有合法分支 — 误判代价：无Git快照对象时没有该对象的祖先关系可验，必须具名报告并测试，不能伪称I9该对象已验。
+
+## Task4历史检查输入与日志摘要（root复核）
 
 冻结源码五项SHA与当前文件逐项一致，六命令顺序且均exit0，Rust22段合计1427（lib1238）、前端323files/3859、Worker8/255、check0/33且逐诊断与baseline一致；EditorKit/build/diff通过。search attention本轮ok，历史根因仍未知。
 
@@ -212,3 +226,18 @@ Ruling: 不恢复三份旧stash，保留全部refs并将20文件逐hunk审计归
   "src/lib/project-share/bundle.test.ts": "046f49c3da6f764b003839dbc63240e1c7e276d8c60610a938fd3c8319badc99"
 }
 ```
+
+
+## Root最终复核与归档（2026-10-13，发行前）
+
+最终产品提交`2c9f165918297e4b089e3c56c4e876401edfc53d`。唯一整轮修复及唯一scoped复审完成，全部七项ADDRESSED、0新增问题、无open finding。root完整读取实施/审查报告，直接验证八源SHA及六原始logSHA均相符；完整六gate exit0：前端323files/3876、Rust22summaries/1439（lib1250）/0failed0ignored、Worker8/255、check0errors/33warnings16files、build/EditorKit与diff通过。root比较33个完整warning block的位置及文本与baseline逐字相同。第一次check新增两处测试泛型错误的失败记录保留，第二次源冻结后六gate完整重跑，未混用输入。
+
+最终源码发行审计：对v6.1012.2共78路径/42commits，Memory/Rich14actual检查缺失0；远端main仍ce070741、所有remote heads及保留stash/backup未变。新增finalfix仅宿主8产品/测试文件及验收报告，插件/Worker/core输入不变。core57文件/2206579bytes/tree SHA1b656cb331446f6110816b828fb61dae9b25227622836f734922918ac674ec16一致。当前审计不等于正式产物发布。
+
+永久报告：
+
+- [完整最终修复与原始SHA表](2026-10-13-project-share-review-merge-p1-final-fix.md)
+- [整轮审查及唯一限定复审](2026-10-13-project-share-review-merge-p1-final-review.md)
+- [完整发行源码增量审计](2026-10-13-project-share-review-merge-p1-release-audit.md)
+
+本计划workspace在正式发布与线上验证后清理，原始测试证据届时压缩保留于本机ignored正式发行产物目录，正文的workspace路径为执行期来源，不承诺永久原路径。正式版本/tag/七资产/最终生产状态另行补录。P2/E1–E4/P3、P1 native/iOS/OS picker与Worker免费CPU残留仍明确未完成。
