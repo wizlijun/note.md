@@ -63,3 +63,26 @@ export interface ComposeResult {
   total: number
   staleDecisions: string[]
 }
+
+export interface TextSelector {
+  exact: string
+  prefix?: string
+  suffix?: string
+  start?: number
+  end?: number
+}
+
+export type AnchorResult = { status: 'exact' | 'fuzzy'; start: number; end: number } | { status: 'orphan' }
+
+export interface ExtractResult {
+  clean: string
+  annotations: { selector: TextSelector; comment: string; kind: 'comment' }[]
+  ownerAnnotationsTouched: string[]
+}
+
+export interface RebaseResult {
+  proposal: MergeProposal
+  text: string
+  conflicts: string[]
+  ownerAnnotationTouched: boolean
+}
