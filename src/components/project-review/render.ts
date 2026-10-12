@@ -1,5 +1,6 @@
 import DOMPurify from 'dompurify'
 import { renderTabBody } from '../../lib/plugins/host-render-html'
+import { visibleText } from './display'
 
 export function approvedUrl(value: string): string | null {
   try {
@@ -42,6 +43,8 @@ export async function renderReviewMarkdown(text: string): Promise<string> {
   for (const element of fragment.querySelectorAll('*')) {
     for (const attr of ['src', 'srcset', 'background', 'poster', 'action', 'formaction', 'xlink:href']) element.removeAttribute(attr)
   }
+  const texts = document.createTreeWalker(fragment, NodeFilter.SHOW_TEXT)
+  for (let node = texts.nextNode(); node; node = texts.nextNode()) node.textContent = visibleText(node.textContent ?? '')
   const container = document.createElement('div')
   container.append(fragment)
   return container.innerHTML
