@@ -7,6 +7,10 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+### Fixed
+
+- **The shared reader sidebar toggle keeps its arrows aligned.** Expanding and collapsing the file panel no longer moves the arrow onto the divider.
+
 ## v6.1010.5 — 2026-10-10
 
 ### Improvements
