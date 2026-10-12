@@ -124,10 +124,21 @@ async function cleanupOne(env: Env, slug: string, loaded: Loaded): Promise<Clean
   return { processed: true }
 }
 function missingUpload(e: unknown): boolean { return /NoSuchUpload|10024|does not exist|not found|already completed|already aborted/i.test(String(e)) }
-function validateArtifact(object: R2Object, session: UploadSession, artifact: UploadArtifact): void {
-  if (object.size !== artifact.bytes || etag(object.etag) !== artifact.etag
-    || object.customMetadata?.sessionId !== session.sessionId || object.customMetadata?.publicationId !== session.publicationId
-    || object.customMetadata?.sha256 !== artifact.sha256) error(409, 'Sealed artifact differs from frozen plan')
+function validateArtifact(object: R2Object, session: UploadSession, artifact: UploadArtifact, allowMissing = false): boolean {
+  const fields = [
+    ['size', object.size, artifact.bytes],
+    ['etag', typeof object.etag === 'string' ? etag(object.etag) : object.etag, artifact.etag],
+    ['sessionId', object.customMetadata?.sessionId, session.sessionId],
+    ['publicationId', object.customMetadata?.publicationId, session.publicationId],
+    ['sha256', object.customMetadata?.sha256, artifact.sha256],
+  ]
+  let missing: string | undefined
+  for (const [field, actual, expected] of fields) {
+    if (actual === undefined || actual === null) missing ??= String(field)
+    else if (actual !== expected) error(409, `artifact_${field}_mismatch`)
+  }
+  if (missing && !allowMissing) error(409, `artifact_${missing}_missing`)
+  return !missing
 }
 async function headArtifact(env: Env, session: UploadSession, artifact: UploadArtifact): Promise<R2Object | null> {
   const object = await env.MEDIA.head(artifact.key)
@@ -362,7 +373,7 @@ async function seal(env: Env, slug: string, args: any, origin: string): Promise<
       }
     }
     if (!completed) error(409, 'Sealed artifact missing')
-    validateArtifact(completed!, session, artifact!)
+    if (!validateArtifact(completed!, session, artifact!, true) && !await headArtifact(env, session, artifact!)) error(409, 'Sealed artifact missing')
   }
   let fresh: Loaded
   try { fresh = await authorized(env, slug, args.edit_token, args.publicationId, args.sessionId) }

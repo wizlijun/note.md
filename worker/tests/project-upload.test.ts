@@ -164,10 +164,81 @@ describe('native multipart project publication', () => {
   await begin(); await part()
   const wrapped = { get: media.get.bind(media), head: media.head.bind(media), resumeMultipartUpload(key: string, uploadId: string) {
    const native = media.resumeMultipartUpload(key, uploadId)
-   return { key, uploadId, async complete(parts: R2UploadedPart[]) { const object = await native.complete(parts); return { ...object, [field]: field === 'size' ? 999 : field === 'etag' ? '0'.repeat(32) + '-1' : undefined } } }
+   return { key, uploadId, async complete(parts: R2UploadedPart[]) { const object = await native.complete(parts); return { ...object, [field]: field === 'size' ? 999 : field === 'etag' ? '0'.repeat(32) + '-1' : { ...object.customMetadata, sha256: 'wrong' } } } }
   } } as unknown as R2Bucket
   const response = await worker.fetch(new Request(base + 'seal', { method: 'POST', headers: auth, body: JSON.stringify({ edit_token: token, publicationId: 'pub', sessionId: 'session', artifact: 'entry', parts: receipts.get('pub:session:entry') }) }), { ...bindings, MEDIA: wrapped })
   expect(response.status).toBe(409)
+ })
+ it.each(['size', 'etag', 'sessionId', 'publicationId', 'sha256'])('fills missing native complete %s only with a strict HEAD proof', async field => {
+  await begin(); await part()
+  let heads = 0
+  const wrapped = { get: media.get.bind(media), async head(key: string) { heads++; return media.head(key) }, resumeMultipartUpload(key: string, uploadId: string) {
+   const native = media.resumeMultipartUpload(key, uploadId)
+   return { key, uploadId, async complete(parts: R2UploadedPart[]) {
+    const object = await native.complete(parts), partial = { ...object, customMetadata: { ...object.customMetadata } } as any
+    if (field === 'size') partial.size = undefined
+    else if (field === 'etag') partial.etag = null
+    else delete partial.customMetadata[field]
+    return partial
+   } }
+  } } as unknown as R2Bucket
+  const response = await worker.fetch(new Request(base + 'seal', { method: 'POST', headers: auth, body: JSON.stringify({ edit_token: token, publicationId: 'pub', sessionId: 'session', artifact: 'entry', parts: receipts.get('pub:session:entry') }) }), { ...bindings, MEDIA: wrapped })
+  expect(response.status).toBe(200); expect((await response.json() as any).upload.sealed).toEqual(['entry']); expect(heads).toBe(2)
+ })
+ it.each(['size', 'etag', 'sessionId', 'publicationId', 'sha256'])('rejects existing native complete %s mismatch before HEAD can mask it', async field => {
+  await begin(); await part()
+  let heads = 0
+  const wrapped = { get: media.get.bind(media), async head(key: string) { heads++; return media.head(key) }, resumeMultipartUpload(key: string, uploadId: string) {
+   const native = media.resumeMultipartUpload(key, uploadId)
+   return { key, uploadId, async complete(parts: R2UploadedPart[]) {
+    const object = await native.complete(parts), partial = { ...object, customMetadata: { ...object.customMetadata } } as any
+    if (field === 'size') partial.size = 999
+    else if (field === 'etag') partial.etag = 'bad'
+    else partial.customMetadata[field] = 'wrong'
+    // Another missing field must not let a contradictory field escape via HEAD.
+    if (field !== 'size') partial.size = undefined
+    else delete partial.customMetadata.sha256
+    return partial
+   } }
+  } } as unknown as R2Bucket
+  const response = await worker.fetch(new Request(base + 'seal', { method: 'POST', headers: auth, body: JSON.stringify({ edit_token: token, publicationId: 'pub', sessionId: 'session', artifact: 'entry', parts: receipts.get('pub:session:entry') }) }), { ...bindings, MEDIA: wrapped })
+  expect(response.status).toBe(409); expect((await response.json() as any).error).toBe(`artifact_${field}_mismatch`); expect(heads).toBe(1)
+ })
+ it.each(['size', 'etag', 'sessionId', 'publicationId', 'sha256'])('requires complete recovery HEAD %s when complete omits custom metadata', async field => {
+  await begin(); await part()
+  const wrapped = { get: media.get.bind(media), async head(key: string) {
+   const object = await media.head(key)
+   if (!object) return null
+   const partial = { ...object, customMetadata: { ...object.customMetadata } } as any
+   if (field === 'size' || field === 'etag') partial[field] = undefined
+   else delete partial.customMetadata[field]
+   return partial
+  }, resumeMultipartUpload(key: string, uploadId: string) {
+   const native = media.resumeMultipartUpload(key, uploadId)
+   return { key, uploadId, async complete(parts: R2UploadedPart[]) { const object = await native.complete(parts); return { ...object, customMetadata: undefined } } }
+  } } as unknown as R2Bucket
+  const response = await worker.fetch(new Request(base + 'seal', { method: 'POST', headers: auth, body: JSON.stringify({ edit_token: token, publicationId: 'pub', sessionId: 'session', artifact: 'entry', parts: receipts.get('pub:session:entry') }) }), { ...bindings, MEDIA: wrapped })
+  expect(response.status).toBe(409); expect((await response.json() as any).error).toBe(`artifact_${field}_missing`)
+ })
+ it.each(['entry', 'full'])('uses one extra HEAD for %s seal when native complete omits custom metadata', async phase => {
+  if (phase === 'full') { await publish(); await fullBegin({}); await part('reader', { 'X-Upload-Session': 'full', 'X-Artifact': 'reader' }) }
+  else { await begin(); await part() }
+  const calls: string[] = []
+  const wrapped = { get(key: string) { calls.push('get'); return media.get(key) }, head(key: string) { calls.push('head'); return media.head(key) }, resumeMultipartUpload(key: string, uploadId: string) {
+   const native = media.resumeMultipartUpload(key, uploadId)
+   return { key, uploadId, async complete(parts: R2UploadedPart[]) { calls.push('complete'); const object = await native.complete(parts); return { ...object, customMetadata: null } } }
+  } } as unknown as R2Bucket
+  const response = await worker.fetch(new Request(base + 'seal', { method: 'POST', headers: auth, body: JSON.stringify({ edit_token: token, publicationId: 'pub', sessionId: phase === 'full' ? 'full' : 'session', artifact: phase === 'full' ? 'reader' : 'entry', parts: receipts.get(phase === 'full' ? 'pub:full:reader' : 'pub:session:entry') }) }), { ...bindings, MEDIA: wrapped })
+  expect(response.status).toBe(200)
+  expect(calls).toEqual(phase === 'full' ? ['get', 'head', 'complete', 'head', 'get', 'head'] : ['get', 'head', 'complete', 'head', 'get'])
+ })
+ it('does not classify a complete exception and absent recovery HEAD as a field mismatch', async () => {
+  await begin(); await part()
+  const wrapped = { get: media.get.bind(media), head: media.head.bind(media), resumeMultipartUpload(key: string, uploadId: string) {
+   return { key, uploadId, async complete() { throw new Error('temporary complete failure') } }
+  } } as unknown as R2Bucket
+  const response = await worker.fetch(new Request(base + 'seal', { method: 'POST', headers: auth, body: JSON.stringify({ edit_token: token, publicationId: 'pub', sessionId: 'session', artifact: 'entry', parts: receipts.get('pub:session:entry') }) }), { ...bindings, MEDIA: wrapped })
+  expect(response.status).toBe(409); expect((await response.json() as any).error).toBe('Artifact incomplete or checksum mismatch')
  })
  it('keeps closure hints separate from native seal commit and receipt validation', async () => {
   await begin()
@@ -283,6 +354,21 @@ describe('native multipart project publication', () => {
   expect(await (await SELF.fetch('http://x/' + slug)).text()).toBe('old KV')
   const state = await (await media.get(projectStateKey(slug)))!.json() as any
   expect(state.active.htmlKey).toBe(`project-share/${slug}/legacy/migration/legacy.html`)
+ })
+ it.each(['size', 'migrationId', 'snapshotId'])('strictly rejects missing legacy PUT %s without a fallback HEAD', async field => {
+  await bindings.SHARES.put(slug, 'old KV', { metadata: { edit_token: token, project_id: 'project', feedback_token_hash: 'b'.repeat(64), expires_at: null, size_bytes: 6 } })
+  let heads = 0
+  const wrapped = { get: media.get.bind(media), async head(key: string) { heads++; return media.head(key) }, async put(key: string, value: any, options: any) {
+   const object = await media.put(key, value, options)
+   if (!key.endsWith('/legacy.html')) return object
+   const partial = { ...object, customMetadata: { ...object!.customMetadata } } as any
+   if (field === 'size') partial.size = undefined
+   else delete partial.customMetadata[field]
+   return partial
+  } } as unknown as R2Bucket
+  const response = await worker.fetch(new Request(base + 'begin', { method: 'POST', headers: auth, body: JSON.stringify({ edit_token: token, project_id: 'project', feedback_token_hash: 'b'.repeat(64), publicationId: 'pub', previousPublicationId: null, sessionId: 'session', phase: 'entry', snapshotId: 'entry', entry: 'README.md', title: 'Project', expires_in_seconds: 3600, artifacts: [plan], legacy: { migrationId: 'migration', snapshotId: 'old', expires_at: null } }) }), { ...bindings, MEDIA: wrapped })
+  expect(response.status).toBe(409); expect(heads).toBe(1)
+  expect(await media.head(projectStateKey(slug))).toBeNull()
  })
  it('rejects absent known length and excessive control bodies before uploading', async () => {
   await begin()
