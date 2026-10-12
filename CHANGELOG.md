@@ -7,6 +7,16 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+### Fixed
+
+- **Project sharing resumes interrupted uploads by part.** The entry page becomes readable first, and the full project replaces it only after both uploads are confirmed. ZIP downloads contain only the approved documents and attachments.
+- **MEMORY.md and USER.md stop being rewritten during unchanged syncs.** Valid projections are reused until their source or time boundaries change.
+- **Heading links work in the Rich editor.** In-document links locate headings, including Chinese text and punctuation.
+
+### Added
+
+- **Agency is available from the plugin market.** Review collaboration with source quotations, generate a date range in a resumable daily queue, and start or stop the same queue from the CLI. Updated Claude, Codex and DeepSeek plugins support its isolated analysis tasks.
+
 ## v6.1012.1 — 2026-10-12
 
 ### Fixed
