@@ -162,10 +162,14 @@ export function createProjectReview(projectId: string, deps: ReviewDependencies)
     return annotationJob
   }
   async function flush() {
+    // Either IPC can admit new decisions while awaited; drain both again.
+    do {
+      stopTimer()
+      if (saveJob) await saveJob
+      if (draftDirty) await saveDraft()
+      if (annotationQueue.length || annotationJob) await saveAnnotations()
+    } while (draftDirty || saveJob || annotationQueue.length || annotationJob)
     stopTimer()
-    if (saveJob) await saveJob
-    while (draftDirty) await saveDraft()
-    if (annotationQueue.length || annotationJob) await saveAnnotations()
   }
   async function refresh(epoch: number, candidates: Record<string, unknown>) {
     const fresh = await deps.command<ReviewFile>('review', { project_id: projectId, submissionId: submission(), path })

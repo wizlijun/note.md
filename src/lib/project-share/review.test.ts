@@ -326,3 +326,46 @@ it('keeps points and nested selections inside a visitor highlight outside its ge
   expect(h.current).toBe('{==ABCDE==}{>>访客：whole<<}{>>访客：inside<<}{>>访客：point<<}')
   await h.session.destroy()
 })
+
+it.each(['destroy', 'open', 'switch-project'] as const)('drains decisions made while %s awaits annotation persistence', async leave => {
+  const h = fixture()
+  h.f.envelope.payload.annotations = [{ path: 'a.md', quote: '丙', comment: 'note' }]
+  await h.session.open(h.f, 'a.md')
+  const original = h.deps.command, annotationGate = deferred<void>(), draftGate = deferred<void>()
+  let annotationStarted = false, draftStarted = false, left = false
+  h.deps.command = async (op, args) => {
+    if (op === 'annotation-decide') { annotationStarted = true; await annotationGate.promise }
+    if (op === 'review-save') { draftStarted = true; await draftGate.promise }
+    return original(op, args)
+  }
+  const dismissing = h.session.dismissAnnotation(0)
+  await vi.waitFor(() => expect(annotationStarted).toBe(true))
+  const leaving = (async () => {
+    if (leave === 'open') await h.session.open(feedback('next'), 'a.md')
+    else await h.session.destroy()
+    left = true
+  })()
+  // The annotation IPC is outstanding; edits are still allowed in the old session.
+  const id = h.session.proposal!.hunks.find(hunk => hunk.kind === 'theirs-only')!.id
+  h.session.decide(id, { kind: 'theirs-only', choice: 'accept' })
+  annotationGate.resolve(); await dismissing
+  await vi.waitFor(() => expect(draftStarted).toBe(true))
+  expect(left).toBe(false)
+  expect(h.session.feedback!.envelope.payload.submissionId).toBe('one')
+  draftGate.resolve(); await leaving
+  const saves = h.calls.filter(call => call.op === 'review-save')
+  expect(saves).toHaveLength(1)
+  expect(saves[0].args).toMatchObject({ project_id: 'p', submissionId: 'one', path: 'a.md', draft: { hunks: { [id]: { kind: 'theirs-only', choice: 'accept' } } } })
+  expect(h.session.dirty).toBe(false)
+  if (leave === 'open') {
+    expect(h.session.feedback!.envelope.payload.submissionId).toBe('next')
+    await h.session.destroy()
+  } else {
+    expect(h.session.phase).toBe('destroyed')
+    if (leave === 'switch-project') {
+      const next = createProjectReview('next-project', h.deps)
+      expect(next.phase).toBe('idle')
+      await next.destroy()
+    }
+  }
+})
