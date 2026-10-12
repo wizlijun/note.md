@@ -2,7 +2,7 @@
 
 日期：2026-10-12。起点：`ce070741`。工作位置：当前 `main`，未创建 worktree。
 
-状态：十个 P0 实现任务均通过独立规格与质量审查；全量及原生功能验收通过，整轮最终审查待完成。
+状态：**P0 已完成**。十个实现任务均通过独立规格与质量审查；整轮审查发现的 4 项 Important、2 项 Minor 已统一修复于 `c0a63477d979cfd1123498baaf72478ad031f0c8`，唯一一次定向复审全部 ADDRESSED，无新增问题，Ready: Yes / spec + quality: Approved。最终产品代码全量检查通过。
 
 范围：[P0 实施计划](../plans/2026-10-12-project-share-review-merge-p0.md)。基于已批准 spec，实现现有 v1 外部反馈的三方逐处审阅、批注提升和安全写回。P1 Git、P2 协议/回执、E1–E4 访客富编辑与离线协作、P3 未在本轮实施。Worker 与访客协议保持既有版本。
 
@@ -35,7 +35,7 @@ Chrome 154.0.8037.99，真实生产 Svelte 组件、session、merge Worker、DOM
 - 渲染隐藏字符与实体解码字符显示 code point，原文不变，自动资源请求仍为 0。
 - root 实际查看 800px 深色审阅和全文确认截图。
 
-## 原生与全量最终验收
+## 原生验收与最终全量检查
 
 真实隔离 Tauri 2.11.1/Wry/WKWebView 挂载生产 Dialog/ProjectReview/session/merge Worker，真实 fs/store/os/dialog plugins 和 Rust dispatch。测试驱动未替换 Tauri bridge。随机 `net.notemd.task10.*` identifier、incognito WebView、managed 临时 Vault，未启动用户正式宿主。root 已独立核对 main/edges result.json、有效 expectedHash 的 scope 拒绝、nativeDialogCancel trace、各命令退出码及 cleanup。
 
@@ -52,22 +52,24 @@ OS 级手工鼠标、焦点、AX 与原生截图未验证：CUA 按精确独立 
 
 | 最终命令 | exit | 实际结果 |
 | --- | --- | --- |
-| pnpm test | 0 | 321 suites / 3809 passed |
+| pnpm test | 0 | 321 suites / 3832 passed |
 | cargo test --manifest-path src-tauri/Cargo.toml | 0 | 1383 passed，1194 lib，22 targets，0 failed/ignored |
 | pnpm --dir worker test | 0 | 8 suites / 255 passed |
 | pnpm check | 0 | 0 errors / 33 warnings in 16 files |
 | pnpm build | 0 | 14 production TS purity gate、版本核对、Vite、Editor Kit build OK |
 | git diff --check | 0 | 无空白错误 |
 
-前端首轮全量有一次 release-plugins 既有重试用例 5000ms 超时（实际 7773ms，3808 passed/1 failed）；与原生编译/启动重叠，资源竞争仅推测。保留该失败后，在原生退出、未改代码/阈值/测试的条件下完整复跑一次通过，没有不断抽样到绿。
+上表是修复终态 `c0a63477` 的全量结果，由 root 逐项读取日志和退出码，严格顺序执行；Rust 22 targets 合计 1383，0 failed/ignored。此次全量没有失败。早先任务 10 的真实原生验收在 `3e98554f`，最终 JavaScript 修复另由下节实际 Chrome 父子组件/Worker 验证，不将先前原生运行冒称本次修复的原生复验。
 
-隔离 fixture/.app/data/config/cache/进程均回收，专有 harness target 产物按精确 crate 名删除，共享 target/依赖与用户已有文件保留。临时日志待整轮审查后清理，关键结果与裁定保存于本记录。
+任务 10 前端首轮全量有一次 release-plugins 既有重试用例 5000ms 超时（实际 7773ms，3808 passed/1 failed）；与原生编译/启动重叠，资源竞争仅推测。保留该失败后，在原生退出、未改代码/阈值/测试的条件下完整复跑一次通过，没有不断抽样到绿。
 
-## 基线告警及待最终审查项目
+隔离 fixture/.app/data/config/cache/进程均回收，专有 harness target 产物按精确 crate 名删除，共享 target/依赖与用户已有文件保留。临时日志及截图在整轮复审与记录完成后按 Superpowers 只清理本计划 workspace；关键结果与全部裁定保存于本记录。
+
+## 基线告警及性能边界
 
 svelte-check 基线为 0 errors / 33 warnings in 16 files；已有 happy-dom CSS/AsyncTaskManager、Rust unused import、构建 chunk、workerd 运行时噪声按实际全量结果记录，不表述为无警告。
 
-最终审查需处理：高重合模糊 anchor 的 Worker 响应性；组件快捷键测试的事件监听范围；风险未决状态文案；既有告警范围。此处未预先判定这些项目可忽略。
+root 逐条比较基线与修复终态 svelte-check 的文件名/诊断文本多重集合：33→33 完全相同，无新增或删除。快捷键测试范围和风险状态文案在本次统一修复，见下节。高重合模糊 anchor 仍有单条约 1743ms 的既有计算边界；内核搜索阈值不变，在现有 Worker 异步批次中计算，loading 期间可安全关闭并取消、迟到结果隔离。此处不宣称模糊搜索算法已提速。
 
 ## P0 覆盖矩阵
 
@@ -135,7 +137,24 @@ svelte-check 基线为 0 errors / 33 warnings in 16 files；已有 happy-dom CSS
 
 ## 整轮最终审查
 
-待完成。审查范围固定从 ce070741 到本轮交付，包含全部产品与测试改动；此前任务审查不代替这一 gate。
+整轮独立审查：`ce070741..1957385a`，完整 482039-byte 差异包，结论 With fixes：0 Critical、4 Important、2 Minor。统一修复：`1957385a..c0a63477`，11 文件，254 增加/59 删除；唯一一次定向复审使用 49223-byte 完整修复差异包。独立复审结论：六条全部 ADDRESSED，无新 Critical/Important/Minor，无范围外 finding，无 parked finding；Ready: Yes / spec + quality: Approved。root 已完整读取报告并核对证据，之前逐任务 Approved 未代替本 gate。
+
+| Finding | 修复与覆盖证据 |
+| --- | --- |
+| I1 切文件丢失刚保存的决定 | UI flush 后按 submissionId 获取最新对象；controller 同提交重开不恢复过期引用。覆盖 a→a、a→b→a、保存中追加手改，实际组件和 Chrome 恢复已接受。 |
+| I2 未闭合原子语法平方扫描 | HTML 三态引号结束索引、按需构建 link destination 三态括号索引，保留转义/嵌套/label 语义。已实测同类 `[x](` 路径按 Ruling 13 纳入同一波次。 |
+| I3 裸 CR frontmatter 绕过信任字段保护 | 删除 host 自有正则，复用内核 sourceLines/frontmatterTokens。LF/CRLF/CR × BOM/无 BOM × `---`/`...` 共 12 组及 compose 后重锚定入 verified 字段均拒绝提升；原文不被插入 CriticMarkup。 |
+| I4 批注定位时整个 Dialog 无法退出 | 父层 loading 可完成/Escape/切项目，文件导航仍串行，writing 仍锁；flush、generation/cancel/dispose、并发 destroy 幂等、读取迟到不启动 compute 均有覆盖。 |
+| M1 输入快捷键测试范围失真 | 输入节点置于真正监听 region，a/r/e/j/k/⌘Enter 不改决定/焦点、不打开编辑或确认；普通 region 快捷键仍生效。 |
+| M2 风险未决状态文案 | 显示「需单独确认」，保留风险徽标和单项二次接受，覆盖单项及接受全部后状态。 |
+
+正式 RED：三份定向运行分别 13 failed/60 passed、1 failed/34 passed、同类 link 1 failed/15 passed，exit 1；修复终态定向 15 suites/221 tests，exit 0。M1 是测试失真修正，不声称原 guard 有缺陷。
+
+等价核验：直接读取 `1957385a` 的旧 tokenizer，对 **6000 组完整 Token[]、600 组完整 MergeProposal（含所有 ID）、240 组 HTML/link/引号/反斜线/括号组合**逐对象 deepEqual，全部一致；保留 kernel version 1。Node 内生产 tokenizer：未闭合 `<` 8k/16k/32k/64k 约 0.93/1.92/3.75/7.68ms；未闭合 link 4k/8k/16k/32k 字节约 0.39/0.72/1.46/2.94ms（修前约 12/47/183/714ms）。这些是测量样本，不冒称原生运行时上界。
+
+最终 Chrome 154.0.8037.99 实际生产父子组件、modalFocus、Worker 配隔离内存 bridge：a→b→a 恢复、loading 完成关闭、Escape、关闭重开后迟到隔离、writing 确认期间完成/切项目禁用全部通过，自动外网请求和 pageErrors 均为空。root 读取 results.json/日志/退出码并目视核对恢复与 loading 截图；此层不冒称真实文件/IPC 或原生 OS 键盘验收。所有临时 context/browser/Vite 已退出，未使用用户 profile。
+
+保留早期失败说明：一次预检新增 TS narrowing 错误后修正；首次 GREEN 的 7 个 UI 用例依赖旧 isBusy 等待条件，改为等待实际文件导航；隔离等价脚本 esbuild 解析与浏览器 fixture 注入 `as any` 的启动错误均只修 fixture。少数早期尝试日志被后续同名运行覆盖，故不声称保存了每一次原始日志；三份正式 RED 和最终六项全量原始日志在清理前均由报告/root 核对。未改测试阈值、跳过用例或修改 anchor 相似度。
 
 ## Rulings I made
 
@@ -164,3 +183,11 @@ Ruling: Restrict manual hunk editing and e shortcut to conflict; theirs-only exp
 Ruling: Use the real isolated Wry/WKWebView DOM driver for functional native UI→IPC→disk acceptance after CUA getApp fails cgWindowNotFound with both exact bundle ID and temporary .app path; keep OS-level manual focus/first-mouse and native screenshots explicitly unverified — real command/storage behavior remains testable without touching the user app or system permissions — cost if wrong: OS-level interaction/visual regressions may remain until a working desktop session permits manual verification; never label that gap passed.
 
 Ruling: Amend Task10 Step2 manual-only method to real isolated Wry UI automation with actual IPC/disk, preserving OS manual checks as explicitly unverified — the plan introduced this stronger method; binding spec §17 WP0.3 requires R1–R10 functional tests and reserves explicit manual IME acceptance for excluded E1 — cost if wrong: OS interaction regressions remain possible and need later desktop manual checks; no test threshold, product invariant or native functional assertion is relaxed.
+
+Ruling: Include the measured unmatched balancedEnd `[x](` failure rescans in I2 during the existing single final-fix wave — the frozen final finding explicitly requires checking the same class of failed rescans, and 4k/8k/16k/32k bytes measured12/47/183/714ms — cost if wrong: additional parser indexing complexity/memory; preserve escape, nesting and label contexts and prove complete token/proposal/ID equivalence before retaining kernel_version1. This does not authorize another fix wave or broader parser optimization.
+
+## 交付与清理
+
+最终产品提交：`c0a63477d979cfd1123498baaf72478ad031f0c8`，当前 main。后续收尾仅更新本验证记录与计划，不改变受测产品/测试代码，因此不重复全量。已按 Superpowers finishing 流程核验现有 main 与普通仓库位置，沿用用户事先明确的 main/no-worktree 授权，无额外分支、合并、push、部署或应用发版。
+
+完成归档后只移除本计划 `.superpowers/sdd/2026-10-12-project-share-review-merge-p0` 临时 workspace；兄弟计划、原有 `.pnpm-store/`、6 份未跟踪设计文件及此前强制同步备份均保留。当前无本轮 QA Chrome/Vite/native harness 进程。P1/P2/E1–E4/P3 与 OS 人工交互边界按上文明确保留。
