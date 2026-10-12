@@ -44,6 +44,8 @@ export interface ProjectState {
   active: Version | null
   upload?: UploadSession
   retired?: RetiredUpload[]
+  cleanup_cursor?: number
+  cleanup_next_revoked?: boolean
   entry_deadline?: string
   publication_expires_at?: string | null
   expires_in_seconds?: number | null

@@ -88,36 +88,33 @@ function retireOld(slug: string, state: ProjectState, before: ProjectState): voi
     .filter((k): k is string => !!k && !references(state).has(k) && !state.retired?.some(s => s.artifacts.some(a => a.key === k)))
   if (old.length) retire(state, { sessionId: 'old_' + crypto.randomUUID(), artifacts: [...new Set(old)].map(key => ({ key })) })
 }
-// A request cleans at most one recorded session; failures preserve its exact keys.
-async function cleanupOne(env: Env, slug: string): Promise<void> {
+// Clean one exact artifact per request; CAS failure leaves its record for retry.
+async function cleanupOne(env: Env, slug: string, loaded: Loaded): Promise<boolean> {
+  const retired = loaded.state.schemaVersion === 2 && loaded.state.retired?.find(session => session.artifacts.every(a => !references(loaded.state).has(a.key)))
+  const artifact = retired && retired.artifacts[0]
+  if (!retired || !artifact) return false
   try {
-    const loaded = await readProjectState(env, slug)
-    if (!loaded || loaded.state.schemaVersion !== 2) return
-    const retired = loaded.state.retired?.find(session => session.artifacts.every(a => !references(loaded.state).has(a.key)))
-    if (!retired) return
-    let safeToForget = true
-    for (const artifact of retired.artifacts) {
-      const current = await readProjectState(env, slug)
-      if (!current || references(current.state).has(artifact.key) || !current.state.retired?.some(s => s.sessionId === retired.sessionId)) return
-      if (!artifact.key.startsWith(`project-share/${slug}/`) || artifact.key.endsWith('/state.json')) return
-      if (artifact.uploadId) {
-        // A completed object's uploadId is consumed. An absent object may still
-        // belong to a complete in flight, so retain its key through MPU lifetime.
-        if (!await env.MEDIA.head(artifact.key) && retired.retain_until && alive(retired.retain_until)) safeToForget = false
-        try { await env.MEDIA.resumeMultipartUpload(artifact.key, artifact.uploadId).abort() }
-        catch (e) { if (!missingUpload(e)) throw e }
-      }
-      await env.MEDIA.delete(artifact.key)
+    if (!artifact.key.startsWith(`project-share/${slug}/`) || artifact.key.endsWith('/state.json')) return true
+    const object = artifact.uploadId ? await env.MEDIA.head(artifact.key) : undefined
+    const current = await readProjectState(env, slug)
+    if (!current || references(current.state).has(artifact.key)
+      || !current.state.retired?.some(s => s.sessionId === retired.sessionId && s.artifacts.some(a => a.key === artifact.key))) return true
+    // HEAD proves completion consumed the uploadId. An absent object may still
+    // have a complete in flight, so keep its exact key through the MPU lifetime.
+    const retain = !!artifact.uploadId && !object && !!retired.retain_until && alive(retired.retain_until)
+    if (artifact.uploadId && !object) {
+      try { await env.MEDIA.resumeMultipartUpload(artifact.key, artifact.uploadId).abort() }
+      catch (e) { if (!missingUpload(e)) throw e }
     }
-    if (!safeToForget) {
-      const fresh = await readProjectState(env, slug)
-      if (fresh) await writeState(env, slug, { ...fresh.state, retired: [...fresh.state.retired?.filter(s => s.sessionId !== retired.sessionId) ?? [], retired] }, fresh.etag)
-      return
-    }
-    const fresh = await readProjectState(env, slug)
-    if (!fresh) return
-    await writeState(env, slug, { ...fresh.state, retired: fresh.state.retired?.filter(s => s.sessionId !== retired.sessionId) }, fresh.etag)
+    if (!artifact.uploadId || object) await env.MEDIA.delete(artifact.key)
+    const recorded = current.state.retired.find(s => s.sessionId === retired.sessionId)!
+    const artifacts = recorded.artifacts.filter(a => a.key !== artifact.key)
+    if (retain) artifacts.push(artifact)
+    const remaining = current.state.retired.filter(s => s.sessionId !== retired.sessionId)
+    if (artifacts.length) remaining.push({ ...recorded, artifacts })
+    await writeState(env, slug, { ...current.state, retired: remaining, ...(current.state.revoked ? { cleanup_next_revoked: true } : {}) }, current.etag)
   } catch { /* Cleanup is recoverable and never changes publication success. */ }
+  return true
 }
 function missingUpload(e: unknown): boolean { return /NoSuchUpload|10024|does not exist|not found|already completed|already aborted/i.test(String(e)) }
 async function headArtifact(env: Env, session: UploadSession, artifact: UploadArtifact): Promise<R2Object | null> {
@@ -179,16 +176,12 @@ async function begin(env: Env, slug: string, args: Begin, origin: string): Promi
   let loaded = await readProjectState(env, slug), state: ProjectState
   if (loaded) {
     await checkOwner(loaded.state, args.edit_token)
-    if (loaded.state.retired?.length) {
-      await cleanupOne(env, slug)
-      loaded = await readProjectState(env, slug)
-      if (loaded) await checkOwner(loaded.state, args.edit_token)
-    }
+    if (loaded.state.publicationId === args.publicationId) usable(loaded.state, args.publicationId)
+    if ((loaded.state.retired?.length ?? 0) >= MAX_RETIRED - 1 && await cleanupOne(env, slug, loaded)) error(409, 'cleanup_progress')
   }
   if (loaded) {
     if (loaded.state.project_id !== args.project_id || loaded.state.feedback_token_hash && loaded.state.feedback_token_hash !== args.feedback_token_hash) error(409, 'Project identity changed')
     if (loaded.state.publicationId === args.publicationId) {
-      usable(loaded.state, args.publicationId)
       const entry = loaded.state.entry, proof = entry?.upload
       if (proof?.sessionId === args.sessionId) {
         if (args.phase !== 'entry' || entry!.publicationId !== args.publicationId || entry!.snapshotId !== args.snapshotId
@@ -379,28 +372,36 @@ export async function revokeUpload(env: Env, slug: string, loaded: Loaded, reque
   if (extra.length) state.cleanup = [...new Set([...state.cleanup ?? [], ...extra])]
   try {
     await writeState(env, slug, state, loaded.etag)
-    await cleanupRevoked(env, slug)
+    await cleanupRevoked(env, slug, { state, etag: '' })
     return { status: 204, publicationId: state.publicationId }
   } catch (e) { if (e instanceof HttpError) return { status: e.status }; throw e }
 }
-async function cleanupRevoked(env: Env, slug: string): Promise<void> {
-  // Keep these exact keys in the tombstone for a complete that finishes late.
+async function cleanupRevoked(env: Env, slug: string, loaded: Loaded): Promise<boolean> {
+  if (!loaded.state.revoked) return false
+  // Keep exact keys in the tombstone, including after successful deletion, for late completes.
+  const seen = new Set<string>()
+  const artifacts = [...loaded.state.upload?.artifacts ?? [],
+    ...[loaded.state.active?.htmlKey, loaded.state.active?.archiveKey, ...loaded.state.cleanup ?? []].filter((key): key is string => !!key).map(key => ({ key, uploadId: undefined }))]
+    .filter(artifact => { if (seen.has(artifact.key)) return false; seen.add(artifact.key); return true })
+  if (!artifacts.length) return false
+  const cursor = (loaded.state.cleanup_cursor ?? 0) % artifacts.length, artifact = artifacts[cursor]
   try {
-    const loaded = await readProjectState(env, slug)
-    if (!loaded?.state.revoked) return
-    const artifacts = [...loaded.state.upload?.artifacts ?? [],
-      ...[loaded.state.active?.htmlKey, loaded.state.active?.archiveKey, ...loaded.state.cleanup ?? []].filter((key): key is string => !!key).map(key => ({ key, uploadId: undefined }))]
-    for (const artifact of artifacts) {
-      const current = await readProjectState(env, slug)
-      if (!current || references(current.state).has(artifact.key)) continue
-      const recorded = current.state.revoked && (current.state.upload?.artifacts.some(a => a.key === artifact.key)
-        || current.state.active?.htmlKey === artifact.key || current.state.active?.archiveKey === artifact.key || current.state.cleanup?.includes(artifact.key))
-        || current.state.retired?.some(s => s.artifacts.some(a => a.key === artifact.key))
-      if (!recorded) continue
-      if (artifact.uploadId) try { await env.MEDIA.resumeMultipartUpload(artifact.key, artifact.uploadId).abort() } catch (e) { if (!missingUpload(e)) throw e }
-      await env.MEDIA.delete(artifact.key)
+    if (!artifact.key.startsWith(`project-share/${slug}/`) || artifact.key.endsWith('/state.json')) return true
+    const object = artifact.uploadId ? await env.MEDIA.head(artifact.key) : undefined
+    const current = await readProjectState(env, slug)
+    if (!current || references(current.state).has(artifact.key)) return true
+    const recorded = current.state.revoked && (current.state.upload?.artifacts.some(a => a.key === artifact.key)
+      || current.state.active?.htmlKey === artifact.key || current.state.active?.archiveKey === artifact.key || current.state.cleanup?.includes(artifact.key))
+      || current.state.retired?.some(s => s.artifacts.some(a => a.key === artifact.key))
+    if (!recorded) return true
+    if (artifact.uploadId && !object) try { await env.MEDIA.resumeMultipartUpload(artifact.key, artifact.uploadId).abort() } catch (e) { if (!missingUpload(e)) throw e }
+    if (!artifact.uploadId || object) await env.MEDIA.delete(artifact.key)
+    // A successor may have retired the key. Never overwrite its new cleanup progress.
+    if (current.state.revoked && current.state.publicationId === loaded.state.publicationId) {
+      await writeState(env, slug, { ...current.state, cleanup_cursor: (cursor + 1) % artifacts.length, cleanup_next_revoked: false }, current.etag)
     }
   } catch { /* Exact keys remain in tombstone for status/stop retry. */ }
+  return true
 }
 export async function handleProjectUpload(req: Request, env: Env, url: URL): Promise<Response> {
   const match = /^\/project\/(\d{4}-\d{2}-\d{2}-[a-z0-9-]{1,50}(?:-[a-zA-Z0-9]{2,4})?)\/upload\/(begin|part|seal|commit|status|legacy)$/.exec(url.pathname)
@@ -421,8 +422,10 @@ export async function handleProjectUpload(req: Request, env: Env, url: URL): Pro
       let loaded = await readProjectState(env, slug)
       if (!loaded) return await legacy(env, slug, args?.edit_token, false)
       await checkOwner(loaded.state, args?.edit_token)
-      await cleanupOne(env, slug)
-      if (loaded.state.revoked) await cleanupRevoked(env, slug)
+      const processed = loaded.state.revoked && loaded.state.cleanup_next_revoked
+        ? await cleanupRevoked(env, slug, loaded) || await cleanupOne(env, slug, loaded)
+        : await cleanupOne(env, slug, loaded) || loaded.state.revoked && await cleanupRevoked(env, slug, loaded)
+      if (!processed) return await receipt(env, slug, loaded, url.origin)
       loaded = (await readProjectState(env, slug))!
       return await receipt(env, slug, loaded, url.origin)
     }

@@ -26,6 +26,16 @@ async function part(body = 'hello', extra = {}) {
  return response
 }
 async function publish() { expect((await begin()).status).toBe(200); expect((await part()).status).toBe(200); expect((await op('seal', { artifact: 'entry' })).status).toBe(200); return op('commit') }
+async function cleanupStatus(hooks: Partial<R2Bucket> = {}) {
+ const calls: string[] = []
+ const counted = { get(key: string) { calls.push('get'); return media.get(key) }, head(key: string) { calls.push('head'); return media.head(key) },
+  put(key: string, value: any, options: any) { calls.push('put'); return media.put(key, value, options) },
+  delete(key: string) { calls.push('delete'); return media.delete(key) },
+  resumeMultipartUpload(key: string, uploadId: string) { const native = media.resumeMultipartUpload(key, uploadId); return { key, uploadId, abort() { calls.push('abort'); return native.abort() } } }, ...hooks,
+ } as unknown as R2Bucket
+ const response = await worker.fetch(new Request(base + 'status', { method: 'POST', headers: auth, body: JSON.stringify({ edit_token: token }) }), { ...bindings, MEDIA: counted })
+ return { response, calls }
+}
 describe('native multipart project publication', () => {
  it('registers before upload, hides uncommitted entry, and commits idempotently', async () => {
   expect((await begin()).status).toBe(200)
@@ -325,11 +335,113 @@ describe('native multipart project publication', () => {
   calls.length = 0
   const next = { publicationId: 'next', previousPublicationId: 'pub', sessionId: 'nextEntry', snapshotId: 'nextEntry' }
   expect((await start(next)).status).toBe(200)
-  expect(calls).toEqual(['get', 'get', 'get', 'head', 'abort', 'delete', 'get', 'put', 'get', 'put', 'create', 'get', 'put'])
+  expect(calls).toEqual(['get', 'put', 'create', 'get', 'put'])
   await part('hello', { 'X-Publication-Id': 'next', 'X-Upload-Session': 'nextEntry' }); await op('seal', { ...next, artifact: 'entry' }); await op('commit', next)
   calls.length = 0
   expect((await start({ ...next, phase: 'full', sessionId: 'nextFull', snapshotId: 'nextFull', artifacts: [readerPlan, zipPlan] })).status).toBe(200)
-  expect(calls).toEqual(['get', 'get', 'get', 'put', 'create', 'get', 'put', 'create', 'get', 'put'])
+  expect(calls).toEqual(['get', 'put', 'create', 'get', 'put', 'create', 'get', 'put'])
+ })
+ it('cleans one completed retired artifact within six calls without aborting its consumed uploadId', async () => {
+  await publish()
+  const state = await (await media.get(projectStateKey(slug)))!.json() as any
+  const keys = ['one', 'two'].map(name => `project-share/${slug}/retired/${name}`)
+  for (const key of keys) await media.put(key, 'obsolete')
+  state.retired = [{ sessionId: 'retired', artifacts: keys.map(key => ({ key, uploadId: 'consumed' })), retain_until: new Date(Date.now() + 86400000).toISOString() }]
+  await media.put(projectStateKey(slug), JSON.stringify(state))
+  const { response, calls } = await cleanupStatus()
+  expect(response.status).toBe(200)
+  expect(calls).toEqual(['get', 'head', 'get', 'delete', 'put', 'get', 'head']) // final HEAD describes the current live upload
+  expect(await media.head(keys[0])).toBeNull(); expect(await media.head(keys[1])).not.toBeNull()
+  const after = await (await media.get(projectStateKey(slug)))!.json() as any
+  expect(after.retired[0].artifacts.map((a: any) => a.key)).toEqual([keys[1]])
+ })
+ it('alternates retained unknown completions with deduplicated revoked artifacts one key at a time', async () => {
+  await publish()
+  const state = await (await media.get(projectStateKey(slug)))!.json() as any
+  const liveKey = state.upload.artifacts[0].key, secondKey = `project-share/${slug}/revoked/second`
+  await media.put(secondKey, 'second')
+  state.revoked = true
+  state.upload.artifacts.push({ ...state.upload.artifacts[0], key: secondKey })
+  const unknown = await media.createMultipartUpload(`project-share/${slug}/unknown`)
+  state.retired = [{ sessionId: 'unknown', artifacts: [{ key: unknown.key, uploadId: unknown.uploadId }], retain_until: new Date(Date.now() + 86400000).toISOString() }]
+  await media.put(projectStateKey(slug), JSON.stringify(state))
+  expect((await cleanupStatus()).calls).toEqual(['get', 'head', 'get', 'abort', 'put', 'get'])
+  expect(await media.head(liveKey)).not.toBeNull()
+  expect((await cleanupStatus()).calls).toEqual(['get', 'head', 'get', 'delete', 'put', 'get'])
+  expect(await media.head(liveKey)).toBeNull(); expect(await media.head(secondKey)).not.toBeNull()
+  await cleanupStatus()
+  expect((await cleanupStatus()).calls).toEqual(['get', 'head', 'get', 'delete', 'put', 'get'])
+  expect(await media.head(secondKey)).toBeNull()
+  const after = await (await media.get(projectStateKey(slug)))!.json() as any
+  expect(after.retired).toHaveLength(1); expect(after.upload.artifacts).toHaveLength(2)
+  await media.put(liveKey, 'late complete')
+  await cleanupStatus(); await cleanupStatus()
+  expect(await media.head(liveKey)).toBeNull()
+ })
+ it('preserves a failed retirement and rechecks a newly referenced object before deletion', async () => {
+  await begin()
+  const key = `project-share/${slug}/retired/object`
+  await media.put(key, 'keep')
+  const state = await (await media.get(projectStateKey(slug)))!.json() as any
+  state.retired = [{ sessionId: 'retired', artifacts: [{ key, uploadId: 'consumed' }] }]
+  await media.put(projectStateKey(slug), JSON.stringify(state))
+  await cleanupStatus({ delete: async () => { throw new Error('storage failure') } } as Partial<R2Bucket>)
+  expect((await (await media.get(projectStateKey(slug)))!.json() as any).retired).toHaveLength(1)
+  await cleanupStatus({ head: async (target: string) => {
+   const object = await media.head(target)
+   if (target === key) { const current = await (await media.get(projectStateKey(slug)))!.json() as any; current.active = { publicationId: 'winner', snapshotId: 'winner', htmlKey: key, entry: 'README.md', title: '', expires_at: null }; await media.put(projectStateKey(slug), JSON.stringify(current)) }
+   return object
+  } } as Partial<R2Bucket>)
+  expect(await media.head(key)).not.toBeNull()
+  expect((await (await media.get(projectStateKey(slug)))!.json() as any).retired).toHaveLength(1)
+ })
+ it('returns cleanup_progress at the retirement threshold without creating another MPU', async () => {
+  await begin()
+  const state = await (await media.get(projectStateKey(slug)))!.json() as any
+  state.retired = Array.from({ length: 7 }, (_, i) => ({ sessionId: `retired${i}`, artifacts: [{ key: `project-share/${slug}/retired/${i}` }] }))
+  await media.put(projectStateKey(slug), JSON.stringify(state))
+  let creates = 0
+  const wrapped = { get: media.get.bind(media), head: media.head.bind(media), delete: media.delete.bind(media), put: media.put.bind(media), async createMultipartUpload() { creates++; throw new Error('must not create') } } as unknown as R2Bucket
+  const response = await worker.fetch(new Request(base + 'begin', { method: 'POST', headers: auth, body: JSON.stringify({ edit_token: token, project_id: 'project', feedback_token_hash: 'b'.repeat(64), publicationId: 'pub', previousPublicationId: null, sessionId: 'replacement', replaceSessionId: 'session', phase: 'entry', snapshotId: 'entry', entry: 'README.md', title: 'Project', expires_in_seconds: 3600, artifacts: [plan] }) }), { ...bindings, MEDIA: wrapped })
+  expect(response.status).toBe(409); expect((await response.json() as any).error).toBe('cleanup_progress')
+  expect(creates).toBe(0)
+  const after = await (await media.get(projectStateKey(slug)))!.json() as any
+  expect(after.upload.sessionId).toBe('session'); expect(after.retired).toHaveLength(6)
+  expect((await begin({ sessionId: 'replacement', replaceSessionId: 'session' })).status).toBe(200)
+ })
+ it('keeps exact retirement records when cleanup loses its progress CAS', async () => {
+  await begin()
+  const key = `project-share/${slug}/retired/cas`
+  await media.put(key, 'obsolete')
+  const state = await (await media.get(projectStateKey(slug)))!.json() as any
+  state.retired = [{ sessionId: 'retired', artifacts: [{ key }] }]
+  await media.put(projectStateKey(slug), JSON.stringify(state))
+  await cleanupStatus({ put: async (target: string, value: any, options: any) => {
+   const winner = await (await media.get(projectStateKey(slug)))!.json() as any
+   winner.publicationId = 'winner'
+   await media.put(projectStateKey(slug), JSON.stringify(winner))
+   return media.put(target, value, options)
+  } } as Partial<R2Bucket>)
+  const after = await (await media.get(projectStateKey(slug)))!.json() as any
+  expect(after.publicationId).toBe('winner'); expect(after.retired[0].artifacts).toEqual([{ key }])
+  expect((await cleanupStatus()).response.status).toBe(200)
+  expect((await (await media.get(projectStateKey(slug)))!.json() as any).retired).toEqual([])
+ })
+ it('checks same-publication revocation and expiry before threshold cleanup', async () => {
+  await begin()
+  const original = await (await media.get(projectStateKey(slug)))!.json() as any
+  for (const guard of [{ revoked: true }, { publication_expires_at: '2000-01-01T00:00:00.000Z' }]) {
+   const state = { ...original, ...guard, retired: Array.from({ length: 7 }, (_, i) => ({ sessionId: `retired${i}`, artifacts: [{ key: `project-share/${slug}/retired/${i}` }] })) }
+   await media.put(projectStateKey(slug), JSON.stringify(state))
+   const calls: string[] = []
+   const wrapped = { get(key: string) { calls.push('get'); return media.get(key) },
+    head: async () => { throw new Error('must not HEAD') }, delete: async () => { throw new Error('must not delete') },
+    put: async () => { throw new Error('must not CAS') }, createMultipartUpload: async () => { throw new Error('must not create') },
+   } as unknown as R2Bucket
+   const response = await worker.fetch(new Request(base + 'begin', { method: 'POST', headers: auth, body: JSON.stringify({ edit_token: token, project_id: 'project', feedback_token_hash: 'b'.repeat(64), publicationId: 'pub', previousPublicationId: null, sessionId: 'session', phase: 'entry', snapshotId: 'entry', entry: 'README.md', title: 'Project', expires_in_seconds: 3600, artifacts: [plan] }) }), { ...bindings, MEDIA: wrapped })
+   expect(response.status).toBe(410); expect(calls).toEqual(['get'])
+   expect((await (await media.get(projectStateKey(slug)))!.json() as any).retired).toHaveLength(7)
+  }
  })
  it('revalidates revoke after native creation and aborts the never-registered upload', async () => {
   let created: R2MultipartUpload | undefined
