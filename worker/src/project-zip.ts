@@ -1,4 +1,4 @@
-import { Inflate } from 'fflate'
+import { crc32, inflateRawSync } from 'node:zlib'
 
 export const MAX_ZIP_BYTES = 32 * 1024 * 1024
 export const MAX_FILE_BYTES = 25 * 1024 * 1024
@@ -33,15 +33,6 @@ export async function boundedBody(req: Request, limit: number): Promise<Uint8Arr
   return bytes
 }
 interface ZipEntry { path: string; method: number; size: number; crc: number; data: Uint8Array }
-const crcTable = Uint32Array.from({ length: 256 }, (_, i) => {
-  for (let j = 0; j < 8; j++) i = (i >>> 1) ^ (i & 1 ? 0xedb88320 : 0)
-  return i >>> 0
-})
-function crc32(bytes: Uint8Array): number {
-  let crc = 0xffffffff
-  for (const byte of bytes) crc = crcTable[(crc ^ byte) & 255] ^ (crc >>> 8)
-  return (crc ^ 0xffffffff) >>> 0
-}
 // Parse central and local records before inflation; no filesystem extraction.
 function entries(bytes: Uint8Array): Map<string, ZipEntry> {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
@@ -93,19 +84,11 @@ function entries(bytes: Uint8Array): Map<string, ZipEntry> {
 }
 function inflate(entry: ZipEntry, limit: number): Uint8Array {
   if (entry.size > limit) throw new Error('ZIP entry exceeds limit')
-  const output = new Uint8Array(entry.size)
-  let length = 0
-  const emit = (chunk: Uint8Array) => {
-    length += chunk.length
-    if (length > entry.size || length > limit) throw new Error('ZIP expands beyond declared size')
-    output.set(chunk, length - chunk.length)
-  }
-  if (entry.method === 0) emit(entry.data)
-  else {
-    const stream = new Inflate(emit)
-    for (let offset = 0; offset < entry.data.length; offset += 4096) stream.push(entry.data.subarray(offset, offset + 4096), offset + 4096 >= entry.data.length)
-  }
-  if (length !== entry.size || crc32(output) !== entry.crc) throw new Error('ZIP content checksum mismatch')
+  // Native inflation and CRC avoid spending the Worker CPU budget in JS.
+  // Older workerd requires one spare output byte; exact size is checked below.
+  const output = entry.method === 0 ? entry.data
+    : inflateRawSync(entry.data, { maxOutputLength: entry.size + 1 })
+  if (output.length !== entry.size || crc32(output) !== entry.crc) throw new Error('ZIP content checksum mismatch')
   return output
 }
 export async function validateProjectZip(bytes: Uint8Array, projectId: string, snapshotId: string, entry: string): Promise<Uint8Array> {
@@ -119,7 +102,7 @@ export async function validateProjectZip(bytes: Uint8Array, projectId: string, s
   const seen = new Set<string>()
   let total = 0
   for (const file of manifest.files) {
-    if (!file || !projectPath(file.path) || file.path.startsWith(internal) || seen.has(file.path.toLowerCase()) || !/^[a-f0-9]{64}$/.test(file.hash)
+    if (!file || !projectPath(file.path) || file.path.split('/').some((part: string) => part.toLowerCase() === '.notemd') || file.path.startsWith(internal) || seen.has(file.path.toLowerCase()) || !/^[a-f0-9]{64}$/.test(file.hash)
       || !Number.isSafeInteger(file.bytes) || file.bytes < 0) throw new Error('invalid ZIP manifest file')
     seen.add(file.path.toLowerCase())
     const source = files.get(file.path)
