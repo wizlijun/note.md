@@ -159,7 +159,7 @@ describe('frozen project presentation', () => {
       let bundle: string | undefined
       await expect((async () => {
         const presentation = await renderProjectPresentation(frozen)
-        bundle = buildProjectBundle(frozen, 'https://example.test/feedback', { presentation })
+        bundle = buildProjectBundle(frozen, 'https://example.test/feedback/test', { presentation })
       })()).rejects.toThrow(/图表.*本机绝对路径/)
       expect(bundle).toBeUndefined()
       expect(JSON.stringify(frozen)).toBe(before)

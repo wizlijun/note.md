@@ -16,6 +16,8 @@ function fakeDatabase(delay = 0, fail = false, failWrites = false) {
   vi.stubGlobal('indexedDB', { open: () => {
     const op: any = { result: { transaction: () => {
       const tx: any = { objectStore: () => ({
+        getAllKeys: () => { const result={result:[...values.keys()]}; setTimeout(()=>tx.oncomplete?.(),0);return result },
+        delete: (key:string) => {values.delete(key);setTimeout(()=>tx.oncomplete?.(),0);return {}},
         get: (key: string) => { const result = { result: structuredClone(values.get(key)) }; setTimeout(() => tx.oncomplete?.(), 0); return result },
         put: (value: any, key: string) => { if(failWrites) { tx.error=new Error('disk full'); setTimeout(()=>tx.onerror?.(),0) } else { values.set(key, structuredClone(value)); setTimeout(() => tx.oncomplete?.(), 0) } return {} },
       }) }
@@ -54,6 +56,8 @@ beforeEach(() => {
   history.replaceState(null, '', '/#feedback=visitor-token')
   const html = buildProjectBundle(snapshot, 'https://share.test/feedback/project_1')
   document.body.innerHTML = html.slice(html.indexOf('<body>') + 6, html.indexOf('</body>'))
+  // Existing published pages lack versionUrl; retain their quiet compatibility path.
+  const data=JSON.parse($('project-data').textContent!);delete data.versionUrl;$('project-data').textContent=JSON.stringify(data)
   fakeDatabase()
 })
 
@@ -373,7 +377,7 @@ describe('browser project collaboration', () => {
     click('edit'); input('public suggestion'); click('submit')
     await vi.waitFor(()=>expect(status()).toContain('已送达'))
     const body=send.mock.calls[0][1].body as string
-    expect(JSON.parse(body)).toMatchObject({schemaVersion:1,edits:[{path:'README.md',afterMarkdown:'public suggestion'}]})
+    expect(JSON.parse(body)).toMatchObject({schemaVersion:2,edits:[{path:'README.md',afterMarkdown:'public suggestion'}]})
     for(const secret of ['branch_intent','private-intent-head','private-results-hash','private-intent-commit','private-intent-branch','parentSnapshotId','gitError','private-parent','private-error']) expect(body).not.toContain(secret)
   })
   it('allows an oversized candidate to be reduced and freezes only a sendable packet', async () => {
@@ -381,7 +385,7 @@ describe('browser project collaboration', () => {
     vi.stubGlobal('fetch', send)
     await projectShareBrowser(new Marked())
     click('edit'); input('x'.repeat(5 * 1024 * 1024)); click('submit')
-    expect(status()).toContain('超过 5 MiB')
+    await vi.waitFor(()=>expect(status()).toContain('超过 5 MiB'))
     expect(send).not.toHaveBeenCalled()
     input('中文修改🧪'); click('submit')
     await vi.waitFor(() => expect(status()).toContain('已送达'))
@@ -420,8 +424,8 @@ describe('browser project collaboration', () => {
     selection.removeAllRanges(); selection.addRange(range)
     click('annotate')
     await vi.waitFor(() => expect(status()).toContain('标注已保存'))
-    expect(values.get('project_1:snapshot_1').annotations).toEqual([{ path: 'README.md', quote: '方案', comment: '评论' }])
-    expect(values.get('project_1:snapshot_1').drafts['README.md']).toBe('new draft')
+    expect([...values.entries()].find(([key])=>key.includes(':draft2-notes:'))?.[1]).toMatchObject([{ path: 'README.md', selector:{exact:'方案'}, comment: '评论' }])
+    expect([...values.entries()].find(([key])=>key.includes(':draft2:'))?.[1].after['README.md']).toBe('new draft')
   })
   it('disables submission after a local write failure while retaining the draft for export', async () => {
     history.replaceState(null,'','/')
@@ -448,4 +452,301 @@ describe('browser project collaboration', () => {
     expect(document.title).toBe('README · 可编辑')
     expect(($('export') as HTMLButtonElement).disabled).toBe(false)
   })
+})
+
+// Exercise the real transaction semantics and the exact function serialized in HTML.
+import { IDBFactory, IDBObjectStore as FakeObjectStore } from 'fake-indexeddb'
+async function idb(mode: IDBTransactionMode, run: (store: IDBObjectStore) => IDBRequest) {
+  const db = await new Promise<IDBDatabase>((resolve, reject) => {
+    const op=indexedDB.open('notemd-project-sharing',1)
+    op.onupgradeneeded=()=>op.result.createObjectStore('data')
+    op.onsuccess=()=>resolve(op.result); op.onerror=()=>reject(op.error)
+  })
+  try { return await new Promise<any>((resolve,reject)=> {
+    const tx=db.transaction('data',mode), op=run(tx.objectStore('data'))
+    tx.oncomplete=()=>resolve(op.result); tx.onabort=tx.onerror=()=>reject(tx.error)
+  }) } finally { db.close() }
+}
+async function serialized() {
+  const scripts=Array.from(document.querySelectorAll('script'))
+  new Function(scripts[scripts.length-1].textContent!)()
+  await vi.waitFor(()=>expect(($('edit') as HTMLButtonElement).disabled).toBe(false))
+}
+const draftKey='project_1:draft2:lineage-one'
+const draftFixture=()=>({v:2,lineageId:'lineage-one',snapshotId:'snapshot-old',base:{'README.md':{hash:'f'.repeat(64),markdown:'旧原文 风险'}},after:{'README.md':'旧稿 修改'},annotationKinds:{},rebasedFrom:'snapshot-earlier',previous:{snapshotId:'snapshot-earlier',base:{},after:{}}})
+
+describe('versioned drafts in serialized browser',()=> {
+  beforeEach(()=>vi.stubGlobal('indexedDB',new IDBFactory()))
+  it('atomically migrates current legacy originals and form notes, without embedding notes in after',async()=> {
+    await idb('readwrite',store=>store.put({drafts:{'README.md':'changed'},annotations:[{path:'README.md',quote:'方案',comment:'review'}]},'project_1:snapshot_1'))
+    await serialized()
+    const keys=await idb('readonly',store=>store.getAllKeys())
+    const key=keys.find((key:string)=>key.startsWith('project_1:draft2:'))
+    expect(key).toBeDefined()
+    const draft=await idb('readonly',store=>store.get(key))
+    expect(draft).toMatchObject({v:2,snapshotId:'snapshot_1',base:{'README.md':{hash:snapshot.files[0].hash,markdown:snapshot.files[0].markdown}},after:{'README.md':'changed'},annotationKinds:{}})
+    expect(await idb('readonly',store=>store.get('project_1:snapshot_1'))).toBeUndefined()
+    expect(await idb('readonly',store=>store.get(key.replace(':draft2:',':draft2-notes:')))).toMatchObject([{selector:{exact:'方案',start:2,end:4},comment:'review'}])
+  })
+  it('retains stale baseline, frozen bytes across edits/reload and submission lineage',async()=> {
+    await idb('readwrite',store=>store.put(draftFixture(),draftKey))
+    const bodies:string[]=[]
+    vi.stubGlobal('fetch',vi.fn(async (_url,init)=>{ if(init?.method==='POST'){bodies.push(init.body);if(bodies.length===1)throw Error('offline')}return Response.json({}) }))
+    await serialized()
+    expect($('old-drafts').textContent).toContain('你在旧版本上有未提交的修改')
+    expect(($('editor') as HTMLTextAreaElement).value).toBe('旧稿 修改')
+    click('submit'); await vi.waitFor(()=>expect(status()).toContain('结果未知'))
+    click('edit'); input('newer input'); ($('name') as HTMLInputElement).value='changed name'
+    click('submit'); await vi.waitFor(()=>expect(status()).toContain('已送达'))
+    expect(bodies[1]).toBe(bodies[0])
+    expect(JSON.parse(bodies[0])).toMatchObject({schemaVersion:2,snapshotId:'snapshot-old',client:{kind:'browser-fallback'},rebasedFrom:'snapshot-earlier',edits:[{baseHash:'f'.repeat(64),afterMarkdown:'旧稿 修改'}]})
+    const saved=await idb('readonly',store=>store.get(draftKey))
+    expect(saved.lastSubmissionId).toBe(JSON.parse(bodies[0]).submissionId); expect(saved.previous).toBeUndefined()
+    click('submit'); await vi.waitFor(()=>expect(bodies).toHaveLength(3))
+    expect(JSON.parse(bodies[2]).supersedes).toBe(saved.lastSubmissionId)
+    expect(JSON.parse(bodies[2]).edits[0].afterMarkdown).toBe('newer input')
+  })
+  it('exports unmatched legacy only unless an exact frozen v1 body exists',async()=> {
+    await idb('readwrite',store=>store.put({drafts:{'README.md':'lost base'},annotations:[]},'project_1:old'))
+    await serialized()
+    expect($('old-drafts').textContent).toContain('无法取得旧版本原文')
+    expect($('old-drafts').textContent).toContain('导出草稿')
+    expect($('old-drafts').textContent).not.toContain('按旧版本提交')
+  })
+  it('forces no-store version checks before send and keeps edits after revocation',async()=> {
+    const data=JSON.parse($('project-data').textContent!); data.versionUrl='https://share.test/project/slug/version'; $('project-data').textContent=JSON.stringify(data)
+    const send=vi.fn(async(_url:string,_init:RequestInit)=>Response.json({snapshotId:'snapshot-new'})); vi.stubGlobal('fetch',send)
+    await serialized(); await vi.waitFor(()=>expect($('version-notice').textContent).toContain('分享者已发布新版本'))
+    document.dispatchEvent(new Event('visibilitychange')); expect(send).toHaveBeenCalledTimes(1)
+    send.mockResolvedValue(new Response('',{status:410}))
+    click('edit'); input('retained'); click('submit')
+    await vi.waitFor(()=>expect(status()).toContain('已失效'))
+    expect(send).toHaveBeenCalledTimes(2); expect(($('submit') as HTMLButtonElement).disabled).toBe(true)
+    expect(($('editor') as HTMLTextAreaElement).value).toBe('retained'); expect(send.mock.calls[0][1]).toMatchObject({cache:'no-store'})
+  })
+  it('fetches recent twenty receipts with at most four concurrent and displays replies as text',async()=> {
+    await idb('readwrite',store=>store.put(Array.from({length:25},(_,i)=>'id-'+i),'project_1:submitted'))
+    let active=0,max=0; const ids:string[]=[]
+    vi.stubGlobal('fetch',vi.fn(async(url)=>{ids.push(url);active++;max=Math.max(max,active);await new Promise(resolve=>setTimeout(resolve,5));active--;return url.endsWith('id-24')?new Response('',{status:404}):Response.json({outcome:'partial',files:[{accepted:3,total:5}],reply:'<img src=x onerror=alert(1)>'})}))
+    await serialized(); await vi.waitFor(()=>expect(ids).toHaveLength(20)); await vi.waitFor(()=>expect($('my-submissions').textContent).toContain('已送达，待处理'))
+    expect(max).toBeLessThanOrEqual(4);expect(ids.some(id=>id.endsWith('id-4'))).toBe(false)
+    expect($('my-submissions').textContent).toContain('已合入 3/5 处');expect($('my-submissions').querySelector('img')).toBeNull()
+  })
+  it('leaves legacy key and both new keys untouched when migration transaction aborts',async()=> {
+    history.replaceState(null,'','/')
+    await idb('readwrite',store=>store.put('cached-token','project_1:token'))
+    const old={drafts:{'README.md':'recoverable'},annotations:[{path:'README.md',quote:'方案',comment:'note'}]}
+    await idb('readwrite',store=>store.put(old,'project_1:snapshot_1'))
+    const put=FakeObjectStore.prototype.put
+    const spy=vi.spyOn(FakeObjectStore.prototype,'put').mockImplementation(function(this:IDBObjectStore,value,key){
+      const result=put.call(this,value,key)
+      if(String(key).includes(':draft2-notes:')) this.transaction.abort()
+      return result
+    })
+    try {
+      await serialized()
+      expect(status()).toContain('本地存储不可用')
+      expect(await idb('readonly',store=>store.get('project_1:snapshot_1'))).toEqual(old)
+      expect((await idb('readonly',store=>store.getAllKeys())).filter((key:string)=>key.includes(':draft2'))).toEqual([])
+      expect(($('editor') as HTMLTextAreaElement).value).toBe('recoverable')
+      expect(($('export') as HTMLButtonElement).disabled).toBe(false)
+    } finally {spy.mockRestore()}
+  })
+  it('replays exact old v1 body without manufacturing a baseline or losing current work',async()=> {
+    const body='{ "schemaVersion":1,"project_id":"project_1","snapshotId":"old","submissionId":"v1-id","edits":[],"annotations":[] }'
+    await idb('readwrite',store=>store.put({drafts:{'README.md':'legacy'},annotations:[],pending:{body}},'project_1:old'))
+    const send=vi.fn(async(_url:string,_init:RequestInit)=>Response.json({}));vi.stubGlobal('fetch',send)
+    await serialized()
+    click('edit');input('current work')
+    const button=Array.from($('old-drafts').querySelectorAll('button')).find(button=>button.textContent==='按旧版本提交')!
+    button.click();await vi.waitFor(()=>expect(status()).toContain('已送达'))
+    expect(send.mock.calls[0][1].body).toBe(body)
+    expect(await idb('readonly',store=>store.get('project_1:submitted'))).toEqual(['v1-id'])
+    expect((await idb('readonly',store=>store.getAllKeys())).some((key:string)=>key.includes(':draft2:'))).toBe(true)
+    expect(($('editor') as HTMLTextAreaElement).value).toBe('current work')
+  })
+  it('restores pending exact bytes on reload despite later name/message/input edits',async()=> {
+    const candidate=draftFixture()
+    const body=JSON.stringify({schemaVersion:2,project_id:'project_1',snapshotId:'snapshot-old',submissionId:'frozen',edits:[{path:'README.md',baseHash:'f'.repeat(64),afterMarkdown:'frozen text'}],annotations:[],client:{kind:'browser-fallback'}})
+    await idb('readwrite',store=>store.put({...candidate,pending:{submissionId:'frozen',body}},draftKey))
+    vi.stubGlobal('fetch',vi.fn(async(_url:string,_init:RequestInit)=>new Response('',{status:503})))
+    await serialized();click('edit');input('later text');($('name') as HTMLInputElement).value='later name';$('name').dispatchEvent(new Event('input'));($('message') as HTMLInputElement).value='later message';$('message').dispatchEvent(new Event('input'))
+    click('submit');await vi.waitFor(()=>expect(status()).toContain('结果未知'))
+    expect((await idb('readonly',store=>store.get(draftKey))).pending.body).toBe(body)
+    // A newly serialized runtime recovers the same database, like a page reload.
+    const html=buildProjectBundle(snapshot,'https://share.test/feedback/project_1')
+    document.body.innerHTML=html.slice(html.indexOf('<body>')+6,html.indexOf('</body>'))
+    const data=JSON.parse($('project-data').textContent!);delete data.versionUrl;$('project-data').textContent=JSON.stringify(data)
+    const send=vi.fn(async(_url:string,_init:RequestInit)=>Response.json({}));vi.stubGlobal('fetch',send)
+    await serialized();click('submit');await vi.waitFor(()=>expect(status()).toContain('已送达'))
+    expect(send.mock.calls.find(call=>call[1]?.method==='POST')![1].body).toBe(body)
+    expect((await idb('readonly',store=>store.get(draftKey))).after['README.md']).toBe('later text')
+    expect(($('name') as HTMLInputElement).value).toBe('later name')
+  })
+  it('does not attach a current-only file baseline to an old snapshot',async()=> {
+    await idb('readwrite',store=>store.put(draftFixture(),draftKey))
+    await serialized();click('file-toggle')
+    document.querySelector<HTMLButtonElement>('[data-file="Research.md"]')!.click()
+    expect(($('edit') as HTMLButtonElement).disabled).toBe(true)
+    expect(status()).toContain('没有旧版本原文')
+    input('must not join old draft')
+    expect((await idb('readonly',store=>store.get(draftKey))).base['Research.md']).toBeUndefined()
+  })
+  it('keeps latest network/commit-time input and commits FIFO200 without reviving pending',async()=> {
+    await idb('readwrite',store=>store.put(draftFixture(),draftKey))
+    await idb('readwrite',store=>store.put(Array.from({length:200},(_,i)=>'previous-'+i),'project_1:submitted'))
+    let finish:(response:Response)=>void=()=>{}
+    vi.stubGlobal('fetch',vi.fn(async(_url,init)=>init?.method==='POST'?new Promise<Response>(resolve=>{finish=resolve}):new Response('',{status:404})))
+    await serialized();click('edit');click('submit')
+    await vi.waitFor(()=>expect(status()).toContain('提交中'))
+    input('during network')
+    const put=FakeObjectStore.prototype.put
+    const spy=vi.spyOn(FakeObjectStore.prototype,'put').mockImplementation(function(this:IDBObjectStore,value,key){
+      const result=put.call(this,value,key)
+      if(key==='project_1:submitted') queueMicrotask(()=>input('during durable completion'))
+      return result
+    })
+    try {
+      finish(Response.json({}));await vi.waitFor(()=>expect($('my-submissions').textContent).toContain('已送达，待处理'))
+      await vi.waitFor(async()=>expect((await idb('readonly',store=>store.get(draftKey))).after['README.md']).toBe('during durable completion'))
+      const saved=await idb('readonly',store=>store.get(draftKey))
+      expect(saved.pending).toBeUndefined();expect(saved.previous).toBeUndefined()
+      const submitted=await idb('readonly',store=>store.get('project_1:submitted'))
+      expect(submitted).toHaveLength(200);expect(submitted[0]).toBe('previous-1');expect(submitted[199]).toBe(saved.lastSubmissionId)
+    } finally {spy.mockRestore()}
+  })
+  it('never claims delivered when completion persistence fails and keeps pending durable',async()=> {
+    await idb('readwrite',store=>store.put(draftFixture(),draftKey))
+    const put=FakeObjectStore.prototype.put
+    const spy=vi.spyOn(FakeObjectStore.prototype,'put').mockImplementation(function(this:IDBObjectStore,value,key){
+      const result=put.call(this,value,key)
+      if(key==='project_1:submitted') this.transaction.abort()
+      return result
+    })
+    vi.stubGlobal('fetch',vi.fn(async(_url:string,_init:RequestInit)=>Response.json({})))
+    try {
+      await serialized();click('submit');await vi.waitFor(()=>expect(status()).toContain('结果未知'))
+      expect(status()).not.toContain('已送达')
+      const saved=await idb('readonly',store=>store.get(draftKey))
+      expect(saved.pending.body).toContain('旧稿 修改');expect(saved.previous).toBeDefined()
+      expect(await idb('readonly',store=>store.get('project_1:submitted'))).toBeUndefined()
+    } finally {spy.mockRestore()}
+  })
+  it('anchors form notes with UTF16 coordinates and exact 32-unit context; rejects ambiguous quotes',async()=> {
+    const data=JSON.parse($('project-data').textContent!)
+    const markdown='😀'+'前'.repeat(40)+'风险'+'后'.repeat(40)+'\n\n重复 重复'
+    data.snapshot.files[0].markdown=markdown;$('project-data').textContent=JSON.stringify(data)
+    vi.stubGlobal('prompt',()=> '审阅')
+    const send=vi.fn(async(_url:string,_init:RequestInit)=>Response.json({}));vi.stubGlobal('fetch',send)
+    await serialized()
+    const select=(quote:string)=> {
+      const node=$('document').querySelector('p')!.firstChild!, text=node.textContent!,start=text.indexOf(quote)
+      const range=document.createRange();range.setStart(node,start);range.setEnd(node,start+quote.length)
+      window.getSelection()!.removeAllRanges();window.getSelection()!.addRange(range)
+    }
+    select('风险');click('annotate');await vi.waitFor(()=>expect(status()).toContain('标注已保存'))
+    ;($('name') as HTMLInputElement).value='Alice';($('message') as HTMLInputElement).value='说明';$('message').dispatchEvent(new Event('input'))
+    click('submit');await vi.waitFor(()=>expect(status()).toContain('已送达'))
+    const body=JSON.parse(send.mock.calls[0][1].body as string)
+    expect(body).toMatchObject({client:{kind:'browser-fallback'},contributor:{name:'Alice'},message:'说明',annotations:[{selector:{exact:'风险',start:42,end:44,prefix:'前'.repeat(32),suffix:'后'.repeat(32)}}]})
+    const node=$('document').querySelectorAll('p')[1].firstChild!,range=document.createRange();range.setStart(node,0);range.setEnd(node,2);window.getSelection()!.removeAllRanges();window.getSelection()!.addRange(range)
+    click('annotate');expect(status()).toContain('存在多处')
+    click('submit');await vi.waitFor(()=>expect(status()).toContain('没有新的修改或标注'));expect(send).toHaveBeenCalledTimes(1)
+  })
+
+  it('retains cumulative sent content and notes, reloads without duplicate send, and supersedes A→B→C',async()=> {
+    const fixture=draftFixture()
+    fixture.after['README.md']='A'
+    await idb('readwrite',store=>store.put(fixture,draftKey))
+    await idb('readwrite',store=>store.put([{path:'README.md',selector:{exact:'风险'},comment:'note'}],'project_1:draft2-notes:lineage-one'))
+    const bodies:string[]=[]
+    vi.stubGlobal('fetch',vi.fn(async(_url,init)=>{bodies.push(init.body);return Response.json({})}))
+    await serialized();click('submit');await vi.waitFor(()=>expect(status()).toContain('已送达'))
+    expect(($('editor') as HTMLTextAreaElement).value).toBe('A')
+    expect((await idb('readonly',store=>store.get(draftKey))).after['README.md']).toBe('A')
+    expect((await idb('readonly',store=>store.get('project_1:draft2-notes:lineage-one')))).toHaveLength(1)
+    const sent=await idb('readonly',store=>store.get('project_1:draft2-sent:lineage-one'))
+    expect(Object.keys(sent).sort()).toEqual(['contentHash','submissionId']);expect(sent.contentHash).toMatch(/^[a-f0-9]{64}$/)
+    const html=buildProjectBundle(snapshot,'https://share.test/feedback/project_1')
+    document.body.innerHTML=html.slice(html.indexOf('<body>')+6,html.indexOf('</body>'))
+    const data=JSON.parse($('project-data').textContent!);delete data.versionUrl;$('project-data').textContent=JSON.stringify(data)
+    const send=vi.fn(async(_url,init)=>{if(init?.method==='POST')bodies.push(init.body);return Response.json({})});vi.stubGlobal('fetch',send)
+    await serialized();click('submit');await vi.waitFor(()=>expect(status()).toContain('没有新的修改或标注'))
+    expect(bodies).toHaveLength(1)
+    expect($('old-drafts').textContent).toContain('已提交的草稿')
+    click('edit');input('B');click('submit');await vi.waitFor(()=>expect(bodies).toHaveLength(2));await vi.waitFor(()=>expect(status()).toContain('已送达'))
+    input('C');click('submit');await vi.waitFor(()=>expect(bodies).toHaveLength(3));await vi.waitFor(()=>expect(status()).toContain('已送达'))
+    expect(JSON.parse(bodies[1]).supersedes).toBe(JSON.parse(bodies[0]).submissionId)
+    expect(JSON.parse(bodies[2]).supersedes).toBe(JSON.parse(bodies[1]).submissionId)
+    expect(JSON.parse(bodies[2]).edits).toEqual([{path:'README.md',baseHash:'f'.repeat(64),afterMarkdown:'C'}])
+    expect(JSON.parse(bodies[2]).annotations).toHaveLength(1)
+    ;($('name') as HTMLInputElement).value='nickname only';$('name').dispatchEvent(new Event('input'));click('submit')
+    await vi.waitFor(()=>expect(status()).toContain('没有新的修改或标注'));expect(bodies).toHaveLength(3)
+    ;($('message') as HTMLInputElement).value='updated explanation';$('message').dispatchEvent(new Event('input'));click('submit')
+    await vi.waitFor(()=>expect(bodies).toHaveLength(4));await vi.waitFor(()=>expect(status()).toContain('已送达'))
+    expect(JSON.parse(bodies[3])).toMatchObject({message:'updated explanation',supersedes:JSON.parse(bodies[2]).submissionId,edits:[{afterMarkdown:'C'}]})
+  })
+  it('keeps unmatched legacy source unchanged after replay and suppresses it on reload via submitted IDs',async()=> {
+    const body=JSON.stringify({schemaVersion:1,project_id:'project_1',snapshotId:'old',submissionId:'legacy-id',edits:[],annotations:[]})
+    const old={drafts:{'README.md':'newer local input'},annotations:[],pending:{body}}
+    await idb('readwrite',store=>store.put(old,'project_1:old'))
+    vi.stubGlobal('fetch',vi.fn(async()=>Response.json({})))
+    await serialized();Array.from($('old-drafts').querySelectorAll('button')).find(button=>button.textContent==='按旧版本提交')!.click()
+    await vi.waitFor(()=>expect(status()).toContain('已送达'))
+    expect(await idb('readonly',store=>store.get('project_1:old'))).toEqual(old)
+    const html=buildProjectBundle(snapshot,'https://share.test/feedback/project_1')
+    document.body.innerHTML=html.slice(html.indexOf('<body>')+6,html.indexOf('</body>'))
+    const data=JSON.parse($('project-data').textContent!);delete data.versionUrl;$('project-data').textContent=JSON.stringify(data)
+    await serialized()
+    expect($('old-drafts').textContent).not.toContain('按旧版本提交')
+    expect($('old-drafts').textContent).toContain('导出草稿')
+  })
+  it('throttles visible checks until sixty seconds and quietly tolerates 404/network errors',async()=> {
+    const data=JSON.parse($('project-data').textContent!);data.versionUrl='https://share.test/project/slug/version';$('project-data').textContent=JSON.stringify(data)
+    let now=0;const clock=vi.spyOn(Date,'now').mockImplementation(()=>now)
+    const send=vi.fn(async()=>new Response('',{status:404}));vi.stubGlobal('fetch',send)
+    Object.defineProperty(document,'visibilityState',{configurable:true,value:'visible'})
+    try {
+      await serialized();await vi.waitFor(()=>expect(send).toHaveBeenCalledTimes(1))
+      now=59999;document.dispatchEvent(new Event('visibilitychange'));expect(send).toHaveBeenCalledTimes(1)
+      now=60000;document.dispatchEvent(new Event('visibilitychange'));await vi.waitFor(()=>expect(send).toHaveBeenCalledTimes(2))
+      expect($('version-notice').hidden).toBe(true)
+      send.mockRejectedValueOnce(Error('offline'));now=120000;document.dispatchEvent(new Event('visibilitychange'));await vi.waitFor(()=>expect(send).toHaveBeenCalledTimes(3))
+      expect($('version-notice').hidden).toBe(true);expect(status()).toBe('')
+    } finally {clock.mockRestore()}
+  })
+
+  it('migrates v1 form notes but preserves frozen v1 wire bytes and deduplicates after success/reload',async()=> {
+    const payload={schemaVersion:1,project_id:'project_1',snapshotId:'snapshot_1',submissionId:'legacy-current',edits:[{path:'README.md',baseHash:snapshot.files[0].hash,afterMarkdown:'legacy sent text'}],annotations:[{path:'README.md',quote:'方案',comment:'review'}],name:'old name'}
+    const body=JSON.stringify(payload)
+    await idb('readwrite',store=>store.put({drafts:{'README.md':'legacy sent text'},annotations:payload.annotations,pending:{body}},'project_1:snapshot_1'))
+    const bodies:string[]=[]
+    vi.stubGlobal('fetch',vi.fn(async(_url,init)=>{if(init?.method==='POST')bodies.push(init.body);return Response.json({})}))
+    await serialized();click('submit');await vi.waitFor(()=>expect(status()).toContain('已送达'))
+    expect(bodies).toEqual([body]);expect(($('editor') as HTMLTextAreaElement).value).toBe('legacy sent text')
+    const html=buildProjectBundle(snapshot,'https://share.test/feedback/project_1')
+    document.body.innerHTML=html.slice(html.indexOf('<body>')+6,html.indexOf('</body>'))
+    const data=JSON.parse($('project-data').textContent!);delete data.versionUrl;$('project-data').textContent=JSON.stringify(data)
+    await serialized();click('submit');await vi.waitFor(()=>expect(status()).toContain('没有新的修改或标注'))
+    expect(bodies).toEqual([body])
+  })
+
+  it('keeps lastSubmissionId and notes attached to the selected lineage',async()=> {
+    const old={...draftFixture(),lastSubmissionId:'old-previous'}
+    const current={...draftFixture(),lineageId:'current-lineage',snapshotId:'snapshot_1',lastSubmissionId:'current-previous',after:{'README.md':'current restored'}}
+    await idb('readwrite',store=>store.put(old,draftKey))
+    await idb('readwrite',store=>store.put(current,'project_1:draft2:current-lineage'))
+    await idb('readwrite',store=>store.put([{path:'README.md',selector:{exact:'风险'},comment:'old note'}],'project_1:draft2-notes:lineage-one'))
+    await idb('readwrite',store=>store.put([{path:'README.md',selector:{exact:'current'},comment:'current note'}],'project_1:draft2-notes:current-lineage'))
+    const bodies:string[]=[]
+    vi.stubGlobal('fetch',vi.fn(async(_url,init)=>{if(init?.method==='POST')bodies.push(init.body);return Response.json({})}))
+    await serialized();expect(($('editor') as HTMLTextAreaElement).value).toBe('current restored')
+    Array.from($('old-drafts').querySelectorAll('button')).find(button=>button.textContent==='按旧版本提交')!.click()
+    await vi.waitFor(()=>expect(($('editor') as HTMLTextAreaElement).value).toBe('旧稿 修改'))
+    click('edit');input('old explicitly edited');click('submit');await vi.waitFor(()=>expect(status()).toContain('已送达'))
+    const body=JSON.parse(bodies[0]);expect(body.supersedes).toBe('old-previous');expect(body.annotations[0].comment).toBe('old note')
+    expect(body.snapshotId).toBe('snapshot-old')
+    expect((await idb('readonly',store=>store.get('project_1:draft2:current-lineage'))).lastSubmissionId).toBe('current-previous')
+  })
+
 })

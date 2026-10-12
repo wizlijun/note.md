@@ -229,6 +229,7 @@ export async function publishProject(info: ProjectInfo, files: ProjectFile[], ti
     const shareTitle = normalizeShareTitle(title ?? identity.shareTitle, snapshot.entry)
     const presentation = await renderProjectPresentation(snapshot, { useCurrentTheme, frozenTheme })
     const html = buildProjectBundle(snapshot, `${identity.baseUrl}/feedback/${identity.slug}`, {
+      versionUrl: `${identity.baseUrl}/project/${identity.slug}/version`,
       title: shareTitle, presentation, publicationPending: true, archiveUrl: `${identity.baseUrl}/project/${identity.slug}/download`,
     })
     await projectCommand('bundle', { project_id: info.project_id, snapshotId: snapshot.snapshotId, html })
@@ -397,6 +398,7 @@ export async function publishProject(info: ProjectInfo, files: ProjectFile[], ti
     })
     const presentation = await renderProjectPresentation(snapshot, { useCurrentTheme: pending.useCurrentTheme, frozenTheme: pending.frozenTheme })
     const html = buildProjectBundle(snapshot, `${identity.baseUrl}/feedback/${identity.slug}`, {
+      versionUrl: `${identity.baseUrl}/project/${identity.slug}/version`,
       title: pending.shareTitle, presentation, archiveUrl: `${identity.baseUrl}/project/${identity.slug}/download`,
     })
     await projectCommand('bundle', { project_id: info.project_id, snapshotId: snapshot.snapshotId, html })

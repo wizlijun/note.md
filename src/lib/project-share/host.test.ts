@@ -127,6 +127,11 @@ describe('frozen host multipart publication', () => {
     expect(mocks.archive).toHaveBeenCalledWith(expect.anything(), '<html>frozen bundle</html>', 'source')
     expect(result.identity.pending).toBeUndefined(); expect(result.identity.publishedSnapshotId).toBe('full-s')
     expect(mocks.capture).toHaveBeenCalledOnce()
+    expect(mocks.bundle).toHaveBeenCalledTimes(2)
+    for(const [,feedback,options] of mocks.bundle.mock.calls) {
+      expect(feedback).toBe(`https://share.test/feedback/${result.identity.slug}`)
+      expect(options.versionUrl).toBe(`https://share.test/project/${result.identity.slug}/version`)
+    }
     expect(mocks.render.mock.calls.every(([, options]) => options.frozenTheme.compiledCss === 'frozen CSS')).toBe(true)
   })
   it('persists plans and each confirmed receipt, then resumes only the missing part without rendering', async () => {

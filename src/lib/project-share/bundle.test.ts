@@ -41,4 +41,17 @@ describe('static project bundle',()=>{
     expect(()=>buildProjectBundle({...snapshot,files:[{...snapshot.files[0],markdown:'a'.repeat(25*1024*1024)}]},'https://example.org/feedback/x')).toThrow(/25 MiB/)
     expect(()=>buildProjectBundle(snapshot,'javascript:alert(1)')).toThrow()
   })
+  it('always writes same-origin version URL from the exact feedback route or explicit configuration',()=>{
+    const payload=(url:string,options:any={})=>JSON.parse(buildProjectBundle(snapshot,url,options).match(/<script id="project-data" type="application\/json">([\s\S]*?)<\/script>/)![1])
+    expect(payload('https://share.example/feedback/slug').versionUrl).toBe('https://share.example/project/slug/version')
+    expect(payload('https://share.example/custom',{versionUrl:'https://share.example/project/explicit/version'}).versionUrl).toBe('https://share.example/project/explicit/version')
+    expect(()=>payload('https://share.example/feedback')).toThrow(/version endpoint/)
+    expect(()=>payload('https://share.example/arbitrary/slug')).toThrow(/version endpoint/)
+    expect(()=>payload('https://share.example/feedback/slug/extra')).toThrow(/version endpoint/)
+    expect(()=>payload('https://share.example/feedback/slug',{versionUrl:'https://else.example/project/slug/version'})).toThrow(/version endpoint/)
+    const html=buildProjectBundle(snapshot,'https://share.example/feedback/slug')
+    expect(html).not.toContain('editorKit')
+    expect(html.match(/content="(default-src[^"]+)/)![1].replace(/nonce-[a-z0-9]+/g,'nonce-NONCE')).toBe("default-src 'none'; script-src 'nonce-NONCE'; style-src 'unsafe-inline'; img-src data: https: http:; font-src data:; connect-src https://share.example; base-uri 'none'; form-action 'none'")
+  })
+
 })

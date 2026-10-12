@@ -58,6 +58,19 @@ export interface ProjectAnnotationV2 {
   comment: string
   kind?: 'comment' | 'question' | 'blocker'
 }
+export interface DraftV2 {
+  v: 2
+  lineageId: string
+  snapshotId: string
+  base: Record<string, { hash: string; markdown: string }>
+  after: Record<string, string>
+  annotationKinds: Record<string, 'comment' | 'question' | 'blocker'>
+  message?: string
+  lastSubmissionId?: string
+  rebasedFrom?: string
+  previous?: { snapshotId: string; base: DraftV2['base']; after: DraftV2['after'] }
+  pending?: { submissionId: string; body: string }
+}
 export interface ProjectContributor { name?: string; aiAssisted?: boolean }
 export interface ProjectClient { kind?: 'browser' | 'browser-fallback' | 'notemd'; version?: string }
 export interface ProjectFeedbackV1 {

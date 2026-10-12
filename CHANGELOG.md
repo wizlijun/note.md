@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **Shared projects keep browser drafts across published versions and show your submission results locally.** New-version prompts let you refresh when ready, continue a draft against its original version, or export a backup.
+
 - **Owners can return review decisions and an optional reply to collaborators, with per-submission receipt controls and retry.** Earlier submissions are grouped as superseded and remain available for manual review.
 
 - **Project sharing exposes the current published version and delivers collaboration receipts.** Visitors can securely check review results and replies; withdrawn shares stop exposing them.
