@@ -96,6 +96,57 @@ fn run_git_with_proxy(repo: &Path, args: &[&str], proxy: Option<&str>) -> GitRes
     }
 }
 
+/// Binary Git IO with command-local environment and concurrent pipe draining.
+pub fn run_git_io(
+    repo: &Path,
+    args: &[&str],
+    env: &[(&str, &str)],
+    stdin: Option<&[u8]>,
+) -> GitResult<Vec<u8>> {
+    use std::io::Write;
+    use std::process::Stdio;
+
+    let mut cmd = command("git");
+    if let Some(proxy) = configured_proxy() {
+        cmd.arg("-c").arg(format!("http.proxy={proxy}"));
+        cmd.arg("-c").arg(format!("https.proxy={proxy}"));
+    }
+    let mut child = cmd
+        .args(args)
+        .current_dir(repo)
+        .envs(env.iter().copied())
+        .stdin(if stdin.is_some() {
+            Stdio::piped()
+        } else {
+            Stdio::null()
+        })
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("git spawn: {e}"))?;
+    let pipe = child.stdin.take();
+    let (output, written) = std::thread::scope(|scope| {
+        let writer = scope.spawn(move || -> std::io::Result<()> {
+            if let (Some(mut pipe), Some(input)) = (pipe, stdin) {
+                pipe.write_all(input)?;
+            }
+            Ok(())
+        });
+        // wait_with_output drains stdout and stderr while the writer feeds stdin.
+        // Always reap the child, including when writing fails (e.g. broken pipe).
+        let output = child.wait_with_output();
+        (output, writer.join())
+    });
+    let output = output.map_err(|e| format!("git wait: {e}"))?;
+    if !output.status.success() {
+        return Err(String::from_utf8_lossy(&output.stderr).into_owned());
+    }
+    written
+        .map_err(|_| "git stdin writer panicked".to_owned())?
+        .map_err(|e| format!("git stdin: {e}"))?;
+    Ok(output.stdout)
+}
+
 pub fn has_changes(repo: &Path) -> GitResult<bool> {
     let out = run_git(repo, &["status", "--porcelain"])?;
     Ok(!out.trim().is_empty())
@@ -900,5 +951,94 @@ mod gate_tests {
         assert_eq!(report.skipped_large, vec!["only.bin".to_string()]);
         let head_after = run_git(dir.path(), &["rev-parse", "HEAD"]).unwrap();
         assert_eq!(head_before, head_after, "不应产生空 commit");
+    }
+}
+
+#[cfg(test)]
+mod io_tests {
+    use super::*;
+    #[test]
+    fn run_git_io_preserves_binary_env_and_handles_errors() {
+        if version().is_none() {
+            eprintln!("SKIP git_ops io: git unavailable");
+            return;
+        }
+        let dir = tempfile::tempdir().unwrap();
+        run_git(dir.path(), &["init", "-q"]).unwrap();
+        let data = b"a\0b\xff\n";
+        let oid = run_git_io(
+            dir.path(),
+            &["hash-object", "-w", "--stdin"],
+            &[],
+            Some(data),
+        )
+        .unwrap();
+        let oid = std::str::from_utf8(&oid).unwrap().trim();
+        assert_eq!(
+            run_git_io(dir.path(), &["cat-file", "blob", oid], &[], None).unwrap(),
+            data
+        );
+        assert_eq!(
+            run_git_io(
+                dir.path(),
+                &["var", "GIT_AUTHOR_IDENT"],
+                &[
+                    ("GIT_AUTHOR_NAME", "Visitor"),
+                    ("GIT_AUTHOR_EMAIL", "visitor@example.test"),
+                    ("GIT_AUTHOR_DATE", "2026-10-12T10:20:30Z")
+                ],
+                None
+            )
+            .unwrap(),
+            b"Visitor <visitor@example.test> 1791800430 +0000\n"
+        );
+        assert!(run_git_io(dir.path(), &["not-a-git-command"], &[], None).is_err());
+        assert!(run_git_io(&dir.path().join("missing"), &["version"], &[], None).is_err());
+    }
+    #[cfg(unix)]
+    #[test]
+    fn run_git_io_drains_stdout_while_writing_large_stdin_and_closes_absent_input() {
+        if version().is_none() {
+            eprintln!("SKIP git_ops io: git unavailable");
+            return;
+        }
+        let dir = tempfile::tempdir().unwrap();
+        run_git(dir.path(), &["init", "-q"]).unwrap();
+        let data = vec![b'x'; 2 * 1024 * 1024];
+        let out = run_git_io(
+            dir.path(),
+            &[
+                "-c",
+                "alias.duplex=!dd if=/dev/zero bs=65536 count=16 2>/dev/null; cat",
+                "duplex",
+            ],
+            &[],
+            Some(&data),
+        )
+        .unwrap();
+        assert_eq!(&out[..1024 * 1024], vec![0; 1024 * 1024]);
+        assert_eq!(&out[1024 * 1024..], data);
+        assert!(run_git_io(
+            dir.path(),
+            &["-c", "alias.consume=!cat", "consume"],
+            &[],
+            None
+        )
+        .unwrap()
+        .is_empty());
+        assert!(run_git_io(
+            dir.path(),
+            &["-c", "alias.reject=!exit 2", "reject"],
+            &[],
+            Some(&data)
+        )
+        .is_err());
+        assert!(run_git_io(
+            dir.path(),
+            &["-c", "alias.reject=!exit 0", "reject"],
+            &[],
+            Some(&data)
+        )
+        .is_err(), "a broken stdin pipe is an error even when Git exits successfully");
     }
 }

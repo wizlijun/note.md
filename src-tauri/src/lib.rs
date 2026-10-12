@@ -47,6 +47,8 @@ pub mod sotvault;
 #[cfg(not(target_os = "ios"))]
 pub mod project_share;
 #[cfg(not(target_os = "ios"))]
+pub(crate) mod project_share_git;
+#[cfg(not(target_os = "ios"))]
 pub mod search;
 #[cfg(not(target_os = "ios"))]
 pub mod smart_search;
