@@ -1,0 +1,100 @@
+{
+  "manifest_version": 2,
+  "id": "notemd.agency",
+  "name": "Agency",
+  "version": "0.3.0",
+  "kind": "native",
+  "engines": {
+    "notemd": ">=6.922.1"
+  },
+  "description": "Review goal progress, collaboration friction, and capability growth with evidence from AI interactions.",
+  "binary": {
+    "aarch64-apple-darwin": "bin/notemd-agency",
+    "x86_64-apple-darwin": "bin/notemd-agency"
+  },
+  "ui": "ui/",
+  "activation": {
+    "events": [
+      "onCommand:open",
+      "onCli:agency"
+    ]
+  },
+  "contributes": {
+    "menus": [
+      {
+        "location": "plugins",
+        "submenu": "reflect",
+        "label": "Open Agency…",
+        "command": "open"
+      }
+    ],
+    "windows": [
+      {
+        "id": "main",
+        "entry": "index.html",
+        "title": "Agency",
+        "width": 1160,
+        "height": 800,
+        "min_width": 840,
+        "min_height": 580,
+        "singleton": true,
+        "open_command": "open"
+      }
+    ],
+    "cli": [
+      {
+        "subcommand": "agency",
+        "command": "agency",
+        "summary": "Run Agency observations for one day or a date range; inspect progress and reports",
+        "args": [
+          {
+            "name": "action",
+            "type": "string",
+            "required": true,
+            "help": "run, scan, snapshot, status, or stop"
+          }
+        ],
+        "flags": [
+          {
+            "long": "--date",
+            "type": "string",
+            "help": "YYYY-MM-DD (single-day run, scan or snapshot)"
+          },
+          {
+            "long": "--from",
+            "type": "string",
+            "help": "First date YYYY-MM-DD, inclusive (run; requires --to)"
+          },
+          {
+            "long": "--to",
+            "type": "string",
+            "help": "Last date YYYY-MM-DD, inclusive (run; up to 31 days)"
+          },
+          {
+            "long": "--agent",
+            "type": "string",
+            "help": "codex (default), claude, or deepseek (run)"
+          }
+        ],
+        "requires_tab_context": false
+      }
+    ]
+  },
+  "capabilities": [
+    "ui",
+    "vault.read",
+    "vault.write",
+    "agent",
+    "editor.open"
+  ],
+  "request_timeout_seconds": 300,
+  "i18n": {
+    "zh": {
+      "name": "Agency",
+      "description": "复盘与 AI 协作的目标进展、返工负担与能力扩展，用原话支持下一次改进。",
+      "menus": {
+        "open": "打开 Agency…"
+      }
+    }
+  }
+}

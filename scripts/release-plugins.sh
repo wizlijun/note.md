@@ -2,7 +2,7 @@
 # Package + sign v2 plugins for the marketplace (子项目③ Task 5).
 #
 #   scripts/release-plugins.sh [--release] <plugin...>
-#     plugin ∈ { md2pdf, roam-import, apple-notes, meetings, strata, habitat, conversation-dictionary, openclaw, assistant-mail, pos-log,
+#     plugin ∈ { md2pdf, roam-import, apple-notes, meetings, agency, strata, habitat, conversation-dictionary, openclaw, assistant-mail, pos-log,
 #                decision-log, weekly-review, memory, claude-agent, codex-agent, deepseek-agent, ebook-import,
 #                idea-spark, next, power-mode, trace-source, timeline, index-viewer, typst-reader,
 #                knowledge-browser }   (add a case below)
@@ -44,14 +44,14 @@ PLUGINS=()
 for arg in "$@"; do
   case "$arg" in
     --release) : ;; # reserved; release builds are always release-profile
-    md2pdf|roam-import|apple-notes|meetings|strata|habitat|conversation-dictionary|openclaw|assistant-mail|pos-log|decision-log|weekly-review|memory|claude-agent|codex-agent|deepseek-agent|ebook-import|idea-spark|next|power-mode|trace-source|timeline|index-viewer|typst-reader|knowledge-browser) PLUGINS+=("$arg") ;;
+    md2pdf|roam-import|apple-notes|meetings|agency|strata|habitat|conversation-dictionary|openclaw|assistant-mail|pos-log|decision-log|weekly-review|memory|claude-agent|codex-agent|deepseek-agent|ebook-import|idea-spark|next|power-mode|trace-source|timeline|index-viewer|typst-reader|knowledge-browser) PLUGINS+=("$arg") ;;
     -h|--help)
       grep '^#' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
-    *) echo "unknown arg: $arg (expected --release | md2pdf | roam-import | apple-notes | meetings | strata | habitat | conversation-dictionary | openclaw | assistant-mail | pos-log | decision-log | weekly-review | memory | claude-agent | codex-agent | deepseek-agent | ebook-import | idea-spark | next | power-mode | trace-source | timeline | index-viewer | typst-reader | knowledge-browser)" >&2; exit 2 ;;
+    *) echo "unknown arg: $arg (expected --release | md2pdf | roam-import | apple-notes | meetings | agency | strata | habitat | conversation-dictionary | openclaw | assistant-mail | pos-log | decision-log | weekly-review | memory | claude-agent | codex-agent | deepseek-agent | ebook-import | idea-spark | next | power-mode | trace-source | timeline | index-viewer | typst-reader | knowledge-browser)" >&2; exit 2 ;;
   esac
 done
 if [[ ${#PLUGINS[@]} -eq 0 ]]; then
-  echo "usage: scripts/release-plugins.sh [--release] <md2pdf|roam-import|apple-notes|meetings|strata|habitat|conversation-dictionary|openclaw|assistant-mail|pos-log|decision-log|weekly-review|memory|claude-agent|codex-agent|deepseek-agent|ebook-import|idea-spark|next|power-mode|trace-source|timeline|index-viewer|typst-reader|knowledge-browser>..." >&2
+  echo "usage: scripts/release-plugins.sh [--release] <md2pdf|roam-import|apple-notes|meetings|agency|strata|habitat|conversation-dictionary|openclaw|assistant-mail|pos-log|decision-log|weekly-review|memory|claude-agent|codex-agent|deepseek-agent|ebook-import|idea-spark|next|power-mode|trace-source|timeline|index-viewer|typst-reader|knowledge-browser>..." >&2
   exit 2
 fi
 
@@ -184,6 +184,11 @@ release_strata() {
 release_habitat() {
   release_native_ui "notemd.habitat" "$REPO_ROOT/plugins-src/habitat" \
     "notemd-habitat" "habitat-plugin"
+}
+
+release_agency() {
+  release_native_ui "notemd.agency" "$REPO_ROOT/plugins-src/agency" \
+    "notemd-agency" "agency-plugin"
 }
 
 release_apple_notes() {
@@ -657,6 +662,7 @@ for plugin in "${PLUGINS[@]}"; do
     roam-import) release_roam_import ;;
     apple-notes) release_apple_notes ;;
     meetings)    release_meetings ;;
+    agency)      release_agency ;;
     strata)      release_strata ;;
     habitat)     release_habitat ;;
     conversation-dictionary) release_conversation_dictionary ;;

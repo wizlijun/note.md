@@ -114,6 +114,7 @@ fn harness_capabilities(
 ) -> HarnessCapabilities {
     HarnessCapabilities {
         tasks: vec![
+            task::AGENCY_OBSERVE_TASK.to_string(),
             task::GOVERNED_DOCUMENT_REVIEW_TASK.to_string(),
             task::STRATA_EXTRACT_TASK.to_string(),
             task::SEARCH_PLAN_TASK.to_string(),
@@ -1163,6 +1164,7 @@ mod tests {
         assert_eq!(
             value["tasks"],
             json!([
+                "agency-observe-v1",
                 "governed-document-review",
                 "strata-extract-v1",
                 "search-plan",

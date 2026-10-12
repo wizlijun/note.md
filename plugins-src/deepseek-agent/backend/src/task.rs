@@ -14,6 +14,10 @@
 use agent_run_core::task::{self as core, Templates};
 use std::path::Path;
 
+pub const AGENCY_OBSERVE_TASK: &str = "agency-observe-v1";
+const AGENCY_OBSERVE_INSTRUCTIONS: &str =
+    include_str!("../../../claude-agent/backend/templates/agency-observe-v1/INPUT_ONLY.md");
+
 pub const SEARCH_ANSWER_TASK: &str = "search-answer";
 pub const SEARCH_PLAN_TASK: &str = "search-plan";
 pub const SEARCH_SUMMARY_TASK: &str = "search-summary";
@@ -24,7 +28,8 @@ pub const STRATA_EXTRACT_TASK: &str = core::STRATA_EXTRACT_TASK;
 pub fn is_input_only_task(id: &str) -> bool {
     matches!(
         id,
-        SEARCH_PLAN_TASK
+        AGENCY_OBSERVE_TASK
+            | SEARCH_PLAN_TASK
             | SEARCH_ANSWER_TASK
             | SEARCH_SUMMARY_TASK
             | GOVERNED_DOCUMENT_REVIEW_TASK
@@ -34,6 +39,7 @@ pub fn is_input_only_task(id: &str) -> bool {
 
 pub fn input_only_instructions(id: &str) -> Option<&'static str> {
     match id {
+        AGENCY_OBSERVE_TASK => Some(AGENCY_OBSERVE_INSTRUCTIONS),
         SEARCH_PLAN_TASK => Some(include_str!("../templates/search-plan/AGENTS.md")),
         SEARCH_ANSWER_TASK => Some(include_str!("../templates/search-answer/AGENTS.md")),
         SEARCH_SUMMARY_TASK => Some(include_str!("../templates/search-summary/AGENTS.md")),
@@ -291,6 +297,18 @@ pub fn ensure_gitignore(vault: &Path) {
 mod tests {
     use super::*;
     use agent_run_core::task::tasks_root;
+
+    #[test]
+    fn agency_observation_uses_input_only_execution_and_compiled_protocol() {
+        assert!(is_input_only_task(AGENCY_OBSERVE_TASK));
+        assert_eq!(
+            input_only_instructions(AGENCY_OBSERVE_TASK),
+            Some(AGENCY_OBSERVE_INSTRUCTIONS)
+        );
+        assert!(AGENCY_OBSERVE_INSTRUCTIONS.contains("caller-provided JSON"));
+        assert!(!is_input_only_task("agency-observe-v2"));
+        assert_eq!(input_only_instructions("agency-observe-v2"), None);
+    }
 
     #[test]
     fn seeds_all_templates_on_a_fresh_vault() {

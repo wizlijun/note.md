@@ -13,6 +13,10 @@
 use agent_run_core::task::{self as core, Templates};
 use std::path::Path;
 
+pub const AGENCY_OBSERVE_TASK: &str = "agency-observe-v1";
+const AGENCY_OBSERVE_INSTRUCTIONS: &str =
+    include_str!("../../../claude-agent/backend/templates/agency-observe-v1/INPUT_ONLY.md");
+
 pub const SEARCH_ANSWER_TASK: &str = "search-answer";
 pub const SEARCH_PLAN_TASK: &str = "search-plan";
 pub const SEARCH_SUMMARY_TASK: &str = "search-summary";
@@ -23,7 +27,8 @@ pub const STRATA_EXTRACT_TASK: &str = core::STRATA_EXTRACT_TASK;
 pub fn is_input_only_task(id: &str) -> bool {
     matches!(
         id,
-        SEARCH_PLAN_TASK
+        AGENCY_OBSERVE_TASK
+            | SEARCH_PLAN_TASK
             | SEARCH_ANSWER_TASK
             | SEARCH_SUMMARY_TASK
             | GOVERNED_DOCUMENT_REVIEW_TASK
@@ -297,6 +302,9 @@ pub fn codex_instructions(task_dir: &Path) -> String {
     if task_dir.file_name().and_then(|name| name.to_str()) == Some(STRATA_EXTRACT_TASK) {
         return core::STRATA_EXTRACT_INSTRUCTIONS.to_string();
     }
+    if task_dir.file_name().and_then(|name| name.to_str()) == Some(AGENCY_OBSERVE_TASK) {
+        return AGENCY_OBSERVE_INSTRUCTIONS.to_string();
+    }
     if task_dir.file_name().and_then(|name| name.to_str()) == Some(GOVERNED_DOCUMENT_REVIEW_TASK) {
         return core::GOVERNED_DOCUMENT_REVIEW_INSTRUCTIONS.to_string();
     }
@@ -307,6 +315,17 @@ pub fn codex_instructions(task_dir: &Path) -> String {
 mod tests {
     use super::*;
     use agent_run_core::task::tasks_root;
+
+    #[test]
+    fn agency_observation_uses_input_only_rules_without_loading_local_instructions() {
+        assert!(is_input_only_task(AGENCY_OBSERVE_TASK));
+        let root = tempfile::tempdir().unwrap();
+        let dir = root.path().join(AGENCY_OBSERVE_TASK);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("CODEX.md"), "read the whole Vault").unwrap();
+        assert_eq!(codex_instructions(&dir), AGENCY_OBSERVE_INSTRUCTIONS);
+        assert!(!is_input_only_task("agency-observe-v2"));
+    }
 
     #[test]
     fn seeds_all_templates_on_a_fresh_vault() {

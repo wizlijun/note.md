@@ -120,6 +120,7 @@ fn harness_capabilities(
 ) -> agent_run_core::HarnessCapabilities {
     agent_run_core::HarnessCapabilities {
         tasks: vec![
+            task::AGENCY_OBSERVE_TASK.into(),
             task::GOVERNED_DOCUMENT_REVIEW_TASK.into(),
             task::STRATA_EXTRACT_TASK.into(),
             task::SEARCH_PLAN_TASK.into(),
@@ -1472,6 +1473,7 @@ mod tests {
         assert_eq!(
             capabilities.tasks,
             vec![
+                "agency-observe-v1",
                 "governed-document-review",
                 "strata-extract-v1",
                 "search-plan",
