@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.1012.1 — 2026-10-12
+
 ### Fixed
 
 - **Finder metadata no longer blocks sharing-project deletion.** Ordinary `.DS_Store` files are cleaned up with the managed mirror; source documents and unknown user files remain protected.
