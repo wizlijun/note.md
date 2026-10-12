@@ -123,6 +123,7 @@ export interface ReceiptState {
   state: 'auto' | 'suppressed' | 'sent' | 'failed'
   decided_at?: string | null
   included_in_snapshot_id?: string | null
+  sent_payload_hash?: string | null
   reply?: string | null
   sent_at?: string | null
   last_error?: string | null

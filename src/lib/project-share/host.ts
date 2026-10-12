@@ -456,18 +456,32 @@ function queueReceipt<T>(projectId: string, action: () => Promise<T>): Promise<T
 }
 const readReceiptFeedback = (project_id: string, submissionId: string) => projectCommand<LocalFeedback>('feedback-readonly', { project_id, submissionId })
 const saveReceipt = (project_id: string, submissionId: string, receipt: NonNullable<LocalFeedback['receipt']>) => projectCommand<LocalFeedback>('receipt-set', { project_id, submissionId, receipt })
-async function sendReceipt(project_id: string, submissionId: string, includedInSnapshotId?: string): Promise<LocalFeedback> {
+async function sendReceipt(project_id: string, submissionId: string, inclusionSnapshot?: ProjectSnapshot): Promise<LocalFeedback> {
   let feedback = await readReceiptFeedback(project_id, submissionId)
   const state = feedback.receipt ?? { state: 'auto' as const }
   const withdrawing = state.state === 'suppressed'
   if (withdrawing && !state.sent_at && !state.last_error) return feedback
-  const backfill = state.state === 'sent' && !!includedInSnapshotId && !state.included_in_snapshot_id
-  if (!withdrawing && state.state === 'sent' && !backfill) return feedback
   const decidedAt = state.decided_at ?? state.sent_at ?? new Date().toISOString()
-  const body = buildProjectReceipt(feedback, decidedAt, state.included_in_snapshot_id ?? (backfill ? includedInSnapshotId : undefined))
-  if (!withdrawing && (!body || backfill && !['accepted', 'partial'].includes(body.outcome))) return feedback
-  // Freeze the first decision time before the first request, including failed retries.
-  feedback = await saveReceipt(project_id, submissionId, { ...state, ...(withdrawing ? {} : { decided_at: decidedAt }), ...(backfill ? { state: 'auto', included_in_snapshot_id: includedInSnapshotId } : {}) })
+  let includedId = state.included_in_snapshot_id ?? undefined
+  let body = buildProjectReceipt(feedback, decidedAt, includedId)
+  if (!withdrawing && !body) return feedback
+  if (!withdrawing && body && state.state === 'sent' && !includedId && inclusionSnapshot && ['accepted', 'partial'].includes(body.outcome)) {
+    // Only prove adopted Markdown bytes. Missing proof can under-report a real inclusion;
+    // publication time alone cannot show that later decisions were in a frozen snapshot.
+    const adopted = body.files.filter(file => file.accepted > 0)
+    if (adopted.length && adopted.every(file => {
+      const resultHash = feedback.decisions[file.path]?.resultHash
+      return !!resultHash && inclusionSnapshot.files.some(published => published.path === file.path && published.hash === resultHash)
+    })) {
+      includedId = inclusionSnapshot.snapshotId
+      body = buildProjectReceipt(feedback, decidedAt, includedId)
+    }
+  }
+  const payloadHash = withdrawing ? undefined : await sha256Hex(JSON.stringify(body))
+  if (!withdrawing && state.state === 'sent' && state.sent_payload_hash === payloadHash) return feedback
+  // Freeze a possible-delivery marker before PUT, even if the final local acknowledgement fails.
+  feedback = await saveReceipt(project_id, submissionId, { ...state, ...(withdrawing ? {} : { decided_at: decidedAt }),
+    ...(includedId && !state.included_in_snapshot_id ? { state: 'auto', included_in_snapshot_id: includedId } : {}) })
   try {
     const cfg = await configuration()
     const identity = (await projectIdentities())[project_id]
@@ -479,8 +493,8 @@ async function sendReceipt(project_id: string, submissionId: string, includedInS
     return saveReceipt(project_id, submissionId, { ...feedback.receipt!, state: withdrawing ? 'suppressed' : 'failed', last_error: withdrawing ? '回执撤回失败，请重试' : '回执发送失败，请重试' })
   }
   return saveReceipt(project_id, submissionId, withdrawing
-    ? { ...feedback.receipt!, state: 'suppressed', sent_at: null, last_error: null }
-    : { ...feedback.receipt!, state: 'sent', sent_at: new Date().toISOString(), last_error: null, ...(body?.includedInSnapshotId ? { included_in_snapshot_id: body.includedInSnapshotId } : {}) })
+    ? { ...feedback.receipt!, state: 'suppressed', sent_at: null, sent_payload_hash: null, last_error: null }
+    : { ...feedback.receipt!, state: 'sent', sent_at: new Date().toISOString(), sent_payload_hash: payloadHash, last_error: null })
 }
 export function syncProjectReceipt(project_id: string, submissionId: string): Promise<LocalFeedback> {
   return queueReceipt(project_id, () => sendReceipt(project_id, submissionId))
@@ -492,7 +506,7 @@ export function setProjectReceipt(project_id: string, submissionId: string, inpu
     const state = feedback.receipt ?? { state: 'auto' as const }
     const changedReply = input.reply !== undefined && input.reply !== (state.reply ?? '')
     const nextState = !input.enabled ? 'suppressed' : state.state === 'sent' && !changedReply ? 'sent' : 'auto'
-    await saveReceipt(project_id, submissionId, { ...state, state: nextState, ...(input.reply !== undefined ? { reply: input.reply } : {}), ...(!input.enabled && state.state === 'sent' ? { last_error: '回执撤回尚未确认，请重试' } : {}) })
+    await saveReceipt(project_id, submissionId, { ...state, state: nextState, ...(input.reply !== undefined ? { reply: input.reply } : {}), ...(!input.enabled && (state.state === 'sent' || !!state.decided_at) ? { last_error: '回执撤回尚未确认，请重试' } : {}) })
     return sendReceipt(project_id, submissionId)
   })
 }
@@ -500,8 +514,15 @@ export function syncProjectReceipts(project_id: string, includedInSnapshotId?: s
   return queueReceipt(project_id, async () => {
     try {
       const items = await projectCommand<LocalFeedback[]>('feedback-list-readonly', { project_id })
+      let inclusionSnapshot: ProjectSnapshot | undefined
+      if (includedInSnapshotId) {
+        try {
+          const snapshot = await projectCommand<ProjectSnapshot>('snapshot-get', { project_id, snapshotId: includedInSnapshotId })
+          if (snapshot.project_id === project_id && snapshot.snapshotId === includedInSnapshotId) inclusionSnapshot = snapshot
+        } catch { /* unavailable inclusion proof must not block ordinary receipts/publication */ }
+      }
       for (const item of items) {
-        try { await sendReceipt(project_id, item.envelope.payload.submissionId, includedInSnapshotId) }
+        try { await sendReceipt(project_id, item.envelope.payload.submissionId, inclusionSnapshot) }
         catch { /* one unavailable record must not block other receipts */ }
       }
     } catch { /* receipt metadata/network must not invalidate a completed pull or publication */ }

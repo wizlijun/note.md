@@ -165,6 +165,8 @@ pub struct ReceiptState {
     pub decided_at: Option<String>,
     #[serde(default)]
     pub included_in_snapshot_id: Option<String>,
+    #[serde(default)]
+    pub sent_payload_hash: Option<String>,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BranchIntent {
@@ -1331,8 +1333,9 @@ impl ProjectStore {
     pub fn receipt_set(&self, id: &str, submission: &str, receipt: ReceiptState) -> Result<LocalFeedback> {
         let _lock = self.lock()?; let b = self.binding(id)?; self.active(&b)?;
         if !["auto", "suppressed", "sent", "failed"].contains(&receipt.state.as_str())
-            || receipt.reply.as_ref().is_some_and(|s| s.encode_utf16().count() > 2000 || s.contains('\0')) {
-            return Err("invalid receipt state: state or reply".into());
+            || receipt.reply.as_ref().is_some_and(|s| s.encode_utf16().count() > 2000 || s.contains('\0'))
+            || receipt.sent_payload_hash.as_ref().is_some_and(|s| s.len() != 64 || !s.bytes().all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(&c))) {
+            return Err("invalid receipt state: state, reply or payload hash".into());
         }
         let mut f = self.feedback_metadata(&b, submission)?;
         f.receipt = Some(receipt);
@@ -1781,7 +1784,7 @@ mod tests {
         }
         for target in ["branch", "patch"] {
             execute_request(&s, &serde_json::json!({"op":"git-target","project_id":p.project_id,"target":target})).unwrap();
-            let result = execute_request(&s, &serde_json::json!({"op":"receipt-set","project_id":p.project_id,"submissionId":"receipt","receipt":{"state":"auto","reply":"谢谢","decided_at":"2026-10-13T00:00:00Z"}})).unwrap();
+            let result = execute_request(&s, &serde_json::json!({"op":"receipt-set","project_id":p.project_id,"submissionId":"receipt","receipt":{"state":"auto","reply":"谢谢","decided_at":"2026-10-13T00:00:00Z","sent_payload_hash":"a".repeat(64)}})).unwrap();
             assert_eq!(result["decisions"]["README.md"]["status"], "pending");
             assert_eq!(p1_state(Path::new(&p.source_root)), state);
             assert_eq!(std::fs::read(&mirror).unwrap(), mirror_bytes);
@@ -1789,6 +1792,7 @@ mod tests {
         let restarted = ProjectStore::new(t.path().join("vault"), t.path().join("state"));
         let saved = execute_request(&restarted, &serde_json::json!({"op":"feedback-readonly","project_id":p.project_id,"submissionId":"receipt"})).unwrap();
         assert_eq!(saved["receipt"]["reply"], "谢谢"); assert_eq!(saved["receipt"]["decided_at"], "2026-10-13T00:00:00Z");
+        assert_eq!(saved["receipt"]["sent_payload_hash"], "a".repeat(64));
         for receipt in [serde_json::json!({"state":"unknown"}), serde_json::json!({"state":"auto","reply":"😀".repeat(1001)})] {
             let error = execute_request(&s, &serde_json::json!({"op":"receipt-set","project_id":p.project_id,"submissionId":"receipt","receipt":receipt})).unwrap_err();
             assert!(error.starts_with("invalid receipt state"), "{error}");
@@ -1797,6 +1801,22 @@ mod tests {
         for op in ["feedback-readonly", "feedback-list-readonly", "receipt-set"] {
             assert!(execute_request(&s, &serde_json::json!({"op":op,"project_id":p.project_id,"submissionId":"receipt","receipt":{"state":"auto"}})).unwrap_err().contains("deletion"));
         }
+    }
+    #[test]
+    fn project_share_receipt_payload_hash_metadata_validates_defaults_and_survives_restart() {
+        let (t, s, p) = fixture(); let snap = freeze(&s, &p);
+        s.feedback(&p.project_id, envelope(&p, &snap, "hash")).unwrap();
+        let request = |hash: serde_json::Value| serde_json::json!({"op":"receipt-set","project_id":p.project_id,"submissionId":"hash","receipt":{"state":"sent","sent_payload_hash":hash}});
+        let saved = execute_request(&s, &request("a".repeat(64).into())).unwrap();
+        assert_eq!(saved["receipt"]["sent_payload_hash"], "a".repeat(64));
+        let restarted = ProjectStore::new(t.path().join("vault"), t.path().join("state"));
+        let reread = execute_request(&restarted, &serde_json::json!({"op":"feedback-readonly","project_id":p.project_id,"submissionId":"hash"})).unwrap();
+        assert_eq!(reread["receipt"]["sent_payload_hash"], "a".repeat(64));
+        for invalid in ["a".repeat(63), "g".repeat(64), "SECRET_BODY".into()] {
+            assert!(execute_request(&s, &request(invalid.into())).unwrap_err().starts_with("invalid receipt state"));
+        }
+        let legacy = execute_request(&s, &serde_json::json!({"op":"receipt-set","project_id":p.project_id,"submissionId":"hash","receipt":{"state":"auto"}})).unwrap();
+        assert!(legacy["receipt"]["sent_payload_hash"].is_null());
     }
     #[test]
     fn project_share_receipt_set_waits_for_records_lock_and_reads_legacy_state() {
