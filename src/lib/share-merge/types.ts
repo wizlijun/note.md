@@ -7,6 +7,13 @@ export interface Token {
   fmKey?: string
 }
 
+export interface Change {
+  b0: number
+  b1: number
+  s0: number
+  s1: number
+}
+
 export type HunkKind = 'theirs-only' | 'ours-only' | 'both-same' | 'conflict'
 export type HunkFlag = 'trust-field' | 'frontmatter' | 'owner-annotation' | 'hidden-chars' | 'eol-only' | 'degraded'
 
