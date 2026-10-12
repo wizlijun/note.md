@@ -547,7 +547,7 @@ if (options && (t.currentContent !== options.expectedContent || isDirty(t.id))) 
 
 **Interfaces:** 无新增产品接口。输出实际运行日志、P0 覆盖矩阵与尚未实施阶段列表。
 
-- [ ] **Step 1：补真实本地集成 fixture。** 两篇互引 Markdown、一张图片；分别冻结 S1、发布成功、冻结未发布快照、发布 S2；导入一份基于 S1 的 v1 反馈，包含正文和批注；原件同时修改另一句。实际审阅接受指定 hunk/批注，一次 apply 后断言原件保留主人修改、镜像一致、未分享文件字节不变，重开决定保留。再导入第二份相同改动，已接受部分为 both-same。
+- [x] **Step 1：补真实本地集成 fixture。** 两篇互引 Markdown、一张图片；分别冻结 S1、发布成功、冻结未发布快照、发布 S2；导入一份基于 S1 的 v1 反馈，包含正文和批注；原件同时修改另一句。实际审阅接受指定 hunk/批注，一次 apply 后断言原件保留主人修改、镜像一致、未分享文件字节不变，重开决定保留。再导入第二份相同改动，已接受部分为 both-same。
 
 ```ts
 // review.test.ts 对真实 kernel + mock IPC 的最终内容验收；Rust 单测独立证明实际文件 CAS/恢复。
@@ -557,12 +557,12 @@ expect(result.text).toBe('甲改。乙改。丙。')
 expect(result.pendingConflicts).toEqual([])
 ```
 
-- [ ] **Step 2：以真实宿主或本地开发构建跑完整审阅 UI→真实 IPC→磁盘功能验收。** 验证未保存原件/镜像 tab 的保存顺序、取消确认、CAS 横幅、重新打开、批注提升、原项目删除/范围变化、对话框项目切换。记录真实操作与结果；DOM mock 不能代替 Tauri 文件/IPC 验收。 可使用隔离 Wry/WKWebView 内的真实 UI 自动化驱动，且不得 mock Tauri bridge、文件或 Rust dispatch。OS 级人工鼠标、焦点和原生截图另列验收项；环境不可用时明确标未验证，不用浏览器 mock 或截图补盖。
+- [x] **Step 2：以真实宿主或本地开发构建跑完整审阅 UI→真实 IPC→磁盘功能验收。** 验证未保存原件/镜像 tab 的保存顺序、取消确认、CAS 横幅、重新打开、批注提升、原项目删除/范围变化、对话框项目切换。记录真实操作与结果；DOM mock 不能代替 Tauri 文件/IPC 验收。 可使用隔离 Wry/WKWebView 内的真实 UI 自动化驱动，且不得 mock Tauri bridge、文件或 Rust dispatch。OS 级人工鼠标、焦点和原生截图另列验收项；环境不可用时明确标未验证，不用浏览器 mock 或截图补盖。
 
 执行裁定（Task 10 I1）：原计划限定“手动”，比 spec §17 WP0.3 的 R1–R10 功能测试更强；spec 明确人工输入法要求位于本轮排除的 E1。CUA 对独立验收应用的精确 ID 与 .app 路径均 cgWindowNotFound 后，本轮采用已跑通的真实 Wry UI/IPC/磁盘验收，并保留 OS 人工交互与原生截图未验证边界，不宣称人工通过。
-- [ ] **Step 3：完成规格审查，再完成代码质量审查。** 子代理只读审查，以 spec 与该任务文字为输入；发现问题回交原实现者，修复重测。root 本计划自审不委派。禁止在共享 main 上让两个实现者同时修改 `project_share.rs`/`types.ts`/dialog。
-- [ ] **Step 4：更新双语用户条目。** 中文：「项目分享支持逐处接受、拒绝与编辑外部修改；原件后续修改可与建议对照合并。批注可审阅后提升为原文批注，审阅进度会自动保存。」英文说明对应行为，不写“自动采纳”。
-- [ ] **Step 5：执行完整验收命令，逐个检查退出码。**
+- [x] **Step 3：完成规格审查，再完成代码质量审查。** 子代理只读审查，以 spec 与该任务文字为输入；发现问题回交原实现者，修复重测。root 本计划自审不委派。禁止在共享 main 上让两个实现者同时修改 `project_share.rs`/`types.ts`/dialog。
+- [x] **Step 4：更新双语用户条目。** 中文：「项目分享支持逐处接受、拒绝与编辑外部修改；原件后续修改可与建议对照合并。批注可审阅后提升为原文批注，审阅进度会自动保存。」英文说明对应行为，不写“自动采纳”。
+- [x] **Step 5：执行完整验收命令，逐个检查退出码。**
 
 ```bash
 pnpm test
@@ -575,8 +575,8 @@ git diff --check
 
 四项 spec 全量命令不以定向测试代替。环境失败先定位；在证据中明确未执行/失败/通过，不能修改测试阈值或跳过用例让工作包看似完成。测试前确认磁盘空间，不创建多个临时 target；共享现有依赖与构建目录。
 
-- [ ] **Step 6：逐项核对完成矩阵。** K1–K19、R1–R10；I1–I8/I12–I14 的 P0 部分；旧 v1 反馈/manifest/inbox/分享页面兼容；公开投影；CAS/recovery；远程资源无自动请求；两个 CHANGELOG；真实 Wry UI/IPC 功能验收与 OS 人工检查边界。I9–I11 在 P0 无 Git 新行为，P1 再增加真实 Git 集成证明。
-- [ ] **Step 7：精确提交本轮文档与验收修复，交付 main 提交与证据。** 不把 P1/P2/E1–E4 标记完成，不部署或发布；用户请求发布时再执行完整发布盘点与线上核验。
+- [x] **Step 6：逐项核对完成矩阵。** K1–K19、R1–R10；I1–I8/I12–I14 的 P0 部分；旧 v1 反馈/manifest/inbox/分享页面兼容；公开投影；CAS/recovery；远程资源无自动请求；两个 CHANGELOG；真实 Wry UI/IPC 功能验收与 OS 人工检查边界。I9–I11 在 P0 无 Git 新行为，P1 再增加真实 Git 集成证明。
+- [x] **Step 7：精确提交本轮文档与验收修复，交付 main 提交与证据。** 不把 P1/P2/E1–E4 标记完成，不部署或发布；用户请求发布时再执行完整发布盘点与线上核验。
 
 ## 计划自审记录
 
@@ -593,3 +593,7 @@ git diff --check
 2. **Inline Execution**：本会话使用 executing-plans，分批执行并在规定检查点汇报。
 
 用户的「不要开 worktree」持续有效，两种方式都在当前 main 执行。
+
+## 执行结果
+
+十个 P0 任务已完成独立规格与质量审查。最终全量：前端 321 suites/3809 tests、Rust 1383 tests（1194 lib）、Worker 255 tests、构建及 Editor Kit 检查通过；svelte-check 0 errors/33 既有 warnings。真实隔离 Wry UI/IPC/磁盘及 RichEditor 保存验收通过，OS 级手工焦点/鼠标/原生截图受 CUA cgWindowNotFound 限制仍未验证。整轮最终审查状态与裁定见[验证记录](../reports/2026-10-12-project-share-review-merge-p0-verification.md)。本轮不包含 P1/P2/E1–E4/P3，不执行部署或发布。
