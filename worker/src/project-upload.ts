@@ -242,33 +242,52 @@ async function begin(env: Env, slug: string, args: Begin, origin: string): Promi
   return ensureUploads(env, slug, loaded, origin, true)
 }
 async function ensureUploads(env: Env, slug: string, loaded: Loaded, origin: string, freshSession = false): Promise<Response> {
-  const sessionId = loaded.state.upload?.sessionId
+  const sessionId = loaded.state.upload?.sessionId, publicationId = loaded.state.publicationId
   if (!sessionId) return receipt(env, slug, loaded, origin)
-  for (const original of loaded.state.upload!.artifacts) {
-    let fresh = loaded
-    usable(fresh.state, loaded.state.publicationId)
-    if (fresh.state.upload?.sessionId !== sessionId) error(409, 'Upload session changed')
-    const artifact = fresh.state.upload!.artifacts.find(a => a.name === original.name)!
-    // A registered key without an uploadId has never accepted a body.
-    if (artifact.uploadId) continue
-    const created = await env.MEDIA.createMultipartUpload(artifact.key, { httpMetadata: { contentType: artifact.name === 'archive' ? 'application/zip' : 'text/html; charset=utf-8' },
-      customMetadata: { sessionId, publicationId: fresh.state.publicationId, sha256: artifact.sha256 } })
-    try {
-      // Creation may have interleaved with revoke or another begin. CAS protects its registration.
-      fresh = (await readProjectState(env, slug))!
-      usable(fresh.state, loaded.state.publicationId)
-      if (fresh.state.upload?.sessionId !== sessionId) error(409, 'Upload session changed')
-      const registered = fresh.state.upload!.artifacts.find(a => a.key === artifact.key)!
-      if (registered.uploadId) { await created.abort(); loaded = fresh; continue }
-      registered.uploadId = created.uploadId
-      const savedEtag = await writeState(env, slug, fresh.state, fresh.etag)
-      loaded = { state: fresh.state, etag: savedEtag }
-    } catch (e) {
-      const current = await readProjectState(env, slug)
-      if (!current || current.state.revoked || current.state.upload?.sessionId !== sessionId
-        || !current.state.upload.artifacts.some(a => a.uploadId === created.uploadId)) { try { await created.abort() } catch {} }
-      throw e
+  usable(loaded.state, publicationId)
+  const created: R2MultipartUpload[] = []
+  let attemptedCAS = false
+  try {
+    // Keys were registered before creation. At most two native MPUs are created,
+    // then their uploadIds are registered together behind one fresh read and CAS.
+    for (const artifact of loaded.state.upload!.artifacts) {
+      if (artifact.uploadId) continue
+      created.push(await env.MEDIA.createMultipartUpload(artifact.key, { httpMetadata: { contentType: artifact.name === 'archive' ? 'application/zip' : 'text/html; charset=utf-8' },
+        customMetadata: { sessionId, publicationId, sha256: artifact.sha256 } }))
     }
+    if (created.length) {
+      const fresh = await readProjectState(env, slug)
+      if (!fresh) error(409, 'Publication missing')
+      usable(fresh!.state, publicationId)
+      if (fresh!.state.upload?.sessionId !== sessionId) error(409, 'Upload session changed')
+      let changed = false
+      for (const upload of created) {
+        const registered = fresh!.state.upload!.artifacts.find(a => a.key === upload.key)
+        if (!registered) error(409, 'Upload artifact changed')
+        if (registered!.uploadId) {
+          if (registered!.uploadId !== upload.uploadId) { try { await upload.abort() } catch {} }
+        } else { registered!.uploadId = upload.uploadId; changed = true }
+      }
+      loaded = fresh!
+      if (changed) {
+        attemptedCAS = true
+        const savedEtag = await writeState(env, slug, fresh!.state, fresh!.etag)
+        loaded = { state: fresh!.state, etag: savedEtag }
+      }
+    }
+  } catch (e) {
+    let current: Loaded | null = null
+    if (attemptedCAS) {
+      // A failed response can hide a successful CAS. If its reread also fails,
+      // leave the MPUs to native expiry rather than abort a registered winner.
+      try { current = await readProjectState(env, slug) } catch { throw e }
+    }
+    for (const upload of created) {
+      const registered = current?.state.upload?.artifacts.some(a => a.key === upload.key && a.uploadId === upload.uploadId)
+        || current?.state.retired?.some(s => s.artifacts.some(a => a.key === upload.key && a.uploadId === upload.uploadId))
+      if (!registered) { try { await upload.abort() } catch {} }
+    }
+    throw e
   }
   // A fresh session starts empty. Recovery requests still inspect native HEAD.
   return receipt(env, slug, loaded, origin, freshSession ? [] : undefined)

@@ -26,6 +26,11 @@ async function part(body = 'hello', extra = {}) {
  return response
 }
 async function publish() { expect((await begin()).status).toBe(200); expect((await part()).status).toBe(200); expect((await op('seal', { artifact: 'entry' })).status).toBe(200); return op('commit') }
+const fullArgs = { edit_token: token, project_id: 'project', feedback_token_hash: 'b'.repeat(64), publicationId: 'pub', previousPublicationId: null, sessionId: 'full', phase: 'full', snapshotId: 'full', entry: 'README.md', title: 'Project', expires_in_seconds: 3600, artifacts: [readerPlan, zipPlan] }
+function fullBegin(hooks: Partial<R2Bucket>) {
+ const bucket = { get: media.get.bind(media), head: media.head.bind(media), put: media.put.bind(media), delete: media.delete.bind(media), createMultipartUpload: media.createMultipartUpload.bind(media), resumeMultipartUpload: media.resumeMultipartUpload.bind(media), ...hooks } as R2Bucket
+ return worker.fetch(new Request(base + 'begin', { method: 'POST', headers: auth, body: JSON.stringify(fullArgs) }), { ...bindings, MEDIA: bucket })
+}
 async function cleanupStatus(hooks: Partial<R2Bucket> = {}) {
  const calls: string[] = []
  const counted = { get(key: string) { calls.push('get'); return media.get(key) }, head(key: string) { calls.push('head'); return media.head(key) },
@@ -307,7 +312,7 @@ describe('native multipart project publication', () => {
   expect((await op('commit')).status).toBe(410)
  })
 
- it('uses six native calls for first entry begin, two for empty recovery, and eight for a new full session', async () => {
+ it('uses six native calls for first entry and full begin, and two for empty recovery', async () => {
   const calls: string[] = []
   const counted = { get(key: string) { calls.push('get'); return media.get(key) }, head(key: string) { calls.push('head'); return media.head(key) },
    put(key: string, value: any, options: any) { calls.push('put'); return media.put(key, value, options) },
@@ -329,7 +334,7 @@ describe('native multipart project publication', () => {
   expect((await (await start()).json() as any).upload.sealed).toEqual(['entry'])
   calls.length = 0
   expect((await start({ phase: 'full', sessionId: 'full', snapshotId: 'full', artifacts: [readerPlan, zipPlan] })).status).toBe(200)
-  expect(calls).toEqual(['get', 'put', 'create', 'get', 'put', 'create', 'get', 'put'])
+  expect(calls).toEqual(['get', 'put', 'create', 'create', 'get', 'put'])
   await part('reader', { 'X-Upload-Session': 'full', 'X-Artifact': 'reader' }); await op('seal', { sessionId: 'full', artifact: 'reader' })
   await part('zip', { 'X-Upload-Session': 'full', 'X-Artifact': 'archive' }); await op('seal', { sessionId: 'full', artifact: 'archive' }); await op('commit', { sessionId: 'full' })
   calls.length = 0
@@ -339,7 +344,121 @@ describe('native multipart project publication', () => {
   await part('hello', { 'X-Publication-Id': 'next', 'X-Upload-Session': 'nextEntry' }); await op('seal', { ...next, artifact: 'entry' }); await op('commit', next)
   calls.length = 0
   expect((await start({ ...next, phase: 'full', sessionId: 'nextFull', snapshotId: 'nextFull', artifacts: [readerPlan, zipPlan] })).status).toBe(200)
-  expect(calls).toEqual(['get', 'put', 'create', 'get', 'put', 'create', 'get', 'put'])
+  expect(calls).toEqual(['get', 'put', 'create', 'create', 'get', 'put'])
+ })
+ it('aborts the first unregistered MPU when the second native create fails', async () => {
+  await publish()
+  const created: R2MultipartUpload[] = []
+  await expect(fullBegin({ createMultipartUpload: async (key: string, options: any) => {
+   if (created.length) throw new Error('second create failed')
+   const upload = await media.createMultipartUpload(key, options); created.push(upload); return upload
+  } } as Partial<R2Bucket>)).rejects.toThrow('second create failed')
+  const state = await (await media.get(projectStateKey(slug)))!.json() as any
+  expect(state.upload.artifacts.map((a: any) => a.uploadId)).toEqual([undefined, undefined])
+  await expect(created[0].uploadPart(1, 'reader')).rejects.toThrow()
+  expect((await fullBegin({})).status).toBe(200)
+ })
+ it('keeps competing registered uploadIds and aborts only its own duplicate MPUs', async () => {
+  await publish()
+  const created: R2MultipartUpload[] = []
+  let winner: any
+  const response = await fullBegin({ createMultipartUpload: async (key: string, options: any) => {
+   const upload = await media.createMultipartUpload(key, options); created.push(upload)
+   if (created.length === 2) { expect((await fullBegin({})).status).toBe(200); winner = await (await media.get(projectStateKey(slug)))!.json() as any }
+   return upload
+  } } as Partial<R2Bucket>)
+  expect(response.status).toBe(200)
+  const after = await (await media.get(projectStateKey(slug)))!.json() as any
+  expect(after.upload.artifacts.map((a: any) => a.uploadId)).toEqual(winner.upload.artifacts.map((a: any) => a.uploadId))
+  for (const upload of created) await expect(upload.uploadPart(1, 'loser')).rejects.toThrow()
+  for (const artifact of after.upload.artifacts) expect((await media.resumeMultipartUpload(artifact.key, artifact.uploadId).uploadPart(1, 'winner')).etag).toBeTruthy()
+ })
+ it('preserves all registered MPUs after an unknown successful batch CAS and aborts a failed batch', async () => {
+  await publish()
+  for (const persisted of [false, true]) {
+   const created: R2MultipartUpload[] = []
+   await expect(fullBegin({ createMultipartUpload: async (key: string, options: any) => { const upload = await media.createMultipartUpload(key, options); created.push(upload); return upload },
+    put: async (key: string, value: any, options: any) => {
+     if (key === projectStateKey(slug) && JSON.parse(value).upload?.sessionId === 'full' && JSON.parse(value).upload.artifacts.some((a: any) => a.uploadId)) {
+      if (persisted) await media.put(key, value, options)
+      throw new Error('CAS result unknown')
+     }
+     return media.put(key, value, options)
+    },
+   } as Partial<R2Bucket>)).rejects.toThrow('CAS result unknown')
+   expect(created).toHaveLength(2)
+   const state = await (await media.get(projectStateKey(slug)))!.json() as any
+   expect(state.upload.artifacts.map((a: any) => a.uploadId)).toEqual(persisted ? created.map(upload => upload.uploadId) : [undefined, undefined])
+   for (const upload of created) {
+    if (persisted) expect((await upload.uploadPart(1, 'registered')).etag).toBeTruthy()
+    else await expect(upload.uploadPart(1, 'unregistered')).rejects.toThrow()
+   }
+  }
+ })
+ it('rechecks revoke after both full MPUs are created without partially registering either', async () => {
+  await publish()
+  const created: R2MultipartUpload[] = []
+  const response = await fullBegin({ createMultipartUpload: async (key: string, options: any) => {
+   const upload = await media.createMultipartUpload(key, options); created.push(upload)
+   if (created.length === 2) await SELF.fetch('http://x/' + slug, { method: 'DELETE', headers: auth, body: JSON.stringify({ edit_token: token }) })
+   return upload
+  } } as Partial<R2Bucket>)
+  expect(response.status).toBe(410)
+  const state = await (await media.get(projectStateKey(slug)))!.json() as any
+  expect(state.upload.artifacts.map((a: any) => a.uploadId)).toEqual([undefined, undefined])
+  for (const upload of created) await expect(upload.uploadPart(1, 'late')).rejects.toThrow()
+ })
+ it('aborts a losing batch after a concurrent session replacement wins its registration CAS', async () => {
+  await publish()
+  const created: R2MultipartUpload[] = []
+  let replaced = false
+  const response = await fullBegin({ createMultipartUpload: async (key: string, options: any) => { const upload = await media.createMultipartUpload(key, options); created.push(upload); return upload },
+   put: async (key: string, value: any, options: any) => {
+    if (!replaced && JSON.parse(value).upload?.artifacts.every((a: any) => !!a.uploadId)) {
+     replaced = true
+     expect((await begin({ ...fullArgs, sessionId: 'replacement', replaceSessionId: 'full' })).status).toBe(200)
+    }
+    return media.put(key, value, options)
+   },
+  } as Partial<R2Bucket>)
+  expect(response.status).toBe(409)
+  const state = await (await media.get(projectStateKey(slug)))!.json() as any
+  expect(state.upload.sessionId).toBe('replacement')
+  expect(state.retired.find((s: any) => s.sessionId === 'full').artifacts.map((a: any) => a.key)).toEqual(created.map(upload => upload.key))
+  for (const upload of created) await expect(upload.uploadPart(1, 'loser')).rejects.toThrow()
+ })
+ it('recognizes its registered batch in retirement after an unknown successful CAS', async () => {
+  await publish()
+  const created: R2MultipartUpload[] = []
+  await expect(fullBegin({ createMultipartUpload: async (key: string, options: any) => { const upload = await media.createMultipartUpload(key, options); created.push(upload); return upload },
+   put: async (key: string, value: any, options: any) => {
+    const saved = await media.put(key, value, options)
+    if (JSON.parse(value).upload?.artifacts.every((a: any) => !!a.uploadId)) {
+     expect((await begin({ ...fullArgs, sessionId: 'replacement', replaceSessionId: 'full' })).status).toBe(200)
+     throw new Error('CAS result unknown')
+    }
+    return saved
+   },
+  } as Partial<R2Bucket>)).rejects.toThrow('CAS result unknown')
+  const state = await (await media.get(projectStateKey(slug)))!.json() as any
+  expect(state.retired.find((s: any) => s.sessionId === 'full').artifacts.map((a: any) => a.uploadId)).toEqual(created.map(upload => upload.uploadId))
+  for (const upload of created) expect((await upload.uploadPart(1, 'registered')).etag).toBeTruthy()
+ })
+ it('does not abort a possibly registered batch if unknown-CAS recovery cannot read state', async () => {
+  await publish()
+  const created: R2MultipartUpload[] = []
+  let unreadable = false
+  await expect(fullBegin({ get: async (key: string) => { if (unreadable) throw new Error('read failed'); return media.get(key) },
+   createMultipartUpload: async (key: string, options: any) => { const upload = await media.createMultipartUpload(key, options); created.push(upload); return upload },
+   put: async (key: string, value: any, options: any) => {
+    const saved = await media.put(key, value, options)
+    if (JSON.parse(value).upload?.artifacts.every((a: any) => !!a.uploadId)) { unreadable = true; throw new Error('CAS result unknown') }
+    return saved
+   },
+  } as Partial<R2Bucket>)).rejects.toThrow('CAS result unknown')
+  expect(created).toHaveLength(2)
+  for (const upload of created) expect((await upload.uploadPart(1, 'registered')).etag).toBeTruthy()
+  expect((await fullBegin({})).status).toBe(200)
  })
  it('cleans one completed retired artifact within six calls without aborting its consumed uploadId', async () => {
   await publish()
