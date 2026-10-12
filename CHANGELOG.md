@@ -13,6 +13,10 @@ For the full commit history, see the git log.
 
 - **The shared reader sidebar toggle keeps its arrows aligned.** Expanding and collapsing the file panel no longer moves the arrow onto the divider.
 
+### Improvements
+
+- **See ZIP upload progress in the sharing project.** The project shows bytes sent and percentage, then waits for extraction and publication confirmation before reporting success.
+
 ## v6.1010.5 — 2026-10-10
 
 ### Improvements
