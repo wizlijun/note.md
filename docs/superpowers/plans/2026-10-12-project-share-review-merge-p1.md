@@ -157,7 +157,7 @@ export async function prepareGitReview(project_id:string, submissionId:string,
 }
 ```
 
-- [ ] **Step 1: RED状态/组件/host。** remote有无默认B/A、项目target优先且跨项目不串、draft.target快照。两个edit不同文件，在A看工作区、B按同H重算，接受决定准确复用；H改变/缺blob/stale/kind变/version变/任一未决conflict均零branch/export；unresolved theirs在确认显示但不采纳。断言两文件一起一command、0 apply/prepareSource/saveTab/refreshSource。C取消picker无写文件、无Decision；保存成功字节原样、写失败保留草稿。Ctrl/CmdEnter不暗中调用A。
+- [x] **Step 1: RED状态/组件/host。** remote有无默认B/A、项目target优先且跨项目不串、draft.target快照。两个edit不同文件，在A看工作区、B按同H重算，接受决定准确复用；H改变/缺blob/stale/kind变/version变/任一未决conflict均零branch/export；unresolved theirs在确认显示但不采纳。断言两文件一起一command、0 apply/prepareSource/saveTab/refreshSource。C取消picker无写文件、无Decision；保存成功字节原样、写失败保留草稿。Ctrl/CmdEnter不暗中调用A。
 
 ```ts
 expect(gitCommand).toHaveBeenCalledWith('branch', {
@@ -168,11 +168,11 @@ expect(apply).not.toHaveBeenCalled()
 expect(prepareSource).not.toHaveBeenCalled()
 ```
 
-- [ ] **Step 2: 运行 RED。** `pnpm exec vitest run src/lib/project-share/git.test.ts src/components/project-review/GitTargetBar.test.ts src/components/project-review/ProjectReview.test.ts src/lib/project-share/review.test.ts src/lib/project-share/host.test.ts src/components/ProjectShareDialog.test.ts`。
-- [ ] **Step 3: 目标与batch最小实现。** GitTargetBar沿用review-actions三个aria-pressed按钮；probe每次进入/执行重新探测、非Git退A；错误只禁用Git操作，保留P0复制/拒绝。切目标先flush再保存config，成功后才切换session目标；进入B/C通过review-readonly读磁盘，不保存buffer；draft保存目标快照，dismiss传当前target，Git目标后端raw+intent守卫不recover；切回A重新open走P0准备。前端重算只调用merge-client.compute/内核compose/共用retain；没有草稿视为未决，不默认accept；全无已接受且有可操作hunks则提示先审阅。B/C整份确认逐文件显示SourceDiff，披露未决数量，不省略文件；确认后固定expectedHead执行，不自动重试。期间父isBusy/关闭/切项目锁同writing；迟到结果代际隔离。
-- [ ] **Step 4: 结果/复制/补丁。** A复制Rust可信message；B显示branch和可复制push命令；若有stateError保留分支结果并仅重试git-branched状态写回，不再次建分支。push命令的remote取probe返回，正确shellquote且加`--`，不执行。C复用pickSaveFile(default .patch)和plugin-fs.writeTextFile，不另造picker/权限。B/C批注按裁定5禁提升并给说明；全部branched界面为已处理，C可重复且不改决定。已有分享发布/删除/主题/上传不变。
-- [ ] **Step 5: GREEN及Chrome。** 定向命令、`pnpm check`。真实Chrome生产组件/Worker加隔离bridge验证目标切换、两文件确认、B结果、C取消/成功、键盘/深色/390–1000px/关闭锁；明确bridge不是native IPC，截图检查。popup若新增必须实测hover；优先无需popup的按钮条。
-- [ ] **Step 6: 精确提交。** `feat(share): review submissions into Git branches or patches`。
+- [x] **Step 2: 运行 RED。** `pnpm exec vitest run src/lib/project-share/git.test.ts src/components/project-review/GitTargetBar.test.ts src/components/project-review/ProjectReview.test.ts src/lib/project-share/review.test.ts src/lib/project-share/host.test.ts src/components/ProjectShareDialog.test.ts`。
+- [x] **Step 3: 目标与batch最小实现。** GitTargetBar沿用review-actions三个aria-pressed按钮；probe每次进入/执行重新探测、非Git退A；错误只禁用Git操作，保留P0复制/拒绝。切目标先flush再保存config，成功后才切换session目标；进入B/C通过review-readonly读磁盘，不保存buffer；draft保存目标快照，dismiss传当前target，Git目标后端raw+intent守卫不recover；切回A重新open走P0准备。前端重算只调用merge-client.compute/内核compose/共用retain；没有草稿视为未决，不默认accept；全无已接受且有可操作hunks则提示先审阅。B/C整份确认逐文件显示SourceDiff，披露未决数量，不省略文件；确认后固定expectedHead执行，不自动重试。期间父isBusy/关闭/切项目锁同writing；迟到结果代际隔离。
+- [x] **Step 4: 结果/复制/补丁。** A复制Rust可信message；B显示branch和可复制push命令；若有stateError保留分支结果并仅重试git-branched状态写回，不再次建分支。push命令的remote取probe返回，正确shellquote且加`--`，不执行。C复用pickSaveFile(default .patch)和plugin-fs.writeTextFile，不另造picker/权限。B/C批注按裁定5禁提升并给说明；全部branched界面为已处理，C可重复且不改决定。已有分享发布/删除/主题/上传不变。
+- [x] **Step 5: GREEN及Chrome。** 定向命令、`pnpm check`。真实Chrome生产组件/Worker加隔离bridge验证目标切换、两文件确认、B结果、C取消/成功、键盘/深色/390–1000px/关闭锁；明确bridge不是native IPC，截图检查。popup若新增必须实测hover；优先无需popup的按钮条。
+- [x] **Step 6: 精确提交。** `feat(share): review submissions into Git branches or patches`。
 
 ## Task 4: P1 集成验收、用户条目与交付证据
 
