@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { strToU8, zipSync } from 'fflate'
 import { SELF, env } from 'cloudflare:test'
 import worker, { type Env } from '../src/index'
@@ -350,7 +350,7 @@ describe('native multipart project publication', () => {
   const shares = { getWithMetadata(key: string, type: 'stream') { calls.push('kvGet'); return bindings.SHARES.getWithMetadata(key, type) } } as unknown as KVNamespace
   const response = await worker.fetch(new Request(base + 'begin', { method: 'POST', headers: auth, body: JSON.stringify({ edit_token: token, project_id: 'project', feedback_token_hash: 'b'.repeat(64), publicationId: 'pub', previousPublicationId: null, sessionId: 'session', phase: 'entry', snapshotId: 'entry', entry: 'README.md', title: 'Project', expires_in_seconds: 3600, artifacts: [plan], legacy: { migrationId: 'migration', snapshotId: 'old', expires_at: null } }) }), { ...bindings, MEDIA: wrapped, SHARES: shares })
   expect(response.status).toBe(200)
-  expect(calls).toEqual(result === 'success' ? ['get', 'kvGet', 'head', 'put', 'put', 'create', 'get', 'put'] : ['get', 'kvGet', 'head', 'put', 'head', 'put', 'create', 'get', 'put'])
+  expect(calls).toEqual(result === 'success' ? ['get', 'kvGet', 'head', 'put', 'put', 'create', 'put'] : ['get', 'kvGet', 'head', 'put', 'head', 'put', 'create', 'put'])
   expect(await (await SELF.fetch('http://x/' + slug)).text()).toBe('old KV')
   const state = await (await media.get(projectStateKey(slug)))!.json() as any
   expect(state.active.htmlKey).toBe(`project-share/${slug}/legacy/migration/legacy.html`)
@@ -511,7 +511,7 @@ describe('native multipart project publication', () => {
   expect((await op('commit')).status).toBe(410)
  })
 
- it('uses six native calls for first entry and full begin, and two for empty recovery', async () => {
+ it('uses five native calls for first entry and full begin, and two for empty recovery', async () => {
   const calls: string[] = []
   const counted = { get(key: string) { calls.push('get'); return media.get(key) }, head(key: string) { calls.push('head'); return media.head(key) },
    put(key: string, value: any, options: any) { calls.push('put'); return media.put(key, value, options) },
@@ -522,7 +522,7 @@ describe('native multipart project publication', () => {
   const shares = { getWithMetadata(key: string, type: 'stream') { calls.push('kvGet'); return bindings.SHARES.getWithMetadata(key, type) } } as unknown as KVNamespace
   const start = (extra = {}) => worker.fetch(new Request(base + 'begin', { method: 'POST', headers: auth, body: JSON.stringify({ edit_token: token, project_id: 'project', feedback_token_hash: 'b'.repeat(64), publicationId: 'pub', previousPublicationId: null, sessionId: 'session', phase: 'entry', snapshotId: 'entry', entry: 'README.md', title: 'Project', expires_in_seconds: 3600, artifacts: [plan], ...extra }) }), { ...bindings, MEDIA: counted, SHARES: shares })
   expect((await start()).status).toBe(200)
-  expect(calls).toEqual(['get', 'kvGet', 'put', 'create', 'get', 'put'])
+  expect(calls).toEqual(['get', 'kvGet', 'put', 'create', 'put'])
   calls.length = 0
   expect((await start()).status).toBe(200)
   expect(calls).toEqual(['get', 'head'])
@@ -533,17 +533,34 @@ describe('native multipart project publication', () => {
   expect((await (await start()).json() as any).upload.sealed).toEqual(['entry'])
   calls.length = 0
   expect((await start({ phase: 'full', sessionId: 'full', snapshotId: 'full', artifacts: [readerPlan, zipPlan] })).status).toBe(200)
-  expect(calls).toEqual(['get', 'put', 'create', 'create', 'get', 'put'])
+  expect(calls).toEqual(['get', 'put', 'create', 'create', 'put'])
   await part('reader', { 'X-Upload-Session': 'full', 'X-Artifact': 'reader' }); await op('seal', { sessionId: 'full', artifact: 'reader' })
   await part('zip', { 'X-Upload-Session': 'full', 'X-Artifact': 'archive' }); await op('seal', { sessionId: 'full', artifact: 'archive' }); await op('commit', { sessionId: 'full' })
   calls.length = 0
   const next = { publicationId: 'next', previousPublicationId: 'pub', sessionId: 'nextEntry', snapshotId: 'nextEntry' }
   expect((await start(next)).status).toBe(200)
-  expect(calls).toEqual(['get', 'put', 'create', 'get', 'put'])
+  expect(calls).toEqual(['get', 'put', 'create', 'put'])
   await part('hello', { 'X-Publication-Id': 'next', 'X-Upload-Session': 'nextEntry' }); await op('seal', { ...next, artifact: 'entry' }); await op('commit', next)
   calls.length = 0
   expect((await start({ ...next, phase: 'full', sessionId: 'nextFull', snapshotId: 'nextFull', artifacts: [readerPlan, zipPlan] })).status).toBe(200)
-  expect(calls).toEqual(['get', 'put', 'create', 'create', 'get', 'put'])
+  expect(calls).toEqual(['get', 'put', 'create', 'create', 'put'])
+ })
+ it('checks the absolute expiry again after creating MPUs and before their direct CAS', async () => {
+  await publish()
+  const created: R2MultipartUpload[] = [], future = Date.now() + 7200000
+  let clock: ReturnType<typeof vi.spyOn> | undefined
+  let response: Response
+  try {
+   response = await fullBegin({ createMultipartUpload: async (key: string, options: any) => {
+    const upload = await media.createMultipartUpload(key, options); created.push(upload)
+    if (created.length === 2) clock = vi.spyOn(Date, 'now').mockReturnValue(future)
+    return upload
+   } } as Partial<R2Bucket>)
+  } finally { clock?.mockRestore() }
+  expect(response!.status).toBe(410)
+  const state = await (await media.get(projectStateKey(slug)))!.json() as any
+  expect(state.upload.artifacts.map((a: any) => a.uploadId)).toEqual([undefined, undefined])
+  for (const upload of created) await expect(upload.uploadPart(1, 'late')).rejects.toThrow()
  })
  it('aborts the first unregistered MPU when the second native create fails', async () => {
   await publish()
@@ -556,6 +573,24 @@ describe('native multipart project publication', () => {
   expect(state.upload.artifacts.map((a: any) => a.uploadId)).toEqual([undefined, undefined])
   await expect(created[0].uploadPart(1, 'reader')).rejects.toThrow()
   expect((await fullBegin({})).status).toBe(200)
+ })
+ it('rejects a changed frozen plan written during native creation without registering its MPUs', async () => {
+  await publish()
+  const created: R2MultipartUpload[] = []
+  const response = await fullBegin({ createMultipartUpload: async (key: string, options: any) => {
+   const upload = await media.createMultipartUpload(key, options); created.push(upload)
+   if (created.length === 2) {
+    const state = await (await media.get(projectStateKey(slug)))!.json() as any
+    state.upload.artifacts[0].sha256 = 'e'.repeat(64)
+    await media.put(projectStateKey(slug), JSON.stringify(state))
+   }
+   return upload
+  } } as Partial<R2Bucket>)
+  expect(response.status).toBe(409)
+  const state = await (await media.get(projectStateKey(slug)))!.json() as any
+  expect(state.upload.artifacts[0].sha256).toBe('e'.repeat(64))
+  expect(state.upload.artifacts.map((a: any) => a.uploadId)).toEqual([undefined, undefined])
+  for (const upload of created) await expect(upload.uploadPart(1, 'loser')).rejects.toThrow()
  })
  it('keeps competing registered uploadIds and aborts only its own duplicate MPUs', async () => {
   await publish()
@@ -829,7 +864,7 @@ describe('native multipart project publication', () => {
   expect((await (await media.get(projectStateKey(slug)))!.json() as any).revoked).toBe(true)
   await expect(created!.uploadPart(1, 'hello')).rejects.toThrow()
  })
- it('keeps the uploadId registration CAS fence after its fresh read', async () => {
+ it('keeps the direct uploadId registration CAS fence and observes concurrent revocation', async () => {
   let intercepted = false, created: R2MultipartUpload | undefined
   const wrapped = { get: media.get.bind(media), head: media.head.bind(media), delete: media.delete.bind(media), resumeMultipartUpload: media.resumeMultipartUpload.bind(media),
    async createMultipartUpload(key: string, options: any) { created = await media.createMultipartUpload(key, options); return created },
@@ -842,7 +877,7 @@ describe('native multipart project publication', () => {
    },
   } as unknown as R2Bucket
   const response = await worker.fetch(new Request(base + 'begin', { method: 'POST', headers: auth, body: JSON.stringify({ edit_token: token, project_id: 'project', feedback_token_hash: 'b'.repeat(64), publicationId: 'pub', previousPublicationId: null, sessionId: 'session', phase: 'entry', snapshotId: 'entry', entry: 'README.md', title: 'Project', expires_in_seconds: 3600, artifacts: [plan] }) }), { ...bindings, MEDIA: wrapped })
-  expect(response.status).toBe(409)
+  expect(response.status).toBe(410)
   expect((await (await media.get(projectStateKey(slug)))!.json() as any).revoked).toBe(true)
   await expect(created!.uploadPart(1, 'hello')).rejects.toThrow()
  })

@@ -272,32 +272,22 @@ async function ensureUploads(env: Env, slug: string, loaded: Loaded, origin: str
   const created: R2MultipartUpload[] = []
   let attemptedCAS = false
   try {
-    // Keys were registered before creation. At most two native MPUs are created,
-    // then their uploadIds are registered together behind one fresh read and CAS.
+    // Keys were registered before creation. The same ETag fences registration
+    // against every intervening state write, including revoke and replacement.
     for (const artifact of loaded.state.upload!.artifacts) {
       if (artifact.uploadId) continue
       created.push(await env.MEDIA.createMultipartUpload(artifact.key, { httpMetadata: { contentType: artifact.name === 'archive' ? 'application/zip' : 'text/html; charset=utf-8' },
         customMetadata: { sessionId, publicationId, sha256: artifact.sha256 } }))
     }
     if (created.length) {
-      const fresh = await readProjectState(env, slug)
-      if (!fresh) error(409, 'Publication missing')
-      usable(fresh!.state, publicationId)
-      if (fresh!.state.upload?.sessionId !== sessionId) error(409, 'Upload session changed')
-      let changed = false
-      for (const upload of created) {
-        const registered = fresh!.state.upload!.artifacts.find(a => a.key === upload.key)
-        if (!registered) error(409, 'Upload artifact changed')
-        if (registered!.uploadId) {
-          if (registered!.uploadId !== upload.uploadId) { try { await upload.abort() } catch {} }
-        } else { registered!.uploadId = upload.uploadId; changed = true }
-      }
-      loaded = fresh!
-      if (changed) {
-        attemptedCAS = true
-        const savedEtag = await writeState(env, slug, fresh!.state, fresh!.etag)
-        loaded = { state: fresh!.state, etag: savedEtag }
-      }
+      usable(loaded.state, publicationId)
+      const state = { ...loaded.state, upload: { ...loaded.state.upload!, artifacts: loaded.state.upload!.artifacts.map(a => {
+        const upload = created.find(upload => upload.key === a.key)
+        return upload ? { ...a, uploadId: upload.uploadId } : { ...a }
+      }) } }
+      attemptedCAS = true
+      const savedEtag = await writeState(env, slug, state, loaded.etag)
+      loaded = { state, etag: savedEtag }
     }
   } catch (e) {
     let current: Loaded | null = null
@@ -310,6 +300,14 @@ async function ensureUploads(env: Env, slug: string, loaded: Loaded, origin: str
       const registered = current?.state.upload?.artifacts.some(a => a.key === upload.key && a.uploadId === upload.uploadId)
         || current?.state.retired?.some(s => s.artifacts.some(a => a.key === upload.key && a.uploadId === upload.uploadId))
       if (!registered) { try { await upload.abort() } catch {} }
+    }
+    if (current) {
+      usable(current.state, publicationId)
+      const winner = current.state.upload
+      if (e instanceof HttpError && e.status === 409 && winner?.sessionId === sessionId
+        && samePlan(winner, loaded.state.upload!) && winner.artifacts.every((a, i) => a.uploadId && a.key === loaded.state.upload!.artifacts[i].key)) {
+        return receipt(env, slug, current, origin)
+      }
     }
     throw e
   }

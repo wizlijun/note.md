@@ -127,7 +127,7 @@ v2 状态 CAS 成功后，以登记的旧 R2 active 持续展示；迟到旧 `/p
 
 撤回先 CAS 写墓碑，再 abort 已登记 multipart、删除已退休会话的精确对象；墓碑保留，阻止迟到请求和旧 KV 回退恢复分享。每次操作都重新校验栅栏，正文上传前后均检查，任何迟到写入都不能成为 active。
 
-必须先登记 object key，再创建对应 native multipart；取得 uploadId 后立即保存，保存成功前不接受正文。创建成功但 uploadId 回执或状态保存丢失，仅可能留下尚无正文的未登记 multipart，利用 R2 默认七天终止未完成上传兜底；可确认的失败会话立即 abort。
+必须先登记 object key，再创建对应 native multipart；取得 uploadId 后立即保存，保存成功前不接受正文。正常路径以预登记快照的 ETag 直接 CAS 保存同批 uploadId；CAS 成功证明创建期间 owner、publication/session、冻结计划、精确 key 和撤回状态均未被其他写入改变，创建后仍须重新检查绝对期限。无需在该 CAS 前重复读取相同状态。CAS 冲突或回执未知才回读当前会话和退休记录，按精确 key + uploadId 判断本请求创建的 MPU 是否已登记，不能 abort 获胜或已退休待清理的 MPU；回读失败保守保留至原生到期。创建成功但 uploadId 回执或状态保存丢失，仅可能留下尚无正文的未登记 multipart，利用 R2 默认七天终止未完成上传兜底；可确认的失败会话立即 abort。
 
 R2 写入已完成但回执丢失，或撤回后迟到 `seal`，可能留下暂时孤儿对象。已登记的 key/uploadId 保留在墓碑 cleanup 队列，迟到请求收尾与后续 owner status/停止/删除/新发布操作重试有界清理。清理前重新确认当前引用，保护并发胜出的 active；不扫描前缀盲删，不将清理失败变成发布失败。
 

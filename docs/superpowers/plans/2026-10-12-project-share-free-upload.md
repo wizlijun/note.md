@@ -106,8 +106,9 @@ if (object.etag !== expectedMultipartETag) throw new Error('Artifact checksum mi
 
 **Files:** 本轮证据存 `tasks/design/project-share-free-upload-20261012/`；按需要增加精确回归。
 
-- [ ] Worker全测试、项目分享前端回归、Svelte check、Rust project_share回归；审查生产差异和旧pending全部四类。
+- [x] Worker全测试、项目分享前端回归、Svelte check、Rust project_share回归；审查生产差异和旧pending全部四类。
 - [ ] 合成63源文件/4.9MiB、8.5MiB reader及上限包，真实multipart begin/part/seal/commit/status/revoke，分别至少十轮；校验匿名HTML/ZIP字节与撤回410。
+- [ ] 补spec第7节的一次合成KV旧active原生流迁移CPU验证；安全精确seed单QA key，匿名SHA、撤回410、finally删除该KV key，不能以小单测替代。
 - [ ] 使用现有Wrangler3/Account Token发布向后兼容Worker并抓CPU tail；每种操作CPU<10ms且无exceededCpu方可判通过。若未达门槛先定位小元数据/清理开销再修，不改套餐。
 - [ ] 独立整体验收；当前main精准提交实现、保护原46dirty字节。根据最新AGENTS.md盘点并整合全部未发布产品更新，至少包含Memory、Rich锚点和已验证的Agency/Agent能力；发行普通clone以origin/main为基线，避免覆盖已发布修复。按既有授权发布新应用与相关插件。
 - [ ] 清理本轮临时包/QA服务/发布编译缓存，保留正式产物和证据；更新todo回顾，不清理无关文件。
