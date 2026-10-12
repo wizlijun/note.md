@@ -153,7 +153,7 @@ describe('feedback validation and size guard', () => {
     expect(await storedKeys()).toEqual([])
   })
   it.each([
-    null, [], { ...payload(), schemaVersion: 2 }, { ...payload(), submissionId: '../escape' },
+    null, [], { ...payload(), schemaVersion: 3 }, { ...payload(), submissionId: '../escape' },
     { ...payload(), snapshotId: 'a/b' }, { ...payload(), edits: null }, { ...payload(), annotations: {} },
     { ...payload(), name: 42 }, { ...payload(), edits: [{ path: 'a.md', baseHash: 'bad', afterMarkdown: 2 }] },
     { ...payload(), annotations: [{ path: 'a.md', quote: 1, comment: 'text' }] },
@@ -218,3 +218,24 @@ describe('owner feedback pagination', () => {
     expect((await SELF.fetch(url, { headers: AUTH })).status).toBe(400)
   })
 })
+
+// Vite enumerates the real shared files in Node before Worker module collection.
+const fixtureFiles = import.meta.glob('../../src-tauri/tests/fixtures/project-feedback/{valid,invalid}/*.json', { eager: true, query: '?raw', import: 'default' }) as Record<string, string>
+for (const group of ['valid', 'invalid'] as const) {
+  const fixtures = Object.entries(fixtureFiles).filter(([path]) => path.includes(`/${group}/`)).sort(([a], [b]) => a.localeCompare(b))
+    .map(([path, body]) => ({ name: path.split('/').at(-1)!, body }))
+  describe(`shared feedback fixtures: ${group}`, () => {
+    it.each(fixtures)('$name', async ({ body }) => {
+      expect((await publish({ project_id: group === 'valid' ? JSON.parse(body).project_id : 'p_fixture', feedback_token_hash: await hash(TOKEN) })).status).toBe(200)
+      const response = await SELF.fetch(`http://x/feedback/${SLUG}`, { method: 'POST',
+        headers: { 'X-Feedback-Token': TOKEN, 'Content-Type': 'application/json' }, body })
+      expect(response.status).toBe(group === 'valid' ? 200 : 400)
+      if (group === 'valid') {
+        const envelope = await response.json() as any
+        // JSON serialization canonicalizes numeric spellings, including -0.
+        expect(envelope.payload).toEqual(JSON.parse(JSON.stringify(JSON.parse(body))))
+        expect(envelope.requestHash).toBe(await hash(body))
+      }
+    })
+  })
+}

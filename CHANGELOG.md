@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **Project sharing accepts richer external suggestions while keeping existing links and saved feedback compatible.** Review messages, self-reported AI assistance and comments with surrounding context appear alongside suggestions.
+
 ## v6.1013.1 — 2026-10-13
 
 ### Improvements

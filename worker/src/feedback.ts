@@ -7,12 +7,12 @@ const MAX_FEEDBACK_BYTES = 5 * 1024 * 1024
 const PAGE_SIZE = 100
 
 interface ProjectFeedback {
-  schemaVersion: 1
+  schemaVersion: 1 | 2
   project_id: string
   snapshotId: string
   submissionId: string
   edits: { path: string; baseHash: string; afterMarkdown: string }[]
-  annotations: { path: string; quote: string; comment: string; start?: number; end?: number }[]
+  annotations: unknown[]
   name?: string
 }
 interface FeedbackEnvelope {
@@ -39,7 +39,7 @@ function relativePath(value: unknown): value is string {
 function offset(value: unknown): boolean {
   return value === undefined || (typeof value === 'number' && Number.isSafeInteger(value) && value >= 0)
 }
-function validPayload(value: unknown): value is ProjectFeedback {
+function validV1(value: unknown): value is ProjectFeedback {
   return record(value) && value.schemaVersion === 1
     && validId(value.project_id) && validId(value.snapshotId) && validId(value.submissionId)
     && (value.name === undefined || typeof value.name === 'string')
@@ -50,6 +50,57 @@ function validPayload(value: unknown): value is ProjectFeedback {
       && relativePath(note.path) && typeof note.quote === 'string' && typeof note.comment === 'string'
       && offset(note.start) && offset(note.end)
       && (note.start === undefined || note.end === undefined || (note.end as number) >= (note.start as number)))
+}
+function keys(value: Record<string, unknown>, allowed: string[]): boolean {
+  return Object.keys(value).every(key => allowed.includes(key))
+}
+function optional(value: Record<string, unknown>, key: string, validate: (value: unknown) => boolean): boolean {
+  return !Object.hasOwn(value, key) || validate(value[key])
+}
+function text(value: unknown, max: number, min = 0): value is string {
+  return typeof value === 'string' && value.length >= min && value.length <= max
+}
+function validV2(value: Record<string, unknown>): boolean {
+  if (!keys(value, ['schemaVersion', 'project_id', 'snapshotId', 'submissionId', 'supersedes', 'rebasedFrom', 'message', 'contributor', 'client', 'edits', 'annotations'])
+    || !validId(value.project_id) || !validId(value.snapshotId) || !validId(value.submissionId)
+    || !optional(value, 'supersedes', v => validId(v) && v !== value.submissionId)
+    || !optional(value, 'rebasedFrom', v => validId(v) && v !== value.snapshotId)
+    || !optional(value, 'message', v => text(v, 2000) && !v.includes('\0'))
+    || !optional(value, 'contributor', v => record(v) && keys(v, ['name', 'aiAssisted'])
+      && optional(v, 'name', name => text(name, 80) && !/\p{Cc}/u.test(name))
+      && optional(v, 'aiAssisted', assisted => typeof assisted === 'boolean'))
+    || !optional(value, 'client', v => record(v) && keys(v, ['kind', 'version'])
+      && optional(v, 'kind', kind => typeof kind === 'string' && ['browser', 'browser-fallback', 'notemd'].includes(kind))
+      && optional(v, 'version', version => text(version, 32)))
+    || !Array.isArray(value.edits) || value.edits.length > 2000
+    || !Array.isArray(value.annotations) || value.annotations.length > 2000) return false
+  const seen = new Set<string>()
+  if (!value.edits.every(edit => {
+    if (!record(edit) || !keys(edit, ['path', 'baseHash', 'afterMarkdown']) || !relativePath(edit.path)
+      || typeof edit.baseHash !== 'string' || !FEEDBACK_HASH_RE.test(edit.baseHash)
+      || typeof edit.afterMarkdown !== 'string' || seen.has(edit.path)) return false
+    seen.add(edit.path)
+    return true
+  })) return false
+  return value.annotations.every(note => {
+    if (!record(note) || !keys(note, ['path', 'selector', 'comment', 'kind']) || !relativePath(note.path)
+      || !text(note.comment, 10000, 1)
+      || !optional(note, 'kind', kind => typeof kind === 'string' && ['comment', 'question', 'blocker'].includes(kind))) return false
+    const selector = note.selector
+    return record(selector) && keys(selector, ['exact', 'prefix', 'suffix', 'start', 'end'])
+      && text(selector.exact, 2000)
+      && optional(selector, 'prefix', v => text(v, 64)) && optional(selector, 'suffix', v => text(v, 64))
+      && (selector.exact.length > 0 || text(selector.prefix, 64, 1) || text(selector.suffix, 64, 1))
+      && optional(selector, 'start', v => typeof v === 'number' && Number.isSafeInteger(v) && v >= 0)
+      && optional(selector, 'end', v => typeof v === 'number' && Number.isSafeInteger(v) && v >= 0)
+      && (selector.start === undefined || selector.end === undefined
+        || (selector.end as number) - (selector.start as number) === selector.exact.length)
+  })
+}
+function validPayload(value: unknown): value is ProjectFeedback {
+  if (!record(value)) return false
+  if (value.schemaVersion === 1) return validV1(value)
+  return value.schemaVersion === 2 && validV2(value)
 }
 async function sha256(bytes: Uint8Array): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', bytes)

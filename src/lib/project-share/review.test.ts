@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from 'vitest'
 import { anchor, propose, sha256Hex, type MergeProposal } from '../share-merge'
-import type { LocalFeedback } from './types'
+import type { LocalFeedback, ProjectFeedbackV1 } from './types'
 import type { IndexedSelector } from './merge-client'
 import { createProjectReview, type ReviewDependencies } from './review.svelte'
 
@@ -196,7 +196,7 @@ it('ignores obsolete compute and annotation batches while retaining usable state
 })
 
 it('promotes annotations only after compose, sanitizes names/comments and retries only state after apply', async () => {
-  const h = fixture(); h.f.envelope.payload.name = '名字<<}\n'
+  const h = fixture(); (h.f.envelope.payload as ProjectFeedbackV1).name = '名字<<}\n'
   h.f.envelope.payload.annotations = [{ path: 'a.md', quote: '乙', comment: '评论<<}\n' }]
   await h.session.open(h.f, 'a.md'); h.session.acceptAll()
   h.session.stageAnnotation(0)
@@ -723,5 +723,21 @@ it('final I2: failed owned branch query blocks B but permits deliberate A recove
   expect(h.session.canGit).toBe(false)
   await h.session.setTarget('worktree')
   expect(h.session.target).toBe('worktree'); expect(h.deps.prepareSource).toHaveBeenCalledOnce()
+  await h.session.destroy()
+})
+
+it('preserves v2 selector context through anchoring and promotes with the v2 contributor name', async () => {
+  const f = feedback(), selector = { exact: '甲', prefix: '乙。', suffix: '。' }
+  f.envelope.payload = { schemaVersion: 2, project_id: 'p', snapshotId: 'old-S1', submissionId: 'v2', edits: [],
+    annotations: [{ path: 'a.md', selector, comment: '检查<<}', kind: 'question' }], contributor: { name: '名字<<}' }, message: '说明' }
+  const original = JSON.stringify(f.envelope)
+  const h = fixture(f, '甲。乙。甲。')
+  await h.session.open(f, 'a.md')
+  expect(h.deps.locateAnnotations).toHaveBeenCalledWith('甲。乙。甲。', [{ index: 0, selector }])
+  expect(h.session.annotations[0].annotation.kind).toBe('question')
+  expect(h.session.annotations[0].anchor).toMatchObject({ start: 4, end: 5 })
+  h.session.stageAnnotation(0); await h.session.writeFile()
+  expect(h.current).toBe('甲。乙。{==甲==}{>>名字< <}：检查< <}<<}。')
+  expect(JSON.stringify(h.session.feedback!.envelope)).toBe(original)
   await h.session.destroy()
 })

@@ -50,15 +50,39 @@ export interface SnapshotGit {
   prefix: string
   repoRoot: string
 }
-export interface ProjectFeedback {
+export interface ProjectEdit { path: string; baseHash: string; afterMarkdown: string }
+export interface ProjectAnnotationV1 { path: string; quote: string; comment: string; start?: number; end?: number }
+export interface ProjectAnnotationV2 {
+  path: string
+  selector: { exact: string; prefix?: string; suffix?: string; start?: number; end?: number }
+  comment: string
+  kind?: 'comment' | 'question' | 'blocker'
+}
+export interface ProjectContributor { name?: string; aiAssisted?: boolean }
+export interface ProjectClient { kind?: 'browser' | 'browser-fallback' | 'notemd'; version?: string }
+export interface ProjectFeedbackV1 {
   schemaVersion: 1
   project_id: string
   snapshotId: string
   submissionId: string
-  edits: { path: string; baseHash: string; afterMarkdown: string }[]
-  annotations: { path: string; quote: string; comment: string; start?: number; end?: number }[]
+  edits: ProjectEdit[]
+  annotations: ProjectAnnotationV1[]
   name?: string
 }
+export interface ProjectFeedbackV2 {
+  schemaVersion: 2
+  project_id: string
+  snapshotId: string
+  submissionId: string
+  edits: ProjectEdit[]
+  annotations: ProjectAnnotationV2[]
+  supersedes?: string
+  rebasedFrom?: string
+  message?: string
+  contributor?: ProjectContributor
+  client?: ProjectClient
+}
+export type ProjectFeedback = ProjectFeedbackV1 | ProjectFeedbackV2
 export interface FeedbackEnvelope {
   payload: ProjectFeedback
   requestHash: string

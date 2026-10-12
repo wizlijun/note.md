@@ -6,6 +6,8 @@ use crate::sotvault::{
     vault_settings,
 };
 use serde::{Deserialize, Serialize};
+pub mod feedback;
+pub use feedback::ProjectFeedbackPayload;
 use std::collections::{BTreeMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock, Weak};
@@ -108,10 +110,12 @@ pub struct ProjectFeedback {
     pub annotations: Vec<Annotation>,
     pub name: Option<String>,
 }
+pub type ProjectFeedbackV1 = ProjectFeedback;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FeedbackEnvelope {
-    pub payload: ProjectFeedback,
+    pub payload: ProjectFeedbackPayload,
     pub request_hash: String,
     pub received_at: String,
 }
@@ -783,7 +787,7 @@ impl ProjectStore {
                     let name = path.file_stem().and_then(|v| v.to_str()).ok_or("invalid feedback name")?;
                     let file = self.inbox_path(b, name)?;
                     let local: LocalFeedback = read_json(&file)?;
-                    if local.envelope.payload.project_id != b.project_id || local.envelope.payload.submission_id != name {
+                    if local.envelope.payload.project_id() != b.project_id || local.envelope.payload.submission_id() != name {
                         return Err("feedback identity mismatch".into());
                     }
                     allowed.insert(file);
@@ -1189,13 +1193,14 @@ impl ProjectStore {
         valid_id(submission)?;
         self.management(b, &format!("inbox/{submission}.json"))
     }
-    fn validate_feedback(&self, b: &Binding, feedback: &ProjectFeedback) -> Result<()> {
-        if feedback.schema_version != 1 || feedback.project_id != b.project_id {
+    fn validate_feedback(&self, b: &Binding, feedback: &ProjectFeedbackPayload) -> Result<()> {
+        feedback.validate_shape()?;
+        if feedback.project_id() != b.project_id {
             return Err("feedback identity mismatch".into());
         }
-        let s = self.baseline(b, &feedback.snapshot_id)?;
+        let s = self.baseline(b, feedback.snapshot_id())?;
         let mut seen = HashSet::new();
-        for edit in &feedback.edits {
+        for edit in feedback.edits() {
             validate_relative(&edit.path)?;
             if !seen.insert(&edit.path) {
                 return Err("duplicate edit".into());
@@ -1216,7 +1221,7 @@ impl ProjectStore {
                 return Err("baseline corrupted".into());
             }
         }
-        for note in &feedback.annotations {
+        for note in feedback.annotations_normalized() {
             validate_relative(&note.path)?;
             if !s
                 .files
@@ -1249,7 +1254,7 @@ impl ProjectStore {
         let _lock = self.lock()?;
         let b = self.binding(id)?;
         self.active(&b)?;
-        let path = self.inbox_path(&b, &envelope.payload.submission_id)?;
+        let path = self.inbox_path(&b, envelope.payload.submission_id())?;
         if path.exists() {
             let mut existing: LocalFeedback = read_json(&path)?;
             if existing.envelope.request_hash != envelope.request_hash
@@ -1301,8 +1306,8 @@ impl ProjectStore {
             d.status == "pending" || d.status == "mirror_pending" || d.status == "recovery_conflict"
         }) {
             f.status = "pending".into();
-        } else if !f.envelope.payload.edits.is_empty()
-            && f.envelope.payload.edits.iter().all(|e| {
+        } else if !f.envelope.payload.edits().is_empty()
+            && f.envelope.payload.edits().iter().all(|e| {
                 f.decisions
                     .get(&e.path)
                     .is_some_and(|d| matches!(d.status.as_str(), "accepted" | "rejected" | "branched"))
@@ -1342,7 +1347,7 @@ impl ProjectStore {
                             &read_bytes(&source)?,
                         )?;
                         f.decisions.insert(path.clone(), d.clone());
-                        write_json(&self.inbox_path(b, &f.envelope.payload.submission_id)?, f)?;
+                        write_json(&self.inbox_path(b, f.envelope.payload.submission_id())?, f)?;
                     }
                     match crate::sotvault::refresh_source_mirrors_locked(
                         &self.records_path(),
@@ -1375,7 +1380,7 @@ impl ProjectStore {
             f.decisions.insert(path, d);
         }
         Self::recompute(f);
-        write_json(&self.inbox_path(b, &f.envelope.payload.submission_id)?, f)
+        write_json(&self.inbox_path(b, f.envelope.payload.submission_id())?, f)
     }
     pub fn inbox(&self, id: &str) -> Result<Vec<LocalFeedback>> {
         let _lock = self.lock()?;
@@ -1414,8 +1419,8 @@ impl ProjectStore {
             return self.load_feedback(b, submission);
         }
         let f: LocalFeedback = read_json(&self.inbox_path(b, submission)?)?;
-        if f.envelope.payload.project_id != b.project_id
-            || f.envelope.payload.submission_id != submission
+        if f.envelope.payload.project_id() != b.project_id
+            || f.envelope.payload.submission_id() != submission
         {
             return Err("feedback identity mismatch".into());
         }
@@ -1434,7 +1439,7 @@ impl ProjectStore {
             return Err("feedback quarantined".into());
         }
         self.validate_feedback(&b, &f.envelope.payload)?;
-        let s = self.baseline(&b, &f.envelope.payload.snapshot_id)?;
+        let s = self.baseline(&b, f.envelope.payload.snapshot_id())?;
         let base = s
             .files
             .iter()
@@ -1446,7 +1451,7 @@ impl ProjectStore {
         let after = f
             .envelope
             .payload
-            .edits
+            .edits()
             .iter()
             .find(|e| e.path == path)
             .map(|e| e.after_markdown.clone())
@@ -1506,7 +1511,7 @@ impl ProjectStore {
             return Err("feedback quarantined".into());
         }
         self.validate_feedback(&b, &f.envelope.payload)?;
-        if !f.envelope.payload.edits.iter().any(|e| e.path == path) {
+        if !f.envelope.payload.edits().iter().any(|e| e.path == path) {
             return Err("no edit for this file".into());
         }
         f.review.insert(path.into(), draft);
@@ -1542,7 +1547,7 @@ impl ProjectStore {
             return Err("feedback quarantined".into());
         }
         self.validate_feedback(&b, &f.envelope.payload)?;
-        if index >= f.envelope.payload.annotations.len() {
+        if index >= f.envelope.payload.annotations_normalized().len() {
             return Err("annotation index out of range".into());
         }
         if !matches!(value, "promoted" | "dismissed") {
@@ -1576,8 +1581,8 @@ impl ProjectStore {
             return Err("feedback quarantined".into());
         }
         self.validate_feedback(&b, &f.envelope.payload)?;
-        if !f.envelope.payload.edits.iter().any(|e| e.path == path)
-            && !f.envelope.payload.annotations.iter().any(|a| a.path == path)
+        if !f.envelope.payload.edits().iter().any(|e| e.path == path)
+            && !f.envelope.payload.annotations_normalized().iter().any(|a| a.path == path)
         {
             return Err("no edit or annotation for this file".into());
         }
@@ -1635,11 +1640,11 @@ impl ProjectStore {
         }
         let mut f = self.feedback_for_review_target(&b, submission, matches!(target, Some(GitTarget::Branch | GitTarget::Patch)))?;
         if let Some(p) = path {
-            if !f.envelope.payload.edits.iter().any(|e| e.path == p) {
+            if !f.envelope.payload.edits().iter().any(|e| e.path == p) {
                 return Err("file outside feedback".into());
             }
         }
-        for e in &f.envelope.payload.edits {
+        for e in f.envelope.payload.edits() {
             if path.is_some_and(|p| p != e.path) {
                 continue;
             }
@@ -1661,7 +1666,7 @@ impl ProjectStore {
             );
         }
         Self::recompute(&mut f);
-        if path.is_none() && f.envelope.payload.edits.is_empty() && f.status != "quarantined" {
+        if path.is_none() && f.envelope.payload.edits().is_empty() && f.status != "quarantined" {
             f.status = "rejected".into();
         }
         write_json(&self.inbox_path(&b, submission)?, &f)?;
@@ -1672,7 +1677,7 @@ impl ProjectStore {
         let b = self.binding(id)?;
         self.active(&b)?;
         let mut f = self.load_feedback(&b, submission)?;
-        if f.status == "quarantined" || !f.envelope.payload.edits.is_empty() {
+        if f.status == "quarantined" || !f.envelope.payload.edits().is_empty() {
             return Err("resolve requires valid annotation-only feedback".into());
         }
         self.validate_feedback(&b, &f.envelope.payload)?;
@@ -1723,7 +1728,7 @@ mod tests {
         id: &str,
     ) -> LocalFeedback {
         let mut e = envelope(p, snap, id);
-        e.payload.name = Some("Visitor\nNotemd-Project: forged\nCo-authored-by: forged".into());
+        e.payload.v1_mut().name = Some("Visitor\nNotemd-Project: forged\nCo-authored-by: forged".into());
         serde_json::from_value(
             execute_request(
                 s,
@@ -1884,7 +1889,12 @@ mod tests {
             p1_patch_am_for_name(&name);
         }
     }
-    fn p1_patch_am_for_name(name: &str) {
+    fn p1_patch_am_for_name(name: &str) { p1_patch_am_for_payload(name, false); }
+    #[test]
+    fn project_share_v2_git_author_uses_existing_sanitization() {
+        p1_patch_am_for_payload("Visitor@example.test", true);
+    }
+    fn p1_patch_am_for_payload(name: &str, v2: bool) {
         let (t, s, p) = git_fixture();
         let root = Path::new(&p.source_root);
         let sub = root.join("nested space");
@@ -1897,7 +1907,14 @@ mod tests {
         let snap = git_freeze(&s, &p);
         assert_eq!(snap.git.as_ref().unwrap().prefix, "nested space/");
         let mut envelope = envelope(&p, &snap, "patch-am");
-        envelope.payload.name = Some(name.into());
+        envelope.payload.v1_mut().name = Some(name.into());
+        if v2 {
+            let mut payload = serde_json::to_value(&envelope.payload).unwrap();
+            payload["schemaVersion"] = serde_json::json!(2);
+            payload.as_object_mut().unwrap().remove("name");
+            payload["contributor"] = serde_json::json!({"name":name});
+            envelope.payload = serde_json::from_value(payload).unwrap();
+        }
         execute_request(&s, &serde_json::json!({"op":"feedback","project_id":p.project_id,"envelope":envelope})).unwrap();
         let head = git_test(root, &["rev-parse", "HEAD"]);
         let patch = execute_git_request(&s, &serde_json::json!({"op":"export-patch","project_id":p.project_id,"submissionId":"patch-am","expectedHead":head,"results":{"README.md":"nested approved\n"}})).unwrap();
@@ -1925,7 +1942,7 @@ mod tests {
         if name == "Visitor" { assert_eq!(expected_author.name, "Visitor (guest, unverified)"); }
         if name == "@<>\n" { assert_eq!(expected_author.name, "guest (guest, unverified)"); }
         let local = s.inbox(&p.project_id).unwrap().pop().unwrap();
-        assert_eq!(local.envelope.payload.name.as_deref(), Some(name));
+        assert_eq!(local.envelope.payload.contributor_name(), Some(name));
         assert_eq!(git_test(&destination, &["rev-parse", "HEAD^"]), head);
     }
     #[test]
@@ -1979,7 +1996,7 @@ mod tests {
             let root = Path::new(&p.source_root);
             let snap = git_freeze(&s, &p);
             let mut e = envelope(&p, &snap, "recovered");
-            e.payload.edits.push(Edit { path: "docs/a.md".into(), base_hash: snap.files.iter().find(|f| f.path == "docs/a.md").unwrap().hash.clone(), after_markdown: "second result".into() });
+            e.payload.v1_mut().edits.push(Edit { path: "docs/a.md".into(), base_hash: snap.files.iter().find(|f| f.path == "docs/a.md").unwrap().hash.clone(), after_markdown: "second result".into() });
             let mut f: LocalFeedback = serde_json::from_value(execute_request(&s, &serde_json::json!({"op":"feedback","project_id":p.project_id,"envelope":e})).unwrap()).unwrap();
             let before = std::fs::read(root.join("README.md")).unwrap();
             f.decisions.insert("README.md".into(), Decision {
@@ -2000,7 +2017,7 @@ mod tests {
             let result = result.unwrap();
             if op == "branch" {
                 assert!(result.get("stateError").is_none(), "{result}");
-                for edit in &recovered.envelope.payload.edits {
+                for edit in recovered.envelope.payload.edits() {
                     assert_eq!(result["feedback"]["decisions"][&edit.path]["status"], "branched");
                     let retry = serde_json::json!({"op":"git-branched","project_id":p.project_id,"submissionId":"recovered","path":edit.path,"branch":result["branch"],"commit":result["commit"]});
                     let a = execute_request(&s, &retry).unwrap();
@@ -2081,7 +2098,7 @@ mod tests {
         for partial in [false, true] {
             let (_t, s, p) = git_fixture(); let root = Path::new(&p.source_root); let snap = git_freeze(&s, &p);
             let mut e = envelope(&p, &snap, "reopen");
-            e.payload.edits.push(Edit { path: "docs/a.md".into(), base_hash: snap.files.iter().find(|f| f.path == "docs/a.md").unwrap().hash.clone(), after_markdown: "second result".into() });
+            e.payload.v1_mut().edits.push(Edit { path: "docs/a.md".into(), base_hash: snap.files.iter().find(|f| f.path == "docs/a.md").unwrap().hash.clone(), after_markdown: "second result".into() });
             execute_request(&s, &serde_json::json!({"op":"feedback","project_id":p.project_id,"envelope":e})).unwrap();
             assert!(execute_git_request(&s, &serde_json::json!({"op":"branch-state","project_id":p.project_id,"submissionId":"reopen"})).unwrap().is_null());
             let b = s.binding(&p.project_id).unwrap(); let path = s.inbox_path(&b, "reopen").unwrap(); let backup = path.with_extension("saved");
@@ -2162,7 +2179,7 @@ mod tests {
                             "intent" => f.git.as_mut().unwrap().branch_intent.as_mut().unwrap().results_hash = "different".into(),
                             "decision" => { f.decisions.insert("README.md".into(), Decision { status: "accepted".into(), ..Default::default() }); },
                             "worktree" => { f.decisions.insert("docs/a.md".into(), Decision { status: "pending".into(), ..Default::default() }); },
-                            "envelope" => f.envelope.payload.name = Some("changed".into()),
+                            "envelope" => f.envelope.payload.v1_mut().name = Some("changed".into()),
                             _ => unreachable!(),
                         }
                         write_json(&path, &f).unwrap();
@@ -2303,7 +2320,7 @@ mod tests {
         assert_eq!(retry.git.as_ref().unwrap().commit.as_ref(), Some(oid));
         assert_eq!(retry.review["README.md"].updated_at, "newest");
         let mut bad = envelope(&p, &snap, "quarantine");
-        bad.payload.edits[0].base_hash = "forged".into();
+        bad.payload.v1_mut().edits[0].base_hash = "forged".into();
         let bad = execute_request(
             &s,
             &serde_json::json!({"op":"feedback","project_id":p.project_id,"envelope":bad}),
@@ -3002,7 +3019,7 @@ mod tests {
         assert_eq!(execute_git_request(&s, &probe).unwrap()["target"], "patch");
         let snap = git_freeze(&s, &p);
         let mut e = envelope(&p, &snap, "whole");
-        e.payload.edits.push(Edit {
+        e.payload.v1_mut().edits.push(Edit {
             path: "docs/a.md".into(),
             base_hash: snap
                 .files
@@ -3056,7 +3073,7 @@ mod tests {
         let (_t, s, p) = git_fixture();
         let snap = git_freeze(&s, &p);
         let mut e = envelope(&p, &snap, "readonly-intent");
-        e.payload.annotations.push(review_annotation("README.md"));
+        e.payload.v1_mut().annotations.push(review_annotation("README.md"));
         s.feedback(&p.project_id, e).unwrap();
         let b = s.binding(&p.project_id).unwrap();
         let inbox = s.inbox_path(&b, "readonly-intent").unwrap();
@@ -3117,13 +3134,13 @@ mod tests {
             assert!(!f
                 .envelope
                 .payload
-                .edits
+                .edits()
                 .iter()
                 .any(|edit| edit.path == "docs/a.md"));
             assert!(f
                 .envelope
                 .payload
-                .annotations
+                .annotations_normalized()
                 .iter()
                 .any(|note| note.path == "docs/a.md"));
             let source = s.bound_source(&b, "docs/a.md")?;
@@ -3154,7 +3171,7 @@ mod tests {
         let (t, s, p) = git_fixture();
         let snap = git_freeze(&s, &p);
         let mut e = envelope(&p, &snap, "late-intent");
-        e.payload.annotations.push(review_annotation("docs/a.md"));
+        e.payload.v1_mut().annotations.push(review_annotation("docs/a.md"));
         s.feedback(&p.project_id, e).unwrap();
         (t, s, p)
     }
@@ -3417,7 +3434,7 @@ mod tests {
                     end: None,
                 }],
                 name: Some("访客".into()),
-            },
+            }.into(),
             request_hash: "fixture-one".into(),
             received_at: "2026-10-12T08:00:00Z".into(),
         };
@@ -3478,7 +3495,7 @@ mod tests {
         assert_eq!(done.annotation_decisions["0"], "promoted");
         assert!(done.review.is_empty());
         let mut second = feedback;
-        second.payload.submission_id = "fixture-two".into();
+        second.payload.v1_mut().submission_id = "fixture-two".into();
         second.request_hash = "fixture-two".into();
         service.feedback(&project.project_id, second).unwrap();
         assert_eq!(
@@ -3513,7 +3530,7 @@ mod tests {
                 }],
                 annotations: vec![],
                 name: None,
-            },
+            }.into(),
             request_hash: "removed-scope".into(),
             received_at: "2026-10-12T08:00:00Z".into(),
         };
@@ -3555,7 +3572,7 @@ mod tests {
         assert_eq!(std::fs::read(&mirror).unwrap(), mirror_before);
         let inbox = service.inbox(&project.project_id).unwrap();
         assert_eq!(
-            inbox[0].envelope.payload.edits[0].after_markdown,
+            inbox[0].envelope.payload.edits()[0].after_markdown,
             "visitor suggestion"
         );
         let rejected = service
@@ -3660,9 +3677,9 @@ mod tests {
         }
         manifest["schemaVersion"] = serde_json::json!(2);
         write_json(&manifest_path, &manifest).unwrap();
-        let mut protocol_v2 = envelope(&p, &snapshot, "protocol2");
-        protocol_v2.payload.schema_version = 2;
-        assert_eq!(s.feedback(&p.project_id, protocol_v2).unwrap().status, "quarantined");
+        let mut unsupported_protocol = envelope(&p, &snapshot, "protocol3");
+        unsupported_protocol.payload.v1_mut().schema_version = 3;
+        assert_eq!(s.feedback(&p.project_id, unsupported_protocol).unwrap().status, "quarantined");
     }
 
     #[test]
@@ -3701,7 +3718,7 @@ mod tests {
         let (_t, s, p) = fixture();
         let snapshot = freeze(&s, &p);
         let mut e = envelope(&p, &snapshot, "validation");
-        e.payload.annotations.push(review_annotation("docs/a.md"));
+        e.payload.v1_mut().annotations.push(review_annotation("docs/a.md"));
         s.feedback(&p.project_id, e).unwrap();
         for target in [None, Some("worktree"), Some("branch"), Some("patch")] {
             let mut draft = review_draft();
@@ -3730,8 +3747,8 @@ mod tests {
         let (_t, s, p) = fixture();
         let snapshot = freeze(&s, &p);
         let mut e = envelope(&p, &snapshot, "annotations");
-        e.payload.edits.clear();
-        e.payload.annotations.push(review_annotation("README.md"));
+        e.payload.v1_mut().edits.clear();
+        e.payload.v1_mut().annotations.push(review_annotation("README.md"));
         s.feedback(&p.project_id, e).unwrap();
         let source = Path::new(&p.source_root).join("README.md");
         let before = std::fs::read(&source).unwrap();
@@ -3757,11 +3774,11 @@ mod tests {
         let (_t, s, p) = fixture();
         let snapshot = freeze(&s, &p);
         let mut e = envelope(&p, &snapshot, "active");
-        e.payload.annotations.push(review_annotation("README.md"));
+        e.payload.v1_mut().annotations.push(review_annotation("README.md"));
         s.feedback(&p.project_id, e.clone()).unwrap();
         let mut forged = e;
-        forged.payload.submission_id = "quarantine".into();
-        forged.payload.edits[0].base_hash = "forged".into();
+        forged.payload.v1_mut().submission_id = "quarantine".into();
+        forged.payload.v1_mut().edits[0].base_hash = "forged".into();
         assert_eq!(s.feedback(&p.project_id, forged).unwrap().status, "quarantined");
         assert!(s.review_save(&p.project_id, "quarantine", "README.md", review_draft()).unwrap_err().contains("quarantined"));
         assert!(s.annotation_decide(&p.project_id, "quarantine", 0, "promoted").unwrap_err().contains("quarantined"));
@@ -3787,7 +3804,7 @@ mod tests {
         let snapshot = freeze(&s, &p);
         let mut e = envelope(&p, &snapshot, "apply");
         let second = snapshot.files.iter().find(|f| f.path == "docs/a.md").unwrap();
-        e.payload.edits.push(Edit { path: second.path.clone(), base_hash: second.hash.clone(), after_markdown: "second".into() });
+        e.payload.v1_mut().edits.push(Edit { path: second.path.clone(), base_hash: second.hash.clone(), after_markdown: "second".into() });
         s.feedback(&p.project_id, e).unwrap();
         for path in ["README.md", "docs/a.md"] {
             s.review_save(&p.project_id, "apply", path, review_draft()).unwrap();
@@ -3815,8 +3832,8 @@ mod tests {
         let (_t, s, p) = fixture();
         let snapshot = freeze(&s, &p);
         let mut e = envelope(&p, &snapshot, "promote");
-        e.payload.edits.clear();
-        e.payload.annotations.push(review_annotation("README.md"));
+        e.payload.v1_mut().edits.clear();
+        e.payload.v1_mut().annotations.push(review_annotation("README.md"));
         s.feedback(&p.project_id, e).unwrap();
         let review = s.review(&p.project_id, "promote", "README.md").unwrap();
         assert!(s.apply(&p.project_id, "promote", "docs/a.md", &review.current_hash, "outside", None).unwrap_err().contains("no edit or annotation"));
@@ -3939,7 +3956,7 @@ mod tests {
         let snapshot = freeze(&s, &p);
         let mut e = envelope(&p, &snapshot, "reject");
         let second = snapshot.files.iter().find(|f| f.path == "docs/a.md").unwrap();
-        e.payload.edits.push(Edit { path: second.path.clone(), base_hash: second.hash.clone(), after_markdown: "second".into() });
+        e.payload.v1_mut().edits.push(Edit { path: second.path.clone(), base_hash: second.hash.clone(), after_markdown: "second".into() });
         s.feedback(&p.project_id, e).unwrap();
         assert!(s.reject(&p.project_id, "reject", None, Some("other")).is_err());
         let rejected = s.reject(&p.project_id, "reject", Some("README.md"), Some("superseded")).unwrap();
@@ -3965,7 +3982,7 @@ mod tests {
         let (_t, s, p) = fixture();
         let snapshot = freeze(&s, &p);
         let mut e = envelope(&p, &snapshot, "ipc");
-        e.payload.annotations.push(review_annotation("README.md"));
+        e.payload.v1_mut().annotations.push(review_annotation("README.md"));
         s.feedback(&p.project_id, e).unwrap();
         let source = Path::new(&p.source_root).join("README.md");
         let before = std::fs::read(&source).unwrap();
@@ -4549,6 +4566,39 @@ mod tests {
             )
             .is_err());
     }
+    #[test]
+    fn project_share_v2_real_baseline_review_apply_and_reload() {
+        let (_t, s, p) = fixture();
+        let snapshot = freeze(&s, &p);
+        let original = envelope(&p, &snapshot, "v2-real");
+        let mut raw = serde_json::to_value(&original).unwrap();
+        raw["payload"]["schemaVersion"] = serde_json::json!(2);
+        raw["payload"].as_object_mut().unwrap().remove("name");
+        raw["payload"]["contributor"] = serde_json::json!({"name":"Alice", "aiAssisted":true});
+        raw["payload"]["message"] = serde_json::json!("Review message");
+        raw["payload"]["supersedes"] = serde_json::json!("previous");
+        raw["payload"]["rebasedFrom"] = serde_json::json!("S0");
+        raw["payload"]["client"] = serde_json::json!({"kind":"browser", "version":"6.1013.1"});
+        raw["payload"]["annotations"] = serde_json::json!([{"path":"README.md", "selector":{"exact":"accepted", "prefix":"", "suffix":" text", "start":0,"end":8}, "comment":"Check this", "kind":"question"}]);
+        let v2: FeedbackEnvelope = serde_json::from_value(raw.clone()).unwrap();
+        let local = s.feedback(&p.project_id, v2.clone()).unwrap();
+        assert_eq!(local.status, "pending", "valid v2 must reach review");
+        assert_eq!(serde_json::to_value(&local.envelope).unwrap(), raw);
+        let review = s.review(&p.project_id, "v2-real", "README.md").unwrap();
+        assert_eq!(review.base, snapshot.files.iter().find(|f| f.path == "README.md").unwrap().markdown.as_ref().unwrap().as_str());
+        assert_eq!(review.after, "accepted text");
+        let applied = s.apply(&p.project_id, "v2-real", "README.md", &review.current_hash, "accepted text", None).unwrap();
+        assert_eq!(applied.status, "accepted");
+        assert_eq!(serde_json::to_value(&s.inbox(&p.project_id).unwrap()[0].envelope).unwrap(), raw);
+        let legacy = envelope(&p, &snapshot, "v1-after-v2");
+        let legacy_raw = serde_json::to_value(&legacy).unwrap();
+        s.feedback(&p.project_id, legacy).unwrap();
+        let reloaded = s.inbox(&p.project_id).unwrap().into_iter().find(|f| f.envelope.payload.submission_id() == "v1-after-v2").unwrap();
+        assert_eq!(serde_json::to_value(reloaded.envelope).unwrap(), legacy_raw);
+        let mut altered = raw.clone(); altered["payload"]["message"] = serde_json::json!("Changed");
+        assert!(s.feedback(&p.project_id, serde_json::from_value(altered).unwrap()).is_err());
+    }
+
     fn envelope(p: &ProjectInfo, snapshot: &ProjectSnapshot, submission: &str) -> FeedbackEnvelope {
         FeedbackEnvelope {
             request_hash: submission.into(),
@@ -4571,7 +4621,7 @@ mod tests {
                 }],
                 annotations: vec![],
                 name: None,
-            },
+            }.into(),
         }
     }
     #[test]
@@ -4579,19 +4629,19 @@ mod tests {
         let (_t, s, p) = fixture();
         let snapshot = freeze(&s, &p);
         let mut forged = envelope(&p, &snapshot, "forged");
-        forged.payload.edits[0].path = "../secret.md".into();
+        forged.payload.v1_mut().edits[0].path = "../secret.md".into();
         assert_eq!(
             s.feedback(&p.project_id, forged).unwrap().status,
             "quarantined"
         );
         let mut unknown = envelope(&p, &snapshot, "unknown");
-        unknown.payload.snapshot_id = "untrusted".into();
+        unknown.payload.v1_mut().snapshot_id = "untrusted".into();
         assert_eq!(
             s.feedback(&p.project_id, unknown).unwrap().status,
             "quarantined"
         );
         let mut bad_hash = envelope(&p, &snapshot, "hash");
-        bad_hash.payload.edits[0].base_hash = "fake".into();
+        bad_hash.payload.v1_mut().edits[0].base_hash = "fake".into();
         assert_eq!(
             s.feedback(&p.project_id, bad_hash).unwrap().status,
             "quarantined"
@@ -4729,7 +4779,7 @@ mod tests {
             .iter()
             .find(|f| f.path == "docs/a.md")
             .unwrap();
-        e.payload.edits.push(Edit {
+        e.payload.v1_mut().edits.push(Edit {
             path: second.path.clone(),
             base_hash: second.hash.clone(),
             after_markdown: "second edit".into(),
@@ -4756,8 +4806,8 @@ mod tests {
             "rejected"
         );
         let mut annotations = envelope(&p, &snapshot, "notes");
-        annotations.payload.edits.clear();
-        annotations.payload.annotations.push(Annotation {
+        annotations.payload.v1_mut().edits.clear();
+        annotations.payload.v1_mut().annotations.push(Annotation {
             path: "docs/a.md".into(),
             quote: "home".into(),
             comment: "review this".into(),
@@ -5005,7 +5055,7 @@ mod tests {
             .iter()
             .find(|f| f.path == "docs/a.md")
             .unwrap();
-        e.payload.edits.push(Edit {
+        e.payload.v1_mut().edits.push(Edit {
             path: b.path.clone(),
             base_hash: b.hash.clone(),
             after_markdown: "B edit".into(),
@@ -5026,7 +5076,7 @@ mod tests {
         )
         .unwrap();
         let mut rejected = e;
-        rejected.payload.submission_id = "missing-rejected".into();
+        rejected.payload.v1_mut().submission_id = "missing-rejected".into();
         rejected.request_hash = "missing-rejected".into();
         s.feedback(&p.project_id, rejected).unwrap();
         s.reject(&p.project_id, "missing-rejected", Some("docs/a.md"), None)
@@ -5295,7 +5345,7 @@ impl ProjectStore {
             files = f
                 .envelope
                 .payload
-                .edits
+                .edits()
                 .iter()
                 .map(|edit| (edit.path.clone(), edit.after_markdown.as_bytes().to_vec()))
                 .collect();
@@ -5317,7 +5367,7 @@ impl ProjectStore {
         }
         if let Some(f) = &job.feedback {
             let latest: LocalFeedback =
-                read_json(&self.inbox_path(&binding, &f.envelope.payload.submission_id)?)?;
+                read_json(&self.inbox_path(&binding, f.envelope.payload.submission_id())?)?;
             if !same_envelope(&latest, f)? || latest.status == "quarantined" {
                 return Err("feedback changed during Git operation".into());
             }
@@ -5332,7 +5382,7 @@ impl ProjectStore {
         let _records = self.lock()?;
         self.verify_share_job(job)?;
         if let Some(f) = &job.feedback {
-            let path = self.inbox_path(&job.binding, &f.envelope.payload.submission_id)?;
+            let path = self.inbox_path(&job.binding, f.envelope.payload.submission_id())?;
             let mut latest: LocalFeedback = read_json(&path)?;
             let intent = latest.git.as_ref().and_then(|g| g.branch_intent.clone());
             latest.git = Some(SubmissionGit {
@@ -5377,10 +5427,10 @@ fn same_envelope(a: &LocalFeedback, b: &LocalFeedback) -> Result<bool> {
 fn message(f: &LocalFeedback, head: Option<&str>, coauthor: bool) -> String {
     let p = &f.envelope.payload;
     git::submission_message(
-        &p.project_id,
-        &p.snapshot_id,
-        &p.submission_id,
-        p.name.as_deref(),
+        p.project_id(),
+        p.snapshot_id(),
+        p.submission_id(),
+        p.contributor_name(),
         None,
         None,
         head,
@@ -5428,12 +5478,12 @@ fn run_share_job(
             job.snapshot.git.as_ref().unwrap().snapshot_commit.clone(),
             format!(
                 "refs/notemd/share/{}/submissions/{}",
-                job.binding.project_id, payload.submission_id
+                job.binding.project_id, payload.submission_id()
             ),
             message(f, None, false),
             git::guest_author(
-                payload.name.as_deref(),
-                &payload.submission_id,
+                payload.contributor_name(),
+                payload.submission_id(),
                 &f.envelope.received_at,
             ),
         )
@@ -5578,7 +5628,7 @@ fn execute_request(
                 serde_json::from_value(value.clone()).map_err(|e| e.to_string())?;
             service.capture_share_job(
                 id,
-                &feedback.envelope.payload.snapshot_id.clone(),
+                &feedback.envelope.payload.snapshot_id().to_owned(),
                 Some(feedback),
             )
         };
@@ -5696,14 +5746,14 @@ impl ProjectStore {
         let b = self.binding(id)?;
         self.active(&b)?;
         let f: LocalFeedback = read_json(&self.inbox_path(&b, submission)?)?;
-        if f.envelope.payload.project_id != id || f.envelope.payload.submission_id != submission {
+        if f.envelope.payload.project_id() != id || f.envelope.payload.submission_id() != submission {
             return Err("feedback identity mismatch".into());
         }
         ensure_no_worktree_intent(&f)?;
         let c = self.config(&b)?;
-        let job = self.capture_share_job(id, &f.envelope.payload.snapshot_id, Some(f.clone()))?;
+        let job = self.capture_share_job(id, f.envelope.payload.snapshot_id(), Some(f.clone()))?;
         let mut base = BTreeMap::new();
-        for edit in &f.envelope.payload.edits {
+        for edit in f.envelope.payload.edits() {
             if !c.files.contains(&edit.path) {
                 return Err("file outside current shared scope".into());
             }
@@ -5711,7 +5761,7 @@ impl ProjectStore {
                 &b,
                 &format!(
                     "snapshots/{}/files/{}",
-                    f.envelope.payload.snapshot_id, edit.path
+                    f.envelope.payload.snapshot_id(), edit.path
                 ),
             )?)?;
             base.insert(
@@ -5734,7 +5784,7 @@ impl ProjectStore {
         }
         let f = review.job.feedback.as_ref().unwrap();
         let latest: LocalFeedback =
-            read_json(&self.inbox_path(&review.job.binding, &f.envelope.payload.submission_id)?)?;
+            read_json(&self.inbox_path(&review.job.binding, f.envelope.payload.submission_id())?)?;
         ensure_no_worktree_intent(&latest)?;
         Ok(latest)
     }
@@ -5753,7 +5803,7 @@ impl ProjectStore {
         });
         g.branch_intent = Some(intent.clone());
         write_json(
-            &self.inbox_path(&review.job.binding, &latest.envelope.payload.submission_id)?,
+            &self.inbox_path(&review.job.binding, latest.envelope.payload.submission_id())?,
             &latest,
         )?;
         Ok(latest)
@@ -5776,7 +5826,7 @@ impl ProjectStore {
         {
             return Err("branch intent changed".into());
         }
-        for edit in &latest.envelope.payload.edits {
+        for edit in latest.envelope.payload.edits() {
             if latest.decisions.get(&edit.path).is_some_and(|d| {
                 d.status != "not_applied"
                     && !(d.status == "branched"
@@ -5797,7 +5847,7 @@ impl ProjectStore {
     ) -> Result<LocalFeedback> {
         let _records = self.lock()?;
         let mut latest = self.verify_branch_intent(review, intent)?;
-        for edit in &latest.envelope.payload.edits {
+        for edit in latest.envelope.payload.edits() {
             if let Some((path, _)) = &only {
                 if *path != edit.path {
                     continue;
@@ -5825,7 +5875,7 @@ impl ProjectStore {
         }
         Self::recompute(&mut latest);
         write_json(
-            &self.inbox_path(&review.job.binding, &latest.envelope.payload.submission_id)?,
+            &self.inbox_path(&review.job.binding, latest.envelope.payload.submission_id())?,
             &latest,
         )?;
         Ok(latest)
@@ -5842,7 +5892,7 @@ fn ensure_no_worktree_intent(feedback: &LocalFeedback) -> Result<()> {
     Ok(())
 }
 fn review_status(feedback: &LocalFeedback, patch: bool) -> Result<()> {
-    let edits = &feedback.envelope.payload.edits;
+    let edits = feedback.envelope.payload.edits();
     if edits.is_empty() {
         return Err("Git operations require edits; annotations use worktree review".into());
     }
@@ -5883,10 +5933,10 @@ fn review_repo(review: &GitReview) -> Result<git::GitRepo> {
 }
 fn validate_results(review: &GitReview, results: &BTreeMap<String, String>) -> Result<()> {
     let f = review.job.feedback.as_ref().unwrap();
-    if results.len() != f.envelope.payload.edits.len()
+    if results.len() != f.envelope.payload.edits().len()
         || f.envelope
             .payload
-            .edits
+            .edits()
             .iter()
             .any(|e| !results.contains_key(&e.path))
     {
@@ -5954,7 +6004,7 @@ fn execute_git_request(
     let paths: Vec<_> = feedback
         .envelope
         .payload
-        .edits
+        .edits()
         .iter()
         .map(|e| e.path.clone())
         .collect();
@@ -6005,7 +6055,7 @@ fn execute_git_request(
             git::ensure_snapshot_not_ancestor(&repo, &meta.snapshot_commit, &intent.head)?;
         }
         let author = git::guest_author(
-            feedback.envelope.payload.name.as_deref(),
+            feedback.envelope.payload.contributor_name(),
             request.submission().unwrap(),
             &feedback.envelope.received_at,
         );
@@ -6061,7 +6111,7 @@ fn execute_git_request(
         let latest = short_lock(|| service.verify_git_review(&review))?;
         return git_value(
             serde_json::json!({"head":repo.head,"entry":review.entry,"feedback":latest,
-            "files":feedback.envelope.payload.edits.iter().map(|e| serde_json::json!({"path":e.path,"base":review.base[&e.path],"current":current[&e.path],"after":e.after_markdown})).collect::<Vec<_>>(),
+            "files":feedback.envelope.payload.edits().iter().map(|e| serde_json::json!({"path":e.path,"base":review.base[&e.path],"current":current[&e.path],"after":e.after_markdown})).collect::<Vec<_>>(),
             "commitMessage":message(feedback,Some(&repo.head),false),"remote":repo.remote}),
         );
     }
@@ -6080,7 +6130,7 @@ fn execute_git_request(
         git::ensure_snapshot_not_ancestor(&repo, &meta.snapshot_commit, expected)?;
     }
     let author = git::guest_author(
-        feedback.envelope.payload.name.as_deref(),
+        feedback.envelope.payload.contributor_name(),
         request.submission().unwrap(),
         &feedback.envelope.received_at,
     );
@@ -6165,7 +6215,7 @@ fn execute_git_request(
                 git.branch_intent = None;
             }
             write_json(
-                &service.inbox_path(&review.job.binding, &latest.envelope.payload.submission_id)?,
+                &service.inbox_path(&review.job.binding, latest.envelope.payload.submission_id())?,
                 &latest,
             )
         })?;

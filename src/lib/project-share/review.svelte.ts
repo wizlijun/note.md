@@ -4,8 +4,9 @@ import { frontmatterTokens } from '../share-merge/frontmatter'
 import { hunkFlags } from '../share-merge/flags'
 import { sanitizeNote } from '../note-anno/note-commands'
 import type { IndexedSelector, LocatedAnnotation } from './merge-client'
+import { feedbackAnnotations, feedbackName } from './feedback'
 import { gitTarget, prepareGitReview, type GitConfirmation } from './git'
-import type { GitBranchResult, GitProbe, GitTarget, LocalFeedback, ReviewDraft, ReviewFile } from './types'
+import type { GitBranchResult, GitProbe, GitTarget, LocalFeedback, ProjectAnnotationV2, ReviewDraft, ReviewFile } from './types'
 
 export interface ReviewDependencies {
   command<T>(op: string, args: Record<string, unknown>): Promise<T>
@@ -24,7 +25,7 @@ export interface ReviewDependencies {
 }
 export interface ReviewAnnotation {
   index: number
-  annotation: LocalFeedback['envelope']['payload']['annotations'][number]
+  annotation: ProjectAnnotationV2
   anchor: AnchorResult | null
   staged: boolean
   decision?: 'promoted' | 'dismissed'
@@ -92,8 +93,8 @@ export function createProjectReview(projectId: string, deps: ReviewDependencies)
   const mutable = () => phase === 'ready' && !!file && !branches[submission()] && !terminal.has(file.status) && feedback?.status !== 'resolved' && feedback?.status !== 'branched'
   const stopTimer = () => { clearTimeout(timer); timer = undefined }
   const update = (value: LocalFeedback) => { feedback = value; deps.onUpdated?.(value) }
-  const selections = (indices?: number[]): IndexedSelector[] => (feedback?.envelope.payload.annotations ?? []).flatMap((annotation, index) =>
-    annotation.path === path && (!indices || indices.includes(index)) ? [{ index, selector: { exact: annotation.quote, ...(annotation.start === undefined ? {} : { start: annotation.start }), ...(annotation.end === undefined ? {} : { end: annotation.end }) } }] : [])
+  const selections = (indices?: number[]): IndexedSelector[] => (feedback ? feedbackAnnotations(feedback.envelope.payload) : []).flatMap((annotation, index) =>
+    annotation.path === path && (!indices || indices.includes(index)) ? [{ index, selector: annotation.selector }] : [])
   const key = ({ index, selector }: IndexedSelector) => JSON.stringify([index, selector])
   async function locate(text: string, selectors: IndexedSelector[]) {
     if (!selectors.length) return []
@@ -108,11 +109,11 @@ export function createProjectReview(projectId: string, deps: ReviewDependencies)
     return result
   }
   function setRows(locations: LocatedAnnotation[], text: string) {
-    const trust = trustRanges(text)
+    const trust = trustRanges(text), annotations = feedbackAnnotations(feedback!.envelope.payload)
     rows = selections().map(({ index }) => {
       const result = locations.find(l => l.index === index)?.result ?? null
       const manualReason = result && result.status !== 'orphan' && trust.some(range => touches(result.start, result.end, range)) ? '信任字段需手工处理' : undefined
-      return { index, annotation: feedback!.envelope.payload.annotations[index], anchor: result, staged: false, canPromote: false, ...(manualReason ? { manualReason } : {}) }
+      return { index, annotation: annotations[index], anchor: result, staged: false, canPromote: false, ...(manualReason ? { manualReason } : {}) }
     })
   }
   async function locateCurrent(epoch: number) {
@@ -251,7 +252,7 @@ export function createProjectReview(projectId: string, deps: ReviewDependencies)
       if (result.status === 'orphan') throw new Error('所选批注已无法定位，请重新处理')
       if (trust.some(range => touches(result.start, result.end, range))) throw new Error('信任字段批注需手工处理')
       const annotation = feedback!.envelope.payload.annotations[index]
-      const comment = `{>>${sanitizeNote(feedback!.envelope.payload.name || '访客')}：${sanitizeNote(annotation.comment)}<<}`
+      const comment = `{>>${sanitizeNote(feedbackName(feedback!.envelope.payload) || '访客')}：${sanitizeNote(annotation.comment)}<<}`
       const overlapping = owners.filter(owner => touches(result.start, result.end, owner))
       if (overlapping.length) {
         const end = Math.max(result.end, ...overlapping.map(owner => owner.end))

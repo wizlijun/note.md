@@ -1,0 +1,1 @@
+{"schemaVersion":2,"project_id":"p_fixture","snapshotId":"S1","submissionId":"v2_point","edits":[],"annotations":[{"path":"README.md","selector":{"exact":"","prefix":"Before","start":6,"end":6},"comment":"补充来源","kind":"question"}],"contributor":{"name":"Alice","aiAssisted":false},"client":{"kind":"browser-fallback","version":"6.1013.1"}}

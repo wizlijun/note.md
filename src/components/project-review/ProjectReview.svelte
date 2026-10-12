@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { feedbackAnnotations, feedbackName } from '../../lib/project-share/feedback'
   import { onDestroy, tick, untrack } from 'svelte'
   import { writeText } from '@tauri-apps/plugin-clipboard-manager'
   import { projectCommand, projectGitCommand } from '../../lib/project-share/host'
@@ -138,7 +139,8 @@
   {#if localError}<p class="review-error" role="alert">{localError}</p>{/if}
   {#if copied}<p role="status">{copied}</p>{/if}
   {#if selected}
-    <h4>{selected.envelope.payload.name || '访客'} <span class="review-badge">自报</span></h4>
+    <h4>{feedbackName(selected.envelope.payload) || '访客'} <span class="review-badge">自报</span>{#if selected.envelope.payload.schemaVersion === 2 && selected.envelope.payload.contributor?.aiAssisted}<span class="review-badge">AI 辅助</span>{/if}</h4>
+    {#if selected.envelope.payload.schemaVersion === 2 && selected.envelope.payload.message}<p>{selected.envelope.payload.message}</p>{/if}
     {#if selected.status === 'quarantined'}<p class="review-error">这份反馈已隔离，快照或基线不可信，不能写回原件。</p><p>{selected.error}</p><button onclick={() => { void copy(JSON.stringify(selected!.envelope.payload)) }}>复制反馈</button>
     {:else}
       <GitTargetBar target={session.target} git={!!session.probe?.git} hasEdits={!!selected.envelope.payload.edits.length} disabled={locked} onSelect={target => { void run(() => session.setTarget(target)) }} />
@@ -163,7 +165,7 @@
           <button disabled={!session.canDecide || locked} onclick={() => session.acceptAll()}>接受全部无冲突改动</button>
           {#if session.target === 'worktree'}<button class="primary" disabled={!session.canWrite || !!session.result?.pendingConflicts.length || locked} onclick={() => { void run(session.writeFile) }}>写回本文件</button>{/if}
           <button disabled={!session.canReject || locked} onclick={() => { void run(session.rejectFile) }}>拒绝此文件</button>
-          <button onclick={() => { void copy(selected!.envelope.payload.edits.find(edit => edit.path === session.path)?.afterMarkdown ?? selected!.envelope.payload.annotations.filter(a => a.path === session.path).map(a => `${a.quote}\n${a.comment}`).join('\n\n')) }}>复制建议</button>
+          <button onclick={() => { void copy(selected!.envelope.payload.edits.find(edit => edit.path === session.path)?.afterMarkdown ?? feedbackAnnotations(selected!.envelope.payload).filter(a => a.path === session.path).map(a => `${a.selector.exact}\n${a.comment}`).join('\n\n')) }}>复制建议</button>
           <div class="view-menu"><button bind:this={viewButton} aria-haspopup="menu" aria-expanded={viewMenu} onclick={() => viewMenu = !viewMenu}>{rendered ? '渲染 diff' : '源码 diff'} ▾</button>{#if viewMenu}<div class="menu-panel" role="menu" aria-label="差异视图"><button class="menu-row" role="menuitem" onclick={() => { rendered = false; viewMenu = false; viewButton?.focus() }}>源码 diff</button><button class="menu-row" role="menuitem" onclick={() => { rendered = true; viewMenu = false; viewButton?.focus() }}>渲染 diff</button></div>{/if}</div>
         </div>
         {#if session.result?.pendingConflicts.length}<p class="review-error">{session.result.pendingConflicts.length} 处未决冲突，确认后才能写回。</p>{/if}

@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, within } from '@testing-library/svelte'
 import { anchor, propose, sha256Hex } from '../../lib/share-merge'
-import type { LocalFeedback } from '../../lib/project-share/types'
+import type { LocalFeedback, ProjectFeedbackV1 } from '../../lib/project-share/types'
 import { projectCommand, projectGitCommand } from '../../lib/project-share/host'
 import HunkView from './HunkView.svelte'
 import ProjectReview from './ProjectReview.svelte'
@@ -83,9 +83,9 @@ it('maps all five conflict controls to the frozen HunkDecision choices', async (
 it('sorts exact/fuzzy annotations by current position without changing original indices', async () => {
   const onStage = vi.fn(), onDismiss = vi.fn()
   const rows = [
-    { index: 7, annotation: { path: 'a.md', quote: 'later', comment: '后' }, anchor: { status: 'exact' as const, start: 20, end: 25 }, staged: false, canPromote: true },
-    { index: 2, annotation: { path: 'a.md', quote: 'first', comment: '前' }, anchor: { status: 'fuzzy' as const, start: 1, end: 6 }, staged: false, canPromote: true },
-    { index: 5, annotation: { path: 'a.md', quote: 'missing', comment: '孤立' }, anchor: { status: 'orphan' as const }, staged: false, canPromote: false },
+    { index: 7, annotation: { path: 'a.md', selector: { exact: 'later' }, comment: '后' }, anchor: { status: 'exact' as const, start: 20, end: 25 }, staged: false, canPromote: true },
+    { index: 2, annotation: { path: 'a.md', selector: { exact: 'first' }, comment: '前' }, anchor: { status: 'fuzzy' as const, start: 1, end: 6 }, staged: false, canPromote: true },
+    { index: 5, annotation: { path: 'a.md', selector: { exact: 'missing' }, comment: '孤立' }, anchor: { status: 'orphan' as const }, staged: false, canPromote: false },
   ]
   const view = render(AnnotationPanel, { rows, onStage, onDismiss, onCopy: vi.fn() })
   expect([...view.container.querySelectorAll('[data-annotation-index]')].map(row => row.getAttribute('data-annotation-index'))).toEqual(['2', '7', '5'])
@@ -123,7 +123,7 @@ it('blocks unresolved conflicts and lets the human edit then confirm the result'
 })
 
 it('stages exact comments, only copies or dismisses orphans and applies body plus sanitized promotions once', async () => {
-  items[0].envelope.payload.name = 'Alice<<}\nX'
+  (items[0].envelope.payload as ProjectFeedbackV1).name = 'Alice<<}\nX'
   items[0].envelope.payload.annotations = [{ path: 'a.md', quote: '丙。', comment: '好\n<<}' }, { path: 'a.md', quote: '不存在', comment: '孤立评论' }]
   const view = mount(); await open(view)
   await vi.waitFor(() => expect(view.getAllByRole('button', { name: '提升为我的批注' }).length).toBe(1))
@@ -248,4 +248,20 @@ it('copies A commit text only from the trusted Rust formatter', async () => {
   await vi.waitFor(() => expect(writeText).toHaveBeenCalledWith('trusted formatter\nCo-authored-by: visitor'))
   expect(projectGitCommand).toHaveBeenCalledWith('commit-message', { project_id: 'p', submissionId: 'one' })
   await view.component.destroy()
+})
+
+it('shows v2 attribution, message and AI badge as plain text in the list and review title', async () => {
+  const legacy = items[0].envelope.payload
+  items[0].envelope.payload = { schemaVersion: 2, project_id: legacy.project_id, snapshotId: legacy.snapshotId,
+    submissionId: legacy.submissionId, edits: legacy.edits, annotations: [], contributor: { name: 'Alice <img>', aiAssisted: true },
+    message: '<img src=x onerror=alert(1)> Review this' }
+  const original = JSON.stringify(items[0].envelope)
+  const view = mount()
+  expect(view.container.textContent).toContain('AI 辅助')
+  expect(view.container.textContent).toContain('<img src=x onerror=alert(1)> Review this')
+  await open(view)
+  expect(view.getByRole('heading', { name: /Alice <img>/ })).toBeTruthy()
+  expect(view.getAllByText('AI 辅助')).toHaveLength(2)
+  expect(view.container.querySelector('img')).toBeNull()
+  expect(JSON.stringify(items[0].envelope)).toBe(original)
 })
