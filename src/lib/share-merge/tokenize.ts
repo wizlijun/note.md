@@ -1,42 +1,26 @@
-import { frontmatterTokens, makeToken, type SourceLine } from './frontmatter'
+import { frontmatterTokens, makeToken, sourceLines, type SourceLine } from './frontmatter'
 import type { Token } from './types'
 
 const inlineDelimiters = [['{==', '==}'], ['{>>', '<<}'], ['[[', ']]'], ['$', '$']] as const
 
 interface InlineAtoms {
+  htmlEnds: Map<number, number>
   codeEnds: Map<number, number>
   closeAfter: (close: string, from: number) => number
 }
 
-function sourceLines(text: string): SourceLine[] {
-  const lines: SourceLine[] = []
-  for (let start = 0; start < text.length;) {
-    let contentEnd = start
-    while (contentEnd < text.length && text[contentEnd] !== '\r' && text[contentEnd] !== '\n') contentEnd++
-    const end = contentEnd + (text[contentEnd] === '\r' && text[contentEnd + 1] === '\n' ? 2 : contentEnd < text.length ? 1 : 0)
-    lines.push({ start, contentEnd, end })
-    start = end
-  }
-  return lines
-}
-
-function balancedEnd(text: string, start: number, open: string, close: string): number {
-  let depth = 0
-  let quote = ''
-  for (let i = start; i < text.length; i++) {
-    if (text[i] === '\\') { i++; continue }
-    if (open === '(' && (text[i] === '"' || text[i] === "'")) {
-      if (!quote && /\s/.test(text[i - 1])) quote = text[i]
-      else if (quote === text[i]) quote = ''
-    }
-    if (quote) continue
-    if (text[i] === open) depth++
-    if (text[i] === close && --depth === 0) return i + 1
-  }
-  return start
-}
-
 function inlineIndex(text: string) {
+  // Suffix automaton: each '<' starts outside quotes, even inside a failed
+  // earlier candidate. Keep all three quote states to preserve that behavior.
+  const htmlEnds = new Map<number, number>()
+  let plain = -1, single = -1, double = -1
+  for (let i = text.length - 1; i >= 0; i--) {
+    const char = text[i]
+    if (char === '<') htmlEnds.set(i, plain < 0 ? i : plain)
+    if (char === "'") [plain, single] = [single, plain]
+    else if (char === '"') [plain, double] = [double, plain]
+    else if (char === '>') plain = i + 1
+  }
   const codeEnds = new Map<number, number>()
   const runs: { start: number; end: number }[] = []
   for (let i = 0; i < text.length;) {
@@ -75,6 +59,32 @@ function inlineIndex(text: string) {
     }
     return positions[low] ?? -1
   }
+  let destinationEnds: Int32Array | undefined
+  const destinationEnd = (start: number): number => {
+    if (!destinationEnds) {
+      // For each suffix and quote state, find the next unmatched ')'. A
+      // nested '(' resumes after its already-indexed closing delimiter.
+      const plain = new Int32Array(text.length + 2).fill(-1)
+      const single = new Int32Array(text.length + 2).fill(-1)
+      const double = new Int32Array(text.length + 2).fill(-1)
+      for (let i = text.length - 1; i >= 0; i--) {
+        const char = text[i]
+        if (char === '\\') {
+          plain[i] = plain[i + 2]; single[i] = single[i + 2]; double[i] = double[i + 2]
+          continue
+        }
+        single[i] = char === "'" ? plain[i + 1] : single[i + 1]
+        double[i] = char === '"' ? plain[i + 1] : double[i + 1]
+        if (char === ')') plain[i] = i + 1
+        else if (char === '(') plain[i] = plain[i + 1] < 0 ? -1 : plain[plain[i + 1]]
+        else if ((char === "'" || char === '"') && /\s/.test(text[i - 1])) plain[i] = char === "'" ? single[i + 1] : double[i + 1]
+        else plain[i] = plain[i + 1]
+      }
+      destinationEnds = plain
+    }
+    const end = destinationEnds[start + 1]
+    return end < 0 ? start : end
+  }
   const labelEnds = new Map<number, number>()
   // Match only when prose reaches a link candidate. Within a label, escapes,
   // code spans and nested brackets determine its boundary; prose atoms cannot
@@ -101,7 +111,7 @@ function inlineIndex(text: string) {
     for (const bracket of brackets) labelEnds.set(bracket, -1)
     return -1
   }
-  return { codeEnds, closeAfter, labelEnd }
+  return { htmlEnds, codeEnds, closeAfter, labelEnd, destinationEnd }
 }
 
 function atomEnd(text: string, start: number, index: InlineAtoms): number {
@@ -112,16 +122,7 @@ function atomEnd(text: string, start: number, index: InlineAtoms): number {
     const end = index.closeAfter(close, start + open.length)
     if (end >= 0) return end + close.length
   }
-  if (text[start] === '<') {
-    let quote = ''
-    for (let i = start + 1; i < text.length; i++) {
-      if (text[i] === '"' || text[i] === "'") {
-        if (!quote) quote = text[i]
-        else if (quote === text[i]) quote = ''
-      }
-      if (text[i] === '>' && !quote) return i + 1
-    }
-  }
+  if (text[start] === '<') return index.htmlEnds.get(start)!
   return start
 }
 
@@ -132,7 +133,7 @@ function protectedEnd(text: string, start: number, index: ReturnType<typeof inli
   if (text[bracket] === '[') {
     const labelEnd = index.labelEnd(bracket)
     if (labelEnd >= 0 && text[labelEnd] === '(') {
-      const linkEnd = balancedEnd(text, labelEnd, '(', ')')
+      const linkEnd = index.destinationEnd(labelEnd)
       if (linkEnd > labelEnd) return linkEnd
     }
   }

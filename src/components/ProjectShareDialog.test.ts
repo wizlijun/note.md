@@ -25,12 +25,25 @@ const h = vi.hoisted(() => ({
   beforeDelete: null as (() => void) | null,
   saveDelay: null as (() => Promise<void>) | null,
   applyDirty: [] as string[],
+  locateDelay: null as (() => Promise<void>) | null,
+  cancelAnnotations: vi.fn(),
   reviewSaveDelay: null as (() => Promise<void>) | null,
 }))
 const info = { project_id: 'p', sourceRoot: '/canonical', mirrorRoot: '/vault/Sync/p', entry: 'main.md', files: ['main.md'] }
 const feedback = { envelope: { payload: { project_id: 'p', snapshotId: 's', submissionId: 'f', edits: [{ path: 'main.md', baseHash: 'base', afterMarkdown: 'visitor' }], annotations: [], name: 'Alice' }, receivedAt: 'today' }, status: 'pending', decisions: {} }
 vi.mock('@tauri-apps/plugin-dialog', () => ({ open: vi.fn(), ask: vi.fn() }))
 vi.mock('@tauri-apps/plugin-clipboard-manager', () => ({ writeText: vi.fn() }))
+vi.mock('../lib/project-share/merge-client', async () => {
+  const { propose, anchor } = await import('../lib/share-merge')
+  return { createMergeClient: () => ({
+    compute: async (input: Parameters<typeof propose>[0]) => propose(input),
+    locateAnnotations: async (text: string, selectors: { index: number; selector: Parameters<typeof anchor>[1] }[]) => {
+      await h.locateDelay?.()
+      return selectors.map(s => ({ index: s.index, result: anchor(text, s.selector) }))
+    },
+    cancelAnnotations: h.cancelAnnotations, destroy: vi.fn(),
+  }) }
+})
 vi.mock('../lib/ui/modal-focus', () => ({ modalFocus: () => ({ destroy() {} }) }))
 vi.mock('../lib/dialogs', () => ({ pickSaveFile: vi.fn() }))
 vi.mock('../lib/ui-state.svelte', async () => {
@@ -93,6 +106,7 @@ function button(text: string) {
 let component: ReturnType<typeof mount> | null = null
 beforeEach(() => {
   localStorage.clear()
+  h.locateDelay = null; feedback.envelope.payload.annotations = []
   h.tabs.splice(0, h.tabs.length, { id: 'source', filePath: '/canonical/main.md', currentContent: 'source buffer', initialContent: 'source buffer' }, { id: 'mirror', filePath: '/vault/Sync/p/main.md', currentContent: 'mirror buffer', initialContent: 'mirror buffer' }, { id: 'personal', filePath: '/canonical/private.md' })
   vi.clearAllMocks()
   h.dirty.clear(); h.saved.length = 0; h.current = 'disk version'; h.reviewCalls = 0; h.failOpen = false
@@ -559,5 +573,37 @@ describe('ProjectShareDialog current document and lifecycle', () => {
     await vi.waitFor(() => expect(document.querySelector<HTMLInputElement>('#share-entry')?.value).toBe('main.md'))
     expect(button('更新分享').disabled).toBe(false)
     expect(createProject).not.toHaveBeenCalled()
+  })
+})
+
+
+describe('ProjectShareDialog cancellable review loading', () => {
+  it('closes during annotation loading and isolates late results from a reopened dialog', async () => {
+    ;(feedback.envelope.payload.annotations as any[]) = [{ path: 'main.md', quote: 'disk', comment: 'old annotation' }]
+    let release!: () => void
+    h.locateDelay = () => new Promise<void>(resolve => { release = resolve })
+    const closed = await openDialog(); button('反馈收件箱').click()
+    await vi.waitFor(() => expect(button('Alice').disabled).toBe(false)); button('Alice').click()
+    await vi.waitFor(() => expect(release).toBeTypeOf('function'))
+    expect(button('完成').disabled).toBe(false)
+    expect(document.querySelector<HTMLSelectElement>('#share-recent-project')!.disabled).toBe(false)
+    button('完成').click()
+    await vi.waitFor(() => expect(closed).toHaveBeenCalledOnce())
+    expect(h.cancelAnnotations).toHaveBeenCalledTimes(2)
+    await unmount(component!); component = null
+    h.locateDelay = null
+    ;(feedback.envelope.payload.annotations as any[]) = [{ path: 'main.md', quote: 'version', comment: 'new annotation' }]
+    await openDialog(); button('反馈收件箱').click()
+    await vi.waitFor(() => expect(button('Alice').disabled).toBe(false)); button('Alice').click()
+    await vi.waitFor(() => expect(document.body.textContent).toContain('new annotation'))
+    release(); await tick(); await new Promise(resolve => setTimeout(resolve, 0)); await tick()
+    expect(document.body.textContent).not.toContain('old annotation')
+    expect(button('完成').disabled).toBe(false)
+    button('接受').click(); await tick(); button('写回本文件').click()
+    await vi.waitFor(() => expect(document.querySelector('[aria-labelledby="review-confirm-title"]')).not.toBeNull())
+    expect(button('完成').disabled).toBe(true)
+    expect(document.querySelector<HTMLSelectElement>('#share-recent-project')!.disabled).toBe(true)
+    button('取消').click()
+    await vi.waitFor(() => expect(button('完成').disabled).toBe(false))
   })
 })

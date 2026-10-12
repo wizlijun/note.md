@@ -405,3 +405,87 @@ it('keeps a repeated suggestion unresolved when an inline promoted annotation ma
   expect(proposal.hunks[0]).toMatchObject({ kind: 'conflict', base: '甲。乙。丙。',
     ours: '甲改。乙改。{==丙==}{>>访客：复核<<}。', theirs: '甲。乙改。丙。' })
 })
+
+
+it.each(['a.md', 'b.md'])('restores the freshly flushed draft when reopening via %s', async nextPath => {
+  const h = fixture()
+  h.f.envelope.payload.edits.push({ ...h.f.envelope.payload.edits[0], path: 'b.md' })
+  await h.session.open(h.f, 'a.md')
+  h.session.acceptAll()
+  const accepted = { ...h.session.decisions }
+  await h.session.open(h.f, nextPath)
+  await h.session.open(h.f, 'a.md')
+  expect(h.session.decisions).toEqual(accepted)
+  expect(h.session.feedback!.review!['a.md'].hunks).toEqual(accepted)
+  await h.session.destroy()
+})
+
+it('restores manual edits made during an in-flight save on same-file reopen', async () => {
+  const h = fixture(); h.setCurrent('甲。主人。丙。')
+  await h.session.open(h.f, 'a.md')
+  const id = h.session.proposal!.hunks[0].id
+  h.session.decide(id, { kind: 'conflict', choice: 'edited', text: 'first' })
+  const gate = deferred<void>(), command = h.deps.command
+  h.deps.command = async (op, args) => { if (op === 'review-save') await gate.promise; return command(op, args) }
+  const saving = h.session.flush()
+  h.session.decide(id, { kind: 'conflict', choice: 'edited', text: 'latest' })
+  const opening = h.session.open(h.f, 'a.md')
+  gate.resolve(); await saving; await opening
+  expect(h.session.decisions[id]).toMatchObject({ choice: 'edited', text: 'latest' })
+  expect(h.session.feedback!.review!['a.md'].hunks[id]).toMatchObject({ text: 'latest' })
+  await h.session.destroy()
+})
+
+it.each(['\n', '\r\n', '\r'].flatMap(eol => ['', '\uFEFF'].flatMap(bom => ['---', '...'].map(close => ({ eol, bom, close })))))('protects trust frontmatter using kernel boundaries %j', async ({ eol, bom, close }) => {
+  const text = bom + ['---', 'verified: true', close, '正文。'].join(eol)
+  const h = fixture(feedback('trust', text, text), text)
+  h.f.envelope.payload.annotations = [{ path: 'a.md', quote: 'true', comment: 'test' }]
+  await h.session.open(h.f, 'a.md')
+  expect(h.session.annotations[0]).toMatchObject({ canPromote: false, manualReason: '信任字段需手工处理' })
+  h.session.stageAnnotation(0)
+  expect(h.session.annotations[0].staged).toBe(false)
+  await h.session.writeFile()
+  expect(h.current).toBe(text)
+  await h.session.destroy()
+})
+
+it('rechecks trust ranges when composed text moves a staged body quote into frontmatter', async () => {
+  const base = '---\rtitle: old\r---\rtrue'
+  const after = '---\rverified: true\r---\r正文。'
+  const h = fixture(feedback('trust', base, after), base)
+  h.f.envelope.payload.annotations = [{ path: 'a.md', quote: 'true', comment: 'test' }]
+  await h.session.open(h.f, 'a.md'); h.session.stageAnnotation(0)
+  for (const hunk of h.session.proposal!.hunks) h.session.decide(hunk.id, { kind: 'theirs-only', choice: 'accept' })
+  await h.session.writeFile()
+  expect(h.session.error).toContain('信任字段批注需手工处理')
+  expect(h.calls.filter(c => c.op === 'apply')).toHaveLength(0)
+  await h.session.destroy()
+})
+
+it('disposes loading annotations without waiting and ignores their late result', async () => {
+  const h = fixture(), gate = deferred<Awaited<ReturnType<ReviewDependencies['locateAnnotations']>>>()
+  h.f.envelope.payload.annotations = [{ path: 'a.md', quote: '乙', comment: 'old' }]
+  h.deps.locateAnnotations = vi.fn(() => gate.promise)
+  const opening = h.session.open(h.f, 'a.md')
+  await vi.waitFor(() => expect(h.deps.locateAnnotations).toHaveBeenCalledOnce())
+  await h.session.destroy()
+  expect(h.deps.cancelAnnotations).toHaveBeenCalledTimes(2)
+  gate.resolve([{ index: 0, result: { status: 'exact', start: 2, end: 3 } }]); await opening
+  expect(h.session.phase).toBe('destroyed'); expect(h.session.annotations).toEqual([])
+})
+
+it('does not start compute after a disposed loading review returns late', async () => {
+  const h = fixture(), command = h.deps.command, gate = deferred<void>()
+  let reads = 0
+  h.deps.command = async (op, args) => {
+    if (op === 'review' && ++reads === 2) await gate.promise
+    return command(op, args)
+  }
+  const opening = h.session.open(h.f, 'a.md')
+  await vi.waitFor(() => expect(reads).toBe(2))
+  await Promise.all([h.session.destroy(), h.session.destroy()])
+  gate.resolve(); await opening
+  expect(h.deps.compute).not.toHaveBeenCalled()
+  expect(h.deps.dispose).toHaveBeenCalledOnce()
+  expect(h.session.phase).toBe('destroyed')
+})

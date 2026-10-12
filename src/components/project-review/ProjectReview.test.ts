@@ -40,7 +40,7 @@ beforeEach(() => {
 afterEach(cleanup)
 async function open(view: ReturnType<typeof mount>) {
   await fireEvent.click(view.getByRole('button', { name: /Alice/ }))
-  await vi.waitFor(() => expect(view.component.isBusy()).toBe(false))
+  await vi.waitFor(() => expect((view.getByRole('button', { name: '审阅文件：a.md' }) as HTMLButtonElement).disabled).toBe(false))
   expect(view.getByRole('button', { name: '写回本文件' })).toBeTruthy()
 }
 function mount() { return render(ProjectReview, { projectId: 'p', feedback: items, prepareSource, refreshSource, onUpdated: vi.fn() }) }
@@ -49,6 +49,7 @@ it('requires an explicit action for a visitor hunk and visualizes hidden code po
   const onDecide = vi.fn(), p = propose({ path: 'a.md', base: '甲。', ours: '甲。', theirs: '<img onerror=x>乙。\u202e' })
   const view = render(HunkView, { hunk: p.hunks[0], onDecide })
   expect(onDecide).not.toHaveBeenCalled(); expect(view.container.querySelector('img')).toBeNull()
+  expect(view.container.textContent).toContain('需单独确认')
   expect(view.container.textContent).toContain('U+202E')
   await fireEvent.click(view.getByRole('button', { name: '接受' }))
   // Risky hunks need a second explicit confirmation.
@@ -98,6 +99,7 @@ it('accepts only safe hunks in bulk and confirms the complete latest-current dif
   items = [feedback('one', '---\nverified: true\n---\n甲。乙改。丙。')]
   const view = mount(); await open(view)
   await fireEvent.click(view.getByRole('button', { name: '接受全部无冲突改动' }))
+  expect(view.container.textContent).toContain('需单独确认')
   await fireEvent.click(view.getByRole('button', { name: '写回本文件' }))
   const confirm = await view.findByRole('dialog', { name: '确认写回' })
   expect(confirm.textContent).toContain('1 处未决将视为不采纳')
@@ -139,11 +141,17 @@ it('stages exact comments, only copies or dismisses orphans and applies body plu
 
 it('disables shortcuts in input, textarea and contenteditable, but uses them in the hunk list', async () => {
   current = '甲。主人。丙。'; const view = mount(); await open(view)
-  await fireEvent.click(view.getByRole('button', { name: '编辑' }))
   for (const tag of ['input', 'textarea', 'div']) {
     const element = document.createElement(tag); if (tag === 'div') element.contentEditable = 'true'
-    view.container.append(element)
-    for (const key of ['a', 'r', 'e', 'j', 'k', 'Enter']) await fireEvent.keyDown(element, { key, metaKey: key === 'Enter' })
+    view.getByRole('region', { name: '逐处审阅' }).append(element)
+    element.tabIndex = 0; element.focus()
+    for (const key of ['a', 'r', 'e', 'j', 'k', 'Enter']) {
+      await fireEvent.keyDown(element, { key, metaKey: key === 'Enter' })
+      expect(document.activeElement).toBe(element)
+      expect(view.queryByRole('textbox', { name: '手改结果' })).toBeNull()
+      expect(view.queryByRole('dialog', { name: '确认写回' })).toBeNull()
+      expect(view.container.querySelector('.hunk header')?.textContent).toContain('待决定')
+    }
   }
   expect(calls.filter(c => c.op === 'review-save' || c.op === 'apply')).toHaveLength(0)
   await fireEvent.keyDown(view.getByRole('region', { name: '逐处审阅' }), { key: 'r' })
@@ -165,13 +173,13 @@ it('reads the newly applied current for the next pending submission of the same 
   items.push(feedback('two', '甲。乙。丙新。'))
   const view = mount(); await fireEvent.click(view.getByRole('button', { name: '按文件' }))
   await fireEvent.click(view.getByRole('button', { name: /a.md/ }))
-  await vi.waitFor(() => expect(view.component.isBusy()).toBe(false))
+  await vi.waitFor(() => expect((view.getByRole('button', { name: '审阅文件：a.md' }) as HTMLButtonElement).disabled).toBe(false))
   await fireEvent.click(view.getByRole('button', { name: '接受全部无冲突改动' }))
   await fireEvent.click(view.getByRole('button', { name: '写回本文件' }))
   const confirm = await view.findByRole('dialog', { name: '确认写回' })
   await fireEvent.click(within(confirm).getByRole('button', { name: '确认写回' }))
   await vi.waitFor(() => expect(current).toBe('甲。乙改。丙。'))
-  await vi.waitFor(() => expect(view.component.isBusy()).toBe(false))
+  await vi.waitFor(() => expect((view.getByRole('button', { name: '审阅文件：a.md' }) as HTMLButtonElement).disabled).toBe(false))
   await fireEvent.click(view.getByRole('button', { name: '审阅下一份' }))
   await vi.waitFor(() => expect(calls.some(c => c.op === 'review' && c.args.submissionId === 'two')).toBe(true))
   await vi.waitFor(() => expect(view.container.textContent).toContain('乙改。'))
@@ -184,4 +192,22 @@ it('retains the session when leaving cannot save and allows an explicit retry', 
   expect(view.container.textContent).toContain('disk full')
   failSave = false; await (view.component as any).destroy()
   expect(calls.filter(c => c.op === 'review-save')).toHaveLength(2)
+})
+
+
+it.each([false, true])('restores saved decisions after a → b → a (manual=%s)', async manual => {
+  if (manual) current = '甲。主人。丙。'
+  items[0].envelope.payload.edits.push({ ...items[0].envelope.payload.edits[0], path: 'b.md' })
+  const view = mount(); await open(view)
+  if (manual) {
+    await fireEvent.click(view.getByRole('button', { name: '编辑' }))
+    await fireEvent.input(view.getByRole('textbox', { name: '手改结果' }), { target: { value: '保存中的手改。' } })
+    await fireEvent.click(view.getByRole('button', { name: '采用手改' }))
+  } else await fireEvent.click(view.getByRole('button', { name: '接受全部无冲突改动' }))
+  await fireEvent.click(view.getByRole('button', { name: '审阅文件：b.md' }))
+  await vi.waitFor(() => expect((view.getByRole('button', { name: '审阅文件：a.md' }) as HTMLButtonElement).disabled).toBe(false))
+  await fireEvent.click(view.getByRole('button', { name: '审阅文件：a.md' }))
+  await vi.waitFor(() => expect(view.container.querySelector('.hunk header')?.textContent).toContain(manual ? '采用手改' : '已接受'))
+  expect(Object.values(items[0].review!['a.md'].hunks)[0]).toMatchObject(manual ? { choice: 'edited', text: '保存中的手改。' } : { choice: 'accept' })
+  await view.component.destroy()
 })

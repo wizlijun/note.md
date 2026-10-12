@@ -14,6 +14,7 @@ For the full commit history, see the git log.
 
 ### Fixed
 
+- **Project review restores decisions when switching files and lets you close while comments are locating.** Malformed suggestions no longer repeatedly scan the same text, and trust-field comments stay manual across supported line endings. Risky changes clearly require individual confirmation.
 - **Suggestions for files removed from a shared project cannot write back.** Historical feedback remains available to copy or reject.
 
 ## v6.1012.2 — 2026-10-12

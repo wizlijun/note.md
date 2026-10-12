@@ -44,7 +44,8 @@
   const pendingFiles = $derived([...new Set(items.filter(item => !['quarantined', 'resolved', 'rejected', 'accepted'].includes(item.status)).flatMap(item => paths(item).filter(path => !terminal(item, path))))])
   const nextForPath = $derived(items.find(item => item.envelope.payload.submissionId !== selected?.envelope.payload.submissionId && !['quarantined', 'resolved', 'rejected', 'accepted'].includes(item.status) && paths(item).includes(session.path) && !terminal(item, session.path)))
 
-  export function isBusy() { return locked }
+  // Reading/locating can be cancelled by the parent's normal close/project actions.
+  export function isBusy() { return session.phase === 'writing' || session.phase === 'destroyed' || (navigating && session.phase !== 'loading') }
   export async function flush() { await session.flush() }
   export async function destroy() { await session.destroy() }
   onDestroy(() => { void session.destroy().catch(e => console.warn('[project-review] unawaited departure:', e)) })
@@ -57,6 +58,7 @@
     navigating = true
     try {
       await session.flush()
+      item = items.find(latest => latest.envelope.payload.submissionId === item.envelope.payload.submissionId) ?? item
       selected = item; focused = 0; localError = ''; copied = ''
       if (item.status !== 'quarantined' && path) await session.open(item, path)
     } catch (e) { localError = String(e) } finally { navigating = false }

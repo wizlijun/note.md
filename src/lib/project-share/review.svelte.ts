@@ -1,5 +1,6 @@
-import { acceptUnconflicted, compose, MERGE_KERNEL_VERSION, tokenize, type AnchorResult, type HunkDecision, type MergeInput, type MergeProposal, type TextSelector } from '../share-merge'
+import { acceptUnconflicted, compose, MERGE_KERNEL_VERSION, type AnchorResult, type HunkDecision, type MergeInput, type MergeProposal, type TextSelector } from '../share-merge'
 import { scanOwnerAnnotations } from '../share-merge/critic'
+import { frontmatterTokens } from '../share-merge/frontmatter'
 import { hunkFlags } from '../share-merge/flags'
 import { sanitizeNote } from '../note-anno/note-commands'
 import type { IndexedSelector, LocatedAnnotation } from './merge-client'
@@ -50,13 +51,7 @@ function touches(start: number, end: number, range: { start: number; end: number
   return start === end ? start >= range.start && start < range.end : start < range.end && end > range.start
 }
 function trustRanges(text: string) {
-  const opening = /^\uFEFF?---(?:\r\n|\n)/.exec(text)
-  if (!opening) return []
-  const closing = /^(?:---|\.\.\.)(?:\r?\n|$)/gm
-  closing.lastIndex = opening[0].length
-  const end = closing.exec(text)
-  if (!end) return []
-  return tokenize(text.slice(0, end.index + end[0].length)).filter(token => hunkFlags({
+  return (frontmatterTokens(text)?.tokens ?? []).filter(token => hunkFlags({
     base: token.text, ours: token.text, theirs: token.text, tokens: [token], baseStart: token.start, baseEnd: token.end,
     ownerAnnotations: [], degraded: false,
   }).flags.includes('trust-field'))
@@ -173,6 +168,7 @@ export function createProjectReview(projectId: string, deps: ReviewDependencies)
   }
   async function refresh(epoch: number, candidates: Record<string, unknown>) {
     const fresh = await deps.command<ReviewFile>('review', { project_id: projectId, submissionId: submission(), path })
+    if (epoch !== generation) return
     const next = await deps.compute({ path, base: fresh.base, ours: fresh.current, theirs: fresh.after })
     if (epoch !== generation) return
     const restored = retain(next, candidates)
@@ -186,6 +182,9 @@ export function createProjectReview(projectId: string, deps: ReviewDependencies)
     assertCanNavigate()
     const epoch = ++generation
     deps.cancelAnnotations?.()
+    // flush may replace the feedback object; same-submission reopen uses that
+    // durable snapshot rather than the caller's pre-save reference.
+    if (feedback?.envelope.payload.submissionId === nextFeedback.envelope.payload.submissionId) nextFeedback = feedback
     feedback = nextFeedback; path = nextPath; file = null; proposal = null; decisions = {}; rows = []; staged = []
     cache = new Map(); cacheText = ''; staleDecisions = 0; notice = ''; error = ''; phase = 'loading'
     try {
@@ -324,10 +323,13 @@ export function createProjectReview(projectId: string, deps: ReviewDependencies)
     try { await flush(); update(await deps.command<LocalFeedback>('resolve', { project_id: projectId, submissionId: submission() })) }
     catch (e) { error = String(e); throw e } finally { phase = 'ready' }
   }
+  const isDestroyed = () => phase === 'destroyed'
   async function destroy() {
-    if (phase === 'destroyed') return
+    if (isDestroyed()) return
     assertCanNavigate()
     await flush()
+    // Another departure may have completed while this flush was pending.
+    if (isDestroyed()) return
     assertCanNavigate()
     generation++; deps.cancelAnnotations?.(); deps.dispose?.(); stopTimer(); phase = 'destroyed'
   }

@@ -117,3 +117,23 @@ it('has contiguous UTF-16 offsets and preserves 600 seeded Markdown inputs', () 
     expect(offset).toBe(text.length)
   }
 })
+
+
+it('scans doubling malformed HTML inputs within the existing linear-scan budget', () => {
+  for (const size of [8_000, 16_000, 32_000, 64_000]) {
+    const text = '<'.repeat(size) + '末。尾'
+    const start = performance.now()
+    expect(tokenize(text)).toEqual([{ text: text.slice(0, -1), start: 0, end: size + 2 }, { text: '尾', start: size + 2, end: size + 3 }])
+    expect(performance.now() - start).toBeLessThan(500)
+  }
+})
+
+
+it('scans doubling unmatched link destinations without repeated suffix scans', () => {
+  for (const size of [2_000, 4_000, 8_000, 16_000]) {
+    const text = '[x]('.repeat(size) + '末。尾'
+    const start = performance.now()
+    expect(tokenize(text)).toEqual([{ text: text.slice(0, -1), start: 0, end: size * 4 + 2 }, { text: '尾', start: size * 4 + 2, end: size * 4 + 3 }])
+    expect(performance.now() - start).toBeLessThan(500)
+  }
+})

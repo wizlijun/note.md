@@ -6,10 +6,22 @@ export interface SourceLine {
   end: number
 }
 
+export function sourceLines(text: string): SourceLine[] {
+  const lines: SourceLine[] = []
+  for (let start = 0; start < text.length;) {
+    let contentEnd = start
+    while (contentEnd < text.length && text[contentEnd] !== '\r' && text[contentEnd] !== '\n') contentEnd++
+    const end = contentEnd + (text[contentEnd] === '\r' && text[contentEnd + 1] === '\n' ? 2 : contentEnd < text.length ? 1 : 0)
+    lines.push({ start, contentEnd, end })
+    start = end
+  }
+  return lines
+}
+
 export const makeToken = (text: string, start: number, end: number, fmKey?: string): Token =>
   ({ text: text.slice(start, end), start, end, ...(fmKey === undefined ? {} : { fmKey }) })
 
-export function frontmatterTokens(text: string, lines: SourceLine[]): { tokens: Token[]; nextLine: number } | undefined {
+export function frontmatterTokens(text: string, lines: SourceLine[] = sourceLines(text)): { tokens: Token[]; nextLine: number } | undefined {
   const first = lines[0]
   if (!first || first.end === first.contentEnd || text.slice(first.start, first.contentEnd).replace(/^\uFEFF/, '') !== '---') return
   const closing = lines.findIndex((line, i) => i > 0 && /^(---|\.\.\.)$/.test(text.slice(line.start, line.contentEnd)))
