@@ -17,12 +17,12 @@
 - 不自动接受。访客 hunk 默认未决；带风险标记的 hunk 不在「接受全部无冲突」中。
 - 快照 commit 和 submission commit 只存在于 `refs/notemd/share/**` 下，不得成为任何 `refs/heads/*` 的祖先。
 - 造树统一使用 app 临时目录中的临时 index，不得触碰真实 index；所有涉及临时 index 的 Git 命令带 `GIT_INDEX_FILE`。
-- 不得执行 `git push`、`git fetch`，也不得执行任何联网的 git 命令。不得改工作区、index、HEAD、当前分支、`.git/config`、hooks。
+- 项目分享产品不得执行 `git push`、`git fetch`，也不得执行任何联网的 git 命令。不得改工作区、index、HEAD、当前分支、`.git/config`、hooks。既有隔离 tempfile/local bare 回归测试仍完整执行；发行仓库的已授权发布操作另行盘点。
 - author 为访客自报身份，committer 保持仓库配置身份；不得默认写入 OKF 信任字段。
 - B 以 submission 为单位，不能逐文件选择；staleDecisions 或 pendingConflicts 阻止整个 B/C。
 - 公开包不得包含 `parentSnapshotId`、`git`、`gitError`；Git 元数据不得进入公开正文/日志。旧 v1 manifest/inbox/feedback 保持兼容。
 - 不改分词、diff、ID、kernel version、Worker 或浏览器协议。P2/E1–E4/P3 不属于本计划。
-- 当前 main 顺序写入，不建分支/worktree；保留已有 7 项 untracked 和旧备份。不 push/deploy/release。
+- 当前 main 顺序写入，不建分支/worktree；保留已有 7 项 untracked 和旧备份。P1验证完成前不发布；用户追加“继续直到发版”后，按AGENTS统一整合所有未发布更新，再核验宿主/插件/Worker正式产物及线上状态。
 - 新 popup 复用全局 `.menu-panel/.menu-row`；持久工具条沿用现有灰色 hover，不另造菜单系统。
 
 ## 核实结果及执行裁定
@@ -40,6 +40,10 @@
 9. Git 模式打开审阅及 B/C handler 均不调用 prepareSource/saveTab/refreshSource；切回 A 再执行 P0 准备/重算。代价：B/C 展示磁盘工作区，未保存 buffer 不参与；最终合入以 H 为准。
 10. snapshot 在锁外预采 HEAD，冻结成功后锁外复验；不一致则只记录 gitError，P0 冻结仍成功。命令异步 spawn_blocking 编排并等待元数据结果，失败不使 P0 返回失败。代价：Git 请求增加等待，但不占全局锁/主线程；无法稳定采样时没有 Git snapshot。
 11. I10 对 Git 阶段完整验证。source 与 Vault 同库时，P0 冻结本来会写受管 Sync 镜像/私有元数据；保留这些既有副作用，单独记录并验证 Git 阶段没有额外改动，不能宣称整个 P0 freeze 的全仓 status 不变。代价：该拓扑无法满足字面上的全流程全仓 status 不变，验证报告必须披露。
+
+
+12. 禁止网络 Git 指项目分享产品能力；既有 tempfile/local bare 的 fetch/push 测试继续执行，不能为字面冲突跳完整 cargo。发行仓库网络操作按用户发布授权。代价：日志必须标明测试/发行隔离边界，产品仍无网络 Git。
+13. 用户追加“继续直到发版”覆盖本轮原不发布限制；P1完成后统一盘点/整合全部未发布更新，逐产物核验宿主、插件、Worker。代价：范围扩大，至少Memory/Rich实际patch及最新tag差异不能遗漏。
 
 ## 文件与责任
 
@@ -122,7 +126,7 @@ let outcome = run_git_job(prepared.job); // 不持 Mutex/RecordsLock
 
 - [ ] **Step 4: prepare/branch/export。** prepare只读、不调用recover写镜像，校验当前binding、active、可信反馈、当前Config.files完整范围；从快照文件取base、envelope取after，用一次H读所有ours blob，任一缺失/非UTF8失败。branch/export严格接受全部edit路径、无额外path，<=既有反馈总量限额；expectedHead匹配再造树，写ref前再次核对HEAD/绑定/范围。无法获取owner身份返回明确失败但不更改配置。B parent只允许H，merge-base检测snapshot不得为祖先。B存所有文件branched保留review，A/reject不得覆写branched；recompute把branched视为终态。C无Decision改变。
 - [ ] **Step 5: ref重试及delete协调。** 既存对象复用前验证parent/tree/message/author；不改create-only规则。按项目操作协调锁只协调Git后台与删除（不是全局dispatch Mutex/RecordsLock），delete先在全局锁内标记/capture再锁外等在途任务和清ref，失败记录不阻塞删除；不要持全局锁等待项目Git锁，避免锁顺序死锁。在途迟到写回失败时清本次新建隐藏ref，不重建管理目录。用户分支永不作为项目delete清理对象；分支生成后状态写回失败需返回分支结果和可重试状态错误，不能静默重复建分支。
-- [ ] **Step 6: GREEN/注册/提交。** desktop cfg注册module/command，iOS不引用CLI。strict malformed requests/type/path/status/ref归属回归；G1–G4/G7–G9/G11，以及linked worktree/同Vault库的裁定11边界。运行定向Rust与`cargo check --manifest-path src-tauri/Cargo.toml`，记录实际exit。提交 `feat(share): persist Git review objects and safe branch operations`。
+- [ ] **Step 6: GREEN/注册/提交。** desktop cfg注册module/command，iOS不引用CLI。strict malformed requests/type/path/status/ref归属回归；G1–G4/G7–G9/G11，以及linked worktree/同Vault库的裁定11边界。运行定向Rust与`cargo check --manifest-path src-tauri/Cargo.toml`，再按顺序完整运行`pnpm test`、`cargo test --manifest-path src-tauri/Cargo.toml`、`pnpm --dir worker test`、`pnpm check`、`pnpm build`、`git diff --check`，满足WP1.1完成判据后才进入WP1.2；记录实际exit。提交 `feat(share): persist Git review objects and safe branch operations`。
 
 ## Task 3: 同一 ReviewDraft 的整份 Git 审阅与目标 UI
 
@@ -188,7 +192,7 @@ pnpm build
 git diff --check
 ```
 
-- [ ] **Step 5: 写报告并精确提交。** `docs(share): record Git review targets and P1 acceptance`。root逐项读日志/退出码，任务spec+quality审查、全分支final review（base0ca59cf9）及唯一必要修复波次后，归档全部裁定/证据再仅清本计划workspace。P1完成不代表P2/编辑器/离线客户端已实现，不部署。
+- [ ] **Step 5: 写报告并精确提交。** `docs(share): record Git review targets and P1 acceptance`。root逐项读日志/退出码，任务spec+quality审查、全分支final review（base0ca59cf9）及唯一必要修复波次后，归档全部裁定/证据再仅清本计划workspace。P1完成不代表P2/编辑器/离线客户端已实现。随后按用户最新授权进入统一发布，发布前盘点所有未发布更新、至少逐patch核验Memory9a14dd7c和Rich c49b8e66，不静默遗漏宿主/插件/Worker；保留发布证据后才清本计划workspace。
 
 ## 计划自审
 
