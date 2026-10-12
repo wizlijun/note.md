@@ -1537,6 +1537,7 @@ pub fn run() {
                 sotvault::sotvault_forget,
                 sotvault::sotvault_sync_to_vault,
                 project_share::project_share,
+                project_share::project_share_git,
                 sotvault::sotvault_check_update,
                 sotvault::sotvault_apply_update,
                 sotvault::sotvault_accept_current,

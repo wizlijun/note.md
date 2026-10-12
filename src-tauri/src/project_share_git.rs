@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use crate::project_share::validate_relative;
 use crate::vault_sync::git_ops;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct GitRepo {
     pub root: PathBuf,
     pub prefix: String,
@@ -237,6 +237,194 @@ pub(crate) fn build_commit(
     )
 }
 
+/// Compare semantic object identity, deliberately excluding committer time. Retries
+/// may run days later; a freshly-created oid is not an idempotency check.
+pub(crate) fn same_commit(repo: &GitRepo, existing: &str, candidate: &str) -> Result<bool, String> {
+    check_oid(existing)?;
+    check_oid(candidate)?;
+    let fields = "--format=%T%x00%P%x00%an%x00%ae%x00%aI%x00%B";
+    Ok(
+        text(&repo.root, &["show", "-s", fields, existing], &[], None)?
+            == text(&repo.root, &["show", "-s", fields, candidate], &[], None)?,
+    )
+}
+pub(crate) fn verify_authored_commit(
+    repo: &GitRepo,
+    oid: &str,
+    parent: &str,
+    message: &str,
+    author: &GitAuthor,
+) -> Result<(), String> {
+    check_oid(oid)?;
+    check_oid(parent)?;
+    let date = chrono::DateTime::parse_from_rfc3339(&author.date)
+        .map_err(|_| "invalid feedback receipt date")?
+        .timestamp();
+    let actual = text(
+        &repo.root,
+        &["show", "-s", "--format=%P%x00%an%x00%ae%x00%at%x00%B", oid],
+        &[],
+        None,
+    )?;
+    let expected = format!(
+        "{parent}\0{}\0{}\0{date}\0{}",
+        author.name,
+        author.email,
+        message.trim_end_matches('\n')
+    );
+    if actual != expected {
+        return Err("branch commit identity mismatch".into());
+    }
+    Ok(())
+}
+
+pub(crate) fn ref_oid(repo: &GitRepo, name: &str) -> Result<Option<String>, String> {
+    text(&repo.root, &["check-ref-format", name], &[], None)?;
+    // for-each-ref succeeds with empty output only for an absent reference.
+    let output = text(
+        &repo.root,
+        &[
+            "for-each-ref",
+            "--format=%(refname)%09%(objectname)%09%(symref)",
+            name,
+        ],
+        &[],
+        None,
+    )?;
+    for line in output.lines() {
+        let fields: Vec<_> = line.split('\t').collect();
+        if fields.first().copied() == Some(name) {
+            if fields.len() != 3 || !fields[2].is_empty() {
+                return Err("symbolic Git ref is not owned by project sharing".into());
+            }
+            check_oid(fields[1])?;
+            return Ok(Some(fields[1].into()));
+        }
+    }
+    Ok(None)
+}
+pub(crate) fn owner_author(repo: &GitRepo, date: &str) -> Result<GitAuthor, String> {
+    let name = text(&repo.root, &["config", "user.name"], &[], None)
+        .map_err(|_| "Git owner name is not configured")?;
+    let email = text(&repo.root, &["config", "user.email"], &[], None)
+        .map_err(|_| "Git owner email is not configured")?;
+    if name.trim().is_empty() || email.trim().is_empty() {
+        return Err("Git owner identity is not configured".into());
+    }
+    Ok(GitAuthor {
+        name,
+        email,
+        date: date.into(),
+    })
+}
+pub(crate) fn ensure_head(repo: &GitRepo, expected: &str) -> Result<(), String> {
+    check_oid(expected)?;
+    if text(
+        &repo.root,
+        &["rev-parse", "--verify", "HEAD^{commit}"],
+        &[],
+        None,
+    )? != expected
+    {
+        return Err("HEAD changed; prepare again".into());
+    }
+    Ok(())
+}
+pub(crate) fn ensure_snapshot_not_ancestor(
+    repo: &GitRepo,
+    snapshot: &str,
+    head: &str,
+) -> Result<(), String> {
+    check_oid(snapshot)?;
+    check_oid(head)?;
+    if text(
+        &repo.root,
+        &["merge-base", "--is-ancestor", snapshot, head],
+        &[],
+        None,
+    )
+    .is_ok()
+    {
+        return Err("snapshot must not be an ancestor of a user branch".into());
+    }
+    // --is-ancestor exits 1 for unrelated history too. A successful reachability
+    // query proves non-ancestry; other command errors remain errors.
+    if text(
+        &repo.root,
+        &["rev-list", "--max-count=1", snapshot, "--not", head],
+        &[],
+        None,
+    )? != snapshot
+    {
+        return Err("cannot establish snapshot isolation".into());
+    }
+    Ok(())
+}
+pub(crate) fn delete_created_ref(repo: &GitRepo, name: &str, oid: &str) -> Result<(), String> {
+    if !name.starts_with("refs/notemd/share/") {
+        return Err("not a hidden share ref".into());
+    }
+    check_oid(oid)?;
+    text(
+        &repo.root,
+        &["update-ref", "--no-deref", "-d", name, oid],
+        &[],
+        None,
+    )
+    .map(|_| ())
+}
+fn suggestion_branch_base(entry: &str, submission: &str) -> String {
+    let stem = Path::new(entry)
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("");
+    let mut slug = String::new();
+    for c in stem.chars() {
+        if c.is_ascii_alphanumeric() {
+            slug.push(c.to_ascii_lowercase());
+        } else if !slug.ends_with('-') {
+            slug.push('-');
+        }
+    }
+    let slug = slug.trim_matches('-');
+    let slug = if slug.is_empty() { "project" } else { slug };
+    let short: String = submission.chars().take(8).collect();
+    format!("notemd/{slug}/{short}")
+}
+
+pub(crate) fn available_branch(
+    repo: &GitRepo,
+    entry: &str,
+    submission: &str,
+) -> Result<String, String> {
+    let base = suggestion_branch_base(entry, submission);
+    for n in 1..=9 {
+        let branch = if n == 1 {
+            base.clone()
+        } else {
+            format!("{base}-{n}")
+        };
+        text(
+            &repo.root,
+            &["check-ref-format", "--branch", &branch],
+            &[],
+            None,
+        )?;
+        let name = format!("refs/heads/{branch}");
+        let existing = text(
+            &repo.root,
+            &["for-each-ref", "--format=%(refname)", &name],
+            &[],
+            None,
+        )?;
+        // Symbolic user refs count as collisions too; never dereference them.
+        if !existing.lines().any(|reference| reference == name) {
+            return Ok(branch);
+        }
+    }
+    Err("all nine suggestion branch names are already in use".into())
+}
+
 pub(crate) fn create_ref(repo: &GitRepo, name: &str, oid: &str) -> Result<(), String> {
     check_oid(oid)?;
     text(&repo.root, &["check-ref-format", name], &[], None)?;
@@ -273,6 +461,34 @@ pub(crate) fn create_ref(repo: &GitRepo, name: &str, oid: &str) -> Result<(), St
     }
 }
 
+/// User branches never use hidden refs' same-oid fallback. Recovery skips this
+/// create operation only after the store validates its persisted intent.
+pub(crate) fn create_branch_ref(repo: &GitRepo, branch: &str, oid: &str) -> Result<(), String> {
+    check_oid(oid)?;
+    text(
+        &repo.root,
+        &["check-ref-format", "--branch", branch],
+        &[],
+        None,
+    )?;
+    text(
+        &repo.root,
+        &[
+            "update-ref",
+            "--no-deref",
+            &format!("refs/heads/{branch}"),
+            oid,
+            &"0".repeat(oid.len()),
+        ],
+        &[],
+        None,
+    )
+    .map(|_| ())
+}
+
+// Tests of the convenience primitive exercise the same reservation and CAS
+// functions used by the store's persistent two-phase branch operation.
+#[cfg(test)]
 pub(crate) fn branch_ref(
     repo: &GitRepo,
     entry: &str,
@@ -280,64 +496,9 @@ pub(crate) fn branch_ref(
     oid: &str,
 ) -> Result<String, String> {
     check_oid(oid)?;
-    let stem = Path::new(entry)
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .unwrap_or("");
-    let mut slug = String::new();
-    for c in stem.chars() {
-        if c.is_ascii_alphanumeric() {
-            slug.push(c.to_ascii_lowercase());
-        } else if !slug.ends_with('-') {
-            slug.push('-');
-        }
-    }
-    let slug = slug.trim_matches('-');
-    let slug = if slug.is_empty() { "project" } else { slug };
-    let short: String = submission.chars().take(8).collect();
-    let base = format!("notemd/{slug}/{short}");
-    for n in 1..=9 {
-        let branch = if n == 1 {
-            base.clone()
-        } else {
-            format!("{base}-{n}")
-        };
-        text(
-            &repo.root,
-            &["check-ref-format", "--branch", &branch],
-            &[],
-            None,
-        )?;
-        let name = format!("refs/heads/{branch}");
-        // Unlike hidden refs, an existing user branch is always a collision, even at this oid.
-        match text(
-            &repo.root,
-            &[
-                "update-ref",
-                "--no-deref",
-                &name,
-                oid,
-                &"0".repeat(oid.len()),
-            ],
-            &[],
-            None,
-        ) {
-            Ok(_) => return Ok(branch),
-            Err(error) => {
-                if text(
-                    &repo.root,
-                    &["show-ref", "--verify", "--hash", &name],
-                    &[],
-                    None,
-                )
-                .is_err()
-                {
-                    return Err(error);
-                }
-            }
-        }
-    }
-    Err("all nine suggestion branch names are already in use".into())
+    let branch = available_branch(repo, entry, submission)?;
+    create_branch_ref(repo, &branch, oid)?;
+    Ok(branch)
 }
 
 pub(crate) fn format_patch(repo: &GitRepo, oid: &str) -> Result<String, String> {
@@ -637,6 +798,17 @@ mod tests {
     }
     fn context(repo: &Path) -> GitRepo {
         unchanged(repo, || probe(repo)).unwrap().unwrap()
+    }
+
+    #[test]
+    fn user_branch_create_rejects_same_oid_collision() {
+        if !available() {
+            return;
+        }
+        let t = fixture();
+        let repo = context(t.path());
+        create_branch_ref(&repo, "notemd/collision/test", &repo.head).unwrap();
+        assert!(create_branch_ref(&repo, "notemd/collision/test", &repo.head).is_err());
     }
 
     #[test]
