@@ -1,0 +1,35 @@
+.project-review { min-width: 0; }
+.project-review h4, .project-review h5 { margin: 12px 0 8px; font-size: 13px; }
+.project-review button, .project-review select, .project-review textarea { font: inherit; color: CanvasText; background: var(--ui-surface); border: 1px solid var(--ui-control-border); border-radius: 6px; padding: 6px 10px; min-height: 32px; }
+.project-review button:not(.menu-row):not(:disabled):hover { background: var(--ui-hover); }
+.project-review button:disabled { opacity: .5; }
+.project-review button[aria-pressed=true] { background: var(--ui-selection); }
+.project-review .primary { background: var(--ui-accent); color: var(--ui-accent-foreground); }
+.project-review .review-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+.project-review .review-secondary { color: var(--ui-secondary); font-size: 12px; overflow-wrap: anywhere; }
+.project-review .review-badge { padding: 1px 5px; border: 1px solid var(--ui-separator); border-radius: 4px; font-size: 12px; }
+.project-review .submission-list { display: grid; gap: 12px; max-height: 240px; overflow: auto; margin: 12px 0; }
+.project-review .submission-list button { display: flex; flex-direction: column; gap: 6px; width: 100%; text-align: start; border-radius: 0; border-color: var(--ui-separator); overflow-wrap: anywhere; }
+.project-review .submission-list button.selected { background: var(--ui-selection); }
+.project-review .hunk, .project-review .review-annotation { padding: 12px; border: 1px solid var(--ui-separator); border-radius: 6px; margin: 12px 0; min-width: 0; overflow-wrap: anywhere; }
+.project-review .hunk:focus { outline: 2px solid var(--ui-focus); outline-offset: 2px; }
+.project-review pre { white-space: pre-wrap; overflow-wrap: anywhere; font: 12px/1.6 ui-monospace, Menlo, monospace; padding: 10px; background: var(--ui-bg); border-radius: 4px; margin: 4px 0 12px; min-width: 0; }
+.project-review .removed { border-left: 3px solid var(--ui-danger); }
+.project-review .added { border-left: 3px solid var(--ui-success); }
+.project-review .word-change { background: color-mix(in srgb, var(--ui-accent) 14%, transparent); }
+.project-review .conflict-columns { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,220px),1fr)); gap: 10px; }
+.project-review .conflict-columns > * { min-width: 0; }
+.project-review textarea { box-sizing: border-box; width: 100%; font-family: ui-monospace, Menlo, monospace; resize: vertical; margin-top: 8px; }
+.project-review blockquote { margin: 8px 0; border-left: 3px solid var(--ui-separator); padding-left: 12px; white-space: pre-wrap; }
+.project-review .review-annotation p { white-space: pre-wrap; }
+.project-review .rendered-preview { overflow-wrap: anywhere; }
+.project-review .rendered-preview img { display: block; max-width: 100%; }
+.project-review .rendered-preview table { display: block; max-width: 100%; overflow: auto; }
+.project-review .review-error { color: var(--ui-danger); white-space: pre-wrap; }
+.project-review .confirm-overlay { position: fixed; inset: 0; z-index: 2100; background: #0005; display: grid; place-items: center; }
+.project-review .confirm-dialog { width: min(800px,calc(100vw - 48px)); max-height: calc(100dvh - 48px); box-sizing: border-box; padding: 18px; background: var(--ui-surface); border: 1px solid var(--ui-separator); border-radius: 12px; display: flex; flex-direction: column; min-height: 0; }
+.project-review .confirm-diff { overflow: auto; min-height: 0; }
+.project-review .confirm-dialog > .review-actions { flex-shrink: 0; justify-content: flex-end; }
+.project-review .view-menu { position: relative; }
+.project-review .menu-panel { position: absolute; top: 100%; right: 0; z-index: 2; }
+.project-review .menu-row { width: 100%; border: 0; background: none; text-align: start; }

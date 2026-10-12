@@ -8,9 +8,10 @@ import { createProject, deleteProject, cancelProjectDeletion, projectCommand, pu
 import type { ProjectIdentity, ProjectPublishProgress } from '../lib/project-share/host'
 import type { ProjectSummary } from '../lib/project-share/types'
 import { openSettings, uiState } from '../lib/ui-state.svelte'
+import { reloadTabFromDisk } from '../lib/tabs.svelte'
 
 const h = vi.hoisted(() => ({
-  tabs: [] as { id: string; filePath: string; kind?: string; title?: string }[],
+  tabs: [] as { id: string; filePath: string; kind?: string; title?: string; currentContent?: string; initialContent?: string; externalState?: string; externalBannerDismissed?: boolean }[],
   dirty: new Set<string>(),
   saved: [] as string[],
   current: 'disk version',
@@ -23,6 +24,8 @@ const h = vi.hoisted(() => ({
   unsafe: false,
   beforeDelete: null as (() => void) | null,
   saveDelay: null as (() => Promise<void>) | null,
+  applyDirty: [] as string[],
+  reviewSaveDelay: null as (() => Promise<void>) | null,
 }))
 const info = { project_id: 'p', sourceRoot: '/canonical', mirrorRoot: '/vault/Sync/p', entry: 'main.md', files: ['main.md'] }
 const feedback = { envelope: { payload: { project_id: 'p', snapshotId: 's', submissionId: 'f', edits: [{ path: 'main.md', baseHash: 'base', afterMarkdown: 'visitor' }], annotations: [], name: 'Alice' }, receivedAt: 'today' }, status: 'pending', decisions: {} }
@@ -71,6 +74,9 @@ vi.mock('../lib/project-share/host', () => ({
     }
     if (op === 'list') return ['main.md', 'private.md']
     if (op === 'inbox') return [feedback]
+    if (op === 'review-save') { await h.reviewSaveDelay?.(); return { ...feedback, review: { [(args as any).path]: (args as any).draft } } }
+    if (op === 'apply') { for (const id of h.applyDirty) h.dirty.add(id); return { ...feedback, status: 'accepted', decisions: { 'main.md': { status: 'accepted' } } } }
+    if (op === 'reject') return { ...feedback, status: 'rejected', decisions: { 'main.md': { status: 'rejected' } } }
     if (op === 'review') { h.reviewCalls++; return { path: 'main.md', sourcePath: '/canonical/main.md', base: 'base', current: h.current, after: 'visitor', currentHash: h.current, status: 'pending' } }
     throw new Error(`unexpected op ${op}`)
   }),
@@ -79,18 +85,19 @@ vi.mock('../lib/project-share/host', () => ({
 }))
 
 function button(text: string) {
-  const found = [...document.querySelectorAll('button')].find(element => element.textContent?.includes(text))
+  const candidates = [...document.querySelectorAll('button')].filter(element => !element.closest('[hidden]'))
+  const found = candidates.find(element => element.textContent?.trim() === text) ?? candidates.find(element => element.textContent?.includes(text))
   if (!found) throw new Error(`Missing button ${text}`)
   return found
 }
 let component: ReturnType<typeof mount> | null = null
 beforeEach(() => {
   localStorage.clear()
-  h.tabs.splice(0, h.tabs.length, { id: 'source', filePath: '/canonical/main.md' }, { id: 'mirror', filePath: '/vault/Sync/p/main.md' }, { id: 'personal', filePath: '/canonical/private.md' })
+  h.tabs.splice(0, h.tabs.length, { id: 'source', filePath: '/canonical/main.md', currentContent: 'source buffer', initialContent: 'source buffer' }, { id: 'mirror', filePath: '/vault/Sync/p/main.md', currentContent: 'mirror buffer', initialContent: 'mirror buffer' }, { id: 'personal', filePath: '/canonical/private.md' })
   vi.clearAllMocks()
   h.dirty.clear(); h.saved.length = 0; h.current = 'disk version'; h.reviewCalls = 0; h.failOpen = false
   h.listed = [info]; h.identities = { p: { ...info, publishedSnapshotId: 's', url: 'https://share.example/p' } }
-  h.warnings = false; h.realScan = false; h.unsafe = false; h.beforeDelete = null; h.saveDelay = null; uiState.showSettings = false
+  h.warnings = false; h.realScan = false; h.unsafe = false; h.beforeDelete = null; h.saveDelay = null; h.applyDirty = []; h.reviewSaveDelay = null; uiState.showSettings = false
   vi.mocked(ask).mockResolvedValue(true)
   vi.mocked(pickSaveFile).mockResolvedValue(null)
 })
@@ -99,9 +106,10 @@ afterEach(async () => {
   component = null
   document.body.innerHTML = ''
 })
-async function openDialog() {
-  component = mount(ProjectShareDialog, { target: document.body, props: { onClose: vi.fn() } })
+async function openDialog(onClose = vi.fn()) {
+  component = mount(ProjectShareDialog, { target: document.body, props: { onClose } })
   await vi.waitFor(() => expect(button('保存并重新扫描').disabled).toBe(false))
+  return onClose
 }
 
 describe('ProjectShareDialog ZIP progress', () => {
@@ -286,24 +294,67 @@ describe('ProjectShareDialog titles', () => {
 })
 
 describe('ProjectShareDialog editor buffers', () => {
+  async function readyReview() {
+    const closed = await openDialog(); button('反馈收件箱').click()
+    await vi.waitFor(() => expect(button('Alice').disabled).toBe(false)); button('Alice').click()
+    await vi.waitFor(() => expect(button('接受全部无冲突改动').disabled).toBe(false))
+    return closed
+  }
+  it.each(['source', 'mirror'])('preserves a %s buffer dirtied after apply and only reloads other clean buffers with expected content', async dirtyId => {
+    await readyReview(); h.applyDirty = [dirtyId]
+    button('接受').click(); await tick()
+    await vi.waitFor(() => expect(button('写回本文件').disabled).toBe(false)); button('写回本文件').click()
+    await vi.waitFor(() => expect(document.querySelector('[aria-labelledby="review-confirm-title"]')).not.toBeNull())
+    button('确认写回').click()
+    await vi.waitFor(() => expect(reloadTabFromDisk).toHaveBeenCalledTimes(1))
+    const dirty = h.tabs.find(tab => tab.id === dirtyId)!, clean = h.tabs.find(tab => tab.id === (dirtyId === 'source' ? 'mirror' : 'source'))!
+    expect(reloadTabFromDisk).toHaveBeenCalledWith(clean.filePath, { expectedContent: clean.currentContent })
+    expect(dirty.externalState).toBe('changed'); expect(dirty.externalBannerDismissed).toBe(false)
+    expect(h.dirty.has(dirtyId)).toBe(true)
+    expect(document.body.textContent).toContain('保留了未保存的原件或镜像修改')
+  })
+  it('waits for review-save before closing', async () => {
+    const closed = await readyReview(); button('接受').click()
+    let release!: () => void
+    h.reviewSaveDelay = () => new Promise(resolve => { release = resolve })
+    button('完成').click()
+    await vi.waitFor(() => expect(release).toBeTypeOf('function'))
+    expect(document.querySelector('[role="dialog"]')).not.toBeNull()
+    expect(closed).not.toHaveBeenCalled()
+    h.reviewSaveDelay = null; release()
+    await vi.waitFor(() => expect(closed).toHaveBeenCalledOnce())
+    expect(projectCommand).toHaveBeenCalledWith('review-save', expect.objectContaining({ project_id: 'p', submissionId: 'f' }))
+  })
+  it('keeps the dialog open after a save error, then closes only after a successful retry', async () => {
+    const closed = await readyReview(); button('接受').click()
+    h.reviewSaveDelay = async () => { throw new Error('disk full') }
+    button('完成').click()
+    await vi.waitFor(() => expect(document.body.textContent).toContain('disk full'))
+    expect(closed).not.toHaveBeenCalled(); expect(button('完成').disabled).toBe(false)
+    h.reviewSaveDelay = null; button('完成').click()
+    await vi.waitFor(() => expect(closed).toHaveBeenCalledOnce())
+  })
   it('separates sharing from feedback and preserves review text when navigating', async () => {
     await openDialog()
     expect(button('分享内容').getAttribute('aria-current')).toBe('page')
     expect(document.querySelector('footer button.primary')?.textContent).toBe('更新分享')
-    expect(document.body.textContent).not.toContain('Alice')
+    expect(document.querySelector('section[hidden]')?.textContent).toContain('Alice')
     button('反馈收件箱').click()
     await vi.waitFor(() => expect(button('Alice').disabled).toBe(false))
     expect(button('反馈收件箱').getAttribute('aria-current')).toBe('page')
     expect(document.querySelector('footer button.primary')).toBeNull()
     button('Alice').click()
     await vi.waitFor(() => expect(button('审阅文件').disabled).toBe(false))
-    button('审阅文件').click()
+    await vi.waitFor(() => expect(button('编辑').disabled).toBe(false))
+    button('编辑').click()
     await vi.waitFor(() => expect(document.querySelector('textarea')).not.toBeNull())
     const editor = document.querySelector('textarea')!
     editor.value = 'my merged text'
     editor.dispatchEvent(new Event('input', { bubbles: true }))
+    button('采用手改').click()
     button('分享内容').click()
-    await vi.waitFor(() => expect(document.querySelector('textarea')).toBeNull())
+    await vi.waitFor(() => expect(button('分享内容').getAttribute('aria-current')).toBe('page'))
+    expect(document.querySelector('section[hidden] textarea')).not.toBeNull()
     button('反馈收件箱').click()
     await vi.waitFor(() => expect(document.querySelector('textarea')?.value).toBe('my merged text'))
   })
@@ -314,6 +365,7 @@ describe('ProjectShareDialog editor buffers', () => {
     await vi.waitFor(() => expect(button('反馈收件箱').disabled).toBe(false))
     button('反馈收件箱').click()
     await vi.waitFor(() => expect(button('Alice').disabled).toBe(false))
+    await vi.waitFor(() => expect(button('分享内容').disabled).toBe(false))
     button('分享内容').click()
     await vi.waitFor(() => expect(button('停止分享').disabled).toBe(false))
     expect(button('更新分享').disabled).toBe(true)
@@ -321,7 +373,6 @@ describe('ProjectShareDialog editor buffers', () => {
     await vi.waitFor(() => expect(button('Alice').disabled).toBe(false))
     button('Alice').click()
     await vi.waitFor(() => expect(button('审阅文件').disabled).toBe(false))
-    button('审阅文件').click()
     await vi.waitFor(() => expect(document.body.textContent).toContain('文件审阅：main.md'))
   })
   it('flushes and saves only approved sources and their mirrors, preserving unrelated personal drafts', async () => {
@@ -340,10 +391,9 @@ describe('ProjectShareDialog editor buffers', () => {
     await openDialog()
     button('反馈收件箱').click()
     await vi.waitFor(() => expect(button('Alice').disabled).toBe(false))
+    h.dirty.add('source')
     button('Alice').click()
     await vi.waitFor(() => expect(button('审阅文件').disabled).toBe(false))
-    h.dirty.add('source')
-    button('审阅文件').click()
     await vi.waitFor(() => expect(document.body.textContent).toContain('文件审阅：main.md'))
     expect(h.saved).toEqual(['source'])
     expect(h.reviewCalls).toBe(2)
@@ -502,7 +552,7 @@ describe('ProjectShareDialog current document and lifecycle', () => {
   it('opens share settings while retaining the preview and approved scope', async () => {
     await openDialog()
     button('分享设置').click()
-    expect(openSettings).toHaveBeenCalledWith('share')
+    await vi.waitFor(() => expect(openSettings).toHaveBeenCalledWith('share'))
     await tick()
     expect(document.querySelector('[role="dialog"]')).toBeNull()
     uiState.showSettings = false

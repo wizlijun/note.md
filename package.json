@@ -40,6 +40,7 @@
     "@tauri-apps/plugin-updater": "^2.10.1",
     "@viz-js/viz": "^3.26.0",
     "@xyflow/svelte": "1.6.6",
+    "dompurify": "3.4.14",
     "fflate": "^0.8.3",
     "highlight.js": "^11.11.1",
     "katex": "^0.16.47",
@@ -54,6 +55,7 @@
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^5",
     "@tauri-apps/cli": "^2",
+    "@testing-library/svelte": "^5.4.2",
     "@types/node": "^22.20.1",
     "happy-dom": "^20.9.0",
     "jsdom": "^25.0.1",

@@ -489,7 +489,7 @@ export async function replaceCurrentFile(path: string, currentPath: string): Pro
 }
 
 /** Re-read `path` from disk into its open tab (used after a vault apply-update). */
-export async function reloadTabFromDisk(path: string): Promise<void> {
+export async function reloadTabFromDisk(path: string, options?: { expectedContent: string }): Promise<void> {
   const t = tabs.find((x) => x.filePath === path)
   if (!t) return
   let content: string
@@ -509,6 +509,11 @@ export async function reloadTabFromDisk(path: string): Promise<void> {
     const stat = await statFile(path)
     mtime = stat?.mtime ?? 0
     hash = await sha256Hex(content)
+  }
+  if (options && (t.currentContent !== options.expectedContent || isDirty(t.id))) {
+    t.externalState = 'changed'
+    t.externalBannerDismissed = false
+    return
   }
   const oldContent = t.initialContent
   t.initialContent = content

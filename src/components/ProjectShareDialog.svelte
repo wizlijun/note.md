@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte'
+  import { onMount, tick } from 'svelte'
   import { open, ask } from '@tauri-apps/plugin-dialog'
   import { writeText } from '@tauri-apps/plugin-clipboard-manager'
   import { activeTab, tabs, isDirty, saveTab, saveAs, closeTab, reloadTabFromDisk } from '../lib/tabs.svelte'
@@ -12,7 +12,8 @@
   import { scanProject, isBlockingReferenceIssue, type ReferenceIssue } from '../lib/project-share/references'
   import { projectCommand, projectIdentities, listProjects, createProject, deleteProject, cancelProjectDeletion, publishProject, collaborationLink, pullProjectFeedback, stopProjectShare, rememberProjectLocation, type ProjectIdentity, type ProjectPublishProgress } from '../lib/project-share/host'
   import { normalizeShareTitle } from '../lib/project-share/title'
-  import type { ProjectFile, ProjectInfo, ProjectSummary, LocalFeedback, ProjectSnapshot, ReviewFile } from '../lib/project-share/types'
+  import type { ProjectFile, ProjectInfo, ProjectSummary, LocalFeedback } from '../lib/project-share/types'
+  import ProjectReview from './project-review/ProjectReview.svelte'
 
   let { onClose }: { onClose: () => void } = $props()
   let busy = $state(false)
@@ -41,11 +42,8 @@
   let issues = $state<ReferenceIssue[]>([])
   let excluded = $state<string[]>([])
   let inbox = $state<LocalFeedback[]>([])
-  let selected = $state<LocalFeedback | null>(null)
-  let review = $state<ReviewFile | null>(null)
-  let finalText = $state('')
-  let oldSnapshot = $state<ProjectSnapshot | null>(null)
-  let annotationPath = $state('')
+  let reviewComponent: { flush(): Promise<void>; destroy(): Promise<void>; isBusy(): boolean } | undefined = $state()
+  const locked = $derived(busy || !!reviewComponent?.isBusy())
   let mirror = $state<{ path: string; source: ProjectFile; mirror: ProjectFile } | null>(null)
 
   const pulling = $derived(!!info && pullingFor === info.project_id)
@@ -54,7 +52,6 @@
   const pending = $derived(identity?.pending)
   const shareUrl = $derived(identity?.url ?? info?.url ?? undefined)
   const editableLink = $derived(identity ? collaborationLink(identity) : undefined)
-  const oldMarkdown = $derived(oldSnapshot?.files.find(file => file.path === annotationPath)?.markdown)
   const totalBytes = $derived(files.reduce((sum, file) => sum + file.bytes, 0))
   const pendingFeedback = $derived(inbox.filter(item => item.status === 'pending').length)
   const projectName = $derived(info?.entry.split('/').filter(Boolean).at(-1) ?? '')
@@ -76,28 +73,34 @@
   }
 
   async function run(task: () => Promise<void>) {
-    if (busy) return
+    if (locked) return
     busy = true
     error = ''
     notice = ''
     publishWarnings = []
-    try { await task() } catch (e) { error = String(e) } finally { busy = false }
+    try { await reviewComponent?.flush(); await task() } catch (e) { error = String(e) } finally { busy = false }
   }
-  function close() { if (!busy) onClose() }
+  async function close() {
+    if (locked) return
+    busy = true
+    try { await reviewComponent?.destroy(); onClose() }
+    catch (e) { error = String(e) } finally { busy = false }
+  }
+  async function changePage(next: 'share' | 'feedback') {
+    await run(async () => { page = next })
+  }
   function rememberProject(project: ProjectInfo) {
     try {
       localStorage.setItem('projectShare.lastProjectId', project.project_id)
       localStorage.setItem('projectShare.lastProject', JSON.stringify({ project_id: project.project_id, sourceRoot: project.sourceRoot, entry: project.entry }))
     } catch { /* selection is only a convenience */ }
   }
-  function statusLabel(status: string): string {
-    return ({ pending: '待审阅', quarantined: '已隔离，不能应用', accepted: '已接受', rejected: '已拒绝', resolved: '已阅', source_changed: '原件已有变化，请人工对照', mirror_pending: '原件已写入，镜像待处理', recovery_conflict: '恢复状态需人工核对', not_applied: '尚未写入，可重新审阅' } as Record<string, string>)[status] ?? status
-  }
-
-  function clearProject() {
+  async function clearProject() {
+    await reviewComponent?.destroy()
     page = 'share'; info = null; managementOnly = false; rebindProjectId = ''; boundSourceRoot = ''
-    inbox = []; selected = null; review = null; mirror = null; oldSnapshot = null; cloudError = ''
+    inbox = []; mirror = null; cloudError = ''
     candidates = []; options = []; files = []; issues = []; excluded = []; shareTitle = ''; useCurrentTheme = true; publishWarnings = []
+    await tick()
   }
   async function refreshProjects() {
     const [listed, identities] = await Promise.all([listProjects(), projectIdentities()])
@@ -121,7 +124,7 @@
   }
   function entryPath(project: ProjectSummary) { return `${project.sourceRoot.replace(/\/$/, '')}/${project.entry}` }
   async function loadProject(projectId: string, created?: ProjectInfo) {
-    clearProject()
+    await clearProject()
     const summary = projectList.find(project => project.project_id === projectId)
     let opened: ProjectInfo
     try { opened = created ?? (summary?.orphaned ? summary : await projectCommand<ProjectInfo>('get', { project_id: projectId })) }
@@ -147,7 +150,7 @@
     if (!opened.deleting) void checkFeedback()
   }
   async function showCurrentDocument(restore = true) {
-    clearProject()
+    await clearProject()
     currentTabId = activeTab()?.id ?? ''
     const tab = tabs.find(tab => tab.id === currentTabId)
     const markdown = tab && (tab.filePath ? /\.(md|markdown|mdown|mkd|mdx)$/i.test(tab.filePath) : tab.kind === 'markdown')
@@ -390,7 +393,7 @@
           localStorage.removeItem('projectShare.lastProjectId'); localStorage.removeItem('projectShare.lastProject')
         }
       } catch { /* selection is only a convenience */ }
-      clearProject()
+      await clearProject()
       notice = '项目已删除，原始文档保持原位。'
     } catch (e) {
       await refreshProjects()
@@ -421,52 +424,24 @@
       } catch (e) {
         if (info?.project_id === id) cloudError = `暂时无法检查云端反馈；本机已保存的反馈仍可审阅。${String(e)}`
       }
-      if (info?.project_id === id && selected) selected = inbox.find(item => item.envelope.payload.submissionId === selected!.envelope.payload.submissionId) ?? selected
     } catch (e) { if (info?.project_id === id) cloudError = String(e) } finally { if (pullingFor === id) pullingFor = '' }
   }
-  async function selectFeedback(item: LocalFeedback) {
-    selected = item; review = null; finalText = ''; oldSnapshot = null; annotationPath = ''
-    if (!info || item.status === 'quarantined' || !item.envelope.payload.annotations.length) return
-    oldSnapshot = await projectCommand<ProjectSnapshot>('snapshot-get', { project_id: info.project_id, snapshotId: item.envelope.payload.snapshotId })
-    annotationPath = item.envelope.payload.annotations[0].path
-  }
-  async function selectReview(path: string) {
-    if (!info || !selected) return
-    const initial = await projectCommand<ReviewFile>('review', { project_id: info.project_id, submissionId: selected.envelope.payload.submissionId, path })
-    if (!managementOnly) await prepareBuffers(initial.sourcePath)
-    review = await projectCommand<ReviewFile>('review', { project_id: info.project_id, submissionId: selected.envelope.payload.submissionId, path })
-    finalText = review.after
-  }
   function updateFeedback(updated: LocalFeedback) {
-    selected = updated
     inbox = inbox.map(item => item.envelope.payload.submissionId === updated.envelope.payload.submissionId ? updated : item)
   }
-  async function applyReview() {
-    if (!info || !selected || !review || managementOnly) return
-    const original = review
-    await prepareBuffers(original.sourcePath)
-    const fresh = await projectCommand<ReviewFile>('review', { project_id: info.project_id, submissionId: selected.envelope.payload.submissionId, path: original.path })
-    review = fresh
-    if (fresh.currentHash !== original.currentHash) {
-      notice = '原件在审阅期间变化。已更新“当前原件”，保留你的最终文本；请重新对照后再点击接受。'
-      return
-    }
-    const updated = await projectCommand<LocalFeedback>('apply', { project_id: info.project_id, submissionId: selected.envelope.payload.submissionId, path: fresh.path, expectedHash: fresh.currentHash, content: finalText })
-    updateFeedback(updated)
-    await reloadTabFromDisk(fresh.sourcePath)
+  async function refreshReviewSource(sourcePath: string) {
     await refreshSotvault()
-    for (const record of sotvaultStore.records.filter(record => record.source_path === fresh.sourcePath)) await reloadTabFromDisk(record.vault_path)
-    review = await projectCommand<ReviewFile>('review', { project_id: info.project_id, submissionId: selected.envelope.payload.submissionId, path: fresh.path })
-    notice = statusLabel(updated.decisions[fresh.path]?.status ?? updated.status)
-  }
-  async function reject(path?: string) {
-    if (!info || !selected || info.deleting || info.orphaned) return
-    updateFeedback(await projectCommand<LocalFeedback>('reject', { project_id: info.project_id, submissionId: selected.envelope.payload.submissionId, ...(path ? { path } : {}) }))
-    review = null
-  }
-  async function resolve() {
-    if (!info || !selected || info.deleting || info.orphaned) return
-    updateFeedback(await projectCommand<LocalFeedback>('resolve', { project_id: info.project_id, submissionId: selected.envelope.payload.submissionId }))
+    const paths = new Set([sourcePath, ...sotvaultStore.records.filter(record => record.source_path === sourcePath).map(record => record.vault_path)])
+    for (const tab of tabs.filter(tab => paths.has(tab.filePath))) {
+      window.dispatchEvent(new CustomEvent('notemd:flush-doc', { detail: { tabId: tab.id } }))
+      if (isDirty(tab.id)) {
+        tab.externalState = 'changed'; tab.externalBannerDismissed = false
+        notice = '磁盘已变化，保留了未保存的原件或镜像修改，请核对外部变化提示。'
+      } else {
+        await reloadTabFromDisk(tab.filePath, { expectedContent: tab.currentContent })
+        if (tab.externalState === 'changed') notice = '磁盘已变化，保留了读取期间输入的修改，请核对外部变化提示。'
+      }
+    }
   }
   async function viewMirror(path: string) {
     if (!info) return
@@ -489,7 +464,7 @@
 
 {#if !uiState.showSettings}
 <div class="overlay" role="presentation" onclick={event => { if (event.target === event.currentTarget) close() }}>
-  <div class="dialog ui-surface" role="dialog" aria-modal="true" aria-labelledby="project-share-title" aria-busy={busy} tabindex="-1" use:modalFocus={{ onClose: close, canClose: () => !busy }}>
+  <div class="dialog ui-surface" role="dialog" aria-modal="true" aria-labelledby="project-share-title" aria-busy={locked} tabindex="-1" use:modalFocus={{ onClose: close, canClose: () => !locked }}>
     <header class="dialog-header">
       <h2 id="project-share-title">分享项目</h2>
       <span class="current-page">{page === 'share' ? '分享内容' : '反馈收件箱'}</span>
@@ -497,26 +472,26 @@
     <div class="share-layout">
       <aside class="sidebar">
         <nav aria-label="项目分享">
-          <button class:active={page === 'share'} aria-current={page === 'share' ? 'page' : undefined} disabled={busy} onclick={() => page = 'share'}>
+          <button class:active={page === 'share'} aria-current={page === 'share' ? 'page' : undefined} disabled={locked} onclick={() => { void changePage('share') }}>
             <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M5 2.5h6l4 4v11H5zM11 2.5v4h4M8 10h4M8 13h4" /></svg>
             <span>分享内容</span>
           </button>
-          <button class:active={page === 'feedback'} aria-current={page === 'feedback' ? 'page' : undefined} disabled={busy || !info || !!info.orphaned || !!info.deleting} onclick={() => page = 'feedback'}>
+          <button class:active={page === 'feedback'} aria-current={page === 'feedback' ? 'page' : undefined} disabled={locked || !info || !!info.orphaned || !!info.deleting} onclick={() => { void changePage('feedback') }}>
             <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M3 3.5h14v10H8l-4 3v-3H3zM6 7h8M6 10h5" /></svg>
             <span>反馈收件箱</span>{#if pendingFeedback}<span class="count" aria-label={`${pendingFeedback} 份待审阅`}>{pendingFeedback}</span>{/if}
           </button>
         </nav>
         <div class="project-switch">
-          <button data-initial-focus disabled={busy} onclick={() => run(() => showCurrentDocument(false))}>当前文档</button>
+          <button data-initial-focus disabled={locked} onclick={() => run(() => showCurrentDocument(false))}>当前文档</button>
           {#if projectList.length}
             <label for="share-recent-project">本机项目</label>
-            <select id="share-recent-project" disabled={busy} value={info?.project_id ?? ''} onchange={event => { const id = event.currentTarget.value; if (id) void run(() => loadProject(id)) }}>
+            <select id="share-recent-project" disabled={locked} value={info?.project_id ?? ''} onchange={event => { const id = event.currentTarget.value; if (id) void run(() => loadProject(id)) }}>
               <option value="">选择项目</option>
               {#each projectList as item (item.project_id)}<option value={item.project_id}>{item.entry || item.project_id} — {item.sourceRoot} · {projectStatus(item)}</option>{/each}
             </select>
           {/if}
-          <button disabled={busy} onclick={() => run(chooseDocument)}>选择其他文档…</button>
-          <button disabled={busy} onclick={() => openSettings('share')}>分享设置…</button>
+          <button disabled={locked} onclick={() => run(chooseDocument)}>选择其他文档…</button>
+          <button disabled={locked} onclick={() => run(async () => { await reviewComponent?.destroy(); openSettings('share') })}>分享设置…</button>
         </div>
       </aside>
       <div class="content" bind:this={contentElement} role="region" aria-label={page === 'share' ? '分享内容' : '反馈收件箱'}>
@@ -542,29 +517,29 @@
             <section class="entry-section">
               <label class="field-row" for="share-entry"><span>入口文档</span><input id="share-entry" readonly value={info.entry} /></label>
               <p class="desc">从这篇文档开始，包含你勾选的引用文档和资源。</p>
-              <label class="field-row" for="share-title"><span>分享标题</span><input id="share-title" bind:value={shareTitle} readonly={!!pending} disabled={busy || !!info.deleting || !!info.orphaned} /></label>
-              <label class="theme-option"><input id="share-current-theme" type="checkbox" bind:checked={useCurrentTheme} disabled={busy || !!pending || !!info.deleting || !!info.orphaned} />使用当前主题</label>
+              <label class="field-row" for="share-title"><span>分享标题</span><input id="share-title" bind:value={shareTitle} readonly={!!pending} disabled={locked || !!info.deleting || !!info.orphaned} /></label>
+              <label class="theme-option"><input id="share-current-theme" type="checkbox" bind:checked={useCurrentTheme} disabled={locked || !!pending || !!info.deleting || !!info.orphaned} />使用当前主题</label>
               <p class="desc">取消后使用应用内置的默认正文主题。</p>
               {#if pending}<p class="message warning">{pending.phase === 'preparing' || pending.phase === 'full' ? '入口链接已就绪，完整项目尚未同步完成。重试会继续本次批准范围；源文件变化时需要先处理。' : `上次发布结果尚未确认。重试会发送已冻结的原包（入口 ${pending.entry}），不包含此后编辑的内容。`}</p>{/if}
               {#if managementOnly && !pending}<p class="message warning">源文件暂时不可用。仍可管理分享和本机反馈；修复源文件后重新扫描才能发布。</p>{/if}
             </section>
             <section>
-              <div class="section-heading"><h3>分享文件 <span class="section-meta">{files.length} 个 · {formatSize(totalBytes)}</span></h3><button disabled={busy || !!info.deleting || !!info.orphaned} onclick={() => run(saveAndScan)}>保存并重新扫描</button></div>
+              <div class="section-heading"><h3>分享文件 <span class="section-meta">{files.length} 个 · {formatSize(totalBytes)}</span></h3><button disabled={locked || !!info.deleting || !!info.orphaned} onclick={() => run(saveAndScan)}>保存并重新扫描</button></div>
               <p class="desc">仅分享勾选的文件，个人手记和私密配置会自动排除。</p>
               <div class="file-list" aria-label="分享文件">
                 {#each options as file (file.path)}
                   <div class="file-row">
-                    <label><input type="checkbox" checked={!excluded.includes(file.path)} disabled={busy || file.path === info.entry || !!pending || !!info.deleting} onchange={event => run(() => toggleFile(file.path, event.currentTarget.checked))} /><span class="file-path">{file.path}</span>{#if file.path === info.entry}<span class="badge">入口</span>{/if}</label>
+                    <label><input type="checkbox" checked={!excluded.includes(file.path)} disabled={locked || file.path === info.entry || !!pending || !!info.deleting} onchange={event => run(() => toggleFile(file.path, event.currentTarget.checked))} /><span class="file-path">{file.path}</span>{#if file.path === info.entry}<span class="badge">入口</span>{/if}</label>
                     <span class="file-size">{formatSize(file.bytes)}</span>
-                    {#if info.files.includes(file.path)}<button class="subtle" disabled={busy || !!info.deleting} onclick={() => run(() => viewMirror(file.path))}>镜像对照</button>{/if}
+                    {#if info.files.includes(file.path)}<button class="subtle" disabled={locked || !!info.deleting} onclick={() => run(() => viewMirror(file.path))}>镜像对照</button>{/if}
                   </div>
                 {/each}
                 {#if !options.length}<p class="list-empty">{managementOnly ? '修复入口后可重新扫描文件。' : '暂时没有可分享的文件。'}</p>{/if}
               </div>
-              {#if issues.length}<details class="reference-issues" open><summary>已包含 {files.length} 个文件 · 未包含 {issues.length} 项引用{blocking.length ? ` · ${blocking.length} 项阻止发布` : ' · 可发布已包含内容'}</summary><ul class="issues">{#each issues as issue}<li class:warning={!isBlockingReferenceIssue(issue)} class:error={isBlockingReferenceIssue(issue)}><strong>{issue.from}</strong> → {issue.target}：{issue.message}{#if issue.from !== info.entry}<button disabled={busy || !!pending} onclick={() => run(() => excludeDocument(issue.from))}>排除此文档并重扫</button>{/if}</li>{/each}</ul></details>{/if}
+              {#if issues.length}<details class="reference-issues" open><summary>已包含 {files.length} 个文件 · 未包含 {issues.length} 项引用{blocking.length ? ` · ${blocking.length} 项阻止发布` : ' · 可发布已包含内容'}</summary><ul class="issues">{#each issues as issue}<li class:warning={!isBlockingReferenceIssue(issue)} class:error={isBlockingReferenceIssue(issue)}><strong>{issue.from}</strong> → {issue.target}：{issue.message}{#if issue.from !== info.entry}<button disabled={locked || !!pending} onclick={() => run(() => excludeDocument(issue.from))}>排除此文档并重扫</button>{/if}</li>{/each}</ul></details>{/if}
               {#if blocking.length}<p class="warning desc">无法安全发布：{blocking.map(issue => issue.message).join('; ')}。请处理后重新扫描。</p>{/if}
             </section>
-            {#if mirror}<section class="mirror-review"><h3>镜像对照：{mirror.path}</h3><div class="columns two"><div><h4>当前源文件</h4><pre>{mirror.source.markdown ?? `${mirror.source.bytes} bytes\n${mirror.source.hash}`}</pre></div><div><h4>当前镜像</h4><pre>{mirror.mirror.markdown ?? `${mirror.mirror.bytes} bytes\n${mirror.mirror.hash}`}</pre></div></div><p>确认后只用上面显示的源版本覆盖这份镜像；任一文件再变化都会要求重新审阅。</p><div class="actions"><button class="primary" disabled={busy} onclick={() => run(resolveMirror)}>确认用源版本覆盖镜像</button><button disabled={busy} onclick={() => mirror = null}>取消</button></div></section>{/if}
+            {#if mirror}<section class="mirror-review"><h3>镜像对照：{mirror.path}</h3><div class="columns two"><div><h4>当前源文件</h4><pre>{mirror.source.markdown ?? `${mirror.source.bytes} bytes\n${mirror.source.hash}`}</pre></div><div><h4>当前镜像</h4><pre>{mirror.mirror.markdown ?? `${mirror.mirror.bytes} bytes\n${mirror.mirror.hash}`}</pre></div></div><p>确认后只用上面显示的源版本覆盖这份镜像；任一文件再变化都会要求重新审阅。</p><div class="actions"><button class="primary" disabled={locked} onclick={() => run(resolveMirror)}>确认用源版本覆盖镜像</button><button disabled={locked} onclick={() => mirror = null}>取消</button></div></section>{/if}
             {#if shareUrl}
               <section>
                 <div class="section-heading"><h3>分享链接</h3><span class="section-meta">{identity?.expiresAt === null ? '长期有效' : identity?.expiresAt ? `有效期至 ${formatDate(identity.expiresAt)}` : ''}</span></div>
@@ -578,21 +553,19 @@
               {#if info.deleting}<p class="message warning">项目删除尚未完成。可以重试删除，或明确取消删除以恢复本机项目操作。</p>{/if}
               {#if info.orphaned}<p class="message warning">仅有分享记录，本机项目绑定不存在。</p>{/if}
               <div class="actions">
-                {#if rebindProjectId}<button disabled={busy || !!info.deleting} onclick={() => run(rebindProject)}>重新绑定项目目录…</button>{/if}
-                {#if shareUrl || pending}<button class="danger" disabled={busy || !!info.deleting} onclick={() => run(stop)}>{pending && !shareUrl ? '停止待确认的分享…' : '停止分享…'}</button>{/if}
-                <button class="danger" disabled={busy} onclick={() => run(removeProject)}>{info.deleting ? '重试删除项目…' : '删除项目…'}</button>
-                {#if info.deleting}<button disabled={busy} onclick={() => run(cancelDeletion)}>取消删除</button>{/if}
+                {#if rebindProjectId}<button disabled={locked || !!info.deleting} onclick={() => run(rebindProject)}>重新绑定项目目录…</button>{/if}
+                {#if shareUrl || pending}<button class="danger" disabled={locked || !!info.deleting} onclick={() => run(stop)}>{pending && !shareUrl ? '停止待确认的分享…' : '停止分享…'}</button>{/if}
+                <button class="danger" disabled={locked} onclick={() => run(removeProject)}>{info.deleting ? '重试删除项目…' : '删除项目…'}</button>
+                {#if info.deleting}<button disabled={locked} onclick={() => run(cancelDeletion)}>取消删除</button>{/if}
               </div>
             </section>
-          {:else}
-            <section><div class="section-heading"><h3>反馈收件箱（{inbox.length}）</h3><button disabled={busy || pulling} onclick={() => { void checkFeedback() }}>{pulling ? '正在检查云端…' : '检查新反馈'}</button></div>{#if cloudError}<p class="warning">{cloudError}</p>{/if}{#if !inbox.length}<p>暂时没有本机反馈。打开分享时会尝试取回云端收件。</p>{/if}<div class="inbox-list">{#each inbox as item (item.envelope.payload.submissionId)}<button class:selected={selected?.envelope.payload.submissionId === item.envelope.payload.submissionId} disabled={busy} onclick={() => run(() => selectFeedback(item))}><strong>{item.envelope.payload.name || '未署名协作者'}</strong><span>{formatDate(item.envelope.receivedAt)} · {statusLabel(item.status)} · {item.envelope.payload.edits.length} 处编辑 / {item.envelope.payload.annotations.length} 条标注</span></button>{/each}</div>
-          {#if selected}<div class="feedback-detail"><h4>{selected.envelope.payload.name || '未署名协作者'} · {statusLabel(selected.status)}</h4>{#if selected.error}<p class="warning">{selected.error}</p>{/if}{#if selected.status === 'quarantined'}<p class="warning">这份反馈的快照、文件集合或基线不可信，已保留原包但不能写回原件。</p>{:else}<div class="actions"><button disabled={busy || !!info.deleting || selected.status === 'accepted'} onclick={() => run(() => reject())}>拒绝整份反馈</button>{#if !selected.envelope.payload.edits.length}<button disabled={busy || !!info.deleting || selected.status === 'resolved'} onclick={() => run(resolve)}>标注已阅</button>{/if}</div>{/if}
-            {#each selected.envelope.payload.edits as edit (edit.path)}<div class="edit-row"><span>{edit.path} · {statusLabel(selected.decisions[edit.path]?.status ?? 'pending')}</span><button disabled={busy || !!info.deleting || selected.status === 'quarantined'} onclick={() => run(() => selectReview(edit.path))}>审阅文件</button><button disabled={busy || !!info.deleting || selected.status === 'quarantined' || ['accepted', 'rejected', 'mirror_pending'].includes(selected.decisions[edit.path]?.status ?? '')} onclick={() => run(() => reject(edit.path))}>拒绝此文件</button></div>{/each}
-            {#if review}<h3>文件审阅：{review.path}</h3><p>{statusLabel(review.status)} · {review.sourcePath}</p><div class="columns"><div><h4>发布时的基线</h4><pre>{review.base}</pre></div><div><h4>当前原件</h4><pre>{review.current}</pre></div><div><h4>协作者提交</h4><pre>{review.after}</pre></div></div><label>最终写回文本（可人工合入）<textarea bind:value={finalText} disabled={busy || managementOnly || ['accepted', 'rejected', 'mirror_pending', 'recovery_conflict'].includes(review.status)} spellcheck="false" rows="12"></textarea></label><button class="primary" disabled={busy || managementOnly || ['accepted', 'rejected', 'mirror_pending', 'recovery_conflict'].includes(review.status)} onclick={() => run(applyReview)}>接受此文件并写回原件</button>{/if}
-            {#if selected.envelope.payload.annotations.length}<h3>旧快照中的标注</h3><p>以下选文和评论保留在提交时的快照中，不会自动迁移到当前正文。</p>{#each selected.envelope.payload.annotations as annotation}<article class="annotation"><button disabled={busy || !oldSnapshot} onclick={() => annotationPath = annotation.path}>{annotation.path}</button><blockquote>{annotation.quote}</blockquote><p>{annotation.comment}</p></article>{/each}{#if oldMarkdown !== undefined}<details open><summary>{annotationPath} · 提交时原文</summary><pre>{oldMarkdown}</pre></details>{/if}{/if}
-          </div>{/if}
-        </section>
           {/if}
+          <section hidden={page !== 'feedback'}>
+            <div class="section-heading"><h3>反馈收件箱（{inbox.length}）</h3><button disabled={locked || pulling} onclick={() => { void checkFeedback() }}>{pulling ? '正在检查云端…' : '检查新反馈'}</button></div>
+            {#if cloudError}<p class="warning">{cloudError}</p>{/if}
+            {#if !inbox.length}<p>暂时没有本机反馈。打开分享时会尝试取回云端收件。</p>{/if}
+            {#key info.project_id}<ProjectReview bind:this={reviewComponent} projectId={info.project_id} feedback={inbox} prepareSource={prepareBuffers} refreshSource={refreshReviewSource} onUpdated={updateFeedback} />{/key}
+          </section>
         {:else}
           <div class="empty-state">
             <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M10 5h18l10 10v28H10zM28 5v10h10M18 25h12M18 32h12" /></svg>
@@ -601,8 +574,8 @@
               <p class="path">{currentDocument.path || '未命名文档，创建前会先另存为。'}</p>
               <p>以这篇文档所在文件夹为引用基准，只分享批准的文档和资源。</p>
               <div class="actions">
-                <button disabled={busy || currentReadOnly} onclick={() => run(createCurrentProject)}>创建项目</button>
-                <button class="primary" disabled={busy || currentReadOnly} onclick={() => run(createCurrentProject)}>分享为项目…</button>
+                <button disabled={locked || currentReadOnly} onclick={() => run(createCurrentProject)}>创建项目</button>
+                <button class="primary" disabled={locked || currentReadOnly} onclick={() => run(createCurrentProject)}>分享为项目…</button>
               </div>
             {:else}<p>打开或选择一篇 Markdown，即可预览它的分享范围。</p>{/if}
             <p class="desc">项目先保存为本机草稿，核对预览后再发布。原文档保留原位。</p>
@@ -612,8 +585,8 @@
     </div>
     <footer>
       <span class="footer-status">{busy ? '正在处理…' : info && page === 'share' ? pending ? '将重试上次保留的发布内容。' : `${files.length} 个文件 · 修改后需重新发布` : info ? '审阅并接受后，修改才会写入原文档。' : '原文档保留在你的项目目录中。'}</span>
-      <button disabled={busy} onclick={close}>完成</button>
-      {#if info && page === 'share'}<button disabled={busy || !!info.deleting || !!info.orphaned || (!pending && (managementOnly || !files.length || !!blocking.length))} class="primary" onclick={() => run(publish)}>{pending ? '重试原包发布' : shareUrl ? '更新分享' : '发布分享'}</button>{/if}
+      <button disabled={locked} onclick={close}>完成</button>
+      {#if info && page === 'share'}<button disabled={locked || !!info.deleting || !!info.orphaned || (!pending && (managementOnly || !files.length || !!blocking.length))} class="primary" onclick={() => run(publish)}>{pending ? '重试原包发布' : shareUrl ? '更新分享' : '发布分享'}</button>{/if}
     </footer>
   </div>
 </div>
@@ -647,6 +620,7 @@
   .publish-progress progress { display: block; width: 100%; height: 6px; accent-color: var(--ui-accent); }
   .path { margin: 6px 0 0; color: var(--ui-secondary); font-size: 12px; overflow-wrap: anywhere; }
   .badge { border-radius: 4px; background: var(--ui-bg); border: 1px solid var(--ui-separator); padding: 1px 6px; font-size: 12px; white-space: nowrap; color: var(--ui-secondary); }
+  section[hidden] { display: none; }
   section { padding: 20px 0; border-top: 1px solid var(--ui-separator); }
   .entry-section { padding-top: 0; border-top: 0; }
   .section-heading { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px 12px; margin-bottom: 8px; }
@@ -659,7 +633,7 @@
   button.primary:not(:disabled):hover { background: color-mix(in srgb, var(--ui-accent) 88%, black); }
   button.danger { color: var(--ui-danger); }
   button.subtle { border-color: transparent; background: transparent; color: var(--ui-secondary); font-size: 12px; padding: 4px 8px; }
-  input:not([type='checkbox']), select, textarea { min-width: 0; min-height: 32px; padding: 6px 9px; border: 1px solid var(--ui-control-border); border-radius: 6px; color: CanvasText; background: var(--ui-surface); }
+  input:not([type='checkbox']), select { min-width: 0; min-height: 32px; padding: 6px 9px; border: 1px solid var(--ui-control-border); border-radius: 6px; color: CanvasText; background: var(--ui-surface); }
   input[readonly] { color: var(--ui-secondary); background: var(--ui-bg); }
   .field-row { display: flex; align-items: center; gap: 12px; margin: 8px 0; }
   .field-row > span, .field-row > label { width: 70px; flex-shrink: 0; }
@@ -685,17 +659,6 @@
   .actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 0; }
   .columns { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; margin: 12px 0; } .columns.two { grid-template-columns: repeat(2,minmax(0,1fr)); } .columns > div { min-width: 0; }
   pre { white-space: pre-wrap; overflow-wrap: anywhere; padding: 12px; border: 1px solid var(--ui-separator); border-radius: 6px; background: var(--ui-bg); font: 12px/1.6 ui-monospace, Menlo, monospace; max-height: 340px; overflow: auto; margin: 0 0 10px; }
-  .feedback-detail { padding-top: 20px; overflow-wrap: anywhere; }
-  .feedback-detail > label { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; }
-  textarea { width: 100%; font-family: ui-monospace, Menlo, monospace; resize: vertical; }
-  .inbox-list { display: grid; border: 1px solid var(--ui-separator); border-radius: 6px; overflow: hidden; }
-  .inbox-list:empty { display: none; }
-  .inbox-list button { display: flex; flex-direction: column; text-align: left; gap: 5px; border: 0; border-bottom: 1px solid var(--ui-separator); border-radius: 0; padding: 12px; }
-  .inbox-list button:last-child { border-bottom: 0; }
-  .inbox-list button.selected { background: var(--ui-selection); }
-  .inbox-list span { color: var(--ui-secondary); font-size: 12px; }
-  .edit-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 0; border-bottom: 1px solid var(--ui-separator); } .edit-row span { flex: 1; min-width: 0; }
-  .annotation { padding: 12px; margin: 10px 0; border: 1px solid var(--ui-separator); border-radius: 6px; } blockquote { white-space: pre-wrap; margin: 8px 0; padding-left: 12px; border-left: 3px solid var(--ui-control-border); } .annotation p { white-space: pre-wrap; }
   .empty-state { display: flex; min-height: 100%; flex-direction: column; justify-content: center; align-items: center; text-align: center; box-sizing: border-box; gap: 12px; padding: 24px 0; }
   .empty-state svg { width: 48px; height: 48px; color: var(--ui-secondary); }
   .empty-state h3 { font-size: 16px; margin: 0; } .empty-state p { color: var(--ui-secondary); margin: 0; }

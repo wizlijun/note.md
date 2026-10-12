@@ -135,6 +135,35 @@ beforeEach(async () => {
 
 afterEach(() => { vi.useRealTimers() })
 
+describe('protected disk reload', () => {
+  it('keeps edits made during the asynchronous read and raises the external-change banner', async () => {
+    const fs = await import('./fs'), m = await import('./tabs.svelte')
+    await m.openFile('/tmp/review.md')
+    const tab = m.tabs[0], original = tab.initialContent
+    let release!: (text: string) => void
+    vi.mocked(fs.readMd).mockImplementationOnce(() => new Promise(resolve => { release = resolve }))
+    const loading = m.reloadTabFromDisk(tab.filePath, { expectedContent: tab.currentContent })
+    tab.currentContent = 'typed while reading'; tab.externalBannerDismissed = true
+    release('new disk text'); await loading
+    expect(tab.currentContent).toBe('typed while reading'); expect(tab.initialContent).toBe(original)
+    expect(tab.externalState).toBe('changed'); expect(tab.externalBannerDismissed).toBe(false)
+  })
+  it('reloads a clean protected buffer, rejects an already dirty one, and preserves legacy force reloads', async () => {
+    const fs = await import('./fs'), m = await import('./tabs.svelte')
+    await m.openFile('/tmp/review.md'); const tab = m.tabs[0]
+    vi.mocked(fs.readMd).mockResolvedValueOnce('clean disk')
+    await m.reloadTabFromDisk(tab.filePath, { expectedContent: tab.currentContent })
+    expect(tab.initialContent).toBe('clean disk'); expect(tab.currentContent).toBe('clean disk')
+    tab.currentContent = 'dirty buffer'
+    vi.mocked(fs.readMd).mockResolvedValueOnce('later disk')
+    await m.reloadTabFromDisk(tab.filePath, { expectedContent: tab.currentContent })
+    expect(tab.currentContent).toBe('dirty buffer'); expect(tab.initialContent).toBe('clean disk')
+    vi.mocked(fs.readMd).mockResolvedValueOnce('legacy disk')
+    await m.reloadTabFromDisk(tab.filePath)
+    expect(tab.currentContent).toBe('legacy disk'); expect(tab.initialContent).toBe('legacy disk')
+  })
+})
+
 async function readPersistedMarkdown(): Promise<void> {
   const fs = await import('./fs')
   vi.mocked(fs.readMd).mockImplementation(async (path) =>
