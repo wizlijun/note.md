@@ -134,13 +134,13 @@ Host tests cover completion auto sends once, suppressed neverPUT, failure persis
 ## Task 4: 浏览器 DraftV2、版本提示和我的提交
 
 **Files:**
-- Modify: `src/lib/project-share/{browser,browser.test,bundle,bundle.test,types,host,host.test}.ts`
+- Modify: `src/lib/project-share/{browser,browser.test,bundle,bundle.test,types,host,host.test,presentation.test}.ts`
 - Create: `scripts/check-project-share-browser.mjs`
 - Modify: `package.json`, `pnpm-lock.yaml` (add missing `fake-indexeddb` devDependency only), `CHANGELOG.md`, `CHANGELOG.zh-CN.md`
 
 **Interfaces:**
 - Export type `DraftV2` exactly §6.7: v2,lineageId,snapshotId,base,after,annotationKinds,message?,lastSubmissionId?,rebasedFrom?,previous?,pending?:{submissionId,body}. Inline function cannot import runtime helpers; types may be type-only imports.
-- Bundle always writes `versionUrl` same origin as feedbackUrl: `/project/<slug>/version`; optional `editorKit` stays absent in P2 and existing CSP is byte-equivalent apart from nonce.
+- Bundle always writes `versionUrl` same origin as feedbackUrl: `/project/<slug>/version`; host passes it explicitly. If omitted, derive only from the exact feedback pathname `/feedback/<slug>`; otherwise reject the missing configuration instead of guessing a slug. Explicit version URLs remain same-origin validated. Update the presentation fixture endpoint to `/feedback/test`. Old already-published HTML without versionUrl remains quietly supported by the runtime. Optional `editorKit` stays absent in P2 and existing CSP is byte-equivalent apart from nonce.
 - Keys remain DB `notemd-project-sharing`, version1, store data; `<pid>:draft2:<lineageId>`, `<pid>:token`, `<pid>:submitted` capped200 FIFO. Legacy snapshot keys read/migrate/delete only after durable new save.
 - Form-only fallback annotations live in companion key `<pid>:draft2-notes:<lineageId>` as `ProjectAnnotationV2[]`; they are not inserted into afterMarkdown or extra DraftV2 fields. Migration writes draft and companion notes and deletes old key in one transaction. Kit integration later consumes these existing form notes when building a package, without silently losing them.
 
