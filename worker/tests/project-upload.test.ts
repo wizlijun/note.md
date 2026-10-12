@@ -297,4 +297,70 @@ describe('native multipart project publication', () => {
   expect((await op('commit')).status).toBe(410)
  })
 
+ it('uses six native calls for first entry begin, two for empty recovery, and eight for a new full session', async () => {
+  const calls: string[] = []
+  const counted = { get(key: string) { calls.push('get'); return media.get(key) }, head(key: string) { calls.push('head'); return media.head(key) },
+   put(key: string, value: any, options: any) { calls.push('put'); return media.put(key, value, options) },
+   delete(key: string) { calls.push('delete'); return media.delete(key) },
+   resumeMultipartUpload(key: string, uploadId: string) { const native = media.resumeMultipartUpload(key, uploadId); return { key, uploadId, uploadPart: native.uploadPart.bind(native), complete: native.complete.bind(native), abort() { calls.push('abort'); return native.abort() } } },
+   createMultipartUpload(key: string, options: any) { calls.push('create'); return media.createMultipartUpload(key, options) },
+  } as unknown as R2Bucket
+  const shares = { getWithMetadata(key: string, type: 'stream') { calls.push('kvGet'); return bindings.SHARES.getWithMetadata(key, type) } } as unknown as KVNamespace
+  const start = (extra = {}) => worker.fetch(new Request(base + 'begin', { method: 'POST', headers: auth, body: JSON.stringify({ edit_token: token, project_id: 'project', feedback_token_hash: 'b'.repeat(64), publicationId: 'pub', previousPublicationId: null, sessionId: 'session', phase: 'entry', snapshotId: 'entry', entry: 'README.md', title: 'Project', expires_in_seconds: 3600, artifacts: [plan], ...extra }) }), { ...bindings, MEDIA: counted, SHARES: shares })
+  expect((await start()).status).toBe(200)
+  expect(calls).toEqual(['get', 'kvGet', 'put', 'create', 'get', 'put'])
+  calls.length = 0
+  expect((await start()).status).toBe(200)
+  expect(calls).toEqual(['get', 'head'])
+  await part(); await op('seal', { artifact: 'entry' }); await op('commit')
+  calls.length = 0
+  expect((await start()).status).toBe(200)
+  expect(calls).toEqual(['get', 'head'])
+  expect((await (await start()).json() as any).upload.sealed).toEqual(['entry'])
+  calls.length = 0
+  expect((await start({ phase: 'full', sessionId: 'full', snapshotId: 'full', artifacts: [readerPlan, zipPlan] })).status).toBe(200)
+  expect(calls).toEqual(['get', 'put', 'create', 'get', 'put', 'create', 'get', 'put'])
+  await part('reader', { 'X-Upload-Session': 'full', 'X-Artifact': 'reader' }); await op('seal', { sessionId: 'full', artifact: 'reader' })
+  await part('zip', { 'X-Upload-Session': 'full', 'X-Artifact': 'archive' }); await op('seal', { sessionId: 'full', artifact: 'archive' }); await op('commit', { sessionId: 'full' })
+  calls.length = 0
+  const next = { publicationId: 'next', previousPublicationId: 'pub', sessionId: 'nextEntry', snapshotId: 'nextEntry' }
+  expect((await start(next)).status).toBe(200)
+  expect(calls).toEqual(['get', 'get', 'get', 'head', 'abort', 'delete', 'get', 'put', 'get', 'put', 'create', 'get', 'put'])
+  await part('hello', { 'X-Publication-Id': 'next', 'X-Upload-Session': 'nextEntry' }); await op('seal', { ...next, artifact: 'entry' }); await op('commit', next)
+  calls.length = 0
+  expect((await start({ ...next, phase: 'full', sessionId: 'nextFull', snapshotId: 'nextFull', artifacts: [readerPlan, zipPlan] })).status).toBe(200)
+  expect(calls).toEqual(['get', 'get', 'get', 'put', 'create', 'get', 'put', 'create', 'get', 'put'])
+ })
+ it('revalidates revoke after native creation and aborts the never-registered upload', async () => {
+  let created: R2MultipartUpload | undefined
+  const wrapped = { get: media.get.bind(media), head: media.head.bind(media), put: media.put.bind(media), delete: media.delete.bind(media), resumeMultipartUpload: media.resumeMultipartUpload.bind(media),
+   async createMultipartUpload(key: string, options: any) {
+    created = await media.createMultipartUpload(key, options)
+    await SELF.fetch('http://x/' + slug, { method: 'DELETE', headers: { ...auth, 'Content-Type': 'application/json' }, body: JSON.stringify({ edit_token: token }) })
+    return created
+   },
+  } as unknown as R2Bucket
+  const response = await worker.fetch(new Request(base + 'begin', { method: 'POST', headers: auth, body: JSON.stringify({ edit_token: token, project_id: 'project', feedback_token_hash: 'b'.repeat(64), publicationId: 'pub', previousPublicationId: null, sessionId: 'session', phase: 'entry', snapshotId: 'entry', entry: 'README.md', title: 'Project', expires_in_seconds: 3600, artifacts: [plan] }) }), { ...bindings, MEDIA: wrapped })
+  expect(response.status).toBe(410)
+  expect((await (await media.get(projectStateKey(slug)))!.json() as any).revoked).toBe(true)
+  await expect(created!.uploadPart(1, 'hello')).rejects.toThrow()
+ })
+ it('keeps the uploadId registration CAS fence after its fresh read', async () => {
+  let intercepted = false, created: R2MultipartUpload | undefined
+  const wrapped = { get: media.get.bind(media), head: media.head.bind(media), delete: media.delete.bind(media), resumeMultipartUpload: media.resumeMultipartUpload.bind(media),
+   async createMultipartUpload(key: string, options: any) { created = await media.createMultipartUpload(key, options); return created },
+   async put(key: string, value: any, options: any) {
+    if (!intercepted && key === projectStateKey(slug) && JSON.parse(value).upload?.artifacts[0].uploadId) {
+     intercepted = true
+     await SELF.fetch('http://x/' + slug, { method: 'DELETE', headers: { ...auth, 'Content-Type': 'application/json' }, body: JSON.stringify({ edit_token: token }) })
+    }
+    return media.put(key, value, options)
+   },
+  } as unknown as R2Bucket
+  const response = await worker.fetch(new Request(base + 'begin', { method: 'POST', headers: auth, body: JSON.stringify({ edit_token: token, project_id: 'project', feedback_token_hash: 'b'.repeat(64), publicationId: 'pub', previousPublicationId: null, sessionId: 'session', phase: 'entry', snapshotId: 'entry', entry: 'README.md', title: 'Project', expires_in_seconds: 3600, artifacts: [plan] }) }), { ...bindings, MEDIA: wrapped })
+  expect(response.status).toBe(409)
+  expect((await (await media.get(projectStateKey(slug)))!.json() as any).revoked).toBe(true)
+  await expect(created!.uploadPart(1, 'hello')).rejects.toThrow()
+ })
+
 })

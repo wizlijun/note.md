@@ -79,13 +79,14 @@ export function activeProjectMetadata(state: ProjectState): { project_id: string
 export async function checkOwner(state: ProjectState, token: unknown): Promise<void> {
   if (typeof token !== 'string' || !TOKEN.test(token) || await digest(new TextEncoder().encode(token)) !== state.edit_token_hash) throw new HttpError(403, 'Owner token mismatch')
 }
-export async function writeState(env: Env, slug: string, state: ProjectState, etag?: string): Promise<void> {
+export async function writeState(env: Env, slug: string, state: ProjectState, etag?: string): Promise<string> {
   const body = JSON.stringify(state)
   if (state.schemaVersion === 2 && new TextEncoder().encode(body).byteLength > 16384) throw new HttpError(409, 'State capacity reached; retry cleanup')
   const result = await env.MEDIA.put(projectStateKey(slug), body, {
     onlyIf: etag ? { etagMatches: etag } : { etagDoesNotMatch: '*' }, httpMetadata: { contentType: 'application/json' },
   })
   if (!result) throw new HttpError(409, 'Publication changed; retry with current state')
+  return result.etag
 }
 async function immutable(env: Env, key: string, bytes: Uint8Array, hash: string, contentType: string): Promise<boolean> {
   const created = await env.MEDIA.put(key, bytes, { onlyIf: { etagDoesNotMatch: '*' },

@@ -128,10 +128,10 @@ async function headArtifact(env: Env, session: UploadSession, artifact: UploadAr
     || object.customMetadata?.sha256 !== artifact.sha256) error(409, 'Sealed artifact differs from frozen plan')
   return object
 }
-async function receipt(env: Env, slug: string, loaded: Loaded, origin: string): Promise<Response> {
+async function receipt(env: Env, slug: string, loaded: Loaded, origin: string, sealedOverride?: ArtifactName[]): Promise<Response> {
   const state = loaded.state, upload = state.upload
-  const sealed: ArtifactName[] = []
-  if (upload && !state.revoked) for (const artifact of upload.artifacts) {
+  const sealed: ArtifactName[] = sealedOverride ?? []
+  if (sealedOverride === undefined && upload && !state.revoked) for (const artifact of upload.artifacts) {
     try { if (await headArtifact(env, upload, artifact)) sealed.push(artifact.name) }
     catch (e) { if (!(e instanceof HttpError && e.status === 409)) throw e }
   }
@@ -177,9 +177,15 @@ async function migrateLegacy(env: Env, slug: string, args: Begin): Promise<Versi
 async function begin(env: Env, slug: string, args: Begin, origin: string): Promise<Response> {
   validateBegin(args)
   let loaded = await readProjectState(env, slug), state: ProjectState
-  if (loaded) { await checkOwner(loaded.state, args.edit_token); await cleanupOne(env, slug); loaded = await readProjectState(env, slug) }
   if (loaded) {
     await checkOwner(loaded.state, args.edit_token)
+    if (loaded.state.retired?.length) {
+      await cleanupOne(env, slug)
+      loaded = await readProjectState(env, slug)
+      if (loaded) await checkOwner(loaded.state, args.edit_token)
+    }
+  }
+  if (loaded) {
     if (loaded.state.project_id !== args.project_id || loaded.state.feedback_token_hash && loaded.state.feedback_token_hash !== args.feedback_token_hash) error(409, 'Project identity changed')
     if (loaded.state.publicationId === args.publicationId) {
       usable(loaded.state, args.publicationId)
@@ -233,23 +239,25 @@ async function begin(env: Env, slug: string, args: Begin, origin: string): Promi
     artifacts: args.artifacts.map(plan => ({ ...frozenPlan(plan), key: `project-share/${slug}/uploads/${crypto.randomUUID()}/${plan.name}` })) }
   if (loaded) retireOld(slug, state, loaded.state)
   delete state.attempt; delete state.cleanup
-  try { await writeState(env, slug, state, loaded?.etag) }
+  let registeredEtag: string
+  try { registeredEtag = await writeState(env, slug, state, loaded?.etag) }
   catch (e) {
     if (args.legacy) await cleanupLate(env, slug, { ...args.artifacts[0], key: `project-share/${slug}/legacy/${args.legacy.migrationId}/legacy.html` })
     throw e
   }
-  loaded = (await readProjectState(env, slug))!
-  return ensureUploads(env, slug, loaded, origin)
+  loaded = { state, etag: registeredEtag }
+  return ensureUploads(env, slug, loaded, origin, true)
 }
-async function ensureUploads(env: Env, slug: string, loaded: Loaded, origin: string): Promise<Response> {
+async function ensureUploads(env: Env, slug: string, loaded: Loaded, origin: string, freshSession = false): Promise<Response> {
   const sessionId = loaded.state.upload?.sessionId
   if (!sessionId) return receipt(env, slug, loaded, origin)
   for (const original of loaded.state.upload!.artifacts) {
-    let fresh = (await readProjectState(env, slug))!
+    let fresh = loaded
     usable(fresh.state, loaded.state.publicationId)
     if (fresh.state.upload?.sessionId !== sessionId) error(409, 'Upload session changed')
     const artifact = fresh.state.upload!.artifacts.find(a => a.name === original.name)!
-    if (artifact.uploadId || await headArtifact(env, fresh.state.upload!, artifact)) continue
+    // A registered key without an uploadId has never accepted a body.
+    if (artifact.uploadId) continue
     const created = await env.MEDIA.createMultipartUpload(artifact.key, { httpMetadata: { contentType: artifact.name === 'archive' ? 'application/zip' : 'text/html; charset=utf-8' },
       customMetadata: { sessionId, publicationId: fresh.state.publicationId, sha256: artifact.sha256 } })
     try {
@@ -258,9 +266,10 @@ async function ensureUploads(env: Env, slug: string, loaded: Loaded, origin: str
       usable(fresh.state, loaded.state.publicationId)
       if (fresh.state.upload?.sessionId !== sessionId) error(409, 'Upload session changed')
       const registered = fresh.state.upload!.artifacts.find(a => a.key === artifact.key)!
-      if (registered.uploadId) { await created.abort(); continue }
+      if (registered.uploadId) { await created.abort(); loaded = fresh; continue }
       registered.uploadId = created.uploadId
-      await writeState(env, slug, fresh.state, fresh.etag)
+      const savedEtag = await writeState(env, slug, fresh.state, fresh.etag)
+      loaded = { state: fresh.state, etag: savedEtag }
     } catch (e) {
       const current = await readProjectState(env, slug)
       if (!current || current.state.revoked || current.state.upload?.sessionId !== sessionId
@@ -268,7 +277,8 @@ async function ensureUploads(env: Env, slug: string, loaded: Loaded, origin: str
       throw e
     }
   }
-  return receipt(env, slug, (await readProjectState(env, slug))!, origin)
+  // A fresh session starts empty. Recovery requests still inspect native HEAD.
+  return receipt(env, slug, loaded, origin, freshSession ? [] : undefined)
 }
 async function authorized(env: Env, slug: string, token: unknown, publicationId: unknown, sessionId: unknown, allowCommittedEntry = false): Promise<Loaded> {
   const loaded = await readProjectState(env, slug)
