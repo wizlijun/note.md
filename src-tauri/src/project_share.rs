@@ -248,10 +248,19 @@ fn safe_destination(root: &Path, relative: &Path) -> Result<PathBuf> {
     }
     Ok(p)
 }
-/// Remove only the files authorized by the durable deletion reservation.
-/// A new file appearing after preflight keeps its directory nonempty and stops
+fn is_finder_metadata(path: &Path, kind: std::fs::FileType) -> bool {
+    kind.is_file() && path.file_name() == Some(std::ffi::OsStr::new(".DS_Store"))
+}
+/// Remove only reserved files and disposable Finder metadata in managed directories.
+/// A new user file appearing after preflight keeps its directory nonempty and stops
 /// cleanup; recursive deletion must never consume concurrent user work.
 fn remove_reserved_tree(root: &Path, files: &BTreeMap<String, String>) -> Result<()> {
+    match std::fs::symlink_metadata(root) {
+        Ok(meta) if !meta.is_dir() || meta.file_type().is_symlink() => return Err(format!("unsafe deletion directory: {}", root.display())),
+        Ok(_) => {},
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(error) => return Err(error.to_string()),
+    }
     let mut directories = HashSet::new();
     directories.insert(root.to_path_buf());
     for (relative, expected) in files {
@@ -273,6 +282,13 @@ fn remove_reserved_tree(root: &Path, files: &BTreeMap<String, String>) -> Result
     let mut directories: Vec<_> = directories.into_iter().collect();
     directories.sort_by_key(|path| std::cmp::Reverse(path.components().count()));
     for directory in directories {
+        let metadata = safe_destination(root, &directory.strip_prefix(root).map_err(|e| e.to_string())?.join(".DS_Store"))?;
+        match std::fs::symlink_metadata(&metadata) {
+            Ok(meta) if is_finder_metadata(&metadata, meta.file_type()) => std::fs::remove_file(&metadata).map_err(io_error)?,
+            Ok(_) => return Err(format!("unsafe Finder metadata: {}", metadata.display())),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {},
+            Err(error) => return Err(error.to_string()),
+        }
         match std::fs::remove_dir(&directory) {
             Ok(()) => {},
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {},
@@ -647,6 +663,7 @@ impl ProjectStore {
             if snapshots.exists() {
                 for entry in std::fs::read_dir(snapshots).map_err(|e| e.to_string())? {
                     let entry = entry.map_err(|e| e.to_string())?;
+                    if is_finder_metadata(&entry.path(), entry.file_type().map_err(io_error)?) { continue; }
                     let name = entry.file_name().into_string().map_err(|_| "invalid snapshot name")?;
                     let baseline = self.baseline(b, &name)?;
                     allowed.insert(self.management(b, &format!("snapshots/{name}/manifest.json"))?);
@@ -682,6 +699,7 @@ impl ProjectStore {
                     let path = entry.path();
                     let kind = entry.file_type().map_err(|e| e.to_string())?;
                     if kind.is_symlink() { return Err(format!("symlink blocks deletion: {}", path.display())); }
+                    if is_finder_metadata(&path, kind) { continue; }
                     if kind.is_dir() {
                         if !allowed.iter().any(|file| file.starts_with(&path)) { return Err(format!("unknown directory blocks deletion: {}", path.display())); }
                         walk(&path, allowed)?;
@@ -1609,6 +1627,92 @@ mod tests {
         assert_ne!(s.create(Path::new(&p.source_root).join("README.md").to_str().unwrap()).unwrap().project_id, p.project_id);
     }
     #[test]
+    fn project_share_delete_cleans_finder_metadata_without_touching_sources() {
+        let (_t, s, p) = fixture();
+        let snap = freeze(&s, &p);
+        s.feedback(&p.project_id, envelope(&p, &snap, "metadata-test")).unwrap();
+        let root = Path::new(&p.mirror_root);
+        let paths = [".DS_Store".to_string(), ".notemd/.DS_Store".into(),
+            ".notemd/snapshots/.DS_Store".into(), ".notemd/inbox/.DS_Store".into(),
+            format!(".notemd/snapshots/{}/files/docs/.DS_Store", snap.snapshot_id)];
+        let source_metadata = Path::new(&p.source_root).join(".DS_Store");
+        std::fs::write(&source_metadata, "source metadata").unwrap();
+        for path in &paths {
+            let path = root.join(path);
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(path, "Finder metadata").unwrap();
+        }
+        s.begin_delete(&p.project_id).unwrap();
+        assert!(!s.binding(&p.project_id).unwrap().deletion_files.unwrap().keys().any(|path| path.ends_with(".DS_Store")));
+        for path in &paths { std::fs::write(root.join(path), "updated metadata").unwrap(); }
+        std::fs::write(root.join("docs/.DS_Store"), "created after reservation").unwrap();
+        s.delete(&p.project_id).unwrap();
+        assert!(!root.exists());
+        assert_eq!(std::fs::read_to_string(source_metadata).unwrap(), "source metadata");
+        assert!(Path::new(&p.source_root).join("README.md").exists());
+    }
+    #[test]
+    fn project_share_cleanup_handles_metadata_created_after_preflight() {
+        let (_t, s, p) = fixture();
+        freeze(&s, &p);
+        s.begin_delete(&p.project_id).unwrap();
+        let (_, files) = s.delete_preflight(&s.binding(&p.project_id).unwrap()).unwrap();
+        let root = Path::new(&p.mirror_root);
+        std::fs::write(root.join(".DS_Store"), "late metadata").unwrap();
+        std::fs::write(root.join("docs/.DS_Store"), "late nested metadata").unwrap();
+        remove_reserved_tree(root, &files).unwrap();
+        s.delete(&p.project_id).unwrap();
+        assert!(!root.exists());
+        assert!(s.projects().unwrap().is_empty());
+    }
+    #[cfg(unix)]
+    #[test]
+    fn project_share_delete_rejects_metadata_named_symlinks_and_directories() {
+        let (t, s, p) = fixture();
+        freeze(&s, &p);
+        let outside = t.path().join("outside");
+        std::fs::write(&outside, "preserve").unwrap();
+        for name in [".DS_Store", ".notemd/snapshots/.DS_Store"] {
+            let metadata = Path::new(&p.mirror_root).join(name);
+            std::os::unix::fs::symlink(&outside, &metadata).unwrap();
+            assert!(s.begin_delete(&p.project_id).is_err());
+            assert_eq!(std::fs::read_to_string(&outside).unwrap(), "preserve");
+            std::fs::remove_file(&metadata).unwrap();
+            std::fs::create_dir(&metadata).unwrap();
+            assert!(s.begin_delete(&p.project_id).is_err());
+            std::fs::remove_dir(&metadata).unwrap();
+        }
+        let metadata = Path::new(&p.mirror_root).join(".DS_Store");
+        s.begin_delete(&p.project_id).unwrap();
+        let (_, files) = s.delete_preflight(&s.binding(&p.project_id).unwrap()).unwrap();
+        std::os::unix::fs::symlink(&outside, &metadata).unwrap();
+        assert!(remove_reserved_tree(Path::new(&p.mirror_root), &files).is_err());
+        assert_eq!(std::fs::read_to_string(&outside).unwrap(), "preserve");
+        std::fs::remove_file(&metadata).unwrap();
+        s.delete(&p.project_id).unwrap();
+    }
+    #[cfg(unix)]
+    #[test]
+    fn project_share_cleanup_rejects_root_symlink_created_after_preflight() {
+        let (t, s, p) = fixture();
+        freeze(&s, &p);
+        s.begin_delete(&p.project_id).unwrap();
+        let (_, files) = s.delete_preflight(&s.binding(&p.project_id).unwrap()).unwrap();
+        let root = Path::new(&p.mirror_root);
+        let saved = root.with_extension("saved");
+        std::fs::rename(root, &saved).unwrap();
+        let outside = t.path().join("outside");
+        std::fs::create_dir(&outside).unwrap();
+        std::fs::write(outside.join(".DS_Store"), "preserve outside metadata").unwrap();
+        std::os::unix::fs::symlink(&outside, root).unwrap();
+        assert!(remove_reserved_tree(root, &files).is_err());
+        assert_eq!(std::fs::read_to_string(outside.join(".DS_Store")).unwrap(), "preserve outside metadata");
+        assert!(saved.join("README.md").exists());
+        std::fs::remove_file(root).unwrap();
+        std::fs::rename(saved, root).unwrap();
+        s.delete(&p.project_id).unwrap();
+    }
+    #[test]
     fn project_share_delete_revalidates_drift_and_unknown_contents() {
         let (_t, s, p) = fixture();
         freeze(&s, &p);
@@ -1617,13 +1721,19 @@ mod tests {
         std::fs::write(&mirror, "unsaved mirror work").unwrap();
         assert!(s.begin_delete(&p.project_id).is_err());
         std::fs::write(&mirror, &original).unwrap();
-        for name in ["unknown.md", "README.note.md", ".notemd/unknown.json"] {
+        for name in ["unknown.md", "README.note.md", ".notemd/unknown.json", ".keep", ".DS_Store.md"] {
             let path = Path::new(&p.mirror_root).join(name);
             std::fs::write(&path, "keep me").unwrap();
             assert!(s.begin_delete(&p.project_id).is_err());
             assert!(path.exists());
             std::fs::remove_file(path).unwrap();
         }
+        let unknown = Path::new(&p.mirror_root).join("unknown-directory");
+        std::fs::create_dir(&unknown).unwrap();
+        std::fs::write(unknown.join(".DS_Store"), "metadata in unknown directory").unwrap();
+        assert!(s.begin_delete(&p.project_id).is_err());
+        assert!(unknown.join(".DS_Store").exists());
+        std::fs::remove_dir_all(unknown).unwrap();
         s.begin_delete(&p.project_id).unwrap();
         std::fs::write(&mirror, "changed after reservation").unwrap();
         assert!(s.delete(&p.project_id).is_err());
