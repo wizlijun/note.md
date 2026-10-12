@@ -27,6 +27,8 @@ export async function projectShareBrowser(parser: any, zipper?: any): Promise<vo
   let submitted: string[] = []
   let sentMarker: { submissionId: string; contentHash: string } | undefined
   let restoredContentHash: string | undefined
+  let rejectedPending: DraftV2['pending']
+  const rejectedBodies = new Map<string, NonNullable<DraftV2['pending']>>()
   let revoked = false
   const prefix = snapshot.project_id + ':'
   const legacy = new Map<string, any>()
@@ -151,12 +153,81 @@ export async function projectShareBrowser(parser: any, zipper?: any): Promise<vo
     const anchor=selector(source,note.quote,note.start,note.end)
     return {annotation:{path:note.path,selector:anchor??{exact:note.quote},comment:note.comment,kind:'comment' as const},located:!!anchor}
   }
-  const content = (target=draft, annotations=notes) => ({
+  // Local notes refer to their retained base. Wire selectors always refer to
+  // this submission's text; an old offset is never evidence in changed text.
+  const wireNote = (note: ProjectAnnotationV2, target: DraftV2) => {
+    const source=target.base[note.path]?.markdown ?? (target.snapshotId===snapshot.snapshotId?files.get(note.path)?.markdown:undefined)
+    if(typeof source!=='string' || typeof note.selector?.exact!=='string') return null
+    const local=selector(source,note.selector.exact,note.selector.start,note.selector.end)
+    if(!local) return null
+    const text=target.after[note.path]??source
+    if(text===source) return {...note,selector:{...note.selector,...local}}
+    let found=-1, count=0, only=-1, matches=0
+    for(let at=text.indexOf(local.exact);at>=0;at=text.indexOf(local.exact,at+1)) {
+      count++;only=at
+      if((local.prefix || local.suffix)
+        && text.slice(Math.max(0,at-local.prefix.length),at)===local.prefix
+        && text.slice(at+local.exact.length,at+local.exact.length+local.suffix.length)===local.suffix) {
+        found=at;matches++
+        if(matches>1) return null
+      }
+      if(at===text.length) break
+    }
+    // A unique quote in both texts is usable without ranking approximate
+    // context. Duplicates require exactly one complete context match.
+    if(matches!==1) {
+      if(count!==1 || source.indexOf(local.exact)!==source.lastIndexOf(local.exact)) return null
+      found=only
+    }
+    return {...note,selector:{...note.selector,...selector(text,local.exact,found,found+local.exact.length)!}}
+  }
+  const content = (target=draft, annotations=notes, strict=false) => ({
     snapshotId:target.snapshotId,
-    edits:Object.entries(target.after).filter(([filePath,text])=>text!==target.base[filePath]?.markdown).map(([filePath,text])=>({path:filePath,baseHash:target.base[filePath].hash,afterMarkdown:text})),
-    annotations,
+    edits:Object.entries(target.after).filter(([filePath,text])=>text!==target.base[filePath]?.markdown).map(([filePath,text])=>({path:filePath,baseHash:target.base[filePath]?.hash,afterMarkdown:text})),
+    annotations:annotations.map(note=> {
+      const mapped=wireNote(note,target)
+      if(!mapped && strict) throw Error('批注无法在提交正文中唯一定位：'+note.path+'。请恢复对应正文，或在批注下点击“移除批注”后重新选文；批注仍已保留')
+      return mapped??note
+    }),
     message:target.message,
   })
+  // The serialized runtime cannot import the Worker validator. Keep this
+  // boundary aligned with protocol §6.3; validate the actual JSON wire object.
+  const invalidV2 = (value: any): string | undefined => {
+    const object=(v:any)=>v!==null && typeof v==='object' && !Array.isArray(v)
+    const keys=(v:any,allowed:string[])=>object(v) && Object.keys(v).every(key=>allowed.includes(key))
+    const optional=(v:any,key:string,check:(value:any)=>boolean)=>!Object.hasOwn(v,key) || check(v[key])
+    const text=(v:any,max:number,min=0)=>typeof v==='string' && v.length>=min && v.length<=max
+    const id=(v:any)=>typeof v==='string' && /^[a-zA-Z0-9_-]{1,128}$/.test(v)
+    const relative=(v:any)=>typeof v==='string' && v.length>0 && !/^[\/]|[\\:\0]/.test(v) && v.split('/').every((part:string)=>part && part!=='.' && part!=='..')
+    const offset=(v:any)=>Number.isSafeInteger(v) && v>=0
+    if(!keys(value,['schemaVersion','project_id','snapshotId','submissionId','supersedes','rebasedFrom','message','contributor','client','edits','annotations'])
+      || value.schemaVersion!==2 || !id(value.project_id) || !id(value.snapshotId) || !id(value.submissionId)
+      || !optional(value,'supersedes',v=>id(v) && v!==value.submissionId)
+      || !optional(value,'rebasedFrom',v=>id(v) && v!==value.snapshotId)) return '提交标识或格式无效，请导出备份'
+    if(!optional(value,'contributor',v=>keys(v,['name','aiAssisted']) && optional(v,'name',n=>text(n,80) && !/\p{Cc}/u.test(n)) && optional(v,'aiAssisted',a=>typeof a==='boolean'))) return '署名最多 80 个 UTF-16 单位，且不能含控制字符，请修改署名'
+    if(!optional(value,'message',v=>text(v,2000) && !v.includes('\0'))) return '说明最多 2000 个 UTF-16 单位，且不能含空字符，请修改说明'
+    if(!optional(value,'client',v=>keys(v,['kind','version']) && optional(v,'kind',k=>['browser','browser-fallback','notemd'].includes(k)) && optional(v,'version',v=>text(v,32)))) return '客户端格式无效，请导出备份'
+    if(!Array.isArray(value.edits) || value.edits.length>2000) return '修改文件不能超过 2000 项，请减少修改或导出备份'
+    const seen=new Set<string>()
+    for(const edit of value.edits) {
+      if(!keys(edit,['path','baseHash','afterMarkdown']) || !relative(edit.path) || typeof edit.baseHash!=='string' || !/^[a-f0-9]{64}$/.test(edit.baseHash) || typeof edit.afterMarkdown!=='string' || seen.has(edit.path)) return '修改文件的路径、原文哈希或格式无效，请导出备份'
+      seen.add(edit.path)
+    }
+    if(!Array.isArray(value.annotations) || value.annotations.length>2000) return '批注不能超过 2000 项，请移除部分批注'
+    for(const note of value.annotations) {
+      if(!keys(note,['path','selector','comment','kind']) || !relative(note.path) || !text(note.comment,10000,1) || !optional(note,'kind',k=>['comment','question','blocker'].includes(k))) return '批注评论须为 1–10000 个 UTF-16 单位，且格式有效；请移除该批注后重新添加'
+      const anchor=note.selector
+      if(!keys(anchor,['exact','prefix','suffix','start','end']) || !text(anchor.exact,2000)
+        || !optional(anchor,'prefix',v=>text(v,64)) || !optional(anchor,'suffix',v=>text(v,64))
+        || (!anchor.exact.length && !text(anchor.prefix,64,1) && !text(anchor.suffix,64,1))
+        || !optional(anchor,'start',offset) || !optional(anchor,'end',offset)
+        || (anchor.start!==undefined && anchor.end!==undefined && anchor.end-anchor.start!==anchor.exact.length)) return '批注选文最多 2000 个 UTF-16 单位，且定位格式须有效；请移除该批注后重新选文'
+    }
+  }
+  const invalidFrozenV2 = (body: string) => {
+    try { const value=JSON.parse(body);return value.schemaVersion===2?invalidV2(value):undefined } catch { return undefined }
+  }
   const labelOldDraft = (sent=false) => {
     const label=oldDraftLabels.get(draft.lineageId)
     if(label) label.textContent=(sent?'你在旧版本上有已提交的草稿':'你在旧版本上有未提交的修改')+'（'+draft.snapshotId+'） '
@@ -164,7 +235,11 @@ export async function projectShareBrowser(parser: any, zipper?: any): Promise<vo
   const contentHash = async (value: any): Promise<string> => {
     // Legacy wire bytes remain frozen. Only this local comparison projection
     // converts trusted v1 anchors using the same transformation as migration.
-    const annotations=value.schemaVersion===1?value.annotations.map((note:any)=> {const converted=formNote(note,draft.base);return converted?.located?converted.annotation:note}):value.annotations
+    const legacyTarget=value.schemaVersion===1?{...draft,after:Object.fromEntries(value.edits.map((edit:any)=>[edit.path,edit.afterMarkdown]))}:undefined
+    const annotations=legacyTarget?value.annotations.map((note:any)=> {
+      const converted=formNote(note,draft.base)
+      return converted?.located?(wireNote(converted.annotation,legacyTarget)??note):note
+    }):value.annotations
     const bytes=new TextEncoder().encode(JSON.stringify({snapshotId:value.snapshotId,edits:value.edits,annotations,message:value.message}))
     const digest=await crypto.subtle.digest('SHA-256',bytes)
     return Array.from(new Uint8Array(digest),byte=>byte.toString(16).padStart(2,'0')).join('')
@@ -393,7 +468,14 @@ export async function projectShareBrowser(parser: any, zipper?: any): Promise<vo
   const comments = () => {
     $('comments').replaceChildren()
     for(const item of state.annotations.filter((item:any)=>item.path===path)) {
-      const block=document.createElement('blockquote'); block.textContent=item.selector.exact+'\n'+item.comment; $('comments').append(block)
+      const block=document.createElement('blockquote'); block.textContent=item.selector.exact+'\n'+item.comment
+      const remove=document.createElement('button');remove.className='reader-button';remove.textContent='移除批注';remove.disabled=busy
+      remove.onclick=async()=> {
+        if(busy) return
+        notes.splice(notes.indexOf(item),1);labelOldDraft();comments()
+        try {await save();say('批注已移除；待确认的原包仍保持不变')} catch(error:any) {say('批注修改未保存：'+error.message+'；请导出备份')}
+      }
+      block.append(remove);$('comments').append(block)
     }
   }
   const render = () => {
@@ -426,6 +508,8 @@ export async function projectShareBrowser(parser: any, zipper?: any): Promise<vo
     submit.disabled=!token || !ready || busy || revoked
     ;($('annotate') as HTMLButtonElement).disabled=!token || !initialized
     if(token && initialized && draft.snapshotId!==snapshot.snapshotId && !draft.base[path]) say('此文件没有旧版本原文，无法加入旧草稿；请导出备份后刷新到当前版本')
+    correctRejected.hidden=!rejectedPending || rejectedPending!==draft.pending
+    correctRejected.disabled=busy || !ready
     comments()
   }
   const navigate = () => {
@@ -460,8 +544,11 @@ export async function projectShareBrowser(parser: any, zipper?: any): Promise<vo
     if(editing || !selection?.rangeCount || Array.from({length:selection.rangeCount},(_,index)=>selection.getRangeAt(index)).some(range=>!article.contains(range.startContainer) || !article.contains(range.endContainer))) { say('请在发布原文的正文中选中要标注的文字'); return }
     const quote=selection.toString()
     if(!quote) { say('请先选中要标注的文字'); return }
+    if(quote.length>2000) {say('批注选文最多 2000 个 UTF-16 单位，请缩短选文');return}
+    if(notes.length>=2000) {say('批注不能超过 2000 项，请先移除部分批注');return}
     const comment=window.prompt('评论')
     if(!comment?.trim()) return
+    if(comment.trim().length>10000) {say('批注评论最多 10000 个 UTF-16 单位，请缩短评论后重新添加');return}
     if(!ensureBase()) return
     const anchor=selector(original(path)!,quote)
     if(!anchor) { say('选文在原文中存在多处或无法定位，请选择唯一的原文片段');return }
@@ -471,11 +558,28 @@ export async function projectShareBrowser(parser: any, zipper?: any): Promise<vo
     try { await save(); say('标注已保存到本浏览器') } catch(error:any) { say('标注未保存：'+error.message+'；请导出备份') }
   }
   $('export').onclick=()=> {
-    const blob=new Blob([JSON.stringify({project_id:snapshot.project_id,draft,annotations:notes,legacy:Array.from(legacy.entries())},null,2)],{type:'application/json'})
+    const blob=new Blob([JSON.stringify({project_id:snapshot.project_id,draft,annotations:notes,legacy:Array.from(legacy.entries()),rejected:Array.from(rejectedBodies.entries())},null,2)],{type:'application/json'})
     const url=URL.createObjectURL(blob); const a=document.createElement('a');a.href=url;a.download='project-draft.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)
   }
   name.oninput=()=> { void request('readwrite',prefix+'nickname',name.value).catch(()=>say('署名未保存；草稿仍可导出')) }
   ;($('message') as HTMLInputElement).oninput=()=> {draft.message=($('message') as HTMLInputElement).value;labelOldDraft();void save().catch(error=>say('说明未保存：'+error.message))}
+  const correctRejected=document.createElement('button');correctRejected.id='correct-rejected';correctRejected.className='reader-button';correctRejected.textContent='纠正已拒收的提交';correctRejected.hidden=true;status.after(correctRejected)
+  correctRejected.onclick=async()=> {
+    const pending=draft.pending
+    if(busy || !ready || !pending || rejectedPending!==pending || !invalidFrozenV2(pending.body)) return
+    busy=true;render()
+    try {
+      saving=saving.catch(()=>{}).then(async()=> {
+        const next=structuredClone(draft);delete next.pending
+        // One immutable rejected body per lineage, replaced only by another
+        // explicit correction. The export includes this recovery copy.
+        await atomic([[draftKey(),next],[notesKey(),structuredClone(notes)],[prefix+'draft2-rejected:'+draft.lineageId,pending]])
+        delete draft.pending;rejectedBodies.set(draft.lineageId,pending);rejectedPending=undefined
+      }).catch(error=>{ready=false;throw error})
+      await saving;say('已解除冻结，原拒收包已保留供导出；请纠正输入后提交')
+    } catch(error:any) {say('纠正未保存：'+error.message+'；原包仍保留')}
+    finally {busy=false;render()}
+  }
   submit.onclick=async()=> {
     if(busy || !ready || !token || revoked) return
     busy=true;render()
@@ -484,11 +588,13 @@ export async function projectShareBrowser(parser: any, zipper?: any): Promise<vo
       if(revoked) return
       let pending=draft.pending
       if(!pending) {
-        const candidate=content()
+        const candidate=content(draft,notes,true)
         if(!candidate.edits.length && !notes.length) {say('没有新的修改或标注');return}
         const submissionId=uuid()
         const payload={schemaVersion:2,project_id:snapshot.project_id,...candidate,submissionId,client:{kind:'browser-fallback'},contributor:{name:name.value},supersedes:draft.lastSubmissionId,rebasedFrom:draft.rebasedFrom}
         const body=JSON.stringify(payload)
+        const invalid=invalidV2(JSON.parse(body))
+        if(invalid) {say(invalid);return}
         if(new TextEncoder().encode(body).byteLength>5*1024*1024) {say('修改包超过 5 MiB，请导出备份并联系主人');return}
         const hash=await contentHash(JSON.parse(body))
         if(sentMarker?.submissionId===draft.lastSubmissionId && sentMarker?.contentHash===hash) {say('没有新的修改或标注');return}
@@ -497,7 +603,11 @@ export async function projectShareBrowser(parser: any, zipper?: any): Promise<vo
       }
       say('提交中…');await save()
       const response=await fetch(data.feedbackUrl,{method:'POST',headers:{'Content-Type':'application/json','X-Feedback-Token':token},body:pending.body})
-      if(!response.ok) throw new Error('HTTP '+response.status)
+      if(!response.ok) {
+        const invalid=response.status===400?invalidFrozenV2(pending.body):undefined
+        if(invalid) {rejectedPending=pending;say('已明确拒收（HTTP 400）：'+invalid+'。点击“纠正已拒收的提交”解除冻结；原包仍保留');return}
+        throw new Error('HTTP '+response.status)
+      }
       await response.json()
       const marker={submissionId:pending.submissionId,contentHash:await contentHash(JSON.parse(pending.body))}
       const markDelivered = (target: DraftV2) => {
@@ -517,7 +627,7 @@ export async function projectShareBrowser(parser: any, zipper?: any): Promise<vo
       $('my-submissions').hidden=false
       const row=document.createElement('p');row.textContent=pending.submissionId+'：已送达，待处理';$('receipts').prepend(row)
       say('已送达，等待主人审阅；页面正文需主人重新发布后更新')
-    } catch(error:any) {say('结果未知或未送达：'+error.message+'；草稿已保留，点击提交重试原包')}
+    } catch(error:any) {say(draft.pending?'结果未知或未送达：'+error.message+'；草稿已保留，点击提交重试原包':'无法提交：'+error.message)}
     finally {busy=false;render()}
   }
   window.addEventListener('hashchange',navigate)
@@ -547,7 +657,8 @@ export async function projectShareBrowser(parser: any, zipper?: any): Promise<vo
       const key=String(rawKey)
       if(!key.startsWith(prefix)) continue
       const value=await request('readonly',key)
-      if(key.startsWith(prefix+'draft2:') && value?.v===2) drafts.set(key,value)
+      if(key.startsWith(prefix+'draft2-rejected:')) rejectedBodies.set(key.slice((prefix+'draft2-rejected:').length),value)
+      else if(key.startsWith(prefix+'draft2:') && value?.v===2) drafts.set(key,value)
       else if(value?.drafts && Array.isArray(value.annotations)) {
         if(key===prefix+snapshot.snapshotId) {
           legacy.set(key,value)
