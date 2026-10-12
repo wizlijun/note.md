@@ -180,10 +180,10 @@ expect(prepareSource).not.toHaveBeenCalled()
 
 **Interfaces:** 无新业务接口；消费Tasks1–3。输出report含G1–G11逐项证据、P0兼容、全部运行命令/exit、未知边界。
 
-- [ ] **Step 1: 核对G1–G11完整覆盖。** G5必须TS真实内核相对HEAD冲突→0branch，再Rust固定H/范围拒绝→0ref，不能伪称Rust做了diff。G1比较包括真实index不存在/存在、config/hooks原字节；G4真实merge-base false；G10真实git am，G11真实clean/eol。所有临时repo在独立tempfile，当前mdeditor仓库不执行fixture git init/checkout/update-index。
-- [ ] **Step 2: v1/公开投影/P0回归。** 有效v1收件署名/AI默认，v2仍不提前接受；snapshot父与所有Git本机字段不进public包；source/mirror dirty不被B/C保存；失败/取消不写原件；branched/reject/apply终态保护；project delete竞态无孤儿隐藏ref；用户branch保留。source==Vault同库按裁定11单独披露原有P0副作用与Git阶段不变证据。
-- [ ] **Step 3: 更新双语Unreleased。** 中文“Git 项目的外部建议可生成带访客署名的分支或导出补丁；按项目记住合入目标，不切换分支、不推送，也不更改工作区。”英文对应。若遗留本轮失败明确记录，不静默omit。
-- [ ] **Step 4: 按顺序完整检查。** 前端时序suite不与Cargo/build重叠，复用已有target，不调高阈值或跳过测试。
+- [x] **Step 1: 核对G1–G11完整覆盖。** G5必须TS真实内核相对HEAD冲突→0branch，再Rust固定H/范围拒绝→0ref，不能伪称Rust做了diff。G1比较包括真实index不存在/存在、config/hooks原字节；G4真实merge-base false；G10真实git am，G11真实clean/eol。所有临时repo在独立tempfile，当前mdeditor仓库不执行fixture git init/checkout/update-index。
+- [x] **Step 2: v1/公开投影/P0回归。** 有效v1收件署名/AI默认，v2仍不提前接受；snapshot父与所有Git本机字段不进public包；source/mirror dirty不被B/C保存；失败/取消不写原件；branched/reject/apply终态保护；project delete竞态无孤儿隐藏ref；用户branch保留。source==Vault同库按裁定11单独披露原有P0副作用与Git阶段不变证据。
+- [x] **Step 3: 更新双语Unreleased。** 中文“Git 项目的外部建议可生成带访客署名的分支或导出补丁；按项目记住合入目标，不切换分支、不推送，也不更改工作区。”英文对应。若遗留本轮失败明确记录，不静默omit。
+- [x] **Step 4: 按顺序完整检查。** 前端时序suite不与Cargo/build重叠，复用已有target，不调高阈值或跳过测试。
 
 ```sh
 pnpm test

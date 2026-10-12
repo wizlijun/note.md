@@ -73,3 +73,110 @@
 - Task 2 曾有一次完整 Cargo 的 `search_cli_contract` attention expected 10 got 0，单测与后续完整重跑通过，根因未知，本轮不宣称已修复该旧问题。
 - 前端 happy-dom 异步任务关闭噪声、Svelte 既有 warnings、Rust ParsedHeader warning、构建 chunk 提示按本轮实际日志记录，不能称输出 pristine。
 - 所有测试仓库为独立 tempfile；本地 clone/am 仅用于隔离验收，产品没有联网 Git。未 push/tag/release/部署，没有触碰用户真实项目或原七项 untracked/旧备份。
+
+
+## 独立审查与源码沿革（root归档）
+
+P1起点0ca59cf9；同一main顺序写入，不建worktree。P0独立证据见2026-10-12-project-share-review-merge-p0-verification.md，本轮不借用其native证据。
+
+| 任务 | 提交及独立规格/质量结论 | 发现与闭环 |
+| --- | --- | --- |
+| Task1 Git原语 | e29fffa5、71819361，最终Spec✅/Approved | Unix字面反斜杠prefix跨项目映射I1，RED1/GREEN11后scoped ADDRESSED；存在非法UTF8目录的环境M1保留。 |
+| Task2 Store/IPC | 4e97d11e、9f74d259，最终Spec✅/Approved | latest重验遗漏annotation-only A intent的I1，经真实RED6/GREEN88修复；可选字段null形状M1同时修正；scoped两项ADDRESSED。一次历史search失败根因未知保留。 |
+| Task3 Git UI | 32fcd45e；计划修订0e1d44b5，最终Spec✅/Approved | 父文件清单I1经控制器正式修订为现有isBusy+真实父组件测试，scoped ADDRESSED；产品未造无功能改动。六文件176/176，Chrome生产组件+真实Worker隔离bridge；原生边界保留。 |
+| Task4 集成验收 | ef78b8a9，Spec✅/Approved | 0 Critical/Important；Minor为署名截断可增加独立字面期望及既有噪声，交最终review triage。 |
+
+最终whole-branch review从0ca59cf9至实际Task4后HEAD，状态待执行。若有问题仅统一一波fix及一次scoped复审，不能将逐任务批准等同最终通过。
+
+## 统一发布盘点（root，发行前）
+
+初次与2026-10-13跨日刷新审计一致：最新正式v6.1012.2/e440b38c721450f92abf5947eb1d32912e851d48，真实origin/main ce070741f2aec8235dfa62b9812c558c3579160f。发布执行前再次确认。Memory9a14dd7c及Richc49b8e66 actual blobs/原新增hunks已在正式版且当前main完整保留（14项检查缺失0）；本次整体main发行，不按分享范围cherry-pick排除它们。
+
+26正式插件源码版本与匿名市场最高版本一致；tag后plugins/SDK/protocol/registry/website/其他服务无新产品源码差异。本轮不凭空增加插件版本或重新发布相同包。兄弟moraya-core main/remote1cb70441f440f50ac4b023857f6d48d5b70eda5a干净，安装dist与HEAD57文件/2206579bytes逐字节一致，树SHA256 1b656cb331446f6110816b828fb61dae9b25227622836f734922918ac674ec16；不宣称证明此前正式二进制的依赖输入。
+
+当前Worker主干=remote实际源码，生产deployment6a2131e6-b32c-465e-aebd-cf4a32f8e141、100% version4b59fa31-c9b1-4619-aeae-c186bed33374，对应CI38210844417/b2de9a9666affed37c41d525d1a72fdaa95f3aba。**已知未完成：archive seal/status-cleanup各10ms，严格<10ms失败；代表性10次/limits10次和KV legacy迁移最终验收未完成。** 旧combined候选只在force-pull备份与保留ref，不恢复为当前发行源码；宿主发版不代表免费上传方案全部完成。P1没有Worker改动。
+
+所有23远端heads/5本地heads及保留refs已盘点。旧90b97559只含Cloud Agent开发环境，非产品运行产物，不合入。三stash共20文件逐hunk比较：website五文件与正式tag/HEAD exact blob一致，Next/Roam行为已覆盖且扩展，旧v1插件日志执行器已退役由v2替代；无独立未发布产品行为。旧Rust空dash独立测试未逐字保留，现有TS syntax.test.ts:40具名更广等价覆盖；少量评论差异不当产品遗漏。三stash原refs保留，未apply/drop。
+
+原7项untracked保留：.pnpm-store/及六份旧设计稿/HTML（路径见本报告发行前清单）；发布preflight仅精确本机exclude，结束恢复原exclude使它们重新可见，不提交/删除/清理用户数据。旧force-pull备份.git/force-pull-backups/20261012T081941Z及refs/backup/before-force-pull/20261012T081941Z保留。
+
+正式版本、source tag、双架构七资产SHA/签名公证、匿名回读/latest、插件Worker最终状态待实际执行后补充，当前不宣称发布成功。
+
+## Rulings I made
+
+以下为本P1计划ledger所有裁定，按时间顺序逐字归档，包含理由及误判代价。P0裁定见已独立归档报告。
+
+Ruling: 继续当前main，不新建分支/worktree — 用户明确持续授权 — 误判代价：共享checkout，所有写任务顺序执行并精确提交。
+
+Ruling: 本轮按依赖顺序交付 P1；沿用已选择的 SDD，不重复询问执行方式。误判代价：P2 与编辑器仍需后续计划。
+
+Ruling: `prepare` 返回固定 H 的全部 edit HEAD blob、可信 base/after 和最新反馈；branch/export-patch 增加必填 `expectedHead`，执行前及写 ref 前核对 H。原因：原 §9.7 无法绑定前端 compose 与 Rust parent；代价：多一个本机 op/参数。
+
+Ruling: §6.2/6.4 要求的 `.notemd` 私有 manifest/inbox 为 §18.8 的本机元数据例外；源 Markdown、公开包/回执/普通日志仍不得包含本机路径或 oid。代价：Sync 私有元数据包含本机诊断，不能作为公开文件打包。
+
+Ruling: P1 沿用 v1，message 使用缺省 suggestion 标题，AI 为 unknown，name 来自 v1.name；formatter 内部留可选 message/AI 输入接缝，公开 payload 不扩展。代价：丰富署名信息须等 P2。
+
+Ruling: B/C 只合入 edit 正文；不包含新提升批注，不改 annotation_decisions。批注可复制/忽略或先切 A 提升，B/C 中隐藏提升选择并解释；annotation-only 只能 A。代价：Git 批注提升需另行明确持久化/状态契约。
+
+Ruling: 项目 Config.gitTarget 是目标权威；ReviewDraft.target 只是保存时目标快照，不反向覆盖项目选择。非 Git 始终 A；有 remote 默认 B，无 remote 默认 A，保存值优先。代价：跨项目恢复时不沿用某文件旧 target。
+
+Ruling: B 只接收全部 edits 尚未终结的提交，拒绝部分 accepted/rejected/branched 的混合提交；完成后保留 ReviewDraft 供重复 C，全部 branched 可 C 不可再 B/A。代价：部分处理后须使用 A 继续，不能重新打包为 B。
+
+Ruling: C 重复导出相同 H/结果复用既有 exports ref；不同结果不覆盖 create-only ref，明确提示已有导出不同。快照/投稿重试先校验现存 ref 对象的 parent/tree/message/author 再复用，不依赖当前时间生成同 oid。代价：修改后再次导出需新的提交身份；可见失败优于覆写历史。
+
+Ruling: Git 模式打开审阅及 B/C handler 均不调用 prepareSource/saveTab/refreshSource；切回 A 再执行 P0 准备/重算。代价：B/C 展示磁盘工作区，未保存 buffer 不参与；最终合入以 H 为准。
+
+Ruling: snapshot 在锁外预采 HEAD，冻结成功后锁外复验；不一致则只记录 gitError，P0 冻结仍成功。命令异步 spawn_blocking 编排并等待元数据结果，失败不使 P0 返回失败。代价：Git 请求增加等待，但不占全局锁/主线程；无法稳定采样时没有 Git snapshot。
+
+Ruling: I10 对 Git 阶段完整验证。source 与 Vault 同库时，P0 冻结本来会写受管 Sync 镜像/私有元数据；保留这些既有副作用，单独记录并验证 Git 阶段没有额外改动，不能宣称整个 P0 freeze 的全仓 status 不变。代价：该拓扑无法满足字面上的全流程全仓 status 不变，验证报告必须披露。
+
+Ruling: Git fetch/push 禁令适用于项目分享产品运行能力，不禁止既有隔离tempfile/local bare测试中的调用 — spec同时强制完整cargo回归且这些既有tests必须执行，不触及真实用户库/公网 — 误判代价：测试日志含本地网络命令，应明确隔离边界；P1产品不得新增网络Git命令。Task1报告保留23/23已有gate回归与原措辞冲突，不删证据、不跳测试。
+
+Ruling: 用户“继续直到发版”覆盖此前本轮不发布限制；完成P1后按AGENTS统一整合全部未发布更新并验证宿主/插件/Worker正式产物 — 最新明确授权 — 误判代价：发布范围扩大，必须盘点本地/远端/分支/dirty对最新tag逐patch核实，不能只发分享或仅祖先判断。应用Git禁令不限制已授权的发行仓库操作。
+
+Ruling: 不恢复 force-pull 前 combined 候选，保留旧备份且明确 Worker 免费CPU验收残留 — 用户已强制拉取替换旧工作区，候选未进入当前main且未完成生产门槛，不能用“全部未发布”覆盖当前已接受源码 — 误判代价：archive seal/status-cleanup各10ms的严格<10ms问题仍在，10+10及KV最终验收未完成；宿主发版不等于免费上传方案全部完成。
+
+Ruling: 本轮不合入旧90b97559 Cloud Agent开发环境分支，发行清单显式记录 — 实际差异仅.cursor/environment.json及scripts/cloud-agent-install.sh，均不改变宿主/插件/Worker运行产物；旧脚本会自动刷新私人兄弟仓库，不应顺带引入本次产品发行 — 误判代价：该开发环境分支继续未合并，不能宣称所有开发配置均已整合。
+
+Ruling: 原7项untracked继续原地保留，发布preflight仅以精确本机exclude隐藏缓存/六个旧设计稿，不提交或删除 — 它们不是本次产品更新且来源已要求保留；release.sh须干净工作区，局部exclude不改变发行代码 — 误判代价：这些本机路径从常规status隐藏，验证记录须列出；设计稿仍不在发行源码中，可撤销exclude恢复可见。
+
+Ruling: B返回增加可选stateError，分支创建成功但Decision写回失败仍返回branch/commit/最新可读feedback；UI保留结果并仅重试git-branched，不再次branch — brief要求部分成功可重试但接口缺错误载体，复用feedback.error会混淆持久业务状态 — 误判代价：本机返回类型增加一字段，Task3必须显示并提供状态重试；不能把这类结果显示成完整成功。
+
+Ruling: 允许SubmissionGit最小私有branch intent，建ref前短锁保存固定H/results hash/commit/候选分支，重试仅在intent与真实ref及提交完整匹配时复用 — 仅stateError不能覆盖ref成功后进程崩溃或IPC重试，不能静默再建-2分支，也不能侵占用户同OID分支 — 误判代价：私有inbox新增可选字段及恢复路径，须验证两层锁外Git/最新状态patch/删除竞态；禁止进入公开包。
+
+Ruling: 新增project_share review-readonly读取磁盘ReviewFile，B/C打开不进入load_feedback/recover；Git模式有P0未完成写回intent时拒绝并提示切A恢复 — 既有review会刷新镜像并删除草稿，仅跳过prepareSource不足以兑现B/C不写source/mirror — 误判代价：增加本机只读op和恢复守卫，带未完成A意图的投稿须先A恢复；原P0普通review行为保持。
+
+Ruling: Task1 branch_ref不再作为生产接口；Task2恢复intent要求先选候选再保存意图再CAS，允许将旧branch_ref收为调用真实生产原语的cfg(test)薄组合器，不能保留仅测试走的重复分支算法 — 消除本轮新产生的dead_code且避免假G6覆盖，不用allow掩盖 — 误判代价：内部API调整，生产G6需以真实store路径补验，原语计数不能替代业务测试。
+
+Ruling: Task4对已恢复not_applied的Git重试只放行无Decision或明确not_applied，保持其他未知/恢复冲突/隔离状态fail-closed及accepted/rejected/branched既有终态保护 — spec保留现有状态语义，修复contains_key过宽不能顺带将所有非终态错误当作可合入 — 误判代价：source_changed等其他非终态仍需A处理，尚未扩展到Git重试；须真实B/C回归而非仅枚举单测。
+
+Ruling: Task3的ProjectShareDialog.svelte由必改文件改为核验既有isBusy锁并补真实父组件测试，产品无必要变更则保留原实现 — 规格要求关闭/切项目锁，现有locked与close/选择入口已消费isBusy；review I1只指出文件清单无hunk且176测试证明锁/noSave，添加无功能改动违反精准改动 — 误判代价：不新增父组件源码接缝，今后isBusy契约变化仍须父组件回归；当前原生OS锁未实测边界保留。
+
+Ruling: guest_author在既有control/<>清洗外剔除@，访客名按UTF-8字符边界截至40bytes后再加固定20bytes的 (guest, unverified)，空名回退guest；submission/branch/复制Coauthor共用，原v1.name与format-patch正文不改 — Task4真实git am发现Git2.50.1 mailinfo get_sane_name对>60bytes或含@的display name回退email，破坏G3/G10未验证访客署名；官方git/git v2.50.1 mailinfo.c已核实 — 误判代价：长名及@自报名在Git身份中被缩短/清洗，原载荷仍完整；必须Unicode/边界/@真实git am回归且普通名行为不变。
+
+Ruling: 不恢复三份旧stash，保留全部refs并将20文件逐hunk审计归档 — website五文件与正式tag/HEAD exact blob相同，Next多项目/推荐及Roam空bullet已等价覆盖并扩展，旧v1插件日志执行器已明确退役由v2替代，未发现独立未发布产品行为 — 误判代价：旧Rust空dash独立测试与少量注释未逐字重引（现有TS具名等价覆盖），不是所有stash字节进入发行；原stash可继续审查恢复。
+
+## 最终检查输入与日志摘要（root复核）
+
+冻结源码五项SHA与当前文件逐项一致，六命令顺序且均exit0，Rust22段合计1427（lib1238）、前端323files/3859、Worker8/255、check0/33且逐诊断与baseline一致；EditorKit/build/diff通过。search attention本轮ok，历史根因仍未知。
+
+| 原始日志 | SHA256 |
+| --- | --- |
+| task-4-final-frontend.log | 6587595a96e09ba4dd39a0b6b3a4c064cb5662b1fcd3c736455dbb228978ea94 |
+| task-4-final-cargo.log | f4b2ea745071d8122926a4b9b4a5edfa03fb5e6281a49548b4b06116bc07d8a9 |
+| task-4-final-worker.log | 92647e6f5df8e734fdb982b8bdf6fa03af0ff90724bda77ac20882ca5767e826 |
+| task-4-final-check.log | b4a530f02a8a893259898a4d4a2a60f939ea18d9072af1f366c5e188907f4a4c |
+| task-4-final-build.log | 86ea41ddd228f09b84355ceaf5d5fea1f9abdedb75255d2d0f70bbe48d1a26e4 |
+| task-4-final-diff.log | e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 |
+
+冻结源文件SHA：
+
+```json
+{
+  "src-tauri/src/project_share.rs": "89d2838394262db9099f3565c3dbfd0950ee8239fd37b070f5fdd5fb89c90f71",
+  "src-tauri/src/project_share_git.rs": "10401190ddd565e988eea3359299909ce95a63371a657900ef8f122dff831a2f",
+  "src/lib/project-share/archive.test.ts": "9df6c54f4e6be75c2222c0877bc4ef540681402b620e25221b4bf342b8db9a5a",
+  "src/lib/project-share/browser.test.ts": "61b78b6fc87e36ec06a715201dbc2176bedd65f6f03e3f4c35bb4cd48ddbbc8c",
+  "src/lib/project-share/bundle.test.ts": "046f49c3da6f764b003839dbc63240e1c7e276d8c60610a938fd3c8319badc99"
+}
+```
