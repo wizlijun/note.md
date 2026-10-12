@@ -1197,6 +1197,9 @@ impl ProjectStore {
         Ok(())
     }
     fn bound_source(&self, b: &Binding, path: &str) -> Result<PathBuf> {
+        if !self.config(b)?.files.iter().any(|shared| shared == path) {
+            return Err("file outside current shared scope".into());
+        }
         let source = self.source_path(Path::new(&b.source_root), path)?;
         let target = self.mirror_path(b, path)?;
         let records = store::read_records(&self.records_path()).map_err(|e| e.to_string())?;
@@ -1601,6 +1604,241 @@ fn now() -> u64 {
 mod tests {
     use super::*;
     use tempfile::TempDir;
+
+    #[test]
+    fn project_share_review_real_fixture_preserves_owner_unshared_and_reopens_decisions() {
+        let t = TempDir::new().unwrap();
+        let source = t.path().join("owner/project");
+        std::fs::create_dir_all(&source).unwrap();
+        let base = "甲。\n\n乙。\n\n丙。\n[b](b.md) ![picture](pic.png)\n";
+        let other = "[a](a.md)\n";
+        let image = b"\x89PNG\r\n\x1a\nfixture";
+        let private = b"private\0\r\nunchanged";
+        std::fs::write(source.join("a.md"), base).unwrap();
+        std::fs::write(source.join("b.md"), other).unwrap();
+        std::fs::write(source.join("pic.png"), image).unwrap();
+        std::fs::write(source.join("unshared.md"), private).unwrap();
+        let service = ProjectStore::new(t.path().join("vault"), t.path().join("state"));
+        let project = service
+            .create(source.join("a.md").to_str().unwrap())
+            .unwrap();
+        let freeze = || {
+            let paths = vec![
+                "a.md".to_string(),
+                "b.md".to_string(),
+                "pic.png".to_string(),
+            ];
+            let hashes = paths
+                .iter()
+                .map(|path| {
+                    (
+                        path.clone(),
+                        service.read(&project.project_id, path).unwrap().hash,
+                    )
+                })
+                .collect();
+            service
+                .snapshot(&project.project_id, paths, hashes)
+                .unwrap()
+        };
+        let s1 = freeze();
+        service
+            .bundle(&project.project_id, &s1.snapshot_id, "S1")
+            .unwrap();
+        service
+            .published(
+                &project.project_id,
+                &s1.snapshot_id,
+                "https://share.invalid/fixture",
+            )
+            .unwrap();
+        let abandoned = freeze();
+        let s2 = freeze();
+        service
+            .bundle(&project.project_id, &s2.snapshot_id, "S2")
+            .unwrap();
+        service
+            .published(
+                &project.project_id,
+                &s2.snapshot_id,
+                "https://share.invalid/fixture",
+            )
+            .unwrap();
+        assert_eq!(
+            s2.parent_snapshot_id.as_deref(),
+            Some(s1.snapshot_id.as_str())
+        );
+        assert_ne!(
+            s2.parent_snapshot_id.as_deref(),
+            Some(abandoned.snapshot_id.as_str())
+        );
+        let feedback = FeedbackEnvelope {
+            payload: ProjectFeedback {
+                schema_version: 1,
+                project_id: project.project_id.clone(),
+                snapshot_id: s1.snapshot_id.clone(),
+                submission_id: "fixture-one".into(),
+                edits: vec![Edit {
+                    path: "a.md".into(),
+                    base_hash: sha256_hex(base.as_bytes()),
+                    after_markdown: base.replace("乙。", "乙改。"),
+                }],
+                annotations: vec![Annotation {
+                    path: "a.md".into(),
+                    quote: "丙".into(),
+                    comment: "复核".into(),
+                    start: None,
+                    end: None,
+                }],
+                name: Some("访客".into()),
+            },
+            request_hash: "fixture-one".into(),
+            received_at: "2026-10-12T08:00:00Z".into(),
+        };
+        service
+            .feedback(&project.project_id, feedback.clone())
+            .unwrap();
+        let ours = base.replace("甲。", "甲改。");
+        std::fs::write(source.join("a.md"), &ours).unwrap();
+        let review = service
+            .review(&project.project_id, "fixture-one", "a.md")
+            .unwrap();
+        assert_eq!(review.base, base);
+        assert_eq!(review.current, ours);
+        let mut draft = review_draft();
+        draft.ours_hash = review.current_hash.clone();
+        service
+            .review_save(&project.project_id, "fixture-one", "a.md", draft)
+            .unwrap();
+        let reopened = ProjectStore::new(t.path().join("vault"), t.path().join("state"));
+        assert!(reopened.inbox(&project.project_id).unwrap()[0]
+            .review
+            .contains_key("a.md"));
+        let result = ours
+            .replace("乙。", "乙改。")
+            .replace("丙", "{==丙==}{>>访客：复核<<}");
+        reopened
+            .apply(
+                &project.project_id,
+                "fixture-one",
+                "a.md",
+                &review.current_hash,
+                &result,
+                Some(HunkSummary {
+                    accepted: 1,
+                    total: 1,
+                }),
+            )
+            .unwrap();
+        reopened
+            .annotation_decide(&project.project_id, "fixture-one", 0, "promoted")
+            .unwrap();
+        assert_eq!(
+            std::fs::read_to_string(source.join("a.md")).unwrap(),
+            result
+        );
+        assert_eq!(
+            std::fs::read_to_string(Path::new(&project.mirror_root).join("a.md")).unwrap(),
+            result
+        );
+        assert_eq!(
+            std::fs::read(source.join("b.md")).unwrap(),
+            other.as_bytes()
+        );
+        assert_eq!(std::fs::read(source.join("pic.png")).unwrap(), image);
+        assert_eq!(std::fs::read(source.join("unshared.md")).unwrap(), private);
+        let done = service.inbox(&project.project_id).unwrap().remove(0);
+        assert_eq!(done.decisions["a.md"].status, "accepted");
+        assert_eq!(done.annotation_decisions["0"], "promoted");
+        assert!(done.review.is_empty());
+        let mut second = feedback;
+        second.payload.submission_id = "fixture-two".into();
+        second.request_hash = "fixture-two".into();
+        service.feedback(&project.project_id, second).unwrap();
+        assert_eq!(
+            service
+                .review(&project.project_id, "fixture-two", "a.md")
+                .unwrap()
+                .current,
+            result
+        );
+    }
+
+    #[test]
+    fn project_share_review_removed_scope_blocks_review_and_apply_without_changing_bytes() {
+        let (_t, service, project) = fixture();
+        let snapshot = freeze(&service, &project);
+        let path = "docs/a.md";
+        let base = snapshot
+            .files
+            .iter()
+            .find(|file| file.path == path)
+            .unwrap();
+        let feedback = FeedbackEnvelope {
+            payload: ProjectFeedback {
+                schema_version: 1,
+                project_id: project.project_id.clone(),
+                snapshot_id: snapshot.snapshot_id.clone(),
+                submission_id: "removed-scope".into(),
+                edits: vec![Edit {
+                    path: path.into(),
+                    base_hash: base.hash.clone(),
+                    after_markdown: "visitor suggestion".into(),
+                }],
+                annotations: vec![],
+                name: None,
+            },
+            request_hash: "removed-scope".into(),
+            received_at: "2026-10-12T08:00:00Z".into(),
+        };
+        service.feedback(&project.project_id, feedback).unwrap();
+        let source = Path::new(&project.source_root).join(path);
+        let mirror = Path::new(&project.mirror_root).join(path);
+        let source_before = std::fs::read(&source).unwrap();
+        let mirror_before = std::fs::read(&mirror).unwrap();
+        let expected = sha256_hex(&source_before);
+        let paths = vec!["README.md".to_string()];
+        let hashes = [(
+            "README.md".to_string(),
+            service.read(&project.project_id, "README.md").unwrap().hash,
+        )]
+        .into();
+        service
+            .snapshot(&project.project_id, paths, hashes)
+            .unwrap();
+        let reviewed = service.review(&project.project_id, "removed-scope", path);
+        let applied = service.apply(
+            &project.project_id,
+            "removed-scope",
+            path,
+            &expected,
+            "visitor suggestion",
+            None,
+        );
+        assert!(
+            reviewed.is_err() && applied.is_err(),
+            "expectedHash={expected}; review={reviewed:?}; apply={applied:?}"
+        );
+        assert!(reviewed
+            .unwrap_err()
+            .contains("outside current shared scope"));
+        assert!(applied
+            .unwrap_err()
+            .contains("outside current shared scope"));
+        assert_eq!(std::fs::read(&source).unwrap(), source_before);
+        assert_eq!(std::fs::read(&mirror).unwrap(), mirror_before);
+        let inbox = service.inbox(&project.project_id).unwrap();
+        assert_eq!(
+            inbox[0].envelope.payload.edits[0].after_markdown,
+            "visitor suggestion"
+        );
+        let rejected = service
+            .reject(&project.project_id, "removed-scope", Some(path), None)
+            .unwrap();
+        assert_eq!(rejected.decisions[path].status, "rejected");
+        assert_eq!(std::fs::read(&source).unwrap(), source_before);
+        assert_eq!(std::fs::read(&mirror).unwrap(), mirror_before);
+    }
 
     #[test]
     fn project_share_review_parent_is_last_successfully_published_snapshot() {

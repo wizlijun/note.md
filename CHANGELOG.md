@@ -9,8 +9,12 @@ For the full commit history, see the git log.
 
 ### Improvements
 
-- **Project sharing saves per-change review progress.** Reopen a review to continue where you left off; existing shares and feedback remain compatible.
+- **Project sharing supports accepting, rejecting and editing individual suggestions.** Compare later changes to the original with external suggestions, promote reviewed comments into your document, and reopen automatically saved review progress.
 - **Project sharing gains a lossless merge foundation for upcoming per-change review.** Merge calculations preserve the original formatting and flag changes to trust fields, hidden characters and existing owner annotations for individual confirmation.
+
+### Fixed
+
+- **Suggestions for files removed from a shared project cannot write back.** Historical feedback remains available to copy or reject.
 
 ## v6.1012.2 — 2026-10-12
 

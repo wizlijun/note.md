@@ -369,3 +369,39 @@ it.each(['destroy', 'open', 'switch-project'] as const)('drains decisions made w
     }
   }
 })
+
+it('integrates an S1 suggestion with owner edits, persisted decisions and a promoted annotation in one apply', async () => {
+  const base = '甲。\n\n乙。\n\n丙。\n'
+  const h = fixture(feedback('one', base, base.replace('乙。', '乙改。')), base)
+  h.setCurrent(base.replace('甲。', '甲改。'))
+  h.f.envelope.payload.annotations = [{ path: 'a.md', quote: '丙', comment: '复核' }]
+  await h.session.open(h.f, 'a.md')
+  const id = h.session.proposal!.hunks.find(row => row.kind === 'theirs-only')!.id
+  h.session.decide(id, { kind: 'theirs-only', choice: 'accept' })
+  await h.session.flush()
+  const saved = await h.deps.command<LocalFeedback>('inbox', {})
+  await h.session.destroy()
+  const reopened = createProjectReview('p', h.deps)
+  await reopened.open(saved, 'a.md')
+  expect(reopened.decisions[id]).toEqual({ kind: 'theirs-only', choice: 'accept' })
+  reopened.stageAnnotation(0)
+  await reopened.writeFile()
+  expect(h.current).toBe('甲改。\n\n乙改。\n\n{==丙==}{>>访客：复核<<}。\n')
+  expect(h.calls.filter(call => call.op === 'apply')).toHaveLength(1)
+  expect(h.calls.find(call => call.op === 'apply')!.args.summary).toEqual({ accepted: 1, total: 1 })
+  const completed = await h.deps.command<LocalFeedback>('inbox', {})
+  expect(completed.annotation_decisions!['0']).toBe('promoted')
+  const second = feedback('same-change', base, base.replace('乙。', '乙改。'))
+  h.setFeedback(second)
+  await reopened.open(second, 'a.md')
+  expect(reopened.proposal!.hunks.some(row => row.kind === 'both-same')).toBe(true)
+  await reopened.destroy()
+})
+
+it('keeps a repeated suggestion unresolved when an inline promoted annotation makes its paragraph atomic', () => {
+  const proposal = propose({ path: 'a.md', base: '甲。乙。丙。',
+    ours: '甲改。乙改。{==丙==}{>>访客：复核<<}。', theirs: '甲。乙改。丙。' })
+  expect(proposal.hunks).toHaveLength(1)
+  expect(proposal.hunks[0]).toMatchObject({ kind: 'conflict', base: '甲。乙。丙。',
+    ours: '甲改。乙改。{==丙==}{>>访客：复核<<}。', theirs: '甲。乙改。丙。' })
+})
