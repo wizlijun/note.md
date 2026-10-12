@@ -20,13 +20,26 @@ pub(crate) struct GitAuthor {
     pub date: String,
 }
 
+// A recognized global option fails closed on older Git, unlike an unknown env var.
+// Keep this local to sharing: vault sync retains its explicitly authorized network IO.
+fn run_io(
+    repo: &Path,
+    args: &[&str],
+    env: &[(&str, &str)],
+    input: Option<&[u8]>,
+) -> Result<Vec<u8>, String> {
+    let mut local_args = vec!["--no-lazy-fetch"];
+    local_args.extend_from_slice(args);
+    git_ops::run_git_io(repo, &local_args, env, input)
+}
+
 fn text(
     repo: &Path,
     args: &[&str],
     env: &[(&str, &str)],
     input: Option<&[u8]>,
 ) -> Result<String, String> {
-    String::from_utf8(git_ops::run_git_io(repo, args, env, input)?)
+    String::from_utf8(run_io(repo, args, env, input)?)
         .map(|s| s.trim_end_matches('\n').to_owned())
         .map_err(|_| "Git returned non-UTF-8 output".into())
 }
@@ -109,7 +122,7 @@ fn entry_mode(
     path: &str,
     env: &[(&str, &str)],
 ) -> Result<Option<String>, String> {
-    let output = git_ops::run_git_io(
+    let output = run_io(
         &repo.root,
         &["ls-tree", "-z", commit, "--", &format!(":(literal){path}")],
         env,
@@ -164,7 +177,7 @@ pub(crate) fn read_blobs(
     for path in paths {
         let full = repo_path(repo, path)?;
         regular_mode(repo, commit, &full, &[])?.ok_or("Git path is missing")?;
-        let bytes = git_ops::run_git_io(
+        let bytes = run_io(
             &repo.root,
             &["cat-file", "blob", &format!("{commit}:{full}")],
             &[],
@@ -249,6 +262,28 @@ pub(crate) fn same_commit(repo: &GitRepo, existing: &str, candidate: &str) -> Re
         text(&repo.root, &["show", "-s", fields, existing], &[], None)?
             == text(&repo.root, &["show", "-s", fields, candidate], &[], None)?,
     )
+}
+pub(crate) fn ensure_changed_tree(
+    repo: &GitRepo,
+    candidate: &str,
+    parent: &str,
+) -> Result<(), String> {
+    check_oid(candidate)?;
+    check_oid(parent)?;
+    if text(
+        &repo.root,
+        &["rev-parse", &format!("{candidate}^{{tree}}")],
+        &[],
+        None,
+    )? == text(
+        &repo.root,
+        &["rev-parse", &format!("{parent}^{{tree}}")],
+        &[],
+        None,
+    )? {
+        return Err("HEAD already contains this result; no changes to merge or export".into());
+    }
+    Ok(())
 }
 pub(crate) fn verify_authored_commit(
     repo: &GitRepo,
@@ -505,7 +540,7 @@ pub(crate) fn branch_ref(
 
 pub(crate) fn format_patch(repo: &GitRepo, oid: &str) -> Result<String, String> {
     check_oid(oid)?;
-    String::from_utf8(git_ops::run_git_io(
+    String::from_utf8(run_io(
         &repo.root,
         &["format-patch", "-1", oid, "--stdout"],
         &[],
@@ -806,6 +841,56 @@ mod tests {
         unchanged(repo, || probe(repo)).unwrap().unwrap()
     }
 
+    #[test]
+    fn final_i3_missing_promisor_blobs_and_trees_never_fetch() {
+        for filter in ["blob:none", "tree:0"] {
+            let origin = fixture(); let root = origin.path();
+            git(root, &["config", "uploadpack.allowFilter", "true"]);
+            let copy = tempfile::tempdir().unwrap(); let dest = copy.path().join("partial");
+            git(root, &["clone", "--filter", filter, "--no-checkout", &format!("file://{}", root.display()), dest.to_str().unwrap()]);
+            let repo = context(&dest);
+            let missing = git(&dest, &["rev-list", "--objects", "--missing=print", "HEAD"]);
+            assert!(missing.lines().any(|line| line.starts_with('?')), "{filter}: {missing}");
+            let trace = copy.path().join("trace.log");
+            let result = git_ops::with_test_git_io(Path::new("git"), vec![("GIT_TRACE".into(), trace.to_string_lossy().into())], || {
+                read_blobs(&repo, &repo.head, &["entry.md".into()])
+            });
+            let trace_text = fs::read_to_string(trace).unwrap();
+            assert!(result.is_err(), "missing {filter} must fail without lazy fetch: {trace_text}");
+            assert!(!trace_text.contains(" fetch ") && !trace_text.contains("upload-pack") && !trace_text.contains("transport"), "{trace_text}");
+            assert_eq!(missing, git(&dest, &["rev-list", "--objects", "--missing=print", "HEAD"]));
+        }
+    }
+    #[cfg(unix)]
+    #[test]
+    fn final_i3_old_git_fails_before_objects_and_refs() {
+        use std::os::unix::fs::PermissionsExt;
+        let fixture = fixture(); let root = fixture.path(); let repo = context(root);
+        let temp = tempfile::tempdir().unwrap(); let script = temp.path().join("old-git"); let trace = temp.path().join("args.log");
+        fs::write(&script, "#!/bin/sh\nprintf '%s\\n' \"$*\" >> \"$TEST_GIT_ARGS\"\nfor arg in \"$@\"; do\n if [ \"$arg\" = --no-lazy-fetch ]; then echo 'unknown option: --no-lazy-fetch' >&2; exit 129; fi\ndone\nexec git \"$@\"\n").unwrap();
+        fs::set_permissions(&script, fs::Permissions::from_mode(0o700)).unwrap();
+        let before = git(root, &["show-ref"]);
+        git_ops::with_test_git_io(&script, vec![("TEST_GIT_ARGS".into(), trace.to_string_lossy().into())], || {
+            assert!(probe(root).unwrap().is_none(), "unsupported Git must fall back to P0");
+            assert!(read_blobs(&repo, &repo.head, &["entry.md".into()]).is_err());
+            assert!(create_ref(&repo, "refs/notemd/share/p/old-git", &repo.head).is_err());
+        });
+        for line in fs::read_to_string(trace).unwrap().lines() { assert!(line.starts_with("--no-lazy-fetch "), "{line}"); }
+        assert_eq!(before, git(root, &["show-ref"]));
+    }
+    #[test]
+    fn final_m1_author_literal_boundaries() {
+        for (input, expected) in [
+            ("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa (guest, unverified)"),
+            ("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa (guest, unverified)"),
+            ("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa中", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa (guest, unverified)"),
+            ("Visitor@example.test", "Visitorexample.test (guest, unverified)"),
+            ("Visitor", "Visitor (guest, unverified)"),
+            ("@<>\n", "guest (guest, unverified)"),
+        ] {
+            assert_eq!(guest_author(Some(input), "sub", "2026-10-12T10:20:30Z").name, expected);
+        }
+    }
     #[test]
     fn user_branch_create_rejects_same_oid_collision() {
         if !available() {

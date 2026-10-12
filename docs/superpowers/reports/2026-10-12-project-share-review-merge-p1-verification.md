@@ -1,8 +1,40 @@
 # 项目分享 P1：Git 合入目标验收
 
-本记录验证 Task 1–3 的 P1 实现与 Task 4 集成修复。验证范围为本机 Git 对象、项目 Store、唯一 TypeScript 合并内核及前端；不代表 P2、访客富文本编辑器、离线客户端或正式发布已完成。发行与完整裁定记录由 root 后续补充。
+本记录保留 Task 1–4 的历史证据，并补充最终 whole-branch review 后的统一修复与验证。验证范围为本机 Git 对象、项目 Store、唯一 TypeScript 合并内核及前端；不代表 P2、访客富文本编辑器、离线客户端或正式发布已完成。发行与完整裁定记录由 root 后续补充。
 
-## 本轮结果与修复
+## 最终统一修复（2026-10-13）
+
+冻结审查 `0ca59cf9..4a2ca1c9` 判定 4 Important / 2 Minor；以下一次统一修复处理 I1–I4、M1–M2 与 Task 4 author oracle。早期 Task 4 的 `result.is_ok()` 未覆盖 `stateError`、前端门禁和重开恢复；其历史通过记录不构成这些路径已正确的证据。本节取代相应历史结论，原始失败/通过日志均保留。最终 scoped 复审与发行由 root 继续。
+
+| 项目 | 最终行为与实际回归 |
+| --- | --- |
+| I1 | 实际 controller 允许整份 edit 的无 Decision / 明确 `not_applied`，其他安全门禁保留。Store 两文件用例混合 `not_applied` 与无 Decision：B 无 `stateError`、全部 `branched`、重复 `git-branched` 相同；C 不修改任一 Decision。其他 accepted/rejected/unknown/recovery 状态继续 fail-closed。 |
+| I2 | 本机 `branch-state` 只读查询复用 `git-branched` 的完整 authored commit 验证，返回真实自有分支供新 session 仅补记。真实 ref 成功但记录失败、第一文件补记成功/第二写回失败、重开及 HEAD 前进均无新分支。查询对源/index/config/hooks、镜像、inbox/review、Decision、refs 不写入；9 类迟到范围/绑定/intent/终态/快照/信封/ref变化拒绝。真实查询 Git child 运行中能取得全局锁与 RecordsLock；非幂等 clean 配置后改为必失败 filter，查询仍成功，证明不重跑 clean。 |
+| I2 边界 | 无 intent 或 intent 对应 ref 缺失返回 `null`，不清 intent、不造 ref；同 OID 用户分支无 intent 不恢复，已变化 ref 拒绝。普通 B 的 expectedHead/混合终态守卫不变。P0 冻结后才初始化 Git 的 `snapshot.git=None` 仍能补记自有 B；始终验证冻结字节/identity/绑定/范围，只有存在 Git snapshot 对象时才验其 ref/非祖先关系，不能声称对不存在的对象做了 I9 祖先检查。查询失败阻止 B/C，但 UI 可明确切 A 恢复未完成 worktree intent。 |
+| I3 | 分享模块的所有 Git child 都经共享 `vault_sync::git_ops` 加 `--no-lazy-fetch`，包括 probe/read/tree/ref/format/cleanup；vault-sync 正常联网能力不改。真实 `file://` partial clone 缺失 promisor blob 与 tree 时失败、缺失对象集合不变、trace 零 fetch/upload-pack/transport。拒绝该 option 的独立线程限定旧 Git shim 在读取对象/建 ref 前失败，Store 降为 P0；缺失 tree 与旧能力两类仍实际完成 P0 freeze/import/apply。不改全局 PATH、线程数或跳过回归。 |
+| I4 | controller 拒绝文件显式携 target；B/C raw inbox + 全投稿 A intent 守卫。实际先只读打开，再向另一个 annotation-only path 注入 pending/mirror_pending 后拒绝 edit，源/镜像/inbox/review 原字节不变并提示切 A；default/worktree 保留既有恢复语义。 |
+| M1 | snapshot 的完整消息逐字匹配 `notemd: share snapshot <id>` 与两个归属 trailers；旧预览消息 ref 不覆写，返回 Git error，P0 冻结仍保留。40/41 ASCII、39 ASCII + 中、去 @、普通名、空名的 author 有独立字面 oracle；实际 `git am` 结果也逐字匹配，未仅调用 production helper 生成预期。 |
+| M2 | TS 同一 kernel 的 both-same/result==H 在确认前提示已包含，无确认/picker/export/save。Rust 以实际 tree 对比拒绝无变更新 B/C；包括 clean 规范化后 tree 相同，零新增 ref/Decision/inbox变化。自有已建分支只读查询/补记不受此新建规则阻碍。 |
+
+原始证据集中于 `.superpowers/sdd/2026-10-12-project-share-review-merge-p1/final-fix-*`。完整逐项文件行号、RED/GREEN 命令、失败原因、源码 SHA、自审与提交记录见 `final-fix-report.md`。所有新接口都是本机接口，公开 v1 payload、merge kernel/diff/version、Worker 与插件源码不变。
+
+最终源码冻结后顺序六完整 gates 如下。`final-fix-gate2-results.json` 保存每条命令的 UTC 起止时间、exit、原始日志 SHA 与八个源码/测试输入 SHA；六项 `source_unchanged=true`。原始输入 HEAD 为 `4a2ca1c9d5ff27dc2e6f9809adcbf48fec39ae91`。
+
+| 顺序 | 命令 | exit | 实际结果 | 原始日志 |
+| --- | --- | --- | --- | --- |
+| 1 | `pnpm test` | 0 | 323 files / 3876 tests passed；既有 happy-dom 异步关闭噪声 | `final-fix-gate2-frontend.log` |
+| 2 | `cargo test --manifest-path src-tauri/Cargo.toml` | 0 | 22 summaries / 1439 passed / 0 failed / 0 ignored；lib 1250；既有 ParsedHeader warning | `final-fix-gate2-cargo.log` |
+| 3 | `pnpm --dir worker test` | 0 | 8 files / 255 tests passed | `final-fix-gate2-worker.log` |
+| 4 | `pnpm check` | 0 | 0 errors / 33 warnings in 16 files；逐位置+首行文本与 baseline 完全一致 | `final-fix-gate2-check.log` |
+| 5 | `pnpm build` | 0 | Vite 与 Editor Kit OK；既有 Svelte/chunk 提示 | `final-fix-gate2-build.log` |
+| 6 | `git diff --check` | 0 | 无 whitespace error | `final-fix-gate2-diff.log` |
+
+第一次完整 gate 前端/Rust/Worker 成功，`pnpm check` 发现新测试两处 generic mock 推断错误（2 errors + 原 33 warnings），在该处停止，原 `final-fix-gate-*` 全部保留。只为修正两处测试的显式返回泛型重新冻结，再按完整六项顺序运行；没有混用第一组输入，也未改阈值、线程数或跳过测试。旧 search attention 两次均通过，根因仍未被本任务修复。
+
+新增兼容性限制：不支持 `--no-lazy-fetch` 的旧 Git 即使对象齐全也禁用 P1 Git 目标；继续使用 P0。旧未发布 P1 snapshot 消息 ref 不迁移/不覆写。不能用本入口创建仅用于署名的空提交。本轮仍非 P1 native UI/OS picker/iOS 验收；旧非法 UTF-8 目录环境限制、search attention 未定位历史失败、既有 warning、Worker 免费 CPU 与发行残留均保留。
+
+## Task 4 历史结果与修复
+
 
 - Git 项目可按整个投稿创建访客署名分支或导出补丁；项目记住目标，B/C 不保存源或镜像的编辑器 buffer，不 checkout、不 push。
 - 已恢复但未写入的 P0 `not_applied` 在同一 H、有效草稿下可重新 B/C。只额外放行此明确状态；`accepted/rejected/branched`、待恢复 intent、`source_changed/recovery_conflict/quarantined` 和未知决定继续拒绝（已有全部 branched 可重复 C 例外保留）。
@@ -86,7 +118,7 @@ P1起点0ca59cf9；同一main顺序写入，不建worktree。P0独立证据见20
 | Task3 Git UI | 32fcd45e；计划修订0e1d44b5，最终Spec✅/Approved | 父文件清单I1经控制器正式修订为现有isBusy+真实父组件测试，scoped ADDRESSED；产品未造无功能改动。六文件176/176，Chrome生产组件+真实Worker隔离bridge；原生边界保留。 |
 | Task4 集成验收 | ef78b8a9，Spec✅/Approved | 0 Critical/Important；Minor为署名截断可增加独立字面期望及既有噪声，交最终review triage。 |
 
-最终whole-branch review从0ca59cf9至实际Task4后HEAD，状态待执行。若有问题仅统一一波fix及一次scoped复审，不能将逐任务批准等同最终通过。
+最终 whole-branch review 已冻结于 `4a2ca1c9`，发现与统一修复见本文首节；本次唯一 scoped 复审待 root 执行，逐任务批准不等于最终通过。
 
 ## 统一发布盘点（root，发行前）
 

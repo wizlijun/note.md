@@ -197,6 +197,12 @@ export function createProjectReview(projectId: string, deps: ReviewDependencies)
     feedback = nextFeedback; path = nextPath; file = null; proposal = null; decisions = {}; rows = []; staged = []
     cache = new Map(); cacheText = ''; staleDecisions = 0; notice = ''; error = ''; phase = 'loading'
     try {
+      if (target !== 'worktree' && deps.gitCommand) {
+        const recovered = await deps.gitCommand<GitBranchResult | null>('branch-state', { project_id: projectId, submissionId: submission() })
+        if (epoch !== generation) return
+        if (recovered) { branches = { ...branches, [submission()]: recovered }; update(recovered.feedback); nextFeedback = recovered.feedback }
+        else { const next = { ...branches }; delete next[submission()]; branches = next }
+      }
       const initial = await deps.command<ReviewFile>(target === 'worktree' ? 'review' : 'review-readonly', { project_id: projectId, submissionId: submission(), path })
       if (epoch !== generation) return
       if (target === 'worktree') await deps.prepareSource(initial.sourcePath)
@@ -321,7 +327,7 @@ export function createProjectReview(projectId: string, deps: ReviewDependencies)
       await flush()
       const isEdit = feedback.envelope.payload.edits.some(edit => edit.path === path)
       if (!isEdit && feedback.envelope.payload.edits.length) throw new Error('此路径仅含批注，请忽略批注')
-      update(await deps.command<LocalFeedback>('reject', { project_id: projectId, submissionId: submission(), ...(isEdit ? { path } : {}) }))
+      update(await deps.command<LocalFeedback>('reject', { project_id: projectId, submissionId: submission(), ...(isEdit ? { path } : {}), target }))
       if (file) file = { ...file, status: 'rejected' }
       draftDirty = false
     } catch (e) { error = String(e); throw e } finally { phase = 'ready' }
@@ -356,10 +362,10 @@ export function createProjectReview(projectId: string, deps: ReviewDependencies)
     if (feedback && path) await open(feedback, path)
   }
   function canGit() {
-    if (phase !== 'ready' || !probe?.git || !feedback?.envelope.payload.edits.length || target === 'worktree') return false
+    if (phase !== 'ready' || !file || !proposal || !probe?.git || !feedback?.envelope.payload.edits.length || target === 'worktree') return false
     if (branches[submission()]?.stateError || (target === 'branch' && branches[submission()])) return false
     const statuses = feedback.envelope.payload.edits.map(e => feedback!.decisions[e.path]?.status)
-    return statuses.every(status => !status) || (target === 'patch' && statuses.every(status => status === 'branched'))
+    return statuses.every(status => status === undefined || status === 'not_applied') || (target === 'patch' && statuses.every(status => status === 'branched'))
   }
   async function executeGit() {
     if (!canGit() || !deps.gitCommand || !deps.confirmGit) return

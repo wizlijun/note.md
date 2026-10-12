@@ -30,5 +30,6 @@ export async function prepareGitReview(project_id: string, submissionId: string,
     files.push({ path: file.path, current: file.current, result: result.text, pendingTheirs: result.pendingTheirs.length })
   }
   if (total && !accepted) throw new Error('请先审阅并接受需要合入的改动')
+  if (files.every(file => file.result === file.current)) throw new Error('HEAD 已包含这些内容，无需合入或导出补丁')
   return { prepared, results, files }
 }

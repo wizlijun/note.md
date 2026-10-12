@@ -613,6 +613,7 @@ describe('ProjectShareDialog cancellable review loading', () => {
 
 it('locks parent close and project selection throughout Git confirmation without saving dirty buffers', async () => {
   vi.mocked(projectGitCommand).mockImplementation(async (op: string) => {
+    if (op === 'branch-state') return null as any
     if (op === 'probe') return { git: true, team: true, prefix: '', target: 'branch', remote: 'upstream' } as any
     if (op === 'prepare') {
       const saved = vi.mocked(projectCommand).mock.calls.findLast(([op]) => op === 'review-save')?.[1] as any

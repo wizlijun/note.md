@@ -1624,13 +1624,16 @@ impl ProjectStore {
         Ok(f)
     }
     pub fn reject(&self, id: &str, submission: &str, path: Option<&str>, reason: Option<&str>) -> Result<LocalFeedback> {
+        self.reject_target(id, submission, path, reason, None)
+    }
+    fn reject_target(&self, id: &str, submission: &str, path: Option<&str>, reason: Option<&str>, target: Option<GitTarget>) -> Result<LocalFeedback> {
         let _lock = self.lock()?;
         let b = self.binding(id)?;
         self.active(&b)?;
         if reason.is_some_and(|r| r != "superseded") {
             return Err("invalid reject reason".into());
         }
-        let mut f = self.load_feedback(&b, submission)?;
+        let mut f = self.feedback_for_review_target(&b, submission, matches!(target, Some(GitTarget::Branch | GitTarget::Patch)))?;
         if let Some(p) = path {
             if !f.envelope.payload.edits.iter().any(|e| e.path == p) {
                 return Err("file outside feedback".into());
@@ -1908,7 +1911,16 @@ mod tests {
         let applied_author = git_test(&destination, &["show", "-s", "--format=%an|%ae"]);
         assert!(applied_author.contains("guest, unverified"), "{applied_author}\n{}", patch["patch"]);
         let expected_author = git::guest_author(Some(name), "patch-am", "2026-10-10T00:00:00Z");
-        assert_eq!(applied_author, format!("{}|{}", expected_author.name, expected_author.email));
+        let literal = match name {
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" | "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" => Some("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa (guest, unverified)|patch-am@guest.notemd.invalid"),
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa中" => Some("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa (guest, unverified)|patch-am@guest.notemd.invalid"),
+            "Visitor@example.test" => Some("Visitorexample.test (guest, unverified)|patch-am@guest.notemd.invalid"),
+            "Visitor" => Some("Visitor (guest, unverified)|patch-am@guest.notemd.invalid"),
+            "@<>\n" => Some("guest (guest, unverified)|patch-am@guest.notemd.invalid"),
+            _ => None,
+        };
+        if let Some(expected) = literal { assert_eq!(applied_author, expected); }
+        else { assert_eq!(applied_author, format!("{}|{}", expected_author.name, expected_author.email)); }
         assert!(expected_author.name.len() <= 60);
         if name == "Visitor" { assert_eq!(expected_author.name, "Visitor (guest, unverified)"); }
         if name == "@<>\n" { assert_eq!(expected_author.name, "guest (guest, unverified)"); }
@@ -1966,7 +1978,9 @@ mod tests {
             let (_t, s, p) = git_fixture();
             let root = Path::new(&p.source_root);
             let snap = git_freeze(&s, &p);
-            let mut f = git_import(&s, &p, &snap, "recovered");
+            let mut e = envelope(&p, &snap, "recovered");
+            e.payload.edits.push(Edit { path: "docs/a.md".into(), base_hash: snap.files.iter().find(|f| f.path == "docs/a.md").unwrap().hash.clone(), after_markdown: "second result".into() });
+            let mut f: LocalFeedback = serde_json::from_value(execute_request(&s, &serde_json::json!({"op":"feedback","project_id":p.project_id,"envelope":e})).unwrap()).unwrap();
             let before = std::fs::read(root.join("README.md")).unwrap();
             f.decisions.insert("README.md".into(), Decision {
                 status: "pending".into(), before_hash: Some(sha256_hex(&before)),
@@ -1982,9 +1996,262 @@ mod tests {
             draft.ours_hash = sha256_hex(&before);
             s.review_save(&p.project_id, "recovered", "README.md", draft).unwrap();
             let prepared = execute_git_request(&s, &serde_json::json!({"op":"prepare","project_id":p.project_id,"submissionId":"recovered"})).unwrap();
-            let result = execute_git_request(&s, &serde_json::json!({"op":op,"project_id":p.project_id,"submissionId":"recovered","expectedHead":prepared["head"],"results":{"README.md":"approved after recovery"}}));
-            assert!(result.is_ok(), "{op}: {result:?}");
+            let result = execute_git_request(&s, &serde_json::json!({"op":op,"project_id":p.project_id,"submissionId":"recovered","expectedHead":prepared["head"],"results":{"README.md":"approved after recovery","docs/a.md":"second result"}}));
+            let result = result.unwrap();
+            if op == "branch" {
+                assert!(result.get("stateError").is_none(), "{result}");
+                for edit in &recovered.envelope.payload.edits {
+                    assert_eq!(result["feedback"]["decisions"][&edit.path]["status"], "branched");
+                    let retry = serde_json::json!({"op":"git-branched","project_id":p.project_id,"submissionId":"recovered","path":edit.path,"branch":result["branch"],"commit":result["commit"]});
+                    let a = execute_request(&s, &retry).unwrap();
+                    assert_eq!(a, execute_request(&s, &retry).unwrap());
+                }
+            } else {
+                let saved: LocalFeedback = read_json(&path).unwrap();
+                assert_eq!(saved.decisions["README.md"].status, "not_applied");
+                assert!(!saved.decisions.contains_key("docs/a.md"));
+            }
             assert_eq!(std::fs::read(root.join("README.md")).unwrap(), before);
+        }
+    }
+    #[test]
+    fn project_share_git_final_m1_snapshot_message_and_legacy_ref_never_overwritten() {
+        let (_t, s, p) = git_fixture();
+        let root = Path::new(&p.source_root);
+        let snap = git_freeze(&s, &p);
+        let meta = snap.git.as_ref().unwrap();
+        assert_eq!(git_test(root, &["show", "-s", "--format=%B", &meta.snapshot_commit]),
+            format!("notemd: share snapshot {}\n\nNotemd-Project: {}\nNotemd-Snapshot: {}", snap.snapshot_id, p.project_id, snap.snapshot_id));
+        let repo = git::probe(root).unwrap().unwrap();
+        let job = short_lock(|| s.capture_share_job(&p.project_id, &snap.snapshot_id, None)).unwrap();
+        let author = git::owner_author(&repo, snap.created_at.as_deref().unwrap()).unwrap();
+        let old = git::build_commit(&repo, &meta.head_at_freeze, &job.files, &format!("notemd: snapshot {}\n", snap.snapshot_id), Some(&author)).unwrap();
+        let name = format!("refs/notemd/share/{}/snapshots/{}", p.project_id, snap.snapshot_id);
+        git_test(root, &["update-ref", &name, &old, &meta.snapshot_commit]);
+        let outcome = run_share_job(&s, &job, Ok(Some(repo))).unwrap_err();
+        assert!(outcome.contains("different content or identity"));
+        short_lock(|| s.finish_share_job(&job, &Err(outcome))).unwrap();
+        let saved = s.snapshot_get(&p.project_id, &snap.snapshot_id).unwrap();
+        assert!(saved.git.is_none()); assert!(saved.git_error.is_some());
+        assert_eq!(saved.files.len(), 2);
+        assert_eq!(git_test(root, &["rev-parse", &name]), old);
+    }
+    #[test]
+    fn project_share_git_final_m2_same_tree_ref_and_decision_free() {
+        for normalized in [false, true] {
+            let (_t, s, p) = git_fixture(); let root = Path::new(&p.source_root);
+            if normalized {
+                git_test(root, &["config", "filter.upper.clean", "tr a-z A-Z"]);
+                std::fs::write(root.join(".gitattributes"), "README.md filter=upper\n").unwrap();
+                std::fs::write(root.join("README.md"), "NORMALIZED\n").unwrap();
+                git_test(root, &["add", "."]); git_test(root, &["commit", "-m", "filter"]);
+            }
+            let snap = git_freeze(&s, &p); git_import(&s, &p, &snap, "same-tree");
+            let head = git_test(root, &["rev-parse", "HEAD"]);
+            let content = if normalized { "normalized\n".into() } else { std::fs::read_to_string(root.join("README.md")).unwrap() };
+            for op in ["branch", "export-patch"] {
+                let before = p1_state(root); let mirrors = p1_bytes(Path::new(&p.mirror_root)); let refs = git_test(root, &["show-ref"]);
+                let result = execute_git_request(&s, &serde_json::json!({"op":op,"project_id":p.project_id,"submissionId":"same-tree","expectedHead":head,"results":{"README.md":content}}));
+                assert!(result.is_err_and(|e| e.contains("no changes")), "{op}/{normalized}");
+                assert_eq!(before, p1_state(root)); assert_eq!(mirrors, p1_bytes(Path::new(&p.mirror_root))); assert_eq!(refs, git_test(root, &["show-ref"]));
+            }
+        }
+    }
+    #[test]
+    fn project_share_git_final_i4_reject_late_annotation_intent_is_readonly() {
+        for target in ["branch", "patch"] {
+            for status in ["pending", "mirror_pending"] {
+                let (_t, s, p) = annotation_git_fixture();
+                let b = s.binding(&p.project_id).unwrap(); let inbox = s.inbox_path(&b, "late-intent").unwrap();
+                let mut f: LocalFeedback = read_json(&inbox).unwrap(); f.review.insert("docs/a.md".into(), review_draft()); write_json(&inbox, &f).unwrap();
+                execute_request(&s, &serde_json::json!({"op":"review-readonly","project_id":p.project_id,"submissionId":"late-intent","path":"README.md"})).unwrap();
+                inject_annotation_worktree_intent(&s, &p.project_id, status);
+                let source = p1_state(Path::new(&p.source_root)); let mirrors = p1_bytes(Path::new(&p.mirror_root));
+                let result = execute_request(&s, &serde_json::json!({"op":"reject","project_id":p.project_id,"submissionId":"late-intent","path":"README.md","target":target}));
+                assert!(result.is_err_and(|e| e.contains("worktree")), "{target}/{status}");
+                assert_eq!(source, p1_state(Path::new(&p.source_root))); assert_eq!(mirrors, p1_bytes(Path::new(&p.mirror_root)));
+                let recovered = execute_request(&s, &serde_json::json!({"op":"reject","project_id":p.project_id,"submissionId":"late-intent","path":"README.md"})).unwrap();
+                assert_eq!(recovered["decisions"]["README.md"]["status"], "rejected");
+                assert_eq!(recovered["decisions"]["docs/a.md"]["status"], if status == "pending" { "not_applied" } else { "accepted" });
+            }
+        }
+    }
+    #[test]
+    fn project_share_git_final_i2_reopen_owned_branch_pure_query_and_only_record() {
+        for partial in [false, true] {
+            let (_t, s, p) = git_fixture(); let root = Path::new(&p.source_root); let snap = git_freeze(&s, &p);
+            let mut e = envelope(&p, &snap, "reopen");
+            e.payload.edits.push(Edit { path: "docs/a.md".into(), base_hash: snap.files.iter().find(|f| f.path == "docs/a.md").unwrap().hash.clone(), after_markdown: "second result".into() });
+            execute_request(&s, &serde_json::json!({"op":"feedback","project_id":p.project_id,"envelope":e})).unwrap();
+            assert!(execute_git_request(&s, &serde_json::json!({"op":"branch-state","project_id":p.project_id,"submissionId":"reopen"})).unwrap().is_null());
+            let b = s.binding(&p.project_id).unwrap(); let path = s.inbox_path(&b, "reopen").unwrap(); let backup = path.with_extension("saved");
+            let ph = path.clone(); let bh = backup.clone();
+            hook(move |_, phase| { if phase == "branch-ref-created" { std::fs::rename(&ph, &bh).unwrap(); std::fs::create_dir(&ph).unwrap(); } });
+            let first = execute_git_request(&s, &serde_json::json!({"op":"branch","project_id":p.project_id,"submissionId":"reopen","expectedHead":git_test(root,&["rev-parse","HEAD"]),"results":{"README.md":"approved","docs/a.md":"second result"}}));
+            unhook(); let first = first.unwrap(); assert!(first["stateError"].is_string());
+            std::fs::remove_dir(&path).unwrap(); std::fs::rename(&backup, &path).unwrap();
+            let record = |file: &str| serde_json::json!({"op":"git-branched","project_id":p.project_id,"submissionId":"reopen","path":file,"branch":first["branch"],"commit":first["commit"]});
+            if partial {
+                execute_request(&s, &record("README.md")).unwrap();
+                let ph = path.clone(); let bh = backup.clone();
+                hook(move |_, phase| { if phase == "branch-state-verified" { std::fs::rename(&ph, &bh).unwrap(); std::fs::create_dir(&ph).unwrap(); } });
+                let failed = execute_request(&s, &record("docs/a.md")); unhook(); assert!(failed.is_err());
+                std::fs::remove_dir(&path).unwrap(); std::fs::rename(&backup, &path).unwrap();
+            }
+            std::fs::write(root.join("advance.md"), "new HEAD").unwrap(); git_test(root, &["add", "advance.md"]); git_test(root, &["commit", "-m", "advance HEAD"]);
+            let reopened = ProjectStore::new(s.vault.clone(), s.state.clone());
+            let before = p1_state(root); let mirrors = p1_bytes(Path::new(&p.mirror_root)); let refs = git_test(root, &["show-ref"]);
+            let state = execute_git_request(&reopened, &serde_json::json!({"op":"branch-state","project_id":p.project_id,"submissionId":"reopen"})).unwrap();
+            assert_eq!(state["branch"], first["branch"]); assert_eq!(state["commit"], first["commit"]); assert!(state["stateError"].is_string());
+            assert_eq!(before, p1_state(root)); assert_eq!(mirrors, p1_bytes(Path::new(&p.mirror_root))); assert_eq!(refs, git_test(root, &["show-ref"]));
+            let name = format!("refs/heads/{}", first["branch"].as_str().unwrap());
+            git_test(root, &["update-ref", "-d", &name]);
+            let missing_refs = git_test(root, &["show-ref"]);
+            assert!(execute_git_request(&reopened, &serde_json::json!({"op":"branch-state","project_id":p.project_id,"submissionId":"reopen"})).unwrap().is_null());
+            assert_eq!(mirrors, p1_bytes(Path::new(&p.mirror_root))); assert_eq!(missing_refs, git_test(root, &["show-ref"]));
+            git_test(root, &["update-ref", &name, first["commit"].as_str().unwrap()]);
+            for file in ["README.md", "docs/a.md"] { execute_request(&reopened, &record(file)).unwrap(); }
+            let complete = execute_git_request(&reopened, &serde_json::json!({"op":"branch-state","project_id":p.project_id,"submissionId":"reopen"})).unwrap();
+            assert!(complete.get("stateError").is_none()); assert_eq!(complete["feedback"]["status"], "branched"); assert_eq!(refs, git_test(root, &["show-ref"]));
+            git_test(root, &["update-ref", &format!("refs/heads/{}", first["branch"].as_str().unwrap()), &git_test(root, &["rev-parse", "HEAD"])]);
+            assert!(execute_git_request(&reopened, &serde_json::json!({"op":"branch-state","project_id":p.project_id,"submissionId":"reopen"})).unwrap_err().contains("ref changed"));
+        }
+    }
+    #[test]
+    fn project_share_git_final_i2_p0_snapshot_without_git_metadata_recovers_owned_branch() {
+        let (_t, s, p) = fixture(); let root = Path::new(&p.source_root);
+        let snap = git_freeze(&s, &p); assert!(snap.git.is_none());
+        git_test(root, &["init", "-b", "main"]); git_test(root, &["config", "user.name", "Owner"]); git_test(root, &["config", "user.email", "owner@example.test"]);
+        git_test(root, &["add", "."]); git_test(root, &["commit", "-m", "initialized after freeze"]);
+        git_import(&s, &p, &snap, "p0-snapshot");
+        let result = execute_git_request(&s, &serde_json::json!({"op":"branch","project_id":p.project_id,"submissionId":"p0-snapshot","expectedHead":git_test(root,&["rev-parse","HEAD"]),"results":{"README.md":"approved"}})).unwrap();
+        let path = s.inbox_path(&s.binding(&p.project_id).unwrap(), "p0-snapshot").unwrap(); let mut f: LocalFeedback = read_json(&path).unwrap(); f.decisions.clear(); write_json(&path, &f).unwrap();
+        let before = p1_bytes(Path::new(&p.mirror_root)); let refs = git_test(root, &["show-ref"]);
+        let state = execute_git_request(&s, &serde_json::json!({"op":"branch-state","project_id":p.project_id,"submissionId":"p0-snapshot"})).unwrap();
+        assert_eq!(state["commit"], result["commit"]); assert!(state["stateError"].is_string()); assert_eq!(before, p1_bytes(Path::new(&p.mirror_root))); assert_eq!(refs, git_test(root, &["show-ref"]));
+        let saved = execute_request(&s, &serde_json::json!({"op":"git-branched","project_id":p.project_id,"submissionId":"p0-snapshot","path":"README.md","branch":result["branch"],"commit":result["commit"]})).unwrap();
+        assert_eq!(saved["decisions"]["README.md"]["status"], "branched"); assert_eq!(refs, git_test(root, &["show-ref"]));
+    }
+    #[test]
+    fn project_share_git_final_i2_latest_guards_and_full_identity_fail_closed() {
+        for change in ["scope", "binding", "intent", "decision", "worktree", "snapshot", "envelope", "stop", "ref"] {
+            let (_t, s, p) = git_fixture(); let root = Path::new(&p.source_root); let snap = git_freeze(&s, &p);
+            git_import(&s, &p, &snap, "query-guards");
+            let result = execute_git_request(&s, &serde_json::json!({"op":"branch","project_id":p.project_id,"submissionId":"query-guards","expectedHead":git_test(root,&["rev-parse","HEAD"]),"results":{"README.md":"approved"}})).unwrap();
+            let b = s.binding(&p.project_id).unwrap(); let inbox = s.inbox_path(&b, "query-guards").unwrap();
+            let mut f: LocalFeedback = read_json(&inbox).unwrap(); f.decisions.clear(); write_json(&inbox, &f).unwrap();
+            let query = serde_json::json!({"op":"branch-state","project_id":p.project_id,"submissionId":"query-guards"});
+            let original = read_bytes(&inbox).unwrap();
+            // A real same-OID user branch without owned intent is not a recoverable result.
+            f.git.as_mut().unwrap().branch_intent = None; write_json(&inbox, &f).unwrap();
+            assert!(execute_git_request(&s, &query).unwrap().is_null()); write_atomic(&inbox, &original).unwrap();
+            let id = p.project_id.clone(); let branch = result["branch"].as_str().unwrap().to_string();
+            let after = Arc::new(Mutex::new(None)); let ah = after.clone();
+            hook(move |s, phase| {
+                if phase != "branch-state-verified" { return; }
+                let b = s.binding(&id).unwrap(); let path = s.inbox_path(&b, "query-guards").unwrap();
+                match change {
+                    "scope" => { let mut c = s.config(&b).unwrap(); c.files.retain(|p| p != "README.md"); write_json(&s.management(&b, "project.json").unwrap(), &c).unwrap(); }
+                    "binding" => { let mut bindings = s.bindings().unwrap(); bindings.iter_mut().find(|v| v.project_id == id).unwrap().generation += 1; write_json(&s.bindings_path(), &bindings).unwrap(); }
+                    "stop" => { s.stopped(&id).unwrap(); }
+                    "snapshot" => { let mut snap = s.baseline(&b, &snap.snapshot_id).unwrap(); snap.entry = "docs/a.md".into(); write_json(&s.management(&b, &format!("snapshots/{}/manifest.json", snap.snapshot_id)).unwrap(), &snap).unwrap(); }
+                    "ref" => { git_test(Path::new(&b.source_root), &["update-ref", &format!("refs/heads/{branch}"), &git_test(Path::new(&b.source_root), &["rev-parse", "HEAD"])]); }
+                    _ => {
+                        let mut f: LocalFeedback = read_json(&path).unwrap();
+                        match change {
+                            "intent" => f.git.as_mut().unwrap().branch_intent.as_mut().unwrap().results_hash = "different".into(),
+                            "decision" => { f.decisions.insert("README.md".into(), Decision { status: "accepted".into(), ..Default::default() }); },
+                            "worktree" => { f.decisions.insert("docs/a.md".into(), Decision { status: "pending".into(), ..Default::default() }); },
+                            "envelope" => f.envelope.payload.name = Some("changed".into()),
+                            _ => unreachable!(),
+                        }
+                        write_json(&path, &f).unwrap();
+                    }
+                }
+                *ah.lock().unwrap() = Some(p1_bytes(Path::new(&b.mirror_root)));
+            });
+            let result = execute_git_request(&s, &query); unhook();
+            assert!(result.is_err(), "latest {change} must reject");
+            assert_eq!(after.lock().unwrap().as_ref().unwrap(), &p1_bytes(Path::new(&p.mirror_root)), "query must not mutate after {change}");
+        }
+    }
+    #[test]
+    fn project_share_git_final_i2_owned_commit_identity_and_snapshot_ref_checked() {
+        for changed in ["parent", "author", "message", "snapshot-ref"] {
+            let (_t, s, p) = git_fixture(); let root = Path::new(&p.source_root); let snap = git_freeze(&s, &p);
+            git_import(&s, &p, &snap, "identity");
+            let result = execute_git_request(&s, &serde_json::json!({"op":"branch","project_id":p.project_id,"submissionId":"identity","expectedHead":git_test(root,&["rev-parse","HEAD"]),"results":{"README.md":"approved"}})).unwrap();
+            let b = s.binding(&p.project_id).unwrap(); let path = s.inbox_path(&b, "identity").unwrap(); let mut f: LocalFeedback = read_json(&path).unwrap();
+            f.decisions.clear();
+            if changed == "snapshot-ref" {
+                git_test(root, &["update-ref", &format!("refs/notemd/share/{}/snapshots/{}", p.project_id, snap.snapshot_id), result["commit"].as_str().unwrap()]);
+            } else {
+                let raw = git_test(root, &["cat-file", "commit", result["commit"].as_str().unwrap()]);
+                let raw = match changed {
+                    "parent" => raw.lines().map(|line| if line.starts_with("parent ") { format!("parent {}", snap.git.as_ref().unwrap().snapshot_commit) } else { line.into() }).collect::<Vec<_>>().join("\n"),
+                    "author" => raw.replace("author ", "author Forged "),
+                    _ => raw.replace("notemd: suggestion", "forged: suggestion"),
+                } + "\n";
+                let oid = String::from_utf8(crate::vault_sync::git_ops::run_git_io(root, &["hash-object", "-t", "commit", "-w", "--stdin"], &[], Some(raw.as_bytes())).unwrap()).unwrap(); let oid = oid.trim();
+                let intent = f.git.as_mut().unwrap().branch_intent.as_mut().unwrap(); intent.commit = oid.into();
+                git_test(root, &["update-ref", &format!("refs/heads/{}", intent.branch), oid]);
+            }
+            write_json(&path, &f).unwrap();
+            let before = p1_bytes(Path::new(&p.mirror_root)); let refs = git_test(root, &["show-ref"]);
+            let error = execute_git_request(&s, &serde_json::json!({"op":"branch-state","project_id":p.project_id,"submissionId":"identity"})).unwrap_err();
+            assert!(error.contains(if changed == "snapshot-ref" { "snapshot ref mismatch" } else { "identity mismatch" }), "{changed}: {error}");
+            assert_eq!(before, p1_bytes(Path::new(&p.mirror_root))); assert_eq!(refs, git_test(root, &["show-ref"]));
+        }
+    }
+    #[cfg(unix)]
+    #[test]
+    fn project_share_git_final_i2_query_subprocess_runs_outside_both_locks() {
+        use std::os::unix::fs::PermissionsExt;
+        let (t, s, p) = git_fixture(); let root = Path::new(&p.source_root); let snap = git_freeze(&s, &p);
+        git_import(&s, &p, &snap, "query-locks");
+        execute_git_request(&s, &serde_json::json!({"op":"branch","project_id":p.project_id,"submissionId":"query-locks","expectedHead":git_test(root,&["rev-parse","HEAD"]),"results":{"README.md":"approved"}})).unwrap();
+        let script = t.path().join("waiting-git"); let ready = t.path().join("ready"); let release = t.path().join("release");
+        std::fs::write(&script, "#!/bin/sh\ncase \"$*\" in *'%P%x00%an'*) touch \"$TEST_READY\"; while [ ! -f \"$TEST_RELEASE\" ]; do sleep 0.01; done;; esac\nexec git \"$@\"\n").unwrap();
+        std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o700)).unwrap();
+        let worker = ProjectStore::new(s.vault.clone(), s.state.clone()); let id = p.project_id.clone(); let ready_arg = ready.clone(); let release_arg = release.clone();
+        let query = std::thread::spawn(move || crate::vault_sync::git_ops::with_test_git_io(&script, vec![("TEST_READY".into(), ready_arg.to_string_lossy().into()), ("TEST_RELEASE".into(), release_arg.to_string_lossy().into())], || execute_git_request(&worker, &serde_json::json!({"op":"branch-state","project_id":id,"submissionId":"query-locks"}))));
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        while !ready.exists() && std::time::Instant::now() < deadline { std::thread::sleep(std::time::Duration::from_millis(10)); }
+        assert!(ready.exists(), "actual query Git child must be waiting");
+        let worker = ProjectStore::new(s.vault.clone(), s.state.clone()); let (tx, rx) = std::sync::mpsc::channel();
+        let locker = std::thread::spawn(move || { short_lock(|| { let _records = worker.lock()?; Ok(()) }).unwrap(); tx.send(()).unwrap(); });
+        let free = rx.recv_timeout(std::time::Duration::from_secs(5)); std::fs::write(release, "").unwrap();
+        let result = query.join().unwrap(); locker.join().unwrap(); free.expect("both locks free while branch-state Git child runs"); result.unwrap();
+    }
+    #[cfg(unix)]
+    #[test]
+    fn project_share_git_final_i3_unavailable_capability_and_missing_tree_keep_p0() {
+        use std::os::unix::fs::PermissionsExt;
+        for old in [true, false] {
+            let (t, s, mut p) = git_fixture(); let origin = Path::new(&p.source_root).to_path_buf();
+            let trace = t.path().join("transport.log");
+            let script = t.path().join("old-git");
+            if old {
+                std::fs::write(&script, "#!/bin/sh\nfor arg in \"$@\"; do if [ \"$arg\" = --no-lazy-fetch ]; then echo unsupported >&2; exit 129; fi; done\nexec git \"$@\"\n").unwrap();
+                std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o700)).unwrap();
+            } else {
+                git_test(&origin, &["config", "uploadpack.allowFilter", "true"]);
+                let dest = t.path().join("partial-source");
+                git_test(&origin, &["clone", "--filter=tree:0", "--no-checkout", &format!("file://{}", origin.display()), dest.to_str().unwrap()]);
+                git_test(&dest, &["config", "user.name", "Owner"]); git_test(&dest, &["config", "user.email", "owner@example.test"]);
+                std::fs::create_dir(dest.join("docs")).unwrap(); std::fs::copy(origin.join("README.md"), dest.join("README.md")).unwrap(); std::fs::copy(origin.join("docs/a.md"), dest.join("docs/a.md")).unwrap();
+                p = s.open(dest.to_str().unwrap(), "README.md").unwrap();
+            }
+            let program = if old { script.as_path() } else { Path::new("git") };
+            crate::vault_sync::git_ops::with_test_git_io(program, vec![("GIT_TRACE".into(), trace.to_string_lossy().into())], || {
+                let snap = git_freeze(&s, &p); assert!(snap.git.is_none());
+                if !old { assert!(snap.git_error.is_some()); }
+                git_import(&s, &p, &snap, "fallback");
+                let before = s.read(&p.project_id, "README.md").unwrap().hash;
+                assert_eq!(s.apply(&p.project_id, "fallback", "README.md", &before, "P0 still works", None).unwrap().decisions["README.md"].status, "accepted");
+            });
+            let trace = std::fs::read_to_string(trace).unwrap_or_default();
+            assert!(!trace.contains(" fetch ") && !trace.contains("upload-pack"), "{trace}");
         }
     }
     #[test]
@@ -2704,6 +2971,9 @@ mod tests {
             "clean:approved"
         );
         execute_request(&s,&serde_json::json!({"op":"git-branched","project_id":p.project_id,"submissionId":"filter-retry","path":"README.md","branch":result["branch"],"commit":result["commit"]})).unwrap();
+        git_test(root, &["config", "filter.prefix.clean", "exit 99"]);
+        let query = execute_git_request(&s, &serde_json::json!({"op":"branch-state","project_id":p.project_id,"submissionId":"filter-retry"})).unwrap();
+        assert_eq!(query["commit"], result["commit"]);
     }
     #[test]
     fn project_share_git_store_probe_owner_identity_and_whole_submission_gates() {
@@ -5175,7 +5445,7 @@ fn run_share_job(
                 "refs/notemd/share/{}/snapshots/{}",
                 job.binding.project_id, job.snapshot.snapshot_id
             ),
-            format!("notemd: snapshot {}\n", job.snapshot.snapshot_id),
+            format!("notemd: share snapshot {}\n\nNotemd-Project: {}\nNotemd-Snapshot: {}\n", job.snapshot.snapshot_id, job.binding.project_id, job.snapshot.snapshot_id),
             git::owner_author(
                 &repo,
                 job.snapshot
@@ -5372,6 +5642,12 @@ enum GitRequest {
         head: String,
         results: BTreeMap<String, String>,
     },
+    #[serde(rename = "branch-state")]
+    BranchState {
+        project_id: String,
+        #[serde(rename = "submissionId")]
+        submission: String,
+    },
     #[serde(rename = "git-branched")]
     Branched {
         project_id: String,
@@ -5392,7 +5668,8 @@ impl GitRequest {
             | Self::CommitMessage { project_id, .. }
             | Self::Branch { project_id, .. }
             | Self::Patch { project_id, .. }
-            | Self::Branched { project_id, .. } => project_id,
+            | Self::Branched { project_id, .. }
+            | Self::BranchState { project_id, .. } => project_id,
         }
     }
     fn submission(&self) -> Option<&str> {
@@ -5402,7 +5679,8 @@ impl GitRequest {
             | Self::CommitMessage { submission, .. }
             | Self::Branch { submission, .. }
             | Self::Patch { submission, .. }
-            | Self::Branched { submission, .. } => Some(submission),
+            | Self::Branched { submission, .. }
+            | Self::BranchState { submission, .. } => Some(submission),
         }
     }
 }
@@ -5480,15 +5758,12 @@ impl ProjectStore {
         )?;
         Ok(latest)
     }
-    fn record_branch(
+    fn verify_branch_intent(
         &self,
         review: &GitReview,
         intent: &BranchIntent,
-        hashes: &BTreeMap<String, String>,
-        only: Option<(&str, Option<HunkSummary>)>,
     ) -> Result<LocalFeedback> {
-        let _records = self.lock()?;
-        let mut latest = self.verify_git_review(review)?;
+        let latest = self.verify_git_review(review)?;
         let saved = latest
             .git
             .as_ref()
@@ -5502,6 +5777,27 @@ impl ProjectStore {
             return Err("branch intent changed".into());
         }
         for edit in &latest.envelope.payload.edits {
+            if latest.decisions.get(&edit.path).is_some_and(|d| {
+                d.status != "not_applied"
+                    && !(d.status == "branched"
+                        && d.git_branch.as_deref() == Some(intent.branch.as_str())
+                        && d.git_commit.as_deref() == Some(intent.commit.as_str()))
+            }) {
+                return Err("file decision prevents recording branch".into());
+            }
+        }
+        Ok(latest)
+    }
+    fn record_branch(
+        &self,
+        review: &GitReview,
+        intent: &BranchIntent,
+        hashes: &BTreeMap<String, String>,
+        only: Option<(&str, Option<HunkSummary>)>,
+    ) -> Result<LocalFeedback> {
+        let _records = self.lock()?;
+        let mut latest = self.verify_branch_intent(review, intent)?;
+        for edit in &latest.envelope.payload.edits {
             if let Some((path, _)) = &only {
                 if *path != edit.path {
                     continue;
@@ -5514,7 +5810,6 @@ impl ProjectStore {
                 {
                     continue;
                 }
-                return Err("file decision prevents recording branch".into());
             }
             latest.decisions.insert(
                 edit.path.clone(),
@@ -5649,6 +5944,12 @@ fn execute_git_request(
     if let GitRequest::CommitMessage { .. } = &request {
         return git_value(serde_json::json!({"message":message(feedback,None,true)}));
     }
+    if matches!(request, GitRequest::BranchState { .. })
+        && feedback.git.as_ref().and_then(|g| g.branch_intent.as_ref()).is_none()
+    {
+        short_lock(|| service.verify_git_review(&review))?;
+        return Ok(serde_json::Value::Null);
+    }
     let repo = review_repo(&review)?;
     let paths: Vec<_> = feedback
         .envelope
@@ -5657,65 +5958,95 @@ fn execute_git_request(
         .iter()
         .map(|e| e.path.clone())
         .collect();
-    if let GitRequest::Branched {
-        path,
-        branch,
-        commit,
-        summary,
-        ..
-    } = &request
-    {
-        validate_relative(path)?;
-        if !paths.contains(path) {
-            return Err("file outside feedback".into());
-        }
-        if summary.as_ref().is_some_and(|s| s.accepted > s.total) {
-            return Err("invalid hunk summary".into());
-        }
+    if matches!(
+        request,
+        GitRequest::Branched { .. } | GitRequest::BranchState { .. }
+    ) {
         let intent = feedback
             .git
             .as_ref()
             .and_then(|g| g.branch_intent.as_ref())
             .ok_or("missing branch intent")?;
-        if branch != &intent.branch || commit != &intent.commit {
-            return Err("branch is not owned by this submission".into());
-        }
-        if git::ref_oid(&repo, &format!("refs/heads/{branch}"))?.as_deref() != Some(commit.as_str())
+        if let GitRequest::Branched {
+            path,
+            branch,
+            commit,
+            summary,
+            ..
+        } = &request
         {
+            validate_relative(path)?;
+            if !paths.contains(path) {
+                return Err("file outside feedback".into());
+            }
+            if summary.as_ref().is_some_and(|s| s.accepted > s.total) {
+                return Err("invalid hunk summary".into());
+            }
+            if branch != &intent.branch || commit != &intent.commit {
+                return Err("branch is not owned by this submission".into());
+            }
+        }
+        let actual = git::ref_oid(&repo, &format!("refs/heads/{}", intent.branch))?;
+        if actual.is_none() && matches!(request, GitRequest::BranchState { .. }) {
+            short_lock(|| service.verify_branch_intent(&review, intent))?;
+            return Ok(serde_json::Value::Null);
+        }
+        if actual.as_deref() != Some(intent.commit.as_str()) {
             return Err("branch ref changed".into());
         }
-        let bytes = git::read_blobs(&repo, commit, &paths)?;
-        let results: BTreeMap<_, _> = bytes
-            .iter()
-            .map(|(path, bytes)| {
-                String::from_utf8(bytes.clone())
-                    .map(|s| (path.clone(), s))
-                    .map_err(|_| "branch blob is not UTF-8")
-            })
-            .collect::<std::result::Result<_, _>>()?;
-        // Validate semantic ownership again, including parent, tree, message and author.
+        if let Some(meta) = &review.job.snapshot.git {
+            let snap_ref = format!(
+                "refs/notemd/share/{id}/snapshots/{}",
+                review.job.snapshot.snapshot_id
+            );
+            if git::ref_oid(&repo, &snap_ref)?.as_deref() != Some(meta.snapshot_commit.as_str()) {
+                return Err("snapshot ref mismatch".into());
+            }
+            git::ensure_snapshot_not_ancestor(&repo, &meta.snapshot_commit, &intent.head)?;
+        }
         let author = git::guest_author(
             feedback.envelope.payload.name.as_deref(),
             request.submission().unwrap(),
             &feedback.envelope.received_at,
         );
-        // The actual ref must equal the persisted immutable commit oid, which
-        // fixes its complete tree. Check parent/message/author without reapplying
-        // clean filters to blobs that are already stored in Git.
+        // The owned immutable oid fixes the complete tree. Never clean stored blobs a second time.
         git::verify_authored_commit(
             &repo,
-            commit,
+            &intent.commit,
             &intent.head,
             &message(feedback, Some(&intent.head), false),
             &author,
         )?;
-        let hashes = results
+        let bytes = git::read_blobs(&repo, &intent.commit, &paths)?;
+        let hashes = bytes
             .iter()
-            .map(|(p, s)| (p.clone(), sha256_hex(s.as_bytes())))
-            .collect();
-        return json(short_lock(|| {
-            service.record_branch(&review, intent, &hashes, Some((path, summary.clone())))
-        })?);
+            .map(|(path, bytes)| {
+                std::str::from_utf8(bytes).map_err(|_| "branch blob is not UTF-8")?;
+                Ok((path.clone(), sha256_hex(bytes)))
+            })
+            .collect::<Result<BTreeMap<_, _>>>()?;
+        git_test_hook(service, "branch-state-verified");
+        if git::ref_oid(&repo, &format!("refs/heads/{}", intent.branch))?.as_deref()
+            != Some(intent.commit.as_str())
+        {
+            return Err("branch ref changed".into());
+        }
+        if let GitRequest::Branched { path, summary, .. } = &request {
+            return json(short_lock(|| {
+                service.record_branch(&review, intent, &hashes, Some((path, summary.clone())))
+            })?);
+        }
+        let latest = short_lock(|| service.verify_branch_intent(&review, intent))?;
+        let complete = paths.iter().all(|path| {
+            latest
+                .decisions
+                .get(path)
+                .is_some_and(|d| d.status == "branched")
+        });
+        return git_value(
+            serde_json::json!({"branch":intent.branch,"commit":intent.commit,"feedback":latest,"remote":repo.remote,
+            "stateError":if complete { None } else { Some("Branch created; retry recording branch state") }}),
+        );
     }
     let blobs = git::read_blobs(&repo, &repo.head, &paths)?;
     let mut current = BTreeMap::new();
@@ -5765,6 +6096,7 @@ fn execute_git_request(
         &message(feedback, Some(expected), false),
         Some(&author),
     )?;
+    git::ensure_changed_tree(&repo, &candidate, expected)?;
     git_test_hook(service, "review-built");
     short_lock(|| {
         let latest = service.verify_git_review(&review)?;
@@ -5977,11 +6309,12 @@ fn dispatch(service: &ProjectStore, request: &serde_json::Value) -> Result<serde
             string(&request, "content")?,
             optional(&request, "summary")?,
         )?),
-        "reject" => value(service.reject(
+        "reject" => value(service.reject_target(
             id,
             string(&request, "submissionId")?,
             optional::<String>(&request, "path")?.as_deref(),
             optional::<String>(&request, "reason")?.as_deref(),
+            optional::<GitTarget>(request, "target")?,
         )?),
         "resolve" => value(service.resolve(id, string(&request, "submissionId")?)?),
         _ => Err(format!("unknown project_share operation: {op}")),

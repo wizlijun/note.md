@@ -96,6 +96,20 @@ fn run_git_with_proxy(repo: &Path, args: &[&str], proxy: Option<&str>) -> GitRes
     }
 }
 
+// Thread-scoped child configuration for isolated real-Git compatibility/transport tests.
+#[cfg(test)]
+thread_local! {
+    static TEST_IO: std::cell::RefCell<Option<(std::path::PathBuf, Vec<(String, String)>)>> = const { std::cell::RefCell::new(None) };
+}
+#[cfg(test)]
+pub(crate) fn with_test_git_io<T>(program: &Path, env: Vec<(String, String)>, action: impl FnOnce() -> T) -> T {
+    struct Reset;
+    impl Drop for Reset { fn drop(&mut self) { TEST_IO.with(|value| *value.borrow_mut() = None); } }
+    TEST_IO.with(|value| { assert!(value.borrow().is_none()); *value.borrow_mut() = Some((program.into(), env)); });
+    let _reset = Reset;
+    action()
+}
+
 /// Binary Git IO with command-local environment and concurrent pipe draining.
 pub fn run_git_io(
     repo: &Path,
@@ -107,6 +121,13 @@ pub fn run_git_io(
     use std::process::Stdio;
 
     let mut cmd = command("git");
+    #[cfg(test)]
+    TEST_IO.with(|value| {
+        if let Some((program, env)) = value.borrow().as_ref() {
+            cmd = command(program);
+            cmd.envs(env.iter().map(|(k, v)| (k, v)));
+        }
+    });
     if let Some(proxy) = configured_proxy() {
         cmd.arg("-c").arg(format!("http.proxy={proxy}"));
         cmd.arg("-c").arg(format!("https.proxy={proxy}"));

@@ -494,7 +494,7 @@ it('Git targets read only, persist target snapshots, and dismiss without promoti
   const f = feedback(); f.envelope.payload.annotations = [{ path: 'a.md', quote: '甲。', comment: 'note' }]
   const h = fixture(f), original = h.deps.command
   h.deps.command = vi.fn(async (op, args) => original<any>(op === 'review-readonly' ? 'review' : op, args))
-  h.deps.gitCommand = vi.fn(async () => ({ git: true, team: true, prefix: '', target: 'branch' })) as any
+  h.deps.gitCommand = vi.fn(async op => op === 'branch-state' ? null : ({ git: true, team: true, prefix: '', target: 'branch' })) as any
   await h.session.initializeTarget()
   await h.session.open(f, 'a.md'); h.session.acceptAll(); await h.session.flush()
   expect(h.session.target).toBe('branch')
@@ -517,6 +517,7 @@ function gitFixture(target: 'branch' | 'patch' = 'branch') {
   h.deps.command = vi.fn(async (op, args) => original<any>(op === 'review-readonly' ? 'review' : op, args))
   h.deps.gitCommand = vi.fn(async (op: string) => {
     if (op === 'probe') return { git: true, team: true, prefix: '', remote: "team's repo", target }
+    if (op === 'branch-state') return null
     if (op === 'prepare') return { head: 'H', entry: 'a.md', feedback: h.session.feedback, commitMessage: 'trusted', files: f.envelope.payload.edits.map(e => ({ path: e.path, base: '甲。乙。丙。', current: '甲新。乙。丙。', after: e.afterMarkdown })) }
     if (op === 'branch') return { branch: 'share/topic', commit: 'oid', feedback: { ...h.session.feedback, status: 'branched', decisions: Object.fromEntries(f.envelope.payload.edits.map(e => [e.path, { status: 'branched' }])) } }
     if (op === 'export-patch') return { patch: 'From oid\r\n中文\n' }
@@ -633,5 +634,94 @@ it('treats a reopened all-branched submission as terminal even on an annotation-
   await h.session.open(f, 'note.md')
   expect(h.session.canWrite).toBe(false); expect(h.session.canReject).toBe(false)
   expect(h.session.annotations[0].canPromote).toBe(false)
+  await h.session.destroy()
+})
+
+
+it.each(['branch', 'patch'] as const)('final I1: recovered not_applied reaches %s without A side effects', async target => {
+  const h = gitFixture(target)
+  h.f.decisions['a.md'] = { status: 'not_applied' }
+  await reviewGit(h)
+  expect(h.session.canGit).toBe(true)
+  await h.session.executeGit()
+  expect(h.deps.gitCommand).toHaveBeenCalledWith(target === 'branch' ? 'branch' : 'export-patch', expect.anything())
+  expect(h.deps.prepareSource).not.toHaveBeenCalled()
+  if (target === 'patch') expect(h.session.feedback?.decisions['a.md'].status).toBe('not_applied')
+  await h.session.destroy()
+})
+it.each(['accepted', 'rejected', 'branched', 'pending', 'mirror_pending', 'recovery_conflict', 'source_changed', 'unknown'])('final I1: mixed %s remains blocked', async status => {
+  const h = gitFixture(); h.f.decisions['a.md'] = { status }
+  await h.session.initializeTarget(); await h.session.open(h.f, 'a.md')
+  expect(h.session.canGit).toBe(false)
+  await h.session.executeGit()
+  expect(h.deps.confirmGit).not.toHaveBeenCalled()
+  await h.session.destroy()
+})
+it.each(['branch', 'patch'] as const)('final I4: reject carries explicit %s and preserves late A intent failure', async target => {
+  const h = gitFixture(target); await h.session.initializeTarget(); await h.session.open(h.f, 'a.md')
+  const original = h.deps.command
+  h.deps.command = vi.fn(async (op, args) => {
+    if (op === 'reject') { expect(args.target).toBe(target); throw new Error('worktree apply recovery pending; switch to worktree review first') }
+    return original<any>(op, args)
+  })
+  await expect(h.session.rejectFile()).rejects.toThrow('worktree')
+  expect(h.session.feedback?.decisions).toEqual({})
+  expect(h.deps.prepareSource).not.toHaveBeenCalled()
+  await h.session.setTarget('worktree')
+  expect(h.deps.prepareSource).toHaveBeenCalledOnce()
+  await h.session.destroy()
+})
+it.each(['branch', 'patch'] as const)('final M2: both-same %s has no confirmation, picker, ref or saved patch', async target => {
+  const h = gitFixture(target), original = h.deps.gitCommand!
+  h.deps.gitCommand = vi.fn(async (op, args) => {
+    const value = await original<any>(op, args)
+    if (op === 'prepare') value.files.forEach((file: any) => { file.current = file.after })
+    return value
+  })
+  await h.session.initializeTarget(); await h.session.open(h.f, 'a.md'); await h.session.executeGit()
+  expect(h.session.error).toContain('已包含')
+  expect(h.deps.confirmGit).not.toHaveBeenCalled(); expect(h.deps.pickPatch).not.toHaveBeenCalled(); expect(h.deps.savePatch).not.toHaveBeenCalled()
+  expect(vi.mocked(h.deps.gitCommand!).mock.calls.some(([op]) => op === 'branch' || op === 'export-patch')).toBe(false)
+  expect(h.session.feedback?.decisions).toEqual({})
+  await h.session.destroy()
+})
+it.each([false, true])('final I2: new session restores owned branch with partial=%s and only records state', async partial => {
+  const first = gitFixture(); await reviewGit(first)
+  const saved = structuredClone(first.session.feedback!)
+  await first.session.destroy()
+  if (partial) saved.decisions['a.md'] = { status: 'branched', gitBranch: 'real', gitCommit: 'oid' }
+  const h = fixture(saved), command = h.deps.command
+  h.deps.command = vi.fn(async (op, args) => {
+    if (op === 'git-branched') {
+      saved.decisions[String(args.path)] = { status: 'branched', gitBranch: 'real', gitCommit: 'oid' }
+      return structuredClone(saved) as any
+    }
+    return command(op === 'review-readonly' ? 'review' : op, args)
+  })
+  h.deps.gitCommand = vi.fn(async op => {
+    if (op === 'probe') return { git: true, target: 'branch', head: 'advanced-H', team: true, prefix: '' }
+    if (op === 'branch-state') return { branch: 'real', commit: 'oid', feedback: saved, stateError: 'retry state' }
+    throw new Error('must not recreate a branch: ' + op)
+  }) as any
+  await h.session.initializeTarget(); await h.session.open(saved, 'a.md')
+  expect(h.session.branchResult?.branch).toBe('real'); expect(h.session.canGit).toBe(false)
+  await h.session.retryBranchState()
+  expect(vi.mocked(h.deps.command).mock.calls.filter(([op]) => op === 'git-branched').map(([, args]) => args.path)).toEqual(['a.md', 'b.md'])
+  expect(h.session.branchResult?.stateError).toBeUndefined()
+  expect(h.deps.prepareSource).not.toHaveBeenCalled()
+  await h.session.destroy()
+})
+
+it('final I2: failed owned branch query blocks B but permits deliberate A recovery', async () => {
+  const h = gitFixture(), original = h.deps.gitCommand!
+  h.deps.gitCommand = vi.fn(async (op, args) => {
+    if (op === 'branch-state') throw new Error('worktree apply recovery pending; switch to worktree review first')
+    return original<any>(op, args)
+  })
+  await h.session.initializeTarget(); await h.session.open(h.f, 'a.md')
+  expect(h.session.error).toContain('worktree')
+  expect(h.session.canGit).toBe(false)
+  await h.session.setTarget('worktree')
+  expect(h.session.target).toBe('worktree'); expect(h.deps.prepareSource).toHaveBeenCalledOnce()
   await h.session.destroy()
 })

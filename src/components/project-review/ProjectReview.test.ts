@@ -217,6 +217,7 @@ it.each([false, true])('restores saved decisions after a → b → a (manual=%s)
 it('defaults to B before reading files and Cmd/Ctrl Enter opens an entire-submission confirmation', async () => {
   items[0].envelope.payload.edits.push({ ...items[0].envelope.payload.edits[0], path: 'b.md' })
   vi.mocked(projectGitCommand).mockImplementation(async (op: string) => {
+    if (op === 'branch-state') return null as any
     if (op === 'probe') return { git: true, team: true, prefix: '', remote: 'upstream' } as any
     if (op === 'prepare') return { head: 'H', entry: 'a.md', feedback: items[0], commitMessage: 'trusted', files: items[0].envelope.payload.edits.map(e => ({ path: e.path, base, current: base, after: e.afterMarkdown })) } as any
     if (op === 'branch') return { branch: 'share/topic', commit: 'oid', feedback: items[0] } as any
