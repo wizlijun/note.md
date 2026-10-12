@@ -1,10 +1,10 @@
 # 项目分享 P1：Git 合入目标验收
 
-本记录保留 Task 1–4 的历史证据，并补充最终 whole-branch review 后的统一修复与验证。验证范围为本机 Git 对象、项目 Store、唯一 TypeScript 合并内核及前端；不代表 P2、访客富文本编辑器、离线客户端或正式发布已完成。发行与完整裁定记录由 root 后续补充。
+本记录保留 Task 1–4 的历史证据，并补充最终 whole-branch review 后的统一修复与验证。验证范围为本机 Git 对象、项目 Store、唯一 TypeScript 合并内核及前端；P1已随v6.1013.1正式发布，正式产物核验见末节；P2、访客富文本编辑器及离线客户端未实施。完整裁定已归档。
 
 ## 最终统一修复（2026-10-13）
 
-冻结审查 `0ca59cf9..4a2ca1c9` 判定 4 Important / 2 Minor；以下一次统一修复处理 I1–I4、M1–M2 与 Task 4 author oracle。早期 Task 4 的 `result.is_ok()` 未覆盖 `stateError`、前端门禁和重开恢复；其历史通过记录不构成这些路径已正确的证据。本节取代相应历史结论，原始失败/通过日志均保留。最终唯一 scoped 复审已全部批准；发行由 root 继续，尚不宣称已发布。
+冻结审查 `0ca59cf9..4a2ca1c9` 判定 4 Important / 2 Minor；以下一次统一修复处理 I1–I4、M1–M2 与 Task 4 author oracle。早期 Task 4 的 `result.is_ok()` 未覆盖 `stateError`、前端门禁和重开恢复；其历史通过记录不构成这些路径已正确的证据。本节取代相应历史结论，原始失败/通过日志均保留。最终唯一 scoped 复审已全部批准；当时尚待发行，正式发布后的结论见末节。
 
 | 项目 | 最终行为与实际回归 |
 | --- | --- |
@@ -132,7 +132,7 @@ P1起点0ca59cf9；同一main顺序写入，不建worktree。P0独立证据见20
 
 原7项untracked保留：.pnpm-store/及六份旧设计稿/HTML（路径见本报告发行前清单）；发布preflight仅精确本机exclude，结束恢复原exclude使它们重新可见，不提交/删除/清理用户数据。旧force-pull备份.git/force-pull-backups/20261012T081941Z及refs/backup/before-force-pull/20261012T081941Z保留。
 
-正式版本、source tag、双架构七资产SHA/签名公证、匿名回读/latest、插件Worker最终状态待实际执行后补充，当前不宣称发布成功。
+以上为发行前盘点快照；正式版本、source tag、双架构七资产与最终线上核验结果见末节。
 
 ## Rulings I made
 
@@ -241,3 +241,33 @@ Ruling: branch-state保留B对snapshot.git=None的既有兼容，始终校验冻
 - [完整发行源码增量审计](2026-10-13-project-share-review-merge-p1-release-audit.md)
 
 本计划workspace在正式发布与线上验证后清理，原始测试证据届时压缩保留于本机ignored正式发行产物目录，正文的workspace路径为执行期来源，不承诺永久原路径。正式版本/tag/七资产/最终生产状态另行补录。P2/E1–E4/P3、P1 native/iOS/OS picker与Worker免费CPU残留仍明确未完成。
+
+
+## 正式发布与独立线上验收（2026-10-13）
+
+**P1已完成并正式发布 [v6.1013.1](https://github.com/wizlijun/note.md/releases/tag/v6.1013.1)。** 正式tag对象4ed3b1f0fd809e4a36c22c286144f121b8e1f27f，实际源码commit09abadb7db855085713aa2454e84e28e79cd3c0e；Release410880367，公开、非draft/非prerelease，发布时间UTC2026-10-12T18:12:15Z。既有release.sh顺序执行额外发布门禁、AppleSilicon/Intel构建、公证与签名、架构/权限核对、最终更新包重签，UTC17:59:10–18:12:16退出0；版本提交只改允许的六version/changelog文件。受限原始发布日志含Apple身份，不公开或打入证据包，仅安全执行摘要及独立正式产物验证归档。
+
+根代理独立anonymous helper实际运行UTC18:12:24–18:14:14，exit0、7/7通过，下载未携带Authorization/cookie。每件本地正式staged SHA、匿名下载SHA及GitHubdigest一致，七件total54048969bytes；两架构minisign验证最终tar、Info.plist版本6.1013.1及Mach-O分别arm64/x86_64、app codesign/stapler、DMG codesign/stapler/Gatekeeper全部通过。匿名latest.json版本6.1013.1且与正式manifest逐字一致。
+
+| 正式资产 | bytes | 匿名/本地/GitHub SHA256 |
+| --- | --- | --- |
+| latest.json | 1314 | 64181b878b5d9591c22612c1a24f7cc0c3a19d6e215d8c25e530031ce7586145 |
+| note.md-6.1013.1-aarch64.dmg | 13162726 | 3c06d5700d300b5bce035a9e1a4dfd0c2f5df50ea90c4a02cb0f447b4f773cde |
+| note.md-aarch64.app.tar.gz | 13205893 | 0009cf377ea9b950ebb02abd560952ab4b0c8b41371cefec39cfdc05db205d92 |
+| note.md-aarch64.app.tar.gz.sig | 416 | 9ea41d359330538099f9a3d435602fb7637ad256e4444792f5d3994ea0bf82e1 |
+| note.md-6.1013.1-x86_64.dmg | 13854894 | dc7771a19097eb37f0a693305033bc600f34f7b78176a12022dde03d7f37e7e0 |
+| note.md-x86_64.app.tar.gz | 13823310 | 55d9ff987813d425e32abde0a111e822a8b45989c5af100454f307ae5c737980 |
+| note.md-x86_64.app.tar.gz.sig | 416 | 3b23b0d399bee5cd981c67944b9acdd39c8018a41e988c4f40b41214ea773bc3 |
+
+最终独立生产核验UTC18:14:39–18:14:49：实际remote main/tag解引用/HEAD同09abadb7；正式tag八冻结SHA全同，Memory/Rich14actual检查缺失0，正式源码对旧tag全84paths/44commits均已盘点。P1之后只有fe89cd03五文档及09abadb7六version/changelog改动，产品代码未漂移。发布后的结果归档文档提交可继续前进main，正式tag不移动，产品与tag保持一致。
+
+26正式插件manifest版本与匿名市场一致，本轮无新增插件源码；Worker direct API100%version4b59fa31-c9b1-4619-aeae-c186bed33374/deployment6a2131e6-b32c-465e-aebd-cf4a32f8e141，fresh CI最近38210844417/b2de9a9666affed37c41d525d1a72fdaa95f3aba成功，推送后无新增/排队Worker部署；源码未变，因此没有额外发布相同Worker。core57文件/2206579bytes/tree1b656cb...仍一致clean。正式产物与线上状态已分别核对，不以main已提交代替发布。
+
+原七untracked路径全部保留，local exclude已逐字恢复before SHA并重新可见；原stash/force-pull备份/其他工作区保留。本计划临时证据仅在压缩归档后清理；正式七产物及安全验证文件保留于ignored src-tauri/target/release-artifacts/v6.1013.1，原始发布秘密日志不保留。详细生产核验与匿名结果见[正式发行核验](2026-10-13-project-share-review-merge-p1-release-verification.md)。
+
+**仍未完成/未验证：** P2/E1–E4/P3（含访客富文本与离线客户端）、P1 native UI/OS picker/iOS/TestFlight；旧Git能力不足降P0、非法UTF8目录环境限制、search attention历史偶发根因未知、33既有warnings；Worker archive seal/status-cleanup各10ms未满足strict<10ms，10代表/10limits/KVlegacy最终验收未完成。宿主发行成功不等于这些项目完成。
+
+
+证据压缩归档：`src-tauri/target/release-artifacts/v6.1013.1/p1-verification-evidence.tar.gz`，558文件、3275450bytes，SHA256 `7171e25172f4e66f8975a47fb774c522be826eff3f4b0b5555b55629eabb49a7`。原始测试日志/退出码/安全JSON/审查包/ledger已可从该本机ignored归档恢复；不含发布秘密日志、exclude原内容或匿名下载/解包副本。正式七资产独立保留，不作为产品源码新增。
+
+清理已实际完成：仅本P1 workspace及七个SHA仍等于本次正式staged的/tmp临时副本，移除文件合计339702796bytes；正式产物/3.3MB证据归档/原7untracked/旧备份/stash/兄弟计划均保留。
