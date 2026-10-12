@@ -132,7 +132,7 @@ let outcome = run_git_job(prepared.job); // 不持 Mutex/RecordsLock
 
 ## Task 3: 同一 ReviewDraft 的整份 Git 审阅与目标 UI
 
-**Files:** Create `src/lib/project-share/git.ts`、`git.test.ts`、`src/components/project-review/GitTargetBar.svelte`（及test）；Modify host/types/review.svelte.ts/ProjectReview.svelte/AnnotationPanel.svelte/ProjectShareDialog.svelte及对应tests。只动接缝，不改P0 renderer/kernel。
+**Files:** Create `src/lib/project-share/git.ts`、`git.test.ts`、`src/components/project-review/GitTargetBar.svelte`（及test）；Modify host/types/review.svelte.ts/ProjectReview.svelte/AnnotationPanel.svelte及对应tests；核验ProjectShareDialog.svelte既有isBusy锁并补真实父组件测试，只有行为接缝不足时才改父组件。只动接缝，不改P0 renderer/kernel。
 
 **Interfaces:** `projectGitCommand<T>(op,input)`包装专用command。`GitTarget`/`GitProbe`/`GitPrepared`/`GitBranchResult`对齐Task2。controller的strict `retain` 导出为共用helper `retainReviewDecisions`，A/B/C同规则，不另写决定恢复。Rust不强制draft.ours_hash等于H，跨工作区/HEAD的hunk有效性由同一TS内核判定。review增加目标getter/setter，保存target快照；UI按项目配置恢复，Git准备时获取最新反馈（先flush当前session）。
 
