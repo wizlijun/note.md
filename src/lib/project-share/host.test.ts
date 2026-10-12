@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ProjectInfo, ProjectSnapshot } from './types'
+import * as upload from './upload'
 
 const mocks = vi.hoisted(() => ({ invoke: vi.fn(), fetch: vi.fn(), save: vi.fn(), data: {} as Record<string, any>, events: [] as string[], baseUrl: 'https://share.test', render: vi.fn(), bundle: vi.fn(), capture: vi.fn(), archive: vi.fn() }))
 vi.mock('@tauri-apps/api/core', () => ({ invoke: mocks.invoke }))
@@ -41,6 +42,27 @@ beforeEach(() => {
 })
 
 describe('host project share', () => {
+  it('keeps the full package pending while upload completion is awaiting the ready receipt', async () => {
+    const progress = vi.fn()
+    let confirm!: () => void
+    const send = vi.spyOn(upload, 'uploadProjectArchive').mockImplementationOnce(async (_url, _headers, _archive, report) => {
+      expect((await projectIdentities())[info.project_id].pending?.phase).toBe('full')
+      report?.({ phase: 'uploading', loaded: 1, total: 3 })
+      report?.({ phase: 'processing' })
+      await new Promise<void>(resolve => { confirm = resolve })
+      return receipt('/archive')
+    })
+    try {
+      const publication = publishProject(info, [file], undefined, { onProgress: progress })
+      await vi.waitFor(() => expect(progress).toHaveBeenLastCalledWith({ phase: 'processing' }))
+      expect(progress.mock.calls[0]).toEqual([{ phase: 'preparing' }])
+      expect((await projectIdentities())[info.project_id].pending?.phase).toBe('full')
+      expect(mocks.invoke.mock.calls.filter(([, args]) => args.request.op === 'published')).toHaveLength(1)
+      confirm()
+      expect((await publication).identity.pending).toBeUndefined()
+      expect(mocks.invoke.mock.calls.filter(([, args]) => args.request.op === 'published')).toHaveLength(2)
+    } finally { send.mockRestore() }
+  })
   it('publishes only the entry first, exposes its link, then freezes the approved full scope with the same theme', async () => {
     const linked = { ...file, path: 'docs/next.md', hash: 'b'.repeat(64) }
     let frozen = 0

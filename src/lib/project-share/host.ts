@@ -5,6 +5,7 @@ import { generateSlug } from '../share/slug'
 import { buildProjectBundle } from './bundle'
 import { captureProjectTheme, renderProjectPresentation } from './presentation'
 import { buildProjectArchive } from './archive'
+import { uploadProjectArchive, type ProjectUploadProgress } from './upload'
 import { normalizeShareTitle } from './title'
 import type { FeedbackEnvelope, LocalFeedback, ProjectFile, ProjectInfo, ProjectSnapshot, ProjectSummary } from './types'
 
@@ -40,9 +41,11 @@ type ProjectPending = PendingBase & ({ phase?: undefined } | {
   frozenTheme: { themeId: string; compiledCss: string }
 })
 export interface ProjectPublishResult { info: ProjectInfo; identity: ProjectIdentity; warnings?: string[] }
+export type ProjectPublishProgress = { phase: 'preparing' } | ProjectUploadProgress
 export interface ProjectPublishOptions {
   useCurrentTheme?: boolean
   onEntryPublished?: (result: ProjectPublishResult) => void | Promise<void>
+  onProgress?: (progress: ProjectPublishProgress) => void
 }
 const KEY = 'projectShares'
 
@@ -213,6 +216,7 @@ export async function publishProject(info: ProjectInfo, files: ProjectFile[], ti
     await remember(identity)
   }
   await options.onEntryPublished?.({ info: published, identity, warnings: pending.warnings ?? [] })
+  options.onProgress?.({ phase: 'preparing' })
   if (pending.phase === 'preparing') {
     // Recheck precisely the approved scope; never silently add or take changed files.
     const snapshot = await projectCommand<ProjectSnapshot>('snapshot', {
@@ -232,11 +236,10 @@ export async function publishProject(info: ProjectInfo, files: ProjectFile[], ti
   const html = await projectCommand<string>('bundle-get', { project_id: info.project_id, snapshotId: pending.snapshotId })
   // Archive builder fixes timestamps, order and compression: cached inputs reproduce exact bytes.
   const archive = await buildProjectArchive(snapshot, html)
-  const response = await fetch(`${identity.baseUrl}/project/${identity.slug}/archive`, {
-    method: 'POST', headers: { Authorization: `Bearer ${cfg.apiKey}`, 'Content-Type': 'application/zip',
-      'X-Edit-Token': identity.edit_token, 'X-Publication-Id': pending.publicationId, 'X-Snapshot-Id': pending.snapshotId },
-    body: archive as BodyInit,
-  })
+  const response = await uploadProjectArchive(`${identity.baseUrl}/project/${identity.slug}/archive`, {
+    Authorization: `Bearer ${cfg.apiKey}`, 'Content-Type': 'application/zip',
+    'X-Edit-Token': identity.edit_token, 'X-Publication-Id': pending.publicationId, 'X-Snapshot-Id': pending.snapshotId,
+  }, archive, options.onProgress)
   if (!response.ok) throw new Error(`分享服务 HTTP ${response.status}：${(await response.text()).slice(0, 300)}`)
   const receipt = await response.json()
   if (receipt.stage !== 'ready') throw new Error('分享服务未确认完整项目发布阶段')

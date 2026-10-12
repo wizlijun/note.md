@@ -5,7 +5,7 @@ import ProjectShareDialog from './ProjectShareDialog.svelte'
 import { ask, open } from '@tauri-apps/plugin-dialog'
 import { pickSaveFile } from '../lib/dialogs'
 import { createProject, deleteProject, cancelProjectDeletion, projectCommand, publishProject } from '../lib/project-share/host'
-import type { ProjectIdentity } from '../lib/project-share/host'
+import type { ProjectIdentity, ProjectPublishProgress } from '../lib/project-share/host'
 import type { ProjectSummary } from '../lib/project-share/types'
 import { openSettings, uiState } from '../lib/ui-state.svelte'
 
@@ -103,6 +103,66 @@ async function openDialog() {
   component = mount(ProjectShareDialog, { target: document.body, props: { onClose: vi.fn() } })
   await vi.waitFor(() => expect(button('保存并重新扫描').disabled).toBe(false))
 }
+
+describe('ProjectShareDialog ZIP progress', () => {
+  it('shows live ZIP phases and byte progress only for the publishing project, then clears on success', async () => {
+    h.listed.push({ ...info, project_id: 'b', entry: 'other.md' })
+    let report: (progress: ProjectPublishProgress) => void = () => {}
+    let finish = () => {}
+    vi.mocked(publishProject).mockImplementationOnce(async (_info, _files, _title, options) => {
+      report = options!.onProgress!
+      await new Promise<void>(resolve => { finish = resolve })
+      return { info, identity: h.identities.p as ProjectIdentity }
+    })
+    await openDialog()
+    button('更新分享').click()
+    await vi.waitFor(() => expect(document.querySelector('.project-heading')?.textContent).toContain('正在准备 ZIP…'))
+    const select = document.querySelector<HTMLSelectElement>('#share-recent-project')!
+    expect(select.disabled).toBe(true)
+    expect(select.querySelector('option[value="b"]')?.textContent).not.toContain('ZIP')
+    report({ phase: 'uploading', loaded: 1024, total: 4096 })
+    await tick()
+    const progress = document.querySelector<HTMLProgressElement>('.project-heading progress')!
+    expect(progress.value).toBe(25)
+    expect(progress.getAttribute('aria-label')).toBe('main.md ZIP 上传进度')
+    expect(document.querySelector('.project-heading')?.textContent).toContain('25% · 1.0 KB / 4.0 KB')
+    expect(select.querySelector('option[value="p"]')?.textContent).toContain('25%')
+    report({ phase: 'uploading', loaded: 4096, total: 4096 })
+    await tick()
+    expect(progress.value).toBe(100)
+    report({ phase: 'processing' })
+    await tick()
+    expect(document.querySelector('.project-heading')?.textContent).toContain('ZIP 已上传，正在解压发布…')
+    expect(document.querySelector('.project-heading progress')?.hasAttribute('value')).toBe(false)
+    finish()
+    await vi.waitFor(() => expect(document.querySelector('.project-heading progress')).toBeNull())
+    expect(document.body.textContent).toContain('项目已发布。')
+    expect(select.disabled).toBe(false)
+    expect(select.querySelector('option[value="p"]')?.textContent).not.toContain('ZIP')
+  })
+
+  it('clears failed ZIP progress while preserving the error and allows a fresh retry', async () => {
+    let fail: (error: Error) => void = () => {}
+    vi.mocked(publishProject).mockImplementationOnce(async (_info, _files, _title, options) => {
+      options?.onProgress?.({ phase: 'uploading', loaded: 2048, total: 4096 })
+      await new Promise<void>((_resolve, reject) => { fail = reject })
+      throw new Error('unreachable')
+    })
+    await openDialog()
+    button('更新分享').click()
+    await vi.waitFor(() => expect(document.querySelector('.project-heading')?.textContent).toContain('50%'))
+    fail(new Error('ZIP upload offline'))
+    await vi.waitFor(() => expect(document.querySelector('[role=alert]')?.textContent).toContain('ZIP upload offline'))
+    expect(document.querySelector('.project-heading progress')).toBeNull()
+    expect(document.querySelector('option[value="p"]')?.textContent).not.toContain('50%')
+    expect(button('更新分享').disabled).toBe(false)
+    vi.mocked(publishProject).mockResolvedValueOnce({ info, identity: h.identities.p as ProjectIdentity })
+    button('更新分享').click()
+    await vi.waitFor(() => expect(document.body.textContent).toContain('项目已发布。'))
+    expect(document.querySelector('[role=alert]')).toBeNull()
+    expect(document.querySelector('.project-heading progress')).toBeNull()
+  })
+})
 
 describe('ProjectShareDialog titles', () => {
   const title = () => document.querySelector<HTMLInputElement>('#share-title')!

@@ -10,7 +10,7 @@
   import { openSettings, uiState } from '../lib/ui-state.svelte'
   import { modalFocus } from '../lib/ui/modal-focus'
   import { scanProject, isBlockingReferenceIssue, type ReferenceIssue } from '../lib/project-share/references'
-  import { projectCommand, projectIdentities, listProjects, createProject, deleteProject, cancelProjectDeletion, publishProject, collaborationLink, pullProjectFeedback, stopProjectShare, rememberProjectLocation, type ProjectIdentity } from '../lib/project-share/host'
+  import { projectCommand, projectIdentities, listProjects, createProject, deleteProject, cancelProjectDeletion, publishProject, collaborationLink, pullProjectFeedback, stopProjectShare, rememberProjectLocation, type ProjectIdentity, type ProjectPublishProgress } from '../lib/project-share/host'
   import { normalizeShareTitle } from '../lib/project-share/title'
   import type { ProjectFile, ProjectInfo, ProjectSummary, LocalFeedback, ProjectSnapshot, ReviewFile } from '../lib/project-share/types'
 
@@ -24,6 +24,7 @@
   let shareTitle = $state('')
   let useCurrentTheme = $state(true)
   let publishWarnings = $state<string[]>([])
+  let publishing = $state<{ projectId: string; progress: ProjectPublishProgress } | null>(null)
   let cloudError = $state('')
   let rebindProjectId = $state('')
   let boundSourceRoot = $state('')
@@ -57,6 +58,7 @@
   const totalBytes = $derived(files.reduce((sum, file) => sum + file.bytes, 0))
   const pendingFeedback = $derived(inbox.filter(item => item.status === 'pending').length)
   const projectName = $derived(info?.entry.split('/').filter(Boolean).at(-1) ?? '')
+  const publishProgress = $derived(publishing?.projectId === info?.project_id ? publishing?.progress : undefined)
 
   $effect(() => {
     void page
@@ -102,8 +104,18 @@
     projectList = listed; projects = identities
   }
   function projectStatus(project: ProjectSummary) {
+    if (publishing?.projectId === project.project_id) return progressLabel(publishing.progress)
     const saved = projects[project.project_id]
     return project.deleting ? '删除中' : project.orphaned ? '仅有分享记录' : project.error ? '需处理' : project.sourceAvailable === false ? '源不可用' : saved?.pending ? '发布待确认' : project.url || saved?.url ? '已分享' : '草稿'
+  }
+  function uploadPercent(progress: Extract<ProjectPublishProgress, { phase: 'uploading' }>) {
+    return progress.total > 0 ? Math.min(100, Math.floor(progress.loaded / progress.total * 100)) : undefined
+  }
+  function progressLabel(progress: ProjectPublishProgress) {
+    if (progress.phase === 'preparing') return '正在准备 ZIP…'
+    if (progress.phase === 'processing') return 'ZIP 已上传，正在解压发布…'
+    const percent = uploadPercent(progress)
+    return `正在上传 ZIP${percent === undefined ? '' : ` · ${percent}%`} · ${formatSize(progress.loaded)} / ${formatSize(progress.total)}`
   }
   function entryPath(project: ProjectSummary) { return `${project.sourceRoot.replace(/\/$/, '')}/${project.entry}` }
   async function loadProject(projectId: string, created?: ProjectInfo) {
@@ -301,8 +313,12 @@
         if (blocking.length) throw new Error('存在不可安全发布的问题，请先处理下方列出的原因，再重新扫描。')
         if (!files.some(file => file.path === project.entry)) throw new Error('必须包含入口文档')
       }
+      publishing = { projectId: project.project_id, progress: { phase: 'preparing' } }
       const published = await publishProject(project, pending ? [] : files, shareTitle, {
         useCurrentTheme,
+        onProgress(progress) {
+          if (publishing?.projectId === project.project_id) publishing = { projectId: project.project_id, progress }
+        },
         onEntryPublished(result) {
           info = result.info
           projects = { ...projects, [project.project_id]: result.identity }
@@ -326,7 +342,7 @@
       if (frozen?.phase && projects[project.project_id]?.url) throw new Error(`完整项目尚未同步完成，已发布链接仍可访问和复制。请重试继续同步项目。\n${String(e)}`)
       if (frozen) throw new Error(`发布结果未确认。本机已保留原包，下次点击“重试原包发布”会使用相同地址和内容。\n${String(e)}`)
       throw e
-    }
+    } finally { publishing = null }
   }
   async function copy(link: string | undefined) {
     if (!link) return
@@ -507,8 +523,18 @@
         {#if publishWarnings.length}<ul class="message warning" aria-label="发布呈现提示" role="status">{#each publishWarnings as warning}<li>{warning}</li>{/each}</ul>{/if}
         {#if info}
           <div class="project-heading">
-            <div class="project-title"><h3>{projectName}</h3><span class="badge">{projectStatus(info)}</span></div>
+            <div class="project-title"><h3>{projectName}</h3><span class="badge">{publishProgress ? '发布中' : projectStatus(info)}</span></div>
             <p class="path">{info.sourceRoot}</p>
+            {#if publishProgress}
+              <div class="publish-progress">
+                <p role="status">{progressLabel(publishProgress)}</p>
+                {#if publishProgress.phase === 'uploading' && publishProgress.total > 0}
+                  <progress max="100" value={uploadPercent(publishProgress)} aria-label={`${projectName} ZIP 上传进度`} aria-valuetext={progressLabel(publishProgress)}></progress>
+                {:else}
+                  <progress aria-label={`${projectName} ZIP 上传进度`} aria-valuetext={progressLabel(publishProgress)}></progress>
+                {/if}
+              </div>
+            {/if}
           </div>
           {#if page === 'share'}
             <section class="entry-section">
@@ -614,6 +640,9 @@
   .project-heading { margin-bottom: 20px; }
   .project-title { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
   .project-title h3 { margin: 0; font-size: 16px; overflow-wrap: anywhere; }
+  .publish-progress { margin-top: 12px; color: var(--ui-secondary); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .publish-progress p { margin: 0 0 6px; }
+  .publish-progress progress { display: block; width: 100%; height: 6px; accent-color: var(--ui-accent); }
   .path { margin: 6px 0 0; color: var(--ui-secondary); font-size: 12px; overflow-wrap: anywhere; }
   .badge { border-radius: 4px; background: var(--ui-bg); border: 1px solid var(--ui-separator); padding: 1px 6px; font-size: 12px; white-space: nowrap; color: var(--ui-secondary); }
   section { padding: 20px 0; border-top: 1px solid var(--ui-separator); }
