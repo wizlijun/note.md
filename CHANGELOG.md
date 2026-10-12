@@ -9,6 +9,8 @@ For the full commit history, see the git log.
 
 ### Improvements
 
+- **External suggestions for Git projects can become branches with guest attribution or exported patches.** The merge target is remembered per project, without switching branches, pushing, or changing the working tree.
+
 - **Project sharing supports accepting, rejecting and editing individual suggestions.** Compare later changes to the original with external suggestions, promote reviewed comments into your document, and reopen automatically saved review progress.
 - **Project sharing gains a lossless merge foundation for upcoming per-change review.** Merge calculations preserve the original formatting and flag changes to trust fields, hidden characters and existing owner annotations for individual confirmation.
 

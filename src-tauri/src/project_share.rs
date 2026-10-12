@@ -1745,6 +1745,248 @@ mod tests {
             std::fs::read(root.join(".git/config")).unwrap(),
         )
     }
+    fn p1_bytes(root: &Path) -> BTreeMap<String, Vec<u8>> {
+        fn visit(root: &Path, dir: &Path, out: &mut BTreeMap<String, Vec<u8>>) {
+            for entry in std::fs::read_dir(dir).unwrap() {
+                let path = entry.unwrap().path();
+                if path == root.join(".git") { continue; }
+                if path.is_dir() { visit(root, &path, out); }
+                else { out.insert(path.strip_prefix(root).unwrap().to_string_lossy().into(), std::fs::read(path).unwrap()); }
+            }
+        }
+        let mut bytes = BTreeMap::new();
+        visit(root, root, &mut bytes);
+        bytes
+    }
+    fn p1_state(root: &Path) -> (BTreeMap<String, Vec<u8>>, Option<Vec<u8>>, String, String, Vec<u8>, BTreeMap<String, Vec<u8>>) {
+        (p1_bytes(root), std::fs::read(root.join(".git/index")).ok(),
+         git_test(root, &["rev-parse", "HEAD"]), git_test(root, &["symbolic-ref", "HEAD"]),
+         std::fs::read(root.join(".git/config")).unwrap(), p1_bytes(&root.join(".git/hooks")))
+    }
+    #[test]
+    fn project_share_git_p1_full_business_preserves_bytes_with_or_without_real_index() {
+        for has_index in [true, false] {
+            let (_t, s, p) = git_fixture();
+            let root = Path::new(&p.source_root);
+            std::fs::write(root.join("README.md"), "staged snapshot").unwrap();
+            git_test(root, &["add", "README.md"]);
+            std::fs::write(root.join("README.md"), "unstaged snapshot\r\n").unwrap();
+            std::fs::write(root.join("untracked.bin"), b"\0private\xff\r\n").unwrap();
+            std::fs::write(root.join(".git/hooks/pre-commit"), b"#!/bin/sh\nexit 99\n").unwrap();
+            if !has_index { std::fs::remove_file(root.join(".git/index")).unwrap(); }
+            let before = p1_state(root);
+            let snap = git_freeze(&s, &p);
+            assert_eq!(before, p1_state(root), "freeze index={has_index}");
+            git_import(&s, &p, &snap, "bytes");
+            assert_eq!(before, p1_state(root), "import index={has_index}");
+            let mirror_before = p1_bytes(Path::new(&p.mirror_root));
+            let prepared = execute_git_request(&s, &serde_json::json!({"op":"prepare","project_id":p.project_id,"submissionId":"bytes"})).unwrap();
+            for op in ["export-patch", "branch"] {
+                execute_git_request(&s, &serde_json::json!({"op":op,"project_id":p.project_id,"submissionId":"bytes","expectedHead":prepared["head"],"results":{"README.md":"approved"}})).unwrap();
+                assert_eq!(before, p1_state(root), "{op} index={has_index}");
+                let after = p1_bytes(Path::new(&p.mirror_root));
+                for (path, bytes) in &mirror_before {
+                    if !path.starts_with(".notemd/") { assert_eq!(after.get(path), Some(bytes), "mirror {path}"); }
+                }
+            }
+        }
+    }
+    #[test]
+    fn project_share_git_p1_other_decisions_fail_closed_without_refs_or_writes() {
+        let (_t, s, p) = git_fixture();
+        let root = Path::new(&p.source_root);
+        let snap = git_freeze(&s, &p);
+        for status in ["accepted", "rejected", "branched", "pending", "mirror_pending", "source_changed", "recovery_conflict", "quarantined", "unknown"] {
+            let mut f = git_import(&s, &p, &snap, status);
+            f.decisions.insert("README.md".into(), Decision { status: status.into(), ..Default::default() });
+            write_json(&s.inbox_path(&s.binding(&p.project_id).unwrap(), status).unwrap(), &f).unwrap();
+            for op in ["branch", "export-patch"] {
+                if status == "branched" && op == "export-patch" { continue; }
+                let before = p1_state(root);
+                let refs = git_test(root, &["show-ref"]);
+                let mirror = p1_bytes(Path::new(&p.mirror_root));
+                assert!(execute_git_request(&s, &serde_json::json!({"op":op,"project_id":p.project_id,"submissionId":status,"expectedHead":before.2,"results":{"README.md":"forbidden"}})).is_err(), "{status} {op}");
+                assert_eq!(refs, git_test(root, &["show-ref"]));
+                assert_eq!(before, p1_state(root));
+                assert_eq!(mirror, p1_bytes(Path::new(&p.mirror_root)));
+            }
+        }
+    }
+    #[test]
+    fn project_share_git_p1_user_same_candidate_oid_still_collides_without_intent() {
+        let (_t, s, p) = git_fixture();
+        let root = Path::new(&p.source_root);
+        let snap = git_freeze(&s, &p);
+        git_import(&s, &p, &snap, "same-oid");
+        let captured = std::sync::Arc::new(std::sync::Mutex::new(String::new()));
+        let capture = captured.clone();
+        let owned_root = root.to_path_buf();
+        hook(move |_, phase| {
+            if phase == "review-built" {
+                let unreachable = git_test(&owned_root, &["fsck", "--unreachable", "--no-reflogs"]);
+                let commits: Vec<_> = unreachable.lines().filter_map(|l| l.strip_prefix("unreachable commit ")).collect();
+                assert_eq!(commits.len(), 1, "only the just-built review commit is unreachable");
+                *capture.lock().unwrap() = commits[0].into();
+                git_test(&owned_root, &["update-ref", "refs/heads/notemd/readme/same-oid", commits[0]]);
+            }
+        });
+        let result = execute_git_request(&s, &serde_json::json!({"op":"branch","project_id":p.project_id,"submissionId":"same-oid","expectedHead":git_test(root,&["rev-parse","HEAD"]),"results":{"README.md":"approved"}}));
+        unhook();
+        let result = result.unwrap();
+        assert_eq!(result["branch"], "notemd/readme/same-oid-2");
+        assert_eq!(result["commit"].as_str().unwrap(), captured.lock().unwrap().as_str());
+        assert_eq!(git_test(root, &["rev-parse", "refs/heads/notemd/readme/same-oid"]), result["commit"].as_str().unwrap());
+    }
+    #[test]
+    fn project_share_git_p1_store_branch_collisions_same_oid_suffixes_and_exhaustion() {
+        let (_t, s, p) = git_fixture();
+        let root = Path::new(&p.source_root);
+        let snap = git_freeze(&s, &p);
+        let original = git_import(&s, &p, &snap, "collisions");
+        let path = s.inbox_path(&s.binding(&p.project_id).unwrap(), "collisions").unwrap();
+        let request = serde_json::json!({"op":"branch","project_id":p.project_id,"submissionId":"collisions","expectedHead":git_test(root,&["rev-parse","HEAD"]),"results":{"README.md":"approved"}});
+        let first = execute_git_request(&s, &request).unwrap();
+        let base = first["branch"].as_str().unwrap();
+        let oid = first["commit"].as_str().unwrap();
+        // Removing our persisted intent leaves an ordinary user-owned same-OID branch.
+        // It must collide, even though its commit was originally produced by this request.
+        for n in 2..=9 {
+            write_json(&path, &original).unwrap();
+            let result = execute_git_request(&s, &request).unwrap();
+            assert_eq!(result["branch"], format!("{base}-{n}"));
+            assert_eq!(git_test(root, &["rev-parse", &format!("refs/heads/{base}")]), oid);
+        }
+        write_json(&path, &original).unwrap();
+        let refs = git_test(root, &["show-ref"]);
+        assert!(execute_git_request(&s, &request).unwrap_err().contains("all nine"));
+        assert_eq!(refs, git_test(root, &["show-ref"]));
+        let after: LocalFeedback = read_json(&path).unwrap();
+        assert!(after.git.unwrap().branch_intent.is_none());
+    }
+    #[test]
+    fn project_share_git_p1_store_subdirectory_prefix_and_patch_real_git_am() {
+        p1_patch_am_for_name("Visitor\nNotemd-Project: forged\nCo-authored-by: forged");
+    }
+    #[test]
+    fn project_share_git_p1_unicode_author_survives_real_git_am() {
+        p1_patch_am_for_name(&"中文访客".repeat(20));
+    }
+    #[test]
+    fn project_share_git_p1_at_author_survives_real_git_am() {
+        p1_patch_am_for_name("Visitor@example.test");
+    }
+    #[test]
+    fn project_share_git_p1_boundary_and_normal_author_survive_real_git_am() {
+        for name in ["Visitor".to_string(), "a".repeat(40), "a".repeat(41), format!("{}中", "a".repeat(39)), "@<>\n".to_string()] {
+            p1_patch_am_for_name(&name);
+        }
+    }
+    fn p1_patch_am_for_name(name: &str) {
+        let (t, s, p) = git_fixture();
+        let root = Path::new(&p.source_root);
+        let sub = root.join("nested space");
+        std::fs::create_dir_all(sub.join("docs")).unwrap();
+        std::fs::write(sub.join("README.md"), "nested original\n").unwrap();
+        std::fs::write(sub.join("docs/a.md"), "nested other\n").unwrap();
+        git_test(root, &["add", "."]);
+        git_test(root, &["commit", "-m", "nested project"]);
+        let p = s.open(sub.to_str().unwrap(), "README.md").unwrap();
+        let snap = git_freeze(&s, &p);
+        assert_eq!(snap.git.as_ref().unwrap().prefix, "nested space/");
+        let mut envelope = envelope(&p, &snap, "patch-am");
+        envelope.payload.name = Some(name.into());
+        execute_request(&s, &serde_json::json!({"op":"feedback","project_id":p.project_id,"envelope":envelope})).unwrap();
+        let head = git_test(root, &["rev-parse", "HEAD"]);
+        let patch = execute_git_request(&s, &serde_json::json!({"op":"export-patch","project_id":p.project_id,"submissionId":"patch-am","expectedHead":head,"results":{"README.md":"nested approved\n"}})).unwrap();
+        let destination = t.path().join("am target");
+        git_test(root, &["clone", "--local", "--no-hardlinks", root.to_str().unwrap(), destination.to_str().unwrap()]);
+        git_test(&destination, &["config", "user.name", "Receiver"]);
+        git_test(&destination, &["config", "user.email", "receiver@example.test"]);
+        crate::vault_sync::git_ops::run_git_io(&destination, &["am"], &[], Some(patch["patch"].as_str().unwrap().as_bytes())).unwrap();
+        assert_eq!(std::fs::read_to_string(destination.join("nested space/README.md")).unwrap(), "nested approved\n");
+        assert_eq!(std::fs::read(destination.join("README.md")).unwrap(), std::fs::read(root.join("README.md")).unwrap());
+        let applied_author = git_test(&destination, &["show", "-s", "--format=%an|%ae"]);
+        assert!(applied_author.contains("guest, unverified"), "{applied_author}\n{}", patch["patch"]);
+        let expected_author = git::guest_author(Some(name), "patch-am", "2026-10-10T00:00:00Z");
+        assert_eq!(applied_author, format!("{}|{}", expected_author.name, expected_author.email));
+        assert!(expected_author.name.len() <= 60);
+        if name == "Visitor" { assert_eq!(expected_author.name, "Visitor (guest, unverified)"); }
+        if name == "@<>\n" { assert_eq!(expected_author.name, "guest (guest, unverified)"); }
+        let local = s.inbox(&p.project_id).unwrap().pop().unwrap();
+        assert_eq!(local.envelope.payload.name.as_deref(), Some(name));
+        assert_eq!(git_test(&destination, &["rev-parse", "HEAD^"]), head);
+    }
+    #[test]
+    fn project_share_git_p1_store_fallback_non_git_bare_unborn_keeps_p0() {
+        for kind in ["non-git", "bare", "unborn"] {
+            let (_t, s, p) = fixture();
+            let root = Path::new(&p.source_root);
+            match kind {
+                "bare" => { git_test(root, &["init", "--bare"]); }
+                "unborn" => { git_test(root, &["init", "-b", "main"]); }
+                _ => ()
+            }
+            let snap = git_freeze(&s, &p);
+            assert!(snap.git.is_none(), "{kind}");
+            git_import(&s, &p, &snap, kind);
+            let before = s.read(&p.project_id, "README.md").unwrap().hash;
+            let result = s.apply(&p.project_id, kind, "README.md", &before, "P0 approved", None).unwrap();
+            assert_eq!(result.decisions["README.md"].status, "accepted");
+            assert_eq!(std::fs::read_to_string(root.join("README.md")).unwrap(), "P0 approved");
+        }
+    }
+    #[test]
+    fn project_share_git_p1_store_clean_eol_blobs_match_real_git_add() {
+        for kind in ["autocrlf", "eol", "clean"] {
+            let (_t, s, p) = git_fixture();
+            let root = Path::new(&p.source_root);
+            match kind {
+                "autocrlf" => { git_test(root, &["config", "core.autocrlf", "true"]); }
+                "eol" => { std::fs::write(root.join(".gitattributes"), "*.md text eol=lf\n").unwrap(); }
+                _ => {
+                    git_test(root, &["config", "filter.test.clean", "sed 's/^/clean:/'"]);
+                    git_test(root, &["config", "filter.test.required", "true"]);
+                    std::fs::write(root.join(".gitattributes"), "*.md filter=test\n").unwrap();
+                }
+            }
+            std::fs::write(root.join("README.md"), "snapshot\r\ntext\r\n").unwrap();
+            let snap = git_freeze(&s, &p);
+            git_import(&s, &p, &snap, kind);
+            let result = execute_git_request(&s, &serde_json::json!({"op":"branch","project_id":p.project_id,"submissionId":kind,"expectedHead":git_test(root,&["rev-parse","HEAD"]),"results":{"README.md":"approved\r\ntext\r\n"}})).unwrap();
+            git_test(root, &["add", "README.md"]);
+            assert_eq!(git_test(root, &["rev-parse", ":README.md"]), git_test(root, &["rev-parse", &format!("{}:README.md", snap.git.unwrap().snapshot_commit)]), "snapshot {kind}");
+            std::fs::write(root.join("README.md"), "approved\r\ntext\r\n").unwrap();
+            git_test(root, &["add", "README.md"]);
+            assert_eq!(git_test(root, &["rev-parse", ":README.md"]), git_test(root, &["rev-parse", &format!("{}:README.md", result["commit"].as_str().unwrap())]), "branch {kind}");
+        }
+    }
+    #[test]
+    fn project_share_git_p1_recovered_not_applied_allows_branch_and_patch() {
+        for op in ["branch", "export-patch"] {
+            let (_t, s, p) = git_fixture();
+            let root = Path::new(&p.source_root);
+            let snap = git_freeze(&s, &p);
+            let mut f = git_import(&s, &p, &snap, "recovered");
+            let before = std::fs::read(root.join("README.md")).unwrap();
+            f.decisions.insert("README.md".into(), Decision {
+                status: "pending".into(), before_hash: Some(sha256_hex(&before)),
+                result_hash: Some(sha256_hex(b"interrupted result")),
+                content: Some("interrupted result".into()), ..Default::default()
+            });
+            let path = s.inbox_path(&s.binding(&p.project_id).unwrap(), "recovered").unwrap();
+            write_json(&path, &f).unwrap();
+            let recovered = s.inbox(&p.project_id).unwrap().pop().unwrap();
+            assert_eq!(recovered.decisions["README.md"].status, "not_applied");
+            let mut draft = review_draft();
+            draft.target = Some(if op == "branch" { "branch" } else { "patch" }.into());
+            draft.ours_hash = sha256_hex(&before);
+            s.review_save(&p.project_id, "recovered", "README.md", draft).unwrap();
+            let prepared = execute_git_request(&s, &serde_json::json!({"op":"prepare","project_id":p.project_id,"submissionId":"recovered"})).unwrap();
+            let result = execute_git_request(&s, &serde_json::json!({"op":op,"project_id":p.project_id,"submissionId":"recovered","expectedHead":prepared["head"],"results":{"README.md":"approved after recovery"}}));
+            assert!(result.is_ok(), "{op}: {result:?}");
+            assert_eq!(std::fs::read(root.join("README.md")).unwrap(), before);
+        }
+    }
     #[test]
     fn project_share_git_store_freeze_import_metadata_and_isolation() {
         let (_t, s, p) = git_fixture();
@@ -5327,7 +5569,7 @@ fn review_status(feedback: &LocalFeedback, patch: bool) -> Result<()> {
     }
     if edits
         .iter()
-        .any(|e| feedback.decisions.contains_key(&e.path))
+        .any(|e| feedback.decisions.get(&e.path).is_some_and(|d| d.status != "not_applied"))
     {
         return Err("Git operations require a wholly undecided submission".into());
     }

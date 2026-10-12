@@ -5,7 +5,7 @@ const snapshot: ProjectSnapshot = {schemaVersion:1,project_id:'11111111-1111-411
 describe('static project bundle',()=>{
   it('projects local metadata and unknown file fields out of the public snapshot',()=>{
     const local={...snapshot,schemaVersion:2 as const,parentSnapshotId:'private-parent',createdAt:'private-created',
-      git:{snapshotCommit:'private-oid',headAtFreeze:'private-head',prefix:'private-prefix',repoRoot:'/private/repo'},gitError:'private-error',
+      git:{snapshotCommit:'private-oid',headAtFreeze:'private-head',prefix:'private-prefix',repoRoot:'/private/repo',branch_intent:{head:'private-intent-head',results_hash:'private-results-hash',commit:'private-intent-commit',branch:'private-intent-branch'}},gitError:'private-error',
       futureMetadata:'private-future',files:[{...snapshot.files[0],modifiedAt:123,localPath:'/private/file',futureFile:'private-file-future'},
         {path:'asset.bin',hash:'b'.repeat(64),bytes:1,dataUrl:'data:application/octet-stream;base64,AA==',localPath:'/private/asset'}]}
     const html=buildProjectBundle(local,'https://share.example/feedback/test')
@@ -14,7 +14,7 @@ describe('static project bundle',()=>{
       {path:'README.md',hash:'a'.repeat(64),bytes:10,modifiedAt:123,markdown:'# hello\n</script><script>alert(1)</script>'},
       {path:'asset.bin',hash:'b'.repeat(64),bytes:1,dataUrl:'data:application/octet-stream;base64,AA=='},
     ]})
-    for(const secret of ['private-parent','private-created','private-oid','private-head','private-prefix','/private/repo','private-error','private-future','/private/file','private-file-future','/private/asset']) expect(html).not.toContain(secret)
+    for(const secret of ['branch_intent','private-intent-head','private-results-hash','private-intent-commit','private-intent-branch','private-parent','private-created','private-oid','private-head','private-prefix','/private/repo','private-error','private-future','/private/file','private-file-future','/private/asset']) expect(html).not.toContain(secret)
   })
   it('freezes the title and presentation into a direct reading shell with inline font CSP',()=>{
     const presentation={themeId:'chosen',styleHead:'<style>.moraya-editor{color:purple}</style>',documents:{'README.md':'<h1>原文</h1><svg viewBox="0 0 20 20"><text>图</text></svg>'},warnings:[]}

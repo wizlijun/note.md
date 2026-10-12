@@ -361,6 +361,21 @@ describe('browser project collaboration', () => {
     await vi.waitFor(() => expect(($('editor') as HTMLTextAreaElement).value).toBe('saved draft'))
     expect((window as any).pwned).toBeUndefined()
   })
+  it('keeps private branch intent out of outgoing v1 feedback', async () => {
+    const data=JSON.parse($('project-data').textContent!)
+    data.snapshot.git={branch_intent:{head:'private-intent-head',results_hash:'private-results-hash',commit:'private-intent-commit',branch:'private-intent-branch'}}
+    data.snapshot.parentSnapshotId='private-parent'
+    data.snapshot.gitError='private-error'
+    $('project-data').textContent=JSON.stringify(data)
+    const send=vi.fn(async (_url:string,_init:RequestInit)=>Response.json({}))
+    vi.stubGlobal('fetch',send)
+    await projectShareBrowser(new Marked())
+    click('edit'); input('public suggestion'); click('submit')
+    await vi.waitFor(()=>expect(status()).toContain('已送达'))
+    const body=send.mock.calls[0][1].body as string
+    expect(JSON.parse(body)).toMatchObject({schemaVersion:1,edits:[{path:'README.md',afterMarkdown:'public suggestion'}]})
+    for(const secret of ['branch_intent','private-intent-head','private-results-hash','private-intent-commit','private-intent-branch','parentSnapshotId','gitError','private-parent','private-error']) expect(body).not.toContain(secret)
+  })
   it('allows an oversized candidate to be reduced and freezes only a sendable packet', async () => {
     const send = vi.fn(async (_url: string, _init: RequestInit) => Response.json({}))
     vi.stubGlobal('fetch', send)

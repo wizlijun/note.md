@@ -187,6 +187,8 @@ pub(crate) fn build_commit(
         .prefix("notemd-share-index-")
         .tempdir()
         .map_err(|e| e.to_string())?;
+    #[cfg(test)]
+    tests::TEMP_INDEXES.with(|paths| paths.borrow_mut().push(temp.path().to_path_buf()));
     if temp
         .path()
         .canonicalize()
@@ -547,8 +549,16 @@ pub(crate) fn guest_author(name: Option<&str>, submission: &str, received_at: &s
     let name: String = name
         .unwrap_or("guest")
         .chars()
-        .filter(|c| !c.is_control() && *c != '<' && *c != '>')
+        .filter(|c| !c.is_control() && *c != '<' && *c != '>' && *c != '@')
         .collect();
+    let name = name.trim();
+    // git mailinfo falls back to email for names over 60 bytes or containing @<>.
+    // Reserve 20 bytes for the unverified guest suffix, without splitting UTF-8.
+    let mut end = name.len().min(40);
+    while !name.is_char_boundary(end) {
+        end -= 1;
+    }
+    let name = &name[..end];
     let name = if name.trim().is_empty() {
         "guest"
     } else {
@@ -647,6 +657,9 @@ pub(crate) fn submission_message(
 
 #[cfg(test)]
 mod tests {
+    thread_local! {
+        pub(super) static TEMP_INDEXES: std::cell::RefCell<Vec<std::path::PathBuf>> = const { std::cell::RefCell::new(Vec::new()) };
+    }
     use super::*;
     use std::fs;
     use tempfile::TempDir;
@@ -756,21 +769,7 @@ mod tests {
         }
     }
     fn unchanged<T>(repo: &Path, action: impl FnOnce() -> T) -> T {
-        static OPERATIONS: std::sync::Mutex<()> = std::sync::Mutex::new(());
-        let _guard = OPERATIONS.lock().unwrap_or_else(|e| e.into_inner());
-        let temporary_indexes = || -> std::collections::BTreeSet<PathBuf> {
-            fs::read_dir(std::env::temp_dir())
-                .unwrap()
-                .filter_map(Result::ok)
-                .filter(|e| {
-                    e.file_name()
-                        .to_string_lossy()
-                        .starts_with("notemd-share-index-")
-                })
-                .map(|e| e.path())
-                .collect()
-        };
-        let indexes = temporary_indexes();
+        TEMP_INDEXES.with(|paths| paths.borrow_mut().clear());
         let before = state(repo);
         let result = action();
         let after = state(repo);
@@ -786,12 +785,19 @@ mod tests {
         );
         assert!(after.hooks == before.hooks, "hooks changed");
         assert_eq!(after.files, before.files, "source bytes/mode changed");
-        assert_eq!(
-            temporary_indexes(),
-            indexes,
-            "temporary index directory leaked"
-        );
+        TEMP_INDEXES.with(|paths| {
+            for path in paths.borrow_mut().drain(..) {
+                assert!(!path.exists(), "temporary index directory leaked: {}", path.display());
+            }
+        });
         result
+    }
+    fn unchanged_with_index<T>(repo: &Path, action: impl FnOnce() -> T) -> T {
+        unchanged(repo, || {
+            let result = action();
+            TEMP_INDEXES.with(|paths| assert!(!paths.borrow().is_empty(), "operation must create a temporary index"));
+            result
+        })
     }
     fn files(path: &str, bytes: &[u8]) -> BTreeMap<String, Vec<u8>> {
         BTreeMap::from([(path.to_string(), bytes.to_vec())])
@@ -1277,7 +1283,7 @@ mod tests {
             ("filtered.md".into(), b"lowercase\n".to_vec()),
             ("auto.md".into(), b"auto\r\n".to_vec()),
         ]);
-        let oid = unchanged(root, || {
+        let oid = unchanged_with_index(root, || {
             build_commit(&repo, &repo.head, &inputs, "filters\n", None)
         })
         .unwrap();
@@ -1292,7 +1298,7 @@ mod tests {
         #[cfg(unix)]
         {
             git(root, &["config", "filter.upper.clean", "cat"]);
-            unchanged(root, || {
+            unchanged_with_index(root, || {
                 build_commit(
                     &repo,
                     &repo.head,
@@ -1303,7 +1309,7 @@ mod tests {
             })
             .unwrap();
             git(root, &["config", "filter.upper.clean", "exit 1"]);
-            assert!(unchanged(root, || build_commit(
+            assert!(unchanged_with_index(root, || build_commit(
                 &repo,
                 &repo.head,
                 &files("filtered.md", b"fail\n"),
@@ -1311,8 +1317,8 @@ mod tests {
                 None
             ))
             .is_err());
-            // unchanged also compares the complete set of app temporary-index directories,
-            // serialized across these real-Git operations to catch both index and lock leaks.
+            // unchanged checks this thread's actual temporary-index directories (including
+            // index/lock files), without counting concurrent Store operations as leaks.
         }
     }
     #[test]

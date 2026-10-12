@@ -13,7 +13,7 @@ describe('frozen project ZIP',()=>{
   it.each(['source','legacy'] as const)('keeps local metadata out of %s archives while preserving original bytes',async format=>{
     const data=await snapshot()
     const local={...data,schemaVersion:2 as const,parentSnapshotId:'private-parent',createdAt:'private-created',
-      git:{snapshotCommit:'private-oid',headAtFreeze:'private-head',prefix:'private-prefix',repoRoot:'/private/repo'},gitError:'private-error',futureMetadata:'private-future',
+      git:{snapshotCommit:'private-oid',headAtFreeze:'private-head',prefix:'private-prefix',repoRoot:'/private/repo',branch_intent:{head:'private-intent-head',results_hash:'private-results-hash',commit:'private-intent-commit',branch:'private-intent-branch'}},gitError:'private-error',futureMetadata:'private-future',
       files:data.files.map(file=>({...file,localPath:'/private/file',futureFile:'private-file-future'}))}
     const html=buildProjectBundle(local,'https://share.example/feedback/test')
     const archive=unzipSync(await buildProjectArchive(local,html,format))
@@ -29,7 +29,7 @@ describe('frozen project ZIP',()=>{
       expect(new TextDecoder().decode(archive[manifest.htmlPath])).toBe(html)
     }
     const text=Object.values(archive).map(bytes=>new TextDecoder().decode(bytes)).join('\n')
-    for(const secret of ['private-parent','private-created','private-oid','private-head','private-prefix','/private/repo','private-error','private-future','/private/file','private-file-future']) expect(text).not.toContain(secret)
+    for(const secret of ['branch_intent','private-intent-head','private-results-hash','private-intent-commit','private-intent-branch','private-parent','private-created','private-oid','private-head','private-prefix','/private/repo','private-error','private-future','/private/file','private-file-future']) expect(text).not.toContain(secret)
   })
   it('reproduces exact bytes and includes original files and the pre-rendered publication in one upload',async()=>{
     const data=await snapshot(),html='<html>冻结图表</html>'
