@@ -2,7 +2,7 @@
   import { feedbackAnnotations, feedbackName } from '../../lib/project-share/feedback'
   import { onDestroy, tick, untrack } from 'svelte'
   import { writeText } from '@tauri-apps/plugin-clipboard-manager'
-  import { projectCommand, projectGitCommand } from '../../lib/project-share/host'
+  import { projectCommand, projectGitCommand, syncProjectReceipt, setProjectReceipt } from '../../lib/project-share/host'
   import { writeTextFile } from '@tauri-apps/plugin-fs'
   import { pickSaveFile } from '../../lib/dialogs'
   import { pushCommand, type GitConfirmation } from '../../lib/project-share/git'
@@ -12,6 +12,7 @@
   import type { LocalFeedback } from '../../lib/project-share/types'
   import { modalFocus } from '../../lib/ui/modal-focus'
   import { visibleText } from './display'
+  import ReceiptPanel from './ReceiptPanel.svelte'
   import SubmissionList from './SubmissionList.svelte'
   import HunkView from './HunkView.svelte'
   import AnnotationPanel from './AnnotationPanel.svelte'
@@ -34,18 +35,32 @@
   const client = createMergeClient()
   const session = untrack(() => createProjectReview(projectId, {
     command: projectCommand, gitCommand: projectGitCommand,
+    syncReceipt: id => syncProjectReceipt(projectId, id),
     confirmGit: input => new Promise(resolve => { gitConfirmation = { ...input, resolve } }),
     pickPatch: pickSaveFile, savePatch: writeTextFile,
     prepareSource: path => prepareSource(path), refreshSource: path => refreshSource(path),
     compute: client.compute, locateAnnotations: client.locateAnnotations, cancelAnnotations: client.cancelAnnotations,
     dispose: client.destroy,
     confirmWrite: input => new Promise(resolve => { confirmation = { ...input, resolve } }),
-    onUpdated: updated => {
-      items = items.map(item => item.envelope.payload.submissionId === updated.envelope.payload.submissionId ? updated : item)
-      if (selected?.envelope.payload.submissionId === updated.envelope.payload.submissionId) selected = updated
-      onUpdated(updated)
-    },
+    onUpdated: updateFeedback,
   }))
+  function updateFeedback(updated: LocalFeedback) {
+    items = items.map(item => item.envelope.payload.submissionId === updated.envelope.payload.submissionId ? updated : item)
+    if (selected?.envelope.payload.submissionId === updated.envelope.payload.submissionId) selected = updated
+    onUpdated(updated)
+  }
+  function predecessorHistory(item: LocalFeedback | null): LocalFeedback[] {
+    const seen = new Set<string>(), history: LocalFeedback[] = []
+    while (item && item.status !== 'quarantined') {
+      seen.add(item.envelope.payload.submissionId)
+      const previous: string | undefined = item.envelope.payload.schemaVersion === 2 ? item.envelope.payload.supersedes : undefined
+      if (!previous || seen.has(previous)) break
+      item = items.find(candidate => candidate.envelope.payload.submissionId === previous && candidate.status !== 'quarantined') ?? null
+      if (item) history.push(item)
+    }
+    return history
+  }
+  const history = $derived(predecessorHistory(selected))
   const locked = $derived(navigating || session.phase === 'writing' || session.phase === 'loading' || session.phase === 'destroyed')
   const active = $derived(!!selected && selected.status !== 'quarantined' && session.feedback?.envelope.payload.submissionId === selected.envelope.payload.submissionId)
   const paths = (item: LocalFeedback) => [...new Set([...item.envelope.payload.edits.map(edit => edit.path), ...item.envelope.payload.annotations.map(annotation => annotation.path)])]
@@ -143,6 +158,8 @@
     {#if selected.envelope.payload.schemaVersion === 2 && selected.envelope.payload.message}<p>{selected.envelope.payload.message}</p>{/if}
     {#if selected.status === 'quarantined'}<p class="review-error">这份反馈已隔离，快照或基线不可信，不能写回原件。</p><p>{selected.error}</p><button onclick={() => { void copy(JSON.stringify(selected!.envelope.payload)) }}>复制反馈</button>
     {:else}
+      {#key selected.envelope.payload.submissionId}<ReceiptPanel feedback={selected} disabled={locked} onSave={async input => { updateFeedback(await setProjectReceipt(projectId, selected!.envelope.payload.submissionId, input)) }} onRetry={async () => { updateFeedback(await syncProjectReceipt(projectId, selected!.envelope.payload.submissionId)) }} />{/key}
+      {#if history.length}<section aria-label="此前提交"><h4>此前提交</h4>{#each history as previous}<button disabled={locked} onclick={() => { void select(previous) }}>{feedbackName(previous.envelope.payload) || '访客'} · {previous.envelope.payload.submissionId}</button>{/each}<button disabled={locked} onclick={() => { void run(() => session.rejectSuperseded(history)) }}>全部标为已取代</button></section>{/if}
       <GitTargetBar target={session.target} git={!!session.probe?.git} hasEdits={!!selected.envelope.payload.edits.length} disabled={locked} onSelect={target => { void run(() => session.setTarget(target)) }} />
       {#if session.gitError}<p class="review-error">Git 暂不可用：{session.gitError}</p>{/if}
       {#if session.target !== 'worktree'}

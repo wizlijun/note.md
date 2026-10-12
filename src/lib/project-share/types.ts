@@ -121,6 +121,8 @@ export interface ReviewDraft {
 }
 export interface ReceiptState {
   state: 'auto' | 'suppressed' | 'sent' | 'failed'
+  decided_at?: string | null
+  included_in_snapshot_id?: string | null
   reply?: string | null
   sent_at?: string | null
   last_error?: string | null

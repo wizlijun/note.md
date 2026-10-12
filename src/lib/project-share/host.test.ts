@@ -13,7 +13,7 @@ vi.mock('../settings.svelte', () => ({ getPluginScopedKey: (key: string) => ({ '
 vi.mock('./bundle', () => ({ buildProjectBundle: mocks.bundle }))
 vi.mock('./presentation', () => ({ captureProjectTheme: mocks.capture, renderProjectPresentation: mocks.render }))
 vi.mock('./archive', () => ({ buildProjectArchive: mocks.archive }))
-import { publishProject, projectIdentities, pullProjectFeedback, stopProjectShare, listProjects, createProject, deleteProject, cancelProjectDeletion, saveProjectReview, decideProjectAnnotation } from './host'
+import { syncProjectReceipt, syncProjectReceipts, setProjectReceipt, publishProject, projectIdentities, pullProjectFeedback, stopProjectShare, listProjects, createProject, deleteProject, cancelProjectDeletion, saveProjectReview, decideProjectAnnotation } from './host'
 
 const info: ProjectInfo = { project_id: 'project_1', sourceRoot: '/project', mirrorRoot: '/vault/sync/project_1', entry: 'README.md', files: [] }
 const file = { path: 'README.md', hash: 'a'.repeat(64), bytes: 5, markdown: 'hello' }
@@ -623,4 +623,148 @@ it('routes Git through the dedicated command and keeps project target requests s
   expect(mocks.invoke).toHaveBeenCalledWith('project_share_git', { request: { op: 'probe', project_id: 'first' } })
   await projectCommand('git-target', { project_id: 'second', target: 'patch' })
   expect(mocks.invoke).toHaveBeenCalledWith('project_share', { request: { op: 'git-target', project_id: 'second', target: 'patch' } })
+})
+
+describe('owner receipt orchestration', () => {
+  let records: LocalFeedback[]
+  beforeEach(() => {
+    mocks.data.projectShares = { [info.project_id]: { ...info, baseUrl: mocks.baseUrl, slug: 'existing', edit_token: 'SECRET_TOKEN', feedbackToken: 'SECRET_TOKEN' } }
+    records = [{ envelope: { payload: { schemaVersion: 2, project_id: info.project_id, snapshotId: 'old', submissionId: 'sub', message: 'SECRET_BODY', edits: [{ path: 'README.md', baseHash: 'SECRET_BODY', afterMarkdown: 'SECRET_BODY' }], annotations: [] }, requestHash: 'hash', receivedAt: 'now' }, status: 'accepted', decisions: { 'README.md': { status: 'accepted' } } }]
+    const original = mocks.invoke.getMockImplementation()!
+    mocks.invoke.mockImplementation(async (command, input: any) => {
+      const r = input.request
+      if (r.op === 'feedback-list-readonly' || r.op === 'inbox') return structuredClone(records)
+      if (r.op === 'feedback-readonly') return structuredClone(records.find(f => f.envelope.payload.submissionId === r.submissionId))
+      if (r.op === 'receipt-set') {
+        const f = records.find(f => f.envelope.payload.submissionId === r.submissionId)!
+        f.receipt = structuredClone(r.receipt); return structuredClone(f)
+      }
+      return original(command, input)
+    })
+    mocks.fetch.mockImplementation(async (url, init) => {
+      if (String(url).includes('/receipt/')) {
+        expect(init.headers.Authorization).toBe('Bearer owner')
+        if (init.method === 'PUT') {
+          const body = JSON.parse(init.body)
+          expect(body).toMatchObject({ schemaVersion: 1, project_id: info.project_id, submissionId: 'sub', outcome: 'accepted', files: [{ path: 'README.md', accepted: 1, total: 1 }], annotations: { promoted: 0, total: 0 } })
+          expect(init.body).not.toMatch(/SECRET_|afterMarkdown|baseHash|requestHash|sourceRoot|edit_token|feedbackToken/)
+        } else expect(init.body).toBeUndefined()
+        return new Response(null, { status: 204 })
+      }
+      if (String(url).includes('/feedback?')) return Response.json({ items: [] })
+      return server(url, init)
+    })
+  })
+  const sends = () => mocks.fetch.mock.calls.filter(([url]) => String(url).includes('/receipt/'))
+  it('serializes concurrent completion sends once and uses only readonly metadata IPC', async () => {
+    await Promise.all([syncProjectReceipt(info.project_id, 'sub'), syncProjectReceipts(info.project_id), syncProjectReceipt(info.project_id, 'sub')])
+    expect(sends()).toHaveLength(1); expect(records[0].receipt?.state).toBe('sent')
+    expect(mocks.invoke.mock.calls.every(([, { request }]) => !['inbox', 'review'].includes(request.op))).toBe(true)
+  })
+  it('persists failures with a frozen decision time and pull retries', async () => {
+    mocks.fetch.mockRejectedValueOnce(new Error('network SECRET_TOKEN'))
+    expect((await syncProjectReceipt(info.project_id, 'sub')).receipt).toMatchObject({ state: 'failed' })
+    const at = records[0].receipt?.decided_at
+    expect(records[0].receipt?.last_error).not.toContain('SECRET_TOKEN')
+    await pullProjectFeedback(info.project_id)
+    expect(records[0].receipt).toMatchObject({ state: 'sent', decided_at: at })
+    expect(JSON.parse(sends().at(-1)![1].body).decidedAt).toBe(at)
+  })
+  it('suppresses without PUT, withdraws sent receipts and retains failed DELETE intent across pull', async () => {
+    await setProjectReceipt(info.project_id, 'sub', { enabled: false, reply: '保留草稿' })
+    await syncProjectReceipts(info.project_id); expect(sends()).toHaveLength(0)
+    await setProjectReceipt(info.project_id, 'sub', { enabled: true })
+    mocks.fetch.mockRejectedValueOnce(new Error('offline'))
+    const closed = await setProjectReceipt(info.project_id, 'sub', { enabled: false })
+    expect(closed.receipt).toMatchObject({ state: 'suppressed', reply: '保留草稿', last_error: expect.any(String) })
+    await pullProjectFeedback(info.project_id)
+    expect(sends().map(([, init]) => init.method)).toEqual(['PUT', 'DELETE', 'DELETE'])
+    expect(records[0].receipt).toMatchObject({ state: 'suppressed', last_error: null, sent_at: null })
+  })
+  it('withdraws legacy sent state even when its optional sent_at was absent', async () => {
+    records[0].receipt = { state: 'sent' }
+    const closed = await setProjectReceipt(info.project_id, 'sub', { enabled: false })
+    expect(sends().map(([, init]) => init.method)).toEqual(['DELETE'])
+    expect(closed.receipt).toMatchObject({ state: 'suppressed', last_error: null })
+  })
+  it('bounds replies in UTF-16 before changing state and sends voluntary plain text', async () => {
+    await expect(setProjectReceipt(info.project_id, 'sub', { enabled: true, reply: '😀'.repeat(1001) })).rejects.toThrow('2000')
+    expect(sends()).toHaveLength(0); expect(records[0].receipt).toBeUndefined()
+    await setProjectReceipt(info.project_id, 'sub', { enabled: true, reply: '<img onerror=x>' })
+    expect(JSON.parse(sends()[0][1].body).reply).toBe('<img onerror=x>')
+  })
+  it('backfills accepted/partial only once after publish success', async () => {
+    await syncProjectReceipt(info.project_id, 'sub')
+    await publishProject(info, [file]); await syncProjectReceipts(info.project_id, 'another-s')
+    expect(sends()).toHaveLength(2)
+    expect(JSON.parse(sends()[1][1].body).includedInSnapshotId).toBe('full-s')
+    expect(records[0].receipt?.included_in_snapshot_id).toBe('full-s')
+    expect(mocks.events.indexOf('published')).toBeGreaterThan(-1)
+  })
+  it.each(['branched', 'rejected'])('does not backfill %s', async status => {
+    records[0].decisions['README.md'].status = status
+    records[0].receipt = { state: 'sent', sent_at: 'now', decided_at: '2026-10-13T00:00:00Z' }
+    await syncProjectReceipts(info.project_id, 'new-s'); expect(sends()).toHaveLength(0)
+  })
+})
+
+describe('receipt publication failure recovery', () => {
+  it('keeps first published snapshot when its update fails and retries that ID on pull', async () => {
+    let receipt: any = { state: 'sent', sent_at: '2026-10-13T00:00:00Z', decided_at: '2026-10-13T00:00:00Z' }
+    const f = (): LocalFeedback => ({ envelope: { payload: { schemaVersion: 1, project_id: info.project_id, snapshotId: 'old', submissionId: 'sub', edits: [{ path: 'README.md', baseHash: 'hash', afterMarkdown: 'SECRET_BODY' }], annotations: [] }, requestHash: '', receivedAt: '' }, status: 'accepted', decisions: { 'README.md': { status: 'accepted', hunkSummary: { accepted: 1, total: 2 } } }, receipt })
+    mocks.data.projectShares = { [info.project_id]: { ...info, baseUrl: mocks.baseUrl, slug: 'existing' } }
+    mocks.invoke.mockImplementation(async (_, { request }: any) => {
+      if (request.op === 'receipt-set') { receipt = structuredClone(request.receipt); return f() }
+      if (request.op === 'feedback-readonly') return f()
+      if (request.op === 'feedback-list-readonly' || request.op === 'inbox') return [f()]
+      throw new Error('unexpected ' + request.op)
+    })
+    const bodies: any[] = []
+    let fail = true
+    mocks.fetch.mockImplementation(async (url, init) => {
+      if (String(url).includes('/feedback?')) return Response.json({ items: [] })
+      expect(receipt).toMatchObject({ state: expect.stringMatching(/auto|failed/), included_in_snapshot_id: 'first-published' })
+      bodies.push(JSON.parse(init.body)); expect(bodies.at(-1).outcome).toBe('partial'); expect(init.body).not.toContain('SECRET_BODY')
+      if (fail) { fail = false; throw new Error('offline') }
+      return new Response(null, { status: 204 })
+    })
+    await syncProjectReceipts(info.project_id, 'first-published')
+    expect(receipt).toMatchObject({ state: 'failed', included_in_snapshot_id: 'first-published' })
+    await pullProjectFeedback(info.project_id)
+    await syncProjectReceipts(info.project_id, 'second-published')
+    expect(bodies).toHaveLength(2); expect(bodies.map(body => body.includedInSnapshotId)).toEqual(['first-published', 'first-published'])
+    expect(bodies.map(body => body.decidedAt)).toEqual(['2026-10-13T00:00:00Z', '2026-10-13T00:00:00Z'])
+  })
+})
+
+describe('receipt success boundaries', () => {
+  it('does not backfill when publication fails before published succeeds', async () => {
+    let local: LocalFeedback = { envelope: { payload: { schemaVersion: 1, project_id: info.project_id, snapshotId: 'old', submissionId: 'sub', edits: [{ path: 'README.md', baseHash: 'hash', afterMarkdown: 'SECRET_BODY' }], annotations: [] }, requestHash: '', receivedAt: '' }, status: 'accepted', decisions: { 'README.md': { status: 'accepted' } }, receipt: { state: 'sent', sent_at: '2026-10-13T00:00:00Z', decided_at: '2026-10-13T00:00:00Z' } }
+    const original = mocks.invoke.getMockImplementation()!
+    mocks.invoke.mockImplementation(async (command, input: any) => {
+      const r = input.request
+      if (r.op === 'published') throw new Error('published persistence failed')
+      if (r.op === 'feedback-list-readonly') return [local]
+      if (r.op === 'feedback-readonly') return local
+      if (r.op === 'receipt-set') { local = { ...local, receipt: r.receipt }; return local }
+      return original(command, input)
+    })
+    await expect(publishProject(info, [file])).rejects.toThrow('published persistence failed')
+    expect(mocks.fetch.mock.calls.some(([url]) => String(url).includes('/receipt/'))).toBe(false)
+    expect(local.receipt?.included_in_snapshot_id).toBeUndefined()
+  })
+  it('continues batch reconciliation after a single record persistence failure', async () => {
+    const f = (id: string): LocalFeedback => ({ envelope: { payload: { schemaVersion: 1, project_id: info.project_id, snapshotId: 's', submissionId: id, edits: [], annotations: [] }, requestHash: '', receivedAt: '' }, status: 'resolved', decisions: {} })
+    const first = f('bad'), second = f('good')
+    mocks.data.projectShares = { [info.project_id]: { ...info, baseUrl: mocks.baseUrl, slug: 'existing' } }
+    mocks.invoke.mockImplementation(async (_, { request }: any) => {
+      if (request.op === 'feedback-list-readonly') return [first, second]
+      if (request.op === 'feedback-readonly') return request.submissionId === 'bad' ? first : second
+      if (request.op === 'receipt-set') { if (request.submissionId === 'bad') throw new Error('disk error'); second.receipt = request.receipt; return second }
+      throw new Error(request.op)
+    })
+    mocks.fetch.mockImplementation(async (url, init) => { expect(String(url)).toBe('https://share.test/feedback/existing/receipt/good'); expect(JSON.parse(init.body)).toMatchObject({ submissionId: 'good', outcome: 'accepted', files: [], annotations: { promoted: 0, total: 0 } }); return new Response(null, { status: 204 }) })
+    await syncProjectReceipts(info.project_id)
+    expect(second.receipt?.state).toBe('sent')
+  })
 })

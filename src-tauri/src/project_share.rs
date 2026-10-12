@@ -161,6 +161,10 @@ pub struct ReceiptState {
     pub sent_at: Option<String>,
     #[serde(default)]
     pub last_error: Option<String>,
+    #[serde(default)]
+    pub decided_at: Option<String>,
+    #[serde(default)]
+    pub included_in_snapshot_id: Option<String>,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BranchIntent {
@@ -1264,7 +1268,8 @@ impl ProjectStore {
                 return Err("submission ID has different content".into());
             }
             self.recover(&b, &mut existing)?;
-            return Ok(existing);
+            self.recompute_supersedes(&b)?;
+            return self.feedback_metadata(&b, envelope.payload.submission_id());
         }
         if serde_json::to_vec(&envelope)
             .map_err(|e| e.to_string())?
@@ -1291,7 +1296,67 @@ impl ProjectStore {
             local.error = Some(e);
         }
         write_json(&path, &local)?;
-        Ok(local)
+        if local.status == "quarantined" { return Ok(local); }
+        self.recompute_supersedes(&b)?;
+        self.feedback_metadata(&b, local.envelope.payload.submission_id())
+    }
+    fn feedback_metadata(&self, b: &Binding, submission: &str) -> Result<LocalFeedback> {
+        let f: LocalFeedback = read_json(&self.inbox_path(b, submission)?)?;
+        if f.envelope.payload.project_id() != b.project_id || f.envelope.payload.submission_id() != submission {
+            return Err("feedback identity mismatch".into());
+        }
+        Ok(f)
+    }
+    fn feedback_metadata_list(&self, b: &Binding) -> Result<Vec<LocalFeedback>> {
+        let dir = self.management(b, "inbox")?;
+        if !dir.exists() { return Ok(vec![]); }
+        let mut out = vec![];
+        for entry in std::fs::read_dir(dir).map_err(io_error)? {
+            let path = entry.map_err(io_error)?.path();
+            if path.extension().and_then(|s| s.to_str()) == Some("json") {
+                out.push(self.feedback_metadata(b, path.file_stem().and_then(|s| s.to_str()).ok_or("invalid inbox filename")?)?);
+            }
+        }
+        out.sort_by(|a, b| a.envelope.received_at.cmp(&b.envelope.received_at).then(a.envelope.payload.submission_id().cmp(b.envelope.payload.submission_id())));
+        Ok(out)
+    }
+    pub fn feedback_readonly(&self, id: &str, submission: &str) -> Result<LocalFeedback> {
+        let _lock = self.lock()?; let b = self.binding(id)?; self.active(&b)?;
+        self.feedback_metadata(&b, submission)
+    }
+    pub fn feedback_list_readonly(&self, id: &str) -> Result<Vec<LocalFeedback>> {
+        let _lock = self.lock()?; let b = self.binding(id)?; self.active(&b)?;
+        self.feedback_metadata_list(&b)
+    }
+    pub fn receipt_set(&self, id: &str, submission: &str, receipt: ReceiptState) -> Result<LocalFeedback> {
+        let _lock = self.lock()?; let b = self.binding(id)?; self.active(&b)?;
+        if !["auto", "suppressed", "sent", "failed"].contains(&receipt.state.as_str())
+            || receipt.reply.as_ref().is_some_and(|s| s.encode_utf16().count() > 2000 || s.contains('\0')) {
+            return Err("invalid receipt state: state or reply".into());
+        }
+        let mut f = self.feedback_metadata(&b, submission)?;
+        f.receipt = Some(receipt);
+        write_json(&self.inbox_path(&b, submission)?, &f)?;
+        Ok(f)
+    }
+    // Hints are presentation metadata only. Recompute over all trusted records for any arrival order.
+    fn recompute_supersedes(&self, b: &Binding) -> Result<()> {
+        let mut items = self.feedback_metadata_list(b)?;
+        let mut successors = BTreeMap::new();
+        for f in &items {
+            if f.status == "quarantined" || self.validate_feedback(b, &f.envelope.payload).is_err() { continue; }
+            if let ProjectFeedbackPayload::V2(v) = &f.envelope.payload {
+                if let Some(previous) = &v.supersedes { successors.insert(previous.clone(), v.submission_id.clone()); }
+            }
+        }
+        for f in &mut items {
+            let successor = if f.status == "quarantined" { None } else { successors.get(f.envelope.payload.submission_id()).cloned() };
+            if f.superseded_by != successor {
+                f.superseded_by = successor;
+                write_json(&self.inbox_path(b, f.envelope.payload.submission_id())?, f)?;
+            }
+        }
+        Ok(())
     }
     fn load_feedback(&self, b: &Binding, submission: &str) -> Result<LocalFeedback> {
         let mut f = read_json(&self.inbox_path(b, submission)?)?;
@@ -1385,6 +1450,7 @@ impl ProjectStore {
     pub fn inbox(&self, id: &str) -> Result<Vec<LocalFeedback>> {
         let _lock = self.lock()?;
         let b = self.binding(id)?;
+        self.recompute_supersedes(&b)?;
         let dir = self.management(&b, "inbox")?;
         if !dir.exists() {
             return Ok(vec![]);
@@ -1698,6 +1764,85 @@ mod tests {
     use super::*;
     use tempfile::TempDir;
 
+    #[test]
+    fn project_share_receipt_metadata_never_recovers_and_survives_restart() {
+        let (t, s, p) = git_fixture(); let snap = git_freeze(&s, &p);
+        let mut f = git_import(&s, &p, &snap, "receipt");
+        let b = s.binding(&p.project_id).unwrap(); let path = s.inbox_path(&b, "receipt").unwrap();
+        let before = std::fs::read(Path::new(&p.source_root).join("README.md")).unwrap();
+        let mirror = s.mirror_path(&b, "README.md").unwrap(); let mirror_bytes = std::fs::read(&mirror).unwrap();
+        f.decisions.insert("README.md".into(), Decision { status: "pending".into(), before_hash: Some(sha256_hex(&before)), result_hash: Some(sha256_hex(b"unfinished")), content: Some("unfinished".into()), ..Default::default() });
+        write_json(&path, &f).unwrap();
+        let state = p1_state(Path::new(&p.source_root)); let disk = std::fs::read(&path).unwrap();
+        for op in ["feedback-readonly", "feedback-list-readonly"] {
+            let result = execute_request(&s, &serde_json::json!({"op":op,"project_id":p.project_id,"submissionId":"receipt"}));
+            assert!(result.is_ok(), "{op}: {result:?}");
+            assert_eq!(std::fs::read(&path).unwrap(), disk);
+        }
+        for target in ["branch", "patch"] {
+            execute_request(&s, &serde_json::json!({"op":"git-target","project_id":p.project_id,"target":target})).unwrap();
+            let result = execute_request(&s, &serde_json::json!({"op":"receipt-set","project_id":p.project_id,"submissionId":"receipt","receipt":{"state":"auto","reply":"谢谢","decided_at":"2026-10-13T00:00:00Z"}})).unwrap();
+            assert_eq!(result["decisions"]["README.md"]["status"], "pending");
+            assert_eq!(p1_state(Path::new(&p.source_root)), state);
+            assert_eq!(std::fs::read(&mirror).unwrap(), mirror_bytes);
+        }
+        let restarted = ProjectStore::new(t.path().join("vault"), t.path().join("state"));
+        let saved = execute_request(&restarted, &serde_json::json!({"op":"feedback-readonly","project_id":p.project_id,"submissionId":"receipt"})).unwrap();
+        assert_eq!(saved["receipt"]["reply"], "谢谢"); assert_eq!(saved["receipt"]["decided_at"], "2026-10-13T00:00:00Z");
+        for receipt in [serde_json::json!({"state":"unknown"}), serde_json::json!({"state":"auto","reply":"😀".repeat(1001)})] {
+            let error = execute_request(&s, &serde_json::json!({"op":"receipt-set","project_id":p.project_id,"submissionId":"receipt","receipt":receipt})).unwrap_err();
+            assert!(error.starts_with("invalid receipt state"), "{error}");
+        }
+        s.begin_delete(&p.project_id).unwrap();
+        for op in ["feedback-readonly", "feedback-list-readonly", "receipt-set"] {
+            assert!(execute_request(&s, &serde_json::json!({"op":op,"project_id":p.project_id,"submissionId":"receipt","receipt":{"state":"auto"}})).unwrap_err().contains("deletion"));
+        }
+    }
+    #[test]
+    fn project_share_receipt_set_waits_for_records_lock_and_reads_legacy_state() {
+        let (_t, s, p) = fixture(); let snap = freeze(&s, &p);
+        s.feedback(&p.project_id, envelope(&p, &snap, "lock")).unwrap();
+        let legacy: ReceiptState = serde_json::from_value(serde_json::json!({"state":"auto"})).unwrap();
+        assert!(legacy.decided_at.is_none() && legacy.included_in_snapshot_id.is_none());
+        let held = s.lock().unwrap();
+        let worker = ProjectStore::new(s.vault.clone(), s.state.clone()); let id = p.project_id.clone();
+        let (started_tx, started_rx) = std::sync::mpsc::channel(); let (done_tx, done_rx) = std::sync::mpsc::channel();
+        let thread = std::thread::spawn(move || { started_tx.send(()).unwrap(); done_tx.send(worker.receipt_set(&id,"lock",legacy)).unwrap(); });
+        started_rx.recv().unwrap();
+        assert!(done_rx.recv_timeout(std::time::Duration::from_millis(50)).is_err());
+        drop(held); done_rx.recv_timeout(std::time::Duration::from_secs(5)).unwrap().unwrap(); thread.join().unwrap();
+    }
+    #[test]
+    fn project_share_supersedes_arrival_order_quarantine_and_cycles() {
+        for reverse in [false, true] {
+            let (_t, s, p) = fixture(); let snap = freeze(&s, &p);
+            let v2 = |id: &str, previous: &str| { let mut value = serde_json::to_value(envelope(&p, &snap, id)).unwrap(); value["payload"]["schemaVersion"] = 2.into(); value["payload"].as_object_mut().unwrap().remove("name"); value["payload"]["supersedes"] = previous.into(); serde_json::from_value::<FeedbackEnvelope>(value).unwrap() };
+            if reverse { s.feedback(&p.project_id, v2("new", "old")).unwrap(); }
+            s.feedback(&p.project_id, envelope(&p, &snap, "old")).unwrap();
+            if !reverse { s.feedback(&p.project_id, v2("new", "old")).unwrap(); }
+            let list = s.inbox(&p.project_id).unwrap(); let old = list.iter().find(|f| f.envelope.payload.submission_id() == "old").unwrap();
+            assert_eq!(old.superseded_by.as_deref(), Some("new")); assert!(old.decisions.is_empty() && old.review.is_empty()); assert_eq!(old.status,"pending");
+            assert!(s.review(&p.project_id, "old", "README.md").is_ok());
+            let mut bad = v2("bad", "old"); if let ProjectFeedbackPayload::V2(v) = &mut bad.payload { v.edits[0].base_hash = "0".repeat(64); }
+            assert_eq!(s.feedback(&p.project_id, bad).unwrap().status,"quarantined");
+            assert_eq!(s.inbox(&p.project_id).unwrap().iter().find(|f| f.envelope.payload.submission_id() == "old").unwrap().superseded_by.as_deref(),Some("new"));
+            assert_eq!(s.feedback(&p.project_id, v2("self", "self")).unwrap().status,"quarantined");
+            s.feedback(&p.project_id, v2("cycle-a", "cycle-b")).unwrap(); s.feedback(&p.project_id, v2("cycle-b", "cycle-a")).unwrap();
+            assert!(s.inbox(&p.project_id).unwrap().iter().all(|f| f.decisions.is_empty()));
+            let mut protected = s.feedback(&p.project_id, envelope(&p, &snap, "protected")).unwrap();
+            protected.decisions.insert("README.md".into(), Decision { status: "rejected".into(), ..Default::default() });
+            protected.review.insert("README.md".into(), review_draft());
+            let b = s.binding(&p.project_id).unwrap(); write_json(&s.inbox_path(&b,"protected").unwrap(), &protected).unwrap();
+            let decisions = serde_json::to_value(&protected.decisions).unwrap(); let review = serde_json::to_value(&protected.review).unwrap();
+            let source = p1_bytes(Path::new(&p.source_root));
+            s.feedback(&p.project_id, v2("replacement", "protected")).unwrap();
+            let saved = s.feedback_readonly(&p.project_id,"protected").unwrap();
+            assert_eq!(saved.superseded_by.as_deref(),Some("replacement"));
+            assert_eq!(serde_json::to_value(saved.decisions).unwrap(), decisions); assert_eq!(serde_json::to_value(saved.review).unwrap(),review);
+            assert_eq!(p1_bytes(Path::new(&p.source_root)),source);
+
+        }
+    }
     fn git_test(repo: &Path, args: &[&str]) -> String {
         String::from_utf8(crate::vault_sync::git_ops::run_git_io(repo, args, &[], None).unwrap())
             .unwrap()
@@ -6330,6 +6475,9 @@ fn dispatch(service: &ProjectStore, request: &serde_json::Value) -> Result<serde
             )?,
         ),
         "inbox" => value(service.inbox(id)?),
+        "feedback-readonly" => value(service.feedback_readonly(id, string(request, "submissionId")?)?),
+        "feedback-list-readonly" => value(service.feedback_list_readonly(id)?),
+        "receipt-set" => value(service.receipt_set(id, string(request, "submissionId")?, field(request, "receipt").map_err(|e| format!("invalid receipt state: {e}"))?)?),
         "review-readonly" => value(service.review_readonly(
             id, string(request, "submissionId")?, string(request, "path")?,
         )?),

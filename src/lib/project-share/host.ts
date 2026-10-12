@@ -7,6 +7,7 @@ import { captureProjectTheme, renderProjectPresentation } from './presentation'
 import { buildProjectArchive } from './archive'
 import { uploadProjectPart, type ProjectUploadProgress } from './upload'
 import { artifactSha256, createArtifactPlan, verifyArtifactPlan, MULTIPART_BYTES, type ArtifactName, type ArtifactPlan } from './multipart'
+import { buildProjectReceipt } from './receipt'
 import { normalizeShareTitle } from './title'
 import type { FeedbackEnvelope, LocalFeedback, ProjectFile, ProjectInfo, ProjectSnapshot, ProjectSummary, ReviewDraft } from './types'
 
@@ -251,6 +252,7 @@ export async function publishProject(info: ProjectInfo, files: ProjectFile[], ti
     delete complete.pending
     await remember(complete)
     identity = complete
+    await syncProjectReceipts(info.project_id, pending.snapshotId)
     return { info: published, identity, warnings: pending.warnings ?? [] }
   }
   if (!identity.pending!.phase) {
@@ -440,7 +442,70 @@ export async function pullProjectFeedback(project_id: string): Promise<LocalFeed
     }
     cursor = page.cursor
   } while (cursor)
+  await syncProjectReceipts(project_id)
   return projectCommand('inbox', { project_id })
+}
+
+// One queue per project prevents pull, review and settings from sending stale duplicates.
+const receiptQueues = new Map<string, Promise<unknown>>()
+function queueReceipt<T>(projectId: string, action: () => Promise<T>): Promise<T> {
+  const job = (receiptQueues.get(projectId) ?? Promise.resolve()).catch(() => {}).then(action)
+  receiptQueues.set(projectId, job)
+  void job.finally(() => { if (receiptQueues.get(projectId) === job) receiptQueues.delete(projectId) }).catch(() => {})
+  return job
+}
+const readReceiptFeedback = (project_id: string, submissionId: string) => projectCommand<LocalFeedback>('feedback-readonly', { project_id, submissionId })
+const saveReceipt = (project_id: string, submissionId: string, receipt: NonNullable<LocalFeedback['receipt']>) => projectCommand<LocalFeedback>('receipt-set', { project_id, submissionId, receipt })
+async function sendReceipt(project_id: string, submissionId: string, includedInSnapshotId?: string): Promise<LocalFeedback> {
+  let feedback = await readReceiptFeedback(project_id, submissionId)
+  const state = feedback.receipt ?? { state: 'auto' as const }
+  const withdrawing = state.state === 'suppressed'
+  if (withdrawing && !state.sent_at && !state.last_error) return feedback
+  const backfill = state.state === 'sent' && !!includedInSnapshotId && !state.included_in_snapshot_id
+  if (!withdrawing && state.state === 'sent' && !backfill) return feedback
+  const decidedAt = state.decided_at ?? state.sent_at ?? new Date().toISOString()
+  const body = buildProjectReceipt(feedback, decidedAt, state.included_in_snapshot_id ?? (backfill ? includedInSnapshotId : undefined))
+  if (!withdrawing && (!body || backfill && !['accepted', 'partial'].includes(body.outcome))) return feedback
+  // Freeze the first decision time before the first request, including failed retries.
+  feedback = await saveReceipt(project_id, submissionId, { ...state, ...(withdrawing ? {} : { decided_at: decidedAt }), ...(backfill ? { state: 'auto', included_in_snapshot_id: includedInSnapshotId } : {}) })
+  try {
+    const cfg = await configuration()
+    const identity = (await projectIdentities())[project_id]
+    if (!identity) throw new Error('missing identity')
+    checkService(identity, cfg.baseUrl)
+    await ownerRequest(identity.baseUrl, cfg.apiKey, `/feedback/${encodeURIComponent(identity.slug)}/receipt/${encodeURIComponent(submissionId)}`, withdrawing ? 'DELETE' : 'PUT', withdrawing ? undefined : body)
+  } catch {
+    // Do not persist remote error text, which can contain credentials or receipt content.
+    return saveReceipt(project_id, submissionId, { ...feedback.receipt!, state: withdrawing ? 'suppressed' : 'failed', last_error: withdrawing ? '回执撤回失败，请重试' : '回执发送失败，请重试' })
+  }
+  return saveReceipt(project_id, submissionId, withdrawing
+    ? { ...feedback.receipt!, state: 'suppressed', sent_at: null, last_error: null }
+    : { ...feedback.receipt!, state: 'sent', sent_at: new Date().toISOString(), last_error: null, ...(body?.includedInSnapshotId ? { included_in_snapshot_id: body.includedInSnapshotId } : {}) })
+}
+export function syncProjectReceipt(project_id: string, submissionId: string): Promise<LocalFeedback> {
+  return queueReceipt(project_id, () => sendReceipt(project_id, submissionId))
+}
+export function setProjectReceipt(project_id: string, submissionId: string, input: { enabled: boolean; reply?: string }): Promise<LocalFeedback> {
+  return queueReceipt(project_id, async () => {
+    if (input.reply !== undefined && (input.reply.length > 2000 || input.reply.includes('\0'))) throw new Error('回复不能超过 2000 个 UTF-16 字符或包含空字符')
+    const feedback = await readReceiptFeedback(project_id, submissionId)
+    const state = feedback.receipt ?? { state: 'auto' as const }
+    const changedReply = input.reply !== undefined && input.reply !== (state.reply ?? '')
+    const nextState = !input.enabled ? 'suppressed' : state.state === 'sent' && !changedReply ? 'sent' : 'auto'
+    await saveReceipt(project_id, submissionId, { ...state, state: nextState, ...(input.reply !== undefined ? { reply: input.reply } : {}), ...(!input.enabled && state.state === 'sent' ? { last_error: '回执撤回尚未确认，请重试' } : {}) })
+    return sendReceipt(project_id, submissionId)
+  })
+}
+export function syncProjectReceipts(project_id: string, includedInSnapshotId?: string): Promise<void> {
+  return queueReceipt(project_id, async () => {
+    try {
+      const items = await projectCommand<LocalFeedback[]>('feedback-list-readonly', { project_id })
+      for (const item of items) {
+        try { await sendReceipt(project_id, item.envelope.payload.submissionId, includedInSnapshotId) }
+        catch { /* one unavailable record must not block other receipts */ }
+      }
+    } catch { /* receipt metadata/network must not invalidate a completed pull or publication */ }
+  })
 }
 
 export async function stopProjectShare(project_id: string): Promise<void> {

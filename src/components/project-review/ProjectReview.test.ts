@@ -9,7 +9,7 @@ import ProjectReview from './ProjectReview.svelte'
 import ConflictEditor from './ConflictEditor.svelte'
 import AnnotationPanel from './AnnotationPanel.svelte'
 
-vi.mock('../../lib/project-share/host', () => ({ projectCommand: vi.fn(), projectGitCommand: vi.fn() }))
+vi.mock('../../lib/project-share/host', () => ({ projectCommand: vi.fn(), projectGitCommand: vi.fn(), syncProjectReceipt: vi.fn(), setProjectReceipt: vi.fn() }))
 vi.mock('@tauri-apps/plugin-opener', () => ({ openUrl: vi.fn() }))
 vi.mock('@tauri-apps/plugin-clipboard-manager', () => ({ writeText: vi.fn() }))
 vi.mock('../../lib/project-share/merge-client', () => ({ createMergeClient: () => ({
@@ -264,4 +264,18 @@ it('shows v2 attribution, message and AI badge as plain text in the list and rev
   expect(view.getAllByText('AI 辅助')).toHaveLength(2)
   expect(view.container.querySelector('img')).toBeNull()
   expect(JSON.stringify(items[0].envelope)).toBe(original)
+})
+
+it('shows predecessor history safely through cycles and only supersedes on explicit owner action', async () => {
+  const old = feedback('old'); old.envelope.payload = { ...old.envelope.payload, schemaVersion: 2, contributor: { name: 'Old' }, supersedes: 'new' } as any; old.superseded_by = 'new'
+  const latest = feedback('new'); latest.envelope.payload = { ...latest.envelope.payload, schemaVersion: 2, contributor: { name: 'Latest' }, supersedes: 'old' } as any
+  items = [old, latest]
+  const view = mount()
+  await fireEvent.click(view.getByRole('button', { name: /Latest/ }))
+  await vi.waitFor(() => expect((view.getByRole('button', { name: '全部标为已取代' }) as HTMLButtonElement).disabled).toBe(false))
+  expect(calls.some(call => call.op === 'reject')).toBe(false)
+  expect(view.getByRole('region', { name: '逐处审阅' }).textContent).toContain('此前提交')
+  await fireEvent.click(view.getByRole('button', { name: '全部标为已取代' }))
+  await vi.waitFor(() => expect(calls.find(call => call.op === 'reject')?.args).toMatchObject({ submissionId: 'old', reason: 'superseded', target: 'worktree' }))
+  expect(view.getByRole('button', { name: '审阅文件：a.md' })).toBeTruthy()
 })

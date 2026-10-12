@@ -22,6 +22,7 @@ export interface ReviewDependencies {
   cancelAnnotations?(): void
   dispose?(): void
   onUpdated?(feedback: LocalFeedback): void
+  syncReceipt?(submissionId: string): Promise<LocalFeedback>
 }
 export interface ReviewAnnotation {
   index: number
@@ -93,6 +94,12 @@ export function createProjectReview(projectId: string, deps: ReviewDependencies)
   const mutable = () => phase === 'ready' && !!file && !branches[submission()] && !terminal.has(file.status) && feedback?.status !== 'resolved' && feedback?.status !== 'branched'
   const stopTimer = () => { clearTimeout(timer); timer = undefined }
   const update = (value: LocalFeedback) => { feedback = value; deps.onUpdated?.(value) }
+  async function syncReceipt(id = submission()) {
+    try {
+      const updated = await deps.syncReceipt?.(id)
+      if (updated && feedback?.envelope.payload.submissionId === id && phase !== 'destroyed') update(updated)
+    } catch { /* a completed review remains successful when receipt persistence/network fails */ }
+  }
   const selections = (indices?: number[]): IndexedSelector[] => (feedback ? feedbackAnnotations(feedback.envelope.payload) : []).flatMap((annotation, index) =>
     annotation.path === path && (!indices || indices.includes(index)) ? [{ index, selector: annotation.selector }] : [])
   const key = ({ index, selector }: IndexedSelector) => JSON.stringify([index, selector])
@@ -163,6 +170,7 @@ export function createProjectReview(projectId: string, deps: ReviewDependencies)
         staged = staged.filter(index => index !== entry.index)
       }
       if (error.startsWith('批注状态保存失败：')) error = ''
+      await syncReceipt()
     })().catch(e => { error = `批注状态保存失败：${String(e)}`; throw e }).finally(() => { annotationJob = undefined })
     return annotationJob
   }
@@ -302,6 +310,7 @@ export function createProjectReview(projectId: string, deps: ReviewDependencies)
       if (result.total > 0 && !result.accepted && !promoted.indices.length && isEdit) {
         update(await deps.command<LocalFeedback>('reject', { project_id: projectId, submissionId: submission(), path }))
         file = { ...file!, status: feedback!.decisions[path]?.status ?? 'rejected' }; draftDirty = false
+        await syncReceipt()
         return
       }
       if (!isEdit && !promoted.indices.length) { notice = '没有选择写回内容，可忽略批注后标为已阅'; return }
@@ -312,7 +321,7 @@ export function createProjectReview(projectId: string, deps: ReviewDependencies)
       draftDirty = false
       if (!['accepted', 'mirror_pending'].includes(file.status)) throw new Error('写回结果尚未确认，请重新打开审阅')
       annotationQueue = promoted.indices.map(index => ({ index, value: 'promoted' as const }))
-      try { await saveAnnotations() } finally { await deps.refreshSource(file.sourcePath) }
+      try { if (annotationQueue.length) await saveAnnotations(); else await syncReceipt() } finally { await deps.refreshSource(file.sourcePath) }
       notice = file.status === 'mirror_pending' ? '原件已写入，镜像待处理' : '此文件已写回'
     } catch (e) {
       if (String(e).includes('source changed; review again')) {
@@ -331,13 +340,28 @@ export function createProjectReview(projectId: string, deps: ReviewDependencies)
       update(await deps.command<LocalFeedback>('reject', { project_id: projectId, submissionId: submission(), ...(isEdit ? { path } : {}), target }))
       if (file) file = { ...file, status: 'rejected' }
       draftDirty = false
+      await syncReceipt()
     } catch (e) { error = String(e); throw e } finally { phase = 'ready' }
   }
   async function resolve() {
     if (phase === 'writing' || phase === 'destroyed' || !feedback || feedback.envelope.payload.edits.length) return
     phase = 'writing'
-    try { await flush(); update(await deps.command<LocalFeedback>('resolve', { project_id: projectId, submissionId: submission() })) }
+    try { await flush(); update(await deps.command<LocalFeedback>('resolve', { project_id: projectId, submissionId: submission() })); await syncReceipt() }
     catch (e) { error = String(e); throw e } finally { phase = 'ready' }
+  }
+  async function rejectSuperseded(items: LocalFeedback[]) {
+    assertCanNavigate()
+    phase = 'writing'; error = ''
+    try {
+      await flush()
+      for (const item of items) {
+        if (item.status === 'quarantined' || item.envelope.payload.submissionId === feedback?.envelope.payload.submissionId) continue
+        const id = item.envelope.payload.submissionId
+        const updated = await deps.command<LocalFeedback>('reject', { project_id: projectId, submissionId: id, reason: 'superseded', target })
+        deps.onUpdated?.(updated)
+        try { const sent = await deps.syncReceipt?.(id); if (sent) deps.onUpdated?.(sent) } catch { /* review succeeded */ }
+      }
+    } catch (e) { error = String(e); throw e } finally { phase = 'ready' }
   }
   async function initializeTarget(hasEdits = true) {
     assertCanNavigate()
@@ -390,6 +414,7 @@ export function createProjectReview(projectId: string, deps: ReviewDependencies)
         branches = { ...branches, [id]: result }; update(result.feedback)
         if (file) file = { ...file, status: result.feedback.decisions[path]?.status ?? file.status }
         notice = result.stateError ? '分支已创建，但审阅状态未完整记录；请重试记录状态' : '整份投稿已创建分支'
+        if (!result.stateError) await syncReceipt()
       } else {
         if (!deps.pickPatch || !deps.savePatch) throw new Error('补丁保存不可用')
         const destination = await deps.pickPatch(`${batch.prepared.entry.replace(/\.[^/.]+$/, '')}.patch`)
@@ -413,6 +438,7 @@ export function createProjectReview(projectId: string, deps: ReviewDependencies)
       branches = { ...branches, [submission()]: { ...result, feedback: feedback!, stateError: undefined } }
       if (file) file = { ...file, status: feedback!.decisions[path]?.status ?? file.status }
       notice = '分支审阅状态已记录'
+      await syncReceipt()
     } catch (e) { error = String(e) } finally { phase = 'ready' }
   }
   const isDestroyed = () => phase === 'destroyed'
@@ -435,7 +461,7 @@ export function createProjectReview(projectId: string, deps: ReviewDependencies)
     get target() { return target }, get probe() { return probe }, get gitError() { return gitError },
     get branchResult() { return feedback ? branches[submission()] ?? null : null },
     get canGit() { return canGit() },
-    initializeTarget, setTarget, executeGit, retryBranchState,
+    initializeTarget, setTarget, rejectSuperseded, executeGit, retryBranchState,
     open, decide, acceptAll, stageAnnotation, dismissAnnotation, writeFile, rejectFile, resolve, flush, destroy,
   }
 }
