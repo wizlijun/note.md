@@ -79,7 +79,7 @@ pub(crate) fn guest_author(name: Option<&str>, submission: &str, received_at: &s
 pub(crate) fn submission_message(project_id: &str, snapshot: &str, submission: &str, name: Option<&str>, message: Option<&str>, ai: Option<bool>, head: Option<&str>, coauthor: bool) -> String;
 ```
 
-- [ ] **Step 1: 写真实 Git RED。** tempfile 仓库 init/config user/初始 commit 仅改 fixture；使用 `git_ops::version()` 检查工具存在，缺失明确打印并 return。覆盖原始 NUL stdout、>pipe 容量 stdin/stdout、不覆盖仓库身份。每个操作前后采样 status(`GIT_OPTIONAL_LOCKS=0`)、真实 index 路径字节、HEAD/symbolic-ref、local config、hooks和源文件 bytes/mode。不要只比较 status。
+- [x] **Step 1: 写真实 Git RED。** tempfile 仓库 init/config user/初始 commit 仅改 fixture；使用 `git_ops::version()` 检查工具存在，缺失明确打印并 return。覆盖原始 NUL stdout、>pipe 容量 stdin/stdout、不覆盖仓库身份。每个操作前后采样 status(`GIT_OPTIONAL_LOCKS=0`)、真实 index 路径字节、HEAD/symbolic-ref、local config、hooks和源文件 bytes/mode。不要只比较 status。
 
 ```rust
 let before = state(&repo); // fixture helper: whole source bytes + git status/index/HEAD/config/hooks
@@ -88,11 +88,11 @@ assert_eq!(state(&repo), before);
 assert_eq!(git(&repo, &["rev-parse", &format!("{oid}^" )]).trim(), head);
 ```
 
-- [ ] **Step 2: 运行 RED。** `cargo test --manifest-path src-tauri/Cargo.toml --lib project_share_git -- --nocapture`；确认新用例失败，不允许筛成零测试。
-- [ ] **Step 3: runner 最小实现。** 沿用 platform::command 和 configured_proxy，仅新函数支持显式 env、piped stdin、原始 output。stdin 用 writer thread 与 wait_with_output 并行，避免大型输入/过滤器输出死锁；stdin None 关闭输入。spawn/write/nonzero 均 Err，子进程被回收；不改全局环境。Git proxy 不产生联网命令。
-- [ ] **Step 4: 原语实现 §9.1–9.6。** probe 不缓存，非 Git/bare/unborn/非 UTF-8 路径返回 None；root canonical，prefix 以 `/` 结尾。临时目录在仓库外，index 初始不存在；read-tree→hash-object `--path=... --stdin`→ls-tree 原 mode→update-index→write-tree→commit-tree；成功失败均清临时 index/lock。路径按 validate_relative 校验，禁止非普通 tree 项（symlink/gitlink）被正文覆盖；保留 executable mode。`check-ref-format`、create-only CAS（zero-oid 随 oid 长度），现 ref同oid成功、不同oid失败。branch stem ASCII slug/空用 project，冲突最多 base、-2…-9。不得运行 status 时刷新真实 index。
-- [ ] **Step 5: formatter 和 G 原语 GREEN。** 名称剔除 `<`/`>`/换行/控制；author email/date 按 spec。消息剔除非法控制，危险 trailer 行不分大小写加 `> `，首行 72 Unicode 字符，最后一段只能可信 trailers。A coauthor 用访客，B/C author 为访客；owner coauthor 可省略。G6 collision、G7 nested prefix（含空格）、G8降级、G10真实 `git am` 到复制的 HEAD 仓库、G11 autocrlf/attributes/clean filter 与 git add blob一致；linked worktree `.git` 文件路径和失败清理有覆盖。
-- [ ] **Step 6: 定向通过及精确提交。** 上述命令、git_ops 新 runner tests、`git diff --check`；记录实际 G 用例列表/退出码。提交 `feat(share): add isolated Git object and ref primitives`。
+- [x] **Step 2: 运行 RED。** `cargo test --manifest-path src-tauri/Cargo.toml --lib project_share_git -- --nocapture`；确认新用例失败，不允许筛成零测试。
+- [x] **Step 3: runner 最小实现。** 沿用 platform::command 和 configured_proxy，仅新函数支持显式 env、piped stdin、原始 output。stdin 用 writer thread 与 wait_with_output 并行，避免大型输入/过滤器输出死锁；stdin None 关闭输入。spawn/write/nonzero 均 Err，子进程被回收；不改全局环境。Git proxy 不产生联网命令。
+- [x] **Step 4: 原语实现 §9.1–9.6。** probe 不缓存，非 Git/bare/unborn/非 UTF-8 路径返回 None；root canonical，prefix 以 `/` 结尾。临时目录在仓库外，index 初始不存在；read-tree→hash-object `--path=... --stdin`→ls-tree 原 mode→update-index→write-tree→commit-tree；成功失败均清临时 index/lock。路径按 validate_relative 校验，禁止非普通 tree 项（symlink/gitlink）被正文覆盖；保留 executable mode。`check-ref-format`、create-only CAS（zero-oid 随 oid 长度），现 ref同oid成功、不同oid失败。branch stem ASCII slug/空用 project，冲突最多 base、-2…-9。不得运行 status 时刷新真实 index。
+- [x] **Step 5: formatter 和 G 原语 GREEN。** 名称剔除 `<`/`>`/换行/控制；author email/date 按 spec。消息剔除非法控制，危险 trailer 行不分大小写加 `> `，首行 72 Unicode 字符，最后一段只能可信 trailers。A coauthor 用访客，B/C author 为访客；owner coauthor 可省略。G6 collision、G7 nested prefix（含空格）、G8降级、G10真实 `git am` 到复制的 HEAD 仓库、G11 autocrlf/attributes/clean filter 与 git add blob一致；linked worktree `.git` 文件路径和失败清理有覆盖。
+- [x] **Step 6: 定向通过及精确提交。** 上述命令、git_ops 新 runner tests、`git diff --check`；记录实际 G 用例列表/退出码。提交 `feat(share): add isolated Git object and ref primitives`。
 
 ## Task 2: ProjectStore Git 二阶段、可信 IPC 和生命周期
 
