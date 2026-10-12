@@ -112,10 +112,12 @@
     return progress.total > 0 ? Math.min(100, Math.floor(progress.loaded / progress.total * 100)) : undefined
   }
   function progressLabel(progress: ProjectPublishProgress) {
-    if (progress.phase === 'preparing') return '正在准备 ZIP…'
-    if (progress.phase === 'processing') return 'ZIP 已上传，正在解压发布…'
+    if (progress.phase === 'preparing') return '正在准备分享…'
+    if (progress.phase === 'processing') return '正在完成发布…'
     const percent = uploadPercent(progress)
-    return `正在上传 ZIP${percent === undefined ? '' : ` · ${percent}%`} · ${formatSize(progress.loaded)} / ${formatSize(progress.total)}`
+    const artifact = progress.artifact === 'entry' ? '入口文档' : progress.artifact === 'reader' ? '阅读页' : '项目文件 ZIP'
+    const part = progress.partNumber && progress.partCount ? ` · 第 ${progress.partNumber} / ${progress.partCount} 片` : ''
+    return `正在上传${artifact}${percent === undefined ? '' : ` · ${percent}%`} · ${formatSize(progress.loaded)} / ${formatSize(progress.total)}${part}`
   }
   function entryPath(project: ProjectSummary) { return `${project.sourceRoot.replace(/\/$/, '')}/${project.entry}` }
   async function loadProject(projectId: string, created?: ProjectInfo) {
@@ -529,9 +531,9 @@
               <div class="publish-progress">
                 <p role="status">{progressLabel(publishProgress)}</p>
                 {#if publishProgress.phase === 'uploading' && publishProgress.total > 0}
-                  <progress max="100" value={uploadPercent(publishProgress)} aria-label={`${projectName} ZIP 上传进度`} aria-valuetext={progressLabel(publishProgress)}></progress>
+                  <progress max="100" value={uploadPercent(publishProgress)} aria-label={`${projectName} 上传进度`} aria-valuetext={progressLabel(publishProgress)}></progress>
                 {:else}
-                  <progress aria-label={`${projectName} ZIP 上传进度`} aria-valuetext={progressLabel(publishProgress)}></progress>
+                  <progress aria-label={`${projectName} 上传进度`} aria-valuetext={progressLabel(publishProgress)}></progress>
                 {/if}
               </div>
             {/if}

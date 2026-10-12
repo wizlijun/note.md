@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ProjectInfo, ProjectSnapshot } from './types'
-import * as upload from './upload'
+import { MULTIPART_BYTES } from './multipart'
 
 const mocks = vi.hoisted(() => ({ invoke: vi.fn(), fetch: vi.fn(), save: vi.fn(), data: {} as Record<string, any>, events: [] as string[], baseUrl: 'https://share.test', render: vi.fn(), bundle: vi.fn(), capture: vi.fn(), archive: vi.fn() }))
 vi.mock('@tauri-apps/api/core', () => ({ invoke: mocks.invoke }))
@@ -17,13 +17,45 @@ import { publishProject, projectIdentities, pullProjectFeedback, stopProjectShar
 
 const info: ProjectInfo = { project_id: 'project_1', sourceRoot: '/project', mirrorRoot: '/vault/sync/project_1', entry: 'README.md', files: [] }
 const file = { path: 'README.md', hash: 'a'.repeat(64), bytes: 5, markdown: 'hello' }
-const snapshot: ProjectSnapshot = { schemaVersion: 1, project_id: info.project_id, snapshotId: 'snapshot_1', entry: info.entry, files: [file] }
-
-const receipt = (url: unknown = '') => Response.json({ stage: String(url).endsWith('/archive') ? 'ready' : 'entry', expires_at: '2026-11-01T00:00:00Z' })
+const snapshot: ProjectSnapshot = { schemaVersion: 1, project_id: info.project_id, snapshotId: 'full-s', entry: info.entry, files: [file] }
 const frozenTheme = { themeId: 'current-theme', compiledCss: 'frozen CSS' }
+const expires = '2026-11-01T00:00:00Z'
+let remote: any
+let frozen: number
+const operation = (url: unknown) => String(url).split('/').at(-1)
+const stateResponse = () => Response.json(remote)
+async function server(url: unknown, init: any): Promise<Response> {
+  mocks.events.push('network:' + operation(url))
+  const op = operation(url)
+  if (init.method === 'DELETE') return Response.json({ publicationId: remote?.publicationId ?? 'tombstone' })
+  if (op === 'status') return remote ? stateResponse() : new Response('not found', { status: 404 })
+  if (op === 'part') {
+    const plan = remote.plans.find((plan: any) => plan.name === init.headers['X-Artifact'])
+    const part = plan.parts.find((part: any) => part.number === Number(init.headers['X-Part-Number']))
+    return Response.json({ number: part.number, etag: part.md5 })
+  }
+  const body = JSON.parse(init.body)
+  if (op === 'begin') {
+    remote = { ...remote, publicationId: body.publicationId, active: remote?.active ?? null,
+      expires_at: remote?.expires_at ?? expires, plans: body.artifacts,
+      upload: { sessionId: body.sessionId, phase: body.phase, snapshotId: body.snapshotId, sealed: [] },
+      pending: { publicationId: body.publicationId, entrySnapshotId: remote?.pending?.entrySnapshotId ?? body.snapshotId, expires_at: remote?.expires_at ?? expires } }
+  } else if (op === 'seal') remote.upload.sealed.push(body.artifact)
+  else if (op === 'commit') {
+    if (remote.upload.phase !== 'entry' || !remote.active) remote.active = { publicationId: body.publicationId, snapshotId: remote.upload.snapshotId, expires_at: expires }
+    if (remote.upload.phase === 'entry') remote.entry = { publicationId: body.publicationId, snapshotId: remote.upload.snapshotId, expires_at: expires }
+  } else throw new Error('Unexpected operation ' + op)
+  return stateResponse()
+}
+function seedPending(phase: 'entry' | 'preparing' | 'full' | undefined, extra: any = {}) {
+  mocks.data.projectShares = { [info.project_id]: { ...info, baseUrl: mocks.baseUrl, slug: 'existing', edit_token: 'edit', feedbackToken: 'feedback',
+    pending: { phase, snapshotId: phase === 'full' ? 'full-s' : 'entry-s', publicationId: 'p1', previousPublicationId: null,
+      entry: info.entry, expiresInSeconds: 604800, approved: [{ path: file.path, hash: file.hash }], frozenTheme, ...extra } } }
+}
+const identity = async () => (await projectIdentities())[info.project_id]
 
 beforeEach(() => {
-  mocks.data = {}; mocks.events = []; mocks.invoke.mockReset(); mocks.fetch.mockReset().mockImplementation(async url => receipt(url)); mocks.save.mockReset()
+  remote = null; frozen = 0; mocks.data = {}; mocks.events = []; mocks.invoke.mockReset(); mocks.fetch.mockReset().mockImplementation(server); mocks.save.mockReset()
   mocks.capture.mockReset().mockResolvedValue(frozenTheme)
   mocks.archive.mockReset().mockResolvedValue(new Uint8Array([1, 2, 3]))
   mocks.baseUrl = 'https://share.test'
@@ -31,7 +63,9 @@ beforeEach(() => {
   mocks.bundle.mockReset().mockReturnValue('<html>frozen bundle</html>')
   vi.stubGlobal('fetch', mocks.fetch)
   mocks.invoke.mockImplementation(async (_command: string, { request }: any) => {
-    if (request.op === 'snapshot' || request.op === 'snapshot-get') return snapshot
+    mocks.events.push(request.op)
+    if (request.op === 'snapshot') return { ...snapshot, snapshotId: ++frozen === 1 ? 'entry-s' : 'full-s' }
+    if (request.op === 'snapshot-get') return { ...snapshot, snapshotId: request.snapshotId }
     if (request.op === 'bundle-get') return '<html>frozen bundle</html>'
     if (request.op === 'published') return { ...info, url: request.url, publishedSnapshotId: request.snapshotId }
     if (request.op === 'inbox') return []
@@ -41,268 +75,120 @@ beforeEach(() => {
   })
 })
 
-describe('host project share', () => {
-  it('keeps the full package pending while upload completion is awaiting the ready receipt', async () => {
-    const progress = vi.fn()
-    let confirm!: () => void
-    const send = vi.spyOn(upload, 'uploadProjectArchive').mockImplementationOnce(async (_url, _headers, _archive, report) => {
-      expect((await projectIdentities())[info.project_id].pending?.phase).toBe('full')
-      report?.({ phase: 'uploading', loaded: 1, total: 3 })
-      report?.({ phase: 'processing' })
-      await new Promise<void>(resolve => { confirm = resolve })
-      return receipt('/archive')
+describe('frozen host multipart publication', () => {
+  it('uploads entry as binary before freezing the full project, and uploads source ZIP and reader separately', async () => {
+    const onEntryPublished = vi.fn(async ({ identity: saved }) => {
+      expect(saved.pending.phase).toBe('preparing'); expect(saved.url).toBeTruthy(); expect(frozen).toBe(1)
+      expect(mocks.archive).not.toHaveBeenCalled()
     })
-    try {
-      const publication = publishProject(info, [file], undefined, { onProgress: progress })
-      await vi.waitFor(() => expect(progress).toHaveBeenLastCalledWith({ phase: 'processing' }))
-      expect(progress.mock.calls[0]).toEqual([{ phase: 'preparing' }])
-      expect((await projectIdentities())[info.project_id].pending?.phase).toBe('full')
-      expect(mocks.invoke.mock.calls.filter(([, args]) => args.request.op === 'published')).toHaveLength(1)
-      confirm()
-      expect((await publication).identity.pending).toBeUndefined()
-      expect(mocks.invoke.mock.calls.filter(([, args]) => args.request.op === 'published')).toHaveLength(2)
-    } finally { send.mockRestore() }
-  })
-  it('publishes only the entry first, exposes its link, then freezes the approved full scope with the same theme', async () => {
-    const linked = { ...file, path: 'docs/next.md', hash: 'b'.repeat(64) }
-    let frozen = 0
-    const snapshots = new Map<string, ProjectSnapshot>()
-    mocks.invoke.mockImplementation(async (_command, { request }) => {
-      mocks.events.push(request.op)
-      if (request.op === 'get') return info
-      if (request.op === 'snapshot') {
-        const value = { ...snapshot, snapshotId: 's' + ++frozen, files: [file, linked].filter(f => request.paths.includes(f.path)) }
-        snapshots.set(value.snapshotId, value)
-        return value
-      }
-      if (request.op === 'snapshot-get') return snapshots.get(request.snapshotId)
-      if (request.op === 'bundle-get') return '<html>' + request.snapshotId + '</html>'
-      if (request.op === 'published') return { ...info, url: request.url, publishedSnapshotId: request.snapshotId }
-      return null
-    })
-    mocks.fetch.mockImplementation(async (url, init) => {
-      const saved = (await projectIdentities())[info.project_id]
-      if (String(url).endsWith('/entry')) {
-        expect(saved.pending?.phase).toBe('entry')
-        expect(JSON.parse(init.body).previousPublicationId).toBeNull()
-        expect(frozen).toBe(1)
-      } else {
-        expect(saved.pending?.phase).toBe('full')
-        expect(init.headers['X-Snapshot-Id']).toBe('s2')
-        expect(init.body).toBeInstanceOf(Uint8Array)
-      }
-      return receipt(url)
-    })
-    const callback = vi.fn(async ({ identity, info: active }) => {
-      expect(identity.url).toBeTruthy()
-      expect(identity.pending.phase).toBe('preparing')
-      expect(active.publishedSnapshotId).toBe('s1')
-      expect(frozen).toBe(1)
-      mocks.capture.mockResolvedValue({ themeId: 'changed-later', compiledCss: 'new CSS' })
-    })
-    const result = await publishProject(info, [file, linked], 'title', { onEntryPublished: callback })
-    expect(callback).toHaveBeenCalledOnce()
+    const result = await publishProject(info, [file], 'title', { onEntryPublished })
+    expect(onEntryPublished).toHaveBeenCalledOnce()
+    const begins = mocks.fetch.mock.calls.filter(([url]) => operation(url) === 'begin').map(([, init]) => JSON.parse(init.body))
+    expect(begins.map(body => body.artifacts.map((plan: any) => plan.name))).toEqual([['entry'], ['archive', 'reader']])
+    expect(begins.every(body => !('html' in body))).toBe(true)
+    expect(mocks.fetch.mock.calls.filter(([url]) => operation(url) === 'part').every(([, init]) => init.body instanceof Uint8Array)).toBe(true)
+    expect(mocks.archive).toHaveBeenCalledWith(expect.anything(), '<html>frozen bundle</html>', 'source')
+    expect(result.identity.pending).toBeUndefined(); expect(result.identity.publishedSnapshotId).toBe('full-s')
     expect(mocks.capture).toHaveBeenCalledOnce()
     expect(mocks.render.mock.calls.every(([, options]) => options.frozenTheme.compiledCss === 'frozen CSS')).toBe(true)
-    expect(mocks.invoke.mock.calls.filter(([, { request }]) => request.op === 'snapshot').map(([, { request }]) => request.paths)).toEqual([[file.path], [file.path, linked.path]])
-    expect(result.identity.publishedSnapshotId).toBe('s2')
-    expect(result.identity.pending).toBeUndefined()
   })
-  it('retains the entry link after archive failure and retries cached full inputs without rendering', async () => {
-    mocks.fetch.mockImplementation(async url => {
-      if (String(url).endsWith('/archive')) throw new Error('archive upload unknown')
-      return receipt(url)
+  it('persists plans and each confirmed receipt, then resumes only the missing part without rendering', async () => {
+    mocks.archive.mockResolvedValue(new Uint8Array(MULTIPART_BYTES + 3).fill(97))
+    let failed = false
+    mocks.fetch.mockImplementation(async (url, init) => {
+      if (operation(url) === 'part') {
+        const pending = (await identity()).pending as any
+        expect(pending.protocol).toBe(2); expect(pending.upload.sessionId).toBe(init.headers['X-Upload-Session'])
+        if (init.headers['X-Artifact'] === 'archive' && init.headers['X-Part-Number'] === '2' && !failed) { failed = true; throw new Error('lost part') }
+      }
+      return server(url, init)
     })
-    await expect(publishProject(info, [file])).rejects.toThrow('archive upload unknown')
-    const saved = (await projectIdentities())[info.project_id]
-    expect(saved.url).toBeTruthy()
-    expect(saved.pending?.phase).toBe('full')
-    const priorRequest = mocks.fetch.mock.calls.at(-1)![1]
-    mocks.render.mockClear(); mocks.bundle.mockClear(); mocks.capture.mockClear(); mocks.invoke.mockClear()
-    mocks.fetch.mockImplementation(async url => receipt(url))
-    await publishProject(info, [], 'ignored title', { useCurrentTheme: false })
-    const nextRequest = mocks.fetch.mock.calls.at(-1)![1]
-    expect(nextRequest.body).toEqual(priorRequest.body)
-    expect(nextRequest.headers).toEqual(priorRequest.headers)
-    expect(mocks.render).not.toHaveBeenCalled()
-    expect(mocks.bundle).not.toHaveBeenCalled()
-    expect(mocks.capture).not.toHaveBeenCalled()
+    await expect(publishProject(info, [file])).rejects.toThrow('lost part')
+    const before = (await identity()).pending as any
+    expect(before.upload.receipts.archive).toHaveLength(1)
+    mocks.fetch.mockClear(); mocks.render.mockClear(); mocks.bundle.mockClear(); mocks.capture.mockClear(); mocks.invoke.mockClear()
+    await publishProject(info, [], 'ignored', { useCurrentTheme: false })
+    expect(mocks.fetch.mock.calls.filter(([url]) => operation(url) === 'part').map(([, init]) => [init.headers['X-Artifact'], init.headers['X-Part-Number']])).toEqual([['archive', '2'], ['reader', '1']])
+    expect(mocks.render).not.toHaveBeenCalled(); expect(mocks.bundle).not.toHaveBeenCalled(); expect(mocks.capture).not.toHaveBeenCalled()
     expect(mocks.invoke.mock.calls.some(([, { request }]) => request.op === 'snapshot')).toBe(false)
   })
-  it('does not upload the full archive until its cached snapshot and pending phase are durable', async () => {
-    mocks.save.mockImplementation(async () => {
-      if (mocks.data.projectShares?.[info.project_id]?.pending?.phase === 'full') throw new Error('disk full')
+  it('recovers a lost full commit response from exact active IDs without uploading again', async () => {
+    mocks.fetch.mockImplementation(async (url, init) => {
+      const response = await server(url, init)
+      if (operation(url) === 'commit' && remote.upload.phase === 'full') throw new Error('commit unknown')
+      return response
     })
-    await expect(publishProject(info, [file])).rejects.toThrow('disk full')
-    expect(mocks.fetch).toHaveBeenCalledOnce()
-    expect(mocks.archive).not.toHaveBeenCalled()
-    mocks.save.mockResolvedValue(undefined)
-    mocks.render.mockClear(); mocks.bundle.mockClear()
+    await expect(publishProject(info, [file])).rejects.toThrow('commit unknown')
+    expect((await identity()).pending?.phase).toBe('full')
+    mocks.fetch.mockClear(); mocks.fetch.mockImplementation(server); mocks.archive.mockClear()
     await publishProject(info, [])
-    expect(mocks.fetch.mock.calls.at(-1)![0]).toMatch(/\/archive$/)
-    expect(mocks.render).not.toHaveBeenCalled()
-    expect(mocks.bundle).not.toHaveBeenCalled()
+    expect(mocks.fetch).toHaveBeenCalledOnce(); expect(operation(mocks.fetch.mock.calls[0][0])).toBe('status')
+    expect(mocks.archive).not.toHaveBeenCalled(); expect((await identity()).pending).toBeUndefined()
   })
-  it('keeps an existing complete baseline active while a new generation is preparing', async () => {
-    const previous = { ...info, baseUrl: mocks.baseUrl, slug: 'existing', edit_token: 'edit', feedbackToken: 'feedback', publicationId: 'old-p', publishedSnapshotId: 'old-s', expiresAt: 'old-expiry', url: 'https://share.test/existing', shareTitle: 'old title' }
-    mocks.data.projectShares = { [info.project_id]: previous }
-    mocks.fetch.mockResolvedValueOnce(Response.json({ stage: 'ready', active: { publicationId: 'old-p', snapshotId: 'old-s', expires_at: 'old-expiry' } }))
-    mocks.render.mockResolvedValueOnce({ themeId: 'current', styleHead: '', documents: {}, warnings: [] }).mockRejectedValueOnce(new Error('full render failed'))
-    await expect(publishProject(info, [file], 'new title')).rejects.toThrow('full render failed')
-    const saved = (await projectIdentities())[info.project_id]
-    expect(saved).toMatchObject({ publishedSnapshotId: 'old-s', expiresAt: 'old-expiry', shareTitle: 'old title', url: previous.url })
-    expect(saved.publicationId).not.toBe('old-p')
-    expect(JSON.parse(mocks.fetch.mock.calls[0][1].body).previousPublicationId).toBe('old-p')
+  it('does not clear pending for a ready previous active or a matching publication with wrong snapshot', async () => {
+    seedPending('full')
+    remote = { publicationId: 'p1', active: { publicationId: 'old', snapshotId: 'old-s', expires_at: expires }, expires_at: expires }
+    mocks.fetch.mockImplementation(async (url, init) => {
+      if (operation(url) === 'commit') return Response.json({ ...remote, active: { publicationId: 'p1', snapshotId: 'wrong-s', expires_at: expires } })
+      return server(url, init)
+    })
+    await expect(publishProject(info, [])).rejects.toThrow('身份')
+    expect((await identity()).pending?.snapshotId).toBe('full-s')
     expect(mocks.invoke.mock.calls.some(([, { request }]) => request.op === 'published')).toBe(false)
   })
-  it('retains approved hashes and the entry when a source changes before full freezing', async () => {
-    const baseInvoke = mocks.invoke.getMockImplementation()!
-    let attempts = 0
-    mocks.invoke.mockImplementation(async (command, args) => {
-      if (args.request.op === 'snapshot' && ++attempts > 1) {
-        expect(args.request.hashes).toEqual({ [file.path]: file.hash })
-        throw new Error('source hash changed')
-      }
-      return baseInvoke(command, args)
-    })
-    await expect(publishProject(info, [file])).rejects.toThrow('source hash changed')
-    const saved = (await projectIdentities())[info.project_id]
-    expect(saved.url).toBeTruthy()
-    expect(saved.pending).toMatchObject({ phase: 'preparing', approved: [{ path: file.path, hash: file.hash }] })
-    expect(mocks.fetch).toHaveBeenCalledOnce()
+  it('rebuilds old full pending using the exact legacy format', async () => {
+    seedPending('full'); remote = { publicationId: 'p1', active: null, expires_at: expires }
+    await publishProject(info, [])
+    expect(mocks.archive).toHaveBeenCalledWith(expect.objectContaining({ snapshotId: 'full-s' }), '<html>frozen bundle</html>', 'legacy')
   })
-  it('aligns the stopped generation with the server after an unknown entry upload', async () => {
-    mocks.fetch.mockRejectedValueOnce(new Error('unknown entry result'))
-    await expect(publishProject(info, [file])).rejects.toThrow('unknown entry result')
-    const pending = (await projectIdentities())[info.project_id].pending
-    if (!pending?.phase) throw new Error('Expected staged pending')
-    mocks.fetch.mockImplementationOnce(async (_url, init) => {
-      expect(init.method).toBe('DELETE')
-      expect(JSON.parse(init.body)).toMatchObject({ project_id: info.project_id, publicationId: pending.publicationId, previousPublicationId: null, entrySnapshotId: pending.snapshotId })
-      return Response.json({ publicationId: 'server-tombstone' })
-    })
-    await stopProjectShare(info.project_id)
-    const stopped = (await projectIdentities())[info.project_id]
-    expect(stopped.pending).toBeUndefined()
-    expect(stopped.publicationId).toBe('server-tombstone')
-    mocks.fetch.mockImplementationOnce(async (_url, init) => {
-      expect(JSON.parse(init.body).previousPublicationId).toBe('server-tombstone')
-      return receipt()
-    })
-    await publishProject(info, [file])
+  it.each(['entry', 'preparing'] as const)('continues old %s without resubmitting a confirmed entry or renewing expiry', async phase => {
+    seedPending(phase)
+    remote = { publicationId: 'p1', active: { publicationId: 'p1', snapshotId: 'entry-s', expires_at: expires }, entry: { publicationId: 'p1', snapshotId: 'entry-s', expires_at: expires }, pending: { publicationId: 'p1', entrySnapshotId: 'entry-s', expires_at: expires }, expires_at: expires }
+    await publishProject(info, [])
+    const begins = mocks.fetch.mock.calls.filter(([url]) => operation(url) === 'begin').map(([, init]) => JSON.parse(init.body))
+    expect(begins).toHaveLength(1); expect(begins[0].phase).toBe('full')
   })
-  it('sends exact cached entry and prior legacy IDs only while entry publication is unknown', async () => {
-    mocks.data.projectShares = { [info.project_id]: { project_id: info.project_id, sourceRoot: info.sourceRoot, entry: info.entry,
-      baseUrl: mocks.baseUrl, slug: '2026-10-10-project', edit_token: 'a'.repeat(32), feedbackToken: 'feedback', publishedSnapshotId: 'legacy_s0',
-      pending: { phase: 'entry', publicationId: 'p1', previousPublicationId: null, snapshotId: 'entry_s1', entry: info.entry, expiresInSeconds: 3600 } } }
-    mocks.fetch.mockResolvedValueOnce(Response.json({ publicationId: 'p1' }))
-    await stopProjectShare(info.project_id)
-    expect(JSON.parse(mocks.fetch.mock.calls[0][1].body)).toMatchObject({ entrySnapshotId: 'entry_s1', legacySnapshotId: 'legacy_s0' })
-    const saved = mocks.data.projectShares[info.project_id]
-    mocks.data.projectShares[info.project_id] = { ...saved, pending: { phase: 'full', publicationId: 'p2', previousPublicationId: 'p1', snapshotId: 'full_s2' } }
-    mocks.fetch.mockResolvedValueOnce(Response.json({ publicationId: 'p2' }))
-    await stopProjectShare(info.project_id)
-    const body = JSON.parse(mocks.fetch.mock.calls[1][1].body)
-    expect(body.entrySnapshotId).toBeUndefined()
-    expect(body.legacySnapshotId).toBeUndefined()
+  it('persists local pending when marking the exact remote publication locally fails', async () => {
+    seedPending('full'); remote = { publicationId: 'p1', active: { publicationId: 'p1', snapshotId: 'full-s', expires_at: expires }, expires_at: expires }
+    const original = mocks.invoke.getMockImplementation()!
+    mocks.invoke.mockImplementation(async (command, args) => { if (args.request.op === 'published') throw new Error('local published failed'); return original(command, args) })
+    await expect(publishProject(info, [])).rejects.toThrow('local published failed')
+    expect((await identity()).pending?.snapshotId).toBe('full-s'); expect(mocks.archive).not.toHaveBeenCalled()
   })
-  it('defaults legacy projects to the current theme and remembers each successful project choice', async () => {
-    mocks.fetch.mockImplementation(async url => receipt(url))
-    const first = await publishProject(info, [file])
-    expect(mocks.render).toHaveBeenLastCalledWith(snapshot, { useCurrentTheme: true, frozenTheme })
-    expect(first.identity.useCurrentTheme).toBe(true)
-    const second = await publishProject(info, [file], undefined, { useCurrentTheme: false })
-    expect(mocks.render).toHaveBeenLastCalledWith(snapshot, { useCurrentTheme: false, frozenTheme })
-    expect(second.identity.useCurrentTheme).toBe(false)
-    await publishProject(info, [file])
-    expect(mocks.render).toHaveBeenLastCalledWith(snapshot, { useCurrentTheme: false, frozenTheme })
-  })
-  it('freezes the theme option in pending and ignores changed options on retry', async () => {
-    mocks.fetch.mockRejectedValueOnce(new Error('unknown'))
-    await expect(publishProject(info, [file], 'theme', { useCurrentTheme: false })).rejects.toThrow('unknown')
-    expect((await projectIdentities())[info.project_id].pending?.useCurrentTheme).toBe(false)
-    mocks.render.mockClear()
-    mocks.fetch.mockResolvedValueOnce(receipt())
-    const result = await publishProject(info, [], 'theme', { useCurrentTheme: true })
-    expect(mocks.render).toHaveBeenCalledOnce()
-    expect(result.identity.useCurrentTheme).toBe(false)
-  })
-  it('bakes the frozen snapshot before persisting the titled bundle and pending identity', async () => {
-    mocks.render.mockImplementation(async (input) => { mocks.events.push('render'); expect(input).toEqual(snapshot); return { themeId: 'picked', styleHead: '', documents: {}, warnings: ['图表错误'] } })
-    mocks.invoke.mockImplementation(async (_command, { request }) => {
-      mocks.events.push(request.op)
-      if (request.op === 'get') return info
-      if (request.op === 'snapshot' || request.op === 'snapshot-get') return snapshot
-      if (request.op === 'published') return { ...info, url: request.url }
-      return null
-    })
-    mocks.fetch.mockImplementationOnce(async () => {
-      mocks.events.push('upload')
-      expect((await projectIdentities())[info.project_id].pending?.shareTitle).toBe('分享标题')
-      return receipt()
-    })
-    const result = await publishProject(info, [file], '  分享标题  ')
-    expect(mocks.bundle).toHaveBeenCalledWith(snapshot, expect.stringContaining('/feedback/'), { title: '分享标题', publicationPending: true, archiveUrl: expect.stringMatching(/\/project\/[^/]+\/download$/), presentation: { themeId: 'picked', styleHead: '', documents: {}, warnings: ['图表错误'] } })
-    expect(mocks.events.indexOf('render')).toBeLessThan(mocks.events.indexOf('bundle'))
-    expect(mocks.events.indexOf('bundle')).toBeLessThan(mocks.events.indexOf('persist'))
-    expect(mocks.events.indexOf('persist')).toBeLessThan(mocks.events.indexOf('upload'))
-    expect(result.identity.shareTitle).toBe('分享标题')
-    expect(result.warnings).toEqual(['图表错误'])
-  })
-  it('does not persist pending or upload when presentation cannot be baked', async () => {
-    mocks.render.mockRejectedValueOnce(new Error('theme unavailable'))
-    await expect(publishProject(info, [file], 'new title')).rejects.toThrow('theme unavailable')
+  it('never sends a network request if the frozen plan cannot be saved', async () => {
+    mocks.save.mockRejectedValue(new Error('disk full'))
+    await expect(publishProject(info, [file])).rejects.toThrow('disk full')
+    await expect(publishProject(info, [])).rejects.toThrow('disk full')
     expect(mocks.fetch).not.toHaveBeenCalled()
-    expect(mocks.invoke.mock.calls.some(([, args]) => args.request.op === 'bundle')).toBe(false)
-    expect((await projectIdentities())[info.project_id]).toBeUndefined()
   })
-  it('freezes a pending title and retries without rendering or accepting a changed title', async () => {
-    mocks.fetch.mockRejectedValueOnce(new Error('unknown'))
-    await expect(publishProject(info, [file], 'frozen title')).rejects.toThrow('unknown')
-    expect((await projectIdentities())[info.project_id].pending?.shareTitle).toBe('frozen title')
-    mocks.render.mockClear(); mocks.bundle.mockClear()
-    mocks.fetch.mockResolvedValueOnce(receipt())
-    const result = await publishProject(info, [], 'later title')
-    expect(mocks.render).toHaveBeenCalledOnce()
-    expect(mocks.bundle).toHaveBeenCalledOnce()
-    expect(result.identity.shareTitle).toBe('frozen title')
-    expect(result.warnings).toEqual(['字体将使用替代'])
+  it('checks reconstructed artifacts against frozen SHA and plans before transmitting', async () => {
+    seedPending('full'); remote = { publicationId: 'p1', active: null, expires_at: expires }
+    mocks.fetch.mockImplementation(async (url, init) => { if (operation(url) === 'part') throw new Error('offline'); return server(url, init) })
+    await expect(publishProject(info, [])).rejects.toThrow('offline')
+    mocks.archive.mockResolvedValue(new Uint8Array([9, 9, 9])); mocks.fetch.mockClear()
+    await expect(publishProject(info, [])).rejects.toThrow('冻结')
+    expect(mocks.fetch.mock.calls.every(([url]) => operation(url) === 'status')).toBe(true)
   })
-  it('retries legacy pending metadata without inventing a new title or rendering again', async () => {
-    mocks.fetch.mockRejectedValueOnce(new Error('unknown'))
-    await expect(publishProject(info, [file])).rejects.toThrow('unknown')
-    delete mocks.data.projectShares[info.project_id].pending.phase
-    delete mocks.data.projectShares[info.project_id].pending.shareTitle
-    delete mocks.data.projectShares[info.project_id].pending.useCurrentTheme
-    delete mocks.data.projectShares[info.project_id].pending.warnings
-    mocks.render.mockClear(); mocks.bundle.mockClear()
-    mocks.fetch.mockResolvedValueOnce(receipt())
-    const result = await publishProject(info, [], 'new input cannot change the old bundle')
-    expect(result.identity.shareTitle).toBeUndefined()
-    expect(result.identity.useCurrentTheme).toBe(true)
-    expect(result.warnings).toEqual([])
+  it('recovers an older no-phase successful publish by local HTML SHA without sending a new publication', async () => {
+    seedPending(undefined); delete mocks.data.projectShares[info.project_id].pending.publicationId
+    remote = { publicationId: null, active: null, legacy: { bytes: 26, expires_at: expires, project_id: info.project_id } }
+    mocks.fetch.mockImplementation(async (url, init) => operation(url) === 'legacy' ? new Response('<html>frozen bundle</html>') : server(url, init))
+    const result = await publishProject(info, [])
+    expect(result.identity.expiresAt).toBe(expires); expect(result.identity.pending).toBeUndefined()
+    expect(mocks.fetch.mock.calls.map(([url]) => operation(url))).toEqual(['status', 'legacy'])
     expect(mocks.render).not.toHaveBeenCalled()
-    expect(mocks.bundle).not.toHaveBeenCalled()
   })
-  it('preserves an existing live identity and its remembered title when baking fails', async () => {
-    mocks.fetch.mockResolvedValueOnce(receipt())
-    await publishProject(info, [file], 'published title', { useCurrentTheme: false })
-    const previous = (await projectIdentities())[info.project_id]
-    mocks.fetch.mockClear()
-    mocks.render.mockRejectedValueOnce(new Error('broken template'))
-    await expect(publishProject(info, [file], 'unpublished title', { useCurrentTheme: true })).rejects.toThrow('broken template')
-    expect((await projectIdentities())[info.project_id]).toEqual(previous)
-    expect(mocks.fetch).not.toHaveBeenCalled()
+  it('does not silently renew an older no-phase publish with missing remote state', async () => {
+    seedPending(undefined); delete mocks.data.projectShares[info.project_id].pending.publicationId
+    await expect(publishProject(info, [])).rejects.toThrow('不续期')
+    const first = (await identity()).pending as any
+    await expect(publishProject(info, [])).rejects.toThrow('不续期')
+    expect((await identity()).pending).toEqual(first)
+    expect(mocks.fetch.mock.calls.every(([url]) => operation(url) === 'status')).toBe(true)
   })
-  it('remembers successful custom titles on the original URL and supports empty title fallback', async () => {
-    mocks.fetch.mockImplementation(async url => receipt(url))
-    const first = await publishProject(info, [file], 'custom')
-    const second = await publishProject(info, [file])
-    expect(second.identity.url).toBe(first.identity.url)
-    expect(second.identity.shareTitle).toBe('custom')
-    const third = await publishProject(info, [file], '  ')
-    expect(third.identity.shareTitle).toBe('README')
-  })
+})
+
+describe('project management and service boundaries', () => {
   it('lists unpublished host drafts and preserves orphaned publishing credentials for management', async () => {
     mocks.data.projectShares = { orphan: { project_id: 'orphan', sourceRoot: '/old', entry: 'old.md', url: 'https://share.test/old' } }
     const projects = await listProjects()
@@ -381,7 +267,6 @@ describe('host project share', () => {
     expect(mocks.fetch).not.toHaveBeenCalled()
   })
   it('retains owner credentials if buffers change after a successful remote revoke', async () => {
-    mocks.fetch.mockResolvedValueOnce(receipt())
     await publishProject(info, [file])
     mocks.invoke.mockClear()
     mocks.fetch.mockResolvedValueOnce(new Response(null, { status: 204 }))
@@ -392,43 +277,11 @@ describe('host project share', () => {
     expect(mocks.invoke.mock.calls.some(([, args]) => args.request.op === 'delete')).toBe(false)
   })
   it('never sends a different service API key to the previously bound service', async () => {
-    mocks.fetch.mockResolvedValueOnce(receipt())
     await publishProject(info, [file])
     mocks.fetch.mockClear(); mocks.baseUrl = 'https://another-service.test'
     await expect(pullProjectFeedback(info.project_id)).rejects.toThrow('另一个分享服务')
     await expect(stopProjectShare(info.project_id)).rejects.toThrow('另一个分享服务')
     expect(mocks.fetch).not.toHaveBeenCalled()
-  })
-  it('persists identity and frozen snapshot before upload, then retries unknown results with the same body', async () => {
-    const bodies: string[] = []
-    mocks.fetch.mockImplementation(async (_url, init) => {
-      mocks.events.push('upload'); bodies.push(init.body)
-      if (bodies.length === 1) throw new Error('connection lost after upload')
-      return receipt(_url)
-    })
-    await expect(publishProject(info, [file])).rejects.toThrow('connection lost')
-    const identity = (await projectIdentities())[info.project_id]
-    expect(identity.slug).toMatch(/^\d{4}-\d{2}-\d{2}-[a-z0-9][a-z0-9-]*$/)
-    expect(identity.pending?.snapshotId).toBe(snapshot.snapshotId)
-    expect(mocks.events.indexOf('persist')).toBeLessThan(mocks.events.indexOf('upload'))
-    const result = await publishProject(info, [])
-    expect(bodies[1]).toBe(bodies[0])
-    expect(result.identity.pending).toBeUndefined()
-    expect(result.identity.url).toContain(identity.slug)
-    expect(mocks.invoke.mock.calls.filter(([, input]) => input.request.op === 'snapshot')).toHaveLength(2)
-    expect(bodies[0]).not.toContain('/project')
-  })
-  it('never uploads if identity cannot be saved', async () => {
-    mocks.save.mockRejectedValueOnce(new Error('disk full'))
-    await expect(publishProject(info, [file])).rejects.toThrow('disk full')
-    expect(mocks.fetch).not.toHaveBeenCalled()
-  })
-  it('rechecks durable identity storage before retrying a pending bundle from memory', async () => {
-    mocks.save.mockRejectedValue(new Error('disk full'))
-    await expect(publishProject(info, [file])).rejects.toThrow('disk full')
-    await expect(publishProject(info, [])).rejects.toThrow('disk full')
-    expect(mocks.fetch).not.toHaveBeenCalled()
-    expect(mocks.save).toHaveBeenCalledTimes(2)
   })
   it('lists IDs and downloads unseen feedback sequentially, preserving local decisions', async () => {
     const existing = { envelope: { payload: { submissionId: 'old' } }, status: 'accepted' }
@@ -446,7 +299,6 @@ describe('host project share', () => {
     expect(mocks.invoke.mock.calls.find(([, input]) => input.request.op === 'feedback')?.[1].request.envelope.payload.submissionId).toBe('new')
   })
   it('keeps local state when stop is unknown, and keeps credentials after confirmed stop', async () => {
-    mocks.fetch.mockResolvedValueOnce(receipt())
     await publishProject(info, [file])
     const original = (await projectIdentities())[info.project_id]
     mocks.fetch.mockRejectedValueOnce(new Error('offline'))
@@ -459,4 +311,275 @@ describe('host project share', () => {
     expect(stopped.slug).toBe(original.slug)
     expect(stopped.feedbackToken).toBe(original.feedbackToken)
   })
+})
+
+describe('multipart recovery boundaries', () => {
+  it('continues an uncommitted registered entry instead of assuming its pending identity is visible', async () => {
+    let interrupted = false
+    mocks.fetch.mockImplementation(async (url, init) => {
+      if (operation(url) === 'part' && !interrupted) { interrupted = true; throw new Error('entry part unknown') }
+      return server(url, init)
+    })
+    await expect(publishProject(info, [file])).rejects.toThrow('entry part unknown')
+    expect(remote.active).toBeNull()
+    mocks.fetch.mockClear()
+    await publishProject(info, [])
+    expect(mocks.fetch.mock.calls.filter(([url]) => operation(url) === 'part').map(([, init]) => init.headers['X-Artifact'])).toEqual(['entry', 'archive', 'reader'])
+  })
+  it('recovers a lost entry commit receipt without reuploading or recommitting the entry', async () => {
+    let interrupted = false
+    mocks.fetch.mockImplementation(async (url, init) => {
+      const response = await server(url, init)
+      if (operation(url) === 'commit' && remote.upload.phase === 'entry' && !interrupted) { interrupted = true; throw new Error('entry commit unknown') }
+      return response
+    })
+    await expect(publishProject(info, [file])).rejects.toThrow('entry commit unknown')
+    mocks.fetch.mockClear()
+    await publishProject(info, [])
+    expect(mocks.fetch.mock.calls.filter(([url]) => operation(url) === 'begin').map(([, init]) => JSON.parse(init.body).phase)).toEqual(['full'])
+    expect((await identity()).expiresAt).toBe(expires)
+  })
+  it('stops after a failed receipt save and retries that save before progressing to the next part', async () => {
+    mocks.archive.mockResolvedValue(new Uint8Array(MULTIPART_BYTES + 3))
+    mocks.save.mockImplementation(async () => {
+      if (mocks.data.projectShares?.[info.project_id]?.pending?.upload?.receipts.archive?.length) throw new Error('receipt disk full')
+    })
+    await expect(publishProject(info, [file])).rejects.toThrow('receipt disk full')
+    expect(mocks.fetch.mock.calls.filter(([url]) => operation(url) === 'part').map(([, init]) => init.headers['X-Artifact'])).toEqual(['entry', 'archive'])
+    mocks.fetch.mockClear()
+    await expect(publishProject(info, [])).rejects.toThrow('receipt disk full')
+    expect(mocks.fetch).not.toHaveBeenCalled()
+    mocks.save.mockResolvedValue(undefined)
+    await publishProject(info, [])
+    expect(mocks.fetch.mock.calls.filter(([url]) => operation(url) === 'part').map(([, init]) => [init.headers['X-Artifact'], init.headers['X-Part-Number']])).toEqual([['archive', '2'], ['reader', '1']])
+  })
+  it('keeps pending visible in Store memory if saving the successful local completion fails', async () => {
+    seedPending('full')
+    remote = { publicationId: 'p1', active: { publicationId: 'p1', snapshotId: 'full-s', expires_at: expires }, expires_at: expires }
+    mocks.save.mockImplementation(async () => { if (!mocks.data.projectShares[info.project_id].pending) throw new Error('completion disk full') })
+    await expect(publishProject(info, [])).rejects.toThrow('completion disk full')
+    expect((await identity()).pending?.snapshotId).toBe('full-s')
+    mocks.save.mockResolvedValue(undefined)
+    expect((await publishProject(info, [])).identity.pending).toBeUndefined()
+  })
+  it('recovers a lost seal response from the server sealed artifact without retransmitting it', async () => {
+    let interrupted = false
+    mocks.fetch.mockImplementation(async (url, init) => {
+      const response = await server(url, init)
+      if (operation(url) === 'seal' && JSON.parse(init.body).artifact === 'archive' && !interrupted) { interrupted = true; throw new Error('seal unknown') }
+      return response
+    })
+    await expect(publishProject(info, [file])).rejects.toThrow('seal unknown')
+    const priorServer = server
+    mocks.fetch.mockImplementation(async (url, init) => {
+      if (operation(url) === 'begin' && remote.upload?.sessionId === JSON.parse(init.body).sessionId) return stateResponse()
+      return priorServer(url, init)
+    })
+    mocks.fetch.mockClear()
+    await publishProject(info, [])
+    expect(mocks.fetch.mock.calls.filter(([url]) => operation(url) === 'part').map(([, init]) => init.headers['X-Artifact'])).toEqual(['reader'])
+  })
+  it('rotates only an expired native session and preserves its frozen publication and artifacts', async () => {
+    let interrupted = false
+    let original: any
+    mocks.fetch.mockImplementation(async (url, init) => {
+      if (operation(url) === 'part' && init.headers['X-Artifact'] === 'archive' && !interrupted) {
+        interrupted = true; original = structuredClone((await identity()).pending)
+        return Response.json({ error: 'upload_expired' }, { status: 410 })
+      }
+      return server(url, init)
+    })
+    const result = await publishProject(info, [file])
+    const fullBegins = mocks.fetch.mock.calls.filter(([url, init]) => operation(url) === 'begin' && JSON.parse(init.body).phase === 'full').map(([, init]) => JSON.parse(init.body))
+    expect(fullBegins).toHaveLength(2)
+    expect(fullBegins[1].replaceSessionId).toBe(original.upload.sessionId)
+    expect(fullBegins[1].sessionId).not.toBe(original.upload.sessionId)
+    expect(fullBegins[1].artifacts).toEqual(fullBegins[0].artifacts)
+    expect(fullBegins[1].publicationId).toBe(fullBegins[0].publicationId)
+    expect(result.identity.expiresAt).toBe(expires)
+  })
+  it('does not rotate a revoked or expired publication or accept a bad part receipt', async () => {
+    mocks.fetch.mockImplementation(async (url, init) => operation(url) === 'part' ? Response.json({ error: 'publication_expired' }, { status: 410 }) : server(url, init))
+    await expect(publishProject(info, [file])).rejects.toThrow('publication_expired')
+    expect(mocks.fetch.mock.calls.filter(([url]) => operation(url) === 'begin')).toHaveLength(1)
+    mocks.fetch.mockImplementation(async (url, init) => operation(url) === 'part' ? Response.json({ number: 1, etag: '0'.repeat(32) }) : server(url, init))
+    await expect(publishProject(info, [])).rejects.toThrow('校验回执')
+    expect((await identity()).pending?.upload?.receipts.entry).toBeUndefined()
+  })
+  it('does not overwrite another publication generation', async () => {
+    seedPending('full'); remote = { publicationId: 'other', active: null, expires_at: expires }
+    await expect(publishProject(info, [])).rejects.toThrow('代际身份')
+    expect(mocks.fetch).toHaveBeenCalledOnce(); expect(mocks.archive).not.toHaveBeenCalled()
+  })
+  it('migrates an unmatched legacy KV page with one durable generation and its original expiry', async () => {
+    seedPending(undefined); delete mocks.data.projectShares[info.project_id].pending.publicationId
+    remote = { publicationId: null, active: null, legacy: { bytes: 8, expires_at: expires, project_id: info.project_id } }
+    mocks.fetch.mockImplementation(async (url, init) => operation(url) === 'legacy' ? new Response('old page') : server(url, init))
+    const result = await publishProject(info, [])
+    const begin = JSON.parse(mocks.fetch.mock.calls.find(([url]) => operation(url) === 'begin')![1].body)
+    expect(begin.phase).toBe('legacy'); expect(begin.artifacts.map((plan: any) => plan.name)).toEqual(['entry'])
+    expect(begin.legacy).toMatchObject({ snapshotId: 'entry-s', expires_at: expires, migrationId: expect.any(String) })
+    expect(result.identity.publicationId).toBe(begin.publicationId)
+    expect(result.identity.expiresAt).toBe(expires)
+    expect(mocks.render).not.toHaveBeenCalled(); expect(mocks.archive).not.toHaveBeenCalled()
+  })
+  it('freezes title and theme across entry retries and remembers successful choices on the same URL', async () => {
+    mocks.fetch.mockRejectedValueOnce(new Error('unknown status'))
+    await expect(publishProject(info, [file], 'frozen title', { useCurrentTheme: false })).rejects.toThrow('unknown status')
+    const first = await publishProject(info, [], 'ignored title', { useCurrentTheme: true })
+    expect(first.identity.shareTitle).toBe('frozen title'); expect(first.identity.useCurrentTheme).toBe(false)
+    mocks.render.mockClear()
+    const second = await publishProject(info, [file])
+    expect(second.identity.url).toBe(first.identity.url); expect(second.identity.shareTitle).toBe('frozen title')
+    expect(mocks.render.mock.calls.every(([, options]) => options.useCurrentTheme === false)).toBe(true)
+    expect((await publishProject(info, [file], '   ')).identity.shareTitle).toBe('README')
+  })
+  it('does not change a previously published identity when rendering its next entry fails', async () => {
+    await publishProject(info, [file], 'published title')
+    const previous = await identity()
+    mocks.fetch.mockClear(); mocks.render.mockRejectedValueOnce(new Error('broken template'))
+    await expect(publishProject(info, [file], 'new title')).rejects.toThrow('broken template')
+    expect(await identity()).toEqual(previous); expect(mocks.fetch).not.toHaveBeenCalled()
+  })
+  it('rechecks exactly the approved source hashes after the entry is visible', async () => {
+    const invoke = mocks.invoke.getMockImplementation()!
+    mocks.invoke.mockImplementation(async (command, args) => {
+      if (args.request.op === 'snapshot' && frozen === 1) { expect(args.request.hashes).toEqual({ [file.path]: file.hash }); throw new Error('source hash changed') }
+      return invoke(command, args)
+    })
+    await expect(publishProject(info, [file])).rejects.toThrow('source hash changed')
+    expect((await identity()).url).toBeTruthy()
+    expect((await identity()).pending).toMatchObject({ phase: 'preparing', approved: [{ path: file.path, hash: file.hash }] })
+    expect(mocks.archive).not.toHaveBeenCalled()
+  })
+})
+
+it('keeps a previous complete publication and title visible until the next full commit', async () => {
+  const previous = { ...info, baseUrl: mocks.baseUrl, slug: 'existing', edit_token: 'edit', feedbackToken: 'feedback', publicationId: 'old-p', publishedSnapshotId: 'old-s', expiresAt: expires, url: 'https://share.test/existing', shareTitle: 'old title' }
+  mocks.data.projectShares = { [info.project_id]: previous }
+  remote = { publicationId: 'old-p', active: { publicationId: 'old-p', snapshotId: 'old-s', expires_at: expires }, expires_at: expires }
+  mocks.render.mockResolvedValueOnce({ themeId: 'current', styleHead: '', documents: {}, warnings: [] }).mockRejectedValueOnce(new Error('full render failed'))
+  await expect(publishProject(info, [file], 'new title')).rejects.toThrow('full render failed')
+  expect(await identity()).toMatchObject({ publishedSnapshotId: 'old-s', expiresAt: expires, shareTitle: 'old title', url: previous.url })
+  expect((await identity()).publicationId).not.toBe('old-p')
+  expect(mocks.invoke.mock.calls.some(([, { request }]) => request.op === 'published')).toBe(false)
+  expect(JSON.parse(mocks.fetch.mock.calls.find(([url]) => operation(url) === 'begin')![1].body).previousPublicationId).toBe('old-p')
+})
+
+it('keeps a full pending stage durable before constructing and uploading its artifacts', async () => {
+  mocks.save.mockImplementation(async () => { if (mocks.data.projectShares?.[info.project_id]?.pending?.phase === 'full') throw new Error('full disk full') })
+  await expect(publishProject(info, [file])).rejects.toThrow('full disk full')
+  expect(mocks.archive).not.toHaveBeenCalled()
+  expect(mocks.fetch.mock.calls.filter(([url]) => operation(url) === 'begin')).toHaveLength(1)
+  mocks.save.mockResolvedValue(undefined); mocks.render.mockClear(); mocks.bundle.mockClear()
+  await publishProject(info, [])
+  expect(mocks.render).not.toHaveBeenCalled(); expect(mocks.bundle).not.toHaveBeenCalled()
+})
+
+it('recovers an unknown migrated no-phase commit from v2 active identity after restart', async () => {
+  seedPending(undefined); delete mocks.data.projectShares[info.project_id].pending.publicationId
+  remote = { publicationId: null, active: null, legacy: { bytes: 8, expires_at: expires, project_id: info.project_id } }
+  mocks.fetch.mockImplementation(async (url, init) => {
+    if (operation(url) === 'legacy') return new Response('old page')
+    const response = await server(url, init)
+    if (operation(url) === 'commit') { delete remote.legacy; throw new Error('legacy commit unknown') }
+    return response
+  })
+  await expect(publishProject(info, [])).rejects.toThrow('legacy commit unknown')
+  expect((await identity()).pending?.phase).toBe('legacy')
+  mocks.fetch.mockImplementation(server); mocks.fetch.mockClear()
+  const result = await publishProject(info, [])
+  expect(result.identity.pending).toBeUndefined(); expect(mocks.fetch).toHaveBeenCalledOnce()
+  expect(operation(mocks.fetch.mock.calls[0][0])).toBe('status')
+})
+
+it('retains exact cached entry IDs and legacy migration cleanup identity when stopping', async () => {
+  seedPending('entry', { legacy: { migrationId: 'exact-migration', snapshotId: 'old-s', expires_at: expires } })
+  mocks.data.projectShares[info.project_id].publishedSnapshotId = 'old-s'
+  await stopProjectShare(info.project_id)
+  expect(JSON.parse(mocks.fetch.mock.calls[0][1].body)).toMatchObject({ publicationId: 'p1', previousPublicationId: null, entrySnapshotId: 'entry-s', legacySnapshotId: 'old-s', legacyMigrationId: 'exact-migration' })
+})
+
+it('uses the remotely acknowledged tombstone generation for a new publication after stopping', async () => {
+  seedPending('entry')
+  mocks.fetch.mockResolvedValueOnce(Response.json({ publicationId: 'server-tombstone' }))
+  await stopProjectShare(info.project_id)
+  expect((await identity()).publicationId).toBe('server-tombstone')
+  await publishProject(info, [file])
+  expect(JSON.parse(mocks.fetch.mock.calls.find(([url]) => operation(url) === 'begin')![1].body).previousPublicationId).toBe('server-tombstone')
+})
+
+it.each(['revoked', 'expired'] as const)('does not clear frozen pending for an exact target that is %s', async kind => {
+  seedPending('full')
+  remote = { publicationId: 'p1', revoked: kind === 'revoked', active: { publicationId: 'p1', snapshotId: 'full-s', expires_at: kind === 'expired' ? '2000-01-01T00:00:00Z' : expires }, expires_at: expires }
+  await expect(publishProject(info, [])).rejects.toThrow(kind === 'revoked' ? '已撤回' : '已到期')
+  expect((await identity()).pending?.snapshotId).toBe('full-s')
+  expect(mocks.invoke.mock.calls.some(([, { request }]) => request.op === 'published')).toBe(false)
+  expect(mocks.fetch).toHaveBeenCalledOnce(); expect(mocks.archive).not.toHaveBeenCalled()
+})
+
+it('rejects an expired current entry while retaining a previous complete baseline', async () => {
+  seedPending('full')
+  remote = { publicationId: 'p1', active: { publicationId: 'old', snapshotId: 'old-s', expires_at: expires }, pending: { publicationId: 'p1', entrySnapshotId: 'entry-s', expires_at: '2000-01-01T00:00:00Z' }, expires_at: expires }
+  await expect(publishProject(info, [])).rejects.toThrow('已到期')
+  expect((await identity()).pending?.snapshotId).toBe('full-s'); expect(mocks.archive).not.toHaveBeenCalled()
+})
+
+it('allows a new explicit successor of a revoked previous generation', async () => {
+  mocks.data.projectShares = { [info.project_id]: { ...info, baseUrl: mocks.baseUrl, slug: 'existing', edit_token: 'edit', feedbackToken: 'feedback', publicationId: 'old-p' } }
+  remote = { publicationId: 'old-p', revoked: true, active: null, expires_at: '2000-01-01T00:00:00Z' }
+  mocks.fetch.mockImplementation(async (url, init) => {
+    if (operation(url) === 'begin') { remote.revoked = false; remote.expires_at = expires }
+    return server(url, init)
+  })
+  expect((await publishProject(info, [file])).identity.pending).toBeUndefined()
+})
+
+it('persists opaque native part receipts unchanged and supplies them to seal after restart', async () => {
+  let interrupted = false
+  const opaque = 'Native-ETag_aBcD-Z9+/='
+  mocks.fetch.mockImplementation(async (url, init) => {
+    if (operation(url) === 'part' && init.headers['X-Artifact'] === 'archive') return Response.json({ number: 1, etag: opaque })
+    if (operation(url) === 'seal' && JSON.parse(init.body).artifact === 'archive') {
+      expect(JSON.parse(init.body).parts).toEqual([{ number: 1, etag: opaque }])
+      if (!interrupted) { interrupted = true; throw new Error('opaque seal unknown') }
+    }
+    return server(url, init)
+  })
+  await expect(publishProject(info, [file])).rejects.toThrow('opaque seal unknown')
+  expect((await identity()).pending?.upload?.receipts.archive).toEqual([{ number: 1, etag: opaque }])
+  mocks.fetch.mockClear()
+  await publishProject(info, [])
+  expect(mocks.fetch.mock.calls.filter(([url]) => operation(url) === 'part').map(([, init]) => init.headers['X-Artifact'])).toEqual(['reader'])
+})
+
+it('preserves uppercase native MD5 receipts while still checking the frozen transmission digest', async () => {
+  mocks.fetch.mockImplementation(async (url, init) => {
+    const response = await server(url, init)
+    if (operation(url) === 'part') {
+      const part = await response.json()
+      return Response.json({ ...part, etag: part.etag.toUpperCase() })
+    }
+    if (operation(url) === 'seal') expect(JSON.parse(init.body).parts.every((part: any) => part.etag === part.etag.toUpperCase())).toBe(true)
+    return response
+  })
+  expect((await publishProject(info, [file])).identity.pending).toBeUndefined()
+})
+
+it('does not commit an opaque receipt artifact when native seal rejects the frozen final checksum', async () => {
+  mocks.fetch.mockImplementation(async (url, init) => {
+    if (operation(url) === 'part' && init.headers['X-Artifact'] === 'archive') return Response.json({ number: 1, etag: 'Opaque-RECEIPT' })
+    if (operation(url) === 'seal' && JSON.parse(init.body).artifact === 'archive') return Response.json({ error: 'Artifact checksum mismatch' }, { status: 409 })
+    return server(url, init)
+  })
+  await expect(publishProject(info, [file])).rejects.toThrow('Artifact checksum mismatch')
+  expect((await identity()).pending?.phase).toBe('full')
+  expect(mocks.fetch.mock.calls.filter(([url]) => operation(url) === 'commit')).toHaveLength(1)
+  expect((await identity()).publishedSnapshotId).toBe('entry-s')
+})
+
+it.each(['', 'a'.repeat(513), 'receipt\ninvalid'])('rejects malformed native ETags without persisting a receipt', async etag => {
+  mocks.fetch.mockImplementation(async (url, init) => operation(url) === 'part' ? Response.json({ number: 1, etag }) : server(url, init))
+  await expect(publishProject(info, [file])).rejects.toThrow('校验回执')
+  expect((await identity()).pending?.upload?.receipts.entry).toBeUndefined()
 })

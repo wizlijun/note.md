@@ -1,4 +1,5 @@
 import type { Env } from './index'
+import { handleProjectUpload, revokeUpload, type UploadSession, type RetiredUpload, type ArtifactPlan } from './project-upload'
 import { boundedBody, digest, MAX_FILE_BYTES, MAX_ZIP_BYTES, projectPath, validateProjectZip } from './project-zip'
 
 const SLUG = /^\d{4}-\d{2}-\d{2}-[a-z0-9-]{1,50}(?:-[a-zA-Z0-9]{2,4})?$/
@@ -13,7 +14,7 @@ function parseLegacySnapshotId(html: string, projectId: string): string {
   } catch { /* Older pages may not expose a structured snapshot. */ }
   return 'legacy'
 }
-interface Version {
+export interface Version {
   publicationId: string
   snapshotId: string
   htmlKey: string
@@ -25,6 +26,7 @@ interface Version {
   expires_at: string | null
 }
 interface Pending {
+  upload?: { sessionId: string; expires_in_seconds: number | null; artifact: ArtifactPlan }
   publicationId: string
   snapshotId: string
   entryHash: string
@@ -33,25 +35,30 @@ interface Pending {
   expires_at: string | null
 }
 export interface ProjectState {
-  schemaVersion: 1
+  schemaVersion: 1 | 2
   publicationId: string
   project_id: string
   edit_token_hash: string
   feedback_token_hash: string
   revoked: boolean
-  active: Version
+  active: Version | null
+  upload?: UploadSession
+  retired?: RetiredUpload[]
+  entry_deadline?: string
+  publication_expires_at?: string | null
+  expires_in_seconds?: number | null
   pending?: Pending
   entry?: Pending
   cleanup?: string[]
   attempt?: { snapshotId: string; archiveKey: string; htmlKey: string }
   created_at?: string
 }
-interface Loaded { state: ProjectState; etag: string }
+export interface Loaded { state: ProjectState; etag: string }
 export const projectStateKey = (slug: string) => `project-share/${slug}/state.json`
 function versionKey(slug: string, publicationId: string, snapshotId: string, name: string): string {
   return `project-share/${slug}/${publicationId}/${snapshotId}/${name}`
 }
-class HttpError extends Error {
+export class HttpError extends Error {
   constructor(readonly status: number, message: string) { super(message) }
 }
 export async function readProjectState(env: Env, slug: string): Promise<Loaded | null> {
@@ -59,21 +66,23 @@ export async function readProjectState(env: Env, slug: string): Promise<Loaded |
   const object = await env.MEDIA.get(projectStateKey(slug))
   if (!object) return null
   const state = await object.json<ProjectState>()
-  if (state.schemaVersion !== 1 || !ID.test(state.publicationId) || !state.active || typeof state.revoked !== 'boolean') throw new Error('invalid project share state')
+  if (![1, 2].includes(state.schemaVersion) || !ID.test(state.publicationId) || (state.schemaVersion === 1 && !state.active) || typeof state.revoked !== 'boolean') throw new Error('invalid project share state')
   return { state, etag: object.etag }
 }
-function alive(expiry: string | null): boolean {
+export function alive(expiry: string | null): boolean {
   return expiry === null || Date.parse(expiry) > Date.now()
 }
 export function activeProjectMetadata(state: ProjectState): { project_id: string; feedback_token_hash: string; expires_at: string | null } | null {
-  return state.revoked || !alive(state.active.expires_at) ? null
-    : { project_id: state.project_id, feedback_token_hash: state.feedback_token_hash, expires_at: state.active.expires_at }
+  return state.revoked || !state.active || !alive(state.active!.expires_at) ? null
+    : { project_id: state.project_id, feedback_token_hash: state.feedback_token_hash, expires_at: state.active!.expires_at }
 }
-async function checkOwner(state: ProjectState, token: unknown): Promise<void> {
+export async function checkOwner(state: ProjectState, token: unknown): Promise<void> {
   if (typeof token !== 'string' || !TOKEN.test(token) || await digest(new TextEncoder().encode(token)) !== state.edit_token_hash) throw new HttpError(403, 'Owner token mismatch')
 }
-async function writeState(env: Env, slug: string, state: ProjectState, etag?: string): Promise<void> {
-  const result = await env.MEDIA.put(projectStateKey(slug), JSON.stringify(state), {
+export async function writeState(env: Env, slug: string, state: ProjectState, etag?: string): Promise<void> {
+  const body = JSON.stringify(state)
+  if (state.schemaVersion === 2 && new TextEncoder().encode(body).byteLength > 16384) throw new HttpError(409, 'State capacity reached; retry cleanup')
+  const result = await env.MEDIA.put(projectStateKey(slug), body, {
     onlyIf: etag ? { etagMatches: etag } : { etagDoesNotMatch: '*' }, httpMetadata: { contentType: 'application/json' },
   })
   if (!result) throw new HttpError(409, 'Publication changed; retry with current state')
@@ -87,7 +96,7 @@ async function immutable(env: Env, key: string, bytes: Uint8Array, hash: string,
   return false
 }
 function objectKeys(slug: string, state: ProjectState): string[] {
-  return [state.active.htmlKey, state.active.archiveKey,
+  return [state.active?.htmlKey, state.active?.archiveKey,
     state.attempt?.archiveKey, state.attempt?.htmlKey,
     state.pending && versionKey(slug, state.pending.publicationId, state.pending.snapshotId, 'entry.html')].filter((key): key is string => !!key)
 }
@@ -121,9 +130,9 @@ async function commit(env: Env, slug: string, state: ProjectState, loaded: Loade
 }
 function receipt(slug: string, state: ProjectState, baseUrl: string) {
   return { slug, url: `${baseUrl}/${slug}`, publicationId: state.publicationId,
-    stage: state.active.archiveKey || state.active.ready ? 'ready' : 'entry', snapshotId: state.pending?.snapshotId ?? state.active.snapshotId,
-    expires_at: state.pending ? state.pending.expires_at : state.active.expires_at,
-    active: { publicationId: state.active.publicationId, snapshotId: state.active.snapshotId, expires_at: state.active.expires_at } }
+    stage: state.active?.archiveKey || state.active?.ready ? 'ready' : 'entry', snapshotId: state.pending?.snapshotId ?? state.active!.snapshotId,
+    expires_at: state.pending ? state.pending.expires_at : state.active!.expires_at,
+    active: { publicationId: state.active!.publicationId, snapshotId: state.active!.snapshotId, expires_at: state.active!.expires_at } }
 }
 async function entry(req: Request, env: Env, slug: string, baseUrl: string): Promise<Response> {
   let args: any
@@ -149,11 +158,12 @@ async function entry(req: Request, env: Env, slug: string, baseUrl: string): Pro
   if (html.length > MAX_FILE_BYTES) throw new HttpError(413, 'HTML exceeds 25 MiB')
   const htmlHash = await digest(html), loaded = await readProjectState(env, slug)
   if (loaded) {
+    if (loaded.state.schemaVersion === 2) throw new HttpError(409, 'Use the multipart upload protocol')
     await checkOwner(loaded.state, args.edit_token)
     await prepareCleanup(env, slug, loaded)
     if (loaded.state.project_id !== args.project_id || (loaded.state.feedback_token_hash && loaded.state.feedback_token_hash !== args.feedback_token_hash)) throw new HttpError(409, 'Project identity changed')
     if (loaded.state.publicationId === args.publicationId) {
-      if (loaded.state.revoked || !alive(loaded.state.pending ? loaded.state.pending.expires_at : loaded.state.active.expires_at)) {
+      if (loaded.state.revoked || !alive(loaded.state.pending ? loaded.state.pending.expires_at : loaded.state.active!.expires_at)) {
         await cleanupKnown(env, slug, [versionKey(slug, args.publicationId, args.snapshotId, 'entry.html')])
         throw new HttpError(410, 'Publication revoked or expired')
       }
@@ -172,7 +182,7 @@ async function entry(req: Request, env: Env, slug: string, baseUrl: string): Pro
   const key = versionKey(slug, args.publicationId, args.snapshotId, 'entry.html')
   let active: Version = { publicationId: args.publicationId, snapshotId: args.snapshotId, htmlKey: key, entry: args.entry, title: args.title, expires_at }
   const created: string[] = []
-  if (loaded && !loaded.state.revoked && (loaded.state.active.archiveKey || loaded.state.active.ready) && alive(loaded.state.active.expires_at)) active = loaded.state.active
+  if (loaded && !loaded.state.revoked && (loaded.state.active!.archiveKey || loaded.state.active!.ready) && alive(loaded.state.active!.expires_at)) active = loaded.state.active!
   if (!loaded) {
     const legacy = await env.SHARES.getWithMetadata<{ edit_token?: string; project_id?: string; feedback_token_hash?: string; expires_at?: string | null }>(slug)
     if (legacy.value && legacy.metadata) {
@@ -200,6 +210,7 @@ async function archive(req: Request, env: Env, slug: string, baseUrl: string): P
   if (!ID.test(publicationId) || !ID.test(snapshotId)) throw new HttpError(400, 'Invalid publication identity')
   let loaded = await readProjectState(env, slug)
   if (!loaded) throw new HttpError(410, 'Publication missing')
+  if (loaded.state.schemaVersion === 2) throw new HttpError(409, 'Use the multipart upload protocol')
   await checkOwner(loaded.state, req.headers.get('X-Edit-Token'))
   await prepareCleanup(env, slug, loaded)
   if (loaded.state.revoked || loaded.state.publicationId !== publicationId) {
@@ -207,13 +218,13 @@ async function archive(req: Request, env: Env, slug: string, baseUrl: string): P
     throw new HttpError(loaded.state.revoked ? 410 : 409, loaded.state.revoked ? 'Publication revoked' : 'Publication superseded')
   }
   const pending = loaded.state.pending
-  if (!alive(pending ? pending.expires_at : loaded.state.active.expires_at)) throw new HttpError(410, 'Publication expired')
+  if (!alive(pending ? pending.expires_at : loaded.state.active!.expires_at)) throw new HttpError(410, 'Publication expired')
   const archiveKey = versionKey(slug, publicationId, snapshotId, 'archive.zip'), htmlKey = versionKey(slug, publicationId, snapshotId, 'full.html')
   let bytes: Uint8Array
   try { bytes = await boundedBody(req, MAX_ZIP_BYTES) } catch { throw new HttpError(413, 'ZIP exceeds 32 MiB') }
   const hash = await digest(bytes)
   if (!pending) {
-    if (loaded.state.active.snapshotId !== snapshotId || loaded.state.active.archiveHash !== hash) throw new HttpError(409, 'Archive differs from published package')
+    if (loaded.state.active!.snapshotId !== snapshotId || loaded.state.active!.archiveHash !== hash) throw new HttpError(409, 'Archive differs from published package')
     return Response.json(receipt(slug, loaded.state, baseUrl))
   }
   if (pending.snapshotId === snapshotId) throw new HttpError(400, 'Full snapshot must differ from entry snapshot')
@@ -225,7 +236,8 @@ async function archive(req: Request, env: Env, slug: string, baseUrl: string): P
     // Register only validated packages, before any put with a potentially unknown result.
     await writeState(env, slug, { ...loaded.state, attempt: { snapshotId, archiveKey, htmlKey } }, loaded.etag)
     loaded = await readProjectState(env, slug)
-    if (!loaded || loaded.state.revoked || loaded.state.publicationId !== publicationId || !loaded.state.pending) throw new HttpError(409, 'Publication changed while registering archive')
+    if (!loaded || loaded.state.schemaVersion !== 1 || loaded.state.revoked || loaded.state.publicationId !== publicationId || !loaded.state.pending
+      || loaded.state.attempt?.snapshotId !== snapshotId) throw new HttpError(409, 'Publication changed while registering archive')
   }
   const created: string[] = []
   try {
@@ -244,7 +256,7 @@ export async function publicProject(env: Env, slug: string, download = false, he
   if (!loaded) return null
   const headers = { 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex' }
   if (!activeProjectMetadata(loaded.state)) return new Response('Share expired', { status: 410, headers })
-  const version = loaded.state.active
+  const version = loaded.state.active!
   if (download && !version.archiveKey) return new Response('Complete package not ready', { status: 409, headers })
   const object = head ? await env.MEDIA.head(download ? version.archiveKey! : version.htmlKey) : await env.MEDIA.get(download ? version.archiveKey! : version.htmlKey)
   if (!object) {
@@ -255,15 +267,17 @@ export async function publicProject(env: Env, slug: string, download = false, he
     'Content-Type': download ? 'application/zip' : 'text/html; charset=utf-8', 'Content-Length': String(object.size),
     ...(download ? { 'Content-Disposition': `attachment; filename="project.zip"; filename*=UTF-8''${encodeURIComponent(version.title.replace(/[\\/:*?"<>|\x00-\x1f]/g, '_') + '.zip')}`, 'X-Content-Type-Options': 'nosniff' } : {}) } })
 }
-interface RevokeInput { publicationId?: unknown; previousPublicationId?: unknown; project_id?: unknown; entrySnapshotId?: unknown; legacySnapshotId?: unknown }
+interface RevokeInput { publicationId?: unknown; previousPublicationId?: unknown; project_id?: unknown; entrySnapshotId?: unknown; legacySnapshotId?: unknown; legacyMigrationId?: unknown }
 export async function revokeProject(env: Env, slug: string, token: string, input: RevokeInput = {}): Promise<{ status: number; publicationId?: string } | null> {
   if (!SLUG.test(slug)) return { status: 400 }
   const requested = input.publicationId
   if (requested !== undefined && (!validId(requested) || !validId(input.project_id)
     || !(input.previousPublicationId === null || validId(input.previousPublicationId))
     || (input.entrySnapshotId !== undefined && !validId(input.entrySnapshotId))
-    || (input.legacySnapshotId !== undefined && !validId(input.legacySnapshotId)))) return { status: 400 }
+    || (input.legacySnapshotId !== undefined && !validId(input.legacySnapshotId))
+    || (input.legacyMigrationId !== undefined && !validId(input.legacyMigrationId)))) return { status: 400 }
   const requestedKeys = validId(requested) ? [
+    validId(input.legacyMigrationId) && `project-share/${slug}/legacy/${input.legacyMigrationId}/legacy.html`,
     validId(input.entrySnapshotId) && versionKey(slug, requested, input.entrySnapshotId, 'entry.html'),
     validId(input.legacySnapshotId) && versionKey(slug, requested, input.legacySnapshotId, 'legacy.html'),
     validId(input.entrySnapshotId) && versionKey(slug, requested, 'legacy', 'legacy.html'),
@@ -273,16 +287,19 @@ export async function revokeProject(env: Env, slug: string, token: string, input
     if (!loaded) {
       if (!validId(requested)) return null
       if (typeof token !== 'string' || !TOKEN.test(token)) return { status: 403 }
-      const legacy = await env.SHARES.getWithMetadata<{ edit_token?: string; project_id?: string }>(slug)
+      const legacy = validId(input.legacyMigrationId)
+        ? await env.SHARES.getWithMetadata<{ edit_token?: string; project_id?: string }>(slug, 'stream')
+        : await env.SHARES.getWithMetadata<{ edit_token?: string; project_id?: string }>(slug)
       if (legacy.value && legacy.metadata && (legacy.metadata.edit_token !== token || (legacy.metadata.project_id && legacy.metadata.project_id !== input.project_id))) return { status: 403 }
-      if (legacy.value) requestedKeys.push(versionKey(slug, requested, parseLegacySnapshotId(legacy.value, input.project_id as string), 'legacy.html'))
-      const state: ProjectState = { schemaVersion: 1, publicationId: requested, project_id: input.project_id as string,
+      if (typeof legacy.value === 'string') requestedKeys.push(versionKey(slug, requested, parseLegacySnapshotId(legacy.value, input.project_id as string), 'legacy.html'))
+      const state: ProjectState = { schemaVersion: validId(input.legacyMigrationId) ? 2 : 1, publicationId: requested, project_id: input.project_id as string,
         edit_token_hash: await digest(new TextEncoder().encode(token)), feedback_token_hash: '', revoked: true,
         active: { publicationId: requested, snapshotId: 'revoked', htmlKey: '', entry: '', title: '', expires_at: null }, cleanup: requestedKeys }
       try { await writeState(env, slug, state); await cleanupKnown(env, slug, requestedKeys); return { status: 204, publicationId: requested } }
       catch (error) { if (!(error instanceof HttpError) || error.status !== 409) throw error; continue }
     }
     try { await checkOwner(loaded.state, token) } catch { return { status: 403 } }
+    if (loaded.state.schemaVersion === 2) return revokeUpload(env, slug, loaded, requested, input.previousPublicationId, input.project_id, requestedKeys)
     await prepareCleanup(env, slug, loaded)
     loaded.state.cleanup = [...new Set([...(loaded.state.cleanup ?? []), ...requestedKeys])]
     if (validId(requested) && input.project_id !== loaded.state.project_id) return { status: 403 }
@@ -295,12 +312,14 @@ export async function revokeProject(env: Env, slug: string, token: string, input
   return { status: 409 }
 }
 export async function handleProject(req: Request, env: Env, url: URL): Promise<Response> {
+  if (/^\/project\/[^/]+\/upload\//.test(url.pathname)) return handleProjectUpload(req, env, url)
   const match = /^\/project\/([^/]+)\/(entry|archive|download)$/.exec(url.pathname)
   if (!match || !SLUG.test(match[1])) return new Response('Not Found', { status: 404 })
   const [, slug, op] = match
   if (op === 'download' && ['GET', 'HEAD'].includes(req.method)) return await publicProject(env, slug, true, req.method === 'HEAD') ?? new Response('Share expired', { status: 410, headers: { 'Cache-Control': 'no-store' } })
   if (!env.SHARE_API_KEY || req.headers.get('Authorization') !== `Bearer ${env.SHARE_API_KEY}`) return new Response('Unauthorized', { status: 401 })
   if (req.method !== 'POST' || op === 'download') return new Response('Method Not Allowed', { status: 405 })
+  if ((await readProjectState(env, slug))?.state.schemaVersion === 2) return new Response('Use the multipart upload protocol', { status: 409 })
   try { return await (op === 'entry' ? entry(req, env, slug, url.origin) : archive(req, env, slug, url.origin)) }
   catch (error) {
     if (error instanceof HttpError) return new Response(error.message, { status: error.status, headers: { 'Cache-Control': 'no-store' } })

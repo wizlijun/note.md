@@ -63,11 +63,11 @@ Worker 对分片请求执行：
 - 只从已登记计划确定 object key、uploadId、预期片号/长度和校验值；客户端不能指定任意 R2 key。
 - 检查原生请求已知长度与计划相符；缺少可验证的已知长度则返回明确错误，不退回 `arrayBuffer()`。由原生 HTTP/R2 流处理保证实际字节长度。
 - 将 `request.body` 直接传入 R2 `uploadPart`，不经过 JS 逐块累计、全量 hash 或编码。
-- 将 R2 返回的该片 ETag 与冻结 MD5 比较，通过后返回真实回执。不把仅写入 customMetadata 的 hash 称作已验证内容。
+- 原样返回 R2 native 分片回执，并由宿主持久化；若回执为标准 MD5 ETag 可立即比较冻结 MD5，若为 opaque token 则只表示 R2 已接收，不能声称分片内容已验证，也不能更改 token 大小写或引号。不把仅写入 customMetadata 的 hash 称作已验证内容。
 
-完成一个产物时，Worker 按冻结片号与 ETag 调用原生 `complete`，再核对对象总长度、会话身份和 multipart ETag。不 GET 正文、不重新计算全量 hash、不在 Worker 拼接分片。MD5 在此仅用于传输一致性，授权仍由凭证与发布状态决定；源内容身份仍由宿主 SHA-256 确认。
+完成一个产物时，宿主在小型 seal 请求提交已持久的原生回执；Worker 验证完整片号及有界回执字符串，原样传入原生 `complete`，再核对对象总长度、会话身份和最终 multipart ETag 必须等于宿主从冻结各片 MD5 推导的预期值。内容校验通过前不能提交可见版本。不 GET 正文、不重新计算全量 hash、不在 Worker 拼接分片。MD5 在此仅用于传输一致性，授权仍由凭证与发布状态决定；源内容身份仍由宿主 SHA-256 确认。
 
-Cloudflare 官方定义了 5 MiB 非末片下限、part ETag 的 MD5 语义和 native multipart 合并方式，已有 R2 binding 可直接使用；无需新增 S3 凭据或公开 bucket。
+Cloudflare 官方定义了 5 MiB 非末片下限及最终 multipart ETag 的 MD5 组合规则；Workers binding 保证原生分片回执可用于 complete，不能假定该回执必为裸 MD5。实施时已发现仓库固定版本本地运行时返回 opaque token，因此采用上述兼容处理，仍以最终原生 ETag 严格确认传输一致性。无需新增 S3 凭据或公开 bucket。
 
 ## 6. 最小协议与原子发布
 
@@ -76,7 +76,7 @@ Cloudflare 官方定义了 5 MiB 非末片下限、part ETag 的 MD5 语义和 n
 | 操作 | 作用 |
 | --- | --- |
 | `begin` | 登记入口或完整阶段的不可变小计划，持久化会话身份及精确对象 key，返回或恢复原生 uploadId |
-| `part` | 直接上传一个固定片号，返回 R2 回执；相同片号仅接受冻结原字节 |
+| `part` | 直接上传一个固定片号，返回原生 R2 回执；宿主只重传冻结原字节，完整一致性在 seal 确认 |
 | `seal` | 原生完成单个对象；已完成时 HEAD 核对并返回同一结果 |
 | `commit` | 确认本阶段对象全部封存，再用项目 state ETag 条件写切换 active |
 | `status` | 返回当前 active、pending/session 和已封存对象元数据，用于未知结果恢复 |

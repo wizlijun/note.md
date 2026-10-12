@@ -66,3 +66,27 @@ describe('project archive upload', () => {
     expect(fetch).toHaveBeenCalledWith('https://share.test/archive', { method: 'POST', headers, body: archive })
   })
 })
+
+it('reports current artifact totals and part position without counting a retry twice', async () => {
+  const { uploadProjectPart } = await import('./upload')
+  const progress = vi.fn()
+  const position = { artifact: 'reader' as const, partNumber: 2, partCount: 3, confirmedBytes: 5, total: 13 }
+  const result = uploadProjectPart('https://share.test/part', headers, archive, position, progress)
+  expect(request.open).toHaveBeenCalledWith('POST', 'https://share.test/part')
+  expect(progress).toHaveBeenLastCalledWith({ phase: 'uploading', artifact: 'reader', partNumber: 2, partCount: 3, loaded: 5, total: 13 })
+  request.upload.onprogress?.({ loaded: 2 })
+  expect(progress).toHaveBeenLastCalledWith({ phase: 'uploading', artifact: 'reader', partNumber: 2, partCount: 3, loaded: 7, total: 13 })
+  request.upload.onload?.()
+  expect(progress).not.toHaveBeenCalledWith({ phase: 'processing' })
+  request.onload?.(); await result
+  const retried = uploadProjectPart('https://share.test/part', headers, archive, position, progress)
+  expect(progress).toHaveBeenLastCalledWith({ phase: 'uploading', artifact: 'reader', partNumber: 2, partCount: 3, loaded: 5, total: 13 })
+  request.onload?.(); await retried
+})
+
+it.each([['entry', '入口文档'], ['reader', '阅读页'], ['archive', '项目 ZIP']] as const)('names the %s artifact in a transport failure', async (artifact, label) => {
+  const { uploadProjectPart } = await import('./upload')
+  const result = uploadProjectPart('https://share.test/part', headers, archive, { artifact, partNumber: 1, partCount: 1, confirmedBytes: 0, total: archive.length }, vi.fn())
+  const rejected = expect(result).rejects.toThrow(label + ' 上传连接失败')
+  request.onerror?.(); await rejected
+})

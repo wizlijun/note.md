@@ -2,17 +2,17 @@ import { Zip, ZipDeflate } from 'fflate'
 import type { ProjectSnapshot } from './types'
 
 /** Fixed metadata and entry order make retries reproduce the frozen package. */
-export async function buildProjectArchive(snapshot: ProjectSnapshot, html: string): Promise<Uint8Array> {
+export async function buildProjectArchive(snapshot: ProjectSnapshot, html: string, format: 'source' | 'legacy' = 'source'): Promise<Uint8Array> {
   const encoder=new TextEncoder()
-  const reader=encoder.encode(html)
-  if(reader.length>25*1024*1024) throw new Error('分享页面超过 25 MiB')
+  const reader=format==='legacy'?encoder.encode(html):undefined
+  if(reader && reader.length>25*1024*1024) throw new Error('分享页面超过 25 MiB')
   if(snapshot.files.length>512) throw new Error('分享文件超过 512 个')
   const prefix=`.__notemd-${snapshot.snapshotId}`
   const entries:Array<[string,Uint8Array]>=[]
   const seen=new Set<string>()
   let total=0
   for(const file of snapshot.files) {
-    if(!file.path || /[\\:\x00-\x1f]/.test(file.path) || file.path.split('/').some(part=>!part || part==='.' || part==='..')
+    if(!file.path || /[\\:\x00-\x1f]/.test(file.path) || file.path.split('/').some(part=>!part || part.startsWith('.'))
       || encoder.encode(file.path).length>1024 || file.path.startsWith(prefix+'/') || seen.has(file.path.toLowerCase())) throw new Error('无效或重复的分享文件路径')
     seen.add(file.path.toLowerCase())
     let bytes:Uint8Array
@@ -28,10 +28,12 @@ export async function buildProjectArchive(snapshot: ProjectSnapshot, html: strin
     entries.push([file.path,bytes])
   }
   if(!snapshot.files.some(file=>file.path===snapshot.entry && typeof file.markdown==='string')) throw new Error('分享包缺少入口文档')
-  const manifest=encoder.encode(JSON.stringify({schemaVersion:1,project_id:snapshot.project_id,snapshotId:snapshot.snapshotId,entry:snapshot.entry,
-    htmlPath:prefix+'/reader.html',files:snapshot.files.map(({path,hash,bytes})=>({path,hash,bytes}))}))
-  if(manifest.length>256*1024) throw new Error('分享文件清单过大')
-  entries.push([prefix+'/manifest.json',manifest],[prefix+'/reader.html',reader])
+  if(reader) {
+    const manifest=encoder.encode(JSON.stringify({schemaVersion:1,project_id:snapshot.project_id,snapshotId:snapshot.snapshotId,entry:snapshot.entry,
+      htmlPath:prefix+'/reader.html',files:snapshot.files.map(({path,hash,bytes})=>({path,hash,bytes}))}))
+    if(manifest.length>256*1024) throw new Error('分享文件清单过大')
+    entries.push([prefix+'/manifest.json',manifest],[prefix+'/reader.html',reader])
+  }
   const chunks:Uint8Array[]=[]
   let size=0
   const archive=new Zip((error,chunk)=> {

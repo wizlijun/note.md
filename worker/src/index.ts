@@ -9,6 +9,7 @@ export interface Env {
 export { SlugAnalytics, DayRollup } from './audience'
 import { SLUG_RE as AUDIENCE_SLUG_RE } from './audience'
 import { handleFeedback, FEEDBACK_ID_RE, FEEDBACK_HASH_RE } from './feedback'
+import { readUploadControl } from './project-upload'
 import { activeProjectMetadata, handleProject, publicProject, readProjectState, revokeProject } from './project'
 
 const SLUG_RE = /^\d{4}-\d{2}-\d{2}-[a-z0-9-]{1,50}(?:-[a-zA-Z0-9]{2,4})?$/
@@ -228,7 +229,7 @@ async function getShareCore(env: Env, slug: string, retried = false): Promise<Co
   const project = await readProjectState(env, slug)
   if (project) {
     if (!activeProjectMetadata(project.state)) return coreErr(404, 'not_found', 'slug not found')
-    const version = project.state.active, object = await env.MEDIA.get(version.htmlKey)
+    const version = project.state.active!, object = await env.MEDIA.get(version.htmlKey)
     if (!object) return retried ? coreErr(503, 'project_unavailable', 'project publication unavailable') : getShareCore(env, slug, true)
     return { ok: true, data: { slug, html: await object.text(), expires_at: version.expires_at,
       created_at: project.state.created_at ?? '', original_filename: version.entry, source_ext: 'md', size_bytes: object.size } }
@@ -550,8 +551,8 @@ async function handleMediaDelete(path: string, req: Request, env: Env): Promise<
 
 async function handleDelete(slug: string, req: Request, env: Env): Promise<Response> {
   if (unauthorized(req, env)) return new Response('Unauthorized', { status: 401 })
-  let body: { edit_token?: string; publicationId?: string; previousPublicationId?: string | null; project_id?: string; entrySnapshotId?: string; legacySnapshotId?: string }
-  try { body = await req.json() } catch { return new Response('Bad JSON', { status: 400 }) }
+  let body: { edit_token?: string; publicationId?: string; previousPublicationId?: string | null; project_id?: string; entrySnapshotId?: string; legacySnapshotId?: string; legacyMigrationId?: string }
+  try { body = await readUploadControl(req) } catch (error) { return new Response('Bad JSON', { status: (error as { status?: number }).status ?? 400 }) }
   const project = await revokeProject(env, slug, body?.edit_token ?? '', body ?? {})
   if (project) return project.status === 204 ? Response.json({ publicationId: project.publicationId })
     : new Response('Project revocation failed', { status: project.status })
@@ -1101,7 +1102,7 @@ async function handleAudienceSessions(req: Request, env: Env, url: URL): Promise
 const CORS_HEADERS: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'authorization, content-type, x-feedback-token, x-edit-token, x-publication-id, x-snapshot-id',
+  'Access-Control-Allow-Headers': 'authorization, content-type, x-feedback-token, x-edit-token, x-publication-id, x-snapshot-id, x-upload-session, x-artifact, x-part-number',
   'Access-Control-Max-Age': '86400',
 }
 
