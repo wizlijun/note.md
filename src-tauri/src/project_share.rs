@@ -2595,6 +2595,230 @@ mod tests {
         assert_eq!(recovered.decisions["README.md"].status, "accepted");
         assert!(recovered.review.is_empty());
     }
+    fn inject_annotation_worktree_intent(s: &ProjectStore, id: &str, status: &str) -> Vec<u8> {
+        short_lock(|| {
+            let _records = s.lock()?;
+            let b = s.binding(id)?;
+            let path = s.inbox_path(&b, "late-intent")?;
+            let mut f: LocalFeedback = read_json(&path)?;
+            s.validate_feedback(&b, &f.envelope.payload)?;
+            assert!(!f
+                .envelope
+                .payload
+                .edits
+                .iter()
+                .any(|edit| edit.path == "docs/a.md"));
+            assert!(f
+                .envelope
+                .payload
+                .annotations
+                .iter()
+                .any(|note| note.path == "docs/a.md"));
+            let source = s.bound_source(&b, "docs/a.md")?;
+            let content = "annotation promotion awaiting worktree recovery";
+            let decision = Decision {
+                status: status.into(),
+                before_hash: Some(sha256_hex(&read_bytes(&source)?)),
+                result_hash: Some(sha256_hex(content.as_bytes())),
+                content: Some(content.into()),
+                mirrors: crate::sotvault::plan_source_mirrors(
+                    &s.records_path(),
+                    &s.vault,
+                    &source.to_string_lossy(),
+                    content.as_bytes(),
+                )?,
+                ..Default::default()
+            };
+            if status == "mirror_pending" {
+                write_atomic(&source, content.as_bytes())?;
+            }
+            f.decisions.insert("docs/a.md".into(), decision);
+            write_json(&path, &f)?;
+            read_bytes(&path)
+        })
+        .unwrap()
+    }
+    fn annotation_git_fixture() -> (TempDir, ProjectStore, ProjectInfo) {
+        let (t, s, p) = git_fixture();
+        let snap = git_freeze(&s, &p);
+        let mut e = envelope(&p, &snap, "late-intent");
+        e.payload.annotations.push(review_annotation("docs/a.md"));
+        s.feedback(&p.project_id, e).unwrap();
+        (t, s, p)
+    }
+    fn assert_late_annotation_intent_blocks(op: &'static str) {
+        for status in ["pending", "mirror_pending"] {
+            let (_t, s, p) = annotation_git_fixture();
+            let root = Path::new(&p.source_root);
+            let refs_before =
+                git_test(root, &["for-each-ref", "--format=%(refname) %(objectname)"]);
+            let expected = Arc::new(Mutex::new(None));
+            let expected_hook = expected.clone();
+            let id = p.project_id.clone();
+            hook(move |s, phase| {
+                if phase
+                    == if op == "prepare" {
+                        "review-prepared"
+                    } else {
+                        "review-built"
+                    }
+                {
+                    *expected_hook.lock().unwrap() =
+                        Some(inject_annotation_worktree_intent(s, &id, status));
+                }
+            });
+            let request = if op == "prepare" {
+                serde_json::json!({"op":op,"project_id":p.project_id,"submissionId":"late-intent"})
+            } else {
+                serde_json::json!({"op":op,"project_id":p.project_id,"submissionId":"late-intent","expectedHead":git_test(root,&["rev-parse","HEAD"]),"results":{"README.md":"approved edit"}})
+            };
+            let result = execute_git_request(&s, &request);
+            unhook();
+            assert!(
+                result
+                    .as_ref()
+                    .is_err_and(|error| error.contains("worktree")),
+                "{op}/{status} must reject the late annotation intent"
+            );
+            let b = s.binding(&p.project_id).unwrap();
+            assert_eq!(
+                read_bytes(&s.inbox_path(&b, "late-intent").unwrap()).unwrap(),
+                expected.lock().unwrap().take().unwrap()
+            );
+            assert_eq!(
+                refs_before,
+                git_test(root, &["for-each-ref", "--format=%(refname) %(objectname)"])
+            );
+            assert_eq!(
+                read_bytes(&Path::new(&p.mirror_root).join("docs/a.md")).unwrap(),
+                b"[home](../README.md)"
+            );
+            let source_expected = if status == "mirror_pending" {
+                "annotation promotion awaiting worktree recovery"
+            } else {
+                "[home](../README.md)"
+            };
+            assert_eq!(
+                read_bytes(&root.join("docs/a.md")).unwrap(),
+                source_expected.as_bytes()
+            );
+        }
+    }
+    #[test]
+    fn project_share_git_fix1_late_annotation_intent_blocks_prepare() {
+        assert_late_annotation_intent_blocks("prepare");
+    }
+    #[test]
+    fn project_share_git_fix1_late_annotation_intent_blocks_branch() {
+        assert_late_annotation_intent_blocks("branch");
+    }
+    #[test]
+    fn project_share_git_fix1_late_annotation_intent_blocks_patch() {
+        assert_late_annotation_intent_blocks("export-patch");
+    }
+    fn assert_post_ref_annotation_intent(op: &'static str) {
+        for status in ["pending", "mirror_pending"] {
+            let (_t, s, p) = annotation_git_fixture();
+            let root = Path::new(&p.source_root);
+            let refs_before =
+                git_test(root, &["for-each-ref", "--format=%(refname) %(objectname)"]);
+            let expected = Arc::new(Mutex::new(None));
+            let expected_hook = expected.clone();
+            let id = p.project_id.clone();
+            hook(move |s, phase| {
+                if phase
+                    == if op == "branch" {
+                        "branch-ref-created"
+                    } else {
+                        "export-ref-created"
+                    }
+                {
+                    *expected_hook.lock().unwrap() =
+                        Some(inject_annotation_worktree_intent(s, &id, status));
+                }
+            });
+            let result = execute_git_request(
+                &s,
+                &serde_json::json!({"op":op,"project_id":p.project_id,"submissionId":"late-intent","expectedHead":git_test(root,&["rev-parse","HEAD"]),"results":{"README.md":"approved edit"}}),
+            );
+            unhook();
+            if op == "branch" {
+                let result = result.unwrap();
+                assert!(
+                    result.get("stateError").and_then(|v| v.as_str()).is_some(),
+                    "late intent after branch creation must return stateError"
+                );
+                assert_eq!(
+                    result["feedback"]["decisions"]["docs/a.md"]["status"],
+                    status
+                );
+                assert_eq!(
+                    git_test(
+                        root,
+                        &[
+                            "rev-parse",
+                            &format!("refs/heads/{}", result["branch"].as_str().unwrap())
+                        ]
+                    ),
+                    result["commit"]
+                );
+            } else {
+                assert!(result.unwrap_err().contains("worktree"));
+                assert_eq!(
+                    refs_before,
+                    git_test(root, &["for-each-ref", "--format=%(refname) %(objectname)"])
+                );
+            }
+            let b = s.binding(&p.project_id).unwrap();
+            let bytes = read_bytes(&s.inbox_path(&b, "late-intent").unwrap()).unwrap();
+            assert_eq!(bytes, expected.lock().unwrap().take().unwrap());
+            let f: LocalFeedback = serde_json::from_slice(&bytes).unwrap();
+            assert!(!f.decisions.contains_key("README.md"));
+            assert_eq!(f.decisions["docs/a.md"].status, status);
+        }
+    }
+    #[test]
+    fn project_share_git_fix1_post_ref_annotation_intent_returns_branch_state_error() {
+        assert_post_ref_annotation_intent("branch");
+    }
+    #[test]
+    fn project_share_git_fix1_post_ref_annotation_intent_cleans_export() {
+        assert_post_ref_annotation_intent("export-patch");
+    }
+    #[test]
+    fn project_share_git_fix1_optional_fields_are_absent_for_no_remote_and_detached_head() {
+        let (_t, s, p) = annotation_git_fixture();
+        let root = Path::new(&p.source_root);
+        let probe_request = serde_json::json!({"op":"probe","project_id":p.project_id});
+        let attached = execute_git_request(&s, &probe_request).unwrap();
+        assert_eq!(attached["branch"], "main");
+        git_test(root, &["checkout", "--detach"]);
+        let detached = execute_git_request(&s, &probe_request).unwrap();
+        let prepared=execute_git_request(&s,&serde_json::json!({"op":"prepare","project_id":p.project_id,"submissionId":"late-intent"})).unwrap();
+        assert_eq!(
+            [
+                attached.get("remote").is_none(),
+                detached.get("branch").is_none(),
+                detached.get("remote").is_none(),
+                prepared.get("remote").is_none()
+            ],
+            [true; 4],
+            "optional string fields must be absent, not null"
+        );
+        git_test(
+            root,
+            &[
+                "remote",
+                "add",
+                "origin",
+                "https://example.invalid/no-network",
+            ],
+        );
+        assert_eq!(
+            execute_git_request(&s, &probe_request).unwrap()["remote"],
+            "origin"
+        );
+    }
     #[test]
     fn project_share_review_real_fixture_preserves_owner_unshared_and_reopens_decisions() {
         let t = TempDir::new().unwrap();
@@ -4991,6 +5215,7 @@ impl ProjectStore {
         let f = review.job.feedback.as_ref().unwrap();
         let latest: LocalFeedback =
             read_json(&self.inbox_path(&review.job.binding, &f.envelope.payload.submission_id)?)?;
+        ensure_no_worktree_intent(&latest)?;
         Ok(latest)
     }
     fn save_branch_intent(
@@ -5168,11 +5393,11 @@ fn execute_git_request(
         let repo = git::probe(Path::new(&b.source_root))?;
         short_lock(|| service.same_binding(&b))?;
         return match repo {
-            Some(repo) => json(
+            Some(repo) => git_value(
                 serde_json::json!({ "git":true,"team":repo.remote.is_some(),"prefix":repo.prefix,"head":repo.head,"branch":repo.branch,"remote":repo.remote,
                 "target":target.unwrap_or(if repo.remote.is_some() { GitTarget::Branch } else { GitTarget::Worktree }) }),
             ),
-            None => json(
+            None => git_value(
                 serde_json::json!({"git":false,"team":false,"prefix":"","reason":"Git repository unavailable","target":"worktree"}),
             ),
         };
@@ -5259,8 +5484,9 @@ fn execute_git_request(
         );
     }
     if let GitRequest::Prepare { .. } = &request {
+        git_test_hook(service, "review-prepared");
         let latest = short_lock(|| service.verify_git_review(&review))?;
-        return json(
+        return git_value(
             serde_json::json!({"head":repo.head,"entry":review.entry,"feedback":latest,
             "files":feedback.envelope.payload.edits.iter().map(|e| serde_json::json!({"path":e.path,"base":review.base[&e.path],"current":current[&e.path],"after":e.after_markdown})).collect::<Vec<_>>(),
             "commitMessage":message(feedback,Some(&repo.head),false),"remote":repo.remote}),
@@ -5376,14 +5602,21 @@ fn execute_git_request(
         .iter()
         .map(|(p, s)| (p.clone(), sha256_hex(s.as_bytes())))
         .collect();
-    let (latest, state_error) =
-        match short_lock(|| service.record_branch(&review, &intent, &hashes, None)) {
-            Ok(latest) => (latest, None),
-            Err(_) => (
-                short_lock(|| service.verify_git_review(&review)).unwrap_or(pending_feedback),
-                Some("Branch created; retry recording branch state"),
-            ),
-        };
+    let (latest, state_error) = match short_lock(|| {
+        service.record_branch(&review, &intent, &hashes, None)
+    }) {
+        Ok(latest) => (latest, None),
+        Err(_) => (
+            // A new recovery intent blocks writes, but the latest trusted
+            // feedback remains readable for the stateError response.
+            short_lock(|| {
+                service.verify_share_job(&review.job)?;
+                read_json(&service.inbox_path(&review.job.binding, request.submission().unwrap())?)
+            })
+            .unwrap_or(pending_feedback),
+            Some("Branch created; retry recording branch state"),
+        ),
+    };
     let mut result = serde_json::json!({"branch":intent.branch,"commit":intent.commit,"feedback":latest,"remote":repo.remote});
     if let Some(error) = state_error {
         result["stateError"] = error.into();
