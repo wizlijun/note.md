@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.1012.2 — 2026-10-12
+
 ### Fixed
 
 - **Project sharing resumes interrupted uploads by part.** The entry page becomes readable first, and the full project replaces it only after both uploads are confirmed. ZIP downloads contain only the approved documents and attachments.
