@@ -49,8 +49,10 @@ pub(crate) fn probe(source: &Path) -> Result<Option<GitRepo>, String> {
         let relative = source
             .strip_prefix(&root)
             .ok()?
-            .to_str()?
-            .replace('\\', "/");
+            .components()
+            .map(|component| component.as_os_str().to_str())
+            .collect::<Option<Vec<_>>>()?
+            .join("/");
         let prefix = if relative.is_empty() {
             relative
         } else {
@@ -1209,5 +1211,55 @@ mod tests {
             &repo.head
         ))
         .is_err());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn g7_unix_literal_backslash_prefix_never_targets_another_project() {
+        if !available() {
+            return;
+        }
+        let dir = fixture();
+        let root = dir.path();
+        let actual = root.join(r"team\docs");
+        let other = root.join("team/docs");
+        fs::create_dir_all(&actual).unwrap();
+        fs::create_dir_all(&other).unwrap();
+        fs::write(actual.join("entry.md"), b"actual project\n").unwrap();
+        fs::write(other.join("entry.md"), b"other project\n").unwrap();
+        git(root, &["add", "."]);
+        git(root, &["commit", "-qm", "distinct project directories"]);
+
+        let repo = unchanged(root, || probe(&actual)).unwrap().unwrap();
+        assert_eq!(repo.prefix, "team\\docs/");
+        let original =
+            unchanged(root, || read_blobs(&repo, &repo.head, &["entry.md".into()])).unwrap();
+        assert_eq!(original["entry.md"], b"actual project\n");
+        let oid = unchanged(root, || {
+            build_commit(
+                &repo,
+                &repo.head,
+                &files("entry.md", b"guest result\n"),
+                "review\n",
+                None,
+            )
+        })
+        .unwrap();
+        let updated = unchanged(root, || read_blobs(&repo, &oid, &["entry.md".into()])).unwrap();
+        assert_eq!(updated["entry.md"], b"guest result\n");
+        assert_eq!(
+            git(
+                root,
+                &["cat-file", "blob", &format!("{oid}:team\\docs/entry.md")]
+            ),
+            "guest result\n"
+        );
+        assert_eq!(
+            git(
+                root,
+                &["cat-file", "blob", &format!("{oid}:team/docs/entry.md")]
+            ),
+            "other project\n"
+        );
     }
 }
