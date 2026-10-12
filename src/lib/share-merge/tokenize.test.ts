@@ -29,6 +29,30 @@ it('protects links with apostrophes in URLs and parentheses inside titles', () =
   }
 })
 
+it('I1 protects link labels containing matched backtick spans with brackets', () => {
+  for (const inline of ['[代码 `]`。](url)', '![代码 ``] ` [``。](image.png)', '[外层[代码 `]`。]标签](url)']) {
+    expect(texts(`前${inline}后。尾`)).toEqual([`前${inline}后。`, '尾'])
+  }
+  expect(texts('前[一](a`b)后[甲。](url) `。尾')).toEqual(['前[一](a`b)后[甲。](url) `。', '尾'])
+})
+
+it('I2 checks odd and even backslash runs before closing delimiters', () => {
+  for (const [open, close] of [['$', '$'], ['[[', ']]'], ['{==', '==}'], ['{>>', '<<}']]) {
+    for (const count of [1, 2, 3]) {
+      const firstClose = '\\'.repeat(count) + close
+      const inline = count % 2 === 0 ? `${open}甲。${firstClose}` : `${open}甲。${firstClose}乙！${close}`
+      expect(texts(`前${inline}后。尾`)).toEqual([`前${inline}后。`, '尾'])
+    }
+  }
+})
+
+it('I3 scans 64000 unmatched brackets within a generous linear-scan budget', () => {
+  const text = '['.repeat(64_000) + '甲。尾'
+  const start = performance.now()
+  expect(texts(text)).toEqual(['['.repeat(64_000) + '甲。', '尾'])
+  expect(performance.now() - start).toBeLessThan(500)
+})
+
 it('keeps fences, math and HTML as atomic blocks', () => {
   expect(texts('  ````ts\n甲。\n```\n乙！\n`````\n尾。\n')).toEqual(['  ````ts\n甲。\n```\n乙！\n`````\n', '尾。\n'])
   expect(texts('~~~\n甲。\n```\n')).toEqual(['~~~\n甲。\n```\n'])

@@ -29,31 +29,71 @@ function balancedEnd(text: string, start: number, open: string, close: string): 
   return start
 }
 
-function protectedEnd(text: string, start: number): number {
-  if (text[start] === '\\') return Math.min(start + 2, text.length)
-  if (text[start] === '`') {
-    let end = start + 1
-    while (text[end] === '`') end++
-    const size = end - start
-    for (let i = end; i < text.length;) {
-      if (text[i] !== '`') { i++; continue }
-      let next = i + 1
-      while (text[next] === '`') next++
-      if (next - i === size) return next
-      i = next
+function inlineIndex(text: string) {
+  const codeEnds = new Map<number, number>()
+  const runs: { start: number; end: number }[] = []
+  for (let i = 0; i < text.length;) {
+    if (text[i] !== '`') { i++; continue }
+    const start = i++
+    while (text[i] === '`') i++
+    runs.push({ start, end: i })
+  }
+  const nextCode = new Map<number, number>()
+  for (let i = runs.length - 1; i >= 0; i--) {
+    const run = runs[i]
+    // A preceding escape can consume the first backtick of an opening run.
+    for (let start = run.start; start < run.end; start++) codeEnds.set(start, nextCode.get(run.end - start) ?? run.end)
+    nextCode.set(run.end - run.start, run.end)
+  }
+
+  const bracketEnds = new Map<number, number>()
+  const brackets: number[] = []
+  for (let i = 0; i < text.length;) {
+    if (text[i] === '\\') { i += 2; continue }
+    if (text[i] === '`') { i = codeEnds.get(i)!; continue }
+    if (text[i] === '[') brackets.push(i)
+    else if (text[i] === ']' && brackets.length > 0) {
+      bracketEnds.set(brackets.pop()!, i + 1)
+      // Backticks inside a link destination are URL characters, not prose code.
+      if (brackets.length === 0 && text[i + 1] === '(') {
+        const end = balancedEnd(text, i + 1, '(', ')')
+        if (end > i + 1) { i = end; continue }
+      }
     }
+    i++
+  }
+
+  const nextClose = new Map<string, number>()
+  // Calls advance through this line, so cache even failed searches rather than
+  // scanning the same suffix again for each unmatched opening delimiter.
+  const closeAfter = (close: string, from: number): number => {
+    let end = nextClose.get(close)
+    if (end === -1 || (end !== undefined && end >= from)) return end
+    end = text.indexOf(close, from)
+    while (end >= 0) {
+      let slashes = 0
+      for (let i = end - 1; i >= 0 && text[i] === '\\'; i--) slashes++
+      if (slashes % 2 === 0) break
+      end = text.indexOf(close, end + close.length)
+    }
+    nextClose.set(close, end)
     return end
   }
+  return { codeEnds, bracketEnds, closeAfter }
+}
+
+function protectedEnd(text: string, start: number, index: ReturnType<typeof inlineIndex>): number {
+  if (text[start] === '\\') return Math.min(start + 2, text.length)
+  if (text[start] === '`') return index.codeEnds.get(start)!
   for (const [open, close] of [['{==', '==}'], ['{>>', '<<}'], ['[[', ']]'], ['$', '$']]) {
     if (!text.startsWith(open, start)) continue
-    let end = text.indexOf(close, start + open.length)
-    while (end >= 0 && text[end - 1] === '\\') end = text.indexOf(close, end + close.length)
+    const end = index.closeAfter(close, start + open.length)
     if (end >= 0) return end + close.length
   }
   const bracket = text[start] === '!' && text[start + 1] === '[' ? start + 1 : start
   if (text[bracket] === '[') {
-    const end = balancedEnd(text, bracket, '[', ']')
-    if (end > bracket && text[end] === '(') {
+    const end = index.bracketEnds.get(bracket)
+    if (end !== undefined && text[end] === '(') {
       const linkEnd = balancedEnd(text, end, '(', ')')
       if (linkEnd > end) return linkEnd
     }
@@ -73,12 +113,13 @@ function protectedEnd(text: string, start: number): number {
 
 function proseTokens(text: string, line: SourceLine): Token[] {
   const content = text.slice(line.start, line.contentEnd)
+  const index = inlineIndex(content)
   const tokens: Token[] = []
   // Ordered-list punctuation belongs to the first sentence, just like headings and quotes.
   let cursor = /^[ \t]*(?:(?:>[ \t]?|(?:[-+*]|\d+[.)])[ \t]+|#{1,6}[ \t]+)[ \t]*)*/.exec(content)![0].length
   let start = 0
   while (cursor < content.length) {
-    const protectedTo = protectedEnd(content, cursor)
+    const protectedTo = protectedEnd(content, cursor, index)
     if (protectedTo > cursor) { cursor = protectedTo; continue }
     const char = content[cursor]
     if ('。！？；!?;…'.includes(char) || (char === '.' && /\s/.test(content[cursor + 1] ?? (line.end > line.contentEnd ? '\n' : '')))) {
