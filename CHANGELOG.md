@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.1013.1 — 2026-10-13
+
 ### Improvements
 
 - **External suggestions for Git projects can become branches with guest attribution or exported patches.** The merge target is remembered per project, without switching branches, pushing, or changing the working tree.
