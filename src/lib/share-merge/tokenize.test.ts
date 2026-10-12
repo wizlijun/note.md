@@ -63,6 +63,19 @@ it('N1 keeps math and link destinations from contaminating subsequent link label
   }
 })
 
+it('N2 matches link labels before interpreting literal delimiters against outside text', () => {
+  for (const text of ['前[价格。$5](url)后$。尾', '前[价格。{>>5](url)后<<}。尾', '前[价格。{==5](url)后==}。尾', '前[价格。<tag](url)后>。尾']) {
+    expect.soft(texts(text)).toEqual([text.slice(0, -1), '尾'])
+  }
+})
+
+it('keeps the prose context after unmatched brackets before math or comments', () => {
+  for (const atom of ['$甲`乙$', '{>>甲`乙<<}']) {
+    const text = '前[孤' + atom + '后[丙。](url) `。尾'
+    expect.soft(texts(text)).toEqual([text.slice(0, -1), '尾'])
+  }
+})
+
 it('keeps fences, math and HTML as atomic blocks', () => {
   expect(texts('  ````ts\n甲。\n```\n乙！\n`````\n尾。\n')).toEqual(['  ````ts\n甲。\n```\n乙！\n`````\n', '尾。\n'])
   expect(texts('~~~\n甲。\n```\n')).toEqual(['~~~\n甲。\n```\n'])

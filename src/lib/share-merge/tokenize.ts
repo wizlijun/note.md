@@ -75,24 +75,33 @@ function inlineIndex(text: string) {
     }
     return positions[low] ?? -1
   }
-  const atoms: InlineAtoms = { codeEnds, closeAfter }
-  const bracketEnds = new Map<number, number>()
-  const brackets: number[] = []
-  for (let i = 0; i < text.length;) {
-    const end = atomEnd(text, i, atoms)
-    if (end > i) { i = end; continue }
-    if (text[i] === '[') brackets.push(i)
-    else if (text[i] === ']' && brackets.length > 0) {
-      bracketEnds.set(brackets.pop()!, i + 1)
-      // A valid destination is protected even after an unmatched outer '['.
-      if (text[i + 1] === '(') {
-        const destinationEnd = balancedEnd(text, i + 1, '(', ')')
-        if (destinationEnd > i + 1) { i = destinationEnd; continue }
+  const labelEnds = new Map<number, number>()
+  // Match only when prose reaches a link candidate. Within a label, escapes,
+  // code spans and nested brackets determine its boundary; prose atoms cannot
+  // pair with delimiters outside the label and swallow its closing bracket.
+  const labelEnd = (start: number): number => {
+    const cached = labelEnds.get(start)
+    if (cached !== undefined) return cached
+    const brackets = [start]
+    for (let i = start + 1; i < text.length;) {
+      if (text[i] === '\\') { i += 2; continue }
+      if (text[i] === '`') { i = codeEnds.get(i)!; continue }
+      if (text[i] === '[') {
+        const nested = labelEnds.get(i)
+        if (nested === -1) break
+        if (nested !== undefined) { i = nested; continue }
+        brackets.push(i)
+      } else if (text[i] === ']') {
+        labelEnds.set(brackets.pop()!, i + 1)
+        if (brackets.length === 0) return i + 1
       }
+      i++
     }
-    i++
+    // Cache every unmatched opener from this scan, not just its first one.
+    for (const bracket of brackets) labelEnds.set(bracket, -1)
+    return -1
   }
-  return { ...atoms, bracketEnds }
+  return { codeEnds, closeAfter, labelEnd }
 }
 
 function atomEnd(text: string, start: number, index: InlineAtoms): number {
@@ -121,8 +130,8 @@ function protectedEnd(text: string, start: number, index: ReturnType<typeof inli
   if (end > start) return end
   const bracket = text[start] === '!' && text[start + 1] === '[' ? start + 1 : start
   if (text[bracket] === '[') {
-    const labelEnd = index.bracketEnds.get(bracket)
-    if (labelEnd !== undefined && text[labelEnd] === '(') {
+    const labelEnd = index.labelEnd(bracket)
+    if (labelEnd >= 0 && text[labelEnd] === '(') {
       const linkEnd = balancedEnd(text, labelEnd, '(', ')')
       if (linkEnd > labelEnd) return linkEnd
     }
