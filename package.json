@@ -5,7 +5,8 @@
   "private": true,
   "scripts": {
     "dev": "vite",
-    "build": "vite build && node scripts/check-editor-kit-build.mjs",
+    "build": "node scripts/check-share-merge-purity.mjs && vite build && node scripts/check-editor-kit-build.mjs",
+    "check:share-merge": "node scripts/check-share-merge-purity.mjs",
     "check:editor-kit": "node scripts/check-editor-kit-build.mjs",
     "preview": "vite preview",
     "check": "svelte-check --tsconfig ./tsconfig.json",

@@ -7,6 +7,10 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+### Improvements
+
+- **Project sharing gains a lossless merge foundation for upcoming per-change review.** Merge calculations preserve the original formatting and flag changes to trust fields, hidden characters and existing owner annotations for individual confirmation.
+
 ## v6.1012.2 — 2026-10-12
 
 ### Fixed

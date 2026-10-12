@@ -1,5 +1,6 @@
 import { expect, it } from 'vitest'
 import { propose } from './proposal'
+import { compose } from './compose'
 import { sha256Sync } from './hash'
 import type { MergeProposal } from './types'
 
@@ -11,6 +12,7 @@ it('K1 returns no hunks for identical text, including empty and large text', () 
     const p = proposal(text, text, text)
     expect(p.hunks).toEqual([])
     expect(reconstruct(p)).toBe(text)
+    expect(compose(p, {}).text).toBe(text)
     expect(p.stats).toEqual({ 'theirs-only': 0, 'ours-only': 0, 'both-same': 0, conflict: 0 })
   }
 })
@@ -19,6 +21,7 @@ it('K2 isolates the only visitor edit', () => {
   const p = proposal('甲。乙。丙。', '甲。乙。丙。', '甲。乙改。丙。')
   expect(p.hunks).toMatchObject([{ kind: 'theirs-only', base: '乙。', ours: '乙。', theirs: '乙改。', oursStart: 2, oursEnd: 4 }])
   expect(reconstruct(p)).toBe('甲。乙。丙。')
+  expect(compose(p, { [p.hunks[0].id]: { kind: 'theirs-only', choice: 'accept' } }).text).toBe('甲。乙改。丙。')
 })
 
 it.each([['K3', '甲。乙。丙改。'], ['K4', '甲。乙改。丙。']])('%s keeps separate sentence edits independent', (_, theirs) => {
