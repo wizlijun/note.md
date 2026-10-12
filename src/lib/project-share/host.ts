@@ -80,6 +80,10 @@ export function projectCommand<T>(op: string, input: Record<string, unknown>): P
   return invoke<T>('project_share', { request: { op, ...input } })
 }
 
+export function projectGitCommand<T>(op: string, input: Record<string, unknown>): Promise<T> {
+  return invoke<T>('project_share_git', { request: { op, ...input } })
+}
+
 export const saveProjectReview = (project_id: string, submissionId: string, path: string, draft: ReviewDraft) =>
   projectCommand<LocalFeedback>('review-save', { project_id, submissionId, path, draft })
 

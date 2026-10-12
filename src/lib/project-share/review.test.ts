@@ -489,3 +489,149 @@ it('does not start compute after a disposed loading review returns late', async 
   expect(h.deps.dispose).toHaveBeenCalledOnce()
   expect(h.session.phase).toBe('destroyed')
 })
+
+it('Git targets read only, persist target snapshots, and dismiss without promoting or saving buffers', async () => {
+  const f = feedback(); f.envelope.payload.annotations = [{ path: 'a.md', quote: '甲。', comment: 'note' }]
+  const h = fixture(f), original = h.deps.command
+  h.deps.command = vi.fn(async (op, args) => original<any>(op === 'review-readonly' ? 'review' : op, args))
+  h.deps.gitCommand = vi.fn(async () => ({ git: true, team: true, prefix: '', target: 'branch' })) as any
+  await h.session.initializeTarget()
+  await h.session.open(f, 'a.md'); h.session.acceptAll(); await h.session.flush()
+  expect(h.session.target).toBe('branch')
+  expect(h.deps.prepareSource).not.toHaveBeenCalled()
+  expect(h.deps.command).toHaveBeenCalledWith('review-readonly', expect.anything())
+  expect(h.calls.find(c => c.op === 'review-save')?.args.draft.target).toBe('branch')
+  expect(h.session.annotations[0].canPromote).toBe(false)
+  await h.session.dismissAnnotation(0)
+  expect(h.calls.at(-1)?.args.target).toBe('branch')
+  await h.session.writeFile()
+  expect(h.calls.some(c => c.op === 'apply')).toBe(false)
+  await h.session.setTarget('worktree')
+  expect(h.deps.prepareSource).toHaveBeenCalledOnce()
+  await h.session.destroy()
+})
+
+function gitFixture(target: 'branch' | 'patch' = 'branch') {
+  const f = feedback('s'); f.envelope.payload.edits.push({ path: 'b.md', baseHash: 'base', afterMarkdown: '甲。乙改。丙。' })
+  const h = fixture(f), original = h.deps.command
+  h.deps.command = vi.fn(async (op, args) => original<any>(op === 'review-readonly' ? 'review' : op, args))
+  h.deps.gitCommand = vi.fn(async (op: string) => {
+    if (op === 'probe') return { git: true, team: true, prefix: '', remote: "team's repo", target }
+    if (op === 'prepare') return { head: 'H', entry: 'a.md', feedback: h.session.feedback, commitMessage: 'trusted', files: f.envelope.payload.edits.map(e => ({ path: e.path, base: '甲。乙。丙。', current: '甲新。乙。丙。', after: e.afterMarkdown })) }
+    if (op === 'branch') return { branch: 'share/topic', commit: 'oid', feedback: { ...h.session.feedback, status: 'branched', decisions: Object.fromEntries(f.envelope.payload.edits.map(e => [e.path, { status: 'branched' }])) } }
+    if (op === 'export-patch') return { patch: 'From oid\r\n中文\n' }
+    throw new Error(op)
+  }) as any
+  h.deps.confirmGit = vi.fn(async () => true)
+  h.deps.pickPatch = vi.fn(async () => '/tmp/result.patch')
+  h.deps.savePatch = vi.fn(async () => {})
+  return h
+}
+async function reviewGit(h: ReturnType<typeof gitFixture>) {
+  await h.session.initializeTarget()
+  for (const edit of h.f.envelope.payload.edits) { await h.session.open(h.f, edit.path); h.session.acceptAll() }
+}
+it('branches every edit in one command at fixed HEAD, locks navigation and never calls A', async () => {
+  const h = gitFixture(); await reviewGit(h)
+  const confirmation = deferred<boolean>(); h.deps.confirmGit = vi.fn(() => confirmation.promise)
+  const job = h.session.executeGit()
+  await vi.waitFor(() => expect(h.deps.confirmGit).toHaveBeenCalled())
+  expect(h.session.phase).toBe('writing')
+  await expect(h.session.destroy()).rejects.toThrow('写回')
+  await expect(h.session.setTarget('worktree')).rejects.toThrow('写回')
+  expect(vi.mocked(h.deps.confirmGit!).mock.calls[0][0].files).toHaveLength(2)
+  confirmation.resolve(true); await job
+  expect(h.deps.gitCommand).toHaveBeenCalledWith('branch', { project_id: 'p', submissionId: 's', expectedHead: 'H', results: { 'a.md': '甲新。乙改。丙。', 'b.md': '甲新。乙改。丙。' } })
+  expect(h.deps.prepareSource).not.toHaveBeenCalled(); expect(h.deps.refreshSource).not.toHaveBeenCalled()
+  expect(h.calls.some(c => c.op === 'apply')).toBe(false)
+  expect(h.session.branchResult?.branch).toBe('share/topic')
+  await h.session.executeGit()
+  expect(vi.mocked(h.deps.gitCommand!).mock.calls.filter(([op]) => op === 'branch')).toHaveLength(1)
+  await h.session.destroy()
+})
+it('retries only trusted per-file branch state after stateError, preserving the real branch', async () => {
+  const h = gitFixture(); await reviewGit(h)
+  const original = h.deps.gitCommand!
+  h.deps.gitCommand = vi.fn(async (op, args) => op === 'branch' ? { branch: 'real', commit: 'oid', feedback: h.session.feedback, stateError: '未完整记录' } : original(op, args)) as any
+  await h.session.executeGit(); expect(h.session.branchResult?.stateError).toBe('未完整记录')
+  await h.session.executeGit(); await h.session.retryBranchState()
+  expect(vi.mocked(h.deps.gitCommand!).mock.calls.filter(([op]) => op === 'branch')).toHaveLength(1)
+  expect(h.calls.filter(c => c.op === 'git-branched').map(c => c.args.path)).toEqual(['a.md', 'b.md'])
+  expect(h.session.branchResult?.branch).toBe('real'); expect(h.session.branchResult?.stateError).toBeUndefined()
+  await h.session.destroy()
+})
+it.each(['cancel', 'saved', 'write-failed', 'head-changed'] as const)('patch %s preserves decisions and never retries export', async kind => {
+  const h = gitFixture('patch'); await reviewGit(h)
+  if (kind === 'cancel') h.deps.pickPatch = vi.fn(async () => null)
+  if (kind === 'write-failed') h.deps.savePatch = vi.fn(async () => { throw new Error('write failed') })
+  if (kind === 'head-changed') {
+    const original = h.deps.gitCommand!
+    h.deps.gitCommand = vi.fn(async (op, args) => { if (op === 'export-patch') throw new Error('HEAD changed'); return original(op, args) }) as any
+  }
+  await h.session.executeGit()
+  const exports = vi.mocked(h.deps.gitCommand!).mock.calls.filter(([op]) => op === 'export-patch')
+  expect(exports).toHaveLength(kind === 'cancel' ? 0 : 1)
+  if (kind === 'saved') expect(h.deps.savePatch).toHaveBeenCalledWith('/tmp/result.patch', 'From oid\r\n中文\n')
+  if (kind === 'head-changed' || kind === 'cancel') expect(h.deps.savePatch).not.toHaveBeenCalled()
+  expect(h.session.feedback?.decisions).toEqual({})
+  expect(Object.keys(h.session.feedback?.review ?? {})).toHaveLength(2)
+  expect(h.deps.prepareSource).not.toHaveBeenCalled(); expect(h.deps.refreshSource).not.toHaveBeenCalled()
+  await h.session.destroy()
+})
+
+it('rejects a real HEAD conflict across the batch before confirmation or any Git execution', async () => {
+  const h = gitFixture(); await reviewGit(h)
+  const original = h.deps.gitCommand!
+  h.deps.gitCommand = vi.fn(async (op, args) => {
+    const value = await original<any>(op, args)
+    if (op === 'prepare') value.files[1].current = '甲。主人冲突。丙。'
+    return value
+  })
+  await h.session.executeGit()
+  expect(h.session.error).toContain('相对 HEAD 有冲突或决定失效')
+  expect(h.deps.confirmGit).not.toHaveBeenCalled()
+  expect(vi.mocked(h.deps.gitCommand!).mock.calls.some(([op]) => op === 'branch' || op === 'export-patch')).toBe(false)
+  await h.session.destroy()
+})
+it('keeps project choice isolated, ignores draft target and retains old target on config failure', async () => {
+  const a = gitFixture('patch'), b = gitFixture('branch')
+  await a.session.initializeTarget(); await b.session.initializeTarget()
+  expect(a.session.target).toBe('patch'); expect(b.session.target).toBe('branch')
+  await a.session.open(a.f, 'a.md'); a.session.acceptAll()
+  const original = a.deps.command
+  a.deps.command = vi.fn(async (op, args) => { if (op === 'git-target') throw new Error('config failed'); return original<any>(op, args) })
+  await expect(a.session.setTarget('worktree')).rejects.toThrow('config failed')
+  expect(a.session.target).toBe('patch')
+  expect(a.calls.find(c => c.op === 'review-save')?.args.draft.target).toBe('patch')
+  expect(a.deps.prepareSource).not.toHaveBeenCalled()
+  await a.session.destroy(); await b.session.destroy()
+})
+it('isolates a late probe from a destroyed session', async () => {
+  const h = gitFixture(), probe = deferred<any>()
+  h.deps.gitCommand = vi.fn(() => probe.promise)
+  const opening = h.session.initializeTarget()
+  await h.session.destroy()
+  probe.resolve({ git: true, remote: 'upstream', prefix: '', team: true })
+  await opening
+  expect(h.session.phase).toBe('destroyed'); expect(h.session.probe).toBeNull()
+})
+
+it('falls back to A when execution probe finds Git removed, without touching buffers or retrying', async () => {
+  const h = gitFixture(); await reviewGit(h)
+  h.deps.gitCommand = vi.fn(async () => ({ git: false, team: false, prefix: '', reason: 'Git unavailable' })) as any
+  await h.session.executeGit()
+  expect(h.session.target).toBe('worktree')
+  expect(h.deps.gitCommand).toHaveBeenCalledExactlyOnceWith('probe', { project_id: 'p' })
+  expect(h.deps.prepareSource).not.toHaveBeenCalled(); expect(h.deps.refreshSource).not.toHaveBeenCalled()
+  await h.session.destroy()
+})
+
+it('treats a reopened all-branched submission as terminal even on an annotation-only path', async () => {
+  const f = feedback(); f.status = 'branched'; f.decisions['a.md'] = { status: 'branched' }
+  f.envelope.payload.annotations = [{ path: 'note.md', quote: '甲。', comment: 'note' }]
+  const h = fixture(f)
+  await h.session.open(f, 'note.md')
+  expect(h.session.canWrite).toBe(false); expect(h.session.canReject).toBe(false)
+  expect(h.session.annotations[0].canPromote).toBe(false)
+  await h.session.destroy()
+})

@@ -616,3 +616,11 @@ it.each(['', 'a'.repeat(513), 'receipt\ninvalid'])('rejects malformed native ETa
   await expect(publishProject(info, [file])).rejects.toThrow('校验回执')
   expect((await identity()).pending?.upload?.receipts.entry).toBeUndefined()
 })
+
+it('routes Git through the dedicated command and keeps project target requests scoped', async () => {
+  const { projectGitCommand, projectCommand } = await import('./host')
+  await projectGitCommand('probe', { project_id: 'first' })
+  expect(mocks.invoke).toHaveBeenCalledWith('project_share_git', { request: { op: 'probe', project_id: 'first' } })
+  await projectCommand('git-target', { project_id: 'second', target: 'patch' })
+  expect(mocks.invoke).toHaveBeenCalledWith('project_share', { request: { op: 'git-target', project_id: 'second', target: 'patch' } })
+})

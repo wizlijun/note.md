@@ -1,4 +1,10 @@
+export type GitTarget = 'worktree' | 'branch' | 'patch'
+export interface GitProbe { git: boolean; team: boolean; prefix: string; head?: string; branch?: string; remote?: string; reason?: string; target?: GitTarget }
+export interface GitPrepared { head: string; entry: string; feedback: LocalFeedback; files: { path: string; base: string; current: string; after: string }[]; commitMessage: string; remote?: string }
+export interface GitBranchResult { branch: string; commit: string; feedback: LocalFeedback; remote?: string; stateError?: string }
+
 export interface ProjectInfo {
+  gitTarget?: GitTarget
   project_id: string
   sourceRoot: string
   mirrorRoot: string
@@ -86,7 +92,7 @@ export interface ReviewDraft {
   kernel_version: number
   ours_hash: string
   hunks: Record<string, unknown>
-  target?: 'worktree' | 'branch' | 'patch' | null
+  target?: GitTarget | null
   updated_at: string
 }
 export interface ReceiptState {

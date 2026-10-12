@@ -3,13 +3,13 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, within } from '@testing-library/svelte'
 import { anchor, propose, sha256Hex } from '../../lib/share-merge'
 import type { LocalFeedback } from '../../lib/project-share/types'
-import { projectCommand } from '../../lib/project-share/host'
+import { projectCommand, projectGitCommand } from '../../lib/project-share/host'
 import HunkView from './HunkView.svelte'
 import ProjectReview from './ProjectReview.svelte'
 import ConflictEditor from './ConflictEditor.svelte'
 import AnnotationPanel from './AnnotationPanel.svelte'
 
-vi.mock('../../lib/project-share/host', () => ({ projectCommand: vi.fn() }))
+vi.mock('../../lib/project-share/host', () => ({ projectCommand: vi.fn(), projectGitCommand: vi.fn() }))
 vi.mock('@tauri-apps/plugin-opener', () => ({ openUrl: vi.fn() }))
 vi.mock('@tauri-apps/plugin-clipboard-manager', () => ({ writeText: vi.fn() }))
 vi.mock('../../lib/project-share/merge-client', () => ({ createMergeClient: () => ({
@@ -25,11 +25,12 @@ function feedback(id = 'one', after = '甲。乙改。丙。'): LocalFeedback {
     edits: [{ path: 'a.md', baseHash: 'base', afterMarkdown: after }], annotations: [] }, requestHash: 'r', receivedAt: 'today' }, status: 'pending', decisions: {} }
 }
 beforeEach(() => {
+  vi.mocked(projectGitCommand).mockResolvedValue({ git: false, team: false, prefix: '', target: 'worktree' })
   vi.clearAllMocks(); calls.length = 0; base = current = '甲。乙。丙。'; items = [feedback()]; failReview = failSave = false
   vi.mocked(projectCommand).mockImplementation(async (op, args: any) => {
     calls.push({ op, args }); const index = items.findIndex(f => f.envelope.payload.submissionId === args.submissionId)
     let f = items[index]
-    if (op === 'review') { if (failReview) throw new Error('target outside shared scope'); return { path: args.path, sourcePath: '/trusted/a.md', base, current, after: f.envelope.payload.edits.find(e => e.path === args.path)?.afterMarkdown ?? base, currentHash: await sha256Hex(current), status: f.decisions[args.path]?.status ?? 'pending' } as any }
+    if (op === 'review' || op === 'review-readonly') { if (failReview) throw new Error('target outside shared scope'); return { path: args.path, sourcePath: '/trusted/a.md', base, current, after: f.envelope.payload.edits.find(e => e.path === args.path)?.afterMarkdown ?? base, currentHash: await sha256Hex(current), status: f.decisions[args.path]?.status ?? 'pending' } as any }
     if (op === 'review-save') { if (failSave) throw new Error('disk full'); f = { ...f, review: { ...f.review, [args.path]: args.draft } } }
     if (op === 'apply') { current = args.content; f = { ...f, status: 'accepted', decisions: { ...f.decisions, [args.path]: { status: 'accepted' } }, review: {} } }
     if (op === 'reject') f = { ...f, status: 'rejected', decisions: { ...f.decisions, [args.path]: { status: 'rejected' } } }
@@ -209,5 +210,41 @@ it.each([false, true])('restores saved decisions after a → b → a (manual=%s)
   await fireEvent.click(view.getByRole('button', { name: '审阅文件：a.md' }))
   await vi.waitFor(() => expect(view.container.querySelector('.hunk header')?.textContent).toContain(manual ? '采用手改' : '已接受'))
   expect(Object.values(items[0].review!['a.md'].hunks)[0]).toMatchObject(manual ? { choice: 'edited', text: '保存中的手改。' } : { choice: 'accept' })
+  await view.component.destroy()
+})
+
+
+it('defaults to B before reading files and Cmd/Ctrl Enter opens an entire-submission confirmation', async () => {
+  items[0].envelope.payload.edits.push({ ...items[0].envelope.payload.edits[0], path: 'b.md' })
+  vi.mocked(projectGitCommand).mockImplementation(async (op: string) => {
+    if (op === 'probe') return { git: true, team: true, prefix: '', remote: 'upstream' } as any
+    if (op === 'prepare') return { head: 'H', entry: 'a.md', feedback: items[0], commitMessage: 'trusted', files: items[0].envelope.payload.edits.map(e => ({ path: e.path, base, current: base, after: e.afterMarkdown })) } as any
+    if (op === 'branch') return { branch: 'share/topic', commit: 'oid', feedback: items[0] } as any
+    throw new Error(op)
+  })
+  const view = mount()
+  await fireEvent.click(view.getByRole('button', { name: /Alice/ }))
+  await vi.waitFor(() => expect(view.getByRole('button', { name: 'B · 创建分支' }).getAttribute('aria-pressed')).toBe('true'))
+  await vi.waitFor(() => expect((view.getByRole('button', { name: '接受全部无冲突改动' }) as HTMLButtonElement).disabled).toBe(false))
+  await fireEvent.click(view.getByRole('button', { name: '接受全部无冲突改动' }))
+  await fireEvent.keyDown(view.getByRole('region', { name: '逐处审阅' }), { key: 'Enter', ctrlKey: true })
+  const dialog = await view.findByRole('dialog', { name: '确认整份投稿' })
+  expect(dialog.textContent).toContain('a.md'); expect(dialog.textContent).toContain('b.md')
+  expect(dialog.textContent).toContain('1 处未决将视为不采纳')
+  expect(view.component.isBusy()).toBe(true)
+  expect(prepareSource).not.toHaveBeenCalled()
+  expect(calls.some(c => c.op === 'review' || c.op === 'apply')).toBe(false)
+  await fireEvent.click(within(dialog).getByRole('button', { name: '取消' }))
+  await vi.waitFor(() => expect(view.component.isBusy()).toBe(false))
+  await view.component.destroy()
+})
+
+it('copies A commit text only from the trusted Rust formatter', async () => {
+  const view = mount(); await open(view)
+  vi.mocked(projectGitCommand).mockResolvedValue({ message: 'trusted formatter\nCo-authored-by: visitor' })
+  await fireEvent.click(view.getByRole('button', { name: '复制提交信息' }))
+  const { writeText } = await import('@tauri-apps/plugin-clipboard-manager')
+  await vi.waitFor(() => expect(writeText).toHaveBeenCalledWith('trusted formatter\nCo-authored-by: visitor'))
+  expect(projectGitCommand).toHaveBeenCalledWith('commit-message', { project_id: 'p', submissionId: 'one' })
   await view.component.destroy()
 })

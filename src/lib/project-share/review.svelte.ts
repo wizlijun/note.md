@@ -4,10 +4,15 @@ import { frontmatterTokens } from '../share-merge/frontmatter'
 import { hunkFlags } from '../share-merge/flags'
 import { sanitizeNote } from '../note-anno/note-commands'
 import type { IndexedSelector, LocatedAnnotation } from './merge-client'
-import type { LocalFeedback, ReviewDraft, ReviewFile } from './types'
+import { gitTarget, prepareGitReview, type GitConfirmation } from './git'
+import type { GitBranchResult, GitProbe, GitTarget, LocalFeedback, ReviewDraft, ReviewFile } from './types'
 
 export interface ReviewDependencies {
   command<T>(op: string, args: Record<string, unknown>): Promise<T>
+  gitCommand?<T>(op: string, args: Record<string, unknown>): Promise<T>
+  confirmGit?(input: GitConfirmation): Promise<boolean>
+  pickPatch?(defaultPath: string): Promise<string | null>
+  savePatch?(path: string, text: string): Promise<void>
   prepareSource(sourcePath: string): Promise<void>
   refreshSource(sourcePath: string): Promise<void>
   confirmWrite(input: { path: string; current: string; result: string; pendingTheirs: number; pendingAnnotations: number }): Promise<boolean>
@@ -37,7 +42,7 @@ function validDecision(value: unknown): value is HunkDecision {
     && (d.source === undefined || d.source === 'human' || d.source === 'ai-suggestion')
     && Object.keys(d).every(k => ['kind', 'choice', 'text', 'source'].includes(k))
 }
-function retain(proposal: MergeProposal, candidates: Record<string, unknown>) {
+export function retainReviewDecisions(proposal: MergeProposal, candidates: Record<string, unknown>) {
   const decisions: Record<string, HunkDecision> = {}
   const kinds = new Map(proposal.hunks.map(h => [h.id, h.kind]))
   let stale = 0
@@ -58,6 +63,10 @@ function trustRanges(text: string) {
 }
 
 export function createProjectReview(projectId: string, deps: ReviewDependencies) {
+  let target = $state<GitTarget>('worktree')
+  let probe = $state.raw<GitProbe | null>(null)
+  let gitError = $state('')
+  let branches = $state.raw<Record<string, GitBranchResult>>({})
   let feedback = $state.raw<LocalFeedback | null>(null)
   let path = $state('')
   let file = $state.raw<ReviewFile | null>(null)
@@ -80,7 +89,7 @@ export function createProjectReview(projectId: string, deps: ReviewDependencies)
     if (phase === 'writing') throw new Error('正在写回，暂不能切换或关闭审阅')
     if (phase === 'destroyed') throw new Error('审阅会话已销毁')
   }
-  const mutable = () => phase === 'ready' && !!file && !terminal.has(file.status) && feedback?.status !== 'resolved'
+  const mutable = () => phase === 'ready' && !!file && !branches[submission()] && !terminal.has(file.status) && feedback?.status !== 'resolved' && feedback?.status !== 'branched'
   const stopTimer = () => { clearTimeout(timer); timer = undefined }
   const update = (value: LocalFeedback) => { feedback = value; deps.onUpdated?.(value) }
   const selections = (indices?: number[]): IndexedSelector[] => (feedback?.envelope.payload.annotations ?? []).flatMap((annotation, index) =>
@@ -127,7 +136,7 @@ export function createProjectReview(projectId: string, deps: ReviewDependencies)
     if (terminal.has(file.status)) { draftDirty = false; return }
     const savedRevision = revision, epoch = generation
     const args = { project_id: projectId, submissionId: submission(), path,
-      draft: { kernel_version: MERGE_KERNEL_VERSION, ours_hash: file.currentHash, hunks: { ...decisions }, target: null, updated_at: new Date().toISOString() } satisfies ReviewDraft }
+      draft: { kernel_version: MERGE_KERNEL_VERSION, ours_hash: file.currentHash, hunks: { ...decisions }, target, updated_at: new Date().toISOString() } satisfies ReviewDraft }
     saving = true
     saveJob = (async () => {
       try {
@@ -147,7 +156,7 @@ export function createProjectReview(projectId: string, deps: ReviewDependencies)
     annotationJob = (async () => {
       while (annotationQueue.length) {
         const entry = annotationQueue[0]
-        const updated = await deps.command<LocalFeedback>('annotation-decide', { project_id: projectId, submissionId: submission(), ...entry })
+        const updated = await deps.command<LocalFeedback>('annotation-decide', { project_id: projectId, submissionId: submission(), ...entry, target })
         update(updated)
         annotationQueue = annotationQueue.filter(item => item !== entry)
         staged = staged.filter(index => index !== entry.index)
@@ -167,11 +176,11 @@ export function createProjectReview(projectId: string, deps: ReviewDependencies)
     stopTimer()
   }
   async function refresh(epoch: number, candidates: Record<string, unknown>) {
-    const fresh = await deps.command<ReviewFile>('review', { project_id: projectId, submissionId: submission(), path })
+    const fresh = await deps.command<ReviewFile>(target === 'worktree' ? 'review' : 'review-readonly', { project_id: projectId, submissionId: submission(), path })
     if (epoch !== generation) return
     const next = await deps.compute({ path, base: fresh.base, ours: fresh.current, theirs: fresh.after })
     if (epoch !== generation) return
-    const restored = retain(next, candidates)
+    const restored = retainReviewDecisions(next, candidates)
     file = fresh; proposal = next; decisions = restored.decisions; staleDecisions = restored.stale
     await locateCurrent(epoch)
   }
@@ -188,9 +197,9 @@ export function createProjectReview(projectId: string, deps: ReviewDependencies)
     feedback = nextFeedback; path = nextPath; file = null; proposal = null; decisions = {}; rows = []; staged = []
     cache = new Map(); cacheText = ''; staleDecisions = 0; notice = ''; error = ''; phase = 'loading'
     try {
-      const initial = await deps.command<ReviewFile>('review', { project_id: projectId, submissionId: submission(), path })
+      const initial = await deps.command<ReviewFile>(target === 'worktree' ? 'review' : 'review-readonly', { project_id: projectId, submissionId: submission(), path })
       if (epoch !== generation) return
-      await deps.prepareSource(initial.sourcePath)
+      if (target === 'worktree') await deps.prepareSource(initial.sourcePath)
       if (epoch !== generation) return
       const draft = nextFeedback.review?.[nextPath]
       const versionChanged = !!draft && draft.kernel_version !== MERGE_KERNEL_VERSION
@@ -215,7 +224,7 @@ export function createProjectReview(projectId: string, deps: ReviewDependencies)
     return rows.map(row => {
       const decision = feedback?.annotation_decisions?.[String(row.index)]
       return { ...row, staged: staged.includes(row.index), decision,
-        canPromote: mutable() && !decision && !!row.anchor && row.anchor.status !== 'orphan' && !row.manualReason }
+        canPromote: target === 'worktree' && mutable() && !decision && !!row.anchor && row.anchor.status !== 'orphan' && !row.manualReason }
     })
   }
   function stageAnnotation(index: number) {
@@ -263,7 +272,7 @@ export function createProjectReview(projectId: string, deps: ReviewDependencies)
     return { text: result, indices: selectors.map(s => s.index) }
   }
   async function writeFile() {
-    if (phase === 'writing' || phase === 'destroyed') return
+    if (target !== 'worktree' || phase === 'writing' || phase === 'destroyed') return
     // After an applied write, retry only its durable annotation statuses.
     if (annotationQueue.length) { try { await flush() } catch {} return }
     if (!mutable()) return
@@ -306,7 +315,7 @@ export function createProjectReview(projectId: string, deps: ReviewDependencies)
     } finally { phase = 'ready' }
   }
   async function rejectFile() {
-    if (phase === 'writing' || phase === 'destroyed' || !feedback || terminal.has(file?.status ?? feedback.decisions[path]?.status ?? '')) return
+    if (phase === 'writing' || phase === 'destroyed' || !feedback || feedback.status === 'branched' || branches[submission()] || terminal.has(file?.status ?? feedback.decisions[path]?.status ?? '')) return
     phase = 'writing'
     try {
       await flush()
@@ -323,6 +332,82 @@ export function createProjectReview(projectId: string, deps: ReviewDependencies)
     try { await flush(); update(await deps.command<LocalFeedback>('resolve', { project_id: projectId, submissionId: submission() })) }
     catch (e) { error = String(e); throw e } finally { phase = 'ready' }
   }
+  async function initializeTarget(hasEdits = true) {
+    assertCanNavigate()
+    const epoch = generation
+    try {
+      const latest = await deps.gitCommand?.<GitProbe>('probe', { project_id: projectId })
+      if (epoch !== generation || phase === 'destroyed') return
+      probe = latest ?? null; gitError = ''
+      target = latest && hasEdits ? gitTarget(latest) : 'worktree'
+    } catch (e) { if (epoch === generation) { probe = null; gitError = String(e) } }
+  }
+  async function setTarget(next: GitTarget) {
+    assertCanNavigate()
+    if (next === target) return
+    if (next !== 'worktree' && (!probe?.git || !feedback?.envelope.payload.edits.length)) return
+    // Keep the old target on every in-flight save until config has succeeded.
+    phase = 'writing'
+    try {
+      await flush()
+      await deps.command('git-target', { project_id: projectId, target: next })
+      target = next
+    } finally { phase = 'ready' }
+    if (feedback && path) await open(feedback, path)
+  }
+  function canGit() {
+    if (phase !== 'ready' || !probe?.git || !feedback?.envelope.payload.edits.length || target === 'worktree') return false
+    if (branches[submission()]?.stateError || (target === 'branch' && branches[submission()])) return false
+    const statuses = feedback.envelope.payload.edits.map(e => feedback!.decisions[e.path]?.status)
+    return statuses.every(status => !status) || (target === 'patch' && statuses.every(status => status === 'branched'))
+  }
+  async function executeGit() {
+    if (!canGit() || !deps.gitCommand || !deps.confirmGit) return
+    phase = 'writing'; error = ''; notice = ''
+    const epoch = generation, id = submission(), selectedTarget = target as 'branch' | 'patch'
+    try {
+      await flush()
+      const latest = await deps.gitCommand<GitProbe>('probe', { project_id: projectId })
+      if (epoch !== generation) return
+      probe = latest; gitError = ''
+      if (!latest.git) { target = 'worktree'; throw new Error(latest.reason ?? '此项目不再支持 Git，已切换到 A') }
+      const batch = await prepareGitReview(projectId, id, { command: deps.gitCommand, compute: deps.compute })
+      if (epoch !== generation) return
+      update(batch.prepared.feedback)
+      const pendingAnnotations = feedback!.envelope.payload.annotations.filter((_, index) => !feedback!.annotation_decisions?.[index]).length
+      if (!await deps.confirmGit({ target: selectedTarget, files: batch.files, pendingAnnotations }) || epoch !== generation) return
+      const args = { project_id: projectId, submissionId: id, expectedHead: batch.prepared.head, results: batch.results }
+      if (selectedTarget === 'branch') {
+        const result = await deps.gitCommand<GitBranchResult>('branch', args)
+        if (epoch !== generation) return
+        branches = { ...branches, [id]: result }; update(result.feedback)
+        if (file) file = { ...file, status: result.feedback.decisions[path]?.status ?? file.status }
+        notice = result.stateError ? '分支已创建，但审阅状态未完整记录；请重试记录状态' : '整份投稿已创建分支'
+      } else {
+        if (!deps.pickPatch || !deps.savePatch) throw new Error('补丁保存不可用')
+        const destination = await deps.pickPatch(`${batch.prepared.entry.replace(/\.[^/.]+$/, '')}.patch`)
+        if (!destination || epoch !== generation) return
+        const { patch } = await deps.gitCommand<{ patch: string }>('export-patch', args)
+        if (epoch !== generation) return
+        await deps.savePatch(destination, patch)
+        if (epoch === generation) notice = '补丁已保存；审阅决定保持不变'
+      }
+    } catch (e) { if (epoch === generation) error = String(e) }
+    finally { if (epoch === generation) phase = 'ready' }
+  }
+  async function retryBranchState() {
+    if (phase !== 'ready' || !feedback || !branches[submission()]?.stateError) return
+    phase = 'writing'; error = ''
+    const result = branches[submission()]
+    try {
+      for (const edit of feedback!.envelope.payload.edits) {
+        update(await deps.command<LocalFeedback>('git-branched', { project_id: projectId, submissionId: submission(), path: edit.path, branch: result.branch, commit: result.commit }))
+      }
+      branches = { ...branches, [submission()]: { ...result, feedback: feedback!, stateError: undefined } }
+      if (file) file = { ...file, status: feedback!.decisions[path]?.status ?? file.status }
+      notice = '分支审阅状态已记录'
+    } catch (e) { error = String(e) } finally { phase = 'ready' }
+  }
   const isDestroyed = () => phase === 'destroyed'
   async function destroy() {
     if (isDestroyed()) return
@@ -338,8 +423,12 @@ export function createProjectReview(projectId: string, deps: ReviewDependencies)
     get decisions(): Readonly<Record<string, HunkDecision>> { return decisions }, get result() { return composed },
     get annotations() { return annotationRows() }, get phase() { return phase }, get dirty() { return draftDirty || annotationQueue.length > 0 },
     get saving() { return saving }, get notice() { return notice }, get error() { return error }, get staleDecisions() { return staleDecisions },
-    get canWrite() { return mutable() && !rows.some(row => row.anchor === null) }, get canDecide() { return mutable() },
-    get canReject() { return !!feedback && phase === 'ready' && !terminal.has(file?.status ?? feedback.decisions[path]?.status ?? '') },
+    get canWrite() { return target === 'worktree' && mutable() && !rows.some(row => row.anchor === null) }, get canDecide() { return mutable() },
+    get canReject() { return !!feedback && feedback.status !== 'branched' && !branches[submission()] && phase === 'ready' && !terminal.has(file?.status ?? feedback.decisions[path]?.status ?? '') },
+    get target() { return target }, get probe() { return probe }, get gitError() { return gitError },
+    get branchResult() { return feedback ? branches[submission()] ?? null : null },
+    get canGit() { return canGit() },
+    initializeTarget, setTarget, executeGit, retryBranchState,
     open, decide, acceptAll, stageAnnotation, dismissAnnotation, writeFile, rejectFile, resolve, flush, destroy,
   }
 }

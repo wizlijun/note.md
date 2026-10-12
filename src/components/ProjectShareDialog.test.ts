@@ -4,7 +4,7 @@ import { mount, unmount, tick } from 'svelte'
 import ProjectShareDialog from './ProjectShareDialog.svelte'
 import { ask, open } from '@tauri-apps/plugin-dialog'
 import { pickSaveFile } from '../lib/dialogs'
-import { createProject, deleteProject, cancelProjectDeletion, projectCommand, publishProject } from '../lib/project-share/host'
+import { createProject, deleteProject, cancelProjectDeletion, projectCommand, projectGitCommand, publishProject } from '../lib/project-share/host'
 import type { ProjectIdentity, ProjectPublishProgress } from '../lib/project-share/host'
 import type { ProjectSummary } from '../lib/project-share/types'
 import { openSettings, uiState } from '../lib/ui-state.svelte'
@@ -72,6 +72,7 @@ vi.mock('../lib/project-share/references', async () => {
   }
 })
 vi.mock('../lib/project-share/host', () => ({
+  projectGitCommand: vi.fn(async () => ({ git: false, team: false, prefix: '', target: 'worktree' })),
   projectIdentities: async () => h.identities,
   listProjects: async () => h.listed,
   createProject: vi.fn(async (path: string) => { const created = { ...info, project_id: 'new', sourceRoot: path.slice(0, path.lastIndexOf('/')), entry: path.slice(path.lastIndexOf('/') + 1) }; h.listed = [...h.listed, created]; return created }),
@@ -90,7 +91,7 @@ vi.mock('../lib/project-share/host', () => ({
     if (op === 'review-save') { await h.reviewSaveDelay?.(); return { ...feedback, review: { [(args as any).path]: (args as any).draft } } }
     if (op === 'apply') { for (const id of h.applyDirty) h.dirty.add(id); return { ...feedback, status: 'accepted', decisions: { 'main.md': { status: 'accepted' } } } }
     if (op === 'reject') return { ...feedback, status: 'rejected', decisions: { 'main.md': { status: 'rejected' } } }
-    if (op === 'review') { h.reviewCalls++; return { path: 'main.md', sourcePath: '/canonical/main.md', base: 'base', current: h.current, after: 'visitor', currentHash: h.current, status: 'pending' } }
+    if (op === 'review' || op === 'review-readonly') { h.reviewCalls++; return { path: 'main.md', sourcePath: '/canonical/main.md', base: 'base', current: h.current, after: 'visitor', currentHash: h.current, status: 'pending' } }
     throw new Error(`unexpected op ${op}`)
   }),
   publishProject: vi.fn(), collaborationLink: vi.fn(),
@@ -105,6 +106,7 @@ function button(text: string) {
 }
 let component: ReturnType<typeof mount> | null = null
 beforeEach(() => {
+  vi.mocked(projectGitCommand).mockResolvedValue({ git: false, team: false, prefix: '', target: 'worktree' })
   localStorage.clear()
   h.locateDelay = null; feedback.envelope.payload.annotations = []
   h.tabs.splice(0, h.tabs.length, { id: 'source', filePath: '/canonical/main.md', currentContent: 'source buffer', initialContent: 'source buffer' }, { id: 'mirror', filePath: '/vault/Sync/p/main.md', currentContent: 'mirror buffer', initialContent: 'mirror buffer' }, { id: 'personal', filePath: '/canonical/private.md' })
@@ -606,4 +608,28 @@ describe('ProjectShareDialog cancellable review loading', () => {
     button('取消').click()
     await vi.waitFor(() => expect(button('完成').disabled).toBe(false))
   })
+})
+
+
+it('locks parent close and project selection throughout Git confirmation without saving dirty buffers', async () => {
+  vi.mocked(projectGitCommand).mockImplementation(async (op: string) => {
+    if (op === 'probe') return { git: true, team: true, prefix: '', target: 'branch', remote: 'upstream' } as any
+    if (op === 'prepare') {
+      const saved = vi.mocked(projectCommand).mock.calls.findLast(([op]) => op === 'review-save')?.[1] as any
+      return { head: 'H', entry: 'main.md', commitMessage: 'trusted', feedback: { ...feedback, review: { 'main.md': saved.draft } }, files: [{ path: 'main.md', base: 'base', current: h.current, after: 'visitor' }] } as any
+    }
+    throw new Error(op)
+  })
+  h.dirty.add('source'); h.dirty.add('mirror')
+  const closed = await openDialog(); button('反馈收件箱').click()
+  await vi.waitFor(() => expect(button('Alice').disabled).toBe(false)); button('Alice').click()
+  await vi.waitFor(() => expect(button('接受').disabled).toBe(false))
+  button('接受').click(); await tick(); button('创建整份投稿分支').click()
+  await vi.waitFor(() => expect(document.querySelector('[aria-labelledby="git-review-confirm-title"]')).not.toBeNull())
+  expect(button('完成').disabled).toBe(true)
+  expect(document.querySelector<HTMLSelectElement>('#share-recent-project')!.disabled).toBe(true)
+  expect(h.saved).toEqual([]); expect(h.dirty.has('source')).toBe(true); expect(h.dirty.has('mirror')).toBe(true)
+  button('取消').click()
+  await vi.waitFor(() => expect(button('完成').disabled).toBe(false))
+  expect(closed).not.toHaveBeenCalled()
 })
