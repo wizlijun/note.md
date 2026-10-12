@@ -70,7 +70,7 @@ function usable(state: ProjectState, publicationId?: string): void {
 function frozenPlan(plan: ArtifactPlan): ArtifactPlan {
   return { name: plan.name, bytes: plan.bytes, sha256: plan.sha256, etag: plan.etag, parts: plan.parts.map(p => ({ number: p.number, bytes: p.bytes, md5: p.md5 })) }
 }
-function samePlan(session: UploadSession, args: Begin): boolean {
+function samePlan(session: UploadSession, args: Pick<Begin, 'publicationId' | 'phase' | 'snapshotId' | 'entry' | 'title' | 'expires_in_seconds' | 'artifacts'>): boolean {
   return session.publicationId === args.publicationId && session.phase === args.phase && session.snapshotId === args.snapshotId
     && session.entry === args.entry && session.title === args.title && session.expires_in_seconds === args.expires_in_seconds
     && JSON.stringify(session.artifacts.map(frozenPlan)) === JSON.stringify(args.artifacts.map(frozenPlan))
@@ -177,8 +177,9 @@ async function migrateLegacy(env: Env, slug: string, args: Begin): Promise<Versi
     const fixed = new FixedLengthStream(m!.size_bytes!)
     const piping = item.value!.pipeTo(fixed.writable)
     const writing = env.MEDIA.put(key, fixed.readable, { onlyIf: { etagDoesNotMatch: '*' }, httpMetadata: { contentType: 'text/html; charset=utf-8' }, customMetadata: { migrationId: old.migrationId, snapshotId: old.snapshotId } })
-    await Promise.all([piping, writing])
-    object = await env.MEDIA.head(key)
+    try { [, object] = await Promise.all([piping, writing]) }
+    catch (e) { object = await env.MEDIA.head(key); if (!object) throw e }
+    if (!object) object = await env.MEDIA.head(key)
   }
   if (!object || object.size !== m!.size_bytes || object.customMetadata?.migrationId !== old.migrationId || object.customMetadata?.snapshotId !== old.snapshotId) error(409, 'Legacy migration object mismatch')
   return { publicationId: old.publicationId ?? 'legacy', snapshotId: old.snapshotId, htmlKey: key, ready: true, entry: args.entry, title: args.title, expires_at: m!.expires_at ?? null }
@@ -375,6 +376,7 @@ async function commit(env: Env, slug: string, args: any, origin: string): Promis
   if (loaded.state.active?.publicationId === session.publicationId && loaded.state.active.snapshotId === session.snapshotId) return receipt(env, slug, loaded, origin)
   for (const artifact of session.artifacts) if (!await headArtifact(env, session, artifact)) error(409, 'Artifact is not sealed')
   loaded = await authorized(env, slug, args.edit_token, args.publicationId, args.sessionId)
+  if (!samePlan(session, loaded.state.upload!) || session.artifacts.some((a, i) => a.key !== loaded.state.upload!.artifacts[i].key)) error(409, 'Verified upload plan changed')
   const state = { ...loaded.state, upload: { ...loaded.state.upload!, artifacts: loaded.state.upload!.artifacts.map(a => ({ ...a, closed: 'complete' as const })) } }
   const expires_at = state.publication_expires_at !== undefined ? state.publication_expires_at
     : session.expires_in_seconds === null ? null : new Date(Date.now() + session.expires_in_seconds * 1000).toISOString()
@@ -390,7 +392,7 @@ async function commit(env: Env, slug: string, args: any, origin: string): Promis
   } else delete state.pending
   retireOld(slug, state, loaded.state)
   await writeState(env, slug, state, loaded.etag)
-  return receipt(env, slug, { state, etag: '' }, origin)
+  return receipt(env, slug, { state, etag: '' }, origin, session.artifacts.map(a => a.name))
 }
 export async function revokeUpload(env: Env, slug: string, loaded: Loaded, requested: unknown, previous: unknown, projectId: unknown, requestedKeys: string[] = []): Promise<{ status: number; publicationId?: string }> {
   if (id(requested) && projectId !== loaded.state.project_id) return { status: 403 }

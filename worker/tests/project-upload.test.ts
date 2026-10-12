@@ -196,6 +196,52 @@ describe('native multipart project publication', () => {
   expect(response.status).toBe(200); expect((await response.json() as any).upload.sealed).toEqual([])
   expect(heads).toBe(2)
  })
+ it.each(['entry', 'full'])('reuses verified %s commit artifacts after the fresh authorization and successful CAS', async phase => {
+  await begin(); await part(); await op('seal', { artifact: 'entry' })
+  if (phase === 'full') {
+   await op('commit'); await fullBegin({})
+   await part('reader', { 'X-Upload-Session': 'full', 'X-Artifact': 'reader' }); await op('seal', { sessionId: 'full', artifact: 'reader' })
+   await part('zip', { 'X-Upload-Session': 'full', 'X-Artifact': 'archive' }); await op('seal', { sessionId: 'full', artifact: 'archive' })
+  }
+  const calls: string[] = []
+  const counted = { get(key: string) { calls.push('get'); return media.get(key) }, head(key: string) { calls.push('head'); return media.head(key) }, put(key: string, value: any, options: any) { calls.push('put'); return media.put(key, value, options) } } as unknown as R2Bucket
+  const response = await worker.fetch(new Request(base + 'commit', { method: 'POST', headers: auth, body: JSON.stringify({ edit_token: token, publicationId: 'pub', sessionId: phase === 'full' ? 'full' : 'session' }) }), { ...bindings, MEDIA: counted })
+  expect(response.status).toBe(200)
+  expect((await response.json() as any).upload.sealed).toEqual(phase === 'full' ? ['reader', 'archive'] : ['entry'])
+  expect(calls).toEqual(phase === 'full' ? ['get', 'head', 'head', 'get', 'put'] : ['get', 'head', 'get', 'put'])
+  calls.length = 0
+  expect((await worker.fetch(new Request(base + 'commit', { method: 'POST', headers: auth, body: JSON.stringify({ edit_token: token, publicationId: 'pub', sessionId: phase === 'full' ? 'full' : 'session' }) }), { ...bindings, MEDIA: counted })).status).toBe(200)
+  expect(calls).toEqual(phase === 'full' ? ['get', 'head', 'head'] : ['get', 'head'])
+ })
+ it.each(['sha256', 'key'])('rejects commit if fresh %s differs from the native HEAD proof', async field => {
+  await begin(); await part(); await op('seal', { artifact: 'entry' })
+  let writes = 0
+  const wrapped = { get: media.get.bind(media), async head(key: string) {
+   const object = await media.head(key)
+   const state = await (await media.get(projectStateKey(slug)))!.json() as any
+   state.upload.artifacts[0][field] = field === 'key' ? `project-share/${slug}/different-key` : 'f'.repeat(64)
+   await media.put(projectStateKey(slug), JSON.stringify(state))
+   return object
+  }, async put(key: string, value: any, options: any) { writes++; return media.put(key, value, options) } } as unknown as R2Bucket
+  const response = await worker.fetch(new Request(base + 'commit', { method: 'POST', headers: auth, body: JSON.stringify({ edit_token: token, publicationId: 'pub', sessionId: 'session' }) }), { ...bindings, MEDIA: wrapped })
+  expect(response.status).toBe(409); expect(writes).toBe(0)
+  expect((await (await media.get(projectStateKey(slug)))!.json() as any).active).toBeNull()
+ })
+ it.each(['revoked', 'expired'])('preserves %s priority before reusing commit HEAD proofs', async guard => {
+  await begin(); await part(); await op('seal', { artifact: 'entry' })
+  let writes = 0
+  const wrapped = { get: media.get.bind(media), async head(key: string) {
+   const object = await media.head(key)
+   const state = await (await media.get(projectStateKey(slug)))!.json() as any
+   if (guard === 'revoked') state.revoked = true
+   else state.publication_expires_at = '2000-01-01T00:00:00.000Z'
+   await media.put(projectStateKey(slug), JSON.stringify(state))
+   return object
+  }, async put(key: string, value: any, options: any) { writes++; return media.put(key, value, options) } } as unknown as R2Bucket
+  const response = await worker.fetch(new Request(base + 'commit', { method: 'POST', headers: auth, body: JSON.stringify({ edit_token: token, publicationId: 'pub', sessionId: 'session' }) }), { ...bindings, MEDIA: wrapped })
+  expect(response.status).toBe(410); expect(writes).toBe(0)
+  expect((await (await media.get(projectStateKey(slug)))!.json() as any).active).toBeNull()
+ })
  it('inherits v1 pending expiry and exposes its already committed entry identity', async () => {
   const oldEntry = await SELF.fetch(`http://x/project/${slug}/entry`, { method: 'POST', headers: { ...auth, 'Content-Type': 'application/json' }, body: JSON.stringify({ edit_token: token, project_id: 'project', feedback_token_hash: 'b'.repeat(64), publicationId: 'pub', previousPublicationId: null, snapshotId: 'oldEntry', entry: 'README.md', title: 'Project', expires_in_seconds: 3600, html: 'old' }) })
   const old = await oldEntry.json() as any
@@ -222,6 +268,21 @@ describe('native multipart project publication', () => {
   expect((await begin({ legacy: { migrationId: 'migration', snapshotId: 'old', expires_at: null } })).status).toBe(409)
   expect(await bindings.MEDIA.head(projectStateKey(slug))).toBeNull()
   expect(await (await SELF.fetch('http://x/' + slug)).text()).toBe('old KV')
+ })
+ it.each(['success', 'lost', 'null'])('uses native KV stream copy metadata with put result=%s', async result => {
+  await bindings.SHARES.put(slug, 'old KV', { metadata: { edit_token: token, project_id: 'project', feedback_token_hash: 'b'.repeat(64), expires_at: null, size_bytes: 6 } })
+  const calls: string[] = []
+  const wrapped = { get(key: string) { calls.push('get'); return media.get(key) }, head(key: string) { calls.push('head'); return media.head(key) },
+   async put(key: string, value: any, options: any) { calls.push('put'); const object = await media.put(key, value, options); if (key.endsWith('/legacy.html')) { if (result === 'lost') throw new Error('lost copy response'); if (result === 'null') return null }; return object },
+   createMultipartUpload(key: string, options: any) { calls.push('create'); return media.createMultipartUpload(key, options) },
+  } as unknown as R2Bucket
+  const shares = { getWithMetadata(key: string, type: 'stream') { calls.push('kvGet'); return bindings.SHARES.getWithMetadata(key, type) } } as unknown as KVNamespace
+  const response = await worker.fetch(new Request(base + 'begin', { method: 'POST', headers: auth, body: JSON.stringify({ edit_token: token, project_id: 'project', feedback_token_hash: 'b'.repeat(64), publicationId: 'pub', previousPublicationId: null, sessionId: 'session', phase: 'entry', snapshotId: 'entry', entry: 'README.md', title: 'Project', expires_in_seconds: 3600, artifacts: [plan], legacy: { migrationId: 'migration', snapshotId: 'old', expires_at: null } }) }), { ...bindings, MEDIA: wrapped, SHARES: shares })
+  expect(response.status).toBe(200)
+  expect(calls).toEqual(result === 'success' ? ['get', 'kvGet', 'head', 'put', 'put', 'create', 'get', 'put'] : ['get', 'kvGet', 'head', 'put', 'head', 'put', 'create', 'get', 'put'])
+  expect(await (await SELF.fetch('http://x/' + slug)).text()).toBe('old KV')
+  const state = await (await media.get(projectStateKey(slug)))!.json() as any
+  expect(state.active.htmlKey).toBe(`project-share/${slug}/legacy/migration/legacy.html`)
  })
  it('rejects absent known length and excessive control bodies before uploading', async () => {
   await begin()
