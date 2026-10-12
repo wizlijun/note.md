@@ -53,6 +53,16 @@ it('I3 scans 64000 unmatched brackets within a generous linear-scan budget', () 
   expect(performance.now() - start).toBeLessThan(500)
 })
 
+it('N1 keeps math and link destinations from contaminating subsequent link labels', () => {
+  for (const text of ['前$甲`乙$后[丙。](url) `。尾', '前[孤[一](a`b)后[甲。](url) `。尾']) {
+    expect.soft(texts(text)).toEqual([text.slice(0, -1), '尾'])
+  }
+  for (const atom of ['$甲`乙$', '{>>甲`乙<<}', '{==甲`乙==}', '[[甲`乙]]', '<span title="甲`乙">']) {
+    const text = '前' + atom + '后[丙。](url) `。尾'
+    expect.soft(texts(text)).toEqual([text.slice(0, -1), '尾'])
+  }
+})
+
 it('keeps fences, math and HTML as atomic blocks', () => {
   expect(texts('  ````ts\n甲。\n```\n乙！\n`````\n尾。\n')).toEqual(['  ````ts\n甲。\n```\n乙！\n`````\n', '尾。\n'])
   expect(texts('~~~\n甲。\n```\n')).toEqual(['~~~\n甲。\n```\n'])

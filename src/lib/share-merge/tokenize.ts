@@ -1,6 +1,13 @@
 import { frontmatterTokens, makeToken, type SourceLine } from './frontmatter'
 import type { Token } from './types'
 
+const inlineDelimiters = [['{==', '==}'], ['{>>', '<<}'], ['[[', ']]'], ['$', '$']] as const
+
+interface InlineAtoms {
+  codeEnds: Map<number, number>
+  closeAfter: (close: string, from: number) => number
+}
+
 function sourceLines(text: string): SourceLine[] {
   const lines: SourceLine[] = []
   for (let start = 0; start < text.length;) {
@@ -46,57 +53,55 @@ function inlineIndex(text: string) {
     nextCode.set(run.end - run.start, run.end)
   }
 
+  const closes = new Map<string, number[]>()
+  for (const [, close] of inlineDelimiters) {
+    const positions: number[] = []
+    for (let end = text.indexOf(close); end >= 0; end = text.indexOf(close, end + 1)) {
+      let slashes = 0
+      for (let i = end - 1; i >= 0 && text[i] === '\\'; i--) slashes++
+      if (slashes % 2 === 0) positions.push(end)
+    }
+    closes.set(close, positions)
+  }
+  // Immutable positions can be queried by both scans, in any cursor order.
+  const closeAfter = (close: string, from: number): number => {
+    const positions = closes.get(close)!
+    let low = 0
+    let high = positions.length
+    while (low < high) {
+      const mid = (low + high) >>> 1
+      if (positions[mid] < from) low = mid + 1
+      else high = mid
+    }
+    return positions[low] ?? -1
+  }
+  const atoms: InlineAtoms = { codeEnds, closeAfter }
   const bracketEnds = new Map<number, number>()
   const brackets: number[] = []
   for (let i = 0; i < text.length;) {
-    if (text[i] === '\\') { i += 2; continue }
-    if (text[i] === '`') { i = codeEnds.get(i)!; continue }
+    const end = atomEnd(text, i, atoms)
+    if (end > i) { i = end; continue }
     if (text[i] === '[') brackets.push(i)
     else if (text[i] === ']' && brackets.length > 0) {
       bracketEnds.set(brackets.pop()!, i + 1)
-      // Backticks inside a link destination are URL characters, not prose code.
-      if (brackets.length === 0 && text[i + 1] === '(') {
-        const end = balancedEnd(text, i + 1, '(', ')')
-        if (end > i + 1) { i = end; continue }
+      // A valid destination is protected even after an unmatched outer '['.
+      if (text[i + 1] === '(') {
+        const destinationEnd = balancedEnd(text, i + 1, '(', ')')
+        if (destinationEnd > i + 1) { i = destinationEnd; continue }
       }
     }
     i++
   }
-
-  const nextClose = new Map<string, number>()
-  // Calls advance through this line, so cache even failed searches rather than
-  // scanning the same suffix again for each unmatched opening delimiter.
-  const closeAfter = (close: string, from: number): number => {
-    let end = nextClose.get(close)
-    if (end === -1 || (end !== undefined && end >= from)) return end
-    end = text.indexOf(close, from)
-    while (end >= 0) {
-      let slashes = 0
-      for (let i = end - 1; i >= 0 && text[i] === '\\'; i--) slashes++
-      if (slashes % 2 === 0) break
-      end = text.indexOf(close, end + close.length)
-    }
-    nextClose.set(close, end)
-    return end
-  }
-  return { codeEnds, bracketEnds, closeAfter }
+  return { ...atoms, bracketEnds }
 }
 
-function protectedEnd(text: string, start: number, index: ReturnType<typeof inlineIndex>): number {
+function atomEnd(text: string, start: number, index: InlineAtoms): number {
   if (text[start] === '\\') return Math.min(start + 2, text.length)
   if (text[start] === '`') return index.codeEnds.get(start)!
-  for (const [open, close] of [['{==', '==}'], ['{>>', '<<}'], ['[[', ']]'], ['$', '$']]) {
+  for (const [open, close] of inlineDelimiters) {
     if (!text.startsWith(open, start)) continue
     const end = index.closeAfter(close, start + open.length)
     if (end >= 0) return end + close.length
-  }
-  const bracket = text[start] === '!' && text[start + 1] === '[' ? start + 1 : start
-  if (text[bracket] === '[') {
-    const end = index.bracketEnds.get(bracket)
-    if (end !== undefined && text[end] === '(') {
-      const linkEnd = balancedEnd(text, end, '(', ')')
-      if (linkEnd > end) return linkEnd
-    }
   }
   if (text[start] === '<') {
     let quote = ''
@@ -106,6 +111,20 @@ function protectedEnd(text: string, start: number, index: ReturnType<typeof inli
         else if (quote === text[i]) quote = ''
       }
       if (text[i] === '>' && !quote) return i + 1
+    }
+  }
+  return start
+}
+
+function protectedEnd(text: string, start: number, index: ReturnType<typeof inlineIndex>): number {
+  const end = atomEnd(text, start, index)
+  if (end > start) return end
+  const bracket = text[start] === '!' && text[start + 1] === '[' ? start + 1 : start
+  if (text[bracket] === '[') {
+    const labelEnd = index.bracketEnds.get(bracket)
+    if (labelEnd !== undefined && text[labelEnd] === '(') {
+      const linkEnd = balancedEnd(text, labelEnd, '(', ')')
+      if (linkEnd > labelEnd) return linkEnd
     }
   }
   return start
