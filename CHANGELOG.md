@@ -9,6 +9,7 @@ For the full commit history, see the git log.
 
 ### Improvements
 
+- **Project sharing saves per-change review progress.** Reopen a review to continue where you left off; existing shares and feedback remain compatible.
 - **Project sharing gains a lossless merge foundation for upcoming per-change review.** Merge calculations preserve the original formatting and flag changes to trust fields, hidden characters and existing owner annotations for individual confirmation.
 
 ## v6.1012.2 — 2026-10-12

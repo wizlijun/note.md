@@ -2,7 +2,7 @@ import markedSource from 'marked?raw'
 import zipSource from '../../../node_modules/fflate/umd/index.js?raw'
 import menuStyles from '../../styles/popup-menu.css?raw'
 import { projectShareBrowser } from './browser'
-import type { ProjectSnapshot } from './types'
+import type { ProjectSnapshot, PublicProjectSnapshot } from './types'
 import type { ProjectPresentation } from './presentation'
 import { normalizeShareTitle } from './title'
 
@@ -25,7 +25,11 @@ export function buildProjectBundle(snapshot: ProjectSnapshot, feedbackUrl: strin
   const title=normalizeShareTitle(options.title,snapshot.entry)
   const escape=(value:string)=>value.replace(/[&<>"\']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]!))
   const presentation=options.presentation && {themeId:options.presentation.themeId,documents:options.presentation.documents,warnings:options.presentation.warnings}
-  const payload=JSON.stringify({snapshot,feedbackUrl:endpoint.href,title,presentation,archiveUrl:options.archiveUrl,publicationPending:options.publicationPending}).replace(/</g,'\\u003c').replace(/\u2028/g,'\\u2028').replace(/\u2029/g,'\\u2029')
+  const publicSnapshot: PublicProjectSnapshot={
+    schemaVersion:1,project_id:snapshot.project_id,snapshotId:snapshot.snapshotId,entry:snapshot.entry,
+    files:snapshot.files.map(({path,hash,bytes,modifiedAt,markdown,dataUrl})=>({path,hash,bytes,modifiedAt,markdown,dataUrl})),
+  }
+  const payload=JSON.stringify({snapshot:publicSnapshot,feedbackUrl:endpoint.href,title,presentation,archiveUrl:options.archiveUrl,publicationPending:options.publicationPending}).replace(/</g,'\\u003c').replace(/\u2028/g,'\\u2028').replace(/\u2029/g,'\\u2029')
   const nonce=crypto.randomUUID().replace(/-/g,'')
   const origin=endpoint.origin.replace(/&/g,'&amp;').replace(/"/g,'&quot;')
   const html=`<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'nonce-${nonce}'; style-src 'unsafe-inline'; img-src data: https: http:; font-src data:; connect-src ${origin}; base-uri 'none'; form-action 'none'"><title>${escape(title)} · 只读</title>${options.presentation?.styleHead??''}<style>${menuStyles}

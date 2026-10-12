@@ -21,11 +21,28 @@ export interface ProjectFile {
   dataUrl?: string
 }
 export interface ProjectSnapshot {
+  schemaVersion: 1 | 2
+  project_id: string
+  snapshotId: string
+  entry: string
+  files: ProjectFile[]
+  parentSnapshotId?: string | null
+  createdAt?: string | null
+  git?: SnapshotGit | null
+  gitError?: string | null
+}
+export interface PublicProjectSnapshot {
   schemaVersion: 1
   project_id: string
   snapshotId: string
   entry: string
   files: ProjectFile[]
+}
+export interface SnapshotGit {
+  snapshotCommit: string
+  headAtFreeze: string
+  prefix: string
+  repoRoot: string
 }
 export interface ProjectFeedback {
   schemaVersion: 1
@@ -45,7 +62,42 @@ export interface LocalFeedback {
   envelope: FeedbackEnvelope
   status: string
   error?: string | null
-  decisions: Record<string, { status: string; beforeHash?: string | null; resultHash?: string | null }>
+  decisions: Record<string, Decision>
+  review?: Record<string, ReviewDraft>
+  annotation_decisions?: Record<string, 'promoted' | 'dismissed'>
+  receipt?: ReceiptState | null
+  git?: SubmissionGit | null
+  superseded_by?: string | null
+}
+export interface Decision {
+  status: string
+  beforeHash?: string | null
+  resultHash?: string | null
+  hunkSummary?: HunkSummary | null
+  reason?: 'superseded' | null
+  gitBranch?: string | null
+  gitCommit?: string | null
+}
+export interface HunkSummary {
+  accepted: number
+  total: number
+}
+export interface ReviewDraft {
+  kernel_version: number
+  ours_hash: string
+  hunks: Record<string, unknown>
+  target?: 'worktree' | 'branch' | 'patch' | null
+  updated_at: string
+}
+export interface ReceiptState {
+  state: 'auto' | 'suppressed' | 'sent' | 'failed'
+  reply?: string | null
+  sent_at?: string | null
+  last_error?: string | null
+}
+export interface SubmissionGit {
+  commit?: string | null
+  error?: string | null
 }
 export interface ReviewFile {
   path: string

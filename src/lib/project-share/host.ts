@@ -8,7 +8,7 @@ import { buildProjectArchive } from './archive'
 import { uploadProjectPart, type ProjectUploadProgress } from './upload'
 import { artifactSha256, createArtifactPlan, verifyArtifactPlan, MULTIPART_BYTES, type ArtifactName, type ArtifactPlan } from './multipart'
 import { normalizeShareTitle } from './title'
-import type { FeedbackEnvelope, LocalFeedback, ProjectFile, ProjectInfo, ProjectSnapshot, ProjectSummary } from './types'
+import type { FeedbackEnvelope, LocalFeedback, ProjectFile, ProjectInfo, ProjectSnapshot, ProjectSummary, ReviewDraft } from './types'
 
 export interface ProjectIdentity {
   project_id: string
@@ -79,6 +79,12 @@ const KEY = 'projectShares'
 export function projectCommand<T>(op: string, input: Record<string, unknown>): Promise<T> {
   return invoke<T>('project_share', { request: { op, ...input } })
 }
+
+export const saveProjectReview = (project_id: string, submissionId: string, path: string, draft: ReviewDraft) =>
+  projectCommand<LocalFeedback>('review-save', { project_id, submissionId, path, draft })
+
+export const decideProjectAnnotation = (project_id: string, submissionId: string, index: number, value: 'promoted' | 'dismissed') =>
+  projectCommand<LocalFeedback>('annotation-decide', { project_id, submissionId, index, value })
 
 export async function projectIdentities(): Promise<Record<string, ProjectIdentity>> {
   const store = await Store.load('share_db.json')

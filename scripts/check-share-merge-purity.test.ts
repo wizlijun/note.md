@@ -15,7 +15,7 @@ function fixture(files: Record<string, string>) {
   temporary.push(directory)
   const root = join(directory, 'kernel')
   mkdirSync(root)
-  for (const [path, text] of Object.entries(files)) {
+  for (const [path, text] of Object.entries({ 'types.ts': 'export const MERGE_KERNEL_VERSION = 1', ...files })) {
     const destination = join(root, path)
     mkdirSync(dirname(destination), { recursive: true })
     writeFileSync(destination, text)
@@ -23,9 +23,53 @@ function fixture(files: Record<string, string>) {
   return root
 }
 
-function check(root?: string) {
-  return spawnSync(process.execPath, [script, ...(root ? [root] : [])], { encoding: 'utf8' })
+function check(root?: string, rust?: string) {
+  return spawnSync(process.execPath, [script, ...(root ? [root] : []), ...(rust ? [rust] : [])], { encoding: 'utf8' })
 }
+
+function versionFixture(source: string, version = 1) {
+  const root = fixture({ 'types.ts': source })
+  const rust = join(root, '..', 'project_share.rs')
+  writeFileSync(rust, `const MERGE_KERNEL_VERSION: u32 = ${version};\n`)
+  return { root, rust }
+}
+
+it.each([
+  ['export const MERGE_KERNEL_VERSION = 2', 1],
+  ['export const MERGE_KERNEL_VERSION = 1', 2],
+])('rejects mismatched kernel versions: %s / Rust %s', (source, version) => {
+  const { root, rust } = versionFixture(source, version)
+  const result = check(root, rust)
+  expect(result.status).toBe(1)
+  expect(result.stderr).toContain('kernel version mismatch')
+}, 15_000)
+
+it.each([
+  '// export const MERGE_KERNEL_VERSION = 1\nexport const other = 1',
+  'export const text = "export const MERGE_KERNEL_VERSION = 1"',
+  'export const MERGE_KERNEL_VERSION = "1"',
+  'export let MERGE_KERNEL_VERSION = 1',
+])('rejects missing or invalid TypeScript kernel version declarations: %s', source => {
+  const { root, rust } = versionFixture(source)
+  const result = check(root, rust)
+  expect(result.status).toBe(1)
+  expect(result.stderr).toContain('TypeScript kernel version')
+}, 15_000)
+
+it('reads the TypeScript kernel version from its AST despite comment and string decoys', () => {
+  const { root, rust } = versionFixture('// MERGE_KERNEL_VERSION = 9\nexport const text = "MERGE_KERNEL_VERSION = 8"; export const MERGE_KERNEL_VERSION = 1')
+  const result = check(root, rust)
+  expect(result.status).toBe(0)
+  expect(result.stderr).toBe('')
+}, 15_000)
+
+it('rejects a missing Rust kernel version constant', () => {
+  const { root, rust } = versionFixture('export const MERGE_KERNEL_VERSION = 1')
+  writeFileSync(rust, 'const OTHER_VERSION: u32 = 1;\n')
+  const result = check(root, rust)
+  expect(result.status).toBe(1)
+  expect(result.stderr).toContain('Rust kernel version')
+}, 15_000)
 
 it.each([
   "import { invoke } from '@tauri-apps/api/core'",

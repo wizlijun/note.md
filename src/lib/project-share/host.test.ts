@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ProjectInfo, ProjectSnapshot } from './types'
+import type { LocalFeedback, ProjectInfo, ProjectSnapshot, ReviewDraft } from './types'
 import { MULTIPART_BYTES } from './multipart'
 
 const mocks = vi.hoisted(() => ({ invoke: vi.fn(), fetch: vi.fn(), save: vi.fn(), data: {} as Record<string, any>, events: [] as string[], baseUrl: 'https://share.test', render: vi.fn(), bundle: vi.fn(), capture: vi.fn(), archive: vi.fn() }))
@@ -13,11 +13,11 @@ vi.mock('../settings.svelte', () => ({ getPluginScopedKey: (key: string) => ({ '
 vi.mock('./bundle', () => ({ buildProjectBundle: mocks.bundle }))
 vi.mock('./presentation', () => ({ captureProjectTheme: mocks.capture, renderProjectPresentation: mocks.render }))
 vi.mock('./archive', () => ({ buildProjectArchive: mocks.archive }))
-import { publishProject, projectIdentities, pullProjectFeedback, stopProjectShare, listProjects, createProject, deleteProject, cancelProjectDeletion } from './host'
+import { publishProject, projectIdentities, pullProjectFeedback, stopProjectShare, listProjects, createProject, deleteProject, cancelProjectDeletion, saveProjectReview, decideProjectAnnotation } from './host'
 
 const info: ProjectInfo = { project_id: 'project_1', sourceRoot: '/project', mirrorRoot: '/vault/sync/project_1', entry: 'README.md', files: [] }
 const file = { path: 'README.md', hash: 'a'.repeat(64), bytes: 5, markdown: 'hello' }
-const snapshot: ProjectSnapshot = { schemaVersion: 1, project_id: info.project_id, snapshotId: 'full-s', entry: info.entry, files: [file] }
+const snapshot: ProjectSnapshot = { schemaVersion: 2, project_id: info.project_id, snapshotId: 'full-s', entry: info.entry, files: [file], parentSnapshotId: 'previous-s', createdAt: '2026-10-12T08:00:00Z' }
 const frozenTheme = { themeId: 'current-theme', compiledCss: 'frozen CSS' }
 const expires = '2026-11-01T00:00:00Z'
 let remote: any
@@ -72,6 +72,39 @@ beforeEach(() => {
     if (request.op === 'projects') return [info]
     if (request.op === 'get') return info
     return null
+  })
+})
+
+describe('local review IPC', () => {
+  const draft: ReviewDraft = { kernel_version: 1, ours_hash: 'a'.repeat(64), hunks: { h1: { choice: 'theirs' } }, target: null, updated_at: '2026-10-12T08:00:00Z' }
+  const saved: LocalFeedback = { envelope: { payload: { schemaVersion: 1, project_id: 'p', snapshotId: 's', submissionId: 'sub', edits: [], annotations: [] }, requestHash: 'hash', receivedAt: '2026-10-12T08:00:00Z' }, status: 'pending', error: null, decisions: {}, review: { 'a.md': draft }, annotation_decisions: { '2': 'promoted' } }
+  function strictIPC(request: Record<string, unknown>, result: LocalFeedback | Error) {
+    mocks.invoke.mockImplementation(async (command: string, input: unknown) => {
+      expect(command).toBe('project_share')
+      expect(input).toEqual({ request })
+      if (result instanceof Error) throw result
+      return result
+    })
+  }
+  it('saves the snake_case review draft through the exact review-save request', async () => {
+    strictIPC({ op: 'review-save', project_id: 'p', submissionId: 'sub', path: 'a.md', draft }, saved)
+    expect(await saveProjectReview('p', 'sub', 'a.md', draft)).toBe(saved)
+    expect(mocks.invoke).toHaveBeenCalledOnce()
+  })
+  it.each(['promoted', 'dismissed'] as const)('saves annotation %s through the exact annotation-decide request', async value => {
+    strictIPC({ op: 'annotation-decide', project_id: 'p', submissionId: 'sub', index: 2, value }, saved)
+    expect(await decideProjectAnnotation('p', 'sub', 2, value)).toBe(saved)
+    expect(mocks.invoke).toHaveBeenCalledOnce()
+  })
+  it('propagates host rejection without retrying either write operation', async () => {
+    const error = new Error('kernel version mismatch')
+    strictIPC({ op: 'review-save', project_id: 'p', submissionId: 'sub', path: 'a.md', draft }, error)
+    await expect(saveProjectReview('p', 'sub', 'a.md', draft)).rejects.toBe(error)
+    expect(mocks.invoke).toHaveBeenCalledOnce()
+    mocks.invoke.mockClear()
+    strictIPC({ op: 'annotation-decide', project_id: 'p', submissionId: 'sub', index: 2, value: 'dismissed' }, error)
+    await expect(decideProjectAnnotation('p', 'sub', 2, 'dismissed')).rejects.toBe(error)
+    expect(mocks.invoke).toHaveBeenCalledOnce()
   })
 })
 

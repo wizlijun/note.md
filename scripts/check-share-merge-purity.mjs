@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Keep the merge kernel portable across the desktop, browser and Worker hosts.
-import { readdirSync, realpathSync, statSync } from 'node:fs'
+import { readdirSync, readFileSync, realpathSync, statSync } from 'node:fs'
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
@@ -51,6 +51,35 @@ const options = {
 }
 const program = ts.createProgram(files, options)
 const checker = program.getTypeChecker()
+
+// Persisted review decisions must use the same kernel version in both hosts.
+try {
+  const source = program.getSourceFile(join(root, 'types.ts'))
+  const versions = []
+  for (const statement of source?.statements ?? []) {
+    if (!ts.isVariableStatement(statement)
+      || !(statement.declarationList.flags & ts.NodeFlags.Const)
+      || !statement.modifiers?.some(modifier => modifier.kind === ts.SyntaxKind.ExportKeyword)) continue
+    for (const declaration of statement.declarationList.declarations) {
+      if (ts.isIdentifier(declaration.name) && declaration.name.text === 'MERGE_KERNEL_VERSION') {
+        versions.push(declaration.initializer && ts.isNumericLiteral(declaration.initializer) ? Number(declaration.initializer.text) : NaN)
+      }
+    }
+  }
+  if (versions.length !== 1 || !Number.isSafeInteger(versions[0]) || versions[0] < 1) {
+    problems.add('TypeScript kernel version must be one exported positive integer const in types.ts')
+  }
+  const rust = readFileSync(resolve(process.argv[3] ?? join(repository, 'src-tauri/src/project_share.rs')), 'utf8')
+  const constants = [...rust.matchAll(/^\s*const MERGE_KERNEL_VERSION:\s*u32\s*=\s*(\d+)\s*;/gm)]
+  if (constants.length !== 1) {
+    problems.add('Rust kernel version must be one MERGE_KERNEL_VERSION u32 constant')
+  } else if (versions.length === 1 && Number.isSafeInteger(versions[0]) && versions[0] !== Number(constants[0][1])) {
+    problems.add(`kernel version mismatch: TypeScript ${versions[0]}, Rust ${constants[0][1]}`)
+  }
+} catch (error) {
+  problems.add(`kernel version check failed: ${error.message}`)
+}
+
 const globalSymbol = checker.resolveName('globalThis', undefined, ts.SymbolFlags.Value, false)
 const standardLibraries = new Map([...ts.libMap].filter(([name]) =>
   name.startsWith('es') || name === 'decorators' || name === 'decorators.legacy'))

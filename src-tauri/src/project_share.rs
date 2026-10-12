@@ -10,6 +10,7 @@ use std::collections::{BTreeMap, HashSet};
 use std::path::{Path, PathBuf};
 
 const MAX_BYTES: usize = 25 * 1024 * 1024;
+const MERGE_KERNEL_VERSION: u32 = 1;
 type Result<T> = std::result::Result<T, String>;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -52,6 +53,22 @@ pub struct ProjectSnapshot {
     pub snapshot_id: String,
     pub entry: String,
     pub files: Vec<ProjectFile>,
+    #[serde(default)]
+    pub parent_snapshot_id: Option<String>,
+    #[serde(default)]
+    pub created_at: Option<String>,
+    #[serde(default)]
+    pub git: Option<SnapshotGit>,
+    #[serde(default)]
+    pub git_error: Option<String>,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SnapshotGit {
+    pub snapshot_commit: String,
+    pub head_at_freeze: String,
+    pub prefix: String,
+    pub repo_root: String,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -97,6 +114,45 @@ pub struct Decision {
     pub result_hash: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub content: Option<String>,
+    #[serde(default)]
+    pub hunk_summary: Option<HunkSummary>,
+    #[serde(default)]
+    pub reason: Option<String>,
+    #[serde(default)]
+    pub git_branch: Option<String>,
+    #[serde(default)]
+    pub git_commit: Option<String>,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct HunkSummary {
+    pub accepted: u32,
+    pub total: u32,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReviewDraft {
+    pub kernel_version: u32,
+    pub ours_hash: String,
+    pub hunks: BTreeMap<String, serde_json::Value>,
+    #[serde(default)]
+    pub target: Option<String>,
+    pub updated_at: String,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReceiptState {
+    pub state: String,
+    #[serde(default)]
+    pub reply: Option<String>,
+    #[serde(default)]
+    pub sent_at: Option<String>,
+    #[serde(default)]
+    pub last_error: Option<String>,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SubmissionGit {
+    #[serde(default)]
+    pub commit: Option<String>,
+    #[serde(default)]
+    pub error: Option<String>,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LocalFeedback {
@@ -104,6 +160,16 @@ pub struct LocalFeedback {
     pub status: String,
     pub error: Option<String>,
     pub decisions: BTreeMap<String, Decision>,
+    #[serde(default)]
+    pub review: BTreeMap<String, ReviewDraft>,
+    #[serde(default)]
+    pub annotation_decisions: BTreeMap<String, String>,
+    #[serde(default)]
+    pub receipt: Option<ReceiptState>,
+    #[serde(default)]
+    pub git: Option<SubmissionGit>,
+    #[serde(default)]
+    pub superseded_by: Option<String>,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -967,11 +1033,15 @@ impl ProjectStore {
             }
         }
         let s = ProjectSnapshot {
-            schema_version: 1,
+            schema_version: 2,
             project_id: id.into(),
             snapshot_id: snapshot_id.clone(),
             entry: c.entry.clone(),
             files,
+            parent_snapshot_id: c.published_snapshot_id.clone(),
+            created_at: Some(chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true)),
+            git: None,
+            git_error: None,
         };
         write_json(
             &self.management(&b, &format!("snapshots/{snapshot_id}/manifest.json"))?,
@@ -985,6 +1055,9 @@ impl ProjectStore {
         valid_id(snapshot)?;
         let s: ProjectSnapshot =
             read_json(&self.management(b, &format!("snapshots/{snapshot}/manifest.json"))?)?;
+        if !matches!(s.schema_version, 1 | 2) {
+            return Err("unsupported snapshot schema".into());
+        }
         if s.project_id != b.project_id || s.snapshot_id != snapshot {
             return Err("baseline identity mismatch".into());
         }
@@ -1165,6 +1238,11 @@ impl ProjectStore {
             status: "pending".into(),
             error: None,
             decisions: BTreeMap::new(),
+            review: BTreeMap::new(),
+            annotation_decisions: BTreeMap::new(),
+            receipt: None,
+            git: None,
+            superseded_by: None,
         };
         // Persist the original before trust validation; failed validation is retained in quarantine.
         write_json(&path, &local)?;
@@ -1244,6 +1322,7 @@ impl ProjectStore {
                             f.error = Some(e);
                         }
                     }
+                    f.review.remove(&path);
                 } else if d.before_hash.as_ref() == Some(&hash) {
                     d.status = "not_applied".into();
                 } else {
@@ -1330,18 +1409,14 @@ impl ProjectStore {
             status,
         })
     }
-    pub fn apply(
+    pub fn review_save(
         &self,
         id: &str,
         submission: &str,
         path: &str,
-        expected: &str,
-        content: &str,
+        draft: ReviewDraft,
     ) -> Result<LocalFeedback> {
         let _lock = self.lock()?;
-        if content.len() > MAX_BYTES {
-            return Err("content exceeds 25 MiB".into());
-        }
         let b = self.binding(id)?;
         self.active(&b)?;
         let mut f = self.load_feedback(&b, submission)?;
@@ -1351,6 +1426,72 @@ impl ProjectStore {
         self.validate_feedback(&b, &f.envelope.payload)?;
         if !f.envelope.payload.edits.iter().any(|e| e.path == path) {
             return Err("no edit for this file".into());
+        }
+        if serde_json::to_vec(&draft).map_err(|e| e.to_string())?.len() > 1024 * 1024 {
+            return Err("review draft too large".into());
+        }
+        if draft.kernel_version != MERGE_KERNEL_VERSION {
+            return Err("kernel version mismatch".into());
+        }
+        if draft.target.as_deref().is_some_and(|t| !matches!(t, "worktree" | "branch" | "patch")) {
+            return Err("invalid review target".into());
+        }
+        f.review.insert(path.into(), draft);
+        write_json(&self.inbox_path(&b, submission)?, &f)?;
+        Ok(f)
+    }
+    pub fn annotation_decide(
+        &self,
+        id: &str,
+        submission: &str,
+        index: usize,
+        value: &str,
+    ) -> Result<LocalFeedback> {
+        let _lock = self.lock()?;
+        let b = self.binding(id)?;
+        self.active(&b)?;
+        let mut f = self.load_feedback(&b, submission)?;
+        if f.status == "quarantined" {
+            return Err("feedback quarantined".into());
+        }
+        self.validate_feedback(&b, &f.envelope.payload)?;
+        if index >= f.envelope.payload.annotations.len() {
+            return Err("annotation index out of range".into());
+        }
+        if !matches!(value, "promoted" | "dismissed") {
+            return Err("invalid annotation decision".into());
+        }
+        f.annotation_decisions.insert(index.to_string(), value.into());
+        write_json(&self.inbox_path(&b, submission)?, &f)?;
+        Ok(f)
+    }
+    pub fn apply(
+        &self,
+        id: &str,
+        submission: &str,
+        path: &str,
+        expected: &str,
+        content: &str,
+        summary: Option<HunkSummary>,
+    ) -> Result<LocalFeedback> {
+        let _lock = self.lock()?;
+        if content.len() > MAX_BYTES {
+            return Err("content exceeds 25 MiB".into());
+        }
+        if summary.as_ref().is_some_and(|s| s.accepted > s.total) {
+            return Err("invalid hunk summary".into());
+        }
+        let b = self.binding(id)?;
+        self.active(&b)?;
+        let mut f = self.load_feedback(&b, submission)?;
+        if f.status == "quarantined" {
+            return Err("feedback quarantined".into());
+        }
+        self.validate_feedback(&b, &f.envelope.payload)?;
+        if !f.envelope.payload.edits.iter().any(|e| e.path == path)
+            && !f.envelope.payload.annotations.iter().any(|a| a.path == path)
+        {
+            return Err("no edit or annotation for this file".into());
         }
         if let Some(d) = f.decisions.get(path) {
             if d.status == "accepted" || d.status == "mirror_pending" {
@@ -1381,6 +1522,8 @@ impl ProjectStore {
                 content.as_bytes(),
             )?,
             content: Some(content.into()),
+            hunk_summary: summary,
+            ..Default::default()
         };
         f.decisions.insert(path.into(), decision);
         f.error = None;
@@ -1392,10 +1535,13 @@ impl ProjectStore {
         self.recover(&b, &mut f)?;
         Ok(f)
     }
-    pub fn reject(&self, id: &str, submission: &str, path: Option<&str>) -> Result<LocalFeedback> {
+    pub fn reject(&self, id: &str, submission: &str, path: Option<&str>, reason: Option<&str>) -> Result<LocalFeedback> {
         let _lock = self.lock()?;
         let b = self.binding(id)?;
         self.active(&b)?;
+        if reason.is_some_and(|r| r != "superseded") {
+            return Err("invalid reject reason".into());
+        }
         let mut f = self.load_feedback(&b, submission)?;
         if let Some(p) = path {
             if !f.envelope.payload.edits.iter().any(|e| e.path == p) {
@@ -1418,6 +1564,7 @@ impl ProjectStore {
                 e.path.clone(),
                 Decision {
                     status: "rejected".into(),
+                    reason: reason.map(String::from),
                     ..Default::default()
                 },
             );
@@ -1454,6 +1601,463 @@ fn now() -> u64 {
 mod tests {
     use super::*;
     use tempfile::TempDir;
+
+    #[test]
+    fn project_share_review_parent_is_last_successfully_published_snapshot() {
+        let (_t, s, p) = fixture();
+        let first = freeze(&s, &p);
+        assert_eq!(first.schema_version, 2);
+        assert!(first.parent_snapshot_id.is_none());
+        let created = first.created_at.as_deref().unwrap();
+        assert!(created.ends_with('Z'));
+        assert!(!created.contains('.'));
+        assert_eq!(chrono::DateTime::parse_from_rfc3339(created).unwrap().offset().local_minus_utc(), 0);
+        s.bundle(&p.project_id, &first.snapshot_id, "first bundle").unwrap();
+        s.published(&p.project_id, &first.snapshot_id, "https://share.example/project").unwrap();
+        let abandoned = freeze(&s, &p);
+        assert!(s.published(&p.project_id, &abandoned.snapshot_id, "https://share.example/project").is_err());
+        let next = freeze(&s, &p);
+        assert_eq!(next.parent_snapshot_id.as_deref(), Some(first.snapshot_id.as_str()));
+        assert_ne!(next.parent_snapshot_id.as_deref(), Some(abandoned.snapshot_id.as_str()));
+        let persisted = s.snapshot_get(&p.project_id, &next.snapshot_id).unwrap();
+        assert_eq!(persisted.parent_snapshot_id, next.parent_snapshot_id);
+        assert_eq!(persisted.created_at, next.created_at);
+    }
+
+    #[test]
+    fn project_share_review_draft_roundtrips_without_writing_source() {
+        let (_t, s, p) = fixture();
+        let snapshot = freeze(&s, &p);
+        s.feedback(&p.project_id, envelope(&p, &snapshot, "review1")).unwrap();
+        let source = Path::new(&p.source_root).join("README.md");
+        let before = std::fs::read(&source).unwrap();
+        let draft = ReviewDraft { kernel_version: 1, ours_hash: sha256_hex(&before),
+            hunks: BTreeMap::new(), target: None, updated_at: "2026-10-12T08:00:00Z".into() };
+        s.review_save(&p.project_id, "review1", "README.md", draft).unwrap();
+        let inbox = s.inbox(&p.project_id).unwrap();
+        assert_eq!(inbox[0].review["README.md"].kernel_version, 1);
+        assert_eq!(std::fs::read(source).unwrap(), before);
+    }
+
+    fn review_draft() -> ReviewDraft {
+        ReviewDraft {
+            kernel_version: MERGE_KERNEL_VERSION,
+            ours_hash: sha256_hex(b"proposal source"),
+            hunks: [("opaque".into(), serde_json::json!({"choice":"manual","text":"中文\r\n"}))].into(),
+            target: None,
+            updated_at: "2026-10-12T08:00:00Z".into(),
+        }
+    }
+
+    fn review_annotation(path: &str) -> Annotation {
+        Annotation { path: path.into(), quote: "quote".into(), comment: "comment".into(), start: None, end: None }
+    }
+
+    #[test]
+    fn project_share_review_legacy_manifest_and_inbox_read_from_disk() {
+        let (_t, s, p) = fixture();
+        let snapshot = freeze(&s, &p);
+        s.bundle(&p.project_id, &snapshot.snapshot_id, "legacy bundle").unwrap();
+        let b = s.binding(&p.project_id).unwrap();
+        let manifest_path = s.management(&b, &format!("snapshots/{}/manifest.json", snapshot.snapshot_id)).unwrap();
+        let mut manifest = serde_json::to_value(&snapshot).unwrap();
+        manifest["schemaVersion"] = serde_json::json!(1);
+        for key in ["parentSnapshotId", "createdAt", "git", "gitError"] {
+            manifest.as_object_mut().unwrap().remove(key);
+        }
+        write_json(&manifest_path, &manifest).unwrap();
+        let legacy = s.snapshot_get(&p.project_id, &snapshot.snapshot_id).unwrap();
+        assert_eq!(legacy.schema_version, 1);
+        assert!(legacy.parent_snapshot_id.is_none() && legacy.created_at.is_none());
+        assert!(legacy.git.is_none() && legacy.git_error.is_none());
+        assert_eq!(s.bundle_get(&p.project_id, &snapshot.snapshot_id).unwrap(), "legacy bundle");
+        let mut local = s.feedback(&p.project_id, envelope(&p, &snapshot, "legacy")).unwrap();
+        local.decisions.insert("README.md".into(), Decision { status: "rejected".into(), ..Default::default() });
+        let mut json = serde_json::to_value(local).unwrap();
+        for key in ["review", "annotation_decisions", "receipt", "git", "superseded_by"] {
+            json.as_object_mut().unwrap().remove(key);
+        }
+        for key in ["hunkSummary", "reason", "gitBranch", "gitCommit"] {
+            json["decisions"]["README.md"].as_object_mut().unwrap().remove(key);
+        }
+        write_json(&s.inbox_path(&b, "legacy").unwrap(), &json).unwrap();
+        let legacy = s.inbox(&p.project_id).unwrap().pop().unwrap();
+        assert!(legacy.review.is_empty() && legacy.annotation_decisions.is_empty());
+        assert!(legacy.receipt.is_none() && legacy.git.is_none() && legacy.superseded_by.is_none());
+        let d = &legacy.decisions["README.md"];
+        assert!(d.hunk_summary.is_none() && d.reason.is_none() && d.git_branch.is_none() && d.git_commit.is_none());
+        assert_eq!(legacy.status, "rejected");
+        for version in [0, 3] {
+            manifest["schemaVersion"] = serde_json::json!(version);
+            write_json(&manifest_path, &manifest).unwrap();
+            assert!(s.snapshot_get(&p.project_id, &snapshot.snapshot_id).unwrap_err().contains("snapshot schema"));
+            assert!(s.bundle_get(&p.project_id, &snapshot.snapshot_id).is_err());
+            assert_eq!(s.feedback(&p.project_id, envelope(&p, &snapshot, &format!("unknown{version}"))).unwrap().status, "quarantined");
+        }
+        manifest["schemaVersion"] = serde_json::json!(2);
+        write_json(&manifest_path, &manifest).unwrap();
+        let mut protocol_v2 = envelope(&p, &snapshot, "protocol2");
+        protocol_v2.payload.schema_version = 2;
+        assert_eq!(s.feedback(&p.project_id, protocol_v2).unwrap().status, "quarantined");
+    }
+
+    #[test]
+    fn project_share_review_draft_exact_utf8_limit_and_ipc_keys() {
+        let (_t, s, p) = fixture();
+        let snapshot = freeze(&s, &p);
+        s.feedback(&p.project_id, envelope(&p, &snapshot, "limit")).unwrap();
+        let mut draft = review_draft();
+        draft.hunks = [("padding".into(), serde_json::json!(""))].into();
+        let overhead = serde_json::to_vec(&draft).unwrap().len();
+        draft.hunks.insert("padding".into(), serde_json::json!("a".repeat(1024 * 1024 - overhead)));
+        assert_eq!(serde_json::to_vec(&draft).unwrap().len(), 1024 * 1024);
+        let local = s.review_save(&p.project_id, "limit", "README.md", draft.clone()).unwrap();
+        let json = serde_json::to_value(&local).unwrap();
+        let saved = &json["review"]["README.md"];
+        assert_eq!(saved["kernel_version"], MERGE_KERNEL_VERSION);
+        assert_eq!(saved["ours_hash"], draft.ours_hash);
+        assert_eq!(saved["updated_at"], draft.updated_at);
+        assert!(saved.get("kernelVersion").is_none());
+        assert_eq!(*saved, serde_json::to_value(&draft).unwrap());
+        let path = s.inbox_path(&s.binding(&p.project_id).unwrap(), "limit").unwrap();
+        let before = std::fs::read(&path).unwrap();
+        draft.hunks.insert("padding".into(), serde_json::json!("a".repeat(1024 * 1024 - overhead + 1)));
+        assert!(s.review_save(&p.project_id, "limit", "README.md", draft.clone()).unwrap_err().starts_with("review draft too large"));
+        assert_eq!(std::fs::read(&path).unwrap(), before);
+        let chars = (1024 * 1024 - overhead) / 3 + 1;
+        draft.hunks.insert("padding".into(), serde_json::json!("中".repeat(chars)));
+        assert!(chars < 1024 * 1024);
+        assert!(serde_json::to_vec(&draft).unwrap().len() > 1024 * 1024);
+        assert!(s.review_save(&p.project_id, "limit", "README.md", draft).unwrap_err().starts_with("review draft too large"));
+        assert_eq!(std::fs::read(path).unwrap(), before);
+    }
+
+    #[test]
+    fn project_share_review_draft_validation_preserves_previous_draft() {
+        let (_t, s, p) = fixture();
+        let snapshot = freeze(&s, &p);
+        let mut e = envelope(&p, &snapshot, "validation");
+        e.payload.annotations.push(review_annotation("docs/a.md"));
+        s.feedback(&p.project_id, e).unwrap();
+        for target in [None, Some("worktree"), Some("branch"), Some("patch")] {
+            let mut draft = review_draft();
+            draft.target = target.map(String::from);
+            let f = s.review_save(&p.project_id, "validation", "README.md", draft.clone()).unwrap();
+            assert_eq!(serde_json::to_value(&f.review["README.md"]).unwrap(), serde_json::to_value(draft).unwrap());
+        }
+        let inbox_path = s.inbox_path(&s.binding(&p.project_id).unwrap(), "validation").unwrap();
+        let before = std::fs::read(&inbox_path).unwrap();
+        for version in [0, MERGE_KERNEL_VERSION + 1] {
+            let mut draft = review_draft();
+            draft.kernel_version = version;
+            assert!(s.review_save(&p.project_id, "validation", "README.md", draft).unwrap_err().starts_with("kernel version mismatch"));
+        }
+        for path in ["docs/a.md", "missing.md", "../README.md"] {
+            assert!(s.review_save(&p.project_id, "validation", path, review_draft()).is_err());
+        }
+        let mut draft = review_draft();
+        draft.target = Some("remote".into());
+        assert!(s.review_save(&p.project_id, "validation", "README.md", draft).is_err());
+        assert_eq!(std::fs::read(inbox_path).unwrap(), before);
+    }
+
+    #[test]
+    fn project_share_review_annotation_decisions_do_not_write_source() {
+        let (_t, s, p) = fixture();
+        let snapshot = freeze(&s, &p);
+        let mut e = envelope(&p, &snapshot, "annotations");
+        e.payload.edits.clear();
+        e.payload.annotations.push(review_annotation("README.md"));
+        s.feedback(&p.project_id, e).unwrap();
+        let source = Path::new(&p.source_root).join("README.md");
+        let before = std::fs::read(&source).unwrap();
+        for value in ["promoted", "dismissed"] {
+            let f = s.annotation_decide(&p.project_id, "annotations", 0, value).unwrap();
+            assert_eq!(f.annotation_decisions["0"], value);
+            assert_eq!(f.status, "pending");
+        }
+        let path = s.inbox_path(&s.binding(&p.project_id).unwrap(), "annotations").unwrap();
+        let persisted = std::fs::read(&path).unwrap();
+        assert!(s.annotation_decide(&p.project_id, "annotations", 1, "promoted").unwrap_err().starts_with("annotation index out of range"));
+        assert!(s.annotation_decide(&p.project_id, "annotations", usize::MAX, "promoted").unwrap_err().starts_with("annotation index out of range"));
+        assert!(s.annotation_decide(&p.project_id, "annotations", 0, "accepted").is_err());
+        assert!(s.review_save(&p.project_id, "annotations", "README.md", review_draft()).is_err());
+        assert_eq!(std::fs::read(path).unwrap(), persisted);
+        assert_eq!(s.inbox(&p.project_id).unwrap()[0].annotation_decisions["0"], "dismissed");
+        assert_eq!(std::fs::read(source).unwrap(), before);
+        assert_eq!(std::fs::read(Path::new(&p.mirror_root).join("README.md")).unwrap(), before);
+    }
+
+    #[test]
+    fn project_share_review_new_ops_respect_deletion_and_trust_boundaries() {
+        let (_t, s, p) = fixture();
+        let snapshot = freeze(&s, &p);
+        let mut e = envelope(&p, &snapshot, "active");
+        e.payload.annotations.push(review_annotation("README.md"));
+        s.feedback(&p.project_id, e.clone()).unwrap();
+        let mut forged = e;
+        forged.payload.submission_id = "quarantine".into();
+        forged.payload.edits[0].base_hash = "forged".into();
+        assert_eq!(s.feedback(&p.project_id, forged).unwrap().status, "quarantined");
+        assert!(s.review_save(&p.project_id, "quarantine", "README.md", review_draft()).unwrap_err().contains("quarantined"));
+        assert!(s.annotation_decide(&p.project_id, "quarantine", 0, "promoted").unwrap_err().contains("quarantined"));
+        s.begin_delete(&p.project_id).unwrap();
+        let path = s.inbox_path(&s.binding(&p.project_id).unwrap(), "active").unwrap();
+        let before = std::fs::read(&path).unwrap();
+        let records = std::fs::read(s.records_path()).unwrap();
+        assert_eq!(s.review_save(&p.project_id, "active", "README.md", review_draft()).unwrap_err(), "project deletion in progress");
+        assert_eq!(s.annotation_decide(&p.project_id, "active", 0, "promoted").unwrap_err(), "project deletion in progress");
+        assert_eq!(std::fs::read(&path).unwrap(), before);
+        assert_eq!(std::fs::read(s.records_path()).unwrap(), records);
+        s.cancel_delete(&p.project_id).unwrap();
+        let baseline = s.management(&s.binding(&p.project_id).unwrap(), &format!("snapshots/{}/files/README.md", snapshot.snapshot_id)).unwrap();
+        std::fs::write(baseline, "corrupted baseline").unwrap();
+        assert!(s.review_save(&p.project_id, "active", "README.md", review_draft()).unwrap_err().contains("baseline corrupted"));
+        assert!(s.annotation_decide(&p.project_id, "active", 0, "promoted").unwrap_err().contains("baseline corrupted"));
+        assert_eq!(std::fs::read(path).unwrap(), before);
+    }
+
+    #[test]
+    fn project_share_review_apply_persists_summary_clears_only_applied_draft_and_is_idempotent() {
+        let (_t, s, p) = fixture();
+        let snapshot = freeze(&s, &p);
+        let mut e = envelope(&p, &snapshot, "apply");
+        let second = snapshot.files.iter().find(|f| f.path == "docs/a.md").unwrap();
+        e.payload.edits.push(Edit { path: second.path.clone(), base_hash: second.hash.clone(), after_markdown: "second".into() });
+        s.feedback(&p.project_id, e).unwrap();
+        for path in ["README.md", "docs/a.md"] {
+            s.review_save(&p.project_id, "apply", path, review_draft()).unwrap();
+        }
+        let review = s.review(&p.project_id, "apply", "README.md").unwrap();
+        let summary = HunkSummary { accepted: 2, total: 3 };
+        let content = "\u{feff}owner\r\nguest\r\n";
+        let applied = s.apply(&p.project_id, "apply", "README.md", &review.current_hash, content, Some(summary.clone())).unwrap();
+        assert_eq!(applied.decisions["README.md"].status, "accepted");
+        assert_eq!(applied.decisions["README.md"].hunk_summary, Some(summary.clone()));
+        assert!(!applied.review.contains_key("README.md"));
+        assert!(applied.review.contains_key("docs/a.md"));
+        let persisted = s.inbox(&p.project_id).unwrap().pop().unwrap();
+        let json = serde_json::to_value(&persisted).unwrap();
+        assert_eq!(json["decisions"]["README.md"]["hunkSummary"], serde_json::json!({"accepted":2,"total":3}));
+        assert!(json["decisions"]["README.md"].get("hunk_summary").is_none());
+        let repeated = s.apply(&p.project_id, "apply", "README.md", "stale", "different second apply", Some(HunkSummary { accepted: 0, total: 0 })).unwrap();
+        assert_eq!(repeated.decisions["README.md"].hunk_summary, Some(summary));
+        assert_eq!(std::fs::read(&review.source_path).unwrap(), content.as_bytes());
+        assert_eq!(std::fs::read(Path::new(&p.mirror_root).join("README.md")).unwrap(), content.as_bytes());
+    }
+
+    #[test]
+    fn project_share_review_annotation_only_apply_uses_existing_source_path() {
+        let (_t, s, p) = fixture();
+        let snapshot = freeze(&s, &p);
+        let mut e = envelope(&p, &snapshot, "promote");
+        e.payload.edits.clear();
+        e.payload.annotations.push(review_annotation("README.md"));
+        s.feedback(&p.project_id, e).unwrap();
+        let review = s.review(&p.project_id, "promote", "README.md").unwrap();
+        assert!(s.apply(&p.project_id, "promote", "docs/a.md", &review.current_hash, "outside", None).unwrap_err().contains("no edit or annotation"));
+        let applied = s.apply(&p.project_id, "promote", "README.md", &review.current_hash, "owner + promoted annotation", Some(HunkSummary { accepted: 0, total: 0 })).unwrap();
+        assert_eq!(applied.decisions["README.md"].status, "accepted");
+        assert!(applied.annotation_decisions.is_empty());
+        assert_eq!(std::fs::read_to_string(&review.source_path).unwrap(), "owner + promoted annotation");
+        s.annotation_decide(&p.project_id, "promote", 0, "promoted").unwrap();
+        assert_eq!(s.inbox(&p.project_id).unwrap()[0].annotation_decisions["0"], "promoted");
+    }
+
+    #[test]
+    fn project_share_review_cas_summary_and_terminal_protection_preserve_draft() {
+        let (_t, s, p) = fixture();
+        let snapshot = freeze(&s, &p);
+        s.feedback(&p.project_id, envelope(&p, &snapshot, "cas")).unwrap();
+        s.review_save(&p.project_id, "cas", "README.md", review_draft()).unwrap();
+        let review = s.review(&p.project_id, "cas", "README.md").unwrap();
+        let before = std::fs::read(&review.source_path).unwrap();
+        assert!(s.apply(&p.project_id, "cas", "README.md", &review.current_hash, "invalid", Some(HunkSummary { accepted: 2, total: 1 })).unwrap_err().contains("summary"));
+        assert_eq!(std::fs::read(&review.source_path).unwrap(), before);
+        std::fs::write(&review.source_path, "new owner text").unwrap();
+        assert!(s.apply(&p.project_id, "cas", "README.md", &review.current_hash, "guest", None).unwrap_err().starts_with("source changed"));
+        assert_eq!(s.review(&p.project_id, "cas", "README.md").unwrap().status, "source_changed");
+        let f = s.inbox(&p.project_id).unwrap().pop().unwrap();
+        assert!(f.review.contains_key("README.md") && f.decisions.is_empty());
+        let current = sha256_hex(b"new owner text");
+        std::fs::write(Path::new(&p.mirror_root).join("README.md"), "mirror conflict").unwrap();
+        assert!(s.apply(&p.project_id, "cas", "README.md", &current, "guest", None).is_err());
+        let mut f = s.inbox(&p.project_id).unwrap().pop().unwrap();
+        assert!(f.review.contains_key("README.md") && f.decisions.is_empty());
+        let path = s.inbox_path(&s.binding(&p.project_id).unwrap(), "cas").unwrap();
+        for status in ["rejected", "recovery_conflict"] {
+            f.decisions.insert("README.md".into(), Decision { status: status.into(), ..Default::default() });
+            write_json(&path, &f).unwrap();
+            assert!(s.apply(&p.project_id, "cas", "README.md", &current, "guest", None).unwrap_err().contains("decision prevents"));
+            assert!(s.inbox(&p.project_id).unwrap()[0].review.contains_key("README.md"));
+        }
+        assert_eq!(std::fs::read_to_string(&review.source_path).unwrap(), "new owner text");
+    }
+
+    #[test]
+    fn project_share_review_recover_clears_draft_only_for_written_result() {
+        for scenario in ["written", "before", "third", "offline", "deleting"] {
+            let (t, s, p) = fixture();
+            let snapshot = freeze(&s, &p);
+            s.feedback(&p.project_id, envelope(&p, &snapshot, scenario)).unwrap();
+            let mut f = s.review_save(&p.project_id, scenario, "README.md", review_draft()).unwrap();
+            let source = Path::new(&p.source_root).join("README.md");
+            let before = std::fs::read(&source).unwrap();
+            let summary = HunkSummary { accepted: 1, total: 2 };
+            f.decisions.insert("README.md".into(), Decision {
+                status: "pending".into(), before_hash: Some(sha256_hex(&before)),
+                result_hash: Some(sha256_hex(b"written result")), content: Some("written result".into()),
+                hunk_summary: Some(summary.clone()), ..Default::default()
+            });
+            let path = s.inbox_path(&s.binding(&p.project_id).unwrap(), scenario).unwrap();
+            write_json(&path, &f).unwrap();
+            let intent = std::fs::read(&path).unwrap();
+            match scenario {
+                "written" => std::fs::write(&source, "written result").unwrap(),
+                "third" => std::fs::write(&source, "external third text").unwrap(),
+                "offline" => std::fs::rename(&p.source_root, t.path().join("source-moved")).unwrap(),
+                "deleting" => s.begin_delete(&p.project_id).unwrap(),
+                _ => (),
+            }
+            let recovered = s.inbox(&p.project_id).unwrap().pop().unwrap();
+            let decision = &recovered.decisions["README.md"];
+            assert_eq!(decision.hunk_summary, Some(summary), "{scenario}");
+            assert_eq!(recovered.review.contains_key("README.md"), scenario != "written", "{scenario}");
+            match scenario {
+                "written" => {
+                    assert_eq!(decision.status, "accepted");
+                    assert_eq!(std::fs::read_to_string(Path::new(&p.mirror_root).join("README.md")).unwrap(), "written result");
+                    assert!(decision.content.is_none());
+                }
+                "before" => { assert_eq!(decision.status, "not_applied"); assert_eq!(std::fs::read(&source).unwrap(), before); }
+                "third" => { assert_eq!(decision.status, "recovery_conflict"); assert_eq!(std::fs::read_to_string(&source).unwrap(), "external third text"); }
+                _ => { assert_eq!(decision.status, "pending"); assert_eq!(std::fs::read(&path).unwrap(), intent); }
+            }
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn project_share_review_mirror_pending_keeps_summary_and_clears_draft_without_reapply() {
+        let (_t, s, p) = fixture();
+        let snapshot = freeze(&s, &p);
+        s.feedback(&p.project_id, envelope(&p, &snapshot, "mirror-pending")).unwrap();
+        s.review_save(&p.project_id, "mirror-pending", "README.md", review_draft()).unwrap();
+        let review = s.review(&p.project_id, "mirror-pending", "README.md").unwrap();
+        let metadata = s.vault.join(".notemd");
+        let saved = s.vault.join("metadata-saved");
+        std::fs::rename(&metadata, &saved).unwrap();
+        std::os::unix::fs::symlink(&saved, &metadata).unwrap();
+        let summary = HunkSummary { accepted: 1, total: 1 };
+        let pending = s.apply(&p.project_id, "mirror-pending", "README.md", &review.current_hash, "persisted result", Some(summary.clone())).unwrap();
+        assert_eq!(pending.decisions["README.md"].status, "mirror_pending");
+        assert_eq!(pending.decisions["README.md"].hunk_summary, Some(summary.clone()));
+        assert!(!pending.review.contains_key("README.md"));
+        assert_eq!(std::fs::read_to_string(&review.source_path).unwrap(), "persisted result");
+        let repeated = s.apply(&p.project_id, "mirror-pending", "README.md", "stale", "never written", None).unwrap();
+        assert_eq!(repeated.decisions["README.md"].status, "mirror_pending");
+        assert_eq!(repeated.decisions["README.md"].hunk_summary, Some(summary.clone()));
+        let rejected = s.reject(&p.project_id, "mirror-pending", Some("README.md"), Some("superseded")).unwrap();
+        assert_eq!(rejected.decisions["README.md"].status, "mirror_pending");
+        assert!(rejected.decisions["README.md"].reason.is_none());
+        std::fs::remove_file(&metadata).unwrap();
+        std::fs::rename(&saved, &metadata).unwrap();
+        let recovered = s.inbox(&p.project_id).unwrap().pop().unwrap();
+        assert_eq!(recovered.decisions["README.md"].status, "accepted");
+        assert_eq!(recovered.decisions["README.md"].hunk_summary, Some(summary));
+        assert!(!recovered.review.contains_key("README.md"));
+        assert_eq!(std::fs::read_to_string(&review.source_path).unwrap(), "persisted result");
+    }
+
+    #[test]
+    fn project_share_review_reject_reason_roundtrips_and_preserves_terminal_decisions() {
+        let (_t, s, p) = fixture();
+        let snapshot = freeze(&s, &p);
+        let mut e = envelope(&p, &snapshot, "reject");
+        let second = snapshot.files.iter().find(|f| f.path == "docs/a.md").unwrap();
+        e.payload.edits.push(Edit { path: second.path.clone(), base_hash: second.hash.clone(), after_markdown: "second".into() });
+        s.feedback(&p.project_id, e).unwrap();
+        assert!(s.reject(&p.project_id, "reject", None, Some("other")).is_err());
+        let rejected = s.reject(&p.project_id, "reject", Some("README.md"), Some("superseded")).unwrap();
+        assert_eq!(rejected.decisions["README.md"].reason.as_deref(), Some("superseded"));
+        assert!(!rejected.decisions.contains_key("docs/a.md"));
+        s.reject(&p.project_id, "reject", None, Some("superseded")).unwrap();
+        let persisted = s.inbox(&p.project_id).unwrap().pop().unwrap();
+        assert_eq!(persisted.status, "rejected");
+        assert_eq!(persisted.decisions["docs/a.md"].reason.as_deref(), Some("superseded"));
+        let mut f = persisted;
+        let path = s.inbox_path(&s.binding(&p.project_id).unwrap(), "reject").unwrap();
+        for status in ["accepted", "recovery_conflict"] {
+            f.decisions.insert("README.md".into(), Decision { status: status.into(), reason: None, ..Default::default() });
+            write_json(&path, &f).unwrap();
+            let rejected = s.reject(&p.project_id, "reject", Some("README.md"), Some("superseded")).unwrap();
+            assert_eq!(rejected.decisions["README.md"].status, status);
+            assert!(rejected.decisions["README.md"].reason.is_none());
+        }
+    }
+
+    #[test]
+    fn project_share_review_ipc_strictly_parses_new_fields_and_keeps_legacy_omissions() {
+        let (_t, s, p) = fixture();
+        let snapshot = freeze(&s, &p);
+        let mut e = envelope(&p, &snapshot, "ipc");
+        e.payload.annotations.push(review_annotation("README.md"));
+        s.feedback(&p.project_id, e).unwrap();
+        let source = Path::new(&p.source_root).join("README.md");
+        let before = std::fs::read(&source).unwrap();
+        let mut request = serde_json::json!({"op":"review-save","project_id":p.project_id,"submissionId":"ipc","path":"README.md","draft":review_draft()});
+        let saved = dispatch(&s, &request).unwrap();
+        assert_eq!(saved["review"]["README.md"]["kernel_version"], 1);
+        for bad in [serde_json::Value::Null, serde_json::json!({}), serde_json::json!({"kernelVersion":1,"ours_hash":"h","hunks":{},"updated_at":"t"}), serde_json::json!({"kernel_version":1,"ours_hash":"h","hunks":[],"updated_at":"t"})] {
+            request["draft"] = bad;
+            assert!(dispatch(&s, &request).unwrap_err().starts_with("invalid draft:"));
+        }
+        request.as_object_mut().unwrap().remove("draft");
+        assert_eq!(dispatch(&s, &request).unwrap_err(), "missing draft");
+        let mut request = serde_json::json!({"op":"annotation-decide","project_id":p.project_id,"submissionId":"ipc","index":0,"value":"promoted"});
+        assert_eq!(dispatch(&s, &request).unwrap()["annotation_decisions"]["0"], "promoted");
+        for bad in [serde_json::json!(-1), serde_json::json!(0.5), serde_json::json!("0"), serde_json::Value::Null, serde_json::json!(false)] {
+            request["index"] = bad;
+            assert!(dispatch(&s, &request).unwrap_err().starts_with("invalid index:"));
+        }
+        request.as_object_mut().unwrap().remove("index");
+        assert_eq!(dispatch(&s, &request).unwrap_err(), "missing index");
+        request["index"] = serde_json::json!(0);
+        request["value"] = serde_json::json!(123);
+        assert!(dispatch(&s, &request).is_err());
+        let mut request = serde_json::json!({"op":"apply","project_id":p.project_id,"submissionId":"ipc","path":"README.md","expectedHash":sha256_hex(&before),"content":"IPC final"});
+        for bad in [serde_json::json!(false), serde_json::json!("bad"), serde_json::json!({"accepted":-1,"total":1}), serde_json::json!({"accepted":0.5,"total":1}), serde_json::json!({"accepted":1}), serde_json::json!({"accepted":4294967296u64,"total":4294967296u64})] {
+            request["summary"] = bad;
+            assert!(dispatch(&s, &request).unwrap_err().starts_with("invalid summary:"));
+        }
+        request["summary"] = serde_json::json!({"accepted":2,"total":1});
+        assert_eq!(dispatch(&s, &request).unwrap_err(), "invalid hunk summary");
+        let mut reject = serde_json::json!({"op":"reject","project_id":p.project_id,"submissionId":"ipc","path":"README.md"});
+        for bad in [serde_json::json!(false), serde_json::json!(123), serde_json::json!({})] {
+            reject["reason"] = bad;
+            assert!(dispatch(&s, &reject).unwrap_err().starts_with("invalid reason:"));
+        }
+        reject["reason"] = serde_json::json!("invalid");
+        assert_eq!(dispatch(&s, &reject).unwrap_err(), "invalid reject reason");
+        reject["reason"] = serde_json::Value::Null;
+        reject["path"] = serde_json::json!(false);
+        assert!(dispatch(&s, &reject).unwrap_err().starts_with("invalid path:"));
+        assert_eq!(std::fs::read(&source).unwrap(), before);
+        let f = s.inbox(&p.project_id).unwrap().pop().unwrap();
+        assert!(f.decisions.is_empty() && f.review.contains_key("README.md"));
+        request.as_object_mut().unwrap().remove("summary");
+        assert_eq!(dispatch(&s, &request).unwrap()["decisions"]["README.md"]["hunkSummary"], serde_json::Value::Null);
+        assert_eq!(std::fs::read_to_string(&source).unwrap(), "IPC final");
+        // Explicit null remains compatible with the same omitted optional field.
+        request["summary"] = serde_json::Value::Null;
+        assert_eq!(dispatch(&s, &request).unwrap()["decisions"]["README.md"]["status"], "accepted");
+        let e = envelope(&p, &snapshot, "legacy-reject");
+        s.feedback(&p.project_id, e).unwrap();
+        reject["submissionId"] = serde_json::json!("legacy-reject");
+        reject["path"] = serde_json::json!("README.md");
+        reject.as_object_mut().unwrap().remove("reason");
+        assert_eq!(dispatch(&s, &reject).unwrap()["decisions"]["README.md"]["reason"], serde_json::Value::Null);
+    }
 
     #[test]
     fn project_share_modified_at_supports_old_schema_one_manifests() {
@@ -1540,7 +2144,7 @@ mod tests {
         assert_eq!(s.bundle_get(&p.project_id, &snapshot.snapshot_id).unwrap(), "exact publication bytes");
         assert!(s.snapshot_get(&p.project_id, &snapshot.snapshot_id).is_ok());
         assert!(s.snapshot(&p.project_id, vec!["README.md".into()], BTreeMap::new()).is_err());
-        assert!(s.apply(&p.project_id, "offline", "README.md", "hash", "edit").is_err());
+        assert!(s.apply(&p.project_id, "offline", "README.md", "hash", "edit", None).is_err());
     }
     #[test]
     fn project_share_projects_reports_each_damaged_item() {
@@ -2059,6 +2663,7 @@ mod tests {
                 "README.md",
                 &review.current_hash,
                 "![same](docs/image.png)",
+                None,
             )
             .unwrap();
         assert_eq!(accepted.status, "accepted");
@@ -2100,7 +2705,8 @@ mod tests {
                 "stale",
                 "README.md",
                 &review.current_hash,
-                "guest"
+                "guest",
+                None,
             )
             .is_err());
         let current = s.review(&p.project_id, "stale", "README.md").unwrap();
@@ -2111,7 +2717,8 @@ mod tests {
                 "stale",
                 "README.md",
                 &current.current_hash,
-                "guest"
+                "guest",
+                None,
             )
             .is_err());
         assert_eq!(
@@ -2135,6 +2742,7 @@ mod tests {
                 result_hash: Some(sha256_hex(b"written before crash")),
                 mirrors: BTreeMap::new(),
                 content: Some("written before crash".into()),
+                ..Default::default()
             },
         );
         let b = s.binding(&p.project_id).unwrap();
@@ -2164,7 +2772,7 @@ mod tests {
         });
         s.feedback(&p.project_id, e.clone()).unwrap();
         let rejected = s
-            .reject(&p.project_id, "partial", Some("docs/a.md"))
+            .reject(&p.project_id, "partial", Some("docs/a.md"), None)
             .unwrap();
         assert_eq!(rejected.decisions["docs/a.md"].status, "rejected");
         let review = s.review(&p.project_id, "partial", "README.md").unwrap();
@@ -2175,6 +2783,7 @@ mod tests {
                 "README.md",
                 &review.current_hash,
                 "first edit",
+                None,
             )
             .unwrap();
         assert_eq!(accepted.status, "accepted");
@@ -2297,6 +2906,7 @@ mod tests {
                 "README.md",
                 &review.current_hash,
                 "intent result",
+                None,
             )
             .unwrap();
         assert_eq!(pending.decisions["README.md"].status, "mirror_pending");
@@ -2448,13 +3058,14 @@ mod tests {
             "README.md",
             &review.current_hash,
             "A edit",
+            None,
         )
         .unwrap();
         let mut rejected = e;
         rejected.payload.submission_id = "missing-rejected".into();
         rejected.request_hash = "missing-rejected".into();
         s.feedback(&p.project_id, rejected).unwrap();
-        s.reject(&p.project_id, "missing-rejected", Some("docs/a.md"))
+        s.reject(&p.project_id, "missing-rejected", Some("docs/a.md"), None)
             .unwrap();
         let a = s
             .review(&p.project_id, "missing-rejected", "README.md")
@@ -2465,7 +3076,8 @@ mod tests {
                 "missing-rejected",
                 "README.md",
                 &a.current_hash,
-                "A final edit"
+                "A final edit",
+                None,
             )
             .unwrap()
             .status,
@@ -2483,7 +3095,8 @@ mod tests {
                 "missing",
                 "docs/a.md",
                 &review_b.current_hash,
-                "B edit"
+                "B edit",
+                None,
             )
             .unwrap()
             .status,
@@ -2514,6 +3127,7 @@ mod tests {
                 )
                 .unwrap(),
                 content: Some("written result".into()),
+                ..Default::default()
             },
         );
         let b = s.binding(&p.project_id).unwrap();
@@ -2624,6 +3238,10 @@ pub fn project_share(
         .canonicalize()
         .map_err(|e| e.to_string())?;
     let service = ProjectStore::new(vault, app.path().app_data_dir().map_err(|e| e.to_string())?);
+    dispatch(&service, &request)
+}
+
+fn dispatch(service: &ProjectStore, request: &serde_json::Value) -> Result<serde_json::Value> {
     fn string<'a>(r: &'a serde_json::Value, key: &str) -> Result<&'a str> {
         r.get(key)
             .and_then(|v| v.as_str())
@@ -2631,6 +3249,16 @@ pub fn project_share(
     }
     fn value<T: Serialize>(v: T) -> Result<serde_json::Value> {
         serde_json::to_value(v).map_err(|e| e.to_string())
+    }
+    fn field<T: serde::de::DeserializeOwned>(r: &serde_json::Value, key: &str) -> Result<T> {
+        serde_json::from_value(r.get(key).cloned().ok_or_else(|| format!("missing {key}"))?)
+            .map_err(|e| format!("invalid {key}: {e}"))
+    }
+    fn optional<T: serde::de::DeserializeOwned>(r: &serde_json::Value, key: &str) -> Result<Option<T>> {
+        match r.get(key) {
+            None | Some(serde_json::Value::Null) => Ok(None),
+            Some(_) => field(r, key).map(Some),
+        }
     }
     let op = string(&request, "op")?;
     if op == "projects" { return value(service.projects()?); }
@@ -2692,17 +3320,31 @@ pub fn project_share(
             string(&request, "submissionId")?,
             string(&request, "path")?,
         )?),
+        "review-save" => value(service.review_save(
+            id,
+            string(&request, "submissionId")?,
+            string(&request, "path")?,
+            field(&request, "draft")?,
+        )?),
+        "annotation-decide" => value(service.annotation_decide(
+            id,
+            string(&request, "submissionId")?,
+            field(&request, "index")?,
+            string(&request, "value")?,
+        )?),
         "apply" => value(service.apply(
             id,
             string(&request, "submissionId")?,
             string(&request, "path")?,
             string(&request, "expectedHash")?,
             string(&request, "content")?,
+            optional(&request, "summary")?,
         )?),
         "reject" => value(service.reject(
             id,
             string(&request, "submissionId")?,
-            request.get("path").and_then(|v| v.as_str()),
+            optional::<String>(&request, "path")?.as_deref(),
+            optional::<String>(&request, "reason")?.as_deref(),
         )?),
         "resolve" => value(service.resolve(id, string(&request, "submissionId")?)?),
         _ => Err(format!("unknown project_share operation: {op}")),
