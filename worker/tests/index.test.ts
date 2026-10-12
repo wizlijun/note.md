@@ -154,3 +154,13 @@ describe('DELETE /:slug', () => {
     expect(get.status).toBe(410)
   })
 })
+
+describe('collaboration CORS routing', () => {
+  it('advertises PUT for receipt preflight alongside existing methods', async () => {
+    const r = await SELF.fetch('http://x/feedback/2026-10-13-project/receipt/s1', { method: 'OPTIONS' })
+    expect(r.status).toBe(204)
+    expect(r.headers.get('Access-Control-Allow-Methods')).toContain('PUT')
+    expect(r.headers.get('Allow')).toContain('PUT')
+    expect(r.headers.get('Access-Control-Allow-Headers')).toContain('x-feedback-token')
+  })
+})

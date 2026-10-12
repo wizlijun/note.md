@@ -316,9 +316,21 @@ export async function revokeProject(env: Env, slug: string, token: string, input
 }
 export async function handleProject(req: Request, env: Env, url: URL): Promise<Response> {
   if (/^\/project\/[^/]+\/upload\//.test(url.pathname)) return handleProjectUpload(req, env, url)
-  const match = /^\/project\/([^/]+)\/(entry|archive|download)$/.exec(url.pathname)
+  const match = /^\/project\/([^/]+)\/(entry|archive|download|version)$/.exec(url.pathname)
   if (!match || !SLUG.test(match[1])) return new Response('Not Found', { status: 404 })
   const [, slug, op] = match
+  if (op === 'version') {
+    const headers = { 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex' }
+    if (!['GET', 'HEAD'].includes(req.method)) return new Response('Method Not Allowed', { status: 405, headers })
+    const loaded = await readProjectState(env, slug)
+    if (!loaded) return new Response(req.method === 'HEAD' ? null : 'Not Found', { status: 404, headers })
+    const meta = activeProjectMetadata(loaded.state)
+    if (!meta) return new Response(req.method === 'HEAD' ? null : 'Share expired', { status: 410, headers })
+    const active = loaded.state.active!
+    return new Response(req.method === 'HEAD' ? null : JSON.stringify({ schemaVersion: 1, project_id: meta.project_id,
+      snapshotId: active.snapshotId, archiveReady: !!active.archiveKey, expires_at: meta.expires_at }),
+    { headers: { ...headers, 'Content-Type': 'application/json' } })
+  }
   if (op === 'download' && ['GET', 'HEAD'].includes(req.method)) return await publicProject(env, slug, true, req.method === 'HEAD') ?? new Response('Share expired', { status: 410, headers: { 'Cache-Control': 'no-store' } })
   if (!env.SHARE_API_KEY || req.headers.get('Authorization') !== `Bearer ${env.SHARE_API_KEY}`) return new Response('Unauthorized', { status: 401 })
   if (req.method !== 'POST' || op === 'download') return new Response('Method Not Allowed', { status: 405 })

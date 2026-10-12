@@ -138,3 +138,22 @@ export interface ReviewFile {
   currentHash: string
   status: string
 }
+
+export interface ProjectVersion {
+  schemaVersion: 1
+  project_id: string
+  snapshotId: string
+  archiveReady: boolean
+  expires_at: string | null
+}
+export interface ProjectReceipt {
+  schemaVersion: 1
+  project_id: string
+  submissionId: string
+  decidedAt: string
+  outcome: 'accepted' | 'partial' | 'rejected' | 'superseded' | 'forwarded'
+  files: { path: string; outcome: 'accepted' | 'partial' | 'rejected' | 'forwarded'; accepted: number; total: number }[]
+  annotations: { promoted: number; total: number }
+  reply?: string
+  includedInSnapshotId?: string
+}

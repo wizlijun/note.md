@@ -9,6 +9,7 @@ export interface Env {
 export { SlugAnalytics, DayRollup } from './audience'
 import { SLUG_RE as AUDIENCE_SLUG_RE } from './audience'
 import { handleFeedback, FEEDBACK_ID_RE, FEEDBACK_HASH_RE } from './feedback'
+import { handleReceipt } from './receipt'
 import { readUploadControl } from './project-upload'
 import { activeProjectMetadata, handleProject, publicProject, readProjectState, revokeProject } from './project'
 
@@ -1101,7 +1102,7 @@ async function handleAudienceSessions(req: Request, env: Env, url: URL): Promise
 // Authorization header (API key), not cookies/credentials.
 const CORS_HEADERS: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'authorization, content-type, x-feedback-token, x-edit-token, x-publication-id, x-snapshot-id, x-upload-session, x-artifact, x-part-number',
   'Access-Control-Max-Age': '86400',
 }
@@ -1135,10 +1136,11 @@ export default {
     if (req.method === 'OPTIONS') {
       return new Response(null, {
         status: 204,
-        headers: { ...CORS_HEADERS, Allow: 'GET, HEAD, POST, DELETE, OPTIONS' },
+        headers: { ...CORS_HEADERS, Allow: 'GET, HEAD, POST, PUT, DELETE, OPTIONS' },
       })
     }
     if (path.startsWith('project/')) return withCors(await handleProject(req, env, url))
+    if (/^feedback\/[^/]+\/receipt\/[^/]+$/.test(path)) return withCors(await handleReceipt(req, env, url))
     if (path === 'feedback' || path.startsWith('feedback/')) return withCors(await handleFeedback(req, env, url))
     // Audience analytics: CORS-enabled (cross-origin from the app webview).
     if (path.startsWith('a/')) {

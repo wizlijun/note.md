@@ -392,3 +392,46 @@ describe('two stage project publication', () => {
     expect(await bucket.head(key)).toBeNull()
   })
 })
+
+describe('public project version', () => {
+  it('exposes the active entry and full version without credentials, including during pending updates', async () => {
+    await entry()
+    const response = await SELF.fetch(root + '/version')
+    expect(response.status).toBe(200)
+    expect(response.headers.get('Cache-Control')).toBe('no-store')
+    expect(response.headers.get('X-Robots-Tag')).toBe('noindex')
+    expect(response.headers.get('Access-Control-Allow-Origin')).toBe('*')
+    const first = await response.json() as any
+    expect(first).toEqual({ schemaVersion: 1, project_id: 'project_1', snapshotId: 'entry_pub_1', archiveReady: false, expires_at: expect.any(String) })
+    await upload(await archive())
+    await entry('pub_2', 'pub_1')
+    expect(await (await SELF.fetch(root + '/version')).json()).toEqual({ ...first, snapshotId: 'full_1', archiveReady: true })
+    const head = await SELF.fetch(root + '/version', { method: 'HEAD' })
+    expect(head.status).toBe(200)
+    expect(head.headers.get('Content-Type')).toContain('application/json')
+    expect(head.headers.get('Cache-Control')).toBe('no-store')
+    expect(await head.text()).toBe('')
+  })
+  it('returns 404 for missing and legacy single shares, and 405 for other methods before Bearer', async () => {
+    expect((await SELF.fetch(root + '/version')).status).toBe(404)
+    await bindings.SHARES.put(slug, '<p>legacy</p>', { metadata: { expires_at: null } })
+    expect((await SELF.fetch(root + '/version')).status).toBe(404)
+    for (const method of ['POST', 'PUT', 'DELETE']) expect((await SELF.fetch(root + '/version', { method })).status).toBe(405)
+  })
+  it.each(['expired', 'revoked', 'no-active'])('returns 410 for %s shares', async kind => {
+    await entry()
+    const state = await (await bindings.MEDIA.get(projectStateKey(slug)))!.json() as any
+    if (kind === 'revoked') state.revoked = true
+    else if (kind === 'no-active') { state.schemaVersion = 2; state.active = null }
+    else state.active.expires_at = '2000-01-01T00:00:00Z'
+    await bindings.MEDIA.put(projectStateKey(slug), JSON.stringify(state))
+    for (const method of ['GET', 'HEAD']) {
+      const response = await SELF.fetch(root + '/version', { method })
+      expect(response.status).toBe(410)
+      expect(response.headers.get('Cache-Control')).toBe('no-store')
+      expect(response.headers.get('X-Robots-Tag')).toBe('noindex')
+      expect(response.headers.get('Access-Control-Allow-Origin')).toBe('*')
+      if (method === 'HEAD') expect(await response.text()).toBe('')
+    }
+  })
+})
