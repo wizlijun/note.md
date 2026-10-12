@@ -749,4 +749,107 @@ describe('versioned drafts in serialized browser',()=> {
     expect((await idb('readonly',store=>store.get('project_1:draft2:current-lineage'))).lastSubmissionId).toBe('current-previous')
   })
 
+  it('fix1 I1: input during gated real notes read remains in original lineage across restart',async()=> {
+    const old=draftFixture()
+    const current={...draftFixture(),lineageId:'current-lineage',snapshotId:'snapshot_1',after:{'README.md':'CURRENT TEXT'}}
+    const oldNotes=[{path:'README.md',selector:{exact:'风险'},comment:'OLD NOTE'}]
+    const currentNotes=[{path:'README.md',selector:{exact:'current'},comment:'CURRENT NOTE'}]
+    await idb('readwrite',store=>store.put(old,draftKey))
+    await idb('readwrite',store=>store.put(current,'project_1:draft2:current-lineage'))
+    await idb('readwrite',store=>store.put(oldNotes,'project_1:draft2-notes:lineage-one'))
+    await idb('readwrite',store=>store.put(currentNotes,'project_1:draft2-notes:current-lineage'))
+    await serialized();click('edit')
+    let unlock=()=>{},started=()=>{}
+    const gate=new Promise<void>(resolve=>{unlock=resolve}),reading=new Promise<void>(resolve=>{started=resolve})
+    const get=FakeObjectStore.prototype.get
+    let gated=false
+    const spy=vi.spyOn(FakeObjectStore.prototype,'get').mockImplementation(function(this:IDBObjectStore,key){
+      const op=get.call(this,key)
+      if(key==='project_1:draft2-notes:lineage-one'&&!gated) {
+        gated=true;let complete:((event:Event)=>void)|undefined
+        Object.defineProperty(this.transaction,'oncomplete',{configurable:true,set(fn){complete=fn}})
+        this.transaction.addEventListener('complete',event=>{started();void gate.then(()=>complete?.(event))})
+      }
+      return op
+    })
+    try {
+      Array.from($('old-drafts').querySelectorAll('button')).find(button=>button.textContent==='按旧版本提交')!.click()
+      await reading;input('CURRENT INPUT DURING LOAD')
+      ;($('message') as HTMLInputElement).value='CURRENT MESSAGE DURING LOAD';$('message').dispatchEvent(new Event('input'))
+      await vi.waitFor(async()=>expect((await idb('readonly',store=>store.get('project_1:draft2:current-lineage'))).after['README.md']).toBe('CURRENT INPUT DURING LOAD'))
+      unlock();await vi.waitFor(()=>expect($('comments').textContent).toContain('OLD NOTE'))
+      expect(await idb('readonly',store=>store.get('project_1:draft2-notes:lineage-one'))).toEqual(oldNotes)
+      expect((await idb('readonly',store=>store.get(draftKey))).after).toEqual(old.after)
+      expect((await idb('readonly',store=>store.get('project_1:draft2:current-lineage'))).message).toBe('CURRENT MESSAGE DURING LOAD')
+      expect(await idb('readonly',store=>store.get('project_1:draft2-notes:current-lineage'))).toEqual(currentNotes)
+    } finally {unlock();spy.mockRestore()}
+    const html=buildProjectBundle(snapshot,'https://share.test/feedback/project_1')
+    document.body.innerHTML=html.slice(html.indexOf('<body>')+6,html.indexOf('</body>'))
+    const data=JSON.parse($('project-data').textContent!);delete data.versionUrl;$('project-data').textContent=JSON.stringify(data)
+    await serialized();expect(($('editor') as HTMLTextAreaElement).value).toBe('CURRENT INPUT DURING LOAD')
+    Array.from($('old-drafts').querySelectorAll('button')).find(button=>button.textContent==='按旧版本提交')!.click()
+    await vi.waitFor(()=>expect($('comments').textContent).toContain('OLD NOTE'))
+    expect(($('editor') as HTMLTextAreaElement).value).toBe(old.after['README.md'])
+  })
+  it.each(['deleted','renamed'])('fix1 I2: restores %s old file from draft base, edits/submits original snapshot and exports',async(kind)=> {
+    const oldPath='old/deleted.md',base='# OLD BASE\n\n风险',text='# OLD DRAFT'
+    const old={v:2,lineageId:'missing-lineage',snapshotId:'S1',base:{[oldPath]:{hash:'f'.repeat(64),markdown:base}},after:{[oldPath]:text},annotationKinds:{}}
+    if(kind==='renamed') {
+      const data=JSON.parse($('project-data').textContent!);data.snapshot.files.push({path:'new/renamed.md',hash:'e'.repeat(64),markdown:'# NEW NAME',bytes:10});$('project-data').textContent=JSON.stringify(data)
+    }
+    await idb('readwrite',store=>store.put(old,'project_1:draft2:missing-lineage'))
+    const send=vi.fn(async(_url:string,init:RequestInit)=>Response.json({}));vi.stubGlobal('fetch',send)
+    let blob:Blob|undefined
+    const url=vi.spyOn(URL,'createObjectURL').mockImplementation(value=>{blob=value as Blob;return 'blob:test'})
+    const anchor=vi.spyOn(HTMLAnchorElement.prototype,'click').mockImplementation(()=>{})
+    try {
+      await serialized()
+      Array.from($('old-drafts').querySelectorAll('button')).find(button=>button.textContent==='按旧版本提交')!.click()
+      await vi.waitFor(()=>expect(($('editor') as HTMLTextAreaElement).value).toBe(text))
+      await vi.waitFor(()=>expect(($('submit') as HTMLButtonElement).disabled).toBe(false))
+      expect(document.querySelector('[data-file="old/deleted.md"]')).not.toBeNull()
+      document.querySelector<HTMLButtonElement>('[data-file="README.md"]')!.click()
+      expect(($('edit') as HTMLButtonElement).disabled).toBe(true)
+      document.querySelector<HTMLButtonElement>('[data-file="old/deleted.md"]')!.click()
+      expect(($('edit') as HTMLButtonElement).disabled).toBe(false)
+      click('baseline');expect($('document').textContent).toContain('OLD BASE')
+      click('edit');input('# EDITED OLD FILE');click('submit');await vi.waitFor(()=>expect(status()).toContain('已送达'))
+      const payload=JSON.parse(send.mock.calls[0][1].body as string)
+      expect(payload).toMatchObject({snapshotId:'S1',edits:[{path:oldPath,baseHash:'f'.repeat(64),afterMarkdown:'# EDITED OLD FILE'}]})
+      click('export');const exported=JSON.parse(await blob!.text())
+      expect(exported.draft.base[oldPath].markdown).toBe(base);expect(exported.draft.after[oldPath]).toBe('# EDITED OLD FILE')
+    } finally {url.mockRestore();anchor.mockRestore()}
+  })
+
+  it('fix1 I1: queued input saves keep original ownership after candidate reads finish',async()=> {
+    const old=draftFixture(),current={...draftFixture(),lineageId:'current-lineage',snapshotId:'snapshot_1',after:{'README.md':'CURRENT TEXT'}}
+    const oldNotes=[{path:'README.md',selector:{exact:'风险'},comment:'OLD NOTE'}],currentNotes=[{path:'README.md',selector:{exact:'current'},comment:'CURRENT NOTE'}]
+    await idb('readwrite',store=>store.put(old,draftKey));await idb('readwrite',store=>store.put(current,'project_1:draft2:current-lineage'))
+    await idb('readwrite',store=>store.put(oldNotes,'project_1:draft2-notes:lineage-one'));await idb('readwrite',store=>store.put(currentNotes,'project_1:draft2-notes:current-lineage'))
+    await serialized();click('edit')
+    let releaseRead=()=>{},releaseWrite=()=>{},readStarted=()=>{},writeStarted=()=>{}
+    const readGate=new Promise<void>(resolve=>{releaseRead=resolve}),writeGate=new Promise<void>(resolve=>{releaseWrite=resolve})
+    const reading=new Promise<void>(resolve=>{readStarted=resolve}),writing=new Promise<void>(resolve=>{writeStarted=resolve})
+    const pause=(tx:IDBTransaction,gate:Promise<void>,started:()=>void)=> {
+      let complete:((event:Event)=>void)|undefined
+      Object.defineProperty(tx,'oncomplete',{configurable:true,set(fn){complete=fn}})
+      tx.addEventListener('complete',event=>{started();void gate.then(()=>complete?.(event))})
+    }
+    let readPaused=false,writePaused=false
+    const get=FakeObjectStore.prototype.get,put=FakeObjectStore.prototype.put
+    const getSpy=vi.spyOn(FakeObjectStore.prototype,'get').mockImplementation(function(this:IDBObjectStore,key){const op=get.call(this,key);if(key==='project_1:draft2-notes:lineage-one'&&!readPaused){readPaused=true;pause(this.transaction,readGate,readStarted)}return op})
+    const putSpy=vi.spyOn(FakeObjectStore.prototype,'put').mockImplementation(function(this:IDBObjectStore,value,key){const op=put.call(this,value,key);if(key==='project_1:draft2:current-lineage'&&!writePaused){writePaused=true;pause(this.transaction,writeGate,writeStarted)}return op})
+    try {
+      Array.from($('old-drafts').querySelectorAll('button')).find(button=>button.textContent==='按旧版本提交')!.click()
+      await reading;input('first current input');await writing
+      input('queued current input');releaseRead()
+      await vi.waitFor(()=>expect($('comments').textContent).toContain('OLD NOTE'))
+      releaseWrite()
+      await vi.waitFor(async()=>expect((await idb('readonly',store=>store.get('project_1:draft2:current-lineage'))).after['README.md']).toBe('queued current input'))
+      expect((await idb('readonly',store=>store.get(draftKey))).after).toEqual(old.after)
+      expect(await idb('readonly',store=>store.get('project_1:draft2-notes:lineage-one'))).toEqual(oldNotes)
+      expect(await idb('readonly',store=>store.get('project_1:draft2-notes:current-lineage'))).toEqual(currentNotes)
+    } finally {releaseRead();releaseWrite();getSpy.mockRestore();putSpy.mockRestore()}
+  })
+
 })

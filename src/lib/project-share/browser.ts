@@ -122,9 +122,11 @@ export async function projectShareBrowser(parser: any, zipper?: any): Promise<vo
     tx.onabort=tx.onerror=()=>reject(tx.error??new Error('本地保存失败'))
   })
   const save = (): Promise<void> => {
-    // Read live state when the queued write starts, so an older input callback
-    // cannot revive pending after the durable submission transaction completes.
-    saving=saving.catch(()=>{}).then(()=>atomic([[draftKey(),structuredClone(draft)],[notesKey(),structuredClone(notes)]])).catch(error=> {ready=false;render();throw error})
+    // Bind ownership now, but read that lineage's live contents when writing.
+    // This retains in-flight input without crossing an asynchronous switch or
+    // reviving pending after that lineage's durable submission completes.
+    const owner=draft, ownerNotes=notes
+    saving=saving.catch(()=>{}).then(()=>atomic([[prefix+'draft2:'+owner.lineageId,structuredClone(owner)],[prefix+'draft2-notes:'+owner.lineageId,structuredClone(ownerNotes)]])).catch(error=> {ready=false;render();throw error})
     return saving
   }
   const original = (filePath: string) => draft.base[filePath]?.markdown ?? (draft.snapshotId===snapshot.snapshotId ? files.get(filePath)?.markdown : undefined)
@@ -319,18 +321,22 @@ export async function projectShareBrowser(parser: any, zipper?: any): Promise<vo
     const parts=path.split('/').slice(0,-1)
     for(let index=1;index<=parts.length;index++) expanded.add(parts.slice(0,index).join('/'))
   }
-  const tree: any = {children:new Map<string,any>()}
-  for(const file of docs) {
-    let parent=tree
-    const parts=file.path.split('/')
-    for(let index=0;index<parts.length;index++) {
-      const nodePath=parts.slice(0,index+1).join('/')
-      if(!parent.children.has(parts[index])) parent.children.set(parts[index],{name:parts[index],path:nodePath,folder:index<parts.length-1,children:new Map<string,any>(),modifiedAt:undefined})
-      const node=parent.children.get(parts[index])
-      const time=Number.isSafeInteger(file.modifiedAt) && file.modifiedAt>=0?file.modifiedAt:undefined
-      if(time!==undefined && (node.modifiedAt===undefined || time>node.modifiedAt)) node.modifiedAt=time
-      parent=node
+  const treeForDraft = () => {
+    const tree: any = {children:new Map<string,any>()}
+    const missing=Object.keys(draft.base).filter(filePath=>!files.has(filePath)).map(path=>({path}))
+    for(const file of [...docs,...missing]) {
+      let parent=tree
+      const parts=file.path.split('/')
+      for(let index=0;index<parts.length;index++) {
+        const nodePath=parts.slice(0,index+1).join('/')
+        if(!parent.children.has(parts[index])) parent.children.set(parts[index],{name:parts[index],path:nodePath,folder:index<parts.length-1,children:new Map<string,any>(),modifiedAt:undefined})
+        const node=parent.children.get(parts[index])
+        const time=Number.isSafeInteger(file.modifiedAt) && file.modifiedAt>=0?file.modifiedAt:undefined
+        if(time!==undefined && (node.modifiedAt===undefined || time>node.modifiedAt)) node.modifiedAt=time
+        parent=node
+      }
     }
+    return tree
   }
   const icon = (folder:boolean): string => '<svg class="file-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(folder?'<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>':'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>')+'</svg>'
   const setPanel = (open:boolean,restoreFocus=false) => {
@@ -343,6 +349,7 @@ export async function projectShareBrowser(parser: any, zipper?: any): Promise<vo
     if(restoreFocus) fileToggle.focus()
   }
   const renderTree = () => {
+    const tree=treeForDraft()
     const append = (parent:any,list:HTMLElement,depth:number) => {
       const nodes=Array.from(parent.children.values()) as any[]
       nodes.sort((a,b)=>Number(b.folder)-Number(a.folder) || (b.modifiedAt??-1)-(a.modifiedAt??-1) || a.name.localeCompare(b.name) || a.path.localeCompare(b.path))
@@ -351,7 +358,7 @@ export async function projectShareBrowser(parser: any, zipper?: any): Promise<vo
         const button=document.createElement('button')
         button.className='file-row'; button.style.paddingLeft=(8+depth*14)+'px'; button.title=node.name
         button.innerHTML=(node.folder?'<svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>':'<span class="chevron"></span>')+icon(node.folder)
-        const label=document.createElement('span'); label.className='file-label'; label.textContent=node.name; button.append(label)
+        const label=document.createElement('span'); label.className='file-label'; label.textContent=node.name+(!node.folder && !files.has(node.path)?'（旧版本）':''); button.append(label)
         if(node.folder) {
           button.setAttribute('data-folder',node.path); button.setAttribute('aria-expanded',String(expanded.has(node.path)))
           const children=document.createElement('ul'); children.hidden=!expanded.has(node.path)
@@ -363,9 +370,11 @@ export async function projectShareBrowser(parser: any, zipper?: any): Promise<vo
           item.append(button,children); append(node,children,depth+1)
         } else {
           button.setAttribute('data-file',node.path)
-          button.setAttribute('aria-haspopup','menu')
-          button.oncontextmenu=event=>openMenu(event,button,node.path)
-          button.onkeydown=event=> { if(event.key==='ContextMenu' || (event.key==='F10' && event.shiftKey)) openMenu(event,button,node.path) }
+          if(files.has(node.path)) {
+            button.setAttribute('aria-haspopup','menu')
+            button.oncontextmenu=event=>openMenu(event,button,node.path)
+            button.onkeydown=event=> { if(event.key==='ContextMenu' || (event.key==='F10' && event.shiftKey)) openMenu(event,button,node.path) }
+          }
           if(node.path===path) button.setAttribute('aria-current','page')
           button.onclick=()=> {
             const params=new URLSearchParams(location.hash.slice(1)); params.set('doc',node.path); params.delete('heading')
@@ -389,11 +398,11 @@ export async function projectShareBrowser(parser: any, zipper?: any): Promise<vo
   }
   const render = () => {
     editor.value=currentText()
-    const publishedOriginal=(baseline?original(path):currentText())===files.get(path).markdown
+    const publishedOriginal=(baseline?original(path):currentText())===files.get(path)?.markdown
     const published=data.presentation?.documents[path]
     $('reader').setAttribute('data-theme',data.presentation?.themeId??'')
     article.setAttribute('data-theme',data.presentation?.themeId??'')
-    article.replaceChildren(publishedOriginal && published!==undefined ? publishedContent(published) : sanitize(parser.parse(baseline?(original(path)??files.get(path).markdown):currentText(),{async:false,breaks:true})))
+    article.replaceChildren(publishedOriginal && published!==undefined ? publishedContent(published) : sanitize(parser.parse(baseline?(original(path)??files.get(path)?.markdown??''):currentText(),{async:false,breaks:true})))
     if(!(publishedOriginal && published!==undefined)) {
       const headings=new Map<string,number>()
       for(const heading of Array.from(article.querySelectorAll('h1,h2,h3,h4,h5,h6'))) {
@@ -422,7 +431,7 @@ export async function projectShareBrowser(parser: any, zipper?: any): Promise<vo
   const navigate = () => {
     const params=new URLSearchParams(location.hash.slice(1))
     const target=params.get('doc')
-    if(target && files.get(target)?.markdown!==undefined) path=target
+    if(target && (files.get(target)?.markdown!==undefined || draft.base[target])) path=target
     revealCurrent(); renderTree(); render()
     const heading=params.get('heading')
     if(heading) Array.from(article.querySelectorAll('[id]')).find(element=>element.id===heading)?.scrollIntoView?.()
@@ -445,7 +454,7 @@ export async function projectShareBrowser(parser: any, zipper?: any): Promise<vo
     void save().then(()=> {if(!busy && !revoked && status.textContent==='正在保存草稿…') say('草稿已保存到本浏览器')}).catch(error=>say('草稿未保存：'+error.message+'；请导出备份'))
   }
   $('annotate').onclick=async()=> {
-    if(!baseline && currentText()!==(original(path)??files.get(path).markdown)) { say('标注基于发布时的原文；请先点击“查看发布原文”再选文'); return }
+    if(!baseline && currentText()!==(original(path)??files.get(path)?.markdown??'')) { say('标注基于发布时的原文；请先点击“查看发布原文”再选文'); return }
     if(!token || !initialized) return
     const selection=window.getSelection()
     if(editing || !selection?.rangeCount || Array.from({length:selection.rangeCount},(_,index)=>selection.getRangeAt(index)).some(range=>!article.contains(range.startContainer) || !article.contains(range.endContainer))) { say('请在发布原文的正文中选中要标注的文字'); return }
@@ -570,6 +579,7 @@ export async function projectShareBrowser(parser: any, zipper?: any): Promise<vo
       }
     }
     draft=Array.from(drafts.values()).find(value=>value.snapshotId===snapshot.snapshotId)??Array.from(drafts.values())[0]??draft
+    if(draft.snapshotId!==snapshot.snapshotId && !draft.base[path]) path=Object.keys(draft.base)[0]??path
     notes=await request('readonly',notesKey())??[]
     submitted=await request('readonly',prefix+'submitted')??[]
     sentMarker=await request('readonly',sentKey())
@@ -578,12 +588,16 @@ export async function projectShareBrowser(parser: any, zipper?: any): Promise<vo
     ;($('message') as HTMLInputElement).value=draft.message??''
     const oldPanel=$('old-drafts')
     const choose=(candidate:DraftV2)=>async()=> {
-      if(busy) return
+      if(busy || candidate===draft) return
       busy=true;render()
       try {
         await saving.catch(()=>{})
-        draft=candidate;notes=await request('readonly',notesKey())??[]
-        sentMarker=await request('readonly',sentKey());restoredContentHash=await contentHash(content())
+        const nextNotes=await request('readonly',prefix+'draft2-notes:'+candidate.lineageId)??[]
+        const nextMarker=await request('readonly',prefix+'draft2-sent:'+candidate.lineageId)
+        const nextHash=await contentHash(content(candidate,nextNotes))
+        // Switch the aggregate only after every companion read succeeds. Inputs
+        // while loading continue to belong to the original active lineage.
+        draft=candidate;notes=nextNotes;sentMarker=nextMarker;restoredContentHash=nextHash
         ;($('message') as HTMLInputElement).value=draft.message??''
         if(!draft.base[path]) path=Object.keys(draft.base)[0]??snapshot.entry
         navigate();say('继续旧版本草稿；提交将保留原版本基线')
