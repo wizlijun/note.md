@@ -9,6 +9,8 @@ For the full commit history, see the git log.
 
 ### Fixed
 
+- **Finder metadata no longer blocks sharing-project deletion.** Ordinary `.DS_Store` files are cleaned up with the managed mirror; source documents and unknown user files remain protected.
+
 - **The shared reader sidebar toggle keeps its arrows aligned.** Expanding and collapsing the file panel no longer moves the arrow onto the divider.
 
 ## v6.1010.5 — 2026-10-10
