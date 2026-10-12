@@ -115,9 +115,9 @@ interface GitPrepared { head:string; entry:string; feedback:LocalFeedback; files
 // export-patch(same input) -> {patch:string}；不改变 Decision/review/annotation状态
 ```
 
-- [ ] **Step 1: 写 RED store+真实 Git。** G1 冻结/收件 Git 阶段不变真实状态、G2 parent=预采HEAD且包含未提交快照 bytes、G3 guest author/owner committer和可信trailer、G4 B parent=H且snapshot不是ancestor、G9 delete只删隐藏ref。用 v1反馈名字构造伪trailer，断言隔离包不建submission ref，成功包写Git metadata；旧v1/无Git仍通过。模拟二阶段间 review-save、delete、rebind和HEAD前进，不得覆写新草稿或重建目录。
-- [ ] **Step 2: 执行 RED。** `cargo test --manifest-path src-tauri/Cargo.toml --lib project_share -- --nocapture`；新功能失败与既有P0分开记录。
-- [ ] **Step 3: Config/短锁 jobs。** git_target 加serde(default)，只校验三枚举，旧config可读；info投影。全局Mutex提升为可复用模块级锁，jobs捕获不可变输入，绝不携带guard。P0 freeze/feedback先落盘，锁外生成对象/ref，短锁重读最新manifest/inbox仅patch git/gitError；用binding身份、snapshot hash/requestHash/deleting复验。snapshot parent采样按裁定10，失败P0仍成功。无snapshot commit时SubmissionGit.error为 `snapshot has no commit`。重复导入保持review/decisions。
+- [x] **Step 1: 写 RED store+真实 Git。** G1 冻结/收件 Git 阶段不变真实状态、G2 parent=预采HEAD且包含未提交快照 bytes、G3 guest author/owner committer和可信trailer、G4 B parent=H且snapshot不是ancestor、G9 delete只删隐藏ref。用 v1反馈名字构造伪trailer，断言隔离包不建submission ref，成功包写Git metadata；旧v1/无Git仍通过。模拟二阶段间 review-save、delete、rebind和HEAD前进，不得覆写新草稿或重建目录。
+- [x] **Step 2: 执行 RED。** `cargo test --manifest-path src-tauri/Cargo.toml --lib project_share -- --nocapture`；新功能失败与既有P0分开记录。
+- [x] **Step 3: Config/短锁 jobs。** git_target 加serde(default)，只校验三枚举，旧config可读；info投影。全局Mutex提升为可复用模块级锁，jobs捕获不可变输入，绝不携带guard。P0 freeze/feedback先落盘，锁外生成对象/ref，短锁重读最新manifest/inbox仅patch git/gitError；用binding身份、snapshot hash/requestHash/deleting复验。snapshot parent采样按裁定10，失败P0仍成功。无snapshot commit时SubmissionGit.error为 `snapshot has no commit`。重复导入保持review/decisions。
 
 ```rust
 // execute_request 的结构约束，所有 run_git_io 必须发生在 scope 外：
@@ -126,9 +126,9 @@ let outcome = run_git_job(prepared.job); // 不持 Mutex/RecordsLock
 { let _guard = PROJECT_LOCK.lock()?; finish_git_job(&store, prepared, outcome) }
 ```
 
-- [ ] **Step 4: prepare/branch/export。** prepare只读、不调用recover写镜像；新增review-readonly复用ReviewFile组装但不recover/改inbox/刷新mirror。Git读取/prepare/branch及Git目标的review-save/annotation-decide遇P0待恢复写回intent须拒绝提示先切A，不将带result_hash的pending intent当普通未决。然后校验当前binding、active、可信反馈、当前Config.files完整范围；从快照文件取base、envelope取after，用一次H读所有ours blob，任一缺失/非UTF8失败。branch/export严格接受全部edit路径、无额外path，<=既有反馈总量限额；expectedHead匹配再造树，写ref前再次核对HEAD/绑定/范围。无法获取owner身份返回明确失败但不更改配置。B parent只允许H，merge-base检测snapshot不得为祖先。B存所有文件branched保留review，A/reject不得覆写branched；recompute把branched视为终态。C无Decision改变。
-- [ ] **Step 5: ref重试及delete协调。** 既存对象复用前验证parent/tree/message/author；不改create-only规则。按项目操作协调锁只协调Git后台与删除（不是全局dispatch Mutex/RecordsLock），delete先在全局锁内标记/capture再锁外等在途任务和清ref，失败记录不阻塞删除；不要持全局锁等待项目Git锁，避免锁顺序死锁。在途迟到写回失败时清本次新建隐藏ref，不重建管理目录。用户分支永不作为项目delete清理对象；分支生成后状态写回失败需返回分支结果和可重试状态错误，不能静默重复建分支。返回可选`stateError`而非复用feedback.error；UI仅重试git-branched。允许SubmissionGit加serde(default)最小私有branch intent（固定H/results hash/commit/候选分支），建ref前短锁持久化，重试须同时验证intent、真实ref及parent/tree/message/author，用户同OID分支仍按碰撞处理；崩溃恢复有真实回归，intent不得进公开包。
-- [ ] **Step 6: GREEN/注册/提交。** desktop cfg注册module/command，iOS不引用CLI。strict malformed requests/type/path/status/ref归属回归；G1–G4/G7–G9/G11，以及linked worktree/同Vault库的裁定11边界。运行定向Rust与`cargo check --manifest-path src-tauri/Cargo.toml`，再按顺序完整运行`pnpm test`、`cargo test --manifest-path src-tauri/Cargo.toml`、`pnpm --dir worker test`、`pnpm check`、`pnpm build`、`git diff --check`，满足WP1.1完成判据后才进入WP1.2；记录实际exit。提交 `feat(share): persist Git review objects and safe branch operations`。
+- [x] **Step 4: prepare/branch/export。** prepare只读、不调用recover写镜像；新增review-readonly复用ReviewFile组装但不recover/改inbox/刷新mirror。Git读取/prepare/branch及Git目标的review-save/annotation-decide遇P0待恢复写回intent须拒绝提示先切A，不将带result_hash的pending intent当普通未决。然后校验当前binding、active、可信反馈、当前Config.files完整范围；从快照文件取base、envelope取after，用一次H读所有ours blob，任一缺失/非UTF8失败。branch/export严格接受全部edit路径、无额外path，<=既有反馈总量限额；expectedHead匹配再造树，写ref前再次核对HEAD/绑定/范围。无法获取owner身份返回明确失败但不更改配置。B parent只允许H，merge-base检测snapshot不得为祖先。B存所有文件branched保留review，A/reject不得覆写branched；recompute把branched视为终态。C无Decision改变。
+- [x] **Step 5: ref重试及delete协调。** 既存对象复用前验证parent/tree/message/author；不改create-only规则。按项目操作协调锁只协调Git后台与删除（不是全局dispatch Mutex/RecordsLock），delete先在全局锁内标记/capture再锁外等在途任务和清ref，失败记录不阻塞删除；不要持全局锁等待项目Git锁，避免锁顺序死锁。在途迟到写回失败时清本次新建隐藏ref，不重建管理目录。用户分支永不作为项目delete清理对象；分支生成后状态写回失败需返回分支结果和可重试状态错误，不能静默重复建分支。返回可选`stateError`而非复用feedback.error；UI仅重试git-branched。允许SubmissionGit加serde(default)最小私有branch intent（固定H/results hash/commit/候选分支），建ref前短锁持久化，重试须同时验证intent、真实ref及parent/tree/message/author，用户同OID分支仍按碰撞处理；崩溃恢复有真实回归，intent不得进公开包。
+- [x] **Step 6: GREEN/注册/提交。** desktop cfg注册module/command，iOS不引用CLI。strict malformed requests/type/path/status/ref归属回归；G1–G4/G7–G9/G11，以及linked worktree/同Vault库的裁定11边界。运行定向Rust与`cargo check --manifest-path src-tauri/Cargo.toml`，再按顺序完整运行`pnpm test`、`cargo test --manifest-path src-tauri/Cargo.toml`、`pnpm --dir worker test`、`pnpm check`、`pnpm build`、`git diff --check`，满足WP1.1完成判据后才进入WP1.2；记录实际exit。提交 `feat(share): persist Git review objects and safe branch operations`。
 
 ## Task 3: 同一 ReviewDraft 的整份 Git 审阅与目标 UI
 
