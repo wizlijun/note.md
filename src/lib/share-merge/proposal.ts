@@ -2,6 +2,7 @@ import { diff, DiffLimitError } from './diff'
 import { mergeRegions } from './diff3'
 import { alignEol } from './eol'
 import { sha256Sync } from './hash'
+import { hunkFlags, scanOwnerAnnotations } from './flags'
 import { tokenize } from './tokenize'
 import { MERGE_KERNEL_VERSION } from './types'
 import type { Change, Hunk, HunkKind, MergeInput, MergeProposal, Token } from './types'
@@ -25,8 +26,9 @@ export function propose(input: MergeInput): MergeProposal {
     if (ours) proposal.segments.push({ type: 'stable', text: ours })
     return proposal
   }
+  const ownerAnnotations = scanOwnerAnnotations(base)
   const ordinals = new Map<string, Map<string, number>>()
-  const addHunk = (b: string, o: string, t: string, start: number, end: number, degraded = false) => {
+  const addHunk = (b: string, o: string, t: string, start: number, end: number, b0: number, b1: number, involvedTokens: Token[], degraded = false) => {
     let byTheirs = ordinals.get(b)
     if (!byTheirs) { byTheirs = new Map(); ordinals.set(b, byTheirs) }
     const ordinal = byTheirs.get(t) ?? 0
@@ -34,14 +36,14 @@ export function propose(input: MergeInput): MergeProposal {
     const hunk: Hunk = {
       id: 'h_' + sha256Sync(`nmk1\0${path}\0${b}\0${t}\0${ordinal}`).slice(0, 16),
       kind: classify(b, o, t), base: b, ours: o, theirs: t, oursStart: start, oursEnd: end,
-      flags: degraded ? ['degraded'] : [],
+      ...hunkFlags({ base: b, ours: o, theirs: t, tokens: involvedTokens, baseStart: b0, baseEnd: b1, ownerAnnotations, degraded }),
     }
     proposal.hunks.push(hunk)
     proposal.segments.push({ type: 'hunk', id: hunk.id })
     proposal.stats[hunk.kind]++
   }
   const tokens = [base, ours, theirs].map(tokenize)
-  const degrade = () => { addHunk(base, ours, theirs, 0, ours.length, true); return proposal }
+  const degrade = () => { addHunk(base, ours, theirs, 0, ours.length, 0, base.length, tokens.flat(), true); return proposal }
   if (tokens.some(side => side.length > MAX_TOKENS)) return degrade()
   let oursChanges: Change[]
   let theirsChanges: Change[]
@@ -69,7 +71,9 @@ export function propose(input: MergeInput): MergeProposal {
     const end = position(tokens[1], o1, ours)
     if (start > cursor) proposal.segments.push({ type: 'stable', text: ours.slice(cursor, start) })
     addHunk(base.slice(position(tokens[0], region.b0, base), position(tokens[0], region.b1, base)), ours.slice(start, end),
-      theirs.slice(position(tokens[2], t0, theirs), position(tokens[2], t1, theirs)), start, end)
+      theirs.slice(position(tokens[2], t0, theirs), position(tokens[2], t1, theirs)), start, end,
+      position(tokens[0], region.b0, base), position(tokens[0], region.b1, base),
+      [...tokens[0].slice(region.b0, region.b1), ...tokens[1].slice(o0, o1), ...tokens[2].slice(t0, t1)])
     cursor = end
     oursOffset = o1 - region.b1
     theirsOffset = t1 - region.b1

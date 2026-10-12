@@ -15,6 +15,7 @@ it('groups frontmatter by top-level key and retains continuation trivia', () => 
 
 it('degrades malformed leading frontmatter to an atomic token', () => {
   const frontmatter = '---\nnot a key\ntitle: A\n---\n'
+  expect(tokenize(frontmatter + '正文。尾')[0].fmAtomic).toBe(true)
   expect(tokenize(frontmatter + '正文。尾').map(token => token.text)).toEqual([frontmatter, '正文。', '尾'])
 })
 

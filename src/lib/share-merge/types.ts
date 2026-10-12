@@ -5,6 +5,7 @@ export interface Token {
   start: number
   end: number
   fmKey?: string
+  fmAtomic?: true
 }
 
 export interface Change {
@@ -48,4 +49,17 @@ export interface MergeProposal {
   segments: Segment[]
   hunks: Hunk[]
   stats: Record<HunkKind, number>
+}
+
+export type HunkDecision =
+  | { kind: 'theirs-only'; choice: 'accept' | 'reject' }
+  | { kind: 'conflict'; choice: 'ours' | 'theirs' | 'ours+theirs' | 'theirs+ours' | 'edited'; text?: string; source?: 'human' | 'ai-suggestion' }
+
+export interface ComposeResult {
+  text: string
+  pendingConflicts: string[]
+  pendingTheirs: string[]
+  accepted: number
+  total: number
+  staleDecisions: string[]
 }

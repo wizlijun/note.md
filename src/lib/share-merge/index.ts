@@ -1,6 +1,7 @@
 export { MERGE_KERNEL_VERSION } from './types'
-export type { Change, Token, Hunk, HunkKind, HunkFlag, Segment, MergeInput, MergeProposal } from './types'
+export type { Change, Token, Hunk, HunkKind, HunkFlag, Segment, MergeInput, MergeProposal, HunkDecision, ComposeResult } from './types'
 export { tokenize } from './tokenize'
 export { sha256Hex } from './hash'
 export { alignEol } from './eol'
 export { propose } from './proposal'
+export { compose, acceptUnconflicted } from './compose'

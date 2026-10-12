@@ -26,7 +26,7 @@ export function frontmatterTokens(text: string, lines: SourceLine[]): { tokens: 
       start = line.start
       key = match[0].slice(0, -1).trim().replace(/^(['"])(.*)\1$/, '$2')
     } else if (key === undefined && !/^\s*(#.*)?$/.test(content)) {
-      return { tokens: [makeToken(text, 0, lines[closing].end)], nextLine: closing + 1 }
+      return { tokens: [{ ...makeToken(text, 0, lines[closing].end), fmAtomic: true }], nextLine: closing + 1 }
     }
   }
   if (lines[closing].start > start) tokens.push(makeToken(text, start, lines[closing].start, key))
