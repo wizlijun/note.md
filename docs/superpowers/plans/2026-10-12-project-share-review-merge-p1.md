@@ -104,6 +104,8 @@ assert_eq!(git(&repo, &["rev-parse", &format!("{oid}^" )]).trim(), head);
 type GitTarget = 'worktree' | 'branch' | 'patch'
 // project_share: get 返回可选 gitTarget；git-target({project_id,target}) -> ProjectInfo
 // git-branched({project_id,submissionId,path,branch,commit,summary?}) -> LocalFeedback
+// project_share review-readonly({project_id,submissionId,path}) -> ReviewFile，当前磁盘/无recover
+// review-save draft.target=branch/patch及annotation-decide可选target同值时raw读取+P0 intent守卫，不recover；无target/worktree保持A
 interface GitProbe { git:boolean; team:boolean; prefix:string; head?:string; branch?:string; remote?:string; reason?:string; target?:GitTarget }
 interface GitPrepared { head:string; entry:string; feedback:LocalFeedback; files:{path:string;base:string;current:string;after:string}[]; commitMessage:string; remote?:string }
 // project_share_git probe({project_id}) -> GitProbe
@@ -124,7 +126,7 @@ let outcome = run_git_job(prepared.job); // 不持 Mutex/RecordsLock
 { let _guard = PROJECT_LOCK.lock()?; finish_git_job(&store, prepared, outcome) }
 ```
 
-- [ ] **Step 4: prepare/branch/export。** prepare只读、不调用recover写镜像，校验当前binding、active、可信反馈、当前Config.files完整范围；从快照文件取base、envelope取after，用一次H读所有ours blob，任一缺失/非UTF8失败。branch/export严格接受全部edit路径、无额外path，<=既有反馈总量限额；expectedHead匹配再造树，写ref前再次核对HEAD/绑定/范围。无法获取owner身份返回明确失败但不更改配置。B parent只允许H，merge-base检测snapshot不得为祖先。B存所有文件branched保留review，A/reject不得覆写branched；recompute把branched视为终态。C无Decision改变。
+- [ ] **Step 4: prepare/branch/export。** prepare只读、不调用recover写镜像；新增review-readonly复用ReviewFile组装但不recover/改inbox/刷新mirror。Git读取/prepare/branch及Git目标的review-save/annotation-decide遇P0待恢复写回intent须拒绝提示先切A，不将带result_hash的pending intent当普通未决。然后校验当前binding、active、可信反馈、当前Config.files完整范围；从快照文件取base、envelope取after，用一次H读所有ours blob，任一缺失/非UTF8失败。branch/export严格接受全部edit路径、无额外path，<=既有反馈总量限额；expectedHead匹配再造树，写ref前再次核对HEAD/绑定/范围。无法获取owner身份返回明确失败但不更改配置。B parent只允许H，merge-base检测snapshot不得为祖先。B存所有文件branched保留review，A/reject不得覆写branched；recompute把branched视为终态。C无Decision改变。
 - [ ] **Step 5: ref重试及delete协调。** 既存对象复用前验证parent/tree/message/author；不改create-only规则。按项目操作协调锁只协调Git后台与删除（不是全局dispatch Mutex/RecordsLock），delete先在全局锁内标记/capture再锁外等在途任务和清ref，失败记录不阻塞删除；不要持全局锁等待项目Git锁，避免锁顺序死锁。在途迟到写回失败时清本次新建隐藏ref，不重建管理目录。用户分支永不作为项目delete清理对象；分支生成后状态写回失败需返回分支结果和可重试状态错误，不能静默重复建分支。返回可选`stateError`而非复用feedback.error；UI仅重试git-branched。允许SubmissionGit加serde(default)最小私有branch intent（固定H/results hash/commit/候选分支），建ref前短锁持久化，重试须同时验证intent、真实ref及parent/tree/message/author，用户同OID分支仍按碰撞处理；崩溃恢复有真实回归，intent不得进公开包。
 - [ ] **Step 6: GREEN/注册/提交。** desktop cfg注册module/command，iOS不引用CLI。strict malformed requests/type/path/status/ref归属回归；G1–G4/G7–G9/G11，以及linked worktree/同Vault库的裁定11边界。运行定向Rust与`cargo check --manifest-path src-tauri/Cargo.toml`，再按顺序完整运行`pnpm test`、`cargo test --manifest-path src-tauri/Cargo.toml`、`pnpm --dir worker test`、`pnpm check`、`pnpm build`、`git diff --check`，满足WP1.1完成判据后才进入WP1.2；记录实际exit。提交 `feat(share): persist Git review objects and safe branch operations`。
 
@@ -167,7 +169,7 @@ expect(prepareSource).not.toHaveBeenCalled()
 ```
 
 - [ ] **Step 2: 运行 RED。** `pnpm exec vitest run src/lib/project-share/git.test.ts src/components/project-review/GitTargetBar.test.ts src/components/project-review/ProjectReview.test.ts src/lib/project-share/review.test.ts src/lib/project-share/host.test.ts src/components/ProjectShareDialog.test.ts`。
-- [ ] **Step 3: 目标与batch最小实现。** GitTargetBar沿用review-actions三个aria-pressed按钮；probe每次进入/执行重新探测、非Git退A；错误只禁用Git操作，保留P0复制/拒绝。切目标先flush再保存config，成功后才切换session目标；进入B/C不保存buffer，切回A重新open走P0准备。前端重算只调用merge-client.compute/内核compose/共用retain；没有草稿视为未决，不默认accept；全无已接受且有可操作hunks则提示先审阅。B/C整份确认逐文件显示SourceDiff，披露未决数量，不省略文件；确认后固定expectedHead执行，不自动重试。期间父isBusy/关闭/切项目锁同writing；迟到结果代际隔离。
+- [ ] **Step 3: 目标与batch最小实现。** GitTargetBar沿用review-actions三个aria-pressed按钮；probe每次进入/执行重新探测、非Git退A；错误只禁用Git操作，保留P0复制/拒绝。切目标先flush再保存config，成功后才切换session目标；进入B/C通过review-readonly读磁盘，不保存buffer；draft保存目标快照，dismiss传当前target，Git目标后端raw+intent守卫不recover；切回A重新open走P0准备。前端重算只调用merge-client.compute/内核compose/共用retain；没有草稿视为未决，不默认accept；全无已接受且有可操作hunks则提示先审阅。B/C整份确认逐文件显示SourceDiff，披露未决数量，不省略文件；确认后固定expectedHead执行，不自动重试。期间父isBusy/关闭/切项目锁同writing；迟到结果代际隔离。
 - [ ] **Step 4: 结果/复制/补丁。** A复制Rust可信message；B显示branch和可复制push命令；若有stateError保留分支结果并仅重试git-branched状态写回，不再次建分支。push命令的remote取probe返回，正确shellquote且加`--`，不执行。C复用pickSaveFile(default .patch)和plugin-fs.writeTextFile，不另造picker/权限。B/C批注按裁定5禁提升并给说明；全部branched界面为已处理，C可重复且不改决定。已有分享发布/删除/主题/上传不变。
 - [ ] **Step 5: GREEN及Chrome。** 定向命令、`pnpm check`。真实Chrome生产组件/Worker加隔离bridge验证目标切换、两文件确认、B结果、C取消/成功、键盘/深色/390–1000px/关闭锁；明确bridge不是native IPC，截图检查。popup若新增必须实测hover；优先无需popup的按钮条。
 - [ ] **Step 6: 精确提交。** `feat(share): review submissions into Git branches or patches`。
