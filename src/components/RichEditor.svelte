@@ -41,6 +41,7 @@
   import { outlineGate } from '../lib/outline/gate.svelte'
   import { sotvaultStore } from '../lib/sotvault.svelte'
   import { dirname } from '../lib/paths'
+  import { findRichAnchorTarget } from '../lib/rich-anchor'
 
   // Reactive store of the currently active theme id, set by the theme-init
   // block in App.svelte. Default is 'default'.
@@ -455,6 +456,11 @@
   }
 
   async function openLink(href: string, basePath: string, vaultRoot: string | null) {
+    if (href.trim().startsWith('#')) {
+      const view = editor?.view as EditorView | undefined
+      if (view) findRichAnchorTarget(view, href)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      return
+    }
     try {
       const action = await resolveLinkAction(href, basePath, vaultRoot, async (path) => {
         const { exists } = await import('@tauri-apps/plugin-fs')
