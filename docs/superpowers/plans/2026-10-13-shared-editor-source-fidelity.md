@@ -109,7 +109,7 @@ node .superpowers/sdd/2026-10-13-shared-editor-source-fidelity/source-mapping-ga
 
 #### 3. 新 API 精确 RED 测试代码
 
-- [ ] **Step 1: 写定向测试并记录 RED。**
+- [x] **Step 1: 写定向测试并记录 RED。**
 
 在 `source-fidelity.spec.ts` 写下列测试；先确认因新增能力缺失失败，然后逐项实现。第一次编译缺 API 不是最终行为 RED 的替代，已有 Kit RED 是行为基线。
 
@@ -203,7 +203,7 @@ describe('source fidelity ordinary text session', () => {
 
 #### 4. 最小实现算法：以已跑通 probe 为起点
 
-- [ ] **Step 2: 实现 capture 与事务局部输出，逐项验证 GREEN。**
+- [x] **Step 2: 实现 capture 与事务局部输出，逐项验证 GREEN。**
 
 ##### 4.1 不包装整套 parser；只安装有开关的 capture wrappers
 
@@ -245,7 +245,7 @@ const cursor = (state: any) => state.stack.reduce(
 
 #### 5. 真实 Kit gate：试验接入而非生产默认切换
 
-- [ ] **Step 3: 接入实际 Kit 的显式能力并运行真实输入门槛。**
+- [x] **Step 3: 接入实际 Kit 的显式能力并运行真实输入门槛。**
 
 增加 `MountDocumentEditorOptions.preserveSource?: boolean`，默认 false；它是后续 E1/E4 将使用的真实产品能力选项，不是 test-only seam。本阶段 true 先验证仅一个 snapshot block 且 createSourceSession 支持，其他输入抛明确保真能力未覆盖错误，旧默认 mount 不受影响。后续扩展计划逐步解除限制；不因选项存在便宣称两端可交付。
 
@@ -270,7 +270,7 @@ Kit 必须在 mountRich 的 customSchema 已生效、materializeBlocks 完成后
 
 #### 7. 执行命令、失败边界与精确提交
 
-- [ ] **Step 4: 运行新能力与原有消费者检查，核对实际依赖。**
+- [x] **Step 4: 运行新能力与原有消费者检查，核对实际依赖。**
 
 在 `/Users/bruce/git/moraya-core` 顺序执行并保存原始日志：
 
@@ -305,7 +305,7 @@ PLAYWRIGHT_MODULE=/Users/bruce/.npm/_npx/fd3bca3c548369c0/node_modules/playwrigh
 
 这不是通用编辑器验收：本阶段允许严格拒绝未支持输入来证明失败时不损坏数据；后续完整前置必须补齐正常编辑矩阵，不能将拒绝普通操作作为最终产品交付。
 
-- [ ] **Step 5: 自审、报告与两个仓库分别提交。**
+- [x] **Step 5: 自审、报告与两个仓库分别提交。**
 
 仅提交本任务的 core 源码、定向测试及其真实构建 tracked dist；不要提交 node_modules。示例精确路径（新 tracked dist 列表以构建实际 diff 为准，先核对后加入）：
 
@@ -318,3 +318,7 @@ git commit -m "feat(editor-kit): gate source-preserving paragraph edits"
 ```
 
 本任务完成后不推送/发布；root 进行独立任务 gate，生成两个仓库范围的完整 diff。报告 `.superpowers/sdd/2026-10-13-shared-editor-source-fidelity/task-1-report.md` 必须包含状态、两个 BASE/HEAD、源码与 dist 精确清单、RED/GREEN 原始日志路径、命令/退出码/测试计数、浏览器版本/实际加载 hash/after UTF-8 字节与完整 proposal、unsupported 边界、自审及剩余缺口。最终只返回简短状态、commits、测试摘要和 concerns。
+
+## 本切片结果（2026-10-13）
+
+Core `cafc03894cbc68294a01fafda118d59c61265eda`；宿主 `ace4ddf238ebc42207174ad8a41b94ea50fa5007`。Task1 经独立任务审查、一次修复和 scoped 复审、唯一最终整体审查通过。真实 Kit 93 bytes／单 hunk0..5／0 pageErrors；Core275、宿主最终4120 tests通过。仅单段落普通文字能力；完整I7、正式保存、网页E1–E3和桌面E4继续实施，未发布。证据与裁定见 [验证记录](../reports/2026-10-13-shared-editor-source-mapping-gate-verification.md)；接续 [整文档计划](2026-10-13-shared-editor-full-document-source.md)。
