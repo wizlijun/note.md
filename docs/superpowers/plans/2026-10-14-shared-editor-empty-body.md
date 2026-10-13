@@ -413,3 +413,9 @@ Ruling: Task2仅迁移source-structure-commands.spec.ts具名closed container fe
 Ruling: Task2 nested blank分类沿既有collectBlankDrafts约定，将actual已消费的protected definition也计作分隔边界；其后第一owned blank是separator，不因definition不发PM可见child而误签leading empty — 首次全CORE1073/1101通过、28失败中已发现此真实分类缺陷，计划“可见block/leading”的简写不能取消保护定义的真实消费事实 — 成本为澄清分类输入须含既有实际保护/规则事实，不能新扫raw猜definition或批量迁移位置断言。
 
 Ruling: 撤销并取代上一条Task2 list/list-tail-lf两个expected迁移裁定，恢复其原expected；保留该错误诊断、已批准记录与提交历史 — 新核实共享尾空行含部分TAB跨越blkIndent，真实trace会生成正文padding；observer此前仅b+t跳过整TAB误签empty权限，违反既定无TAB-generated正文授权。应以实际b/t/bs/blkIndent证明完整raw边界后才签，不得按“含TAB”一概拒绝 — 成本为此前迁移和裁定的返工，两个expected必须恢复；此前ledger重复separator修复仍须独立覆盖合法纯空格owned行，不借撤回测试掩盖其必要性。
+
+Ruling: Task2只修source-list-boundary.spec.ts的tampered blank authority fails before serializer负例构造：当前actual nested尾已完全raw拥有，public blankLines为空，原赋[]不再构成篡改；改用另一个实际session的非空blankLines并先证明与原值不同，保留reject和serializer零调用，其它kind不变 — 真实语义调整不应让负例成为no-op，不能把合法foreign恢复改为拒绝来迎合无效fixture — 成本为一个精确测试输入迁移，拒绝要求加强而不放宽；其余sink/lift不自动获准。
+
+Ruling: Task2允许source-only实际renderer向内部StructuralRendered/body atom传递真实末尾continuationIndent；仅结构witness触碰的左root和既有认证separator unit，在原padding按实际TAB宽度恰能完整满足新container缩进、会被收为新增semantic emptyP时，ledger可清该unit的padding并保留原EOL。只claim该separator，不扩root/保护/semantic-empty权限，不从raw猜容器或生产试parse — 真实sink将indent2改4，旧` \t`由partial-generated变完整owned，原raw必多出PM空段；独立最小候选`* A\n  * B\r\n\r\nTail __raw__\r\n`与真实tr.doc严格相等 — 成本是该结构操作需额外删除旧已认证separator的两个缩进字符；须断言唯一该padding写集、EOL与Tail不变、普通输入和未触碰seam不获权限。source-list-boundary仅此bullet sink expected迁移，ordered sink保持。
+
+Ruling: Task2仅迁移source-list-boundary中actual nested的bullet C lift expected为`* A\n  + B\n* C\n  \r\nTail __raw__\r\n`，保留完整严格回读/字节/base与item lineage，并补edits止于原tailFrom检查 — actual完整TAB在原inner indent4确已拥有尾空P，lift后该P随C移至outer；t2-list-depth-ownership-diagnosis证明target保有它，唯一edit0..19止于原tailFrom，旧根外CRLF与Tail不变 — 成本为原结构根内空P换行/padding依source-onlyrenderer重写，不能沿旧expected丢失该P；不迁移其它list用例。
