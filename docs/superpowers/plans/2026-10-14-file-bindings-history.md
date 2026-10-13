@@ -807,3 +807,6 @@ Ruling: Task3实际批注slash复验表明单ReplaceStep仍被preparePointRecipe
 
 
 Ruling: Task3不修改无file调用者的旧src/editor-kit/rich.ts；公开mountFileEditor与desktop editor-bridge file分支都直接进入唯一file-main工厂，内部wiring一次组装plugins/adapters，CORE callbacks完成首帧schema/capture/controller。旧Kit mountRich二次customizeSchema仅保持legacy原状 — 实际接线已无需旧Kit承载file参数，增加未消费入口会形成冗余 — 成本是取消原Files中不必要一项修改，不取消首帧/legacy回归或公共接口，不新增第二factory。
+
+
+Ruling: 新增独立Task5（Task4后、唯一whole-range final前）补齐普通desktop既有image操作的保真producer/消费者；Task3先完成其余owner/source/实际接线并独立审查，报告image未闭合，不得称全阶段可发行。新Task设计为当前OWN/desktop-image-fidelity-design.md，待实际证据与接口自审后冻结，不派第二产品writer。Task4原“最终”Svelte/完整能力聚合与phase受理相应延到Task5后，只保留其实际native/recovery必要检查 — Task3真实helper证明insertImageAtCursor/insertImageAtPos被新controller拒绝，原binary paste/native drop/image slash/ctx都会退化；网页spec§12.9禁新增附件不授权删掉宿主原功能 — 成本是必要兼容性修补任务，继续单一来源/Step链/protected/doc.eq与现有cap，不能用Source fallback或静默legacy切换绕过；本阶段最终受理/发行前必须完成。
