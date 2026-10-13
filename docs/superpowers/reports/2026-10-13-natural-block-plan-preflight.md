@@ -1,0 +1,20 @@
+# 自然块计划 root 自审记录（已纠正并采纳）
+
+Authority master12.4/I7 and latest user sharedfidelity→bothends. Root read full954line draft once; former979line pergrammar exactspan draft notadopted. No separateplanreviewer.
+
+| Task/pair | Producer/consumer | Concrete finding / correction required before formal freeze |
+| --- | --- | --- |
+| N1 self | token map→SourceTrace raw→PM roots | prepareRootEvents findIndex startsfromtoken0 for everyroot; rootCursor sums allpreviouscontent; rawRange loops alltracepieces; buildSourceGaps filtersallsyntheticpergap. These create quadraticcost. Currentplanfinalreview alreadyadjudicates similartrace/PMcost; reuse its actual accepted internalcursor/lookup helpers and useforwardmatching/onepasssyntheticgrouping. Do not freezeguess API names beforefinalfixaccepted. |
+| N1 self | BOMworktrace→session.doc/current oldtests | Capture-only oneinitialBOMstrip rooteddecision consistent with current normaldesktopread behavior; raw/legacy/EOL unchanged, tests explicitshiftedsemanticbaseline. Existing corpus onechar shouldstaybyteexact; futureKit materialize session.doc mandatory. |
+| N1↔N2 | SourceSession roots/gaps→transaction | SourceRoot/Gap/Emission/Edit fields align; FidelityFailure alreadyactualexported. Root IDs ephemeralrevision-localordinal, notbusinessidentity. SourceSession newfields onlyconsumedbyN2, no newgrammarparser. |
+| N1↔N2 | owner.tailFrom→localrenderer | tokenmapownsrawrange, tailclassifier onlyrenderercontract; tablegeneratedsingleLFstrip scope notraw trim. Existing literal closedcases mustproveGREEN; unclosedtail/hardbreak failures preservednexttasks. |
+| N2 self | supportedStep+finaldoc→changedRootIds | AddMark emptyMap handledfrom/to/tr.docs, stabletopchild count/markup checked. But root.find perchangedchild and childPosition prefixsum pereachchangedroot becomequadratic onmulti-rootCtrl+B. Build rootForChild and step childoffsets once, rootById directindexed, keepallattrs strict. |
+| N2 self | exactFirst/renderer→rawedits/guard | NewAPIstoredMarks-only no sourcechange, replaydocumentsteps preservesrealcallerintent; oldexactAPI remainsstrict. Per-rootedits no boundingenvelope overuntouchedmiddle. SemanticEq allattrs; unknownattrs rejected notignored. No wholefilecanonical+difffilter. |
+| N2↔host | committeddist→installed API→merge/browser | Actualinstalledroot and samecustomschema/CDRonlyneutralization covered. Browsercommand currentlyomitsOUTPUT/CACHE and defaultsdeletedoldworkspace AGAIN; fix to explicit NEWplan ownworkspace. Needretaincommitted14fixture+manifestSHA checks, not justworkingcopies. |
+| N1↔N2 build | source/dist→twoexactcommits | DirectCLIs/noinstalls/gzip81920, ownworkspace, source+dist samecorecommit. N1afterfullmetadata review thenN2 onlywriter; hosttests exactcommit anddefaultconsumer off. |
+
+Spec gaps explicitrequiredfollowups: arbitrarystructure/commands attrs/nativehistory/sourcebuffer+DOM+onlychangedparse/Kitmulti-block/desktop/ownerannotation/full13class3UIcycles/IME/release. N1/N2 areincrementalworkingsoftware, cannotmarkI7overallcomplete. Draft references currentworkspace scratch must become verifiedformalarchive links whenadopted; no oldworkspace recreation. FullDocTask3acceptedheads now corefd01db4/hostfbbece09; rebaseformalplan actualfinalheads aftercurrentunique finalreview/fix.
+
+Root修订自审：forward token/gap分桶/实际captureCursor+firstPiece已接线；真实PM addMark跨paragraph为N个steps，N2改actual标准Step类范围授权+最终一次全topchildren校验，补多step/synthetic/自定义子类拒绝与child访问预算用例。发现core根不能resolve prosemirror-transform，现仅由state传递安装1.12.0；已补N2 peer/dev/lock importer+tsup external及不下载的同目标local解析link，确保clean clone可重建和运行时class identity。N1四种ownership类型重复在N1任务合同内（避免提取brief丢定义）；SourceBlockResult明确落source-fidelity；dist stage用gitadd-u避免ignoredpath重复失败。正式冻结仍待finalfix当前已通过及archive生成后引用更新。
+
+Freeze前最后核对：Task标题改为1/2供既有task-brief脚本匹配；每task自己列Files与完整所消费数据类型，GlobalConstraints/共用产物门槛需root追加brief（实际script仅抽task）。新增全部依赖名字有真实导出；SourceBlockResult放source-fidelity，旧公开API合同不变。所有代码块新行转义核对，placeholder scan零命中，next browser明确新workspace。完整finalfix scopedreview已通过无残留；研究archive SHA与两仓baseline由正式plan收口。

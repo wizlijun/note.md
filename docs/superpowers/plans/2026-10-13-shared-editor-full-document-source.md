@@ -1,6 +1,6 @@
 # 完整文件原文保留与顶层段落来源映射 Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** 让共享 core 保留完整 Markdown 原文字节，在复杂文档中对有真实映射的顶层普通段落执行单步文字替换，并提供保留 BOM 的纯 EOL 投影。
 
@@ -63,7 +63,7 @@ export function viewOffsetAt(p: EolProjection, sourceOffset: number, bias: -1 | 
 
 **Consumes:** 无 parser/DOM 依赖。Task 2 只在 Markdown 原 normalize 阶段消费；未来 Source textarea 消费同一纯 API，但不消费 Markdown math/smartquote/NUL trace。
 
-- [ ] **1.1 写完整 RED**（下列 import/functions 为最终公开签名）。
+- [x] **1.1 写完整 RED**（下列 import/functions 为最终公开签名）。
 
 ```ts
 import { expect, it } from 'vitest'
@@ -93,8 +93,8 @@ it.each(['', '\uFEFF', '\r\n', '\r\r\n', 'a\rb\nc\r\nd', '😀'.repeat(5000)])(
   })
 ```
 
-- [ ] **1.2 RED 命令**：core 工作目录运行 `./node_modules/.bin/vitest run src/__tests__/source-projection.spec.ts`；预期模块缺失失败，记录原始输出。
-- [ ] **1.3 实现纯模块**。以下是可直接使用的最小代码；普通文本保存 slice，不生成每字符对象。
+- [x] **1.2 RED 命令**：core 工作目录运行 `./node_modules/.bin/vitest run src/__tests__/source-projection.spec.ts`；预期模块缺失失败，记录原始输出。
+- [x] **1.3 实现纯模块**。以下是可直接使用的最小代码；普通文本保存 slice，不生成每字符对象。
 
 ```ts
 function check(n: number, max: number) {
@@ -135,8 +135,8 @@ export function viewOffsetAt(p: EolProjection,n: number,bias:-1|1) {
 
 `src/index.ts` 导出上述三函数及两个类型。BOM 不删除、NUL 不替换、smart quotes 不转换。
 
-- [ ] **1.4 GREEN**：同一 focused 命令；再运行 `./node_modules/.bin/tsc --noEmit`。不在此步运行浏览器或创建 DOM adapter。
-- [ ] **1.5 构建及任务提交**：core `./node_modules/.bin/tsup`；`git diff --check`；显式 stage 本任务三个 src 文件和 `git diff --name-only -- dist` 列出的生成文件，core 独立提交。不得以通配 stage 吸收同事产品改动。
+- [x] **1.4 GREEN**：同一 focused 命令；再运行 `./node_modules/.bin/tsc --noEmit`。不在此步运行浏览器或创建 DOM adapter。
+- [x] **1.5 构建及任务提交**：core `./node_modules/.bin/tsup`；`git diff --check`；显式 stage 本任务三个 src 文件和 `git diff --name-only -- dist` 列出的生成文件，core 独立提交。不得以通配 stage 吸收同事产品改动。
 
 ## Task 2：工作文本 trace 与完整文件来源捕获
 
@@ -167,7 +167,7 @@ export function createSourceSession(source:string,schema?:Schema):FidelityResult
 
 `createSourceSession` producer 向 Task 3 提供完整 doc/raw 与可能稀疏的 textSpans。稀疏不等于错误；每一条已声明 span 必须真实可写。parse 异常返回 parse-error，禁止调用 canonical parse 的空 doc fallback。private rule/State shape 改变仍返回 unsupported-source。
 
-- [ ] **2.1 先写 trace 与真实 hook RED**。下列 helper 在本文件内定义，不导出测试专用 API。
+- [x] **2.1 先写 trace 与真实 hook RED**。下列 helper 在本文件内定义，不导出测试专用 API。
 
 ```ts
 import {expect,it} from 'vitest'
@@ -225,9 +225,9 @@ it('does not claim container/literal text as editable',()=>{
 })
 ```
 
-- [ ] **2.2 RED 命令**：`./node_modules/.bin/vitest run src/__tests__/source-trace.spec.ts src/__tests__/source-document-capture.spec.ts`；预期缺少新 hook/modules。
+- [x] **2.2 RED 命令**：`./node_modules/.bin/vitest run src/__tests__/source-trace.spec.ts src/__tests__/source-document-capture.spec.ts`；预期缺少新 hook/modules。
 
-- [ ] **2.3 实现分段 trace（不以格式 diff 反推）**。以下完整 helper 定义给出 split/组合规则；输出 segments 不要求每字符一项。`generated` 的 raw 锚点不可用作可写范围。
+- [x] **2.3 实现分段 trace（不以格式 diff 反推）**。以下完整 helper 定义给出 split/组合规则；输出 segments 不要求每字符一项。`generated` 的 raw 锚点不可用作可写范围。
 
 ```ts
 export function identityTrace(text:string):SourceTrace {
@@ -274,7 +274,7 @@ export function editTrace(t:SourceTrace,edits:readonly TraceEdit[]):SourceTrace 
 
 仅完整 atomic span 可映射到原区间；切半的 atomic 不可写。本 slice 对生成/未知输出采用局部 opaque，不让一个不支持的 token 毒化全文件。
 
-- [ ] **2.4 math 的原循环在作出 result.push('') 决策时收集 edits**。给 `normalizeMathBlocks(text, edits?:TraceEdit[])` 增加可选参数，默认调用不产生额外对象；现有判断顺序和结果数组不变。预计算每行原 offset，插入点都是当前输入坐标。
+- [x] **2.4 math 的原循环在作出 result.push('') 决策时收集 edits**。给 `normalizeMathBlocks(text, edits?:TraceEdit[])` 增加可选参数，默认调用不产生额外对象；现有判断顺序和结果数组不变。预计算每行原 offset，插入点都是当前输入坐标。
 
 ```ts
 // 在 const lines = text.split('\n') 后：
@@ -288,7 +288,7 @@ if(edits) edits.push({from:starts[i+1]!,to:starts[i+1]!,text:'\n'})
 
 原输入按 `\n` split，即 CRLF 的 `\r` 仍留在 line 中；loneCR 不提前分行。连续 edit 同一边界顺序稳定。计算 `editTrace(identityTrace(source),mathEdits)` 后断言 `.text === normalizeMathBlocks` 的真实返回值；不相等抛 UnsupportedSourceCapture。这一断言是 parser 私有契约保护，不是拿最终格式 diff 定位来源。
 
-- [ ] **2.5 smart quotes 与 markdown-it normalize 留 trace**。smartquote 三次原 replace（含重复 double-quote pass）保留原调用顺序；给函数增加可选 observer `(before:string,after:string,edits:TraceEdit[])=>void`。每个 callback 使用 JS replace 的 offset 参数记录两处 delimiter，禁止把整个链接标成 atomic。
+- [x] **2.5 smart quotes 与 markdown-it normalize 留 trace**。smartquote 三次原 replace（含重复 double-quote pass）保留原调用顺序；给函数增加可选 observer `(before:string,after:string,edits:TraceEdit[])=>void`。每个 callback 使用 JS replace 的 offset 参数记录两处 delimiter，禁止把整个链接标成 atomic。
 
 ```ts
 type QuoteTraceObserver=(before:string,after:string,edits:readonly TraceEdit[])=>void
@@ -324,7 +324,7 @@ normalize wrapper 调用原规则前保留 `before=state.src`；`projectLineEndi
 
 新增定向 RED 输入包括 `首段\r$$\rx\r$$\r目标甲`、`首段\r\n$$\r\nx\r\n$$\r\n目标甲` 与混合 quotes+NUL，逐个要求 capture doc.eq canonical parse，精确匹配目标原 offset。不存在「先统一 EOL 再做 math」的等价假设。
 
-- [ ] **2.6 用原 paragraph rule 调用捕获 owner，局部投影只支持顶层**。`wrapCaptureRule(md.block.ruler,'paragraph',...)` 在委托前判断 `state.level===0 && state.blkIndent===0`；没有通过则直接原调用。保存/临时包裹该 state 的 getLines，finally 恢复。只记录本次 `indent===0` 调用，按实际 bMarks/eMarks 拼出 slice；nested list/quote 不经过此分支。
+- [x] **2.6 用原 paragraph rule 调用捕获 owner，局部投影只支持顶层**。`wrapCaptureRule(md.block.ruler,'paragraph',...)` 在委托前判断 `state.level===0 && state.blkIndent===0`；没有通过则直接原调用。保存/临时包裹该 state 的 getLines，finally 恢复。只记录本次 `indent===0` 调用，按实际 bMarks/eMarks 拼出 slice；nested list/quote 不经过此分支。
 
 ```ts
 // markdown.ts 内：
@@ -383,7 +383,7 @@ if(owner) {
 
 生产RED额外要求 `甲 _甲_。\n\n甲 _甲_。` 中第二个甲的raw范围与PM位置属于第二段，及一次capture后紧接不同文本capture没有上次owner。重入脚本是私有API门槛，不将测试钩子加进生产公共接口。
 
-- [ ] **2.7 source runs 改成 owner-local provenance，PM text cursor 仍是实际 handler cursor**。现有 SourceRun 增加 `trace?:SourceTrace`；真实 text/entity/escape/emphasis rule 成功时通过 `sliceTrace(owner,from,to)` 附来源。未被捕获但确实输出文字的 token 用 `{text:token.content}` opaque chunk，避免 join 后把后面的文字左移。`captureJoin` 对每个 text/text_special token 都保留实际 chunk 文本序列；两个既有 join wrapper 继续委托原规则。
+- [x] **2.7 source runs 改成 owner-local provenance，PM text cursor 仍是实际 handler cursor**。现有 SourceRun 增加 `trace?:SourceTrace`；真实 text/entity/escape/emphasis rule 成功时通过 `sliceTrace(owner,from,to)` 附来源。未被捕获但确实输出文字的 token 用 `{text:token.content}` opaque chunk，避免 join 后把后面的文字左移。`captureJoin` 对每个 text/text_special token 都保留实际 chunk 文本序列；两个既有 join wrapper 继续委托原规则。
 
 ```ts
 // join 时当前 token 无 provenance 不得当成空串：
@@ -422,11 +422,11 @@ type SourceRun = {text:string;kind?:undefined;trace?:undefined}
 
 移除全局 Critic 字符串拒绝；不用实现其内部改写。移除 link wrapper 对 reference-style link 的全文件 invalid：reference label 若 owner/run 精确则可映射，目的地址与 definition opaque；如该 rule 的输出无法关联，只有该 token 文字 opaque。最终 candidate parse guard 会保留引用依赖语义，raw definition 永不 serialize。
 
-- [ ] **2.8 hook 收束与失败边界**。删除 md.parse 尾部单段 whitelist/全局 offset 赋值；原 tagPairedHtmlInline/fixFootnoteDefMaps/preserveBlankLines 顺序不变。新增 parseDocument hook：按实际 math→quotes→normalize 组合 trace，使用 `getParserFor(schema).parse(work,{[captureKey]:collector})`。验证每条 span 的边界、PM 对应文字、排序不重叠与所在 `$from.depth===1` 的 paragraph；不要求所有 PM text 都有映射。`createSourceSession` 改用新 hook，仍返回 `{revision:0,source,doc,textSpans}`。
+- [x] **2.8 hook 收束与失败边界**。删除 md.parse 尾部单段 whitelist/全局 offset 赋值；原 tagPairedHtmlInline/fixFootnoteDefMaps/preserveBlankLines 顺序不变。新增 parseDocument hook：按实际 math→quotes→normalize 组合 trace，使用 `getParserFor(schema).parse(work,{[captureKey]:collector})`。验证每条 span 的边界、PM 对应文字、排序不重叠与所在 `$from.depth===1` 的 paragraph；不要求所有 PM text 都有映射。`createSourceSession` 改用新 hook，仍返回 `{revision:0,source,doc,textSpans}`。
 
 保留导出的旧内部 `parseParagraphWithSourceCapture` 作为兼容 wrapper：调用新 hook，若 doc 非单段或存在无映射文字/不支持 mark/node 则 unsupported-source；原 canonical API 完全不动。新消费者只使用新 hook，不能重复维护两套 parser。
 
-- [ ] **2.9 本任务直接更新旧 createSession 负例**，替换 `source-fidelity.spec.ts` 中原「does not pretend unsupported source has writable exact mapping」测试；其余事务负例原样保留。这里不依赖 Task 3 的说明：
+- [x] **2.9 本任务直接更新旧 createSession 负例**，替换 `source-fidelity.spec.ts` 中原「does not pretend unsupported source has writable exact mapping」测试；其余事务负例原样保留。这里不依赖 Task 3 的说明：
 
 ```ts
 it('opens opaque source without claiming writable literal/container text',()=>{
@@ -448,7 +448,7 @@ it('captures text after CRLF without normalizing raw source',()=>{
 })
 ```
 
-- [ ] **2.10 GREEN 与任务提交**：先 focused Task 2 测试，再 `./node_modules/.bin/tsc --noEmit`、core 全测试 `./node_modules/.bin/vitest run`。此checkpoint包括上面旧测试边界更新，不能留预期失败。运行 `./node_modules/.bin/tsup`；仅 stage 本任务 src/tests 与 tracked dist，同一次 core commit。
+- [x] **2.10 GREEN 与任务提交**：先 focused Task 2 测试，再 `./node_modules/.bin/tsc --noEmit`、core 全测试 `./node_modules/.bin/vitest run`。此checkpoint包括上面旧测试边界更新，不能留预期失败。运行 `./node_modules/.bin/tsup`；仅 stage 本任务 src/tests 与 tracked dist，同一次 core commit。
 
 ## Task 3：单步局部事务、14 fixture、propose 与实际产物门禁
 
@@ -458,7 +458,7 @@ it('captures text after CRLF without normalizing raw source',()=>{
 
 **Produces:** 原 `applySourceTextTransaction(base:SourceSession,tr:Transaction):FidelityResult` 支持完整 doc 内、单个顶层普通 paragraph 的 text ReplaceStep；失败不返回 session，成功 revision+1。不增加编码类型、mode flag 或历史事件接口。
 
-- [ ] **3.1 固定 fixtures 为真实字节文件**。下面脚本在 core 根运行一次，生成14个 raw文件及 manifest，提交生成文件。不得在测试每次运行时生成输入；测试只读文件。原已有 corpus 不覆盖，新增子目录。
+- [x] **3.1 固定 fixtures 为真实字节文件**。下面脚本在 core 根运行一次，生成14个 raw文件及 manifest，提交生成文件。不得在测试每次运行时生成输入；测试只读文件。原已有 corpus 不覆盖，新增子目录。
 
 ```sh
 node --input-type=module <<'JS'
@@ -501,7 +501,7 @@ JS
 
 两个仓库各自只读自己已提交fixture运行测试；跨repo SHA对照是本次集成交付门禁，不是core测试运行前置。
 
-- [ ] **3.2 写 core corpus RED**。真实 raw hash、连续3次 core会话、单字精确输出三个独立断言；3次不是 UI 切换。
+- [x] **3.2 写 core corpus RED**。真实 raw hash、连续3次 core会话、单字精确输出三个独立断言；3次不是 UI 切换。
 
 ```ts
 import {readFileSync} from 'node:fs'
@@ -538,9 +538,9 @@ for(const f of manifest) it(`${f.name}: core reopen bytes and exact one-char spl
 })
 ```
 
-- [ ] **3.3 RED 命令**：core `./node_modules/.bin/vitest run src/__tests__/source-fidelity-corpus.spec.ts`；预期 Task 2 已能 open，但事务仍受 firstChild/single-doc 旧限制而失败。若打开仍失败，退回 Task 2，不能 skip fixture。
+- [x] **3.3 RED 命令**：core `./node_modules/.bin/vitest run src/__tests__/source-fidelity-corpus.spec.ts`；预期 Task 2 已能 open，但事务仍受 firstChild/single-doc 旧限制而失败。若打开仍失败，退回 Task 2，不能 skip fixture。
 
-- [ ] **3.4 最小事务实现**。保留 source-fidelity.ts `boundary`、`splitsSurrogate`、source 区间连续检查、candidate splice 和严格 reparse；只替换「firstChild 单段」前置约束与 surrogate 检测。首先在读取步骤之前拒绝 `tr.storedMarksSet`，然后将下列段落边界代码放在读取 from/to 后。
+- [x] **3.4 最小事务实现**。保留 source-fidelity.ts `boundary`、`splitsSurrogate`、source 区间连续检查、candidate splice 和严格 reparse；只替换「firstChild 单段」前置约束与 surrogate 检测。首先在读取步骤之前拒绝 `tr.storedMarksSet`，然后将下列段落边界代码放在读取 from/to 后。
 
 ```ts
 if(tr.storedMarksSet)return {ok:false,reason:'unsupported-step'}
@@ -572,7 +572,7 @@ if(from<to && (spans[0]!.pmFrom>from || spans[spans.length-1]!.pmTo<to
 
 候选新源码使用现有原样插入规则；如果 `*乙*` 会变成em，仍 semantic-mismatch，不补 canonical fallback。成功后重新建立全文件映射，revision只增加1。`tr.before` 必须 `.eq(base.doc)`；一切 marks/attrs 都参与 eq（core不会忽略cdrBlockId；host已有 adapter单独处理）。
 
-- [ ] **3.5 检查原 Task1 边界并补新事务回归**。createSession 的负例替换已由 Task2完成，本任务只增加实际事务验收，不重复移动测试。
+- [x] **3.5 检查原 Task1 边界并补新事务回归**。createSession 的负例替换已由 Task2完成，本任务只增加实际事务验收，不重复移动测试。
 
 | 原测试 | 新断言 |
 | --- | --- |
@@ -626,9 +626,9 @@ it('opaque literal edit fails without a writable result',()=>{
 
 另以实际 PM `tr.replaceWith` 覆盖包含 atom 的范围，要求失败；先选择 `node.isAtom&&node.isInline` 得真实 atom位置，范围向两侧各扩一个 PM位置，不使用 textContent。原来三句 fixture 的甲→乙仍必须通过真实 Kit 单块 browser gate。
 
-- [ ] **3.6 core GREEN**：`./node_modules/.bin/vitest run src/__tests__/source-fidelity.spec.ts src/__tests__/source-fidelity-corpus.spec.ts src/__tests__/source-document-capture.spec.ts src/__tests__/source-trace.spec.ts src/__tests__/source-projection.spec.ts`；再 `./node_modules/.bin/tsc --noEmit` 与 `./node_modules/.bin/vitest run`。记录实际数量，不复述旧275作新结果。
+- [x] **3.6 core GREEN**：`./node_modules/.bin/vitest run src/__tests__/source-fidelity.spec.ts src/__tests__/source-fidelity-corpus.spec.ts src/__tests__/source-document-capture.spec.ts src/__tests__/source-trace.spec.ts src/__tests__/source-projection.spec.ts`；再 `./node_modules/.bin/tsc --noEmit` 与 `./node_modules/.bin/vitest run`。记录实际数量，不复述旧275作新结果。
 
-- [ ] **3.7 build/sync 后 host RED→GREEN：必须 import installed root API**。
+- [x] **3.7 build/sync 后 host RED→GREEN：必须 import installed root API**。
 
 core：`./node_modules/.bin/tsup`。host运行已有 sync:core 的相同 Node 代码（无需 pnpm）：
 
@@ -706,7 +706,7 @@ node scripts/check-editor-kit-build.mjs
 env SOURCE_FIDELITY_OUTPUT_DIR=.superpowers/sdd/2026-10-13-shared-editor-full-document-source/task3-browser SOURCE_FIDELITY_CACHE_DIR=.superpowers/sdd/2026-10-13-shared-editor-full-document-source/task3-vite-cache PLAYWRIGHT_MODULE=/Users/bruce/.npm/_npx/fd3bca3c548369c0/node_modules/playwright/index.mjs node scripts/check-source-fidelity-browser.mjs
 ```
 
-- [ ] **3.8 actual dependency 与 gzip 门禁（host根执行）**。下面脚本输出可存档JSON，不读取秘密配置。
+- [x] **3.8 actual dependency 与 gzip 门禁（host根执行）**。下面脚本输出可存档JSON，不读取秘密配置。
 
 ```sh
 node --input-type=module <<'JS'
@@ -749,3 +749,7 @@ JS
 ## 基线与研究证据
 
 宿主产品基线 `ace4ddf238ebc42207174ad8a41b94ea50fa5007`，core基线 `cafc03894cbc68294a01fafda118d59c61265eda`；实施前重新记录实际HEAD（可能包含文档收口提交）。前一切片验证记录：[来源映射切片](../reports/2026-10-13-shared-editor-source-mapping-gate-verification.md)。本计划的所有算法、接口与测试已写在正文；历史scratch只作实证参考，执行者不读取其他计划workspace。当前完整I7、两端协作及统一发版未完成。
+
+## 本计划验收收口
+
+三任务、唯一whole-range审查及一次统一finalfix/scoped复审已完成；验证、全部裁决与证据归档见[正式验证报告](../reports/2026-10-13-shared-editor-full-document-source-verification.md)。当前仅前置增量，未勾选完整I7/两端交付或新版本发布。
