@@ -14,7 +14,7 @@
 
 - CORE `/Users/bruce/git/moraya-core`、HOST `/Users/bruce/git/mdeditor`，两个现有main；不建worktree，不动stash/其他工作，不读.env；单一产品writer。
 - 前置empty已整体受理：CORE9ccee70ff8338e22c8b8c9f02654cffa6491354d、HOST产品574fee6ce9d7e8302bc02e7b2f2062e18a5fe1a9，收尾docs4bfb6bcb077d2209de787a62e328448e0078d4da；正式报告docs/superpowers/reports/2026-10-14-shared-editor-empty-body-verification.md。whole-range C0/I0/M3，最终installed58dist闭包与root Svelte/前后指纹已受理；本批BASE另精确冻结。
-- 包/lock完整bytes保持；main gzip≤98304（已批准预算；前置最终实测88537 bytes），不预涨预算；两仓原14fixture与manifest SHA不变。
+- 包/lock完整bytes保持；main gzip≤102400（Task2实测100204后root有限修订为100 KiB；原98304超限证据保留，前置最终实测88537 bytes）；两仓原14fixture与manifest SHA不变。
 - 不CST、不第二parser、不根/全文serialize后diff、不生产parse oracle、不枚举parse候选试探、不raw第二账本、不authority setter、不definition搬运。
 - 原Step完整range、真实prototype、tr.docs链先审，不能先收缩范围再绕权限；祖先/兄弟/全部attrs/marks严格校验，最终doc.eq保持。
 - root裁定：允许语义必需且局限于新delimiter边界的space/tab entity补偿；仅改变被此格式命令迫使调整的边界raw编码，不归一其它正文或mark。
@@ -553,7 +553,7 @@ env pnpm_config_verify_deps_before_run=false pnpm run check:editor-kit
 # env pnpm_config_verify_deps_before_run=false pnpm run check
 ```
 
-host build沿空envDir的既有受控入口，必须先于check:editor-kit；最终Svelte由root统一执行一次，不在writer阶段重复。完整检查所有实际package exports JS/DTS/maps embedded源码、package/lock bytes、两仓fixture SHA、gzip≤98304与installed bytes对应committed dist。不要为了预算移出入口/改压缩参数；如超限先停并向root提交证据。最终host源码/tests/未发布记录精确commit并记录双HEAD，报告哪次全套对应哪SHA，不把只跑targeted的后修订说成重跑全量。
+host build沿空envDir的既有受控入口，必须先于check:editor-kit；最终Svelte由root统一执行一次，不在writer阶段重复。完整检查所有实际package exports JS/DTS/maps embedded源码、package/lock bytes、两仓fixture SHA、gzip≤102400与installed bytes对应committed dist。不要为了预算移出入口/改压缩参数；如超限先停并向root提交证据。最终host源码/tests/未发布记录精确commit并记录双HEAD，报告哪次全套对应哪SHA，不把只跑targeted的后修订说成重跑全量。
 
 - [ ] **2.10 完成条件与下游门槛。** 新partial、多Step、跨两段、nested、多cell、空inline marked/link/point、inline code body、已证closed-fence碰撞增长、真实批注泡泡增删改均有真实RED→GREEN及installed证据；原Step权限/protected/全attrs严格eq保持；所有source/test/dist已精确提交且双SHA与artifact对应。已认证empty marked/link/point必须有positive；缺fact/不可表达复杂atom组合具体列出，不能声称全菜单任意文档无条件支持。
 
@@ -580,3 +580,8 @@ Ruling: source-structure-commands原getLines/skipSpaces三个apply参数改为Pa
 Ruling: Task2允许精确修改source-structure.ts的prepareEmptyParagraphEdits，仅新增已认证空paragraph首步closed单note_anchor leaf插入的原链准入；不开放其它leaf/atom，所有原prototype/docs/apply/ledger/single-origin/no-birth/one-run/claims约束保持 — Task1为拒绝未知leaf加入text-only guard，Task2明定空文件/布局空段点批注positive必经此helper，仅改source-empty-body会被直接拒绝 — 成本是一个具名helper精确扩展并加直接正反例；该分支须仅单步、canonical真实note_anchor且marks/attrs完整验证，无后续mark扩权，hardbreak/math/缺fact/先删空再插入等旧拒绝保持。
 
 Task2文件allowlist相应新增上述source-structure.ts具名helper；直接helper的测试放新source-annotation-producer.spec.ts，旧source-empty-cache/source-inline-recipe的hardbreak leaf负例保持。Task1 fix1新增只读InlineAtomOccurrence由actual math token发射/clone/replay/finalizer绑定；Task2沿该实际接口保留未改公式，不重复捕获或授予数学创建权限。Task1 fix1整体受理后才冻结Task2 BASE并派fresh writer。
+
+
+## Task2 实测预算裁定
+
+Ruling: 本阶段 core main gzip 局部预算从98304调整为102400 bytes（100 KiB），主spec share-editor最终900 KiB硬门槛不变 — 实际全exports同参数产物100204，1230项全量通过；只读审查三处重复候选均属独立权限/capture闭包且无足够低风险删减，不为1900 bytes差额引入重构或删校验 — 成本为局部预算增加4096 bytes、当前较前置88537增加11667 bytes；原超限证据保留，不代表最终网页bundle已达标。
