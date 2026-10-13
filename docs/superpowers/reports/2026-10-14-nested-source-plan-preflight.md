@@ -38,3 +38,5 @@ Ruling: Task1精准允许迁移 source-fidelity.spec.ts 的 list opaque/拒绝�
 Ruling: 授权 task-1-conflicts.md 经固定BASE核对的净能力断言迁移：source-list checked正文映射与exact；source-document-capture同parent而非depth1及quote/list；source-block-fidelity四种whole-body fragment与list exact；source-list-boundary单字保留blank/CRLF/9)以及定义旁正文exact（必须核完整protected和不进renderer）；source-file-window实际221→227读取 — 新来源快照确增加每段2次行表读，保留48规则/1runner/3inline与100对1000有界证明，不隐瞒计数 — 若扩大迁移会掩盖回归，独立review须逐项对照，本批未覆盖literal/结构/安全断言不改。
 
 Ruling: 继续拒绝含未闭fence自然根内的新exact/fragment操作，不迁移两条unclosed拒绝用例 — 本批保持既有未闭根权限边界，不因可映射字符而隐式扩权 — 成本是这类正文仍不能Rich局部修改，可由显式Source处理；后续若要开放须独立证明完整权限。
+
+Ruling: Task2真实frontmatter callback测试的legacy createEditor视图初值仅去开头一个BOM，source session与expected保留完整原raw/BOM/CRLF；仍先核doc相等并触发真实callback，不修改legacy全局parseMarkdown — 当前legacy raw含BOM初值与capture语义不同，file-mode初始化尚未交付且必须直接使用final schema同次capture.doc — 成本是此测试不证明原createEditor(raw含BOM)已修，后继计划必须验真实file mount首帧；初始doc.eq失败不能计consumer RED，callback路径的RED如实注明已做capture但尚未做literal权限/Step收缩，不恢复工作源码制造历史。

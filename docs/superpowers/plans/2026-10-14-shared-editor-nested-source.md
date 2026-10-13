@@ -257,7 +257,7 @@ it('actual frontmatter onChange retains CRLF and emits one character patch',asyn
    input=onChange;return {destroy(){}};
  }};
  const container=document.createElement('div');document.body.append(container);
- const editor=await createEditor({container,initialContent:raw,
+ const editor=await createEditor({container,initialContent:raw.charCodeAt(0)===0xFEFF?raw.slice(1):raw,
    mediaResolver:new BrowserMediaResolver(),frontmatterViewFactory:factory});
  try {
    const opened=createSourceSession(raw,editor.view.state.schema);
@@ -279,6 +279,8 @@ it('actual frontmatter onChange retains CRLF and emits one character patch',asyn
  } finally {editor.destroy();container.remove()}
 });
 ```
+
+本测试legacy editor初值仅移除首BOM，source session/expected保留完整raw。它只验真实callback，不声称legacy含BOM初始化已修；后继file assembly须直接使用同次capture.doc。原始初值doc.eq失败单列，不能计consumer行为RED。
 
 这个consumer实际用 `setup.ts:977` 的 `replaceWith(from,to,schema.text(newRaw))`，不是单字Step。因此仅对code_block/frontmatter/html_block无mark正文，在 **原Step完整范围权限审计之后**，比较原Step覆盖的纯正文与该Step插入文本，求最大相同UTF-16前后缀（不能切surrogate）；用剩余PM区间走既有span边界映射，验证整个original tr.doc。没有serialize动作，没有根级diff，没有缩小原权限范围。原始闭合/类型/attrs/兄弟/祖先审计均不变；若插入文本有不同marks或多节点结构，不做收缩。这样保留真实NodeView未修改的CRLF；changed raw仍只有一个字符。禁止把这一缩范围规则用于任意结构或protected根权限。
 
