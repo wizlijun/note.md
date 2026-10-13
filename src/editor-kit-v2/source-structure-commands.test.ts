@@ -3,6 +3,7 @@ import {expect,it} from 'vitest'
 import {EditorState,TextSelection,type Transaction} from 'prosemirror-state'
 import {EditorView} from 'prosemirror-view'
 import {AttrStep} from 'prosemirror-transform'
+import {history,undo} from 'prosemirror-history'
 import {createSourceSession,applySourceBlockTransaction} from '@moraya/core'
 import {executeEditorCommand} from './commands'
 import type {EditorCommand} from './contract'
@@ -106,3 +107,41 @@ it.each(['```js\nA','> ```js\n> A','- ```js\n  A'])(
   reject(b,state(b,at).tr.step(new AttrStep(at-1,'language','ts')))
   reject(b,state(b,at).tr.insertText('Z',at,at+1))
  })
+
+// Scenario augmentation only: Kit does not currently produce boundary nodes.
+const listBoundary='<!-- notemd:list-boundary -->'
+function augmentListScenario(tr:Transaction,pos:number){
+ tr.insert(pos,tr.doc.type.schema.nodes.html_block!.create(null,tr.doc.type.schema.text(listBoundary)))
+ expect(tr.doc.nodeAt(pos)?.type.name).toBe('html_block');expect(tr.doc.nodeAt(pos)?.textContent).toBe(listBoundary)
+}
+it('actual Kit ordered command plus explicit scenario M step preserves three separate lists',()=>{
+ const b=open('1. A\n\nP\n\n1) C'+tail),tr=kitTransaction(state(b,text(b.doc,'P')),{kind:'ordered-list'})
+ expect(tr.doc.childCount).toBe(4);expect(tr.doc.child(1).type.name).toBe('ordered_list')
+ augmentListScenario(tr,tr.doc.child(0).nodeSize)
+ accept(b,tr,`1. A\n\n${listBoundary}\n\n1. P\n\n1) C`+tail)
+})
+it('actual Kit without scenario M retains strict adjacent-list rejection',()=>{
+ const b=open('1. A\n\nP\n\n1) C'+tail),tr=kitTransaction(state(b,text(b.doc,'P')),{kind:'ordered-list'})
+ reject(b,tr)
+})
+it.each([
+ ['indent','* A\n* B','* A\n  * B'],
+ ['outdent','* A\n  + B\n  + C','* A\n  + B\n* C'],
+] as const)('installed actual Kit %s retains source item marker',(kind,raw,expected)=>{
+ const b=open(raw+tail),word=kind==='indent'?'B':'C';accept(b,kitTransaction(state(b,text(b.doc,word)),{kind}),expected+tail)
+})
+it('actual Kit wrap with scenario M preserves nested quote placement',()=>{
+ const b=open('> 1. A\n>\n> P\n>\n> 1. B'+tail),tr=kitTransaction(state(b,text(b.doc,'P')),{kind:'ordered-list'}),p=tr.doc.resolve(text(tr.doc,'P')),depth=p.depth-2
+ expect(p.node(depth).type.name).toBe('ordered_list');expect(p.node(depth-1).type.name).toBe('blockquote')
+ const from=p.before(depth),to=p.after(depth);augmentListScenario(tr,to);augmentListScenario(tr,from)
+ accept(b,tr,`> 1. A\n>\n> ${listBoundary}\n>\n> 1. P\n>\n> ${listBoundary}\n>\n> 1. B`+tail)
+})
+it('PM history undoes actual Kit command and scenario M standard step together (not raw history)',()=>{
+ const b=open('1. A\n\nP\n\n1) C'+tail),initial=EditorState.create({doc:b.doc,selection:TextSelection.create(b.doc,text(b.doc,'P')),plugins:[history()]})
+ const tr=kitTransaction(initial,{kind:'ordered-list'});augmentListScenario(tr,tr.doc.child(0).nodeSize)
+ accept(b,tr,`1. A\n\n${listBoundary}\n\n1. P\n\n1) C`+tail)
+ let undone:Transaction|undefined
+ expect(undo(initial.apply(tr),next=>undone=next)).toBe(true)
+ expect(undone?.doc.eq(b.doc)).toBe(true)
+ // This assertion is deliberately PM-only; no Source/file/native raw undo is wired here.
+})

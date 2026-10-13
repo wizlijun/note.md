@@ -60,3 +60,20 @@ it('unchanged nested list bytes survive a one-character proposal as one hunk',()
  const proposal=propose({path:'list.md',base:source,ours:source,theirs:r.session.source})
  expect(proposal.hunks).toHaveLength(1);expect(proposal.hunks[0]!.base).toBe('这是甲句。');expect(proposal.hunks[0]!.theirs).toBe('这是乙句。')
 })
+
+it.each([
+ ['* outer\n  + A\n\n  + B\n* end','* outer\n  + Z\n\n  + B\n* end'],
+ ['0) outer\n\n   3. A\n   4. B\n\n1) end','0) outer\n\n   3. Z\n   4. B\n\n1) end'],
+] as const)('installed source-only marker and opposite tight styles %s',(raw,expected)=>{
+ const suffix='\r\n \t\r\nTail __raw__',b=open(raw+suffix);let at=-1;b.doc.descendants((n,p)=>{if(n.isText&&n.text==='A')at=p})
+ const tr=EditorState.create({doc:b.doc}).tr.insertText('Z',at,at+1),r=applySourceBlockTransaction(b,tr)
+ expect(r.ok).toBe(true);if(!r.ok)throw Error(r.reason)
+ expect(r.session.source).toBe(expected+suffix);expect(r.session.doc.eq(tr.doc)).toBe(true)
+ expect(open(r.session.source).doc.eq(tr.doc)).toBe(true)
+})
+it('installed legacy metadata clone recaptures before rendering and keeps unchanged caller identity',()=>{
+ const b=open('* A\n\n* B'),foreign={...b,roots:b.roots.map(root=>({...root})),layout:{blankLines:b.layout.blankLines}},tr=EditorState.create({doc:foreign.doc}).tr.insertText('Z',3,4)
+ const r=applySourceBlockTransaction(foreign,tr);expect(r.ok).toBe(true);if(!r.ok)throw Error(r.reason)
+ expect(r.session.source).toBe('* Z\n\n* B');expect(r.session.doc.eq(tr.doc)).toBe(true)
+ const unchanged=applySourceBlockTransaction(foreign,EditorState.create({doc:foreign.doc}).tr);expect(unchanged.ok&&unchanged.session).toBe(foreign)
+})
