@@ -174,7 +174,7 @@ root-tail units先从root结构body声明里扣出；同一byte不能既body cla
 
 **Files:** core 新 `src/source-structure.ts`、`src/__tests__/source-structure.spec.ts`；改 `src/source-fidelity.ts`；tracked dist。host 新 `src/lib/share-merge/source-structure.test.ts`。消费已受理capture Task2/R1接口；不改parser/schema/生产命令。
 
-- [ ] **S1.1 完整公共API测试helper和核心RED。** 下列 helpers 直接调用真实 PM，不导出生产内部账本；Task2 专用 imports 放在 Task2 文件；tests可另存fixture，但不能将expected计算自待测结果。
+- [x] **S1.1 完整公共API测试helper和核心RED。** 下列 helpers 直接调用真实 PM，不导出生产内部账本；Task2 专用 imports 放在 Task2 文件；tests可另存fixture，但不能将expected计算自待测结果。
 
 ```ts
 import {expect,it} from 'vitest'
@@ -267,15 +267,15 @@ it('empty document Enter has one generated blank unit',()=>{
 
 补充到同一RED文件、精确断言上述slot表所有插入行；surviving blank/unit bytes按原unit身份映射检查（conversion指定那一份是唯一例外）。真实baseline删除fixture `open('\n\n')` 删child0后应 `'\n'`。新节点insert→delete净零返回同session，revision不变。两个同文段落中只删其中一个，不按内容匹配身份；两处非相邻split的中间raw/gaps逐字保留、至少两条分离edits。
 
-- [ ] **S1.2 实现ledger与slot recipe。** 按上文类型和helper顺序写生产代码；source-fidelity引入结构分支但完整保留N2快路。结构第一版准入标准ReplaceStep（含split/join/open slice）、Add/RemoveMark；ReplaceAround/Attr暂由Task2补充。真实window外的stable origins在最终一次检查，不在每个mark对全文children做深eq。所有blank编辑来自layout unit，rawless fallback不伪造owner。
-- [ ] **S1.3 原子失败/性能回归。** 自定义Step伪造replace JSON、ReplaceStep subclass、结构慢路非法 tr.docs 链、局部 surrogate/CRLF切断、可复现的来源 record 冲突、protected 内 anchor 均拒绝且base不变。R1 guard用现有测试spy证serializer未被调用；不公开测试hook。沿用既有 actual addMark 12/24/48 访问计数断言，并补 80/160 的同类确定性计数；监控稳定路径不得逐步调用 PM whole-doc eq（可 spy Fragment.eq，区分单次 final 子节点比较），不只数 Node.child。另将一个固定 10k-root/100-mark 输入生成脚本/输入 SHA/BASE 模块 SHA 保存；对本任务冻结实际 BASE 与最终代码各一次相同输入，不反复追毫秒数字。结构 100 步另记 array splice/replay 的实际复杂度，不虚报 O(logN)。mock同模块实际capture/serializer调用边界记录预算（或测试framework模块spy），不加生产计数API。capture≤2、serializer输入仅dirtycomponent，无整doc输入。
-- [ ] **S1.4 core及installed host验证/提交。** host将本节helper import路径改为 `@moraya/core`，至少执行middle/prefix/suffix/delete-last-baseline、list-tail、purebirth+edit、两处非相邻split及已有中文一字1hunk；host不import sibling src。完整门槛通过后提交 `feat(core): preserve source slots across structural edits`；同步core已提交dist，host独立提交 `test(editor): verify installed structural source edits`。更新本任务report的真实SHA/退出码/覆盖边界，不先写通过。
+- [x] **S1.2 实现ledger与slot recipe。** 按上文类型和helper顺序写生产代码；source-fidelity引入结构分支但完整保留N2快路。结构第一版准入标准ReplaceStep（含split/join/open slice）、Add/RemoveMark；ReplaceAround/Attr暂由Task2补充。真实window外的stable origins在最终一次检查，不在每个mark对全文children做深eq。所有blank编辑来自layout unit，rawless fallback不伪造owner。
+- [x] **S1.3 原子失败/性能回归。** 自定义Step伪造replace JSON、ReplaceStep subclass、结构慢路非法 tr.docs 链、局部 surrogate/CRLF切断、可复现的来源 record 冲突、protected 内 anchor 均拒绝且base不变。R1 guard用现有测试spy证serializer未被调用；不公开测试hook。沿用既有 actual addMark 12/24/48 访问计数断言，并补 80/160 的同类确定性计数；监控稳定路径不得逐步调用 PM whole-doc eq（可 spy Fragment.eq，区分单次 final 子节点比较），不只数 Node.child。另将一个固定 10k-root/100-mark 输入生成脚本/输入 SHA/BASE 模块 SHA 保存；对本任务冻结实际 BASE 与最终代码各一次相同输入，不反复追毫秒数字。结构 100 步另记 array splice/replay 的实际复杂度，不虚报 O(logN)。mock同模块实际capture/serializer调用边界记录预算（或测试framework模块spy），不加生产计数API。capture≤2、serializer输入仅dirtycomponent，无整doc输入。
+- [x] **S1.4 core及installed host验证/提交。** host将本节helper import路径改为 `@moraya/core`，至少执行middle/prefix/suffix/delete-last-baseline、list-tail、purebirth+edit、两处非相邻split及已有中文一字1hunk；host不import sibling src。完整门槛通过后提交 `feat(core): preserve source slots across structural edits`；同步core已提交dist，host独立提交 `test(editor): verify installed structural source edits`。更新本任务report的真实SHA/退出码/覆盖边界，不先写通过。
 
 ## Task 2：真实容器/表格结构与局部片段表达
 
 **Files:** core `src/source-structure.ts`、`src/source-fidelity.ts`、`src/markdown.ts` source-only renderer；新 `src/__tests__/source-structure-commands.spec.ts`、修改 `src/__tests__/source-structure.spec.ts`；tracked dist。host `src/lib/share-merge/source-structure.test.ts`、新 `src/editor-kit-v2/source-structure-commands.test.ts`。Task1已验收提交为输入。
 
-- [ ] **S2.1 actual commands RED，禁止手造“命令stepType”。** 复用完整 helper；Task2 文件另 import wrapIn/lift from prosemirror-commands、wrapInList/splitListItem/sinkListItem/liftListItem from prosemirror-schema-list、addRowAfter/addColumnAfter/deleteColumn from prosemirror-tables。以下是起始可执行 cases。
+- [x] **S2.1 actual commands RED，禁止手造“命令stepType”。** 复用完整 helper；Task2 文件另 import wrapIn/lift from prosemirror-commands、wrapInList/splitListItem/sinkListItem/liftListItem from prosemirror-schema-list、addRowAfter/addColumnAfter/deleteColumn from prosemirror-tables。以下是起始可执行 cases。
 
 ```ts
 it('actual wrapIn uses ReplaceAround ownership',()=>{
@@ -343,8 +343,8 @@ it('installed source accepts actual Kit table row producer',()=>{
 
 新文件位于 `src/editor-kit-v2/` 时上面相对import改为 `./commands` / `./contract`；不要为测试移动生产文件。
 
-- [ ] **S2.2 ReplaceAround / Attr / NodeMark小步扩展。** exact prototypes只加已安装transform标准类；ReplaceAround验证外范围、gap合法性、actual apply chain；保留内容gap仍归窗口origins，不当SourceGap；Attr/NodeMark取`nodeAt(pos)`及真实祖先owner，不给相邻root。DocAttr仍拒绝。mark从每个实际变化owner独立dirty，不把跨长range未变化code并入component。
-- [ ] **S2.3 source-only renderer片段合同。** 改动只限受理SourceRootSerializer；保留rootRenderNode既有mark重排。普通paragraph/heading文本的block/line边缘ASCII space写numeric entity，不改PM文本；必须在node/text callback处理，不能对序列化Markdown regex替换（list marker/mark delimiter/link destination不能动）。实现时用实际parent inline children的可见line-start/end位置决定text leaf的边缘字符；text中内部softbreak切成logical lines；ASCII tab用`&#9;`，连续space逐个`&#32;`，其余文字交原escape。对marks覆盖的首尾空白，先测试源serializer的mark delimiter规则；未证可表达组合明确失败，不能去掉marks。literal source-only fence写opening+LF+完整textContent+独立结构LF+closing；delimiter长度大于内容中会闭合的同字符run，info含不合法delimiter时选择另一字符或具体拒绝。不得trim内容尾LF，不对原tail/BOM/protected做trim。table仅处理生成文本的一个已声明terminal LF。受理hardbreak serializer的末串反斜杠表达复用，不能重复实现或导出末raw授权。
+- [x] **S2.2 ReplaceAround / Attr / NodeMark小步扩展。** exact prototypes只加已安装transform标准类；ReplaceAround验证外范围、gap合法性、actual apply chain；保留内容gap仍归窗口origins，不当SourceGap；Attr/NodeMark取`nodeAt(pos)`及真实祖先owner，不给相邻root。DocAttr仍拒绝。mark从每个实际变化owner独立dirty，不把跨长range未变化code并入component。
+- [x] **S2.3 source-only renderer片段合同。** 改动只限受理SourceRootSerializer；保留rootRenderNode既有mark重排。普通paragraph/heading文本的block/line边缘ASCII space写numeric entity，不改PM文本；必须在node/text callback处理，不能对序列化Markdown regex替换（list marker/mark delimiter/link destination不能动）。实现时用实际parent inline children的可见line-start/end位置决定text leaf的边缘字符；text中内部softbreak切成logical lines；ASCII tab用`&#9;`，连续space逐个`&#32;`，其余文字交原escape。对marks覆盖的首尾空白，先测试源serializer的mark delimiter规则；未证可表达组合明确失败，不能去掉marks。literal source-only fence写opening+LF+完整textContent+独立结构LF+closing；delimiter长度大于内容中会闭合的同字符run，info含不合法delimiter时选择另一字符或具体拒绝。不得trim内容尾LF，不对原tail/BOM/protected做trim。table仅处理生成文本的一个已声明terminal LF。受理hardbreak serializer的末串反斜杠表达复用，不能重复实现或导出末raw授权。
 source-only回调候选完整形状（与受理Task2 hardbreak callback合并于同一serializer对象，不新建第三个serializer）：
 
 ```ts
@@ -385,8 +385,8 @@ function sourceCodeNode(state:MarkdownSerializerState,node:PmNode):void {
 
 这段只提供实施候选，不是已跑过的证据；实现前RED必须包含 `splitBlock('Hello world')`、多个space/tab、strong/em/highlight边缘空白、相邻mark组合、code mark含space、softbreak之后空白、list/quote中的上述文字与content末LF。marks不被删除；`expelEnclosingWhitespace:false`仅source serializer内生效，避免原serializer先把marked whitespace移到callback外。若某组合失败，定位其具体mark producer，不把final eq改宽、不将被本任务列为必过的普通space例降级；未确认的其他组合如实列后续producer。code-language空字符串的实际producer修复仍在后续合同中，不能此处将 `''` 与 `'text'` 视为相同。
 
-- [ ] **S2.4 分离组件与失败边界。** 边界因相邻同类列表自动合并、未闭fence吞新root、definition容器迁移失败时无邻居扩大retry；这些是下节具体producer前置。另有全doc final sameMarkup/attrs变化且无source表达时原子拒绝。只render最终dirtycomponents一次；未改容器原tail/root-tail empty保持byte身份。
-- [ ] **S2.5 full/typecheck/build、committed dist和host安装验证。** 运行本节commands/core regression及host真实命令producer和installedpublicAPI门槛，core提交 `feat(core): map container commands to local source recipes`；host同步该commit dist并独立提交消费者tests。报告table负例与renderer边界；不得把成功subset标成“完整表格已完成”。
+- [x] **S2.4 分离组件与失败边界。** 边界因相邻同类列表自动合并、未闭fence吞新root、definition容器迁移失败时无邻居扩大retry；这些是下节具体producer前置。另有全doc final sameMarkup/attrs变化且无source表达时原子拒绝。只render最终dirtycomponents一次；未改容器原tail/root-tail empty保持byte身份。
+- [x] **S2.5 full/typecheck/build、committed dist和host安装验证。** 运行本节commands/core regression及host真实命令producer和installedpublicAPI门槛，core提交 `feat(core): map container commands to local source recipes`；host同步该commit dist并独立提交消费者tests。报告table负例与renderer边界；不得把成功subset标成“完整表格已完成”。
 
 ## 两个Task各自的实际执行命令与阶段门槛
 
