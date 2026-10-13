@@ -18,3 +18,5 @@ Ruling: EmptyAttempt 改为 not-empty / unsupported(reason) / ready(recipe) 三�
 Ruling: 常用空正文和Enter闭包仍是本批完整验收范围，Task1只验证首字、Task2补结构输出后统一installed — 每个Task有独立可拒绝的交付，避免一次修改全部UI — 成本是中间源码提交不可发布且dist尚旧，任务报告必须明确。
 Ruling: 只准计划点名的两条empty-cell和一条top blank旧能力断言迁移；其余失败先按实际原因裁定 — 新能力应改变预期，不能批量删保护负例 — 成本为潜在追加精准裁定和审查，不以历史上限阻止正确能力。
 Ruling: 保留main gzip81920门槛，当前80838，不在执行前涨预算；实际超限应携产物数据交root裁定 — 不知道实际增量时提前放宽无依据 — 成本是Task2可能需优化或明确更改预算，不能换入口或压缩参数隐瞒。
+
+Ruling: Task1允许仅恢复fence wrapper的原installed alternates（preserveAlternates=true），新增实际parseMarkdown/parseMarkdownAsync与source capture的paragraph后fence、list前置P后fence回归 — c488d235新增capture wrapper意外清空markdown-it原paragraph/reference/blockquote/list alternates，导致本Task批准raw被误读inline code；这是未发布前置引入的grammar回归，不是有意扩legacy语法 — 成本为当前BASE上的legacy行为发生修正，必须明确例外并核定实际grammar/类型与相关回归，不批量调整其它规则、旧tests或strict doc.eq。

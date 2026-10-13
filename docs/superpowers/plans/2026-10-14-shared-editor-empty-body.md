@@ -397,3 +397,5 @@ env pnpm_config_verify_deps_before_run=false pnpm run check:editor-kit
 - [ ] **2.9 精确提交与交付。** Task2源/tests/CHANGELOG与已验证dist精确提交，HOST仅本批suite/未发布记录精确提交；记录双SHA、每套验证对应SHA及installed指纹。不得替当前nested Task3提交任何文件。所有新行为保留真实RED→GREEN，旧不变量首GREEN如实记。
 
 完成矩阵必须逐项列空文件/blank、真实与补齐cell、ATX、task/list/quote/schema首P、closed empty code含nested、emptyfrontmatter、现有emptyfootnote、Enter新段链；有一项未实现则本空正文闭包未完成，不能把安全拒绝写成UI成功。marks/point后继明确复用capturedEmptyBodies；未闭fence与新math正文UI不在本稿权限内。
+
+Ruling: Task1允许仅恢复fence wrapper的原installed alternates（preserveAlternates=true），新增实际parseMarkdown/parseMarkdownAsync与source capture的paragraph后fence、list前置P后fence回归 — c488d235新增capture wrapper意外清空markdown-it原paragraph/reference/blockquote/list alternates，导致本Task批准raw被误读inline code；这是未发布前置引入的grammar回归，不是有意扩legacy语法 — 成本为当前BASE上的legacy行为发生修正，必须明确例外并核定实际grammar/类型与相关回归，不批量调整其它规则、旧tests或strict doc.eq。
