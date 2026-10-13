@@ -123,3 +123,11 @@ it.each([
 ] as const)('installed first marker paragraph uses its actual continuation prefix %j',async(raw,path,expected)=>{
  await mounted(raw,path,0,(view,source)=>{firstText(view);expect(source()).toBe(expected)});
 });
+
+it.each([
+ ['> A\n>\n> [ref]: /u\n>\n>\n',[0,1],'> A\n>\n> [ref]: /u\n>\n>X\n','> A\n>\n> [ref]: /u\n>\n>XY\n'],
+ ['> A\n>\n>\n> [ref]: /u\n',[0,1],'> A\n>\n>X\n>\n> [ref]: /u\n','> A\n>\n>XY\n>\n> [ref]: /u\n'],
+ ['> [ref]: /u\n>\n>\n',[0,0],'> [ref]: /u\n>\n>X\n','> [ref]: /u\n>\n>XY\n'],
+] as const)('installed definition-adjacent first text continues through the real view %j',async(raw,path,first,second)=>{
+ await mounted(raw,path,0,(view,source)=>{firstText(view);expect(source()).toBe(first);view.dispatch(view.state.tr.insertText('Y'));expect(source()).toBe(second)});
+});
