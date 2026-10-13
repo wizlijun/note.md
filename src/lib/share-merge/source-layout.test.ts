@@ -24,3 +24,12 @@ it('installed exact edit with captured suffix layout remains one sentence hunk',
  expect(proposal.theirsEolAligned).toBe(false);expect(proposal.hunks).toHaveLength(1)
  expect(proposal.hunks[0]!.base).toBe('目标甲。');expect(proposal.hunks[0]!.theirs).toBe('目标乙。')
 })
+it('installed terminal renderer preserves two atoms and unchanged reference suffix bytes',()=>{
+ const raw='A\\\n\\\n\n[ref]: /url\n',s=open(raw)
+ let count=0;s.doc.descendants(n=>{if(n.type.name==='hardbreak')count++});expect(count).toBe(2)
+ const tr=EditorState.create({doc:s.doc}).tr.addMark(1,2,s.doc.type.schema.marks.strong!.create())
+ const r=applySourceBlockTransaction(s,tr);expect(r.ok).toBe(true);if(!r.ok)throw new Error(r.reason)
+ expect(r.session.doc.eq(tr.doc)).toBe(true)
+ expect(r.session.source.endsWith('\n\n[ref]: /url\n')).toBe(true)
+ expect(r.session.protectedSources).toHaveLength(1)
+})
