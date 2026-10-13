@@ -23,6 +23,7 @@ export function createSourceFidelity(source: string, doc: PmNode) {
     state: {
       init: () => initial.session,
       apply(tr, base) {
+        if (tr.storedMarksSet) throw capabilityError()
         if (!tr.docChanged) return base
         const candidate = prepared.get(tr)
         if (!candidate || candidate.base !== base || candidate.base.revision !== base.revision

@@ -60,6 +60,23 @@ describe('Kit source fidelity opt-in adapter', () => {
     expect(fidelity.source(state)).toBe(source)
     expect(state.doc.textContent.startsWith('这是甲句')).toBe(true)
   })
+  it.each([true, false])('rejects later-filter stored marks before state installation (docChanged=%s)', (docChanged) => {
+    const { state, fidelity } = setup([new Plugin({ filterTransaction: tr => {
+      tr.setStoredMarks([schema.marks.strong.create()])
+      return true
+    } })])
+    const originalSession = fidelity.plugin.getState(state)
+    const tr = docChanged ? state.tr.insertText('乙',3,4)
+      : state.tr.setSelection(TextSelection.create(state.doc,3))
+    let installed = state
+    expect(() => { installed = state.applyTransaction(tr).state }).toThrow(/SOURCE_FIDELITY/)
+    expect(tr.storedMarks?.map(mark => mark.type.name)).toEqual(['strong'])
+    expect(installed).toBe(state)
+    expect(installed.doc).toBe(state.doc)
+    expect(installed.storedMarks).toBeNull()
+    expect(fidelity.plugin.getState(installed)).toBe(originalSession)
+    expect(fidelity.source(installed)).toBe(source)
+  })
   it('rejects syntax-changing plain text without dropping intent into an accepted edit', () => {
     const { state, fidelity } = setup()
     expect(state.applyTransaction(state.tr.insertText('*乙*',3,4)).transactions).toHaveLength(0)
