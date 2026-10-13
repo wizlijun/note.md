@@ -31,3 +31,17 @@ html, body, #app {
 
 /* Popup styles remain global through ui-foundation → popup-menu.css. Plugins
    can share those same rules without importing this window's overflow reset. */
+
+/* Session table resizing shares the same handles in Desktop and the Kit. */
+.ProseMirror td, .ProseMirror th { position: relative; }
+.column-resize-handle {
+  position: absolute;
+  top: 0;
+  right: -2px;
+  bottom: 0;
+  width: 5px;
+  z-index: 20;
+  cursor: col-resize;
+  touch-action: none;
+}
+.resize-cursor, .resize-cursor * { cursor: col-resize !important; }

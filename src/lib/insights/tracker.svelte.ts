@@ -8,7 +8,7 @@ import { getDeviceId } from '../settings.svelte'
 import { createAnalyticsStore, type AnalyticsStore, type Fs } from './store.svelte'
 import { initTiming, applyEvent, activeNow, sessionActionFor, type TimingState, type TimingEvent, type TimingMode } from './timing'
 import { docKeyFor, localTzOffsetMinutes } from './model'
-import { analyticsObserverPlugin } from './observer'
+import { analyticsObserverPlugin, type ObserverDelta } from './observer'
 
 const TICK_MS = 5_000
 const FLUSH_EVERY_TICKS = 6 // ~30s
@@ -84,20 +84,22 @@ export function onActiveDocChanged(): void {
   }
 }
 
-/** Attach the analytics observer to a freshly mounted editor. Returns a plugin
- *  to be merged into the editor's state (see editor-bridge wiring). */
+/** Record a delta only after the file controller has installed the full chain. */
+export function recordEditorDelta({ markOps, sizeDelta }: ObserverDelta): void {
+  if (!tracker || !tracker.currentDocKey) return
+  const now = Date.now()
+  // A doc change counts as user activity (resumes from idle) and an edit.
+  dispatch({ type: 'activity' })
+  tracker.store.accrue(
+    tracker.currentDocKey,
+    { mark_ops: markOps, net_chars: Math.max(0, sizeDelta), edit_sessions: 1 },
+    now,
+  )
+}
+
+/** Attach the analytics observer to a freshly mounted legacy editor. */
 export function analyticsPluginForEditor() {
-  return analyticsObserverPlugin(({ markOps, sizeDelta }) => {
-    if (!tracker || !tracker.currentDocKey) return
-    const now = Date.now()
-    // A doc change counts as user activity (resumes from idle) and an edit.
-    dispatch({ type: 'activity' })
-    tracker.store.accrue(
-      tracker.currentDocKey,
-      { mark_ops: markOps, net_chars: Math.max(0, sizeDelta), edit_sessions: 1 },
-      now,
-    )
-  })
+  return analyticsObserverPlugin(recordEditorDelta)
 }
 
 export async function installTracker(): Promise<() => void> {

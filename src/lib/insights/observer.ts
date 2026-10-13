@@ -1,5 +1,6 @@
 import { Plugin } from 'prosemirror-state'
 import { AddMarkStep, RemoveMarkStep, type Step } from 'prosemirror-transform'
+import type { Node } from 'prosemirror-model'
 import type { Transaction } from 'prosemirror-state'
 
 export interface ObserverDelta {
@@ -16,6 +17,14 @@ export function countMarkSteps(steps: readonly Step[]): number {
   return n
 }
 
+/** Compute one accepted chain without publishing effects during PM preparation. */
+export function editorDelta(transactions: readonly Transaction[], before: Node, after: Node): ObserverDelta {
+  return {
+    markOps: transactions.reduce((count, tr) => count + countMarkSteps(tr.steps), 0),
+    sizeDelta: after.content.size - before.content.size,
+  }
+}
+
 /**
  * A passive ProseMirror plugin. On every applied transaction that changed the
  * document it calls `onDelta` with the mark-op count and the net change in doc
@@ -26,10 +35,7 @@ export function analyticsObserverPlugin(onDelta: (d: ObserverDelta) => void): Pl
   return new Plugin({
     appendTransaction(transactions: readonly Transaction[], oldState, newState) {
       if (!transactions.some((t) => t.docChanged)) return null
-      let markOps = 0
-      for (const t of transactions) markOps += countMarkSteps(t.steps)
-      const sizeDelta = newState.doc.content.size - oldState.doc.content.size
-      onDelta({ markOps, sizeDelta })
+      onDelta(editorDelta(transactions, oldState.doc, newState.doc))
       return null
     },
   })

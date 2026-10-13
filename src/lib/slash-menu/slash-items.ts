@@ -1,7 +1,6 @@
 import type { EditorView } from 'prosemirror-view'
-import { TextSelection } from 'prosemirror-state'
 import { t } from '../i18n/store.svelte'
-import { setBlock, wrapBlock, wrapList, insertAtom, insertTable, insertTaskList } from '../context-menu/block-helpers'
+import { runSlashCommand } from './slash-command'
 import { iconSvg } from '../context-menu/icons'
 
 // Legacy commands from '@moraya/core/commands' may use their own defaultSchema
@@ -18,33 +17,6 @@ export interface SlashItem {
   icon: string
   desc: string
   execute: (view: EditorView) => void | Promise<void>
-}
-
-// ── schema-aware helpers ──────────────────────────────────────────────────────
-
-function insertSpreadsheetSync(v: EditorView) {
-  const { schema } = v.state
-  const spreadsheet = schema.nodes.spreadsheet
-  if (!spreadsheet) return
-  const defaultCsv = '列A,列B,列C\n,,\n,,\n,,'
-  v.dispatch(
-    v.state.tr
-      .replaceSelectionWith(spreadsheet.create({ source: defaultCsv }))
-      .scrollIntoView()
-  )
-  v.focus()
-}
-
-/** Wrap the selection (empty at the slash position) in literal delimiters and
- *  put the caret between them, matching how these marks are typed by hand. */
-function wrapLiteral(v: EditorView, prefix: string, suffix: string) {
-  const { from, to } = v.state.selection
-  const text = v.state.doc.textBetween(from, to) || ''
-  const tr = v.state.tr.insertText(`${prefix}${text}${suffix}`, from, to)
-  const caret = text ? from + prefix.length + text.length + suffix.length : from + prefix.length
-  tr.setSelection(TextSelection.create(tr.doc, caret))
-  v.dispatch(tr)
-  v.focus()
 }
 
 // ── item definitions ──────────────────────────────────────────────────────────
@@ -79,7 +51,7 @@ export function getSlashItems(): SlashItem[] {
     keywords: ['highlight', 'mark', '高亮', '荧光'],
     icon: iconSvg('highlight'),
     desc: t('slash.highlight.desc'),
-    execute: (v) => wrapLiteral(v, '^^', '^^'),
+    execute: (v) => { runSlashCommand(v, 'highlight') },
   },
   {
     id: 'wikilink',
@@ -87,7 +59,7 @@ export function getSlashItems(): SlashItem[] {
     keywords: ['wikilink', 'link', 'wiki', '双链', '链接'],
     icon: iconSvg('wikilink'),
     desc: t('slash.wikilink.desc'),
-    execute: (v) => wrapLiteral(v, '[[', ']]'),
+    execute: (v) => { runSlashCommand(v, 'wikilink') },
   },
   {
     id: 'insert-image',
@@ -129,7 +101,7 @@ export function getSlashItems(): SlashItem[] {
     keywords: ['h1', 'heading', '标题', '一级', 'heading1'],
     icon: 'H1',
     desc: t('slash.h1.desc'),
-    execute: (v) => setBlock(v, 'heading', { level: 1 }),
+    execute: (v) => { runSlashCommand(v, 'h1') },
   },
   {
     id: 'h2',
@@ -137,7 +109,7 @@ export function getSlashItems(): SlashItem[] {
     keywords: ['h2', 'heading', '标题', '二级', 'heading2'],
     icon: 'H2',
     desc: t('slash.h2.desc'),
-    execute: (v) => setBlock(v, 'heading', { level: 2 }),
+    execute: (v) => { runSlashCommand(v, 'h2') },
   },
   {
     id: 'h3',
@@ -145,7 +117,7 @@ export function getSlashItems(): SlashItem[] {
     keywords: ['h3', 'heading', '标题', '三级', 'heading3'],
     icon: 'H3',
     desc: t('slash.h3.desc'),
-    execute: (v) => setBlock(v, 'heading', { level: 3 }),
+    execute: (v) => { runSlashCommand(v, 'h3') },
   },
   {
     id: 'quote',
@@ -153,7 +125,7 @@ export function getSlashItems(): SlashItem[] {
     keywords: ['quote', 'blockquote', '引用', '引言', 'block'],
     icon: '❝',
     desc: t('slash.quote.desc'),
-    execute: (v) => wrapBlock(v, 'blockquote'),
+    execute: (v) => { runSlashCommand(v, 'quote') },
   },
   {
     id: 'code',
@@ -161,7 +133,7 @@ export function getSlashItems(): SlashItem[] {
     keywords: ['code', 'codeblock', '代码', 'programming', 'pre'],
     icon: '{}',
     desc: t('slash.code.desc'),
-    execute: (v) => setBlock(v, 'code_block', { language: '' }),
+    execute: (v) => { runSlashCommand(v, 'code') },
   },
   {
     id: 'mermaid',
@@ -169,7 +141,7 @@ export function getSlashItems(): SlashItem[] {
     keywords: ['mermaid', 'diagram', 'chart', '图表', '流程图', '时序图', 'flowchart'],
     icon: '⬡',
     desc: t('slash.mermaid.desc'),
-    execute: (v) => setBlock(v, 'code_block', { language: 'mermaid' }),
+    execute: (v) => { runSlashCommand(v, 'mermaid') },
   },
   {
     id: 'math',
@@ -177,7 +149,7 @@ export function getSlashItems(): SlashItem[] {
     keywords: ['math', 'equation', 'latex', '数学', '公式', 'formula'],
     icon: '∑',
     desc: t('slash.math.desc'),
-    execute: (v) => insertAtom(v, 'math_block', { value: '' }),
+    execute: (v) => { runSlashCommand(v, 'math') },
   },
   {
     id: 'table',
@@ -185,7 +157,7 @@ export function getSlashItems(): SlashItem[] {
     keywords: ['table', '表格', 'grid'],
     icon: '▦',
     desc: t('slash.table.desc'),
-    execute: (v) => insertTable(v),
+    execute: (v) => { runSlashCommand(v, 'table') },
   },
   {
     id: 'spreadsheet',
@@ -193,7 +165,7 @@ export function getSlashItems(): SlashItem[] {
     keywords: ['spreadsheet', 'sheet', 'csv', '表格', '电子表格', '记账', 'excel'],
     icon: '⊞',
     desc: t('slash.spreadsheet.desc'),
-    execute: (v) => insertSpreadsheetSync(v),
+    execute: (v) => { runSlashCommand(v, 'spreadsheet') },
   },
   {
     id: 'bullet',
@@ -201,7 +173,7 @@ export function getSlashItems(): SlashItem[] {
     keywords: ['bullet', 'list', 'ul', '列表', '无序', '项目'],
     icon: '•',
     desc: t('slash.bullet.desc'),
-    execute: (v) => wrapList(v, 'bullet_list'),
+    execute: (v) => { runSlashCommand(v, 'bullet') },
   },
   {
     id: 'ordered',
@@ -209,7 +181,7 @@ export function getSlashItems(): SlashItem[] {
     keywords: ['ordered', 'list', 'ol', '列表', '有序', '编号', 'numbered'],
     icon: '1.',
     desc: t('slash.ordered.desc'),
-    execute: (v) => wrapList(v, 'ordered_list'),
+    execute: (v) => { runSlashCommand(v, 'ordered') },
   },
   {
     id: 'task',
@@ -217,7 +189,7 @@ export function getSlashItems(): SlashItem[] {
     keywords: ['task', 'todo', 'checklist', '任务', '待办', '清单', 'checkbox'],
     icon: '☐',
     desc: t('slash.task.desc'),
-    execute: (v) => insertTaskList(v),
+    execute: (v) => { runSlashCommand(v, 'task') },
   },
   {
     id: 'hr',
@@ -225,7 +197,7 @@ export function getSlashItems(): SlashItem[] {
     keywords: ['hr', 'divider', 'rule', '分割', '横线', 'horizontal'],
     icon: '—',
     desc: t('slash.hr.desc'),
-    execute: (v) => insertAtom(v, 'horizontal_rule'),
+    execute: (v) => { runSlashCommand(v, 'hr') },
   },
   ]
 }
