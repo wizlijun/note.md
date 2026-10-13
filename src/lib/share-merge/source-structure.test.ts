@@ -145,3 +145,31 @@ it('installed source AttrStep preserves fence content LF and raw external tail',
  const b=open('```js\nA\n\n```\r\n\r\nTail __raw__'),r=accept(b,state(b,1).tr.step(new AttrStep(0,'language','ts')))
  expect(r.session.doc.child(0).textContent).toBe('A\n');expect(r.session.source.endsWith('```\r\n\r\nTail __raw__')).toBe(true)
 })
+it.each([false,true])('installed left mark does not hide right deletion separator authority (%s)',deleteFirst=>{
+ const b=open('A\n\nB'),tr=EditorState.create({doc:b.doc}).tr
+ if(deleteFirst){tr.delete(3,6);tr.addMark(1,2,b.doc.type.schema.marks.strong!.create())}
+ else {tr.addMark(1,2,b.doc.type.schema.marks.strong!.create());tr.delete(3,6)}
+ expect(open('**A**\n').doc.eq(tr.doc)).toBe(true)
+ accept(b,tr,'**A**\n')
+})
+it('installed left heading AttrStep does not hide right deletion separator authority',()=>{
+ const b=open('# A\n\nB'),tr=EditorState.create({doc:b.doc}).tr
+ tr.step(new AttrStep(0,'level',2));tr.delete(3,6)
+ expect(open('## A\n').doc.eq(tr.doc)).toBe(true)
+ accept(b,tr,'## A\n')
+})
+it('installed mixed EOL deletion preserves a surviving space-tab blank',()=>{
+ const b=open('Keep\r\n \t\r\nA\r\n\r\nB'),tr=EditorState.create({doc:b.doc}).tr
+ const a=text(b.doc,'A'),last=b.doc.childCount-1,p=childPos(b.doc,last)
+ tr.addMark(a,a+1,b.doc.type.schema.marks.strong!.create())
+ tr.delete(p,p+b.doc.child(last).nodeSize)
+ const expected='Keep\r\n \t\r\n**A**\r\n'
+ expect(open(expected).doc.eq(tr.doc)).toBe(true)
+ const r=accept(b,tr,expected),blank=b.layout.blankLines.find(u=>u.sourceFrom===6)!
+ expect(r.edits.every(e=>e.to<=blank.sourceFrom||e.from>=blank.sourceTo)).toBe(true)
+})
+it('installed mark alone preserves its original CRLF separator bytes',()=>{
+ const b=open('A\r\n\r\nB'),tr=EditorState.create({doc:b.doc}).tr.addMark(1,2,b.doc.type.schema.marks.strong!.create())
+ const r=accept(b,tr,'**A**\r\n\r\nB')
+ expect(r.edits.every(e=>e.to<=3||e.from>=5)).toBe(true)
+})
