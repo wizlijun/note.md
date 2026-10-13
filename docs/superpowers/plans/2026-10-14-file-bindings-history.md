@@ -783,3 +783,6 @@ Task2已受理：CORE4bdbfb9→b323027，HOSTc5b2e3c3→1b1da976→b4a71cc5。�
 Ruling: Task3 Source textarea仅作为LF显示投影，原始raw保持权威。固定本次generation的raw/display，按display最小前后缀差异映射回raw边界（CRLF及单CR均计入映射），只替换变化区；新输入区的LF使用原文件首个EOL或缺省LF，未改区域混合EOL逐字节不变。初次挂载/重绘/no-op不写；所有Source UI坐标来自display，controller收到重建raw。pending retry仍使用原session/generation，不刷新基线，discard取最新raw投影 — ROOT实际Chromium140的textarea探针证实CRLF与单CR自动转LF，BOM和emoji保留（evidence/root-textarea-newline-projection） — 成本是现有file-source-input内局部投影helper，须覆盖真实浏览器CRLF/mixed/BOM、三次模式切换/no-op、一字单hunk、新行插删/emoji，不做全文件换行归一。
 
 Ruling: Task3 desktop现有额外plugins须在首次controller创建前由RichEditor组装，经editor-bridge传入file-main内部factory参数一次安装；公开mountFileEditor两参数默认保持兼容，不扩FileAdapters/FileEditorOwner合同 — mount后直接view.state.reconfigure会让controller与view持有不同state，破坏唯一事务入口 — 成本是内部装配接缝，不引desktop依赖到纯file-main，不保留挂载后重配旁路，需验证实际desktop extras与owner持有同一state。
+
+
+Ruling补充并取代Task3 EOL裁定中的“单前后缀包围范围整体替换”：Source多处修改（如Replace All）也必须保留中间未改换行的原始字节。raw `A\r\nkeep\nA\rTail` 两处A→Z时，单包围范围的LF→首EOL会误改keep后的LF；ROOT先前算法要求不足。允许复用已有纯share-merge/diff.ts对display UTF16单元求离散变化，逐范围映射raw，仅插入片段选原首EOL；不新建diff算法、不修改已有内核、不过滤格式差异。预算/计算失败保留可见pending，不退回全文件归一 — 成本是必要的多范围显示映射与Replace-All/混合EOL回归，先真实adapter RED再实现；普通一字/no-op语义与原session/generation约束不变。
