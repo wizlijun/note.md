@@ -163,7 +163,7 @@ lineage每次本地raw编辑生成新值，history按载荷恢复前/后值；�
 
 **具体测试 / 提交边界。** 下列 1.6 只测真实 Step、真实完整 session、真实 PM 事务与纯 helper。所有 helper 实现在本 Task 补齐；不调用未有实现的 `open` / `replaceSource` / move controller。先 core 编译/测试/build/精确提交并安装 committed 产物，再 HOST 纯 helper 编译/测试/build/精确提交；验证累计到 Task 1 的文件即可，不要求未来 UI 脚本存在。
 
-- [ ] **1.1 先建可编译最小目标接口并写真实行为 RED。** 缺导出、错误fixture、依赖安装失败不算RED；下面算法全部在本Task补完。
+- [x] **1.1 先建可编译最小目标接口并写真实行为 RED。** 缺导出、错误fixture、依赖安装失败不算RED；下面算法全部在本Task补完。
 
 ### 1.2 raw/layout Step 的完整算法
 
@@ -186,7 +186,7 @@ TableImage要求position安全非负、columns正整数、widths.length===column
 `invert()`逆转delta顺序并交换images；`map()`保留images不丢Step，最终table registry与actual candidate doc验证位置；file完整历史不允许不受控跨authority remap。
 `withSourceHistoryAttempt(fn)`维护同步栈 `{failed:false}`，try/finally弹栈；已知Step失败标记所有当前嵌套attempt，返回 `{value,failed}`；不是撤销栈、不保存事件。
 
-- [ ] **1.3 bindings 初始、变化与恢复。** 新 `file-bindings.ts`实现以下函数，public package不额外导出它们。
+- [x] **1.3 bindings 初始、变化与恢复。** 新 `file-bindings.ts`实现以下函数，public package不额外导出它们。
 
 `validateBindings(session,rows)`：rows恰好覆盖所有自然roots的ordinal一次，ID唯一；每root child/PM区间对实际doc一致；空roots只接受[]。
 同时验证每个PM top child归自然root或既有gap synthetic/layout fallback之一；无ID节点不能丢，多个发射child共用同一root ID。
@@ -201,7 +201,7 @@ retained是业务策略而非“原文同文”证明。实际 CORE SourceFileUp
 `restoreBindings`仅消费history可信载荷，分别校验beforeHash/current完整rows、afterHash/candidate完整roots；undo不得重新随机分配ID。
 `restoreRecovery`校验v/hash和完整覆盖；失败只丢bindings缓存并fresh，raw仍由输入权威恢复。core sourceRevision无需按缓存强设回旧值。
 
-- [ ] **1.4 canonical Step projection。** `file-projection.ts`禁止每块session，建立一次EditorState({doc:base.session.doc})的tr并重放标准Step。
+- [x] **1.4 canonical Step projection。** `file-projection.ts`禁止每块session，建立一次EditorState({doc:base.session.doc})的tr并重放标准Step。
 
 `projectStandardStep`使用确切prototype分派：ReplaceStep/ReplaceAroundStep复制所有原range、structure、gap/insert/openDepth，只neutralize slice节点；Add/RemoveMark及Add/RemoveNodeMark保留原mark/range；AttrStep仅neutralize已知身份字段。
 身份AttrStep只有producer私有授权且实际before/after仅该属性不同才省略；其它AttrStep按原pos/attr/value重建；unknown/subclass拒绝。
@@ -213,7 +213,7 @@ canonical事务交 `applySourceBlockTransaction`，成功消费其真实file.cor
 生成任何身份步骤后再次严格核完整business目标及canonical相等；source/raw相同且只有未经授权身份变化不能进入用户history。
 私有 API 以 `createFileProjection()` 创建每 controller 独有实例，Task 1 helper 测试也直接创建此实例；内部 WeakMap 记录它实际追加的身份 Step（绑定该 tr / step 引用 / before / after），只提供 `project(base,tr)` 与 `appendBindings(tr,session,rows)`。`project` 返回 canonical transaction 或 FileFailure；`appendBindings` 自行 validate/project/追加并登记实际 AttrStep，返回成功或 FileFailure，失败候选不得 dispatch。调用者不能传布尔 permission 或自己构造 grant；合法插入先带当前已有 ID 或 null，再由 helper 追加新身份。Task 2 持有实例并控制调用时机，Task 1 本身不 import controller，也不把实例方法暴露为编辑器公开 API。
 
-- [ ] **1.5 M自动producer：本地Rich才调用。** CORE新增 `prepareSourceListBoundarySteps(base,tr)`返回成功的标准ReplaceStep数组或FidelityFailure；Source producer（包括其 undo/redo）不调用。
+- [x] **1.5 M自动producer：本地Rich才调用。** CORE新增 `prepareSourceListBoundarySteps(base,tr)`返回成功的标准ReplaceStep数组或FidelityFailure；Source producer（包括其 undo/redo）不调用。
 
 它复用source-fidelity内部transactionListStyles与actual list facts，不将private lexical authority导出。先核标准step原型/tr.docs/schema，分析最终所有有变化的list祖先/相邻seam。
 逐实际parent子节点检测相邻bullet/bullet或ordered/ordered；按实际继承lexeme或真实birth默认marker判断会被相同marker合并的seam。
@@ -718,3 +718,18 @@ Ruling: correspondence 真实性在私有 controller 的实际 F1 调用点建�
 Ruling: 候选稿 98304 字节旧预算更新为当前已正式执行的102400，保持上限而非预增 — 当前已验证产物101857，旧数字来自前置迭代前，不能把过时阈值当新承诺 — 成本是下一阶段新增能力仅余543字节主入口空间，若真实超限需减少重复或具名裁定，不能静默提高。
 
 Ruling: 严格测试配置保留 ambient shim，安装清理前驱用真实上一已装 SHA — 前置已证明旧 BASE 在多轮新增 hashed DTS 后不再代表已安装来源 — 成本是工具需精确核包新增入口白名单、真实前驱与新HEAD，同时保护原包锁和语料闭包。
+
+
+Ruling: Task1 constructor允许相邻且可严格反演的原edits；逆向同锚点的相邻组、组整体no-op必须先canonicalEdits，否则constructor拒绝，不内部静默改载荷；canonicalEdits仍单次合并所有相邻且不跨gap — 正式Task1既允许保留相邻又要求规范形式，两者以可逆性和真实非空变化统一，避免无必要改变F1写集 — 成本是规范形式并不要求所有相邻已合并，需正反向严格有序/整组no-op回归，且不同事务ABA不抵消；其余offset/removed/lineage/hash/bindings校验不变。
+
+
+Ruling: Task1 multi-emission只在纯validate/project helper用显式构造的合法公开数据形状测试，同一真实PM doc的root/child/PM范围完整一致；不把该shape传CORE以获取来源权限 — 当前实际parser探针和既有ownership语料未找到一自然root发多个top child的真实raw例，合同类型允许此形状但不能伪报parser能力 — 成本是此项仅证明纯helper结构合同，不证明F1或UI真实多发射；其余capture/F1正例保持真实，后继若首次产生此形状需追加端到端验收。
+
+
+Ruling: Task1原wide AddMark/RemoveMark可跨实际verified base已知synthetic/layout empty emission或fallback覆盖的无自然owner child，且每一实际Step该child before/after与baseline完整eq、top-child数量/位置保持；ReplaceStep与未知/改变synthetic仍拒绝 — 真实HOST A LF LF LF B一笔wide AddMark保持三个child且projection正确，CORE authorizeStepRoots却仅因中间已知未变化空段无natural root而拒绝，阻断本计划原始幅度跨body合同 — 成本是mark范围准入新增“跨越不变的已知空段”，不增加其正文/attrs/marks写权限；完整原range/Step/docs、protected/strict与mixed原子性保留，需真实CORE/HOST、CRLF/definition与负例验证，未授权修改source-inline或其它前置。
+
+
+Ruling: 只迁移 source-block-fidelity.spec.ts 中“wide mark claims synthetic gap”的单个旧负例为正例，保留 production addMark 两个 steps 正例，单个真实宽 AddMarkStep 的独立 expected 为 **A**\n\n\n**B**，保留原幅度、四个自然 root delimiter inserts、gap/base/protected 不变；相邻 subclass/unknown/变化 synthetic 负例不改 — root 用已安装 CORE 的实际 capture 与 AddMarkStep 独立验证目标 doc.eq 且空段不变，此旧策略与已批准的跨已知不变空段合同冲突 — 成本是一次具名旧测试语义迁移，保留先前 1368/1369 失败证据，修改后重新执行 focused/strict/完整 CORE/typecheck/build/artifact，不将旧失败计为通过。
+
+
+Ruling: Task1 HOST 只验当前绝对构建大小与真实 registry 闭包，baseline 同配置应用增量比较延至 Task3 首次产品 mount 接线验收，并在统一发行前完成 — 本 Task helper 尚未进入产品入口，现有证据确无 baseline，不能用 consumer chunk 假称应用增量；CORE 的固定主入口 cap 与真实增量已单独严格通过 — 成本是当前 HOST 体积增量仍未验证，Task3 必须用冻结 whole HOST/CORE BASE 与最终相同配置产物补证，未补不能宣称全阶段体积验收完成。
