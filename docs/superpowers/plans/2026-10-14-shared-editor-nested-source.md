@@ -33,6 +33,8 @@ CORE 旧测试允许修改仅 `src/__tests__/source-reference.spec.ts` 开头两
 
 Task1 另精准允许迁移 `src/__tests__/source-fidelity.spec.ts` 中 list opaque/拒绝嵌套正文两项旧能力断言，以及 `src/__tests__/source-terminal-hardbreak.spec.ts` 两条 list/quote spans为空断言；改为真实文字span/字节保持成功，hardbreak无span和其它安全负例仍保留。参见自审报告追加裁定。
 
+Task1 追加精准旧测试迁移清单：`src/__tests__/source-list.spec.ts`, `src/__tests__/source-document-capture.spec.ts`, `src/__tests__/source-block-fidelity.spec.ts`, `src/__tests__/source-list-boundary.spec.ts`, `src/__tests__/source-file-window.spec.ts`，仅自审报告追加裁定中的净能力/真实计数断言；两条unclosed根拒绝保留。
+
 HOST 新测试只增 `src/lib/share-merge/source-nested-producer.test.ts`；旧 `source-fidelity.test.ts` 和全部 corpus 不改。两仓 `CHANGELOG.md` 各加未发布条目；经验证的 core dist 按现有闭包工具提交。root 的控制工具与任务记录不混入产品提交。
 
 ### Task 1: nested/heading 正文 exact 与最小同容器 mark（capture 与消费同交付）

@@ -34,3 +34,7 @@ Ruling: Task 1/2 提交经过相关回归和类型检查的源码，Task 3 统�
 Ruling: 后续 pnpm 命令均显式前置 env pnpm_config_verify_deps_before_run=false，禁止 approve-builds/install — 当前 pnpm 11 自动 depsStatusCheck 曾触发 install 后因 ignored builds 退出，测试未运行；保留环境失败并核对 package/lock 与实际依赖解析 — 若配置无效仍可能改变依赖，必须观察真实命令输出并停止，不能把环境失败计作 RED。
 
 Ruling: Task1精准允许迁移 source-fidelity.spec.ts 的 list opaque/拒绝嵌套正文两项旧断言，以及 source-terminal-hardbreak.spec.ts 的两条 list/quote textSpans为空断言 — 新能力直接改变这些既有能力边界；替换为实际范围/原字节/doc等价与hardbreak无span，不删除安全负例 — 若迁移过宽会掩盖回归，独立review核对精确diff；其余literal opaque和protected hardbreak mark断言本Task保持。
+
+Ruling: 授权 task-1-conflicts.md 经固定BASE核对的净能力断言迁移：source-list checked正文映射与exact；source-document-capture同parent而非depth1及quote/list；source-block-fidelity四种whole-body fragment与list exact；source-list-boundary单字保留blank/CRLF/9)以及定义旁正文exact（必须核完整protected和不进renderer）；source-file-window实际221→227读取 — 新来源快照确增加每段2次行表读，保留48规则/1runner/3inline与100对1000有界证明，不隐瞒计数 — 若扩大迁移会掩盖回归，独立review须逐项对照，本批未覆盖literal/结构/安全断言不改。
+
+Ruling: 继续拒绝含未闭fence自然根内的新exact/fragment操作，不迁移两条unclosed拒绝用例 — 本批保持既有未闭根权限边界，不因可映射字符而隐式扩权 — 成本是这类正文仍不能Rich局部修改，可由显式Source处理；后续若要开放须独立证明完整权限。
