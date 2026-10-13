@@ -47,3 +47,6 @@ searchidx/tests/fixtures/outline/crlf.note.md -text
 # into a plain LF file and the "CRLF files index correctly" acceptance case
 # stops testing anything.
 searchidx/tests/fixtures/corpus/prose/crlf.md -text
+
+# Source-fidelity corpus pins raw CRLF bytes for installed-core integration.
+src/share-editor/__fixtures__/corpus/source-fidelity/crlf.md -text

@@ -1,0 +1,86 @@
+[
+  {
+    "name": "table",
+    "bytes": 49,
+    "sha256": "cff471f75f8ccca441463839c716afa852502a66ef5a0005becd2bef20b51f35",
+    "target": 39
+  },
+  {
+    "name": "footnote",
+    "bytes": 52,
+    "sha256": "3b09383ad4ea96c0ec6a7add3c1a6845172acbabdd4c30c9d3b911bd5a5b27ec",
+    "target": 2
+  },
+  {
+    "name": "frontmatter",
+    "bytes": 38,
+    "sha256": "6917560985283ae1a9310ee334b78e68f9fc99badbbdb57659fa6f2ae3609bee",
+    "target": 23
+  },
+  {
+    "name": "html",
+    "bytes": 56,
+    "sha256": "cb94576eb9ff7ae91abab2b49b430d08c3c6eabc85a6f330aeaa470621648a83",
+    "target": 40
+  },
+  {
+    "name": "critic-range",
+    "bytes": 45,
+    "sha256": "4e085cd8c89dc0c556d9d0eb593207d1072c4d2882396d6b3365d386607dd001",
+    "target": 2
+  },
+  {
+    "name": "critic-point",
+    "bytes": 42,
+    "sha256": "d917fe978238deda67b9280cf359ac230c6f5bd99286b98f34e652c2175180db",
+    "target": 11
+  },
+  {
+    "name": "math",
+    "bytes": 61,
+    "sha256": "4973d876c9d52ed1ce3948d230708934f60c88380981ca93cc1d7cc5d0388b51",
+    "target": 4
+  },
+  {
+    "name": "mermaid",
+    "bytes": 44,
+    "sha256": "5d178c72aed0174d02d91a8516bb4f114e568df3dcee5826183f4bbfdea6b4ae",
+    "target": 34
+  },
+  {
+    "name": "mixed-list",
+    "bytes": 61,
+    "sha256": "44a7f00d19a2f6241f755f0cda63c2ba46d24bb1e7bd7d8122b1cc05548026b2",
+    "target": 31
+  },
+  {
+    "name": "quote",
+    "bytes": 49,
+    "sha256": "9996d2b510dd072b7defc43b391bc2be904273fb6ae3d7d8d7bd81e61f63caea",
+    "target": 21
+  },
+  {
+    "name": "long-chinese",
+    "bytes": 4214,
+    "sha256": "77f473bca3d6b713853289c6db015fee420809f29366b34856383c0c5f0d6480",
+    "target": 1404
+  },
+  {
+    "name": "crlf",
+    "bytes": 53,
+    "sha256": "e89122aa4566a4274ccd7422046cacf6fbb6f9f9b451b78fbae8ee49d462a9ac",
+    "target": 11
+  },
+  {
+    "name": "bom",
+    "bytes": 33,
+    "sha256": "cb912fa2f9613c17b8a6812dea87b22621f5a0f8f4905e67c2783dbeab2eaf14",
+    "target": 3
+  },
+  {
+    "name": "no-final-newline",
+    "bytes": 29,
+    "sha256": "aa312806ad0bf9258e8bbb6fb0403442991c9b13197f73f633dc49f97216767e",
+    "target": 9
+  }
+]
