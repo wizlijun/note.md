@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **Shared editor source saving now covers existing math commands and InputRules.** Installed root/subpath commands, context insertion and slash math actions save empty formula blocks; inline math conversion preserves neighbouring Markdown and existing formulas. Formula payload editing remains in Source mode; full collaboration UI/history integration is still in progress.
+
 - **Shared editor source preservation supports continuous typing in definition-only empty quote and list paragraphs.** Installed consumers cover first input and text entered immediately after deleting a marked or unmarked point note, while retaining reference-definition bytes.
 
 - **Shared editor source preservation fixes code-toolbar entity/escape toggles and removal of marked point notes.** Installed-core regressions cover real toolbar commands and note popup removal while retaining neighbouring Markdown and surviving mark wrappers.
