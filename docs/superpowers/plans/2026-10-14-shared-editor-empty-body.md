@@ -405,3 +405,5 @@ Ruling: Task1精准迁移source-file-window.spec.ts中existing rich entry parses
 Ruling: Task1同两条source-file-window计数最终迁移为227→233，明确取代前条245目标；保留原245失败记录 — writer去除list/footnote未使用marker的冗余行表读取后，同输入t1-window-counter-after-minimal-reads实测100/1000均233，48规则/3inline/0nested/local不变，仅quote入口保留必要6次读取 — 成本缩至有界6次读取，仍不改其它断言或隐瞒本次旧227失败；不能将优化前245套用最终源码。
 
 Ruling: Task1 fix1精确迁移source-block-fidelity.spec.ts两处旧空正文拒绝：preserves opaque references and their synthetic paragraphs中的synthetic键X改成功且expected为`[Alpha][ref]\n\nX\n\n[ref]: /url "T"\n\nTail`，keeps serializer limitations and partial surrogate edits fail closed仅empty文件键A改成功且source为`A`；原reference/未闭fence/partial-surrogate等断言保持 — 新扩展的I1 guard回归真实281/283，两失败是本Task已批准single-step能力与旧负例冲突，不是应恢复的限制 — 成本为新增一个精确旧测试文件allowlist；保留实际失败，不称ab105全量通过，不扩多步权限或批量迁移。
+
+Ruling: Task2 source-only renderer对list/footnote尾empty保留实际indent加终端LF，quote marker末行仍允许无EOL；纯空格EOF没有真实StateBlock行或container.map所有权，不签nested blank。空list退出测试用已安装keymap的真实命令链及HOST实际handleKeyDown — 实际markdown-it构造器跳过纯空格EOF，splitListItem对空item自身返回false并由后续keymap命令处理，不能靠假事实/假单命令期望改parser — 成本为新生成的list/footnote尾空段多一个必需LF；保持默认parser和brief独立expected，新增三条探测失败单列不冒充原Task行为RED。
