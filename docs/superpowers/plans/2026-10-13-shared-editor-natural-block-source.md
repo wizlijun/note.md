@@ -114,7 +114,7 @@ export type SourceGap = Readonly<{
 export type SourceEdit = Readonly<{from:number;to:number;text:string}>
 ```
 
-- [ ] **N1.1 写完整 RED `src/__tests__/source-ownership.spec.ts`。**
+- [x] **N1.1 写完整 RED `src/__tests__/source-ownership.spec.ts`。**
 
 ```ts
 import {expect,it,vi} from 'vitest'
@@ -227,7 +227,7 @@ it('preserves second and interior BOM, and legacy APIs',async()=>{
 })
 ```
 
-- [ ] **N1.2 运行 RED。** core：
+- [x] **N1.2 运行 RED。** core：
 
 ```sh
 ./node_modules/.bin/vitest run src/__tests__/source-ownership.spec.ts
@@ -235,7 +235,7 @@ it('preserves second and interior BOM, and legacy APIs',async()=>{
 
 前置 API 尚无 roots/gaps，且 BOM capture 不去首标记；记录真实失败。类型错误若仅因未实现的正式新增字段符合 RED；fixture 自身 PM 位置错误不作为能力失败。
 
-- [ ] **N1.3 复用实际 trace 二分入口，创建 ownership 投影 helper。** 在 `src/source-trace.ts` 只将 `function firstPiece(t:SourceTrace,from:number):number` 声明改成 `export function firstPiece(t:SourceTrace,from:number):number`，保留 `4a67ebb` 的二分函数体，不另建查找算法，不在 src/index.ts 转导出。在 `src/source-ownership.ts` 声明上方四个数据类型并加入以下完整计算逻辑；sliceTrace 已从 firstPiece 开始只访问重叠 pieces，不建立 Markdown 语法 parser。
+- [x] **N1.3 复用实际 trace 二分入口，创建 ownership 投影 helper。** 在 `src/source-trace.ts` 只将 `function firstPiece(t:SourceTrace,from:number):number` 声明改成 `export function firstPiece(t:SourceTrace,from:number):number`，保留 `4a67ebb` 的二分函数体，不另建查找算法，不在 src/index.ts 转导出。在 `src/source-ownership.ts` 声明上方四个数据类型并加入以下完整计算逻辑；sliceTrace 已从 firstPiece 开始只访问重叠 pieces，不建立 Markdown 语法 parser。
 
 ```ts
 import {sliceTrace,firstPiece,type SourceTrace} from './source-trace'
@@ -282,7 +282,7 @@ export function rendererTailStart(text:string,from:number,to:number,tokenType:st
 
 完整 token.map 区间先经 rawRange 得 owner，terminal classifier 只能确定 owner **内部的渲染尾段**。未知 token 类型仍可保留 owner，但 renderer tail 不可证明时令 `tailFrom=sourceTo` 并由后续 renderer 拒绝；实现方式在下段 `prepareRootEvents` 中用 `renderable` 条件定义，不吞异常。已有 root 的 source/body 字节不做 trim 或 EOL normalize。
 
-- [ ] **N1.4 在 markdown.ts 标记实际 synthetic tokens，并建立 root token 事件。** 导入上节 types/helpers；扩展 Capture 为 `{trace:SourceTrace;runs:CapturedTextRun[];roots:SourceRoot[];synthetic:{gapIndex:number;emission:SyntheticEmission}[]}`。新增下列内部类型/maps/helper，不导出到 root：
+- [x] **N1.4 在 markdown.ts 标记实际 synthetic tokens，并建立 root token 事件。** 导入上节 types/helpers；扩展 Capture 为 `{trace:SourceTrace;runs:CapturedTextRun[];roots:SourceRoot[];synthetic:{gapIndex:number;emission:SyntheticEmission}[]}`。新增下列内部类型/maps/helper，不导出到 root：
 
 ```ts
 type RootDraft={collector:Capture;kind:'natural'|'synthetic';gapIndex:number;
@@ -404,7 +404,7 @@ for(const key of Object.keys(h)) {
 
 rootCursor 复用 `4a67ebb` 的 captureCursor：该 helper 已用每 frame WeakMap 缓存 content identity/length/size/tailSize，只重读尾节点和新 append，并保留 marks/content shape 与长度不倒退保护。rawRange 两个原子边界用现有 firstPiece 二分，root/tail 的 sliceTrace 仅访问重叠 pieces。N1 的多 root/nodeSize getter 增长回归用于防止事件接线重新引入前缀累计。root events 用 token 身份携带 collector，无全局 active doc；synthetic 与 natural 可以一前一后，不能 zip 过滤后的 token.map 和 PM node 数组。root group 以真实 level/nesting 配对，一个 group 可以实际输出多个 PM children，记录其全部 childFrom/childTo。真实无 token 的 reference definition 留在 gap；当前禁用 footnote_tail / footnote_inline 的 parser 配置保留。
 
-- [ ] **N1.5 BOM trace、session 返回与 private failure。** `parseDocumentWithSourceCapture` 中替换 math 初始化为：
+- [x] **N1.5 BOM trace、session 返回与 private failure。** `parseDocumentWithSourceCapture` 中替换 math 初始化为：
 
 ```ts
 let trace=identityTrace(source)
@@ -421,7 +421,7 @@ if(trace.text!==math)throw new UnsupportedSourceCapture()
 
 旧 `source-document-capture.spec.ts` 的通用 `doc.eq(parseMarkdown(raw))` BOM 基准按本稿冻结合同改为去恰好一个首 BOM；canonical API 单独断言不变。旧容器/literal textRuns=[] 的测试全部保留，因为本稿不扩大精细 text mapping。
 
-- [ ] **N1.6 GREEN 和独立提交。**
+- [x] **N1.6 GREEN 和独立提交。**
 
 ```sh
 ./node_modules/.bin/vitest run src/__tests__/source-ownership.spec.ts src/__tests__/source-document-capture.spec.ts src/__tests__/source-fidelity.spec.ts src/__tests__/source-fidelity-corpus.spec.ts src/__tests__/source-trace.spec.ts src/__tests__/source-projection.spec.ts
@@ -441,7 +441,7 @@ git diff --check
 
 **Produces:** `applySourceBlockTransaction`、来源 edits 审计结果、installed core→merge 的门槛。旧 applySourceTextTransaction 继续只支持原单 text step / stored marks 拒绝合同，不悄悄改变旧调用方行为。
 
-- [ ] **N2.0 声明实际标准 Step 直接依赖并保持 external 身份。** 已验证 core 根 `import.meta.resolve('prosemirror-transform')` 为 ERR_MODULE_NOT_FOUND，而通过现有 prosemirror-state 能解析已安装的 1.12.0。host已直接声明 ^1.12.0。新增core peer/dev声明与lock importer（版本对象已存在），tsup external加同一包，不能偷偷bundled第二份Step类。以下在core根执行，不下载/升级/安装：
+- [x] **N2.0 声明实际标准 Step 直接依赖并保持 external 身份。** 已验证 core 根 `import.meta.resolve('prosemirror-transform')` 为 ERR_MODULE_NOT_FOUND，而通过现有 prosemirror-state 能解析已安装的 1.12.0。host已直接声明 ^1.12.0。新增core peer/dev声明与lock importer（版本对象已存在），tsup external加同一包，不能偷偷bundled第二份Step类。以下在core根执行，不下载/升级/安装：
 
 ```sh
 node --input-type=module <<'JS'
@@ -470,7 +470,7 @@ JS
 
 此环境link是既有installed包的解析入口，不作为产品提交；clean clone由manifest/lock正常安装重建。只提交三个必要配置文件；production dist中prosemirror-transform保持external，installedhost与PM Transaction使用同一包，记录实际resolved路径/版本。配置后的新API不存在才是本任务RED，不能把缺少未声明依赖当能力失败。
 
-- [ ] **N2.1 写完整 RED `src/__tests__/source-block-fidelity.spec.ts`。**
+- [x] **N2.1 写完整 RED `src/__tests__/source-block-fidelity.spec.ts`。**
 
 ```ts
 import {expect,it,vi} from 'vitest'
@@ -692,7 +692,7 @@ it('keeps serializer limitations and partial surrogate edits fail closed',()=>{
 
 无条件 table colwidth/语言 attrs 拒绝之外，未知自定义 schema attrs 的无条件测试见 N2.4。所有 mark/step 测试使用生产 API，无伪造 source owner 权限。
 
-- [ ] **N2.2 RED 命令。**
+- [x] **N2.2 RED 命令。**
 
 ```sh
 ./node_modules/.bin/vitest run src/__tests__/source-block-fidelity.spec.ts
@@ -700,7 +700,7 @@ it('keeps serializer limitations and partial surrogate edits fail closed',()=>{
 
 预期新 API 不存在；加入入口后 mark/multi-step/root fallback 尚未实现仍失败。不要通过开 exact API 全局 mark/多步权限来使此测试通过。
 
-- [ ] **N2.3 提取旧 exact 返回的真实 edit，保持公开合同。** 在 source-fidelity.ts 将已有 `applySourceTextTransaction` 原实现改名为私有 `applySourceTextTransactionWithEdit`；保留全部现有步骤验证/失败理由/strict reparse。仅最终成功返回加上已由原算法算出的 sourceFrom/sourceTo/insert：
+- [x] **N2.3 提取旧 exact 返回的真实 edit，保持公开合同。** 在 source-fidelity.ts 将已有 `applySourceTextTransaction` 原实现改名为私有 `applySourceTextTransactionWithEdit`；保留全部现有步骤验证/失败理由/strict reparse。仅最终成功返回加上已由原算法算出的 sourceFrom/sourceTo/insert：
 
 ```ts
 type ExactTextResult={ok:true;session:SourceSession;edit:SourceEdit}|FidelityFailure
@@ -722,7 +722,7 @@ export function applySourceTextTransaction(base:SourceSession,tr:Transaction):Fi
 
 这只是 DRY 提取，不从前后 source diff 反推 edit，不重复维护 text-span boundary 算法。旧 API 的 storedMarksSet、单 ReplaceStep、semantic-mismatch 断言原样运行。
 
-- [ ] **N2.4 实现每步稳定边界证明和局部输出。** source-fidelity.ts 新增 runtime `EditorState` import；`Fragment` 和 type `ResolvedPos` / `PmNode` 来自已有 prosemirror-model；`AddMarkStep` / `RemoveMarkStep` / `ReplaceStep` runtime imports 来自已安装 prosemirror-transform；`serializeMarkdown` 来自 markdown.ts；SourceRoot/SourceEdit types 从 ownership 导入。以下 helper 和新公开入口完整落在该文件，复用已有 `splitsSurrogate` / createSourceSession / FidelityFailure。
+- [x] **N2.4 实现每步稳定边界证明和局部输出。** source-fidelity.ts 新增 runtime `EditorState` import；`Fragment` 和 type `ResolvedPos` / `PmNode` 来自已有 prosemirror-model；`AddMarkStep` / `RemoveMarkStep` / `ReplaceStep` runtime imports 来自已安装 prosemirror-transform；`serializeMarkdown` 来自 markdown.ts；SourceRoot/SourceEdit types 从 ownership 导入。以下 helper 和新公开入口完整落在该文件，复用已有 `splitsSurrogate` / createSourceSession / FidelityFailure。
 
 ```ts
 export type SourceBlockResult =
@@ -758,7 +758,7 @@ function authorizeStepRoots(before:PmNode,step:AddMarkStep|RemoveMarkStep|Replac
  const a=before.resolve(from),b=before.resolve(to)
  if(splitsInlineText(a)||splitsInlineText(b))throw new UnsupportedBlockTransaction()
  if(step instanceof ReplaceStep) {
-  if(step.structure||!a.sameParent(b)||!a.parent.inlineContent||step.slice.openStart||step.slice.openEnd)
+  if((step as ReplaceStep & {readonly structure:boolean}).structure||!a.sameParent(b)||!a.parent.inlineContent||step.slice.openStart||step.slice.openEnd)
    throw new UnsupportedBlockTransaction()
   let inline=true;step.slice.content.forEach(node=>{if(!node.isInline)inline=false})
   if(!inline)throw new UnsupportedBlockTransaction()
@@ -820,7 +820,8 @@ function renderChangedRoot(base:SourceSession,doc:PmNode,root:SourceRoot):string
 }
 function applySourceEdits(base:SourceSession,edits:readonly SourceEdit[],ids:readonly number[],ownership:RootIndex):string {
  const authorized=ids.map(id=>ownership.rootById[id]!)
- let at=0,ownerIndex=0,candidate=''
+ let at=0,ownerIndex=0
+ const chunks:string[]=[]
  for(const edit of edits) {
   // ids and edits are in raw source order; each authorized root is visited at most once.
   while(ownerIndex<authorized.length&&authorized[ownerIndex]!.sourceTo<edit.to)ownerIndex++
@@ -829,9 +830,10 @@ function applySourceEdits(base:SourceSession,edits:readonly SourceEdit[],ids:rea
    ||edit.from<at||edit.to<edit.from||edit.to>base.source.length
    ||splitsSurrogate(base.source,edit.from)||splitsSurrogate(base.source,edit.to))
    throw new UnsupportedBlockTransaction()
-  candidate+=base.source.slice(at,edit.from)+edit.text;at=edit.to
+  chunks.push(base.source.slice(at,edit.from),edit.text);at=edit.to
  }
- return candidate+base.source.slice(at)
+ chunks.push(base.source.slice(at))
+ return chunks.join('')
 }
 export function applySourceBlockTransaction(base:SourceSession,tr:Transaction):SourceBlockResult {
  if(!tr.before.eq(base.doc))return {ok:false,reason:'stale-document'}
@@ -905,7 +907,7 @@ export type {SourceRoot,SourceGap,SyntheticEmission,SourceEdit} from './source-o
 
 `defaultSchema` 是 core `../schema` 的真实导出；`Schema` 从 prosemirror-model runtime 导入。无需新 helper、不改默认 schema。保留这里无条件 unknown attr 和既有 table colwidth gate。
 
-- [ ] **N2.5 精确 API 回归、root metadata 重建和 core GREEN。** 每个成功 fallback 都已走 createSourceSession 重建 roots/gaps，revision 恰好加 1；失败无 session。旧 applySourceTextTransaction 的 mark/multi-step/storedMarks negative 全部保留；新的支持只通过新 API。对未知 token、synthetic paragraph、无 owner 空文档继续 fail closed，不扩大邻居范围尝试凑 equality。
+- [x] **N2.5 精确 API 回归、root metadata 重建和 core GREEN。** 每个成功 fallback 都已走 createSourceSession 重建 roots/gaps，revision 恰好加 1；失败无 session。旧 applySourceTextTransaction 的 mark/multi-step/storedMarks negative 全部保留；新的支持只通过新 API。对未知 token、synthetic paragraph、无 owner 空文档继续 fail closed，不扩大邻居范围尝试凑 equality。
 
 ```sh
 ./node_modules/.bin/vitest run src/__tests__/source-block-fidelity.spec.ts src/__tests__/source-ownership.spec.ts src/__tests__/source-fidelity.spec.ts src/__tests__/source-fidelity-corpus.spec.ts src/__tests__/source-document-capture.spec.ts src/__tests__/source-trace.spec.ts src/__tests__/source-projection.spec.ts
@@ -914,7 +916,7 @@ export type {SourceRoot,SourceGap,SyntheticEmission,SourceEdit} from './source-o
 ./node_modules/.bin/tsup
 ```
 
-- [ ] **N2.6 添加 installed core host RED→GREEN。** 在 core N2 实现前或同步 N2 dist 前，创建以下完整 host 文件；producer 必须 import 安装版 root，不 alias 到 sibling src。
+- [x] **N2.6 添加 installed core host RED→GREEN。** 在 core N2 实现前或同步 N2 dist 前，创建以下完整 host 文件；producer 必须 import 安装版 root，不 alias 到 sibling src。
 
 ```ts
 import {expect,it} from 'vitest'
@@ -1032,7 +1034,7 @@ env PLAYWRIGHT_MODULE=/Users/bruce/.npm/_npx/fd3bca3c548369c0/node_modules/playw
 
 browser OUTPUT / CACHE 显式归本下一计划独立 workspace，禁止回落 harness 的旧默认目录。最后一项只复跑现有批准的 Kit 单块 browser gate；它不证明 new block API 已接 Kit、Source、撤销或协作出口。Playwright 安装路径缺失则报告环境缺项，不自动安装。无 source-history 之前不能把 Rich mark undo/redo 的语义恢复称为原块字节恢复。
 
-- [ ] **N2.7 交付两个仓库的可重建产物。** core 精确 stage source-fidelity/index/本任务测试和 tracked dist，提交 `feat(core): splice changed natural source blocks`；host 精确 stage 两个测试和确实变化的依赖 manifest/lock，提交 `test(editor): gate installed natural block source output`。source ownership 如需修正只能在 N1 门槛仍绿且明确记录后包含，不顺手改其他代码。ledger 记录 focused/full 数量、bundle bytes、SHA、普通 exact 与 root-render 能力、已拒绝的具体结构反例。
+- [x] **N2.7 交付两个仓库的可重建产物。** core 精确 stage source-fidelity/index/本任务测试和 tracked dist，提交 `feat(core): splice changed natural source blocks`；host 精确 stage 两个测试和确实变化的依赖 manifest/lock，提交 `test(editor): gate installed natural block source output`。source ownership 如需修正只能在 N1 门槛仍绿且明确记录后包含，不顺手改其他代码。ledger 记录 focused/full 数量、bundle bytes、SHA、普通 exact 与 root-render 能力、已拒绝的具体结构反例。
 
 ## 每任务产物和提交门槛
 
@@ -1140,3 +1142,17 @@ git -C ../moraya-core status --short
 ## Root 自审与连续实施
 
 自审覆盖N1/N2每项及共享接口：真实token ownership/PM emission和synthetic gaps、BOM工作trace语义、exact优先/strict局部renderer、真实多步mark范围与一次最终结构校验、actual captureCursor/firstPiece复用、Step直接peer/external同包身份、14committed原字节语料/产物、当前计划独立browser路径。发现与修正及全部剩余spec范围写入本计划独立ledger；不启动plan-reviewer席位。Task brief须同时包含GlobalConstraints与共用产物门槛，因为既有提取脚本只抽对应Task。用户已授权持续实现到两端完成及统一发版，直接main，不重复询问实施方式。
+
+## 执行中实际 renderer 合同修正
+
+Ruling: N2局部renderer临时fragment为equals highlight与strong/em采用连续highlight外层的渲染顺序 — 真实required正例生成**==Alpha==**== beta==，markdown-it因后半delimiter紧接空格而丢highlight；仅重排临时渲染marks可表达==**Alpha** beta==，保留原意图/默认serializer — 若交叉mark组合仍不可表达会继续fail closed并暴露具体反例，须以strong/em组合及邻接范围回归证明；绝不修改base/tr.doc、attrs/schema、guard或未知raw授权。
+
+临时渲染fragment只对上述已证明的mark嵌套调整，不更新来源会话或意图文档。测试覆盖原正例、strong/em组合、highlight区间外相邻marks和未改raw尾块；全部attrs/marks严格重解析继续作为接受条件。
+
+Ruling: N2对已exact-prototype验证的标准ReplaceStep.structure使用只读交叉类型断言 — 实际transform1.12.0运行时确有own property且false/true与toJSON一致，但DTS不公开该字段，保留原属性读取比toJSON复制slice更小 — 若依赖升级去掉该私有属性会失去structure判别，故记录实际版本/运行时合同并保留structure正反例；本轮不升级，最终strict语义/边界验证仍在。
+
+## 最终实证后的必要源码保护修正
+
+Ruling: 唯一finalfix增加实际reference消费区间的源码保护，并对覆盖该区间的局部root-render拒绝 — root在最终审查后用真实安装包复现list/quote内unused definition被删且doc.eq仍true，语义守卫无法保护不可见原文，不能留给未来默默丢内容 — 部分含nested定义的格式操作暂时明确拒绝，须在后续局部结构/保留片段renderer补齐，不能称完整编辑已完成；无格式过滤/regex猜定义/全篇canonical。
+
+最终统一修复必须在同一实际reference block rule成功非silent调用后，以最终state.line和capture物理lineStarts投回原始raw protected spans（包括nested、duplicate、title rollback、EOF/BOM/CRLF）。stable root-render不能删除这些span；精确source edit也须独立不相交验证。legacy parser/完整token.map不改，fullblank结构语义仍后续。详见当前计划证据的root-final-review-addendum.md及最终正式报告。
