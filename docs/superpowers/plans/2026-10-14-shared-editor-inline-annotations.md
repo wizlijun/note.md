@@ -573,3 +573,10 @@ Ruling: 允许非空同body原生closed Replace生成hardbreak(isInline:true)，
 Ruling: source-structure-commands原getLines/skipSpaces三个apply参数改为Parameters<typeof get/skip>的精确tuple类型 — 新严格测试配置揭示原any[]签名不符，与运行语义无关 — 成本仅类型擦除，不放宽strict或改断言。新补真实InputRules首次GREEN按GREEN如实记录，不为追补RED复制或回写旧产品源码。
 
 补充修改allowlist：CORE `src/__tests__/source-nested-producer.spec.ts` 和 `src/__tests__/source-body-producer.spec.ts` 仅以上具名迁移；既有source-structure-commands额外允许上述三处纯类型修正。本补充取代正文“不得改同文件其他测试”对应冲突部分，其余约束保持。
+
+
+## Task2 批注空体接缝补充（实施前自审）
+
+Ruling: Task2允许精确修改source-structure.ts的prepareEmptyParagraphEdits，仅新增已认证空paragraph首步closed单note_anchor leaf插入的原链准入；不开放其它leaf/atom，所有原prototype/docs/apply/ledger/single-origin/no-birth/one-run/claims约束保持 — Task1为拒绝未知leaf加入text-only guard，Task2明定空文件/布局空段点批注positive必经此helper，仅改source-empty-body会被直接拒绝 — 成本是一个具名helper精确扩展并加直接正反例；该分支须仅单步、canonical真实note_anchor且marks/attrs完整验证，无后续mark扩权，hardbreak/math/缺fact/先删空再插入等旧拒绝保持。
+
+Task2文件allowlist相应新增上述source-structure.ts具名helper；直接helper的测试放新source-annotation-producer.spec.ts，旧source-empty-cache/source-inline-recipe的hardbreak leaf负例保持。Task1 fix1新增只读InlineAtomOccurrence由actual math token发射/clone/replay/finalizer绑定；Task2沿该实际接口保留未改公式，不重复捕获或授予数学创建权限。Task1 fix1整体受理后才冻结Task2 BASE并派fresh writer。
