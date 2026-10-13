@@ -14,7 +14,7 @@
 
 - CORE `/Users/bruce/git/moraya-core`、HOST `/Users/bruce/git/mdeditor`，现有两个 main，不建 worktree，不读 `.env`；单一产品 writer。
 - 执行冻结 CORE `75abb5bd168fd33935a8cd692d1d63543fb1a7eb`、HOST 产品 `a373bd707ffba1df347827225966af80958a3fdd`，宿主收尾文档 `c3cd5e57`。全部交叉接口已对照实际已提交源码，不得以工作区 dirty 源码替代冻结。
-- 不改变 package/lock完整bytes；main gzip ≤81920；两仓14 fixture与manifest SHA不变；默认legacy parse/serialize语义不改。
+- 不改变 package/lock完整bytes；main gzip ≤98304；两仓14 fixture与manifest SHA不变；默认legacy parse/serialize语义不改。
 - 不CST、不第二parser、production parse oracle、候选试parse、whole-root serialize再diff、第二raw账本、authority setter或definition搬运。
 - 原Step完整range、exact prototype、tr.docs/apply链先审；attrs/marks及最终doc.eq严格一致。新路径保留两道protected guard及actual protected集合精确平移检查。
 - 不增加未闭fence权限、新math正文UI；closed fence delimiter碰撞增长由已记录的remaining-inline Task1交付，不把本稿普通空body输入冒充围栏增长。
@@ -392,7 +392,7 @@ env pnpm_config_verify_deps_before_run=false pnpm run check:editor-kit
 # env pnpm_config_verify_deps_before_run=false pnpm run check
 ```
 
-必要gate顺序固定为core source/tests/type→core build/artifacts→精确committed dist→实际安装→installed tests→host build→check:editor-kit→最终root Svelte/指纹。gzip上限81920，不改入口范围/压缩参数掩盖增量；超限先停并给root证据，不能预涨。每次产物检查同时比package/lock完整bytes与14fixture SHA。
+必要gate顺序固定为core source/tests/type→core build/artifacts→精确committed dist→实际安装→installed tests→host build→check:editor-kit→最终root Svelte/指纹。gzip上限98304，不改入口范围/压缩参数掩盖增量；超限先停并给root证据，不能预涨。每次产物检查同时比package/lock完整bytes与14fixture SHA。
 
 - [ ] **2.9 精确提交与交付。** Task2源/tests/CHANGELOG与已验证dist精确提交，HOST仅本批suite/未发布记录精确提交；记录双SHA、每套验证对应SHA及installed指纹。不得替当前nested Task3提交任何文件。所有新行为保留真实RED→GREEN，旧不变量首GREEN如实记。
 
@@ -419,3 +419,5 @@ Ruling: Task2只修source-list-boundary.spec.ts的tampered blank authority fails
 Ruling: Task2允许source-only实际renderer向内部StructuralRendered/body atom传递真实末尾continuationIndent；仅结构witness触碰的左root和既有认证separator unit，在原padding按实际TAB宽度恰能完整满足新container缩进、会被收为新增semantic emptyP时，ledger可清该unit的padding并保留原EOL。只claim该separator，不扩root/保护/semantic-empty权限，不从raw猜容器或生产试parse — 真实sink将indent2改4，旧` \t`由partial-generated变完整owned，原raw必多出PM空段；独立最小候选`* A\n  * B\r\n\r\nTail __raw__\r\n`与真实tr.doc严格相等 — 成本是该结构操作需额外删除旧已认证separator的两个缩进字符；须断言唯一该padding写集、EOL与Tail不变、普通输入和未触碰seam不获权限。source-list-boundary仅此bullet sink expected迁移，ordered sink保持。
 
 Ruling: Task2仅迁移source-list-boundary中actual nested的bullet C lift expected为`* A\n  + B\n* C\n  \r\nTail __raw__\r\n`，保留完整严格回读/字节/base与item lineage，并补edits止于原tailFrom检查 — actual完整TAB在原inner indent4确已拥有尾空P，lift后该P随C移至outer；t2-list-depth-ownership-diagnosis证明target保有它，唯一edit0..19止于原tailFrom，旧根外CRLF与Tail不变 — 成本为原结构根内空P换行/padding依source-onlyrenderer重写，不能沿旧expected丢失该P；不迁移其它list用例。
+
+Ruling: 本批main gzip门槛由81920调整为98304（96KiB），不改入口/压缩参数/exports或其它产物门槛。root-empty-size-evidence实测旧75abb为351570原bytes/80838 gzip，新统一empty build为384249/88452 gzip（SHA44824c5eb9559aee810cd763c074449f3fabaf71ed2f9c3dd9414d6f579133f9），增7614；原artifact硬失败完整保留 — 新增必要空正文实际来源、Enter/容器保存闭包已48suite1104测试通过，原80KiB是内部阶段预算而非用户限制，删除必要能力或换入口规避不合理 — 成本为主包比已受理基线多7614 gzip bytes（约9.42%），新上限保留9852余量；后继需继承实际预算，不称此前80KiB门槛通过，最终浏览器900KiB预算不变。
