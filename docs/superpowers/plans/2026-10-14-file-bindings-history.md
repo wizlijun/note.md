@@ -795,3 +795,6 @@ Ruling: Task4保存callback采用固定同lineage live对象→Promise<实际dur
 Ruling: Task4 native route采用本机Tauri2.11.1已有Builder.on_page_load：仅main Started推进Rust epoch、清published route/version并恢复default；同一set_file_history_route的init分支只读epoch，set要求main调用者/同epoch/递增safe integer version。mainFocused独立控制effective active，旧页迟到高version和非main请求无效；不以DOM菜单blur解除owner — 单读version再+1无法抵挡reload旧页迟到更新，实际API本机源码已核 — 成本是一个内存page epoch，不引时间戳/服务/第二菜单模板；实际native菜单平台仍必须另验，纯状态测试不代替。
 
 Task4允许文件补充（启动时才激活allowlist）：src/lib/tabs.svelte.ts、src/lib/tabs.test.ts、src/lib/autosave.svelte.ts（仅精确快照回执接线，如现有最终Task3入口已充分则不改），src/lib/project-share/browser.test.ts（实际serialized bundle editorFiles保持/失配与原pending并发回归）。desktop成功写入汇合点是persistMarkdownSnapshot，不能由RichEditor观察initialContent猜回执；普通md无必要新sidecar。
+
+
+Ruling: Task3共享insertNoteRich末尾增加可选replaceRange:{from,to}，在同一真实state.tr删除触发范围后按该tr映射selection执行原note_anchor/annotation mark逻辑，仅一次admission.dispatch；legacy省略参数保持。FileMountSession内部提供insertSlashNote，公开MountedFileEditor.annotations/FileEditorOwner不扩。旧Popup先flush失败零写，flush后仍核捕获view/generation/selection；成功才打开原Popup — 旧desktop slash先删串再异步执行会在取消/拒绝时丢原文，并拆成多个history事件 — 成本是已有共享命令的最小prepare范围参数，须真实拒绝保留trigger/一次undo恢复/旧Popup拒绝与legacy回归，无fake state/view或第二批注serializer。
