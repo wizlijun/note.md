@@ -82,9 +82,12 @@ it('actual Kit edits only the selected second identical table',()=>{
  expect(r.changedRoots).toEqual([1]);expect(r.edits.every(e=>e.from>=b.roots[1]!.sourceFrom)).toBe(true)
 })
 
-it('actual Kit task-list remains atomic until checkbox source capture is supported',()=>{
+it('actual Kit task-list preserves checked attrs and external raw',()=>{
  const b=open('A\n\nB'+tail),tr=kitTransaction(state(b,1,4),{kind:'task-list'})
- expect(tr.doc.child(0).child(0).attrs.checked).toBe(false);reject(b,tr)
+ expect(tr.doc.child(0).child(0).attrs.checked).toBe(false)
+ const r=accept(b,tr,'- [ ] A\n- [ ] B'+tail)
+ expect(r.session.doc.child(0).child(1).attrs.checked).toBe(false)
+ expect(r.changedRoots).toEqual([0,1]);expect(r.session.source.endsWith(tail)).toBe(true)
 })
 it('actual Kit quote wrap preserves a closed code fence and its content LF',()=>{
  const b=open('```js\nA\n\n```'+tail),tr=kitTransaction(state(b,1),{kind:'blockquote'})
