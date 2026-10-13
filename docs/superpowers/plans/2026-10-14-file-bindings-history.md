@@ -786,3 +786,12 @@ Ruling: Task3 desktop现有额外plugins须在首次controller创建前由RichEd
 
 
 Ruling补充并取代Task3 EOL裁定中的“单前后缀包围范围整体替换”：Source多处修改（如Replace All）也必须保留中间未改换行的原始字节。raw `A\r\nkeep\nA\rTail` 两处A→Z时，单包围范围的LF→首EOL会误改keep后的LF；ROOT先前算法要求不足。允许复用已有纯share-merge/diff.ts对display UTF16单元求离散变化，逐范围映射raw，仅插入片段选原首EOL；不新建diff算法、不修改已有内核、不过滤格式差异。预算/计算失败保留可见pending，不退回全文件归一 — 成本是必要的多范围显示映射与Replace-All/混合EOL回归，先真实adapter RED再实现；普通一字/no-op语义与原session/generation约束不变。
+
+
+Ruling: Task4按当前OWN/task-4-seams-discovery.md实际入口修正边界：首产纯单文件createShareFileSession（显式policy、既有adapters/render、真实owner/save/close），旧inline browser只兼容optional editorFiles，禁止runtime import破坏projectShareBrowser.toString闭包。在线mount/导入/rebase/undo-rebase编排分别由delivery E1/E3首次交付，Task4只验证保存不重建history、显式baseline/policy和恢复底层边界 — 实际browser没有公共saveDraft或既有rebase链，原计划把拟建API误写成已有链 — 成本是明确首次消费者任务，不删除最终功能/平台门槛，不新增第二factory。
+
+Ruling: Task4保存callback采用固定同lineage live对象→Promise<实际durable detached DraftV2>；共享FIFO在实际写入前clone最新同对象并await原atomic，送达操作直到内存markDelivered完成才释放槽位。file-session冻结请求snapshot，只有returned该路径raw及本次已生成recovery逐字段/有序bindings相同且authority未变，才ack该代；失败/旧authority/被更新输入取代不伪确认。close先解决pending/IME，再临时只读锁定最新snapshot，精确保存成功后close，失败恢复原只读并保留owner — 冻结整draft即便FIFO也会在送达飞行中复活pending；B回执不能清C或跨baseline — 成本是最小实际写入回执和局部close锁，复用现有队列/restoreRecovery，不新增持久化服务。完整时间线见seam报告§6。
+
+Ruling: Task4 native route采用本机Tauri2.11.1已有Builder.on_page_load：仅main Started推进Rust epoch、清published route/version并恢复default；同一set_file_history_route的init分支只读epoch，set要求main调用者/同epoch/递增safe integer version。mainFocused独立控制effective active，旧页迟到高version和非main请求无效；不以DOM菜单blur解除owner — 单读version再+1无法抵挡reload旧页迟到更新，实际API本机源码已核 — 成本是一个内存page epoch，不引时间戳/服务/第二菜单模板；实际native菜单平台仍必须另验，纯状态测试不代替。
+
+Task4允许文件补充（启动时才激活allowlist）：src/lib/tabs.svelte.ts、src/lib/tabs.test.ts、src/lib/autosave.svelte.ts（仅精确快照回执接线，如现有最终Task3入口已充分则不改），src/lib/project-share/browser.test.ts（实际serialized bundle editorFiles保持/失配与原pending并发回归）。desktop成功写入汇合点是persistMarkdownSnapshot，不能由RichEditor观察initialContent猜回执；普通md无必要新sidecar。
