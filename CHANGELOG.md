@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **Shared editor empty-body preservation groundwork adds ordinary first-input and frontmatter consumer coverage.** Source changes preserve original Markdown around empty bodies; rebuilt core installation, Enter closure and full editor integration are still pending.
+
 - **Shared editor preservation foundations retain nested prose, table padding and supported literal body bytes during local edits.** Installed-core merge checks cover actual container contents; supported LF container edits reparse nearby blocks. Full file UI, history and native/IME integration remain in progress.
 
 - **Shared editor preservation foundations now reparse nearby paragraphs for ordinary text changes and keep reference links and footnotes consistent across the file.** Untouched Markdown stays intact; full rich-text collaboration is still in progress.
