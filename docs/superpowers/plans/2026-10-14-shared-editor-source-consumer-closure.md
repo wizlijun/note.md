@@ -277,3 +277,5 @@ HOST再用实际 `insertAtom(view,'math_block',{value:''})`、slash math条目.e
 
 ## 阶段完成后继续
 bindings/history四Task→网页E1–E3/桌面E4八Task→真实主题/图表/IME与免费WorkerCPU→所有未发布宿主/插件/Worker统一发行及公网验签。原KaTeX、CSS/teardown、Svelte/Vite诊断保留具名triage，不通过静音完成。
+
+Ruling: Task1无空格空列表marker同样须支持definition邻接首字；在真实list baseline emptyInline、before恰空格、range末端与actual EOL起点相等、protected definition起点恰EOL末端且actual read.prefix存在时，允许仅为既有inline.after生成actual EOL+continuation prefix，保留原before — t1-no-space-actual-evidence已证明两独立expected strict等于目标；read.e/body与真实EOL/definition边界可完整认证，没有owned blank并不等于不能表达 — 成本是新增必要separator bytes与既有列表padding，定义原bytes保持精确平移；不扫描raw猜prefix、不改EmptyPlace公开shape、source-empty-body或结构权限。须两例真实RED→GREEN、LF/CRLF/BOM及replay/连续输入与不邻接反例；不能永久拒绝这两个已有合法shape。
