@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **Shared file editor groundwork now preserves stable root IDs through canonical transactions and recovery.** Internal helpers project every parsed child, validate real source correspondence, restore trusted binding images, and admit only transaction-bound identity steps. Reversible raw/layout payloads use the installed isolated core history entry. / 共享文件编辑器新增稳定块身份、完整规范投影及恢复校验基础；控制器、统一撤销与界面接线仍待后续任务。
+
 - **Shared editor source saving now covers existing math commands and InputRules.** Installed root/subpath commands, context insertion and slash math actions save empty formula blocks; inline math conversion preserves neighbouring Markdown and existing formulas. Formula payload editing remains in Source mode; full collaboration UI/history integration is still in progress.
 
 - **Shared editor source preservation supports continuous typing in definition-only empty quote and list paragraphs.** Installed consumers cover first input and text entered immediately after deleting a marked or unmarked point note, while retaining reference-definition bytes.
