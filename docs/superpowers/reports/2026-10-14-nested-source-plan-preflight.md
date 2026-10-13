@@ -50,3 +50,9 @@ Ruling: Task2仅迁移source-structure-commands.spec.ts的旧自动延长围栏�
 Ruling: Task3仅迁移source-file-environment.spec.ts中setext、list continuation两参数例的full-fallback预期为local且fullCaptureCalls=0，保留完整doc/roots/gaps/protected/layout/textSpans oracle等价断言与其余4类fallback — 新真实完整容器窗口明确覆盖这两类，原预期是旧能力上限 — 成本是旧诊断断言改变，独立review逐项核对；不得扩大为允许其它失败或放宽源字节门槛。
 
 已核固定core ecb0ef9b完整测试与task3-core-full原始失败：1004通过、2失败仅旧mode断言；依赖构建未继续。
+
+## Task3 宿主旧能力断言裁定
+
+Ruling: Task3精准迁移宿主三个旧installed测试的10条能力预期：source-block-fidelity两list/quote reference owner整正文mark由拒绝改fragment成功，核独立完整raw/protected不变/base不变；source-list-producer五checked空spans改实际span/body权限，公开exact一例改单字成功且完整attrs/doc/raw保持；source-file-environment两个规模line reads221改227，保留48规则/3inline/local及oracle — 对齐Task1已验实际捕获能力，非生产回归豁免 — 成本为旧消费者断言变化，review核精确3文件；不改原source-fidelity.test.ts、corpus或安全负例。
+
+已核三文件完整相关上下文及task3-host-full失败：4290通过/10失败；writer已停依赖构建。测试输出另有既有KaTeX/Svelte和happy-dom/CSS加载噪声，不能称pristine。
