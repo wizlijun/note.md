@@ -35,6 +35,10 @@ Task1 另精准允许迁移 `src/__tests__/source-fidelity.spec.ts` 中 list opa
 
 Task1 追加精准旧测试迁移清单：`src/__tests__/source-list.spec.ts`, `src/__tests__/source-document-capture.spec.ts`, `src/__tests__/source-block-fidelity.spec.ts`, `src/__tests__/source-list-boundary.spec.ts`, `src/__tests__/source-file-window.spec.ts`，仅自审报告追加裁定中的净能力/真实计数断言；两条unclosed根拒绝保留。
 
+Task2 仅额外迁移 `source-fidelity.spec.ts`、`source-document-capture.spec.ts`、`source-block-fidelity.spec.ts` 的已具名literal/table能力断言，详见自审报告Task2追加裁定；不改其它安全负例。
+
+Task2 另仅迁移 `source-structure-commands.spec.ts` 旧literal自动延长围栏一例为严格拒绝；后继专用fence producer须在file UI启用前恢复该操作，见追加裁定。
+
 HOST 新测试只增 `src/lib/share-merge/source-nested-producer.test.ts`；旧 `source-fidelity.test.ts` 和全部 corpus 不改。两仓 `CHANGELOG.md` 各加未发布条目；经验证的 core dist 按现有闭包工具提交。root 的控制工具与任务记录不混入产品提交。
 
 ### Task 1: nested/heading 正文 exact 与最小同容器 mark（capture 与消费同交付）

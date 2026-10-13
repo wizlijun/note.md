@@ -40,3 +40,7 @@ Ruling: 授权 task-1-conflicts.md 经固定BASE核对的净能力断言迁移�
 Ruling: 继续拒绝含未闭fence自然根内的新exact/fragment操作，不迁移两条unclosed拒绝用例 — 本批保持既有未闭根权限边界，不因可映射字符而隐式扩权 — 成本是这类正文仍不能Rich局部修改，可由显式Source处理；后续若要开放须独立证明完整权限。
 
 Ruling: Task2真实frontmatter callback测试的legacy createEditor视图初值仅去开头一个BOM，source session与expected保留完整原raw/BOM/CRLF；仍先核doc相等并触发真实callback，不修改legacy全局parseMarkdown — 当前legacy raw含BOM初值与capture语义不同，file-mode初始化尚未交付且必须直接使用final schema同次capture.doc — 成本是此测试不证明原createEditor(raw含BOM)已修，后继计划必须验真实file mount首帧；初始doc.eq失败不能计consumer RED，callback路径的RED如实注明已做capture但尚未做literal权限/Step收缩，不恢复工作源码制造历史。
+
+Ruling: Task2精准迁移3个旧测试文件中的literal能力断言：source-fidelity的fence span和Mermaid公开exact；source-document-capture仅新增code_block/frontmatter/html_block parent与实际literal span、strike_through/html_mark（inlinecode仍不映射）；source-block-fidelity仅table wholebody fragment与table/fence/frontmatter单字exact，均核完整独立raw/base不变 — 这些旧opaque/root-render预期与新增正文映射直接冲突 — 成本是旧测试期望变更，必须独立review精确diff，所有其它未知mark/atom/跨范围/未闭fence拒绝不迁移。
+
+Ruling: Task2仅迁移source-structure-commands.spec.ts的旧自动延长围栏一例为原子拒绝/不进renderer/base不变 — 该用例实际是纯正文Replace，旧靠整根fallback扩大围栏，与新literal严格拒绝合同冲突；其它结构与getLines descriptor回归不变 — 成本为source-aware Rich暂不接受该自动延长操作（default legacy不变），已要求后继inline计划在file UI启用前以实际fence边界专用producer恢复，不能静默禁用后宣称完整能力。
