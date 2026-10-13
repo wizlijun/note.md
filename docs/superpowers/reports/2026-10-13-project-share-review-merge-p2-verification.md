@@ -1,6 +1,6 @@
 # 项目分享 Review/Merge P2 验证记录
 
-日期：2026-10-13。**P2 实施、独立评审和最终门禁完成；本记录不代替实际部署/发行证明。** 后续发行见本轮版本发布验证记录。
+日期：2026-10-13。**P2 实施、独立评审和最终门禁完成；本记录不代替实际部署/发行证明。** P2已随[v6.1013.2正式发行](2026-10-13-v6.1013.2-release-verification.md)，部署/公网证据见该记录。
 
 依据：[批准spec](../specs/2026-10-12-project-share-review-merge-design.md)、[P2计划](../plans/2026-10-13-project-share-review-merge-p2.md)。完整范围 `205a3ce098b8d0a4f15ad67603e620825dde2e7e..8855ef4992df257036416f5f4cb67ecd041ab212`。直接main、一个worktree、串行产品writer；未恢复原stash/backup或纳入用户未跟踪文档。
 
