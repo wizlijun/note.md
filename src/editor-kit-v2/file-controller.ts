@@ -22,6 +22,34 @@ class FileAdmissionFailure extends Error {}
 function fail(reason:string):never {throw new FileAdmissionFailure(reason)}
 const same=(a:unknown,b:unknown)=>JSON.stringify(a)===JSON.stringify(b)
 const standard=[ReplaceStep,ReplaceAroundStep,AddMarkStep,RemoveMarkStep,AddNodeMarkStep,RemoveNodeMarkStep,AttrStep].map(c=>c.prototype)
+const stepMethods=['apply','getMap','invert','map','merge','toJSON'] as const
+const stepExecutors=new Map([...standard,SourceHistoryStep.prototype,TableLayoutStep.prototype].map(proto=>[proto,stepMethods.map(method=>proto[method])]))
+// Seal execution objects as well as JSON: native history calls invert and keeps maps.
+// Array values (StepMap ranges, Mapping maps/mirror) are copied for comparison only.
+function sealExecutionObject(value:object):()=>boolean {
+ const levels:{object:object;prototype:object|null;properties:{key:PropertyKey;descriptor:PropertyDescriptor;items?:unknown[]}[]}[]=[]
+ for(let object:object|null=value;object&&object!==Object.prototype;object=Object.getPrototypeOf(object)){
+  levels.push({object,prototype:Object.getPrototypeOf(object),properties:Reflect.ownKeys(object).map(key=>{
+   const descriptor=Object.getOwnPropertyDescriptor(object!,key)!
+   return {key,descriptor,...(Array.isArray(descriptor.value)?{items:[...descriptor.value]}:{})}
+  })})
+ }
+ return ()=>levels.every(({object,prototype,properties})=>Object.getPrototypeOf(object)===prototype&&Reflect.ownKeys(object).length===properties.length&&properties.every(({key,descriptor:d,items})=>{
+  const now=Object.getOwnPropertyDescriptor(object,key)
+  return !!now&&now.value===d.value&&now.get===d.get&&now.set===d.set&&now.writable===d.writable&&now.enumerable===d.enumerable&&now.configurable===d.configurable
+   &&(!items||Array.isArray(now.value)&&now.value.length===items.length&&items.every((item,i)=>item===now.value[i]))
+ }))
+}
+function sealChain(tr:Transaction):()=>boolean {
+ for(const step of tr.steps){
+  const methods=stepExecutors.get(Object.getPrototypeOf(step))
+  if(!methods||stepMethods.some((method,i)=>step[method]!==methods[i]))fail('invalid-step-execution')
+ }
+ const before=tr.before,doc=tr.doc,steps=[...tr.steps],docs=[...tr.docs],mapping=tr.mapping
+ const intact=[...steps,...mapping.maps,mapping].map(sealExecutionObject),json=JSON.stringify(steps.map(step=>step.toJSON()))
+ return ()=>tr.before===before&&tr.doc===doc&&tr.mapping===mapping&&tr.steps.length===steps.length&&tr.docs.length===docs.length
+  &&steps.every((step,i)=>step===tr.steps[i])&&docs.every((node,i)=>node===tr.docs[i])&&intact.every(check=>check())&&json===JSON.stringify(tr.steps.map(step=>step.toJSON()))
+}
 function sourceDifference(before:string,after:string):SourcePatch[]{
  if(before===after)return []
  let from=0,left=before.length,right=after.length
@@ -47,8 +75,8 @@ export function createFileController(options:FileControllerOptions){
  if(options.plugins.filter(p=>p.spec.key===historyKey).length!==1)throw Error('file-requires-one-native-history')
  const projection=createFileProjection(),listeners=new Set<(snapshot:FileSnapshot)=>void>(),viewListeners=new Set<()=>void>()
  let current:EditorState,attached:EditorView|null=null,readOnly=false,composing=false,inDispatch=false,lastError:unknown=null
- type Intent={kind:'source'|'restore'|'insert'|'history'|'layout';base:FileState;next:FileState;doc:Node;steps:string}
- type Prepared={base:FileState;before:Node;doc:Node;docs:readonly Node[];mapping:string;steps:string;next:FileState;addToHistory:unknown;historyMeta:unknown;appended:unknown;intent:Intent|undefined}
+ type Intent={kind:'source'|'restore'|'insert'|'history'|'layout';base:FileState;next:FileState;chain:()=>boolean}
+ type Prepared={base:FileState;chain:()=>boolean;next:FileState;addToHistory:unknown;historyMeta:unknown;appended:unknown;intent:Intent|undefined}
  type Frame={root:Transaction;failed:boolean;prepared:Set<Transaction>;rootKind:string}
  let active:Frame|null=null
  const slashHints=new WeakMap<Transaction,{base:EditorState;records:{state:EditorState;tr:Transaction;offset:number;steps:readonly Step[]}[]}>()
@@ -64,17 +92,27 @@ export function createFileController(options:FileControllerOptions){
   }
   const deltas=layoutDeltas(base.layout,next.layout);if(deltas.length)tr.step(new TableLayoutStep(deltas))
  }
- function register(tr:Transaction,kind:Intent['kind'],base:FileState,next:FileState){intents.set(tr,{kind,base,next,doc:tr.doc,steps:JSON.stringify(tr.steps.map(s=>s.toJSON()))})}
- function sourceTransaction(value:string,kind:'source'|'restore'|'insert',insert?:{content:string;from:number;to:number}):{tr:Transaction;changed:boolean}{
+ function register(tr:Transaction,kind:Intent['kind'],base:FileState,next:FileState){intents.set(tr,{kind,base,next,chain:sealChain(tr)})}
+ function sourceTransaction(value:string,kind:'source'|'restore'|'insert',insert?:{content:string;from:number;to:number;at:number;eol:string}):{tr:Transaction;changed:boolean}{
   const base=read(current),edits=sourceDifference(base.session.source,value),tr=current.tr
   if(!edits.length)return {tr,changed:false}
   const update=prepareFileSourceEdits(base.session,{expectedRevision:base.session.revision,edits});if(!update.ok)fail(update.reason)
   if(insert){
    const births=update.file.correspondence.filter(c=>c.kind==='birth')
-   const intact=update.file.correspondence.filter(c=>c.kind==='untouched')
+   const intact=update.file.correspondence.filter(c=>c.kind!=='birth')
+   const oldRaw=base.session.source
+   const unchanged=intact.every(c=>{
+    if(c.beforeRoots.length!==1||c.afterRoots.length!==1)return false
+    const old=base.session.roots[c.beforeRoots[0]],next=update.session.roots[c.afterRoots[0]]
+    const before=oldRaw.slice(old.sourceFrom,old.sourceTo),after=update.session.source.slice(next.sourceFrom,next.sourceTo)
+    if(c.kind==='untouched')return before===after
+    return c.kind==='retained'&&insert.at===oldRaw.length&&old.sourceTo===oldRaw.length&&!/[\r\n]$/.test(oldRaw)
+     &&update.session.source.slice(0,oldRaw.length)===oldRaw&&after===before+insert.eol
+     &&base.session.doc.slice(old.pmFrom,old.pmTo).content.eq(update.session.doc.slice(next.pmFrom,next.pmTo).content)
+   })
    const trimmed=insert.content.trim(),offset=insert.content.indexOf(trimmed),natural=births.length===1&&births[0].afterRoots.length===1?update.session.roots[births[0].afterRoots[0]]:undefined
    if(!natural||!trimmed||natural.sourceFrom>insert.from+offset||natural.sourceTo<insert.from+offset+trimmed.length||intact.length!==base.session.roots.length||update.file.correspondence.length!==intact.length+1
-    ||intact.some(c=>base.session.source.slice(base.session.roots[c.beforeRoots[0]].sourceFrom,base.session.roots[c.beforeRoots[0]].sourceTo)!==update.session.source.slice(update.session.roots[c.afterRoots[0]].sourceFrom,update.session.roots[c.afterRoots[0]].sourceTo)))fail('unsupported-block-insert')
+    ||!unchanged)fail('unsupported-block-insert')
   }
   const result=nextBindings(base,update.session,update.file.correspondence,options.ids.blockId);if(!result.ok)fail(result.reason)
   const next:FileState=Object.freeze({...base,session:update.session,bindings:result.bindings,sourceHash:sha256Sync(update.session.source),sourceLineage:options.ids.lineage(),layout:sourceLayout(base,update.session,update.file.correspondence,options.ids.tableId),generation:base.generation+1})
@@ -84,6 +122,12 @@ export function createFileController(options:FileControllerOptions){
  }
  function prepareHistory(tr:Transaction):boolean{
   try{
+   // Native popEvent may return the installed branch's inverse Step itself.
+   // Protect those immutable execution values before a later filter sees them.
+   for(const value of [...tr.steps,...tr.mapping.maps]){
+    for(const field of Object.values(value))if(Array.isArray(field))Object.freeze(field)
+    Object.freeze(value)
+   }
    const base=read(current);let next=base,rawPayload=false,layoutPayload=false
    for(let i=0;i<tr.steps.length;i++){
     const step=tr.steps[i],proto=Object.getPrototypeOf(step),before=tr.docs[i],after=tr.docs[i+1]??tr.doc
@@ -124,7 +168,7 @@ export function createFileController(options:FileControllerOptions){
   if(tr.steps.length){
    if(!writable()||tr.getMeta('addToHistory')===false)fail('unsupported-file-change')
    if(intent){
-    if(intent.base!==base||intent.doc!==tr.doc||intent.steps!==JSON.stringify(tr.steps.map(s=>s.toJSON())))fail('stale-file-intent')
+    if(intent.base!==base||!intent.chain())fail('stale-file-intent')
     next=intent.next
    }else{
     if(active.root!==tr&&active.rootKind!=='local-rich')fail('unsupported-file-append')
@@ -175,12 +219,12 @@ export function createFileController(options:FileControllerOptions){
     appendPayload(tr,base,next,update.edits.map(e=>({...e,removed:base.session.source.slice(e.from,e.to)})))
    }
   }
-  const value:Prepared={base,before:tr.before,doc:tr.doc,docs:[...tr.docs],mapping:JSON.stringify(tr.mapping.maps.map(m=>m.toString())),steps:JSON.stringify(tr.steps.map(s=>s.toJSON())),next,addToHistory:tr.getMeta('addToHistory'),historyMeta:tr.getMeta(historyKey),appended:active.root===tr?undefined:active.root,intent}
+  const value:Prepared={base,chain:sealChain(tr),next,addToHistory:tr.getMeta('addToHistory'),historyMeta:tr.getMeta(historyKey),appended:active.root===tr?undefined:active.root,intent}
   prepared.set(tr,value);active.prepared.add(tr);return value
  }
  const first=new Plugin<FileState>({key,state:{init:()=>initial,apply(tr,value){
   const p=prepared.get(tr)
-  if(!p||p.base!==value||p.before!==tr.before||p.doc!==tr.doc||p.docs.length!==tr.docs.length||p.docs.some((doc,i)=>doc!==tr.docs[i])||p.mapping!==JSON.stringify(tr.mapping.maps.map(m=>m.toString()))||p.steps!==JSON.stringify(tr.steps.map(s=>s.toJSON()))||p.addToHistory!==tr.getMeta('addToHistory')||p.historyMeta!==tr.getMeta(historyKey)||p.appended!==tr.getMeta('appendedTransaction')||p.intent!==intents.get(tr))fail('mutated-file-admission')
+  if(!p||p.base!==value||!p.chain()||p.addToHistory!==tr.getMeta('addToHistory')||p.historyMeta!==tr.getMeta(historyKey)||p.appended!==tr.getMeta('appendedTransaction')||p.intent!==intents.get(tr))fail('mutated-file-admission')
   return p.next
  }},filterTransaction(tr,state){try{prepareActual(tr,state);return true}catch(error){if(active)active.failed=true;lastError=error;return false}}})
  function admit(tr:Transaction,execute:boolean):boolean{

@@ -108,3 +108,19 @@ it('typing around two consecutive moves keeps four native undo/redo events',()=>
  for(let i=0;i<4;i++)expect(c.runHistory('redo',true)).toBe(true)
  expectState('A\n\nA\n\nCXY',ids)
 })
+
+it.each([['A','\n'],['A\n\nC','\n'],['A\r\n\r\nC','\r\n'],['\uFEFFA','\n'],['\uFEFFA\r\n\r\nC','\r\n']] as const)('EOF insertion keeps exact old bytes and identities: %j', (raw,eol)=>{
+ const c=open(raw),before=c.state,snapshot=c.snapshot(),id=snapshot.bindings.at(-1)!.id
+ const command={kind:'block.insert-after' as const,blockId:id,content:'B'}
+ expect(executeFileStructural(c,command,false),String(c.diagnostic)).toBe(true);expect(c.state).toBe(before);expect(undoDepth(c.state)).toBe(0)
+ expect(executeFileStructural(c,command,true),String(c.diagnostic)).toBe(true)
+ expect(c.snapshot().raw).toBe(raw+eol+eol+'B'+eol+eol)
+ expect(c.snapshot().bindings.slice(0,-1)).toEqual(snapshot.bindings)
+ expect(c.runHistory('undo',true)).toBe(true);expect(c.snapshot().raw).toBe(raw);expect(c.snapshot().bindings).toEqual(snapshot.bindings)
+ expect(c.runHistory('redo',true)).toBe(true);expect(c.snapshot().raw).toBe(raw+eol+eol+'B'+eol+eol)
+})
+it.each(['B\n\nC','[id]: /new\n\nB'])('EOF exception rejects multiple births or remote reference effects: %j',(content)=>{
+ const c=open('[x][id]\n\nA'),before=c.state,snapshot=c.snapshot()
+ expect(executeFileStructural(c,{kind:'block.insert-after',blockId:snapshot.bindings.at(-1)!.id,content},true)).toBe(false)
+ expect(c.state).toBe(before);expect(c.snapshot()).toEqual(snapshot);expect(undoDepth(c.state)).toBe(0)
+})

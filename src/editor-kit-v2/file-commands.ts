@@ -4,7 +4,7 @@ import type {StructuralCommand} from './contract'
 import type {FileState,FileFailure} from './file-contract'
 import type {FileStructuralPort} from './file-controller'
 export type MoveWitness={generation:number;rootOrdinal:number;id:string;slice:Slice;from:number;to:number;insertAt:number;target:number}
-export type StructuralPreparation={ok:true;tr:Transaction;changed:boolean;move?:MoveWitness;insert?:{value:string;content:string;from:number;to:number}}|FileFailure
+export type StructuralPreparation={ok:true;tr:Transaction;changed:boolean;move?:MoveWitness;insert?:{value:string;content:string;from:number;to:number;at:number;eol:string}}|FileFailure
 export function prepareFileStructural(state:EditorState,file:FileState,command:StructuralCommand):StructuralPreparation{
  const row=file.bindings.find(r=>r.id===command.blockId),root=row&&file.session.roots[row.rootOrdinal]
  if(!row||!root)return {ok:false,reason:'unknown-file-block'}
@@ -20,7 +20,7 @@ export function prepareFileStructural(state:EditorState,file:FileState,command:S
   const leading=(left.match(/(?:\r\n|\n)*$/)?.[0].match(/\r\n|\n/g)?.length??0)+(command.content.match(/^(?:\r\n|\n)*/)?.[0].match(/\r\n|\n/g)?.length??0)
   const trailing=(command.content.match(/(?:\r\n|\n)*$/)?.[0].match(/\r\n|\n/g)?.length??0)+(right.match(/^(?:\r\n|\n)*/)?.[0].match(/\r\n|\n/g)?.length??0)
   const prefix=eol.repeat(Math.max(0,2-leading)),suffix=eol.repeat(Math.max(0,2-trailing)),value=left+prefix+command.content+suffix+right
-  return {ok:true,tr,changed:true,insert:{value,content:command.content,from:at+prefix.length,to:at+prefix.length+command.content.length}}
+  return {ok:true,tr,changed:true,insert:{value,content:command.content,from:at+prefix.length,to:at+prefix.length+command.content.length,at,eol}}
  }
  const ordinal=row.rootOrdinal+(command.kind==='block.move-up'?-1:1),neighbor=file.session.roots[ordinal]
  if(!neighbor)return {ok:false,reason:'file-block-boundary'}

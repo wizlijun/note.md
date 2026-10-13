@@ -114,3 +114,41 @@ it('publish queues each accepted snapshot in order and callback edits use the la
  expect(received).toEqual(['B','C','D']);expect(c.snapshot().raw).toBe('D')
  const dispose=c.observe(value=>deltas.push(value.generation));c.dispatch(c.state.tr.insertText('E',1,2));dispose();await Promise.resolve();expect(deltas).toEqual([])
 })
+
+import {Slice} from 'prosemirror-model'
+it.each(['replacement','invert','apply','map','getMap','merge','toJSON','ranges','mapping-from','mapping-mirror','map-method'] as const)('late %s execution-chain mutation rejects before native history',async(mode)=>{
+ class Foreign extends ReplaceStep {invert(){return new ReplaceStep(0,0,Slice.empty)}}
+ const late=new Plugin({filterTransaction(tr){
+  const step=tr.steps[0];if(!(step instanceof ReplaceStep))return true
+  if(mode==='replacement')tr.steps[0]=new Foreign(step.from,step.to,step.slice)
+  else if(mode==='ranges')(tr.mapping.maps[0] as unknown as {ranges:number[]}).ranges[0]++
+  else if(mode==='mapping-from')tr.mapping.from++
+  else if(mode==='mapping-mirror')Object.assign(tr.mapping,{mirror:[0,1]})
+  else if(mode==='map-method')tr.mapping.maps[0].invert=()=>StepMap.empty
+  else if(mode==='invert')step.invert=()=>new ReplaceStep(0,0,Slice.empty)
+  else Object.defineProperty(step,mode,{value:step[mode].bind(step),configurable:true})
+  return true
+ }})
+ let notifications=0;const c=open('A',[late],()=>{notifications++}),before=c.state,snapshot=c.snapshot()
+ expect(c.dispatch(c.state.tr.insertText('B',1,2))).toBe(false)
+ expect(c.state).toBe(before);expect(c.snapshot()).toEqual(snapshot);expect(undoDepth(c.state)).toBe(0);expect(redoDepth(c.state)).toBe(0)
+ await Promise.resolve();expect(notifications).toBe(0)
+})
+it.each(['map','docs','step','invert','mapping-to','mirror'] as const)('private insert intent rejects pre-filter %s mutation',(mode)=>{
+ const c=open('A\n\nC'),before=c.state,snapshot=c.snapshot()
+ const p=c.prepareStructural({kind:'block.insert-after',blockId:snapshot.bindings[0].id,content:'B'});if(!p.ok)throw Error(p.reason)
+ const step=p.tr.steps[0] as ReplaceStep
+ if(mode==='map')(p.tr.mapping.maps as StepMap[])[0]=StepMap.empty
+ else if(mode==='docs')p.tr.docs[1]=p.tr.docs[1].type.create(p.tr.docs[1].attrs,p.tr.docs[1].content,p.tr.docs[1].marks)
+ else if(mode==='step')p.tr.steps[0]=new ReplaceStep(step.from,step.to,step.slice)
+ else if(mode==='invert')step.invert=()=>new ReplaceStep(0,0,Slice.empty)
+ else if(mode==='mapping-to')p.tr.mapping.to--
+ else Object.assign(p.tr.mapping,{mirror:[0,1]})
+ expect(c.dispatch(p.tr)).toBe(false);expect(c.state).toBe(before);expect(c.snapshot()).toEqual(snapshot);expect(undoDepth(c.state)).toBe(0)
+})
+
+it('ordinary Rich cannot register a preexisting own invert override as native execution',()=>{
+ const c=open('A'),before=c.state,snapshot=c.snapshot(),tr=c.state.tr.insertText('B',1,2)
+ tr.steps[0].invert=()=>new ReplaceStep(0,0,Slice.empty)
+ expect(c.dispatch(tr)).toBe(false);expect(c.state).toBe(before);expect(c.snapshot()).toEqual(snapshot);expect(undoDepth(c.state)).toBe(0)
+})

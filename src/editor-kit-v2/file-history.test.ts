@@ -42,3 +42,15 @@ it('restore creates its own event with both history boundaries',()=>{
  expect(undoDepth(c.state)).toBe(3)
  for(const raw of ['C','AB','A']){expect(c.runHistory('undo',true)).toBe(true);expect(c.snapshot().raw).toBe(raw)}
 })
+
+it('late in-place native inverse mutation rejects undo without consuming its event',()=>{
+ let tamper=false
+ const c=open('A',[new Plugin({filterTransaction(tr){const step=tr.steps.find(s=>s instanceof ReplaceStep);if(tamper&&step)step.invert=()=>step;return true}})])
+ expect(c.dispatch(c.state.tr.insertText('B',1,2))).toBe(true)
+ const before=c.state,snapshot=c.snapshot();tamper=true
+ expect(c.runHistory('undo',true)).toBe(false);expect(c.state).toBe(before);expect(c.snapshot()).toEqual(snapshot);expect(undoDepth(c.state)).toBe(1)
+ tamper=false;expect(c.runHistory('undo',true)).toBe(true);expect(c.snapshot().raw).toBe('A')
+ expect(c.runHistory('redo',true)).toBe(true);expect(c.snapshot().raw).toBe('B')
+})
+
+import {ReplaceStep} from 'prosemirror-transform'
