@@ -145,3 +145,10 @@ it('PM history undoes actual Kit command and scenario M standard step together (
  expect(undone?.doc.eq(b.doc)).toBe(true)
  // This assertion is deliberately PM-only; no Source/file/native raw undo is wired here.
 })
+it.each([
+ ['* outer\n  + A\n\n  + B\n* end','* outer\n  + A\n* B\n* end',true],
+ ['* outer\n\n  + A\n  + B\n\n* end','* outer\n\n  + A\n\n* B\n\n* end',false],
+] as const)('installed actual Kit outdent preserves mixed container style: %s',(raw,expected,tight)=>{
+ const b=open(raw+tail),tr=kitTransaction(state(b,text(b.doc,'B')),{kind:'outdent'}),r=accept(b,tr,expected+tail)
+ expect(r.session.layout.lists!.map(f=>f.marker)).toEqual(['*','+']);expect(r.session.layout.lists![0]!.tight).toBe(tight)
+})
