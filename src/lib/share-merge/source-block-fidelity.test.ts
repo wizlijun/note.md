@@ -66,3 +66,36 @@ it('installed fallback keeps table-adjacent root and separator bytes',()=>{
  // Canonical formatting inside the actually changed table can create several hunks.
  expect(proposal.hunks.length).toBeGreaterThan(0)
 })
+
+for(const source of ['- [ref]: /url\n\n  Alpha\n\nTail','> [ref]: /url\n>\n> Alpha\n\nTail']) {
+ it(`rejects rendering a reference-covered owner atomically: ${JSON.stringify(source)}`,()=>{
+  const opened=createSourceSession(source);expect(opened.ok).toBe(true)
+  if(!opened.ok)throw new Error(opened.reason)
+  const base=opened.session,p=position(base.doc,'Alpha')
+  const before=JSON.stringify(base),bytes=Buffer.from(base.source)
+  const tr=EditorState.create({doc:base.doc}).tr.addMark(p,p+5,base.doc.type.schema.marks.strong!.create())
+  const result=applySourceBlockTransaction(base,tr)
+  expect(result).toEqual({ok:false,reason:'unsupported-step'})
+  expect(result).not.toHaveProperty('session')
+  expect(Buffer.from(base.source)).toEqual(bytes)
+  expect(JSON.stringify(base)).toBe(before)
+ })
+}
+
+for(const source of ['- [ref]: /url\r\n\r\n  Alpha\r\n\r\nTail','> [ref]: /url\r\n>\r\n> Alpha\r\n\r\nTail']) {
+ it(`installed adjacent exact/render edits retain reference bytes: ${JSON.stringify(source)}`,()=>{
+  const opened=createSourceSession(source);expect(opened.ok).toBe(true)
+  if(!opened.ok)throw new Error(opened.reason)
+  const base=opened.session,p=position(base.doc,'Tail')
+  expect(base.protectedSources).toEqual([{kind:'reference-definition',sourceFrom:0,sourceTo:'- [ref]: /url\r\n'.length,scope:'nested'}])
+  const state=EditorState.create({doc:base.doc})
+  for(const [tr,tail] of [[state.tr.insertText('S',p,p+1),'Sail'],
+   [state.tr.addMark(p,p+4,base.doc.type.schema.marks.strong!.create()),'**Tail**']] as const) {
+   const result=applySourceBlockTransaction(base,tr)
+   expect(result.ok).toBe(true)
+   if(!result.ok)throw new Error(result.reason)
+   expect(Buffer.from(result.session.source)).toEqual(Buffer.from(source.replace('Tail',tail)))
+   expect(result.session.protectedSources).toEqual(base.protectedSources)
+  }
+ })
+}
