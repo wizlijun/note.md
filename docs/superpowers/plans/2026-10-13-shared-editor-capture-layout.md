@@ -60,7 +60,7 @@ export type SourceLayout = Readonly<{
 
 **Files:** core 新 `src/source-layout.ts`、`src/__tests__/source-layout.spec.ts`；修改 `src/markdown.ts`、`src/source-fidelity.ts`、`src/index.ts`、`src/__tests__/source-ownership.spec.ts`、`src/__tests__/source-block-fidelity.spec.ts`，tracked dist；host 新 `src/lib/share-merge/source-layout.test.ts`。本任务不包含 hardbreak 修复。
 
-- [ ] **L1.1 先写以下完整 RED**
+- [x] **L1.1 先写以下完整 RED**
 
 ```ts
 import {expect,it} from 'vitest'
@@ -190,7 +190,7 @@ it('keeps fallback rawless, default sync/async parsing and serializer unchanged'
 
 运行 core `./node_modules/.bin/vitest run src/__tests__/source-layout.spec.ts` 留真实 RED。安装版同名 host RED 必须在同步新 dist 前执行，代码见共享 host 门槛。
 
-- [ ] **L1.2 完整内部 layout 计算代码**
+- [x] **L1.2 完整内部 layout 计算代码**
 
 在 `src/source-layout.ts` 上述类型之后加入以下代码。结构类型只消费 protected span 已存在字段，因此不再定义/包装 reference 规则。blank 候选只扫描实际 collector.trace 行视图；rawRange 是 N1 原函数。
 
@@ -258,7 +258,7 @@ export function finishSourceLayout(blankLines:readonly BlankDraft[],fallback?:Fa
 
 物理行只遍历一次，消费已受理collector的有序protected span、双指针检查区间、端点Set判断相接；不按每run重扫定义，不按每root重扫全文。
 
-- [ ] **L1.3 同 token 流注册 natural 与 layout emission**
+- [x] **L1.3 同 token 流注册 natural 与 layout emission**
 
 `markdown.ts` 新增 import `collectBlankDrafts,finishSourceLayout,type BlankDraft,type FallbackEmpty,type SourceLayout,type LayoutRegion`（均来自 `./source-layout`）。在 `CapturedDocument` 新增 `layout:SourceLayout`，保留 finalfix `protectedSources`。在 `Capture` 新增 `source:string;blankLines:BlankDraft[];fallback?:FallbackEmpty`，保留既有 trace/runs/roots/synthetic/protectedSources 与 finalfix 缓存字段；collector 初始化完整替换为 `const collector:Capture={source,trace,lineStarts:[],protectedSources:[],runs:[],roots:[],synthetic:[],blankLines:[]}`；normalize wrapper现有更新 `collector.lineStarts` 的语句保留。
 
@@ -363,7 +363,7 @@ return tokens as unknown as ReturnType<typeof _origMdParse>
 
 旧 `source-block-fidelity.spec.ts` 的 `preserves opaque references and their synthetic paragraphs` 测试仍应证明真实 synthetic 不可编辑：将该测试的 raw 字面量完整替换为 `'[Alpha][ref]\n\n\n[ref]: /url "T"\n\nTail'`（第一段增加一个实际 blank），保留原 `.synthetic[0]` 插字拒绝与 reference字节保留断言。原fixture只有定义排版空白，按新规则已无synthetic，不应继续索引undefined。
 
-- [ ] **L1.4 验证/提交**
+- [x] **L1.4 验证/提交**
 
 core 运行 focused：`./node_modules/.bin/vitest run src/__tests__/source-layout.spec.ts src/__tests__/source-ownership.spec.ts src/__tests__/source-document-capture.spec.ts src/__tests__/source-block-fidelity.spec.ts`。随后共享 full/typecheck/build/DTS/gzip/14语料门槛，精确提交 `feat(core): capture finite blank layout origins`。安装版 host 测试、构建/browser按共享门槛执行并独立提交。以上结果尚未产生。
 
@@ -371,7 +371,7 @@ core 运行 focused：`./node_modules/.bin/vitest run src/__tests__/source-layou
 
 **Files:** core `src/markdown.ts`、`src/source-fidelity.ts`、新 `src/__tests__/source-terminal-hardbreak.spec.ts`、修改 `src/__tests__/source-block-fidelity.spec.ts`，tracked dist；host `src/lib/share-merge/source-layout.test.ts` 添加本任务 installed gate。Consumes 已验收提交 L1、ProtectedSource前置。Produces 语义 capture 与 source-root 局部表达，不增加 terminal raw span API。
 
-- [ ] **L2.1 完整 RED**
+- [x] **L2.1 完整 RED**
 
 ```ts
 import {expect,it} from 'vitest'
@@ -432,7 +432,7 @@ it('does not change public serializer or authorize invisible definition deletion
 })
 ```
 
-- [ ] **L2.2 完整 paragraph wrapper 替换**
+- [x] **L2.2 完整 paragraph wrapper 替换**
 
 替换原 top-level-only `wrapCaptureRule(md.block.ruler,'paragraph',...)`。top-level 仍验证完整 text trace；nested 仅恢复实际 getLines 输入，不创建连续 nested textspan。实际 LF 必须是该规则 final getLines 的 eMarks 所指向字符，不扫描全文“找末两个空格”。
 
@@ -481,7 +481,7 @@ wrapCaptureRule(md.block.ruler,'paragraph',(original,state,...args)=>{
 
 `terminal.from/to` 是 wrapper 内临时 work 坐标，仅 top=true 时经已验证连续 trace 使用。nested 分支不消费这两个坐标、不导出它们、不把它们命名为 raw，更不声称允许后续结构引擎删除 suffix。正文 sparse capture/newline/escape token wrappers 与 PM hardbreak handler 原样使用。
 
-- [ ] **L2.3 仅 source-root serializer 与明确 EOL 拼接**
+- [x] **L2.3 仅 source-root serializer 与明确 EOL 拼接**
 
 在 `markdown.ts` 现有 `serializer` 声明之后创建独立 serializer 实例；不临时改写全局 serializer callback，不调用另一个 parser：
 
@@ -560,7 +560,7 @@ const terminal=accept(b,transaction(b).insert(2,hardbreak))
 expect(terminal.session.source).toBe('A\\\n')
 ```
 
-- [ ] **L2.4 focused 与提交**
+- [x] **L2.4 focused 与提交**
 
 执行 `./node_modules/.bin/vitest run src/__tests__/source-terminal-hardbreak.spec.ts src/__tests__/source-layout.spec.ts src/__tests__/source-document-capture.spec.ts src/__tests__/source-block-fidelity.spec.ts`。随后共享门槛。提交 `feat(core): capture terminal hardbreaks for local source rendering`；host installed tests独立提交。记录失败具体输入与reason；不将通过语义probe等同完整Source/undo/desktop体验。
 
@@ -723,7 +723,7 @@ const core=fs.realpathSync('../moraya-core');
 const baseline=fs.readFileSync('/Users/bruce/git/mdeditor/.superpowers/sdd/2026-10-13-shared-editor-capture-layout/core-task-base','utf8').trim();
 assert.match(baseline,/^[a-f0-9]{40}$/);
 const src=fs.realpathSync('../moraya-core/dist'),dst=path.join(fs.realpathSync('node_modules/@moraya/core'),'dist');
-const deleted=execFileSync('git',['diff','--diff-filter=D','--name-only',baseline,'HEAD','--','dist'],{cwd:core}).toString().split('\n').filter(Boolean);
+const deleted=execFileSync('git',['diff','--no-renames','--diff-filter=D','--name-only',baseline,'HEAD','--','dist'],{cwd:core}).toString().split('\n').filter(Boolean);
 for(const file of deleted)assert.match(file,/^dist\/[^/]+-[A-Za-z0-9_-]+\.d\.ts$/);
 if(fs.realpathSync(dst)!==src){
  for(const file of deleted)fs.rmSync(path.join(dst,file.slice(5)),{force:true});

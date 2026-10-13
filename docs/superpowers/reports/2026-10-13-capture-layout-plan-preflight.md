@@ -4,7 +4,7 @@ root已完整读776行草稿与notes，对照master§12.4/I7、实际core b56028
 
 | Task / pair | producer → consumer | finding → root修正 |
 | --- | --- | --- |
-| L1 self | 真实work行/ProtectedSource→BlankDraft | 单次物理行游标、真实raw片段、reference端点Set、flowtail独立container均与研究一致。runs/k+1规则是root显式选择，不当成既有默认；legacy默认完整保留。result.push(...run)/result.push(...before)对未设上限空白文档会溢出JS参数个数；改有序for循环，并增加70k真实blank raw capture回归，仅验证内容/来源数量非毫秒预算。 |
+| L1 self | 真实work行/ProtectedSource→BlankDraft | 单次物理行游标、真实raw片段、reference端点Set、flowtail独立container均与研究一致。runs/k+1规则是root显式选择，不当成既有默认；legacy默认完整保留。result.push(...run)/result.push(...before)对未设上限空白文档会溢出JS参数个数；改有序for循环；最终真实回归使用140000个LF（原自审写70k），仅验证内容/来源数量非毫秒预算。 |
 | L1↔N2 | natural完整map/actualhandler emission→ownerByChild | natural事件先注册、synthetic不在rootchildrange内，root-tail不能挂空gap；固定list7/empty2/B3坐标有真实来源。stable bodymark只复制原tail，synthetic/root删除继续拒绝，完整结构后续必做。 |
 | L1↔L2 | SourceSession.layout/paragraph/getLines→terminalrenderer | layout类型一致，L2仅同实际paragraph规则恢复末LF，nested不伪造连续rawtrace；不增加未经证实TerminalHardbreak raw删除权限。toptextspan继续严格匹配实际发出内容；已有捕获测试的legacy eq仅在具体语义改变输入改明确expected，不全局删guard。 |
 | L2 self | ProtectedSource→局部serializer | 草稿完整renderChangedRoot替换丢掉前置R1 serializer前guard、只靠最终editguard。必须保留overlapsProtectedSource(base,root.sourceFrom,root.sourceTo)前置拒绝，不能撤回已采纳合同。 |
