@@ -798,3 +798,6 @@ Task4允许文件补充（启动时才激活allowlist）：src/lib/tabs.svelte.t
 
 
 Ruling: Task3共享insertNoteRich末尾增加可选replaceRange:{from,to}，在同一真实state.tr删除触发范围后按该tr映射selection执行原note_anchor/annotation mark逻辑，仅一次admission.dispatch；legacy省略参数保持。FileMountSession内部提供insertSlashNote，公开MountedFileEditor.annotations/FileEditorOwner不扩。旧Popup先flush失败零写，flush后仍核捕获view/generation/selection；成功才打开原Popup — 旧desktop slash先删串再异步执行会在取消/拒绝时丢原文，并拆成多个history事件 — 成本是已有共享命令的最小prepare范围参数，须真实拒绝保留trigger/一次undo恢复/旧Popup拒绝与legacy回归，无fake state/view或第二批注serializer。
+
+
+Ruling补充并取代上一批注slash裁定的具体“先delete再insert”步骤要求：collapsed slash点批注直接以原真实tr.replaceWith(trigger.from,trigger.to,note_anchor)一笔ReplaceStep原子替换，仍复用原insertNoteRich/admission/Popup；legacy默认路径不变 — writer真实controller探针t3-empty-annotation-probe证明既有CORE非文本inline note_anchor只接单Step，双Step被unsupported-step拒绝；单Replace天然表达本次替换 — 成本是既有helper的最小分支，不扩CORE、serializer或权限；须实际raw/PM、policy拒绝保留slash、一次undo恢复与旧Popup拒绝回归，保留旧失败，不把拒绝计成功。
