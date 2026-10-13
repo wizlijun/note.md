@@ -30,3 +30,5 @@ Ruling: Task 1/2 提交经过相关回归和类型检查的源码，Task 3 统�
 新能力须保留实现前真实 RED；原不变量首次 GREEN 据实记录。每项执行保留完整命令、cwd、stdout/stderr、exit 和工具 session/final metadata，非预期失败停止依赖操作。新测试单独严格类型检查。主入口 gzip 上限 81920 字节，当前 76263；不预先放宽。两个仓库的 14 原 fixture/manifest 及 package/lock 字节不变。
 
 每 Task 一个新 writer、一个 combined spec/quality review；唯一 whole-range strongest final，按技能固定修复上限。临时证据只写本计划 OWN；原 F1 研究和工具已从 canonical archive 验证完整 archive、manifest、每个 member SHA 后选择性恢复。当前没有新产品测试或性能结论。
+
+Ruling: 后续 pnpm 命令均显式前置 env pnpm_config_verify_deps_before_run=false，禁止 approve-builds/install — 当前 pnpm 11 自动 depsStatusCheck 曾触发 install 后因 ignored builds 退出，测试未运行；保留环境失败并核对 package/lock 与实际依赖解析 — 若配置无效仍可能改变依赖，必须观察真实命令输出并停止，不能把环境失败计作 RED。

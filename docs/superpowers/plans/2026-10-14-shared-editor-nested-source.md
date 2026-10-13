@@ -12,6 +12,8 @@
 
 ## Global Constraints
 
+- 所有 pnpm 调用前置 `env pnpm_config_verify_deps_before_run=false`，禁止隐式 depsStatusCheck 安装；环境失败不算行为 RED。
+
 - HOST `/Users/bruce/git/mdeditor` main 基线 `dbb79b5ba24a32f2e0ccca033d0d3e1707d277e3`；CORE `/Users/bruce/git/moraya-core` main 基线 `6585a2470f885984819f5418aa17d4400a7b9ea5`。两个现有 main，不建 worktree，不切分支、不修改 stash；逐提交精确记录。
 - OWN `/Users/bruce/git/mdeditor/.superpowers/sdd/2026-10-14-shared-editor-nested-source`；本计划已由 root 自审受理，见 reports/2026-10-14-nested-source-plan-preflight.md；尚无本批产品通过结论。
 - package.json 与 lockfile 完整 bytes 不变；main gzip ≤81920，当前 76263；不能预先增加预算。
@@ -132,7 +134,7 @@ it('preserves actual nested definition while real toggleMark edits Alpha',()=>{
 
 lazy例正文PM为 `甲。`、一个hardbreak、`lazy甲。`，目标甲offset为7。所有测试在发事务前核对实际目标字符。
 
-- [ ] **1.2 在 CORE 运行 RED。** `pnpm exec vitest run src/__tests__/source-nested-producer.spec.ts`；新 exact 应失败于 mode/raw 或 unsupported，新 mark 应失败于原 protected拒绝。先确认输入 parse 与真实命令正确，不能将错误 PM fixture 当 RED。
+- [ ] **1.2 在 CORE 运行 RED。** `env pnpm_config_verify_deps_before_run=false pnpm exec vitest run src/__tests__/source-nested-producer.spec.ts`；新 exact 应失败于 mode/raw 或 unsupported，新 mark 应失败于原 protected拒绝。先确认输入 parse 与真实命令正确，不能将错误 PM fixture 当 RED。
 - [ ] **1.3 实现实际 trace 投影及 occurrence emission。** 算法如下（不再改变块 grammar）：
 
 ```ts
@@ -173,7 +175,7 @@ const textParents = new Set(['paragraph','heading']);
 
 实际新增负例：`> [ref]: /u\n>\n> Alpha\n\nTail` 的 mark原范围跨Alpha及Tail、伪 ReplaceStep subclass、tr.docs链篡改、只改 checked/language/heading level的假text payload、atomic entity内部、surrogate内部、跨quote prefix的一次Replace。spy现有 `serializeSourceRootMarkdown` 证明成功protected正文从未交整根renderer。旧两项“mark应拒绝”迁移为上面positive，并在相同文件保留真正范围越界拒绝与base不变断言。
 
-运行：`pnpm exec vitest run src/__tests__/source-nested-producer.spec.ts src/__tests__/source-nested-cache.spec.ts src/__tests__/source-reference.spec.ts src/__tests__/source-fidelity.spec.ts src/__tests__/source-terminal-hardbreak.spec.ts`。另运行 `pnpm run typecheck` 及root生成的新增测试严格类型检查；全通过后仅提交Task1已验证的精确源文件并记录SHA。此时dist仍为上阶段，不得安装或声称installed通过；此时 nested工作量可full-fallback，不能声称§12.4已完成，Task3是本批完成前硬依赖。
+运行：`env pnpm_config_verify_deps_before_run=false pnpm exec vitest run src/__tests__/source-nested-producer.spec.ts src/__tests__/source-nested-cache.spec.ts src/__tests__/source-reference.spec.ts src/__tests__/source-fidelity.spec.ts src/__tests__/source-terminal-hardbreak.spec.ts`。另运行 `env pnpm_config_verify_deps_before_run=false pnpm run typecheck` 及root生成的新增测试严格类型检查；全通过后仅提交Task1已验证的精确源文件并记录SHA。此时dist仍为上阶段，不得安装或声称installed通过；此时 nested工作量可full-fallback，不能声称§12.4已完成，Task3是本批完成前硬依赖。
 
 ### Task 2: table 与现有 literal 正文 producer（真实 body，不改旁边目标甲）
 
@@ -221,7 +223,7 @@ it('same actual table cell supports full-body strong fragment',()=>{
 
 同文件增加表头正文、header-only、重复cell、extra列、auto-fill空slot、单/双/三反斜杠紧邻pipe、cell内entity、CRLF+BOM与nested quote table。各expected完整字面量写入；自动补空slot不签发fake span，empty cell插字留明确失败且不得格式化整表。
 
-- [ ] **2.2 运行 RED。** `pnpm exec vitest run src/__tests__/source-body-producer.spec.ts`；明确记录表格当前 root-render/spacing变化、literal未mapped或mode错误，不预先声称具体hunk数量。
+- [ ] **2.2 运行 RED。** `env pnpm_config_verify_deps_before_run=false pnpm exec vitest run src/__tests__/source-body-producer.spec.ts`；明确记录表格当前 root-render/spacing变化、literal未mapped或mode错误，不预先声称具体hunk数量。
 - [ ] **2.3 在真实 table 成功规则接缝绑定行trace。** 在现有wrapCaptureRule包table：original原样执行；返回true后仍在外层quote/list已改写的活动state内，读取真实tr_open.map行号及当次 `bMarks[row]+tShift[row]` 到 `eMarks[row]`；按实际th/td/inline顺序采集cell内容。
 
 `traceTableRow` 对这些已选择物理行执行唯一消费投影：原getLine→整行trim→实际escapedSplit词法消费→移除首尾empty边格→逐cell trim；普通字符copy，`\|`删除slash并把pipe对应raw两字符标成atomic。**isEscaped是上一字符是否反斜杠，不是自己发明奇偶计数规则。** 逐slot验证content和实际cell数；真实规则忽略的多余列不分配PM/span，自动补齐的empty slot无source权限。完整行无法对齐则不给这条producer权限；不得退回重复正文indexOf。该函数完全不决定header separator、alignment、起止、终止或table是否成立，只有真实原规则决定这些。
@@ -276,7 +278,7 @@ it('actual frontmatter onChange retains CRLF and emits one character patch',asyn
 
 这个consumer实际用 `setup.ts:977` 的 `replaceWith(from,to,schema.text(newRaw))`，不是单字Step。因此仅对code_block/frontmatter/html_block无mark正文，在 **原Step完整范围权限审计之后**，比较原Step覆盖的纯正文与该Step插入文本，求最大相同UTF-16前后缀（不能切surrogate）；用剩余PM区间走既有span边界映射，验证整个original tr.doc。没有serialize动作，没有根级diff，没有缩小原权限范围。原始闭合/类型/attrs/兄弟/祖先审计均不变；若插入文本有不同marks或多节点结构，不做收缩。这样保留真实NodeView未修改的CRLF；changed raw仍只有一个字符。禁止把这一缩范围规则用于任意结构或protected根权限。
 
-- [ ] **2.5 GREEN 与缓存覆盖。** `pnpm exec vitest run src/__tests__/source-body-producer.spec.ts src/__tests__/source-nested-producer.spec.ts src/__tests__/source-nested-cache.spec.ts src/__tests__/source-file-replay.spec.ts src/__tests__/source-fidelity-corpus.spec.ts`。把table/literal/critic case加入新cache测试的replay/foreign调用矩阵；仅改新测试，不扩旧fixture。另运行 `pnpm run typecheck` 及新增测试严格类型检查；通过后精确提交并记录SHA。Task1/2不重复build，dist保持旧版且禁止安装，统一在Task3构建并验证；Task2具备实用raw producer，nested局部解析仍交Task3。
+- [ ] **2.5 GREEN 与缓存覆盖。** `env pnpm_config_verify_deps_before_run=false pnpm exec vitest run src/__tests__/source-body-producer.spec.ts src/__tests__/source-nested-producer.spec.ts src/__tests__/source-nested-cache.spec.ts src/__tests__/source-file-replay.spec.ts src/__tests__/source-fidelity-corpus.spec.ts`。把table/literal/critic case加入新cache测试的replay/foreign调用矩阵；仅改新测试，不扩旧fixture。另运行 `env pnpm_config_verify_deps_before_run=false pnpm run typecheck` 及新增测试严格类型检查；通过后精确提交并记录SHA。Task1/2不重复build，dist保持旧版且禁止安装，统一在Task3构建并验证；Task2具备实用raw producer，nested局部解析仍交Task3。
 
 ### Task 3: 有限真实 nested 窗口闭包、完整回归及 installed-host propose
 
@@ -310,7 +312,7 @@ it.each([100,1000])('bounded actual nested parsing with %i roots',count=>{
 
 同样参数化 list、footnote、table、ATX/setext，用明确PM路径、完整独立expected；记录两种长度实际counter并断言blockRuleCalls/blockLinesVisited相等（PM emission/preprocess/line table/splice仍O(N)，不限制假O(1)）。literal、CRLF/BOM、无法证闭包的复杂混合用例允许明确full-fallback，单字raw门槛仍必须过。
 
-- [ ] **3.2 运行 RED。** `pnpm exec vitest run src/__tests__/source-nested-window.spec.ts`；应失败于F1旧paragraph-only admission导致full-fallback，不能把full pass当local pass。
+- [ ] **3.2 运行 RED。** `env pnpm_config_verify_deps_before_run=false pnpm exec vitest run src/__tests__/source-nested-window.spec.ts`；应失败于F1旧paragraph-only admission导致full-fallback，不能把full pass当local pass。
 - [ ] **3.3 扩真实完整容器闭包，不新增窗口parser。** admission从三个token名字改为验证实际top checkpoint分段：每段从level0开始，open/close匹配、无越界map、结束level0、token全部属明确的paragraph/heading/blockquote/list/list_item/footnote_reference/table/thead/tbody/tr/th/td/inline集合。允许paragraph map多行，但窗口左右必须是现有真实top规则完成epilogue的checkpoint；不能从list中间或某cell启动parse。所有规则继续看到完整source与真实EOF。
 
 保留sentinel的scalar/hasEmptyLines、实际tokens、definitions事件、后缀raw相等校验；sentinel比较还需包括新token trace的canonical可序列化视图（rawDelta/lineDelta后），防止semantic token相同却来源fact不同。对比仅属于被比较tokens的事实，不能把collector/PM/frame引用放入JSON。满足闭包才重用右后缀，未证则null→原full fallback并记录reason。
@@ -348,17 +350,17 @@ hunk边界诚实区分：普通nested prose按真实句子token；table按实际
 
 ```sh
 # 在CORE cwd，先targeted，再全部；每条由适配后OWN/run.py记录argv/cwd/stdout/stderr/exit。
-pnpm exec vitest run src/__tests__/source-nested-window.spec.ts src/__tests__/source-nested-cache.spec.ts src/__tests__/source-nested-producer.spec.ts src/__tests__/source-body-producer.spec.ts
-pnpm test
-pnpm run typecheck
-pnpm run build
+env pnpm_config_verify_deps_before_run=false pnpm exec vitest run src/__tests__/source-nested-window.spec.ts src/__tests__/source-nested-cache.spec.ts src/__tests__/source-nested-producer.spec.ts src/__tests__/source-body-producer.spec.ts
+env pnpm_config_verify_deps_before_run=false pnpm test
+env pnpm_config_verify_deps_before_run=false pnpm run typecheck
+env pnpm_config_verify_deps_before_run=false pnpm run build
 # 构建产物验证顺序：OWN/core-artifacts.sh → OWN/core-stage-dist.sh → 精确core commit。
 # 在HOST cwd，只从已提交core dist同步：OWN/host-sync.sh → OWN/installed-corpus-audit.sh。
-pnpm exec vitest run src/lib/share-merge/source-nested-producer.test.ts src/lib/share-merge/source-fidelity.test.ts src/editor-kit-v2/source-fidelity.test.ts
-pnpm test
-pnpm run check:share-merge
-pnpm run check:editor-kit
-pnpm run check
+env pnpm_config_verify_deps_before_run=false pnpm exec vitest run src/lib/share-merge/source-nested-producer.test.ts src/lib/share-merge/source-fidelity.test.ts src/editor-kit-v2/source-fidelity.test.ts
+env pnpm_config_verify_deps_before_run=false pnpm test
+env pnpm_config_verify_deps_before_run=false pnpm run check:share-merge
+env pnpm_config_verify_deps_before_run=false pnpm run check:editor-kit
+env pnpm_config_verify_deps_before_run=false pnpm run check
 ```
 
 source typecheck外，root工具须对新增测试生成临时严格tsconfig并编译，不用Vitest转译成功冒充types通过。host Vite构建用既有空envDir控制路径，禁止source .env；构建、installed检查均绑定最终提交dist及DTS/maps embedded sources，保留18实际JS入口、全部dist文件逐bytes验证、两仓fixture SHA和package完整bytes比较、main gzip≤81920。不得先安装dirty dist再在报告中写成committed验证。
