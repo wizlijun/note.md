@@ -44,3 +44,9 @@ Ruling: Task2真实frontmatter callback测试的legacy createEditor视图初值�
 Ruling: Task2精准迁移3个旧测试文件中的literal能力断言：source-fidelity的fence span和Mermaid公开exact；source-document-capture仅新增code_block/frontmatter/html_block parent与实际literal span、strike_through/html_mark（inlinecode仍不映射）；source-block-fidelity仅table wholebody fragment与table/fence/frontmatter单字exact，均核完整独立raw/base不变 — 这些旧opaque/root-render预期与新增正文映射直接冲突 — 成本是旧测试期望变更，必须独立review精确diff，所有其它未知mark/atom/跨范围/未闭fence拒绝不迁移。
 
 Ruling: Task2仅迁移source-structure-commands.spec.ts的旧自动延长围栏一例为原子拒绝/不进renderer/base不变 — 该用例实际是纯正文Replace，旧靠整根fallback扩大围栏，与新literal严格拒绝合同冲突；其它结构与getLines descriptor回归不变 — 成本为source-aware Rich暂不接受该自动延长操作（default legacy不变），已要求后继inline计划在file UI启用前以实际fence边界专用producer恢复，不能静默禁用后宣称完整能力。
+
+## Task3 旧窗口诊断断言裁定
+
+Ruling: Task3仅迁移source-file-environment.spec.ts中setext、list continuation两参数例的full-fallback预期为local且fullCaptureCalls=0，保留完整doc/roots/gaps/protected/layout/textSpans oracle等价断言与其余4类fallback — 新真实完整容器窗口明确覆盖这两类，原预期是旧能力上限 — 成本是旧诊断断言改变，独立review逐项核对；不得扩大为允许其它失败或放宽源字节门槛。
+
+已核固定core ecb0ef9b完整测试与task3-core-full原始失败：1004通过、2失败仅旧mode断言；依赖构建未继续。
