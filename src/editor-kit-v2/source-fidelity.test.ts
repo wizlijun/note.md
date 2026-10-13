@@ -83,3 +83,10 @@ describe('Kit source fidelity opt-in adapter', () => {
     expect(fidelity.source(state)).toBe(source)
   })
 })
+
+it('keeps BOM legacy materialization fail closed before the future opt-in adapter',()=>{
+ const raw='\uFEFF# H\n'
+ const legacy=materializeBlocks([{blockId:'bom',markdown:raw}],schema).doc
+ expect(legacy.firstChild!.type.name).toBe('paragraph')
+ expect(()=>createSourceFidelity(raw,legacy)).toThrow(/SOURCE_FIDELITY/)
+})
