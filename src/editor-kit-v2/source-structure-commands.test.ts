@@ -65,11 +65,14 @@ it.each(['right','center'])('actual Kit %s aligned add-row still rejects unfixed
  const b=open(table.replace('--- | ---',align==='right'?'---: | ---:':':---: | :---:')+tail)
  reject(b,kitTransaction(state(b,text(b.doc,'X')),{kind:'table.add-row'}))
 })
-it('actual Kit header-only table deletion rejects invalid schema content',()=>{
- const b=open(table+tail);reject(b,kitTransaction(state(b,text(b.doc,'X')),{kind:'table.delete-row'}))
+it('actual Kit header-only table deletion stays schema-valid and source-equivalent',()=>{
+ const b=open(table+tail),r=accept(b,kitTransaction(state(b,text(b.doc,'X')),{kind:'table.delete-row'}))
+ expect(r.session.doc.child(0).childCount).toBe(1)
+ expect(r.session.source.endsWith(tail)).toBe(true)
 })
-it('actual Kit code-block empty language remains a strict producer failure',()=>{
- const b=open('A'+tail);reject(b,kitTransaction(state(b,1),{kind:'code-block'}))
+it('actual Kit code-block empty language preserves strict source equality',()=>{
+ const b=open('A'+tail),r=accept(b,kitTransaction(state(b,1),{kind:'code-block'}),'```\nA\n```'+tail)
+ expect(r.session.doc.child(0).attrs.language).toBe('')
 })
 it('actual Kit edits only the selected second identical table',()=>{
  const b=open(table+'\n\n'+table+tail);let last=-1;b.doc.descendants((n,p)=>{if(n.isText&&n.text==='X')last=p})

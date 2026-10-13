@@ -123,10 +123,25 @@ export function wikilinkPlugin(): Plugin<DecorationSet> {
           return true
         }
 
-        // Single backtick → toggle inline code (empty selection → stored mark).
+        // At an empty paragraph, keep a possible fence literal. A single
+        // opening tick becomes inline code only when its closing tick arrives;
+        // ordinary text/composition input keeps the native insertion path.
+        // Elsewhere a backtick retains the existing inline-code toggle.
         if (text === '`') {
           const prev = view.state.doc.textBetween(Math.max(0, from - 1), from)
           const codeType = view.state.schema.marks.code
+          const { $from, empty } = view.state.selection
+          const codeActive = codeType?.isInSet(view.state.storedMarks || $from.marks())
+          if (codeType && empty && from === to && $from.parent.type.name === 'paragraph' && !codeActive) {
+            if ($from.parent.content.size === 0) return false
+            const prefix = $from.parent.textBetween(0, $from.parentOffset, undefined, '\n')
+            if (prefix.length === $from.parentOffset && /^`[^`\r\n]+$/.test(prefix)) {
+              const start = $from.start()
+              view.dispatch(view.state.tr.delete(start, start + 1)
+                .addMark(start, from - 1, codeType.create()).removeStoredMark(codeType))
+              return true
+            }
+          }
           if (prev !== '`' && codeType && toggleMark(codeType)(view.state)) {
             toggleMark(codeType)(view.state, view.dispatch)
             return true
