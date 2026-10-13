@@ -81,6 +81,8 @@ export interface MountedDocumentEditor {
 
 export interface MountDocumentEditorOptions {
   snapshot: EditorSnapshot
+  /** Experimental: one mapped paragraph; unsupported edits are rejected. Default false. */
+  preserveSource?: boolean
   ids: EditorIdProvider
   readOnly?: boolean
   baseDir?: string

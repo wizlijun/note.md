@@ -17,6 +17,7 @@ import { normalizeBlockIdentity, readBlockLayout, withBlockIdentitySchema, witho
 import { mergeAcknowledgedDraft, operationsForDraft, sameDocument } from './document-diff'
 import { canExecuteEditorCommand, executeEditorCommand } from './commands'
 import { governedRedo, governedUndo, withGovernedHistory } from './governed-history'
+import { createSourceFidelity, sourceFidelityError } from './source-fidelity'
 import { isApplePlatformSync } from '../lib/platform-sync'
 import type {
   AppliedChange, ChangeError, DecorationHost, DecorationItem, EditorCommand, EditorSnapshot,
@@ -74,6 +75,15 @@ export async function mountDocumentEditor(
   opts: MountDocumentEditorOptions,
 ): Promise<MountedDocumentEditor> {
   assertBlockIdentity(opts.snapshot.blocks)
+  if (opts.preserveSource) {
+    if (opts.snapshot.blocks.length !== 1) throw sourceFidelityError()
+    // Recovery/source revisions need their own source mapping lifecycle. Refuse
+    // before changing recovery metadata or creating a partially mounted editor.
+    let cached: { base?: EditorSnapshot; draft?: LayoutBlock[] } | undefined
+    try { cached = JSON.parse(localStorage.getItem(`notemd-cdr-draft:${opts.snapshot.documentId}`) ?? 'null') } catch { /* invalid recovery */ }
+    if (cached?.base?.documentId === opts.snapshot.documentId && Array.isArray(cached.draft)
+      && !sameDocument(cached.draft, opts.snapshot.blocks)) throw sourceFidelityError()
+  }
   injectKitCss()
   watchKitTheme()
   await applyKitTheme()
@@ -116,11 +126,16 @@ export async function mountDocumentEditor(
   const rich = await mountRich(host, '', root, () => {}, opts.placeholder, undefined, withBlockIdentitySchema, baseDir)
   const freshId = () => opts.ids.blockId?.() ?? `block-${crypto.randomUUID?.() ?? `${Date.now()}-${++freshCounter}`}`
   const initial = materializeBlocks(snapshot.blocks, rich.view.state.schema)
+  let fidelity: ReturnType<typeof createSourceFidelity> | undefined
+  try {
+    if (opts.preserveSource) fidelity = createSourceFidelity(snapshot.blocks[0].markdown, initial.doc)
+  } catch (cause) { rich.destroy(); host.remove(); throw cause }
   rich.view.dispatch(rich.view.state.tr.replaceWith(0, rich.view.state.doc.content.size, initial.doc.content)
     .setMeta(REMOTE_META, true).setMeta('addToHistory', false))
 
   const currentLayout = () => readBlockLayout(rich.view.state.doc)
   const draftBlocks = (): LayoutBlock[] => currentLayout().spans.map((span) => {
+    if (fidelity) return { blockId: span.blockId, markdown: fidelity.source(rich.view.state) }
     const markdown = serializeSpan(rich.view.state.doc, span)
     const original = snapshot.blocks.find((block) => block.blockId === span.blockId)
     if (original) {
@@ -218,7 +233,7 @@ export async function mountDocumentEditor(
         const modifier = isApplePlatformSync() ? event.metaKey : event.ctrlKey
         if (modifier && !event.altKey && !event.isComposing && !inComposition()
           && (event.key.toLowerCase() === 'z' || event.key.toLowerCase() === 'y')) {
-          if (!isReadOnly()) {
+          if (!isReadOnly() && !fidelity) {
             const command = event.key.toLowerCase() === 'y' || event.shiftKey ? governedRedo : governedUndo
             command(view.state, view.dispatch, view)
           }
@@ -252,14 +267,14 @@ export async function mountDocumentEditor(
       },
     },
     filterTransaction(tr, state) {
-      if (!tr.docChanged) return true
+      if (!tr.docChanged) return fidelity?.prepare(tr, state) ?? true
       if (!tr.getMeta(REMOTE_META) && isReadOnly()) return false
       // Normalize before any plugin (especially history) records this edit.
       // Attribute steps stay in the very same input transaction and undo group.
       const after = EditorState.create({ schema: state.schema, doc: tr.doc, selection: tr.selection })
       const normalized = normalizeBlockIdentity(after, state, freshId, tr.mapping)
       for (const step of normalized?.steps ?? []) tr.step(step)
-      return true
+      return fidelity?.prepare(tr, state) ?? true
     },
     view() {
       return {
@@ -271,7 +286,7 @@ export async function mountDocumentEditor(
     },
   })
   rich.view.updateState(rich.view.state.reconfigure({
-    plugins: [identityPlugin, ...withGovernedHistory(rich.view.state.plugins, (tr) => !!tr.getMeta(REMOTE_META))],
+    plugins: [identityPlugin, ...(fidelity ? [fidelity.plugin] : []), ...withGovernedHistory(rich.view.state.plugins, (tr) => !!tr.getMeta(REMOTE_META))],
   }))
   refreshEditable()
 
@@ -316,6 +331,7 @@ export async function mountDocumentEditor(
   function syncBlocks(blocks: readonly LayoutBlock[], local = false): void {
     assertBlockIdentity(blocks)
     if (sameDocument(draftBlocks(), blocks)) return
+    if (fidelity) throw sourceFidelityError()
     let layout = currentLayout()
     let tr = rich.view.state.tr
     // Keep a temporary anchor when all old identities are being replaced.
@@ -438,6 +454,13 @@ export async function mountDocumentEditor(
 
   async function reconcile(update: SurfaceUpdate): Promise<void> {
     if (destroyed) return
+    if (fidelity) {
+      if (update.kind !== 'ack-local' && update.kind !== 'resync') throw sourceFidelityError()
+      const authoritative = update.kind === 'resync' ? update.snapshot : update.authoritative
+      if (authoritative.documentId !== snapshot.documentId || !sameDocument(draftBlocks(), authoritative.blocks)) {
+        throw sourceFidelityError()
+      }
+    }
     if (update.kind === 'apply-remote') {
       const compositionConflict = inComposition() && (finishingComposition
         || update.change.operations.some((op) => op.kind !== 'block.replace' || op.target.blockId === composingBlockId))
@@ -531,6 +554,7 @@ export async function mountDocumentEditor(
   window.addEventListener('beforeunload', onBeforeUnload)
 
   function executeStructuralCommand(command: StructuralCommand): boolean {
+    if (fidelity) return false
     if (destroyed || isReadOnly() || inComposition()) return false
     const draft = draftBlocks()
     const index = draft.findIndex((block) => block.blockId === command.blockId)
@@ -604,11 +628,12 @@ export async function mountDocumentEditor(
     selectedBlockId: blockAtSelection,
     executeStructuralCommand,
     executeCommand(command: EditorCommand) {
+      if (fidelity) return false
       if (destroyed || isReadOnly() || inComposition()) return false
       return executeEditorCommand(rich.view, command)
     },
     canExecuteCommand(command: EditorCommand) {
-      return !destroyed && !isReadOnly() && !inComposition() && canExecuteEditorCommand(rich.view, command)
+      return !fidelity && !destroyed && !isReadOnly() && !inComposition() && canExecuteEditorCommand(rich.view, command)
     },
     flush,
     getDraftMarkdown() { return (retainedDraft ?? draftBlocks()).map((block) => block.markdown).join('\n\n') },
@@ -621,6 +646,7 @@ export async function mountDocumentEditor(
       return true
     },
     discardDraft() {
+      if (fidelity && !sameDocument(draftBlocks(), snapshot.blocks)) throw sourceFidelityError()
       if (destroyed || pending || inComposition()) return
       retainedDraft = null
       failedRequest = null
@@ -633,6 +659,7 @@ export async function mountDocumentEditor(
       notifyState()
     },
     restoreRevision(revision) {
+      if (fidelity) throw sourceFidelityError()
       if (destroyed || isReadOnly() || inComposition() || pending || error
         || revision.documentId !== snapshot.documentId) return false
       assertBlockIdentity(revision.blocks)
