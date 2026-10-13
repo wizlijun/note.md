@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **Shared editor source preservation adds inline command consumer coverage.** New installed-core tests cover partial and cross-paragraph/table formatting, code span edits, and marked/link input into certified empty bodies. These consumers await the aggregate core build and installed validation; this change does not enable the file collaboration UI.
+
 - **Shared editor empty-body preservation groundwork now covers first input, consecutive Enter, empty container toolbar actions, table row/exit commands and frontmatter NodeView changes through the installed core.** Source capture retains actual nested blank paragraphs, supports continuous input beside protected reference definitions, and preserves surrounding Markdown. Full file UI, history and native/IME integration remain in progress.
 
 - **Shared editor preservation foundations retain nested prose, table padding and supported literal body bytes during local edits.** Installed-core merge checks cover actual container contents; supported LF container edits reparse nearby blocks. Full file UI, history and native/IME integration remain in progress.
