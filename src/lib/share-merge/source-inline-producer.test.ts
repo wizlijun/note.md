@@ -1,3 +1,4 @@
+// @vitest-environment happy-dom
 import {it,expect} from 'vitest';import {EditorView} from 'prosemirror-view';
 import {EditorState,TextSelection} from 'prosemirror-state';
 import {createSourceSession,applySourceBlockTransaction} from '@moraya/core';
@@ -31,15 +32,15 @@ it('installed toolbar spans real table cells',()=>{
  toolbar(raw,at(b.session.doc,[0,1,0,0]),at(b.session.doc,[0,1,1,0],4),{kind:'bold'},'| H | J |\n| :--- | ---: |\n|  **Alpha** | **Beta**  |\n');
 });
 it.each([
- ['', [0],{kind:'bold'},'**X**'],
- ['>\n',[0,0],{kind:'italic'},'>*X*\n'],
- ['| H | J |\n| --- | --- |\n| A |   |\n',[0,1,1,0],{kind:'bold'},'| H | J |\n| --- | --- |\n| A |**X**   |\n'],
- ['', [0],{kind:'link',href:'/u',text:'X'},'[X](/u)'],
- ['A\n\n\nB',[1],{kind:'link',href:'/u',text:'X'},'A\n\n[X](/u)\n\nB'],
- ['| H | J |\n| --- | --- |\n| A |\n',[0,1,1,0],{kind:'link',href:'/u',text:'X'},'| H | J |\n| --- | --- |\n| A |[X](/u)|\n'],
- ['- # H\n',[0,0,0],{kind:'bold'},'- **X**\n  # H\n'],
- ['> A',[0,0],{kind:'bold'},'> A\n>\n>**X**'],
-] as const)('installed empty toolbar session chain %j',async(raw,path,action,expected)=>{
+ ['', [0],{kind:'bold'},'**X**','**X\u200b**'],
+ ['>\n',[0,0],{kind:'italic'},'>*X*\n','>*X\u200b*\n'],
+ ['| H | J |\n| --- | --- |\n| A |   |\n',[0,1,1,0],{kind:'bold'},'| H | J |\n| --- | --- |\n| A |**X**   |\n','| H | J |\n| --- | --- |\n| A |**X\u200b**   |\n'],
+ ['', [0],{kind:'link',href:'/u',text:'X'},'[X](/u)','\\[X\\](/u)'],
+ ['A\n\n\nB',[1],{kind:'link',href:'/u',text:'X'},'A\n\n[X](/u)\n\nB','A\n\n\\[X\\](/u)\n\nB'],
+ ['| H | J |\n| --- | --- |\n| A |\n',[0,1,1,0],{kind:'link',href:'/u',text:'X'},'| H | J |\n| --- | --- |\n| A |[X](/u)|\n','| H | J |\n| --- | --- |\n| A |\\[X\\](/u)|\n'],
+ ['- # H\n',[0,0,0],{kind:'bold'},'- **X**\n  # H\n','- **X\u200b**\n  # H\n'],
+ ['> A',[0,0],{kind:'bold'},'> A\n>\n>**X**','> A\n>\n>**X\u200b**'],
+] as const)('installed empty toolbar session chain %j',async(raw,path,action,expected,appendedExpected)=>{
  const container=document.createElement('div');document.body.append(container);
  const editor=await createEditor({container,initialContent:raw,mediaResolver:new BrowserMediaResolver()});
  try{
@@ -47,11 +48,20 @@ it.each([
   const p=at(base.doc,path,raw==='> A'?1:0);
   editor.view.updateState(EditorState.create({doc:base.doc,plugins:editor.view.state.plugins,selection:TextSelection.create(base.doc,p)}));
   expect(editor.view.state.plugins.length).toBeGreaterThan(0);
-  const steps:number[]=[];editor.view.setProps({dispatchTransaction(tr){const r=applySourceBlockTransaction(base,tr);expect(r.ok).toBe(true);if(!r.ok)throw Error(r.reason);base=r.session;steps.push(tr.steps.length);editor.view.updateState(editor.view.state.apply(tr))}});
+  const steps:number[]=[],commandSources:string[]=[],appendedSteps:number[]=[];
+  editor.view.setProps({dispatchTransaction(tr){
+   const applied=editor.view.state.applyTransaction(tr);expect(applied.transactions[0]).toBe(tr);steps.push(tr.steps.length);
+   for(const actual of applied.transactions){
+    const r=applySourceBlockTransaction(base,actual);expect(r.ok,r.ok?undefined:r.reason).toBe(true);if(!r.ok)throw Error(r.reason);
+    expect(r.session.doc.eq(actual.doc)).toBe(true);base=r.session;
+    if(actual===tr)commandSources.push(base.source);else appendedSteps.push(actual.steps.length);
+   }
+   editor.view.updateState(applied.state);expect(base.doc.eq(editor.view.state.doc)).toBe(true);
+  }});
   if(raw==='> A'){let handled=false;editor.view.someProp('handleKeyDown',f=>{if(f(editor.view,new KeyboardEvent('keydown',{key:'Enter',bubbles:true}))){handled=true;return true}return false});expect(handled).toBe(true);expect(base.source).toBe('> A\n>');steps.length=0}
   expect(executeEditorCommand(editor.view,action)).toBe(true);
   if(action.kind!=='link'){expect(base.source).toBe(raw==='> A'?'> A\n>':raw);editor.view.dispatch(editor.view.state.tr.insertText('X'));expect(steps).toEqual([0,1])}else expect(steps).toEqual([2]);
-  expect(base.source).toBe(expected);expect(base.doc.eq(editor.view.state.doc)).toBe(true);
+  expect(commandSources.at(-1)).toBe(expected);expect(appendedSteps).toEqual([1]);expect(base.source).toBe(appendedExpected);expect(base.doc.eq(editor.view.state.doc)).toBe(true);
  }finally{editor.destroy();container.remove()}
 });
 it('installed code single character yields one source patch and one proposal hunk',()=>{
