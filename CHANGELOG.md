@@ -7,6 +7,7 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **Shared editor preservation foundations retain list markers, spacing style and task checkboxes through supported local edits.** Ordered lists can start at zero; mixed nested list outdents retain their container style. Full rich-text collaboration is still in progress.
 - **Shared table commands preserve column alignment when adding rows and support header-only tables.** Rich, Kit and Memory use the same commands; column alignment actions use the standard menu.
 - **Code input distinguishes an unspecified language from explicit text.** Typing a fence at the start of a Rich paragraph now works alongside inline code.
 - **Shared editor source-preservation foundations retain untouched Markdown bytes during supported local edits.** Full editor integration and rich-text collaboration are still in progress. The SDK no longer advertises the missing style export; hosts provide styles.
