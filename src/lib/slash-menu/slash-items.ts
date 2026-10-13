@@ -4,11 +4,12 @@ import { t } from '../i18n/store.svelte'
 import { setBlock, wrapBlock, wrapList, insertAtom, insertTable, insertTaskList } from '../context-menu/block-helpers'
 import { iconSvg } from '../context-menu/icons'
 
-// NOTE: Do NOT import commands from '@moraya/core/commands' here.
-// commands.js uses its own defaultSchema (nullMediaResolver) which is a
-// different instance from the editor's schema. ProseMirror compares NodeType
-// by identity, so those commands silently fail (canReplaceWith returns false).
-// Every execute function obtains node types from view.state.schema directly.
+// Legacy commands from '@moraya/core/commands' may use their own defaultSchema
+// (nullMediaResolver), a different instance from the editor's schema. ProseMirror
+// compares NodeType by identity, so use view.state.schema helpers for those
+// commands to avoid silent canReplaceWith failures. gfmTableCommand and its
+// insertTable wrapper are schema-local exceptions; this menu's insertTable
+// helper delegates to that shared GFM command.
 
 export interface SlashItem {
   id: string
