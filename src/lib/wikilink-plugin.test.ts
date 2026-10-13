@@ -52,7 +52,7 @@ async function inputEditor(text = '') {
   const doc = schema.node('doc', null, schema.node('paragraph', null, text ? schema.text(text) : undefined))
   const view = new EditorView(document.body, { state: EditorState.create({ doc,
     selection: TextSelection.create(doc, text.length + 1),
-    plugins: [...await createEditorPlugins({ container: document.body, initialContent: text, mediaResolver,
+    plugins: [...await createEditorPlugins({ mediaResolver,
       enableInlineMarkInputRules: false, enableMath: false, enableMermaid: false }, schema), wikilinkPlugin()],
   }) })
   views.push(view)
@@ -61,8 +61,9 @@ async function inputEditor(text = '') {
 
 function typeInput(view: EditorView, text: string) {
   const { from, to } = view.state.selection
-  if (!view.someProp('handleTextInput', handler => handler(view, from, to, text))) {
-    view.dispatch(view.state.tr.insertText(text, from, to))
+  const defaultTransaction = () => view.state.tr.insertText(text, from, to)
+  if (!view.someProp('handleTextInput', handler => handler(view, from, to, text, defaultTransaction))) {
+    view.dispatch(defaultTransaction())
   }
 }
 

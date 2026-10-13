@@ -6,6 +6,7 @@
 </script>
 
 <script lang="ts">
+  import { untrack } from 'svelte'
   import { getMenuModel, type MenuItemSpec } from './menu-model'
   import { iconSvg } from './icons'
   import { pluginRuntime } from '../plugins/runtime.svelte'
@@ -31,7 +32,7 @@
   // `manifests` 在装/卸插件后由 `plugins-changed` 刷新,所以这里读一次即可。
   const groups = getMenuModel({
     hasSelection,
-    table: actions.canRun('table-align-center'),
+    table: untrack(() => actions.canRun('table-align-center')),
     image,
     readOnly,
     traceInstalled: pluginRuntime.manifests.some((m) => m.id === TRACE_PLUGIN_ID),

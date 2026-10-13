@@ -75,13 +75,14 @@ vi.mock('../editor-kit/rich', () => ({
 import { mountDocumentEditor } from './main'
 import { applyDocumentChange } from '../lib/cdr/core'
 import { operationContentWrites } from '../lib/cdr/operation'
+import type { EditorSnapshot } from './contract'
 async function mountKit(raw: string, key: string) {
   const mount = document.createElement('div')
   document.body.appendChild(mount)
   const stylesheet = document.createElement('link')
   stylesheet.href = 'data:text/css,/*editor-kit-v1.css'
   document.head.appendChild(stylesheet)
-  let snapshot = { documentId: `table-${key}`, revisionId: 'r1', blocks: [{ blockId: 'b', blockRevision: 'b1', markdown: raw }] }
+  let snapshot: EditorSnapshot = { documentId: `table-${key}`, revisionId: 'r1', blocks: [{ blockId: 'b', blockRevision: 'b1', markdown: raw }] }
   localStorage.removeItem(`notemd-cdr-draft:${snapshot.documentId}`)
   const kit = await mountDocumentEditor(mount, {
     snapshot,
