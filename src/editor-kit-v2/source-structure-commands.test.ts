@@ -61,9 +61,11 @@ it('actual Kit next-cell appends row only at final cell',()=>{
  const r=accept(b,kitTransaction(state(b,text(b.doc,'Y')),{kind:'table.next-cell'}))
  expect(r.changedRoots).toEqual([0]);expect(r.session.doc.child(0).childCount).toBe(3)
 })
-it.each(['right','center'])('actual Kit %s aligned add-row still rejects unfixed producer',align=>{
- const b=open(table.replace('--- | ---',align==='right'?'---: | ---:':':---: | :---:')+tail)
- reject(b,kitTransaction(state(b,text(b.doc,'X')),{kind:'table.add-row'}))
+it.each(['right','center'])('actual Kit %s aligned add-row preserves full attrs and source',align=>{
+ const aligned=table.replace('--- | ---',align==='right'?'---: | ---:':':---: | :---:')
+ const b=open(aligned+tail),tr=kitTransaction(state(b,text(b.doc,'X')),{kind:'table.add-row'})
+ const r=accept(b,tr,aligned+'\n|  |  |'+tail)
+ r.session.doc.firstChild!.lastChild!.forEach(cell=>expect(cell.attrs).toEqual({alignment:align,colspan:1,rowspan:1,colwidth:null}))
 })
 it('actual Kit header-only table deletion stays schema-valid and source-equivalent',()=>{
  const b=open(table+tail),r=accept(b,kitTransaction(state(b,text(b.doc,'X')),{kind:'table.delete-row'}))

@@ -31,6 +31,7 @@
   // `manifests` 在装/卸插件后由 `plugins-changed` 刷新,所以这里读一次即可。
   const groups = getMenuModel({
     hasSelection,
+    table: actions.canRun('table-align-center'),
     image,
     readOnly,
     traceInstalled: pluginRuntime.manifests.some((m) => m.id === TRACE_PLUGIN_ID),

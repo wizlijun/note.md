@@ -6,6 +6,7 @@ export type LocalOperationBatch = OperationBatch
 export type { AppliedChange, ReplaceBlockOperation }
 
 export type EditorCommand =
+  | { kind: 'table.align-column'; alignment: 'left' | 'center' | 'right' }
   | { kind: 'undo' | 'redo' | 'paragraph' | 'bold' | 'italic' | 'strikethrough' | 'code' | 'highlight'
       | 'blockquote' | 'bullet-list' | 'ordered-list' | 'task-list' | 'indent' | 'outdent'
       | 'code-block' | 'horizontal-rule' | 'table' | 'table.add-row' | 'table.delete-row'

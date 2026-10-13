@@ -122,6 +122,9 @@
     { label: '删除行', command: { kind: 'table.delete-row' } },
     { label: '右侧插入列', command: { kind: 'table.add-column' } },
     { label: '删除列', command: { kind: 'table.delete-column' } },
+    { label: '左对齐', command: { kind: 'table.align-column', alignment: 'left' } },
+    { label: '居中', command: { kind: 'table.align-column', alignment: 'center' } },
+    { label: '右对齐', command: { kind: 'table.align-column', alignment: 'right' } },
   ]
 
   onMount(() => {

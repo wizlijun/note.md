@@ -1,3 +1,4 @@
+import { gfmTableCommand } from '@moraya/core/commands'
 import type { EditorView } from 'prosemirror-view'
 import { toggleMark } from 'prosemirror-commands'
 import { TextSelection } from 'prosemirror-state'
@@ -84,6 +85,11 @@ export function createRichActions(
 ): EditorActions {
   return {
     canRun(id) {
+      switch (id) {
+        case 'table-align-left': return gfmTableCommand({ kind: 'align-column', alignment: 'left' })(view.state)
+        case 'table-align-center': return gfmTableCommand({ kind: 'align-column', alignment: 'center' })(view.state)
+        case 'table-align-right': return gfmTableCommand({ kind: 'align-column', alignment: 'right' })(view.state)
+      }
       if (id === 'link') return !view.state.selection.empty
       if (id === 'copyImage') return !!opts.imageEl
       return true
@@ -91,6 +97,9 @@ export function createRichActions(
     async run(id) {
       if (id in MARK_BY_ID) return toggle(view, MARK_BY_ID[id])
       switch (id) {
+        case 'table-align-left': gfmTableCommand({ kind: 'align-column', alignment: 'left' })(view.state, view.dispatch); view.focus(); return
+        case 'table-align-center': gfmTableCommand({ kind: 'align-column', alignment: 'center' })(view.state, view.dispatch); view.focus(); return
+        case 'table-align-right': gfmTableCommand({ kind: 'align-column', alignment: 'right' })(view.state, view.dispatch); view.focus(); return
         case 'cut':       view.focus(); document.execCommand('cut'); return
         case 'copy':      view.focus(); document.execCommand('copy'); return
         case 'paste':     return pasteText(view)

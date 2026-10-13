@@ -1,3 +1,4 @@
+import { gfmTableCommand } from '@moraya/core/commands'
 import type { EditorView } from 'prosemirror-view'
 import { setBlockType, wrapIn } from 'prosemirror-commands'
 import { wrapInList } from 'prosemirror-schema-list'
@@ -31,19 +32,7 @@ export function insertAtom(v: EditorView, typeName: string, attrs?: Record<strin
 }
 
 export function insertTable(v: EditorView) {
-  const { schema } = v.state
-  const { table, table_header_row, table_row, table_header, table_cell, paragraph } = schema.nodes
-  if (!table || !table_header_row || !table_row || !table_header || !table_cell || !paragraph) return
-  const rows = 3, cols = 3
-  const emptyPara  = () => paragraph.createAndFill()!
-  const headerCell = () => table_header.createAndFill({ alignment: 'left' }, [emptyPara()])!
-  const bodyCell   = () => table_cell.createAndFill(  { alignment: 'left' }, [emptyPara()])!
-  const tableNode = table.create(null, [
-    table_header_row.create(null, Array.from({ length: cols }, headerCell)),
-    ...Array.from({ length: rows - 1 }, () =>
-      table_row.create(null, Array.from({ length: cols }, bodyCell))),
-  ])
-  v.dispatch(v.state.tr.replaceSelectionWith(tableNode).scrollIntoView())
+  gfmTableCommand({ kind: 'insert' })(v.state, v.dispatch)
   v.focus()
 }
 

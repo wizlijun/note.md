@@ -17,6 +17,7 @@ export interface MenuGroup {
 
 export interface MenuContext {
   hasSelection: boolean
+  table?: boolean
   /** True when the right-click landed on an image — swaps in the image menu. */
   image?: boolean
   /** Read-only surface (mdx): only non-mutating items may be offered. */
@@ -33,8 +34,7 @@ function item(id: string, key: keyof Messages, extra: Partial<MenuItemSpec> = {}
 
 /**
  * The context menu as pure data. Backend adapters map `item.id` to an edit.
- * `ctx` currently only gates enablement of selection-dependent items; the
- * structure itself is identical for rich and source.
+ * Table alignment is offered only when the active backend supports it.
  */
 export function getMenuModel(ctx: MenuContext): MenuGroup[] {
   // Right-clicking an image shows a dedicated, minimal menu — the text-format
@@ -88,6 +88,13 @@ export function getMenuModel(ctx: MenuContext): MenuGroup[] {
       ] }),
       item('hr', 'ctxmenu.hr', { icon: 'hr' }),
     ] },
+    ...(ctx.table ? [{ id: 'table-alignment', items: [
+      item('table-column-alignment', 'ctxmenu.tableColumnAlignment', { children: [
+        item('table-align-left', 'ctxmenu.tableAlignLeft'),
+        item('table-align-center', 'ctxmenu.tableAlignCenter'),
+        item('table-align-right', 'ctxmenu.tableAlignRight'),
+      ] }),
+    ] }] : []),
     { id: 'insert', items: [
       item('insert', 'ctxmenu.insert', { icon: 'insert', children: [
         item('table', 'ctxmenu.table'), item('image', 'ctxmenu.image'),

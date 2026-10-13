@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { gfmTableCommand } from '@moraya/core/commands'
   import { onMount, onDestroy, untrack } from 'svelte'
   import type { Tab } from '../lib/tabs.svelte'
   import { setContent, activeTab, openFile } from '../lib/tabs.svelte'
@@ -645,18 +646,7 @@
     // ── Table: Cmd+Shift+T ──
     if (mod && shift && !alt && key === 't') {
       event.preventDefault()
-      const { table, table_header_row, table_row, table_header, table_cell, paragraph } = sc
-      if (table && table_header_row && table_row && table_header && table_cell && paragraph) {
-        const rows = 3, cols = 3
-        const ep  = () => paragraph.createAndFill()!
-        const hc  = () => table_header.createAndFill({ alignment: 'left' }, [ep()])!
-        const bc  = () => table_cell.createAndFill(  { alignment: 'left' }, [ep()])!
-        const tbl = table.create(null, [
-          table_header_row.create(null, Array.from({ length: cols }, hc)),
-          ...Array.from({ length: rows - 1 }, () => table_row.create(null, Array.from({ length: cols }, bc))),
-        ])
-        view.dispatch(s.tr.replaceSelectionWith(tbl).scrollIntoView())
-      }
+      gfmTableCommand({ kind: 'insert' })(s, view.dispatch)
       view.focus(); return
     }
 

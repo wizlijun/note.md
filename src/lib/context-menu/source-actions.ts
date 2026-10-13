@@ -83,6 +83,7 @@ async function pasteText(h: SourceHandle) {
 export function createSourceActions(h: SourceHandle): EditorActions {
   return {
     canRun(id) {
+      if (id === 'table-align-left' || id === 'table-align-center' || id === 'table-align-right') return false
       if (id === 'link') return (h.el.selectionStart ?? 0) !== (h.el.selectionEnd ?? 0)
       return true
     },
