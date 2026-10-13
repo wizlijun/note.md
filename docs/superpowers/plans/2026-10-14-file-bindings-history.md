@@ -269,7 +269,7 @@ env pnpm_config_verify_deps_before_run=false pnpm exec vitest run src/editor-kit
 
 **具体测试 / 提交边界。** 2.8 的 raw-only undo/redo、Source 语义 Replace、命令 witness、拒绝原子性、layout 与 pointer 测试全部使用本 Task 真实实现。Task 2 创建唯一 `file-test-utils.ts` 的 `open` / 确定性 ID helper，Task 3/4 直接 import，不后补或复制。CORE 两个新增 focused tests 及完整门槛先行，再精确提交/安装；HOST 累计严格编译、focused/full/build、真实 EditorView resize 浏览器验收后精确提交。本 Task 不以 mode-switch/textarea/native-menu 未实现路径作为通过条件；这些各在首次实现 Task 验证。
 
-- [ ] **2.1 Source raw→PM具体producer（本 Task 的生产实现）。** `sourceDifference(before,after)`取UTF-16最长公共前后缀且不交叉，边界若切surrogate/CRLF，向外扩到完整单元；输出一个最小合法patch或[]。
+- [x] **2.1 Source raw→PM具体producer（本 Task 的生产实现）。** `sourceDifference(before,after)`取UTF-16最长公共前后缀且不交叉，边界若切surrogate/CRLF，向外扩到完整单元；输出一个最小合法patch或[]。
 
 producer 使用 controller 当前安装态 raw；准备捕获的 before 不等于当前raw或 expectedGeneration 不等则返回stale-source，不把用户buffer强写最新状态。F1按current revision校验removed；不在每块parse。
 `middleReplace(beforeDoc,targetDoc,tr)`跳过完整eq的top children前缀/后缀，计算两侧nodeSize和，用一个闭合Slice ReplaceStep替换中间；空中间表示纯插/删，target完整doc若全等不加语义Step。
@@ -278,7 +278,7 @@ raw patches合法可改变远处reference link attrs，PM中间替换较宽不�
 `replaceSource({expectedGeneration,value})` 使用上述差分→F1完整候选→bindings→middleReplace→layout→有序payload→同一dispatch；完整raw/PM/layout不变返回 `{ok:true,changed:false,snapshot}`，不新建lineage/generation/history。失败返回 FileFailure，不覆盖raw。F1/hash/权限判断不转交 Task 3。
 `restoreContent(raw)` 在 controller 本 Task 实现，为同authority内本地可撤销操作：closeHistory前后边界、使用同Source producer，不自动补M；版本恢复不是rebase。
 
-- [ ] **2.2 独立首filter/state plugin，不做append producer。** `file-controller.ts`同时用于headless真实EditorState和实际EditorView。
+- [x] **2.2 独立首filter/state plugin，不做append producer。** `file-controller.ts`同时用于headless真实EditorState和实际EditorView。
 
 工厂 `createFileController({raw,authority,schema,ids,plugins,recovery?,onDelta?,policy?})`以调用者传入的最终身份schema创建完整session与初始bindings，不二次包装schema；提供 `state` / `view` getter、`dispatch(tr):boolean`、`probe(tr):boolean`、`executeSlashCommand(command:FileSlashCommand,execute:boolean):boolean`、`snapshot():FileSnapshot`、`runHistory(direction:'undo'|'redo',execute:boolean):boolean`、`replaceSource(input):FileResult`、`restoreContent(raw):FileResult`、`bindView(view|null):void`、`setReadOnly(value):void`、`setComposing(value):void`、`observe(listener):()=>void`。`prepareHistory(tr)` 是 file-history 私有消费接口；readonly/composing 检查已经在生产入口执行，不能等 Task 3 才补。controller 只持有一个既定 authority；Task 3 owner 的 baseline 切换会先构造新 controller 成功再替换旧实例。
 `onDelta?: (delta:ObserverDelta)=>void`只由成功publish调用，生产接tracker的recordEditorDelta；无DOM测试接同一回调接缝，不另造observer模拟。
@@ -336,7 +336,7 @@ function probe(tr:Transaction):boolean { return admit(tr,false) }
 `recordAdmissionError`只更新失败状态/诊断回调，不改source/history；未知内部异常在dev测试必须可见而非吞成通过。
 重入onChange产生的新编辑排到microtask，从最新generation重新建立tr；不能复用旧tr硬重放。
 
-- [ ] **2.2a 窄同步slash多dispatch组合，Task2首次完整实现。** 实测RichEditor.svelte:521–543先删除slash再执行item；block-helpers.ts的insertTaskList还会wrap与checked两次dispatch。不能先发布删除，再让失败command丢用户输入。本合同只组合上述已证实的同步state/dispatch/focus调用，不构造通用事务脚本框架。
+- [x] **2.2a 窄同步slash多dispatch组合，Task2首次完整实现。** 实测RichEditor.svelte:521–543先删除slash再执行item；block-helpers.ts的insertTaskList还会wrap与checked两次dispatch。不能先发布删除，再让失败command丢用户输入。本合同只组合上述已证实的同步state/dispatch/focus调用，不构造通用事务脚本框架。
 
 ```ts
 // Task2新src/lib/slash-menu/slash-command.ts，纯模块，无Svelte/Tauri。
@@ -363,7 +363,7 @@ runSlashCommand返回false、未发必要变化、任何collector步骤错误/�
 
 同步producer首次定义在Task2，同Task修改旧slash-items委托它、维持桌面菜单id/顺序/文案，controller只import纯slash-command；Task3 owner.executeSlash/canExecuteSlash仅委托，delivery Task1再提纯UI metadata/翻译与菜单壳，不倒置运行时依赖。
 
-- [ ] **2.3 history命令闭包。** `file-history.ts`使用唯一PM undo/redo，原state传入，不走BlockBookmark。
+- [x] **2.3 history命令闭包。** `file-history.ts`使用唯一PM undo/redo，原state传入，不走BlockBookmark。
 
 ```ts
 function historyCommand(command:Command,execute:boolean):boolean {
@@ -388,7 +388,7 @@ sourceHash/lineage/authority/generation都由intent绑定；candidate来源JSON�
 canUndo/canRedo也运行一次native candidate+pure preflight+controller.probe的完整暂存append/policy，不安装、不消费真实history，不二次调用undo检查结果。
 Task 2 交付 file 首 keymap；Task 3 接入 beforeinput 与 executeCommand，Task 4 接入 native 菜单，全部调用该入口。快捷键事件只preventDefault一次，原生textarea history不能再执行。
 
-- [ ] **2.4 layout registry与表结构提示。** `file-layout.ts`不依赖DOM，`file-resize.ts`唯一共享pointer/commit producer，DOM复用core窄TableView适配。
+- [x] **2.4 layout registry与表结构提示。** `file-layout.ts`不依赖DOM，`file-resize.ts`唯一共享pointer/commit producer，DOM复用core窄TableView适配。
 
 `scanTables(doc)`单次descendants生成实际table pos/columns；仅普通GFM矩形、colspan/rowspan=1、colwidth=null纳入session layout，unknown真实attrs仍按source guard拒绝，不清attrs伪装支持。
 初始每张表分配session-local tableId、widths全null；nested多个同文表不同ID，不能以business ID alone区分。
@@ -402,7 +402,7 @@ move witness已证明的完整root携其table registry按实际slice内偏移平
 `layoutDeltas(before,after)`按id确定顺序，只包含变化条目，冻结before/after；每项进入同一tr的TableLayoutStep，不放SourceDelta。
 纯width gesture在closeHistory前后分组：gesture提交tr closeHistory，随后不含steps的closeHistory metadata tr关闭尾边界；一个拖动一个event，下一文字不并入。
 
-- [ ] **2.5 真正resize/read/preview。** file assembly `enableTableResize:false`，关闭upstream写colwidth的producer；legacy继续原columnResizing。
+- [x] **2.5 真正resize/read/preview。** file assembly `enableTableResize:false`，关闭upstream写colwidth的producer；legacy继续原columnResizing。
 
 固定CORE setup只有columnResizing()，未提供自有table NodeView/render helper；上游producer写node colwidth，不能用其提交路径承载session-only宽度。
 复用方案：CORE `plugins/session-table-view.ts`导出 `createSessionTableView({readWidths,register})`，返回标准NodeView factory；内部创建既有公开TableView，直接复用dom/table/colgroup/contentDOM、update与ignoreMutation。
@@ -421,13 +421,13 @@ pointercancel/lostpointercapture/Escape/blur/readonly切换/owner关闭均只取
 触屏靠实际handle上预置touch-action:none与pointer capture；其它区域仍正常滚动/选择。iOS/Android pointercancel、多指/滚动与桌面鼠标均需真实设备验收，不以mousedown模拟或数字单测代替。
 网页与Desktop使用同一hook/producer；新增最小read适配相对重写NodeView的成本是一个core现有wildcard入口，换取DOM/样式与库行为复用。
 
-- [ ] **2.6 暂存阶段外部副作用闭包。** 固定host `insights/observer.ts`在appendTransaction直接onDelta，必须改file接线。
+- [x] **2.6 暂存阶段外部副作用闭包。** 固定host `insights/observer.ts`在appendTransaction直接onDelta，必须改file接线。
 
 在tracker抽出既有记录函数 `recordEditorDelta(delta)`；legacy analyticsPluginForEditor继续传同一个callback。Task 2 的真实 controller/EditorView 装配不挂该 observer，Task 3 file bridge沿用此规则；controller成功publishAccepted后按chain的真实mark ops/净size调用一次；拒绝链统计为0。
 file移除core link-text/inline-code-convert与lazy markdown serialize通知（只在file opts不传onChange）；decorations/selection插件仍保留。
 额外配置插件只允许其state/appends无外部提交；测试加入真实后filter/append拒绝，证明未发布raw/save/analytics。不是静默丢弃append链。
 
-- [ ] **2.7 file块命令保留，禁止重用legacy逐块parse。** `file-commands.ts`直接消费完整bindings与当前doc。
+- [x] **2.7 file块命令保留，禁止重用legacy逐块parse。** `file-commands.ts`直接消费完整bindings与当前doc。
 
 `executeFileStructural(controller,command,execute)` 将 move/delete/insert 参数交 controller 的私有 `prepareStructural(command)`；该入口调用同一 `file-commands.ts` 内部 `prepareFileStructural(state,fileState,command)` 构造实际步骤/候选事实，controller 根据当前安装态核验并登记 intent，返回 `{ok:true,tr,changed}` 或 FileFailure；`execute=true` 仅 dispatch 这笔已准备且generation仍匹配的tr，`execute=false` 在prepare后调用controller.probe完整准入但不安装。controller 的 WeakMap 只登记本入口实际构造的 move witness，JSON/meta/调用者自造步骤都不能注册。nonempty insert 使用本 Task 的 Source producer 私有入口，显式 `insert` intent 限定写集，不开放 Rich 绕过入口。file-commands 仅 type-only 引用 controller 的内部端口类型，controller 可以 runtime import 其 producer，不形成循环初始化；端口类型在 Task 2 本模块定义并由返回值推导，既有 file-contract 不复制状态字段。该合同与 commands/controller 在同一 Task 完整实现，没有 Task 1 stub 或 Task 3 算法依赖。
 
@@ -733,3 +733,48 @@ Ruling: 只迁移 source-block-fidelity.spec.ts 中“wide mark claims synthetic
 
 
 Ruling: Task1 HOST 只验当前绝对构建大小与真实 registry 闭包，baseline 同配置应用增量比较延至 Task3 首次产品 mount 接线验收，并在统一发行前完成 — 本 Task helper 尚未进入产品入口，现有证据确无 baseline，不能用 consumer chunk 假称应用增量；CORE 的固定主入口 cap 与真实增量已单独严格通过 — 成本是当前 HOST 体积增量仍未验证，Task3 必须用冻结 whole HOST/CORE BASE 与最终相同配置产物补证，未补不能宣称全阶段体积验收完成。
+
+
+Ruling: Task2 起 CORE 主入口 Node gzipSync 默认 cap 由102400调整为103424（101KiB），仍逐次审计；不改变分享主IIFE的900KiB预算 — 实测仅table-commands真实操作hint使清晰去重后gzip102485（+85，raw+263），独立TableView gzip553未进入root；必要合同已最小实现，继续为85字节引入压缩式代码或拆分旁路会增加维护复杂度 — 成本是允许CORE主入口预算增加1024字节（1%），当前实际仅增85字节，后继仍不能自动提限；两次旧cap拒绝和全部原始数据保留。
+
+
+Ruling: controller 首filter记录本次实际applyTransaction frame的expected root，state.apply只允许PM内部在filters之后设置 appendedTransaction 从undefined变为该真实root引用；其余引用或受保护metadata改变仍拒绝 — 已核当前prosemirror-state真实源码在filterTransaction成功后才setMeta，因此逐值不变会错误拒绝所有合法append — 成本是fingerprint新增一个精确框架时序例外，必须以真实frame而非caller metadata建立，补合法append、caller伪造与后filter篡改回归，原Step/docs和整链policy一次不变。
+
+
+Ruling: 补充限定上一append时序裁定的“后filter篡改”：只验证实际进入state.apply的最终受保护值；PM无条件覆写掉的瞬时假appendedTransaction无需侦测，不封装每个filter或patch PM — 实际PM在全部filter后覆盖为真实root，首state.apply无法观测被抹掉的中间值，该值不能提供私有intent/source权限 — 成本是不承诺拒绝这种已被框架消除且无行为影响的瞬时赋值；测试须证明最终真实root生效、caller metadata不能授权，仍拒绝影响实际steps/addToHistory/history或最终引用的篡改。
+
+
+Ruling: Task2追加窄修source-empty-body applicability，并新增source-empty-chain.spec.ts；可证明base已有非空自然body且完整原链仅在该body内清空后再插的暂时空parent，交回既有inline recipe审核，不合并/缩range/丢步骤 — 实际slash delete→highlight/wikilink literal两步被empty入口接管后强制首步空插入而拒绝，单步同目标与普通delete→insert探针证明是接管边界缺口 — 成本是新增暂时空body来源识别，需原parent区间/map证明、真实CORE/HOST与LF/CRLF/BOM/protected回归；baseline空body/新生synthetic/未知或跨body/mixed unsupported保持旧边界，全部旧negative先保留，source-inline不在此次授权。
+
+
+Ruling: 仅迁移source-empty-cache.spec.ts参数emptied-earlier为正例，later-empty/created-earlier负例、spy和base不可变断言保留；新增核原两Step/docs及仅A→X写集 — 旧例在一个原非空自然table cell内真实delete(16,17)→insertText(X,16)，与批准的暂时空body合同完全同形；root以installed真实capture独立证明完整expected表格仅A变X、目标doc.eq且邻空cell/base不变（root-empty-table-expected） — 成本是一条具名旧策略断言迁移，不加table特判，保留原244/245失败证据并重新覆盖/strict/完整CORE/type/build/artifact后才提交安装。
+
+
+Ruling: 内容observe/onDelta改为每个已接受chain的microtask通知，同步state/view安装及boolean/FileResult结果不变；每事件捕获当次snapshot/delta且按提交顺序发送，unsubscribe抑制未执行回调，拒绝/probe零通知；内部view/resize paint仍同步 — generic dispatch只有已构造tr和同步结果，无法在回调重入时既延迟重建意图又真实同步返回；延后通知让回调从最新state建立新tr而不重放旧tr — 成本是新file API业务通知异步，Task3保存/生命周期须用await owner.flush的最新snapshot而非依赖同步tab回写，需同turn A/B、回调C、取消订阅/异常/拒绝回归；legacy observer不变。
+
+
+Ruling: 相同正文完整root移动仍交换business ID，不能以neutral PM/raw相同视为no-op；仅私有真实move witness依原delete→insert及完整mapping恢复全部rows，保持raw/hash/lineage，不伪造空SourceHistoryStep。真实native history捕获的candidate无raw载荷时，仅neutralized doc等于当前session.doc、ID集合完整唯一且bindings/layout全校验通过，允许从candidate doc恢复身份排列；其余标准语义变更无payload仍拒绝 — 实际相同A段移动F1判untouched，单改目标ID造成重复，原载荷必须nonempty edits — 成本是新增identity-only history受理窄分支，须验证move双向/undo/redo/probe/外来ID或metadata拒绝及与文字编辑分组和分隔组合，不放宽raw权限、不新增Step类。
+
+Ruling: spreadsheet同步slash保留真实旧producer和枚举，但file能力查询返回false且执行拒绝时保留slash；以真实unsupported producer负例覆盖，不在Task2额外开放CORE语法 — 计划正例列h1/task/code/mermaid/table/literal，spreadsheet真实producer尚不在冻结保真能力矩阵 — 成本是file模式此slash能力暂不可用，报告必须明确，不能宣称任意slash可用或借Source权限绕过。
+
+Ruling: Task3采用当前OWN annotation-admission-seam-design.md第2–6节的共享批注接缝，列入正式Files与首次真实UI验收：commands可选isCurrent/dispatch(boolean)、返回本次edit对象；Popup仅strict false保留草稿、先save/remove后身份匹配关闭；本次对象flushDraft在300ms前同步读最新text，owner成功flush后才保存/切换/销毁。每弹窗controller/view/generation闭包只认领自身成功且目标未被append移动的版本；stale保留草稿，并提供明确重试/放弃未保存修改出口，discard不写文档或撤回已接受版本。新开全局Popup先通过旧对象自身flush，失败不插入不替换；其它owner普通flush不触及它。composition不强制提交或丢弃，完成后才可继续 — 当前void回调与提前关闭会吞掉policy拒绝，旧保存事件漏掉300ms草稿，stale无显式出口会永久阻塞tab — 成本是扩大Task3必要UI接线范围和三条四语言文案，不增加权限注册表/草稿数据库/第二套批注或Tauri测试stub；delivery仍独立负责纯i18n依赖拆分。
+
+
+Task3 补充 Files：修改 `src/lib/note-anno/note-ui.svelte.ts`、`src/lib/note-anno/note-commands.ts`、`src/lib/note-anno/NoteEditPopup.svelte`，新增 `src/lib/note-anno/NoteEditPopup.test.ts`，精确修改 `src/lib/i18n/{en,zh,ja,de}.ts` 增加 `noteedit.unsaved` / `noteedit.retrySave` / `noteedit.discardChanges`；沿用已列file-main/RichEditor/tabs。真实组件测试和既有note-commands/source-annotation-producer回归不能以函数仿写替代。
+
+
+Ruling: Task3采用当前OWN source-pending-seam-design.md第2–6节：attachFileSourceInput返回同一adapter的pending/retry/discard与内部flush/detach/rebind，owner闭包保存单份buffer，两端Source UI直接持同句柄，不扩FileEditorOwner/Mounted公共契约。失败草稿保持固定session/authority/generation，普通输入只更新草稿；显式retry仍过原准入，stale不可刷新generation重放全文。显式discard只恢复最新snapshot，不改raw/history；composition中禁止重试/放弃，强制detach保存可读buffer为interrupted pending并拒绝等待者，不伪称IME结束。SourceView和source-actions全部实际文本写入汇入唯一commitBuffer，异步结果复核原owner/DOM/buffer/selection；保留Rich DOM时写事件仅当前模式消费 — 现有普通input之外的auto-pair、格式/批注、Find、paste、右键直接setContent会绕过准入，value绑定会覆盖失败草稿 — 成本是新增必要可达pending UI和精确旁路接线，不新增全局草稿库、不迁移旧Kit Source consumer，不授Source强制覆盖权限；工厂必须明确给Desktop/Kit同句柄的实际入口，不能只有不可达内部方法。
+
+Task3补充Files：src/lib/context-menu/source-actions.ts、src/components/source-view-find.test.ts，新增src/components/source-view-pending.test.ts、src/lib/context-menu/source-actions.test.ts；四个已列i18n文件增加source.pending/source.pendingStale/source.retryPending/source.discardPending。首选在file-main建立已规划file Source pane并直接用adapter；src/editor-kit/source.ts/kit.css/source.test.ts仅在writer提出具体复用容器证据后另行明确授权，不默认为可修改。FindReplace事件接口不变。
+
+
+Ruling: Task2非空block.insert-after允许末尾无换行自然root因新增分隔符而从untouched变为一对一retained；仅原root结束于原EOF、完整原raw在插入点前逐字节未改、该旧root新raw切片恰为旧切片加一个本次选用EOL、对应原PM children完全相同，其余原roots仍untouched且raw相同、恰一新自然root包含全部新content时受理。继续完整文件F1、实际Source Step/payload与bindings，不开一般retained/语义影响权限 — 独立installed探针root-insert-eof-correspondence证明A→A\n\nB\n\n仅EOF插入，旧A语义相同却合法retained；计划原untouched-only会使普通无末尾换行文件无法在最后追加块，与spec无末尾换行语料及块编辑目标不符 — 成本是一个严格EOF separator边界例外，必须LF/CRLF/BOM/无EOF换行、undo/redo/probe与多root/reference影响拒绝测试；CORE守卫/serializer和其它旧negative不改。
+
+
+Ruling: Task2 Prepared.stepsJSON示例只是内容校验，不能替代原执行链身份；私有intent注册时与首filter准备后都封存并在消费前核原Step引用、exact prototype、执行方法及docs/真实StepMap/Mapping结构，保留实际链而非JSON等价替身 — 独立review I1已证明同JSON不同invert的Step subclass进入native history令undo卡住，私有insert在首filter前被改mapping仍受理 — 成本是额外完整性指纹/比较，拒绝被改链不得安装或改变history；不复制成第二历史、不给metadata授权、不patch PM全局。具体方法保持简洁，除两条已复现用例也覆盖原对象方法原地篡改，不能仅加JSON字段或prototype比较留下同类执行替换。
+
+
+Ruling: Task2 I1修复中，仅对真实native history捕获candidate与installed history共享的原Step执行对象、其直接可变数组及候选StepMap/ranges值做局部冻结，再交后filters；Mapping容器及candidate事务仍正常可变并继续完整指纹。普通source/insert producer与Rich路径按封存比较拒绝，不因此普遍冻结调用者事务 — writer真实undo探针证明PM无remap的popEvent复用installed inverse，晚期原地改invert即使本次拒绝也会污染旧history，随后redo失败 — 成本是在首次消费历史candidate时将本应不可变的共享执行值变成只读；须验证拒绝后undo/redo仍完整、正常merge/map/分组不回归，不复制成另一Step、不改PM prototype或全局流程。
+
+
+Task2已受理：CORE4bdbfb9→b323027，HOSTc5b2e3c3→1b1da976→b4a71cc5。初审C0/I1/M2，fix1独立复审I1与EOF全部ADDRESSED、新破坏0；M1 colwidth负例夹具与M2既有告警deferred到whole-range。CORE最终full1383；HOST原full4489、末次focus覆盖99、fix1最终125/8套+原review probes2、strict/build/真实Chromium resize/installed64dist，验证范围严格分列，未称最终HOST重新跑full。Task2独立F1/原链/metadata来源已验证；原生移动/Safari/IME未验留后继平台门槛；HOST应用增量留Task3。不是发行。
