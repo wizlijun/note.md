@@ -24,7 +24,7 @@ it.each([100, 1000])('installed raw API edits one sentence locally in %i roots',
   expect(result.file.work.fullCaptureCalls).toBe(0)
   expect(result.file.work.inlineParseCalls).toBe(3)
   expect(result.file.work.blockRuleCalls).toBe(48)
-  expect(result.file.work.blockLinesVisited).toBe(227)
+  expect(result.file.work.blockLinesVisited).toBe(233)
   expect(result.file.work.rawTouchedBeforeRoots).toEqual([target])
   expect(result.file.correspondence.find(c => c.beforeRoots.includes(target))?.kind).toBe('retained')
   const oracle = open(result.session.source)

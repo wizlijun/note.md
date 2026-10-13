@@ -3,7 +3,7 @@ import {EditorState} from 'prosemirror-state'
 import {createSourceSession,applySourceBlockTransaction} from '@moraya/core'
 import {propose} from './proposal'
 function open(raw:string){const r=createSourceSession(raw);if(!r.ok)throw new Error(r.reason);return r.session}
-it('installed layout keeps root-tail source and rejects edits without natural owner',()=>{
+it('installed layout keeps root-tail source and materializes a certified empty paragraph',()=>{
  const raw='- A\n\n\nB',s=open(raw),state=EditorState.create({doc:s.doc})
  expect(s.doc.childCount).toBe(3)
  expect(s.roots.map(r=>[r.childFrom,r.childTo])).toEqual([[0,1],[2,3]])
@@ -12,7 +12,10 @@ it('installed layout keeps root-tail source and rejects edits without natural ow
  const tr=state.tr.addMark(3,4,s.doc.type.schema.marks.strong!.create()),r=applySourceBlockTransaction(s,tr)
  expect(r.ok).toBe(true);if(!r.ok)throw new Error(r.reason)
  expect(r.session.doc.eq(tr.doc)).toBe(true);expect(r.session.source).toBe('- **A**\n\n\nB')
- expect(applySourceBlockTransaction(s,state.tr.insertText('X',8)).ok).toBe(false)
+ const input=state.tr.insertText('X',8),typed=applySourceBlockTransaction(s,input)
+ expect(typed.ok).toBe(true);if(!typed.ok)throw new Error(typed.reason)
+ expect(typed.session.doc.eq(input.doc)).toBe(true);expect(typed.session.source).toBe('- A\n\nX\n\nB')
+ expect(typed.edits).toEqual([{from:5,to:5,text:'X'},{from:6,to:6,text:'\n'}])
 })
 it('installed exact edit with captured suffix layout remains one sentence hunk',()=>{
  const raw='首段不动。\r\n\r\n目标甲。第二句保持 __原样__。\r\n\r\n',s=open(raw)

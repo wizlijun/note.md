@@ -7,7 +7,7 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
-- **Shared editor empty-body preservation groundwork adds ordinary first-input and frontmatter consumer coverage.** Source changes preserve original Markdown around empty bodies; rebuilt core installation, Enter closure and full editor integration are still pending.
+- **Shared editor empty-body preservation groundwork now covers first input, consecutive Enter, empty container toolbar actions, table row/exit commands and frontmatter NodeView changes through the installed core.** Source capture retains actual nested blank paragraphs and unchanged surrounding Markdown. Full file UI, history and native/IME integration remain in progress.
 
 - **Shared editor preservation foundations retain nested prose, table padding and supported literal body bytes during local edits.** Installed-core merge checks cover actual container contents; supported LF container edits reparse nearby blocks. Full file UI, history and native/IME integration remain in progress.
 
