@@ -70,3 +70,9 @@ it('installed code single character yields one source patch and one proposal hun
  expect(r.session.source).toBe('> ``丙`乙`` _Keep_\n');expect(r.edits).toEqual([{from:4,to:5,text:'丙'}]);
  const p=propose({path:'inline.md',base:raw,ours:raw,theirs:r.session.source});expect(p.hunks).toHaveLength(1);expect(p.theirsEolAligned).toBe(false);
 });
+
+it.each([
+ ['A&amp;B _Keep_\n','`A&B` _Keep_\n'],
+ ['\\*A\\* _Keep_\n','`*A*` _Keep_\n'],
+ ['`*A*` _Keep_\n','\\*A\\* _Keep_\n'],
+] as const)('installed final I1 real code toolbar changes lexical context: %s',(raw,expected)=>toolbar(raw,1,4,{kind:'code'},expected));

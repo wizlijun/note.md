@@ -77,3 +77,18 @@ it.each([
 ] as const)('real point-only popup save and remove retains authoritative layout: %s',(raw,path,saved,removed)=>{
  const m=mount(raw,path);try{openEditForAnchor(m.view,m.from,new DOMRect(0,0,1,1));noteUi.edit!.save('新注');expect(m.source()).toBe(saved);noteUi.edit!.remove();expect(m.source()).toBe(removed);expect(m.values).toHaveLength(2)}finally{m.destroy()}
 });
+
+it.each([
+ ['**{>>原注<<}**\n',[0],'**{>>新注<<}**\n',''],
+ ['\uFEFF***{>>原注<<}***\r\n',[0],'\uFEFF***{>>新注<<}***\r\n','\uFEFF'],
+ ['**{>>原注<<}A**\n',[0],'**{>>新注<<}A**\n','**A**\n'],
+ ['>**{>>原注<<}**\n>\n> [r]: /u\n',[0,0],'>**{>>新注<<}**\n>\n> [r]: /u\n','>\n> [r]: /u\n'],
+ [header+'| A | *{>>原注<<}* |\n',[0,1,1,0],header+'| A | *{>>新注<<}* |\n',header+'| A |  |\n'],
+] as const)('installed final I2 real popup removes only empty mark wrappers: %s',(raw,path,saved,removed)=>{
+ const m=mount(raw,path);try{openEditForAnchor(m.view,m.from,new DOMRect(0,0,1,1));noteUi.edit!.save('新注');expect(m.source()).toBe(saved);noteUi.edit!.remove();expect(m.source()).toBe(removed);expect(m.values).toHaveLength(2);expect(m.flushed).toHaveBeenCalledTimes(2)}finally{m.destroy()}
+ const reopened=createSourceSession(removed);expect(reopened.ok).toBe(true);
+});
+it('installed final I2 real removed marked point supports a reopened session and next point lifecycle',()=>{
+ const first=mount('***{>>原注<<}***\n',[0]);let removed='';try{openEditForAnchor(first.view,first.from,new DOMRect(0,0,1,1));noteUi.edit!.remove();removed=first.source();expect(removed).toBe('')}finally{first.destroy()}
+ const next=mount(removed,[0]);try{insertNoteRich(next.view,'?');expect(next.source()).toBe('{>>?<<}');noteUi.edit!.save('新注');expect(next.source()).toBe('{>>新注<<}');noteUi.edit!.remove();expect(next.source()).toBe('')}finally{next.destroy()}
+});
