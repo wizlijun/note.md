@@ -7,6 +7,10 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **Shared table commands preserve column alignment when adding rows and support header-only tables.** Rich, Kit and Memory use the same commands; column alignment actions use the standard menu.
+- **Code input distinguishes an unspecified language from explicit text.** Typing a fence at the start of a Rich paragraph now works alongside inline code.
+- **Shared editor source-preservation foundations retain untouched Markdown bytes during supported local edits.** Full editor integration and rich-text collaboration are still in progress. The SDK no longer advertises the missing style export; hosts provide styles.
+
 - **File → Latest Created now shows up to 10 Markdown files instead of 7.** The metadata scan and native menu share the same limit.
 
 ## v6.1013.2 — 2026-10-13
