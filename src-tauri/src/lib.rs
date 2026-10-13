@@ -2084,7 +2084,7 @@ fn update_latest_menu(app: tauri::AppHandle, items: Vec<LatestMenuItem>) -> Resu
             .enabled(false).build(&app).map_err(|e| e.to_string())?;
         submenu.append(&placeholder).map_err(|e| e.to_string())?;
     } else {
-        for item in items.into_iter().take(7) {
+        for item in items.into_iter().take(latest_files::LIMIT) {
             // Encode the path in the ID so a refresh cannot redirect an in-flight click.
             let mi = MenuItemBuilder::with_id(format!("open-latest:{}", item.path), native_menu_literal(&item.label))
                 .build(&app).map_err(|e| e.to_string())?;

@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **File → Latest Created now shows up to 10 Markdown files instead of 7.** The metadata scan and native menu share the same limit.
+
 ## v6.1013.2 — 2026-10-13
 
 - **Shared projects keep browser drafts across published versions and show your submission results locally.** New-version prompts let you refresh when ready, continue a draft against its original version, or export a backup.

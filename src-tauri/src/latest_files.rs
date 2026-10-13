@@ -4,14 +4,14 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-const LIMIT: usize = 7;
+pub(crate) const LIMIT: usize = 10;
 
 fn latest_time(created: Option<SystemTime>, modified: Option<SystemTime>) -> SystemTime {
     created.into_iter().chain(modified).max().unwrap_or(UNIX_EPOCH)
 }
 
 /// Scan all user directories without reading file contents or following links.
-/// Keep only seven candidates so memory does not grow with the vault's file count.
+/// Keep only LIMIT candidates so memory does not grow with the vault's file count.
 pub fn scan_latest_files(root: &Path) -> Result<Vec<String>, String> {
     let root = root.canonicalize().map_err(|e| e.to_string())?;
     let mut directories = vec![root.clone()];
@@ -72,7 +72,7 @@ mod tests {
     }
 
     #[test]
-    fn newest_seven_across_subdirectories_with_stable_ties() {
+    fn newest_ten_across_subdirectories_with_stable_ties() {
         let vault = tempfile::tempdir().unwrap();
         for i in 0..10 {
             note(vault.path(), &format!("nested/deep/{i}.md"), i);
@@ -81,6 +81,7 @@ mod tests {
         assert_eq!(relative(vault.path()), [
             "a.md", "nested/deep/9.md", "nested/deep/8.md", "nested/deep/7.md",
             "nested/deep/6.md", "nested/deep/5.md", "nested/deep/4.md",
+            "nested/deep/3.md", "nested/deep/2.md", "nested/deep/1.md",
         ]);
     }
 
@@ -143,8 +144,8 @@ mod tests {
         let started = Instant::now();
         let result = relative(vault.path());
         eprintln!("10,000-file metadata scan: {:?}", started.elapsed());
-        assert_eq!(result.len(), LIMIT);
+        assert_eq!(result.len(), 10);
         assert_eq!(result.first().unwrap(), "dir-99/note-9999.md");
-        assert_eq!(result.last().unwrap(), "dir-93/note-9993.md");
+        assert_eq!(result.last().unwrap(), "dir-90/note-9990.md");
     }
 }
