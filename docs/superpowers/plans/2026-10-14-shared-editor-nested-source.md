@@ -31,6 +31,8 @@ CORE 新测试精确 allowlist：`src/__tests__/source-nested-producer.spec.ts`�
 
 CORE 旧测试允许修改仅 `src/__tests__/source-reference.spec.ts` 开头两个 “reference-covered owner mark 原子拒绝”用例：迁移为已授权整正文 mark 成功，原字节/原子性断言保留并加入真正越界负例。其余旧例原样，包括 multi-root 两次 mark 的拒绝（本批 mark 只签发单 Step、单正文权限）。如其余旧断言确与新能力冲突，先给 root 精确断言和原因，禁止静默删除。
 
+Task1 另精准允许迁移 `src/__tests__/source-fidelity.spec.ts` 中 list opaque/拒绝嵌套正文两项旧能力断言，以及 `src/__tests__/source-terminal-hardbreak.spec.ts` 两条 list/quote spans为空断言；改为真实文字span/字节保持成功，hardbreak无span和其它安全负例仍保留。参见自审报告追加裁定。
+
 HOST 新测试只增 `src/lib/share-merge/source-nested-producer.test.ts`；旧 `source-fidelity.test.ts` 和全部 corpus 不改。两仓 `CHANGELOG.md` 各加未发布条目；经验证的 core dist 按现有闭包工具提交。root 的控制工具与任务记录不混入产品提交。
 
 ### Task 1: nested/heading 正文 exact 与最小同容器 mark（capture 与消费同交付）

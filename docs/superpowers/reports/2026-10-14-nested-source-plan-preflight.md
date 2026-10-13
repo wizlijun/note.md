@@ -32,3 +32,5 @@ Ruling: Task 1/2 提交经过相关回归和类型检查的源码，Task 3 统�
 每 Task 一个新 writer、一个 combined spec/quality review；唯一 whole-range strongest final，按技能固定修复上限。临时证据只写本计划 OWN；原 F1 研究和工具已从 canonical archive 验证完整 archive、manifest、每个 member SHA 后选择性恢复。当前没有新产品测试或性能结论。
 
 Ruling: 后续 pnpm 命令均显式前置 env pnpm_config_verify_deps_before_run=false，禁止 approve-builds/install — 当前 pnpm 11 自动 depsStatusCheck 曾触发 install 后因 ignored builds 退出，测试未运行；保留环境失败并核对 package/lock 与实际依赖解析 — 若配置无效仍可能改变依赖，必须观察真实命令输出并停止，不能把环境失败计作 RED。
+
+Ruling: Task1精准允许迁移 source-fidelity.spec.ts 的 list opaque/拒绝嵌套正文两项旧断言，以及 source-terminal-hardbreak.spec.ts 的两条 list/quote textSpans为空断言 — 新能力直接改变这些既有能力边界；替换为实际范围/原字节/doc等价与hardbreak无span，不删除安全负例 — 若迁移过宽会掩盖回归，独立review核对精确diff；其余literal opaque和protected hardbreak mark断言本Task保持。
