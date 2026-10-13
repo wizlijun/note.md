@@ -1,7 +1,7 @@
 import {expect,it} from 'vitest'
 import {EditorState,TextSelection,type Transaction,type Command} from 'prosemirror-state'
-import {splitBlock,joinBackward} from 'prosemirror-commands'
-import {AddMarkStep,RemoveMarkStep} from 'prosemirror-transform'
+import {splitBlock,joinBackward,wrapIn} from 'prosemirror-commands'
+import {AddMarkStep,RemoveMarkStep,AttrStep} from 'prosemirror-transform'
 import {createSourceSession,applySourceBlockTransaction} from '@moraya/core'
 function open(raw:string){const r=createSourceSession(raw);if(!r.ok)throw Error(r.reason);return r.session}
 function state(b:ReturnType<typeof open>,from:number,to=from){
@@ -131,4 +131,17 @@ it.each([false,true])('ineffective mark over a raw empty preserves its unit thro
  expect(open(expected).doc.eq(tr.doc)).toBe(true)
  const r=accept(b,tr,expected),unit=b.layout.blankLines.find(u=>u.role==='empty-paragraph')!
  expect(r.edits.every(e=>e.to<=unit.sourceFrom||e.from>=unit.sourceTo)).toBe(true)
+})
+
+it('installed structural wrap joins roots while preserving external mixed-EOL raw',()=>{
+ const b=open('A\r\n\r\nB\r\n \t\r\nTail __raw__'),tr=command(state(b,1,4),wrapIn(b.doc.type.schema.nodes.blockquote!))
+ const r=accept(b,tr);expect(r.changedRoots).toEqual([0,1]);expect(r.session.source.endsWith('\r\n \t\r\nTail __raw__')).toBe(true)
+})
+it('installed source split keeps leading spaces as text entities',()=>{
+ const b=open('Hello world\n\nTail'),r=accept(b,command(state(b,6),splitBlock))
+ expect(r.session.source).toBe('Hello\n\n&#32;world\n\nTail')
+})
+it('installed source AttrStep preserves fence content LF and raw external tail',()=>{
+ const b=open('```js\nA\n\n```\r\n\r\nTail __raw__'),r=accept(b,state(b,1).tr.step(new AttrStep(0,'language','ts')))
+ expect(r.session.doc.child(0).textContent).toBe('A\n');expect(r.session.source.endsWith('```\r\n\r\nTail __raw__')).toBe(true)
 })
