@@ -801,3 +801,6 @@ Ruling: Task3共享insertNoteRich末尾增加可选replaceRange:{from,to}，在�
 
 
 Ruling补充并取代上一批注slash裁定的具体“先delete再insert”步骤要求：collapsed slash点批注直接以原真实tr.replaceWith(trigger.from,trigger.to,note_anchor)一笔ReplaceStep原子替换，仍复用原insertNoteRich/admission/Popup；legacy默认路径不变 — writer真实controller探针t3-empty-annotation-probe证明既有CORE非文本inline note_anchor只接单Step，双Step被unsupported-step拒绝；单Replace天然表达本次替换 — 成本是既有helper的最小分支，不扩CORE、serializer或权限；须实际raw/PM、policy拒绝保留slash、一次undo恢复与旧Popup拒绝回归，保留旧失败，不把拒绝计成功。
+
+
+Ruling: Task3实际批注slash复验表明单ReplaceStep仍被preparePointRecipe中from===to限制拒绝；上条“免CORE”推断撤回，暂停依赖的slash交付。批准CORE source-inline-recipe.ts最小能力补齐：仅单标准ReplaceStep、同一个已捕获body的可映射纯文本范围替换为canonical无marks note_anchor，证明删除范围全text且不含atoms/Critic/未知映射/结构边界；复用rawRange、captured facts、真实Step replay、最终strict doc.eq与protected，不按slash字符串硬编码或授一般非文本替换权。新增source-annotation-producer.spec.ts精确正/负回归，原negative不自行迁移 — 实际desktop入口需要一次原子替换，拆成两次会丢trigger/污染history — 成本是追加CORE前置修补，需RED→GREEN、strict/full/type/build/artifact、精确commit并按真实已装cb15e71b6cbbf5d4365d914169e6a20fa5f3b5ee受控安装，再HOST真实slash/undo/policy测试；cap103424与原fixtures/锁不变，旧双Step及单Step失败证据保留。
