@@ -409,3 +409,7 @@ Ruling: Task1 fix1精确迁移source-block-fidelity.spec.ts两处旧空正文拒
 Ruling: Task2 source-only renderer对list/footnote尾empty保留实际indent加终端LF，quote marker末行仍允许无EOL；纯空格EOF没有真实StateBlock行或container.map所有权，不签nested blank。空list退出测试用已安装keymap的真实命令链及HOST实际handleKeyDown — 实际markdown-it构造器跳过纯空格EOF，splitListItem对空item自身返回false并由后续keymap命令处理，不能靠假事实/假单命令期望改parser — 成本为新生成的list/footnote尾空段多一个必需LF；保持默认parser和brief独立expected，新增三条探测失败单列不冒充原Task行为RED。
 
 Ruling: Task2仅迁移source-structure-commands.spec.ts具名closed container fence AttrStep preserves %s syntax and content的list/list-tail-lf两个expected：分别`- ```ts\n  A\n  ```\n  \r\nTail __raw__`与`- ```ts\n  A\n  \n  ```\n  \r\nTail __raw__`；quote两例及edits.every(to<=tailFrom)/doc.eq等断言不变 — actual tokenizer已拥有尾部indent空行，新source-only semantic emptyP归root body；renderer实际owned末行凭据已修ledger多余外部LF，独立t2-owned-tail-scope-green证明仅一edit止于21/22，根外CRLF和Tail逐字保持 — 成本为结构AttrStep沿既有整根权限会将该根内旧空行padding规范为两空格并采用source-only输出换行；不是普通输入权限，不授权改其它旧例或根外seam。
+
+Ruling: Task2 nested blank分类沿既有collectBlankDrafts约定，将actual已消费的protected definition也计作分隔边界；其后第一owned blank是separator，不因definition不发PM可见child而误签leading empty — 首次全CORE1073/1101通过、28失败中已发现此真实分类缺陷，计划“可见block/leading”的简写不能取消保护定义的真实消费事实 — 成本为澄清分类输入须含既有实际保护/规则事实，不能新扫raw猜definition或批量迁移位置断言。
+
+Ruling: 撤销并取代上一条Task2 list/list-tail-lf两个expected迁移裁定，恢复其原expected；保留该错误诊断、已批准记录与提交历史 — 新核实共享尾空行含部分TAB跨越blkIndent，真实trace会生成正文padding；observer此前仅b+t跳过整TAB误签empty权限，违反既定无TAB-generated正文授权。应以实际b/t/bs/blkIndent证明完整raw边界后才签，不得按“含TAB”一概拒绝 — 成本为此前迁移和裁定的返工，两个expected必须恢复；此前ledger重复separator修复仍须独立覆盖合法纯空格owned行，不借撤回测试掩盖其必要性。
