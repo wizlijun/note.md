@@ -233,7 +233,7 @@ env pnpm_config_verify_deps_before_run=false pnpm exec vitest run src/__tests__/
 ### 2.4 GREEN、类型、构建及安装顺序
 
 - [ ] 先仅跑新3 suites取得本Task RED→GREEN、CORE typecheck、新测试严格tsconfig（root生成在本任务OWN）。再一次性跑受影响现有 inline/annotation/inputrules/roundtrip/math/structure/empty/cache回归，列表按冻结BASE实际文件名核；不重复无变化suite。
-- [ ] source/tests/CORE CHANGELOG通过精确审查后source commit，记录SHA。然后一次聚合CORE全量与build，核全部package exports JS/DTS/maps/embedded源码、gzip≤正式冻结预算、包锁与fixture SHA。最终dist精确commit。source commit阶段明确“dist尚未更新，不能安装”。如超预算，root先根据实测改实现，不预涨。
+- [ ] source/tests/CORE CHANGELOG通过精确审查后，一次聚合CORE全量与build，核全部package exports JS/DTS/maps/embedded源码、gzip≤正式冻结预算、包锁与fixture SHA；可一次精确提交已验证source+dist完整快照。若因实施需要先source commit，明确dist尚未更新不能安装，待最终dist commit才安装。如超预算，root先根据实测改实现，不预涨。
 - [ ] 只安装已提交CORE dist（沿root已有host-sync机制、新OWN证据，不读.env）；不install mutable dirty CORE。核installed所有exports字节对应committed dist、精确commit，不只看版本号。
 - [ ] HOST消费者测试使用真实 `@moraya/core` installed，以下两入口必须都生成实际数学节点且保存正确：
 
@@ -243,8 +243,9 @@ import {EditorState,TextSelection,type Transaction} from 'prosemirror-state';
 import {createSourceSession,createSchema,applySourceBlockTransaction,
  insertMathBlock as rootCommand} from '@moraya/core';
 import {insertMathBlock as subpathCommand} from '@moraya/core/commands';
+import {BrowserMediaResolver} from '@moraya/core/adapters/browser-media-resolver';
 it.each([rootCommand,subpathCommand])('installed command uses the actual state schema',command=>{
- for(const schema of [undefined,createSchema()]){
+ for(const schema of [undefined,createSchema({mediaResolver:new BrowserMediaResolver()})]){
   const o=createSourceSession('',schema);if(!o.ok)throw Error(o.reason);const b=o.session;
   const state=EditorState.create({doc:b.doc,selection:TextSelection.create(b.doc,1)});
   let tr:Transaction|undefined;expect(command(state,t=>{tr=t})).toBe(true);if(!tr)throw Error('dispatch');
@@ -279,3 +280,9 @@ HOST再用实际 `insertAtom(view,'math_block',{value:''})`、slash math条目.e
 bindings/history四Task→网页E1–E3/桌面E4八Task→真实主题/图表/IME与免费WorkerCPU→所有未发布宿主/插件/Worker统一发行及公网验签。原KaTeX、CSS/teardown、Svelte/Vite诊断保留具名triage，不通过静音完成。
 
 Ruling: Task1无空格空列表marker同样须支持definition邻接首字；在真实list baseline emptyInline、before恰空格、range末端与actual EOL起点相等、protected definition起点恰EOL末端且actual read.prefix存在时，允许仅为既有inline.after生成actual EOL+continuation prefix，保留原before — t1-no-space-actual-evidence已证明两独立expected strict等于目标；read.e/body与真实EOL/definition边界可完整认证，没有owned blank并不等于不能表达 — 成本是新增必要separator bytes与既有列表padding，定义原bytes保持精确平移；不扫描raw猜prefix、不改EmptyPlace公开shape、source-empty-body或结构权限。须两例真实RED→GREEN、LF/CRLF/BOM及replay/连续输入与不邻接反例；不能永久拒绝这两个已有合法shape。
+
+Ruling: Task2示例createSchema调用更正为实际必须的config，注入new BrowserMediaResolver()并从已有browser-media-resolver子入口导入 — t2-core-red-1有一条fixture在产品producer之前即因缺config失败，实际createSchema(config:SchemaConfig)不可零参数 — 成本仅测试fixture和计划示例修正，无产品API/类型放宽；保留首次14个真实功能RED与这一环境/fixture错误分列，另名运行完整合法RED。
+
+Ruling: Task2完成full/build/artifact后可一次精确source+dist提交，取代机械要求先source后dist两commit — 验证与committed-only安装顺序不变，单快照减少未构建中间HEAD误用 — 成本仅提交粒度变化，不减少任何gate；若先source提交仍禁止提前安装。
+
+Ruling: source-inline-recipe.spec.ts 的 fix1 unchanged math grants no edit or selected atom mark permission 仅 replaced 分支改为具名完整occurrence替换正例；internal局部payload Replace、selected atom mark两个负例原样保留 — Task2已准许完整旧occurrence删除和原closed slice canonical新math生成，实际完整替换同时满足两者，不应为保旧能力白名单负例增加“同一步删旧并插新就拒绝”的特殊限制；root-whole-math-replacement-expected独立证明原raw Alpha $x$ Beta LF、原AddMark1..3 + Replace7..10的完整expected **Al**pha $y$ Beta LF严格等于原tr.doc — 成本是旧全atom替换从拒绝变成功，只限actual whole occurrence覆盖/新canonical slice/原链/最终strict同受理范围，无内部公式TextSourceSpan、无attrs编辑、新UI或meta授权。正例须明确完整expected、两个strong窄insert与一个wholemath窄replace、base和protected不变；未选公式raw与mixed unsupported原子失败保持。不允许据此迁移其它旧负例。
