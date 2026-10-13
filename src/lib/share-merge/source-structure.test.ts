@@ -1,6 +1,7 @@
 import {expect,it} from 'vitest'
 import {EditorState,TextSelection,type Transaction,type Command} from 'prosemirror-state'
 import {splitBlock,joinBackward} from 'prosemirror-commands'
+import {AddMarkStep,RemoveMarkStep} from 'prosemirror-transform'
 import {createSourceSession,applySourceBlockTransaction} from '@moraya/core'
 function open(raw:string){const r=createSourceSession(raw);if(!r.ok)throw Error(r.reason);return r.session}
 function state(b:ReturnType<typeof open>,from:number,to=from){
@@ -109,4 +110,25 @@ it('nonadjacent splits preserve intervening raw root and gaps',()=>{
  expect(r.changedRoots).toEqual([0,2]);expect(r.edits).toHaveLength(2)
  expect(r.edits[0]!.to).toBeLessThanOrEqual(b.roots[0]!.sourceTo)
  expect(r.edits[1]!.from).toBe(b.roots[2]!.sourceFrom)
+})
+it.each([false,true])('same-anchor births and edited origin follow final PM order (%s)',twoBirths=>{
+ const b=open('A\n\nC'),tr=EditorState.create({doc:b.doc}).tr
+ const paragraph=(word:string)=>b.doc.type.schema.nodes.paragraph!.create(null,b.doc.type.schema.text(word))
+ if(twoBirths){tr.insert(3,paragraph('B'));tr.insert(3,paragraph('X'));tr.insertText('ee',11)}
+ else {tr.insertText('ee',5);tr.insert(3,paragraph('B'))}
+ const expected=twoBirths?'A\n\nX\n\nB\n\nCee':'A\n\nB\n\nCee'
+ expect(open(expected).doc.eq(tr.doc)).toBe(true)
+ const r=accept(b,tr,expected)
+ expect(r.changedRoots).toEqual([1])
+ expect(r.edits).toEqual([{from:3,to:4,text:twoBirths?'X\n\nB\n\nCee':'B\n\nCee'}])
+})
+it.each([false,true])('ineffective mark over a raw empty preserves its unit through split (%s)',remove=>{
+ const b=open(remove?'**AB**\r\n\r\n \t\r\n**C**':'AB\r\n\r\n \t\r\nC')
+ const tr=EditorState.create({doc:b.doc}).tr,strong=b.doc.type.schema.marks.strong!.create()
+ tr.step(remove?new RemoveMarkStep(1,b.doc.content.size-1,strong):new AddMarkStep(1,b.doc.content.size-1,strong))
+ tr.split(2)
+ const expected=remove?'A\n\nB\r\n\r\n \t\r\nC':'**A**\n\n**B**\r\n\r\n \t\r\n**C**'
+ expect(open(expected).doc.eq(tr.doc)).toBe(true)
+ const r=accept(b,tr,expected),unit=b.layout.blankLines.find(u=>u.role==='empty-paragraph')!
+ expect(r.edits.every(e=>e.to<=unit.sourceFrom||e.from>=unit.sourceTo)).toBe(true)
 })
