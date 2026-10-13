@@ -151,7 +151,7 @@ it('partial strong preserves nested shell and unrelated syntax',()=>{
 });
 it('only Beta removal preserves the unselected strong space',()=>{
  const {r,tr}=command('> __Alpha Beta__。\n',[0,0],6,[0,0],10,
-  s=>toggleMark(s.schema.marks.strong!),'> __Alpha&#32;__Beta。\n');
+  s=>toggleMark(s.schema.marks.strong!),'> __Alpha&#32;__&#66;eta。\n');
  expect(r.session.doc.eq(tr.doc)).toBe(true);
  expect(r.session.source).not.toBe('> __Alpha__ Beta。\n');
 });
@@ -558,3 +558,18 @@ host build沿空envDir的既有受控入口，必须先于check:editor-kit；最
 - [ ] **2.10 完成条件与下游门槛。** 新partial、多Step、跨两段、nested、多cell、空inline marked/link/point、inline code body、已证closed-fence碰撞增长、真实批注泡泡增删改均有真实RED→GREEN及installed证据；原Step权限/protected/全attrs严格eq保持；所有source/test/dist已精确提交且双SHA与artifact对应。已认证empty marked/link/point必须有positive；缺fact/不可表达复杂atom组合具体列出，不能声称全菜单任意文档无条件支持。
 
 本批不实施bindings/history、新公式正文UI、任意结构或definition transport；既有math插入/InputRules的source兼容另列下一最小producer任务，须在协作UI启用前闭合，不以本批默认数学回归冒称完成。后续bindings安装必须一次接收成功session和edits，失败保留原始草稿/原raw；没有半次批注或半个选区保存。实现任一不可表达case时仍需独立新增行为RED，不能以菜单能力口号绕过这里的精确范围。
+
+
+## Task1 实测边界补充裁定（2026-10-14）
+
+Ruling: 部分取消strong的冻结expected更正为 `> __Alpha&#32;__&#66;eta。\n`，保留原下划线，只在真实delimiter边界必要时编码相邻Unicode scalar；取代此前“只允许space/tab”的限制 — root独立installed探针证明原expected与仅换**均无法strict doc.eq，而补偿B为entity可保持原文及strong范围 — 成本是被选边界字符raw表示发生必要变化；须确定性lexical规则、entity/surrogate原子边界及无必要不编码反例，不得生产parse重试或整body规范化。
+
+Ruling: source-reference中两个参数的“marks the complete reference-covered body atomically”仅outside跨Alpha/Tail分支迁移成功；source-nested-producer中真实toggleMark预期改为Alpha端点两次窄插入，跨Alpha/Tail测试改成功 — 新窄多body能力使这些原动作合法，root已核实际旧测试，outside并非部分reference格式 — 成本是精确新增旧用例迁移；完整raw仅Alpha/Tail加**、definition/protected与base不变，其余假Step/attrs/跨prefix反例保留。
+
+Ruling: source-body-producer两参数组中仅原始 `~~~~text\n甲\n~~~~\n` 分支新增成功，插入体为换行+~~~~+换行时完整expected为 `~~~~~text\n\n~~~~\n\n~~~~~\n`，全体为甲+换行+~~~~+换行时为 `~~~~~text\n甲\n~~~~\n\n~~~~~\n` — root独立installed parser已对实际目标PM验证strict eq，属于本Task已批准closed-fence增长 — 成本为最多三处必要marker/body edit；spy零调用、base不变保留，frontmatter/HTML负例不改。
+
+Ruling: 允许非空同body原生closed Replace生成hardbreak(isInline:true)，维持已有source-only softbreak正例；空leaf插入、对旧无映射atom施mark及跨quote-prefix替换仍拒绝 — 旧“hardbreak leaf仍拒绝”需限定空体权限，不能把认证非空替换误拒绝 — 成本是inline recipe增加精确新softbreak生成，不授一般atom或结构权限；原attrs、全部Step和strict doc.eq照常验证。
+
+Ruling: source-structure-commands原getLines/skipSpaces三个apply参数改为Parameters<typeof get/skip>的精确tuple类型 — 新严格测试配置揭示原any[]签名不符，与运行语义无关 — 成本仅类型擦除，不放宽strict或改断言。新补真实InputRules首次GREEN按GREEN如实记录，不为追补RED复制或回写旧产品源码。
+
+补充修改allowlist：CORE `src/__tests__/source-nested-producer.spec.ts` 和 `src/__tests__/source-body-producer.spec.ts` 仅以上具名迁移；既有source-structure-commands额外允许上述三处纯类型修正。本补充取代正文“不得改同文件其他测试”对应冲突部分，其余约束保持。
