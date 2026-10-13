@@ -2,6 +2,7 @@
 import {expect,it} from 'vitest'
 import {EditorState,TextSelection,type Transaction} from 'prosemirror-state'
 import {EditorView} from 'prosemirror-view'
+import {AttrStep} from 'prosemirror-transform'
 import {createSourceSession,applySourceBlockTransaction} from '@moraya/core'
 import {executeEditorCommand} from './commands'
 import type {EditorCommand} from './contract'
@@ -80,3 +81,20 @@ it('actual Kit task-list remains atomic until checkbox source capture is support
  const b=open('A\n\nB'+tail),tr=kitTransaction(state(b,1,4),{kind:'task-list'})
  expect(tr.doc.child(0).child(0).attrs.checked).toBe(false);reject(b,tr)
 })
+it('actual Kit quote wrap preserves a closed code fence and its content LF',()=>{
+ const b=open('```js\nA\n\n```'+tail),tr=kitTransaction(state(b,1),{kind:'blockquote'})
+ const r=accept(b,tr,'> ```js\n> A\n> \n> ```'+tail)
+ expect(r.changedRoots).toEqual([0])
+})
+it.each(['> ```js\n> A\n> ```','- ```js\n  A\n  ```'])(
+ 'installed AttrStep preserves closed nested fence: %j',raw=>{
+  const b=open(raw+tail),at=text(b.doc,'A'),tr=state(b,at).tr.step(new AttrStep(at-1,'language','ts'))
+  const r=accept(b,tr,raw.replace('```js','```ts')+tail)
+  expect(r.changedRoots).toEqual([0])
+ })
+it.each(['```js\nA','> ```js\n> A','- ```js\n  A'])(
+ 'installed nested unclosed literal stays atomic: %j',raw=>{
+  const b=open(raw),at=text(b.doc,'A')
+  reject(b,state(b,at).tr.step(new AttrStep(at-1,'language','ts')))
+  reject(b,state(b,at).tr.insertText('Z',at,at+1))
+ })
