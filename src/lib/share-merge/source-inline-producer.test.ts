@@ -76,3 +76,32 @@ it.each([
  ['\\*A\\* _Keep_\n','`*A*` _Keep_\n'],
  ['`*A*` _Keep_\n','\\*A\\* _Keep_\n'],
 ] as const)('installed final I1 real code toolbar changes lexical context: %s',(raw,expected)=>toolbar(raw,1,4,{kind:'code'},expected));
+
+
+it.each([
+ ['>\n> [r]: /u\n',[0,0],'>Z\n>\n> [r]: /u\n'],
+ ['\uFEFF>\r\n> [r]: /u\r\n',[0,0],'\uFEFF>Z\r\n>\r\n> [r]: /u\r\n'],
+ ['- \n  [r]: /u\n',[0,0,0],'- Z\n  \n  [r]: /u\n'],
+ ['> - \n>   [r]: /u\n',[0,0,0,0],'> - Z\n>   \n>   [r]: /u\n'],
+ ['-\n  [r]: /u\n',[0,0,0],'- Z\n  \n  [r]: /u\n'],
+ ['> -\n>   [r]: /u\n',[0,0,0,0],'> - Z\n>   \n>   [r]: /u\n'],
+] as const)('installed definition-only first and second input preserve source %j',(raw,path,expected)=>{
+ const opened=createSourceSession(raw);if(!opened.ok)throw Error(opened.reason);let base=opened.session;
+ const container=document.createElement('div');document.body.append(container);let dispatched=0;
+ const p=at(base.doc,path),view=new EditorView(container,{state:EditorState.create({doc:base.doc,selection:TextSelection.create(base.doc,p)}),dispatchTransaction(tr){
+  const previous=base,r=applySourceBlockTransaction(base,tr);expect(r.ok,r.ok?undefined:r.reason).toBe(true);if(!r.ok)throw Error(r.reason);
+  expect(r.session.doc.eq(tr.doc)).toBe(true);
+  for(const [i,old] of previous.protectedSources.entries()){
+   const shift=r.edits.filter(e=>e.to<=old.sourceFrom).reduce((n,e)=>n+e.text.length-e.to+e.from,0),current=r.session.protectedSources[i]!;
+   expect(current).toEqual({...old,sourceFrom:old.sourceFrom+shift,sourceTo:old.sourceTo+shift});
+   expect(r.session.source.slice(current.sourceFrom,current.sourceTo)).toBe(previous.source.slice(old.sourceFrom,old.sourceTo));
+  }
+  base=r.session;dispatched++;view.updateState(view.state.apply(tr));
+ }});
+ try{
+  expect(view.state.selection.$from.parent.content.size).toBe(0);view.dispatch(view.state.tr.insertText('Z'));expect(base.source).toBe(expected);
+  view.dispatch(view.state.tr.insertText('Q'));expect(base.source).toBe(expected.replace('Z','ZQ'));expect(dispatched).toBe(2);
+  const reopen=createSourceSession(base.source);expect(reopen.ok).toBe(true);if(reopen.ok)expect(reopen.session.doc.eq(view.state.doc)).toBe(true);
+  expect(opened.session.source).toBe(raw);
+ }finally{view.destroy();container.remove()}
+});

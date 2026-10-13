@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **Shared editor source preservation supports continuous typing in definition-only empty quote and list paragraphs.** Installed consumers cover first input and text entered immediately after deleting a marked or unmarked point note, while retaining reference-definition bytes.
+
 - **Shared editor source preservation fixes code-toolbar entity/escape toggles and removal of marked point notes.** Installed-core regressions cover real toolbar commands and note popup removal while retaining neighbouring Markdown and surviving mark wrappers.
 
 - **Shared editor annotation preservation covers the actual note popup and insert command.** Installed-core checks retain annotated Markdown while adding, editing and removing range or point notes, including certified empty files, quote paragraphs and table cells. Inline toolbar consumers now run with the actual DOM test environment; full file collaboration UI and history integration remain in progress.

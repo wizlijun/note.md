@@ -92,3 +92,16 @@ it('installed final I2 real removed marked point supports a reopened session and
  const first=mount('***{>>原注<<}***\n',[0]);let removed='';try{openEditForAnchor(first.view,first.from,new DOMRect(0,0,1,1));noteUi.edit!.remove();removed=first.source();expect(removed).toBe('')}finally{first.destroy()}
  const next=mount(removed,[0]);try{insertNoteRich(next.view,'?');expect(next.source()).toBe('{>>?<<}');noteUi.edit!.save('新注');expect(next.source()).toBe('{>>新注<<}');noteUi.edit!.remove();expect(next.source()).toBe('')}finally{next.destroy()}
 });
+
+
+it.each(['{>>原注<<}','**{>>原注<<}**'])('real definition-only popup removal supports same-session consecutive text: %s',point=>{
+ const raw='>'+point+'\n>\n> [r]: /u\n',m=mount(raw,[0,0]);
+ try{
+  openEditForAnchor(m.view,m.from,new DOMRect(0,0,1,1));noteUi.edit!.remove();expect(m.source()).toBe('>\n> [r]: /u\n');
+  m.view.dispatch(m.view.state.tr.insertText('Z',2));expect(m.source()).toBe('>Z\n>\n> [r]: /u\n');
+  m.view.dispatch(m.view.state.tr.insertText('Q',3));expect(m.source()).toBe('>ZQ\n>\n> [r]: /u\n');
+  expect(m.values).toHaveLength(3);expect(m.flushed).toHaveBeenCalledTimes(1);
+ }finally{m.destroy()}
+ const reopened=mount('>ZQ\n>\n> [r]: /u\n',[0,0]);
+ try{reopened.view.dispatch(reopened.view.state.tr.insertText('R',4));expect(reopened.source()).toBe('>ZQR\n>\n> [r]: /u\n')}finally{reopened.destroy()}
+});
