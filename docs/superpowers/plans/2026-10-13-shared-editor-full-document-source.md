@@ -703,7 +703,7 @@ node scripts/check-editor-kit-build.mjs
 不扩大真实 browser gate：复跑已批准 Task1 单块甲→乙的现有 harness，记录浏览器版本、installed root SHA；不把 core多段单元测试报告成Kit多块成功。使用已有安装路径，若不存在即报告环境缺项，禁止触发安装：
 
 ```sh
-env PLAYWRIGHT_MODULE=/Users/bruce/.npm/_npx/fd3bca3c548369c0/node_modules/playwright/index.mjs node scripts/check-source-fidelity-browser.mjs
+env SOURCE_FIDELITY_OUTPUT_DIR=.superpowers/sdd/2026-10-13-shared-editor-full-document-source/task3-browser SOURCE_FIDELITY_CACHE_DIR=.superpowers/sdd/2026-10-13-shared-editor-full-document-source/task3-vite-cache PLAYWRIGHT_MODULE=/Users/bruce/.npm/_npx/fd3bca3c548369c0/node_modules/playwright/index.mjs node scripts/check-source-fidelity-browser.mjs
 ```
 
 - [ ] **3.8 actual dependency 与 gzip 门禁（host根执行）**。下面脚本输出可存档JSON，不读取秘密配置。
