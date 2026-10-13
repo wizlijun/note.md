@@ -126,3 +126,5 @@ Ruling: 本 final fix 不扩展 definition-only 空体 capture/materialization�
 - verifiedMembers: 6751
 
 每一raw member SHA/bytes及MANIFEST已全部回读核验；收尾命令与tool metadata位于同目录post-archive-closure，避免归档时改变源日志。
+
+收尾已完成：canonical逐member回读后，39项后继输入按archive/manifest/member SHA提取到source-consumer-closure；仅删除本阶段own的6750文件、53826362 bytes，sibling目录元数据保持。收尾文档提交22d3359e0a644e9ad92ecabe1fff9a3c2811bf7b；该SHA是文档记录，不是产品发行。精确清理证据见post-archive-closure/evidence/own-cleanup-verified。
