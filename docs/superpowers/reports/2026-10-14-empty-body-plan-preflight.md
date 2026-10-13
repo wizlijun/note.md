@@ -20,3 +20,7 @@ Ruling: 只准计划点名的两条empty-cell和一条top blank旧能力断言�
 Ruling: 保留main gzip81920门槛，当前80838，不在执行前涨预算；实际超限应携产物数据交root裁定 — 不知道实际增量时提前放宽无依据 — 成本是Task2可能需优化或明确更改预算，不能换入口或压缩参数隐瞒。
 
 Ruling: Task1允许仅恢复fence wrapper的原installed alternates（preserveAlternates=true），新增实际parseMarkdown/parseMarkdownAsync与source capture的paragraph后fence、list前置P后fence回归 — c488d235新增capture wrapper意外清空markdown-it原paragraph/reference/blockquote/list alternates，导致本Task批准raw被误读inline code；这是未发布前置引入的grammar回归，不是有意扩legacy语法 — 成本为当前BASE上的legacy行为发生修正，必须明确例外并核定实际grammar/类型与相关回归，不批量调整其它规则、旧tests或strict doc.eq。
+
+Ruling: Task1精准迁移source-file-window.spec.ts中existing rich entry parses one changed paragraph locally in 100/1000 roots两条blockLinesVisited预期227→245，保持48实际规则、3inline、1runner及local/完整oracle等其余断言 — env-local三种container wrapper记录入口活动行表，在三root窗口实增18次读取，两个规模同245，未新增parser/tokenize；实际失败t1-existing-capture-cache-regressions为158通过2仅计数失败 — 成本为有界常数读取增加，须报告新实际六family计数而不能沿用nested旧数；不改其它旧测试或扩大源权限。
+
+Ruling: Task1同两条source-file-window计数最终迁移为227→233，明确取代前条245目标；保留原245失败记录 — writer去除list/footnote未使用marker的冗余行表读取后，同输入t1-window-counter-after-minimal-reads实测100/1000均233，48规则/3inline/0nested/local不变，仅quote入口保留必要6次读取 — 成本缩至有界6次读取，仍不改其它断言或隐瞒本次旧227失败；不能将优化前245套用最终源码。

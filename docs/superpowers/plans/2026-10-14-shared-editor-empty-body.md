@@ -399,3 +399,7 @@ env pnpm_config_verify_deps_before_run=false pnpm run check:editor-kit
 完成矩阵必须逐项列空文件/blank、真实与补齐cell、ATX、task/list/quote/schema首P、closed empty code含nested、emptyfrontmatter、现有emptyfootnote、Enter新段链；有一项未实现则本空正文闭包未完成，不能把安全拒绝写成UI成功。marks/point后继明确复用capturedEmptyBodies；未闭fence与新math正文UI不在本稿权限内。
 
 Ruling: Task1允许仅恢复fence wrapper的原installed alternates（preserveAlternates=true），新增实际parseMarkdown/parseMarkdownAsync与source capture的paragraph后fence、list前置P后fence回归 — c488d235新增capture wrapper意外清空markdown-it原paragraph/reference/blockquote/list alternates，导致本Task批准raw被误读inline code；这是未发布前置引入的grammar回归，不是有意扩legacy语法 — 成本为当前BASE上的legacy行为发生修正，必须明确例外并核定实际grammar/类型与相关回归，不批量调整其它规则、旧tests或strict doc.eq。
+
+Ruling: Task1精准迁移source-file-window.spec.ts中existing rich entry parses one changed paragraph locally in 100/1000 roots两条blockLinesVisited预期227→245，保持48实际规则、3inline、1runner及local/完整oracle等其余断言 — env-local三种container wrapper记录入口活动行表，在三root窗口实增18次读取，两个规模同245，未新增parser/tokenize；实际失败t1-existing-capture-cache-regressions为158通过2仅计数失败 — 成本为有界常数读取增加，须报告新实际六family计数而不能沿用nested旧数；不改其它旧测试或扩大源权限。
+
+Ruling: Task1同两条source-file-window计数最终迁移为227→233，明确取代前条245目标；保留原245失败记录 — writer去除list/footnote未使用marker的冗余行表读取后，同输入t1-window-counter-after-minimal-reads实测100/1000均233，48规则/3inline/0nested/local不变，仅quote入口保留必要6次读取 — 成本缩至有界6次读取，仍不改其它断言或隐瞒本次旧227失败；不能将优化前245套用最终源码。
