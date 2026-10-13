@@ -585,3 +585,9 @@ Task2文件allowlist相应新增上述source-structure.ts具名helper；直接he
 ## Task2 实测预算裁定
 
 Ruling: 本阶段 core main gzip 局部预算从98304调整为102400 bytes（100 KiB），主spec share-editor最终900 KiB硬门槛不变 — 实际全exports同参数产物100204，1230项全量通过；只读审查三处重复候选均属独立权限/capture闭包且无足够低风险删减，不为1900 bytes差额引入重构或删校验 — 成本为局部预算增加4096 bytes、当前较前置88537增加11667 bytes；原超限证据保留，不代表最终网页bundle已达标。
+
+## Whole-range final 窄修复裁定
+
+Ruling: final I1允许仅对真实code mark添加/移除实际覆盖的文本片段，按原PM字符和目标code词法确定性重编码必要payload；未改code上下文/未选正文继续保原raw，delimiter/padding仍用既有事实和工具 — 三个实际toggleMark的独立expected均可strict表达，单保raw会改变entity/escape含义并被semantic-mismatch拒绝 — 成本是选区内必要entity/escape/空白表示变化，不是整body格式归一；原Step/atomic/surrogate/跨prefix权限与最终strict不放宽，无第二parser/试parse/serialize后diff。
+
+Ruling: final I2允许point叶真实删除时一并删除因此不再覆盖任何存活内容的actual enclosing mark wrapper，并以该完整actual正文边界核原root自有terminal EOL；有存活邻字的wrapper必须保留 — 旧syntax-only规则对唯一带strong point删除会遗留水平线，独立空串expected严格等于目标doc — 成本仅失去覆盖内容的原wrapper及既有合法终止符删除，不按raw邻接猜delimiter，不授一般atom/结构权限；nested/cell/protected/同代事实与失败原子性保持。
