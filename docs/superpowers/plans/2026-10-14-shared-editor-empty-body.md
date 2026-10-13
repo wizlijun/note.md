@@ -403,3 +403,5 @@ Ruling: Task1允许仅恢复fence wrapper的原installed alternates（preserveAl
 Ruling: Task1精准迁移source-file-window.spec.ts中existing rich entry parses one changed paragraph locally in 100/1000 roots两条blockLinesVisited预期227→245，保持48实际规则、3inline、1runner及local/完整oracle等其余断言 — env-local三种container wrapper记录入口活动行表，在三root窗口实增18次读取，两个规模同245，未新增parser/tokenize；实际失败t1-existing-capture-cache-regressions为158通过2仅计数失败 — 成本为有界常数读取增加，须报告新实际六family计数而不能沿用nested旧数；不改其它旧测试或扩大源权限。
 
 Ruling: Task1同两条source-file-window计数最终迁移为227→233，明确取代前条245目标；保留原245失败记录 — writer去除list/footnote未使用marker的冗余行表读取后，同输入t1-window-counter-after-minimal-reads实测100/1000均233，48规则/3inline/0nested/local不变，仅quote入口保留必要6次读取 — 成本缩至有界6次读取，仍不改其它断言或隐瞒本次旧227失败；不能将优化前245套用最终源码。
+
+Ruling: Task1 fix1精确迁移source-block-fidelity.spec.ts两处旧空正文拒绝：preserves opaque references and their synthetic paragraphs中的synthetic键X改成功且expected为`[Alpha][ref]\n\nX\n\n[ref]: /url "T"\n\nTail`，keeps serializer limitations and partial surrogate edits fail closed仅empty文件键A改成功且source为`A`；原reference/未闭fence/partial-surrogate等断言保持 — 新扩展的I1 guard回归真实281/283，两失败是本Task已批准single-step能力与旧负例冲突，不是应恢复的限制 — 成本为新增一个精确旧测试文件allowlist；保留实际失败，不称ab105全量通过，不扩多步权限或批量迁移。
