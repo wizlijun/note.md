@@ -94,7 +94,7 @@ export function createRichActions(
       if (id === 'copyImage') return !!opts.imageEl
       return true
     },
-    async run(id) {
+    async run(id): Promise<void> {
       if (id in MARK_BY_ID) return toggle(view, MARK_BY_ID[id])
       switch (id) {
         case 'table-align-left': gfmTableCommand({ kind: 'align-column', alignment: 'left' })(view.state, view.dispatch); view.focus(); return
@@ -110,17 +110,17 @@ export function createRichActions(
           catch (e) { console.error('copy image failed', e) }
           return
         }
-        case 'selectAll': return applySelectAll(view)
+        case 'selectAll': applySelectAll(view); return
         case 'wikilink':  return wrapWikilink(view)
         case 'note': {
           const { insertNoteRich } = await import('../note-anno/note-commands')
-          return insertNoteRich(view)
+          insertNoteRich(view); return
         }
         case 'question': {
           // Same annotation, seeded with `?` — that's what makes it a question
           // to the agent (isQuestionText); the popup caret lands before it.
           const { insertNoteRich } = await import('../note-anno/note-commands')
-          return insertNoteRich(view, '?')
+          insertNoteRich(view, '?'); return
         }
         case 'trace': {
           const { from, to } = view.state.selection
@@ -130,18 +130,18 @@ export function createRichActions(
           return openTraceDelegation(text)
         }
         case 'link':      return toggleLink(view)
-        case 'h1':        return setBlock(view, 'heading', { level: 1 })
-        case 'h2':        return setBlock(view, 'heading', { level: 2 })
-        case 'h3':        return setBlock(view, 'heading', { level: 3 })
-        case 'quote':     return wrapBlock(view, 'blockquote')
-        case 'codeblock': return setBlock(view, 'code_block', { language: '' })
-        case 'bullet':    return wrapList(view, 'bullet_list')
-        case 'ordered':   return wrapList(view, 'ordered_list')
-        case 'task':      return insertTaskList(view)
-        case 'hr':        return insertAtom(view, 'horizontal_rule')
-        case 'table':     return insertTable(view)
-        case 'math':      return insertAtom(view, 'math_block', { value: '' })
-        case 'mermaid':   return setBlock(view, 'code_block', { language: 'mermaid' })
+        case 'h1':        setBlock(view, 'heading', { level: 1 }); return
+        case 'h2':        setBlock(view, 'heading', { level: 2 }); return
+        case 'h3':        setBlock(view, 'heading', { level: 3 }); return
+        case 'quote':     wrapBlock(view, 'blockquote'); return
+        case 'codeblock': setBlock(view, 'code_block', { language: '' }); return
+        case 'bullet':    wrapList(view, 'bullet_list'); return
+        case 'ordered':   wrapList(view, 'ordered_list'); return
+        case 'task':      insertTaskList(view); return
+        case 'hr':        insertAtom(view, 'horizontal_rule'); return
+        case 'table':     insertTable(view); return
+        case 'math':      insertAtom(view, 'math_block', { value: '' }); return
+        case 'mermaid':   setBlock(view, 'code_block', { language: 'mermaid' }); return
         case 'date':      return insertDate(view)
         case 'image': {
           const { open } = await import('@tauri-apps/plugin-dialog')
