@@ -561,3 +561,7 @@ Ruling: 唯一finalfix同时修M1冻结retry plan自比较测试；M2重复/删�
 Ruling: Whole-phase finalfix采用既有 esbuild 构建时将单一 browser entry 与真实共享依赖闭合成 inline runtime，经一个 Vite plugin 注入；不改 diff 内核、不复制 scanner/policy。构建确定、浏览器图禁止宿主/Node模块、无新运行时网络依赖；dev 依赖变更必须失效缓存。仅必要 Vite/Vitest/独立 SSR 入口接线。原 RED 不变，新 probe 对 I1 先核输入 veto/IDB 未变再合法追加提交，I2/I3 原输入和验收保持。— 显式打包闭包避免函数 toString 丢 import；成本是窄构建接线与生命周期适配。
 
 Ruling: finalfix fallback仅在 displaySource(currentRaw)===currentRaw 时直接采用 textarea.value；此恒等路径无需 offset/EOL 重建，BOM按实际输入保留。含 CR 继续唯一 sourceFromDisplay，既有 Source diff-limit 合同不放宽；两个路径最终候选均先过 owner floor。— 保留旧 fallback 超限草稿本地保存→提交拒绝→缩小恢复能力，不是格式差异过滤或第二 serializer。
+
+Ruling: 用户明确要求“请直接发版”，取消尚未启动的 scoped rereview 和额外验收轮次，复用已通过4834测试、构建与真实协作链直接发布。— 最新用户指令优先；未验平台和旧CPU记录保留。— 本轮修复未新增独立复审席位，不把未验写为通过。
+
+发行完成：HOST v6.1014.1 / f52d3db852eeb7e62938a39cf66dd6329427b2cc、CORE main97fcc3e、Worker d1eb1259（100%）、Memory2.5.3。七个公开应用资产与本地及GitHub摘要相等、更新签名/latest正确，插件R2/签名/KV公网核验通过。详见 ../reports/2026-10-14-v6.1014.1-release-verification.md。
