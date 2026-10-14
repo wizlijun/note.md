@@ -844,3 +844,6 @@ Ruling: Task3公开file factory复用已有KitCSS资源，允许将main现有纯
 **表示性矩阵。** 精确expected独立于serializer：路径空格/括号/%20/%25/中文/Windows、alt括号与ampersand、title quotes、table pipes、reference definitions、annotation/HTML外层marks、mixed EOL/无EOF。无法严格roundtrip的非canonical attrs拒绝且不改目标doc。相同attrs不同raw occurrence不得串用。probe零写，失败后合法请求可继续；unknown Step/subclass/假docs/maps/外来raw facts/protected编辑继续拒绝。
 
 Ruling: Task5允许仅迁移source-math-producer.spec.ts具名旧negative中的canonical math+image混合新生单ReplaceStep为正例，独立expected `__Keep__ $x$![](/x)`；同组empty math与birth后partial payload仍负例，原所有其它guard不变。真实installed独立image-design-mark-mixed已证原ReplaceStep(6,8,[math(x),image(/x)])的目标doc与该raw完整parser严格doc.eq，现拒绝源于未实现image能力 — 标准剪贴板混合内容不应凭旧缺能力负例继续退化 — 成本是一个边界用例迁移，Task5仍须实际producer GREEN/F1及审核，独立probe不当实现证据。
+
+
+Ruling: Task3真实Mod+B退出粗体后紧接字母仍丢键，属于必修输入边界，不能换成先空格的验收规避。批准在source-inline-recipe既有adjacentEntities中，仅已保留em/strong wrapper内侧完整Unicode scalar为标点/符号、外侧本链新生scalar（before未定义）非空白/非标点符号时，对新生scalar使用现有数字entity emission；保留旧scalar/wrapper字节，完整左右surrogate分类，不改旧字范围、不做parse失败fallback、不扩其它mark权限。ROOT独立root-kept-mark-flanking-proof真实installed证明strong/em左右+x/中/𐐀共12例原单ReplaceStep当前semantic-mismatch，而独立entity expected完整parser严格doc.eq；writer普通无标点strong/em边界现状成功不变 — 成本是局部delimiter flanking兼容修补及source-inline-input/source-inline-recipe原真实输入/边界回归，前驱2eb07明确，须完整CORE gates后再commit/install与实际浏览器复验，原失败保留。
