@@ -85,7 +85,7 @@ export function acceptsOwnerFloor(floor:ReadonlyMap<string,number>,candidate:str
 const base='\uFEFF{==主人==}{>>保留<<}\r\n\r\n风险。\r\n'
 const raw='\uFEFF{==主人==}{>>保留<<}\r\n\r\n{==风险==}{>>请量化<<}！\r\n'
 const draft:DraftV2={v:2,lineageId:'L',snapshotId:'S1',
- base:{'a.md':{hash:sha256Hex(base),markdown:base}},after:{'a.md':raw},annotationKinds:{}}
+ base:{'a.md':{hash:sha256Sync(base),markdown:base}},after:{'a.md':raw},annotationKinds:{}}
 const r=buildGuestSubmission({project_id:'P',draft,submissionId:'I',client:{kind:'browser',version:'test-version'}})
 const p=JSON.parse(r.body)
 expect(p.edits[0].afterMarkdown).toBe('\uFEFF{==主人==}{>>保留<<}\r\n\r\n风险！\r\n')
@@ -93,11 +93,11 @@ expect(anchor(p.edits[0].afterMarkdown,p.annotations[0].selector).status).toBe('
 expect(r.body).not.toContain('ownerAnnotationsTouched')
 ```
 
-导入明确：`DraftV2` from ../project-share/types，`sha256Hex,anchor` from ../share-merge；在guest-submission.test相对路径据文件改为 `../share-merge` / `./types`。另以相同id/version输入browser/notemd，剔除client后deepEqual；无变更无edit；批注only不造edit；point、重复owner、kind hash、5MiB边界、message/name非法、非base文件拒绝。
+导入明确：`DraftV2` from ../project-share/types，`anchor` from ../share-merge，`sha256Sync` from ../share-merge/hash；在guest-submission.test相对路径据文件改为 `../share-merge` / `./types`。另以相同id/version输入browser/notemd，剔除client后deepEqual；无变更无edit；批注only不造edit；point、重复owner、kind hash、5MiB边界、message/name非法、非base文件拒绝。
 
 运行 `env pnpm_config_verify_deps_before_run=false pnpm exec vitest run src/lib/project-share/guest-submission.test.ts src/share-editor/owner-policy.test.ts`；先建立可编译的最小接口，再记录实际组包/保护行为失败；缺导出或编译错误单列，不算行为RED。
 
-- [ ] **1.2 实现统一builder。** path排序遍历draft.after，必须有base；extractGuestAnnotations→clean!==base才add edit；selector kind由 `sha256Hex(exact+'\0'+comment).slice(0,16)`查annotationKinds；blocks用真实propose(base,base,clean).hunks计数。完整协议字段校验后只JSON.stringify一次。outer客户端负责pending持久化，不在pure builder读取时钟/随机/fetch；同输入确定。
+- [ ] **1.2 实现统一builder。** path排序遍历draft.after，必须有base；extractGuestAnnotations→clean!==base才add edit；selector kind由 `sha256Sync(exact+'\0'+comment).slice(0,16)`查annotationKinds；blocks用真实propose({path,base,ours:base,theirs:clean}).hunks计数。完整协议字段校验后只JSON.stringify一次。outer客户端负责pending持久化，不在pure builder读取时钟/随机/fetch；同输入确定。
 
 **buildSubmission公开API边界（Task1首次实现与测试）：** `ShareEditorHandle.buildSubmission(input)`只flush实际owner、capture一致draft并调用builder，返回spec既定body/id/summary；不持久pending、不host.submit、不POST、不更新receipt/submitted。builder仍不取时钟/随机；handle每次新build生成一次id并传入，预览丢弃该结果无提交记录持久化副作用。flush可走普通draft保存；这是原输入生命周期，不能误标为冻结pending。用host.submit与atomic pending spies证明build/preview网络0次、冻结0次；flush失败不产包/不发送。提交唯一orchestrator在Task3，Task1 UI不能另装发送handler。正式同步spec§12.6措辞以区分API返回与用户submit流程，不改wire。
 
@@ -408,3 +408,17 @@ expect(p.actions.filter(x=>x.path==='a.md')).toEqual([])
 - 主spec已同步source-only ZIP、外部reader清单、真实file源码合同、批注floor局限、精确保存回执和纯build边界；I7语料/判据、禁令、平台能力、900KiB预算未放宽。
 - 免费CPU旧10ms遗留保持失败。Task2只实现kit运输，不顺带盲改上传状态机。Task8先按当前冻结部署复测small；若仍失败，停止依赖的线上验收并基于保存的真实事件重新规划最小等价控制JSON读取优化，方案线索在selected-input/free-worker-cpu-preflight.md。任何此类产品修补须独立记录/审查/重新部署验证，不提高套餐或门槛；其余独立实现继续。
 - 实机缺证逐行保留，不用合成composition替代；用户明确移动端保留待验，不重复询问。正式发行说明必须列明未验和失败项，不能称全平台通过。
+
+
+Ruling: Task1 M0 追加具名迁移 CORE src/__tests__/code-language-producer.spec.ts 的 routes exact renderer language 参数化用例：仅给该真实 NodeView factory 显式注入测试 MermaidLoader，保留原 language attrs、大小写精确识别、preview/edit toggle、raw roundtrip 和零 docChanged 断言，不将预览预期删掉。ROOT 已读实际用例及 t1-m0-full-tests 原日志：1506/1508，旧mermaid无loader预览断言与已批准M0默认迁移矛盾；另一失败是新测试把copy按钮SVG当预览，应修准确DOM选择器并单列fixture错误。成本是一处具名旧fixture接线迁移；生产能力不扩、原失败保留，新增strict include/精确allowlist，修后覆盖并重新CORE full/type/build/artifact通过再提交安装。
+
+Ruling: Task1 在既有 FileMountWiring 新增内部 styles?:'host'，只在明确指定时跳过 injectKitCss；默认及既有独立Kit沿原CSS注入，externalSource不冒充为分享模式。ShareFileSessionOptions可选透传该内部选择，只有本Task ShareEditor显式指定host，由reader styleHead及share-editor.css提供样式。ROOT核实际file-main/kit-styles后确认现行自动link会引入editor-kit-v1.css，与分享冻结正文主题/字体闭包冲突。须先真实mount RED，后断分享无该link且内建Source/几何/proposal/正文主题保持、缺省Kit仍CSS一次加载，不改已有持久化ACK/Source逻辑。成本是最小宿主样式所有权接缝；不扩公开ShareEditor API、不关闭资源门槛，实际两主题/字体闭包仍由Task2/3验。
+
+
+Ruling: Task1 同步纯builder使用既有 share-merge/hash.ts 的 sha256Sync；计划示例误把公开async sha256Hex的Promise当字符串，ROOT已核其实现仅return sha256Sync而无其它差异。只修精确import/fixture及kind hash调用；propose沿既有对象参数补path，使用{path,base,ours:base,theirs:clean}。不改内核公开API、不新算法、不把builder改async；测试可await公开sha256Hex对照同输入。成本是纠正计划接口笔误，原错误运行分列工具/接线失败不当业务RED；真正builder行为RED/GREEN另证。
+
+
+Ruling: Task1媒体限制在share-editor/media.ts内以真实PM Plugin提供image与html_inline NodeView，ShareFileSessionOptions仅追加plugins?:Plugin[]透传既有FileMountWiring.plugins，保持CORE schema和唯一factory不变。ROOT已核schema.ts：远端image直接img.src，video直接src/load，audio/source经部分resolver；这些HTML媒体均在html_inline，html_block原本只pre源码。故仅bundleMediaResolver不能实现原Task1自动外部资源零加载合同。共享viewer只把确认附件映成data image，html_inline显示原源码而不创建活跃媒体；需真实factory证明这些NodeViews确实优先消费，不仅单独测试helper，并覆盖Markdown远端/协议相对、本机/fileURL、HTML img/srcset/video/poster/audio/source零请求与批准附件显示、Source/raw/history保持。成本是分享端窄NodeView装配与纯plugin透传，不改普通桌面媒体、不增解析器/serializer，不能事后MutationObserver补救已发请求。
+
+
+Ruling: Task1 main 的 owner observer 除派生徽标，还须短防抖复用既有 ShareFileSession.save 完成停留编辑的耐久保存；不得另造 ACK/FIFO。ROOT 已核 main 当前只有 build/switch/close 保存，ShareEditorHost 无另一个 onChange 入口，故仅停留编辑会缺耐久保存。计时器捕获实际 session/lineage，在途保存后的继续输入须再次排入，切换/关闭取消本 timer 并由原 close 保存；失败保留 raw 并明确提示且可重试。加实际 Source 输入→durable save、失败留稿以及 pending/submit 零副作用测试，重跑受影响 main/types/UI。成本是一处必要生命周期触发器；不改 wire、不重复持久化协议，HOST 全套4695此前结果据原输入如实保留。
