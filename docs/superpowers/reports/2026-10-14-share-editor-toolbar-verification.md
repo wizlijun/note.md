@@ -8,4 +8,4 @@
 
 证据及截图：.superpowers/sdd/2026-10-14-share-editor-toolbar/evidence/toolbar-real-browser-navigation；类型/测试/build的完整执行记录位于同OWN。
 
-本次源码修改不改变Worker。未发布新应用版本；旧分享包含冻结资源，需由含本次修复的应用重新发布项目后应用新界面。
+本次源码修改不改变Worker。已随 [v6.1014.2](2026-10-14-v6.1014.2-release-verification.md) 正式发布；旧分享包含冻结资源，升级后重新发布相应项目即可应用新界面，继续沿用原链接。
