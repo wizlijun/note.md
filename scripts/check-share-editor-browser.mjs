@@ -1,5 +1,5 @@
-import { projectShareBrowserSource } from './project-share-browser.mjs'
 #!/usr/bin/env node
+import { projectShareBrowserSource } from './project-share-browser.mjs'
 // Actual serialized reader + content-addressed IIFE. No replacement editor module.
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
@@ -84,7 +84,7 @@ try {
   await page.locator('.ProseMirror').waitFor()
  }
  async function source(page,text) {
-  await page.getByRole('button',{name:'Source',exact:true}).click()
+  await page.getByRole('tab',{name:'源码',exact:true}).click()
   if(text!==undefined)await page.locator('.kit-source-ta').fill(text)
  }
  async function raw(page) {return page.evaluate(()=>window.live.after['a.md'])}
@@ -94,7 +94,65 @@ try {
    try{return await new Promise((r,j)=>{const tx=db.transaction('data'),store=tx.objectStore('data'),o=store.getAll();tx.oncomplete=()=>r(o.result.filter(v=>v?.v===2));tx.onabort=()=>j(tx.error)})}finally{db.close()}
   })
  }
- if(process.env.SHARE_EDITOR_BROWSER_CASE==='receipts') {
+ if(process.env.SHARE_EDITOR_BROWSER_CASE==='toolbar') {
+  const {page,context}=await open()
+  await page.goto(origin+'/project/mock')
+  assert.ok(await page.locator('#collaboration').isHidden())
+  assert.equal(requests.length,0)
+  await page.goto('about:blank')
+  await enter(page)
+  const rich=page.getByRole('tab',{name:'富文本',exact:true}),sourceTab=page.getByRole('tab',{name:'源码',exact:true})
+  assert.equal(await rich.getAttribute('aria-selected'),'true')
+  assert.equal(await rich.locator('svg').count(),1)
+  await rich.focus();await page.keyboard.press('ArrowRight')
+  await page.waitForFunction(()=>document.querySelector('[role=tab][aria-label="源码"]').getAttribute('aria-selected')==='true')
+  const changed='第一句！\n\n第二句！\n'
+  await page.locator('.kit-source-ta').fill(changed)
+  await page.evaluate(()=>window.realHandle.buildSubmission({}))
+  for(const viewport of [{width:1200,height:850},{width:390,height:844},{width:900,height:600},{width:390,height:480}]) {
+   await page.setViewportSize(viewport)
+   const geometry=await page.evaluate(()=> {
+    const rect=selector=>document.querySelector(selector).getBoundingClientRect()
+    return {textarea:rect('.kit-source-ta').height,document:rect('.share-editor-document').height,
+     enhanced:rect('#enhanced-editor').height,width:document.documentElement.scrollWidth,viewport:innerWidth}
+   })
+   assert.ok(geometry.textarea>=120,JSON.stringify(geometry))
+   assert.ok(Math.abs(geometry.textarea-geometry.document)<=1,JSON.stringify(geometry))
+   assert.equal(geometry.enhanced,Math.max(240,viewport.height-(viewport.width<=650?124:118)))
+   assert.ok(geometry.width<=geometry.viewport,JSON.stringify(geometry))
+   evidence.push({case:'toolbar-source-height',viewport,geometry})
+  }
+  await sourceTab.focus();await page.keyboard.press('Home')
+  await page.waitForFunction(()=>document.querySelector('[role=tab][aria-label="富文本"]').getAttribute('aria-selected')==='true')
+  assert.equal(await raw(page),changed)
+  await page.getByRole('button',{name:'我的修改',exact:true}).click()
+  assert.equal(await page.locator('aside[aria-label="我的修改"] button').count(),2)
+  await rich.focus();await page.keyboard.press('End')
+  await page.locator('.kit-source-ta').waitFor()
+  assert.ok(await page.locator('.kit-source-ta').evaluate(el=>el.getBoundingClientRect().height)>=120)
+  await page.getByRole('button',{name:'我的修改',exact:true}).click()
+  await page.locator('#collaboration-options summary').click()
+  const menuRow=page.locator('#baseline');await menuRow.hover()
+  assert.equal(await menuRow.evaluate(el=>getComputedStyle(el).color),'rgb(255, 255, 255)')
+  await page.screenshot({path:resolve(output,'toolbar-mobile-source.png'),fullPage:true})
+  await page.locator('#collaboration-options summary').click()
+  await page.locator('#edit').click()
+  assert.ok(await page.locator('#document').isVisible())
+  await page.locator('#edit').click();await sourceTab.click()
+  assert.equal(await page.locator('.kit-source-ta').inputValue(),changed)
+  await page.setViewportSize({width:1200,height:850})
+  await page.screenshot({path:resolve(output,'toolbar-desktop-source.png'),fullPage:true})
+  violations.push(...await page.evaluate(()=>window.cspViolations))
+  assert.deepEqual(errors,[]);assert.deepEqual(violations,[])
+  await context.close()
+  html=buildProjectBundle(snapshot,origin+'/feedback/mock')
+  const fallback=await open();await fallback.page.setViewportSize({width:390,height:844})
+  await fallback.page.goto(origin+'/project/mock#feedback=local-fixture-token')
+  await fallback.page.waitForFunction(()=>!document.querySelector('#edit').disabled);await fallback.page.locator('#edit').click()
+  assert.equal(await fallback.page.locator('#editor').evaluate(el=>el.getBoundingClientRect().height),720)
+  await fallback.context.close()
+  checks.push('client-icon-tabs-keyboard','source-fills-available-height-and-resizes','mobile-no-horizontal-overflow','changes-panel-bounded','more-menu-global-hover','preview-retains-source','fallback-source-height')
+ } else if(process.env.SHARE_EDITOR_BROWSER_CASE==='receipts') {
   for(const [code,label]of [[404,'已送达，待处理'],[403,'权限不足'],[410,'分享已失效']]) {
    receiptStatus=code;const {page,context}=await open()
    await enter(page);await page.evaluate(async()=>{const db=await new Promise(r=>{const o=indexedDB.open('notemd-project-sharing',1);o.onsuccess=()=>r(o.result)});await new Promise((r,j)=>{const t=db.transaction('data','readwrite');t.objectStore('data').put(['receipt-test'],'kit-project:submitted');t.oncomplete=r;t.onabort=j});db.close()})
@@ -124,7 +182,7 @@ try {
  await source(page,'第一句！\n\n第二句！\n');await page.waitForTimeout(450)
  await page.evaluate(async()=>{await window.realHandle.buildSubmission({});await window.realHandle.buildSubmission({})})
  assert.equal(await page.evaluate(()=>window.calls.submit),0);assert.equal((await stored(page))[0].pending,undefined)
- await page.getByRole('button',{name:'Rich',exact:true}).click();await page.getByRole('button',{name:'我的修改',exact:true}).click()
+ await page.getByRole('tab',{name:'富文本',exact:true}).click();await page.getByRole('button',{name:'我的修改',exact:true}).click()
  assert.equal(await page.locator('aside[aria-label="我的修改"] button').count(),2)
  await page.locator('aside[aria-label="我的修改"] button').first().click()
  await page.waitForFunction(()=>window.live.after['a.md']==='第一句。\n\n第二句！\n')
@@ -141,7 +199,7 @@ try {
  assert.equal(bodies[1],bodies[0]);assert.equal(await page.evaluate(()=>window.calls.build),3)
  let durable=(await stored(page))[0];assert.equal(durable.after['a.md'],'第一句。\n\n第二句！后续\n');assert.equal(durable.pending,undefined)
  evidence.push({case:'503 exact retry and later input',durable,calls});checks.push('lazy-real-IIFE','two-hunks-revert-undo-redo','build-no-submit','double-click-single-flight','503-exact-retry','later-input-retained')
- await page.getByRole('button',{name:'Rich',exact:true}).click()
+ await page.getByRole('tab',{name:'富文本',exact:true}).click()
  await page.evaluate(()=>window.realHost.openFile('b.md'));await page.waitForFunction(()=>document.querySelector('.share-editor-toolbar span').textContent==='b.md')
  await page.screenshot({path:resolve(output,'reader-structure.png'),fullPage:true})
  const geometry=await page.evaluate(()=>({whiteSpace:getComputedStyle(document.querySelector('.ProseMirror')).whiteSpace,badge:getComputedStyle(document.querySelector('.note-badge'),'::before').content,anchor:getComputedStyle(document.querySelector('.moraya-note-anchor'),'::before').content,math:!!document.querySelector('.katex'),table:!!document.querySelector('.ProseMirror table')}))
@@ -236,7 +294,7 @@ try {
   await page.evaluate(()=>{const node=document.querySelector('.ProseMirror p').firstChild,r=document.createRange();r.setStart(node,0);r.setEnd(node,4);const s=getSelection();s.removeAllRanges();s.addRange(r)})
   await page.waitForTimeout(80);await page.getByRole('button',{name:'批注',exact:true}).click();await page.locator('.note-edit textarea').fill('guest selection');await page.locator('.note-edit textarea').press('Enter')
   await page.waitForFunction(()=>window.live.after['b.md']?.includes('guest selection'))
-  await source(page);assert.match(await page.locator('.kit-source-ta').inputValue(),/guest selection/);await page.getByRole('button',{name:'Rich',exact:true}).click()
+  await source(page);assert.match(await page.locator('.kit-source-ta').inputValue(),/guest selection/);await page.getByRole('tab',{name:'富文本',exact:true}).click()
   await page.locator('#file-toggle').click();await page.locator('[data-file="b.md"]').click({button:'right'});await page.locator('#download-file').hover()
   const hover=await page.locator('#download-file').evaluate(el=>({background:getComputedStyle(el).backgroundColor,color:getComputedStyle(el).color}))
   assert.equal(hover.color,'rgb(255, 255, 255)');assert.notEqual(hover.background,'rgba(0, 0, 0, 0)')

@@ -18,7 +18,7 @@ export async function projectShareBrowser(parser: any, zipper?: any, scanCritic?
   const article = $('document')
   const submit = $('submit') as HTMLButtonElement
   const editButton = $('edit') as HTMLButtonElement
-  const desktopLink=document.createElement('a');desktopLink.id='open-notemd';desktopLink.className='reader-button';desktopLink.textContent='在 note.md 中打开';desktopLink.hidden=true;$('collaboration').append(desktopLink)
+  const desktopLink=document.createElement('a');desktopLink.id='open-notemd';desktopLink.className='reader-button menu-row';desktopLink.textContent='在 note.md 中打开';desktopLink.hidden=true;$('collaboration-options').querySelector('.secondary-actions')!.append(desktopLink)
   let path = snapshot.entry
   let editing = false
   let baseline = false
@@ -555,7 +555,10 @@ export async function projectShareBrowser(parser: any, zipper?: any, scanCritic?
     editor.hidden=!editing || !!handle
     enhanced.hidden=!editing || !handle
     article.hidden=editing
-    editButton.textContent=editing?'预览':'编辑 Markdown'
+    editButton.querySelector('span')!.textContent=editing?'预览':'编辑 Markdown'
+    editButton.setAttribute('aria-label',editing?'预览':'编辑 Markdown')
+    editButton.title=editing?'预览':'编辑 Markdown'
+    editButton.setAttribute('aria-pressed',String(editing))
     $('baseline').textContent=baseline?'查看我的修改':'查看发布原文'
     document.title=data.title+' · '+(token?'可编辑':'只读')
     $('collaboration').hidden=!token

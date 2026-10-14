@@ -1,17 +1,28 @@
 @import '../styles/editor-structure.css';
 
-.share-editor-shell { display:flex; flex-direction:column; height:100%; min-height:300px; }
-.share-editor-toolbar { display:flex; flex-wrap:wrap; gap:6px; align-items:center; padding:8px; border-bottom:1px solid color-mix(in srgb, CanvasText 15%, transparent); font:13px/1.4 system-ui; }
-.share-editor-toolbar span { margin-right:auto; }
-.share-editor-toolbar button { border:1px solid color-mix(in srgb, CanvasText 20%, transparent); border-radius:5px; padding:4px 8px; background:Canvas; color:CanvasText; font:inherit; cursor:pointer; }
-.share-editor-toolbar button[aria-pressed=true] { background:Highlight; color:HighlightText; }
-.share-editor-document { flex:1; min-height:0; overflow:auto; }
+.share-editor-shell { display:flex; flex-direction:column; height:100%; min-height:0; overflow:auto; }
+.share-editor-toolbar { display:flex; flex:none; flex-wrap:wrap; gap:8px; align-items:center; padding:6px 0; border-bottom:1px solid color-mix(in srgb, CanvasText 12%, transparent); font:13px/1.4 system-ui; }
+.share-editor-path { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:color-mix(in srgb, CanvasText 60%, Canvas); }
+.share-editor-toolbar button { display:inline-flex; align-items:center; justify-content:center; border:0; border-radius:6px; padding:4px 8px; background:transparent; color:CanvasText; font:inherit; cursor:pointer; }
+.share-editor-toolbar button:hover { background:color-mix(in srgb, CanvasText 7%, Canvas); }
+.share-editor-toolbar button:disabled { opacity:.35; cursor:default; }
+.share-editor-toolbar button[aria-pressed=true] { background:color-mix(in srgb, CanvasText 10%, Canvas); }
+.share-editor-toolbar button:focus-visible { outline:2px solid AccentColor; outline-offset:1px; }
+.share-editor-modes { display:inline-flex; align-items:center; background:color-mix(in srgb, CanvasText 9%, Canvas); border-radius:8px; padding:2px; }
+.share-editor-modes button { width:32px; height:26px; padding:0; opacity:.5; transition:opacity 80ms; }
+.share-editor-modes button:hover { background:transparent; opacity:.85; }
+.share-editor-modes button.active { background:Canvas; box-shadow:0 1px 2px #0002; opacity:1; }
+.share-editor-actions { display:flex; align-items:center; gap:2px; }
+.share-editor-actions button { width:28px; height:28px; padding:0; }
+.share-editor-toolbar svg { display:block; }
+.share-editor-changes { flex:none; max-height:20vh; overflow:auto; padding:0 8px; border-bottom:1px solid color-mix(in srgb, CanvasText 12%, transparent); font:13px/1.5 system-ui; }
+.share-editor-document { flex:1; min-height:120px; overflow:auto; }
 .share-editor-document .file-rich { height:100%; overflow:auto; }
 .share-editor-document .kit-source { height:100%; }
 .share-editor-document .kit-source-hl, .share-editor-document .kit-source-ta { position:absolute; inset:0; margin:0; padding:16px; border:0; box-sizing:border-box; width:100%; height:100%; overflow:auto; white-space:pre-wrap; overflow-wrap:break-word; tab-size:4; font:14px/1.6 ui-monospace, monospace; }
 .share-editor-document .kit-source-ta { resize:none; background:transparent; color:transparent; caret-color:CanvasText; -webkit-text-fill-color:transparent; }
 .share-editor-document .kit-source-hl { pointer-events:none; }
-.share-editor-warning { margin:0; padding:8px; font:13px/1.5 system-ui; }
+.share-editor-warning { flex:none; margin:0; padding:8px; font:13px/1.5 system-ui; }
 .share-editor-document [data-cdr-block-id] { position:relative; }
 .share-editor-document [data-cdr-decoration]::after { content:attr(data-cdr-label); position:absolute; right:6px; top:2px; padding:2px 7px; border-radius:999px; color:#0878d1; background:color-mix(in srgb,#0a84ff 12%,Canvas); font:600 10px/1.5 system-ui; pointer-events:none; }
 .share-editor-document [data-cdr-kind=proposal] { background:color-mix(in srgb,#ff9f0a 7%,transparent); }

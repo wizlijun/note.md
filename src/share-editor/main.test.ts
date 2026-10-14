@@ -19,7 +19,7 @@ async function open(f = fixture()) {
   const handle = await shareEditor.mount(target, f.host, { path: 'a.md' }); handles.push(handle)
   await tick(); return { ...f, handle, target }
 }
-async function button(target: HTMLElement, text: string) { const el = [...target.querySelectorAll('button')].find(b => b.textContent === text)!; el.click(); await tick(); await new Promise(r => setTimeout(r, 0)) }
+async function button(target: HTMLElement, text: string) { const el = [...target.querySelectorAll('button')].find(b => (b.getAttribute('aria-label') ?? b.textContent) === text)!; el.click(); await tick(); await new Promise(r => setTimeout(r, 0)) }
 async function clickNote(target: HTMLElement, kind: 'range' | 'point', note: string) {
   const badge = target.querySelector<HTMLElement>(`${kind === 'range' ? '.note-badge' : '.moraya-note-anchor'}[data-note="${note}"]`)!
   badge.click(); await tick()
@@ -64,14 +64,14 @@ it.each(['range', 'point'] as const)('adjacent owner %s badge cannot bypass owne
   await saveNote(textarea, note)
   expect(target.querySelector('.note-edit')).toBeNull()
   await button(target, '撤销'); await button(target, '重做')
-  await button(target, 'Source')
+  await button(target, '源码')
   expect(target.querySelector<HTMLTextAreaElement>('textarea')?.value).toBe(raw)
 })
 it('real mount is Rich by default; three mode cycles preserve BOM/frontmatter/raw without edits', async () => {
   const { target, handle, draft } = await open()
   expect(target.querySelector('.ProseMirror')).not.toBeNull(); expect(target.querySelector('[data-theme]')?.getAttribute('data-theme')).toBe('frozen-custom')
   expect(document.querySelector('link[href$="editor-kit-v1.css"]')).toBeNull()
-  for (let i = 0; i < 3; i++) { await button(target, 'Source'); await button(target, 'Rich') }
+  for (let i = 0; i < 3; i++) { await button(target, '源码'); await button(target, '富文本') }
   const result = await handle.buildSubmission({})
   expect(JSON.parse(result.body).edits).toEqual([]); expect(draft.after['a.md']).toBe(draft.base['a.md'].markdown)
   expect('rebase' in handle).toBe(true)
@@ -86,7 +86,7 @@ it('build and repeated preview never submit or freeze pending; flush failure doe
 })
 it('switch failure preserves the live editor and Source retry; success flushes before switching', async () => {
   const { handle, target, draft, saveDraft } = await open(fixture('A'))
-  await button(target, 'Source'); const ta = target.querySelector('textarea')!; ta.value = 'B'; ta.dispatchEvent(new Event('input', { bubbles: true }))
+  await button(target, '源码'); const ta = target.querySelector('textarea')!; ta.value = 'B'; ta.dispatchEvent(new Event('input', { bubbles: true }))
   saveDraft.mockRejectedValueOnce(new Error('disk full'))
   await expect(handle.switchFile('b.md')).rejects.toThrow('disk full')
   expect(target.querySelector('textarea')?.value).toBe('B')
@@ -123,7 +123,7 @@ it('real rebase UI installs new authority/floor and explicit undo restores old r
   await saveNote(note, '新主人')
   await button(target, '撤销 rebase'); await vi.waitFor(() => expect(f.live().snapshotId).toBe('S'))
   expect(f.live().base).toEqual(old.base); expect(f.live().after).toEqual(old.after)
-  await button(target, 'Source'); const restored = target.querySelector('textarea')!
+  await button(target, '源码'); const restored = target.querySelector('textarea')!
   restored.value = '撤销后可以编辑'; restored.dispatchEvent(new Event('input', { bubbles: true })); await handle.buildSubmission({})
   expect(f.live().after['a.md']).toBe('撤销后可以编辑')
 })
@@ -174,7 +174,7 @@ it('only navigates shared relative links and wikilinks through the host', async 
 })
 it('autosaves ordinary source input durably without pending or submission', async () => {
   const { target, draft, saveDraft, submit, pending } = await open(fixture('A'))
-  await button(target, 'Source')
+  await button(target, '源码')
   const textarea = target.querySelector('textarea')!; textarea.value = 'Autosaved'; textarea.dispatchEvent(new Event('input', { bubbles: true }))
   await vi.waitFor(() => expect(saveDraft).toHaveBeenCalled())
   expect((await saveDraft.mock.results[0].value).after['a.md']).toBe('Autosaved')
@@ -183,7 +183,7 @@ it('autosaves ordinary source input durably without pending or submission', asyn
 it('autosave failure retains input and the next edit can retry', async () => {
   const { target, draft, saveDraft, host } = await open(fixture('A'))
   saveDraft.mockRejectedValueOnce(new Error('disk full'))
-  await button(target, 'Source'); const textarea = target.querySelector('textarea')!
+  await button(target, '源码'); const textarea = target.querySelector('textarea')!
   textarea.value = 'B'; textarea.dispatchEvent(new Event('input', { bubbles: true }))
   await vi.waitFor(() => expect(host.notify).toHaveBeenCalledWith('草稿保存失败，输入仍保留，请重试或导出'))
   expect(textarea.value).toBe('B'); expect(draft.after['a.md']).toBe('B')
@@ -195,7 +195,7 @@ it('typing during autosave schedules another save of the continuing input', asyn
   const { target, saveDraft, submit, pending } = await open(fixture('A'))
   let release!: () => void
   saveDraft.mockImplementationOnce(async d => { const stored = structuredClone(d); await new Promise<void>(resolve => { release = resolve }); return stored })
-  await button(target, 'Source'); const textarea = target.querySelector('textarea')!
+  await button(target, '源码'); const textarea = target.querySelector('textarea')!
   textarea.value = 'B'; textarea.dispatchEvent(new Event('input', { bubbles: true }))
   await vi.waitFor(() => expect(saveDraft).toHaveBeenCalledOnce())
   textarea.value = 'C'; textarea.dispatchEvent(new Event('input', { bubbles: true })); release()

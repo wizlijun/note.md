@@ -1,5 +1,5 @@
-import { projectShareBrowserSource } from './project-share-browser.mjs'
 #!/usr/bin/env node
+import { projectShareBrowserSource } from './project-share-browser.mjs'
 // Real serialized project-share HTML, isolated mock service, no production data.
 // PLAYWRIGHT_MODULE=/absolute/path/playwright/index.mjs node scripts/check-project-share-browser.mjs
 import assert from 'node:assert/strict'

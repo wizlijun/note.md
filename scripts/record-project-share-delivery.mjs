@@ -104,7 +104,7 @@ try {
  // Observe public handle only; original mount, state and storage remain in use.
  await page.addInitScript(()=>{let module;Object.defineProperty(window,'NotemdShareEditor',{configurable:true,get:()=>module,set:value=>{module=value;const mount=value.mount;value.mount=async(...args)=>{window.realHost=args[1];const handle=await mount(...args);window.realHandle=handle;return handle}}})})
  await page.goto('about:blank');await page.goto(url+'#feedback='+feedbackToken);await page.locator('#edit').click();await page.locator('.ProseMirror').waitFor()
- async function source(raw) {await page.getByRole('button',{name:'Source',exact:true}).click();await page.locator('.kit-source-ta').fill(raw);await page.getByRole('button',{name:'Rich',exact:true}).click();await page.waitForFunction(()=>document.querySelector('.share-editor-toolbar button').getAttribute('aria-pressed')==='true');await page.evaluate(()=>window.realHandle.buildSubmission({}))}
+ async function source(raw) {await page.getByRole('tab',{name:'源码',exact:true}).click();await page.locator('.kit-source-ta').fill(raw);await page.getByRole('tab',{name:'富文本',exact:true}).click();await page.waitForFunction(()=>document.querySelector('.share-editor-modes [role=tab]').getAttribute('aria-selected')==='true');await page.evaluate(()=>window.realHandle.buildSubmission({}))}
  async function current() {return page.evaluate(async()=>{const draft=await window.realHost.loadDraft();return draft.after['README.md']})}
  const editingControls=[]
  for(const [label,pattern] of [['Table',/\|/],['Math formula',/\$\$/]]) {
