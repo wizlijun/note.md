@@ -1,6 +1,9 @@
 import { ownerAnnotationFloor, acceptsOwnerFloor } from './owner-policy'
 /** @vitest-environment happy-dom */
 import { afterEach, expect, it, vi } from 'vitest'
+import { mount, tick, unmount } from 'svelte'
+import NoteEditPopup from '../lib/note-anno/NoteEditPopup.svelte'
+import { noteUi } from '../lib/note-anno/note-ui.svelte'
 import { BrowserMediaResolver } from '@moraya/core/adapters/browser-media-resolver'
 import { createShareFileSession, type ShareFileSession } from './file-session'
 import type { FileRecovery } from '../editor-kit-v2/file-contract'
@@ -224,4 +227,36 @@ it('submission save requires the actual exact durable receipt while ordinary sav
  await edited(s,'B');await s.save();expect(s.saved()).toBeUndefined()
  await expect(s.save({requireConfirmed:true})).rejects.toThrow('file-save-not-confirmed')
  expect(s.mounted.owner.snapshot().raw).toBe('B')
+})
+
+it('failed-mount cleanup flushes input, captures recovery and closes the owner despite IDB failure', async () => {
+  const live = draft(), persist = vi.fn(async (d: DraftV2) => structuredClone(d))
+  const s = await open(live, persist), owner = s.mounted.owner, view = (s.mounted as FileMountSession).view
+  expect(owner.replaceSource({ expectedGeneration: owner.snapshot().generation, value: 'Unsaved' }).ok).toBe(true)
+  const flush = vi.spyOn(owner, 'flush'), close = vi.spyOn(owner, 'close')
+  persist.mockRejectedValueOnce(new Error('disk full'))
+  expect(await s.closeAfterFailedMount()).toBe(false)
+  expect(flush).toHaveBeenCalled(); expect(close).toHaveBeenCalledOnce()
+  expect(view.isDestroyed).toBe(true)
+  await expect(owner.flush()).rejects.toThrow('file-closed')
+  expect(live.after['a.md']).toBe('Unsaved')
+  expect(live.editorFiles?.['a.md'].sourceHash).toBe(owner.snapshot().sourceHash)
+})
+
+it('failed-mount cleanup flushes an uncommitted real popup before releasing its owner', async () => {
+  const live = draft(), persist = vi.fn(async (d: DraftV2) => structuredClone(d)), s = await open(live, persist)
+  await edited(s, 'A{>>Before<<}')
+  expect(s.mounted.annotations.editAt(2)).toBe(true)
+  const target = document.createElement('div'); document.body.append(target)
+  const popup = mount(NoteEditPopup, { target }); await tick()
+  try {
+    const textarea = target.querySelector('textarea')!
+    textarea.value = 'Unsaved popup'; textarea.dispatchEvent(new Event('input', { bubbles: true }))
+    persist.mockRejectedValueOnce(new Error('disk full'))
+    expect(await s.closeAfterFailedMount()).toBe(false)
+    expect(live.after['a.md']).toBe('A{>>Unsaved popup<<}')
+    expect(live.editorFiles?.['a.md'].sourceHash).toBe(s.mounted.owner.snapshot().sourceHash)
+    expect(noteUi.edit).toBeNull()
+    expect((s.mounted as FileMountSession).view.isDestroyed).toBe(true)
+  } finally { await unmount(popup) }
 })

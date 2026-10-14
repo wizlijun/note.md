@@ -133,8 +133,13 @@ async function mount(container: HTMLElement, host: ShareEditorHost, opts: { path
   target.addEventListener('mousedown', linkDown, true); target.addEventListener('mouseover', hover); target.addEventListener('click', click); target.addEventListener('keydown', key)
   try { await open(opts.path) } catch (error) {
     cancelSave(); unsubscribe()
-    if (session) await session.close()
-    await unmount(ui); root.remove(); throw error
+    if (session && !await session.closeAfterFailedMount()) {
+      error = Object.assign(new Error('草稿未保存，输入仍保留，请重试或导出'), { unsavedDraft: true })
+    }
+    closed = true; noteUi.hover = null
+    target.removeEventListener('mousedown', linkDown, true); target.removeEventListener('mouseover', hover); target.removeEventListener('click', click); target.removeEventListener('keydown', key)
+    try { await unmount(ui) } finally { root.remove() }
+    throw error
   }
   return {
     switchFile: next => serial(async () => {

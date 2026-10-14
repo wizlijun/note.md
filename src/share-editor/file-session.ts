@@ -24,6 +24,8 @@ export interface ShareFileSession {
   mounted: MountedFileEditor
   save(options?: { requireConfirmed?: boolean }): Promise<FileSnapshot>
   close(): Promise<void>
+  /** Initialization only: keep captured draft even if persistence fails, then release the owner. */
+  closeAfterFailedMount(): Promise<boolean>
   saved(): SavedFile | undefined
   setReadOnly(value: boolean): void
 }
@@ -102,5 +104,16 @@ export async function createShareFileSession(options: ShareFileSessionOptions): 
     })()
     return closing
   }
-  return { mounted, saved, save, close, setReadOnly }
+  async function closeAfterFailedMount(): Promise<boolean> {
+    await mounted.owner.flush()
+    mounted.owner.setReadOnly(true)
+    await mounted.owner.flush()
+    const request = capture()
+    let confirmed = false
+    try { confirmed = await persist(request) } catch { /* The live raw/recovery remains available to fallback. */ }
+    await mounted.owner.close()
+    closed = true; unsubscribe()
+    return confirmed
+  }
+  return { mounted, saved, save, close, closeAfterFailedMount, setReadOnly }
 }

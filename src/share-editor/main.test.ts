@@ -156,3 +156,17 @@ it('build refuses an unconfirmed durable snapshot and never freezes or submits',
  await expect(handle.buildSubmission({})).rejects.toThrow('file-save-not-confirmed')
  expect(submit).not.toHaveBeenCalled();expect(pending).not.toHaveBeenCalled()
 })
+
+it('failed initialization releases its real owner even when durability fails and preserves recovery', async () => {
+  const f = fixture('A'), target = document.createElement('div'); document.body.append(target)
+  f.host.setFileBadges = vi.fn(() => { throw Error('mount callback failed') })
+  f.saveDraft.mockRejectedValue(new Error('disk full'))
+  await expect(shareEditor.mount(target, f.host, { path: 'a.md' })).rejects.toMatchObject({ unsavedDraft: true })
+  expect(target.querySelector('.share-editor-root')).toBeNull()
+  expect(target.querySelector('.ProseMirror')).toBeNull()
+  expect(f.draft.after['a.md']).toBe('A')
+  expect(f.draft.editorFiles?.['a.md'].sourceHash).toBe(sha256Sync('A'))
+  f.saveDraft.mockImplementation(async d => structuredClone(d)); f.host.setFileBadges = vi.fn()
+  const handle = await shareEditor.mount(target, f.host, { path: 'a.md' }); handles.push(handle)
+  expect(target.querySelectorAll('.ProseMirror')).toHaveLength(1)
+})

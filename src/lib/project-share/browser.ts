@@ -530,7 +530,7 @@ export async function projectShareBrowser(parser: any, zipper?: any, scanCritic?
     correctRejected.disabled=busy || !ready
     comments()
   }
-  let navigating=Promise.resolve()
+  let navigating=Promise.resolve(), mounting=false
   const navigate = () => {
     const params=new URLSearchParams(location.hash.slice(1)), target=params.get('doc')
     if(handle && target && target!==path && (files.get(target)?.markdown!==undefined || draft.base[target])) {
@@ -546,7 +546,7 @@ export async function projectShareBrowser(parser: any, zipper?: any, scanCritic?
   const renderNavigation = () => {
     const params=new URLSearchParams(location.hash.slice(1))
     const target=params.get('doc')
-    if(!handle && target && (files.get(target)?.markdown!==undefined || draft.base[target])) path=target
+    if(!handle && !mounting && target && (files.get(target)?.markdown!==undefined || draft.base[target])) path=target
     revealCurrent(); renderTree(); render()
     const heading=params.get('heading')
     if(heading) Array.from(article.querySelectorAll('[id]')).find(element=>element.id===heading)?.scrollIntoView?.()
@@ -601,13 +601,23 @@ export async function projectShareBrowser(parser: any, zipper?: any, scanCritic?
         if(epoch!==loadEpoch || owner!==draft || !editing) {dispose();return}
         if(module?.apiVersion!==1) throw Error('kit-version')
         const host=hostFor(owner,ownerNotes)
+        mounting=true
         const mounted=await module.mount(enhanced,host,{path})
+        while(epoch===loadEpoch && owner===draft && editing) {
+          const params=new URLSearchParams(location.hash.slice(1)), target=params.get('doc')
+          if(!target || target===path || !(files.get(target)?.markdown!==undefined || draft.base[target])) break
+          try { await mounted.switchFile(target); path=target }
+          catch {
+            params.set('doc',path);params.delete('heading');history.replaceState(null,'','#'+params.toString())
+            say('切换前保存失败，当前编辑已保留；请重试或导出');break
+          }
+        }
         if(epoch!==loadEpoch || owner!==draft || !editing) {await mounted.destroy();dispose();return}
-        handle=mounted;editorHost=host;render()
-      } catch {
+        handle=mounted;editorHost=host;renderNavigation()
+      } catch (error:any) {
         dispose()
-        if(epoch===loadEpoch && owner===draft) {say('增强编辑器不可用，已切换到基础编辑');render();editor.focus()}
-      } finally {if(epoch===loadEpoch) {loading=undefined;cancelLoad=()=>{};render()}}
+        if(epoch===loadEpoch && owner===draft) {say('增强编辑器不可用，已切换到基础编辑'+(error?.unsavedDraft?'；草稿未保存，输入仍保留，请重试或导出':''));render();editor.focus()}
+      } finally {mounting=false;if(epoch===loadEpoch) {loading=undefined;cancelLoad=()=>{};render()}}
     })()
     return loading
   }
