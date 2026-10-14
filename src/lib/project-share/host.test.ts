@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { LocalFeedback, ProjectInfo, ProjectSnapshot, ReviewDraft } from './types'
-import { MULTIPART_BYTES } from './multipart'
+import { MULTIPART_BYTES, createArtifactPlan } from './multipart'
 import { sha256Hex } from '../hash'
 import { anchor, propose } from '../share-merge'
 import { createProjectReview } from './review.svelte'
@@ -940,7 +940,8 @@ describe('frozen publication editor kit choice', () => {
     const saved = structuredClone(mocks.data)
     expect(saved.projectShares[info.project_id].pending).toMatchObject({ kitSelected: true, ...(success ? { editorKit: kit('a') } : {}) })
     expect(mocks.bundle.mock.calls[0][2].editorKit).toEqual(success ? kit('a') : undefined)
-    const originalPlan = saved.projectShares[info.project_id].pending.upload.plans
+    const originalPlan = structuredClone(saved.projectShares[info.project_id].pending.upload.plans)
+    const frozenBytes = new TextEncoder().encode(mocks.bundle.mock.results[0].value)
     mocks.data = structuredClone(saved) // simulate process restart using durable Store data
     mocks.kit.mockResolvedValue({ editorKit: kit('b'), warnings: [] })
     mocks.bundle.mockClear()
@@ -948,7 +949,13 @@ describe('frozen publication editor kit choice', () => {
     expect(mocks.kit).toHaveBeenCalledTimes(1)
     expect(mocks.bundle).toHaveBeenCalledTimes(1) // entry bytes replayed, only full bundle newly rendered
     expect(mocks.bundle.mock.calls[0][2].editorKit).toEqual(success ? kit('a') : undefined)
-    expect(saved.projectShares[info.project_id].pending.upload.plans).toEqual(originalPlan)
+    const retryBegin = mocks.fetch.mock.calls.find(([url, init]) => operation(url) === 'begin' && JSON.parse(init.body).phase === 'entry')!
+    expect(JSON.parse(retryBegin[1].body).artifacts).toEqual(originalPlan)
+    const parts = mocks.fetch.mock.calls.filter(([url, init]) => operation(url) === 'part' && init.headers['X-Artifact'] === 'entry')
+    expect(parts).toHaveLength(originalPlan[0].parts.length)
+    const sent = new Uint8Array(parts.flatMap(([, init]) => Array.from(init.body as Uint8Array)))
+    expect(sent).toEqual(frozenBytes)
+    expect(await createArtifactPlan('entry', sent)).toEqual(originalPlan[0])
     if (!success) expect(result.warnings).toContain('增强编辑器资源不可用')
     mocks.bundle.mockClear()
     await publishProject(info, [file])

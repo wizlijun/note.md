@@ -1,3 +1,4 @@
+import { projectShareBrowserSource } from './project-share-browser.mjs'
 // Actual ProjectStore -> production bundle/archive -> real local Worker -> Chromium
 // -> original Worker envelope -> actual merge kernel -> ProjectStore apply -> receipt.
 import assert from 'node:assert/strict'
@@ -37,7 +38,7 @@ try {
  const initial='第一句。\n\n第二句。\n', note='# Second document\n\nUntouched raw.\n', png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j7XcAAAAASUVORK5CYII=','base64')
  await writeFile(resolve(fixture,'source/README.md'),initial);await writeFile(resolve(fixture,'source/docs/note.md'),note);await writeFile(resolve(fixture,'source/pixel.png'),png);await writeFile(resolve(fixture,'source/unapproved.txt'),'not approved')
  scratch=await mkdtemp(resolve(tmpdir(),'notemd-task8-empty-'))
- server=await createServer({root,configFile:false,envDir:scratch,logLevel:'error',optimizeDeps:{noDiscovery:true,include:[]},server:{middlewareMode:true}})
+ server=await createServer({plugins:[projectShareBrowserSource()],root,configFile:false,envDir:scratch,logLevel:'error',optimizeDeps:{noDiscovery:true,include:[]},server:{middlewareMode:true}})
  const dom=new Window({url:'http://127.0.0.1/'});dom.document.write('<!doctype html><html><body></body></html>');Object.assign(globalThis,{window:dom,document:dom.document,DOMParser:dom.DOMParser,Node:dom.Node,HTMLElement:dom.HTMLElement})
  const {buildProjectBundle}=await server.ssrLoadModule('/src/lib/project-share/bundle.ts')
  const {buildProjectArchive}=await server.ssrLoadModule('/src/lib/project-share/archive.ts')

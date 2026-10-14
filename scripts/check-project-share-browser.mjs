@@ -1,3 +1,4 @@
+import { projectShareBrowserSource } from './project-share-browser.mjs'
 #!/usr/bin/env node
 // Real serialized project-share HTML, isolated mock service, no production data.
 // PLAYWRIGHT_MODULE=/absolute/path/playwright/index.mjs node scripts/check-project-share-browser.mjs
@@ -48,7 +49,7 @@ async function stored(page, keys) {
 let origin
 try {
   await mkdir(output,{recursive:true})
-  server=await createServer({root,configFile:false,envDir:scratch,logLevel:'error',server:{host:'127.0.0.1',port:0},plugins:[{
+  server=await createServer({root,configFile:false,envDir:scratch,logLevel:'error',server:{host:'127.0.0.1',port:0},plugins:[projectShareBrowserSource(),{
     name:'isolated-project-share-service',configureServer(vite) {
       vite.middlewares.use(async(req,res,next)=> {
         const path=new URL(req.url,'http://local').pathname

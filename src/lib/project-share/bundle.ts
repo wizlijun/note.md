@@ -1,8 +1,7 @@
 import markedSource from 'marked?raw'
 import zipSource from '../../../node_modules/fflate/umd/index.js?raw'
 import menuStyles from '../../styles/popup-menu.css?raw'
-import { projectShareBrowser } from './browser'
-import { scanOwnerAnnotations } from '../share-merge/critic'
+import browserSource from 'virtual:project-share-browser'
 import type { ProjectSnapshot, PublicProjectSnapshot } from './types'
 import type { ProjectPresentation } from './presentation'
 import { normalizeShareTitle } from './title'
@@ -42,7 +41,7 @@ export function buildProjectBundle(snapshot: ProjectSnapshot, feedbackUrl: strin
   if(!constructor) throw new Error('Cannot bundle the installed Markdown renderer')
   const renderer=markedSource.replace(/export\s*\{[^}]+\}\s*;?/,'')
   const zipper=options.archiveUrl?'undefined':`(()=>{const module={exports:{}};const exports=module.exports;${zipSource};return module.exports})()`
-  const script=`(()=>{${renderer}\n(${projectShareBrowser.toString()})(new ${constructor}(),${zipper},${scanOwnerAnnotations.toString()});})();`.replace(/<\/script/gi,'<\\/script')
+  const script=`(()=>{${renderer}\n${browserSource}\nNotemdProjectBrowser.start(new ${constructor}(),${zipper});})();`.replace(/<\/script/gi,'<\\/script')
   const title=normalizeShareTitle(options.title,snapshot.entry)
   const escape=(value:string)=>value.replace(/[&<>"\']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]!))
   const presentation=options.presentation && {themeId:options.presentation.themeId,documents:options.presentation.documents,warnings:options.presentation.warnings}

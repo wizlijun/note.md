@@ -1,3 +1,4 @@
+import { projectShareBrowserSource } from './project-share-browser.mjs'
 #!/usr/bin/env node
 // Actual serialized reader + content-addressed IIFE. No replacement editor module.
 import assert from 'node:assert/strict'
@@ -22,7 +23,7 @@ const structure='soft one\nsoft two\n\nhard one  \nhard two\n\n{==范围批注==
 const snapshot={schemaVersion:1,project_id:'kit-project',snapshotId:'S1',entry:'a.md',files:[{path:'a.md',hash:sha(base),bytes:Buffer.byteLength(base),markdown:base},{path:'b.md',hash:sha(structure),bytes:Buffer.byteLength(structure),markdown:structure}]}
 try {
  await mkdir(output,{recursive:true})
- server=await createServer({root,configFile:false,envDir:scratch,logLevel:'error',optimizeDeps:{noDiscovery:true,include:[]},server:{host:'127.0.0.1',port:0},plugins:[svelte(),shareEditorAssets({test:true}),{name:'actual-share-reader',configureServer(vite){vite.middlewares.use(async(req,res,next)=>{
+ server=await createServer({root,configFile:false,envDir:scratch,logLevel:'error',optimizeDeps:{noDiscovery:true,include:[]},server:{host:'127.0.0.1',port:0},plugins:[projectShareBrowserSource(),svelte(),shareEditorAssets({test:true}),{name:'actual-share-reader',configureServer(vite){vite.middlewares.use(async(req,res,next)=>{
   const path=new URL(req.url,'http://local').pathname
   if(path.startsWith('/_kit/')) {requests.push(path);const bytes=assets.get(path.slice(6));if(mode==='timeout')return;if(mode==='404'||!bytes){res.statusCode=404;res.end();return}res.setHeader('Content-Type',path.endsWith('.css')?'text/css':'application/javascript');res.end(mode==='sri'?Buffer.concat([bytes,Buffer.from('\n/* corrupted */')]):bytes);return}
   if(path==='/project/mock'){res.setHeader('Content-Type','text/html');res.end(html);return}

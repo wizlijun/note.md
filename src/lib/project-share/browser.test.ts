@@ -1155,3 +1155,60 @@ it('opens desktop from the live IDB credential after the address fragment is cle
   expect(new URL(new URL((document.getElementById('open-notemd') as HTMLAnchorElement).href).searchParams.get('u')!).hash).toBe('#feedback=visitor-token')
   expect($('project-data').textContent).not.toContain('visitor-token')
 })
+
+
+describe('fallback raw and preview boundaries', () => {
+  const owner = '{==owner==}{>>keep<<}'
+  function seed(base: string, initial = base) {
+    values.set('project_1:draft2:boundary', {v:2,lineageId:'boundary',snapshotId:'snapshot_1',base:{'README.md':{hash:'a'.repeat(64),markdown:base}},after:{'README.md':initial},annotationKinds:{}})
+  }
+  const saved = () => values.get('project_1:draft2:boundary').after['README.md']
+  it.each([false, true])('vetoes owner removal before save and across preview/fallback switching; mount failure=%s', async failedMount => {
+    const base = owner + owner + '\nA'
+    seed(base, owner + '\nA') // accepted legacy damage protects min(base, initial), not base
+    const puts = vi.spyOn(values, 'set')
+    if (failedMount) {
+      const data=JSON.parse($('project-data').textContent!)
+      data.editorKit={apiVersion:1,js:{url:location.origin+'/kit.js'},css:{url:location.origin+'/kit.css'}}
+      $('project-data').textContent=JSON.stringify(data)
+      vi.stubGlobal('NotemdShareEditor',{apiVersion:1,mount:async()=>{throw Error('mount failed')}})
+    }
+    const append=failedMount ? vi.spyOn(document.head,'append').mockImplementation((...nodes)=>{queueMicrotask(()=>nodes.forEach(node=>{if(node instanceof HTMLElement)node.dispatchEvent(new Event('load'))}))}) : undefined
+    try {
+      await serialized();click('edit')
+      if(failedMount) await vi.waitFor(()=>expect(status()).toContain('已切换到基础编辑'))
+      puts.mockClear();input('A changed')
+      expect(status()).toContain('分享者批注需保留')
+      expect(($('editor') as HTMLTextAreaElement).value).toBe(owner+'\nA')
+      expect(puts).not.toHaveBeenCalled()
+      input(owner+'\nA');expect(puts).not.toHaveBeenCalled();expect(status()).toContain('分享者批注需保留')
+      input(owner+'\nB');await vi.waitFor(()=>expect(saved()).toBe(owner+'\nB'))
+      click('edit');click('edit')
+      if(failedMount) await vi.waitFor(()=>expect(($('edit') as HTMLButtonElement).disabled).toBe(false))
+      input('B');expect(status()).toContain('分享者批注需保留');expect(saved()).toBe(owner+'\nB')
+    } finally {append?.mockRestore();puts.mockRestore()}
+  })
+  it('allows an already damaged draft to remain damaged while ordinary text is repaired', async () => {
+    seed(owner+'\nA','A');await serialized();click('edit');input('B')
+    await vi.waitFor(()=>expect(saved()).toBe('B'))
+  })
+  it('preserves untouched mixed EOL/BOM across separate display hunks and submission', async () => {
+    const base='\uFEFF# Title\r\n\r\n'+owner+'\r\n\r\nalpha\nkeep\rbeta\r\n'
+    seed(base);const bodies:string[]=[]
+    vi.stubGlobal('fetch',vi.fn(async(_url,init)=>{bodies.push(init.body);return Response.json({})}))
+    await serialized();click('edit');input(base.replace(/\r\n?/g,'\n').replace('alpha','Alpha').replace('beta','Beta'))
+    const expected=base.replace('alpha','Alpha').replace('beta','Beta')
+    await vi.waitFor(()=>expect(saved()).toBe(expected));click('submit')
+    await vi.waitFor(()=>expect(status()).toContain('已送达'));expect(JSON.parse(bodies[0]).edits[0].afterMarkdown).toBe(expected)
+  })
+  it('resolves approved raster resources before hidden and visible draft preview installation', async () => {
+    const data=JSON.parse($('project-data').textContent!), png='data:image/png;base64,iVBORw0KGgo='
+    data.snapshot.files.push({path:'ok.png',dataUrl:png},{path:'bad.svg',dataUrl:'data:image/svg+xml;base64,AA=='})
+    $('project-data').textContent=JSON.stringify(data)
+    const raw='![ok](ok.png) ![remote](https://resource.invalid/pixel.png) ![missing](missing.png) ![svg](bad.svg) ![inline](data:image/png;base64,AA==)'
+    seed('A',raw);await serialized();click('edit')
+    const sources=()=>Array.from($('document').querySelectorAll('img')).map(img=>img.getAttribute('src'))
+    expect($('document').hidden).toBe(true);expect(sources()).toEqual([png,null,null,null,null])
+    click('edit');expect($('document').hidden).toBe(false);expect(sources()).toEqual([png,null,null,null,null]);expect(saved()).toBe(raw)
+  })
+})

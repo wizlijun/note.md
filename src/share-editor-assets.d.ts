@@ -3,3 +3,8 @@ declare module 'virtual:share-editor-kit' {
   export default manifest
   export const assetUrls: Record<string, string>
 }
+
+declare module 'virtual:project-share-browser' {
+  const source: string
+  export default source
+}

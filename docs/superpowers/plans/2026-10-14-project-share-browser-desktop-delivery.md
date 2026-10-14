@@ -554,3 +554,10 @@ Ruling: Task8 focused初验的两处测试预期允许窄迁移：empty envDir�
 Ruling: Task8允许一个ignored Rust integration recorder，显式执行并只调用现有公开ProjectStore方法，串接真实owner-freeze→浏览器原HTTP body→实际TS propose/compose→review_save/apply→receipt/S2；无生产RPC/feature/依赖变化。显式合成root须自有标识/路径边界，不能自动读应用配置回落真实Vault；阶段原bytes/hash身份绑定，report区分浏览器UI与RustAPI。— 现有浏览器录制的模拟中间件不足以证明实际Worker与主人磁盘合并，分段真实producer/consumer比新生产调试接口简单。— 成本是一个默认ignored的专用录制test，Task8必须实际运行，不能以默认suite skip当通过。
 
 Ruling: Task8原生QA运行于明确冻结的在途Task8 bytes而非旧HEAD单独宣称：writer暂停非OWN全部写入/index/commit，ROOT创建task8-source-worktree-freeze.json（SHA b4bb88bbaff0ab2d2dbe54c2f8764eab75658b8cc9a68706e9d1d66f1e5d36a0；22 dirty/untracked完整路径/hash、status/index SHA、HEAD2037fc94），runner启动/结束核同清单，prod另核reference。— 已批准发布接线含实际Vite配置未提交，不可用旧clean guard拒绝后删改工作区；冻结真实bytes才能诚实验证。— 成本是本次结果绑定该工作输入，后继输入变更需按影响重新核，不称最终tag验收。CORE97fcc3e为CI-only，runtime保持3e06。
+
+Ruling: Whole-phase final的I1–I3均受理，现有fallback和草稿外层preview是本E1–E4可达producer/consumer，旧代码归属不豁免browser owner floor、I7原bytes与禁止自动外部资源合同。一次合并finalfix同时修三项，复用共享scanner/policy、Source显示投影及批准资源解析，不删除fallback/过滤格式diff/改merge算法/放宽CSP或代理外部资源。— 三项实际Chromium RED已证明，Task8正常链不能覆盖遗漏边界。— 成本是小幅抽取既有纯helper及新增consumer接线，须在实际inline bundle/IIFE验证，不能只单测函数。
+Ruling: 唯一finalfix同时修M1冻结retry plan自比较测试；M2重复/删除冲突装饰定位与M3既有日志告警保留具名后续，不顺手重构。— M1只需在现有测试核实际重试输入，M2不影响compose结果且不为当前三个阻断修复所需，M3已披露基线。— 成本是M2视觉定位仍可能不准、M3日志仍有噪声，最终报告明确保留，不称无已知问题。
+
+Ruling: Whole-phase finalfix采用既有 esbuild 构建时将单一 browser entry 与真实共享依赖闭合成 inline runtime，经一个 Vite plugin 注入；不改 diff 内核、不复制 scanner/policy。构建确定、浏览器图禁止宿主/Node模块、无新运行时网络依赖；dev 依赖变更必须失效缓存。仅必要 Vite/Vitest/独立 SSR 入口接线。原 RED 不变，新 probe 对 I1 先核输入 veto/IDB 未变再合法追加提交，I2/I3 原输入和验收保持。— 显式打包闭包避免函数 toString 丢 import；成本是窄构建接线与生命周期适配。
+
+Ruling: finalfix fallback仅在 displaySource(currentRaw)===currentRaw 时直接采用 textarea.value；此恒等路径无需 offset/EOL 重建，BOM按实际输入保留。含 CR 继续唯一 sourceFromDisplay，既有 Source diff-limit 合同不放宽；两个路径最终候选均先过 owner floor。— 保留旧 fallback 超限草稿本地保存→提交拒绝→缩小恢复能力，不是格式差异过滤或第二 serializer。

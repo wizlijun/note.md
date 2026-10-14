@@ -1,7 +1,11 @@
 import type { ShareEditorHandle, ShareEditorHost, ShareEditorModule } from '../../share-editor/contract'
 import type { DraftV2, ProjectAnnotationV2 } from './types'
 
-/** Serialized into the static bundle. Keep every runtime dependency inside this function. */
+import { displaySource, sourceFromDisplay } from '../../editor-kit-v2/source-projection'
+import { acceptsOwnerFloor, ownerAnnotationFloor } from '../../share-editor/owner-policy'
+import { sharedRaster } from '../../share-editor/media-policy'
+
+/** Bundled with its shared dependencies into the static reader's inline runtime. */
 export async function projectShareBrowser(parser: any, zipper?: any, scanCritic?: (raw: string) => { raw: string }[]): Promise<void> {
   const data = JSON.parse(document.getElementById('project-data')!.textContent!)
   const snapshot = data.snapshot
@@ -45,6 +49,17 @@ export async function projectShareBrowser(parser: any, zipper?: any, scanCritic?
   const legacy = new Map<string, any>()
   const drafts = new Map<string, DraftV2>()
   const oldDraftLabels = new Map<string, Text>()
+  const ownerFloors = new WeakMap<DraftV2, Map<string, ReadonlyMap<string, number>>>()
+  const floorFor = (file: string) => {
+    let floors = ownerFloors.get(draft)
+    if (!floors) { floors = new Map(); ownerFloors.set(draft, floors) }
+    let floor = floors.get(file)
+    if (!floor) {
+      const base = original(file) ?? ''
+      floor = ownerAnnotationFloor(base, draft.after[file] ?? base); floors.set(file, floor)
+    }
+    return floor
+  }
   const state = { get drafts() { return draft.after }, get annotations() { return notes }, get pending() { return draft.pending } }
 
   let saving = Promise.resolve()
@@ -381,10 +396,9 @@ export async function projectShareBrowser(parser: any, zipper?: any, scanCritic?
       }
       if(element.tagName==='IMG') {
         const src=element.getAttribute('src')??''
-        const resolved=normalize(path,src)
-        const file=resolved && files.get(resolved.path)
-        if(file?.dataUrl && /^data:image\//i.test(file.dataUrl)) element.setAttribute('src',file.dataUrl)
-        else if(!/^https?:\/\//i.test(src) && !/^data:image\/(png|jpeg|gif|webp|avif|bmp);base64,/i.test(src)) { element.removeAttribute('src'); element.setAttribute('alt','未共享图片') }
+        const approved=sharedRaster(snapshot.files,path,src)
+        if(approved) element.setAttribute('src',approved)
+        else { element.removeAttribute('src'); element.setAttribute('alt','未共享图片') }
       }
     }
     return template.content
@@ -521,7 +535,8 @@ export async function projectShareBrowser(parser: any, zipper?: any, scanCritic?
       share.hash=new URLSearchParams({feedback:token}).toString()
       desktopLink.href='notemd://share/open?u='+encodeURIComponent(share.href)
     } else desktopLink.removeAttribute('href')
-    editor.value=currentText()
+    floorFor(path)
+    editor.value=displaySource(currentText())
     const publishedOriginal=(baseline?original(path):currentText())===files.get(path)?.markdown
     const published=data.presentation?.documents[path]
     $('reader').setAttribute('data-theme',data.presentation?.themeId??'')
@@ -755,7 +770,18 @@ export async function projectShareBrowser(parser: any, zipper?: any, scanCritic?
   $('baseline').onclick=async()=> { if(editing && handle) {try {await handle.buildSubmission({})} catch {say('预览前保存失败，当前编辑已保留');return}} baseline=!baseline; editing=false;if(loading){++loadEpoch;cancelLoad();loading=undefined} render() }
   editor.oninput=()=> {
     if(!ensureBase()) { render(); return }
-    state.drafts[path]=editor.value
+    let candidate: string
+    try {
+      const raw=currentText()
+      // Identity display needs no offset reconstruction; retain the fallback's large-draft support.
+      candidate=displaySource(raw)===raw ? editor.value : sourceFromDisplay(raw,editor.value)
+    }
+    catch { editor.value=displaySource(currentText());say('修改范围过大，未保存此次输入；请分段编辑');return }
+    if(!acceptsOwnerFloor(floorFor(path),candidate)) {
+      editor.value=displaySource(currentText());say('分享者批注需保留；请添加自己的批注');return
+    }
+    if(candidate===currentText()) return
+    state.drafts[path]=candidate
     delete draft.editorFiles?.[path]
     labelOldDraft()
     say('正在保存草稿…')

@@ -1,3 +1,4 @@
+import { projectShareBrowserSource } from './scripts/project-share-browser.mjs'
 import { controlledEnvDir } from './scripts/controlled-env.mjs'
 import { defineConfig } from 'vitest/config'
 import { svelte } from '@sveltejs/vite-plugin-svelte'
@@ -5,7 +6,7 @@ import { shareEditorAssets } from './scripts/share-editor-assets.mjs'
 
 export default defineConfig({
   envDir: controlledEnvDir(),
-  plugins: [svelte({ hot: false }), shareEditorAssets({ test: true })],
+  plugins: [projectShareBrowserSource(), svelte({ hot: false }), shareEditorAssets({ test: true })],
   resolve: {
     conditions: ['browser'],
   },

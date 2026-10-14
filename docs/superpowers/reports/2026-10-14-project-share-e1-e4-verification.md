@@ -103,3 +103,16 @@ Japanese有已启用/可选择子模式记录但未实测；不称绝对不存�
 | task8-worker-complete-config | 2026-10-14T09:02:38.269270+00:00 | 0 | `env pnpm_config_verify_deps_before_run=false pnpm --dir worker exec vitest run --config /Users/bruce/git/mdeditor/.superpowers/sdd/2026-10-14-project-share-browser-desktop-delivery/task8-worker.config.ts` |
 | task8-final-artifact-chain | 2026-10-14T09:03:32.562682+00:00 | 0 | `node .superpowers/sdd/2026-10-14-project-share-browser-desktop-delivery/task8-final-artifacts.mjs` |
 | task8-final-runtime-inputs | 2026-10-14T09:03:32.726064+00:00 | 0 | `python3 .superpowers/sdd/2026-10-14-project-share-browser-desktop-delivery/task8-runtime-inputs.py` |
+
+
+## Whole-phase combined finalfix（2026-10-14）
+
+本轮只处置整体审查 I1/I2/I3/M1；M2 重复文本/删除冲突装饰定位、M3 既有验证告警仍保留。冻结 base 是 HOST `6c01ca8afda92baae34000436f5b40ee84dd151e` / CORE `97fcc3e41f1791c763effe9de880cf4302feea32`。完整原失败、argv、最终候选身份及提交证据以 `OWN/whole-phase-finalfix-report.md` 为准；不覆盖 Task7/Task8 旧 manifest。
+
+- 基础编辑沿既有 owner scanner/policy 冻结 `min(base, initial)` 多重集；无 descriptor 和 mount 失败都在安装/IDB 前 veto。普通保存/预览切换不降低 floor，旧损坏草稿允许继续修复；desktop policy 不改，新增 guest Critic 仍 fail closed。
+- Source 与 fallback 共用原逐 hunk raw/display 映射；无 CR 的恒等显示路径保留 fallback 大草稿能力，不放宽 Source 既有 diff-limit。Chromium fill 的重复无变更 input 不再保存或覆盖 veto 提示。
+- 草稿外层（含 hidden article）在插 DOM 前沿增强编辑器相同 shared-path/raster 策略准入图片，raw URL 不改；可信烘焙 published 分支保持原语义。
+- inline reader 由既有 esbuild 打包真实共享依赖；精确依赖 allowlist、零外部 runtime import，固定编译语义并使 dev 依赖更改失效。冻结 publication retry 测试核实际 begin plan、实际 part bytes 和 hash，不再比较旧 fixture 自身。
+- 原生 Source 最后 cadence 仍为 0 键/未完成保存，首轮 Rich cp 原因未明；移动真机/iOS 编译/旧免费 CPU/Windows 断电/生产部署与正式安装包边界全部保持此前记录，不因本轮本地 Chromium 通过而改写。
+
+最终软件证据：`finalfix-host-complete` 386 files / 4834 tests；`finalfix-host-purity`、`finalfix-host-strict-declarations` 0E/29W、`finalfix-host-check` 0E/31W、`finalfix-host-build`（含 existing/shared Kit 图、hash/SRI、gzip）均通过。最终 `finalfix-final-browser-boundaries` 四项全部 true/pageerrors[]；`finalfix-final-actual-chain` 实际完整本地协作链通过。新主 IIFE SHA256 `bb3322bfd353050297bf1e027e50f01bb8a397b759785e2b99c461af1784c496`，gzip 593254 ≤921600；CSS/Mermaid 与 Task8 相同。CORE runtime、Rust/Worker生产源码、Memory插件源码均未改，不重复重编译其未受影响 suites；真实链继续调用既有 Rust test binary 与真实本地 Worker。完整失败保留在本轮报告，不称无告警或已发布。

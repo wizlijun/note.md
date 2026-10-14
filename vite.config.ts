@@ -1,3 +1,4 @@
+import { projectShareBrowserSource } from './scripts/project-share-browser.mjs'
 import { controlledEnvDir } from './scripts/controlled-env.mjs'
 import { defineConfig } from 'vite'
 import { svelte } from '@sveltejs/vite-plugin-svelte'
@@ -10,7 +11,7 @@ const host = process.env.TAURI_DEV_HOST
 
 export default defineConfig({
   envDir: controlledEnvDir(),
-  plugins: [svelte(), shareEditorAssets()],
+  plugins: [projectShareBrowserSource(), svelte(), shareEditorAssets()],
   clearScreen: false,
   server: {
     port: 1420,

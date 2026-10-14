@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **Basic shared-page editing preserves owner notes and untouched source bytes.** The fallback protects the frozen owner-note count before saving input and retains untouched BOM and mixed line endings. Draft previews show only approved shared raster images; external and unshared image URLs stay in Markdown without loading automatically.
+
 - **Rich and Source share source-preserving editing, undo and durable recovery.** Untouched BOM, line endings, list style, reference definitions and supported literal bodies retain their original bytes. Formatting, table commands, annotations, empty paragraphs and math insertion use the same file session; formula payload editing remains in Source mode. Saves acknowledge exact durable snapshots, and pending input and stale asynchronous actions are guarded across tab changes, close and baseline replacement.
 - **Desktop image editing preserves neighbouring Markdown and native undo.** Insert, resize and delete retain source spelling and reference definitions; file paths are encoded once, image edges retain Unicode input, and table resize cancels during composition.
 - **Shared pages offer Rich/Source editing on demand.** The verified editor loads when editing starts, with a basic-editor fallback. My changes supports individual undo, file badges and submission summaries. Frozen themes, math fonts, slash commands, tables and notes are shared; existing owner-note counts remain protected, without identifying individual duplicate occurrences.
