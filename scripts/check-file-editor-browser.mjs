@@ -7,7 +7,7 @@ import {createServer} from 'vite'
 import {svelte} from '@sveltejs/vite-plugin-svelte'
 const own=resolve('.superpowers/sdd/2026-10-14-file-bindings-history')
 const caseName=process.argv[3]
-assert.equal(process.argv[2],'--case');assert.ok(['resize','mount','recovery'].includes(caseName),'unknown file editor browser case')
+assert.equal(process.argv[2],'--case');assert.ok(['resize','mount','recovery','image'].includes(caseName),'unknown file editor browser case')
 for(const name of ['FILE_PLAN_OWN','FILE_EDITOR_OUTPUT_DIR','FILE_EDITOR_CACHE_DIR','PLAYWRIGHT_MODULE'])assert.ok(process.env[name],`${name} required`)
 assert.equal(resolve(process.env.FILE_PLAN_OWN),own)
 const outputDir=resolve(process.env.FILE_EDITOR_OUTPUT_DIR),cacheDir=resolve(process.env.FILE_EDITOR_CACHE_DIR)
@@ -43,17 +43,29 @@ const mountFixture=`<!doctype html><html><head><meta charset="utf-8"><link rel="
 import {mountFileEditor} from '/src/editor-kit-v2/main.ts'
 import {BrowserMediaResolver} from '@moraya/core/adapters/browser-media-resolver'
 import {diff} from '/src/lib/share-merge/diff.ts'
+import {insertImageAtCursor,insertImageAtPos} from '/src/lib/attachment-insert.ts'
+import {TextSelection,NodeSelection} from 'prosemirror-state'
+import {closeHistory,undoDepth,redoDepth} from 'prosemirror-history'
+const mediaResolver=new BrowserMediaResolver(),fallbackImage=mediaResolver.loadLocalImage.bind(mediaResolver)
+mediaResolver.loadLocalImage=path=>path==='/__file_image.svg'?Promise.resolve(path):fallbackImage(path)
 let mounted,allowed=true,changes=[],previous='',firstFrames=[],transactions=[]
 window.test={
  async open(raw){if(mounted){await mounted.owner.close()}previous=raw;changes=[];firstFrames=[];transactions=[];allowed=true;
  mounted=await mountFileEditor(document.querySelector('#editor'),{file:{documentId:'browser.md',authority:crypto.randomUUID(),raw},
-  adapters:{mediaResolver:new BrowserMediaResolver(),frontmatterViewFactory:{render(el,yaml){firstFrames.push(yaml);el.textContent=yaml;return {destroy(){}}}}},
+  adapters:{mediaResolver,frontmatterViewFactory:{render(el,yaml){firstFrames.push(yaml);el.textContent=yaml;return {destroy(){}}}}},
   policy:{acceptRawChange:(a,b)=>a===b||allowed},onChange(value){const hunks=diff(previous.split(''),value.raw.split(''));changes.push({raw:value.raw,hunks});previous=value.raw}});
  const dispatch=mounted.view.props.dispatchTransaction;mounted.view.setProps({dispatchTransaction(tr){const before=mounted.owner.snapshot().generation;dispatch.call(mounted.view,tr);if(tr.docChanged)transactions.push({steps:tr.steps.map(step=>step.toJSON()),target:tr.doc.toJSON(),before,after:mounted.owner.snapshot().generation})}});
  return this.snapshot()},
- snapshot(){return {...mounted.owner.snapshot(),changes,firstFrames,transactions,undo:mounted.owner.canUndo(),selection:mounted.view.state.selection.toJSON(),storedMarks:mounted.view.state.storedMarks?.map(mark=>mark.toJSON()),active:document.activeElement?.outerHTML,pm:mounted.view.state.doc.toJSON(),dom:document.querySelector('.ProseMirror')?.innerHTML}},
+ snapshot(){return {...mounted.owner.snapshot(),changes,firstFrames,transactions,undoDepth:undoDepth(mounted.view.state),redoDepth:redoDepth(mounted.view.state),undo:mounted.owner.canUndo(),selection:mounted.view.state.selection.toJSON(),storedMarks:mounted.view.state.storedMarks?.map(mark=>mark.toJSON()),active:document.activeElement?.outerHTML,pm:mounted.view.state.doc.toJSON(),dom:document.querySelector('.ProseMirror')?.innerHTML}},
  allow(value){allowed=value},undo:()=>mounted.owner.undo(),redo:()=>mounted.owner.redo(),mode:value=>mounted.setMode(value),flush:()=>mounted.owner.flush(),
  command:value=>mounted.owner.execute(value),
+ select:(from,to=from)=>mounted.view.dispatch(mounted.view.state.tr.setSelection(TextSelection.create(mounted.view.state.doc,from,to))),
+ image:(src,pos)=>pos===undefined?insertImageAtCursor(mounted.view,src):insertImageAtPos(mounted.view,src,pos),
+ resize:(pos,title)=>mounted.view.dispatch(mounted.view.state.tr.setNodeMarkup(pos,undefined,{...mounted.view.state.doc.nodeAt(pos).attrs,title})),
+ nodeSelect:pos=>{mounted.view.dispatch(mounted.view.state.tr.setSelection(NodeSelection.create(mounted.view.state.doc,pos)));mounted.view.focus()},
+ separate:()=>mounted.view.dispatch(closeHistory(mounted.view.state.tr)),
+ readonly:value=>mounted.owner.setReadOnly(value),
+ stored:kind=>{mounted.view.dispatch(mounted.view.state.tr.setStoredMarks(kind?[mounted.view.state.schema.marks[kind].create()]:[]));mounted.view.focus()},
  baseline:raw=>mounted.owner.installBaseline({documentId:'browser.md',authority:crypto.randomUUID(),raw}),
 }
 document.querySelector('#source').onclick=()=>mounted.setMode('source')
@@ -76,16 +88,16 @@ window.test={
  async close(){await session.close()},hold:false
 };await test.open();window.ready=true
 </script></body></html>`
-const fixture=caseName==='recovery'?recoveryFixture:caseName==='mount'?mountFixture:resizeFixture
+const fixture=caseName==='recovery'?recoveryFixture:['mount','image'].includes(caseName)?mountFixture:resizeFixture
 writeFileSync(resolve(outputDir,`${caseName}-fixture.html`),fixture)
 const output={case:caseName,environment:{node:process.version,playwright:process.env.PLAYWRIGHT_MODULE,core:realpathSync('node_modules/@moraya/core'),coreSha256:createHash('sha256').update(readFileSync('node_modules/@moraya/core/dist/index.js')).digest('hex')},pageErrors:[],console:[],cases:[],platformLimitations:['Synthetic Chromium mouse/pointer tests are not native iOS/Android touch or Safari/IME device acceptance.']}
-const server=await createServer({root:process.cwd(),configFile:false,envDir:resolve(own,'empty-env'),cacheDir,resolve:{dedupe:['prosemirror-model','prosemirror-state','prosemirror-transform','prosemirror-view','prosemirror-history']},optimizeDeps:{include:['@moraya/core','@moraya/core/schema','@moraya/core/commands','@moraya/core/source-history','@moraya/core/plugins/session-table-view','prosemirror-model','prosemirror-state','prosemirror-transform','prosemirror-view','prosemirror-history','prosemirror-commands','prosemirror-schema-list']},server:{host:'127.0.0.1',port:0,hmr:false,watch:null},plugins:[...(caseName!=='resize'?[svelte()]:[]),{name:'file-resize-fixture',configureServer(vite){vite.middlewares.use('/src/editor-kit-v2/editor-kit-v1.css',(_req,res)=>{res.statusCode=302;res.setHeader('Location','/src/editor-kit/kit.css');res.end()});vite.middlewares.use('/__file_resize',async(_req,res,next)=>{try{res.setHeader('Content-Type','text/html; charset=utf-8');res.end(await vite.transformIndexHtml('/__file_resize',fixture))}catch(error){next(error)}})}}]})
+const server=await createServer({root:process.cwd(),configFile:false,envDir:resolve(own,'empty-env'),cacheDir,resolve:{dedupe:['prosemirror-model','prosemirror-state','prosemirror-transform','prosemirror-view','prosemirror-history']},optimizeDeps:{include:['@moraya/core','@moraya/core/schema','@moraya/core/commands','@moraya/core/source-history','@moraya/core/plugins/session-table-view','prosemirror-model','prosemirror-state','prosemirror-transform','prosemirror-view','prosemirror-history','prosemirror-commands','prosemirror-schema-list']},server:{host:'127.0.0.1',port:0,hmr:false,watch:null},plugins:[...(caseName!=='resize'?[svelte()]:[]),{name:'file-resize-fixture',configureServer(vite){vite.middlewares.use('/__file_image.svg',(_req,res)=>{res.setHeader('Content-Type','image/svg+xml');res.end('<svg xmlns="http://www.w3.org/2000/svg" width="120" height="60"><rect width="120" height="60" fill="#5370d4"/></svg>')});vite.middlewares.use('/src/editor-kit-v2/editor-kit-v1.css',(_req,res)=>{res.statusCode=302;res.setHeader('Location','/src/editor-kit/kit.css');res.end()});vite.middlewares.use('/__file_resize',async(_req,res,next)=>{try{res.setHeader('Content-Type','text/html; charset=utf-8');res.end(await vite.transformIndexHtml('/__file_resize',fixture))}catch(error){next(error)}})}}]})
 let browser,page
 try{
  await server.listen();browser=await chromium.launch({headless:true});output.environment.browser=browser.version();page=await browser.newPage({viewport:{width:1000,height:700}})
  page.on('pageerror',e=>output.pageErrors.push(e.stack??String(e)));page.on('console',message=>output.console.push({type:message.type(),text:message.text()}))
  await page.goto(`http://127.0.0.1:${server.httpServer.address().port}/__file_resize`);await page.waitForFunction(()=>window.ready)
- if(caseName==='recovery'){await checkRecovery(page,output);output.status='PASS';console.log('PASS: actual recovery/save/focus browser acceptance')}else if(caseName==='mount'){await checkMount(page,output,outputDir);output.status='PASS';console.log('PASS: actual mount/source/rich browser acceptance')}else{
+ if(caseName==='image'){await checkImage(page,output,outputDir);output.status='PASS';console.log('PASS: actual image helper/controller/history browser acceptance')}else if(caseName==='recovery'){await checkRecovery(page,output);output.status='PASS';console.log('PASS: actual recovery/save/focus browser acceptance')}else if(caseName==='mount'){await checkMount(page,output,outputDir);output.status='PASS';console.log('PASS: actual mount/source/rich browser acceptance')}else{
  const snapshot=()=>page.evaluate(()=>test.snapshot())
  const drag=async(column,dx,finish=true)=>{
   const box=await page.locator('.column-resize-handle').nth(column).boundingBox();assert.ok(box,'real handle rectangle')
@@ -198,4 +210,37 @@ async function checkRecovery(page,output){
  await page.locator('#search').focus();assert.equal(await page.evaluate(()=>test.undo()),false);assert.equal((await snapshot()).route.active,false)
  await page.evaluate(()=>test.close());assert.equal(await page.locator('.ProseMirror').count(),0)
  output.cases.push({name:'real source input B/C exact durable, restored first frame bindings, native-route focus and close',saved,value})
+}
+
+async function checkImage(page,output,dir){
+ const snapshot=()=>page.evaluate(()=>test.snapshot()),raw='__Keep__ AB\r\n',src='/__file_image.svg'
+ await page.evaluate(raw=>test.open(raw),raw);const before=await snapshot()
+ await page.evaluate(src=>{test.select(6,8);test.image(src)},src)
+ await page.waitForFunction(()=>document.querySelector('.image-node img')?.naturalWidth===120);const rendered=await page.locator('.image-node img').evaluate(img=>({src:img.src,width:img.naturalWidth,height:img.naturalHeight,displayWidth:img.getBoundingClientRect().width}));assert.equal(rendered.height,60);assert.ok(rendered.displayWidth>0);output.cases.push({name:'test media adapter loads actual local SVG response (not native Tauri IO)',rendered})
+ const inserted=await snapshot();assert.equal(inserted.raw,'__Keep__ ![]('+src+')\r\n');assert.equal(inserted.undoDepth,1)
+ await page.evaluate(()=>{test.separate();test.resize(6,'width=50%')})
+ const resized=await snapshot();assert.equal(resized.raw,'__Keep__ ![]('+src+' "width=50%")\r\n');assert.equal(resized.undoDepth,2)
+ await page.evaluate(()=>{test.separate();test.nodeSelect(6)})
+ await page.keyboard.press('Backspace');const deleted=await snapshot();assert.equal(deleted.raw,'__Keep__&#32;\r\n');assert.equal(deleted.undoDepth,3)
+ for(const expected of [resized.raw,inserted.raw,raw]){assert.equal(await page.evaluate(()=>test.undo()),true);assert.equal((await snapshot()).raw,expected)}
+ for(const expected of [inserted.raw,resized.raw,deleted.raw]){assert.equal(await page.evaluate(()=>test.redo()),true);assert.equal((await snapshot()).raw,expected)}
+ await page.click('#source');await page.waitForSelector('textarea');assert.equal(await page.locator('textarea').inputValue(),'__Keep__&#32;\n')
+ await page.click('#save');assert.equal(await page.locator('#saved').textContent(),deleted.raw)
+ await page.click('#rich');await page.waitForSelector('.ProseMirror:visible');const saved=await snapshot();assert.equal(saved.undoDepth,3);assert.deepEqual(saved.bindings,before.bindings)
+ output.cases.push({name:'actual helper insert / setNodeMarkup resize / keyboard delete / independent undo redo / Source save',before,inserted,resized,deleted,saved})
+ await page.evaluate(()=>test.readonly(true));await page.evaluate(src=>test.image(src),src);assert.equal((await snapshot()).generation,saved.generation);await page.evaluate(()=>test.readonly(false));await page.evaluate(()=>test.allow(false));await page.evaluate(src=>test.image(src),src);assert.equal((await snapshot()).generation,saved.generation)
+ await page.evaluate(()=>test.allow(true));await page.evaluate(src=>test.image(src,6),src);assert.equal((await snapshot()).raw,'__Keep__&#32;![]('+src+')\r\n')
+ await page.screenshot({path:resolve(dir,'image-history.png')});assert.deepEqual(output.pageErrors,[])
+ output.cases.push({name:'readonly and policy zero-write followed by legal pos helper',snapshot:await snapshot()})
+ for(const kind of ['strong','em']){
+  const wrapper=kind==='strong'?'**':'*';await page.evaluate(()=>test.open('AB'));await page.evaluate(kind=>{test.select(1);test.stored(kind)},kind);await page.evaluate(src=>test.image(src),src)
+  const inserted=wrapper+'![]('+src+')'+wrapper+'&#65;B';assert.equal((await snapshot()).raw,inserted)
+  await page.evaluate(()=>{test.separate();test.stored(null)});await page.keyboard.press('End');await page.waitForFunction(()=>test.snapshot().selection.anchor===4);await page.keyboard.press('ArrowLeft');await page.keyboard.press('ArrowLeft');await page.waitForFunction(()=>test.snapshot().selection.anchor===2);await page.evaluate(()=>test.stored(null));assert.deepEqual((await snapshot()).storedMarks,[]);await page.keyboard.insertText('中𐐀')
+  const typed=wrapper+'![]('+src+')'+wrapper+'&#20013;𐐀&#65;B';assert.equal((await snapshot()).raw,typed);assert.equal((await snapshot()).undoDepth,2)
+  for(const expected of [inserted,'AB']){assert.equal(await page.evaluate(()=>test.undo()),true);assert.equal((await snapshot()).raw,expected)}
+  for(const expected of [inserted,typed]){assert.equal(await page.evaluate(()=>test.redo()),true);assert.equal((await snapshot()).raw,expected)}
+  output.cases.push({name:kind+' image helper and native text input endpoint history',snapshot:await snapshot()})
+ }
+ assert.deepEqual(output.pageErrors,[])
+
 }

@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **Desktop file images preserve neighbouring Markdown and share native undo history.** Insert, resize and delete retain source spelling and reference definitions; native file paths are encoded once, and stale image dialogs cannot change a new baseline. Bold/italic image edges retain Unicode typing. / 桌面文件图片插入、尺寸调整与删除保留邻文及引用定义，共用撤销历史；本地路径只编码一次，旧图片窗口结果不能写入新基线，粗体和斜体图片边界保留 Unicode 输入。
+
 - **File recovery and save receipts now track the exact durable content without clearing undo history.** Shared-file sessions retain rejected drafts and protect close/save races; desktop saves acknowledge only matching snapshots. Native Undo/Redo routes to the focused file owner with reload and window-focus guards. Online collaboration mounting and macOS menu acceptance remain pending. / 文件恢复与保存回执核对实际持久化正文，保留撤销历史；共享文件会话保留拒绝草稿并防止关闭、保存竞态，桌面仅确认匹配快照。原生撤销、重做按当前文件焦点路由，防护页面重载与窗口切换；在线协作挂载和 macOS 菜单实机验收仍待完成。
 
 - **File editors share one source-preserving owner and undo history across Rich and Source views.** First mount keeps the original BOM and line endings; rejected Source or annotation drafts remain editable, and save or tab changes wait for pending input. Shared annotation actions and desktop adapters use the same transaction admission. Replacing a baseline rejects old async inputs; successful tab switches finish saved annotation popups, and failed mounts release acquired adapter resources. Existing desktop image compatibility and native mobile IME acceptance remain separate, unfinished gates. / 文件编辑器的 Rich 与 Source 共用原文保真 owner 和撤销历史；首次挂载保留 BOM 与换行，拒绝后的 Source、批注草稿可继续编辑，保存和切换等待待处理输入。基线替换拒绝旧异步输入，成功切换结束已保存批注弹窗，挂载失败释放已获取适配器资源。桌面图片兼容性及移动系统输入法验收仍待后续门槛闭合。

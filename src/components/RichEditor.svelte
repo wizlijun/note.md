@@ -541,6 +541,12 @@
         const isCurrent = captureFileInput(view)
         if (!isCurrent()) return
         if (id === 'note' || id === 'question') { session.annotations.insert(id === 'question' ? '?' : ''); return }
+        if (id === 'image') {
+          const { open } = await import('@tauri-apps/plugin-dialog')
+          const path = await open({ multiple: false, filters: [{ name: 'Images', extensions: ['png','jpg','jpeg','gif','svg','webp','bmp','avif'] }] })
+          if (typeof path === 'string' && isCurrent()) insertImageAtCursor(view, path)
+          return
+        }
         if (id === 'paste') {
           try {
             const text = await navigator.clipboard.readText()

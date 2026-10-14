@@ -1,3 +1,4 @@
+import {imageSourceForNativePath} from '../lib/attachment-insert'
 import { createEditor, type MorayaEditorInstance } from '@moraya/core'
 import { Plugin, type Transaction } from 'prosemirror-state'
 import { Decoration, DecorationSet, type EditorView } from 'prosemirror-view'
@@ -327,7 +328,7 @@ export async function mountFileEditor(container: HTMLElement, options: MountFile
       if (closed || detached || mode !== 'rich' || blocked()) return false
       const state = instance.view.state, { $from, empty } = state.selection
       if (!empty || $from.parent.type.name !== 'paragraph' || !/^\/[a-zA-Z0-9一-龥]*$/.test($from.parent.textBetween(0, $from.parentOffset))) return false
-      const node = kind === 'image' ? state.schema.nodes.image.create({ src: href, alt: '' })
+      const node = kind === 'image' ? state.schema.nodes.image.create({ src: imageSourceForNativePath(href), alt: '' })
         : state.schema.text(href.replace(/[?#].*$/, '').replace(/^.*[/\\]/, '') || href, [state.schema.marks.link.create({ href, title: null })])
       return controller.dispatch(state.tr.replaceRangeWith($from.start(), $from.pos, node).scrollIntoView())
     },

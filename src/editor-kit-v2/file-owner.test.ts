@@ -194,27 +194,29 @@ it.each(['image', 'file'] as const)('admits supported prepared %s or preserves t
   const { TextSelection } = await import('prosemirror-state')
   session.view.dispatch(session.view.state.tr.setSelection(TextSelection.create(session.view.state.doc, 8)))
   const accepted = session.insertSlashAttachment(kind, '/vault/a.png')
-  // ROOT schedules the existing desktop image producer gap as Task5. This
-  // boundary assertion proves no partial trigger deletion, not image support.
-  if (kind === 'image') {
-    expect(accepted).toBe(false); expect(session.owner.snapshot().raw).toBe('/insert\n'); expect(session.owner.canUndo()).toBe(false); return
-  }
   expect(accepted).toBe(true)
-  expect(session.owner.snapshot().raw).toContain('[a.png](/vault/a.png)')
+  if (kind === 'image') expect(session.owner.snapshot().raw).toBe('![](/vault/a.png)\n')
+  else expect(session.owner.snapshot().raw).toContain('[a.png](/vault/a.png)')
   expect(session.owner.undo()).toBe(true)
   expect(session.owner.snapshot().raw).toBe('/insert\n')
 })
 
-it('records the current admission boundary for actual desktop image helpers', async () => {
+it('admits actual desktop image helpers with preserved neighbour and independent history', async () => {
   const { insertImageAtCursor, insertImageAtPos, insertAttachmentLink } = await import('../lib/attachment-insert')
   const target = document.createElement('div'); document.body.append(target)
   const session = await mountFileEditor(target, { file: { documentId: 'image-probe', authority: 'a', raw: 'A\n' },
     adapters: { mediaResolver: new BrowserMediaResolver() } }, {})
   editors.push(session)
+  const { closeHistory } = await import('prosemirror-history')
   insertImageAtCursor(session.view, '/vault/a.png')
-  expect(session.owner.snapshot().raw).toBe('A\n')
+  expect(session.owner.snapshot().raw).toBe('![](/vault/a.png)A\n')
+  session.view.dispatch(closeHistory(session.view.state.tr))
   insertImageAtPos(session.view, '/vault/a.png', 2)
-  expect(session.owner.snapshot().raw).toBe('A\n')
+  expect(session.owner.snapshot().raw).toBe('![](/vault/a.png)![](/vault/a.png)A\n')
+  expect(session.owner.undo()).toBe(true); expect(session.owner.snapshot().raw).toBe('![](/vault/a.png)A\n')
+  expect(session.owner.undo()).toBe(true); expect(session.owner.snapshot().raw).toBe('A\n')
+  expect(session.owner.redo()).toBe(true); expect(session.owner.redo()).toBe(true)
+  expect(session.owner.snapshot().raw).toBe('![](/vault/a.png)![](/vault/a.png)A\n')
   insertAttachmentLink(session.view, '/vault/a.pdf')
   expect(session.owner.snapshot().raw).toContain('[a.pdf](/vault/a.pdf)')
 })

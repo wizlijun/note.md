@@ -1,15 +1,24 @@
 import { Slice, Fragment } from 'prosemirror-model'
 import type { EditorView } from 'prosemirror-view'
 
-/** Insert an image node at the cursor position. */
-export function insertImageAtCursor(view: EditorView, src: string): void {
-  const node = view.state.schema.nodes.image.create({ src, alt: '' })
+/** Native filesystem paths are encoded once before creating the image node.
+ * Unicode and Windows separators follow the core parser's source attrs; URL
+ * inputs from HTML/Markdown paste already have their own parser path. */
+export function imageSourceForNativePath(path: string): string {
+  const drive = /^[A-Za-z]:[\\/]/.test(path)
+  return path.replace(/[\u0000-\u007f]/g, (char, index: number) =>
+    char === '/' || char === '\\' || drive && index === 1 ? char : encodeURIComponent(char))
+}
+
+/** Insert an image from a native filesystem path at the cursor position. */
+export function insertImageAtCursor(view: EditorView, path: string): void {
+  const node = view.state.schema.nodes.image.create({ src: imageSourceForNativePath(path), alt: '' })
   view.dispatch(view.state.tr.replaceSelectionWith(node).scrollIntoView())
 }
 
-/** Insert an image node at a specific ProseMirror position. */
-export function insertImageAtPos(view: EditorView, src: string, pos: number): void {
-  const node = view.state.schema.nodes.image.create({ src, alt: '' })
+/** Insert an image from a native filesystem path at a specific position. */
+export function insertImageAtPos(view: EditorView, path: string, pos: number): void {
+  const node = view.state.schema.nodes.image.create({ src: imageSourceForNativePath(path), alt: '' })
   view.dispatch(view.state.tr.insert(pos, node).scrollIntoView())
 }
 
