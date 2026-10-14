@@ -850,3 +850,6 @@ Ruling: Task3真实Mod+B退出粗体后紧接字母仍丢键，属于必修输�
 
 
 Ruling: Task3链接连续输入补实际正向断言后确认真实产品拒绝：single Replace在noninclusive link末端插入plain text，from.marks为空导致误走exact映射到label内。批准source-fidelity在single exact Replace纯插入命中真实captured link edge pmFrom/pmTo时预选既有inline recipe，仅link family，不在候选parse失败后回退。ROOT独立root-link-boundary-proof证文件末端/中段目标raw完整parser严格doc.eq，而旧路径分别semantic-mismatch/unmapped；writer实际recipe对左x/右!/中段/不同href间x/ref右!均strict eq并只插边界。另新生无marks !紧邻实际输出的保留 '[' link opener前，复用局部literal转义为\!防止变图片；仅新生scalar，不改旧wrapper/definitions/标签内。Files source-fidelity/source-inline-recipe及现有source-inline-input/source-inline-recipe测试 — 成本是必要的局部source选路和标点生成修补，全部正向输入/原Step及ref/邻link回归后完整CORE门槛；当前103221距cap103424仅203，超限须先具名报告，旧浏览器仅负条件PASS保留为范围不足而非功能证明。
+
+
+Ruling: Task3新增empty stored-link逐键fixture按实际noninclusive PM事务修正expected为`[l](/url)ink!xyz`：首l有link mark、后续ink退出，原Step全部接受且未丢字；不改既有storedMarks/noninclusive语义以迎合测试。另保留真实公开link command一次完整label并继续键入的browser正向验证 — 原新fixture误假设每笔insertText自动延续非inclusive mark — 成本是一条新fixture预期更正，失败归验收假设错误不是产品RED，逐Step/strict/noU+200B仍必核。
