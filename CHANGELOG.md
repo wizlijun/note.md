@@ -7,20 +7,31 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
-- **Basic shared-page editing preserves owner notes and untouched source bytes.** The fallback protects the frozen owner-note count before saving input and retains untouched BOM and mixed line endings. Draft previews show only approved shared raster images; external and unshared image URLs stay in Markdown without loading automatically.
+## v6.1014.1 — 2026-10-14
 
-- **Rich and Source share source-preserving editing, undo and durable recovery.** Untouched BOM, line endings, list style, reference definitions and supported literal bodies retain their original bytes. Formatting, table commands, annotations, empty paragraphs and math insertion use the same file session; formula payload editing remains in Source mode. Saves acknowledge exact durable snapshots, and pending input and stale asynchronous actions are guarded across tab changes, close and baseline replacement.
-- **Desktop image editing preserves neighbouring Markdown and native undo.** Insert, resize and delete retain source spelling and reference definitions; file paths are encoded once, image edges retain Unicode input, and table resize cancels during composition.
-- **Shared pages offer Rich/Source editing on demand.** The verified editor loads when editing starts, with a basic-editor fallback. My changes supports individual undo, file badges and submission summaries. Frozen themes, math fonts, slash commands, tables and notes are shared; existing owner-note counts remain protected, without identifying individual duplicate occurrences.
-- **Browser submissions and version updates preserve drafts.** Submissions freeze one durable package for exact retries while later edits remain saved. Old drafts can move to a new publication with per-conflict decisions, export for removed files/orphaned notes, and durable rebase undo/recovery. Legacy annotation sidecars migrate atomically; description edits survive migration.
-- **Mermaid previews load separately when needed.** Shared pages verify the same-origin resource with SRI and preserve editable source on failure. Desktop keeps its renderer; legacy Editor Kit retains editable Mermaid source. The SDK uses an explicit renderer capability and no longer advertises a missing style export.
-- **Desktop received projects open from confirmed share links and use the local editor.** Verified downloads preserve snapshot/base bytes, bound public resources and install atomically. A durable outbox supports exact retries and public receipts; read-only links allow local editing without submission rights. Received projects cannot be republished as project sources, and collaboration credentials remain in app-data.
-- **Received projects can merge new publications with local work.** The shared merge kernel supports publisher/local/edited conflict decisions, explicit attachment/missing-file choices and hash-journal recovery. Unknown collisions keep unique work paths. Updates coordinate pending Rich/Source input, saves and in-flight Save As targets; reload failures preserve drafts. Submissions retain opened attachments and read-only tabs and include supported Markdown extensions.
-- **Sharing editor resources are frozen per publication.** Content-addressed JS/CSS/Mermaid use SHA-256 and SHA-384 SRI, a checked IIFE build and authenticated immutable Worker transport; upload failure keeps publishing with a warning and basic editing.
-- **Shared tables retain column alignment on inserted rows and support header-only tables.** Rich, Kit and Memory use the same commands and global menus. Code fences distinguish unspecified languages from explicit text and work alongside inline code.
-- **Memory 2.5.3 is the plugin release candidate for the updated collaborative-document UI and shared table controls.** Marketplace publication is pending; published 2.5.2 objects must remain immutable.
-- **File → Latest Created shows up to 10 Markdown files instead of 7.** Metadata scanning and the native menu share the same limit.
-- **Acceptance and release boundaries:** these changes are not yet a published installable release. Native macOS restart/deep-link/system-IME coverage, Windows/Linux registration, and real iOS/Android IME remain separately tracked; mobile real-device acceptance is pending. The iOS build and legacy free-upload CPU failures remain unresolved evidence. Windows atomic writes do not claim directory-entry durability after power loss. Production Worker, signed application packages and marketplace publication require their own verification.
+### Added
+
+- **Collaborators can use Rich / Source editing directly on shared pages.** Formatting, tables, formulas, selection notes and Mermaid previews use the published document theme. Basic editing remains available if the enhanced editor cannot load.
+- **Shared pages gain My changes.** Review changes across files, undo individual edits and add a submission message. Keep editing during submission and retry the original submission if delivery fails.
+- **Open received projects in note.md for offline collaboration.** Confirm a share link, download the project, edit and annotate with the local editor, then submit changes and view the owner's response. Read-only links allow local editing without permission to submit.
+- **Bring collaborative drafts forward to a newer publication.** Resolve conflicts individually in the browser or desktop app. Desktop updates also handle changed attachments while preserving local work; browser updates can be undone. Removed files and notes that can no longer be located can be exported.
+
+### Improvements
+
+- **Rich and Source editing preserve more of the original Markdown.** Untouched line endings, list styles and reference definitions remain intact. Both modes share undo and draft recovery, protecting pending input when switching modes, closing tabs or saving.
+- **Image and table editing is more reliable.** Image insertion, resizing and deletion preserve surrounding text and references. New table rows retain column alignment, including tables with only a header.
+- **Memory 2.5.3 updates its collaborative-document interface and shared table controls.** Update it separately from the plugin marketplace.
+- **File → Latest Created shows up to 10 documents again, increased from 7.**
+
+### Fixed
+
+- **Basic shared-page editing protects existing owner notes and untouched line endings.** Editing a few words no longer normalizes line endings throughout the document, and existing owner notes cannot be removed through the fallback editor.
+- **Draft previews no longer load external or unshared images automatically.** Shared images still display, while other image URLs remain in the Markdown.
+- **Received-project submissions and updates protect open files.** Pending saves and in-flight Save As operations finish before updates proceed. Attachments and read-only tabs are not saved as document text.
+
+### Known limitations
+
+- Real mobile Chinese/Japanese IME and some native platform flows remain unverified. Existing iOS build and free-upload CPU acceptance issues remain tracked. See the [verification record](docs/superpowers/reports/2026-10-14-project-share-e1-e4-verification.md) for coverage.
 
 ## v6.1013.2 — 2026-10-13
 
